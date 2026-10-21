@@ -75,7 +75,7 @@
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 | 24 à 30 soldats par armée, pas 100 |
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
-| C4 | PvP | 🟨 | Les factions ne font que riposter (Q4 ouverte) |
+| C4 | PvP | 🟨 | Les factions ne font que riposter. Q4 : elles doivent attaquer, avec niveaux de difficulté (lot IA0) |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
@@ -191,9 +191,23 @@
   - 0,06 ms/tick.
 
 ### C4 · PvP
-- **Demande** : « TD + PvP ».
+- **Demande** : « TD + PvP ». Réponse à Q4 (21/10, 18 h 07) : « oui (et différents niveaux de
+  difficulté) ».
+- **Ce que nous en comprenons** : les factions vous attaquent d'elles-mêmes, et un réglage de partie
+  fixe la difficulté. Le cessez-le-feu actuel devient le niveau le plus doux.
+- **Critères d'acceptation** ❔ (proposés, à valider par vous)
+  1. Un réglage de partie offre plusieurs niveaux de difficulté (proposition : Paisible, Facile,
+     Normal, Difficile, Impitoyable). « Paisible » garde le comportement actuel (cessez-le-feu rompu si
+     vous attaquez).
+  2. Hors « Paisible », les factions vous prennent pour cible d'elles-mêmes, après un délai de grâce,
+     avec la même logique que contre une faction rivale.
+  3. La difficulté règle de façon mesurable le délai de grâce, la fréquence et la taille des attaques
+     contre vous, et la part de leurs forces qui vous vise.
+  4. Prouvé en moteur réel : une base témoin du joueur est attaquée au niveau « Normal » après le délai
+     de grâce, et ne l'est pas au niveau « Paisible ».
+  5. Le budget A1 est tenu.
 - **État** : 🟨 Les factions s'affrontent entre elles. Avec vous, elles restent en cessez-le-feu tant que
-  vous ne les attaquez pas. **Q4 ouverte.**
+  vous ne les attaquez pas. ⏳ Lot IA0 lancé (21/10, 18 h).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -279,11 +293,17 @@
 - **Demande** : « Pièces + 15 époques, comme je le disais, si je veux jouer en continue je veux pouvoir
   avoir des ressources exploitables, de nouveaux batiments etc, ça implique devoir ajouter une grande
   quantité de contenu mais c'est souhaité, c'est l'idée finalement. »
-- **Ce que nous en comprenons** ❔ (à confirmer, Q6 et Q7)
+- **Réponses du 21/10, 18 h 07** : Q6 « oui c'est bien » ; Q7 « oui, mais en faite rajoutez carrément
+  des branches de matière noire etc, en mode vraiment un truc avancé (il faut donc imaginer le scénario
+  et les crafts également évidemment). »
+- **Ce que nous en comprenons** (Q6 et Q7 validées)
   - **15 époques = 15 niveaux du centre de commandement.** Comme l'hôtel de ville de Clash of Clans,
     le niveau du centre définit l'époque.
-  - Chaque époque ouvre, pour chaque bâtiment, **2 niveaux de plus** (proposition, Q6). Les bâtiments
+  - Chaque époque ouvre, pour chaque bâtiment, **2 niveaux de plus** (validé, Q6). Les bâtiments
     vont donc jusqu'au niveau 30, et le niveau maximal d'un bâtiment vaut 2 × le niveau du centre.
+  - **Branches avancées** (Q7) : en plus des 15 époques du §6, des branches de physique avancée
+    (matière noire, et d'autres du même ordre), chacune avec son **scénario** (pourquoi, quoi, quel
+    enjeu) et ses **arbres de fabrication** complets. Conception : lot X0.
   - Visuel :
     - le **1er niveau d'une époque** fait changer la silhouette ;
     - le **2e niveau** ajoute une pièce.
@@ -300,7 +320,11 @@
      bout de 60 h cumulées environ. La courbe est à chiffrer dans BALANCE_SHEET.
   4. Les IA progressent aussi en époques (C2-6).
   5. Le budget A1 est tenu à l'époque 15, avec une base de fin de partie.
-- **État** : ❌ Le cadre est à poser. Proposition d'époques au §6, **à valider par vous**.
+  6. ❔ Des branches avancées (matière noire, etc.) existent, chacune avec un scénario écrit et des
+     arbres de fabrication complets. Chaque objet est fabricable à partir des ressources de la carte,
+     ce qui est vérifié automatiquement hors jeu, puis en moteur réel quand la branche est implémentée.
+- **État** : ❌ Le cadre est à poser. Époques validées (Q7). ⏳ Lots V2 (cadre, 21/10, 18 h) et X0
+  (scénario, crafts, branches avancées) lancés.
 
 ---
 
@@ -311,10 +335,10 @@
 | Q1 | Ampleur du changement de forme ? | « Pièces + 15 époques… » (citation complète en F1) | D1 révisé ; F1 créé |
 | Q2 | Nouvelles images (pièces 3D rendues) en plus des pièces vanilla ? | Oui | Règle 8 levée (ARCHITECTURE §2) ; protocole H-V1 |
 | Q3 | Par quoi commencer ? | Refaire le visuel des 7 familles | Phase V en premier (§6) |
-| Q4 | PvP : les factions vous attaquent-elles d'elles-mêmes ? | **Ouverte** | — |
+| Q4 | PvP : les factions vous attaquent-elles d'elles-mêmes ? | 21/10, 18 h 07 : « oui (et différents niveaux de difficulté) » | C4 révisé ; lot IA0 |
 | Q5 | Compaction ×4 : quand ? | « Tout de suite après le visuel » | Phase C juste après la phase V |
-| Q6 | ❔ Combien de niveaux par époque ? | **Ouverte** (proposition : 2, soit 30 niveaux) | Fixe le nombre de prototypes et de visuels (2 × 15 × familles) |
-| Q7 | ❔ La liste des 15 époques du §6 vous convient-elle (thèmes, ressources) ? | **Ouverte** | Fixe le contenu à produire |
+| Q6 | Combien de niveaux par époque ? | 21/10, 18 h 07 : « oui c'est bien » (2 par époque, soit 30 niveaux) | Lot V2 lancé ; 2 × 15 × familles prototypes et visuels |
+| Q7 | La liste des 15 époques du §6 vous convient-elle (thèmes, ressources) ? | 21/10, 18 h 07 : « oui, mais en faite rajoutez carrément des branches de matière noire etc, en mode vraiment un truc avancé (il faut donc imaginer le scénario et les crafts également évidemment) » | §6 validé ; branches avancées, scénario et crafts : lot X0 ; F1-6 |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -328,7 +352,7 @@
 
 ## 6. Feuille de route (ordre fixé par vos réponses Q3 et Q5)
 
-### Proposition des 15 époques ❔ (Q7, à valider ; chaque ligne devient un lot de contenu)
+### Les 15 époques (validées par Q7 le 21/10 ; chaque ligne devient un lot de contenu ; branches avancées à concevoir au lot X0)
 
 | Époque | Thème | Ressources ou matériaux nouveaux | Bâtiments et familles nouveaux (pistes) | Logistique | Direction artistique de la silhouette |
 |---|---|---|---|---|---|
@@ -403,7 +427,9 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | V3-a à V3-g Une famille chacune (centre, mitrailleuse, laser, mur, foreuse, four, assembleur) | V0, V1, V2 | `graphics/levels/<famille>/`, `prototypes/levels/<famille>.lua`, `locale/*/levels-<famille>.cfg` | Sprites des 15 époques et des pièces ; D1 mesuré automatiquement ; galerie |
 | V4 Contrôle visuel | V3 | `tools/render/check_silhouettes.py`, `content_test.lua` (galerie) | Test du gris, vignettes, recouvrement des silhouettes < 50 %, gros plans, banc `content` vert, **votre verdict** |
 | C1 à C5 Compaction ×4 | V4 | `prototypes/logistics/`, `shared/content/logistics.lua` (nouveaux) | Débits mesurés en moteur réel (H-B1), chaîne de densité, énergie, visuels |
-| X1 à X15 Époques | C, Q7 | un dossier par époque | Ressource, biome, bâtiments, prouvés au banc |
+| X0 Scénario, crafts et branches avancées | Q7 | `docs/SCENARIO_EPOQUES.md` (nouveau), `shared/content/epochs.lua` (nouveau, données pures), `tests/epochs_test.lua` (nouveau) | Scénario, arbres de fabrication des 15 époques et des branches avancées ; graphe vérifié hors jeu (tout objet fabricable depuis les ressources) |
+| X1 à X15 Époques | C, X0 | un dossier par époque | Ressource, biome, bâtiments, prouvés au banc |
+| IA0 PvP et difficulté (C4) | Q4 | `shared/faction/*`, `script/faction/*`, `settings/faction.lua` (nouveau), `tests/war_test.lua`, `locale/*/ia0.cfg` | Attaques contre le joueur selon la difficulté ; tests hors jeu ; scénario moteur réel après P1 |
 
 **Banc en moteur réel = ressource partagée.**
 - `fo-autotest.bat` prend un verrou et **efface `fo-autotest\` à chaque lancement**. Les tests sont donc
@@ -419,7 +445,9 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | P1 Captures automatiques | ⏳ agent lancé (seul utilisateur du moteur pendant son lot) | — | 21/10, 18 h |
 | V0 Pipeline de rendu | ⏳ agent lancé (hors moteur ; captures en jeu par l'orchestrateur ensuite) | — | 21/10, 18 h |
 | V1 Bible des époques | ⏳ agent lancé | — | 21/10, 18 h |
-| V2 Cadre des 15 époques | en attente de Q6 (posée le 21/10, 18 h, avec Q4 et Q7) | — | — |
+| V2 Cadre des 15 époques | ⏳ workflow lancé (Q6 répondue) | — | 21/10, 18 h 10 |
+| X0 Scénario, crafts, branches | ⏳ workflow lancé (Q7 répondue) | — | 21/10, 18 h 10 |
+| IA0 PvP et difficulté | ⏳ workflow lancé (Q4 répondue) | — | 21/10, 18 h 10 |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les

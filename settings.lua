@@ -59,3 +59,6 @@ data:extend({
     order = "f",
   },
 })
+
+-- Réglages par lot (un fichier par lot, requis ici par l'intégrateur).
+require("settings.faction")

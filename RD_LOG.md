@@ -12,6 +12,15 @@
   parallèle ; Q4, Q6 et Q7 posées en une fois ; V2 après Q6 ; V3 après le verdict sur V0.
 - 17 h 55, pendant P0 : « ultracodez si necessaire » (orchestration multi-agent autorisée là où elle
   sert).
+- 18 h 07, réponses aux questions ouvertes :
+  - **Q4 (PvP)** : « oui (et différents niveaux de difficulté) ». Les factions attaquent le joueur
+    d'elles-mêmes ; un réglage fixe la difficulté (lot IA0, critères C4 proposés).
+  - **Q6 (niveaux par époque)** : « oui c'est bien ». 2 niveaux par époque, 30 niveaux par bâtiment,
+    15 niveaux pour le centre de commandement (lot V2).
+  - **Q7 (15 époques)** : « oui, mais en faite rajoutez carrément des branches de matière noire etc, en
+    mode vraiment un truc avancé (il faut donc imaginer le scénario et les crafts également
+    évidemment) ». Liste du §6 validée ; branches avancées, scénario et arbres de fabrication à concevoir
+    (lot X0, critère F1-6).
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
