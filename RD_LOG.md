@@ -68,7 +68,57 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
 
+### Faits vérifiés en moteur réel ou dans les sources (lots P1 et V0, 21/10, 18 h 20 à 19 h 10)
+| ID | Fait | Conséquence |
+|---|---|---|
+| F49 | `--benchmark-graphics <carte> --benchmark-ticks N` charge la partie AVEC rendu. Un joueur local est connecté dès le tick 0, `take_screenshot` fonctionne, `game.speed` est respecté, et le jeu s'arrête seul après N ticks (« automatic-quit », code 0). Protocole : chaînes du binaire, puis 15 sessions. | Base de `fo-captures.bat` : plus aucune session à fermer à la main (H-T1). |
+| F50 | Options du binaire 1.1.91 trouvées par lecture des chaînes : `benchmark-graphics`, `benchmark-frame`, `until-tick` (exige `--load-game`), `window-size`, `disable-migration-window`, `cache-sprite-atlas`, `graphics-quality`, `low-vram`, `dump-data`, `instrument-mod`… Aucune option ne permet de quitter après une capture. | Outillage. |
+| F51 | `take_screenshot` rend hors écran : captures identiques au pixel en fenêtre réduite et en 640×360. Paramètres en 1.1.91 : player, by_player, surface, position, resolution, zoom, path, show_gui, show_entity_info, show_cursor_building_preview, anti_alias, quality, allow_in_replay, daytime, water_tick, force_render ; et `game.set_wait_for_screenshots_to_finish()`. | La session de test peut rester réduite, sans prendre le focus. |
+| F52 | Les faisceaux (lasers) et les jets (lance-flammes) ne sont pas déterministes au pixel d'une session à l'autre : 5 captures sur 84, environ 1 % des pixels chacune. Tout le reste est identique au même tick. | Une comparaison automatique de captures doit masquer faisceaux et jets. |
+| F53 | Extension de F30 : en fenêtre réduite ou en priorité basse, Windows place le jeu sur les cœurs E. Les sprites se chargent alors en 35 à 160 s au lieu de 12 s, et l'étalon passe de 2,3 à 7-13 ms. | Session visuelle : utiliser le cache d'atlas (F54). Aucune mesure de performance en session visuelle. |
+| F54 | Cache des atlas (`cache-sprite-atlas`, `compress-sprite-atlas-cache`) : fichier de 391 Mo, sprites en 4 à 9 s, aucun pixel changé. | Activé par défaut dans `fo-visual`. |
+| F55 | Une capture 1600×900 anticrénelée avec `force_render` coûte environ 0,5 s, et le jeu tombe vers 17 UPS pendant la série. | Les captures sont espacées de 10 ticks. |
+| F56 | `require` d'un fichier absent : « module X not found; no such file __mod__/X.lua … ». | Repli des greffons de scénarios. |
+| F57 | Un poteau sans image, `collision_mask = {}`, de portée 64, alimente des bâtiments vanilla sans être vu. | Vitrine sans poteau dans le cadre. |
+| F58 | Shader d'ombre (`shadow-a8.frag`) : alpha affiché = alpha du sprite × 0,5, en noir. Les ombres vanilla sont nettes (rampe de 1 à 2 px), avec un cœur à alpha 1. | Pipeline V0 : ombres nettes, à pleine opacité dans le PNG. |
+| F59 | Nuit (`game.frag`) : `final = mix(LUT(c), c, clamp(lumières) × lightMul + lightAdd)`, avec la LUT `lut-night.png` en 16³. | Maquette de nuit hors moteur. `lightMul` et `lightAdd` restent inconnus. |
+| F60 | Projection vanilla orthographique à 45°. La grille du sol est étirée de √2 en profondeur : une tuile vers le sud vaut 1,414 unité Blender. Mesuré sur les tuyaux, confirmé par la doc `apply_projection`. | Caméra du pipeline V0. |
+| F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
+| F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
+| F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+
 ### Expériences menées
+**E30 · VALIDÉ (technique) · Intégration de P1 et V0 sur `main`, et vitrine V0 en moteur réel** :
+- Après fusion :
+  - hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ;
+  - étape data : 498 prototypes, 0 nouvelle erreur, 0 violation, 0 clé manquante ;
+  - api_lint : 342 usages, 0 erreur. Le premier passage annonçait 1 968 usages, car l'outil parcourait
+    aussi `.claude/worktrees/` ; il est corrigé.
+  - moteur réel `content` : **182 OK, 0 ÉCHEC** (19 h 06, source `main`).
+- Vitrine V0 (`fo-captures.bat vitrine`, sol `dirt-4`) : code 0 en 96 s, 18 captures sur 18, session
+  fermée par le pilote, focus pris 0 fois sur 176 échantillons, aucun processus de test restant.
+- Captures : `<racine>\fo-logs\2026-10-21_V0_vitrine-cheminee\fo-shots\`.
+- Design : **👁 en attente du verdict du Directeur Créatif**. Vérification indépendante des captures
+  en cours.
+
+**E29 · VALIDÉ (technique) · Pipeline de rendu V0 (Blender 5.2.2, hors moteur)** :
+- Étalonnage avant/après (détails dans `tools/render/CALIBRATION.md`) :
+  - rapport façade/dessus : 0,588 → 0,368 (vanilla 0,356–0,398) ;
+  - corrélation des profils de tuyaux : 0,918 / 0,874 → 0,981 / 0,970 ;
+  - ombres plein est, soleil à 48° d'élévation (vanilla 47,6–50,3°).
+- Déterminisme : 18 fichiers identiques sur 18, sur deux rendus complets.
+- Durée : 118,6 s pour la pièce (2 variantes, 5 passes, 256 échantillons).
+- Photométrie : 5 mesures sur 7 dans les plages vanilla. **Hors plage : écart-type 0,148 (vanilla
+  0,177–0,243) et p95 0,560 (0,657–0,847)**, faute de reflets francs. Défaut connu, non corrigé.
+
+**E28 · VALIDÉ · Captures entièrement automatiques (lot P1, H-T1)** :
+- Galerie `content`, deux passages de suite : code 0 ; 84 captures lisibles sur 84 ; 117 s puis 79 s ;
+  aucun processus restant. 79 captures sur 84 sont identiques au pixel (F52).
+- Vitrine d'exemple : 26/26 en 22 s. Guerre `default` : 21/21, mise en route de 36 000 ticks en 77 s.
+- Chemins d'échec : codes 2, 3, 6 et 7 obtenus comme prévu.
+- Greffons : 182 = 180 + 2 ; le scénario d'exemple donne 5 OK ; une erreur Lua devient un ECHEC compté.
+- Archives : `<racine>\fo-logs\2026-10-21_P1_*`.
+
 **E27 · VALIDÉ, avec correction · Recouvrement des silhouettes du design rejeté (hors moteur)** :
 - Protocole : IoU des masques (alpha ≥ 128, couches hr sans ombre, 128 px par tuile, même origine, 4
   poses pour les tourelles et la foreuse) entre le niveau 1 et le niveau 10 de la session 5.
@@ -97,6 +147,9 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 - Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
 
 ### Hypothèses (session 6)
+- **H-T1 · VALIDÉE** (E28) : captures entièrement automatiques, sans session à fermer à la main.
+- **H-V1 · 👁 EN ATTENTE DU VERDICT** : le pipeline est étalonné (E29) et la pièce posée en jeu (E30).
+  Reste votre verdict sur les captures ; défaut connu : photométrie trop mate (E29).
 - **H-V2 · OUVERTE** (lot V1) : des silhouettes ajourées (vides, pieds, pièces en lévitation, Q8)
   tiennent le critère D1-3, dans sa version amendée, sans dépasser les plafonds de hauteur (Q9).
   Protocole : mesure automatique (V4) sur les premières pièces rendues.

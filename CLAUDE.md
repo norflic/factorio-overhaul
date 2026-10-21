@@ -19,8 +19,8 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F48, expériences E1 à E27, hypothèses ouvertes (H-V1, H-V2, H-L1, H-T1,
-   H-B1, H-E1). Prochains identifiants : **F49, E28**.
+4. `RD_LOG.md` : faits moteur F1 à F63, expériences E1 à E30, hypothèses ouvertes (H-V1, H-V2, H-L1, H-T1,
+   H-B1, H-E1). Prochains identifiants : **F64, E31**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -30,9 +30,10 @@ avant tout travail.
 | Exécutable | `<racine>\bin\x64\factorio.exe` |
 | Données du jeu (banc de l'étape data) | `<racine>\data\` (Lua lisible de `core` et `base`) |
 | Documentation API 1.1.91 | `<racine>\doc-html\` (`runtime-api.json`, `prototype-api.json`) |
-| Bancs en moteur réel | `<racine>\fo-autotest.bat`, `fo-visual.bat`, `fo-autotest-watch.bat` (sources dans `tools\autotest\` : recopier à la racine après modification) |
+| Bancs en moteur réel | `<racine>\fo-autotest.bat`, `fo-visual.bat`, `fo-captures.bat`, `fo-autotest-watch.bat` (sources dans `tools\autotest\` : recopier les `.bat` à la racine après modification ; mode d'emploi complet : `tools\autotest\README.md`) |
 | Résultats du banc | `<racine>\fo-autotest\` : `create.log`, `benchmark.log`, `benchmark-stdout.txt`, `done.txt` |
-| Captures | `<racine>\fo-visual\write\script-output\fo-shots\` |
+| Captures | `<racine>\fo-visual\write\script-output\fo-shots\` : `NNN-<scène>.png`, `index.txt`, `planche-NN.png`, `session.txt` |
+| Rendu 3D (lot V0) | Blender 5.2.2 LTS : `C:\Users\evan2\tools\blender-5.2.2\blender.exe` ; pipeline : `tools\render\README.md`, `tools\render\CALIBRATION.md` |
 
 ## 4. Interdits absolus (protègent le jeu et les parties du Directeur Créatif)
 1. **Ne jamais toucher** à `<racine>\saves\`, `<racine>\config\`, `player-data.json`,
@@ -42,7 +43,10 @@ avant tout travail.
 3. **Ne jamais arrêter tous les `factorio.exe`** : le Directeur Créatif peut être en partie. Pour
    fermer la session de test, ciblez sa ligne de commande (qui contient `fo-visual`), par exemple :
    `Get-CimInstance Win32_Process -Filter "Name='factorio.exe'" | ? CommandLine -like '*fo-visual*' | Invoke-CimMethod -MethodName Terminate`
-4. **Un seul banc à la fois.** `fo-autotest.bat` prend le verrou `<racine>\fo-autotest.lock` et
+   Depuis le lot P1, `fo-visual.bat` ferme lui-même sa session : d'abord le PID qu'il a lancé, puis tout
+   `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
+4. **Un seul banc à la fois.** `fo-autotest.bat`, `fo-visual.bat` et `fo-captures.bat` partagent le verrou
+   `<racine>\fo-autotest.lock` (code de sortie 2 s'il est pris). `fo-autotest.bat`
    **efface `fo-autotest\`** à chaque lancement : copiez vos journaux avant le banc suivant. Un verrou
    orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
    `rmdir`.
@@ -63,7 +67,7 @@ lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 12 OK
 lua5.2 tests/levels_test.lua     -> 556 OK
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 317 usages, 0 erreur
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 342 usages, 0 erreur (dont 25 du mod de test)
 ```
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
@@ -77,13 +81,14 @@ python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 317 u
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 180 OK, 0 ECHEC(S)` (21/10).
+   attend `BILAN : 182 OK, 0 ECHEC(S)` (21/10, 19 h 07 : 180 contrôles de base + 2 de l'exemple greffé
+   `checks/exemple.lua`).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 180 contrôles ;
+- `content` : banc de contenu, 182 contrôles ;
 - `waves` : défense de tours et guerre ;
 - `pteam` : équipe du joueur ;
 - `stress` : 402 agents ;
@@ -94,13 +99,27 @@ Performance :
 - Surveiller l'étalon `[FO-CALIB]`. Le processeur est hybride (F30) : le banc est épinglé sur les
   cœurs P. Une mesure prise en arrière-plan sans épinglage est fausse.
 
-**Banc visuel** (après un banc `fo-autotest`, car il réutilise sa carte et ses mods) :
-- Lancer `<racine>\fo-visual.bat`.
-- Le mod de test place la caméra et capture automatiquement (`tools/autotest/fo-autotest/shots.lua`),
-  de jour, de nuit et en vue haute.
-- Les captures sont numérotées dans `fo-shots\`.
-- Il faut ensuite fermer la session (interdit n° 3). Les automatiser entièrement est l'objet de
-  H-T1 / lot P1.
+**Captures en une commande, sans intervention** (lot P1, H-T1 validée) :
+- Commande : `fo-captures.bat [scenario] [source] [fenetre]` ; depuis Git Bash,
+  `cd "<racine>" && ./fo-captures.bat content`.
+- Le jeu est lancé en `--benchmark-graphics` et s'arrête seul. La fenêtre reste réduite et ne prend
+  jamais le focus. Le cache d'atlas charge les sprites en 5 s environ.
+- Codes de sortie :
+  - 0 : succès ;
+  - 2 : verrou pris ;
+  - 3 : délai dépassé ;
+  - 4 : captures manquantes ;
+  - 5 : un processus de test reste ouvert ;
+  - 6 : vitrine refusée ;
+  - 7 : erreur du jeu ;
+  - 8 : banc en échec.
+- Durées : `content` de 80 à 120 s ; vitrine V0 : 96 s.
+- **Vitrine** : déposer `<racine>\fo-vitrine.lua` (format au §3 de `tools/autotest/README.md`), puis
+  `fo-captures.bat vitrine [source]`.
+- **Bancs d'un autre lot**, sans toucher aux fichiers de P1 : `scenarios/<nom>.lua`, `checks/<nom>.lua`
+  et `checks/index.lua` dans `tools/autotest/fo-autotest/` (§4 du README).
+- Il faut Python et Pillow, tous deux installés.
+- **Toujours regarder les images** : un code 0 prouve que les fichiers existent, pas qu'ils sont justes.
 
 `fo-autotest-watch.bat` (surveillance d'un fichier de requête) servait aux sessions cloud. Il est
 inutile dans Claude Code : lancez le `.bat` directement.
@@ -142,6 +161,15 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F41** : `find_entity` sur une entité 1×1 doit viser le centre de la tuile (x,5).
 - **F42** : un socle sous un sprite qui couvre toute l'emprise est invisible. Il faut des pièces qui
   DÉPASSENT la silhouette.
+- **F44** : ni le centre (`container`) ni le mur ne sont animables par prototype. Il faut une entité
+  compagnon ou `rendering.draw_animation`.
+- **F47** : les ombres vanilla partent PLEIN EST (la lumière vient de l'ouest) et mesurent environ 1,1 ×
+  la hauteur à l'écran.
+- **F49 à F57** (lot P1, captures en moteur) :
+  - `--benchmark-graphics` donne une session avec rendu qui s'arrête seule ;
+  - `take_screenshot` rend hors écran ;
+  - les faisceaux et les jets ne sont pas déterministes au pixel ;
+  - en fenêtre réduite, Windows place le jeu sur les cœurs E, et le cache d'atlas compense.
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :

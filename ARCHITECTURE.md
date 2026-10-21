@@ -26,6 +26,9 @@ factorio-overhaul/
 ├── OBJECTIFS.md                    # cahier des charges : demandes, critères d'acceptation, état réel
 ├── ARCHITECTURE.md, BALANCE_SHEET.md, RD_LOG.md
 ├── docs/DESIGN_EPOQUES.md          # bible des 15 époques × 7 familles (lot V1) ; docs/epoques/mesures/ : mesures vanilla
+├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
+├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
+├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
 ├── info.json, changelog.txt, settings.lua
 ├── data.lua / data-updates.lua / data-final-fixes.lua   # prototypes uniquement
 ├── control.lua                                          # câblage uniquement
@@ -273,7 +276,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 | `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration | Fidélité du moteur |
 | `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux (180 contrôles, dont 35 de niveaux) | Rendu |
 | `fo-autotest.bat` scénarios `default`, `waves`, `pteam`… | **Le vrai jeu** sans affichage, dossiers isolés : guerre à économie réelle, défense de tours, équipe du joueur ; temps par tick et par poste ; étalon machine | Rendu |
-| `fo-visual.bat` + `shots.lua` | **Le vrai jeu avec images** sur la dernière carte de test, captures automatiques | — |
+| `fo-captures.bat` (= `fo-autotest.bat` + `fo-visual.bat`) + `shots.lua`, `vitrine.lua` | **Le vrai jeu avec images** (`--benchmark-graphics`, arrêt seul), captures automatiques, session fermée sans intervention, index et planche-contact ; vitrine d'entités à côté des références vanilla ; greffons de scénarios et de contrôles (`tools/autotest/README.md`) | Le jugement esthétique (verdict du Directeur Créatif) |
 
 ### Outillage du moteur réel
 
