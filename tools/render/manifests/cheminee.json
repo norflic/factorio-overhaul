@@ -1,0 +1,287 @@
+{
+ "calib": {
+  "AO_COLOR": [
+   0.035,
+   0.03,
+   0.025
+  ],
+  "AO_DISTANCE": 0.38,
+  "AO_GAMMA": 2.0,
+  "AO_STRENGTH": 5.5,
+  "BLENDER_VERSION": "5.2.2 LTS",
+  "CHEMINEE_HALO_W": 40.0,
+  "COS_T": 0.7071067811865476,
+  "ENGINE_SHADOW_FACTOR": 0.5,
+  "FILL_AZIMUTH_DEG": 180.0,
+  "FILL_ELEV_DEG": 90.0,
+  "FILL_STRENGTH": 1.5,
+  "FILTER_WIDTH_PX": 1.5,
+  "GROUND_ALBEDO": 0.15,
+  "LIGHT_EMIT_GAIN": 2.0,
+  "LIGHT_MAX": 0.8,
+  "LIGHT_RADIUS_TILES": [
+   1.2,
+   2.2
+  ],
+  "MAX_BOUNCES": 6,
+  "PX_PER_UNIT_HR": 64.0,
+  "SAMPLES": 256,
+  "SEED": 20261021,
+  "SIN_T": 0.7071067811865476,
+  "SKY_COLOR": [
+   0.8,
+   0.86,
+   1.0
+  ],
+  "SKY_STRENGTH": 0.08,
+  "STEEL_BASE": [
+   0.45,
+   0.43,
+   0.4
+  ],
+  "STEEL_METALLIC": 0.6,
+  "STEEL_ROUGH": 0.5,
+  "SUN_ANGLE_DEG": 0.0,
+  "SUN_AZIMUTH_DEG": 270.0,
+  "SUN_COLOR": [
+   1.0,
+   0.95,
+   0.86
+  ],
+  "SUN_ELEV_DEG": 48.0,
+  "SUN_STRENGTH": 1.9,
+  "THETA_DEG": 45.0,
+  "TILE_DEPTH_UNITS": 1.414213562373095
+ },
+ "icon": {
+  "cheminee-icon.png": "0bd25828e943f8928c868afc6ef2d9239a3a4162edf345553fbe59f024be985b"
+ },
+ "piece": "cheminee",
+ "piece_source": "tools/render/pieces/cheminee.py",
+ "seconds_total": 118.6,
+ "sprites_lua": "f82bd21e78bb52d06bf42ad734aab67794f50a43be2e1fc73911ce2936b5023b",
+ "variants": [
+  {
+   "dest": "vitrine/cheminee",
+   "files": {
+    "cheminee-four-glow.png": "89113e4c023465b7bfe72a3dab6ab0b149584182a6dad62ee8bfe8f733ffe0a7",
+    "cheminee-four-light.png": "cd4c828288d5dff69c5b40fd6045640e09faeefaded5bc54da19b25a88ff42db",
+    "cheminee-four-main.png": "2c291c21ff888599fe59cb435857bb7519ad41a350572a1eb59d7812a5606c03",
+    "cheminee-four-shadow.png": "a8f08aa0b2ec064b82bda23649022dc16064ac43fbdb004dfd3183086db98cf5",
+    "hr-cheminee-four-glow.png": "5be6fb799fc8554f38540a40ffd50ce5caa659c8cc1e347bc4a55be922b736b5",
+    "hr-cheminee-four-light.png": "6877fa10a70d77711c5759200e888ebba8c638b899a5419ebe2305db3c08b2b3",
+    "hr-cheminee-four-main.png": "5c0b28443f54b1d04554173250da7e2311a4e6935da57a4dcba6a8f37f25de15",
+    "hr-cheminee-four-shadow.png": "5a0088f19c5eccc4956c771ceced2543e00a879b6be4dbcd690e3656a029f4c0"
+   },
+   "name": "cheminee-four",
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     372,
+     330
+    ],
+    "origin_px": [
+     157,
+     257
+    ],
+    "samples": 256,
+    "seconds": 63.0,
+    "seed": 20261021
+   },
+   "spec": {
+    "glow": {
+     "hr": {
+      "filename": "hr-cheminee-four-glow.png",
+      "height": 32,
+      "shift": [
+       -0.59375,
+       -2.1875
+      ],
+      "width": 32
+     },
+     "lr": {
+      "filename": "cheminee-four-glow.png",
+      "height": 16,
+      "shift": [
+       -0.59375,
+       -2.1875
+      ],
+      "width": 16
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-cheminee-four-light.png",
+      "height": 266,
+      "shift": [
+       -0.484375,
+       -1.015625
+      ],
+      "width": 242
+     },
+     "lr": {
+      "filename": "cheminee-four-light.png",
+      "height": 133,
+      "shift": [
+       -0.484375,
+       -1.015625
+      ],
+      "width": 121
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-cheminee-four-main.png",
+      "height": 144,
+      "shift": [
+       -0.6875,
+       -1.40625
+      ],
+      "width": 60
+     },
+     "lr": {
+      "filename": "cheminee-four-main.png",
+      "height": 72,
+      "shift": [
+       -0.6875,
+       -1.40625
+      ],
+      "width": 30
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-cheminee-four-shadow.png",
+      "height": 36,
+      "shift": [
+       0.46875,
+       -0.625
+      ],
+      "width": 176
+     },
+     "lr": {
+      "filename": "cheminee-four-shadow.png",
+      "height": 18,
+      "shift": [
+       0.46875,
+       -0.625
+      ],
+      "width": 88
+     }
+    }
+   }
+  },
+  {
+   "dest": "vitrine/cheminee",
+   "files": {
+    "cheminee-seule-glow.png": "9862406f7aeb181d2bca7af47e7ec30d5b41baf75c196c8aa0bb40770915dfe7",
+    "cheminee-seule-light.png": "a6612608bb0f2cb6e2cc10d120c9405066b24f11b4cfb11b33afd7af723fcd77",
+    "cheminee-seule-main.png": "e7c7673e849628300decaf4c35262614a99640d307f587cda7bd6f50f3fbe4ba",
+    "cheminee-seule-shadow.png": "977833298b8c5f7c4c55873a01ea23c503439f042ed160b9e92f5f8b013ff132",
+    "hr-cheminee-seule-glow.png": "ae537ea53d6310087121b2809b66d6ade28e9e5fc5f3976f1518b3e66fdf17b0",
+    "hr-cheminee-seule-light.png": "2b7448ba2e4df275d8354e18edc4e1a21d78d8656b6ba76a5a991989682d4030",
+    "hr-cheminee-seule-main.png": "cd0222da79d1d5783c1c154989de585eeedc19d5c4e38007bc67fe5f10e22f06",
+    "hr-cheminee-seule-shadow.png": "a7d68c1fcfd33364c67762284901eaaa257d861a065e41563ecb2abc9bcd93eb"
+   },
+   "name": "cheminee-seule",
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     372,
+     330
+    ],
+    "origin_px": [
+     120,
+     217
+    ],
+    "samples": 256,
+    "seconds": 54.9,
+    "seed": 20261021
+   },
+   "spec": {
+    "glow": {
+     "hr": {
+      "filename": "hr-cheminee-seule-glow.png",
+      "height": 32,
+      "shift": [
+       0.0,
+       -1.5625
+      ],
+      "width": 32
+     },
+     "lr": {
+      "filename": "cheminee-seule-glow.png",
+      "height": 16,
+      "shift": [
+       0.0,
+       -1.5625
+      ],
+      "width": 16
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-cheminee-seule-light.png",
+      "height": 266,
+      "shift": [
+       0.109375,
+       -0.390625
+      ],
+      "width": 242
+     },
+     "lr": {
+      "filename": "cheminee-seule-light.png",
+      "height": 133,
+      "shift": [
+       0.109375,
+       -0.390625
+      ],
+      "width": 121
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-cheminee-seule-main.png",
+      "height": 148,
+      "shift": [
+       0.0,
+       -0.75
+      ],
+      "width": 72
+     },
+     "lr": {
+      "filename": "cheminee-seule-main.png",
+      "height": 74,
+      "shift": [
+       0.0,
+       -0.75
+      ],
+      "width": 36
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-cheminee-seule-shadow.png",
+      "height": 36,
+      "shift": [
+       1.0625,
+       0.0
+      ],
+      "width": 176
+     },
+     "lr": {
+      "filename": "cheminee-seule-shadow.png",
+      "height": 18,
+      "shift": [
+       1.0625,
+       0.0
+      ],
+      "width": 88
+     }
+    }
+   }
+  }
+ ]
+}

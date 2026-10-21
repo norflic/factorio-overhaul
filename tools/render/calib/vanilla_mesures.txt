@@ -1,0 +1,39 @@
+== §2.1 Tuyaux : diamètre nord-sud contre épaisseur est-ouest (alpha >= 0,8)
+   alpha >= 0.80 : nord-sud (largeur) [39, 39], est-ouest (épaisseur) [41, 40, 41]
+   alpha >= 0.98 : nord-sud (largeur) [39, 39], est-ouest (épaisseur) [38, 38, 38]
+== §2.2 Cercles VERTICAUX face caméra (brides plates) : arc d'ellipse, b/a (attendu sin θ)
+   pipe-to-ground/hr-pipe-to-ground-up.png    bottom a=25.65 b=18.13 b/a=0.707 rms=0.15 px
+   pipe-covers/hr-pipe-cover-south.png        bottom a=25.50 b=18.60 b/a=0.729 rms=0.27 px
+   pipe-covers/hr-pipe-cover-north.png        top    a=25.90 b=19.22 b/a=0.742 rms=0.38 px
+   pipe/hr-pipe-ending-down.png               top    a=25.60 b=18.91 b/a=0.739 rms=0.29 px
+== §2.3 Cercle HORIZONTAL : bouche de la cheminée du four en acier (ellipse complète), b/a (attendu cos θ)
+   seuil 0.12 : a=9.37 b=6.89 b/a=0.735 rms=0.27 px
+   seuil 0.15 : a=9.59 b=7.07 b/a=0.737 rms=0.32 px
+   seuil 0.18 : a=9.66 b=7.16 b/a=0.741 rms=0.36 px
+   puits du silo (boîte, forme irrégulière) : 395 x 266 -> 0.673
+== §2.4 Ancrage : étendue opaque relative à la position de l'entité (px HR ; demi-emprise entre crochets)
+   steel-furnace/hr-steel-furnace.png                 gauche  -62.0 droite   63.0 haut  -81.0 bas   63.0  [64]
+   assembling-machine-2/hr-assembling-machine-2.png   gauche  -80.0 droite   79.0 haut  -99.0 bas   87.0  [96]
+   wooden-chest/hr-wooden-chest.png                   gauche  -29.0 droite   31.0 haut  -38.0 bas   31.0  [32]
+   iron-chest/hr-iron-chest.png                       gauche  -32.0 droite   30.0 haut  -39.0 bas   31.0  [32]
+   stone-furnace/hr-stone-furnace.png                 gauche  -51.0 droite   48.0 haut  -59.0 bas   59.0  [64]
+   gun-turret/hr-gun-turret-base.png                  gauche  -61.0 droite   61.0 haut  -59.0 bas   41.0  [64]
+== §3.1 Ombres des poteaux : sommet du poteau, bout de l'ombre (px HR relatifs à l'entité), tan(élévation) à θ = 45°
+   petit  sommet y=-170.0 x=-0.5 | bout de l'ombre x=229.0 y=9.0 | ombre/hauteur=1.282 tan=1.103 -> 47.8°
+   moyen  sommet y=-204.0 x=14.5 | bout de l'ombre x=251.0 y=-2.5 | ombre/hauteur=1.174 tan=1.205 -> 50.3°
+   grand  sommet y=-249.0 x=0.0 | bout de l'ombre x=306.0 y=-0.5 | ombre/hauteur=1.231 tan=1.148 -> 49.0°
+== §4.1 Rampes des ombres (de alpha 0,9 à 0,1, px) et alpha du cœur
+   wooden-chest/hr-wooden-chest-shadow.png            rampe droite 1 px, alpha max 1.00
+   steel-furnace/hr-steel-furnace-shadow.png          rampe droite 2 px, alpha max 1.00
+   big-electric-pole/hr-big-electric-pole-shadow.png  rampe droite 1 px, alpha max 1.00
+== §5 Photométrie des couches principales (pixels opaques)
+   sprite                                             Lmoy   Lstd    p05    p50    p95    sat  grain
+   steel-furnace/hr-steel-furnace.png                0.236  0.201  0.015  0.181  0.661  0.355  0.064
+   assembling-machine-2/hr-assembling-machine-2.png  0.251  0.196  0.032  0.194  0.660  0.404  0.057
+   gun-turret/hr-gun-turret-base.png                 0.178  0.219  0.000  0.092  0.690  0.166  0.049
+   storage-tank/hr-storage-tank.png                  0.329  0.192  0.073  0.285  0.668  0.381  0.036
+   boiler/hr-boiler-N-idle.png                       0.274  0.190  0.052  0.225  0.657  0.333  0.050
+   radar/hr-radar.png                                0.271  0.177  0.071  0.225  0.658  0.296  0.055
+   steel-chest/hr-steel-chest.png                    0.361  0.230  0.105  0.293  0.841  0.256  0.064
+   medium-electric-pole/hr-medium-electric-pole.png  0.277  0.230  0.000  0.231  0.738  0.523  0.082
+   pipe/hr-pipe-straight-vertical.png                0.412  0.243  0.105  0.364  0.847  0.287  0.032
