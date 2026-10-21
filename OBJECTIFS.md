@@ -416,10 +416,10 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | Lot | État | Preuve | Date |
 |---|---|---|---|
 | P0 Reprise | ✅ | Dépôt git `main` (commit initial `4b2a1e0` = état de fin de session 5). Lua 5.2.4 compilé depuis lua.org (sommes vérifiées), Python 3.14.7 présent. Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ; étape data : 496 prototypes, 0 nouvelle erreur, 0 violation, 0 clé de traduction manquante ; api_lint : 317 usages, 0 erreur. **Moteur réel `content` : 180 OK, 0 échec**, deux fois (avant et après la suppression des orphelins ; E26). Aucune session `fo-visual` ouverte, aucun verrou orphelin. Orphelins supprimés. | 21/10, 17 h 57 |
-| P1 Captures automatiques | ⏳ | — | — |
-| V0 Pipeline de rendu | ⏳ | — | — |
-| V1 Bible des époques | ⏳ | — | — |
-| V2 Cadre des 15 époques | en attente de Q6 | — | — |
+| P1 Captures automatiques | ⏳ agent lancé (seul utilisateur du moteur pendant son lot) | — | 21/10, 18 h |
+| V0 Pipeline de rendu | ⏳ agent lancé (hors moteur ; captures en jeu par l'orchestrateur ensuite) | — | 21/10, 18 h |
+| V1 Bible des époques | ⏳ agent lancé | — | 21/10, 18 h |
+| V2 Cadre des 15 époques | en attente de Q6 (posée le 21/10, 18 h, avec Q4 et Q7) | — | — |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
