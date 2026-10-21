@@ -38,7 +38,8 @@ import gun as G  # noqa: E402
 
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 CACHE = os.path.join(D.MOD_ROOT, "tools", "render", "cache", "levels-gun", "cycles")
-LOCK = os.path.join(RENDER, "with_render_lock.py")
+# verrou de rendu partagé, appelé tel quel par lock_poll.py (scrutation 0,5 s au lieu de 5 s : voir ce fichier)
+LOCK = os.path.join(HERE, "lock_poll.py")
 BATCH = os.path.join(HERE, "render_batch.py")
 
 
@@ -60,6 +61,44 @@ def place_alpha(canvas_shape, origin, sprite_path, shift, px_per_tile):
     return out
 
 
+def light_layer(li, main_alpha, origin, lv):
+    """Halo de nuit : fenêtre radiale (rayon nul S(N)/2, plein jusqu'à 40 %) puis normalisation sur la FLAQUE
+    AU SOL (pixels hors de la silhouette du module) à LIGHT_MAX × I(N)/I(30). Le maximum brut est sur les
+    surfaces émissives elles-mêmes (gain LIGHT_EMIT_GAIN) : normaliser dessus rendait la flaque 5 à 8 fois trop
+    faible (constaté sur les premiers aperçus, 21/10) ; les surfaces émissives saturent désormais à 1."""
+    r1 = G.halo_radius(lv) * 64.0
+    lay = P.radial_window(P.additive_layer(li), origin, 0.4 * r1, r1)
+    ground = (main_alpha < 0.05) & (lay[..., 3] > 0)
+    ref = np.percentile(lay[..., 3][ground], 99.5) if ground.any() else lay[..., 3].max()
+    if ref > 1e-6:
+        target = C.LIGHT_MAX * G.halo_intensity(lv) / G.halo_intensity(30)
+        lay[..., 3] = np.minimum(1.0, lay[..., 3] * target / ref)
+    return P.floor_alpha(P.fade_edges(lay))
+
+
+def relight(name, info, meta, origin, li):
+    """Refait la seule couche halo d'un aperçu déjà post-traité (cache réduit au halo brut)."""
+    out = os.path.join(D.OUT_DIR, name)
+    with open(os.path.join(out, "spec.json"), encoding="utf-8") as f:
+        spec = json.load(f)
+    m = spec["layers"]["main"]
+    img = np.asarray(Image.open(os.path.join(out, m["file"])).convert("RGBA")).astype(np.float64) / 255.0
+    Hc, Wc = li.shape[:2]
+    main_a = np.zeros((Hc, Wc))
+    x0 = int(round(origin[0] + m["shift"][0] * 64 - m["width"] / 2.0))
+    y0 = int(round(origin[1] + m["shift"][1] * 64 - m["height"] / 2.0))
+    main_a[y0:y0 + m["height"], x0:x0 + m["width"]] = img[..., 3]
+    lay = light_layer(li, main_a, origin, meta["level"])
+    box = P.trim_box(lay, origin)
+    bx0, by0, bx1, by1 = box
+    fn = "hr-gun-%s-light.png" % name
+    sha = P.write_png(lay[by0:by1, bx0:bx1], os.path.join(out, fn))
+    sd = P.sprite_def(box, origin, 64)
+    spec["layers"]["light"] = {"file": fn, "width": sd["width"], "height": sd["height"], "shift": sd["shift"], "sha256": sha}
+    with open(os.path.join(out, "spec.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(spec, f, indent=1, sort_keys=True)
+
+
 def post(name):
     d = os.path.join(CACHE, name)
     with open(os.path.join(d, "render.json"), encoding="utf-8") as f:
@@ -71,6 +110,8 @@ def post(name):
         p = os.path.join(d, "gun-%s-%s.npy" % (name, layer))
         return np.load(p).astype(np.float64) if os.path.exists(p) else None
 
+    if npy("main") is None:      # re-post du halo seul (cache réduit) : couche principale relue de l'aperçu
+        return relight(name, info, meta, origin, npy("light"))
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
     sh = npy("shadow")
     if sh is not None:
@@ -78,16 +119,17 @@ def post(name):
     g = npy("glow")
     if g is not None:
         hr["glow"] = P.additive_layer(g)
+        # Le moteur dessine la lueur (draw_as_glow, additive) PAR-DESSUS la couche principale ; or la passe main
+        # contient déjà l'émission : sans correction, la lumière compte deux fois et sature en blanc (aperçus du
+        # 21/10). On retire de la couche principale la part émise (valeurs codées, comme le mélange additif du
+        # moteur) : principale + lueur = rendu complet, et la couleur d'époque est conservée.
+        gp = hr["glow"][..., :3] * hr["glow"][..., 3:4]
+        m = hr["main"].copy()
+        m[..., :3] = np.clip(m[..., :3] - gp, 0.0, 1.0)
+        hr["main"] = m
     li = npy("light")
     if li is not None:
-        lv = meta["level"]
-        r1 = G.halo_radius(lv) * 64.0
-        lay = P.radial_window(P.additive_layer(li), origin, 0.4 * r1, r1)
-        mx = lay[..., 3].max()
-        if mx > 1e-6:
-            target = C.LIGHT_MAX * G.halo_intensity(lv) / G.halo_intensity(30)
-            lay[..., 3] *= target / mx
-        hr["light"] = P.floor_alpha(P.fade_edges(lay))
+        hr["light"] = light_layer(li, hr["main"][..., 3], origin, meta["level"])
     mask = meta.get("mask")
     if mask:
         m_hr = place_alpha(hr["main"].shape[:2], origin,
@@ -114,7 +156,13 @@ def post(name):
                                  "sha256": sha}
     with open(os.path.join(out, "spec.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(spec, f, indent=1, sort_keys=True)
-    shutil.rmtree(d, ignore_errors=True)
+    # disque H: limité : on ne garde du cache que le halo brut (réglage de la normalisation sans re-rendu)
+    if li is None:
+        shutil.rmtree(d, ignore_errors=True)
+    else:
+        for fn in os.listdir(d):
+            if fn.endswith(".npy") and not fn.endswith("-light.npy"):
+                os.remove(os.path.join(d, fn))
 
 
 def run_batch(names, samples, log):

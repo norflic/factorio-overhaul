@@ -91,6 +91,10 @@ def head(k, e, M, z0, zg):
         k.cyl(0.15, 0.07, (0.18, -0.56, zb + 0.66), M["brass"], verts=28, name="collerette")
         k.cyl(0.13, 0.05, (0.18, -0.56, zb + 0.36), M["brass"], verts=28, name="embase")
         k.cyl(0.09, 0.035, (-0.22, -0.30, zb + 0.30), M["brass"], axis=(math.pi / 2 + 0.6, 0, 0), verts=24, name="manometre")
+        # regard du foyer sur le DESSUS de la chaudière : lueur ambrée visible dans les 4 poses (D2-1 ; les
+        # hublots latéraux sont vus par la tranche en poses N et S : 0,2 % de lueur mesurée sur le 1er aperçu)
+        k.cyl(0.125, 0.04, (-0.20, -0.56, zb + 0.325), M["brass"], verts=28, name="regard_cadre")
+        k.cyl(0.095, 0.045, (-0.20, -0.56, zb + 0.33), M["emit"], verts=28, name="regard")
         k.cyl(0.045, 0.46, (0.30, -0.20, zg + 0.20), M["main"], axis=(0.9, 0, 0), verts=12, name="tuyau")
         k.cyl(0.045, 0.40, (-0.30, -0.18, zg + 0.20), M["main"], axis=(0.9, 0, 0), verts=12, name="tuyau")
         k.halo((0, -0.48, zb), emit_rgb("#FFC060"), 20.0)
@@ -207,8 +211,11 @@ def head(k, e, M, z0, zg):
             k.cyl(0.04, 0.62, (sx * 0.26, 0.10, zg + 0.24), M["rubber"], axis=(1.2, 0, 0), verts=10, name="durite")
         zb = zg + 0.66
         k.cyl(0.18, 0.22, (0, -0.36, zg + 0.30), M["main"], verts=24, name="col")
-        k.sph(0.46, (0, -0.36, zb), M["glass"], seg=40, rings=20, name="bulbe")
-        k.sph(0.43, (0, -0.36, zb - 0.09), M["emit"], scale=(1, 1, 0.78), seg=36, rings=18, name="liquide")
+        # bulbe de LIQUIDE luminescent tenu par une cage vert-de-gris (3 méridiens) : le verre opaque du premier
+        # aperçu cachait le liquide (0 px de lueur, aucun halo la nuit : D2-1 en échec, 21/10)
+        k.sph(0.45, (0, -0.36, zb), M["emit"], seg=40, rings=20, name="bulbe_liquide")
+        for j in range(3):
+            k.tor(0.458, 0.022, (0, -0.36, zb), M["main"], axis=(math.pi / 2, 0, j * math.pi / 3), mseg=8, name="cage")
         k.tor(0.46, 0.035, (0, -0.36, zb - 0.02), M["main"], name="frette")
         k.cyl(0.12, 0.12, (0, -0.36, zb + 0.48), M["main"], verts=20, name="bouchon")
         k.halo((0, -0.36, zb), emit_rgb("#A8FF3A"), 20.0)
@@ -229,7 +236,8 @@ def head(k, e, M, z0, zg):
                 k.cyl(0.125, 0.03, (sx * 0.18, yy, zg - 0.05), M["main"], axis="y", verts=8, name="ailette")
         k.cyl(0.15, 0.045, (0, 0.47, zg + 0.10), M["jaune"], axis="y", verts=28, name="hublot_cadre")
         k.cyl(0.12, 0.05, (0, 0.475, zg + 0.10), M["emit"], axis="y", verts=28, name="hublot")
-        k.cyl(0.13, 0.04, (0.0, -0.08, zg + 0.46), M["emit"], verts=28, name="hublot_toit")
+        for sx in (-1, 1):   # deux hublots de toit, hors de l'ombre de la tour (cachés en pose N sinon : 21/10)
+            k.cyl(0.10, 0.04, (sx * 0.27, -0.02, zg + 0.44), M["emit"], verts=24, name="hublot_toit")
         hb = zg + 0.36
         k.cyl(0.24, 0.30, (0.0, -0.44, hb + 0.15), M["beton"], r2=0.15, verts=28, name="hyper_bas")
         k.cyl(0.15, 0.28, (0.0, -0.44, hb + 0.44), M["beton"], r2=0.21, verts=28, name="hyper_haut")
@@ -342,7 +350,7 @@ def head(k, e, M, z0, zg):
         zz, rr = z0 + 0.38, 0.24
         while zz < zg - 0.62:
             k.cyl(rr, 0.08, (0, 0, zz), M["nacre"], verts=36, bevel=0.012, name="troncon")
-            k.tor(rr + 0.012, 0.018, (0, 0, zz), M["emit"], name="troncon_lueur")
+            k.tor(rr + 0.008, 0.011, (0, 0, zz), M["emit"], name="troncon_lueur")
             zz += 0.42
             rr = max(0.12, rr - 0.04)
         k.sph(0.34, (0, 0, zg), M["nacre"], seg=40, rings=20, name="noyau")
@@ -353,8 +361,10 @@ def head(k, e, M, z0, zg):
             ox, oz = math.cos(a), math.sin(a)
             base = (ox * 0.20, 0.10, zg + oz * 0.20)
             tip = (ox * 0.46, 1.12, zg + oz * 0.46)
-            k.spike(base, tip, 0.06, M["main"], sides=8, name="canon")
-            k.sph(0.05, tip, M["emit"], seg=12, rings=6, name="bouche")
+            k.spike(base, tip, 0.074, M["main"], sides=8, name="canon")
+            mid = tuple(base[i] + (tip[i] - base[i]) * 0.55 for i in range(3))
+            k.sph(0.075, mid, M["nacre"], scale=(1.0, 0.45, 1.0), seg=16, rings=8, name="frette")
+            k.sph(0.038, tip, M["emit"], seg=12, rings=6, name="bouche")
         for j, (dx, dy, h) in enumerate(((0.0, -0.14, 1.12), (-0.30, -0.10, 0.74), (0.30, -0.10, 0.74),
                                          (-0.18, 0.18, 0.56), (0.18, 0.18, 0.56))):
             k.spike((dx * 0.8, dy, zg + 0.16), (dx, dy, zg + 0.16 + h), 0.09 if j == 0 else 0.075, M["main"], sides=8,

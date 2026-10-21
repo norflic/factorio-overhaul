@@ -255,13 +255,19 @@ def materials(S, e, g):
                              rust_scale=5.0, dirt=dirt, seed=float(seed if seed is not None else len(M) + 10 * e))
 
     def emissive(key, hexc, strength=1.6, base="#141210"):
-        M[key] = S.mat_emissive("e%02d_%s" % (e, key), emit_rgb(hexc), strength=strength, base=lin(base))
+        # force d'émission effective PLAFONNÉE à 1 : au-delà, les canaux secondaires saturent et la lueur sort
+        # BLANCHE au lieu de la couleur d'époque (constaté sur les aperçus du 21/10 : hublot é3, voyant é4) ;
+        # les valeurs nominales ci-dessous ne règlent plus que l'intensité relative (× 0,5)
+        s = min(1.0, 0.5 * strength)
+        M[key] = S.mat_emissive("e%02d_%s" % (e, key), emit_rgb(hexc), strength=s, base=lin(base))
 
     # communs à toutes les époques : acier sombre de mécanique, canon bruni, caoutchouc
     metal("gun", "#3C3A38", rough=0.38, met=0.85, grain=0.15, rust="#4A2A18", ra=0.15)
     metal("dark", "#262422", rough=0.55, met=0.6, grain=0.18)
     if e == 1:
-        metal("toile", "#8A7A5A", rough=0.95, met=0.0, grain=0.35, dirt=0.6)
+        # toile de jute : albédo bible #8A7A5A, gain réduit (premier aperçu : sacs presque blancs à côté du socle
+        # vanilla sombre) ; grain fort (trame), crasse des creux forte
+        metal("toile", "#8A7A5A", rough=0.95, met=0.0, grain=0.45, dirt=0.75, gain=0.95)
         metal("bois", "#6B4F35", rough=0.85, met=0.0, grain=0.35)
         metal("fer", "#5A5048", rough=0.5, met=0.7, rust="#5A3018", ra=0.4)
     elif e == 2:
@@ -296,7 +302,7 @@ def materials(S, e, g):
         metal("main", "#4F6B5A", rough=0.5, met=0.55, rust="#2E3A2E", ra=0.2)     # vert-de-gris
         metal("glass", "#8FBF4A", rough=0.12, met=0.0, grain=0.06, dirt=0.2, gain=g * 0.7)
         metal("rubber", "#2A2A28", rough=0.8, met=0.0, grain=0.1, gain=g * 1.3)
-        emissive("emit", "#A8FF3A", 1.8)
+        emissive("emit", "#A8FF3A", 1.8, base="#2E4A1E")
     elif e == 9:
         metal("main", "#4A5058", rough=0.55, met=0.6)                             # plomb
         metal("jaune", "#C9A227", rough=0.5, met=0.1, dirt=0.5, gain=g * 0.75)
@@ -344,10 +350,17 @@ def gy(ty):
 # ------------------------------------------------------------------------------------------------
 # Époque 1 : pièce du niveau 2, posée sur le socle VANILLA (arc de sacs de sable)
 # ------------------------------------------------------------------------------------------------
-def sandbag(k, x, y, z, ang, m, length=0.30, depth=0.17, h=0.105):
-    o = k.box((length, depth, h), (x, y, z + h / 2), m, rot=(0, 0, ang), bevel=0.035, name="sac")
-    # léger affaissement : un sac est plus large en bas (deux boîtes)
-    k.box((length * 0.92, depth * 1.08, h * 0.45), (x, y, z + h * 0.24), m, rot=(0, 0, ang), bevel=0.03, name="sac_b")
+def sandbag(k, x, y, z, ang, m, length=0.26, depth=0.17, h=0.105):
+    """Sac de sable « coussin » : boîte très arrondie (dessus bombé, dessous plat), plus large en bas ;
+    longueur réduite pour laisser un joint sombre visible entre deux sacs (sinon la rangée se lit comme un
+    boudin continu : constaté sur le premier aperçu, 21/10)."""
+    o = k.box((length, depth, h), (x, y, z + h / 2), m, rot=(0, 0, ang), bevel=0.046, name="sac")
+    k.box((length * 0.94, depth * 1.10, h * 0.42), (x, y, z + h * 0.21), m, rot=(0, 0, ang), bevel=0.03, name="sac_b")
+    # oreilles froncées aux deux bouts (le sac est noué) : petites boîtes plus étroites
+    ca, sa = math.cos(ang), math.sin(ang)
+    for s in (-1, 1):
+        k.box((0.04, depth * 0.55, h * 0.55), (x + s * ca * (length / 2 + 0.012), y + s * sa * (length / 2 + 0.012),
+                                                z + h * 0.36), m, rot=(0, 0, ang), bevel=0.012, name="sac_noeud")
     return o
 
 
@@ -365,10 +378,10 @@ def piece_e01(k, M, part):
             ys = [gy(t) for t in (-0.50, -0.25, 0.0, 0.25, 0.47)]
             for i, y in enumerate(ys):
                 sandbag(k, xs + rnd.uniform(-0.01, 0.01), y, 0.0, math.pi / 2 + rnd.uniform(-0.08, 0.08), m,
-                        length=0.36, depth=0.17)
+                        length=0.29, depth=0.17)
             for i in range(len(ys) - 1):
                 y = (ys[i] + ys[i + 1]) / 2
-                sandbag(k, xs + side * 0.005, y, 0.105, math.pi / 2 + rnd.uniform(-0.1, 0.1), m, length=0.34,
+                sandbag(k, xs + side * 0.005, y, 0.105, math.pi / 2 + rnd.uniform(-0.1, 0.1), m, length=0.28,
                         depth=0.16)
     else:
         # coins avant : arc de la fin du flanc jusqu'à l'avant, avant-centre (|x| < 0,30) libre
@@ -381,16 +394,16 @@ def piece_e01(k, M, part):
                 ty = 0.62 + 0.45 * math.sin(th)
                 pts.append((tx, ty, th))
             for tx, ty, th in pts:
-                sandbag(k, tx, gy(ty), 0.0, (math.pi / 2 - th) * side + rnd.uniform(-0.06, 0.06), m, length=0.36)
+                sandbag(k, tx, gy(ty), 0.0, (math.pi / 2 - th) * side + rnd.uniform(-0.06, 0.06), m, length=0.27)
             # bout de rangée vers le centre
-            sandbag(k, side * 0.40, gy(1.07), 0.0, rnd.uniform(-0.05, 0.05), m, length=0.30)
+            sandbag(k, side * 0.40, gy(1.07), 0.0, rnd.uniform(-0.05, 0.05), m, length=0.25)
             # 2e rangée sur l'arc
             for j in range(3):
                 tx = (pts[j][0] + pts[j + 1][0]) / 2
                 ty = (pts[j][1] + pts[j + 1][1]) / 2
                 th = (pts[j][2] + pts[j + 1][2]) / 2
                 sandbag(k, tx * 0.985, gy(ty) + 0.02, 0.105, (math.pi / 2 - th) * side + rnd.uniform(-0.08, 0.08), m,
-                        length=0.34, depth=0.16)
+                        length=0.26, depth=0.16)
         # piquets de bois qui retiennent l'arc
         for side in (-1, 1):
             k.cyl(0.022, 0.30, (side * 1.07, gy(0.62), 0.15), M["bois"], verts=8, name="piquet")
@@ -629,8 +642,8 @@ def piece(k, e, M):
     if e == 8:   # bonbonne de verre sur le flanc gauche (berceau de caoutchouc)
         x, y = -0.92, gy(0.42)
         k.cyl(0.22, 0.06, (x, y, 0.03), M["rubber"], verts=24, name="berceau")
-        k.sph(0.24, (x, y, 0.27), M["glass"], seg=32, rings=16, name="bonbonne")
-        k.sph(0.20, (x, y, 0.22), M["emit"], scale=(1, 1, 0.7), seg=24, rings=12, name="liquide")
+        k.sph(0.24, (x, y, 0.27), M["emit"], seg=32, rings=16, name="bonbonne_liquide")
+        k.tor(0.245, 0.016, (x, y, 0.27), M["rubber"], axis=(math.pi / 2, 0, 0.6), name="sangle_v")
         k.cyl(0.07, 0.14, (x, y, 0.55), M["glass"], verts=20, name="col")
         k.cyl(0.08, 0.04, (x, y, 0.63), M["rubber"], verts=20, name="bouchon")
         k.tor(0.24, 0.02, (x, y, 0.27), M["rubber"], name="sangle")

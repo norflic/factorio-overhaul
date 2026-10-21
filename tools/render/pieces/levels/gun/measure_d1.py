@@ -40,10 +40,6 @@ def photometry(layers):
     m = a >= 0.5
     if not m.any():
         return None
-    c = rgb[m]
-    lum = D.luminance(c) * 255
-    mx, mn = c.max(1), c.min(1)
-    sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0)
     glow = np.zeros(m.shape)
     day = np.clip(rgb, 0, 1)
     for l in layers:
@@ -53,6 +49,12 @@ def photometry(layers):
             glow = np.maximum(glow, pm.max(-1))
             day = np.clip(day + pm, 0, 1)
     em = (glow > 0.25) & m
+    # corps = couche principale opaque HORS zones émissives (la lumière est dans la lueur, D2-1 compare les deux)
+    body = m & (glow <= 0.05)
+    c = rgb[body if body.any() else m]
+    lum = D.luminance(c) * 255
+    mx, mn = c.max(1), c.min(1)
+    sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0)
     emis_l = float(np.median(D.luminance(day[em]) * 255)) if em.any() else None
     return {"L50": float(np.median(lum)), "L95": float(np.percentile(lum, 95)), "L05": float(np.percentile(lum, 5)),
             "sat": float(sat.mean()), "emis_part": float(em.sum() / m.sum()), "emis_px": int(em.sum()),
@@ -67,8 +69,13 @@ def run(source):
             masks[(lv, pose)] = D.main_alpha(lays) >= 0.5
             head_masks[(lv, pose)] = D.main_alpha(lays, ("tete",)) >= 0.5
             socle_masks[(lv, pose)] = D.main_alpha(lays, ("socle",)) >= 0.5
-            if source == "final" and pose == "S":
-                phot[lv] = photometry(lays)
+            if source == "final":
+                ph = photometry(lays)
+                if pose == "S":
+                    phot[lv] = ph
+                # D2-1 : zone émissive visible de jour dans CHAQUE pose (pixels hr de lueur > 0,25 sur le corps,
+                # luminance > médiane du corps + 80) ; on retient la pire pose
+                phot.setdefault(("em", lv), {})[pose] = (ph["emis_px"], ph["emis_L50"], ph["L50"])
     sweeps = {e: D.head_sweep(e) >= 0.5 for e in range(1, 16)}
     res = {"source": source, "levels": {}, "epochs": {}, "d13": {}}
     for lv in range(1, 31):
@@ -96,6 +103,11 @@ def run(source):
             r["vide_V"] = min(float((masks[(1, p)] & ~masks[(lv, p)]).sum() / masks[(1, p)].sum()) for p in D.POSES)
         if lv in phot:
             r["photo"] = phot[lv]
+        if ("em", lv) in phot:
+            em = phot[("em", lv)]
+            r["d21_px_min"] = min(v[0] for v in em.values())
+            r["d21_pose_min"] = min(em, key=lambda p: em[p][0])
+            r["d21_ok"] = all(v[0] >= 64 and v[1] is not None and v[1] >= v[2] + 80 for v in em.values())
         res["levels"][lv] = r
     for e in range(1, 15):
         a, b = 2 * e - 1, 2 * e + 1
@@ -132,6 +144,8 @@ def table(res):
         lt = LUMA_TARGET.get(e)
         l50 = ("%.0f (%s)" % (ph["L50"], lt if lt else "-")) if ph else ""
         em = ("%.1f %%" % (100 * ph["emis_part"])) if ph and ph.get("emis_px") else ""
+        if "d21_px_min" in r and e >= 3:
+            em += " ; D2-1 %s (min %d px, %s)" % ("oui" if r["d21_ok"] else "NON", r["d21_px_min"], r["d21_pose_min"])
         lines.append("| %d | %d | %.2f (%.2f) | %.2f | %.2f | %s | %s | %s | %s | %s | %s | %s | %s |" % (
             lv, e, r["O"], G.O_TARGET[e], r["L"], r["socle_top"], pa, ip, ie, V, l50,
             ("%.0f" % ph["L95"]) if ph else "", ("%.2f" % ph["sat"]) if ph else "", em))
@@ -149,13 +163,28 @@ def table(res):
     return "\n".join(lines)
 
 
+def check_geo(final_masks):
+    """Accord entre silhouettes géométriques (geo.py) et aperçus Cycles : IoU par niveau, pire pose."""
+    out = {}
+    for lv in range(2, 31):
+        out[lv] = min(D.iou(D.main_alpha(D.level_layers(lv, p, "dry")) >= 0.5, final_masks[(lv, p)]) for p in D.POSES)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default="final")
     ap.add_argument("--json", default="")
+    ap.add_argument("--check-geo", action="store_true")
     a = ap.parse_args()
-    res, _ = run(a.source)
+    res, masks = run(a.source)
     print(table(res))
+    if a.check_geo and a.source == "final":
+        cg = check_geo(masks)
+        res["accord_geo_cycles"] = cg
+        worst = min(cg, key=cg.get)
+        print("Accord silhouettes géométriques / Cycles : IoU min %.4f (niveau %d), médiane %.4f" % (
+            cg[worst], worst, float(np.median(list(cg.values())))))
     if a.json:
         with open(a.json, "w", encoding="utf-8", newline="\n") as f:
             json.dump(res, f, indent=1, sort_keys=True, default=float)

@@ -131,6 +131,12 @@ def compose(entities, Wpx, Hpx):
 
 
 def font(size):
+    # police système avec accents (la police par défaut de Pillow n'a pas « É ») ; repli sur celle de Pillow
+    for f in ("arial.ttf", "segoeui.ttf", "DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(f, size)
+        except OSError:
+            continue
     return ImageFont.load_default(size=size)
 
 
@@ -172,16 +178,17 @@ def grid_planche(pose, cell_w=4.0, top=4.0, bottom=1.6, head_px=26):
 def with_header(rgb_zoom1, labels, title, head_px=26, cell_w=4.0):
     im = to_img(rgb_zoom1)
     W, H = im.size
-    out = Image.new("RGB", (W, H + head_px), (24, 22, 20))
-    out.paste(im, (0, head_px))
+    T = 22   # bande du titre, au-dessus de la bande des époques
+    out = Image.new("RGB", (W, H + head_px + T), (24, 22, 20))
+    out.paste(im, (0, head_px + T))
     dr = ImageDraw.Draw(out)
-    dr.text((6, head_px / 2), title, fill=(235, 230, 215), font=font(13), anchor="lm")
+    dr.text((6, T / 2 + 2), title, fill=(235, 230, 215), font=font(13), anchor="lm")
     for e in range(1, 16):
         x = ((e - 1) * cell_w + 1.6) * PPT / 2
-        dr.text((x, head_px - 6), "ép. %d" % e, fill=(200, 190, 160), font=font(11), anchor="mb")
+        dr.text((x, T + head_px - 6), "ép. %d" % e, fill=(200, 190, 160), font=font(11), anchor="mb")
     for (x, y, t) in labels:
-        dr.text((x + 1, y + 1), "niv. " + t, fill=(0, 0, 0), font=font(12), anchor="mm")
-        dr.text((x, y), "niv. " + t, fill=(250, 245, 230), font=font(12), anchor="mm")
+        dr.text((x + 1, y + T + 1), "niv. " + t, fill=(0, 0, 0), font=font(12), anchor="mm")
+        dr.text((x, y + T), "niv. " + t, fill=(250, 245, 230), font=font(12), anchor="mm")
     return out
 
 
