@@ -148,8 +148,8 @@ une économie de modélisation (§3.3).
   **la tourelle laser aurait PASSÉ D1-3** (0,474) alors que sa forme est identique au vanilla.
 - **Faille de D1-3 tel qu'écrit (E27)** : l'IoU mesure surtout un rapport d'aires. Un **simple
   agrandissement** du sprite vanilla, sans aucune pièce nouvelle, passe sous 0,50 dès ×1,20 (foreuse),
-  ×1,22 à 1,32 (laser) et ×1,41 (mitrailleuse, four, assembleur, centre). Amendement proposé ❔ (à valider par
-  le Directeur Créatif, OBJECTIFS D1) : (1) exclure du masque toute couche plate posée au sol (socle,
+  ×1,22 à 1,32 (laser) et ×1,41 (mitrailleuse, four, assembleur, centre). Amendement **validé par le Directeur Créatif le 21/10, 18 h 54** (OBJECTIFS Q13) :
+  (1) exclure du masque toute couche plate posée au sol (socle,
   dalle), pas seulement l'`integration_patch` ; (2) ajouter un indicateur **invariant d'échelle** : l'IoU
   normalisée, c'est-à-dire le maximum sur k de IoU(niveau 1 agrandi d'un facteur k, niveau 30). Elle vaut
   1,000 pour le design rejeté et 0,903 pour le centre actuel. Son seuil sera étalonné sur les premières
@@ -162,7 +162,7 @@ remplacer).
 |---|---|---|
 | D1-1 test du gris | Les 30 niveaux côte à côte, en niveaux de gris, au zoom 1. | **Niveau pair** : la pièce ajoute au moins **0,10 tuile²** de masque hors du masque impair (environ 100 px au zoom 1), ou change la luminance de ±20/255 sur au moins 0,15 tuile². **Niveau impair** : IoU avec le niveau pair précédent ≤ 0,85. |
 | D1-2 test de la vignette | Les 15 niveaux impairs en masques noirs, **à la même échelle** (le plus grand tient dans 64 px, ce qui garde les tailles relatives), mélangés, à remettre dans l'ordre. | O ne décroît jamais ; IoU entre époques consécutives ≤ 0,85 ; nombre d'événements de silhouette dans la fourchette de l'ère (§1.2). |
-| D1-3 recouvrement | Niveau 1 contre niveau 30, même pose, même origine, 64 px par tuile. | IoU < 0,50 (cible de production ≤ 0,45), maximum sur les poses de référence (N, E, S, O pour les tourelles et la foreuse). |
+| D1-3 recouvrement | Niveau 1 contre niveau 30, même pose, même origine, 64 px par tuile. | IoU < 0,50 (cible de production ≤ 0,45), maximum sur les poses de référence (N, E, S, O pour les tourelles et la foreuse), **masque sans les couches plates au sol** ; ET IoU normalisée en échelle (max sur k de IoU(niveau 1 × k, niveau 30)) ≤ seuil étalonné sur les premières pièces (proposition 0,75). Amendement validé (Q13, E27). |
 | D1-4 emprise | — | `collision_box` et `selection_box` identiques au vanilla à tous les niveaux. `drawing_box` agrandie à l'enveloppe (§1.8). |
 
 Un **outil de mesure réutilisable** existe déjà : `docs/epoques/mesures/measure.py`. Il compose des couches

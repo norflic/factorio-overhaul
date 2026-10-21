@@ -35,6 +35,10 @@
     l'architecte : aucune économie par défaut. Le recul du canon et le déploiement complet du laser se
     voient en gros plan (R4). Les économies ne reviendront en discussion que si le temps de rendu par
     image, mesuré par V0, l'impose.
+- 18 h 54, **Q13 (amendement de D1-3 après E27)** : « Oui, j'accepte l'amendement de D1-3 : socle exclu
+  de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). »
+  D1-3 devient : IoU < 0,50, sur un masque sans couches plates au sol, ET IoU normalisée en échelle sous
+  un seuil à étalonner (proposition 0,75).
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC

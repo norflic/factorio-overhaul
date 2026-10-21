@@ -230,11 +230,11 @@
      communes à moins de 50 % (mesure automatique sur les sprites, voir V4).
      **Faille trouvée le 21/10 (RD_LOG E27)** : tel qu'écrit, ce critère laisse passer un simple
      agrandissement du sprite vanilla, dès ×1,2 à ×1,4, ainsi que la tourelle laser du design rejeté,
-     posée sur sa dalle. **Amendement proposé ❔, à valider par vous** :
+     posée sur sa dalle. **Amendement VALIDÉ par vous le 21/10 à 18 h 54** (Q13) :
      - (a) les couches plates posées au sol (socle, dalle) ne comptent pas dans la silhouette ;
      - (b) on ajoute une mesure insensible à la taille : on agrandit le niveau 1 jusqu'à ce qu'il
-       ressemble le plus possible au dernier niveau, et le recouvrement restant doit être ≤ 0,75. Le
-       chiffre sera étalonné sur les premières pièces. Le design rejeté obtient 1,00, c'est-à-dire
+       ressemble le plus possible au dernier niveau, et le recouvrement restant doit rester sous un
+       seuil étalonné sur les premières pièces (proposition : 0,75). Le design rejeté obtient 1,00, c'est-à-dire
        qu'il est refusé.
   4. L'emprise au sol reste la même, pour ne pas changer le jeu. La hauteur visuelle peut croître.
   5. Ombres, socles et calques sont alignés au pixel en gros plan (R4).
@@ -356,6 +356,7 @@
 | Q10 | Une forme commune aux 7 familles par époque, et 5 ères de 3 époques calées sur les paliers T1 à T5 : principe validé ? | 21/10, 18 h 49 : « oui je suis d'accord » | Forme commune par époque et 5 ères de 3 époques : règle de V3 |
 | Q11 | Niveau 1 : sprite vanilla inchangé pour les 6 familles, et centre d'époque 1 redessiné en poste de pionnier ? | 21/10, 18 h 49 : « oui » | Niveau 1 vanilla pour les 6 familles ; centre d'époque 1 redessiné en poste de pionnier |
 | Q12 | Économies sur les tourelles : 1 image de tir au lieu de 2 (−42 % d'images sur la mitrailleuse), déploiement du laser en 8 images au lieu de 15 (−22 %) ? | 21/10, 18 h 49 : « oui si vous voulez, je sais pas vraiment l'impact que ça aura en vérité. » | Décision de l'architecte : **pas d'économie par défaut** (R4, précision : recul du canon et déploiement complets). On n'y revient que si le temps de rendu mesuré par V0 l'impose, et on vous le dira |
+| Q13 | Amender D1-3 (faille E27 : un simple agrandissement passait) ? | 21/10, 18 h 54 : « Oui, j'accepte l'amendement de D1-3 : socle exclu de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). » | D1-3 amendé : (a) couches plates au sol exclues du masque ; (b) recouvrement normalisé en échelle ≤ seuil à étalonner (proposition 0,75) ; s'ajoute à IoU < 0,50 |
 
 ## 5. Historique des écarts signalés par vous
 
