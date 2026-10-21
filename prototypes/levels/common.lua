@@ -1061,9 +1061,15 @@ function Common.generate()
         -- Paramètres en CHAÎNES (F43) : le chargeur refuse un nombre dans une chaîne localisée de prototype.
         p.localised_name = { "fo-levels.name", level_name(family), tostring(n) }
         if family.key == "command" then
-          -- Le centre énonce la règle : plafond des bâtiments (2 × son niveau) et ouvriers.
-          p.localised_description = { "fo-epochs.desc-cc", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key },
-            tostring(L.building_cap(n)), tostring(L.builders(n)) }
+          -- Le centre énonce la règle : plafond des bâtiments (2 × son niveau) et, s'il n'est pas au maximum,
+          -- la condition de son passage (Q16 : un bâtiment de chaque famille possédée au niveau visé).
+          if n < family.max then
+            p.localised_description = { "fo-epochs.desc-cc", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key },
+              tostring(L.building_cap(n)), tostring(L.cc_condition_level(n)), tostring(n + 1) }
+          else
+            p.localised_description = { "fo-epochs.desc-cc-max", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key },
+              tostring(L.building_cap(n)) }
+          end
         else
           p.localised_description = { "fo-epochs.desc", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key } }
         end

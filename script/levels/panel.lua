@@ -1,11 +1,13 @@
 --[[
-  Niveaux : panneau « Évolution » et touche U (session 5 ; époques : lot V2).
+  Niveaux : panneau « Évolution » et touche U (session 5 ; époques : lot V2 ; amélioration instantanée et
+  condition du centre : lot V2c).
 
   Survoler un bâtiment à niveaux affiche (et garde affiché) son panneau : niveau sur le maximum et ÉPOQUE,
   prochain niveau (époque, nouvelle silhouette ou pièce de plus), monnaie de l'époque (avec le matériau voulu
   quand l'objet est un remplaçant provisoire), gains de statistiques, coût (ce que vous avez / ce qu'il
-  faut), durée, ouvriers libres, raison d'un refus (centre de commandement trop bas…). Bouton « Améliorer »
-  ou touche U sur le bâtiment survolé.
+  faut), « amélioration instantanée », raison d'un refus (centre de commandement trop bas…). Sur le CENTRE :
+  la condition Q16 (niveau visé et familles qui bloquent). Bouton « Améliorer » ou touche U sur le bâtiment
+  survolé : l'amélioration est faite aussitôt.
 ]]
 
 local Events = require("script.core.events")
@@ -52,11 +54,25 @@ local function missing_text(list)
   return table.concat(parts, " ")
 end
 
+--- Familles qui bloquent le centre (Q16) : « [entity=gun-turret] Mitrailleuse, … » (chaîne localisée ;
+--- 6 familles au plus, sous la limite de 20 paramètres).
+local function families_text(keys)
+  local out = { "" }
+  for i, key in ipairs(keys or {}) do
+    local base = L.by_key[key].base
+    if i > 1 then out[#out + 1] = ", " end
+    out[#out + 1] = { "", "[entity=" .. base .. "] ", { "entity-name." .. base } }
+  end
+  return out
+end
+
 local function reason_message(info, reason)
   if reason == "cc-too-low" and info then
     return { "fo-levels.reason-cc-too-low", info.required_cc or L.required_cc(info.family, info.next) }
   end
-  if reason == "no-builder" and info then return { "fo-levels.reason-no-builder", info.builders } end
+  if reason == "cc-families" and info then
+    return { "fo-epochs.reason-cc-families", info.condition_level, families_text(info.blocking) }
+  end
   if reason == "no-resources" and info then return { "fo-levels.reason-no-resources", missing_text(info.missing or {}) } end
   if reason == "unknown-item" and info then return { "fo-epochs.reason-unknown-item", table.concat(info.unknown or {}, ", ") } end
   return { "fo-levels.reason-" .. tostring(reason) }
@@ -117,15 +133,9 @@ local function refresh(player)
   frame.add({ type = "label", caption = { "fo-epochs.level-line", n, family.max, e, epoch_name(e) } })
   local ccl = info.cc_level
   -- Plafond des BÂTIMENTS (2 × centre), quelle que soit la famille survolée (le centre lui-même va à 15).
-  frame.add({ type = "label", caption = { "fo-levels.cc-line", ccl, L.building_cap(ccl), L.builders(ccl) } })
+  frame.add({ type = "label", caption = { "fo-epochs.cc-line", ccl, L.building_cap(ccl) } })
 
-  if info.job then
-    local job = info.job
-    local p = math.min(1, (game.tick - job.start) / math.max(1, job.finish - job.start))
-    local bar = frame.add({ type = "progressbar", value = p })
-    bar.style.horizontally_stretchable = true
-    frame.add({ type = "label", caption = { "fo-levels.in-progress", job.to, Levels.fmt_time(job.finish - game.tick) } })
-  elseif n >= family.max then
+  if n >= family.max then
     frame.add({ type = "label", caption = { "fo-levels.maxed" } })
   else
     local ne = L.epoch_of(family, info.next)
@@ -155,11 +165,19 @@ local function refresh(player)
         lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
       end
     end
-    if info.ticks > 0 then
-      frame.add({ type = "label", caption = { "fo-levels.duration", Levels.fmt_time(info.ticks) } })
-      frame.add({ type = "label", caption = { "fo-levels.builders", math.max(0, info.builders - info.busy), info.builders } })
-    else
-      frame.add({ type = "label", caption = { "fo-levels.instant" } })
+    frame.add({ type = "label", caption = { "fo-levels.instant" } })
+    -- Centre : condition Q16, toujours affichée (niveau visé, puis « remplie » ou les familles qui bloquent).
+    if info.condition_level then
+      frame.add({ type = "label", caption = { "fo-epochs.cc-rule", info.condition_level } })
+      local blocking = info.blocking or {}
+      local lbl
+      if #blocking == 0 then
+        lbl = frame.add({ type = "label", caption = { "fo-epochs.cc-rule-ok" } })
+        lbl.style.font_color = { r = 0.6, g = 1, b = 0.6 }
+      else
+        lbl = frame.add({ type = "label", caption = { "fo-epochs.cc-rule-missing", families_text(blocking) } })
+        lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
+      end
     end
     if not info.ok then
       local r = frame.add({ type = "label", caption = reason_message(info, info.reason) })
@@ -168,7 +186,7 @@ local function refresh(player)
     local row = frame.add({ type = "flow", direction = "horizontal" })
     local b = row.add({ type = "button", name = "fo_lvl_up", caption = { "fo-levels.upgrade" }, style = "confirm_button" })
     b.enabled = info.ok
-    if family.instant then row.add({ type = "button", name = "fo_lvl_row", caption = { "fo-levels.upgrade-row" } }) end
+    if family.row then row.add({ type = "button", name = "fo_lvl_row", caption = { "fo-levels.upgrade-row" } }) end
   end
   frame.add({ type = "button", name = "fo_lvl_close", caption = { "fo-levels.close" } })
 end
@@ -183,9 +201,7 @@ local function try_upgrade(player, entity, row)
   end
   local ok, reason, info = Levels.start(entity, player)
   local text
-  if ok and reason == "started" then
-    text = { "fo-levels.msg-started", info.next, Levels.fmt_time(info.ticks) }
-  elseif ok then
+  if ok then
     text = { "fo-levels.msg-done", info.next }
   else
     text = reason_message(info, reason)

@@ -60,3 +60,29 @@ for _, tech in pairs(data.raw.technology) do
     for _, e in ipairs(extra) do effects[#effects + 1] = e end
   end
 end
+
+-- Lot V2c, QX9 (« alléger la recherche vanilla des premières époques ») : le nombre d'unités de chaque
+-- technologie vanilla est multiplié par X.VANILLA_UNIT_SCALE de son époque (règle du lot X0 :
+-- shared/levels/config.lua, L.vanilla_unit_count). Les technologies du mod (« fo- ») et les recherches
+-- infinies ne changent pas. Noms triés : l'ordre de pairs ne compte pas.
+local tech_names = {}
+for name in pairs(data.raw.technology) do tech_names[#tech_names + 1] = name end
+table.sort(tech_names)
+local scaled = 0
+for _, name in ipairs(tech_names) do
+  local tech = data.raw.technology[name]
+  local changed = false
+  for _, holder in ipairs({ tech, tech.normal or false, tech.expensive or false }) do
+    local unit = holder and holder.unit
+    if unit and unit.count then
+      local count = Lv.vanilla_unit_count({ name = name, effects = holder.effects or tech.effects, unit = unit,
+        max_level = holder.max_level or tech.max_level }, unit.count)
+      if count and count ~= unit.count then
+        unit.count = count
+        changed = true
+      end
+    end
+  end
+  if changed then scaled = scaled + 1 end
+end
+log("[FO-LEVELS] recherche vanilla allégée (QX9) : " .. scaled .. " technologie(s)")
