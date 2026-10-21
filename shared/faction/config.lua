@@ -71,6 +71,75 @@ F.defaults = {
   think_period = 300,         -- ticks entre deux décisions d'un commandant
 }
 
+---------------------------------------------------------------------------------------------------
+-- PvP : les factions attaquent-elles le joueur d'elles-mêmes ? (OBJECTIFS.md C4, réponse du Directeur
+-- Créatif à Q4, 21/10 18 h 07 : « oui (et différents niveaux de difficulté) »). Lot IA0.
+--
+-- Un réglage de partie (fo-pvp-difficulty, runtime-global) choisit le niveau. Paramètres par niveau :
+--   grace_min    délai de grâce (min) compté depuis le lancement de la guerre, DIVISÉ par l'agressivité
+--                de la personnalité (conquérant 1,5 : plus tôt ; bâtisseur 0,7 : plus tard) ;
+--   cooldown_min intervalle minimal (min) entre deux attaques d'une même faction contre le joueur ;
+--   share        part visée des soldats envoyés au combat qui vont contre le joueur (règle du déficit) ;
+--   keep_mult    multiplie la garnison gardée par la personnalité quand l'attaque vise le joueur ;
+--   min_mult     multiplie la taille minimale (20 / agressivité) : en dessous, aucune attaque ;
+--   size_mult    multiplie la même base pour la taille VISÉE des attaques qui suivent la première ;
+--   save_min     quand le joueur est « dû », la faction garde ses soldats pour lui (elle n'attaque plus
+--                sa rivale) pendant au plus save_min minutes, le temps d'atteindre la taille visée.
+-- Débit d'une faction contre le joueur ≈ part × production de soldats / taille : share / size_mult croît
+-- avec le niveau (0,33 ; 0,40 ; 0,46 ; 0,60), donc les attaques sont à la fois plus grosses et plus
+-- fréquentes (vérifié par la campagne pure de tests/pvp_test.lua, dans 4 configurations : joueur non
+-- leader, joueur leader, leader défendu, gros leader. Une valeur de 1,8 pour Impitoyable donnait autant
+-- d'attaques que Difficile pour le conquérant ; 1,6 en donnait autant pour l'équilibré quand le joueur
+-- est leader, d'où 1,5). La première attaque après la déclaration n'attend pas la taille visée (taille
+-- minimale).
+-- « Paisible » garde le comportement d'avant IA0 : cessez-le-feu, rompu seulement si le joueur détruit
+-- une entité de la faction, et jamais d'attaque délibérée contre lui.
+---------------------------------------------------------------------------------------------------
+F.pvp_order = { "peaceful", "easy", "normal", "hard", "merciless" }
+F.pvp_default = "normal"
+F.pvp = {
+  peaceful  = { aggressive = false, grace_min = 0,  cooldown_min = 0,  share = 0,    keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 0 },
+  easy      = { aggressive = true,  grace_min = 45, cooldown_min = 15, share = 0.20, keep_mult = 1.5,  min_mult = 0.6, size_mult = 0.6, save_min = 0 },
+  normal    = { aggressive = true,  grace_min = 30, cooldown_min = 8,  share = 0.40, keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 3 },
+  hard      = { aggressive = true,  grace_min = 18, cooldown_min = 5,  share = 0.65, keep_mult = 0.5,  min_mult = 0.9, size_mult = 1.4, save_min = 5 },
+  merciless = { aggressive = true,  grace_min = 10, cooldown_min = 3,  share = 0.90, keep_mult = 0.25, min_mult = 0.8, size_mult = 1.5, save_min = 7 },
+}
+F.pvp_rules = {
+  warn_ticks = 2 * 3600,      -- préavis avant la fin de la grâce
+  min_attack = 4,             -- taille minimale absolue d'une attaque contre le joueur
+  max_keep = 0.9,             -- garnison gardée au plus (quel que soit le niveau)
+  -- Coalition (le joueur est le « leader » : territoire nettement supérieur) : la part visée s devient
+  -- s + leader_bonus × (1 - s). Correction du lot IA0 : l'ancien « × 1,5 plafonné à 100 % » rendait
+  -- Difficile et Impitoyable indiscernables (tous deux à 100 %) et arrêtait les guerres entre factions.
+  -- Le bonus garde l'ordre strict des niveaux (0,40 ; 0,55 ; 0,74 ; 0,925) et laisse au moins 7,5 % aux
+  -- rivales.
+  leader_bonus = 0.25,
+  -- Unité commune joueur / factions : le territoire du joueur se compte en secteurs repérés (64 × 64
+  -- tuiles, au moins sector_min installations), celui d'une faction en avant-postes (une grappe de
+  -- foreuses de 30 à 40 tuiles de large). On compte sectors_per_outpost secteurs pour un avant-poste.
+  -- PROVISOIRE : valeur de conception, non mesurée en moteur réel.
+  sectors_per_outpost = 2,
+  defense_per_turret = 8,     -- même estimation que pour une faction (équivalents fusiliers par tourelle)
+  defense_radius = 40,        -- tourelles comptées autour de la cible (attaque de zone 24 + portée)
+  sector = 64,                -- repérage : secteurs de 64 × 64 tuiles (2 × 2 chunks)
+  -- Disque de 24 secteurs (1 536 tuiles, 1 793 secteurs) autour du point de départ du joueur : les
+  -- avant-postes lointains (souvent les plus proches des QG de faction) sont repérés. Au-delà : jamais
+  -- ciblé (limite documentée). Le coût par tick ne dépend pas du rayon, seulement du débit ci-dessous.
+  scan_radius = 24,
+  -- Débit : 1 secteur (1 count_entities_filtered) toutes les 8 ticks, soit 7,5 secteurs/s ; balayage
+  -- complet en 1 793 × 8 = 14 344 ticks (4 min). Un seul appel par tick porteur (pic divisé par 2 par
+  -- rapport à 2 appels toutes les 15 ticks, même débit).
+  scan_period = 8,            -- ticks entre deux passes du repérage
+  scan_per_pass = 1,          -- secteurs comptés par passe (1 appel moteur chacun)
+  sector_min = 2,             -- installations pour qu'un secteur soit une cible
+  target_ttl = 1800,          -- cible du joueur réévaluée au plus toutes les 30 s par faction
+}
+
+--- Paramètres d'un niveau (repli sur le défaut pour une valeur inconnue).
+function F.pvp_params(level)
+  return F.pvp[level] or F.pvp[F.pvp_default]
+end
+
 function F.research_cost(tech)
   return F.economy.research_base * F.economy.research_growth ^ tech
 end

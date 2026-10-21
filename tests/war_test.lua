@@ -106,6 +106,19 @@ for _, f in ipairs(global.fo.war.factions) do
   check(f.team.done.coal and f.team.done.iron, f.key .. " : objectifs Charbon et Fer atteints")
 end
 check(W().files["fo-war/status.txt"] ~= nil, "statut écrit dans script-output")
+-- Lot IA0 (difficulté par défaut : Normal) : déclarations à la fin de la grâce, mais aucune attaque
+-- contre un joueur qui n'a aucune installation.
+do
+  local declared, against_player, status_pvp = 0, 0, false
+  for _, f in ipairs(global.fo.war.factions) do
+    if f.pvp and f.pvp.declared then declared = declared + 1 end
+    against_player = against_player + (f.pvp and f.pvp.attacks or 0)
+  end
+  for _, l in ipairs(W().prints) do if l:find("PvP : difficulte normal", 1, true) then status_pvp = true end end
+  check(global.fo.war.factions[1].pvp.declared and declared >= 1, "PvP Normal : l'Ordre Écarlate (grâce 20 min) a déclaré la guerre au joueur")
+  check(against_player == 0, "PvP : aucune attaque contre un joueur sans installation (" .. against_player .. ")")
+  check(status_pvp, "statut : ligne PvP")
+end
 local ok_ser, err_ser = pcall(M.serialize, global)
 check(ok_ser, "global sérialisable en pleine guerre (" .. tostring(err_ser) .. ")")
 
@@ -182,6 +195,15 @@ end
 
 ---------------------------------------------------------------------------------------------------
 section("Diplomatie : le joueur détruit une foreuse")
+-- Lot IA0 : en Normal, toutes les grâces sont écoulées ici. On repasse en « Paisible » (trêve des factions
+-- déclarées par la difficulté), puis on vérifie la rupture du cessez-le-feu par provocation.
+check(remote.call("fo-pvp", "set_difficulty", "peaceful") == true, "passage en Paisible (interface distante)")
+local truce_all = true
+for _, id in ipairs(require("script.faction.state").alive()) do
+  local ff = game.forces[global.fo.war.factions[id].force]
+  if not (ff.get_cease_fire(game.forces.player) and game.forces.player.get_cease_fire(ff)) then truce_all = false end
+end
+check(truce_all, "Paisible : cessez-le-feu rétabli avec toutes les factions")
 local victim
 for _, e in ipairs(W().entities) do
   if e.valid and e.name == "burner-mining-drill" then victim = e break end
@@ -192,6 +214,9 @@ if victim then
   M.run_ticks(2)
   check(vf.get_cease_fire(game.forces.player) == false, "la faction lésée déclare la guerre au joueur")
   check(game.forces.player.get_cease_fire(vf) == false, "et réciproquement")
+  local told = 0
+  for _, line in ipairs(W().game_prints) do if line:find("fo-pvp.declare-provoked:", 1, true) then told = told + 1 end end
+  check(told == 1, "représailles annoncées au joueur (" .. told .. ")")
 else
   check(false, "aucune foreuse disponible pour le test de diplomatie")
 end

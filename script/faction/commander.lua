@@ -5,6 +5,9 @@
   Session 4 (économie réelle) : une pensée = (1) entretien des groupes armés, (2) CERVEAU D'ÉQUIPE
   (script/team/team.lua : objectif, tâches des ouvriers, recrutement, équipement des soldats, recherche, le
   tout payé avec les objets du stock), (3) décision d'attaque (shared/faction/strategy.lua, pure).
+
+  Lot IA0 : la décision d'attaque passe par script/faction/pvp.lua (S.decide) : le joueur peut être pris
+  pour cible selon le niveau de difficulté ; en « Paisible », la décision est celle d'avant IA0.
 ]]
 
 local Events = require("script.core.events")
@@ -17,6 +20,7 @@ local Sites = require("script.faction.sites")
 local Military = require("script.faction.military")
 local Outposts = require("script.faction.outposts")
 local Team = require("script.team.team")
+local PvP = require("script.faction.pvp")
 
 local Commander = {}
 
@@ -95,8 +99,7 @@ function Commander.think(id, tick)
   Profiler.stop("faction:team")
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
-  local count = target and S.attack(view)
-  if count then Military.attack(f, surface, target, count, tick) end
+  PvP.think(f, surface, tick, view, target)
   Profiler.stop("faction:attack")
   Profiler.stop("faction:think")
 end
