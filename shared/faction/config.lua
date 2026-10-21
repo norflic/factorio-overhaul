@@ -18,11 +18,13 @@ F.factions = {
 }
 
 -- Personnalités : pondérations de la stratégie (1 = neutre).
+-- caution (lot IA0b) : prudence face à une base du JOUEUR défendue, multiplie le rapport de force exigé
+-- par le niveau de difficulté (F.pvp[...].force_ratio). Le conquérant est le plus téméraire.
 F.personalities = {
-  conqueror  = { greed = 1.0, aggression = 1.5, research = 0.8, keep = 0.20 },
-  technocrat = { greed = 1.0, aggression = 0.8, research = 1.6, keep = 0.35 },
-  builder    = { greed = 1.5, aggression = 0.7, research = 1.0, keep = 0.40 },
-  balanced   = { greed = 1.0, aggression = 1.0, research = 1.0, keep = 0.30 },
+  conqueror  = { greed = 1.0, aggression = 1.5, research = 0.8, keep = 0.20, caution = 0.75 },
+  technocrat = { greed = 1.0, aggression = 0.8, research = 1.6, keep = 0.35, caution = 0.95 },
+  builder    = { greed = 1.5, aggression = 0.7, research = 1.0, keep = 0.40, caution = 1.00 },
+  balanced   = { greed = 1.0, aggression = 1.0, research = 1.0, keep = 0.30, caution = 0.90 },
 }
 
 -- Soldats (débloqués par niveau technologique de la faction).
@@ -58,6 +60,11 @@ F.economy = {
 
 F.military = {
   attack_base = 20,           -- taille minimale d'une attaque (divisée par l'agressivité)
+  -- Lot IA0b : la taille minimale d'une attaque contre une faction ne dépasse jamais rival_min_cap × ce
+  -- que l'armée visée entière (T.army_share × soldiers_max) peut envoyer (au moins 4). Avec 100 soldats
+  -- maximum (défaut), seul le bâtisseur est concerné (28 ramené à 21 : armée visée 40, garnison gardée
+  -- 40 %) ; avant IA0b, il n'attaquait jamais personne (moteur réel E21 : Émeraude, 0 attaque en 60 min).
+  rival_min_cap = 0.9,
   train_batch = 5,
   staging_step = 96,          -- distance entre étapes d'une marche longue (hypothèse H-F2)
   attack_radius = 24,
@@ -94,19 +101,51 @@ F.defaults = {
 -- minimale).
 -- « Paisible » garde le comportement d'avant IA0 : cessez-le-feu, rompu seulement si le joueur détruit
 -- une entité de la faction, et jamais d'attaque délibérée contre lui.
+--
+-- Lot IA0b (base défendue). Avant IA0b, une base défendue n'était JAMAIS attaquée (3 tourelles en tech 0 :
+-- BALANCE_SHEET §10 bis) : la règle « force ≥ 1,3 × défense » et le repli sur la rivale après save_min
+-- vidaient la garnison avant qu'elle n'atteigne le seuil. Paramètres ajoutés :
+--   force_ratio  rapport de force exigé contre le joueur (force envoyée ≥ ratio × défense estimée), multiplié
+--                par la prudence de la personnalité (F.personalities[...].caution) : plus prudent en Facile,
+--                plus téméraire en Impitoyable ;
+--   siege_min    SIÈGE : la faction qui vise le joueur sans avoir assez de forces garde ses soldats pour lui
+--                (elle n'attaque plus sa rivale) pendant au plus siege_min minutes. Au-delà : répit, une
+--                attaque contre la rivale, puis un nouveau siège ;
+--   siege_cap    plafond du siège : part de l'armée visée de la personnalité (shared/team/config.lua,
+--                T.army_share × soldiers_max) que la faction accepte de réunir dans sa garnison. Si la
+--                garnison nécessaire dépasse ce plafond, la faction est DISSUADÉE (repli sur la rivale) ;
+--   rally_min    ASSAUT COORDONNÉ (Difficile, Impitoyable) : une attaque prête contre le joueur ouvre une
+--                fenêtre de rally_min minutes pendant laquelle les autres factions qui l'assiègent se joignent
+--                à l'assaut avec join_frac × leur besoin (au moins pvp_rules.min_attack).
+-- Facile ne fait jamais de siège : il reste dissuadé par une défense forte (sens de « facile », chiffré
+-- dans BALANCE_SHEET §10 bis). Valeurs réglées sur la campagne pure de tests/pvp_test.lua (8 configurations,
+-- dont 4 bases défendues) : l'ordre strict des niveaux y tient avec un soldat produit toutes les 45 s ; il ne
+-- tient plus partout avec une production plus lente (déjà le cas avant IA0b).
 ---------------------------------------------------------------------------------------------------
 F.pvp_order = { "peaceful", "easy", "normal", "hard", "merciless" }
 F.pvp_default = "normal"
 F.pvp = {
-  peaceful  = { aggressive = false, grace_min = 0,  cooldown_min = 0,  share = 0,    keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 0 },
-  easy      = { aggressive = true,  grace_min = 45, cooldown_min = 15, share = 0.20, keep_mult = 1.5,  min_mult = 0.6, size_mult = 0.6, save_min = 0 },
-  normal    = { aggressive = true,  grace_min = 30, cooldown_min = 8,  share = 0.40, keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 3 },
-  hard      = { aggressive = true,  grace_min = 18, cooldown_min = 5,  share = 0.65, keep_mult = 0.5,  min_mult = 0.9, size_mult = 1.4, save_min = 5 },
-  merciless = { aggressive = true,  grace_min = 10, cooldown_min = 3,  share = 0.90, keep_mult = 0.25, min_mult = 0.8, size_mult = 1.5, save_min = 7 },
+  peaceful  = { aggressive = false, grace_min = 0,  cooldown_min = 0,  share = 0,    keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 0,
+                force_ratio = 1.3, siege_min = 0,  siege_cap = 0,    rally_min = 0, join_frac = 1 },
+  easy      = { aggressive = true,  grace_min = 45, cooldown_min = 15, share = 0.20, keep_mult = 1.5,  min_mult = 0.6, size_mult = 0.6, save_min = 0,
+                force_ratio = 1.5, siege_min = 0,  siege_cap = 0,    rally_min = 0, join_frac = 1 },
+  normal    = { aggressive = true,  grace_min = 30, cooldown_min = 8,  share = 0.40, keep_mult = 1,    min_mult = 1,   size_mult = 1,   save_min = 3,
+                force_ratio = 0.9, siege_min = 20, siege_cap = 0.95, rally_min = 0, join_frac = 1 },
+  hard      = { aggressive = true,  grace_min = 18, cooldown_min = 5,  share = 0.65, keep_mult = 0.5,  min_mult = 0.9, size_mult = 1.4, save_min = 5,
+                force_ratio = 0.65, siege_min = 30, siege_cap = 1,  rally_min = 2, join_frac = 0.8 },
+  merciless = { aggressive = true,  grace_min = 10, cooldown_min = 3,  share = 0.90, keep_mult = 0.25, min_mult = 0.8, size_mult = 1.5, save_min = 7,
+                force_ratio = 0.5, siege_min = 45, siege_cap = 1,    rally_min = 3, join_frac = 0.7 },
 }
 F.pvp_rules = {
   warn_ticks = 2 * 3600,      -- préavis avant la fin de la grâce
   min_attack = 4,             -- taille minimale absolue d'une attaque contre le joueur
+  -- Lot IA0b : la taille minimale d'une attaque contre le joueur ne dépasse jamais min_cap × ce que l'armée
+  -- visée entière (T.army_share × soldiers_max) peut envoyer (bâtisseur en Normal : 28 ramené à 21).
+  min_cap = 0.9,
+  -- Lot IA0b : plancher des attaques suivantes (après save_min) = goal_floor × taille visée, au plus
+  -- floor_cap × ce que l'armée visée entière peut envoyer, au moins le besoin (S.player_floor).
+  goal_floor = 0.75,
+  floor_cap = 0.95,
   max_keep = 0.9,             -- garnison gardée au plus (quel que soit le niveau)
   -- Coalition (le joueur est le « leader » : territoire nettement supérieur) : la part visée s devient
   -- s + leader_bonus × (1 - s). Correction du lot IA0 : l'ancien « × 1,5 plafonné à 100 % » rendait

@@ -24,10 +24,17 @@
     (équipes), les autres forces ne sont jamais attaquées et leur cessez-le-feu n'est pas géré ;
   - une installation au-delà du disque de repérage (1 536 tuiles du point de départ) n'est jamais ciblée.
 
-  État persistant : war.pvp (niveau, ancre de la grâce, secteurs repérés, curseur, pertes du joueur),
-  f.pvp par faction (déclarée, provoquée, héritée, préavis, fin de grâce au plus tôt, dernière attaque,
-  soldats envoyés), war.pvp_forced (niveau imposé par l'interface distante, bancs seulement). Aucune
-  fonction dans global.
+  Lot IA0b (base défendue) : la décision pure assiège (« siege » : la faction garde ses soldats pour le
+  joueur), se dit dissuadée (« deterred ») ou se joint à un assaut coordonné (« join », Difficile et
+  Impitoyable). Ce module tient la fenêtre d'assaut coordonné (war.pvp.rally_until : ouverte par une attaque
+  prête contre le joueur), marque les attaques jointes, et journalise chaque entrée en siège ou en
+  dissuasion (« [FO-PVP] siege », « [FO-PVP] dissuasion »). Aucun calcul par tick : tout se fait dans la
+  pensée du commandant.
+
+  État persistant : war.pvp (niveau, ancre de la grâce, secteurs repérés, curseur, pertes du joueur, fenêtre
+  d'assaut coordonné), f.pvp par faction (déclarée, provoquée, héritée, préavis, fin de grâce au plus tôt,
+  dernière attaque, soldats envoyés, plan en cours, sièges, attaques jointes), war.pvp_forced (niveau imposé
+  par l'interface distante, bancs seulement). Aucune fonction dans global.
 ]]
 
 local Events = require("script.core.events")
@@ -112,6 +119,7 @@ local function faction_state(f)
     fp = {
       declared = false, provoked = false, warned = false, declared_at = nil, last_attack = nil, due_since = nil,
       sent_player = 0, sent_total = 0, attacks = 0, soldiers = 0, kills = 0, target = nil, saves = 0,
+      plan = nil, sieges = 0, deterred = 0, joins = 0,
     }
     f.pvp = fp
   end
@@ -221,7 +229,7 @@ end
 local function truce(f, tick)
   local fp = faction_state(f)
   fp.declared, fp.warned = false, false
-  fp.target, fp.due_since = nil, nil
+  fp.target, fp.due_since, fp.plan = nil, nil, nil
   if not ceasefire_on(f) then set_relations(f, true) end
   Military.recall_player_groups(f, tick)
   say({ "fo-pvp.truce", fname(f) }, string.format("[FO-PVP] treve tick %d %s", tick, f.key))
@@ -244,6 +252,7 @@ function PvP.sync(tick)
   p.difficulty = level
   local d = F.pvp_params(level)
   if d.aggressive and not was then p.anchor = tick end
+  if S.rally_ticks(level) <= 0 then p.rally_until = nil end -- assaut coordonné : Difficile et Impitoyable seulement
   say({ "fo-pvp.changed", level_name(level) }, string.format("[FO-PVP] difficulte %s au tick %d", level, tick))
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
@@ -400,12 +409,25 @@ function PvP.think(f, surface, tick, view, target)
     difficulty = level, tick = tick, anchor = p.anchor, grace_floor = fp.grace_floor,
     declared = fp.declared, provoked = fp.provoked,
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
-    player_groups = player_groups(f), due_since = fp.due_since,
+    player_groups = player_groups(f), due_since = fp.due_since, rally_until = p.rally_until,
   }
   view.player = player_view(f, surface, p, fp, tick, level)
   local a = S.decide(view)
   if a.due_since ~= nil then fp.due_since = a.due_since or nil end
   if a.plan == "save" then fp.saves = (fp.saves or 0) + 1 end
+  -- Lot IA0b : entrée en siège ou en dissuasion (une ligne de journal par entrée, pas par pensée).
+  if a.plan ~= fp.plan then
+    if a.plan == "siege" then
+      fp.sieges = (fp.sieges or 0) + 1
+      log(string.format("[FO-PVP] siege tick %d %s : besoin %d, disponibles %d, defense estimee %d, tech %d",
+        tick, f.key, a.need or 0, a.count or 0, view.player and view.player.defense or 0, f.tech or 0))
+    elseif a.plan == "deterred" then
+      fp.deterred = (fp.deterred or 0) + 1
+      log(string.format("[FO-PVP] dissuasion tick %d %s : besoin %d, disponibles %d, defense estimee %d, tech %d",
+        tick, f.key, a.need or 0, a.count or 0, view.player and view.player.defense or 0, f.tech or 0))
+    end
+  end
+  fp.plan = a.plan
 
   if a.warn then
     fp.warned = true
@@ -417,7 +439,17 @@ function PvP.think(f, surface, tick, view, target)
   if a.attack then
     if a.attack.target == "player" and fp.target then
       local t = fp.target
-      Military.attack(f, surface, { id = "player", key = "player", hq_pos = t.pos, outposts = {} }, a.attack.count, tick)
+      if Military.attack(f, surface, { id = "player", key = "player", hq_pos = t.pos, outposts = {} }, a.attack.count, tick)
+        and f.route_pending then
+        f.route_pending.join, f.route_pending.need = a.attack.join or nil, a.need
+        if a.rally then
+          -- Difficile, Impitoyable : fenêtre d'assaut coordonné pour les autres factions qui assiègent.
+          local u = tick + S.rally_ticks(level)
+          if not p.rally_until or u > p.rally_until then p.rally_until = u end
+          p.rally_by = f.key
+          log(string.format("[FO-PVP] assaut coordonne ouvert tick %d par %s jusqu'au tick %d", tick, f.key, p.rally_until))
+        end
+      end
     elseif target and a.attack.target == target.id then
       Military.attack(f, surface, target, a.attack.count, tick)
     end
@@ -463,11 +495,13 @@ Military.on_launched = function(f, target_faction, n, rp, tick)
   fp.attacks = fp.attacks + 1
   fp.soldiers = fp.soldiers + n
   fp.last_attack = tick
-  fp.due_since = nil
+  fp.due_since, fp.plan = nil, nil
   local surface = game.surfaces[State.war().surface]
-  say({ "fo-pvp.attack", fname(f), n, gps(surface, rp.target) },
-    string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d",
-      tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), fp.target and fp.target.defense or 0))
+  if rp.join then fp.joins = (fp.joins or 0) + 1 end
+  say({ rp.join and "fo-pvp.attack-joined" or "fo-pvp.attack", fname(f), n, gps(surface, rp.target) },
+    string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d, besoin %d, tech %d%s",
+      tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), fp.target and fp.target.defense or 0,
+      rp.need or 0, f.tech or 0, rp.join and " (assaut coordonne)" or ""))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -512,7 +546,7 @@ function PvP.status(tick)
   local out = {
     active = war.active, difficulty = level, forced = war.pvp_forced, anchor = p and p.anchor,
     score = p and p.score or 0, sweeps = p and p.sweeps or 0, losses = p and p.losses or 0,
-    sectors = 0, factions = {},
+    sectors = 0, factions = {}, rally_until = p and p.rally_until,
   }
   if p then for _ in pairs(p.sectors) do out.sectors = out.sectors + 1 end end
   for _, id in ipairs(State.sorted_keys(war.factions or {})) do
@@ -527,6 +561,7 @@ function PvP.status(tick)
       sent_player = fp.sent_player or 0, sent_total = fp.sent_total or 0, last_attack = fp.last_attack,
       kills = fp.kills or 0,
       target = fp.target and { x = fp.target.pos.x, y = fp.target.pos.y, defense = fp.target.defense } or nil,
+      plan = fp.plan, sieges = fp.sieges or 0, deterred = fp.deterred or 0, joins = fp.joins or 0, tech = f.tech,
     }
   end
   return out
@@ -536,8 +571,8 @@ function PvP.status_line(tick)
   local st = PvP.status(tick)
   local parts = {}
   for _, fs in ipairs(st.factions) do
-    parts[#parts + 1] = string.format("%s %s%s att %d (%d soldats) pertes infligees %d", fs.key,
-      fs.declared and "GUERRE" or "treve", fs.provoked and "*" or "", fs.attacks, fs.soldiers, fs.kills)
+    parts[#parts + 1] = string.format("%s %s%s att %d (%d soldats, %d jointes) sieges %d pertes infligees %d", fs.key,
+      fs.declared and "GUERRE" or "treve", fs.provoked and "*" or "", fs.attacks, fs.soldiers, fs.joins, fs.sieges, fs.kills)
   end
   return string.format("  PvP : difficulte %s | secteurs du joueur %d (cibles %d, balayages %d) | pertes du joueur %d | %s",
     st.difficulty, st.sectors, st.score, st.sweeps, st.losses, table.concat(parts, " ; "))
