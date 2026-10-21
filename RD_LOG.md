@@ -69,6 +69,23 @@
 
 - 21 h 38, **Q18 (ordre)** : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. »
 
+- 21 h 45, **Q19, précision sur l'amélioration, les PNJ et le scénario** (transcription) : « quand je parlais d'amélioration […] Dans Clash of Clans, c'est on améliore et on attend. Alors que là, l'idée, c'est si on a les ressources, on améliore, terminé. Parce que c'est comme pour poser les constructions […] c'est instantané. Bah, c'est pareil pour l'amélioration en vérité. […] la logique en fait de pipeline […] de production, qui s'adapterait à l'environnement […] il y aurait différents pôles […] peut-être que 5 entre guillemets, et ces 5 là ils piloteraient en fait différentes parties […] ça serait vraiment des ouvriers à part entière, mais qui soient multifonctions […] les couteaux suisses […] concentrer nos efforts sur tel ou tel aspect, que ce soit la ressource, que ce soit l'amélioration de la base […] la protection […] pouvoir dire je veux contrôler cette zone là […] j'ai relu votre scénario et le scénario est bien […] je l'aime bien. Très difficile à mon avis à faire en modèle, etc., 3D, mais je suis sûr que vos agents y arriveront. Paralyser un maximum pour essayer d'avancer au plus vite, mais tant que c'est qualitatif […] et pas uniquement on change la saturation ou la teinte des bâtiments […] il faut que ce soit également optimisé […] il faut pas qu'il y ait 1 million de polygones »
+  Décisions :
+  - **L'amélioration devient instantanée** dès que les ressources sont là, comme poser un bâtiment, pour le
+    joueur comme pour les PNJ. Les durées de chantier et la limite de chantiers simultanés disparaissent
+    (E1-2 et E1-4 révisés) ; Q17 (file de chantiers) est sans objet. Mise en œuvre : lot V2c.
+  - **C5 précisé** :
+    - production adaptative pilotée par les objectifs ;
+    - pôles ;
+    - environ 5 généralistes « couteaux suisses » sur 30 ;
+    - le joueur oriente ;
+    - contrôle de zones.
+    La conception d'IA1 a été relancée avec cette précision.
+  - **Scénario X0 approuvé** par le Directeur Créatif.
+  - **3D** : qualité exigée, parallélisme maximal, et un budget d'optimisation (nouvel objectif D4 : mémoire
+    vidéo, atlas, chargement ; le nombre de polygones n'a pas de coût en jeu, car les modèles sont pré-rendus
+    en images).
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`

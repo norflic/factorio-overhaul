@@ -255,7 +255,19 @@
   6. Les PNJ progressent (fabrication, déplacement, minage, inventaire), mesurés contre le joueur.
   7. En moteur réel, 4 factions de 30 PNJ se disputent les gisements et s'attaquent, en tenant le
      budget A1.
-- **État** : ❌ La conception est lancée (lot IA1, 21/10, 21 h 35). Construction : en parallèle de la Compaction, juste après le visuel (Q18).
+- **Précision du Directeur Créatif (21/10, 21 h 45, Q19)** :
+  - **Amélioration instantanée** : un PNJ va jusqu'au bâtiment avec les ressources et l'améliore, comme un
+    joueur.
+  - **Le cœur de la R&D** : une logique de production ADAPTATIVE pilotée par les objectifs, qui s'adapte au
+    terrain. Exemple : il faut des circuits rouges → le débit de circuits verts manque → il faut du
+    plastique → du pétrole → des pompes et des tuyaux.
+  - **Organisation** : des pôles (extraction ; avancement de la base, qui allie tout ; protection) et
+    **environ 5 généralistes « couteaux suisses »** sur 30. Ce sont des ouvriers à part entière, qui
+    pilotent chacun une partie.
+  - **Le joueur** donne l'orientation principale et concentre l'effort.
+  - **Contrôle de zones** : par exemple, 2 PNJ posent et ravitaillent des tourelles pour tenir une zone,
+    sans gâcher le visuel.
+- **État** : ❌ Conception lancée (lot IA1, 21/10, 21 h 35), puis relancée à 21 h 50 pour intégrer la précision Q19. Construction : en parallèle de la Compaction, juste après le visuel (Q18).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -301,6 +313,23 @@
 - **État** : 🟨 Halos et lueurs prouvés la nuit (E23) ; faibles de jour ; aucune animation propre aux
   niveaux.
 
+### D4 · Optimisation graphique (Q19, 21/10)
+- **Demande** : « il faut que ce soit également optimisé […] il faut pas qu'il y ait 1 million de polygones ».
+- **Ce que nous en comprenons** : en jeu, nos bâtiments 3D sont des IMAGES pré-rendues (sprites). Le nombre
+  de polygones ne coûte que du temps de rendu dans Blender, jamais des images par seconde dans Factorio.
+  Les vrais coûts en jeu sont :
+  - la mémoire vidéo et la taille des atlas de sprites ;
+  - le nombre d'images d'animation ;
+  - le poids des fichiers ;
+  - le temps de chargement.
+- **Critères d'acceptation** ❔
+  1. Budget de mémoire vidéo des sprites de niveaux mesuré et tenu : ≤ 1,5 Go non compressé en haute
+     qualité. L'estimation de V1 est de 0,8 à 1,4 Go.
+  2. Une qualité « normale » (sprites basse résolution) correcte pour les PC modestes.
+  3. Le chargement du jeu ne s'allonge pas de plus de 30 s (mesuré au banc).
+  4. Le temps de rendu hors jeu reste raisonnable : chiffré par famille.
+- **État** : ❌ non mesuré (V3, V4).
+
 ### D3 · Précision du rendu
 - **Critères d'acceptation** ❔
   1. Aucun calque décalé, aucune ombre fausse, aucun élément caché.
@@ -316,9 +345,12 @@
   game ».
 - **Critères d'acceptation** (tous ✅)
   1. Un centre de commandement (l'hôtel de ville) plafonne les autres bâtiments.
-  2. Les ouvriers limitent les chantiers simultanés.
+  2. ~~Les ouvriers limitent les chantiers simultanés.~~ Sans objet depuis Q19 (amélioration instantanée). Les PNJ
+     améliorent eux aussi les bâtiments en y apportant les ressources (C5, lot IA1).
   3. Coûts et durées croissent ; les ressources des biomes servent de monnaie aux hauts niveaux.
-  4. Le bâtiment est hors service pendant son chantier.
+  4. ~~Le bâtiment est hors service pendant son chantier.~~ **Révisé le 21/10 (Q19)** : l'amélioration est
+     INSTANTANÉE dès que les ressources sont là, comme poser un bâtiment. Plus de durée de chantier, plus de
+     limite d'« ouvriers » de chantier (lot V2c).
   5. Contenu, recette, munitions et santé sont conservés.
   6. 7 familles × 10 niveaux.
   7. Le bonus de recherche est hérité.
@@ -429,7 +461,7 @@
 | Q14 | Tourelles à niveaux et tourelles lourdes du mod : (A) dégâts +2 %/niveau après le niveau 10, d'où un DPS au niveau 30 de 0,94 × la mitrailleuse lourde et 1,06 × le laser lourd (appliqué par V2) ; ou (B) des niveaux pour les tourelles lourdes, ou leur retrait ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → option A conservée | Tourelles à niveaux : DPS du niveau 30 ≈ tourelles lourdes |
 | Q15 | Sauvegardes 0.3.0 : un mur de niveau 10 passe de 3 712 à 1 925 PV (nouvelle courbe). D'accord ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → accepté | Murs 0.3.0 : PV ramenés au nouveau maximum au chargement |
 | Q16 | Condition façon Clash of Clans pour monter le centre (par exemple, tous les bâtiments au niveau maximal de l'époque) ? Aujourd'hui, monter le centre seul ne coûte que 0,9 % de la dépense | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, condition légère : au moins un bâtiment de chaque famille possédée au niveau maximal de l'époque pour monter le centre | Lot V2c |
-| Q17 | Avancer la file de chantiers (E3-4) avant la Compaction ? Sans elle, il faut relancer un chantier toutes les 10 s à l'époque 6 | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, la file de chantiers passe avant la Compaction | Lot V2c (E3-4) |
+| Q17 | Avancer la file de chantiers (E3-4) avant la Compaction ? Sans elle, il faut relancer un chantier toutes les 10 s à l'époque 6 | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, la file de chantiers passe avant la Compaction | **Sans objet depuis Q19** (amélioration instantanée) |
 | QX1 | Phase « brûleur » aux époques 1 et 2, l'électricité n'arrivant qu'à l'époque 3 ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | Lots X1-X3 |
 | QX2 | Le Serment (époque 13) : une seule maîtrise de branche (III) et sa merveille avant l'époque 15, les autres à l'époque 15 ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | Branches |
 | QX3 | Défaite si une faction ouvre sa Porte avant vous (X0 : en Difficile et en Impitoyable) ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → défaite seulement en Impitoyable | C4, fin de partie |
@@ -440,6 +472,7 @@
 | QX8 | Les bâtiments vanilla qui arrivent après l'époque 1 (mur, four, foreuse, assembleur, laser) naissent au niveau 1 et rattrapent leurs niveaux en payant, ou naissent au niveau de leur époque ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → naissance au niveau 1, rattrapage payant | E1, F1 |
 | QX9 | Aux époques 2 à 4, 6 et 10, la recherche vanilla coûte jusqu'à 11 fois le budget du modèle : alléger la recherche vanilla (×0,04 à ×0,25 d'unités) ou plus de production plus tôt ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → alléger la recherche vanilla des premières époques | Lot V2c (recalibrage) |
 | Q18 | Quand construire IA1 (équipes de PNJ organisées, C5) ? | 21/10, 21 h 38 : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. » | Ordre : visuel (V) → Compaction (C) ET IA1 en parallèle (fichiers distincts) → contenu des époques (X) → idle (I) |
+| Q19 | Précision sur l'amélioration, les PNJ et le scénario (transcription du 21/10, 21 h 45) | « quand je parlais d'amélioration […] Dans Clash of Clans, c'est on améliore et on attend. Alors que là, l'idée, c'est si on a les ressources, on améliore, terminé. Parce que c'est comme pour poser les constructions […] c'est instantané. Bah, c'est pareil pour l'amélioration en vérité. […] la logique en fait de pipeline […] de production, qui s'adapterait à l'environnement […] il y aurait différents pôles […] peut-être que 5 entre guillemets, et ces 5 là ils piloteraient en fait différentes parties […] ça serait vraiment des ouvriers à part entière, mais qui soient multifonctions […] les couteaux suisses […] concentrer nos efforts sur tel ou tel aspect, que ce soit la ressource, que ce soit l'amélioration de la base […] la protection […] pouvoir dire je veux contrôler cette zone là […] j'ai relu votre scénario et le scénario est bien […] je l'aime bien. Très difficile à mon avis à faire en modèle, etc., 3D, mais je suis sûr que vos agents y arriveront. Paralyser un maximum pour essayer d'avancer au plus vite, mais tant que c'est qualitatif […] et pas uniquement on change la saturation ou la teinte des bâtiments […] il faut que ce soit également optimisé […] il faut pas qu'il y ait 1 million de polygones » | (1) **Amélioration instantanée** dès que les ressources sont là, pour le joueur comme pour les PNJ : plus de durée ni de limite de chantiers (E1 révisé ; Q17 sans objet) → lot V2c. (2) C5 précisé : production adaptative pilotée par les objectifs, pôles, environ 5 généralistes sur 30, contrôle de zones → lot IA1 relancé. (3) **Scénario X0 approuvé**. (4) 3D : qualité exigée, parallélisme maximal, budget d'optimisation (D4) |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -550,11 +583,11 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 apport.md | 21/10, 19 h 55 |
 | V3 phase 1 : modélisation des 7 familles | ⏳ workflow lancé (aperçus des 30 niveaux, auto-mesure D1 ; rien en jeu avant V2 et V0b) | — | 21/10, 19 h 40 ; relancé à 20 h 35 après l'arrêt de la session (environ 2 000 lignes par famille conservées) |
 | V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
-| X0 Scénario, crafts, branches | ✅ hors jeu, 👁 conception à valider par vous (QX1 à QX9) | « La Caustique d'Érèbe » : `docs/SCENARIO_EPOQUES.md`, données pures `shared/content/epochs.lua`, banc `tests/epochs_test.lua` (16 665 OK, 0 échec ; 3 défauts injectés tous détectés) ; 3 concepteurs, 2 juges, 3 critiques (45 problèmes, dont 19 majeurs ou bloquants, corrigés) ; rien en jeu | 21/10, 21 h 15 |
+| X0 Scénario, crafts, branches | ✅ hors jeu ; **scénario approuvé par vous** (Q19 : « le scénario est bien […] je l'aime bien ») ; QX1 à QX9 répondues | « La Caustique d'Érèbe » : `docs/SCENARIO_EPOQUES.md`, données pures `shared/content/epochs.lua`, banc `tests/epochs_test.lua` (16 665 OK, 0 échec ; 3 défauts injectés tous détectés) ; 3 concepteurs, 2 juges, 3 critiques (45 problèmes, dont 19 majeurs ou bloquants, corrigés) ; rien en jeu | 21/10, 21 h 15 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
 | IA0b Base défendue attaquée selon la difficulté | ⏳ workflow lancé (siège, rapport de force par niveau et par personnalité, assaut coordonné) | — | 21/10, 20 h 52 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
-| V2c Condition du centre (Q16), file de chantiers (Q17), recalibrage X0/V2 (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
+| V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
 | IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
