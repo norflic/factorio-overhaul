@@ -32,7 +32,7 @@ python -P tools/render/render.py tools/render/pieces/cheminee.py
 - options : `--variants seule,four` (par défaut toutes), `--samples N` (défaut 256, `fo_calib.SAMPLES`),
   `--data "<racine>/data"` (sprites vanilla qui servent de masque) ;
 - durée mesurée : **118,6 s** pour les 2 variantes de la cheminée (5 passes chacune, 256 échantillons,
-  processeur i5-12600KF, 8 fils) ;
+  processeur i5-12600KF, 8 fils) ; 357 s au lot V0b, avec deux autres Blender en cours (production V3) ;
 - sorties :
   - `graphics/<dest>/hr-<pièce>-<variante>-<couche>.png` et `<pièce>-<variante>-<couche>.png` ;
   - `graphics/<dest>/<pièce>-icon.png` (64 px + 3 mipmaps) ;
@@ -115,7 +115,9 @@ par la couche `glow` (`draw_as_glow` dessine aussi dans la carte des lumières).
   il bloque la lumière et ne la reçoit pas ;
 - `S.mat_emissive(..., main_scale=0.0)` : surface ÉTEINTE dans la couche principale ; la lueur additive seule
   donne la couleur, comme le feu vanilla. Avec 1,0 (défaut, V0), l'émission compte deux fois en jeu ;
-- `fo_calib.GROUND_GLOSSY_ALBEDO` : voir `"calib"` ci-dessus (défaut `None` : comme V0).
+- `fo_calib.GROUND_GLOSSY_ALBEDO` et `fo_calib.SKY_GLOSSY_FACTOR` : sol et ciel vus par les SEULS rayons
+  spéculaires (défaut `None` : comme V0) ; à régler par pièce dans `"calib"` (cheminée : 0,8 et 0,0). Effet
+  mesuré : CALIBRATION §5 bis (reflets plus francs, mais tons moyens plus clairs).
 
 **Contrôles automatiques** (`fo_checks.py`, appelés par `render.py`, détail dans le manifeste, clé
 `checks` ; `render.py` sort avec le code 3 sur un échec bloquant) :
@@ -142,6 +144,15 @@ bâtiment, poches).
    lumières), halo en `draw_as_light = true, draw_as_sprite = false` (idiome vanilla du four en acier) : ils
    s'éteignent avec le bâtiment.
 6. **Ancre** sur la grille de 1/32 de tuile (la version 32 px/tuile tombe alors au pixel).
+
+**Filtrage au zoom 1 (toutes les pièces, prouvé en moteur au lot V0b)** : poser
+`flags = { "linear-minification" }` sur la couche principale (normale et `hr_version`). Sans ce drapeau, la
+couche HR d'un mod est échantillonnée au PLUS PROCHE au zoom 1 (rangées de rivets crénelées, scintillement
+possible) ; avec lui, elle est filtrée 2×2 comme les bâtiments vanilla. Mesure (cheminée seule, capture z1) :
+sans drapeau, plus proche 0,056 contre moyenne 2×2 0,088 ; avec, moyenne 2×2 0,053 contre plus proche 0,086.
+Attention : les drapeaux suivent l'IMAGE. Deux prototypes qui utilisent le même fichier avec des drapeaux
+différents reçoivent le même filtrage (observé : la cheminée sans drapeau était filtrée tant qu'un double
+avec drapeau existait). Exemple : `prototypes/vitrine.lua` (`MAIN_FLAGS`).
 
 **Épaisseur minimale** : tout élément fait au moins 2 px HR (0,031 unité) ; un élément plus fin devient
 une frange semi-transparente (le sol se voit au travers, et la nuit l'anneau ressort).
@@ -172,7 +183,8 @@ pendant la production V3 : jusqu'à 11 min d'attente pour une place. Regrouper s
 Mêmes entrées → **mêmes octets** : Cycles sur CPU, graine fixe (`fo_calib.SEED`), nombre d'échantillons
 fixe, échantillonnage adaptatif, débruitage, guidage et tramage coupés, 8 fils, PNG 16 bits relus sans
 conversion. Vérifié le 21/10/2026 : deux rendus complets → **18 fichiers sur 18 identiques**
-(`render.py --check`). Non vérifié : indépendance vis-à-vis du nombre de fils et d'une autre version de
+(`render.py --check`) ; refait au lot V0b sur la pièce corrigée (holdout, volumes de remplacement,
+surcharges `calib`) : **18 sur 18 identiques** (276,5 s). Non vérifié : indépendance vis-à-vis du nombre de fils et d'une autre version de
 Blender ou d'un autre processeur (écart possible dans les derniers bits ; on refait alors le manifeste).
 
 ## Ce que l'outil ne prouve PAS

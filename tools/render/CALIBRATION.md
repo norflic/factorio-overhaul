@@ -188,12 +188,11 @@ Couleurs mesurées :
   - lumière au sol `hr-steel-furnace-ground-light.png` : prémultiplié max (0,79 ; 0,39 ; 0,04) ;
   - orchestrateur : lumières des fours orange de (99,49,3) à (241,144,2), en PNG couleur sans teinte.
 
-Halo : éclairage direct seul de six sources ponctuelles devant la grille d'évents. Il est borné par deux
-fenêtres circulaires :
-- flaque au sol : pleine jusqu'à 1,1 tuile du pied, nulle à 2,1 tuiles ;
-- cœur : autour des évents.
-
-Une flaque compacte, comme `hr-steel-furnace-ground-light.png` (152 × 126 px).
+Halo (V0, **remplacé au lot V0b**, voir §5 ter) : éclairage direct seul de six sources ponctuelles devant la
+grille d'évents, borné par deux fenêtres circulaires (flaque au sol pleine jusqu'à 1,1 tuile du pied, nulle à
+2,1 ; cœur autour des évents). Mesuré en moteur (rapport V0) : 6,3 tuiles² au lieu de 0,9 à 1,8, cœur
+blanc sur le fût, trou à la forme du pied caché sur le four équipé (F64). V0b : flaque au sol seulement,
+pièce découpée, valeurs linéaires.
 
 ## 5. Photométrie de la couche principale (pixels opaques, sRGB)
 
@@ -222,6 +221,54 @@ verticale, sans dessus plats éclairés par le soleil et l'appoint. Les cerclage
 monter la saturation de 0,197 à 0,338, mais pas le p95. Pistes :
 - plus de pièces horizontales claires (passerelle et lèvre en tôle claire) ;
 - reflets d'arête plus vifs.
+
+### 5 bis. Lot V0b : photométrie du CORPS (hors zones émissives), 21/10/2026
+
+La mesure du tableau ci-dessus porte sur toute la couche, braises comprises (vérification V0, rapport 3 :
+« fausse conformité »). `fo_checks.photometry` mesure désormais le CORPS seul (alpha ≥ 0,99, hors lueur
+dilatée de 2 px). Même méthode, cheminée seule :
+
+| Rendu | L moy | écart-type | p05 | p50 | p95 | part > 0,5 | grain | gradient | réglage |
+|---|---|---|---|---|---|---|---|---|---|
+| V0 (fichier livré) | 0,271 | 0,131 | 0,114 | 0,238 | 0,511 | 5,3 % | 0,054 | 0,056 | — |
+| V0b, filtre 1,0 px (balayage 1) | 0,318 | 0,150 | 0,128 | 0,300 | 0,514 | 6,0 % | **0,089** | 0,080 | rejeté : grain hors plage |
+| V0b, filtre 1,5 px (même balayage) | 0,321 | 0,143 | 0,134 | 0,302 | 0,519 | 5,9 % | 0,072 | 0,074 | gardé |
+| métal 0,25 (moins de reflets, plus de Lambert) | 0,307 | 0,144 | 0,141 | 0,268 | 0,503 | 5,1 % | 0,071 | 0,072 | sans effet |
+| sol des reflets 0,8, ciel des reflets 0 | 0,361 | 0,164 | 0,132 | 0,344 | 0,607 | 20,6 % | 0,077 | 0,087 | — |
+| sol des reflets 1,0, ciel 0 | 0,387 | 0,176 | 0,137 | 0,371 | 0,663 | 23,8 % | 0,079 | 0,093 | trop clair |
+| **V0b livré** (256 échantillons, sol 0,8, ciel 0, tôle (0,20 ; 0,17 ; 0,13) métal 0,85 rugosité 0,22) | **0,363** | **0,166** | **0,139** | **0,339** | **0,624** | **21,3 %** | **0,076** | **0,088** | — |
+| plages vanilla (§5) | 0,178–0,361 | 0,177–0,243 | 0–0,105 | 0,092–0,293 | 0,657–0,847 | — | 0,036–0,082 | — | — |
+
+Balayages : 21 configurations à 96 échantillons (scripts hors dépôt, scratchpad du lot), rendus par le verrou.
+
+**Bilan honnête : la photométrie du corps n'est PAS dans les plages vanilla.** Écart-type +27 % et p95 +22 %
+par rapport à V0 (gradient +57 %), mais l'écart-type (0,166) et le p95 (0,624) restent sous le minimum
+vanilla, le p05 (0,139) au-dessus du maximum, la moyenne (0,363) et la médiane (0,339) au-dessus. Causes
+mesurées :
+- un fût vertical vu à 45° n'a ni dessus plat éclairé ni creux profond : aucun réglage de matériau n'a fait
+  descendre le p05 sous 0,105 (21 essais) ; les sombres vanilla viennent des intérieurs de bâtiments ;
+- avec l'éclairage étalonné, un cylindre vertical ne reçoit aucun reflet spéculaire du soleil ni de
+  l'appoint (demi-vecteur à 56° de toute normale horizontale) : seuls les reflets du SOL peuvent créer la
+  bande claire vanilla, d'où le sol des reflets (`GROUND_GLOSSY_ALBEDO`) ; il éclaircit aussi les tons moyens ;
+- le filtre de 1,0 px (constat du rapport) ajoute surtout du bruit : grain 0,089, hors plage. Gardé à 1,5.
+La pièce est donc plus claire et plus métallique que V0 (aspect acier clair). **Le style a été validé sur
+V0 : le Directeur Créatif doit revoir ce changement de ton** (captures du lot V0b).
+
+### 5 ter. Lot V0b : halo (draw_as_light) étalonné en moteur
+
+| Mesure (capture debut-z2, même scène que V0) | V0 | V0b | four vanilla (même capture) |
+|---|---|---|---|
+| surface à λ ≥ 0,1 | 7,10 tuile² | **1,45** | 1,70 |
+| intégrale | 1,64 | **0,38** | 0,67 |
+| pic (p99) | 0,279 | **0,315** | 0,572 (vacille) |
+| portées S / E / O à λ ≥ 0,1 | 1,48 / 1,64 / 1,50 (N 2,19) | **0,86 / 0,88 / 0,86** | — |
+| λ sur le corps de la cheminée (médiane, p90) | 0,006 / 0,48 | **0,000 / 0,005** | corps du four 0,03 |
+| λ sur la collerette | 0,47 | **0,001** | — |
+
+Réglage : 6 sources de 50 W (300 W), couleur (1 ; 0,49 ; 0,05) de `hr-steel-furnace-ground-light.png`,
+fenêtre au sol pleine jusqu'à 0,55 tuile, nulle à 1,05 tuile, valeurs linéaires. Hors moteur (`render.py`) :
+pic 0,474, surface 1,53 tuile². La passerelle cache le sol au pied des évents : la flaque est un anneau
+(disque sombre de 0,45 tuile autour du pied), géométrie réelle, pas un défaut de calcul.
 
 ## 6. Maquette hors moteur
 

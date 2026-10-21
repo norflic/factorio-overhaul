@@ -59,6 +59,12 @@ end
 
 local LAYER_ORDER = { "shadow", "main", "glow", "light" }
 
+-- V0b : drapeau de filtrage de la couche principale. Sans lui, la couche HR est échantillonnée au PLUS
+-- PROCHE au zoom 1 (rapport V0 ; mesuré de nouveau au lot V0b : écart 0,056 au plus proche contre 0,088 en
+-- moyenne 2×2) ; avec un drapeau de filtrage, filtrée 2×2 comme les bâtiments vanilla. Captures :
+-- <racine>\fo-logs\2026-10-21_V0b_vitrine\ (haute, diagnostic-sans-essais, filtre).
+local MAIN_FLAGS = { "linear-minification" }
+
 local function layers_of(variant, main_flags)
   local v = SPR.variants[variant]
   if not v then error("vitrine : variante de sprites absente : " .. variant) end
@@ -89,25 +95,8 @@ out[#out + 1] = {
   -- boîte d'affichage (fiche de l'entité) : la cheminée monte à 2,4 unités, soit 1,7 tuile à l'écran
   drawing_box = { { -0.6, -2.3 }, { 0.6, 0.5 } },
   render_layer = "object",
-  picture = { layers = layers_of("cheminee-seule") },
+  picture = { layers = layers_of("cheminee-seule", MAIN_FLAGS) },
 }
-
----------------------------------------------------------------------------------------------------
--- 1 bis. Essai V0b du filtrage au zoom 1 (rapport V0 : au zoom 1, la couche principale de la cheminée est
--- échantillonnée au plus proche, le vanilla est filtré 2×2). Même cheminée, couche principale avec des
--- SpriteFlags de filtrage ; à comparer sur les captures z1 de la vitrine.
----------------------------------------------------------------------------------------------------
-local ESSAIS = {
-  { "fo-vitrine-v0b-cheminee-lin", { "linear-minification" } },
-  { "fo-vitrine-v0b-cheminee-mip", { "mipmap", "linear-minification", "linear-mip-level" } },
-}
-for i, e in ipairs(ESSAIS) do
-  local c = table.deepcopy(out[1])
-  c.name = e[1]
-  c.order = "z[fo-vitrine]-a[cheminee]-" .. i
-  c.picture = { layers = layers_of("cheminee-seule", e[2]) }
-  out[#out + 1] = c
-end
 
 ---------------------------------------------------------------------------------------------------
 -- 2. Four en acier équipé de la cheminée (copie du four vanilla, mêmes statistiques, emprise 2×2).
@@ -136,7 +125,7 @@ if not v then error("vitrine : variante de sprites absente : cheminee-four") end
 local pos = 1
 for _, kind in ipairs({ "shadow", "main" }) do
   if v[kind] then
-    table.insert(four.animation.layers, pos, sprite_layer(v[kind], kind))
+    table.insert(four.animation.layers, pos, sprite_layer(v[kind], kind, kind == "main" and MAIN_FLAGS or nil))
     pos = pos + 1
   end
 end
