@@ -91,7 +91,7 @@ def to_img(rgb):
     return Image.fromarray(np.clip(np.round(rgb * 255), 0, 255).astype(np.uint8), "RGB")
 
 
-def grid(cells, cols, labels, pad=6, bg=(24, 24, 24), lab_h=14):
+def grid(cells, cols, labels, pad=6, bg=(24, 24, 24), lab_h=14, fg=None):
     """Assemble des images RGB (listes de lignes) avec une étiquette au-dessus de chaque cellule."""
     ch = max(c.shape[0] for row in cells for c in row if c is not None)
     cw = max(c.shape[1] for row in cells for c in row if c is not None)
@@ -106,7 +106,7 @@ def grid(cells, cols, labels, pad=6, bg=(24, 24, 24), lab_h=14):
                 continue
             x = pad + c * (cw + pad)
             y = pad + r * (ch + pad + lab_h)
-            dr.text((x + 2, y), labels[r][c], fill=(230, 230, 230))
+            dr.text((x + 2, y), labels[r][c], fill=fg or ((20, 20, 20) if sum(bg) > 384 else (230, 230, 230)))
             out.paste(to_img(im), (x, y + lab_h))
     return out
 

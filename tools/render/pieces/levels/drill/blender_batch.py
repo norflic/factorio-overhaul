@@ -90,7 +90,9 @@ def to_npy(png_path, npy_path):
     buf = np.empty(w * h * 4, dtype=np.float32)
     img.pixels.foreach_get(buf)
     arr = np.flipud(buf.reshape(h, w, 4))
-    np.save(npy_path, arr)
+    # float16 (11 bits de mantisse) : largement assez pour des sorties en PNG 8 bits, et deux fois moins
+    # de disque que float32 (disque H: limité, 30 Mo par pose haute en float32)
+    np.save(npy_path, arr.astype(np.float16))
     bpy.data.images.remove(img)
 
 

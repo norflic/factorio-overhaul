@@ -24,10 +24,10 @@ EPOCHS = {
         "piece": "grand manomètre incliné sur console et sifflet en laiton au sommet",
         "lumiere": "hublots ambrés #FFC060 visibles de jour (1re lueur, D2-1)", "emissif": "#FFC060"},
     4: {"key": "oil", "nom": "Pétrole", "ere": "II Lourde",
-        "silhouette": "pont jaune en anneau sur pieds galvanisés, bandes d'avertissement ; maison du moteur et "
+        "silhouette": "châssis jaune en poutres sur pieds galvanisés, bandes d'avertissement ; maison du moteur et "
                       "toit-passerelle à garde-corps ; 2 vérins hydrauliques et traverse ; colonne de pompe ; cuve "
                       "horizontale à l'arrière sur berceaux",
-        "piece": "petit derrick en treillis, moufle et feu au sommet",
+        "piece": "derrick en treillis avec plate-forme d'accrochage, moufle et feu au sommet",
         "lumiere": "voyants orange #FF8C1A ; feu de derrick", "emissif": "#FF8C1A"},
     5: {"key": "volcano", "nom": "Volcan", "ere": "II Lourde",
         "silhouette": "carcasse en tronc de pyramide : 3 bandes d'écailles de tungstène, contreforts inclinés aux "
@@ -63,7 +63,7 @@ EPOCHS = {
     11: {"key": "titanium", "nom": "Titane", "ere": "IV Haute techno",
          "silhouette": "cadre léger sur pieds en V (vide au sol) ; nacelle suspendue par haubans ; flèche élancée "
                        "et 4 ailerons triangulaires",
-         "piece": "flèche-capteur (pointe en losange, 3 ailettes)",
+         "piece": "flèche-capteur : collier, nacelle fuselée, pointe, 3 ailettes et feu",
          "lumiere": "lignes bleu-blanc #BFE6FF (chenillard en phase 2)", "emissif": "#BFE6FF"},
     12: {"key": "superconductor", "nom": "Supraconducteurs", "ere": "IV Haute techno",
          "silhouette": "4 pylônes noirs effilés ; longerons flottants (interstices) ; tige noire ; 3 anneaux "
@@ -82,8 +82,9 @@ EPOCHS = {
          "lumiere": "cellules bleues #2F6BFF, balises rouges #FF2A2A (clignotement en phase 2)",
          "emissif": "#FF2A2A"},
     15: {"key": "legend", "nom": "Légende", "ere": "V Stellaire",
-         "silhouette": "plate-forme octogonale FLOTTANTE (aucun appui) ; coussin de lumière ; 4 obélisques "
-                       "flottants aux angles ; tour-flèche ; couronne de 8 petites flèches et éclats",
+         "silhouette": "anneau octogonal FLOTTANT (aucun appui, centre ajouré) ; coussin de lumière ; 4 obélisques "
+                       "flottants aux angles ; tour-flèche flottante tenue par 4 rayons ; couronne de 8 petites "
+                       "flèches et éclats",
          "piece": "halo : anneau de lumière, cercle d'or blanc et anneau incliné au sommet de la flèche",
          "lumiere": "blanc doré #FFF2C0 (particules en phase 2)", "emissif": "#FFF2C0"},
 }

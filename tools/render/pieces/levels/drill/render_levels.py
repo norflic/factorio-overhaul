@@ -167,26 +167,67 @@ def save_spec(spec):
         json.dump(spec, f, indent=1, sort_keys=True)
 
 
-def call_blender(variants, samples, layers, log, margin=64, retries=2):
-    """Rend les variantes ; si Blender s'arrête en cours de lot (code non nul), relance les variantes
-    restantes dans un nouveau processus (au plus `retries` fois)."""
+def _ready(v):
+    """Infos du rendu de la variante v si Blender l'a terminée (json écrit APRÈS les .npy), sinon None."""
+    path = os.path.join(CACHE, "drill-%s-render.json" % v)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None   # en cours d'écriture : on repassera
+
+
+def call_blender(variants, samples, layers, log, margin=64, on_ready=None, retries=2):
+    """Rend les variantes dans UN processus Blender (une seule prise du verrou) et post-traite chaque pose
+    dès qu'elle est finie (on_ready), pour que le cache ne garde qu'une pose ou deux (disque H: limité).
+    Si Blender s'arrête en cours de lot, relance les variantes restantes (au plus `retries` fois)."""
     t0 = time.time()
     todo = list(variants)
+    handled = set()
+
+    def drain():
+        for v in todo:
+            if v not in handled and _ready(v) is not None:
+                if on_ready:
+                    on_ready(v)
+                handled.add(v)
+
+    rest = list(todo)
     for attempt in range(retries + 1):
-        cmd = [sys.executable, LOCK, "--", fo_blender.blender_exe(), "-b", "--factory-startup", "-noaudio", "-P",
-               BATCH, "--", "--piece", PIECE_FILE, "--out", CACHE, "--variants", ",".join(todo), "--samples",
-               str(samples), "--layers", layers, "--margin", str(margin)]
-        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        # Le verrou partagé (with_render_lock.py, non modifié) attend en sondant toutes les 5 s ; d'autres
+        # lots sondent toutes les 0,5 s et prennent chaque place libérée (attente de 40 min et plus le
+        # 21/10). On le relance donc avec --wait 0 (un seul essai, code 2 et message « aucune place libre »
+        # si les 2 places sont prises) toutes les 0,5 s : même règle (2 rendus au plus, priorité basse),
+        # même fréquence de sondage que les autres lots.
+        rest = [v for v in todo if v not in handled]
+        cmd = [sys.executable, LOCK, "--wait", "0", "--", fo_blender.blender_exe(), "-b", "--factory-startup",
+               "-noaudio", "-P", BATCH, "--", "--piece", PIECE_FILE, "--out", CACHE, "--variants", ",".join(rest),
+               "--samples", str(samples), "--layers", layers, "--margin", str(margin)]
+        out_path = os.path.join(CACHE, "blender-run.txt")
+        while True:
+            with open(out_path, "w", encoding="utf-8") as fo:
+                p = subprocess.Popen(cmd, stdout=fo, stderr=subprocess.STDOUT)
+                while p.poll() is None:
+                    drain()
+                    time.sleep(1.0)
+            with open(out_path, encoding="utf-8", errors="replace") as fi:
+                txt = fi.read()
+            if p.returncode == 2 and "aucune place libre" in txt:
+                time.sleep(0.5)
+                continue
+            break
+        drain()
         with open(log, "a", encoding="utf-8") as f:
-            f.write(" ".join(cmd) + "\n[code %d]\n" % p.returncode + p.stdout[-6000:] + p.stderr[-6000:] + "\n")
-        done = [ln.split()[1][len("drill-"):] for ln in p.stdout.splitlines() if ln.startswith("[FO-RENDER]")]
-        todo = [v for v in todo if v not in done]
-        if p.returncode == 0 and not todo:
+            f.write(" ".join(cmd) + "\n[code %d]\n" % p.returncode + txt[-6000:] + "\n")
+        rest = [v for v in todo if v not in handled]
+        if p.returncode == 0 and not rest:
             return time.time() - t0
-        print("[FO-V3-DRILL] Blender code %d, reste %s (essai %d)" % (p.returncode, todo, attempt + 1), flush=True)
-        if not todo:
+        print("[FO-V3-DRILL] Blender code %d, reste %s (essai %d)" % (p.returncode, rest, attempt + 1), flush=True)
+        if not rest:
             return time.time() - t0
-    raise RuntimeError("échec Blender pour %s (voir %s)" % (todo, log))
+    raise RuntimeError("échec Blender pour %s (voir %s)" % (rest, log))
 
 
 def main():
@@ -196,6 +237,8 @@ def main():
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--per-call", type=int, default=4)
+    ap.add_argument("--post-only", action="store_true",
+                    help="post-traiter les rendus déjà présents dans le cache (sans Blender)")
     a = ap.parse_args()
     os.makedirs(CACHE, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
@@ -209,28 +252,35 @@ def main():
     samples = 4 if a.quick else a.samples
     layers = "main" if a.quick else "main,ao,shadow,glow,light"
     t_all = time.time()
+    def post(v):
+        lvl, d = int(v[1:3]), v.split("-")[1]
+        info = _ready(v)
+        if a.quick:
+            spec["quick"][v] = post_quick(info, lvl, d)
+        elif lvl == 2:
+            for dd in dirs:
+                spec["levels"].setdefault("L02", {})[dd] = post_variant(info, 2, dd, mask_dir=dd)
+            spec["levels"]["L02"]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
+                                               "canvas": info["canvas"], "objects": info["objects"]}
+        else:
+            spec["levels"].setdefault("L%02d" % lvl, {})[d] = post_variant(info, lvl, d)
+            spec["levels"]["L%02d" % lvl][d]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
+                                                         "canvas": info["canvas"], "objects": info["objects"]}
+        clean(v)
+        os.remove(os.path.join(CACHE, "drill-%s-render.json" % v))
+        save_spec(spec)
+        print("[FO-V3-DRILL] %s post-traité (%.1f s de rendu)" % (v, info["seconds"]), flush=True)
+
     for i in range(0, len(jobs), a.per_call):
         chunk = jobs[i:i + a.per_call]
         variants = ["L%02d-%s" % (lvl, d) for lvl, d in chunk]
-        dt = call_blender(variants, samples, layers, log, margin=max(margin_for(l, a.quick) for l, _ in chunk))
-        for lvl, d in chunk:
-            v = "L%02d-%s" % (lvl, d)
-            with open(os.path.join(CACHE, "drill-%s-render.json" % v), encoding="utf-8") as f:
-                info = json.load(f)
-            if a.quick:
-                spec["quick"]["L%02d-%s" % (lvl, d)] = post_quick(info, lvl, d)
-            elif lvl == 2:
-                for dd in dirs:
-                    spec["levels"].setdefault("L02", {})[dd] = post_variant(info, 2, dd, mask_dir=dd)
-                spec["levels"]["L02"]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
-                                                   "canvas": info["canvas"], "objects": info["objects"]}
-            else:
-                spec["levels"].setdefault("L%02d" % lvl, {})[d] = post_variant(info, lvl, d)
-                spec["levels"]["L%02d" % lvl][d]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
-                                                             "canvas": info["canvas"], "objects": info["objects"]}
-            clean(v)
-            os.remove(os.path.join(CACHE, "drill-%s-render.json" % v))
-        save_spec(spec)
+        if a.post_only:
+            for v in variants:
+                if _ready(v) is not None:
+                    post(v)
+            continue
+        dt = call_blender(variants, samples, layers, log, margin=max(margin_for(l, a.quick) for l, _ in chunk),
+                          on_ready=post)
         print("[FO-V3-DRILL] %s : %.1f s (attente du verrou comprise)" % (",".join(variants), dt), flush=True)
     print("[FO-V3-DRILL] total %.1f s" % (time.time() - t_all))
 

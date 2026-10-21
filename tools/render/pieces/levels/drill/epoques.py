@@ -25,6 +25,7 @@ from kit import K, srgb, scale
 CP = 1.22          # coordonnée (tuiles) des montants d'angle, dans la boîte de collision (±1,4)
 CHUTE_OUT = -1.60  # bout de la goulotte (tuiles) : sort de 0,10 de l'emprise, comme le vanilla
 DAY_GAIN_E12 = 0.30  # émission de jour des lueurs « de nuit » des époques 1 et 2 (lanterne, forge)
+EMIT_K = 0.40        # facteur des forces émissives de glow() (≈ 1 en sortie, comme la cheminée V0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -42,7 +43,9 @@ def paint(ctx, key, hexc, rough=0.48, grain=0.16, dirt=0.5, k=1.0, metallic=0.15
 
 
 def glow(ctx, key, hexc, strength=2.0, base="#202020"):
-    return ctx.S.mat_emissive(ctx.name(key), srgb(hexc), strength=strength, base=srgb(base))
+    """Surface émissive. La force est multipliée par EMIT_K : à 2 à 3,2 (1re version), la passe principale
+    saturait (cadran du manomètre BLANC au lieu d'ambre, aperçus du 21/10) ; ~1 comme la cheminée V0."""
+    return ctx.S.mat_emissive(ctx.name(key), srgb(hexc), strength=strength * EMIT_K, base=srgb(base))
 
 
 def glass(ctx, key, hexc, alpha=0.6, rough=0.06):
@@ -241,12 +244,12 @@ def e02(ctx, piece):
     # tige et trépan sous le carter
     bit(ctx, hoop, 0.85, r=0.20)
     # tour en treillis HAUTE (1re version : sommet à 2,36, la tour ne se lisait pas au zoom 1)
-    lattice(ctx, 1.46, 2.62, 0.40, 0.18, 0.06, steel, rings=3)
-    ctx.tbox(-0.27, -0.27, 0.27, 0.27, 2.62, 2.78, steel, bevel=0.015, name="chapeau")
+    lattice(ctx, 1.46, 2.32, 0.40, 0.20, 0.06, steel, rings=3)
+    ctx.tbox(-0.27, -0.27, 0.27, 0.27, 2.32, 2.48, steel, bevel=0.015, name="chapeau")
     for sa in (-1, 1):
         for sb in (-1, 1):
             ctx.tbox(sa * 0.27 - 0.07 * sa - 0.05, sb * 0.27 - 0.07 * sb - 0.045, sa * 0.27 - 0.07 * sa + 0.05,
-                     sb * 0.27 - 0.07 * sb + 0.045, 2.78, 2.92, steel, bevel=0.008, name="merlon")
+                     sb * 0.27 - 0.07 * sb + 0.045, 2.48, 2.62, steel, bevel=0.008, name="merlon")
     chute(ctx, steel, hoop, z_in=0.95, z_out=0.30, lip=brass)
     if piece:
         f = ctx.fixed()
@@ -255,13 +258,13 @@ def e02(ctx, piece):
         flame = glow(f, "e02p_flamme", "#FFB060", strength=3.0)
         # potence en A au-dessus du chapeau, grande poulie face caméra, lanterne de mine à l'est
         for s in (-1, 1):
-            f.beam((s * 0.22, 0.0, 2.80), (s * 0.03, 0.0, 3.42), 0.05, iron, name="potence")
-        f.wheel(0.0, 0.03, 3.40, 0.30, 0.04, iron, spokes=6, name="poulie")
-        f.beam((0.0, 0.0, 3.42), (0.52, 0.0, 3.30), 0.045, iron, name="bras_lanterne")
-        f.rod((0.50, 0.0, 3.30), (0.50, 0.0, 3.14), 0.009, iron, name="chaine")
-        f.cyl(0.50, 0.0, 2.96, 3.14, 0.085, iron, name="lanterne")
-        f.cyl(0.50, 0.0, 2.99, 3.11, 0.07, flame, name="lanterne_verre")
-        halo(f, 0.50, 0.0, 3.05, "#FFB060", 20.0)
+            f.beam((s * 0.22, 0.0, 2.50), (s * 0.03, 0.0, 3.12), 0.05, iron, name="potence")
+        f.wheel(0.0, 0.03, 3.10, 0.30, 0.04, iron, spokes=6, name="poulie")
+        f.beam((0.0, 0.0, 3.12), (0.52, 0.0, 3.00), 0.045, iron, name="bras_lanterne")
+        f.rod((0.50, 0.0, 3.00), (0.50, 0.0, 2.84), 0.009, iron, name="chaine")
+        f.cyl(0.50, 0.0, 2.66, 2.84, 0.085, iron, name="lanterne")
+        f.cyl(0.50, 0.0, 2.69, 2.81, 0.07, flame, name="lanterne_verre")
+        halo(f, 0.50, 0.0, 2.75, "#FFB060", 20.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -336,9 +339,9 @@ def e03(ctx, piece):
         f.beam((-0.12, 0.0, 2.63), (-0.42, 0.0, 2.90), 0.05, brass2, name="console_manometre")
         gz, ga = 3.00, -0.44
         tilt = Matrix.Rotation(math.radians(70), 4, "X")
-        o = f.S.cylinder(0.205, 0.05, (0, 0, 0), brass2, f.name("manometre_boitier"), verts=40, bevel_w=0.006)
+        o = f.S.cylinder(0.24, 0.05, (0, 0, 0), brass2, f.name("manometre_boitier"), verts=40, bevel_w=0.006)
         f._finish(o, local=tilt, at=f.P(ga, 0.0, gz))
-        o = f.S.cylinder(0.175, 0.012, (0, 0, 0), dial, f.name("manometre_cadran"), verts=40, bevel_w=0)
+        o = f.S.cylinder(0.205, 0.012, (0, 0, 0), dial, f.name("manometre_cadran"), verts=40, bevel_w=0)
         f._finish(o, local=Matrix.Translation((0, -0.03, 0.01)) @ tilt, at=f.P(ga, 0.0, gz))
         f.box3(ga, -0.02, gz, (0.02, 0.012, 0.14), metal(f, "e03p_aiguille", "#1A1612", metallic=0.2),
                local=Matrix.Rotation(math.radians(35), 4, "Y") @ Matrix.Translation((0, -0.06, 0)), name="aiguille")
@@ -357,17 +360,18 @@ def e04(ctx, piece):
     black = paint(ctx, "e04_noir", "#1E1E1E", rough=0.5)
     chrome = metal(ctx, "e04_chrome", "#B8BCC0", rough=0.15, metallic=0.95, grain=0.05, dirt=0.2)
     orange = glow(ctx, "e04_voyant", "#FF8C1A", strength=2.6)
-    # pieds galvanisés et pont jaune en anneau (centre ouvert)
+    # pieds galvanisés et châssis jaune en poutres (le sol se voit entre les poutres)
     for sa in (-1, 1):
         for sb in (-1, 1):
-            ctx.tbox(sa * CP - 0.10, sb * CP - 0.08, sa * CP + 0.10, sb * CP + 0.08, 0.0, 0.30, galva, name="pied")
+            ctx.tbox(sa * CP - 0.11, sb * CP - 0.09, sa * CP + 0.11, sb * CP + 0.09, 0.0, 0.30, galva, name="pied")
     for s in (-1, 1):
-        ctx.tbox(-1.38, s * 1.06 - 0.30, 1.38, s * 1.06 + 0.30, 0.30, 0.40, yellow, name="pont")
-        ctx.tbox(s * 1.06 - 0.30, -0.76, s * 1.06 + 0.30, 0.76, 0.30, 0.40, yellow, name="pont")
-    # bandes noires d'avertissement sur la rive du pont
+        ctx.tbox(s * CP - 0.10, -1.38, s * CP + 0.10, 1.38, 0.30, 0.42, yellow, name="longeron")
+        ctx.tbox(-1.38, s * CP - 0.09, 1.38, s * CP + 0.09, 0.30, 0.42, yellow, name="traverse")
+        ctx.tbox(-CP, s * 0.45 - 0.07, CP, s * 0.45 + 0.07, 0.30, 0.40, yellow, name="porteur")
+    # bandes noires d'avertissement sur les traverses avant et arrière
     for i in range(-5, 6, 2):
         for s in (-1, 1):
-            ctx.tbox(i * 0.24 - 0.08, s * 1.36 - 0.025, i * 0.24 + 0.08, s * 1.36 + 0.025, 0.31, 0.41, black, bevel=0,
+            ctx.tbox(i * 0.24 - 0.07, s * CP - 0.092, i * 0.24 + 0.07, s * CP + 0.092, 0.305, 0.425, black, bevel=0,
                      name="bande")
     # maison du moteur galvanisée + toit-passerelle à garde-corps
     ctx.tbox(-0.55, -0.55, 0.55, 0.55, 0.40, 1.30, galva, bevel=0.02, name="maison")
@@ -397,10 +401,10 @@ def e04(ctx, piece):
     faces4(ctx, 0.55, led)
     halo(ctx, 0.0, 0.70, 1.1, "#FF8C1A", 12.0)
     # colonne de pompe centrale (tour) et chapeau
-    ctx.cyl(0, 0, 1.36, 2.96, 0.20, galva, name="colonne")
-    for z in (1.86, 2.40):
+    ctx.cyl(0, 0, 1.36, 2.74, 0.20, galva, name="colonne")
+    for z in (1.80, 2.30):
         ctx.cyl(0, 0, z, z + 0.08, 0.215, yellow, name="colonne_bande")
-    ctx.cyl(0, 0, 2.96, 3.08, 0.26, yellow, name="colonne_chapeau")
+    ctx.cyl(0, 0, 2.74, 2.86, 0.26, yellow, name="colonne_chapeau")
     # cuve horizontale à l'arrière (axe est-ouest dans le repère N), sur berceaux
     o = ctx.S.cylinder(0.30, 1.50, (0, 0, 0), galva, ctx.name("cuve"), verts=40, bevel_w=0.01)
     ctx._finish(o, local=Matrix.Rotation(math.pi / 2, 4, "Y"), at=ctx.P(0.0, 1.00, 0.72))
@@ -421,24 +425,27 @@ def e04(ctx, piece):
         steel = metal(f, "e04p_acier", "#6E7378", rough=0.35, metallic=0.6, k=1.05)
         lamp = glow(f, "e04p_feu", "#FF8C1A", strength=3.0)
         # petit derrick en treillis au-dessus du chapeau, moufle, feu au sommet
-        base, top, z0, z1 = 0.17, 0.05, 3.08, 3.66
+        # (1re version : treillis de 0,17 à la base, 0,09 t² ajoutés seulement, sous la cible 0,10)
+        base, top, z0, z1 = 0.28, 0.07, 2.86, 3.48
         def c(sa, sb, t):
             w = base + (top - base) * t
             return (sa * w, sb * w * 0.75, z0 + (z1 - z0) * t)
         cs = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
         for sa, sb in cs:
-            f.beam(c(sa, sb, 0), c(sa, sb, 1), 0.045, steel, name="derrick_jambe")
+            f.beam(c(sa, sb, 0), c(sa, sb, 1), 0.055, steel, name="derrick_jambe")
         for t in (0.0, 0.5, 1.0):
             for i in range(4):
                 p, q = cs[i], cs[(i + 1) % 4]
-                f.beam(c(p[0], p[1], t), c(q[0], q[1], t), 0.035, steel, name="derrick_ceinture")
+                f.beam(c(p[0], p[1], t), c(q[0], q[1], t), 0.04, steel, name="derrick_ceinture")
         for i in range(4):
             p, q = cs[i], cs[(i + 1) % 4]
-            f.beam(c(p[0], p[1], 0), c(q[0], q[1], 0.5), 0.03, steel, name="derrick_croix")
-            f.beam(c(p[0], p[1], 0.5), c(q[0], q[1], 1.0), 0.03, steel, name="derrick_croix")
-        f.box3(0, 0, 3.70, (0.13, 0.10, 0.08), steel, name="moufle")
-        f.sph(0, 0, 3.81, 0.065, lamp, name="feu_derrick")
-        halo(f, 0, 0, 3.81, "#FF8C1A", 14.0)
+            f.beam(c(p[0], p[1], 0), c(q[0], q[1], 0.5), 0.035, steel, name="derrick_croix")
+            f.beam(c(p[0], p[1], 0.5), c(q[0], q[1], 1.0), 0.035, steel, name="derrick_croix")
+        # plate-forme d'accrochage à mi-hauteur (débord vers l'est), moufle et feu au sommet
+        f.box3(0.10, 0.0, z0 + (z1 - z0) * 0.5, (0.50, 0.30, 0.035), steel, name="plateforme_accrochage")
+        f.box3(0, 0, z1 + 0.06, (0.22, 0.16, 0.12), steel, name="moufle")
+        f.sph(0, 0, z1 + 0.19, 0.07, lamp, name="feu_derrick")
+        halo(f, 0, 0, z1 + 0.19, "#FF8C1A", 14.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -500,9 +507,9 @@ def e05(ctx, piece):
         basalt2 = metal(f, "e05p_basalte", "#2A2624", rough=0.85, metallic=0.0, grain=0.5, gs=25.0, k=1.2)
         ember2 = glow(f, "e05p_cratere", "#FF4A10", strength=3.2)
         # cône de cheminée volcanique coiffant la crête, cratère rougeoyant, coulées
-        f.lathe(0, 0, [(0.44, 2.63), (0.36, 2.88), (0.22, 3.19), (0.15, 3.31), (0.12, 3.31), (0.10, 3.23)], basalt2,
+        f.lathe(0, 0, [(0.54, 2.60), (0.42, 2.88), (0.25, 3.22), (0.17, 3.34), (0.13, 3.34), (0.10, 3.26)], basalt2,
                 caps=True, name="cone_volcan", seg=11, smooth_deg=None)
-        f.cyl(0, 0, 3.22, 3.26, 0.105, ember2, bevel=0, name="cratere")
+        f.cyl(0, 0, 3.25, 3.29, 0.12, ember2, bevel=0, name="cratere")
         for t in (30.0, 150.0, 260.0):
             tt = math.radians(t)
             f.beam((0.16 * math.cos(tt), -0.16 * math.sin(tt) / 1.414, 3.25),
@@ -683,14 +690,14 @@ def e08(ctx, piece):
     for z in (0.70, 1.30, 1.80):
         ctx.tor(0, 0, z, 0.29 if z > 1 else 0.36, 0.035, rubber, name="bague")
     # tube de verre lumineux au sommet, dans une cage, chapeau
-    ctx.cyl(0, 0, 2.42, 3.33, 0.15, liq, name="tube_liquide")
+    ctx.cyl(0, 0, 2.42, 3.21, 0.15, liq, name="tube_liquide")
     for t in range(4):
         tt = math.pi / 4 + t * math.pi / 2
         ctx.rod((0.19 * math.cos(tt), -0.19 * math.sin(tt) / 1.414, 2.40),
-                (0.19 * math.cos(tt), -0.19 * math.sin(tt) / 1.414, 3.37), 0.022, vdg, name="cage")
-    for zr in (2.72, 3.02):
+                (0.19 * math.cos(tt), -0.19 * math.sin(tt) / 1.414, 3.25), 0.022, vdg, name="cage")
+    for zr in (2.70, 2.95):
         ctx.tor(0, 0, zr, 0.19, 0.022, vdg, name="cage_bague")
-    ctx.lathe(0, 0, [(0.24, 3.33), (0.24, 3.41), (0.16, 3.49), (0.0, 3.53)], vdg, name="chapeau")
+    ctx.lathe(0, 0, [(0.24, 3.21), (0.24, 3.29), (0.16, 3.37), (0.0, 3.41)], vdg, name="chapeau")
     # 2 cuves sphériques en verre aux angles arrière (liquide lumineux dans la moitié basse), berceaux
     for s in (-1, 1):
         a, b = s * 0.93, 0.93
@@ -713,14 +720,14 @@ def e08(ctx, piece):
         liq2 = glow(f, "e08p_liquide", "#A8FF3A", strength=1.8, base="#5A7A20")
         vdg2 = metal(f, "e08p_vertdegris", "#4F6B5A", rough=0.4, metallic=0.55, k=1.15)
         # bulbe-distillateur posé sur le chapeau, col de cygne qui part vers l'est et redescend
-        f.cyl(0, 0, 3.49, 3.57, 0.06, vdg2, name="bulbe_col_bas")
-        f.sph2(0, 0, 3.71, 0.17, gl2, liq2, level=0.0, name="bulbe")
-        f.cyl(0, 0, 3.85, 3.95, 0.045, gl2, name="bulbe_col")
-        arc = [(0.24 - 0.24 * math.cos(math.pi * k / 6), 0.0, 3.95 + 0.20 * math.sin(math.pi * k / 6)) for k in range(7)]
+        f.cyl(0, 0, 3.37, 3.45, 0.06, vdg2, name="bulbe_col_bas")
+        f.sph2(0, 0, 3.59, 0.17, gl2, liq2, level=0.0, name="bulbe")
+        f.cyl(0, 0, 3.73, 3.83, 0.045, gl2, name="bulbe_col")
+        arc = [(0.24 - 0.24 * math.cos(math.pi * k / 6), 0.0, 3.83 + 0.20 * math.sin(math.pi * k / 6)) for k in range(7)]
         f.pipe_path(arc, 0.035, gl2, name="col_de_cygne")
-        f.cyl(0.48, 0.0, 3.35, 3.95, 0.035, gl2, name="col_descente")
-        f.sph2(0.48, 0.0, 3.27, 0.11, gl2, liq2, level=0.2, name="recette")
-        halo(f, 0, 0, 3.71, "#A8FF3A", 10.0)
+        f.cyl(0.48, 0.0, 3.23, 3.83, 0.035, gl2, name="col_descente")
+        f.sph2(0.48, 0.0, 3.15, 0.11, gl2, liq2, level=0.2, name="recette")
+        halo(f, 0, 0, 3.59, "#A8FF3A", 10.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -913,13 +920,15 @@ def e11(ctx, piece):
         ti2 = metal(f, "e11p_titane", "#8E9AA6", rough=0.28, metallic=0.8, k=1.0)
         light2 = glow(f, "e11p_ligne", "#BFE6FF", strength=3.0)
         # flèche-capteur : collier, fût fin, pointe en losange, 3 ailettes
-        f.tor(0, 0, 3.80, 0.15, 0.03, ti2, name="collier")
-        f.rod((0, 0, 3.80), (0, 0, 4.30), 0.035, ti2, name="fut_capteur")
-        f.lathe(0, 0, [(0.0, 4.25), (0.07, 4.40), (0.0, 4.68)], ti2, seg=4, smooth_deg=None, name="pointe_losange")
-        for h in (90.0, 210.0, 330.0):
-            f.fin(0, 0, 3.86, 4.16, 0.24, -0.06, ti2, h, thick=0.03, name="ailette")
-        f.sph(0, 0, 4.42, 0.05, light2, name="capteur_feu")
-        halo(f, 0, 0, 4.3, "#BFE6FF", 6.0)
+        # (1re version : fût fin et ailettes de 0,24 : 0,08 t² ajoutés, sous la cible 0,10)
+        f.tor(0, 0, 3.92, 0.17, 0.04, ti2, name="collier")
+        f.lathe(0, 0, [(0.0, 3.90), (0.09, 4.02), (0.10, 4.18), (0.06, 4.30), (0.0, 4.40)], ti2, seg=24,
+                name="nacelle_capteur")
+        f.rod((0, 0, 4.36), (0, 0, 4.66), 0.02, ti2, name="pointe_capteur")
+        for h in (0.0, 120.0, 240.0):
+            f.fin(0, 0, 3.90, 4.20, 0.36, -0.12, ti2, h, thick=0.035, name="ailette")
+        f.sph(0, -0.06, 4.16, 0.055, light2, name="capteur_feu")
+        halo(f, 0, 0, 4.2, "#BFE6FF", 6.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -1014,13 +1023,13 @@ def e13(ctx, piece):
         copper2 = metal(f, "e13p_cuivre", "#B0703A", rough=0.24, metallic=0.85, k=0.9)
         plasma2 = glow(f, "e13p_plasma", "#FF4FD8", strength=3.2)
         # injecteur au sommet : couronne de cuivre, 3 buses inclinées, dard de plasma
-        f.tor(0, 0, 4.11, 0.24, 0.035, copper2, name="injecteur_couronne")
+        f.tor(0, 0, 4.11, 0.26, 0.05, copper2, name="injecteur_couronne")
         f.cyl(0, 0, 4.04, 4.26, 0.07, copper2, name="injecteur_corps")
         for t in (90.0, 210.0, 330.0):
             tt = math.radians(t)
             f.rod((0.22 * math.cos(tt), -0.22 * math.sin(tt) / 1.414, 4.11),
                   (0.36 * math.cos(tt), -0.36 * math.sin(tt) / 1.414, 4.38), 0.03, copper2, name="buse")
-            f.sph(0.36 * math.cos(tt), -0.36 * math.sin(tt) / 1.414, 4.40, 0.04, plasma2, name="buse_feu")
+            f.sph(0.36 * math.cos(tt), -0.36 * math.sin(tt) / 1.414, 4.40, 0.065, plasma2, name="buse_feu")
         f.cyl(0, 0, 4.26, 4.56, 0.03, plasma2, r2=0.0, name="dard")
         halo(f, 0, 0, 4.31, "#FF4FD8", 8.0)
 
@@ -1101,10 +1110,11 @@ def e15(ctx, piece):
     nacre = paint(ctx, "e15_nacre", "#D8D2C8", rough=0.26, metallic=0.25, grain=0.10, dirt=0.5, k=0.62)
     light = glow(ctx, "e15_lumiere", "#FFF2C0", strength=2.6)
     crys = ctx.S.mat_emissive(ctx.name("e15_cristal"), srgb("#FFF2C0"), strength=0.5, base=srgb("#CFE4F0"))
-    # plate-forme octogonale flottante (aucun appui) ; dessous en nacre ; coussin de lumière
-    zp0, zp1 = 0.78, 0.94
-    ctx.lathe(0, 0, [(0.70, 0.52), (1.05, 0.66), (1.30, zp0), (1.32, zp1 - 0.04), (1.26, zp1), (0.0, zp1)], nacre,
-              seg=8, phase=math.pi / 8, smooth_deg=None, name="plateforme")
+    # plate-forme flottante (aucun appui) : ANNEAU octogonal ajouré au centre (Q8 : vides ; 1re version
+    # pleine : IoU(niveau 1, niveau 30) = 0,47 en pose N, au-dessus de la cible 0,45) ; coussin de lumière
+    zp0, zp1 = 0.84, 0.96
+    ring = [(0.94, 0.78), (1.30, zp0), (1.32, zp1 - 0.04), (1.26, zp1), (0.82, zp1), (0.79, 0.90), (0.94, 0.78)]
+    ctx.lathe(0, 0, ring, nacre, seg=8, phase=math.pi / 8, smooth_deg=None, caps=False, name="plateforme")
     ctx.lathe(0, 0, [(1.335, zp0 + 0.02), (1.335, zp1 - 0.05)], wgold, seg=8, phase=math.pi / 8, caps=False,
               smooth_deg=None, name="plateforme_bande")
     ctx.tor(0, 0, 0.50, 0.66, 0.045, light, name="coussin")
@@ -1119,15 +1129,21 @@ def e15(ctx, piece):
                       smooth_deg=None, name="obelisque")
             ctx.sph(a, b, 0.14, 0.045, light, name="obelisque_feu")
     # tour-flèche centrale
-    prof = [(0.44, zp1), (0.40, 1.20), (0.30, 1.60), (0.24, 2.45), (0.17, 3.45), (0.10, 4.20), (0.0, 4.75)]
+    # tour-flèche centrale, elle aussi flottante (pointe vers le bas), tenue par 4 rayons
+    prof = [(0.0, 0.46), (0.30, 0.72), (0.44, zp1), (0.40, 1.20), (0.30, 1.60), (0.24, 2.40), (0.17, 3.30),
+            (0.10, 4.12), (0.0, 4.67)]
     ctx.lathe(0, 0, prof, wgold, seg=8, phase=math.pi / 8, smooth_deg=None, name="fleche")
-    for z, r in ((1.62, 0.31), (2.55, 0.24), (3.50, 0.175)):
+    for z, r in ((1.62, 0.31), (2.50, 0.235), (3.40, 0.165)):
         ctx.tor(0, 0, z, r, 0.03, light, name="collier_lumiere")
+    for k in range(4):
+        t = math.pi / 4 + k * math.pi / 2
+        ctx.beam((0.40 * math.cos(t), -0.40 * math.sin(t) / 1.414, zp1 - 0.04),
+                 (0.86 * math.cos(t), -0.86 * math.sin(t) / 1.414, zp1 - 0.04), 0.06, wgold, h=0.05, name="rayon")
     # couronne de petites flèches autour de la base
     for i in range(8):
         t = 2 * math.pi * (i + 0.5) / 8
         hgt = 1.95 if i % 2 == 0 else 1.62
-        a, b = 0.80 * math.cos(t), -0.80 * math.sin(t) / 1.414
+        a, b = 1.04 * math.cos(t), -1.04 * math.sin(t) / 1.414
         ctx.lathe(a, b, [(0.08, zp1), (0.06, hgt - 0.35), (0.0, hgt)], wgold, seg=4, smooth_deg=None,
                   name="petite_fleche")
         ctx.crystal((a, b, hgt - 0.38), (math.cos(t) * 0.25, math.sin(t) * 0.25, 1.0), 0.30, 0.045, crys,
@@ -1142,10 +1158,10 @@ def e15(ctx, piece):
         f.level = ctx.level
         light2 = glow(f, "e15p_halo", "#FFF2C0", strength=3.2)
         wgold2 = metal(f, "e15p_or_blanc", "#E8DCB0", rough=0.22, metallic=0.75, k=0.62)
-        f.tor(0, 0, 3.92, 0.46, 0.045, light2, mseg=12, name="halo")
-        f.tor(0, 0, 3.92, 0.53, 0.018, wgold2, mseg=8, name="halo_cercle")
-        f.tor(0, 0, 4.18, 0.30, 0.03, light2, rot=(0.35, 0.0, 0.0), mseg=10, name="halo_incline")
-        halo(f, 0, 0, 3.95, "#FFF2C0", 10.0)
+        f.tor(0, 0, 3.78, 0.46, 0.045, light2, mseg=12, name="halo")
+        f.tor(0, 0, 3.78, 0.53, 0.018, wgold2, mseg=8, name="halo_cercle")
+        f.tor(0, 0, 4.02, 0.30, 0.03, light2, rot=(0.35, 0.0, 0.0), mseg=10, name="halo_incline")
+        halo(f, 0, 0, 3.81, "#FFF2C0", 10.0)
 
 
 BUILDERS = {2: e02, 3: e03, 4: e04, 5: e05, 6: e06, 7: e07, 8: e08, 9: e09, 10: e10, 11: e11, 12: e12, 13: e13,

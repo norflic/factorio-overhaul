@@ -88,12 +88,19 @@ def compose(direction, canvas=(640, 640), origin=(320, 352)):
         y0 = oy + lay["shift"][1] * 64 - lay["h"] / 2.0
         xi, yi = int(round(x0)), int(round(y0))
         assert abs(xi - x0) < 1e-6 and abs(yi - y0) < 1e-6, (lay["file"], x0, y0)
+        # découpe à la toile (une toile plus petite que le sprite : masque du niveau 2)
+        xs0, ys0 = max(0, -xi), max(0, -yi)
+        xd0, yd0 = max(0, xi), max(0, yi)
+        ww, hh = min(lay["w"] - xs0, W - xd0), min(lay["h"] - ys0, H - yd0)
+        if ww <= 0 or hh <= 0:
+            continue
+        src = src[ys0:ys0 + hh, xs0:xs0 + ww]
         sa = src[..., 3]
         if lay["kind"] == "shadow":
-            sh[yi:yi + lay["h"], xi:xi + lay["w"]] = np.maximum(sh[yi:yi + lay["h"], xi:xi + lay["w"]], sa)
+            sh[yd0:yd0 + hh, xd0:xd0 + ww] = np.maximum(sh[yd0:yd0 + hh, xd0:xd0 + ww], sa)
             continue
-        d_rgb = rgb[yi:yi + lay["h"], xi:xi + lay["w"]]
-        d_a = a[yi:yi + lay["h"], xi:xi + lay["w"]]
+        d_rgb = rgb[yd0:yd0 + hh, xd0:xd0 + ww]
+        d_a = a[yd0:yd0 + hh, xd0:xd0 + ww]
         # prémultiplié dans le tampon
         d_rgb[:] = src[..., :3] * sa[..., None] + d_rgb * (1 - sa[..., None])
         d_a[:] = sa + d_a * (1 - sa)

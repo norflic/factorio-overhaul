@@ -65,7 +65,7 @@ def main():
                     continue
                 final = "__factorio-overhaul__/graphics/levels/drill/e%02d/hr-drill-%s-%s-%s.png" % (e, key, d, layer)
                 layers[layer] = dict({
-                    "apercu": sd["file"], "sha256_apercu": sd["sha256"],
+                    "apercu": "tools/render/" + sd["file"], "sha256_apercu": sd["sha256"],
                     "hr": {"filename": final, "width": sd["width"], "height": sd["height"], "shift": sd["shift"],
                            "scale": 0.5},
                     "lr": {"filename": final.replace("/hr-", "/"), "width": sd["width"] // 2,
