@@ -127,7 +127,7 @@ end
 --   base_cost   : panier de base (époque 1) ; quantité × (1 + base_growth·(n-2)) : croissance LINÉAIRE ;
 --   epoch_value : valeur payée en matériaux d'époque au 1er niveau de l'époque 2 (× value_mult) ;
 --   main_share  : part du matériau de l'époque (défaut L.MAIN_SHARE ; murs : 1, sans matériau précédent) ;
---   time0       : durée de référence en secondes (× time_mult de l'époque, × 1,25 au 2e niveau) ;
+--   time0       : durée de référence en secondes (× time_mult de l'époque, × 1,1 au 2e niveau) ;
 --                 centre : × cc_time_mult de l'époque qui paie le chantier.
 ---------------------------------------------------------------------------------------------------
 L.families = {
@@ -274,8 +274,9 @@ function L.apply_stat(stat, v1, n)
   error("op inconnue " .. tostring(stat.op))
 end
 
---- Arrondi lisible : entier sous 20, multiple de 5 sous 100, de 10 au-delà (au moins 1). Entre les deux
---- niveaux d'une époque (× 1,25), l'écart dépasse le pas d'arrondi : les quantités restent distinctes.
+--- Arrondi lisible : entier sous 20, multiple de 5 sous 100, de 10 au-delà (au moins 1). Au-dessus de 20,
+--- l'écart entre les deux niveaux d'une époque (× 1,25) dépasse le pas d'arrondi ; en dessous, la règle de
+--- monotonie de L.rebuild garantit qu'un niveau coûte toujours plus que le précédent.
 local function round_nice(x)
   if x < 20 then return math.max(1, math.floor(x + 0.5)) end
   if x < 100 then return math.floor(x / 5 + 0.5) * 5 end
