@@ -67,28 +67,33 @@ EPOCH_INFO = {
         "piece": "lanterne à vapeur (globe ambré, cage, chapeau) et arrivée de vapeur", "emissif": "#FFC060"},
     4: {"cle": "oil", "silhouette": "béton à bandes jaunes et noires, poteaux en H et garde-corps sur la crête",
         "piece": "feux d'avertissement orange sur les poteaux, panneau", "emissif": "#FF8C1A"},
-    5: {"cle": "volcano", "silhouette": "glacis en écailles de tungstène, dents sur l'arête, joints de braise",
-        "piece": "colonnes de basalte (pointe haute au centre) fissurées de braise", "emissif": "#FF4A10"},
+    5: {"cle": "volcano", "silhouette": "glacis bas en écailles de tungstène, crête en scie (grande dent au centre, "
+                                        "demi-dents aux joints), évent et joints de braise",
+        "piece": "orgue de basalte : colonne centrale au-dessus de la dent, colonnes dans les creux de la scie",
+        "emissif": "#FF4A10"},
     6: {"cle": "electricity", "silhouette": "clôture électrique : muret, poteau à pile d'isolateurs, fils, éclateur",
         "piece": "traverse et isolateur double, plaque « danger »", "emissif": "#60D0FF"},
     7: {"cle": "crystal", "silhouette": "muret de moellons, 3 pointes de cristal violet serties de bronze",
         "piece": "grand cristal central et éclats", "emissif": "#B070FF"},
     8: {"cle": "swamp", "silhouette": "panneau de verre bombé rempli de liquide luminescent, armature vert-de-gris",
         "piece": "globe de verre sur col, conduit de crête", "emissif": "#A8FF3A"},
-    9: {"cle": "atom", "silhouette": "bloc de plomb chanfreiné (profil octogonal), fenêtre verte, trèfle",
-        "piece": "conduit annelé de crête et évent annelé", "emissif": "#5CFF4A"},
-    10: {"cle": "hightech", "silhouette": "panneau lisse sur pieds (vide sous le corps), bandeau bleu, capteur en dôme",
+    9: {"cle": "atom", "silhouette": "bloc de plomb bas chanfreiné, tour de refroidissement à 8 pans (taille de "
+                                     "guêpe, lèvre), anneau d'avertissement, bande verte, fenêtre verte, trèfle",
+        "piece": "évents annelés sur les épaules, conduit annelé", "emissif": "#5CFF4A"},
+    10: {"cle": "hightech", "silhouette": "carénage arrondi sur pieds (vide sous le corps), bandeau bleu, écran, "
+                                          "capteur en dôme",
          "piece": "antennes (fouet et dipôles) sur embases", "emissif": "#3AA8FF"},
     11: {"cle": "titanium", "silhouette": "ailerons en dents de scie inclinés, ajours entre les dents, poutre basse",
          "piece": "aileron central plus haut", "emissif": "#BFE6FF"},
     12: {"cle": "superconductor", "silhouette": "plinthe et bloc noir givré en lévitation (vide), anneau chromé",
-         "piece": "anneau chromé flottant au-dessus du bloc", "emissif": "#4AF0FF"},
+         "piece": "gyroscope flottant : anneau horizontal, anneau vertical, noyau noir", "emissif": "#4AF0FF"},
     13: {"cle": "fusion", "silhouette": "plinthe, pylône de céramique à bobines, tore de plasma, champ de plasma",
-         "piece": "sphère de confinement et anneau de plasma au sommet du pylône", "emissif": "#FF4FD8"},
+         "piece": "sphère de confinement à hublot, anneau de plasma incliné au sommet du pylône", "emissif": "#FF4FD8"},
     14: {"cle": "orbit", "silhouette": "bouclier de panneaux inclinés (or froissé, cellules), ajouré, parabole",
          "piece": "mât-balise à feux rouges", "emissif": "#FF2A2A / #2F6BFF"},
-    15: {"cle": "legend", "silhouette": "plinthe nacrée et créneaux flottants en or blanc, anneau-halo, vides",
-         "piece": "flèche de couronne et fleurons", "emissif": "#FFF2C0"},
+    15: {"cle": "legend", "silhouette": "plinthe nacrée et pinacles flottants à 8 pans en or blanc (couronne de "
+                                        "flèches), anneau-halo, vides sous et entre les pinacles",
+         "piece": "couronne : grand halo d'or blanc, flèche centrale, couronnes à fleurons", "emissif": "#FFF2C0"},
 }
 
 

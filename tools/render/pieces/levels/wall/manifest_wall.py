@@ -97,8 +97,9 @@ def main():
             mk = "%d-%s" % (lv, pose)
             if mes.get("niveaux", {}).get(mk):
                 m = mes["niveaux"][mk]
-                k["mesures"] = {x: m.get(x) for x in ("aire_t2", "L", "O_masses", "O_tout", "lum_p50", "lum_p95", "sat",
-                                                      "iou_prec", "iou_epoque_prec", "piece_aire_ajoutee_t2")}
+                k["mesures"] = {x: m.get(x) for x in ("aire_t2", "L", "x", "y", "O_masses", "O_tout", "lum_p50", "lum_p95",
+                                                      "sat", "iou_prec", "iou_epoque_prec", "piece_aire_ajoutee_t2")}
+                k["mesures"]["lueur_delta_8x8"] = (m.get("lueur") or {}).get("best_delta")
             entry["cles"][key] = k
         entry["cles_phase2"] = list(wall_piece.PHASE2_KEYS)
         levels["%d" % lv] = entry
@@ -115,6 +116,12 @@ def main():
         "raccord": "visual_merge_group = 0 : plinthe commune x [-0,5 ; 0,5], ty [0,28 ; 0,50], z [0 ; 0,22] "
                    "pour les époques 2 à 15 (wall_epochs.py)",
         "fichiers_phase2": GFX + "/eNN/hr-wall-nNN-<clé>-<couche>.png (+ version lr sans « hr- »)",
+        "basse_qualite": "aperçus : lr = réduction 2x de la hr (fo_post.downsample2) ; D4-2 (Q21) demande des sprites "
+                         "32 px/tuile RENDUS à leur taille : besoin envoyé au pipeline partagé, à faire en phase 2",
+        "dress_lua": "pour ctx.level = n : L = niveaux[n] ; pour chaque clé c de L.cles : p.pictures[c] = { layers = "
+                     "{ couches dans l'ordre : filename, width, height, shift, drapeaux, hr_version = { filename, "
+                     "width, height, shift, scale = 0.5, drapeaux } } } ; clés pas encore produites (phase 2) : "
+                     "image vanilla gardée ; aucun champ de jeu touché (garde de Common.dress)",
         "niveaux": levels,
     }
     if mes.get("d1_3"):

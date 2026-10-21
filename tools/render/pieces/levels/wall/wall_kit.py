@@ -134,15 +134,16 @@ class Kit:
             self.S.bevel(o, bev)
         return o
 
-    def prism_x(self, prof, x0, x1, mat, name="prisme_x", bev=0.0):
-        """Extrusion le long de x d'un profil (ty, z) (polygone simple)."""
+    def prism_x(self, prof, x0, x1, mat, name="prisme_x", bev=0.0, smooth_deg=None):
+        """Extrusion le long de x d'un profil (ty, z) (polygone simple) ; smooth_deg : lissage des arêtes
+        plus douces que cet angle (profil arrondi, passe 4)."""
         n = len(prof)
         verts = [self.P(x0, t, z) for t, z in prof] + [self.P(x1, t, z) for t, z in prof]
         faces = [list(range(n)), list(range(n, 2 * n))]
         for i in range(n):
             j = (i + 1) % n
             faces.append([i, j, n + j, n + i])
-        return self.mesh(verts, faces, mat, name, bev)
+        return self.mesh(verts, faces, mat, name, bev, smooth_deg=smooth_deg)
 
     def prism_t(self, prof, t0, t1, mat, name="prisme_t", bev=0.0):
         """Extrusion le long de ty d'un profil (x, z) (polygone simple)."""

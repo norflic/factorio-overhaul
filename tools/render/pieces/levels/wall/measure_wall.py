@@ -20,8 +20,8 @@ Définitions (bible docs/DESIGN_EPOQUES.md §1.4, OBJECTIFS D1 amendé par Q13) 
   l'origine de l'entité (méthode E27 : échelle et shift multipliés par k) ; on rapporte aussi le maximum
   sur deux centres (origine ; milieu du bord bas du masque du niveau 1) : la valeur la plus défavorable ;
 - photométrie de la couche principale (pixels du masque, sRGB codé) : luminance Rec. 709 p5/p50/p95 sur
-  255, saturation moyenne (max-min)/max ; lueur (draw_as_glow) : aire, plus grande zone (boîte en px hr),
-  luminance de la zone lueur composée sur le corps moins la médiane du corps (≥ 80 visé, bible §1.6) ;
+  255, saturation moyenne (max-min)/max ; lueur (draw_as_glow) : aire, et meilleure fenêtre de 8 × 8 px hr
+  entièrement lumineuse : luminance moyenne composée sur le corps moins la médiane du corps (≥ 80 visé, §1.6) ;
 - halo : alpha maximal de la couche draw_as_light (I(N) = 0,05 + 0,02·N visé) et rayon au sol.
 Chaque grandeur est donnée par pose (droit = straight_horizontal, isole = single).
 """
@@ -143,42 +143,29 @@ def iou_scale_norm(m1, m30, center):
 
 
 def glow_stats(layers, body_rgb, body_a, body_med):
-    """Zones lumineuses de jour (draw_as_glow), bible §1.6 / D2-1 : composantes connexes (4-voisinage) de la
-    lueur (alpha ≥ 0,25) ; une zone COMPTE si sa boîte fait au moins 8 × 8 px hr ; pour chaque zone qui compte,
-    luminance médiane de la lueur composée sur le corps moins la médiane du corps. On rapporte la meilleure."""
+    """Zones lumineuses de jour (draw_as_glow), bible §1.6 / D2-1. Passe 4 (22/10) : on cherche la meilleure
+    FENÊTRE de 8 × 8 px hr couverte au moins aux trois quarts par la lueur (alpha ≥ 0,25) : luminance moyenne de la lueur composée sur
+    le corps, moins la médiane du corps (≥ 80 visé). L'ancienne mesure (médiane d'une composante connexe entière)
+    noyait un tore lumineux dans le champ de plasma pâle qui le touche (niveau 26 : +3 pour une zone de 64 × 108)."""
     g = additive(layers, "glow")
     gl = g.max(-1)
     zone = gl >= 0.25
     if not zone.any():
         return None
-    comp = np.clip(body_rgb * body_a[..., None] + g, 0, 1)
+    comp = np.clip(body_rgb + g, 0, 1)        # body_rgb est déjà composé sur noir (prémultiplié)
     L = lum(comp) * 255
-    lab = np.zeros(zone.shape, int)
-    n = 0
-    zones = []
-    for y, x in zip(*np.nonzero(zone)):
-        if lab[y, x]:
-            continue
-        n += 1
-        stack = [(y, x)]
-        lab[y, x] = n
-        pts = []
-        while stack:
-            cy, cx = stack.pop()
-            pts.append((cy, cx))
-            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                yy, xx = cy + dy, cx + dx
-                if 0 <= yy < H and 0 <= xx < W and zone[yy, xx] and not lab[yy, xx]:
-                    lab[yy, xx] = n
-                    stack.append((yy, xx))
-        arr = np.array(pts)
-        box = (int(arr[:, 1].max() - arr[:, 1].min() + 1), int(arr[:, 0].max() - arr[:, 0].min() + 1))
-        d = float(np.median(L[arr[:, 0], arr[:, 1]])) - body_med
-        zones.append((box, len(pts), d))
-    ok = [z for z in zones if z[0][0] >= 8 and z[0][1] >= 8]
-    best = max(ok, key=lambda z: z[2]) if ok else max(zones, key=lambda z: z[1])
-    return {"area_px": int(zone.sum()), "zones": n, "zones_8x8": len(ok), "best_box_px": best[0],
-            "best_delta": round(best[2], 1), "largest_box_px": best[0], "delta_vs_body": round(best[2], 1)}
+    s = 8
+
+    def integ(a):
+        return np.pad(a, ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+
+    cz, cl = integ(zone.astype(np.int64)), integ(np.where(zone, L, 0.0))
+    cnt = cz[s:, s:] - cz[:-s, s:] - cz[s:, :-s] + cz[:-s, :-s]
+    sm = cl[s:, s:] - cl[:-s, s:] - cl[s:, :-s] + cl[:-s, :-s]
+    full = cnt >= 0.75 * s * s               # fenêtre couverte aux trois quarts (un disque de 10 px passe)
+    n_win = int(full.sum())
+    best = round(float((sm[full] / cnt[full]).max()) - body_med, 1) if n_win else None
+    return {"area_px": int(zone.sum()), "fenetres_8x8": n_win, "best_delta": best}
 
 
 def light_stats(layers):
@@ -253,7 +240,7 @@ def measure(db):
 
 def table_md(res, d13):
     out = []
-    out.append("| Niv. | Ép. | Pose | Aire t² | L | O masses | O tout | IoU préc. | IoU époque préc. | Pièce : aire ajoutée t² (Δlum≥20 t²) | Lum p5/p50/p95 | Sat | Lueur : meilleure zone ≥ 8×8 px (Δ lum, nb de zones) | Halo α |")
+    out.append("| Niv. | Ép. | Pose | Aire t² | L | O masses | O tout | IoU préc. | IoU époque préc. | Pièce : aire ajoutée t² (Δlum≥20 t²) | Lum p5/p50/p95 | Sat | Lueur : meilleure fenêtre 8×8 px hr, Δ lum (aire px) | Halo α |")
     out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for lv in LEVELS:
         for pose in POSES:
@@ -262,8 +249,8 @@ def table_md(res, d13):
             if "piece_aire_ajoutee_t2" in r:
                 piece = "%.3f (%.3f)" % (r["piece_aire_ajoutee_t2"], r["piece_lum20_t2"])
             g = r["lueur"]
-            gs = ("%dx%d, %+.0f (%d)" % (g["best_box_px"][0], g["best_box_px"][1], g["best_delta"], g["zones_8x8"])
-                  if g else "—")
+            gs = ("%+.0f (%d px)" % (g["best_delta"], g["area_px"]) if g and g["best_delta"] is not None
+                  else ("aucune fenêtre 8×8 (%d px)" % g["area_px"] if g else "—"))
             h = r["halo"]
             out.append("| %d | %d | %s | %.3f | %.2f | %s | %.3f | %s | %s | %s | %.0f/%.0f/%.0f | %.2f | %s | %s |" % (
                 lv, (lv + 1) // 2, pose, r["aire_t2"], r["L"],
@@ -282,6 +269,56 @@ def table_md(res, d13):
             pose, d["iou_1_30"], d["iou_1_29"], d["iou_norm_origine"], d["k_origine"], d["iou_norm_bas"], d["k_bas"],
             d["iou_norm_1_29_origine"]))
     return "\n".join(out)
+
+
+def bilan(res, d13):
+    """Contrôles automatiques (aident le verdict du Directeur Créatif sans le remplacer) : liste des écarts."""
+    bad = []
+    for pose in POSES:
+        prev_o = None
+        for lv in LEVELS:
+            r = res[(lv, pose)]
+            e = (lv + 1) // 2
+            tag = "N%d %s" % (lv, pose)
+            om = r["O_masses"] if r["O_masses"] is not None else r["O_tout"]
+            if om > 1.0 + 1e-9:
+                bad.append("%s : O des masses %.3f > plafond 1,0" % (tag, om))
+            if r["O_tout"] > 1.0 + 1e-9:
+                bad.append("%s : O tout %.3f > 1,0 (tiges fines comprises)" % (tag, r["O_tout"]))
+            if lv % 2 == 1:
+                if prev_o is not None and om < prev_o - 1e-9:
+                    bad.append("%s : O des masses %.3f < époque précédente %.3f (D1-2)" % (tag, om, prev_o))
+                prev_o = om
+                if "iou_epoque_prec" in r and r["iou_epoque_prec"] > 0.85:
+                    bad.append("%s : IoU avec l'époque précédente %.3f > 0,85 (D1-2)" % (tag, r["iou_epoque_prec"]))
+                if lv >= 3 and r.get("iou_prec", 0) > 0.85:
+                    bad.append("%s : IoU avec le niveau pair précédent %.3f > 0,85 (D1-1)" % (tag, r["iou_prec"]))
+            elif "piece_aire_ajoutee_t2" in r:
+                if r["piece_aire_ajoutee_t2"] < 0.10 and r["piece_lum20_t2"] < 0.15:
+                    bad.append("%s : pièce %.3f t² < 0,10 (et Δlum≥20 sur %.3f t² < 0,15) (D1-1)" % (
+                        tag, r["piece_aire_ajoutee_t2"], r["piece_lum20_t2"]))
+            if lv >= 3:
+                tgt = wall_piece.L50_TARGET[e]
+                if abs(r["lum_p50"] - tgt) > 10:
+                    bad.append("%s : luminance médiane %.0f hors de %d ± 10 (§1.5)" % (tag, r["lum_p50"], tgt))
+                if r["lum_p95"] > 240:
+                    bad.append("%s : p95 %.0f > 240 (§1.5)" % (tag, r["lum_p95"]))
+                if r["sat"] > 0.45:
+                    bad.append("%s : saturation %.2f > 0,45 (§1.5)" % (tag, r["sat"]))
+            if e >= 3 and lv >= 5:
+                g = r["lueur"]
+                if not g or g["best_delta"] is None or g["best_delta"] < 80:
+                    bad.append("%s : lueur de jour insuffisante (%s) (D2-1)" % (tag, g and g["best_delta"]))
+    for pose in POSES:
+        d = d13[pose]
+        if d["iou_1_30"] >= 0.50:
+            bad.append("D1-3 %s : IoU(1, 30) %.3f >= 0,50" % (pose, d["iou_1_30"]))
+        elif d["iou_1_30"] > 0.45:
+            bad.append("D1-3 %s : IoU(1, 30) %.3f > cible 0,45" % (pose, d["iou_1_30"]))
+        if max(d["iou_norm_origine"], d["iou_norm_bas"]) > 0.75:
+            bad.append("D1-3 %s : IoU normalisée %.3f > 0,75 proposé" % (pose, max(d["iou_norm_origine"],
+                                                                                   d["iou_norm_bas"])))
+    return bad
 
 
 def srgb_lin(v):
@@ -303,11 +340,35 @@ def gains(res):
                                                  g * srgb_lin(tgt) / srgb_lin(med)))
 
 
+def table_compacte(res):
+    """Une ligne par niveau, les deux poses côte à côte (droit/isolé)."""
+    def f(lv, key, fmt="%.2f"):
+        vals = []
+        for pose in POSES:
+            v = res[(lv, pose)].get(key)
+            vals.append("—" if v is None else fmt % v)
+        return "/".join(vals)
+    out = ["| Niv | Ép | O masses | O tout | IoU préc. | IoU ép. préc. | pièce t² | L50 (cible) | p95 | lueur Δ8×8 | x | y bas |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for lv in LEVELS:
+        e = (lv + 1) // 2
+        rd = res[(lv, "droit")]
+        gl = "/".join("—" if not res[(lv, p)]["lueur"] or res[(lv, p)]["lueur"]["best_delta"] is None else
+                      "%+.0f" % res[(lv, p)]["lueur"]["best_delta"] for p in POSES)
+        out.append("| %d | %d | %s | %s | %s | %s | %s | %s (%s) | %s | %s | %s | %s |" % (
+            lv, e, f(lv, "O_masses"), f(lv, "O_tout"), f(lv, "iou_prec"), f(lv, "iou_epoque_prec"),
+            f(lv, "piece_aire_ajoutee_t2", "%.3f"), f(lv, "lum_p50", "%.0f"),
+            wall_piece.L50_TARGET[e] if lv >= 3 else "vanilla", f(lv, "lum_p95", "%.0f"), gl,
+            "[%.2f ; %.2f]" % tuple(rd["x"]), "/".join("%.2f" % res[(lv, p)]["y"][1] for p in POSES)))
+    return "\n".join(out)
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--gains", action="store_true")
+    ap.add_argument("--compact", action="store_true", help="table compacte (une ligne par niveau)")
     ap.add_argument("--md", default="")
     ap.add_argument("--json", default=os.path.join(WL.OUT, "mesures_d1.json"))
     a = ap.parse_args()
@@ -316,10 +377,13 @@ def main():
     if a.gains:
         gains(res)
         return
-    md = table_md(res, d13)
+    md = table_compacte(res) if a.compact else table_md(res, d13)
+    bad = bilan(res, d13)
+    md += "\n\n**Écarts aux critères automatiques : %d**\n\n" % len(bad) + "\n".join("- " + x for x in bad)
     print(md)
     with open(a.json, "w", encoding="utf-8") as f:
-        json.dump({"niveaux": {"%d-%s" % k: v for k, v in res.items()}, "d1_3": d13}, f, indent=1, sort_keys=True)
+        json.dump({"niveaux": {"%d-%s" % k: v for k, v in res.items()}, "d1_3": d13, "ecarts": bad}, f, indent=1,
+                  sort_keys=True, ensure_ascii=False)
     if a.md:
         with open(a.md, "w", encoding="utf-8", newline="\n") as f:
             f.write(md + "\n")
