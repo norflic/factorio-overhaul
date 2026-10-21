@@ -86,6 +86,9 @@
     vidéo, atlas, chargement ; le nombre de polygones n'a pas de coût en jeu, car les modèles sont pré-rendus
     en images).
 
+- 21 h 55, **Q20** : « Ok, oui, continuez, la synthèse est parfaite. […] Concernant la mémoire vidéo, partez du principe que je jouerai sur des PC qui auront au minimum 8 Go de VRAM. Ce PC actuel en a 16. C'est une RX 6900 XT […] globalement 8 Go de VRAM, c'est bien pour la mémoire vidéo. »
+  → synthèse de Q19 validée ; PC cible : 8 Go de mémoire vidéo au minimum (D4-1 : atlas du jeu ≤ 6 Go).
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
