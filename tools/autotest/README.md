@@ -68,7 +68,9 @@ autres). Verrou orphelin (aucun `factorio.exe` dont la ligne de commande contien
    un joueur local est connecté, et **il s'arrête seul** au bout de N ticks (« Quitting: automatic-quit »,
    code 0). Même si le pilote est tué, aucune session ne reste ouverte. N = 7 200 pour `content`, `vitrine`
    et les scénarios greffés, 40 000 pour les scénarios de guerre (mise en route de 36 000 ticks à ×8).
-   Options : `--disable-audio --disable-migration-window`.
+   Options : `--disable-audio --disable-migration-window` ; `config.ini` active le cache des atlas de sprites
+   (`cache-sprite-atlas`, `compress-sprite-atlas-cache` : `fo-visual\write\atlas-cache.dat`, 391 Mo, refait
+   seul quand les sprites changent).
 3. Le mod de test (`shots.lua`) prend ses captures (`take_screenshot` avec `force_render = true`, une toutes les
    10 ticks), appelle `game.set_wait_for_screenshots_to_finish()`, attend 60 ticks, puis écrit `done.txt`.
 4. Le pilote attend `done.txt` (délai maximal), échoue tôt si le journal contient une erreur fatale, puis
@@ -81,11 +83,13 @@ autres). Verrou orphelin (aucun `factorio.exe` dont la ligne de commande contien
 **Gêne minimale (mesurée le 21/10, lot P1).** Fenêtre `min` par défaut : démarrée réduite sans activation
 (`SW_SHOWMINNOACTIVE`), elle ne prend jamais le focus et n'apparaît que dans la barre des tâches. Les captures
 sont **identiques au pixel** quelle que soit la fenêtre (réduite, 640×360) : `take_screenshot` rend hors
-écran. Prix : en fenêtre réduite, Windows place le jeu sur les cœurs E (étalon `[FO-CALIB]` 8 à 13 ms au lieu de
-2,3 ms) : 75 à 95 s pour la galerie `content` au lieu de 40 s en `small`. Options du pilote, par la variable
-`FO_VISUAL_ARGS` : `--pcores` (épingle sur les cœurs P : plus rapide, mais prend ces cœurs à une partie en
-cours), `--priority below` (déconseillé : chargement des sprites 160 s), `--mode load` (ancien mode
-`--load-game`, fermé par le pilote seulement), `--ticks N`.
+écran. En fenêtre réduite, Windows place le jeu sur les cœurs E (étalon `[FO-CALIB]` 7 à 13 ms au lieu de
+2,3 ms) : sans cache, le chargement des sprites prenait 35 à 140 s ; **avec le cache des atlas, 5 s**, et la
+partie elle-même (84 captures) environ 1 min. Le premier passage après un changement de sprites refait le
+cache (environ +40 s). Options du pilote, par la variable `FO_VISUAL_ARGS` : `--no-atlas-cache`,
+`--pcores` (épingle sur les cœurs P : plus rapide, mais prend ces cœurs à une partie en cours),
+`--priority below` (déconseillé : chargement des sprites 160 s), `--mode load` (ancien mode `--load-game`,
+fermé par le pilote seulement), `--ticks N`.
 
 **Non-déterminisme connu.** Deux sessions sur la même carte donnent des captures identiques au pixel, sauf
 les faisceaux (lasers) et les jets (lance-flammes), dont l'animation ne suit pas le tick de jeu : 5 captures

@@ -5,8 +5,9 @@ Pilote de la session graphique de test (lot P1, H-T1), appelé par fo-visual.bat
   1. Prépare fo-visual\ (dossier SÉPARÉ : config, mods, écriture) à partir du dernier banc fo-autotest\.
   2. Lance Factorio AVEC images sur la carte de ce banc, en mode --benchmark-graphics (le jeu s'arrête SEUL
      au bout de N ticks : aucune session ne peut rester ouverte, même si ce pilote est tué), fenêtre réduite
-     sans prendre le focus, son coupé, priorité normale (en priorité basse, Windows met le jeu sur les cœurs
-     E : chargement des sprites 160 s au lieu de 12 s, mesuré le 21/10).
+     sans prendre le focus, son coupé, priorité normale, cache des atlas de sprites activé (fenêtre réduite :
+     Windows met le jeu sur les cœurs E et le chargement des sprites prend 35 à 140 s ; avec le cache, 5 s ;
+     mesuré le 21/10).
   3. Attend le marqueur de fin du mod de test (shots.lua : done.txt, écrit après
      set_wait_for_screenshots_to_finish), avec un délai maximal ; échoue tôt si le jeu signale une erreur
      ou s'arrête sans marqueur (budget de ticks trop court).
@@ -18,6 +19,7 @@ Pilote de la session graphique de test (lot P1, H-T1), appelé par fo-visual.bat
 
 Usage : python visual_session.py --root <racine du jeu> [--window min|small|normal] [--timeout 900]
                                  [--mode benchmark|load] [--ticks N] [--priority normal|below]
+                                 [--no-atlas-cache] [--pcores]
   --ticks : budget du mode benchmark ; par défaut 7200 (2 min de jeu) pour content, vitrine et les
             scénarios greffés, 40000 pour les scénarios de guerre (10 min de mise en route à ×8).
 Codes : 0 succès ; 1 préparation ; 3 délai dépassé ; 4 captures manquantes ou illisibles ;
@@ -101,7 +103,7 @@ def test_processes(vis_dir):
     return [(p, c) for p, c in factorio_processes() if key in os.path.normcase(c)]
 
 
-def prepare(root, vis, test):
+def prepare(root, vis, test, atlas_cache):
     mods_src = os.path.join(test, "mods")
     map_src = os.path.join(test, "fo-autotest-map.zip")
     if not os.path.exists(map_src) or not os.path.isdir(mods_src):
@@ -121,6 +123,9 @@ def prepare(root, vis, test):
     with open(cfg, "w", encoding="utf-8", newline="\r\n") as f:
         f.write("[path]\nread-data=__PATH__executable__/../../data\nwrite-data=%s\n" % write.replace("\\", "/"))
         f.write("[general]\nlocale=fr\n[graphics]\nfull-screen=false\n")
+        if atlas_cache:
+            # Cache des atlas de sprites (dans fo-visual\write) : le chargement ne dépend plus des cœurs E.
+            f.write("cache-sprite-atlas=true\ncompress-sprite-atlas-cache=true\n")
     return cfg, mods, os.path.join(vis, "fo-visual-map.zip"), write, shots
 
 
@@ -140,6 +145,8 @@ def main():
     ap.add_argument("--mode", choices=["benchmark", "load"], default="benchmark")
     ap.add_argument("--ticks", type=int, default=0, help="mode benchmark : durée de la session en ticks")
     ap.add_argument("--priority", choices=["normal", "below"], default="normal")
+    ap.add_argument("--no-atlas-cache", dest="atlas_cache", action="store_false", default=True,
+                    help="sans le cache des atlas de sprites (fo-visual\\write\\atlas-cache.dat, 391 Mo)")
     ap.add_argument("--pcores", action="store_true",
                     help="épingle la session sur les cœurs P (i5-12600KF : 12 fils P) : plus rapide, mais prend "
                          "ces cœurs à une partie en cours")
@@ -178,7 +185,7 @@ def main():
 
     # 1. Préparation des dossiers séparés.
     try:
-        cfg, mods, game_map, write, shots = prepare(root, vis, test)
+        cfg, mods, game_map, write, shots = prepare(root, vis, test, a.atlas_cache)
     except (RuntimeError, OSError) as exc:
         out("ECHEC preparation : %s" % exc)
         return finish(1)
@@ -200,8 +207,9 @@ def main():
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     si.wShowWindow = {"min": SW_SHOWMINNOACTIVE, "small": SW_SHOWNOACTIVATE, "normal": SW_SHOWNORMAL}[a.window]
     flags = BELOW_NORMAL_PRIORITY_CLASS if a.priority == "below" else 0
-    out("mode %s%s, fenetre %s, priorite %s, delai %d s" % (
-        a.mode, " (%d ticks au plus)" % ticks if a.mode == "benchmark" else "", a.window, a.priority, a.timeout))
+    out("mode %s%s, fenetre %s, priorite %s, cache d'atlas %s, delai %d s" % (
+        a.mode, " (%d ticks au plus)" % ticks if a.mode == "benchmark" else "", a.window, a.priority,
+        "oui" if a.atlas_cache else "non", a.timeout))
     out("commande : " + subprocess.list2cmdline(cmd))
 
     fg_before = foreground_pid()
