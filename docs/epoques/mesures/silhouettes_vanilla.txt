@@ -1,0 +1,418 @@
+== gun-N (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.97 ; +0.98]  y [-1.84 ; +0.72]
+   largeur 1.95  hauteur 2.56  dépassement au-dessus de l'emprise 0.84  sous l'emprise -0.28  côtés -0.03/-0.02
+   aire du masque 3.28 t²  couverture de l'emprise 70 %  aire hors emprise 0.50 t²  centroïde (+0.01, -0.33)
+   couleur moyenne RGB (77, 68, 59)  luminance p5/p50/p95 4/52/194  saturation 0.26
+   ombre : x [-0.94 ; +2.27] y [-0.72 ; +0.72]  centroïde (+1.32, +0.06)  décalage ombre - corps (+1.31, +0.39)
+
+        +##+
+        +##+##
+       +######
+  ...+########+...
+   +############+
+  ###############+
+   ##############
+   ##############
+  +##############
+  +##############+
+
+  ................
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.81
+== gun-E (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.97 ; +1.00]  y [-1.67 ; +0.72]
+   largeur 1.97  hauteur 2.39  dépassement au-dessus de l'emprise 0.67  sous l'emprise -0.28  côtés -0.03/+0.00
+   aire du masque 3.51 t²  couverture de l'emprise 72 %  aire hors emprise 0.62 t²  centroïde (-0.02, -0.36)
+   couleur moyenne RGB (75, 66, 58)  luminance p5/p50/p95 4/54/188  saturation 0.27
+   ombre : x [-0.94 ; +2.59] y [-0.58 ; +0.72]  centroïde (+1.35, +0.10)  décalage ombre - corps (+1.36, +0.45)
+
+     #+
+   +###+####+
+  +###############
+   #############++
+  ################
+   ##############
+   ##############
+   ##############
+  ################
+   +++        ++
+  ................
+
+== gun-folded (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.97 ; +0.98]  y [-1.61 ; +0.72]
+   largeur 1.95  hauteur 2.33  dépassement au-dessus de l'emprise 0.61  sous l'emprise -0.28  côtés -0.03/-0.02
+   aire du masque 3.08 t²  couverture de l'emprise 70 %  aire hors emprise 0.29 t²  centroïde (+0.01, -0.25)
+   couleur moyenne RGB (80, 71, 62)  luminance p5/p50/p95 4/55/199  saturation 0.25
+   ombre : x [-0.94 ; +1.92] y [-0.70 ; +0.72]  centroïde (+1.12, +0.07)  décalage ombre - corps (+1.11, +0.32)
+
+        +##+
+        +##+##
+  ...+++######+...
+   +############+
+  ################
+   ##############
+   ##############
+   ##############
+  +##############+
+
+  ................
+
+== laser-N (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.86 ; +0.86]  y [-2.02 ; +0.69]
+   largeur 1.72  hauteur 2.70  dépassement au-dessus de l'emprise 1.02  sous l'emprise -0.31  côtés -0.14/-0.14
+   aire du masque 2.26 t²  couverture de l'emprise 44 %  aire hors emprise 0.52 t²  centroïde (-0.02, -0.41)
+   couleur moyenne RGB (90, 82, 74)  luminance p5/p50/p95 6/60/236  saturation 0.23
+   ombre : x [-0.80 ; +2.53] y [-0.59 ; +0.78]  centroïde (+1.38, +0.11)  décalage ombre - corps (+1.40, +0.52)
+
+        ####
+        #####
+        ####+
+        ####
+  ......####......
+     ++++###+++
+   +############+
+    ###########+
+   +###########+
+   +#####+++####+
+    +#+  +++++#
+
+  ................
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.72
+== laser-E (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.97 ; +0.91]  y [-1.62 ; +0.69]
+   largeur 1.88  hauteur 2.31  dépassement au-dessus de l'emprise 0.62  sous l'emprise -0.31  côtés -0.03/-0.09
+   aire du masque 2.54 t²  couverture de l'emprise 45 %  aire hors emprise 0.75 t²  centroïde (-0.02, -0.46)
+   couleur moyenne RGB (86, 79, 72)  luminance p5/p50/p95 5/58/228  saturation 0.22
+   ombre : x [-0.80 ; +2.89] y [-0.52 ; +0.70]  centroïde (+1.38, +0.13)  décalage ombre - corps (+1.40, +0.59)
+
+     #####++###+
+   ++##########++
+  +++++++###+++...
+      + ++###
+    +##########+
+   +############+
+    ###########
+   +############
+   +###+++++###++
+
+  ................
+
+== laser-folded (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.86 ; +0.86]  y [-1.69 ; +0.69]
+   largeur 1.72  hauteur 2.38  dépassement au-dessus de l'emprise 0.69  sous l'emprise -0.31  côtés -0.14/-0.14
+   aire du masque 2.11 t²  couverture de l'emprise 44 %  aire hors emprise 0.36 t²  centroïde (-0.02, -0.31)
+   couleur moyenne RGB (83, 77, 71)  luminance p5/p50/p95 6/55/230  saturation 0.21
+   ombre : x [-0.80 ; +2.11] y [-0.52 ; +0.81]  centroïde (+1.16, +0.15)  décalage ombre - corps (+1.18, +0.45)
+
+        ####
+        ####
+  .....+####+.....
+        ####
+     ++######++
+   +############+
+    +##########
+   +###########+
+   +#####++#####+
+     +        +
+  ................
+
+== wall-single (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.44 ; +0.44]  y [-0.75 ; +0.42]
+   largeur 0.88  hauteur 1.17  dépassement au-dessus de l'emprise 0.25  sous l'emprise -0.08  côtés -0.06/-0.06
+   aire du masque 0.68 t²  couverture de l'emprise 59 %  aire hors emprise 0.09 t²  centroïde (+0.00, -0.06)
+   couleur moyenne RGB (70, 62, 54)  luminance p5/p50/p95 19/51/159  saturation 0.24
+   ombre : x [-0.42 ; +1.06] y [+0.09 ; +0.98]  centroïde (+0.31, +0.48)  décalage ombre - corps (+0.31, +0.55)
+
+    +##+
+    ####
+   +####+
+  +######+
+   +####+
+
+== wall-horizontal (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.50 ; +0.50]  y [-0.75 ; +0.55]
+   largeur 1.00  hauteur 1.30  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.05  côtés -0.00/+0.00
+   aire du masque 1.24 t²  couverture de l'emprise 100 %  aire hors emprise 0.24 t²  centroïde (-0.00, -0.10)
+   couleur moyenne RGB (71, 64, 55)  luminance p5/p50/p95 23/51/177  saturation 0.25
+   ombre : x [-0.50 ; +1.39] y [+0.00 ; +0.98]  centroïde (+0.36, +0.48)  décalage ombre - corps (+0.36, +0.59)
+
+  ########
+  ########
+  ########
+  ########
+  ########
+
+
+== wall-vertical (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.42 ; +0.45]  y [-0.75 ; +1.08]
+   largeur 0.88  hauteur 1.83  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.58  côtés -0.08/-0.05
+   aire du masque 0.91 t²  couverture de l'emprise 61 %  aire hors emprise 0.29 t²  centroïde (+0.01, +0.13)
+   couleur moyenne RGB (113, 102, 91)  luminance p5/p50/p95 20/109/192  saturation 0.21
+   ombre : x [-0.42 ; +1.06] y [+0.08 ; +1.75]  centroïde (+0.31, +0.88)  décalage ombre - corps (+0.30, +0.75)
+
+    +##+
+    ####
+   +####+
+  +######+
+   ## +##+
+   ##  ##
+   #+  +#
+
+
+== wall-t_up (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.50 ; +0.50]  y [-0.75 ; +1.06]
+   largeur 1.00  hauteur 1.81  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.56  côtés -0.00/+0.00
+   aire du masque 1.38 t²  couverture de l'emprise 95 %  aire hors emprise 0.42 t²  centroïde (-0.00, -0.00)
+   couleur moyenne RGB (91, 83, 73)  luminance p5/p50/p95 15/50/213  saturation 0.24
+
+  ########
+  ########
+  ########
+  ########
+  ###++###
+   ##  ##
+   #+  +#
+
+
+== wall-corner_right_down (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.44 ; +0.50]  y [-0.75 ; +1.06]
+   largeur 0.94  hauteur 1.81  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.56  côtés -0.06/+0.00
+   aire du masque 1.14 t²  couverture de l'emprise 78 %  aire hors emprise 0.36 t²  centroïde (+0.08, +0.05)
+   couleur moyenne RGB (111, 102, 90)  luminance p5/p50/p95 15/94/208  saturation 0.22
+
+    +#####
+    ######
+   +######
+  +#######
+   ##++###
+   ##  ##
+   #+  +#
+
+
+== wall-corner_left_down (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.50 ; +0.44]  y [-0.75 ; +1.06]
+   largeur 0.94  hauteur 1.81  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.56  côtés -0.00/-0.06
+   aire du masque 1.15 t²  couverture de l'emprise 79 %  aire hors emprise 0.36 t²  centroïde (-0.08, +0.05)
+   couleur moyenne RGB (90, 81, 72)  luminance p5/p50/p95 17/56/199  saturation 0.23
+
+  #####+
+  ######
+  ######+
+  #######+
+  ###++##+
+   ##  ##
+   #+  +#
+
+
+== wall-ending_right (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.44 ; +0.50]  y [-0.75 ; +0.52]
+   largeur 0.94  hauteur 1.27  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.02  côtés -0.06/+0.00
+   aire du masque 0.98 t²  couverture de l'emprise 82 %  aire hors emprise 0.16 t²  centroïde (+0.10, -0.07)
+   couleur moyenne RGB (67, 60, 52)  luminance p5/p50/p95 22/46/169  saturation 0.23
+
+    +#####
+    ######
+   +######
+  +#######
+   #######
+
+
+== wall-ending_left (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.50 ; +0.45]  y [-0.75 ; +0.53]
+   largeur 0.95  hauteur 1.28  dépassement au-dessus de l'emprise 0.25  sous l'emprise +0.03  côtés -0.00/-0.05
+   aire du masque 0.99 t²  couverture de l'emprise 82 %  aire hors emprise 0.17 t²  centroïde (-0.09, -0.07)
+   couleur moyenne RGB (66, 59, 51)  luminance p5/p50/p95 20/49/170  saturation 0.25
+
+  #####+
+  ######
+  ######+
+  #######+
+  #######
+
+
+== wall-filling (emprise 1x1)
+   boîte visuelle (tuiles, centre = 0) : x [-0.36 ; +0.36]  y [-0.41 ; +0.41]
+   largeur 0.72  hauteur 0.81  dépassement au-dessus de l'emprise -0.09  sous l'emprise -0.09  côtés -0.14/-0.14
+   aire du masque 0.58 t²  couverture de l'emprise 58 %  aire hors emprise 0.00 t²  centroïde (+0.00, +0.00)
+   couleur moyenne RGB (150, 135, 119)  luminance p5/p50/p95 62/148/180  saturation 0.22
+
+   +####+
+   ######
+   ######
+   +####+
+
+== drill-N (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.47 ; +1.47]  y [-1.88 ; +1.48]
+   largeur 2.94  hauteur 3.36  dépassement au-dessus de l'emprise 0.38  sous l'emprise -0.02  côtés -0.03/-0.03
+   aire du masque 4.99 t²  couverture de l'emprise 52 %  aire hors emprise 0.33 t²  centroïde (+0.03, -0.56)
+   couleur moyenne RGB (86, 76, 70)  luminance p5/p50/p95 14/71/167  saturation 0.20
+   ombre : x [-1.41 ; +1.84] y [-1.64 ; +1.48]  centroïde (+0.22, -0.37)  décalage ombre - corps (+0.19, +0.19)
+
+           ######
+  +++.+++############+.+++
+  ###++##############++###
+  ####+##############+####
+  ######## ###############
+  +######  #####++##+####+
+  +#####+  +####++#######+
+  +####     +##+   +#####+
+   +##+     +##     +###+
+    ##+              ###
+    ##+              ###
+    ##+              ###
+    ##+              +##
+  ...+................+...
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.65
+== drill-E (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.47 ; +1.70]  y [-1.56 ; +1.47]
+   largeur 3.17  hauteur 3.03  dépassement au-dessus de l'emprise 0.06  sous l'emprise -0.03  côtés -0.03/+0.20
+   aire du masque 5.12 t²  couverture de l'emprise 55 %  aire hors emprise 0.16 t²  centroïde (+0.36, -0.11)
+   couleur moyenne RGB (90, 79, 69)  luminance p5/p50/p95 16/70/177  saturation 0.22
+   ombre : x [-1.41 ; +2.03] y [-1.31 ; +1.47]  centroïde (+0.79, -0.00)  décalage ombre - corps (+0.44, +0.10)
+
+  .........++###########+.
+  +#######################
+      ++++#######+####+#+
+          ####### #######
+          ####### ++######
+          ######   ########+
+         +#####+  +########+
+         +####+     ######
+         +###       #####+
+         +####++      +##
+   +#####################
+  +++++++++###############
+  ........................
+
+== drill-S (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.47 ; +1.47]  y [-1.50 ; +1.64]
+   largeur 2.94  hauteur 3.14  dépassement au-dessus de l'emprise -0.00  sous l'emprise +0.14  côtés -0.03/-0.03
+   aire du masque 5.66 t²  couverture de l'emprise 62 %  aire hors emprise 0.08 t²  centroïde (+0.04, +0.12)
+   couleur moyenne RGB (87, 75, 66)  luminance p5/p50/p95 11/68/179  saturation 0.25
+   ombre : x [-1.41 ; +1.84] y [-1.48 ; +1.64]  centroïde (+0.22, +0.39)  décalage ombre - corps (+0.18, +0.27)
+
+    ##+   +++####    +##
+    ##+ +########    +##
+    ##+###+#######+  ###
+    #####+ ######+## +##
+   +####+  #####++##+###+
+  +#####    +###  +######+
+  +####     +####+  #####+
+  +###+      +######+####+
+  ####+     +++##+########
+  ########################
+  +##++##############++##+
+       ++###########+
+            ++++
+
+== drill-W (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.70 ; +1.48]  y [-1.56 ; +1.47]
+   largeur 3.19  hauteur 3.03  dépassement au-dessus de l'emprise 0.06  sous l'emprise -0.03  côtés +0.20/-0.02
+   aire du masque 5.24 t²  couverture de l'emprise 56 %  aire hors emprise 0.16 t²  centroïde (-0.42, -0.11)
+   couleur moyenne RGB (91, 80, 69)  luminance p5/p50/p95 15/69/188  saturation 0.21
+   ombre : x [-1.70 ; +1.39] y [-1.31 ; +1.47]  centroïde (-0.55, -0.03)  décalage ombre - corps (-0.13, +0.08)
+
+   ..###############........
+   .#######################.
+   . ##++##########+++++   .
+   . #############+        .
+   +#######+#######        .
+  #########+#####+         .
+  ###############          .
+   .############+          .
+   .+#########+            .
+   . #++++ #####+          .
+   .+#####################+.
+   .##############+++++++++.
+    ........................
+
+== drill-N-integration (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.52 ; +1.44]  y [-1.44 ; +1.53]
+   largeur 2.95  hauteur 2.97  dépassement au-dessus de l'emprise -0.06  sous l'emprise +0.03  côtés +0.02/-0.06
+   aire du masque 2.79 t²  couverture de l'emprise 31 %  aire hors emprise 0.00 t²  centroïde (-0.05, -0.28)
+   couleur moyenne RGB (22, 15, 11)  luminance p5/p50/p95 11/11/32  saturation 0.50
+
+  .#+    +#+#++     +     .
+  +###+###########++##    .
+  #####     ++ +#+ +#####+.
+  +####          +  #####+.
+  +###+              +###+.
+  +####              +###+.
+  .####              +###+.
+  . ###              +##+ .
+  . ###              ###  .
+  . ##+              ###  .
+  . ##               ###  .
+  . +#               +##  .
+
+
+== furnace (emprise 2x2)
+   boîte visuelle (tuiles, centre = 0) : x [-0.98 ; +0.98]  y [-1.28 ; +1.02]
+   largeur 1.97  hauteur 2.30  dépassement au-dessus de l'emprise 0.28  sous l'emprise +0.02  côtés -0.02/-0.02
+   aire du masque 3.60 t²  couverture de l'emprise 87 %  aire hors emprise 0.14 t²  centroïde (-0.00, -0.01)
+   couleur moyenne RGB (66, 60, 45)  luminance p5/p50/p95 4/46/169  saturation 0.36
+   ombre : x [-0.92 ; +3.36] y [-0.28 ; +1.00]  centroïde (+0.71, +0.44)  décalage ombre - corps (+0.71, +0.45)
+
+         ++  +##
+  ..+####+++####+.
+   #############+
+  +##############
+  +###############
+  ###############+
+  +##############
+  +##############
+  +##############
+  ................
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.79
+== assembler (emprise 3x3)
+   boîte visuelle (tuiles, centre = 0) : x [-1.28 ; +1.28]  y [-1.56 ; +1.44]
+   largeur 2.56  hauteur 3.00  dépassement au-dessus de l'emprise 0.06  sous l'emprise -0.06  côtés -0.22/-0.22
+   aire du masque 6.98 t²  couverture de l'emprise 77 %  aire hors emprise 0.02 t²  centroïde (-0.01, -0.01)
+   couleur moyenne RGB (68, 61, 55)  luminance p5/p50/p95 8/48/166  saturation 0.40
+   ombre : x [-1.14 ; +1.84] y [-1.11 ; +1.38]  centroïde (+0.31, +0.03)  décalage ombre - corps (+0.32, +0.04)
+
+  .....+###+###++++++.....
+    +##################+
+    ####################
+    ####################
+    ####################
+   +####################
+   +####################
+    ####################
+    ####################
+   +####################
+    ####################
+    +##################+
+  ........................
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.81
+== command-1 (emprise 4x4)
+   boîte visuelle (tuiles, centre = 0) : x [-1.72 ; +1.69]  y [-2.41 ; +2.05]
+   largeur 3.41  hauteur 4.45  dépassement au-dessus de l'emprise 0.41  sous l'emprise +0.05  côtés -0.28/-0.31
+   aire du masque 10.82 t²  couverture de l'emprise 66 %  aire hors emprise 0.32 t²  centroïde (-0.11, +0.00)
+   couleur moyenne RGB (77, 72, 62)  luminance p5/p50/p95 12/56/181  saturation 0.27
+   ombre : x [-1.39 ; +3.16] y [-0.95 ; +2.16]  centroïde (+0.55, +0.55)  décalage ombre - corps (+0.66, +0.55)
+
+     +++ + +++
+  ..###########...................
+     ##########
+    +########## ++#+      +++
+    +####################+ ####+
+    +##########################
+    ++########################+
+      +######################+
+       ######################
+       ######################
+    +++######################++
+     +########################+
+    ++#########################
+    +##########################
+      ++####################++
+         ##################
+         +#################
+  ........+###########+++++.......
+
+   IoU(niveau 1, niveau 10 du design rejeté E25) = 0.73

@@ -1,0 +1,77 @@
+== gun : tête sur 64 directions
+   enveloppe balayée x [-1.00 ; +1.00] y [-1.84 ; +0.11]  aire 3.02 t²
+   sommet de la tête : min -1.84  max -1.50 ; bas de la tête max +0.11
+   socle x [-0.97 ; +0.98] y [-0.94 ; +0.72]  aire 2.66 t²
+   socle TOUJOURS visible (hors enveloppe de la tête) : 51 % du socle, y [-0.66 ; +0.72] x [-0.97 ; +0.98]
+   enveloppe tête (#) :
+
+    ++########++
+   ##############
+  ################
+  ################
+  +##############+
+   +############+
+    +##########+
+       ######
+
+
+
+  ................
+
+   socle toujours visible (#) :
+
+
+  +              +
+  +#            #+
+   ##++      +###
+   ######++######
+  +##############+
+  ++##++++++++##+
+
+
+== laser : tête sur 64 directions
+   enveloppe balayée x [-0.97 ; +0.97] y [-2.02 ; -0.19]  aire 2.86 t²
+   sommet de la tête : min -2.02  max -1.59 ; bas de la tête max -0.19
+   socle x [-0.86 ; +0.86] y [-0.64 ; +0.69]  aire 1.58 t²
+   socle TOUJOURS visible (hors enveloppe de la tête) : 71 % du socle, y [-0.42 ; +0.69] x [-0.86 ; +0.86]
+   enveloppe tête (#) :
+
+     +########+
+   +############+
+  +##############+
+  +##############+
+  ################
+   ##############
+    +##########+
+        ++++
+
+
+
+
+  ................
+
+   socle toujours visible (#) :
+
+
+
+   +++         ++
+    ###########
+   +###########+
+   +#####+++####+
+     #+  +++ +#
+
+
+== assembleur 2 : zone animée (32 images)
+   pixels qui changent : 13495 (47 % des pixels opaques)  boîte x [-1.50 ; +1.50] y [-1.58 ; +1.66]
+== foreuse : animation verticale (tige)
+   sommet opaque par image (tuiles) : min -1.52  max -1.06
+   décalage animé (shift_animation_waypoints nord) : de -0.5 à +0.6 tuile (mining-drill.lua:753)
+== couches lumineuses vanilla
+   four : working (draw_as_light, additive)      128x150  RGB moyen pondéré (20, 10, 2)  alpha moyen 0.772  luminance max 210
+   four : feu 48 images (draw_as_light)          456x486  RGB moyen pondéré (157, 112, 39)  alpha moyen 0.267  luminance max 246
+   four : glow (basse résolution seulement)      60x43  RGB moyen pondéré (119, 59, 0)  alpha moyen 0.166  luminance max 91
+   four : lumière au sol                         152x126  RGB moyen pondéré (205, 103, 10)  alpha moyen 0.263  luminance max 146
+   laser : energy_glow_animation                 976x928  RGB moyen pondéré (255, 85, 3)  alpha moyen 0.033  luminance max 227
+   foreuse : DEL nord (teinte d'état)            32x32  RGB moyen pondéré (207, 207, 207)  alpha moyen 0.103  luminance max 220
+   mur : diode verte (draw_as_glow)              288x44  RGB moyen pondéré (82, 120, 76)  alpha moyen 0.069  luminance max 255
+   balise : lumière                              990x930  RGB moyen pondéré (255, 255, 255)  alpha moyen 0.002  luminance max 255
