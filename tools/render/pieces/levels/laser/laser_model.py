@@ -451,28 +451,34 @@ def mats_e03(cx):
 
 def base_e03(cx):
     m = mats_e03(cx)
-    lathe(cx, [(0.80, 0.0), (0.80, 0.05), (0.76, 0.07), (0.74, 0.26), (0.66, 0.30), (0.0, 0.30)], m["iron"], "tambour", seg=48)
-    tor(cx, 0.78, 0.03, (0, 0, 0.06), m["brass"], "bride")
-    rivet_ring(cx, 0.75, 0.17, 24, 0.016, m["brass"], "rivets_tambour")
+    # tambour de chaudière plus petit que le tambour cerclé de l'époque 2 (IoU e3/e2 mesurée 0,867 > 0,85 en passe 2)
+    lathe(cx, [(0.68, 0.0), (0.68, 0.05), (0.645, 0.07), (0.63, 0.26), (0.56, 0.30), (0.0, 0.30)], m["iron"], "tambour", seg=48)
+    tor(cx, 0.665, 0.03, (0, 0, 0.06), m["brass"], "bride")
+    rivet_ring(cx, 0.64, 0.17, 22, 0.016, m["brass"], "rivets_tambour")
     # boucle de tuyau de cuivre autour du tambour
-    tor(cx, 0.84, 0.035, (0, 0, 0.14), m["copper"], "tuyau_boucle", seg=64)
+    tor(cx, 0.72, 0.035, (0, 0, 0.14), m["copper"], "tuyau_boucle", seg=64)
     for a in (35, 145, 215, 325):
         r = math.radians(a)
-        cyl(cx, 0.045, 0.05, (0.84 * math.cos(r), 0.84 * math.sin(r), 0.14), m["brass"], "collier_%d" % a, verts=12,
+        cyl(cx, 0.045, 0.05, (0.72 * math.cos(r), 0.72 * math.sin(r), 0.14), m["brass"], "collier_%d" % a, verts=12,
             rot=(math.pi / 2, 0, r))
     # manomètre en façade (cadran ambré, visible de jour)
-    tube_y(cx, 0.11, -0.80, -0.74, 0.18, m["brass"], "manometre_boite")
-    tube_y(cx, 0.085, -0.815, -0.80, 0.18, m["amber"], "manometre_cadran", caps=True)
-    halo(cx, (0.0, -0.90, 0.18), 0.7)
+    # cadran ambré de 0,21 unité : zone lumineuse d'au moins 8 × 8 px hr (bible §1.6 ; 7,7 px en passe 2)
+    tube_y(cx, 0.13, -0.70, -0.62, 0.18, m["brass"], "manometre_boite")
+    tube_y(cx, 0.105, -0.715, -0.70, 0.18, m["amber"], "manometre_cadran", caps=True)
+    halo(cx, (0.0, -0.80, 0.18), 0.7)
     # cheminée ronde à collerette à l'arrière gauche (fût vertical qui dépasse)
-    cx0, cy0 = -0.50, 0.50
-    cyl(cx, 0.105, 1.00, (cx0, cy0, 0.30 + 0.50), m["iron"], "cheminee", verts=24)
-    tor(cx, 0.11, 0.016, (cx0, cy0, 0.55), m["brass"], "cheminee_c1", seg=24)
-    tor(cx, 0.11, 0.016, (cx0, cy0, 0.95), m["brass"], "cheminee_c2", seg=24)
-    cyl(cx, 0.105, 0.12, (cx0, cy0, 1.34), m["iron"], "cheminee_levre", verts=24, r2=0.15, caps=False, bevel=0)
-    cyl(cx, 0.10, 0.02, (cx0, cy0, 1.32), m["soot"], "cheminee_suie", verts=24, bevel=0)
+    # cheminée HAUTE au coin arrière gauche, à 1,05 unité de l'axe : hors de la portée de la tête qui tourne
+    # (0,88 unité) ; posée sur son propre socle et reliée au tambour par un tuyau de cuivre
+    cx0, cy0 = -0.74, 0.74
+    cyl(cx, 0.17, 0.10, (cx0, cy0, 0.05), m["iron"], "cheminee_socle", verts=8, bevel=0.01)
+    cyl(cx, 0.115, 1.90, (cx0, cy0, 0.10 + 0.95), m["iron"], "cheminee", verts=24)
+    for k, zc in enumerate((0.45, 0.95, 1.45)):
+        tor(cx, 0.12, 0.018, (cx0, cy0, zc), m["brass"], "cheminee_c%d" % k, seg=24)
+    cyl(cx, 0.115, 0.14, (cx0, cy0, 2.07), m["iron"], "cheminee_levre", verts=24, r2=0.16, caps=False, bevel=0)
+    cyl(cx, 0.11, 0.02, (cx0, cy0, 2.05), m["soot"], "cheminee_suie", verts=24, bevel=0)
+    strut(cx, (-0.40, 0.40, 0.24), (cx0 + 0.08, cy0 - 0.08, 0.30), 0.04, m["copper"], "cheminee_tuyau")
     # réservoirs-condensateurs en laiton à l'arrière droit
-    for k, (x, y) in enumerate(((0.52, 0.42), (0.30, 0.62))):
+    for k, (x, y) in enumerate(((0.44, 0.36), (0.24, 0.52))):
         cyl(cx, 0.10, 0.30, (x, y, 0.45), m["brass"], "reservoir_%d" % k, verts=20)
         sph(cx, 0.10, (x, y, 0.60), m["brass"], "reservoir_dome_%d" % k, scale=(1, 1, 0.5))
     # colonne de fonte cerclée de cuivre
@@ -576,7 +582,7 @@ def base_e04(cx):
         rivet_ring(cx, 0.175, z + 0.025, 10, 0.012, m["black"], "boulons_%.2f" % z)
     cyl(cx, 0.24, 0.07, (0, 0, zp - 0.035), m["yellow"], "couronne", verts=32)
     # voyant orange au pied de la colonne
-    sph(cx, 0.045, (0.16, -0.12, 0.30), m["orange"], "voyant_socle")
+    sph(cx, 0.065, (0.18, -0.14, 0.30), m["orange"], "voyant_socle")
     halo(cx, (0.16, -0.20, 0.30), 0.5)
 
 
@@ -604,7 +610,7 @@ def head_e04(cx):
         strut(cx, (s * 0.46, yc, zc - 0.06), (s * 0.27, yc + 0.10, z - 0.02), 0.028, m["galva"], "tuyau_%d" % s)
         strut(cx, (s * 0.27, yc + 0.10, z - 0.02), (s * 0.27, 0.45, z - 0.02), 0.028, m["galva"], "tuyau_long_%d" % s)
     # voyant orange (jour) sur la face avant de la cuve et vanne à volant
-    sph(cx, 0.05, (0.20, yc + 0.17, zc + 0.02), m["orange"], "voyant")
+    sph(cx, 0.065, (0.20, yc + 0.17, zc + 0.02), m["orange"], "voyant")
     tor(cx, 0.06, 0.012, (-0.20, yc + 0.02, zc + 0.19), m["black"], "volant", seg=20)
     cyl(cx, 0.012, 0.05, (-0.20, yc + 0.02, zc + 0.165), m["galva"], "volant_tige", verts=8, bevel=0)
     halo(cx, (0.20, yc + 0.24, zc), 0.8)
@@ -652,7 +658,7 @@ def base_e05(cx):
     # fentes de braise (jour) sur la pente sud
     for k, z in enumerate((0.20, 0.31)):
         w = 0.70 - 0.18 * k
-        o = box(cx, (w, 0.03, 0.035), (0, -0.70 + 0.12 * k, z), m["ember"], "fente_%d" % k, bevel=0)
+        o = box(cx, (w, 0.03, 0.06), (0, -0.70 + 0.12 * k, z), m["ember"], "fente_%d" % k, bevel=0)
         o.rotation_euler = (math.radians(-45), 0, 0)
     halo(cx, (0.0, -0.95, 0.25), 1.0)
     # colonne en tronc de pyramide
@@ -673,7 +679,7 @@ def head_e05(cx):
         o.location = (0, 0.30 - 0.22 * k, z0 + 0.53)
         o.rotation_euler = (math.radians(-14), 0, 0)
     # fente d'émission rougeoyante (la « lentille » de l'époque)
-    box(cx, (0.50, 0.04, 0.07), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
+    box(cx, (0.50, 0.04, 0.10), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
     box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.35), m["rivet"], "levre_haute", bevel=0.005)
     box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.21), m["rivet"], "levre_basse", bevel=0.005)
     # ailettes de dissipation sur les flancs (dépassent)
@@ -849,7 +855,7 @@ def mats_e08(cx):
                            seed=19.0),
                 rubber=flat(cx, "caoutchouc", "#2A2A28", rough=0.7),
                 glassm=glass(cx, "verre", "#8FBF4A", gain=0.75),
-                plasma=emis(cx, "plasma", "#A8FF3A", strength=1.25, base=(0.15, 0.3, 0.05)))
+                plasma=emis(cx, "plasma", "#A8FF3A", strength=0.6, base=(0.15, 0.3, 0.05)))
 
 
 def bulb(cx, m, x, y, z, r, name, glow=True):
@@ -1009,7 +1015,7 @@ def base_e10(cx):
     # bandeau de voyants bleus (jour) sur le chant avant
     for k in range(5):
         a = math.radians(-120 + 15 * k)
-        o = box(cx, (0.08, 0.02, 0.025), (0.755 * math.cos(a), 0.755 * math.sin(a), 0.315), m["blue"], "voyant_%d" % k,
+        o = box(cx, (0.10, 0.02, 0.05), (0.755 * math.cos(a), 0.755 * math.sin(a), 0.315), m["blue"], "voyant_%d" % k,
                 bevel=0)
         o.rotation_euler = (0, 0, a + math.pi / 2)
     halo(cx, (0.0, -0.80, 0.32), 0.6)
@@ -1045,7 +1051,7 @@ def piece_e10(cx):
     o = box(cx, (0.78, 0.30, 0.22), (0.0, y, 0.15), m["fair"], "batterie", bevel=0.06)
     box(cx, (0.70, 0.31, 0.04), (0.0, y, 0.06), m["black"], "batterie_socle", bevel=0.01)
     for k in range(4):
-        box(cx, (0.10, 0.02, 0.035), (-0.24 + 0.16 * k, y - 0.155, 0.17), m["blue"], "batterie_led_%d" % k, bevel=0)
+        box(cx, (0.11, 0.02, 0.06), (-0.24 + 0.16 * k, y - 0.155, 0.17), m["blue"], "batterie_led_%d" % k, bevel=0)
     for s in (-1, 1):
         cyl(cx, 0.035, 0.06, (s * 0.25, y + 0.05, 0.29), m["black"], "borne_%d" % s, verts=12)
     strut(cx, (0.25, y + 0.12, 0.28), (0.20, ty(0.55), 0.35), 0.025, m["black"], "cable_batterie")
@@ -1060,7 +1066,7 @@ def mats_e11(cx):
                             rust="#8E8A80", rust_amount=0.25, seed=25.0),
                 ti=metal(cx, "titane", "#8E9AA6", gain=0.95, rough=0.25, metallic=0.85, grain=0.06, seed=26.0),
                 dark=flat(cx, "sombre", "#2A2E34", rough=0.4),
-                line=emis(cx, "ligne", "#BFE6FF", strength=1.5))
+                line=emis(cx, "ligne", "#BFE6FF", strength=0.8))
 
 
 def base_e11(cx):
@@ -1083,7 +1089,7 @@ def base_e11(cx):
     lathe(cx, [(0.0, zp - 0.08), (0.17, zp - 0.08), (0.20, zp - 0.04), (0.0, zp)], m["white"], "collier", seg=32)
     # ligne lumineuse le long du mât
     zl = (0.95 + zp - 0.15) / 2
-    box(cx, (0.025, 0.02, max(0.3, zp - 1.25)), (0, -0.07, zl), m["line"], "ligne_mat", bevel=0)
+    box(cx, (0.05, 0.03, max(0.3, zp - 1.25)), (0, -0.075, zl), m["line"], "ligne_mat", bevel=0)
     halo(cx, (0.0, -0.12, zl), 0.5)
 
 
@@ -1105,7 +1111,7 @@ def head_e11(cx):
     plate(cx, [(0.0, 0.0), (0.30, 0.0), (0.05, 0.20)], 0.02, m["ti"], "aileron_nez", axis="X", loc=(0, 0.20, z + 0.18))
     # lignes bleu-blanc qui courent sur les flancs
     for s in (-1, 1):
-        o = box(cx, (0.02, 0.62, 0.025), (s * 0.205, 0.05, z + 0.02), m["line"], "ligne_%d" % s, bevel=0)
+        o = box(cx, (0.03, 0.62, 0.05), (s * 0.205, 0.05, z + 0.02), m["line"], "ligne_%d" % s, bevel=0)
     halo(cx, (0.0, 0.85, z), 1.0)
 
 
@@ -1331,8 +1337,8 @@ def piece_e14(cx):
 def mats_e15(cx):
     return dict(wgold=metal(cx, "or_blanc", "#E8DCB0", gain=0.62, rough=0.20, metallic=0.95, grain=0.08, dirt=0.5, seed=35.0),
                 nacre=metal(cx, "nacre", "#D8D2C8", gain=0.62, rough=0.3, metallic=0.15, grain=0.12, dirt=0.5, seed=36.0),
-                light=emis(cx, "lumiere", "#FFF2C0", strength=1.4),
-                crys=emis(cx, "cristal_clair", "#FFF2C0", strength=0.9, base=(0.6, 0.55, 0.45)))
+                light=emis(cx, "lumiere", "#FFF2C0", strength=0.8),
+                crys=emis(cx, "cristal_clair", "#FFF2C0", strength=0.55, base=(0.6, 0.55, 0.45)))
 
 
 def base_e15(cx):

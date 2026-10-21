@@ -1,0 +1,15 @@
+# gain d'albédo par époque (measure_laser.py --calibrate) : époque gain   # p50 mesuré -> cible
+2 0.763   # p50 58.8 -> 52 (gain précédent 1.000)
+3 1.229   # p50 59.4 -> 58 (gain précédent 1.229)
+4 0.598   # p50 59.6 -> 60 (gain précédent 0.598)
+5 1.000   # p50 45.2 -> 42 (gain précédent 1.000)
+6 1.292   # p50 62.4 -> 64 (gain précédent 1.292)
+7 0.701   # p50 57.1 -> 55 (gain précédent 0.701)
+8 1.000   # p50 79.3 -> 60 (gain précédent 1.000) ; gain gardé à 1 : la médiane venait du bulbe saturé (émission 1,25 -> 0,6)
+9 1.000   # p50 56.7 -> 56 (gain précédent 1.000)
+10 0.500   # p50 124.5 -> 82 (gain précédent 1.000)
+11 0.894   # p50 105.2 -> 100 (gain précédent 1.000)
+12 1.000   # p50 64.6 -> 60 (gain précédent 1.000) ; gardé à 1 : écart dans la tolérance de ±10, époque non re-rendue
+13 0.675   # p50 110.0 -> 92 (gain précédent 1.000)
+14 2.078   # p50 63.1 -> 88 (gain précédent 1.000)
+15 1.955   # p50 79.6 -> 108 (gain précédent 1.000)

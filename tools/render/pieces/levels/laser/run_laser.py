@@ -114,7 +114,8 @@ def tune(rounds=3):
         for e in range(2, 16):
             o, ob = om[e]
             tgt = D.O_TARGET[e]
-            new = D.PIVOT[e] + (tgt - o) / K
+            # on ne touche qu'aux époques hors tolérance (±0,01 tuile) : les autres gardent le pivot de leur rendu
+            new = D.PIVOT[e] + (tgt - o) / K if abs(o - tgt) > 0.01 else D.PIVOT[e]
             new = max(D.PIVOT_MIN[e], new)
             worst = max(worst, abs(o - tgt))
             lines.append("%d %.4f   # O %.3f -> %.2f (socle %.2f), pivot précédent %.4f" % (e, new, o, tgt, ob, D.PIVOT[e]))

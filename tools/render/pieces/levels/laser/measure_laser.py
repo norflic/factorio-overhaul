@@ -137,6 +137,15 @@ def glow_zone(level):
         ii = np.pad(m.cumsum(0).cumsum(1), ((1, 0), (1, 0)))
         w = ii[8:, 8:] - ii[:-8, 8:] - ii[8:, :-8] + ii[:-8, :-8]
         best[part] = int(w.max()) if w.size else 0
+        # luminance de jour de la zone (couche principale + lueur additive, comme compose_laser) : meilleure fenêtre
+        # 8 × 8 parmi celles qui ont la couverture maximale ; comparée ensuite à la médiane du corps (+80/255 visés)
+        mp = os.path.join(CL.OUT, "L%02d" % lv, "%s-main.png" % part)
+        if w.size and os.path.exists(mp):
+            mi = CL.load_rgba(mp)
+            comp = np.clip(mi[..., :3] * mi[..., 3:4] + g[..., :3] * g[..., 3:4], 0, 1)
+            li = np.pad(lum(comp).cumsum(0).cumsum(1), ((1, 0), (1, 0)))
+            s8 = (li[8:, 8:] - li[:-8, 8:] - li[8:, :-8] + li[:-8, :-8]) / 64.0
+            best[part + "_lum"] = float(255 * s8[w == w.max()].max())
     return best
 
 
@@ -259,10 +268,10 @@ def main():
                                       "iou_scaled_max": max(x["iou_scaled"] for x in hd.values())}
     # contrôle de la mesure normalisée : un simple agrandissement du vanilla doit donner 1,00
     rep["d13"]["controle_homothetie"] = scaled_iou(masks[(1, "N")], homothety(masks[(1, "N")], 1.35), ks)[0]
+    print_tables(rep)          # complète aussi rep (contraste des zones lumineuses)
     os.makedirs(os.path.dirname(a.json), exist_ok=True)
     with open(a.json, "w", encoding="utf-8") as f:
         json.dump(rep, f, indent=1, sort_keys=True)
-    print_tables(rep)
 
 
 def homothety(m, k):
@@ -303,20 +312,22 @@ def vanilla_head_envelope():
 
 def print_tables(rep):
     L = rep["levels"]
-    print("niv ép | O_N   O_max cible plaf | L_N  L_max cible | aire_N | IoU préc | ajout pièce min t² | pièce visible | IoU ép. préc | lum p50 cible p95 sat | lueur 8x8")
+    print("niv ép | O_N   O_max cible plaf | L_N  L_max cible | aire_N | IoU préc | ajout pièce min t² | pièce visible | IoU ép. préc | lum p50 cible p95 sat | lueur 8x8 contraste")
     for lv in D.LEVELS:
         r = L[lv]
         e = r["epoch"]
         ph = r["photometry"]
         gz = r["glow_8x8_max"]
-        gzs = max(gz.values()) if gz else 0
+        gzs = max([v for k, v in gz.items() if not k.endswith("_lum")] or [0])
+        glum = max([v for k, v in gz.items() if k.endswith("_lum")] or [float("nan")])
+        r["glow_contrast"] = glum - ph["L_p50"]
         print("%3d %2d | %5.2f %5.2f %5.2f %4.2f | %4.2f %5.2f %5.2f | %5.2f | %s | %s | %s | %s | %5.1f %4d %5.1f %4.2f | %s" % (
             lv, e, r["O_N"], r["O_max"], D.O_TARGET[e], D.O_CEILING, r["L_N"], r["L_max"], D.L_TARGET[e], r["area_N"],
             "%5.3f" % r["iou_prev_max"] if "iou_prev_max" in r else "  -  ",
             "%6.3f" % r["added_min"] if "added_min" in r else "   -  ",
             "%4.0f %%" % (100 * r["piece_visible_frac"]) if "piece_visible_frac" in r else "  -  ",
             "%5.3f" % r["iou_epoch_prev_max"] if "iou_epoch_prev_max" in r else "  -  ",
-            ph["L_p50"], D.LUM_TARGET[e], ph["L_p95"], ph["sat"], "%d/64" % gzs))
+            ph["L_p50"], D.LUM_TARGET[e], ph["L_p95"], ph["sat"], "%d/64 %+5.0f" % (gzs, r["glow_contrast"])))
     for k, v in rep["d13"].items():
         if isinstance(v, dict):
             print("D1-3 %s : IoU max %.3f, IoU normalisée max %.3f ; %s" % (k, v["iou_max"], v["iou_scaled_max"], ", ".join(

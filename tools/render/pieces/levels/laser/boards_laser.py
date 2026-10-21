@@ -3,7 +3,7 @@
     python tools/render/pieces/levels/laser/boards_laser.py [--dir E]
 
 (a) laser-a-niveaux-zoom1-jour.png : les 30 niveaux, 15 colonnes (époques) × 2 rangées (impair, pair), zoom 1
-    (32 px/tuile), sur le sol vanilla hr-dirt-4, avec les ombres, de jour ;
+    (32 px/tuile), sur le sol vanilla hr-dirt-4, avec les ombres, de jour ; tête au sud par défaut (--dir) ;
 (b) laser-b-niveaux-zoom1-nuit.png : la même de nuit (LUT de nuit + carte des lumières, comme la maquette V0) ;
 (c) laser-c-niveaux-zoom1-gris.png : la même en niveaux de gris (test du gris D1-1) ;
 (d) laser-d-vignettes.png : les 15 niveaux impairs en masques noirs, même échelle (le plus grand tient dans 64 px),
@@ -239,7 +239,8 @@ def board_poses():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dir", default="E", help="direction de tête des planches a, b, c")
+    ap.add_argument("--dir", default="S", help="direction de tête des planches a, b, c (S : lentille de face ; "
+                    "la planche f montre les 4 poses)")
     ap.add_argument("--only", default="abcdef")
     a = ap.parse_args()
     paths = []

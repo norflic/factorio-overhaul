@@ -18,7 +18,7 @@ import shutil
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
@@ -32,6 +32,7 @@ RAW = os.path.join(RENDER, "cache", "levels-laser")
 OUT = os.path.join(RENDER, "out", "levels", "laser")
 DATA = os.environ.get("FO_DATA", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
 K = math.sqrt(0.5)
+FRINGE_PX = 16          # portée maximale du liseré de contact autour de la pièce (px hr)
 
 
 def load(path):
@@ -118,6 +119,14 @@ def process(level, part):
     ao = npz("ao")
     lay = {}
     full = P.compose_main(main, ao, C)
+    if ao is not None:
+        # Liseré de contact borné à FRINGE_PX autour des pixels opaques de la pièce : à 16 échantillons d'AO
+        # (aperçu), du bruit à alpha 1-7/255 s'étalait jusqu'à 4 tuiles et gonflait recadrage et shift (402 px de
+        # large pour un socle de 2 tuiles, niveau 5). Le liseré vanilla mesure environ 9 px hr (CALIBRATION §4.1).
+        near = np.asarray(Image.fromarray(((main[..., 3] >= 0.5) * 255).astype(np.uint8), "L").filter(
+            ImageFilter.MaxFilter(2 * FRINGE_PX + 1))) > 0
+        full = full.copy()
+        full[..., 3] = np.where(near | (main[..., 3] > 0), full[..., 3], 0.0)
     front = npz("front")
     if front is not None:
         m = vanilla_alpha(D.VANILLA["base"], full.shape[:2], origin)
