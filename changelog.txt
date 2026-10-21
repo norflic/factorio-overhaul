@@ -20,6 +20,8 @@ Date: 2026-10-21
     - Au chargement, les PV au-dessus du nouveau maximum sont ramenés au maximum (murs des
       sauvegardes 0.3.0).
   Info:
+    - Conception du contenu des 15 époques (docs/SCENARIO_EPOQUES.md, shared/content/epochs.lua) : scénario
+      « La Caustique d'Érèbe », 4 branches avancées, arbres de fabrication vérifiés hors jeu (pas encore en jeu).
     - Reprise dans Claude Code (P0) : dépôt git ; banc de l'étape data utilisable sous Windows ; banc en
       moteur réel capable de tester un worktree (source du mod en paramètre), sans recopier .git ni les
       worktrees, et qui signale un verrou pris (code 2) ; fichiers orphelins de la session 3 supprimés.

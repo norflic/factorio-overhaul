@@ -94,6 +94,23 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E34 · VALIDÉ (hors jeu) · Graphe de fabrication des 15 époques et des branches (lot X0, 21/10, 21 h 15)** :
+- Conception par 3 concepteurs aux angles différents (récit, systèmes de production, rythme), notés par
+  2 juges. Gagnante : « La Caustique d'Érèbe » (102 points, contre 99,5 et 98), enrichie des meilleures
+  idées des deux autres.
+- Relecture par 3 critiques adverses (fidélité, moteur, équilibre) : 45 problèmes, dont 19 majeurs ou
+  bloquants, corrigés en version 2.
+- Banc `tests/epochs_test.lua` : **16 665 OK, 0 échec**. Il contrôle :
+  - que tout objet se fabrique depuis les ressources de la carte ;
+  - l'absence d'anachronisme et d'énergie ou de matière gratuites ;
+  - les limites de la doc 1.1.91, dont il relit 13 phrases ;
+  - la cohérence avec la config des niveaux (V2) et des factions (IA0).
+- Contre-épreuve : 3 défauts injectés (énergie gratuite, anachronisme, recette supprimée) sont tous
+  détectés.
+- **Rien n'existe en jeu.** Les mécaniques à risque sont listées au §8 du document : torchère à recette
+  automatique, foreuse sur une ressource créée par script, chaleur à 5 000 °C, labo à 19 entrées…
+- Hypothèse **H-X1 · OUVERTE** : le coût de script des systèmes X reste ≤ 0,05 ms/tick.
+
 **E33 · VALIDÉ · PvP en moteur réel (lot IA0, scénarios greffés, 21/10, 20 h 40 à 20 h 45)** :
 
 | Scénario | Durée | BILAN | Résultat |

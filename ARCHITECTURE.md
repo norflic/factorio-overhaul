@@ -26,6 +26,7 @@ factorio-overhaul/
 ├── OBJECTIFS.md                    # cahier des charges : demandes, critères d'acceptation, état réel
 ├── ARCHITECTURE.md, BALANCE_SHEET.md, RD_LOG.md
 ├── docs/DESIGN_EPOQUES.md          # bible des 15 époques × 7 familles (lot V1) ; docs/epoques/mesures/ : mesures vanilla
+├── docs/SCENARIO_EPOQUES.md        # scénario « La Caustique d'Érèbe », 15 époques, 4 branches, arbres de fabrication (lot X0)
 ├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
 ├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
 ├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
@@ -35,6 +36,7 @@ factorio-overhaul/
 ├── shared/                         # PUR Lua, aucune API : partagé data / runtime / hors-jeu
 │   ├── balance_model.lua           # paliers Compaction ×4 (logistique)
 │   ├── content/{modules,enemies,arsenal,world}.lua      # données d'équilibrage du contenu
+│   ├── content/epochs.lua          # contenu des 15 époques et des branches (lot X0) : ressources, objets, recettes, bâtiments, technologies (données pures, pas encore en jeu)
 │   ├── faction/{config,strategy}.lua                    # paramètres + décision d'attaque des factions
 │   ├── team/{config,book,planner}.lua                   # économie réelle, livre de recettes, CERVEAU D'ÉQUIPE
 │   ├── td/waves.lua                                     # composition des vagues (défense de tours)

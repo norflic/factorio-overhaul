@@ -105,6 +105,33 @@ def first_param_is_table(spec):
     return t not in SCALARS
 
 
+_LUA_LONG = re.compile(r"\[(=*)\[.*?\]\1\]", re.S)
+
+
+def strip_lua_text(text):
+    """Remplace commentaires et chaînes Lua par des blancs : un nom d'API cité dans un texte
+    (documentation, message) n'est pas un appel. Les retours à la ligne sont conservés."""
+    out, i, n = [], 0, len(text)
+    blank = lambda s: re.sub(r"[^\n]", " ", s)
+    while i < n:
+        c = text[i]
+        if text.startswith("--", i):
+            m = _LUA_LONG.match(text, i + 2)
+            end = m.end() if m else (text.find("\n", i) if text.find("\n", i) >= 0 else n)
+            out.append(blank(text[i:end])); i = end
+        elif c == "[" and _LUA_LONG.match(text, i):
+            m = _LUA_LONG.match(text, i)
+            out.append(blank(text[i:m.end()])); i = m.end()
+        elif c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c and text[j] != "\n":
+                j += 2 if text[j] == "\\" else 1
+            out.append(c + blank(text[i + 1:j]) + (c if j < n else "")); i = j + 1
+        else:
+            out.append(c); i += 1
+    return "".join(out)
+
+
 def main():
     doc = pathlib.Path(sys.argv[1])
     root = pathlib.Path(sys.argv[2] if len(sys.argv) > 2 else ".")
@@ -134,7 +161,7 @@ def main():
     # .claude/ contient les worktrees des agents (copies du mod en cours de travail) : jamais lintés ici.
     lua_files = [p for p in root.rglob("*.lua")
                  if not {"tests", ".claude", ".git"} & set(p.relative_to(root).parts)]
-    src = {p: p.read_text(encoding="utf-8") for p in lua_files}
+    src = {p: strip_lua_text(p.read_text(encoding="utf-8")) for p in lua_files}
 
     for path, text in src.items():
         for var, cls in GLOBAL_CLASSES.items():

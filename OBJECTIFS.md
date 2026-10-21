@@ -368,7 +368,13 @@
     sa cible. Selon les hypothèses : 73 h si les ouvriers ne sont occupés qu'à 50 % ; 86 h ou 46 h si
     la production vaut × 0,7 ou × 1,3. **Non prouvé en partie réelle.**
   - 5 matériaux d'époque sont encore provisoires (époques 11 à 15), en attendant X0.
-  - ⏳ X0 (scénario, crafts, branches avancées) : en finition. ⏳ V3 (visuel) : en production.
+  - X0 livré (21/10, 21 h 15, hors jeu) : « La Caustique d'Érèbe ». Scénario en 4 actes ; 15 époques ;
+    4 branches avancées de l'époque 7 à 14 (A matière noire, B antimatière, C chronodynamique,
+    D matière étrange), 3 niveaux chacune, avec une merveille au niveau III ; fin de partie : la Porte
+    d'Érèbe (silo 10 × 10, 30 min sous 5 GW). Volume : 123 objets, 19 fluides, 80 bâtiments, 15 ressources,
+    264 recettes, 78 technologies, soit environ 2 250 prototypes avec les niveaux. Graphe vérifié hors jeu :
+    tout se fabrique depuis la carte. **Rien n'est en jeu** (lots X1 à X15). Questions QX1 à QX9.
+  - ⏳ V3 (visuel) : en production.
 
 ---
 
@@ -393,6 +399,15 @@
 | Q15 | Sauvegardes 0.3.0 : un mur de niveau 10 passe de 3 712 à 1 925 PV (nouvelle courbe). D'accord ? | **Ouverte** | Rupture de compatibilité mineure |
 | Q16 | Condition façon Clash of Clans pour monter le centre (par exemple, tous les bâtiments au niveau maximal de l'époque) ? Aujourd'hui, monter le centre seul ne coûte que 0,9 % de la dépense | **Ouverte** | Rythme de F1 |
 | Q17 | Avancer la file de chantiers (E3-4) avant la Compaction ? Sans elle, il faut relancer un chantier toutes les 10 s à l'époque 6 | **Ouverte** (proposition : oui) | Boucle idle (E3) |
+| QX1 | Phase « brûleur » aux époques 1 et 2, l'électricité n'arrivant qu'à l'époque 3 ? | **Ouverte** (proposition : oui) | X1-X3 |
+| QX2 | Le Serment (époque 13) : une seule maîtrise de branche (III) et sa merveille avant l'époque 15, les autres à l'époque 15 ? | **Ouverte** (proposition : oui) | Branches |
+| QX3 | Défaite si une faction ouvre sa Porte avant vous (X0 : en Difficile et en Impitoyable) ? | **Ouverte** (proposition de l'architecte : en Impitoyable seulement) | C4, fin de partie |
+| QX4 | Antimatière : (a) environ 1,8 GW nets par réacteur (rendement positif, fiction assumée) ou (b) simple stockage d'énergie ? | **Ouverte** (proposition : a) | Branche B |
+| QX5 | Les noms : Érèbe, Caustique, Cœur, Convoi, Compagnie, Porte ? | **Ouverte** | Textes |
+| QX6 | Un 6e ouvrier offert par la merveille « Horloge éternelle », au-delà de « 1 à 5 » ? | **Ouverte** (proposition : oui) | F1 |
+| QX7 | « Époque 15 vers 60 h » : heure où l'on ATTEINT l'époque 15, ou heure où l'on ouvre la Porte (lecture actuelle : époque 15 à 52,5 h, Porte à 59,5 h) ? | **Ouverte** (proposition : ouverture de la Porte) | F1-3 |
+| QX8 | Les bâtiments vanilla qui arrivent après l'époque 1 (mur, four, foreuse, assembleur, laser) naissent au niveau 1 et rattrapent leurs niveaux en payant, ou naissent au niveau de leur époque ? | **Ouverte** (proposition : rattrapage) | E1, F1 |
+| QX9 | Aux époques 2 à 4, 6 et 10, la recherche vanilla coûte jusqu'à 11 fois le budget du modèle : alléger la recherche vanilla (×0,04 à ×0,25 d'unités) ou plus de production plus tôt ? | **Ouverte** (proposition : alléger) | F1-3 |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -503,7 +518,7 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 apport.md | 21/10, 19 h 55 |
 | V3 phase 1 : modélisation des 7 familles | ⏳ workflow lancé (aperçus des 30 niveaux, auto-mesure D1 ; rien en jeu avant V2 et V0b) | — | 21/10, 19 h 40 ; relancé à 20 h 35 après l'arrêt de la session (environ 2 000 lignes par famille conservées) |
 | V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
-| X0 Scénario, crafts, branches | ⏳ 9 agents sur 10 terminés avant l'arrêt de la session ; correcteur final relancé (20 h 35) | — | 21/10, 20 h 35 |
+| X0 Scénario, crafts, branches | ✅ hors jeu, 👁 conception à valider par vous (QX1 à QX9) | « La Caustique d'Érèbe » : `docs/SCENARIO_EPOQUES.md`, données pures `shared/content/epochs.lua`, banc `tests/epochs_test.lua` (16 665 OK, 0 échec ; 3 défauts injectés tous détectés) ; 3 concepteurs, 2 juges, 3 critiques (45 problèmes, dont 19 majeurs ou bloquants, corrigés) ; rien en jeu | 21/10, 21 h 15 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
 | IA0b Base défendue attaquée selon la difficulté | ⏳ workflow lancé (siège, rapport de force par niveau et par personnalité, assaut coordonné) | — | 21/10, 20 h 52 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
