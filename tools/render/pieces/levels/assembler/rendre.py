@@ -78,10 +78,19 @@ def place(canvas_shape, origin, alpha, shift, ppt):
 
 def blender_call(ns, samples, mode, cdir, log):
     """Un appel Blender (un passage par le verrou) pour un lot de niveaux."""
-    cmd = [sys.executable, LOCK, "--", fo_blender.blender_exe(), "-b", "--factory-startup", "-noaudio", "-P", ENTRY,
-           "--", "--levels", ",".join(str(n) for n in ns), "--out", cdir, "--samples", str(samples), "--mode", mode]
+    # Le verrou officiel (with_render_lock.py, inchangé) est tenté avec --wait 0 toutes les secondes : il sort avec le
+    # code 2 et « délai dépassé » quand les 2 places sont prises, sans rien lancer. Son attente interne interroge toutes
+    # les 5 s ; d'autres lots relancent plus souvent et prenaient chaque place libérée (attentes de 25 min mesurées).
+    cmd = [sys.executable, LOCK, "--wait", "0", "--", fo_blender.blender_exe(), "-b", "--factory-startup", "-noaudio",
+           "-P", ENTRY, "--", "--levels", ",".join(str(n) for n in ns), "--out", cdir, "--samples", str(samples),
+           "--mode", mode]
     t0 = time.time()
-    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    while True:
+        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if not (p.returncode == 2 and "[FO-RENDER]" not in p.stdout and "[fo-render]" in p.stdout
+                and "Blender" not in p.stdout):
+            break
+        time.sleep(1.0)
     with open(log, "a", encoding="utf-8") as f:
         f.write(" ".join(cmd) + "\n" + p.stdout[-3000:] + p.stderr[-3000:] + "\n")
     for line in p.stdout.splitlines():
@@ -248,7 +257,14 @@ def write_manifest(recs, samples, seconds):
             ent["parts"] = r.get("parts", {})
             ent["files_sha256"] = r["files"]
             ent["halo_windows"] = r["halo_windows"]
-            ent["drawing_box"] = _drawing_box(r["spec"])
+            db = _drawing_box(r["spec"])
+            if n == 2 and db:               # niveau 2 : union avec le sprite vanilla (214 × 218 hr, shift (0 ; 0,125))
+                v = params.VANILLA["main"]
+                w, h = v["frame"][0] / 64.0, v["frame"][1] / 64.0
+                sx, sy = v["shift"]
+                db = [[min(db[0][0], sx - w / 2), min(db[0][1], sy - h / 2)],
+                      [max(db[1][0], sx + w / 2), max(db[1][1], sy + h / 2)]]
+            ent["drawing_box"] = db
             ent["phase2_files"] = _phase2_files(n)
             ent["render"] = r["render"]
             if n == 2:

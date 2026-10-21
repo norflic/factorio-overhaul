@@ -432,8 +432,8 @@ def e05(K, t, piece):
     braise = K.emit("e5_braise", "#FF4A10", strength=1.5, base="#200804")
     K.module = "corps"
     tiers = [(0.00, 0.45, (1.46, -1.00, 1.58), (1.14, -0.79, 1.24)),
-             (0.42, 0.88, (1.17, -0.80, 1.27), (0.99, -0.66, 1.04)),
-             (0.85, 1.30, (1.02, -0.68, 1.08), (0.82, -0.52, 0.85))]
+             (0.42, 0.88, (1.04, -0.78, 1.22), (0.84, -0.62, 0.98)),
+             (0.85, 1.30, (0.86, -0.60, 0.96), (0.66, -0.46, 0.76))]
     for i, (z0, z1, (bx, by0, by1), (tx_, ty0, ty1)) in enumerate(tiers):
         bot = [(-bx, by0), (bx, by0), (bx, by1), (-bx, by1)]
         top = [(-tx_, ty0), (tx_, ty0), (tx_, ty1), (-tx_, ty1)]
@@ -442,7 +442,7 @@ def e05(K, t, piece):
                  "rivets_lourds")
         for x0, x1 in ((-0.75, -0.35), (-0.18, 0.18), (0.35, 0.75)):
             slope_strip(K, x0 * bx / 1.3, x1 * bx / 1.3, (by1, z0), (ty1, z1), 0.42, 0.66, braise, "fente_braise")
-    hb = [(-0.64, -0.46), (0.64, -0.46), (0.64, 0.72), (-0.64, 0.72)]
+    hb = [(-0.56, -0.44), (0.56, -0.44), (0.56, 0.66), (-0.56, 0.66)]
     ht = [(-0.50, -0.40), (0.50, -0.40), (0.50, -0.02), (-0.50, -0.02)]
     K.prism(hb, 1.30, 2.22, tung, "capot", top=ht, bevel=0.02)
     slope_strip(K, -0.36, 0.36, (0.72, 1.30), (-0.02, 2.22), 0.36, 0.56, braise, "fente_marteau")
@@ -457,7 +457,7 @@ def e05(K, t, piece):
         K.module = "piece"
         for s in (-1, 1):
             for y0, y1 in ((0.10, 0.62), (-0.74, -0.26)):
-                poly = [(s * 1.04, 0.0), (s * 1.47, 0.0), (s * 1.47, 0.14), (s * 1.06, 1.10)]
+                poly = [(s * 0.95, 0.0), (s * 1.47, 0.0), (s * 1.47, 0.14), (s * 0.88, 1.05)]
                 K.plate(poly, y0, y1, rouille, "contrefort", bevel=0.012)
                 K.rivets((s * 1.44, y1 + 0.01, 0.07), (s * 1.12, y1 + 0.01, 0.95), 4, 0.022, rivet, "rivets_contrefort")
 
@@ -607,7 +607,7 @@ def e07(K, t, piece):
 # Époque 8 · Marais : corps arrondi vert-de-gris, trois fioles-réacteurs bouillonnantes, conduits
 # ------------------------------------------------------------------------------------------------
 def e08(K, t, piece):
-    K.gain = 0.50    # photométrie : p50 mesuré 87 -> 60 (bible §1.5, ±10)
+    K.gain = 0.36    # photométrie : p50 mesuré 87 puis 70 -> 60 (bible §1.5, ±10)
     vdg = K.metal("e8_vert_de_gris", "#4F6B5A", k=1.55, rough=0.45, metallic=0.5, grain=0.22, rust="#2E4038",
                   rust_amount=0.3, dirt=0.5, seed=81)
     cuivre = K.metal("e8_cuivre", "#8A5A3A", k=1.5, rough=0.3, metallic=0.85, grain=0.12, rust="#4F6B5A",
@@ -879,12 +879,12 @@ def e12(K, t, piece):
 # Époque 13 · Fusion : noyau sphérique sur trépied dans un cadre ouvert, tore de plasma horizontal
 # ------------------------------------------------------------------------------------------------
 def e13(K, t, piece):
-    K.gain = 0.38    # photométrie : p50 mesuré 149 -> 92 (bible §1.5, ±10)
+    K.gain = 0.22    # photométrie : p50 mesuré 149 puis 127 -> 92 (bible §1.5, ±10)
     cera = K.metal("e13_ceramique", "#D9D6CF", k=0.95, rough=0.42, metallic=0.0, grain=0.08, dirt=0.55,
                    rust="#9A9284", rust_amount=0.2, seed=131)
     cuivre = K.metal("e13_cuivre", "#B0703A", k=1.25, rough=0.28, metallic=0.9, grain=0.12, dirt=0.4, seed=132)
     sombre = K.metal("e13_sombre", "#2A2826", k=1.4, rough=0.5, metallic=0.4, seed=133)
-    plasma = K.emit("e13_plasma", "#FF4FD8", strength=1.6, base="#5A1048")
+    plasma = K.emit("e13_plasma", "#FF4FD8", strength=1.1, base="#5A1048")
     coeur = K.emit("e13_coeur", "#FF9A3A", strength=1.5, base="#5A2A08")
     K.module = "corps"
     for x, y, h in ((-1.15, -0.70, 2.05), (1.15, -0.70, 2.05), (-1.15, 1.18, 1.05), (1.15, 1.18, 1.05)):
@@ -1032,8 +1032,8 @@ def e15(K, t, piece):
     K.torus(0.0, cy, 2.62, 0.44, 0.06, orb, "anneau_couronne")
     K.cyl(0.0, cy, 2.55, 2.66, 0.38, nacre, "disque_couronne", verts=48)
     # flèches : centrale (cylindre effilé + pointe) puis six autour, plus hautes à l'arrière
-    K.cyl(0.0, cy, 2.62, 4.50, 0.12, orb, "fleche_centrale", r2=0.082, verts=24)
-    K.cyl(0.0, cy, 4.50, 4.95, 0.082, orb, "pointe_centrale", r2=0.004, verts=24)
+    K.cyl(0.0, cy, 2.62, 4.44, 0.12, orb, "fleche_centrale", r2=0.082, verts=24)    # O masses ≤ 1,50 (Q9)
+    K.cyl(0.0, cy, 4.44, 4.92, 0.082, orb, "pointe_centrale", r2=0.004, verts=24)
     K.crystal((0.0, cy, 4.86), 0.22, 0.035, clair, "eclat_pointe")
     for k in range(6):
         a = math.radians(30 + 60 * k)

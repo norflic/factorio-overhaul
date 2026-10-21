@@ -1,0 +1,7623 @@
+{
+ "family": "assembler",
+ "name": "machine d'assemblage 2",
+ "footprint": 3,
+ "ceiling_O": 1.5,
+ "status": "APERÇU phase 1 (échantillons réduits) : ni rendu final, ni branchement en jeu ; design NON validé (seul le verdict du Directeur Créatif valide)",
+ "dest_preview": "tools/render/out/levels/assembler",
+ "conventions": {
+  "hr_px_per_tile": 64,
+  "hr_scale": 0.5,
+  "lr_px_per_tile": 32,
+  "shift": "tuiles, multiples exacts de 1/64, relatifs à la position de l'entité",
+  "layers": {
+   "main": "couche principale (liseré de contact compris)",
+   "shadow": "draw_as_shadow (noir, alpha = part d'ombre)",
+   "glow": "draw_as_glow, blend additive (RGB = c/max, A = max)",
+   "light": "draw_as_light, blend additive (halo de nuit)"
+  },
+  "animation": "phase 1 : pose de référence seule (image 0, t = 0) ; phase 2 : corps fixe rendu une fois + mécanisme (module meca) en 32 images, corps en cache ; pièce paire en couche séparée (1 image, repeat_count = 32)"
+ },
+ "interface_v2": {
+  "fichier": "prototypes/levels/assembler.lua (garde de prototypes/levels/common.lua : dress ne touche que les champs graphiques)",
+  "dress(p, ctx)": [
+   "e = ctx.epoch ; n = ctx.level ; ctx.step == 1 : silhouette de l'époque, ctx.step == 2 : la même + pièce",
+   "p.animation = { layers = { main (hr : width, height, shift, scale = 0.5 ; phase 2 : frame_count = 32, line_length = 8), shadow (draw_as_shadow = true) } } ; niveau 2 : couches vanilla INCHANGÉES + couches de la pièce avec repeat_count = 32",
+   "p.working_visualisations = { { always_draw = true, animation = glow (draw_as_glow = true, blend_mode = \"additive\") }, { always_draw = true, animation = light (draw_as_light = true, blend_mode = \"additive\") } } ; époques 1 et 2 : pas de lueur de jour (lumière de nuit seulement) ; halo proportionnel au niveau (bible §1.6, D2-3) par une LightDefinition (intensity 0,05 + 0,02·n, size 3 × (1 + 0,05·n), color = émissif d'époque) : à mesurer en jeu",
+   "p.drawing_box = drawing_box du niveau (ci-dessous) ; collision_box et selection_box : INCHANGÉES (D1-4)",
+   "p.icons via icons(icons, ctx) : rendu de la pose de référence (64 px, 4 mipmaps) + numéro de niveau",
+   "tuyaux : fluid_boxes (0,-2) et (0,2) inchangés ; pipe_picture et pipe_covers vanilla conservés en phase 1, raccord visuel à VÉRIFIER en capture (bible §1.8-6)"
+  ]
+ },
+ "preview_render": {
+  "samples": 32,
+  "seconds_total": 902.0,
+  "blender": "5.2.2 LTS",
+  "calib": {
+   "AO_COLOR": [
+    0.035,
+    0.03,
+    0.025
+   ],
+   "AO_DISTANCE": 0.38,
+   "AO_GAMMA": 2.0,
+   "AO_STRENGTH": 5.5,
+   "BLENDER_VERSION": "5.2.2 LTS",
+   "CHEMINEE_HALO_W": 40.0,
+   "COS_T": 0.7071067811865476,
+   "ENGINE_SHADOW_FACTOR": 0.5,
+   "FILL_AZIMUTH_DEG": 180.0,
+   "FILL_ELEV_DEG": 90.0,
+   "FILL_STRENGTH": 1.5,
+   "FILTER_WIDTH_PX": 1.5,
+   "GROUND_ALBEDO": 0.15,
+   "LIGHT_EMIT_GAIN": 2.0,
+   "LIGHT_MAX": 0.8,
+   "LIGHT_RADIUS_TILES": [
+    1.2,
+    2.2
+   ],
+   "MAX_BOUNCES": 6,
+   "PX_PER_UNIT_HR": 64.0,
+   "SAMPLES": 256,
+   "SEED": 20261021,
+   "SIN_T": 0.7071067811865476,
+   "SKY_COLOR": [
+    0.8,
+    0.86,
+    1.0
+   ],
+   "SKY_STRENGTH": 0.08,
+   "STEEL_BASE": [
+    0.45,
+    0.43,
+    0.4
+   ],
+   "STEEL_METALLIC": 0.6,
+   "STEEL_ROUGH": 0.5,
+   "SUN_ANGLE_DEG": 0.0,
+   "SUN_AZIMUTH_DEG": 270.0,
+   "SUN_COLOR": [
+    1.0,
+    0.95,
+    0.86
+   ],
+   "SUN_ELEV_DEG": 48.0,
+   "SUN_STRENGTH": 1.9,
+   "THETA_DEG": 45.0,
+   "TILE_DEPTH_UNITS": 1.414213562373095
+  }
+ },
+ "sources": {
+  "modeles": "tools/render/pieces/levels/assembler/modeles.py",
+  "kit": "tools/render/pieces/levels/assembler/kit.py",
+  "params": "tools/render/pieces/levels/assembler/params.py",
+  "rendu": "tools/render/pieces/levels/assembler/rendre.py",
+  "mesures": "tools/render/pieces/levels/assembler/mesures_d1.py",
+  "planches": "tools/render/pieces/levels/assembler/planches.py"
+ },
+ "levels": [
+  {
+   "level": 1,
+   "epoch": 1,
+   "step": 1,
+   "theme": "Pionnier",
+   "era": "I",
+   "kind": "vanilla",
+   "silhouette": "vanilla (niveau 1 inchangé, Q11)",
+   "piece": null,
+   "light": "lanterne de la potence, la nuit seulement",
+   "emissive": "#FFB060",
+   "night_only": true,
+   "envelope": {
+    "O": 0.06,
+    "L": 2.56,
+    "V_pct": 0
+   },
+   "layers": {
+    "main": {
+     "file": "assembling-machine-2/hr-assembling-machine-2.png",
+     "frame": [
+      214,
+      218
+     ],
+     "shift": [
+      0.0,
+      0.125
+     ]
+    },
+    "shadow": {
+     "file": "assembling-machine-2/hr-assembling-machine-2-shadow.png",
+     "frame": [
+      196,
+      163
+     ],
+     "shift": [
+      0.375,
+      0.1484375
+     ]
+    },
+    "main_lr": {
+     "file": "assembling-machine-2/assembling-machine-2.png",
+     "frame": [
+      108,
+      110
+     ],
+     "shift": [
+      0.0,
+      0.125
+     ]
+    },
+    "shadow_lr": {
+     "file": "assembling-machine-2/assembling-machine-2-shadow.png",
+     "frame": [
+      98,
+      82
+     ],
+     "shift": [
+      0.375,
+      0.15625
+     ]
+    }
+   },
+   "note": "sprite vanilla inchangé (Q11) : aucune image produite ; référence de D1-3",
+   "measures_d1": {
+    "O_masses": 0.046875,
+    "O_total": 0.0625,
+    "L_masses": 2.5625,
+    "area": 6.9794921875,
+    "V_pct": 0.0,
+    "iou_1": 1.0
+   }
+  },
+  {
+   "level": 2,
+   "epoch": 1,
+   "step": 2,
+   "theme": "Pionnier",
+   "era": "I",
+   "kind": "piece",
+   "silhouette": "vanilla (niveau 1 inchangé, Q11)",
+   "piece": "potence de levage en bois avec palan, en haut à droite (+0,50 en haut, +0,10 à droite)",
+   "light": "lanterne de la potence, la nuit seulement",
+   "emissive": "#FFB060",
+   "night_only": true,
+   "envelope": {
+    "O": 0.06,
+    "L": 2.56,
+    "V_pct": 0
+   },
+   "layers": {
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n02-light.png",
+      "height": 128,
+      "shift": [
+       1.359375,
+       -0.96875
+      ],
+      "width": 106
+     },
+     "lr": {
+      "filename": "assembler-n02-light.png",
+      "height": 64,
+      "shift": [
+       1.359375,
+       -0.96875
+      ],
+      "width": 53
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n02-main.png",
+      "height": 90,
+      "shift": [
+       0.9375,
+       -1.453125
+      ],
+      "width": 100
+     },
+     "lr": {
+      "filename": "assembler-n02-main.png",
+      "height": 45,
+      "shift": [
+       0.9375,
+       -1.453125
+      ],
+      "width": 50
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n02-shadow.png",
+      "height": 32,
+      "shift": [
+       1.734375,
+       -1.03125
+      ],
+      "width": 130
+     },
+     "lr": {
+      "filename": "assembler-n02-shadow.png",
+      "height": 16,
+      "shift": [
+       1.734375,
+       -1.03125
+      ],
+      "width": 65
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n02-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "meca": [
+     "caisse_suspendue",
+     "cerclage_caisse",
+     "corde",
+     "crochet",
+     "elingue",
+     "moufle"
+    ],
+    "piece": [
+     "cable",
+     "clous",
+     "contrefiche",
+     "ferrure",
+     "flasque",
+     "fleche",
+     "jambe_de_force",
+     "lanterne_pied",
+     "lanterne_toit",
+     "lanterne_verre",
+     "manivelle",
+     "mat",
+     "potence_lanterne",
+     "poulie",
+     "sabot_fleche",
+     "semelle",
+     "tambour_treuil"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n02-icon.png": "a0e38beafd090e4b8598d9451d5e39cdf5765cbbdf01b2f7104575929640d3e6",
+    "assembler-n02-light.png": "9921251dff429a7f050c63a8c7ab4566f0586e6795270720cc35927cf2355e84",
+    "assembler-n02-main.png": "43eb0f6f665d1bdb9aeecc5332d671008770420043e7a6879e50288286d482ea",
+    "assembler-n02-shadow.png": "ca286e126f05ff203d56f17fb6221d945b5d3e800f6bf7ebd7566c8a5bfd1b71",
+    "hr-assembler-n02-light.png": "dd5170c0031a3c5ea666f5eb727363cb9551e3169ca855a78fc16a4862942c07",
+    "hr-assembler-n02-main.png": "668321b9ce1b93501eae170dafb5c37f2828f95fccab6529518eb5e0d4d39a5e",
+    "hr-assembler-n02-shadow.png": "d8bac0e88213f54a019b9a1812586b46a4fda6593f7e8ce5b4db0812f2dedb79"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      1.35,
+      -0.78,
+      0.0
+     ],
+     "r": [
+      0.371,
+      0.901
+     ]
+    },
+    {
+     "at": [
+      1.35,
+      -0.78,
+      1.01
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.671875,
+     -2.15625
+    ],
+    [
+     1.71875,
+     1.828125
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e01/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e01/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e01/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e01/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     212,
+     194
+    ],
+    "objects": 29,
+    "origin_px": [
+     12,
+     162
+    ],
+    "samples": 32,
+    "seconds": 17.35,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "vanilla (couches du niveau 1, 32 images, inchangées) + pièce : couche principale masquée au pixel par l'alpha vanilla (image 0), ombre, halo (rendu avec un volume de remplacement du corps vanilla, F64)",
+   "measures_d1": {
+    "O_masses": 0.640625,
+    "O_total": 0.640625,
+    "L_masses": 2.8125,
+    "area": 7.597900390625,
+    "V_pct": 0.0,
+    "iou_1": 0.918608013881302,
+    "iou_prev": 0.918608013881302,
+    "piece_added": 0.618408203125
+   }
+  },
+  {
+   "level": 3,
+   "epoch": 2,
+   "step": 1,
+   "theme": "Forge",
+   "era": "I",
+   "kind": "silhouette",
+   "silhouette": "caisse rivetée cerclée ; grand volant d'inertie sur le flanc droit ; arbre de transmission sur deux paliers au toit",
+   "piece": null,
+   "light": "fentes de forge, la nuit seulement",
+   "emissive": "#FF6A20",
+   "night_only": true,
+   "envelope": {
+    "O": 0.16,
+    "L": 2.6,
+    "V_pct": 0
+   },
+   "layers": {
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n03-light.png",
+      "height": 112,
+      "shift": [
+       -0.75,
+       1.53125
+      ],
+      "width": 108
+     },
+     "lr": {
+      "filename": "assembler-n03-light.png",
+      "height": 56,
+      "shift": [
+       -0.75,
+       1.53125
+      ],
+      "width": 54
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n03-main.png",
+      "height": 218,
+      "shift": [
+       -0.046875,
+       -0.078125
+      ],
+      "width": 202
+     },
+     "lr": {
+      "filename": "assembler-n03-main.png",
+      "height": 109,
+      "shift": [
+       -0.046875,
+       -0.078125
+      ],
+      "width": 101
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n03-shadow.png",
+      "height": 138,
+      "shift": [
+       0.703125,
+       0.421875
+      ],
+      "width": 250
+     },
+     "lr": {
+      "filename": "assembler-n03-shadow.png",
+      "height": 69,
+      "shift": [
+       0.703125,
+       0.421875
+      ],
+      "width": 125
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n03-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "buse_soufflet",
+     "caisse",
+     "carter_droit",
+     "cerclage",
+     "chevalet",
+     "colonne_renvoi",
+     "console_soufflet",
+     "corniere",
+     "cuir_flanc",
+     "cuir_soufflet",
+     "fente_forge",
+     "jambe_chevalet",
+     "levier_soufflet",
+     "merlon",
+     "palier",
+     "palier_volant",
+     "parapet_arriere",
+     "parapet_avant",
+     "parapet_gauche",
+     "pied_palier",
+     "planche_flanc",
+     "planche_soufflet",
+     "plaque_boulonnee",
+     "poignee",
+     "porte",
+     "renvoi_bas",
+     "renvoi_haut",
+     "rivets_face",
+     "rivets_flanc",
+     "rivets_plaque",
+     "rivets_soufflet",
+     "socle"
+    ],
+    "meca": [
+     "arbre_toit",
+     "arbre_volant",
+     "bielle",
+     "courroie",
+     "glissiere",
+     "grand_engrenage",
+     "pignon",
+     "poulie",
+     "volant"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n03-icon.png": "19bb02639c4c76d4239e4421cfca4f84c3e72dbbc1610f50d1a302b6affdcc00",
+    "assembler-n03-light.png": "8a48beda79ab07a0bbfe78762b4ad0a3aea654f74bc254e97ad867304ec2fbb2",
+    "assembler-n03-main.png": "d6f539fd3256d67ca581f26bf0d753eccd65259ea33daf5135254c9a93d41437",
+    "assembler-n03-shadow.png": "9efe5c03babfacf83945e3f3ed60bb6ee1c46af42a698774f891f7c097f13444",
+    "hr-assembler-n03-light.png": "6cf54ac786a8815cc22fea8fbea7eed541e9d28bb8e8892aa3690c8510a30897",
+    "hr-assembler-n03-main.png": "34bdb0c75d38c57d15ef62560ab9117413feb911c3406cefb8e4461c42d89bc5",
+    "hr-assembler-n03-shadow.png": "c0d5146a3fafadc54eea9a27a28407c109db87dece8b747f2511995bbdce5a95"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.75,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.3815,
+      0.9265
+     ]
+    },
+    {
+     "at": [
+      -0.75,
+      1.55,
+      0.58
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.625,
+     -1.78125
+    ],
+    [
+     1.53125,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e02/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     324,
+     324
+    ],
+    "objects": 72,
+    "origin_px": [
+     132,
+     140
+    ],
+    "samples": 32,
+    "seconds": 26.45,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.203125,
+    "O_total": 0.234375,
+    "L_masses": 2.796875,
+    "area": 7.737060546875,
+    "V_pct": 4.12061004617322,
+    "iou_1": 0.8339164562353586,
+    "iou_prev": 0.7903317751681678
+   }
+  },
+  {
+   "level": 4,
+   "epoch": 2,
+   "step": 2,
+   "theme": "Forge",
+   "era": "I",
+   "kind": "piece",
+   "silhouette": "caisse rivetée cerclée ; grand volant d'inertie sur le flanc droit ; arbre de transmission sur deux paliers au toit",
+   "piece": "marteau-pilon vertical sur le toit (+0,30)",
+   "light": "fentes de forge, la nuit seulement",
+   "emissive": "#FF6A20",
+   "night_only": true,
+   "envelope": {
+    "O": 0.16,
+    "L": 2.6,
+    "V_pct": 0
+   },
+   "layers": {
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n04-light.png",
+      "height": 112,
+      "shift": [
+       -0.75,
+       1.53125
+      ],
+      "width": 112
+     },
+     "lr": {
+      "filename": "assembler-n04-light.png",
+      "height": 56,
+      "shift": [
+       -0.75,
+       1.53125
+      ],
+      "width": 56
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n04-main.png",
+      "height": 234,
+      "shift": [
+       -0.046875,
+       -0.203125
+      ],
+      "width": 202
+     },
+     "lr": {
+      "filename": "assembler-n04-main.png",
+      "height": 117,
+      "shift": [
+       -0.046875,
+       -0.203125
+      ],
+      "width": 101
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n04-shadow.png",
+      "height": 138,
+      "shift": [
+       0.6875,
+       0.421875
+      ],
+      "width": 248
+     },
+     "lr": {
+      "filename": "assembler-n04-shadow.png",
+      "height": 69,
+      "shift": [
+       0.6875,
+       0.421875
+      ],
+      "width": 124
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n04-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "buse_soufflet",
+     "caisse",
+     "carter_droit",
+     "cerclage",
+     "chevalet",
+     "colonne_renvoi",
+     "console_soufflet",
+     "corniere",
+     "cuir_flanc",
+     "cuir_soufflet",
+     "fente_forge",
+     "jambe_chevalet",
+     "levier_soufflet",
+     "merlon",
+     "palier",
+     "palier_volant",
+     "parapet_arriere",
+     "parapet_avant",
+     "parapet_gauche",
+     "pied_palier",
+     "planche_flanc",
+     "planche_soufflet",
+     "plaque_boulonnee",
+     "poignee",
+     "porte",
+     "renvoi_bas",
+     "renvoi_haut",
+     "rivets_face",
+     "rivets_flanc",
+     "rivets_plaque",
+     "rivets_soufflet",
+     "socle"
+    ],
+    "meca": [
+     "arbre_toit",
+     "arbre_volant",
+     "bielle",
+     "courroie",
+     "glissiere",
+     "grand_engrenage",
+     "pignon",
+     "poulie",
+     "volant"
+    ],
+    "piece": [
+     "chapeau_cylindre",
+     "cylindre_pilon",
+     "enclume",
+     "montant_pilon",
+     "mouton",
+     "rivets_mouton",
+     "rivets_traverse",
+     "tige_pilon",
+     "traverse_pilon"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n04-icon.png": "df657cbb27bd3dc0d4e32bcf1370c8b9b12b2a59ebd8400b440a5e01730fee1b",
+    "assembler-n04-light.png": "e37a959599333ffa75228973090c589f8f5865b1bd9abf243f106bf5fbf921bd",
+    "assembler-n04-main.png": "9cdd075d5c447dc707462046157d8be69d091f310d3d04de645dd26bbab22a4c",
+    "assembler-n04-shadow.png": "371c38eabc4d1c6d9e5e6dda4a2f62287ce3c2dd53591b73c32ab7aeba2361b5",
+    "hr-assembler-n04-light.png": "67f23e622c935b34474fa4da42625eb339a2c9e20df236324bb8afe3e8cb7614",
+    "hr-assembler-n04-main.png": "ab1f2646d770ac9b8954763ba37c624db005baaddbb8756598d1261d2ceaf934",
+    "hr-assembler-n04-shadow.png": "2c17a4e5e6a951d03da6447e63c693c02d2dc532fd789aaf345f6c71577cbf13"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.75,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.392,
+      0.9520000000000001
+     ]
+    },
+    {
+     "at": [
+      -0.75,
+      1.55,
+      0.58
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.625,
+     -2.03125
+    ],
+    [
+     1.53125,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e02/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e02/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e02/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e02/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     326,
+     338
+    ],
+    "objects": 82,
+    "origin_px": [
+     133,
+     153
+    ],
+    "samples": 32,
+    "seconds": 28.53,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 3 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 0.484375,
+    "O_total": 0.5,
+    "L_masses": 2.796875,
+    "area": 7.96484375,
+    "V_pct": 3.5119630614243738,
+    "iou_1": 0.8202688235993815,
+    "iou_prev": 0.9692887106157567,
+    "piece_added": 0.236328125
+   }
+  },
+  {
+   "level": 5,
+   "epoch": 3,
+   "step": 1,
+   "theme": "Vapeur",
+   "era": "I",
+   "kind": "silhouette",
+   "silhouette": "machine à vapeur sur le toit : cylindre à piston horizontal, bielle, poulie et courroie, cheminée ronde à collerette, manomètres",
+   "piece": null,
+   "light": "hublot et cadrans ambrés, de jour",
+   "emissive": "#FFC060",
+   "night_only": false,
+   "envelope": {
+    "O": 0.27,
+    "L": 2.64,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n05-glow.png",
+      "height": 162,
+      "shift": [
+       -0.03125,
+       0.171875
+      ],
+      "width": 140
+     },
+     "lr": {
+      "filename": "assembler-n05-glow.png",
+      "height": 81,
+      "shift": [
+       -0.03125,
+       0.171875
+      ],
+      "width": 70
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n05-light.png",
+      "height": 224,
+      "shift": [
+       -0.21875,
+       0.65625
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n05-light.png",
+      "height": 112,
+      "shift": [
+       -0.21875,
+       0.65625
+      ],
+      "width": 82
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n05-main.png",
+      "height": 226,
+      "shift": [
+       0.0,
+       -0.140625
+      ],
+      "width": 184
+     },
+     "lr": {
+      "filename": "assembler-n05-main.png",
+      "height": 113,
+      "shift": [
+       0.0,
+       -0.140625
+      ],
+      "width": 92
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n05-shadow.png",
+      "height": 136,
+      "shift": [
+       0.5625,
+       0.40625
+      ],
+      "width": 216
+     },
+     "lr": {
+      "filename": "assembler-n05-shadow.png",
+      "height": 68,
+      "shift": [
+       0.5625,
+       0.40625
+      ],
+      "width": 108
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n05-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "bandeau",
+     "bati",
+     "boulet",
+     "cadran",
+     "cadre_hublot",
+     "calotte",
+     "cercle_chaudiere",
+     "cercle_cheminee",
+     "charbon",
+     "chaudiere",
+     "cheminee",
+     "conduite_eau",
+     "couture",
+     "dome_vapeur",
+     "hublot",
+     "manometre",
+     "rivets_bandeau",
+     "rivets_toit",
+     "rivets_trou_homme",
+     "selle",
+     "soupape",
+     "soupape_bille",
+     "suie",
+     "tremie",
+     "trou_homme",
+     "tuyau_vapeur"
+    ],
+    "meca": [
+     "arbre_manivelle",
+     "berceau",
+     "bielle",
+     "bride_cylindre",
+     "courroie",
+     "crosse",
+     "cylindre_vapeur",
+     "glissiere",
+     "palier",
+     "plateau_manivelle",
+     "poulie_basse",
+     "poulie_haute",
+     "tige_piston",
+     "volant"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n05-glow.png": "b30d9dad4b6c4dd6de9fec0b7a11ffed2d214cf39f2eeb5517d9195a24059f24",
+    "assembler-n05-icon.png": "ac4c7f7fce2a3f0cd60dd28b27dc221281dcaa7098a1f84f47a20f02b877ff7e",
+    "assembler-n05-light.png": "7458fe58e3cd1d2afb83bacad0c19e8e964c613927b4a6740c7191aaa5b82882",
+    "assembler-n05-main.png": "d4dad83b4a401a6a27e5ec763d5659d5b26e8878f547fa27a2a608763c81ac2f",
+    "assembler-n05-shadow.png": "fce87b0f7918a56eab3dd15bc136d42704a9e3f8b4ae98741bb3033bc3ddc87f",
+    "hr-assembler-n05-glow.png": "f5865b662a416376b0abd300e66462469ba8ecb959294bafb3769f8db32d5723",
+    "hr-assembler-n05-light.png": "a5f6b7b7e2e7faf518080ca21c904add7ae33b3b09c43eff1fc9944b0519a25c",
+    "hr-assembler-n05-main.png": "fab0ee3129e09c8b2955bd1c2bcec8b73269b341434d79e33d4de9b595e0ff25",
+    "hr-assembler-n05-shadow.png": "c67ffbf0c071fd05a8d5e969a71c58db27a2ad924506448e5a531336f18d71d3"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.62,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.40249999999999997,
+      0.9774999999999999
+     ]
+    },
+    {
+     "at": [
+      -0.62,
+      1.55,
+      0.32
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.36,
+      0.12,
+      0.0
+     ],
+     "r": [
+      0.40249999999999997,
+      0.9774999999999999
+     ]
+    },
+    {
+     "at": [
+      0.36,
+      0.12,
+      1.1
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.4375,
+     -1.90625
+    ],
+    [
+     1.4375,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e03/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     308,
+     334
+    ],
+    "objects": 55,
+    "origin_px": [
+     127,
+     147
+    ],
+    "samples": 32,
+    "seconds": 34.13,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.375,
+    "O_total": 0.390625,
+    "L_masses": 2.4375,
+    "area": 6.68701171875,
+    "V_pct": 8.779907653560935,
+    "iou_1": 0.8721739130434782,
+    "iou_prev": 0.805855625432552
+   }
+  },
+  {
+   "level": 6,
+   "epoch": 3,
+   "step": 2,
+   "theme": "Vapeur",
+   "era": "I",
+   "kind": "piece",
+   "silhouette": "machine à vapeur sur le toit : cylindre à piston horizontal, bielle, poulie et courroie, cheminée ronde à collerette, manomètres",
+   "piece": "régulateur à boules de Watt au sommet (+0,30)",
+   "light": "hublot et cadrans ambrés, de jour",
+   "emissive": "#FFC060",
+   "night_only": false,
+   "envelope": {
+    "O": 0.27,
+    "L": 2.64,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n06-glow.png",
+      "height": 180,
+      "shift": [
+       -0.015625,
+       0.03125
+      ],
+      "width": 138
+     },
+     "lr": {
+      "filename": "assembler-n06-glow.png",
+      "height": 90,
+      "shift": [
+       -0.015625,
+       0.03125
+      ],
+      "width": 69
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n06-light.png",
+      "height": 226,
+      "shift": [
+       -0.234375,
+       0.671875
+      ],
+      "width": 166
+     },
+     "lr": {
+      "filename": "assembler-n06-light.png",
+      "height": 113,
+      "shift": [
+       -0.234375,
+       0.671875
+      ],
+      "width": 83
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n06-main.png",
+      "height": 244,
+      "shift": [
+       0.0,
+       -0.28125
+      ],
+      "width": 184
+     },
+     "lr": {
+      "filename": "assembler-n06-main.png",
+      "height": 122,
+      "shift": [
+       0.0,
+       -0.28125
+      ],
+      "width": 92
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n06-shadow.png",
+      "height": 136,
+      "shift": [
+       0.96875,
+       0.40625
+      ],
+      "width": 268
+     },
+     "lr": {
+      "filename": "assembler-n06-shadow.png",
+      "height": 68,
+      "shift": [
+       0.96875,
+       0.40625
+      ],
+      "width": 134
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n06-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "bandeau",
+     "bati",
+     "boulet",
+     "cadran",
+     "cadre_hublot",
+     "calotte",
+     "cercle_chaudiere",
+     "cercle_cheminee",
+     "charbon",
+     "chaudiere",
+     "cheminee",
+     "conduite_eau",
+     "couture",
+     "dome_vapeur",
+     "hublot",
+     "manometre",
+     "rivets_bandeau",
+     "rivets_toit",
+     "rivets_trou_homme",
+     "selle",
+     "soupape",
+     "soupape_bille",
+     "suie",
+     "tremie",
+     "trou_homme",
+     "tuyau_vapeur"
+    ],
+    "meca": [
+     "arbre_manivelle",
+     "berceau",
+     "bielle",
+     "bride_cylindre",
+     "courroie",
+     "crosse",
+     "cylindre_vapeur",
+     "glissiere",
+     "palier",
+     "plateau_manivelle",
+     "poulie_basse",
+     "poulie_haute",
+     "tige_piston",
+     "volant"
+    ],
+    "piece": [
+     "biellette",
+     "boule",
+     "bras_boule",
+     "broche",
+     "chapeau_regulateur",
+     "colonne_regulateur",
+     "manchon",
+     "socle_regulateur"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n06-glow.png": "1a4e9a16d7c2ebab175c1dca4ea970b0e863f43166ec638c9431cb13fc4f3b34",
+    "assembler-n06-icon.png": "eef6fe4cc9a8e4ecd183bfe94d531a42413abe9bdff9f6bcfb4be969fc1846df",
+    "assembler-n06-light.png": "ebdbca734ca4f58fb2d4d325a78dd48c3e0b0dc287dd43efcfdf90f87307b725",
+    "assembler-n06-main.png": "c4ec298e9f09eab23ab2ce492bf8de945fd786a814514ddea51109666be99054",
+    "assembler-n06-shadow.png": "36980fb3769000b056a8da5038dae865de32c6becda4b61f652f1afb6b042a18",
+    "hr-assembler-n06-glow.png": "72bd241da22a38c7bfcf823d9aad1f1f7838118786a3238d83525231cc965cbe",
+    "hr-assembler-n06-light.png": "40bf2481d01aab59018fff00d2b048c26f4d0713db96d294fc1f8973b2f43943",
+    "hr-assembler-n06-main.png": "a58350d82f48582cc7b7c12cb0399636ff834dbe67408c49189ff172621e338c",
+    "hr-assembler-n06-shadow.png": "9d9a0df4dc8b686c130d5bd49ffb39884b35e06f87caa29ef7be488c5a6b1f5e"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.62,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.413,
+      1.003
+     ]
+    },
+    {
+     "at": [
+      -0.62,
+      1.55,
+      0.32
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.36,
+      0.12,
+      0.0
+     ],
+     "r": [
+      0.413,
+      1.003
+     ]
+    },
+    {
+     "at": [
+      0.36,
+      0.12,
+      1.1
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.4375,
+     -2.1875
+    ],
+    [
+     1.4375,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e03/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e03/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e03/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e03/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     350,
+     352
+    ],
+    "objects": 66,
+    "origin_px": [
+     128,
+     164
+    ],
+    "samples": 32,
+    "seconds": 34.92,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 5 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 0.390625,
+    "O_total": 0.65625,
+    "L_masses": 2.4375,
+    "area": 6.871337890625,
+    "V_pct": 8.650482720022387,
+    "iou_1": 0.8529296492259455,
+    "iou_prev": 0.9717034722715331,
+    "piece_added": 0.189453125
+   }
+  },
+  {
+   "level": 7,
+   "epoch": 4,
+   "step": 1,
+   "theme": "Pétrole",
+   "era": "II",
+   "kind": "silhouette",
+   "silhouette": "presse hydraulique : portique jaune sur le toit (2 montants, une traverse, vérin) ; cuves latérales horizontales ; garde-corps",
+   "piece": null,
+   "light": "voyants orange",
+   "emissive": "#FF8C1A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.37,
+    "L": 2.68,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n07-glow.png",
+      "height": 190,
+      "shift": [
+       0.0,
+       -0.078125
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n07-glow.png",
+      "height": 95,
+      "shift": [
+       0.0,
+       -0.078125
+      ],
+      "width": 84
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n07-light.png",
+      "height": 258,
+      "shift": [
+       0.0,
+       0.515625
+      ],
+      "width": 208
+     },
+     "lr": {
+      "filename": "assembler-n07-light.png",
+      "height": 129,
+      "shift": [
+       0.0,
+       0.515625
+      ],
+      "width": 104
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n07-main.png",
+      "height": 230,
+      "shift": [
+       0.0,
+       -0.140625
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n07-main.png",
+      "height": 115,
+      "shift": [
+       0.0,
+       -0.140625
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n07-shadow.png",
+      "height": 138,
+      "shift": [
+       0.921875,
+       0.390625
+      ],
+      "width": 282
+     },
+     "lr": {
+      "filename": "assembler-n07-shadow.png",
+      "height": 69,
+      "shift": [
+       0.921875,
+       0.390625
+      ],
+      "width": 141
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n07-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "bande_cuve",
+     "bande_cuve_toit",
+     "bande_danger",
+     "bande_traverse",
+     "caillebotis",
+     "caisson",
+     "cercle_fut",
+     "colonne_vanne",
+     "conduite_vanne",
+     "cuve_laterale",
+     "cuve_toit",
+     "fut",
+     "lame_caillebotis",
+     "lisse",
+     "montant_portique",
+     "panneau",
+     "poteau_garde_corps",
+     "selle",
+     "selle_toit",
+     "traverse_portique",
+     "trou_homme_cuve",
+     "volant_vanne",
+     "voyant",
+     "voyant_portique"
+    ],
+    "meca": [
+     "bague_verin",
+     "flexible",
+     "matrice",
+     "piece_emboutie",
+     "tete_presse",
+     "tige_verin",
+     "verin"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n07-glow.png": "e5e07eba9dcbf58cfb6b8db96ec1821747013fdb2c21934b26410ae3c0e32e30",
+    "assembler-n07-icon.png": "865870e899c1c51319e42dba31b45f18d03a328ff22f0e21b0355ec0cb0d7581",
+    "assembler-n07-light.png": "311fd7f2320b9e4d73e7fbd93587092e03fb0a78ede6148bf4e0cb1a612a1d0d",
+    "assembler-n07-main.png": "4a7dcb79a986912a717c4be1418162615ba4b726ff875acc970725d8060b1c91",
+    "assembler-n07-shadow.png": "a33a2fecdec14bf2147c447327860baa8d5d632733e6b350d2faf251b2f281a3",
+    "hr-assembler-n07-glow.png": "6f635086f2e4ead0743592fa383affea6e024c98cbbafeff9bab024f3945a562",
+    "hr-assembler-n07-light.png": "5bba233df32f2078454b9ce2eaf27aea6cc88da5c5a88e0847c3a423c7ac8053",
+    "hr-assembler-n07-main.png": "784ef44f0ead44ff5f862bbf2196171de9285819be3521c1dee3ecd7d276cb72",
+    "hr-assembler-n07-shadow.png": "925656faac613509da5762d835e6c97f6c89c6c7bf32ea31853b2fec58391d93"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.57,
+      1.58,
+      0.0
+     ],
+     "r": [
+      0.4235,
+      1.0285
+     ]
+    },
+    {
+     "at": [
+      0.57,
+      1.58,
+      0.64
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.7,
+      0.2,
+      0.0
+     ],
+     "r": [
+      0.4235,
+      1.0285
+     ]
+    },
+    {
+     "at": [
+      -0.7,
+      0.2,
+      1.73
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.7,
+      0.2,
+      0.0
+     ],
+     "r": [
+      0.4235,
+      1.0285
+     ]
+    },
+    {
+     "at": [
+      0.7,
+      0.2,
+      1.73
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -1.9375
+    ],
+    [
+     1.59375,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e04/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     358,
+     338
+    ],
+    "objects": 81,
+    "origin_px": [
+     135,
+     147
+    ],
+    "samples": 32,
+    "seconds": 48.34,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.40625,
+    "O_total": 0.40625,
+    "L_masses": 2.84375,
+    "area": 8.061279296875,
+    "V_pct": 3.998181054988107,
+    "iou_1": 0.8033780223640302,
+    "iou_prev": 0.7951397041559052
+   }
+  },
+  {
+   "level": 8,
+   "epoch": 4,
+   "step": 2,
+   "theme": "Pétrole",
+   "era": "II",
+   "kind": "piece",
+   "silhouette": "presse hydraulique : portique jaune sur le toit (2 montants, une traverse, vérin) ; cuves latérales horizontales ; garde-corps",
+   "piece": "cuve de pression verticale sur le flanc droit (+0,15 à droite)",
+   "light": "voyants orange",
+   "emissive": "#FF8C1A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.37,
+    "L": 2.68,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n08-glow.png",
+      "height": 194,
+      "shift": [
+       0.0,
+       -0.109375
+      ],
+      "width": 172
+     },
+     "lr": {
+      "filename": "assembler-n08-glow.png",
+      "height": 97,
+      "shift": [
+       0.0,
+       -0.109375
+      ],
+      "width": 86
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n08-light.png",
+      "height": 260,
+      "shift": [
+       0.28125,
+       0.53125
+      ],
+      "width": 248
+     },
+     "lr": {
+      "filename": "assembler-n08-light.png",
+      "height": 130,
+      "shift": [
+       0.28125,
+       0.53125
+      ],
+      "width": 124
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n08-main.png",
+      "height": 230,
+      "shift": [
+       0.078125,
+       -0.140625
+      ],
+      "width": 214
+     },
+     "lr": {
+      "filename": "assembler-n08-main.png",
+      "height": 115,
+      "shift": [
+       0.078125,
+       -0.140625
+      ],
+      "width": 107
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n08-shadow.png",
+      "height": 138,
+      "shift": [
+       0.921875,
+       0.390625
+      ],
+      "width": 282
+     },
+     "lr": {
+      "filename": "assembler-n08-shadow.png",
+      "height": 69,
+      "shift": [
+       0.921875,
+       0.390625
+      ],
+      "width": 141
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n08-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "bande_cuve",
+     "bande_cuve_toit",
+     "bande_danger",
+     "bande_traverse",
+     "caillebotis",
+     "caisson",
+     "cercle_fut",
+     "colonne_vanne",
+     "conduite_vanne",
+     "cuve_laterale",
+     "cuve_toit",
+     "fut",
+     "lame_caillebotis",
+     "lisse",
+     "montant_portique",
+     "panneau",
+     "poteau_garde_corps",
+     "selle",
+     "selle_toit",
+     "traverse_portique",
+     "trou_homme_cuve",
+     "volant_vanne",
+     "voyant",
+     "voyant_portique"
+    ],
+    "meca": [
+     "bague_verin",
+     "flexible",
+     "matrice",
+     "piece_emboutie",
+     "tete_presse",
+     "tige_verin",
+     "verin"
+    ],
+    "piece": [
+     "bande_cuve_pression",
+     "cadran",
+     "conduite",
+     "cuve_pression",
+     "manometre",
+     "vanne",
+     "volant_vanne"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n08-glow.png": "14159b5700ecb055bc6cfb442402d82f06ecc626b50617173df2506f76c1df85",
+    "assembler-n08-icon.png": "3248bc8a9300276a0d669276792bd756809fbdac8381bb0a7fb618c7faa40961",
+    "assembler-n08-light.png": "8bfff456bad9e3f54d5bd6c7702c87108e3b0daea8ed83c0e9cbf0c4bed6b34f",
+    "assembler-n08-main.png": "cc31100559fd25ead7f853b06f2e60252c51488c48db3729cd217663d85edfa7",
+    "assembler-n08-shadow.png": "f9d6a4d1670b5e813e17652332609f5f73712b5bfb955bfded2772f36095f062",
+    "hr-assembler-n08-glow.png": "ed05603c86268e947461df990d08e1908190423eb8af3f66e7b4e30d629e3bf9",
+    "hr-assembler-n08-light.png": "3ab2f10e24dd406cc313af28d3b1e497a6cc01fba022d4fd058d7ce0d595ab22",
+    "hr-assembler-n08-main.png": "77826cbb92e8bdbbc89f8756aa804fbcc892f0b964b8917e67791cd941ec8b4e",
+    "hr-assembler-n08-shadow.png": "5e9a89e501ba610b406f15a9d98e49758522d3802b0bb9bef94fc3e792f8dca6"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.57,
+      1.58,
+      0.0
+     ],
+     "r": [
+      0.434,
+      1.054
+     ]
+    },
+    {
+     "at": [
+      0.57,
+      1.58,
+      0.64
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.7,
+      0.2,
+      0.0
+     ],
+     "r": [
+      0.434,
+      1.054
+     ]
+    },
+    {
+     "at": [
+      -0.7,
+      0.2,
+      1.73
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.7,
+      0.2,
+      0.0
+     ],
+     "r": [
+      0.434,
+      1.054
+     ]
+    },
+    {
+     "at": [
+      0.7,
+      0.2,
+      1.73
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.25,
+      1.32,
+      0.0
+     ],
+     "r": [
+      0.434,
+      1.054
+     ]
+    },
+    {
+     "at": [
+      1.25,
+      1.32,
+      0.72
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -1.9375
+    ],
+    [
+     1.75,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e04/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e04/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e04/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e04/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     364,
+     340
+    ],
+    "objects": 90,
+    "origin_px": [
+     137,
+     147
+    ],
+    "samples": 32,
+    "seconds": 38.3,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 7 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 0.40625,
+    "O_total": 0.40625,
+    "L_masses": 2.9375,
+    "area": 8.44384765625,
+    "V_pct": 2.0148313977892824,
+    "iou_1": 0.7966554803481031,
+    "iou_prev": 0.9537323353466463,
+    "piece_added": 0.38671875
+   }
+  },
+  {
+   "level": 9,
+   "epoch": 5,
+   "step": 1,
+   "theme": "Volcan",
+   "era": "II",
+   "kind": "silhouette",
+   "silhouette": "presse blindée en tronc de pyramide, écailles, capot incliné, fente de marteau rougeoyante, pointes de basalte",
+   "piece": null,
+   "light": "fentes de braise",
+   "emissive": "#FF4A10",
+   "night_only": false,
+   "envelope": {
+    "O": 0.47,
+    "L": 2.71,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n09-glow.png",
+      "height": 216,
+      "shift": [
+       0.0625,
+       -0.09375
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n09-glow.png",
+      "height": 108,
+      "shift": [
+       0.0625,
+       -0.09375
+      ],
+      "width": 82
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n09-light.png",
+      "height": 222,
+      "shift": [
+       0.0,
+       0.859375
+      ],
+      "width": 128
+     },
+     "lr": {
+      "filename": "assembler-n09-light.png",
+      "height": 111,
+      "shift": [
+       0.0,
+       0.859375
+      ],
+      "width": 64
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n09-main.png",
+      "height": 244,
+      "shift": [
+       0.0,
+       -0.1875
+      ],
+      "width": 216
+     },
+     "lr": {
+      "filename": "assembler-n09-main.png",
+      "height": 122,
+      "shift": [
+       0.0,
+       -0.1875
+      ],
+      "width": 108
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n09-shadow.png",
+      "height": 170,
+      "shift": [
+       0.609375,
+       0.296875
+      ],
+      "width": 266
+     },
+     "lr": {
+      "filename": "assembler-n09-shadow.png",
+      "height": 85,
+      "shift": [
+       0.609375,
+       0.296875
+      ],
+      "width": 133
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n09-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "capot",
+     "fente_braise",
+     "fente_marteau",
+     "gradin",
+     "pointe_basalte",
+     "rivets_lourds"
+    ],
+    "meca": [
+     "piston_marteau",
+     "tete_piston"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n09-glow.png": "c5a96d39015ed3b915aca7ad298835e9a935095b7409cce9754c50906efbb00a",
+    "assembler-n09-icon.png": "a148c1731a06332a7677b7d4bfbf5581856562dfca32b399b70704ece1d198ee",
+    "assembler-n09-light.png": "a6e7fc62bfcc0b190bbfab6397a39748b566d644d01804c45cf5a0eb118b183f",
+    "assembler-n09-main.png": "4a41e7cccee16408a6b68b3fb83e4b8e5b9d43c0633b093507bb0a51cc65f9e2",
+    "assembler-n09-shadow.png": "814415e5f9ed6fceee9ded47893e43cda310f01518f08512d4cd55877a84a526",
+    "hr-assembler-n09-glow.png": "802cb6c661d96f114e65e9626b4c3f09541f71fc33ecc469851fd105ba454b53",
+    "hr-assembler-n09-light.png": "d27a432233ca746d5d2c185311133304289e5ede747fc37515c5a089e5cd0b06",
+    "hr-assembler-n09-main.png": "583bae6b73a4e8d1f3d90349dec46dcf016218541cd72f0bcce8e0538e34b240",
+    "hr-assembler-n09-shadow.png": "9133916aaa26e25b4e268ceb631722a78d7c4ff8ca9d080e3e33eaa31377ba3c"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.44449999999999995,
+      1.0795
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.85,
+      0.0
+     ],
+     "r": [
+      0.44449999999999995,
+      1.0795
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.85,
+      1.75
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.6875,
+     -2.09375
+    ],
+    [
+     1.6875,
+     1.71875
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e05/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     320,
+     358
+    ],
+    "objects": 21,
+    "origin_px": [
+     117,
+     161
+    ],
+    "samples": 32,
+    "seconds": 24.91,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.5,
+    "O_total": 0.5625,
+    "L_masses": 2.90625,
+    "area": 9.0380859375,
+    "V_pct": 1.846928781306842,
+    "iou_1": 0.7473101097262171,
+    "iou_prev": 0.8659057744423598
+   }
+  },
+  {
+   "level": 10,
+   "epoch": 5,
+   "step": 2,
+   "theme": "Volcan",
+   "era": "II",
+   "kind": "piece",
+   "silhouette": "presse blindée en tronc de pyramide, écailles, capot incliné, fente de marteau rougeoyante, pointes de basalte",
+   "piece": "contreforts inclinés à gauche et à droite (+0,15)",
+   "light": "fentes de braise",
+   "emissive": "#FF4A10",
+   "night_only": false,
+   "envelope": {
+    "O": 0.47,
+    "L": 2.71,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n10-glow.png",
+      "height": 218,
+      "shift": [
+       0.078125,
+       -0.109375
+      ],
+      "width": 158
+     },
+     "lr": {
+      "filename": "assembler-n10-glow.png",
+      "height": 109,
+      "shift": [
+       0.078125,
+       -0.109375
+      ],
+      "width": 79
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n10-light.png",
+      "height": 224,
+      "shift": [
+       0.0,
+       0.875
+      ],
+      "width": 132
+     },
+     "lr": {
+      "filename": "assembler-n10-light.png",
+      "height": 112,
+      "shift": [
+       0.0,
+       0.875
+      ],
+      "width": 66
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n10-main.png",
+      "height": 244,
+      "shift": [
+       0.0,
+       -0.1875
+      ],
+      "width": 228
+     },
+     "lr": {
+      "filename": "assembler-n10-main.png",
+      "height": 122,
+      "shift": [
+       0.0,
+       -0.1875
+      ],
+      "width": 114
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n10-shadow.png",
+      "height": 170,
+      "shift": [
+       0.59375,
+       0.296875
+      ],
+      "width": 268
+     },
+     "lr": {
+      "filename": "assembler-n10-shadow.png",
+      "height": 85,
+      "shift": [
+       0.59375,
+       0.296875
+      ],
+      "width": 134
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n10-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "capot",
+     "fente_braise",
+     "fente_marteau",
+     "gradin",
+     "pointe_basalte",
+     "rivets_lourds"
+    ],
+    "meca": [
+     "piston_marteau",
+     "tete_piston"
+    ],
+    "piece": [
+     "contrefort",
+     "rivets_contrefort"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n10-glow.png": "85ba6c691c0d6fca6d80e227ccbbd16d75bbf5f50c3f4762a347cc7c44c56962",
+    "assembler-n10-icon.png": "c16e69931649633c7e5d65941321c13ae9b44f81ed0221d3d222af4afa4a8dfb",
+    "assembler-n10-light.png": "ee35a6ee9221fd88f63497cff7398ab4e1f6ca3141ed920e0a5a5d22df44602a",
+    "assembler-n10-main.png": "69edc25864709b047f8b2a1bbae4b09b5e161280922679d4b210074ad85e956b",
+    "assembler-n10-shadow.png": "631eca15342cbf37122f8cd2f4af564bfd9d5b034ba4414e08653b0baeb51c6b",
+    "hr-assembler-n10-glow.png": "d83d87cb7ce36915a2cf1722b743dbabe9eb05b77b9a144d026d36c407230b68",
+    "hr-assembler-n10-light.png": "b9ddfcd681e742b5e44bff85bbbd3ae2b25dd273e3261918a631ebbc94cc7a10",
+    "hr-assembler-n10-main.png": "ee8e5f9e9c6a5e1aa6dc7e9bfbdc48d5abbe6709f2865b3a479715175149de77",
+    "hr-assembler-n10-shadow.png": "210ffe102a3501d5e42c767de32c27c1152ed63c47ccd5354eaf6805f60a659d"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.45499999999999996,
+      1.105
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.85,
+      0.0
+     ],
+     "r": [
+      0.45499999999999996,
+      1.105
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.85,
+      1.75
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.78125,
+     -2.09375
+    ],
+    [
+     1.78125,
+     1.71875
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e05/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e05/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e05/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e05/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     322,
+     360
+    ],
+    "objects": 29,
+    "origin_px": [
+     119,
+     161
+    ],
+    "samples": 32,
+    "seconds": 25.56,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 9 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 0.5,
+    "O_total": 0.5625,
+    "L_masses": 3.0625,
+    "area": 9.329345703125,
+    "V_pct": 0.6471246676927382,
+    "iou_1": 0.7396999843741862,
+    "iou_prev": 0.9683166762597457,
+    "piece_added": 0.29345703125
+   }
+  },
+  {
+   "level": 11,
+   "epoch": 6,
+   "step": 1,
+   "theme": "Électricité",
+   "era": "II",
+   "kind": "silhouette",
+   "silhouette": "bras de soudure à l'arc sur le toit ; piles d'isolateurs sur bobines aux quatre coins",
+   "piece": null,
+   "light": "arc de soudure cyan, voyants",
+   "emissive": "#60D0FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.57,
+    "L": 2.75,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n11-glow.png",
+      "height": 228,
+      "shift": [
+       0.015625,
+       -0.34375
+      ],
+      "width": 162
+     },
+     "lr": {
+      "filename": "assembler-n11-glow.png",
+      "height": 114,
+      "shift": [
+       0.015625,
+       -0.34375
+      ],
+      "width": 81
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n11-light.png",
+      "height": 310,
+      "shift": [
+       0.09375,
+       0.234375
+      ],
+      "width": 148
+     },
+     "lr": {
+      "filename": "assembler-n11-light.png",
+      "height": 155,
+      "shift": [
+       0.09375,
+       0.234375
+      ],
+      "width": 74
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n11-main.png",
+      "height": 242,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n11-main.png",
+      "height": 121,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n11-shadow.png",
+      "height": 138,
+      "shift": [
+       0.9375,
+       0.390625
+      ],
+      "width": 292
+     },
+     "lr": {
+      "filename": "assembler-n11-shadow.png",
+      "height": 69,
+      "shift": [
+       0.9375,
+       0.390625
+      ],
+      "width": 146
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n11-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "ailette",
+     "ame",
+     "barre_cuivre",
+     "bobine",
+     "borne",
+     "borne_traversee",
+     "bride_gabarit",
+     "caisson",
+     "gabarit",
+     "isolateur",
+     "panneau",
+     "plinthe",
+     "socle_bobine",
+     "spires",
+     "transformateur",
+     "traversee",
+     "voyant"
+    ],
+    "meca": [
+     "arc_piles",
+     "arc_soudure",
+     "avant_bras",
+     "base_epaule",
+     "bras",
+     "cable",
+     "coude",
+     "epaule",
+     "etincelle",
+     "piece_soudee",
+     "poignet",
+     "torche",
+     "tourelle_bras"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n11-glow.png": "ea0fd9ab371dca29369ea124955eb3e889a33f9a5f89ad773253193e2979b25b",
+    "assembler-n11-icon.png": "2fafbe7c87ecd2b52e90a530e826927e8c73824f3c615af7ea161bca8c07b567",
+    "assembler-n11-light.png": "3b61752c1c9e422e06006def227e5cba157a2a81a94e8b84ef4ac263cc46859e",
+    "assembler-n11-main.png": "a6afecee6056875b5a3d3ffd63ebdab604a6a982549ab06f6fcff7a416798fbb",
+    "assembler-n11-shadow.png": "fcc1ccb4682398b8c43ea9c785e1791017f5c4f7a74e66f5cad68bb1f462e127",
+    "hr-assembler-n11-glow.png": "54065afa880be7e1e59469f544857712f47d6abffcdcc90567d5a11076a136b9",
+    "hr-assembler-n11-light.png": "ed394995ffa2e526f35eb4bdaa3282ff744594a1822325d541d4d8a2bcde5cf2",
+    "hr-assembler-n11-main.png": "c53792e6fb3e324f6b3121b11f65e5a8f9bc0e018a0f553650589fb8465371cc",
+    "hr-assembler-n11-shadow.png": "27dbdee6444bb8e007a6844d0f3813ac49e7938d8000bd4a516933af28233c6e"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      -0.3,
+      0.0
+     ],
+     "r": [
+      0.46549999999999997,
+      1.1305
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      -0.3,
+      2.05
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.38,
+      0.74,
+      0.0
+     ],
+     "r": [
+      0.46549999999999997,
+      1.1305
+     ]
+    },
+    {
+     "at": [
+      0.38,
+      0.74,
+      1.22
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.46549999999999997,
+      1.1305
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.55
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.15625
+    ],
+    [
+     1.59375,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e06/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     342,
+     370
+    ],
+    "objects": 125,
+    "origin_px": [
+     110,
+     168
+    ],
+    "samples": 32,
+    "seconds": 35.61,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.609375,
+    "O_total": 0.640625,
+    "L_masses": 2.71875,
+    "area": 7.89599609375,
+    "V_pct": 4.424933538547642,
+    "iou_1": 0.8130151456541792,
+    "iou_prev": 0.7213154748835053
+   }
+  },
+  {
+   "level": 12,
+   "epoch": 6,
+   "step": 2,
+   "theme": "Électricité",
+   "era": "II",
+   "kind": "piece",
+   "silhouette": "bras de soudure à l'arc sur le toit ; piles d'isolateurs sur bobines aux quatre coins",
+   "piece": "anneau de bobine vertical au-dessus (+0,30)",
+   "light": "arc de soudure cyan, voyants",
+   "emissive": "#60D0FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.57,
+    "L": 2.75,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n12-glow.png",
+      "height": 234,
+      "shift": [
+       0.015625,
+       -0.390625
+      ],
+      "width": 162
+     },
+     "lr": {
+      "filename": "assembler-n12-glow.png",
+      "height": 117,
+      "shift": [
+       0.015625,
+       -0.390625
+      ],
+      "width": 81
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n12-light.png",
+      "height": 314,
+      "shift": [
+       0.109375,
+       0.234375
+      ],
+      "width": 150
+     },
+     "lr": {
+      "filename": "assembler-n12-light.png",
+      "height": 157,
+      "shift": [
+       0.109375,
+       0.234375
+      ],
+      "width": 75
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n12-main.png",
+      "height": 258,
+      "shift": [
+       0.015625,
+       -0.359375
+      ],
+      "width": 206
+     },
+     "lr": {
+      "filename": "assembler-n12-main.png",
+      "height": 129,
+      "shift": [
+       0.015625,
+       -0.359375
+      ],
+      "width": 103
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n12-shadow.png",
+      "height": 138,
+      "shift": [
+       0.9375,
+       0.390625
+      ],
+      "width": 292
+     },
+     "lr": {
+      "filename": "assembler-n12-shadow.png",
+      "height": 69,
+      "shift": [
+       0.9375,
+       0.390625
+      ],
+      "width": 146
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n12-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "ailette",
+     "ame",
+     "barre_cuivre",
+     "bobine",
+     "borne",
+     "borne_traversee",
+     "bride_gabarit",
+     "caisson",
+     "gabarit",
+     "isolateur",
+     "panneau",
+     "plinthe",
+     "socle_bobine",
+     "spires",
+     "transformateur",
+     "traversee",
+     "voyant"
+    ],
+    "meca": [
+     "arc_piles",
+     "arc_soudure",
+     "avant_bras",
+     "base_epaule",
+     "bras",
+     "cable",
+     "coude",
+     "epaule",
+     "etincelle",
+     "piece_soudee",
+     "poignet",
+     "torche",
+     "tourelle_bras"
+    ],
+    "piece": [
+     "ame",
+     "anneau_bobine",
+     "anneau_lumineux",
+     "isolateur_anneau",
+     "ligature"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n12-glow.png": "4de0569b064615fb26792f131afe2ced34af4ed9a99f0c65b984f8b971ad326d",
+    "assembler-n12-icon.png": "3bb67c69e8c9e46e4a405a107e1759f7f6c5e53cebe227e6f2a0f52c0026f213",
+    "assembler-n12-light.png": "0e0b8bafb6227b337e7fc546676b63ba59edb876b9a3f992ab71305ebf29fe88",
+    "assembler-n12-main.png": "bd2bae51ce23d225027b5a2210b9e203fa89eea15723ed03d1ad3c2795ff96a9",
+    "assembler-n12-shadow.png": "dc07a8ccfd09242080b8a281d4478fb6eaa6e6de9d9a0b412ac006d8597d35f0",
+    "hr-assembler-n12-glow.png": "5074eda245f05d8a8d09cf0ee936fcf47ffede7da416de726f174e1437f06ef5",
+    "hr-assembler-n12-light.png": "3fbae46af19ddba2c3f219105719fedcd3ad02155076c4f0e4cdef1ee266907a",
+    "hr-assembler-n12-main.png": "00935808fd585838f2a7fdd3ae7122ff45fd3fdec674c01001b3914f1df9284b",
+    "hr-assembler-n12-shadow.png": "1d8b315442c2ab33e8e47bc9c2be7b51b48b45afc596b4eec28332cbd91fcf85"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      -0.3,
+      0.0
+     ],
+     "r": [
+      0.4759999999999999,
+      1.156
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      -0.3,
+      2.05
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.38,
+      0.74,
+      0.0
+     ],
+     "r": [
+      0.4759999999999999,
+      1.156
+     ]
+    },
+    {
+     "at": [
+      0.38,
+      0.74,
+      1.22
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.4759999999999999,
+      1.156
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.55
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.12,
+      0.0
+     ],
+     "r": [
+      0.4759999999999999,
+      1.156
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.12,
+      2.02
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.375
+    ],
+    [
+     1.625,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e06/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e06/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e06/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e06/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     342,
+     380
+    ],
+    "objects": 144,
+    "origin_px": [
+     110,
+     177
+    ],
+    "samples": 32,
+    "seconds": 39.77,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 11 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 0.84375,
+    "O_total": 0.859375,
+    "L_masses": 2.71875,
+    "area": 8.373291015625,
+    "V_pct": 3.508465090247656,
+    "iou_1": 0.7814447592067989,
+    "iou_prev": 0.9413564062226883,
+    "piece_added": 0.484375
+   }
+  },
+  {
+   "level": 13,
+   "epoch": 7,
+   "step": 1,
+   "theme": "Cristal",
+   "era": "III",
+   "kind": "silhouette",
+   "silhouette": "corps bas de pierre cerclé de bronze ; couronne de cristaux asymétriques sur le toit",
+   "piece": null,
+   "light": "cristaux violets",
+   "emissive": "#B070FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.68,
+    "L": 2.79,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n13-glow.png",
+      "height": 234,
+      "shift": [
+       -0.015625,
+       -0.796875
+      ],
+      "width": 170
+     },
+     "lr": {
+      "filename": "assembler-n13-glow.png",
+      "height": 117,
+      "shift": [
+       -0.015625,
+       -0.796875
+      ],
+      "width": 85
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n13-light.png",
+      "height": 156,
+      "shift": [
+       -0.0625,
+       -0.25
+      ],
+      "width": 152
+     },
+     "lr": {
+      "filename": "assembler-n13-light.png",
+      "height": 78,
+      "shift": [
+       -0.0625,
+       -0.25
+      ],
+      "width": 76
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n13-main.png",
+      "height": 272,
+      "shift": [
+       0.015625,
+       -0.5
+      ],
+      "width": 206
+     },
+     "lr": {
+      "filename": "assembler-n13-main.png",
+      "height": 136,
+      "shift": [
+       0.015625,
+       -0.5
+      ],
+      "width": 103
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n13-shadow.png",
+      "height": 146,
+      "shift": [
+       0.78125,
+       0.296875
+      ],
+      "width": 268
+     },
+     "lr": {
+      "filename": "assembler-n13-shadow.png",
+      "height": 73,
+      "shift": [
+       0.78125,
+       0.296875
+      ],
+      "width": 134
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n13-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "bandeau",
+     "corps_pierre",
+     "cristal",
+     "montant",
+     "sertissure"
+    ],
+    "meca": [
+     "anneau_tourniquet",
+     "axe_tourniquet",
+     "focale",
+     "rayon"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n13-glow.png": "662ae2729de0f81491a221f4a1e702a61bca51778cc7a565377f4bc3dd147689",
+    "assembler-n13-icon.png": "aae0f667204a441d2dd261e8d70a0ea5426441587ab55c1337f45c65b0c90335",
+    "assembler-n13-light.png": "ebf9dc42ecea1660272545eb2dd1177f41d2ceba9bfada346ca5a3befcfec733",
+    "assembler-n13-main.png": "69c99ec4dd5f6db24618659f94f1472e474b669b7929329434beed54c685c8b0",
+    "assembler-n13-shadow.png": "05fbaf811c99d9cfb19576b9ae44d20bdf7164b092783061e891e7dc04d2e69e",
+    "hr-assembler-n13-glow.png": "eebed92b764272035adb1f46bfbdeeeff9b03208091a406084b3fe4c6f3a4477",
+    "hr-assembler-n13-light.png": "3d03df5bc7a865e1c64d838d73f4fbbde672cf1e52ab1b740d38ba711f11d68f",
+    "hr-assembler-n13-main.png": "9a8bda7030d7dd6333d4105e9710be6c183fffa13c6192ced9bc4c45baea65d5",
+    "hr-assembler-n13-shadow.png": "8874f72b574eb3c423c070b78b86ddc0a19a7614a5b30141e8d5a44bf01dc51f"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.7,
+      0.0
+     ],
+     "r": [
+      0.4865,
+      1.1815
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.7,
+      1.2
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.45,
+      0.05,
+      0.0
+     ],
+     "r": [
+      0.4865,
+      1.1815
+     ]
+    },
+    {
+     "at": [
+      -0.45,
+      0.05,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.625
+    ],
+    [
+     1.625,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e07/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     342,
+     340
+    ],
+    "objects": 22,
+    "origin_px": [
+     129,
+     195
+    ],
+    "samples": 32,
+    "seconds": 34.56,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.78125,
+    "O_total": 1.078125,
+    "L_masses": 2.78125,
+    "area": 7.817626953125,
+    "V_pct": 4.715265146215195,
+    "iou_1": 0.8163265306122449,
+    "iou_prev": 0.7792503957288117
+   }
+  },
+  {
+   "level": 14,
+   "epoch": 7,
+   "step": 2,
+   "theme": "Cristal",
+   "era": "III",
+   "kind": "piece",
+   "silhouette": "corps bas de pierre cerclé de bronze ; couronne de cristaux asymétriques sur le toit",
+   "piece": "grand cristal central au-dessus (+0,30)",
+   "light": "cristaux violets",
+   "emissive": "#B070FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.68,
+    "L": 2.79,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n14-glow.png",
+      "height": 248,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n14-glow.png",
+      "height": 124,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 84
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n14-light.png",
+      "height": 216,
+      "shift": [
+       -0.046875,
+       0.125
+      ],
+      "width": 154
+     },
+     "lr": {
+      "filename": "assembler-n14-light.png",
+      "height": 108,
+      "shift": [
+       -0.046875,
+       0.125
+      ],
+      "width": 77
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n14-main.png",
+      "height": 286,
+      "shift": [
+       1.140625,
+       -0.609375
+      ],
+      "width": 354
+     },
+     "lr": {
+      "filename": "assembler-n14-main.png",
+      "height": 143,
+      "shift": [
+       1.140625,
+       -0.609375
+      ],
+      "width": 177
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n14-shadow.png",
+      "height": 146,
+      "shift": [
+       1.21875,
+       0.296875
+      ],
+      "width": 324
+     },
+     "lr": {
+      "filename": "assembler-n14-shadow.png",
+      "height": 73,
+      "shift": [
+       1.21875,
+       0.296875
+      ],
+      "width": 162
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n14-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "bandeau",
+     "corps_pierre",
+     "cristal",
+     "montant",
+     "sertissure"
+    ],
+    "meca": [
+     "anneau_tourniquet",
+     "axe_tourniquet",
+     "focale",
+     "rayon"
+    ],
+    "piece": [
+     "collier_grand_cristal",
+     "grand_cristal"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n14-glow.png": "590e722e8d11ba61e109769b13d928acf4719ffe865de378bbf7b2f18abc3503",
+    "assembler-n14-icon.png": "425b2a146cf9f6627816b105fff9433c26e1313d7a352aed5492589d4ae85a5e",
+    "assembler-n14-light.png": "fcef34ff88c8c52a8e95ff588d8b3e17a4b1993ca09bbac587232cd299dc0cea",
+    "assembler-n14-main.png": "96e07be4a0131f8da443f8cfcd229e21e1aeb38948e4bb6aa903dad89ac828a5",
+    "assembler-n14-shadow.png": "78bfe83462b90e463545f2ddaaafc75d265b475463db2ad3bbbebd17b9aeee44",
+    "hr-assembler-n14-glow.png": "914d54fda664c83335e549e2c30a91b4b17cabe6f26a134d8fcf830e97699314",
+    "hr-assembler-n14-light.png": "d7d50efdd9f2c04dd755b3b1b2a32e4427de4e56023d1089c97fa47419e62feb",
+    "hr-assembler-n14-main.png": "406b604af992f437ffe94ec94479470a68072056eaa19cb0b38eb5aa2de321d0",
+    "hr-assembler-n14-shadow.png": "f42832f59d948c5f31f8ffc6c41f04ac06c31410c818aae2d81fa25e462ea655"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.7,
+      0.0
+     ],
+     "r": [
+      0.49699999999999994,
+      1.2069999999999999
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.7,
+      1.2
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.45,
+      0.05,
+      0.0
+     ],
+     "r": [
+      0.49699999999999994,
+      1.2069999999999999
+     ]
+    },
+    {
+     "at": [
+      -0.45,
+      0.05,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.5,
+      0.0
+     ],
+     "r": [
+      0.49699999999999994,
+      1.2069999999999999
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.5,
+      2.2
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.625,
+     -2.84375
+    ],
+    [
+     3.90625,
+     1.625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e07/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e07/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e07/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e07/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     408,
+     362
+    ],
+    "objects": 24,
+    "origin_px": [
+     131,
+     215
+    ],
+    "samples": 32,
+    "seconds": 27.43,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 13 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.09375,
+    "O_total": 1.3125,
+    "L_masses": 2.78125,
+    "area": 8.222900390625,
+    "V_pct": 3.6553798796697916,
+    "iou_1": 0.7931521050509704,
+    "iou_prev": 0.9489780783720447,
+    "piece_added": 0.41259765625
+   }
+  },
+  {
+   "level": 15,
+   "epoch": 8,
+   "step": 1,
+   "theme": "Marais",
+   "era": "III",
+   "kind": "silhouette",
+   "silhouette": "corps arrondi vert-de-gris ; trois fioles-réacteurs bouillonnantes sur le toit, conduits",
+   "piece": null,
+   "light": "liquide vert-jaune",
+   "emissive": "#A8FF3A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.78,
+    "L": 2.83,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n15-glow.png",
+      "height": 234,
+      "shift": [
+       0.0,
+       -0.484375
+      ],
+      "width": 156
+     },
+     "lr": {
+      "filename": "assembler-n15-glow.png",
+      "height": 117,
+      "shift": [
+       0.0,
+       -0.484375
+      ],
+      "width": 78
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n15-light.png",
+      "height": 258,
+      "shift": [
+       0.0,
+       0.734375
+      ],
+      "width": 244
+     },
+     "lr": {
+      "filename": "assembler-n15-light.png",
+      "height": 129,
+      "shift": [
+       0.0,
+       0.734375
+      ],
+      "width": 122
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n15-main.png",
+      "height": 264,
+      "shift": [
+       0.0,
+       -0.40625
+      ],
+      "width": 196
+     },
+     "lr": {
+      "filename": "assembler-n15-main.png",
+      "height": 132,
+      "shift": [
+       0.0,
+       -0.40625
+      ],
+      "width": 98
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n15-shadow.png",
+      "height": 136,
+      "shift": [
+       1.1875,
+       0.40625
+      ],
+      "width": 300
+     },
+     "lr": {
+      "filename": "assembler-n15-shadow.png",
+      "height": 68,
+      "shift": [
+       1.1875,
+       0.40625
+      ],
+      "width": 150
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n15-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "cadre_hublot",
+     "ceinture",
+     "coque",
+     "hublot"
+    ],
+    "meca": [
+     "bague_col",
+     "collier_fiole",
+     "condenseur",
+     "conduit_fioles",
+     "fiole"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n15-glow.png": "52c2a390604cf4b76ce3cfc12c858730448973b6a5876595af66144d11bf1f4f",
+    "assembler-n15-icon.png": "bdbe8e56697b83bdfa798dd6e172c2b0820fa2d6c07cc31f58600704fa89c1fb",
+    "assembler-n15-light.png": "9d5ab807c7051df6b67f1eff066c802eb252fe482f0670ae36501e11f2108fc5",
+    "assembler-n15-main.png": "5659c4d4704516301a6fb7550b71826a83c266c82b16e5f5cc08117c5d37d620",
+    "assembler-n15-shadow.png": "b6229e34e018ec8ae2b7ad5c2d66d20e553696b8fc2cb20af4eb855d78650132",
+    "hr-assembler-n15-glow.png": "61d4e55a55545ea5547d48c2aa42654577171ab2dfeed8de040b993b961397ac",
+    "hr-assembler-n15-light.png": "5ae9685e31bf4e084dfcfc02dcf1ecc968d2733ad27a4b164d08e127e3eba90d",
+    "hr-assembler-n15-main.png": "8184329c304845a4c1e932f9d1e54e655804fc733720976fd163f2d3102d2489",
+    "hr-assembler-n15-shadow.png": "b6fcc66a51a7a670105288255c2f2dc792b98abe44366c4c1e5edaf1a667516d"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.78,
+      0.0,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      -0.78,
+      0.0,
+      1.12
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.78,
+      0.0,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      0.78,
+      0.0,
+      1.12
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.96,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.96,
+      1.08
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.42
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.53125,
+     -2.46875
+    ],
+    [
+     1.53125,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e08/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     416,
+     398
+    ],
+    "objects": 17,
+    "origin_px": [
+     153,
+     190
+    ],
+    "samples": 32,
+    "seconds": 29.65,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 0.921875,
+    "O_total": 0.9375,
+    "L_masses": 2.625,
+    "area": 7.414794921875,
+    "V_pct": 6.607667552819365,
+    "iou_1": 0.8276193428394296,
+    "iou_prev": 0.767097966728281
+   }
+  },
+  {
+   "level": 16,
+   "epoch": 8,
+   "step": 2,
+   "theme": "Marais",
+   "era": "III",
+   "kind": "piece",
+   "silhouette": "corps arrondi vert-de-gris ; trois fioles-réacteurs bouillonnantes sur le toit, conduits",
+   "piece": "grand bulbe central et serpentin (+0,30)",
+   "light": "liquide vert-jaune",
+   "emissive": "#A8FF3A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.78,
+    "L": 2.83,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n16-glow.png",
+      "height": 252,
+      "shift": [
+       0.0,
+       -0.625
+      ],
+      "width": 156
+     },
+     "lr": {
+      "filename": "assembler-n16-glow.png",
+      "height": 126,
+      "shift": [
+       0.0,
+       -0.625
+      ],
+      "width": 78
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n16-light.png",
+      "height": 258,
+      "shift": [
+       0.0,
+       0.734375
+      ],
+      "width": 248
+     },
+     "lr": {
+      "filename": "assembler-n16-light.png",
+      "height": 129,
+      "shift": [
+       0.0,
+       0.734375
+      ],
+      "width": 124
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n16-main.png",
+      "height": 282,
+      "shift": [
+       0.0,
+       -0.546875
+      ],
+      "width": 196
+     },
+     "lr": {
+      "filename": "assembler-n16-main.png",
+      "height": 141,
+      "shift": [
+       0.0,
+       -0.546875
+      ],
+      "width": 98
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n16-shadow.png",
+      "height": 136,
+      "shift": [
+       1.1875,
+       0.40625
+      ],
+      "width": 300
+     },
+     "lr": {
+      "filename": "assembler-n16-shadow.png",
+      "height": 68,
+      "shift": [
+       1.1875,
+       0.40625
+      ],
+      "width": 150
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n16-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "cadre_hublot",
+     "ceinture",
+     "coque",
+     "hublot"
+    ],
+    "meca": [
+     "bague_col",
+     "collier_fiole",
+     "condenseur",
+     "conduit_fioles",
+     "fiole"
+    ],
+    "piece": [
+     "grand_bulbe",
+     "pied_bulbe",
+     "serpentin"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n16-glow.png": "b79c540fc8471309e2d18121daba9ca8134fc994eba43e5e4e13a57fa2212492",
+    "assembler-n16-icon.png": "9ccbcd3f72657c0dcd16694bf522ab733b7e770556d1dafa61c16296548cac8e",
+    "assembler-n16-light.png": "fee809151c122d56bb70facb80c83b5a60cf95798d978500f830df85fdf25ffb",
+    "assembler-n16-main.png": "fde5d3f500f798dad739ceb5d8245359eaf0b47487eab93f08882abd907b2e59",
+    "assembler-n16-shadow.png": "aed614f505c8f01181c3e87b5836636d0901a36341d1ce778318b8e992ca280b",
+    "hr-assembler-n16-glow.png": "abc714d46f272d00b6886b95c7541411ea346286eb54a0d67d2109a4907fe735",
+    "hr-assembler-n16-light.png": "21af3cfa8ee0cc9f8db5ddc581ad3015d6a6673ae87c9b8d290745ba5d273048",
+    "hr-assembler-n16-main.png": "aac1664085f591155bdeeeacc287f817348a374143fd307b17882d6d6d9d7086",
+    "hr-assembler-n16-shadow.png": "7c8a7af4a5b0e33293c15d9a400c8c377c7cecb25366d015820f7a33a4acbe24"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -0.78,
+      0.0,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      -0.78,
+      0.0,
+      1.12
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.78,
+      0.0,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      0.78,
+      0.0,
+      1.12
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.96,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.96,
+      1.08
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.62,
+      0.42
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.3,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.3,
+      1.4
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.53125,
+     -2.75
+    ],
+    [
+     1.53125,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e08/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e08/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e08/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e08/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     418,
+     422
+    ],
+    "objects": 20,
+    "origin_px": [
+     155,
+     213
+    ],
+    "samples": 32,
+    "seconds": 32.75,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 15 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.203125,
+    "O_total": 1.21875,
+    "L_masses": 2.625,
+    "area": 8.01123046875,
+    "V_pct": 2.0707989366167623,
+    "iou_1": 0.838053044363288,
+    "iou_prev": 0.9222110675063125,
+    "piece_added": 0.6103515625
+   }
+  },
+  {
+   "level": 17,
+   "epoch": 9,
+   "step": 1,
+   "theme": "Atome",
+   "era": "III",
+   "kind": "silhouette",
+   "silhouette": "cellule chaude plombée : corps octogonal chanfreiné, grand hublot vert, deux bras télémanipulateurs sur le toit",
+   "piece": null,
+   "light": "hublot et cœur vert uranium",
+   "emissive": "#5CFF4A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.88,
+    "L": 2.87,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n17-glow.png",
+      "height": 244,
+      "shift": [
+       0.03125,
+       -0.46875
+      ],
+      "width": 120
+     },
+     "lr": {
+      "filename": "assembler-n17-glow.png",
+      "height": 122,
+      "shift": [
+       0.03125,
+       -0.46875
+      ],
+      "width": 60
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n17-light.png",
+      "height": 170,
+      "shift": [
+       0.078125,
+       1.515625
+      ],
+      "width": 162
+     },
+     "lr": {
+      "filename": "assembler-n17-light.png",
+      "height": 85,
+      "shift": [
+       0.078125,
+       1.515625
+      ],
+      "width": 81
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n17-main.png",
+      "height": 268,
+      "shift": [
+       -0.015625,
+       -0.4375
+      ],
+      "width": 210
+     },
+     "lr": {
+      "filename": "assembler-n17-main.png",
+      "height": 134,
+      "shift": [
+       -0.015625,
+       -0.4375
+      ],
+      "width": 105
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n17-shadow.png",
+      "height": 154,
+      "shift": [
+       1.125,
+       0.265625
+      ],
+      "width": 316
+     },
+     "lr": {
+      "filename": "assembler-n17-shadow.png",
+      "height": 77,
+      "shift": [
+       1.125,
+       0.265625
+      ],
+      "width": 158
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n17-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_conduit",
+     "bande_danger",
+     "boulon_hublot",
+     "cadre_hublot",
+     "cellule",
+     "cerclage_hublot",
+     "chanfrein",
+     "conduit_annele",
+     "event_vert",
+     "hublot",
+     "hublot_coeur",
+     "socle_beton",
+     "tourelle_coeur",
+     "trappe",
+     "trefle_centre",
+     "trefle_fond",
+     "trefle_pale",
+     "trefle_trappe"
+    ],
+    "meca": [
+     "avant_bras",
+     "bras_manipulateur",
+     "collier",
+     "colonne_manipulateur",
+     "coude",
+     "epaule",
+     "pince",
+     "poignet"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n17-glow.png": "0a112b25838ec3255066cee10438d733900418c0d0095603a33e2a582a24f2ab",
+    "assembler-n17-icon.png": "a81f09771699eabc6c3fe4853667a1d8495a539514d2493ccacebf650b18a38b",
+    "assembler-n17-light.png": "e6d3c9cfd65941a2d01e449f66093250a42376342800e6b3e4fa445576e343e4",
+    "assembler-n17-main.png": "87610b8009d7dbc07c4d5262f1dcacd4c0ab0333c589661013cd40e4302c09ba",
+    "assembler-n17-shadow.png": "858cf4372023dd32d24181c2fb14d525912aef31e9258bb2ec1f6d45defc2b09",
+    "hr-assembler-n17-glow.png": "cd52c6e37dabff28dfa9171ab4e8f3b7aa5fe5fcec58e3ad05135478f010612b",
+    "hr-assembler-n17-light.png": "1bcf688059268f89188385677678502dc0a7c7a3462ad068a981f7b500629f17",
+    "hr-assembler-n17-main.png": "1d80fbd8b4fb0dcf7ff2d3ef221c093973e833873f14a03d255c22a03f3331b5",
+    "hr-assembler-n17-shadow.png": "3f69cf25296092a30c392b1a242cf4451d83cbd0b2eef948bd5dbf1490a16225"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.15,
+      1.65,
+      0.0
+     ],
+     "r": [
+      0.5285,
+      1.2834999999999999
+     ]
+    },
+    {
+     "at": [
+      0.15,
+      1.65,
+      0.68
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.5285,
+      1.2834999999999999
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.35,
+      1.25
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.65625,
+     -2.53125
+    ],
+    [
+     1.625,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e09/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     364,
+     400
+    ],
+    "objects": 59,
+    "origin_px": [
+     110,
+     187
+    ],
+    "samples": 32,
+    "seconds": 31.42,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.0,
+    "O_total": 1.0,
+    "L_masses": 2.8125,
+    "area": 8.579833984375,
+    "V_pct": 0.07695536588778508,
+    "iou_1": 0.8123418171477321,
+    "iou_prev": 0.8318238179955793
+   }
+  },
+  {
+   "level": 18,
+   "epoch": 9,
+   "step": 2,
+   "theme": "Atome",
+   "era": "III",
+   "kind": "piece",
+   "silhouette": "cellule chaude plombée : corps octogonal chanfreiné, grand hublot vert, deux bras télémanipulateurs sur le toit",
+   "piece": "tour de refroidissement miniature (+0,30)",
+   "light": "hublot et cœur vert uranium",
+   "emissive": "#5CFF4A",
+   "night_only": false,
+   "envelope": {
+    "O": 0.88,
+    "L": 2.87,
+    "V_pct": 0
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n18-glow.png",
+      "height": 264,
+      "shift": [
+       0.0,
+       -0.625
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n18-glow.png",
+      "height": 132,
+      "shift": [
+       0.0,
+       -0.625
+      ],
+      "width": 82
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n18-light.png",
+      "height": 346,
+      "shift": [
+       0.078125,
+       0.171875
+      ],
+      "width": 166
+     },
+     "lr": {
+      "filename": "assembler-n18-light.png",
+      "height": 173,
+      "shift": [
+       0.078125,
+       0.171875
+      ],
+      "width": 83
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n18-main.png",
+      "height": 280,
+      "shift": [
+       -0.015625,
+       -0.53125
+      ],
+      "width": 210
+     },
+     "lr": {
+      "filename": "assembler-n18-main.png",
+      "height": 140,
+      "shift": [
+       -0.015625,
+       -0.53125
+      ],
+      "width": 105
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n18-shadow.png",
+      "height": 154,
+      "shift": [
+       1.125,
+       0.265625
+      ],
+      "width": 316
+     },
+     "lr": {
+      "filename": "assembler-n18-shadow.png",
+      "height": 77,
+      "shift": [
+       1.125,
+       0.265625
+      ],
+      "width": 158
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n18-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_conduit",
+     "bande_danger",
+     "boulon_hublot",
+     "cadre_hublot",
+     "cellule",
+     "cerclage_hublot",
+     "chanfrein",
+     "conduit_annele",
+     "event_vert",
+     "hublot",
+     "hublot_coeur",
+     "socle_beton",
+     "tourelle_coeur",
+     "trappe",
+     "trefle_centre",
+     "trefle_fond",
+     "trefle_pale",
+     "trefle_trappe"
+    ],
+    "meca": [
+     "avant_bras",
+     "bras_manipulateur",
+     "collier",
+     "colonne_manipulateur",
+     "coude",
+     "epaule",
+     "pince",
+     "poignet"
+    ],
+    "piece": [
+     "bague_tour",
+     "coeur_tour",
+     "tour_refroidissement"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n18-glow.png": "3d070a3815722c002c7626c8aa03f6f6a0183ca4e42abdf81604682912ffab9d",
+    "assembler-n18-icon.png": "63ade7a7ffb7d67036e6f9c785eb9c999f0850c82367d1fb3ba9bb521c27852d",
+    "assembler-n18-light.png": "bc01648125a487792837a856b8e60c3cfded56d572abea58cafca9bfcb977e03",
+    "assembler-n18-main.png": "573ed6d10984637a865b400b77523698bb501b5023c10518491caf923cc8b1eb",
+    "assembler-n18-shadow.png": "20af797f92092785b4f6cb62551dca952a6c2e5f61ec21c519edbac08d868c03",
+    "hr-assembler-n18-glow.png": "b8ffd35a724dc2de90e609c6a881e8fa372ab5999d0ac5f278120b52a06d426f",
+    "hr-assembler-n18-light.png": "de751470a5f3a3c6fc074721d9744403d4e66ab69769135bf8f4c2a233c88fec",
+    "hr-assembler-n18-main.png": "069f6b753e48782681f785e799b4a3c1a31474a4317f8000ef1b8436e15ec0cc",
+    "hr-assembler-n18-shadow.png": "848754602bc7c05f3993e0f0c7dcc0735fdada2cda73db6b7914eb0fca2a5c2b"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.15,
+      1.65,
+      0.0
+     ],
+     "r": [
+      0.5389999999999999,
+      1.309
+     ]
+    },
+    {
+     "at": [
+      0.15,
+      1.65,
+      0.68
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.5389999999999999,
+      1.309
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.35,
+      1.25
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      -0.2,
+      0.0
+     ],
+     "r": [
+      0.5389999999999999,
+      1.309
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      -0.2,
+      2.6
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.65625,
+     -2.71875
+    ],
+    [
+     1.625,
+     1.65625
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e09/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e09/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e09/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e09/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     364,
+     414
+    ],
+    "objects": 62,
+    "origin_px": [
+     110,
+     199
+    ],
+    "samples": 32,
+    "seconds": 30.37,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 17 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.171875,
+    "O_total": 1.171875,
+    "L_masses": 2.8125,
+    "area": 9.0966796875,
+    "V_pct": 0.0804533370645026,
+    "iou_1": 0.7661668857119867,
+    "iou_prev": 0.9407349827110194,
+    "piece_added": 0.5283203125
+   }
+  },
+  {
+   "level": 19,
+   "epoch": 10,
+   "step": 1,
+   "theme": "Haute technologie",
+   "era": "IV",
+   "kind": "silhouette",
+   "silhouette": "coque lisse sur pieds courts ; dôme ; trois bras robotisés articulés ; bandeau de voyants",
+   "piece": null,
+   "light": "voyants et écran bleus",
+   "emissive": "#3AA8FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.99,
+    "L": 2.91,
+    "V_pct": 6
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n19-glow.png",
+      "height": 276,
+      "shift": [
+       -0.046875,
+       -0.96875
+      ],
+      "width": 150
+     },
+     "lr": {
+      "filename": "assembler-n19-glow.png",
+      "height": 138,
+      "shift": [
+       -0.046875,
+       -0.96875
+      ],
+      "width": 75
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n19-light.png",
+      "height": 236,
+      "shift": [
+       0.0,
+       0.9375
+      ],
+      "width": 160
+     },
+     "lr": {
+      "filename": "assembler-n19-light.png",
+      "height": 118,
+      "shift": [
+       0.0,
+       0.9375
+      ],
+      "width": 80
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n19-main.png",
+      "height": 284,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n19-main.png",
+      "height": 142,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 84
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n19-shadow.png",
+      "height": 130,
+      "shift": [
+       1.25,
+       0.328125
+      ],
+      "width": 304
+     },
+     "lr": {
+      "filename": "assembler-n19-shadow.png",
+      "height": 65,
+      "shift": [
+       1.25,
+       0.328125
+      ],
+      "width": 152
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n19-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_dome",
+     "antenne_fouet",
+     "bandeau",
+     "coque",
+     "dome",
+     "ecran",
+     "ecran_cadre",
+     "feu_antenne",
+     "fourreau",
+     "patin",
+     "pied",
+     "pied_antenne",
+     "tambour",
+     "voyant"
+    ],
+    "meca": [
+     "avant_bras",
+     "base_bras",
+     "bras",
+     "coude",
+     "epaule",
+     "led_outil",
+     "outil",
+     "pivot",
+     "poignet"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n19-glow.png": "54130980c7b94cd185a15b0b4bbce0b839fb18f6f5103683e1bf2f9ba2a947a2",
+    "assembler-n19-icon.png": "c953b148a514c2310258dd7aed9cc72265aecd9fabeb8e6010731cf2c7adba09",
+    "assembler-n19-light.png": "b9e375a3f8116e77ca5f7c34d774dcf5afcdf2dafb0f9c1d6a0b9a4208fb8f98",
+    "assembler-n19-main.png": "25636988af192a908a14b9a7585371af456887635e7b025057ba443c464cec37",
+    "assembler-n19-shadow.png": "8e25e53f9b4eb723efda9d45553c6fc6ebdc0c5ba9dbfda90533e2aff760c744",
+    "hr-assembler-n19-glow.png": "e3e66e8f84aee775d4e4de8769eb9ac16bcaea6dea5d77d881564aad17c57d18",
+    "hr-assembler-n19-light.png": "7a9b60079438b46cc3715446497c9c22713231022c6f8d8a97b94ec004a1ec9f",
+    "hr-assembler-n19-main.png": "140130a3a9142b06e4d9252b17d60245dce494458715d257c75789a1cf753c18",
+    "hr-assembler-n19-shadow.png": "32a6e742d07f9d76300593a9c2f3b322a0433da14dc75c6a491462268d147127"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.5494999999999999,
+      1.3344999999999998
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.55,
+      0.8
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      0.0
+     ],
+     "r": [
+      0.5494999999999999,
+      1.3344999999999998
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      1.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.3125,
+     -3.125
+    ],
+    [
+     1.3125,
+     1.3125
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e10/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     370,
+     432
+    ],
+    "objects": 52,
+    "origin_px": [
+     110,
+     223
+    ],
+    "samples": 32,
+    "seconds": 30.37,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.09375,
+    "O_total": 1.59375,
+    "L_masses": 2.53125,
+    "area": 6.8125,
+    "V_pct": 16.471946271162725,
+    "iou_1": 0.7321926838990587,
+    "iou_prev": 0.6680916421349034
+   }
+  },
+  {
+   "level": 20,
+   "epoch": 10,
+   "step": 2,
+   "theme": "Haute technologie",
+   "era": "IV",
+   "kind": "piece",
+   "silhouette": "coque lisse sur pieds courts ; dôme ; trois bras robotisés articulés ; bandeau de voyants",
+   "piece": "antenne-parabole (+0,30)",
+   "light": "voyants et écran bleus",
+   "emissive": "#3AA8FF",
+   "night_only": false,
+   "envelope": {
+    "O": 0.99,
+    "L": 2.91,
+    "V_pct": 6
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n20-glow.png",
+      "height": 276,
+      "shift": [
+       -0.015625,
+       -0.96875
+      ],
+      "width": 154
+     },
+     "lr": {
+      "filename": "assembler-n20-glow.png",
+      "height": 138,
+      "shift": [
+       -0.015625,
+       -0.96875
+      ],
+      "width": 77
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n20-light.png",
+      "height": 238,
+      "shift": [
+       0.0,
+       0.953125
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n20-light.png",
+      "height": 119,
+      "shift": [
+       0.0,
+       0.953125
+      ],
+      "width": 82
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n20-main.png",
+      "height": 284,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n20-main.png",
+      "height": 142,
+      "shift": [
+       0.0,
+       -0.90625
+      ],
+      "width": 84
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n20-shadow.png",
+      "height": 134,
+      "shift": [
+       1.25,
+       0.296875
+      ],
+      "width": 304
+     },
+     "lr": {
+      "filename": "assembler-n20-shadow.png",
+      "height": 67,
+      "shift": [
+       1.25,
+       0.296875
+      ],
+      "width": 152
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n20-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_dome",
+     "antenne_fouet",
+     "bandeau",
+     "coque",
+     "dome",
+     "ecran",
+     "ecran_cadre",
+     "feu_antenne",
+     "fourreau",
+     "patin",
+     "pied",
+     "pied_antenne",
+     "tambour",
+     "voyant"
+    ],
+    "meca": [
+     "avant_bras",
+     "base_bras",
+     "bras",
+     "coude",
+     "epaule",
+     "led_outil",
+     "outil",
+     "pivot",
+     "poignet"
+    ],
+    "piece": [
+     "bras_source",
+     "mat_parabole",
+     "parabole",
+     "pied_parabole",
+     "source"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n20-glow.png": "6d7744c1bab7a0fd2a7b9e03bc5ac9dfa30152ad912f0083a20ac7d5536d6bd9",
+    "assembler-n20-icon.png": "64917fa3071bb98e3cb139d379828ac9eaddfd52c16fa05a7829eb23377c40f8",
+    "assembler-n20-light.png": "af6769786cd38ecff88e6bb4ca5ef4ee395563667a6e74840f5cbc1a1194ece0",
+    "assembler-n20-main.png": "681754a1fc7bc3c16ed17f9dd283ef9847cb465d6b081ad1d778ec0a675c5397",
+    "assembler-n20-shadow.png": "bfd2f1b12dc475b55250eac798b209f87e64a92b7dae629d851f20f081c97d08",
+    "hr-assembler-n20-glow.png": "8fd4f7649f8b49a320bb6fde36458c0559363d04840f34d80618e9662800864c",
+    "hr-assembler-n20-light.png": "593a9a712061ed7974046ba4e0de2837a55eb27daaf2ec984d82b36a62ffd9ce",
+    "hr-assembler-n20-main.png": "ddf535ab9a5f8ba3679a06e15a8b6c6fc56436f4ec2cfda1cb67d0e0ea35f227",
+    "hr-assembler-n20-shadow.png": "9a37d855e5e625e7565a3303c256f0ada4604f7d0ebfab4f9680aae95aaa58d6"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.55,
+      0.0
+     ],
+     "r": [
+      0.5599999999999999,
+      1.36
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.55,
+      0.8
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      0.0
+     ],
+     "r": [
+      0.5599999999999999,
+      1.36
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      1.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.3125,
+     -3.125
+    ],
+    [
+     1.3125,
+     1.3125
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e10/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e10/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e10/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e10/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     372,
+     434
+    ],
+    "objects": 57,
+    "origin_px": [
+     112,
+     223
+    ],
+    "samples": 32,
+    "seconds": 27.89,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 19 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.265625,
+    "O_total": 1.59375,
+    "L_masses": 2.53125,
+    "area": 7.38623046875,
+    "V_pct": 16.46495032880929,
+    "iou_1": 0.6830754269042647,
+    "iou_prev": 0.9208005812801374,
+    "piece_added": 0.57958984375
+   }
+  },
+  {
+   "level": 21,
+   "epoch": 11,
+   "step": 1,
+   "theme": "Titane",
+   "era": "IV",
+   "kind": "silhouette",
+   "silhouette": "portique blanc à ailerons sur quatre pieds en V, côtés ouverts, plateau bas",
+   "piece": null,
+   "light": "lignes bleu-blanc (chenillard)",
+   "emissive": "#BFE6FF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.09,
+    "L": 2.95,
+    "V_pct": 12
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n21-glow.png",
+      "height": 242,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 160
+     },
+     "lr": {
+      "filename": "assembler-n21-glow.png",
+      "height": 121,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 80
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n21-light.png",
+      "height": 222,
+      "shift": [
+       -0.03125,
+       0.984375
+      ],
+      "width": 172
+     },
+     "lr": {
+      "filename": "assembler-n21-light.png",
+      "height": 111,
+      "shift": [
+       -0.03125,
+       0.984375
+      ],
+      "width": 86
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n21-main.png",
+      "height": 268,
+      "shift": [
+       0.0,
+       -0.75
+      ],
+      "width": 196
+     },
+     "lr": {
+      "filename": "assembler-n21-main.png",
+      "height": 134,
+      "shift": [
+       0.0,
+       -0.75
+      ],
+      "width": 98
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n21-shadow.png",
+      "height": 124,
+      "shift": [
+       1.015625,
+       0.25
+      ],
+      "width": 306
+     },
+     "lr": {
+      "filename": "assembler-n21-shadow.png",
+      "height": 62,
+      "shift": [
+       1.015625,
+       0.25
+      ],
+      "width": 153
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n21-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "aileron",
+     "chenillard",
+     "jambe_v",
+     "ligne_avant",
+     "longeron",
+     "noeud",
+     "patin",
+     "piece_travail",
+     "pied_plateau",
+     "plateau",
+     "poutre_arriere",
+     "poutre_avant"
+    ],
+    "meca": [
+     "bras_telescopique",
+     "chariot",
+     "led_outil",
+     "outil",
+     "traverse_mobile"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n21-glow.png": "c4118151b3d0f91ecf3aa8ddb8b9c257467398c61b39c3e0a3d68fd92eb94a93",
+    "assembler-n21-icon.png": "9d61471ca7b2d8ab8b05fa983a3c86f6e971962793deeeed6cc961e2c255eb02",
+    "assembler-n21-light.png": "4829ff4f077b91662e2c0c9a5aeb702fca90b7a73598f31de2d45c9f38a5e1a9",
+    "assembler-n21-main.png": "f3749811c757e066b9c8567ea4febca31e436fea829cd2955bba77ea098ef407",
+    "assembler-n21-shadow.png": "bb9eaae8b891ac24e18d317431ca804ca5175441886179ce7118e26d4f117ef7",
+    "hr-assembler-n21-glow.png": "44789bc82eaec320eed8f008a82e81fedfdc824f801b975b7dfa8efdcbf92bfa",
+    "hr-assembler-n21-light.png": "7c8544b420a2ddb773bb52e811a3484713ca96e94eac8f49a503b323179cbdd0",
+    "hr-assembler-n21-main.png": "55a737b5bd67ae7ed7011efec6b7f2022e99c99eda9a6a08eb8788cc7e0ce5f0",
+    "hr-assembler-n21-shadow.png": "44cce5a3e2835561d4525c63a113759fc3dd0d1eb897853a8147664d96b81d94"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.4,
+      0.0
+     ],
+     "r": [
+      0.5704999999999999,
+      1.3855
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.4,
+      1.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.06,
+      0.45,
+      0.0
+     ],
+     "r": [
+      0.5704999999999999,
+      1.3855
+     ]
+    },
+    {
+     "at": [
+      -0.06,
+      0.45,
+      0.6
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.53125,
+     -2.84375
+    ],
+    [
+     1.53125,
+     1.34375
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e11/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     360,
+     410
+    ],
+    "objects": 39,
+    "origin_px": [
+     117,
+     207
+    ],
+    "samples": 32,
+    "seconds": 24.82,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.109375,
+    "O_total": 1.328125,
+    "L_masses": 2.5,
+    "area": 4.572021484375,
+    "V_pct": 56.57618581222891,
+    "iou_1": 0.3556918139881379,
+    "iou_prev": 0.44371739322663367
+   }
+  },
+  {
+   "level": 22,
+   "epoch": 11,
+   "step": 2,
+   "theme": "Titane",
+   "era": "IV",
+   "kind": "piece",
+   "silhouette": "portique blanc à ailerons sur quatre pieds en V, côtés ouverts, plateau bas",
+   "piece": "grue en flèche (+0,30)",
+   "light": "lignes bleu-blanc (chenillard)",
+   "emissive": "#BFE6FF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.09,
+    "L": 2.95,
+    "V_pct": 12
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n22-glow.png",
+      "height": 234,
+      "shift": [
+       0.0625,
+       -0.703125
+      ],
+      "width": 160
+     },
+     "lr": {
+      "filename": "assembler-n22-glow.png",
+      "height": 117,
+      "shift": [
+       0.0625,
+       -0.703125
+      ],
+      "width": 80
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n22-light.png",
+      "height": 302,
+      "shift": [
+       -0.359375,
+       0.359375
+      ],
+      "width": 218
+     },
+     "lr": {
+      "filename": "assembler-n22-light.png",
+      "height": 151,
+      "shift": [
+       -0.359375,
+       0.359375
+      ],
+      "width": 109
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n22-main.png",
+      "height": 276,
+      "shift": [
+       0.0,
+       -0.8125
+      ],
+      "width": 196
+     },
+     "lr": {
+      "filename": "assembler-n22-main.png",
+      "height": 138,
+      "shift": [
+       0.0,
+       -0.8125
+      ],
+      "width": 98
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n22-shadow.png",
+      "height": 124,
+      "shift": [
+       1.28125,
+       0.25
+      ],
+      "width": 340
+     },
+     "lr": {
+      "filename": "assembler-n22-shadow.png",
+      "height": 62,
+      "shift": [
+       1.28125,
+       0.25
+      ],
+      "width": 170
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n22-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "aileron",
+     "chenillard",
+     "jambe_v",
+     "ligne_avant",
+     "longeron",
+     "noeud",
+     "patin",
+     "piece_travail",
+     "pied_plateau",
+     "plateau",
+     "poutre_arriere",
+     "poutre_avant"
+    ],
+    "meca": [
+     "bras_telescopique",
+     "chariot",
+     "led_outil",
+     "outil",
+     "traverse_mobile"
+    ],
+    "piece": [
+     "cable",
+     "contre_fleche",
+     "contrepoids",
+     "fleche_grue",
+     "hauban",
+     "mat_grue",
+     "moufle",
+     "tete_grue"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n22-glow.png": "3369f144bdd0e5e9dbb3c475ddfdb86311d4b1fd0b21beca8b80c0264d78afd6",
+    "assembler-n22-icon.png": "f3eef2350cdd052b2390efbf809da9eb681246dd8cc5b089ec9d3ef86087e0fa",
+    "assembler-n22-light.png": "03fcdd70a44ffd62c93f7304dadce6d9e847194e97855b8a52b60698a7bcc77c",
+    "assembler-n22-main.png": "fc1a29cb3c6d6d35a2c700a43a806edca67b537bc4efd07390ae2a29df637f77",
+    "assembler-n22-shadow.png": "5caf76477080daf0035a5febd4f1b5a20f3df5a86373a72d5aabeb6606c538d8",
+    "hr-assembler-n22-glow.png": "5c78b9a0497b018eda4e11911bc71bc04c16edca738bb9732906737753b163b5",
+    "hr-assembler-n22-light.png": "ae000e15e13dd3dc8bea2a0e0015b83fb6e7c7761eb2042226ba662c5992d113",
+    "hr-assembler-n22-main.png": "6288054d2e1898303a9b19eb65e1cc87e0d32bfc847d858557b2e3c572dc1156",
+    "hr-assembler-n22-shadow.png": "be150392f5a14a8609a5203306213066a27034d041d2e6c95af7e05b7b779dd2"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.4,
+      0.0
+     ],
+     "r": [
+      0.581,
+      1.4109999999999998
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.4,
+      1.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.06,
+      0.45,
+      0.0
+     ],
+     "r": [
+      0.581,
+      1.4109999999999998
+     ]
+    },
+    {
+     "at": [
+      -0.06,
+      0.45,
+      0.6
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.75,
+      -0.10000000000000003,
+      0.0
+     ],
+     "r": [
+      0.581,
+      1.4109999999999998
+     ]
+    },
+    {
+     "at": [
+      -0.75,
+      -0.10000000000000003,
+      2.0
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.53125,
+     -2.96875
+    ],
+    [
+     1.53125,
+     1.34375
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e11/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e11/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e11/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e11/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     440,
+     418
+    ],
+    "objects": 47,
+    "origin_px": [
+     163,
+     214
+    ],
+    "samples": 32,
+    "seconds": 29.44,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 21 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.421875,
+    "O_total": 1.46875,
+    "L_masses": 2.6875,
+    "area": 5.03759765625,
+    "V_pct": 56.57968378340562,
+    "iou_1": 0.3372273085386726,
+    "iou_prev": 0.9047181224292281,
+    "piece_added": 0.47314453125
+   }
+  },
+  {
+   "level": 23,
+   "epoch": 12,
+   "step": 1,
+   "theme": "Supraconducteurs",
+   "era": "IV",
+   "kind": "silhouette",
+   "silhouette": "plateau de travail en lévitation entre quatre pylônes ; anneaux chromés flottants ; bloc noir flottant",
+   "piece": null,
+   "light": "anneaux cyan",
+   "emissive": "#4AF0FF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.19,
+    "L": 2.98,
+    "V_pct": 18
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n23-glow.png",
+      "height": 244,
+      "shift": [
+       0.0,
+       -0.65625
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n23-glow.png",
+      "height": 122,
+      "shift": [
+       0.0,
+       -0.65625
+      ],
+      "width": 84
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n23-light.png",
+      "height": 312,
+      "shift": [
+       0.0,
+       0.25
+      ],
+      "width": 324
+     },
+     "lr": {
+      "filename": "assembler-n23-light.png",
+      "height": 156,
+      "shift": [
+       0.0,
+       0.25
+      ],
+      "width": 162
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n23-main.png",
+      "height": 266,
+      "shift": [
+       0.0,
+       -0.578125
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n23-main.png",
+      "height": 133,
+      "shift": [
+       0.0,
+       -0.578125
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n23-shadow.png",
+      "height": 134,
+      "shift": [
+       1.0,
+       0.265625
+      ],
+      "width": 296
+     },
+     "lr": {
+      "filename": "assembler-n23-shadow.png",
+      "height": 67,
+      "shift": [
+       1.0,
+       0.265625
+      ],
+      "width": 148
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n23-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "bague_pylone",
+     "chapeau_pylone",
+     "givre",
+     "lisere",
+     "patin_magnetique",
+     "plinthe",
+     "pylone"
+    ],
+    "meca": [
+     "anneau_bas",
+     "anneau_bloc",
+     "anneau_haut",
+     "anneau_haut_lumineux",
+     "bloc_flottant",
+     "fente_bloc",
+     "jante_plateau",
+     "lueur_dessous",
+     "piece_flottante",
+     "plateau_levitation"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n23-glow.png": "2fd2b641738e388ac8fd589a2dacfa6196707b9023fc754ee667e6f82edc0f52",
+    "assembler-n23-icon.png": "eca7fb0adb6c8ed202c4ac5ba4dbbaaeb1f775ada8e7a31a4947c4bd1cd746e0",
+    "assembler-n23-light.png": "4aff1c831f2436c17835610bdb40f2753de19bfa86482cdb9a8a252c59666fa0",
+    "assembler-n23-main.png": "b6e2998f7a04b575324bec36a55b0d537e9b1b78293fe37e1fec5c3fb408469e",
+    "assembler-n23-shadow.png": "d495195898c94252b59f3e40c52558da0f30d9384cc3709d658344daa68a5d56",
+    "hr-assembler-n23-glow.png": "3a08d110f464c9c47c38e929645013501eaece69cf231e6b881168680ba228ca",
+    "hr-assembler-n23-light.png": "f62927605f8b8f38c4bdb0a9184f919f8ba7209426d995933921f61e1587f63e",
+    "hr-assembler-n23-main.png": "76cbd885f77a049c7771dfcb53e209cbc7977b4777160bf0904fc8bf9e45bd99",
+    "hr-assembler-n23-shadow.png": "5ffb9a7d29abb2f2a3464056022de7ee93db58b127f54284feaa652a50f05504"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.75,
+      0.0
+     ],
+     "r": [
+      0.5914999999999999,
+      1.4364999999999999
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.75,
+      0.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.4,
+      0.0
+     ],
+     "r": [
+      0.5914999999999999,
+      1.4364999999999999
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.4,
+      2.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -1.18,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.5914999999999999,
+      1.4364999999999999
+     ]
+    },
+    {
+     "at": [
+      -1.18,
+      1.35,
+      0.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.18,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.5914999999999999,
+      1.4364999999999999
+     ]
+    },
+    {
+     "at": [
+      1.18,
+      1.35,
+      0.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.65625
+    ],
+    [
+     1.59375,
+     1.5
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e12/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     434,
+     398
+    ],
+    "objects": 31,
+    "origin_px": [
+     192,
+     194
+    ],
+    "samples": 32,
+    "seconds": 31.33,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.125,
+    "O_total": 1.125,
+    "L_masses": 2.625,
+    "area": 6.604248046875,
+    "V_pct": 19.595634531971456,
+    "iou_1": 0.7039475699016936,
+    "iou_prev": 0.4034080875860851
+   }
+  },
+  {
+   "level": 24,
+   "epoch": 12,
+   "step": 2,
+   "theme": "Supraconducteurs",
+   "era": "IV",
+   "kind": "piece",
+   "silhouette": "plateau de travail en lévitation entre quatre pylônes ; anneaux chromés flottants ; bloc noir flottant",
+   "piece": "anneau vertical au-dessus (+0,30)",
+   "light": "anneaux cyan",
+   "emissive": "#4AF0FF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.19,
+    "L": 2.98,
+    "V_pct": 18
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n24-glow.png",
+      "height": 260,
+      "shift": [
+       0.0,
+       -0.78125
+      ],
+      "width": 168
+     },
+     "lr": {
+      "filename": "assembler-n24-glow.png",
+      "height": 130,
+      "shift": [
+       0.0,
+       -0.78125
+      ],
+      "width": 84
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n24-light.png",
+      "height": 314,
+      "shift": [
+       0.0,
+       0.265625
+      ],
+      "width": 328
+     },
+     "lr": {
+      "filename": "assembler-n24-light.png",
+      "height": 157,
+      "shift": [
+       0.0,
+       0.265625
+      ],
+      "width": 164
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n24-main.png",
+      "height": 286,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n24-main.png",
+      "height": 143,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n24-shadow.png",
+      "height": 134,
+      "shift": [
+       1.171875,
+       0.265625
+      ],
+      "width": 318
+     },
+     "lr": {
+      "filename": "assembler-n24-shadow.png",
+      "height": 67,
+      "shift": [
+       1.171875,
+       0.265625
+      ],
+      "width": 159
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n24-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "bague_pylone",
+     "chapeau_pylone",
+     "givre",
+     "lisere",
+     "patin_magnetique",
+     "plinthe",
+     "pylone"
+    ],
+    "meca": [
+     "anneau_bas",
+     "anneau_bloc",
+     "anneau_haut",
+     "anneau_haut_lumineux",
+     "bloc_flottant",
+     "fente_bloc",
+     "jante_plateau",
+     "lueur_dessous",
+     "piece_flottante",
+     "plateau_levitation"
+    ],
+    "piece": [
+     "anneau_vertical",
+     "anneau_vertical_lumineux",
+     "noyau_sommet"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n24-glow.png": "0a841bb4dd4af951be062bc2dadbca031e55d7de80a162093234834afd7a85da",
+    "assembler-n24-icon.png": "e88cbd8b00a1becff2e366af773fa14497a680d2ccfa0c01cb276ea3ef57c3d2",
+    "assembler-n24-light.png": "182ab124c6689c2685b9076d7f847ee9663c5daa38dc81bcf93e80b9cf74cc41",
+    "assembler-n24-main.png": "8c43fdf37bf5cf2f12e0587d8ac0d82030cd20b0e2602700f3a7b313302fb45c",
+    "assembler-n24-shadow.png": "26cd25da8dabb60798968ebb45f03f8fb1f7e2d4523afffd296b2ad5cb544781",
+    "hr-assembler-n24-glow.png": "7123243dc97b88e7f6ea1df96dc026066d31559bd5bffe6a90a762a0b86cdee3",
+    "hr-assembler-n24-light.png": "376171ddcb87982b8fa988afc22763445a1b1a19e92d2119d4e02a7bb3aee835",
+    "hr-assembler-n24-main.png": "2ab4fe261a46a89e405f9f3e2bc80d9942028760277bb9fac7a6f034043d17c7",
+    "hr-assembler-n24-shadow.png": "b60b37a40ea764719cb1ca231863e2181175cf6f700006da92f379a468654538"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.75,
+      0.0
+     ],
+     "r": [
+      0.602,
+      1.462
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.75,
+      0.45
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.4,
+      0.0
+     ],
+     "r": [
+      0.602,
+      1.462
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.4,
+      2.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -1.18,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.602,
+      1.462
+     ]
+    },
+    {
+     "at": [
+      -1.18,
+      1.35,
+      0.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.18,
+      1.35,
+      0.0
+     ],
+     "r": [
+      0.602,
+      1.462
+     ]
+    },
+    {
+     "at": [
+      1.18,
+      1.35,
+      0.95
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.96875
+    ],
+    [
+     1.59375,
+     1.5
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e12/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e12/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e12/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e12/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     476,
+     420
+    ],
+    "objects": 34,
+    "origin_px": [
+     194,
+     215
+    ],
+    "samples": 32,
+    "seconds": 34.43,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 23 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.40625,
+    "O_total": 1.4375,
+    "L_masses": 2.625,
+    "area": 7.062744140625,
+    "V_pct": 19.557156849027564,
+    "iou_1": 0.6661935110081112,
+    "iou_prev": 0.9332113133266567,
+    "piece_added": 0.46533203125
+   }
+  },
+  {
+   "level": 25,
+   "epoch": 13,
+   "step": 1,
+   "theme": "Fusion",
+   "era": "V",
+   "kind": "silhouette",
+   "silhouette": "noyau sphérique sur trépied dans un cadre ouvert ; tore de plasma horizontal",
+   "piece": null,
+   "light": "plasma magenta, cœur orange",
+   "emissive": "#FF4FD8",
+   "night_only": false,
+   "envelope": {
+    "O": 1.29,
+    "L": 3.02,
+    "V_pct": 23
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n25-glow.png",
+      "height": 254,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n25-glow.png",
+      "height": 127,
+      "shift": [
+       0.0,
+       -0.734375
+      ],
+      "width": 82
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n25-light.png",
+      "height": 232,
+      "shift": [
+       0.0,
+       0.625
+      ],
+      "width": 300
+     },
+     "lr": {
+      "filename": "assembler-n25-light.png",
+      "height": 116,
+      "shift": [
+       0.0,
+       0.625
+      ],
+      "width": 150
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n25-main.png",
+      "height": 272,
+      "shift": [
+       0.0,
+       -0.6875
+      ],
+      "width": 192
+     },
+     "lr": {
+      "filename": "assembler-n25-main.png",
+      "height": 136,
+      "shift": [
+       0.0,
+       -0.6875
+      ],
+      "width": 96
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n25-shadow.png",
+      "height": 134,
+      "shift": [
+       1.09375,
+       0.234375
+      ],
+      "width": 304
+     },
+     "lr": {
+      "filename": "assembler-n25-shadow.png",
+      "height": 67,
+      "shift": [
+       1.09375,
+       0.234375
+      ],
+      "width": 152
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n25-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "bague_colonne",
+     "colonne_injection",
+     "hublot_coeur",
+     "jambe_trepied",
+     "longeron_incline",
+     "montant_cadre",
+     "parallele",
+     "pied_trepied",
+     "sabot",
+     "sphere_confinement",
+     "tete_injection",
+     "traverse_arriere",
+     "traverse_avant"
+    ],
+    "meca": [
+     "attache_tore",
+     "tore_plasma"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n25-glow.png": "1f7635e922e7025a56367dd2bd99998445f655a5bba4932d388fe2371cd517fe",
+    "assembler-n25-icon.png": "42fbf15348abfbdcf3381e92e5bf2857f98b20fe652ad0cc30b12a1603e4bba8",
+    "assembler-n25-light.png": "a29c45e59e84f833c142b98d0a0e84af0a3fff195e7cfa0c39cfa4960fced004",
+    "assembler-n25-main.png": "f62ea2132aedc7499c9db404ec08325e17dae73e5bb692be2bdea8f9b5e9a8ed",
+    "assembler-n25-shadow.png": "bd0a34f58c35d659d3d06b143dbda7f1f5d4296424f28f1dda4f276f60a74a89",
+    "hr-assembler-n25-glow.png": "e8a59f20cff60c62f3bd7987b1f8e00f30f5c95e48fae6dc374fdde4f33e7e18",
+    "hr-assembler-n25-light.png": "4fb1b999b1d6ab80dad7fdee26e9112f9021ef4d4b8cf9345f76785833c7c29a",
+    "hr-assembler-n25-main.png": "ba7dd81ab1d8c36ec585f957a5430c6f9e575d6a21bedf83c9dcfebc51bf319b",
+    "hr-assembler-n25-shadow.png": "fc29b48aa18a6e2ea9ce9518e20014b71aa1df8faf3617f7d0c5babecf2b41da"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.05,
+      0.0
+     ],
+     "r": [
+      0.6124999999999999,
+      1.4875
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.05,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.95,
+      0.35,
+      0.0
+     ],
+     "r": [
+      0.6124999999999999,
+      1.4875
+     ]
+    },
+    {
+     "at": [
+      -0.95,
+      0.35,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.95,
+      0.35,
+      0.0
+     ],
+     "r": [
+      0.6124999999999999,
+      1.4875
+     ]
+    },
+    {
+     "at": [
+      0.95,
+      0.35,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.5,
+     -2.8125
+    ],
+    [
+     1.5,
+     1.4375
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e13/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     430,
+     394
+    ],
+    "objects": 32,
+    "origin_px": [
+     180,
+     206
+    ],
+    "samples": 32,
+    "seconds": 29.65,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.265625,
+    "O_total": 1.296875,
+    "L_masses": 2.53125,
+    "area": 4.8251953125,
+    "V_pct": 50.67510843710647,
+    "iou_1": 0.4116960088756533,
+    "iou_prev": 0.3913478298139841
+   }
+  },
+  {
+   "level": 26,
+   "epoch": 13,
+   "step": 2,
+   "theme": "Fusion",
+   "era": "V",
+   "kind": "piece",
+   "silhouette": "noyau sphérique sur trépied dans un cadre ouvert ; tore de plasma horizontal",
+   "piece": "couronne d'injecteurs (+0,20, plafond)",
+   "light": "plasma magenta, cœur orange",
+   "emissive": "#FF4FD8",
+   "night_only": false,
+   "envelope": {
+    "O": 1.29,
+    "L": 3.02,
+    "V_pct": 23
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n26-glow.png",
+      "height": 272,
+      "shift": [
+       0.0,
+       -0.875
+      ],
+      "width": 164
+     },
+     "lr": {
+      "filename": "assembler-n26-glow.png",
+      "height": 136,
+      "shift": [
+       0.0,
+       -0.875
+      ],
+      "width": 82
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n26-light.png",
+      "height": 314,
+      "shift": [
+       0.0,
+       0.015625
+      ],
+      "width": 304
+     },
+     "lr": {
+      "filename": "assembler-n26-light.png",
+      "height": 157,
+      "shift": [
+       0.0,
+       0.015625
+      ],
+      "width": 152
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n26-main.png",
+      "height": 284,
+      "shift": [
+       0.0,
+       -0.78125
+      ],
+      "width": 192
+     },
+     "lr": {
+      "filename": "assembler-n26-main.png",
+      "height": 142,
+      "shift": [
+       0.0,
+       -0.78125
+      ],
+      "width": 96
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n26-shadow.png",
+      "height": 134,
+      "shift": [
+       1.21875,
+       0.234375
+      ],
+      "width": 320
+     },
+     "lr": {
+      "filename": "assembler-n26-shadow.png",
+      "height": 67,
+      "shift": [
+       1.21875,
+       0.234375
+      ],
+      "width": 160
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n26-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "bague_colonne",
+     "colonne_injection",
+     "hublot_coeur",
+     "jambe_trepied",
+     "longeron_incline",
+     "montant_cadre",
+     "parallele",
+     "pied_trepied",
+     "sabot",
+     "sphere_confinement",
+     "tete_injection",
+     "traverse_arriere",
+     "traverse_avant"
+    ],
+    "meca": [
+     "attache_tore",
+     "tore_plasma"
+    ],
+    "piece": [
+     "couronne_injecteurs",
+     "injecteur",
+     "pointe_injecteur",
+     "rayon"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n26-glow.png": "49451a177c52abc75cabc26c0aff55fd78e7c8c9e70311e70bd1f828bca6c4a2",
+    "assembler-n26-icon.png": "e702c70c1af66f5069512b5ae6567d9352343066b58bd2a62c3d15c9cbc10cce",
+    "assembler-n26-light.png": "e361c52e29c27e00d7537506c4452300f44f6d30b33c7482b4d0d17d58a77bc9",
+    "assembler-n26-main.png": "aba23a12d277a6a298fc2839884b9e967f531e614865f0710ea5fda8596ac4da",
+    "assembler-n26-shadow.png": "8f2d3b577e7e290202cca35c5d9fda9f0851061de239ceb5c3855275764cf9b6",
+    "hr-assembler-n26-glow.png": "ffa2beef9d3db8d647642cf43fd7c36ba5eb95af747650286b84e1849ebba586",
+    "hr-assembler-n26-light.png": "19fe4faf3282748fc7720944f968bcf6354f02cd48c89e3be52ffeb64e3f3557",
+    "hr-assembler-n26-main.png": "7ae9a14c46fb238818d13438cb080b32aa530382dcc9fb3fb323b7178cdb38ff",
+    "hr-assembler-n26-shadow.png": "c710070e42cb054409ada997583938ee8301548802048d849bd07d4c3c246f2d"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      1.05,
+      0.0
+     ],
+     "r": [
+      0.623,
+      1.513
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      1.05,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -0.95,
+      0.35,
+      0.0
+     ],
+     "r": [
+      0.623,
+      1.513
+     ]
+    },
+    {
+     "at": [
+      -0.95,
+      0.35,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.95,
+      0.35,
+      0.0
+     ],
+     "r": [
+      0.623,
+      1.513
+     ]
+    },
+    {
+     "at": [
+      0.95,
+      0.35,
+      1.5
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.2,
+      0.0
+     ],
+     "r": [
+      0.623,
+      1.513
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.2,
+      3.05
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.5,
+     -3.0
+    ],
+    [
+     1.5,
+     1.4375
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e13/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e13/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e13/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e13/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     446,
+     404
+    ],
+    "objects": 48,
+    "origin_px": [
+     182,
+     215
+    ],
+    "samples": 32,
+    "seconds": 33.03,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 25 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.265625,
+    "O_total": 1.46875,
+    "L_masses": 2.53125,
+    "area": 5.08154296875,
+    "V_pct": 50.696096264166776,
+    "iou_1": 0.39921262072676805,
+    "iou_prev": 0.9471209213051823,
+    "piece_added": 0.2626953125
+   }
+  },
+  {
+   "level": 27,
+   "epoch": 14,
+   "step": 1,
+   "theme": "Orbite",
+   "era": "V",
+   "kind": "silhouette",
+   "silhouette": "plate-forme sur pieds ; ailes de panneaux dorés ; parabole ; bras de grue",
+   "piece": null,
+   "light": "cellules bleues, balises rouges",
+   "emissive": "#2F6BFF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.4,
+    "L": 3.06,
+    "V_pct": 29
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n27-glow.png",
+      "height": 238,
+      "shift": [
+       0.0,
+       -1.109375
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n27-glow.png",
+      "height": 119,
+      "shift": [
+       0.0,
+       -1.109375
+      ],
+      "width": 102
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n27-light.png",
+      "height": 268,
+      "shift": [
+       0.0,
+       0.3125
+      ],
+      "width": 376
+     },
+     "lr": {
+      "filename": "assembler-n27-light.png",
+      "height": 134,
+      "shift": [
+       0.0,
+       0.3125
+      ],
+      "width": 188
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n27-main.png",
+      "height": 252,
+      "shift": [
+       0.0,
+       -1.0
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n27-main.png",
+      "height": 126,
+      "shift": [
+       0.0,
+       -1.0
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n27-shadow.png",
+      "height": 86,
+      "shift": [
+       1.390625,
+       0.234375
+      ],
+      "width": 282
+     },
+     "lr": {
+      "filename": "assembler-n27-shadow.png",
+      "height": 43,
+      "shift": [
+       1.390625,
+       0.234375
+      ],
+      "width": 141
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n27-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "balise_aile",
+     "balise_parabole",
+     "bras_source",
+     "cadre_panneau",
+     "caisson_dore",
+     "cellules",
+     "grille",
+     "hublot_cellules",
+     "manchon",
+     "mat",
+     "parabole",
+     "patin",
+     "pied",
+     "plate_forme",
+     "traverse_aile"
+    ],
+    "meca": [
+     "avant_bras_grue",
+     "base_grue",
+     "bras_grue",
+     "coude_grue",
+     "epaule_grue",
+     "pince"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n27-glow.png": "44804c22280f34cf4b6ef1431fb0c445f52940b01eaaab733f0b69a91af95db4",
+    "assembler-n27-icon.png": "d773681fc542b3b016ae428e05d2a82544244acea8f64b5af2843be5f052a8f9",
+    "assembler-n27-light.png": "607bb399c362d1cda34c5989a0b8c7a8049fbaa307d0b5debdc94f39d3885a9e",
+    "assembler-n27-main.png": "bb927240b862f7cb6af61ab298bba9ab0fb08ebb16e8b86bd183fb1b9412bdf3",
+    "assembler-n27-shadow.png": "d83b34892dfd190920ccdc5bc9fd8190b53bce78cbff9d96aa46adb7608b8484",
+    "hr-assembler-n27-glow.png": "ff45eaf97a995942ac7bddbd256a2ec1bed0d4b5db284b7b477d1498278d7cd7",
+    "hr-assembler-n27-light.png": "b0a2880d41cafce80bc8c08f16d5ed813e1fd7c6cd6bcb68cb6e4067907eab13",
+    "hr-assembler-n27-main.png": "621a52b1fd953886497131f9a45802c102c0e8bb597880cc87a20ccf599890b6",
+    "hr-assembler-n27-shadow.png": "e30ab3add4c0d191a449cd431703a0e339da2712d6e8901d3b3060ad4f686305"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -1.5,
+      0.15,
+      0.0
+     ],
+     "r": [
+      0.6335,
+      1.5385
+     ]
+    },
+    {
+     "at": [
+      -1.5,
+      0.15,
+      2.02
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.5,
+      0.15,
+      0.0
+     ],
+     "r": [
+      0.6335,
+      1.5385
+     ]
+    },
+    {
+     "at": [
+      1.5,
+      0.15,
+      2.02
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.6335,
+      1.5385
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.95,
+      1.3
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.96875
+    ],
+    [
+     1.59375,
+     0.96875
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e14/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     484,
+     398
+    ],
+    "objects": 46,
+    "origin_px": [
+     219,
+     214
+    ],
+    "samples": 32,
+    "seconds": 30.7,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.453125,
+    "O_total": 1.453125,
+    "L_masses": 3.0,
+    "area": 5.071044921875,
+    "V_pct": 58.269203861760175,
+    "iou_1": 0.31873680835715623,
+    "iou_prev": 0.42546189970177906
+   }
+  },
+  {
+   "level": 28,
+   "epoch": 14,
+   "step": 2,
+   "theme": "Orbite",
+   "era": "V",
+   "kind": "piece",
+   "silhouette": "plate-forme sur pieds ; ailes de panneaux dorés ; parabole ; bras de grue",
+   "piece": "réservoir sphérique doré (+0,10, plafond)",
+   "light": "cellules bleues, balises rouges",
+   "emissive": "#2F6BFF",
+   "night_only": false,
+   "envelope": {
+    "O": 1.4,
+    "L": 3.06,
+    "V_pct": 29
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n28-glow.png",
+      "height": 214,
+      "shift": [
+       0.0,
+       -1.296875
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n28-glow.png",
+      "height": 107,
+      "shift": [
+       0.0,
+       -1.296875
+      ],
+      "width": 102
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n28-light.png",
+      "height": 270,
+      "shift": [
+       0.0,
+       0.328125
+      ],
+      "width": 380
+     },
+     "lr": {
+      "filename": "assembler-n28-light.png",
+      "height": 135,
+      "shift": [
+       0.0,
+       0.328125
+      ],
+      "width": 190
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n28-main.png",
+      "height": 252,
+      "shift": [
+       0.0,
+       -1.0
+      ],
+      "width": 204
+     },
+     "lr": {
+      "filename": "assembler-n28-main.png",
+      "height": 126,
+      "shift": [
+       0.0,
+       -1.0
+      ],
+      "width": 102
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n28-shadow.png",
+      "height": 102,
+      "shift": [
+       1.390625,
+       0.109375
+      ],
+      "width": 282
+     },
+     "lr": {
+      "filename": "assembler-n28-shadow.png",
+      "height": 51,
+      "shift": [
+       1.390625,
+       0.109375
+      ],
+      "width": 141
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n28-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "balise_aile",
+     "balise_parabole",
+     "bras_source",
+     "cadre_panneau",
+     "caisson_dore",
+     "cellules",
+     "grille",
+     "hublot_cellules",
+     "manchon",
+     "mat",
+     "parabole",
+     "patin",
+     "pied",
+     "plate_forme",
+     "traverse_aile"
+    ],
+    "meca": [
+     "avant_bras_grue",
+     "base_grue",
+     "bras_grue",
+     "coude_grue",
+     "epaule_grue",
+     "pince"
+    ],
+    "piece": [
+     "bras_reservoir",
+     "ceinture_reservoir",
+     "conduite_reservoir",
+     "reservoir_dore"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n28-glow.png": "1e5b03ba535229e42e606c3f738f7ab810ea8830bca2889e0f321b6d1cc0cf34",
+    "assembler-n28-icon.png": "ae443089a18092cc5309e46476828ec70424a69332f05ebeee620ed7b47d9f5e",
+    "assembler-n28-light.png": "40d9dc5678fa7ba5020a8058bdd3ee358d502e57f9a7324e0f1efb780ad5133f",
+    "assembler-n28-main.png": "891e530950d69efbb844b438be7669956ca14e1f17cf0e06329c195f9032d313",
+    "assembler-n28-shadow.png": "84f10c8e9d6f2931367e48f5b9f316c3045d51d01418387b4117fb2647506751",
+    "hr-assembler-n28-glow.png": "fb2ee4e32b23130567902821f8c0669f2d99810746a62fa572eceab06fb0dbda",
+    "hr-assembler-n28-light.png": "b0fd41a0f38a52c24d788c5edf9853e5157893545e587179165785cb08000290",
+    "hr-assembler-n28-main.png": "e61cb3a048617f79fc61c319434e5165652acda2d4eafff5839174ef8674facd",
+    "hr-assembler-n28-shadow.png": "03e0e79ffec604ec8712cb3c2eff32367611e4b450b54831a7f5e8132fcdc1f5"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      -1.5,
+      0.15,
+      0.0
+     ],
+     "r": [
+      0.6439999999999999,
+      1.5639999999999998
+     ]
+    },
+    {
+     "at": [
+      -1.5,
+      0.15,
+      2.02
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.5,
+      0.15,
+      0.0
+     ],
+     "r": [
+      0.6439999999999999,
+      1.5639999999999998
+     ]
+    },
+    {
+     "at": [
+      1.5,
+      0.15,
+      2.02
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.6439999999999999,
+      1.5639999999999998
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.95,
+      1.3
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.59375,
+     -2.96875
+    ],
+    [
+     1.59375,
+     0.96875
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e14/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e14/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e14/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e14/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     486,
+     406
+    ],
+    "objects": 50,
+    "origin_px": [
+     221,
+     220
+    ],
+    "samples": 32,
+    "seconds": 25.15,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 27 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.453125,
+    "O_total": 1.453125,
+    "L_masses": 3.0,
+    "area": 5.38818359375,
+    "V_pct": 58.17825661116552,
+    "iou_1": 0.3089246033796703,
+    "iou_prev": 0.9358788974243109,
+    "piece_added": 0.331787109375
+   }
+  },
+  {
+   "level": 29,
+   "epoch": 15,
+   "step": 1,
+   "theme": "Légende",
+   "era": "V",
+   "kind": "silhouette",
+   "silhouette": "couronne de flèches en or blanc et noyau flottant ; base flottante ; cadre ajouré",
+   "piece": null,
+   "light": "lumière blanche dorée, particules",
+   "emissive": "#FFF2C0",
+   "night_only": false,
+   "envelope": {
+    "O": 1.5,
+    "L": 3.1,
+    "V_pct": 35
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n29-glow.png",
+      "height": 258,
+      "shift": [
+       0.015625,
+       -1.390625
+      ],
+      "width": 142
+     },
+     "lr": {
+      "filename": "assembler-n29-glow.png",
+      "height": 129,
+      "shift": [
+       0.015625,
+       -1.390625
+      ],
+      "width": 71
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n29-light.png",
+      "height": 218,
+      "shift": [
+       0.0,
+       0.453125
+      ],
+      "width": 192
+     },
+     "lr": {
+      "filename": "assembler-n29-light.png",
+      "height": 109,
+      "shift": [
+       0.0,
+       0.453125
+      ],
+      "width": 96
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n29-main.png",
+      "height": 280,
+      "shift": [
+       0.0,
+       -1.21875
+      ],
+      "width": 144
+     },
+     "lr": {
+      "filename": "assembler-n29-main.png",
+      "height": 140,
+      "shift": [
+       0.0,
+       -1.21875
+      ],
+      "width": 72
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n29-shadow.png",
+      "height": 102,
+      "shift": [
+       1.921875,
+       0.203125
+      ],
+      "width": 342
+     },
+     "lr": {
+      "filename": "assembler-n29-shadow.png",
+      "height": 51,
+      "shift": [
+       1.921875,
+       0.203125
+      ],
+      "width": 171
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n29-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_couronne",
+     "base_flottante",
+     "disque_couronne",
+     "eclat_pointe",
+     "fleche",
+     "fleche_centrale",
+     "jante",
+     "lueur_dessous",
+     "nervure",
+     "pointe",
+     "pointe_centrale"
+    ],
+    "meca": [
+     "cage_1",
+     "cage_2",
+     "noyau_flottant"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n29-glow.png": "22b690552b257c00f39da817e8ca08744b724c5ba73722bd7257e6809279e87b",
+    "assembler-n29-icon.png": "44ad609e92c38a7d3dce6af510b2680ad1e1051bd41ee03f6fc456e2b0c22980",
+    "assembler-n29-light.png": "6a715c809d14f656820ef9cbf8c6b767fe85f8a86b17fe2464aa75787df6aac8",
+    "assembler-n29-main.png": "c60e0beff9505bb5ccdf1ecfa1608fa05966ea4522d23b15138a3fb30843f245",
+    "assembler-n29-shadow.png": "60a314a7c469b8728319ec063e86d06ea3f8a1012f8243dbceb2b5bf1cd6efe1",
+    "hr-assembler-n29-glow.png": "2add7f3516e9cddd2a8d5b1d817542c6aeec205d10ae90efa0a3d743efe1e23d",
+    "hr-assembler-n29-light.png": "8416afcb4119ebf0fe4f538b17ebdeab7c4d2447a976d646813b06bb8f04bf66",
+    "hr-assembler-n29-main.png": "fdf9651224bd636613d109efe00e0b73313042c5ce31515f5998262f02aa4381",
+    "hr-assembler-n29-shadow.png": "922af18ad7e47c316d90741d3ffb254791536b6caf0077a3405a861b8a461b94"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.65,
+      0.0
+     ],
+     "r": [
+      0.6545,
+      1.5895000000000001
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.65,
+      1.55
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.25,
+      0.0
+     ],
+     "r": [
+      0.6545,
+      1.5895000000000001
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.25,
+      0.15
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.125,
+     -3.40625
+    ],
+    [
+     1.125,
+     0.96875
+    ]
+   ],
+   "phase2_files": {
+    "corps-couleur": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-corps-couleur.png",
+    "corps-ombre": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-corps-ombre.png",
+    "corps-emissif": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-corps-emissif.png",
+    "corps-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-corps-lumiere.png",
+    "meca-couleur": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-meca-couleur.png",
+    "meca-ombre": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-meca-ombre.png",
+    "meca-emissif": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-meca-emissif.png",
+    "meca-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e15/hr-meca-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     446,
+     412
+    ],
+    "objects": 27,
+    "origin_px": [
+     126,
+     243
+    ],
+    "samples": 32,
+    "seconds": 31.34,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "measures_d1": {
+    "O_masses": 1.5,
+    "O_total": 1.875,
+    "L_masses": 2.1875,
+    "area": 4.304931640625,
+    "V_pct": 51.55309920246257,
+    "iou_1": 0.42785208983349293,
+    "iou_prev": 0.41186302051847373
+   }
+  },
+  {
+   "level": 30,
+   "epoch": 15,
+   "step": 2,
+   "theme": "Légende",
+   "era": "V",
+   "kind": "piece",
+   "silhouette": "couronne de flèches en or blanc et noyau flottant ; base flottante ; cadre ajouré",
+   "piece": "halo de particules (anneau-halo et particules) au-dessus",
+   "light": "lumière blanche dorée, particules",
+   "emissive": "#FFF2C0",
+   "night_only": false,
+   "envelope": {
+    "O": 1.5,
+    "L": 3.1,
+    "V_pct": 35
+   },
+   "layers": {
+    "glow": {
+     "hr": {
+      "filename": "hr-assembler-n30-glow.png",
+      "height": 278,
+      "shift": [
+       0.015625,
+       -1.484375
+      ],
+      "width": 142
+     },
+     "lr": {
+      "filename": "assembler-n30-glow.png",
+      "height": 139,
+      "shift": [
+       0.015625,
+       -1.484375
+      ],
+      "width": 71
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-assembler-n30-light.png",
+      "height": 314,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "width": 196
+     },
+     "lr": {
+      "filename": "assembler-n30-light.png",
+      "height": 157,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "width": 98
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-assembler-n30-main.png",
+      "height": 296,
+      "shift": [
+       0.0,
+       -1.34375
+      ],
+      "width": 144
+     },
+     "lr": {
+      "filename": "assembler-n30-main.png",
+      "height": 148,
+      "shift": [
+       0.0,
+       -1.34375
+      ],
+      "width": 72
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-assembler-n30-shadow.png",
+      "height": 102,
+      "shift": [
+       2.09375,
+       0.203125
+      ],
+      "width": 364
+     },
+     "lr": {
+      "filename": "assembler-n30-shadow.png",
+      "height": 51,
+      "shift": [
+       2.09375,
+       0.203125
+      ],
+      "width": 182
+     }
+    }
+   },
+   "icon": {
+    "filename": "assembler-n30-icon.png",
+    "icon_size": 64,
+    "icon_mipmaps": 4
+   },
+   "modules": [
+    "corps",
+    "meca",
+    "piece"
+   ],
+   "parts": {
+    "corps": [
+     "anneau_couronne",
+     "base_flottante",
+     "disque_couronne",
+     "eclat_pointe",
+     "fleche",
+     "fleche_centrale",
+     "jante",
+     "lueur_dessous",
+     "nervure",
+     "pointe",
+     "pointe_centrale"
+    ],
+    "meca": [
+     "cage_1",
+     "cage_2",
+     "noyau_flottant"
+    ],
+    "piece": [
+     "anneau_halo",
+     "particule"
+    ]
+   },
+   "files_sha256": {
+    "assembler-n30-glow.png": "f90899e886bce9f89c07cef6afc57633d425c6169db152fd0fb31a07273f4855",
+    "assembler-n30-icon.png": "a0bb52056da9125d738be1d3d692e1dcb19e890c7277d3e966d2bebb6e3fa6dc",
+    "assembler-n30-light.png": "d2e9e9297342890b376c1a817640249c630e68b3aad385dd624c57cf94ba7c5a",
+    "assembler-n30-main.png": "6c37aca70fce56d196ab85b12a57cfde9f43ba5e5ab4ee26054f15f5f4ee6595",
+    "assembler-n30-shadow.png": "be241aeecc51a1eb62969f8d8876602b0a93c2e2c478d501f7067df06d578465",
+    "hr-assembler-n30-glow.png": "0060e14c5c7334acdf2b82c566ef12b00b3775cf2ab48090a5475ca3edd429bf",
+    "hr-assembler-n30-light.png": "c5079c0b0a3a39cf3e88ca4e6879645817f87bc2cba20daf2383604921734ade",
+    "hr-assembler-n30-main.png": "c8d89f5c9db67cd98e4bef2ca462a9a40ce30f278e8bdf20a34a083ee5d277e4",
+    "hr-assembler-n30-shadow.png": "ae5165cca4a571138b5d3776b558a129c6e58c992ea0c6494c0d50407f2a60e9"
+   },
+   "halo_windows": [
+    {
+     "at": [
+      0.0,
+      0.65,
+      0.0
+     ],
+     "r": [
+      0.6649999999999999,
+      1.615
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.65,
+      1.55
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.25,
+      0.0
+     ],
+     "r": [
+      0.6649999999999999,
+      1.615
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.25,
+      0.15
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      0.0
+     ],
+     "r": [
+      0.6649999999999999,
+      1.615
+     ]
+    },
+    {
+     "at": [
+      0.0,
+      0.6,
+      4.0
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    }
+   ],
+   "drawing_box": [
+    [
+     -1.125,
+     -3.65625
+    ],
+    [
+     1.125,
+     0.96875
+    ]
+   ],
+   "phase2_files": {
+    "piece-couleur": "__factorio-overhaul__/graphics/levels/assembler/e15/piece/hr-piece-couleur.png",
+    "piece-ombre": "__factorio-overhaul__/graphics/levels/assembler/e15/piece/hr-piece-ombre.png",
+    "piece-emissif": "__factorio-overhaul__/graphics/levels/assembler/e15/piece/hr-piece-emissif.png",
+    "piece-lumiere": "__factorio-overhaul__/graphics/levels/assembler/e15/piece/hr-piece-lumiere.png"
+   },
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "canvas": [
+     468,
+     426
+    ],
+    "objects": 44,
+    "origin_px": [
+     128,
+     257
+    ],
+    "samples": 32,
+    "seconds": 33.75,
+    "seed": 20261021,
+    "t": 0.0,
+    "threads": 8
+   },
+   "base": "niveau 29 + pièce (module « piece » : couche séparée en phase 2)",
+   "measures_d1": {
+    "O_masses": 1.484375,
+    "O_total": 2.125,
+    "L_masses": 2.1875,
+    "area": 4.669677734375,
+    "V_pct": 51.549601231285855,
+    "iou_1": 0.40901842664776755,
+    "iou_prev": 0.9178796890488861,
+    "piece_added": 0.37451171875
+   }
+  }
+ ]
+}
