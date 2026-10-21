@@ -109,35 +109,46 @@ def extent(mask):
     return (xs.min() / PPT + X0, (xs.max() + 1) / PPT + X0, ys.min() / PPT + Y0, (ys.max() + 1) / PPT + Y0)
 
 
-def events(mask_mass, base_v, min_prom=0.12, min_w=0.10):
-    """Dépassements de silhouette : pics du profil du haut (v le plus haut par colonne) qui s'élèvent d'au
-    moins min_prom tuile au-dessus de leurs deux vallées et de base_v (haut du corps), larges d'au moins
-    min_w tuile. Indicateur approché (bible §1.2 : « événements » par ère)."""
-    cols = mask_mass.any(0)
-    top = np.full(W, np.nan)
-    idx = np.where(cols)[0]
-    for c in idx:
-        top[c] = -(np.argmax(mask_mass[:, c]) / PPT + Y0)   # hauteur (tuiles, vers le haut)
-    h = np.nan_to_num(top, nan=-99)
-    n = 0
-    c = 0
-    minw = int(min_w * PPT)
+def events(mask, min_prom=0.20):
+    """Dépassements de silhouette (bible §1.2, « événements » par ère) : pics du profil du haut (hauteur
+    du pixel le plus haut de chaque colonne) dont la PROÉMINENCE topographique atteint min_prom tuile
+    (hauteur du pic moins le plus haut des deux cols qui le séparent d'un pic plus haut ou du bord).
+    Les tiges comptent (le mât du niveau 1 est son « événement »). Indicateur approché, non étalonné."""
+    cols = mask.any(0)
+    h = np.full(W, np.nan)
+    for c in np.where(cols)[0]:
+        h[c] = -(np.argmax(mask[:, c]) / PPT + Y0)   # hauteur (tuiles, vers le haut)
+    floor = np.nanmin(h)
+    h = np.nan_to_num(h, nan=floor)
+    # plateaux : on ne garde qu'une colonne par suite de valeurs égales
+    keep = np.r_[True, h[1:] != h[:-1]]
+    xs = np.where(keep)[0]
+    hv = h[xs]
     peaks = []
-    while c < W:
-        if h[c] > -base_v + min_prom:
-            d = c
-            while d < W and h[d] > -base_v + min_prom:
-                d += 1
-            if d - c >= minw:
-                peaks.append((round(c / PPT + X0, 2), round(d / PPT + X0, 2), round(float(h[c:d].max()) - 2, 2)))
-                n += 1
-            c = d
-        else:
-            c += 1
-    return n, peaks
+    for i in range(1, len(hv) - 1):
+        if not (hv[i] > hv[i - 1] and hv[i] > hv[i + 1]):
+            continue
+        lo_l = hv[i]
+        j = i - 1
+        while j >= 0 and hv[j] <= hv[i]:
+            lo_l = min(lo_l, hv[j])
+            j -= 1
+        lo_r = hv[i]
+        j = i + 1
+        while j < len(hv) and hv[j] <= hv[i]:
+            lo_r = min(lo_r, hv[j])
+            j += 1
+        prom = hv[i] - max(lo_l, lo_r)
+        if prom >= min_prom:
+            pk = (round(xs[i] / PPT + X0, 2), round(float(hv[i]) - 2, 2), round(float(prom), 2))
+            # un sommet plat bruité (lèvre d'une tour, radôme) donne plusieurs maxima voisins : fusion
+            if peaks and pk[0] - peaks[-1][0] < 0.3 and abs(pk[1] - peaks[-1][1]) < 0.06:
+                continue
+            peaks.append(pk)
+    return len(peaks), peaks
 
 
-def photometry(main_png, glow_png):
+def photometry(main_png, glow_png, spec=None):
     im = np.asarray(Image.open(main_png).convert("RGBA")).astype(np.float64) / 255.0
     a = im[..., 3] >= 0.5
     rgb = im[..., :3][a]
@@ -154,6 +165,24 @@ def photometry(main_png, glow_png):
         # plus grande zone lumineuse (boîte 8 × 8 px hr au moins : bible §1.6, F37)
         gm = g[..., 3] >= 0.25
         out["glow_8x8"] = bool(_has_block(gm, 8))
+        if spec and "glow" in spec and "main" in spec:
+            # D2-1 : luminance de la zone lumineuse, telle que vue de jour (couche principale + lueur
+            # additive, comme draw_as_glow), comparée à la médiane du corps (écart visé >= 80/255)
+            def corner(s):
+                return (int(round(s["shift"][0] * 64 - s["width"] / 2.0)), int(round(s["shift"][1] * 64 - s["height"] / 2.0)))
+            mx0, my0 = corner(spec["main"]["hr"])
+            gx0, gy0 = corner(spec["glow"]["hr"])
+            dx, dy = gx0 - mx0, gy0 - my0
+            ys, xs = np.nonzero(gm)
+            my, mxs = ys + dy, xs + dx
+            ok = (my >= 0) & (my < im.shape[0]) & (mxs >= 0) & (mxs < im.shape[1])
+            if ok.any():
+                base = im[my[ok], mxs[ok], :3] * im[my[ok], mxs[ok], 3:4]
+                add = g[ys[ok], xs[ok], :3] * g[ys[ok], xs[ok], 3:4]
+                comp = np.clip(base + add, 0, 1)
+                gl = comp @ LUMA * 255.0
+                out["glow_L50"] = round(float(np.median(gl)), 1)
+                out["glow_contrast"] = round(out["glow_L50"] - out["L50"], 1)
     return out
 
 
@@ -205,17 +234,18 @@ def main():
             r["V_min_pct"] = PR.ENVELOPE[e][2]
             r["iou_lvl1"] = round(iou(a1, sil[e]), 3)
         body_top = -ex_m[2]
-        # haut du « corps » : ligne la plus haute couverte sur au moins 40 % de la largeur des masses
-        rowcov = mass[e].sum(1) / max(1, (ex_m[1] - ex_m[0]) * PPT)
-        rr = np.where(rowcov >= 0.4)[0]
-        base_v = rr.min() / PPT + Y0 if len(rr) else ex_m[2]
-        n_ev, peaks = events(sil[e], base_v)
+        n_ev, peaks = events(sil[e])
         r["events"] = n_ev
         r["peaks"] = peaks
         mp = os.path.join(OUT, "n%02d" % e, "hr-centre-n%02d-main.png" % e)
         gp = os.path.join(OUT, "n%02d" % e, "hr-centre-n%02d-glow.png" % e)
         if os.path.exists(mp):
-            r["photo"] = photometry(mp, gp)
+            spec = None
+            rj = os.path.join(OUT, "n%02d" % e, "render.json")
+            if os.path.exists(rj):
+                with open(rj, encoding="utf-8") as f:
+                    spec = json.load(f).get("spec")
+            r["photo"] = photometry(mp, gp, spec)
             r["photo"]["L50_target"] = PR.LUM_TARGET[e]
         r["body_top_tiles"] = round(body_top, 2)
         rows.append(r)
@@ -243,17 +273,18 @@ def main():
 
 def table_md(res):
     lines = ["| Niv. | Nom | O (cible) | O tige | L (max) | Aire t² | Emprise % | IoU préc. | +aire / -aire t² | "
-             "IoU niv. 1 | V % (min) | Dépass. | L50 (cible) | p95 | sat | émissif % |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "IoU niv. 1 | V % (min) | Dépass. | L50 (cible) | p95 | sat | émissif % | lueur − L50 |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in res["levels"]:
         ph = r.get("photo", {})
-        lines.append("| %d | %s | %.2f (%.2f) | %.2f | %.2f (%.2f) | %.2f | %.0f | %s | %s | %s | %s | %d | %s | %s | %s | %s |" % (
+        lines.append("| %d | %s | %.2f (%.2f) | %.2f | %.2f (%.2f) | %.2f | %.0f | %s | %s | %s | %s | %d | %s | %s | %s | %s | %s |" % (
             r["level"], r["name"], r["O"], r["O_target"], r["O_tige"], r["L"], r["L_max"], r["area_t2"],
             100 * r["footprint_cover"], r.get("iou_prev", "—"),
             ("%.2f / %.2f" % (r["added_t2"], r["removed_t2"])) if "added_t2" in r else "—",
             r.get("iou_lvl1", "—"), ("%.1f (%d)" % (r["V_pct"], r["V_min_pct"])) if "V_pct" in r else "—",
             r["events"], ("%.0f (%d)" % (ph["L50"], ph["L50_target"])) if ph else "—", ph.get("L95", "—"),
-            ph.get("sat", "—"), ("%.1f" % (100 * ph["glow_share"])) if "glow_share" in ph else "0"))
+            ph.get("sat", "—"), ("%.1f" % (100 * ph["glow_share"])) if "glow_share" in ph else "0",
+            ("%+.0f%s" % (ph["glow_contrast"], "" if r["level"] > 2 else " (nuit)")) if "glow_contrast" in ph else "—"))
     d = res.get("d1_3")
     if d:
         lines.append("")

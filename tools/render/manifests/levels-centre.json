@@ -1,0 +1,3873 @@
+{
+ "famille": "centre",
+ "cle_v2": "command",
+ "type": "container",
+ "niveaux": 15,
+ "statut": "APERÇU de la phase 1 (lot V3-a) : rien n'est validé ni vu en jeu ; tailles et shift à régénérer au rendu final",
+ "source": "tools/render/pieces/levels/centre/ (centre.py, centre_kit.py, centre_ere1..5.py, centre_params.py)",
+ "convention": {
+  "px_par_tuile_hr": 64,
+  "scale_hr": 0.5,
+  "shift": "tuiles, multiples exacts de 1/64 (hr) ; même origine pour toutes les couches",
+  "dimensions_hr": "paires (la version lr = hr/2 tombe juste)"
+ },
+ "emprise": {
+  "collision_box": [
+   [
+    -1.7,
+    -1.7
+   ],
+   [
+    1.7,
+    1.7
+   ]
+  ],
+  "selection_box": [
+   [
+    -2,
+    -2
+   ],
+   [
+    2,
+    2
+   ]
+  ],
+  "regle": "inchangée à tous les niveaux (D1-4) ; seules drawing_box et la hauteur visuelle changent"
+ },
+ "interface_v2": {
+  "fichier": "prototypes/levels/command.lua",
+  "dress": "p.picture = { layers = { <une couche par entrée de « layers », dans l'ordre « ordre »> } } ; chaque couche : filename, width, height, shift, scale = 1 (lr) avec hr_version { filename, width, height, shift, scale = 0.5 } et les drapeaux « flags » ; p.drawing_box = drawing_box ; p.water_reflection = nil",
+  "icons": "icône = rendu de la pose de référence (64 px, 4 mipmaps) + numéro de niveau (lib.tier_icons), à rendre en phase 2",
+  "script": "halo_script (rendering.draw_light, minimum_darkness) et animation_script (rendering.draw_animation) attachés à l'entité, recréés à chaque remplacement (Levels.on_replaced) ; F44",
+  "garde": "dress ne modifie que des champs graphiques (garde de prototypes/levels/common.lua)"
+ },
+ "levels": [
+  {
+   "level": 1,
+   "epoch": 1,
+   "era": 1,
+   "nom": "Poste de pionnier",
+   "dest": "graphics/levels/centre/e01",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-main.png",
+      "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-main.png",
+      "width": 244,
+      "height": 342,
+      "shift": [
+       -0.03125,
+       -0.703125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-main.png",
+      "apercu": "tools/render/out/levels/centre/n01/centre-n01-main.png",
+      "width": 122,
+      "height": 171,
+      "shift": [
+       -0.03125,
+       -0.703125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-shadow.png",
+      "width": 286,
+      "height": 228,
+      "shift": [
+       0.640625,
+       0.03125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n01/centre-n01-shadow.png",
+      "width": 143,
+      "height": 114,
+      "shift": [
+       0.640625,
+       0.03125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-glow.png",
+      "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-glow.png",
+      "width": 184,
+      "height": 118,
+      "shift": [
+       -0.0625,
+       0.703125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-glow.png",
+      "apercu": "tools/render/out/levels/centre/n01/centre-n01-glow.png",
+      "width": 92,
+      "height": 59,
+      "shift": [
+       -0.0625,
+       0.703125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-light.png",
+      "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-light.png",
+      "width": 270,
+      "height": 156,
+      "shift": [
+       0.140625,
+       0.96875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-light.png",
+      "apercu": "tools/render/out/levels/centre/n01/centre-n01-light.png",
+      "width": 135,
+      "height": 78,
+      "shift": [
+       0.140625,
+       0.96875
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9375,
+     -3.375
+    ],
+    [
+     2.875,
+     1.9688
+    ]
+   ],
+   "mesures": {
+    "O": 0.45,
+    "O_tige": 1.36,
+    "L": 3.34,
+    "area_t2": 9.59,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "ame_murs",
+     "caisse",
+     "caisse_feuillard",
+     "faitiere",
+     "fenetre_cadre",
+     "fenetre_croisillon",
+     "fenetre_traverse",
+     "fenetre_vitre",
+     "lanterne_pied",
+     "lanterne_toit",
+     "lanterne_verre",
+     "murs_rondins",
+     "penture",
+     "pignon_e",
+     "pignon_o",
+     "pile_rondins",
+     "porte_cadre",
+     "porte_vantail",
+     "rempart_sacs",
+     "sabliere",
+     "toit_ar",
+     "toit_av"
+    ],
+    "tiges": [
+     "drapeau",
+     "mat_drapeau",
+     "mat_pommeau",
+     "potence_lanterne",
+     "tuyau_poele",
+     "tuyau_poele_chapeau"
+    ],
+    "plates_au_sol": [
+     "plate_forme"
+    ]
+   },
+   "lumiere_jour": false,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.42,
+      0.5,
+      0.63
+     ],
+     "ecran_tiles": [
+      0.42,
+      0.055
+     ],
+     "couleur": "#FFB060",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": [
+      1.0,
+      2.0
+     ]
+    },
+    {
+     "source_tiles": [
+      -0.68,
+      0.45,
+      0.52
+     ],
+     "ecran_tiles": [
+      -0.68,
+      0.082
+     ],
+     "couleur": "#FFB060",
+     "fenetre_sprite_tiles": [
+      0.2,
+      0.6
+     ],
+     "flaque_sol_tiles": [
+      0.6,
+      1.4
+     ]
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.09,
+    "taille_tuiles": 4.4,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.3
+   },
+   "animation_script": null,
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     372,
+     410
+    ],
+    "origin_px": [
+     149,
+     256
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 39.4
+   }
+  },
+  {
+   "level": 2,
+   "epoch": 2,
+   "era": 1,
+   "nom": "Bastion d'acier",
+   "dest": "graphics/levels/centre/e02",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-main.png",
+      "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-main.png",
+      "width": 248,
+      "height": 332,
+      "shift": [
+       0.0,
+       -1.15625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-main.png",
+      "apercu": "tools/render/out/levels/centre/n02/centre-n02-main.png",
+      "width": 124,
+      "height": 166,
+      "shift": [
+       0.0,
+       -1.15625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-shadow.png",
+      "width": 368,
+      "height": 178,
+      "shift": [
+       1.1875,
+       -0.109375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n02/centre-n02-shadow.png",
+      "width": 184,
+      "height": 89,
+      "shift": [
+       1.1875,
+       -0.109375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-glow.png",
+      "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-glow.png",
+      "width": 208,
+      "height": 304,
+      "shift": [
+       0.03125,
+       -1.28125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-glow.png",
+      "apercu": "tools/render/out/levels/centre/n02/centre-n02-glow.png",
+      "width": 104,
+      "height": 152,
+      "shift": [
+       0.03125,
+       -1.28125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-light.png",
+      "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-light.png",
+      "width": 326,
+      "height": 196,
+      "shift": [
+       0.203125,
+       0.34375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-light.png",
+      "apercu": "tools/render/out/levels/centre/n02/centre-n02-light.png",
+      "width": 163,
+      "height": 98,
+      "shift": [
+       0.203125,
+       0.34375
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9375,
+     -3.75
+    ],
+    [
+     4.0625,
+     1.4375
+    ]
+   ],
+   "mesures": {
+    "O": 0.69,
+    "O_tige": 1.72,
+    "L": 3.5,
+    "area_t2": 11.68,
+    "iou_prev": 0.639,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "bloc_bas",
+     "bloc_haut",
+     "cerclage_av",
+     "cerclage_cote",
+     "cerclage_haut",
+     "cheminee_forge",
+     "cheminee_forge_bouche",
+     "cheminee_forge_cercle",
+     "cheminee_forge_chapeau",
+     "echauguette",
+     "echauguette_cercle",
+     "echauguette_couronne",
+     "echauguette_encorbellement",
+     "echauguette_epi",
+     "echauguette_fente",
+     "echauguette_toit",
+     "ecu",
+     "grille_barreaux",
+     "grille_forge",
+     "merlon_av",
+     "merlon_cote",
+     "merlon_haut",
+     "merlon_hc",
+     "meurtriere",
+     "parapet_av",
+     "parapet_cote",
+     "plaque",
+     "porte_bande",
+     "porte_blindee_cadre",
+     "porte_blindee_vantail",
+     "porte_rivets",
+     "rivets",
+     "terrasse_joint",
+     "toit_haut",
+     "toit_joint",
+     "toit_rivets",
+     "trappe",
+     "trappe_poignee"
+    ],
+    "tiges": [
+     "fanion",
+     "mat_pointe",
+     "mat_treillis"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": false,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      0.12,
+      1.16
+     ],
+     "ecran_tiles": [
+      0.0,
+      -0.7
+     ],
+     "couleur": "#FF6A20",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.36,
+      1.2,
+      0.54
+     ],
+     "ecran_tiles": [
+      -1.36,
+      0.818
+     ],
+     "couleur": "#FF6A20",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": [
+      0.7,
+      1.5
+     ]
+    },
+    {
+     "source_tiles": [
+      1.36,
+      1.2,
+      0.54
+     ],
+     "ecran_tiles": [
+      1.36,
+      0.818
+     ],
+     "couleur": "#FF6A20",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": [
+      0.7,
+      1.5
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.24,
+      0.68
+     ],
+     "ecran_tiles": [
+      0.0,
+      0.759
+     ],
+     "couleur": "#FF6A20",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": [
+      0.9,
+      1.8
+     ]
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.13,
+    "taille_tuiles": 4.8,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.3
+   },
+   "animation_script": null,
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     460,
+     406
+    ],
+    "origin_px": [
+     152,
+     285
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 49.2
+   }
+  },
+  {
+   "level": 3,
+   "epoch": 3,
+   "era": 1,
+   "nom": "Hôtel de la vapeur",
+   "dest": "graphics/levels/centre/e03",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-main.png",
+      "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-main.png",
+      "width": 234,
+      "height": 278,
+      "shift": [
+       -0.015625,
+       -0.734375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-main.png",
+      "apercu": "tools/render/out/levels/centre/n03/centre-n03-main.png",
+      "width": 117,
+      "height": 139,
+      "shift": [
+       -0.015625,
+       -0.734375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-shadow.png",
+      "width": 328,
+      "height": 168,
+      "shift": [
+       0.96875,
+       -0.09375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n03/centre-n03-shadow.png",
+      "width": 164,
+      "height": 84,
+      "shift": [
+       0.96875,
+       -0.09375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-glow.png",
+      "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-glow.png",
+      "width": 202,
+      "height": 112,
+      "shift": [
+       -0.015625,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-glow.png",
+      "apercu": "tools/render/out/levels/centre/n03/centre-n03-glow.png",
+      "width": 101,
+      "height": 56,
+      "shift": [
+       -0.015625,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-light.png",
+      "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-light.png",
+      "width": 244,
+      "height": 152,
+      "shift": [
+       0.0,
+       0.625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-light.png",
+      "apercu": "tools/render/out/levels/centre/n03/centre-n03-light.png",
+      "width": 122,
+      "height": 76,
+      "shift": [
+       0.0,
+       0.625
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.8438,
+     -2.9062
+    ],
+    [
+     3.5312,
+     1.4375
+    ]
+   ],
+   "mesures": {
+    "O": 0.89,
+    "O_tige": 0.89,
+    "L": 3.16,
+    "area_t2": 10.82,
+    "iou_prev": 0.843,
+    "events": 3
+   },
+   "pieces": {
+    "masses": [
+     "avant_corps",
+     "avant_corps_arc",
+     "avant_corps_corniche",
+     "bandeau_cote",
+     "bandeau_etage",
+     "cadran_aiguille",
+     "cadran_axe",
+     "cadran_bague",
+     "cadran_face",
+     "chem_bourrelet",
+     "chem_bride",
+     "chem_cercle",
+     "chem_fut",
+     "chem_gueule",
+     "chem_levre",
+     "corniche",
+     "corps",
+     "faitage",
+     "fen_b",
+     "fen_b_cadre",
+     "fen_h",
+     "fen_h_cadre",
+     "imposte",
+     "imposte_cache",
+     "lucarne",
+     "lucarne_cadre",
+     "lucarne_toit",
+     "lucarne_vitre",
+     "manchon",
+     "pilastre_ar",
+     "pilastre_av",
+     "porte_double_cadre",
+     "porte_double_vantail",
+     "porte_joint",
+     "regulateur_boule",
+     "soubassement",
+     "toit",
+     "toit_pans",
+     "tuyauterie",
+     "vanne"
+    ],
+    "tiges": [
+     "fanion",
+     "mat",
+     "mat_pommeau",
+     "regulateur_axe"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      1.2,
+      1.06
+     ],
+     "ecran_tiles": [
+      0.0,
+      0.45
+     ],
+     "couleur": "#FFC060",
+     "fenetre_sprite_tiles": [
+      0.45,
+      1.1
+     ],
+     "flaque_sol_tiles": [
+      1.0,
+      2.0
+     ]
+    },
+    {
+     "source_tiles": [
+      -0.97,
+      1.05,
+      0.74
+     ],
+     "ecran_tiles": [
+      -0.97,
+      0.527
+     ],
+     "couleur": "#FFC060",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.97,
+      1.05,
+      0.74
+     ],
+     "ecran_tiles": [
+      0.97,
+      0.527
+     ],
+     "couleur": "#FFC060",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.17,
+    "taille_tuiles": 5.2,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "panache de vapeur (facultatif, 16 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     408,
+     344
+    ],
+    "origin_px": [
+     142,
+     226
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 36.1
+   }
+  },
+  {
+   "level": 4,
+   "epoch": 4,
+   "era": 2,
+   "nom": "QG de raffinerie",
+   "dest": "graphics/levels/centre/e04",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-main.png",
+      "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-main.png",
+      "width": 244,
+      "height": 428,
+      "shift": [
+       0.03125,
+       -1.25
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-main.png",
+      "apercu": "tools/render/out/levels/centre/n04/centre-n04-main.png",
+      "width": 122,
+      "height": 214,
+      "shift": [
+       0.03125,
+       -1.25
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-shadow.png",
+      "width": 454,
+      "height": 220,
+      "shift": [
+       1.921875,
+       0.21875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n04/centre-n04-shadow.png",
+      "width": 227,
+      "height": 110,
+      "shift": [
+       1.921875,
+       0.21875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-glow.png",
+      "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-glow.png",
+      "width": 208,
+      "height": 408,
+      "shift": [
+       0.03125,
+       -1.40625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-glow.png",
+      "apercu": "tools/render/out/levels/centre/n04/centre-n04-glow.png",
+      "width": 104,
+      "height": 204,
+      "shift": [
+       0.03125,
+       -1.40625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-light.png",
+      "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-light.png",
+      "width": 236,
+      "height": 454,
+      "shift": [
+       0.0,
+       -1.046875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-light.png",
+      "apercu": "tools/render/out/levels/centre/n04/centre-n04-light.png",
+      "width": 118,
+      "height": 227,
+      "shift": [
+       0.0,
+       -1.046875
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.875,
+     -4.5938
+    ],
+    [
+     5.4688,
+     2.0938
+    ]
+   ],
+   "mesures": {
+    "O": 1.12,
+    "O_tige": 2.56,
+    "L": 3.34,
+    "area_t2": 14.48,
+    "iou_prev": 0.747,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "acrotere",
+     "bande_jaune",
+     "bandeau_vitre",
+     "berceau_ar_e",
+     "berceau_ar_o",
+     "berceau_av_e",
+     "berceau_av_o",
+     "conduite_cuves",
+     "conduite_v",
+     "corps",
+     "cuve_ar_bande",
+     "cuve_ar_fond",
+     "cuve_ar_virole",
+     "cuve_av_bande",
+     "cuve_av_fond",
+     "cuve_av_virole",
+     "fut",
+     "fut_cercle",
+     "meneau",
+     "nervure",
+     "passerelle",
+     "porte_cadre",
+     "porte_lame",
+     "porte_rideau",
+     "poteau",
+     "rayures",
+     "torchere_ballon",
+     "vanne_cuves",
+     "voyant",
+     "voyant_boitier"
+    ],
+    "tiges": [
+     "contrevent",
+     "contrevent_t",
+     "echelle_montant_a",
+     "echelle_montant_b",
+     "garde_corps_passerelle",
+     "garde_corps_toit",
+     "torchere_bague",
+     "torchere_bec",
+     "torchere_flamme",
+     "torchere_fut"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      1.35,
+      -1.35,
+      4.28
+     ],
+     "ecran_tiles": [
+      1.35,
+      -4.376
+     ],
+     "couleur": "#FF8C1A",
+     "fenetre_sprite_tiles": [
+      0.5,
+      1.4
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.45,
+      0.5
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.096
+     ],
+     "couleur": "#FF8C1A",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": [
+      1.0,
+      2.0
+     ]
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.21,
+    "taille_tuiles": 5.6,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "flamme de torchère (16 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     542,
+     500
+    ],
+    "origin_px": [
+     145,
+     338
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 108.8
+   }
+  },
+  {
+   "level": 5,
+   "epoch": 5,
+   "era": 2,
+   "nom": "Citadelle volcanique",
+   "dest": "graphics/levels/centre/e05",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-main.png",
+      "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-main.png",
+      "width": 264,
+      "height": 360,
+      "shift": [
+       0.0,
+       -0.9375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-main.png",
+      "apercu": "tools/render/out/levels/centre/n05/centre-n05-main.png",
+      "width": 132,
+      "height": 180,
+      "shift": [
+       0.0,
+       -0.9375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-shadow.png",
+      "width": 386,
+      "height": 224,
+      "shift": [
+       1.171875,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n05/centre-n05-shadow.png",
+      "width": 193,
+      "height": 112,
+      "shift": [
+       1.171875,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-glow.png",
+      "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-glow.png",
+      "width": 210,
+      "height": 344,
+      "shift": [
+       0.015625,
+       -1.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-glow.png",
+      "apercu": "tools/render/out/levels/centre/n05/centre-n05-glow.png",
+      "width": 105,
+      "height": 172,
+      "shift": [
+       0.015625,
+       -1.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-light.png",
+      "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-light.png",
+      "width": 260,
+      "height": 330,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-light.png",
+      "apercu": "tools/render/out/levels/centre/n05/centre-n05-light.png",
+      "width": 130,
+      "height": 165,
+      "shift": [
+       0.0,
+       -0.265625
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -2.0625,
+     -3.75
+    ],
+    [
+     4.1875,
+     1.875
+    ]
+   ],
+   "mesures": {
+    "O": 1.34,
+    "O_tige": 1.72,
+    "L": 3.66,
+    "area_t2": 13.42,
+    "iou_prev": 0.752,
+    "events": 3
+   },
+   "pieces": {
+    "masses": [
+     "avant_porte",
+     "avant_porte_toit",
+     "contrefort",
+     "cratere_braises",
+     "cratere_levre",
+     "ecaille",
+     "fente_g1",
+     "fente_g2",
+     "fente_g3",
+     "gradin",
+     "gradin_1_rivets",
+     "gradin_2_rivets",
+     "gradin_3_rivets",
+     "ogive_braise",
+     "ogive_cadre",
+     "ogive_herse",
+     "pointe_basalte_e",
+     "pointe_basalte_o",
+     "pointe_collier"
+    ],
+    "tiges": [
+     "banniere",
+     "mat"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      1.7,
+      0.38
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.431
+     ],
+     "couleur": "#FF4A10",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": [
+      1.1,
+      2.2
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      0.9,
+      1.1
+     ],
+     "ecran_tiles": [
+      0.0,
+      0.122
+     ],
+     "couleur": "#FF4A10",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.3,
+      2.4
+     ],
+     "ecran_tiles": [
+      0.0,
+      -1.997
+     ],
+     "couleur": "#FF4A10",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.25,
+    "taille_tuiles": 6.0,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "pulsation des braises (8 à 16 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     468,
+     428
+    ],
+    "origin_px": [
+     158,
+     278
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 123.6
+   }
+  },
+  {
+   "level": 6,
+   "epoch": 6,
+   "era": 2,
+   "nom": "Centrale de commandement",
+   "dest": "graphics/levels/centre/e06",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-main.png",
+      "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-main.png",
+      "width": 240,
+      "height": 338,
+      "shift": [
+       0.0,
+       -0.984375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-main.png",
+      "apercu": "tools/render/out/levels/centre/n06/centre-n06-main.png",
+      "width": 120,
+      "height": 169,
+      "shift": [
+       0.0,
+       -0.984375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-shadow.png",
+      "width": 374,
+      "height": 182,
+      "shift": [
+       1.265625,
+       0.046875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n06/centre-n06-shadow.png",
+      "width": 187,
+      "height": 91,
+      "shift": [
+       1.265625,
+       0.046875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-glow.png",
+      "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-glow.png",
+      "width": 210,
+      "height": 286,
+      "shift": [
+       -0.015625,
+       -0.859375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-glow.png",
+      "apercu": "tools/render/out/levels/centre/n06/centre-n06-glow.png",
+      "width": 105,
+      "height": 143,
+      "shift": [
+       -0.015625,
+       -0.859375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-light.png",
+      "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-light.png",
+      "width": 236,
+      "height": 318,
+      "shift": [
+       0.0,
+       -0.421875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-light.png",
+      "apercu": "tools/render/out/levels/centre/n06/centre-n06-light.png",
+      "width": 118,
+      "height": 159,
+      "shift": [
+       0.0,
+       -0.421875
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.875,
+     -3.625
+    ],
+    [
+     4.1875,
+     1.6562
+    ]
+   ],
+   "mesures": {
+    "O": 1.55,
+    "O_tige": 1.61,
+    "L": 3.28,
+    "area_t2": 13.32,
+    "iou_prev": 0.776,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "aeration",
+     "aeration_lame",
+     "bandeau_ceramique_ar",
+     "bandeau_ceramique_av",
+     "bandeau_ceramique_e",
+     "bandeau_ceramique_o",
+     "bobine",
+     "col_disque",
+     "col_noyau",
+     "fen",
+     "fen_cadre",
+     "pile_chapeau",
+     "pile_disques",
+     "pile_electrode",
+     "pile_noyau",
+     "pile_socle",
+     "porte_cadre",
+     "porte_vantail",
+     "salle",
+     "socle",
+     "toit",
+     "toit_joint",
+     "tore_dome",
+     "tore_tesla",
+     "tour_collier",
+     "tour_fut",
+     "tour_noyau",
+     "voyant_porte"
+    ],
+    "tiges": [
+     "arc",
+     "paratonnerre",
+     "pile_etincelle"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.45,
+      3.48
+     ],
+     "ecran_tiles": [
+      0.0,
+      -2.911
+     ],
+     "couleur": "#60D0FF",
+     "fenetre_sprite_tiles": [
+      0.55,
+      1.5
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.3,
+      -0.35,
+      3.0
+     ],
+     "ecran_tiles": [
+      -1.3,
+      -2.471
+     ],
+     "couleur": "#60D0FF",
+     "fenetre_sprite_tiles": [
+      0.35,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      1.3,
+      -0.35,
+      3.0
+     ],
+     "ecran_tiles": [
+      1.3,
+      -2.471
+     ],
+     "couleur": "#60D0FF",
+     "fenetre_sprite_tiles": [
+      0.35,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.45,
+      0.62
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.012
+     ],
+     "couleur": "#60D0FF",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": [
+      1.0,
+      2.0
+     ]
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.29,
+    "taille_tuiles": 6.4,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "arcs entre les piles et le tore (16 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     458,
+     406
+    ],
+    "origin_px": [
+     145,
+     272
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 42.2
+   }
+  },
+  {
+   "level": 7,
+   "epoch": 7,
+   "era": 3,
+   "nom": "Sanctuaire de résonance",
+   "dest": "graphics/levels/centre/e07",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-main.png",
+      "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-main.png",
+      "width": 244,
+      "height": 370,
+      "shift": [
+       0.0,
+       -0.953125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-main.png",
+      "apercu": "tools/render/out/levels/centre/n07/centre-n07-main.png",
+      "width": 122,
+      "height": 185,
+      "shift": [
+       0.0,
+       -0.953125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-shadow.png",
+      "width": 394,
+      "height": 212,
+      "shift": [
+       1.421875,
+       0.125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n07/centre-n07-shadow.png",
+      "width": 197,
+      "height": 106,
+      "shift": [
+       1.421875,
+       0.125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-glow.png",
+      "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-glow.png",
+      "width": 236,
+      "height": 354,
+      "shift": [
+       -0.03125,
+       -1.078125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-glow.png",
+      "apercu": "tools/render/out/levels/centre/n07/centre-n07-glow.png",
+      "width": 118,
+      "height": 177,
+      "shift": [
+       -0.03125,
+       -1.078125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-light.png",
+      "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-light.png",
+      "width": 236,
+      "height": 364,
+      "shift": [
+       0.03125,
+       -0.90625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-light.png",
+      "apercu": "tools/render/out/levels/centre/n07/centre-n07-light.png",
+      "width": 118,
+      "height": 182,
+      "shift": [
+       0.03125,
+       -0.90625
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9062,
+     -3.8438
+    ],
+    [
+     4.5,
+     1.9375
+    ]
+   ],
+   "mesures": {
+    "O": 1.81,
+    "O_tige": 1.81,
+    "L": 3.66,
+    "area_t2": 12.31,
+    "iou_prev": 0.761,
+    "events": 3
+   },
+   "pieces": {
+    "masses": [
+     "eclat",
+     "grand_cristal",
+     "grappe",
+     "marche",
+     "porte_cadre",
+     "porte_cristal",
+     "porte_vantail",
+     "sanctuaire",
+     "sanctuaire_toit",
+     "sertissure_basse",
+     "sertissure_haute",
+     "socle"
+    ],
+    "tiges": [
+     "griffe"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.05,
+      -0.55,
+      2.4
+     ],
+     "ecran_tiles": [
+      0.05,
+      -2.247
+     ],
+     "couleur": "#B070FF",
+     "fenetre_sprite_tiles": [
+      0.6,
+      1.6
+     ],
+     "flaque_sol_tiles": [
+      1.4,
+      2.6
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.3,
+      1.1
+     ],
+     "ecran_tiles": [
+      0.0,
+      0.522
+     ],
+     "couleur": "#B070FF",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.33,
+    "taille_tuiles": 6.8,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "respiration du cristal (16 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     508,
+     454
+    ],
+    "origin_px": [
+     159,
+     302
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 42.3
+   }
+  },
+  {
+   "level": 8,
+   "epoch": 8,
+   "era": 3,
+   "nom": "Serre-laboratoire",
+   "dest": "graphics/levels/centre/e08",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-main.png",
+      "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-main.png",
+      "width": 254,
+      "height": 390,
+      "shift": [
+       0.046875,
+       -1.328125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-main.png",
+      "apercu": "tools/render/out/levels/centre/n08/centre-n08-main.png",
+      "width": 127,
+      "height": 195,
+      "shift": [
+       0.046875,
+       -1.328125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-shadow.png",
+      "width": 374,
+      "height": 200,
+      "shift": [
+       1.265625,
+       -0.03125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n08/centre-n08-shadow.png",
+      "width": 187,
+      "height": 100,
+      "shift": [
+       1.265625,
+       -0.03125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-glow.png",
+      "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-glow.png",
+      "width": 228,
+      "height": 370,
+      "shift": [
+       0.09375,
+       -1.484375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-glow.png",
+      "apercu": "tools/render/out/levels/centre/n08/centre-n08-glow.png",
+      "width": 114,
+      "height": 185,
+      "shift": [
+       0.09375,
+       -1.484375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-light.png",
+      "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-light.png",
+      "width": 218,
+      "height": 234,
+      "shift": [
+       0.171875,
+       -0.515625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-light.png",
+      "apercu": "tools/render/out/levels/centre/n08/centre-n08-light.png",
+      "width": 109,
+      "height": 117,
+      "shift": [
+       0.171875,
+       -0.515625
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9375,
+     -4.375
+    ],
+    [
+     4.1875,
+     1.7188
+    ]
+   ],
+   "mesures": {
+    "O": 1.91,
+    "O_tige": 2.34,
+    "L": 3.59,
+    "area_t2": 14.79,
+    "iou_prev": 0.684,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "annexe_basse",
+     "bulbe_moyen_cercle_bas",
+     "bulbe_moyen_cercle_haut",
+     "bulbe_moyen_joint",
+     "bulbe_moyen_liquide",
+     "bulbe_moyen_tambour",
+     "bulbe_moyen_verre",
+     "conduits",
+     "fen",
+     "fen_cadre",
+     "grand_bulbe_cercle_bas",
+     "grand_bulbe_cercle_haut",
+     "grand_bulbe_joint",
+     "grand_bulbe_liquide",
+     "grand_bulbe_tambour",
+     "grand_bulbe_verre",
+     "hublot",
+     "hublot_cadre",
+     "labo",
+     "labo_corniche",
+     "petit_bulbe_cercle_bas",
+     "petit_bulbe_cercle_haut",
+     "petit_bulbe_joint",
+     "petit_bulbe_liquide",
+     "petit_bulbe_tambour",
+     "petit_bulbe_verre",
+     "porte_cadre",
+     "porte_vantail",
+     "tuyau_souple"
+    ],
+    "tiges": [
+     "antenne",
+     "antenne_bulbe"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      -0.3,
+      -0.85,
+      2.1
+     ],
+     "ecran_tiles": [
+      -0.3,
+      -2.335
+     ],
+     "couleur": "#A8FF3A",
+     "fenetre_sprite_tiles": [
+      0.6,
+      1.6
+     ],
+     "flaque_sol_tiles": [
+      1.3,
+      2.5
+     ]
+    },
+    {
+     "source_tiles": [
+      -1.15,
+      0.65,
+      1.0
+     ],
+     "ecran_tiles": [
+      -1.15,
+      -0.057
+     ],
+     "couleur": "#A8FF3A",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      1.25,
+      -0.5,
+      1.25
+     ],
+     "ecran_tiles": [
+      1.25,
+      -1.384
+     ],
+     "couleur": "#A8FF3A",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.37,
+    "taille_tuiles": 7.2,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "bulles montantes (16 à 24 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     486,
+     458
+    ],
+    "origin_px": [
+     148,
+     321
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 43.6
+   }
+  },
+  {
+   "level": 9,
+   "epoch": 9,
+   "era": 3,
+   "nom": "Bunker atomique",
+   "dest": "graphics/levels/centre/e09",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-main.png",
+      "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-main.png",
+      "width": 248,
+      "height": 404,
+      "shift": [
+       0.03125,
+       -1.40625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-main.png",
+      "apercu": "tools/render/out/levels/centre/n09/centre-n09-main.png",
+      "width": 124,
+      "height": 202,
+      "shift": [
+       0.03125,
+       -1.40625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-shadow.png",
+      "width": 476,
+      "height": 204,
+      "shift": [
+       2.03125,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n09/centre-n09-shadow.png",
+      "width": 238,
+      "height": 102,
+      "shift": [
+       2.03125,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-glow.png",
+      "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-glow.png",
+      "width": 194,
+      "height": 384,
+      "shift": [
+       0.015625,
+       -1.5625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-glow.png",
+      "apercu": "tools/render/out/levels/centre/n09/centre-n09-glow.png",
+      "width": 97,
+      "height": 192,
+      "shift": [
+       0.015625,
+       -1.5625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-light.png",
+      "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-light.png",
+      "width": 278,
+      "height": 432,
+      "shift": [
+       0.046875,
+       -1.1875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-light.png",
+      "apercu": "tools/render/out/levels/centre/n09/centre-n09-light.png",
+      "width": 139,
+      "height": 216,
+      "shift": [
+       0.046875,
+       -1.1875
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9062,
+     -4.5625
+    ],
+    [
+     5.75,
+     1.75
+    ]
+   ],
+   "mesures": {
+    "O": 2.3,
+    "O_tige": 2.55,
+    "L": 3.39,
+    "area_t2": 14.31,
+    "iou_prev": 0.652,
+    "events": 3
+   },
+   "pieces": {
+    "masses": [
+     "bande_pied",
+     "chanfrein",
+     "corps",
+     "dome",
+     "dome_bague",
+     "dome_bande_verte",
+     "dome_tambour",
+     "hublot",
+     "hublot_cadre",
+     "porte_cadre",
+     "porte_chevron",
+     "porte_vantail",
+     "tour_bande",
+     "tour_gueule",
+     "tour_levre",
+     "tour_refroid",
+     "trefle_disque",
+     "trefle_pales"
+    ],
+    "tiges": [
+     "balise_bague",
+     "balise_feu",
+     "balise_mat"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      1.6,
+      0.45
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.282
+     ],
+     "couleur": "#5CFF4A",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": [
+      1.2,
+      2.4
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.05,
+      1.25
+     ],
+     "ecran_tiles": [
+      0.0,
+      -0.934
+     ],
+     "couleur": "#5CFF4A",
+     "fenetre_sprite_tiles": [
+      0.45,
+      1.2
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.05,
+      6.25
+     ],
+     "ecran_tiles": [
+      0.0,
+      -4.469
+     ],
+     "couleur": "#5CFF4A",
+     "fenetre_sprite_tiles": [
+      0.25,
+      0.7
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.41,
+    "taille_tuiles": 7.6,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "pulsation verte (uranium-glow équivalent)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     556,
+     474
+    ],
+    "origin_px": [
+     147,
+     333
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 68.0
+   }
+  },
+  {
+   "level": 10,
+   "epoch": 10,
+   "era": 4,
+   "nom": "QG radar",
+   "dest": "graphics/levels/centre/e10",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-main.png",
+      "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-main.png",
+      "width": 204,
+      "height": 482,
+      "shift": [
+       0.0,
+       -2.046875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-main.png",
+      "apercu": "tools/render/out/levels/centre/n10/centre-n10-main.png",
+      "width": 102,
+      "height": 241,
+      "shift": [
+       0.0,
+       -2.046875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-shadow.png",
+      "width": 436,
+      "height": 190,
+      "shift": [
+       2.0,
+       0.078125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n10/centre-n10-shadow.png",
+      "width": 218,
+      "height": 95,
+      "shift": [
+       2.0,
+       0.078125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-glow.png",
+      "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-glow.png",
+      "width": 188,
+      "height": 468,
+      "shift": [
+       0.0,
+       -2.15625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-glow.png",
+      "apercu": "tools/render/out/levels/centre/n10/centre-n10-glow.png",
+      "width": 94,
+      "height": 234,
+      "shift": [
+       0.0,
+       -2.15625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-light.png",
+      "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-light.png",
+      "width": 290,
+      "height": 510,
+      "shift": [
+       0.140625,
+       -1.828125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-light.png",
+      "apercu": "tools/render/out/levels/centre/n10/centre-n10-light.png",
+      "width": 145,
+      "height": 255,
+      "shift": [
+       0.140625,
+       -1.828125
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.5938,
+     -5.8125
+    ],
+    [
+     5.4062,
+     1.7188
+    ]
+   ],
+   "mesures": {
+    "O": 2.45,
+    "O_tige": 3.78,
+    "L": 3.12,
+    "area_t2": 12.76,
+    "iou_prev": 0.612,
+    "events": 2
+   },
+   "pieces": {
+    "masses": [
+     "bandeau_noir",
+     "coque",
+     "ecran_facade",
+     "fouet_embase",
+     "marche",
+     "parabole",
+     "parabole_pied",
+     "patin",
+     "pied",
+     "porte",
+     "porte_cadre",
+     "porte_feu",
+     "radome",
+     "radome_couture",
+     "radome_couture_eq",
+     "radome_feu",
+     "tour_collier",
+     "tour_pied",
+     "tour_radome",
+     "voyant"
+    ],
+    "tiges": [
+     "fouet",
+     "fouet_feu",
+     "parabole_source"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      1.15,
+      0.9
+     ],
+     "ecran_tiles": [
+      0.0,
+      0.514
+     ],
+     "couleur": "#3AA8FF",
+     "fenetre_sprite_tiles": [
+      0.45,
+      1.2
+     ],
+     "flaque_sol_tiles": [
+      1.3,
+      2.6
+     ]
+    },
+    {
+     "source_tiles": [
+      0.45,
+      -0.65,
+      3.07
+     ],
+     "ecran_tiles": [
+      0.45,
+      -2.821
+     ],
+     "couleur": "#3AA8FF",
+     "fenetre_sprite_tiles": [
+      0.5,
+      1.4
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.3,
+      -0.95,
+      6.77
+     ],
+     "ecran_tiles": [
+      -1.3,
+      -5.737
+     ],
+     "couleur": "#3AA8FF",
+     "fenetre_sprite_tiles": [
+      0.2,
+      0.6
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.45,
+    "taille_tuiles": 8.0,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "parabole tournante + voyants (frame_sequence)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     562,
+     552
+    ],
+    "origin_px": [
+     141,
+     412
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 50.8
+   }
+  },
+  {
+   "level": 11,
+   "epoch": 11,
+   "era": 4,
+   "nom": "Tour blanche",
+   "dest": "graphics/levels/centre/e11",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-main.png",
+      "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-main.png",
+      "width": 236,
+      "height": 466,
+      "shift": [
+       0.0,
+       -1.890625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-main.png",
+      "apercu": "tools/render/out/levels/centre/n11/centre-n11-main.png",
+      "width": 118,
+      "height": 233,
+      "shift": [
+       0.0,
+       -1.890625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-shadow.png",
+      "width": 532,
+      "height": 216,
+      "shift": [
+       2.4375,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n11/centre-n11-shadow.png",
+      "width": 266,
+      "height": 108,
+      "shift": [
+       2.4375,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-glow.png",
+      "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-glow.png",
+      "width": 218,
+      "height": 452,
+      "shift": [
+       0.015625,
+       -1.875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-glow.png",
+      "apercu": "tools/render/out/levels/centre/n11/centre-n11-glow.png",
+      "width": 109,
+      "height": 226,
+      "shift": [
+       0.015625,
+       -1.875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-light.png",
+      "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-light.png",
+      "width": 290,
+      "height": 398,
+      "shift": [
+       0.109375,
+       -0.984375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-light.png",
+      "apercu": "tools/render/out/levels/centre/n11/centre-n11-light.png",
+      "width": 145,
+      "height": 199,
+      "shift": [
+       0.109375,
+       -0.984375
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.8438,
+     -5.5312
+    ],
+    [
+     6.5938,
+     1.75
+    ]
+   ],
+   "mesures": {
+    "O": 2.66,
+    "O_tige": 3.52,
+    "L": 3.44,
+    "area_t2": 10.25,
+    "iou_prev": 0.579,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "aileron",
+     "aileron_jambe",
+     "patin",
+     "pied",
+     "plate_forme",
+     "plate_forme_liseré",
+     "porte",
+     "porte_feu",
+     "rampe",
+     "tour",
+     "tour_bague"
+    ],
+    "tiges": [
+     "aileron_ligne",
+     "fleche",
+     "fleche_feu",
+     "tour_ligne"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.35,
+      3.0
+     ],
+     "ecran_tiles": [
+      0.0,
+      -2.471
+     ],
+     "couleur": "#BFE6FF",
+     "fenetre_sprite_tiles": [
+      0.6,
+      1.7
+     ],
+     "flaque_sol_tiles": [
+      1.5,
+      2.8
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      0.25,
+      1.7
+     ],
+     "ecran_tiles": [
+      0.0,
+      -0.952
+     ],
+     "couleur": "#BFE6FF",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.49,
+    "taille_tuiles": 8.4,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "chenillard le long des ailerons",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     616,
+     542
+    ],
+    "origin_px": [
+     150,
+     396
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 66.5
+   }
+  },
+  {
+   "level": 12,
+   "epoch": 12,
+   "era": 4,
+   "nom": "Nexus",
+   "dest": "graphics/levels/centre/e12",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-main.png",
+      "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-main.png",
+      "width": 240,
+      "height": 448,
+      "shift": [
+       0.0,
+       -1.8125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-main.png",
+      "apercu": "tools/render/out/levels/centre/n12/centre-n12-main.png",
+      "width": 120,
+      "height": 224,
+      "shift": [
+       0.0,
+       -1.8125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-shadow.png",
+      "width": 516,
+      "height": 200,
+      "shift": [
+       2.34375,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n12/centre-n12-shadow.png",
+      "width": 258,
+      "height": 100,
+      "shift": [
+       2.34375,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-glow.png",
+      "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-glow.png",
+      "width": 216,
+      "height": 392,
+      "shift": [
+       0.0,
+       -1.59375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-glow.png",
+      "apercu": "tools/render/out/levels/centre/n12/centre-n12-glow.png",
+      "width": 108,
+      "height": 196,
+      "shift": [
+       0.0,
+       -1.59375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-light.png",
+      "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-light.png",
+      "width": 192,
+      "height": 292,
+      "shift": [
+       0.0,
+       -1.5625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-light.png",
+      "apercu": "tools/render/out/levels/centre/n12/centre-n12-light.png",
+      "width": 96,
+      "height": 146,
+      "shift": [
+       0.0,
+       -1.5625
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.875,
+     -5.3125
+    ],
+    [
+     6.375,
+     1.6875
+    ]
+   ],
+   "mesures": {
+    "O": 2.92,
+    "O_tige": 3.28,
+    "L": 3.16,
+    "area_t2": 9.16,
+    "iou_prev": 0.501,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "anneau",
+     "anneau_lueur",
+     "entree",
+     "noyau",
+     "noyau_givre",
+     "noyau_joint",
+     "noyau_pointe",
+     "porte",
+     "porte_feu",
+     "porte_montant",
+     "pylone",
+     "pylone_chapeau",
+     "pylone_givre",
+     "pylone_pointe"
+    ],
+    "tiges": [
+     "noyau_arete",
+     "pointe_antenne"
+    ],
+    "plates_au_sol": [
+     "dalle",
+     "dalle_bord"
+    ]
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.3,
+      1.55
+     ],
+     "ecran_tiles": [
+      0.0,
+      -1.396
+     ],
+     "couleur": "#4AF0FF",
+     "fenetre_sprite_tiles": [
+      0.6,
+      1.7
+     ],
+     "flaque_sol_tiles": [
+      1.5,
+      2.8
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.3,
+      2.9
+     ],
+     "ecran_tiles": [
+      0.0,
+      -2.351
+     ],
+     "couleur": "#4AF0FF",
+     "fenetre_sprite_tiles": [
+      0.5,
+      1.4
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.3,
+      4.2
+     ],
+     "ecran_tiles": [
+      0.0,
+      -3.27
+     ],
+     "couleur": "#4AF0FF",
+     "fenetre_sprite_tiles": [
+      0.45,
+      1.2
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.53,
+    "taille_tuiles": 8.8,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "rotation des 3 anneaux",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     596,
+     520
+    ],
+    "origin_px": [
+     147,
+     380
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 130.0
+   }
+  },
+  {
+   "level": 13,
+   "epoch": 13,
+   "era": 5,
+   "nom": "Citadelle-réacteur",
+   "dest": "graphics/levels/centre/e13",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-main.png",
+      "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-main.png",
+      "width": 248,
+      "height": 468,
+      "shift": [
+       0.0,
+       -2.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-main.png",
+      "apercu": "tools/render/out/levels/centre/n13/centre-n13-main.png",
+      "width": 124,
+      "height": 234,
+      "shift": [
+       0.0,
+       -2.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-shadow.png",
+      "width": 542,
+      "height": 212,
+      "shift": [
+       2.515625,
+       -0.1875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n13/centre-n13-shadow.png",
+      "width": 271,
+      "height": 106,
+      "shift": [
+       2.515625,
+       -0.1875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-glow.png",
+      "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-glow.png",
+      "width": 248,
+      "height": 452,
+      "shift": [
+       0.0,
+       -2.09375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-glow.png",
+      "apercu": "tools/render/out/levels/centre/n13/centre-n13-glow.png",
+      "width": 124,
+      "height": 226,
+      "shift": [
+       0.0,
+       -2.09375
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-light.png",
+      "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-light.png",
+      "width": 280,
+      "height": 444,
+      "shift": [
+       0.0,
+       -1.4375
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-light.png",
+      "apercu": "tools/render/out/levels/centre/n13/centre-n13-light.png",
+      "width": 140,
+      "height": 222,
+      "shift": [
+       0.0,
+       -1.4375
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9375,
+     -5.6562
+    ],
+    [
+     6.75,
+     1.6562
+    ]
+   ],
+   "mesures": {
+    "O": 3.14,
+    "O_tige": 3.62,
+    "L": 3.81,
+    "area_t2": 12.69,
+    "iou_prev": 0.329,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "anneau_soutien",
+     "bunker",
+     "conduit_plasma",
+     "fleche_embase",
+     "hublot",
+     "patin",
+     "pied",
+     "pied_genou",
+     "porte",
+     "porte_feu",
+     "sphere",
+     "sphere_bande",
+     "sphere_couture",
+     "sphere_hublot",
+     "tore_plasma"
+    ],
+    "tiges": [
+     "fleche",
+     "pince"
+    ],
+    "plates_au_sol": []
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.35,
+      4.65
+     ],
+     "ecran_tiles": [
+      0.0,
+      -3.638
+     ],
+     "couleur": "#FF4FD8",
+     "fenetre_sprite_tiles": [
+      0.9,
+      2.2
+     ],
+     "flaque_sol_tiles": [
+      1.6,
+      3.0
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.5,
+      0.5
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.146
+     ],
+     "couleur": "#FF9A3A",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.57,
+    "taille_tuiles": 9.2,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "plasma qui tourne (16 à 32 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     654,
+     542
+    ],
+    "origin_px": [
+     163,
+     409
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 73.5
+   }
+  },
+  {
+   "level": 14,
+   "epoch": 14,
+   "era": 5,
+   "nom": "Spatioport de commandement",
+   "dest": "graphics/levels/centre/e14",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-main.png",
+      "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-main.png",
+      "width": 248,
+      "height": 476,
+      "shift": [
+       0.0,
+       -2.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-main.png",
+      "apercu": "tools/render/out/levels/centre/n14/centre-n14-main.png",
+      "width": 124,
+      "height": 238,
+      "shift": [
+       0.0,
+       -2.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-shadow.png",
+      "width": 540,
+      "height": 208,
+      "shift": [
+       2.4375,
+       0.0
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n14/centre-n14-shadow.png",
+      "width": 270,
+      "height": 104,
+      "shift": [
+       2.4375,
+       0.0
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-glow.png",
+      "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-glow.png",
+      "width": 248,
+      "height": 466,
+      "shift": [
+       0.0,
+       -2.078125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-glow.png",
+      "apercu": "tools/render/out/levels/centre/n14/centre-n14-glow.png",
+      "width": 124,
+      "height": 233,
+      "shift": [
+       0.0,
+       -2.078125
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-light.png",
+      "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-light.png",
+      "width": 300,
+      "height": 508,
+      "shift": [
+       0.03125,
+       -1.75
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-light.png",
+      "apercu": "tools/render/out/levels/centre/n14/centre-n14-light.png",
+      "width": 150,
+      "height": 254,
+      "shift": [
+       0.03125,
+       -1.75
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.9375,
+     -5.7188
+    ],
+    [
+     6.6562,
+     1.7188
+    ]
+   ],
+   "mesures": {
+    "O": 3.36,
+    "O_tige": 3.7,
+    "L": 3.84,
+    "area_t2": 10.19,
+    "iou_prev": 0.523,
+    "events": 6
+   },
+   "pieces": {
+    "masses": [
+     "aile_poutre",
+     "balise_aile",
+     "cellules",
+     "hangar",
+     "panneau",
+     "parabole",
+     "parabole_bras",
+     "porte",
+     "porte_feu",
+     "tour",
+     "tour_bague",
+     "tour_hublot"
+    ],
+    "tiges": [
+     "aile_hauban",
+     "balise_sommet",
+     "mat_balise",
+     "parabole_source"
+    ],
+    "plates_au_sol": [
+     "aire",
+     "aire_cercle"
+    ]
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.5,
+      7.25
+     ],
+     "ecran_tiles": [
+      0.0,
+      -5.627
+     ],
+     "couleur": "#FF2A2A",
+     "fenetre_sprite_tiles": [
+      0.25,
+      0.7
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.85,
+      -0.5,
+      3.9
+     ],
+     "ecran_tiles": [
+      -1.85,
+      -3.258
+     ],
+     "couleur": "#FF2A2A",
+     "fenetre_sprite_tiles": [
+      0.2,
+      0.6
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      1.85,
+      -0.5,
+      3.9
+     ],
+     "ecran_tiles": [
+      1.85,
+      -3.258
+     ],
+     "couleur": "#FF2A2A",
+     "fenetre_sprite_tiles": [
+      0.2,
+      0.6
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      1.55,
+      0.55
+     ],
+     "ecran_tiles": [
+      0.0,
+      1.161
+     ],
+     "couleur": "#2F6BFF",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": [
+      1.3,
+      2.6
+     ]
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.61,
+    "taille_tuiles": 9.6,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "balises qui clignotent, reflet des cellules",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     632,
+     552
+    ],
+    "origin_px": [
+     163,
+     408
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 91.6
+   }
+  },
+  {
+   "level": 15,
+   "epoch": 15,
+   "era": 5,
+   "nom": "Palais",
+   "dest": "graphics/levels/centre/e15",
+   "layers": [
+    {
+     "role": "main",
+     "flags": {},
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-main.png",
+      "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-main.png",
+      "width": 240,
+      "height": 492,
+      "shift": [
+       0.0,
+       -2.0625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-main.png",
+      "apercu": "tools/render/out/levels/centre/n15/centre-n15-main.png",
+      "width": 120,
+      "height": 246,
+      "shift": [
+       0.0,
+       -2.0625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "shadow",
+     "flags": {
+      "draw_as_shadow": true
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-shadow.png",
+      "width": 550,
+      "height": 206,
+      "shift": [
+       3.015625,
+       0.171875
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-shadow.png",
+      "apercu": "tools/render/out/levels/centre/n15/centre-n15-shadow.png",
+      "width": 275,
+      "height": 103,
+      "shift": [
+       3.015625,
+       0.171875
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "glow",
+     "flags": {
+      "draw_as_glow": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-glow.png",
+      "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-glow.png",
+      "width": 236,
+      "height": 474,
+      "shift": [
+       0.0,
+       -2.140625
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-glow.png",
+      "apercu": "tools/render/out/levels/centre/n15/centre-n15-glow.png",
+      "width": 118,
+      "height": 237,
+      "shift": [
+       0.0,
+       -2.140625
+      ],
+      "scale": 1.0
+     }
+    },
+    {
+     "role": "light",
+     "flags": {
+      "draw_as_light": true,
+      "blend_mode": "additive"
+     },
+     "hr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-light.png",
+      "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-light.png",
+      "width": 328,
+      "height": 494,
+      "shift": [
+       0.1875,
+       -1.578125
+      ],
+      "scale": 0.5
+     },
+     "lr": {
+      "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-light.png",
+      "apercu": "tools/render/out/levels/centre/n15/centre-n15-light.png",
+      "width": 164,
+      "height": 247,
+      "shift": [
+       0.1875,
+       -1.578125
+      ],
+      "scale": 1.0
+     }
+    }
+   ],
+   "ordre": [
+    "main",
+    "shadow",
+    "glow",
+    "light"
+   ],
+   "drawing_box": [
+    [
+     -1.875,
+     -5.9062
+    ],
+    [
+     7.3125,
+     1.7812
+    ]
+   ],
+   "mesures": {
+    "O": 3.5,
+    "O_tige": 3.86,
+    "L": 3.69,
+    "area_t2": 9.74,
+    "iou_prev": 0.278,
+    "events": 1
+   },
+   "pieces": {
+    "masses": [
+     "anneau_halo",
+     "anneau_or",
+     "base_anneau_lueur",
+     "base_bourrelet",
+     "base_emetteur",
+     "base_flottante",
+     "donjon",
+     "donjon_corniche",
+     "fleche",
+     "fleche_centrale_embase",
+     "fleche_collier",
+     "fleche_orbe",
+     "marche_flottante",
+     "marche_lueur",
+     "porte_cadre",
+     "porte_lumiere"
+    ],
+    "tiges": [
+     "faisceau",
+     "faisceau_bague",
+     "fleche_centrale",
+     "fleche_centrale_anneau"
+    ],
+    "plates_au_sol": [
+     "emetteur_bord",
+     "emetteur_sol"
+    ]
+   },
+   "lumiere_jour": true,
+   "halo_sprite": [
+    {
+     "source_tiles": [
+      0.0,
+      -0.1,
+      1.0
+     ],
+     "ecran_tiles": [
+      0.0,
+      -0.807
+     ],
+     "couleur": "#FFF2C0",
+     "fenetre_sprite_tiles": [
+      0.6,
+      1.6
+     ],
+     "flaque_sol_tiles": [
+      1.7,
+      3.0
+     ]
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.1,
+      5.35
+     ],
+     "ecran_tiles": [
+      0.0,
+      -3.883
+     ],
+     "couleur": "#FFF2C0",
+     "fenetre_sprite_tiles": [
+      0.8,
+      2.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      0.42,
+      3.1
+     ],
+     "ecran_tiles": [
+      0.0,
+      -1.772
+     ],
+     "couleur": "#FFF2C0",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    }
+   ],
+   "halo_script": {
+    "intensite": 0.65,
+    "taille_tuiles": 10.0,
+    "formule": "I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e (bible §1.6)",
+    "minimum_darkness": 0.0
+   },
+   "animation_script": "particules partagées (32 à 60 images)",
+   "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "apercu": {
+    "samples": 32,
+    "canvas": [
+     670,
+     574
+    ],
+    "origin_px": [
+     159,
+     419
+    ],
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "seconds": 66.9
+   }
+  }
+ ]
+}

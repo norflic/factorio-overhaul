@@ -37,8 +37,11 @@ ERA = {e: (e - 1) // 3 + 1 for e in range(1, 16)}
 #    56, 82, 100, 60, 92, 88, 108 : trop clair partout sauf aux époques 5 et 12 ;
 #  - correction : gain × (cible / L50)^2,2 (sRGB → linéaire), puis arrondi ; époques 6, 7, 11, 13, 15
 #    corrigées à part (toit blanc de l'époque 6 refait ; lueurs trop fortes réduites partout).
-ALBEDO_GAIN = {1: 0.9, 2: 0.75, 3: 1.0, 4: 1.0, 5: 1.35, 6: 0.9, 7: 1.0, 8: 0.7, 9: 1.0, 10: 0.4, 11: 0.55,
-               12: 1.6, 13: 0.45, 14: 0.95, 15: 0.45}
+#  - 2e passe (aperçu à 32 échantillons, 21/10 22 h) : L50 48, 48, 56, 61, 42, 43, 84, 61, 59, 93, 87, 51,
+#    110, 87, 141 ; corrigé aux époques 7, 10, 11, 13, 15 (même formule), 6 (toit d'acier au lieu d'acier
+#    sombre) et 12 (gain propre du noir : 3,0 → 4,3, dans centre_ere4.py).
+ALBEDO_GAIN = {1: 0.9, 2: 0.75, 3: 1.0, 4: 1.0, 5: 1.35, 6: 0.9, 7: 0.7, 8: 0.7, 9: 1.0, 10: 0.32, 11: 0.72,
+               12: 1.6, 13: 0.30, 14: 0.95, 15: 0.28}
 
 # Lumière de NUIT seulement aux époques 1 et 2 (bible §5 : lanterne, forge) ; lueur de jour dès l'époque 3.
 NIGHT_ONLY = {1, 2}

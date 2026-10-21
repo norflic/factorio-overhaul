@@ -12,8 +12,9 @@ Planches écrites dans docs/epoques/planches/centre/ (PNG compacts, versionnés)
   centre-a-jour-zoom1.png    (a) les 15 niveaux côte à côte, zoom 1 (32 px/tuile), de jour, avec ombres ;
   centre-b-nuit-zoom1.png    (b) la même, de nuit ;
   centre-c-gris-zoom1.png    (c) la même en niveaux de gris (test du gris, D1-1) ;
-  centre-d-vignettes.png     (d) masques noirs à la même échelle, le plus grand dans 64 px (D1-2), dans
-                                 l'ordre puis mélangés (clé dans vignettes_cle.json) ;
+  centre-d-vignettes.png     (d) masques noirs (masque D1 : sans couches plates au sol) à la même échelle,
+                                 le plus grand dans 64 px (D1-2), dans l'ordre puis mélangés (clé dans
+                                 vignettes_cle.json) ;
   centre-e-zoom2-jour.png / centre-e-zoom2-nuit.png   (e) gros plans au zoom 2 (64 px/tuile) des époques 1,
                                  5, 10 et 15 à côté du niveau 1 ACTUEL (composition roboport + radar).
 LIMITES (non prouvées hors moteur) : lightMul et lightAdd du moteur inconnus (pris à 1 et 0) ; zoom 1 =
@@ -160,16 +161,15 @@ def plate_lineup(data, levels, dest):
 
 
 def plate_vignettes(levels, dest):
+    # masque D1 (bible §1.4, amendement Q13) : alpha >= 0,5 de la pièce, SANS couches plates au sol
+    # (mask-sil.npz de render_centre.py) ; à 64 px, les tiges fines disparaissent d'elles-mêmes
     masks = {}
     for e in levels:
-        d = os.path.join(OUT, "n%02d" % e)
-        with open(os.path.join(d, "render.json"), encoding="utf-8") as f:
-            sd = json.load(f)["spec"]["main"]["hr"]
-        a = load(os.path.join(d, sd["filename"]))[..., 3] >= 0.5
-        h, w = a.shape
-        x0 = sd["shift"][0] * 64 - w / 2.0
-        y0 = sd["shift"][1] * 64 - h / 2.0
-        masks[e] = (a, x0, y0)
+        z = np.load(os.path.join(OUT, "n%02d" % e, "mask-sil.npz"))
+        h, w = (int(v) for v in z["shape"])
+        a = np.unpackbits(z["mask"], axis=1)[:, :w].astype(bool)
+        ox, oy = (float(v) for v in z["origin"])
+        masks[e] = (a, -ox, -oy)
     X0 = min(x0 for a, x0, y0 in masks.values())
     Y0 = min(y0 for a, x0, y0 in masks.values())
     X1 = max(x0 + a.shape[1] for a, x0, y0 in masks.values())
@@ -221,7 +221,7 @@ def plate_closeups(data, dest, epochs=(1, 5, 10, 15)):
     core = os.path.join(data, "core")
     dx, x0, y = 6.5, 3.0, 6.5
     ents = [{"pos": (x0, y), "layers": current_level1(data)}]
-    labels = [(x0, y + 2.2, "niveau 1 ACTUEL (roboport + radar, à remplacer)")]
+    labels = [(x0, y + 2.2, "niveau 1 actuel (à remplacer)")]
     for i, e in enumerate(epochs):
         if not os.path.exists(os.path.join(OUT, "n%02d" % e, "render.json")):
             continue

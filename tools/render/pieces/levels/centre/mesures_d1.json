@@ -1,0 +1,809 @@
+{
+ "levels": [
+  {
+   "level": 1,
+   "name": "Poste de pionnier",
+   "era": 1,
+   "O": 0.45,
+   "O_target": 0.41,
+   "O_tige": 1.36,
+   "L": 3.34,
+   "L_max": 3.41,
+   "x": [
+    -1.69,
+    1.66
+   ],
+   "y": [
+    -3.36,
+    1.73
+   ],
+   "area_t2": 9.59,
+   "footprint_cover": 0.51,
+   "V_pct": 0.0,
+   "V_min_pct": 0,
+   "iou_lvl1": 1.0,
+   "events": 1,
+   "peaks": [
+    [
+     -1.52,
+     1.36,
+     2.91
+    ]
+   ],
+   "photo": {
+    "L5": 8.1,
+    "L50": 47.5,
+    "L95": 116.8,
+    "sat": 0.227,
+    "body_px": 48976,
+    "glow_px": 310,
+    "glow_share": 0.0063,
+    "glow_8x8": true,
+    "glow_L50": 165.6,
+    "glow_contrast": 118.1,
+    "L50_target": 50
+   },
+   "body_top_tiles": 2.45
+  },
+  {
+   "level": 2,
+   "name": "Bastion d'acier",
+   "era": 1,
+   "O": 0.69,
+   "O_target": 0.64,
+   "O_tige": 1.72,
+   "L": 3.5,
+   "L_max": 3.45,
+   "x": [
+    -1.75,
+    1.75
+   ],
+   "y": [
+    -3.72,
+    1.2
+   ],
+   "area_t2": 11.68,
+   "footprint_cover": 0.639,
+   "iou_prev": 0.639,
+   "added_t2": 3.39,
+   "removed_t2": 1.3,
+   "V_pct": 13.5,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.639,
+   "events": 1,
+   "peaks": [
+    [
+     0.73,
+     1.72,
+     3.84
+    ]
+   ],
+   "photo": {
+    "L5": 8.8,
+    "L50": 47.5,
+    "L95": 66.0,
+    "sat": 0.119,
+    "body_px": 50512,
+    "glow_px": 1009,
+    "glow_share": 0.02,
+    "glow_8x8": true,
+    "glow_L50": 158.8,
+    "glow_contrast": 111.3,
+    "L50_target": 52
+   },
+   "body_top_tiles": 2.69
+  },
+  {
+   "level": 3,
+   "name": "Hôtel de la vapeur",
+   "era": 1,
+   "O": 0.89,
+   "O_target": 0.87,
+   "O_tige": 0.89,
+   "L": 3.16,
+   "L_max": 3.48,
+   "x": [
+    -1.58,
+    1.58
+   ],
+   "y": [
+    -2.89,
+    1.19
+   ],
+   "area_t2": 10.82,
+   "footprint_cover": 0.599,
+   "iou_prev": 0.843,
+   "added_t2": 0.53,
+   "removed_t2": 1.39,
+   "V_pct": 16.9,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.641,
+   "events": 3,
+   "peaks": [
+    [
+     -1.05,
+     0.89,
+     0.72
+    ],
+    [
+     -0.03,
+     0.88,
+     0.7
+    ],
+    [
+     0.86,
+     0.89,
+     0.72
+    ]
+   ],
+   "photo": {
+    "L5": 12.2,
+    "L50": 56.1,
+    "L95": 96.1,
+    "sat": 0.273,
+    "body_px": 46447,
+    "glow_px": 1612,
+    "glow_share": 0.0347,
+    "glow_8x8": true,
+    "glow_L50": 245.8,
+    "glow_contrast": 189.7,
+    "L50_target": 58
+   },
+   "body_top_tiles": 2.89
+  },
+  {
+   "level": 4,
+   "name": "QG de raffinerie",
+   "era": 2,
+   "O": 1.12,
+   "O_target": 1.09,
+   "O_tige": 2.56,
+   "L": 3.34,
+   "L_max": 3.52,
+   "x": [
+    -1.64,
+    1.7
+   ],
+   "y": [
+    -4.56,
+    1.89
+   ],
+   "area_t2": 14.48,
+   "footprint_cover": 0.698,
+   "iou_prev": 0.747,
+   "added_t2": 3.66,
+   "removed_t2": 0.0,
+   "V_pct": 8.6,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.572,
+   "events": 1,
+   "peaks": [
+    [
+     1.34,
+     2.56,
+     5.78
+    ]
+   ],
+   "photo": {
+    "L5": 16.2,
+    "L50": 60.6,
+    "L95": 121.7,
+    "sat": 0.224,
+    "body_px": 62165,
+    "glow_px": 443,
+    "glow_share": 0.0071,
+    "glow_8x8": true,
+    "glow_L50": 240.9,
+    "glow_contrast": 180.3,
+    "L50_target": 60
+   },
+   "body_top_tiles": 3.12
+  },
+  {
+   "level": 5,
+   "name": "Citadelle volcanique",
+   "era": 2,
+   "O": 1.34,
+   "O_target": 1.32,
+   "O_tige": 1.72,
+   "L": 3.66,
+   "L_max": 3.55,
+   "x": [
+    -1.83,
+    1.83
+   ],
+   "y": [
+    -3.72,
+    1.7
+   ],
+   "area_t2": 13.42,
+   "footprint_cover": 0.766,
+   "iou_prev": 0.752,
+   "added_t2": 1.44,
+   "removed_t2": 2.5,
+   "V_pct": 8.4,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.618,
+   "events": 3,
+   "peaks": [
+    [
+     -1.34,
+     1.34,
+     1.38
+    ],
+    [
+     -0.02,
+     1.72,
+     2.06
+    ],
+    [
+     1.3,
+     0.91,
+     0.95
+    ]
+   ],
+   "photo": {
+    "L5": 18.1,
+    "L50": 42.3,
+    "L95": 80.9,
+    "sat": 0.185,
+    "body_px": 56667,
+    "glow_px": 3077,
+    "glow_share": 0.0543,
+    "glow_8x8": true,
+    "glow_L50": 147.0,
+    "glow_contrast": 104.7,
+    "L50_target": 42
+   },
+   "body_top_tiles": 3.34
+  },
+  {
+   "level": 6,
+   "name": "Centrale de commandement",
+   "era": 2,
+   "O": 1.55,
+   "O_target": 1.55,
+   "O_tige": 1.61,
+   "L": 3.28,
+   "L_max": 3.58,
+   "x": [
+    -1.64,
+    1.64
+   ],
+   "y": [
+    -3.61,
+    1.42
+   ],
+   "area_t2": 13.32,
+   "footprint_cover": 0.677,
+   "iou_prev": 0.776,
+   "added_t2": 1.63,
+   "removed_t2": 1.73,
+   "V_pct": 14.3,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.559,
+   "events": 1,
+   "peaks": [
+    [
+     -0.02,
+     1.61,
+     1.92
+    ]
+   ],
+   "photo": {
+    "L5": 10.9,
+    "L50": 43.0,
+    "L95": 173.1,
+    "sat": 0.141,
+    "body_px": 57426,
+    "glow_px": 1248,
+    "glow_share": 0.0217,
+    "glow_8x8": true,
+    "glow_L50": 233.9,
+    "glow_contrast": 190.9,
+    "L50_target": 64
+   },
+   "body_top_tiles": 3.55
+  },
+  {
+   "level": 7,
+   "name": "Sanctuaire de résonance",
+   "era": 3,
+   "O": 1.81,
+   "O_target": 1.78,
+   "O_tige": 1.81,
+   "L": 3.66,
+   "L_max": 3.62,
+   "x": [
+    -1.86,
+    1.8
+   ],
+   "y": [
+    -3.81,
+    1.75
+   ],
+   "area_t2": 12.31,
+   "footprint_cover": 0.645,
+   "iou_prev": 0.761,
+   "added_t2": 1.23,
+   "removed_t2": 2.24,
+   "V_pct": 18.5,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.555,
+   "events": 3,
+   "peaks": [
+    [
+     -1.73,
+     1.09,
+     1.22
+    ],
+    [
+     0.42,
+     1.81,
+     2.14
+    ],
+    [
+     1.67,
+     0.69,
+     1.02
+    ]
+   ],
+   "photo": {
+    "L5": 15.6,
+    "L50": 83.5,
+    "L95": 101.5,
+    "sat": 0.343,
+    "body_px": 52953,
+    "glow_px": 18406,
+    "glow_share": 0.3476,
+    "glow_8x8": true,
+    "glow_L50": 179.5,
+    "glow_contrast": 96.0,
+    "L50_target": 55
+   },
+   "body_top_tiles": 3.81
+  },
+  {
+   "level": 8,
+   "name": "Serre-laboratoire",
+   "era": 3,
+   "O": 1.91,
+   "O_target": 2.0,
+   "O_tige": 2.34,
+   "L": 3.59,
+   "L_max": 3.66,
+   "x": [
+    -1.69,
+    1.91
+   ],
+   "y": [
+    -4.34,
+    1.48
+   ],
+   "area_t2": 14.79,
+   "footprint_cover": 0.707,
+   "iou_prev": 0.684,
+   "added_t2": 3.78,
+   "removed_t2": 1.3,
+   "V_pct": 12.0,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.529,
+   "events": 1,
+   "peaks": [
+    [
+     -0.33,
+     2.34,
+     3.91
+    ]
+   ],
+   "photo": {
+    "L5": 10.4,
+    "L50": 61.0,
+    "L95": 151.4,
+    "sat": 0.398,
+    "body_px": 63558,
+    "glow_px": 3900,
+    "glow_share": 0.0614,
+    "glow_8x8": true,
+    "glow_L50": 243.1,
+    "glow_contrast": 182.1,
+    "L50_target": 60
+   },
+   "body_top_tiles": 3.91
+  },
+  {
+   "level": 9,
+   "name": "Bunker atomique",
+   "era": 3,
+   "O": 2.3,
+   "O_target": 2.23,
+   "O_tige": 2.55,
+   "L": 3.39,
+   "L_max": 3.69,
+   "x": [
+    -1.67,
+    1.72
+   ],
+   "y": [
+    -4.55,
+    1.5
+   ],
+   "area_t2": 14.31,
+   "footprint_cover": 0.65,
+   "iou_prev": 0.652,
+   "added_t2": 2.82,
+   "removed_t2": 3.3,
+   "V_pct": 12.6,
+   "V_min_pct": 0,
+   "iou_lvl1": 0.54,
+   "events": 3,
+   "peaks": [
+    [
+     -1.14,
+     2.3,
+     2.31
+    ],
+    [
+     -0.02,
+     2.55,
+     3.12
+    ],
+    [
+     0.98,
+     1.88,
+     1.89
+    ]
+   ],
+   "photo": {
+    "L5": 25.4,
+    "L50": 59.1,
+    "L95": 133.5,
+    "sat": 0.169,
+    "body_px": 61212,
+    "glow_px": 1138,
+    "glow_share": 0.0186,
+    "glow_8x8": true,
+    "glow_L50": 222.0,
+    "glow_contrast": 162.9,
+    "L50_target": 56
+   },
+   "body_top_tiles": 4.3
+  },
+  {
+   "level": 10,
+   "name": "QG radar",
+   "era": 4,
+   "O": 2.45,
+   "O_target": 2.46,
+   "O_tige": 3.78,
+   "L": 3.12,
+   "L_max": 3.73,
+   "x": [
+    -1.56,
+    1.56
+   ],
+   "y": [
+    -5.78,
+    1.55
+   ],
+   "area_t2": 12.76,
+   "footprint_cover": 0.566,
+   "iou_prev": 0.612,
+   "added_t2": 2.48,
+   "removed_t2": 4.04,
+   "V_pct": 20.8,
+   "V_min_pct": 4,
+   "iou_lvl1": 0.514,
+   "events": 2,
+   "peaks": [
+    [
+     -1.33,
+     3.78,
+     4.08
+    ],
+    [
+     0.27,
+     2.45,
+     2.36
+    ]
+   ],
+   "photo": {
+    "L5": 16.9,
+    "L50": 92.9,
+    "L95": 194.7,
+    "sat": 0.069,
+    "body_px": 52623,
+    "glow_px": 1464,
+    "glow_share": 0.0278,
+    "glow_8x8": true,
+    "glow_L50": 206.1,
+    "glow_contrast": 113.2,
+    "L50_target": 82
+   },
+   "body_top_tiles": 4.45
+  },
+  {
+   "level": 11,
+   "name": "Tour blanche",
+   "era": 4,
+   "O": 2.66,
+   "O_target": 2.69,
+   "O_tige": 3.52,
+   "L": 3.44,
+   "L_max": 3.76,
+   "x": [
+    -1.72,
+    1.72
+   ],
+   "y": [
+    -5.52,
+    1.66
+   ],
+   "area_t2": 10.25,
+   "footprint_cover": 0.431,
+   "iou_prev": 0.579,
+   "added_t2": 1.81,
+   "removed_t2": 4.32,
+   "V_pct": 29.9,
+   "V_min_pct": 8,
+   "iou_lvl1": 0.512,
+   "events": 1,
+   "peaks": [
+    [
+     -0.02,
+     3.52,
+     6.86
+    ]
+   ],
+   "photo": {
+    "L5": 33.2,
+    "L50": 87.1,
+    "L95": 186.8,
+    "sat": 0.125,
+    "body_px": 43498,
+    "glow_px": 9221,
+    "glow_share": 0.212,
+    "glow_8x8": true,
+    "glow_L50": 255.0,
+    "glow_contrast": 167.9,
+    "L50_target": 100
+   },
+   "body_top_tiles": 4.66
+  },
+  {
+   "level": 12,
+   "name": "Nexus",
+   "era": 4,
+   "O": 2.92,
+   "O_target": 2.92,
+   "O_tige": 3.28,
+   "L": 3.16,
+   "L_max": 3.79,
+   "x": [
+    -1.58,
+    1.58
+   ],
+   "y": [
+    -5.28,
+    1.38
+   ],
+   "area_t2": 9.16,
+   "footprint_cover": 0.283,
+   "iou_prev": 0.501,
+   "added_t2": 2.68,
+   "removed_t2": 3.77,
+   "V_pct": 53.0,
+   "V_min_pct": 12,
+   "iou_lvl1": 0.316,
+   "events": 1,
+   "peaks": [
+    [
+     -0.02,
+     3.28,
+     2.66
+    ]
+   ],
+   "photo": {
+    "L5": 20.4,
+    "L50": 50.6,
+    "L95": 160.8,
+    "sat": 0.238,
+    "body_px": 62371,
+    "glow_px": 4261,
+    "glow_share": 0.0683,
+    "glow_8x8": true,
+    "glow_L50": 226.4,
+    "glow_contrast": 175.8,
+    "L50_target": 60
+   },
+   "body_top_tiles": 4.92
+  },
+  {
+   "level": 13,
+   "name": "Citadelle-réacteur",
+   "era": 5,
+   "O": 3.14,
+   "O_target": 3.14,
+   "O_tige": 3.62,
+   "L": 3.81,
+   "L_max": 3.83,
+   "x": [
+    -1.91,
+    1.91
+   ],
+   "y": [
+    -5.62,
+    1.44
+   ],
+   "area_t2": 12.69,
+   "footprint_cover": 0.254,
+   "iou_prev": 0.329,
+   "added_t2": 7.28,
+   "removed_t2": 3.75,
+   "V_pct": 72.0,
+   "V_min_pct": 17,
+   "iou_lvl1": 0.137,
+   "events": 1,
+   "peaks": [
+    [
+     -0.02,
+     3.62,
+     1.84
+    ]
+   ],
+   "photo": {
+    "L5": 24.9,
+    "L50": 110.4,
+    "L95": 154.3,
+    "sat": 0.221,
+    "body_px": 53340,
+    "glow_px": 8465,
+    "glow_share": 0.1587,
+    "glow_8x8": true,
+    "glow_L50": 173.0,
+    "glow_contrast": 62.6,
+    "L50_target": 92
+   },
+   "body_top_tiles": 5.14
+  },
+  {
+   "level": 14,
+   "name": "Spatioport de commandement",
+   "era": 5,
+   "O": 3.36,
+   "O_target": 3.37,
+   "O_tige": 3.7,
+   "L": 3.84,
+   "L_max": 3.86,
+   "x": [
+    -1.92,
+    1.92
+   ],
+   "y": [
+    -5.7,
+    1.48
+   ],
+   "area_t2": 10.19,
+   "footprint_cover": 0.258,
+   "iou_prev": 0.523,
+   "added_t2": 2.33,
+   "removed_t2": 4.83,
+   "V_pct": 70.6,
+   "V_min_pct": 21,
+   "iou_lvl1": 0.166,
+   "events": 6,
+   "peaks": [
+    [
+     -1.89,
+     2.12,
+     0.66
+    ],
+    [
+     -1.41,
+     2.12,
+     0.66
+    ],
+    [
+     -0.91,
+     2.12,
+     0.66
+    ],
+    [
+     -0.05,
+     3.7,
+     2.42
+    ],
+    [
+     0.95,
+     2.12,
+     0.66
+    ],
+    [
+     1.44,
+     2.12,
+     0.66
+    ]
+   ],
+   "photo": {
+    "L5": 15.4,
+    "L50": 87.1,
+    "L95": 178.3,
+    "sat": 0.385,
+    "body_px": 62460,
+    "glow_px": 918,
+    "glow_share": 0.0147,
+    "glow_8x8": true,
+    "glow_L50": 158.7,
+    "glow_contrast": 71.6,
+    "L50_target": 88
+   },
+   "body_top_tiles": 5.36
+  },
+  {
+   "level": 15,
+   "name": "Palais",
+   "era": 5,
+   "O": 3.5,
+   "O_target": 3.6,
+   "O_tige": 3.86,
+   "L": 3.69,
+   "L_max": 3.9,
+   "x": [
+    -1.84,
+    1.84
+   ],
+   "y": [
+    -5.86,
+    1.55
+   ],
+   "area_t2": 9.74,
+   "footprint_cover": 0.265,
+   "iou_prev": 0.278,
+   "added_t2": 5.4,
+   "removed_t2": 5.85,
+   "V_pct": 48.6,
+   "V_min_pct": 25,
+   "iou_lvl1": 0.343,
+   "events": 1,
+   "peaks": [
+    [
+     -0.02,
+     3.86,
+     3.69
+    ]
+   ],
+   "photo": {
+    "L5": 59.2,
+    "L50": 141.4,
+    "L95": 204.8,
+    "sat": 0.191,
+    "body_px": 51771,
+    "glow_px": 15169,
+    "glow_share": 0.293,
+    "glow_8x8": true,
+    "glow_L50": 255.0,
+    "glow_contrast": 113.6,
+    "L50_target": 108
+   },
+   "body_top_tiles": 5.5
+  }
+ ],
+ "notes": "masques alpha >= 0,5 à 64 px/tuile ; O sur mask-mass ; IoU sur mask-sil",
+ "O_monotone": true,
+ "O_max_vs_ceiling": [
+  3.5,
+  3.6
+ ],
+ "d1_3": {
+  "iou_1_15": 0.343,
+  "iou_1_15_full": 0.487,
+  "iou_norm_scale": 0.432,
+  "k_best": 1.26,
+  "iou_norm_scale_shift": 0.639,
+  "k2_best": 0.96,
+  "shift2_tiles": [
+   0.062,
+   -1.141
+  ]
+ }
+}

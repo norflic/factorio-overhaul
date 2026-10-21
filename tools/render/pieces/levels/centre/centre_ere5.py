@@ -17,7 +17,7 @@ def build_e13(k):
     cuivre = k.metal("cuivre", "#B0703A", rough=0.3, metallic=0.9, grain=0.1, rust="#4A6A58", rust_amount=0.12, dirt=0.35)
     acier = k.metal("acier", "#7A7E84", rough=0.35, metallic=0.8, grain=0.08, dirt=0.4)
     sombre = k.metal("sombre", "#2E3036", rough=0.5, metallic=0.5, dirt=0.3)
-    plasma = k.emit("plasma", "#FF4FD8", strength=0.6)
+    plasma = k.emit("plasma", "#FF4FD8", strength=0.9)
     coeur = k.emit("coeur", "#FF9A3A", strength=0.8)
 
     sty, sz, R = -0.35, 4.65, 1.5
@@ -75,8 +75,8 @@ def build_e14(k):
     cell = k.metal("cellules", "#1E2A55", rough=0.18, metallic=0.6, grain=0.05, dirt=0.15, gain=1.0)
     sombre = k.metal("sombre", "#30333A", rough=0.5, metallic=0.5, dirt=0.3)
     gris = k.matte("aire", "#5A5C60", rough=0.85, grain=0.15)
-    rouge = k.emit("balise", "#FF2A2A", strength=1.0)
-    bleu = k.emit("bleu", "#2F6BFF", strength=0.6)
+    rouge = k.emit("balise", "#FF2A2A", strength=1.6)
+    bleu = k.emit("bleu", "#2F6BFF", strength=1.0)
 
     tty = -0.5
     # --- aire d'envol (couche plate) ---
@@ -144,8 +144,11 @@ def build_e15(k):
 
     bty, z0 = -0.1, 2.05
     # --- émetteur au sol (couche plate) et faisceau (tige fine) ---
-    k.ngon(0.0, bty, 1.15, 24, 0.0, 0.03, lum_d, "emetteur_sol", sy=1.0, bevel=0, role="flat")
-    k.ngon(0.0, bty, 1.25, 24, 0.0, 0.025, sombre, "emetteur_bord", sy=1.0, bevel=0, role="flat")
+    # (2e passe : le disque lumineux PLEIN de 1,15 de rayon faisait une tache blanche plus voyante que le
+    # palais ; dalle sombre, anneau lumineux fin et petit cœur)
+    k.ngon(0.0, bty, 1.25, 24, 0.0, 0.025, sombre, "emetteur_dalle", sy=1.0, bevel=0, role="flat")
+    k.torus(0.0, bty, 0.03, 1.05, 0.03, lum_d, "emetteur_anneau", minor_seg=6, major_seg=72, role="flat")
+    k.ngon(0.0, bty, 0.24, 24, 0.0, 0.035, lum, "emetteur_coeur", sy=1.0, bevel=0, role="flat")
     k.cyl(0.0, bty, 0.045, 0.03, z0, lum_d, "faisceau", verts=12, bevel=0, role="tige")
     for i in range(3):
         k.torus(0.0, bty, 0.45 + 0.5 * i, 0.12 - 0.02 * i, 0.012, orb, "faisceau_bague_%d" % i, minor_seg=6, role="tige")

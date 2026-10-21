@@ -148,8 +148,8 @@ def build_e11(k):
 # 4 pylônes ; givre ; anneaux cyan (rotation par script en phase 2).
 # ----------------------------------------------------------------------------------------------------------
 def build_e12(k):
-    # gain propre : à 1,6 le noir donnait une L50 de 40 pour une cible de 60 (aperçu du 21/10)
-    noir = k.metal("noir_profond", "#26282E", rough=0.3, metallic=0.6, grain=0.06, dirt=0.3, gain=3.0)
+    # gain propre : à 1,6 le noir donnait une L50 de 40 pour une cible de 60, à 3,0 une L50 de 51 (aperçus du 21/10)
+    noir = k.metal("noir_profond", "#26282E", rough=0.3, metallic=0.6, grain=0.06, dirt=0.3, gain=4.3)
     chrome = k.metal("chrome", "#9AA3AD", rough=0.12, metallic=1.0, grain=0.04, dirt=0.25)
     givre = k.matte("givre", "#DDEEFF", rough=0.6, grain=0.25, grain_scale=80.0, dirt=0.2, gain=0.95)
     cyan = k.emit("cyan", "#4AF0FF", strength=0.6)
