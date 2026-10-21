@@ -90,15 +90,46 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
 | F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
 | F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+| F65 | `laser-turret` : `energy_source.buffer_capacity` = 801 kJ et `ammo_type.energy_consumption` = 800 kJ par tir (relu avec `--dump-final`) : le tampon doit contenir un tir. `nuclear-fuel` s'empile par 1, alors que `uranium-235` et `uranium-238` s'empilent par 100. | Lot V2 : l'énergie et le tampon du laser croissent ensemble ; un matériau d'époque s'empile par 50 au moins (`L.MIN_MATERIAL_STACK`). |
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E33 · VALIDÉ · PvP en moteur réel (lot IA0, scénarios greffés, 21/10, 20 h 40 à 20 h 45)** :
+
+| Scénario | Durée | BILAN | Résultat |
+|---|---|---|---|
+| `ia0-normal` | 216 000 ticks (60 min) | 14 OK | 1re attaque au tick 72 001 (Écarlate, 16 soldats, défense estimée 8), soit pile à la fin de la grâce (72 000) ; base témoin touchée au tick 78 060 ; 3 attaques en tout |
+| `ia0-paisible` | 216 000 ticks | 11 OK | Base témoin intacte : 8 bâtiments sur 8, aucun touché |
+| `ia0-difficile` | 144 000 ticks | 7 OK | 1re attaque au tick 43 201 (12 min) ; 6 attaques de 3 factions, de 13 à 43 soldats |
+
+- Non mesurés : `ia0-big` et `ia0-perf` (A1, banc épinglé).
+- Journaux : `<racine>\fo-logs\2026-10-21_integration_IA0_ia0-*`.
+
+**E32 · VALIDÉ · Cadre des 15 époques en moteur réel (lot V2, banc `content` patché, 21/10, 20 h 39)** :
+- Bilan : **209 OK, 0 ÉCHEC**, soit 207 contrôles du lot V2 et 2 de l'exemple greffé.
+- Contrôles en jeu :
+  - 195 prototypes de niveaux, avec leurs groupes de remplacement ;
+  - héritage F21 jusqu'au niveau 30 ;
+  - piles du jeu égales au miroir ; règle de place à chaque niveau ;
+  - force au centre 14 et 6 familles au niveau 27 : 5 chantiers simultanés, le 6e refusé
+    (« no-builder »), le niveau 29 refusé (« cc-too-low ») ;
+  - au niveau 28, munitions, santé, recette et contenu conservés ;
+  - chantiers du centre 14 → 15 et de la mitrailleuse 28 → 30 ;
+  - aucun secours manuel.
+- Journal : `[FO-LEVELS] 19 objets de coût, tous présents ; 5 matériaux d'époque provisoires`.
+- Hors jeu : levels 1 228 et migration 27. La garde de `dress` est testée sur 32 cas d'agent V3 :
+  8 acceptés, 24 refusés.
+- Contre-vérification finale : 1 majeur, corrigé au lot V2b. La garde ne compare qu'une partie de la
+  config, et une modification de `data.raw` hors des prototypes sources passe.
+- Modèle de durée : 60 h 26 pour 60 h visées. Non prouvé en partie réelle.
+
 **E31 · Défauts trouvés · Vérification indépendante des 18 captures V0 (3 vérificateurs, mesures au pixel)** :
 - Méthode :
   - recalage de chaque couche sur la capture (recherche exhaustive du décalage) ;
   - carte des lumières de nuit reconstruite à partir de la paire jour/nuit et de la LUT `lut-night.png` ;
   - photométrie par masques.
-- Rapport : `<racine>o-logs6-10-21_V0_verif-capturesapport.md`.
+- Rapport : `<racine>o-logs6-10-21_V0_verif-captures
+apport.md`.
 - Conforme : les 4 couches tombent exactement sur leurs décalages déclarés (0 px d'écart) aux zooms 1, 2 et 4,
   de jour comme de nuit ; l'ombre part du pied ; aucun pixel de la cheminée ne passe devant le four.
 - **Bloquant** (four équipé, nuit) : la passe light a été rendue sans le four. Elle projette donc un trou en

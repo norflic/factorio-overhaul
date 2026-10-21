@@ -44,7 +44,8 @@ factorio-overhaul/
 │   ├── companion/body.lua, world.lua, modules.lua, enemies.lua, arsenal.lua, faction.lua
 │   ├── arsenal_special.lua         # canon, mortier, tour à arc, pulvérisateur d'acide, armes portatives
 │   ├── evolution.lua               # couches lumineuses (masques, reflet, halo de nuit)
-│   └── levels.lua                  # centre de commandement + niveaux 2-10 de 6 familles (70 entités)
+│   ├── levels.lua                  # point d'entrée des niveaux (lot V2)
+│   └── levels/                     # common.lua (non visuel, garde de dress), style.lua (style commun Q10), un fichier par famille : centre 15 niveaux, 6 familles × 30
 ├── script/
 │   ├── core/                       # socle (événements, stockage versionné, ordonnanceur, pathfinding, FSM, traces…)
 │   ├── agents/nav.lua              # navigation partagée des agents riches
@@ -167,6 +168,18 @@ fabriqué, équipé ou recherché sort du stock, et tout ce qui est produit y re
   proprement au chargement et les joueurs sont prévenus ; les machines à états inconnues sont inertes.
 - **Attaque** : décision pure `shared/faction/strategy.lua` : taille minimale envoyée = 20 / agressivité
   (conquérant 13 … bâtisseur 28), garnison gardée, force ≥ 1,3 × défense estimée (Lanchester).
+- **PvP et difficulté** (lot IA0, `script/faction/pvp.lua`, réglages dans `settings/faction.lua`) :
+  - Le réglage de partie `fo-pvp-difficulty` offre 5 niveaux. « Paisible » est l'ancien cessez-le-feu.
+  - Hors Paisible, une faction déclare la guerre au joueur à la fin de sa grâce. Un préavis de 2 min
+    est garanti, et `grace_floor` le maintient quand le niveau change en cours de partie.
+  - Le joueur est alors une cible comme une rivale, dans la stratégie pure (`S.decide`) : même règle
+    de coalition contre le leader, territoire compté en unité commune.
+  - Repérage des installations du joueur : un `count_entities_filtered` toutes les 8 ticks, sur un
+    disque de 24 secteurs.
+  - Abattre un attaquant en guerre ouverte n'est pas une provocation.
+  - Une sauvegarde déjà en guerre garde ses hostilités (hostilité héritée).
+  - Limites : seule la force `player` est visée, et seulement dans un rayon de 1 536 tuiles.
+  - Chiffres : BALANCE_SHEET §10 bis.
 - **Pathfinding des agents** : un départ qui chevauche un obstacle avec la boîte élargie de la requête est
   poussé hors de l'obstacle avant la demande (`script/core/path_service.lua`).
 
@@ -239,7 +252,23 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 **Décision du Directeur Créatif** : une progression par niveaux, avec de vrais échelons, presque un jeu
 « idle ». Règles et chiffres : BALANCE_SHEET §12.
 
-- **Un prototype par niveau.** Le niveau 1 est le bâtiment vanilla ; les niveaux 2 à 10 s'appellent
+- **Structure (lot V2).** `shared/levels/config.lua` porte les règles pures :
+  - 15 époques ; centre de 1 à 15 ; familles de 1 à 30 ; plafond = min(30, 2 × centre) ;
+  - ouvriers de 1 à 5 ;
+  - courbe de coûts et de durées par époque, avec ses monnaies et une table d'indirection pour les
+    matériaux encore provisoires ;
+  - règle de place (`L.stack_size`, `L.cost_slots`, `L.chest_slots`) : un chantier tient dans la
+    moitié du coffre du centre qui le paie.
+
+  `prototypes/levels/common.lua` génère tout ce qui n'est pas visuel. Chaque `prototypes/levels/<famille>.lua`
+  fournit son visuel par `dress`/`icons`, sous une **garde inversée**, qui fonctionne ainsi :
+  - tout le prototype est capturé, sauf une liste blanche graphique ;
+  - toute modification de jeu, de la config, du style commun ou des prototypes sources est refusée,
+    avec un message qui nomme la clé ;
+  - `ctx` est en lecture seule.
+
+  Les 7 agents V3 travaillent donc chacun dans un seul fichier.
+- **Un prototype par niveau.** Le niveau 1 est le bâtiment vanilla ; les niveaux 2 à 30 (centre : 2 à 15) s'appellent
   `fo-lvl-<famille>-<n>`, et le centre de commandement de base `fo-command-center`. Chaque niveau a son
   objet, pour qu'un bâtiment démonté garde son niveau. Pas de `next_upgrade`, pour que le planificateur
   d'amélioration ne contourne ni le coût ni le plafond. `L.parse(nom)` donne famille et niveau

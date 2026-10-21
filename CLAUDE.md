@@ -64,13 +64,14 @@ de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le ch
 Résultats attendus aujourd'hui :
 ```
 lua5.2 tests/run.lua             -> 114 OK
-lua5.2 tests/war_test.lua        -> 86 OK
+lua5.2 tests/war_test.lua        -> 92 OK
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
-lua5.2 tests/migration_test.lua  -> 12 OK
-lua5.2 tests/levels_test.lua     -> 556 OK
+lua5.2 tests/migration_test.lua  -> 27 OK
+lua5.2 tests/levels_test.lua     -> 1228 OK
+lua5.2 tests/pvp_test.lua        -> 274 OK   (environ 3 min ; "pure" en argument : 191 OK, partie pure seule)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 342 usages, 0 erreur (dont 25 du mod de test)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 378 usages, 0 erreur (mod de test compris)
 ```
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
@@ -84,14 +85,17 @@ python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 342 u
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 182 OK, 0 ECHEC(S)` (21/10, 19 h 07 : 180 contrôles de base + 2 de l'exemple greffé
-   `checks/exemple.lua`).
+   attend `BILAN : 209 OK, 0 ECHEC(S)` (21/10, 20 h 39 : 207 contrôles, dont les 15 époques du lot V2,
+   + 2 de l'exemple greffé `checks/exemple.lua`).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 182 contrôles ;
+- `content` : banc de contenu, 209 contrôles ;
+- scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
+  (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
+  tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;
 - `waves` : défense de tours et guerre ;
 - `pteam` : équipe du joueur ;
 - `stress` : 402 agents ;

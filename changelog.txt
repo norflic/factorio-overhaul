@@ -1,4 +1,36 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.0
+Date: 2026-10-21
+  Features:
+    - Factions : niveaux de difficulté (réglage de partie « Factions : difficulté » : Paisible, Facile,
+      Normal, Difficile, Impitoyable ; Normal par défaut). Hors Paisible, les factions vous déclarent la
+      guerre d'elles-mêmes après un délai de grâce, avec un préavis de 2 min, et attaquent vos
+      installations. Un message accompagne chaque déclaration et chaque attaque. Le niveau se change en
+      cours de partie.
+    - Niveaux sur 15 époques : le centre de commandement va jusqu'au niveau 15 (une époque par niveau) ;
+      mitrailleuse, tourelle laser, mur, foreuse, four et machine d'assemblage vont jusqu'au niveau 30 ;
+      plafond 2 × le niveau du centre ; 1 à 5 ouvriers ; coûts et durées par époque, monnaies d'époque.
+  Changes:
+    - Le réglage « cessez-le-feu avec le joueur au départ » est retiré et remplacé par la difficulté
+      « Paisible ». Une guerre en cours garde ses hostilités.
+    - Tourelles à niveaux : dégâts +8 %/niveau jusqu'au niveau 10, puis +2 % ; énergie du laser
+      proportionnelle à ses dégâts.
+    - Un chantier tient dans la moitié du coffre du centre qui le paie.
+    - Le panneau « Évolution » n'agit que sur votre force.
+    - Au chargement, les PV au-dessus du nouveau maximum sont ramenés au maximum (murs des
+      sauvegardes 0.3.0).
+  Info:
+    - Reprise dans Claude Code (P0) : dépôt git ; banc de l'étape data utilisable sous Windows ; banc en
+      moteur réel capable de tester un worktree (source du mod en paramètre), sans recopier .git ni les
+      worktrees, et qui signale un verrou pris (code 2) ; fichiers orphelins de la session 3 supprimés.
+    - Bible des 15 époques (docs/DESIGN_EPOQUES.md) : silhouettes, pièces, matériaux et lumière des 7
+      familles à niveaux, mesures des sprites vanilla.
+    - Captures entièrement automatiques (fo-captures.bat) : la session de test avec images s'arrête seule,
+      fenêtre réduite sans focus, index et planche-contact ; vitrine d'entités à côté des références
+      vanilla ; greffons de scénarios et de contrôles ; cache d'atlas (sprites en 5 s).
+    - Pipeline de rendu 3D étalonné sur le vanilla (tools/render, Blender) ; vitrine : cheminée rivetée
+      (fo-vitrine-v0-cheminee, fo-vitrine-v0-cheminee-four) ; style validé par le Directeur Créatif.
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2026-10-21
   Features:
@@ -38,17 +70,6 @@ Date: 2026-10-21
     - Sauvegarde 0.2 : la guerre à MU est arrêtée proprement au chargement (migration).
     - Cristal brun-olive et tungstène verdâtre (éclat de l'uranium vert pur, impossible à recolorer).
     - Méthane : bonus de lance-flammes porté à ×1,5 (mesuré : +12 à +14 % de dégâts totaux).
-  Info:
-    - Reprise dans Claude Code (P0) : dépôt git ; banc de l'étape data utilisable sous Windows ; banc en
-      moteur réel capable de tester un worktree (source du mod en paramètre), sans recopier .git ni les
-      worktrees, et qui signale un verrou pris (code 2) ; fichiers orphelins de la session 3 supprimés.
-    - Bible des 15 époques (docs/DESIGN_EPOQUES.md) : silhouettes, pièces, matériaux et lumière des 7
-      familles à niveaux, mesures des sprites vanilla.
-    - Captures entièrement automatiques (fo-captures.bat) : la session de test avec images s'arrête seule,
-      fenêtre réduite sans focus, index et planche-contact ; vitrine d'entités à côté des références
-      vanilla ; greffons de scénarios et de contrôles ; cache d'atlas (sprites en 5 s).
-    - Pipeline de rendu 3D étalonné sur le vanilla (tools/render, Blender) ; vitrine : cheminée rivetée
-      (fo-vitrine-v0-cheminee, fo-vitrine-v0-cheminee-four), en attente du verdict visuel.
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-21

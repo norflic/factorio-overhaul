@@ -273,6 +273,37 @@ Revenu en MU (QG 1 MU/s, foreuses électriques inactives à 0,5 MU/s), soldats p
 1 200 × 2^tech MU. En moteur réel (session 3, 30 min) : technologie 3-4, 3-7 avant-postes, 33-100 soldats.
 Remplacée parce qu'elle ne faisait pas JOUER les équipes (aucun objet réel, aucun bâtiment qui tourne).
 
+### 10 bis. PvP et difficulté (lot IA0, 21/10)
+Réglage de partie `fo-pvp-difficulty` (runtime-global). Paramètres : `shared/faction/config.lua`.
+
+| Niveau | Agressif | Grâce (min) | Délai entre attaques (min) | Part des forces | keep_mult | min_mult | size_mult | save_min |
+|---|---|---|---|---|---|---|---|---|
+| Paisible | non | — | — | 0 | 1 | 1 | 1 | 0 |
+| Facile | oui | 45 | 15 | 0,20 | 1,5 | 0,6 | 0,6 | 0 |
+| Normal (défaut) | oui | 30 | 8 | 0,40 | 1 | 1 | 1 | 3 |
+| Difficile | oui | 18 | 5 | 0,65 | 0,5 | 0,9 | 1,4 | 5 |
+| Impitoyable | oui | 10 | 3 | 0,90 | 0,25 | 0,8 | 1,5 | 7 |
+
+Règles :
+- La grâce est divisée par l'agressivité de la personnalité. Préavis : 2 min.
+- Coalition contre un joueur leader : part = s + 0,25 × (1 - s).
+- Le territoire du joueur compte 2 secteurs pour 1 avant-poste (valeur provisoire).
+- Repérage : disque de rayon 24 secteurs (1 793 secteurs, 1 536 tuiles), 1 secteur toutes les 8 ticks ;
+  le balayage complet prend 4 min.
+
+Mesures :
+
+| Banc | Facile | Normal | Difficile | Impitoyable |
+|---|---|---|---|---|
+| Moteur simulé (2 factions, 45 min) : 1re attaque | 30,0 min | 20,0 min | 12,0 min | 8,8 min |
+| Moteur simulé : nombre d'attaques | 1 | 4 | 6 | 8 |
+| Moteur simulé : taille moyenne | 11,0 | 18,0 | 18,7 | 19,4 |
+| Moteur réel (4 factions, E33) | — | 1re à 20,0 min ; 3 attaques en 60 min ; 16 soldats | 1re à 12,0 min ; 6 attaques en 40 min ; 13 à 43 soldats | — |
+
+**Défaut connu (lot IA0b)** : une base défendue n'est jamais attaquée. Il suffit de 3 tourelles en tech 0,
+ou de 8 à 10 en tech 2. Cause : la règle « force ≥ 1,3 × défense », combinée au repli sur la faction rivale
+après `save_min`.
+
 ## 11. Défense de tours (session 4)
 
 | Paramètre | Valeur |

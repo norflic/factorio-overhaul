@@ -75,15 +75,15 @@
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 | 24 à 30 soldats par armée, pas 100 |
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
-| C4 | PvP | 🟨 | Les factions ne font que riposter. Q4 : elles doivent attaquer, avec niveaux de difficulté (lot IA0) |
+| C4 | PvP | 🟨 | Attaques contre vous et 5 difficultés **prouvées en moteur réel** (21/10, 20 h 45). Restent : budget A1 non mesuré ; une base défendue (3 tourelles en tech 0) n'est jamais attaquée (lot IA0b) |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
-| E1 | Échelons façon Clash of Clans (mécanique) | ✅ | 180/180 en moteur réel. À étendre à 15 époques (F1) |
+| E1 | Échelons façon Clash of Clans (mécanique) | ✅ | Étendu à 15 époques et 30 niveaux, prouvé en moteur réel (`content` 209 OK, 21/10, 20 h 39) |
 | E2 | **Qualité des niveaux : chaque niveau se voit** | ❌ | Même constat que D1 |
-| E3 | Boucle « presque idle game » | 🟨 | Mécanismes idle manquants (liste en E3) |
+| E3 | Boucle « presque idle game » | 🟨 | Mécanismes idle manquants. **Écart chiffré par V2 : sans file de chantiers, il faut relancer un chantier toutes les 10 s à l'époque 6 (Q17)** |
 | E4 | Interface des niveaux (panneau, touche U) | 🟨 | Jamais vue à l'écran en moteur réel |
-| **F1** | **Jeu continu en 15 époques** | ❌ | Nouvel objectif (17 h 35) : le cadre est à poser (§3 F1, §6) |
+| **F1** | **Jeu continu en 15 époques** | 🟨 | Cadre posé et prouvé en moteur réel (V2) ; contenu des époques en conception (X0) ; visuel en production (V3) |
 
 ---
 
@@ -206,8 +206,25 @@
   4. Prouvé en moteur réel : une base témoin du joueur est attaquée au niveau « Normal » après le délai
      de grâce, et ne l'est pas au niveau « Paisible ».
   5. Le budget A1 est tenu.
-- **État** : 🟨 Les factions s'affrontent entre elles. Avec vous, elles restent en cessez-le-feu tant que
-  vous ne les attaquez pas. ⏳ Lot IA0 lancé (21/10, 18 h).
+- **État** : 🟨 Lot IA0 intégré le 21/10 à 20 h 45.
+  - C4-1 ✅ Le réglage « Factions : difficulté » propose Paisible, Facile, Normal (par défaut),
+    Difficile et Impitoyable. Il se modifie en cours de partie avec 2 min de préavis. L'ancien réglage de
+    cessez-le-feu est retiré. Une sauvegarde 0.3.0 en guerre garde ses hostilités.
+  - C4-2 ✅ Vous devenez une cible comme une faction rivale, et vous êtes prévenu à chaque déclaration et
+    à chaque attaque. Deux écarts à la lettre demeurent : la coalition n'agit que sur la part des forces,
+    et vous n'êtes jamais traité comme « le voisin ».
+  - C4-3 🟨 L'ordre strict des niveaux est prouvé hors jeu. Première attaque en moteur simulé :
+    Facile 30 min, Normal 20, Difficile 12, Impitoyable 8,8 ; en moteur réel : Normal 20 min,
+    Difficile 12 min.
+    - **Écart** : une base bien défendue n'est jamais attaquée. En tech 0, 3 tourelles suffisent, à tous
+      les niveaux, à cause de la règle « force ≥ 1,3 × défense ». Correction au lot IA0b.
+  - C4-4 ✅ **Moteur réel** (E33) :
+    - Normal : 1re attaque au tick 72 001, à la fin de la grâce ; base témoin touchée au tick 78 060 ;
+    - Paisible : base témoin intacte, 8 bâtiments sur 8 ;
+    - Difficile : 1re attaque à 12 min, 6 attaques.
+  - C4-5 ❌ Non mesuré : les scénarios `ia0-big` et `ia0-perf` (banc épinglé) restent à passer.
+  - Limites documentées : seule la force `player` est visée ; les installations ne sont repérées qu'à
+    1 536 tuiles du départ au plus.
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -274,8 +291,15 @@
   5. Contenu, recette, munitions et santé sont conservés.
   6. 7 familles × 10 niveaux.
   7. Le bonus de recherche est hérité.
-- **État** : ✅ **180/180 en moteur réel** (E24, 21/10, 17 h 30). **À étendre** à 15 époques (F1), ce
-  qui implique de refaire la courbe de coûts (BALANCE_SHEET §12).
+- **État** : ✅ Étendu à 15 époques par le lot V2, prouvé en moteur réel (`content` **209 OK, 0
+  échec**, 21/10, 20 h 39 ; E32). Le banc couvre :
+  - 195 niveaux : centre de 1 à 15, 6 familles de 1 à 30 ;
+  - plafond = 2 × le niveau du centre ; ouvriers de 1 à 5 ;
+  - chantiers du centre 14 → 15 et de la mitrailleuse 28 → 30 ;
+  - règle de place : un chantier tient dans la moitié du coffre du centre ;
+  - héritage F21 jusqu'au niveau 30 ;
+  - 0 secours manuel.
+  La courbe par époque est dans BALANCE_SHEET §12. Questions ouvertes : Q14 à Q16.
 
 ### E2 · Qualité des niveaux : chaque niveau se voit
 - **Critères d'acceptation** : D1, D2 et D3 appliqués à toutes les familles et à toutes les époques.
@@ -291,7 +315,10 @@
   4. Une file de chantiers (le suivant démarre dès qu'un ouvrier se libère). ❌
   5. Plus de familles à niveaux : tapis, bras, labos, énergie, tourelles spéciales, radars. ❌
   6. Les factions IA et la défense de tours utilisent aussi les niveaux et les époques. ❌
-- **État** : 🟨
+- **État** : 🟨 **Écart chiffré par V2 (BALANCE_SHEET §12)** : sans file de chantiers (critère 4), la base de
+  référence relance 567 chantiers à l'époque 6, soit un toutes les 10 s. À l'époque 15, c'est 1 755
+  chantiers, un toutes les 26 s. Ce n'est pas une boucle « idle ». Proposition : avancer le critère 4
+  (Q17).
 
 ### E4 · Interface des niveaux
 - **Critères d'acceptation**
@@ -335,8 +362,13 @@
   6. ❔ Des branches avancées (matière noire, etc.) existent, chacune avec un scénario écrit et des
      arbres de fabrication complets. Chaque objet est fabricable à partir des ressources de la carte,
      ce qui est vérifié automatiquement hors jeu, puis en moteur réel quand la branche est implémentée.
-- **État** : ❌ Le cadre est à poser. Époques validées (Q7). ⏳ Lots V2 (cadre, 21/10, 18 h) et X0
-  (scénario, crafts, branches avancées) lancés.
+- **État** : 🟨
+  - **Cadre posé (V2), prouvé en moteur réel** (voir E1).
+  - Durée de jeu donnée par le modèle : 60 h 26 pour 60 h visées, chaque époque entre -2 % et +20 % de
+    sa cible. Selon les hypothèses : 73 h si les ouvriers ne sont occupés qu'à 50 % ; 86 h ou 46 h si
+    la production vaut × 0,7 ou × 1,3. **Non prouvé en partie réelle.**
+  - 5 matériaux d'époque sont encore provisoires (époques 11 à 15), en attendant X0.
+  - ⏳ X0 (scénario, crafts, branches avancées) : en finition. ⏳ V3 (visuel) : en production.
 
 ---
 
@@ -357,6 +389,10 @@
 | Q11 | Niveau 1 : sprite vanilla inchangé pour les 6 familles, et centre d'époque 1 redessiné en poste de pionnier ? | 21/10, 18 h 49 : « oui » | Niveau 1 vanilla pour les 6 familles ; centre d'époque 1 redessiné en poste de pionnier |
 | Q12 | Économies sur les tourelles : 1 image de tir au lieu de 2 (−42 % d'images sur la mitrailleuse), déploiement du laser en 8 images au lieu de 15 (−22 %) ? | 21/10, 18 h 49 : « oui si vous voulez, je sais pas vraiment l'impact que ça aura en vérité. » | Décision de l'architecte : **pas d'économie par défaut** (R4, précision : recul du canon et déploiement complets). On n'y revient que si le temps de rendu mesuré par V0 l'impose, et on vous le dira |
 | Q13 | Amender D1-3 (faille E27 : un simple agrandissement passait) ? | 21/10, 18 h 54 : « Oui, j'accepte l'amendement de D1-3 : socle exclu de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). » | D1-3 amendé : (a) couches plates au sol exclues du masque ; (b) recouvrement normalisé en échelle ≤ seuil à étalonner (proposition 0,75) ; s'ajoute à IoU < 0,50 |
+| Q14 | Tourelles à niveaux et tourelles lourdes du mod : (A) dégâts +2 %/niveau après le niveau 10, d'où un DPS au niveau 30 de 0,94 × la mitrailleuse lourde et 1,06 × le laser lourd (appliqué par V2) ; ou (B) des niveaux pour les tourelles lourdes, ou leur retrait ? | **Ouverte** (A appliquée provisoirement) | Équilibre B4/B5 |
+| Q15 | Sauvegardes 0.3.0 : un mur de niveau 10 passe de 3 712 à 1 925 PV (nouvelle courbe). D'accord ? | **Ouverte** | Rupture de compatibilité mineure |
+| Q16 | Condition façon Clash of Clans pour monter le centre (par exemple, tous les bâtiments au niveau maximal de l'époque) ? Aujourd'hui, monter le centre seul ne coûte que 0,9 % de la dépense | **Ouverte** | Rythme de F1 |
+| Q17 | Avancer la file de chantiers (E3-4) avant la Compaction ? Sans elle, il faut relancer un chantier toutes les 10 s à l'époque 6 | **Ouverte** (proposition : oui) | Boucle idle (E3) |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -463,11 +499,12 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | P1 Captures automatiques | ✅ H-T1 validée | `fo-captures.bat` : galerie `content` deux fois (code 0, 84/84, 117 s et 79 s, 0 processus restant), vitrine 26/26, guerre 21/21 ; codes 2, 3, 6, 7 testés ; greffons de scénarios et de contrôles. **Revérifié par l'orchestrateur après fusion** : `content` 182 OK, 0 échec (19 h 06) ; code de fermeture relu (ne vise que le PID lancé et la ligne de commande `fo-visual`) | 21/10, 19 h 10 |
 | V0 Pipeline de rendu | ✅ **style validé par vous** (21/10, 19 h 36 : « Verdict V0 : le style de la cheminée s'intègre bien au vanilla, validé. Corrigez les défauts techniques relevés et lancez la production V3. ») ; défauts techniques à corriger au lot V0b | Blender 5.2.2 (somme vérifiée) ; étalonnage mesuré (E29) ; cheminée rivetée rendue (4 couches) et posée en jeu à côté du vanilla ; 18/18 captures jour/nuit, zooms 1, 2 et 4 (E30). Défauts connus : pièce trop mate (écart-type et p95 hors plages vanilla), anneau translucide la nuit | 21/10, 19 h 36 |
 | V1 Bible des époques | 🟨 👁 bible livrée et intégrée (`docs/DESIGN_EPOQUES.md`, 1 153 lignes, + `docs/epoques/mesures/`) ; aucune planche (attend V0) ; questions Q8 à Q12 ouvertes ; faits vérifiés par 3 vérificateurs adverses : F44, F45, F46, F48 confirmés avec corrections, F47 (soleil au nord-ouest) RÉFUTÉ et corrigé (ombres plein est), E27 corrigé ; bible corrigée | Fusion `b1348e2` ; mesures vanilla sourcées fichier par fichier ; rien de vérifié en jeu | 21/10, 18 h 45 |
-| V0b Corrections du pipeline | ⏳ workflow lancé (21/10, 19 h 55) : corriger les défauts trouvés par la vérification indépendante (E31), dont un BLOQUANT que l'œil n'avait pas vu (halo du four équipé : trou en forme du pied caché sur le toit du four, façade éclairée 3 fois trop), puis nouvelles captures en jeu et contre-vérification | Rapport : fo-logs6-10-21_V0_verif-capturesapport.md | 21/10, 19 h 55 |
-| V3 phase 1 : modélisation des 7 familles | ⏳ workflow lancé (aperçus des 30 niveaux, auto-mesure D1 ; rien en jeu avant V2 et V0b) | — | 21/10, 19 h 40 |
-| V2 Cadre des 15 époques | ⏳ workflow lancé (Q6 répondue) | — | 21/10, 18 h 10 |
-| X0 Scénario, crafts, branches | ⏳ workflow lancé (Q7 répondue) | — | 21/10, 18 h 10 |
-| IA0 PvP et difficulté | ⏳ workflow lancé (Q4 répondue) | — | 21/10, 18 h 10 |
+| V0b Corrections du pipeline | ⏳ workflow lancé (21/10, 19 h 55) : corriger les défauts trouvés par la vérification indépendante (E31), dont un BLOQUANT que l'œil n'avait pas vu (halo du four équipé : trou en forme du pied caché sur le toit du four, façade éclairée 3 fois trop), puis nouvelles captures en jeu et contre-vérification | Rapport : fo-logs6-10-21_V0_verif-captures
+apport.md | 21/10, 19 h 55 |
+| V3 phase 1 : modélisation des 7 familles | ⏳ workflow lancé (aperçus des 30 niveaux, auto-mesure D1 ; rien en jeu avant V2 et V0b) | — | 21/10, 19 h 40 ; relancé à 20 h 35 après l'arrêt de la session (environ 2 000 lignes par famille conservées) |
+| V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
+| X0 Scénario, crafts, branches | ⏳ 9 agents sur 10 terminés avant l'arrêt de la session ; correcteur final relancé (20 h 35) | — | 21/10, 20 h 35 |
+| IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
