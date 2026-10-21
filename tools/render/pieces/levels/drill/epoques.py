@@ -31,8 +31,20 @@ EMIT_K = 0.40        # facteur des forces émissives de glow() (≈ 1 en sortie,
 # ------------------------------------------------------------------------------------------------
 # Matériaux
 # ------------------------------------------------------------------------------------------------
+# Gain d'albédo par époque (linéaire), réglé sur la luminance médiane RENDUE du corps (bible §1.5, règle 1 :
+# cible de l'époque ± 10, entre 40 et 110). Mesures des aperçus rapides du 22/10 (0 h 55), sans gain :
+# e2 61 (cible 52), e3 44 (58), e4 70 (60), e10 137 (82), e13 137 (92), e14 107 (88), e15 111 à 121 (108).
+# Gain ≈ (cible / mesure)^2,2 (sRGB -> linéaire), arrondi ; les autres époques sont dans la tolérance.
+# 2e passe (1 h 05) : e5 38 (42) -> 1,25 ; e13 104 avec 0,42 -> 0,32 ; e14 101 avec 0,70 -> 0,52, puis 0,47
+# (pose N à 100 avec 0,52 ; poses E, S, O de 77 à 80 : corps bimodal blanc, or, cellules sombres).
+ALB_GAIN = {2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 10: 0.33, 13: 0.32, 14: 0.47, 15: 0.80}
+
+
 def metal(ctx, key, hexc, rough=0.40, metallic=0.55, grain=0.20, gs=55.0, rust=None, ra=0.0, dirt=0.45, k=1.0):
     seed = float(sum(ord(c) for c in key) % 97) + 0.5
+    lvl = getattr(ctx, "level", None)
+    if lvl:
+        k = k * ALB_GAIN.get((lvl + 1) // 2, 1.0)
     return ctx.S.mat_metal(ctx.name(key), scale(srgb(hexc), k), rough=rough, metallic=metallic, grain=grain,
                            grain_scale=gs, rust=srgb(rust) if rust else None, rust_amount=ra, rust_scale=5.0,
                            dirt=dirt, seed=seed)
@@ -1074,13 +1086,14 @@ def e14(ctx, piece):
         ctx.sph(s * 1.58, 0.0, 1.76, 0.05, red, name="balise_aile")
     halo(ctx, 0, 0.3, 1.8, "#2F6BFF", 8.0)
     # câble-mât : colonne blanche, haubans vers les bouts d'ailes, balise rouge au sommet
-    ctx.cyl(0, 0, 2.20, 4.10, 0.10, white, name="mat")
+    # mât relevé de 4,10 à 4,20 (22/10) : O de l'époque 14 = 1,45 en aperçu, égal à l'époque 13 (cible 1,51)
+    ctx.cyl(0, 0, 2.20, 4.20, 0.10, white, name="mat")
     for z in (2.80, 3.40):
         ctx.cyl(0, 0, z, z + 0.06, 0.11, gold, name="mat_bague")
-    ctx.sph(0, 0, 4.14, 0.075, red, name="balise")
+    ctx.sph(0, 0, 4.24, 0.075, red, name="balise")
     for s in (-1, 1):
-        ctx.rod((0, 0, 3.98), (s * 1.50, 0.0, 1.80), 0.008, gold, name="hauban")
-    halo(ctx, 0, 0, 4.14, "#FF2A2A", 6.0)
+        ctx.rod((0, 0, 4.08), (s * 1.50, 0.0, 1.80), 0.008, gold, name="hauban")
+    halo(ctx, 0, 0, 4.24, "#FF2A2A", 6.0)
     ctx.beam((0, -0.40, 1.00), (0, CHUTE_OUT, 0.60), 0.40, gold, h=0.06, name="goulotte_or")
     ctx.beam((0, -0.40, 1.06), (0, CHUTE_OUT, 0.66), 0.42, white, h=0.025, name="goulotte_bord")
     if piece:
@@ -1158,10 +1171,11 @@ def e15(ctx, piece):
         f.level = ctx.level
         light2 = glow(f, "e15p_halo", "#FFF2C0", strength=3.2)
         wgold2 = metal(f, "e15p_or_blanc", "#E8DCB0", rough=0.22, metallic=0.75, k=0.62)
-        f.tor(0, 0, 3.78, 0.46, 0.045, light2, mseg=12, name="halo")
-        f.tor(0, 0, 3.78, 0.53, 0.018, wgold2, mseg=8, name="halo_cercle")
-        f.tor(0, 0, 4.02, 0.30, 0.03, light2, rot=(0.35, 0.0, 0.0), mseg=10, name="halo_incline")
-        halo(f, 0, 0, 3.81, "#FFF2C0", 10.0)
+        # abaissé de 0,12 (22/10) : à z = 3,78, O du niveau 30 = 1,64 en aperçu, au-dessus du plafond 1,60 (Q9)
+        f.tor(0, 0, 3.66, 0.46, 0.045, light2, mseg=12, name="halo")
+        f.tor(0, 0, 3.66, 0.53, 0.018, wgold2, mseg=8, name="halo_cercle")
+        f.tor(0, 0, 3.90, 0.30, 0.03, light2, rot=(0.35, 0.0, 0.0), mseg=10, name="halo_incline")
+        halo(f, 0, 0, 3.69, "#FFF2C0", 10.0)
 
 
 BUILDERS = {2: e02, 3: e03, 4: e04, 5: e05, 6: e06, 7: e07, 8: e08, 9: e09, 10: e10, 11: e11, 12: e12, 13: e13,

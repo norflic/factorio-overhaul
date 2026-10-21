@@ -119,6 +119,11 @@ def components_max(m):
 def photometry(main, glow):
     a = main[..., 3]
     m = a >= 0.99
+    if glow is not None:
+        # corps = hors des zones émissives (bible §1.5 : règles de palette du CORPS ; les émissifs vivent
+        # dans leurs couches). Aperçus rapides : pas de couche de lueur, émissifs comptés dans le corps.
+        gpm = glow[..., :3] * glow[..., 3:4]
+        m = m & (gpm.max(-1) < 0.05)
     rgb = main[..., :3]
     L = rgb @ LUMA * 255
     mx, mn = rgb.max(-1), rgb.min(-1)
@@ -214,7 +219,88 @@ def table(res):
     if res["d13"]:
         lines.append("D1-3 max sur les poses : IoU = %.3f ; IoU normalisée = %.3f" % (
             max(v["iou"] for v in res["d13"].values()), max(v["iou_norm"] for v in res["d13"].values())))
+    lines.append("")
+    lines += checks(res)
     return "\n".join(lines)
+
+
+def checks(res):
+    """Contrôles automatiques (indicateurs de la bible §1.4 ; ils aident le verdict, ne le remplacent pas)."""
+    out = ["Contrôles (max ou min sur les 4 poses) :"]
+    lv = res["levels"]
+    fails = []
+
+    def worst(key, k, f):
+        v = [lv[key][d][k] for d in IO.DIRS if d in lv.get(key, {}) and k in lv[key][d]]
+        return f(v) if v else None
+    # pièce paire >= 0,10 t² ajoutée, dans chaque pose
+    for lvl in range(2, 31, 2):
+        a = worst("L%02d" % lvl, "added", min)
+        if a is not None and a < 0.10:
+            fails.append("L%02d : pièce paire %.3f t² < 0,10" % (lvl, a))
+    # niveau impair : IoU avec le pair précédent <= 0,85 ; avec l'impair précédent <= 0,85
+    for lvl in range(3, 31, 2):
+        for k, lab in (("iou_prev", "IoU avec le niveau pair précédent"), ("iou_epoch_prev", "IoU entre époques")):
+            v = worst("L%02d" % lvl, k, max)
+            if v is not None and v > 0.85:
+                fails.append("L%02d : %s %.3f > 0,85" % (lvl, lab, v))
+    # O : niveaux impairs jamais décroissants (pose N et max des poses) ; tous les niveaux sous le plafond
+    prev = None
+    for lvl in range(1, 31, 2):
+        key = "L%02d" % lvl
+        if key not in lv or "N" not in lv[key]:
+            continue
+        o = lv[key]["N"]["O"]
+        if prev is not None and o < prev[1] - 1.0 / 64:
+            fails.append("%s : O (pose N) %.2f < %.2f (%s)" % (key, o, prev[1], prev[0]))
+        prev = (key, o)
+    for key in sorted(lv):
+        o = worst(key, "O", max)
+        if o is not None and o > O_CEIL + 1.0 / 64:
+            fails.append("%s : O %.2f > plafond %.2f" % (key, o, O_CEIL))
+    # emprise : rien ne dépasse de plus de 0,25 tuile sur les côtés ni au sud (F42 : 0,10 à 0,25 permis)
+    for key in sorted(lv):
+        for d in IO.DIRS:
+            r = lv[key].get(d)
+            if r is None:
+                continue
+            over = max(r["side_l"], r["side_r"], r["below"])
+            if over > 0.25 + 1.0 / 64 and key != "L01":
+                fails.append("%s %s : dépasse l'emprise de %.2f tuile (côté ou sud)" % (key, d, over))
+    # palette (bible §1.5) : luminance médiane du corps = cible ± 10 et dans [40, 110], p95 <= 240,
+    # saturation <= 0,45 ; pose N ; L01 et L02 portent le sprite vanilla (hors règle)
+    for lvl in range(3, 31):
+        r = lv.get("L%02d" % lvl, {}).get("N")
+        if r is None:
+            continue
+        e = (lvl + 1) // 2
+        t = LUM_TARGET[e - 1]
+        if abs(r["lum_p50"] - t) > 10 or not 40 <= r["lum_p50"] <= 110:
+            fails.append("L%02d : luminance médiane %.0f (cible %d ± 10, dans [40, 110])" % (lvl, r["lum_p50"], t))
+        if r["lum_p95"] > 240:
+            fails.append("L%02d : luminance p95 %.0f > 240" % (lvl, r["lum_p95"]))
+        if r["sat"] > 0.45:
+            fails.append("L%02d : saturation %.2f > 0,45" % (lvl, r["sat"]))
+        # D2-1 (rendus complets seulement) : une zone émissive de jour >= 8 × 8 px hr dès l'époque 3
+        if not res.get("quick") and e >= 3:
+            z = r.get("glow_zone_px", 0)
+            if z < 64:
+                fails.append("L%02d : plus grande zone de lueur de jour %d px < 64 (D2-1)" % (lvl, z))
+            elif (r.get("glow_contrast") or 0) < 80:
+                fails.append("L%02d : contraste de la lueur %+.0f < +80 (D2-1)" % (lvl, r.get("glow_contrast") or 0))
+    d13 = res.get("d13", {})
+    if d13:
+        mi = max(v["iou"] for v in d13.values())
+        mn = max(v["iou_norm"] for v in d13.values())
+        if mi >= 0.50:
+            fails.append("D1-3 : IoU(1, 30) %.3f >= 0,50" % mi)
+        elif mi > 0.45:
+            out.append("  avertissement : D1-3 IoU %.3f > cible 0,45" % mi)
+        if mn > 0.75:
+            fails.append("D1-3 : IoU normalisée %.3f > 0,75 (seuil proposé, à étalonner)" % mn)
+    out += ["  ÉCHEC " + f for f in fails] if fails else ["  aucun échec"]
+    res["checks"] = fails
+    return out
 
 
 def main():
