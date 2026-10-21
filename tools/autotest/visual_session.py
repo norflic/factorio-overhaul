@@ -16,15 +16,31 @@ Pilote de la session graphique de test (lot P1, H-T1), appelé par fo-visual.bat
      vérifie qu'il n'en reste aucun. Les autres factorio.exe (partie du Directeur Créatif) ne sont jamais
      touchés.
   5. Écrit index.txt, planche-NN.png (gallery.py) et session.txt dans fo-shots\.
+  6. (lot D4m) Mesure DIRECTE, pendant toute la session, de la mémoire vidéo du SEUL processus de test
+     (compteurs Windows « GPU Process Memory(pid_<PID>_*)\Dedicated Usage », lus par PDH sous leurs noms
+     anglais : vram.py) et de sa mémoire vive ; échantillons dans fo-shots\vram.tsv, pic et moyenne dans
+     session.txt, rapport complet (atlas, chargement, images/s) dans fo-shots\memoire.txt. Le journal du
+     jeu et sa sortie standard sont recopiés dans fo-shots (factorio.log, stdout.txt).
 
-Usage : python visual_session.py --root <racine du jeu> [--window min|small|normal] [--timeout 900]
-                                 [--mode benchmark|load] [--ticks N] [--priority normal|below]
-                                 [--no-atlas-cache] [--pcores]
+Usage : python visual_session.py --root <racine du jeu> [--window min|small|hd|normal] [--size LxH]
+                                 [--timeout 900] [--mode benchmark|load] [--ticks N]
+                                 [--priority normal|below] [--no-atlas-cache] [--pcores]
+                                 [--quality high|normal] [--video-memory all|high|medium|low] [--measure]
   --ticks : budget du mode benchmark ; par défaut 7200 (2 min de jeu) pour content, vitrine et les
             scénarios greffés, 40000 pour les scénarios de guerre (10 min de mise en route à ×8).
+  --quality : qualité des sprites de la session (« Sprite resolution » du jeu), écrite dans le config.ini
+            de TEST (clé graphics-quality de [graphics]) ; normal, low et very-low sont aussi passées en option
+            du binaire (--graphics-quality, qui n'accepte qu'elles ; low et very-low y sont migrées vers normal).
+            Vérifiée dans le journal (« [Graphics quality: …] ») : écart = code 9. Alias : --graphics-quality
+            (même nom que l'option du lot V0b, valeurs compatibles).
+  --video-memory : « Video memory usage » du jeu (clé video-memory-usage et option du binaire), vérifiée.
+  --measure : mesure d'images par seconde : le jeu écrit ses statistiques de rendu (--output-perf-stats
+            fo-visual\perf-stats.csv, recopié dans fo-shots) et le pilote attend la FIN NATURELLE du mode
+            benchmark (budget --ticks) au lieu de fermer la session au marqueur. Fenêtre conseillée : hd
+            (1920×1080, sans prendre le focus) ; en fenêtre réduite, le jeu peut ne rien dessiner.
 Codes : 0 succès ; 1 préparation ; 3 délai dépassé ; 4 captures manquantes ou illisibles ;
         5 processus de test encore présent ; 6 vitrine : entité refusée ; 7 erreur du jeu ou session
-        fermée avant la fin.
+        fermée avant la fin ; 9 qualité graphique ou usage de la mémoire vidéo non appliqués (journal).
 """
 import argparse
 import ctypes
@@ -40,10 +56,13 @@ from ctypes import wintypes
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gallery  # noqa: E402
+import vram  # noqa: E402
 
 SW_SHOWNORMAL, SW_SHOWNOACTIVATE, SW_SHOWMINNOACTIVE = 1, 4, 7
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 SMALL_SIZE = "640x360"
+HD_SIZE = "1920x1080"
+SAMPLE_PERIOD = 0.5  # s entre deux relevés de mémoire (compteurs Windows : moins de 1 ms par relevé)
 
 # Erreurs qui arrêtent la partie (un script qui plante renvoie au menu : le marqueur ne viendrait jamais).
 FATAL = re.compile(r"non-recoverable error|Error while running event|Exception at tick|Failed to load|"
@@ -97,13 +116,13 @@ def factorio_processes():
     return procs
 
 
-def test_processes(vis_dir):
+def test_processes(vis_dir, procs=None):
     """factorio.exe de CETTE session de test : ceux dont la ligne de commande contient le dossier fo-visual."""
     key = os.path.normcase(os.path.abspath(vis_dir))
-    return [(p, c) for p, c in factorio_processes() if key in os.path.normcase(c)]
+    return [(p, c) for p, c in (factorio_processes() if procs is None else procs) if key in os.path.normcase(c)]
 
 
-def prepare(root, vis, test, atlas_cache):
+def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None):
     mods_src = os.path.join(test, "mods")
     map_src = os.path.join(test, "fo-autotest-map.zip")
     if not os.path.exists(map_src) or not os.path.isdir(mods_src):
@@ -126,6 +145,17 @@ def prepare(root, vis, test, atlas_cache):
         if atlas_cache:
             # Cache des atlas de sprites (dans fo-visual\write) : le chargement ne dépend plus des cœurs E.
             f.write("cache-sprite-atlas=true\ncompress-sprite-atlas-cache=true\n")
+        # Lot D4m. Noms des clés : chaînes du binaire 1.1.91, les mêmes que ses options (« graphics-quality »,
+        # « video-memory-usage ») ; valeurs de la qualité : high, normal (low et very-low « are deprecated and
+        # will be migrated to 'normal' », chaîne du binaire). Ce config.ini est CELUI DE TEST (fo-visual\) :
+        # celui du joueur (<racine>\config\) n'est jamais lu ni écrit.
+        if quality:
+            f.write("graphics-quality=%s\n" % quality)
+        if video_memory:
+            f.write("video-memory-usage=%s\n" % video_memory)
+    perf = os.path.join(vis, "perf-stats.csv")
+    if os.path.exists(perf):
+        os.remove(perf)  # statistiques de rendu de la session précédente (sortie de test)
     return cfg, mods, os.path.join(vis, "fo-visual-map.zip"), write, shots
 
 
@@ -137,10 +167,99 @@ def read_text(path):
         return ""
 
 
+class MemoryRecorder:
+    """Lot D4m : relevés de mémoire du SEUL processus de test, toutes les SAMPLE_PERIOD secondes.
+
+    Mémoire vidéo : compteurs Windows « GPU Process Memory » filtrés sur pid_<PID>_ (vram.GpuSampler, lecture
+    seule) ; mémoire vive : GetProcessMemoryInfo sur la poignée du processus lancé. Aucune action sur aucun
+    processus. Lignes : (t depuis le lancement, dédiée, partagée, toute la carte, RAM privée, RAM de travail).
+    """
+
+    def __init__(self, proc, t_launch):
+        self.proc, self.t_launch = proc, t_launch
+        self.rows, self.next, self.peaks = [], 0.0, None
+        self.gpu = vram.GpuSampler(proc.pid)
+
+    def tick(self):
+        now = time.time()
+        if now < self.next:
+            return
+        self.next = now + SAMPLE_PERIOD
+        g = self.gpu.sample() or {}
+        m = vram.process_memory(self.proc._handle) if self.proc.poll() is None else None
+        if m:
+            self.peaks = m  # pics tenus par Windows (PeakPagefileUsage, PeakWorkingSetSize)
+        self.rows.append((now - self.t_launch, g.get("dedie"), g.get("partage"), g.get("carte"),
+                          m["privee"] if m else None, m["ws"] if m else None))
+
+    def write(self, path):
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\t".join(vram.SAMPLE_COLUMNS) + "\n")
+            for row in self.rows:
+                f.write("%.2f\t" % row[0] + "\t".join("-" if v is None else str(int(v)) for v in row[1:]) + "\n")
+
+    def close(self):
+        self.gpu.close()
+
+
+def memory_summary(r, rec, measure):
+    """Lignes de session.txt : réglages appliqués, mémoire mesurée, atlas estimés, chargement, images/s."""
+    lines = ["reglages appliques (journal) : qualite des sprites %s, usage de la memoire video %s, DXT %s" % (
+        r.get("quality", "?"), r.get("video_memory_usage", "?"), r.get("dxt", "?"))]
+    m = r.get("mesure") or {}
+    d = m.get("dedie_o")
+    if d:
+        lines.append("memoire video DEDIEE du jeu (compteurs Windows, PID %d) : pic %.2f Go, moyenne %.2f Go, "
+                     "%d releves" % (rec.proc.pid, d["max"] / vram.GO, d["moy"] / vram.GO, d["n"]))
+    else:
+        lines.append("memoire video dediee du jeu : NON MESUREE (%s)" % (rec.gpu.error or "aucun releve non nul"))
+    for col, lab in (("carte_dedie_o", "occupation de toute la carte (tous programmes)"),
+                     ("partage_o", "memoire partagee du jeu"), ("ram_privee_o", "memoire vive privee du jeu")):
+        s = m.get(col)
+        if s:
+            lines.append("%s : pic %.2f Go, moyenne %.2f Go" % (lab, s["max"] / vram.GO, s["moy"] / vram.GO))
+    if rec.peaks:
+        lines.append("pics Windows du jeu : memoire privee %.2f Go, ensemble de travail %.2f Go" % (
+            rec.peaks["pic_privee"] / vram.GO, rec.peaks["pic_ws"] / vram.GO))
+    t = r.get("totaux") or {}
+    if r.get("atlases"):
+        lines.append("atlas de sprites : %d, %.3f milliard de pixels, estimation %s (regles : vram.py)" % (
+            len(r["atlases"]), t["pixels"] / 1e9, vram.fmt_range(t["bas"], t["haut"])))
+    ev = r.get("events") or {}
+    if ev:
+        lines.append("chargement : atlas %s, sprites charges a %s s, jeu initialise a %s s" % (
+            "lus depuis le cache" if "Atlases loaded from disk cache." in ev else "REFAITS",
+            ev.get("Sprites loaded", "?"), ev.get("Factorio initialised", "?")))
+    for p in r.get("phases") or []:
+        lines.append("phase d4-geant %s : %d ticks en %.1f ms -> %.1f UPS" % (p["name"], p["ticks"], p["ms"], p["ups"] or 0))
+    ps = r.get("perf_summary") or {}
+    pf = r.get("perf") or {}
+    if "frame" in ps and ps["frame"]["avg"] > 0:
+        lines.append("images/s (resume du jeu, 1000 / moyenne de frame) : %.1f" % (1000.0 / ps["frame"]["avg"]))
+    if pf.get("global", {}).get("_fps"):
+        lines.append("images/s (perf-stats.csv, 1000 / moyenne de cpu-frame) : %.1f sur %d images" % (
+            pf["global"]["_fps"], pf["images"]))
+    elif pf.get("erreur"):
+        lines.append("statistiques de rendu : " + pf["erreur"])
+    elif measure:
+        lines.append("images/s : NON MESUREES (aucune statistique de rendu ecrite par le jeu)")
+    return lines
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", required=True)
-    ap.add_argument("--window", choices=["min", "small", "normal"], default="min")
+    ap.add_argument("--window", choices=["min", "small", "hd", "normal"], default="min",
+                    help="min : reduite sans focus ; small : 640x360 sans focus ; hd : 1920x1080 sans focus ; "
+                         "normal : fenetre du jeu, AVEC focus")
+    ap.add_argument("--size", help="taille de fenetre LxH (remplace celle de small, hd ou normal)")
+    ap.add_argument("--quality", "--graphics-quality", dest="quality", choices=["high", "normal", "low", "very-low"],
+                    default=None, help="qualite des sprites (Sprite resolution) de la session ; defaut : celle du "
+                                       "preset (high ici) ; low et very-low sont migrees vers normal par le jeu")
+    ap.add_argument("--video-memory", dest="video_memory", choices=["all", "high", "medium", "low"], default=None,
+                    help="usage de la memoire video (Video memory usage) de la session ; defaut : all")
+    ap.add_argument("--measure", action="store_true",
+                    help="statistiques de rendu du jeu (--output-perf-stats) et attente de la fin naturelle")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--mode", choices=["benchmark", "load"], default="benchmark")
     ap.add_argument("--ticks", type=int, default=0, help="mode benchmark : durée de la session en ticks")
@@ -172,7 +291,9 @@ def main():
 
     # 0. Aucune session de test déjà ouverte (une session oubliée fausserait tout).
     try:
-        left = test_processes(vis)
+        procs = factorio_processes()
+        left = test_processes(vis, procs)
+        others_before = len(procs) - len(left)
     except RuntimeError as exc:
         out("ECHEC " + str(exc))
         return finish(1)
@@ -182,10 +303,16 @@ def main():
     if not os.path.exists(exe):
         out("ECHEC factorio.exe introuvable : " + exe)
         return finish(1)
+    out("factorio.exe hors test au lancement : %d (jamais touches)%s" % (
+        others_before, " ; ATTENTION mesure : une autre partie partage la carte et le processeur, images/s et "
+                       "occupation de la carte faussees" if (others_before and a.measure) else ""))
+    if a.measure and a.window == "min":
+        out("ATTENTION mesure en fenetre reduite : le jeu peut ne rien dessiner (images/s non representatives) ; "
+            "fenetre conseillee : hd")
 
     # 1. Préparation des dossiers séparés.
     try:
-        cfg, mods, game_map, write, shots = prepare(root, vis, test, a.atlas_cache)
+        cfg, mods, game_map, write, shots = prepare(root, vis, test, a.atlas_cache, a.quality, a.video_memory)
     except (RuntimeError, OSError) as exc:
         out("ECHEC preparation : %s" % exc)
         return finish(1)
@@ -201,19 +328,34 @@ def main():
         cmd += ["--benchmark-graphics", game_map, "--benchmark-ticks", str(ticks)]
     else:
         cmd += ["--load-game", game_map]
-    if a.window == "small":
-        cmd += ["--window-size", SMALL_SIZE]
+    # Lot D4m : qualité et usage de la mémoire vidéo AUSSI en options du binaire (en plus du config.ini de test).
+    # --graphics-quality n'accepte que normal, low, very-low (chaîne du binaire) : « high » passe par la clé seule.
+    if a.quality and a.quality != "high":
+        cmd += ["--graphics-quality", a.quality]
+    if a.video_memory:
+        cmd += ["--video-memory-usage", a.video_memory]
+    perf_path = os.path.join(vis, "perf-stats.csv")
+    if a.measure:
+        # « path of file to which rendering performance statistics measurements should be saved » (binaire).
+        cmd += ["--output-perf-stats", perf_path]
+    size = a.size or {"small": SMALL_SIZE, "hd": HD_SIZE}.get(a.window)
+    if size and a.window != "min":
+        cmd += ["--window-size", size]
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    si.wShowWindow = {"min": SW_SHOWMINNOACTIVE, "small": SW_SHOWNOACTIVATE, "normal": SW_SHOWNORMAL}[a.window]
+    si.wShowWindow = {"min": SW_SHOWMINNOACTIVE, "small": SW_SHOWNOACTIVATE, "hd": SW_SHOWNOACTIVATE,
+                      "normal": SW_SHOWNORMAL}[a.window]
     flags = BELOW_NORMAL_PRIORITY_CLASS if a.priority == "below" else 0
-    out("mode %s%s, fenetre %s, priorite %s, cache d'atlas %s, delai %d s" % (
-        a.mode, " (%d ticks au plus)" % ticks if a.mode == "benchmark" else "", a.window, a.priority,
-        "oui" if a.atlas_cache else "non", a.timeout))
+    out("mode %s%s, fenetre %s%s, priorite %s, cache d'atlas %s, delai %d s" % (
+        a.mode, " (%d ticks au plus)" % ticks if a.mode == "benchmark" else "", a.window,
+        " " + size if size and a.window != "min" else "", a.priority, "oui" if a.atlas_cache else "non", a.timeout))
+    out("qualite des sprites demandee : %s ; usage de la memoire video demande : %s ; mesure d'images/s : %s" % (
+        a.quality or "defaut", a.video_memory or "defaut", "oui (fin naturelle attendue)" if a.measure else "non"))
     out("commande : " + subprocess.list2cmdline(cmd))
 
     fg_before = foreground_pid()
-    stdout = open(os.path.join(vis, "stdout.txt"), "w", encoding="utf-8", errors="replace")
+    stdout_path = os.path.join(vis, "stdout.txt")
+    stdout = open(stdout_path, "w", encoding="utf-8", errors="replace")
     log_path = os.path.join(write, "factorio-current.log")
     t_launch = time.time()
     proc = subprocess.Popen(cmd, stdout=stdout, stderr=subprocess.STDOUT, startupinfo=si, creationflags=flags)
@@ -221,6 +363,9 @@ def main():
     if a.pcores and os.cpu_count() == 16:
         ok = ctypes.WinDLL("kernel32").SetProcessAffinityMask(wintypes.HANDLE(int(proc._handle)), 0xFFF)
         out("epinglage sur les coeurs P (masque FFF) : %s" % ("fait" if ok else "REFUSE"))
+    rec = MemoryRecorder(proc, t_launch)
+    if rec.gpu.error:
+        out("compteurs GPU de Windows : %s" % rec.gpu.error)
 
     done_path = os.path.join(shots, "done.txt")
     samples = focus = shown = 0
@@ -228,6 +373,7 @@ def main():
     code, reason, last_progress, t_done = 0, "", 0.0, None
     while True:
         time.sleep(0.5)
+        rec.tick()
         samples += 1
         if foreground_pid() == proc.pid:
             focus += 1
@@ -263,6 +409,19 @@ def main():
             out("  ... %.0f s : %d capture(s) demandee(s)" % (time.time() - t_launch, n))
     if code:
         out("ECHEC " + reason)
+
+    # 1 bis. Mesure (lot D4m) : le jeu n'écrit ses statistiques de rendu qu'en quittant ; on attend donc la fin
+    # NATURELLE du mode benchmark (budget --ticks) au lieu de fermer la session au marqueur.
+    if not code and a.measure and a.mode == "benchmark":
+        out("mesure : attente de la fin naturelle du mode benchmark (%d ticks)" % ticks)
+        while proc.poll() is None and time.time() - t_launch <= a.timeout:
+            time.sleep(0.5)
+            rec.tick()
+        if proc.poll() is None:
+            code, reason = 3, "mesure : fin naturelle non atteinte dans le delai de %d s (reduire --ticks)" % a.timeout
+            out("ECHEC " + reason)
+        else:
+            out("mesure : fin naturelle %.1f s apres le lancement (code %s)" % (time.time() - t_launch, proc.returncode))
 
     # 2. Les captures sont-elles toutes sur disque et lisibles ? (quelques secondes de marge)
     rows, problems = [], ["session interrompue"]
@@ -335,6 +494,39 @@ def main():
     else:
         out("aucun dossier de captures")
         code = code or 4
+
+    # 6. Mémoire et images par seconde (lot D4m) : preuves recopiées dans fo-shots, puis rapport vram.py.
+    rec.close()
+    fresh = os.path.exists(log_path) and os.path.getmtime(log_path) >= t_launch - 1
+    dest = shots if os.path.isdir(shots) else vis
+    files = {"log": None, "samples": os.path.join(dest, "vram.tsv"), "perf": None, "stdout": None}
+    try:
+        rec.write(files["samples"])
+        for key, src, name_ in (("log", log_path if fresh else None, "factorio.log"),
+                                ("stdout", stdout_path, "stdout.txt"),
+                                ("perf", perf_path if os.path.exists(perf_path) else None, "perf-stats.csv")):
+            if src and os.path.exists(src):
+                target = os.path.join(dest, name_)
+                if os.path.abspath(src) != os.path.abspath(target):
+                    shutil.copy2(src, target)
+                files[key] = target
+        r = vram.analyse(files["log"], files["samples"], files["perf"], files["stdout"])
+        with open(os.path.join(dest, "memoire.txt"), "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(vram.report_lines(r)) + "\n")
+        for line in memory_summary(r, rec, a.measure):
+            out(line)
+        out("rapport memoire : " + os.path.join(dest, "memoire.txt"))
+        # low et very-low : « deprecated and will be migrated to 'normal' » (binaire) : le journal dira normal.
+        want_q = "normal" if a.quality in ("low", "very-low") else a.quality
+        for want, got, label in ((want_q, r.get("quality"), "qualite des sprites"),
+                                 (a.video_memory, r.get("video_memory_usage"), "usage de la memoire video")):
+            if want and (got or "").lower() != want:
+                out("ECHEC %s demandee %s, appliquee %s (journal) : mesure non valable" % (label, want, got or "?"))
+                code = code or 9
+        if a.measure and not files["perf"]:
+            out("mesure : AUCUN fichier de statistiques de rendu ecrit par le jeu (--output-perf-stats)")
+    except (OSError, ValueError, KeyError) as exc:
+        out("ECHEC rapport memoire : %s" % exc)
     if t_done:
         summary.append("duree jusqu'au marqueur %.1f s" % (t_done - t_launch))
     return finish(code, shots)
