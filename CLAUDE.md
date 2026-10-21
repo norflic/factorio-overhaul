@@ -72,7 +72,8 @@ lua5.2 tests/levels_test.lua     -> 1325 OK
 lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 366 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 381 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu)
 ```
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :

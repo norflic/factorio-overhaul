@@ -611,7 +611,7 @@ apport.md | 21/10, 19 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
 | IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
-| D4m Banc mémoire vidéo et usine géante (D4) | ⏳ préparation lancée hors moteur ; passage en moteur réel après V0b | — | 21/10, 21 h 55 |
+| D4m Banc mémoire vidéo et usine géante (D4) | 🟨 intégré (22/10, 1 h) ; hors jeu 5/5 (vram.py sur 8 journaux : 15 atlas, 1,10 à 1,25 Go estimés ; greffon d4-geant : jusqu'à 2 588 bâtiments à niveaux dans le champ z0,3) ; mesures en moteur réel après V0b | — | 22/10, 1 h |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
