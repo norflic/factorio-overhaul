@@ -67,7 +67,7 @@
   → conception lancée (lot IA1). Les deux sens du mot « ouvriers » (chantiers simultanés des niveaux,
   et PNJ des factions) y sont distingués ; leur unification est proposée.
 
-- 21 h 40, **Q18 (ordre)** : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. »
+- 21 h 38, **Q18 (ordre)** : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. »
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
