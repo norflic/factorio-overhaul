@@ -46,7 +46,13 @@ local function scaled_resistances(base, flat, pct)
 end
 
 local function add_family_resistances(res, family, tier)
-  for dtype, v in pairs(E.family_resist(family, tier)) do
+  -- Types triés : l'ordre de pairs varie d'un processus à l'autre (graine de hachage), jamais pour l'ordre des données.
+  local fr = E.family_resist(family, tier)
+  local types = {}
+  for dtype in pairs(fr) do types[#types + 1] = dtype end
+  table.sort(types)
+  for _, dtype in ipairs(types) do
+    local v = fr[dtype]
     local found = false
     for _, r in ipairs(res) do
       if r.type == dtype then

@@ -31,8 +31,11 @@ for _, spec in ipairs(A.ammo) do
   local effects = ammo.ammo_type.action.action_delivery.target_effects
   local base_effect = effects[1] -- impact visuel
   local new_effects = { base_effect }
-  for dtype, amount in pairs(spec.damage) do
-    new_effects[#new_effects + 1] = { type = "damage", damage = { amount = amount, type = dtype } }
+  local dtypes = {} -- types triés : jamais l'ordre de pairs dans les données (ARCHITECTURE §2)
+  for dtype in pairs(spec.damage) do dtypes[#dtypes + 1] = dtype end
+  table.sort(dtypes)
+  for _, dtype in ipairs(dtypes) do
+    new_effects[#new_effects + 1] = { type = "damage", damage = { amount = spec.damage[dtype], type = dtype } }
   end
   if spec.splash then
     new_effects[#new_effects + 1] = { type = "create-entity", entity_name = "explosion" }
@@ -157,7 +160,11 @@ for _, spec in ipairs(A.walls) do
   w.minable = { mining_time = 0.3, result = spec.name }
   lib.tint_sprites(w.pictures, spec.tint)
   local res = w.resistances
-  for dtype, v in pairs(spec.resist_bonus) do
+  local rtypes = {} -- types triés : jamais l'ordre de pairs dans les données (ARCHITECTURE §2)
+  for dtype in pairs(spec.resist_bonus) do rtypes[#rtypes + 1] = dtype end
+  table.sort(rtypes)
+  for _, dtype in ipairs(rtypes) do
+    local v = spec.resist_bonus[dtype]
     local found = false
     for _, r in ipairs(res) do
       if r.type == dtype then
