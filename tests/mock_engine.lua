@@ -397,9 +397,23 @@ local function step_groups(tick)
         if is_attack then
           local members = g.members
           local deaths = math.floor(#members * 0.3)
-          for i = 1, deaths do members[i].die(nil) end
           local last = cmd.type == defines.command.compound and cmd.commands[#cmd.commands] or cmd
           local dest = last.destination
+          -- Option (lot IA0) : près d'une tourelle du joueur hors cessez-le-feu, les morts sont attribuées à
+          -- la force « player » (c'est la tourelle qui repousse l'attaque, comme en moteur réel).
+          local killer = nil
+          if W.turrets_kill and g._force.name:match("^fo%-") then
+            local pf = _G.game.forces.player
+            if not pf.get_cease_fire(g._force) then
+              for _, e in ipairs(W.entities) do
+                if e.valid and e.force == pf and e.name == "gun-turret" then
+                  local dx, dy = e._x - dest.x, e._y - dest.y
+                  if dx * dx + dy * dy < 40 * 40 then killer = pf break end
+                end
+              end
+            end
+          end
+          for i = 1, deaths do members[i].die(killer) end
           local hit = false
           for _, e in ipairs(W.entities) do
             if e.valid and e.force ~= g._force and e.force.name:match("^fo%-") and e.name ~= "fo-faction-hq" then
@@ -459,6 +473,7 @@ function M.new_world(opts)
       ["fo-pvp-difficulty"] = opts.difficulty or "normal", -- lot IA0 : défaut du jeu
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
+    turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
   }
   math.randomseed(W.seed)
 
@@ -1041,10 +1056,17 @@ function M.serialize(v, seen)
   error("type non sérialisable dans global : " .. t)
 end
 
-function M.deepcopy_global(v)
+--- Copie de global comme le ferait une sauvegarde puis un chargement : les objets moteur (_lua_object)
+--- sont conservés tels quels, et les références PARTAGÉES restent partagées (memo), comme le moteur les
+--- restaure (lot IA0 : sans memo, deux chemins vers une même table devenaient deux tables distinctes et
+--- la partie rechargée divergeait de la partie continue, ce que le moteur réel ne fait pas).
+function M.deepcopy_global(v, memo)
   if type(v) ~= "table" or rawget(v, "_lua_object") then return v end
+  memo = memo or {}
+  if memo[v] then return memo[v] end
   local c = {}
-  for k, x in pairs(v) do c[k] = M.deepcopy_global(x) end
+  memo[v] = c
+  for k, x in pairs(v) do c[M.deepcopy_global(k, memo)] = M.deepcopy_global(x, memo) end
   return c
 end
 

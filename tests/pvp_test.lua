@@ -7,12 +7,16 @@
     2. les règles pures (shared/faction/strategy.lua) : paramètres monotones, grâce, préavis, déclaration,
        provocation, trêve, règle du déficit, coalition, intervalle, défense, équivalence avec la décision
        d'avant IA0 en « Paisible » ;
-    3. une campagne pure de 180 min par niveau et par personnalité : première attaque, nombre, taille,
-       part des forces (mesures chiffrées imprimées) ;
-    4. le runtime sur le moteur simulé : base témoin attaquée en Normal après la grâce et jamais en
-       Paisible, Difficile et Impitoyable plus tôt / plus souvent / plus nombreux, changement de réglage en
-       cours de partie (Paisible, puis Difficile), interface distante, sauvegarde et rechargement,
-       sauvegarde d'avant IA0, déterminisme, coût borné du repérage, coexistence défense de tours.
+    3. une campagne pure de 180 min par niveau et par personnalité, dans 4 configurations (joueur non
+       leader, joueur leader, leader défendu, gros leader) : première attaque, nombre, taille, part des
+       forces, attaques contre la rivale (mesures chiffrées imprimées, ordre STRICT exigé partout) ;
+    4. le runtime sur le moteur simulé (les tourelles du joueur tuent les attaquants : option
+       turrets_kill) : base témoin attaquée en Normal après la grâce et jamais en Paisible, légitime
+       défense (abattre un attaquant n'est pas une provocation), Difficile et Impitoyable plus tôt / plus
+       souvent / plus nombreux, changement de réglage en cours de partie (Paisible, puis Difficile ; Facile
+       puis Impitoyable avec préavis garanti), interface distante, sauvegarde et rechargement, partie
+       continue = partie rechargée, sauvegarde d'avant IA0 (hostilité héritée), déterminisme, coût borné
+       du repérage, coexistence défense de tours.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -155,7 +159,7 @@ local function view(level, tick, o)
       difficulty = level, tick = tick, anchor = o.anchor or 0, declared = o.declared or false,
       provoked = o.provoked or false, warned = o.warned or false, last_attack = o.last_attack,
       sent_player = o.sent_player or 0, sent_total = o.sent_total or 0, player_groups = o.groups or 0,
-      due_since = o.due_since,
+      due_since = o.due_since, grace_floor = o.grace_floor,
     },
     player = o.no_player and nil or { score = o.score or 4, defense = o.defense or 8, reachable = o.reachable ~= false },
   }
@@ -193,6 +197,16 @@ do -- Normal : préavis à grâce - 2 min, déclaration à la fin de la grâce
   check(not a.declare, "la grâce part de l'ancre (changement de réglage, sauvegarde reprise)")
   a = S.decide(view("normal", 60, { provoked = true }))
   check(a.declare == "provoked", "Normal + provoqué : déclaration immédiate (fin de la grâce pour cette faction)")
+  -- Préavis garanti après un changement de niveau : fin de grâce au plus tôt (grace_floor).
+  local v2 = view("merciless", 15 * MIN, { grace_floor = 17 * MIN })
+  a = S.decide(v2)
+  check(a.warn == 2 and not a.declare, "grâce déjà écoulée mais fin au plus tôt dans 2 min : préavis, pas de déclaration")
+  a = S.decide(view("merciless", 17 * MIN - 1, { grace_floor = 17 * MIN, warned = true }))
+  check(not a.declare, "pas de déclaration avant la fin au plus tôt")
+  a = S.decide(view("merciless", 17 * MIN, { grace_floor = 17 * MIN, warned = true }))
+  check(a.declare == "grace", "déclaration à la fin au plus tôt")
+  check(S.grace_end(0, 5, "normal", "conqueror") == 20 * MIN and S.grace_end(0, 30 * MIN, "normal", "conqueror") == 30 * MIN
+    and S.grace_end(0, 30 * MIN, "peaceful", "conqueror") == nil, "S.grace_end : max(ancre + grâce, fin au plus tôt), nil en Paisible")
 end
 
 do -- Cible, part due, intervalle, défense, coalition
@@ -218,9 +232,18 @@ do -- Cible, part due, intervalle, défense, coalition
   a = S.decide(view("normal", 40 * MIN, { declared = true, reachable = false, no_rival = true }))
   check(a.attack == nil, "joueur inaccessible : pas d'attaque")
   local v = view("normal", 40 * MIN, { declared = true, score = 10, own = 3, leader = 4, sent_player = 50, sent_total = 100 })
-  check(S.player_is_leader(v) and math.abs(S.player_share(v, "normal") - 0.6) < 1e-9, "coalition : joueur leader, part × 1,5 (60 %)")
-  check(S.decide(v).attack.target == "player", "coalition : 50/100 ≤ 60 % : le joueur")
-  check(math.abs(S.player_share(view("merciless", 0, { score = 10, own = 3 }), "merciless") - 1) < 1e-9, "part plafonnée à 100 %")
+  check(S.player_is_leader(v) and math.abs(S.player_share(v, "normal") - 0.55) < 1e-9,
+    "coalition : joueur leader (10 secteurs = 5 avant-postes > 1,3 × 3), part 0,40 + 0,25 × 0,60 = 55 %")
+  check(S.decide(v).attack.target == "player", "coalition : 50/100 ≤ 55 % : le joueur")
+  check(not S.player_is_leader(view("normal", 0, { score = 8, own = 4 })), "unité commune : 8 secteurs = 4 avant-postes, pas leader face à 4")
+  local ok_order, min_left = true, 1
+  for i, lv in ipairs(AGGRO) do
+    local sh = S.player_share(view(lv, 0, { score = 40, own = 3 }), lv)
+    if i > 1 and not (sh > S.player_share(view(AGGRO[i - 1], 0, { score = 40, own = 3 }), AGGRO[i - 1])) then ok_order = false end
+    if 1 - sh < min_left then min_left = 1 - sh end
+  end
+  check(ok_order and min_left >= 0.075 - 1e-9,
+    string.format("coalition : parts strictement croissantes de Facile à Impitoyable, au moins %.1f %% laissés aux rivales", min_left * 100))
   -- Accumulation : après la première attaque, la faction vise une taille plus grande.
   local goal = S.player_goal("hard", "conqueror")
   local need = S.player_need(view("hard", 0), "hard")
@@ -260,13 +283,21 @@ end
 ---------------------------------------------------------------------------------------------------
 section("Campagne pure de 180 min (mesures par niveau)")
 -- Modèle : +1 soldat toutes les 45 s (plafond 100), une pensée toutes les 5 s, une rivale toujours
--- disponible (défense 10), une base du joueur de 4 secteurs défendue par 1 tourelle (défense 8). Un groupe
--- envoyé revient 5 min plus tard avec 60 % de survivants.
-local function campaign(level, pers, minutes)
+-- disponible (défense 10, `own` avant-postes comme la faction). Un groupe envoyé revient 5 min plus tard
+-- avec 60 % de survivants. Configurations (cfg) : secteurs du joueur (score), avant-postes de la faction
+-- (own), défense de la cible joueur (defense), niveau technologique (tech).
+local CONFIGS = {
+  { name = "joueur non leader (4 secteurs, 1 tourelle, tech 0)", score = 4, own = 4, defense = 8, tech = 0, leader = false },
+  { name = "joueur leader (12 secteurs contre 4 avant-postes, 1 tourelle, tech 0)", score = 12, own = 4, defense = 8, tech = 0, leader = true },
+  { name = "leader défendu (12 secteurs, 3 tourelles, tech 1)", score = 12, own = 4, defense = 24, tech = 1, leader = true },
+  { name = "gros leader (40 secteurs contre 7 avant-postes, 6 tourelles, tech 2)", score = 40, own = 7, defense = 48, tech = 2, leader = true },
+}
+local function campaign(level, pers, minutes, cfg)
+  cfg = cfg or CONFIGS[1]
   local garrison, total, acc = 0, 0, 0
   local fp = { declared = false, provoked = false, warned = false, sent_player = 0, sent_total = 0 }
   local back = {}
-  local r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, sent_total = 0 }
+  local r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0 }
   for tick = 300, minutes * MIN, 300 do
     acc = acc + 300
     while acc >= 2700 do
@@ -283,12 +314,12 @@ local function campaign(level, pers, minutes)
     end
     back = keep
     local v = {
-      personality = pers, tech = 0, upgrades = 0, garrison = garrison, soldiers_max = 100, can_attack = true,
-      enemy_defense = 10, rival = { id = 2, outposts = 4 }, own_outposts = 4, leader_outposts = 4,
+      personality = pers, tech = cfg.tech, upgrades = 0, garrison = garrison, soldiers_max = 100, can_attack = true,
+      enemy_defense = 10, rival = { id = 2, outposts = cfg.own }, own_outposts = cfg.own, leader_outposts = cfg.own,
       pvp = { difficulty = level, tick = tick, anchor = 0, declared = fp.declared, provoked = false, warned = fp.warned,
         last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total, player_groups = 0,
         due_since = fp.due_since },
-      player = { score = 4, defense = 8, reachable = true },
+      player = { score = cfg.score, defense = cfg.defense, reachable = true },
     }
     local a = S.decide(v)
     if a.warn then fp.warned = true; r.warn = r.warn or tick end
@@ -307,6 +338,7 @@ local function campaign(level, pers, minutes)
         r.first = r.first or tick
       else
         r.rival = r.rival + 1
+        if fp.declared then r.rival_war = r.rival_war + 1 end
       end
     end
   end
@@ -315,32 +347,46 @@ local function campaign(level, pers, minutes)
   return r
 end
 
-local camp = {}
-print("  niveau      personnalité  déclaration  1re attaque  attaques  soldats  taille moy.  part   (attaques rivale)")
-for _, p in ipairs(PERS) do
-  camp[p] = {}
-  for _, lv in ipairs(LEVELS) do
-    local r = campaign(lv, p, 180)
-    camp[p][lv] = r
-    print(string.format("  %-11s %-13s %11s  %11s  %8d  %7d  %11.1f  %4.0f %%  (%d)", lv, p,
-      r.declare and string.format("%.1f min", r.declare / MIN) or "-", r.first and string.format("%.1f min", r.first / MIN) or "jamais",
-      r.attacks, r.soldiers, r.mean, r.share * 100, r.rival))
+-- Ordre STRICT exigé dans chaque configuration (C4-3), et des guerres entre factions qui continuent après
+-- la déclaration : au moins RIVAL_MIN attaques contre la rivale en Normal et en Difficile, au moins 1 en
+-- Impitoyable (coalition : au moins 7,5 % des soldats restent pour les rivales).
+local RIVAL_MIN = 4
+for ci, cfg in ipairs(CONFIGS) do
+  print("  -- " .. cfg.name)
+  print("  niveau      personnalité  déclaration  1re attaque  attaques  soldats  taille moy.  part   (rivale : total / après déclaration)")
+  local camp = {}
+  for _, p in ipairs(PERS) do
+    camp[p] = {}
+    for _, lv in ipairs(LEVELS) do
+      local r = campaign(lv, p, 180, cfg)
+      camp[p][lv] = r
+      print(string.format("  %-11s %-13s %11s  %11s  %8d  %7d  %11.1f  %4.0f %%  (%d / %d)", lv, p,
+        r.declare and string.format("%.1f min", r.declare / MIN) or "-", r.first and string.format("%.1f min", r.first / MIN) or "jamais",
+        r.attacks, r.soldiers, r.mean, r.share * 100, r.rival, r.rival_war))
+    end
   end
-end
-for _, p in ipairs(PERS) do
-  local c = camp[p]
-  check(c.peaceful.attacks == 0 and c.peaceful.declare == nil, p .. " : Paisible, 0 attaque contre le joueur en 180 min")
-  check(c.normal.first ~= nil and c.normal.first >= S.grace_ticks("normal", p), p .. " : Normal attaque, après la grâce")
-  local inf = 1e18
-  local function first(lv) return c[lv].first or inf end
-  check(first("easy") > first("normal") and first("normal") > first("hard") and first("hard") > first("merciless"),
-    p .. " : 1re attaque de plus en plus tôt (Facile > Normal > Difficile > Impitoyable)")
-  check(c.easy.attacks < c.normal.attacks and c.normal.attacks < c.hard.attacks and c.hard.attacks < c.merciless.attacks,
-    p .. " : attaques de plus en plus fréquentes")
-  check(c.easy.mean < c.normal.mean and c.normal.mean < c.hard.mean and c.hard.mean < c.merciless.mean,
-    p .. " : attaques de plus en plus nombreuses (taille moyenne)")
-  check(c.easy.share < c.normal.share and c.normal.share < c.hard.share and c.hard.share < c.merciless.share,
-    p .. " : part des forces contre le joueur croissante")
+  local tag = "[config " .. ci .. "] "
+  check(S.player_is_leader({ player = { score = cfg.score }, own_outposts = cfg.own, leader_outposts = cfg.own }) == cfg.leader,
+    tag .. "joueur " .. (cfg.leader and "leader" or "non leader") .. " comme prévu")
+  for _, p in ipairs(PERS) do
+    local c = camp[p]
+    local t = tag .. p
+    check(c.peaceful.attacks == 0 and c.peaceful.declare == nil, t .. " : Paisible, 0 attaque contre le joueur en 180 min")
+    check(c.normal.first ~= nil and c.normal.first >= S.grace_ticks("normal", p), t .. " : Normal attaque, après la grâce")
+    local inf = 1e18
+    local function first(lv) return c[lv].first or inf end
+    check(first("easy") > first("normal") and first("normal") > first("hard") and first("hard") > first("merciless"),
+      t .. " : 1re attaque de plus en plus tôt (Facile > Normal > Difficile > Impitoyable)")
+    check(c.easy.attacks < c.normal.attacks and c.normal.attacks < c.hard.attacks and c.hard.attacks < c.merciless.attacks,
+      t .. " : attaques de plus en plus fréquentes")
+    check(c.easy.mean < c.normal.mean and c.normal.mean < c.hard.mean and c.hard.mean < c.merciless.mean,
+      t .. " : attaques de plus en plus nombreuses (taille moyenne)")
+    check(c.easy.share < c.normal.share and c.normal.share < c.hard.share and c.hard.share < c.merciless.share,
+      t .. " : part des forces contre le joueur croissante")
+    check(c.normal.rival_war >= RIVAL_MIN and c.hard.rival_war >= RIVAL_MIN and c.merciless.rival_war >= 1,
+      string.format("%s : les guerres entre factions continuent après la déclaration (rivale : Normal %d, Difficile %d, Impitoyable %d)",
+        t, c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
+  end
 end
 local c1, c2 = campaign("hard", "balanced", 120), campaign("hard", "balanced", 120)
 check(c1.attacks == c2.attacks and c1.soldiers == c2.soldiers and c1.first == c2.first, "campagne pure déterministe")
@@ -375,7 +421,8 @@ end
 -- 2 fours et 1 tourelle (défense 8), et une « base de départ » (secteur 0,0) de 3 machines.
 local OUTPOST = { x = -96, y = 96 }
 local function new_world(level, extra)
-  local o = { patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = level, groups_hit_player = true }
+  local o = { patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = level, groups_hit_player = true,
+    turrets_kill = true }
   for k, v in pairs(extra or {}) do o[k] = v end
   M.new_game(o)
   local w = W()
@@ -469,6 +516,17 @@ do
   check(fp.sent_total >= fp.sent_player, "comptes cohérents (envoyés au joueur ≤ envoyés)")
   local ok_ser = pcall(M.serialize, global)
   check(ok_ser, "global sérialisable")
+  -- Légitime défense : la tourelle de l'avant-poste a abattu des attaquants (moteur simulé : turrets_kill),
+  -- et le joueur abat lui-même un soldat écarlate. Ce n'est pas une provocation.
+  local soldier
+  for _, e in ipairs(W().entities) do
+    if e.valid and e.type == "unit" and e.force.name == fac(1).force then soldier = e break end
+  end
+  check(soldier ~= nil, "un soldat écarlate à abattre")
+  if soldier then soldier.die(game.forces.player) end
+  M.run_ticks(2)
+  check(not fac(1).pvp.provoked and fac(1).pvp.declared, "légitime défense : Écarlate n'est pas « provoquée » (guerre déclarée par la grâce)")
+  check(printed("fo-pvp.declare-provoked:") == 0, "légitime défense : aucun message « représailles »")
   local st = remote.call("fo-pvp", "status")
   check(st.difficulty == "normal" and st.factions[1].declared and st.factions[1].attacks == fp.attacks, "interface distante : status")
   war("status")
@@ -514,9 +572,10 @@ do
   check(pvp().anchor == t_switch, "la grâce repart du passage de Paisible à Difficile")
   local gh = S.grace_ticks("hard", fac(1).personality)
   M.run_ticks(gh - 301)
-  check(not fac(1).pvp.declared, "Difficile : rien avant 12 min (grâce du conquérant)")
+  check(not fac(1).pvp.declared and ceasefire(1), "Difficile : rien avant 12 min (grâce du conquérant), malgré les soldats abattus avant la trêve")
   M.run_ticks(602)
   check(fac(1).pvp.declared and not ceasefire(1), "Difficile : déclaration après 12 min")
+  check(printed("fo-pvp.declare-provoked:") == 0, "aucun message « représailles » de toute la partie (le joueur n'a fait que se défendre)")
   check(remote.call("fo-pvp", "set_difficulty", "bogus") == false, "niveau inconnu refusé")
 end
 
@@ -583,8 +642,9 @@ do
   s.count_entities_filtered = real
   local bound = math.ceil(MIN / F.pvp_rules.scan_period) * F.pvp_rules.scan_per_pass
   check(calls <= bound + 8, string.format("au plus %d comptages par minute (mesuré : %d)", bound, calls))
-  check(require("script.faction.pvp").SECTORS == 317, "disque de 317 secteurs (balayage complet en " ..
-    math.ceil(317 / F.pvp_rules.scan_per_pass) * F.pvp_rules.scan_period .. " ticks)")
+  check(require("script.faction.pvp").SECTORS == 1793, "disque de 1 793 secteurs (rayon 24, balayage complet en " ..
+    math.ceil(1793 / F.pvp_rules.scan_per_pass) * F.pvp_rules.scan_period .. " ticks)")
+  check(F.pvp_rules.scan_per_pass == 1, "au plus 1 comptage par tick porteur (pic de coût minimal)")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -607,19 +667,87 @@ do
   check(ok, "on_configuration_changed sans erreur (" .. tostring(err) .. ")")
   check(pvp() ~= nil and pvp().anchor == t_load, "état PvP créé, grâce comptée depuis le chargement")
   check(printed("fo-pvp.resumed:") == 1, "joueur prévenu (nouveau réglage, grâce depuis maintenant)")
-  check(not ceasefire(2) and not fac(2).pvp.provoked and not fac(2).pvp.declared,
-    "Azur, déjà hostile, le reste, sans être traitée comme provoquée (grâce comptée depuis le chargement)")
+  check(not ceasefire(2) and fac(2).pvp.provoked and fac(2).pvp.inherited and fac(2).pvp.declared,
+    "Azur, déjà hostile : hostilité héritée (provoquée, en guerre déclarée en Normal)")
+  check(printed("fo-pvp.inherited:") == 1 and printed("fo-pvp.declare:") == 0 and printed("fo-pvp.declare-provoked:") == 0,
+    "hostilité héritée annoncée une fois, sans fausse « déclaration de guerre »")
+  check(ceasefire(1) and not fac(1).pvp.provoked and not fac(1).pvp.declared, "Écarlate, en cessez-le-feu : grâce normale")
   M.run_ticks(19 * MIN)
   check(not fac(1).pvp.declared and ceasefire(1), "Écarlate : grâce de 20 min comptée depuis le chargement")
-  check(fac(1).pvp.attacks + fac(2).pvp.attacks == 0, "aucune attaque contre le joueur pendant la grâce reprise")
+  check(fac(1).pvp.attacks == 0, "aucune attaque d'Écarlate contre le joueur pendant la grâce reprise")
   M.run_ticks(2 * MIN)
   check(fac(1).pvp.declared, "Écarlate déclare la guerre 20 min après le chargement")
+  check(printed("fo-pvp.declare:") == 1, "une seule déclaration annoncée (Écarlate), aucune pour Azur")
+  check(remote.call("fo-pvp", "set_difficulty", "peaceful") == true, "passage en Paisible")
+  check(ceasefire(1) and not ceasefire(2), "Paisible : trêve d'Écarlate, Azur (hostilité héritée) reste hostile comme avant IA0")
   -- Même chose sans on_configuration_changed (script modifié sans changement de version) : état créé à la
   -- pensée suivante.
   global.fo.war.pvp = nil
   for _, f in pairs(global.fo.war.factions) do f.pvp = nil end
   M.run_ticks(301)
   check(pvp() ~= nil and printed("fo-pvp.resumed:") == 2, "état PvP recréé à la pensée suivante")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Runtime : Facile puis Impitoyable à 15 min, préavis garanti")
+do
+  new_world("easy")
+  war("start 2 60 6 320")
+  M.run_ticks(15 * MIN)
+  check(not fac(1).pvp.declared and ceasefire(1), "Facile, 15 min : Écarlate en cessez-le-feu (grâce 30 min)")
+  local warns0 = printed("fo-pvp.warn:")
+  local t_switch = game.tick
+  check(remote.call("fo-pvp", "set_difficulty", "merciless") == true, "passage à Impitoyable (grâce du conquérant 6,7 min, déjà écoulée)")
+  M.run_ticks(300)
+  check(not fac(1).pvp.declared and ceasefire(1), "pas de déclaration immédiate")
+  check(printed("fo-pvp.warn:") > warns0, "préavis affiché après le changement")
+  M.run_ticks(t_switch + F.pvp_rules.warn_ticks - game.tick - 1)
+  check(not fac(1).pvp.declared, "rien avant la fin du préavis (2 min)")
+  M.run_ticks(301)
+  check(fac(1).pvp.declared and not ceasefire(1), "déclaration à la fin du préavis")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Runtime : partie continue = partie rechargée (désynchronisation à l'arrivée d'un joueur)")
+do
+  -- Partie continue en Difficile (graine fixe), pas à pas : tick de la déclaration d'Écarlate, puis 1re
+  -- route en attente vers le joueur. Puis deux parties rechargées (copie fidèle de global, références
+  -- partagées conservées), comparées à la partie continue 10 min après la route.
+  local function start() new_world("hard", { seed = 7 }); war("start 2 60 6 320") end
+  start()
+  local t_decl, t_route
+  while game.tick < 40 * MIN and not t_route do
+    M.run_ticks(1)
+    if not t_decl and fac(1).pvp.declared then t_decl = game.tick end
+    if t_decl then
+      for i = 1, 2 do
+        local rp = fac(i).route_pending
+        if rp and rp.target_faction == "player" then t_route = game.tick end
+      end
+    end
+  end
+  check(t_decl ~= nil and t_route ~= nil, "déclaration et route vers le joueur trouvées (" .. tostring(t_decl) .. ", " .. tostring(t_route) .. ")")
+  if t_decl and t_route then
+    local t_end = t_route + 10 * MIN
+    M.run_ticks(t_end - game.tick)
+    local ref = M.serialize(global)
+    local att = fac(1).pvp.attacks + fac(2).pvp.attacks
+    print(string.format("  déclaration d'Écarlate au tick %d, route vers le joueur en attente au tick %d, comparaison au tick %d (%d attaques contre le joueur)",
+      t_decl, t_route, t_end, att))
+    local function reloaded(at)
+      start()
+      M.run_ticks(at - game.tick)
+      local saved = M.deepcopy_global(global)
+      M.load_mod()
+      _G.global = saved
+      W().on_load()
+      M.run_ticks(t_end - game.tick)
+      return M.serialize(global)
+    end
+    check(reloaded(t_decl + 1) == ref, "rechargée juste après la déclaration : global identique à la partie continue (" .. att .. " attaques contre le joueur)")
+    check(reloaded(t_route) == ref, "rechargée pendant le calcul d'une route vers le joueur : global identique")
+    check(att > 0, "la partie comparée comporte des attaques contre le joueur")
+  end
 end
 
 ---------------------------------------------------------------------------------------------------

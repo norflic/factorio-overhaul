@@ -18,6 +18,7 @@
     own_outposts, leader_outposts,           -- territoire de la faction, plus grand territoire rival
     pvp = {
       difficulty, tick, anchor,              -- la grâce court depuis `anchor`
+      grace_floor,                           -- fin de grâce au plus tôt (préavis garanti), ou nil
       declared, provoked, warned,            -- état diplomatique de la faction envers le joueur
       last_attack,                           -- tick de la dernière attaque lancée contre le joueur (ou nil)
       sent_player, sent_total,               -- soldats envoyés depuis la déclaration (joueur, toutes cibles)
@@ -90,6 +91,16 @@ function S.grace_ticks(level, pers)
   return math.floor(d.grace_min * 3600 / P.aggression)
 end
 
+--- Fin de la grâce (tick) : ancre + grâce, mais jamais avant `grace_floor` (préavis garanti après un
+--- changement de niveau en cours de partie). nil si « Paisible ».
+function S.grace_end(anchor, grace_floor, level, pers)
+  local g = S.grace_ticks(level, pers)
+  if not g then return nil end
+  local t = (anchor or 0) + g
+  if grace_floor and grace_floor > t then t = grace_floor end
+  return t
+end
+
 function S.cooldown_ticks(level)
   return math.floor(F.pvp_params(level).cooldown_min * 3600)
 end
@@ -160,18 +171,27 @@ function S.player_plan(v, level, due_since)
 end
 
 
---- Le joueur est-il le leader (territoire nettement supérieur, comme la coalition entre factions) ?
-function S.player_is_leader(v)
+--- Territoire du joueur en « équivalents avant-postes » (unité commune avec les factions) : secteurs
+--- repérés / sectors_per_outpost.
+function S.player_territory(v)
   local p = v.player
-  if not p then return false end
-  return p.score > math.max(2, (v.own_outposts or 0) * 1.3) and p.score > (v.leader_outposts or 0)
+  if not p then return 0 end
+  return (p.score or 0) / F.pvp_rules.sectors_per_outpost
 end
 
---- Part visée des forces contre le joueur (coalition : ×1,5 quand il est le leader, plafonnée à 1).
+--- Le joueur est-il le leader (territoire nettement supérieur, même règle que la coalition entre
+--- factions : F.pick_target) ?
+function S.player_is_leader(v)
+  if not v.player then return false end
+  local t = S.player_territory(v)
+  return t > math.max(2, (v.own_outposts or 0) * 1.3) and t > (v.leader_outposts or 0)
+end
+
+--- Part visée des forces contre le joueur. Coalition : s + leader_bonus × (1 - s) quand il est le leader
+--- (ordre strict des niveaux conservé, part laissée aux rivales).
 function S.player_share(v, level)
   local s = F.pvp_params(level).share
-  if S.player_is_leader(v) then s = s * F.pvp_rules.leader_mult end
-  if s > 1 then s = 1 end
+  if S.player_is_leader(v) then s = s + F.pvp_rules.leader_bonus * (1 - s) end
   return s
 end
 
@@ -195,7 +215,7 @@ function S.decide(v)
       end
       if (pv.player_groups or 0) > 0 then out.recall = true end
     elseif not declared then
-      local grace_end = (pv.anchor or 0) + S.grace_ticks(level, v.personality)
+      local grace_end = S.grace_end(pv.anchor, pv.grace_floor, level, v.personality)
       if pv.provoked then
         out.declare, declared = "provoked", true
       elseif pv.tick >= grace_end then

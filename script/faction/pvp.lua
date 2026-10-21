@@ -8,17 +8,26 @@
   - Décision PURE (shared/faction/strategy.lua, S.decide) : délai de grâce, préavis, déclaration de
     guerre, cible (le joueur quand il est « dû », sinon la rivale), effectif. Ce module ne fait que
     construire la vue et appliquer les actions.
-  - Repérage des installations du joueur à coût BORNÉ et ÉTALÉ : voie « fo-pvp-scan », 2 secteurs de
-    64 × 64 tuiles toutes les 15 ticks (un count_entities_filtered chacun), sur un disque de 10 secteurs
-    autour du point de départ du joueur. Rien n'est compté en « Paisible ».
+  - Repérage des installations du joueur à coût BORNÉ et ÉTALÉ : voie « fo-pvp-scan », 1 secteur de
+    64 × 64 tuiles toutes les 8 ticks (un count_entities_filtered), sur un disque de 24 secteurs
+    (1 536 tuiles) autour du point de départ du joueur, balayé en 4 min. Rien n'est compté en « Paisible ».
   - Cible : secteur repéré le plus proche du QG de la faction (le secteur de départ du joueur en dernier,
     comme un QG), installation réelle la plus proche, défense = 8 × tourelles à 40 tuiles.
+  - Provocation : seule la destruction d'une entité de la faction SOUS cessez-le-feu en est une. En guerre
+    ouverte, abattre un attaquant (tourelle, compagnon) est de la légitime défense : aucun effet.
   - Messages au joueur : préavis, déclaration de guerre, départ de chaque attaque (lien [gps]), trêve,
-    changement de difficulté. Lignes « [FO-PVP] » en clair dans le journal (bancs).
+    changement de difficulté, hostilité héritée d'une sauvegarde plus ancienne. Lignes « [FO-PVP] » en
+    clair dans le journal (bancs).
+
+  LIMITES (documentées, non traitées) :
+  - seule la force « player » est visée et repérée : en multijoueur avec plusieurs forces de joueurs
+    (équipes), les autres forces ne sont jamais attaquées et leur cessez-le-feu n'est pas géré ;
+  - une installation au-delà du disque de repérage (1 536 tuiles du point de départ) n'est jamais ciblée.
 
   État persistant : war.pvp (niveau, ancre de la grâce, secteurs repérés, curseur, pertes du joueur),
-  f.pvp par faction (déclarée, provoquée, préavis, dernière attaque, soldats envoyés), war.pvp_forced
-  (niveau imposé par l'interface distante, bancs seulement). Aucune fonction dans global.
+  f.pvp par faction (déclarée, provoquée, héritée, préavis, fin de grâce au plus tôt, dernière attaque,
+  soldats envoyés), war.pvp_forced (niveau imposé par l'interface distante, bancs seulement). Aucune
+  fonction dans global.
 ]]
 
 local Events = require("script.core.events")
@@ -129,6 +138,11 @@ local function set_relations(f, ceasefire)
   player.set_cease_fire(force, ceasefire)
 end
 
+--- Fin de la grâce d'une faction (tick), nil en « Paisible ».
+local function grace_end(p, fp, level, f)
+  return S.grace_end(p.anchor, fp.grace_floor, level, f.personality)
+end
+
 --- Plus court délai de grâce parmi les factions vivantes (ticks), nil en « Paisible ».
 local function earliest_grace(war, level)
   local best
@@ -140,10 +154,11 @@ local function earliest_grace(war, level)
 end
 
 --- État PvP d'une guerre en cours. Une guerre lancée avant le lot IA0 (sauvegarde plus ancienne) reçoit
---- son état ici : la grâce part du chargement (pas du lancement de la guerre) pour TOUTES les factions, et
---- le joueur est prévenu. Une faction déjà hostile le reste (cessez-le-feu inchangé) : on ne sait pas si
---- c'était une provocation ou l'ancien réglage fo-war-player-ceasefire, donc aucune n'est traitée comme
---- provoquée (pas d'attaque délibérée avant la fin de sa grâce).
+--- son état ici : la grâce part du chargement (pas du lancement de la guerre), et le joueur est prévenu.
+--- HOSTILITÉ HÉRITÉE : une faction déjà sans cessez-le-feu avec le joueur (provocation, ou ancien réglage
+--- fo-war-player-ceasefire décoché) est marquée provoquée : elle reste hostile en « Paisible » (comme avant
+--- IA0) ; hors « Paisible », elle est en guerre déclarée dès la reprise, sans grâce et sans nouvelle
+--- déclaration (un message dit qu'elle l'était déjà).
 function PvP.ensure(tick)
   local war = State.war()
   if war.pvp then return war.pvp end
@@ -153,6 +168,16 @@ function PvP.ensure(tick)
   for _, id in ipairs(State.sorted_keys(war.factions)) do faction_state(war.factions[id]) end
   Scheduler.add(PvP.SCAN_LANE, 1)
   say({ "fo-pvp.resumed", level_name(level) }, "[FO-PVP] reprise d'une guerre anterieure : difficulte " .. level .. ", grace depuis le tick " .. tick)
+  local aggressive = F.pvp_params(level).aggressive
+  for _, id in ipairs(State.alive()) do
+    local f = war.factions[id]
+    if not ceasefire_on(f) then
+      local fp = faction_state(f)
+      fp.provoked, fp.inherited = true, true
+      if aggressive then fp.declared, fp.warned, fp.declared_at = true, true, tick end
+      say({ "fo-pvp.inherited", fname(f) }, string.format("[FO-PVP] hostilite heritee tick %d %s", tick, f.key))
+    end
+  end
   return p
 end
 
@@ -186,7 +211,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local function declare(f, reason, tick)
   local fp = faction_state(f)
-  fp.declared, fp.warned, fp.declared_at = true, true, tick
+  fp.declared, fp.warned, fp.declared_at, fp.grace_floor = true, true, tick, nil
   fp.sent_player, fp.sent_total, fp.due_since = 0, 0, nil -- la part visée se compte depuis la déclaration
   if ceasefire_on(f) then set_relations(f, false) end
   local key = reason == "provoked" and "fo-pvp.declare-provoked" or "fo-pvp.declare"
@@ -206,7 +231,9 @@ end
 ---   - vers « Paisible » : trêve des factions déclarées par la difficulté (pas des provoquées), rappel de
 ---     toutes les attaques en route contre le joueur ;
 ---   - depuis « Paisible » vers un niveau agressif : la grâce repart de maintenant ;
----   - entre niveaux agressifs : même ancre, nouveaux paramètres dès la pensée suivante.
+---   - entre niveaux agressifs : même ancre, nouveaux paramètres dès la pensée suivante ; une faction non
+---     déclarée dont la nouvelle grâce finirait dans moins de warn_ticks (ou serait déjà écoulée) ne
+---     déclare la guerre qu'après un préavis complet (fin de grâce au plus tôt : maintenant + warn_ticks).
 function PvP.sync(tick)
   local war = State.war()
   if not war.active then return end
@@ -221,7 +248,12 @@ function PvP.sync(tick)
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
     local fp = faction_state(f)
-    if not fp.declared then fp.warned = false end
+    if not fp.declared then
+      fp.warned, fp.grace_floor = false, nil
+      if d.aggressive and was and not fp.provoked and grace_end(p, fp, level, f) < tick + R.warn_ticks then
+        fp.grace_floor = tick + R.warn_ticks
+      end
+    end
     if not d.aggressive then
       if fp.declared and not fp.provoked then
         truce(f, tick)
@@ -324,7 +356,7 @@ end
 --- déclarée ou grâce écoulée, intervalle entre deux attaques écoulé). nil sinon.
 local function player_view(f, surface, p, fp, tick, level)
   if not F.pvp_params(level).aggressive or p.score <= 0 then return nil end
-  if not fp.declared and not fp.provoked and tick < p.anchor + S.grace_ticks(level, f.personality) then return nil end
+  if not fp.declared and not fp.provoked and tick < grace_end(p, fp, level, f) then return nil end
   if fp.last_attack and tick - fp.last_attack < S.cooldown_ticks(level) then return nil end
   if Military.target_unreachable(f, "player", tick) then return { score = p.score, defense = 0, reachable = false } end
   local t = fp.target
@@ -365,7 +397,8 @@ function PvP.think(f, surface, tick, view, target)
   view.own_outposts = f.outposts_count
   view.leader_outposts = leader
   view.pvp = {
-    difficulty = level, tick = tick, anchor = p.anchor, declared = fp.declared, provoked = fp.provoked,
+    difficulty = level, tick = tick, anchor = p.anchor, grace_floor = fp.grace_floor,
+    declared = fp.declared, provoked = fp.provoked,
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
     player_groups = player_groups(f), due_since = fp.due_since,
   }
@@ -392,23 +425,24 @@ function PvP.think(f, surface, tick, view, target)
   return a
 end
 
---- Le joueur a détruit une entité de la faction : cessez-le-feu rompu (comme avant IA0). Hors
---- « Paisible », la faction le prend aussitôt pour cible (fin de la grâce pour elle).
+--- Le joueur a détruit une entité de la faction. Sous cessez-le-feu, c'est une provocation : cessez-le-feu
+--- rompu (comme avant IA0) et, hors « Paisible », la faction le prend aussitôt pour cible (fin de la grâce
+--- pour elle). En guerre ouverte (déclarée par la difficulté, provoquée ou héritée), abattre un attaquant
+--- est de la légitime défense : rien ne change (pas de provocation, trêve de « Paisible » toujours
+--- possible, grâce intacte au retour à un niveau agressif, aucun message).
 function PvP.on_provoked(f, tick)
   local war = State.war()
   if not war.active then return end
   local p = PvP.ensure(tick)
+  if not ceasefire_on(f) then return end
   local fp = faction_state(f)
   fp.provoked = true
-  local was_ceasefire = ceasefire_on(f)
-  if was_ceasefire then set_relations(f, false) end
+  set_relations(f, false)
   if F.pvp_params(p.difficulty).aggressive and not fp.declared then
-    fp.declared, fp.warned, fp.declared_at = true, true, tick
+    fp.declared, fp.warned, fp.declared_at, fp.grace_floor = true, true, tick, nil
     fp.sent_player, fp.sent_total, fp.due_since = 0, 0, nil
   end
-  if was_ceasefire then
-    say({ "fo-pvp.declare-provoked", fname(f) }, string.format("[FO-PVP] declaration tick %d %s (provoked)", tick, f.key))
-  end
+  say({ "fo-pvp.declare-provoked", fname(f) }, string.format("[FO-PVP] declaration tick %d %s (provoked)", tick, f.key))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -445,14 +479,18 @@ Events.on(defines.events.on_runtime_mod_setting_changed, function(e)
   if war and war.active then PvP.sync(e.tick) end
 end)
 
--- Pertes du joueur causées par les factions (preuve des attaques, statut).
+-- Pertes du joueur causées par les factions (preuve des attaques, statut). Coût : le tueur est testé
+-- d'abord (champ de l'événement, puis un seul appel d'API pour son nom) ; l'entité morte n'est lue que si
+-- le tueur est une faction.
 Events.on(defines.events.on_entity_died, function(e)
+  local killer = e.force
+  if not killer then return end
   local war = State.war()
   if not (war.active and war.pvp) then return end
-  local ent, killer = e.entity, e.force
-  if not (killer and ent and ent.valid) or ent.force.name ~= "player" then return end
   local f = State.by_force(killer.name)
   if not f then return end
+  local ent = e.entity
+  if not (ent and ent.valid) or ent.force.name ~= "player" then return end
   war.pvp.losses = (war.pvp.losses or 0) + 1
   local fp = faction_state(f)
   fp.kills = fp.kills + 1
@@ -480,13 +518,15 @@ function PvP.status(tick)
   for _, id in ipairs(State.sorted_keys(war.factions or {})) do
     local f = war.factions[id]
     local fp = f.pvp or {}
-    local g = p and S.grace_ticks(level, f.personality)
     out.factions[#out.factions + 1] = {
       key = f.key, personality = f.personality, eliminated = f.eliminated,
-      declared = fp.declared or false, provoked = fp.provoked or false, declared_at = fp.declared_at,
-      grace_end = g and (p.anchor + g) or nil, attacks = fp.attacks or 0, soldiers = fp.soldiers or 0,
+      declared = fp.declared or false, provoked = fp.provoked or false, inherited = fp.inherited or false,
+      declared_at = fp.declared_at,
+      grace_end = p and S.grace_end(p.anchor, fp.grace_floor, level, f.personality) or nil,
+      attacks = fp.attacks or 0, soldiers = fp.soldiers or 0,
       sent_player = fp.sent_player or 0, sent_total = fp.sent_total or 0, last_attack = fp.last_attack,
       kills = fp.kills or 0,
+      target = fp.target and { x = fp.target.pos.x, y = fp.target.pos.y, defense = fp.target.defense } or nil,
     }
   end
   return out
