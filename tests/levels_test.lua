@@ -627,7 +627,7 @@ for _, lang in ipairs({ "fr", "en" }) do
     "fo-epochs.new-piece", "fo-epochs.currency", "fo-epochs.currency-provisional", "fo-epochs.epoch-up",
     "fo-epochs.reason-unknown-item", "fo-levels.name", "fo-levels.level-up", "fo-levels.cc-line",
     "fo-levels.reason-cc-too-low", "fo-levels.maxed", "fo-levels.panel-title", "fo-epochs.desc-cc",
-    "fo-epochs.stat-energy_consumption" }
+    "fo-epochs.stat-energy_consumption", "fo-epochs.visual" }
   for e = 1, L.EPOCHS do
     need[#need + 1] = "fo-epochs.name-" .. L.epochs[e].key
     if L.epoch_materials[e] then need[#need + 1] = "fo-epochs.want-" .. L.epoch_materials[e].key end
@@ -640,8 +640,10 @@ section("Garde de l'interface des fichiers de famille (étape data, prototypes s
 ---------------------------------------------------------------------------------------------------
 -- Correction V2 : la garde était une liste de champs de jeu, trouée (preparing_speed, prepare_range,
 -- healing_per_tick, resource_searching_radius, base_productivity, ammo_type, data.raw, ctx). Elle capture
--- désormais TOUT le prototype sauf une liste blanche graphique. Chaque cas ci-dessous est un dress d'agent
--- V3 plausible : ok = la garde doit le laisser passer.
+-- désormais TOUT le prototype sauf une liste blanche graphique. Correction V2b : l'état partagé est comparé
+-- EN ENTIER (toute la config L, fonctions comprises), data.raw aussi (types surveillés et référencés par
+-- famille, puis tout data.raw), et chaque refus est vérifié sur son MOTIF (chemin modifié, « état
+-- partagé », « source », « lecture seule »…). Chaque cas ci-dessous est un dress d'agent V3 plausible.
 local saved_deepcopy, saved_data = table.deepcopy, rawget(_G, "data")
 local function deepcopy(t, seen)
   if type(t) ~= "table" then return t end
@@ -687,57 +689,274 @@ local function fake_drill()
     module_specification = { module_slots = 3, module_info_icon_shift = { 0, 0.5 } },
   }
 end
-local GUN_SRC = { ["gun-turret"] = { type = "ammo-turret", name = "gun-turret", max_health = 400 } }
-_G.data = { raw = { ["ammo-turret"] = GUN_SRC, ["electric-turret"] = { ["laser-turret"] = { max_health = 1000 } },
-  ["mining-drill"] = { ["electric-mining-drill"] = { max_health = 300 } }, item = {} } }
+local function fake_beam(name, damage)
+  return { type = "beam", name = name, width = 0.5, damage_interval = 20, random_target_offset = true,
+    action = { type = "direct", action_delivery = { type = "instant",
+      target_effects = { { type = "damage", damage = { amount = damage, type = "laser" } } } } },
+    head = sprite(1), tail = sprite(1), body = { sprite(1) }, light_animations = { head = sprite(1) },
+    working_sound = { sound = { filename = "__base__/s.ogg" } } }
+end
+-- data.raw simulé, refait avant chaque cas (un refus qui l'a modifié ne pollue pas le suivant).
+local function make_raw()
+  return {
+    ["ammo-turret"] = { ["gun-turret"] = { type = "ammo-turret", name = "gun-turret", max_health = 400,
+      corpse = "gun-turret-remnants", dying_explosion = "gun-turret-explosion" } },
+    ["electric-turret"] = { ["laser-turret"] = { type = "electric-turret", name = "laser-turret", max_health = 1000 } },
+    ["mining-drill"] = { ["electric-mining-drill"] = { type = "mining-drill", name = "electric-mining-drill", max_health = 300 } },
+    item = { ["gun-turret"] = { type = "item", name = "gun-turret", stack_size = 50, place_result = "gun-turret" } },
+    recipe = { ["gun-turret"] = { type = "recipe", name = "gun-turret", energy_required = 8 } },
+    ammo = { ["firearm-magazine"] = { type = "ammo", name = "firearm-magazine", magazine_size = 10,
+      ammo_type = { category = "bullet", action = { type = "direct" } } } },
+    beam = { ["laser-beam"] = fake_beam("laser-beam", 10), ["electric-beam"] = fake_beam("electric-beam", 40) },
+    projectile = { ["cannon-projectile"] = { type = "projectile", name = "cannon-projectile", acceleration = 0 } },
+    explosion = { ["gun-turret-explosion"] = { type = "explosion", name = "gun-turret-explosion", animations = { sprite(4) } } },
+    corpse = { ["gun-turret-remnants"] = { type = "corpse", name = "gun-turret-remnants", time_before_removed = 54000,
+      animation = sprite(1) } },
+    sticker = { ["slowdown-sticker"] = { type = "sticker", name = "slowdown-sticker", duration_in_ticks = 120 } },
+    ["trivial-smoke"] = { smoke = { type = "trivial-smoke", name = "smoke", duration = 60 } },
+    ["optimized-particle"] = { ["stone-particle"] = { type = "optimized-particle", name = "stone-particle", life_time = 60 } },
+    tile = { concrete = { type = "tile", name = "concrete", variants = { material_background = { picture = "__base__/c.png", count = 8 } } } },
+    technology = { ["physical-projectile-damage-1"] = { type = "technology", name = "physical-projectile-damage-1",
+      effects = { { type = "ammo-damage", ammo_category = "bullet", modifier = 0.1 } } } },
+  }
+end
+_G.data = { raw = make_raw() }
 local Common = require("prototypes.levels.common")
+local Style = require("prototypes.levels.style")
+
+-- Restauration EN PLACE de l'état partagé (config, boîte à outils, style) après un cas refusé : chaque table
+-- retrouve ses clés et ses valeurs d'origine (identités comprises).
+local function record(root)
+  local rec, seen = {}, {}
+  local function walk(t)
+    if seen[t] then return end
+    seen[t] = true
+    local kv = {}
+    for k, v in pairs(t) do
+      kv[k] = v
+      if type(v) == "table" then walk(v) end
+    end
+    rec[#rec + 1] = { t = t, kv = kv }
+  end
+  walk(root)
+  return rec
+end
+local SHARED_REC = record({ L, Common.kit, Style })
+local function restore_shared()
+  for _, e in ipairs(SHARED_REC) do
+    for k in pairs(e.t) do if e.kv[k] == nil then e.t[k] = nil end end
+    for k, v in pairs(e.kv) do e.t[k] = v end
+  end
+end
+
+--- Lance un cas : dress (garde complète autour de ce seul appel), puis vérifie l'issue et le motif.
+--- expect = true (accepté) ou liste de motifs que le message de refus doit contenir (recherche littérale).
+local refused_n, accepted_n = 0, 0
+local function run_case(fam, make, fn, expect, label)
+  _G.data = { raw = make_raw() }
+  local okg, err = pcall(Common.dress, { dress = fn }, make(), fam, 5)
+  local good = okg == (expect == true)
+  local missing = {}
+  if good and expect ~= true then
+    for _, motif in ipairs(expect) do
+      if not tostring(err):find(motif, 1, true) then missing[#missing + 1] = motif end
+    end
+    good = #missing == 0
+  end
+  check(good, string.format("garde : %s → %s%s%s", label, expect == true and "accepté" or "refusé",
+    (okg ~= (expect == true)) and (" (obtenu : " .. tostring(err) .. ")") or "",
+    (#missing > 0) and (" (motif absent : « " .. table.concat(missing, " », « ") .. " » dans : " .. tostring(err) .. ")") or ""))
+  if expect == true then accepted_n = accepted_n + 1 else refused_n = refused_n + 1 end
+  restore_shared()
+end
+
+local SRC = "prototype source"
+local SHARED_MOTIF = "état partagé"
+local RO = "lecture seule"
 local GUARD_CASES = {
-  -- { famille, prototype, dress, ok attendu, libellé }
+  -- { famille, prototype, dress, true (accepté) | { motifs du refus }, libellé }
   { G, fake_gun, function(p) p.base_picture.layers[1].tint = { r = 1, g = 0.5, b = 0.5 }; p.base_picture.layers[2] = sprite(1) end, true, "teinte et couche ajoutée" },
   { G, fake_gun, function(p) p.working_sound = { filename = "__base__/t.ogg" }; p.attack_parameters.sound = nil end, true, "sons" },
   { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(16) } }; p.preparing_speed = 0.16 end, true, "deux fois plus d'images, deux fois plus vite (même durée)" },
   { G, fake_gun, function(p) p.attack_parameters.projectile_center = { 0, 0.4 } end, true, "origine des balles (visuel)" },
   { G, fake_gun, function(p, ctx) ctx.color.r = 0 end, true, "ctx.color est une copie" },
-  { G, fake_gun, function(p) p.preparing_speed = 0.16 end, false, "preparing_speed seul (déploiement deux fois plus court)" },
-  { G, fake_gun, function(p) p.folding_animation = { layers = { sprite(4) } } end, false, "repli deux fois plus court (moins d'images)" },
-  { G, fake_gun, function(p) p.prepare_range = 30 end, false, "prepare_range" },
-  { G, fake_gun, function(p) p.healing_per_tick = 1 end, false, "healing_per_tick" },
-  { G, fake_gun, function(p) p.automated_ammo_count = 50 end, false, "automated_ammo_count" },
-  { G, fake_gun, function(p) p.call_for_help_radius = nil end, false, "clé de jeu retirée" },
-  { G, fake_gun, function(p) p.alert_when_attacking = false end, false, "clé de jeu ajoutée" },
-  { G, fake_gun, function(p) p.attack_parameters.cooldown = 4 end, false, "attack_parameters.cooldown" },
-  { G, fake_gun, function(p) p.max_health = 9999 end, false, "max_health" },
-  { G, fake_gun, function(p) p.selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } } end, false, "selection_box" },
-  { G, fake_gun, function(p) p.resistances[1].decrease = 5 end, false, "resistances" },
-  { G, fake_gun, function(p) data.raw["ammo-turret"]["gun-turret"].max_health = 1 end, false, "data.raw : prototype vanilla" },
-  { G, fake_gun, function(p, ctx) ctx.family.size = 9 end, false, "ctx.family (lecture seule)" },
-  { G, fake_gun, function(p, ctx) ctx.level = 30 end, false, "écriture dans ctx" },
-  { G, fake_gun, function(p, ctx) ctx.L.epochs[2].color.r = 0 end, false, "config partagée (ctx.L)" },
-  { G, fake_gun, function(p, ctx) ctx.kit.palette.glow[5] = { r = 0, g = 0, b = 0 } end, false, "style commun (ctx.kit.palette)" },
+  { G, fake_gun, function(p, ctx) local _ = ctx.L.CC_HEALTH + #ctx.L.families + ctx.kit.palette.glow[5].r end, true, "lecture de ctx.L et de ctx.kit" },
+  { G, fake_gun, function(p, ctx) p.corpse = "gun-turret-remnants"; p.dying_explosion = "gun-turret-explosion" end, true, "reste et explosion vanilla existants (références graphiques)" },
+  { G, fake_gun, function(p) p.preparing_speed = 0.16 end, { "durée de preparing_animation" }, "preparing_speed seul (déploiement deux fois plus court)" },
+  { G, fake_gun, function(p) p.folding_animation = { layers = { sprite(4) } } end, { "durée de folding_animation" }, "repli deux fois plus court (moins d'images)" },
+  { G, fake_gun, function(p) p.prepare_range = 30 end, { "« prepare_range »", "valeur modifiée" }, "prepare_range" },
+  { G, fake_gun, function(p) p.healing_per_tick = 1 end, { "« healing_per_tick »" }, "healing_per_tick" },
+  { G, fake_gun, function(p) p.automated_ammo_count = 50 end, { "« automated_ammo_count »" }, "automated_ammo_count" },
+  { G, fake_gun, function(p) p.call_for_help_radius = nil end, { "« call_for_help_radius »", "clé retirée" }, "clé de jeu retirée" },
+  { G, fake_gun, function(p) p.alert_when_attacking = false end, { "« alert_when_attacking »", "clé ajoutée" }, "clé de jeu ajoutée" },
+  { G, fake_gun, function(p) p.attack_parameters.cooldown = 4 end, { "« attack_parameters.cooldown »" }, "attack_parameters.cooldown" },
+  { G, fake_gun, function(p) p.max_health = 9999 end, { "« max_health »" }, "max_health" },
+  { G, fake_gun, function(p) p.selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } } end, { "« selection_box[1][1] »" }, "selection_box" },
+  { G, fake_gun, function(p) p.resistances[1].decrease = 5 end, { "« resistances[1].decrease »" }, "resistances" },
+  { G, fake_gun, function(p) data.raw["ammo-turret"]["gun-turret"].max_health = 1 end,
+    { SRC, 'data.raw["ammo-turret"]["gun-turret"].max_health', "gun.lua (niveau 5" }, "data.raw : prototype vanilla copié (source)" },
+  { G, fake_gun, function(p) data.raw.item["gun-turret"].stack_size = 1 end, { SRC, 'data.raw.item["gun-turret"].stack_size' }, "data.raw : objet source" },
+  { G, fake_gun, function(p, ctx) ctx.family.size = 9 end, { "ctx.family.size", RO }, "ctx.family (lecture seule)" },
+  { G, fake_gun, function(p, ctx) ctx.level = 30 end, { RO, "« level »" }, "écriture dans ctx" },
+  { G, fake_gun, function(p, ctx) ctx.L.epochs[2].color.r = 0 end, { SHARED_MOTIF, "L.epochs[2].color.r", RO }, "config partagée (ctx.L)" },
+  { G, fake_gun, function(p, ctx) ctx.kit.palette.glow[5] = { r = 0, g = 0, b = 0 } end, { SHARED_MOTIF, "palette.glow[5]" }, "style commun (ctx.kit.palette)" },
   { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.source_offset = { 0, -2 } end, true, "origine du faisceau (visuel)" },
-  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.energy_consumption = "100kJ" end, false, "ammo_type.energy_consumption" },
-  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.max_length = 40 end, false, "longueur du faisceau" },
-  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.beam = "electric-beam" end, false, "faisceau (ses dégâts)" },
-  { LZ, fake_laser, function(p) p.energy_source.buffer_capacity = "2MJ" end, false, "tampon d'énergie" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.energy_consumption = "100kJ" end, { "« attack_parameters.ammo_type.energy_consumption »" }, "ammo_type.energy_consumption" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.max_length = 40 end, { "action_delivery.max_length »" }, "longueur du faisceau" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.beam = "electric-beam" end, { "action_delivery.beam »" }, "faisceau (ses dégâts)" },
+  { LZ, fake_laser, function(p) p.energy_source.buffer_capacity = "2MJ" end, { "« energy_source.buffer_capacity »" }, "tampon d'énergie" },
   { L.by_key.drill, fake_drill, function(p) p.graphics_set.animation.north.layers[2] = sprite(1); p.input_fluid_box.pipe_picture = nil end, true, "foreuse : animation et tuyaux (visuel)" },
   { L.by_key.drill, fake_drill, function(p) p.module_specification.module_info_icon_shift = { 0, 0 } end, true, "foreuse : icône des modules (visuel)" },
-  { L.by_key.drill, fake_drill, function(p) p.resource_searching_radius = 4.49 end, false, "resource_searching_radius" },
-  { L.by_key.drill, fake_drill, function(p) p.base_productivity = 0.5 end, false, "base_productivity" },
-  { L.by_key.drill, fake_drill, function(p) p.module_specification.module_slots = 4 end, false, "module_slots" },
-  { L.by_key.drill, fake_drill, function(p) p.input_fluid_box.base_area = 10 end, false, "boîte à fluide" },
+  { L.by_key.drill, fake_drill, function(p) p.resource_searching_radius = 4.49 end, { "« resource_searching_radius »" }, "resource_searching_radius" },
+  { L.by_key.drill, fake_drill, function(p) p.base_productivity = 0.5 end, { "« base_productivity »" }, "base_productivity" },
+  { L.by_key.drill, fake_drill, function(p) p.module_specification.module_slots = 4 end, { "« module_specification.module_slots »" }, "module_slots" },
+  { L.by_key.drill, fake_drill, function(p) p.input_fluid_box.base_area = 10 end, { "« input_fluid_box.base_area »" }, "boîte à fluide" },
+  -- V2b, état partagé : chemins que l'ancienne garde (epochs, matériaux, familles, valeurs, piles) laissait passer.
+  { G, fake_gun, function() require("shared.levels.config").CC_HEALTH = 1 end, { SHARED_MOTIF, "L.CC_HEALTH", RO }, "config par require (L.CC_HEALTH)" },
+  { G, fake_gun, function(p, ctx) ctx.L.parse("fo-lvl-gun-2").max = 99 end, { SHARED_MOTIF, ".gun.max" }, "famille rendue par L.parse" },
+  { G, fake_gun, function(p, ctx) ctx.L.NOUVELLE_CLE = 1 end, { SHARED_MOTIF, "L.NOUVELLE_CLE", "clé ajoutée" }, "clé ajoutée à la config" },
+  { G, fake_gun, function(p, ctx) ctx.L.MAX_SLOT_SHARE = nil end, { SHARED_MOTIF, "L.MAX_SLOT_SHARE", "clé retirée" }, "clé retirée de la config" },
+  { G, fake_gun, function(p, ctx) ctx.L.cost = function() return {} end end, { SHARED_MOTIF, "L.cost" }, "fonction de la config remplacée" },
+  { G, fake_gun, function(p, ctx) ctx.L.target.production[3] = 1 end, { SHARED_MOTIF, "L.target.production[3]" }, "hypothèses du modèle (L.target)" },
+  { G, fake_gun, function(p, ctx) ctx.kit.tint = function() end end, { SHARED_MOTIF, "kit.tint" }, "fonction de ctx.kit remplacée" },
+  { G, fake_gun, function(p, ctx) ctx.kit.lib.PREFIX = "x-" end, { SHARED_MOTIF, "kit.lib.PREFIX" }, "prototypes/lib.lua par ctx.kit.lib" },
+  { G, fake_gun, function() require("prototypes.levels.style").palette.foundation[3].tile = "stone-path" end,
+    { SHARED_MOTIF, "palette.foundation[3].tile" }, "style commun par require" },
+  -- V2b, data.raw hors des sources : types surveillés, type référencé, tout le reste.
+  { G, fake_gun, function() data.raw.ammo["firearm-magazine"].magazine_size = 20 end,
+    { 'data.raw.ammo["firearm-magazine"].magazine_size', "prototype partagé", "gun.lua (niveau 5" }, "munition vanilla (firearm-magazine)" },
+  { LZ, fake_laser, function() data.raw.beam["laser-beam"].damage_interval = 10 end, { 'data.raw.beam["laser-beam"].damage_interval', "prototype partagé" }, "faisceau vanilla (dégâts)" },
+  { LZ, fake_laser, function() data.raw.beam["laser-beam"].body[1].tint = { r = 1, g = 0, b = 0 } end, { 'data.raw.beam["laser-beam"].body[1].tint', "ctx.declare" }, "faisceau vanilla (visuel : passer par ctx.declare)" },
+  { G, fake_gun, function() data.raw.projectile["cannon-projectile"].acceleration = 1 end, { 'data.raw.projectile["cannon-projectile"]' }, "projectile" },
+  { G, fake_gun, function() data.raw.explosion["gun-turret-explosion"].animations[1].tint = { r = 1, g = 0, b = 0 } end, { 'data.raw.explosion["gun-turret-explosion"]' }, "explosion" },
+  { G, fake_gun, function() data.raw.corpse["gun-turret-remnants"].time_before_removed = 1 end, { 'data.raw.corpse["gun-turret-remnants"]' }, "reste (corpse)" },
+  { G, fake_gun, function() data.raw.sticker["slowdown-sticker"].duration_in_ticks = 1 end, { 'data.raw.sticker["slowdown-sticker"]' }, "autocollant (sticker)" },
+  { G, fake_gun, function() data.raw["trivial-smoke"].smoke.duration = 1 end, { 'data.raw["trivial-smoke"].smoke.duration' }, "fumée" },
+  { G, fake_gun, function() data.raw["optimized-particle"]["stone-particle"].life_time = 1 end, { 'data.raw["optimized-particle"]["stone-particle"]' }, "particule" },
+  { G, fake_gun, function() data.raw.tile.concrete.variants.material_background.count = 1 end, { 'data.raw.tile.concrete.variants.material_background.count' }, "tuile du socle" },
+  { G, fake_gun, function() data.raw.recipe["gun-turret"].energy_required = 1 end, { 'data.raw.recipe["gun-turret"].energy_required' }, "type référencé par la source (recette du même nom)" },
+  { G, fake_gun, function() data.raw.technology["physical-projectile-damage-1"].effects[1].modifier = 9 end,
+    { 'data.raw.technology["physical-projectile-damage-1"].effects[1].modifier' }, "type ni surveillé ni référencé (tout data.raw)" },
+  { LZ, fake_laser, function() data.raw.beam["fo-mon-faisceau"] = fake_beam("fo-mon-faisceau", 10) end,
+    { 'data.raw.beam["fo-mon-faisceau"]', "prototype ajouté" }, "prototype ajouté pendant dress (data:extend)" },
 }
-local palette_glow5 = L.epochs[2].color.r
-local saved_glow5 = Common.kit.palette.glow[5]
-for _, gc in ipairs(GUARD_CASES) do
-  local fam, make, fn, want, label = gc[1], gc[2], gc[3], gc[4], gc[5]
-  local okg, err = pcall(Common.dress, { dress = fn }, make(), fam, 5)
-  check(okg == want, string.format("garde : %s → %s%s", label, want and "accepté" or "refusé",
-    (okg ~= want) and (" (obtenu : " .. tostring(err) .. ")") or ""))
-  -- Les cas « refusés » qui ont modifié un état partagé le rétablissent pour les suivants.
-  GUN_SRC["gun-turret"].max_health = 400
-  L.epochs[2].color.r = palette_glow5
-  Common.kit.palette.glow[5] = saved_glow5
+
+local function declare_beam(suffix, edit, source)
+  return function(p, ctx)
+    local name = ctx.declare("beam", source or "laser-beam", suffix, edit)
+    p.attack_parameters.ammo_type.action.action_delivery.beam = name
+  end
 end
+local DECLARE_CASES = {
+  { LZ, fake_laser, declare_beam("beam", function(b) b.body = { sprite(4) }; b.head.tint = { r = 1, g = 0.2, b = 0.2 }; b.light_animations = nil end), true,
+    "ctx.declare : faisceau propre (visuel) et référence remplacée" },
+  { LZ, fake_laser, function(p, ctx) ctx.declare("corpse", "gun-turret-remnants", "reste", function(c) c.animation = sprite(2) end) end, true,
+    "ctx.declare : reste propre (visuel)" },
+  { LZ, fake_laser, declare_beam("beam", function(b) b.damage_interval = 5 end), { "ctx.declare", "« damage_interval »" }, "ctx.declare : intervalle de dégâts changé" },
+  { LZ, fake_laser, declare_beam("beam", function(b) b.action.action_delivery.target_effects[1].damage.amount = 99 end),
+    { "ctx.declare", "« action.action_delivery.target_effects[1].damage.amount »" }, "ctx.declare : dégâts changés" },
+  { LZ, fake_laser, declare_beam("beam", function(b) b.body = { sprite(2) } end, "electric-beam"), { "« attack_parameters.ammo_type.action.action_delivery.beam »" },
+    "ctx.declare : référence vers la copie d'une AUTRE source" },
+  { LZ, fake_laser, function(p, ctx) ctx.declare("ammo", "firearm-magazine", "m", nil) end, { "ctx.declare", "non pris en charge" }, "ctx.declare : type non pris en charge" },
+  { LZ, fake_laser, function(p, ctx) ctx.declare("beam", "faisceau-inconnu", "b", nil) end, { "ctx.declare", "introuvable" }, "ctx.declare : source introuvable" },
+  { LZ, fake_laser, function(p, ctx) ctx.declare("beam", "laser-beam", "b", nil); ctx.declare("beam", "laser-beam", "b", nil) end,
+    { "ctx.declare", "déjà pris : fo-lvl-laser-5-b" }, "ctx.declare : même nom deux fois" },
+  { LZ, fake_laser, function(p, ctx) ctx.declare("beam", "laser-beam", "b c", nil) end, { "ctx.declare", "suffixe invalide" }, "ctx.declare : suffixe invalide" },
+  { LZ, fake_laser, declare_beam("beam", function(b) data.raw.beam["laser-beam"].width = 2 end), { 'data.raw.beam["laser-beam"].width' },
+    "ctx.declare : edit modifie la source dans data.raw" },
+}
+
+for _, gc in ipairs(GUARD_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
+for _, gc in ipairs(DECLARE_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
+
+-- Sonde EXHAUSTIVE de la config : pour CHAQUE clé de L (triées), un dress modifie sa première feuille
+-- (nombre + 1, chaîne + "x", booléen inversé, fonction remplacée ; table vide : clé ajoutée). Tous refusés,
+-- avec le chemin. families et by_key partagent les mêmes tables : le chemin signalé est le premier dans l'ordre
+-- trié (by_key).
+local function first_leaf(t, path, seen)
+  seen = seen or {}
+  if seen[t] then return nil end
+  seen[t] = true
+  local keys = {}
+  for k in pairs(t) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b)
+    if type(a) ~= type(b) then return type(a) < type(b) end
+    return a < b
+  end)
+  for _, k in ipairs(keys) do
+    local v = t[k]
+    if type(v) == "table" then
+      local pt, pk = first_leaf(v, path, seen)
+      if pt then table.insert(path, 1, k); return pt, pk end
+    else
+      path[1] = k
+      return t, k
+    end
+  end
+  return nil
+end
+local L_KEYS = {}
+for k in pairs(L) do L_KEYS[#L_KEYS + 1] = k end
+table.sort(L_KEYS)
+local probes_refused = 0
+for _, key in ipairs(L_KEYS) do
+  local fn = function(p, ctx)
+    local CL = ctx.L
+    local v = CL[key]
+    local holder, leaf = CL, key
+    if type(v) == "table" then holder, leaf = first_leaf(v, {}) end
+    if holder == nil then
+      v.SONDE = true
+    else
+      local x = holder[leaf]
+      if type(x) == "number" then holder[leaf] = x + 1
+      elseif type(x) == "string" then holder[leaf] = x .. "x"
+      elseif type(x) == "boolean" then holder[leaf] = not x
+      else holder[leaf] = function() end end
+    end
+  end
+  _G.data = { raw = make_raw() }
+  local okp, err = pcall(Common.dress, { dress = fn }, fake_gun(), G, 5)
+  local want = (key == "families") and "L.by_key." or ("L." .. key)
+  local good = not okp and tostring(err):find(SHARED_MOTIF, 1, true) ~= nil and tostring(err):find(want, 1, true) ~= nil
+  if good then probes_refused = probes_refused + 1 end
+  check(good, "garde : sonde de la config L." .. key .. " (" .. type(L[key]) .. ") → refusée, chemin « " .. want .. " »"
+    .. (good and "" or (" (obtenu : " .. tostring(err) .. ")")))
+  restore_shared()
+end
+print(string.format("  Sondes de la config : %d clés de L, %d refusées avec leur chemin", #L_KEYS, probes_refused))
+
+-- Garde d'une FAMILLE (generate) : une référence gardée par dress modifie un niveau déjà vérifié → refus à la
+-- fermeture ; un prototype déclaré est rendu par guard_end (à ajouter à data.raw).
+_G.data = { raw = make_raw() }
+local kept
+local okf, errf = pcall(function()
+  local g = Common.guard_begin(G)
+  Common.dress({ dress = function(p) kept = p end }, fake_gun(), G, 5, g)
+  Common.dress({ dress = function() kept.max_health = 1 end }, fake_gun(), G, 6, g)
+  Common.guard_end(g)
+end)
+check(not okf and tostring(errf):find("un appel ultérieur", 1, true) and tostring(errf):find("« max_health »", 1, true)
+  and tostring(errf):find("gun.lua (niveau 5)", 1, true),
+  "garde de famille : niveau 5 modifié par le dress du niveau 6 → refusé à la fermeture (" .. tostring(errf) .. ")")
+accepted_n, refused_n = accepted_n, refused_n + 1
+restore_shared()
+_G.data = { raw = make_raw() }
+local declared
+local okd, errd = pcall(function()
+  local g = Common.guard_begin(LZ)
+  Common.dress({ dress = declare_beam("beam", function(b) b.body = { sprite(4) } end) }, fake_laser(), LZ, 9, g)
+  declared = Common.guard_end(g)
+end)
+local d1 = declared and declared[1]
+check(okd and #declared == 1 and d1.name == "fo-lvl-laser-9-beam" and d1.type == "beam" and d1.damage_interval == 20
+  and d1.action.action_delivery.target_effects[1].damage.amount == 10 and d1.body[1].frame_count == 4
+  and d1.localised_name[1] == "fo-epochs.visual" and data.raw.beam["fo-lvl-laser-9-beam"] == nil
+  and data.raw.beam["laser-beam"].body[1].frame_count == 1,
+  "ctx.declare : copie rendue par guard_end (nom, dégâts de la source, visuel modifié, source intacte) (" .. tostring(errd) .. ")")
+accepted_n = accepted_n + 1
+print(string.format("  Garde : %d cas d'agent V3 (%d acceptés, %d refusés, motif vérifié pour chaque refus) + %d sondes de la config",
+  accepted_n + refused_n, accepted_n, refused_n, #L_KEYS))
 table.deepcopy, _G.data = saved_deepcopy, saved_data
 
 ---------------------------------------------------------------------------------------------------
@@ -777,7 +996,9 @@ end
 
 -- Le moteur simulé a des inventaires sans limite. Correction V2 : le coffre d'un centre est borné à ses
 -- vraies cases (L.chest_slots du niveau du centre de la force), avec les vraies piles (L.stack_size), comme
--- le moteur réel : un chantier qui ne tient pas dans le coffre n'est plus validé par erreur.
+-- le moteur réel : un chantier qui ne tient pas dans le coffre n'est plus validé par erreur. C'est une
+-- ENVELOPPE du moteur simulé : dans le moteur réel, le coffre est borné par nature ; le banc content (E32) y
+-- a vérifié les piles du jeu et la règle de place à chaque niveau.
 local TEST_STACK = { ["nuclear-fuel"] = 1, ["firearm-magazine"] = 200, ["uranium-rounds-magazine"] = 200 }
 local function stack_of(item) return L.stack_size[item] or TEST_STACK[item] or 50 end
 local function limit_chest(centre)
@@ -797,6 +1018,26 @@ local function limit_chest(centre)
     return raw_insert({ name = items.name, count = n })
   end
   return inv
+end
+-- Correction V2b (contre-vérification V2) : seul le coffre du centre POSÉ était borné ; après un chantier du
+-- centre, la nouvelle entité avait un coffre ILLIMITÉ, et les contrôles de place suivants ne prouvaient rien.
+-- La limite est rebranchée sur chaque centre remplacé par le crochet Levels.on_replaced (enregistré ici, hors
+-- événement, et de nouveau après le rechargement plus bas).
+local function limit_replaced_centre(_, new)
+  if new and new.valid and L.parse(new.name) == L.by_key.command then limit_chest(new) end
+end
+table.insert(Levels.on_replaced, limit_replaced_centre)
+--- Le coffre du centre est-il borné à ses cases ? Y verse (cases libres + 10) combustibles nucléaires (pile
+--- de 1) : seules les cases libres doivent entrer. Le coffre est rendu dans son état.
+local function chest_bounded(centre)
+  local inv = centre.get_inventory(defines.inventory.chest)
+  local cap = L.chest_slots(Levels.cc_level(centre.force))
+  local used = 0
+  for item, count in pairs(inv._items) do used = used + math.ceil(count / stack_of(item)) end
+  local free = cap - used
+  local got = inv.insert({ name = "nuclear-fuel", count = free + 10 })
+  if got > 0 then inv.remove({ name = "nuclear-fuel", count = got }) end
+  return got == free, got, free, cap
 end
 
 local cc = s.create_entity({ name = "fo-command-center", position = { x = 0.5, y = 0.5 }, force = "player" })
@@ -846,6 +1087,9 @@ r_ok, r_why = Levels.start(cc, nil)
 check(r_ok and r_why == "started", "chantier du centre lancé")
 M.run_ticks(L.time_ticks(L.by_key.command, 2, 1) + 31)
 check(Levels.cc_level(force) == 2 and Levels.cc(force).name == "fo-lvl-command-2", "centre niveau 2 (toujours enregistré après remplacement)")
+local bounded, got_fuel, free_slots, cap_slots = chest_bounded(Levels.cc(force))
+check(bounded and cap_slots == 64, string.format("coffre du centre 2 REMPLACÉ borné à ses %d cases : %d combustibles nucléaires entrés pour %d cases libres",
+  cap_slots, got_fuel, free_slots))
 check(Levels.cc(force).get_inventory(defines.inventory.chest).get_item_count("iron-plate") > 0, "le stock du centre a suivi le remplacement")
 r_ok, r_why = Levels.start(g2, nil)
 check(r_ok and r_why == "started", "tourelle niveau 3 autorisée avec un centre niveau 2")
@@ -923,12 +1167,15 @@ check(started == 5 and Levels.busy(f13) == 5, "centre 13 : 5 chantiers simultan�
 local f15, c15 = new_force_with_cc("fo-test-15", 14, 80.5)
 local inv15 = c15.get_inventory(defines.inventory.chest)
 check(inv15.insert({ name = "nuclear-fuel", count = 310 }) == 256 and inv15.remove({ name = "nuclear-fuel", count = 310 }) == 256,
-  "centre 14 : l'ancien coût (310 combustibles nucléaires, pile de 1) ne tenait pas dans ses 256 cases")
+  "enveloppe du moteur simulé (démonstration du coffre borné, pas une propriété de la config) : 310 combustibles nucléaires (pile de 1) versés dans le centre 14, 256 entrent ; l'ancien coût du centre 15 n'y tenait pas")
 check(stock(inv15, L.by_key.command, 15, 1), "centre 14 → 15 : tout le coût tient dans le coffre du centre 14 (cases réelles)")
 r_ok, r_why = Levels.start(c15, nil)
 check(r_ok and r_why == "started", "centre 14 → 15 : chantier lancé (monnaie de l'époque 14)")
 M.run_ticks(L.time_ticks(L.by_key.command, 15, 1) + 31)
 check(Levels.cc_level(f15) == 15, "centre niveau 15 (époque Légende)")
+bounded, got_fuel, free_slots, cap_slots = chest_bounded(Levels.cc(f15))
+check(bounded and cap_slots == 272, string.format("coffre du centre 15 REMPLACÉ borné à ses %d cases : %d combustibles nucléaires entrés pour %d cases libres",
+  cap_slots, got_fuel, free_slots))
 local top = Levels.cc(f15)
 info = Levels.preview(top, nil)
 check(info and not info.ok and info.reason == "max", "centre 15 : niveau maximal")
@@ -1057,6 +1304,7 @@ _G.global = saved
 local ok_load, err_load = pcall(function() Wd.on_load() end)
 check(ok_load, "on_load sans erreur (" .. tostring(err_load) .. ")")
 Levels = require("script.levels.levels")
+table.insert(Levels.on_replaced, limit_replaced_centre)
 local ok_run, err_run = pcall(M.run_ticks, L.time_ticks(L.by_key.furnace, 25, 1) + 31)
 check(ok_run, "jeu continu après rechargement (" .. tostring(err_run) .. ")")
 local up = 0
