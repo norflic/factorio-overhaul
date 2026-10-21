@@ -22,24 +22,30 @@
   niveaux 2 à 30 (le niveau 1 est le bâtiment vanilla, jamais modifié).
     p   : le prototype d'entité, déjà COPIÉ et chiffré (nom, statistiques, minage, groupe…). Le centre
           arrive avec l'image du coffre en acier : dress doit poser `p.picture`.
-    ctx : table en lecture seule :
-      family    : la famille (config : key, type, base, size, max…)
+    ctx : table en LECTURE SEULE (écrire un de ses champs arrête l'étape data) :
+      family    : COPIE de la famille (config : key, type, base, size, max…) ; la modifier est refusé
       level     : n (1 à 30 ; centre : 1 à 15)
       epoch     : époque du niveau (1 à 15) ; centre : epoch = level
       step      : 1 = premier niveau de l'époque (la silhouette CHANGE), 2 = second (une pièce S'AJOUTE) ;
                   le centre n'a qu'un niveau par époque (step = 1)
       epoch_key : clé de l'époque ("pioneer", "forge", "steam"… : config L.epochs)
-      color     : couleur de l'époque { r, g, b } (interface ; teinte du visuel provisoire)
-      L         : la configuration (shared/levels/config.lua), à lire seulement
-      kit       : boîte à outils visuelle (ci-dessous)
+      color     : COPIE de la couleur de l'époque { r, g, b } (interface ; teinte du visuel provisoire)
+      L         : la configuration (shared/levels/config.lua), à lire seulement (vérifié)
+      kit       : boîte à outils visuelle (ci-dessous), à lire seulement (vérifié)
   icons(icons, ctx) reçoit les icônes par défaut (icône vanilla teintée + numéro du niveau) et renvoie la
   liste à poser sur l'entité et sur l'objet.
 
-  Règles (vérifiées ici : une violation arrête l'étape data avec un message clair) :
-    - dress ne modifie QUE des champs graphiques : animations, sprites, couches lumineuses, ombres.
-      Les champs de jeu (nom, type, PV, emprise, collision, sélection, groupe de remplacement, minage,
-      vitesses, énergie, portée, dégâts, résistances, inventaire, traductions…) sont comparés avant et après
-      l'appel (GAME_FIELDS ci-dessous).
+  Règles (vérifiées par Common.dress : une violation arrête l'étape data avec un message clair) :
+    - dress ne modifie QUE des champs graphiques ou sonores. Garde INVERSÉE : tout le prototype est comparé
+      avant et après l'appel, sauf la liste blanche GRAPHIC_KEYS et les clés qui contiennent un mot visuel
+      (VISUAL_WORDS : picture, animation, sprite, sound, glow, shadow, light, smoke, icon…) ; dans les champs
+      de jeu, seules les sous-clés visuelles (VISUAL_SUBKEYS : source_offset, gun_center_shift…) sont libres.
+      Un champ de jeu oublié de toute liste est donc protégé par défaut.
+    - Animations à durée de jeu (preparing, folding, attacking, starting_attack, ending_attack des
+      tourelles) : on peut changer images et vitesse, pas la DURÉE (nombre d'images / vitesse).
+    - dress ne modifie jamais data.raw : les prototypes sources de la famille (vanilla copié, objet ; centre :
+      coffre en acier, roboport, radar, balise) sont comparés avant et après chaque appel.
+    - dress ne modifie ni la config, ni ctx.kit, ni le style commun (prototypes/levels/style.lua).
     - L'emprise au sol ne change jamais (critère D1-4) ; seule la hauteur visuelle peut croître.
     - Nouvelles images : graphics/levels/<famille>/ (lots V3). Chemins "__factorio-overhaul__/graphics/…".
 
@@ -56,13 +62,15 @@
     kit.halo(anim, color, k)       halo de nuit draw_as_light
     kit.foundation_sprite(tile, size, tint) / kit.add_foundation(anim, sprite)   socle en première couche
     kit.still(sprite, frame_x) / kit.moved(sprite, dx, dy, scale)              pièces fixes, déplacées
-    kit.palette                    palette provisoire par époque (glow, foundation)
+    kit.palette                    palette provisoire par époque (glow, foundation) : STYLE COMMUN des
+                                   7 familles, dans prototypes/levels/style.lua (un seul propriétaire)
     kit.lib, kit.Evo               prototypes/lib.lua et prototypes/evolution.lua
 ]]
 
 local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local L = require("shared.levels.config")
+local Style = require("prototypes.levels.style")
 
 local VISUALS = {
   command = require("prototypes.levels.command"),
@@ -133,60 +141,127 @@ local function apply_stats(p, family, n)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Garde de l'interface : champs de jeu qu'un fichier de famille n'a pas le droit de modifier.
+-- Garde de l'interface (INVERSÉE depuis la correction du lot V2) : TOUT le prototype est capturé avant
+-- et après dress, SAUF une liste blanche de clés graphiques ou sonores. Une clé de jeu nouvelle ou oubliée
+-- est donc protégée par défaut. En plus :
+--   - les vitesses d'animation des tourelles (preparing_speed…) sont libres, mais la DURÉE de l'animation
+--     (nombre d'images / vitesse) ne doit pas changer : c'est un délai de jeu (déploiement, repli) ;
+--   - les prototypes SOURCES de la famille (data.raw) ne doivent pas bouger ;
+--   - l'état partagé (config, boîte à outils, style commun) ne doit pas bouger ;
+--   - ctx est en lecture seule (écrire un champ de ctx est une erreur ; family et color sont des copies).
 ---------------------------------------------------------------------------------------------------
-local GAME_FIELDS = {
-  "name", "type", "max_health", "collision_box", "selection_box", "fast_replaceable_group", "next_upgrade",
-  "minable", "placeable_by", "flags", "localised_name", "localised_description", "resistances",
-  "inventory_size", "mining_speed", "crafting_speed", "energy_usage", "rotation_speed",
-  "resource_categories", "crafting_categories", "module_specification", "allowed_effects", "tile_width",
-  "tile_height", "collision_mask", "vector_to_place_result", "input_fluid_box", "output_fluid_box",
-  "fluid_boxes", "energy_source", "call_for_help_radius", "mining_area", "result_inventory_size",
-  "source_inventory_size",
+local function set(list)
+  local t = {}
+  for _, k in ipairs(list) do t[k] = true end
+  return t
+end
+
+-- Clés de premier niveau graphiques ou sonores, exactes.
+local GRAPHIC_KEYS = set({
+  "picture", "pictures", "animation", "animations", "idle_animation", "base_picture", "base_patch",
+  "folded_animation", "preparing_animation", "prepared_animation", "prepared_alternative_animation",
+  "attacking_animation", "folding_animation", "starting_attack_animation", "ending_attack_animation",
+  "energy_glow_animation", "graphics_set", "wet_mining_graphics_set", "working_visualisations",
+  "water_reflection", "integration_patch", "integration_patch_render_layer", "drawing_box",
+  "radius_visualisation_picture", "circuit_connector_sprites", "circuit_wire_connection_point",
+  "circuit_wire_connection_points", "visual_merge_group", "status_colors", "corpse", "dying_explosion",
+  "glow_light_intensity", "energy_glow_animation_flicker_strength", "turret_base_has_direction",
+  "base_render_layer", "gun_animation_render_layer", "gun_animation_secondary_draw_order",
+  "base_picture_render_layer", "base_picture_secondary_draw_order", "always_draw_idle_animation",
+  "match_animation_speed_to_activity", "default_recipe_tint", "shift_animation_waypoints",
+  "shift_animation_waypoint_stop_duration", "shift_animation_transition_duration", "map_color",
+  "friendly_map_color", "enemy_map_color", "scale_info_icons", "show_recipe_icon", "show_recipe_icon_on_map",
+  "entity_info_icon_shift", "alert_icon_shift", "alert_icon_scale", "scale_entity_info_icon",
+  "draw_entity_info_icon_background", "icon", "icons", "icon_size", "icon_mipmaps",
+})
+-- Mots qui marquent une clé graphique ou sonore, à tous les niveaux (« pipe_picture », « smoke »,
+-- « wall_diode_red », « module_info_icon_shift »…).
+local VISUAL_WORDS = { "picture", "cover", "smoke", "light", "animation", "sprite", "sound", "glow", "shadow",
+  "visualis", "visualiz", "reflection", "diode", "icon" }
+-- Sous-clés graphiques exactes dans les champs de jeu : origine du faisceau, de la douille, du canon.
+local VISUAL_SUBKEYS = set({ "source_offset", "projectile_center", "projectile_creation_distance",
+  "projectile_orientation_offset", "gun_center_shift", "gun_barrel_length", "shell_particle" })
+-- Animation → sa vitesse : la durée images / vitesse est un délai de jeu (règle de durée).
+local TIMED_ANIMATIONS = {
+  { "preparing_animation", "preparing_speed" }, { "folding_animation", "folding_speed" },
+  { "attacking_animation", "attacking_speed" }, { "starting_attack_animation", "starting_attack_speed" },
+  { "ending_attack_animation", "ending_attack_speed" },
 }
-local ATTACK_FIELDS = { "range", "min_range", "damage_modifier", "cooldown", "type", "ammo_category" }
+local SPEED_KEYS = {}
+for _, t in ipairs(TIMED_ANIMATIONS) do SPEED_KEYS[t[2]] = true end
 
--- Sous-clés graphiques ignorées dans les champs de jeu (images de tuyaux, fumée, lumière du brûleur…).
-local VISUAL_SUBKEYS = { "picture", "cover", "smoke", "light", "animation", "sprite", "sound", "glow", "shadow" }
-
-local function is_visual_key(k)
+local function has_visual_word(k)
   if type(k) ~= "string" then return false end
-  for _, w in ipairs(VISUAL_SUBKEYS) do
+  for _, w in ipairs(VISUAL_WORDS) do
     if k:find(w, 1, true) then return true end
   end
   return false
 end
 
-local function serialize(v, seen)
+local function nested_visual(k)
+  return VISUAL_SUBKEYS[k] or has_visual_word(k)
+end
+
+local function graphic_top(k)
+  return type(k) == "string" and (GRAPHIC_KEYS[k] or SPEED_KEYS[k] or has_visual_word(k))
+end
+
+--- Sérialisation déterministe (clés triées). skip(k) : sous-clés ignorées (nil : aucune).
+local function serialize(v, skip, seen)
   local t = type(v)
-  if t ~= "table" then return tostring(v) end
+  if t ~= "table" then return t == "string" and string.format("%q", v) or tostring(v) end
   seen = seen or {}
   if seen[v] then return "<cycle>" end
   seen[v] = true
   local keys = {}
   for k in pairs(v) do
-    if not is_visual_key(k) then keys[#keys + 1] = k end
+    if not (skip and skip(k)) then keys[#keys + 1] = k end
   end
   table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
   local parts = {}
-  for _, k in ipairs(keys) do parts[#parts + 1] = tostring(k) .. "=" .. serialize(v[k], seen) end
+  for _, k in ipairs(keys) do parts[#parts + 1] = tostring(k) .. "=" .. serialize(v[k], skip, seen) end
   seen[v] = nil
   return "{" .. table.concat(parts, ",") .. "}"
 end
 
+--- Nombre d'images d'une animation (couches : la plus longue ; 4 orientations : le nord).
+local function frames(a)
+  if type(a) ~= "table" then return nil end
+  if type(a.layers) == "table" then
+    local m
+    for _, l in ipairs(a.layers) do
+      local f = frames(l)
+      if f and (not m or f > m) then m = f end
+    end
+    return m
+  end
+  if a.north then return frames(a.north) end
+  if a.filename or a.filenames or a.stripes then return (a.frame_count or 1) * (a.repeat_count or 1) end
+  return nil
+end
+
 local function game_snapshot(p)
   local snap = {}
-  for _, k in ipairs(GAME_FIELDS) do snap[k] = serialize(p[k]) end
-  local ap = p.attack_parameters or {}
-  for _, k in ipairs(ATTACK_FIELDS) do snap["attack_parameters." .. k] = serialize(ap[k]) end
+  for k, v in pairs(p) do
+    if not graphic_top(k) then snap[k] = serialize(v, nested_visual) end
+  end
+  for _, t in ipairs(TIMED_ANIMATIONS) do
+    local f = frames(p[t[1]])
+    if f then snap["durée de " .. t[1]] = string.format("%.6f", f / (p[t[2]] or 1)) end
+  end
   return snap
 end
 
 local function check_snapshot(before, p, where)
   local after = game_snapshot(p)
-  for k, v in pairs(before) do
-    if after[k] ~= v then
-      error("prototypes/levels/" .. where .. " : dress a modifié le champ de jeu « " .. k .. " » (interface : seuls les champs graphiques)")
+  local keys = {}
+  for k in pairs(before) do keys[#keys + 1] = k end
+  for k in pairs(after) do if before[k] == nil then keys[#keys + 1] = k end end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  for _, k in ipairs(keys) do
+    if after[k] ~= before[k] then
+      error("prototypes/levels/" .. where .. " : dress a modifié le champ de jeu « " .. tostring(k)
+        .. " » (interface : seuls les champs graphiques)")
     end
   end
 end
@@ -340,28 +415,9 @@ function kit.moved(sp, dx, dy, scale)
   return s
 end
 
---- Palette PROVISOIRE par époque (reprise de la session 5, rejetée sur le design : E25). Lueur visible de
---- jour à partir de l'époque 5, halo de nuit à partir de l'époque 6, socle à partir du niveau 2.
-kit.palette = {
-  glow = {
-    [5] = { r = 1.00, g = 0.32, b = 0.06 }, [6] = { r = 0.30, g = 0.80, b = 1.00 },
-    [7] = { r = 0.65, g = 0.30, b = 1.00 }, [8] = { r = 0.50, g = 1.00, b = 0.30 },
-    [9] = { r = 0.40, g = 1.00, b = 0.40 }, [10] = { r = 0.40, g = 0.90, b = 1.00 },
-    [11] = { r = 0.90, g = 0.95, b = 1.00 }, [12] = { r = 0.20, g = 0.70, b = 1.00 },
-    [13] = { r = 1.00, g = 0.40, b = 0.90 }, [14] = { r = 1.00, g = 0.85, b = 0.40 },
-    [15] = { r = 1.00, g = 0.88, b = 0.55 },
-  },
-  foundation = {
-    [1] = { tile = "stone-path" }, [2] = { tile = "stone-path" }, [3] = { tile = "concrete" },
-    [4] = { tile = "concrete" }, [5] = { tile = "refined-concrete" }, [6] = { tile = "refined-concrete" },
-    [7] = { tile = "refined-concrete" }, [8] = { tile = "refined-hazard-concrete" },
-    [9] = { tile = "refined-hazard-concrete" }, [10] = { tile = "refined-hazard-concrete" },
-    [11] = { tile = "refined-concrete" }, [12] = { tile = "refined-concrete" },
-    [13] = { tile = "refined-concrete", tint = { r = 0.90, g = 0.80, b = 1.00 } },
-    [14] = { tile = "refined-concrete", tint = { r = 1.00, g = 0.84, b = 0.42 } },
-    [15] = { tile = "refined-concrete", tint = { r = 1.00, g = 0.92, b = 0.70 } },
-  },
-}
+--- Palette PROVISOIRE par époque : style commun des 7 familles, dans prototypes/levels/style.lua (un seul
+--- propriétaire). Lecture seule.
+kit.palette = Style.palette
 
 --- Visuel PROVISOIRE (aucun progrès visuel revendiqué : c'est le schéma rejeté en E25, ramené à 15 époques
 --- et à une échelle plafonnée). Teinte de l'époque, reflet au 2e niveau d'une époque, lueur (époque 5+),
@@ -435,8 +491,8 @@ local function command_center_skeleton(n)
   c.name = L.name(CC, n)
   c.collision_box = table.deepcopy(rp.collision_box)
   c.selection_box = table.deepcopy(rp.selection_box)
-  c.max_health = 3000
-  c.inventory_size = 48
+  c.max_health = L.CC_HEALTH
+  c.inventory_size = L.CC_INVENTORY
   c.corpse = rp.corpse
   c.dying_explosion = rp.dying_explosion
   c.damaged_trigger_effect = table.deepcopy(rp.damaged_trigger_effect)
@@ -463,14 +519,74 @@ local function level_name(family)
   return { "entity-name." .. family.base }
 end
 
---- Contexte passé aux fichiers de famille.
+--- Contexte passé aux fichiers de famille : en LECTURE SEULE (écrire un champ est une erreur). family et
+--- color sont des COPIES (les modifier n'a d'effet que sur ce niveau, et la garde le refuse pour family).
+--- Renvoie ctx et sa table interne (pour la garde).
 function Common.context(family, n)
   local e = L.epoch_of(family, n)
   local ep = L.epochs[e]
-  return {
-    family = family, level = n, epoch = e, step = L.step_of(family, n), epoch_key = ep.key,
-    color = ep.color, L = L, kit = kit,
+  local inner = {
+    family = table.deepcopy(family), level = n, epoch = e, step = L.step_of(family, n), epoch_key = ep.key,
+    color = table.deepcopy(ep.color), L = L, kit = kit,
   }
+  local ctx = setmetatable({}, {
+    __index = inner,
+    __newindex = function(_, k) error("prototypes/levels : ctx est en lecture seule (champ « " .. tostring(k) .. " »)", 2) end,
+  })
+  return ctx, inner
+end
+
+-- Prototypes SOURCES lus pour fabriquer les niveaux d'une famille : dress ne doit jamais les modifier.
+local SOURCES = {
+  command = { { "container", "steel-chest" }, { "roboport", "roboport" }, { "radar", "radar" },
+              { "beacon", "beacon" }, { "item", "roboport" } },
+}
+local function sources_of(family)
+  return SOURCES[family.key] or { { family.type, family.base }, { "item", family.base } }
+end
+
+local function sources_snapshot(family)
+  local out = {}
+  for _, src in ipairs(sources_of(family)) do
+    local t = data.raw[src[1]]
+    out[#out + 1] = src[1] .. "/" .. src[2] .. "=" .. serialize(t and t[src[2]])
+  end
+  return out
+end
+
+-- État partagé : la config (données), la boîte à outils et le style commun.
+local function shared_snapshot()
+  return serialize({ epochs = L.epochs, materials = L.epoch_materials, families = L.families,
+    item_value = L.item_value, stack_size = L.stack_size, kit = kit, style = Style })
+end
+
+--- Appelle visual.dress(p, ctx) sous la garde de l'interface (voir plus haut). `cache` : instantanés des
+--- sources et de l'état partagé pris AVANT le premier appel de la famille (facultatif : sinon pris ici).
+--- Une violation arrête l'étape data avec un message qui nomme le fichier et le niveau.
+function Common.dress(visual, p, family, n, cache)
+  cache = cache or {}
+  cache.sources = cache.sources or sources_snapshot(family)
+  cache.shared = cache.shared or shared_snapshot()
+  cache.family = cache.family or serialize(family)
+  local where = family.key .. ".lua (niveau " .. n .. ")"
+  local ctx, inner = Common.context(family, n)
+  local before = game_snapshot(p)
+  visual.dress(p, ctx)
+  check_snapshot(before, p, where)
+  if serialize(inner.family) ~= cache.family then
+    error("prototypes/levels/" .. where .. " : dress a modifié ctx.family (lecture seule)")
+  end
+  local now = sources_snapshot(family)
+  for i, s in ipairs(now) do
+    if s ~= cache.sources[i] then
+      error("prototypes/levels/" .. where .. " : dress a modifié le prototype source data.raw."
+        .. s:match("^([^=]+)"):gsub("/", "."))
+    end
+  end
+  if shared_snapshot() ~= cache.shared then
+    error("prototypes/levels/" .. where .. " : dress a modifié l'état partagé (config, ctx.kit ou style commun)")
+  end
+  return ctx
 end
 
 function Common.generate()
@@ -483,6 +599,7 @@ function Common.generate()
   for _, family in ipairs(L.families) do
     local visual = VISUALS[family.key]
     assert(visual and type(visual.dress) == "function", "prototypes/levels/" .. family.key .. ".lua : fonction dress manquante")
+    local cache = {}
     for n = 1, family.max do
       local name = L.name(family, n)
       local p
@@ -497,20 +614,24 @@ function Common.generate()
         apply_stats(p, family, n)
       end
       if p then
-        local ctx = Common.context(family, n)
-        local ep = L.epochs[ctx.epoch]
+        local e = L.epoch_of(family, n)
+        local ep = L.epochs[e]
         -- Paramètres en CHAÎNES (F43) : le chargeur refuse un nombre dans une chaîne localisée de prototype.
         p.localised_name = { "fo-levels.name", level_name(family), tostring(n) }
-        p.localised_description = { "fo-epochs.desc", tostring(n), tostring(ctx.epoch), { "fo-epochs.name-" .. ep.key } }
+        if family.key == "command" then
+          -- Le centre énonce la règle : plafond des bâtiments (2 × son niveau) et ouvriers.
+          p.localised_description = { "fo-epochs.desc-cc", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key },
+            tostring(L.building_cap(n)), tostring(L.builders(n)) }
+        else
+          p.localised_description = { "fo-epochs.desc", tostring(n), tostring(e), { "fo-epochs.name-" .. ep.key } }
+        end
         p.minable = { mining_time = (p.minable and p.minable.mining_time) or 0.5, result = name }
         p.placeable_by = nil
         if family.key == "command" then p.flags = { "placeable-player", "player-creation" } end
 
         -- Visuel : fichier de la famille, sous garde.
-        local before = game_snapshot(p)
-        visual.dress(p, ctx)
-        check_snapshot(before, p, family.key .. ".lua (niveau " .. n .. ")")
-        lib.set_icons(p, family_icons(visual, p, ctx))
+        local dctx = Common.dress(visual, p, family, n, cache)
+        lib.set_icons(p, family_icons(visual, p, dctx))
         out[#out + 1] = p
 
         local item
@@ -531,7 +652,7 @@ function Common.generate()
         else
           item.order = (data.raw.item[base_item_name] and data.raw.item[base_item_name].order or "z") .. "-lvl" .. string.format("%02d", n)
         end
-        lib.set_icons(item, family_icons(visual, item, ctx))
+        lib.set_icons(item, family_icons(visual, item, dctx))
         out[#out + 1] = item
       end
     end
@@ -549,4 +670,5 @@ function Common.generate()
 end
 
 Common.kit = kit
+Common.game_snapshot = game_snapshot
 return Common

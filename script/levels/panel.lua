@@ -29,6 +29,10 @@ local function stat_value(proto, key)
   if key == "crafting_speed" then return proto.crafting_speed end
   if key == "energy_usage" then return proto.energy_usage and proto.energy_usage * 60 end
   if key == "inventory_size" then return proto.get_inventory_size(defines.inventory.chest) end
+  if key == "energy_consumption" then
+    local ap = proto.attack_parameters
+    return ap and ap.ammo_type and ap.ammo_type.energy_consumption
+  end
   return nil
 end
 
@@ -38,6 +42,7 @@ local function fmt(key, v)
   if key == "damage_modifier" then return string.format("×%.2f", v) end
   if key == "range" then return string.format("%.2f", v) end
   if key == "energy_usage" then return string.format("%.0f kW", v / 1000) end
+  if key == "energy_consumption" then return string.format("%.0f kJ", v / 1000) end
   return string.format("%.3g", v)
 end
 
@@ -111,7 +116,8 @@ local function refresh(player)
   local e = L.epoch_of(family, n)
   frame.add({ type = "label", caption = { "fo-epochs.level-line", n, family.max, e, epoch_name(e) } })
   local ccl = info.cc_level
-  frame.add({ type = "label", caption = { "fo-levels.cc-line", ccl, L.max_level(family, ccl), L.builders(ccl) } })
+  -- Plafond des BÂTIMENTS (2 × centre), quelle que soit la famille survolée (le centre lui-même va à 15).
+  frame.add({ type = "label", caption = { "fo-levels.cc-line", ccl, L.building_cap(ccl), L.builders(ccl) } })
 
   if info.job then
     local job = info.job
@@ -131,8 +137,8 @@ local function refresh(player)
     local nxt = game.entity_prototypes[L.name(family, info.next)]
     for _, st in ipairs(family.stats) do
       local key = st.path[#st.path]
-      if key ~= "rotation_speed" then
-        frame.add({ type = "label", caption = { "fo-levels.stat-line", { "fo-levels.stat-" .. key },
+      if key ~= "rotation_speed" and not st.hidden then
+        frame.add({ type = "label", caption = { "fo-levels.stat-line", { st.label or ("fo-levels.stat-" .. key) },
           fmt(key, stat_value(now, key)), fmt(key, stat_value(nxt, key)) } })
       end
     end
@@ -190,10 +196,16 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Événements
 ---------------------------------------------------------------------------------------------------
+--- Un joueur ne voit et n'améliore que les bâtiments de SA force : le chantier est payé par le centre de
+--- la force du bâtiment, et le panneau montre son stock.
+local function own(player, entity)
+  return entity and entity.valid and player and player.valid and entity.force.name == player.force.name
+end
+
 Events.on(defines.events.on_selected_entity_changed, function(e)
   local player = game.get_player(e.player_index)
   local sel = player and player.selected
-  if not (sel and L.parse(sel.name)) then return end
+  if not (sel and L.parse(sel.name) and own(player, sel)) then return end
   if UI().target[player.index] == sel then return end
   set_target(player, sel)
   refresh(player)
@@ -202,7 +214,7 @@ end)
 Events.on("fo-level-up", function(e)
   local player = game.get_player(e.player_index)
   local sel = player and player.selected
-  if not (sel and L.parse(sel.name)) then return end
+  if not (sel and L.parse(sel.name) and own(player, sel)) then return end
   set_target(player, sel)
   try_upgrade(player, sel, false)
   refresh(player)
@@ -219,13 +231,17 @@ Events.on(defines.events.on_gui_click, function(e)
     return
   end
   local target = UI().target[player.index]
+  if not own(player, target) then
+    close(player)
+    return
+  end
   try_upgrade(player, target, name == "fo_lvl_row")
   refresh(player)
 end)
 
 Events.on_nth_tick(30, function()
   local ui = UI()
-  for _, player in pairs(game.connected_players) do
+  for _, player in ipairs(game.connected_players) do
     if ui.target[player.index] ~= nil then refresh(player) end
   end
 end)
@@ -238,8 +254,11 @@ end)
 -- Après une amélioration, le bâtiment est une NOUVELLE entité : le panneau la suit.
 table.insert(Levels.on_replaced, function(old_unit, new)
   local ui = UI()
-  for index, unit in pairs(ui.unit) do
-    if unit == old_unit then
+  local players = {}
+  for index in pairs(ui.unit) do players[#players + 1] = index end
+  table.sort(players)
+  for _, index in ipairs(players) do
+    if ui.unit[index] == old_unit then
       ui.target[index] = new
       ui.unit[index] = new.unit_number
     end

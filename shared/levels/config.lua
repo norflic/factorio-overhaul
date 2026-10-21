@@ -21,10 +21,13 @@
   requis), pas par exposant ») :
   - chaque époque a SON matériau (monnaie d'époque, OBJECTIFS §6). Une amélioration faite pendant l'époque
     e se paie avec le matériau de l'époque e (60 % de la valeur d'époque) et celui de l'époque e-1 (40 %) ;
-    le matériau de l'époque est toujours exigé (au moins 1) ;
+    à l'époque 2, l'époque 1 n'ayant pas de matériau, l'acier paie 100 % ; le matériau de l'époque est
+    toujours exigé (au moins 1) ;
   - le panier de base de la famille (fer, cuivre, pierre…) croît LINÉAIREMENT ;
   - la valeur d'époque suit une table PAR ÉPOQUE (L.epochs[e].value_mult) ; les quantités restent bornées
-    parce que le matériau change à chaque époque : la valeur monte, le nombre d'objets non.
+    parce que le matériau change à chaque époque : la valeur monte, le nombre d'objets non ;
+  - PLACE : un chantier tient dans la moitié du coffre du centre qui le paie (L.cost_slots, testé), avec
+    les vraies tailles de pile (L.stack_size).
   Compatibilité 0.3.0 : les noms fo-command-center et fo-lvl-<famille>-<n> gardent leur sens (même famille,
   même niveau) ; les statistiques des niveaux 1 à 10 sont celles de 0.3.0, sauf les PV et résistances des
   murs (BALANCE_SHEET §12).
@@ -38,6 +41,8 @@ L.CC_MAX = 15         -- niveau maximal du centre de commandement (= nombre d'é
 L.MAX_BUILDERS = 5
 L.LEGACY_MAX = 10     -- 0.3.0 : 10 niveaux par famille (compatibilité des sauvegardes)
 L.PREFIX = "fo-lvl-"
+L.CC_HEALTH = 3000    -- centre niveau 1 : PV
+L.CC_INVENTORY = 48   -- centre niveau 1 : cases du coffre (+ 16 par niveau, stats ci-dessous)
 
 ---------------------------------------------------------------------------------------------------
 -- Les 15 époques (OBJECTIFS.md §6, validées par Q7). `color` : couleur d'interface (célébration) et
@@ -45,24 +50,26 @@ L.PREFIX = "fo-lvl-"
 --   value_mult   : valeur (unités de matière brute) payée en matériaux d'époque, relative à l'époque 2 ;
 --   time_mult    : durée des chantiers des 6 familles, relative à l'époque 1 ;
 --   cc_time_mult : durée du chantier du centre PAYÉ pendant cette époque (celui qui ouvre la suivante).
--- Ces tables SONT la courbe : on la règle époque par époque, aucun exposant n'est caché ailleurs.
+-- Ces tables SONT la courbe : on la règle époque par époque. Elle est GÉOMÉTRIQUE dans les faits (valeur
+-- ≈ × 1,7 par époque à partir de l'époque 7, durée ≈ × 1,2), compensée par la production de l'usine
+-- (≈ × 1,46 par époque, L.target) : c'est le nombre d'OBJETS qui ne croît pas, puisque la monnaie change.
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
-  { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0,    time_mult = 1.0,  cc_time_mult = 1 },
-  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1,    time_mult = 1.4,  cc_time_mult = 2 },
-  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.6,  time_mult = 1.9,  cc_time_mult = 3 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 2.5,  time_mult = 2.5,  cc_time_mult = 5 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 4,    time_mult = 3.1,  cc_time_mult = 8 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 6.5,  time_mult = 3.6,  cc_time_mult = 12 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 10.5, time_mult = 4.6,  cc_time_mult = 16 },
-  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 22,   time_mult = 5.6,  cc_time_mult = 20 },
-  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 39,   time_mult = 6.6,  cc_time_mult = 25 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 68,   time_mult = 8.4,  cc_time_mult = 30 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 120,  time_mult = 10,   cc_time_mult = 36 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 210,  time_mult = 12,   cc_time_mult = 42 },
-  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 375,  time_mult = 15,   cc_time_mult = 50 },
-  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 665,  time_mult = 17.5, cc_time_mult = 60 },
-  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 1180, time_mult = 21,   cc_time_mult = 60 },
+  { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, time_mult = 1, cc_time_mult = 1 },
+  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1, time_mult = 1.25, cc_time_mult = 2 },
+  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.1, time_mult = 1.4, cc_time_mult = 3 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 1.25, time_mult = 1.55, cc_time_mult = 5 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 5, time_mult = 1.75, cc_time_mult = 8 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 9.1, time_mult = 1.95, cc_time_mult = 12 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 18.5, time_mult = 3.2, cc_time_mult = 16 },
+  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 32, time_mult = 3.6, cc_time_mult = 20 },
+  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 54, time_mult = 4.1, cc_time_mult = 25 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 93.5, time_mult = 6.8, cc_time_mult = 30 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 160, time_mult = 7.6, cc_time_mult = 36 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 275, time_mult = 8.6, cc_time_mult = 42 },
+  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 490, time_mult = 13, cc_time_mult = 50 },
+  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 810, time_mult = 15.5, cc_time_mult = 60 },
+  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 1460, time_mult = 18.5, cc_time_mult = 60 },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -77,6 +84,10 @@ L.epochs = {
 -- L'époque 1 (Pionnier) n'a pas de matériau propre : le panier de base de chaque famille la paie.
 -- Ordre de déblocage (arbre vanilla + mod) croissant d'une époque à l'autre ; époque 15 : il faut avoir
 -- lancé une fusée (pack de science spatiale).
+-- PLACE (correction V2) : le remplaçant de l'époque 13 était le combustible nucléaire, qui s'empile par 1 :
+-- le centre 15 demandait 366 cases pour un coffre de 256, chantier impossible en jeu. L'uranium 235 (pile
+-- de 100, même porte : l'enrichissement de Kovarex) le remplace. Contrainte pour le lot X0 : un matériau
+-- d'époque s'empile par L.MIN_MATERIAL_STACK (50) au moins.
 ---------------------------------------------------------------------------------------------------
 L.epoch_materials = {
   [2] = { key = "steel", want = "acier", item = "steel-plate", value = 5 },
@@ -91,10 +102,12 @@ L.epoch_materials = {
   [10] = { key = "processor", want = "processeur", item = "processing-unit", value = 75 },
   [11] = { key = "titanium", want = "plaque de titane", want_item = "fo-titanium-plate",
            item = "low-density-structure", provisional = true, value = 45 },
+  -- Moteur électrique : moteur 9 + 2 circuits 5 + 15 lubrifiant 1,5 = 15,5.
   [12] = { key = "superconductor", want = "supraconducteur (terres rares)", want_item = "fo-superconductor",
-           item = "electric-engine-unit", provisional = true, value = 20 },
+           item = "electric-engine-unit", provisional = true, value = 16 },
+  -- Uranium 235 : Kovarex consomme 3 uranium 238 (14) par uranium 235, plus le temps de centrifugeuse.
   [13] = { key = "helium3", want = "hélium-3", want_item = "fo-helium-3",
-           item = "nuclear-fuel", provisional = true, value = 130 },
+           item = "uranium-235", provisional = true, value = 45 },
   [14] = { key = "meteorite", want = "fragment de météorite", want_item = "fo-meteorite",
            item = "rocket-control-unit", provisional = true, value = 150 },
   [15] = { key = "exotic", want = "matière exotique", want_item = "fo-exotic-matter",
@@ -110,20 +123,43 @@ L.SECOND_LEVEL_TIME_FACTOR = 1.1
 
 --- Valeur des objets des paniers de base (unités de matière brute : 1 = une plaque de fer ; 10 unités
 --- de fluide = 1). Approximations d'après les recettes vanilla, détaillées dans BALANCE_SHEET §12.
+--- Un objet qui est AUSSI un matériau d'époque (acier, batterie) prend la valeur de L.epoch_materials, et
+--- seulement elle : une seule source, sinon raw_cost et cost_value divergeraient sans bruit (testé).
 L.item_value = {
   ["iron-plate"] = 1, ["copper-plate"] = 1, ["stone-brick"] = 2, ["iron-gear-wheel"] = 2,
-  ["electronic-circuit"] = 2.5, ["steel-plate"] = 5, ["battery"] = 9,
+  ["electronic-circuit"] = 2.5,
 }
 for e = 1, L.EPOCHS do
   local m = L.epoch_materials[e]
-  if m then L.item_value[m.item] = L.item_value[m.item] or m.value end
+  if m then L.item_value[m.item] = m.value end
 end
+
+--- Taille de pile des objets de coût : MIROIR de l'étape data 1.1.91 (relevé le 21/10 par
+--- `tests/datastage/harness.lua --dump-final item/<nom>`, tool/space-science-pack ; vérifié en moteur réel
+--- par content_test avec game.item_prototypes). Sert à la règle de place (L.cost_slots).
+L.stack_size = {
+  ["iron-plate"] = 100, ["copper-plate"] = 100, ["stone-brick"] = 100, ["iron-gear-wheel"] = 100,
+  ["electronic-circuit"] = 200, ["steel-plate"] = 100, ["battery"] = 200, ["engine-unit"] = 50,
+  ["plastic-bar"] = 100, ["fo-tungsten-plate"] = 100, ["fo-resonance-crystal"] = 50, ["fo-methane-barrel"] = 10,
+  ["uranium-238"] = 100, ["processing-unit"] = 100, ["low-density-structure"] = 10,
+  ["electric-engine-unit"] = 50, ["uranium-235"] = 100, ["rocket-control-unit"] = 10,
+  ["space-science-pack"] = 2000,
+}
+--- Un chantier tient dans cette part du coffre du centre qui le paie (le reste : l'usine continue de le
+--- remplir, et le joueur garde son inventaire).
+L.MAX_SLOT_SHARE = 0.5
+--- Pile minimale exigée d'un matériau d'époque À VENIR (lot X0 : fo-titanium-plate, fo-superconductor,
+--- fo-helium-3, fo-meteorite, fo-exotic-matter). Les remplaçants d'aujourd'hui en dessous (baril de
+--- méthane, structure légère, unité de contrôle de fusée : 10) tiennent la règle de place, testée.
+L.MIN_MATERIAL_STACK = 50
 
 ---------------------------------------------------------------------------------------------------
 -- Familles
 --   max         : niveau maximal (15 pour le centre, 30 pour les autres) ;
 --   stats       : { chemin, op, k } appliqué au prototype du niveau 1 :
 --                 "mul" : v × (1 + k·(n-1))     "add" : v + k·(n-1)
+--                 knee, k2 : au-delà du niveau `knee`, la pente devient k2 (dégressif) ;
+--                 hidden : statistique absente du panneau ; label : clé de locale du panneau
 --   base_cost   : panier de base (époque 1) ; quantité × (1 + base_growth·(n-2)) : croissance LINÉAIRE ;
 --   epoch_value : valeur payée en matériaux d'époque au 1er niveau de l'époque 2 (× value_mult) ;
 --   main_share  : part du matériau de l'époque (défaut L.MAIN_SHARE ; murs : 1, sans matériau précédent) ;
@@ -137,29 +173,37 @@ L.families = {
       { path = { "max_health" }, op = "mul", k = 0.20 },
       { path = { "inventory_size" }, op = "add", k = 16 },
     },
-    base_cost = { { "iron-plate", 100 }, { "copper-plate", 50 }, { "stone-brick", 50 }, { "electronic-circuit", 20 } },
-    base_growth = 0.4, epoch_value = 150, time0 = 60,
+    base_cost = { { "iron-plate", 260 }, { "copper-plate", 130 }, { "stone-brick", 130 }, { "electronic-circuit", 50 } },
+    base_growth = 0.15, epoch_value = 150, time0 = 60,
   },
   {
+    -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
+    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Testé : DPS ≤ 1,1 × la lourde.
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
     },
-    base_cost = { { "iron-plate", 10 }, { "iron-gear-wheel", 5 }, { "copper-plate", 5 } },
+    base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
     base_growth = 0.15, epoch_value = 12, time0 = 8,
   },
   {
+    -- Mêmes dégâts dégressifs (× 4,24 au niveau 30 contre 4 pour la tourelle laser lourde) ; l'énergie par
+    -- tir (et le tampon, qui doit la contenir) croît de 4 % par niveau : × 2,16 au niveau 30, les dégâts par
+    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts).
     key = "laser", type = "electric-turret", base = "laser-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
+      { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04,
+        label = "fo-epochs.stat-energy_consumption" },
+      { path = { "energy_source", "buffer_capacity" }, op = "mul", k = 0.04, hidden = true },
     },
-    base_cost = { { "steel-plate", 5 }, { "electronic-circuit", 5 }, { "battery", 3 } },
+    base_cost = { { "steel-plate", 3 }, { "electronic-circuit", 3 }, { "battery", 2 } },
     base_growth = 0.15, epoch_value = 20, time0 = 12,
   },
   {
@@ -180,7 +224,7 @@ L.families = {
       { path = { "mining_speed" }, op = "mul", k = 0.10 },
       { path = { "energy_usage" }, op = "mul", k = 0.07 },
     },
-    base_cost = { { "iron-plate", 10 }, { "iron-gear-wheel", 5 }, { "electronic-circuit", 3 } },
+    base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 2 } },
     base_growth = 0.15, epoch_value = 7, time0 = 6,
   },
   {
@@ -190,7 +234,7 @@ L.families = {
       { path = { "crafting_speed" }, op = "mul", k = 0.08 },
       { path = { "energy_usage" }, op = "mul", k = 0.06 },
     },
-    base_cost = { { "steel-plate", 3 }, { "stone-brick", 5 } },
+    base_cost = { { "steel-plate", 2 }, { "stone-brick", 3 } },
     base_growth = 0.15, epoch_value = 6, time0 = 5,
   },
   {
@@ -200,7 +244,7 @@ L.families = {
       { path = { "crafting_speed" }, op = "mul", k = 0.08 },
       { path = { "energy_usage" }, op = "mul", k = 0.06 },
     },
-    base_cost = { { "iron-plate", 10 }, { "iron-gear-wheel", 5 }, { "electronic-circuit", 5 } },
+    base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 3 } },
     base_growth = 0.15, epoch_value = 7, time0 = 6,
   },
 }
@@ -269,8 +313,10 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Valeur d'une statistique au niveau n à partir de la valeur du niveau 1.
 function L.apply_stat(stat, v1, n)
-  if stat.op == "mul" then return v1 * (1 + stat.k * (n - 1)) end
-  if stat.op == "add" then return v1 + stat.k * (n - 1) end
+  local x = stat.k * (n - 1)
+  if stat.knee and n > stat.knee then x = stat.k * (stat.knee - 1) + stat.k2 * (n - stat.knee) end
+  if stat.op == "mul" then return v1 * (1 + x) end
+  if stat.op == "add" then return v1 + x end
   error("op inconnue " .. tostring(stat.op))
 end
 
@@ -311,10 +357,12 @@ local function raw_cost(family, n)
   local v = L.epoch_value(family, n)
   local main = L.epoch_materials[e]
   if main and v > 0 then
-    local share = family.main_share or L.MAIN_SHARE
+    local prev = L.epoch_materials[e - 1]
+    -- Sans matériau à l'époque précédente (époque 2 : l'époque 1 n'en a pas), le matériau de l'époque paie
+    -- toute la valeur d'époque.
+    local share = prev and (family.main_share or L.MAIN_SHARE) or 1
     -- Le matériau de l'époque est TOUJOURS exigé (au moins 1) : c'est lui qui marque l'époque.
     add(main.item, round_nice(v * share / main.value))
-    local prev = L.epoch_materials[e - 1]
     if prev and share < 1 then
       local q = v * (1 - share) / prev.value
       if q >= 0.5 then add(prev.item, round_nice(q)) end
@@ -371,12 +419,18 @@ function L.time_ticks(family, n, factor)
   return math.floor(s * 60 * (factor or 1) + 0.5)
 end
 
---- Niveau maximal autorisé pour une famille selon le niveau du centre de commandement (0 = pas de centre) :
---- 2 × niveau du centre (2 niveaux par époque). Le centre lui-même va jusqu'à 15.
+--- Plafond des bâtiments (toutes familles sauf le centre) pour un centre de niveau cc : 2 × cc (2 niveaux
+--- par époque), au plus 30 ; sans centre, 1. C'est le chiffre qu'affiche le panneau du centre.
+function L.building_cap(cc_level)
+  if not cc_level or cc_level < 1 then return 1 end
+  return math.min(L.MAX, 2 * cc_level)
+end
+
+--- Niveau maximal autorisé pour une famille selon le niveau du centre de commandement (0 = pas de centre).
+--- Le centre lui-même va jusqu'à 15.
 function L.max_level(family, cc_level)
   if family.key == "command" then return family.max end
-  if not cc_level or cc_level < 1 then return 1 end
-  return math.min(family.max, 2 * cc_level)
+  return math.min(family.max, L.building_cap(cc_level))
 end
 
 --- Ouvriers d'amélioration (chantiers simultanés) selon le niveau du centre : 1 de plus toutes les 3 époques.
@@ -410,6 +464,38 @@ function L.cost_items()
   end
   table.sort(out)
   return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- Place : un coût tient-il dans le coffre du centre qui le paie ?
+---------------------------------------------------------------------------------------------------
+--- Cases d'inventaire occupées par un coût : Σ ⌈quantité / pile⌉ (stack : table des piles, défaut
+--- L.stack_size ; le moteur réel passe les siennes). Erreur si une pile est inconnue.
+function L.cost_slots(cost, stack)
+  stack = stack or L.stack_size
+  local n = 0
+  for _, c in ipairs(cost) do
+    local s = assert(stack[c[1]], "taille de pile inconnue : " .. c[1])
+    n = n + math.ceil(c[2] / s)
+  end
+  return n
+end
+
+--- Niveau du centre qui PAIE l'amélioration vers le niveau n : centre → n - 1 (le centre lui-même) ;
+--- familles → le plus petit centre qui l'autorise, ⌈n/2⌉.
+function L.payer_cc(family, n)
+  if family.key == "command" then return n - 1 end
+  return L.required_cc(family, n)
+end
+
+--- Cases du coffre d'un centre de niveau cc (mêmes formules que le prototype).
+function L.chest_slots(cc_level)
+  for _, st in ipairs(L.by_key.command.stats) do
+    if st.path[1] == "inventory_size" then
+      return math.floor(L.apply_stat(st, L.CC_INVENTORY, cc_level) + 0.5)
+    end
+  end
+  return L.CC_INVENTORY
 end
 
 --- Remplaçants provisoires, par époque : { {epoch, key, want, want_item, item}, ... }.

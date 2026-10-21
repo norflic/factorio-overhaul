@@ -197,18 +197,29 @@ local function manual_replace(old, name)
   -- Secours si le remplacement rapide échoue : contenus et recette recopiés (fils de circuit perdus).
   local surface, pos, dir, force = old.surface, old.position, old.direction, old.force
   local recipe = old.type == "assembling-machine" and old.get_recipe() or nil
+  -- Déterminisme (ARCHITECTURE §2) : inventaires dans l'ordre des index, objets dans l'ordre des noms (ce
+  -- qui déborde au sol quand l'inventaire est plein ne dépend d'aucun ordre de pairs).
   local saved = {}
   for i = 1, 10 do
     local inv = old.get_inventory(i)
-    if inv and not inv.is_empty() then saved[i] = inv.get_contents() end
+    if inv and not inv.is_empty() then
+      local contents = inv.get_contents()
+      local names = {}
+      for item in pairs(contents) do names[#names + 1] = item end
+      table.sort(names)
+      local list = {}
+      for _, item in ipairs(names) do list[#list + 1] = { item, contents[item] } end
+      saved[#saved + 1] = { index = i, items = list }
+    end
   end
   old.destroy({ raise_destroy = false })
   local new = surface.create_entity({ name = name, position = pos, direction = dir, force = force, raise_built = true, create_build_effect_smoke = false })
   if not new then return nil end
   if recipe then new.set_recipe(recipe) end
-  for i, contents in pairs(saved) do
-    local inv = new.get_inventory(i)
-    for item, count in pairs(contents) do
+  for _, rec in ipairs(saved) do
+    local inv = new.get_inventory(rec.index)
+    for _, it in ipairs(rec.items) do
+      local item, count = it[1], it[2]
       local put = inv and inv.insert({ name = item, count = count }) or 0
       if put < count then surface.spill_item_stack(pos, { name = item, count = count - put }, true, force, false) end
     end
@@ -415,6 +426,14 @@ function Levels.repair()
       job.entity.active = true
       end_job(job, "lost")
       fixed = fixed + 1
+    elseif type(job.cost) == "table" then
+      -- Objets de coût retirés du jeu depuis la sauvegarde : purgés (le remboursement au démontage les
+      -- ignore aussi).
+      local kept = {}
+      for _, c in ipairs(job.cost) do
+        if Levels.item_exists(c[1]) then kept[#kept + 1] = c end
+      end
+      job.cost = kept
     end
   end
   local forces = {}
@@ -436,9 +455,38 @@ function Levels.repair()
   return fixed
 end
 
+--- PV au-dessus du maximum du prototype (0.3.0 → V2 : un mur niveau 10 passe de 3 712 à 1 925 PV) :
+--- ramenés au maximum. Le moteur borne toute écriture de `health` ; on n'écrit que si c'est nécessaire.
+--- Renvoie le nombre de bâtiments corrigés. Surfaces dans l'ordre de leur index, entités dans l'ordre du
+--- moteur (déterministe).
+function Levels.clamp_health()
+  local names = {}
+  for _, f in ipairs(L.families) do
+    for n = 2, f.max do names[#names + 1] = L.name(f, n) end
+  end
+  local surfaces = {}
+  for _, surface in pairs(game.surfaces) do surfaces[surface.index] = surface end
+  local idx = {}
+  for i in pairs(surfaces) do idx[#idx + 1] = i end
+  table.sort(idx)
+  local fixed = 0
+  for _, i in ipairs(idx) do
+    for _, e in ipairs(surfaces[i].find_entities_filtered({ name = names })) do
+      local max = e.prototype.max_health
+      if max and e.health and e.health > max then
+        e.health = max
+        fixed = fixed + 1
+      end
+    end
+  end
+  return fixed
+end
+
 Events.on_configuration_changed(function()
   local fixed = Levels.repair()
   if fixed > 0 then log("[FO-LEVELS] mise à jour : " .. fixed .. " chantier(s) réparé(s)") end
+  local clamped = Levels.clamp_health()
+  if clamped > 0 then log("[FO-LEVELS] mise à jour : PV ramenés au maximum sur " .. clamped .. " bâtiment(s)") end
 end)
 
 ---------------------------------------------------------------------------------------------------
@@ -476,7 +524,9 @@ local function refund_half(cost, buffer)
   if not buffer then return end
   for _, c in ipairs(cost) do
     local q = math.floor(c[2] / 2)
-    if q > 0 then buffer.insert({ name = c[1], count = q }) end
+    -- Un chantier d'une version antérieure peut citer un objet retiré depuis (table d'indirection changée) :
+    -- l'insérer lèverait une erreur moteur « Unknown item name ».
+    if q > 0 and Levels.item_exists(c[1]) then buffer.insert({ name = c[1], count = q }) end
   end
 end
 

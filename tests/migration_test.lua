@@ -84,13 +84,16 @@ local cc = s.create_entity({ name = "fo-lvl-command-9", position = { x = 0.5, y 
 local gun = s.create_entity({ name = "fo-lvl-gun-10", position = { x = 10, y = 10 }, force = "player" })
 gun.insert({ name = "firearm-magazine", count = 20 })
 local wall = s.create_entity({ name = "fo-lvl-wall-10", position = { x = 20.5, y = 10.5 }, force = "player" })
+-- 0.3.0 : un mur niveau 10 avait 3 712 PV ; V2 lui en donne 1 925 (ici : maximum simulé 1 000). La santé
+-- enregistrée dans la sauvegarde peut dépasser le nouveau maximum.
+rawset(wall, "_health", 3711.6)
 local drill = s.create_entity({ name = "fo-lvl-drill-9", position = { x = 30, y = 30 }, force = "player" })
 drill.active = false
 local ghost = s.create_entity({ name = "fo-lvl-drill-5", position = { x = 40, y = 30 }, force = "player" })
 local function job_030(e, family, to, left)
   -- Forme exacte d'un chantier 0.3.0 (script/levels/levels.lua de la session 5).
   local j = { entity = e, unit = e.unit_number, force = "player", family = family, to = to, start = game.tick,
-              finish = game.tick + left, cost = { { "iron-plate", 510 }, { "fo-resonance-crystal", 9 } } }
+              finish = game.tick + left, cost = { { "iron-plate", 510 }, { "fo-resonance-crystal", 9 }, { "fo-retired-item", 4 } } }
   j.r_bg = rendering.draw_rectangle({ color = { r = 0, g = 0, b = 0 }, filled = true, surface = s, left_top = e, right_bottom = e })
   j.r_fg = rendering.draw_rectangle({ color = { r = 1, g = 1, b = 0 }, filled = true, surface = s, left_top = e, right_bottom = e })
   j.r_text = rendering.draw_text({ text = "x", surface = s, target = e, color = { r = 1, g = 1, b = 1 } })
@@ -110,6 +113,12 @@ local saved = M.deepcopy_global(global)
 
 section("Chargement par la version à 15 époques")
 M.load_mod()
+-- Un objet de coût d'un ancien chantier a disparu du jeu (table d'indirection changée depuis).
+local known_items = game.item_prototypes
+game.item_prototypes = setmetatable({}, { __index = function(_, name)
+  if name == "fo-retired-item" then return nil end
+  return known_items[name]
+end })
 _G.global = saved
 ok, err = pcall(function() W().on_load() end)
 check(ok, "on_load sans erreur (" .. tostring(err) .. ")")
@@ -122,6 +131,10 @@ check(Levels.cc_level(force) == 9, "centre niveau 9 reconnu (époque 9)")
 check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté à 18 (0.3.0 : 10)")
 check(lv.jobs[drill.unit_number] ~= nil and lv.busy.player == 1, "chantier 0.3.0 conservé ; chantier sans bâtiment réparé ; ouvriers recomptés (1)")
 check(lv.stats.lost == 1 and lv.stats.upgrades == 12, "statistiques 0.3.0 conservées (chantier perdu compté)")
+check(wall.valid and math.abs(wall.health - 1000) < 1e-9, "mur 0.3.0 : PV ramenés au nouveau maximum (" .. tostring(wall.health) .. ")")
+local purged = #lv.jobs[drill.unit_number].cost == 2
+for _, c in ipairs(lv.jobs[drill.unit_number].cost) do if c[1] == "fo-retired-item" then purged = false end end
+check(purged, "chantier 0.3.0 : objet de coût disparu du jeu retiré de son coût")
 local info = Levels.preview(gun, nil)
 check(info and info.next == 11 and info.reason == "no-resources", "mitrailleuse 10 → 11 désormais possible (il ne manque que les ressources)")
 info = Levels.preview(cc, nil)
@@ -135,6 +148,13 @@ check(gun.valid and gun.get_inventory(defines.inventory.turret_ammo).get_item_co
 for _, c in ipairs(L.cost(L.by_key.gun, 11)) do cc.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
 local r_ok, r_why = Levels.start(gun, nil)
 check(r_ok and r_why == "started", "mitrailleuse 0.3.0 au niveau 10 : chantier vers le niveau 11 lancé")
+-- Démontage en chantier avec un objet de coût disparu : la moitié du reste est rendue, l'objet inconnu non.
+local gjob = lv.jobs[gun.unit_number]
+gjob.cost[#gjob.cost + 1] = { "fo-retired-item", 4 }
+local buf = M.new_inventory()
+ok, err = pcall(M.dispatch, W().events[defines.events.on_player_mined_entity], { entity = gun, buffer = buf, player_index = 1, tick = game.tick })
+check(ok and buf.get_item_count("fo-retired-item") == 0 and buf.get_item_count(gjob.cost[1][1]) == math.floor(gjob.cost[1][2] / 2),
+  "démontage en chantier : objet disparu non rendu, moitié du reste rendue (" .. tostring(err) .. ")")
 
 print(string.format("\n%d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

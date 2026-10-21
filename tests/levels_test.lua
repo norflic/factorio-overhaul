@@ -3,7 +3,8 @@
   et de durées par époque, table d'indirection des matériaux, chantiers en moteur simulé, panneau.
   Usage, depuis la racine du mod :
     lua5.2 tests/levels_test.lua            les tests
-    lua5.2 tests/levels_test.lua --tables   les tableaux Markdown de BALANCE_SHEET §12, CALCULÉS sur la config
+    lua5.2 tests/levels_test.lua --tables | tr -d '\r'   les tableaux Markdown de BALANCE_SHEET §12, CALCULÉS
+                                                         sur la config (tr : fichier en LF, print ajoute CR sous Windows)
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -16,14 +17,25 @@ local L = require("shared.levels.config")
 local VANILLA = {
   command = { max_health = 3000, inventory_size = 48 },
   gun = { max_health = 400, damage_modifier = 1, range = 18, rotation_speed = 0.015 },
-  laser = { max_health = 1000, damage_modifier = 2, range = 24, rotation_speed = 0.01 },
+  laser = { max_health = 1000, damage_modifier = 2, range = 24, rotation_speed = 0.01, energy_consumption = 800,
+            buffer_capacity = 801 },
   wall = { max_health = 350, physical = 3, explosion = 10 },
   drill = { max_health = 300, mining_speed = 0.5, energy_usage = 90 },
   furnace = { max_health = 300, crafting_speed = 2, energy_usage = 90 },
   assembler = { max_health = 350, crafting_speed = 0.75, energy_usage = 150 },
 }
 
-local function stat_at(family, key, n)
+-- Cadence vanilla (ticks entre deux tirs) : la tourelle lourde du mod réduit celle de la mitrailleuse.
+local GUN_COOLDOWN, LASER_COOLDOWN = 6, 40
+
+local stat_at
+--- DPS relatif à la tourelle vanilla de même famille : dégâts × cadence (la cadence des niveaux ne change pas).
+local function dps_at(family, n)
+  return stat_at(family, "damage_modifier", n) / VANILLA[family.key].damage_modifier
+end
+
+function stat_at(family, key, n)
+  if key == "dps" then return dps_at(family, n) end
   for _, st in ipairs(family.stats) do
     if st.path[#st.path] == key then return L.apply_stat(st, VANILLA[family.key][key], n) end
   end
@@ -31,6 +43,17 @@ local function stat_at(family, key, n)
     return VANILLA[family.key][key] + family.resist_step[key] * (n - 1)
   end
   return nil
+end
+
+--- DPS relatif de la version lourde du mod (shared/content/arsenal.lua) : dégâts × cadence.
+local function heavy_dps(key)
+  local A = require("shared.content.arsenal")
+  for _, t in ipairs(A.turrets) do
+    if t.copy == L.by_key[key].base then
+      local cd0 = key == "gun" and GUN_COOLDOWN or LASER_COOLDOWN
+      return t.damage_modifier * cd0 / (t.cooldown or cd0)
+    end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -43,13 +66,15 @@ local function epoch_levels(f, e)
   return out
 end
 
-local function model()
+--- prod_k : facteur sur la production supposée ; eff : efficacité des ouvriers (1 = jamais au repos).
+local function model(prod_k, eff)
+  prod_k, eff = prod_k or 1, eff or 1
   local T = L.target
-  local rows, cumul = {}, 0
+  local rows, cumul, implied_cumul = {}, 0, 0
   for e = 1, L.EPOCHS do
     local D = T.epoch_hours(e)
     cumul = cumul + D
-    local budget = T.spend_share * T.production[e] * D * 3600
+    local budget = T.spend_share * T.production[e] * prod_k * D * 3600
     local spend, work = 0, 0
     for _, f in ipairs(L.families) do
       if f.key ~= "command" then
@@ -74,9 +99,13 @@ local function model()
     end
     spend, work = spend + cc_value, work + cc_time
     local capacity = L.builders(e) * D * 3600
+    -- Durée IMPLIQUÉE : le plus long de « payer la dépense avec la part de production consacrée aux
+    -- niveaux » et « faire les chantiers avec les ouvriers disponibles » (efficacité eff).
+    local implied = math.max(spend / (T.spend_share * T.production[e] * prod_k * 3600), work / (L.builders(e) * eff * 3600))
+    implied_cumul = implied_cumul + implied
     rows[e] = { e = e, hours = D, cumul = cumul, production = T.production[e], budget = budget, spend = spend,
                 ratio = spend / budget, work = work, capacity = capacity, wratio = work / capacity,
-                cc_value = cc_value, cc_time = cc_time }
+                cc_value = cc_value, cc_time = cc_time, implied = implied, implied_cumul = implied_cumul }
   end
   return rows
 end
@@ -138,18 +167,19 @@ local function print_tables()
   local p = print
   p("#### Les 15 époques et la table d'indirection des matériaux")
   p("")
-  p("| Époque | Thème | Matériau voulu | Objet en jeu aujourd'hui | Valeur unitaire (u) | Valeur d'époque (× époque 2) | Chantiers des bâtiments (× époque 1) | Chantier du centre payé dans l'époque (× 1 min) | Centre (niveau) | Niveaux des bâtiments | Ouvriers |")
-  p("|---|---|---|---|---|---|---|---|---|---|---|")
+  p("| Époque | Thème | Matériau voulu | Objet en jeu aujourd'hui | Valeur unitaire (u) | Pile | Valeur d'époque (× époque 2) | Chantiers des bâtiments (× époque 1) | Chantier du centre payé dans l'époque (× 1 min) | Centre (niveau) | Niveaux des bâtiments | Ouvriers |")
+  p("|---|---|---|---|---|---|---|---|---|---|---|---|")
   for e = 1, L.EPOCHS do
     local ep, m = L.epochs[e], L.epoch_materials[e]
-    local want, item, value = "fer, cuivre, pierre (panier de base)", "panier de base", "—"
+    local want, item, value, stack = "fer, cuivre, pierre (panier de base)", "panier de base", "—", "—"
     if m then
       want = m.want
       item = "`" .. m.item .. "`" .. (m.provisional and (" **provisoire** (voulu : `" .. m.want_item .. "`)") or "")
       value = num(m.value)
+      stack = thousands(L.stack_size[m.item])
     end
-    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %d | %d-%d | %d |", e, EPOCH_NAMES[e], want, item, value,
-      num(ep.value_mult), num(ep.time_mult), e < L.CC_MAX and num(ep.cc_time_mult) or "—", e, math.max(1, 2 * e - 1), 2 * e,
+    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %d | %d-%d | %d |", e, EPOCH_NAMES[e], want, item, value,
+      stack, num(ep.value_mult), num(ep.time_mult), e < L.CC_MAX and num(ep.cc_time_mult) or "—", e, math.max(1, 2 * e - 1), 2 * e,
       L.builders(e)))
   end
   p("")
@@ -158,23 +188,30 @@ local function print_tables()
   p("| Famille | Statistique | Niveau 1 | Niveau 10 | Dernier niveau | Repère |")
   p("|---|---|---|---|---|---|")
   local A = require("shared.content.arsenal")
+  local MD = require("shared.content.modules")
   local heavy, walls = {}, {}
   for _, t in ipairs(A.turrets) do heavy[t.copy] = t end
   for _, w in ipairs(A.walls) do walls[w.name] = w end
+  local sp10 = MD.families.speed.effects.speed[MD.TIERS]
+  local sp3 = MD.families.speed.effects.speed[3]
   local refs = {
     { "command", "max_health", "—" },
     { "command", "inventory_size", "coffre en acier : 48 cases" },
     { "gun", "max_health", "tourelle lourde (mod) : " .. thousands(heavy["gun-turret"].hp) },
     { "gun", "damage_modifier", "tourelle lourde (mod) : " .. num(VANILLA.gun.damage_modifier * heavy["gun-turret"].damage_modifier) },
+    { "gun", "dps", "tourelle lourde (mod) : " .. num(heavy_dps("gun")) .. " (dégâts 1,5 × cadence " .. num(GUN_COOLDOWN / heavy["gun-turret"].cooldown) .. ")" },
     { "gun", "range", "tourelle lourde (mod) : " .. num(heavy["gun-turret"].range) .. " ; ver géant : 48" },
     { "laser", "max_health", "tourelle laser lourde (mod) : " .. thousands(heavy["laser-turret"].hp) },
     { "laser", "damage_modifier", "tourelle laser lourde (mod) : " .. num(VANILLA.laser.damage_modifier * heavy["laser-turret"].damage_modifier) },
+    { "laser", "dps", "tourelle laser lourde (mod) : " .. num(heavy_dps("laser")) .. " (même cadence)" },
+    { "laser", "energy_consumption", "tourelle laser lourde (mod) : " .. thousands(VANILLA.laser.energy_consumption * heavy["laser-turret"].energy_scale) .. " kJ" },
     { "laser", "range", "tourelle laser lourde (mod) : " .. num(heavy["laser-turret"].range) },
     { "wall", "max_health", "mur renforcé : " .. thousands(walls["fo-reinforced-wall"].hp) .. " ; mur blindé : " .. thousands(walls["fo-armored-wall"].hp) },
     { "wall", "physical", "mur blindé : 3 + 15 = 18 (et 50 %)" },
-    { "drill", "mining_speed", "foreuse électrique vanilla : 0,5" },
-    { "furnace", "crafting_speed", "four électrique vanilla : 2" },
-    { "assembler", "crafting_speed", "machine d'assemblage 3 vanilla : 1,25" },
+    { "drill", "mining_speed", string.format("vanilla + 3 modules de vitesse 3 : %s minerai/s ; niveau 30 + 3 modules de vitesse palier %d : %s minerai/s (tapis jaune : 15/s)",
+      num(VANILLA.drill.mining_speed * (1 + 3 * sp3)), MD.TIERS, num(stat_at(L.by_key.drill, "mining_speed", 30) * (1 + 3 * sp10))) },
+    { "furnace", "crafting_speed", "four électrique vanilla : 2, avec 2 emplacements de module (le four en acier n'en a aucun)" },
+    { "assembler", "crafting_speed", "machine d'assemblage 3 vanilla : 1,25, avec 4 emplacements (la machine 2 en a 2)" },
   }
   for _, r in ipairs(refs) do
     local f = L.by_key[r[1]]
@@ -184,28 +221,50 @@ local function print_tables()
   p("")
   p("#### Modèle de durée de jeu (hypothèses de `L.target`, à valider en partie réelle)")
   p("")
-  p("| Époque | Durée visée | Cumul | Production (u/s) | Budget niveaux (u) | Dépense de la base de référence (u) | Dépense / budget | Temps d'ouvriers | Capacité des ouvriers | Charge des ouvriers | Chantier du centre suivant |")
-  p("|---|---|---|---|---|---|---|---|---|---|---|")
+  p("| Époque | Durée visée | Cumul visé | Production (u/s) | Budget niveaux (u) | Dépense de la base de référence (u) | Dépense / budget | Temps d'ouvriers | Capacité des ouvriers | Charge des ouvriers | Durée impliquée | Cumul impliqué | Chantier du centre suivant |")
+  p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
   for _, r in ipairs(model()) do
-    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
+    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
       duration(r.cumul * 3600), thousands(r.production), thousands(r.budget), thousands(r.spend), num(r.ratio),
-      duration(r.work), duration(r.capacity), num(r.wratio), r.cc_time > 0 and (thousands(r.cc_value) .. " u, " .. duration(r.cc_time)) or "—"))
+      duration(r.work), duration(r.capacity), num(r.wratio), duration(r.implied * 3600), duration(r.implied_cumul * 3600),
+      r.cc_time > 0 and (thousands(r.cc_value) .. " u, " .. duration(r.cc_time)) or "—"))
   end
+  p("")
+  p("#### Sensibilité de la durée impliquée totale (15 époques)")
+  p("")
+  p("| Production supposée | Ouvriers jamais au repos | Ouvriers occupés à 75 % | Ouvriers occupés à 50 % |")
+  p("|---|---|---|---|")
+  for _, k in ipairs({ 0.7, 1, 1.3 }) do
+    local cells = {}
+    for _, eff in ipairs({ 1, 0.75, 0.5 }) do cells[#cells + 1] = duration(model(k, eff)[L.EPOCHS].implied_cumul * 3600) end
+    p(string.format("| × %s | %s |", num(k), table.concat(cells, " | ")))
+  end
+  local cc_v, cc_t = 0, 0
+  for n = 2, L.CC_MAX do
+    cc_v = cc_v + L.cost_value(L.cost(L.by_key.command, n))
+    cc_t = cc_t + L.time_ticks(L.by_key.command, n, 1) / 60
+  end
+  local spent = 0
+  for _, r in ipairs(model()) do spent = spent + r.spend end
+  p("")
+  p(string.format("Chemin « centre seul » (centre 1 → 15, rien d'autre) : %s u et %s de chantiers, soit %s %% de la dépense de la base de référence.",
+    thousands(cc_v), duration(cc_t), num(100 * cc_v / spent, 1)))
   for _, f in ipairs(L.families) do
     p("")
     p("#### " .. FAMILY_NAMES[f.key] .. " (" .. f.max .. " niveaux)")
     p("")
     local ms, os_ = MAIN_STAT[f.key], OTHER_STAT[f.key]
-    local head = "| Niveau | Époque | PV | " .. ms[2] .. (os_ and (" | " .. os_[2]) or "") .. " | Coût du passage à ce niveau | Valeur (u) | Durée |"
+    local head = "| Niveau | Époque | PV | " .. ms[2] .. (os_ and (" | " .. os_[2]) or "") .. " | Coût du passage à ce niveau | Valeur (u) | Durée | Cases / coffre du centre payeur |"
     p(head)
-    p("|" .. string.rep("---|", os_ and 8 or 7))
+    p("|" .. string.rep("---|", os_ and 9 or 8))
     for n = 1, f.max do
       local e = L.epoch_of(f, n)
-      local cost, value, time = "—", "—", "—"
+      local cost, value, time, slots = "—", "—", "—", "—"
       if n >= 2 then
         local c = L.cost(f, n)
         cost, value = cost_text(c), thousands(L.cost_value(c))
         time = duration(L.time_ticks(f, n, 1) / 60)
+        slots = L.cost_slots(c) .. " / " .. L.chest_slots(L.payer_cc(f, n))
       end
       local mark = ""
       if f.key ~= "command" then
@@ -216,7 +275,7 @@ local function print_tables()
       local row = string.format("| %d | %d %s%s | %s | %s", n, e, EPOCH_NAMES[e], mark, num(stat_at(f, "max_health", n), 1),
         num(stat_at(f, ms[1], n), 3))
       if os_ then row = row .. " | " .. num(stat_at(f, os_[1], n), 3) end
-      p(row .. " | " .. cost .. " | " .. value .. " | " .. time .. " |")
+      p(row .. " | " .. cost .. " | " .. value .. " | " .. time .. " | " .. slots .. " |")
     end
   end
 end
@@ -335,15 +394,36 @@ for _, f in ipairs(L.families) do
     if L.epoch_materials[e] then
       check(have[L.epoch_materials[e].item], f.key .. " N" .. n .. " : monnaie de l'époque " .. e .. " exigée")
     end
-    if L.epoch_materials[e - 1] and not f.main_share then
-      check(have[L.epoch_materials[e - 1].item], f.key .. " N" .. n .. " : monnaie de l'époque " .. (e - 1) .. " exigée aussi")
+    -- Même règle que raw_cost : la part de 40 % n'est exigée que si elle vaut au moins un demi-objet.
+    local prev = L.epoch_materials[e - 1]
+    if prev and L.epoch_materials[e] and not f.main_share
+      and L.epoch_value(f, n) * (1 - L.MAIN_SHARE) / prev.value >= 0.5 then
+      check(have[prev.item], f.key .. " N" .. n .. " : monnaie de l'époque " .. (e - 1) .. " exigée aussi")
     end
   end
   check(positive, f.key .. " : quantités entières et positives")
   check(strict_value, f.key .. " : valeur du coût strictement croissante")
   check(strict_time, f.key .. " : durée strictement croissante" .. (f.instant and " (murs : instantané)" or ""))
 end
-check(max_qty <= 1500, "pas d'explosion : au plus 1 500 objets d'une sorte par amélioration (" .. max_qty .. ")")
+-- Défaut connu, compté (BALANCE_SHEET §12) : au changement d'époque, la monnaie de l'époque précédente passe
+-- de 60 % × 1,25 à 40 % de la valeur d'époque, et sa quantité baisse dès que value_mult[e] / value_mult[e-1]
+-- < 1,875 ; la valeur totale, elle, croît toujours (testé plus haut).
+local drops, drop_ex = 0, {}
+for _, f in ipairs(L.families) do
+  for n = 3, f.max do
+    local before = {}
+    for _, c in ipairs(L.cost(f, n - 1)) do before[c[1]] = c[2] end
+    for _, c in ipairs(L.cost(f, n)) do
+      if before[c[1]] and c[2] < before[c[1]] then
+        drops = drops + 1
+        if #drop_ex < 3 then drop_ex[#drop_ex + 1] = f.key .. " N" .. n .. " " .. c[1] .. " " .. before[c[1]] .. " → " .. c[2] end
+      end
+    end
+  end
+end
+print("  Quantités d'une même monnaie en baisse d'un niveau au suivant : " .. drops .. " cas (" .. table.concat(drop_ex, " ; ") .. "…)")
+-- Borne sur les OBJETS (la vraie contrainte est la PLACE, section suivante).
+check(max_qty <= 2000, "pas d'explosion : au plus 2 000 objets d'une sorte par amélioration (" .. max_qty .. ")")
 check(max_items <= 6, "au plus 6 sortes d'objets par amélioration (" .. max_items .. ")")
 -- Croissance par époque, pas par exposant : le panier de base est linéaire (× 5,2 au niveau 30 au plus).
 for _, f in ipairs(L.families) do
@@ -365,6 +445,26 @@ check(L.time_ticks(G, 2, 1) == math.floor(8 * 1.1 * 60 + 0.5) and L.time_ticks(G
 check(L.time_ticks(G, 3, 0) == 0 and L.time_ticks(G, 3, 0.5) * 2 == L.time_ticks(G, 3, 1), "réglage fo-level-time-factor appliqué")
 
 ---------------------------------------------------------------------------------------------------
+section("Place : chaque chantier tient dans la moitié du coffre du centre qui le paie")
+---------------------------------------------------------------------------------------------------
+-- Correction V2 : le combustible nucléaire (pile de 1) rendait le centre 14 → 15 impayable (366 cases pour
+-- un coffre de 256). Règle : Σ ⌈q / pile⌉ ≤ 50 % des cases du centre payeur (centre : n - 1 ; famille :
+-- ⌈n / 2⌉, le plus petit centre qui l'autorise).
+local worst = { share = 0 }
+for _, f in ipairs(L.families) do
+  local ok_f, detail = true, ""
+  for n = 2, f.max do
+    local slots, chest = L.cost_slots(L.cost(f, n)), L.chest_slots(L.payer_cc(f, n))
+    if slots > L.MAX_SLOT_SHARE * chest then ok_f = false; detail = detail .. " N" .. n .. "=" .. slots .. "/" .. chest end
+    if slots / chest > worst.share then worst = { share = slots / chest, key = f.key, n = n, slots = slots, chest = chest } end
+  end
+  check(ok_f, f.key .. " : chaque chantier tient dans la moitié du coffre du centre payeur" .. detail)
+end
+print(string.format("  Pire chantier : %s niveau %d, %d cases sur %d (%.0f %%)", worst.key, worst.n, worst.slots, worst.chest, 100 * worst.share))
+check(L.chest_slots(1) == 48 and L.chest_slots(14) == 256 and L.chest_slots(15) == 272, "coffre du centre : 48 cases + 16 par niveau")
+check(L.cost_slots({ { "uranium-235", 101 }, { "rocket-control-unit", 10 } }) == 3, "cases d'un coût : Σ ⌈q / pile⌉")
+
+---------------------------------------------------------------------------------------------------
 section("Table d'indirection « matériau d'époque → objet »")
 ---------------------------------------------------------------------------------------------------
 -- Objets dont l'existence en 1.1.91 a été vérifiée par tests/datastage/harness.lua --dump-final (vanilla
@@ -374,7 +474,7 @@ local VERIFIED = {
   ["iron-plate"] = true, ["copper-plate"] = true, ["stone-brick"] = true, ["iron-gear-wheel"] = true,
   ["electronic-circuit"] = true, ["steel-plate"] = true, ["battery"] = true, ["engine-unit"] = true,
   ["plastic-bar"] = true, ["uranium-238"] = true, ["processing-unit"] = true, ["low-density-structure"] = true,
-  ["electric-engine-unit"] = true, ["nuclear-fuel"] = true, ["rocket-control-unit"] = true,
+  ["electric-engine-unit"] = true, ["uranium-235"] = true, ["rocket-control-unit"] = true,
   ["space-science-pack"] = true,
   [W.resources.tungsten.plate.item] = true, [W.resources.crystal.item] = true,
   [W.resources.methane.fluid .. "-barrel"] = true, -- baril généré par le jeu de base pour chaque fluide
@@ -392,6 +492,27 @@ for e = 2, L.EPOCHS do
   if m.provisional then check(m.want_item and m.want_item:match("^fo%-"), "époque " .. e .. " : nom voulu proposé (" .. tostring(m.want_item) .. ")") end
 end
 check(L.epoch_materials[1] == nil, "époque 1 : payée par le panier de base")
+-- Une seule valeur par objet : celle de la table d'indirection (raw_cost lit m.value, cost_value lit item_value).
+for e = 2, L.EPOCHS do
+  local m = L.epoch_materials[e]
+  check(L.item_value[m.item] == m.value, "époque " .. e .. " : valeur unique de " .. m.item .. " (" .. tostring(L.item_value[m.item]) .. " = " .. m.value .. ")")
+end
+for _, f in ipairs(L.families) do
+  for _, b in ipairs(f.base_cost) do check(L.item_value[b[1]] ~= nil, f.key .. " : panier de base valorisé (" .. b[1] .. ")") end
+end
+-- Piles : chaque objet de coût a sa taille de pile (miroir de l'étape data, vérifié en moteur réel par
+-- content_test) ; les matériaux sous la pile minimale exigée du lot X0 sont listés.
+for _, item in ipairs(L.cost_items()) do
+  check(type(L.stack_size[item]) == "number" and L.stack_size[item] >= 1, "taille de pile connue : " .. item)
+end
+local low = {}
+for e = 2, L.EPOCHS do
+  local m = L.epoch_materials[e]
+  if L.stack_size[m.item] < L.MIN_MATERIAL_STACK then low[#low + 1] = e .. "=" .. m.item .. " (" .. L.stack_size[m.item] .. ")" end
+end
+print("  Matériaux d'époque sous la pile minimale (" .. L.MIN_MATERIAL_STACK .. ") exigée des matériaux du lot X0 : " .. table.concat(low, ", "))
+check(L.stack_size["nuclear-fuel"] == nil and L.epoch_materials[13].item ~= "nuclear-fuel",
+  "époque 13 : plus de combustible nucléaire (pile de 1 : centre 15 impayable)")
 print("  Remplaçants PROVISOIRES (matériau voulu → objet existant utilisé aujourd'hui) :")
 local prov = L.provisional_materials()
 for _, m in ipairs(prov) do
@@ -431,6 +552,26 @@ for _, w in ipairs(A.walls) do if w.name == "fo-armored-wall" then armored = w e
 local gun30, laser30 = stat_at(G, "max_health", 30), stat_at(L.by_key.laser, "max_health", 30)
 check(gun30 >= heavy["gun-turret"].hp and gun30 <= 1.5 * heavy["gun-turret"].hp,
   "mitrailleuse 30 : " .. gun30 .. " PV, entre 1 et 1,5 × la tourelle lourde (" .. heavy["gun-turret"].hp .. ")")
+-- DPS (dégâts × cadence) : le dernier niveau rejoint la version lourde sans la dépasser de plus de 10 %.
+local LZ = L.by_key.laser
+for _, f in ipairs({ G, LZ }) do
+  local d30, dh = dps_at(f, f.max), heavy_dps(f.key)
+  check(d30 <= 1.1 * dh and d30 >= 0.8 * dh,
+    string.format("%s 30 : DPS × %.2f, entre 0,8 et 1,1 × la version lourde (× %.2f)", f.key, d30, dh))
+end
+-- Niveaux 1 à 10 inchangés depuis 0.3.0 (+ 8 % de dégâts par niveau), dégressifs ensuite.
+check(math.abs(stat_at(G, "damage_modifier", 10) - 1.72) < 1e-9 and math.abs(stat_at(G, "damage_modifier", 11) - 1.74) < 1e-9,
+  "mitrailleuse : dégâts × 1,72 au niveau 10 (0.3.0), puis + 2 % par niveau")
+-- Laser : l'énergie par tir suit les dégâts (dégâts par joule au niveau 30 : ± 10 % du niveau 1), et le
+-- tampon contient toujours un tir.
+local eff1 = stat_at(LZ, "damage_modifier", 1) / stat_at(LZ, "energy_consumption", 1)
+local eff30 = stat_at(LZ, "damage_modifier", 30) / stat_at(LZ, "energy_consumption", 30)
+check(eff30 >= 0.9 * eff1 and eff30 <= 1.1 * eff1, string.format("laser 30 : dégâts par joule × %.2f du niveau 1", eff30 / eff1))
+local buffer_ok = true
+for n = 1, 30 do
+  if not (stat_at(LZ, "buffer_capacity", n) > stat_at(LZ, "energy_consumption", n)) then buffer_ok = false end
+end
+check(buffer_ok, "laser : le tampon contient un tir à tous les niveaux")
 check(stat_at(L.by_key.laser, "range", 30) <= heavy["laser-turret"].range,
   "tourelle laser 30 : portée ≤ tourelle laser lourde (" .. heavy["laser-turret"].range .. ")")
 check(laser30 <= 2 * heavy["laser-turret"].hp, "tourelle laser 30 : PV ≤ 2 × la tourelle laser lourde")
@@ -445,11 +586,21 @@ section("Durée de jeu visée (modèle de BALANCE_SHEET §12)")
 ---------------------------------------------------------------------------------------------------
 local rows = model()
 check(math.abs(rows[1].hours - 0.5) < 1e-9, "époque 1 visée en 30 min")
-check(rows[15].cumul >= 58 and rows[15].cumul <= 62, string.format("époque 15 atteinte vers 60 h cumulées (%.1f h)", rows[15].cumul))
+check(rows[15].cumul >= 58 and rows[15].cumul <= 62, string.format("époque 15 visée vers 60 h cumulées (%.1f h)", rows[15].cumul))
+-- La durée IMPLIQUÉE par la courbe (pas la durée visée, qui est une entrée) : chaque époque à ± 25 % de
+-- sa cible, le total à 60 h ± 10 %, et des ouvriers occupés au plus à 70 % tant que la file de chantiers
+-- (E3-4) n'existe pas.
 for _, r in ipairs(rows) do
-  check(r.ratio >= 0.5 and r.ratio <= 1.6, string.format("époque %d : dépense / budget = %.2f (entre 0,5 et 1,6)", r.e, r.ratio))
-  check(r.wratio <= 1.1, string.format("époque %d : charge des ouvriers %.2f (≤ 1,1)", r.e, r.wratio))
+  check(r.implied >= 0.75 * r.hours and r.implied <= 1.25 * r.hours,
+    string.format("époque %d : durée impliquée %.2f h pour %.2f h visées (± 25 %%)", r.e, r.implied, r.hours))
+  check(r.wratio <= 0.7, string.format("époque %d : charge des ouvriers %.2f (≤ 0,7)", r.e, r.wratio))
 end
+check(rows[15].implied_cumul >= 54 and rows[15].implied_cumul <= 66,
+  string.format("durée impliquée totale %.1f h (60 h ± 10 %%)", rows[15].implied_cumul))
+local half = model(1, 0.5)[L.EPOCHS].implied_cumul
+print(string.format("  Durée impliquée totale : %.1f h (ouvriers jamais au repos), %.1f h (75 %%), %.1f h (50 %%) ; production × 0,7 : %.1f h, × 1,3 : %.1f h",
+  rows[15].implied_cumul, model(1, 0.75)[L.EPOCHS].implied_cumul, half, model(0.7, 1)[L.EPOCHS].implied_cumul,
+  model(1.3, 1)[L.EPOCHS].implied_cumul))
 
 ---------------------------------------------------------------------------------------------------
 section("Traductions FR et EN des clés du runtime")
@@ -475,13 +626,119 @@ for _, lang in ipairs({ "fr", "en" }) do
   local need = { "fo-epochs.desc", "fo-epochs.level-line", "fo-epochs.next-line", "fo-epochs.new-silhouette",
     "fo-epochs.new-piece", "fo-epochs.currency", "fo-epochs.currency-provisional", "fo-epochs.epoch-up",
     "fo-epochs.reason-unknown-item", "fo-levels.name", "fo-levels.level-up", "fo-levels.cc-line",
-    "fo-levels.reason-cc-too-low", "fo-levels.maxed", "fo-levels.panel-title" }
+    "fo-levels.reason-cc-too-low", "fo-levels.maxed", "fo-levels.panel-title", "fo-epochs.desc-cc",
+    "fo-epochs.stat-energy_consumption" }
   for e = 1, L.EPOCHS do
     need[#need + 1] = "fo-epochs.name-" .. L.epochs[e].key
     if L.epoch_materials[e] then need[#need + 1] = "fo-epochs.want-" .. L.epoch_materials[e].key end
   end
   for _, k in ipairs(need) do check(keys[k], lang .. " : clé " .. k) end
 end
+
+---------------------------------------------------------------------------------------------------
+section("Garde de l'interface des fichiers de famille (étape data, prototypes simulés)")
+---------------------------------------------------------------------------------------------------
+-- Correction V2 : la garde était une liste de champs de jeu, trouée (preparing_speed, prepare_range,
+-- healing_per_tick, resource_searching_radius, base_productivity, ammo_type, data.raw, ctx). Elle capture
+-- désormais TOUT le prototype sauf une liste blanche graphique. Chaque cas ci-dessous est un dress d'agent
+-- V3 plausible : ok = la garde doit le laisser passer.
+local saved_deepcopy, saved_data = table.deepcopy, rawget(_G, "data")
+local function deepcopy(t, seen)
+  if type(t) ~= "table" then return t end
+  seen = seen or {}
+  if seen[t] then return seen[t] end
+  local c = {}
+  seen[t] = c
+  for k, v in pairs(t) do c[deepcopy(k, seen)] = deepcopy(v, seen) end
+  return c
+end
+table.deepcopy = deepcopy
+local function sprite(frames) return { filename = "__base__/x.png", width = 8, height = 8, frame_count = frames } end
+local function fake_gun()
+  return {
+    type = "ammo-turret", name = "fo-lvl-gun-5", max_health = 640, prepare_range = 22, rotation_speed = 0.018,
+    preparing_speed = 0.08, folding_speed = 0.08, attacking_speed = 0.5, automated_ammo_count = 10,
+    call_for_help_radius = 40, healing_per_tick = 0, fast_replaceable_group = "fo-lvl-gun",
+    selection_box = { { -1, -1 }, { 1, 1 } }, resistances = { { type = "physical", decrease = 0 } },
+    base_picture = { layers = { sprite(1) } }, preparing_animation = { layers = { sprite(8), sprite(8) } },
+    folding_animation = { layers = { sprite(8) } }, attacking_animation = { layers = { sprite(2) } },
+    working_sound = { filename = "__base__/s.ogg" },
+    attack_parameters = { type = "projectile", range = 19, cooldown = 6, damage_modifier = 1.32,
+      ammo_category = "bullet", projectile_center = { 0, 0.1 }, projectile_creation_distance = 1.4,
+      sound = { { filename = "__base__/s.ogg" } } },
+  }
+end
+local function fake_laser()
+  return {
+    type = "electric-turret", name = "fo-lvl-laser-5", max_health = 1600, rotation_speed = 0.012, preparing_speed = 0.05,
+    folding_speed = 0.05, preparing_animation = { layers = { sprite(15) } }, base_picture = { layers = { sprite(1) } },
+    energy_source = { type = "electric", buffer_capacity = "929kJ", drain = "24kW", usage_priority = "primary-input" },
+    attack_parameters = { type = "beam", range = 25, cooldown = 40, damage_modifier = 2.64, source_offset = { 0, -0.85 },
+      ammo_type = { category = "laser", energy_consumption = "928kJ", action = { type = "direct",
+        action_delivery = { type = "beam", beam = "laser-beam", max_length = 24, duration = 40, source_offset = { 0, -1.3 } } } } },
+  }
+end
+local function fake_drill()
+  return {
+    type = "mining-drill", name = "fo-lvl-drill-5", max_health = 480, mining_speed = 0.7, energy_usage = "115.2kW",
+    resource_searching_radius = 2.49, base_productivity = 0, vector_to_place_result = { 0, -1.85 },
+    graphics_set = { animation = { north = { layers = { sprite(1) } } } },
+    input_fluid_box = { base_area = 1, pipe_picture = { north = sprite(1) }, pipe_connections = { { position = { -2, 0 } } } },
+    module_specification = { module_slots = 3, module_info_icon_shift = { 0, 0.5 } },
+  }
+end
+local GUN_SRC = { ["gun-turret"] = { type = "ammo-turret", name = "gun-turret", max_health = 400 } }
+_G.data = { raw = { ["ammo-turret"] = GUN_SRC, ["electric-turret"] = { ["laser-turret"] = { max_health = 1000 } },
+  ["mining-drill"] = { ["electric-mining-drill"] = { max_health = 300 } }, item = {} } }
+local Common = require("prototypes.levels.common")
+local GUARD_CASES = {
+  -- { famille, prototype, dress, ok attendu, libellé }
+  { G, fake_gun, function(p) p.base_picture.layers[1].tint = { r = 1, g = 0.5, b = 0.5 }; p.base_picture.layers[2] = sprite(1) end, true, "teinte et couche ajoutée" },
+  { G, fake_gun, function(p) p.working_sound = { filename = "__base__/t.ogg" }; p.attack_parameters.sound = nil end, true, "sons" },
+  { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(16) } }; p.preparing_speed = 0.16 end, true, "deux fois plus d'images, deux fois plus vite (même durée)" },
+  { G, fake_gun, function(p) p.attack_parameters.projectile_center = { 0, 0.4 } end, true, "origine des balles (visuel)" },
+  { G, fake_gun, function(p, ctx) ctx.color.r = 0 end, true, "ctx.color est une copie" },
+  { G, fake_gun, function(p) p.preparing_speed = 0.16 end, false, "preparing_speed seul (déploiement deux fois plus court)" },
+  { G, fake_gun, function(p) p.folding_animation = { layers = { sprite(4) } } end, false, "repli deux fois plus court (moins d'images)" },
+  { G, fake_gun, function(p) p.prepare_range = 30 end, false, "prepare_range" },
+  { G, fake_gun, function(p) p.healing_per_tick = 1 end, false, "healing_per_tick" },
+  { G, fake_gun, function(p) p.automated_ammo_count = 50 end, false, "automated_ammo_count" },
+  { G, fake_gun, function(p) p.call_for_help_radius = nil end, false, "clé de jeu retirée" },
+  { G, fake_gun, function(p) p.alert_when_attacking = false end, false, "clé de jeu ajoutée" },
+  { G, fake_gun, function(p) p.attack_parameters.cooldown = 4 end, false, "attack_parameters.cooldown" },
+  { G, fake_gun, function(p) p.max_health = 9999 end, false, "max_health" },
+  { G, fake_gun, function(p) p.selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } } end, false, "selection_box" },
+  { G, fake_gun, function(p) p.resistances[1].decrease = 5 end, false, "resistances" },
+  { G, fake_gun, function(p) data.raw["ammo-turret"]["gun-turret"].max_health = 1 end, false, "data.raw : prototype vanilla" },
+  { G, fake_gun, function(p, ctx) ctx.family.size = 9 end, false, "ctx.family (lecture seule)" },
+  { G, fake_gun, function(p, ctx) ctx.level = 30 end, false, "écriture dans ctx" },
+  { G, fake_gun, function(p, ctx) ctx.L.epochs[2].color.r = 0 end, false, "config partagée (ctx.L)" },
+  { G, fake_gun, function(p, ctx) ctx.kit.palette.glow[5] = { r = 0, g = 0, b = 0 } end, false, "style commun (ctx.kit.palette)" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.source_offset = { 0, -2 } end, true, "origine du faisceau (visuel)" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.energy_consumption = "100kJ" end, false, "ammo_type.energy_consumption" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.max_length = 40 end, false, "longueur du faisceau" },
+  { LZ, fake_laser, function(p) p.attack_parameters.ammo_type.action.action_delivery.beam = "electric-beam" end, false, "faisceau (ses dégâts)" },
+  { LZ, fake_laser, function(p) p.energy_source.buffer_capacity = "2MJ" end, false, "tampon d'énergie" },
+  { L.by_key.drill, fake_drill, function(p) p.graphics_set.animation.north.layers[2] = sprite(1); p.input_fluid_box.pipe_picture = nil end, true, "foreuse : animation et tuyaux (visuel)" },
+  { L.by_key.drill, fake_drill, function(p) p.module_specification.module_info_icon_shift = { 0, 0 } end, true, "foreuse : icône des modules (visuel)" },
+  { L.by_key.drill, fake_drill, function(p) p.resource_searching_radius = 4.49 end, false, "resource_searching_radius" },
+  { L.by_key.drill, fake_drill, function(p) p.base_productivity = 0.5 end, false, "base_productivity" },
+  { L.by_key.drill, fake_drill, function(p) p.module_specification.module_slots = 4 end, false, "module_slots" },
+  { L.by_key.drill, fake_drill, function(p) p.input_fluid_box.base_area = 10 end, false, "boîte à fluide" },
+}
+local palette_glow5 = L.epochs[2].color.r
+local saved_glow5 = Common.kit.palette.glow[5]
+for _, gc in ipairs(GUARD_CASES) do
+  local fam, make, fn, want, label = gc[1], gc[2], gc[3], gc[4], gc[5]
+  local okg, err = pcall(Common.dress, { dress = fn }, make(), fam, 5)
+  check(okg == want, string.format("garde : %s → %s%s", label, want and "accepté" or "refusé",
+    (okg ~= want) and (" (obtenu : " .. tostring(err) .. ")") or ""))
+  -- Les cas « refusés » qui ont modifié un état partagé le rétablissent pour les suivants.
+  GUN_SRC["gun-turret"].max_health = 400
+  L.epochs[2].color.r = palette_glow5
+  Common.kit.palette.glow[5] = saved_glow5
+end
+table.deepcopy, _G.data = saved_deepcopy, saved_data
 
 ---------------------------------------------------------------------------------------------------
 section("Chantiers en moteur simulé")
@@ -508,12 +765,46 @@ local ev = Wd.events
 local function built(e) ev[defines.events.on_built_entity]({ created_entity = e, player_index = 1, tick = game.tick }) end
 local Levels = require("script.levels.levels")
 local force = game.forces.player
+--- Stocke `times` fois le coût du niveau n ; renvoie true si TOUT est entré (coffre borné ci-dessous).
 local function stock(inv, family, n, times)
-  for _, c in ipairs(L.cost(family, n)) do inv.insert({ name = c[1], count = c[2] * (times or 1) }) end
+  local all = true
+  for _, c in ipairs(L.cost(family, n)) do
+    local want = c[2] * (times or 1)
+    if inv.insert({ name = c[1], count = want }) < want then all = false end
+  end
+  return all
+end
+
+-- Le moteur simulé a des inventaires sans limite. Correction V2 : le coffre d'un centre est borné à ses
+-- vraies cases (L.chest_slots du niveau du centre de la force), avec les vraies piles (L.stack_size), comme
+-- le moteur réel : un chantier qui ne tient pas dans le coffre n'est plus validé par erreur.
+local TEST_STACK = { ["nuclear-fuel"] = 1, ["firearm-magazine"] = 200, ["uranium-rounds-magazine"] = 200 }
+local function stack_of(item) return L.stack_size[item] or TEST_STACK[item] or 50 end
+local function limit_chest(centre)
+  local inv = centre.get_inventory(defines.inventory.chest)
+  if rawget(inv, "_limited") then return inv end
+  local force_of_centre = centre.force
+  local raw_insert = inv.insert
+  inv._limited = true
+  inv.insert = function(items)
+    local cap = L.chest_slots(math.max(1, Levels.cc_level(force_of_centre)))
+    local used = 0
+    for item, count in pairs(inv._items) do used = used + math.ceil(count / stack_of(item)) end
+    local st, have = stack_of(items.name), inv._items[items.name] or 0
+    local room = (math.ceil(have / st) + math.max(0, cap - used)) * st - have
+    local n = math.min(math.floor(items.count), room)
+    if n <= 0 then return 0 end
+    return raw_insert({ name = items.name, count = n })
+  end
+  return inv
 end
 
 local cc = s.create_entity({ name = "fo-command-center", position = { x = 0.5, y = 0.5 }, force = "player" })
 built(cc)
+limit_chest(cc)
+check(cc.get_inventory(defines.inventory.chest).insert({ name = "nuclear-fuel", count = 60 }) == 48
+  and cc.get_inventory(defines.inventory.chest).remove({ name = "nuclear-fuel", count = 60 }) == 48,
+  "moteur simulé : coffre du centre 1 borné à 48 cases (48 combustibles nucléaires sur 60)")
 check(Levels.cc_level(force) == 1, "centre de commandement niveau 1 enregistré")
 local cc2 = s.create_entity({ name = "fo-command-center", position = { x = 20.5, y = 0.5 }, force = "player" })
 built(cc2)
@@ -593,6 +884,7 @@ local function new_force_with_cc(name, cc_level, x)
   game.create_force(name)
   local c = s.create_entity({ name = L.name(L.by_key.command, cc_level), position = { x = x, y = 200.5 }, force = name })
   built(c)
+  limit_chest(c)
   return game.forces[name], c
 end
 -- Centre 4 : 2 ouvriers ; un 3e chantier est refusé.
@@ -630,7 +922,9 @@ check(started == 5 and Levels.busy(f13) == 5, "centre 13 : 5 chantiers simultan�
 -- Centre 15 : niveau 29 → 30, puis plus rien ; centre 14 → 15, puis plus rien.
 local f15, c15 = new_force_with_cc("fo-test-15", 14, 80.5)
 local inv15 = c15.get_inventory(defines.inventory.chest)
-stock(inv15, L.by_key.command, 15, 1)
+check(inv15.insert({ name = "nuclear-fuel", count = 310 }) == 256 and inv15.remove({ name = "nuclear-fuel", count = 310 }) == 256,
+  "centre 14 : l'ancien coût (310 combustibles nucléaires, pile de 1) ne tenait pas dans ses 256 cases")
+check(stock(inv15, L.by_key.command, 15, 1), "centre 14 → 15 : tout le coût tient dans le coffre du centre 14 (cases réelles)")
 r_ok, r_why = Levels.start(c15, nil)
 check(r_ok and r_why == "started", "centre 14 → 15 : chantier lancé (monnaie de l'époque 14)")
 M.run_ticks(L.time_ticks(L.by_key.command, 15, 1) + 31)
@@ -699,15 +993,50 @@ stock(Levels.cc(force).get_inventory(defines.inventory.chest), G, 3, 1)
 rawset(player, "selected", gu)
 ok_panel, err_panel = pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
 check(ok_panel and global.fo.levels.jobs[gu.unit_number] ~= nil, "touche U : chantier lancé (" .. tostring(err_panel) .. ")")
+-- Plafond affiché par le panneau du centre : 2 × son niveau (et non le maximum du centre, 15).
+local function hover(entity)
+  rawset(player, "selected", nil)
+  rawset(player, "selected", entity)
+  local okh = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
+  local fr = player.gui.left["fo_lvl_panel"]
+  return okh, fr and table.concat(captions(fr), "\n") or ""
+end
+local okc, txt = hover(Levels.cc(force))
+check(okc and txt:find("{fo-levels.cc-line:2,4,1}", 1, true) ~= nil, "panneau du centre 2 : bâtiments jusqu'au niveau 4")
+local f3, c3 = new_force_with_cc("fo-test-3", 3, 160.5)
+local home = player.force
+rawset(player, "force", f3)
+okc, txt = hover(c3)
+check(okc and txt:find("{fo-levels.cc-line:3,6,1}", 1, true) ~= nil, "panneau du centre 3 : bâtiments jusqu'au niveau 6 (et non 15)")
+rawset(player, "force", f15)
+okc, txt = hover(Levels.cc(f15))
+check(okc and txt:find("{fo-levels.cc-line:15,30,5}", 1, true) ~= nil, "panneau du centre 15 : bâtiments jusqu'au niveau 30, 5 ouvriers")
 -- Panneau d'une foreuse niveau 22 (force au centre 15) : le niveau 23 se paie en monnaie PROVISOIRE de
 -- l'époque 12, et le panneau le dit avec le matériau voulu.
-rawset(player, "selected", nil)
 local fp = s.create_entity({ name = L.name(L.by_key.drill, 22), position = { x = 130, y = 10 }, force = "fo-test-15" })
-rawset(player, "selected", fp)
-ok_panel = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
-all = table.concat(captions(player.gui.left["fo_lvl_panel"]), "\n")
+ok_panel, all = hover(fp)
 check(ok_panel and all:find("fo%-epochs%.currency%-provisional") ~= nil and all:find("fo%-epochs%.want%-superconductor") ~= nil,
   "panneau : monnaie provisoire signalée avec le matériau voulu (époque 12)")
+rawset(player, "force", home)
+
+-- Autre force : ni panneau, ni chantier, ni paiement par le centre adverse (survol, touche U, bouton).
+local frv, crv = new_force_with_cc("fo-rival", 2, 200.5)
+local rinv = crv.get_inventory(defines.inventory.chest)
+stock(rinv, G, 2, 1)
+local iron0 = rinv.get_item_count("iron-plate")
+local rg = s.create_entity({ name = "gun-turret", position = { x = 210, y = 10 }, force = "fo-rival" })
+hover(rg)
+check(global.fo.levels_ui.target[1] ~= rg, "autre force : le survol n'ouvre pas son panneau")
+rawset(player, "selected", rg)
+pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
+check(global.fo.levels.jobs[rg.unit_number] == nil and rinv.get_item_count("iron-plate") == iron0,
+  "autre force : la touche U ne lance rien et ne vide pas son centre")
+global.fo.levels_ui.target[1] = rg
+global.fo.levels_ui.unit[1] = rg.unit_number
+pcall(M.dispatch, ev[defines.events.on_gui_click], { element = { valid = true, name = "fo_lvl_up" }, player_index = 1, tick = game.tick })
+check(global.fo.levels.jobs[rg.unit_number] == nil and rinv.get_item_count("iron-plate") == iron0
+  and global.fo.levels_ui.target[1] == nil, "autre force : le bouton « Améliorer » ne lance rien (panneau fermé)")
+rawset(player, "selected", nil)
 
 ---------------------------------------------------------------------------------------------------
 section("Sauvegarde et rechargement avec chantiers en cours")
