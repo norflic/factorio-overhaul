@@ -63,6 +63,10 @@
     une vraie part du budget d'époque, comme chez X0) → lot V2c, après V2b. Les autres décisions
     relèvent des lots X et IA.
 
+- 21 h 35, **nouvelle demande, équipes de PNJ organisées** (OBJECTIFS C5) : « Au niveau des ouvriers, vous parlez de 6 ouvriers. Pourquoi que 6? […] mettons 4 factions. Pourquoi pas 10 ouvriers par faction? […] tout au début, ça parlait plutôt de 100, joueurs par faction […] peut-être que 100 joueurs, c'est trop, mais prendre, je sais pas moi, 30 de constructions, enfin de PNJ […] par faction, bah, c'était bien, parce qu'en fait, l'idée, c'était vraiment aussi d'avoir une évolution nette, rapide, relativement rapide […] 30 PNJ qui se comporteraient exactement comme des joueurs, qui essaieraient de s'organiser, avec si vous voulez des managers aussi […] qui s'occuperait des ressources, […] de la construction, […] tout ce qui va être automatisé, la construction de tel ou tel objet, […] d'améliorer par exemple les infrastructures existantes […] pouvoir concentrer ses efforts sur collecte de ressources, […] une interface pour vraiment manager en fait ces équipes, […] un conflit en fait de production, un conflit d'évolution également de ressources, qui va réussir à acquérir quelles ressources à certains endroits, un conflit entre les factions, pouvoir s'attaquer, pouvoir également ressusciter des workers, […] à combien ça coûte, la vitesse également des workers, parce que peut-être qu'ils pourront crafter plus vite, s'améliorer plus vite, se déplacer légèrement plus vite aussi, que le joueur principal »
+  → conception lancée (lot IA1). Les deux sens du mot « ouvriers » (chantiers simultanés des niveaux,
+  et PNJ des factions) y sont distingués ; leur unification est proposée.
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`

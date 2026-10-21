@@ -76,6 +76,7 @@
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
 | C4 | PvP | 🟨 | Attaques contre vous et 5 difficultés **prouvées en moteur réel** (21/10, 20 h 45). Restent : budget A1 non mesuré ; une base défendue (3 tourelles en tech 0) n'est jamais attaquée (lot IA0b) |
+| **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Nouvelle demande (21/10, 21 h 35) : conception lancée (lot IA1) |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
@@ -225,6 +226,36 @@
   - C4-5 ❌ Non mesuré : les scénarios `ia0-big` et `ia0-perf` (banc épinglé) restent à passer.
   - Limites documentées : seule la force `player` est visée ; les installations ne sont repérées qu'à
     1 536 tuiles du départ au plus.
+
+### C5 · Équipes de PNJ organisées (nouveau, 21/10, 21 h 35)
+- **Demande** (citation, coupes signalées par […]) : « Au niveau des ouvriers, vous parlez de 6 ouvriers. Pourquoi que 6? […] mettons 4 factions. Pourquoi pas 10 ouvriers par faction? […] tout au début, ça parlait plutôt de 100, joueurs par faction […] peut-être que 100 joueurs, c'est trop, mais prendre, je sais pas moi, 30 de constructions, enfin de PNJ […] par faction, bah, c'était bien, parce qu'en fait, l'idée, c'était vraiment aussi d'avoir une évolution nette, rapide, relativement rapide […] 30 PNJ qui se comporteraient exactement comme des joueurs, qui essaieraient de s'organiser, avec si vous voulez des managers aussi […] qui s'occuperait des ressources, […] de la construction, […] tout ce qui va être automatisé, la construction de tel ou tel objet, […] d'améliorer par exemple les infrastructures existantes […] pouvoir concentrer ses efforts sur collecte de ressources, […] une interface pour vraiment manager en fait ces équipes, […] un conflit en fait de production, un conflit d'évolution également de ressources, qui va réussir à acquérir quelles ressources à certains endroits, un conflit entre les factions, pouvoir s'attaquer, pouvoir également ressusciter des workers, […] à combien ça coûte, la vitesse également des workers, parce que peut-être qu'ils pourront crafter plus vite, s'améliorer plus vite, se déplacer légèrement plus vite aussi, que le joueur principal »
+- **Ce que nous en comprenons**
+  - « Ouvriers » désigne aujourd'hui deux choses différentes :
+    - le **nombre de chantiers d'amélioration simultanés** des niveaux, de 1 à 5 (`L.MAX_BUILDERS`), comme
+      les huttes d'ouvriers de Clash of Clans : un réglage de rythme, pas une limite technique ;
+    - les **ouvriers PNJ** des factions, de vrais personnages, 10 au plus par faction et 8 pour votre équipe.
+  - Votre demande porte sur les seconds : environ **30 PNJ par faction**, 4 factions par défaut, qui jouent
+    comme des joueurs et s'organisent avec des **managers** par domaine (ressources, construction,
+    production automatisée, amélioration des infrastructures existantes, défense).
+  - S'y ajoutent :
+    - une **interface de gestion** de votre propre équipe : où porter l'effort ;
+    - un **conflit de production et de ressources** entre factions : gisements disputés, attaques ;
+    - la **résurrection** des PNJ, avec un coût ;
+    - la **progression** des PNJ (vitesse de fabrication, de déplacement et d'amélioration), qui peut
+      dépasser celle du joueur.
+  - Techniquement, c'est faisable : 402 personnages autonomes ont été mesurés à 0,50 ms/tick (E22), pour un
+    budget de 1,5 ms. 4 × 30 PNJ plus votre équipe font environ 150 personnages.
+- **Critères d'acceptation** ❔ (proposés, à valider par vous)
+  1. Taille des équipes réglable, 30 PNJ par faction par défaut ; nombre de factions réglable, 4 par défaut.
+  2. Un cerveau par équipe, et des managers par domaine qui répartissent les PNJ selon les besoins.
+  3. Les PNJ construisent de vraies lignes de production automatisées (pas seulement des avant-postes),
+     et améliorent les bâtiments existants (niveaux et époques, E3-6).
+  4. Votre équipe se pilote par une interface : répartition de l'effort par domaine, priorités, objectifs.
+  5. Un PNJ mort peut être ressuscité au centre, contre un coût et un délai chiffrés.
+  6. Les PNJ progressent (fabrication, déplacement, minage, inventaire), mesurés contre le joueur.
+  7. En moteur réel, 4 factions de 30 PNJ se disputent les gisements et s'attaquent, en tenant le
+     budget A1.
+- **État** : ❌ La conception est lancée (lot IA1, 21/10, 21 h 35).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -523,6 +554,7 @@ apport.md | 21/10, 19 h 55 |
 | IA0b Base défendue attaquée selon la difficulté | ⏳ workflow lancé (siège, rapport de force par niveau et par personnalité, assaut coordonné) | — | 21/10, 20 h 52 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
 | V2c Condition du centre (Q16), file de chantiers (Q17), recalibrage X0/V2 (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
+| IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
