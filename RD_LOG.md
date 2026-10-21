@@ -92,6 +92,12 @@
 - 21 h 55, **Q21** : « veillez vraiment à ce que la version basse qualité soit pas si basse que ça, mais qu'il puisse être […] qu'on puisse garder, si on veut, la sensation de gigantisme, en fait, par exemple, des usines factoriaux. […] quand vous dites que la basse qualité n'est plus la priorité, c'est d'accord, hein, complètement, mais par contre, il faut quand même que la basse qualité puisse avoir un certain range […] pour pouvoir vraiment faire tourner le jeu correctement. Parce que j'ai l'impression qu'en fait, en ayant des images de haute qualité, ça fait que même avec mes 16 Go de RAM, j'ai l'impression que je vais saturer très vite. Alors que peut-être pas du tout, je me trompe »
   → D4-2 renforcé, D4-5 ajouté, lot D4m (banc de mémoire vidéo et d'usine géante).
 
+- 22 h, **Q22 (autonomie pendant la nuit)** : « vous avez carte blanche, je valide entièrement toutes vos
+  décisions. Seulement, voilà, évitez en fait les utilisations d'outils MCP qui nécessitent une validation
+  préalable […] puisque bah, je serai en train de dormir ». L'orchestrateur décide seul jusqu'au retour du
+  Directeur Créatif. Un design reste soumis à son verdict sur captures : les planches seront prêtes à son
+  retour.
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
