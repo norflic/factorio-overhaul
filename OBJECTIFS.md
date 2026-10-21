@@ -228,6 +228,14 @@
      classent dans l'ordre par la silhouette seule.
   3. **Le dernier niveau ne ressemble plus au premier** : silhouettes (masques alpha des sprites)
      communes à moins de 50 % (mesure automatique sur les sprites, voir V4).
+     **Faille trouvée le 21/10 (RD_LOG E27)** : tel qu'écrit, ce critère laisse passer un simple
+     agrandissement du sprite vanilla, dès ×1,2 à ×1,4, ainsi que la tourelle laser du design rejeté,
+     posée sur sa dalle. **Amendement proposé ❔, à valider par vous** :
+     - (a) les couches plates posées au sol (socle, dalle) ne comptent pas dans la silhouette ;
+     - (b) on ajoute une mesure insensible à la taille : on agrandit le niveau 1 jusqu'à ce qu'il
+       ressemble le plus possible au dernier niveau, et le recouvrement restant doit être ≤ 0,75. Le
+       chiffre sera étalonné sur les premières pièces. Le design rejeté obtient 1,00, c'est-à-dire
+       qu'il est refusé.
   4. L'emprise au sol reste la même, pour ne pas changer le jeu. La hauteur visuelle peut croître.
   5. Ombres, socles et calques sont alignés au pixel en gros plan (R4).
 - **Preuve** : galerie jour et nuit, la même en gris, planche de vignettes, gros plans, mesure
@@ -249,7 +257,11 @@
 - **Critères d'acceptation** ❔
   1. Aucun calque décalé, aucune ombre fausse, aucun élément caché.
   2. Une revue en gros plan aux zooms 1 et 2 pour chaque famille et chaque époque.
-- **État** : 🟨 Défaut connu : socle invisible sous le four en acier (F42). Aucune revue en gros plan.
+- **État** : 🟨 Défauts connus :
+  - socle invisible sous le four en acier (F42) ;
+  - centre de commandement : le radar et les têtes de balise n'ont pas d'ombre (F48, déduit du code,
+    non vu en capture ; le centre sera redessiné en V3).
+  Aucune revue en gros plan.
 
 ### E1 · Échelons façon Clash of Clans (mécanique)
 - **Demande** : « niveau clash of clans en termes d'échelons, de qualité de levels… pratiquement idle
@@ -449,7 +461,7 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | P0 Reprise | ✅ | Dépôt git `main` (commit initial `4b2a1e0` = état de fin de session 5). Lua 5.2.4 compilé depuis lua.org (sommes vérifiées), Python 3.14.7 présent. Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ; étape data : 496 prototypes, 0 nouvelle erreur, 0 violation, 0 clé de traduction manquante ; api_lint : 317 usages, 0 erreur. **Moteur réel `content` : 180 OK, 0 échec**, deux fois (avant et après la suppression des orphelins ; E26). Aucune session `fo-visual` ouverte, aucun verrou orphelin. Orphelins supprimés. | 21/10, 17 h 57 |
 | P1 Captures automatiques | ⏳ agent lancé (seul utilisateur du moteur pendant son lot) | — | 21/10, 18 h |
 | V0 Pipeline de rendu | ⏳ agent lancé (hors moteur ; captures en jeu par l'orchestrateur ensuite) | — | 21/10, 18 h |
-| V1 Bible des époques | 🟨 👁 bible livrée et intégrée (`docs/DESIGN_EPOQUES.md`, 1 153 lignes, + `docs/epoques/mesures/`) ; aucune planche (attend V0) ; questions Q8 à Q12 ouvertes ; faits proposés F44 à F49 en vérification adverse avant inscription | Fusion `b1348e2` ; mesures vanilla sourcées fichier par fichier ; rien de vérifié en jeu | 21/10, 18 h 45 |
+| V1 Bible des époques | 🟨 👁 bible livrée et intégrée (`docs/DESIGN_EPOQUES.md`, 1 153 lignes, + `docs/epoques/mesures/`) ; aucune planche (attend V0) ; questions Q8 à Q12 ouvertes ; faits vérifiés par 3 vérificateurs adverses : F44, F45, F46, F48 confirmés avec corrections, F47 (soleil au nord-ouest) RÉFUTÉ et corrigé (ombres plein est), E27 corrigé ; bible corrigée | Fusion `b1348e2` ; mesures vanilla sourcées fichier par fichier ; rien de vérifié en jeu | 21/10, 18 h 45 |
 | V2 Cadre des 15 époques | ⏳ workflow lancé (Q6 répondue) | — | 21/10, 18 h 10 |
 | X0 Scénario, crafts, branches | ⏳ workflow lancé (Q7 répondue) | — | 21/10, 18 h 10 |
 | IA0 PvP et difficulté | ⏳ workflow lancé (Q4 répondue) | — | 21/10, 18 h 10 |

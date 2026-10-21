@@ -142,8 +142,18 @@ une économie de modélisation (§3.3).
 - D'où la direction artistique des ères IV et V : corps sur pieds, pièces en lévitation, structures ajourées.
 - Une alternative est d'aller beaucoup plus haut, sans vide : il faudrait alors O ≈ 4 tuiles pour le four et
   O ≈ 5,3 tuiles pour l'assembleur. C'est la question Q-V1-1.
-- **Rappel mesuré** : le design rejeté de la session 5 (E25) donne IoU(niveau 1, niveau 10) = **0,65 à 0,81**
-  (`mesures/silhouettes_vanilla.txt`). Le critère D1-3 l'aurait refusé automatiquement.
+- **Rappel mesuré, corrigé par vérification adverse (RD_LOG E27)** : le design rejeté de la session 5 (E25)
+  donne IoU(niveau 1, niveau 10) = 0,65 à 0,81 sans son socle, mais **0,47 à 1,00** avec son socle (dalle
+  opaque, comptée dans le masque tel qu'il est défini ici). Six familles sur sept auraient été refusées, mais
+  **la tourelle laser aurait PASSÉ D1-3** (0,474) alors que sa forme est identique au vanilla.
+- **Faille de D1-3 tel qu'écrit (E27)** : l'IoU mesure surtout un rapport d'aires. Un **simple
+  agrandissement** du sprite vanilla, sans aucune pièce nouvelle, passe sous 0,50 dès ×1,20 (foreuse),
+  ×1,22 à 1,32 (laser) et ×1,41 (mitrailleuse, four, assembleur, centre). Amendement proposé ❔ (à valider par
+  le Directeur Créatif, OBJECTIFS D1) : (1) exclure du masque toute couche plate posée au sol (socle,
+  dalle), pas seulement l'`integration_patch` ; (2) ajouter un indicateur **invariant d'échelle** : l'IoU
+  normalisée, c'est-à-dire le maximum sur k de IoU(niveau 1 agrandi d'un facteur k, niveau 30). Elle vaut
+  1,000 pour le design rejeté et 0,903 pour le centre actuel. Son seuil sera étalonné sur les premières
+  pièces de V0 et V3, proposition ≤ 0,75.
 
 **Tests et indicateurs automatiques proposés à V4** ❔ (ils aident le verdict du Directeur Créatif sans le
 remplacer).
@@ -185,7 +195,9 @@ hr (frame, scale, shift) dans un repère en tuiles, puis calcule boîte, aire, I
    exception : les passes **émissives et lumineuses rendues en blanc ou en gris**, que l'on colore par `tint`.
    Une teinte sur du blanc donne exactement la couleur voulue. Le vanilla le fait déjà : les DEL de la foreuse
    et la lumière de la balise sont des PNG gris (type 4) teintés à l'exécution (`apply_tint = "status"`,
-   `mining-drill.lua:278`).
+   `mining-drill.lua:278`). Mais le vanilla a aussi des lumières en PNG **couleur** sans aucune teinte (feu
+   et lumière des fours, de (99,49,3) à (241,144,2) ; labo bleu (15,74,183) ; raffinerie) : les deux
+   façons existent (vérifié, F47).
 
 | Époque | Albédos proposés (sRGB) | Luminance médiane cible du corps | Couleur émissive |
 |---|---|---|---|
@@ -206,8 +218,15 @@ hr (frame, scale, shift) dans un repère en tuiles, puis calcule boîte, aire, I
 | 15 | or blanc #E8DCB0, nacre #D8D2C8, cristal clair | 108 | blanc doré #FFF2C0 |
 
 ### 1.6 Lumière
-**Soleil.** Il vient du **nord-ouest** pour tous les rendus : ombres portées vers l'**est-sud-est**. Décalage
-mesuré entre le centroïde de l'ombre et celui du corps :
+**Soleil (corrigé le 21/10 par vérification adverse, RD_LOG F47).** La lumière vient de l'**ouest** :
+l'ombre d'un objet vertical est une bande **horizontale** qui part du pied **plein est**. Sa pente va de
+-5,5° à +1,1° (cap de 84 à 91°), et sa longueur vaut environ **1,1 fois la hauteur** de l'objet à l'écran
+(1,07 à 1,30 ; grand poteau : 4,44 tuiles de haut, ombre de 4,75). La version précédente de ce
+paragraphe, « nord-ouest, est-sud-est », était **fausse**.
+
+Le décalage entre les centroïdes de l'ombre et du corps, ci-dessous, pointe de l'est au sud-sud-est.
+Sa composante sud vient de la hauteur du corps à l'écran, pas du soleil. **Ne pas caler l'angle du soleil
+dessus** : on le cale sur les ombres d'objets verticaux. Décalage mesuré :
 
 | Famille | Décalage x | Décalage y |
 |---|---|---|
@@ -218,8 +237,9 @@ mesuré entre le centroïde de l'ombre et celui du corps :
 | Assembleur 2 | +0,32 | +0,04 |
 | Mur | +0,31 à +0,36 | +0,55 à +0,75 |
 
-Toutes les ombres vanilla sont des **couches séparées** `draw_as_shadow`, en PNG gris + alpha (type 4). V0
-calibre l'angle exact ; ces chiffres servent à valider ses rendus.
+Toutes les ombres vanilla sont des **couches séparées** `draw_as_shadow`. Elles ne sont pas toutes en gris
++ alpha (type 4) : `hr-substation-shadow.png` et `hr-iron-chest-shadow.png` sont en RGBA (type 6), avec un RGB
+presque noir (correction F47). V0 calibre l'angle exact ; ces chiffres servent à valider ses rendus.
 
 **Éclat de jour (D2-1)** : couche `draw_as_glow`, dessinée comme un sprite **puis** comme une lumière
 (`prototype-api.json`, `SpriteParameters.draw_as_glow`). Pour une `WorkingVisualisation`, on combine
@@ -241,9 +261,9 @@ calibre l'angle exact ; ces chiffres servent à valider ses rendus.
 | Famille | Champ graphique | Animable par prototype ? | Moyen d'animation |
 |---|---|---|---|
 | Centre | `ContainerPrototype.picture` : **Sprite** | **non** | dessin par script : `rendering.draw_animation` (prototype `animation`) et `rendering.draw_light`, attachés à l'entité et recréés à chaque remplacement par le crochet `Levels.on_replaced` |
-| Mur | `WallPrototype.pictures` : **SpriteVariations** | **non** | lueurs fixes seulement (`draw_as_glow`, `draw_as_light`) ; aucune animation (des milliers d'objets de rendu seraient nécessaires) |
-| Mitrailleuse, laser | `base_picture` : Animation4Way ; tête : RotatedAnimation4Way ; `energy_glow_animation` (laser) | oui | **animer le socle** (1 direction) ; ne jamais ajouter d'images à la tête hors tir (×64 directions) |
-| Foreuse | `graphics_set.working_visualisations` | oui | visualisations avec `always_draw`, `fadeout`, `effect` |
+| Mur | `WallPrototype.pictures` : **WallPictures** (9 entrées SpriteVariations + `water_connection_patch`, `gate_connection_patch` en Sprite4Way) ; `wall_diode_*` en Sprite4Way (vérifié, F44) | **non** | lueurs fixes seulement (`draw_as_glow`, `draw_as_light`) ; aucune animation (des milliers d'objets de rendu seraient nécessaires) |
+| Mitrailleuse, laser | `base_picture` : Animation4Way ; tête : RotatedAnimation4Way ; `energy_glow_animation` (champ de TurretPrototype, donc aussi disponible pour la mitrailleuse : F44) | oui | **animer le socle** (1 direction) ; ne jamais ajouter d'images à la tête hors tir (×64 directions) |
+| Foreuse | `graphics_set.animation` et `idle_animation` (Animation4Way), `working_visualisations` ; même chose pour `wet_mining_graphics_set` (F44) | oui | visualisations avec `always_draw`, `fadeout`, `effect` |
 | Four, assembleur | `animation` (Animation4Way), `working_visualisations`, `idle_animation` | oui | `effect = "flicker"` ou `"uranium-glow"`, `light` |
 
 - Les **particules** se font en feuilles d'animation, pas en particules moteur : c'est gratuit au tick et

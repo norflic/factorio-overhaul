@@ -51,7 +51,35 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés (sources du jeu 1.1.91, vérification adverse indépendante du 21/10, 19 h)
+Ils ont été proposés par le lot V1, puis refaits par trois vérificateurs qui n'avaient pas vu la
+production. Leurs scripts sont dans le dossier temporaire de session de l'orchestrateur ; les mesures de V1
+sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F44 | Schéma 1.1.91 : ni le centre de commandement (type `container`, copie de `steel-chest`) ni le mur (`WallPrototype`, `pictures` de type WallPictures) n'ont de champ animable (0 sur 83 et 0 sur 92 propriétés). Les tourelles en ont 10 : `base_picture` en Animation4Way, 9 RotatedAnimation4Way dont `energy_glow_animation`, qui existe aussi pour la mitrailleuse. La foreuse, le four et l'assembleur en ont 3 (`animation`, `idle_animation`, `working_visualisations`). L'animation d'une machine est en pause quand la machine est à l'arrêt. | Pour animer le centre ou le mur : une entité compagnon, ou `rendering.draw_animation`, qui existe en 1.1.91. Sinon, des lueurs fixes. On ne sait pas si le moteur fait défiler `base_picture` d'une tourelle (non vérifié en moteur). |
+| F45 | Part de l'emprise (tuiles entières, alpha ≥ 128, couches hr sans ombre ni lumière) couverte par la silhouette vanilla : four en acier 86,5 % ; assembleur 2 77,3 % ; mitrailleuse 69,7 à 72,4 % ; laser 43,5 à 45,5 % ; foreuse 51,8 à 62,0 % ; mur isolé 59,0 % ; centre actuel 65,7 %. Le chiffre dépend fortement de la définition (four : 92,6 % à alpha ≥ 1, 100 % de la collision_box). | Généralise F42 : une pièce n'est visible que si elle DÉPASSE. Le four laisse encore 0,54 t² non couverts : seule une capture dira si le socle est vraiment invisible. |
+| F46 | Socle des tourelles jamais recouvert par la tête, tous états affichés compris : mitrailleuse 50,5 %, laser 69,3 %. Bande visible sur toute la largeur : mitrailleuse y ≥ +0,11 tuile, laser y ≥ -0,05 tuile. | Zone sûre pour la pièce du niveau pair posée sur le socle des tourelles. |
+| F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
+| F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
+
 ### Expériences menées
+**E27 · VALIDÉ, avec correction · Recouvrement des silhouettes du design rejeté (hors moteur)** :
+- Protocole : IoU des masques (alpha ≥ 128, couches hr sans ombre, 128 px par tuile, même origine, 4
+  poses pour les tourelles et la foreuse) entre le niveau 1 et le niveau 10 de la session 5.
+- Résultats :
+  - sans le socle : 0,65 à 0,82 (mur : 1,00), ce qui reproduit la mesure de V1 ;
+  - avec le socle réel, dalle opaque comptée dans le masque : laser 0,465 à 0,474, foreuse 0,489 à 0,580,
+    centre 0,600, mitrailleuse 0,665 à 0,693, assembleur 0,750, four 0,776, mur 1,00.
+- Conclusion :
+  - D1-3 tel qu'écrit aurait refusé 6 familles sur 7, mais **laissé passer la tourelle laser**, dont la
+    forme est pourtant identique au vanilla ;
+  - un simple agrandissement sans pièce nouvelle passe sous 0,50 dès ×1,20 à ×1,41 ;
+  - l'IoU mesure surtout un rapport d'aires.
+- Amendement proposé (OBJECTIFS D1) : exclure les couches plates au sol, et ajouter une IoU normalisée
+  en échelle. Elle vaut 1,000 pour le design rejeté et 0,903 pour le centre actuel.
+
 **E26 · VALIDÉ · Reprise P0 : tous les bancs depuis Claude Code, sur le PC du Directeur Créatif** :
 - Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 (0 échec).
 - Étape data : 496 prototypes, 0 nouvelle erreur, 0 violation des règles moteur, 0 clé manquante.
@@ -63,6 +91,14 @@
   0,22 ms, maximum 8,3 à 8,8 ms. Banc complet (copie, carte, benchmark) en 4 s : la durée « 1 à 2 min »
   notée auparavant ne vaut plus pour `content`. Journaux : `<racine>\fo-logs\2026-10-21_P0_content*\`.
 - Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
+
+### Hypothèses (session 6)
+- **H-V2 · OUVERTE** (lot V1) : des silhouettes ajourées (vides, pieds, pièces en lévitation, Q8)
+  tiennent le critère D1-3, dans sa version amendée, sans dépasser les plafonds de hauteur (Q9).
+  Protocole : mesure automatique (V4) sur les premières pièces rendues.
+- Note machine (lue en lecture seule par V1, sans intérêt moteur) : la carte graphique est une RX 6900 XT
+  de 16 Go. La mémoire vidéo des sprites des 30 niveaux (estimée de 0,8 à 1,4 Go non compressés) n'est donc
+  pas une contrainte.
 
 ## Session 5 — 2026-10-21 (fin d'après-midi) : niveaux façon Clash of Clans, cahier des charges
 
