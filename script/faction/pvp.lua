@@ -26,15 +26,18 @@
 
   Lot IA0b (base défendue) : la décision pure assiège (« siege » : la faction garde ses soldats pour le
   joueur), se dit dissuadée (« deterred ») ou se joint à un assaut coordonné (« join », Difficile et
-  Impitoyable). Ce module tient la fenêtre d'assaut coordonné (war.pvp.rally_until : ouverte par une attaque
-  prête contre le joueur), marque les attaques jointes, et journalise chaque entrée en siège ou en
-  dissuasion (« [FO-PVP] siege », « [FO-PVP] dissuasion »). Aucun calcul par tick : tout se fait dans la
-  pensée du commandant.
+  Impitoyable). Ce module tient la fenêtre d'assaut coordonné (war.pvp.rally_until, ouverte par une attaque
+  prête contre le joueur, et war.pvp.rally_target : position et défense estimée de la cible de cette
+  attaque, CIBLE COMMUNE des attaques jointes), marque les attaques jointes, retient la dernière attaque
+  contre une faction (f.pvp.last_rival : fin de l'impasse de la règle du déficit) et journalise chaque
+  entrée en siège ou en dissuasion (« [FO-PVP] siege », « [FO-PVP] dissuasion »). Aucun calcul par tick :
+  tout se fait dans la pensée du commandant.
 
   État persistant : war.pvp (niveau, ancre de la grâce, secteurs repérés, curseur, pertes du joueur, fenêtre
-  d'assaut coordonné), f.pvp par faction (déclarée, provoquée, héritée, préavis, fin de grâce au plus tôt,
-  dernière attaque, soldats envoyés, plan en cours, sièges, attaques jointes), war.pvp_forced (niveau imposé
-  par l'interface distante, bancs seulement). Aucune fonction dans global.
+  d'assaut coordonné et sa cible), f.pvp par faction (déclarée, provoquée, héritée, préavis, fin de grâce au
+  plus tôt, dernière attaque contre le joueur et sa cible, dernière attaque contre une faction, soldats
+  envoyés, plan en cours, sièges, attaques jointes), war.pvp_forced (niveau imposé par l'interface distante,
+  bancs seulement). Aucune fonction dans global. Sauvegarde antérieure : champs absents lus comme nil ou 0.
 ]]
 
 local Events = require("script.core.events")
@@ -252,7 +255,7 @@ function PvP.sync(tick)
   p.difficulty = level
   local d = F.pvp_params(level)
   if d.aggressive and not was then p.anchor = tick end
-  if S.rally_ticks(level) <= 0 then p.rally_until = nil end -- assaut coordonné : Difficile et Impitoyable seulement
+  if S.rally_ticks(level) <= 0 then p.rally_until, p.rally_target = nil, nil end -- Difficile et Impitoyable seulement
   say({ "fo-pvp.changed", level_name(level) }, string.format("[FO-PVP] difficulte %s au tick %d", level, tick))
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
@@ -409,7 +412,8 @@ function PvP.think(f, surface, tick, view, target)
     difficulty = level, tick = tick, anchor = p.anchor, grace_floor = fp.grace_floor,
     declared = fp.declared, provoked = fp.provoked,
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
-    player_groups = player_groups(f), due_since = fp.due_since, rally_until = p.rally_until,
+    player_groups = player_groups(f), due_since = fp.due_since, last_rival = fp.last_rival,
+    rally_until = p.rally_until, rally_defense = p.rally_until and p.rally_target and p.rally_target.defense or nil,
   }
   view.player = player_view(f, surface, p, fp, tick, level)
   local a = S.decide(view)
@@ -438,16 +442,22 @@ function PvP.think(f, surface, tick, view, target)
   if a.recall then Military.recall_player_groups(f, tick) end
   if a.attack then
     if a.attack.target == "player" and fp.target then
-      local t = fp.target
-      if Military.attack(f, surface, { id = "player", key = "player", hq_pos = t.pos, outposts = {} }, a.attack.count, tick)
+      -- Attaque jointe : la cible de la fenêtre (cible commune), sinon celle de la faction.
+      local rt = a.attack.join and p.rally_target or nil
+      local pos = rt and { x = rt.x, y = rt.y } or fp.target.pos
+      local defense = rt and rt.defense or fp.target.defense
+      if Military.attack(f, surface, { id = "player", key = "player", hq_pos = pos, outposts = {} }, a.attack.count, tick)
         and f.route_pending then
-        f.route_pending.join, f.route_pending.need = a.attack.join or nil, a.need
+        f.route_pending.join, f.route_pending.need, f.route_pending.defense = a.attack.join or nil, a.need, defense
         if a.rally then
-          -- Difficile, Impitoyable : fenêtre d'assaut coordonné pour les autres factions qui assiègent.
+          -- Difficile, Impitoyable : fenêtre d'assaut coordonné pour les autres factions qui assiègent ; la
+          -- dernière attaque prête fixe la cible commune.
           local u = tick + S.rally_ticks(level)
           if not p.rally_until or u > p.rally_until then p.rally_until = u end
           p.rally_by = f.key
-          log(string.format("[FO-PVP] assaut coordonne ouvert tick %d par %s jusqu'au tick %d", tick, f.key, p.rally_until))
+          p.rally_target = { x = pos.x, y = pos.y, defense = defense }
+          log(string.format("[FO-PVP] assaut coordonne ouvert tick %d par %s jusqu'au tick %d, cible (%d, %d), defense estimee %d",
+            tick, f.key, p.rally_until, math.floor(pos.x), math.floor(pos.y), defense or 0))
         end
       end
     elseif target and a.attack.target == target.id then
@@ -490,17 +500,21 @@ end
 Military.on_launched = function(f, target_faction, n, rp, tick)
   local fp = faction_state(f)
   fp.sent_total = fp.sent_total + n
-  if target_faction.id ~= "player" then return end
+  if target_faction.id ~= "player" then
+    fp.last_rival = tick -- lot IA0b : fin de l'impasse de la règle du déficit (S.rival_stalled)
+    return
+  end
   fp.sent_player = fp.sent_player + n
   fp.attacks = fp.attacks + 1
   fp.soldiers = fp.soldiers + n
   fp.last_attack = tick
   fp.due_since, fp.plan = nil, nil
+  fp.last_target = { x = rp.target.x, y = rp.target.y, defense = rp.defense }
   local surface = game.surfaces[State.war().surface]
   if rp.join then fp.joins = (fp.joins or 0) + 1 end
   say({ rp.join and "fo-pvp.attack-joined" or "fo-pvp.attack", fname(f), n, gps(surface, rp.target) },
     string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d, besoin %d, tech %d%s",
-      tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), fp.target and fp.target.defense or 0,
+      tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), rp.defense or (fp.target and fp.target.defense) or 0,
       rp.need or 0, f.tech or 0, rp.join and " (assaut coordonne)" or ""))
 end
 
@@ -547,6 +561,7 @@ function PvP.status(tick)
     active = war.active, difficulty = level, forced = war.pvp_forced, anchor = p and p.anchor,
     score = p and p.score or 0, sweeps = p and p.sweeps or 0, losses = p and p.losses or 0,
     sectors = 0, factions = {}, rally_until = p and p.rally_until,
+    rally_target = p and p.rally_target and { x = p.rally_target.x, y = p.rally_target.y, defense = p.rally_target.defense } or nil,
   }
   if p then for _ in pairs(p.sectors) do out.sectors = out.sectors + 1 end end
   for _, id in ipairs(State.sorted_keys(war.factions or {})) do
@@ -561,7 +576,8 @@ function PvP.status(tick)
       sent_player = fp.sent_player or 0, sent_total = fp.sent_total or 0, last_attack = fp.last_attack,
       kills = fp.kills or 0,
       target = fp.target and { x = fp.target.pos.x, y = fp.target.pos.y, defense = fp.target.defense } or nil,
-      plan = fp.plan, sieges = fp.sieges or 0, deterred = fp.deterred or 0, joins = fp.joins or 0, tech = f.tech,
+      last_target = fp.last_target and { x = fp.last_target.x, y = fp.last_target.y, defense = fp.last_target.defense } or nil,
+      last_rival = fp.last_rival, plan = fp.plan, sieges = fp.sieges or 0, deterred = fp.deterred or 0, joins = fp.joins or 0, tech = f.tech,
     }
   end
   return out

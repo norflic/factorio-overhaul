@@ -291,14 +291,15 @@ Règles :
 - Repérage : disque de rayon 24 secteurs (1 793 secteurs, 1 536 tuiles), 1 secteur toutes les 8 ticks ;
   le balayage complet prend 4 min.
 
-**Base défendue (lot IA0b).** Défense estimée de la cible = 8 × tourelles à 40 tuiles (inchangé).
+**Base défendue (lot IA0b, corrigé après vérification adverse).** Défense estimée de la cible = 8 × tourelles à
+40 tuiles (inchangé).
 
-| Niveau | Rapport de force exigé (avant prudence) | Siège au plus (min) | Plafond du siège (part de l'armée visée) | Assaut coordonné : fenêtre (min) | Jointe à (part du besoin) |
-|---|---|---|---|---|---|
-| Facile | 1,5 | 0 (jamais de siège) | — | — | — |
-| Normal | 0,9 | 20 | 95 % | — | — |
-| Difficile | 0,65 | 30 | 100 % | 2 | 80 % |
-| Impitoyable | 0,5 | 45 | 100 % | 3 | 70 % |
+| Niveau | Rapport de force exigé (avant prudence) | Siège au plus (min) | Plafond du siège (part de l'armée visée) | Assaut coordonné : fenêtre (min) | Jointe à (part du besoin) | Reprise contre le joueur sans attaque lancée (min) |
+|---|---|---|---|---|---|---|
+| Facile | 1,5 | 0 (jamais de siège) | — | — | — | 120 |
+| Normal | 0,9 | 20 | 95 % | — | — | 64 |
+| Difficile | 0,65 | 30 | 100 % | 2 | 80 % | 40 |
+| Impitoyable | 0,5 | 45 | 100 % | 3 | 70 % | 24 |
 
 | Personnalité | Prudence (× rapport) | Rapport exigé : Facile / Normal / Difficile / Impitoyable | Armée visée (100 soldats max.) |
 |---|---|---|---|
@@ -320,84 +321,172 @@ Règles du lot IA0b :
   plus 0,95 × ce que l'armée visée entière peut envoyer, au moins le besoin). Taille visée face à une
   défense : size_mult × prudence × défense / force. Sans ce plancher, les niveaux élevés (plus téméraires)
   frappaient une base défendue avec MOINS de soldats que Normal.
-- **Assaut coordonné** (Difficile, Impitoyable) : une attaque prête contre le joueur ouvre une fenêtre ; une
-  autre faction qui l'assiège s'y joint dès 80 % (Difficile) ou 70 % (Impitoyable) de son besoin.
-- **Tailles minimales plafonnées par l'armée visée** (joueur : 0,9 × ce que l'armée visée peut envoyer ;
-  rivale : idem). Le bâtisseur (taille 28, armée visée 40, garnison gardée 40 %, donc 24 envoyables au plus)
-  n'attaquait JAMAIS personne ; sa taille passe à 21. Avec 100 soldats maximum, seul le bâtisseur change ;
-  avec une armée maximale plus petite (`/fo-war start … 60`), le technocrate et l'équilibré aussi.
+- **Attente « save » plus longue qu'avant (compromis voulu, documenté à la demande du vérificateur)** : quand
+  le besoin est atteint mais pas le plancher, la faction attend jusqu'à `siege_min` (20, 30 ou 45 min) et non
+  plus `save_min` (3, 5 ou 7 min). Effet mesuré (sonde du vérificateur, 90 s par soldat, base sans tourelle,
+  Impitoyable) : équilibré 11 → 9 attaques, technocrate 11 → 7 (attaques plus grosses). Borner cette attente
+  à 1,5, 2 ou 3 × `save_min` a été essayé : écarts d'ordre strict sur la grille du vérificateur à 45 s par
+  soldat 10, 13 et 6 (contre 1), à 90 s 73, 81 et 70 (contre 61) ; non retenu.
+- **Assaut coordonné** (Difficile, Impitoyable) : une attaque prête contre le joueur ouvre une fenêtre et
+  fixe la **cible commune** (position et défense estimée de sa cible). Une autre faction s'y joint, contre
+  cette cible : soit sous son besoin (calculé contre la défense de la cible commune), avec au moins 80 %
+  (Difficile) ou 70 % (Impitoyable) de ce besoin et **jamais sous la taille minimale du niveau** ; soit dès
+  son plancher, sans attendre la fin de `save_min`. Une attaque jointe n'ouvre pas de fenêtre ; la fenêtre
+  (2 ou 3 min) ne dépasse pas l'intervalle entre deux attaques (5 ou 3 min) : une faction ne se joint jamais
+  à sa propre fenêtre. Avant correction, les jointes partaient sous la taille minimale (7 soldats pour 10)
+  et chaque faction visait son propre secteur.
+- **Taille minimale contre le joueur plafonnée par l'armée visée** (0,9 × ce que l'armée visée peut envoyer) :
+  bâtisseur, Normal, 28 → 21. Avec 100 soldats maximum, seul le bâtisseur change ; avec 60
+  (`/fo-war start … 60`, moteur simulé de `pvp_test`), le technocrate aussi (25 → 15 en Normal).
+- **Guerre ENTRE factions inchangée depuis IA0** (correction du vérificateur) : le plafond `rival_min_cap`
+  livré au premier passage du lot changeait la guerre entre factions à tous les niveaux, Paisible compris ;
+  il est retiré. `S.attack` est identique à une copie figée de celle d'IA0 (`pvp_test` : 58 176 cas) ; moteur
+  simulé, Paisible, 4 factions, 60 min, armée maximale 100 et 60 : attaques par faction identiques à celles
+  du code IA0 (Écarlate 43 et 31, Azur 23 et 4, Émeraude 4 et 0, Ambre 29 et 29). Le bâtisseur n'attaque
+  donc toujours jamais sa rivale (28 > 24 envoyables) : défaut antérieur (E21), hors du contrat IA0b.
+- **Fin de l'impasse de la règle du déficit** (défaut antérieur au lot, relevé par le vérificateur) : après
+  une attaque contre le joueur, une faction n'en redevenait « due » qu'après avoir attaqué sa rivale ; si elle
+  ne le pouvait pas (bâtisseur ; rivale trop défendue), elle n'attaquait plus jamais le joueur (sonde du
+  vérificateur, rivale de défense 30 : technocrate et bâtisseur, 1 attaque en 180 min à tous les niveaux).
+  Désormais, une faction qui n'a rien lancé (ni contre le joueur, ni contre une faction) depuis 8 ×
+  l'intervalle du niveau se retourne contre le joueur (tableau ci-dessus). Essais : 4 × l'intervalle casse
+  l'ordre et prive la rivale d'attaques en Impitoyable (6 écarts) ; 10 × donne 39 écarts à 90 s par soldat
+  (contre 61) mais la reprise prend 80 min en Normal. Une reprise immédiate quand la rivale est hors de portée
+  de l'armée visée a aussi été essayée : le bâtisseur, limité par sa production, attaquait alors autant en
+  Normal qu'en Difficile (29 écarts) ; non retenue.
 - Ordre de grandeur (loi de Lanchester au carré, non mesuré en moteur réel) : une tourelle à munitions
   perforantes (400 PV, 80 dégâts/s) vaut 2,6 fusiliers (200 PV, 24 dégâts/s) ; le rapport le plus téméraire
-  (conquérant, Impitoyable) envoie 3 fusiliers par tourelle estimée.
+  (conquérant, Impitoyable) envoie 3 fusiliers par tourelle estimée. Une jointe à 70 % du besoin en envoie
+  2,1 : sous la parité si elle arrivait seule ; elle vise la même cible dans la même fenêtre que l'attaque qui
+  l'a ouverte. **Le caractère non suicidaire des attaques jointes n'est PAS prouvé en moteur réel.**
+- Force des soldats (`S.soldier_strength`, antérieure au lot, non corrigée) : le mitrailleur (tech 1, 11,55
+  fusiliers) vaut 2,5 fois le grenadier (tech 2, 4,54). Le besoin contre une base défendue est donc 2,5 fois
+  plus grand en tech 2 qu'en tech 1 : 8 tourelles sont plus dures en tech 2 qu'en tech 1, ce qui déforme les
+  configurations par technologie (hypothèse à consigner au RD_LOG).
 
 Mesures (campagne pure, `tests/pvp_test.lua` : 180 min, 1 soldat toutes les 45 s jusqu'à l'**armée visée**
-du planificateur, nouveau modèle du lot IA0b ; une rivale toujours disponible, défense 10). Cellule :
-1re attaque · nombre · taille moyenne ; « jamais » = aucune attaque en 180 min. Avant = code du lot IA0, même
-modèle.
+du planificateur ; une rivale toujours disponible, défense 10). Cellule : 1re attaque · nombre · taille
+moyenne ; « jamais » = aucune attaque en 180 min. Avant = code du lot IA0, même modèle. Après = code corrigé
+(les lignes du conquérant, de l'équilibré et du technocrate sont identiques au premier passage du lot ; le
+bâtisseur attaque moins souvent qu'au premier passage, qui le faisait attaquer sa rivale grâce au plafond
+retiré).
 
 | Base | Personnalité | Facile avant → après | Normal avant → après | Difficile avant → après | Impitoyable avant → après |
 |---|---|---|---|---|---|
+| 2 tourelles, tech 0 | Conquérant | jamais → jamais | jamais → 22,8 min · 13 · 15,5 | jamais → 12,0 min · 20 · 17,1 | jamais → 8,2 min · 26 · 18,7 |
+| 2 tourelles, tech 0 | Équilibré | jamais → jamais | jamais → 33,8 min · 10 · 20,0 | 18,8 min · 15 · 23,6 → 18,0 min · 15 · 23,5 | 17,2 min · 16 · 28,7 → 13,5 min · 16 · 28,4 |
+| 2 tourelles, tech 0 | Technocrate | jamais → jamais | 44,2 min · 8 · 25,0 → identique | 22,5 min · 12 · 28,3 → identique | 18,0 min · 14 · 31,9 → 16,5 min · 14 · 31,9 |
+| 2 tourelles, tech 0 | Bâtisseur | jamais → jamais | jamais → 42,9 min · 3 · 24,0 | 25,8 min · 1 · 27,0 → 25,8 min · 4 · 30,8 | 18,8 min · 1 · 22,0 → 18,8 min · 6 · 33,7 |
 | 3 tourelles, tech 0 | Conquérant | jamais → jamais | jamais → 25,5 min · 12 · 17,0 | jamais → 12,0 min · 16 · 21,2 | jamais → 8,2 min · 19 · 25,4 |
 | 3 tourelles, tech 0 | Équilibré | jamais → jamais | jamais → 33,8 min · 10 · 20,0 | jamais → 18,0 min · 14 · 24,6 | jamais → 13,5 min · 16 · 29,1 |
 | 3 tourelles, tech 0 | Technocrate | jamais → jamais | jamais → 44,2 min · 8 · 25,0 | 29,2 min · 10 · 32,0 → 22,5 min · 12 · 28,3 | 27,0 min · 14 · 32,7 → 16,5 min · 14 · 31,9 |
-| 3 tourelles, tech 0 | Bâtisseur | jamais → jamais | jamais → 50,2 min · 7 · 22,0 | 30,0 min · 1 · 32,0 → 25,8 min · 9 · 29,7 | 27,0 min · 1 · 32,0 → 18,8 min · 13 · 31,2 |
+| 3 tourelles, tech 0 | Bâtisseur | jamais → jamais | jamais → 42,9 min · 3 · 24,0 | 30,0 min · 1 · 32,0 → 25,8 min · 4 · 30,8 | 27,0 min · 1 · 32,0 → 18,8 min · 6 · 33,7 |
 | 6 tourelles, tech 0 | Conquérant | jamais → jamais | jamais → 50,2 min · 6 · 33,0 | jamais → 20,2 min · 9 · 37,3 | jamais → 14,2 min · 11 · 38,9 |
 | 6 tourelles, tech 0 | Équilibré | jamais → jamais | jamais → 64,5 min · 4 · 39,0 | jamais → 26,2 min · 7 · 43,6 | jamais → 18,0 min · 9 · 46,0 |
 | 6 tourelles, tech 0 | Technocrate | jamais → jamais | jamais → jamais | jamais → 27,8 min · 8 · 34,4 | jamais → 19,5 min · 10 · 36,5 |
-| 6 tourelles, tech 0 | Bâtisseur | jamais → jamais | jamais → jamais | jamais → 30,0 min · 8 · 32,0 | jamais → 20,2 min · 11 · 33,1 |
+| 6 tourelles, tech 0 | Bâtisseur | jamais → jamais | jamais → jamais | jamais → 30,0 min · 4 · 32,0 | jamais → 20,2 min · 6 · 34,0 |
 | 8 tourelles, tech 2 | Conquérant | jamais → jamais | jamais → 22,8 min · 13 · 15,5 | 16,5 min · 1 · 19,0 → 12,0 min · 20 · 17,1 | 28,7 min · 25 · 19,0 → 8,2 min · 26 · 18,7 |
 | 8 tourelles, tech 2 | Équilibré | jamais → jamais | 33,8 min · 10 · 20,0 → identique | 18,0 min · 15 · 23,5 → identique | 15,8 min · 16 · 28,6 → 13,5 min · 16 · 28,4 |
 | 8 tourelles, tech 2 | Technocrate | jamais → jamais | 44,2 min · 8 · 25,0 → identique | 22,5 min · 12 · 28,3 → identique | 16,5 min · 14 · 31,9 → identique |
-| 8 tourelles, tech 2 | Bâtisseur | jamais → jamais | jamais → 48,8 min · 7 · 21,0 | 25,8 min · 1 · 27,0 → 25,8 min · 9 · 29,7 | 18,8 min · 1 · 22,0 → 18,8 min · 13 · 31,2 |
+| 8 tourelles, tech 2 | Bâtisseur | jamais → jamais | jamais → 42,9 min · 3 · 24,0 | 25,8 min · 1 · 27,0 → 25,8 min · 4 · 30,8 | 18,8 min · 1 · 22,0 → 18,8 min · 6 · 33,7 |
 | 12 tourelles, tech 2 | Conquérant | jamais → jamais | jamais → 23,2 min · 16 · 15,9 | jamais → 12,0 min · 18 · 20,6 | jamais → 8,2 min · 21 · 23,0 |
 | 12 tourelles, tech 2 | Équilibré | jamais → jamais | jamais → 33,8 min · 13 · 20,0 | jamais → 18,0 min · 16 · 24,4 | jamais → 13,5 min · 17 · 28,7 |
+| 12 tourelles, tech 2 | Technocrate | jamais → jamais | jamais → 44,2 min · 10 · 25,0 | 25,5 min · 13 · 29,2 → 22,5 min · 13 · 28,9 | 23,2 min · 14 · 32,4 → 16,5 min · 14 · 31,9 |
+| 12 tourelles, tech 2 | Bâtisseur | jamais → jamais | jamais → 42,9 min · 3 · 24,0 | 26,2 min · 1 · 28,0 → 25,8 min · 4 · 30,8 | 24,0 min · 1 · 28,0 → 18,8 min · 6 · 33,7 |
+
+Rivale de défense 30 (configurations ajoutées après vérification ; le technocrate et le bâtisseur ne peuvent
+pas l'attaquer). Après correction, 4 personnalités × 4 niveaux :
+
+| Base | Personnalité | Facile | Normal | Difficile | Impitoyable |
+|---|---|---|---|---|---|
+| 1 tourelle, tech 0 | Conquérant | 30,0 min · 9 · 11,1 | 20,0 min · 7 · 29,4 | 12,0 min · 11 · 29,5 | 8,2 min · 18 · 22,6 |
+| 1 tourelle, tech 0 | Équilibré | 47,0 min · 4 · 24,0 | 30,0 min · 6 · 29,7 | 18,0 min · 10 · 31,6 | 13,5 min · 13 · 32,0 |
+| 1 tourelle, tech 0 | Technocrate | 56,2 min · 2 · 21,0 | 37,5 min · 3 · 29,0 | 22,5 min · 4 · 33,8 | 16,5 min · 7 · 38,0 |
+| 1 tourelle, tech 0 | Bâtisseur | 64,3 min · 1 · 15,0 | 42,9 min · 3 · 24,0 | 25,8 min · 4 · 30,8 | 18,8 min · 6 · 33,7 |
+| 3 tourelles, tech 0 | Conquérant | 30,0 min · 4 · 27,2 | 20,0 min · 7 · 29,4 | 12,0 min · 10 · 29,2 | 8,2 min · 16 · 28,1 |
+| 3 tourelles, tech 0 | Équilibré | jamais | 30,0 min · 6 · 29,7 | 18,0 min · 9 · 32,4 | 13,5 min · 12 · 33,6 |
+| 3 tourelles, tech 0 | Technocrate | jamais | 37,5 min · 3 · 29,0 | 22,5 min · 4 · 33,8 | 16,5 min · 7 · 38,0 |
+| 3 tourelles, tech 0 | Bâtisseur | jamais | 42,9 min · 3 · 24,0 | 25,8 min · 4 · 30,8 | 18,8 min · 6 · 33,7 |
 
 Lecture :
-- **Facile reste dissuadé** dès 3 tourelles en tech 0 et dès 8 tourelles en tech 2 (toutes personnalités,
-  campagne pure), comme avant IA0b ; il attaque une base d'une tourelle (30 à 70 min selon la personnalité).
-- Normal attaque désormais toute base de 3 tourelles en tech 0 (les 4 personnalités) ; 6 tourelles en tech 0
+- **Facile est dissuadé dès 2 tourelles en tech 0** (les 4 personnalités ; correction du premier passage, qui
+  disait « dès 3 ») et attaque une base d'une tourelle (1re attaque de 32,8 à 64,3 min selon la
+  personnalité). En tech 2, le bâtisseur est déjà dissuadé à 6 tourelles (plus petite base essayée en tech 2), les
+  autres dès 8. Cause : Facile ne
+  fait jamais de siège et se replie aussitôt sur sa rivale. 2 tourelles ne sont pas une « forte défense » :
+  **question au Directeur Créatif** (Facile dissuadé dès 2 tourelles en tech 0 : acceptable ?).
+- Normal attaque toute base de 1 à 3 tourelles en tech 0 (les 4 personnalités) ; 6 tourelles en tech 0
   dissuadent encore le technocrate et le bâtisseur en Normal (armées visées 45 et 40).
 - Difficile et Impitoyable attaquent les bases de 6 tourelles en tech 0 et de 8 tourelles en tech 2 (les 4
-  personnalités). L'ordre strict (1re attaque plus tôt, plus d'attaques, plus grandes, part plus grande)
-  tient dans les 8 configurations × 4 personnalités, parmi les niveaux qui attaquent.
+  personnalités). L'ordre strict (1re attaque plus tôt, plus d'attaques, plus grandes ; part plus grande pour
+  une faction qui attaque aussi sa rivale) tient dans les 9 configurations à rivale de défense 10 × 4
+  personnalités, parmi les niveaux qui attaquent.
+- Avec une rivale de défense 30, les attaques exigées ont lieu et l'impasse est levée (au moins 2 attaques en
+  Normal, Difficile et Impitoyable pour toutes les personnalités), mais l'ordre strict **ne tient pas** : 3 écarts sur les 2
+  configurations, tous chez le conquérant (Facile 9 attaques contre 7 en Normal ; taille moyenne Impitoyable
+  22,6 contre 29,5 en Difficile, et 28,1 contre 29,2). Cause : l'effectif envoyé est la garnison disponible ;
+  la garnison accumulée pour une rivale difficile gonfle les attaques des niveaux où le joueur est moins
+  souvent dû. Non corrigé (hors contrat), non exigé par le banc, imprimé par `pvp_test`.
 - Les rivales reçoivent encore des attaques après la déclaration : au moins 4 en Normal et en Difficile, au
-  moins 1 en Impitoyable, dans toutes les configurations.
-- **Sensibilité** : avec 1 soldat toutes les 60 s ou 90 s, l'ordre strict ne tient plus partout : 6 et 36
-  écarts sur les 8 configurations (4 et 25 sur les configurations 1 à 4 ; le code du lot IA0, sur son propre
-  modèle, en avait 14 et 43). À 90 s, les 1res attaques contre les bases défendues restent ordonnées, pas
-  toujours le nombre d'attaques (tableau imprimé par `pvp_test`).
+  moins 1 en Impitoyable, dans toutes les configurations à rivale de défense 10 (sauf le bâtisseur, qui n'en
+  attaque jamais aucune).
+- **Sensibilité (sonde du vérificateur, 32 bases × 4 personnalités × 4 niveaux)**, nombre d'écarts d'ordre
+  strict ; les critères d'attaque du contrat tiennent dans toutes ces variantes :
+
+  | Variante du modèle | Code IA0 | Premier passage IA0b | Après correction |
+  |---|---|---|---|
+  | 45 s par soldat (nominal) | 146 | 1 | 1 (tech 2, 16 tourelles, hors contrat) |
+  | 30 s par soldat | — | 22 | 22 (taille moyenne du conquérant, Difficile contre Impitoyable) |
+  | 60 s par soldat | 158 | 30 | 0 |
+  | 90 s par soldat | 258 | 57 | 61 (nombre d'attaques ; 1re attaque du technocrate, Facile contre Normal) |
+  | 30 % de survivants | — | 24 | 18 |
+  | Rivale de défense 30 | 195 | 141 | 20 |
+
+  L'ordre strict n'est donc **pas prouvé** hors du modèle nominal (45 s par soldat, rivale de défense 10).
+  Le moteur réel produit plus lentement (E21 : Écarlate à 25 soldats à 20 min et 26 à 45 min) : au rythme
+  probable du moteur réel, l'ordre du NOMBRE d'attaques n'est pas garanti. Le nombre d'attaques et leur
+  taille moyenne sont relevés dans les journaux des scénarios moteur (`total : …`) pour le mesurer en réel.
 - Partie pure à 4 factions (conquérant, technocrate, bâtisseur, équilibré), bases défendues : attaques
-  jointes en Difficile (6 à 12 selon la configuration) et en Impitoyable (15 à 23), toutes dans la fenêtre
-  d'une autre faction ; aucune en Facile et en Normal.
+  jointes en Difficile (6 à 26 selon la configuration) et en Impitoyable (9 à 39), toutes dans la fenêtre
+  d'une autre faction, contre la cible commune, aucune sous la taille minimale du niveau (la plus petite :
+  16 soldats) ; aucune en Facile et en Normal. Dans cette partie à 4, un écart d'ordre : équilibré, 6
+  tourelles en tech 0, taille moyenne 42,9 en Difficile contre 42,5 en Impitoyable.
 
 Mesures en moteur simulé (`pvp_test`, tourelles qui tuent, base agrandie de 36 assembleurs pour ne pas être
-rasée avant la fin) :
+rasée avant la fin). Ce banc lance la guerre avec **60 soldats au maximum** (`/fo-war start 2 60 …`), les
+scénarios moteur avec 100 : avec 60, la taille minimale d'Azur (technocrate) contre le joueur est plafonnée
+à 15 au lieu de 25 (d'où la taille moyenne de Normal sous celle d'IA0), et Azur ne peut pas attaquer sa
+rivale (17 envoyables < 25) : la fin de l'impasse règle alors son rythme contre le joueur.
 
 | Banc | Facile | Normal | Difficile | Impitoyable |
 |---|---|---|---|---|
-| 2 factions, 45 min, 1 tourelle : 1re attaque | 30,0 min | 20,8 min (IA0 : 20,0) | 12,0 min | 8,8 min |
-| idem : nombre d'attaques | 1 | 4 | 9 (IA0 : 6) | 13 (IA0 : 8) |
-| idem : taille moyenne | 11,0 | 15,8 (IA0 : 18,0) | 18,3 | 20,4 (IA0 : 19,4) |
+| 2 factions, 45 min, 1 tourelle : 1re attaque | 30,0 min | 20,0 min (IA0 : 20,0) | 12,0 min | 8,8 min |
+| idem : nombre d'attaques | 1 | 4 | 6 (IA0 : 6) | 9 (IA0 : 8) |
+| idem : taille moyenne | 11,0 | 16,8 (IA0 : 18,0) | 18,7 | 19,9 (IA0 : 19,4) |
 
-| Banc (moteur simulé, 4 factions) | Ancien code (IA0) | Nouveau code (IA0b) |
+| Banc (moteur simulé, 4 factions) | Code IA0 | Après correction |
 |---|---|---|
-| Normal, 12 tourelles, 60 min | 2 attaques (Azur seule, 1re à 46,5 min) ; Écarlate déclarée à 20 min, 0 attaque | 10 attaques de 4 factions, 1re à 22,7 min (Écarlate, défense estimée 96) |
-| Difficile, 6 tourelles, 40 min | 11 attaques, 0 jointe | 14 attaques, 4 jointes |
-| Impitoyable, 6 tourelles, 40 min | 12 attaques, 0 jointe | 14 attaques, 8 jointes |
-| Normal, 3 tourelles, 60 min | 10 attaques, 1re à 22,8 min | 10 attaques, 1re à 22,7 min |
+| Normal, 12 tourelles, 60 min (`pvp_test`) | 2 attaques (Azur seule, 1re à 46,5 min) ; Écarlate déclarée à 20 min, 0 attaque | 11 attaques de 4 factions (Écarlate 5), 1re à 22,8 min (défense estimée 96), 6 sièges, 1 dissuasion |
+| Impitoyable, 6 tourelles, 40 min (`pvp_test`) | 12 attaques, 0 jointe | 16 attaques, 8 jointes, 8 fenêtres |
+| `ia0-defendue` (Normal, 3 tourelles, 60 min, essai à blanc) | 11 OK, 0 ÉCHEC ; 9 attaques | 11 OK, 0 ÉCHEC ; 10 attaques (taille moyenne 20,7), 6 sièges |
+| `ia0-defendue-impitoyable` (40 min, essai à blanc) | 12 OK, **2 ÉCHECS** (aucune fenêtre, aucune jointe) ; 12 attaques | 14 OK, 0 ÉCHEC ; 13 attaques dont 6 jointes (contre la cible commune), 7 fenêtres |
+| `ia0-defendue-forte` (Normal, 12 tourelles, 60 min, essai à blanc) | 12 OK, **1 ÉCHEC** (Écarlate : 0 attaque) ; 7 attaques | 13 OK, 0 ÉCHEC ; 13 attaques, Écarlate 5 (1re au tick 74 103, défense 96) |
 
-Le moteur simulé fait monter les factions en tech 2 vers 20 min, comme Écarlate en moteur réel (E21) : à
-3 tourelles, la règle de force ne lie plus, même avec l'ancien code. Le défaut ne s'y voit qu'à partir de
-12 tourelles.
+`ia0-defendue` n'est pas discriminant (l'ancien code le passe) ; `ia0-defendue-impitoyable` ne l'est que par
+l'assaut coordonné, `ia0-defendue-forte` que par l'attaque d'Écarlate. Le moteur simulé fait monter les
+factions en tech 2 vers 20 min, comme Écarlate en moteur réel (E21) : à 3 tourelles, la règle de force ne
+lie plus, même avec l'ancien code.
 
 Moteur réel :
 
 | Banc | Facile | Normal | Difficile | Impitoyable |
 |---|---|---|---|---|
 | E33 (lot IA0, 4 factions, base d'une tourelle) | — | 1re à 20,0 min ; 3 attaques en 60 min ; 16 soldats | 1re à 12,0 min ; 6 attaques en 40 min ; 13 à 43 soldats | — |
-| Lot IA0b (`ia0-defendue`, `ia0-defendue-impitoyable`, `ia0-defendue-forte`) | — | **non mesuré** | — | **non mesuré** |
+| Lot IA0b (`ia0-defendue`, `ia0-defendue-impitoyable`, `ia0-defendue-forte`, et `ia0-defendue-forte` sur main en témoin négatif) | — | **non mesuré** | — | **non mesuré** |
 
-Le nombre d'attaques entre niveaux est mesuré hors jeu ; en moteur réel, seule la 1re attaque l'est.
+Le nombre d'attaques entre niveaux est mesuré hors jeu ; en moteur réel, seule la 1re attaque l'est. Budget
+de script : inchangé par construction (aucun calcul par tick ajouté, tout se fait dans la pensée du
+commandant en O(1)), **non mesuré en moteur réel**.
 
 ## 11. Défense de tours (session 4)
 

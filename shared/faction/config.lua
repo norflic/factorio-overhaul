@@ -60,11 +60,6 @@ F.economy = {
 
 F.military = {
   attack_base = 20,           -- taille minimale d'une attaque (divisée par l'agressivité)
-  -- Lot IA0b : la taille minimale d'une attaque contre une faction ne dépasse jamais rival_min_cap × ce
-  -- que l'armée visée entière (T.army_share × soldiers_max) peut envoyer (au moins 4). Avec 100 soldats
-  -- maximum (défaut), seul le bâtisseur est concerné (28 ramené à 21 : armée visée 40, garnison gardée
-  -- 40 %) ; avant IA0b, il n'attaquait jamais personne (moteur réel E21 : Émeraude, 0 attaque en 60 min).
-  rival_min_cap = 0.9,
   train_batch = 5,
   staging_step = 96,          -- distance entre étapes d'une marche longue (hypothèse H-F2)
   attack_radius = 24,
@@ -115,12 +110,16 @@ F.defaults = {
 --                T.army_share × soldiers_max) que la faction accepte de réunir dans sa garnison. Si la
 --                garnison nécessaire dépasse ce plafond, la faction est DISSUADÉE (repli sur la rivale) ;
 --   rally_min    ASSAUT COORDONNÉ (Difficile, Impitoyable) : une attaque prête contre le joueur ouvre une
---                fenêtre de rally_min minutes pendant laquelle les autres factions qui l'assiègent se joignent
---                à l'assaut avec join_frac × leur besoin (au moins pvp_rules.min_attack).
--- Facile ne fait jamais de siège : il reste dissuadé par une défense forte (sens de « facile », chiffré
--- dans BALANCE_SHEET §10 bis). Valeurs réglées sur la campagne pure de tests/pvp_test.lua (8 configurations,
--- dont 4 bases défendues) : l'ordre strict des niveaux y tient avec un soldat produit toutes les 45 s ; il ne
--- tient plus partout avec une production plus lente (déjà le cas avant IA0b).
+--                fenêtre de rally_min minutes et fixe la CIBLE COMMUNE (war.pvp.rally_target). Une autre
+--                faction s'y joint contre cette cible : sous son besoin, avec au moins join_frac × ce besoin
+--                (calculé contre la défense de la cible commune) et jamais sous la taille minimale du niveau ;
+--                ou dès son plancher, sans attendre la fin de save_min. rally_min ≤ cooldown_min : une
+--                faction ne se joint jamais à sa propre fenêtre.
+-- Facile ne fait jamais de siège : il est dissuadé dès 2 tourelles en tech 0 (campagne pure, 4 personnalités ;
+-- question au Directeur Créatif, BALANCE_SHEET §10 bis). Valeurs réglées sur la campagne pure de
+-- tests/pvp_test.lua (11 configurations, dont 5 bases défendues et 2 avec une rivale de défense 30) : l'ordre
+-- strict des niveaux y tient avec un soldat produit toutes les 45 s et une rivale de défense 10 ; il ne tient
+-- plus partout avec une autre production ou une rivale plus forte (NON PROUVÉ, chiffres au §10 bis).
 ---------------------------------------------------------------------------------------------------
 F.pvp_order = { "peaceful", "easy", "normal", "hard", "merciless" }
 F.pvp_default = "normal"
@@ -146,6 +145,14 @@ F.pvp_rules = {
   -- floor_cap × ce que l'armée visée entière peut envoyer, au moins le besoin (S.player_floor).
   goal_floor = 0.75,
   floor_cap = 0.95,
+  -- Lot IA0b, impasse de la règle du déficit : une faction qui n'a rien lancé (ni contre le joueur, ni contre
+  -- une faction) depuis rival_wait × l'intervalle du niveau (cooldown_min : Facile 120 min, Normal 64,
+  -- Difficile 40, Impitoyable 24) se retourne contre le joueur. Sans cette règle, une faction incapable
+  -- d'attaquer sa rivale (bâtisseur, ou rivale trop défendue) n'attaquait le joueur qu'UNE fois. Compromis
+  -- mesuré sur la sonde du vérificateur (BALANCE_SHEET §10 bis) : 4 casse l'ordre des niveaux et prive la
+  -- rivale d'attaques en Impitoyable ; 10 donne un peu moins d'écarts à 90 s par soldat mais retarde encore
+  -- la reprise (Normal : 80 min) ; 8 retenu.
+  rival_wait = 8,
   max_keep = 0.9,             -- garnison gardée au plus (quel que soit le niveau)
   -- Coalition (le joueur est le « leader » : territoire nettement supérieur) : la part visée s devient
   -- s + leader_bonus × (1 - s). Correction du lot IA0 : l'ancien « × 1,5 plafonné à 100 % » rendait

@@ -8,6 +8,10 @@
   Écarlate déclarée à 20 min et 0 attaque. Nouveau code : 15 (0,9 × 0,75 × 96 / 4,54), siège de 20 min au plus.
   Lancement : « 216000 ia0-defendue-forte » (60 min). Journal : [FO-IA0-DEFENDUE-FORTE] et [FO-PVP].
   Réussite : BILAN sans ECHEC.
+  Seul contrôle discriminant (vérificateur IA0b) : « le conquerant (Ecarlate) attaque la base defendue » (code
+  IA0 en moteur simulé : Écarlate 0 attaque ; « au moins 2 factions » passe aussi avec l'ancien code). À
+  lancer AUSSI sur main (code IA0) comme TÉMOIN NÉGATIF en moteur réel : l'échec attendu de ce contrôle sur
+  main prouve que le scénario discrimine.
 ]]
 local C = require("scenarios/ia0_common")
 

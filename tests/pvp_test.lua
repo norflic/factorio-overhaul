@@ -18,11 +18,13 @@
        continue = partie rechargée, sauvegarde d'avant IA0 (hostilité héritée), déterminisme, coût borné
        du repérage, coexistence défense de tours.
     Lot IA0b (base défendue) : rapport de force par niveau et personnalité, siège, dissuasion, plancher des
-    attaques suivantes, assaut coordonné (Difficile, Impitoyable), tailles minimales plafonnées par l'armée
-    visée ; campagne sur 8 configurations (dont 4 bases défendues : 3 et 6 tourelles en tech 0, 8 et
-    12 tourelles en tech 2) avec l'armée visée du planificateur ; partie pure à 4 factions (assaut
-    coordonné) ; moteur simulé : 12 tourelles en Normal (4 factions, 60 min), 6 tourelles en Impitoyable
-    (assaut coordonné), ordre strict des 4 niveaux agressifs.
+    attaques suivantes, assaut coordonné (Difficile, Impitoyable ; cible commune, jamais sous la taille
+    minimale), taille minimale contre le joueur plafonnée par l'armée visée, fin de l'impasse de la règle du
+    déficit (rival_wait), guerre ENTRE factions identique à une copie figée de S.attack d'IA0 ; campagne sur
+    11 configurations (dont 5 bases défendues : 2, 3 et 6 tourelles en tech 0, 8 et 12 tourelles en tech 2,
+    et 2 configurations avec une rivale de défense 30) avec l'armée visée du planificateur ; partie pure à
+    4 factions (assaut coordonné) ; moteur simulé : 12 tourelles en Normal (4 factions, 60 min), 6 tourelles
+    en Impitoyable (assaut coordonné), ordre strict des 4 niveaux agressifs.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -38,6 +40,20 @@ local function W() return M.world() end
 local F = require("shared.faction.config")
 local S = require("shared.faction.strategy")
 local LEVELS = F.pvp_order
+
+-- Copie FIGÉE de S.attack au lot IA0 (commit 4240248), constantes comprises : la guerre ENTRE factions (et donc
+-- « Paisible ») ne doit pas changer au lot IA0b. Ne pas la mettre à jour avec le code : c'est la référence.
+local IA0_P = { conqueror = { 1.5, 0.20 }, technocrat = { 0.8, 0.35 }, builder = { 0.7, 0.40 }, balanced = { 1.0, 0.30 } }
+local function ia0_attack(v)
+  local P = IA0_P[v.personality] or IA0_P.balanced
+  local s = v.tech >= 2 and { 450, 80, 120 } or v.tech >= 1 and { 600, 14, 10 } or { 200, 8, 20 } -- PV, dégâts, cadence
+  local strength = (s[2] / s[3] * s[1]) / (8 / 20 * 200) * 1.1 ^ v.tech * (1 + 0.10 * (v.upgrades or 0))
+  local count = math.floor(v.garrison * (1 - P[2]))
+  local min_size = math.floor(20 / P[1])
+  local needed = (v.enemy_defense or 0) * 1.3
+  if v.can_attack ~= false and count >= min_size and count * strength >= needed then return count end
+  return nil
+end
 local AGGRO = { "easy", "normal", "hard", "merciless" }
 local PERS = { "conqueror", "balanced", "technocrat", "builder" }
 local MIN = 3600
@@ -166,6 +182,7 @@ local function view(level, tick, o)
       provoked = o.provoked or false, warned = o.warned or false, last_attack = o.last_attack,
       sent_player = o.sent_player or 0, sent_total = o.sent_total or 0, player_groups = o.groups or 0,
       due_since = o.due_since, grace_floor = o.grace_floor, rally_until = o.rally_until,
+      last_rival = o.last_rival, rally_defense = o.rally_defense,
     },
     player = o.no_player and nil or { score = o.score or 4, defense = o.defense or 8, reachable = o.reachable ~= false },
   }
@@ -320,17 +337,25 @@ do
   end
   check(same, "conquérant, équilibré, technocrate : taille minimale inchangée (le plafond ne lie pas)")
   local vb = view("peaceful", 0, { personality = "builder", garrison = 40, enemy_defense = 10 })
-  check(S.attack(vb) == 24, "bâtisseur, armée visée au complet (40) : attaque sa rivale avec 24 (avant IA0b : jamais, 24 < 28)")
-  local unchanged = true
-  for _, p in ipairs({ "conqueror", "balanced", "technocrat" }) do
-    for g = 0, 100, 1 do
-      local v1 = view("peaceful", 0, { personality = p, garrison = g, enemy_defense = 10 })
-      local v2 = view("peaceful", 0, { personality = p, garrison = g, enemy_defense = 10 })
-      v2.soldiers_max = nil
-      if S.attack(v1) ~= S.attack(v2) then unchanged = false end
+  check(S.attack(vb) == nil, "bâtisseur, armée visée au complet (40) : toujours aucune attaque contre sa rivale (24 < 28 : défaut antérieur E21, hors contrat IA0b)")
+  local unchanged, cases = true, 0
+  for _, p in ipairs(PERS) do
+    for tech = 0, 2 do
+      for _, up in ipairs({ 0, 2 }) do
+        for g = 0, 100 do
+          for _, def in ipairs({ 0, 5, 10, 20, 30, 40, 80, math.huge }) do
+            for _, smax in ipairs({ 100, 60, false }) do
+              local v = view("peaceful", 0, { personality = p, garrison = g, enemy_defense = def, can_attack = (g % 7 ~= 0) })
+              v.tech, v.upgrades, v.soldiers_max = tech, up, smax or nil
+              cases = cases + 1
+              if S.attack(v) ~= ia0_attack(v) then unchanged = false end
+            end
+          end
+        end
+      end
     end
   end
-  check(unchanged, "attaque entre factions inchangée pour le conquérant, l'équilibré et le technocrate (101 garnisons)")
+  check(unchanged, "guerre entre factions : S.attack identique à la copie figée d'IA0 (" .. cases .. " cas : 4 personnalités, tech 0 à 2, armée max 60, 100 ou absente)")
 
   -- Siège faisable ou dissuasion (plafond), et Facile qui ne fait jamais de siège.
   for _, p in ipairs(PERS) do
@@ -359,6 +384,35 @@ do
   a = S.decide(siege_view("hard", 23, 41 * MIN))
   check(a.plan == "join" and a.attack and a.attack.target == "player" and a.attack.join and a.attack.count == 20 and not a.rally,
     "Difficile, fenêtre ouverte : 20 disponibles ≥ 0,8 × 24, la faction se joint à l'assaut (sans rouvrir la fenêtre)")
+  -- Cible commune : le besoin de la jointe se calcule contre la défense de la cible de la fenêtre.
+  local vr = siege_view("hard", 15, 41 * MIN)
+  vr.pvp.rally_defense = 24
+  a = S.decide(vr)
+  check(a.plan == "join" and a.need == 12 and a.attack and a.attack.count == 13 and S.join_need(vr, "hard", 12) == 11,
+    "cible commune : 13 disponibles < 24 (défense 48 chez soi), mais ≥ 11 (taille minimale ; 0,8 × 12 = 10, 12 = besoin contre la cible de la fenêtre, défense 24) : jointe")
+  -- Jamais sous la taille minimale du niveau (vérificateur : jointes de 7 soldats pour une taille de 10).
+  local vm = view("merciless", 40 * MIN, { declared = true, defense = 8, garrison = 9, due_since = 38 * MIN, rally_until = 41 * MIN, rally_defense = 8 })
+  a = S.decide(vm)
+  check(S.player_need(vm, "merciless") == 10 and S.join_need(vm, "merciless", 10) == 10 and a.plan ~= "join" and a.attack == nil,
+    "Impitoyable, 1 tourelle : 8 disponibles, besoin 10 = taille minimale : pas de jointe (avant : jointe dès 7)")
+  local ok_min = true
+  for _, lv in ipairs({ "hard", "merciless" }) do
+    for _, p in ipairs(PERS) do
+      for def = 0, 200, 4 do
+        local vv = view(lv, 0, { personality = p, defense = def })
+        if S.join_need(vv, lv, S.player_need(vv, lv)) < S.player_min_size(lv, p, 100) then ok_min = false end
+      end
+    end
+  end
+  check(ok_min, "jointe jamais sous la taille minimale du niveau (Difficile, Impitoyable, 4 personnalités, défense 0 à 200)")
+  -- Plancher atteint : la faction part avec l'assaut ouvert au lieu d'attendre la fin de save_min.
+  local vf = view("hard", 40 * MIN, { declared = true, sent_player = 15, sent_total = 30, garrison = 16, due_since = 39 * MIN, rally_until = 41 * MIN, defense = 8 })
+  a = S.decide(vf)
+  check(a.plan == "join" and a.attack and a.attack.count == 14,
+    "Difficile, 14 disponibles = plancher, 1 min d'attente sur 5 : la faction se joint à l'assaut ouvert")
+  vf.pvp.rally_until = nil
+  a = S.decide(vf)
+  check(a.plan == "save" and a.attack == nil, "même cas sans fenêtre : elle attend la fin de save_min")
   a = S.decide(siege_view("hard", 23, 40 * MIN))
   check(a.plan == "siege" and a.attack == nil, "fenêtre refermée : siège")
   a = S.decide(siege_view("hard", 21, 41 * MIN))
@@ -371,6 +425,37 @@ do
   check(a.attack and a.attack.target == "player" and not a.rally, "Normal : une attaque n'ouvre aucune fenêtre")
   check(S.rally_ticks("hard") == 2 * MIN and S.rally_ticks("merciless") == 3 * MIN and S.rally_ticks("normal") == 0,
     "fenêtre : 2 min (Difficile), 3 min (Impitoyable), aucune ailleurs")
+  local self_join = true
+  for _, lv in ipairs(AGGRO) do
+    if S.rally_ticks(lv) > S.cooldown_ticks(lv) then self_join = false end
+  end
+  check(self_join, "fenêtre ≤ intervalle entre attaques : une faction ne peut pas se joindre à sa propre fenêtre")
+
+  -- Fin de l'impasse de la règle du déficit. Après une attaque contre le joueur, le déficit ne se comble
+  -- qu'en attaquant la rivale ; une faction qui ne le peut pas (bâtisseur : 24 envoyables < 28) n'attaquait
+  -- plus jamais le joueur (vérificateur : 1 attaque en 180 min).
+  local wait = S.rival_wait_ticks("normal")
+  check(wait == F.pvp_rules.rival_wait * S.cooldown_ticks("normal") and S.rival_wait_ticks("easy") > wait
+    and wait > S.rival_wait_ticks("hard") and S.rival_wait_ticks("hard") > S.rival_wait_ticks("merciless"),
+    string.format("attente avant de se retourner contre le joueur : %d × l'intervalle (Normal %d min), décroissante de Facile à Impitoyable",
+      F.pvp_rules.rival_wait, wait / MIN))
+  local t0 = 60 * MIN
+  local function vi(tick, o)
+    o = o or {}
+    return view("normal", tick, { personality = "builder", declared = true, garrison = 40, defense = 8, sent_player = 24,
+      sent_total = 24, last_attack = t0, last_rival = o.last_rival })
+  end
+  check(S.attack(vi(t0)) == nil, "bâtisseur : rivale inattaquable (24 < 28)")
+  a = S.decide(vi(t0 + S.cooldown_ticks("normal")))
+  check(a.attack == nil and a.plan == nil and a.due_since == nil, "intervalle écoulé, déficit comblé (24/24 > 40 %) : joueur pas dû, rien à lancer")
+  a = S.decide(vi(t0 + wait - 300))
+  check(a.plan == nil, "pas encore " .. wait / MIN .. " min sans rien lancer : joueur toujours pas dû")
+  a = S.decide(vi(t0 + wait))
+  check(a.plan ~= nil and a.due_since == t0 + wait, "rien lancé depuis " .. wait / MIN .. " min : le joueur redevient dû (fin de l'impasse)")
+  a = S.decide(vi(t0 + wait, { last_rival = t0 + 10 * MIN }))
+  check(a.plan == nil, "une attaque contre la rivale depuis relance l'attente")
+  check(not S.rival_stalled(view("normal", 600 * MIN, { declared = true }), "normal"),
+    "aucune attaque depuis la déclaration : pas d'impasse (le déficit rend déjà le joueur dû)")
 end
 
 do -- Équivalence avec la décision d'avant IA0 quand le joueur n'est pas visé
@@ -379,14 +464,14 @@ do -- Équivalence avec la décision d'avant IA0 quand le joueur n'est pas visé
     for g = 0, 100, 3 do
       for _, def in ipairs({ 0, 5, 10, 20, 40, 80, math.huge }) do
         local v = view("peaceful", 100 * MIN, { personality = p, garrison = g, enemy_defense = def })
-        local old = S.attack(v)
+        local old = ia0_attack(v)
         local a = S.decide(v)
         local new = a.attack and a.attack.count
         if old ~= new or (a.attack and a.attack.target ~= 2) then same = false end
       end
     end
   end
-  check(same, "Paisible : décision identique à celle d'avant IA0 (4 personnalités × 34 garnisons × 7 défenses)")
+  check(same, "Paisible : décision identique à la copie figée de S.attack d'IA0 (4 personnalités × 34 garnisons × 7 défenses)")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -394,7 +479,9 @@ section("Campagne pure de 180 min (mesures par niveau)")
 -- Modèle : chaque faction gagne +1 soldat toutes les 45 s jusqu'à son ARMÉE VISÉE (lot IA0b : même plafond
 -- que le planificateur, T.army_share × 100 : conquérant 80, équilibré 60, technocrate 45, bâtisseur 40 ;
 -- avant IA0b, plafond 100 pour tous), pense toutes les 5 s, a une rivale toujours disponible (défense 10,
--- `own` avant-postes comme la faction). Un groupe envoyé revient 5 min plus tard avec 60 % de survivants.
+-- ou cfg.rdef ; `own` avant-postes comme la faction). Un groupe envoyé revient 5 min plus tard avec 60 % de
+-- survivants. La décision reçoit la dernière attaque contre la rivale (last_rival) et la défense de la cible
+-- de la fenêtre d'assaut coordonné (rally_defense = défense de la base, cible commune).
 -- Configurations (cfg) : secteurs du joueur (score), avant-postes de la faction (own), défense de la cible
 -- joueur (defense = 8 × tourelles), niveau technologique (tech). Les configurations 5 à 8 sont les bases
 -- DÉFENDUES du lot IA0b. Une partie à plusieurs factions (game_campaign) partage la fenêtre d'assaut
@@ -415,6 +502,16 @@ local CONFIGS = {
     must = { hard = true, merciless = true } },
   { name = "base défendue (20 secteurs contre 7 avant-postes, 12 tourelles, tech 2)", score = 20, own = 7, defense = 96, tech = 2, leader = true,
     must = {} },
+  -- Correction IA0b (vérificateur) : seuil de Facile (2 tourelles en tech 0), et rivale plus forte (défense 30 :
+  -- le technocrate et le bâtisseur ne peuvent plus l'attaquer ; avant la fin de l'impasse, ils n'attaquaient
+  -- le joueur qu'une fois en 180 min). Avec une rivale de défense 30, l'ordre strict n'est PAS exigé (mesuré,
+  -- imprimé : écarts connus sur la taille moyenne du conquérant) ; on exige les attaques et la fin de l'impasse.
+  { name = "base défendue (4 secteurs, 2 tourelles, tech 0)", score = 4, own = 4, defense = 16, tech = 0, leader = false,
+    must = { normal = true, hard = true, merciless = true } },
+  { name = "rivale de défense 30 (4 secteurs, 1 tourelle, tech 0)", score = 4, own = 4, defense = 8, tech = 0, leader = false, rdef = 30,
+    must = { normal = true, hard = true, merciless = true }, no_order = true, repeat_min = 2 },
+  { name = "rivale de défense 30, base défendue (4 secteurs, 3 tourelles, tech 0)", score = 4, own = 4, defense = 24, tech = 0, leader = false,
+    rdef = 30, must = { normal = true, hard = true, merciless = true }, no_order = true, repeat_min = 2 },
 }
 for i = 1, 4 do CONFIGS[i].must = { normal = true, hard = true, merciless = true } end
 
@@ -455,10 +552,11 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
         local fp, r = f.fp, f.r
         local v = {
           personality = f.pers, tech = cfg.tech, upgrades = 0, garrison = f.garrison, soldiers_max = 100, can_attack = true,
-          enemy_defense = 10, rival = { id = 2, outposts = cfg.own }, own_outposts = cfg.own, leader_outposts = cfg.own,
+          enemy_defense = cfg.rdef or 10, rival = { id = 2, outposts = cfg.own }, own_outposts = cfg.own, leader_outposts = cfg.own,
           pvp = { difficulty = level, tick = tick, anchor = 0, declared = fp.declared, provoked = false, warned = fp.warned,
-            last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total, player_groups = 0,
-            due_since = fp.due_since, rally_until = shared.rally_until },
+            last_attack = fp.last_attack, last_rival = fp.last_rival, sent_player = fp.sent_player, sent_total = fp.sent_total,
+            player_groups = 0, due_since = fp.due_since, rally_until = shared.rally_until,
+            rally_defense = shared.rally_until and cfg.defense or nil },
           player = { score = cfg.score, defense = cfg.defense, reachable = true },
         }
         local a = S.decide(v)
@@ -486,6 +584,7 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
               shared.rallies = shared.rallies + 1
             end
           else
+            fp.last_rival = tick
             r.rival = r.rival + 1
             if fp.declared then r.rival_war = r.rival_war + 1 end
           end
@@ -514,6 +613,7 @@ end
 -- Impitoyable (coalition : au moins 7,5 % des soldats restent pour les rivales).
 local RIVAL_MIN = 4
 local MEASURES = {} -- [config][personnalité][niveau] : rapport (BALANCE_SHEET §10 bis)
+local ORDER_GAPS = {} -- écarts d'ordre mesurés (non exigés) avec une rivale de défense 30
 local function order_ok(c, field, cmp)
   local prev
   for _, lv in ipairs(AGGRO) do
@@ -553,23 +653,56 @@ for ci, cfg in ipairs(CONFIGS) do
       if cfg.must[lv] then
         check(c[lv].first ~= nil and c[lv].first >= S.grace_ticks(lv, p),
           string.format("%s : %s attaque au moins une fois, après la grâce (%d attaques)", t, lv, c[lv].attacks))
+        if cfg.repeat_min then
+          check(c[lv].attacks >= cfg.repeat_min,
+            string.format("%s : %s, rivale inattaquable ou non, au moins %d attaques (fin de l'impasse : %d)", t, lv, cfg.repeat_min, c[lv].attacks))
+        end
       end
     end
-    check(order_ok(c, "first", function(a, b) return a > b end), t .. " : 1re attaque de plus en plus tôt (niveaux qui attaquent)")
-    check(order_ok(c, "attacks", function(a, b) return a < b end), t .. " : attaques de plus en plus fréquentes")
-    check(order_ok(c, "mean", function(a, b) return a < b end), t .. " : attaques de plus en plus nombreuses (taille moyenne)")
-    check(order_ok(c, "share", function(a, b) return a < b end), t .. " : part des forces contre le joueur croissante")
+    local orders = {
+      { "first", function(a, b) return a > b end, "1re attaque de plus en plus tôt (niveaux qui attaquent)" },
+      { "attacks", function(a, b) return a < b end, "attaques de plus en plus fréquentes" },
+      { "mean", function(a, b) return a < b end, "attaques de plus en plus nombreuses (taille moyenne)" },
+    }
+    -- La part des forces n'a de sens que si la faction attaque sa rivale (sinon 100 % à tous les niveaux).
     if c.peaceful.rival > 0 then
+      orders[#orders + 1] = { "share", function(a, b) return a < b end, "part des forces contre le joueur croissante" }
+    end
+    for _, o in ipairs(orders) do
+      if cfg.no_order then
+        if not order_ok(c, o[1], o[2]) then
+          ORDER_GAPS[#ORDER_GAPS + 1] = t .. " : " .. o[3]
+          print("  ÉCART (non exigé, rivale de défense 30) : " .. t .. " : " .. o[3])
+        end
+      else
+        check(order_ok(c, o[1], o[2]), t .. " : " .. o[3])
+      end
+    end
+    if c.peaceful.rival > 0 and not cfg.rdef then
       check(c.normal.rival_war >= RIVAL_MIN and c.hard.rival_war >= RIVAL_MIN and c.merciless.rival_war >= 1,
         string.format("%s : les guerres entre factions continuent après la déclaration (rivale : Normal %d, Difficile %d, Impitoyable %d)",
           t, c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
-    elseif ci == 1 then
+    elseif c.peaceful.rival > 0 then
+      check(c.normal.rival_war + c.hard.rival_war + c.merciless.rival_war >= 1,
+        string.format("%s : la rivale (défense 30) reçoit encore des attaques après la déclaration (Normal %d, Difficile %d, Impitoyable %d)",
+          t, c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
+    elseif ci == 1 or cfg.rdef then
       -- Défaut ANTÉRIEUR à IA0b, hors de son périmètre (Paisible inchangé) : avec son armée visée (40), le
       -- bâtisseur n'atteint jamais sa taille d'attaque contre une faction (28 > 24 envoyables). Moteur réel
-      -- E21 : Émeraude, 0 attaque en 60 min.
-      print("  NOTE : " .. p .. " n'attaque jamais sa rivale, même en Paisible (taille 28 > 24 envoyables) : défaut antérieur, non corrigé")
+      -- E21 : Émeraude, 0 attaque en 60 min. Avec une rivale de défense 30, le technocrate non plus.
+      print("  NOTE : " .. p .. " n'attaque jamais sa rivale, même en Paisible : défaut antérieur, non corrigé (le joueur reste attaqué : fin de l'impasse)")
     end
   end
+end
+print(string.format("  rivale de défense 30 : %d écart(s) d'ordre strict (non exigé, voir BALANCE_SHEET §10 bis)", #ORDER_GAPS))
+-- Seuil de Facile (vérificateur) : dissuadé dès 2 tourelles en tech 0, attaque 1 tourelle.
+do
+  local deterred2, attacks1 = true, true
+  for _, p in ipairs(PERS) do
+    if MEASURES[9][p].easy.attacks > 0 then deterred2 = false end
+    if MEASURES[1][p].easy.attacks == 0 then attacks1 = false end
+  end
+  check(attacks1 and deterred2, "Facile (sans siège) : attaque une base d'1 tourelle, dissuadé dès 2 tourelles en tech 0 (4 personnalités) : question au Directeur Créatif")
 end
 local c1, c2 = campaign("hard", "balanced", 120), campaign("hard", "balanced", 120)
 check(c1.attacks == c2.attacks and c1.soldiers == c2.soldiers and c1.first == c2.first, "campagne pure déterministe")
@@ -579,11 +712,11 @@ section("Campagne pure : partie à 4 factions, assaut coordonné (Difficile, Imp
 -- Les 4 personnalités dans l'ordre des factions du jeu, contre les bases défendues (cfg 5 à 8).
 local GAME = { "conqueror", "technocrat", "builder", "balanced" }
 print("  config  niveau      1re attaque  attaques (dont jointes)  fenêtres  écart max d'une jointe à l'ouverture")
-for ci = 5, #CONFIGS do
+for _, ci in ipairs({ 5, 6, 7, 8 }) do
   local cfg = CONFIGS[ci]
   for _, lv in ipairs(AGGRO) do
     local g = game_campaign(lv, GAME, 180, cfg)
-    local first, att, joins, worst = nil, 0, 0, 0
+    local first, att, joins, worst, small = nil, 0, 0, 0, 0
     local opens = {}
     for i = 1, #GAME do
       local r = g[i]
@@ -595,6 +728,7 @@ for ci = 5, #CONFIGS do
     local inside = true
     for i = 1, #GAME do
       for _, l in ipairs(g[i].launches) do
+        if l.join and l.n < S.player_min_size(lv, GAME[i], 100) then small = small + 1 end
         if l.join then
           local best
           for _, o in ipairs(opens) do
@@ -610,6 +744,7 @@ for ci = 5, #CONFIGS do
     local t = string.format("[partie, config %d] %s", ci, lv)
     if lv == "hard" or lv == "merciless" then
       check(joins >= 1 and inside, t .. " : assaut coordonné (" .. joins .. " attaques jointes, toutes dans la fenêtre d'une autre)")
+      check(small == 0, t .. " : aucune attaque jointe sous la taille minimale du niveau (" .. small .. ")")
     else
       check(joins == 0 and g.rallies == 0, t .. " : aucun assaut coordonné hors Difficile et Impitoyable")
     end

@@ -10,7 +10,9 @@
     1 coffre. Lot IA0b : `tourelles` (n) pose n tourelles approvisionnées (50 chargeurs perforants chacune),
     en rangées de 7 au nord des machines (défense estimée 8 × n) ; la 1re reste à la place d'origine.
   - poll(ctx, period) : relevé de l'interface « fo-pvp » (difficulté, déclarations, 1re attaque contre le
-    joueur et sa cible, pertes, état de la base) ; ligne de journal par minute.
+    joueur et sa cible, pertes, état de la base) ; ligne de journal par minute. Lot IA0b : cible RÉELLE de
+    la 1re attaque (last_target : cible commune pour une attaque jointe), soldats envoyés, fenêtres d'assaut
+    coordonné ouvertes ou prolongées (changements de rally_until).
   - Les contrôles finaux sont dans chaque scénario.
 ]]
 
@@ -103,16 +105,20 @@ function C.poll(ctx, e, period)
     st.factions[f.key] = rec
     rec.grace_end, rec.declared_at, rec.attacks, rec.kills, rec.sent_total = f.grace_end, f.declared_at, f.attacks, f.kills, f.sent_total
     if f.attacks > 0 and not rec.first_attack then
+      local t = f.last_target or f.target -- last_target : lot IA0b (cible réelle, commune si jointe)
       rec.first_attack = f.last_attack
-      rec.first_target = f.target and { x = f.target.x, y = f.target.y } or nil
-      rec.first_defense = f.target and f.target.defense or nil
+      rec.first_target = t and { x = t.x, y = t.y } or nil
+      rec.first_defense = t and t.defense or nil
     end
-    rec.joins, rec.sieges, rec.deterred = f.joins or 0, f.sieges or 0, f.deterred or 0
+    rec.joins, rec.sieges, rec.deterred, rec.soldiers = f.joins or 0, f.sieges or 0, f.deterred or 0, f.soldiers or 0
     if f.attacks > 0 and not st.first_attack then
       st.first_attack, st.first_key = f.last_attack, f.key
     end
   end
   st.losses = s.losses
+  if s.rally_until and s.rally_until ~= st.last_rally then
+    st.rallies, st.last_rally = (st.rallies or 0) + 1, s.rally_until
+  end
   local alive, touched, total = C.base_state(ctx)
   if st.first_attack and touched > 0 and not st.base_hit then st.base_hit = e.tick end
   if e.tick % 3600 == 0 then
@@ -142,13 +148,13 @@ function C.check_defended(ctx, level, turrets)
   local early, keys = {}, {}
   for k in pairs(st.factions or {}) do keys[#keys + 1] = k end
   table.sort(keys)
-  local joins, sieges = 0, 0
+  local joins, sieges, soldiers = 0, 0, 0
   for _, k in ipairs(keys) do
     local r = st.factions[k]
     if r.first_attack and r.grace_end and r.first_attack < r.grace_end then early[#early + 1] = k .. "@" .. r.first_attack end
-    joins, sieges = joins + (r.joins or 0), sieges + (r.sieges or 0)
-    ctx.log(string.format("%s : attaques %d, 1re au tick %s (defense estimee %s), sieges %d, dissuasions %d, attaques jointes %d",
-      k, r.attacks or 0, tostring(r.first_attack), tostring(r.first_defense), r.sieges or 0, r.deterred or 0, r.joins or 0))
+    joins, sieges, soldiers = joins + (r.joins or 0), sieges + (r.sieges or 0), soldiers + (r.soldiers or 0)
+    ctx.log(string.format("%s : attaques %d (%d soldats), 1re au tick %s (defense estimee %s), sieges %d, dissuasions %d, attaques jointes %d",
+      k, r.attacks or 0, r.soldiers or 0, tostring(r.first_attack), tostring(r.first_defense), r.sieges or 0, r.deterred or 0, r.joins or 0))
   end
   ctx.check(#early == 0, "aucune attaque contre le joueur avant la fin de la grace", table.concat(early, ", "))
   ctx.check(st.first_attack ~= nil, "au moins une attaque contre la base defendue",
@@ -166,8 +172,10 @@ function C.check_defended(ctx, level, turrets)
   ctx.check(st.base_hit ~= nil and st.first_attack ~= nil and st.base_hit > st.first_attack,
     "base temoin touchee apres la 1re attaque (batiment detruit ou endommage)", tostring(st.base_hit))
   ctx.check((st.losses or 0) >= 1, "pertes du joueur causees par une faction", st.losses)
-  ctx.log(string.format("total : %d attaques contre le joueur, %d jointes (assaut coordonne), %d sieges", st.attacks_total or 0, joins, sieges))
-  return joins, sieges
+  local n = st.attacks_total or 0
+  ctx.log(string.format("total : %d attaques contre le joueur (taille moyenne %.1f), %d jointes (assaut coordonne), %d fenetres ouvertes ou prolongees, %d sieges",
+    n, n > 0 and soldiers / n or 0, joins, st.rallies or 0, sieges))
+  return joins, sieges, st.rallies or 0
 end
 
 return C

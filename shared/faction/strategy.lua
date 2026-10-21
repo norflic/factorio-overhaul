@@ -14,8 +14,12 @@
   Lot IA0b (base défendue) : rapport de force exigé par niveau et par personnalité (S.player_ratio), SIÈGE
   (la faction garde ses soldats pour le joueur au plus siege_min minutes, dans la limite d'un plafond, sinon
   elle est dissuadée), plancher des attaques suivantes (S.player_floor), ASSAUT COORDONNÉ en Difficile et
-  Impitoyable (fenêtre ouverte par une attaque prête, jointe à join_frac × besoin), et tailles minimales
-  plafonnées par ce que l'armée visée peut envoyer (S.player_min_size, S.attack).
+  Impitoyable (fenêtre ouverte par une attaque prête ; une autre faction s'y joint contre la MÊME cible, avec
+  au moins join_frac × son besoin et jamais sous la taille minimale du niveau, ou avec son plancher sans
+  attendre la fin de save_min), taille minimale contre le joueur plafonnée par ce que l'armée visée peut
+  envoyer (S.player_min_size), et fin de l'impasse de la règle du déficit (le joueur redevient « dû » quand
+  la faction n'a rien pu lancer, ni contre lui ni contre une faction, depuis rival_wait × l'intervalle entre
+  deux attaques). La guerre ENTRE factions (S.attack) est inchangée depuis IA0.
 
   view = {
     personality, tech, upgrades, garrison, soldiers_max, can_attack,
@@ -30,7 +34,9 @@
       sent_player, sent_total,               -- soldats envoyés depuis la déclaration (joueur, toutes cibles)
       player_groups,                         -- groupes en route contre le joueur
       due_since,                             -- tick depuis lequel le joueur est « dû » (attente, siège), ou nil
+      last_rival,                            -- tick de la dernière attaque lancée contre une faction (IA0b), ou nil
       rally_until,                           -- fin de la fenêtre d'assaut coordonné en cours (IA0b), ou nil
+      rally_defense,                         -- défense estimée de la cible de cette fenêtre (cible commune), ou nil
     } | nil,
     player = { score, defense, reachable } | nil,  -- cible joueur repérée (secteurs, défense locale)
   }
@@ -81,17 +87,10 @@ function S.attack(v)
   -- registre. Moteur réel (E16 it. 8) : un seuil lié à l'armée maximale (35 % de 100) retardait la
   -- première attaque à 30 min. Seuil = taille d'attaque de la personnalité : conquérant 13, équilibré 20,
   -- technocrate 25, bâtisseur 28 soldats envoyés (garnison gardée en plus).
+  -- Lot IA0b : règle INCHANGÉE depuis IA0 (guerre entre factions, « Paisible » compris). Le bâtisseur
+  -- (28 > 24 envoyables avec son armée visée) n'attaque jamais sa rivale : défaut antérieur (E21), hors du
+  -- contrat IA0b ; son impasse contre le joueur est traitée dans S.decide (S.rival_stalled).
   local min_size = math.floor(F.military.attack_base / P.aggression)
-  -- Lot IA0b : jamais plus de rival_min_cap × ce que l'armée visée entière peut envoyer (au moins
-  -- min_attack). Sans ce plafond, le bâtisseur (28 > 24 envoyables : armée visée 40, garnison gardée 40 %)
-  -- n'attaquait JAMAIS (moteur réel E21 : Émeraude, 0 attaque en 60 min). Avec soldiers_max = 100 (défaut),
-  -- seul le bâtisseur est concerné (28 ramené à 21) ; avec une armée maximale plus petite (/fo-war start
-  -- ... 60), le technocrate et l'équilibré peuvent l'être aussi.
-  if v.soldiers_max then
-    local c = math.floor(F.military.rival_min_cap * math.floor(S.army_target(v.personality, v.soldiers_max) * (1 - P.keep)) + 1e-9)
-    if c < F.pvp_rules.min_attack then c = F.pvp_rules.min_attack end
-    if c < min_size then min_size = c end
-  end
   local needed = (v.enemy_defense or 0) * 1.3
   if v.can_attack ~= false and count >= min_size and count * strength >= needed then return count end
   return nil
@@ -177,17 +176,20 @@ function S.player_ratio(level, pers)
   return F.pvp_params(level).force_ratio * (P.caution or 1)
 end
 
---- Soldats (du meilleur type débloqué) dont la force vaut `ratio` × la défense estimée du joueur.
-local function defense_units(v, ratio)
+--- Soldats (du meilleur type débloqué) dont la force vaut `ratio` × la défense estimée du joueur (ou
+--- `defense`, quand elle est donnée).
+local function defense_units(v, ratio, defense)
   local strength = S.soldier_strength(F.best_soldier(v.tech), v.tech, v.upgrades)
-  return math.ceil((v.player and v.player.defense or 0) * ratio / strength - 1e-9)
+  if defense == nil then defense = v.player and v.player.defense or 0 end
+  return math.ceil(defense * ratio / strength - 1e-9)
 end
 
 --- Effectif minimal pour attaquer le joueur : taille minimale du niveau, et force ≥ rapport exigé
---- (S.player_ratio) × défense estimée. Avant IA0b : 1,3 à tous les niveaux (règle entre factions).
-function S.player_need(v, level)
+--- (S.player_ratio) × défense estimée (celle de la cible de la faction, ou `defense`). Avant IA0b : 1,3 à
+--- tous les niveaux (règle entre factions).
+function S.player_need(v, level, defense)
   local need = S.player_min_size(level, v.personality, v.soldiers_max)
-  local by_defense = defense_units(v, S.player_ratio(level, v.personality))
+  local by_defense = defense_units(v, S.player_ratio(level, v.personality), defense)
   if by_defense > need then need = by_defense end
   return need
 end
@@ -236,11 +238,13 @@ function S.rally_open(v, level)
   return (F.pvp_params(level).rally_min or 0) > 0 and pv ~= nil and pv.rally_until ~= nil and pv.tick < pv.rally_until
 end
 
---- Effectif suffisant pour se joindre à un assaut coordonné : join_frac × besoin (au moins min_attack). Le
---- défenseur est occupé par l'attaque qui a ouvert la fenêtre : un groupe plus petit est accepté.
+--- Effectif suffisant pour se joindre à un assaut coordonné : join_frac × besoin, jamais sous la taille
+--- minimale du niveau (S.player_min_size). Le défenseur est occupé par l'attaque qui a ouvert la fenêtre, contre
+--- la même cible : un groupe plus petit que le besoin est accepté, seulement quand la défense fixe le besoin.
 function S.join_need(v, level, need)
   local j = math.ceil(need * F.pvp_params(level).join_frac - 1e-9)
-  if j < F.pvp_rules.min_attack then j = F.pvp_rules.min_attack end
+  local m = S.player_min_size(level, v.personality, v.soldiers_max)
+  if j < m then j = m end
   return j
 end
 
@@ -252,14 +256,17 @@ end
 ---   "attack"   : effectif ≥ taille visée ; ou ≥ plancher (S.player_floor) après save_min minutes
 ---                d'attente ; ou ≥ besoin une fois siege_min écoulé (la première attaque après la
 ---                déclaration part dès le besoin : taille visée = besoin) ;
----   "save"     : besoin atteint, la faction attend encore la taille visée (au plus save_min) ;
----   "join"     : besoin non atteint, mais un assaut coordonné est ouvert et l'effectif atteint
----                join_frac × besoin (Difficile, Impitoyable) ;
+---   "save"     : besoin atteint, la faction attend encore la taille visée : le plancher après save_min, le
+---                besoin seul après siege_min (lot IA0b : avant, au plus save_min) ;
+---   "join"     : un assaut coordonné est ouvert (Difficile, Impitoyable ; cible commune, de défense
+---                pv.rally_defense) et soit le besoin n'est pas atteint mais l'effectif atteint S.join_need
+---                (join_frac × besoin, jamais sous la taille minimale), soit le plancher est atteint (la
+---                faction part avec les autres au lieu d'attendre la fin de save_min) ;
 ---   "deterred" : la garnison nécessaire dépasse le plafond du siège : repli sur la rivale (dissuasion) ;
 ---   "siege"    : la faction garde ses soldats pour le joueur, au plus siege_min minutes (lot IA0b) ;
 ---   "fallback" : siège expiré : répit, repli sur la rivale ; la prochaine attaque contre elle clôt le répit
 ---                et un nouveau siège commence (S.decide efface due_since).
---- Renvoie plan, effectif, besoin.
+--- Renvoie plan, effectif, besoin (pour "join" : le besoin contre la cible de la fenêtre).
 function S.player_plan(v, level, due_since)
   local pv = v.pvp
   local d = F.pvp_params(level)
@@ -276,9 +283,16 @@ function S.player_plan(v, level, due_since)
   local floor_n = S.player_floor(v, level, need, goal)
   if count >= goal or (count >= floor_n and waited >= patience) then return "attack", count, need end
   -- Siège écoulé, besoin atteint mais pas le plancher : on frappe avec ce qu'on a (jamais sous le besoin).
+  -- Compromis voulu (BALANCE_SHEET §10 bis) : l'attente « save » peut durer jusqu'à siege_min (et non plus
+  -- save_min) ; borner cette attente à 1,5, 2 ou 3 × save_min dégrade l'ordre strict des niveaux (mesuré).
   if count >= need and waited >= math.floor(d.siege_min * 3600) and waited >= patience then return "attack", count, need end
+  -- Assaut coordonné (Difficile, Impitoyable) : sous le besoin (la défense le fixe : jointe à join_frac ×
+  -- besoin, jamais sous la taille minimale), ou plancher atteint sans attendre la fin de save_min.
+  if S.rally_open(v, level) and (count < need or count >= floor_n) then
+    local jneed = pv.rally_defense and S.player_need(v, level, pv.rally_defense) or need
+    if count >= S.join_need(v, level, jneed) then return "join", count, jneed end
+  end
   if count >= need then return "save", count, need end
-  if S.rally_open(v, level) and count >= S.join_need(v, level, need) then return "join", count, need end
   if (d.siege_min or 0) <= 0 then return "fallback", count, need end -- Facile : jamais de siège
   if S.player_garrison_for(level, v.personality, need) > S.siege_cap(level, v.personality, v.soldiers_max) then
     return "deterred", count, need
@@ -287,6 +301,21 @@ function S.player_plan(v, level, due_since)
   return "fallback", count, need
 end
 
+
+--- Délai au-delà duquel une faction qui n'a rien lancé (ni contre le joueur, ni contre une rivale) se
+--- retourne contre le joueur malgré la règle du déficit (lot IA0b) : rival_wait × l'intervalle du niveau.
+function S.rival_wait_ticks(level)
+  return math.floor(F.pvp_rules.rival_wait * F.pvp_params(level).cooldown_min * 3600)
+end
+
+--- Impasse de la règle du déficit (lot IA0b) : aucune attaque lancée (joueur ou rivale) depuis
+--- S.rival_wait_ticks. Sans attaque contre le joueur depuis la déclaration, le déficit le rend déjà dû.
+function S.rival_stalled(v, level)
+  local pv = v.pvp
+  local last = pv.last_attack
+  if pv.last_rival and (last == nil or pv.last_rival > last) then last = pv.last_rival end
+  return last ~= nil and pv.tick - last >= S.rival_wait_ticks(level)
+end
 
 --- Territoire du joueur en « équivalents avant-postes » (unité commune avec les factions) : secteurs
 --- repérés / sectors_per_outpost.
@@ -344,12 +373,16 @@ function S.decide(v)
   end
 
   -- 2. Cible : le joueur quand il est « dû » (règle du déficit : soldats envoyés contre lui ≤ part
-  --    visée × soldats envoyés depuis la déclaration), sinon la faction rivale.
+  --    visée × soldats envoyés depuis la déclaration), sinon la faction rivale. Lot IA0b, fin de l'impasse :
+  --    une faction qui ne peut pas attaquer sa rivale n'enverrait plus jamais rien au joueur (le déficit ne
+  --    se comble qu'en attaquant la rivale) ; le joueur redevient dû si la faction n'a rien lancé (ni contre
+  --    lui, ni contre une faction) depuis rival_wait × l'intervalle du niveau (S.rival_stalled).
   local player_ok = pv and d.aggressive and declared and v.player and v.player.reachable
     and (v.player.score or 0) > 0
     and (pv.last_attack == nil or pv.tick - pv.last_attack >= S.cooldown_ticks(level))
   local due = player_ok
-    and ((v.rival == nil) or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0))
+    and ((v.rival == nil) or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
+      or S.rival_stalled(v, level))
   if pv then
     if due and pv.due_since == nil then out.due_since = pv.tick end
     if not due and pv.due_since ~= nil then out.due_since = false end
