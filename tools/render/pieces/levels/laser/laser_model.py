@@ -342,6 +342,23 @@ def piece_e01(cx):
                  bevel=0.008, loc=(0.53 + side * 0.075, ty(1.0), 0.0))
     # piquet de bois qui tient le câble au bord
     cyl(cx, 0.022, 0.20, (0.66, ty(1.12), 0.10), wood, "piquet", verts=8, bevel=0.003)
+    # lanterne à huile du kit d'époque 1 (bible §5), allumée la NUIT seulement (#FFB060) : halo de nuit du niveau 2
+    # (D2-3) ; sur un piquet devant le muret, au sud-ouest (jamais derrière le socle vanilla)
+    iron = metal(cx, "fer_brut", "#5A5048", gain=1.2, rough=0.5, metallic=0.6, rust="#6B4F35", rust_amount=0.4, seed=15.0)
+    # verre ambré clair même éteint (lisible de jour) ; taille ×1,7 après l'aperçu (verre de 6 px hr : illisible)
+    lamp = emis(cx, "lanterne", "#FFB060", strength=1.2, base=(0.55, 0.36, 0.12))
+    px, py = -0.80, ty(0.95)
+    cyl(cx, 0.03, 0.62, (px, py, 0.31), wood, "lanterne_piquet", verts=8, bevel=0.004)
+    box(cx, (0.20, 0.035, 0.035), (px + 0.08, py, 0.60), wood, "lanterne_potence", bevel=0.004)
+    cyl(cx, 0.075, 0.16, (px + 0.16, py, 0.44), lamp, "lanterne_verre", verts=16, bevel=0)
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        cyl(cx, 0.008, 0.17, (px + 0.16 + 0.078 * math.cos(a), py + 0.078 * math.sin(a), 0.44), iron,
+            "lanterne_montant_%d" % k, verts=6, bevel=0)
+    cyl(cx, 0.09, 0.035, (px + 0.16, py, 0.535), iron, "lanterne_chapeau", verts=16, r2=0.03, bevel=0)
+    cyl(cx, 0.085, 0.02, (px + 0.16, py, 0.355), iron, "lanterne_fond", verts=16, bevel=0)
+    tor(cx, 0.03, 0.008, (px + 0.16, py, 0.575), iron, "lanterne_anse", rot=(math.pi / 2, 0, 0), seg=12, mseg=6)
+    halo(cx, (px + 0.16, py - 0.12, 0.44), 0.6)
     cx.cur = prev
 
 
@@ -463,8 +480,8 @@ def base_e03(cx):
             rot=(math.pi / 2, 0, r))
     # manomètre en façade (cadran ambré, visible de jour)
     # cadran ambré de 0,21 unité : zone lumineuse d'au moins 8 × 8 px hr (bible §1.6 ; 7,7 px en passe 2)
-    tube_y(cx, 0.13, -0.70, -0.62, 0.18, m["brass"], "manometre_boite")
-    tube_y(cx, 0.105, -0.715, -0.70, 0.18, m["amber"], "manometre_cadran", caps=True)
+    tube_y(cx, 0.155, -0.70, -0.62, 0.19, m["brass"], "manometre_boite")
+    tube_y(cx, 0.13, -0.715, -0.70, 0.19, m["amber"], "manometre_cadran", caps=True)
     halo(cx, (0.0, -0.80, 0.18), 0.7)
     # cheminée ronde à collerette à l'arrière gauche (fût vertical qui dépasse)
     # cheminée HAUTE au coin arrière gauche, à 1,05 unité de l'axe : hors de la portée de la tête qui tourne
@@ -658,7 +675,7 @@ def base_e05(cx):
     # fentes de braise (jour) sur la pente sud
     for k, z in enumerate((0.20, 0.31)):
         w = 0.70 - 0.18 * k
-        o = box(cx, (w, 0.03, 0.06), (0, -0.70 + 0.12 * k, z), m["ember"], "fente_%d" % k, bevel=0)
+        o = box(cx, (w, 0.03, 0.09), (0, -0.70 + 0.12 * k, z), m["ember"], "fente_%d" % k, bevel=0)
         o.rotation_euler = (math.radians(-45), 0, 0)
     halo(cx, (0.0, -0.95, 0.25), 1.0)
     # colonne en tronc de pyramide
@@ -679,7 +696,7 @@ def head_e05(cx):
         o.location = (0, 0.30 - 0.22 * k, z0 + 0.53)
         o.rotation_euler = (math.radians(-14), 0, 0)
     # fente d'émission rougeoyante (la « lentille » de l'époque)
-    box(cx, (0.50, 0.04, 0.10), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
+    box(cx, (0.50, 0.04, 0.13), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
     box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.35), m["rivet"], "levre_haute", bevel=0.005)
     box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.21), m["rivet"], "levre_basse", bevel=0.005)
     # ailettes de dissipation sur les flancs (dépassent)
@@ -855,7 +872,7 @@ def mats_e08(cx):
                            seed=19.0),
                 rubber=flat(cx, "caoutchouc", "#2A2A28", rough=0.7),
                 glassm=glass(cx, "verre", "#8FBF4A", gain=0.75),
-                plasma=emis(cx, "plasma", "#A8FF3A", strength=0.6, base=(0.15, 0.3, 0.05)))
+                plasma=emis(cx, "plasma", "#A8FF3A", strength=0.35, base=(0.15, 0.3, 0.05)))
 
 
 def bulb(cx, m, x, y, z, r, name, glow=True):
@@ -1015,7 +1032,7 @@ def base_e10(cx):
     # bandeau de voyants bleus (jour) sur le chant avant
     for k in range(5):
         a = math.radians(-120 + 15 * k)
-        o = box(cx, (0.10, 0.02, 0.05), (0.755 * math.cos(a), 0.755 * math.sin(a), 0.315), m["blue"], "voyant_%d" % k,
+        o = box(cx, (0.11, 0.02, 0.085), (0.755 * math.cos(a), 0.755 * math.sin(a), 0.32), m["blue"], "voyant_%d" % k,
                 bevel=0)
         o.rotation_euler = (0, 0, a + math.pi / 2)
     halo(cx, (0.0, -0.80, 0.32), 0.6)
@@ -1034,9 +1051,9 @@ def head_e10(cx):
     sph(cx, 0.40, (0, 0.06, z + 0.02), m["fair"], "dome", seg=40, rings=20, scale=(0.85, 1.15, 0.72))
     lathe(cx, [(0.36, 0.0), (0.34, 0.03), (0.0, 0.03)], m["black"], "jupe_dome", seg=40, loc=(0, 0.06, z - 0.10))
     # fente bleue frontale (la lentille de l'époque)
-    o = box(cx, (0.34, 0.05, 0.065), (0, 0.50, z + 0.03), m["blue"], "fente", bevel=0)
+    o = box(cx, (0.36, 0.05, 0.10), (0, 0.50, z + 0.03), m["blue"], "fente", bevel=0)
     o.rotation_euler = (math.radians(-18), 0, 0)
-    box(cx, (0.40, 0.04, 0.10), (0, 0.47, z + 0.03), m["black"], "fente_cadre", bevel=0.01, rot=(math.radians(-18), 0, 0))
+    box(cx, (0.42, 0.04, 0.14), (0, 0.47, z + 0.03), m["black"], "fente_cadre", bevel=0.01, rot=(math.radians(-18), 0, 0))
     # antenne courte à l'arrière
     cyl(cx, 0.012, 0.42, (0.12, -0.26, z + 0.40), m["black"], "antenne", verts=8, bevel=0)
     sph(cx, 0.025, (0.12, -0.26, z + 0.62), m["blue"], "antenne_bout")
@@ -1051,7 +1068,7 @@ def piece_e10(cx):
     o = box(cx, (0.78, 0.30, 0.22), (0.0, y, 0.15), m["fair"], "batterie", bevel=0.06)
     box(cx, (0.70, 0.31, 0.04), (0.0, y, 0.06), m["black"], "batterie_socle", bevel=0.01)
     for k in range(4):
-        box(cx, (0.11, 0.02, 0.06), (-0.24 + 0.16 * k, y - 0.155, 0.17), m["blue"], "batterie_led_%d" % k, bevel=0)
+        box(cx, (0.11, 0.02, 0.085), (-0.24 + 0.16 * k, y - 0.155, 0.17), m["blue"], "batterie_led_%d" % k, bevel=0)
     for s in (-1, 1):
         cyl(cx, 0.035, 0.06, (s * 0.25, y + 0.05, 0.29), m["black"], "borne_%d" % s, verts=12)
     strut(cx, (0.25, y + 0.12, 0.28), (0.20, ty(0.55), 0.35), 0.025, m["black"], "cable_batterie")
@@ -1338,7 +1355,8 @@ def mats_e15(cx):
     return dict(wgold=metal(cx, "or_blanc", "#E8DCB0", gain=0.62, rough=0.20, metallic=0.95, grain=0.08, dirt=0.5, seed=35.0),
                 nacre=metal(cx, "nacre", "#D8D2C8", gain=0.62, rough=0.3, metallic=0.15, grain=0.12, dirt=0.5, seed=36.0),
                 light=emis(cx, "lumiere", "#FFF2C0", strength=0.8),
-                crys=emis(cx, "cristal_clair", "#FFF2C0", strength=0.55, base=(0.6, 0.55, 0.45)))
+                crys=emis(cx, "cristal_clair", "#FFF2C0", strength=0.55, base=(0.6, 0.55, 0.45)),
+                clear=glass(cx, "cristal_incolore", "#E2DCCB", gain=0.55))
 
 
 def base_e15(cx):
@@ -1374,7 +1392,10 @@ def head_e15(cx):
         a = math.radians(adeg)
         x, y = 0.26 * math.cos(a), 0.26 * math.sin(a)
         # inclinaison : vers l'extérieur (tilt > 0) ; l'émetteur principal penche vers l'avant (tilt < 0 = vers +Y)
-        o = crystal(cx, r, h, (0, 0, 0), m["crys"], "prisme_%d" % k, tilt=(0, 0), sides=6, base_frac=0.15)
+        o = crystal(cx, r, h, (0, 0, 0), m["clear"], "prisme_%d" % k, tilt=(0, 0), sides=6, base_frac=0.15)
+        t = math.radians(abs(tilt))
+        sph(cx, r * (0.75 if k == 0 else 0.6), (x + h * math.sin(t) * math.cos(a), y + h * math.sin(t) * math.sin(a),
+                                               z + h * math.cos(t)), m["crys"], "pointe_%d" % k, seg=16, rings=8)
         o.matrix_world = (Matrix.Translation((x, y, z)) @ Matrix.Rotation(a - math.pi / 2, 4, "Z") @
                           Matrix.Rotation(-math.radians(abs(tilt)), 4, "X"))
         cyl(cx, r * 1.15, 0.05, (x, y, z + 0.02), m["wgold"], "sertissure_%d" % k, verts=6)
@@ -1390,7 +1411,7 @@ def head_e15(cx):
 def piece_e15(cx):
     m = mats_e15(cx)
     # anneau-halo au sol autour du socle (ellipse vue), qui dépasse de l'emprise sur les côtés
-    tor(cx, 0.92, 0.045, (0, 0, 0.05), m["light"], "anneau_halo_sol", seg=96, mseg=10)
+    tor(cx, 0.92, 0.022, (0, 0, 0.085), m["light"], "anneau_halo_sol", seg=96, mseg=8)
     tor(cx, 0.92, 0.06, (0, 0, 0.02), m["wgold"], "anneau_halo_berceau", seg=96, mseg=8)
     for k in range(8):
         a = 2 * math.pi * k / 8 + 0.2

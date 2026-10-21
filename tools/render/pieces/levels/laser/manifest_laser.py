@@ -65,7 +65,9 @@ def part_spec(level, part, file_stem):
                "sha256_apercu": v["sha256_canvas"]}
         lay.update(FLAGS[k])
         layers.append(lay)
-    return {"layers": layers, "rendu": r["render"]}
+    rr = r["render"]
+    return {"layers": layers, "rendu": {"echantillons": rr["samples"], "secondes": rr["seconds"], "blender": rr["blender"],
+                                        "graine": rr["seed"]}}
 
 
 def lens_world(e, heading):

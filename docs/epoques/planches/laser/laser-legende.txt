@@ -1,0 +1,29 @@
+Tourelle laser (clé « laser »), lot V3 phase 1 : planches d'APERÇU. Aucun design n'est validé tant que le
+Directeur Créatif n'a pas rendu son verdict (OBJECTIFS D1 à D3). Rien n'a été vu en moteur réel.
+
+Production : python tools/render/pieces/levels/laser/boards_laser.py (depuis la racine du mod), à partir des
+aperçus de tools/render/out/levels/laser/ (rendus Blender 5.2.2 à 32 échantillons, poses de référence seules :
+socle + tête « prepared » N, E, S, O). Composition hors moteur (compose_laser.py) dans l'ordre du moteur :
+ombres (max des alphas, sol × (1 - 0,5 alpha)), couches lower-object (socles) puis object (têtes), lueur
+additive ; nuit = LUT lut-night.png + carte des lumières, lightMul et lightAdd du moteur pris à 1 et 0
+(INCONNUS : la nuit hors moteur n'est pas une preuve). Sol : texture vanilla hr-dirt-4. Entités posées sur des
+coins de tuile (positions entières), comme en jeu.
+
+laser-a-niveaux-zoom1-jour.png  (a) les 30 niveaux, zoom 1 (32 px/tuile), de jour, avec ombres ; rangée du haut :
+                                niveaux impairs (nouvelle silhouette d'époque), rangée du bas : niveaux pairs
+                                (+ une pièce sur le socle) ; tête au sud (lentille de face). Niveau 1 = vanilla.
+laser-b-niveaux-zoom1-nuit.png  (b) la même, de nuit (halo I(N) = 0,05 + 0,02 N, bible §1.6).
+laser-c-niveaux-zoom1-gris.png  (c) la même en niveaux de gris (test du gris D1-1).
+laser-d-vignettes.png           (d) les 15 niveaux impairs en masques noirs (alpha >= 128, couches principales
+                                socle + tête, sans ombre ni lumière), MÊME échelle pour tous (le plus grand
+                                tient dans 64 px), une rangée par pose N, E, S, O, puis une rangée mélangée
+                                (pose N) ; clé : laser-d-vignettes-cle.txt (test de la vignette D1-2).
+laser-e-gros-plans-zoom2-jour.png / -nuit.png
+                                (e) époques 1, 5, 10, 15 au zoom 2 (64 px/tuile, sprites hr 1:1), têtes à l'est
+                                et au sud, à côté du vanilla niveau 1.
+laser-f-poses-zoom1-jour.png    (f) les 30 niveaux dans les 4 poses de tête (contrôle des poses, D1-3 se mesure
+                                au maximum sur les poses).
+
+Ce que ces planches ne montrent PAS (phase 2) : les 60 autres directions de la tête, le déploiement (15 images
+× 4 directions), le masque de couleur d'équipe, la lueur de tir de la lentille, les animations de socle, la
+qualité finale (échantillons pleins, après V0b), le rendu en moteur (mipmaps, carte des lumières réelle).

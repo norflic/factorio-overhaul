@@ -5,11 +5,11 @@
 5 1.000   # p50 45.2 -> 42 (gain précédent 1.000)
 6 1.292   # p50 62.4 -> 64 (gain précédent 1.292)
 7 0.701   # p50 57.1 -> 55 (gain précédent 0.701)
-8 1.000   # p50 79.3 -> 60 (gain précédent 1.000) ; gain gardé à 1 : la médiane venait du bulbe saturé (émission 1,25 -> 0,6)
+8 0.620   # corps hors émissif mesuré 74,4 pour 60 en passe 3 (gain 1,0) : 1,0 × (60/74,4)^2,2
 9 1.000   # p50 56.7 -> 56 (gain précédent 1.000)
 10 0.500   # p50 124.5 -> 82 (gain précédent 1.000)
 11 0.894   # p50 105.2 -> 100 (gain précédent 1.000)
 12 1.000   # p50 64.6 -> 60 (gain précédent 1.000) ; gardé à 1 : écart dans la tolérance de ±10, époque non re-rendue
 13 0.675   # p50 110.0 -> 92 (gain précédent 1.000)
 14 2.078   # p50 63.1 -> 88 (gain précédent 1.000)
-15 1.955   # p50 79.6 -> 108 (gain précédent 1.000)
+15 1.955   # gardé : corps hors émissif 97,8 pour 108 en passe 3 ; la médiane 134 venait des prismes émissifs (40 % du corps)

@@ -1,15 +1,15 @@
-# pivot réglé par run_laser.py tune (tour 3) : époque pivot   # O mesuré -> cible (O du socle seul)
-2 0.8500   # O 1.159 -> 1.13 (socle -0.13), pivot précédent 0.8500
-3 1.5271   # O 1.250 -> 1.25 (socle 0.45), pivot précédent 1.5271
+# pivot réglé par run_laser.py tune (tour 1) : époque pivot   # O mesuré -> cible (O du socle seul)
+2 0.8096   # O 1.159 -> 1.13 (socle -0.13), pivot précédent 0.8500
+3 1.5271   # O 1.250 -> 1.25 (socle 1.15), pivot précédent 1.5271
 4 1.7899   # O 1.360 -> 1.36 (socle 0.43), pivot précédent 1.7899
 5 2.0263   # O 1.470 -> 1.47 (socle 0.57), pivot précédent 2.0263
-6 2.1163   # O 1.580 -> 1.58 (socle 0.66), pivot précédent 2.1163
+6 1.8712   # O 1.753 -> 1.58 (socle 0.66), pivot précédent 2.1163
 7 2.2084   # O 1.700 -> 1.70 (socle 0.73), pivot précédent 2.2084
 8 2.5839   # O 1.810 -> 1.81 (socle 0.93), pivot précédent 2.5839
 9 2.6306   # O 1.920 -> 1.92 (socle 1.03), pivot précédent 2.6306
-10 2.6672   # O 2.040 -> 2.04 (socle 1.01), pivot précédent 2.6672
-11 2.8961   # O 2.150 -> 2.15 (socle 1.16), pivot précédent 2.8961
-12 2.9660   # O 2.260 -> 2.26 (socle 1.16), pivot précédent 2.9660
-13 3.1915   # O 2.370 -> 2.37 (socle 1.40), pivot précédent 3.1915
-14 3.1972   # O 2.490 -> 2.49 (socle 1.39), pivot précédent 3.1972
-15 3.2083   # O 2.600 -> 2.60 (socle 1.16), pivot précédent 3.2083
+10 2.4789   # O 2.173 -> 2.04 (socle 1.01), pivot précédent 2.6672
+11 2.5419   # O 2.400 -> 2.15 (socle 1.16), pivot précédent 2.8961
+12 2.6801   # O 2.462 -> 2.26 (socle 1.16), pivot précédent 2.9660
+13 2.9177   # O 2.564 -> 2.37 (socle 1.40), pivot précédent 3.1915
+14 3.0524   # O 2.592 -> 2.49 (socle 1.39), pivot précédent 3.1972
+15 2.8160   # O 2.877 -> 2.60 (socle 1.16), pivot précédent 3.2083
