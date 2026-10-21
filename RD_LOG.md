@@ -4,6 +4,43 @@
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
 
+## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
+
+### Décisions du Directeur Créatif
+- Prompt d'orchestration (`ORCHESTRATEUR.md`) : « aller le plus vite possible SANS baisser la qualité.
+  Le parallélisme sert la vitesse, les preuves servent la qualité. » Ordre : P0, puis P1, V0 et V1 en
+  parallèle ; Q4, Q6 et Q7 posées en une fois ; V2 après Q6 ; V3 après le verdict sur V0.
+- 17 h 55, pendant P0 : « ultracodez si necessaire » (orchestration multi-agent autorisée là où elle
+  sert).
+
+### Décisions d'architecture et d'outillage (lot P0)
+- Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
+  aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
+  (ignoré).
+- Lua 5.2.4 compilé depuis la source officielle (lua.org, md5 `913fdb32…`, sha256 `b9e2e4aa…`
+  vérifiés) avec `gcc -O2 -DLUA_COMPAT_ALL` (options par défaut du Makefile 5.2), sans DLL tierce
+  (KERNEL32, msvcrt) : `C:\Users\evan2\bin\lua5.2.exe`.
+- `fo-autotest.bat` : source du mod en 3e paramètre (test d'un worktree), copie par `robocopy` qui
+  exclut `.git`, `.claude` et `tools\render`, `source.txt` dans les résultats, code 2 si le verrou est
+  pris.
+- `tests/datastage/harness.lua` : liste des `.cfg` par `dir /b` sous Windows.
+- Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
+  vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
+  git (commit `4b2a1e0`).
+
+### Expériences menées
+**E26 · VALIDÉ · Reprise P0 : tous les bancs depuis Claude Code, sur le PC du Directeur Créatif** :
+- Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 (0 échec).
+- Étape data : 496 prototypes, 0 nouvelle erreur, 0 violation des règles moteur, 0 clé manquante.
+  1er passage : 1 736 clés « manquantes », un faux négatif de l'outil sous Windows (`ls` dans
+  `io.popen`, qui passe par `cmd.exe`) ; corrigé.
+- api_lint : 318 usages puis 317 après la suppression de `engineer.lua`, 0 erreur.
+- Moteur réel, `content`, 4 000 ticks : **180 OK, 0 échec**, deux passages (17 h 54 et 17 h 57, le
+  second après la suppression des orphelins). Benchmark : 4 000 ticks en 0,77 s, tick moyen 0,19 à
+  0,22 ms, maximum 8,3 à 8,8 ms. Banc complet (copie, carte, benchmark) en 4 s : la durée « 1 à 2 min »
+  notée auparavant ne vaut plus pour `content`. Journaux : `<racine>\fo-logs\2026-10-21_P0_content*\`.
+- Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
+
 ## Session 5 — 2026-10-21 (fin d'après-midi) : niveaux façon Clash of Clans, cahier des charges
 
 ### Décisions du Directeur Créatif

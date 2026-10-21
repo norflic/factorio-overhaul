@@ -38,6 +38,10 @@ Date: 2026-10-21
     - Sauvegarde 0.2 : la guerre à MU est arrêtée proprement au chargement (migration).
     - Cristal brun-olive et tungstène verdâtre (éclat de l'uranium vert pur, impossible à recolorer).
     - Méthane : bonus de lance-flammes porté à ×1,5 (mesuré : +12 à +14 % de dégâts totaux).
+  Info:
+    - Reprise dans Claude Code (P0) : dépôt git ; banc de l'étape data utilisable sous Windows ; banc en
+      moteur réel capable de tester un worktree (source du mod en paramètre), sans recopier .git ni les
+      worktrees, et qui signale un verrou pris (code 2) ; fichiers orphelins de la session 3 supprimés.
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-21

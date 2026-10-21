@@ -20,7 +20,7 @@ avant tout travail.
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
 4. `RD_LOG.md` : faits moteur F1 à F43, expériences E1 à E25, hypothèses ouvertes (H-V1, H-L1, H-T1,
-   H-B1, H-E1). Prochains identifiants : **F44, E26**.
+   H-B1, H-E1). Prochains identifiants : **F44, E27**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -51,8 +51,10 @@ avant tout travail.
 ## 5. Commandes
 Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 
-**Bancs hors jeu** (Lua 5.2 ; sous Windows, le binaire peut s'appeler `lua52.exe` ou `lua.exe`, à
-installer s'il manque, par exemple LuaBinaries 5.2.4). Résultats attendus aujourd'hui :
+**Bancs hors jeu** (Lua 5.2.4, compilé le 21/10 depuis la source officielle de lua.org, sommes
+vérifiées, avec le gcc de `C:\mingw64` : `C:\Users\evan2\bin\lua5.2.exe`. Ce dossier est dans le PATH
+de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le chemin complet).
+Résultats attendus aujourd'hui :
 ```
 lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 86 OK
@@ -61,14 +63,23 @@ lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 12 OK
 lua5.2 tests/levels_test.lua     -> 556 OK
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 0 erreur
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 317 usages, 0 erreur
 ```
 
-**Banc en moteur réel** (sans affichage, environ 1 à 2 min pour `content`) :
-1. Écrire `<ticks> <scenario>` dans `<racine>\fo-autotest-params.txt`, par exemple `4000 content`.
+**Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
+1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
+   `4000 content`. La source (chemin absolu, espaces permis) est facultative : par défaut
+   `<racine>\mods\factorio-overhaul` ; on y met le chemin d'un worktree pour tester un lot avant de
+   l'intégrer. La copie exclut `.git`, `.claude` et `tools\render`. `fo-autotest\source.txt` dit quelle
+   source a été testée.
 2. Lancer `<racine>\fo-autotest.bat nopause 4000`. L'appel est bloquant ; `done.txt` marque la fin.
+   Depuis Git Bash : `cd "<racine>" && ./fo-autotest.bat nopause 4000` (`cmd //c` ne le trouve pas).
+   **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
+   banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
    attend `BILAN : 180 OK, 0 ECHEC(S)` (21/10).
+4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
+   dépôt), car le banc suivant efface `fo-autotest\`.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
@@ -151,8 +162,8 @@ possible, mettez-la à jour ; sinon, signalez au Directeur Créatif qu'elle est 
   `info.json`, `shared/levels/config.lua` et les documents.
 - Chaque lot a ses propres fichiers de traduction : `locale/fr/<lot>.cfg`, `locale/en/<lot>.cfg`.
 - Le banc en moteur réel est **séquentiel** (interdit n° 4).
-- Fichiers orphelins sur le PC : `script/faction/engineer.lua` et `tools/sim_war.lua` datent des
-  sessions 2-3 et ne sont chargés par rien (`control.lua` ne les requiert pas). Au lot P0, vérifiez-le
-  par un `grep`, puis supprimez-les.
-- Le dépôt git est à créer au lot P0 : `git init` dans ce dossier, avec le `.gitignore` fourni. Il est
-  indispensable aux worktrees des agents.
+- Dépôt git (créé au lot P0, 21/10) : branche `main` dans ce dossier. `.gitattributes` (`* -text`)
+  conserve les octets tels quels, car `core.autocrlf=true` sur ce PC. Les worktrees des agents vivent
+  dans `.claude/worktrees/` (ignoré par git et exclu de la copie du banc).
+- Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` : supprimés au lot P0 après
+  vérification par `grep` (aucun `require`).

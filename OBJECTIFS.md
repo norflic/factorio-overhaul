@@ -27,8 +27,8 @@
 > **Citations.** Les guillemets « » reproduisent vos messages ; (r) signale une demande consignée en
 > la reformulant dans le RD_LOG.
 >
-> Dernière mise à jour : 2026-10-21, 17 h 45, fin de la session 5. **Passage à Claude Code**
-> (multi-agent) : voir §7 et `CLAUDE.md` à la racine du mod.
+> Dernière mise à jour : 2026-10-21, 18 h, session 6 (Claude Code, orchestrateur) : **lot P0 terminé**,
+> suivi des lots au §7. Session 5 close à 17 h 45.
 >
 > Documents liés :
 > - `CLAUDE.md` : mode d'emploi de reprise ;
@@ -410,6 +410,28 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
   lancés un par un, et chaque agent copie ses journaux avant le test suivant.
 - Autre possibilité : rendre le dossier de test paramétrable, un par lot. Les mesures de performance
   restent alors réservées à un passage seul, épinglé.
+
+### Suivi des lots (session 6)
+
+| Lot | État | Preuve | Date |
+|---|---|---|---|
+| P0 Reprise | ✅ | Dépôt git `main` (commit initial `4b2a1e0` = état de fin de session 5). Lua 5.2.4 compilé depuis lua.org (sommes vérifiées), Python 3.14.7 présent. Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ; étape data : 496 prototypes, 0 nouvelle erreur, 0 violation, 0 clé de traduction manquante ; api_lint : 317 usages, 0 erreur. **Moteur réel `content` : 180 OK, 0 échec**, deux fois (avant et après la suppression des orphelins ; E26). Aucune session `fo-visual` ouverte, aucun verrou orphelin. Orphelins supprimés. | 21/10, 17 h 57 |
+| P1 Captures automatiques | ⏳ | — | — |
+| V0 Pipeline de rendu | ⏳ | — | — |
+| V1 Bible des époques | ⏳ | — | — |
+| V2 Cadre des 15 époques | en attente de Q6 | — | — |
+
+**Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
+- Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
+  `.cfg` avec `ls`, que `cmd.exe` ne connaît pas. Les traductions étaient complètes ; l'outil est corrigé.
+- Quand le verrou était pris, `fo-autotest.bat` sortait avec le code 0 en laissant les journaux du banc
+  précédent : un agent pouvait lire un ancien `180 OK` comme un succès. Il sort désormais avec le code 2.
+- La copie du mod vers le banc emportait tout le dossier : elle aurait recopié `.git` et les worktrees
+  des agents. Elle les exclut désormais.
+
+**Règle du banc pendant la phase parallèle** : le moteur réel est réservé à un seul agent à la fois. P1
+(qui en refait l'outillage) en est l'utilisateur pendant son lot ; V0 et V1 travaillent hors moteur ;
+l'orchestrateur passe les bancs d'intégration entre deux lots.
 
 **Définition de « terminé » pour un lot**
 1. Bancs hors jeu verts.

@@ -351,7 +351,10 @@ end
 
 local function list_cfg(dir)
   local files = {}
-  local h = io.popen('ls "' .. dir .. '" 2>/dev/null')
+  -- io.popen passe par cmd.exe sous Windows : ni `ls` ni /dev/null n'y existent.
+  local windows = package.config:sub(1, 1) == "\\"
+  local h = io.popen(windows and ('dir /b "' .. dir:gsub("/", "\\") .. '" 2>nul')
+                              or ('ls "' .. dir .. '" 2>/dev/null'))
   if h then
     for name in h:lines() do if name:match("%.cfg$") then files[#files + 1] = dir .. "/" .. name end end
     h:close()

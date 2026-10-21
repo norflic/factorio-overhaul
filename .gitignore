@@ -10,3 +10,6 @@ tools/render/out/
 # Fichiers temporaires
 *.tmp
 *.log
+
+# Worktrees des sous-agents (Claude Code)
+.claude/worktrees/

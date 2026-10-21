@@ -18,10 +18,13 @@ set WRITE=%TEST%\write
 set EXE=%ROOT%\bin\x64\factorio.exe
 set TICKS=36000
 set SCENARIO=default
-rem Parametres deposes par Claude (une ligne : "<ticks> <scenario>"), lus a chaque lancement.
-if exist "%ROOT%\fo-autotest-params.txt" for /f "usebackq tokens=1,2" %%a in ("%ROOT%\fo-autotest-params.txt") do (
+set MODSRC=%ROOT%\mods\factorio-overhaul
+rem Parametres deposes par Claude (une ligne : "<ticks> <scenario> [source du mod]"), lus a chaque
+rem lancement. La source optionnelle (chemin absolu, espaces permis) sert a tester un worktree git.
+if exist "%ROOT%\fo-autotest-params.txt" for /f "usebackq tokens=1,2,*" %%a in ("%ROOT%\fo-autotest-params.txt") do (
   set TICKS=%%a
   if not "%%b"=="" set SCENARIO=%%b
+  if not "%%c"=="" set MODSRC=%%c
 )
 if not "%~2"=="" set TICKS=%~2
 
@@ -32,17 +35,26 @@ if not exist "%EXE%" (
 )
 
 rem Verrou : un seul test a la fois (deux fenetres de surveillance ne lancent jamais deux tests).
+rem Code 2 : rien n'a tourne, et fo-autotest\ contient encore les resultats du test precedent.
 mkdir "%ROOT%\fo-autotest.lock" 2>nul || (
   echo Un test est deja en cours.
-  exit /b 0
+  exit /b 2
 )
 
-echo [1/4] Preparation du dossier de test...
+if not exist "%MODSRC%\info.json" (
+  echo Source du mod introuvable : %MODSRC%
+  rmdir "%ROOT%\fo-autotest.lock" 2>nul
+  exit /b 1
+)
+
+echo [1/4] Preparation du dossier de test (source : %MODSRC%)...
 if exist "%TEST%" rmdir /s /q "%TEST%"
 mkdir "%MODS%"
 mkdir "%WRITE%"
-xcopy /e /i /q /y "%ROOT%\mods\factorio-overhaul" "%MODS%\factorio-overhaul" >nul
-xcopy /e /i /q /y "%ROOT%\mods\factorio-overhaul\tools\autotest\fo-autotest" "%MODS%\fo-autotest" >nul
+rem Ni le depot git ni les worktrees des agents (.claude\worktrees) ni les rendus du pipeline graphique.
+robocopy "%MODSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%MODSRC%\tools\render" /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%MODSRC%\tools\autotest\fo-autotest" "%MODS%\fo-autotest" /E /NFL /NDL /NJH /NJS /NP >nul
+> "%TEST%\source.txt" echo %MODSRC%
 > "%MODS%\fo-autotest\scenario.lua" echo return "%SCENARIO%"
 > "%MODS%\mod-list.json" echo {"mods":[{"name":"base","enabled":true},{"name":"factorio-overhaul","enabled":true},{"name":"fo-autotest","enabled":true}]}
 set WRITE_FWD=%WRITE:\=/%
