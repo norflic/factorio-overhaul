@@ -57,8 +57,10 @@ local function heavy_dps(key)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Modèle de durée de jeu (BALANCE_SHEET §12) : dépense de la base de référence et temps d'ouvriers par
--- époque, comparés au budget (production × part consacrée aux niveaux × durée visée).
+-- Modèle de durée de jeu (BALANCE_SHEET §12 ; lot V2c). Le calendrier est celui du scénario X0, LU par
+-- L.target (durée, débit moyen, budget). L'amélioration est instantanée (Q19) : la durée IMPLIQUÉE d'une
+-- époque est le temps qu'il faut pour payer la dépense de la base de référence avec la part de la
+-- production consacrée aux niveaux (même méthode que V2, sans le terme des ouvriers, qui n'existent plus).
 ---------------------------------------------------------------------------------------------------
 local function epoch_levels(f, e)
   local out = {}
@@ -66,48 +68,191 @@ local function epoch_levels(f, e)
   return out
 end
 
---- prod_k : facteur sur la production supposée ; eff : efficacité des ouvriers (1 = jamais au repos).
-local function model(prod_k, eff)
-  prod_k, eff = prod_k or 1, eff or 1
+--- Dépense des 6 familles de la base de référence pendant l'époque e (unités de matière brute).
+local function buildings_spend(e)
+  local T = L.target
+  local spend = 0
+  for _, f in ipairs(L.families) do
+    if f.key ~= "command" then
+      local N = T.base[f.key](e)
+      local dN = N - (e > 1 and T.base[f.key](e - 1) or 0)
+      for _, n in ipairs(epoch_levels(f, e)) do spend = spend + N * L.cost_value(L.cost(f, n)) end
+      -- Rattrapage : les bâtiments ajoutés pendant l'époque montent aussi les niveaux précédents.
+      for n = 2, 2 * e - 2 do spend = spend + dN * L.cost_value(L.cost(f, n)) end
+    end
+  end
+  return spend
+end
+
+--- Passage du centre PAYÉ pendant l'époque e (e → e + 1 ; 0 à l'époque 15).
+local function cc_spend(e)
+  if e >= L.CC_MAX then return 0 end
+  return L.cost_value(L.cost(L.by_key.command, e + 1))
+end
+
+--- prod_k : facteur sur la production supposée (sensibilité). La production de la force est celle du
+--- joueur × L.TEAM_FACTOR (équipe de PNJ, lot IA1).
+local function model(prod_k)
+  prod_k = prod_k or 1
   local T = L.target
   local rows, cumul, implied_cumul = {}, 0, 0
   for e = 1, L.EPOCHS do
     local D = T.epoch_hours(e)
     cumul = cumul + D
-    local budget = T.spend_share * T.production[e] * prod_k * D * 3600
-    local spend, work = 0, 0
-    for _, f in ipairs(L.families) do
-      if f.key ~= "command" then
-        local N = T.base[f.key](e)
-        local dN = N - (e > 1 and T.base[f.key](e - 1) or 0)
-        for _, n in ipairs(epoch_levels(f, e)) do
-          spend = spend + N * L.cost_value(L.cost(f, n))
-          work = work + N * L.time_ticks(f, n, 1) / 60
-        end
-        -- Rattrapage : les bâtiments ajoutés pendant l'époque montent aussi les niveaux précédents.
-        for n = 2, 2 * e - 2 do
-          spend = spend + dN * L.cost_value(L.cost(f, n))
-          work = work + dN * L.time_ticks(f, n, 1) / 60
-        end
-      end
-    end
-    local cc = L.by_key.command
-    local cc_value, cc_time = 0, 0
-    if e < L.CC_MAX then
-      cc_value = L.cost_value(L.cost(cc, e + 1))
-      cc_time = L.time_ticks(cc, e + 1, 1) / 60
-    end
-    spend, work = spend + cc_value, work + cc_time
-    local capacity = L.builders(e) * D * 3600
-    -- Durée IMPLIQUÉE : le plus long de « payer la dépense avec la part de production consacrée aux
-    -- niveaux » et « faire les chantiers avec les ouvriers disponibles » (efficacité eff).
-    local implied = math.max(spend / (T.spend_share * T.production[e] * prod_k * 3600), work / (L.builders(e) * eff * 3600))
+    local P = T.production(e) * prod_k * L.TEAM_FACTOR
+    local levels_budget = T.spend_share * P * D * 3600
+    local cc_value = cc_spend(e)
+    local spend = buildings_spend(e) + cc_value
+    local implied = spend / (T.spend_share * P * 3600)
     implied_cumul = implied_cumul + implied
-    rows[e] = { e = e, hours = D, cumul = cumul, production = T.production[e], budget = budget, spend = spend,
-                ratio = spend / budget, work = work, capacity = capacity, wratio = work / capacity,
-                cc_value = cc_value, cc_time = cc_time, implied = implied, implied_cumul = implied_cumul }
+    rows[e] = { e = e, hours = D, cumul = cumul, production = P, budget = T.budget(e) * L.TEAM_FACTOR,
+                levels_budget = levels_budget, spend = spend, ratio = spend / levels_budget, cc_value = cc_value,
+                cc_share = cc_value / (T.budget(e) * prod_k * L.TEAM_FACTOR), implied = implied,
+                implied_cumul = implied_cumul }
   end
   return rows
+end
+
+---------------------------------------------------------------------------------------------------
+-- Mode --calibrate : recalcule la courbe sur le calendrier X0 et imprime les tables à reporter dans
+-- shared/levels/config.lua (déterministe ; la config du jeu garde des NOMBRES écrits, jamais un calcul en
+-- flottants de log ou de puissance au chargement : même résultat sur tous les clients).
+--   1. panier du centre : passage 1 → 2 = L.target.cc_share × budget de l'époque 1 ;
+--   2. cc_value de l'époque e (passage e → e + 1) : cc_share × budget(e) moins le panier, BORNÉ par la place
+--      (CC_SLOT_SHARE du coffre du centre payeur), par MAX_QTY objets d'une sorte, et par la croissance
+--      stricte du coût du centre (un passage ne coûte jamais moins que le précédent : la borne d'une époque
+--      vaut au plus 97 % de celle de l'époque suivante) ;
+--   3. basket_mult de l'époque 1 : les paniers des 6 familles portent seuls la durée de l'époque 1 ;
+--   4. époques 2 à 15 : value_mult (strictement croissant, au moins + 2 %) comble le reste du budget des
+--      niveaux ; si le panier seul le dépasse déjà (époques 2 à 4), basket_mult < 1 l'allège.
+---------------------------------------------------------------------------------------------------
+local CC_SLOT_SHARE, MAX_QTY = 0.45, 2000
+
+local function sig_floor(x, digits)
+  if x <= 0 then return 0 end
+  local p = 10 ^ (math.floor(math.log10(x)) - (digits - 1))
+  return math.floor(x / p) * p
+end
+local function sig_round(x, digits)
+  if x <= 0 then return 0 end
+  local p = 10 ^ (math.floor(math.log10(x)) - (digits - 1))
+  return math.floor(x / p + 0.5) * p
+end
+
+--- Le coût du centre vers le niveau n tient-il dans CC_SLOT_SHARE du coffre payeur, avec au plus MAX_QTY
+--- objets d'une sorte ?
+local function cc_fits(n)
+  local c = L.cost(L.by_key.command, n)
+  for _, x in ipairs(c) do if x[2] > MAX_QTY then return false end end
+  return L.cost_slots(c) <= math.floor(CC_SLOT_SHARE * L.chest_slots(n - 1))
+end
+
+--- Bissection : plus grande valeur x de [lo, hi] telle que ok(x) (ok décroissant en x).
+local function max_ok(lo, hi, ok)
+  for _ = 1, 60 do
+    local mid = (lo + hi) / 2
+    if ok(mid) then lo = mid else hi = mid end
+  end
+  return lo
+end
+
+local function calibrate()
+  local T = L.target
+  local C = L.by_key.command
+  local function levels_target(e)
+    return T.spend_share * T.production(e) * L.TEAM_FACTOR * T.epoch_hours(e) * 3600
+  end
+  -- 1. Panier du centre : le passage 1 → 2 comble le budget des niveaux de l'époque 1 que les paniers des
+  --    bâtiments (poids 1) laissent. Un panier plus lourd à l'époque 1 renchérirait les niveaux 3 à 8 (règle
+  --    de monotonie, rattrapage) et ferait déborder les époques 2 à 4 de 30 à 70 % (essai du 22/10).
+  for e = 1, L.EPOCHS do L.epochs[e].cc_value = 0; L.epochs[e].basket_mult = nil end
+  L.rebuild()
+  local want1 = levels_target(1) - buildings_spend(1)
+  local s = want1 / L.cost_value(L.cost(C, 2))
+  for _, b in ipairs(C.base_cost) do b[2] = math.max(5, math.floor(b[2] * s / 5 + 0.5) * 5) end
+  L.rebuild()
+  -- 2. Passage du centre vers n (payé à l'époque n - 1) : borne de place de chaque passage, seul (les autres
+  --    à 0, la monotonie ne joue pas), puis bornes rendues strictement croissantes depuis l'époque 15.
+  local basket, cap = {}, {}
+  for n = 3, L.CC_MAX do
+    basket[n] = L.cost_value(L.cost(C, n))
+    local v = max_ok(0, T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, function(x)
+      L.epochs[n - 1].cc_value = x
+      L.rebuild()
+      return cc_fits(n)
+    end)
+    L.epochs[n - 1].cc_value = v
+    L.rebuild()
+    cap[n] = L.cost_value(L.cost(C, n))
+    L.epochs[n - 1].cc_value = 0
+    L.rebuild()
+  end
+  local eff = {}
+  eff[L.CC_MAX] = cap[L.CC_MAX]
+  for n = L.CC_MAX - 1, 3, -1 do eff[n] = math.min(cap[n], 0.97 * eff[n + 1]) end
+  for n = 3, L.CC_MAX do
+    local total = math.min(T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, eff[n])
+    L.epochs[n - 1].cc_value = sig_floor(math.max(0, total - basket[n]), 3)
+  end
+  L.rebuild()
+  for n = 3, L.CC_MAX do
+    while L.epochs[n - 1].cc_value > 0 and not cc_fits(n) do
+      L.epochs[n - 1].cc_value = sig_floor(L.epochs[n - 1].cc_value * 0.99, 3)
+      L.rebuild()
+    end
+  end
+  -- 3. Époques 2 à 15 : value_mult comble le reste du budget des niveaux. Si les bâtiments dépassent déjà
+  --    au plus petit value_mult permis (époque 3 : les fours et machines arrivent et rattrapent 3 niveaux,
+  --    la monotonie interdit des niveaux moins chers que ceux de l'époque 2), le passage du centre de
+  --    l'époque cède la différence (sans descendre sous 1,03 × le passage précédent).
+  for e = 2, L.EPOCHS do
+    local vm_min = e == 2 and 0.05 or sig_round(L.epochs[e - 1].value_mult * 1.02, 3)
+    L.epochs[e].value_mult = vm_min
+    L.rebuild()
+    local floor_spend = buildings_spend(e)
+    if e < L.CC_MAX and floor_spend + cc_spend(e) > levels_target(e) then
+      local prev_total = cc_spend(e - 1)
+      local want = math.max(levels_target(e) - floor_spend, 1.03 * prev_total)
+      L.epochs[e].cc_value = 0
+      L.rebuild()
+      local basket_e = cc_spend(e)
+      L.epochs[e].cc_value = sig_floor(math.max(0, want - basket_e), 3)
+      L.rebuild()
+    end
+    local target = levels_target(e) - cc_spend(e)
+    local v = max_ok(vm_min, vm_min * 8 + 10, function(x)
+      L.epochs[e].value_mult = x
+      L.rebuild()
+      return buildings_spend(e) <= target
+    end)
+    L.epochs[e].value_mult = math.max(vm_min, sig_round(v, 3))
+    L.rebuild()
+  end
+  -- Sortie : lignes à reporter dans la config.
+  print("-- panier du centre (base_cost) :")
+  local parts = {}
+  for _, b in ipairs(C.base_cost) do parts[#parts + 1] = string.format('{ "%s", %d }', b[1], b[2]) end
+  print("{ " .. table.concat(parts, ", ") .. " }")
+  print("-- L.epochs (value_mult, cc_value) :")
+  for e = 1, L.EPOCHS do
+    print(string.format("%2d %-15s value_mult = %s, cc_value = %s", e, L.epochs[e].key,
+      tostring(L.epochs[e].value_mult), tostring(L.epochs[e].cc_value)))
+  end
+  print("-- bornes de place du centre (valeur totale du passage, u) :")
+  for n = 3, L.CC_MAX do
+    print(string.format("vers %2d : visée %.0f, borne seule %.0f, borne croissante %.0f", n,
+      T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, cap[n], eff[n]))
+  end
+  print("-- contrôle :")
+  for _, r in ipairs(model()) do
+    print(string.format("ép. %2d : visée %.2f h, impliquée %.2f h (%+.1f %%), centre %.0f u = %.2f %% du budget, cumul %.2f h",
+      r.e, r.hours, r.implied, 100 * (r.implied / r.hours - 1), r.cc_value, 100 * r.cc_share, r.implied_cumul))
+  end
+end
+
+if arg and arg[1] == "--calibrate" then
+  calibrate()
+  os.exit(0)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -167,8 +312,8 @@ local function print_tables()
   local p = print
   p("#### Les 15 époques et la table d'indirection des matériaux")
   p("")
-  p("| Époque | Thème | Matériau voulu | Objet en jeu aujourd'hui | Valeur unitaire (u) | Pile | Valeur d'époque (× époque 2) | Chantiers des bâtiments (× époque 1) | Chantier du centre payé dans l'époque (× 1 min) | Centre (niveau) | Niveaux des bâtiments | Ouvriers |")
-  p("|---|---|---|---|---|---|---|---|---|---|---|---|")
+  p("| Époque | Thème | Matériau voulu | Objet en jeu aujourd'hui | Valeur unitaire (u) | Pile | Valeur d'époque des bâtiments (value_mult) | Monnaie du passage du centre payé dans l'époque (cc_value, u) | Centre (niveau) | Niveaux des bâtiments | Condition du passage suivant (Q16) |")
+  p("|---|---|---|---|---|---|---|---|---|---|---|")
   for e = 1, L.EPOCHS do
     local ep, m = L.epochs[e], L.epoch_materials[e]
     local want, item, value, stack = "fer, cuivre, pierre (panier de base)", "panier de base", "—", "—"
@@ -178,9 +323,9 @@ local function print_tables()
       value = num(m.value)
       stack = thousands(L.stack_size[m.item])
     end
-    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %d | %d-%d | %d |", e, EPOCH_NAMES[e], want, item, value,
-      stack, num(ep.value_mult), num(ep.time_mult), e < L.CC_MAX and num(ep.cc_time_mult) or "—", e, math.max(1, 2 * e - 1), 2 * e,
-      L.builders(e)))
+    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %d | %d-%d | %s |", e, EPOCH_NAMES[e], want, item, value,
+      stack, num(ep.value_mult), e < L.CC_MAX and (e == 1 and "panier seul" or thousands(ep.cc_value)) or "—", e,
+      math.max(1, 2 * e - 1), 2 * e, e < L.CC_MAX and ("un bâtiment de chaque famille possédée au niveau " .. L.cc_condition_level(e)) or "—"))
   end
   p("")
   p("#### Repères : niveau 1, niveau 10 (maximum de 0.3.0), dernier niveau, comparés au vanilla et au contenu du mod")
@@ -219,51 +364,54 @@ local function print_tables()
       num(stat_at(f, r[2], 10), 3), num(stat_at(f, r[2], f.max), 3), f.max, r[3]))
   end
   p("")
-  p("#### Modèle de durée de jeu (hypothèses de `L.target`, à valider en partie réelle)")
+  p("#### Modèle de durée de jeu (calendrier du scénario X0 ; hypothèses de `L.target`, à valider en partie réelle)")
   p("")
-  p("| Époque | Durée visée | Cumul visé | Production (u/s) | Budget niveaux (u) | Dépense de la base de référence (u) | Dépense / budget | Temps d'ouvriers | Capacité des ouvriers | Charge des ouvriers | Durée impliquée | Cumul impliqué | Chantier du centre suivant |")
-  p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+  p("| Époque | Durée X0 | Atteinte X0 | Débit moyen X0 (u/s) | Budget de l'époque X0 (u) | Budget des niveaux (30 %) | Dépense de la base de référence (u) | Dépense / budget des niveaux | Passage du centre suivant (u) | Part du budget de l'époque | Durée impliquée | Cumul impliqué |")
+  p("|---|---|---|---|---|---|---|---|---|---|---|---|")
   for _, r in ipairs(model()) do
-    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
-      duration(r.cumul * 3600), thousands(r.production), thousands(r.budget), thousands(r.spend), num(r.ratio),
-      duration(r.work), duration(r.capacity), num(r.wratio), duration(r.implied * 3600), duration(r.implied_cumul * 3600),
-      r.cc_time > 0 and (thousands(r.cc_value) .. " u, " .. duration(r.cc_time)) or "—"))
+    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
+      r.e == 1 and "0 h" or duration(L.target.reach_hour(r.e) * 3600), thousands(r.production), thousands(r.budget), thousands(r.levels_budget),
+      thousands(r.spend), num(r.ratio), r.cc_value > 0 and thousands(r.cc_value) or "—",
+      r.cc_value > 0 and (num(100 * r.cc_share, 2) .. " %") or "—", duration(r.implied * 3600), duration(r.implied_cumul * 3600)))
   end
   p("")
   p("#### Sensibilité de la durée impliquée totale (15 époques)")
   p("")
-  p("| Production supposée | Ouvriers jamais au repos | Ouvriers occupés à 75 % | Ouvriers occupés à 50 % |")
-  p("|---|---|---|---|")
+  p("| Production supposée | Durée impliquée totale |")
+  p("|---|---|")
   for _, k in ipairs({ 0.7, 1, 1.3 }) do
-    local cells = {}
-    for _, eff in ipairs({ 1, 0.75, 0.5 }) do cells[#cells + 1] = duration(model(k, eff)[L.EPOCHS].implied_cumul * 3600) end
-    p(string.format("| × %s | %s |", num(k), table.concat(cells, " | ")))
+    p(string.format("| × %s | %s |", num(k), duration(model(k)[L.EPOCHS].implied_cumul * 3600)))
   end
-  local cc_v, cc_t = 0, 0
-  for n = 2, L.CC_MAX do
-    cc_v = cc_v + L.cost_value(L.cost(L.by_key.command, n))
-    cc_t = cc_t + L.time_ticks(L.by_key.command, n, 1) / 60
+  local cc_v = 0
+  for n = 2, L.CC_MAX do cc_v = cc_v + L.cost_value(L.cost(L.by_key.command, n)) end
+  -- Q16 : le chemin le plus court vers le centre 15 monte aussi UN bâtiment de chaque famille possédée jusqu'au
+  -- niveau visé à chaque passage (28 avant le centre 15) ; ici, les 6 familles possédées, et un bâtiment de
+  -- chacune monté du niveau 2 au niveau 28.
+  local q16 = 0
+  for _, f in ipairs(L.families) do
+    if f.key ~= "command" then
+      for n = 2, L.cc_condition_level(L.CC_MAX - 1) do q16 = q16 + L.cost_value(L.cost(f, n)) end
+    end
   end
-  local spent = 0
-  for _, r in ipairs(model()) do spent = spent + r.spend end
+  local spent, budget = 0, 0
+  for _, r in ipairs(model()) do spent = spent + r.spend; budget = budget + r.budget end
   p("")
-  p(string.format("Chemin « centre seul » (centre 1 → 15, rien d'autre) : %s u et %s de chantiers, soit %s %% de la dépense de la base de référence.",
-    thousands(cc_v), duration(cc_t), num(100 * cc_v / spent, 1)))
+  p(string.format("Chemin « centre seul » (centre 1 → 15) : %s u, soit %s %% de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : %s u, soit %s %% (V2, sans condition : 0,9 %%).",
+    thousands(cc_v), num(100 * cc_v / spent, 2), thousands(cc_v + q16), num(100 * (cc_v + q16) / spent, 2)))
   for _, f in ipairs(L.families) do
     p("")
     p("#### " .. FAMILY_NAMES[f.key] .. " (" .. f.max .. " niveaux)")
     p("")
     local ms, os_ = MAIN_STAT[f.key], OTHER_STAT[f.key]
-    local head = "| Niveau | Époque | PV | " .. ms[2] .. (os_ and (" | " .. os_[2]) or "") .. " | Coût du passage à ce niveau | Valeur (u) | Durée | Cases / coffre du centre payeur |"
+    local head = "| Niveau | Époque | PV | " .. ms[2] .. (os_ and (" | " .. os_[2]) or "") .. " | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |"
     p(head)
-    p("|" .. string.rep("---|", os_ and 9 or 8))
+    p("|" .. string.rep("---|", os_ and 8 or 7))
     for n = 1, f.max do
       local e = L.epoch_of(f, n)
-      local cost, value, time, slots = "—", "—", "—", "—"
+      local cost, value, slots = "—", "—", "—"
       if n >= 2 then
         local c = L.cost(f, n)
         cost, value = cost_text(c), thousands(L.cost_value(c))
-        time = duration(L.time_ticks(f, n, 1) / 60)
         slots = L.cost_slots(c) .. " / " .. L.chest_slots(L.payer_cc(f, n))
       end
       local mark = ""
@@ -275,7 +423,7 @@ local function print_tables()
       local row = string.format("| %d | %d %s%s | %s | %s", n, e, EPOCH_NAMES[e], mark, num(stat_at(f, "max_health", n), 1),
         num(stat_at(f, ms[1], n), 3))
       if os_ then row = row .. " | " .. num(stat_at(f, os_[1], n), 3) end
-      p(row .. " | " .. cost .. " | " .. value .. " | " .. time .. " | " .. slots .. " |")
+      p(row .. " | " .. cost .. " | " .. value .. " | " .. slots .. " |")
     end
   end
 end
@@ -326,22 +474,50 @@ for n = 2, 30 do
     and L.max_level(G, L.required_cc(G, n) - 1) < n, "niveau " .. n .. " : centre " .. math.ceil(n / 2) .. " requis, pas moins")
 end
 check(L.max_level(L.by_key.command, 1) == 15, "le centre lui-même va jusqu'à 15")
--- Ouvriers : 1 (1-3), 2 (4-6), 3 (7-9), 4 (10-12), 5 (13-15).
-local BUILDERS = { 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5 }
-for cc = 1, 15 do check(L.builders(cc) == BUILDERS[cc], "ouvriers au centre " .. cc .. " : " .. BUILDERS[cc]) end
-check(L.builders(0) == 0, "sans centre : aucun ouvrier")
-local ok, why = L.check(G, 2, 0, 0)
+-- Q19 (lot V2c) : amélioration instantanée, plus d'ouvriers ni de durées (l'ancien comportement : 1 à 5
+-- ouvriers, refus « no-builder », durées par époque).
+check(L.MAX_BUILDERS == nil and L.builders == nil and L.time_ticks == nil and L.SECOND_LEVEL_TIME_FACTOR == nil,
+  "Q19 : plus d'ouvriers ni de durées dans la config (L.MAX_BUILDERS, L.builders, L.time_ticks retirés)")
+for _, f in ipairs(L.families) do
+  check(f.time0 == nil and f.instant == nil, f.key .. " : aucune durée de chantier (time0, instant retirés)")
+end
+for e = 1, L.EPOCHS do
+  check(L.epochs[e].time_mult == nil and L.epochs[e].cc_time_mult == nil, "époque " .. e .. " : aucun multiplicateur de durée")
+end
+check(L.by_key.wall.row == true, "murs : rangée entière (bouton « Toute la rangée »)")
+local ok, why = L.check(G, 2, 0)
 check(not ok and why == "no-cc", "refus sans centre")
-ok, why = L.check(G, 3, 1, 0)
+ok, why = L.check(G, 3, 1)
 check(not ok and why == "cc-too-low", "refus : niveau 3 avec un centre 1")
-ok = L.check(G, 4, 2, 0)
+ok = L.check(G, 4, 2)
 check(ok, "niveau 4 autorisé avec un centre 2")
-ok, why = L.check(G, 2, 1, 1)
-check(not ok and why == "no-builder", "refus : ouvrier occupé")
-ok, why = L.check(G, 31, 15, 0)
+ok, why = L.check(G, 2, 1, 5)
+check(ok, "Q19 : aucun refus « ouvrier occupé » (5 chantiers « en cours » n'empêchent rien)")
+ok, why = L.check(G, 31, 15)
 check(not ok and why == "max", "refus au-delà du niveau 30")
-ok = L.check(L.by_key.wall, 2, 1, 5)
-check(ok, "les murs n'ont pas besoin d'ouvrier")
+
+-- Q16 (lot V2c) : le centre quitte le niveau c si chaque famille POSSÉDÉE a un bâtiment au niveau min(30, 2c).
+for c = 1, 14 do
+  check(L.cc_condition_level(c) == math.min(30, 2 * c), "Q16 : centre " .. c .. " → " .. (c + 1) .. " : niveau visé " .. math.min(30, 2 * c))
+end
+local function census(spec)
+  local t = {}
+  for _, f in ipairs(L.families) do
+    if f.key ~= "command" then t[f.key] = spec[f.key] or { any = false, top = false } end
+  end
+  return t
+end
+local blk = L.cc_blockers(census({}))
+check(#blk == 0, "Q16 : aucune famille possédée → rien ne bloque")
+blk = L.cc_blockers(census({ gun = { any = true, top = true }, wall = { any = true, top = false } }))
+check(#blk == 1 and blk[1] == "wall", "Q16 : murs possédés sans mur au niveau visé → les murs bloquent (et eux seuls)")
+blk = L.cc_blockers(census({ gun = { any = true, top = false }, laser = { any = true, top = false },
+  wall = { any = true, top = true }, drill = { any = false, top = false }, assembler = { any = true, top = false } }))
+check(#blk == 3 and blk[1] == "gun" and blk[2] == "laser" and blk[3] == "assembler",
+  "Q16 : familles bloquantes dans l'ordre des familles (mitrailleuse, laser, machine), foreuse non possédée ignorée")
+blk = L.cc_blockers(census({ gun = { any = true, top = true }, laser = { any = true, top = true }, wall = { any = true, top = true },
+  drill = { any = true, top = true }, furnace = { any = true, top = true }, assembler = { any = true, top = true } }))
+check(#blk == 0, "Q16 : un bâtiment au niveau visé dans chaque famille → condition remplie")
 
 ---------------------------------------------------------------------------------------------------
 section("Noms (compatibilité 0.3.0)")
@@ -363,12 +539,12 @@ for _, f in ipairs(L.families) do
 end
 
 ---------------------------------------------------------------------------------------------------
-section("Courbe de coûts et de durées par époque")
+section("Courbe de coûts par époque")
 ---------------------------------------------------------------------------------------------------
 local max_qty, max_items = 0, 0
 for _, f in ipairs(L.families) do
-  local prev_value, prev_time = -1, -1
-  local strict_value, strict_time, positive = true, true, true
+  local prev_value = -1
+  local strict_value, positive = true, true
   for n = 2, f.max do
     local cost = L.cost(f, n)
     max_items = math.max(max_items, #cost)
@@ -379,13 +555,6 @@ for _, f in ipairs(L.families) do
     local v = L.cost_value(cost)
     if not (v > prev_value) then strict_value = false; print("    " .. f.key .. " N" .. n .. " : valeur " .. v .. " <= " .. prev_value) end
     prev_value = v
-    local t = L.time_ticks(f, n, 1)
-    if f.instant then
-      if t ~= 0 then strict_time = false end
-    elseif not (t > prev_time) then
-      strict_time = false; print("    " .. f.key .. " N" .. n .. " : durée " .. t .. " <= " .. prev_time)
-    end
-    prev_time = t
     -- La monnaie de l'époque qui paie le niveau est exigée (époques 2+), et celle de l'époque précédente
     -- aussi (époques 3+, sauf les murs).
     local e = L.pay_epoch(f, n)
@@ -403,7 +572,6 @@ for _, f in ipairs(L.families) do
   end
   check(positive, f.key .. " : quantités entières et positives")
   check(strict_value, f.key .. " : valeur du coût strictement croissante")
-  check(strict_time, f.key .. " : durée strictement croissante" .. (f.instant and " (murs : instantané)" or ""))
 end
 -- Défaut connu, compté (BALANCE_SHEET §12) : au changement d'époque, la monnaie de l'époque précédente passe
 -- de 60 % × 1,25 à 40 % de la valeur d'époque, et sa quantité baisse dès que value_mult[e] / value_mult[e-1]
@@ -431,18 +599,19 @@ for _, f in ipairs(L.families) do
   check(first[1] == last[1] and last[2] / first[2] <= 1 + f.base_growth * (f.max - 2) + 0.2,
     f.key .. " : panier de base linéaire (" .. first[2] .. " → " .. last[2] .. " " .. first[1] .. ")")
 end
--- Les tables par époque sont croissantes.
+-- Les tables par époque sont croissantes (valeur d'époque des familles ; passage du centre, panier compris,
+-- testé plus haut par la valeur strictement croissante de la famille « command »).
 for e = 2, L.EPOCHS do
   local a, b = L.epochs[e - 1], L.epochs[e]
-  check(b.value_mult > a.value_mult and b.time_mult > a.time_mult * L.SECOND_LEVEL_TIME_FACTOR
-    and b.cc_time_mult >= a.cc_time_mult, "époque " .. e .. " : multiplicateurs croissants")
+  check(b.value_mult > a.value_mult, "époque " .. e .. " : value_mult croissant (" .. a.value_mult .. " → " .. b.value_mult .. ")")
 end
--- Durées : le centre de 1 min à 1 h ; la mitrailleuse de 10 s à moins de 4 min.
-check(L.time_ticks(L.by_key.command, 2, 1) == 60 * 60 and L.time_ticks(L.by_key.command, 15, 1) == 3600 * 60,
-  "centre : chantier de 1 min (niveau 2) à 1 h (niveau 15)")
-check(L.time_ticks(G, 2, 1) == math.floor(8 * 1.1 * 60 + 0.5) and L.time_ticks(G, 30, 1) <= 4 * 3600,
-  "mitrailleuse : 8,8 s au niveau 2, moins de 4 min au niveau 30")
-check(L.time_ticks(G, 3, 0) == 0 and L.time_ticks(G, 3, 0.5) * 2 == L.time_ticks(G, 3, 1), "réglage fo-level-time-factor appliqué")
+for e = 2, L.CC_MAX - 1 do
+  check(L.epochs[e].cc_value > 0, "époque " .. e .. " : le passage du centre exige la monnaie de l'époque (cc_value " .. L.epochs[e].cc_value .. ")")
+end
+check(L.epochs[1].cc_value == 0 and L.epochs[L.EPOCHS].cc_value == 0, "cc_value : époque 1 sans monnaie, époque 15 sans passage")
+-- Le centre ne prend plus de durée : un coût, c'est tout (Q19).
+check(L.epoch_value(L.by_key.command, 2) == 0 and L.cost_value(L.cost(L.by_key.command, 2)) > 0,
+  "centre 1 → 2 : panier seul (l'époque 1 n'a pas de monnaie)")
 
 ---------------------------------------------------------------------------------------------------
 section("Place : chaque chantier tient dans la moitié du coffre du centre qui le paie")
@@ -582,25 +751,98 @@ check(stat_at(L.by_key.assembler, "crafting_speed", 30) <= 2 * 1.25,
   "machine d'assemblage 2 niveau 30 : vitesse ≤ 2 × la machine 3 vanilla (1,25)")
 
 ---------------------------------------------------------------------------------------------------
-section("Durée de jeu visée (modèle de BALANCE_SHEET §12)")
+section("Durée de jeu : calendrier du scénario X0, durée impliquée par les coûts (lot V2c)")
 ---------------------------------------------------------------------------------------------------
-local rows = model()
-check(math.abs(rows[1].hours - 0.5) < 1e-9, "époque 1 visée en 30 min")
-check(rows[15].cumul >= 58 and rows[15].cumul <= 62, string.format("époque 15 visée vers 60 h cumulées (%.1f h)", rows[15].cumul))
--- La durée IMPLIQUÉE par la courbe (pas la durée visée, qui est une entrée) : chaque époque à ± 25 % de
--- sa cible, le total à 60 h ± 10 %, et des ouvriers occupés au plus à 70 % tant que la file de chantiers
--- (E3-4) n'existe pas.
-for _, r in ipairs(rows) do
-  check(r.implied >= 0.75 * r.hours and r.implied <= 1.25 * r.hours,
-    string.format("époque %d : durée impliquée %.2f h pour %.2f h visées (± 25 %%)", r.e, r.implied, r.hours))
-  check(r.wratio <= 0.7, string.format("époque %d : charge des ouvriers %.2f (≤ 0,7)", r.e, r.wratio))
+-- Une seule source pour le calendrier (QX10) : L.target LIT shared/content/epochs.lua. L'ancienne courbe
+-- (0,5 × 1,261^(e-1) h : 12,85 h pour l'époque 15) n'existe plus.
+local X = require("shared.content.epochs")
+do
+for e = 1, L.EPOCHS do
+  check(L.target.epoch_hours(e) == X.epoch_hours(e) and L.target.production(e) == X.rate_avg(e)
+    and L.target.budget(e) == X.budget(e) and L.target.reach_hour(e) == X.reach_hour(e),
+    string.format("époque %d : calendrier lu dans le scénario X0 (%.1f h, %.0f u/s)", e, X.epoch_hours(e), X.rate_avg(e)))
 end
-check(rows[15].implied_cumul >= 54 and rows[15].implied_cumul <= 66,
-  string.format("durée impliquée totale %.1f h (60 h ± 10 %%)", rows[15].implied_cumul))
-local half = model(1, 0.5)[L.EPOCHS].implied_cumul
-print(string.format("  Durée impliquée totale : %.1f h (ouvriers jamais au repos), %.1f h (75 %%), %.1f h (50 %%) ; production × 0,7 : %.1f h, × 1,3 : %.1f h",
-  rows[15].implied_cumul, model(1, 0.75)[L.EPOCHS].implied_cumul, half, model(0.7, 1)[L.EPOCHS].implied_cumul,
-  model(1.3, 1)[L.EPOCHS].implied_cumul))
+check(L.target.epoch_hours(15) == 7 and math.abs(L.target.epoch_hours(15) - 0.5 * 1.261 ^ 14) > 5,
+  "époque 15 : 7 h (X0), plus 12,85 h (ancienne courbe du lot V2)")
+check(L.target.cc_share == X.CODEX_LOT_SHARE, "part visée du passage du centre lue dans X0 (" .. X.CODEX_LOT_SHARE .. ")")
+local rows = model()
+-- La durée IMPLIQUÉE par les coûts (le calendrier est une entrée) : chaque époque à ± 5 % de sa durée X0,
+-- l'époque 15 atteinte vers 52,5 h et la Porte ouverte vers 59,5 h (QX7 : « 60 h = ouverture de la Porte »).
+for _, r in ipairs(rows) do
+  check(math.abs(r.implied / r.hours - 1) <= 0.05,
+    string.format("époque %d : durée impliquée %.2f h pour %.2f h (X0, ± 5 %%)", r.e, r.implied, r.hours))
+end
+local reach15 = rows[14].implied_cumul
+check(math.abs(reach15 / X.reach_hour(15) - 1) <= 0.02,
+  string.format("époque 15 atteinte à %.2f h (X0 : %.1f h, ± 2 %%)", reach15, X.reach_hour(15)))
+check(math.abs(rows[15].implied_cumul / X.player_gate_hour() - 1) <= 0.02,
+  string.format("Porte ouverte à %.2f h (X0 : %.1f h, ± 2 %%)", rows[15].implied_cumul, X.player_gate_hour()))
+-- QX10 : le passage du centre pèse une vraie part du budget de l'époque, 10 % visés, dans la limite de la
+-- place. Époques 1 à 4 : au moins 5 % (V2 : le centre ne pesait que 0,9 % de toute la dépense). Au-delà, la
+-- règle de place le borne (BALANCE_SHEET §12) : on vérifie qu'il en est au plus près (≥ 80 % de la borne).
+for e = 1, 4 do
+  check(rows[e].cc_share >= 0.05, string.format("époque %d : passage du centre = %.1f %% du budget (≥ 5 %%)", e, 100 * rows[e].cc_share))
+end
+--- Plus grande valeur du passage du centre vers n qui tient dans 45 % du coffre payeur (au plus 2 000 objets
+--- d'une sorte), les autres passages à 0 ; la config est rendue intacte.
+local function cc_place_bound(n)
+  local saved = {}
+  for e = 1, L.EPOCHS do saved[e] = L.epochs[e].cc_value; L.epochs[e].cc_value = 0 end
+  local v = max_ok(0, 1e7, function(x)
+    L.epochs[n - 1].cc_value = x
+    L.rebuild()
+    return cc_fits(n)
+  end)
+  L.epochs[n - 1].cc_value = v
+  L.rebuild()
+  local bound = L.cost_value(L.cost(L.by_key.command, n))
+  for e = 1, L.EPOCHS do L.epochs[e].cc_value = saved[e] end
+  L.rebuild()
+  return bound
+end
+local bounds, eff_bound = {}, {}
+for n = 3, L.CC_MAX do bounds[n] = cc_place_bound(n) end
+eff_bound[L.CC_MAX] = bounds[L.CC_MAX]
+for n = L.CC_MAX - 1, 3, -1 do eff_bound[n] = math.min(bounds[n], eff_bound[n + 1]) end
+for e = 4, L.CC_MAX - 1 do
+  local n = e + 1
+  local v = rows[e].cc_value
+  local want = L.target.cc_share * L.target.budget(e)
+  check(v >= 0.8 * math.min(want, eff_bound[n]),
+    string.format("époque %d : passage du centre %.0f u (%.2f %% du budget), au plus près de min(10 %% = %.0f, borne de place %.0f)",
+      e, v, 100 * rows[e].cc_share, want, eff_bound[n]))
+end
+-- Paramètre de l'équipe de PNJ (lot IA1) : coûts × facteur et production × facteur, durées presque inchangées.
+-- Aux époques 2 à 4, les planchers (au moins 1 objet de la monnaie, niveau jamais moins cher que le précédent)
+-- ne doublent pas : jusqu'à 15 % d'écart par époque, total à 2 % près. Le lot IA1 relance `--calibrate` avec
+-- son facteur pour retomber sur le calendrier, et revérifie la place (affichée ci-dessous).
+local value_1 = L.cost_value(L.cost(L.by_key.laser, 30))
+L.TEAM_FACTOR = 2
+L.rebuild()
+local rows2 = model()
+local team_ok, place_bad, team_dev = true, {}, 0
+for e = 1, L.EPOCHS do
+  local d = math.abs(rows2[e].implied / rows[e].implied - 1)
+  if d > team_dev then team_dev = d end
+  if d > 0.15 then team_ok = false end
+end
+if math.abs(rows2[L.EPOCHS].implied_cumul / rows[L.EPOCHS].implied_cumul - 1) > 0.02 then team_ok = false end
+for _, f in ipairs(L.families) do
+  for n = 2, f.max do
+    if L.cost_slots(L.cost(f, n)) > L.MAX_SLOT_SHARE * L.chest_slots(L.payer_cc(f, n)) then place_bad[#place_bad + 1] = f.key .. n end
+  end
+end
+local value_2 = L.cost_value(L.cost(L.by_key.laser, 30))
+L.TEAM_FACTOR = 1
+L.rebuild()
+check(team_ok and math.abs(value_2 / value_1 - 2) < 0.02,
+  string.format("L.TEAM_FACTOR = 2 : coûts × %.3f, durées impliquées à 15 %% près par époque (écart maximal %.1f %%), total %.1f h",
+    value_2 / value_1, 100 * team_dev, rows2[L.EPOCHS].implied_cumul))
+print("  Facteur d'équipe 2 : coûts hors de la règle de place : " .. (#place_bad > 0 and table.concat(place_bad, ", ") or "aucun"))
+check(L.TEAM_FACTOR == 1 and math.abs(L.cost_value(L.cost(L.by_key.laser, 30)) - value_1) < 1e-9, "facteur d'équipe rendu à 1 (joueur seul)")
+print(string.format("  Durée impliquée totale : %.1f h ; production × 0,7 : %.1f h, × 1,3 : %.1f h",
+  rows[15].implied_cumul, model(0.7)[L.EPOCHS].implied_cumul, model(1.3)[L.EPOCHS].implied_cumul))
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Traductions FR et EN des clés du runtime")
@@ -625,9 +867,11 @@ for _, lang in ipairs({ "fr", "en" }) do
     lang .. " : fichiers de traduction lus")
   local need = { "fo-epochs.desc", "fo-epochs.level-line", "fo-epochs.next-line", "fo-epochs.new-silhouette",
     "fo-epochs.new-piece", "fo-epochs.currency", "fo-epochs.currency-provisional", "fo-epochs.epoch-up",
-    "fo-epochs.reason-unknown-item", "fo-levels.name", "fo-levels.level-up", "fo-levels.cc-line",
+    "fo-epochs.reason-unknown-item", "fo-levels.name", "fo-levels.level-up", "fo-epochs.cc-line",
     "fo-levels.reason-cc-too-low", "fo-levels.maxed", "fo-levels.panel-title", "fo-epochs.desc-cc",
-    "fo-epochs.stat-energy_consumption", "fo-epochs.visual" }
+    "fo-epochs.stat-energy_consumption", "fo-epochs.visual", "fo-epochs.desc-cc-max", "fo-epochs.cc-rule",
+    "fo-epochs.cc-rule-ok", "fo-epochs.cc-rule-missing", "fo-epochs.reason-cc-families", "fo-levels.instant",
+    "fo-levels.msg-done", "fo-levels.reason-no-resources", "fo-levels.upgrade-row" }
   for e = 1, L.EPOCHS do
     need[#need + 1] = "fo-epochs.name-" .. L.epochs[e].key
     if L.epoch_materials[e] then need[#need + 1] = "fo-epochs.want-" .. L.epoch_materials[e].key end
@@ -822,7 +1066,9 @@ local GUARD_CASES = {
   { G, fake_gun, function(p, ctx) ctx.L.NOUVELLE_CLE = 1 end, { SHARED_MOTIF, "L.NOUVELLE_CLE", "clé ajoutée" }, "clé ajoutée à la config" },
   { G, fake_gun, function(p, ctx) ctx.L.MAX_SLOT_SHARE = nil end, { SHARED_MOTIF, "L.MAX_SLOT_SHARE", "clé retirée" }, "clé retirée de la config" },
   { G, fake_gun, function(p, ctx) ctx.L.cost = function() return {} end end, { SHARED_MOTIF, "L.cost" }, "fonction de la config remplacée" },
-  { G, fake_gun, function(p, ctx) ctx.L.target.production[3] = 1 end, { SHARED_MOTIF, "L.target.production[3]" }, "hypothèses du modèle (L.target)" },
+  { G, fake_gun, function(p, ctx) ctx.L.target.spend_share = 1 end, { SHARED_MOTIF, "L.target.spend_share" }, "hypothèses du modèle (L.target)" },
+  { G, fake_gun, function(p, ctx) ctx.L.epochs[7].cc_value = 1 end, { SHARED_MOTIF, "L.epochs[7].cc_value" }, "passage du centre (cc_value, V2c)" },
+  { G, fake_gun, function(p, ctx) ctx.L.TEAM_FACTOR = 2 end, { SHARED_MOTIF, "L.TEAM_FACTOR" }, "facteur d'équipe (V2c)" },
   { G, fake_gun, function(p, ctx) ctx.kit.tint = function() end end, { SHARED_MOTIF, "kit.tint" }, "fonction de ctx.kit remplacée" },
   { G, fake_gun, function(p, ctx) ctx.kit.lib.PREFIX = "x-" end, { SHARED_MOTIF, "kit.lib.PREFIX" }, "prototypes/lib.lua par ctx.kit.lib" },
   { G, fake_gun, function() require("prototypes.levels.style").palette.foundation[3].tile = "stone-path" end,
@@ -1095,7 +1341,7 @@ print(string.format("  Garde : %d cas d'agent V3 (%d acceptés, %d refusés, mot
 table.deepcopy, _G.data = saved_deepcopy, saved_data
 
 ---------------------------------------------------------------------------------------------------
-section("Chantiers en moteur simulé")
+section("Améliorations instantanées en moteur simulé (Q19)")
 ---------------------------------------------------------------------------------------------------
 local M = require("tests.mock_engine")
 M.new_game({})
@@ -1131,7 +1377,7 @@ end
 
 -- Le moteur simulé a des inventaires sans limite. Correction V2 : le coffre d'un centre est borné à ses
 -- vraies cases (L.chest_slots du niveau du centre de la force), avec les vraies piles (L.stack_size), comme
--- le moteur réel : un chantier qui ne tient pas dans le coffre n'est plus validé par erreur. C'est une
+-- le moteur réel : un coût qui ne tient pas dans le coffre n'est plus validé par erreur. C'est une
 -- ENVELOPPE du moteur simulé : dans le moteur réel, le coffre est borné par nature ; le banc content (E32) y
 -- a vérifié les piles du jeu et la règle de place à chaque niveau.
 local TEST_STACK = { ["nuclear-fuel"] = 1, ["firearm-magazine"] = 200, ["uranium-rounds-magazine"] = 200 }
@@ -1154,10 +1400,8 @@ local function limit_chest(centre)
   end
   return inv
 end
--- Correction V2b (contre-vérification V2) : seul le coffre du centre POSÉ était borné ; après un chantier du
--- centre, la nouvelle entité avait un coffre ILLIMITÉ, et les contrôles de place suivants ne prouvaient rien.
--- La limite est rebranchée sur chaque centre remplacé par le crochet Levels.on_replaced (enregistré ici, hors
--- événement, et de nouveau après le rechargement plus bas).
+-- Correction V2b (contre-vérification V2) : la limite est rebranchée sur chaque centre remplacé par le crochet
+-- Levels.on_replaced (enregistré ici, hors événement, et de nouveau après le rechargement plus bas).
 local function limit_replaced_centre(_, new)
   if new and new.valid and L.parse(new.name) == L.by_key.command then limit_chest(new) end
 end
@@ -1174,6 +1418,9 @@ local function chest_bounded(centre)
   if got > 0 then inv.remove({ name = "nuclear-fuel", count = got }) end
   return got == free, got, free, cap
 end
+local function no_job()
+  return next(global.fo.levels.jobs) == nil
+end
 
 local cc = s.create_entity({ name = "fo-command-center", position = { x = 0.5, y = 0.5 }, force = "player" })
 built(cc)
@@ -1189,27 +1436,29 @@ check(not cc2.valid and Levels.cc(force) == cc, "un seul centre par force (le se
 local gun = s.create_entity({ name = "gun-turret", position = { x = 10, y = 10 }, force = "player" })
 gun.insert({ name = "firearm-magazine", count = 25 })
 gun.health = 200
-local r_ok, r_why = Levels.start(gun, nil)
+local r_ok, r_why, r_info, r_new = Levels.start(gun, nil)
 check(not r_ok and r_why == "no-resources", "refus faute de ressources")
 local chest = cc.get_inventory(defines.inventory.chest)
 stock(chest, G, 2, 2)
-r_ok, r_why = Levels.start(gun, nil)
-check(r_ok and r_why == "started", "chantier lancé (payé par le centre)")
-check(gun.active == false, "bâtiment hors service pendant le chantier")
-check(Levels.busy(force) == 1, "un ouvrier occupé")
-check(chest.get_item_count("iron-plate") == L.cost(G, 2)[1][2], "coût prélevé dans le centre")
-local gun_b = s.create_entity({ name = "gun-turret", position = { x = 14, y = 10 }, force = "player" })
-r_ok, r_why = Levels.start(gun_b, nil)
-check(not r_ok and r_why == "no-builder", "second chantier refusé (1 ouvrier au centre niveau 1)")
-M.run_ticks(L.time_ticks(G, 2, 1) + 31)
-check(not gun.valid, "ancienne tourelle remplacée")
+r_ok, r_why, r_info, r_new = Levels.start(gun, nil)
+check(r_ok and r_why == "done", "Q19 : amélioration faite AUSSITÔT, payée par le centre (avant : chantier minuté « started »)")
 local g2 = s.find_entity("fo-lvl-gun-2", { x = 10, y = 10 })
-check(g2 ~= nil, "tourelle niveau 2 posée au même endroit")
+check(not gun.valid and g2 ~= nil and r_new == g2, "Q19 : tourelle remplacée par le niveau 2 dans le même appel, au même endroit")
+check(g2 and g2.active ~= false, "Q19 : jamais hors service")
 check(g2 and g2.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine") == 25, "munitions conservées")
 check(g2 and math.abs(g2.get_health_ratio() - 0.5) < 1e-6, "santé conservée en proportion (50 %)")
-check(g2 and g2.active ~= false, "tourelle niveau 2 en service")
-check(Levels.busy(force) == 0, "ouvrier libéré")
+check(chest.get_item_count("iron-plate") == L.cost(G, 2)[1][2], "coût prélevé une fois dans le centre")
+check(no_job() and Levels.busy(force) == 0, "aucun chantier enregistré, aucun ouvrier occupé")
 check((Wd.lights or 0) >= 1 and (Wd.flying or 0) >= 1, "célébration (lumière, texte)")
+-- Plus de limite d'ouvriers : 6 tourelles améliorées dans le même tick avec un centre niveau 1 (ancienne
+-- règle : 1 ouvrier, le 2e chantier était refusé « no-builder »).
+local six = {}
+for i = 1, 6 do six[i] = s.create_entity({ name = "gun-turret", position = { x = 10 + 4 * i, y = 14 }, force = "player" }) end
+stock(chest, G, 2, 6)
+local done6 = 0
+for i = 1, 6 do if Levels.start(six[i], nil) then done6 = done6 + 1 end end
+check(done6 == 6, "Q19 : 6 améliorations dans le même tick avec un centre 1 (plus de limite d'ouvriers) (" .. done6 .. ")")
+check(global.fo.levels.stats.upgrades == 7, "statistiques : 7 améliorations comptées (" .. tostring(global.fo.levels.stats.upgrades) .. ")")
 
 -- Plafond : niveau 3 (époque 2) interdit avec un centre niveau 1, autorisé après l'amélioration du centre.
 stock(chest, G, 3, 1)
@@ -1217,25 +1466,28 @@ r_ok, r_why = Levels.start(g2, nil)
 check(not r_ok and r_why == "cc-too-low", "tourelle niveau 3 refusée : centre niveau 1 (plafond 2)")
 local info = Levels.preview(g2, nil)
 check(info and info.required_cc == 2, "aperçu : centre niveau 2 requis")
+-- Q16 : un mur (niveau 1) posé, les murs sont une famille POSSÉDÉE sans bâtiment au niveau 2 : le centre est
+-- bloqué, rien n'est payé.
+local lone_wall = s.create_entity({ name = "stone-wall", position = { x = 60.5, y = 0.5 }, force = "player" })
 stock(chest, L.by_key.command, 2, 1)
+local iron_before = chest.get_item_count("iron-plate")
+r_ok, r_why, r_info = Levels.start(cc, nil)
+check(not r_ok and r_why == "cc-families" and r_info and r_info.condition_level == 2 and #r_info.blocking == 1
+  and r_info.blocking[1] == "wall", "Q16 : centre 1 → 2 refusé, les murs bloquent (niveau visé 2) (" .. tostring(r_why) .. ")")
+check(chest.get_item_count("iron-plate") == iron_before and Levels.cc_level(force) == 1, "Q16 : refus sans paiement, centre inchangé")
+stock(chest, L.by_key.wall, 2, 1)
+check(Levels.start(lone_wall, nil), "Q16 : le mur passe au niveau 2")
 r_ok, r_why = Levels.start(cc, nil)
-check(r_ok and r_why == "started", "chantier du centre lancé")
-M.run_ticks(L.time_ticks(L.by_key.command, 2, 1) + 31)
+check(r_ok and r_why == "done", "Q16 remplie (mitrailleuses et mur au niveau 2) : centre amélioré aussitôt (" .. tostring(r_why) .. ")")
 check(Levels.cc_level(force) == 2 and Levels.cc(force).name == "fo-lvl-command-2", "centre niveau 2 (toujours enregistré après remplacement)")
 local bounded, got_fuel, free_slots, cap_slots = chest_bounded(Levels.cc(force))
 check(bounded and cap_slots == 64, string.format("coffre du centre 2 REMPLACÉ borné à ses %d cases : %d combustibles nucléaires entrés pour %d cases libres",
   cap_slots, got_fuel, free_slots))
 check(Levels.cc(force).get_inventory(defines.inventory.chest).get_item_count("iron-plate") > 0, "le stock du centre a suivi le remplacement")
 r_ok, r_why = Levels.start(g2, nil)
-check(r_ok and r_why == "started", "tourelle niveau 3 autorisée avec un centre niveau 2")
+check(r_ok and r_why == "done" and s.find_entity(L.name(G, 3), { x = 10, y = 10 }) ~= nil, "tourelle niveau 3 avec un centre niveau 2")
 
--- Démontage pendant le chantier : moitié du coût rendue.
-local buffer = M.new_inventory()
-ev[defines.events.on_player_mined_entity]({ entity = g2, buffer = buffer, player_index = 1, tick = game.tick })
-check(Levels.busy(force) == 0, "chantier annulé au démontage")
-check(buffer.get_item_count("iron-plate") == math.floor(L.cost(G, 3)[1][2] / 2), "moitié du coût rendue")
-
--- Murs : instantanés, rangée entière.
+-- Murs : rangée entière, d'un coup.
 local walls = {}
 for i = 0, 5 do
   walls[#walls + 1] = s.create_entity({ name = "stone-wall", position = { x = 30 + i, y = 5 }, force = "player" })
@@ -1245,19 +1497,9 @@ stock(cinv, L.by_key.wall, 2, 6)
 local done = Levels.start_row(walls[3], nil)
 check(done == 6, "rangée de 6 murs améliorée d'un coup (" .. tostring(done) .. ")")
 check(s.find_entity("fo-lvl-wall-2", { x = 30, y = 5 }) ~= nil and s.find_entity("stone-wall", { x = 35, y = 5 }) == nil, "murs niveau 2 posés")
-check(Levels.busy(force) == 0, "les murs n'occupent pas d'ouvrier")
-
--- Destruction pendant le chantier : chantier perdu, ouvrier libéré.
-local drill = s.create_entity({ name = "electric-mining-drill", position = { x = 50, y = 50 }, force = "player" })
-stock(cinv, L.by_key.drill, 2, 1)
-r_ok = Levels.start(drill, nil)
-check(r_ok and Levels.busy(force) == 1, "chantier de foreuse lancé")
-drill.die("enemy")
-M.run_ticks(31)
-check(Levels.busy(force) == 0, "foreuse détruite : chantier perdu, ouvrier libéré")
 
 ---------------------------------------------------------------------------------------------------
-section("Hautes époques : ouvriers, plafond, niveau 30, centre 15")
+section("Hautes époques : plafond, niveau 30, centre 15, condition du centre")
 ---------------------------------------------------------------------------------------------------
 local function new_force_with_cc(name, cc_level, x)
   game.create_force(name)
@@ -1266,7 +1508,7 @@ local function new_force_with_cc(name, cc_level, x)
   limit_chest(c)
   return game.forces[name], c
 end
--- Centre 4 : 2 ouvriers ; un 3e chantier est refusé.
+-- Centre 4 : 3 machines 7 → 8 dans le même tick (ancienne règle : 2 ouvriers, la 3e attendait).
 local f4, c4 = new_force_with_cc("fo-test-4", 4, 0.5)
 check(Levels.cc_level(f4) == 4, "centre niveau 4 posé directement (époque 4)")
 local inv4 = c4.get_inventory(defines.inventory.chest)
@@ -1275,53 +1517,56 @@ for i = 1, 3 do
   machines[i] = s.create_entity({ name = L.name(L.by_key.assembler, 7), position = { x = 10 * i, y = 220 }, force = "fo-test-4" })
 end
 stock(inv4, L.by_key.assembler, 8, 3)
-check(Levels.start(machines[1], nil) and Levels.start(machines[2], nil), "centre 4 : deux chantiers simultanés")
-r_ok, r_why = Levels.start(machines[3], nil)
-check(not r_ok and r_why == "no-builder", "centre 4 : le 3e chantier attend (2 ouvriers)")
+local up3 = 0
+for i = 1, 3 do if Levels.start(machines[i], nil) then up3 = up3 + 1 end end
+check(up3 == 3 and s.find_entity(L.name(L.by_key.assembler, 8), { x = 30, y = 220 }) ~= nil,
+  "centre 4 : 3 machines niveau 8 livrées dans le même tick (" .. up3 .. ")")
 local am9 = s.create_entity({ name = L.name(L.by_key.assembler, 8), position = { x = 60, y = 220 }, force = "fo-test-4" })
 info = Levels.preview(am9, nil)
 check(info and not info.ok and info.reason == "cc-too-low" and info.required_cc == 5, "centre 4 : niveau 9 refusé (centre 5 requis)")
-M.run_ticks(L.time_ticks(L.by_key.assembler, 8, 1) + 31)
-check(s.find_entity(L.name(L.by_key.assembler, 8), { x = 10, y = 220 }) ~= nil and Levels.busy(f4) == 0,
-  "centre 4 : machines niveau 8 livrées, ouvriers libérés")
 
--- Centre 13 : 5 ouvriers.
+-- Centre 13 : 6 foreuses 25 → 26 d'un coup.
 local f13, c13 = new_force_with_cc("fo-test-13", 13, 40.5)
-check(L.builders(Levels.cc_level(f13)) == 5, "centre 13 : 5 ouvriers")
 local inv13 = c13.get_inventory(defines.inventory.chest)
 local drills = {}
 for i = 1, 6 do
   drills[i] = s.create_entity({ name = L.name(L.by_key.drill, 25), position = { x = 10 * i, y = 240 }, force = "fo-test-13" })
 end
-stock(inv13, L.by_key.drill, 26, 6)
-local started = 0
-for i = 1, 6 do if Levels.start(drills[i], nil) then started = started + 1 end end
-check(started == 5 and Levels.busy(f13) == 5, "centre 13 : 5 chantiers simultanés, le 6e attend (" .. started .. ")")
+check(stock(inv13, L.by_key.drill, 26, 6), "centre 13 : 6 coûts du niveau 26 rangés dans le coffre")
+local up6 = 0
+for i = 1, 6 do if Levels.start(drills[i], nil) then up6 = up6 + 1 end end
+check(up6 == 6 and Levels.busy(f13) == 0, "centre 13 : 6 foreuses niveau 26 d'un coup (" .. up6 .. ")")
 
--- Centre 15 : niveau 29 → 30, puis plus rien ; centre 14 → 15, puis plus rien.
+-- Centre 14 → 15, condition Q16 (niveau visé 28) ; puis niveau 29 → 30 ; plus rien au-delà.
 local f15, c15 = new_force_with_cc("fo-test-15", 14, 80.5)
 local inv15 = c15.get_inventory(defines.inventory.chest)
 check(inv15.insert({ name = "nuclear-fuel", count = 310 }) == 256 and inv15.remove({ name = "nuclear-fuel", count = 310 }) == 256,
-  "enveloppe du moteur simulé (démonstration du coffre borné, pas une propriété de la config) : 310 combustibles nucléaires (pile de 1) versés dans le centre 14, 256 entrent ; l'ancien coût du centre 15 n'y tenait pas")
+  "enveloppe du moteur simulé (démonstration du coffre borné, pas une propriété de la config) : 310 combustibles nucléaires (pile de 1) versés dans le centre 14, 256 entrent")
+local g27 = s.create_entity({ name = L.name(G, 27), position = { x = 90, y = 260 }, force = "fo-test-15" })
+g27.insert({ name = "uranium-rounds-magazine", count = 10 })
 check(stock(inv15, L.by_key.command, 15, 1), "centre 14 → 15 : tout le coût tient dans le coffre du centre 14 (cases réelles)")
+r_ok, r_why, r_info = Levels.start(c15, nil)
+check(not r_ok and r_why == "cc-families" and r_info.condition_level == 28 and r_info.blocking[1] == "gun",
+  "Q16 : centre 14 → 15 refusé, mitrailleuse au niveau 27 < 28 (" .. tostring(r_why) .. ")")
+stock(inv15, G, 28, 1)
+local g28_ok, _, _, g28 = Levels.start(g27, nil)
+check(g28_ok and g28 and g28.name == L.name(G, 28), "mitrailleuse 27 → 28")
 r_ok, r_why = Levels.start(c15, nil)
-check(r_ok and r_why == "started", "centre 14 → 15 : chantier lancé (monnaie de l'époque 14)")
-M.run_ticks(L.time_ticks(L.by_key.command, 15, 1) + 31)
-check(Levels.cc_level(f15) == 15, "centre niveau 15 (époque Légende)")
+check(r_ok and r_why == "done" and Levels.cc_level(f15) == 15, "centre niveau 15 (époque Légende), condition remplie (" .. tostring(r_why) .. ")")
 bounded, got_fuel, free_slots, cap_slots = chest_bounded(Levels.cc(f15))
 check(bounded and cap_slots == 272, string.format("coffre du centre 15 REMPLACÉ borné à ses %d cases : %d combustibles nucléaires entrés pour %d cases libres",
   cap_slots, got_fuel, free_slots))
 local top = Levels.cc(f15)
 info = Levels.preview(top, nil)
 check(info and not info.ok and info.reason == "max", "centre 15 : niveau maximal")
-local g29 = s.create_entity({ name = L.name(G, 29), position = { x = 90, y = 260 }, force = "fo-test-15" })
-g29.insert({ name = "uranium-rounds-magazine", count = 10 })
+stock(top.get_inventory(defines.inventory.chest), G, 29, 1)
 stock(top.get_inventory(defines.inventory.chest), G, 30, 1)
-r_ok, r_why = Levels.start(g29, nil)
-check(r_ok and r_why == "started", "mitrailleuse 29 → 30 lancée avec un centre 15")
-M.run_ticks(L.time_ticks(G, 30, 1) + 31)
-local g30 = s.find_entity(L.name(G, 30), { x = 90, y = 260 })
-check(g30 ~= nil and g30.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") == 10,
+local g29_ok, g29_why, _, g29 = Levels.start(g28, nil)
+local g30_ok, g30_why, _, g30
+if g29 then g30_ok, g30_why, _, g30 = Levels.start(g29, nil) end
+check(g29_ok and g30_ok and g30 and g30.name == L.name(G, 30),
+  "mitrailleuse 28 → 29 → 30 d'affilée avec un centre 15 (" .. tostring(g29_why) .. ", " .. tostring(g30_why) .. ")")
+check(g30 and g30.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") == 10,
   "mitrailleuse niveau 30, munitions conservées")
 info = g30 and Levels.preview(g30, nil)
 check(info and not info.ok and info.reason == "max", "mitrailleuse 30 : niveau maximal")
@@ -1329,9 +1574,52 @@ local st = global.fo.levels.stats
 check((st.fallback or 0) == 0, "remplacement rapide partout (aucun secours manuel)")
 
 ---------------------------------------------------------------------------------------------------
+section("Condition du centre (Q16) : recensement des familles, interface distante")
+---------------------------------------------------------------------------------------------------
+-- Force au centre 3 (niveau visé 6) : mitrailleuse 6 (remplie), tourelle laser 5 (bloque), mur 6 (remplie),
+-- foreuse vanilla (niveau 1, bloque), aucun four (non possédé : ne bloque pas), machine 6 (remplie).
+do
+local fq, cq = new_force_with_cc("fo-test-q16", 3, 120.5)
+local qinv = cq.get_inventory(defines.inventory.chest)
+local function put(key, n, x)
+  return s.create_entity({ name = L.name(L.by_key[key], n), position = { x = x, y = 300 }, force = "fo-test-q16" })
+end
+put("gun", 6, 100)
+local qlaser = put("laser", 5, 104)
+put("wall", 6, 108.5)
+local qdrill = put("drill", 1, 112)
+put("assembler", 6, 118)
+local cen = Levels.census(fq, 6)
+check(cen.gun.any and cen.gun.top and cen.laser.any and not cen.laser.top and cen.drill.any and not cen.drill.top
+  and not cen.furnace.any and cen.assembler.top, "recensement : possédées, au niveau visé ou non, four non possédé")
+stock(qinv, L.by_key.command, 4, 1)
+local qiron = qinv.get_item_count("iron-plate")
+info = Levels.preview(cq, nil)
+check(info and not info.ok and info.reason == "cc-families" and info.condition_level == 6 and #info.blocking == 2
+  and info.blocking[1] == "laser" and info.blocking[2] == "drill", "aperçu du centre 3 : laser et foreuse bloquent, niveau visé 6")
+local rr = remote.call("factorio-overhaul", "levels_upgrade", cq)
+check(type(rr) == "table" and rr.ok == false and rr.reason == "cc-families",
+  "interface distante : levels_upgrade sur le centre renvoie le motif « cc-families » (" .. tostring(rr and rr.reason) .. ")")
+check(qinv.get_item_count("iron-plate") == qiron and Levels.cc_level(fq) == 3, "interface distante : refus sans paiement")
+-- Une famille qui n'est plus possédée ne bloque plus : la tourelle laser démontée.
+qlaser.destroy()
+info = Levels.preview(cq, nil)
+check(info and #info.blocking == 1 and info.blocking[1] == "drill", "laser retiré : seule la foreuse bloque encore")
+-- Les bâtiments d'une AUTRE force ne comptent pas.
+s.create_entity({ name = L.name(L.by_key.drill, 6), position = { x = 126, y = 300 }, force = "player" })
+info = Levels.preview(cq, nil)
+check(info and #info.blocking == 1 and info.blocking[1] == "drill", "une foreuse 6 d'une autre force ne lève pas la condition")
+put("drill", 6, 130)
+rr = remote.call("factorio-overhaul", "levels_upgrade", cq)
+check(type(rr) == "table" and rr.ok == true and rr.reason == "done" and Levels.cc_level(fq) == 4,
+  "foreuse 6 posée : interface distante, centre 3 → 4 fait aussitôt (" .. tostring(rr and rr.reason) .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
 section("Panneau « Évolution » (moteur simulé)")
 ---------------------------------------------------------------------------------------------------
 -- Interface graphique simulée un peu plus riche que celle du moteur simulé (clear, style).
+do
 local function fake_gui()
   local c = { _children = {}, _list = {}, style = {} }
   c.add = function(spec)
@@ -1367,15 +1655,17 @@ check(all:find("fo%-epochs%.level%-line") ~= nil, "panneau : ligne niveau / épo
 check(all:find("fo%-epochs%.next%-line") ~= nil, "panneau : prochain niveau et son époque")
 check(all:find("fo%-epochs%.currency") ~= nil, "panneau : monnaie de l'époque")
 check(all:find("fo%-levels%.reason%-cc%-too%-low") ~= nil, "panneau : niveau 5 refusé, centre trop bas")
+check(all:find("fo%-levels%.instant") ~= nil and all:find("fo%-levels%.duration") == nil and all:find("fo%-levels%.builders") == nil,
+  "panneau : « amélioration instantanée », ni durée ni ouvriers")
 ok_panel, err_panel = pcall(M.run_ticks, 60)
 check(ok_panel, "panneau rafraîchi pendant le jeu sans erreur (" .. tostring(err_panel) .. ")")
--- Touche U sur une tourelle niveau 2 avec un centre niveau 2 : chantier lancé.
+-- Touche U sur une tourelle niveau 2 avec un centre niveau 2 : améliorée aussitôt.
 local gu = s.create_entity({ name = L.name(G, 2), position = { x = 124, y = 10 }, force = "player" })
 stock(Levels.cc(force).get_inventory(defines.inventory.chest), G, 3, 1)
 rawset(player, "selected", gu)
 ok_panel, err_panel = pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
-check(ok_panel and global.fo.levels.jobs[gu.unit_number] ~= nil, "touche U : chantier lancé (" .. tostring(err_panel) .. ")")
--- Plafond affiché par le panneau du centre : 2 × son niveau (et non le maximum du centre, 15).
+check(ok_panel and not gu.valid and s.find_entity(L.name(G, 3), { x = 124, y = 10 }) ~= nil, "touche U : amélioration faite aussitôt (" .. tostring(err_panel) .. ")")
+-- Plafond affiché par le panneau du centre : 2 × son niveau (et non le maximum du centre, 15) ; condition Q16.
 local function hover(entity)
   rawset(player, "selected", nil)
   rawset(player, "selected", entity)
@@ -1384,15 +1674,23 @@ local function hover(entity)
   return okh, fr and table.concat(captions(fr), "\n") or ""
 end
 local okc, txt = hover(Levels.cc(force))
-check(okc and txt:find("{fo-levels.cc-line:2,4,1}", 1, true) ~= nil, "panneau du centre 2 : bâtiments jusqu'au niveau 4")
+check(okc and txt:find("{fo-epochs.cc-line:2,4}", 1, true) ~= nil, "panneau du centre 2 : bâtiments jusqu'au niveau 4")
+-- À ce stade, la force du joueur a une mitrailleuse 4 (survolée plus haut) et une foreuse 6, mais ses murs
+-- sont au niveau 2 : les murs bloquent, et eux seuls.
+check(okc and txt:find("{fo-epochs.cc-rule:4}", 1, true) ~= nil and txt:find("fo-epochs.cc-rule-missing", 1, true) ~= nil
+  and txt:find("[entity=stone-wall]", 1, true) ~= nil and txt:find("[entity=gun-turret]", 1, true) == nil
+  and txt:find("{fo-epochs.reason-cc-families:4,", 1, true) ~= nil,
+  "panneau du centre 2 : condition (niveau 4) et famille qui bloque nommée (murs ; mitrailleuse et foreuse en règle)")
 local f3, c3 = new_force_with_cc("fo-test-3", 3, 160.5)
 local home = player.force
 rawset(player, "force", f3)
 okc, txt = hover(c3)
-check(okc and txt:find("{fo-levels.cc-line:3,6,1}", 1, true) ~= nil, "panneau du centre 3 : bâtiments jusqu'au niveau 6 (et non 15)")
+check(okc and txt:find("{fo-epochs.cc-line:3,6}", 1, true) ~= nil and txt:find("fo-epochs.cc-rule-ok", 1, true) ~= nil,
+  "panneau du centre 3 : bâtiments jusqu'au niveau 6 (et non 15), condition remplie (aucune famille possédée)")
 rawset(player, "force", f15)
 okc, txt = hover(Levels.cc(f15))
-check(okc and txt:find("{fo-levels.cc-line:15,30,5}", 1, true) ~= nil, "panneau du centre 15 : bâtiments jusqu'au niveau 30, 5 ouvriers")
+check(okc and txt:find("{fo-epochs.cc-line:15,30}", 1, true) ~= nil and txt:find("fo-epochs.cc-rule", 1, true) == nil,
+  "panneau du centre 15 : bâtiments jusqu'au niveau 30, plus de condition (niveau maximal)")
 -- Panneau d'une foreuse niveau 22 (force au centre 15) : le niveau 23 se paie en monnaie PROVISOIRE de
 -- l'époque 12, et le panneau le dit avec le matériau voulu.
 local fp = s.create_entity({ name = L.name(L.by_key.drill, 22), position = { x = 130, y = 10 }, force = "fo-test-15" })
@@ -1401,7 +1699,7 @@ check(ok_panel and all:find("fo%-epochs%.currency%-provisional") ~= nil and all:
   "panneau : monnaie provisoire signalée avec le matériau voulu (époque 12)")
 rawset(player, "force", home)
 
--- Autre force : ni panneau, ni chantier, ni paiement par le centre adverse (survol, touche U, bouton).
+-- Autre force : ni panneau, ni amélioration, ni paiement par le centre adverse (survol, touche U, bouton).
 local frv, crv = new_force_with_cc("fo-rival", 2, 200.5)
 local rinv = crv.get_inventory(defines.inventory.chest)
 stock(rinv, G, 2, 1)
@@ -1411,26 +1709,54 @@ hover(rg)
 check(global.fo.levels_ui.target[1] ~= rg, "autre force : le survol n'ouvre pas son panneau")
 rawset(player, "selected", rg)
 pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
-check(global.fo.levels.jobs[rg.unit_number] == nil and rinv.get_item_count("iron-plate") == iron0,
-  "autre force : la touche U ne lance rien et ne vide pas son centre")
+check(rg.valid and rinv.get_item_count("iron-plate") == iron0,
+  "autre force : la touche U n'améliore rien et ne vide pas son centre")
 global.fo.levels_ui.target[1] = rg
 global.fo.levels_ui.unit[1] = rg.unit_number
 pcall(M.dispatch, ev[defines.events.on_gui_click], { element = { valid = true, name = "fo_lvl_up" }, player_index = 1, tick = game.tick })
-check(global.fo.levels.jobs[rg.unit_number] == nil and rinv.get_item_count("iron-plate") == iron0
-  and global.fo.levels_ui.target[1] == nil, "autre force : le bouton « Améliorer » ne lance rien (panneau fermé)")
+check(rg.valid and rinv.get_item_count("iron-plate") == iron0
+  and global.fo.levels_ui.target[1] == nil, "autre force : le bouton « Améliorer » n'améliore rien (panneau fermé)")
 rawset(player, "selected", nil)
+end
 
 ---------------------------------------------------------------------------------------------------
-section("Sauvegarde et rechargement avec chantiers en cours")
+section("Sauvegarde 0.4.0 avec chantiers en cours : achevés au chargement")
 ---------------------------------------------------------------------------------------------------
--- Force « centre 13 » (plafond 26) : 5 fours niveau 24, 5 chantiers vers le 25.
-stock(inv13, L.by_key.furnace, 25, 5)
-local relaunched = 0
-for i = 1, 5 do
-  local fu = s.create_entity({ name = L.name(L.by_key.furnace, 24), position = { x = 10 * i, y = 280 }, force = "fo-test-13" })
-  if Levels.start(fu, nil) then relaunched = relaunched + 1 end
+-- Forme exacte d'un chantier 0.4.0 (script/levels/levels.lua du lot V2) : bâtiment hors service, barre de
+-- progression, coût déjà payé, ouvrier occupé.
+do
+local function job_040(e, family, to, left)
+  local j = { entity = e, unit = e.unit_number, force = e.force.name, family = family, to = to, start = game.tick,
+              finish = game.tick + left, cost = L.cost(L.by_key[family], to) }
+  j.r_bg = rendering.draw_rectangle({ color = { r = 0, g = 0, b = 0 }, filled = true, surface = s, left_top = e, right_bottom = e })
+  j.r_fg = rendering.draw_rectangle({ color = { r = 1, g = 1, b = 0 }, filled = true, surface = s, left_top = e, right_bottom = e })
+  j.r_text = rendering.draw_text({ text = "x", surface = s, target = e, color = { r = 1, g = 1, b = 1 } })
+  j.bar_w, j.bar_top = 3, -2
+  e.active = false
+  return j
 end
-check(relaunched == 5 and Levels.busy(f13) == 5, "5 chantiers en cours avant la sauvegarde (" .. relaunched .. ")")
+local lv = global.fo.levels
+local furnaces, renders = {}, {}
+for i = 1, 5 do
+  furnaces[i] = s.create_entity({ name = L.name(L.by_key.furnace, 24), position = { x = 10 * i, y = 280 }, force = "fo-test-13" })
+  furnaces[i].insert({ name = "iron-ore", count = 7 })
+  local j = job_040(furnaces[i], "furnace", 25, 6000)
+  lv.jobs[j.unit] = j
+  renders[#renders + 1] = j.r_text
+end
+-- Chantier d'un centre (centre 4 → 5) alors que la condition Q16 n'est pas remplie (machines au niveau 8 : la
+-- condition visée 8 l'est, mais une mitrailleuse 1 la bloquerait aujourd'hui).
+s.create_entity({ name = "gun-turret", position = { x = 80, y = 220 }, force = "fo-test-4" })
+local cjob = job_040(c4, "command", 5, 6000)
+lv.jobs[cjob.unit] = cjob
+-- Chantier dont le bâtiment a disparu.
+local ghost = s.create_entity({ name = L.name(L.by_key.drill, 5), position = { x = 70, y = 280 }, force = "fo-test-13" })
+local gjob = job_040(ghost, "drill", 6, 600)
+lv.jobs[gjob.unit] = gjob
+ghost.destroy()
+lv.busy = { ["fo-test-13"] = 5, ["fo-test-4"] = 1 }
+lv.time_factor = 0.05
+local up0, lost0 = lv.stats.upgrades, lv.stats.lost or 0
 local ok_ser, err_ser = pcall(M.serialize, global)
 check(ok_ser, "global sérialisable (" .. tostring(err_ser) .. ")")
 local saved = M.deepcopy_global(global)
@@ -1440,11 +1766,117 @@ local ok_load, err_load = pcall(function() Wd.on_load() end)
 check(ok_load, "on_load sans erreur (" .. tostring(err_load) .. ")")
 Levels = require("script.levels.levels")
 table.insert(Levels.on_replaced, limit_replaced_centre)
-local ok_run, err_run = pcall(M.run_ticks, L.time_ticks(L.by_key.furnace, 25, 1) + 31)
-check(ok_run, "jeu continu après rechargement (" .. tostring(err_run) .. ")")
-local up = 0
-for i = 1, 5 do if s.find_entity(L.name(L.by_key.furnace, 25), { x = 10 * i, y = 280 }) then up = up + 1 end end
-check(up == 5 and Levels.busy(f13) == 0, "chantiers terminés après rechargement (" .. up .. " fours niveau 25)")
+local ok_cfg, err_cfg = pcall(M.dispatch, Wd.on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.0", new_version = "0.4.1" } } })
+check(ok_cfg, "on_configuration_changed sans erreur (" .. tostring(err_cfg) .. ")")
+lv = global.fo.levels
+local up, active_all, ore_ok = 0, true, true
+for i = 1, 5 do
+  local fu = s.find_entity(L.name(L.by_key.furnace, 25), { x = 10 * i, y = 280 })
+  if fu then
+    up = up + 1
+    if fu.active == false then active_all = false end
+    if fu.get_item_count("iron-ore") ~= 7 then ore_ok = false end
+  end
+end
+check(up == 5 and active_all, "chantiers 0.4.0 ACHEVÉS au chargement : 5 fours niveau 25, en service (" .. up .. ")")
+check(ore_ok, "chantiers 0.4.0 achevés : contenu des fours conservé (remplacement rapide)")
+check(Levels.cc_level(game.forces["fo-test-4"]) == 5, "chantier 0.4.0 d'un centre achevé (payé avant Q16 : condition non exigée)")
+check(next(lv.jobs) == nil and next(lv.busy) == nil and lv.time_factor == nil, "plus aucun chantier, ouvrier ni réglage de durée enregistré")
+check(lv.stats.upgrades == up0 + 6 and lv.stats.lost == lost0 + 1,
+  string.format("statistiques : +6 achevés, +1 perdu (bâtiment disparu) (%d, %d)", lv.stats.upgrades - up0, lv.stats.lost - lost0))
+local drawn = 0
+for _, id in ipairs(renders) do if rendering.is_valid(id) then drawn = drawn + 1 end end
+check(drawn == 0, "barres de progression 0.4.0 effacées")
+local ok_run, err_run = pcall(M.run_ticks, 120)
+check(ok_run, "jeu continu après le chargement (" .. tostring(err_run) .. ")")
+
+-- Même sauvegarde rechargée SANS changement de version (on_configuration_changed absent) : le filet des 30
+-- ticks achève les chantiers.
+local fu2 = s.create_entity({ name = L.name(L.by_key.furnace, 20), position = { x = 10, y = 320 }, force = "fo-test-13" })
+local j2 = job_040(fu2, "furnace", 21, 6000)
+global.fo.levels.jobs[j2.unit] = j2
+saved = M.deepcopy_global(global)
+M.load_mod()
+_G.global = saved
+ok_load = pcall(function() Wd.on_load() end)
+Levels = require("script.levels.levels")
+ok_run, err_run = pcall(M.run_ticks, 31)
+check(ok_load and ok_run and s.find_entity(L.name(L.by_key.furnace, 21), { x = 10, y = 320 }) ~= nil
+  and next(global.fo.levels.jobs) == nil, "sans changement de version : chantier 0.4.0 achevé dans les 30 ticks (" .. tostring(err_run) .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Recherche vanilla allégée (QX9) : data-final-fixes.lua sur les technologies de base")
+---------------------------------------------------------------------------------------------------
+-- Les technologies vanilla de 1.1.91 relues dans data/base/prototypes/technology.lua (comme
+-- tests/epochs_test.lua), puis data-final-fixes.lua exécuté sur un data.raw qui les contient.
+do
+local vanilla
+for _, p in ipairs({ "../../data/base/prototypes/technology.lua", "../../../../../data/base/prototypes/technology.lua" }) do
+  if not vanilla then
+    local fh = io.open(p, "rb")
+    if fh then
+      fh:close()
+      local list = {}
+      local env = setmetatable({ data = { extend = function(_, t) for _, x in ipairs(t) do list[#list + 1] = x end end },
+        util = setmetatable({}, { __index = function() return function() return {} end end }) }, { __index = _G })
+      local chunk = loadfile(p, "t", env)
+      if chunk and pcall(chunk) then vanilla = list end
+    end
+  end
+end
+check(vanilla ~= nil and #vanilla > 150, "technologies vanilla relues (" .. tostring(vanilla and #vanilla) .. ")")
+if vanilla then
+  local before, raw_tech = {}, {}
+  for _, t in ipairs(vanilla) do
+    before[t.name] = t.unit and t.unit.count
+    raw_tech[t.name] = t
+  end
+  raw_tech["fo-test-tech"] = { type = "technology", name = "fo-test-tech", unit = { count = 500, ingredients = { { "logistic-science-pack", 1 } }, time = 30 } }
+  local saved_data, saved_deep, saved_log = rawget(_G, "data"), table.deepcopy, rawget(_G, "log")
+  _G.data = { raw = { technology = raw_tech, module = {}, recipe = {}, ["ammo-turret"] = {}, ["electric-turret"] = {}, ["fluid-turret"] = {} } }
+  table.deepcopy = deepcopy
+  _G.log = function() end
+  local okd, errd = pcall(dofile, "data-final-fixes.lua")
+  _G.data, table.deepcopy, _G.log = saved_data, saved_deep, saved_log
+  check(okd, "data-final-fixes.lua exécuté sur les technologies vanilla (" .. tostring(errd) .. ")")
+  -- Attendus calculés à la main (époque par les recettes : shared/content/epochs.lua X.base_recipe_epochs ;
+  -- échelles X.VANILLA_UNIT_SCALE = 0,9 ; 0,15 ; 0,07 ; 0,04 ; 1 ; 0,15 ; 1… ; 0,25 à l'époque 10).
+  local EXPECT = {
+    { "steel-processing", 50, 8, "acier : époque 2, × 0,15" },
+    { "automation", 10, 1, "machine d'assemblage 1 : époque 3, × 0,07, au moins 1" },
+    { "oil-processing", 100, 4, "pétrole : époque 4, × 0,04" },
+    { "logistics", 20, 18, "souterrains et répartiteurs : époque 1, × 0,9" },
+    { "tank", 250, 250, "char : époque 5, × 1 (inchangé)" },
+    { "utility-science-pack", 100, 25, "pack utilitaire : époque 10, × 0,25" },
+  }
+  for _, ex in ipairs(EXPECT) do
+    local t = raw_tech[ex[1]]
+    check(t and before[ex[1]] == ex[2] and t.unit.count == ex[3],
+      string.format("QX9 : %s %s → %s unités (%s ; obtenu %s → %s)", ex[1], ex[2], ex[3], ex[4], tostring(before[ex[1]]), tostring(t and t.unit.count)))
+  end
+  -- Toutes les technologies à count : nombre d'unités = arrondi(count × échelle de leur époque), au moins 1 ;
+  -- les recherches infinies (formule) et celles du mod ne changent pas.
+  local bad, lighter, by_epoch = {}, 0, {}
+  for _, t in ipairs(vanilla) do
+    local b = before[t.name]
+    if b and not t.max_level then
+      local e = L.vanilla_tech_epoch(t)
+      local want = math.max(1, math.floor(b * X.VANILLA_UNIT_SCALE[e] + 0.5))
+      if t.unit.count ~= want then bad[#bad + 1] = t.name .. "=" .. t.unit.count .. "/" .. want end
+      if t.unit.count < b then lighter = lighter + 1; by_epoch[e] = (by_epoch[e] or 0) + 1 end
+    elseif t.max_level and t.unit.count_formula and t.unit.count ~= b then
+      bad[#bad + 1] = t.name .. " (infinie modifiée)"
+    end
+  end
+  check(#bad == 0, "QX9 : chaque technologie vanilla à count suit l'échelle de son époque" .. (#bad > 0 and (" : " .. table.concat(bad, ", ")) or ""))
+  local parts = {}
+  for e = 1, L.EPOCHS do if by_epoch[e] then parts[#parts + 1] = "ép. " .. e .. " : " .. by_epoch[e] end end
+  print("  Technologies vanilla allégées : " .. lighter .. " (" .. table.concat(parts, ", ") .. ")")
+  check(lighter >= 50 and not by_epoch[5] and not by_epoch[7], "QX9 : les époques 1 à 4, 6 et 10 sont allégées, pas les époques à × 1 (" .. lighter .. ")")
+  check(raw_tech["fo-test-tech"].unit.count == 500, "QX9 : une technologie du mod (fo-) ne change pas")
+end
+end
 
 print(string.format("Résultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

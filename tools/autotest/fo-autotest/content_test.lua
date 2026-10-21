@@ -512,10 +512,12 @@ local function test_walls(s, S)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Niveaux (session 5 ; 15 époques depuis le lot V2) : prototypes (centre 15 niveaux, autres 30),
--- statistiques croissantes, groupes de remplacement, bonus de recherche à tous les niveaux, objets de coût des
--- 15 époques, tailles de pile et PLACE dans le coffre du centre payeur, chantiers réels (époques 1-2, puis
--- époque 14 : 5 ouvriers, plafond 28, centre 14 → 15, niveau 29 → 30), galerie de tous les niveaux.
+-- Niveaux (session 5 ; 15 époques depuis le lot V2 ; amélioration instantanée, condition du centre et
+-- recherche vanilla allégée depuis le lot V2c) : prototypes (centre 15 niveaux, autres 30), statistiques
+-- croissantes, groupes de remplacement, bonus de recherche à tous les niveaux, objets de coût des 15 époques,
+-- tailles de pile et PLACE dans le coffre du centre payeur, description du centre (Q16), recherche vanilla
+-- (QX9) ; améliorations réelles INSTANTANÉES (Q19 : époques 1-2, force Q16, puis époque 14 : plafond 28,
+-- condition du centre, centre 14 → 15, niveau 28 → 30), galerie de tous les niveaux. 63 contrôles.
 ---------------------------------------------------------------------------------------------------
 local function proto_stat(p, key)
   if key == "max_health" then return p.max_health end
@@ -614,6 +616,32 @@ local function test_level_prototypes()
   end
   check(#too_big == 0, "niveaux : chaque chantier tient dans la moitie du coffre du centre payeur",
     #too_big > 0 and table.concat(too_big, ", ") or ("pire " .. worst_txt))
+  -- Lot V2c, Q16 : la description du centre énonce la condition de son passage (niveau visé 2 × son niveau) ;
+  -- le centre 15 n'en a plus.
+  local d1 = game.entity_prototypes["fo-command-center"].localised_description
+  local d14 = game.entity_prototypes[LV.name(C, 14)].localised_description
+  local d15 = game.entity_prototypes[LV.name(C, 15)].localised_description
+  check(d1[1] == "fo-epochs.desc-cc" and d1[6] == "2" and d1[7] == "2" and d14[6] == "28" and d15[1] == "fo-epochs.desc-cc-max",
+    "niveaux (Q16) : description du centre avec la condition de passage (niveau vise 2, ..., 28 ; centre 15 sans condition)",
+    tostring(d1[1]) .. " " .. tostring(d1[6]) .. " / " .. tostring(d14[6]) .. " / " .. tostring(d15[1]))
+  -- Lot V2c, QX9 : recherche vanilla allégée (data-final-fixes.lua). Nombres d'unités vanilla relevés dans
+  -- data/base/prototypes/technology.lua (1.1.91) ; attendu : arrondi(nombre × X.VANILLA_UNIT_SCALE de l'époque).
+  local VANILLA_UNITS = { { "logistics", 20, 18 }, { "steel-processing", 50, 8 }, { "automation", 10, 1 },
+    { "oil-processing", 100, 4 }, { "tank", 250, 250 }, { "utility-science-pack", 100, 25 } }
+  local bad_qx9, txt = {}, {}
+  for _, v in ipairs(VANILLA_UNITS) do
+    local tp = game.technology_prototypes[v[1]]
+    local want = tp and LV.vanilla_unit_count({ name = v[1], effects = tp.effects,
+      unit = { ingredients = tp.research_unit_ingredients } }, v[2])
+    local got = tp and tp.research_unit_count
+    txt[#txt + 1] = v[1] .. " " .. v[2] .. "->" .. tostring(got)
+    if not (got == v[3] and want == v[3]) then bad_qx9[#bad_qx9 + 1] = v[1] .. "=" .. tostring(got) .. "/" .. v[3] .. "/" .. tostring(want) end
+  end
+  check(#bad_qx9 == 0, "niveaux (QX9) : recherche vanilla allegee aux epoques 1 a 4 et 10, inchangee a l'epoque 5",
+    #bad_qx9 > 0 and table.concat(bad_qx9, ", ") or table.concat(txt, ", "))
+  local inf = game.technology_prototypes["physical-projectile-damage-7"]
+  check(inf and inf.research_unit_count_formula == "2^(L-7)*1000",
+    "niveaux (QX9) : recherche infinie inchangee (formule)", inf and tostring(inf.research_unit_count_formula) or "absente")
 end
 
 --- Range `times` fois le coût du niveau n ; renvoie true si TOUT est entré (coffre réel, piles réelles).
@@ -630,16 +658,59 @@ local function at(s, name, x, y)
   return s.find_entity(name, { x, y })
 end
 
+--- Force de test à part, en cessez-le-feu avec le joueur et les biters.
+local function test_force(name)
+  local f = game.forces[name] or game.create_force(name)
+  for _, other in ipairs({ "player", "enemy" }) do
+    f.set_cease_fire(other, true)
+    game.forces[other].set_cease_fire(f, true)
+  end
+  return f
+end
+
+-- Lot V2c, Q16 : force « fo-lv-q16 » (y = 198, sous la galerie), centre 1, une mitrailleuse au niveau 1 et
+-- une foreuse au niveau 2. Le centre est refusé (« cc-families » : la mitrailleuse n'est pas au niveau 2)
+-- sans rien payer ; la mitrailleuse passe au niveau 2, puis le centre passe au niveau 2 (les familles que la
+-- force ne possède pas ne bloquent pas) ; enfin le centre 2 → 3 est refusé (niveau visé 4). 5 contrôles.
+local function setup_q16(s)
+  local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
+  local G, C = LV.by_key.gun, LV.by_key.command
+  local q = test_force("fo-lv-q16")
+  local y = 198
+  local cc = s.create_entity({ name = "fo-command-center", position = { 302, y }, force = q, raise_built = true })
+  local gun = s.create_entity({ name = "gun-turret", position = { 310, y }, force = q })
+  for dx = -1, 1 do for dy = -1, 1 do s.create_entity({ name = "iron-ore", position = { 314.5 + dx, y + 0.5 + dy }, amount = 5000 }) end end
+  s.create_entity({ name = LV.name(LV.by_key.drill, 2), position = { 314.5, y + 0.5 }, force = q })
+  local inv = cc and cc.get_inventory(defines.inventory.chest)
+  if inv then
+    stock(inv, C, 2, 1)
+    stock(inv, G, 2, 1)
+    stock(inv, C, 3, 1)
+  end
+  local iron0 = inv and inv.get_item_count("iron-plate") or -1
+  local r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+  check(not r.ok and r.reason == "cc-families", "niveaux (Q16) : centre 1 -> 2 refuse, mitrailleuse pas au niveau 2", tostring(r.reason))
+  check(inv and inv.get_item_count("iron-plate") == iron0 and call("levels_status", q.name).cc_level == 1,
+    "niveaux (Q16) : refus sans paiement, centre inchange")
+  r = gun and call("levels_upgrade", gun) or { reason = "mitrailleuse introuvable" }
+  check(r.ok and r.reason == "done" and at(s, LV.name(G, 2), 310, y) ~= nil, "niveaux (Q16) : mitrailleuse 1 -> 2", tostring(r.reason))
+  r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+  check(r.ok and r.reason == "done" and call("levels_status", q.name).cc_level == 2,
+    "niveaux (Q16) : condition remplie (mitrailleuse et foreuse au niveau 2 ; laser, mur, four, machine non possedes) : centre 2",
+    tostring(r.reason))
+  local cc2 = at(s, LV.name(C, 2), 302, y)
+  r = cc2 and call("levels_upgrade", cc2) or { reason = "centre 2 introuvable" }
+  check(not r.ok and r.reason == "cc-families", "niveaux (Q16) : centre 2 -> 3 refuse aussitot (niveau vise 4)", tostring(r.reason))
+end
+
 local function setup_levels(s, S)
   test_level_prototypes()
   local x0, y0 = S.lx0, S.ly0
   local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
-  -- Chantiers accélérés ×20 (10 s → 0,5 s) pour tenir dans le banc.
-  call("levels_time_factor", 0.05)
   local cc = s.create_entity({ name = "fo-command-center", position = { x0 + 2, y0 + 2 }, force = "player", raise_built = true })
   local inv = cc.get_inventory(defines.inventory.chest)
   local G, C, A, Wl = LV.by_key.gun, LV.by_key.command, LV.by_key.assembler, LV.by_key.wall
-  stock(inv, G, 2, 1)
+  stock(inv, G, 2, 2)
   stock(inv, G, 3, 1)
   stock(inv, C, 2, 1)
   stock(inv, A, 2, 1)
@@ -652,37 +723,55 @@ local function setup_levels(s, S)
   -- (le gestionnaire « construit » le retire pendant create_entity, qui renvoie alors nil)
   check(not (cc2 and cc2.valid) and at(s, "fo-command-center", x0 + 12, y0 + 2) == nil,
     "niveaux : un seul centre de commandement par force")
-  -- Tourelle A : endommagée, 25 chargeurs ; chantier vers le niveau 2.
+  -- Tourelle A : endommagée, 25 chargeurs ; amélioration INSTANTANÉE vers le niveau 2 (Q19).
   local ga = s.create_entity({ name = "gun-turret", position = { x0 + 20, y0 + 2 }, force = "player" })
   ga.insert({ name = "firearm-magazine", count = 25 })
   ga.health = ga.prototype.max_health / 2
-  local r = call("levels_upgrade", ga)
-  check(r.ok and r.reason == "started", "niveaux : chantier lance (paye par le centre)", tostring(r.reason))
-  check(ga.valid and ga.active == false, "niveaux : tourelle hors service pendant le chantier")
   S.lv.ga = ga.position
-  -- Tourelle B : refusée, le seul ouvrier est occupé.
+  local r = call("levels_upgrade", ga)
+  check(r.ok and r.reason == "done", "niveaux : amelioration instantanee (payee par le centre, Q19)", tostring(r.reason))
+  local g2 = at(s, LV.name(G, 2), S.lv.ga.x, S.lv.ga.y)
+  check(g2 ~= nil and not ga.valid, "niveaux : tourelle remplacee par le niveau 2 au meme endroit, dans le meme tick")
+  local ammo = g2 and g2.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine") or 0
+  check(ammo == 25, "niveaux : munitions conservees", ammo .. " chargeurs")
+  check(g2 and math.abs(g2.get_health_ratio() - 0.5) < 0.01, "niveaux : sante conservee en proportion",
+    g2 and string.format("%.0f / %.0f PV", g2.health, g2.prototype.max_health) or "tourelle introuvable")
+  check(g2 and g2.active, "niveaux : tourelle niveau 2 en service (jamais hors service)")
+  -- Tourelle B : améliorée dans le même tick (plus de limite d'ouvriers).
   local gb = s.create_entity({ name = "gun-turret", position = { x0 + 24, y0 + 2 }, force = "player" })
+  local gb_pos = gb.position
   r = call("levels_upgrade", gb)
-  check(not r.ok and r.reason == "no-builder", "niveaux : un seul ouvrier au centre niveau 1", tostring(r.reason))
+  check(r.ok and r.reason == "done" and at(s, LV.name(G, 2), gb_pos.x, gb_pos.y) ~= nil,
+    "niveaux : seconde amelioration dans le meme tick (plus de limite d'ouvriers)", tostring(r.reason))
   -- Tourelle C, posée directement au niveau 2 : refusée, centre trop bas.
   local gc = s.create_entity({ name = LV.name(G, 2), position = { x0 + 28, y0 + 2 }, force = "player" })
   r = call("levels_upgrade", gc)
   check(not r.ok and r.reason == "cc-too-low", "niveaux : niveau 3 refuse avec un centre niveau 1", tostring(r.reason))
   S.lv.gc = gc.position
-  -- Murs : rangée de 5, instantanée.
+  -- Murs : rangée de 5.
   -- (positions au CENTRE des tuiles : find_entity sur un coin de tuile ne trouve pas un mur 1×1)
   for i = 0, 4 do s.create_entity({ name = "stone-wall", position = { x0 + 34.5 + i, y0 + 2.5 }, force = "player" }) end
   local nw = call("levels_row", at(s, "stone-wall", x0 + 36.5, y0 + 2.5))
   local all = 0
   for i = 0, 4 do if at(s, LV.name(Wl, 2), x0 + 34.5 + i, y0 + 2.5) then all = all + 1 end end
   check(nw == 5 and all == 5, "niveaux : rangee de 5 murs amelioree instantanement", nw .. " / " .. all)
-  -- Machine d'assemblage avec recette et ingrédients : préparée pour le chantier suivant.
+  -- Machine d'assemblage avec recette et ingrédients : améliorée aussitôt, contenu et recette conservés.
   local am = s.create_entity({ name = "assembling-machine-2", position = { x0 + 44, y0 + 2 }, force = "player" })
   am.set_recipe("iron-gear-wheel")
   am.insert({ name = "iron-plate", count = 40 })
-  S.lv.am = am.position
   power_grid(s, x0 + 41, y0 - 1, x0 + 47, y0 + 5)
+  local am_pos = am.position
+  r = call("levels_upgrade", am)
+  local am2 = at(s, LV.name(A, 2), am_pos.x, am_pos.y)
+  check(r.ok and r.reason == "done" and am2 ~= nil, "niveaux : machine d'assemblage niveau 2", tostring(r.reason))
+  local rec = am2 and am2.get_recipe()
+  check(rec and rec.name == "iron-gear-wheel", "niveaux : recette conservee", rec and rec.name or "aucune")
+  local plates = am2 and am2.get_inventory(defines.inventory.assembling_machine_input).get_item_count("iron-plate") or 0
+  local gears = am2 and am2.get_inventory(defines.inventory.assembling_machine_output).get_item_count("iron-gear-wheel") or 0
+  check(plates + 2 * gears >= 38, "niveaux : contenu conserve (plaques et engrenages)", plates .. " plaques, " .. gears .. " engrenages")
   S.lv.phase = 1
+
+  setup_q16(s)
 
   -- Galerie : tous les niveaux de chaque famille (centre 15, autres 30), une rangée par famille.
   local gx, gy = S.gx0, S.gy0
@@ -723,37 +812,33 @@ local function setup_levels(s, S)
   energy_interface(s, gx - 1, gaps[1])
 end
 
--- Époque 14 (lot V2) : force à part au centre 14, un bâtiment de chaque famille au niveau 27, chantiers
--- vers le 28 avec 5 ouvriers, plafond, puis centre 14 → 15 et mitrailleuse 28 → 30 (phases 6 à 9).
+-- Époque 14 (lot V2 ; amélioration instantanée et condition du centre : lot V2c) : force à part au centre 14,
+-- un bâtiment de chaque famille au niveau 27 ; au tick 1510, tout se fait dans le même tick : 5 améliorations
+-- vers le 28 (4 familles et une mitrailleuse de plus), plafond, rangée de murs, condition Q16 (le four au
+-- niveau 27 bloque le centre, puis le four passe au 28), centre 14 → 15, mitrailleuse 28 → 29 → 30.
 local function setup_high_epoch(s, L)
   local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
-  local G, C, A, Wl = LV.by_key.gun, LV.by_key.command, LV.by_key.assembler, LV.by_key.wall
-  -- Chantiers × 0,001 : niveau 28 en moins de 30 ticks, centre 15 (1 h) en 216 ticks.
-  call("levels_time_factor", 0.001)
-  local hi = game.forces["fo-lv-hi"] or game.create_force("fo-lv-hi")
-  for _, other in ipairs({ "player", "enemy" }) do
-    hi.set_cease_fire(other, true)
-    game.forces[other].set_cease_fire(hi, true)
-  end
+  local G, C, Wl = LV.by_key.gun, LV.by_key.command, LV.by_key.wall
+  local hi = test_force("fo-lv-hi")
   local y = 131
   local H = { force = hi.name, cc = { x = 402, y = y }, gun = { x = 410, y = y }, la = { x = 414, y = y },
               dr = { x = 419.5, y = y + 0.5 }, fu = { x = 425, y = y }, am = { x = 430.5, y = y + 0.5 },
-              gun2 = { x = 436, y = y }, g28 = { x = 440, y = y }, jobs = {} }
+              gun2 = { x = 436, y = y }, g28 = { x = 440, y = y } }
   L.hi = H
   local cc = s.create_entity({ name = LV.name(C, 14), position = H.cc, force = hi, raise_built = true })
   local st = call("levels_status", hi.name)
-  check(cc and st.cc_level == 14 and LV.builders(st.cc_level) == 5, "niveaux (epoque 14) : centre 14 enregistre, 5 ouvriers",
-    "niveau " .. st.cc_level)
-  if not cc then return end
-  local inv = cc.get_inventory(defines.inventory.chest)
-  inv.insert({ name = "iron-chest", count = 7 })
-  local all_in = true
-  for _, key in ipairs({ "gun", "laser", "drill", "furnace", "assembler" }) do
-    all_in = stock(inv, LV.by_key[key], 28, 1) and all_in
+  check(cc and st.cc_level == 14, "niveaux (epoque 14) : centre 14 enregistre", "niveau " .. st.cc_level)
+  local inv = cc and cc.get_inventory(defines.inventory.chest)
+  local all_in = inv ~= nil
+  if inv then
+    inv.insert({ name = "iron-chest", count = 7 })
+    for _, key in ipairs({ "gun", "laser", "drill", "furnace", "assembler", "gun" }) do
+      all_in = stock(inv, LV.by_key[key], 28, 1) and all_in
+    end
+    all_in = stock(inv, Wl, 28, 3) and all_in
   end
-  all_in = stock(inv, Wl, 28, 3) and all_in
-  check(all_in, "niveaux (epoque 14) : couts du niveau 28 (5 familles et 3 murs) ranges dans le coffre du centre 14",
-    (#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees")
+  check(all_in, "niveaux (epoque 14) : couts du niveau 28 (6 batiments et 3 murs) ranges dans le coffre du centre 14",
+    inv and ((#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees") or "centre introuvable")
   local function put(key, pos, n)
     return s.create_entity({ name = LV.name(LV.by_key[key], n or 27), position = pos, force = hi })
   end
@@ -767,154 +852,112 @@ local function setup_high_epoch(s, L)
   fu.insert({ name = "iron-ore", count = 20 })
   local am = put("assembler", H.am)
   am.set_recipe("iron-gear-wheel")
-  H.jobs = { { key = "gun", x = H.gun.x, y = H.gun.y }, { key = "laser", x = H.la.x, y = H.la.y },
-             { key = "drill", x = H.dr.x, y = H.dr.y }, { key = "furnace", x = H.fu.x, y = H.fu.y },
-             { key = "assembler", x = H.am.x, y = H.am.y } }
-  local started = 0
-  for _, b in ipairs(H.jobs) do
-    local r = call("levels_upgrade", at(s, LV.name(LV.by_key[b.key], 27), b.x, b.y))
-    if r.ok and r.reason == "started" then started = started + 1 end
+  put("gun", H.gun2)
+  -- 5 améliorations dans le même tick (4 familles et une mitrailleuse de plus) ; le four attend.
+  local done, why = 0, {}
+  for _, b in ipairs({ { "gun", H.gun }, { "laser", H.la }, { "drill", H.dr }, { "assembler", H.am }, { "gun", H.gun2 } }) do
+    local r = call("levels_upgrade", at(s, LV.name(LV.by_key[b[1]], 27), b[2].x, b[2].y))
+    if r.ok and r.reason == "done" then done = done + 1 else why[#why + 1] = b[1] .. "=" .. tostring(r.reason) end
   end
-  st = call("levels_status", hi.name)
-  check(started == 5 and st.busy == 5, "niveaux (epoque 14) : 5 chantiers simultanes", started .. " lances, " .. st.busy .. " occupes")
-  local r = call("levels_upgrade", put("gun", H.gun2))
-  check(not r.ok and r.reason == "no-builder", "niveaux (epoque 14) : le 6e chantier attend (5 ouvriers)", tostring(r.reason))
-  r = call("levels_upgrade", cc)
-  check(not r.ok and r.reason == "no-builder", "niveaux (epoque 14) : le centre attend aussi un ouvrier", tostring(r.reason))
-  r = call("levels_upgrade", put("gun", H.g28, 28))
+  check(done == 5, "niveaux (epoque 14) : 5 ameliorations dans le meme tick (plus de limite d'ouvriers)",
+    #why > 0 and table.concat(why, ", ") or "4 familles et une mitrailleuse de plus")
+  local r = call("levels_upgrade", put("gun", H.g28, 28))
   check(not r.ok and r.reason == "cc-too-low", "niveaux (epoque 14) : niveau 29 refuse avec un centre 14 (plafond 28)", tostring(r.reason))
-  -- Murs : rangée de 3 au niveau 27, instantanée (sans ouvrier).
+  -- Murs : rangée de 3 au niveau 27.
   for i = 0, 2 do s.create_entity({ name = LV.name(Wl, 27), position = { 445.5 + i, y + 0.5 }, force = hi }) end
   local nw = call("levels_row", at(s, LV.name(Wl, 27), 446.5, y + 0.5))
   local walls = 0
   for i = 0, 2 do if at(s, LV.name(Wl, 28), 445.5 + i, y + 0.5) then walls = walls + 1 end end
-  check(nw == 3 and walls == 3, "niveaux (epoque 14) : rangee de 3 murs au niveau 28, sans ouvrier", nw .. " / " .. walls)
+  check(nw == 3 and walls == 3, "niveaux (epoque 14) : rangee de 3 murs au niveau 28", nw .. " / " .. walls)
+  -- Contenus conservés au niveau 28.
+  local g28 = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
+  local ammo = g28 and g28.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") or 0
+  check(ammo == 10, "niveaux (epoque 14) : munitions conservees au niveau 28", ammo .. " chargeurs")
+  check(g28 and math.abs(g28.get_health_ratio() - 0.5) < 0.01, "niveaux (epoque 14) : sante conservee en proportion",
+    g28 and string.format("%.0f / %.0f PV", g28.health, g28.prototype.max_health) or "tourelle introuvable")
+  local am28 = at(s, LV.name(LV.by_key.assembler, 28), H.am.x, H.am.y)
+  local rec = am28 and am28.get_recipe()
+  check(rec and rec.name == "iron-gear-wheel", "niveaux (epoque 14) : recette conservee au niveau 28", rec and rec.name or "aucune")
+  -- Q16 : le four (niveau 27) bloque le centre 14 → 15 (niveau visé 28).
+  local all_cc = inv and stock(inv, C, 15, 1) or false
+  check(all_cc, "niveaux (epoque 14) : cout du centre 15 range dans le coffre du centre 14",
+    inv and ((#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees") or "centre introuvable")
+  r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+  check(not r.ok and r.reason == "cc-families", "niveaux (epoque 14, Q16) : centre 14 -> 15 refuse, four au niveau 27", tostring(r.reason))
+  r = call("levels_upgrade", fu)
+  local fu28 = at(s, LV.name(LV.by_key.furnace, 28), H.fu.x, H.fu.y)
+  local ore = fu28 and fu28.get_item_count("iron-ore") or 0
+  check(r.ok and r.reason == "done" and ore == 20, "niveaux (epoque 14) : four 27 -> 28, contenu conserve", tostring(r.reason) .. ", " .. ore .. " minerais")
+  r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+  check(r.ok and r.reason == "done", "niveaux (epoque 14, Q16) : condition remplie, centre 14 -> 15 instantane", tostring(r.reason))
+  st = call("levels_status", hi.name)
+  local cc15 = at(s, LV.name(C, 15), H.cc.x, H.cc.y)
+  check(cc15 ~= nil and st.cc_level == 15, "niveaux : centre de commandement niveau 15 (epoque Legende)", "niveau " .. st.cc_level)
+  local n = cc15 and cc15.get_inventory(defines.inventory.chest).get_item_count("iron-chest") or 0
+  check(n == 7, "niveaux (epoque 15) : le stock du centre suit le remplacement", n .. " coffres")
+  r = cc15 and call("levels_upgrade", cc15) or { reason = "centre introuvable" }
+  check(not r.ok and r.reason == "max", "niveaux (epoque 15) : centre 15 = maximum", tostring(r.reason))
+  -- Mitrailleuse 28 → 29 → 30 d'affilée.
+  if cc15 then
+    stock(cc15.get_inventory(defines.inventory.chest), G, 29, 1)
+    stock(cc15.get_inventory(defines.inventory.chest), G, 30, 1)
+  end
+  r = g28 and call("levels_upgrade", g28) or { reason = "tourelle introuvable" }
+  check(r.ok and r.reason == "done", "niveaux (epoque 15) : mitrailleuse 28 -> 29", tostring(r.reason))
+  local g29 = at(s, LV.name(G, 29), H.gun.x, H.gun.y)
+  r = g29 and call("levels_upgrade", g29) or { reason = "tourelle introuvable" }
+  check(r.ok and r.reason == "done", "niveaux (epoque 15) : mitrailleuse 29 -> 30", tostring(r.reason))
+  local g30 = at(s, LV.name(G, 30), H.gun.x, H.gun.y)
+  ammo = g30 and g30.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") or 0
+  check(g30 ~= nil and ammo == 10, "niveaux (epoque 15) : mitrailleuse niveau 30, munitions conservees", ammo .. " chargeurs")
+  r = g30 and call("levels_upgrade", g30) or { reason = "tourelle introuvable" }
+  check(not r.ok and r.reason == "max", "niveaux (epoque 15) : niveau 30 = maximum", tostring(r.reason))
+  st = call("levels_status", H.force)
+  check(st.fallback == 0, "niveaux (epoques 14-15) : remplacement rapide du moteur partout (aucun secours manuel)",
+    st.upgrades .. " ameliorations")
 end
 
 local function tick_levels(s, S, tick)
   local L = S.lv
   if not L then return end
   local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
-  local G, C, A = LV.by_key.gun, LV.by_key.command, LV.by_key.assembler
+  local G, C = LV.by_key.gun, LV.by_key.command
   if L.phase == 1 and tick == 300 then
+    -- Après le rechargement de la partie (--create puis banc) : l'état des niveaux a tenu.
     local g2 = at(s, LV.name(G, 2), L.ga.x, L.ga.y)
-    check(g2 ~= nil, "niveaux : tourelle remplacee par le niveau 2 au meme endroit")
-    if g2 then
-      local ammo = g2.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine")
-      check(ammo == 25, "niveaux : munitions conservees", ammo .. " chargeurs")
-      check(math.abs(g2.get_health_ratio() - 0.5) < 0.01, "niveaux : sante conservee en proportion",
-        string.format("%.0f / %.0f PV", g2.health, g2.prototype.max_health))
-      check(g2.active, "niveaux : tourelle niveau 2 en service")
-    end
-    local st = call("levels_status", "player")
-    check(st.busy == 0 and st.upgrades == 1, "niveaux : ouvrier libere apres le chantier", "occupes " .. st.busy)
+    check(g2 ~= nil and g2.active, "niveaux : tourelle niveau 2 toujours en place et en service apres rechargement")
+    -- Centre 1 → 2 (la galerie donne à la force du joueur un bâtiment de chaque famille au niveau 2 et plus).
     local cc = at(s, "fo-command-center", L.cc_pos.x, L.cc_pos.y)
-    local r = call("levels_upgrade", cc)
-    check(r.ok and r.reason == "started", "niveaux : chantier du centre lance", tostring(r.reason))
-    L.phase = 2
-  elseif L.phase == 2 and tick == 600 then
-    local cc = at(s, LV.name(C, 2), L.cc_pos.x, L.cc_pos.y)
+    local r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+    check(r.ok and r.reason == "done", "niveaux : centre de commandement 1 -> 2 instantane", tostring(r.reason))
+    local cc2 = at(s, LV.name(C, 2), L.cc_pos.x, L.cc_pos.y)
     local st = call("levels_status", "player")
-    check(cc ~= nil and st.cc_level == 2, "niveaux : centre de commandement niveau 2", "niveau " .. st.cc_level)
-    if cc then
-      local n = cc.get_inventory(defines.inventory.chest).get_item_count("iron-chest")
-      check(n == L.chest_marker, "niveaux : le stock du centre suit le remplacement", n .. " coffres")
-    end
-    local am = at(s, "assembling-machine-2", L.am.x, L.am.y)
-    local r = call("levels_upgrade", am)
-    check(r.ok and r.reason == "started", "niveaux : chantier de la machine d'assemblage lance", tostring(r.reason))
+    check(cc2 ~= nil and st.cc_level == 2, "niveaux : centre de commandement niveau 2", "niveau " .. st.cc_level)
+    local n = cc2 and cc2.get_inventory(defines.inventory.chest).get_item_count("iron-chest") or 0
+    check(n == L.chest_marker, "niveaux : le stock du centre suit le remplacement", n .. " coffres")
     local gc = at(s, LV.name(G, 2), L.gc.x, L.gc.y)
-    r = call("levels_upgrade", gc)
-    check(not r.ok and r.reason == "no-builder", "niveaux : centre niveau 2 = toujours 1 ouvrier", tostring(r.reason))
-    L.phase = 3
-  elseif L.phase == 3 and tick == 900 then
-    local am = at(s, LV.name(A, 2), L.am.x, L.am.y)
-    check(am ~= nil, "niveaux : machine d'assemblage niveau 2")
-    if am then
-      local rec = am.get_recipe()
-      check(rec and rec.name == "iron-gear-wheel", "niveaux : recette conservee", rec and rec.name or "aucune")
-      local plates = am.get_inventory(defines.inventory.assembling_machine_input).get_item_count("iron-plate")
-      local gears = am.get_inventory(defines.inventory.assembling_machine_output).get_item_count("iron-gear-wheel")
-      check(plates + 2 * gears >= 38, "niveaux : contenu conserve (plaques et engrenages)", plates .. " plaques, " .. gears .. " engrenages")
-    end
-    local gc = at(s, LV.name(G, 2), L.gc.x, L.gc.y)
-    local r = call("levels_upgrade", gc)
-    check(r.ok and r.reason == "started", "niveaux : niveau 3 autorise avec un centre niveau 2", tostring(r.reason))
-    L.phase = 4
-  elseif L.phase == 4 and tick == 1500 then
-    check(at(s, LV.name(G, 3), L.gc.x, L.gc.y) ~= nil, "niveaux : tourelle niveau 3")
-    local st = call("levels_status", "player")
-    check(st.fallback == 0, "niveaux : remplacement rapide du moteur (aucun secours manuel)", st.upgrades .. " chantiers, " .. st.instant .. " instantanes")
+    r = gc and call("levels_upgrade", gc) or { reason = "tourelle introuvable" }
+    check(r.ok and r.reason == "done" and at(s, LV.name(G, 3), L.gc.x, L.gc.y) ~= nil,
+      "niveaux : niveau 3 avec un centre niveau 2", tostring(r.reason))
+    st = call("levels_status", "player")
+    check(st.fallback == 0, "niveaux : remplacement rapide du moteur (aucun secours manuel)", st.upgrades .. " ameliorations")
+    -- Compte exact : 2 mitrailleuses, 5 murs, 1 machine (installation), mitrailleuse et centre de la force Q16,
+    -- puis centre et mitrailleuse C ici = 12 améliorations, toutes instantanées.
+    check(st.upgrades == 12, "niveaux : 12 ameliorations comptees, toutes instantanees", st.upgrades .. " ameliorations")
     L.phase = 5
   elseif L.phase == 5 and tick == 1510 then
     setup_high_epoch(s, L)
     L.phase = 6
   elseif L.phase == 6 and tick == 1545 then
-    -- Chantiers du niveau 28 terminés (durées × 0,001 : moins de 30 ticks).
     local H = L.hi
     local up, missing = 0, {}
-    for _, b in ipairs(H.jobs) do
-      if at(s, LV.name(LV.by_key[b.key], 28), b.x, b.y) then up = up + 1 else missing[#missing + 1] = b.key end
+    for _, b in ipairs({ { "gun", H.gun2, 28 }, { "laser", H.la, 28 }, { "drill", H.dr, 28 }, { "furnace", H.fu, 28 },
+                         { "assembler", H.am, 28 }, { "gun", H.gun, 30 } }) do
+      local e = at(s, LV.name(LV.by_key[b[1]], b[3]), b[2].x, b[2].y)
+      if e and e.active then up = up + 1 else missing[#missing + 1] = b[1] end
     end
-    check(up == 5, "niveaux (epoque 14) : 5 batiments au niveau 28", #missing > 0 and ("manquent " .. table.concat(missing, ", ")) or nil)
-    local g = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
-    if g then
-      local ammo = g.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine")
-      check(ammo == 10, "niveaux (epoque 14) : munitions conservees au niveau 28", ammo .. " chargeurs")
-      check(math.abs(g.get_health_ratio() - 0.5) < 0.01, "niveaux (epoque 14) : sante conservee en proportion",
-        string.format("%.0f / %.0f PV", g.health, g.prototype.max_health))
-    else
-      fail("niveaux (epoque 14) : munitions conservees au niveau 28", "tourelle introuvable")
-      fail("niveaux (epoque 14) : sante conservee en proportion", "tourelle introuvable")
-    end
-    local am = at(s, LV.name(A, 28), H.am.x, H.am.y)
-    local rec = am and am.get_recipe()
-    check(rec and rec.name == "iron-gear-wheel", "niveaux (epoque 14) : recette conservee au niveau 28", rec and rec.name or "aucune")
-    local fu = at(s, LV.name(LV.by_key.furnace, 28), H.fu.x, H.fu.y)
-    local ore = fu and fu.get_item_count("iron-ore") or 0
-    check(ore == 20, "niveaux (epoque 14) : contenu du four conserve au niveau 28", ore .. " minerais")
-    local st = call("levels_status", H.force)
-    check(st.busy == 0, "niveaux (epoque 14) : 5 ouvriers liberes", "occupes " .. st.busy)
-    -- Centre 14 → 15 : le coût tient-il VRAIMENT dans le coffre (piles réelles) ? Puis le chantier.
-    local cc = at(s, LV.name(C, 14), H.cc.x, H.cc.y)
-    local inv = cc and cc.get_inventory(defines.inventory.chest)
-    local all_in = inv and stock(inv, C, 15, 1) or false
-    check(all_in, "niveaux (epoque 14) : cout du centre 15 range dans le coffre du centre 14",
-      inv and (#inv - inv.count_empty_stacks() .. " / " .. #inv .. " cases occupees") or "centre introuvable")
-    local r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
-    check(r.ok and r.reason == "started", "niveaux (epoque 14) : chantier du centre 14 -> 15 lance", tostring(r.reason))
-    L.phase = 7
-  elseif L.phase == 7 and tick == 1785 then
-    local H = L.hi
-    local st = call("levels_status", H.force)
-    local cc = at(s, LV.name(C, 15), H.cc.x, H.cc.y)
-    check(cc ~= nil and st.cc_level == 15, "niveaux : centre de commandement niveau 15 (epoque Legende)", "niveau " .. st.cc_level)
-    local n = cc and cc.get_inventory(defines.inventory.chest).get_item_count("iron-chest") or 0
-    check(n == 7, "niveaux (epoque 15) : le stock du centre suit le remplacement", n .. " coffres")
-    local g = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
-    if cc and g then stock(cc.get_inventory(defines.inventory.chest), G, 29, 1) end
-    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
-    check(r.ok and r.reason == "started", "niveaux (epoque 15) : mitrailleuse 28 -> 29 lancee", tostring(r.reason))
-    L.phase = 8
-  elseif L.phase == 8 and tick == 1815 then
-    local H = L.hi
-    local g = at(s, LV.name(G, 29), H.gun.x, H.gun.y)
-    check(g ~= nil, "niveaux (epoque 15) : mitrailleuse niveau 29")
-    local cc = at(s, LV.name(C, 15), H.cc.x, H.cc.y)
-    if cc and g then stock(cc.get_inventory(defines.inventory.chest), G, 30, 1) end
-    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
-    check(r.ok and r.reason == "started", "niveaux (epoque 15) : mitrailleuse 29 -> 30 lancee", tostring(r.reason))
-    L.phase = 9
-  elseif L.phase == 9 and tick == 1845 then
-    local H = L.hi
-    local g = at(s, LV.name(G, 30), H.gun.x, H.gun.y)
-    local ammo = g and g.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") or 0
-    check(g ~= nil and ammo == 10, "niveaux (epoque 15) : mitrailleuse niveau 30, munitions conservees", ammo .. " chargeurs")
-    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
-    check(not r.ok and r.reason == "max", "niveaux (epoque 15) : niveau 30 = maximum", tostring(r.reason))
-    local st = call("levels_status", H.force)
-    check(st.fallback == 0, "niveaux (epoques 14-15) : remplacement rapide du moteur partout (aucun secours manuel)",
-      st.upgrades .. " chantiers, " .. st.instant .. " instantanes")
+    check(up == 6, "niveaux (epoque 15) : batiments ameliores toujours en place et en service 35 ticks plus tard",
+      #missing > 0 and ("manquent " .. table.concat(missing, ", ")) or nil)
     L.phase = 10
   end
 end
