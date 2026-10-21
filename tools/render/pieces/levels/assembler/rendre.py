@@ -1,0 +1,270 @@
+"""Pilote des rendus d'aperçu de la machine d'assemblage 2 (lot V3, phase 1). Python système (numpy, Pillow).
+
+    python -P tools/render/pieces/levels/assembler/rendre.py [--levels 2-30] [--samples 48] [--mode complet|masque]
+
+- CHAQUE appel à Blender passe par le verrou de rendu (tools/render/with_render_lock.py : 2 rendus au plus sur le PC,
+  priorité basse) ; un appel par niveau, pour laisser passer les autres familles entre deux niveaux.
+- Post-traitement par les fonctions de V0 (tools/render/fo_post.py, inchangé) : liseré de contact sous la couche
+  principale, ombre noire, lueur et halo additifs, recadrage sur la grille paire, version 32 px/tuile.
+- Niveau 2 : la pièce est masquée au pixel par l'alpha du sprite vanilla (image 0), comme la variante « four » de V0.
+- Halo : borné par des fenêtres autour des sources, puis ramené au maximum visé au sol (params.halo_cible).
+- Sorties (ignorées par git) : tools/render/out/levels/assembler/nNN/*.png et nNN.json ; caches effacés après usage.
+- Mode complet : écrit aussi le manifeste tools/render/manifests/levels-assembler.json.
+"""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+import numpy as np
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RENDER = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
+MOD_ROOT = os.path.dirname(os.path.dirname(RENDER))
+sys.path.insert(0, RENDER)
+sys.path.insert(0, HERE)
+import fo_blender  # noqa: E402
+import fo_calib as C  # noqa: E402
+import fo_post as P  # noqa: E402
+import params  # noqa: E402
+
+DATA = os.environ.get("FO_DATA", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
+OUT = os.path.join(RENDER, "out", "levels", params.FAMILLE)
+CACHE = os.path.join(RENDER, "cache", "levels", params.FAMILLE)
+MANIFEST = os.path.join(RENDER, "manifests", "levels-%s.json" % params.FAMILLE)
+ENTRY = os.path.join(HERE, "blender_entry.py")
+LOCK = os.path.join(RENDER, "with_render_lock.py")
+LAYERS = ("main", "shadow", "glow", "light")
+
+
+def parse_levels(s):
+    out = []
+    for part in s.split(","):
+        if "-" in part:
+            a, b = part.split("-")
+            out += list(range(int(a), int(b) + 1))
+        elif part:
+            out.append(int(part))
+    return [n for n in out if 2 <= n <= 30]
+
+
+def vanilla_frame_alpha(key):
+    v = params.VANILLA[key]
+    im = np.asarray(Image.open(os.path.join(DATA, "base", "graphics", "entity", v["file"])).convert("RGBA"))
+    w, h = v["frame"]
+    return im[:h, :w, 3].astype(np.float64) / 255.0, v["shift"]
+
+
+def place(canvas_shape, origin, alpha, shift, ppt):
+    h, w = alpha.shape
+    H, W = canvas_shape
+    out = np.zeros((H, W))
+    x0 = origin[0] + shift[0] * ppt - w / 2.0
+    y0 = origin[1] + shift[1] * ppt - h / 2.0
+    xi, yi = int(round(x0)), int(round(y0))
+    if abs(x0 - xi) > 1e-6 or abs(y0 - yi) > 1e-6:
+        raise ValueError("masque vanilla hors grille (%.3f, %.3f)" % (x0, y0))
+    xs0, ys0, xd0, yd0 = max(0, -xi), max(0, -yi), max(0, xi), max(0, yi)
+    ww, hh = min(w - xs0, W - xd0), min(h - ys0, H - yd0)
+    if ww > 0 and hh > 0:
+        out[yd0:yd0 + hh, xd0:xd0 + ww] = alpha[ys0:ys0 + hh, xs0:xs0 + ww]
+    return out
+
+
+def blender_call(ns, samples, mode, cdir, log):
+    """Un appel Blender (un passage par le verrou) pour un lot de niveaux."""
+    cmd = [sys.executable, LOCK, "--", fo_blender.blender_exe(), "-b", "--factory-startup", "-noaudio", "-P", ENTRY,
+           "--", "--levels", ",".join(str(n) for n in ns), "--out", cdir, "--samples", str(samples), "--mode", mode]
+    t0 = time.time()
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    with open(log, "a", encoding="utf-8") as f:
+        f.write(" ".join(cmd) + "\n" + p.stdout[-3000:] + p.stderr[-3000:] + "\n")
+    if p.returncode != 0 or "[FO-RENDER]" not in p.stdout:
+        raise RuntimeError("échec du rendu du niveau %d (code %s) :\n%s\n%s" % (n, p.returncode, p.stdout[-2500:],
+                                                                                p.stderr[-2500:]))
+    return time.time() - t0
+
+
+def light_layer(li, info, n, main_alpha):
+    origin = info["origin_px"]
+    lay = P.additive_layer(li)
+    best = None
+    for w in info["halo"]:
+        dx, dy, z = w["at"]
+        u, v = C.blender_to_screen_px(0.0, 0.0, z)
+        center = (origin[0] + dx * 64.0 + u, origin[1] + dy * 64.0 + v)
+        wl = P.radial_window(lay, center, w["r"][0] * 64.0, w["r"][1] * 64.0)
+        best = wl if best is None else np.concatenate([wl[..., :3], np.maximum(best[..., 3:], wl[..., 3:])], -1)
+    out = P.floor_alpha(P.fade_edges(best))
+    ground = (main_alpha < 0.5) & (out[..., 3] > 0)
+    if ground.any():
+        ref = float(np.percentile(out[..., 3][ground], 99.5))
+        if ref > 1e-4:
+            f = float(np.clip(params.halo_cible(n) / ref, 0.25, 3.0))
+            out[..., 3] = np.clip(out[..., 3] * f, 0, 1)
+    return P.floor_alpha(out)
+
+
+def post_level(n, cdir, odir):
+    with open(os.path.join(cdir, "n%02d-render.json" % n), encoding="utf-8") as f:
+        info = json.load(f)
+
+    def npy(layer):
+        p = os.path.join(cdir, "n%02d-%s.npy" % (n, layer))
+        return np.load(p).astype(np.float64) if os.path.exists(p) else None
+
+    origin = tuple(info["origin_px"])
+    hr = {"main": P.compose_main(npy("main"), npy("ao"), C), "shadow": P.shadow_layer(npy("shadow"))}
+    g = npy("glow")
+    if g is not None:
+        hr["glow"] = P.additive_layer(g)
+    li = npy("light")
+    if li is not None:
+        hr["light"] = light_layer(li, info, n, hr["main"][..., 3])
+    raw = dict(hr)
+    masked = n == 2
+    if masked:
+        a_hr, sh_hr = vanilla_frame_alpha("main")
+        m_hr = place(hr["main"].shape[:2], origin, a_hr, sh_hr, 64)
+        for k in ("main", "glow"):
+            if k in hr:
+                hr[k] = P.mask_with(hr[k], m_hr)
+    name = "%s-n%02d" % (params.FAMILLE, n)
+    os.makedirs(odir, exist_ok=True)
+    files, spec = {}, {}
+    for layer in LAYERS:
+        if layer not in hr:
+            continue
+        box = P.trim_box(hr[layer], origin)
+        if box is None:
+            continue
+        x0, y0, x1, y1 = box
+        crop_hr = hr[layer][y0:y1, x0:x1]
+        src = raw[layer][y0:y1, x0:x1]
+        crop_lr = P.downsample2_additive(src) if layer in ("glow", "light") else P.downsample2(src)
+        if masked and layer in ("main", "glow"):
+            a_lr, sh_lr = vanilla_frame_alpha("main_lr")
+            lr_origin = ((origin[0] - x0) / 2.0, (origin[1] - y0) / 2.0)
+            crop_lr = P.mask_with(crop_lr, place(crop_lr.shape[:2], lr_origin, a_lr, sh_lr, 32))
+        fn_hr, fn_lr = "hr-%s-%s.png" % (name, layer), "%s-%s.png" % (name, layer)
+        files[fn_hr] = P.write_png(crop_hr, os.path.join(odir, fn_hr))
+        files[fn_lr] = P.write_png(crop_lr, os.path.join(odir, fn_lr))
+        spec[layer] = {"hr": dict(P.sprite_def(box, origin, 64), filename=fn_hr),
+                       "lr": dict(P.sprite_def(box, origin, 32), filename=fn_lr)}
+    icon = P.icon_strip(hr["main"])
+    files["%s-icon.png" % name] = P.write_png(icon, os.path.join(odir, "%s-icon.png" % name))
+    rec = {"level": n, "epoch": params.epoque(n), "spec": spec, "files": files, "modules": info["modules"],
+           "halo_windows": info["halo"], "masked_by_vanilla": masked,
+           "render": {k: info[k] for k in ("canvas", "origin_px", "samples", "seed", "threads", "blender",
+                                           "blender_hash", "objects", "seconds", "t")}}
+    with open(os.path.join(odir, "n%02d.json" % n), "w", encoding="utf-8") as f:
+        json.dump(rec, f, indent=1, sort_keys=True)
+    return rec
+
+
+def post_mask(n, cdir, odir):
+    with open(os.path.join(cdir, "n%02d-render.json" % n), encoding="utf-8") as f:
+        info = json.load(f)
+    a = np.load(os.path.join(cdir, "n%02d-main.npy" % n))[..., 3]
+    if n == 2:
+        a_hr, sh_hr = vanilla_frame_alpha("main")
+        a = a * (1 - place(a.shape, tuple(info["origin_px"]), a_hr, sh_hr, 64))
+    os.makedirs(odir, exist_ok=True)
+    Image.fromarray(np.clip(np.round(a * 255), 0, 255).astype(np.uint8), "L").save(
+        os.path.join(odir, "masque-n%02d.png" % n))
+    with open(os.path.join(odir, "masque-n%02d.json" % n), "w", encoding="utf-8") as f:
+        json.dump({"origin_px": info["origin_px"], "canvas": info["canvas"]}, f)
+
+
+def write_manifest(recs, samples, seconds):
+    levels = []
+    for n in range(1, 31):
+        e = params.epoque(n)
+        E = params.EPOQUES[e]
+        ent = {"level": n, "epoch": e, "theme": E["theme"], "era": E["ere"],
+               "kind": "vanilla" if n == 1 else ("piece" if n % 2 == 0 else "silhouette"),
+               "silhouette": E["impair"], "piece": E["piece"] if n % 2 == 0 else None,
+               "light": E["lumiere"], "emissive": E["emissif"], "night_only": E["nuit_seule"],
+               "envelope": {"O": params.ENVELOPPE[e][0], "L": params.ENVELOPPE[e][1], "V_pct": params.ENVELOPPE[e][2]}}
+        if n == 1:
+            ent["layers"] = {k: v for k, v in params.VANILLA.items()}
+            ent["note"] = "sprite vanilla inchangé (Q11) : aucune image produite"
+        elif n in recs:
+            r = recs[n]
+            ent["layers"] = r["spec"]
+            ent["modules"] = r["modules"]
+            ent["files_sha256"] = r["files"]
+            ent["halo_windows"] = r["halo_windows"]
+            ent["render"] = r["render"]
+            if n == 2:
+                ent["base"] = "vanilla (couches du niveau 1) + pièce masquée au pixel par l'alpha vanilla (image 0)"
+            elif n % 2 == 0:
+                ent["base"] = "niveau %d + pièce (module « piece » : couche séparée en phase 2)" % (n - 1)
+        levels.append(ent)
+    man = {
+        "family": params.FAMILLE, "name": params.NOM, "footprint": params.EMPRISE, "ceiling_O": params.PLAFOND_O,
+        "status": "APERÇU phase 1 (échantillons réduits) : ni rendu final, ni branchement en jeu",
+        "dest_preview": os.path.relpath(OUT, MOD_ROOT).replace("\\", "/"),
+        "conventions": {"hr_px_per_tile": 64, "hr_scale": 0.5, "lr_px_per_tile": 32,
+                        "shift": "tuiles, multiples exacts de 1/64, relatifs à la position de l'entité",
+                        "layers": {"main": "couche principale (liseré de contact compris)",
+                                   "shadow": "draw_as_shadow (noir, alpha = part d'ombre)",
+                                   "glow": "draw_as_glow, blend additive (RGB = c/max, A = max)",
+                                   "light": "draw_as_light, blend additive (halo de nuit)"},
+                        "animation": "phase 1 : pose de référence seule (image 0, t = 0) ; phase 2 : corps fixe "
+                                     "rendu une fois + mécanisme (module meca) en 32 images, corps en cache"},
+        "preview_render": {"samples": samples, "seconds_total": round(seconds, 1),
+                           "blender": C.BLENDER_VERSION, "calib": {k: getattr(C, k) for k in dir(C) if k.isupper()}},
+        "sources": {"modeles": "tools/render/pieces/levels/assembler/modeles.py",
+                    "kit": "tools/render/pieces/levels/assembler/kit.py",
+                    "params": "tools/render/pieces/levels/assembler/params.py"},
+        "levels": levels,
+    }
+    os.makedirs(os.path.dirname(MANIFEST), exist_ok=True)
+    with open(MANIFEST, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(man, f, indent=1, ensure_ascii=False, sort_keys=False)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--levels", default="2-30")
+    ap.add_argument("--samples", type=int, default=48)
+    ap.add_argument("--mode", default="complet", choices=("complet", "masque"))
+    ap.add_argument("--batch", type=int, default=6, help="niveaux par appel Blender (un passage par le verrou)")
+    ap.add_argument("--no-manifest", action="store_true")
+    a = ap.parse_args()
+    levels = parse_levels(a.levels)
+    os.makedirs(CACHE, exist_ok=True)
+    log = os.path.join(CACHE, "blender.log")
+    t0 = time.time()
+    recs = {}
+    for i in range(0, len(levels), a.batch):
+        ns = levels[i:i + a.batch]
+        cdir = os.path.join(CACHE, "lot")
+        shutil.rmtree(cdir, ignore_errors=True)
+        dt = blender_call(ns, a.samples, a.mode, cdir, log)
+        for n in ns:
+            if a.mode == "masque":
+                post_mask(n, cdir, os.path.join(OUT, "masques"))
+            else:
+                recs[n] = post_level(n, cdir, os.path.join(OUT, "n%02d" % n))
+        shutil.rmtree(cdir, ignore_errors=True)
+        print("[FO-NIVEAU] %s %s en %.1f s (attente du verrou comprise)" % (ns, a.mode, dt), flush=True)
+    if a.mode == "complet" and not a.no_manifest:
+        for n in range(2, 31):
+            if n not in recs:
+                p = os.path.join(OUT, "n%02d" % n, "n%02d.json" % n)
+                if os.path.exists(p):
+                    with open(p, encoding="utf-8") as f:
+                        recs[n] = json.load(f)
+        write_manifest(recs, a.samples, time.time() - t0)
+    print("[FO-RENDU] %d niveau(x) en %.1f s" % (len(levels), time.time() - t0))
+
+
+if __name__ == "__main__":
+    main()
