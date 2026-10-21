@@ -512,8 +512,10 @@ local function test_walls(s, S)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Niveaux (session 5) : prototypes, statistiques croissantes, bonus de recherche, chantiers réels,
--- galerie des 10 niveaux de chaque famille pour la revue visuelle.
+-- Niveaux (session 5 ; 15 époques depuis le lot V2) : prototypes (centre 15 niveaux, autres 30),
+-- statistiques croissantes, groupes de remplacement, bonus de recherche à tous les niveaux, objets de coût des
+-- 15 époques, tailles de pile et PLACE dans le coffre du centre payeur, chantiers réels (époques 1-2, puis
+-- époque 14 : 5 ouvriers, plafond 28, centre 14 → 15, niveau 29 → 30), galerie de tous les niveaux.
 ---------------------------------------------------------------------------------------------------
 local function proto_stat(p, key)
   if key == "max_health" then return p.max_health end
@@ -527,12 +529,16 @@ local function proto_stat(p, key)
 end
 
 local function test_level_prototypes()
-  local missing, bad_item = {}, {}
+  local missing, bad_item, bad_group = {}, {}, {}
+  local expected = 0
   for _, f in ipairs(LV.families) do
     local prev = {}
     local growing = true
     local detail = {}
-    for n = 1, LV.MAX do
+    local p1 = game.entity_prototypes[LV.name(f, 1)]
+    local group = p1 and p1.fast_replaceable_group
+    for n = 1, f.max do
+      expected = expected + 1
       local name = LV.name(f, n)
       local p = game.entity_prototypes[name]
       if not p then
@@ -541,30 +547,83 @@ local function test_level_prototypes()
         local item = game.item_prototypes[name]
         if not (item and item.place_result and item.place_result.name == name) then bad_item[#bad_item + 1] = name end
         if p.mineable_properties.products[1].name ~= name then bad_item[#bad_item + 1] = name .. " (minage)" end
+        -- F39 : sans groupe commun, le moteur refuse le remplacement rapide d'un niveau par le suivant.
+        if not group or p.fast_replaceable_group ~= group then bad_group[#bad_group + 1] = name .. "=" .. tostring(p.fast_replaceable_group) end
         for _, st in ipairs(f.stats) do
           local key = st.path[#st.path]
           local v = proto_stat(p, key)
           if v then
             if prev[key] and not (v > prev[key]) then growing = false end
             prev[key] = v
-            if n == 1 or n == LV.MAX then detail[#detail + 1] = key .. "=" .. string.format("%.3g", v) end
+            if n == 1 or n == f.max then detail[#detail + 1] = key .. "=" .. string.format("%.3g", v) end
           end
         end
       end
     end
-    check(growing, "niveaux " .. f.key .. " : statistiques strictement croissantes de 1 a 10", table.concat(detail, " "))
+    check(growing, "niveaux " .. f.key .. " : statistiques strictement croissantes de 1 a " .. f.max, table.concat(detail, " "))
   end
-  check(#missing == 0, "niveaux : 70 prototypes presents", #missing > 0 and table.concat(missing, ", ") or nil)
+  check(#missing == 0, "niveaux : " .. expected .. " prototypes presents (centre 15, autres familles 30)",
+    #missing > 0 and table.concat(missing, ", ") or nil)
   check(#bad_item == 0, "niveaux : chaque niveau a son objet (pose et minage rendent le meme niveau)",
     #bad_item > 0 and table.concat(bad_item, ", ") or nil)
+  check(#bad_group == 0, "niveaux : meme groupe de remplacement rapide que le niveau 1, a tous les niveaux (F39)",
+    #bad_group > 0 and table.concat(bad_group, ", ") or (expected .. " prototypes"))
+  -- F21 : les bonus de recherche des tourelles sont attachés au NOM ; chaque niveau doit les recevoir.
   local force = game.forces.player
-  local m1, m10 = force.get_turret_attack_modifier("gun-turret"), force.get_turret_attack_modifier(LV.name(LV.by_key.gun, 10))
-  check(m1 > 0 and math.abs(m1 - m10) < 1e-6, "niveaux : bonus de recherche des tourelles herites",
-    string.format("mitrailleuse %.2f, niveau 10 %.2f", m1, m10))
+  local bad_f21 = {}
+  for _, f in ipairs({ LV.by_key.gun, LV.by_key.laser }) do
+    local m1 = force.get_turret_attack_modifier(f.base)
+    for n = 2, f.max do
+      local mn = force.get_turret_attack_modifier(LV.name(f, n))
+      if math.abs(m1 - mn) > 1e-6 then bad_f21[#bad_f21 + 1] = string.format("%s=%.2f/%.2f", LV.name(f, n), mn, m1) end
+    end
+  end
+  local mg = force.get_turret_attack_modifier("gun-turret")
+  check(mg > 0 and #bad_f21 == 0, "niveaux : bonus de recherche des tourelles herites aux niveaux 2 a 30 (F21)",
+    #bad_f21 > 0 and table.concat(bad_f21, ", ") or string.format("mitrailleuse %.2f a tous les niveaux", mg))
+  -- Lot V2 : chaque objet de coût des 15 époques (table d'indirection) existe dans le jeu chargé.
+  local items, unknown, prov = LV.cost_items(), {}, {}
+  for _, item in ipairs(items) do
+    if not game.item_prototypes[item] then unknown[#unknown + 1] = item end
+  end
+  for _, m in ipairs(LV.provisional_materials()) do prov[#prov + 1] = m.epoch .. "=" .. m.item end
+  check(#unknown == 0, "niveaux : objets de cout des 15 epoques presents en jeu",
+    #unknown > 0 and table.concat(unknown, ", ") or (#items .. " objets ; provisoires " .. table.concat(prov, " ")))
+  -- Tailles de pile : le miroir de la config (règle de place testée hors jeu) est celui du jeu.
+  local stacks, bad_stack = {}, {}
+  for _, item in ipairs(items) do
+    local ip = game.item_prototypes[item]
+    stacks[item] = ip and ip.stack_size or 1
+    if not ip or ip.stack_size ~= LV.stack_size[item] then
+      bad_stack[#bad_stack + 1] = item .. "=" .. tostring(ip and ip.stack_size) .. "/" .. tostring(LV.stack_size[item])
+    end
+  end
+  check(#bad_stack == 0, "niveaux : tailles de pile des objets de cout conformes a la config",
+    #bad_stack > 0 and table.concat(bad_stack, ", ") or nil)
+  -- PLACE : chaque chantier tient dans la moitié du coffre du centre qui le paie (piles et coffres du jeu).
+  local C = LV.by_key.command
+  local too_big, worst, worst_txt = {}, 0, ""
+  for _, f in ipairs(LV.families) do
+    for n = 2, f.max do
+      local cp = game.entity_prototypes[LV.name(C, LV.payer_cc(f, n))]
+      local chest = cp and cp.get_inventory_size(defines.inventory.chest) or 0
+      local slots = LV.cost_slots(LV.cost(f, n), stacks)
+      if slots > LV.MAX_SLOT_SHARE * chest then too_big[#too_big + 1] = f.key .. n .. "=" .. slots .. "/" .. chest end
+      if chest > 0 and slots / chest > worst then worst, worst_txt = slots / chest, f.key .. " " .. n .. " : " .. slots .. "/" .. chest end
+    end
+  end
+  check(#too_big == 0, "niveaux : chaque chantier tient dans la moitie du coffre du centre payeur",
+    #too_big > 0 and table.concat(too_big, ", ") or ("pire " .. worst_txt))
 end
 
+--- Range `times` fois le coût du niveau n ; renvoie true si TOUT est entré (coffre réel, piles réelles).
 local function stock(inv, family, n, times)
-  for _, c in ipairs(LV.cost(family, n)) do inv.insert({ name = c[1], count = c[2] * (times or 1) }) end
+  local all = true
+  for _, c in ipairs(LV.cost(family, n)) do
+    local want = c[2] * (times or 1)
+    if inv.insert({ name = c[1], count = want }) < want then all = false end
+  end
+  return all
 end
 
 local function at(s, name, x, y)
@@ -625,7 +684,7 @@ local function setup_levels(s, S)
   power_grid(s, x0 + 41, y0 - 1, x0 + 47, y0 + 5)
   S.lv.phase = 1
 
-  -- Galerie : les 10 niveaux de chaque famille, une rangée par famille.
+  -- Galerie : tous les niveaux de chaque famille (centre 15, autres 30), une rangée par famille.
   local gx, gy = S.gx0, S.gy0
   S.gallery = {}
   local gaps = {}
@@ -633,7 +692,7 @@ local function setup_levels(s, S)
   for _, f in ipairs(LV.families) do
     local step = (f.key == "wall") and 5 or (f.size + 3)
     local y = row_y + f.size / 2
-    for n = 1, LV.MAX do
+    for n = 1, f.max do
       local x = gx + (n - 1) * step + f.size / 2
       if f.key == "wall" then
         for k = -1, 1 do s.create_entity({ name = LV.name(f, n), position = { x + k, y }, force = "player" }) end
@@ -644,7 +703,7 @@ local function setup_levels(s, S)
         s.create_entity({ name = LV.name(f, n), position = { x, y }, force = "player", raise_built = false })
       end
     end
-    S.gallery[#S.gallery + 1] = { key = f.key, x1 = gx + f.size / 2, step = step, y = y, size = f.size }
+    S.gallery[#S.gallery + 1] = { key = f.key, x1 = gx + f.size / 2, step = step, y = y, size = f.size, levels = f.max }
     gaps[#gaps + 1] = row_y + f.size + 2
     row_y = row_y + f.size + 4
   end
@@ -653,7 +712,7 @@ local function setup_levels(s, S)
   local prev_row
   for _, gy_ in ipairs(gaps) do
     local row = {}
-    for x = gx + 0.5, gx + 75, 5 do
+    for x = gx + 0.5, gx + 180, 5 do
       local p = s.create_entity({ name = "small-electric-pole", position = { x, gy_ - 0.5 }, force = "player" })
       if row[#row] then p.connect_neighbour(row[#row]) end
       if prev_row and #row == 0 then p.connect_neighbour(prev_row[1]) end
@@ -662,6 +721,74 @@ local function setup_levels(s, S)
     prev_row = row
   end
   energy_interface(s, gx - 1, gaps[1])
+end
+
+-- Époque 14 (lot V2) : force à part au centre 14, un bâtiment de chaque famille au niveau 27, chantiers
+-- vers le 28 avec 5 ouvriers, plafond, puis centre 14 → 15 et mitrailleuse 28 → 30 (phases 6 à 9).
+local function setup_high_epoch(s, L)
+  local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
+  local G, C, A, Wl = LV.by_key.gun, LV.by_key.command, LV.by_key.assembler, LV.by_key.wall
+  -- Chantiers × 0,001 : niveau 28 en moins de 30 ticks, centre 15 (1 h) en 216 ticks.
+  call("levels_time_factor", 0.001)
+  local hi = game.forces["fo-lv-hi"] or game.create_force("fo-lv-hi")
+  for _, other in ipairs({ "player", "enemy" }) do
+    hi.set_cease_fire(other, true)
+    game.forces[other].set_cease_fire(hi, true)
+  end
+  local y = 131
+  local H = { force = hi.name, cc = { x = 402, y = y }, gun = { x = 410, y = y }, la = { x = 414, y = y },
+              dr = { x = 419.5, y = y + 0.5 }, fu = { x = 425, y = y }, am = { x = 430.5, y = y + 0.5 },
+              gun2 = { x = 436, y = y }, g28 = { x = 440, y = y }, jobs = {} }
+  L.hi = H
+  local cc = s.create_entity({ name = LV.name(C, 14), position = H.cc, force = hi, raise_built = true })
+  local st = call("levels_status", hi.name)
+  check(cc and st.cc_level == 14 and LV.builders(st.cc_level) == 5, "niveaux (epoque 14) : centre 14 enregistre, 5 ouvriers",
+    "niveau " .. st.cc_level)
+  if not cc then return end
+  local inv = cc.get_inventory(defines.inventory.chest)
+  inv.insert({ name = "iron-chest", count = 7 })
+  local all_in = true
+  for _, key in ipairs({ "gun", "laser", "drill", "furnace", "assembler" }) do
+    all_in = stock(inv, LV.by_key[key], 28, 1) and all_in
+  end
+  all_in = stock(inv, Wl, 28, 3) and all_in
+  check(all_in, "niveaux (epoque 14) : couts du niveau 28 (5 familles et 3 murs) ranges dans le coffre du centre 14",
+    (#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees")
+  local function put(key, pos, n)
+    return s.create_entity({ name = LV.name(LV.by_key[key], n or 27), position = pos, force = hi })
+  end
+  local g = put("gun", H.gun)
+  g.insert({ name = "uranium-rounds-magazine", count = 10 })
+  g.health = g.prototype.max_health / 2
+  put("laser", H.la)
+  for dx = -1, 1 do for dy = -1, 1 do s.create_entity({ name = "iron-ore", position = { H.dr.x + dx, H.dr.y + dy }, amount = 5000 }) end end
+  put("drill", H.dr)
+  local fu = put("furnace", H.fu)
+  fu.insert({ name = "iron-ore", count = 20 })
+  local am = put("assembler", H.am)
+  am.set_recipe("iron-gear-wheel")
+  H.jobs = { { key = "gun", x = H.gun.x, y = H.gun.y }, { key = "laser", x = H.la.x, y = H.la.y },
+             { key = "drill", x = H.dr.x, y = H.dr.y }, { key = "furnace", x = H.fu.x, y = H.fu.y },
+             { key = "assembler", x = H.am.x, y = H.am.y } }
+  local started = 0
+  for _, b in ipairs(H.jobs) do
+    local r = call("levels_upgrade", at(s, LV.name(LV.by_key[b.key], 27), b.x, b.y))
+    if r.ok and r.reason == "started" then started = started + 1 end
+  end
+  st = call("levels_status", hi.name)
+  check(started == 5 and st.busy == 5, "niveaux (epoque 14) : 5 chantiers simultanes", started .. " lances, " .. st.busy .. " occupes")
+  local r = call("levels_upgrade", put("gun", H.gun2))
+  check(not r.ok and r.reason == "no-builder", "niveaux (epoque 14) : le 6e chantier attend (5 ouvriers)", tostring(r.reason))
+  r = call("levels_upgrade", cc)
+  check(not r.ok and r.reason == "no-builder", "niveaux (epoque 14) : le centre attend aussi un ouvrier", tostring(r.reason))
+  r = call("levels_upgrade", put("gun", H.g28, 28))
+  check(not r.ok and r.reason == "cc-too-low", "niveaux (epoque 14) : niveau 29 refuse avec un centre 14 (plafond 28)", tostring(r.reason))
+  -- Murs : rangée de 3 au niveau 27, instantanée (sans ouvrier).
+  for i = 0, 2 do s.create_entity({ name = LV.name(Wl, 27), position = { 445.5 + i, y + 0.5 }, force = hi }) end
+  local nw = call("levels_row", at(s, LV.name(Wl, 27), 446.5, y + 0.5))
+  local walls = 0
+  for i = 0, 2 do if at(s, LV.name(Wl, 28), 445.5 + i, y + 0.5) then walls = walls + 1 end end
+  check(nw == 3 and walls == 3, "niveaux (epoque 14) : rangee de 3 murs au niveau 28, sans ouvrier", nw .. " / " .. walls)
 end
 
 local function tick_levels(s, S, tick)
@@ -719,6 +846,76 @@ local function tick_levels(s, S, tick)
     local st = call("levels_status", "player")
     check(st.fallback == 0, "niveaux : remplacement rapide du moteur (aucun secours manuel)", st.upgrades .. " chantiers, " .. st.instant .. " instantanes")
     L.phase = 5
+  elseif L.phase == 5 and tick == 1510 then
+    setup_high_epoch(s, L)
+    L.phase = 6
+  elseif L.phase == 6 and tick == 1545 then
+    -- Chantiers du niveau 28 terminés (durées × 0,001 : moins de 30 ticks).
+    local H = L.hi
+    local up, missing = 0, {}
+    for _, b in ipairs(H.jobs) do
+      if at(s, LV.name(LV.by_key[b.key], 28), b.x, b.y) then up = up + 1 else missing[#missing + 1] = b.key end
+    end
+    check(up == 5, "niveaux (epoque 14) : 5 batiments au niveau 28", #missing > 0 and ("manquent " .. table.concat(missing, ", ")) or nil)
+    local g = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
+    if g then
+      local ammo = g.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine")
+      check(ammo == 10, "niveaux (epoque 14) : munitions conservees au niveau 28", ammo .. " chargeurs")
+      check(math.abs(g.get_health_ratio() - 0.5) < 0.01, "niveaux (epoque 14) : sante conservee en proportion",
+        string.format("%.0f / %.0f PV", g.health, g.prototype.max_health))
+    else
+      fail("niveaux (epoque 14) : munitions conservees au niveau 28", "tourelle introuvable")
+      fail("niveaux (epoque 14) : sante conservee en proportion", "tourelle introuvable")
+    end
+    local am = at(s, LV.name(A, 28), H.am.x, H.am.y)
+    local rec = am and am.get_recipe()
+    check(rec and rec.name == "iron-gear-wheel", "niveaux (epoque 14) : recette conservee au niveau 28", rec and rec.name or "aucune")
+    local fu = at(s, LV.name(LV.by_key.furnace, 28), H.fu.x, H.fu.y)
+    local ore = fu and fu.get_item_count("iron-ore") or 0
+    check(ore == 20, "niveaux (epoque 14) : contenu du four conserve au niveau 28", ore .. " minerais")
+    local st = call("levels_status", H.force)
+    check(st.busy == 0, "niveaux (epoque 14) : 5 ouvriers liberes", "occupes " .. st.busy)
+    -- Centre 14 → 15 : le coût tient-il VRAIMENT dans le coffre (piles réelles) ? Puis le chantier.
+    local cc = at(s, LV.name(C, 14), H.cc.x, H.cc.y)
+    local inv = cc and cc.get_inventory(defines.inventory.chest)
+    local all_in = inv and stock(inv, C, 15, 1) or false
+    check(all_in, "niveaux (epoque 14) : cout du centre 15 range dans le coffre du centre 14",
+      inv and (#inv - inv.count_empty_stacks() .. " / " .. #inv .. " cases occupees") or "centre introuvable")
+    local r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
+    check(r.ok and r.reason == "started", "niveaux (epoque 14) : chantier du centre 14 -> 15 lance", tostring(r.reason))
+    L.phase = 7
+  elseif L.phase == 7 and tick == 1785 then
+    local H = L.hi
+    local st = call("levels_status", H.force)
+    local cc = at(s, LV.name(C, 15), H.cc.x, H.cc.y)
+    check(cc ~= nil and st.cc_level == 15, "niveaux : centre de commandement niveau 15 (epoque Legende)", "niveau " .. st.cc_level)
+    local n = cc and cc.get_inventory(defines.inventory.chest).get_item_count("iron-chest") or 0
+    check(n == 7, "niveaux (epoque 15) : le stock du centre suit le remplacement", n .. " coffres")
+    local g = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
+    if cc and g then stock(cc.get_inventory(defines.inventory.chest), G, 29, 1) end
+    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
+    check(r.ok and r.reason == "started", "niveaux (epoque 15) : mitrailleuse 28 -> 29 lancee", tostring(r.reason))
+    L.phase = 8
+  elseif L.phase == 8 and tick == 1815 then
+    local H = L.hi
+    local g = at(s, LV.name(G, 29), H.gun.x, H.gun.y)
+    check(g ~= nil, "niveaux (epoque 15) : mitrailleuse niveau 29")
+    local cc = at(s, LV.name(C, 15), H.cc.x, H.cc.y)
+    if cc and g then stock(cc.get_inventory(defines.inventory.chest), G, 30, 1) end
+    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
+    check(r.ok and r.reason == "started", "niveaux (epoque 15) : mitrailleuse 29 -> 30 lancee", tostring(r.reason))
+    L.phase = 9
+  elseif L.phase == 9 and tick == 1845 then
+    local H = L.hi
+    local g = at(s, LV.name(G, 30), H.gun.x, H.gun.y)
+    local ammo = g and g.get_inventory(defines.inventory.turret_ammo).get_item_count("uranium-rounds-magazine") or 0
+    check(g ~= nil and ammo == 10, "niveaux (epoque 15) : mitrailleuse niveau 30, munitions conservees", ammo .. " chargeurs")
+    local r = g and call("levels_upgrade", g) or { reason = "tourelle introuvable" }
+    check(not r.ok and r.reason == "max", "niveaux (epoque 15) : niveau 30 = maximum", tostring(r.reason))
+    local st = call("levels_status", H.force)
+    check(st.fallback == 0, "niveaux (epoques 14-15) : remplacement rapide du moteur partout (aucun secours manuel)",
+      st.upgrades .. " chantiers, " .. st.instant .. " instantanes")
+    L.phase = 10
   end
 end
 
@@ -829,7 +1026,8 @@ function T.start()
   prepare_area(s, 290, 40, 500, 100)
   power_grid(s, 299, 49, 500, 100)
   -- Niveaux : sol d'herbe (les socles de béton se verraient mal sur du béton).
-  prepare_area(s, 290, 110, 400, 210, "grass-1")
+  -- Lot V2 : 30 niveaux par famille, la galerie s'étend jusqu'à x = 480 ; époque 14 en y = 129-134.
+  prepare_area(s, 290, 110, 490, 210, "grass-1")
   test_techs()
   setup_recipes(s, S)
   setup_modules(s, S)

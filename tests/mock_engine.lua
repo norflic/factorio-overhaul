@@ -468,7 +468,6 @@ function M.new_world(opts)
     settings = {
       ["fo-debug-render"] = true, ["fo-companion-steer-period"] = opts.steer or 4,
       ["fo-companion-brain-period"] = opts.brain or 60, ["fo-path-max-inflight"] = 6,
-      ["fo-war-player-ceasefire"] = opts.ceasefire ~= false,
       ["fo-level-time-factor"] = 1,
       ["fo-pvp-difficulty"] = opts.difficulty or "normal", -- lot IA0 : défaut du jeu
     },

@@ -40,14 +40,10 @@ data:extend({
     maximum_value = 50,
     order = "d",
   },
-  {
-    -- Factions IA : cessez-le-feu avec le joueur au lancement (rompu si le joueur les attaque).
-    type = "bool-setting",
-    name = "fo-war-player-ceasefire",
-    setting_type = "runtime-global",
-    default_value = true,
-    order = "e",
-  },
+  -- Lot IA0 : « fo-war-player-ceasefire » retiré : plus aucun code ne le lit, le réglage de partie
+  -- « fo-pvp-difficulty » (settings/faction.lua) le remplace (« Paisible » = ancien comportement). Une
+  -- sauvegarde qui en contient une valeur la perd sans erreur ; une guerre en cours reçoit son état PvP au
+  -- chargement (script/faction/pvp.lua, PvP.ensure : hostilités existantes conservées).
   {
     -- Niveaux : multiplicateur de durée des chantiers d'amélioration (0 = instantané).
     type = "double-setting",

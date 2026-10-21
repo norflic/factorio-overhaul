@@ -16,18 +16,22 @@ local Greffons = require("greffons")
 local ok_s, SCENARIO = pcall(require, "scenario")
 if not ok_s or type(SCENARIO) ~= "string" then SCENARIO = "default" end
 
+-- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
+-- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
+-- deviennent hostiles aux compagnons et à la base du joueur après 20 à 43 min). Le PvP se mesure dans
+-- les scénarios greffés scenarios/ia0-*.lua.
 local SCENARIOS = {
-  default = { war = true, companions = 50, radius = 32, fund = 0 },
-  stress = { war = true, companions = 380, radius = 64, fund = 20000 },
+  default = { war = true, companions = 50, radius = 32, fund = 0, pvp = "peaceful" },
+  stress = { war = true, companions = 380, radius = 64, fund = 20000, pvp = "peaceful" },
   baseline = { war = false, companions = 0, radius = 32, fund = 0 }, -- témoin : même carte, sans guerre
-  noexp = { war = true, companions = 50, radius = 32, fund = 0, no_expansion = true }, -- expansion biters coupée
-  peace = { war = true, companions = 50, radius = 32, fund = 0, biter_peace = true },  -- biters en paix avec les factions
-  parked = { war = true, companions = 50, radius = 32, fund = 0, garrison_mode = "stop" }, -- garnisons au repos
+  noexp = { war = true, companions = 50, radius = 32, fund = 0, no_expansion = true, pvp = "peaceful" }, -- expansion biters coupée
+  peace = { war = true, companions = 50, radius = 32, fund = 0, biter_peace = true, pvp = "peaceful" },  -- biters en paix avec les factions
+  parked = { war = true, companions = 50, radius = 32, fund = 0, garrison_mode = "stop", pvp = "peaceful" }, -- garnisons au repos
   worker = { war = false, companions = 0, radius = 32, fund = 0, spike = true }, -- un corps sans joueur travaille-t-il ?
   content = { content = true }, -- banc de contenu : chaque recette, module, arme, ennemi, ressource, biome
   vitrine = { vitrine = true }, -- vitrine : entités demandées (fo-vitrine.lua) à côté des références vanilla
-  waves = { war = true, companions = 0, radius = 32, fund = 0, waves = true }, -- défense de tours + guerre
-  pteam = { war = true, companions = 0, radius = 32, fund = 0, pteam = true }, -- équipe du joueur + guerre
+  waves = { war = true, companions = 0, radius = 32, fund = 0, waves = true, pvp = "peaceful" }, -- défense de tours + guerre
+  pteam = { war = true, companions = 0, radius = 32, fund = 0, pteam = true, pvp = "peaceful" }, -- équipe du joueur + guerre
 }
 
 -- Scénario GREFFÉ : un nom inconnu ci-dessus charge scenarios/<nom>.lua (au chargement du mod, jamais
@@ -88,6 +92,10 @@ local function builtin_init(sc)
   end
   if sc.no_expansion then game.map_settings.enemy_expansion.enabled = false end
   if sc.spike then Spike.start() end
+  if sc.pvp and remote.interfaces["fo-pvp"] then
+    -- Lot IA0 : niveau imposé AVANT le lancement (message d'introduction et état PvP à ce niveau).
+    log("[FO-AUTOTEST] difficulte PvP " .. sc.pvp .. " = " .. tostring(remote.call("fo-pvp", "set_difficulty", sc.pvp)))
+  end
   if sc.war then
     local ok = remote.call("factorio-overhaul", "war_start", 4, 100, 10)
     log("[FO-AUTOTEST] war_start = " .. tostring(ok))

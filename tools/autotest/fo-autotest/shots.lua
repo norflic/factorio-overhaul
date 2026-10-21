@@ -119,14 +119,20 @@ local function content_list()
       shot(list, string.format("tourelle-%02d-%s-nuit", i, t.name), { x = p.x, y = p.y - 0.5 }, 2.2, NIGHT)
     end
   end
-  -- Niveaux (session 5) : la galerie des 10 niveaux de chaque famille, de jour et de nuit, et les
-  -- niveaux 7 à 10 de près.
+  -- Niveaux (session 5 ; 15 époques depuis le lot V2) : la galerie de chaque famille par tranches de
+  -- 10 niveaux (centre : 15 en une vue), de jour et de nuit, et les 4 derniers niveaux de près.
   for _, g in ipairs(S.gallery or {}) do
-    local center = { x = g.x1 + 4.5 * g.step, y = g.y }
-    local zoom = math.min(1.4, RES[1] / (32 * (10 * g.step + 4)))
-    shot(list, "niveaux-" .. g.key, center, zoom)
-    shot(list, "niveaux-" .. g.key .. "-nuit", center, zoom, NIGHT)
-    local top = { x = g.x1 + 7.5 * g.step, y = g.y }
+    local levels = g.levels or 10
+    local per = levels <= 15 and levels or 10
+    for first = 1, levels, per do
+      local count = math.min(per, levels - first + 1)
+      local center = { x = g.x1 + (first - 1 + (count - 1) / 2) * g.step, y = g.y }
+      local zoom = math.min(1.4, RES[1] / (32 * (count * g.step + 4)))
+      local tag = string.format("niveaux-%s-%02d-%02d", g.key, first, first + count - 1)
+      shot(list, tag, center, zoom)
+      shot(list, tag .. "-nuit", center, zoom, NIGHT)
+    end
+    local top = { x = g.x1 + (levels - 2.5) * g.step, y = g.y }
     local ztop = math.min(2.4, RES[1] / (32 * (4 * g.step + 2)))
     shot(list, "niveaux-" .. g.key .. "-haut", top, ztop)
     shot(list, "niveaux-" .. g.key .. "-haut-nuit", top, ztop, NIGHT)
