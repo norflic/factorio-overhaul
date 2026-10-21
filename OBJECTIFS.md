@@ -505,6 +505,8 @@ apport.md | 21/10, 19 h 55 |
 | V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
 | X0 Scénario, crafts, branches | ⏳ 9 agents sur 10 terminés avant l'arrêt de la session ; correcteur final relancé (20 h 35) | — | 21/10, 20 h 35 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
+| IA0b Base défendue attaquée selon la difficulté | ⏳ workflow lancé (siège, rapport de force par niveau et par personnalité, assaut coordonné) | — | 21/10, 20 h 52 |
+| V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
