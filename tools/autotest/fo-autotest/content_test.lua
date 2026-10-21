@@ -13,6 +13,7 @@ local M = require("__factorio-overhaul__/shared/content/modules")
 local E = require("__factorio-overhaul__/shared/content/enemies")
 local W = require("__factorio-overhaul__/shared/content/world")
 local LV = require("__factorio-overhaul__/shared/levels/config")
+local Greffons = require("greffons")
 
 local T = {}
 
@@ -39,6 +40,9 @@ end
 local function check(cond, name, detail)
   if cond then ok(name, detail) else fail(name, detail) end
 end
+
+-- Contrôles GREFFÉS (checks/index.lua) : chargés ici, au chargement du mod (F24), comptés dans le BILAN.
+Greffons.load_checks({ ok = ok, fail = fail })
 
 ---------------------------------------------------------------------------------------------------
 -- Terrain : zone plate et dégagée ; électricité par sous-stations placées dans les allées
@@ -834,6 +838,7 @@ function T.start()
   test_walls(s, S)
   setup_world(s, S)
   setup_levels(s, S)
+  Greffons.content_setup()
   log("[FO-CONTENT] installation terminee, verification a " .. CHECK_TICK .. " ticks")
 end
 
@@ -843,6 +848,7 @@ function T.on_tick(e)
   if S.duels then tick_duels(S, e.tick) end
   local s = game.surfaces[1]
   tick_levels(s, S, e.tick)
+  Greffons.content_tick(e)
   if e.tick == 5 then
     verify_enemy_deaths(s, S)
   elseif e.tick == CHECK_TICK then
@@ -851,6 +857,7 @@ function T.on_tick(e)
     verify_duels(S)
     verify_nest(s, S)
     verify_world(S)
+    Greffons.content_verify()
     local r = R()
     log(string.format("[FO-CONTENT] BILAN : %d OK, %d ECHEC(S)%s", r.ok, r.fail,
       #r.failed > 0 and (" : " .. table.concat(r.failed, " | ")) or ""))

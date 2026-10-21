@@ -1,21 +1,42 @@
 --[[
-  Revue VISUELLE automatique (session avec images, fo-visual.bat) : dès qu'un joueur est connecté, le mod
-  de test prend une série de captures (game.take_screenshot) des points d'intérêt, puis écrit
-  script-output/fo-shots/done.txt. Aucune saisie clavier nécessaire.
+  Revue VISUELLE automatique (session avec images, fo-visual.bat / fo-captures.bat) : dès qu'un joueur est
+  connecté, le mod de test prend une série de captures (game.take_screenshot) des points d'intérêt, puis
+  écrit le marqueur de fin. Aucune saisie clavier ; la session est fermée par le pilote (visual_session.py).
 
-  Scénario « content » : arène de contenu (tourelles en duel, ennemis, murs, ressources, biomes).
+  Scénario « content » : arène de contenu (tourelles en duel, ennemis, murs, ressources, biomes, niveaux).
+  Scénario « vitrine » : entités demandées par fo-vitrine.lua, à côté des bâtiments vanilla de référence.
+  Scénario greffé (scenarios/<nom>.lua) qui déclare `shots` : ses captures ; les contrôles greffés du banc
+  « content » (checks/*.lua) ajoutent les leurs à la galerie « content ».
   Autres scénarios : la partie est accélérée (×8) jusqu'à 10 min de jeu, puis QG, avant-postes, ouvriers.
+
+  Sorties (script-output/fo-shots/, dossier vidé par le pilote avant chaque session) :
+    plan.txt   : nombre de captures prévues (écrit dès que la liste est connue) ;
+    index.tsv  : une ligne par capture DEMANDÉE (numéro, fichier, scène, x, y, zoom, heure, tick, résolution) ;
+    NNN-<scène>.png : les captures, numérotées dans l'ordre de la liste (nommage déterministe) ;
+    done.txt   : écrit FLUSH ticks après set_wait_for_screenshots_to_finish (captures écrites sur disque).
+  Le pilote vérifie ensuite chaque PNG (décodage complet) : le marqueur seul ne suffit pas.
 ]]
+
+local Vitrine = require("vitrine")
+local Greffons = require("greffons")
 
 local Shots = {}
 
 local RES = { 1600, 900 }
 local WARMUP = 36000
+local CADENCE = 10   -- ticks entre deux demandes de capture
+local FLUSH = 60     -- ticks entre l'attente des captures et le marqueur de fin
+local DIR = "fo-shots/"
 
 local NIGHT = 0.5 -- surface.daytime : 0 = midi, 0.5 = minuit (les lueurs « draw_as_glow » se voient)
 
-local function shot(list, name, pos, zoom, daytime)
-  list[#list + 1] = { name = name, x = pos.x or pos[1], y = pos.y or pos[2], zoom = zoom or 1, daytime = daytime or 0 }
+--- Une capture : nom de scène, centre, zoom, heure du jour ; options : résolution, alt-mode, anticrénelage.
+local function shot(list, name, pos, zoom, daytime, opt)
+  opt = opt or {}
+  list[#list + 1] = {
+    name = name, x = pos.x or pos[1], y = pos.y or pos[2], zoom = zoom or 1, daytime = daytime or 0,
+    res = opt.res or RES, info = opt.info ~= false, aa = opt.aa ~= false,
+  }
 end
 
 --- Décor de chaque biome (compté autour des points candidats).
@@ -67,6 +88,13 @@ local function biome_shots(list, surface)
   end
 end
 
+--- Fonction d'ajout passée aux greffons : add(nom, x, y, zoom, daytime, options).
+local function adder(list)
+  return function(name, x, y, zoom, daytime, opt)
+    shot(list, name, { x = x, y = y }, zoom, daytime, opt)
+  end
+end
+
 local function content_list()
   local list = {}
   local S = global.content
@@ -107,6 +135,7 @@ local function content_list()
   shot(list, "biomes", { x = S.ox0 + 105, y = S.oy }, 0.7)
   shot(list, "modules", { x = S.mx0 + 25, y = S.my0 + 6 }, 0.7)
   shot(list, "recettes", { x = S.rx0 + 33, y = S.ry0 + 9 }, 0.6)
+  Greffons.content_shots(adder(list)) -- captures des contrôles greffés (checks/*.lua)
   return list
 end
 
@@ -131,41 +160,100 @@ local function war_list()
   return list
 end
 
+local function vitrine_list()
+  local list = {}
+  for _, s in ipairs(Vitrine.shot_list(NIGHT)) do
+    shot(list, s.name, { x = s.x, y = s.y }, s.zoom, s.daytime, { res = s.res, info = s.info, aa = s.aa })
+  end
+  -- Bilan de la pose (fait pendant --create) relu par le pilote : une entité refusée = code de sortie 6.
+  local W = global.vitrine
+  local lines = { "echecs\t" .. tostring(W and W.failures or "absent"), "source\t" .. tostring(W and W.source),
+    "sol\t" .. tostring(W and W.sol) }
+  for _, r in ipairs(W and W.rows or {}) do
+    lines[#lines + 1] = "rangee\t" .. r.key .. "\t" .. r.name .. "\t"
+      .. (#r.errors == 0 and "OK" or ("ECHEC : " .. table.concat(r.errors, " ; ")))
+  end
+  game.write_file(DIR .. "vitrine.txt", table.concat(lines, "\n") .. "\n", false)
+  return list
+end
+
+local function fmt(v)
+  return string.format("%.3f", v)
+end
+
+--- Une demande de capture, consignée dans index.tsv au même moment.
+local function take(player, i, s, tick)
+  local file = string.format("%03d-%s.png", i, s.name)
+  game.take_screenshot({
+    player = player, surface = game.surfaces[1], position = { s.x, s.y }, resolution = s.res, zoom = s.zoom,
+    path = DIR .. file, show_entity_info = s.info, anti_alias = s.aa,
+    daytime = s.daytime, allow_in_replay = true, force_render = true,
+  })
+  game.write_file(DIR .. "index.tsv", table.concat({
+    string.format("%03d", i), file, s.name, fmt(s.x), fmt(s.y), fmt(s.zoom), fmt(s.daytime), tostring(tick),
+    s.res[1] .. "x" .. s.res[2], s.info and "1" or "0", s.aa and "1" or "0",
+  }, "\t") .. "\n", true)
+end
+
 function Shots.on_tick(e, scenario)
   local player = game.connected_players[1]
   if not player then return end
   local st = global.shots
   if not st then
-    st = { start = e.tick, i = 1, next = e.tick + 90, content = scenario == "content" }
+    local delay = Greffons.scenario_shot_delay() -- scénario greffé qui déclare des captures
+    st = { start = e.tick, i = 1, next = e.tick + (delay or 90),
+      quick = (scenario == "content" or scenario == "vitrine" or delay ~= nil) }
     global.shots = st
     player.game_view_settings.show_side_menu = false
-    if not st.content then
+    if not st.quick then
       game.speed = 8
       st.next = e.tick + WARMUP
     end
-    log("[FO-SHOTS] debut, scenario " .. tostring(scenario))
+    game.write_file(DIR .. "index.tsv",
+      "num\tfichier\tscene\tx\ty\tzoom\tdaytime\ttick\tresolution\talt_mode\tanti_alias\n", false)
+    log("[FO-SHOTS] debut, scenario " .. tostring(scenario) .. ", tick " .. e.tick
+      .. ", joueurs " .. #game.players .. " (connectes " .. #game.connected_players .. ")")
     return
   end
-  if st.done or e.tick < st.next then return end
+  if st.finished or e.tick < st.next then return end
   if not st.list then
     game.speed = 1
-    st.list = st.content and content_list() or war_list()
+    if scenario == "content" then
+      st.list = content_list()
+    elseif scenario == "vitrine" then
+      st.list = vitrine_list()
+    elseif Greffons.scenario_shot_delay() then
+      st.list = {}
+      Greffons.scenario_shots(adder(st.list))
+    else
+      st.list = war_list()
+    end
+    game.write_file(DIR .. "plan.txt", #st.list .. " captures prevues, scenario " .. tostring(scenario) .. "\n", false)
     log("[FO-SHOTS] " .. #st.list .. " captures prevues")
+  end
+  if st.flush_at then
+    -- Les captures sont écrites de façon asynchrone : on attend qu'elles soient sur disque, puis on laisse
+    -- FLUSH ticks avant le marqueur (le pilote revérifie chaque fichier).
+    if not st.waited then
+      game.set_wait_for_screenshots_to_finish()
+      st.waited = true
+      st.next = e.tick + FLUSH
+      return
+    end
+    st.finished = true
+    game.write_file(DIR .. "done.txt", "termine " .. #st.list .. " captures, tick " .. e.tick .. "\n", false)
+    log("[FO-SHOTS] termine : " .. #st.list .. " captures, tick " .. e.tick)
+    return
   end
   local s = st.list[st.i]
   if not s then
-    st.done = true
-    game.write_file("fo-shots/done.txt", "termine " .. #st.list .. " captures\n")
-    log("[FO-SHOTS] termine")
+    st.flush_at = e.tick
+    st.next = e.tick + 1
     return
   end
-  game.take_screenshot({
-    player = player, surface = player.surface, position = { s.x, s.y }, resolution = RES, zoom = s.zoom,
-    path = string.format("fo-shots/%02d-%s.png", st.i, s.name), show_entity_info = true, anti_alias = true,
-    quality = 85, daytime = s.daytime, allow_in_replay = true,
-  })
+  take(player, st.i, s, e.tick)
   st.i = st.i + 1
-  st.next = e.tick + 20
+  st.next = e.tick + CADENCE
 end
 
 return Shots
