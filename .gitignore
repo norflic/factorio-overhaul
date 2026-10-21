@@ -1,0 +1,12 @@
+# Caches Python
+__pycache__/
+*.pyc
+
+# Rendus intermédiaires et caches du pipeline graphique (les sprites finaux vont dans graphics/)
+tools/render/cache/
+tools/render/out/
+*.blend1
+
+# Fichiers temporaires
+*.tmp
+*.log

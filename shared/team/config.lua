@@ -1,0 +1,161 @@
+--[[
+  Équipes IA : économie RÉELLE (objets du jeu, bâtiments qui tournent). Pur Lua, partagé par le runtime et
+  les tests hors-jeu.
+
+  Une équipe = un QG (coffre : le STOCK de l'équipe), des OUVRIERS (corps "character" qui marchent, minent,
+  fabriquent, posent des bâtiments, ravitaillent, se défendent) et des SOLDATS (unités) équipés avec des
+  objets fabriqués par l'équipe. Un CERVEAU D'ÉQUIPE unique (shared/team/planner.lua) sait ce qu'il reste à
+  faire et comment le faire ; les ouvriers exécutent ses tâches.
+]]
+
+local T = {}
+
+---------------------------------------------------------------------------------------------------
+-- Stock de départ (dans le QG) : de quoi lancer charbon et fer sans attendre, comme l'épave du joueur.
+---------------------------------------------------------------------------------------------------
+T.start_kit = {
+  { "burner-mining-drill", 12 }, { "stone-furnace", 8 }, { "iron-chest", 4 },
+  { "coal", 150 }, { "iron-plate", 200 }, { "copper-plate", 60 }, { "stone", 80 },
+  { "firearm-magazine", 40 },
+}
+T.start_smelters = 2       -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
+T.hq_inventory = 200
+T.start_workers = 2
+
+---------------------------------------------------------------------------------------------------
+-- Équipements (« s'armer ») : un ouvrier ou un soldat n'existe que si son équipement a été fabriqué.
+---------------------------------------------------------------------------------------------------
+T.kits = {
+  worker    = { { "pistol", 1 }, { "firearm-magazine", 10 } },
+  rifleman  = { { "submachine-gun", 1 }, { "firearm-magazine", 5 } },
+  gunner    = { { "submachine-gun", 1 }, { "piercing-rounds-magazine", 5 }, { "light-armor", 1 } },
+  rocketeer = { { "grenade", 8 }, { "light-armor", 1 } }, -- grenadier (clé historique « rocketeer »)
+}
+-- Munitions que l'ouvrier garde sur lui pour se défendre (prélevées de son équipement).
+T.worker_gun = "pistol"
+T.worker_ammo = "firearm-magazine"
+T.worker_ammo_keep = 10
+
+---------------------------------------------------------------------------------------------------
+-- Avant-postes : foreuses à combustible (alimentées en charbon par les ouvriers) ; minerais fondus sur place.
+---------------------------------------------------------------------------------------------------
+T.DRILL = "burner-mining-drill"
+T.drill_drop = { -0.5, -1.3 } -- vector_to_place_result vanilla de la foreuse à combustible (orientation nord)
+T.outposts = {
+  coal   = { resource = "coal",       sink = "iron-chest",    product = "coal",         drills = 4 },
+  iron   = { resource = "iron-ore",   sink = "stone-furnace", product = "iron-plate",   drills = 8 },
+  copper = { resource = "copper-ore", sink = "stone-furnace", product = "copper-plate", drills = 3 },
+  stone  = { resource = "stone",      sink = "iron-chest",    product = "stone",        drills = 2 },
+}
+T.OUTPOST_ORDER = { "coal", "iron", "copper", "stone" }
+-- Un avant-poste s'agrandit sur son gisement jusqu'à 12 foreuses avant qu'on en cherche un autre (moteur
+-- réel : à 480 tuiles du centre, la carte n'offre souvent qu'un gisement de chaque minerai par faction).
+-- Un palier « N avant-postes de fer » se lit donc « N × drills foreuses de fer ».
+T.outpost_max_drills = 12
+-- Session 4, moteur réel (E16 it. 8) : le fer est le goulot de toute l'échelle (armée, recherche) ; le
+-- gisement de fer de départ est plus large et accueille 20 foreuses, la pierre (peu demandée) 8.
+T.outpost_max = { iron = 20, stone = 8 }
+function T.max_drills(kind) return T.outpost_max[kind] or T.outpost_max_drills end
+-- Rayon des gisements de la zone de départ, par type d'avant-poste (tuiles).
+T.seed_radius = { coal = 8, iron = 11, copper = 8, stone = 6 }
+T.fuel = "coal"
+T.fuel_per_burner = 5       -- charbon posé à la construction et visé à chaque ravitaillement
+T.fuel_refill_to = 10       -- le ravitailleur complète chaque brûleur jusqu'à 10 charbons
+T.fuel_low = 3              -- en dessous : ravitaillement urgent
+T.collect_at = 40           -- production en attente qui justifie une tournée
+T.service_period = 3 * 3600 -- tournée d'entretien au moins toutes les 3 minutes
+
+-- Fonderie du QG : fours alimentés par les ouvriers (acier, briques, minerai d'appoint).
+T.SMELTER = "stone-furnace"
+T.smelter_inputs = {        -- produit visé -> (entrée, quantité d'entrée par produit)
+  ["steel-plate"] = { "iron-plate", 5 },
+  ["stone-brick"] = { "stone", 2 },
+  ["iron-plate"] = { "iron-ore", 1 },
+  ["copper-plate"] = { "copper-ore", 1 },
+}
+
+-- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
+T.turret_ammo_target = 20
+T.turret_ammo_low = 8
+-- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
+T.turret_ammo = "firearm-magazine"
+
+---------------------------------------------------------------------------------------------------
+-- Recherche : niveaux payés en VRAIS packs de science, fabriqués par l'équipe.
+-- Le pack chimique demande du pétrole : les niveaux 4-5 attendent l'objectif Pétrole.
+---------------------------------------------------------------------------------------------------
+T.research = {
+  [1] = { { "automation-science-pack", 30 } },
+  [2] = { { "automation-science-pack", 50 }, { "logistic-science-pack", 40 } },
+  [3] = { { "automation-science-pack", 80 }, { "logistic-science-pack", 60 }, { "military-science-pack", 30 } },
+  [4] = { { "automation-science-pack", 120 }, { "logistic-science-pack", 100 }, { "military-science-pack", 60 }, { "chemical-science-pack", 40 } },
+  [5] = { { "automation-science-pack", 200 }, { "logistic-science-pack", 160 }, { "military-science-pack", 100 }, { "chemical-science-pack", 100 } },
+}
+
+---------------------------------------------------------------------------------------------------
+-- Objectifs d'équipe, dans l'ordre. Le cerveau poursuit le premier objectif non atteint (en continuant
+-- d'entretenir ce qui existe) ; une fois l'échelle gravie, il entretient et étend.
+--   outposts = { [type] = nombre }, smelters = n, tech = n, soldiers = n, stock = { [objet] = n },
+--   outpost_turrets = n (tourelles par avant-poste)
+---------------------------------------------------------------------------------------------------
+T.ladder = {
+  { key = "coal",     need = { outposts = { coal = 1 } } },
+  { key = "iron",     need = { outposts = { iron = 1 } } },
+  { key = "copper",   need = { outposts = { copper = 1 } } },
+  { key = "stone",    need = { outposts = { stone = 1 } } },
+  { key = "defense",  need = { stock = { ["firearm-magazine"] = 60 } } },
+  { key = "army",     need = { soldiers = 10 } },
+  { key = "iron2",    need = { outposts = { iron = 2, coal = 2 } } },
+  { key = "tech1",    need = { tech = 1 } },
+  { key = "smelter",  need = { smelters = 4 } },
+  { key = "army2",    need = { soldiers = 25 } },
+  { key = "iron3",    need = { outposts = { iron = 3, copper = 2, coal = 3 } } },
+  { key = "tech2",    need = { tech = 2 } },
+  { key = "fortify",  need = { outpost_turrets = 1 } },
+  { key = "iron4",    need = { outposts = { iron = 4, coal = 4, stone = 2 } } },
+  { key = "tech3",    need = { tech = 3 } },
+  { key = "expand",   need = { outposts = { iron = 5, copper = 3, coal = 5 } } },
+  { key = "oil",      need = { tech = 4 } }, -- pétrole : pack chimique (étape suivante du chantier)
+}
+-- Équipe du JOUEUR (compagnons au travail autour du coffre d'équipe) : pas d'armée ni de recherche (le
+-- joueur recherche lui-même), une économie qui grandit et qui se défend.
+T.player_ladder = {
+  { key = "coal",     need = { outposts = { coal = 1 } } },
+  { key = "iron",     need = { outposts = { iron = 1 } } },
+  { key = "copper",   need = { outposts = { copper = 1 } } },
+  { key = "stone",    need = { outposts = { stone = 1 } } },
+  { key = "defense",  need = { stock = { ["firearm-magazine"] = 60 } } },
+  { key = "iron2",    need = { outposts = { iron = 2, coal = 2 } } },
+  { key = "smelter",  need = { smelters = 4 } },
+  { key = "copper2",  need = { outposts = { copper = 2 } } },
+  { key = "fortify",  need = { outpost_turrets = 1 } },
+  { key = "iron3",    need = { outposts = { iron = 3, copper = 2, coal = 3, stone = 2 } } },
+  { key = "expand",   need = { outposts = { iron = 4, copper = 3, coal = 4 } } },
+}
+T.player_workers_max = 8
+
+-- Patience : un objectif sans progrès pendant 12 min est mis de côté 15 min (gisement introuvable, chemin
+-- impossible...) ; l'équipe passe au suivant au lieu de rester bloquée.
+T.goal_patience = 12 * 3600
+T.goal_defer = 15 * 3600
+
+-- Technologies vanilla débloquées pour la force de l'équipe à chaque niveau (recettes fabricables).
+T.unlocks = {
+  [0] = { "military", "turrets", "stone-wall" },
+  [1] = { "logistic-science-pack", "steel-processing", "military-2", "heavy-armor", "physical-projectile-damage-1", "weapon-shooting-speed-1" },
+  [2] = { "military-science-pack", "rocketry", "physical-projectile-damage-2", "weapon-shooting-speed-2", "gate" },
+  [3] = { "military-3", "physical-projectile-damage-3", "weapon-shooting-speed-3", "stronger-explosives-1" },
+  [4] = { "physical-projectile-damage-4", "weapon-shooting-speed-4" },
+  [5] = { "physical-projectile-damage-5", "weapon-shooting-speed-5" },
+}
+
+-- Taille d'armée visée (après l'objectif "army") selon la personnalité (facteur de soldiers_max).
+T.army_share = { conqueror = 0.8, technocrat = 0.45, builder = 0.4, balanced = 0.6 }
+T.kit_batch = 5             -- équipements fabriqués par lot
+
+-- Ouvriers voulus : 2 + 1 par avant-poste, plafonné par engineers_max.
+function T.workers_wanted(outposts, max)
+  return math.min(max, T.start_workers + outposts)
+end
+
+return T

@@ -1,0 +1,51 @@
+--[[
+  Point d'entrée runtime. Règle d'architecture : ce fichier ne contient QUE du câblage.
+
+  L'ordre des require fixe :
+    1. l'ordre d'initialisation des namespaces de stockage (Storage.declare) ;
+    2. l'ordre d'exécution des handlers d'un même événement (ex. on_tick : scheduler puis pompe de pathfinding).
+  Tous les handlers sont enregistrés statiquement, à l'identique en on_init et on_load (pas d'enregistrement
+  conditionnel : c'est la source n°1 de désynchronisation en multijoueur).
+]]
+
+local Events = require("script.core.events")
+
+-- Socle (indépendant de tout gameplay)
+require("script.core.storage")
+require("script.core.config")
+require("script.core.profiler")
+require("script.core.scheduler")
+require("script.core.path_service")
+
+-- Agents riches : données, déplacement, rendu, navigation, décision
+require("script.companion.registry")
+require("script.companion.locomotion")
+require("script.companion.render")
+require("script.agents.nav")
+require("script.companion.brain")
+require("script.companion.bench")
+
+-- Monde : dangers et bienfaits des biomes, mécaniques des déchiqueteurs
+require("script.world.hazards")
+require("script.world.enemy_mechanics")
+
+-- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
+require("script.faction.state")
+require("script.team.board")
+require("script.team.worker")
+require("script.team.team")
+require("script.team.player_team")
+require("script.faction.commander")
+require("script.faction.war")
+
+-- Mode défense de tours (activable à tout moment)
+require("script.td.director")
+
+-- Niveaux de bâtiments façon Clash of Clans : centre de commandement, chantiers, panneau « Évolution »
+require("script.levels.levels")
+require("script.levels.panel")
+
+-- Pilotage sans joueur (tests automatisés, scénarios)
+require("script.remote")
+
+Events.bind()

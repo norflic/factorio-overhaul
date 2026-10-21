@@ -1,0 +1,73 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2026-10-21
+  Features:
+    - Équipes IA à économie réelle : le QG est un vrai stock ; avant-postes à foreuses à combustible et fours ;
+      fonderie au QG ; ouvriers qui minent, fabriquent, posent, ravitaillent et se défendent ; soldats créés
+      avec un équipement fabriqué ; recherche payée en vrais packs, technologies vanilla débloquées.
+    - Cerveau d'équipe (un par équipe) : échelle d'objectifs (charbon, fer, …, pétrole), « ce qui manque et
+      comment » d'après les vraies recettes, tâches priorisées, reconstruction des avant-postes perdus.
+    - Équipe du joueur : coffre d'équipe ; les compagnons travaillent avec son contenu (/fo-team).
+    - Mode défense de tours activable à tout moment (/fo-waves, bouton) : vagues, familles, boss, récompenses.
+    - Arsenal spécial : tourelle-canon, mortier, tour à arc, pulvérisateur d'acide ; obus en tungstène, obus
+      de mortier ; lance-grenades, arc portatif, fusil à rail ; 3 technologies ; silhouettes composées.
+    - Banc de contenu en moteur réel (145 contrôles), captures automatiques, étalon machine.
+    - Évolution visuelle : déchiqueteurs, nids et vers à carapace lumineuse de nuit, intensité croissante
+      avec le palier ; tourelles lourdes sur un autre socle, tête éclairée de nuit ; tour à arc à bobine
+      lumineuse.
+    - Biomes à texture et décor propres : cendres gris charbon (roches en fusion, aiguilles de basalte,
+      arbres calcinés, braises qui rougeoient la nuit) ; plaine de cristal vitrifiée (amas violets et éclats
+      cyan lumineux) ; marais olive (forêt de troncs morts, roseaux, écume toxique qui luit la nuit).
+    - Minerais : tungstène en blocs de métal sombre à reflets acier ; cristal de résonance violet vif à
+      éclats pulsés.
+    - Niveaux de bâtiments façon Clash of Clans : centre de commandement (un par force, niveaux 1 à 10) qui
+      plafonne les autres bâtiments et fixe le nombre d'ouvriers ; mitrailleuse, tourelle laser, mur,
+      foreuse électrique, four en acier et machine d'assemblage 2 en 10 niveaux ; chantiers payés par le
+      stock du centre, durées croissantes, bâtiment hors service pendant le chantier, contenu et recette
+      conservés ; panneau « Évolution » et touche U ; murs améliorés par rangée.
+      (Design par niveau encore provisoire : teinte, socle et lueur ; refonte des formes à venir.)
+  Changes:
+    - Seuil d'attaque par personnalité (13 à 28 soldats envoyés).
+    - Gisements de départ par faction ; prospection élargie si rien n'est trouvé.
+    - Banc de test épinglé sur les cœurs P (processeur hybride).
+  Bugfixes:
+    - Effets de modules tronqués au pourcent (1,15 -> +114 %).
+    - Tourelles du mod sans les bonus de recherche de leur modèle.
+    - Plaques « disparues » : chargeurs et armes fabriqués équipés automatiquement par les ouvriers.
+    - Départs de chemin dans la boîte élargie d'un bâtiment (équipe bloquée au pied de son QG).
+    - Sauvegarde 0.2 : la guerre à MU est arrêtée proprement au chargement (migration).
+    - Cristal brun-olive et tungstène verdâtre (éclat de l'uranium vert pur, impossible à recolorer).
+    - Méthane : bonus de lance-flammes porté à ×1,5 (mesuré : +12 à +14 % de dégâts totaux).
+---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2026-10-21
+  Features:
+    - Factions : prospection de fond par chunks, itinéraires d'attaque calculés, QG validés et déménagés
+      s'ils sont enclavés, ingénieurs relancés ou rappelés au QG, sites dangereux évités.
+    - Monde : gisements de tungstène, cristal et méthane placés dans leur biome ; nids de famille mêlés aux nids vanilla.
+    - Tests en moteur réel : fo-autotest.bat (isolé), fo-autotest-watch.bat, fo-visual.bat, analyze.py, scénarios.
+  Changes:
+    - QG à 480 tuiles du centre ; espacement de 40 tuiles entre avant-postes.
+    - Ingénieurs de faction exemptés du poison du marais.
+    - Départ des chemins recalé hors des autres corps (échecs 69 % -> 0,4 %).
+    - Clés de chunk numériques ; profileur par événement.
+  Bugfixes:
+    - range_mode invalide des soldats (refusé par le moteur 1.1.91).
+    - Attaques mort-nées en boucle ; ingénieurs bloqués dans une poche de terrain.
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-10-20
+  Features:
+    - Modules : vitesse, productivité, efficacité jusqu'au palier 10.
+    - Déchiqueteurs : paliers colossal, titan, apex, primordial ; familles blindée, ignée, couvée, foudroyante ; nids de famille ; vers 5 à 8.
+    - Arsenal : munitions tungstène, explosives, incendiaires, plasma ; mitrailleuse lourde ; tourelles lourdes 3x3 ; murs renforcé et blindé.
+    - Monde : biomes cendres volcaniques, plaine de cristal, marais toxique ; tungstène, cristal de résonance, méthane.
+    - Factions IA : 4 factions en guerre (/fo-war), économie à registre, ingénieurs, armées, recherche, diplomatie.
+  Changes:
+    - Ordonnanceur : roue de périodes. Navigation partagée des agents (script/agents/nav.lua).
+---------------------------------------------------------------------------------------------------
+Version: 0.0.1
+Date: 2026-10-20
+  Features:
+    - Socle runtime : bus d'événements, stockage versionné, ordonnanceur à budget, service de pathfinding.
+    - Spike R&D : corps de compagnon, locomotion par waypoints, machine à états, banc d'essai /fo-bench.

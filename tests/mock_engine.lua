@@ -1,0 +1,1035 @@
+--[[
+  Moteur Factorio SIMULÉ pour les tests hors-jeu (Lua 5.2). Partagé par tests/run.lua et tests/war_test.lua.
+
+  Simule : événements, pathfinder asynchrone (latence, échecs, "busy", requêtes perdues), physique 8
+  directions, persistance ou non de walking_state (H1), forces et relations, entités (inventaires de
+  tourelle, commandes d'unités, mort/destruction), groupes d'unités avec combats abstraits, gisements,
+  tuiles, rendu, fichiers, sauvegarde/rechargement (les tables locales sont perdues, `global` conservé).
+
+  Il ne simule PAS le vrai moteur : il valide la logique Lua, la sérialisabilité, le déterminisme.
+  Toute API appelée par le mod et absente d'ici provoque une erreur explicite (tables strictes).
+]]
+
+local M = {}
+
+local MOD_MODULE_PATTERN = "^script%."
+
+local W -- monde courant
+
+function M.world() return W end
+
+local function strict(t, what)
+  return setmetatable(t, { __index = function(_, k) error(what .. " inconnu : " .. tostring(k), 2) end })
+end
+
+function M.ls_to_string(ls)
+  if type(ls) ~= "table" then return tostring(ls) end
+  if ls._profiler then return "<profiler>" end
+  local parts = {}
+  for i = 2, #ls do parts[#parts + 1] = M.ls_to_string(ls[i]) end
+  if ls[1] ~= "" and type(ls[1]) == "string" then return "{" .. ls[1] .. ":" .. table.concat(parts, ",") .. "}" end
+  return table.concat(parts)
+end
+
+local DIRV = {
+  [0] = { 0, -1 }, { 0.7071, -0.7071 }, { 1, 0 }, { 0.7071, 0.7071 },
+  { 0, 1 }, { -0.7071, 0.7071 }, { -1, 0 }, { -0.7071, -0.7071 },
+}
+
+---------------------------------------------------------------------------------------------------
+-- Forces
+---------------------------------------------------------------------------------------------------
+local function new_force(name)
+  local f = { _lua_object = true, name = name, valid = true, _cease = {}, _ammo_mod = {}, _turret_mod = {} }
+  f.get_spawn_position = function(surface) return { x = 0, y = 0 } end
+  f.chart = function(surface, area) assert(surface and area, "chart : arguments") end
+  f.set_cease_fire = function(other, v)
+    local n = type(other) == "string" and other or other.name
+    assert(type(v) == "boolean", "set_cease_fire : booléen attendu")
+    f._cease[n] = v
+  end
+  f.get_cease_fire = function(other)
+    local n = type(other) == "string" and other or other.name
+    return f._cease[n] or false
+  end
+  f._friends = {}
+  f.set_friend = function(other, v) f._friends[type(other) == "string" and other or other.name] = v end
+  f._tags = {}
+  f.add_chart_tag = function(surface, tag)
+    assert(surface and tag and tag.position, "add_chart_tag : arguments")
+    local t = { _lua_object = true, valid = true, position = tag.position, text = tag.text }
+    t.destroy = function() t.valid = false end
+    f._tags[#f._tags + 1] = t
+    return t
+  end
+  f.set_ammo_damage_modifier = function(ammo, m) assert(type(ammo) == "string" and type(m) == "number") f._ammo_mod[ammo] = m end
+  f.set_turret_attack_modifier = function(t, m) assert(type(t) == "string" and type(m) == "number") f._turret_mod[t] = m end
+  -- Recettes : toutes débloquées dans le mock ; technologies : marquables comme recherchées.
+  f.recipes = setmetatable({}, { __index = function(t2, name)
+    if not W.recipes[name] then return nil end
+    local r = { name = name, enabled = true }
+    rawset(t2, name, r)
+    return r
+  end })
+  f.technologies = setmetatable({}, { __index = function(t2, name)
+    local tech = { name = name, researched = false }
+    rawset(t2, name, tech)
+    return tech
+  end })
+  return f
+end
+
+local function force_of(x)
+  if type(x) == "string" then
+    local f = W.forces[x]
+    assert(f, "force inconnue : " .. x)
+    return f
+  end
+  return x
+end
+
+---------------------------------------------------------------------------------------------------
+-- Entités
+---------------------------------------------------------------------------------------------------
+local function fire_died(e, killer_force)
+  local h = W.events[defines.events.on_entity_died]
+  if h then h({ entity = e, force = killer_force, cause = nil, tick = _G.game.tick }) end
+end
+
+local function destroy_entity(e)
+  if not e.valid then return end
+  e.valid = false
+  if e._occ then W.occupied[e._occ] = nil end
+  if e._registered then
+    W.destroyed_queue[#W.destroyed_queue + 1] = { unit_number = e.unit_number, registration_number = e._registered }
+  end
+end
+
+local WRITABLE = { active = "_active", operable = "_operable", health = "_health" }
+
+---------------------------------------------------------------------------------------------------
+-- Inventaires (capacité illimitée : le mock valide la logique, pas la place disponible)
+---------------------------------------------------------------------------------------------------
+local function new_inventory()
+  local inv = { _items = {}, valid = true }
+  inv.insert = function(items)
+    assert(type(items) == "table" and items.name and items.count, "LuaInventory.insert : {name, count} attendu")
+    local n = math.floor(items.count)
+    if n <= 0 then return 0 end
+    inv._items[items.name] = (inv._items[items.name] or 0) + n
+    return n
+  end
+  inv.remove = function(items)
+    assert(type(items) == "table" and items.name, "LuaInventory.remove : {name, count} attendu")
+    local have = inv._items[items.name] or 0
+    local n = math.min(have, math.floor(items.count or have))
+    if n <= 0 then return 0 end
+    inv._items[items.name] = have - n
+    if inv._items[items.name] == 0 then inv._items[items.name] = nil end
+    return n
+  end
+  inv.get_item_count = function(name)
+    if name then return inv._items[name] or 0 end
+    local n = 0
+    for _, c in pairs(inv._items) do n = n + c end
+    return n
+  end
+  inv.get_contents = function()
+    local c = {}
+    for k, v in pairs(inv._items) do c[k] = v end
+    return c
+  end
+  inv.is_empty = function() return next(inv._items) == nil end
+  return inv
+end
+M.new_inventory = new_inventory
+
+local function inv_of(t, which)
+  t._invs[which] = t._invs[which] or new_inventory()
+  return t._invs[which]
+end
+
+-- Inventaire « naturel » d'un objet inséré par LuaEntity.insert, selon le type d'entité.
+local function default_inventory(t, item)
+  local I = defines.inventory
+  if t.type == "ammo-turret" then return inv_of(t, I.turret_ammo) end
+  if t.type == "container" then return inv_of(t, I.chest) end
+  if t.type == "character" then return inv_of(t, I.character_main) end
+  if t.type == "furnace" or t.type == "mining-drill" then
+    if item == "coal" then return inv_of(t, I.fuel) end
+    return inv_of(t, I.furnace_source)
+  end
+  return inv_of(t, I.chest)
+end
+
+local function recipe(name)
+  return W.recipes[name]
+end
+
+local EntityMT = {
+  __index = function(t, k)
+    if k == "position" then return { x = t._x, y = t._y } end
+    if k == "unit_group" then return (t._group and t._group.valid) and t._group or nil end
+    if k == "bounding_box" then
+      return { left_top = { x = t._x - 0.5, y = t._y - 0.5 }, right_bottom = { x = t._x + 0.5, y = t._y + 0.5 } }
+    end
+    if k == "walking_state" then return { walking = t._walking, direction = t._dir } end
+    if k == "destroy" then return function() destroy_entity(t) return true end end
+    if k == "die" then
+      return function(force, cause)
+        if not t.valid then return false end
+        fire_died(t, force and force_of(force) or nil)
+        destroy_entity(t)
+        return true
+      end
+    end
+    if k == "teleport" then
+      return function(pos)
+        assert(type(pos) == "table" and pos.x and pos.y, "teleport : position attendue")
+        t._x, t._y = pos.x, pos.y
+        return true
+      end
+    end
+    if k == "damage" then
+      return function(amount, force, dtype)
+        assert(type(amount) == "number" and force, "damage : arguments")
+        t._health = t._health - amount
+        if t._health <= 0 then t.die(force) end
+        return amount
+      end
+    end
+    if k == "color" then return t._color end
+    if k == "health" then return t._health end
+    if k == "get_health_ratio" then
+      return function() return t._health / (W.prototype(t.name).max_health or 100) end
+    end
+    if k == "active" then return t._active end
+    if k == "prototype" then return W.prototype(t.name) end
+    if k == "insert" then
+      return function(items)
+        assert(type(items) == "table" and items.name and items.count, "insert : {name, count} attendu")
+        return default_inventory(t, items.name).insert(items)
+      end
+    end
+    if k == "get_inventory" then
+      return function(which)
+        assert(type(which) == "number", "get_inventory : index attendu")
+        return inv_of(t, which)
+      end
+    end
+    if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
+    if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
+    if k == "get_output_inventory" then
+      return function()
+        if t.type == "container" then return inv_of(t, defines.inventory.chest) end
+        return inv_of(t, defines.inventory.furnace_result)
+      end
+    end
+    if k == "get_item_count" then
+      return function(name)
+        local n = 0
+        for _, inv in pairs(t._invs) do n = n + inv.get_item_count(name) end
+        return n
+      end
+    end
+    if k == "remove_item" then
+      return function(items)
+        assert(type(items) == "table" and items.name, "remove_item : {name, count} attendu")
+        local want, got = items.count or math.huge, 0
+        local idx = {}
+        for i in pairs(t._invs) do idx[#idx + 1] = i end
+        table.sort(idx)
+        for _, i in ipairs(idx) do
+          if got >= want then break end
+          got = got + t._invs[i].remove({ name = items.name, count = want - got })
+        end
+        return got
+      end
+    end
+    if k == "drop_position" then return { x = t._x, y = t._y - 1.3 } end
+    if k == "crafting_queue_size" then return #t._craft end
+    if k == "begin_crafting" then
+      return function(a)
+        assert(type(a) == "table" and a.recipe and a.count, "begin_crafting : {count, recipe} attendu")
+        local r = recipe(a.recipe)
+        assert(r, "begin_crafting : recette inconnue " .. tostring(a.recipe))
+        local main = inv_of(t, defines.inventory.character_main)
+        local done = 0
+        for _ = 1, a.count do
+          local ok = true
+          for _, ing in ipairs(r.ingredients) do if main.get_item_count(ing.name) < ing.amount then ok = false end end
+          if not ok then break end
+          for _, ing in ipairs(r.ingredients) do main.remove({ name = ing.name, count = ing.amount }) end
+          t._craft[#t._craft + 1] = { recipe = a.recipe, due = _G.game.tick + math.ceil(r.energy * 60) }
+          done = done + 1
+        end
+        return done
+      end
+    end
+    if k == "update_selected_entity" then return function(pos) assert(pos.x and pos.y, "update_selected_entity : position") end end
+    if k == "mining_state" then return t._mining or { mining = false } end
+    if k == "shooting_state" then return t._shooting or { state = 0 } end
+    if k == "set_command" then
+      return function(cmd)
+        assert(type(cmd) == "table" and cmd.type, "set_command : commande invalide")
+        t._command = cmd
+      end
+    end
+    return nil
+  end,
+  __newindex = function(t, k, v)
+    if k == "walking_state" then
+      assert(type(v) == "table" and type(v.walking) == "boolean" and type(v.direction) == "number", "walking_state invalide")
+      t._walking = v.walking
+      t._dir = v.direction
+      W.walk_writes = W.walk_writes + 1
+      return
+    end
+    if k == "color" then rawset(t, "_color", v) return end
+    if k == "mining_state" then
+      assert(type(v) == "table" and type(v.mining) == "boolean", "mining_state invalide")
+      rawset(t, "_mining", v)
+      return
+    end
+    if k == "shooting_state" then
+      assert(type(v) == "table" and v.state ~= nil, "shooting_state invalide")
+      rawset(t, "_shooting", v)
+      return
+    end
+    if k == "health" then
+      rawset(t, "_health", math.max(0, math.min(v, W.prototype(t.name).max_health or v)))
+      return
+    end
+    if WRITABLE[k] then rawset(t, WRITABLE[k], v) return end
+    error("écriture inattendue sur une entité : " .. tostring(k), 2)
+  end,
+}
+
+local function new_entity(name, x, y, surface, force)
+  W.unit = W.unit + 1
+  local proto = W.prototype(name)
+  local e = {
+    _lua_object = true, name = name, type = proto.type or "entity", valid = true, unit_number = W.unit,
+    surface = surface, force = force_of(force), _x = x, _y = y, _walking = false, _dir = 0, _registered = false,
+    _health = proto.max_health or 100, _active = true, _operable = true, _command = false, _occ = false,
+    _invs = {}, _craft = {}, direction = 0, _burn = 0, _drill_acc = 0, _mine_acc = 0, _group = false,
+  }
+  setmetatable(e, EntityMT)
+  W.entities[#W.entities + 1] = e
+  return e
+end
+M.new_entity = function(...) return new_entity(...) end
+
+local function straight_path(s, g)
+  local dx, dy = g.x - s.x, g.y - s.y
+  local d = math.sqrt(dx * dx + dy * dy)
+  local n = math.max(1, math.ceil(d))
+  local path = {}
+  for i = 1, n do
+    path[i] = { position = { x = s.x + dx * i / n, y = s.y + dy * i / n }, needs_destroy_to_reach = false }
+  end
+  return path
+end
+
+local function occ_key(pos) return math.floor(pos.x / 3) .. ":" .. math.floor(pos.y / 3) end
+
+---------------------------------------------------------------------------------------------------
+-- Groupes d'unités
+---------------------------------------------------------------------------------------------------
+local GroupMT = {
+  __index = function(g, k)
+    if k == "members" then
+      local out = {}
+      for _, u in ipairs(g._members) do if u.valid and u._group == g then out[#out + 1] = u end end
+      return out
+    end
+    if k == "position" then
+      local n, sx, sy = 0, 0, 0
+      for _, u in ipairs(g._members) do
+        if u.valid and u._group == g then n, sx, sy = n + 1, sx + u._x, sy + u._y end
+      end
+      if n == 0 then return { x = g._pos.x, y = g._pos.y } end
+      return { x = sx / n, y = sy / n }
+    end
+    if k == "state" then
+      return g._done and _G.defines.group_state.finished or _G.defines.group_state.moving
+    end
+    return nil
+  end,
+}
+
+local function new_group(position, force)
+  W.group_number = W.group_number + 1
+  local g = { _lua_object = true, valid = true, group_number = W.group_number, _members = {}, _command = false,
+    _force = force_of(force), _pos = { x = position.x, y = position.y } }
+  g.add_member = function(u)
+    assert(u and u.valid, "add_member : unité invalide")
+    g._members[#g._members + 1] = u
+    u._group = g
+  end
+  g.set_command = function(cmd)
+    assert(type(cmd) == "table" and cmd.type, "set_command (groupe) : commande invalide")
+    if cmd.type == defines.command.compound then
+      assert(type(cmd.commands) == "table" and #cmd.commands > 0, "compound sans commandes")
+      assert(cmd.structure_type ~= nil, "compound sans structure_type")
+    end
+    g._command = cmd
+    g._since = _G.game.tick
+    g._done = false
+  end
+  g.start_moving = function() end
+  g.destroy = function() g.valid = false end
+  setmetatable(g, GroupMT)
+  W.groups[#W.groups + 1] = g
+  return g
+end
+
+-- Combat abstrait : une attaque se termine après attack_delay ticks ; 30 % des membres meurent et, si
+-- des entités d'une autre faction se trouvent près de la destination, l'une d'elles est détruite.
+local function step_groups(tick)
+  for _, g in ipairs(W.groups) do
+    if g.valid and g._command and not g._done then
+      local cmd = g._command
+      local is_attack = cmd.type == defines.command.compound or cmd.type == defines.command.attack_area
+      local delay = is_attack and W.attack_delay or W.return_delay
+      if tick - g._since >= delay then
+        g._done = true
+        if is_attack then
+          local members = g.members
+          local deaths = math.floor(#members * 0.3)
+          for i = 1, deaths do members[i].die(nil) end
+          local last = cmd.type == defines.command.compound and cmd.commands[#cmd.commands] or cmd
+          local dest = last.destination
+          for _, e in ipairs(W.entities) do
+            if e.valid and e.force ~= g._force and e.force.name:match("^fo%-") and e.name ~= "fo-faction-hq" then
+              local dx, dy = e._x - dest.x, e._y - dest.y
+              if dx * dx + dy * dy < 40 * 40 and (e.name == "burner-mining-drill" or e.name == "gun-turret") then
+                e.die(g._force)
+                break
+              end
+            end
+          end
+        end
+        local h = W.events[defines.events.on_ai_command_completed]
+        if h then h({ unit_number = g.group_number, result = defines.behavior_result.success, was_distracted = false, tick = tick }) end
+      end
+    end
+  end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Monde
+---------------------------------------------------------------------------------------------------
+function M.new_world(opts)
+  opts = opts or {}
+  W = {
+    h1 = opts.h1 ~= false,
+    latency = opts.latency or 3,
+    p_busy = opts.p_busy or 0.03,
+    p_nopath = opts.p_nopath or 0.03,
+    p_lost = opts.p_lost or 0.01,
+    seed = opts.seed or 42,
+    attack_delay = opts.attack_delay or 900,
+    return_delay = opts.return_delay or 300,
+    unit = 0, entities = {}, events = {}, nth = {}, commands = {},
+    pending_paths = {}, path_id = 0, destroyed_queue = {},
+    renders = {}, render_id = 0, lines_drawn = 0, prints = {}, logs = {}, files = {},
+    walk_writes = 0, reg = 0, groups = {}, group_number = 0, occupied = {}, game_prints = {}, produced = {}, burned = 0,
+    patches = opts.patches or {},
+    tile_at = opts.tile_at or function() return "grass-1" end,
+    settings = {
+      ["fo-debug-render"] = true, ["fo-companion-steer-period"] = opts.steer or 4,
+      ["fo-companion-brain-period"] = opts.brain or 60, ["fo-path-max-inflight"] = 6,
+      ["fo-war-player-ceasefire"] = opts.ceasefire ~= false,
+      ["fo-level-time-factor"] = 1,
+    },
+  }
+  math.randomseed(W.seed)
+
+  W.prototypes = {
+    ["fo-companion"] = {
+      type = "character", running_speed = 0.15, max_health = 250,
+      collision_box = { left_top = { x = -0.2, y = -0.2 }, right_bottom = { x = 0.2, y = 0.2 } },
+      collision_mask = { ["player-layer"] = true },
+    },
+    character = { type = "character", max_health = 250 },
+    ["fo-faction-hq"] = { type = "container", max_health = 25000 },
+    ["gun-turret"] = { type = "ammo-turret", max_health = 400 },
+    ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
+      resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true } },
+    ["burner-mining-drill"] = { type = "mining-drill", max_health = 150 },
+    ["stone-furnace"] = { type = "furnace", max_health = 200 },
+    ["iron-chest"] = { type = "container", max_health = 200 },
+    ["fo-team-chest"] = { type = "container", max_health = 800 },
+    ["wooden-chest"] = { type = "container", max_health = 100 },
+  }
+  W.recipes = dofile("tests/fixtures/recipes.lua")
+  -- Soldats et unités du mod : prototype d'unité générique (boîte et masque pour le pathfinding).
+  setmetatable(W.prototypes, { __index = function(_, name)
+    if type(name) == "string" and name:match("^fo%-") then
+      return {
+        type = "unit", max_health = 200,
+        collision_box = { left_top = { x = -0.2, y = -0.2 }, right_bottom = { x = 0.2, y = 0.2 } },
+        collision_mask = { ["player-layer"] = true },
+      }
+    end
+  end })
+  W.prototype = function(name)
+    return W.prototypes[name] or { type = "unit", max_health = 200 }
+  end
+
+  local events = {
+    on_tick = 1, on_runtime_mod_setting_changed = 2, on_script_path_request_finished = 3, on_entity_destroyed = 4,
+    on_entity_died = 5, on_ai_command_completed = 6, on_gui_click = 7,
+    on_built_entity = 8, on_robot_built_entity = 9, script_raised_built = 10,
+    script_raised_revive = 11, script_raised_destroy = 12, on_player_mined_entity = 13, on_robot_mined_entity = 14,
+    on_selected_entity_changed = 15, on_player_left_game = 16,
+  }
+  _G.defines = {
+    direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
+    events = strict(events, "defines.events"),
+    command = strict({ attack = 0, attack_area = 1, build_base = 2, compound = 3, flee = 4, go_to_location = 5, group = 6, stop = 7, wander = 8 }, "defines.command"),
+    distraction = strict({ by_anything = 0, by_damage = 1, by_enemy = 2, none = 3 }, "defines.distraction"),
+    group_state = strict({ gathering = 0, moving = 1, attacking_distraction = 2, attacking_target = 3, finished = 4, pathfinding = 5, wander_in_group = 6 }, "defines.group_state"),
+    compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
+    inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
+      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9 }, "defines.inventory"),
+    shooting = strict({ not_shooting = 0, shooting_enemies = 1, shooting_selected = 2 }, "defines.shooting"),
+    behavior_result = strict({ in_progress = 0, fail = 1, success = 2, deleted = 3 }, "defines.behavior_result"),
+  }
+
+  W.forces = { player = new_force("player"), enemy = new_force("enemy"), neutral = new_force("neutral") }
+
+  local surface = { _lua_object = true, index = 1, valid = true, name = "nauvis" }
+  surface.find_non_colliding_position = function(name, center, radius, precision)
+    assert(type(name) == "string" and center and radius and precision, "find_non_colliding_position : arguments")
+    return { x = center.x, y = center.y }
+  end
+  local RESOURCES = { ["iron-ore"] = true, ["copper-ore"] = true, ["coal"] = true, ["stone"] = true }
+  surface.create_entity = function(t)
+    if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
+    if RESOURCES[t.name] then
+      -- Ressource posée par script : regroupée en gisements ponctuels (modèle de W.patches).
+      for _, p in ipairs(W.patches) do
+        local dx, dy = p.x - t.position.x, p.y - t.position.y
+        if (p.name or "iron-ore") == t.name and dx * dx + dy * dy < 100 then return { valid = true, name = t.name } end
+      end
+      W.patches[#W.patches + 1] = { x = t.position.x, y = t.position.y, name = t.name }
+      return { valid = true, name = t.name }
+    end
+    if t.name == "flying-text" then
+      W.flying = (W.flying or 0) + 1
+      return { valid = true, name = t.name }
+    end
+    assert(t.name and t.position and t.force, "create_entity : arguments")
+    local old
+    if t.fast_replace then
+      -- Remplacement rapide simulé : même position, contenus transférés, ancienne entité retirée.
+      for _, o in ipairs(W.entities) do
+        if o.valid and o._x == t.position.x and o._y == t.position.y and o.type ~= "character" then old = o end
+      end
+      if not old then return nil end
+    end
+    local e = new_entity(t.name, t.position.x, t.position.y, surface, t.force)
+    if t.direction then e.direction = t.direction end
+    if old then
+      for idx, inv in pairs(old._invs) do e._invs[idx] = inv end
+      old._invs = {}
+      destroy_entity(old)
+      W.fast_replaced = (W.fast_replaced or 0) + 1
+    end
+    if t.raise_built and W.events[defines.events.script_raised_built] then
+      W.events[defines.events.script_raised_built]({ entity = e, tick = _G.game.tick })
+    end
+    if t.name == "electric-mining-drill" or t.name == "gun-turret" then
+      e._occ = occ_key(t.position)
+      W.occupied[e._occ] = true
+    end
+    return e
+  end
+  surface.can_place_entity = function(t)
+    assert(t.name and t.position, "can_place_entity : arguments")
+    return not W.occupied[occ_key(t.position)]
+  end
+  surface.request_path = function(t)
+    assert(t.bounding_box and t.collision_mask and t.start and t.goal and t.force, "request_path : paramètres requis")
+    W.path_id = W.path_id + 1
+    local r = math.random()
+    if r < W.p_lost then return W.path_id end -- jamais de réponse : doit finir en timeout
+    local ev = { id = W.path_id, due = _G.game.tick + W.latency }
+    r = math.random()
+    if r < W.p_busy then ev.try_again_later = true
+    elseif r < W.p_busy + W.p_nopath then ev.path = nil
+    else ev.path = straight_path(t.start, t.goal) end
+    W.pending_paths[#W.pending_paths + 1] = ev
+    return W.path_id
+  end
+  surface.request_to_generate_chunks = function(pos, r) assert(pos and r, "request_to_generate_chunks : arguments") end
+  surface.force_generate_chunk_requests = function() end
+  surface.is_chunk_generated = function(cpos) assert(cpos and cpos.x and cpos.y, "is_chunk_generated : ChunkPosition") return true end
+  surface.get_tile = function(x, y)
+    assert(type(x) == "number" and type(y) == "number", "get_tile(x, y) : entiers attendus")
+    local name = W.tile_at(x, y)
+    return {
+      name = name, valid = true,
+      collides_with = function(layer)
+        assert(type(layer) == "string", "LuaTile.collides_with(layer) : chaîne attendue")
+        return layer == "water-tile" and (name == "water" or name == "deepwater")
+      end,
+    }
+  end
+  surface.create_unit_group = function(t)
+    assert(t.position and t.force, "create_unit_group : arguments")
+    return new_group(t.position, t.force)
+  end
+  local function is_resource_name(n)
+    if type(n) ~= "string" then return false end
+    for _, p in ipairs(W.patches) do if (p.name or "iron-ore") == n then return true end end
+    return n == "iron-ore" or n == "copper-ore" or n == "coal" or n == "stone"
+  end
+  surface.find_entities_filtered = function(t)
+    local out = {}
+    if t.invert then
+      -- Filtre inversé (seul usage du mod : « tout sauf les ressources » dans une zone).
+      local ex = {}
+      for _, ty in ipairs(type(t.type) == "table" and t.type or { t.type }) do ex[ty] = true end
+      for _, e in ipairs(W.entities) do
+        if e.valid and not ex[e.type] then
+          local ok = true
+          if t.area then
+            local a = t.area
+            ok = e._x >= a[1][1] and e._x <= a[2][1] and e._y >= a[1][2] and e._y <= a[2][2]
+          end
+          if ok and t.position and t.radius then
+            local dx, dy = e._x - t.position.x, e._y - t.position.y
+            ok = dx * dx + dy * dy <= t.radius * t.radius
+          end
+          if ok then
+            out[#out + 1] = e
+            if t.limit and #out >= t.limit then break end
+          end
+        end
+      end
+      return out
+    end
+    if t.type == "resource" or is_resource_name(t.name) then
+      local cx, cy, rad
+      if t.area then
+        cx, cy = (t.area[1][1] + t.area[2][1]) / 2, (t.area[1][2] + t.area[2][2]) / 2
+        rad = (t.area[2][1] - t.area[1][1]) / 2
+      else
+        assert(t.position and t.radius, "find_entities_filtered(resource) : position + radius ou area attendus")
+        cx, cy, rad = t.position.x, t.position.y, t.radius
+      end
+      for _, p in ipairs(W.patches) do
+        local dx, dy = p.x - cx, p.y - cy
+        if dx * dx + dy * dy <= (rad + 4) ^ 2 and (t.name == nil or t.name == (p.name or "iron-ore")) then
+          for ix = -2, 2 do
+            for iy = -2, 2 do
+              out[#out + 1] = { valid = true, name = p.name or "iron-ore", type = "resource",
+                position = { x = p.x + ix * 2, y = p.y + iy * 2 },
+                prototype = { resource_category = p.category or "basic-solid" }, destroy = function() end }
+              if t.limit and #out >= t.limit then return out end
+            end
+          end
+        end
+      end
+      return out
+    end
+    for _, e in ipairs(W.entities) do
+      if e.valid then
+        local ok = true
+        if t.force then ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name) end
+        if t.name then
+          local names = type(t.name) == "table" and t.name or { t.name }
+          local match = false
+          for _, n in ipairs(names) do if e.name == n then match = true end end
+          ok = ok and match
+        end
+        if t.position and t.radius then
+          local dx, dy = e._x - t.position.x, e._y - t.position.y
+          ok = ok and dx * dx + dy * dy <= t.radius * t.radius
+        end
+        if t.area then
+          local a = t.area
+          ok = ok and e._x >= a[1][1] and e._x <= a[2][1] and e._y >= a[1][2] and e._y <= a[2][2]
+        end
+        if t.type then
+          local types = type(t.type) == "table" and t.type or { t.type }
+          local match = false
+          for _, ty in ipairs(types) do if e.type == ty then match = true end end
+          ok = ok and match
+        end
+        if ok then out[#out + 1] = e end
+      end
+    end
+    return out
+  end
+  surface.count_tiles_filtered = function(t)
+    assert(t.area or (t.position and t.radius), "count_tiles_filtered : zone attendue")
+    return 0
+  end
+  surface.count_entities_filtered = function(t)
+    return #surface.find_entities_filtered(t)
+  end
+  surface.spill_item_stack = function(pos, stack)
+    assert(pos and stack and stack.name, "spill_item_stack : arguments")
+    W.spilled = W.spilled or {}
+    W.spilled[stack.name] = (W.spilled[stack.name] or 0) + (stack.count or 1)
+  end
+  surface.play_sound = function(t) assert(t.path, "play_sound : path attendu") end
+  surface.find_entity = function(name, pos)
+    local x, y = pos.x or pos[1], pos.y or pos[2]
+    for _, o in ipairs(W.entities) do
+      if o.valid and o.name == name and math.floor(o._x) == math.floor(x) and math.floor(o._y) == math.floor(y) then return o end
+    end
+    return nil
+  end
+  surface.find_nearest_enemy = function(t)
+    assert(t.position and t.max_distance, "find_nearest_enemy : position et max_distance attendus")
+    return nil
+  end
+  W.surface = surface
+
+  local player_char = new_entity("character", 0, 0, surface, "player")
+  local function gui_container()
+    local c = { _children = {} }
+    c.add = function(spec)
+      assert(spec.type and spec.name or spec.type, "gui.add : type attendu")
+      local el = gui_container()
+      for k, v in pairs(spec) do el[k] = v end
+      el.valid = true
+      el.destroy = function() el.valid = false; if spec.name then c._children[spec.name] = nil end end
+      if spec.name then c._children[spec.name] = el end
+      return el
+    end
+    return setmetatable(c, { __index = function(t, k) return rawget(t, "_children")[k] end })
+  end
+  W.player = {
+    _lua_object = true, index = 1, valid = true, admin = true, surface = surface, force = W.forces.player,
+    character = player_char,
+    print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
+    gui = { top = gui_container(), left = gui_container() },
+    insert = function(items) return player_char.insert(items) end,
+    get_main_inventory = function() return player_char.get_main_inventory() end,
+    create_local_flying_text = function(t) W.local_texts = W.local_texts or {}; W.local_texts[#W.local_texts + 1] = M.ls_to_string(t.text) end,
+  }
+  setmetatable(W.player, { __index = function(_, k) if k == "position" then return player_char.position end end })
+
+  _G.global = {}
+  _G.settings = { global = setmetatable({}, { __index = function(_, k)
+    local v = W.settings[k]
+    if v == nil then error("paramètre inconnu : " .. k, 2) end
+    return { value = v }
+  end }) }
+  _G.script = {
+    on_init = function(f) W.on_init = f end,
+    on_load = function(f) W.on_load = f end,
+    on_configuration_changed = function(f) W.on_config = f end,
+    on_event = function(id, f) W.events[id] = f end,
+    on_nth_tick = function(n, f) W.nth[n] = f end,
+    register_on_entity_destroyed = function(e) W.reg = W.reg + 1; e._registered = W.reg; return W.reg end,
+  }
+  _G.commands = { add_command = function(name, help, fn) W.commands[name] = fn end }
+  W.remote = {}
+  _G.remote = {
+    add_interface = function(name, fns)
+      assert(type(name) == "string" and type(fns) == "table", "add_interface : arguments")
+      W.remote[name] = fns
+    end,
+    call = function(name, fn, ...)
+      local i = W.remote[name]
+      assert(i and i[fn], "remote.call : interface/fonction inconnue " .. tostring(name) .. "." .. tostring(fn))
+      local prev = W.dispatching
+      W.dispatching = true
+      local res = { pcall(i[fn], ...) }
+      W.dispatching = prev
+      if not res[1] then error(res[2], 0) end
+      return table.unpack(res, 2)
+    end,
+  }
+  _G.rendering = {
+    draw_text = function(t)
+      assert(t.text and t.surface and t.target and t.color, "draw_text : arguments")
+      W.render_id = W.render_id + 1; W.renders[W.render_id] = { text = t.text, target = t.target }; return W.render_id
+    end,
+    draw_line = function(t)
+      assert(t.from and t.to and t.surface and t.color and t.width, "draw_line : arguments")
+      W.lines_drawn = W.lines_drawn + 1; return 0
+    end,
+    is_valid = function(id)
+      local r = W.renders[id]
+      if r and not r.target.valid then W.renders[id] = nil; return false end
+      return r ~= nil
+    end,
+    set_text = function(id, text) W.renders[id].text = text end,
+    draw_rectangle = function(t)
+      assert(t.color and t.surface and t.left_top and t.right_bottom, "draw_rectangle : arguments")
+      W.render_id = W.render_id + 1; W.renders[W.render_id] = { target = t.left_top, rect = true }; return W.render_id
+    end,
+    set_right_bottom = function(id, target, offset)
+      assert(W.renders[id] and target and offset, "set_right_bottom : arguments")
+      W.renders[id].rb = offset
+    end,
+    draw_light = function(t)
+      assert(t.sprite and t.surface and t.target, "draw_light : arguments")
+      W.lights = (W.lights or 0) + 1; return 0
+    end,
+    set_color = function(id, c) W.renders[id].color = c end,
+    destroy = function(id) W.renders[id] = nil end,
+  }
+  _G.log = function(s) W.logs[#W.logs + 1] = M.ls_to_string(s) end
+  local function profiler()
+    local p = { _profiler = true, t = 0 }
+    p.restart = function() end
+    p.stop = function() end
+    p.reset = function() end
+    p.add = function(o) end
+    p.divide = function(n) assert(n > 0) end
+    return p
+  end
+  _G.game = {
+    tick = 0,
+    surfaces = { [1] = surface, nauvis = surface },
+    forces = W.forces,
+    connected_players = { W.player },
+    entity_prototypes = W.prototypes,
+    recipe_prototypes = W.recipes,
+    item_prototypes = setmetatable({}, { __index = function(_, name)
+      return { name = name, localised_name = { "item-name." .. name } }
+    end }),
+    get_player = function(i) if i == 1 then return W.player end end,
+    is_multiplayer = function() return false end,
+    create_profiler = function() return profiler() end,
+    create_inventory = function(size)
+      assert(type(size) == "number", "create_inventory : taille attendue")
+      local inv = new_inventory()
+      inv.destroy = function() inv.valid = false end
+      return inv
+    end,
+    create_force = function(name)
+      assert(not W.forces[name], "create_force : force déjà existante " .. name)
+      local n = 0
+      for _ in pairs(W.forces) do n = n + 1 end
+      assert(n < 64, "create_force : limite moteur de 64 forces")
+      W.forces[name] = new_force(name)
+      return W.forces[name]
+    end,
+    print = function(s) W.game_prints[#W.game_prints + 1] = M.ls_to_string(s) end,
+    write_file = function(name, data, append, pi)
+      W.files[name] = ((append and W.files[name]) or "") .. M.ls_to_string(data)
+    end,
+  }
+end
+
+-- Factorio interdit require() pendant un événement (seulement au chargement du script) : le mock le
+-- vérifie aussi (moteur réel, session 4 : un require dans une fonction d'interface distante a arrêté
+-- un banc de test à la première minute).
+local real_require = require
+_G.require = function(name)
+  if W and W.dispatching then error("require('" .. tostring(name) .. "') pendant un événement : interdit par le moteur", 2) end
+  return real_require(name)
+end
+
+local function dispatch(fn, ...)
+  local prev = W.dispatching
+  W.dispatching = true
+  local ok, err = pcall(fn, ...)
+  W.dispatching = prev
+  if not ok then error(err, 0) end
+end
+M.dispatch = dispatch
+
+function M.load_mod()
+  for name in pairs(package.loaded) do
+    if name:match(MOD_MODULE_PATTERN) or name:match("^shared%.") then package.loaded[name] = nil end
+  end
+  W.events, W.nth, W.commands, W.remote = {}, {}, {}, {}
+  dofile("control.lua")
+end
+
+function M.new_game(opts)
+  M.new_world(opts)
+  M.load_mod()
+  dispatch(W.on_init)
+end
+
+function M.command(name, text)
+  dispatch(W.commands[name], { name = name, parameter = text, player_index = 1, tick = _G.game.tick })
+end
+
+function surface_find_resource(pos)
+  local best, best_d
+  for _, p in ipairs(W.patches) do
+    local dx, dy = p.x - pos.x, p.y - pos.y
+    local d = dx * dx + dy * dy
+    if d <= 8 * 8 and (not best_d or d < best_d) then best, best_d = p.name or "iron-ore", d end
+  end
+  return best
+end
+local surface_find_resource = surface_find_resource
+
+local DRILL_PERIOD = 240     -- foreuse à combustible : 0,25 minerai/s
+local FUEL_PERIOD = 1600     -- un charbon toutes les ~27 s (foreuse ; four : 2 666 ticks)
+local MINE_PERIOD = 120      -- minage à la main : 0,5 objet/s
+local SMELT = { ["iron-ore"] = "iron-plate", ["copper-ore"] = "copper-plate", ["stone"] = "stone-brick", ["iron-plate"] = "steel-plate" }
+
+local function entity_at(pos)
+  for _, e in ipairs(W.entities) do
+    if e.valid and (e.type == "furnace" or e.type == "container") and math.abs(e._x - pos.x) <= 1.2 and math.abs(e._y - pos.y) <= 1.2 then
+      return e
+    end
+  end
+end
+
+local function burn(e, tick)
+  local fuel = inv_of(e, defines.inventory.fuel)
+  if fuel.get_item_count("coal") <= 0 then return false end
+  e._burn = (e._burn or 0) + 1
+  local period = e.type == "furnace" and FUEL_PERIOD * 5 / 3 or FUEL_PERIOD
+  if e._burn * 60 >= period then
+    e._burn = 0
+    fuel.remove({ name = "coal", count = 1 })
+    W.burned = (W.burned or 0) + 1
+  end
+  return true
+end
+
+local function step_economy(tick)
+  if tick % 60 ~= 0 then return end
+  for i = 1, #W.entities do
+    local e = W.entities[i]
+    if e.valid then
+      if #e._craft > 0 and e._craft[1].due <= tick then
+        local c = table.remove(e._craft, 1)
+        for _, p in ipairs(recipe(c.recipe).products) do
+          -- Comme le moteur : un personnage range ses armes et munitions fabriquées dans ses emplacements.
+          local target = defines.inventory.character_main
+          if p.name:find("magazine") and inv_of(e, defines.inventory.character_ammo).get_item_count() < 600 then
+            target = defines.inventory.character_ammo
+          elseif (p.name == "pistol" or p.name == "submachine-gun") and inv_of(e, defines.inventory.character_guns).get_item_count() < 3 then
+            target = defines.inventory.character_guns
+          end
+          inv_of(e, target).insert({ name = p.name, count = p.amount })
+        end
+      end
+      if e.type == "character" and e._mining and e._mining.mining then
+        e._mine_acc = (e._mine_acc or 0) + 60
+        if e._mine_acc >= MINE_PERIOD then
+          e._mine_acc = 0
+          local res = surface_find_resource(e._mining.position)
+          if res then inv_of(e, defines.inventory.character_main).insert({ name = res, count = 1 }) end
+        end
+      end
+      if e.name == "burner-mining-drill" then
+        local res = surface_find_resource({ x = e._x, y = e._y })
+        local sink = res and entity_at(e.drop_position)
+        if sink and burn(e, tick) then
+          e._drill_acc = (e._drill_acc or 0) + 60
+          if e._drill_acc >= DRILL_PERIOD then
+            e._drill_acc = 0
+            if sink.type == "furnace" then inv_of(sink, defines.inventory.furnace_source).insert({ name = res, count = 1 })
+            else inv_of(sink, defines.inventory.chest).insert({ name = res, count = 1 }) end
+            W.produced[res] = (W.produced[res] or 0) + 1
+          end
+        end
+      end
+      if e.type == "furnace" then
+        local src = inv_of(e, defines.inventory.furnace_source)
+        for item, out in pairs(SMELT) do
+          local need = item == "iron-plate" and 5 or (item == "stone" and 2 or 1)
+          if src.get_item_count(item) >= need and burn(e, tick) then
+            src.remove({ name = item, count = need })
+            inv_of(e, defines.inventory.furnace_result).insert({ name = out, count = 1 })
+            break
+          end
+        end
+      end
+    end
+  end
+end
+
+local function step_physics()
+  local speed = 0.15
+  for i = 1, #W.entities do
+    local e = W.entities[i]
+    if e.valid and e._walking then
+      local v = DIRV[e._dir]
+      e._x = e._x + v[1] * speed
+      e._y = e._y + v[2] * speed
+      if not W.h1 then e._walking = false end -- H1 fausse : l'ordre de marche ne dure qu'un tick
+    end
+  end
+end
+
+local run_ticks_inner
+function M.run_ticks(n)
+  dispatch(run_ticks_inner, n)
+end
+run_ticks_inner = function(n)
+  for _ = 1, n do
+    local tick = _G.game.tick + 1
+    _G.game.tick = tick
+    local still = {}
+    for i = 1, #W.pending_paths do
+      local ev = W.pending_paths[i]
+      if ev.due <= tick then
+        W.events[defines.events.on_script_path_request_finished]({
+          id = ev.id, tick = tick, path = ev.path, try_again_later = ev.try_again_later or false,
+        })
+      else
+        still[#still + 1] = ev
+      end
+    end
+    W.pending_paths = still
+    W.events[defines.events.on_tick]({ tick = tick })
+    local ns = {}
+    for nn in pairs(W.nth) do ns[#ns + 1] = nn end
+    table.sort(ns)
+    for _, nn in ipairs(ns) do if tick % nn == 0 then W.nth[nn]({ tick = tick, nth_tick = nn }) end end
+    step_physics()
+    step_economy(tick)
+    step_groups(tick)
+    local q = W.destroyed_queue
+    W.destroyed_queue = {}
+    for i = 1, #q do
+      W.events[defines.events.on_entity_destroyed]({ tick = tick, unit_number = q[i].unit_number, registration_number = q[i].registration_number })
+    end
+  end
+end
+
+-- Sérialisation déterministe de global (objets moteur -> "E<n>"), échoue sur fonction/userdata.
+function M.serialize(v, seen)
+  seen = seen or {}
+  local t = type(v)
+  if t == "number" then return string.format("%.17g", v) end
+  if t == "string" then return string.format("%q", v) end
+  if t == "boolean" or t == "nil" then return tostring(v) end
+  if t == "table" then
+    if rawget(v, "_lua_object") then
+      return "E" .. tostring(rawget(v, "unit_number") or rawget(v, "group_number") or rawget(v, "name") or rawget(v, "index"))
+    end
+    if seen[v] then return "<ref>" end
+    seen[v] = true
+    local keys = {}
+    for k in pairs(v) do keys[#keys + 1] = k end
+    table.sort(keys, function(a, b)
+      if type(a) == type(b) then return a < b end
+      return type(a) < type(b)
+    end)
+    local parts = {}
+    for _, k in ipairs(keys) do parts[#parts + 1] = tostring(k) .. "=" .. M.serialize(v[k], seen) end
+    seen[v] = nil
+    return "{" .. table.concat(parts, ",") .. "}"
+  end
+  error("type non sérialisable dans global : " .. t)
+end
+
+function M.deepcopy_global(v)
+  if type(v) ~= "table" or rawget(v, "_lua_object") then return v end
+  local c = {}
+  for k, x in pairs(v) do c[k] = M.deepcopy_global(x) end
+  return c
+end
+
+return M

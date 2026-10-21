@@ -1,0 +1,9 @@
+{
+  "name": "factorio-overhaul",
+  "version": "0.3.0",
+  "title": "Factorio Overhaul",
+  "author": "Evan",
+  "factorio_version": "1.1",
+  "dependencies": ["base >= 1.1.91"],
+  "description": "Refonte totale : factions IA à économie réelle en guerre, équipes de compagnons qui travaillent, défense de tours, déchiqueteurs supérieurs, modules et armes en paliers (canon, mortier, arc, acide, rail), nouveaux biomes et ressources à effets."
+}
