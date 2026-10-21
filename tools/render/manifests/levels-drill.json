@@ -1,0 +1,1077 @@
+{
+ "base": "electric-mining-drill",
+ "famille": "drill",
+ "interface_dress": {
+  "circuit_connector": "les points vanilla tombent sur l'ancienne géométrie : à redéfinir par époque en phase 2 (défaut D3 sinon)",
+  "drawing_box": "par niveau : champ drawing_box ci-dessous (union des 4 directions, couche principale)",
+  "fichier": "prototypes/levels/drill.lua (dress(p, ctx), en tête de prototypes/levels/common.lua)",
+  "graphics_set.animation": "Animation4Way : north/east/south/west = { layers = { main, shadow } } (frame_count 1, repeat_count = nombre d'images du trépan si celui-ci reste animé)",
+  "graphics_set.working_visualisations": [
+   "{ always_draw = true, <dir>_animation = { layers = { glow } } } : lueur de jour (époques 3+) ; effect/frame_sequence par époque en phase 2 (pulsation, arcs, bulles, uranium-glow…)",
+   "{ always_draw = true, draw_as_light, <dir>_animation = { layers = { light } } } : halo de nuit, OU LightDefinition proportionnelle au niveau (bible §1.6 : I = 0,05 + 0,02·N)",
+   "retirer aux niveaux 3+ les visualisations vanilla de la tige (electric_mining_drill_animation, _horizontal_*) : chaque époque porte sa propre tour ; trépan animé par ère en phase 2 (bible §3.3-5)",
+   "garder la fumée et la poussière (teinte du minerai) et les DEL d'état, à repositionner si besoin"
+  ],
+  "icons": "icons(icons, ctx) : rendu de la pose N (64 px, 4 mipmaps) + numéro de niveau, en phase 2",
+  "integration_patch": "inchangé (vanilla) en phase 1 ; patch 3×3 par époque partagé avec l'assembleur (bible §3.3-6) en phase 2",
+  "invariants_de_jeu": "collision_box, selection_box, vector_to_place_result {0, -1,85}, entrées de fluide et resource_searching_radius inchangés (D1-4, garde de dress)",
+  "selection": "e = ctx.epoch ; niveau = ctx.level ; ctx.step == 1 : silhouette de l'époque ; ctx.step == 2 : même chose + pièce (couches du niveau pair, qui CONTIENNENT déjà la pièce)",
+  "wet_mining_graphics_set": "NON rendu en phase 1 : fenêtres de fluide par ère en phase 2 ; d'ici là, reprendre graphics_set (la foreuse humide aurait sinon le visuel vanilla)"
+ },
+ "levels": {
+  "L02": {
+   "directions": {
+    "east": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L02/E-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-E-light.png",
+        "height": 224,
+        "scale": 0.5,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 204
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-E-light.png",
+        "height": 112,
+        "scale": 1,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 102
+       },
+       "sha256_apercu": "529a92c704d8c58da00851470a768ddee52a49eb4dc200b3820bc0f4815b698a"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L02/E-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-E-main.png",
+        "height": 62,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 172
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-E-main.png",
+        "height": 31,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 86
+       },
+       "sha256_apercu": "e80e8d492dbe5d3bce6d3c92337a1ab4631fc208de3342a8524ab679e1e59a42"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L02/E-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-E-shadow.png",
+        "height": 308,
+        "scale": 0.5,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 392
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-E-shadow.png",
+        "height": 154,
+        "scale": 1,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 196
+       },
+       "sha256_apercu": "716ec2573ae9d0ada83e973febb564426a1da844c3480798d4dae38814829efa"
+      }
+     },
+     "mesures": {
+      "L": 3.109375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
+      "added": 0.681396484375,
+      "area": 5.80126953125,
+      "iou_prev": 0.8825435569396516
+     }
+    },
+    "north": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L02/N-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-N-light.png",
+        "height": 224,
+        "scale": 0.5,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 204
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-N-light.png",
+        "height": 112,
+        "scale": 1,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 102
+       },
+       "sha256_apercu": "5fa565c6d32402d46ec319df9f3eb045657f676d7d91349a9456993d113ffda9"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L02/N-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-N-main.png",
+        "height": 62,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 172
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-N-main.png",
+        "height": 31,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 86
+       },
+       "sha256_apercu": "07ec22c6eee66d1483d8e283174410d50b46636b1cd68894ad56bad2ef205828"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L02/N-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-N-shadow.png",
+        "height": 308,
+        "scale": 0.5,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 392
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-N-shadow.png",
+        "height": 154,
+        "scale": 1,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 196
+       },
+       "sha256_apercu": "716ec2573ae9d0ada83e973febb564426a1da844c3480798d4dae38814829efa"
+      }
+     },
+     "mesures": {
+      "L": 2.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
+      "added": 0.536376953125,
+      "area": 5.5244140625,
+      "iou_prev": 0.9029079017146898
+     }
+    },
+    "south": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L02/S-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-S-light.png",
+        "height": 224,
+        "scale": 0.5,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 204
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-S-light.png",
+        "height": 112,
+        "scale": 1,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 102
+       },
+       "sha256_apercu": "529a92c704d8c58da00851470a768ddee52a49eb4dc200b3820bc0f4815b698a"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L02/S-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-S-main.png",
+        "height": 72,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -1.875
+        ],
+        "width": 172
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-S-main.png",
+        "height": 36,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -1.875
+        ],
+        "width": 86
+       },
+       "sha256_apercu": "857b38dcc327e1e8421e4538d873f4e3f31834d5f6d16c0b870ccaf6f07887e9"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L02/S-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-S-shadow.png",
+        "height": 308,
+        "scale": 0.5,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 392
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-S-shadow.png",
+        "height": 154,
+        "scale": 1,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 196
+       },
+       "sha256_apercu": "716ec2573ae9d0ada83e973febb564426a1da844c3480798d4dae38814829efa"
+      }
+     },
+     "mesures": {
+      "L": 2.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
+      "added": 0.696533203125,
+      "area": 6.35986328125,
+      "iou_prev": 0.8904798464491362
+     }
+    },
+    "west": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L02/W-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-W-light.png",
+        "height": 224,
+        "scale": 0.5,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 204
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-W-light.png",
+        "height": 112,
+        "scale": 1,
+        "shift": [
+         -0.125,
+         -0.75
+        ],
+        "width": 102
+       },
+       "sha256_apercu": "529a92c704d8c58da00851470a768ddee52a49eb4dc200b3820bc0f4815b698a"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L02/W-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-W-main.png",
+        "height": 62,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 172
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-W-main.png",
+        "height": 31,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -1.953125
+        ],
+        "width": 86
+       },
+       "sha256_apercu": "dd8b709010c49ed012095ca7dfbf8aaf3088c742654017f697650b7e447ed824"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L02/W-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/hr-drill-L02-W-shadow.png",
+        "height": 308,
+        "scale": 0.5,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 392
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-W-shadow.png",
+        "height": 154,
+        "scale": 1,
+        "shift": [
+         1.1875,
+         -1.28125
+        ],
+        "width": 196
+       },
+       "sha256_apercu": "716ec2573ae9d0ada83e973febb564426a1da844c3480798d4dae38814829efa"
+      }
+     },
+     "mesures": {
+      "L": 3.125,
+      "O": 0.828125,
+      "O_tige": 0.921875,
+      "added": 0.68115234375,
+      "area": 5.91845703125,
+      "iou_prev": 0.8849104859335039
+     }
+    }
+   },
+   "drawing_box": [
+    [
+     -1.3438,
+     -2.4375
+    ],
+    [
+     1.3438,
+     -1.3125
+    ]
+   ],
+   "epoch": 1,
+   "epoch_key": "pioneer",
+   "epoch_nom": "Pionnier",
+   "ere": "I Industrielle",
+   "level": 2,
+   "lueur_de_jour": false,
+   "lumiere": "lanterne #FFB060 la nuit seulement (couche halo)",
+   "piece_invariante": true,
+   "pieces": [
+    "chevalement en bois (trépied de poutres, sellette, poulie, corde) et lanterne pendue, posé sur le sprite vanilla et masqué au pixel par son alpha (méthode « four » de V0)"
+   ],
+   "silhouette": "vanilla (niveau 1, Q11)",
+   "step": 2,
+   "sur_vanilla": "couches AJOUTÉES au graphics_set vanilla (animation et visualisations inchangées) ; couches main et glow masquées au pixel par l'alpha vanilla de chaque direction ; pièce rendue une fois (pose N, repère fixe)"
+  },
+  "L03": {
+   "directions": {
+    "east": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L03/E-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-E-light.png",
+        "height": 210,
+        "scale": 0.5,
+        "shift": [
+         -0.03125,
+         -0.359375
+        ],
+        "width": 208
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-E-light.png",
+        "height": 105,
+        "scale": 1,
+        "shift": [
+         -0.03125,
+         -0.359375
+        ],
+        "width": 104
+       },
+       "sha256_apercu": "98e6fafd0bb22d6c3865ed8bd1faf9668f983b1a8f140e907c86a36d5acd6668"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L03/E-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-E-main.png",
+        "height": 236,
+        "scale": 0.5,
+        "shift": [
+         0.0625,
+         -0.28125
+        ],
+        "width": 224
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-E-main.png",
+        "height": 118,
+        "scale": 1,
+        "shift": [
+         0.0625,
+         -0.28125
+        ],
+        "width": 112
+       },
+       "sha256_apercu": "c50d197f7a85b2fc3ab3730c672ed3d3351ffb336ffa1f61a18df1eb899a0b5d"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L03/E-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-E-shadow.png",
+        "height": 180,
+        "scale": 0.5,
+        "shift": [
+         0.609375,
+         0.0
+        ],
+        "width": 258
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-E-shadow.png",
+        "height": 90,
+        "scale": 1,
+        "shift": [
+         0.609375,
+         0.0
+        ],
+        "width": 129
+       },
+       "sha256_apercu": "3577bffe49204e63a2ad9eab8da5862d90912dd8a4912cdf12fa9c0a4b5b5ea0"
+      }
+     },
+     "mesures": {
+      "L": 3.0625,
+      "O": 0.515625,
+      "O_tige": 0.59375,
+      "area": 6.79150390625,
+      "iou_prev": 0.5507185376706151
+     }
+    },
+    "north": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L03/N-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-N-light.png",
+        "height": 230,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -0.171875
+        ],
+        "width": 176
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-N-light.png",
+        "height": 115,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -0.171875
+        ],
+        "width": 88
+       },
+       "sha256_apercu": "b60c356b3af3fa52f5dbe3ce34451535b01c230970c0e36d0e069c2d6d5f5a4f"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L03/N-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-N-main.png",
+        "height": 238,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -0.265625
+        ],
+        "width": 212
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-N-main.png",
+        "height": 119,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -0.265625
+        ],
+        "width": 106
+       },
+       "sha256_apercu": "cadf3359622adbc48171713172076cabae7d8421de9331ee75bfc0e00522cb88"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L03/N-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-N-shadow.png",
+        "height": 198,
+        "scale": 0.5,
+        "shift": [
+         0.625,
+         -0.109375
+        ],
+        "width": 256
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-N-shadow.png",
+        "height": 99,
+        "scale": 1,
+        "shift": [
+         0.625,
+         -0.109375
+        ],
+        "width": 128
+       },
+       "sha256_apercu": "bdd91a531cac943818e51195339b16cdd5584e2fbf4606ee24fff841fd04639f"
+      }
+     },
+     "mesures": {
+      "L": 2.90625,
+      "O": 0.515625,
+      "O_tige": 0.59375,
+      "area": 6.71044921875,
+      "iou_prev": 0.5473492450674653
+     }
+    },
+    "south": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L03/S-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-S-light.png",
+        "height": 214,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -0.296875
+        ],
+        "width": 176
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-S-light.png",
+        "height": 107,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -0.296875
+        ],
+        "width": 88
+       },
+       "sha256_apercu": "2c5a3e53294fa08700063c3e8dbf371de2be621484a1516123e74ee591d70964"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L03/S-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-S-main.png",
+        "height": 248,
+        "scale": 0.5,
+        "shift": [
+         0.015625,
+         -0.1875
+        ],
+        "width": 214
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-S-main.png",
+        "height": 124,
+        "scale": 1,
+        "shift": [
+         0.015625,
+         -0.1875
+        ],
+        "width": 107
+       },
+       "sha256_apercu": "958dd9bc92eac33c14a46b381cca1fd5b1b3215b9d6fe3eb742a063b0559809f"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L03/S-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-S-shadow.png",
+        "height": 198,
+        "scale": 0.5,
+        "shift": [
+         0.640625,
+         0.109375
+        ],
+        "width": 254
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-S-shadow.png",
+        "height": 99,
+        "scale": 1,
+        "shift": [
+         0.640625,
+         0.109375
+        ],
+        "width": 127
+       },
+       "sha256_apercu": "c0305596a6b4ad665050fdebcae778cd29ed578b7ce2f0512e84447ad774efd6"
+      }
+     },
+     "mesures": {
+      "L": 2.90625,
+      "O": 0.515625,
+      "O_tige": 0.59375,
+      "area": 7.13134765625,
+      "iou_prev": 0.5247082195182518
+     }
+    },
+    "west": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L03/W-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-W-light.png",
+        "height": 210,
+        "scale": 0.5,
+        "shift": [
+         0.015625,
+         -0.359375
+        ],
+        "width": 210
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-W-light.png",
+        "height": 105,
+        "scale": 1,
+        "shift": [
+         0.015625,
+         -0.359375
+        ],
+        "width": 105
+       },
+       "sha256_apercu": "f660c194b9f9312af931a52960a04725b11fab56d01973f3dc1496aa609bb1c8"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L03/W-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-W-main.png",
+        "height": 236,
+        "scale": 0.5,
+        "shift": [
+         -0.0625,
+         -0.28125
+        ],
+        "width": 224
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-W-main.png",
+        "height": 118,
+        "scale": 1,
+        "shift": [
+         -0.0625,
+         -0.28125
+        ],
+        "width": 112
+       },
+       "sha256_apercu": "899ba43834f1e7ba141367015c08877e9c21f360db8ee20005d1791926147deb"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L03/W-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L03-W-shadow.png",
+        "height": 180,
+        "scale": 0.5,
+        "shift": [
+         0.609375,
+         0.0
+        ],
+        "width": 258
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L03-W-shadow.png",
+        "height": 90,
+        "scale": 1,
+        "shift": [
+         0.609375,
+         0.0
+        ],
+        "width": 129
+       },
+       "sha256_apercu": "11b69d16f7729f168dd602b0a71f578c8aabff5b201de2bd3a13af29ae629327"
+      }
+     },
+     "mesures": {
+      "L": 3.0625,
+      "O": 0.515625,
+      "O_tige": 0.59375,
+      "area": 6.78857421875,
+      "iou_prev": 0.5619241965009153
+     }
+    }
+   },
+   "drawing_box": [
+    [
+     -1.8125,
+     -2.125
+    ],
+    [
+     1.8125,
+     1.75
+    ]
+   ],
+   "epoch": 2,
+   "epoch_key": "forge",
+   "epoch_nom": "Forge",
+   "ere": "I Industrielle",
+   "level": 3,
+   "lueur_de_jour": false,
+   "lumiere": "fentes de forge #FF6A20 et lanterne : la nuit seulement",
+   "piece_invariante": false,
+   "pieces": [],
+   "silhouette": "rails en I et traverses ; 4 montants d'acier cerclés et boulonnés ; portique haut ; carter cubique cerclé, rivets en laiton ; tour en treillis d'acier et chapeau crénelé ; goulotte",
+   "step": 1
+  },
+  "L04": {
+   "directions": {
+    "east": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L04/E-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-E-light.png",
+        "height": 254,
+        "scale": 0.5,
+        "shift": [
+         -0.046875,
+         -0.671875
+        ],
+        "width": 210
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-E-light.png",
+        "height": 127,
+        "scale": 1,
+        "shift": [
+         -0.046875,
+         -0.671875
+        ],
+        "width": 105
+       },
+       "sha256_apercu": "c3510222ec3b17bdd04274cb52c148e802cadb579531c1be882281e139ee3889"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L04/E-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-E-main.png",
+        "height": 258,
+        "scale": 0.5,
+        "shift": [
+         0.0625,
+         -0.421875
+        ],
+        "width": 224
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-E-main.png",
+        "height": 129,
+        "scale": 1,
+        "shift": [
+         0.0625,
+         -0.421875
+        ],
+        "width": 112
+       },
+       "sha256_apercu": "5ec48d56ee26af1fc27c2a764710563e49136e6ffe3a25969ef926559bc44a88"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L04/E-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-E-shadow.png",
+        "height": 180,
+        "scale": 0.5,
+        "shift": [
+         0.9375,
+         0.0
+        ],
+        "width": 300
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-E-shadow.png",
+        "height": 90,
+        "scale": 1,
+        "shift": [
+         0.9375,
+         0.0
+        ],
+        "width": 150
+       },
+       "sha256_apercu": "742ed91c5504878e7ee9177ea6e4284a1162be148bc5826e1c19f3041f4e652a"
+      }
+     },
+     "mesures": {
+      "L": 3.0625,
+      "O": 0.75,
+      "O_tige": 0.921875,
+      "added": 0.245361328125,
+      "area": 7.0146484375,
+      "iou_prev": 0.9619748117822572
+     }
+    },
+    "north": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L04/N-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-N-light.png",
+        "height": 282,
+        "scale": 0.5,
+        "shift": [
+         0.015625,
+         -0.515625
+        ],
+        "width": 210
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-N-light.png",
+        "height": 141,
+        "scale": 1,
+        "shift": [
+         0.015625,
+         -0.515625
+        ],
+        "width": 105
+       },
+       "sha256_apercu": "42bcc4392c8956f23791d5a3a344b3b291b5af8517bdba505b2538d221cb7bae"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L04/N-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-N-main.png",
+        "height": 258,
+        "scale": 0.5,
+        "shift": [
+         0.0,
+         -0.421875
+        ],
+        "width": 212
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-N-main.png",
+        "height": 129,
+        "scale": 1,
+        "shift": [
+         0.0,
+         -0.421875
+        ],
+        "width": 106
+       },
+       "sha256_apercu": "0b5c6f0f9b3c58efbc80f2c10fa804814fe2f075747e87ad686e7df23c053604"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L04/N-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-N-shadow.png",
+        "height": 198,
+        "scale": 0.5,
+        "shift": [
+         0.953125,
+         -0.109375
+        ],
+        "width": 298
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-N-shadow.png",
+        "height": 99,
+        "scale": 1,
+        "shift": [
+         0.953125,
+         -0.109375
+        ],
+        "width": 149
+       },
+       "sha256_apercu": "0c9a6a6312ee5e8eff4e26ef27602f1f19a51cd6d00f9e1a388a775f22540657"
+      }
+     },
+     "mesures": {
+      "L": 2.90625,
+      "O": 0.75,
+      "O_tige": 0.921875,
+      "added": 0.228759765625,
+      "area": 6.9306640625,
+      "iou_prev": 0.9658023431727826
+     }
+    },
+    "south": {
+     "layers": {
+      "light": {
+       "apercu": "out/levels/drill/L04/S-light.png",
+       "blend_mode": "additive",
+       "draw_as_light": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-S-light.png",
+        "height": 260,
+        "scale": 0.5,
+        "shift": [
+         0.015625,
+         -0.71875
+        ],
+        "width": 210
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-S-light.png",
+        "height": 130,
+        "scale": 1,
+        "shift": [
+         0.015625,
+         -0.71875
+        ],
+        "width": 105
+       },
+       "sha256_apercu": "a912a1a905c816055c5f3ae874a56c39775734b29edcedcfd6e1d3659b0e4c92"
+      },
+      "main": {
+       "apercu": "out/levels/drill/L04/S-main.png",
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-S-main.png",
+        "height": 268,
+        "scale": 0.5,
+        "shift": [
+         0.015625,
+         -0.34375
+        ],
+        "width": 214
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-S-main.png",
+        "height": 134,
+        "scale": 1,
+        "shift": [
+         0.015625,
+         -0.34375
+        ],
+        "width": 107
+       },
+       "sha256_apercu": "85586fdefb67c9d2594f79fc979e8f2eaa0dc08805711a7e0090b5392d43a555"
+      },
+      "shadow": {
+       "apercu": "out/levels/drill/L04/S-shadow.png",
+       "draw_as_shadow": true,
+       "hr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/hr-drill-L04-S-shadow.png",
+        "height": 198,
+        "scale": 0.5,
+        "shift": [
+         0.96875,
+         0.109375
+        ],
+        "width": 296
+       },
+       "lr": {
+        "filename": "__factorio-overhaul__/graphics/levels/drill/e02/drill-L04-S-shadow.png",
+        "height": 99,
+        "scale": 1,
+        "shift": [
+         0.96875,
+         0.109375
+        ],
+        "width": 148
+       },
+       "sha256_apercu": "ba84ed30da1419a3a3e25c6fd836cbd2266fa35a1292bb502e94c8b999e95d60"
+      }
+     },
+     "mesures": {
+      "L": 2.90625,
+      "O": 0.75,
+      "O_tige": 0.921875,
+      "added": 0.226318359375,
+      "area": 7.349609375,
+      "iou_prev": 0.9681454690247868
+     }
+    }
+   },
+   "drawing_box": [
+    [
+     -1.6875,
+     -2.4375
+    ],
+    [
+     1.8125,
+     1.75
+    ]
+   ],
+   "epoch": 2,
+   "epoch_key": "forge",
+   "epoch_nom": "Forge",
+   "ere": "I Industrielle",
+   "level": 4,
+   "lueur_de_jour": false,
+   "lumiere": "fentes de forge #FF6A20 et lanterne : la nuit seulement",
+   "piece_invariante": true,
+   "pieces": [
+    "potence en A, grande poulie face caméra, lanterne de mine sur bras"
+   ],
+   "silhouette": "rails en I et traverses ; 4 montants d'acier cerclés et boulonnés ; portique haut ; carter cubique cerclé, rivets en laiton ; tour en treillis d'acier et chapeau crénelé ; goulotte",
+   "step": 2
+  }
+ },
+ "lot": "V3 phase 1 (aperçus)",
+ "pipeline": {
+  "apercus": "Cycles CPU, échantillons réduits (voir spec.json : samples)",
+  "projection": "orthographique 45° (F60)",
+  "px_par_tuile_hr": 64,
+  "soleil": "ouest, 48°",
+  "sources_sha256": {
+   "blender_batch.py": "a7c43e88fbf83f3a7b2905d08be75d2444b6d322c91eef0710790b29b03e6fe0",
+   "build_manifest.py": "4eca636032da6e0a0227806c3faf610809ba714707938c88f43c73421e617aad",
+   "catalogue.py": "fdc656c5157dc58f25438525676c4c63c1b1137bbd44fc867e63d6135e703eee",
+   "drill_levels.py": "d209c816e69e64517c8c853e16956964a7a87f3bcffe3806884db8561ac46b55",
+   "epoques.py": "d4024257850047ac42fe40389469600038cd6f6ba73e77887765f2fdc00d8857",
+   "kit.py": "1bf8898f2430e02fdd8aa6256a47bc4164cc5e5bfee1bd5b2cc0a8eb0b97c26c",
+   "levels_io.py": "e347a74cfdadd20d802e5778e683d0306a0845cfd93066a122f10eb41f315759",
+   "measure_d1.py": "1aa6a24b710903fc3374815a79087fb79d6ba0519d0018e7830016b056869aa9",
+   "planches.py": "30a8c1cea2e2ea8e5990964db36b56efe1085ac74b011e3ad78ec1704d9ed441",
+   "render_levels.py": "e10e259524fe666c299f0469fd02dd6e11e1e41fc84776d930b4a43de74e6c1b",
+   "vanilla.py": "427f977be0930bcc086cce7f89bc519260a1a69148e1fa6f6da786f34826208d"
+  }
+ },
+ "statut": "APERÇUS : tailles et shift valables pour la géométrie actuelle ; rendu définitif, toutes images et branchement en jeu : phase 2 (après V0b et V2). Design NON validé (verdict du Directeur Créatif requis)."
+}
