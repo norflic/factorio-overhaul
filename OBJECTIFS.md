@@ -75,7 +75,7 @@
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 | 24 à 30 soldats par armée, pas 100 |
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
-| C4 | PvP | 🟨 | Attaques contre vous et 5 difficultés **prouvées en moteur réel** (21/10, 20 h 45). Restent : budget A1 non mesuré ; une base défendue (3 tourelles en tech 0) n'est jamais attaquée (lot IA0b) |
+| C4 | PvP | 🟨 | Attaques contre vous, 5 difficultés, bases défendues attaquées et assaut coordonné **prouvés en moteur réel** (22/10, 0 h 55). Reste : budget A1 non mesuré |
 | **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Nouvelle demande (21/10, 21 h 35) : conception lancée (lot IA1) |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
@@ -217,8 +217,11 @@
   - C4-3 🟨 L'ordre strict des niveaux est prouvé hors jeu. Première attaque en moteur simulé :
     Facile 30 min, Normal 20, Difficile 12, Impitoyable 8,8 ; en moteur réel : Normal 20 min,
     Difficile 12 min.
-    - **Écart** : une base bien défendue n'est jamais attaquée. En tech 0, 3 tourelles suffisent, à tous
-      les niveaux, à cause de la règle « force ≥ 1,3 × défense ». Correction au lot IA0b.
+    - Écart du 21/10 (une base bien défendue n'était jamais attaquée) **corrigé par IA0b** : siège
+      (accumulation contre le joueur), rapport de force par niveau et par personnalité, assaut coordonné
+      en Difficile et en Impitoyable. **Prouvé en moteur réel** (E36). Facile reste dissuadé dès 2
+      tourelles en tech 0, comme prévu.
+    - Non prouvé : l'ordre strict hors du modèle nominal (écarts chiffrés dans BALANCE_SHEET §10 bis).
   - C4-4 ✅ **Moteur réel** (E33) :
     - Normal : 1re attaque au tick 72 001, à la fin de la grâce ; base témoin touchée au tick 78 060 ;
     - Paisible : base témoin intacte, 8 bâtiments sur 8 ;
@@ -604,8 +607,8 @@ apport.md | 21/10, 19 h 55 |
 | V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
 | X0 Scénario, crafts, branches | ✅ hors jeu ; **scénario approuvé par vous** (Q19 : « le scénario est bien […] je l'aime bien ») ; QX1 à QX9 répondues | « La Caustique d'Érèbe » : `docs/SCENARIO_EPOQUES.md`, données pures `shared/content/epochs.lua`, banc `tests/epochs_test.lua` (16 665 OK, 0 échec ; 3 défauts injectés tous détectés) ; 3 concepteurs, 2 juges, 3 critiques (45 problèmes, dont 19 majeurs ou bloquants, corrigés) ; rien en jeu | 21/10, 21 h 15 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
-| IA0b Base défendue attaquée selon la difficulté | ⏳ workflow lancé (siège, rapport de force par niveau et par personnalité, assaut coordonné) | — | 21/10, 20 h 52 |
-| V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
+| IA0b Base défendue attaquée selon la difficulté | ✅ intégré et prouvé en moteur réel | Hors jeu : pvp_test 596 OK. **Moteur réel** (22/10, 0 h 53 à 0 h 55) : ia0-defendue 11 OK (base de 3 tourelles attaquée au tick 96 601) ; ia0-defendue-forte 13 OK (12 tourelles, défense 96 : Écarlate revient à 16, 29, 40 puis 46 soldats) ; ia0-defendue-impitoyable 14 OK (assaut coordonné : Écarlate ouvre au tick 50 700, Ambre et Émeraude le rejoignent) ; journaux fo-logs\2026-10-22_integration_IA0b-V2b_* | 22/10, 0 h 55 |
+| V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
 | IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
 | D4m Banc mémoire vidéo et usine géante (D4) | ⏳ préparation lancée hors moteur ; passage en moteur réel après V0b | — | 21/10, 21 h 55 |

@@ -149,6 +149,32 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E36 · VALIDÉ · Bases défendues attaquées, en moteur réel (lot IA0b, 22/10, 0 h 53 à 0 h 55)** :
+- `ia0-defendue` (Normal, 3 tourelles, défense 24, 60 min) : **11 OK, 0 échec**. Attaques d'Écarlate
+  (tick 96 601, 16 soldats), d'Ambre (143 405, 21) et d'Émeraude (162 605, 21).
+- `ia0-defendue-forte` (Normal, 12 tourelles, défense 96, 60 min) : **13 OK**. Écarlate attaque au tick
+  72 001, puis revient avec 29, 40 et 46 soldats ; la défense estimée tombe de 96 à 8, puis à 0.
+- `ia0-defendue-impitoyable` (6 tourelles, 40 min) : **14 OK**. Assaut coordonné : fenêtre ouverte par
+  Écarlate au tick 50 700 sur (-88, 10). Ambre (51 004) et Émeraude (56 405) le rejoignent sur la même
+  cible, marqués « (assaut coordonné) ». Écarlate ouvre ensuite 4 fenêtres de plus.
+- Banc `content` sur le même `main` : 209 OK.
+- Non mesurés : le budget A1 (`ia0-big`, `ia0-perf`) ; le témoin négatif en moteur réel (il est fait en
+  moteur simulé : 1 et 2 échecs avec le code IA0).
+
+**E35 · VALIDÉ · Garde de dress complète (lot V2b)** :
+- Hors jeu : `levels_test` 1 325 OK.
+  - 81 cas de garde (15 acceptés, 66 refusés), chaque motif de refus vérifié ; plus 42 sondes de config.
+  - 4 mutants de la garde, tous détectés.
+- Coût sur l'étape data : +0,03 à 0,06 s instrumentés, et +66 Mo de pic de tas pendant `generate`.
+- **Moteur réel** : `content` 209 OK avec les fichiers de famille chargés sous la garde (`require` dans
+  `Common.generate`, accepté par le vrai chargeur).
+- Faits outillage :
+  - `os.clock` du lua5.2 Windows mesure l'horloge murale ;
+  - le Lua 5.2.4 hors jeu tire la graine de hachage au hasard, donc l'ordre de `pairs` y varie d'un
+    processus à l'autre. Le Lua de Factorio, lui, est déterministe. Les 3 boucles de prototypes qui
+    produisaient des listes dans l'ordre de `pairs` sont triées depuis le 22/10
+    (`enemies.lua`, `arsenal.lua` ×2).
+
 **E34 · VALIDÉ (hors jeu) · Graphe de fabrication des 15 époques et des branches (lot X0, 21/10, 21 h 15)** :
 - Conception par 3 concepteurs aux angles différents (récit, systèmes de production, rythme), notés par
   2 juges. Gagnante : « La Caustique d'Érèbe » (102 points, contre 99,5 et 98), enrichie des meilleures
