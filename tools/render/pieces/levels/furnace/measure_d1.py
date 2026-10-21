@@ -16,12 +16,14 @@ aident le verdict du Directeur Créatif sans le remplacer :
 - D1-1 : aire ajoutée par la pièce paire = |M(2e) \\ M(2e-1)| (≥ 0,10 tuile² visée) ; IoU avec le niveau
   précédent (impair : ≤ 0,85) ;
 - D1-2 : IoU entre niveaux impairs consécutifs (≤ 0,85) ; O jamais décroissant (vérifié sur les 30 niveaux) ;
-  nombre de dépassements (pics du profil haut des masses, proéminence ≥ 0,10 tuile : indicatif) ;
+  nombre de dépassements (pics du profil haut, ouverture de 4 px seulement pour garder flèches et
+  pointes, proéminence ≥ 0,10 tuile : indicatif) ;
 - D1-3 amendé : IoU(niveau 1, dernier niveau) < 0,50 (cible ≤ 0,45) ET IoU normalisée en échelle =
   max sur k ∈ [0,50 ; 3,00] (pas 0,01) de IoU(niveau 1 agrandi de k autour de l'origine, dernier niveau)
   (homothétie de docs/epoques/mesures/measure.py) ; seuil proposé 0,75 ; une seule pose pour le four ;
 - vide V = |M1 \\ M(n)| / |M1| (bible §4 : ≥ 5 % à l'époque 10 … ≥ 30 % à l'époque 15) ;
-- photométrie du corps (sRGB, comme la bible §1.5) : luminance p05/p50/p95 (sur 255), saturation moyenne ;
+- photométrie du corps (sRGB, comme la bible §1.5) hors zones émissives (lueur ≥ 0,10) : luminance
+  p05/p50/p95 (sur 255), saturation moyenne ;
 - lumière de jour (D2-1) : zones où la lueur (draw_as_glow, additive) porte la luminance du jour à au moins
   la médiane du corps + 80/255 ; part émissive du corps ; présence d'un carré plein de 8 × 8 px HR ;
 - halo de nuit (D2-3) : maximum et étendue de la couche halo.
@@ -223,7 +225,9 @@ def measure(src, levels):
         mass = h_open(L_.mask, 10)
         bb, bbr = bbox(mass), bbox(L_.mask)
         fp = L_.mask[OY - PPT:OY + PPT, OX - PPT:OX + PPT]
-        ph = photometry(L_.rgb, L_.body)
+        g_ = L_.layers.get("glow")
+        emis = (g_[..., 3] >= 0.10) if g_ is not None else np.zeros_like(L_.body)
+        ph = photometry(L_.rgb, L_.body & ~emis)
         r = {"n": n, "epoque": PRM.epoch_of(n), "pair": n % 2 == 0,
              "aire_t2": round(L_.mask.sum() / TILE2, 3),
              "O": round(-bb["top"] - 1.0, 3), "O_brut": round(-bbr["top"] - 1.0, 3), "O_cible": round(PRM.o_target(n), 3),
@@ -232,7 +236,7 @@ def measure(src, levels):
              "iou_n1": round(iou(m1, L_.mask), 3),
              "vide_V": round(float((m1 & ~L_.mask).sum() / m1.sum()), 3),
              "photometrie": ph, "palette_cible_L50": PRM.PALETTE[PRM.epoch_of(n)]["L50"]}
-        r["depassements"], r["pics_x"] = peaks(mass)
+        r["depassements"], r["pics_x"] = peaks(h_open(L_.mask, 4))
         if n >= 2:
             prev = lv[n - 1].mask
             r["iou_prec"] = round(iou(prev, L_.mask), 3)

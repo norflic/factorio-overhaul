@@ -126,9 +126,19 @@ def process(mod, n, samples, log, quick=False):
             wl = P.radial_window(lay, center, r0 * 64, r1 * 64)
             best = wl if best is None else np.concatenate([wl[..., :3], np.maximum(best[..., 3:], wl[..., 3:])], -1)
         best = P.floor_alpha(P.fade_edges(best))
-        m = best[..., 3].max()
-        if m > 1e-6:
-            best[..., 3] = np.clip(best[..., 3] * (light_max(n) / m), 0, 1)
+        # normalisation sur la FLAQUE AU SOL devant le four (centile 99 du sol, sous le bord avant de
+        # l'emprise) : le premier aperçu normalisait sur le maximum de toute la couche, atteint sur le
+        # bâtiment près des sources, et la flaque au sol sortait trop faible la nuit (gros plans e05, e10)
+        hl = PRM.halo_layer(n)
+        Hh, Ww = best.shape[:2]
+        yy, xx = np.mgrid[0:Hh, 0:Ww]
+        pc = (origin[0] + hl["center"][0] * 64.0, origin[1] + hl["center"][1] * 64.0)
+        reg = (yy > origin[1] + 1.05 * 64) & (np.hypot(xx + 0.5 - pc[0], yy + 0.5 - pc[1]) < hl["r0"] * 64)
+        ref = float(np.percentile(best[..., 3][reg], 99)) if reg.any() else 0.0
+        if ref <= 1e-6:
+            ref = best[..., 3].max()
+        if ref > 1e-6:
+            best[..., 3] = np.clip(best[..., 3] * (light_max(n) / ref), 0, 1)
         hr["light"] = best
     if vm.get("mask"):
         mk = vm["mask"]["hr"]

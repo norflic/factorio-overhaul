@@ -1,0 +1,40 @@
+{
+ "echantillons": [
+  32
+ ],
+ "fichiers": {
+  "d1-3-superposition": "docs/epoques/planches/furnace/d1-3-superposition.png",
+  "galerie-gris-zoom1": "docs/epoques/planches/furnace/galerie-gris-zoom1.png",
+  "galerie-jour-zoom1": "docs/epoques/planches/furnace/galerie-jour-zoom1.png",
+  "galerie-nuit-zoom1": "docs/epoques/planches/furnace/galerie-nuit-zoom1.png",
+  "gros-plan-e01": "docs/epoques/planches/furnace/gros-plan-e01-zoom2.png",
+  "gros-plan-e05": "docs/epoques/planches/furnace/gros-plan-e05-zoom2.png",
+  "gros-plan-e10": "docs/epoques/planches/furnace/gros-plan-e10-zoom2.png",
+  "gros-plan-e15": "docs/epoques/planches/furnace/gros-plan-e15-zoom2.png",
+  "vignettes-64": "docs/epoques/planches/furnace/vignettes-64.png"
+ },
+ "rendus": "tools/render/out/levels/furnace (aperçu)",
+ "source": "tools/render/pieces/levels/furnace/planches.py",
+ "vignettes": {
+  "cle_melange": {
+   "A": "n3 (époque 2)",
+   "B": "n5 (époque 3)",
+   "C": "n9 (époque 5)",
+   "D": "n23 (époque 12)",
+   "E": "n29 (époque 15)",
+   "F": "n25 (époque 13)",
+   "G": "n15 (époque 8)",
+   "H": "n7 (époque 4)",
+   "I": "n11 (époque 6)",
+   "J": "n21 (époque 11)",
+   "K": "n27 (époque 14)",
+   "L": "n1 (époque 1)",
+   "M": "n19 (époque 10)",
+   "N": "n13 (époque 7)",
+   "O": "n17 (époque 9)"
+  },
+  "cote_max_px_hr": 195,
+  "echelle_px_par_tuile": 21.005,
+  "note": "image agrandie ×2 au plus proche : chaque vignette fait 64 × 64 px avant agrandissement"
+ }
+}

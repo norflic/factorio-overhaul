@@ -52,6 +52,11 @@ PALETTE = {
     14: {"or": "#C9A23A", "blanc": "#CFCBC2", "cellules": "#1E2A55", "emit": "#FF2A2A", "cellemit": "#2F6BFF", "L50": 88},
     15: {"orblanc": "#E8DCB0", "nacre": "#D8D2C8", "cristal": "#E8F0F4", "emit": "#FFF2C0", "L50": 108},
 }
+# Correction d'albédo par époque (multiplie la couleur de TOUTES les surfaces non émissives) : la luminance
+# médiane du corps rendu doit suivre la cible de la bible §1.5 (±10). Valeurs fixées sur les mesures des
+# rendus (measure_d1.py, photométrie du corps hors zones émissives) : voir mesures_d1.txt.
+ALBEDO_K = {1: 0.36, 2: 1.0, 3: 0.97, 4: 0.56, 5: 0.54, 6: 0.40, 7: 0.85, 8: 0.38, 9: 0.64, 10: 0.82, 11: 1.22,
+            12: 0.79, 13: 0.40, 14: 0.48, 15: 0.44}
 # Feu de la bouche (identité du four : « bouche lumineuse au sud ») ; vanilla : (99,49,3) à (241,144,2)
 FIRE = "#FF8A1E"
 

@@ -40,7 +40,7 @@ def font(size):
     return ImageFont.load_default()
 
 
-def gallery(levels_grid, col_w=3.6, row_h=4.6, top_pad=0.3):
+def gallery(levels_grid, col_w=3.6, row_h=5.0, top_pad=0.3):
     """levels_grid : liste de colonnes, chaque colonne = liste de niveaux (lignes). Renvoie (jour, lumière, positions)."""
     ncol = len(levels_grid)
     nrow = max(len(c) for c in levels_grid)
