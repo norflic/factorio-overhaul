@@ -13,6 +13,8 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `gallery.py` | Index et planche-contact d'un dossier de captures (utilisable seul) |
 | `compare_shots.py` | Comparaison pixel à pixel de deux séries de captures |
 | `analyze.py` | Analyse des performances d'un banc (`--spikes`) |
+| `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
+| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
 
@@ -51,6 +53,7 @@ Codes de sortie :
 | 6 | Vitrine : au moins une entité refusée (prototype inconnu, `create_entity` refusé...) |
 | 7 | Erreur du jeu (journal), ou session terminée sans marqueur de fin (budget de ticks trop court) |
 | 8 | (`fo-captures.bat`) le banc `fo-autotest` a échoué : pas de carte |
+| 9 | (lot D4m) qualité des sprites, usage de la mémoire vidéo ou compression des textures demandés NON appliqués (ligne « Graphics options » du journal) : mesure non valable |
 
 `fo-autotest.bat` rend 0 dès que le banc a tourné : lire ensuite le BILAN
 (`grep "\[FO-CONTENT\] BILAN" fo-autotest\benchmark.log`).
@@ -89,7 +92,8 @@ partie elle-même (84 captures) environ 1 min. Le premier passage après un chan
 cache (environ +40 s). Options du pilote, par la variable `FO_VISUAL_ARGS` : `--no-atlas-cache`,
 `--pcores` (épingle sur les cœurs P : plus rapide, mais prend ces cœurs à une partie en cours),
 `--priority below` (déconseillé : chargement des sprites 160 s), `--mode load` (ancien mode `--load-game`,
-fermé par le pilote seulement), `--ticks N`.
+fermé par le pilote seulement), `--ticks N` ; lot D4m : `--quality high|normal`, `--video-memory all|high|medium|low`,
+`--texture-compression none|high-quality|low-quality`, `--measure`, `--size LxH`, et la fenêtre `hd` (§5).
 
 **Non-déterminisme connu.** Deux sessions sur la même carte donnent des captures identiques au pixel, sauf
 les faisceaux (lasers) et les jets (lance-flammes), dont l'animation ne suit pas le tick de jeu : 5 captures
@@ -104,7 +108,10 @@ sur 84 de la galerie `content` (duels 9, 12, 13, 14, 25), environ 1 % des pixels
 | `index.tsv` | Une ligne par capture demandée : num, fichier, scène, x, y, zoom, daytime, tick, résolution, alt_mode, anti_alias |
 | `index.txt` | Index lisible : zoom, heure du jour (jour/nuit), tick, taille, état (OK, absente, illisible) |
 | `planche-NN.png` | Planche-contact, 48 vignettes légendées par planche |
-| `session.txt` | Résumé de la session (commande, durées, gêne, processus, code) |
+| `session.txt` | Résumé de la session (commande, durées, gêne, processus, mémoire, code) |
+| `vram.tsv`, `memoire.txt` | (lot D4m) Relevés de mémoire du processus de test toutes les 0,5 s ; rapport de `vram.py` (§5) |
+| `factorio.log`, `stdout.txt` | (lot D4m) Journal et sortie standard du jeu, recopiés en fin de session |
+| `perf-stats.csv` | (lot D4m, `--measure`) Statistiques de rendu écrites par le jeu en quittant |
 | `vitrine.txt` | (vitrine) état de chaque rangée |
 | `done.txt` | Marqueur de fin écrit par le mod de test |
 
@@ -213,3 +220,238 @@ banc `content` compte **182 OK = 180 du socle + 2 greffés**.
 | `ctx.prepare_area(x0, y0, x1, y1, tuile)` | Zone générée, vidée, pavée, sans décor |
 | `ctx.power(x, y[, force])` | Alimentation invisible : poteau de portée 64 (zone 128 × 128) et source de 600 GW |
 | `ctx.zone`, `ctx.prepare_zone(tuile)` | (contrôles greffés) zone réservée |
+
+## 5. D4 : mémoire vidéo et usine géante (lot D4m)
+
+Objet : OBJECTIFS.md D4-1 (atlas du jeu entier ≤ 6 Go en haute qualité, PC cible à 8 Go de mémoire vidéo),
+D4-2 (basse qualité rendue, lisible, gigantisme gardé), D4-3 (chargement + 30 s au plus), D4-5 (usine géante :
+mémoire vidéo et images par seconde mesurées dans les deux qualités, 60 images/s visées). Q21 : la basse qualité
+doit garder « un certain range » pour faire tourner le jeu (16 Go de mémoire vive) : la procédure mesure aussi le
+**plancher** (§5.3, passage 5).
+
+### 5.1 Outils
+
+**`vram.py`** (ne lance rien, lit des fichiers) :
+
+```
+python tools/autotest/vram.py <journal ou dossier> [--samples vram.tsv] [--perf perf-stats.csv]
+                              [--stdout stdout.txt] [--seuil-go 6] [--json sortie.json]
+python tools/autotest/vram.py --sonde        (les compteurs GPU de Windows sont-ils lisibles ?)
+```
+
+Le dossier peut être `fo-shots`, une archive `fo-logs\...` ou `fo-visual` : le journal (`factorio.log`,
+`visual.log` ou `factorio-current.log`), `vram.tsv`, `perf-stats.csv` et `stdout.txt` y sont cherchés. Rapport :
+réglages appliqués (qualité, usage de la mémoire vidéo, compression DXT, budget Windows, VSync, écran et sa
+fréquence), un atlas par ligne avec sa catégorie et une FOURCHETTE d'octets, totaux par catégorie, verdict D4-1 sur
+l'estimation haute, chargement (cache des atlas lu ou refait), mesure directe, champ réel des vues `d4-geant`
+(lignes `CHAMP`), UPS par phase, images/s. Règle d'octets par pixel (justification en tête du script) :
+
+| Atlas | Octets par pixel (bas–haut) | Statut et source |
+|---|---|---|
+| drapeau `not-compressed` (icônes) | 4–4 | Prouvé : drapeau du journal, « [Color: 32bit] » (RGBA 8 bits) |
+| compression « high-quality » (défaut) | 1–1 | Prouvé par le journal : le jeu teste BC3 et YCoCg-DXT5 (« YCoCgDXT PSNR / BC3 PSNR »), 16 octets par bloc 4×4 |
+| compression « low-quality » | 0,5–1 | **Hypothèse** (BC1, 8 octets par bloc). Sources partielles : le sens (« select low quality to reduce the size of sprites even more », `data/core/locale/en/core.cfg`, clé `texture-compression`) et le nuanceur `compress-rygDXT` du binaire ; format exact absent du journal |
+| compression « none » | 4–4 | RGBA 8 bits |
+| drapeau `alpha-mask` (ombres, masques) | 0,5–1 compressé ; 1–4 sans | **Hypothèse** : un canal utile (BC4 : le binaire contient le nuanceur `compress-bc4` ; ou A8/BC3) ; format exact absent du journal |
+| mipmaps (« Generated mipmaps (N) ») | × (1 + 1/4 + …) | Journal : N niveaux en tout (bas) ou en plus de la base (haut) |
+
+La mesure directe (ci-dessous) tranche : une estimation ne prouve rien.
+
+Essai sur les **8 journaux** de session archivés (21/10, `fo-logs\*\visual.log` : essai 1, galeries `content` sans
+cache 1 et 2, galeries finales 1 et 2, guerre, vitrine finale, vitrine sans cache) : tous donnent 15 atlas,
+1,070 milliard de pixels, **1,10 à 1,25 Go estimés** (haute qualité, DXT « high-quality »), 4,28 Go sans
+compression (F66). Sprites chargés en **4,4 à 8,9 s** quand le cache des atlas est lu (4 sessions), **35,5 à 195,3 s**
+quand il est refait (4 sessions). Toutes ont « [VSync: 1] » et un écran 3840 × 2160 à 144 Hz. Le « CurrentUsage »
+des lignes `[Local Video Memory]` est lu au démarrage du moteur graphique, AVANT tout chargement (2 Mio) : ce n'est
+pas l'occupation du jeu.
+
+**Images par seconde.** Le fichier `--output-perf-stats` (option `--measure` du pilote) a les colonnes de
+`PerformanceLogger.cpp` (lues dans le binaire) : `prepare`, `texture-streaming-analysis`, `texture-streaming-update`,
+`cpu-render`, `cpu-flip`, `sleep`, `cpu-frame`, `sprite-count`, `draw-call-count`, `tiles-rendered`, `vt-tiles-*`,
+`gpu-terrain-render`, `gpu-draw-engine-render`, `gpu-frame`, `sync-interval`, `last-present-count`, `present-count`,
+`refresh-count`, `sync-refresh-count`, `frames-skipped`. Leur sens n'est pas documenté : `vram.py` calcule les images/s
+par **plusieurs voies, à confronter**, par phase du scénario `d4-geant` :
+
+| Voie | Calcul | Statut |
+|---|---|---|
+| phase | lignes du fichier pendant la vue / durée réelle de la vue (LuaProfiler du greffon) | suppose une ligne par image |
+| max(cpu,gpu) | 1000 / moyenne de max(`cpu-frame`, `gpu-frame`) | une image ne dure pas moins que la plus longue des deux |
+| cpu-frame | 1000 / moyenne de `cpu-frame` | **Hypothèse** « cpu-frame = durée totale de l'image » : si elle exclut l'attente du GPU, ce chiffre SURESTIME le cas visé (usine limitée par le GPU). Test : somme des `cpu-frame` / durée de la vue ≈ 1 |
+| compteurs | écarts de `present-count` et `refresh-count` (s'ils croissent) / durée de la vue | sens supposé ; `refresh-count` devrait donner la fréquence de l'écran |
+
+VSync actif (toutes les sessions archivées) : les images/s sont plafonnées à la fréquence de l'écran (144 Hz ici) ;
+un plafond à 60 imposé par le jeu lui-même n'est pas prouvé. Les vues « repère » (zone vide) donnent l'UPS de la
+**simulation seule** : si l'UPS d'une vue chargée tombe sous 60 alors que celui des repères reste à 60, c'est le
+rendu qui limite ; si les repères tombent aussi, c'est la simulation de l'usine.
+
+**Pilote `visual_session.py`** (options par `FO_VISUAL_ARGS`, aucun `.bat` modifié) :
+
+| Option | Effet |
+|---|---|
+| `--quality high\|normal` (alias `--graphics-quality`, même nom que l'option du correctif temporaire V0b ; `low` et `very-low` acceptés, migrés vers normal par le jeu) | Clé `graphics-quality` du `config.ini` DE TEST (`fo-visual\config.ini`, section `[graphics]`) ; toute valeur sauf `high` est aussi passée au binaire (`--graphics-quality`, qui n'accepte que normal, low, very-low). Vérifiée dans le journal : écart = code 9 |
+| `--video-memory all\|high\|medium\|low` | Clé `video-memory-usage` et option `--video-memory-usage` du binaire ; vérifiée de même |
+| `--texture-compression none\|high-quality\|low-quality` | Clé `texture-compression-level` du `config.ini` DE TEST (aucune option du binaire) ; vérifiée par « [DXT: …] » du journal : écart = code 9. Valeurs supposées (§ Non prouvé) |
+| `--measure` | Le jeu écrit ses statistiques de rendu (`--output-perf-stats fo-visual\perf-stats.csv`, recopié dans `fo-shots`) et le pilote attend la FIN NATURELLE du mode benchmark (budget `--ticks`) au lieu de fermer la session au marqueur |
+| fenêtre `hd` (3e argument de `fo-captures.bat`) | 1920 × 1080, affichée SANS prendre le focus ; `--size LxH` change la taille |
+
+Toujours actif (même sans `--measure`) : relevé toutes les 0,5 s de la mémoire vidéo **du seul PID de la session de
+test** (compteurs Windows `\GPU Process Memory(pid_<PID>_*)\Dedicated Usage` et `Shared Usage`, lus par PDH sous
+leurs noms ANGLAIS, donc indépendants de la langue de Windows ; lecture seule), de l'occupation de toute la carte
+(`\GPU Adapter Memory(*)\Dedicated Usage`, tous programmes confondus) et de la mémoire vive du processus
+(`GetProcessMemoryInfo`). Sorties dans `fo-shots` : `vram.tsv`, `memoire.txt` (rapport `vram.py`), `factorio.log`,
+`stdout.txt`, et dans `session.txt` : mémoire vidéo dédiée (pic, moyenne ; en fenêtre réduite, **borne basse**
+signalée), champ réel de chaque vue, UPS par phase, VSync et fréquence de l'écran, images/s par voie. Le pilote note
+aussi le nombre de `factorio.exe` hors test au lancement : s'il n'est pas nul, images/s et occupation de la carte
+sont faussées (une autre partie partage la carte et le processeur).
+
+Clés et options lues dans le binaire 1.1.91 (chaînes, sans lancer le jeu) : `graphics-quality` (« accepted values:
+normal, low, very-low » ; dans la configuration, « 'low' and 'very-low' options are deprecated and will be migrated
+to 'normal' »), `video-memory-usage` (« all, high, medium, low »), `output-perf-stats` (« path of file to which
+rendering performance statistics measurements should be saved »), les colonnes ci-dessus, `texture-compression-level`,
+`v-sync`, `halt-rendering-when-minimized` et `low-vram` (option du binaire : « sprites that are not put into sprite
+atlases won't be allocated as texture objects » ; non câblée dans le pilote). Les clés de configuration
+`texture-compression-level`, `v-sync` et `halt-rendering-when-minimized` sont dans le même bloc que `full-screen` et
+`compress-sprite-atlas-cache` (section `[graphics]`, prouvée par le lot P1) ; leurs VALEURS ne figurent pas dans le
+binaire. L'option `--graphics-quality normal` est prouvée en moteur par le lot V0b (journal « [Graphics quality:
+normal] »).
+
+**Bancs hors jeu** (`tools/autotest/tests/`, versés au lot D4m) : `python -B tools/autotest/tests/run_d4m.py
+[--work DOSSIER] [--logs "<racine>/fo-logs"]` enchaîne l'essai à blanc du greffon (`d4_dryrun.lua`, moteur simulé),
+les fixtures synthétiques (`make_fixtures.py`), les unitaires de `vram.py` (`unit_vram.py`), l'intégration du pilote
+sur une racine factice avec un faux jeu (`driver_it.py`, `fake_game.py`) et, avec `--logs`, `vram.py` sur chaque
+journal archivé. Attendu le 21/10 : **5/5 étapes** (essai à blanc 11 OK, BILAN du greffon 16 OK ; unitaires 51 OK ;
+intégration 17 OK ; 8 journaux). Ne lance pas Factorio et n'écrit rien dans la racine du jeu.
+
+### 5.2 Scénario greffé `d4-geant`
+
+`fo-autotest/scenarios/d4-geant.lua` : usine de **288 × 188 tuiles** de béton en (64, −96), 2 fois la suite des
+familles à niveaux lues dans `shared/levels/config.lua` (noms par `LV.name`, nombre de niveaux par `f.max`, taille par
+le prototype chargé : le banc reste valable quand les sprites V3 arrivent), tournée pour que le mur ferme chaque cycle
+(le centre de l'usine, entre deux cycles, montre les 7 familles même au zoom 0,5). Un bloc par famille, en
+**sandwich** sans rangée vide : 4 rangées de machines jointives, 2 tapis en boucle fermée chargés d'objets (normal,
+rapide, express), chaque tapis servant les deux rangées qui le bordent, bras d'une case (normal, rapide, empileur)
+entre tapis et machines ; murs : 2 rangées pleines. Tout travaille : assembleurs (paquets rouges, un bras d'entrée et
+un de sortie), fours (acier, charbon), foreuses (minerai sous chacune, dépôt DIRECT sur le tapis), tourelles chargées
+et ravitaillées, alimentation invisible (6 zones de 128 × 128).
+
+Essai à blanc (moteur simulé, 21/10) : **6 672 bâtiments à niveaux dans l'usine** (centre 568, mitrailleuse 1 144,
+laser 1 144, mur 1 152, foreuse 760, four 1 144, assembleur 760 ; tous les niveaux de chaque famille), 7 072 tapis,
+6 088 bras, 23 584 objets sur les tapis, 6 840 minerais, 26 684 entités, aucun chevauchement. **Champ réel** (ce que
+la caméra dessine : rectangle de demi-côtés résolution / (64 × zoom) autour du centre (208, −2), entités dont la boîte
+le touche) :
+
+| Champ | Tuiles | Bâtiments à niveaux | dont machines | murs | Tapis | Bras | Familles |
+|---|---|---|---|---|---|---|---|
+| zoom 0,3, 1920 × 1080 (vues mesurées en `hd`, capture `-hd`) | 200 × 112 | **2 588** | 2 188 | 400 | 2 800 | 2 598 | 7/7, tous les niveaux |
+| zoom 0,3, 1600 × 900 (captures) | 167 × 94 | **2 027** | 1 691 | 336 | 2 016 | 1 776 | 7/7 |
+| zoom 0,5, 1920 × 1080 | 120 × 68 | **1 239** | 999 | 240 | 1 200 | 1 000 | 7/7 |
+| zoom 0,5, 1600 × 900 (captures) | 100 × 56 | **974** | 774 | 200 | 800 | 600 | 6/7 |
+
+Version précédente (commit c5b1015), pour mémoire : 4 240 bâtiments **dans l'usine**, dont 2 304 murs ; **dans le
+champ** ≈ 1 224 (z0,3, 1600 × 900, dont 560 machines), ≈ 1 575 (z0,3 hd, 775 machines), ≈ 628 à 841 (z0,5, 228 à 361
+machines) ; et un bras sur quatre (bras long, qui prend et dépose à deux cases) ne touchait pas le tapis : en
+entrée il ne prenait rien, en sortie il aurait déposé au sol. Annoncer « 4 240 bâtiments » aurait surestimé d'un
+facteur 3 à 7 la charge réellement dessinée. Aujourd'hui : 2,8 à 3,4 fois plus de
+machines dans chaque champ. Limite physique : au zoom 0,5 (100 × 56 tuiles en 1600 × 900), des milliers de bâtiments de
+2 × 2 à 4 × 4 avec leurs tapis sont impossibles ; « des milliers dans le champ » ne vaut qu'au zoom 0,3.
+
+Session avec images : la caméra du joueur (spectateur) tient des vues fixes, chacune chronométrée par un LuaProfiler
+(UPS) : `repere-debut` (zone vide, 180 ticks ; contient les contrôles du tick 120), `z030-jour` (zoom 0,3, midi, 600),
+`repere-1` (60), `z050-jour`, `repere-2`, `z030-nuit` (minuit), `repere-3`, `z050-nuit`, puis `repere-fin` jusqu'à la
+fin. Les repères (zone vide de 160 × 100 tuiles, presque aucun sprite) découpent `perf-stats.csv` en phases et donnent
+l'UPS de la simulation seule. Chaque vue écrit son champ réel AVANT le chronomètre, avec la résolution réelle de la
+fenêtre (`LuaPlayer.display_resolution` : en fenêtre réduite, quelques pixels, et `vram.py` le signale). Captures
+APRÈS les mesures (ticks 2 790 à 2 860) : `usine-z030-jour`, `-z050-jour`, `-z030-nuit`, `-z050-nuit`,
+`usine-z030-hd-jour` (1920 × 1080), `usine-detail-z1-jour`, `-z1-nuit`, `-z2-jour` (premier bloc d'assembleurs), chacune
+avec sa ligne `CHAMP capture`. Marqueur de fin vers le tick 2 931.
+
+Contrôles (`[FO-D4-GEANT]`, BILAN attendu **16 OK** dans `fo-autotest\benchmark.log` et dans le journal de la session ;
+les 8 premiers aussi dans `create.log`) :
+- à la création : prototypes de tous les niveaux présents ; tous les niveaux posés ; au moins 5 000 bâtiments à
+  niveaux dans l'usine ; 5 000 tapis et 4 000 bras ; objets sur les tapis ; aucune pose refusée ; alimentation ;
+  l'usine dépasse le champ z0,3 hd ;
+- au tick 120 : **champ réel z0,3 en 1920 × 1080 : au moins 2 000 bâtiments à niveaux dont 1 500 machines** (seuil
+  explicite ; à blanc : 2 588 et 2 188) ; toutes les familles et tous leurs niveaux dans ce champ ; **bras reliés**
+  (prise et dépôt du moteur, `pickup_position` et `drop_position`, entre un tapis et un bâtiment à niveaux : tous) ;
+  **foreuses** (dépôt sur un tapis : toutes) ; assembleurs, fours et foreuses au travail (80 %) ; aucun ennemi.
+
+### 5.3 Procédure pour l'orchestrateur (moteur réel)
+
+Préalables : aucun autre banc (verrou), **aucune partie du Directeur Créatif en cours** pour les passages en fenêtre
+`hd` (fenêtre affichée, cœurs P pris) ; vérifier par
+`Get-CimInstance Win32_Process -Filter "Name='factorio.exe'" | Select ProcessId, CommandLine` (lecture seule).
+`<source>` = chemin du worktree D4m, ou `""` après intégration. Les passages sont **groupés par qualité** : chaque
+changement de qualité ou de compression peut refaire le cache des atlas (36 à 196 s mesurés), et le passage qui le
+refait ne compte pas pour D4-3. Depuis Git Bash, à la racine du jeu :
+
+```
+cd "<racine>"
+python "<source>/tools/autotest/vram.py" --sonde                     # compteurs GPU lisibles (sans rien lancer)
+# 1. Haute qualité, galerie (fenêtre réduite, aucune gêne)
+FO_VISUAL_ARGS="--quality high" ./fo-captures.bat d4-geant "<source>"
+#    -> archiver fo-visual\write\script-output\fo-shots\ et fo-autotest\*.log dans fo-logs\<date>_D4m_1-haute-galerie\
+# 2. Haute qualité, mesure (fenêtre 1920x1080 sans focus, cœurs P, fin naturelle au tick 3 200)
+FO_VISUAL_ARGS="--quality high --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+#    -> fo-logs\<date>_D4m_2-haute-mesure\
+# 3. Qualité normale, galerie (refait sans doute le cache : chargement à part)
+FO_VISUAL_ARGS="--quality normal" ./fo-captures.bat d4-geant "<source>"
+#    -> fo-logs\<date>_D4m_3-normale-galerie\
+# 4. Qualité normale, mesure
+FO_VISUAL_ARGS="--quality normal --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+#    -> fo-logs\<date>_D4m_4-normale-mesure\
+# 5. PLANCHER (bas de la plage, Q21) : qualité normale, mémoire vidéo « low », compression « low-quality », mesure
+FO_VISUAL_ARGS="--quality normal --video-memory low --texture-compression low-quality --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+#    -> fo-logs\<date>_D4m_5-plancher-mesure\
+# 6. (facultatif) intermédiaire : qualité normale, mémoire vidéo « medium », mesure
+FO_VISUAL_ARGS="--quality normal --video-memory medium --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+python "<source>/tools/autotest/vram.py" "<racine>/fo-logs/<date>_D4m_2-haute-mesure"   # relire une archive
+```
+
+Depuis PowerShell : `$env:FO_VISUAL_ARGS = "--quality normal"; & "<racine>\fo-captures.bat" d4-geant "<source>";
+Remove-Item Env:FO_VISUAL_ARGS`. Durée de chaque passage : non mesurée à ce jour (création de l'usine, 26 684 entités ;
+puis 2 760 ticks de vues chronométrées, 46 s à 60 UPS, les captures, et pour `--measure` l'attente du tick 3 200).
+
+À relever pour chaque passage (code de sortie attendu : 0 ; 9 = réglage non appliqué, mesure à jeter) :
+
+| Quoi | Où | Passages qui comptent |
+|---|---|---|
+| BILAN `[FO-D4-GEANT]` 16 OK | `fo-autotest\benchmark.log`, journal de session | tous |
+| qualité, usage de la mémoire vidéo, DXT réellement appliqués | `session.txt` (« reglages appliques ») | tous |
+| cache des atlas lu ou REFAIT ; « sprites charges a », « jeu initialise a » (D4-3) | `session.txt`, `memoire.txt` | comparer 2 et 4 (même état du cache) ; un passage qui refait le cache se compare à un autre qui le refait |
+| mémoire vidéo DÉDIÉE du jeu : pic, moyenne, par phase (D4-1, D4-5) ; mémoire vive privée (Q21 : 16 Go) | `session.txt`, `memoire.txt` | **2, 4, 5 (et 6) seulement** ; en fenêtre réduite (1, 3), borne BASSE (tampons de rendu et de lumières à la taille de la fenêtre) |
+| atlas : nombre, pixels, estimation (à confronter au pic mesuré) | `memoire.txt` | tous |
+| champ réel de chaque vue (« champ reel de la vue … ») | `session.txt` | 2, 4, 5 : la vue doit compter ≈ 2 588 bâtiments à z0,3 ; en fenêtre réduite, presque rien |
+| UPS par vue et par repère (simulation seule) | `session.txt`, `memoire.txt` | 2, 4, 5 |
+| VSync et fréquence de l'écran (« VSync ACTIF, ecran 144 Hz ») | `session.txt` | 2, 4, 5 : avec VSync, plafond à la fréquence de l'écran |
+| images/s par vue, par voie (phase, max(cpu,gpu), cpu-frame HYPOTHÈSE, compteurs) ; somme cpu-frame / durée ; contrôle du zoom (tuiles z030/z050 ≈ 2,78) | `session.txt`, `memoire.txt` | 2, 4, 5 |
+| captures : lisibilité de loin, gigantisme, nuit ; haute, normale et plancher côte à côte (D4-2, verdict du Directeur Créatif) | `planche-01.png` et les 8 PNG | 1, 3, 5 |
+
+**Non prouvé à ce jour (à confirmer au premier passage, puis à consigner dans RD_LOG) :**
+1. `--output-perf-stats` écrit-il un fichier en fin naturelle de `--benchmark-graphics`, une ligne par image, en
+   quelle unité ? `vram.py` le lit de façon tolérante (en-tête cherché, unité DEVINÉE par la médiane de `cpu-frame`) ;
+   si le format diffère, adapter `parse_perf_csv`. Sans fichier : images/s NON mesurées, seules restent les UPS.
+2. Sens des colonnes : `cpu-frame` = durée totale de l'image est une **hypothèse** (la voie « cpu-frame » surestime
+   si elle exclut l'attente du GPU ; test : somme des `cpu-frame` / durée de la vue ≈ 1) ; `gpu-frame`, `sleep`,
+   `cpu-flip`, `present-count` et `refresh-count` (cumulés ?) aussi. Seul l'accord des voies vaut mesure.
+3. Les lignes « Performed N updates in X ms » et « avg: … min: … max: » sont voisines, dans le binaire, de « Running
+   update %u », « checksum: %u » et « run %u: » : chemin `--benchmark` SANS images. Les écrit-il aussi en fin naturelle
+   de `--benchmark-graphics` ? Aucun journal archivé ne le montre. Le résumé « prepare/render/frame> avg »
+   (PerformanceLogger, sans doute) : écriture non prouvée non plus.
+4. En fenêtre réduite, le jeu dessine-t-il ? Le binaire a une clé `halt-rendering-when-minimized` (valeur par défaut
+   inconnue). Les images/s ne valent qu'en fenêtre `hd` ; la mémoire vidéo mesurée en fenêtre réduite n'est qu'une
+   borne basse.
+5. L'instance `pid_<PID>_…` du compteur « GPU Process Memory » apparaît-elle pour le jeu (`--sonde` l'a vue pour
+   d'autres programmes le 21/10 : 30 instances) ?
+6. `LuaPlayer.zoom = 0,3` est-il appliqué tel quel (contrôle des tuiles z030/z050) ?
+7. Le budget `--ticks 3200` suffit-il pour atteindre le marqueur (tick 2 931) avant la fin naturelle (sinon code 7) ?
+8. Clés du `config.ini` de test : `graphics-quality=high` (le défaut de ce PC, preset « very-high », est déjà la haute
+   qualité) et `texture-compression-level` : nom lu dans le binaire, VALEURS (`none`, `high-quality`,
+   `low-quality`) supposées d'après le journal « [DXT: high-quality] » et la locale. Une valeur refusée donne le code 9
+   (journal) ou une erreur du jeu au démarrage (code 7).
+9. Greffon en moteur : BILAN 16 OK, champ réel (boîtes du moteur ; l'essai à blanc les approche à ±0,3 tuile) et
+   géométrie des bras et des foreuses (prouvée à blanc avec les vecteurs de base seulement ; les prototypes à niveaux
+   peuvent différer). **Contrôles « au travail » : non testés** (le moteur simulé déclare tout au travail et `insert`
+   réussit toujours).
+10. Coût de la simulation : 26 684 entités, dont 6 088 bras et 760 assembleurs. Si l'UPS des repères tombe sous 60, les
+    images/s mesurent la simulation autant que le rendu (que le jeu borne les images/s par l'UPS n'est pas prouvé ici).
+11. Règles d'octets « alpha-mask » et « low-quality » : hypothèses (tableau ci-dessus) ; la mesure directe tranche.
