@@ -299,7 +299,7 @@ def main():
                               ph["p95"], "ok" if ph["p95"] <= 240 else "HORS", ph["sat"],
                               "ok" if ph["sat"] <= 0.45 else "HORS", ga, ga / r["area"] * 100))
     txt = "\n".join(lines)
-    print(txt)
+    sys.stdout.buffer.write((txt + "\n").encode("utf-8"))
     if a.sortie:
         os.makedirs(os.path.dirname(os.path.abspath(a.sortie)), exist_ok=True)
         with open(a.sortie, "w", encoding="utf-8", newline="\n") as f:

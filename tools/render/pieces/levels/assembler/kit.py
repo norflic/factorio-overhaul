@@ -42,6 +42,7 @@ class Kit:
     def __init__(self, S, C):
         self.S, self.C = S, C
         self.module = "corps"
+        self.gain = 1.0          # gain d'albédo de l'époque (photométrie mesurée sur le rendu : bible §1.5, règle 1)
         self.n = 0
         self._mats = {}
 
@@ -60,14 +61,15 @@ class Kit:
               rust_amount=0.0, rust_scale=6.0, dirt=0.45, seed=0.0):
         if key not in self._mats:
             self._mats[key] = self.S.mat_metal(
-                "m_" + key, scale(lin(hexcol), k), rough=rough, metallic=metallic, grain=grain,
+                "m_" + key, scale(lin(hexcol), k * self.gain), rough=rough, metallic=metallic, grain=grain,
                 grain_scale=grain_scale, rust=lin(rust) if rust else None, rust_amount=rust_amount,
                 rust_scale=rust_scale, dirt=dirt, seed=seed)
         return self._mats[key]
 
     def flat(self, key, hexcol, k=1.0, rough=0.6, metallic=0.0):
         if key not in self._mats:
-            self._mats[key] = self.S.mat_flat("m_" + key, scale(lin(hexcol), k), rough=rough, metallic=metallic)
+            self._mats[key] = self.S.mat_flat("m_" + key, scale(lin(hexcol), k * self.gain), rough=rough,
+                                              metallic=metallic)
         return self._mats[key]
 
     def emit(self, key, hexcol, strength=1.2, base="#1A1A1A", night_only=False):

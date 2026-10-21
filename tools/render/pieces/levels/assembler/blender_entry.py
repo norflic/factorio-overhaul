@@ -211,8 +211,7 @@ def main():
         try:
             render_level(int(tok), a)
         except Exception:                      # un niveau en erreur ne fait pas perdre le passage par le verrou
-            print("[FO-ERREUR] niveau %s :
-%s" % (tok, traceback.format_exc()), flush=True)
+            print("[FO-ERREUR] niveau %s : %s" % (tok, traceback.format_exc()), flush=True)
 
 
 main()

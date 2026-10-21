@@ -157,6 +157,16 @@ def e02(K, t, piece):
             K.rivets((x0 + 0.04, yy, zr + 0.04), (x1 - 0.04, yy, zr + 0.04), 5, 0.014, laiton, "rivets_plaque")
     # baie de droite : carter bas du volant, colonne de renvoi d'angle
     K.box(0.66, 1.18, -0.56, 1.32, 0.20, 0.58, cercle, "carter_droit", bevel=0.015)
+    # grand soufflet de forge accroché au flanc gauche : dépasse de l'emprise vanilla (F42, D1-2)
+    K.box(-1.30, -1.16, 0.10, 1.10, 0.20, 0.30, cercle, "console_soufflet", bevel=0.008)
+    K.prism([(-1.46, 0.16), (-1.18, 0.16), (-1.18, 1.04), (-1.46, 1.04)], 0.30, 0.38, cercle, "planche_flanc",
+            bevel=0.008)
+    K.prism([(-1.44, 0.20), (-1.18, 0.20), (-1.18, 1.00), (-1.44, 1.00)], 0.38, 0.62, cuir, "cuir_flanc",
+            top=[(-1.40, 0.30), (-1.18, 0.30), (-1.18, 0.90), (-1.40, 0.90)], bevel=0.012)
+    K.prism([(-1.42, 0.28), (-1.18, 0.28), (-1.18, 0.92), (-1.42, 0.92)], 0.62, 0.69, cercle, "planche_flanc",
+            bevel=0.008)
+    K.rivets((-1.44, 1.045, 0.34), (-1.20, 1.045, 0.34), 4, 0.014, laiton, "rivets_soufflet")
+    K.beam((-1.30, 0.60, 0.69), (-1.30, 0.60, 1.10), 0.05, 0.05, cercle, "levier_soufflet")
     K.box(0.95, 1.11, -0.42, -0.26, 0.58, 1.58, cercle, "colonne_renvoi", bevel=0.01)
     K.box(0.90, 1.16, -0.46, -0.22, 0.58, 0.80, laiton, "renvoi_bas", bevel=0.012)
     K.box(0.90, 1.16, -0.46, -0.22, 1.40, 1.62, laiton, "renvoi_haut", bevel=0.012)
@@ -191,8 +201,8 @@ def e02(K, t, piece):
     pin = (0.08 + 0.15 * math.cos(-ph * 1.5), 0.24, 1.30 + 0.15 * math.sin(-ph * 1.5))
     K.rod(pin, (0.46, 0.80, zr + 0.18), 0.025, acier, "bielle")
     K.box(0.36, 0.56, 0.70, 0.90, zr, zr + 0.16, cercle, "glissiere", bevel=0.01)
-    K.rod((1.03, 0.98, 0.70), (1.03, 1.47, 0.70), 0.038, acier, "arbre_volant")
-    K.wheel((1.03, 1.40, 0.70), "y", 0.42, 0.08, 6, acier, cercle, "volant", phase=ph)
+    K.rod((1.03, 0.98, 0.72), (1.03, 1.47, 0.72), 0.04, acier, "arbre_volant")
+    K.wheel((1.03, 1.40, 0.72), "y", 0.48, 0.09, 6, acier, cercle, "volant", phase=ph)
     H(K, -0.75, 1.55, 0.58, "#FF6A20", 1.0)
     if piece:
         # marteau-pilon vertical : à l'arrière gauche du toit pour DÉPASSER le haut de la silhouette (F42)
@@ -224,11 +234,11 @@ def e03(K, t, piece):
     cuir = K.flat("e3_courroie", "#3A2A1E", rough=0.8)
     ambre = K.emit("e3_ambre", "#FFC060", strength=1.3, base="#3A2810")
     K.module = "corps"
-    bot = [(-1.26, -0.62), (1.26, -0.62), (1.26, 1.42), (-1.26, 1.42)]
-    top = [(-1.20, -0.56), (1.20, -0.56), (1.20, 1.30), (-1.20, 1.30)]
+    bot = [(-1.12, -0.62), (1.12, -0.62), (1.12, 1.42), (-1.12, 1.42)]
+    top = [(-1.06, -0.56), (1.06, -0.56), (1.06, 1.30), (-1.06, 1.30)]
     K.prism(bot, 0.0, 0.70, fonte, "bati", top=top, bevel=0.02)
-    K.box(-1.24, 1.24, 1.30, 1.36, 0.50, 0.58, cuivre, "bandeau", bevel=0.006)
-    K.rivets((-1.18, 1.37, 0.54), (1.18, 1.37, 0.54), 18, 0.016, laiton, "rivets_bandeau")
+    K.box(-1.10, 1.10, 1.30, 1.36, 0.50, 0.58, cuivre, "bandeau", bevel=0.006)
+    K.rivets((-1.04, 1.37, 0.54), (1.04, 1.37, 0.54), 16, 0.016, laiton, "rivets_bandeau")
     # porte du foyer : hublot ambré
     K.rod((-0.62, 1.33, 0.32), (-0.62, 1.40, 0.32), 0.16, laiton, "cadre_hublot", verts=32)
     K.rod((-0.62, 1.39, 0.32), (-0.62, 1.415, 0.32), 0.12, ambre, "hublot", verts=32)
@@ -258,16 +268,16 @@ def e03(K, t, piece):
     charbon = K.metal("e3_charbon", "#141210", k=1.6, rough=0.75, metallic=0.1, grain=0.6, grain_scale=34.0,
                       dirt=0.3, seed=35)
     for yy in (0.12, 0.78):
-        K.box(-1.18, 1.18, yy - 0.025, yy + 0.025, 0.70, 0.718, fonte, "couture", bevel=0)
-        K.rivets((-1.14, yy, 0.72), (1.14, yy, 0.72), 18, 0.014, laiton, "rivets_toit")
-    K.prism([(-1.08, 0.84), (-0.40, 0.84), (-0.40, 1.24), (-1.08, 1.24)], 0.70, 1.00, fonte, "tremie",
-            top=[(-1.14, 0.80), (-0.34, 0.80), (-0.34, 1.29), (-1.14, 1.29)], bevel=0.012)
-    K.box(-1.08, -0.40, 0.84, 1.24, 0.95, 0.985, charbon, "charbon", bevel=0.01)
+        K.box(-1.04, 1.04, yy - 0.025, yy + 0.025, 0.70, 0.718, fonte, "couture", bevel=0)
+        K.rivets((-1.00, yy, 0.72), (1.00, yy, 0.72), 16, 0.014, laiton, "rivets_toit")
+    K.prism([(-1.00, 0.84), (-0.40, 0.84), (-0.40, 1.24), (-1.00, 1.24)], 0.70, 1.00, fonte, "tremie",
+            top=[(-1.06, 0.80), (-0.34, 0.80), (-0.34, 1.29), (-1.06, 1.29)], bevel=0.012)
+    K.box(-1.00, -0.40, 0.84, 1.24, 0.95, 0.985, charbon, "charbon", bevel=0.01)
     for i, (x, y) in enumerate(((-0.92, 0.95), (-0.70, 1.08), (-0.55, 0.93), (-0.82, 1.15), (-0.60, 1.18))):
         K.sphere(x, y, 0.985, 0.045 + 0.01 * (i % 2), charbon, "boulet")
     K.rod((-0.08, 0.98, 0.70), (-0.08, 0.98, 0.76), 0.17, fonte, "trou_homme", verts=28)
     K.rivets((-0.22, 1.10, 0.765), (0.06, 1.10, 0.765), 5, 0.013, laiton, "rivets_trou_homme")
-    K.tube([(1.10, -0.10, 0.70), (1.10, 0.20, 0.86), (1.10, 0.20, 1.02), (1.04, -0.20, 1.02)], 0.03, cuivre,
+    K.tube([(0.98, -0.10, 0.70), (0.98, 0.20, 0.86), (0.98, 0.20, 1.02), (0.96, -0.20, 1.02)], 0.03, cuivre,
            "conduite_eau")
     K.module = "meca"
     ph = TAU * t
@@ -313,6 +323,7 @@ def e03(K, t, piece):
 # Époque 4 · Pétrole : presse hydraulique (portique jaune, vérin), cuves latérales, garde-corps
 # ------------------------------------------------------------------------------------------------
 def e04(K, t, piece):
+    K.gain = 0.62    # photométrie : p50 mesuré 75 -> 60 (bible §1.5, ±10)
     jaune = K.metal("e4_jaune", "#8C7A3A", k=1.6, rough=0.5, metallic=0.25, grain=0.18, rust="#4A3A28",
                     rust_amount=0.25, dirt=0.5, seed=41)
     galva = K.metal("e4_galva", "#6E7378", k=1.55, rough=0.38, metallic=0.75, grain=0.22, grain_scale=80.0,
@@ -411,6 +422,7 @@ def e04(K, t, piece):
 # Époque 5 · Volcan : presse blindée en gradins (tronc de pyramide), capot incliné, fente de marteau
 # ------------------------------------------------------------------------------------------------
 def e05(K, t, piece):
+    K.gain = 0.66    # photométrie : p50 mesuré 52 -> 42 (bible §1.5, ±10)
     tung = K.metal("e5_tungstene", "#3E3D42", k=1.9, rough=0.38, metallic=0.75, grain=0.2, rust="#5A3A2A",
                    rust_amount=0.35, dirt=0.55, seed=51)
     rouille = K.metal("e5_rouille", "#5A3A2A", k=1.5, rough=0.6, metallic=0.4, grain=0.3, dirt=0.4, seed=52)
@@ -419,7 +431,7 @@ def e05(K, t, piece):
                       dirt=0.4, seed=54)
     braise = K.emit("e5_braise", "#FF4A10", strength=1.5, base="#200804")
     K.module = "corps"
-    tiers = [(0.00, 0.45, (1.30, -0.92, 1.42), (1.14, -0.79, 1.24)),
+    tiers = [(0.00, 0.45, (1.46, -1.00, 1.58), (1.14, -0.79, 1.24)),
              (0.42, 0.88, (1.17, -0.80, 1.27), (0.99, -0.66, 1.04)),
              (0.85, 1.30, (1.02, -0.68, 1.08), (0.82, -0.52, 0.85))]
     for i, (z0, z1, (bx, by0, by1), (tx_, ty0, ty1)) in enumerate(tiers):
@@ -454,6 +466,7 @@ def e05(K, t, piece):
 # Époque 6 · Électricité : bras de soudure à l'arc, piles d'isolateurs sur bobines aux quatre coins
 # ------------------------------------------------------------------------------------------------
 def e06(K, t, piece):
+    K.gain = 0.58    # photométrie : p50 mesuré 84 -> 64 (bible §1.5, ±10)
     cera = K.metal("e6_ceramique", "#D8D4C8", k=0.95, rough=0.35, metallic=0.0, grain=0.12, dirt=0.55, rust="#8A7A5A",
                    rust_amount=0.2, seed=61)
     cuivre = K.metal("e6_cuivre", "#B0703A", k=1.25, rough=0.3, metallic=0.9, grain=0.15, dirt=0.4, seed=62)
@@ -594,6 +607,7 @@ def e07(K, t, piece):
 # Époque 8 · Marais : corps arrondi vert-de-gris, trois fioles-réacteurs bouillonnantes, conduits
 # ------------------------------------------------------------------------------------------------
 def e08(K, t, piece):
+    K.gain = 0.50    # photométrie : p50 mesuré 87 -> 60 (bible §1.5, ±10)
     vdg = K.metal("e8_vert_de_gris", "#4F6B5A", k=1.55, rough=0.45, metallic=0.5, grain=0.22, rust="#2E4038",
                   rust_amount=0.3, dirt=0.5, seed=81)
     cuivre = K.metal("e8_cuivre", "#8A5A3A", k=1.5, rough=0.3, metallic=0.85, grain=0.12, rust="#4F6B5A",
@@ -635,6 +649,7 @@ def e08(K, t, piece):
 # Époque 9 · Atome : cellule chaude plombée octogonale, hublot vert, deux bras télémanipulateurs
 # ------------------------------------------------------------------------------------------------
 def e09(K, t, piece):
+    K.gain = 0.52    # photométrie : p50 mesuré 78 -> 56 (bible §1.5, ±10)
     plomb = K.metal("e9_plomb", "#4A5058", k=1.7, rough=0.45, metallic=0.6, grain=0.16, dirt=0.55, rust="#3A3E36",
                     rust_amount=0.2, seed=91)
     jaune = K.metal("e9_jaune", "#C9A227", k=1.05, rough=0.5, metallic=0.1, grain=0.18, dirt=0.5, rust="#4A3A20",
@@ -705,6 +720,7 @@ def e09(K, t, piece):
 # Époque 10 · Haute technologie : coque lisse sur pieds courts, dôme, trois bras robotisés articulés
 # ------------------------------------------------------------------------------------------------
 def e10(K, t, piece):
+    K.gain = 0.48    # photométrie : p50 mesuré 117 -> 82 (bible §1.5, ±10)
     caren = K.metal("e10_carenage", "#A8ADB3", k=1.0, rough=0.32, metallic=0.25, grain=0.06, grain_scale=90.0,
                     dirt=0.35, seed=101)
     noir = K.metal("e10_noir", "#222428", k=1.3, rough=0.45, metallic=0.3, grain=0.08, dirt=0.25, seed=102)
@@ -769,7 +785,7 @@ def e11(K, t, piece):
                     dirt=0.55, rust="#8A8478", rust_amount=0.25, seed=111)
     titane = K.metal("e11_titane", "#8E9AA6", k=1.15, rough=0.3, metallic=0.85, grain=0.1, dirt=0.35, seed=112)
     noir = K.metal("e11_noir", "#26282C", k=1.3, rough=0.45, metallic=0.3, seed=113)
-    ligne = K.emit("e11_ligne", "#BFE6FF", strength=1.3, base="#405060")
+    ligne = K.emit("e11_ligne", "#BFE6FF", strength=0.75, base="#405060")
     K.module = "corps"
     zg = 1.35
     for (x, y) in ((-1.10, -0.62), (1.10, -0.62), (-1.10, 1.12), (1.10, 1.12)):
@@ -863,6 +879,7 @@ def e12(K, t, piece):
 # Époque 13 · Fusion : noyau sphérique sur trépied dans un cadre ouvert, tore de plasma horizontal
 # ------------------------------------------------------------------------------------------------
 def e13(K, t, piece):
+    K.gain = 0.38    # photométrie : p50 mesuré 149 -> 92 (bible §1.5, ±10)
     cera = K.metal("e13_ceramique", "#D9D6CF", k=0.95, rough=0.42, metallic=0.0, grain=0.08, dirt=0.55,
                    rust="#9A9284", rust_amount=0.2, seed=131)
     cuivre = K.metal("e13_cuivre", "#B0703A", k=1.25, rough=0.28, metallic=0.9, grain=0.12, dirt=0.4, seed=132)
@@ -924,6 +941,7 @@ def e13(K, t, piece):
 # Époque 14 · Orbite : plate-forme sur pieds, ailes de panneaux dorés, parabole, bras de grue
 # ------------------------------------------------------------------------------------------------
 def e14(K, t, piece):
+    K.gain = 0.80    # photométrie : p50 mesuré 100 -> 88 (bible §1.5, ±10)
     blanc = K.metal("e14_blanc", "#CFCBC2", k=0.92, rough=0.38, metallic=0.2, grain=0.08, dirt=0.55, rust="#8A8478",
                     rust_amount=0.2, seed=141)
     or_ = K.metal("e14_or", "#C9A23A", k=1.2, rough=0.32, metallic=0.95, grain=0.55, grain_scale=35.0, dirt=0.3,
@@ -991,16 +1009,17 @@ def e14(K, t, piece):
 # Époque 15 · Légende : base flottante, cadre ajouré, noyau flottant, couronne de flèches en or blanc
 # ------------------------------------------------------------------------------------------------
 def e15(K, t, piece):
-    orb = K.metal("e15_or_blanc", "#E8DCB0", k=0.85, rough=0.25, metallic=0.9, grain=0.1, dirt=0.5, rust="#9A8A60",
+    K.gain = 0.36    # photométrie : p50 mesuré 176 -> 108 (bible §1.5, ±10)
+    orb = K.metal("e15_or_blanc", "#E8DCB0", k=0.85, rough=0.34, metallic=0.9, grain=0.1, dirt=0.5, rust="#9A8A60",
                   rust_amount=0.2, seed=151)
     nacre = K.metal("e15_nacre", "#D8D2C8", k=0.9, rough=0.22, metallic=0.1, grain=0.12, grain_scale=30.0, dirt=0.4,
                     seed=152)
-    clair = K.emit("e15_lumiere", "#FFF2C0", strength=1.3, base="#8A8060")
+    clair = K.emit("e15_lumiere", "#FFF2C0", strength=0.75, base="#8A8060")
     cy = 0.20
     K.module = "corps"
-    K.lathe((0.0, cy, 0.30), [(0, 0.0), (0.0, 0.85), (0.06, 1.08), (0.14, 1.15), (0.22, 1.10), (0.26, 0.90),
+    K.lathe((0.0, cy, 0.30), [(0, 0.0), (0.0, 0.78), (0.06, 0.99), (0.14, 1.06), (0.22, 1.01), (0.26, 0.83),
                                (0.27, 0.0)], nacre, "base_flottante", verts=64)
-    K.torus(0.0, cy, 0.44, 1.15, 0.045, orb, "jante")
+    K.torus(0.0, cy, 0.44, 1.06, 0.045, orb, "jante")
     K.torus(0.0, cy, 0.28, 0.80, 0.03, clair, "lueur_dessous")
     for k in range(4):
         a = math.radians(45 + 90 * k)
@@ -1013,8 +1032,8 @@ def e15(K, t, piece):
     K.torus(0.0, cy, 2.62, 0.44, 0.06, orb, "anneau_couronne")
     K.cyl(0.0, cy, 2.55, 2.66, 0.38, nacre, "disque_couronne", verts=48)
     # flèches : centrale (cylindre effilé + pointe) puis six autour, plus hautes à l'arrière
-    K.cyl(0.0, cy, 2.62, 4.40, 0.12, orb, "fleche_centrale", r2=0.08, verts=24)
-    K.cyl(0.0, cy, 4.40, 4.92, 0.08, orb, "pointe_centrale", r2=0.004, verts=24)
+    K.cyl(0.0, cy, 2.62, 4.50, 0.12, orb, "fleche_centrale", r2=0.082, verts=24)
+    K.cyl(0.0, cy, 4.50, 4.95, 0.082, orb, "pointe_centrale", r2=0.004, verts=24)
     K.crystal((0.0, cy, 4.86), 0.22, 0.035, clair, "eclat_pointe")
     for k in range(6):
         a = math.radians(30 + 60 * k)
