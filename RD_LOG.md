@@ -90,8 +90,32 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
 | F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
 | F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+| F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E31 · Défauts trouvés · Vérification indépendante des 18 captures V0 (3 vérificateurs, mesures au pixel)** :
+- Méthode :
+  - recalage de chaque couche sur la capture (recherche exhaustive du décalage) ;
+  - carte des lumières de nuit reconstruite à partir de la paire jour/nuit et de la LUT `lut-night.png` ;
+  - photométrie par masques.
+- Rapport : `<racine>o-logs6-10-21_V0_verif-capturesapport.md`.
+- Conforme : les 4 couches tombent exactement sur leurs décalages déclarés (0 px d'écart) aux zooms 1, 2 et 4,
+  de jour comme de nuit ; l'ombre part du pied ; aucun pixel de la cheminée ne passe devant le four.
+- **Bloquant** (four équipé, nuit) : la passe light a été rendue sans le four. Elle projette donc un trou en
+  forme du pied caché sur le toit du four : carte des lumières à 0,00 contre 0,24 autour, sur 1 562 px. La
+  façade reçoit 3 fois la lumière d'un four vanilla (0,29 contre 0,09). Cela tient à F64.
+- Majeurs :
+  - la passe light éclaire aussi le fût et la collerette ;
+  - le halo est trop grand (242×266 px hr contre 152×126 en vanilla) ;
+  - la collerette est translucide (cerceau mince et géométrie sous le pixel) ;
+  - le rendu est trop mat (matériaux diffus, filtre de 1,5 px qui adoucit les arêtes) ;
+  - la lisibilité au zoom 1 est en défaut.
+- Mineurs : ordre de composition (liseré de 1 px), liseré de contact calculé sans le four, lumière trop
+  bleue, cadrage des gros plans, qualité « normale » non testée.
+- **Leçon** : le verdict de style du Directeur Créatif et la vérification technique au pixel sont deux
+  contrôles distincts et nécessaires. Le défaut bloquant n'était visible ni pour l'orchestrateur ni dans les
+  captures envoyées. Corrections : lot V0b.
+
 **E30 · VALIDÉ (technique) · Intégration de P1 et V0 sur `main`, et vitrine V0 en moteur réel** :
 - Après fusion :
   - hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ;
