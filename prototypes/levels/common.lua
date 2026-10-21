@@ -3,7 +3,9 @@
   Données et règles : shared/levels/config.lua. Runtime : script/levels/. Point d'entrée : prototypes/levels.lua.
 
   Garde de l'interface complétée au lot V2b (état partagé entier, data.raw entier, ctx.declare, messages
-  avec chemin, coût mesuré : BALANCE_SHEET §12).
+  avec chemin, coût mesuré : BALANCE_SHEET §12), puis à la contre-vérification de V2b (copies déclarées
+  revérifiées, toutes les familles revérifiées après la dernière, icons attribué à son niveau, fichiers de
+  famille chargés dans la garde, fonctions de garde appelées par des locales).
 
   Ce fichier calcule TOUT ce qui n'est pas visuel : noms, statistiques, objets, minage, groupes de
   remplacement rapide (F39), traductions, recette du centre, touche U. Le visuel de chaque famille vit dans
@@ -20,6 +22,10 @@
       dress = function(p, ctx) ... end,          -- OBLIGATOIRE
       icons = function(icons, ctx) return icons end, -- FACULTATIF (icônes de l'entité ET de l'objet)
     }
+
+  Le fichier est chargé (require) par generate, À L'INTÉRIEUR de la garde de sa famille : son code de premier
+  niveau est soumis aux mêmes règles que dress (état partagé comparé juste après le chargement, data.raw à la
+  fermeture de la famille).
 
   dress(p, ctx) est appelée une fois par niveau généré : centre, niveaux 1 à 15 ; autres familles,
   niveaux 2 à 30 (le niveau 1 est le bâtiment vanilla, jamais modifié).
@@ -48,17 +54,19 @@
       (VISUAL_WORDS : picture, animation, sprite, sound, glow, shadow, light, smoke, icon…) ; dans les champs
       de jeu, seules les sous-clés visuelles (VISUAL_SUBKEYS : source_offset, gun_center_shift…) sont libres.
       Un champ de jeu oublié de toute liste est donc protégé par défaut. Le prototype est comparé de nouveau
-      après icons et après le dernier niveau de la famille (une référence gardée par dress ne permet pas de
-      le changer plus tard).
+      après icons, après le dernier niveau de la famille et après la DERNIÈRE famille : une référence gardée
+      par dress ne permet de le changer ni plus tard dans la famille, ni depuis une autre famille (le refus
+      nomme le niveau modifié et les familles générées après lui).
     - Animations à durée de jeu (preparing, folding, attacking, starting_attack, ending_attack des
       tourelles) : on peut changer images et vitesse, pas la DURÉE (nombre d'images / vitesse).
-    - État partagé en lecture seule, comparé EN ENTIER après CHAQUE dress et après le dernier icons de la
-      famille : la config L (toutes ses clés : tables, nombres, chaînes, et ses FONCTIONS, comparées par
-      identité), ctx.kit (avec kit.lib et kit.Evo) et le style commun (prototypes/levels/style.lua). Peu
-      importe le chemin : ctx.L, require("shared.levels.config"), ou une table rendue par une fonction de L
-      (L.parse rend la vraie famille) : toute modification est refusée.
-    - dress et icons ne modifient JAMAIS data.raw. data.raw est copié une fois avant la première famille ;
-      après le dernier icons de chaque famille sont comparés, en nommant la famille : les types surveillés
+    - État partagé en lecture seule, comparé EN ENTIER après le chargement du fichier, après CHAQUE dress et
+      après CHAQUE icons (le refus nomme la fonction et le niveau fautifs) : la config L (toutes ses clés :
+      tables, nombres, chaînes, et ses FONCTIONS, comparées par identité), ctx.kit (avec kit.lib et kit.Evo)
+      et le style commun (prototypes/levels/style.lua). Peu importe le chemin : ctx.L,
+      require("shared.levels.config"), ou une table rendue par une fonction de L (L.parse rend la vraie
+      famille) : toute modification est refusée.
+    - Le fichier (chargement, dress, icons) ne modifie JAMAIS data.raw. data.raw est copié une fois avant la
+      première famille ; après le dernier icons de chaque famille sont comparés, en nommant la famille : les types surveillés
       (WATCHED_TYPES : beam, ammo, projectile, artillery-projectile, explosion, corpse, rail-remnants,
       sticker, smoke-with-trigger, trivial-smoke, optimized-particle, particle-source, stream, fire, tile),
       les types des prototypes SOURCES (vanilla copié, objet ; centre : coffre en acier, roboport, radar,
@@ -78,6 +86,9 @@
     renvoie  : le nom. dress peut alors remplacer une référence du niveau vers la source par ce nom (ex.
                p.attack_parameters.ammo_type.action.action_delivery.beam = nom) : la garde compare ce nom
                comme la source. Vers une AUTRE source, la référence reste un champ de jeu (refusé).
+    La copie est comparée à la source juste après edit, puis de NOUVEAU après le dress et l'icons du niveau,
+    en fin de famille et après la dernière famille : une référence à la copie gardée par edit ne permet pas
+    de changer ensuite ses champs de jeu (le refus nomme le fichier, le niveau, la copie et le chemin).
     Le prototype est ajouté à data.raw à la fin de la génération (introuvable dans data.raw pendant dress).
     Deux déclarations d'un même nom sont refusées. Nom affiché : « <niveau> (visuel) » (fo-epochs.visual).
 
@@ -104,14 +115,16 @@ local Evo = require("prototypes.evolution")
 local L = require("shared.levels.config")
 local Style = require("prototypes.levels.style")
 
-local VISUALS = {
-  command = require("prototypes.levels.command"),
-  gun = require("prototypes.levels.gun"),
-  laser = require("prototypes.levels.laser"),
-  wall = require("prototypes.levels.wall"),
-  drill = require("prototypes.levels.drill"),
-  furnace = require("prototypes.levels.furnace"),
-  assembler = require("prototypes.levels.assembler"),
+-- Fichiers de famille : chargés par generate, chacun DANS la garde de sa famille (son code de premier niveau
+-- est gardé comme dress ; correction de la contre-vérification V2b).
+local VISUAL_MODULES = {
+  command = "prototypes.levels.command",
+  gun = "prototypes.levels.gun",
+  laser = "prototypes.levels.laser",
+  wall = "prototypes.levels.wall",
+  drill = "prototypes.levels.drill",
+  furnace = "prototypes.levels.furnace",
+  assembler = "prototypes.levels.assembler",
 }
 
 local Common = {}
@@ -186,13 +199,22 @@ end
 -- résultat (refus ou non) ne dépend d'aucun ordre de parcours ; quand plusieurs valeurs ont changé, le
 -- chemin signalé est le premier dans l'ordre trié des deux premiers niveaux (type, nom ; clé du prototype),
 -- puis dans l'ordre de `pairs` en dessous (ordre déterministe du moteur pour une même suite d'opérations).
--- Coût mesuré (harness de l'étape data, BALANCE_SHEET §12) : la garde V2 sérialisait les prototypes
--- sources en chaînes après CHAQUE dress (environ 1,6 s) ; celle-ci copie data.raw une fois et compare par
--- famille (environ 0,6 s, 27 Mo de tas passager).
--- Limites connues : une modification ANNULÉE avant la comparaison suivante n'est pas vue ; les métatables ne
--- sont pas comparées ; l'état caché de la config (upvalues de shared/levels/config.lua : table des coûts,
--- index des noms) n'est pas comparé directement : il ne change que par L.rebuild(), qui le recalcule à partir
--- des données comparées (et l'étape data ne lit pas les coûts).
+-- Coût mesuré (harness de l'étape data, temps ÉCOULÉ, BALANCE_SHEET §12) : la garde V2 sérialisait les
+-- prototypes sources en chaînes après CHAQUE dress (1,44 à 1,99 s, médiane 1,52 s) ; celle-ci copie data.raw
+-- une fois et compare par famille (0,56 à 0,78 s, médiane 0,71 s ; + 66 Mo alloués pendant generate, rien
+-- de retenu). Les revérifications de la contre-vérification (icons, toutes les familles) en coûtent 0,03 à 0,06.
+-- Limites connues :
+--   - la garde arrête les ERREURS d'un agent, pas un contournement DÉLIBÉRÉ : la bibliothèque debug, le
+--     remplacement d'une fonction globale (table.deepcopy, data.extend…) ou un écart restauré avant la
+--     comparaison suivante passent. generate appelle ses fonctions de garde par des LOCALES : remplacer
+--     require("prototypes.levels.common").dress (ou guard_begin, guard_end…) n'a aucun effet sur la génération ;
+--   - une modification ANNULÉE avant la comparaison suivante n'est pas vue ;
+--   - les métatables ne sont pas comparées (une métatable posée sur L est acceptée) ;
+--   - seuls les champs de JEU des niveaux et des copies déclarées sont protégés : les champs graphiques d'un
+--     autre niveau ou d'une autre famille, atteints par une référence gardée, ne le sont pas ;
+--   - l'état caché de la config (upvalues de shared/levels/config.lua : table des coûts, index des noms) n'est
+--     pas comparé directement : il ne change que par L.rebuild(), qui le recalcule à partir des données
+--     comparées (et l'étape data ne lit pas les coûts) ; L.rebuild() suivi d'une restauration passe.
 ---------------------------------------------------------------------------------------------------
 local function set(list)
   local t = {}
@@ -804,7 +826,7 @@ end
 local function raw_error(g, where, path, why, t, name)
   local text = path_text("data.raw", path)
   local head = where and ("prototypes/levels/" .. where .. " : a modifié ")
-    or "prototypes/levels : un fichier de famille (dress ou icons) a modifié, hors des types comparés par famille, "
+    or "prototypes/levels : un fichier de famille (chargement, dress ou icons) a modifié, hors des types comparés par famille, "
   if g then
     for _, s in ipairs(g.sources) do
       if s[1] == t and s[2] == name then
@@ -830,6 +852,23 @@ local DECLARABLE = {
 }
 
 local function level_where(family, n) return family.key .. ".lua (niveau " .. n .. ")" end
+
+-- Clés de premier niveau d'une copie déclarée qui diffèrent de la source par construction.
+local DECLARED_IGNORE = { name = true, localised_name = true }
+
+--- Compare une copie déclarée (ctx.declare) à sa source, partie jeu (nom et nom affiché exceptés), puis
+--- vérifie son nom et son nom affiché (posés par declare). where : fichier et niveau où l'écart est constaté ;
+--- who : l'appel fautif.
+local function check_declared(d, where, alias, who)
+  local text, why = game_diff(d.snap, d.copy, alias, DECLARED_IGNORE)
+  if not text and d.copy.name ~= d.name then text, why = "name", "valeur modifiée" end
+  if not text and differs(d.lname, d.copy.localised_name, {}) then text, why = "localised_name", "valeur modifiée" end
+  if text then
+    error("prototypes/levels/" .. where .. " : " .. who .. " a modifié la copie déclarée « " .. d.name .. " » ("
+      .. d.ptype .. ", déclarée au niveau " .. d.n .. " depuis " .. d.source .. ") après ctx.declare : champ de jeu « "
+      .. text .. " » (" .. why .. ") ; seuls ses champs graphiques peuvent changer")
+  end
+end
 
 --- ctx.declare (interface en tête du fichier).
 local function declare(g, family, n, ptype, source, suffix, edit)
@@ -858,13 +897,17 @@ local function declare(g, family, n, ptype, source, suffix, edit)
   copy.localised_name = { "fo-epochs.visual", { "fo-levels.name", level_name(family), tostring(n) } }
   g.alias[name] = source
   g.declared[#g.declared + 1] = copy
+  -- Instantané de jeu de la SOURCE gardé avec la copie : elle est comparée de nouveau après le dress et
+  -- l'icons du niveau, en fin de famille et après la dernière famille (check_declared).
+  g.declared_info[#g.declared_info + 1] = { copy = copy, snap = snap, name = name, ptype = ptype, source = source, n = n,
+    lname = deep_copy(copy.localised_name, nil, {}) }
   return name
 end
 
 --- Contexte passé aux fichiers de famille : en LECTURE SEULE (écrire un champ est une erreur). family et
 --- color sont des COPIES (les modifier n'a d'effet que sur ce niveau, et la garde le refuse pour family).
 --- g : garde de la famille (ctx.declare en a besoin). Renvoie ctx et sa table interne (pour la garde).
-function Common.context(family, n, g)
+local function context(family, n, g)
   local e = L.epoch_of(family, n)
   local ep = L.epochs[e]
   local inner = {
@@ -881,29 +924,33 @@ function Common.context(family, n, g)
   return ctx, inner
 end
 
---- Ouvre la garde d'une famille, AVANT son premier dress. raw : copie de data.raw déjà prise (generate : une
---- seule copie pour les 7 familles) ; nil : prise ici, et TOUT data.raw sera comparé à la fermeture.
-function Common.guard_begin(family, raw)
+--- Ouvre la garde d'une famille, AVANT son premier dress (generate : avant le chargement de son fichier).
+--- raw : copie de data.raw déjà prise (generate : une seule copie pour les 7 familles) ; nil : prise ici, et
+--- TOUT data.raw sera comparé à la fermeture.
+local function guard_begin(family, raw)
   return {
     file = family.key .. ".lua", sources = sources_of(family), raw = raw or raw_copy(), own_raw = raw == nil,
     watched = watched_types(family), shared = shared_copy(), family_copy = deep_copy(family, nil, {}),
-    levels = {}, declared = {}, alias = {},
+    levels = {}, declared = {}, declared_info = {}, alias = {}, loaded = false,
   }
 end
 
---- Ferme la garde d'une famille, APRÈS son dernier icons : prototypes des niveaux (de nouveau), état partagé,
---- data.raw (types surveillés, des sources et référencés ; tout data.raw si la copie est propre à la garde).
---- Renvoie les prototypes déclarés par ctx.declare (à ajouter à data.raw).
-function Common.guard_end(g)
+--- Ferme la garde d'une famille, APRÈS son dernier icons : prototypes des niveaux et copies déclarées (de
+--- nouveau), état partagé, data.raw (types surveillés, des sources et référencés ; tout data.raw si la copie
+--- est propre à la garde). Renvoie les prototypes déclarés par ctx.declare (à ajouter à data.raw).
+local function guard_end(g)
   local lv = g.levels
-  local where = g.file
+  local what = g.loaded and "chargement du fichier, dress ou icons" or "dress ou icons"
+  local where = g.file .. " (" .. what .. ")"
   if #lv == 1 then
-    where = g.file .. " (niveau " .. lv[1].n .. ", dress ou icons)"
+    where = g.file .. " (niveau " .. lv[1].n .. ", " .. what .. ")"
   elseif #lv > 1 then
-    where = g.file .. " (niveaux " .. lv[1].n .. " à " .. lv[#lv].n .. ", dress ou icons)"
+    where = g.file .. " (niveaux " .. lv[1].n .. " à " .. lv[#lv].n .. ", " .. what .. ")"
   end
-  for _, l in ipairs(lv) do check_snapshot(l.snap, l.p, l.where, g.alias, "un appel ultérieur (dress ou icons)") end
-  shared_check(g.shared, where, "dress ou icons")
+  local later = "un appel ultérieur (dress ou icons)"
+  for _, l in ipairs(lv) do check_snapshot(l.snap, l.p, l.where, g.alias, later) end
+  for _, d in ipairs(g.declared_info) do check_declared(d, g.file .. " (niveau " .. d.n .. ")", g.alias, later) end
+  shared_check(g.shared, where, "un appel")
   local path, why, t, name = raw_diff(g.raw, g.watched)
   if path then raw_error(g, where, path, why, t, name) end
   if g.own_raw then
@@ -914,26 +961,68 @@ function Common.guard_end(g)
 end
 
 --- Appelle visual.dress(p, ctx) sous la garde de l'interface (voir plus haut). g : garde de la famille
---- (Common.guard_begin) ; nil : garde complète autour de ce seul appel (data.raw entier compris).
+--- (guard_begin) ; nil : garde complète autour de ce seul appel (data.raw entier compris).
 --- Une violation arrête l'étape data avec un message qui nomme le fichier, le niveau et le chemin modifié.
---- Renvoie ctx et l'instantané de jeu de p (pour la vérification après icons).
-function Common.dress(visual, p, family, n, g)
+--- Renvoie ctx et l'instantané de jeu de p.
+local function guarded_dress(visual, p, family, n, g)
   local own = g == nil
-  g = g or Common.guard_begin(family)
+  g = g or guard_begin(family)
   local where = level_where(family, n)
-  local ctx, inner = Common.context(family, n, g)
+  local ctx, inner = context(family, n, g)
   local snap = game_snapshot(p)
+  local d_from = #g.declared_info + 1
   visual.dress(p, ctx)
   check_snapshot(snap, p, where, g.alias)
+  for i = d_from, #g.declared_info do check_declared(g.declared_info[i], where, g.alias, "dress") end
   local path, why = diff_sorted(g.family_copy, inner.family)
   if path then
     error("prototypes/levels/" .. where .. " : dress a modifié " .. path_text("ctx.family", path) .. " (" .. why
       .. ") ; ctx.family est en lecture seule")
   end
   shared_check(g.shared, where, "dress")
-  g.levels[#g.levels + 1] = { n = n, p = p, snap = snap, where = where }
-  if own then Common.guard_end(g) end
+  g.levels[#g.levels + 1] = { n = n, p = p, snap = snap, where = where, d_from = d_from }
+  if own then guard_end(g) end
   return ctx, snap
+end
+
+--- Après l'icons d'un niveau (icônes de l'entité ET de l'objet) : le prototype du niveau, les copies déclarées
+--- à ce niveau et l'état partagé sont comparés de nouveau, et un écart est attribué à CET icons (et non au
+--- dress du niveau suivant). Le niveau n doit être le dernier passé par guarded_dress dans cette garde.
+local function icons_check(g, family, n)
+  local l = g.levels[#g.levels]
+  assert(l and l.n == n, "prototypes/levels : icons_check hors de son niveau")
+  local where = level_where(family, n)
+  check_snapshot(l.snap, l.p, where, g.alias, "icons")
+  for i = l.d_from, #g.declared_info do check_declared(g.declared_info[i], where, g.alias, "icons") end
+  shared_check(g.shared, where, "icons")
+end
+
+--- Après la DERNIÈRE famille, avant data:extend : prototypes des niveaux et copies déclarées de TOUTES les
+--- familles, de nouveau. Une référence gardée par une famille ne permet pas de changer une famille déjà
+--- fermée : le refus nomme le niveau modifié et les familles générées après la sienne (les seules possibles).
+local function final_check(guards)
+  for i, g in ipairs(guards) do
+    local after = {}
+    for j = i + 1, #guards do after[#after + 1] = guards[j].file end
+    local who = #after > 0
+      and ("un appel d'une famille générée après (" .. table.concat(after, ", ") .. " : chargement, dress ou icons)")
+      or "un appel ultérieur"
+    for _, l in ipairs(g.levels) do check_snapshot(l.snap, l.p, l.where, g.alias, who) end
+    for _, d in ipairs(g.declared_info) do check_declared(d, g.file .. " (niveau " .. d.n .. ")", g.alias, who) end
+  end
+end
+
+--- Charge le fichier de famille DANS sa garde (déjà ouverte) : son code de premier niveau est gardé comme dress
+--- (état partagé ici ; data.raw à la fermeture de la famille, guard_end).
+local function load_visual(family, g)
+  local module = VISUAL_MODULES[family.key]
+  assert(module, "prototypes/levels : aucun fichier de famille pour « " .. tostring(family.key) .. " »")
+  g.loaded = true
+  local visual = require(module)
+  shared_check(g.shared, g.file .. " (chargement du fichier)", "le code de premier niveau")
+  assert(type(visual) == "table" and type(visual.dress) == "function",
+    "prototypes/levels/" .. g.file .. " : fonction dress manquante")
+  return visual
 end
 
 function Common.generate()
@@ -944,12 +1033,15 @@ function Common.generate()
   end
 
   -- Garde : data.raw copié UNE fois, après les groupes de remplacement posés ci-dessus (seule écriture
-  -- légitime de ce fichier dans data.raw avant data:extend).
+  -- légitime de ce fichier dans data.raw avant data:extend). Les fonctions de garde sont appelées par des
+  -- LOCALES (guard_begin, guarded_dress, icons_check, guard_end, final_check) : un fichier de famille qui
+  -- remplacerait Common.dress n'aurait aucun effet ici.
   local raw = raw_copy()
+  local guards = {}
   for _, family in ipairs(L.families) do
-    local visual = VISUALS[family.key]
-    assert(visual and type(visual.dress) == "function", "prototypes/levels/" .. family.key .. ".lua : fonction dress manquante")
-    local guard = Common.guard_begin(family, raw)
+    local guard = guard_begin(family, raw)
+    guards[#guards + 1] = guard
+    local visual = load_visual(family, guard)
     for n = 1, family.max do
       local name = L.name(family, n)
       local p
@@ -980,7 +1072,7 @@ function Common.generate()
         if family.key == "command" then p.flags = { "placeable-player", "player-creation" } end
 
         -- Visuel : fichier de la famille, sous garde.
-        local dctx, snap = Common.dress(visual, p, family, n, guard)
+        local dctx = guarded_dress(visual, p, family, n, guard)
         lib.set_icons(p, family_icons(visual, p, dctx))
         out[#out + 1] = p
 
@@ -1004,14 +1096,19 @@ function Common.generate()
         end
         lib.set_icons(item, family_icons(visual, item, dctx))
         out[#out + 1] = item
-        -- icons ne reçoit pas p, mais une référence gardée par dress le pourrait : p est comparé de nouveau.
-        check_snapshot(snap, p, level_where(family, n), guard.alias, "icons")
+        -- icons ne reçoit pas p, mais une référence gardée par dress le pourrait : p, les copies déclarées à ce
+        -- niveau et l'état partagé sont comparés de nouveau, au nom de cet icons.
+        icons_check(guard, family, n)
       end
     end
-    -- Fin de la famille : prototypes des niveaux, état partagé, data.raw (types surveillés et référencés).
-    for _, d in ipairs(Common.guard_end(guard)) do out[#out + 1] = d end
+    -- Fin de la famille : prototypes des niveaux, copies déclarées, état partagé, data.raw (types surveillés
+    -- et référencés).
+    for _, d in ipairs(guard_end(guard)) do out[#out + 1] = d end
   end
-  -- Tout data.raw : une modification hors des types comparés par famille est refusée aussi.
+  -- Après la dernière famille : les niveaux et copies déclarées de TOUTES les familles (une famille suivante
+  -- ne change pas une famille fermée), puis tout data.raw (une modification hors des types comparés par
+  -- famille est refusée aussi).
+  final_check(guards)
   local path, why, t, pname = raw_diff(raw, nil)
   if path then raw_error(nil, nil, path, why, t, pname) end
 
@@ -1026,6 +1123,13 @@ function Common.generate()
   data:extend(out)
 end
 
+-- Exports pour les tests hors jeu (tests/levels_test.lua). generate ne les relit JAMAIS (voir plus haut).
+Common.context = context
+Common.guard_begin = guard_begin
+Common.guard_end = guard_end
+Common.dress = guarded_dress
+Common.icons_check = icons_check
+Common.final_check = final_check
 Common.kit = kit
 Common.game_snapshot = game_snapshot
 return Common

@@ -497,30 +497,59 @@ prototype sauf une liste blanche graphique (une clé de jeu oubliée est protég
 des animations de déploiement des tourelles et rend `ctx` en lecture seule. Depuis V2b, elle compare par
 copie profonde puis comparaison de contenu : la config `L` EN ENTIER (toutes ses clés, fonctions comprises,
 quel que soit le chemin : `ctx.L`, `require`, table rendue par `L.parse`), `ctx.kit` et le style commun après
-chaque `dress` ; `data.raw` après chaque famille (types surveillés, types des sources, types référencés par
-les sources) puis en entier après la dernière ; le prototype de chaque niveau de nouveau après `icons` et en
-fin de famille. Chaque refus nomme le fichier, le niveau et le chemin exact. Voie officielle pour un visuel
-propre (faisceau, reste, explosion) : `ctx.declare`. Tests hors jeu (`levels_test`) : 69 cas d'agent V3
-(13 acceptés, 56 refusés, motif vérifié pour chaque refus) et 42 sondes, une par clé de `L`, toutes refusées
-avec leur chemin. Sondes dans l'étape data réelle (harness, copie hors dépôt) : 6 modifications interdites
-refusées (l'ancienne garde les acceptait toutes), un faisceau déclaré par niveau accepté (777 prototypes,
-0 erreur, 0 clé de traduction manquante).
+chaque `dress` et après chaque `icons` (le refus nomme la fonction et le niveau fautifs) ; `data.raw` après
+chaque famille (types surveillés, types des sources, types référencés par les sources) puis en entier après la
+dernière ; le prototype de chaque niveau de nouveau après `icons`, en fin de famille et après la DERNIÈRE
+famille (une famille suivante ne peut plus changer une famille fermée). Chaque refus nomme le fichier, le
+niveau et le chemin exact. Voie officielle pour un visuel propre (faisceau, reste, explosion) : `ctx.declare` ;
+la copie déclarée est comparée à sa source après `edit`, puis de nouveau après le `dress` et l'`icons` du
+niveau, en fin de famille et après la dernière famille. Le fichier de famille est chargé À L'INTÉRIEUR de la
+garde de sa famille (son code de premier niveau est gardé comme `dress`) et `generate` appelle ses fonctions de
+garde par des locales (remplacer `Common.dress` depuis un fichier de famille n'a plus d'effet). Limites
+écrites en tête de `common.lua` : la garde arrête les erreurs, pas un contournement délibéré (bibliothèque
+`debug`, fonction globale remplacée, métatable posée sur `L`, écart restauré avant la comparaison).
+Tests hors jeu (`levels_test`) : 81 cas d'agent V3 (15 acceptés, 66 refusés, motif vérifié pour chaque refus,
+dont 12 cas de la contre-vérification : copie déclarée modifiée après `edit` (jeu, nom, nom affiché), `icons`
+fautif, famille suivante) et 42 sondes, une par clé de `L`, toutes refusées avec leur chemin ; 4 mutants de la garde
+(revérifications retirées une à une) sont tous détectés (1 à 6 échecs chacun). Sondes dans l'étape data
+réelle (harness, copies hors dépôt, 21/10 vers 23 h) : 35 sondes, 31 refusées avec fichier, niveau et chemin
+(dont p17 copie déclarée gardée, p20 `icons` du niveau 9, p22 `Common.dress` remplacé, p23 famille suivante,
+code de premier niveau du fichier) ; 4 acceptées : un faisceau déclaré (749 prototypes, `fo-lvl-laser-9`
+tire `fo-lvl-laser-9-beam`, dégâts de la source), un reste et une explosion déclarés (750 prototypes), et les
+deux limites écrites (métatable sur `L`, `L.rebuild()` puis restauration), 0 erreur, 0 clé de traduction
+manquante.
 
-**Coût de la garde sur l'étape data** (harness, temps processeur de `prototypes/levels.lua` ; 4 passes
-entrelacées le 21/10 vers 22 h, PC partagé avec d'autres agents : à refaire au calme)
+**Coût de la garde sur l'étape data** (harness complet ; temps ÉCOULÉ de `generate` : `os.clock` de ce
+`lua5.2` (msvcrt) mesure l'horloge murale, 2,047 s affichées pendant un sommeil de 2 s, donc sensible à la
+charge. 5 tours entrelacés le 21/10 vers 23 h, processus épinglé sur les cœurs P (masque FFF, F30), priorité
+au-dessus de la normale, ramasse-miettes normal ; PC partagé avec d'autres agents. Coût de la garde : écart au
+« sans garde » du même tour)
 
-| Variante | `prototypes/levels.lua` | Coût de la garde |
+| Variante | `generate`, temps écoulé | Coût de la garde |
 |---|---|---|
-| Sans garde (V2, garde contournée) | 0,132 à 0,140 s | — |
-| Garde V2 (chaînes sérialisées après chaque `dress`) | 1,70 à 1,79 s | ≈ 1,6 s |
-| Garde V2b (copie unique de data.raw, comparaisons par famille) | 0,74 à 0,94 s | ≈ 0,6 s (- 62 %) |
+| Sans garde (garde contournée) | 0,116 à 0,173 s (médiane 0,130) | — |
+| Garde V2 (`4240248`, chaînes sérialisées après chaque `dress`) | 1,58 à 2,11 s (médiane 1,64) | 1,44 à 1,99 s (médiane 1,52) |
+| Garde V2b (`3c78a6a`, copie unique de data.raw, comparaisons par famille) | 0,65 à 0,98 s (médiane 0,75) | 0,51 à 0,81 s (médiane 0,64) |
+| Garde V2b corrigée (contre-vérification : icons, familles, copies déclarées) | 0,70 à 0,90 s (médiane 0,88) | 0,56 à 0,78 s (médiane 0,71) |
 
-Plus tôt dans la soirée, sous une charge plus forte, la garde V2 coûtait 3,0 à 3,8 s (0,29 à 0,33 s sans
-garde). Détail de la garde V2b (une passe) : copie de data.raw 0,17 s et **26,6 Mo** de tas Lua passager
-(71,7 Mo avant) ; comparaisons de data.raw 0,35 s (7 familles + la passe finale) ; état partagé 0,03 s ;
-prototypes des niveaux 0,05 s. Estimation (non mesurée dans la garde elle-même) : la garde V2 passait
-l'essentiel de son temps à sérialiser la foreuse source après chacun des 29 `dress` ; son sérialiseur met
-2,8 s pour les 32 foreuses de data.raw, soit environ 90 ms par foreuse. Non mesuré : le temps de chargement
+Synthèse : la garde coûte de **0,56 à 0,78 s** de temps écoulé (médiane 0,71 s), **- 53 %** en médiane face à la
+garde V2. La contre-vérification de V2b, avec son propre chronomètre (collecte complète comprise), trouvait
+0,61 à 0,86 s (médiane 0,77 s) pour V2b et 1,52 à 2,43 s (médiane 1,62 s) pour V2, soit - 52 % : l'annonce
+précédente (« ≈ 0,6 s, - 62 % », « temps processeur ») était optimiste et mal nommée. Les fourchettes de V2b et
+de V2b corrigée se recouvrent : l'écart des médianes (+ 0,07 s) est dans le bruit. La décomposition (garde
+instrumentée, 3 passes, temps écoulés) chiffre l'ajout de la correction à **0,03 à 0,06 s** : état partagé
+après chaque `icons` 0,02 à 0,04 s, revérification de toutes les familles 0,011 à 0,017 s, chargement des
+fichiers 0,002 s au plus. Le reste : copie de data.raw 0,11 à 0,18 s ; comparaisons de data.raw par famille
+0,24 à 0,39 s ; tout data.raw (passe finale) 0,09 à 0,13 s ; état partagé après `dress` 0,02 à 0,03 s ;
+prototypes des niveaux (après `dress`, `icons` et en fin de famille) 0,04 à 0,06 s ; instantanés de jeu 0,01 à
+0,02 s ; types surveillés et référencés 0,01 s.
+
+**Mémoire** (ramasse-miettes arrêté pendant `generate`, une passe par variante) : `generate` alloue 27,1 Mo
+sans garde, 89,0 Mo avec la garde V2b (**+ 61,9 Mo passagers**), 92,9 Mo avec la garde corrigée (+ 65,8 Mo),
+249,0 Mo avec la garde V2 (+ 221,9 Mo). Après collecte, 17,2 Mo restent dans les 4 cas (les prototypes
+générés) : la garde ne retient rien. Le chiffre précédent (26,6 Mo) ne comptait que la copie de data.raw.
+**Déterminisme** : data.raw sérialisé trié après `generate` (23,3 Mo) a la même empreinte sha256 sans garde,
+avec V2b et avec la garde corrigée : la garde ne change aucun prototype. Non mesuré : le temps de chargement
 en moteur réel.
 
 **Défauts connus**

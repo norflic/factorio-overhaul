@@ -644,6 +644,8 @@ section("Garde de l'interface des fichiers de famille (étape data, prototypes s
 -- EN ENTIER (toute la config L, fonctions comprises), data.raw aussi (types surveillés et référencés par
 -- famille, puis tout data.raw), et chaque refus est vérifié sur son MOTIF (chemin modifié, « état
 -- partagé », « source », « lecture seule »…). Chaque cas ci-dessous est un dress d'agent V3 plausible.
+-- Contre-vérification V2b : copie déclarée modifiée APRÈS edit (p17), icons attribué à son niveau (p20), famille
+-- suivante qui modifie une famille fermée (p23) ; mutants de la garde détectés (BALANCE_SHEET §12).
 local saved_deepcopy, saved_data = table.deepcopy, rawget(_G, "data")
 local function deepcopy(t, seen)
   if type(t) ~= "table" then return t end
@@ -752,9 +754,7 @@ end
 --- Lance un cas : dress (garde complète autour de ce seul appel), puis vérifie l'issue et le motif.
 --- expect = true (accepté) ou liste de motifs que le message de refus doit contenir (recherche littérale).
 local refused_n, accepted_n = 0, 0
-local function run_case(fam, make, fn, expect, label)
-  _G.data = { raw = make_raw() }
-  local okg, err = pcall(Common.dress, { dress = fn }, make(), fam, 5)
+local function verify(okg, err, expect, label)
   local good = okg == (expect == true)
   local missing = {}
   if good and expect ~= true then
@@ -768,6 +768,11 @@ local function run_case(fam, make, fn, expect, label)
     (#missing > 0) and (" (motif absent : « " .. table.concat(missing, " », « ") .. " » dans : " .. tostring(err) .. ")") or ""))
   if expect == true then accepted_n = accepted_n + 1 else refused_n = refused_n + 1 end
   restore_shared()
+end
+local function run_case(fam, make, fn, expect, label)
+  _G.data = { raw = make_raw() }
+  local okg, err = pcall(Common.dress, { dress = fn }, make(), fam, 5)
+  verify(okg, err, expect, label)
 end
 
 local SRC = "prototype source"
@@ -864,6 +869,38 @@ local DECLARE_CASES = {
   { LZ, fake_laser, function(p, ctx) ctx.declare("beam", "laser-beam", "b c", nil) end, { "ctx.declare", "suffixe invalide" }, "ctx.declare : suffixe invalide" },
   { LZ, fake_laser, declare_beam("beam", function(b) data.raw.beam["laser-beam"].width = 2 end), { 'data.raw.beam["laser-beam"].width' },
     "ctx.declare : edit modifie la source dans data.raw" },
+  -- Contre-vérification V2b (sonde p17) : une référence à la copie gardée par edit permettait de la modifier
+  -- APRÈS la vérification (faisceau du niveau sans dégâts, accepté). La copie est comparée de nouveau après dress.
+  { LZ, fake_laser, function(p, ctx)
+      local saved
+      local n = ctx.declare("beam", "laser-beam", "beam", function(b) saved = b end)
+      saved.damage_interval = 1
+      saved.action = nil
+      p.attack_parameters.ammo_type.action.action_delivery.beam = n
+    end, { "laser.lua (niveau 5) : dress a modifié la copie déclarée « fo-lvl-laser-5-beam »", "« action »", "clé retirée" },
+    "ctx.declare : copie modifiée après edit par une référence gardée (p17 : action retirée)" },
+  { LZ, fake_laser, function(p, ctx)
+      local saved
+      ctx.declare("beam", "laser-beam", "beam", function(b) saved = b end)
+      saved.damage_interval = 1
+    end, { "copie déclarée « fo-lvl-laser-5-beam »", "« damage_interval »", "valeur modifiée" },
+    "ctx.declare : intervalle de dégâts changé après edit" },
+  { LZ, fake_laser, function(p, ctx)
+      local saved
+      ctx.declare("beam", "laser-beam", "beam", function(b) saved = b end)
+      saved.name = "laser-beam"
+    end, { "copie déclarée « fo-lvl-laser-5-beam »", "« name »" }, "ctx.declare : copie renommée après edit (nom de la source)" },
+  { LZ, fake_laser, function(p, ctx)
+      local saved
+      ctx.declare("beam", "laser-beam", "beam", function(b) saved = b end)
+      saved.localised_name = { "fo-levels.name", { "entity-name.laser-turret" }, 9 }
+    end, { "copie déclarée « fo-lvl-laser-5-beam »", "« localised_name »" }, "ctx.declare : nom affiché changé après declare (nombre en paramètre, F43)" },
+  { LZ, fake_laser, function(p, ctx)
+      local saved
+      ctx.declare("beam", "laser-beam", "beam", function(b) saved = b end)
+      saved.body = { sprite(8) }
+      saved.head = nil
+    end, true, "ctx.declare : visuel de la copie changé après edit" },
 }
 
 for _, gc in ipairs(GUARD_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
@@ -955,6 +992,104 @@ check(okd and #declared == 1 and d1.name == "fo-lvl-laser-9-beam" and d1.type ==
   and data.raw.beam["laser-beam"].body[1].frame_count == 1,
   "ctx.declare : copie rendue par guard_end (nom, dégâts de la source, visuel modifié, source intacte) (" .. tostring(errd) .. ")")
 accepted_n = accepted_n + 1
+restore_shared()
+
+-- Contre-vérification V2b : cas qui traversent plusieurs appels (comme generate : dress, icons_check par niveau,
+-- guard_end par famille, final_check après la dernière famille). Chaque cas repart d'un data.raw simulé neuf.
+local function family_case(label, fn, expect)
+  _G.data = { raw = make_raw() }
+  local okc, err = pcall(fn)
+  verify(okc, err, expect, label)
+end
+local NOOP = { dress = function() end }
+local function fake_wall() return { type = "wall", name = "fo-lvl-wall-5", max_health = 700 } end
+local W_FAM = L.by_key.wall
+
+-- Sonde p20 : icons modifiait l'état partagé et le refus accusait le dress du niveau SUIVANT. Désormais au nom
+-- de l'icons du niveau.
+family_case("icons modifie l'état partagé → refus au nom de CET icons (p20)", function()
+  local g = Common.guard_begin(G)
+  local vis = { dress = function() end, icons = function(icons, ctx) ctx.L.CC_HEALTH = 1; return icons end }
+  local ctx = Common.dress(vis, fake_gun(), G, 9, g)
+  vis.icons({}, ctx)
+  Common.icons_check(g, G, 9)
+  Common.dress(NOOP, fake_gun(), G, 10, g)
+end, { "gun.lua (niveau 9) : icons a modifié l'état partagé L.CC_HEALTH", "lecture seule" })
+family_case("icons modifie le prototype du niveau (référence gardée par dress) → refus au nom de l'icons", function()
+  local g, kept_p = Common.guard_begin(G), nil
+  local vis = { dress = function(p) kept_p = p end, icons = function(icons) kept_p.prepare_range = 40; return icons end }
+  local ctx = Common.dress(vis, fake_gun(), G, 9, g)
+  vis.icons({}, ctx)
+  Common.icons_check(g, G, 9)
+end, { "gun.lua (niveau 9) : icons a modifié le champ de jeu « prepare_range »" })
+family_case("icons modifie la copie déclarée de son niveau → refus au nom de l'icons", function()
+  local g, kept_b = Common.guard_begin(LZ), nil
+  local vis = { dress = function(p, ctx) ctx.declare("beam", "laser-beam", "beam", function(b) kept_b = b end) end,
+    icons = function(icons) kept_b.width = 3; return icons end }
+  local ctx = Common.dress(vis, fake_laser(), LZ, 9, g)
+  vis.icons({}, ctx)
+  Common.icons_check(g, LZ, 9)
+end, { "laser.lua (niveau 9) : icons a modifié la copie déclarée « fo-lvl-laser-9-beam »", "« width »" })
+family_case("copie déclarée au niveau 9 modifiée par le dress du niveau 10 → refus à la fermeture de la famille", function()
+  local g, kept_b = Common.guard_begin(LZ), nil
+  Common.dress({ dress = function(p, ctx) ctx.declare("beam", "laser-beam", "beam", function(b) kept_b = b end) end }, fake_laser(), LZ, 9, g)
+  Common.icons_check(g, LZ, 9)
+  Common.dress({ dress = function() kept_b.damage_interval = 1 end }, fake_laser(), LZ, 10, g)
+  Common.icons_check(g, LZ, 10)
+  Common.guard_end(g)
+end, { "laser.lua (niveau 9) : un appel ultérieur (dress ou icons) a modifié la copie déclarée « fo-lvl-laser-9-beam »",
+  "« damage_interval »" })
+
+-- Sonde p23 : une famille SUIVANTE modifiait un niveau d'une famille déjà fermée (mitrailleuse 30 livrée à 1 PV).
+-- guard_end de la famille suivante ne le voit pas (elle ne compare que ses niveaux) : final_check, si.
+local closed_ok = false
+family_case("famille suivante (laser) modifie un niveau de la mitrailleuse déjà fermée → refus par final_check (p23)", function()
+  local kept_gun
+  local gG = Common.guard_begin(G)
+  Common.dress({ dress = function(p) kept_gun = p end }, fake_gun(), G, 30, gG)
+  Common.icons_check(gG, G, 30)
+  Common.guard_end(gG)
+  local gL = Common.guard_begin(LZ)
+  Common.dress({ dress = function() kept_gun.max_health = 1; kept_gun.attack_parameters.cooldown = 1 end }, fake_laser(), LZ, 9, gL)
+  Common.icons_check(gL, LZ, 9)
+  Common.guard_end(gL)
+  closed_ok = true
+  Common.final_check({ gG, gL })
+end, { "gun.lua (niveau 30) : un appel d'une famille générée après (laser.lua", "« attack_parameters.cooldown »" })
+check(closed_ok, "garde : p23, la fermeture de la famille suivante seule ne voit pas l'écart (d'où final_check)")
+family_case("famille suivante (mur) modifie la copie déclarée d'un laser → refus par final_check", function()
+  local kept_b
+  local gL = Common.guard_begin(LZ)
+  Common.dress({ dress = function(p, ctx) ctx.declare("beam", "laser-beam", "beam", function(b) kept_b = b end) end }, fake_laser(), LZ, 9, gL)
+  Common.icons_check(gL, LZ, 9)
+  Common.guard_end(gL)
+  local gW = Common.guard_begin(W_FAM)
+  Common.dress({ dress = function() kept_b.action = nil end }, fake_wall(), W_FAM, 5, gW)
+  Common.icons_check(gW, W_FAM, 5)
+  Common.guard_end(gW)
+  Common.final_check({ gL, gW })
+end, { "laser.lua (niveau 9) : un appel d'une famille générée après (wall.lua", "copie déclarée « fo-lvl-laser-9-beam »", "« action »" })
+family_case("trois familles sans écart (copie déclarée comprise) → final_check accepte", function()
+  local gG, gL, gW = Common.guard_begin(G), nil, nil
+  Common.dress(NOOP, fake_gun(), G, 30, gG)
+  Common.icons_check(gG, G, 30)
+  Common.guard_end(gG)
+  gL = Common.guard_begin(LZ)
+  Common.dress({ dress = declare_beam("beam", function(b) b.body = { sprite(4) } end) }, fake_laser(), LZ, 9, gL)
+  Common.icons_check(gL, LZ, 9)
+  Common.guard_end(gL)
+  gW = Common.guard_begin(W_FAM)
+  Common.dress(NOOP, fake_wall(), W_FAM, 5, gW)
+  Common.icons_check(gW, W_FAM, 5)
+  Common.guard_end(gW)
+  Common.final_check({ gG, gL, gW })
+end, true)
+
+-- Sonde p22 : remplacer Common.dress depuis un fichier de famille neutralisait la garde de generate. generate
+-- appelle désormais des LOCALES ; ici : les champs exportés ne sont que des alias (la preuve en étape data
+-- réelle est la sonde p22 du harness, BALANCE_SHEET §12).
+check(type(Common.dress) == "function" and type(Common.final_check) == "function" and type(Common.icons_check) == "function",
+  "garde : fonctions de garde exportées pour les tests (dress, icons_check, guard_end, final_check)")
 print(string.format("  Garde : %d cas d'agent V3 (%d acceptés, %d refusés, motif vérifié pour chaque refus) + %d sondes de la config",
   accepted_n + refused_n, accepted_n, refused_n, #L_KEYS))
 table.deepcopy, _G.data = saved_deepcopy, saved_data
