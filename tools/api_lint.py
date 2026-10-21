@@ -131,7 +131,9 @@ def main():
     defines = {d["name"]: {v["name"] for v in d.get("values", [])} for d in api["defines"]}
     errors, checked = [], 0
 
-    lua_files = [p for p in root.rglob("*.lua") if "tests" not in p.parts]
+    # .claude/ contient les worktrees des agents (copies du mod en cours de travail) : jamais lintés ici.
+    lua_files = [p for p in root.rglob("*.lua")
+                 if not {"tests", ".claude", ".git"} & set(p.relative_to(root).parts)]
     src = {p: p.read_text(encoding="utf-8") for p in lua_files}
 
     for path, text in src.items():
