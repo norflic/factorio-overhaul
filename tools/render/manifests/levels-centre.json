@@ -141,22 +141,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-light.png",
       "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-light.png",
-      "width": 270,
-      "height": 156,
+      "width": 274,
+      "height": 158,
       "shift": [
        0.140625,
-       0.96875
+       0.984375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-light.png",
       "apercu": "tools/render/out/levels/centre/n01/centre-n01-light.png",
-      "width": 135,
-      "height": 78,
+      "width": 137,
+      "height": 79,
       "shift": [
        0.140625,
-       0.96875
+       0.984375
       ],
       "scale": 1.0
      }
@@ -285,7 +285,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 39.4
+    "seconds": 62.2
    }
   },
   {
@@ -1640,7 +1640,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 42.2
+    "seconds": 62.1
    }
   },
   {
@@ -1867,7 +1867,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 42.3
+    "seconds": 73.8
    }
   },
   {
@@ -2635,7 +2635,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 50.8
+    "seconds": 66.1
    }
   },
   {
@@ -2864,7 +2864,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 66.5
+    "seconds": 81.3
    }
   },
   {
@@ -3114,7 +3114,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 130.0
+    "seconds": 71.7
    }
   },
   {
@@ -3345,7 +3345,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 73.5
+    "seconds": 107.7
    }
   },
   {
@@ -3612,7 +3612,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 91.6
+    "seconds": 79.4
    }
   },
   {
@@ -3785,8 +3785,9 @@
      "fleche_centrale_anneau"
     ],
     "plates_au_sol": [
-     "emetteur_bord",
-     "emetteur_sol"
+     "emetteur_anneau",
+     "emetteur_coeur",
+     "emetteur_dalle"
     ]
    },
    "lumiere_jour": true,
@@ -3866,7 +3867,7 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 66.9
+    "seconds": 101.4
    }
   }
  ]

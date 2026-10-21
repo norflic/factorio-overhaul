@@ -58,8 +58,9 @@ def halo_script(e):
 # - fenêtre « src » autour de la source projetée ; fenêtre « sol » à l'aplomb (z = 0), si rsol > 0.
 # Positions identiques à celles des pièces lumineuses de centre_ere*.py (lues par build).
 HALO = {
-    1: [(0.42, 0.50, 0.63, "#FFB060", 7.0, 0.35, 0.9, 1.0, 2.0),
-        (-0.68, 0.45, 0.52, "#FFB060", 2.5, 0.2, 0.6, 0.6, 1.4)],
+    # époque 1 : puissances doublées après la planche de nuit du 21/10 (lanterne à peine visible)
+    1: [(0.42, 0.50, 0.63, "#FFB060", 14.0, 0.35, 0.9, 1.0, 2.0),
+        (-0.68, 0.45, 0.52, "#FFB060", 5.0, 0.2, 0.6, 0.6, 1.4)],
     2: [(0.0, 0.12, 1.16, "#FF6A20", 6.0, 0.4, 1.0, 0.0, 0.0),
         (-1.36, 1.2, 0.54, "#FF6A20", 4.0, 0.3, 0.8, 0.7, 1.5),
         (1.36, 1.2, 0.54, "#FF6A20", 4.0, 0.3, 0.8, 0.7, 1.5),

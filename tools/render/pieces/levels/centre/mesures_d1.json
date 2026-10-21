@@ -291,16 +291,16 @@
     ]
    ],
    "photo": {
-    "L5": 10.9,
-    "L50": 43.0,
-    "L95": 173.1,
-    "sat": 0.141,
+    "L5": 14.8,
+    "L50": 63.7,
+    "L95": 173.2,
+    "sat": 0.154,
     "body_px": 57426,
     "glow_px": 1248,
     "glow_share": 0.0217,
     "glow_8x8": true,
     "glow_L50": 233.9,
-    "glow_contrast": 190.9,
+    "glow_contrast": 170.2,
     "L50_target": 64
    },
    "body_top_tiles": 3.55
@@ -349,16 +349,16 @@
     ]
    ],
    "photo": {
-    "L5": 15.6,
-    "L50": 83.5,
-    "L95": 101.5,
-    "sat": 0.343,
+    "L5": 12.8,
+    "L50": 73.5,
+    "L95": 101.2,
+    "sat": 0.337,
     "body_px": 52953,
     "glow_px": 18406,
     "glow_share": 0.3476,
     "glow_8x8": true,
     "glow_L50": 179.5,
-    "glow_contrast": 96.0,
+    "glow_contrast": 106.0,
     "L50_target": 55
    },
    "body_top_tiles": 3.81
@@ -508,16 +508,16 @@
     ]
    ],
    "photo": {
-    "L5": 16.9,
-    "L50": 92.9,
+    "L5": 15.1,
+    "L50": 83.9,
     "L95": 194.7,
     "sat": 0.069,
     "body_px": 52623,
     "glow_px": 1464,
     "glow_share": 0.0278,
     "glow_8x8": true,
-    "glow_L50": 206.1,
-    "glow_contrast": 113.2,
+    "glow_L50": 206.0,
+    "glow_contrast": 122.1,
     "L50_target": 82
    },
    "body_top_tiles": 4.45
@@ -556,16 +556,16 @@
     ]
    ],
    "photo": {
-    "L5": 33.2,
-    "L50": 87.1,
+    "L5": 37.0,
+    "L50": 98.1,
     "L95": 186.8,
-    "sat": 0.125,
+    "sat": 0.123,
     "body_px": 43498,
     "glow_px": 9221,
     "glow_share": 0.212,
     "glow_8x8": true,
     "glow_L50": 255.0,
-    "glow_contrast": 167.9,
+    "glow_contrast": 156.9,
     "L50_target": 100
    },
    "body_top_tiles": 4.66
@@ -604,16 +604,16 @@
     ]
    ],
    "photo": {
-    "L5": 20.4,
-    "L50": 50.6,
-    "L95": 160.8,
-    "sat": 0.238,
+    "L5": 25.5,
+    "L50": 57.9,
+    "L95": 161.8,
+    "sat": 0.235,
     "body_px": 62371,
     "glow_px": 4261,
     "glow_share": 0.0683,
     "glow_8x8": true,
-    "glow_L50": 226.4,
-    "glow_contrast": 175.8,
+    "glow_L50": 226.5,
+    "glow_contrast": 168.6,
     "L50_target": 60
    },
    "body_top_tiles": 4.92
@@ -652,16 +652,16 @@
     ]
    ],
    "photo": {
-    "L5": 24.9,
-    "L50": 110.4,
-    "L95": 154.3,
-    "sat": 0.221,
+    "L5": 19.4,
+    "L50": 97.1,
+    "L95": 140.3,
+    "sat": 0.231,
     "body_px": 53340,
-    "glow_px": 8465,
-    "glow_share": 0.1587,
+    "glow_px": 8540,
+    "glow_share": 0.1601,
     "glow_8x8": true,
-    "glow_L50": 173.0,
-    "glow_contrast": 62.6,
+    "glow_L50": 190.1,
+    "glow_contrast": 93.0,
     "L50_target": 92
    },
    "body_top_tiles": 5.14
@@ -726,15 +726,15 @@
    ],
    "photo": {
     "L5": 15.4,
-    "L50": 87.1,
+    "L50": 87.3,
     "L95": 178.3,
     "sat": 0.385,
     "body_px": 62460,
-    "glow_px": 918,
-    "glow_share": 0.0147,
+    "glow_px": 957,
+    "glow_share": 0.0153,
     "glow_8x8": true,
-    "glow_L50": 158.7,
-    "glow_contrast": 71.6,
+    "glow_L50": 185.4,
+    "glow_contrast": 98.1,
     "L50_target": 88
    },
    "body_top_tiles": 5.36
@@ -773,16 +773,16 @@
     ]
    ],
    "photo": {
-    "L5": 59.2,
-    "L50": 141.4,
-    "L95": 204.8,
-    "sat": 0.191,
+    "L5": 30.0,
+    "L50": 96.2,
+    "L95": 205.5,
+    "sat": 0.173,
     "body_px": 51771,
-    "glow_px": 15169,
-    "glow_share": 0.293,
+    "glow_px": 6472,
+    "glow_share": 0.125,
     "glow_8x8": true,
     "glow_L50": 255.0,
-    "glow_contrast": 113.6,
+    "glow_contrast": 158.8,
     "L50_target": 108
    },
    "body_top_tiles": 5.5
