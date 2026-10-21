@@ -31,7 +31,7 @@
  },
  "preview_render": {
   "samples": 32,
-  "seconds_total": 902.0,
+  "seconds_total": 906.3,
   "blender": "5.2.2 LTS",
   "calib": {
    "AO_COLOR": [
@@ -288,13 +288,13 @@
     ]
    },
    "files_sha256": {
-    "assembler-n02-icon.png": "a0e38beafd090e4b8598d9451d5e39cdf5765cbbdf01b2f7104575929640d3e6",
-    "assembler-n02-light.png": "9921251dff429a7f050c63a8c7ab4566f0586e6795270720cc35927cf2355e84",
-    "assembler-n02-main.png": "43eb0f6f665d1bdb9aeecc5332d671008770420043e7a6879e50288286d482ea",
-    "assembler-n02-shadow.png": "ca286e126f05ff203d56f17fb6221d945b5d3e800f6bf7ebd7566c8a5bfd1b71",
-    "hr-assembler-n02-light.png": "dd5170c0031a3c5ea666f5eb727363cb9551e3169ca855a78fc16a4862942c07",
-    "hr-assembler-n02-main.png": "668321b9ce1b93501eae170dafb5c37f2828f95fccab6529518eb5e0d4d39a5e",
-    "hr-assembler-n02-shadow.png": "d8bac0e88213f54a019b9a1812586b46a4fda6593f7e8ce5b4db0812f2dedb79"
+    "assembler-n02-icon.png": "f5c3954e5d8f854d801e22944b60c51be0690ab188510b2109ce3b93e0fc1faa",
+    "assembler-n02-light.png": "4d63de54ad2d19219c80f5251f72b7d632d16b5d252ec96516977a53eeddf4ae",
+    "assembler-n02-main.png": "19af8af1effcc6249bd21e5ea3d4c142e4134a7e71daeb6ffceacc7c355ff381",
+    "assembler-n02-shadow.png": "cbbaa8e8dcbed333a835305120c64b69f4af9210d5ce18bd01ee606f8cd5ad9d",
+    "hr-assembler-n02-light.png": "f8093fb8ec5c1aec78e54c71951041d7a71d30ca3337f95417f1b21c61943ff2",
+    "hr-assembler-n02-main.png": "41bc19baf98268c2a01afd6cce986a26979e20af90b3e28cd1570a62ab63d5cf",
+    "hr-assembler-n02-shadow.png": "174965eb34f899d373f18fea47f6edfc408be32a4f136c9c1671241bbb7ac0f0"
    },
    "halo_windows": [
     {
@@ -349,7 +349,7 @@
      162
     ],
     "samples": 32,
-    "seconds": 17.35,
+    "seconds": 12.44,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -502,12 +502,12 @@
     ]
    },
    "files_sha256": {
-    "assembler-n03-icon.png": "19bb02639c4c76d4239e4421cfca4f84c3e72dbbc1610f50d1a302b6affdcc00",
-    "assembler-n03-light.png": "8a48beda79ab07a0bbfe78762b4ad0a3aea654f74bc254e97ad867304ec2fbb2",
-    "assembler-n03-main.png": "d6f539fd3256d67ca581f26bf0d753eccd65259ea33daf5135254c9a93d41437",
+    "assembler-n03-icon.png": "efc79d025cf5c9500348f461710054e0907c099ed58af5f34adc183ca098ed23",
+    "assembler-n03-light.png": "176546afdb862be0d7182f436c59d20aa2e7e467a5b849257680e4e69bbe0685",
+    "assembler-n03-main.png": "17c0578f471a25cd5526926420e6e0f1a798e421317bc7b26cca226cfa5167cf",
     "assembler-n03-shadow.png": "9efe5c03babfacf83945e3f3ed60bb6ee1c46af42a698774f891f7c097f13444",
-    "hr-assembler-n03-light.png": "6cf54ac786a8815cc22fea8fbea7eed541e9d28bb8e8892aa3690c8510a30897",
-    "hr-assembler-n03-main.png": "34bdb0c75d38c57d15ef62560ab9117413feb911c3406cefb8e4461c42d89bc5",
+    "hr-assembler-n03-light.png": "e31db5b0b316fb79942672162bab22d41489e404421e5b870896610188673489",
+    "hr-assembler-n03-main.png": "663d34b640e8086f21aeac5d8dd826a8cd87272ac740a49c29312c8ef341a308",
     "hr-assembler-n03-shadow.png": "c0d5146a3fafadc54eea9a27a28407c109db87dece8b747f2511995bbdce5a95"
    },
    "halo_windows": [
@@ -567,7 +567,7 @@
      140
     ],
     "samples": 32,
-    "seconds": 26.45,
+    "seconds": 23.99,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -730,12 +730,12 @@
     ]
    },
    "files_sha256": {
-    "assembler-n04-icon.png": "df657cbb27bd3dc0d4e32bcf1370c8b9b12b2a59ebd8400b440a5e01730fee1b",
-    "assembler-n04-light.png": "e37a959599333ffa75228973090c589f8f5865b1bd9abf243f106bf5fbf921bd",
-    "assembler-n04-main.png": "9cdd075d5c447dc707462046157d8be69d091f310d3d04de645dd26bbab22a4c",
+    "assembler-n04-icon.png": "c336a5f60608dd38e4d75fdab6752bf8708e3161fa69fbbe9fc1c8087f18c880",
+    "assembler-n04-light.png": "a4c409092c21061aba4ec6e2c7d71901c308b2b767942b5e215567903cf1decb",
+    "assembler-n04-main.png": "d5a6e4a87b1ca10311f066b28d7fac642e599586d50bc63491fc2588a01e52a5",
     "assembler-n04-shadow.png": "371c38eabc4d1c6d9e5e6dda4a2f62287ce3c2dd53591b73c32ab7aeba2361b5",
-    "hr-assembler-n04-light.png": "67f23e622c935b34474fa4da42625eb339a2c9e20df236324bb8afe3e8cb7614",
-    "hr-assembler-n04-main.png": "ab1f2646d770ac9b8954763ba37c624db005baaddbb8756598d1261d2ceaf934",
+    "hr-assembler-n04-light.png": "02443a673b23ee9f9d4fc018fdf4abc8890fc5424c4f3ae8ad0ead9f35ee453a",
+    "hr-assembler-n04-main.png": "2f59555379577a125af93b0c6e72be9952a4272da8ad6de6bf8ea1e572074518",
     "hr-assembler-n04-shadow.png": "2c17a4e5e6a951d03da6447e63c693c02d2dc532fd789aaf345f6c71577cbf13"
    },
    "halo_windows": [
@@ -791,7 +791,7 @@
      153
     ],
     "samples": 32,
-    "seconds": 28.53,
+    "seconds": 24.34,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -829,19 +829,19 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n05-glow.png",
-      "height": 162,
+      "height": 176,
       "shift": [
        -0.03125,
-       0.171875
+       0.0625
       ],
       "width": 140
      },
      "lr": {
       "filename": "assembler-n05-glow.png",
-      "height": 81,
+      "height": 88,
       "shift": [
        -0.03125,
-       0.171875
+       0.0625
       ],
       "width": 70
      }
@@ -926,6 +926,7 @@
      "calotte",
      "cercle_chaudiere",
      "cercle_cheminee",
+     "cercle_dome",
      "charbon",
      "chaudiere",
      "cheminee",
@@ -963,15 +964,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n05-glow.png": "b30d9dad4b6c4dd6de9fec0b7a11ffed2d214cf39f2eeb5517d9195a24059f24",
-    "assembler-n05-icon.png": "ac4c7f7fce2a3f0cd60dd28b27dc221281dcaa7098a1f84f47a20f02b877ff7e",
+    "assembler-n05-glow.png": "dbc29f4391a047be6cfb9b0530c73811b597b020c49ce879a855cdfeeb9c5a7d",
+    "assembler-n05-icon.png": "c54f5618cafadcfc56e3f384fab5723853309c061834b021fd109cb6a21d0ec1",
     "assembler-n05-light.png": "7458fe58e3cd1d2afb83bacad0c19e8e964c613927b4a6740c7191aaa5b82882",
-    "assembler-n05-main.png": "d4dad83b4a401a6a27e5ec763d5659d5b26e8878f547fa27a2a608763c81ac2f",
-    "assembler-n05-shadow.png": "fce87b0f7918a56eab3dd15bc136d42704a9e3f8b4ae98741bb3033bc3ddc87f",
-    "hr-assembler-n05-glow.png": "f5865b662a416376b0abd300e66462469ba8ecb959294bafb3769f8db32d5723",
+    "assembler-n05-main.png": "a626da6ff6a4de18099843c36296e6a7cba9deec10bb03d4fcd284caea552f73",
+    "assembler-n05-shadow.png": "97ea3025b60488ab9557a82df45049dd3bfba1f7feb4762347abaa86eb3b18de",
+    "hr-assembler-n05-glow.png": "0d65b1d61f7586e4ac1aac06d18d53b67417b6fb48b1fd90bd5402fdd3665ab5",
     "hr-assembler-n05-light.png": "a5f6b7b7e2e7faf518080ca21c904add7ae33b3b09c43eff1fc9944b0519a25c",
-    "hr-assembler-n05-main.png": "fab0ee3129e09c8b2955bd1c2bcec8b73269b341434d79e33d4de9b595e0ff25",
-    "hr-assembler-n05-shadow.png": "c67ffbf0c071fd05a8d5e969a71c58db27a2ad924506448e5a531336f18d71d3"
+    "hr-assembler-n05-main.png": "cd6cedce0585bc854dde7fffbea873a1119bf4a755fb461fdadbcdd1ed3cf0e3",
+    "hr-assembler-n05-shadow.png": "c6df3ab2f0b7523d38c10eb7b7e96d8ccc4e61cccc2fb2aede411c0dd58484d4"
    },
    "halo_windows": [
     {
@@ -1046,13 +1047,13 @@
      308,
      334
     ],
-    "objects": 55,
+    "objects": 56,
     "origin_px": [
      127,
      147
     ],
     "samples": 32,
-    "seconds": 34.13,
+    "seconds": 28.38,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -1061,10 +1062,10 @@
     "O_masses": 0.375,
     "O_total": 0.390625,
     "L_masses": 2.4375,
-    "area": 6.68701171875,
-    "V_pct": 8.779907653560935,
-    "iou_1": 0.8721739130434782,
-    "iou_prev": 0.805855625432552
+    "area": 6.7216796875,
+    "V_pct": 8.713446201203302,
+    "iou_1": 0.8692335875828532,
+    "iou_prev": 0.8054563462288784
    }
   },
   {
@@ -1088,19 +1089,19 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n06-glow.png",
-      "height": 180,
+      "height": 186,
       "shift": [
        -0.015625,
-       0.03125
+       -0.015625
       ],
       "width": 138
      },
      "lr": {
       "filename": "assembler-n06-glow.png",
-      "height": 90,
+      "height": 93,
       "shift": [
        -0.015625,
-       0.03125
+       -0.015625
       ],
       "width": 69
      }
@@ -1186,6 +1187,7 @@
      "calotte",
      "cercle_chaudiere",
      "cercle_cheminee",
+     "cercle_dome",
      "charbon",
      "chaudiere",
      "cheminee",
@@ -1233,15 +1235,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n06-glow.png": "1a4e9a16d7c2ebab175c1dca4ea970b0e863f43166ec638c9431cb13fc4f3b34",
-    "assembler-n06-icon.png": "eef6fe4cc9a8e4ecd183bfe94d531a42413abe9bdff9f6bcfb4be969fc1846df",
+    "assembler-n06-glow.png": "7a40f603bb49eb27a6b5eab5ba01e8523b2d3363786c1fd9287e319cf256b771",
+    "assembler-n06-icon.png": "ac0f5f3713c0b7a056bf694a6c6433e0b20bbbb3810d5ccc6ff2671c82575b60",
     "assembler-n06-light.png": "ebdbca734ca4f58fb2d4d325a78dd48c3e0b0dc287dd43efcfdf90f87307b725",
-    "assembler-n06-main.png": "c4ec298e9f09eab23ab2ce492bf8de945fd786a814514ddea51109666be99054",
-    "assembler-n06-shadow.png": "36980fb3769000b056a8da5038dae865de32c6becda4b61f652f1afb6b042a18",
-    "hr-assembler-n06-glow.png": "72bd241da22a38c7bfcf823d9aad1f1f7838118786a3238d83525231cc965cbe",
+    "assembler-n06-main.png": "ec515307665a6b126436ad90dd435cd9cfc1d5f7701635bd9def21669159ec2f",
+    "assembler-n06-shadow.png": "1e095b5644ba3e358131688f178146fb554b64a295816ad5ddc38cbcdd6b3fdb",
+    "hr-assembler-n06-glow.png": "d770de3148cfc8a10d373bd4e588d8f7deb05faabe840f4d9afd54241fbbd405",
     "hr-assembler-n06-light.png": "40bf2481d01aab59018fff00d2b048c26f4d0713db96d294fc1f8973b2f43943",
-    "hr-assembler-n06-main.png": "a58350d82f48582cc7b7c12cb0399636ff834dbe67408c49189ff172621e338c",
-    "hr-assembler-n06-shadow.png": "9d9a0df4dc8b686c130d5bd49ffb39884b35e06f87caa29ef7be488c5a6b1f5e"
+    "hr-assembler-n06-main.png": "4630a284b32522bc041efd1c3edd332ee07562babf58ef86f212e86ebe8c059f",
+    "hr-assembler-n06-shadow.png": "078d6b78490bc3746201e463f52aaed9aecc919680a066bf9c01ff7302599f5b"
    },
    "halo_windows": [
     {
@@ -1312,13 +1314,13 @@
      350,
      352
     ],
-    "objects": 66,
+    "objects": 67,
     "origin_px": [
      128,
      164
     ],
     "samples": 32,
-    "seconds": 34.92,
+    "seconds": 30.89,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -1328,10 +1330,10 @@
     "O_masses": 0.390625,
     "O_total": 0.65625,
     "L_masses": 2.4375,
-    "area": 6.871337890625,
-    "V_pct": 8.650482720022387,
-    "iou_1": 0.8529296492259455,
-    "iou_prev": 0.9717034722715331,
+    "area": 6.906005859375,
+    "V_pct": 8.584021267664754,
+    "iou_1": 0.8501349988614554,
+    "iou_prev": 0.971845414723753,
     "piece_added": 0.189453125
    }
   },
@@ -1356,19 +1358,19 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n07-glow.png",
-      "height": 190,
+      "height": 224,
       "shift": [
        0.0,
-       -0.078125
+       -0.34375
       ],
       "width": 168
      },
      "lr": {
       "filename": "assembler-n07-glow.png",
-      "height": 95,
+      "height": 112,
       "shift": [
        0.0,
-       -0.078125
+       -0.34375
       ],
       "width": 84
      }
@@ -1376,39 +1378,39 @@
     "light": {
      "hr": {
       "filename": "hr-assembler-n07-light.png",
-      "height": 258,
+      "height": 316,
       "shift": [
-       0.0,
-       0.515625
+       -0.09375,
+       0.0625
       ],
-      "width": 208
+      "width": 220
      },
      "lr": {
       "filename": "assembler-n07-light.png",
-      "height": 129,
+      "height": 158,
       "shift": [
-       0.0,
-       0.515625
+       -0.09375,
+       0.0625
       ],
-      "width": 104
+      "width": 110
      }
     },
     "main": {
      "hr": {
       "filename": "hr-assembler-n07-main.png",
-      "height": 230,
+      "height": 240,
       "shift": [
        0.0,
-       -0.140625
+       -0.21875
       ],
       "width": 204
      },
      "lr": {
       "filename": "assembler-n07-main.png",
-      "height": 115,
+      "height": 120,
       "shift": [
        0.0,
-       -0.140625
+       -0.21875
       ],
       "width": 102
      }
@@ -1418,19 +1420,19 @@
       "filename": "hr-assembler-n07-shadow.png",
       "height": 138,
       "shift": [
-       0.921875,
+       0.90625,
        0.390625
       ],
-      "width": 282
+      "width": 280
      },
      "lr": {
       "filename": "assembler-n07-shadow.png",
       "height": 69,
       "shift": [
-       0.921875,
+       0.90625,
        0.390625
       ],
-      "width": 141
+      "width": 140
      }
     }
    },
@@ -1449,9 +1451,12 @@
      "bande_cuve_toit",
      "bande_danger",
      "bande_traverse",
+     "bride_torchere",
+     "bruleur_torchere",
      "caillebotis",
      "caisson",
      "cercle_fut",
+     "collier_torchere",
      "colonne_vanne",
      "conduite_vanne",
      "cuve_laterale",
@@ -1464,6 +1469,7 @@
      "poteau_garde_corps",
      "selle",
      "selle_toit",
+     "tige_torchere",
      "traverse_portique",
      "trou_homme_cuve",
      "volant_vanne",
@@ -1472,6 +1478,7 @@
     ],
     "meca": [
      "bague_verin",
+     "flamme_torchere",
      "flexible",
      "matrice",
      "piece_emboutie",
@@ -1481,17 +1488,39 @@
     ]
    },
    "files_sha256": {
-    "assembler-n07-glow.png": "e5e07eba9dcbf58cfb6b8db96ec1821747013fdb2c21934b26410ae3c0e32e30",
-    "assembler-n07-icon.png": "865870e899c1c51319e42dba31b45f18d03a328ff22f0e21b0355ec0cb0d7581",
-    "assembler-n07-light.png": "311fd7f2320b9e4d73e7fbd93587092e03fb0a78ede6148bf4e0cb1a612a1d0d",
-    "assembler-n07-main.png": "4a7dcb79a986912a717c4be1418162615ba4b726ff875acc970725d8060b1c91",
-    "assembler-n07-shadow.png": "a33a2fecdec14bf2147c447327860baa8d5d632733e6b350d2faf251b2f281a3",
-    "hr-assembler-n07-glow.png": "6f635086f2e4ead0743592fa383affea6e024c98cbbafeff9bab024f3945a562",
-    "hr-assembler-n07-light.png": "5bba233df32f2078454b9ce2eaf27aea6cc88da5c5a88e0847c3a423c7ac8053",
-    "hr-assembler-n07-main.png": "784ef44f0ead44ff5f862bbf2196171de9285819be3521c1dee3ecd7d276cb72",
-    "hr-assembler-n07-shadow.png": "925656faac613509da5762d835e6c97f6c89c6c7bf32ea31853b2fec58391d93"
+    "assembler-n07-glow.png": "703d408bbb916f5586bfbf0a6b9c5078dff4df7b84bfc7b09905c7d5c723125b",
+    "assembler-n07-icon.png": "52a6e330949aefed876d2a8bc596c12211c163e65362769298c1f0d55beb1dbf",
+    "assembler-n07-light.png": "b957daf021c03bbdedabf39e236a801c41203e40a3c95d9afe932671d2bbf6d0",
+    "assembler-n07-main.png": "96ee2feccff196406fa777bd9dfe11a646c2e5bb396da393c30122fc30c557d5",
+    "assembler-n07-shadow.png": "e374341212acd4eb3fd5693caa9e9daeb8f7124b40be07334dbccb3a34572a8a",
+    "hr-assembler-n07-glow.png": "5741c67c3e01e414b4f01179bc0e74fb64f6ebc5559d3b9b12e231c03e980861",
+    "hr-assembler-n07-light.png": "ebed34239d6bd83e6449404daa9b94d3368aa18306e45df53bc23cf3dd7a4b22",
+    "hr-assembler-n07-main.png": "fa2d7300f601fddca5fe4f8663839b453326a50e65b526d12ff91750d1b4ecdb",
+    "hr-assembler-n07-shadow.png": "ddcfe460a8429b2d52edeb05330f8bb5c4f7a769335495992b334cab8c36beaf"
    },
    "halo_windows": [
+    {
+     "at": [
+      -0.9,
+      -0.58,
+      0.0
+     ],
+     "r": [
+      0.4235,
+      1.0285
+     ]
+    },
+    {
+     "at": [
+      -0.9,
+      -0.58,
+      2.0
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
     {
      "at": [
       0.57,
@@ -1562,7 +1591,7 @@
    "drawing_box": [
     [
      -1.59375,
-     -1.9375
+     -2.09375
     ],
     [
      1.59375,
@@ -1583,28 +1612,28 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     358,
-     338
+     368,
+     376
     ],
-    "objects": 81,
+    "objects": 87,
     "origin_px": [
-     135,
-     147
+     148,
+     184
     ],
     "samples": 32,
-    "seconds": 48.34,
+    "seconds": 31.38,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
    },
    "measures_d1": {
     "O_masses": 0.40625,
-    "O_total": 0.40625,
+    "O_total": 0.5625,
     "L_masses": 2.84375,
-    "area": 8.061279296875,
-    "V_pct": 3.998181054988107,
-    "iou_1": 0.8033780223640302,
-    "iou_prev": 0.7951397041559052
+    "area": 7.60693359375,
+    "V_pct": 6.534210158108297,
+    "iou_1": 0.8090595288560528,
+    "iou_prev": 0.8066741634501413
    }
   },
   {
@@ -1628,61 +1657,61 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n08-glow.png",
-      "height": 194,
+      "height": 224,
       "shift": [
-       0.0,
-       -0.109375
+       0.0625,
+       -0.34375
       ],
-      "width": 172
+      "width": 180
      },
      "lr": {
       "filename": "assembler-n08-glow.png",
-      "height": 97,
+      "height": 112,
       "shift": [
-       0.0,
-       -0.109375
+       0.0625,
+       -0.34375
       ],
-      "width": 86
+      "width": 90
      }
     },
     "light": {
      "hr": {
       "filename": "hr-assembler-n08-light.png",
-      "height": 260,
+      "height": 318,
       "shift": [
-       0.28125,
-       0.53125
+       0.1875,
+       0.078125
       ],
-      "width": 248
+      "width": 260
      },
      "lr": {
       "filename": "assembler-n08-light.png",
-      "height": 130,
+      "height": 159,
       "shift": [
-       0.28125,
-       0.53125
+       0.1875,
+       0.078125
       ],
-      "width": 124
+      "width": 130
      }
     },
     "main": {
      "hr": {
       "filename": "hr-assembler-n08-main.png",
-      "height": 230,
+      "height": 240,
       "shift": [
-       0.078125,
-       -0.140625
+       0.09375,
+       -0.21875
       ],
-      "width": 214
+      "width": 216
      },
      "lr": {
       "filename": "assembler-n08-main.png",
-      "height": 115,
+      "height": 120,
       "shift": [
-       0.078125,
-       -0.140625
+       0.09375,
+       -0.21875
       ],
-      "width": 107
+      "width": 108
      }
     },
     "shadow": {
@@ -1722,9 +1751,12 @@
      "bande_cuve_toit",
      "bande_danger",
      "bande_traverse",
+     "bride_torchere",
+     "bruleur_torchere",
      "caillebotis",
      "caisson",
      "cercle_fut",
+     "collier_torchere",
      "colonne_vanne",
      "conduite_vanne",
      "cuve_laterale",
@@ -1737,6 +1769,7 @@
      "poteau_garde_corps",
      "selle",
      "selle_toit",
+     "tige_torchere",
      "traverse_portique",
      "trou_homme_cuve",
      "volant_vanne",
@@ -1745,6 +1778,7 @@
     ],
     "meca": [
      "bague_verin",
+     "flamme_torchere",
      "flexible",
      "matrice",
      "piece_emboutie",
@@ -1763,17 +1797,39 @@
     ]
    },
    "files_sha256": {
-    "assembler-n08-glow.png": "14159b5700ecb055bc6cfb442402d82f06ecc626b50617173df2506f76c1df85",
-    "assembler-n08-icon.png": "3248bc8a9300276a0d669276792bd756809fbdac8381bb0a7fb618c7faa40961",
-    "assembler-n08-light.png": "8bfff456bad9e3f54d5bd6c7702c87108e3b0daea8ed83c0e9cbf0c4bed6b34f",
-    "assembler-n08-main.png": "cc31100559fd25ead7f853b06f2e60252c51488c48db3729cd217663d85edfa7",
-    "assembler-n08-shadow.png": "f9d6a4d1670b5e813e17652332609f5f73712b5bfb955bfded2772f36095f062",
-    "hr-assembler-n08-glow.png": "ed05603c86268e947461df990d08e1908190423eb8af3f66e7b4e30d629e3bf9",
-    "hr-assembler-n08-light.png": "3ab2f10e24dd406cc313af28d3b1e497a6cc01fba022d4fd058d7ce0d595ab22",
-    "hr-assembler-n08-main.png": "77826cbb92e8bdbbc89f8756aa804fbcc892f0b964b8917e67791cd941ec8b4e",
-    "hr-assembler-n08-shadow.png": "5e9a89e501ba610b406f15a9d98e49758522d3802b0bb9bef94fc3e792f8dca6"
+    "assembler-n08-glow.png": "0176d337fd858d085631fa5add3924ccbf5802955b599b787f2323046b2ae9b5",
+    "assembler-n08-icon.png": "f1dc9b7d82e9068833bba7983eaa99b0ba5b648b073e16fb00aef15563dba0e1",
+    "assembler-n08-light.png": "ea9f1066b9033bb59f6686c924ad739b125d1b79efdb589ac3f0f2ecb3890547",
+    "assembler-n08-main.png": "21ec0a2aef024f97199faebf58bf94d0b8f3b3dce644f5a8920c6cff9fea87fd",
+    "assembler-n08-shadow.png": "f2ceaa75ef899577e3bf348ddaa7a1f604899bb49eeb005c01a90a8dea895444",
+    "hr-assembler-n08-glow.png": "b530edcd7f8857cf44f2bdf7a305c458a8a7856726a7d5686dc98060454a221a",
+    "hr-assembler-n08-light.png": "3733c70852029284dc3e96ece61e3c80e5d2a9e489f7686563ed3a484612139b",
+    "hr-assembler-n08-main.png": "04b4da0f7accd211849c8904a34ab8b4e479c6f588bc3d513ba7df0a011a8642",
+    "hr-assembler-n08-shadow.png": "85ebb493f3475fa83b62f1c2d993ed587e0b4ccc5c5d607e81155af9dbcc6990"
    },
    "halo_windows": [
+    {
+     "at": [
+      -0.9,
+      -0.58,
+      0.0
+     ],
+     "r": [
+      0.434,
+      1.054
+     ]
+    },
+    {
+     "at": [
+      -0.9,
+      -0.58,
+      2.0
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
     {
      "at": [
       0.57,
@@ -1866,10 +1922,10 @@
    "drawing_box": [
     [
      -1.59375,
-     -1.9375
+     -2.09375
     ],
     [
-     1.75,
+     1.78125,
      1.65625
     ]
    ],
@@ -1883,16 +1939,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     364,
-     340
+     376,
+     378
     ],
-    "objects": 90,
+    "objects": 96,
     "origin_px": [
-     137,
-     147
+     150,
+     184
     ],
     "samples": 32,
-    "seconds": 38.3,
+    "seconds": 34.28,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -1900,13 +1956,13 @@
    "base": "niveau 7 + pièce (module « piece » : couche séparée en phase 2)",
    "measures_d1": {
     "O_masses": 0.40625,
-    "O_total": 0.40625,
+    "O_total": 0.5625,
     "L_masses": 2.9375,
-    "area": 8.44384765625,
-    "V_pct": 2.0148313977892824,
-    "iou_1": 0.7966554803481031,
-    "iou_prev": 0.9537323353466463,
-    "piece_added": 0.38671875
+    "area": 7.989990234375,
+    "V_pct": 4.533370645025885,
+    "iou_1": 0.8021632425124181,
+    "iou_prev": 0.950984883188273,
+    "piece_added": 0.387451171875
    }
   },
   {
@@ -1916,7 +1972,7 @@
    "theme": "Volcan",
    "era": "II",
    "kind": "silhouette",
-   "silhouette": "presse blindée en tronc de pyramide, écailles, capot incliné, fente de marteau rougeoyante, pointes de basalte",
+   "silhouette": "presse blindée en tronc de pyramide à gradins, blindage en écailles, capot incliné, fente de marteau rougeoyante, deux pointes de basalte aux coins arrière",
    "piece": null,
    "light": "fentes de braise",
    "emissive": "#FF4A10",
@@ -1932,19 +1988,19 @@
       "filename": "hr-assembler-n09-glow.png",
       "height": 216,
       "shift": [
-       0.0625,
-       -0.09375
+       -0.03125,
+       -0.125
       ],
-      "width": 164
+      "width": 156
      },
      "lr": {
       "filename": "assembler-n09-glow.png",
       "height": 108,
       "shift": [
-       0.0625,
-       -0.09375
+       -0.03125,
+       -0.125
       ],
-      "width": 82
+      "width": 78
      }
     },
     "light": {
@@ -1970,19 +2026,19 @@
     "main": {
      "hr": {
       "filename": "hr-assembler-n09-main.png",
-      "height": 244,
+      "height": 254,
       "shift": [
        0.0,
-       -0.1875
+       -0.265625
       ],
       "width": 216
      },
      "lr": {
       "filename": "assembler-n09-main.png",
-      "height": 122,
+      "height": 127,
       "shift": [
        0.0,
-       -0.1875
+       -0.265625
       ],
       "width": 108
      }
@@ -1992,19 +2048,19 @@
       "filename": "hr-assembler-n09-shadow.png",
       "height": 170,
       "shift": [
-       0.609375,
+       0.765625,
        0.296875
       ],
-      "width": 266
+      "width": 286
      },
      "lr": {
       "filename": "assembler-n09-shadow.png",
       "height": 85,
       "shift": [
-       0.609375,
+       0.765625,
        0.296875
       ],
-      "width": 133
+      "width": 143
      }
     }
    },
@@ -2020,8 +2076,11 @@
    "parts": {
     "corps": [
      "capot",
+     "colonne_basalte",
+     "ecaille",
      "fente_braise",
      "fente_marteau",
+     "frette_colonne",
      "gradin",
      "pointe_basalte",
      "rivets_lourds"
@@ -2032,15 +2091,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n09-glow.png": "c5a96d39015ed3b915aca7ad298835e9a935095b7409cce9754c50906efbb00a",
-    "assembler-n09-icon.png": "a148c1731a06332a7677b7d4bfbf5581856562dfca32b399b70704ece1d198ee",
-    "assembler-n09-light.png": "a6e7fc62bfcc0b190bbfab6397a39748b566d644d01804c45cf5a0eb118b183f",
-    "assembler-n09-main.png": "4a41e7cccee16408a6b68b3fb83e4b8e5b9d43c0633b093507bb0a51cc65f9e2",
-    "assembler-n09-shadow.png": "814415e5f9ed6fceee9ded47893e43cda310f01518f08512d4cd55877a84a526",
-    "hr-assembler-n09-glow.png": "802cb6c661d96f114e65e9626b4c3f09541f71fc33ecc469851fd105ba454b53",
-    "hr-assembler-n09-light.png": "d27a432233ca746d5d2c185311133304289e5ede747fc37515c5a089e5cd0b06",
-    "hr-assembler-n09-main.png": "583bae6b73a4e8d1f3d90349dec46dcf016218541cd72f0bcce8e0538e34b240",
-    "hr-assembler-n09-shadow.png": "9133916aaa26e25b4e268ceb631722a78d7c4ff8ca9d080e3e33eaa31377ba3c"
+    "assembler-n09-glow.png": "fe9c26b42616f44d72438e217d8c876cc50f69b4cfe34c6f71752144b5130ab5",
+    "assembler-n09-icon.png": "08113c5ee14373544a27d966ce9cc6107e53a2478b5aebedcc17bdd9ba9df4e1",
+    "assembler-n09-light.png": "cc427ce70fa984e60f780777424ca5e024ddb400c63ae62f2e2e76bf4cdb5851",
+    "assembler-n09-main.png": "56c1568a1ed46e8202648dfd1cc6fe6582363f9e7d16416bd969ec460971f783",
+    "assembler-n09-shadow.png": "db53bbf5449a328cdff9662ddf2f1c612c3ef59abac621a618d9a72e57ce21ce",
+    "hr-assembler-n09-glow.png": "837d5941a3c3747e0236123464e2b41acf2f63a8c36cfb5ab04d546f38d17aac",
+    "hr-assembler-n09-light.png": "8305efc706427641f9e9d65412d086505b775988a877944967dbd003a34d8710",
+    "hr-assembler-n09-main.png": "27c3080713fbf5d2e6f5fe9a39a3b30fc137fb333d70f9eb47587cc028e3a78c",
+    "hr-assembler-n09-shadow.png": "cefe75f7706abbb99d8d06a6f7cc2b0209aaaf0290984c1a1ca2a854f3c13686"
    },
    "halo_windows": [
     {
@@ -2091,7 +2150,7 @@
    "drawing_box": [
     [
      -1.6875,
-     -2.09375
+     -2.25
     ],
     [
      1.6875,
@@ -2112,28 +2171,28 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     320,
-     358
+     346,
+     374
     ],
-    "objects": 21,
+    "objects": 45,
     "origin_px": [
-     117,
-     161
+     118,
+     177
     ],
     "samples": 32,
-    "seconds": 24.91,
+    "seconds": 31.51,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
    },
    "measures_d1": {
     "O_masses": 0.5,
-    "O_total": 0.5625,
+    "O_total": 0.75,
     "L_masses": 2.90625,
-    "area": 9.0380859375,
-    "V_pct": 1.846928781306842,
-    "iou_1": 0.7473101097262171,
-    "iou_prev": 0.8659057744423598
+    "area": 9.385009765625,
+    "V_pct": 1.2592696236183014,
+    "iou_1": 0.7275070230148708,
+    "iou_prev": 0.7893095992356816
    }
   },
   {
@@ -2143,7 +2202,7 @@
    "theme": "Volcan",
    "era": "II",
    "kind": "piece",
-   "silhouette": "presse blindée en tronc de pyramide, écailles, capot incliné, fente de marteau rougeoyante, pointes de basalte",
+   "silhouette": "presse blindée en tronc de pyramide à gradins, blindage en écailles, capot incliné, fente de marteau rougeoyante, deux pointes de basalte aux coins arrière",
    "piece": "contreforts inclinés à gauche et à droite (+0,15)",
    "light": "fentes de braise",
    "emissive": "#FF4A10",
@@ -2157,19 +2216,19 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n10-glow.png",
-      "height": 218,
+      "height": 216,
       "shift": [
        0.078125,
-       -0.109375
+       -0.125
       ],
       "width": 158
      },
      "lr": {
       "filename": "assembler-n10-glow.png",
-      "height": 109,
+      "height": 108,
       "shift": [
        0.078125,
-       -0.109375
+       -0.125
       ],
       "width": 79
      }
@@ -2197,19 +2256,19 @@
     "main": {
      "hr": {
       "filename": "hr-assembler-n10-main.png",
-      "height": 244,
+      "height": 256,
       "shift": [
        0.0,
-       -0.1875
+       -0.28125
       ],
       "width": 228
      },
      "lr": {
       "filename": "assembler-n10-main.png",
-      "height": 122,
+      "height": 128,
       "shift": [
        0.0,
-       -0.1875
+       -0.28125
       ],
       "width": 114
      }
@@ -2219,19 +2278,19 @@
       "filename": "hr-assembler-n10-shadow.png",
       "height": 170,
       "shift": [
-       0.59375,
+       0.75,
        0.296875
       ],
-      "width": 268
+      "width": 288
      },
      "lr": {
       "filename": "assembler-n10-shadow.png",
       "height": 85,
       "shift": [
-       0.59375,
+       0.75,
        0.296875
       ],
-      "width": 134
+      "width": 144
      }
     }
    },
@@ -2248,8 +2307,11 @@
    "parts": {
     "corps": [
      "capot",
+     "colonne_basalte",
+     "ecaille",
      "fente_braise",
      "fente_marteau",
+     "frette_colonne",
      "gradin",
      "pointe_basalte",
      "rivets_lourds"
@@ -2264,15 +2326,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n10-glow.png": "85ba6c691c0d6fca6d80e227ccbbd16d75bbf5f50c3f4762a347cc7c44c56962",
-    "assembler-n10-icon.png": "c16e69931649633c7e5d65941321c13ae9b44f81ed0221d3d222af4afa4a8dfb",
-    "assembler-n10-light.png": "ee35a6ee9221fd88f63497cff7398ab4e1f6ca3141ed920e0a5a5d22df44602a",
-    "assembler-n10-main.png": "69edc25864709b047f8b2a1bbae4b09b5e161280922679d4b210074ad85e956b",
-    "assembler-n10-shadow.png": "631eca15342cbf37122f8cd2f4af564bfd9d5b034ba4414e08653b0baeb51c6b",
-    "hr-assembler-n10-glow.png": "d83d87cb7ce36915a2cf1722b743dbabe9eb05b77b9a144d026d36c407230b68",
-    "hr-assembler-n10-light.png": "b9ddfcd681e742b5e44bff85bbbd3ae2b25dd273e3261918a631ebbc94cc7a10",
-    "hr-assembler-n10-main.png": "ee8e5f9e9c6a5e1aa6dc7e9bfbdc48d5abbe6709f2865b3a479715175149de77",
-    "hr-assembler-n10-shadow.png": "210ffe102a3501d5e42c767de32c27c1152ed63c47ccd5354eaf6805f60a659d"
+    "assembler-n10-glow.png": "d71e5feaae9105a9bec48f11af16f972149e070918b06a2d8c68513a518c0a2c",
+    "assembler-n10-icon.png": "8450b9c3fd2843ab63d74a503ca8fe6fb142657ef222be70e65d6b12f6823266",
+    "assembler-n10-light.png": "0e2c264f5d68ddb9b0feb33a3427c672073b9af46b1564ae0e4689452d9d731c",
+    "assembler-n10-main.png": "bb920cec2c6cb5906e1cf35dcb5a66be16944367ff4cdecd744321733365c53d",
+    "assembler-n10-shadow.png": "309cc1090996f135cbf974b6719ee94743eee92e70610080670aacc07a4efcc3",
+    "hr-assembler-n10-glow.png": "e2cf2714ce9bb925cc1f7bbcdd495b68b7c09d90fc02f017ab0de0b492af68ab",
+    "hr-assembler-n10-light.png": "39183687c3cc6a9068d8269298a3f0b52c0a5e9595d60424ba323f9513f0fd93",
+    "hr-assembler-n10-main.png": "594806dfb31de189594c6b81585b8d7199bf3531f5bb4cc276edad16d5a2380c",
+    "hr-assembler-n10-shadow.png": "d3ef79dbd18d74da7a4cc3d2a7886174579fdeef8892898ae6d2a1d3137ae667"
    },
    "halo_windows": [
     {
@@ -2323,7 +2385,7 @@
    "drawing_box": [
     [
      -1.78125,
-     -2.09375
+     -2.28125
     ],
     [
      1.78125,
@@ -2340,16 +2402,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     322,
-     360
+     348,
+     376
     ],
-    "objects": 29,
+    "objects": 53,
     "origin_px": [
      119,
-     161
+     177
     ],
     "samples": 32,
-    "seconds": 25.56,
+    "seconds": 25.53,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -2357,13 +2419,13 @@
    "base": "niveau 9 + pièce (module « piece » : couche séparée en phase 2)",
    "measures_d1": {
     "O_masses": 0.5,
-    "O_total": 0.5625,
+    "O_total": 0.75,
     "L_masses": 3.0625,
-    "area": 9.329345703125,
-    "V_pct": 0.6471246676927382,
-    "iou_1": 0.7396999843741862,
-    "iou_prev": 0.9683166762597457,
-    "piece_added": 0.29345703125
+    "area": 9.5634765625,
+    "V_pct": 1.1683223730236463,
+    "iou_1": 0.7151825039234546,
+    "iou_prev": 0.9810352748991781,
+    "piece_added": 0.179931640625
    }
   },
   {
@@ -2634,7 +2696,7 @@
     "area": 7.89599609375,
     "V_pct": 4.424933538547642,
     "iou_1": 0.8130151456541792,
-    "iou_prev": 0.7213154748835053
+    "iou_prev": 0.7612984262246631
    }
   },
   {
@@ -3438,21 +3500,21 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n15-glow.png",
-      "height": 234,
+      "height": 236,
       "shift": [
        0.0,
-       -0.484375
+       -0.5
       ],
-      "width": 156
+      "width": 184
      },
      "lr": {
       "filename": "assembler-n15-glow.png",
-      "height": 117,
+      "height": 118,
       "shift": [
        0.0,
-       -0.484375
+       -0.5
       ],
-      "width": 78
+      "width": 92
      }
     },
     "light": {
@@ -3463,7 +3525,7 @@
        0.0,
        0.734375
       ],
-      "width": 244
+      "width": 308
      },
      "lr": {
       "filename": "assembler-n15-light.png",
@@ -3472,7 +3534,7 @@
        0.0,
        0.734375
       ],
-      "width": 122
+      "width": 154
      }
     },
     "main": {
@@ -3483,7 +3545,7 @@
        0.0,
        -0.40625
       ],
-      "width": 196
+      "width": 216
      },
      "lr": {
       "filename": "assembler-n15-main.png",
@@ -3492,7 +3554,7 @@
        0.0,
        -0.40625
       ],
-      "width": 98
+      "width": 108
      }
     },
     "shadow": {
@@ -3500,19 +3562,19 @@
       "filename": "hr-assembler-n15-shadow.png",
       "height": 136,
       "shift": [
-       1.1875,
+       1.0625,
        0.40625
       ],
-      "width": 300
+      "width": 316
      },
      "lr": {
       "filename": "assembler-n15-shadow.png",
       "height": 68,
       "shift": [
-       1.1875,
+       1.0625,
        0.40625
       ],
-      "width": 150
+      "width": 158
      }
     }
    },
@@ -3529,7 +3591,10 @@
     "corps": [
      "cadre_hublot",
      "ceinture",
+     "conduit_cuve",
      "coque",
+     "cuve_verre",
+     "frette_cuve",
      "hublot"
     ],
     "meca": [
@@ -3541,15 +3606,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n15-glow.png": "52c2a390604cf4b76ce3cfc12c858730448973b6a5876595af66144d11bf1f4f",
-    "assembler-n15-icon.png": "bdbe8e56697b83bdfa798dd6e172c2b0820fa2d6c07cc31f58600704fa89c1fb",
-    "assembler-n15-light.png": "9d5ab807c7051df6b67f1eff066c802eb252fe482f0670ae36501e11f2108fc5",
-    "assembler-n15-main.png": "5659c4d4704516301a6fb7550b71826a83c266c82b16e5f5cc08117c5d37d620",
-    "assembler-n15-shadow.png": "b6229e34e018ec8ae2b7ad5c2d66d20e553696b8fc2cb20af4eb855d78650132",
-    "hr-assembler-n15-glow.png": "61d4e55a55545ea5547d48c2aa42654577171ab2dfeed8de040b993b961397ac",
-    "hr-assembler-n15-light.png": "5ae9685e31bf4e084dfcfc02dcf1ecc968d2733ad27a4b164d08e127e3eba90d",
-    "hr-assembler-n15-main.png": "8184329c304845a4c1e932f9d1e54e655804fc733720976fd163f2d3102d2489",
-    "hr-assembler-n15-shadow.png": "b6fcc66a51a7a670105288255c2f2dc792b98abe44366c4c1e5edaf1a667516d"
+    "assembler-n15-glow.png": "96ef13d79c2d974133dc8c5f8c501acfcd01c7257c7c27d1983790868b71f6c3",
+    "assembler-n15-icon.png": "5525ed9c7d4731e7707343f68d0365a406b1eb4b5382a65eed349d9318b387b8",
+    "assembler-n15-light.png": "6dab21fd4c34a4dd1091eaa8ddb000c9096f7bb628d15304d3a12b9b5819bf96",
+    "assembler-n15-main.png": "7c6c47f5965aafde6e3b485110e141e130a45d0e1e05b0db8937ed7292dbb2d0",
+    "assembler-n15-shadow.png": "80a44d214c9690c1e607bcef92b521d6c351c059a2dde3b1ef8005bea40af6de",
+    "hr-assembler-n15-glow.png": "e9a712b4450857c8e17449b2cc81e931b692489393eca2345f8f5cc8de28e81f",
+    "hr-assembler-n15-light.png": "4ff2c19d642f4445afc430b8740a012e45ca366f5529d9b6983f5c6a27e80651",
+    "hr-assembler-n15-main.png": "4be1a1aa10dc9bbe0a01bb1aed5525cc75317801fdbf4f60c0179be03ce1d464",
+    "hr-assembler-n15-shadow.png": "7672462a5e67f03f66899ea37fee43e984a40989e08ec574776862ff02e5644e"
    },
    "halo_windows": [
     {
@@ -3639,15 +3704,59 @@
       0.2,
       0.5
      ]
+    },
+    {
+     "at": [
+      -1.27,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      -1.27,
+      0.95,
+      0.4
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.27,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.5075,
+      1.2325
+     ]
+    },
+    {
+     "at": [
+      1.27,
+      0.95,
+      0.4
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
     }
    ],
    "drawing_box": [
     [
-     -1.53125,
+     -1.6875,
      -2.46875
     ],
     [
-     1.53125,
+     1.6875,
      1.65625
     ]
    ],
@@ -3665,16 +3774,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     416,
+     448,
      398
     ],
-    "objects": 17,
+    "objects": 25,
     "origin_px": [
-     153,
+     185,
      190
     ],
     "samples": 32,
-    "seconds": 29.65,
+    "seconds": 37.93,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -3682,11 +3791,11 @@
    "measures_d1": {
     "O_masses": 0.921875,
     "O_total": 0.9375,
-    "L_masses": 2.625,
-    "area": 7.414794921875,
-    "V_pct": 6.607667552819365,
-    "iou_1": 0.8276193428394296,
-    "iou_prev": 0.767097966728281
+    "L_masses": 2.859375,
+    "area": 7.634765625,
+    "V_pct": 6.60067161046593,
+    "iou_1": 0.8052414125878343,
+    "iou_prev": 0.7759337234100727
    }
   },
   {
@@ -3713,18 +3822,18 @@
       "height": 252,
       "shift": [
        0.0,
-       -0.625
+       -0.59375
       ],
-      "width": 156
+      "width": 184
      },
      "lr": {
       "filename": "assembler-n16-glow.png",
       "height": 126,
       "shift": [
        0.0,
-       -0.625
+       -0.59375
       ],
-      "width": 78
+      "width": 92
      }
     },
     "light": {
@@ -3735,7 +3844,7 @@
        0.0,
        0.734375
       ],
-      "width": 248
+      "width": 312
      },
      "lr": {
       "filename": "assembler-n16-light.png",
@@ -3744,7 +3853,7 @@
        0.0,
        0.734375
       ],
-      "width": 124
+      "width": 156
      }
     },
     "main": {
@@ -3755,7 +3864,7 @@
        0.0,
        -0.546875
       ],
-      "width": 196
+      "width": 216
      },
      "lr": {
       "filename": "assembler-n16-main.png",
@@ -3764,7 +3873,7 @@
        0.0,
        -0.546875
       ],
-      "width": 98
+      "width": 108
      }
     },
     "shadow": {
@@ -3772,19 +3881,19 @@
       "filename": "hr-assembler-n16-shadow.png",
       "height": 136,
       "shift": [
-       1.1875,
+       1.0625,
        0.40625
       ],
-      "width": 300
+      "width": 316
      },
      "lr": {
       "filename": "assembler-n16-shadow.png",
       "height": 68,
       "shift": [
-       1.1875,
+       1.0625,
        0.40625
       ],
-      "width": 150
+      "width": 158
      }
     }
    },
@@ -3802,7 +3911,10 @@
     "corps": [
      "cadre_hublot",
      "ceinture",
+     "conduit_cuve",
      "coque",
+     "cuve_verre",
+     "frette_cuve",
      "hublot"
     ],
     "meca": [
@@ -3819,15 +3931,15 @@
     ]
    },
    "files_sha256": {
-    "assembler-n16-glow.png": "b79c540fc8471309e2d18121daba9ca8134fc994eba43e5e4e13a57fa2212492",
-    "assembler-n16-icon.png": "9ccbcd3f72657c0dcd16694bf522ab733b7e770556d1dafa61c16296548cac8e",
-    "assembler-n16-light.png": "fee809151c122d56bb70facb80c83b5a60cf95798d978500f830df85fdf25ffb",
-    "assembler-n16-main.png": "fde5d3f500f798dad739ceb5d8245359eaf0b47487eab93f08882abd907b2e59",
-    "assembler-n16-shadow.png": "aed614f505c8f01181c3e87b5836636d0901a36341d1ce778318b8e992ca280b",
-    "hr-assembler-n16-glow.png": "abc714d46f272d00b6886b95c7541411ea346286eb54a0d67d2109a4907fe735",
-    "hr-assembler-n16-light.png": "21af3cfa8ee0cc9f8db5ddc581ad3015d6a6673ae87c9b8d290745ba5d273048",
-    "hr-assembler-n16-main.png": "aac1664085f591155bdeeeacc287f817348a374143fd307b17882d6d6d9d7086",
-    "hr-assembler-n16-shadow.png": "7c8a7af4a5b0e33293c15d9a400c8c377c7cecb25366d015820f7a33a4acbe24"
+    "assembler-n16-glow.png": "e62d2ecb39f7a24d71f03f192ee723a7eda5e55644c7e82a814917456624dfb5",
+    "assembler-n16-icon.png": "8f4f2e81c96757b51eb298e95a4b2a0165e703a17e0751937d8a15708b32f27e",
+    "assembler-n16-light.png": "dde8046b67bac66d8ba4e9bacf27cb501b978235784c8e71ce0babaeee6a430a",
+    "assembler-n16-main.png": "2aa5365056e7dfa79d7cdfa451ec41c7c7959791adafda7e6d13003c90941729",
+    "assembler-n16-shadow.png": "dc97765d541be39df236b00b0c0c4870c9b8abc3bf90ca8310b27b3fa3a8dbe8",
+    "hr-assembler-n16-glow.png": "8be35a141d0d8d1cb56fc0f9a2a5abef1700e20633fbe6dda2b7b163ede9d8c2",
+    "hr-assembler-n16-light.png": "e61fdc4cba736c1f6619564791e214c2288964dbaa6fef37719bd4639e00364b",
+    "hr-assembler-n16-main.png": "eed37ef2ec2af94f1e725be48905c4bc5fd07ffd46434c5319b733f5e4397633",
+    "hr-assembler-n16-shadow.png": "fad25fa3a2d375ef3a8a212c0f26dbc99ab8fa6bac1cf909341aee5b75c1f00e"
    },
    "halo_windows": [
     {
@@ -3912,6 +4024,50 @@
       0.0,
       1.62,
       0.42
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      -1.27,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      -1.27,
+      0.95,
+      0.4
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
+    {
+     "at": [
+      1.27,
+      0.95,
+      0.0
+     ],
+     "r": [
+      0.518,
+      1.258
+     ]
+    },
+    {
+     "at": [
+      1.27,
+      0.95,
+      0.4
      ],
      "r": [
       0.2,
@@ -3943,11 +4099,11 @@
    ],
    "drawing_box": [
     [
-     -1.53125,
+     -1.6875,
      -2.75
     ],
     [
-     1.53125,
+     1.6875,
      1.65625
     ]
    ],
@@ -3961,16 +4117,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     418,
+     450,
      422
     ],
-    "objects": 20,
+    "objects": 28,
     "origin_px": [
-     155,
+     186,
      213
     ],
     "samples": 32,
-    "seconds": 32.75,
+    "seconds": 39.8,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -3979,12 +4135,12 @@
    "measures_d1": {
     "O_masses": 1.203125,
     "O_total": 1.21875,
-    "L_masses": 2.625,
-    "area": 8.01123046875,
-    "V_pct": 2.0707989366167623,
-    "iou_1": 0.838053044363288,
-    "iou_prev": 0.9222110675063125,
-    "piece_added": 0.6103515625
+    "L_masses": 2.84375,
+    "area": 8.229736328125,
+    "V_pct": 2.0673009654400447,
+    "iou_1": 0.8162390670553936,
+    "iou_prev": 0.9262190603231065,
+    "piece_added": 0.601318359375
    }
   },
   {
@@ -4010,39 +4166,39 @@
       "filename": "hr-assembler-n17-glow.png",
       "height": 244,
       "shift": [
-       0.03125,
+       -0.140625,
        -0.46875
       ],
-      "width": 120
+      "width": 150
      },
      "lr": {
       "filename": "assembler-n17-glow.png",
       "height": 122,
       "shift": [
-       0.03125,
+       -0.140625,
        -0.46875
       ],
-      "width": 60
+      "width": 75
      }
     },
     "light": {
      "hr": {
       "filename": "hr-assembler-n17-light.png",
-      "height": 170,
+      "height": 332,
       "shift": [
-       0.078125,
-       1.515625
+       -0.390625,
+       0.25
       ],
-      "width": 162
+      "width": 226
      },
      "lr": {
       "filename": "assembler-n17-light.png",
-      "height": 85,
+      "height": 166,
       "shift": [
-       0.078125,
-       1.515625
+       -0.390625,
+       0.25
       ],
-      "width": 81
+      "width": 113
      }
     },
     "main": {
@@ -4050,19 +4206,19 @@
       "filename": "hr-assembler-n17-main.png",
       "height": 268,
       "shift": [
-       -0.015625,
+       0.0,
        -0.4375
       ],
-      "width": 210
+      "width": 212
      },
      "lr": {
       "filename": "assembler-n17-main.png",
       "height": 134,
       "shift": [
-       -0.015625,
+       0.0,
        -0.4375
       ],
-      "width": 105
+      "width": 106
      }
     },
     "shadow": {
@@ -4098,17 +4254,25 @@
    "parts": {
     "corps": [
      "anneau_conduit",
+     "anneau_ventilation",
      "bande_danger",
      "boulon_hublot",
      "cadre_hublot",
      "cellule",
      "cerclage_hublot",
      "chanfrein",
+     "chapeau_ventilation",
+     "cheminee_ventilation",
      "conduit_annele",
      "event_vert",
+     "feu_balise",
      "hublot",
      "hublot_coeur",
+     "mat_balise",
+     "patte_chapeau",
+     "rayure_balise",
      "socle_beton",
+     "socle_feu",
      "tourelle_coeur",
      "trappe",
      "trefle_centre",
@@ -4128,17 +4292,39 @@
     ]
    },
    "files_sha256": {
-    "assembler-n17-glow.png": "0a112b25838ec3255066cee10438d733900418c0d0095603a33e2a582a24f2ab",
-    "assembler-n17-icon.png": "a81f09771699eabc6c3fe4853667a1d8495a539514d2493ccacebf650b18a38b",
-    "assembler-n17-light.png": "e6d3c9cfd65941a2d01e449f66093250a42376342800e6b3e4fa445576e343e4",
-    "assembler-n17-main.png": "87610b8009d7dbc07c4d5262f1dcacd4c0ab0333c589661013cd40e4302c09ba",
-    "assembler-n17-shadow.png": "858cf4372023dd32d24181c2fb14d525912aef31e9258bb2ec1f6d45defc2b09",
-    "hr-assembler-n17-glow.png": "cd52c6e37dabff28dfa9171ab4e8f3b7aa5fe5fcec58e3ad05135478f010612b",
-    "hr-assembler-n17-light.png": "1bcf688059268f89188385677678502dc0a7c7a3462ad068a981f7b500629f17",
-    "hr-assembler-n17-main.png": "1d80fbd8b4fb0dcf7ff2d3ef221c093973e833873f14a03d255c22a03f3331b5",
-    "hr-assembler-n17-shadow.png": "3f69cf25296092a30c392b1a242cf4451d83cbd0b2eef948bd5dbf1490a16225"
+    "assembler-n17-glow.png": "64a67c1ae9c17b523a56bd5b5453e727a24caaf9c133493e9c3f50311757de35",
+    "assembler-n17-icon.png": "57e240532b3d2c7131a421333e2ff00a6630cebde2e52bc444bbd103d225e288",
+    "assembler-n17-light.png": "faf10d44841d10d1fd2fde26c3935d1ba1eb8aa14622c18be0976a32b8f9ee57",
+    "assembler-n17-main.png": "eeef3cd1b6d3fbece1239e3361111202ee040489c6234f4e87af7815fd40bbb7",
+    "assembler-n17-shadow.png": "34a42d8b9e4503def9a9656283156b8212d7861daff1696a08b5c840bf1b490d",
+    "hr-assembler-n17-glow.png": "ee664c1aba7d2579f2cd68e17176bd3cd636ce1726c3a7caa9aafd888651ac85",
+    "hr-assembler-n17-light.png": "48eb2fccf02642fc1c68fce69a79e9f8fea6a644b40328d3f1d7ab7c9382650e",
+    "hr-assembler-n17-main.png": "37c8cfe252544f7dca5d73a22a1a0bd977746ad02563308a036a2dbb6d104f6c",
+    "hr-assembler-n17-shadow.png": "c6f82126536c44907516675043144dfc20fc0670773cfd9f474ed678dc80ce25"
    },
    "halo_windows": [
+    {
+     "at": [
+      -1.04,
+      -0.3,
+      0.0
+     ],
+     "r": [
+      0.5285,
+      1.2834999999999999
+     ]
+    },
+    {
+     "at": [
+      -1.04,
+      -0.3,
+      2.3
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
     {
      "at": [
       0.15,
@@ -4190,7 +4376,7 @@
      -2.53125
     ],
     [
-     1.625,
+     1.65625,
      1.65625
     ]
    ],
@@ -4208,16 +4394,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     364,
+     426,
      400
     ],
-    "objects": 59,
+    "objects": 75,
     "origin_px": [
-     110,
+     173,
      187
     ],
     "samples": 32,
-    "seconds": 31.42,
+    "seconds": 38.75,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -4226,10 +4412,10 @@
     "O_masses": 1.0,
     "O_total": 1.0,
     "L_masses": 2.8125,
-    "area": 8.579833984375,
-    "V_pct": 0.07695536588778508,
-    "iou_1": 0.8123418171477321,
-    "iou_prev": 0.8318238179955793
+    "area": 8.788818359375,
+    "V_pct": 0.08395130824122009,
+    "iou_1": 0.7929378452655248,
+    "iou_prev": 0.836789544412532
    }
   },
   {
@@ -4253,21 +4439,21 @@
     "glow": {
      "hr": {
       "filename": "hr-assembler-n18-glow.png",
-      "height": 264,
+      "height": 262,
       "shift": [
-       0.0,
-       -0.625
+       -0.015625,
+       -0.640625
       ],
-      "width": 164
+      "width": 162
      },
      "lr": {
       "filename": "assembler-n18-glow.png",
-      "height": 132,
+      "height": 131,
       "shift": [
-       0.0,
-       -0.625
+       -0.015625,
+       -0.640625
       ],
-      "width": 82
+      "width": 81
      }
     },
     "light": {
@@ -4275,39 +4461,39 @@
       "filename": "hr-assembler-n18-light.png",
       "height": 346,
       "shift": [
-       0.078125,
+       -0.40625,
        0.171875
       ],
-      "width": 166
+      "width": 228
      },
      "lr": {
       "filename": "assembler-n18-light.png",
       "height": 173,
       "shift": [
-       0.078125,
+       -0.40625,
        0.171875
       ],
-      "width": 83
+      "width": 114
      }
     },
     "main": {
      "hr": {
       "filename": "hr-assembler-n18-main.png",
-      "height": 280,
+      "height": 278,
       "shift": [
-       -0.015625,
-       -0.53125
+       0.0,
+       -0.515625
       ],
-      "width": 210
+      "width": 212
      },
      "lr": {
       "filename": "assembler-n18-main.png",
-      "height": 140,
+      "height": 139,
       "shift": [
-       -0.015625,
-       -0.53125
+       0.0,
+       -0.515625
       ],
-      "width": 105
+      "width": 106
      }
     },
     "shadow": {
@@ -4344,17 +4530,25 @@
    "parts": {
     "corps": [
      "anneau_conduit",
+     "anneau_ventilation",
      "bande_danger",
      "boulon_hublot",
      "cadre_hublot",
      "cellule",
      "cerclage_hublot",
      "chanfrein",
+     "chapeau_ventilation",
+     "cheminee_ventilation",
      "conduit_annele",
      "event_vert",
+     "feu_balise",
      "hublot",
      "hublot_coeur",
+     "mat_balise",
+     "patte_chapeau",
+     "rayure_balise",
      "socle_beton",
+     "socle_feu",
      "tourelle_coeur",
      "trappe",
      "trefle_centre",
@@ -4379,17 +4573,39 @@
     ]
    },
    "files_sha256": {
-    "assembler-n18-glow.png": "3d070a3815722c002c7626c8aa03f6f6a0183ca4e42abdf81604682912ffab9d",
-    "assembler-n18-icon.png": "63ade7a7ffb7d67036e6f9c785eb9c999f0850c82367d1fb3ba9bb521c27852d",
-    "assembler-n18-light.png": "bc01648125a487792837a856b8e60c3cfded56d572abea58cafca9bfcb977e03",
-    "assembler-n18-main.png": "573ed6d10984637a865b400b77523698bb501b5023c10518491caf923cc8b1eb",
-    "assembler-n18-shadow.png": "20af797f92092785b4f6cb62551dca952a6c2e5f61ec21c519edbac08d868c03",
-    "hr-assembler-n18-glow.png": "b8ffd35a724dc2de90e609c6a881e8fa372ab5999d0ac5f278120b52a06d426f",
-    "hr-assembler-n18-light.png": "de751470a5f3a3c6fc074721d9744403d4e66ab69769135bf8f4c2a233c88fec",
-    "hr-assembler-n18-main.png": "069f6b753e48782681f785e799b4a3c1a31474a4317f8000ef1b8436e15ec0cc",
-    "hr-assembler-n18-shadow.png": "848754602bc7c05f3993e0f0c7dcc0735fdada2cda73db6b7914eb0fca2a5c2b"
+    "assembler-n18-glow.png": "19049341cb362bb9dbaf7f35e7861fd0a621eb2044d20362c003c06b07c9f625",
+    "assembler-n18-icon.png": "0e4faaf7037706867785bafa20b114d5d4fe10067562017ee37ec9b595d53d65",
+    "assembler-n18-light.png": "00e498bb7800f65d0ba016fb5f2e74d9bc2b223942e7f647b93f69c84f472538",
+    "assembler-n18-main.png": "0c646a0b1ba1184fc00a125845093b868f5904bbf07a6418754158ebec2c7be3",
+    "assembler-n18-shadow.png": "31abc5121255843472707bca821c2c78e52bedbb1d550ad7c323eb9874135dc3",
+    "hr-assembler-n18-glow.png": "f86db54718a29a33d8534948e2421ff086722812bd7411d6f0770745030e2ed0",
+    "hr-assembler-n18-light.png": "7d202b671e90810eab43e1463594c7c6a04eb7916d1076d732f9e7220d1e19c0",
+    "hr-assembler-n18-main.png": "82820ea16dc450aa7f7c1378c4f289e00dbdde83e2f4d845c43533f93c81f9bd",
+    "hr-assembler-n18-shadow.png": "576fed842a14c36896e6a6a94f12d4592186a6853ca12a657614144ae6732bf3"
    },
    "halo_windows": [
+    {
+     "at": [
+      -1.04,
+      -0.3,
+      0.0
+     ],
+     "r": [
+      0.5389999999999999,
+      1.309
+     ]
+    },
+    {
+     "at": [
+      -1.04,
+      -0.3,
+      2.3
+     ],
+     "r": [
+      0.2,
+      0.5
+     ]
+    },
     {
      "at": [
       0.15,
@@ -4460,10 +4676,10 @@
    "drawing_box": [
     [
      -1.65625,
-     -2.71875
+     -2.6875
     ],
     [
-     1.625,
+     1.65625,
      1.65625
     ]
    ],
@@ -4477,16 +4693,16 @@
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
     "canvas": [
-     364,
+     428,
      414
     ],
-    "objects": 62,
+    "objects": 78,
     "origin_px": [
-     110,
+     175,
      199
     ],
     "samples": 32,
-    "seconds": 30.37,
+    "seconds": 40.13,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -4496,11 +4712,11 @@
     "O_masses": 1.171875,
     "O_total": 1.171875,
     "L_masses": 2.8125,
-    "area": 9.0966796875,
+    "area": 9.306884765625,
     "V_pct": 0.0804533370645026,
-    "iou_1": 0.7661668857119867,
-    "iou_prev": 0.9407349827110194,
-    "piece_added": 0.5283203125
+    "iou_1": 0.7488726929530202,
+    "iou_prev": 0.9421444293051043,
+    "piece_added": 0.528564453125
    }
   },
   {
@@ -4742,7 +4958,7 @@
     "area": 6.8125,
     "V_pct": 16.471946271162725,
     "iou_1": 0.7321926838990587,
-    "iou_prev": 0.6680916421349034
+    "iou_prev": 0.6672137770819656
    }
   },
   {
@@ -6191,14 +6407,14 @@
    },
    "files_sha256": {
     "assembler-n25-glow.png": "1f7635e922e7025a56367dd2bd99998445f655a5bba4932d388fe2371cd517fe",
-    "assembler-n25-icon.png": "42fbf15348abfbdcf3381e92e5bf2857f98b20fe652ad0cc30b12a1603e4bba8",
+    "assembler-n25-icon.png": "b8046372c00e42d05495c1155ca207f0df6dcbac697c3026b244fa2bfaf62829",
     "assembler-n25-light.png": "a29c45e59e84f833c142b98d0a0e84af0a3fff195e7cfa0c39cfa4960fced004",
-    "assembler-n25-main.png": "f62ea2132aedc7499c9db404ec08325e17dae73e5bb692be2bdea8f9b5e9a8ed",
-    "assembler-n25-shadow.png": "bd0a34f58c35d659d3d06b143dbda7f1f5d4296424f28f1dda4f276f60a74a89",
+    "assembler-n25-main.png": "5b761c47305230f6a5fc4445de2c79b0a4067f57b6d3c223ca6513d080a98ad8",
+    "assembler-n25-shadow.png": "8d50d8a3945e4966197f162b5e5ffb299b844dd8e1a69882a03c6242a5f28bec",
     "hr-assembler-n25-glow.png": "e8a59f20cff60c62f3bd7987b1f8e00f30f5c95e48fae6dc374fdde4f33e7e18",
     "hr-assembler-n25-light.png": "4fb1b999b1d6ab80dad7fdee26e9112f9021ef4d4b8cf9345f76785833c7c29a",
-    "hr-assembler-n25-main.png": "ba7dd81ab1d8c36ec585f957a5430c6f9e575d6a21bedf83c9dcfebc51bf319b",
-    "hr-assembler-n25-shadow.png": "fc29b48aa18a6e2ea9ce9518e20014b71aa1df8faf3617f7d0c5babecf2b41da"
+    "hr-assembler-n25-main.png": "54da3514263caacd7cc25282a893a6ee7e2429c3329698a6852dcc1663071c9e",
+    "hr-assembler-n25-shadow.png": "302e9115105264e072046700b73e1d8fc6acfb50fd76825d569d11ab24bdc5ad"
    },
    "halo_windows": [
     {
@@ -6301,7 +6517,7 @@
      206
     ],
     "samples": 32,
-    "seconds": 29.65,
+    "seconds": 34.38,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8
@@ -6454,14 +6670,14 @@
    },
    "files_sha256": {
     "assembler-n26-glow.png": "49451a177c52abc75cabc26c0aff55fd78e7c8c9e70311e70bd1f828bca6c4a2",
-    "assembler-n26-icon.png": "e702c70c1af66f5069512b5ae6567d9352343066b58bd2a62c3d15c9cbc10cce",
+    "assembler-n26-icon.png": "c826295a92dd5047d81508962b5e335447dfeeb0882d1021f53d27ddcc5633c4",
     "assembler-n26-light.png": "e361c52e29c27e00d7537506c4452300f44f6d30b33c7482b4d0d17d58a77bc9",
-    "assembler-n26-main.png": "aba23a12d277a6a298fc2839884b9e967f531e614865f0710ea5fda8596ac4da",
-    "assembler-n26-shadow.png": "8f2d3b577e7e290202cca35c5d9fda9f0851061de239ceb5c3855275764cf9b6",
+    "assembler-n26-main.png": "d2824f09ffbcbf2a1119ee31ac67faa27f15430292e44f9cdcd18766d81dd48d",
+    "assembler-n26-shadow.png": "c7c0297888a59520f5ef27af1de49e647b509fa0c868135ec770ac392b2e7d61",
     "hr-assembler-n26-glow.png": "ffa2beef9d3db8d647642cf43fd7c36ba5eb95af747650286b84e1849ebba586",
     "hr-assembler-n26-light.png": "19fe4faf3282748fc7720944f968bcf6354f02cd48c89e3be52ffeb64e3f3557",
-    "hr-assembler-n26-main.png": "7ae9a14c46fb238818d13438cb080b32aa530382dcc9fb3fb323b7178cdb38ff",
-    "hr-assembler-n26-shadow.png": "c710070e42cb054409ada997583938ee8301548802048d849bd07d4c3c246f2d"
+    "hr-assembler-n26-main.png": "1d5dcfb51ebfcc508b797528d4cf7be4a1f1ce3a77009be73006306cbdb716a2",
+    "hr-assembler-n26-shadow.png": "2fcd70250fbfb235b4f713240af088e7002df97638167a29b7510d1b65a0e3cd"
    },
    "halo_windows": [
     {
@@ -6582,7 +6798,7 @@
      215
     ],
     "samples": 32,
-    "seconds": 33.03,
+    "seconds": 36.0,
     "seed": 20261021,
     "t": 0.0,
     "threads": 8

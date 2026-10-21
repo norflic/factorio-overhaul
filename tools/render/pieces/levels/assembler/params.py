@@ -31,8 +31,9 @@ EPOQUES = {
     4: dict(theme="Pétrole", ere="II", impair="presse hydraulique : portique jaune sur le toit (2 montants, une "
             "traverse, vérin) ; cuves latérales horizontales ; garde-corps", piece="cuve de pression verticale sur le "
             "flanc droit (+0,15 à droite)", lumiere="voyants orange", emissif="#FF8C1A", nuit_seule=False),
-    5: dict(theme="Volcan", ere="II", impair="presse blindée en tronc de pyramide, écailles, capot incliné, fente de "
-            "marteau rougeoyante, pointes de basalte", piece="contreforts inclinés à gauche et à droite (+0,15)",
+    5: dict(theme="Volcan", ere="II", impair="presse blindée en tronc de pyramide à gradins, blindage en écailles, "
+            "capot incliné, fente de marteau rougeoyante, deux pointes de basalte aux coins arrière",
+            piece="contreforts inclinés à gauche et à droite (+0,15)",
             lumiere="fentes de braise", emissif="#FF4A10", nuit_seule=False),
     6: dict(theme="Électricité", ere="II", impair="bras de soudure à l'arc sur le toit ; piles d'isolateurs sur bobines "
             "aux quatre coins", piece="anneau de bobine vertical au-dessus (+0,30)", lumiere="arc de soudure cyan, "

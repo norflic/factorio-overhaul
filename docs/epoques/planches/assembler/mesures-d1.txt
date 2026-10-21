@@ -6,21 +6,21 @@ niv ép  O_mas  O_tot  L_mas  aire   empr   V%    IoU_prec  ajout  dL     IoU_1n
   2   1   0.64   0.64   2.81   7.60    79%     0    0.919   0.62   0.00  0.919   ok     0.06   2.56     0
   3   2   0.20   0.23   2.80   7.74    83%     4    0.790    -      -    0.834   ok     0.16   2.60     0
   4   2   0.48   0.50   2.80   7.96    84%     4    0.969   0.24   0.44  0.820   ok     0.16   2.60     0
-  5   3   0.38   0.39   2.44   6.69    73%     9    0.806    -      -    0.872   ok     0.27   2.64     0
-  6   3   0.39   0.66   2.44   6.87    73%     9    0.972   0.19   0.12  0.853   ok     0.27   2.64     0
-  7   4   0.41   0.41   2.84   8.06    82%     4    0.795    -      -    0.803   ok     0.37   2.68     0
-  8   4   0.41   0.41   2.94   8.44    86%     2    0.954   0.39   0.34  0.797   ok     0.37   2.68     0
-  9   5   0.50   0.56   2.91   9.04    91%     2    0.866    -      -    0.747   ok     0.47   2.71     0
- 10   5   0.50   0.56   3.06   9.33    94%     1    0.968   0.29   0.62  0.740   ok     0.47   2.71     0
- 11   6   0.61   0.64   2.72   7.90    82%     4    0.721    -      -    0.813   ok     0.57   2.75     0
+  5   3   0.38   0.39   2.44   6.72    73%     9    0.805    -      -    0.869   ok     0.27   2.64     0
+  6   3   0.39   0.66   2.44   6.91    74%     9    0.972   0.19   0.13  0.850   ok     0.27   2.64     0
+  7   4   0.41   0.56   2.84   7.61    79%     7    0.807    -      -    0.809   ok     0.37   2.68     0
+  8   4   0.41   0.56   2.94   7.99    83%     5    0.951   0.39   0.34  0.802   ok     0.37   2.68     0
+  9   5   0.50   0.75   2.91   9.39    93%     1    0.789    -      -    0.728   ok     0.47   2.71     0
+ 10   5   0.50   0.75   3.06   9.56    95%     1    0.981   0.18   0.67  0.715   ok     0.47   2.71     0
+ 11   6   0.61   0.64   2.72   7.90    82%     4    0.761    -      -    0.813   ok     0.57   2.75     0
  12   6   0.84   0.86   2.72   8.37    83%     4    0.941   0.48   0.17  0.781   ok     0.57   2.75     0
  13   7   0.78   1.08   2.78   7.82    83%     5    0.779    -      -    0.816   ok     0.68   2.79     0
  14   7   1.09   1.31   2.78   8.22    84%     4    0.949   0.41   0.44  0.793   ok     0.68   2.79     0
- 15   8   0.92   0.94   2.62   7.41    78%     7    0.767    -      -    0.828   ok     0.78   2.83     0
- 16   8   1.20   1.22   2.62   8.01    82%     2    0.922   0.61   0.32  0.838   ok     0.78   2.83     0
- 17   9   1.00   1.00   2.81   8.58    88%     0    0.832    -      -    0.812   ok     0.88   2.87     0
- 18   9   1.17   1.17   2.81   9.10    88%     0    0.941   0.53   0.14  0.766   ok     0.88   2.87     0
- 19  10   1.09   1.59   2.53   6.81    67%    16    0.668    -      -    0.732   ok     0.99   2.91     6
+ 15   8   0.92   0.94   2.86   7.63    80%     7    0.776    -      -    0.805   ok     0.78   2.83     0
+ 16   8   1.20   1.22   2.84   8.23    84%     2    0.926   0.60   0.33  0.816   ok     0.78   2.83     0
+ 17   9   1.00   1.00   2.81   8.79    88%     0    0.837    -      -    0.793   ok     0.88   2.87     0
+ 18   9   1.17   1.17   2.81   9.31    88%     0    0.942   0.53   0.16  0.749   ok     0.88   2.87     0
+ 19  10   1.09   1.59   2.53   6.81    67%    16    0.667    -      -    0.732   ok     0.99   2.91     6
  20  10   1.27   1.59   2.53   7.39    67%    16    0.921   0.58   0.11  0.683   ok     0.99   2.91     6
  21  11   1.11   1.33   2.50   4.57    36%    57    0.444    -      -    0.356   ok     1.09   2.95    12
  22  11   1.42   1.47   2.69   5.04    36%    57    0.905   0.47   0.23  0.337   ok     1.09   2.95    12
@@ -36,45 +36,66 @@ niv ép  O_mas  O_tot  L_mas  aire   empr   V%    IoU_prec  ajout  dL     IoU_1n
 D1-2 · époques consécutives (niveaux impairs) : IoU (≤ 0,85) et O des masses (jamais décroissant)
   niveaux  1 ->  3 (époques  1 ->  2) : IoU 0.834 ok ; ΔO masses +0.16 ok
   niveaux  3 ->  5 (époques  2 ->  3) : IoU 0.810 ok ; ΔO masses +0.17 ok
-  niveaux  5 ->  7 (époques  3 ->  4) : IoU 0.785 ok ; ΔO masses +0.03 ok
-  niveaux  7 ->  9 (époques  4 ->  5) : IoU 0.833 ok ; ΔO masses +0.09 ok
-  niveaux  9 -> 11 (époques  5 ->  6) : IoU 0.726 ok ; ΔO masses +0.11 ok
+  niveaux  5 ->  7 (époques  3 ->  4) : IoU 0.807 ok ; ΔO masses +0.03 ok
+  niveaux  7 ->  9 (époques  4 ->  5) : IoU 0.757 ok ; ΔO masses +0.09 ok
+  niveaux  9 -> 11 (époques  5 ->  6) : IoU 0.774 ok ; ΔO masses +0.11 ok
   niveaux 11 -> 13 (époques  6 ->  7) : IoU 0.794 ok ; ΔO masses +0.17 ok
-  niveaux 13 -> 15 (époques  7 ->  8) : IoU 0.804 ok ; ΔO masses +0.14 ok
-  niveaux 15 -> 17 (époques  8 ->  9) : IoU 0.812 ok ; ΔO masses +0.08 ok
-  niveaux 17 -> 19 (époques  9 -> 10) : IoU 0.706 ok ; ΔO masses +0.09 ok
+  niveaux 13 -> 15 (époques  7 ->  8) : IoU 0.813 ok ; ΔO masses +0.14 ok
+  niveaux 15 -> 17 (époques  8 ->  9) : IoU 0.818 ok ; ΔO masses +0.08 ok
+  niveaux 17 -> 19 (époques  9 -> 10) : IoU 0.705 ok ; ΔO masses +0.09 ok
   niveaux 19 -> 21 (époques 10 -> 11) : IoU 0.428 ok ; ΔO masses +0.02 ok
   niveaux 21 -> 23 (époques 11 -> 12) : IoU 0.417 ok ; ΔO masses +0.02 ok
   niveaux 23 -> 25 (époques 12 -> 13) : IoU 0.392 ok ; ΔO masses +0.14 ok
   niveaux 25 -> 27 (époques 13 -> 14) : IoU 0.410 ok ; ΔO masses +0.19 ok
   niveaux 27 -> 29 (époques 14 -> 15) : IoU 0.430 ok ; ΔO masses +0.05 ok
 
+D1-2 · événements de silhouette des niveaux impairs (indicateur APPROCHÉ : composantes qui dépassent du corps ouvert à 0,5 t, aire ≥ 0,03 t², étendue ≥ 0,12 t ; cible de l'époque, bible §5). NON FIABLE pour les structures ajourées (ères IV et V) : quand le corps plein disparaît, tout le cadre devient UNE composante ; compter alors à l'œil sur la planche d
+  niveau  1 (ép.  1, ère I  ) : 2 événement(s) [visé 1] au-dessus ; centres (x ; y) = (-0.56 ; -1.50)  (-0.07 ; -1.53)
+  niveau  3 (ép.  2, ère I  ) : 2 événement(s) [visé 1 à 2] ok ; centres (x ; y) = (+0.12 ; -1.50)  (+1.41 ; +0.88)
+  niveau  5 (ép.  3, ère I  ) : 2 événement(s) [visé 2] ok ; centres (x ; y) = (-0.87 ; -1.52)  (+0.23 ; -1.50)
+  niveau  7 (ép.  4, ère II ) : 2 événement(s) [visé 2] ok ; centres (x ; y) = (-0.91 ; -1.72)  (-0.02 ; -1.70)
+  niveau  9 (ép.  5, ère II ) : 2 événement(s) [visé 2 à 3] ok ; centres (x ; y) = (-1.17 ; -1.56)  (+1.14 ; -1.56)
+  niveau 11 (ép.  6, ère II ) : 2 événement(s) [visé 3] sous ; centres (x ; y) = (-0.20 ; -1.49)  (+0.01 ; -1.74)
+  niveau 13 (ép.  7, ère III) : 3 événement(s) [visé 3] ok ; centres (x ; y) = (-0.79 ; -1.49)  (-0.15 ; -1.80)  (+0.42 ; -1.63)
+  niveau 15 (ép.  8, ère III) : 2 événement(s) [visé 3 à 4] sous ; centres (x ; y) = (-0.82 ; -1.88)  (+0.79 ; -1.88)
+  niveau 17 (ép.  9, ère III) : 4 événement(s) [visé 4] ok ; centres (x ; y) = (-1.06 ; -1.98)  (-0.70 ; -2.06)  (+0.67 ; -2.06)  (+1.03 ; -1.89)
+  niveau 19 (ép. 10, ère IV ) : 4 événement(s) [visé 4] ok (non fiable) ; centres (x ; y) = (-1.02 ; +1.06)  (-0.84 ; -2.02)  (+0.79 ; -2.00)  (+0.99 ; +1.06)
+  niveau 21 (ép. 11, ère IV ) : 2 événement(s) [visé 4 à 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -0.77)  (-0.02 ; -2.37)
+  niveau 23 (ép. 12, ère IV ) : 2 événement(s) [visé 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -1.27)  (-0.02 ; -1.94)
+  niveau 25 (ép. 13, ère V  ) : 1 événement(s) [visé 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -0.78)
+  niveau 27 (ép. 14, ère V  ) : 4 événement(s) [visé 5 à 6] sous (non fiable) ; centres (x ; y) = (-0.71 ; +0.60)  (-0.02 ; -1.68)  (+0.68 ; +0.60)  (+1.09 ; -0.80)
+  niveau 29 (ép. 15, ère V  ) : 6 événement(s) [visé 6] ok (non fiable) ; centres (x ; y) = (-0.70 ; -1.20)  (-0.39 ; -2.32)  (-0.02 ; -1.12)  (-0.02 ; -2.59)  (+0.36 ; -2.32)  (+0.67 ; -1.20)
+
+O des masses sur les 30 niveaux (la règle D1-2 « O ne décroît jamais » porte sur les époques, niveaux impairs ; un niveau pair porte la pièce de la bible, souvent AU-DESSUS (+0,30) : le niveau impair suivant peut donc être plus bas que lui ; 1 px = 0,016 t de bruit d'échantillonnage sur les bords)
+  1:0.05  2:0.64  3:0.20  4:0.48  5:0.38  6:0.39  7:0.41  8:0.41  9:0.50  10:0.50  11:0.61  12:0.84  13:0.78  14:1.09  15:0.92  16:1.20  17:1.00  18:1.17  19:1.09  20:1.27  21:1.11  22:1.42  23:1.12  24:1.41  25:1.27  26:1.27  27:1.45  28:1.45  29:1.50  30:1.48
+  baisses d'un niveau au suivant : 2->3 (-0.44), 4->5 (-0.11), 12->13 (-0.06), 14->15 (-0.17), 16->17 (-0.20), 18->19 (-0.08), 20->21 (-0.16), 22->23 (-0.30), 24->25 (-0.14), 29->30 (-0.02)
+
 D1-1 · niveaux pairs : aire ajoutée par la pièce (≥ 0,10 t²) ; niveaux impairs : IoU avec le pair précédent (≤ 0,85)
   niveau  2 : pièce +0.618 t² hors du masque impair ; luminance changée sur 0.000 t² -> ok
   niveau  3 : IoU avec le niveau 2 = 0.790 -> ok
   niveau  4 : pièce +0.236 t² hors du masque impair ; luminance changée sur 0.437 t² -> ok
-  niveau  5 : IoU avec le niveau 4 = 0.806 -> ok
-  niveau  6 : pièce +0.189 t² hors du masque impair ; luminance changée sur 0.122 t² -> ok
-  niveau  7 : IoU avec le niveau 6 = 0.795 -> ok
-  niveau  8 : pièce +0.387 t² hors du masque impair ; luminance changée sur 0.338 t² -> ok
-  niveau  9 : IoU avec le niveau 8 = 0.866 -> ÉCHEC
-  niveau 10 : pièce +0.293 t² hors du masque impair ; luminance changée sur 0.622 t² -> ok
-  niveau 11 : IoU avec le niveau 10 = 0.721 -> ok
+  niveau  5 : IoU avec le niveau 4 = 0.805 -> ok
+  niveau  6 : pièce +0.189 t² hors du masque impair ; luminance changée sur 0.129 t² -> ok
+  niveau  7 : IoU avec le niveau 6 = 0.807 -> ok
+  niveau  8 : pièce +0.387 t² hors du masque impair ; luminance changée sur 0.337 t² -> ok
+  niveau  9 : IoU avec le niveau 8 = 0.789 -> ok
+  niveau 10 : pièce +0.180 t² hors du masque impair ; luminance changée sur 0.672 t² -> ok
+  niveau 11 : IoU avec le niveau 10 = 0.761 -> ok
   niveau 12 : pièce +0.484 t² hors du masque impair ; luminance changée sur 0.169 t² -> ok
   niveau 13 : IoU avec le niveau 12 = 0.779 -> ok
   niveau 14 : pièce +0.413 t² hors du masque impair ; luminance changée sur 0.437 t² -> ok
-  niveau 15 : IoU avec le niveau 14 = 0.767 -> ok
-  niveau 16 : pièce +0.610 t² hors du masque impair ; luminance changée sur 0.323 t² -> ok
-  niveau 17 : IoU avec le niveau 16 = 0.832 -> ok
-  niveau 18 : pièce +0.528 t² hors du masque impair ; luminance changée sur 0.138 t² -> ok
-  niveau 19 : IoU avec le niveau 18 = 0.668 -> ok
+  niveau 15 : IoU avec le niveau 14 = 0.776 -> ok
+  niveau 16 : pièce +0.601 t² hors du masque impair ; luminance changée sur 0.325 t² -> ok
+  niveau 17 : IoU avec le niveau 16 = 0.837 -> ok
+  niveau 18 : pièce +0.529 t² hors du masque impair ; luminance changée sur 0.164 t² -> ok
+  niveau 19 : IoU avec le niveau 18 = 0.667 -> ok
   niveau 20 : pièce +0.580 t² hors du masque impair ; luminance changée sur 0.113 t² -> ok
   niveau 21 : IoU avec le niveau 20 = 0.444 -> ok
   niveau 22 : pièce +0.473 t² hors du masque impair ; luminance changée sur 0.228 t² -> ok
   niveau 23 : IoU avec le niveau 22 = 0.403 -> ok
   niveau 24 : pièce +0.465 t² hors du masque impair ; luminance changée sur 0.424 t² -> ok
   niveau 25 : IoU avec le niveau 24 = 0.391 -> ok
-  niveau 26 : pièce +0.263 t² hors du masque impair ; luminance changée sur 0.074 t² -> ok
+  niveau 26 : pièce +0.263 t² hors du masque impair ; luminance changée sur 0.072 t² -> ok
   niveau 27 : IoU avec le niveau 26 = 0.425 -> ok
   niveau 28 : pièce +0.332 t² hors du masque impair ; luminance changée sur 0.090 t² -> ok
   niveau 29 : IoU avec le niveau 28 = 0.412 -> ok
@@ -87,16 +108,16 @@ D1-4 · emprise : collision ±1,2 et sélection ±1,5 INCHANGÉES par constructi
   niveau  4 : x de -1.50 à +1.52, bas +1.48 ; débord latéral 0.02, bas 0.00 -> ok
   niveau  5 : x de -1.22 à +1.22, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
   niveau  6 : x de -1.22 à +1.22, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau  7 : x de -1.42 à +1.44, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau  8 : x de -1.42 à +1.53, bas +1.50 ; débord latéral 0.03, bas 0.00 -> ok
-  niveau  9 : x de -1.45 à +1.47, bas +1.61 ; débord latéral 0.00, bas 0.11 -> ok
+  niveau  7 : x de -1.44 à +1.44, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  8 : x de -1.44 à +1.53, bas +1.50 ; débord latéral 0.03, bas 0.00 -> ok
+  niveau  9 : x de -1.47 à +1.45, bas +1.61 ; débord latéral 0.00, bas 0.11 -> ok
   niveau 10 : x de -1.53 à +1.53, bas +1.61 ; débord latéral 0.03, bas 0.11 -> ok
   niveau 11 : x de -1.38 à +1.38, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 12 : x de -1.38 à +1.38, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 13 : x de -1.39 à +1.39, bas +1.47 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 14 : x de -1.39 à +1.39, bas +1.47 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 15 : x de -1.33 à +1.33, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
-  niveau 16 : x de -1.33 à +1.33, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
+  niveau 15 : x de -1.44 à +1.45, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
+  niveau 16 : x de -1.45 à +1.45, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
   niveau 17 : x de -1.42 à +1.42, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 18 : x de -1.42 à +1.42, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 19 : x de -1.27 à +1.27, bas +1.20 ; débord latéral 0.00, bas 0.00 -> ok
@@ -117,31 +138,31 @@ D1-3 amendé (Q13) · niveau 1 contre dernier niveau, masque sans couche plate a
   niveau 1 / niveau 30 : IoU 0.409 (< 0,50 ; cible ≤ 0,45 : ok) ; IoU normalisée en échelle 0.510 (k = 0.75 ; seuil proposé 0,75 : ok)
 
 Photométrie de la couche principale (pixels opaques ; luminance sRGB sur 255 ; bible §1.5 : p50 cible de l'époque ±10, p95 ≤ 240, saturation ≤ 0,45) et lueur de jour (aire alpha ≥ 0,35, t² ; part du masque)
-  niveau  2 (ép.  1) : p05   8.4  p50  48.3 (cible  50 ok)  p95 163.0 ok  sat 0.40 ok  lueur 0.000 t² (0.0 %)
-  niveau  3 (ép.  2) : p05   8.1  p50  44.3 (cible  52 ok)  p95  91.5 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
-  niveau  4 (ép.  2) : p05   9.0  p50  42.7 (cible  52 ok)  p95  90.7 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
-  niveau  5 (ép.  3) : p05   8.1  p50  50.6 (cible  58 ok)  p95 106.5 ok  sat 0.29 ok  lueur 0.076 t² (1.1 %)
-  niveau  6 (ép.  3) : p05   8.1  p50  50.6 (cible  58 ok)  p95 106.3 ok  sat 0.29 ok  lueur 0.077 t² (1.1 %)
-  niveau  7 (ép.  4) : p05   8.1  p50  59.7 (cible  60 ok)  p95 115.5 ok  sat 0.24 ok  lueur 0.125 t² (1.6 %)
-  niveau  8 (ép.  4) : p05  10.2  p50  59.9 (cible  60 ok)  p95 115.6 ok  sat 0.25 ok  lueur 0.139 t² (1.7 %)
-  niveau  9 (ép.  5) : p05  31.1  p50  43.5 (cible  42 ok)  p95 124.0 ok  sat 0.17 ok  lueur 0.740 t² (8.2 %)
-  niveau 10 (ép.  5) : p05  13.0  p50  42.4 (cible  42 ok)  p95 123.9 ok  sat 0.23 ok  lueur 0.739 t² (7.9 %)
+  niveau  2 (ép.  1) : p05   8.4  p50  48.4 (cible  50 ok)  p95 163.0 ok  sat 0.40 ok  lueur 0.000 t² (0.0 %)
+  niveau  3 (ép.  2) : p05   8.1  p50  44.4 (cible  52 ok)  p95  91.5 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
+  niveau  4 (ép.  2) : p05   9.0  p50  43.0 (cible  52 ok)  p95  90.7 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
+  niveau  5 (ép.  3) : p05   8.1  p50  50.5 (cible  58 ok)  p95 106.5 ok  sat 0.29 ok  lueur 0.076 t² (1.1 %)
+  niveau  6 (ép.  3) : p05   8.1  p50  50.5 (cible  58 ok)  p95 106.2 ok  sat 0.30 ok  lueur 0.077 t² (1.1 %)
+  niveau  7 (ép.  4) : p05   8.1  p50  59.5 (cible  60 ok)  p95 114.7 ok  sat 0.23 ok  lueur 0.130 t² (1.7 %)
+  niveau  8 (ép.  4) : p05   8.1  p50  59.7 (cible  60 ok)  p95 114.7 ok  sat 0.24 ok  lueur 0.143 t² (1.8 %)
+  niveau  9 (ép.  5) : p05  27.2  p50  45.4 (cible  42 ok)  p95 123.9 ok  sat 0.18 ok  lueur 0.740 t² (7.9 %)
+  niveau 10 (ép.  5) : p05  12.4  p50  43.4 (cible  42 ok)  p95 123.9 ok  sat 0.24 ok  lueur 0.739 t² (7.7 %)
   niveau 11 (ép.  6) : p05  12.1  p50  65.1 (cible  64 ok)  p95 139.4 ok  sat 0.18 ok  lueur 0.227 t² (2.9 %)
   niveau 12 (ép.  6) : p05  13.1  p50  62.7 (cible  64 ok)  p95 145.4 ok  sat 0.20 ok  lueur 0.329 t² (3.9 %)
   niveau 13 (ép.  7) : p05  11.3  p50  54.7 (cible  55 ok)  p95 110.6 ok  sat 0.43 ok  lueur 0.725 t² (9.3 %)
   niveau 14 (ép.  7) : p05  12.1  p50  55.5 (cible  55 ok)  p95 113.6 ok  sat 0.44 ok  lueur 1.314 t² (16.0 %)
-  niveau 15 (ép.  8) : p05   8.1  p50  63.9 (cible  60 ok)  p95 104.9 ok  sat 0.33 ok  lueur 0.248 t² (3.3 %)
-  niveau 16 (ép.  8) : p05   8.1  p50  64.4 (cible  60 ok)  p95 110.1 ok  sat 0.37 ok  lueur 0.316 t² (3.9 %)
-  niveau 17 (ép.  9) : p05  16.0  p50  59.4 (cible  56 ok)  p95 147.6 ok  sat 0.21 ok  lueur 0.446 t² (5.2 %)
-  niveau 18 (ép.  9) : p05  16.9  p50  58.5 (cible  56 ok)  p95 211.4 ok  sat 0.21 ok  lueur 0.571 t² (6.3 %)
+  niveau 15 (ép.  8) : p05   8.1  p50  64.8 (cible  60 ok)  p95 220.8 ok  sat 0.36 ok  lueur 0.607 t² (7.9 %)
+  niveau 16 (ép.  8) : p05   8.1  p50  65.6 (cible  60 ok)  p95 220.6 ok  sat 0.40 ok  lueur 0.674 t² (8.2 %)
+  niveau 17 (ép.  9) : p05  15.9  p50  58.7 (cible  56 ok)  p95 148.7 ok  sat 0.21 ok  lueur 0.465 t² (5.3 %)
+  niveau 18 (ép.  9) : p05  15.9  p50  57.7 (cible  56 ok)  p95 211.4 ok  sat 0.21 ok  lueur 0.587 t² (6.3 %)
   niveau 19 (ép. 10) : p05  23.9  p50  84.1 (cible  82 ok)  p95 174.8 ok  sat 0.14 ok  lueur 0.330 t² (4.8 %)
   niveau 20 (ép. 10) : p05  24.2  p50  84.7 (cible  82 ok)  p95 174.8 ok  sat 0.14 ok  lueur 0.333 t² (4.5 %)
   niveau 21 (ép. 11) : p05  22.2  p50 107.2 (cible 100 ok)  p95 199.1 ok  sat 0.11 ok  lueur 0.470 t² (10.3 %)
   niveau 22 (ép. 11) : p05  28.0  p50  97.0 (cible 100 ok)  p95 199.1 ok  sat 0.10 ok  lueur 0.444 t² (8.8 %)
   niveau 23 (ép. 12) : p05   9.1  p50  51.5 (cible  60 ok)  p95 215.4 ok  sat 0.33 ok  lueur 0.393 t² (5.9 %)
   niveau 24 (ép. 12) : p05  11.8  p50  51.6 (cible  60 ok)  p95 219.7 ok  sat 0.34 ok  lueur 0.525 t² (7.4 %)
-  niveau 25 (ép. 13) : p05  27.2  p50 104.1 (cible  92 hors)  p95 146.5 ok  sat 0.30 ok  lueur 1.208 t² (25.0 %)
-  niveau 26 (ép. 13) : p05  24.6  p50 100.1 (cible  92 ok)  p95 146.2 ok  sat 0.33 ok  lueur 1.246 t² (24.5 %)
+  niveau 25 (ép. 13) : p05  25.2  p50  98.1 (cible  92 ok)  p95 143.6 ok  sat 0.30 ok  lueur 1.208 t² (25.0 %)
+  niveau 26 (ép. 13) : p05  22.5  p50  94.8 (cible  92 ok)  p95 142.8 ok  sat 0.33 ok  lueur 1.246 t² (24.5 %)
   niveau 27 (ép. 14) : p05  24.9  p50  86.6 (cible  88 ok)  p95 169.3 ok  sat 0.38 ok  lueur 0.189 t² (3.7 %)
   niveau 28 (ép. 14) : p05  25.1  p50  84.8 (cible  88 ok)  p95 169.3 ok  sat 0.40 ok  lueur 0.189 t² (3.5 %)
   niveau 29 (ép. 15) : p05  44.9  p50  99.9 (cible 108 ok)  p95 216.3 ok  sat 0.18 ok  lueur 0.223 t² (5.2 %)

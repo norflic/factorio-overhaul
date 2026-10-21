@@ -10,6 +10,8 @@ mécanisme animé (32 images en phase 2) ; la phase 1 ne rend que t = 0 (pose de
 """
 import math
 
+from mathutils import Vector
+
 from kit import Kit, P, R2, lin  # noqa: F401
 
 TAU = 2.0 * math.pi
@@ -37,6 +39,37 @@ def slope_strip(K, x0, x1, a, b, f0, f1, mat, name="fente", off=0.012):
         return P(x, a[0] + (b[0] - a[0]) * f + off, a[1] + (b[1] - a[1]) * f + off * 0.5)
     verts = [pt(x0, f0), pt(x1, f0), pt(x1, f1), pt(x0, f1)]
     return K.mesh(verts, [(0, 1, 2, 3)], mat, name, bevel=0)
+
+
+def ecailles(K, a, b, xa, xb, f0, f1, n, mat, stagger=0.0, lift=0.05):
+    """Rangée de n écailles de blindage sur une face inclinée nord-sud (arête basse a=(ty, z), arête haute b, demi-
+    largeurs xa en bas et xb en haut), entre les fractions f0 et f1. Chaque écaille est un pentagone pointe en bas,
+    décollé de la face vers sa pointe (`lift` tuile) : sa normale diffère de celle de la face, d'où le motif imbriqué
+    lisible au zoom 1. stagger : décalage d'une demi-écaille (rangée supérieure)."""
+    A, B = P(0.0, a[0], a[1]), P(0.0, b[0], b[1])
+    tg = (B - A).normalized()
+    nrm = Vector((1.0, 0.0, 0.0)).cross(tg)
+    if nrm.z < 0:
+        nrm = -nrm
+
+    def pt(x, f, off):
+        ty = a[0] + (b[0] - a[0]) * f
+        z = a[1] + (b[1] - a[1]) * f
+        return P(x, ty, z) + nrm * off
+
+    fm = f0 + 0.40 * (f1 - f0)
+    xh = xa + (xb - xa) * (f0 + f1) / 2.0 - 0.06
+    w = 2.0 * xh / n
+    objs = []
+    for i in range(n):
+        u = -xh + (i + 0.5 + stagger) * w
+        if u + 0.45 * w > xh + 1e-6:
+            continue
+        h = 0.55 * w
+        verts = [pt(u - h, f1, 0.006), pt(u + h, f1, 0.006), pt(u + h, fm, 0.6 * lift), pt(u, f0, lift),
+                 pt(u - h, fm, 0.6 * lift)]
+        objs.append(K.mesh(verts, [(0, 1, 2, 3, 4)], mat, "ecaille", bevel=0))
+    return objs
 
 
 def flask_profile(Rb, rn, top, base_r=None):
@@ -68,7 +101,9 @@ def e01(K, t, piece):
     fer = K.metal("e1_fer", "#5A5048", k=1.9, rough=0.45, metallic=0.65, grain=0.2, rust="#6A3418", rust_amount=0.45,
                   dirt=0.4, seed=12)
     corde = K.flat("e1_corde", "#8A7A5A", k=1.1, rough=0.9)
-    lampe = K.emit("e1_lanterne", "#FFB060", strength=1.4, base="#4A3A20", night_only=True)
+    # verre ambré : la nuit, le halo ne fait que RÉVÉLER la couleur du jour (maquette game.frag) ; un verre sombre
+    # restait invisible (planche de nuit du 21/10)
+    lampe = K.emit("e1_lanterne", "#FFB060", strength=1.4, base="#D89850", night_only=True)
     caisse = K.metal("e1_caisse", "#6B4F35", k=1.9, rough=0.8, metallic=0.0, grain=0.4, grain_scale=22.0, dirt=0.55,
                      seed=13)
     # Mât équarri au coin arrière droit, hors du corps vanilla (x ≤ 1,28) : il DÉPASSE (F42), comme la flèche et la
@@ -122,7 +157,8 @@ def e02(K, t, piece):
     plaque = K.metal("e2_plaque", "#5C6168", k=1.25, rough=0.5, metallic=0.5, grain=0.2, rust="#4A3020",
                      rust_amount=0.35, dirt=0.55, seed=24)
     cuir = K.flat("e2_courroie", "#3A2A1E", rough=0.8)
-    forge = K.emit("e2_forge", "#FF6A20", strength=1.5, base="#180C06", night_only=True)
+    # braises couvertes (orange sombre) : révélées la nuit par leur propre lumière (même raison que la lanterne)
+    forge = K.emit("e2_forge", "#FF6A20", strength=1.5, base="#B04A18", night_only=True)
     K.module = "corps"
     zr = 0.96                                   # toit de la caisse
     K.box(-1.22, 1.22, -0.62, 1.40, 0.0, 0.20, cercle, "socle", bevel=0.02)
@@ -249,10 +285,12 @@ def e03(K, t, piece):
                                     (1.64, 0.22), (1.66, 0.0)], cuivre, "chaudiere", verts=40, axis=(1, 0, 0))
     for x in (-0.30, 0.20, 0.70):
         K.torus(x, -0.25, 1.06, 0.35, 0.018, laiton, "cercle_chaudiere", axis="x")
-    K.cyl(0.25, -0.25, 1.30, 1.52, 0.11, cuivre, "dome_vapeur")
-    K.sphere(0.25, -0.25, 1.52, 0.11, cuivre, "calotte")
-    K.cyl(0.25, -0.25, 1.60, 1.70, 0.03, laiton, "soupape")
-    K.sphere(0.25, -0.25, 1.71, 0.035, laiton, "soupape_bille")
+    # dôme de vapeur HAUT : second fût vertical qui dépasse de la chaudière (bible §5, époque 3 : 2 événements)
+    K.cyl(0.25, -0.25, 1.30, 1.74, 0.11, cuivre, "dome_vapeur")
+    K.torus(0.25, -0.25, 1.50, 0.112, 0.014, laiton, "cercle_dome")
+    K.sphere(0.25, -0.25, 1.74, 0.11, cuivre, "calotte")
+    K.cyl(0.25, -0.25, 1.82, 1.94, 0.03, laiton, "soupape")
+    K.sphere(0.25, -0.25, 1.95, 0.035, laiton, "soupape_bille")
     for x in (0.12, 0.60):
         K.rod((x, -0.03, 1.06), (x, 0.02, 1.06), 0.09, laiton, "manometre", verts=28)
         K.rod((x, 0.02, 1.06), (x, 0.032, 1.06), 0.072, ambre, "cadran", verts=28)
@@ -333,6 +371,7 @@ def e04(K, t, piece):
     caillebotis = K.metal("e4_caillebotis", "#6E7378", k=1.2, rough=0.55, metallic=0.6, grain=0.5, grain_scale=140.0,
                           dirt=0.6, seed=45)
     orange = K.emit("e4_voyant", "#FF8C1A", strength=1.4, base="#3A2008")
+    flamme = K.emit("e4_flamme", "#FFA030", strength=2.2, base="#FF8C1A")
     K.module = "corps"
     K.box(-0.98, 0.98, -0.66, 1.40, 0.0, 0.92, galva, "caisson", bevel=0.02)
     for i in range(10):
@@ -364,13 +403,22 @@ def e04(K, t, piece):
         K.rod((-0.92, 1.34, z), (0.92, 1.34, z), 0.013, jaune, "lisse", verts=8)
         for s_ in (-1, 1):
             K.rod((s_ * 0.92, 1.34, z), (s_ * 0.92, 0.55, z), 0.013, jaune, "lisse", verts=8)
+    # cuve horizontale couchée à l'arrière du toit, BASSE (son sommet affleure le bord arrière du caisson à l'écran) :
+    # elle ne bouche plus les jours du portique, qui se lit en silhouette (D1-2 : événements de l'ère II)
     for x in (-0.55, 0.55):
-        K.box(x - 0.08, x + 0.08, -0.56, -0.36, 0.92, 1.02, galva, "selle_toit", bevel=0.008)
-    prof = [(0, 0), (0.03, 0.12), (0.08, 0.19), (0.16, 0.21), (1.64, 0.21), (1.72, 0.19), (1.77, 0.12), (1.80, 0)]
-    K.lathe((-0.90, -0.46, 1.20), prof, jaune, "cuve_toit", verts=36, axis=(1, 0, 0))
+        K.box(x - 0.08, x + 0.08, -0.48, -0.28, 0.92, 0.98, galva, "selle_toit", bevel=0.008)
+    prof = [(0, 0), (0.03, 0.095), (0.08, 0.15), (0.16, 0.165), (1.64, 0.165), (1.72, 0.15), (1.77, 0.095), (1.80, 0)]
+    K.lathe((-0.90, -0.38, 1.08), prof, jaune, "cuve_toit", verts=36, axis=(1, 0, 0))
     for x in (-0.50, 0.50):
-        K.torus(x, -0.46, 1.20, 0.215, 0.018, noir, "bande_cuve_toit", axis="x")
-    K.cyl(0.30, -0.46, 1.40, 1.50, 0.05, galva, "trou_homme_cuve")
+        K.torus(x, -0.38, 1.08, 0.168, 0.016, noir, "bande_cuve_toit", axis="x")
+    K.cyl(0.30, -0.38, 1.21, 1.27, 0.05, galva, "trou_homme_cuve")
+    # torchère (kit d'époque 4) au coin arrière gauche, détachée du portique à l'écran (traverse raccourcie) :
+    # tige fine, brûleur et flamme (animée en phase 2)
+    K.cyl(-0.90, -0.58, 0.92, 0.98, 0.07, galva, "bride_torchere")
+    K.cyl(-0.90, -0.58, 0.98, 1.86, 0.035, galva, "tige_torchere", verts=12)
+    for z in (1.20, 1.55):
+        K.torus(-0.90, -0.58, z, 0.037, 0.008, noir, "collier_torchere", minor_seg=6)
+    K.cyl(-0.90, -0.58, 1.84, 1.90, 0.05, noir, "bruleur_torchere", verts=12)
     for i, (x, y) in enumerate(((-0.74, 0.86), (-0.50, 0.98), (-0.76, 1.12))):
         K.cyl(x, y, 0.95, 1.27, 0.105, noir if i != 1 else galva, "fut", verts=24)
         for z in (1.03, 1.19):
@@ -379,26 +427,29 @@ def e04(K, t, piece):
     K.torus(0.62, 1.00, 1.14, 0.09, 0.014, jaune, "volant_vanne")
     K.tube([(0.62, 1.00, 1.02), (0.62, 0.62, 1.02), (0.40, 0.30, 0.98)], 0.028, galva, "conduite_vanne")
     # portique (2 montants, une traverse) au centre arrière du toit
+    # membrures fines : les deux jours entre montants, vérin et traverse restent ouverts à l'écran (silhouette en Π)
     yp = -0.05
     for s_ in (-1, 1):
-        K.box(s_ * 0.70 - 0.075, s_ * 0.70 + 0.075, yp - 0.08, yp + 0.08, 0.92, 2.28, jaune, "montant_portique",
+        K.box(s_ * 0.70 - 0.065, s_ * 0.70 + 0.065, yp - 0.065, yp + 0.065, 0.92, 2.42, jaune, "montant_portique",
               bevel=0.01)
-        K.box(s_ * 0.70 - 0.08, s_ * 0.70 + 0.08, yp + 0.08, yp + 0.095, 1.62, 1.84, orange, "voyant_portique", bevel=0)
-    K.box(-0.88, 0.88, yp - 0.12, yp + 0.12, 2.22, 2.47, jaune, "traverse_portique", bevel=0.015)
+        K.box(s_ * 0.70 - 0.07, s_ * 0.70 + 0.07, yp + 0.065, yp + 0.08, 1.62, 1.84, orange, "voyant_portique", bevel=0)
+    K.box(-0.78, 0.78, yp - 0.075, yp + 0.075, 2.40, 2.53, jaune, "traverse_portique", bevel=0.012)
     for i in range(8):
-        x0 = -0.84 + i * 0.21
+        x0 = -0.76 + i * 0.19
         if i % 2:
-            K.box(x0, x0 + 0.21, yp + 0.12, yp + 0.13, 2.26, 2.43, noir, "bande_traverse", bevel=0)
+            K.box(x0, x0 + 0.19, yp + 0.075, yp + 0.085, 2.42, 2.51, noir, "bande_traverse", bevel=0)
     K.module = "meca"
-    K.cyl(0.0, yp, 1.62, 2.22, 0.16, galva, "verin", verts=32)
+    K.cyl(-0.90, -0.58, 1.90, 2.10, 0.055, flamme, "flamme_torchere", verts=12, r2=0.006)
+    H(K, -0.90, -0.58, 2.0, "#FF8C1A", 0.25)
+    K.cyl(0.0, yp, 1.62, 2.40, 0.16, galva, "verin", verts=32)
     K.torus(0.0, yp, 1.72, 0.162, 0.016, noir, "bague_verin")
     K.cyl(0.0, yp, 1.26, 1.64, 0.065, chrome, "tige_verin")
     K.box(-0.30, 0.30, yp - 0.16, yp + 0.16, 1.12, 1.28, noir, "tete_presse", bevel=0.012)
     K.box(-0.42, 0.42, yp - 0.22, yp + 0.22, 0.92, 1.00, galva, "matrice", bevel=0.008)
     K.box(-0.24, 0.24, yp - 0.12, yp + 0.12, 1.00, 1.04, jaune, "piece_emboutie", bevel=0.004)
     for s_ in (-1, 1):
-        K.tube([(s_ * 1.06, -0.30, 0.66), (s_ * 0.95, -0.25, 1.62), (s_ * 0.40, yp - 0.04, 2.05),
-                (s_ * 0.15, yp, 2.05)], 0.024, noir, "flexible")
+        K.tube([(s_ * 1.06, -0.30, 0.66), (s_ * 0.95, -0.25, 1.05), (s_ * 0.45, yp - 0.04, 1.62),
+                (s_ * 0.15, yp, 1.70)], 0.024, noir, "flexible")
     H(K, 0.57, 1.58, 0.64, "#FF8C1A", 0.5)
     for s_ in (-1, 1):
         H(K, s_ * 0.70, yp + 0.25, 1.73, "#FF8C1A", 0.25)
@@ -442,12 +493,20 @@ def e05(K, t, piece):
                  "rivets_lourds")
         for x0, x1 in ((-0.75, -0.35), (-0.18, 0.18), (0.35, 0.75)):
             slope_strip(K, x0 * bx / 1.3, x1 * bx / 1.3, (by1, z0), (ty1, z1), 0.42, 0.66, braise, "fente_braise")
+        # blindage en écailles (signature de l'époque) : deux rangées décalées, sous et au-dessus des fentes
+        if i < 2:
+            ecailles(K, (by1, z0), (ty1, z1), bx, tx_, 0.04, 0.38, 7 - 2 * i, rouille if i == 0 else tung, 0.0)
+            ecailles(K, (by1, z0), (ty1, z1), bx, tx_, 0.70, 0.98, 6 - 2 * i, tung, 0.5)
     hb = [(-0.56, -0.44), (0.56, -0.44), (0.56, 0.66), (-0.56, 0.66)]
     ht = [(-0.50, -0.40), (0.50, -0.40), (0.50, -0.02), (-0.50, -0.02)]
     K.prism(hb, 1.30, 2.22, tung, "capot", top=ht, bevel=0.02)
     slope_strip(K, -0.36, 0.36, (0.72, 1.30), (-0.02, 2.22), 0.36, 0.56, braise, "fente_marteau")
+    # pointes de basalte (kit d'époque) aux coins ARRIÈRE du premier gradin, penchées vers l'extérieur : colonne
+    # hexagonale puis aiguille. Elles sortent de la silhouette de l'époque 4 (portique, cuves) : D1-1, IoU(9, 8).
     for s in (-1, 1):
-        K.cyl(s * 0.68, -0.50, 1.30, 2.20, 0.12, basalte, "pointe_basalte", verts=7, r2=0.01)
+        K.cyl(s * 1.12, -0.82, 0.10, 0.66, 0.20, basalte, "colonne_basalte", verts=6)
+        K.rod((s * 1.12, -0.82, 0.62), (s * 1.24, -0.88, 1.92), 0.17, basalte, "pointe_basalte", verts=6, r2=0.012)
+        K.torus(s * 1.12, -0.82, 0.62, 0.20, 0.025, rivet, "frette_colonne", minor_seg=6)
     K.module = "meca"
     K.cyl(0.0, -0.21, 2.20, 2.34, 0.13, rouille, "piston_marteau", verts=8)
     K.cyl(0.0, -0.21, 2.34, 2.40, 0.16, tung, "tete_piston", verts=8)
@@ -456,7 +515,7 @@ def e05(K, t, piece):
     if piece:
         K.module = "piece"
         for s in (-1, 1):
-            for y0, y1 in ((0.10, 0.62), (-0.74, -0.26)):
+            for y0, y1 in ((0.30, 0.82), (-0.58, -0.10)):     # en avant des colonnes de basalte
                 poly = [(s * 0.95, 0.0), (s * 1.47, 0.0), (s * 1.47, 0.14), (s * 0.88, 1.05)]
                 K.plate(poly, y0, y1, rouille, "contrefort", bevel=0.012)
                 K.rivets((s * 1.44, y1 + 0.01, 0.07), (s * 1.12, y1 + 0.01, 0.95), 4, 0.022, rivet, "rivets_contrefort")
@@ -631,6 +690,18 @@ def e08(K, t, piece):
         H(K, x, y + 0.3, 0.78 + Rb, "#A8FF3A", 0.28)
     K.tube([(-0.78, -0.30, 0.86), (0.0, 0.66, 0.86), (0.78, -0.30, 0.86)], 0.035, cuivre, "conduit_fioles")
     H(K, 0.0, 1.62, 0.42, "#A8FF3A", 0.16)
+    # cuves de verre cylindriques (kit d'époque 8) accrochées aux deux flancs : elles dépassent latéralement de la
+    # coque (bible §5, époque 8 : 3 à 4 événements ; L de l'époque 2,83)
+    K.module = "corps"
+    for s_ in (-1, 1):
+        X = s_ * 1.27
+        glass = K.emit_below("e8_cuve_%d" % (s_ + 1), "#4A6A28", "#A8FF3A", level=0.62, strength=0.9)
+        K.cyl(X, 0.62, 0.06, 1.16, 0.135, glass, "cuve_verre", verts=32)
+        for z in (0.04, 1.14):
+            K.cyl(X, 0.62, z, z + 0.07, 0.15, cuivre, "frette_cuve", verts=32)
+        K.tube([(X, 0.62, 1.21), (X, 0.62, 1.30), (s_ * 1.02, 0.50, 1.30), (s_ * 0.92, 0.40, 0.80)], 0.028, caout,
+               "conduit_cuve")
+        H(K, X, 0.95, 0.40, "#A8FF3A", 0.08)
     if piece:
         K.module = "piece"
         K.cyl(0.0, -0.05, 0.78, 1.00, 0.20, cuivre, "pied_bulbe")
@@ -692,6 +763,23 @@ def e09(K, t, piece):
                     "anneau_conduit", axis="y", minor_seg=6)
     K.box(0.52, 0.86, 0.62, 0.98, 1.32, 1.36, jaune, "trappe", bevel=0.006)
     K.rod((0.69, 0.80, 1.36), (0.69, 0.80, 1.37), 0.11, noir, "trefle_trappe", verts=24)
+    # coins arrière (bible §5, époque 9 : 4 événements ; kit : balise de radiation, conduit annelé) : à gauche, mât
+    # de balise rayé avec feu vert ; à droite, cheminée de ventilation annelée à chapeau
+    K.cyl(-1.04, -0.60, 0.90, 2.20, 0.045, plomb, "mat_balise", verts=12)
+    for i in range(4):
+        K.cyl(-1.04, -0.60, 1.62 + i * 0.12, 1.68 + i * 0.12, 0.05, jaune if i % 2 == 0 else noir, "rayure_balise",
+              verts=12)
+    K.cyl(-1.04, -0.60, 2.20, 2.24, 0.07, jaune, "socle_feu", verts=16)
+    K.sphere(-1.04, -0.60, 2.31, 0.075, vert, "feu_balise")
+    K.cyl(1.04, -0.60, 0.90, 1.98, 0.085, plomb, "cheminee_ventilation", verts=20)
+    for z in (1.20, 1.45, 1.70, 1.92):
+        K.torus(1.04, -0.60, z, 0.088, 0.016, beton, "anneau_ventilation", minor_seg=6)
+    K.cyl(1.04, -0.60, 2.04, 2.08, 0.13, plomb, "chapeau_ventilation", verts=20, r2=0.04)
+    for k in range(3):
+        a = TAU * k / 3
+        K.rod((1.04 + 0.08 * math.cos(a), -0.60 - 0.08 * math.sin(a) / R2, 1.98),
+              (1.04 + 0.11 * math.cos(a), -0.60 - 0.11 * math.sin(a) / R2, 2.05), 0.008, plomb, "patte_chapeau")
+    H(K, -1.04, -0.30, 2.30, "#5CFF4A", 0.1)
     K.module = "meca"
     for s in (-1, 1):
         bx, by = s * 0.55, -0.20
@@ -879,7 +967,7 @@ def e12(K, t, piece):
 # Époque 13 · Fusion : noyau sphérique sur trépied dans un cadre ouvert, tore de plasma horizontal
 # ------------------------------------------------------------------------------------------------
 def e13(K, t, piece):
-    K.gain = 0.22    # photométrie : p50 mesuré 149 puis 127 -> 92 (bible §1.5, ±10)
+    K.gain = 0.19    # photométrie : p50 mesuré 149, 127 puis 104 -> 92 (bible §1.5, ±10)
     cera = K.metal("e13_ceramique", "#D9D6CF", k=0.95, rough=0.42, metallic=0.0, grain=0.08, dirt=0.55,
                    rust="#9A9284", rust_amount=0.2, seed=131)
     cuivre = K.metal("e13_cuivre", "#B0703A", k=1.25, rough=0.28, metallic=0.9, grain=0.12, dirt=0.4, seed=132)

@@ -142,6 +142,59 @@ def iou_norm(m1, mN):
     return best, kb
 
 
+# Événements de silhouette visés par époque (bible §5, ligne « Signature » de chaque fiche ; §1.2 par ère)
+EVTS = {1: (1, 1), 2: (1, 2), 3: (2, 2), 4: (2, 2), 5: (2, 3), 6: (3, 3), 7: (3, 3), 8: (3, 4), 9: (4, 4), 10: (4, 4),
+        11: (4, 5), 12: (5, 5), 13: (5, 5), 14: (5, 6), 15: (6, 6)}
+
+
+def dilate(m, r):
+    """Dilatation par un carré (2r+1) × (2r+1) (image d'intégrales)."""
+    k = 2 * r + 1
+    I = np.zeros((m.shape[0] + k, m.shape[1] + k), np.int32)
+    I[r + 1:r + 1 + m.shape[0], r + 1:r + 1 + m.shape[1]] = m.astype(np.int32)
+    I = I.cumsum(0).cumsum(1)
+    return (I[k:, k:] - I[:-k, k:] - I[k:, :-k] + I[:-k, :-k])[:m.shape[0], :m.shape[1]] > 0
+
+
+def components(m):
+    """Composantes 4-connexes d'un masque booléen (liste de tableaux d'indices (y, x))."""
+    seen = np.zeros_like(m, bool)
+    out = []
+    H_, W_ = m.shape
+    for y0, x0 in zip(*np.nonzero(m)):
+        if seen[y0, x0]:
+            continue
+        stack, pix = [(y0, x0)], []
+        seen[y0, x0] = True
+        while stack:
+            y, x = stack.pop()
+            pix.append((y, x))
+            for yy, xx in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if 0 <= yy < H_ and 0 <= xx < W_ and m[yy, xx] and not seen[yy, xx]:
+                    seen[yy, xx] = True
+                    stack.append((yy, xx))
+        out.append(np.array(pix))
+    return out
+
+
+def events(m, body_k=32, min_area=0.03, min_ext=0.12):
+    """Indicateur APPROCHÉ du nombre d'« événements de silhouette » (bible §1.2, D1-2 : dépassements) : le corps est
+    l'ouverture du masque par un carré de 0,5 tuile ; un événement est une composante connexe de ce qui DÉPASSE du
+    corps (masque moins le corps dilaté de 3 px), d'aire ≥ 0,03 t² et d'étendue ≥ 0,12 t. Calcul à 32 px/tuile."""
+    body = opening(m, body_k)
+    prot = m & ~dilate(body, 3)
+    h2, w2 = prot.shape[0] // 2, prot.shape[1] // 2
+    small = prot[:h2 * 2, :w2 * 2].reshape(h2, 2, w2, 2).any(axis=(1, 3))
+    found = []
+    for c in components(small):
+        area = len(c) / 32.0 ** 2
+        ext = max(c[:, 0].max() - c[:, 0].min() + 1, c[:, 1].max() - c[:, 1].min() + 1) / 32.0
+        if area >= min_area and ext >= min_ext:
+            found.append((float(c[:, 1].mean() / 32.0 + X0), float(c[:, 0].mean() / 32.0 + Y0), area))
+    found.sort()
+    return len(found), found
+
+
 def lum255(rgba):
     return (rgba[..., :3] @ LUMA) * 255.0
 
@@ -241,6 +294,29 @@ def main():
         res["consecutive"]["%d-%d" % (p, q)] = {"iou": v, "dO": dO}
         P_("  niveaux %2d -> %2d (époques %2d -> %2d) : IoU %.3f %s ; ΔO masses %+.2f %s" % (
             p, q, params.epoque(p), params.epoque(q), v, "ok" if v <= 0.85 else "ÉCHEC", dO, "ok" if dO >= -1e-9 else "DÉCROÎT"))
+    P_("")
+    P_("D1-2 · événements de silhouette des niveaux impairs (indicateur APPROCHÉ : composantes qui dépassent du corps "
+       "ouvert à 0,5 t, aire ≥ 0,03 t², étendue ≥ 0,12 t ; cible de l'époque, bible §5). NON FIABLE pour les structures "
+       "ajourées (ères IV et V) : quand le corps plein disparaît, tout le cadre devient UNE composante ; compter alors à "
+       "l'œil sur la planche d")
+    for n in odd:
+        k, pk = events(mask[n])
+        e = params.epoque(n)
+        lo, hi = EVTS[e]
+        res["levels"][n]["events"] = k
+        P_("  niveau %2d (ép. %2d, ère %-3s) : %d événement(s) [visé %s] %s ; centres (x ; y) = %s" % (
+            n, e, params.EPOQUES[e]["ere"], k, ("%d" % lo) if lo == hi else ("%d à %d" % (lo, hi)),
+            ("ok" if lo <= k <= hi else ("sous" if k < lo else "au-dessus")) + (" (non fiable)" if e >= 10 else ""),
+            "  ".join("(%+.2f ; %+.2f)" % (x, y) for x, y, _ in pk)))
+    P_("")
+    P_("O des masses sur les 30 niveaux (la règle D1-2 « O ne décroît jamais » porte sur les époques, niveaux impairs ; "
+       "un niveau pair porte la pièce de la bible, souvent AU-DESSUS (+0,30) : le niveau impair suivant peut donc être "
+       "plus bas que lui ; 1 px = 0,016 t de bruit d'échantillonnage sur les bords)")
+    seq = [n for n in range(1, 31) if n in mask]
+    P_("  " + "  ".join("%d:%.2f" % (n, res["levels"][n]["O_masses"]) for n in seq))
+    dec = [(p, q) for p, q in zip(seq, seq[1:]) if res["levels"][q]["O_masses"] < res["levels"][p]["O_masses"] - 1e-9]
+    P_("  baisses d'un niveau au suivant : " + (", ".join("%d->%d (%+.2f)" % (
+        p, q, res["levels"][q]["O_masses"] - res["levels"][p]["O_masses"]) for p, q in dec) or "aucune"))
     P_("")
     P_("D1-1 · niveaux pairs : aire ajoutée par la pièce (≥ 0,10 t²) ; niveaux impairs : IoU avec le pair précédent (≤ 0,85)")
     for n in range(2, 31):
