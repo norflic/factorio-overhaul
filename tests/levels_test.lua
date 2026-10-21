@@ -939,7 +939,7 @@ end)
 check(not okf and tostring(errf):find("un appel ultérieur", 1, true) and tostring(errf):find("« max_health »", 1, true)
   and tostring(errf):find("gun.lua (niveau 5)", 1, true),
   "garde de famille : niveau 5 modifié par le dress du niveau 6 → refusé à la fermeture (" .. tostring(errf) .. ")")
-accepted_n, refused_n = accepted_n, refused_n + 1
+refused_n = refused_n + 1
 restore_shared()
 _G.data = { raw = make_raw() }
 local declared
