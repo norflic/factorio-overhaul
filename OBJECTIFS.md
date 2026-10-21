@@ -255,7 +255,7 @@
   6. Les PNJ progressent (fabrication, déplacement, minage, inventaire), mesurés contre le joueur.
   7. En moteur réel, 4 factions de 30 PNJ se disputent les gisements et s'attaquent, en tenant le
      budget A1.
-- **État** : ❌ La conception est lancée (lot IA1, 21/10, 21 h 35).
+- **État** : ❌ La conception est lancée (lot IA1, 21/10, 21 h 35). Construction : en parallèle de la Compaction, juste après le visuel (Q18).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -439,6 +439,7 @@
 | QX7 | « Époque 15 vers 60 h » : heure où l'on ATTEINT l'époque 15, ou heure où l'on ouvre la Porte (lecture actuelle : époque 15 à 52,5 h, Porte à 59,5 h) ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → 60 h = ouverture de la Porte (époque 15 vers 52 h) | Lot V2c (recalibrage) |
 | QX8 | Les bâtiments vanilla qui arrivent après l'époque 1 (mur, four, foreuse, assembleur, laser) naissent au niveau 1 et rattrapent leurs niveaux en payant, ou naissent au niveau de leur époque ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → naissance au niveau 1, rattrapage payant | E1, F1 |
 | QX9 | Aux époques 2 à 4, 6 et 10, la recherche vanilla coûte jusqu'à 11 fois le budget du modèle : alléger la recherche vanilla (×0,04 à ×0,25 d'unités) ou plus de production plus tôt ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → alléger la recherche vanilla des premières époques | Lot V2c (recalibrage) |
+| Q18 | Quand construire IA1 (équipes de PNJ organisées, C5) ? | 21/10, 21 h 40 : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. » | Ordre : visuel (V) → Compaction (C) ET IA1 en parallèle (fichiers distincts) → contenu des époques (X) → idle (I) |
 
 ## 5. Historique des écarts signalés par vous
 
