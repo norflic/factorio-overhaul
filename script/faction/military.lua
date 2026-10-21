@@ -80,6 +80,14 @@ local function waypoints_along(path)
   return pts
 end
 
+-- Crochets branchés par script/faction/pvp.lua (lot IA0) : le joueur peut être une cible.
+--   Military.player_target_allowed(f) -> bool : une route vers le joueur arrive, l'attaque part-elle encore ?
+--   Military.on_launched(f, cible, n, rp, tick) : un groupe de n soldats part (comptes, message au joueur).
+-- Une cible « joueur » est une pseudo-faction { id = "player", key = "player", hq_pos = position visée,
+-- outposts = {} } : Military.target_of rend donc directement la position visée.
+Military.player_target_allowed = nil
+Military.on_launched = nil
+
 --- Cible d'attaque : avant-poste le plus proche de la faction visée, sinon son QG.
 function Military.target_of(target_faction, from)
   return Outposts.nearest(target_faction, from) or target_faction.hq_pos
@@ -135,6 +143,7 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   group.start_moving()
   f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen }
   f.stats.attacks = f.stats.attacks + 1
+  if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
   if Profiler.enabled() then -- journal de diagnostic (bancs de test uniquement)
     local dx, dy = rp.target.x - rp.gather.x, rp.target.y - rp.gather.y
     log(string.format("[FO-ATTACK] tick %d %s -> %s : %d soldats, %d tuiles a vol d'oiseau, chemin %d noeuds, %d etapes",
@@ -160,8 +169,15 @@ PathService.register_handler(ROUTE_HANDLER, function(fid, path, ticket, reason, 
   local rp = f.route_pending
   f.route_pending = nil
   if not war.active or f.eliminated then return end
-  local tf = war.factions[rp.target_faction]
-  if not tf or tf.eliminated then return end
+  local tf
+  if rp.target_faction == "player" then
+    -- Le niveau a pu passer à « Paisible » pendant le calcul de la route : l'attaque ne part pas.
+    if not (Military.player_target_allowed and Military.player_target_allowed(f)) then return end
+    tf = { id = "player", key = "player" }
+  else
+    tf = war.factions[rp.target_faction]
+    if not tf or tf.eliminated then return end
+  end
   if not path or #path == 0 then
     f.stats.route_fail = (f.stats.route_fail or 0) + 1
     f.attack_block_until = tick + ATTACK_RETRY_TICKS
@@ -209,6 +225,21 @@ local function order_return(f, gid, tick)
     radius = 16,
     distraction = defines.distraction.by_enemy,
   })
+end
+
+--- Rappelle les groupes en route contre le joueur et annule une route en attente vers lui (passage en
+--- « Paisible », trêve). Renvoie le nombre de groupes rappelés.
+function Military.recall_player_groups(f, tick)
+  local n = 0
+  for _, gid in ipairs(State.sorted_keys(f.groups)) do
+    local g = f.groups[gid]
+    if g and g.target_faction == "player" and g.state == "attack" then
+      order_return(f, gid, tick)
+      n = n + 1
+    end
+  end
+  if f.route_pending and f.route_pending.target_faction == "player" then f.route_pending = nil end
+  return n
 end
 
 --- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués.

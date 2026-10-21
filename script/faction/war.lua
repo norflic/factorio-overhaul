@@ -6,8 +6,11 @@
     /fo-war stop          supprime tout ce qui appartient aux factions
     /fo-war fund <n>      ajoute n plaques de fer (et cuivre, charbon, pierre) au stock de chaque faction
 
-  Diplomatie : factions hostiles entre elles et aux déchiqueteurs. Avec le joueur : cessez-le-feu par défaut
-  (paramètre fo-war-player-ceasefire) ; tuer une entité d'une faction lui fait déclarer la guerre au joueur.
+  Diplomatie : factions hostiles entre elles et aux déchiqueteurs. Avec le joueur : cessez-le-feu au
+  lancement ; tuer une entité d'une faction lui fait déclarer la guerre au joueur. Lot IA0 : hors
+  « Paisible », chaque faction déclare d'elle-même la guerre au joueur après un délai de grâce et le prend
+  pour cible (script/faction/pvp.lua, réglage fo-pvp-difficulty). L'ancien réglage
+  fo-war-player-ceasefire n'est plus lu (le niveau « Paisible » le remplace).
 ]]
 
 local Events = require("script.core.events")
@@ -22,6 +25,7 @@ local Sites = require("script.faction.sites")
 local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
 local Storage = require("script.core.storage")
+local PvP = require("script.faction.pvp")
 
 local War = {}
 
@@ -207,7 +211,6 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     surface.request_to_generate_chunks(candidates[i][1], 13)
   end
 
-  local ceasefire = settings.global["fo-war-player-ceasefire"].value
   for i = 1, n do
     local def = F.factions[i]
     local force_name = "fo-" .. def.key
@@ -231,15 +234,17 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     request_site_check(f, surface)
   end
 
-  -- Diplomatie : factions hostiles entre elles (défaut moteur), cessez-le-feu éventuel avec le joueur.
+  -- Diplomatie : factions hostiles entre elles (défaut moteur), cessez-le-feu avec le joueur au lancement
+  -- (lot IA0 : la difficulté décide ensuite si et quand chaque faction le rompt).
   for i = 1, n do
     local f = war.factions[i]
     for j = 1, n do
       if i ~= j then game.forces[f.force].set_cease_fire(war.factions[j].force, false) end
     end
-    set_player_relations(f, ceasefire)
+    set_player_relations(f, true)
   end
   say({ "fo-faction.war-started", n })
+  PvP.on_war_started(game.tick)
   return true
 end
 
@@ -273,6 +278,7 @@ function War.stop()
     Scheduler.remove(Commander.LANE, id)
     Sites.untrack(id)
   end
+  PvP.on_war_stopped()
   war.active = false
   war.factions, war.by_force, war.owners, war.claims = {}, {}, {}, {}
   return removed
@@ -303,6 +309,7 @@ function War.status_lines(tick)
     return lines
   end
   lines[1] = string.format("[FO-WAR] %.1f min | factions vivantes %d", (tick - war.started) / 3600, #State.alive())
+  lines[2] = PvP.status_line(tick)
   for _, id in ipairs(State.sorted_keys(war.factions)) do
     local f = war.factions[id]
     local kinds = {}
@@ -340,11 +347,7 @@ Commander.on_eliminated = function(f, tick)
 end
 
 Commander.on_player_hostility = function(f, tick)
-  local force = game.forces[f.force]
-  if force.get_cease_fire(game.forces.player) then
-    set_player_relations(f, false)
-    say({ "fo-faction.war-on-player", faction_name(f) })
-  end
+  PvP.on_provoked(f, tick)
 end
 
 -- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s.

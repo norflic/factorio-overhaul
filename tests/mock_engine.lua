@@ -400,12 +400,26 @@ local function step_groups(tick)
           for i = 1, deaths do members[i].die(nil) end
           local last = cmd.type == defines.command.compound and cmd.commands[#cmd.commands] or cmd
           local dest = last.destination
+          local hit = false
           for _, e in ipairs(W.entities) do
             if e.valid and e.force ~= g._force and e.force.name:match("^fo%-") and e.name ~= "fo-faction-hq" then
               local dx, dy = e._x - dest.x, e._y - dest.y
               if dx * dx + dy * dy < 40 * 40 and (e.name == "burner-mining-drill" or e.name == "gun-turret") then
                 e.die(g._force)
+                hit = true
                 break
+              end
+            end
+          end
+          -- Option (lot IA0) : une attaque de faction détruit aussi une installation du joueur proche.
+          if not hit and W.groups_hit_player and g._force.name:match("^fo%-") and g._force.name ~= "fo-horde" then
+            for _, e in ipairs(W.entities) do
+              if e.valid and e.force.name == "player" and e.type ~= "character" then
+                local dx, dy = e._x - dest.x, e._y - dest.y
+                if dx * dx + dy * dy < 40 * 40 then
+                  e.die(g._force)
+                  break
+                end
               end
             end
           end
@@ -442,7 +456,9 @@ function M.new_world(opts)
       ["fo-companion-brain-period"] = opts.brain or 60, ["fo-path-max-inflight"] = 6,
       ["fo-war-player-ceasefire"] = opts.ceasefire ~= false,
       ["fo-level-time-factor"] = 1,
+      ["fo-pvp-difficulty"] = opts.difficulty or "normal", -- lot IA0 : défaut du jeu
     },
+    groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
   }
   math.randomseed(W.seed)
 
