@@ -326,11 +326,25 @@
   1. **PC cible : 8 Go de mémoire vidéo au minimum** (votre réponse du 21/10, 21 h 52 ; ce PC en a 16). Les
      atlas de sprites du jeu entier (vanilla + mod), en haute qualité, tiennent dans 6 Go, mesurés, pour
      garder une marge. Les sprites de niveaux sont estimés de 0,8 à 1,4 Go non compressés (V1).
-  2. La qualité « normale » (sprites basse résolution) reste produite par le pipeline, mais elle n'est
-     plus prioritaire.
+  2. **Basse qualité « pas si basse »** (Q21) :
+     - les sprites de qualité « normale » (32 px par tuile) sont RENDUS par le pipeline à leur taille, et
+       non tirés d'une réduction floue de la haute qualité ;
+     - ils gardent les silhouettes lisibles : les tests D1 (gris, vignette, recouvrement) passent aussi
+       en basse qualité ;
+     - ils gardent la sensation de gigantisme des usines vues de loin.
+     Moins prioritaire que la haute qualité, mais jamais bâclée.
+  5. **Vue d'usine géante** (Q21) : un banc pose des milliers de bâtiments à niveaux dans le champ, en vue
+     éloignée. On mesure, dans les deux qualités, la mémoire vidéo occupée par le jeu (compteurs GPU de
+     Windows) et les images par seconde sur ce PC : 60 images/s visées.
   3. Le chargement du jeu ne s'allonge pas de plus de 30 s (mesuré au banc).
   4. Le temps de rendu hors jeu reste raisonnable : chiffré par famille.
-- **État** : ❌ non mesuré (V3, V4).
+- **État** : ❌ non mesuré en jeu.
+  - Première estimation, tirée des journaux de chargement (F66) : les atlas du jeu actuel (vanilla + mod,
+    haute qualité) font environ 1,1 Go avec la compression DXT active par défaut, 4,25 Go sans
+    compression, pour 16 Go sur ce PC.
+  - Une image n'est chargée qu'UNE fois, quel que soit le nombre de bâtiments posés : une usine
+    gigantesque ne coûte pas plus de mémoire vidéo qu'un seul bâtiment ; elle coûte du temps de dessin.
+  - Banc de mesure : lot D4m.
 
 ### D3 · Précision du rendu
 - **Critères d'acceptation** ❔
@@ -476,6 +490,7 @@
 | Q18 | Quand construire IA1 (équipes de PNJ organisées, C5) ? | 21/10, 21 h 38 : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. » | Ordre : visuel (V) → Compaction (C) ET IA1 en parallèle (fichiers distincts) → contenu des époques (X) → idle (I) |
 | Q19 | Précision sur l'amélioration, les PNJ et le scénario (transcription du 21/10, 21 h 45) | « quand je parlais d'amélioration […] Dans Clash of Clans, c'est on améliore et on attend. Alors que là, l'idée, c'est si on a les ressources, on améliore, terminé. Parce que c'est comme pour poser les constructions […] c'est instantané. Bah, c'est pareil pour l'amélioration en vérité. […] la logique en fait de pipeline […] de production, qui s'adapterait à l'environnement […] il y aurait différents pôles […] peut-être que 5 entre guillemets, et ces 5 là ils piloteraient en fait différentes parties […] ça serait vraiment des ouvriers à part entière, mais qui soient multifonctions […] les couteaux suisses […] concentrer nos efforts sur tel ou tel aspect, que ce soit la ressource, que ce soit l'amélioration de la base […] la protection […] pouvoir dire je veux contrôler cette zone là […] j'ai relu votre scénario et le scénario est bien […] je l'aime bien. Très difficile à mon avis à faire en modèle, etc., 3D, mais je suis sûr que vos agents y arriveront. Paralyser un maximum pour essayer d'avancer au plus vite, mais tant que c'est qualitatif […] et pas uniquement on change la saturation ou la teinte des bâtiments […] il faut que ce soit également optimisé […] il faut pas qu'il y ait 1 million de polygones » | (1) **Amélioration instantanée** dès que les ressources sont là, pour le joueur comme pour les PNJ : plus de durée ni de limite de chantiers (E1 révisé ; Q17 sans objet) → lot V2c. (2) C5 précisé : production adaptative pilotée par les objectifs, pôles, environ 5 généralistes sur 30, contrôle de zones → lot IA1 relancé. (3) **Scénario X0 approuvé**. (4) 3D : qualité exigée, parallélisme maximal, budget d'optimisation (D4) |
 | Q20 | Synthèse de Q19 conforme ? Mémoire vidéo visée ? | 21/10, 21 h 52 : « Ok, oui, continuez, la synthèse est parfaite. […] Concernant la mémoire vidéo, partez du principe que je jouerai sur des PC qui auront au minimum 8 Go de VRAM. Ce PC actuel en a 16. C'est une RX 6900 XT […] globalement 8 Go de VRAM, c'est bien pour la mémoire vidéo. » | Synthèse validée ; D4-1 : PC cible à 8 Go de mémoire vidéo minimum, atlas du jeu ≤ 6 Go |
+| Q21 | Basse qualité et saturation de la mémoire vidéo | 21/10, 22 h : « veillez vraiment à ce que la version basse qualité soit pas si basse que ça, mais qu'il puisse être […] qu'on puisse garder, si on veut, la sensation de gigantisme, en fait, par exemple, des usines factoriaux. […] quand vous dites que la basse qualité n'est plus la priorité, c'est d'accord, hein, complètement, mais par contre, il faut quand même que la basse qualité puisse avoir un certain range […] pour pouvoir vraiment faire tourner le jeu correctement. Parce que j'ai l'impression qu'en fait, en ayant des images de haute qualité, ça fait que même avec mes 16 Go de RAM, j'ai l'impression que je vais saturer très vite. Alors que peut-être pas du tout, je me trompe » | D4-2 renforcé (basse qualité rendue, lisible, gigantisme) ; D4-5 (banc d'usine géante, mémoire vidéo et images/s mesurées dans les deux qualités) ; estimation actuelle au §3 D4 |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -592,6 +607,7 @@ apport.md | 21/10, 19 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ⏳ workflow lancé | — | 21/10, 20 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
 | IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
+| D4m Banc mémoire vidéo et usine géante (D4) | ⏳ préparation lancée hors moteur ; passage en moteur réel après V0b | — | 21/10, 22 h |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
