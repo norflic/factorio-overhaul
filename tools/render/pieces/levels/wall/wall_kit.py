@@ -32,13 +32,17 @@ EMIT_MAX = 1.3
 
 
 def lin(hexs, mul=1.0, cap=1.0):
-    """Couleur sRGB « #RRGGBB » -> linéaire (Blender), multipliée par mul (bornée à cap)."""
+    """Couleur sRGB « #RRGGBB » -> linéaire (Blender), multipliée par mul, bornée à cap EN GARDANT LA TEINTE
+    (reprise V3 : une borne canal par canal blanchissait les albédos clairs, l'or blanc sortait gris)."""
     h = hexs.lstrip("#")
     out = []
     for i in (0, 2, 4):
         c = int(h[i:i + 2], 16) / 255.0
         c = c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-        out.append(min(cap, c * mul))
+        out.append(c * mul)
+    m = max(out)
+    if m > cap:
+        out = [c * cap / m for c in out]
     return tuple(out)
 
 
@@ -369,7 +373,7 @@ class Kit:
         def make():
             m, N, L, p = self._new(name)
             p.inputs["Base Color"].default_value = lin(hexs, mul, ALB_MAX) + (1,)
-            p.inputs["Metallic"].default_value = 0.8
+            p.inputs["Metallic"].default_value = 0.5      # (reprise V3 : 0,8 reflétait le ciel faible, or kaki)
             p.inputs["Roughness"].default_value = rough
             tc = N.new("ShaderNodeTexCoord")
             vo = N.new("ShaderNodeTexVoronoi")

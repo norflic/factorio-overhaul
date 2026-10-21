@@ -42,8 +42,9 @@ def epoch(level):
 # de l'époque). Valeurs de reprise (premier modeleur, non mesurées) : 3,0 4,5 3,2 4,2 3,5 4,0 3,0 3,0 3,5 2,4
 # 2,2 2,6 2,0 1,8 2,0 ; l'époque 2 sortait à des dessus blancs saturés (255).
 # Passe 1 (21/10, 32 échantillons) : L50 mesurée 82 64 91 69 74 48 63 64 88 114 58 115 85 97 (époques 2 à 15).
-EGAIN = {1: 3.0, 2: 1.8, 3: 2.6, 4: 1.7, 5: 1.4, 6: 2.5, 7: 3.0, 8: 2.6, 9: 2.6, 10: 2.1, 11: 1.65, 12: 2.4, 13: 1.4,
-         14: 1.9, 15: 2.0}
+# Passe 2 : 53 58 64 45 62 42 57 68 67 90 35 76 89 90 ; passe 3 ci-dessous (borne d'albédo qui garde la teinte).
+EGAIN = {1: 3.0, 2: 1.75, 3: 2.6, 4: 1.55, 5: 1.3, 6: 2.0, 7: 4.5, 8: 2.8, 9: 1.9, 10: 3.2, 11: 2.0, 12: 4.5, 13: 2.0,
+         14: 1.85, 15: 2.6}
 # Luminance médiane visée du corps rendu (bible §1.5, sur 255, tolérance ±10).
 L50_TARGET = {1: 50, 2: 52, 3: 58, 4: 60, 5: 42, 6: 64, 7: 55, 8: 60, 9: 56, 10: 82, 11: 100, 12: 60, 13: 92, 14: 88,
               15: 108}

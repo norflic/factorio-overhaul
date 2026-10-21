@@ -144,8 +144,8 @@ def e02(k, pose, piece):
         # Reprise V3 (21/10) : pique d'acier dressée sur un MANTELET riveté qui ferme le créneau central (la
         # pique seule, 0,05 tuile de large, n'ajoutait que 0,05 t² au masque : D1-1) ; piques sur les merlons.
         tc = (t0 + t1) / 2
-        hwm = 0.10 if pose == "droit" else 0.075
-        zmt = zc + 0.30
+        hwm = 0.115 if pose == "droit" else 0.09
+        zmt = zc + 0.36
         k.box(-hwm, hwm, tc - 0.03, tc + 0.03, zc - 0.01, zmt, steel, "mantelet", bev=0.008)
         k.box(-hwm - 0.01, hwm + 0.01, tc - 0.04, tc + 0.04, zmt - 0.045, zmt, band, "cerclage_mantelet", bev=0.004)
         for rx in (-hwm + 0.03, hwm - 0.03):
@@ -155,7 +155,7 @@ def e02(k, pose, piece):
         ztip = zv(vt(2) - 0.12, tc)
         k.cylv(0.0, tc, zmt, ztip - 0.15, 0.026, steel, "hampe", verts=8)
         k.tor_h(0.0, tc, zmt + 0.10, 0.034, 0.012, brass, "bague")
-        k.pyr(0.0, tc, ztip - 0.17, ztip, 0.075, steel, "fer_de_pique", sides=4)
+        k.pyr(0.0, tc, ztip - 0.17, ztip, 0.09, steel, "fer_de_pique", sides=4)
         k.box(-0.11, 0.11, tc - 0.02, tc + 0.02, ztip - 0.19, ztip - 0.16, band, "garde", bev=0.004)
         for cx in merl:
             for dx in (-mw * 0.55, 0.0, mw * 0.55):
@@ -302,9 +302,9 @@ def e04(k, pose, piece):
     if piece:
         for x in posts:
             zb = ztop + 0.005
-            k.cylv(x, tp, zb, zb + 0.05, 0.085, galv, "socle_feu", verts=24)
-            k.cylv(x, tp, zb + 0.05, zb + 0.14, 0.072, orange, "verrine", verts=24)
-            k.sph(x, tp, zb + 0.14, 0.072, orange, "dome")
+            k.cylv(x, tp, zb, zb + 0.05, 0.09, galv, "socle_feu", verts=24)
+            k.cylv(x, tp, zb + 0.05, zb + 0.14, 0.08, orange, "verrine", verts=24)
+            k.sph(x, tp, zb + 0.14, 0.08, orange, "dome")
             cage = []
             for i in range(5):
                 a = 2 * math.pi * i / 5
@@ -315,7 +315,7 @@ def e04(k, pose, piece):
             k.halo(x, tp + 0.12, zb + 0.12, "#FF8C1A", 6.0)
         # panneau d'avertissement accroché au garde-corps (entre les poteaux)
         # (reprise V3 : panneau élargi, il ferme le garde-corps entre les poteaux : D1-1)
-        hp = 0.17 if pose == "droit" else 0.12
+        hp = 0.17 if pose == "droit" else 0.125
         k.box(-hp, hp, tp + 0.01, tp + 0.022, zr2 - 0.06, zr1 + 0.04, hazard, "panneau", bev=0.004)
         k.box(-hp - 0.012, hp + 0.012, tp + 0.004, tp + 0.01, zr2 - 0.07, zr1 + 0.05, galv, "cadre_panneau", bev=0)
 
@@ -332,7 +332,7 @@ def e05(k, pose, piece):
     tung = k.metal("e05_tungstene", "#3E3D42", mul=1.35, rough=0.38, metallic=0.85, grain=0.2, rust="#5A3A2A",
                    rust_amount=0.35, dirt=0.4, seed=51)
     burnt = k.metal("e05_rouille", "#5A3A2A", mul=1.1, rough=0.6, metallic=0.5, grain=0.25, dirt=0.4, seed=52)
-    ember = k.emit("e05_braise", "#FF4A10", strength=1.2, base="#200805")
+    ember = k.emit("e05_braise", "#FF5A18", strength=1.3, base="#200805")
     basalt = k.stone("e05_basalte", "#2E2C2C", mul=1.3, grain=0.35, seed=53)
     plinth(k, pose, burnt)
     xa, xb = span(pose)
@@ -342,7 +342,7 @@ def e05(k, pose, piece):
     else:
         tb, tt, tback = 0.50, 0.22, 0.10
         teeth, hw0, hw1 = (-0.155, 0.155), 0.15, 0.06
-    zcr = zv(-0.56, tt)
+    zcr = zv(-0.50, tt)              # (passe 3 : arête plus basse, dents plus hautes : IoU avec l'époque 4 < 0,85)
     t_at = lambda z: tb - (tb - tt) * (z - 0.12) / (zcr - 0.12)
     # noyau incandescent en retrait (visible dans les joints) et dos de la muraille
     k.prism_x([(tback, 0.0), (tb - 0.05, 0.0), (tb - 0.05, 0.12), (tt + 0.0, zcr - 0.04), (tback, zcr - 0.04)],
@@ -355,7 +355,7 @@ def e05(k, pose, piece):
         z0, z1 = 0.12 + (zcr - 0.12) * f0 + g, 0.12 + (zcr - 0.12) * f1 - 0.004
         segs = [(xa, xb)]
         if r == 1:      # évent central : fente de braise (zone lumineuse >= 8 x 8 px hr)
-            segs = [(xa, -0.07), (0.07, xb)]
+            segs = [(xa, -0.09), (0.09, xb)]
         for a, b in segs:
             off = 0.03
             quad = [(a, t_at(z0) + off, z0 - 0.03), (b, t_at(z0) + off, z0 - 0.03), (b, t_at(z1) + off * 0.3, z1),
@@ -377,7 +377,10 @@ def e05(k, pose, piece):
         # orgue de basalte entre les deux dents : colonne centrale à O(5) + 0,20, deux colonnes inclinées
         tc = tt - 0.02
         ztip = zv(vt(5) - 0.20, tc)
-        cols = ((0.0, 0.085, ztip, 0.0), (-0.085, 0.06, zt - 0.02, -0.10), (0.085, 0.06, zt - 0.08, 0.12))
+        # (reprise V3 : colonnes élargies et plus hautes, D1-1 ; au pilier, deux colonnes basses au pied des dents)
+        cols = [(0.0, 0.10, ztip, 0.0), (-0.10, 0.07, zv(vt(5) - 0.10, tc), -0.10), (0.10, 0.07, zv(vt(5) - 0.05, tc), 0.12)]
+        if pose == "isole":
+            cols += [(-0.25, 0.06, zv(vt(5) + 0.02, tc), -0.15), (0.25, 0.06, zv(vt(5) + 0.06, tc), 0.15)]
         for x, r, zt_, tilt in cols:
             k.gem(x, tc, zcr - 0.08, r, zt_ - zcr + 0.08, basalt, "colonne_basalte", sides=6, tilt=(tilt, 0.0),
                   tip=0.22)
@@ -483,10 +486,10 @@ def e07(k, pose, piece):
     plinth(k, pose, k.stone("e07_socle", "#3A332E", mul=1.3, grain=0.3, seed=73))
     xa, xb = span(pose)
     t0, t1 = (0.22, 0.48) if pose == "droit" else (0.12, 0.46)
-    zm = zv(-0.55, t0)
+    zm = zv(-0.45, t0)               # (passe 3 : muret plus bas, les cristaux portent la silhouette, D1-2)
     k.box(xa, xb, t0, t1, 0.18, zm, stone, "muret", bev=0.012)
     # moellons (relief de la face) : blocs irréguliers légèrement saillants
-    rows = [(0.22, 0.46), (0.48, 0.72), (0.74, zm - 0.04)]
+    rows = [(0.22, 0.44), (0.46, 0.68), (0.70, zm - 0.04)]
     for i, (z0, z1) in enumerate(rows):
         n = 3 if pose == "droit" else 2
         off = (0.17 if i % 2 else 0.0)
@@ -515,7 +518,7 @@ def e07(k, pose, piece):
         k.gem(x, tc - 0.04, zm - 0.04, r, h, crystal, "grand_cristal", sides=6, tilt=(0.05, 0.06), tip=0.24)
         k.cylv(x, tc - 0.04, zm - 0.02, zm + 0.09, r + 0.03, bronze, "griffe", verts=6)
         xe = 0.18 if pose == "droit" else 0.11
-        for dx, rr, hh, te in ((-0.05, 0.06, 0.42, 0.35), (0.05, 0.055, 0.36, -0.40)):
+        for dx, rr, hh, te in ((-0.06, 0.08, 0.62, 0.30), (0.06, 0.07, 0.50, -0.38)):
             k.gem(xe + dx, tc - 0.02, zm + 0.0, rr, hh, crystal, "eclat", sides=5, tilt=(te, 0.1), tip=0.3)
         k.halo(x, tc + 0.1, zm + 0.5, "#B070FF", 5.0)
 
@@ -543,7 +546,7 @@ def e08(k, pose, piece):
     tg0, tg1 = 0.30, 0.43
     zb = 0.30
     zapex = zv(vt(8), tg0)
-    zsh = zapex - 0.30 * (xb - xa) / 0.9
+    zsh = zapex - 0.55 * (xb - xa) / 0.9      # (passe 3 : dôme plus bombé, crête en bulbes : IoU avec l'époque 7)
     k.box(xa - 0.05, xb + 0.05, 0.27, 0.46, 0.24, zb, vdg, "rail_bas", bev=0.008)
     for a, b in posts:
         k.box(a, b, 0.26, 0.47, zb - 0.02, zsh - 0.12, vdg, "montant", bev=0.006)
@@ -603,10 +606,10 @@ def e08(k, pose, piece):
 # Pièce (niveau 18) : évent annelé sur chaque tuile (+0,15), conduit annelé de crête
 # =====================================================================================================
 def e09(k, pose, piece):
-    # Reprise V3 (21/10) : le bloc du premier modeleur n'était chanfreiné que d'avant en arrière, donc
-    # invisible en silhouette (un rectangle haut, « armoire »). Ici chaque bloc de plomb a une face
-    # OCTOGONALE (coins hauts chanfreinés) : en rangée, une encoche en V à chaque joint ; panneau chanfreiné
-    # en relief, fenêtre verte, trèfle, bande d'avertissement sur la plinthe.
+    # Reprise V3 (21/10) : le bloc du premier modeleur n'était chanfreiné que d'avant en arrière (invisible en
+    # silhouette : un rectangle haut). Passe 3 : la silhouette est un OCTOGONE À GRADIN : bloc de plomb bas à
+    # coins chanfreinés (encoches en V aux joints), surmonté d'une tour octogonale plus étroite et en retrait
+    # (IoU avec les dômes de l'époque 8 : 0,93 avec un bloc plein). Fenêtre verte, trèfle, bande d'avertissement.
     lead = k.metal("e09_plomb", "#4A5058", mul=1.35, rough=0.5, metallic=0.55, grain=0.18, dirt=0.45, seed=91)
     lead2 = k.metal("e09_plomb_clair", "#5A626C", mul=1.35, rough=0.42, metallic=0.55, grain=0.14, dirt=0.4, seed=94)
     concrete = k.stone("e09_beton", "#7A7670", mul=0.85, grain=0.2, seed=92)
@@ -618,34 +621,38 @@ def e09(k, pose, piece):
     xa, xb = span(pose)
     k.box(xa, xb, 0.50, 0.505, 0.03, 0.19, hazard, "bande_socle", bev=0)
     t0, t1 = (0.20, 0.47) if pose == "droit" else (0.10, 0.47)
-    ztop = zv(vt(9), t0)
-    ct = 0.17 if pose == "droit" else 0.12          # chanfrein des coins hauts (x)
-    cz = ct * 1.4
-    cb = 0.04
-    octo = [(xa + cb, 0.18), (xb - cb, 0.18), (xb, 0.18 + cb), (xb, ztop - cz), (xb - ct, ztop), (xa + ct, ztop),
-            (xa, ztop - cz), (xa, 0.18 + cb)]
-    k.prism_t(octo, t0, t1, lead, "bloc_plomb", bev=0.01)
-    # panneau chanfreiné en relief sur la face (même octogone, réduit)
-    m = 0.07
-    zp0, zp1 = 0.26, ztop - 0.07
-    inner = [(xa + m + cb, zp0), (xb - m - cb, zp0), (xb - m, zp0 + cb), (xb - m, zp1 - cz * 0.75),
-             (xb - m - ct * 0.75, zp1), (xa + m + ct * 0.75, zp1), (xa + m, zp1 - cz * 0.75), (xa + m, zp0 + cb)]
-    k.prism_t(inner, t1, t1 + 0.025, lead2, "panneau_chanfreine", bev=0.008)
-    for x in (xa + m + 0.03, xb - m - 0.03):
-        for z in (zp0 + 0.05, zp1 - cz * 0.75):
-            k.rivet(x, t1 + 0.027, z, 0.016, yellow)
+
+    def octo(x0, x1, z0, z1, ct, cb=0.04):
+        cz = ct * 1.4
+        return [(x0 + cb, z0), (x1 - cb, z0), (x1, z0 + cb), (x1, z1 - cz), (x1 - ct, z1), (x0 + ct, z1), (x0, z1 - cz),
+                (x0, z0 + cb)]
+
+    # bloc bas
+    zlo = zv(-0.66, t0)
+    k.prism_t(octo(xa, xb, 0.18, zlo, 0.11 if pose == "droit" else 0.08), t0, t1, lead, "bloc_plomb", bev=0.01)
+    # tour octogonale en retrait
+    hw = 0.26 if pose == "droit" else 0.19
+    ta, tb_ = t0 + 0.03, t1 - 0.07
+    zhi = zv(vt(9), ta)
+    k.prism_t(octo(-hw, hw, zlo - 0.06, zhi, 0.10 if pose == "droit" else 0.07), ta, tb_, lead2, "tour_plomb", bev=0.01)
+    # chaperon de la tour (dalle chanfreinée)
+    k.prism_t(octo(-hw + 0.03, hw - 0.03, zhi - 0.06, zhi + 0.01, 0.07, 0.0), ta + 0.02, tb_ - 0.02, lead, "dalle_tour",
+              bev=0.006)
+    # fenêtre verte (lueur de jour) sur le bloc bas
+    zw = zlo - 0.22
+    hwin = (xb - xa) / 2 - 0.13
+    k.box(-hwin - 0.025, hwin + 0.025, t1 - 0.005, t1 + 0.012, zw - 0.12, zw + 0.12, black, "cadre_fenetre", bev=0.005)
+    k.box(-hwin, hwin, t1 + 0.012, t1 + 0.016, zw - 0.095, zw + 0.095, green, "fenetre_verte", bev=0)
+    for x in (xa + 0.06, xb - 0.06):
+        for z in (0.30, zlo - 0.10):
+            k.rivet(x, t1 + 0.005, z, 0.016, yellow)
     k.flush_rivets()
-    # fenêtre verte (lueur de jour) dans le haut du panneau
-    zw = ztop - 0.36
-    hw = (xb - xa) / 2 - m - 0.07
-    k.box(-hw - 0.025, hw + 0.025, t1 + 0.02, t1 + 0.032, zw - 0.085, zw + 0.085, black, "cadre_fenetre", bev=0.005)
-    k.box(-hw, hw, t1 + 0.032, t1 + 0.036, zw - 0.06, zw + 0.06, green, "fenetre_verte", bev=0)
     k.halo(0.0, t1 + 0.12, zw, "#5CFF4A", 6.0)
-    # trèfle (disque jaune) sous la fenêtre
-    xt = 0.0
-    zt = zw - 0.27
-    k.cyly(xt, t1 + 0.025, t1 + 0.033, zt, 0.075, yellow, "disque_trefle", verts=32)
-    k.cyly(xt, t1 + 0.033, t1 + 0.037, zt, 0.014, black, "centre_trefle", verts=16)
+    # trèfle (disque jaune) sur la face de la tour
+    xt, zt = 0.0, (zlo + zhi) / 2 + 0.02
+    tf = tb_
+    k.cyly(xt, tf, tf + 0.008, zt, 0.075, yellow, "disque_trefle", verts=32)
+    k.cyly(xt, tf + 0.008, tf + 0.012, zt, 0.014, black, "centre_trefle", verts=16)
     for i in range(3):
         a0 = math.radians(90 + 120 * i - 30)
         a1 = a0 + math.radians(60)
@@ -654,29 +661,28 @@ def e09(k, pose, piece):
             a = a0 + (a1 - a0) * j / 6
             pts.append((xt + 0.064 * math.cos(a), zt + 0.064 * math.sin(a)))
         pts.append((xt + 0.022 * math.cos(a1), zt + 0.022 * math.sin(a1)))
-        k.prism_t(pts, t1 + 0.033, t1 + 0.037, black, "pale_trefle")
+        k.prism_t(pts, tf + 0.008, tf + 0.012, black, "pale_trefle")
+    # bande verte d'avertissement sous la dalle de la tour
+    k.box(-hw + 0.02, hw - 0.02, tb_, tb_ + 0.006, zhi - 0.14, zhi - 0.10, green, "bande_verte", bev=0)
     if piece:
+        # évents annelés sur les épaules du bloc bas (ils comblent les épaulements, D1-1), reliés par un conduit
+        # annelé qui passe derrière la tour ; sommet des évents à O(9) + 0,15
         tc = (t0 + t1) / 2
-        # conduit annelé posé sur la crête : il franchit les encoches en V entre les blocs
-        zcd = ztop + 0.05
-        k.cylx(xa, xb, tc, zcd, 0.05, lead2, "conduit_annele")
-        n = int(round((xb - xa) / 0.1))
-        for i in range(n):
-            x = xa + (i + 0.5) * (xb - xa) / n
-            k.cylx(x - 0.012, x + 0.012, tc, zcd, 0.064, lead, "anneau_conduit")
-        for x in ((xa + 0.1, xb - 0.1) if pose == "droit" else (0.0,)):
-            k.box(x - 0.03, x + 0.03, tc - 0.04, tc + 0.04, ztop - 0.01, zcd - 0.03, black, "berceau", bev=0.004)
-        # évent annelé (cheminée à anneaux, chapeau champignon) jusqu'à O(9) + 0,15
-        zv0 = zcd
-        zv1 = zv(vt(9) - 0.15 + K45 * 0.15, tc) - 0.07
-        k.cylv(0.0, tc, zv0, zv1, 0.095, lead2, "event", verts=32)
-        nr = int((zv1 - zv0) / 0.07)
-        for i in range(nr):
-            k.tor_h(0.0, tc, zv0 + 0.05 + i * 0.07, 0.097, 0.02, lead, "anneau_event")
-        k.cylv(0.0, tc, zv1, zv1 + 0.03, 0.15, lead, "chapeau_event", verts=32)
-        k.cylv(0.0, tc, zv1 + 0.03, zv1 + 0.07, 0.15, lead, "dome_event", verts=32, r2=0.06)
-        k.tor_h(0.0, tc, zv1 - 0.03, 0.10, 0.016, green, "lisere_vert")
-        k.halo(0.0, tc + 0.12, zv1, "#5CFF4A", 3.0)
+        xv = (hw + xb) / 2
+        rv = 0.085 if pose == "droit" else 0.05
+        rh = rv + (0.05 if pose == "droit" else 0.03)
+        zcd = zlo + 0.04
+        k.cylx(-xv, xv, ta + 0.02, zcd, 0.045, lead2, "conduit_annele")
+        for x in (-xv, xv):
+            zv1 = zv(vt(9) - 0.15 + K45 * rh, tc) - 0.06
+            k.cylv(x, tc, zlo - 0.02, zv1, rv, lead2, "event", verts=32)
+            nr = max(2, int((zv1 - zlo) / 0.07))
+            for i in range(nr):
+                k.tor_h(x, tc, zlo + 0.04 + i * 0.07, rv + 0.003, 0.018, lead, "anneau_event")
+            k.cylv(x, tc, zv1, zv1 + 0.025, rh, lead, "chapeau_event", verts=32)
+            k.cylv(x, tc, zv1 + 0.025, zv1 + 0.06, rh, lead, "dome_event", verts=32, r2=0.03)
+            k.tor_h(x, tc, zv1 - 0.025, rv + 0.004, 0.012, green, "lisere_vert")
+            k.halo(x, tc + 0.12, zv1, "#5CFF4A", 3.0)
 
 
 # =====================================================================================================
@@ -691,18 +697,19 @@ def e10(k, pose, piece):
     plinth(k, pose, black)
     xa, xb = span(pose)
     t0, t1 = (0.24, 0.46) if pose == "droit" else (0.14, 0.44)
-    zb = 0.64
+    zb = 0.84                        # (passe 3 : corps levé sur pieds plus hauts, vide sous la crête : D1-2)
     legs = (-0.25, 0.25) if pose == "droit" else (-0.17, 0.17)
     for x in legs:
         k.box(x - 0.06, x + 0.06, 0.29, 0.41, 0.2, zb + 0.02, black, "pied", bev=0.012)
+        k.box(x - 0.075, x + 0.075, 0.27, 0.43, 0.2, 0.30, black, "sabot_pied", bev=0.01)
     zt = zv(-0.93, t0)
     k.box(xa + 0.006, xb - 0.006, t0, t1, zb, zt, shell, "panneau_lisse", bev=0.05)
     # bandeau lumineux (continu d'une tuile à l'autre) et fenêtre d'état (zone >= 8 x 8 px hr)
     zbd = zt - 0.30
     k.box(xa, xb, t1 - 0.01, t1 + 0.004, zbd - 0.055, zbd + 0.055, black, "gorge_bandeau", bev=0)
     k.box(xa, xb, t1 + 0.004, t1 + 0.008, zbd - 0.03, zbd + 0.03, blue, "bandeau", bev=0)
-    k.box(-0.08, 0.08, t1 - 0.005, t1 + 0.012, zb + 0.18, zb + 0.40, black, "ecran", bev=0.008)
-    k.box(-0.065, 0.065, t1 + 0.012, t1 + 0.016, zb + 0.20, zb + 0.38, blue, "ecran_lumineux", bev=0)
+    k.box(-0.10, 0.10, t1 - 0.005, t1 + 0.012, zb + 0.10, zb + 0.38, black, "ecran", bev=0.008)
+    k.box(-0.08, 0.08, t1 + 0.012, t1 + 0.016, zb + 0.12, zb + 0.36, blue, "ecran_lumineux", bev=0)
     k.halo(0.0, t1 + 0.12, zbd, "#3AA8FF", 5.0)
     # capteur en demi-sphère (sommet des masses)
     tc = (t0 + t1) / 2
@@ -716,15 +723,15 @@ def e10(k, pose, piece):
         # Reprise V3 (21/10) : deux mâts d'antenne sur boîtiers trapézoïdaux (le fouet seul, 2 px de large,
         # n'ajoutait presque rien au masque : D1-1) ; dipôles et feu bleu au sommet, à O(10) + 0,20.
         xs = (0.30, -0.30) if pose == "droit" else (0.225, -0.225)
-        hb, ht = (0.12, 0.06) if pose == "droit" else (0.08, 0.045)
+        hb, ht = (0.14, 0.07) if pose == "droit" else (0.085, 0.05)
         tops = (zv(vt(10) - 0.20, tc), zv(vt(10) - 0.10, tc))
         for i, (x, ztip) in enumerate(zip(xs, tops)):
             k.frustum((x - hb, x + hb, tc - 0.08, tc + 0.08), (x - ht, x + ht, tc - 0.05, tc + 0.05), zt - 0.04,
-                      zt + 0.13, black, "boitier_antenne")
+                      zt + 0.22, black, "boitier_antenne")
             k.box(x - 0.045, x + 0.045, tc + 0.08 - 0.004, tc + 0.086, zt + 0.0, zt + 0.07, blue, "voyant_boitier", bev=0)
-            k.cylv(x, tc, zt + 0.13, ztip - 0.03, 0.024, shell, "mat_antenne", verts=10, r2=0.012, bev=0)
-            for j, (f, w) in enumerate(((0.45, 0.13), (0.65, 0.10), (0.82, 0.07))):
-                z = zt + 0.13 + f * (ztip - zt - 0.16)
+            k.cylv(x, tc, zt + 0.22, ztip - 0.03, 0.026, shell, "mat_antenne", verts=10, r2=0.014, bev=0)
+            for j, (f, w) in enumerate(((0.35, 0.14), (0.60, 0.11), (0.82, 0.08))):
+                z = zt + 0.22 + f * (ztip - zt - 0.25)
                 k.cylx(x - w, x + w, tc, z, 0.012, shell, "dipole")
             k.sph(x, tc, ztip - 0.02, 0.03, blue, "feu_antenne")
             k.halo(x, tc + 0.08, ztip, "#3AA8FF", 2.0)
@@ -807,12 +814,12 @@ def e12(k, pose, piece):
         tc = (t0 + t1) / 2
         # (reprise V3 : gyroscope de deux anneaux, l'un horizontal, l'autre face au sud, et noyau noir : la
         # pièce ajoute au moins 0,10 t², D1-1 ; un anneau mince de 0,21 n'en ajoutait que 0,05)
-        R = 0.26 if pose == "droit" else 0.20
-        zr = zv(vt(12) - 0.20 + K45 * R + 0.035, tc)
-        k.tor_h(0.0, tc, zr, R, 0.035, chrome, "anneau_flottant", seg=64)
+        R = 0.30 if pose == "droit" else 0.22
+        zr = zv(vt(12) - 0.20 + K45 * R + 0.04, tc)
+        k.tor_h(0.0, tc, zr, R, 0.04, chrome, "anneau_flottant", seg=64)
         k.tor_h(0.0, tc, zr, R - 0.035, 0.012, cyan, "anneau_flottant_lueur", seg=64)
         R2 = R * 0.62
-        k.tor_f(0.0, tc, zr + R2 * 0.35, R2, 0.03, chrome, "anneau_vertical", seg=48)
+        k.tor_f(0.0, tc, zr + R2 * 0.35, R2, 0.035, chrome, "anneau_vertical", seg=48)
         k.sph(0.0, tc, zr + R2 * 0.35, 0.065, black, "noyau_flottant", seg=24, rings=12)
         k.tor_h(0.0, tc, zr + R2 * 0.35, 0.068, 0.012, cyan, "equateur_noyau", seg=32)
         k.halo(0.0, tc + 0.1, zr, "#4AF0FF", 3.0)
@@ -884,10 +891,10 @@ def e14(k, pose, piece):
     # de porte). Ici les panneaux s'ouvrent EN AILES : bord extérieur haut, bord intérieur bas ; en rangée, la
     # crête fait une scie (pic à chaque joint, V au centre où se loge la parabole). Panneaux inclinés vers le
     # nord (ils prennent l'appoint zénithal), ajourés entre eux ; or froissé à gauche, cellules à droite.
-    gold = k.foil("e14_or", "#C9A23A", mul=1.0, rough=0.38, bump=0.6)
+    gold = k.foil("e14_or", "#D6A838", mul=1.0, rough=0.38, bump=0.6)
     white = k.metal("e14_blanc", "#CFCBC2", mul=0.7, rough=0.35, metallic=0.2, grain=0.08, dirt=0.45, seed=141)
     cells = k.metal("e14_cellules", "#1E2A55", mul=1.0, rough=0.12, metallic=0.4, grain=0.05, dirt=0.1, seed=142)
-    blue = k.emit("e14_reflet", "#2F6BFF", strength=1.2, base="#0A1430")
+    blue = k.emit("e14_reflet", "#7FA8FF", strength=1.2, base="#0A1430")   # reflet clair des cellules (D2-1)
     red = k.emit("e14_balise", "#FF2A2A", strength=1.3, base="#3A0505")
     plinth(k, pose, white)
     xa, xb = span(pose)
@@ -949,17 +956,17 @@ def e14(k, pose, piece):
         tm = 0.28
         zb = on_plane(0.0, v_lo + 0.02)[2]
         ztop = zv(vt(14) - 0.15 + 0.06, tm)
-        hb = 0.12 if pose == "droit" else 0.09
-        k.frustum((-hb, hb, tm - 0.06, tm + 0.06), (-hb * 0.55, hb * 0.55, tm - 0.04, tm + 0.04), zb - 0.12, zb + 0.10,
+        hb = 0.16 if pose == "droit" else 0.11      # (passe 3 : boîtier plus grand, il comble le V : D1-1)
+        k.frustum((-hb, hb, tm - 0.06, tm + 0.06), (-hb * 0.55, hb * 0.55, tm - 0.04, tm + 0.04), zb - 0.16, zb + 0.16,
                   white, "boitier_balise")
         k.box(-0.04, 0.04, tm + 0.055, tm + 0.062, zb - 0.07, zb + 0.0, red, "voyant_boitier", bev=0)
-        k.cylv(0.0, tm, zb + 0.10, ztop - 0.10, 0.02, white, "mat_balise", verts=8, bev=0)
+        k.cylv(0.0, tm, zb + 0.16, ztop - 0.10, 0.026, white, "mat_balise", verts=8, bev=0)
         k.cylv(0.0, tm, ztop - 0.12, ztop - 0.07, 0.055, white, "socle_feu", verts=24)
         k.sph(0.0, tm, ztop - 0.04, 0.06, red, "feu_balise")
         yv = 0.20 if pose == "droit" else 0.15
         k.cylx(-yv, yv, tm, ztop - 0.30, 0.014, white, "vergue")
         for x in (-yv, yv):
-            k.sph(x, tm, ztop - 0.30, 0.035, red, "feu_vergue", seg=12, rings=6)
+            k.sph(x, tm, ztop - 0.30, 0.045, red, "feu_vergue", seg=12, rings=6)
         k.halo(0.0, tm + 0.1, ztop - 0.06, "#FF2A2A", 6.0)
 
 
@@ -1011,10 +1018,14 @@ def e15(k, pose, piece):
         k.tor_f(0.0, tc + 0.03, zb2 + 0.50, 0.10, 0.016, wgold, "anneau_fleche")
         k.sph(0.0, tc + 0.03, zb2 + 0.50, 0.035, clear, "perle_fleche", seg=12, rings=6)
         for cx, hw in merl:
-            zt2 = zv(vt(15) - 0.08, tc)
-            for dx in (-hw * 0.55, 0.0, hw * 0.55):
-                top = zt2 if dx else zv(vt(15) - 0.12, tc)
-                k.cylv(cx + dx, tc, zt - 0.02, top, 0.03, wgold, "fleuron", verts=6, r2=0.0, bev=0)
+            # couronne flottante au-dessus de chaque merlon (anneau d'or blanc et trois fleurons), O(15) + 0,15
+            Rc = hw * 0.85
+            zc_ = zv(vt(15) - 0.07 + K45 * Rc, tc)
+            k.tor_h(cx, tc, zc_, Rc, 0.026, wgold, "couronne")
+            for dx in (-Rc * 0.7, 0.0, Rc * 0.7):
+                top = zv(vt(15) - (0.15 if dx == 0.0 else 0.11), tc)
+                k.cylv(cx + dx, tc, zc_, top, 0.034, wgold, "fleuron", verts=6, r2=0.0, bev=0)
+            k.sph(cx, tc, zc_, 0.03, clear, "gemme_couronne", seg=12, rings=6)
         k.halo(0.0, tc + 0.1, zb2 + 0.2, "#FFF2C0", 3.0)
 
 

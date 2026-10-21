@@ -143,16 +143,19 @@ def iou_scale_norm(m1, m30, center):
 
 
 def glow_stats(layers, body_rgb, body_a, body_med):
+    """Zones lumineuses de jour (draw_as_glow), bible §1.6 / D2-1 : composantes connexes (4-voisinage) de la
+    lueur (alpha ≥ 0,25) ; une zone COMPTE si sa boîte fait au moins 8 × 8 px hr ; pour chaque zone qui compte,
+    luminance médiane de la lueur composée sur le corps moins la médiane du corps. On rapporte la meilleure."""
     g = additive(layers, "glow")
     gl = g.max(-1)
     zone = gl >= 0.25
     if not zone.any():
         return None
-    # plus grande zone connexe (4-voisinage)
+    comp = np.clip(body_rgb * body_a[..., None] + g, 0, 1)
+    L = lum(comp) * 255
     lab = np.zeros(zone.shape, int)
     n = 0
-    sizes = {}
-    boxes = {}
+    zones = []
     for y, x in zip(*np.nonzero(zone)):
         if lab[y, x]:
             continue
@@ -169,13 +172,13 @@ def glow_stats(layers, body_rgb, body_a, body_med):
                     lab[yy, xx] = n
                     stack.append((yy, xx))
         arr = np.array(pts)
-        sizes[n] = len(pts)
-        boxes[n] = (int(arr[:, 1].max() - arr[:, 1].min() + 1), int(arr[:, 0].max() - arr[:, 0].min() + 1))
-    big = max(sizes, key=lambda k: sizes[k])
-    comp = np.clip(body_rgb * body_a[..., None] + g, 0, 1)
-    l_zone = float(np.median(lum(comp[zone])) * 255)
-    return {"area_px": int(zone.sum()), "zones": n, "largest_px": sizes[big], "largest_box_px": boxes[big],
-            "lum_zone_p50": round(l_zone, 1), "delta_vs_body": round(l_zone - body_med, 1)}
+        box = (int(arr[:, 1].max() - arr[:, 1].min() + 1), int(arr[:, 0].max() - arr[:, 0].min() + 1))
+        d = float(np.median(L[arr[:, 0], arr[:, 1]])) - body_med
+        zones.append((box, len(pts), d))
+    ok = [z for z in zones if z[0][0] >= 8 and z[0][1] >= 8]
+    best = max(ok, key=lambda z: z[2]) if ok else max(zones, key=lambda z: z[1])
+    return {"area_px": int(zone.sum()), "zones": n, "zones_8x8": len(ok), "best_box_px": best[0],
+            "best_delta": round(best[2], 1), "largest_box_px": best[0], "delta_vs_body": round(best[2], 1)}
 
 
 def light_stats(layers):
@@ -250,7 +253,7 @@ def measure(db):
 
 def table_md(res, d13):
     out = []
-    out.append("| Niv. | Ép. | Pose | Aire t² | L | O masses | O tout | IoU préc. | IoU époque préc. | Pièce : aire ajoutée t² (Δlum≥20 t²) | Lum p5/p50/p95 | Sat | Lueur (zone max px, Δ) | Halo α |")
+    out.append("| Niv. | Ép. | Pose | Aire t² | L | O masses | O tout | IoU préc. | IoU époque préc. | Pièce : aire ajoutée t² (Δlum≥20 t²) | Lum p5/p50/p95 | Sat | Lueur : meilleure zone ≥ 8×8 px (Δ lum, nb de zones) | Halo α |")
     out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for lv in LEVELS:
         for pose in POSES:
@@ -259,7 +262,8 @@ def table_md(res, d13):
             if "piece_aire_ajoutee_t2" in r:
                 piece = "%.3f (%.3f)" % (r["piece_aire_ajoutee_t2"], r["piece_lum20_t2"])
             g = r["lueur"]
-            gs = "%dx%d, %+.0f" % (g["largest_box_px"][0], g["largest_box_px"][1], g["delta_vs_body"]) if g else "—"
+            gs = ("%dx%d, %+.0f (%d)" % (g["best_box_px"][0], g["best_box_px"][1], g["best_delta"], g["zones_8x8"])
+                  if g else "—")
             h = r["halo"]
             out.append("| %d | %d | %s | %.3f | %.2f | %s | %.3f | %s | %s | %s | %.0f/%.0f/%.0f | %.2f | %s | %s |" % (
                 lv, (lv + 1) // 2, pose, r["aire_t2"], r["L"],
