@@ -60,13 +60,15 @@ def label_band(img, texts, height, fsize, bg=(24, 22, 20), fg=(235, 225, 200)):
     return out
 
 
-def row_scene(levels, direction, spacing_t=3.0, top_t=4.0, bottom_t=1.6, margin_t=1.0):
-    W = int((margin_t * 2 + spacing_t * (len(levels) - 1) + 2.4) * PPT)
+def row_scene(levels, direction, spacing_t=3, top_t=4, bottom_t=2, margin_t=2):
+    """Positions ENTIÈRES en tuiles (une entité 2×2 est centrée sur un coin de tuile : multiple de 64 px hr), sinon
+    le zoom 1 (réduction 2×) échantillonne les sprites à un demi-pixel près."""
+    W = int((margin_t * 2 + spacing_t * (len(levels) - 1) + 2) * PPT)
     H = int((top_t + bottom_t) * PPT)
     ents = []
     xs = []
     for i, lv in enumerate(levels):
-        x = (margin_t + 0.8 + i * spacing_t) * PPT
+        x = (margin_t + i * spacing_t) * PPT
         ents.append({"pos": (x, top_t * PPT), "layers": CL.level_layers(lv, direction)})
         xs.append(x)
     return ents, W, H, xs
@@ -179,15 +181,15 @@ def board_closeups():
     for e in (1, 5, 10, 15):
         levels = [1] + ([2] if e == 1 else [2 * e - 1, 2 * e])
         ents = []
-        sp = 3.4
-        W = int((len(levels) * 2 * sp + 0.6) * PPT)
-        H = int(5.6 * PPT)
+        sp = 4
+        W = int((len(levels) * 2 * sp + 1) * PPT)
+        H = int(6 * PPT)
         labels = []
         i = 0
         for lv in levels:
             for d in ("E", "S"):
-                x = (1.5 + i * sp) * PPT
-                ents.append({"pos": (x, 4.0 * PPT), "layers": CL.level_layers(lv, d)})
+                x = (2 + i * sp) * PPT
+                ents.append({"pos": (x, 4 * PPT), "layers": CL.level_layers(lv, d)})
                 labels.append((x, "niv. %d %s%s" % (lv, d, " (vanilla)" if lv == 1 else "")))
                 i += 1
         day, night, _ = CL.compose(ents, W, H)
@@ -214,16 +216,16 @@ def board_poses():
     for r in range(15):
         lvs = [2 * r + 1, 2 * r + 2]
         ents, labels = [], []
-        sp = 2.8
+        sp = 3
         i = 0
         for lv in lvs:
             for d in ("N", "E", "S", "W"):
-                x = (1.2 + i * sp + (0.8 if lv % 2 == 0 else 0)) * PPT
-                ents.append({"pos": (x, 4.0 * PPT), "layers": CL.level_layers(lv, d)})
+                x = (2 + i * sp + (1 if lv % 2 == 0 else 0)) * PPT
+                ents.append({"pos": (x, 4 * PPT), "layers": CL.level_layers(lv, d)})
                 labels.append((x / 2, "%d %s" % (lv, d)))
                 i += 1
-        W = int((1.2 + 8 * sp + 1.6) * PPT)
-        H = int(5.5 * PPT)
+        W = int((2 + 8 * sp + 2) * PPT)
+        H = int(6 * PPT)
         day, _, _ = CL.compose(ents, W, H)
         rows.append(label_band(CL.to_img(CL.down2(day)), labels, 14, 11))
     W = rows[0].width

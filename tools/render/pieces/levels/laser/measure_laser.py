@@ -140,10 +140,67 @@ def glow_zone(level):
     return best
 
 
+GAIN_FILE = os.path.join(HERE, "albedo_gain.txt")
+
+
+def read_gains():
+    g = {}
+    if os.path.exists(GAIN_FILE):
+        with open(GAIN_FILE, encoding="utf-8") as f:
+            for line in f:
+                p = line.split("#")[0].split()
+                if len(p) == 2:
+                    g[int(p[0])] = float(p[1])
+    return g
+
+
+def calibrate():
+    """Gain d'albédo par époque pour amener la luminance médiane du corps sur la cible du §1.5 (±10).
+    La luminance sRGB varie à peu près comme albédo^(1/2,2) : gain × (cible / mesure)^2,2, borné à [0,5 ; 2,5].
+    Mesure sur le niveau impair (socle + tête N) ; écrit albedo_gain.txt (lu par laser_model.py au rendu suivant)."""
+    old = read_gains()
+    lines = ["# gain d'albédo par époque (measure_laser.py --calibrate) : époque gain   # p50 mesuré -> cible"]
+    for e in D.EPOCHS:
+        if e == 1:
+            continue
+        lv = 2 * e - 1
+        g0 = old.get(e, 1.0)
+        try:
+            ph = photometry(lv)
+        except ValueError:          # niveau pas encore rendu : gain inchangé
+            lines.append("%d %.3f   # non mesuré (aucun rendu)" % (e, g0))
+            print(lines[-1])
+            continue
+        tgt = D.LUM_TARGET[e]
+        g = g0 * (tgt / max(1.0, ph["L_p50"])) ** 2.2 if abs(ph["L_p50"] - tgt) > 4 else g0
+        g = min(2.5, max(0.5, g))
+        lines.append("%d %.3f   # p50 %.1f -> %d (gain précédent %.3f)" % (e, g, ph["L_p50"], tgt, g0))
+        print(lines[-1])
+    with open(GAIN_FILE, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def head_mask(level, direction, thr=0.5):
+    """Masque de la tête seule (couche object), pour l'indicateur strict « tête seule » de D1-3."""
+    a = np.zeros((D.CANVAS_H, D.CANVAS_W))
+    for lay in CL.level_layers(level, direction, with_glow=False):
+        if lay["kind"] != "main" or lay["order"] != "object":
+            continue
+        h, w = lay["img"].shape[:2]
+        xi, yi = OX + lay["x0"], OY + lay["y0"]
+        src = lay["img"][..., 3]
+        a[yi:yi + h, xi:xi + w] = src + a[yi:yi + h, xi:xi + w] * (1 - src)
+    return a >= thr
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", default=os.path.join(RENDER, "out", "levels", "laser", "mesures-d1.json"))
+    ap.add_argument("--calibrate", action="store_true", help="étalonne albedo_gain.txt (luminance §1.5) et s'arrête")
     a = ap.parse_args()
+    if a.calibrate:
+        calibrate()
+        return
     masks = {}
     for lv in D.LEVELS:
         for d in DIRS:
@@ -192,6 +249,14 @@ def main():
             d13[d] = {"iou": iou(masks[(1, d)], masks[(last, d)]), "iou_scaled": v, "k": k}
         rep["d13"]["L01_vs_L%02d" % last] = {"poses": d13, "iou_max": max(x["iou"] for x in d13.values()),
                                              "iou_scaled_max": max(x["iou_scaled"] for x in d13.values())}
+    # indicateur strict : TÊTES seules (sans aucun socle), niveau 1 vanilla contre niveau 29
+    hd = {}
+    for d in DIRS:
+        h1, h29 = head_mask(1, d), head_mask(29, d)
+        v, k = scaled_iou(h1, h29, ks)
+        hd[d] = {"iou": iou(h1, h29), "iou_scaled": v, "k": k}
+    rep["d13"]["tetes_L01_vs_L29"] = {"poses": hd, "iou_max": max(x["iou"] for x in hd.values()),
+                                      "iou_scaled_max": max(x["iou_scaled"] for x in hd.values())}
     # contrôle de la mesure normalisée : un simple agrandissement du vanilla doit donner 1,00
     rep["d13"]["controle_homothetie"] = scaled_iou(masks[(1, "N")], homothety(masks[(1, "N")], 1.35), ks)[0]
     os.makedirs(os.path.dirname(a.json), exist_ok=True)

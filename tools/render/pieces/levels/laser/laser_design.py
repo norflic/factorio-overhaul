@@ -10,6 +10,7 @@ Niveaux (Q6) : époque e = niveaux 2e-1 (impair : nouvelle silhouette) et 2e (pa
 Niveau 1 = sprite vanilla inchangé (Q11) ; niveau 2 = vanilla + pièce d'époque 1, masquée au pixel
 par l'alpha du socle vanilla (procédé de la variante « four » de V0).
 """
+import os
 
 LEVELS = list(range(1, 31))
 EPOCHS = list(range(1, 16))
@@ -93,6 +94,36 @@ EVEN_PIECE = {
     14: "panneaux solaires devant le socle",
     15: "anneau-halo au sol",
 }
+
+# --- Géométrie commune au modèle (Blender) et au manifeste (Python système) ---
+# Hauteur du pivot (haut de la colonne fixe = bas de la tête, unités Blender) par époque : réglée pour que O
+# suive le §4 (mesuré par geo_check.py puis measure_laser.py).
+PIVOT = {2: 1.32, 3: 1.93, 4: 2.06, 5: 2.19, 6: 2.32, 7: 2.35, 8: 2.65, 9: 2.75, 10: 2.80, 11: 2.90, 12: 2.96,
+         13: 3.18, 14: 3.20, 15: 3.21}
+# Pivot le plus bas admis par la géométrie du socle (colonnes de hauteur positive, tête au-dessus des pièces du socle).
+PIVOT_MIN = {2: 0.85, 3: 1.45, 4: 1.0, 5: 0.95, 6: 0.95, 7: 1.0, 8: 1.1, 9: 1.1, 10: 1.0, 11: 1.4, 12: 1.6, 13: 1.3,
+             14: 1.0, 15: 1.4}
+# Échelle de la tête autour du pivot. Retouche V3 (reprise, 21/10) : aux ères I à III, les têtes de la 1re passe
+# étaient deux fois plus étroites que la tête vanilla (0,5 tuile contre environ 1,3 de face) et perchées sur un
+# mât fin (« sucette ») ; elles gagnent 15 à 30 % et le pivot descend pour garder O sur la cible du §4.
+HEAD_SCALE = {2: 1.30, 3: 1.25, 4: 1.30, 5: 1.30, 6: 1.25, 7: 1.15, 8: 1.20, 9: 1.30, 10: 1.30, 11: 1.10, 12: 1.15,
+              13: 1.15, 14: 1.20, 15: 1.20}
+# Pivots réglés par `run_laser.py tune` (O mesuré sur la géométrie -> cible §4) : surchargent PIVOT.
+PIVOT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pivot_regle.txt")
+try:
+    with open(PIVOT_FILE, encoding="utf-8") as _f:
+        for _line in _f:
+            _p = _line.split("#")[0].split()
+            if len(_p) == 2:
+                PIVOT[int(_p[0])] = float(_p[1])
+except OSError:
+    pass
+# Centre de la face émettrice (lentille, fente, prisme...) dans le repère de la tête AVANT échelle : (x, y avant,
+# z au-dessus du pivot). Sert à proposer attack_parameters.source_offset et beam.source_offset (bible §1.8-6).
+LENS_LOCAL = {2: (0.0, 0.80, 0.31), 3: (0.0, 0.70, 0.265), 4: (0.0, 0.73, 0.205), 5: (0.0, 0.69, 0.28),
+              6: (0.0, 0.775, 0.26), 7: (0.0, 1.15, 0.25), 8: (0.0, 0.81, 0.22), 9: (0.0, 0.62, 0.32),
+              10: (0.0, 0.53, 0.37), 11: (0.0, 0.86, 0.24), 12: (0.0, 0.30, 0.62), 13: (0.0, 0.50, 0.57),
+              14: (0.0, 0.60, 0.615), 15: (0.0, 0.76, 0.81)}
 
 # Poses de référence de la phase 1 (Q12 : seules les poses de référence sont rendues en phase 1)
 # tête « prepared » : N, E, S, O = images 0, 16, 32, 48 de la feuille vanilla de 64 directions

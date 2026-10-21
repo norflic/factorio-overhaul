@@ -65,9 +65,12 @@ def main():
             Ls = [bx.max() - bx.min()] * 2
             env_lo = env_hi = float("nan")
             zmax = float(base[..., 2].max())
-        print("%3d %2d | %s %5.2f | %5.2f | %5.2f %5.2f | %+.2f %+.2f | %.2f  socle x[%.2f,%.2f] y[%.2f,%.2f]" % (
+        # pivot qui amènerait O sur la cible du §4, si le sommet est celui de la tête (y écran = -K (Y + Z))
+        piv = D.PIVOT.get(e)
+        sug = piv + (D.O_TARGET[e] - max(row)) / K if (piv is not None and "head" in g) else float("nan")
+        print("%3d %2d | %s %5.2f | %5.2f | %5.2f %5.2f | %+.2f %+.2f | %.2f  socle x[%.2f,%.2f] y[%.2f,%.2f] | pivot %.2f -> %.2f" % (
             lv, e, " ".join("%5.2f" % v for v in row), max(row), D.O_TARGET[e], Ls[0], Ls[1], env_lo, env_hi, zmax,
-            bx.min(), bx.max(), by.min(), by.max()))
+            bx.min(), bx.max(), by.min(), by.max(), piv or float("nan"), sug))
 
 
 if __name__ == "__main__":

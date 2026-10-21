@@ -277,12 +277,9 @@ def mat_night(cx, name, color, strength, base):
     return m
 
 
-# hauteur du pivot (haut de la colonne fixe) par époque : réglée pour que O suive le §4 (measure_laser.py)
-PIVOT = {2: 1.32, 3: 1.93, 4: 2.06, 5: 2.19, 6: 2.32, 7: 2.35, 8: 2.65, 9: 2.75, 10: 2.80, 11: 2.90, 12: 2.96,
-         13: 3.18, 14: 3.20, 15: 3.21}
-# échelle de la tête autour du pivot : les têtes grossissent avec les époques (masse, pas seulement hauteur)
-HEAD_SCALE = {2: 1.0, 3: 1.08, 4: 1.08, 5: 1.15, 6: 1.08, 7: 1.05, 8: 1.15, 9: 1.20, 10: 1.20, 11: 1.10, 12: 1.15,
-              13: 1.15, 14: 1.20, 15: 1.20}
+# hauteur du pivot et échelle de la tête : données pures dans laser_design.py (partagées avec le manifeste)
+PIVOT = D.PIVOT
+HEAD_SCALE = D.HEAD_SCALE
 
 # gain d'albédo par époque : réglé par mesure de la luminance médiane du corps (measure_laser.py, cible §1.5)
 EPOCH_GAIN = {}
@@ -421,14 +418,22 @@ def piece_e02(cx):
     m = mats_e02(cx)
     # jupe de blindage boulonnée : 3 plaques inclinées, bord bas à 0,15 tuile au-delà de l'emprise sud
     yb = ty(1.15)
+    a = math.radians(52)
     for k, (x, w, rz) in enumerate(((-0.52, 0.42, -0.42), (0.0, 0.62, 0.0), (0.52, 0.42, 0.42))):
         o = loft(cx, (0, 0, w, 0.06), (0, 0, w * 0.92, 0.06), 0.0, 0.66, m["steel"], "jupe_%d" % k, bevel=0.01)
         # plaque inclinée : pied en avant (sud), tête contre le tambour
-        o.location = (x, yb + 0.30 + abs(x) * 0.25, 0.0)
-        o.rotation_euler = (math.radians(-52), 0, rz)
-        rivet_row(cx, (x - w * 0.36, yb + 0.20 + abs(x) * 0.25, 0.10), (x + w * 0.36, yb + 0.20 + abs(x) * 0.25, 0.10), 4,
-                  0.018, m["brass"], "rv_jupe_bas_%d" % k)
-    box(cx, (1.45, 0.08, 0.06), (0, yb + 0.06, 0.03), m["band"], "semelle", bevel=0.006)
+        y0 = yb + 0.30 + abs(x) * 0.25
+        o.location = (x, y0, 0.0)
+        o.rotation_euler = (-a, 0, rz)
+        # rangée de rivets POSÉE sur la face avant de la tôle, à 0,14 du pied : repère local de la plaque
+        # (u, v, w) -> rotation X de -a puis Z de rz (Euler XYZ), puis translation au pied
+        def xf(u, v, wz, x=x, y0=y0, rz=rz):
+            yy = v * math.cos(a) + wz * math.sin(a)
+            zz = -v * math.sin(a) + wz * math.cos(a)
+            return (x + u * math.cos(rz) - yy * math.sin(rz), y0 + u * math.sin(rz) + yy * math.cos(rz), zz)
+        rivet_row(cx, xf(-w * 0.36, -0.035, 0.14), xf(w * 0.36, -0.035, 0.14), 4, 0.018, m["brass"], "rv_jupe_bas_%d" % k)
+    # semelle au pied de la plaque centrale (elle flottait 0,17 tuile au sud : défaut D3 vu sur l'aperçu)
+    box(cx, (0.70, 0.10, 0.05), (0, yb + 0.30, 0.025), m["band"], "semelle", bevel=0.006)
 
 
 # ================================================================================================
@@ -488,11 +493,12 @@ def head_e03(cx):
     # serpentins de cuivre (spires serrées)
     for k in range(9):
         ring_y(cx, 0.255, 0.024, -0.26 + 0.075 * k, z, m["copper"], "spire_%d" % k)
-    tube_y(cx, 0.27, 0.40, 0.62, z, m["brass"], "bague_avant")
+    tube_y(cx, 0.27, 0.40, 0.56, z, m["brass"], "bague_avant")
     tube_y(cx, 0.28, -0.42, -0.36, z, m["brass"], "bague_arriere")
-    # lentille cerclée de laiton
-    ring_y(cx, 0.20, 0.035, 0.63, z, m["brass"], "cercle_lentille")
-    tube_y(cx, 0.17, 0.60, 0.66, z, m["lens"], "lentille")
+    # lentille cerclée de laiton : pavillon évasé PLUS LARGE que le fût (une optique de phare, pas une bouche)
+    tube_y(cx, 0.26, 0.54, 0.68, z, m["brass"], "pavillon", r2=0.33)
+    ring_y(cx, 0.33, 0.035, 0.68, z, m["brass"], "cercle_lentille")
+    tube_y(cx, 0.30, 0.64, 0.70, z, m["lens"], "lentille")
     # évent court (cheminée ronde) sur le dos
     cyl(cx, 0.075, 0.30, (0, -0.12, z + 0.36), m["iron"], "event", verts=20)
     cyl(cx, 0.075, 0.06, (0, -0.12, z + 0.53), m["iron"], "event_levre", verts=20, r2=0.10, caps=False, bevel=0)
@@ -582,23 +588,26 @@ def head_e04(cx):
     box(cx, (0.50, 0.06, 0.36), (0, -0.20, z), m["black"], "bande_carter", bevel=0.004)
     tube_y(cx, 0.15, 0.58, 0.70, z - 0.02, m["galva"], "nez")
     tube_y(cx, 0.115, 0.69, 0.73, z - 0.02, m["lens"], "lentille")
-    # cuve de refroidissement horizontale dorsale (le long de l'axe), fonds bombés
+    # cuve de refroidissement horizontale dorsale, TRANSVERSALE (axe X) : posée le long du tir, elle se lisait
+    # comme un canon (identité de la famille : une lentille, jamais de canon) ; fonds bombés
     zc = z + 0.36
-    tube_y(cx, 0.17, -0.40, 0.42, zc, m["galva"], "cuve")
-    sph(cx, 0.17, (0, 0.42, zc), m["galva"], "cuve_fond_av", scale=(1, 0.45, 1))
-    sph(cx, 0.17, (0, -0.40, zc), m["galva"], "cuve_fond_ar", scale=(1, 0.45, 1))
-    for y in (-0.22, 0.02, 0.26):
-        ring_y(cx, 0.172, 0.016, y, zc, m["black"], "cuve_bande_%.2f" % y)
-    for y in (-0.25, 0.28):
-        box(cx, (0.20, 0.06, 0.14), (0, y, z + 0.20), m["galva"], "selle_%.2f" % y, bevel=0.006)
-    # tuyaux : de la cuve au carter (coudes)
+    yc = -0.08
+    tube_x(cx, 0.17, -0.42, 0.42, yc, zc, m["galva"], "cuve")
+    sph(cx, 0.17, (0.42, yc, zc), m["galva"], "cuve_fond_d", scale=(0.45, 1, 1))
+    sph(cx, 0.17, (-0.42, yc, zc), m["galva"], "cuve_fond_g", scale=(0.45, 1, 1))
+    for x in (-0.24, 0.0, 0.24):
+        tor(cx, 0.172, 0.016, (x, yc, zc), m["black"], "cuve_bande_%.2f" % x, rot=(0, math.pi / 2, 0), seg=40)
+    for x in (-0.26, 0.26):
+        box(cx, (0.06, 0.20, 0.14), (x, yc, z + 0.20), m["galva"], "selle_%.2f" % x, bevel=0.006)
+    # tuyaux : des fonds de la cuve au carter (coudes)
     for s in (-1, 1):
-        strut(cx, (s * 0.16, -0.32, zc - 0.04), (s * 0.26, -0.30, z - 0.05), 0.028, m["galva"], "tuyau_%d" % s)
-        strut(cx, (s * 0.26, -0.30, z - 0.05), (s * 0.26, 0.20, z - 0.05), 0.028, m["galva"], "tuyau_long_%d" % s)
-    # voyant orange (jour) sur le flanc de la cuve et vanne à volant
-    sph(cx, 0.05, (0.17, 0.30, zc + 0.02), m["orange"], "voyant")
-    tor(cx, 0.06, 0.012, (-0.20, 0.10, zc + 0.10), m["black"], "volant", rot=(0, math.pi / 2, 0), seg=20)
-    halo(cx, (0.20, 0.30, zc), 0.8)
+        strut(cx, (s * 0.46, yc, zc - 0.06), (s * 0.27, yc + 0.10, z - 0.02), 0.028, m["galva"], "tuyau_%d" % s)
+        strut(cx, (s * 0.27, yc + 0.10, z - 0.02), (s * 0.27, 0.45, z - 0.02), 0.028, m["galva"], "tuyau_long_%d" % s)
+    # voyant orange (jour) sur la face avant de la cuve et vanne à volant
+    sph(cx, 0.05, (0.20, yc + 0.17, zc + 0.02), m["orange"], "voyant")
+    tor(cx, 0.06, 0.012, (-0.20, yc + 0.02, zc + 0.19), m["black"], "volant", seg=20)
+    cyl(cx, 0.012, 0.05, (-0.20, yc + 0.02, zc + 0.165), m["galva"], "volant_tige", verts=8, bevel=0)
+    halo(cx, (0.20, yc + 0.24, zc), 0.8)
 
 
 def piece_e04(cx):
@@ -775,7 +784,8 @@ def mats_e07(cx):
     return dict(stone=metal(cx, "pierre", "#4A4038", gain=1.9, rough=0.7, metallic=0.0, grain=0.35, grain_scale=22.0, seed=17.0),
                 bronze=metal(cx, "bronze", "#6A5236", gain=1.7, rough=0.28, metallic=0.9, grain=0.12, rust="#4F6B5A",
                              rust_amount=0.25, seed=18.0),
-                crys=emis(cx, "cristal", "#B070FF", strength=1.1, base=(0.18, 0.06, 0.45)),
+                # émission 0,6 (et non 1,1) : à 1,1 le prisme saturait en blanc dans la couche principale (passe 1)
+                crys=emis(cx, "cristal", "#B070FF", strength=0.6, base=(0.18, 0.06, 0.45)),
                 crys_dark=glass(cx, "cristal_sombre", "#9A5CFF", gain=0.55))
 
 
