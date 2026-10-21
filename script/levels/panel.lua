@@ -1,9 +1,11 @@
 --[[
-  Niveaux : panneau « Évolution » et touche U (session 5).
+  Niveaux : panneau « Évolution » et touche U (session 5 ; époques : lot V2).
 
-  Survoler un bâtiment à niveaux affiche (et garde affiché) son panneau : niveau et matériau, prochain
-  niveau, gains de statistiques, coût (ce que vous avez / ce qu'il faut), durée, ouvriers libres, raison
-  d'un refus (centre de commandement trop bas…). Bouton « Améliorer » ou touche U sur le bâtiment survolé.
+  Survoler un bâtiment à niveaux affiche (et garde affiché) son panneau : niveau sur le maximum et ÉPOQUE,
+  prochain niveau (époque, nouvelle silhouette ou pièce de plus), monnaie de l'époque (avec le matériau voulu
+  quand l'objet est un remplaçant provisoire), gains de statistiques, coût (ce que vous avez / ce qu'il
+  faut), durée, ouvriers libres, raison d'un refus (centre de commandement trop bas…). Bouton « Améliorer »
+  ou touche U sur le bâtiment survolé.
 ]]
 
 local Events = require("script.core.events")
@@ -46,10 +48,30 @@ local function missing_text(list)
 end
 
 local function reason_message(info, reason)
-  if reason == "cc-too-low" and info then return { "fo-levels.reason-cc-too-low", info.next - 1 } end
+  if reason == "cc-too-low" and info then
+    return { "fo-levels.reason-cc-too-low", info.required_cc or L.required_cc(info.family, info.next) }
+  end
   if reason == "no-builder" and info then return { "fo-levels.reason-no-builder", info.builders } end
   if reason == "no-resources" and info then return { "fo-levels.reason-no-resources", missing_text(info.missing or {}) } end
+  if reason == "unknown-item" and info then return { "fo-epochs.reason-unknown-item", table.concat(info.unknown or {}, ", ") } end
   return { "fo-levels.reason-" .. tostring(reason) }
+end
+
+local function epoch_name(e)
+  return { "fo-epochs.name-" .. L.epochs[e].key }
+end
+
+--- Monnaie de l'époque qui paie le prochain niveau (avec le matériau voulu si l'objet est provisoire).
+local function currency_line(family, next_level)
+  local e = L.pay_epoch(family, next_level)
+  local m = L.epoch_materials[e]
+  if not m then return nil end
+  local icon = "[item=" .. m.item .. "]"
+  local name = game.item_prototypes[m.item] and game.item_prototypes[m.item].localised_name or m.item
+  if m.provisional then
+    return { "fo-epochs.currency-provisional", icon, name, { "fo-epochs.want-" .. m.key } }
+  end
+  return { "fo-epochs.currency", icon, name }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -86,7 +108,8 @@ local function refresh(player)
   head.add({ type = "sprite", sprite = "entity/" .. target.name })
   local title = head.add({ type = "label", caption = target.localised_name })
   title.style.font = "default-bold"
-  frame.add({ type = "label", caption = { "fo-levels.material-line", n, { "fo-levels.material-" .. L.materials[n].key } } })
+  local e = L.epoch_of(family, n)
+  frame.add({ type = "label", caption = { "fo-epochs.level-line", n, family.max, e, epoch_name(e) } })
   local ccl = info.cc_level
   frame.add({ type = "label", caption = { "fo-levels.cc-line", ccl, L.max_level(family, ccl), L.builders(ccl) } })
 
@@ -96,10 +119,14 @@ local function refresh(player)
     local bar = frame.add({ type = "progressbar", value = p })
     bar.style.horizontally_stretchable = true
     frame.add({ type = "label", caption = { "fo-levels.in-progress", job.to, Levels.fmt_time(job.finish - game.tick) } })
-  elseif n >= L.MAX then
+  elseif n >= family.max then
     frame.add({ type = "label", caption = { "fo-levels.maxed" } })
   else
-    frame.add({ type = "label", caption = { "fo-levels.next", info.next, { "fo-levels.material-" .. L.materials[info.next].key } } })
+    local ne = L.epoch_of(family, info.next)
+    local what = L.step_of(family, info.next) == 1 and { "fo-epochs.new-silhouette" } or { "fo-epochs.new-piece" }
+    frame.add({ type = "label", caption = { "fo-epochs.next-line", info.next, ne, epoch_name(ne), what } })
+    local cur = currency_line(family, info.next)
+    if cur then frame.add({ type = "label", caption = cur }) end
     local now = game.entity_prototypes[target.name]
     local nxt = game.entity_prototypes[L.name(family, info.next)]
     for _, st in ipairs(family.stats) do
@@ -113,9 +140,14 @@ local function refresh(player)
     local invs = Levels.sources(target.force, player)
     local tbl = frame.add({ type = "table", column_count = 3 })
     for _, c in ipairs(info.cost) do
-      local have = Levels.available(invs, c[1])
-      local lbl = tbl.add({ type = "label", caption = "[item=" .. c[1] .. "] " .. math.min(have, c[2]) .. " / " .. c[2] })
-      lbl.style.font_color = have >= c[2] and { r = 0.6, g = 1, b = 0.6 } or { r = 1, g = 0.45, b = 0.4 }
+      if Levels.item_exists(c[1]) then
+        local have = Levels.available(invs, c[1])
+        local lbl = tbl.add({ type = "label", caption = "[item=" .. c[1] .. "] " .. math.min(have, c[2]) .. " / " .. c[2] })
+        lbl.style.font_color = have >= c[2] and { r = 0.6, g = 1, b = 0.6 } or { r = 1, g = 0.45, b = 0.4 }
+      else
+        local lbl = tbl.add({ type = "label", caption = c[1] .. " ?/ " .. c[2] })
+        lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
+      end
     end
     if info.ticks > 0 then
       frame.add({ type = "label", caption = { "fo-levels.duration", Levels.fmt_time(info.ticks) } })
