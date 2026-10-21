@@ -144,11 +144,25 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
 | F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
 | F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+| F67 | Recettes vanilla 1.1.91 : le moteur (`engine-unit`) est de catégorie `advanced-crafting`, le plastique et le soufre de catégorie `chemistry`. Ils ne se fabriquent PAS à la main, alors que les ouvriers des factions ne fabriquent qu'en `crafting` (vérifié dans `tests/fixtures/recipes.lua` et contrôlé par `org_test.lua`). | **Cause précise de H-E1** : le pack chimique exige un assembleur, une usine chimique ET du pétrole. Les équipes IA stagnaient donc après la recherche 3. Correction prévue aux lots IA1 (production adaptative, modules d'usine). |
 | F66 | Au chargement d'une session avec images, le journal liste les atlas de sprites créés (« Created atlas bitmap L×H [drapeaux] »), avant toute partie. Toutes les images sont donc chargées UNE fois, indépendamment du nombre d'entités. Avec le jeu actuel (vanilla + mod, haute qualité, « DXT: high-quality »), on compte ≈ 1,07 milliard de pixels d'atlas, soit environ 1,1 Go estimés compressés et 4,25 Go sans compression ; le journal annonce aussi le budget de mémoire vidéo (« Budget: 15570MB »). Source : `fo-logs\2026-10-21_P1_vitrine-exemple-final\visual.log`. | Le coût d'une usine géante est du temps de dessin, pas de la mémoire vidéo. La mémoire se budgète par famille de sprites (D4). Une mesure directe est à faire (lot D4m). |
 | F65 | `laser-turret` : `energy_source.buffer_capacity` = 801 kJ et `ammo_type.energy_consumption` = 800 kJ par tir (relu avec `--dump-final`) : le tampon doit contenir un tir. `nuclear-fuel` s'empile par 1, alors que `uranium-235` et `uranium-238` s'empilent par 100. | Lot V2 : l'énergie et le tampon du laser croissent ensemble ; un matériau d'époque s'empile par 50 au moins (`L.MIN_MATERIAL_STACK`). |
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E37 · VALIDÉ (hors jeu) · Conception des équipes de PNJ organisées (lot IA1, 22/10, 1 h 15)** :
+- 3 concepteurs (organisation, joueur, technique), relancés après la précision Q19.
+- 2 juges ; gagnante : la conception technique (82 points, contre 77 et 75).
+- 2 critiques : 10 majeurs et 14 mineurs, corrigés (§19 bis du document).
+- Modèle pur `shared/team/org.lua` et `tests/org_test.lua` : **362 OK**. Il vérifie :
+  - des affectations déterministes et stables (6 changements par heure au plus) ;
+  - qu'une tâche n'est jamais interrompue ;
+  - les urgences, les zones, la résurrection, les rangs ;
+  - les jetons de travail globaux (400 unités par tick pour tout le mod).
+- Mesure sur le journal archivé `ia0-normal` : 24 % d'ouvriers inactifs après 30 min ; à 59 min, 7 sur 28
+  seulement construisent ou fabriquent. La limite actuelle est le manque de travail, pas le coût.
+- Budget estimé : 0,26 ms/tick pour 150 PNJ (estimation haute : 0,33). Non mesuré en jeu.
+
 **E36 · VALIDÉ · Bases défendues attaquées, en moteur réel (lot IA0b, 22/10, 0 h 53 à 0 h 55)** :
 - `ia0-defendue` (Normal, 3 tourelles, défense 24, 60 min) : **11 OK, 0 échec**. Attaques d'Écarlate
   (tick 96 601, 16 soldats), d'Ambre (143 405, 21) et d'Émeraude (162 605, 21).

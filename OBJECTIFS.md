@@ -76,7 +76,7 @@
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
 | C4 | PvP | 🟨 | Attaques contre vous, 5 difficultés, bases défendues attaquées et assaut coordonné **prouvés en moteur réel** (22/10, 0 h 55). Reste : budget A1 non mesuré |
-| **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Nouvelle demande (21/10, 21 h 35) : conception lancée (lot IA1) |
+| **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Conception livrée et intégrée (IA1, `docs/EQUIPES_PNJ.md`) ; construction après le visuel (Q18) ; 7 questions Q-IA1 |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
@@ -270,7 +270,20 @@
   - **Le joueur** donne l'orientation principale et concentre l'effort.
   - **Contrôle de zones** : par exemple, 2 PNJ posent et ravitaillent des tourelles pour tenir une zone,
     sans gâcher le visuel.
-- **État** : ❌ Conception lancée (lot IA1, 21/10, 21 h 35), puis relancée à 21 h 50 pour intégrer la précision Q19. Construction : en parallèle de la Compaction, juste après le visuel (Q18).
+- **État** : ❌ Rien n'est en jeu. **Conception livrée et intégrée** (lot IA1, 22/10, 1 h 15 :
+  `docs/EQUIPES_PNJ.md`, modèle pur `shared/team/org.lua`, `tests/org_test.lua` à 362 OK) :
+  - organisation : un cerveau par équipe, 3 pôles (Extraction, Base, Territoire), 5 managers de calcul,
+    environ 1 généraliste sur 6 (5 sur 30), des exécutants ;
+  - réaffectation sans jamais interrompre une tâche ;
+  - production adaptative : calcul des débits à partir du but, puis modules d'usine éprouvés posés sur des
+    parcelles adaptées au terrain ;
+  - territoire (bordure visible seulement en mode Alt), gisements disputés ;
+  - interface à 5 onglets (maquettes au §8) ;
+  - résurrection chiffrée et progression par rangs (au rang 5 : fabrication ×3, minage ×2,5, course +15 %) ;
+  - budget estimé de 0,26 à 0,33 ms/tick pour 150 PNJ ;
+  - 12 lots de construction, chacun prouvé en moteur réel ;
+  - **cause précise du blocage après la recherche 3 trouvée (H-E1, F67)**.
+  Construction : en parallèle de la Compaction, après le visuel (Q18). Questions Q-IA1-1 à Q-IA1-7 au §4. Construction : en parallèle de la Compaction, juste après le visuel (Q18).
 
 ### D1 · Des designs qui changent, pas seulement la couleur
 - **Demandes**
@@ -495,6 +508,13 @@
 | Q20 | Synthèse de Q19 conforme ? Mémoire vidéo visée ? | 21/10, 21 h 52 : « Ok, oui, continuez, la synthèse est parfaite. […] Concernant la mémoire vidéo, partez du principe que je jouerai sur des PC qui auront au minimum 8 Go de VRAM. Ce PC actuel en a 16. C'est une RX 6900 XT […] globalement 8 Go de VRAM, c'est bien pour la mémoire vidéo. » | Synthèse validée ; D4-1 : PC cible à 8 Go de mémoire vidéo minimum, atlas du jeu ≤ 6 Go |
 | Q21 | Basse qualité et saturation de la mémoire vidéo | 21/10, 21 h 55 : « veillez vraiment à ce que la version basse qualité soit pas si basse que ça, mais qu'il puisse être […] qu'on puisse garder, si on veut, la sensation de gigantisme, en fait, par exemple, des usines factoriaux. […] quand vous dites que la basse qualité n'est plus la priorité, c'est d'accord, hein, complètement, mais par contre, il faut quand même que la basse qualité puisse avoir un certain range […] pour pouvoir vraiment faire tourner le jeu correctement. Parce que j'ai l'impression qu'en fait, en ayant des images de haute qualité, ça fait que même avec mes 16 Go de RAM, j'ai l'impression que je vais saturer très vite. Alors que peut-être pas du tout, je me trompe » | D4-2 renforcé (basse qualité rendue, lisible, gigantisme) ; D4-5 (banc d'usine géante, mémoire vidéo et images/s mesurées dans les deux qualités) ; estimation actuelle au §3 D4 |
 | Q22 | Autonomie pendant la nuit du 21 au 22/10 | 21/10, 22 h : « vous avez carte blanche, je valide entièrement toutes vos décisions. Seulement, voilà, évitez en fait les utilisations d'outils MCP qui nécessitent une validation préalable […] puisque bah, je serai en train de dormir » | L'orchestrateur décide seul jusqu'au retour du Directeur Créatif (intégrations, lots suivants, arbitrages techniques). Exception : un DESIGN n'est toujours validé que par son verdict sur captures (CLAUDE.md §1) ; les planches sont préparées pour son retour. Aucun outil qui demande une autorisation |
+| Q-IA1-1 | Les 30 PNJ doivent-ils donner une « évolution nette, rapide », quitte à raccourcir la partie ? (a) coûts X0 inchangés ; (b) X0 aux époques 1 à 3, coûts relevés ensuite ; (c) recalibrage complet (annule l'accélération) | **Ouverte** (proposition : (a) jusqu'à la mesure du gain réel d'une équipe, puis (a) ou (b) avec vous) | Rythme F1-3 |
+| Q-IA1-2 | Montée des effectifs : (1) plafonds de 15, 25 puis 30 (30 PNJ vers 1 h 30) ; (2) 30 dès l'époque 1, seul le stock freine ; (3) départ à 30 | **Ouverte** (proposition : (2) avec (a) ou (b), (1) avec (c)) | C5-1 |
+| Q-IA1-3 | Résurrection : une mort coûte 33 à 78 s de production à l'époque 1, moins de 2 s dès l'époque 10. Faut-il qu'une mort pèse davantage plus tard ? | **Ouverte** | C5-5 |
+| Q-IA1-4 | Usines : des modules éprouvés (gabarits) plutôt qu'un dessin tuile par tuile, avec la possibilité de dessiner vos propres modules en jeu ? | **Ouverte** (proposition : oui) | C5-3 |
+| Q-IA1-5 | Votre équipe en mode « Assisté » par défaut (elle construit dans des zones que vous tracez, première couronne de 8 lots constructible d'office), mode « Autonome » en option ? | **Ouverte** (proposition : oui) | C5-4 |
+| Q-IA1-6 | Que pilotent les 5 généralistes ? (1) un domaine chacun ; (2) des parties durables de la base, avec des exécutants nommés ; (3) des projets de bout en bout | **Ouverte** (proposition : 2) | C5-2 |
+| Q-IA1-7 | « S'améliorer plus vite » : les rangs des PNJ, ou la vitesse d'amélioration des bâtiments ? En fin de partie, les PNJ gardent-ils un léger avantage de vitesse sur le joueur ? | **Ouverte** (proposition : les rangs ; avantage maintenu) | C5-6 |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -610,7 +630,7 @@ apport.md | 21/10, 19 h 55 |
 | IA0b Base défendue attaquée selon la difficulté | ✅ intégré et prouvé en moteur réel | Hors jeu : pvp_test 596 OK. **Moteur réel** (22/10, 0 h 53 à 0 h 55) : ia0-defendue 11 OK (base de 3 tourelles attaquée au tick 96 601) ; ia0-defendue-forte 13 OK (12 tourelles, défense 96 : Écarlate revient à 16, 29, 40 puis 46 soldats) ; ia0-defendue-impitoyable 14 OK (assaut coordonné : Écarlate ouvre au tick 50 700, Ambre et Émeraude le rejoignent) ; journaux fo-logs\2026-10-22_integration_IA0b-V2b_* | 22/10, 0 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
-| IA1 Conception des équipes de PNJ organisées (C5) | ⏳ workflow lancé : `docs/EQUIPES_PNJ.md` + modèle pur | — | 21/10, 21 h 35 |
+| IA1 Conception des équipes de PNJ organisées (C5) | ✅ conception intégrée ; 👁 7 questions à vous poser | 3 concepteurs, 2 juges, 2 critiques (10 majeurs et 14 mineurs corrigés) ; org_test 362 OK ; aucun comportement en jeu | 22/10, 1 h 15 |
 | D4m Banc mémoire vidéo et usine géante (D4) | 🟨 intégré (22/10, 1 h) ; hors jeu 5/5 (vram.py sur 8 journaux : 15 atlas, 1,10 à 1,25 Go estimés ; greffon d4-geant : jusqu'à 2 588 bâtiments à niveaux dans le champ z0,3) ; mesures en moteur réel après V0b | — | 22/10, 1 h |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)

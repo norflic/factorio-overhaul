@@ -19,8 +19,8 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F66, expériences E1 à E36, hypothèses ouvertes (H-V2, H-X1, H-L1,
-   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F67, E37**.
+4. `RD_LOG.md` : faits moteur F1 à F67, expériences E1 à E37, hypothèses ouvertes (H-V2, H-X1, H-L1,
+   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F68, E38**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -71,6 +71,7 @@ lua5.2 tests/migration_test.lua  -> 27 OK
 lua5.2 tests/levels_test.lua     -> 1325 OK
 lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
+lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
 python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 381 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu)
