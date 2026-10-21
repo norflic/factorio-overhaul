@@ -53,6 +53,9 @@ ENGINE_SHADOW_FACTOR = 0.5
 SAMPLES = 256
 SEED = 20261021
 MAX_BOUNCES = 6
+# Filtre de pixel Blackman-Harris, 1,5 px. V0b a essayé 1,0 px (rapport V0 : arêtes internes adoucies) :
+# gradient du corps +8 % seulement, mais grain 0,072 -> 0,089, hors de la plage vanilla (0,036-0,082) :
+# l'énergie gagnée est du bruit, pas de la forme. Gardé à 1,5 (CALIBRATION §5).
 FILTER_WIDTH_PX = 1.5
 AO_DISTANCE = 0.38                      # portée de l'occlusion de contact (unités), réglée sur le liseré vanilla (§4.2)
 AO_STRENGTH = 5.5                       # alpha du liseré = min(1, AO_STRENGTH × occlusion^AO_GAMMA) (§4.2)
@@ -66,6 +69,30 @@ CHEMINEE_HALO_W = 40.0                  # puissance (W) de la source de halo de 
 LIGHT_RADIUS_TILES = (1.2, 2.2)         # halo borné : plein jusqu'à 1,2 tuile du pied, nul à 2,2 (vanilla : flaques compactes)
 LIGHT_MAX = 0.80                       # halo normalisé : maximum AU SOL (vanilla : 0,79, sol du four en acier)
 GROUND_ALBEDO = 0.15                    # sol neutre : lumière rebondie sur les façades (§3.3)
+# Sol vu par les seuls rayons spéculaires (V0b, facultatif ; None = comme GROUND_ALBEDO, comportement V0).
+# Surcharge par pièce : PIECE["calib"] = {"GROUND_GLOSSY_ALBEDO": 0.45} (CALIBRATION §5).
+GROUND_GLOSSY_ALBEDO = None
+# Ciel vu par les seuls rayons spéculaires × ce facteur (V0b, facultatif ; None = comme V0).
+SKY_GLOSSY_FACTOR = None
+
+# --- Halo (draw_as_light), V0b ------------------------------------------------------------------
+# Moteur (F64) : draw_as_light est une carte de lumière en ESPACE ÉCRAN, elle révèle la couleur de jour de
+# tout ce qu'elle recouvre. Passe halo : pièce découpée (holdout), parties cachées invisibles, volumes de
+# remplacement noirs (fo_scene.render_passes). False : comportement V0 (pièce éclairée dans le halo).
+LIGHT_HOLDOUT = True
+# Couche halo produite par render.py (fo_post.light_layer) : valeurs LINÉAIRES du rendu × LIGHT_SCALE (le
+# codage sRGB de V0 étalait la flaque en nappe pâle). Couleur visée : lumière au sol du four en acier
+# vanilla (hr-steel-furnace-ground-light.png, prémultiplié max (0,79 ; 0,39 ; 0,04), soit (1 ; 0,49 ; 0,05)).
+LIGHT_SCALE = 1.0
+VANILLA_GROUND_LIGHT_RGB = (1.0, 0.49, 0.05)
+# Plages vanilla mesurées en jeu (E31, four en acier allumé, même capture) : carte des lumières λ ≈ 0,89 ×
+# alpha ; pic λ 0,31 à 0,49 ; surface à λ ≥ 0,1 de 0,9 à 1,8 tuile² (contrôles de render.py, non bloquants).
+LIGHT_PEAK_RANGE = (0.30, 0.55)          # alpha (canal max) du halo au sol
+LIGHT_AREA_RANGE = (0.8, 2.2)            # tuiles² où alpha ≥ 0,1 / 0,89
+
+# --- Contrôles photométriques du CORPS (hors zones émissives), V0b ----------------------------------
+# Plages des sprites vanilla (CALIBRATION §5 ; méthode fo_checks.photometry, pixels d'alpha ≥ 0,99).
+PHOTO_RANGES = {"std": (0.177, 0.243), "p95": (0.657, 0.847), "p05": (0.0, 0.105), "mean": (0.178, 0.361)}
 
 
 def recompute():

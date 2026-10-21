@@ -6,8 +6,9 @@
   Pièce V0 : cheminée rivetée à couronne de braises (tools/render/pieces/cheminee.py).
   - fo-vitrine-v0-cheminee      : la cheminée seule, entité 1×1 (simple-entity-with-owner) ;
   - fo-vitrine-v0-cheminee-four : un four en acier vanilla qui la porte derrière son corps (copie du four,
-                                  emprise 2×2 inchangée ; la cheminée est masquée par le sprite du four
-                                  et ne se voit qu'au-dessus du toit : elle DÉPASSE la silhouette, F42).
+                                  emprise 2×2 inchangée ; le four est dessiné PAR-DESSUS la cheminée, qui
+                                  ne se voit qu'au-dessus du toit : elle DÉPASSE la silhouette, F42 ; lueur
+                                  et halo en visualisations de marche, éteints four arrêté : lot V0b).
   Quatre couches par pièce : principale, ombre (draw_as_shadow), lueur (draw_as_glow, additive : visible
   de jour, et dans la carte des lumières la nuit), halo (draw_as_light, additive : la nuit seulement).
   Tailles et décalages : graphics/vitrine/cheminee/sprites.lua, GÉNÉRÉ par tools/render/render.py.
@@ -32,8 +33,9 @@ local function apply_flags(t, kind)
   return t
 end
 
---- Couche Sprite (normale 32 px/tuile + hr_version 64 px/tuile à l'échelle 0,5).
-local function sprite_layer(def, kind)
+--- Couche Sprite (normale 32 px/tuile + hr_version 64 px/tuile à l'échelle 0,5). flags : SpriteFlags
+--- facultatifs (essai V0b du filtrage au zoom 1).
+local function sprite_layer(def, kind, flags)
   local lr, hr = def.lr, def.hr
   local s = apply_flags({
     filename = lr.filename,
@@ -41,6 +43,7 @@ local function sprite_layer(def, kind)
     height = lr.height,
     shift = { lr.shift[1], lr.shift[2] },
     priority = "medium",
+    flags = flags,
   }, kind)
   s.hr_version = apply_flags({
     filename = hr.filename,
@@ -49,18 +52,19 @@ local function sprite_layer(def, kind)
     shift = { hr.shift[1], hr.shift[2] },
     scale = 0.5,
     priority = "medium",
+    flags = flags,
   }, kind)
   return s
 end
 
 local LAYER_ORDER = { "shadow", "main", "glow", "light" }
 
-local function layers_of(variant)
+local function layers_of(variant, main_flags)
   local v = SPR.variants[variant]
   if not v then error("vitrine : variante de sprites absente : " .. variant) end
   local out = {}
   for _, kind in ipairs(LAYER_ORDER) do
-    if v[kind] then out[#out + 1] = sprite_layer(v[kind], kind) end
+    if v[kind] then out[#out + 1] = sprite_layer(v[kind], kind, kind == "main" and main_flags or nil) end
   end
   return out
 end
@@ -89,6 +93,23 @@ out[#out + 1] = {
 }
 
 ---------------------------------------------------------------------------------------------------
+-- 1 bis. Essai V0b du filtrage au zoom 1 (rapport V0 : au zoom 1, la couche principale de la cheminée est
+-- échantillonnée au plus proche, le vanilla est filtré 2×2). Même cheminée, couche principale avec des
+-- SpriteFlags de filtrage ; à comparer sur les captures z1 de la vitrine.
+---------------------------------------------------------------------------------------------------
+local ESSAIS = {
+  { "fo-vitrine-v0b-cheminee-lin", { "linear-minification" } },
+  { "fo-vitrine-v0b-cheminee-mip", { "mipmap", "linear-minification", "linear-mip-level" } },
+}
+for i, e in ipairs(ESSAIS) do
+  local c = table.deepcopy(out[1])
+  c.name = e[1]
+  c.order = "z[fo-vitrine]-a[cheminee]-" .. i
+  c.picture = { layers = layers_of("cheminee-seule", e[2]) }
+  out[#out + 1] = c
+end
+
+---------------------------------------------------------------------------------------------------
 -- 2. Four en acier équipé de la cheminée (copie du four vanilla, mêmes statistiques, emprise 2×2).
 ---------------------------------------------------------------------------------------------------
 local four = table.deepcopy(data.raw.furnace["steel-furnace"])
@@ -107,11 +128,40 @@ four.icons = {
     scale = 0.3, shift = { -6, -6 } },
 }
 four.drawing_box = { { -1.0, -2.9 }, { 1.0, 1.0 } }
--- Couches ajoutées APRÈS celles du four (dessinées par-dessus) ; la couche principale de la cheminée est
--- déjà découpée par l'alpha du sprite vanilla du four (render.py, masque) : aucune partie de la cheminée
--- ne passe devant le corps du four.
-for _, l in ipairs(layers_of("cheminee-four")) do
-  table.insert(four.animation.layers, l)
+-- V0b : ombre et couche principale de la cheminée insérées AVANT les couches du four : le jeu dessine le
+-- four PAR-DESSUS (V0 : couche découpée par l'alpha du four puis dessinée après lui, d'où un liseré de 1 px
+-- sur 75 px de bord). La couche principale n'est donc plus découpée (render.py).
+local v = SPR.variants["cheminee-four"]
+if not v then error("vitrine : variante de sprites absente : cheminee-four") end
+local pos = 1
+for _, kind in ipairs({ "shadow", "main" }) do
+  if v[kind] then
+    table.insert(four.animation.layers, pos, sprite_layer(v[kind], kind))
+    pos = pos + 1
+  end
+end
+-- V0b : lueur et halo de la cheminée en visualisations de marche (comme le feu vanilla du four) : ils
+-- s'éteignent avec le four (fondu). Lueur : dessinée comme sprite ET dans la carte des lumières
+-- (draw_as_light au niveau de la visualisation, idiome vanilla d'entities.lua) ; halo : carte des lumières
+-- seulement (draw_as_sprite = false).
+four.working_visualisations = four.working_visualisations or {}
+local function anim_of(def)
+  local lr, hr = def.lr, def.hr
+  return {
+    filename = lr.filename, width = lr.width, height = lr.height, shift = { lr.shift[1], lr.shift[2] },
+    priority = "medium", frame_count = 1, blend_mode = "additive",
+    hr_version = {
+      filename = hr.filename, width = hr.width, height = hr.height, shift = { hr.shift[1], hr.shift[2] },
+      priority = "medium", frame_count = 1, blend_mode = "additive", scale = 0.5,
+    },
+  }
+end
+if v.glow then
+  table.insert(four.working_visualisations, { fadeout = true, draw_as_light = true, animation = anim_of(v.glow) })
+end
+if v.light then
+  table.insert(four.working_visualisations,
+    { fadeout = true, draw_as_light = true, draw_as_sprite = false, animation = anim_of(v.light) })
 end
 out[#out + 1] = four
 

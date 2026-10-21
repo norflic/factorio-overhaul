@@ -149,7 +149,8 @@ function V.start()
   for k, e in ipairs(wanted) do
     local items = { e }
     for _, r in ipairs(refs) do items[#items + 1] = r end
-    local row = { key = string.format("%02d-%s", k, safe(e.name)), name = e.name, items = {}, errors = {} }
+    local row = { key = string.format("%02d-%s", k, safe(e.name)), name = e.name, items = {}, errors = {},
+      cadre = type(e.cadre) == "table" and e.cadre or nil }
     local x, hmax = X0, 1
     for _, it in ipairs(items) do
       local w, h, p = footprint(it)
@@ -211,12 +212,34 @@ function V.start()
     end
     out.rows[#out.rows + 1] = {
       key = row.key, name = row.name, x0 = row.x0, x1 = row.x1, y = row.y, h = row.h,
-      ex = row.ex, ey = row.ey, ew = row.ew, eh = row.eh, errors = row.errors,
+      ex = row.ex, ey = row.ey, ew = row.ew, eh = row.eh, errors = row.errors, cadre = row.cadre,
     }
   end
   out.failures = failures
   global.vitrine = out
   vlog("BILAN : " .. (#rows - failures) .. " rangee(s) OK, " .. failures .. " ECHEC(S)")
+end
+
+--- Boîte des gros plans (tuiles, relative à la position de l'entité) : gauche, haut, droite, bas.
+local function cadre_of(r)
+  local c = r.cadre
+  if type(c) == "table" and #c == 4 then return c[1], c[2], c[3], c[4] end
+  local hw, hh = (r.ew or 1) / 2, (r.eh or 1) / 2
+  local l, t, rt, b = -hw, -hh, hw, hh
+  local p = game.entity_prototypes[r.name]
+  if p then
+    for _, box in ipairs({ p.selection_box, p.drawing_box }) do
+      if box and box.left_top and box.right_bottom then
+        l = math.min(l, box.left_top.x)
+        t = math.min(t, box.left_top.y)
+        rt = math.max(rt, box.right_bottom.x)
+        b = math.max(b, box.right_bottom.y)
+      end
+    end
+  end
+  -- ombre : bande plein est, longueur au plus 1,3 × la hauteur à l'écran, partant du bord ouest au pire
+  rt = math.max(rt, l + 1.3 * (b - t))
+  return l, t, rt, b
 end
 
 --- Liste des captures (ordre et noms déterministes). night = valeur de daytime pour la nuit.
@@ -242,12 +265,22 @@ function V.shot_list(night)
       add(p .. "-rangee-z1-" .. t[2], (r.x0 + r.x1) / 2, r.y - 0.5, 1, t[1])
       add(p .. "-debut-z2-" .. t[2], r.x0 - 1 + 12.5, r.y - 0.5, 2, t[1])
     end
-    -- Gros plans de l'entité seule (cadre serré ; place au-dessus pour les sprites hauts).
+    -- Gros plans de l'entité seule. V0b : cadre sur la réunion des couches, OMBRE comprise, plus 16 px de
+    -- marge (V0 : cadre sur l'emprise, qui coupait l'ombre du four). Boîte (tuiles, relative à l'entité) :
+    -- `cadre = { gauche, haut, droite, bas }` de l'entrée si donné ; sinon drawing_box du prototype (ou sa
+    -- selection_box) étendue vers l'est pour l'ombre : les ombres partent plein est et mesurent au plus
+    -- 1,3 fois la hauteur à l'écran (F47, CALIBRATION §3.1).
+    local bl, bt, br, bb = cadre_of(r)
     for _, z in ipairs(o.gros_plans) do
-      local pw = math.min(4096, math.max(256, math.floor((r.ew + 4) * 32 * z)))
-      local ph = math.min(4096, math.max(256, math.floor((r.eh + 6) * 32 * z)))
+      local k = 32 * z            -- pixels par tuile
+      local m = 16 / k
+      -- tailles paires et centre sur la grille des pixels : les texels tombent sur les pixels comme en V0
+      local pw = math.min(4096, math.max(256, 2 * math.ceil((br - bl + 2 * m) * k / 2)))
+      local ph = math.min(4096, math.max(256, 2 * math.ceil((bb - bt + 2 * m) * k / 2)))
+      local cx = math.floor((r.ex + (bl + br) / 2) * k + 0.5) / k
+      local cy = math.floor((r.ey + (bt + bb) / 2) * k + 0.5) / k
       for _, t in ipairs(times) do
-        add(string.format("%s-gros-plan-z%g-%s", p, z, t[2]), r.ex, r.ey - 1, z, t[1], { pw, ph })
+        add(string.format("%s-gros-plan-z%g-%s", p, z, t[2]), cx, cy, z, t[1], { pw, ph })
       end
     end
   end

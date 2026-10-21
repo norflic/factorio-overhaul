@@ -6,7 +6,9 @@ Plusieurs agents (un par famille, chacun dans son worktree) rendent en parallèl
 Blender saturent les 16 fils du processeur. TOUT appel à Blender passe par ce script.
 
 Usage (depuis la racine d'un worktree ou du mod) :
-    python tools/render/with_render_lock.py [--slots N] [--wait S] [--priority below|normal] -- <commande...>
+    python tools/render/with_render_lock.py [--slots N] [--wait S] [--priority below|normal] [--poll S] -- <commande...>
+(--poll : intervalle de scrutation en secondes, défaut 5 ; aucune file d'attente : la première scrutation
+qui trouve une place libre la prend.)
 Exemple :
     python tools/render/with_render_lock.py -- python -P tools/render/render.py tools/render/pieces/cheminee.py
 
@@ -81,7 +83,7 @@ def try_slot(d):
     return False
 
 
-def acquire(base, slots, wait_s):
+def acquire(base, slots, wait_s, poll_s=5.0):
     t0 = time.time()
     said = False
     while True:
@@ -96,11 +98,11 @@ def acquire(base, slots, wait_s):
         if not said:
             print("[fo-render] %d rendu(s) déjà en cours : attente d'une place..." % slots, flush=True)
             said = True
-        time.sleep(5)
+        time.sleep(poll_s)
 
 
 def main(argv):
-    slots, wait_s, priority = 2, 4 * 3600, "below"
+    slots, wait_s, priority, poll_s = 2, 4 * 3600, "below", 5.0
     if "--" not in argv:
         print(__doc__)
         return 1
@@ -111,6 +113,8 @@ def main(argv):
             slots = int(opts[i + 1]); i += 2
         elif opts[i] == "--wait":
             wait_s = float(opts[i + 1]); i += 2
+        elif opts[i] == "--poll":
+            poll_s = max(0.2, float(opts[i + 1])); i += 2
         elif opts[i] == "--priority":
             priority = opts[i + 1]; i += 2
         else:
@@ -118,7 +122,7 @@ def main(argv):
     if not cmd:
         print("commande absente après --"); return 1
     base = os.environ.get("FO_RENDER_LOCK_DIR", DEFAULT_DIR)
-    d = acquire(base, slots, wait_s)
+    d = acquire(base, slots, wait_s, poll_s)
     if d is None:
         print("[fo-render] délai dépassé : aucune place libre en %.0f s" % wait_s, flush=True)
         return 2

@@ -42,10 +42,15 @@ def contact_fringe(ao, strength, gamma, color):
     return out
 
 
-def compose_main(main, ao, C):
+def compose_main(main, ao, C, fringe_mask=None):
+    """Couche principale = pièce par-dessus son liseré de contact. fringe_mask (V0b, facultatif) : zone
+    (0..1, même grille) où le liseré est retiré, par exemple la silhouette dilatée du bâtiment porteur."""
     if ao is None:
         return main.astype(np.float64)
-    return over(main.astype(np.float64), contact_fringe(ao, C.AO_STRENGTH, C.AO_GAMMA, C.AO_COLOR))
+    fr = contact_fringe(ao, C.AO_STRENGTH, C.AO_GAMMA, C.AO_COLOR)
+    if fringe_mask is not None:
+        fr[..., 3] = fr[..., 3] * (1 - np.clip(fringe_mask, 0, 1))
+    return over(main.astype(np.float64), fr)
 
 
 def shadow_layer(sh):
@@ -58,6 +63,17 @@ def shadow_layer(sh):
 def additive_layer(img, gain=1.0):
     """Couche additive (lueur, halo) : prémultiplié = couleur émise ; codé RGB = c / max, A = max."""
     c = np.clip(img[..., :3].astype(np.float64) * img[..., 3:4] * gain, 0, 1)
+    m = c.max(-1, keepdims=True)
+    rgb = np.where(m > 1e-6, c / np.maximum(m, 1e-6), 0)
+    return np.concatenate([rgb, m], -1)
+
+
+def light_layer(img, scale=1.0):
+    """Couche halo (draw_as_light), V0b : valeurs LINÉAIRES du rendu (le PNG de Blender est codé sRGB) ×
+    scale, codées comme une couche additive (RGB = c / max, A = max). La carte des lumières du moteur reçoit
+    la valeur du texel telle quelle : en sRGB (V0, additive_layer), la décroissance était écrasée et la
+    flaque s'étalait en nappe pâle (rapport V0 : 6,3 tuiles² contre 0,9 à 1,8 pour le four vanilla)."""
+    c = np.clip(srgb_to_lin(img[..., :3]) * img[..., 3:4] * scale, 0, 1)
     m = c.max(-1, keepdims=True)
     rgb = np.where(m > 1e-6, c / np.maximum(m, 1e-6), 0)
     return np.concatenate([rgb, m], -1)

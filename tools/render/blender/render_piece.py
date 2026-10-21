@@ -89,12 +89,25 @@ def main():
     for kv in a.set:
         k, v = kv.split("=", 1)
         old = getattr(C, k)
-        setattr(C, k, type(old)(eval(v)) if not isinstance(old, tuple) else tuple(eval(v)))
+        if old is None:
+            setattr(C, k, eval(v))
+        else:
+            setattr(C, k, type(old)(eval(v)) if not isinstance(old, tuple) else tuple(eval(v)))
     C.recompute()
     t0 = time.time()
     piece = load_piece(a.piece)
     scene = S.reset()
     piece.build(S, C, a.variant)
+    # V0b : volumes de remplacement du bâtiment porteur (passe halo seulement), déclarés par la variante :
+    # "occluders": [{"box": (x0, y0, x1, y1) en tuiles de jeu relatives à l'entité, "h": hauteur (unités)}]
+    vdef = piece.PIECE.get("variants", {}).get(a.variant, {})
+    for i, occ in enumerate(vdef.get("occluders", ())):
+        x0, y0, x1, y1 = occ["box"]
+        bx0, by0, _ = C.tile_to_blender(x0, y0)
+        bx1, by1, _ = C.tile_to_blender(x1, y1)
+        h = float(occ["h"])
+        S.add_occluder((abs(bx1 - bx0), abs(by1 - by0), h), ((bx0 + bx1) / 2.0, (by0 + by1) / 2.0, h / 2.0),
+                       name="fo_occluder_%d" % i)
     bpy.context.view_layer.update()
     objs = S.piece_objects()
     l, t, r, b = projected_bounds(objs)
@@ -126,6 +139,8 @@ def main():
         "origin_px": [ox, oy],
         "px_per_tile": C.PX_PER_UNIT_HR,
         "layers": {k: os.path.basename(v) for k, v in res.items()},
+        "hidden": sorted(o.name for o in objs if S.is_hidden(o)),
+        "occluders": [o.name for o in S.occluder_objects()],
         "blender": bpy.app.version_string,
         "blender_hash": bpy.app.build_hash.decode() if isinstance(bpy.app.build_hash, bytes) else str(bpy.app.build_hash),
         "samples": scene.cycles.samples,

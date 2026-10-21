@@ -75,6 +75,77 @@ Conventions de modélisation (CALIBRATION.md §2) :
   `S.mat_flat`, `S.mat_emissive` (couches lueur et halo) ; `S.halo_light` (source ponctuelle de la seule
   passe halo : lumière portée sans bruit).
 
+## Nouveautés V0b (corrections après la vérification des captures V0)
+
+Toutes les entrées restent les mêmes (fichiers, fonctions, paramètres, variables de module de
+`fo_scene`, `fo_post`, `fo_calib`, `render.py`) ; les nouveautés sont des clés ou des paramètres
+**facultatifs**. Rapport d'origine : `<racine>\fo-logs\2026-10-21_V0_verif-captures\rapport.md`.
+
+**Comportements par défaut qui changent** (ils corrigent des défauts communs à toutes les pièces) :
+
+| Quoi | V0 | V0b | Revenir à V0 |
+|---|---|---|---|
+| Passe `light` (`fo_scene.render_passes`) | pièce gris clair éclairée, sources émissives visibles | pièce **découpée** (`is_holdout` : alpha 0 sur sa silhouette, elle garde son ombre) ; parties cachées invisibles ; volumes de remplacement noirs | `fo_calib.LIGHT_HOLDOUT = False` |
+| Couche halo de `render.py` | `additive_layer` des valeurs sRGB, fenêtres au sol et « cœur » | `fo_post.light_layer` : valeurs **linéaires** × `LIGHT_SCALE`, × min(alpha du rendu, 1 − alpha de la passe principale) | `PIECE["light_mode"] = "v0"` |
+| Variante masquée (`mask`) | couches `main` et `glow` découpées par l'alpha du sprite vanilla | `glow` et halo découpés ; `main` **non** découpée (le jeu dessine le bâtiment par-dessus) ; liseré de contact retiré dans la silhouette du bâtiment dilatée de `AO_DISTANCE` | `PIECE["light_mode"] = "v0"` |
+
+L'étalonnage de la scène (soleil, appoint, ciel, sol, filtre de pixel 1,5 px, liseré) ne change pas : le
+filtre de 1,0 px a été essayé et rejeté (CALIBRATION §5).
+
+Pourquoi le halo change : `draw_as_light` est une carte des lumières en **espace écran** qui révèle la
+couleur de JOUR de tout ce qu'elle recouvre (F64). Une pièce éclairée dans sa propre couche halo apparaît
+en plein jour la nuit (collerette V0 : λ 0,43 contre 0,03 pour un four vanilla) ; un bâtiment recouvert par
+la flaque est éclairé sur toute sa hauteur (four équipé V0 : λ 0,20 contre 0,03) ; une partie cachée qui
+bloquait la lumière laisse un « trou » à sa forme (défaut bloquant V0). La lueur des parties émissives passe
+par la couche `glow` (`draw_as_glow` dessine aussi dans la carte des lumières).
+
+**Clés facultatives d'une pièce** (`PIECE`) :
+- `"calib": {"NOM": valeur}` : surcharges d'étalonnage de la pièce (passées à Blender par `--set`), par
+  exemple `{"GROUND_GLOSSY_ALBEDO": 0.45}` (sol clair vu par les seuls reflets : métaux moins mats) ;
+- `"light_mode": "v0" | "v0b"` ; `"light_scale"` (multiplie `LIGHT_SCALE`) ;
+- `"enclosed_tolerance_px"` : pixels transparents enfermés tolérés (ouvertures voulues ; défaut 0) ;
+- dans une variante : `"occluders": [{"box": (x0, y0, x1, y1), "h": hauteur}]` (volume de remplacement,
+  tuiles relatives à l'entité, hauteur en unités Blender) ; `"mask_layers"` (défaut `("glow",)`).
+
+**Outils de modélisation** (`fo_scene`) :
+- `S.mark_hidden(obj)` : partie cachée par le bâtiment porteur. Rendue dans la couche principale (le
+  bâtiment la recouvre en jeu), retirée de la passe `ao`, invisible à la caméra dans la passe `light`, et
+  elle **garde son ombre** ;
+- `S.add_occluder(size, loc)` : volume de remplacement (boîte noire) présent dans la seule passe `light` ;
+  il bloque la lumière et ne la reçoit pas ;
+- `S.mat_emissive(..., main_scale=0.0)` : surface ÉTEINTE dans la couche principale ; la lueur additive seule
+  donne la couleur, comme le feu vanilla. Avec 1,0 (défaut, V0), l'émission compte deux fois en jeu ;
+- `fo_calib.GROUND_GLOSSY_ALBEDO` : voir `"calib"` ci-dessus (défaut `None` : comme V0).
+
+**Contrôles automatiques** (`fo_checks.py`, appelés par `render.py`, détail dans le manifeste, clé
+`checks` ; `render.py` sort avec le code 3 sur un échec bloquant) :
+- bloquants : pixels transparents enfermés dans la silhouette (le sol se voit au travers) ; plus de 3 % de
+  l'énergie du halo sur la pièce ou sur le bâtiment porteur ; poche sombre enfermée dans le halo ;
+- mesurés : éléments plus fins que 2 px HR, photométrie du CORPS hors zones émissives (comparée à
+  `fo_calib.PHOTO_RANGES`), plus grand carré émissif (D2-1 : 8 px HR au moins), pic, surface et portées
+  N/S/E/O du halo (`LIGHT_PEAK_RANGE`, `LIGHT_AREA_RANGE`).
+`check_sprites.py` refait sur les PNG livrés les contrôles bloquants (trous, halo sur la pièce ou le
+bâtiment, poches).
+
+### Règle des pièces posées sur un bâtiment vanilla (exemple : `pieces/cheminee.py`, variante `four`)
+1. **Composition** : les couches de la pièce (ombre, principale) sont insérées AVANT celles du bâtiment
+   (`table.insert(animation.layers, 1, couche)`) : le jeu dessine le bâtiment par-dessus et compose
+   lui-même ses bords anticrénelés. Ne pas découper la couche principale (`mask_layers` sans `"main"`).
+2. **Passe halo** : un volume de remplacement du bâtiment (`occluders`), **inscrit** dans la silhouette de
+   son sprite (une boîte plus grande noircit le sol vu juste au-dessus du toit).
+3. **Parties cachées** : `S.mark_hidden(obj)` (pied, socle...) : pas de liseré de contact sans cause
+   visible, pas de trou dans le halo, ombre gardée.
+4. **Flaque au sol hors de la silhouette du bâtiment** : `mask` (sprite vanilla aux deux résolutions) ; le
+   halo est découpé par son alpha, aucun halo sur le corps du bâtiment.
+5. **Lueur et halo en visualisations de marche** quand le bâtiment en a (four, assembleur, foreuse) :
+   `working_visualisations` avec `fadeout = true`, lueur en `draw_as_light = true` (sprite + carte des
+   lumières), halo en `draw_as_light = true, draw_as_sprite = false` (idiome vanilla du four en acier) : ils
+   s'éteignent avec le bâtiment.
+6. **Ancre** sur la grille de 1/32 de tuile (la version 32 px/tuile tombe alors au pixel).
+
+**Épaisseur minimale** : tout élément fait au moins 2 px HR (0,031 unité) ; un élément plus fin devient
+une frange semi-transparente (le sol se voit au travers, et la nuit l'anneau ressort).
+
 ## Les cinq passes et le post-traitement
 
 | Passe | Contenu (Cycles, CPU) | Devient |
@@ -83,11 +154,18 @@ Conventions de modélisation (CALIBRATION.md §2) :
 | `ao` | occlusion ambiante à courte portée de la pièce sur le sol | liseré de contact sombre, composé SOUS la couche principale (comme les bâtiments vanilla) |
 | `shadow` | ombre du seul soleil sur un sol attrape-ombre | couche ombre (noire, alpha = part d'ombre ; le moteur l'affiche à 50 %) |
 | `glow` | émission seule, cachée par les parties opaques | couche lueur, additive, codée RGB = c/max, A = max |
-| `light` | lumière reçue des sources de halo (éclairage direct seul), bornée par des fenêtres circulaires | couche halo, additive |
+| `light` | lumière reçue des sources de halo sur le sol (éclairage direct seul), pièce découpée (V0b), bornée par des fenêtres circulaires centrées sur le pied (en espace écran = espace tuile pour le sol) | couche halo, additive, valeurs linéaires |
 
-Puis : masque éventuel par l'alpha d'un sprite vanilla posé sur la même grille (variante « four »),
-recadrage aligné sur la grille paire relative à la position de l'entité, réduction 2× en lumière
-linéaire prémultipliée pour la version 32 px/tuile (masquée ensuite par le sprite vanilla 32 px).
+Puis : masque éventuel par l'alpha d'un sprite vanilla posé sur la même grille (variante « four » :
+lueur et halo), recadrage aligné sur la grille paire relative à la position de l'entité, réduction 2× en
+lumière linéaire prémultipliée pour la version 32 px/tuile (masquée ensuite par le sprite vanilla 32 px).
+
+## Verrou de rendu
+
+`with_render_lock.py` : 2 places sur le PC, priorité basse, verrous orphelins repris. Aucune file
+d'attente : la première scrutation qui trouve une place la prend (`--poll S`, défaut 5 s). Mesuré le 21/10
+pendant la production V3 : jusqu'à 11 min d'attente pour une place. Regrouper ses rendus dans UNE commande
+(un script qui enchaîne les passages) plutôt que de reprendre le verrou à chaque essai.
 
 ## Déterminisme
 
