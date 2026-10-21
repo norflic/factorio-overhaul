@@ -35,10 +35,10 @@ for _, t in ipairs(A.turrets) do
   inherits[t.copy] = inherits[t.copy] or {}
   table.insert(inherits[t.copy], t.name)
 end
--- Niveaux 2-10 des tourelles (session 5) : mêmes bonus que leur niveau 1.
+-- Niveaux 2 à 30 des tourelles (session 5 ; 30 niveaux depuis le lot V2) : mêmes bonus que leur niveau 1.
 for _, f in ipairs(Lv.families) do
   if f.type == "ammo-turret" or f.type == "electric-turret" then
-    for n = 2, Lv.MAX do
+    for n = 2, f.max do
       inherits[f.base] = inherits[f.base] or {}
       table.insert(inherits[f.base], Lv.name(f, n))
     end

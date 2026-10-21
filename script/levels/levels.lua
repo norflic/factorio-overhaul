@@ -1,7 +1,8 @@
 --[[
-  Niveaux de bâtiments : runtime (session 5). Règles : shared/levels/config.lua.
+  Niveaux de bâtiments : runtime (session 5 ; 15 époques depuis le lot V2). Règles : shared/levels/config.lua.
 
-  - Centre de commandement : un par force ; son niveau plafonne les autres et fixe les ouvriers.
+  - Centre de commandement : un par force ; son niveau EST l'époque (1 à 15) ; il plafonne les autres
+    bâtiments à 2 × son niveau et fixe les ouvriers (1 à 5).
   - Amélioration : coût prélevé dans le centre de commandement PUIS l'inventaire du joueur (l'usine
     alimente le centre par convoyeurs et inserteurs : la production nourrit la progression) ; chantier
     minuté, bâtiment hors service, barre de progression ; au terme, remplacement par le niveau suivant en
@@ -52,6 +53,44 @@ function Levels.time_factor()
   local s = settings.global["fo-level-time-factor"]
   return s and s.value or 1
 end
+
+---------------------------------------------------------------------------------------------------
+-- Objets de coût : chaque objet de la table d'indirection doit exister dans le jeu chargé.
+-- Cache LOCAL (jamais dans global), dérivé des prototypes, identiques sur tous les clients ; rempli au
+-- premier appel pendant un événement (game n'existe pas pendant on_load).
+---------------------------------------------------------------------------------------------------
+local item_cache = {}
+
+function Levels.item_exists(name)
+  local known = item_cache[name]
+  if known == nil then
+    known = game.item_prototypes[name] ~= nil
+    item_cache[name] = known
+  end
+  return known
+end
+
+--- Objets de coût absents du jeu (liste triée ; vide si tout va bien).
+function Levels.missing_cost_items()
+  local out = {}
+  for _, item in ipairs(L.cost_items()) do
+    if not Levels.item_exists(item) then out[#out + 1] = item end
+  end
+  return out
+end
+
+local function check_cost_items()
+  local miss = Levels.missing_cost_items()
+  if #miss > 0 then
+    log("[FO-LEVELS] ERREUR : objets de coût absents du jeu : " .. table.concat(miss, ", "))
+  else
+    log("[FO-LEVELS] " .. #L.cost_items() .. " objets de coût, tous présents ; "
+      .. #L.provisional_materials() .. " matériaux d'époque provisoires")
+  end
+end
+
+Events.on_init(check_cost_items)
+Events.on_configuration_changed(check_cost_items)
 
 ---------------------------------------------------------------------------------------------------
 -- Paiement : centre de commandement d'abord, puis inventaire du joueur.
@@ -158,18 +197,29 @@ local function manual_replace(old, name)
   -- Secours si le remplacement rapide échoue : contenus et recette recopiés (fils de circuit perdus).
   local surface, pos, dir, force = old.surface, old.position, old.direction, old.force
   local recipe = old.type == "assembling-machine" and old.get_recipe() or nil
+  -- Déterminisme (ARCHITECTURE §2) : inventaires dans l'ordre des index, objets dans l'ordre des noms (ce
+  -- qui déborde au sol quand l'inventaire est plein ne dépend d'aucun ordre de pairs).
   local saved = {}
   for i = 1, 10 do
     local inv = old.get_inventory(i)
-    if inv and not inv.is_empty() then saved[i] = inv.get_contents() end
+    if inv and not inv.is_empty() then
+      local contents = inv.get_contents()
+      local names = {}
+      for item in pairs(contents) do names[#names + 1] = item end
+      table.sort(names)
+      local list = {}
+      for _, item in ipairs(names) do list[#list + 1] = { item, contents[item] } end
+      saved[#saved + 1] = { index = i, items = list }
+    end
   end
   old.destroy({ raise_destroy = false })
   local new = surface.create_entity({ name = name, position = pos, direction = dir, force = force, raise_built = true, create_build_effect_smoke = false })
   if not new then return nil end
   if recipe then new.set_recipe(recipe) end
-  for i, contents in pairs(saved) do
-    local inv = new.get_inventory(i)
-    for item, count in pairs(contents) do
+  for _, rec in ipairs(saved) do
+    local inv = new.get_inventory(rec.index)
+    for _, it in ipairs(rec.items) do
+      local item, count = it[1], it[2]
       local put = inv and inv.insert({ name = item, count = count }) or 0
       if put < count then surface.spill_item_stack(pos, { name = item, count = count - put }, true, force, false) end
     end
@@ -177,11 +227,14 @@ local function manual_replace(old, name)
   return new
 end
 
-local function celebrate(entity, n)
-  local mat = L.materials[n]
-  local c = mat.tint or { r = 1, g = 1, b = 1 }
+local function celebrate(entity, family, n)
+  local e = L.epoch_of(family, n)
+  local c = L.epochs[e].color
+  -- Premier niveau d'une époque (et chaque niveau du centre, qui EST l'époque) : on annonce l'époque.
+  local text = { "fo-levels.level-up", n }
+  if e >= 2 and L.step_of(family, n) == 1 then text = { "fo-epochs.epoch-up", e, { "fo-epochs.name-" .. L.epochs[e].key } } end
   entity.surface.create_entity({ name = "flying-text", position = { entity.position.x, entity.position.y - 1.5 },
-    text = { "fo-levels.level-up", n }, color = { r = c.r, g = c.g, b = c.b } })
+    text = text, color = { r = c.r, g = c.g, b = c.b } })
   rendering.draw_light({ sprite = "utility/light_medium", surface = entity.surface, target = entity,
     scale = 2 + box_size(entity), intensity = 1, color = c, time_to_live = 90 })
   entity.surface.play_sound({ path = "utility/research_completed", position = entity.position, volume_modifier = 0.6 })
@@ -212,7 +265,7 @@ local function replace(entity, family, n)
   if not new then return nil end
   new.health = new.prototype.max_health * ratio
   if was_cc then st.cc[force.name] = new end
-  celebrate(new, n)
+  celebrate(new, family, n)
   for _, f in ipairs(Levels.on_replaced) do f(old_unit, new) end
   return new
 end
@@ -235,13 +288,26 @@ function Levels.preview(entity, player)
     info.ok, info.reason = false, "busy"
     return info
   end
-  if n >= L.MAX then
+  if n >= family.max then
     info.ok, info.reason = false, "max"
     return info
   end
   info.cost = L.cost(family, n + 1)
   info.ticks = L.time_ticks(family, n + 1, Levels.time_factor())
   info.ok, info.reason = L.check(family, n + 1, info.cc_level, info.busy)
+  info.required_cc = L.required_cc(family, n + 1)
+  -- Un objet de coût absent du jeu (table d'indirection pointant vers un objet pas encore livré) : on
+  -- refuse proprement au lieu de laisser le moteur lever une erreur sur un nom d'objet inconnu.
+  local unknown = {}
+  for _, c in ipairs(info.cost) do
+    if not Levels.item_exists(c[1]) then unknown[#unknown + 1] = c[1] end
+  end
+  if #unknown > 0 then
+    info.unknown = unknown
+    info.missing = {}
+    info.ok, info.reason = false, "unknown-item"
+    return info
+  end
   info.missing = missing(sources(force, player), info.cost)
   if info.ok and #info.missing > 0 then info.ok, info.reason = false, "no-resources" end
   return info
@@ -339,6 +405,91 @@ Events.on_nth_tick(30, function(e)
 end)
 
 ---------------------------------------------------------------------------------------------------
+-- Changement de version (0.3.0 → 15 époques, et toute mise à jour suivante)
+-- Les noms 0.3.0 gardent leur sens et l'état ne change pas de forme : aucune donnée à convertir. Réparation
+-- défensive seulement : chantier dont le bâtiment a disparu ou dont la cible n'existe plus (perdu, bâtiment
+-- remis en service), centre disparu oublié, ouvriers occupés recomptés à partir des chantiers.
+---------------------------------------------------------------------------------------------------
+function Levels.repair()
+  local st = S()
+  local units = {}
+  for u in pairs(st.jobs) do units[#units + 1] = u end
+  table.sort(units)
+  local fixed = 0
+  for _, u in ipairs(units) do
+    local job = st.jobs[u]
+    local family = L.by_key[job.family or ""]
+    if not (job.entity and job.entity.valid) then
+      end_job(job, "lost")
+      fixed = fixed + 1
+    elseif not family or job.to > family.max then
+      job.entity.active = true
+      end_job(job, "lost")
+      fixed = fixed + 1
+    elseif type(job.cost) == "table" then
+      -- Objets de coût retirés du jeu depuis la sauvegarde : purgés (le remboursement au démontage les
+      -- ignore aussi).
+      local kept = {}
+      for _, c in ipairs(job.cost) do
+        if Levels.item_exists(c[1]) then kept[#kept + 1] = c end
+      end
+      job.cost = kept
+    end
+  end
+  local forces = {}
+  for name in pairs(st.cc) do forces[#forces + 1] = name end
+  table.sort(forces)
+  for _, name in ipairs(forces) do
+    local cc = st.cc[name]
+    if not (cc and cc.valid and L.parse(cc.name)) then st.cc[name] = nil end
+  end
+  local busy = {}
+  units = {}
+  for u in pairs(st.jobs) do units[#units + 1] = u end
+  table.sort(units)
+  for _, u in ipairs(units) do
+    local f = st.jobs[u].force
+    busy[f] = (busy[f] or 0) + 1
+  end
+  st.busy = busy
+  return fixed
+end
+
+--- PV au-dessus du maximum du prototype (0.3.0 → V2 : un mur niveau 10 passe de 3 712 à 1 925 PV) :
+--- ramenés au maximum. Le moteur borne toute écriture de `health` ; on n'écrit que si c'est nécessaire.
+--- Renvoie le nombre de bâtiments corrigés. Surfaces dans l'ordre de leur index, entités dans l'ordre du
+--- moteur (déterministe).
+function Levels.clamp_health()
+  local names = {}
+  for _, f in ipairs(L.families) do
+    for n = 2, f.max do names[#names + 1] = L.name(f, n) end
+  end
+  local surfaces = {}
+  for _, surface in pairs(game.surfaces) do surfaces[surface.index] = surface end
+  local idx = {}
+  for i in pairs(surfaces) do idx[#idx + 1] = i end
+  table.sort(idx)
+  local fixed = 0
+  for _, i in ipairs(idx) do
+    for _, e in ipairs(surfaces[i].find_entities_filtered({ name = names })) do
+      local max = e.prototype.max_health
+      if max and e.health and e.health > max then
+        e.health = max
+        fixed = fixed + 1
+      end
+    end
+  end
+  return fixed
+end
+
+Events.on_configuration_changed(function()
+  local fixed = Levels.repair()
+  if fixed > 0 then log("[FO-LEVELS] mise à jour : " .. fixed .. " chantier(s) réparé(s)") end
+  local clamped = Levels.clamp_health()
+  if clamped > 0 then log("[FO-LEVELS] mise à jour : PV ramenés au maximum sur " .. clamped .. " bâtiment(s)") end
+end)
+
+---------------------------------------------------------------------------------------------------
 -- Construction et retrait
 ---------------------------------------------------------------------------------------------------
 local function on_built(e)
@@ -373,7 +524,9 @@ local function refund_half(cost, buffer)
   if not buffer then return end
   for _, c in ipairs(cost) do
     local q = math.floor(c[2] / 2)
-    if q > 0 then buffer.insert({ name = c[1], count = q }) end
+    -- Un chantier d'une version antérieure peut citer un objet retiré depuis (table d'indirection changée) :
+    -- l'insérer lèverait une erreur moteur « Unknown item name ».
+    if q > 0 and Levels.item_exists(c[1]) then buffer.insert({ name = c[1], count = q }) end
   end
 end
 
