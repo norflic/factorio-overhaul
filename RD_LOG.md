@@ -44,6 +44,25 @@
   (modélisation et aperçus des 7 familles) en parallèle ; V3 phase 2 (rendu final, branchement en
   jeu) après l'intégration de V2 et de V0b.
 
+- 21 h 25, réponse groupée aux questions Q14 à Q17 et QX1 à QX9 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » Décisions qui en découlent :
+  - **Q14** : option A (le DPS du niveau 30 égale à peu près celui des tourelles lourdes).
+  - **Q15** : rupture des PV des murs 0.3.0 acceptée.
+  - **Q16** : condition légère pour monter le centre (au moins un bâtiment de chaque famille possédée au
+    niveau maximal de l'époque).
+  - **Q17** : la file de chantiers passe avant la Compaction.
+  - **QX1** : phase brûleur aux époques 1 et 2.
+  - **QX2** : le Serment.
+  - **QX3** : défaite par la Porte seulement en Impitoyable.
+  - **QX4** : antimatière en énergie nette (fiction assumée).
+  - **QX5** : noms conservés.
+  - **QX6** : 6e ouvrier par la merveille.
+  - **QX7** : 60 h = ouverture de la Porte.
+  - **QX8** : bâtiments tardifs nés au niveau 1, avec un rattrapage payant.
+  - **QX9** : recherche vanilla allégée aux premières époques.
+  - Mises en œuvre : Q16, Q17, QX7, QX9 et QX10 (arbitrage de l'architecte : le passage du centre pèse
+    une vraie part du budget d'époque, comme chez X0) → lot V2c, après V2b. Les autres décisions
+    relèvent des lots X et IA.
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
