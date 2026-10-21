@@ -21,6 +21,20 @@
     mode vraiment un truc avancé (il faut donc imaginer le scénario et les crafts également
     évidemment) ». Liste du §6 validée ; branches avancées, scénario et arbres de fabrication à concevoir
     (lot X0, critère F1-6).
+- 18 h 49, réponses aux questions de design de la bible V1 (OBJECTIFS §4, Q8 à Q12) :
+  - **Q8** : « si ajourer veut dire changer le design, c'est oui ». Les machines pleines des époques 10
+    à 15 seront ajourées : vides, pieds, pièces en lévitation. C'est un changement de forme, pas de
+    couleur, et le seuil D1-3 reste à 50 %.
+  - **Q9** : « comme vous le sentez, il ne serait pas déconant de voir une usine de 10x10 à un moment, par
+    exemple sur des réacteurs d'antimatière ou quoi. » Les plafonds de V1 sont retenus pour les 7
+    familles, dont l'emprise reste inchangée. Les nouveaux bâtiments des époques hautes et des branches
+    avancées peuvent aller jusqu'à 10 × 10 (entrée du lot X0).
+  - **Q10** : « oui je suis d'accord » (forme commune par époque, 5 ères de 3 époques).
+  - **Q11** : « oui » (niveau 1 vanilla ; centre d'époque 1 redessiné en poste de pionnier).
+  - **Q12** : « oui si vous voulez, je sais pas vraiment l'impact que ça aura en vérité. » Décision de
+    l'architecte : aucune économie par défaut. Le recul du canon et le déploiement complet du laser se
+    voient en gros plan (R4). Les économies ne reviendront en discussion que si le temps de rendu par
+    image, mesuré par V0, l'impose.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC

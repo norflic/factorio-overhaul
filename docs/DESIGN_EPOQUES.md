@@ -1081,6 +1081,20 @@ Le centre n'a qu'un niveau par époque.
 
 ## 6. Questions de design pour le Directeur Créatif (5 au plus, toutes changent la production)
 
+> **Réponses du Directeur Créatif (21/10, 18 h 49), qui font désormais règle pour V3** (OBJECTIFS §4,
+> Q8 à Q12) :
+> - **Q-V1-1 → (a)** : « si ajourer veut dire changer le design, c'est oui ». Ajourer veut dire changer la
+>   forme (vides, pieds, pièces en lévitation). Le seuil D1-3 reste à 50 % pour toutes les familles.
+> - **Q-V1-2** : « comme vous le sentez, il ne serait pas déconant de voir une usine de 10x10 à un moment,
+>   par exemple sur des réacteurs d'antimatière ou quoi ». Les plafonds proposés ci-dessous sont
+>   retenus pour les 7 familles, dont l'emprise ne change pas. Les nouveaux bâtiments des époques hautes
+>   et des branches avancées (lot X0) peuvent être très grands, jusqu'à 10 × 10.
+> - **Q-V1-3** : « oui je suis d'accord ».
+> - **Q-V1-4** : « oui ».
+> - **Q-V1-5** : « oui si vous voulez, je sais pas vraiment l'impact que ça aura en vérité ». Décision de
+>   l'architecte : **aucune économie** (2 images de tir, déploiement du laser en 15 images), sauf si le
+>   temps de rendu par image mesuré par V0 l'impose.
+
 **Q-V1-1. Les machines denses aux époques 10 à 15 : ajourées ou très hautes ?**
 - Pour que le dernier niveau ne ressemble plus au premier (D1-3 < 50 %), le four et l'assembleur doivent
   laisser vide **30 à 35 %** de leur silhouette d'origine ; le mur et la mitrailleuse **20 à 25 %**.
