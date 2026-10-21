@@ -3,11 +3,15 @@
 -- (fichier scenario.lua écrit par fo-autotest.bat à partir de fo-autotest-params.txt) :
 --   default : 4 factions (100 soldats max, 10 ingénieurs), 50 compagnons
 --   stress  : idem + 20 000 MU par faction (armées complètes en ~1 min) + 380 compagnons (≈ 430 agents riches)
+--   content : banc de contenu ; vitrine : entités de fo-vitrine.lua à côté des références vanilla (vitrine.lua)
+--   <autre nom> : scénario greffé scenarios/<nom>.lua (greffons.lua, tools/autotest/README.md)
 -- Puis un rapport par minute de jeu dans factorio-current.log (balises [FO-AUTOTEST]).
 
 local Spike = require("spike_worker")
 local Content = require("content_test")
 local Shots = require("shots")
+local Vitrine = require("vitrine")
+local Greffons = require("greffons")
 
 local ok_s, SCENARIO = pcall(require, "scenario")
 if not ok_s or type(SCENARIO) ~= "string" then SCENARIO = "default" end
@@ -21,9 +25,14 @@ local SCENARIOS = {
   parked = { war = true, companions = 50, radius = 32, fund = 0, garrison_mode = "stop" }, -- garnisons au repos
   worker = { war = false, companions = 0, radius = 32, fund = 0, spike = true }, -- un corps sans joueur travaille-t-il ?
   content = { content = true }, -- banc de contenu : chaque recette, module, arme, ennemi, ressource, biome
+  vitrine = { vitrine = true }, -- vitrine : entités demandées (fo-vitrine.lua) à côté des références vanilla
   waves = { war = true, companions = 0, radius = 32, fund = 0, waves = true }, -- défense de tours + guerre
   pteam = { war = true, companions = 0, radius = 32, fund = 0, pteam = true }, -- équipe du joueur + guerre
 }
+
+-- Scénario GREFFÉ : un nom inconnu ci-dessus charge scenarios/<nom>.lua (au chargement du mod, jamais
+-- pendant un événement : F24). Format et crochets : tools/autotest/README.md.
+local PLUGIN = Greffons.load_scenario(SCENARIO, SCENARIOS)
 
 -- Équipe du joueur : un coffre d'équipe garni posé près du départ (comme le ferait le joueur).
 local function place_team_chest()
@@ -67,12 +76,14 @@ local function skip_freeplay_intro()
   if fp.set_disable_crashsite then remote.call("freeplay", "set_disable_crashsite", true) end
 end
 
-script.on_init(function()
-  local sc = SCENARIOS[SCENARIO] or SCENARIOS.default
-  log("[FO-AUTOTEST] on_init : lancement, scenario " .. SCENARIO)
-  skip_freeplay_intro()
+--- Préparation d'un scénario intégré (aussi la « base » d'un scénario greffé).
+local function builtin_init(sc)
   if sc.content then
     Content.start()
+    return
+  end
+  if sc.vitrine then
+    Vitrine.start()
     return
   end
   if sc.no_expansion then game.map_settings.enemy_expansion.enabled = false end
@@ -169,12 +180,35 @@ script.on_init(function()
   local np = {}
   for _, n in ipairs(names_sorted) do np[#np + 1] = n .. "=" .. by_name[n] end
   log("[FO-AUTOTEST] nids lointains par type : " .. table.concat(np, ", "))
+end
+
+script.on_init(function()
+  log("[FO-AUTOTEST] on_init : lancement, scenario " .. SCENARIO
+    .. (PLUGIN and (" (greffon scenarios/" .. SCENARIO .. ".lua)") or ""))
+  skip_freeplay_intro()
+  if PLUGIN then
+    if PLUGIN.base then
+      if SCENARIOS[PLUGIN.base] then
+        builtin_init(SCENARIOS[PLUGIN.base])
+      else
+        log("[FO-AUTOTEST] ECHEC base inconnue pour le greffon : " .. tostring(PLUGIN.base))
+      end
+    end
+    Greffons.scenario_init()
+    return
+  end
+  if not SCENARIOS[SCENARIO] then
+    log("[FO-AUTOTEST] scenario inconnu " .. SCENARIO .. ", ni integre ni greffe (" .. tostring(Greffons.missing)
+      .. ") : default")
+  end
+  builtin_init(SCENARIOS[SCENARIO] or SCENARIOS.default)
 end)
 
 -- Un seul gestionnaire on_tick (un second script.on_event remplacerait le premier).
 script.on_event(defines.events.on_tick, function(e)
   Spike.on_tick(e)
   Content.on_tick(e)
+  Greffons.scenario_tick(e)
   Shots.on_tick(e, SCENARIO) -- seulement en session avec images (un joueur est connecté)
 end)
 
