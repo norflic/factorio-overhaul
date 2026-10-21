@@ -39,6 +39,10 @@
   de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). »
   D1-3 devient : IoU < 0,50, sur un masque sans couches plates au sol, ET IoU normalisée en échelle sous
   un seuil à étalonner (proposition 0,75).
+- 19 h 36, **verdict V0** : « Verdict V0 : le style de la cheminée s'intègre bien au vanilla, validé. Corrigez les défauts techniques relevés et lancez la production V3. »
+  Ordre retenu : V0b (corrections du pipeline, verrou de rendu, outil de mesure D1) et V3 phase 1
+  (modélisation et aperçus des 7 familles) en parallèle ; V3 phase 2 (rendu final, branchement en
+  jeu) après l'intégration de V2 et de V0b.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
@@ -148,8 +152,9 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 
 ### Hypothèses (session 6)
 - **H-T1 · VALIDÉE** (E28) : captures entièrement automatiques, sans session à fermer à la main.
-- **H-V1 · 👁 EN ATTENTE DU VERDICT** : le pipeline est étalonné (E29) et la pièce posée en jeu (E30).
-  Reste votre verdict sur les captures ; défaut connu : photométrie trop mate (E29).
+- **H-V1 · VALIDÉE (verdict du Directeur Créatif, 21/10, 19 h 36)** : le pipeline est étalonné (E29) et la
+  pièce est posée en jeu (E30). Verdict : « Verdict V0 : le style de la cheminée s'intègre bien au vanilla, validé. Corrigez les défauts techniques relevés et lancez la production V3. »
+  Défauts techniques à corriger (lot V0b) : photométrie trop mate (E29), anneau translucide la nuit.
 - **H-V2 · OUVERTE** (lot V1) : des silhouettes ajourées (vides, pieds, pièces en lévitation, Q8)
   tiennent le critère D1-3, dans sa version amendée, sans dépasser les plafonds de hauteur (Q9).
   Protocole : mesure automatique (V4) sur les premières pièces rendues.

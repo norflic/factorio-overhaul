@@ -51,6 +51,9 @@ avant tout travail.
    orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
    `rmdir`.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
+6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
+   Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
+   en cours. Le verrou est `<racine>\fo-render.lock.<k>` ; un verrou orphelin est repris tout seul.
 
 ## 5. Commandes
 Toutes les commandes se lancent depuis la racine du mod, sauf mention.
