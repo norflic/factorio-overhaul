@@ -492,10 +492,36 @@ lueur à partir de l'époque 5, halo de nuit à partir de l'époque 6, socle de 
 **plafonnée à + 10 %** au dernier niveau (0.3.0 : + 1,2 % par niveau, qui aurait donné + 35 % au niveau 30).
 Le centre garde ses antennes (époques 4 et 7). La cible reste OBJECTIFS.md D1 : chaque famille reçoit son
 visuel par époque dans `prototypes/levels/<famille>.lua` (lots V3), à travers l'interface documentée en tête
-de `common.lua`. **Garde de l'interface (correction V2)** : elle capture désormais TOUT le prototype sauf une
-liste blanche graphique (une clé de jeu oubliée est protégée par défaut), vérifie la durée des animations de
-déploiement des tourelles, les prototypes sources (data.raw), la config et le style commun, et rend `ctx`
-en lecture seule ; 32 cas d'agent V3 plausibles sont testés hors jeu (`levels_test`).
+de `common.lua`. **Garde de l'interface (correction V2, complétée au lot V2b)** : elle capture TOUT le
+prototype sauf une liste blanche graphique (une clé de jeu oubliée est protégée par défaut), vérifie la durée
+des animations de déploiement des tourelles et rend `ctx` en lecture seule. Depuis V2b, elle compare par
+copie profonde puis comparaison de contenu : la config `L` EN ENTIER (toutes ses clés, fonctions comprises,
+quel que soit le chemin : `ctx.L`, `require`, table rendue par `L.parse`), `ctx.kit` et le style commun après
+chaque `dress` ; `data.raw` après chaque famille (types surveillés, types des sources, types référencés par
+les sources) puis en entier après la dernière ; le prototype de chaque niveau de nouveau après `icons` et en
+fin de famille. Chaque refus nomme le fichier, le niveau et le chemin exact. Voie officielle pour un visuel
+propre (faisceau, reste, explosion) : `ctx.declare`. Tests hors jeu (`levels_test`) : 69 cas d'agent V3
+(13 acceptés, 56 refusés, motif vérifié pour chaque refus) et 42 sondes, une par clé de `L`, toutes refusées
+avec leur chemin. Sondes dans l'étape data réelle (harness, copie hors dépôt) : 6 modifications interdites
+refusées (l'ancienne garde les acceptait toutes), un faisceau déclaré par niveau accepté (777 prototypes,
+0 erreur, 0 clé de traduction manquante).
+
+**Coût de la garde sur l'étape data** (harness, temps processeur de `prototypes/levels.lua` ; 4 passes
+entrelacées le 21/10 vers 22 h, PC partagé avec d'autres agents : à refaire au calme)
+
+| Variante | `prototypes/levels.lua` | Coût de la garde |
+|---|---|---|
+| Sans garde (V2, garde contournée) | 0,132 à 0,140 s | — |
+| Garde V2 (chaînes sérialisées après chaque `dress`) | 1,70 à 1,79 s | ≈ 1,6 s |
+| Garde V2b (copie unique de data.raw, comparaisons par famille) | 0,74 à 0,94 s | ≈ 0,6 s (- 62 %) |
+
+Plus tôt dans la soirée, sous une charge plus forte, la garde V2 coûtait 3,0 à 3,8 s (0,29 à 0,33 s sans
+garde). Détail de la garde V2b (une passe) : copie de data.raw 0,17 s et **26,6 Mo** de tas Lua passager
+(71,7 Mo avant) ; comparaisons de data.raw 0,35 s (7 familles + la passe finale) ; état partagé 0,03 s ;
+prototypes des niveaux 0,05 s. Estimation (non mesurée dans la garde elle-même) : la garde V2 passait
+l'essentiel de son temps à sérialiser la foreuse source après chacun des 29 `dress` ; son sérialiseur met
+2,8 s pour les 32 foreuses de data.raw, soit environ 90 ms par foreuse. Non mesuré : le temps de chargement
+en moteur réel.
 
 **Défauts connus**
 - Les recherches de dégâts des tourelles listent, dans leur infobulle, 29 lignes de plus par tourelle (une par
