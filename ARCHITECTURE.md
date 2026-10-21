@@ -25,6 +25,7 @@ factorio-overhaul/
 ├── CLAUDE.md                       # mode d'emploi de reprise (Claude Code) : règles, commandes, bancs
 ├── OBJECTIFS.md                    # cahier des charges : demandes, critères d'acceptation, état réel
 ├── ARCHITECTURE.md, BALANCE_SHEET.md, RD_LOG.md
+├── docs/DESIGN_EPOQUES.md          # bible des 15 époques × 7 familles (lot V1) ; docs/epoques/mesures/ : mesures vanilla
 ├── info.json, changelog.txt, settings.lua
 ├── data.lua / data-updates.lua / data-final-fixes.lua   # prototypes uniquement
 ├── control.lua                                          # câblage uniquement

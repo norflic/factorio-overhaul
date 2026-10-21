@@ -339,6 +339,11 @@
 | Q5 | Compaction ×4 : quand ? | « Tout de suite après le visuel » | Phase C juste après la phase V |
 | Q6 | Combien de niveaux par époque ? | 21/10, 18 h 07 : « oui c'est bien » (2 par époque, soit 30 niveaux) | Lot V2 lancé ; 2 × 15 × familles prototypes et visuels |
 | Q7 | La liste des 15 époques du §6 vous convient-elle (thèmes, ressources) ? | 21/10, 18 h 07 : « oui, mais en faite rajoutez carrément des branches de matière noire etc, en mode vraiment un truc avancé (il faut donc imaginer le scénario et les crafts également évidemment) » | §6 validé ; branches avancées, scénario et crafts : lot X0 ; F1-6 |
+| Q8 | Machines « pleines » (four, assembleur) aux époques 10 à 15 : pour passer sous 50 % de recouvrement (D1-3), (a) structures ajourées ou en lévitation, (b) bâtiments bien plus hauts (four ~4 tuiles, assembleur ~5,3 au-dessus de l'emprise), ou (c) seuil assoupli pour ces familles ? (bible V1, `docs/DESIGN_EPOQUES.md` §6, question 1 ; proposition de V1 : a) | **Ouverte** | Fixe la forme des époques hautes et le critère D1-3 |
+| Q9 | Plafonds de hauteur à l'époque 15 au-dessus de l'emprise : tourelles +2,4 à +2,6 tuiles, machines +1,5 à +1,6, mur +1,0, centre +3,6. Plus haut = plus spectaculaire, mais cache les bâtiments au nord | **Ouverte** | Fixe les enveloppes de V3 |
+| Q10 | Une forme commune aux 7 familles par époque, et 5 ères de 3 époques calées sur les paliers T1 à T5 : principe validé ? | **Ouverte** | Structure de toute la production V3 |
+| Q11 | Niveau 1 : sprite vanilla inchangé pour les 6 familles, et centre d'époque 1 redessiné en poste de pionnier ? | **Ouverte** | — |
+| Q12 | Économies sur les tourelles : 1 image de tir au lieu de 2 (−42 % d'images sur la mitrailleuse), déploiement du laser en 8 images au lieu de 15 (−22 %) ? | **Ouverte** | Volume de rendu V3 (≈ 16 500 poses en intégral, 6 800 avec le kit, 5 000 avec ces options) |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -444,7 +449,7 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | P0 Reprise | ✅ | Dépôt git `main` (commit initial `4b2a1e0` = état de fin de session 5). Lua 5.2.4 compilé depuis lua.org (sommes vérifiées), Python 3.14.7 présent. Hors jeu : run 114, war 86, td 270, pteam 15, migration 12, levels 556 ; étape data : 496 prototypes, 0 nouvelle erreur, 0 violation, 0 clé de traduction manquante ; api_lint : 317 usages, 0 erreur. **Moteur réel `content` : 180 OK, 0 échec**, deux fois (avant et après la suppression des orphelins ; E26). Aucune session `fo-visual` ouverte, aucun verrou orphelin. Orphelins supprimés. | 21/10, 17 h 57 |
 | P1 Captures automatiques | ⏳ agent lancé (seul utilisateur du moteur pendant son lot) | — | 21/10, 18 h |
 | V0 Pipeline de rendu | ⏳ agent lancé (hors moteur ; captures en jeu par l'orchestrateur ensuite) | — | 21/10, 18 h |
-| V1 Bible des époques | ⏳ agent lancé | — | 21/10, 18 h |
+| V1 Bible des époques | 🟨 👁 bible livrée et intégrée (`docs/DESIGN_EPOQUES.md`, 1 153 lignes, + `docs/epoques/mesures/`) ; aucune planche (attend V0) ; questions Q8 à Q12 ouvertes ; faits proposés F44 à F49 en vérification adverse avant inscription | Fusion `b1348e2` ; mesures vanilla sourcées fichier par fichier ; rien de vérifié en jeu | 21/10, 18 h 45 |
 | V2 Cadre des 15 époques | ⏳ workflow lancé (Q6 répondue) | — | 21/10, 18 h 10 |
 | X0 Scénario, crafts, branches | ⏳ workflow lancé (Q7 répondue) | — | 21/10, 18 h 10 |
 | IA0 PvP et difficulté | ⏳ workflow lancé (Q4 répondue) | — | 21/10, 18 h 10 |

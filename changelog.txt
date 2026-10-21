@@ -42,6 +42,8 @@ Date: 2026-10-21
     - Reprise dans Claude Code (P0) : dépôt git ; banc de l'étape data utilisable sous Windows ; banc en
       moteur réel capable de tester un worktree (source du mod en paramètre), sans recopier .git ni les
       worktrees, et qui signale un verrou pris (code 2) ; fichiers orphelins de la session 3 supprimés.
+    - Bible des 15 époques (docs/DESIGN_EPOQUES.md) : silhouettes, pièces, matériaux et lumière des 7
+      familles à niveaux, mesures des sprites vanilla.
 ---------------------------------------------------------------------------------------------------
 Version: 0.2.0
 Date: 2026-10-21
