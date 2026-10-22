@@ -69,22 +69,25 @@ check(stocked == 4, "quatre équipes à stock réel (" .. stocked .. ")")
 ---------------------------------------------------------------------------------------------------
 section("Niveaux : sauvegarde 0.3.0 avec un chantier en cours")
 local L = require("shared.levels.config")
+local Foot = require("shared.levels.footprint")
 M.new_game({ p_busy = 0, p_nopath = 0, p_lost = 0 })
 -- Prototypes des niveaux (le moteur simulé ne lit pas l'étape data).
 for _, f in ipairs(L.families) do
   for n = 1, f.max do
+    local cb = Foot.proto_boxes(L.footprint(f, n))
     rawset(W().prototypes, L.name(f, n), {
       type = f.type, max_health = 1000,
       selection_box = { left_top = { x = -f.size / 2, y = -f.size / 2 }, right_bottom = { x = f.size / 2, y = f.size / 2 } },
       -- Lot V3-T : masque de collision (place d'un agrandissement ; le moteur simulé n'a pas d'étape data).
       collision_mask = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true },
+      -- Suite d'intégration de V3-T : boîte de collision du niveau (table L.footprints), comme l'étape data la
+      -- pose ; le moteur simulé en tire bounding_box et la recherche par zone.
+      collision_box = cb,
     })
   end
 end
 rawset(W().prototypes, "stone-wall", { type = "wall", max_health = 350, collision_mask = { ["object-layer"] = true } })
 local s = game.surfaces[1]
--- Lot V3-T : le moteur simulé ne connaît pas les décors (retirés sous un bâtiment agrandi).
-s.destroy_decoratives = function(t) assert(t.area or t.position, "destroy_decoratives : zone attendue") end
 -- Entités telles que 0.3.0 les a laissées : centre niveau 9, mitrailleuse au niveau maximal de 0.3.0 (10),
 -- mur niveau 10, foreuse en chantier 9 → 10 (hors service), foreuse dont le chantier a perdu son bâtiment.
 local cc = s.create_entity({ name = "fo-lvl-command-9", position = { x = 0.5, y = 0.5 }, force = "player" })
@@ -149,9 +152,40 @@ local force = game.forces.player
 local lv = global.fo.levels
 check(Levels.cc_level(force) == 9, "centre niveau 9 reconnu (époque 9)")
 check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté à 18 (0.3.0 : 10)")
+-- Suite d'intégration de V3-T : position attendue d'un bâtiment de la sauvegarde CALCULÉE depuis la table
+-- L.footprints. `sides` : côtés successifs (celui de la sauvegarde d'avant V3-T, puis celui de chaque niveau) ; à
+-- chaque changement de côté, la candidate préférée de la règle d'agrandissement (shared/levels/footprint.lua ; les
+-- zones de ce test sont libres). Table livrée (seule la mitrailleuse grandit) : la foreuse et le centre restent.
+local function expected_at(pos, sides)
+  local at = { x = pos.x, y = pos.y }
+  for i = 2, #sides do
+    if sides[i] ~= sides[i - 1] then
+      local c = Foot.candidates(Foot.tile_box(at, sides[i - 1]), sides[i])[1]
+      at = { x = c.x, y = c.y }
+    end
+  end
+  return at
+end
+local function moved_by_table(pos, f, n)
+  local at = expected_at(pos, { f.size, L.footprint(f, n) })
+  return at.x ~= pos.x or at.y ~= pos.y
+end
 -- Décision V2c : un chantier en cours (déjà payé) est ACHEVÉ au chargement (pas annulé ni remboursé).
-local d10 = s.find_entity("fo-lvl-drill-10", { x = 30, y = 30 })
-check(d10 ~= nil and d10.active ~= false and not drill.valid, "chantier 0.3.0 achevé au chargement : foreuse niveau 10 posée, en service")
+local DR = L.by_key.drill
+local d10_at = expected_at({ x = 30, y = 30 }, { DR.size, L.footprint(DR, 9), L.footprint(DR, 10) })
+local d10 = s.find_entity("fo-lvl-drill-10", d10_at)
+check(d10 ~= nil and d10.position.x == d10_at.x and d10.position.y == d10_at.y and d10.active ~= false and not drill.valid,
+  "chantier 0.3.0 achevé au chargement : foreuse niveau 10 posée (" .. d10_at.x .. " ; " .. d10_at.y .. "), en service")
+-- Correction de la suite : la boîte de ces prototypes est au format de l'ÉTAPE DATA ({ {x, y}, {x, y} },
+-- Foot.proto_boxes) ; le moteur simulé doit la lire (bounding_box = ± (côté / 2 − MARGIN) autour de la position).
+do
+  local h = L.footprint(DR, 10) / 2 - Foot.MARGIN
+  local bb = d10 and d10.bounding_box
+  local function near(a, b) return math.abs(a - b) < 1e-9 end
+  check(bb ~= nil and near(bb.left_top.x, d10_at.x - h) and near(bb.left_top.y, d10_at.y - h)
+    and near(bb.right_bottom.x, d10_at.x + h) and near(bb.right_bottom.y, d10_at.y + h),
+    "moteur simulé : boîte au format de l'étape data lue (foreuse 10 : ± " .. h .. " autour de sa position)")
+end
 check(next(lv.jobs) == nil and next(lv.busy) == nil and lv.time_factor == nil, "plus aucun chantier, ouvrier ni réglage de durée enregistré")
 check(lv.stats.upgrades == 14 and lv.stats.lost == 1 and lv.stats.cancelled == 1 and lv.stats.instant == 40,
   "statistiques 0.3.0 conservées : +2 achevés (foreuse, mitrailleuse), +1 perdu (chantier sans bâtiment) (" .. lv.stats.upgrades .. ", " .. lv.stats.lost .. ")")
@@ -173,11 +207,27 @@ local g13 = s.find_entity("fo-lvl-gun-13", { x = 90, y = 90 })
 check(g13 ~= nil and g13.position.x == 90 and g13.position.y == 90 and not gun_job.valid
   and g13.get_item_count("piercing-rounds-magazine") == 7,
   "V3-T : chantier 0.4.0 d'une mitrailleuse 12 → 13 : bâtiment reposé (3×3) puis chantier ACHEVÉ en 4×4, revenu au centre d'origine, munitions comprises")
-check(lv.stats.migrated == 2 and lv.stats.overlap_kept == 1 and (lv.stats.forced or 0) == 0,
-  "V3-T : statistiques de migration (2 reposées, 1 laissée, 0 forcée) (" .. tostring(lv.stats.migrated) .. ", "
+-- Reposés : les 2 mitrailleuses, plus la foreuse 9 et le centre 9 si la table les fait grandir hors de leur place
+-- (calculé ; 0 avec la table livrée).
+local want_moved = 2 + (moved_by_table({ x = 30, y = 30 }, DR, 9) and 1 or 0)
+  + (moved_by_table({ x = 0.5, y = 0.5 }, L.by_key.command, 9) and 1 or 0)
+check(lv.stats.migrated == want_moved and lv.stats.overlap_kept == 1 and (lv.stats.forced or 0) == 0,
+  "V3-T : statistiques de migration (" .. want_moved .. " reposées, 1 laissée, 0 forcée) (" .. tostring(lv.stats.migrated) .. ", "
   .. tostring(lv.stats.overlap_kept) .. ", " .. tostring(lv.stats.forced) .. ")")
-check(lv.footprints and lv.footprints.gun[6] == 2 and lv.footprints.gun[7] == 3 and lv.footprints.gun[30] == 6
-  and lv.footprints.drill[30] == L.by_key.drill.size, "V3-T : relevé des emprises de la sauvegarde mis à jour")
+-- Le centre a pu être reposé (ligne « command » de la table) : la suite vise le centre SUIVI par la force.
+local cc_now = Levels.cc(force)
+check(cc_now and cc_now.valid and cc_now.name == "fo-lvl-command-9" and (cc_now == cc) == not moved_by_table({ x = 0.5, y = 0.5 }, L.by_key.command, 9),
+  "centre 9 suivi après la migration (même entité si la table ne le fait pas grandir hors de sa place)")
+cc = cc_now
+-- Suite d'intégration de V3-T : relevé comparé à la TABLE (L.footprint), famille par famille, niveau par niveau.
+local relev_ok = lv.footprints ~= nil
+for _, f in ipairs(L.families) do
+  for n = 1, f.max do
+    if not (relev_ok and lv.footprints[f.key] and lv.footprints[f.key][n] == L.footprint(f, n)) then relev_ok = false end
+  end
+end
+check(relev_ok and lv.footprints.gun[6] == 2 and lv.footprints.gun[7] == 3 and lv.footprints.gun[30] == 6,
+  "V3-T : relevé des emprises de la sauvegarde mis à jour (= L.footprint pour chaque famille et chaque niveau)")
 local migrated0, kept0 = lv.stats.migrated, lv.stats.overlap_kept
 local function emprise_lines()
   local n = 0
@@ -239,7 +289,6 @@ local L3 = require("shared.levels.config")       -- instance chargée par le mod
 local Foot3 = require("shared.levels.footprint")
 local Levels3 = require("script.levels.levels")
 local s3 = game.surfaces[1]
-s3.destroy_decoratives = function(t) assert(t.area, "destroy_decoratives : zone attendue") end
 local MASK3 = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true, ["item-layer"] = true }
 local function set_protos()
   for _, f in ipairs(L3.families) do
@@ -255,40 +304,10 @@ local function set_protos()
 end
 set_protos()
 rawset(W().prototypes, "stone-wall", { type = "wall", max_health = 350, collision_mask = MASK3 })
--- Boîte de collision simulée = celle du prototype autour de la position (comme le moteur).
-local probe = s3.create_entity({ name = "stone-wall", position = { x = -900.5, y = -900.5 }, force = "player" })
-local EMT = getmetatable(probe)
-local base_index = EMT.__index
-EMT.__index = function(t, k)
-  if k == "bounding_box" then
-    local cb = W().prototype(rawget(t, "name")).collision_box
-    if cb then
-      return { left_top = { x = t._x + cb.left_top.x, y = t._y + cb.left_top.y },
-               right_bottom = { x = t._x + cb.right_bottom.x, y = t._y + cb.right_bottom.y } }
-    end
-  end
-  return base_index(t, k)
-end
-probe.destroy()
--- Recherche par zone comme le moteur (doc 1.1.91 : « entities colliding with that area ») : par BOÎTE, pas par
--- position (le moteur simulé ne regarde que la position ; un voisin déjà grossi qui déborde dans la zone serait
--- manqué).
-local raw_find = s3.find_entities_filtered
-s3.find_entities_filtered = function(t)
-  if not t.area or t.invert or t.type == "resource" then return raw_find(t) end
-  local a = t.area
-  local wide = {}
-  for k, v in pairs(t) do wide[k] = v end
-  wide.area = { { a[1][1] - 4, a[1][2] - 4 }, { a[2][1] + 4, a[2][2] + 4 } }
-  local out = {}
-  for _, e in ipairs(raw_find(wide)) do
-    local bb = e.bounding_box
-    if bb.left_top.x < a[2][1] and a[1][1] < bb.right_bottom.x and bb.left_top.y < a[2][2] and a[1][2] < bb.right_bottom.y then
-      out[#out + 1] = e
-    end
-  end
-  return out
-end
+-- Boîte de collision (bounding_box) et recherche par zone (« entities colliding with that area », doc 1.1.91) :
+-- le moteur simulé les fait suivre la boîte du prototype (tests/mock_engine.lua, suite d'intégration de V3-T ;
+-- l'enveloppe locale qui le faisait ici en attendant est retirée). Un voisin déjà grossi qui déborde dans la
+-- zone est donc vu.
 local hooked = {}
 table.insert(Levels3.on_replaced, function(old_unit, new) hooked[#hooked + 1] = { old_unit, new } end)
 -- Bâtiments posés par 0.4.1 à l'ANCIENNE taille (2×2, positions entières) :
@@ -354,6 +373,14 @@ check(g7 and not g6.valid and g7.get_item_count("piercing-rounds-magazine") == 3
 check(gw7 ~= nil and gw7.position.x == 69.5 and gw7.position.y == 50.5 and not gw6.valid,
   "chantier forcé : position la plus facile à libérer (sud-ouest, un mur), jamais la préférée dans l'eau")
 check(lv3.stats.migrated == 3 and (lv3.stats.overlap_kept or 0) == 0, "statistiques : 3 reposées, 0 laissée (" .. tostring(lv3.stats.migrated) .. ")")
+-- Suite d'intégration de V3-T : décors retirés par le moteur simulé (tests/mock_engine.lua), une zone par bâtiment
+-- reposé, carrée, du côté du nouveau bâtiment (3×3 ici : toutes ces mitrailleuses passent en 3×3).
+local cleared, square3 = W().decoratives_cleared or {}, true
+for _, a in ipairs(cleared) do
+  if a[2][1] - a[1][1] ~= 3 or a[2][2] - a[1][2] ~= 3 then square3 = false end
+end
+check(#cleared == lv3.stats.resized and #cleared == 5 and square3,
+  "décors retirés sous chaque bâtiment reposé : " .. #cleared .. " zones 3×3 pour " .. tostring(lv3.stats.resized) .. " remplacements (3 migrées, 2 forcées)")
 -- Le filet ne refait rien ensuite (relevé à jour).
 local m3, k3, l3 = lv3.stats.migrated, lv3.stats.overlap_kept or 0, #W().logs
 ok, err = pcall(M.run_ticks, 90)
@@ -361,6 +388,10 @@ check(ok and lv3.stats.migrated == m3 and (lv3.stats.overlap_kept or 0) == k3 an
   "filet : 3 passages de plus, rien à refaire, rien de journalisé (" .. tostring(err) .. ")")
 -- Défaut 12 : CENTRE suivi pendant la migration. Ligne « command » temporaire (activation par la table) : le
 -- centre 9 passe de 4×4 à 6×6 ; un mur bloque les positions centrée, sud et est : il est reposé à l'ouest.
+local before_cmd = L3.footprints.command  -- remise ensuite telle quelle (suite d'intégration de V3-T)
+-- Sauvegarde écrite AVANT l'activation de la ligne : relevé du centre au côté de base (sans effet avec la table
+-- livrée ; nécessaire quand la ligne « command » y est déjà, sinon rien ne change entre relevé et table).
+for n = 1, L3.by_key.command.max do lv3.footprints.command[n] = L3.by_key.command.size end
 L3.footprints.command = { era = { 4, 5, 6, 7, 8 } }
 set_protos()
 local cc3 = s3.create_entity({ name = "fo-lvl-command-9", position = { x = 100, y = 100 }, force = "player" })
@@ -378,7 +409,74 @@ check(ok and cc_new and not cc3.valid and cc_new.position.x == 99 and cc_new.pos
 ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.1", new_version = "0.4.2" } } })
 check(ok and lv3.cc.player == cc_new and Levels3.cc_level(game.forces.player) == 9,
   "réparation au changement de version : le centre reposé reste le centre (pas oublié) (" .. tostring(err) .. ")")
-L3.footprints.command = nil
+L3.footprints.command = before_cmd
+
+-- Suite d'intégration de V3-T : Levels.transfer sur des entités du MOTEUR SIMULÉ (plus de doublure) : réglages du
+-- circuit d'une foreuse (get_control_behavior, get_or_create_control_behavior) et recette d'un assembleur
+-- (get_recipe, set_recipe), ce qu'un agrandissement de foreuse ou d'assembleur transfère.
+local dra = s3.create_entity({ name = "fo-lvl-drill-12", position = { x = 200.5, y = 200.5 }, force = "player" })
+local drb = s3.create_entity({ name = "fo-lvl-drill-13", position = { x = 210, y = 200 }, force = "player" })
+check(dra.get_control_behavior() == nil, "moteur simulé : une foreuse sans fil ni réglage n'a pas de comportement de circuit (nil, comme le moteur)")
+local cba = dra.get_or_create_control_behavior()
+cba.circuit_enable_disable, cba.circuit_read_resources, cba.resource_read_mode = true, true, 1
+cba.circuit_condition = { condition = { comparator = ">", first_signal = { type = "item", name = "iron-ore" }, constant = 50 } }
+-- Correction de la suite : réseau logistique et condition logistique aussi réglés hors de leurs valeurs par défaut
+-- (avant, seul « false » était vérifié : une régression de leur transfert passait inaperçue).
+cba.connect_to_logistic_network = true
+cba.logistic_condition = { condition = { comparator = "=", first_signal = { type = "item", name = "copper-ore" }, constant = 7 } }
+local asa = s3.create_entity({ name = "fo-lvl-assembler-12", position = { x = 220.5, y = 200.5 }, force = "player" })
+local asb = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 230, y = 200 }, force = "player" })
+asa.set_recipe("iron-gear-wheel")
+asa.insert({ name = "iron-plate", count = 6 })
+local ok_tr, err_tr = pcall(function() Levels3.transfer(dra, drb); Levels3.transfer(asa, asb) end)
+local cbb = drb.get_control_behavior()
+check(ok_tr and cbb and cbb.circuit_enable_disable == true and cbb.circuit_read_resources == true and cbb.resource_read_mode == 1
+  and cbb.connect_to_logistic_network == true and cbb.circuit_condition.condition.comparator == ">"
+  and cbb.circuit_condition.condition.constant == 50
+  and cbb.logistic_condition.condition.comparator == "=" and cbb.logistic_condition.condition.constant == 7
+  and cbb.logistic_condition.condition.first_signal.name == "copper-ore",
+  "Levels.transfer en moteur simulé : réglages du circuit de la foreuse recopiés (activation, lecture, mode, condition, réseau et condition logistiques) ("
+  .. tostring(err_tr) .. ")")
+check(ok_tr and asb.get_recipe() and asb.get_recipe().name == "iron-gear-wheel" and asb.get_item_count("iron-plate") == 6
+  and asa.get_item_count("iron-plate") == 0,
+  "Levels.transfer en moteur simulé : recette de l'assembleur recopiée, contenu transféré")
+
+-- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une
+-- mutation de tests/mock_engine.lua doit casser ce banc). Le CONTACT BORD À BORD est exclu : c'est le choix du
+-- moteur simulé, pas un fait observé en moteur réel (les boîtes du mod, réduites de MARGIN, ne s'y frottent pas).
+-- Boîtes de ± 0,75 (exactes en binaire) posées loin du reste, en (−500 ; −500) et (−498,5 ; −500) : elles se
+-- touchent en x = −499,25.
+rawset(W().prototypes, "test-edge-box", { type = "container", max_health = 10,
+  collision_box = { left_top = { x = -0.75, y = -0.75 }, right_bottom = { x = 0.75, y = 0.75 } } })
+rawset(W().prototypes, "test-edge-item", { type = "item-entity", max_health = 10,
+  collision_box = { left_top = { x = -0.14, y = -0.14 }, right_bottom = { x = 0.14, y = 0.14 } } })
+local ea = s3.create_entity({ name = "test-edge-box", position = { x = -500, y = -500 }, force = "player" })
+local eb = s3.create_entity({ name = "test-edge-box", position = { x = -498.5, y = -500 }, force = "player" })
+local ei = s3.create_entity({ name = "test-edge-item", position = { x = -500, y = -500 }, force = "neutral" })
+local function found(area, extra)
+  local q = { area = area }
+  for k, v in pairs(extra or {}) do q[k] = v end
+  local has = {}
+  for _, e in ipairs(s3.find_entities_filtered(q)) do has[e] = true end
+  return has
+end
+local in_a = found({ { -500.75, -500.75 }, { -499.25, -499.25 } })
+check(in_a[ea] and not in_a[eb], "moteur simulé : zone égale à la boîte d'un bâtiment, le voisin qui la touche bord à bord n'est pas rendu")
+local in_ab = found({ { -500.75, -500.75 }, { -499.24, -499.25 } })
+check(in_ab[ea] and in_ab[eb], "moteur simulé : zone qui mord de 0,01 dans la boîte du voisin, les deux sont rendus")
+local only_player = found({ { -501, -501 }, { -499, -499 } }, { collision_mask = "player-layer" })
+local only_item = found({ { -501, -501 }, { -499, -499 } }, { collision_mask = { "item-layer" } })
+check(only_player[ea] and not only_player[ei] and only_item[ea] and only_item[ei],
+  "moteur simulé : filtre collision_mask (objet au sol : couche item-layer seule ; conteneur : masque des bâtiments par défaut)")
+-- Prototypes intégrés du moteur simulé : boîtes vanilla (gun-turret ± 0,7 ; QG = épave décentrée).
+local gt = s3.create_entity({ name = "gun-turret", position = { x = -480, y = -480 }, force = "player" })
+local hq = s3.create_entity({ name = "fo-faction-hq", position = { x = -460, y = -460 }, force = "player" })
+local gb, hb = gt.bounding_box, hq.bounding_box
+check(math.abs(gb.left_top.x + 480.7) < 1e-9 and math.abs(gb.right_bottom.y + 479.3) < 1e-9
+  and math.abs(hb.left_top.x + 468.7) < 1e-9 and math.abs(hb.right_bottom.x + 453.1) < 1e-9
+  and math.abs(hb.left_top.y + 463.3) < 1e-9 and math.abs(hb.right_bottom.y + 455.5) < 1e-9,
+  "moteur simulé : boîtes des prototypes intégrés = vanilla (mitrailleuse ± 0,7 ; QG -8,7 / -3,3 / 6,9 / 4,5)")
+for _, e in ipairs({ ea, eb, ei, gt, hq }) do e.destroy() end
 
 print(string.format("\n%d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
