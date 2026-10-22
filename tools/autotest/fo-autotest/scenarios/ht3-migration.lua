@@ -195,13 +195,16 @@ local function build_defense(s, c, force)
   if ins then ins.get_fuel_inventory().insert({ name = "coal", count = 20 }) end
   local src, fed = nil, 0
   if c.feed == "belt" then
-    src = s.create_entity({ name = "transport-belt", position = { c.x - 0.5, c.y + 2.5 },
-      direction = defines.direction.east, force = force, raise_built = true })
-    if src then
-      for line = 1, 2 do
-        local tl = src.get_transport_line(line)
-        for _ = 1, 4 do
-          if tl.insert_at_back({ name = c.ammo[1], count = 1 }) then fed = fed + 1 end
+    -- Ligne de 4 convoyeurs vers l'est, la dernière tuile sous la prise du bras. Sans tick écoulé, insert_at_back
+    -- n'accepte qu'un objet par voie et par convoyeur (moteur réel, 22/10 : 2 sur 8 avec un seul convoyeur) :
+    -- 4 convoyeurs × 2 voies = 8 chargeurs, qui avancent ensuite jusqu'à la prise.
+    for k = 3, 0, -1 do
+      local b = s.create_entity({ name = "transport-belt", position = { c.x - 0.5 - k, c.y + 2.5 },
+        direction = defines.direction.east, force = force, raise_built = true })
+      if b then
+        if k == 0 then src = b end
+        for line = 1, 2 do
+          if b.get_transport_line(line).insert_at_back({ name = c.ammo[1], count = 1 }) then fed = fed + 1 end
         end
       end
     end
