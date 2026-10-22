@@ -399,6 +399,30 @@ return {
     end
     ctx.check(#wrong == 0, "cas libres et centres : reposes ou deja en place selon la regle, centre 6 cerne laisse",
       #wrong > 0 and table.concat(wrong, " ") or (#keys .. " cas conformes"))
+    -- Correction V3-T2 (défaut 17) : attentes NOMINATIVES pour l'usine dense aussi (avant, « laissé » était accepté
+    -- sans condition et le journal attendu se déduisait de l'état final : une migration qui laissait à tort une
+    -- machine pourtant libre passait). Assembleurs collés, bras au nord et au sud : aucune croissance possible ;
+    -- colonne de fours, bras à l'ouest et à l'est : idem ; foreuses : celles des bouts de chaque rangée ont une
+    -- colonne libre (et leur dépôt reste sur le convoyeur), celle du milieu non ; lasers collés : les deux bouts.
+    local want_dense = {}
+    for k = 1, 6 do
+      want_dense["dense-assembleur-" .. k] = "kept"
+      want_dense["dense-four-" .. k] = "kept"
+      want_dense["dense-laser-" .. k] = (k == 1 or k == 6) and "moved" or "kept"
+    end
+    for k = 1, 3 do
+      want_dense["dense-foreuse-n" .. k] = (k == 2) and "kept" or "moved"
+      want_dense["dense-foreuse-s" .. k] = (k == 2) and "kept" or "moved"
+    end
+    local wrong_d, dkeys = {}, {}
+    for k in pairs(want_dense) do dkeys[#dkeys + 1] = k end
+    table.sort(dkeys)
+    for _, k in ipairs(dkeys) do
+      local f = st.final[k]
+      if not (f and f.kind == want_dense[k]) then wrong_d[#wrong_d + 1] = k .. "=" .. tostring(f and f.kind) .. "/" .. want_dense[k] end
+    end
+    ctx.check(#wrong_d == 0, "usine dense : chaque machine reposee ou laissee comme la regle le fixe (bouts de rangee reposes, le reste laisse)",
+      #wrong_d > 0 and table.concat(wrong_d, " ") or (#dkeys .. " machines conformes"))
     -- Paires collées : sans chevauchement entre elles.
     for _, p in ipairs({ { "laserA", "laserB" }, { "fourA", "fourB" }, { "foreuseA", "foreuseB" }, { "assembleurA", "assembleurB" } }) do
       local a, b = st.final[p[1]], st.final[p[2]]
@@ -459,6 +483,18 @@ return {
       if f and f.kind == "kept" then ctx.log("JOURNAL ATTENDU : laisse " .. r.name .. " en " .. tostring(r.x) .. ", " .. tostring(r.y)) end
     end
     ctx.log(string.format("JOURNAL ATTENDU : bilan %d %d %d voie %s", count.moved, count.inplace, count.kept, st.first_stale and "filet" or "repair"))
+    -- Correction V3-T2 (défaut 9) : un message aux joueurs par force qui a des bâtiments laissés (aucun doublon hérité).
+    local per_force, fnames = {}, {}
+    for _, r in ipairs(st.rec) do
+      local f = st.final[r.key]
+      if f and f.kind == "kept" then
+        if not per_force[r.force] then per_force[r.force] = 0; fnames[#fnames + 1] = r.force end
+        per_force[r.force] = per_force[r.force] + 1
+      end
+    end
+    table.sort(fnames)
+    for _, fname in ipairs(fnames) do ctx.log(string.format("JOURNAL ATTENDU : message %s %d 0", fname, per_force[fname])) end
+    ctx.check(s1.stacked == 0, "aucun doublon superpose herite dans cette carte (Levels.find_stacked)", "stacked " .. tostring(s1.stacked))
   end,
 
   finish = function(ctx)
@@ -589,6 +625,8 @@ return {
 
   shots = function(ctx, add)
     add("migration-libres", X0 + 70, Y0 + 12, 0.7, 0)
-    add("migration-usine-dense", X0 + 50, Y0 + 48, 0.8, 0)
+    -- Correction V3-T2 (défaut 12) : usine dense en deux vues entières (assembleurs et fours ; foreuses et lasers).
+    add("migration-dense-assembleurs-fours", X0 + 26, Y0 + 50, 1.0, 0)
+    add("migration-dense-foreuses-lasers", X0 + 76, Y0 + 48, 1.0, 0)
   end,
 }

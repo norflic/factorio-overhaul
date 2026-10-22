@@ -27,6 +27,9 @@
     quel. Sauvegarde d'avant V3-T : les bâtiments dont l'emprise a changé sont réinstallés au chargement
     (Levels.migrate_footprints), sur on_configuration_changed ET, à défaut (sauvegarde rechargée sans
     changement de version), au premier passage du filet on_nth_tick(30).
+  - POINTS SERVIS (lot V3-T2, correction) : une position qui ferait sortir le point de dépôt d'une foreuse de son
+    coffre (ou de son convoyeur), ou un raccord de tuyau de son tuyau, n'est pas libre (Levels.served_points,
+    shared/levels/points.lua) ; le contour montre l'entité servie en jaune.
   Déterminisme : tout se passe dans des événements ; listes triées (chantiers hérités par numéro, surfaces
   par index), jamais l'ordre de pairs.
 ]]
@@ -35,6 +38,7 @@ local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
+local Points = require("shared.levels.points")
 
 local Levels = {}
 
@@ -338,6 +342,24 @@ local function shares(layers, mask)
   return false
 end
 
+--- `e` bloquerait-il le remplacement de `entity` (masque du nouveau prototype : `layers`) ? Tout sauf l'ancien
+--- bâtiment, les types de NON_BLOCKING et ce qui ne partage aucune couche (fantôme, ressource, cadavre).
+local function blocks(entity, e, layers)
+  return e.valid and e ~= entity and not Levels.NON_BLOCKING[e.type] and shares(layers, e.prototype.collision_mask)
+end
+
+--- Clé d'une entité (numéro d'unité ; sinon nom et position) : un même enregistrement par entité (Levels.room).
+local function entity_key(e)
+  return e.unit_number or (e.name .. "@" .. e.position.x .. "," .. e.position.y)
+end
+
+--- Enregistrement d'une gêne (données simples) : boîte de collision sur la carte, nom, type, position.
+local function record(e)
+  local bb = e.bounding_box
+  return { box = { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y },
+           name = e.name, type = e.type, x = e.position.x, y = e.position.y }
+end
+
 --- Carré de tuiles qui représente l'emprise ACTUELLE de `entity` (côté `side`) pour la règle de position.
 --- Sur la grille : le carré exact. HORS grille (lot V3-T2 : bâtiment « laissé en place » par une migration, F76 : un
 --- côté impair centré sur un coin de tuile, ou l'inverse ; les deux axes à la fois pour un bâtiment carré posé à
@@ -386,26 +408,96 @@ function Levels.room(entity, old_side, new_name, new_side)
     end
   end
   -- Entités qui touchent la zone (moteur : boîte de collision) et partagent une couche, sauf l'ancien bâtiment.
-  local blockers = {}
+  local blockers, by_key = {}, {}
   if #layers > 0 then
     local found = surface.find_entities_filtered({ area = { { area.x0, area.y0 }, { area.x1, area.y1 } } })
     for _, e in ipairs(found) do
-      if e.valid and e ~= entity and not Levels.NON_BLOCKING[e.type] and shares(layers, e.prototype.collision_mask) then
-        local bb = e.bounding_box
-        blockers[#blockers + 1] = {
-          box = { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y },
-          name = e.name, type = e.type, x = e.position.x, y = e.position.y,
-        }
+      if blocks(entity, e, layers) then
+        local rec = record(e)
+        blockers[#blockers + 1] = rec
+        by_key[entity_key(e)] = rec
       end
     end
   end
+  -- Lot V3-T2 (correction, défauts 1 et 6) : positions qui déplaceraient un point de jeu servi = bloquées.
+  local points = Levels.served_points(entity, old_side, new_side, layers, by_key)
+  Points.mark(cands, points)
   local res = Foot.evaluate(cands, tiles, blockers, Foot.MARGIN)
-  res.from, res.to, res.box_old = old_side, new_side, old_box
+  res.from, res.to, res.box_old, res.points = old_side, new_side, old_box, points
   return res
 end
 
+--- Types de convoyeurs (1.1.91) : un dépôt de foreuse sur l'un d'eux reste servi par n'importe lequel (Points.mark, alt).
+local BELT_LIST = { "transport-belt", "underground-belt", "splitter", "linked-belt", "loader", "loader-1x1" }
+local BELT_TYPES = {}
+for _, t in ipairs(BELT_LIST) do BELT_TYPES[t] = true end
+
+--- Points de jeu SERVIS de `entity` pour un passage du côté from au côté to (lot V3-T2, correction des défauts 1 et
+--- 6 du correcteur ; règle : shared/levels/points.lua) : le point de dépôt d'une foreuse (drop_position) et les
+--- raccords de tuyau de ses boîtes à fluide actives (get_pipe_connections : target_position, raccords souterrains
+--- exclus), lus sur l'entité, ramenés à l'orientation nord, puis portés à l'ANCIEN côté (from) et au NOUVEAU (to).
+--- Un point est servi si une entité qui bloquerait le nouveau bâtiment (blocks) se trouve à l'ancien point (pour un
+--- raccord : une entité à boîte à fluide). Migration (le prototype a déjà la nouvelle taille, F76) : les points lus
+--- sont ceux du NOUVEAU prototype à l'ancienne position ; l'ancien point est recalculé par la règle (base, puis
+--- from). by_key : enregistrements des gênes de Levels.room (même table pour une même entité : pas de doublon dans
+--- Foot.evaluate). Renvoie { { rel, box, kind, entity } } (Points.mark).
+function Levels.served_points(entity, from, to, layers, by_key)
+  local out = {}
+  local family, lvl = L.parse(entity.name)
+  if not family or #layers == 0 then return out end
+  local raw = {}
+  if entity.type == "mining-drill" then
+    local d = entity.drop_position
+    if d then raw[#raw + 1] = { kind = "drop", x = d.x, y = d.y } end
+  end
+  local fb = entity.fluidbox
+  if fb then
+    for i = 1, #fb do
+      for _, pc in ipairs(fb.get_pipe_connections(i) or {}) do
+        if pc.connection_type ~= "underground" and pc.target_position then
+          raw[#raw + 1] = { kind = "pipe", x = pc.target_position.x, y = pc.target_position.y }
+        end
+      end
+    end
+  end
+  if #raw == 0 then return out end
+  -- Côté du prototype ACTUEL (table : la boîte de sélection d'un prototype vanilla n'est pas toujours carrée).
+  local pos, dir, cur = entity.position, entity.direction or 0, L.footprint(family, lvl)
+  local surface = entity.surface
+  for _, r in ipairs(raw) do
+    local rel = Points.unrotate({ x = r.x - pos.x, y = r.y - pos.y }, dir)
+    local t = Points.transpose(rel, family.size, cur, from, to, dir)
+    local px, py = pos.x + t.old.x, pos.y + t.old.y
+    local found = surface.find_entities_filtered({ area = { { px - 0.01, py - 0.01 }, { px + 0.01, py + 0.01 } } })
+    for _, e in ipairs(found) do
+      if blocks(entity, e, layers) and (r.kind ~= "pipe" or (e.fluidbox and #e.fluidbox > 0)) then
+        local key = entity_key(e)
+        local rec = (by_key and by_key[key]) or record(e)
+        if by_key then by_key[key] = rec end
+        if Points.inside(rec.box, px, py) then
+          local pt = { rel = t.new, box = rec.box, kind = r.kind, entity = rec, x = px, y = py }
+          -- Dépôt sur un convoyeur : tout convoyeur au nouveau point le sert aussi (même ligne en général).
+          if r.kind == "drop" and BELT_TYPES[e.type] then
+            local nx, ny = pos.x + t.new.x, pos.y + t.new.y
+            local reach = math.abs(to - from) + 1
+            pt.alt = {}
+            for _, o in ipairs(surface.find_entities_filtered({ area = { { nx - reach, ny - reach }, { nx + reach, ny + reach } },
+                type = BELT_LIST })) do
+              if o.valid and o ~= e then pt.alt[#pt.alt + 1] = record(o).box end
+            end
+          end
+          out[#out + 1] = pt
+          break
+        end
+      end
+    end
+  end
+  return out
+end
+
 --- Ce qui bloque une candidate, en texte court et trié : « [entity=stone-wall]×2 [tile=water]×3 » (texte
---- enrichi du moteur, sans clé de traduction : les icônes suffisent). Vide si rien.
+--- enrichi du moteur, sans clé de traduction : les icônes suffisent). Vide si rien. Lot V3-T2 : une entité dont
+--- un point de jeu servi sortirait (cand.moved) compte comme une gêne (la retirer libère la position).
 function Levels.blockers_text(cand)
   if not cand then return "" end
   local count, names = {}, {}
@@ -414,6 +506,7 @@ function Levels.blockers_text(cand)
     count[tag] = count[tag] + 1
   end
   for _, e in ipairs(cand.entities or {}) do add("[entity=" .. e.name .. "]") end
+  for _, e in ipairs(cand.moved or {}) do add("[entity=" .. e.name .. "]") end
   for _, t in ipairs(cand.tiles or {}) do add("[tile=" .. t.name .. "]") end
   table.sort(names)
   local parts = {}
@@ -421,11 +514,13 @@ function Levels.blockers_text(cand)
   return table.concat(parts, " ")
 end
 
---- Noms de ce qui bloque une candidate (interface distante, tests) : entités puis « tile:<nom> », triés.
+--- Noms de ce qui bloque une candidate (interface distante, tests) : entités, « point:<nom> » pour une entité dont
+--- un point de jeu servi sortirait (lot V3-T2), « tile:<nom> » pour une tuile ; triés.
 function Levels.blocker_names(cand)
   local out = {}
   if not cand then return out end
   for _, e in ipairs(cand.entities or {}) do out[#out + 1] = e.name end
+  for _, e in ipairs(cand.moved or {}) do out[#out + 1] = "point:" .. e.name end
   for _, t in ipairs(cand.tiles or {}) do out[#out + 1] = "tile:" .. t.name end
   table.sort(out)
   return out
@@ -456,6 +551,12 @@ local function draw_contour(entity, room, player, ttl, preview)
     if marks >= Levels.CONTOUR_MAX_MARKS then break end
     marks = marks + 1
     rect(e.box.x0, e.box.y0, e.box.x1, e.box.y1, { r = 1, g = 0.1, b = 0.1, a = 0.9 }, 2, false)
+  end
+  -- Lot V3-T2 : entité servie dont le point de jeu sortirait à cette position (coffre d'une foreuse, tuyau) : jaune.
+  for _, e in ipairs(cand.moved or {}) do
+    if marks >= Levels.CONTOUR_MAX_MARKS then break end
+    marks = marks + 1
+    rect(e.box.x0, e.box.y0, e.box.x1, e.box.y1, { r = 1, g = 0.9, b = 0.1, a = 0.9 }, 2, false)
   end
   for _, t in ipairs(cand.tiles or {}) do
     if marks >= Levels.CONTOUR_MAX_MARKS then break end
@@ -494,10 +595,30 @@ local DRILL_CB_KEYS = { "circuit_enable_disable", "connect_to_logistic_network",
 --- reste par contenu, dans l'ordre des noms (cases en nombre différent ; moteur simulé). Dernier recours, jamais
 --- attendu (le niveau suivant a au moins les cases du précédent) : renversé au pied du bâtiment, compté et
 --- journalisé. Renvoie le nombre d'objets renversés.
+--- Lot V3-T2 (correction, défaut 3) : filtres des cases recopiés AVANT les objets (une case filtrée n'accepte que
+--- son objet), barre rouge (« bar », limite des bras) APRÈS, et seulement si elle limitait l'ancien inventaire
+--- (get_bar ≤ nombre de cases) : sinon la nouvelle garde sa barre par défaut (aucune limite) ; recopier l'index d'un
+--- inventaire sans limite bornerait le plus grand inventaire du nouveau bâtiment à la taille de l'ancien.
+local function inventory_settings(oi, ni, phase)
+  if not (oi and ni) then return end
+  if phase == "filters" then
+    if oi.supports_filters and oi.supports_filters() and ni.supports_filters() and oi.is_filtered() then
+      for k = 1, math.min(#oi, #ni) do
+        local f = oi.get_filter(k)
+        if f and ni.can_set_filter(k, f) then ni.set_filter(k, f) end
+      end
+    end
+  elseif oi.supports_bar and oi.supports_bar() and ni.supports_bar() then
+    local bar = oi.get_bar()
+    if bar <= #oi then ni.set_bar(bar) end
+  end
+end
+
 local function transfer_inventories(old, new)
   local spilled = 0
   for i = 1, 10 do
     local oi = old.get_inventory(i)
+    inventory_settings(oi, new.get_inventory(i), "filters")
     if oi and not oi.is_empty() then
       local ni = new.get_inventory(i)
       if ni then
@@ -524,6 +645,7 @@ local function transfer_inventories(old, new)
         end
       end
     end
+    inventory_settings(oi, new.get_inventory(i), "bar")
   end
   return spilled
 end
@@ -545,8 +667,22 @@ local function resume_later(old, new)
   local st = S()
   for _, ing in ipairs(recipe.ingredients) do
     if ing.type == "fluid" then
-      if new.insert_fluid({ name = ing.name, amount = ing.amount }) < ing.amount - 1e-6 then
-        log("[FO-LEVELS] agrandissement : fluide de la fabrication en cours non rendu en entier (" .. ing.name .. ")")
+      -- Correction V3-T2 (défaut 4) : température de l'ancienne boîte qui porte ce fluide, sinon le minimum de la
+      -- recette (sans elle, le moteur prend la température par défaut du fluide : une recette à vapeur chaude ne
+      -- l'accepterait pas) ; ce qui n'entre pas est COMPTÉ (fluid_lost, interface distante levels_status).
+      local temp = ing.minimum_temperature
+      local ofb = old.fluidbox
+      for k = 1, (ofb and #ofb or 0) do
+        local f = ofb[k]
+        if f and f.name == ing.name and f.temperature then
+          temp = f.temperature
+          break
+        end
+      end
+      local put = new.insert_fluid({ name = ing.name, amount = ing.amount, temperature = temp })
+      if put < ing.amount - 1e-6 then
+        st.stats.fluid_lost = (st.stats.fluid_lost or 0) + (ing.amount - put)
+        log("[FO-LEVELS] agrandissement : " .. (ing.amount - put) .. " " .. ing.name .. " de la fabrication en cours non rendu(s) (boîte pleine)")
       end
     else
       local put = new.insert({ name = ing.name, count = ing.amount })
@@ -566,6 +702,29 @@ end
 --- Repose les progressions notées par resume_later (dans l'ordre des numéros) : machine qui fabrique la même recette
 --- → progression et bonus de productivité recopiés, entrée retirée ; machine disparue, autre recette, ou délai
 --- dépassé → entrée retirée. Renvoie le nombre de progressions reposées.
+--- Une entrée de `pending` (numéro u) : machine qui fabrique → entrée retirée, progression reposée si c'est la même
+--- recette (renvoie true) ; machine disparue ou délai dépassé → retirée ; sinon gardée.
+local function resume_one(pending, u)
+  local rec = pending[u]
+  local e = rec.entity
+  if not (e and e.valid) then
+    pending[u] = nil
+  elseif e.is_crafting() then
+    pending[u] = nil
+    local r = e.get_recipe() or (e.type == "furnace" and e.previous_recipe) or nil
+    if r and r.name == rec.recipe then
+      e.crafting_progress = rec.progress
+      if rec.bonus > 0 then e.bonus_progress = rec.bonus end
+      local st = S()
+      st.stats.resumed = (st.stats.resumed or 0) + 1
+      return true
+    end
+  elseif game.tick - rec.tick > Levels.PENDING_TTL then
+    pending[u] = nil
+  end
+  return false
+end
+
 function Levels.resume_progress()
   local pending = S().pending
   if not pending or next(pending) == nil then return 0 end
@@ -574,25 +733,7 @@ function Levels.resume_progress()
   table.sort(units)
   local done = 0
   for _, u in ipairs(units) do
-    local rec = pending[u]
-    local e = rec.entity
-    if not (e and e.valid) then
-      pending[u] = nil
-    elseif e.is_crafting() then
-      local r = e.get_recipe() or (e.type == "furnace" and e.previous_recipe) or nil
-      if r and r.name == rec.recipe then
-        e.crafting_progress = rec.progress
-        if rec.bonus > 0 then e.bonus_progress = rec.bonus end
-        done = done + 1
-      end
-      pending[u] = nil
-    elseif game.tick - rec.tick > Levels.PENDING_TTL then
-      pending[u] = nil
-    end
-  end
-  if done > 0 then
-    local st = S()
-    st.stats.resumed = (st.stats.resumed or 0) + done
+    if resume_one(pending, u) then done = done + 1 end
   end
   return done
 end
@@ -637,6 +778,13 @@ function Levels.transfer(old, new)
     -- progression reportée au premier tick où elle fabrique de nouveau la même recette (resume_progress).
     local pending = S().pending
     local waiting = pending and old.unit_number and pending[old.unit_number]
+    -- Correction V3-T2 (défauts 2 et 15) : la machine a DÉJÀ repris une fabrication (elle a consommé les ingrédients
+    -- rendus) avant que resume_progress ne passe (amélioration traitée avant le on_tick du tick suivant) : la
+    -- progression notée est reposée d'abord ; c'est alors une fabrication en cours comme une autre (ci-dessous).
+    if waiting and old.is_crafting and old.is_crafting() then
+      resume_one(pending, old.unit_number)
+      waiting = nil
+    end
     if waiting then
       -- Machine agrandie de nouveau avant d'avoir repris (deux améliorations dans le même tick) : la progression
       -- notée suit la nouvelle machine (ses ingrédients ont déjà été rendus, une seule fois).
@@ -647,7 +795,8 @@ function Levels.transfer(old, new)
     elseif old.is_crafting and old.is_crafting() then
       out.resumed = resume_later(old, new)
     else
-      carry("crafting_progress")
+      -- Correction V3-T2 (défaut 10) : crafting_progress n'est plus recopiée hors fabrication (F84 : l'écrire sur une
+      -- machine à l'arrêt lance une fabrication SANS prendre d'ingrédients) ; le bonus de productivité, si.
       carry("bonus_progress")
     end
   elseif old.type == "mining-drill" then
@@ -765,9 +914,13 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
       .. cand.x .. ", " .. cand.y .. " ; gêne : " .. Levels.blockers_text(cand))
   end
   local surface, force, dir = entity.surface, entity.force, entity.direction
+  -- Correction V3-T2 (moteur réel, 22/10) : un assembleur n'est orientable qu'avec une recette à fluide ; créé sans
+  -- recette, create_entity ignore la direction (assembleurs tournés vers l'est, le sud ou l'ouest revenus au nord,
+  -- tuyau perdu). La recette est donc donnée à la création (Levels.transfer la repose ensuite, sans effet).
+  local recipe = entity.type == "assembling-machine" and entity.get_recipe() or nil
   st.replacing = true
   local new = surface.create_entity({
-    name = name, position = { x = cand.x, y = cand.y }, direction = dir, force = force,
+    name = name, position = { x = cand.x, y = cand.y }, direction = dir, force = force, recipe = recipe and recipe.name or nil,
     raise_built = true, create_build_effect_smoke = false, move_stuck_players = true,
   })
   st.replacing = false
@@ -791,6 +944,15 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
     log("[FO-LEVELS] agrandissement : " .. gl .. " objet(s) au sol laissé(s) sous " .. name .. " (aucune place libre autour)")
   end
   entity.destroy({ raise_destroy = false })
+  -- Correction V3-T2 (moteur réel, 22/10) : le nouveau bâtiment, créé quand l'ancien existait encore, n'est PAS raccordé
+  -- aux tuyaux que l'ancien occupait (le raccord du tuyau était pris ; personne ne le refait quand l'ancien disparaît) :
+  -- 12 assembleurs sur 12 privés d'eau. update_connections() n'y fait rien ; un téléport sur place les refait
+  -- (expérience du banc, checks/levels_points.lua). Puis, pour une foreuse, update_connections() (doc 1.1.91 : zone
+  -- d'extraction et cible après un téléport).
+  if new.fluidbox and #new.fluidbox > 0 then
+    new.teleport(new.position)
+    if new.type == "mining-drill" then new.update_connections() end
+  end
   st.stats.resized = (st.stats.resized or 0) + 1
   return new, room
 end
@@ -840,6 +1002,12 @@ local function replace(entity, family, n, opts)
   local surface, pos, dir, force = entity.surface, entity.position, entity.direction, entity.force
   local _, cur = L.parse(entity.name)
   local new
+  -- Correction V3-T2 (défauts 2 et 15) : progression notée d'une machine qui a DÉJÀ repris une fabrication (amélioration
+  -- traitée avant le on_tick qui l'aurait reposée) : reposée maintenant, avant tout remplacement.
+  local pend = st.pending
+  if pend and old_unit and pend[old_unit] and CRAFTER_TYPES[entity.type] and entity.is_crafting and entity.is_crafting() then
+    resume_one(pend, old_unit)
+  end
   -- Lot V3-T2 (moteur réel, F86) : un bâtiment HORS grille ne passe jamais par le remplacement rapide moteur, même à
   -- côté égal : create_entity{fast_replace = true} recale la position sur la grille, ne trouve donc pas l'ancien à
   -- remplacer, et pose quand même le nouveau (sans vérifier la place) : deux bâtiments superposés, l'ancien gardé.
@@ -1051,7 +1219,8 @@ end
 --     service, avec son contenu ;
 --   - un chantier 0.4.0 en cours suit son bâtiment reposé (achevé ensuite par finish_legacy_jobs).
 -- Puis le relevé de la sauvegarde est mis à jour. Ordre déterministe : familles et niveaux dans l'ordre de la
--- config, surfaces par index, entités dans l'ordre du moteur. Renvoie reposés, déjà en place, laissés.
+-- config, surfaces par index, entités dans l'ordre du moteur. Renvoie reposés, déjà en place, laissés, et la liste
+-- des laissés { {force, name, x, y} } (message aux joueurs : Levels.tell_migration).
 ---------------------------------------------------------------------------------------------------
 function Levels.migrate_footprints()
   local st = S()
@@ -1060,6 +1229,7 @@ function Levels.migrate_footprints()
   for _, f in ipairs(L.families) do keys[#keys + 1] = f.key end
   local changes = Foot.diff(st.footprints, current, keys, function(k) return L.by_key[k].size end)
   local moved, inplace, kept = 0, 0, 0
+  local kept_list = {}
   for _, ch in ipairs(changes) do
     local family = L.by_key[ch.key]
     local name = L.name(family, ch.level)
@@ -1092,6 +1262,7 @@ function Levels.migrate_footprints()
             end
             if not new then
               kept = kept + 1
+              kept_list[#kept_list + 1] = { force = e.force.name, name = name, x = pos.x, y = pos.y }
               log("[FO-LEVELS] emprise : " .. name .. " en " .. pos.x .. ", " .. pos.y .. " laissé en place ("
                 .. ch.from .. "×" .. ch.from .. " → " .. ch.to .. "×" .. ch.to .. ", aucune place libre ; gêne : "
                 .. Levels.blockers_text(room.target) .. ")")
@@ -1104,7 +1275,92 @@ function Levels.migrate_footprints()
   st.footprints = current
   st.stats.migrated = (st.stats.migrated or 0) + moved
   st.stats.overlap_kept = (st.stats.overlap_kept or 0) + kept
-  return moved, inplace, kept
+  return moved, inplace, kept, kept_list
+end
+
+--- Doublons SUPERPOSÉS hérités (lot V3-T2, correction du défaut 13) : avant 0.4.3, améliorer un bâtiment laissé
+--- hors grille par une migration passait par le remplacement rapide moteur, qui recalait la position, ne remplaçait
+--- rien et posait le nouveau PAR-DESSUS l'ancien (F86) : deux bâtiments de la même famille dont les centres sont à
+--- une demi-tuile au plus l'un de l'autre (jamais le cas de deux bâtiments posés normalement : ils se
+--- chevaucheraient). Ils sont seulement relevés (journal, compteur, message) : aucun n'est détruit, chacun a son
+--- contenu ; le joueur ramasse celui qu'il veut. Familles de côté ≥ 2 (le mur 1×1 ne passe jamais hors grille),
+--- surfaces par index, entités dans l'ordre du moteur, chaque paire une fois (numéros croissants). Renvoie
+--- { {force, a, b, x, y} } (noms des deux bâtiments, position du premier).
+function Levels.find_stacked()
+  local out = {}
+  for _, f in ipairs(L.families) do
+    if f.size >= 2 then
+      local names = {}
+      for n = 1, f.max do names[#names + 1] = L.name(f, n) end
+      for _, surface in ipairs(sorted_surfaces()) do
+        for _, e in ipairs(surface.find_entities_filtered({ name = names })) do
+          local p, u = e.position, e.unit_number
+          if u then
+            local near = surface.find_entities_filtered({ name = names, area = { { p.x - 0.6, p.y - 0.6 }, { p.x + 0.6, p.y + 0.6 } } })
+            for _, o in ipairs(near) do
+              local q = o.position
+              if o ~= e and o.unit_number and o.unit_number > u and math.abs(q.x - p.x) <= 0.5 + Foot.EPS
+                  and math.abs(q.y - p.y) <= 0.5 + Foot.EPS then
+                out[#out + 1] = { force = e.force.name, a = e.name, b = o.name, x = p.x, y = p.y }
+                log("[FO-LEVELS] doublon superposé (hérité d'avant 0.4.3) : " .. e.name .. " en " .. p.x .. ", " .. p.y
+                  .. " et " .. o.name .. " en " .. q.x .. ", " .. q.y .. " (aucun n'est retiré)")
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  local st = S()
+  st.stats.stacked = (st.stats.stacked or 0) + #out
+  return out
+end
+
+--- Liens de carte « [gps=x,y] » (texte enrichi du moteur : cliquables dans la console) des 5 premiers lieux, puis « … ».
+local function gps_list(list)
+  local parts = {}
+  for i, k in ipairs(list) do
+    if i > 5 then
+      parts[#parts + 1] = "…"
+      break
+    end
+    parts[#parts + 1] = "[gps=" .. k.x .. "," .. k.y .. "]"
+  end
+  return table.concat(parts, " ")
+end
+
+--- Message aux joueurs après une migration des emprises (lot V3-T2, correction du défaut 9) : par force (ordre des
+--- noms), le nombre de bâtiments LAISSÉS hors grille faute de place, ce qu'ils deviennent et le remède, avec des
+--- liens vers les 5 premiers ; idem pour les doublons superposés hérités (find_stacked). Rien si les deux listes
+--- sont vides. Renvoie le nombre de messages.
+function Levels.tell_migration(kept_list, stacked)
+  local by, names = {}, {}
+  local function slot(fname)
+    if not by[fname] then
+      by[fname] = { kept = {}, stacked = {} }
+      names[#names + 1] = fname
+    end
+    return by[fname]
+  end
+  for _, k in ipairs(kept_list or {}) do local t = slot(k.force); t.kept[#t.kept + 1] = k end
+  for _, k in ipairs(stacked or {}) do local t = slot(k.force); t.stacked[#t.stacked + 1] = k end
+  table.sort(names)
+  local sent = 0
+  for _, fname in ipairs(names) do
+    local force, t = game.forces[fname], by[fname]
+    log("[FO-LEVELS] message de migration à la force " .. fname .. " : " .. #t.kept .. " laissé(s), " .. #t.stacked .. " doublon(s)")
+    if force then
+      if #t.kept > 0 then
+        force.print({ "fo-levels-taille.migration-kept", #t.kept, gps_list(t.kept) })
+        sent = sent + 1
+      end
+      if #t.stacked > 0 then
+        force.print({ "fo-levels-taille.migration-stacked", #t.stacked, gps_list(t.stacked) })
+        sent = sent + 1
+      end
+    end
+  end
+  return sent
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1115,11 +1371,13 @@ end
 function Levels.repair()
   local st = S()
   -- Emprises D'ABORD : un chantier hérité suit son bâtiment reposé, puis il est achevé à la bonne taille.
-  local moved, inplace, kept = Levels.migrate_footprints()
+  local moved, inplace, kept, kept_list = Levels.migrate_footprints()
   if moved + kept > 0 then
     log("[FO-LEVELS] mise à jour des emprises : " .. moved .. " bâtiment(s) reposé(s), " .. inplace
       .. " déjà en place, " .. kept .. " laissé(s) faute de place (chevauchement toléré)")
   end
+  -- Lot V3-T2 (corrections, défauts 9 et 13) : doublons superposés hérités relevés, joueurs prévenus.
+  Levels.tell_migration(kept_list, Levels.find_stacked())
   local done, lost = Levels.finish_legacy_jobs()
   -- Recensement Q16 en cache : vidé (une mise à jour peut changer les niveaux et les noms ; sauvegarde 0.4.0 :
   -- la clé n'existe pas encore).
@@ -1196,9 +1454,10 @@ end
 -- Même ordre que Levels.repair : un chantier hérité suit son bâtiment reposé, puis il est achevé.
 Events.on_nth_tick(30, function()
   if Levels.footprints_stale() then
-    local moved, inplace, kept = Levels.migrate_footprints()
+    local moved, inplace, kept, kept_list = Levels.migrate_footprints()
     log("[FO-LEVELS] emprises (filet, sans changement de version) : " .. moved .. " bâtiment(s) reposé(s), "
       .. inplace .. " déjà en place, " .. kept .. " laissé(s) faute de place (chevauchement toléré)")
+    Levels.tell_migration(kept_list, Levels.find_stacked())
   end
   local jobs = S().jobs
   if jobs and next(jobs) ~= nil then

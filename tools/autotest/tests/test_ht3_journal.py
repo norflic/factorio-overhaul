@@ -59,5 +59,14 @@ expect([l for l in GOOD if "JOURNAL ATTENDU : bilan" not in l], False, "attentes
 T2 = [l.replace("[FO-HT3-MIGRATION]", "[FO-T2-MIGRATION]") for l in GOOD]
 expect(T2, True, "balise FO-T2-MIGRATION (scenario t2-migration) : journal conforme", "FO-T2-MIGRATION")
 expect(GOOD, False, "balise FO-T2-MIGRATION demandee, journal du scenario ht3 : attentes absentes", "FO-T2-MIGRATION")
+# Lot V3-T2 (corrections, défaut 9) : message aux joueurs après la migration, journalisé par le mod.
+MSG = T2 + [P % 4 + "[FO-LEVELS] message de migration à la force fo-t2 : 2 laissé(s), 0 doublon(s)",
+            T % 5 + "[FO-T2-MIGRATION] JOURNAL ATTENDU : message fo-t2 2 0"]
+expect(MSG, True, "message de migration attendu et journalise une fois", "FO-T2-MIGRATION")
+expect([l for l in MSG if "message de migration à la force" not in l], False, "message de migration attendu mais absent", "FO-T2-MIGRATION")
+expect(MSG + [P % 5 + "[FO-LEVELS] message de migration à la force fo-t2 : 2 laissé(s), 0 doublon(s)"], False,
+       "message de migration en double", "FO-T2-MIGRATION")
+expect([l.replace("2 laissé(s), 0 doublon(s)", "3 laissé(s), 0 doublon(s)") for l in MSG], False,
+       "message de migration avec un autre nombre", "FO-T2-MIGRATION")
 print("BILAN : %d OK, %d ECHEC(S)" % (ok, fail))
 sys.exit(0 if fail == 0 else 1)

@@ -191,11 +191,13 @@ local function refresh(player)
     -- Lot V3-T : emprise qui grandit, et place autour du bâtiment.
     if info.resize then
       local a, b = info.resize.from, info.resize.to
-      if info.resize.regrid then
-        -- Lot V3-T2 : bâtiment laissé hors grille par une mise à jour du mod : l'amélioration le remet sur la grille.
-        frame.add({ type = "label", caption = { "fo-levels-taille.regrid-line", a .. "×" .. a, b .. "×" .. b } })
-      else
+      -- Correction V3-T2 (défaut 11) : la ligne de taille dès que la taille change, ET la ligne « hors grille » pour un
+      -- bâtiment laissé hors grille par une mise à jour du mod (l'amélioration le remet sur la grille).
+      if a ~= b then
         frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", a .. "×" .. a, b .. "×" .. b } })
+      end
+      if info.resize.regrid then
+        frame.add({ type = "label", caption = { "fo-levels-taille.regrid-line", a .. "×" .. a, b .. "×" .. b } })
       end
       local room = info.room
       local lbl
@@ -213,6 +215,14 @@ local function refresh(player)
         lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-blocked",
           Levels.blockers_text(room and room.target) } })
         lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
+        -- Lot V3-T2 (correction, défauts 1 et 6) : ce qui gêne à cause d'un point de jeu servi (coffre de la foreuse,
+        -- tuyau) est dit à part : on peut aussi le garder et libérer une autre position.
+        local moved = room and room.target and room.target.moved
+        if moved and #moved > 0 then
+          lbl = frame.add({ type = "label", caption = { "fo-levels-taille.points-moved",
+            Levels.blockers_text({ moved = moved }) } })
+          lbl.style.font_color = { r = 1, g = 0.9, b = 0.3 }
+        end
       end
       draw_preview(player, target, info)
     end

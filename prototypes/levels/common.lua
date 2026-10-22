@@ -122,6 +122,7 @@ local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
+local Points = require("shared.levels.points")
 local Style = require("prototypes.levels.style")
 -- Scénario X0 : la config en recopie ce qu'elle lit au chargement (L.VANILLA_UNIT_SCALE, L.target) ; la garde
 -- le compare EN PLUS à la fermeture de chaque famille (correction V2c : un dress qui modifiait
@@ -218,27 +219,9 @@ end
 ---     charbon vanilla, 2×2, qui dépose en −0,5) ;
 ---   - rayon d'extraction : même débord au-delà du bord, r + (b − a) / 2 (2,49 sur un 3×3, soit 5×5 tuiles,
 ---     → 3,99 sur un 6×6, soit 8×8 tuiles).
-local function snap_center(raw, b)
-  if b % 2 == 0 then return math.ceil(raw) - 0.5 end
-  local v = math.ceil(raw - 0.5)
-  return v == 0 and 0 or v  -- jamais « -0 » (math.ceil(-0,5) en Lua 5.2)
-end
-
-local function move_coord(v, a, b)
-  local ha, hb = a / 2, b / 2
-  if math.abs(v) >= ha - 1e-9 then
-    local out = math.abs(v) - ha + hb
-    return v < 0 and -out or out
-  end
-  return snap_center(v * b / a, b)
-end
-
---- Point { x, y } ou { [1], [2] } d'un prototype (centre = origine), du côté a au côté b ; même forme rendue.
-local function move_point(pt, a, b)
-  if type(pt) ~= "table" then return pt end
-  if pt.x ~= nil or pt.y ~= nil then return { x = move_coord(pt.x or 0, a, b), y = move_coord(pt.y or 0, a, b) } end
-  return { move_coord(pt[1] or 0, a, b), move_coord(pt[2] or 0, a, b) }
-end
+-- Lot V3-T2 (correction) : la règle est dans shared/levels/points.lua (pure, partagée avec le runtime, qui en a
+-- besoin pour garder les points SERVIS d'un bâtiment qui grandit), recopiée telle quelle.
+local move_point = Points.move_point
 
 --- Boîtes à fluide d'un prototype (toutes les clés connues de 1.1.91, dans un ordre fixe).
 local function fluid_boxes_of(p)
