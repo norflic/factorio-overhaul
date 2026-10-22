@@ -100,7 +100,10 @@ local function overlapping(e)
     if o.valid and o ~= e and not SKIP[o.type] then
       local shared = false
       for layer in pairs(o.prototype.collision_mask or {}) do if mask[layer] then shared = true break end end
-      if shared and overlap(b, box_of(o)) then out[#out + 1] = o.name .. "@" .. fmt_pos(o.position) end
+      local ob = box_of(o)
+      if shared and overlap(b, ob) then
+        out[#out + 1] = string.format("%s@%s [%.4f..%.4f x %.4f..%.4f]", o.name, fmt_pos(o.position), ob.x0, ob.x1, ob.y0, ob.y1)
+      end
     end
   end
   table.sort(out)
@@ -296,7 +299,8 @@ return {
           -- peut tenir entre les murs de l'anneau ; il est relevé pour le journal (toléré s'il existe).
           ctx.check(common and same and fin.position.x == r.x and fin.position.y == r.y,
             c.key .. " (niveau " .. r.n .. ", aucune place) : LAISSEE en place, en service, contenu intact (chevauchement tolere)",
-            detail .. " ; chevauche : " .. (#over > 0 and table.concat(over, ", ") or "rien"))
+            detail .. string.format(" ; boite %.4f..%.4f x %.4f..%.4f", b.x0, b.x1, b.y0, b.y1)
+              .. " ; chevauche : " .. (#over > 0 and table.concat(over, ", ") or "rien"))
         else
           ctx.check(common and same and side == 2 and fin.position.x == r.x and fin.position.y == r.y,
             c.key .. " (niveau " .. r.n .. ", 2x2 inchange) : n'a pas bouge (meme entite, PV, munitions)", detail)
