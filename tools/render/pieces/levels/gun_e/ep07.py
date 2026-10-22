@@ -2,7 +2,10 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 7) : « bronze, cristaux, violet ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - (époque bien lue : gardée) jaquette à la moitié arrière ; grappe nord-est déplacée (trou enfermé de 19 à 42 px
+    en pose E) ; trémie en laiton ; éclats de cristal et ancrage boulonné sur les focalisateurs.
 Emplacements remplis : arme (gatling de bronze à 6 tubes terminée par un GROS PRISME DE CRISTAL tenu par 3 griffes,
 moteur à bague de pierre et cristal, chargeurs à étuis de cristal), grands volumes du socle (grandes grappes de
 cristal sur socles de pierre, résonateur, bassins), liaisons (guides d'onde de bronze à section carrée), nacelle
@@ -28,7 +31,7 @@ NOM = "Cristal"
 KIN = 0   # rang dans l'ère III
 FOYER = dict(rgb=(0.69, 0.44, 1.0), doux=dict(force=0.8, base=(0.07, 0.035, 0.1)))
 CANON = dict(L=1.6, nb=6, rb=0.05, rr=0.125)
-HABILLAGE = dict(jupe_cerclage="bronze", tremie="bronze", pochoirs=True, munitions=("bronze", "emit_soft"),
+HABILLAGE = dict(jupe_cerclage="bronze", tremie="brass", pochoirs=True, munitions=("bronze", "emit_soft"),
                  grille_nacelle="bronze", chapeau="bronze")
 ST = dict(jacket="bronze", brake="claws", drive="crystal", drive_mat="bronze", fin_mat="bronze", band="bronze",
           barrel="bronze", recv_mats=("bronze", "stone"), recv_sig="stone", feed="crystal_mag", skirt="bronze",
@@ -87,7 +90,9 @@ def socle_crystal(g, k):
     M = g.M
     E = M["emit"]
     cluster(g, -1.42, Y(1.3), 1.0, M, seed=7)
-    cluster(g, 1.42, Y(1.3), 0.9, M, seed=11, n=5)
+    # passe 4 : grappe nord-est poussée dans le coin et posée plus bas (le sol se voyait entre ses pointes et le canon
+    # nord en pose E : trou enfermé de 19 à 42 px hr)
+    cluster(g, 1.52, Y(1.46), 0.78, M, seed=11, n=5)
     # ouest : résonateur (bloc de pierre taillée, arche de bronze, lentille-cristal couchée)
     PT.hull(g, -1.92, -1.3, Y(-0.7), Y(0.6), 0.0, 0.3, ins=(0.03, 0.03, 0.03), panel=0.28,
             mats=[M["stone"], M["stone"]], rivets=False, rivet_step=0.2)
@@ -167,7 +172,32 @@ def piece(g, c):
     for sx in (-1, 1):
         with at(g, sx * cx, cy, sx * -0.25):
             focaliser(g, (0, 0, 0), 0.0, 1.5 * s)
+            _ancrage(g, 0.19 * 1.5 * s, 0.082 * 1.5 * s, g.M, n=22)
+            # éclats de cristal sertis autour de l'affût (petits foyers violets, sertissures de bronze)
+            for k in range(5):
+                a = math.pi * (0.15 + 0.7 * k / 4)
+                xx, yy = math.cos(a) * 0.36, math.sin(a) * 0.36
+                g.cyl((xx, yy, 0.06), "z", 0.05, 0.04, g.M["bronze"], n=6, style="hard", what="sertissure")
+                F.crystal(g, V((xx, yy, 0.075)), (0.15 * ((k % 3) - 1), 0.1, 1), 0.03, 0.13, g.M["emit_soft"], tip=0.4)
+                for j in range(3):
+                    b = TAU * j / 3
+                    g.dome((xx + math.cos(b) * 0.045, yy + math.sin(b) * 0.045, 0.082), (0, 0, 1), 0.016,
+                           g.M["brass"])
     _halo(g, [(-cx, Y(cy), 0.5), (cx, Y(cy), 0.5)], 12.0)
+
+
+def _ancrage(g, R, z, M, n=14, pieds=4):
+    """Passe 4 : semelle d'ancrage de la pièce paire (couronne de boulons, pattes boulonnées au caillebotis) : la pièce
+    ne fait plus BAISSER le nombre de petites pièces du niveau pair (contrôle impair -> pair de dominance.py)."""
+    F.bolts_ring(g, (0, 0, z), (0, 0, 1), R, n, M["steel_hi"], r=0.026)
+    for k in range(pieds):
+        a = TAU * (k + 0.5) / pieds
+        d = V((math.cos(a), math.sin(a), 0))
+        p = d * (R + 0.09)
+        g.box((p.x, p.y, 0.015), (0.1, 0.1, 0.03), M["steel_dk"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="patte")
+        for j in (-1, 1):
+            q = p + V((-d.y, d.x, 0)) * 0.03 * j
+            g.dome((q.x, q.y, 0.032), (0, 0, 1), 0.024, M["steel_hi"])
 
 
 def focaliser(g, c, rz, s=1.0):
@@ -257,7 +287,7 @@ def gun_e(g, st, H, x, side):
     rs = rr + rb + 0.028
     corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                   colliers=st.get("collars", (0.8,)), bouts=False)
-    Lj = L * st.get("jacket_f", 0.62)
+    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     jk_bronze(g, st, x, y1, zg, Lj, rs, H)
     return rs
 

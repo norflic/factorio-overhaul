@@ -2,7 +2,11 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 3) : « cuivre, vapeur, manomètres ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - jaquette de cuivre à ailettes ramenée à la moitié arrière (règle d'or 1, corps.JAQUETTE_MAX) ;
+  - frein EN BLOC de laiton à évents ronds (pose N : un « T » plat, plus une couronne de cheminée) ;
+  - chaudière et bâche plus grandes, manomètres et robinets de plus (domine la forge) ; chanfrein 0,2.
 Emplacements remplis : arme (gatling à manchon de cuivre à ailettes, frein de laiton à évents, cylindre à vapeur à
 bielle, tambour de laiton), grands volumes du socle (chaudière verticale et cheminée, machine à vapeur verticale à
 volant, soute à charbon), liaisons (cuivre à brides de laiton et manomètre), nacelle (chaudière dorsale et cheminée
@@ -27,10 +31,12 @@ NOM = "Vapeur"
 KIN = 2   # rang dans l'ère I
 FOYER = dict(rgb=(1.0, 0.753, 0.376))
 CANON = dict(L=0.95, nb=4, rb=0.04, rr=0.078)
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.2)
 HABILLAGE = dict(jupe_cerclage="brass", tremie="castiron", pochoirs=False, munitions=("brass", "copper"),
                  grille_nacelle="copper_pol", chapeau="brass")
 ST = dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"),
-          jacket_f=0.72, feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("castiron", "olive"),
+          jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("castiron", "olive"),
           arm=("olive", "castiron"), cap="brass", col=("olive", "castiron"), nac=("castiron", "olive"))
 
 
@@ -152,7 +158,7 @@ def socle_steam(g):
     M = g.M
     E = M["emit"]
     # est (toujours visible) : CHAUDIÈRE verticale et cheminée (style de la cheminée V0 validée)
-    top = boiler(g, 0.74, Y(-0.12), 0.25, 0.58, M, E, chim_h=0.5)
+    top = boiler(g, 0.72, Y(-0.1), 0.28, 0.66, M, E, chim_h=0.52)
     # ouest : machine à vapeur verticale, grand volant face au sud
     cyl_top = vertical_engine(g, -0.8, -0.44, 0.34, M)
     # nord-ouest : soute à charbon rivetée et pelle
@@ -163,7 +169,7 @@ def socle_steam(g):
                  0.23), 0.05, M["basalt"], sz=0.7, n=7, m=4, what="charbon")
     g.cyl((-0.52, Y(0.6), 0.34), (0.2, -0.3, 1), 0.012, 0.3, M["wood"], n=6, what="pelle_manche")
     # nord-est : bâche alimentaire couchée (rivetée, verre de niveau), pompe à balancier
-    P2.tank(g, (0.62, Y(0.66), 0.2), 0.15, 0.62, (1, 0, 0), M, paint=M["armor"], band=M["brass"], gauges=1)
+    P2.tank(g, (0.6, Y(0.68), 0.22), 0.18, 0.7, (1, 0, 0), M, paint=M["armor"], band=M["brass"], gauges=2)
     g.cyl((0.88, Y(0.36), 0.14), "z", 0.04, 0.28, M["castiron"], n=12, what="pompe")
     g.box((0.88, Y(0.36) - 0.06, 0.3), (0.02, 0.16, 0.02), M["steel_hi"], "hard", R=Matrix.Rotation(0.4, 3, "X"),
           what="balancier")
@@ -189,6 +195,12 @@ def socle_steam(g):
     for (gx_, gyn, gz) in ((0.52, -0.3, 0.3), (0.92, -0.32, 0.42), (-0.62, 0.62, 0.34)):
         P2.gauge(g, (gx_, Y(gyn), gz), (0, -1, 0.4), 0.038, M)
     P2.handwheel(g, (0.5, Y(0.02), 0.5), (0, 0, 1), 0.045, M, mat=M["brass"])
+    # passe 4 : manomètres et robinets de plus sur les machines (jamais en rangée : un par machine, orientés au sud)
+    for (gx_, gyn, gz, nz) in ((-0.62, -0.5, 0.14, (0.2, -1, 0.4)), (0.98, 0.18, 0.36, (1, -0.3, 0.4)),
+                               (-0.99, 0.12, 0.3, (-1, -0.3, 0.4)), (0.3, 0.86, 0.32, (0, -1, 0.5))):
+        P2.gauge(g, (gx_, Y(gyn), gz), nz, 0.04, M)
+    for (hx_, hyn, hz) in ((-0.44, 0.62, 0.3), (0.98, -0.3, 0.2)):
+        P2.handwheel(g, (hx_, Y(hyn), hz), (0, -0.3, 1), 0.045, M, mat=M["brass"])
     F.lamp_group(g, (0.62, Y(-0.4) - 0.02, 0.36), (1, 0, 0), (0, -1, 0), E, n=2)
     F.lamp_group(g, (-0.95, Y(-0.3), 0.12), (0, 1, 0), (-1, 0, 0), E, n=2)
     g.halo((0.74, Y(-0.4), 0.25), M["_emit_rgb"], 10.0)
@@ -284,8 +296,8 @@ def gun_e(g, st, H, x, side):
     rs = rr + rb + 0.028
     pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                         colliers=st.get("collars", (0.8,)), bouts=False)
-    # la jaquette d'époque couvre près des 2/3 du faisceau : les tubes restent visibles, séparés, sur le tiers avant
-    Lj = L * st.get("jacket_f", 0.62)
+    # passe 4, règle d or 1 : la jaquette d époque couvre la moitié arrière du faisceau au plus (corps.JAQUETTE_MAX)
+    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     jk_steam(g, st, x, y1, zg, Lj, rs, H)
     br_steam(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
@@ -305,21 +317,30 @@ def jk_steam(g, st, x, y0, z, Lj, rs, H):
 
 
 def br_steam(g, st, x, yb, z, rs, pos, H):
-    """Époque 3 : frein de bouche en laiton à 4 évents ronds, plus large que le faisceau."""
+    """Époque 3 (passe 4, règle d'or 7) : frein de bouche EN BLOC de laiton, près de deux fois plus large que le
+    faisceau, 2 évents ronds sur chaque flanc et 2 sur le dessus (4 évents du catalogue, plus ceux du dessus) : en pose
+    N, le bout du canon fait un « T » plat et non la couronne ronde d'une cheminée (confusion maximale à la vapeur) ;
+    lèvre de cuivre, rosace cerclée de laiton, pourtour ambré."""
     M = g.M
     rb = H["rb"]
-    ro = rs + 0.036
-    g.tube_shell((x, yb + 0.04, z), "y", ro, H["rr"] * 0.4, 0.15, M["brass"], n=28, what="frein")
-    for a in (math.pi * 0.25, math.pi * 0.75, -math.pi * 0.25, -math.pi * 0.75, math.pi * 0.5):
-        d = V((math.cos(a), 0, math.sin(a)))
-        g.cyl(V((x, yb + 0.05, z)) + d * (ro - 0.002), d, 0.024, 0.01, M["void"], n=10, style="flat", what="event")
-    g.tube_shell((x, yb + 0.115, z), "y", ro + 0.008, ro - 0.02, 0.02, M["copper_pol"], n=28, what="levre")
-    g.cyl((x, yb + 0.1, z), "y", ro - 0.012, 0.02, M["brass"], n=28, what="face")
-    for s in (-1, 1):  # évents latéraux en tubulures de laiton
-        g.cyl((x + s * (ro + 0.03), yb + 0.05, z), "x", 0.03, 0.07, M["brass"], n=12, what="tubulure")
-        g.cyl((x + s * (ro + 0.066), yb + 0.05, z), "x", 0.02, 0.004, M["void"], n=10, style="flat", what="event")
-    F.bores(g, x, yb + 0.112, z, pos, rb, M["brass"])
-    F.lit_ring(g, (x, yb + 0.126, z), "y", ro - 0.002, M["emit"])
+    ro = rs + 0.03
+    wb, lb, hb = ro * 3.4, 0.15, ro * 2.0
+    g.box((x, yb + lb / 2 - 0.01, z), (wb, lb, hb), M["brass"], "soft", what="frein")
+    g.box((x, yb - 0.012, z), (wb * 0.86, 0.026, hb * 0.86), M["copper_pol"], "hard", what="collerette")
+    for s in (-1, 1):
+        for k in range(2):
+            yy = yb + lb * (0.28 + 0.4 * k) - 0.01
+            g.cyl((x + s * (wb / 2 + 0.002), yy, z), (1, 0, 0), 0.026, 0.008, M["void"], n=12, style="flat",
+                  what="event")
+            g.tube_shell((x + s * (wb / 2 + 0.004), yy, z), (1, 0, 0), 0.034, 0.024, 0.01, M["copper_pol"], n=14,
+                         what="levre")
+            g.cyl((x + s * wb * 0.28, yy, z + hb / 2 + 0.002), (0, 0, 1), 0.02, 0.008, M["void"], n=10,
+                  style="flat", what="event")
+    for s in (-1, 1):
+        g.dome((x + s * wb * 0.42, yb + lb * 0.5, z + hb / 2 + 0.002), (0, 0, 1), 0.015, M["rivet"])
+    g.box((x, yb + lb - 0.004, z), (wb * 0.8, 0.012, hb * 0.8), M["castiron"], "hard", what="face")
+    F.bores(g, x, yb + lb + 0.004, z, pos, rb, M["brass"])
+    F.lit_ring(g, (x, yb + lb + 0.006, z), "y", min(ro, hb * 0.4), M["emit"])
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

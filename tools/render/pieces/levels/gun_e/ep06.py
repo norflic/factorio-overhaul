@@ -2,13 +2,17 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 6) : « bobines, isolateurs, arcs ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - arme (règle d'or 1) : canon de lignée complet (corps.canon_lignee, sans jaquette) + BOBINE OUVERTE (hélice de
+    cuivre à spires espacées : on voit les tubes), peignes d'isolateurs de porcelaine, anneau isolateur, électrodes
+    et arc à la bouche, SPHÈRE DE DÉCHARGE sur pile d'isolateurs ;
+  - plus aucun manchon de cuivre plein (ceinture de coupole et touret de cuivre remplacés : poteaux de porcelaine,
+    câble gainé) ; isolateurs de porcelaine claire ; transformateur gris clair à radiateurs ; tour de Tesla haute.
 Emplacements remplis : arme (CANON-BOBINE : tube central gainé de 5 grosses bobines de cuivre et d'isolateurs, bouche
 à électrodes, moteur bobiné, tambour), mitrailleuse coaxiale, grands volumes du socle (tour de Tesla, transformateur
 à traversées, touret de câble, sphère de décharge, condensateurs), liaisons (câbles sur isolateurs), nacelle (tour
 de Tesla dorsale et arcs), spires de cuivre sur la coupole, foyers cyan, pièce paire (2 piles à éclateur).
-Défaut relevé par les juges (à corriger par le constructeur, RÈGLE D'OR 1) : les cylindres bobinés pleins cachent
-les tubes.
 """
 import math
 
@@ -29,11 +33,22 @@ NOM = "Électricité"
 KIN = 2   # rang dans l'ère II
 FOYER = dict(rgb=(0.376, 0.816, 1.0))
 CANON = dict(L=1.35, nb=4, rb=0.045, rr=0.1)
-HABILLAGE = dict(jupe_cerclage="copper", tremie="ochre", pochoirs=True, munitions=("copper", "steel_hi"),
+HABILLAGE = dict(jupe_cerclage="copper", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
                  chapeau="copper")
 ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("ochre", "olive"), feed="drum",
           skirt="copper", appl="ochre", gmask=("ochre", "olive"), arm=("olive", "steel_dk"), cap="copper",
           col=("olive", "steel_dk"), nac=("olive", "ochre"), coax=True)
+
+
+def matieres(metal, M):
+    """Porcelaine des isolateurs (passe 4 : « piles d'isolateurs blancs » ; patinée, arêtes claires, jamais un blanc pur :
+    C8) ; elle devient l'accent de l'époque (PT.insulators, peignes et anneaux)."""
+    # gris clair chaud des cuves de transformateur (grand volume de l'ouest : se distingue en gris des bunkers noirs
+    # du volcan, test de FORME)
+    metal("transfo", (0.25, 0.235, 0.205), rough=0.42, met=0.4, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
+          ra=0.18, dirt=0.9, stain=0.8, sscale=5.0, wear=2.4, streak=0.55, mottle=0.4)
+    M["accent"] = metal("porcelaine", (0.5, 0.485, 0.44), rough=0.36, met=0.0, grain=0.12, gscale=30.0, dirt=0.8,
+                        stain=0.35, sscale=5.0, wear=0.8)
 
 
 def _halo(g, pts, power):
@@ -69,37 +84,44 @@ def tesla_tower(g, x, yn, h, M, E, s=1.0):
 def socle_electric(g, k):
     M = g.M
     E = M["emit"]
-    t1 = tesla_tower(g, -1.12, 1.08, 0.86, M, E)
+    t1 = tesla_tower(g, -1.12, 1.08, 1.16, M, E)
     # nord-est : batterie de condensateurs BASSE (une tour à cet endroit traverse le canon nord en pose E : jour enfermé)
     PT.hull(g, 0.78, 1.46, Y(0.72), Y(1.18), 0.0, 0.06, ins=(0.02, 0.02, 0.02), panel=0.22,
             mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
-    PT.capacitors(g, (1.12, Y(0.95), 0.06), 3, 2, 0.07, 0.16, E)
-    for x in (-1.12,):  # arc vers une pointe de terre
-        g.cyl((x - 0.18 * (1 if x > 0 else -1), Y(1.08) - 0.12, t1 - 0.12), (x, 0, 1.2), 0.008, 0.18, E, n=6,
-              style="flat", what="arc")
+    PT.capacitors(g, (1.12, Y(0.95), 0.06), 4, 2, 0.062, 0.16, E)
+    # (passe 4 : plus d'arc libre entre la tour et le sol ou la tête : chaque arc fermait un jour enfermé, 84 puis
+    # 113 px hr ; les arcs vivent sur les canons et sur la pièce paire, entre pièces rapprochées)
     # ouest : transformateur (cuve à ailettes, 3 traversées isolées, bornes de cuivre)
     for (xx, yn) in ((-0.62, -1.3), (0.62, -1.3), (-0.5, -0.95), (0.5, -0.95)):
         F.post_insulator(g, (xx, Y(yn), 0.0), 4, 0.04, h=0.045)
     for yn in (-0.8, 0.82):
         F.post_insulator(g, (-1.2, Y(yn), 0.0), 5, 0.045, h=0.045)
-    PT.hull(g, -1.49, -0.86, Y(-0.72), Y(0.72), 0.0, 0.58, ins=(0.02, 0.02, 0.02), panel=0.24,
-            mats=[M["olive"], M["steel_dk"]], rivet_step=0.12)
-    for i in range(7):  # ailettes de refroidissement sur la face sud et le dessus
-        yy = Y(-0.5) + i * 0.13
-        g.box((-1.18, yy, 0.6), (0.5, 0.026, 0.05), M["steel_dk"], "hard", what="ailette")
+    PT.hull(g, -1.49, -0.86, Y(-0.72), Y(0.72), 0.0, 0.62, ins=(0.02, 0.02, 0.02), panel=0.24,
+            mats=[M["transfo"], M["transfo"], M["steel_dk"]], rivet_step=0.12)
+    for i in range(11):  # ailettes de refroidissement sur le dessus
+        yy = Y(-0.62) + i * 0.16
+        g.box((-1.18, yy, 0.64), (0.54, 0.024, 0.05), M["steel_dk"], "hard", what="ailette")
+    for s_ in (-1, 1):   # radiateurs latéraux à ailettes (face est et ouest du transformateur)
+        for i in range(9):
+            g.box((-1.18 + s_ * 0.335, Y(-0.5) + i * 0.17, 0.32), (0.05, 0.022, 0.44), M["transfo"], "hard",
+                  what="ailette")
+        for yn_ in (0.5, 0.2):
+            PT.lamp(g, (-1.18 + s_ * 0.37, Y(yn_), 0.52), (s_, 0, 0.35), 0.042, E, cage=True)
     for i, yn in enumerate((-0.35, 0.0, 0.35)):
-        zt = F.post_insulator(g, (-1.18, Y(yn), 0.62), 7, 0.06, h=0.045)
+        zt = F.post_insulator(g, (-1.18, Y(yn), 0.66), 7, 0.06, h=0.045)
         g.cyl((-1.18, Y(yn), zt + 0.02), "z", 0.03, 0.04, M["copper"], n=10, what="borne")
     g.box((-1.18, Y(-0.72) - 0.03, 0.3), (0.22, 0.012, 0.12), M["hazy"], "flat", what="plaque_danger")
     g.box((-1.18, Y(-0.72) - 0.036, 0.3), (0.06, 0.012, 0.08), M["hazk"], "flat", what="eclair")
     # est : touret de câble de cuivre (flasques face au sud), sur chevalet
-    xr, yr, zr = 1.16, Y(0.0), 0.42
+    xr, yr, zr = 1.2, Y(0.0), 0.48
     for s in (-1, 1):
-        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.4, 0.04, M["wood"], n=36, style="soft", what="flasque")
+        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.46, 0.04, M["wood"], n=36, style="soft", what="flasque")
         F.bolts_ring(g, (xr, yr + s * 0.14 - 0.024 * (s < 0), zr), (0, -1, 0), 0.3, 10, M["rivet"], r=0.013)
-        g.box((xr, yr + s * 0.2, 0.21), (0.08, 0.04, 0.42), M["steel_dk"], "hard", what="chevalet")
+        g.box((xr, yr + s * 0.2, 0.24), (0.08, 0.04, 0.48), M["steel_dk"], "hard", what="chevalet")
+    # câble gainé enroulé (noir et rouge) : plus de cuivre plein sur le socle (passe 4)
     for kk in range(8):
-        g.torus((xr, yr - 0.105 + kk * 0.03, zr), (0, 1, 0), 0.28, 0.016, M["copper"], n=32, m=6, what="spire")
+        g.torus((xr, yr - 0.105 + kk * 0.03, zr), (0, 1, 0), 0.33, 0.016, M["redcable"] if kk % 3 == 1 else M["rubber"],
+                n=32, m=6, what="spire")
     g.cyl((xr, yr - 0.16, zr), (0, 1, 0), 0.06, 0.03, M["steel_dk"], n=14, what="moyeu")
     # sud-est du touret : sphère de décharge sur poteau isolé
     zt = F.post_insulator(g, (0.95, Y(-0.72), 0.0), 6, 0.05, h=0.05)
@@ -113,9 +135,12 @@ def socle_electric(g, k):
     for s in (0.82, 0.89):
         PT.insulators(g, (s, Y(0.52), 0.18), 3, 0.03, h=0.06)
     g.halo((-1.12, Y(1.08), 1.0), M["_emit_rgb"], 12.0)
-    PT.hull(g, -0.62, 0.22, Y(0.92), Y(1.36), 0.0, 0.08, ins=(0.02, 0.02, 0.02), panel=0.22,
+    PT.hull(g, -0.7, 0.3, Y(0.92), Y(1.36), 0.0, 0.08, ins=(0.02, 0.02, 0.02), panel=0.22,
             mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
-    PT.capacitors(g, (-0.2, Y(1.14), 0.08), 4, 2, 0.065, 0.16, E)
+    PT.capacitors(g, (-0.2, Y(1.14), 0.08), 5, 2, 0.062, 0.16, E)
+    # passe 4 : poteaux d'isolateurs de porcelaine devant le transformateur (piles blanches lisibles)
+    for (xx, yn) in ((-1.42, -0.92), (-1.2, -0.95), (-0.98, -0.92)):
+        F.post_insulator(g, (xx, Y(yn), 0.0), 5, 0.045, h=0.045)
     for (xx, yn) in ((-1.45, -0.7), (-0.95, -0.7), (1.45, 0.45), (0.85, -0.45)):
         PT.lamp(g, (xx, Y(yn), 0.06), (0, -0.3, 1), 0.03, E, cage=True)
     g.halo((1.12, Y(1.12), 0.4), M["_emit_rgb"], 10.0)
@@ -194,100 +219,83 @@ def spark_stack(g, c, emat, s=1.0):
 def arme(g, c, x, sx):
     M = g.M
     H = c.H
-    w_coil(g, ST, H, x, sx)
+    w_coil(g, c, x, sx)
     y0 = H["recv"][0]
     PT.lamp(g, (x - sx * H["wr"] * 0.25, y0 + 0.1, H["zg"] + H["hr"] + 0.03), (0, 0.4, 1), 0.026, M["emit"], cage=True)
 
 
-def w_coil(g, st, H, x, sx):
-    """Époque 6 : CANON-BOBINE : un tube central gainé de 5 GROSSES BOBINES de cuivre séparées par des disques
-    isolateurs en céramique, bouche à anneau isolateur et 2 électrodes (arc), batterie de condensateurs."""
+def helix(g, x, ya, yb, z, rc, pitch, rw, mat, phase=0.0):
+    """Spire OUVERTE (fil de cuivre enroulé en hélice, pas large) autour de l'axe y : on voit les tubes entre les
+    spires."""
+    n = max(8, int((yb - ya) / pitch * 14))
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        a = phase + TAU * (yb - ya) / pitch * t
+        pts.append(V((x + rc * math.cos(a), ya + (yb - ya) * t, z + rc * math.sin(a))))
+    g.tube(pts, rw, mat, n=8, what="spire")
+
+
+def w_coil(g, c, x, sx):
+    """Époque 6 (passe 4, RÈGLE D'OR 1) : le canon de lignée complet (corps.canon_lignee : rosette de 4 tubes séparés,
+    frein en bloc, culasse, moteur bobiné, caisse) SANS jaquette perforée, et l'organe électrique AJOUTÉ autour :
+      - BOBINE OUVERTE sur la moitié arrière : hélice de fil de cuivre à spires espacées (les tubes se voient entre
+        les spires), tenue par 2 peignes d'isolateurs blancs longitudinaux (aucune bague claire horizontale) ;
+      - anneau isolateur de porcelaine derrière le frein (petit, sombre-cerclé), 2 électrodes et un arc à la bouche ;
+      - SPHÈRE DE DÉCHARGE sur pile d'isolateurs blancs, posée sur la culasse, arc vers la bobine.
+    Aucun manchon de cuivre plein (il rappelait la vapeur : défaut de la passe 3)."""
     M = g.M
+    H = c.H
     y0, y1 = H["recv"]
     zg, hr, wr = H["zg"], H["hr"], H["wr"]
-    breech(g, st, x, y0, y1, zg - hr, zg + hr, wr)
-    Ld = 0.26 + hr * 0.6
-    drive(g, st, (x, y0 - Ld / 2 + 0.03, zg), hr * 0.78, Ld)
-    L = H["L"]
-    g.cyl((x, y1 + L / 2, zg), "y", 0.09, L, M["gun"], n=16, what="tube")
-    g.box((x, y1 + L * 0.43, zg - 0.1), (0.14, L * 0.92, 0.16), M["steel_dk"], "hard", what="quille")
-    PT.hull(g, x - 0.15, x + 0.15, y1 - 0.02, y1 + 0.1, zg - 0.15, zg + 0.15, ins=(0.02, 0.0, 0.02), panel=0.2,
-            mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
-    g.cyl((x, y1 + 0.02, zg), "y", 0.15, 0.04, M["steel_dk"], n=24, style="soft", what="plaque")
-    nc = 5
-    span = L * 0.82
-    pitch = span / nc
-    for i in range(nc):
-        yc = y1 + 0.05 + pitch * (i + 0.5)
-        lc = pitch * 0.72
-        g.cyl((x, yc, zg), "y", 0.122, pitch, M["steel_dk"], n=24, what="noyau")
-        nt = max(4, int(lc / 0.024))
-        for t in range(nt):
-            g.torus((x, yc - lc / 2 + lc * (t + 0.5) / nt, zg), "y", 0.126, 0.014, M["copper"], n=28, m=6,
-                    what="spire")
-        g.tube_shell((x, yc + pitch / 2, zg), "y", 0.15, 0.05, 0.026, M["accent"], n=24, what="isolateur")
-    g.tube_shell((x, y1 + 0.05, zg), "y", 0.15, 0.05, 0.026, M["accent"], n=24, what="isolateur")
-    # barres d'alimentation de cuivre le long des bobines (dessus)
+    L, rr, rb = H["L"], H["rr"], H["rb"]
+    corps.canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.0, frein=True, frein_mat="steel",
+                       bague_mat="steel_dk", masque_mats=("ochre", "olive"))
+    rc = rr + rb + 0.045
+    ya, yb = y1 + 0.08, y1 + L * corps.JAQUETTE_MAX
+    helix(g, x, ya, yb, zg, rc, 0.075, 0.017, M["copper"])
+    for s in (-1, 1):   # peignes d'isolateurs longitudinaux (porcelaine), sur les flancs
+        g.box((x + s * (rc + 0.012), (ya + yb) / 2, zg), (0.03, yb - ya + 0.06, 0.05), M["accent"], "soft",
+              what="peigne")
+        for k in range(4):
+            yy = ya + (yb - ya) * (k + 0.5) / 4
+            g.cyl((x + s * (rc + 0.03), yy, zg), (1, 0, 0), 0.03, 0.03, M["accent"], n=12, style="soft",
+                  what="isolateur")
+    for yy in (ya - 0.03, yb + 0.03):   # flasques sombres de bobine (bagues sombres : pose N sans cheminée)
+        g.tube_shell((x, yy, zg), "y", rc + 0.03, rr + rb * 0.4, 0.03, M["steel_dk"], n=28, what="flasque")
+        F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rc + 0.03, 6, M["rivet"], r=0.014, phase=0.3, skip_down=-0.3)
+    # anneau isolateur derrière le frein, électrodes et arc à la bouche
+    ybb = y1 + L
+    g.tube_shell((x, ybb - 0.07, zg), "y", rr + rb + 0.04, rr + rb * 0.3, 0.035, M["accent"], n=28, what="isolateur")
     for s in (-1, 1):
-        g.box((x + s * 0.06, y1 + 0.015 + span / 2, zg + 0.125), (0.026, span + 0.07, 0.03), M["copper"], "hard",
-              what="barre")
-    yb = y1 + L
-    g.cyl((x, yb - 0.03, zg), "y", 0.09, 0.08, M["steel"], n=24, style="soft", what="bouche")
-    g.tube_shell((x, yb - 0.075, zg), "y", 0.12, 0.05, 0.03, M["accent"], n=24, what="isolateur")
-    g.cyl((x, yb + 0.012, zg), "y", 0.04, 0.008, M["void"], n=14, style="flat", what="ame")
-    F.lit_ring(g, (x, yb + 0.014, zg), "y", 0.07, M["emit"], w=0.02)
-    for s in (-1, 1):
-        p0 = V((x + s * 0.09, yb - 0.02, zg + 0.03))
-        g.cyl(p0 + V((0, 0.05, 0)), (0, 1, 0), 0.014, 0.12, M["copper"], n=8, what="electrode")
-        F.sphere(g, p0 + V((0, 0.12, 0)), 0.022, M["copper"], n=10, m=6, what="pointe")
-
-    PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.03, zg - hr * 1.3, zg + hr * 1.35,
-            ins=(0.02, 0.01, 0.02), panel=0.2, mats=[M[k] for k in st["gmask"]], rivet_step=0.11)
-    xo = x + sx * (wr / 2 - 0.005)
-    feed(g, st, H, x, sx, xo)
+        p0 = V((x + s * (rr + rb + 0.05), ybb - 0.07, zg + 0.04))
+        g.cyl(p0 + V((0, 0.07, 0.03)), (0, 1, 0.4), 0.012, 0.14, M["copper"], n=8, what="electrode")
+        F.sphere(g, p0 + V((0, 0.13, 0.055)), 0.02, M["copper"], n=10, m=6, what="pointe")
+    pa, pb = V((x - (rr + rb + 0.05), ybb + 0.06, zg + 0.095)), V((x + (rr + rb + 0.05), ybb + 0.06, zg + 0.095))
+    arc(g, pa, pb, 4, 0.025)
+    # sphère de décharge sur pile d'isolateurs, posée sur la culasse ; arc vers la bobine
+    ps = (x - sx * wr * 0.15, (y0 + y1) / 2 + 0.02, zg + hr + 0.01)
+    zt = PT.insulators(g, ps, 3, 0.05, h=0.04)
+    F.sphere(g, (ps[0], ps[1], zt + 0.065), 0.075, M["steel_hi"], n=18, m=10, what="sphere_decharge")
+    arc(g, V((ps[0], ps[1] + 0.06, zt + 0.07)), V((x, ya + 0.05, zg + rc + 0.02)), 3, 0.03)
 
 
-def breech(g, st, x, y0, y1, z0, z1, w):
-    """Culasse blindée (lignée PT.receiver) ocre et kaki."""
-    M = g.M
-    mats = [M[k] for k in st["recv_mats"]]
-    return PT.receiver(g, x, y0, y1, z0, z1, w, mats=mats)
-
-
-def drive(g, st, c, r, L):
-    """Organe arrière du canon : moteur à BOBINAGE de cuivre apparent (lignée)."""
-    M = g.M
-    x, y, z = c
-    body = M[st.get("drive_mat", "steel_dk")]
-    g.cyl((x, y, z), "y", r, L, body, n=28, style="soft", phase=math.pi / 8, what="moteur")
-    nf = int((L * 0.5) / 0.045)
-    fm = M[st.get("fin_mat", "steel_hi")]
-    for kk in range(nf):
-        g.tube_shell((x, y - L / 2 + 0.04 + kk * 0.045, z), "y", r + 0.026, r - 0.01, 0.014, fm, n=28, what="ailette")
-    for kk in range(4):
-        g.torus((x, y + L / 2 - 0.05 - kk * 0.034, z), "y", r + 0.006, 0.017, M["copper"], n=28, m=6,
-                what="bobinage")
-    g.cyl((x, y - L / 2 - 0.03, z), "y", r * 0.85, 0.06, M[st.get("flange_mat", "olive")], n=24, style="soft",
-          what="flasque")
-    F.bolts_ring(g, (x, y - L / 2 - 0.06, z), (0, -1, 0), r * 0.66, 8, M["rivet"], r=0.016)
-    g.cyl((x, y - L / 2 - 0.08, z), "y", r * 0.3, 0.05, M[st["band"]], n=12, what="moyeu")
-
-
-def feed(g, st, H, x, sx, xo):
-    """Alimentation : tambour de la lignée et bande."""
-    M = g.M
-    y0, y1 = H["recv"]
-    zg, hr, wr = H["zg"], H["hr"], H["wr"]
-    c = (xo + sx * 0.066, y0 + 0.12, zg - 0.02)
-    r = 0.13 if H["R"] < 0.5 else 0.17
-    g.cyl(c, (1, 0, 0), r, 0.13, M[st.get("drum_mat", "armor2")], n=32, style="soft", what="tambour")
-    for s in (-1, 1):
-        g.tube_shell(V(c) + V((s * 0.055, 0, 0)), (1, 0, 0), r + 0.016, r - 0.03, 0.026, M["brass"], n=32,
-                     what="flasque")
-        g.cyl(V(c) + V((s * 0.075, 0, 0)), (1, 0, 0), r * 0.32, 0.03, M["brass"], n=12, what="moyeu")
-    F.bolts_ring(g, V(c) + V((sx * 0.08, 0, 0)), (sx, 0, 0), r - 0.025, 8, M["rivet"], r=0.014)
-    PT.belt(g, [(xo + sx * 0.08, y0 + 0.2, zg + r * 0.9), (xo, y0 + 0.3, zg + r + 0.04),
-                (x + sx * wr * 0.3, y0 + 0.36, zg + hr + 0.02)], scale=0.85)
+def arc(g, p0, p1, n, amp):
+    """Arc électrique : ligne brisée lumineuse fine entre deux pointes (< 0,05 t²)."""
+    rng = g.rng
+    d = p1 - p0
+    side = d.cross(V((0, 0, 1)))
+    if side.length < 1e-4:
+        side = V((1, 0, 0))
+    side.normalize()
+    pts = [p0]
+    for i in range(1, n):
+        t = i / n
+        pts.append(p0 + d * t + side * amp * (rng.random() - 0.5) * 2 + V((0, 0, amp * (rng.random() - 0.5))))
+    pts.append(p1)
+    for a, b in zip(pts, pts[1:]):
+        e = b - a
+        g.cyl((a + b) / 2, e, 0.008, e.length + 0.006, g.M["emit"], n=6, style="flat", what="arc")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -343,9 +351,13 @@ def tete(g, c):
     def rad_at(z):
         t = max(0.0, min(1.0, (z - zs) / rz))
         return R * math.sqrt(max(0.0, 1 - t * t))
-    # signature de coupole : ceinture de spires de cuivre, pile d'isolateurs et boule
+    # signature de coupole (passe 4 : plus de ceinture de cuivre pleine, qui rappelait la vapeur) : couronne de
+    # 6 poteaux d'isolateurs de porcelaine sur le bas de la coupole, pile d'isolateurs et boule de décharge
+    zc6 = zs + 0.05
     for t in range(6):
-        z = zs + 0.03 + t * 0.032
-        g.torus((0, 0, z), "z", rad_at(z) * 1.03 + 0.012, 0.016, M["copper"], n=48, m=6, what="spire")
+        a = math.pi * 0.1 + math.pi * 0.8 * t / 5 + math.pi
+        p = (math.cos(a) * rad_at(zc6) * 0.98, math.sin(a) * rad_at(zc6) * 0.98, zc6)
+        ztp = PT.insulators(g, p, 3, 0.035, h=0.03)
+        g.cyl((p[0], p[1], ztp + 0.01), "z", 0.014, 0.03, M["copper"], n=8, what="borne")
     zt = PT.insulators(g, (R * 0.25, -R * 0.35, zs + rz * 0.9), 3, 0.05, h=0.04)
     F.sphere(g, (R * 0.25, -R * 0.35, zt + 0.06), 0.06, M["copper"], n=16, m=10, what="boule")

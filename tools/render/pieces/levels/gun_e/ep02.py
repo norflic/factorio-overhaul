@@ -3,10 +3,18 @@
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 2) : « fer, boulons, bouclier ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py : plateforme de caillebotis, colonne, coupole, nacelle
-et masque de la lignée ; kit.py : palette et règles de reflets communes). Aucune correction de design d'époque.
-Emplacements remplis : arme (canon forgé unique par flanc, culasse à levier, manivelle, caisse cerclée et bande),
-masque (bouclier courbe crénelé), grands volumes du socle (foyer de briques à hotte, soufflet, enclume, râtelier,
-baquet), liaisons (fer noir à brides carrées), plaques rapportées, foyers de nuit, pièce paire (2 mantelets).
+et masque de la lignée ; kit.py : palette et règles de reflets communes).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - bouclier : GRAND bouclier crénelé de tôle forgée claire, en arc de 7 pans devant toute la tête (canons
+    compris), qui dépasse au-dessus de la coupole et devant elle (consigne du DC) ;
+  - foyer : foyer de forge OUVERT, lit de braises irrégulier visible de dessus, hotte réduite au nord ;
+  - arme : faisceau forgé de 3 tubes (règle d'or 1) au lieu d'un fût unique, manchon sur la moitié arrière, couronne
+    plate carrée à 4 boulons et oreilles (pose N : un « T ») ;
+  - 2×2 : moins de pièces, plus grosses (plus de râtelier, de baquet ni de lanterne ; enclume et soufflet plus
+    grands) ; foyers rouge-orange de forge (famille 6 à 22° mesurée) ; chanfrein de plateforme 0,45.
+Emplacements remplis : arme (faisceau forgé de 3 tubes par flanc, culasse à levier, manivelle, caisse cerclée et
+bande), masque (grand bouclier crénelé en arc), grands volumes du socle (foyer ouvert de briques, soufflet, enclume),
+liaisons (fer noir à brides carrées), plaques rapportées, foyers, pièce paire (2 mantelets).
 """
 import math
 
@@ -25,8 +33,12 @@ V = Vector
 EPOQUE = 2
 NOM = "Forge"
 KIN = 1   # rang dans l'ère I (0, 1, 2) : puissance croissante dans l'ère (catalogue §A.5)
-FOYER = dict(rgb=(1.0, 0.416, 0.125))
-CANON = dict(L=0.85, nb=3, rb=0.046, rr=0.072)
+# passe 4 : rouge-orange de forge (famille 6 à 22° MESURÉE ; les cœurs saturés tirent la teinte vers le jaune,
+# d'où une teinte nominale plus rouge que la cible)
+FOYER = dict(rgb=(1.0, 0.13, 0.025))
+CANON = dict(L=0.85, nb=3, rb=0.05, rr=0.08)
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.45)
 HABILLAGE = dict(jupe_cerclage="blackiron", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
                  chapeau="brass")
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
@@ -34,6 +46,13 @@ ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_m
           recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="bolted", gmask=("bolted", "rawiron"),
           arm=("bolted", "blackiron"), cap="brass", mask="shield", jacket_f=0.6, col=("bolted", "blackiron"),
           nac=("bolted", "rawiron"), arr="row", barrel="blackiron")
+
+
+def matieres(metal, M):
+    """Tôle de bouclier forgée (acier martelé plus clair que le corps, arêtes usées très claires : le bouclier se lit
+    au zoom 1 comme la tôle claire de la mitrailleuse vanilla) et fer chaud (bout de barre sortant du foyer)."""
+    metal("forgeplate", (0.44, 0.41, 0.36), rough=0.44, met=0.75, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
+          ra=0.16, dirt=0.8, stain=0.6, sscale=5.0, wear=2.8, streak=0.45, mottle=0.35)
 
 
 def _halo(g, pts, power):
@@ -113,52 +132,81 @@ def _bellows(g, x, yn0, yn1, w, M):
     return tip + V((0, 0.14, 0))
 
 
-def _hearth(g, x0, x1, yn0, yn1, h, M, E, flue=0.2):
-    """Foyer de forge en briques : cornières de fer, bac à charbon rougeoyant (la nuit), hotte en tronc de pyramide
-    sur 4 poteaux, conduit CARRÉ (pas de cheminée ronde : elle appartient à la vapeur)."""
+def _hearth(g, x0, x1, yn0, yn1, h, M, E, flue=0.2, hotte=0.4):
+    """Foyer de forge OUVERT en briques (passe 4 : « gros foyer de forge », lisible au zoom 1) : cornières de fer,
+    grand lit de braises rougeoyantes sous des blocs de charbon (le foyer se voit de dessus, de jour), barre de fer
+    chauffée au rouge et tenailles, hotte en tronc de pyramide sur la seule partie NORD (hotte : part de la
+    profondeur), conduit CARRÉ (pas de cheminée ronde : elle appartient à la vapeur)."""
     y0, y1 = Y(yn0), Y(yn1)
     g.box(((x0 + x1) / 2, (y0 + y1) / 2, h / 2), (x1 - x0, y1 - y0, h), M["seam"], "flat", what="massif")
     B = [V((x0, y0, 0.0)), V((x1, y0, 0.0)), V((x1, y1, 0.0)), V((x0, y1, 0.0))]
     T = [V((x0, y0, h)), V((x1, y0, h)), V((x1, y1, h)), V((x0, y1, h))]
     for q in ([B[0], B[1], T[1], T[0]], [B[1], B[2], T[2], T[1]], [B[3], B[0], T[0], T[3]]):
         F.courses(g, q, [M["brick"], M["brick2"], M["brick"]])
-    # margelle de briques posées à plat, bac à charbon au centre
-    rim = 0.09
+    # margelle de briques posées à plat, lit de braises au centre
+    rim = 0.08
     for (a, b, c, d) in ((x0, x1, y0, y0 + rim), (x0, x1, y1 - rim, y1), (x0, x0 + rim, y0, y1), (x1 - rim, x1, y0, y1)):
         F.courses(g, [V((a, c, h)), V((b, c, h)), V((b, d, h)), V((a, d, h))], [M["brick2"], M["brick"]],
-                bw=0.13, bh=0.065)
-    g.box(((x0 + x1) / 2, (y0 + y1) / 2, h - 0.01), (x1 - x0 - 2 * rim, y1 - y0 - 2 * rim, 0.02), M["void"], "flat",
-          what="bac")
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+                  bw=0.13, bh=0.065)
+    bx0, bx1, by0, by1 = x0 + rim, x1 - rim, y0 + rim, y1 - rim
+    g.box(((bx0 + bx1) / 2, (by0 + by1) / 2, h - 0.01), (bx1 - bx0, by1 - by0, 0.02), M["void"], "flat", what="bac")
+    # braises : plaques lumineuses séparées par les blocs de charbon (chaque plaque < 0,02 t² : le lit se lit comme un
+    # grand foyer sans faire un aplat lumineux unique)
+    # cœur rouge au centre (tache irrégulière, pas une grille) : quelques braises entre les blocs, fissures
+    # rougeoyantes ; le pourtour du lit reste du charbon noir
+    cbx, cby = (bx0 + bx1) / 2, (by0 + by1) / 2
+    ex, ey = (bx1 - bx0) * 0.36, (by1 - by0) * 0.34
+    rng = g.rng
     for i in range(9):
-        a = TAU * i / 9 + 0.3
-        rr = 0.06 + 0.05 * (i % 3) / 2
-        F.lump(g, (cx + math.cos(a) * rr * 1.4, cy + math.sin(a) * rr * 1.6, h + 0.005), 0.032, M["basalt"], sz=0.7,
-             n=7, m=4, what="charbon")
-    for i in range(3):
-        g.box((cx - 0.06 + i * 0.06, cy + (i - 1) * 0.05, h + 0.004), (0.035, 0.03, 0.01), E, "flat", what="braise")
-    # cornières de fer aux arêtes verticales, ceinture boulonnée
+        a = TAU * i / 9 + 0.35 * rng.random()
+        rr = 0.35 + 0.6 * ((i * 5) % 9) / 9.0
+        g.box((cbx + math.cos(a) * ex * rr, cby + math.sin(a) * ey * rr, h + 0.002),
+              (0.05 + 0.03 * rng.random(), 0.035 + 0.025 * rng.random(), 0.01), E, "flat",
+              R=Matrix.Rotation(rng.random() * math.pi, 3, "Z"), what="braise")
+    g.box((cbx, cby, h + 0.002), (0.09, 0.07, 0.01), E, "flat", R=Matrix.Rotation(0.5, 3, "Z"), what="braise")
+    nx, ny = 4, max(5, int((by1 - by0) / 0.1))
+    for i in range(nx + 1):
+        for j in range(ny + 1):
+            px = bx0 + (bx1 - bx0) * i / nx + 0.025 * ((j % 2) * 2 - 1)
+            py = by0 + (by1 - by0) * j / ny
+            dc = ((px - cbx) / ex) ** 2 + ((py - cby) / ey) ** 2
+            if dc < 0.45 and (i + j) % 2:
+                continue
+            F.lump(g, (px, py, h - 0.004), 0.042 + 0.012 * rng.random(), M["basalt"], sz=0.55, n=7, m=4,
+                   what="charbon")
+    # barre de fer chauffée au rouge sortant du lit vers l'est, tenailles posées sur la margelle
+    g.box(((bx0 + x1) / 2 + 0.06, (by0 + by1) / 2 - 0.08, h + 0.03), (x1 - bx0 + 0.04, 0.032, 0.032), M["rawiron"],
+          "hard", what="barre")
+    g.box((bx0 + (bx1 - bx0) * 0.45, (by0 + by1) / 2 - 0.08, h + 0.03), ((bx1 - bx0) * 0.5, 0.036, 0.036), E,
+          "flat", what="fer_rouge")
+    g.cyl((x1 + 0.02, (by0 + by1) / 2 + 0.12, h + 0.025), (1, 0.25, 0), 0.012, 0.24, M["rawiron"], n=6,
+          what="tenaille")
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    # cornières de fer aux arêtes verticales, ceinture boulonnée, gueules du cendrier au sud
     for (px, py) in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
-        g.box((px, py, h / 2), (0.04, 0.04, h + 0.01), M["rawiron"], "hard", what="corniere")
+        g.box((px, py, h / 2), (0.045, 0.045, h + 0.01), M["rawiron"], "hard", what="corniere")
     for zz in (0.07, h - 0.05):
         g.box(((x0 + x1) / 2, y0 - 0.008, zz), (x1 - x0 + 0.02, 0.016, 0.035), M["rawiron"], "hard", what="ceinture")
-        for k in range(4):
-            g.dome((x0 + (x1 - x0) * (k + 0.5) / 4, y0 - 0.018, zz), (0, -1, 0), 0.015, M["rivet"])
-    # hotte sur 4 poteaux, conduit carré
-    zh0, zh1 = h + 0.15, h + 0.32
-    ins = 0.05
-    for (px, py) in ((x0 + ins, y0 + ins), (x1 - ins, y0 + ins), (x1 - ins, y1 - ins), (x0 + ins, y1 - ins)):
-        g.cyl((px, py, (h + zh0) / 2 + 0.005), "z", 0.018, zh0 - h + 0.01, M["blackiron"], n=8, what="poteau")
-    T2 = PT.hull(g, x0 + 0.02, x1 - 0.02, y0 + 0.02, y1 - 0.02, zh0, zh1, ins=((x1 - x0) * 0.3, (y1 - y0) * 0.3,
-                 (y1 - y0) * 0.3), panel=0.22, mats=[M["rawiron"], M["blackiron"]], rivet_step=0.1)
-    g.box((cx, cy, zh0 + 0.015), (x1 - x0 + 0.01, y1 - y0 + 0.01, 0.03), M["blackiron"], "hard", what="rebord")
-    fw = 0.13
-    PT.hull(g, cx - fw / 2, cx + fw / 2, cy - fw / 2, cy + fw / 2, zh1 - 0.01, zh1 + flue, ins=(0.0, 0.0, 0.0),
-            panel=0.2, mats=[M["blackiron"], M["rawiron"]], faces="tsew", rivet_step=0.1)
+        for k in range(3):
+            g.dome((x0 + (x1 - x0) * (k + 0.5) / 3, y0 - 0.018, zz), (0, -1, 0), 0.016, M["brass"])
+    # hotte sur la partie nord seulement (2 poteaux avant), conduit carré haut
+    yh0 = y1 - (y1 - y0) * hotte
+    zh0, zh1 = h + 0.2, h + 0.36
+    ins = 0.04
+    for (px, py) in ((x0 + ins, yh0 + ins), (x1 - ins, yh0 + ins)):
+        g.cyl((px, py, (h + zh0) / 2 + 0.005), "z", 0.022, zh0 - h + 0.01, M["blackiron"], n=8, what="poteau")
+    PT.hull(g, x0 + 0.01, x1 - 0.01, yh0, y1 - 0.01, zh0, zh1, ins=((x1 - x0) * 0.28, (y1 - yh0) * 0.25,
+            (y1 - yh0) * 0.25), panel=0.22, mats=[M["rawiron"], M["blackiron"]], rivet_step=0.11)
+    g.box((cx, (yh0 + y1) / 2, zh0 + 0.015), (x1 - x0 + 0.02, y1 - yh0 + 0.02, 0.03), M["blackiron"], "hard",
+          what="rebord")
+    fw = 0.15
+    fy = (yh0 + y1) / 2
+    PT.hull(g, cx - fw / 2, cx + fw / 2, fy - fw / 2, fy + fw / 2, zh1 - 0.01, zh1 + flue, ins=(0.0, 0.0, 0.0),
+            panel=0.2, mats=[M["blackiron"], M["rawiron"]], faces="tsew", rivet_step=0.11)
     for zz in (zh1 + flue * 0.45, zh1 + flue * 0.85):
-        g.box((cx, cy, zz), (fw + 0.025, fw + 0.025, 0.03), M["rawiron"], "hard", what="frette")
-    g.box((cx, cy, zh1 + flue + 0.01), (fw + 0.05, fw + 0.05, 0.03), M["rawiron"], "hard", what="chapeau")
-    g.box((cx, cy, zh1 + flue + 0.026), (fw - 0.03, fw - 0.03, 0.006), M["soot"], "flat", what="suie")
+        g.box((cx, fy, zz), (fw + 0.03, fw + 0.03, 0.035), M["rawiron"], "hard", what="frette")
+    g.box((cx, fy, zh1 + flue + 0.01), (fw + 0.06, fw + 0.06, 0.03), M["rawiron"], "hard", what="chapeau")
+    g.box((cx, fy, zh1 + flue + 0.026), (fw - 0.03, fw - 0.03, 0.006), M["soot"], "flat", what="suie")
     return (cx, y0, 0.1)
 
 
@@ -180,44 +228,25 @@ def _anvil(g, x, yn, M, k=1.0):
     g.cyl((x - 0.06 * k, y - 0.09 * k, z + 0.18 * k), (-0.8, -0.6, 0.0), 0.012, 0.2 * k, M["wood"], n=6, what="manche")
 
 
-def plate_rack(g, x, yn, M):
-    """Râtelier en A de plaques de blindage forgées, debout (pièce haute, lisible au-dessus de la tête)."""
-    y = Y(yn)
-    for s in (-1, 1):
-        g.box((x + s * 0.16, y + 0.04, 0.25), (0.04, 0.04, 0.5), M["wood2"], "hard", R=Matrix.Rotation(0.22, 3, "X"),
-              what="montant")
-    g.box((x, y - 0.1, 0.03), (0.42, 0.24, 0.06), M["wood2"], "hard", what="semelle")
-    for i in range(3):
-        g.box((x + 0.01 * i, y - 0.06 + i * 0.045, 0.26), (0.34 - 0.03 * i, 0.03, 0.46 - 0.04 * i),
-              M["bolted"] if i % 2 else M["rawiron"], "soft", R=Matrix.Rotation(0.22, 3, "X"), what="plaque_forgee")
-        for sx_ in (-1, 1):
-            for zz in (0.12, 0.38):
-                g.dome((x + 0.01 * i + sx_ * (0.13 - 0.015 * i), y - 0.077 + i * 0.045 + (zz - 0.26) * 0.22,
-                        zz - 0.02 * i), (0, -1, 0.22), 0.015, M["rivet"])
-
-
 def socle_forge(g):
     M = g.M
     E = M["emit"]
-    # ouest (toujours visible, à toutes les poses) : FOYER de briques, hotte et conduit carré haut
-    _hearth(g, -0.99, -0.55, -0.46, 0.34, 0.32, M, E, flue=0.36)
+    # passe 4 (2×2 : MOINS de pièces, PLUS grosses) : un grand foyer ouvert à l'ouest, un soufflet au nord-ouest, une
+    # grande enclume à l'est, le râtelier de plaques au nord-est ; plus de baquet, de lanterne ni de lingot
+    # ouest (toujours visible, à toutes les poses) : FOYER OUVERT de briques, lit de braises, hotte nord et conduit
+    _hearth(g, -1.02, -0.5, -0.56, 0.4, 0.3, M, E, flue=0.4, hotte=0.34)
     # nord-ouest : soufflet de cuir, tuyère au sud dans le foyer
-    g.push((-0.74, Y(0.66), 0.0), rz=math.pi)
-    tip = _bellows(g, 0.0, -0.3, 0.3, 0.42, M)
+    g.push((-0.72, Y(0.7), 0.0), rz=math.pi)
+    _bellows(g, 0.0, -0.3, 0.3, 0.46, M)
     g.pop()
-    # est : enclume sur billot (grande, face d'acier claire), baquet de trempe ; nord-est : râtelier de plaques
-    _anvil(g, 0.76, -0.02, M, k=1.3)
-    g.box((0.72, Y(-0.02) - 0.03, 0.485), (0.12, 0.05, 0.02), E, "flat", what="lingot")
-    for xx in (-0.9, -0.64):
-        g.box((xx, Y(-0.46) - 0.024, 0.16), (0.08, 0.01, 0.065), E, "flat", what="gueule")
-        g.box((xx, Y(-0.46) - 0.03, 0.2), (0.11, 0.025, 0.02), M["rawiron"], "hard", what="linteau")
-    F.stave_barrel(g, (0.8, Y(-0.4), 0.0), 0.14, 0.2, M["wood"], M["rawiron"], open_top=M["glass_dk"])
-    g.cyl((0.76, Y(-0.4), 0.24), (0.3, 0.2, 1), 0.01, 0.16, M["rawiron"], n=6, what="tenaille")
-    plate_rack(g, 0.62, 0.66, M)
-    # lanterne de nuit sur le foyer
-    F.lantern(g, (0.58, Y(-0.22), 0.0), E)
-    g.halo((-0.77, Y(-0.06), 0.5), M["_emit_rgb"], 10.0)
-    g.halo((0.58, Y(-0.22), 0.15), M["_emit_rgb"], 6.0)
+    # est : grande enclume sur billot (face d'acier claire), lingot rougeoyant posé dessus
+    _anvil(g, 0.74, -0.12, M, k=1.6)
+    g.box((0.7, Y(-0.12) - 0.03, 0.58), (0.15, 0.06, 0.025), E, "flat", what="lingot")
+    for xx in (-0.92, -0.6):
+        g.box((xx, Y(-0.56) - 0.024, 0.15), (0.1, 0.01, 0.07), E, "flat", what="gueule")
+        g.box((xx, Y(-0.56) - 0.03, 0.2), (0.13, 0.025, 0.022), M["rawiron"], "hard", what="linteau")
+    g.halo((-0.76, Y(-0.08), 0.5), M["_emit_rgb"], 12.0)
+    g.halo((0.7, Y(-0.12), 0.7), M["_emit_rgb"], 5.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -294,42 +323,41 @@ def arme(g, c, x, sx):
 
 
 def w_forge(g, st, H, x, sx):
-    """Époque 2 : UN gros canon d'acier forgé par flanc (pas de faisceau) : fût conique, frettes boulonnées, renfort
-    de culasse, bourrelet de bouche, frein hydraulique sous le fût ; culasse carrée rivetée à levier."""
+    """Époque 2 (passe 4) : FAISCEAU FORGÉ de 3 gros tubes d'acier (corps.rosette, règle d'or 1 : les tubes séparés
+    et leur rosace restent visibles), manchon de fer forgé sur la moitié arrière seulement, cerclé de frettes
+    boulonnées tous les 0,12 t, couronne de bouche plate en fer noirci à 4 boulons et oreilles (pose N : un « T »),
+    frein hydraulique sous le faisceau ; culasse carrée rivetée à levier, manivelle, caisse cerclée et bande."""
     M = g.M
     y0, y1 = H["recv"]
     zg, hr, wr = H["zg"], H["hr"], H["wr"]
     breech(g, st, x, y0, y1, zg - hr, zg + hr, wr)
     Ld = 0.26 + hr * 0.6
     drive(g, st, (x, y0 - Ld / 2 + 0.03, zg), hr * 0.78, Ld)
-    L = H["L"]
-    r0, r1 = 0.088, 0.066
-    g.cyl((x, y1 + L / 2, zg), "y", r0, L, M["steel"], n=28, r2=r1, what="fut")
-    # renfort de culasse (manchon épais à 8 boulons)
-    g.tube_shell((x, y1 + 0.07, zg), "y", r0 + 0.03, r0 - 0.02, 0.14, M["rawiron"], n=28, what="renfort")
-    F.bolts_ring(g, (x, y1 + 0.145, zg), (0, 1, 0), r0 + 0.012, 8, M["brass"], r=0.015)
-    # frettes boulonnées
-    for f in (0.36, 0.6):
-        rr = r0 + (r1 - r0) * f
-        g.tube_shell((x, y1 + L * f, zg), "y", rr + 0.022, rr - 0.01, 0.045, M["rawiron"], n=28, what="frette")
-        F.bolts_ring(g, (x, y1 + L * f, zg), (0, 1, 0), rr + 0.023, 4, M["brass"], r=0.014, phase=0.785,
-                      skip_down=-0.2)
-    # bourrelet et couronne de bouche, âme noire, pourtour éclairé (la nuit)
+    L, nb, rb, rr = H["L"], H["nb"], H["rb"], H["rr"]
+    pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M["steel"], phase=math.pi / 2, colliers=(0.74,),
+                        collier_mat=M["blackiron"], bouts=False)
+    rs = rr + rb + 0.024
+    # manchon de fer forgé (moitié arrière au plus : corps.JAQUETTE_MAX), frettes boulonnées au pas de 0,12
+    Lj = L * min(0.46, corps.JAQUETTE_MAX)
+    g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["rawiron"], n=28, style="smooth", what="manchon")
+    nfr = max(2, int(Lj / 0.12) + 1)
+    for i in range(nfr):
+        yy = y1 + 0.03 + (Lj - 0.06) * i / (nfr - 1)
+        g.tube_shell((x, yy, zg), "y", rs + 0.024, rs - 0.01, 0.04, M["blackiron"], n=28, what="frette")
+        F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rs + 0.026, 4, M["brass"], r=0.015, phase=0.785, skip_down=-0.2)
+    # couronne de bouche PLATE en fer noirci (carrée, plus large que le faisceau), oreilles
     yb = y1 + L
-    g.cyl((x, yb - 0.04, zg), "y", r1 + 0.04, 0.08, M["blackiron"], n=28, style="soft", what="bourrelet")
-    # oreilles de bouche : en pose N, le bout du canon fait un « T » horizontal, jamais un chapeau de cheminée
-    F.ears(g, x, yb - 0.04, zg, r1 + 0.06, 0.08, r1 * 1.3, M["rawiron"], vent=False)
-    g.tube_shell((x, yb + 0.004, zg), "y", r1 + 0.03, r1 - 0.025, 0.02, M["rawiron"], n=28, what="couronne")
-    g.cyl((x, yb + 0.006, zg), "y", r1 - 0.026, 0.01, M["void"], n=18, style="flat", what="ame")
-    F.lit_ring(g, (x, yb + 0.016, zg), "y", r1 - 0.004, M["emit"], w=0.018)
-    for k in range(4):
-        a = 0.785 + TAU * k / 4
-        g.bolt(V((x, yb + 0.012, zg)) + V((math.cos(a), 0, math.sin(a))) * (r1 + 0.012), (0, 1, 0), 0.012,
-               M["steel_hi"])
-    # frein hydraulique sous le fût (cylindre et collier avant)
-    zr = zg - r0 - 0.035
-    g.cyl((x, y1 + 0.2, zr), "y", 0.035, 0.38, M["blackiron"], n=14, what="frein_recul")
-    g.box((x, y1 + 0.36, (zr + zg) / 2 - 0.01), (0.05, 0.04, r0 + 0.02), M["rawiron"], "hard", what="collier")
+    wc = 2 * (rr + rb) + 0.07
+    g.box((x, yb - 0.035, zg), (wc, 0.07, wc), M["blackiron"], "hard", what="couronne")
+    F.ears(g, x, yb - 0.035, zg, wc / 2 + 0.03, 0.07, wc * 0.7, M["rawiron"], vent=False)
+    for sxx in (-1, 1):
+        for szz in (-1, 1):
+            g.bolt((x + sxx * wc * 0.36, yb + 0.001, zg + szz * wc * 0.36), (0, 1, 0), 0.014, M["steel_hi"])
+    corps.bouche(g, x, yb + 0.002, zg, pos, rb, M["rawiron"], rr + rb * 0.6, w=0.02)
+    # frein hydraulique sous le faisceau (cylindre et collier avant)
+    zr = zg - rs - 0.04
+    g.cyl((x, y1 + 0.22, zr), "y", 0.038, 0.42, M["blackiron"], n=14, what="frein_recul")
+    g.box((x, y1 + 0.4, (zr + zg) / 2 - 0.01), (0.06, 0.045, rs + 0.03), M["rawiron"], "hard", what="collier")
     # masque de canon : plaque de fer forgé rivetée
     PT.hull(g, x - wr * 0.75, x + wr * 0.75, y1 - 0.04, y1 + 0.06, zg - hr * 1.3, zg + hr * 1.4, ins=(0.02, 0.01, 0.03),
             panel=0.2, mats=[M["bolted"], M["rawiron"]], rivet_step=0.1)
@@ -378,43 +406,62 @@ def feed(g, st, H, x, sx, xo):
 # Masque (remplace celui de la lignée) : BOUCLIER COURBE CRÉNELÉ
 # ------------------------------------------------------------------------------------------------
 def masque(g, c):
-    """Bouclier courbe crénelé qui enveloppe l'avant de la coupole entre les deux canons, incliné vers l'extérieur (sa
-    face rivetée se voit d'en haut à toutes les poses), merlons d'acier, fentes de visée, console annulaire rivetée qui
-    le relie à la jupe (aucune pièce qui flotte)."""
+    """Passe 4 : GRAND BOUCLIER CRÉNELÉ de tôle forgée claire, en arc de 7 pans qui enveloppe tout l'avant de la tête,
+    canons compris (les faisceaux le traversent) ; il DÉPASSE au-dessus de la coupole (merlons) et devant elle : c'est
+    la silhouette de l'époque au zoom 1 (consigne du DC, 23/10). Pans légèrement évasés vers l'extérieur (la face
+    rivetée se voit d'en haut à toutes les poses), tôles rivetées sur les deux faces, rebord, un merlon par pan,
+    fentes de visée, colliers de passage autour des faisceaux (aucun jour), console annulaire rivetée qui relie le pied
+    du bouclier à la jupe (aucune pièce qui flotte)."""
     M = g.M
     H = c.H
     R, zs, rz = H["R"], H["zs"], H["rz"]
-    Rs = R + 0.1
-    z0s, z1s = zs - 0.24, zs + rz + 0.1
-    half = math.asin(min(0.98, (H["gx"] - H["wr"] * 0.6) / Rs))
-    n = 9
-    segw = 2 * Rs * math.sin(half / n) * 1.04
+    gx, zg = H["gx"], H["zg"]
+    rs = H["rr"] + H["rb"] + 0.024
+    Rs = gx + rs + 0.07
+    zb = zs - 0.24
+    Hs = zs + rz + 0.15 - zb
+    th = 0.045
+    evase = 0.16
+    n = 7
+    half = math.radians(72)
+    # les pans s évasent : à leur sommet le rayon vaut Rs + Hs sin(évasement) ; largeur prise au sommet (aucune fente)
+    segw = 2 * (Rs + Hs * math.sin(evase)) * math.sin(half / n) * 1.04
     for i in range(n):
         a = math.pi / 2 - half + 2 * half * (i + 0.5) / n
         d = V((math.cos(a), math.sin(a), 0.0))
-        t = V((-math.sin(a), math.cos(a), 0.0))
-        R3 = Matrix((t, d, V((0, 0, 1)))).transposed() @ Matrix.Rotation(-0.32, 3, "X")
-        c_ = d * Rs + V((0, 0, (z0s + z1s) / 2))
-        g.box(c_, (segw, 0.04, z1s - z0s), M["steel"] if i % 2 else M["bolted"], "hard", R=R3, what="bouclier")
-        for zz in (0.42,):
-            for s_ in (-1, 1):
-                g.dome(c_ + R3 @ V((s_ * segw * 0.32, 0.022, (zz - 0.5) * (z1s - z0s) * 1.6)), R3 @ V((0, 1, 0)),
-                       0.016, M["rivet"])
-        if i % 2 == 0:
-            g.box(c_ + R3 @ V((0, 0.0, (z1s - z0s) / 2 + 0.045)), (segw * 0.8, 0.044, 0.09), M["rawiron"], "hard",
-                  R=R3, what="merlon")
-        if i in (2, 6):
-            g.box(c_ + R3 @ V((0, 0.022, (z1s - z0s) * 0.22)), (segw * 0.5, 0.008, 0.028), M["void"], "flat", R=R3,
-                  what="visee")
-    # rebord haut et console annulaire (jupe -> bouclier)
-    for i in range(n):
-        a = math.pi / 2 - half + 2 * half * (i + 0.5) / n
-        d = V((math.cos(a), math.sin(a), 0.0))
-        t = V((-math.sin(a), math.cos(a), 0.0))
-        R3 = Matrix((t, d, V((0, 0, 1)))).transposed()
-        g.box(d * (R + Rs) / 2 + V((0, 0, z0s + 0.02)), (segw * 1.05, Rs - R + 0.06, 0.05), M["blackiron"], "hard",
-              R=R3, what="console")
-        g.dome(d * ((R + Rs) / 2) + V((0, 0, z0s + 0.05)), (0, 0, 1), 0.015, M["brass"])
+        g.push(tuple(d * Rs + V((0, 0, zb))), rz=a - math.pi / 2, rx=-evase)
+        g.box((0, 0, Hs / 2), (segw, th, Hs), M["blackiron"], "hard", what="bouclier")
+        nv = max(2, int(round(Hs / 0.27)))
+        front = [V((segw / 2, th / 2, 0.0)), V((-segw / 2, th / 2, 0.0)), V((-segw / 2, th / 2, Hs)),
+                 V((segw / 2, th / 2, Hs))]
+        back = [V((-segw / 2, -th / 2, 0.0)), V((segw / 2, -th / 2, 0.0)), V((segw / 2, -th / 2, Hs)),
+                V((-segw / 2, -th / 2, Hs))]
+        # face avant rivetée ; face arrière en tôles lisses (2×2 : moins de pièces, plus grosses)
+        for q, rm in ((front, M["rivet"]), (back, None)):
+            g.panels(q, 1, nv, M["forgeplate"], t=0.016, gap=0.018, rivet_mat=rm, rivet_r=0.017,
+                     rivet_step=0.12, mats=[M["forgeplate"], M["forgeplate"], M["bolted"]])
+        g.box((0, 0, Hs + 0.014), (segw + 0.01, th + 0.05, 0.028), M["rawiron"], "hard", what="rebord")
+        mw = segw * 0.56
+        g.box((0, 0, Hs + 0.028 + 0.075), (mw, th + 0.03, 0.15), M["forgeplate"], "hard", what="merlon")
+        g.box((0, 0, Hs + 0.028 + 0.155), (mw + 0.02, th + 0.045, 0.018), M["rawiron"], "hard", what="chaperon")
+        for s_ in (-1, 1):
+            g.dome((0, s_ * (th / 2 + 0.016), Hs + 0.1), (0, s_, 0), 0.016, M["rivet"])
+        if i in (2, 4):
+            g.box((0, th / 2 + 0.018, Hs * 0.66), (segw * 0.5, 0.008, 0.03), M["void"], "flat", what="visee")
+            g.box((0, th / 2 + 0.024, Hs * 0.66 + 0.032), (segw * 0.62, 0.02, 0.016), M["rawiron"], "hard",
+                  what="sourcil")
+        g.pop()
+        # console annulaire : du pied du pan au collier de la jupe
+        g.push((0, 0, zb + 0.02), rz=a - math.pi / 2)
+        g.box((0, (R + Rs) / 2 - 0.02, 0.0), (segw * 0.9 * (R + Rs) / (2 * Rs) + 0.04, Rs - R + 0.08, 0.05),
+              M["blackiron"], "hard", what="console")
+        g.dome((0, (R + Rs) / 2, 0.028), (0, 0, 1), 0.016, M["brass"])
+        g.pop()
+    # colliers de passage autour des faisceaux (à la traversée du bouclier)
+    for s_ in (-1, 1):
+        yy = math.sqrt(max(0.0, Rs * Rs - gx * gx)) + (zg - zb) * math.tan(evase)
+        g.cyl((s_ * gx, yy, zg), "y", rs + 0.05, 0.11, M["blackiron"], n=28, style="soft", what="collier_passage")
+        F.bolts_ring(g, (s_ * gx, yy + 0.057, zg), (0, 1, 0), rs + 0.032, 6, M["brass"], r=0.015)
 
 
 # ------------------------------------------------------------------------------------------------

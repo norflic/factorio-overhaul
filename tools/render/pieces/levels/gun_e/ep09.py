@@ -3,7 +3,12 @@
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 9) : « plomb, hublots, radioactif ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py ; la dalle de béton de la tourelle secondaire
-devient une dalle de caillebotis du kit). Aucune correction de design d'époque.
+devient une dalle de caillebotis du kit).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - plomb GRIS MAT plus clair ; ailettes sombres (pose N : aucune bague claire) ; plaque de signalisation à trèfle
+    sur chaque fourreau ; grand trèfle peint et panneau « radiations » ; fenêtre à 3 barres de combustible vert
+    uranium ; hublots de la cuve plus grands et plus nombreux ; tour de refroidissement plus grande ; lampe hors du
+    contour retirée (îlot de 22 px) ; chanfrein 0,55.
 Emplacements remplis : arme (gatling à 6 tubes sous fourreau OCTOGONAL de plomb, paquets d'ailettes, frein
 octogonal, culasse à hublots verts, magasins plombés à trèfle), mitrailleuse coaxiale, 1re tourelle secondaire,
 grands volumes du socle (tour de refroidissement, cuve sphérique plombée à hublots, fûts, balises), liaisons (grosses
@@ -29,6 +34,8 @@ NOM = "Atome"
 KIN = 2   # rang dans l'ère III
 FOYER = dict(rgb=(0.361, 1.0, 0.29))
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.55)
 HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
                  grille_nacelle="lead", tourelleau="lead", chapeau="lead")
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
@@ -38,9 +45,11 @@ ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8
 
 
 def matieres(metal, M):
-    """Test noir et blanc de la passe 3 : béton (× 1,45) et plomb (× 1,2) plus clairs."""
-    metal("lead", (0.17, 0.165, 0.155), rough=0.5, met=0.6, grain=0.28 * 0.62, rust=(0.12, 0.11, 0.095), ra=0.3,
-          dirt=0.85, stain=0.7, stain2=0.32, sscale=5.0, wear=1.6, streak=0.5, tone=1.2)
+    """Passe 4 : PLOMB GRIS MAT (« fûts plombés gris mat » : gris neutre plus clair que le corps, très rugueux, peu
+    métallique, sans reflet) ; béton plus clair (× 1,45, test noir et blanc de la passe 3) ; jaune des plaques de
+    signalisation (patiné, jamais vif : C5)."""
+    metal("lead", (0.23, 0.225, 0.215), rough=0.66, met=0.35, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.25,
+          dirt=0.85, stain=0.6, stain2=0.32, sscale=5.0, wear=1.4, streak=0.45)
     metal("concrete", (0.17, 0.155, 0.135), rough=0.92, met=0.0, grain=0.5 * 0.62, gscale=30.0, dirt=0.9, stain=0.85,
           stain2=0.32, sscale=5.0, wear=1.4, streak=0.6, tone=1.45)
 
@@ -90,8 +99,8 @@ def cooling_tower(g, x, y, r, h, M):
 def socle_atom(g, k):
     M = g.M
     E = M["emit"]
-    cooling_tower(g, 1.32, Y(1.22), 0.5, 1.0, M)
-    sphere_tank(g, 1.55, Y(0.0), 0.36, 0.9, E, ladder_dir=(1, -0.2))
+    cooling_tower(g, 1.3, Y(1.2), 0.56, 1.25, M)
+    sphere_tank(g, 1.52, Y(0.0), 0.42, 1.05, E, ladder_dir=(1, -0.2))
     # ouest : parc de fûts plombés à trèfles sur dalle de béton, blocs de protection
     F.prism(g, [(-1.94, Y(-1.12)), (-1.28, Y(-1.12)), (-1.28, Y(0.62)), (-1.94, Y(0.62))], 0.0, 0.06,
              M["concrete"])
@@ -102,12 +111,25 @@ def socle_atom(g, k):
             mats=[M["concrete"], M["concrete"]], rivets=False)
     g.hazard([V((-1.92, Y(0.18) - 0.004, 0.1)), V((-1.32, Y(0.18) - 0.004, 0.1)), V((-1.32, Y(0.18) - 0.004, 0.2)),
               V((-1.92, Y(0.18) - 0.004, 0.2))], 8, t=0.008)
-    F.trefoil(g, (-1.62, Y(0.4), 0.405), (0, 0, 1), 0.08)
+    # passe 4 : fenêtre de contrôle sur le dessus du bloc de protection, 3 barres de combustible vert uranium
+    # (foyers lisibles au zoom 1, chacun < 0,02 t²), cadre et barreaux de plomb
+    wx, wy = -1.62, Y(0.4)
+    g.box((wx, wy, 0.405), (0.42, 0.44, 0.012), M["void"], "flat", what="fenetre")
+    for i in range(3):
+        g.box((wx - 0.12 + 0.12 * i, wy, 0.412), (0.05, 0.36, 0.01), E, "flat", what="barre_combustible")
+    for s_ in (-1, 1):
+        g.box((wx + s_ * 0.22, wy, 0.42), (0.04, 0.48, 0.035), M["lead"], "hard", what="cadre")
+        g.box((wx, wy + s_ * 0.23, 0.42), (0.48, 0.04, 0.035), M["lead"], "hard", what="cadre")
+    for i in range(2):
+        g.box((wx - 0.06 + 0.12 * i, wy, 0.422), (0.022, 0.44, 0.022), M["lead"], "hard", what="barreau")
+    # grand trèfle peint sur la dalle de béton et panneau de signalisation sur poteau (signature, lisible de haut)
+    F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.15)
+    sign(g, (-1.61, Y(-0.76), 0.06), 0.3, 0.56)
     # balises de radiation
     for (xx, yn) in ((-1.78, -0.55), (-1.52, -0.28), (-1.78, 0.05)):
         PT.lamp(g, (xx + 0.04, Y(yn) - 0.04, 0.37), (0, -0.2, 1), 0.026, E, cage=False)
-    for (xx, yn) in ((-0.9, -1.3), (0.9, -1.3), (1.9, 0.6), (-0.6, -1.0), (0.6, -1.0), (1.9, -0.6),
-                     (-1.9, 0.85), (0.75, 1.8), (1.9, 1.85), (-0.4, 1.85)):
+    for (xx, yn) in ((-0.9, -1.3), (0.9, -1.3), (1.84, 0.6), (-0.6, -1.0), (0.6, -1.0), (1.84, -0.6),
+                     (-1.84, 0.85), (0.75, 1.78), (-0.4, 1.8)):
         PT.lamp(g, (xx, Y(yn), 0.06), (0, -0.3, 1), 0.03, E, cage=True)
     for (xx, yn) in ((-1.9, -0.95), (0.9, 1.85)):
         g.cyl((xx, Y(yn), 0.15), "z", 0.018, 0.3, M["steel_dk"], n=8, what="poteau")
@@ -120,6 +142,21 @@ def socle_atom(g, k):
     link(g, 9, [(-1.3, Y(-0.2), 0.3), (-1.15, Y(-0.2), 0.6), (-0.96, Y(-0.2), 0.74)], 0.07)
     g.halo((1.55, Y(0.0), 0.5), M["_emit_rgb"], 14.0)
     g.halo((-1.6, Y(-0.2), 0.5), M["_emit_rgb"], 10.0)
+def sign(g, c, s, h):
+    """Panneau de signalisation « danger radiations » sur 2 poteaux (atome) : plaque jaune patinée cerclée de noir,
+    grand trèfle, inclinée vers le haut (lisible de dessus)."""
+    M = g.M
+    x, y, z = c
+    for s_ in (-1, 1):
+        g.cyl((x + s_ * s * 0.38, y, z + h * 0.5), "z", 0.016, h, M["steel_dk"], n=8, what="poteau")
+        g.box((x + s_ * s * 0.38, y, z + 0.015), (0.06, 0.06, 0.03), M["concrete"], "hard", what="semelle")
+    g.push((x, y - 0.02, z + h - s * 0.4), rx=-0.75)
+    g.box((0, 0, 0), (s + 0.03, 0.022, s + 0.03), M["hazk"], "hard", what="panneau")
+    g.box((0, -0.013, 0), (s, 0.006, s), M["hazy"], "flat", what="panneau")
+    F.trefoil(g, (0, -0.018, 0), (0, -1, 0), s * 0.36)
+    g.pop()
+
+
 def sphere_tank(g, x, y, r, h, emat, ladder_dir=(1, 0.2)):
     """Cuve sphérique plombée à hublots verts (atome ; idée de la cuve à hublots de la haute technologie, hublots
     du réacteur vanilla) : jupe de béton à bande jaune et noire, sphère de plomb à ceinture rivetée, 3 hublots
@@ -144,12 +181,13 @@ def sphere_tank(g, x, y, r, h, emat, ladder_dir=(1, 0.2)):
         pts = [V((x + r * 1.004 * math.cos(ph) * math.cos(a), y + r * 1.004 * math.cos(ph) * math.sin(a),
                   zc + r * 1.004 * math.sin(ph))) for ph in [0.1 + 1.2 * i / 10 for i in range(11)]]
         g.tube(pts, 0.011, M["steel_dk"], n=6, what="soudure")
-    for a, ph in ((-math.pi / 2 - 0.55, 0.35), (-math.pi / 2 + 0.45, 0.3), (-math.pi / 2 - 0.05, 0.85)):
+    for a, ph in ((-math.pi / 2 - 0.55, 0.35), (-math.pi / 2 + 0.45, 0.3), (-math.pi / 2 - 0.05, 0.85),
+                  (-math.pi / 2 - 1.2, 0.5), (0.3, 0.75)):
         d = V((math.cos(ph) * math.cos(a), math.cos(ph) * math.sin(a), math.sin(ph)))
         c = V((x, y, zc)) + d * (r + 0.004)
-        g.cyl(c, d, 0.062, 0.03, M["steel_hi"], n=20, what="cadre")
-        g.cyl(c + d * 0.016, d, 0.044, 0.006, emat, n=20, style="flat", what="hublot")
-        F.bolts_ring(g, c + d * 0.016, d, 0.054, 8, M["rivet"], r=0.011)
+        g.cyl(c, d, 0.078, 0.03, M["steel_dk"], n=20, what="cadre")
+        g.cyl(c + d * 0.016, d, 0.058, 0.006, emat, n=20, style="flat", what="hublot")
+        F.bolts_ring(g, c + d * 0.016, d, 0.068, 8, M["rivet"], r=0.011)
     g.cyl((x + r * 0.25, y + r * 0.2, zc + r * 0.93), "z", r * 0.24, 0.05, M["steel_dk"], n=16, what="trou_homme")
     g.tube([V((x - r * 0.3, y + r * 0.3, zc + r * 0.85)), V((x - r * 0.3, y + r * 0.3, zc + r + 0.1)),
             V((x - r * 0.3 + 0.06, y + r * 0.3, zc + r + 0.14))], 0.02, M["steel_hi"], n=8, what="event")
@@ -275,11 +313,11 @@ def w_atom(g, st, H, x, sx):
     zg = H["zg"]
     rs = H["rr"] + H["rb"] + 0.028
     R8 = rs * 1.12
-    Lj = H["L"] * st.get("jacket_f", 0.62)
+    Lj = H["L"] * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     for f in (0.5,):
-        for t in range(int(Lj * 0.6 / 0.035)):
-            yy = y1 + Lj * 0.13 + t * 0.035
-            g.cyl((x, yy, zg), "y", R8 + 0.11, 0.016, M["steel_hi"] if t % 2 else M["lead"], n=8, style="hard",
+        for t in range(int(Lj * 0.42 / 0.035)):
+            yy = y1 + Lj * 0.3 + t * 0.035
+            g.cyl((x, yy, zg), "y", R8 + 0.11, 0.016, M["steel_dk"] if t % 2 else M["lead"], n=8, style="hard",
                   phase=math.pi / 8, what="ailette")
     g.box((x, y1 + Lj * 0.46, zg - R8 * 0.62), (2 * (R8 + 0.09), Lj * 0.84, R8 * 0.9), M["lead"], "hard",
           what="quille")
@@ -301,7 +339,7 @@ def gun_e(g, st, H, x, side):
     rs = rr + rb + 0.028
     pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                         colliers=st.get("collars", (0.8,)), bouts=False)
-    Lj = L * st.get("jacket_f", 0.62)
+    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     jk_atom(g, st, x, y1, zg, Lj, rs, H)
     br_octo(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
@@ -335,11 +373,19 @@ def jk_atom(g, st, x, y0, z, Lj, rs, H):
             Rr = Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed()
             g.box(V((x, y0 + Lj * f, z)) + d * (rf + 0.004), (2 * R8 * math.sin(ph8) * 0.98, 0.07, 0.008),
                   M["hazy"] if k % 2 else M["hazk"], "flat", R=Rr, what="damier")
-    top = V((x, y0 + Lj * 0.2, z + R8 * math.cos(ph8)))
+    top = V((x, y0 + Lj * 0.14, z + R8 * math.cos(ph8)))
     g.cyl(top + V((0, 0, 0.012)), "z", 0.042, 0.024, M["steel_hi"], n=18, what="cadre")
     g.cyl(top + V((0, 0, 0.026)), "z", 0.029, 0.006, M["emit"], n=18, style="flat", what="hublot")
     F.bolts_ring(g, top + V((0, 0, 0.024)), (0, 0, 1), 0.036, 6, M["rivet"], r=0.011)
-    F.trefoil(g, V((x, y0 + Lj * 0.88 + 0.06, z + R8 * math.cos(ph8) + 0.006)), (0, 0, 1), 0.035)
+    # plaque de signalisation à trèfle posée à plat sur le dessus du fourreau (lisible de haut, poses E et N)
+    zt8 = z + R8 * math.cos(ph8)
+    yp = y0 + Lj * 0.86
+    g.box((x, yp, zt8 + 0.008), (0.19, 0.19, 0.012), M["hazk"], "hard", what="plaque")
+    g.box((x, yp, zt8 + 0.016), (0.165, 0.165, 0.006), M["hazy"], "flat", what="plaque")
+    F.trefoil(g, V((x, yp, zt8 + 0.021)), (0, 0, 1), 0.065)
+    for sxx in (-1, 1):
+        for syy in (-1, 1):
+            g.dome((x + sxx * 0.07, yp + syy * 0.07, zt8 + 0.02), (0, 0, 1), 0.012, M["rivet"])
 
 
 def br_octo(g, st, x, yb, z, rs, pos, H):

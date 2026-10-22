@@ -2,7 +2,13 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 5) : « blindé, sombre, braise ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - arme : OBUSIER court et massif qui dépasse nettement du corps : 4 tubes de gros calibre en carré (rosette),
+    manchon blindé à 6 pans sur la moitié arrière, frein en coin large à évents sombres et lèvres de braise ;
+  - socle : les grandes grilles orange (lues comme des résistances) deviennent des CROÛTES DE LAVE fissurées
+    (fissures ramifiées, scories, braises) ; bunkers plus hauts ; tas de scories dans le contour (îlot de 38 px) ;
+  - foyers rouge braise (famille 345 à 14° mesurée) ; chanfrein 0,4 ; ancrage boulonné des mortiers.
 Emplacements remplis : arme (OBUSIER court et massif : manchon blindé à pans, cylindres de recul, frein en coin à
 évents de braise, culasse à écailles, caisson blindé incliné), masque (glacis en écailles), grands volumes du socle
 (bunkers en tronc de pyramide, tas de scories rougeoyants), liaisons (fonte à coudes vifs et fentes de braise),
@@ -25,8 +31,11 @@ V = Vector
 EPOQUE = 5
 NOM = "Volcan"
 KIN = 1   # rang dans l'ère II
-FOYER = dict(rgb=(1.0, 0.29, 0.063))
-CANON = dict(L=1.28, nb=4, rb=0.054, rr=0.115)
+# passe 4 : rouge braise (famille 345 à 14° MESURÉE)
+FOYER = dict(rgb=(1.0, 0.08, 0.02))
+CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.4)
 HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
                  tourelleau="tungsten", chapeau="burnrust")
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
@@ -52,6 +61,41 @@ def socle(g, c):
     corps.collecteur(g, c, lambda g_, pts, r: link(g_, EPOQUE, pts, r))
 
 
+def lava_crust(g, cx, cy, z, w, l, M, E, step=0.085, seed=0):
+    """Croûte de lave (passe 4 : remplace les grilles orange, lues comme des résistances) : dalle de basalte bosselée,
+    FISSURES rougeoyantes tracées en lignes brisées qui se ramifient (aucune grille, aucun aplat), blocs de scorie
+    posés dessus, quelques braises."""
+    g.box((cx, cy, z + 0.012), (w, l, 0.024), M["basalt"], "hard", what="croute")
+    rng = g.rng
+    nb = max(2, int((w * l) / 0.06) + 1)
+    for k in range(nb):
+        # départ près d'un bord, marche brisée vers l'intérieur
+        a = TAU * (k + 0.3 * rng.random()) / nb
+        px, py = cx + math.cos(a) * w * 0.42, cy + math.sin(a) * l * 0.42
+        hd = a + math.pi + 0.6 * (rng.random() - 0.5)
+        nseg = 4 + (k % 3)
+        for s in range(nseg):
+            Ls = 0.05 + 0.04 * rng.random()
+            hd += 0.9 * (rng.random() - 0.5)
+            qx, qy = px + math.cos(hd) * Ls, py + math.sin(hd) * Ls
+            qx = min(cx + w / 2 - 0.02, max(cx - w / 2 + 0.02, qx))
+            qy = min(cy + l / 2 - 0.02, max(cy - l / 2 + 0.02, qy))
+            seg = math.hypot(qx - px, qy - py)
+            if seg > 0.01:
+                wd = 0.022 if s < 2 else 0.015
+                g.box(((px + qx) / 2, (py + qy) / 2, z + 0.026), (seg + 0.012, wd, 0.006), E, "flat",
+                      R=Matrix.Rotation(math.atan2(qy - py, qx - px), 3, "Z"), what="fissure")
+            if s == 2 and rng.random() < 0.6:   # ramification courte
+                hb = hd + (0.9 if rng.random() < 0.5 else -0.9)
+                bx_, by_ = px + math.cos(hb) * 0.05, py + math.sin(hb) * 0.05
+                g.box(((px + bx_) / 2, (py + by_) / 2, z + 0.026), (0.055, 0.012, 0.006), E, "flat",
+                      R=Matrix.Rotation(hb, 3, "Z"), what="fissure")
+            px, py = qx, qy
+    for k in range(max(3, nb)):
+        F.lump(g, (cx + (rng.random() - 0.5) * w * 0.8, cy + (rng.random() - 0.5) * l * 0.8, z + 0.024),
+               0.035 + 0.02 * rng.random(), M["basalt"] if k % 3 else M["burnrust"], sz=0.5, n=7, m=4, what="scorie")
+
+
 def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
     T = PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, h, ins=(ins, ins * 0.8, ins * 1.2), panel=0.24,
                 mats=[M["tungsten"], M["burnrust"], M["tungsten"]], rivet_step=0.1)
@@ -66,21 +110,20 @@ def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
     for i in range(slits):
         xx = x0 + (x1 - x0) * (i + 0.5) / slits
         yf = y0 + ins * 0.8 * 0.45 - 0.04
-        g.box((xx, yf, h * 0.45), (0.12, 0.012, 0.045), E, "flat", what="braise")
+        g.box((xx, yf, h * 0.45), (0.12, 0.012, 0.046), E, "flat", what="braise")
         g.box((xx, yf - 0.01, h * 0.45 + 0.035), (0.15, 0.04, 0.022), M["tungsten"], "hard",
               R=Matrix.Rotation(-0.6, 3, "X"), what="visiere")
         for s_ in (-1, 1):
             g.box((xx + s_ * 0.075, yf + 0.01, h * 0.45), (0.022, 0.05, 0.07), M["burnrust"], "hard", what="joue")
-    # grille de braise sur le dessus (foyer de 0,1 t² environ, barreaux sombres par-dessus)
+    # creuset ouvert sur le dessus : rebord de rouille brûlée, CROÛTE DE LAVE fissurée (plus de grille orange)
     cx_, cy_ = (T[0].x + T[2].x) / 2, (T[0].y + T[2].y) / 2
-    gw, gl = (T[1].x - T[0].x) * 0.55, (T[2].y - T[1].y) * 0.4
-    g.box((cx_, cy_, h + 0.045), (gw, gl, 0.01), E, "flat", what="braise")
-    for kk in range(4):
-        g.box((cx_, cy_ - gl / 2 + gl * (kk + 0.5) / 4, h + 0.065), (gw + 0.04, 0.022, 0.03), M["tungsten"], "hard",
-              what="barreau")
+    gw, gl = (T[1].x - T[0].x) * 0.62, (T[2].y - T[1].y) * 0.5
+    lava_crust(g, cx_, cy_, h + 0.02, gw, gl, M, E)
     for s_ in (-1, 1):
-        g.box((cx_ + s_ * (gw / 2 + 0.03), cy_, h + 0.05), (0.05, gl + 0.06, 0.07), M["burnrust"], "hard", what="cadre")
-        g.box((cx_, cy_ + s_ * (gl / 2 + 0.03), h + 0.05), (gw + 0.1, 0.05, 0.07), M["burnrust"], "hard", what="cadre")
+        g.box((cx_ + s_ * (gw / 2 + 0.03), cy_, h + 0.04), (0.06, gl + 0.12, 0.08), M["burnrust"], "hard",
+              what="cadre")
+        g.box((cx_, cy_ + s_ * (gl / 2 + 0.03), h + 0.04), (gw + 0.12, 0.06, 0.08), M["burnrust"], "hard",
+              what="cadre")
     # pointes de basalte aux coins du dessus
     for i in range(spikes):
         p = T[(2 + i) % 4]
@@ -90,48 +133,51 @@ def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
 
 
 def slag_heap(g, x, yn, r, M, E, n=7):
-    """Tas de scories : blocs de basalte entassés, fissures de braise courtes."""
+    """Tas de scories : blocs de basalte et de rouille brûlée entassés, braises et fissures rougeoyantes entre les
+    blocs (petites, irrégulières)."""
     y = Y(yn)
     for i in range(n):
         a = TAU * i / n + 0.4
         rr = r * (0.45 + 0.25 * (i % 2))
         F.lump(g, (x + math.cos(a) * rr, y + math.sin(a) * rr * 1.2, 0.0), r * (0.42 - 0.04 * (i % 3)), M["basalt"],
-             sz=0.5, n=9, m=5, jit=0.3, what="scorie")
+               sz=0.5, n=9, m=5, jit=0.3, what="scorie")
     F.lump(g, (x, y, 0.06), r * 0.55, M["burnrust"], sz=0.6, n=10, m=6, jit=0.25, what="scorie")
-    for i in range(3):
-        a = TAU * i / 3 + 1.0
-        g.box((x + math.cos(a) * r * 0.3, y + math.sin(a) * r * 0.35, r * 0.3), (0.09, 0.016, 0.01), E, "flat",
-              R=Matrix.Rotation(a, 3, "Z"), what="fissure")
+    for i in range(4):
+        a = TAU * i / 4 + 1.0
+        g.box((x + math.cos(a) * r * 0.32, y + math.sin(a) * r * 0.38, r * 0.28), (0.07, 0.014, 0.012), E, "flat",
+              R=Matrix.Rotation(a + 0.7, 3, "Z"), what="fissure")
+    F.lump(g, (x + r * 0.2, y - r * 0.15, r * 0.3), 0.045, E, sz=0.6, n=6, m=4, what="braise")
+    F.lump(g, (x - r * 0.35, y + r * 0.2, r * 0.22), 0.04, E, sz=0.6, n=6, m=4, what="braise")
 
 
 def socle_volcano(g, k):
     M = g.M
     E = M["emit"]
-    # ouest et est : bunkers blindés en tronc de pyramide (plus hauts et plus longs que les cuves du pétrole)
-    bunker(g, -1.5, -0.78, -0.8, 0.92, 0.56, M, E, slits=4)
-    bunker(g, 0.78, 1.5, -0.66, 0.8, 0.6, M, E, slits=3)
+    # ouest et est : bunkers blindés en tronc de pyramide, creusets de lave fissurée sur le dessus
+    bunker(g, -1.5, -0.78, -0.8, 0.92, 0.68, M, E, slits=4)
+    bunker(g, 0.78, 1.5, -0.66, 0.8, 0.72, M, E, slits=3)
     # bouche de lave de l'est (gueule rougeoyante au sud, sur le flanc du bunker)
-    g.box((1.17, Y(-0.6) + 0.1, 0.16), (0.26, 0.02, 0.1), E, "flat", what="gueule")
+    g.box((1.17, Y(-0.6) + 0.1, 0.16), (0.22, 0.02, 0.08), E, "flat", what="gueule")
     PT.hull(g, 1.0, 1.34, Y(-0.6) - 0.02, Y(-0.6) + 0.1, 0.22, 0.3, ins=(0.02, 0.0, 0.02), panel=0.2,
             mats=[M["tungsten"]], rivet_step=0.1)
-    # nord : tas de scories (nord-ouest), évent pyramidal de braise (nord-est)
-    slag_heap(g, -1.05, 1.15, 0.42, M, E, n=9)
-    slag_heap(g, -0.35, 1.3, 0.3, M, E, n=6)
-    F.prism(g, [(0.68, Y(0.96)), (1.36, Y(0.96)), (1.36, Y(1.42)), (0.68, Y(1.42))], 0.0, 0.08, M["tungsten"])
-    PT.hull(g, 0.72, 1.32, Y(1.0), Y(1.38), 0.08, 0.42, ins=(0.2, 0.16, 0.16), panel=0.22,
-            mats=[M["tungsten"], M["burnrust"]], rivet_step=0.1)
-    g.box((1.02, Y(1.19), 0.43), (0.16, 0.16, 0.012), E, "flat", what="event_braise")
-    g.box((1.02, Y(1.19), 0.45), (0.2, 0.03, 0.02), M["tungsten"], "hard", what="grille")
+    # nord : tas de scories (dans le contour de la plateforme : aucun îlot au coin chanfreiné), évent de lave
+    slag_heap(g, -0.95, 1.0, 0.34, M, E, n=9)
+    slag_heap(g, -0.35, 1.18, 0.26, M, E, n=6)
+    F.prism(g, [(0.68, Y(0.96)), (1.36, Y(0.96)), (1.36, Y(1.36)), (0.68, Y(1.36))], 0.0, 0.08, M["tungsten"])
+    T = PT.hull(g, 0.72, 1.32, Y(1.0), Y(1.32), 0.08, 0.42, ins=(0.18, 0.12, 0.12), panel=0.22,
+                mats=[M["tungsten"], M["burnrust"]], rivet_step=0.1)
+    lava_crust(g, 1.02, (T[0].y + T[2].y) / 2, 0.42, 0.2, 0.18, M, E, step=0.07)
     # conduits de fonte à coudes vifs (fentes de braise sur les coudes)
     link(g, 5, [(-0.88, Y(0.3), 0.3), (-0.8, Y(0.3), 0.5), (-0.66, Y(0.24), 0.5)], 0.06)
     link(g, 5, [(0.88, Y(0.1), 0.3), (0.8, Y(0.1), 0.5), (0.66, Y(0.08), 0.5)], 0.06)
     link(g, 5, [(0.9, Y(1.18), 0.3), (0.6, Y(1.0), 0.45), (0.3, Y(0.8), 0.55)], 0.055)
-    for (xx, yn) in ((-1.35, 0.95), (-1.45, 1.4), (0.75, 0.9), (1.32, 0.9)):
-        g.box((xx, Y(yn), 0.12), (0.09, 0.07, 0.02), E, "flat", what="braise")
-        g.box((xx, Y(yn) + 0.045, 0.13), (0.11, 0.02, 0.03), M["basalt"], "hard", what="levre")
-    g.halo((-1.05, Y(1.15), 0.3), M["_emit_rgb"], 12.0)
+    for (xx, yn) in ((-1.25, 0.95), (0.75, 0.9), (1.25, 0.9)):
+        F.lump(g, (xx, Y(yn), 0.06), 0.05, M["basalt"], sz=0.5, n=7, m=4, what="scorie")
+        g.box((xx + 0.02, Y(yn) - 0.03, 0.09), (0.05, 0.016, 0.012), E, "flat", R=Matrix.Rotation(0.6, 3, "Z"),
+              what="braise")
+    g.halo((-0.95, Y(1.0), 0.3), M["_emit_rgb"], 12.0)
     g.halo((1.17, Y(-0.7), 0.25), M["_emit_rgb"], 12.0)
-    g.halo((1.02, Y(1.19), 0.6), M["_emit_rgb"], 8.0)
+    g.halo((1.02, Y(1.16), 0.6), M["_emit_rgb"], 8.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -182,7 +228,22 @@ def piece(g, c):
     for sx in (-1, 1):
         with at(g, sx * cx, cy, sx * -0.3):
             mortar(g, (0, 0, 0), 0.0, 1.5 * s)
+            _ancrage(g, 0.2 * 1.5 * s, 0.062 * 1.5 * s, g.M)
     _halo(g, [(-cx, Y(cy) + 0.1, 0.4), (cx, Y(cy) + 0.1, 0.4)], 10.0)
+
+
+def _ancrage(g, R, z, M, n=14, pieds=4):
+    """Passe 4 : semelle d'ancrage de la pièce paire (couronne de boulons, pattes boulonnées au caillebotis) : la pièce
+    ne fait plus BAISSER le nombre de petites pièces du niveau pair (contrôle impair -> pair de dominance.py)."""
+    F.bolts_ring(g, (0, 0, z), (0, 0, 1), R, n, M["steel_hi"], r=0.026)
+    for k in range(pieds):
+        a = TAU * (k + 0.5) / pieds
+        d = V((math.cos(a), math.sin(a), 0))
+        p = d * (R + 0.09)
+        g.box((p.x, p.y, 0.015), (0.1, 0.1, 0.03), M["steel_dk"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="patte")
+        for j in (-1, 1):
+            q = p + V((-d.y, d.x, 0)) * 0.03 * j
+            g.dome((q.x, q.y, 0.032), (0, 0, 1), 0.024, M["steel_hi"])
 
 
 def mortar(g, c, rz, s=1.0):
@@ -222,50 +283,58 @@ def arme(g, c, x, sx):
 
 
 def w_howitzer(g, st, H, x, sx):
-    """Époque 5 : OBUSIER court et massif par flanc : une seule âme de gros calibre, manchon blindé à pans de
-    tungstène, 2 cylindres de recul (dessus et dessous), frein de bouche en coin à évents de braise ; culasse à
+    """Époque 5 (passe 4) : OBUSIER COURT ET MASSIF par flanc, qui DÉPASSE nettement du corps : 4 tubes de gros
+    calibre en carré (corps.rosette « square » : les 4 bouches se voient, règle d'or 1), manchon blindé à 6 pans de
+    tungstène sur la moitié arrière seulement, à écailles rivetées et JOINTS DE LAVE rougeoyants entre les rangs
+    d'écailles, 2 cylindres de recul (dessus et dessous), frein de bouche en coin à évents de braise ; culasse à
     écailles, caisson blindé incliné."""
     M = g.M
     y0, y1 = H["recv"]
     zg, hr, wr = H["zg"], H["hr"], H["wr"]
-    breech(g, st, x, y0, y1, zg - hr * 1.15, zg + hr * 1.15, wr * 1.12)
+    breech(g, st, x, y0, y1, zg - hr * 1.2, zg + hr * 1.2, wr * 1.18)
     Ld = 0.26 + hr * 0.6
-    drive(g, st, (x, y0 - Ld / 2 + 0.03, zg), hr * 0.85, Ld)
-    L = H["L"] * 0.62
-    R6 = 0.19
-    rb = 0.072
-    Lj = L * 0.62
+    drive(g, st, (x, y0 - Ld / 2 + 0.03, zg), hr * 0.9, Ld)
+    L, nb, rb, rr = H["L"], H["nb"], H["rb"], H["rr"]
+    pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M["gun"], arr="square", colliers=(0.72,),
+                        collier_mat=M["burnrust"], bouts=False)
+    rbun = rr + rb
+    R6 = rbun + 0.06
+    Lj = L * corps.JAQUETTE_MAX
+    c6 = math.cos(math.pi / 6)
     g.cyl((x, y1 + Lj / 2, zg), "y", R6, Lj, M["tungsten"], n=6, style="hard", phase=math.pi / 6, what="manchon")
+    # écailles rivetées en 3 rangs (la braise vit dans les évents de la bouche, pas sur le manchon)
     for f in range(6):
         a = math.pi / 6 + TAU * f / 6 + TAU / 12
         d = V((math.cos(a), 0, math.sin(a)))
         if d.z < -0.3:
             continue
+        Rr = Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed()
         for i in range(3):
-            g.dome(V((x, y1 + Lj * (0.2 + 0.3 * i), zg)) + d * (R6 * math.cos(math.pi / 6) + 0.004), d, 0.022,
-                   M["rivet"])
-    for yy in (y1 + 0.03, y1 + Lj - 0.03):
-        g.cyl((x, yy, zg), "y", R6 + 0.026, 0.06, M["burnrust"], n=6, style="hard", phase=math.pi / 6, what="bague")
-    g.cyl((x, y1 + Lj + (L - Lj) / 2, zg), "y", rb + 0.03, L - Lj, M["gun"], n=20, what="ame")
+            yy = y1 + Lj * (0.18 + 0.3 * i)
+            g.box(V((x, yy, zg)) + d * (R6 * c6 + 0.012), (R6 * 0.95, Lj * 0.27, 0.022), M["tungsten"], "hard",
+                  R=Rr @ Matrix.Rotation(-0.12, 3, "X"), what="ecaille")
+            g.dome(V((x, yy - Lj * 0.06, zg)) + d * (R6 * c6 + 0.03), d, 0.02, M["rivet"])
+    for yy in (y1 + 0.035, y1 + Lj - 0.03):
+        g.cyl((x, yy, zg), "y", R6 + 0.03, 0.07, M["burnrust"], n=6, style="hard", phase=math.pi / 6, what="bague")
+    # cylindres de recul massifs dessus et dessous (ils dépassent du manchon : silhouette lourde en pose N)
     for s in (-1, 1):
-        zr = zg + s * (R6 + 0.045)
-        g.cyl((x, y1 + Lj * 0.45, zr), "y", 0.04, Lj * 0.9, M["burnrust"], n=14, what="recul")
-        g.cyl((x, y1 + Lj * 0.92, zr), "y", 0.05, 0.05, M["tungsten"], n=14, what="tete_recul")
-    # fentes de braise sur le dessus du manchon
-    for i in range(2):
-        g.box((x, y1 + Lj * (0.3 + 0.38 * i), zg + R6 * math.cos(math.pi / 6) + 0.003), (0.05, 0.1, 0.008),
-              M["emit"], "flat", what="braise")
-    br_wedge(g, st, x, y1 + L, zg, rb + 0.06, [(x, zg)], dict(H, rb=rb))
-    PT.hull(g, x - wr * 0.8, x + wr * 0.8, y1 - 0.04, y1 + 0.07, zg - hr * 1.4, zg + hr * 1.5,
+        zr = zg + s * (R6 + 0.05)
+        g.cyl((x, y1 + Lj * 0.55, zr), "y", 0.048, Lj * 1.1, M["burnrust"], n=14, what="recul")
+        g.cyl((x, y1 + Lj * 1.08, zr), "y", 0.06, 0.06, M["tungsten"], n=14, what="tete_recul")
+        g.box((x, y1 + Lj * 1.08, (zr + zg) / 2), (0.05, 0.05, abs(zr - zg)), M["tungsten"], "hard", what="patte")
+    br_wedge(g, st, x, y1 + L, zg, rbun + 0.05, pos, H)
+    PT.hull(g, x - wr * 0.85, x + wr * 0.85, y1 - 0.04, y1 + 0.07, zg - hr * 1.45, zg + hr * 1.55,
             ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M["tungsten"], M["burnrust"]], rivet_step=0.1)
-    xo = x + sx * (wr * 0.56 - 0.005)
+    xo = x + sx * (wr * 0.59 - 0.005)
     feed(g, st, H, x, sx, xo)
+
+
 def br_wedge(g, st, x, yb, z, rs, pos, H):
     """Époque 5 : frein de bouche en coin (bloc trapézoïdal à évents obliques), lèvres de braise dans les évents."""
     M = g.M
     rb = H["rb"]
-    w0, w1 = rs * 2.2, rs * 2.6
-    h0, h1 = rs * 1.7, rs * 1.25
+    w0, w1 = rs * 2.3, rs * 2.7
+    h0, h1 = rs * 1.75, rs * 1.45
     y0, y1 = yb - 0.03, yb + 0.2
     pts = [V((x - w0 / 2, y0, z - h0 / 2)), V((x + w0 / 2, y0, z - h0 / 2)), V((x + w1 / 2, y1, z - h1 / 2)),
            V((x - w1 / 2, y1, z - h1 / 2)),
@@ -277,20 +346,28 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
             yy = y0 + 0.05 + k * 0.06
             xx = x + s * (w0 / 2 + (w1 - w0) / 2 * (yy - y0) / (y1 - y0)) + s * 0.002
             Rr = Matrix.Rotation(s * 0.5, 3, "Z")
-            g.box((xx, yy, z + 0.01), (0.016, 0.044, h1 * 0.78), M["emit"], "flat", R=Rr, what="braise")
+            g.box((xx, yy, z + 0.01), (0.016, 0.044, h1 * 0.78), M["void"], "flat", R=Rr, what="event")
+            g.box((xx + s * 0.002, yy, z - h1 * 0.22), (0.016, 0.036, h1 * 0.26), M["emit"], "flat", R=Rr,
+                  what="braise")
             g.box((xx + s * 0.006, yy + 0.026, z + 0.01), (0.016, 0.012, h1 * 0.86), M["tungsten"], "hard", R=Rr,
                   what="lame")
     # évents supérieurs rougeoyants (lisibles d'en haut, poses E et N) et oreilles : jamais un chapeau de cheminée
     for k in range(3):
         yy = y0 + 0.05 + k * 0.06
         hz = h0 / 2 + (h1 - h0) / 2 * (yy - y0) / (y1 - y0)
-        g.box((x, yy, z + hz + 0.002), (w0 * 0.62, 0.02, 0.008), M["emit"], "flat", what="braise")
+        g.box((x, yy, z + hz + 0.002), (w0 * 0.62, 0.022, 0.008), M["void"], "flat", what="event")
+        g.box((x, yy, z + hz + 0.004), (w0 * 0.34, 0.01, 0.006), M["emit"], "flat", what="braise")
     F.ears(g, x, yb + 0.08, z, w1 / 2 + 0.03, 0.14, h1 * 0.8, M["tungsten"])
     for k in range(4):
         g.dome((x - w1 * 0.3 + k * w1 * 0.2, y0 + 0.11, z + (h0 + h1) / 4 + 0.006), (0, 0, 1), 0.02, M["rivet"])
-    g.cyl((x, y1 + 0.004, z), "y", rs * 0.95, 0.01, M["burnrust"], n=24, what="face")
+    # face avant rectangulaire (le coin est plus large que haut), rosace des 4 bouches, pourtour de braise en cadre
+    fw, fh = w1 * 0.84, h1 * 0.86
+    g.box((x, y1 + 0.004, z), (fw, 0.01, fh), M["burnrust"], "hard", what="face")
     F.bores(g, x, y1 + 0.01, z, pos, rb, M["burnrust"])
-    F.lit_ring(g, (x, y1 + 0.012, z), "y", rs * 0.95, M["emit"])
+    for s in (-1, 1):
+        g.box((x + s * (fw / 2 - 0.012), y1 + 0.012, z), (0.016, 0.008, fh - 0.02), M["emit"], "flat", what="cadre_lum")
+        g.box((x, y1 + 0.012, z + s * (fh / 2 - 0.012)), (fw - 0.02, 0.008, 0.016), M["emit"], "flat",
+              what="cadre_lum")
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

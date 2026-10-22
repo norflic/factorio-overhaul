@@ -2,7 +2,10 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 4) : « fûts, jaune, vannes ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - (époque bien lue : gardée) frein en bloc élargi à oreilles (pose N), jaquette à la moitié arrière, voyants de
+    plus ; chanfrein de plateforme 0,75.
 Emplacements remplis : arme (gatling à jaquette galvanisée perforée, frein à 2 fentes, culasse jaune à bandes
 noires, gros fût-chargeur couché sur le flanc), grands volumes du socle (2 cuves couchées jaunes à passerelle, fûts,
 groupe de pompage, rampe de conduites), liaisons (galvanisé à vanne à volant rouge), nacelle (torchère), bague de
@@ -27,6 +30,8 @@ NOM = "Pétrole"
 KIN = 0   # rang dans l'ère II
 FOYER = dict(rgb=(1.0, 0.549, 0.102))
 CANON = dict(L=1.2, nb=4, rb=0.045, rr=0.1)
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.75)
 HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("brass", "copper"),
                  chapeau="galva")
 ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
@@ -116,6 +121,9 @@ def socle_petrol(g, k):
     link(g, 4, [(0.87, Y(0.2), 0.3), (0.8, Y(0.24), 0.48), (0.66, Y(0.2), 0.56)], 0.06)
     g.hose([(1.0, Y(-0.55), 0.3), (0.9, Y(-0.4), 0.42), (0.7, Y(-0.38), 0.5)], 0.035, M["rubber"])
     F.lamp_group(g, (-1.36, Y(1.0) - 0.02, 0.22), (1, 0, 0), (0, -1, 0), E, n=2)
+    # passe 4 : voyants orange de plus (au plus 3 alignés, un groupe par machine : catalogue §A.6)
+    F.lamp_group(g, (0.32, Y(1.22) - 0.16, 0.14), (1, 0, 0), (0, -1, 0), E, n=3)
+    F.lamp_group(g, (-0.45, Y(1.22) - 0.16, 0.14), (1, 0, 0), (0, -1, 0), E, n=2)
 
     g.halo((-1.1, Y(1.0), 0.4), M["_emit_rgb"], 10.0)
 
@@ -236,7 +244,7 @@ def gun_e(g, st, H, x, side):
     rs = rr + rb + 0.028
     pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                         colliers=st.get("collars", (0.8,)), bouts=False)
-    Lj = L * st.get("jacket_f", 0.62)
+    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     jk_perforated(g, st, x, y1, zg, Lj, rs, H, mat="galva")
     br_slots(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
@@ -276,8 +284,10 @@ def br_slots(g, st, x, yb, z, rs, pos, H):
     """Époque 4 : frein de bouche à 2 fentes latérales, acier galvanisé."""
     M = g.M
     rb = H["rb"]
-    w = rs * 2 + 0.07
+    # passe 4, règle d'or 7 : bloc près de deux fois plus large que le faisceau, oreilles (pose N : un « T » plat)
+    w = rs * 3.4
     g.box((x, yb + 0.06, z), (w, 0.17, rs * 1.6), M["galva"], "soft", what="frein")
+    F.ears(g, x, yb + 0.06, z, w / 2 + 0.03, 0.12, rs * 1.2, M["galva"], vent=True)
     for s in (-1, 1):
         for k in range(2):
             g.box((x + s * (w / 2 + 0.002), yb + 0.02 + k * 0.08, z), (0.012, 0.045, rs * 1.15), M["void"], "flat",

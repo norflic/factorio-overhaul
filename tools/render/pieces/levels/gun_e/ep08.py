@@ -2,7 +2,13 @@
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 8) : « verre, bulles, toxique ».
 PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
-mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
+mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
+Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
+  - liquide JAUNE SOUFRÉ trouble (famille « jaune-vert acide » 60 à 88°, loin du vert uranium de l'atome) ;
+  - cuve de verre du canon posée À CÔTÉ du faisceau (règle d'or 1), voile plein, raccord court ; tuyaux bulbe -> canons
+    posés sur la coupole (trous enfermés de 379 et 179 px) ;
+  - globe en cage dense surélevé, lanterneau plus petit (L2), colonnes de décantation, cuves plus hautes en débord ;
+    trémie caoutchoutée ; plateforme presque carrée (chanfrein 0,06) ; bocaux et ancrage sur la pièce paire.
 Emplacements remplis : arme (gatling de vert-de-gris à buse en cloche portant une CUVE DE VERRE couchée, manchon à
 fenêtres de liquide, boîte d'alimentation à tuyaux souples), mitrailleuse coaxiale, grands volumes du socle (cuves de
 verre, globe, bonbonnes clissées, bocaux), liaisons (caoutchouc annelé à tronçon de verre), nacelle (bulbe de verre
@@ -25,9 +31,13 @@ V = Vector
 EPOQUE = 8
 NOM = "Marais"
 KIN = 1   # rang dans l'ère III
-FOYER = dict(rgb=(0.659, 1.0, 0.227), doux=dict(force=0.45, base=(0.05, 0.085, 0.022)))
+# passe 4 : liquide JAUNE SOUFRÉ trouble (famille « jaune-vert acide » 60 à 88° mesurée, loin du vert uranium de
+# l'atome, 100 à 135°) ; verre teinté opaque, lueur douce plus faible (liquide trouble, pas un néon)
+FOYER = dict(rgb=(0.83, 1.0, 0.1), doux=dict(force=0.36, base=(0.075, 0.068, 0.02)))
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
-HABILLAGE = dict(jupe_cerclage="rubber", tremie="olive", pochoirs=True, munitions=("verdigris", "emit_soft"),
+# passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
+PLATEFORME = dict(chanfrein=0.06)
+HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitions=("verdigris", "emit_soft"),
                  chapeau="brass")
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
           band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="verdigris",
@@ -94,28 +104,48 @@ def wicker(g, c, r, M):
 def socle_marsh(g, k):
     M = g.M
     E = M["emit"]
-    glass_vat(g, 1.5, Y(0.55), 0.3, 0.82, M, E)
-    glass_vat(g, 1.5, Y(-0.45), 0.27, 0.7, M, E)
+    glass_vat(g, 1.68, Y(0.55), 0.3, 1.02, M, E)
+    glass_vat(g, 1.68, Y(-0.45), 0.27, 0.88, M, E)
     # nord-ouest : grand globe de verre en cage, sur pompe
     x, y = -1.42, Y(1.28)
     PT.hull(g, x - 0.34, x + 0.34, y - 0.3, y + 0.3, 0.0, 0.16, ins=(0.02, 0.02, 0.02), panel=0.22,
             mats=[M["verdigris"], M["olive"]], rivet_step=0.1)
-    rG = 0.33
-    zc = 0.16 + rG * 0.95
+    rG = 0.29
+    # globe surélevé sur 4 jambes de vert-de-gris (silhouette haute au nord-ouest, distincte de la grappe du cristal)
+    zl = 0.3
+    for kk in range(4):
+        a = TAU * kk / 4 + math.pi / 4
+        g.box((x + math.cos(a) * rG * 0.75, y + math.sin(a) * rG * 0.75, 0.16 + zl / 2), (0.05, 0.05, zl + 0.04),
+              M["verdigris"], "hard", what="jambe")
+    g.cyl((x, y, 0.16 + zl - 0.02), "z", rG * 0.9, 0.05, M["verdigris"], n=20, what="plateau")
+    zc = 0.16 + zl + rG * 0.95
     F.sphere(g, (x, y, zc), rG, M["emit_soft"], n=28, m=14, what="globe")
-    for kk in range(8):
-        a = TAU * kk / 8
-        g.box((x + math.cos(a) * (rG + 0.012), y + math.sin(a) * (rG + 0.012), zc), (0.03, 0.03, rG * 1.9),
-              M["verdigris"], "hard", what="cage")
-    g.torus((x, y, zc), "z", rG + 0.01, 0.022, M["brass"], n=32, m=6, what="ceinture")
+    # cage dense (12 montants, 3 cerclages) : le globe se lit comme une cuve en cage et non comme un néon, et sa lueur
+    # se coupe en fuseaux (L2 : plus grand foyer < 0,45 t²)
+    for kk in range(12):
+        a = TAU * kk / 12
+        g.box((x + math.cos(a) * (rG + 0.012), y + math.sin(a) * (rG + 0.012), zc), (0.034, 0.034, rG * 1.9),
+              M["verdigris"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="cage")
+    for zz in (-0.45, 0.0, 0.45):
+        rz_ = math.sqrt(max(0.0, 1 - zz * zz)) * rG
+        g.torus((x, y, zc + zz * rG), "z", rz_ + 0.012, 0.022, M["brass"], n=32, m=6, what="ceinture")
     g.cyl((x, y, zc + rG + 0.03), "z", 0.07, 0.07, M["brass"], n=14, what="col")
     # ouest : station de pompage (2 corps de pompe, bonbonnes clissées)
     PT.hull(g, -1.92, -1.3, Y(-0.7), Y(0.55), 0.0, 0.36, ins=(0.03, 0.03, 0.03), panel=0.24,
             mats=[M["verdigris"], M["olive"]], rivet_step=0.12)
+    # passe 4 : 2 COLONNES DE DÉCANTATION en verre (liquide soufré trouble) sur la station de pompage, en cage
     for yn in (-0.35, 0.25):
-        g.cyl((-1.61, Y(yn), 0.5), "z", 0.1, 0.28, M["olive"], n=18, what="pompe")
-        g.cyl((-1.61, Y(yn), 0.66), "z", 0.07, 0.04, M["brass"], n=14, what="chapeau")
-        P2.gauge(g, (-1.61, Y(yn) - 0.1, 0.52), (0, -1, 0.3), 0.04, M)
+        zc0, zc1 = 0.36, 0.98
+        g.cyl((-1.61, Y(yn), (zc0 + zc1) / 2), "z", 0.1, zc1 - zc0, M["emit_soft"], n=20, what="colonne_verre")
+        for kk in range(6):
+            a = TAU * kk / 6
+            g.box((-1.61 + math.cos(a) * 0.105, Y(yn) + math.sin(a) * 0.105, (zc0 + zc1) / 2),
+                  (0.026, 0.026, zc1 - zc0), M["verdigris"], "hard", what="cage")
+        for zz in (zc0 + 0.02, (zc0 + zc1) / 2, zc1 - 0.02):
+            g.tube_shell((-1.61, Y(yn), zz), "z", 0.122, 0.09, 0.03, M["brass"], n=20, what="cerclage")
+        g.cyl((-1.61, Y(yn), zc1 + 0.03), "z", 0.08, 0.06, M["verdigris"], n=16, what="chapeau")
+        g.cyl((-1.61, Y(yn), zc1 + 0.08), "z", 0.03, 0.05, M["brass"], n=10, what="col")
+        P2.gauge(g, (-1.61, Y(yn) - 0.12, 0.42), (0, -1, 0.3), 0.04, M)
     for (xx, yn) in ((-1.25, -0.95), (-1.05, -1.0)):
         wicker(g, (xx, Y(yn), 0.0), 0.11, M)
     for yn in (-0.6, -0.05, 0.45):
@@ -123,13 +153,15 @@ def socle_marsh(g, k):
         P2.gauge(g, (-1.8, Y(yn), 0.38), (0, 0, 1), 0.04, M)
     # gros conduits de caoutchouc annelé (pompes -> globe, cuves -> colonne), tronçons de verre lumineux
     g.hose([(-1.61, Y(0.25), 0.62), (-1.6, Y(0.8), 0.7), (-1.45, Y(1.05), 0.4)], 0.05, M["rubber"], step=0.035)
-    link(g, 8, [(1.2, Y(0.55), 0.4), (1.05, Y(0.5), 0.65), (0.86, Y(0.4), 0.78)], 0.07)
-    link(g, 8, [(1.22, Y(-0.45), 0.35), (1.05, Y(-0.4), 0.6), (0.9, Y(-0.3), 0.72)], 0.07)
+    link(g, 8, [(1.38, Y(0.55), 0.4), (1.1, Y(0.5), 0.65), (0.86, Y(0.4), 0.78)], 0.07)
+    link(g, 8, [(1.42, Y(-0.45), 0.35), (1.1, Y(-0.4), 0.6), (0.9, Y(-0.3), 0.72)], 0.07)
     link(g, 8, [(-1.3, Y(0.1), 0.3), (-1.15, Y(0.1), 0.6), (-0.96, Y(0.06), 0.74)], 0.07)
     link(g, 8, [(-1.15, Y(1.1), 0.3), (-0.9, Y(0.9), 0.6), (-0.66, Y(0.66), 0.78)], 0.06)
     for (xx, yn) in ((-0.95, -0.95), (-0.75, -1.05), (0.9, -0.95), (1.05, -1.05), (-1.6, 0.75), (-1.25, 0.8),
                      (0.6, 1.7), (-0.4, 1.75), (1.15, 1.55), (1.75, 1.2), (-1.85, -0.9), (0.95, 0.95),
-                     (-0.6, -1.3), (-1.0, -1.7), (1.85, -0.85), (1.8, 0.15), (-0.6, -1.85), (0.25, 1.9)):
+                     (-0.6, -1.3), (-1.0, -1.7), (1.85, -0.85), (1.8, 0.15), (-0.6, -1.85), (0.25, 1.9),
+                     (-1.85, 0.3), (-1.85, -0.35), (1.15, 1.85), (-1.2, 1.85), (0.6, -1.25), (-0.15, -1.9),
+                     (1.85, 0.75), (-1.85, 1.6)):
         jar(g, (xx, Y(yn), 0.04), 0.045, 0.11)
     g.halo((1.5, Y(0.05), 0.6), M["_emit_rgb"], 14.0)
     g.halo((-1.42, Y(1.28), 0.6), M["_emit_rgb"], 12.0)
@@ -175,7 +207,27 @@ def piece(g, c):
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
     for sx in (-1, 1):
         demijohn(g, (sx * cx, Y(cy), 0.0), M["emit_soft"], 1.5 * s)
+        with at(g, sx * cx, cy, 0.0):
+            _ancrage(g, 0.24 * s, 0.07, M, n=24)
+            # bocaux de prélèvement en arc devant la bonbonne (petits foyers, couvercles de laiton)
+            for k in range(5):
+                a = math.pi * (0.2 + 0.6 * k / 4)
+                jar(g, (math.cos(a) * 0.36, math.sin(a) * 0.36, 0.04), 0.042, 0.1)
     _halo(g, [(-cx, Y(cy), 0.4), (cx, Y(cy), 0.4)], 12.0)
+
+
+def _ancrage(g, R, z, M, n=14, pieds=4):
+    """Passe 4 : semelle d'ancrage de la pièce paire (couronne de boulons, pattes boulonnées au caillebotis) : la pièce
+    ne fait plus BAISSER le nombre de petites pièces du niveau pair (contrôle impair -> pair de dominance.py)."""
+    F.bolts_ring(g, (0, 0, z), (0, 0, 1), R, n, M["steel_hi"], r=0.026)
+    for k in range(pieds):
+        a = TAU * (k + 0.5) / pieds
+        d = V((math.cos(a), math.sin(a), 0))
+        p = d * (R + 0.09)
+        g.box((p.x, p.y, 0.015), (0.1, 0.1, 0.03), M["steel_dk"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="patte")
+        for j in (-1, 1):
+            q = p + V((-d.y, d.x, 0)) * 0.03 * j
+            g.dome((q.x, q.y, 0.032), (0, 0, 1), 0.024, M["steel_hi"])
 
 
 def demijohn(g, c, emat, s=1.0):
@@ -225,33 +277,44 @@ def w_gatling(g, st, H, x, sx):
 
 
 def w_marsh(g, st, H, x, sx):
-    """Époque 8 : gatling de vert-de-gris à buse en cloche, portant une CUVE DE VERRE couchée (liquide vert,
-    côtes, fonds de laiton) reliée à la culasse par un tuyau de caoutchouc."""
+    """Époque 8 (passe 4, RÈGLE D'OR 1) : gatling de vert-de-gris à buse en cloche ; la CUVE DE VERRE couchée (liquide
+    soufré trouble, côtes, fonds de laiton) est posée À CÔTÉ du faisceau, côté extérieur, sur 2 berceaux, et non plus
+    dessus : le faisceau reste visible de dessus ; tuyau de caoutchouc vers la culasse."""
     M = g.M
     w_gatling(g, st, H, x, sx)
     y0, y1 = H["recv"]
     zg, hr = H["zg"], H["hr"]
     rs = H["rr"] + H["rb"] + 0.028
-    r = 0.16
-    Lv = H["L"] * 0.6
-    c = V((x, y1 + 0.06 + Lv / 2, zg + rs + r + 0.03))
-    for f in (-0.34, 0.34):
-        g.box(c + V((0, f * Lv, -r - 0.02)), (0.06, 0.05, 0.07), M["verdigris"], "hard", what="patte")
+    r = 0.13
+    Lv = H["L"] * 0.44
+    c = V((x + sx * (rs + r + 0.05), y1 + 0.08 + Lv / 2, zg - 0.02))
+    for f in (-0.32, 0.32):
+        g.box(V((x + sx * (rs + 0.02), c.y + f * Lv, zg - 0.06)), (0.1, 0.05, 0.05), M["verdigris"], "hard",
+              what="bras")
+        g.box(c + V((0, f * Lv, -r - 0.015)), (r * 1.4, 0.05, 0.05), M["verdigris"], "hard", what="berceau")
+    # voile plein entre le faisceau et la cuve, sur toute la longueur de la cuve (sinon le sol se voit entre eux :
+    # trou enfermé de 379 px hr en pose E, rendu rapide du 23/10)
+    xa_, xb_ = sorted((x + sx * (rs - 0.03), c.x))
+    g.box(((xa_ + xb_) / 2, c.y, zg - 0.03), (xb_ - xa_, Lv + 0.04, 0.11), M["verdigris"], "hard", what="voile")
+    for k_ in range(3):
+        g.dome(((xa_ + xb_) / 2, c.y - Lv * 0.35 + k_ * Lv * 0.35, zg + 0.027), (0, 0, 1), 0.015, M["brass"])
     g.cyl(c, "y", r - 0.008, Lv, M["emit_soft"], n=24, what="liquide")
-    for kk in range(6):
-        a = TAU * (kk + 0.5) / 6
+    for kk in range(8):
+        a = TAU * (kk + 0.5) / 8
         d = V((math.cos(a), 0, math.sin(a)))
-        g.box(c + d * (r - 0.004), (0.024, Lv, 0.022), M["verdigris"], "hard",
+        g.box(c + d * (r - 0.004), (0.026, Lv, 0.024), M["verdigris"], "hard",
               R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="cote")
-    for f in (-0.5, 0.0, 0.5):
-        g.tube_shell(c + V((0, f * Lv, 0)), "y", r + 0.018, r - 0.02, 0.035, M["brass"], n=24, what="cerclage")
+    for f in (-0.5, -0.17, 0.17, 0.5):
+        g.tube_shell(c + V((0, f * Lv, 0)), "y", r + 0.018, r - 0.02, 0.032, M["brass"], n=24, what="cerclage")
     for f in (-1, 1):
         g.cyl(c + V((0, f * (Lv / 2 + 0.03), 0)), "y", r * 0.85, 0.05, M["brass"], n=24, r2=r * 0.5, what="fond")
-    for i in range(7):
-        g.dome(c + V((0.045 * ((i % 3) - 1), -Lv * 0.42 + i * Lv * 0.14, r - 0.01)), (0, 0, 1), 0.016, M["emit"],
-               what="bulle")
-    g.hose([c + V((0, -Lv / 2 - 0.05, 0)), V((x, y0 + 0.2, zg + hr + 0.12)), V((x, y0 + 0.08, zg + hr + 0.02))],
-           0.03, M["rubber"], step=0.03)
+    for i in range(5):
+        g.dome(c + V((sx * 0.03 * ((i % 2) * 2 - 1), -Lv * 0.36 + i * Lv * 0.18, r - 0.01)), (0, 0, 1), 0.015,
+               M["emit"], what="bulle")
+    # raccord de caoutchouc court entre le fond arrière de la cuve et le masque de canon (un tuyau long vers la culasse
+    # enfermait un jour de 10 à 29 px en pose N)
+    g.hose([c + V((0, -Lv / 2 - 0.04, 0)), c + V((-sx * r * 0.6, -Lv / 2 - 0.1, -0.02)),
+            V((x + sx * (rs + 0.02), y1 - 0.0, zg - 0.03))], 0.03, M["rubber"], step=0.03)
 
 
 def gun_e(g, st, H, x, side):
@@ -263,7 +326,7 @@ def gun_e(g, st, H, x, side):
     rs = rr + rb + 0.028
     pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                         colliers=st.get("collars", (0.8,)), bouts=False)
-    Lj = L * st.get("jacket_f", 0.62)
+    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
     jk_marsh(g, st, x, y1, zg, Lj, rs, H)
     br_nozzle(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
@@ -366,8 +429,13 @@ def nacelle(g, c):
               M["verdigris"], "hard", what="cage")
     g.cyl((0.0, yc, ztop + 0.03), "z", rB * 0.85, 0.06, M["verdigris"], n=20, what="embase")
     g.cyl((0.0, yc, ztop + rB * 1.9 + 0.02), "z", 0.04, 0.05, M["brass"], n=12, what="col")
+    # tuyaux souples bulbe -> canons, posés sur la coupole (passe 4 : l'arc en l'air enfermait un jour de 379 px)
+    R, zs, rz = H["R"], H["zs"], H["rz"]
     for sx in (-1, 1):
-        g.hose([(sx * rB * 0.7, yc + 0.05, ztop + 0.12), (sx * H["gx"] * 0.6, -0.2, H["zg"] + H["hr"] + 0.12),
+        mx, my = sx * H["gx"] * 0.6, -0.2
+        t = min(0.99, math.hypot(mx / R, my / (R * 1.06)))
+        mz = zs + rz * math.sqrt(1 - t * t) + 0.04
+        g.hose([(sx * rB * 0.7, yc + 0.05, ztop + 0.08), (mx, my, mz),
                 (sx * H["gx"], H["recv"][0] + 0.2, H["zg"] + H["hr"] + 0.04)], 0.032, M["rubber"], step=0.03)
 
 
@@ -392,11 +460,11 @@ def tete(g, c):
         th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
         P2.applique(g, c.Pf, c.Nf, th, 0.72, 0.2, 0.16, appl, M)
     # signature de coupole : lanterneau de verre à côtes de vert-de-gris
-    rG = R * 0.36
+    rG = R * 0.28
     zc = zs + rz * 0.82
     F.sphere(g, (0, -R * 0.1, zc), rG, M["emit_soft"], n=24, m=12, sz=0.75, what="lanterneau")
-    for k_ in range(6):
-        a = TAU * k_ / 6
+    for k_ in range(10):
+        a = TAU * k_ / 10
         g.tube([V((math.cos(a) * rG * 1.02, -R * 0.1 + math.sin(a) * rG * 1.02, zc - 0.02)),
                 V((math.cos(a) * rG * 0.7, -R * 0.1 + math.sin(a) * rG * 0.7, zc + rG * 0.55)),
                 V((0, -R * 0.1, zc + rG * 0.77))], 0.014, M["verdigris"], n=6, what="cote")
