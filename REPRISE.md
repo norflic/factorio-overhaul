@@ -64,13 +64,16 @@
    autre que munitions et PV (fluides, brûleur, recette, fils, réglages de foreuse), remboursement F40,
    machines agrandies (liste complète : RD_LOG E44).
 8. Ensuite :
-   - verdict du DC sur V3-S, puis reprise des 7 familles ;
+   - choix de la direction V3-S par les juges (le DC délègue : Q25, 22/10, 15 h 48), puis reprise des
+     7 familles sans attendre son verdict (planches publiées pour son regard ultérieur) ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;
    - contenu des époques (X1 à X15) ;
    - idle (I).
 9. Le DC suit souvent depuis son **téléphone** : envoyez les images dans le chat (SendUserFile, mode
    render), avec un texte court.
-10. Ne déclarez jamais un design réussi : seul le verdict du DC le valide.
+10. Ne déclarez jamais un design réussi : seul le verdict du DC le valide. Depuis Q25 (22/10, 15 h 48 :
+    « je verrai les templates àlus tard car vous savez parfaitement quoi faire »), on ne BLOQUE plus sur ce
+    verdict : on enchaîne avec la direction des juges, chaque choix consigné comme provisoire et réversible.
 
 ## 2. Lots : état exact
 
@@ -90,11 +93,14 @@
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
-- **Verdict sur V3-S** : les planches comparatives sont à lui envoyer dès qu'elles sont prêtes.
+- **Regard sur V3-S** (non bloquant depuis Q25) : les planches comparatives sont publiées pour lui sur une
+  page claude.ai privée dès qu'elles sont prêtes ; son verdict, quand il vient, peut renverser les choix
+  provisoires.
 - Q-V2c-1 et Q-V2c-2 : rythme du centre et chemin le plus court vers l'époque 15 (OBJECTIFS §4).
-- Q-S1 à Q-S3 : questions de la charte (`docs/DA_FACTORIO.md` §9 ; Q-S1 au §4 d'OBJECTIFS). Q-S1 (l'échelle
-  d'emprise vaut-elle pour toutes les familles ?) bloque l'activation des autres familles dans `L.footprints`
-  (lot V3-T).
+- Q-S1 à Q-S3 : questions de la charte (`docs/DA_FACTORIO.md` §9 ; Q-S1 au §4 d'OBJECTIFS). Tranchées
+  PROVISOIREMENT par l'orchestrateur le 22/10 à 15 h 50 (délégation Q25) : échelle pour toutes les familles,
+  plafond 6×6 pour les machines, centre 4 → 8, mur inchangé ; luminance de la charte pour toutes les époques ;
+  regard naïf par des agents sans contexte. Réversibles.
 - Q-IA1-1 à Q-IA1-7 : équipes de PNJ (OBJECTIFS §4, avec les recommandations).
 - Critères marqués ❔ (C4, C5, D4…) : à faire valider quand l'occasion se présente.
 - Répondues récemment : Q19 (amélioration instantanée), Q20 et Q21 (mémoire vidéo, basse qualité
@@ -161,8 +167,8 @@
    - ~~intégrer la charte dans `docs/`~~ : fait le 22/10 à 13 h 25 (`docs/DA_FACTORIO.md`) ;
    - regarder soi-même les planches, puis les envoyer au DC avec les questions Q-S1 à Q-S3 de la charte
      (§9) ;
-   - attendre son verdict.
-2. Après le verdict :
+   - ne plus attendre son verdict (Q25) : retenir la direction des juges.
+2. Ensuite, sans attendre :
    - reprendre V3 pour les 7 familles avec la direction retenue, la taille croissante (Q23) et la
      charte ;
    - ~~la mécanique d'agrandissement sur place (Q24)~~ : **faite** (lot V3-T, intégré le 22/10 à 14 h 50),
