@@ -284,10 +284,11 @@ local function apply_footprint(p, family, n)
 end
 
 --- Contrôle des points de jeu d'un prototype à l'emprise `side` (étape data, après apply_footprint ; tests) :
---- liste des problèmes (vide si tout va bien). Règles du moteur que le harness ne vérifie pas : un raccord de
---- tuyau et le point de dépôt d'une foreuse sont HORS de la boîte de collision (sinon le tuyau ne se raccorde
---- jamais et le minerai tombe dans la foreuse elle-même), un raccord est sur un centre de tuile, et la zone
---- d'extraction couvre au moins l'emprise.
+--- liste des problèmes (vide si tout va bien). Règles du moteur : un raccord de tuyau et le point de dépôt d'une
+--- foreuse sont HORS de la boîte de collision (sinon le tuyau ne se raccorde jamais et le minerai tombe dans la
+--- foreuse elle-même), un raccord est sur un centre de tuile, et la zone d'extraction couvre au moins l'emprise.
+--- Le banc de l'étape data les vérifie aussi, pour toute entité du mod (tests/datastage/engine_rules.lua :
+--- pipe-inside, pipe-off-center, drop-inside, drop-on-footprint) ; la zone d'extraction n'est tenue qu'ici.
 local function footprint_problems(p, side)
   local out = {}
   local c = side / 2 - Foot.MARGIN
