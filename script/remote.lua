@@ -137,7 +137,13 @@ remote.add_interface("factorio-overhaul", {
              forced = x.forced or 0, resize_failed = x.resize_failed or 0, refunds = x.refunds or 0,
              spilled = x.spilled or 0, wires_lost = x.wires_lost or 0, migrated = x.migrated or 0,
              overlap_kept = x.overlap_kept or 0, ghosts_removed = x.ghosts_removed or 0,
-             ground_moved = x.ground_moved or 0, ground_left = x.ground_left or 0 }
+             ground_moved = x.ground_moved or 0, ground_left = x.ground_left or 0,
+             -- Suite H-T3 : relevé des emprises gardé dans la sauvegarde (global.fo.levels.footprints, copie : nombres
+             -- seulement ; nil dans une sauvegarde d'avant V3-T pas encore migrée) et son écart à la table du mod
+             -- chargé (true : la migration n'a pas encore tourné). Lu par le banc de migration en moteur réel
+             -- (tools/autotest/fo-autotest/scenarios/ht3-migration.lua) : le global d'un mod est illisible des
+             -- autres (F35).
+             footprints = st.footprints, footprints_stale = Levels.footprints_stale() }
   end,
   profiler = function(on)
     Profiler.set_enabled(on and true or false, game.tick)

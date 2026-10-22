@@ -63,6 +63,43 @@ moteur à la fois. `fo-captures.bat` le tient pour toute la chaîne (variable `F
 autres). Verrou orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest` ou `fo-visual`) :
 `rmdir "<racine>\fo-autotest.lock"`.
 
+### 1.1 Double source : une carte créée par une version, rejouée par une autre (suite H-T3)
+
+Pour prouver la migration d'une VRAIE sauvegarde (créée par une version publiée du mod, rechargée par la
+suivante), `fo-autotest.bat` accepte une variable d'environnement facultative, **`FO_CREATE_SRC`** : le chemin
+absolu d'une autre source de `factorio-overhaul`, utilisée pour la seule étape `--create`. Déroulé :
+
+1. `[1/4]` copie de `FO_CREATE_SRC` comme `factorio-overhaul` ; le mod de test (`fo-autotest`) vient, lui,
+   TOUJOURS de la source habituelle (argument 4, sinon `fo-autotest-params.txt`) ;
+2. `[2/4]` création de la carte avec cette copie (`create.log`) ;
+3. `[2b/4]` la copie de `factorio-overhaul` est REMPLACÉE par la source habituelle ;
+4. `[3/4]` benchmark sur la même carte (`benchmark.log`) : le moteur recharge la sauvegarde avec l'autre
+   version (montée de version : `on_configuration_changed` ; version inchangée : seuls les filets du mod).
+
+Traces : `fo-autotest\source.txt` = source du benchmark (inchangé), `fo-autotest\create-source.txt` = source de
+création (écrit seulement en double source). Sans la variable, le comportement est **identique à l'ancien**
+(même copie, mêmes fichiers). Mêmes protections : dossiers d'écriture et de mods séparés, verrou, aucun accès à
+`saves\`. La variable se propage à `fo-captures.bat`, qui appelle `fo-autotest.bat` : la vider après usage.
+
+Comme le mod de test vient de la source récente alors que `factorio-overhaul` est ancien pendant la création,
+`greffons.lua` ne charge les contrôles greffés (`checks/`) que pour le banc `content` (ou un scénario greffé de
+base `content`) : un contrôle récent qui requiert un fichier absent de l'ancienne version ne bloque plus le
+chargement des autres scénarios.
+
+Exemple (PowerShell ; Git Bash coupe les chemins à l'espace, F69) : scénario greffé `ht3-migration`, carte
+créée par 0.4.1 (`git archive 91097e6`), rejouée par le worktree 0.4.2 :
+
+```
+$env:FO_CREATE_SRC = "<dossier jetable>\src-0.4.1"
+& "<racine>\fo-autotest.bat" nopause 700 ht3-migration "<worktree 0.4.2>"
+Remove-Item Env:FO_CREATE_SRC
+```
+
+Résultat : `grep "\[FO-HT3-MIGRATION\]\|\[FO-LEVELS\]" fo-autotest\create.log fo-autotest\benchmark.log`. Le
+scénario (`scenarios/ht3-migration.lua`) refuse une carte créée par une source qui connaît déjà les emprises
+(contrôle ECHEC dès la création). Pour la voie du filet (version inchangée), rejouer avec une copie de la source
+récente dont `info.json` garde la version de création.
+
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 
 1. `fo-visual\` est reconstruit à partir du dernier banc : mods, carte (`fo-visual-map.zip`), `config.ini`
