@@ -3,6 +3,10 @@
 TOUJOURS sous le verrou de rendu (CLAUDE.md, interdit n° 6), depuis la racine du worktree :
     python tools/render/with_render_lock.py -- python -P tools/render/pieces/levels/wall/render_wall.py \
         [--levels 2-30] [--poses droit,isole] [--samples 48]
+GARDE (correction du 22/10, désaccord mineur n° 7) : avant tout appel à Blender, le script vérifie que son
+processus PARENT est le propriétaire d'un verrou <racine>/fo-render.lock.<k> (owner.txt de
+with_render_lock.py). Sinon il se relance lui-même par with_render_lock.py et n'appelle jamais Blender hors
+verrou. Chaque appel est consigné dans cache/levels-wall/blender.log avec le dossier du verrou tenu.
 
 Réutilise le pipeline partagé SANS le modifier (fo_blender.render, fo_post, fo_calib) ; le post-traitement
 est repris ici, avec trois différences propres à la famille :
@@ -18,6 +22,7 @@ import argparse
 import glob
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -39,6 +44,54 @@ CACHE = os.path.join(RENDER, "cache", "levels-wall")
 RESULTS = os.path.join(OUT, "render_results.json")
 DATA = os.environ.get("FO_DATA", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
 LAYERS = ("main", "shadow", "glow", "light")
+LOCK_SCRIPT = os.path.join(RENDER, "with_render_lock.py")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+
+
+def held_lock():
+    """Dossier du verrou de rendu tenu par le processus PARENT (with_render_lock.py), sinon None."""
+    ppid = os.getppid()
+    for d in sorted(glob.glob(os.path.join(LOCK_DIR, "fo-render.lock.*"))):
+        try:
+            with open(os.path.join(d, "owner.txt"), encoding="utf-8") as f:
+                if int(f.read().split()[0]) == ppid:
+                    return d
+        except (OSError, ValueError, IndexError):
+            continue
+    return None
+
+
+def crop_box(img, origin):
+    """P.trim_box (coin pair par rapport à l'origine), élargi pour que la largeur et la hauteur hr soient
+    multiples de 4 : la version 32 px/tuile a alors une taille paire et un shift multiple de 1/32 de tuile
+    (correction du 22/10, désaccord mineur n° 1 : 121 couches lr sur 220 avaient un shift hors grille)."""
+    box = P.trim_box(img, origin)
+    if box is None:
+        return None
+    x0, y0, x1, y1 = box
+    H_, W_ = img.shape[:2]
+    if (x1 - x0) % 4:
+        if x1 + 2 <= W_:
+            x1 += 2
+        else:
+            x0 -= 2
+    if (y1 - y0) % 4:
+        if y1 + 2 <= H_:
+            y1 += 2
+        else:
+            y0 -= 2
+    assert x0 >= 0 and y0 >= 0 and (x1 - x0) % 4 == 0 and (y1 - y0) % 4 == 0, (x0, y0, x1, y1)
+    return x0, y0, x1, y1
+
+
+def shifted(img, dx, dy):
+    """Translation entière (px) d'une couche, bords à zéro."""
+    out = np.zeros_like(img)
+    H_, W_ = img.shape[:2]
+    ys0, ys1 = max(0, -dy), min(H_, H_ - dy)
+    xs0, xs1 = max(0, -dx), min(W_, W_ - dx)
+    out[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx] = img[ys0:ys1, xs0:xs1]
+    return out
 
 
 def vanilla_alpha(canvas_shape, origin, spec, ppt, cut_v=None):
@@ -68,15 +121,26 @@ def vanilla_alpha(canvas_shape, origin, spec, ppt, cut_v=None):
 def process(variant, vmeta, info):
     d, pre = info["_dir"], info["_prefix"]
 
+    ov = vmeta.get("overlay_on_vanilla")
+    pad = 72 if ov else 0         # niveau 2 : place sous la toile pour l'ombre translatée vers le sud
+
     def npy(layer):
         p = os.path.join(d, "%s-%s.npy" % (pre, layer))
-        return np.load(p).astype(np.float64) if os.path.exists(p) else None
+        if not os.path.exists(p):
+            return None
+        a = np.load(p).astype(np.float64)
+        return np.pad(a, ((0, pad), (0, 0), (0, 0))) if pad else a
 
     origin = tuple(info["origin_px"])
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
     sh = npy("shadow")
     if sh is not None:
         hr["shadow"] = P.shadow_layer(sh)
+        if ov:
+            # niveau 2 : l'ombre du rouleau suit la direction de l'ombre VANILLA du mur qui le porte (sud-est),
+            # pas le soleil du pipeline (plein est) : wall_piece.L2_SHADOW
+            dx, dy = wall_piece.l2_shadow_shift_px()
+            hr["shadow"] = shifted(hr["shadow"], dx, dy)
     g = npy("glow")
     if g is not None:
         hr["glow"] = P.additive_layer(g)
@@ -110,6 +174,9 @@ def process(variant, vmeta, info):
             wl = P.radial_window(lay, center, wdef["r"][0] * 64, wdef["r"][1] * 64)
             best = wl if best is None else np.concatenate([wl[..., :3], np.maximum(best[..., 3:], wl[..., 3:])], -1)
         best = P.fade_edges(best)
+        # borne au CENTRE DE LA TUILE (origine) : alpha nul au-delà de bound[1] tuile (bible §1.6, rayon <= 1)
+        b0, b1 = halo.get("bound", (0.55, 0.97))
+        best = P.radial_window(best, origin, b0 * 64.0, b1 * 64.0)
         # F64 (draw_as_light révèle la couleur de jour de TOUT ce qu'il couvre) : la flaque reste hors de la
         # silhouette du mur, et, en pose droite, hors des voisines de la rangée (|x| > 0,5 au-dessus du pied
         # avant y = +0,55) ; les parties lumineuses se voient la nuit par la couche lueur (draw_as_glow).
@@ -126,7 +193,6 @@ def process(variant, vmeta, info):
             best[..., 3] = best[..., 3] * (halo["I"] / m)
         hr["light"] = P.floor_alpha(best)
     raw = dict(hr)
-    ov = vmeta.get("overlay_on_vanilla")
     if ov:
         m_hr = vanilla_alpha(hr["main"].shape[:2], origin, ov["hr"], 64, ov["cut_v"])
         for k in ("main", "glow"):
@@ -138,7 +204,7 @@ def process(variant, vmeta, info):
     for layer in LAYERS:
         if layer not in hr:
             continue
-        box = P.trim_box(hr[layer], origin)
+        box = crop_box(hr[layer], origin)
         if box is None:
             continue
         x0, y0, x1, y1 = box
@@ -185,6 +251,13 @@ def main():
     ap.add_argument("--poses", default="droit,isole")
     ap.add_argument("--samples", type=int, default=48)
     a = ap.parse_args()
+    lock = held_lock()
+    if lock is None:
+        # jamais de Blender hors du verrou de rendu : relance par with_render_lock.py (mêmes arguments)
+        print("[FO-WALL] hors du verrou de rendu : relance par with_render_lock.py", flush=True)
+        sys.exit(subprocess.call([sys.executable, LOCK_SCRIPT, "--", sys.executable, "-P", os.path.abspath(__file__)]
+                                 + sys.argv[1:]))
+    print("[FO-WALL] sous le verrou %s (processus parent %d)" % (lock, os.getppid()), flush=True)
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(CACHE, exist_ok=True)
     results = {}
@@ -199,6 +272,12 @@ def main():
             variant = "n%02d-%s" % (lv, pose)
             vmeta = wall_piece.PIECE["variants"][variant]
             t0 = time.time()
+            if held_lock() != lock:
+                print("[FO-WALL] verrou perdu : arrêt avant %s" % variant, flush=True)
+                sys.exit(3)
+            with open(log, "a", encoding="utf-8") as f:
+                f.write("[FO-WALL] %s sous le verrou %s (parent %d), %s\n" % (variant, lock, os.getppid(),
+                                                                          time.strftime("%Y-%m-%d %H:%M:%S")))
             try:
                 info, dt = fo_blender.render(PIECE_PATH, variant, CACHE, samples=a.samples, log=log,
                                              margin=wall_piece.PIECE["margin_px"])

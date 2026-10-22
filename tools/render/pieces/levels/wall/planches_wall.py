@@ -9,8 +9,11 @@
   d-vignettes-masques.png     les 15 niveaux impairs en masques noirs, même échelle, le plus grand
                               dans 64 px (test de la vignette, D1-2) ; d-vignettes-melangees.png sans légende
   e-gros-plans-zoom2-jour.png / e-gros-plans-zoom2-nuit.png  époques 1, 5, 10, 15 au zoom 2, à côté du
-                              sprite vanilla du niveau 1
+                              sprite vanilla du niveau 1 ; e2-gros-plans-zoom2-*.png : époques 7, 11, 12, 13, 14
+                              (celles que la correction du 22/10 a reprises)
   f-raccord-zoom1-jour.png / -nuit.png   une rangée continue N1 à N30 (raccord entre niveaux, merge group 0)
+  g-raccord-vanilla-zoom2-jour.png   pour chaque époque 2 à 15, une rangée mêlée au niveau 1 vanilla :
+                              N1, impair, impair, N1, pair, pair, N1 (joints vanilla/époque, bible §2.5)
 Chaque cellule montre 3 pièces droites (raccord) et une pièce isolée. Les bouts de rangée vanilla
 (ending_left/right) ne sont pas encore produits (phase 2) : les rangées s'arrêtent net.
 Composition (tools/render/calib/maquette.py, partagé, importé tel quel) : ombres au maximum des alphas,
@@ -182,7 +185,7 @@ def planche_vignettes(db, out, odd_levels):
     return files
 
 
-def planche_gros_plans(db, out, epochs=(1, 5, 10, 15)):
+def planche_gros_plans(db, out, epochs=(1, 5, 10, 15), prefix="e"):
     """e : zoom 2 (64 px/tuile, sprites hr 1:1). Une rangée par époque : le niveau 1 vanilla, puis le niveau
     impair et le niveau pair de l'époque (2 pièces droites qui se raccordent + 1 pièce isolée chacun).
     Rangées de 4 tuiles : la légende de chaque rangée est juste au-dessus de SES murs."""
@@ -201,7 +204,7 @@ def planche_gros_plans(db, out, epochs=(1, 5, 10, 15)):
             labels.append(((x * 64 - 40, r * gh * 64 + 6), "é%d %s · %s" % (e, EPOCH_NAMES[e], txt)))
     day, night = maquette.compose(DATA, CORE, ents, 3 * gw + 1, len(epochs) * gh)
     files = {}
-    for name, rgb in (("e-gros-plans-zoom2-jour.png", day), ("e-gros-plans-zoom2-nuit.png", night)):
+    for name, rgb in (("%s-gros-plans-zoom2-jour.png" % prefix, day), ("%s-gros-plans-zoom2-nuit.png" % prefix, night)):
         im = label(to_img(rgb), labels, 1)
         p = os.path.join(out, name)
         im.save(p, optimize=True)
@@ -224,6 +227,27 @@ def planche_raccord(db, out):
     return files
 
 
+def planche_raccord_vanilla(db, out):
+    """g : joints entre le niveau 1 vanilla et chaque époque (bible §2.5 : même hauteur de crête au bord de tuile,
+    même profil de joint), au zoom 2. Deux colonnes de 7 époques ; chaque rangée : N1, impair, impair, N1, pair,
+    pair, N1 (pièces droites qui se touchent)."""
+    ents, labels = [], []
+    seq = lambda e: [1, 2 * e - 1, 2 * e - 1, 1, 2 * e, 2 * e, 1]
+    gw, gh = 8.5, 2.75          # (positions sur la grille des pixels : multiples de 1/64 de tuile)
+    for i, e in enumerate(range(2, 16)):
+        col, row = i // 7, i % 7
+        x0, y = col * gw + 0.5, row * gh + 1.5
+        for j, lv in enumerate(seq(e)):
+            ents.append({"pos": (x0 + j + 0.5, y + 0.5), "layers": WL.level_layers(lv, "droit", res_db=db)})
+        labels.append(((x0 * 64 + 2, (row * gh + 0.05) * 64), "é%d %s : N1 | N%d N%d | N1 | N%d N%d | N1" % (
+            e, EPOCH_NAMES[e], 2 * e - 1, 2 * e - 1, 2 * e, 2 * e)))
+    day, night = maquette.compose(DATA, CORE, ents, 2 * gw, 7 * gh)
+    im = label(to_img(day), labels, 1)
+    p = os.path.join(out, "g-raccord-vanilla-zoom2-jour.png")
+    im.save(p, optimize=True)
+    return {"g-raccord-vanilla-zoom2-jour.png": p}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(MOD_ROOT, "docs", "epoques", "planches", "wall"))
@@ -241,7 +265,9 @@ def main():
     files.update(planche_niveaux(db, list(range(1, 31)), a.out))
     files.update(planche_vignettes(db, a.out, [2 * e - 1 for e in range(1, 16)]))
     files.update(planche_gros_plans(db, a.out))
+    files.update(planche_gros_plans(db, a.out, epochs=(7, 11, 12, 13, 14), prefix="e2"))
     files.update(planche_raccord(db, a.out))
+    files.update(planche_raccord_vanilla(db, a.out))
     for k, v in files.items():
         print(k, v)
 

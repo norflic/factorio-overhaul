@@ -97,9 +97,12 @@ def main():
             mk = "%d-%s" % (lv, pose)
             if mes.get("niveaux", {}).get(mk):
                 m = mes["niveaux"][mk]
-                k["mesures"] = {x: m.get(x) for x in ("aire_t2", "L", "x", "y", "O_masses", "O_tout", "lum_p50", "lum_p95",
-                                                      "sat", "iou_prec", "iou_epoque_prec", "piece_aire_ajoutee_t2")}
-                k["mesures"]["lueur_delta_8x8"] = (m.get("lueur") or {}).get("best_delta")
+                k["mesures"] = {x: m.get(x) for x in ("aire_t2", "L", "x", "y", "O_masses", "O_tout", "vide_V",
+                                                      "lum_p50", "corps_lum_p50", "lum_p95", "sat", "part_emissive",
+                                                      "iou_prec", "iou_epoque_prec", "piece_aire_ajoutee_t2",
+                                                      "piece_aire_robuste_t2", "joint")}
+                k["mesures"]["lueur_delta_8x8_pleine"] = (m.get("lueur") or {}).get("delta_plein")
+                k["mesures"]["halo_rayon_tuiles"] = (m.get("halo") or {}).get("rayon_tuiles")
             entry["cles"][key] = k
         entry["cles_phase2"] = list(wall_piece.PHASE2_KEYS)
         levels["%d" % lv] = entry
@@ -109,12 +112,21 @@ def main():
                      "icons(icons, ctx) : rendu de la pose single (phase 2)",
         "niveau_1": "vanilla inchangé (Q11) : aucune image",
         "convention": {"hr": "64 px/tuile, scale = 0.5", "lr": "32 px/tuile, scale = 1",
-                       "shift": "tuiles, multiples de 1/64 (hr) et 1/32 (lr), origine = position de l'entité",
+                       "shift": "tuiles, multiples de 1/32 (hr et lr) : coin haut gauche sur la grille des pixels "
+                                "dans les deux qualités, largeur et hauteur hr multiples de 4 (render_wall.crop_box) ; "
+                                "origine = position de l'entité",
                        "ombre": "draw_as_shadow, noir, alpha = part d'ombre (affichée à 50 % par le moteur)",
                        "lueur": "draw_as_glow, additive, RGB = c/max, A = max", "halo": "draw_as_light, additive, "
                        "hors de la silhouette du mur (F64), intensité I(N) = 0,05 + 0,02 N, rayon <= 1 tuile"},
-        "raccord": "visual_merge_group = 0 : plinthe commune x [-0,5 ; 0,5], ty [0,28 ; 0,50], z [0 ; 0,22] "
-                   "pour les époques 2 à 15 (wall_epochs.py)",
+        "raccord": "visual_merge_group = 0 (bible §2.5) : en pose droite, profil de joint COMMUN aux niveaux 2 à "
+                   "30 : plinthe x [-0,5 ; 0,5], ty [0,28 ; 0,50], z [0 ; 0,22] et montant de joint (demi-montant "
+                   "de 0,04 tuile de chaque côté du bord, chapeau dont l'arête arrière est à y = -0,712 à l'écran, "
+                   "comme la crête vanilla au bord : -0,72 / -0,70) ; aucun corps d'époque ne passe |x| = 0,46 "
+                   "(wall_epochs.joint, JX). Niveau 2 : rouleau arrêté à |x| = 0,45, la crête vanilla reste seule "
+                   "au joint. Mesure : mesures.joint (haut et bas du masque dans les 2 colonnes de bord)",
+        "ombre_niveau_2": "ombre de la pièce translatée dans la direction de l'ombre vanilla du mur (sud-est), "
+                          "wall_piece.L2_SHADOW ; les niveaux 3 à 30 gardent le soleil du pipeline (plein est, "
+                          "F47) : écart avec l'ombre vanilla du mur (sud-est) signalé au Directeur Créatif",
         "fichiers_phase2": GFX + "/eNN/hr-wall-nNN-<clé>-<couche>.png (+ version lr sans « hr- »)",
         "basse_qualite": "aperçus : lr = réduction 2x de la hr (fo_post.downsample2) ; D4-2 (Q21) demande des sprites "
                          "32 px/tuile RENDUS à leur taille : besoin envoyé au pipeline partagé, à faire en phase 2",

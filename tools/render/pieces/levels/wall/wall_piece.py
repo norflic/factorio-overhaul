@@ -30,6 +30,20 @@ VANILLA = {
 # Niveau 2 : la face vanilla n'est devant le rouleau que sous le bord avant du dessus de la chape
 # (mesuré sur les sprites : chape claire de -0,75 à -0,53 ; bord avant du dessus vers -0,62).
 L2_CUT_V = -0.62
+# Niveau 2, ombre de la pièce (correction du 22/10, désaccord n° 1) : l'ombre VANILLA du mur part au SUD-EST
+# (hr-wall-horizontal-shadow et hr-wall-single-shadow : bord est de l'ombre à +0,89 tuile du bord du mur, bord
+# sud à y = +0,95), alors que le soleil du pipeline la jette PLEIN EST (F47 : 1/tan 48° = 0,90 tuile par unité
+# de hauteur, aucune composante sud). Pour une crête à z ≈ 1,33 (dessus de la chape, ty ≈ 0,22), l'ombre
+# vanilla est décalée de (+0,89 ; +0,73) tuile, soit (0,67 ; 0,54) par unité de hauteur. L'ombre rendue du
+# rouleau (hauteur moyenne 1,45) est translatée de (0,67 - 0,90 ; 0,54) × 1,45 tuile : elle prolonge le bord
+# sud-est de l'ombre de la crête au lieu de flotter plein est.
+L2_SHADOW = {"sx_vanilla": 0.67, "sy_vanilla": 0.54, "sx_pipeline": 0.900, "z_moyen": 1.45}
+
+
+def l2_shadow_shift_px():
+    d = L2_SHADOW
+    return (int(round((d["sx_vanilla"] - d["sx_pipeline"]) * d["z_moyen"] * 64)),
+            int(round(d["sy_vanilla"] * d["z_moyen"] * 64)))
 
 
 def epoch(level):
@@ -43,7 +57,7 @@ def epoch(level):
 # 2,2 2,6 2,0 1,8 2,0 ; l'époque 2 sortait à des dessus blancs saturés (255).
 # Passe 1 (21/10, 32 échantillons) : L50 mesurée 82 64 91 69 74 48 63 64 88 114 58 115 85 97 (époques 2 à 15).
 # Passe 2 : 53 58 64 45 62 42 57 68 67 90 35 76 89 90 ; passe 3 ci-dessous (borne d'albédo qui garde la teinte).
-EGAIN = {1: 3.0, 2: 1.75, 3: 2.6, 4: 1.55, 5: 1.3, 6: 2.0, 7: 4.5, 8: 2.8, 9: 1.9, 10: 3.2, 11: 2.0, 12: 4.5, 13: 2.0,
+EGAIN = {1: 3.0, 2: 1.75, 3: 2.6, 4: 1.55, 5: 1.3, 6: 2.6, 7: 4.5, 8: 2.8, 9: 1.9, 10: 3.2, 11: 2.0, 12: 4.5, 13: 1.85,
          14: 1.85, 15: 2.6}
 # Luminance médiane visée du corps rendu (bible §1.5, sur 255, tolérance ±10).
 L50_TARGET = {1: 50, 2: 52, 3: 58, 4: 60, 5: 42, 6: 64, 7: 55, 8: 60, 9: 56, 10: 82, 11: 100, 12: 60, 13: 92, 14: 88,
@@ -73,8 +87,9 @@ EPOCH_INFO = {
         "emissif": "#FF4A10"},
     6: {"cle": "electricity", "silhouette": "clôture électrique : muret, poteau à pile d'isolateurs, fils, éclateur",
         "piece": "traverse et isolateur double, plaque « danger »", "emissif": "#60D0FF"},
-    7: {"cle": "crystal", "silhouette": "muret de moellons, 3 pointes de cristal violet serties de bronze",
-        "piece": "grand cristal central et éclats", "emissif": "#B070FF"},
+    7: {"cle": "crystal", "silhouette": "muret de moellons, 3 pointes de cristal violet (albédo #9A5CFF, rendu) "
+                                        "serties de bronze, pointes lumineuses, cœur lumineux au pied",
+        "piece": "grand cristal central (pointe lumineuse) et éclats", "emissif": "#B070FF (cœur #D8B0FF)"},
     8: {"cle": "swamp", "silhouette": "panneau de verre bombé rempli de liquide luminescent, armature vert-de-gris",
         "piece": "globe de verre sur col, conduit de crête", "emissif": "#A8FF3A"},
     9: {"cle": "atom", "silhouette": "bloc de plomb bas chanfreiné, tour de refroidissement à 8 pans (taille de "
@@ -85,23 +100,32 @@ EPOCH_INFO = {
          "piece": "antennes (fouet et dipôles) sur embases", "emissif": "#3AA8FF"},
     11: {"cle": "titanium", "silhouette": "ailerons en dents de scie inclinés, ajours entre les dents, poutre basse",
          "piece": "aileron central plus haut", "emissif": "#BFE6FF"},
-    12: {"cle": "superconductor", "silhouette": "plinthe et bloc noir givré en lévitation (vide), anneau chromé",
+    12: {"cle": "superconductor", "silhouette": "plinthe, bloc noir givré en lévitation (interstice lumineux), "
+                                                "évidé d'une fente où flotte le noyau cyan, anneau chromé",
          "piece": "gyroscope flottant : anneau horizontal, anneau vertical, noyau noir", "emissif": "#4AF0FF"},
-    13: {"cle": "fusion", "silhouette": "plinthe, pylône de céramique à bobines, tore de plasma, champ de plasma",
-         "piece": "sphère de confinement à hublot, anneau de plasma incliné au sommet du pylône", "emissif": "#FF4FD8"},
-    14: {"cle": "orbit", "silhouette": "bouclier de panneaux inclinés (or froissé, cellules), ajouré, parabole",
+    13: {"cle": "fusion", "silhouette": "plinthe, pylône de céramique à bobines, tore de confinement bordé de "
+                                        "plasma, injecteur à cœur chauffé à blanc, champ de plasma",
+         "piece": "sphère de confinement à hublot, anneau de plasma incliné au sommet du pylône",
+         "emissif": "#FF4FD8 (cœur #FFD8A8)"},
+    14: {"cle": "orbit", "silhouette": "bouclier de panneaux inclinés (or froissé, cellules) levés sur mâts, "
+                                       "ajouré jusqu'à la membrure, parabole",
          "piece": "mât-balise à feux rouges", "emissif": "#FF2A2A / #2F6BFF"},
-    15: {"cle": "legend", "silhouette": "plinthe nacrée et pinacles flottants à 8 pans en or blanc (couronne de "
-                                        "flèches), anneau-halo, vides sous et entre les pinacles",
-         "piece": "couronne : grand halo d'or blanc, flèche centrale, couronnes à fleurons", "emissif": "#FFF2C0"},
+    15: {"cle": "legend", "silhouette": "plinthe nacrée, créneaux flottants en or blanc (crête continue entre les "
+                                        "montants de joint, 3 merlons coiffés de flèches : couronne de flèches), "
+                                        "pendentifs, anneau-halo et gemme dans le vide sous la crête",
+         "piece": "couronne : grand halo d'or blanc, flèches de couronne dans les créneaux, fleurons",
+         "emissif": "#FFF2C0"},
 }
 
 
 def halo_spec(level):
     """Halo de nuit (bible §1.6, D2-3) : intensité I(N) = 0,05 + 0,02·N ; rayon S(N) = 0,5·(1 + 0,05·N)
-    tuile, borné à 1 tuile pour le mur (des centaines de murs = des centaines de lumières)."""
+    tuile, borné à 1 tuile pour le mur (des centaines de murs = des centaines de lumières).
+    Correction du 22/10 (désaccord mineur n° 2 : rayon mesuré de 1,05 à 1,41 tuile, la fenêtre à z = 1 étirait
+    la lumière vers le haut) : le post-traitement borne en plus la couche à « bound » tuile du CENTRE DE LA
+    TUILE (alpha nul au-delà), sans décalage vertical."""
     s = min(1.0, 0.5 * (1 + 0.05 * level))
-    return {"I": round(0.05 + 0.02 * level, 3), "S": round(s, 3),
+    return {"I": round(0.05 + 0.02 * level, 3), "S": round(s, 3), "bound": (0.55, 0.97),
             "windows": [{"at": (0.0, 0.35, 0.0), "r": (0.45 * s, s)}, {"at": (0.0, 0.35, 1.0), "r": (0.3 * s, 0.75 * s)}]}
 
 
