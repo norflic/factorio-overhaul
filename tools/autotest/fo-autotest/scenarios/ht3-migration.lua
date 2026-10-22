@@ -42,6 +42,25 @@ local CHECK = 600
 
 local function status() return remote.call("factorio-overhaul", "levels_status", FORCE) end
 
+--- Ce que le moteur passe à on_configuration_changed au chargement de la carte (voie suivie par la migration).
+--- Le gestionnaire est enregistré au chargement de CE fichier (F24), donc seulement quand ce scénario est actif ;
+--- le mod de test n'en enregistre aucun autre (control.lua). L'événement est appelé pour tous les mods dès qu'un
+--- seul change : on y lit les changements de factorio-overhaul. Rien d'autre n'est fait ici.
+script.on_configuration_changed(function(data)
+  local names, parts = {}, {}
+  for name in pairs(data.mod_changes or {}) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local c = data.mod_changes[name]
+    parts[#parts + 1] = name .. " " .. tostring(c.old_version) .. " -> " .. tostring(c.new_version)
+  end
+  local text = string.format("mod_changes { %s } ; mod_startup_settings_changed %s ; migration_applied %s ; jeu %s -> %s",
+    table.concat(parts, ", "), tostring(data.mod_startup_settings_changed), tostring(data.migration_applied),
+    tostring(data.old_version), tostring(data.new_version))
+  global.ht3_config = { text = text, tick = game.tick, overhaul = data.mod_changes and data.mod_changes["factorio-overhaul"] ~= nil }
+  log("[FO-HT3-MIGRATION] on_configuration_changed (tick " .. game.tick .. ") : " .. text)
+end)
+
 local function test_force()
   local f = game.forces[FORCE] or game.create_force(FORCE)
   for _, other in ipairs({ "player", "enemy" }) do
@@ -235,6 +254,10 @@ return {
         e.tick, tostring(st.version_bench), tostring(st.version_create), s0.footprints_stale and "PERIME" or "a jour",
         s0.migrated, s0.overlap_kept))
       ctx.log("entites d'origine encore valides au premier tick : " .. (#seen > 0 and table.concat(seen, " ; ") or "aucune"))
+      -- Voie suivie : la ligne « [FO-LEVELS] mise à jour des emprises » (Levels.repair, on_configuration_changed)
+      -- ou « [FO-LEVELS] emprises (filet, sans changement de version) » du journal fait foi ; ceci la complète.
+      local cfg = global.ht3_config
+      ctx.log("on_configuration_changed au chargement : " .. (cfg and ("APPELE (tick " .. cfg.tick .. ") : " .. cfg.text) or "NON appele"))
     end
     if e.tick ~= st.first_tick + ACT or st.done then return end
     st.done = true
