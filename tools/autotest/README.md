@@ -87,7 +87,8 @@ le dossier temporaire, aucun accès à la racine du jeu) :
 `python -B tools/autotest/tests/bat_double_source/run.py` → « BILAN : 4 OK, 0 ECHEC(S) » (sur le `.bat` d'avant
 la correction, `--bat <fichier>` : 2 OK, 2 ECHEC). Sans la variable, le comportement est **identique à l'ancien**
 (même copie, mêmes fichiers). Mêmes protections : dossiers d'écriture et de mods séparés, verrou, aucun accès à
-`saves\`. La variable se propage à `fo-captures.bat`, qui appelle `fo-autotest.bat` : la vider après usage.
+`saves\`. La variable reste définie pour les bancs suivants de la même session PowerShell : la vider après usage
+(son effet sur `fo-captures.bat`, qui appelle `fo-autotest.bat`, n'a pas été essayé).
 
 Comme le mod de test vient de la source récente alors que `factorio-overhaul` est ancien pendant la création,
 `greffons.lua` ne charge les contrôles greffés (`checks/`) que pour le banc `content` (ou un scénario greffé de
@@ -100,8 +101,10 @@ créée par 0.4.1 (`git archive 91097e6`), rejouée par le worktree 0.4.2 :
 ```
 $env:FO_CREATE_SRC = "<dossier jetable>\src-0.4.1"
 & "<racine>\fo-autotest.bat" nopause 700 ht3-migration "<worktree 0.4.2>"
-Remove-Item Env:FO_CREATE_SRC
+$env:FO_CREATE_SRC = $null
 ```
+(Sous Claude Code, `Remove-Item Env:...` peut être refusé par la protection de chemin de l'outil : préférer
+`$env:X = $null`.)
 
 Résultat : `grep "\[FO-HT3-MIGRATION\]\|\[FO-LEVELS\]" fo-autotest\create.log fo-autotest\benchmark.log`. Le
 scénario (`scenarios/ht3-migration.lua`) refuse une carte créée par une source qui connaît déjà les emprises
@@ -520,7 +523,7 @@ python "<source>/tools/autotest/vram.py" "<racine>/fo-logs/<date>_D4m_2-haute-me
 ```
 
 Depuis PowerShell : `$env:FO_VISUAL_ARGS = "--quality normal"; & "<racine>\fo-captures.bat" d4-geant "<source>";
-Remove-Item Env:FO_VISUAL_ARGS`. Durée de chaque passage : non mesurée à ce jour (création de l'usine, 26 684 entités ;
+$env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : non mesurée à ce jour (création de l'usine, 26 684 entités ;
 puis 2 760 ticks de vues chronométrées, 46 s à 60 UPS, les captures, et pour `--measure` l'attente du tick 3 200).
 
 À relever pour chaque passage (code de sortie attendu : 0 ; 9 = réglage non appliqué, mesure à jeter) :
