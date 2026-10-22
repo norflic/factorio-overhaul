@@ -207,6 +207,19 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
   l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
 
+**E41 · VALIDÉ · Budget A1 avec le PvP, banc épinglé (22/10, 3 h 10)** :
+- `ia0-perf` : 216 000 ticks, 4 factions, 50 compagnons, difficulté Normale, conditions d'E21.
+  - Script : 0,108 ms/tick en moyenne, p99 0,699, maximum 13,9 ms.
+  - Tick complet : 0,468 ms (p99 1,646).
+  - 92 ticks de script au-dessus de 2 ms sur 215 399, tous attribués (act, team, chemins).
+  - Étalon machine : médiane 2,52 ms.
+  - E21 donnait 0,14 ms (p99 0,86).
+- `ia0-big` : base de 5 022 entités sur 31 secteurs, 40 min.
+  - Script : 0,059 ms/tick (p99 0,489).
+  - Tick complet : 0,339 ms (p99 2,29 ; maximum 103 ms, dû au générateur de carte, pas au mod).
+- `pvp:scan` : 0,0043 ms/tick en moyenne dans les deux bancs.
+- Journaux et analyses : `<racine>o-logs6-10-22_A1_*`.
+
 **E40 · VALIDÉ · Mémoire vidéo et usine géante en moteur réel (lot D4m, 22/10, 2 h 50 à 3 h)** :
 - Protocole : greffon `d4-geant` (6 672 bâtiments à niveaux, 7 072 tapis, 6 088 bras sur 288 × 188 tuiles).
   Sur chaque passage, deux mesures :

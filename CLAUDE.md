@@ -19,8 +19,8 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F69, expériences E1 à E40, hypothèses ouvertes (H-V2, H-X1, H-L1,
-   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F70, E41**.
+4. `RD_LOG.md` : faits moteur F1 à F69, expériences E1 à E41, hypothèses ouvertes (H-V2, H-X1, H-L1,
+   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F70, E42**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |

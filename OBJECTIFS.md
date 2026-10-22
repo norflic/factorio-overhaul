@@ -75,7 +75,7 @@
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 | 24 à 30 soldats par armée, pas 100 |
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
-| C4 | PvP | 🟨 | Attaques contre vous, 5 difficultés, bases défendues attaquées et assaut coordonné **prouvés en moteur réel** (22/10, 0 h 55). Reste : budget A1 non mesuré |
+| C4 | PvP | ✅ | Attaques contre vous, 5 difficultés, bases défendues attaquées, assaut coordonné et budget A1 **prouvés en moteur réel** (22/10). Écarts mineurs : ordre strict hors modèle nominal, un seul joueur visé |
 | **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Conception livrée et intégrée (IA1, `docs/EQUIPES_PNJ.md`) ; construction après le visuel (Q18) ; 7 questions Q-IA1 |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
@@ -226,7 +226,7 @@
     - Normal : 1re attaque au tick 72 001, à la fin de la grâce ; base témoin touchée au tick 78 060 ;
     - Paisible : base témoin intacte, 8 bâtiments sur 8 ;
     - Difficile : 1re attaque à 12 min, 6 attaques.
-  - C4-5 ❌ Non mesuré : les scénarios `ia0-big` et `ia0-perf` (banc épinglé) restent à passer.
+  - C4-5 ✅ **Mesuré sur banc épinglé** (E41, 22/10, 3 h 10) : `ia0-perf` (60 min, 4 factions, 50 compagnons, Normal), script 0,108 ms/tick (p99 0,70) ; `ia0-big` (base de 5 022 entités), script 0,059 ms/tick (p99 0,49) ; repérage PvP 0,004 ms/tick. Le budget de 1,5 ms est tenu.
   - Limites documentées : seule la force `player` est visée ; les installations ne sont repérées qu'à
     1 536 tuiles du départ au plus.
 
