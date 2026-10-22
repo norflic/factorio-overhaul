@@ -144,6 +144,7 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
 | F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
 | F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+| F69 | Outillage : depuis Git Bash, un `.bat` dont le chemin contient des espaces, appelé avec un argument entre guillemets (par exemple une source de mod), est mal découpé par `cmd /c` (guillemets extrêmes retirés) : « 'H:\Factorio.v1.1.91' n'est pas reconnu… », code 1 sans rien lancer. `fo-autotest.bat` sans argument entre guillemets n'est pas touché. | Lancer `fo-captures.bat` avec une source depuis PowerShell (`& "<racine>\fo-captures.bat" d4-geant "<source>" hd`). |
 | F68 | Étape data 1.1.91 : `base/data-updates.lua` génère un baril, une recette « fill-<fluide>-barrel » et une recette « empty-<fluide>-barrel » pour CHAQUE fluide sans `auto_barrel = false`, mods compris, et les ajoute TOUTES aux effets de `fluid-handling` (constante `technology_name` du fichier). Avec le mod : `fill-fo-methane-barrel` et `empty-fo-methane-barrel` y figurent (relu avec `tests/datastage/harness.lua --dump-final technology/fluid-handling`, 22/10). | Une règle qui range une technologie par ses recettes doit ignorer ces recettes générées : sinon fluid-handling suit l'époque du fluide le plus tardif (V2c, QX9 : époque 8 au lieu de 4, 50 unités au lieu de 2). |
 | F67 | Recettes vanilla 1.1.91 : le moteur (`engine-unit`) est de catégorie `advanced-crafting`, le plastique et le soufre de catégorie `chemistry`. Ils ne se fabriquent PAS à la main, alors que les ouvriers des factions ne fabriquent qu'en `crafting` (vérifié dans `tests/fixtures/recipes.lua` et contrôlé par `org_test.lua`). | **Cause précise de H-E1** : le pack chimique exige un assembleur, une usine chimique ET du pétrole. Les équipes IA stagnaient donc après la recherche 3. Correction prévue aux lots IA1 (production adaptative, modules d'usine). |
 | F66 | Au chargement d'une session avec images, le journal liste les atlas de sprites créés (« Created atlas bitmap L×H [drapeaux] »), avant toute partie. Toutes les images sont donc chargées UNE fois, indépendamment du nombre d'entités. Avec le jeu actuel (vanilla + mod, haute qualité, « DXT: high-quality »), on compte ≈ 1,07 milliard de pixels d'atlas, soit environ 1,1 Go estimés compressés et 4,25 Go sans compression ; le journal annonce aussi le budget de mémoire vidéo (« Budget: 15570MB »). Source : `fo-logs\2026-10-21_P1_vitrine-exemple-final\visual.log`. | Le coût d'une usine géante est du temps de dessin, pas de la mémoire vidéo. La mémoire se budgète par famille de sprites (D4). Une mesure directe est à faire (lot D4m). |
@@ -151,7 +152,7 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
-**E38 · VALIDÉ hors jeu, NON PROUVÉ en moteur réel · Amélioration instantanée, condition du centre,
+**E38 · VALIDÉ, y compris en moteur réel (`content` 212 OK, 0 échec, 22/10, 2 h 43 ; journal « recherche vanilla allégée (QX9) : 170 technologie(s) ») · Amélioration instantanée, condition du centre,
 recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)** :
 - Décisions appliquées (citées au §4 d'OBJECTIFS) : Q19 « si on a les ressources, on améliore, terminé » ;
   Q16 « condition légère » ; QX7 « 60 h = ouverture de la Porte (époque 15 vers 52 h) » ; QX9 « alléger la
@@ -205,6 +206,25 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   11 OK, étape data 0 erreur, api_lint 377 usages 0 erreur.
 - Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
   l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
+
+**E39 · VALIDÉ (technique) · Pipeline de rendu corrigé, en moteur réel (lot V0b, 22/10, 2 h 40)** :
+- Mesures sur les captures en jeu, z2 de jour, corps hors lueur :
+
+  | Mesure | V0 | Premier essai | Corrigé | Références vanilla |
+  |---|---|---|---|---|
+  | p50 | 0,237 | 0,338 (rejeté : trop clair) | 0,205 | assembleur 0,198, four éteint 0,191 |
+  | Écart-type | 0,131 | 0,165 | 0,138 | cheminée vanilla 0,142 |
+  | Rapport au four porteur | 1,24 | 1,77 | 1,07 | maximum 1,3 |
+
+- Halo du four équipé : écart du trou au voisinage 0,245 → 0,011, en qualité haute comme normale.
+  Façade : λ 0,064, contre 0,090 pour le four vanilla. Four éteint : aucune flaque.
+- Collerette : 49 → 0 pixel transparent enfermé.
+- Braises : rapport bleu/rouge 0,42 → 0,02 (feu vanilla : 0,10).
+- Recalage au pixel ; phases de caméra au zoom 1 : |ΔL| ≤ 0,02/255.
+- Déterminisme 18/18 ; `content` 212 OK après fusion.
+- Le premier essai, plus clair, s'éloignait du style validé : le correcteur est revenu au ton V0.
+  Les règles 1 à 3 de la bible sont maintenant bloquantes dans `render.py` (code 3).
+- Planches V0 / premier essai / corrigé envoyées au Directeur Créatif : `<racine>\fo-logs\2026-10-21_V0b_vitrine-final\planches-dc\`.
 
 **E37 · VALIDÉ (hors jeu) · Conception des équipes de PNJ organisées (lot IA1, 22/10, 1 h 15)** :
 - 3 concepteurs (organisation, joueur, technique), relancés après la précision Q19.

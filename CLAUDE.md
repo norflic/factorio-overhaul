@@ -19,8 +19,8 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F67, expériences E1 à E37, hypothèses ouvertes (H-V2, H-X1, H-L1,
-   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F68, E38**.
+4. `RD_LOG.md` : faits moteur F1 à F69, expériences E1 à E39, hypothèses ouvertes (H-V2, H-X1, H-L1,
+   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F70, E40**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -88,7 +88,7 @@ python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 ét
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 212 OK, 0 ECHEC(S)` (lot V2c, 22/10, **non encore observé en moteur réel** : 210
+   attend `BILAN : 212 OK, 0 ECHEC(S)` (lot V2c, observé en moteur réel le 22/10 à 2 h 43 : 210
    contrôles, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` ; 209 avant V2c).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
@@ -110,8 +110,9 @@ Performance :
   cœurs P. Une mesure prise en arrière-plan sans épinglage est fausse.
 
 **Captures en une commande, sans intervention** (lot P1, H-T1 validée) :
-- Commande : `fo-captures.bat [scenario] [source] [fenetre]` ; depuis Git Bash,
-  `cd "<racine>" && ./fo-captures.bat content`.
+- Commande : `fo-captures.bat [scenario] [source] [fenetre]` ; depuis Git Bash, SANS argument entre
+  guillemets : `cd "<racine>" && ./fo-captures.bat content`. **Avec une source, lancer depuis PowerShell**
+  (`& "<racine>\fo-captures.bat" vitrine "<source>"`) : Git Bash coupe le chemin à l'espace (F69).
 - Le jeu est lancé en `--benchmark-graphics` et s'arrête seul. La fenêtre reste réduite et ne prend
   jamais le focus. Le cache d'atlas charge les sprites en 5 s environ.
 - Codes de sortie :
