@@ -17,9 +17,18 @@ def main():
     sys.path.insert(0, sys.argv[1])
     import da_lib as D
     for nm in sys.argv[2:]:
-        d = os.path.join(W, "out", nm)
-        spec = json.load(open(os.path.join(d, "spec.json"), encoding="utf-8"))
-        im = np.asarray(Image.open(os.path.join(d, spec["layers"]["main"]["file"])).convert("RGBA")).astype(float) / 255
+        if "+" in nm:
+            # composition socle + tête (couches principales), comme mesure.py
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import mesure as MS
+            lay = []
+            for part in nm.split("+"):
+                lay += [l for l in MS.layers_of(D, os.path.join(W, "out"), part) if l["kind"] == "main"]
+            im = D.compose(lay)["body"]
+        else:
+            d = os.path.join(W, "out", nm)
+            spec = json.load(open(os.path.join(d, "spec.json"), encoding="utf-8"))
+            im = np.asarray(Image.open(os.path.join(d, spec["layers"]["main"]["file"])).convert("RGBA")).astype(float) / 255
         a = im[..., 3] >= 0.5
         sizes, lab = D.components(~a, conn8=False)
         border = set(lab[0, :].tolist()) | set(lab[-1, :].tolist()) | set(lab[:, 0].tolist()) | set(lab[:, -1].tolist())
@@ -41,7 +50,7 @@ def main():
         o = Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8))
         o = o.resize((o.width * 3, o.height * 3), Image.NEAREST)
         os.makedirs(os.path.join(W, "apercus"), exist_ok=True)
-        o.save(os.path.join(W, "apercus", "trous-%s.png" % nm))
+        o.save(os.path.join(W, "apercus", "trous-%s.png" % nm.replace("+", "_")))
 
 
 if __name__ == "__main__":

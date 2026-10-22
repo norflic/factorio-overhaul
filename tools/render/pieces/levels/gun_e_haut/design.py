@@ -221,6 +221,8 @@ def cables_e(g, e, ctrl, n=3):
         n = 4
     if e == 12:
         PT.cable_run(g, ctrl, 2, 0.032, 0.075, mats)
+    elif e == 10:
+        PT.cable_run(g, ctrl, 4, 0.026, 0.055, mats)
     else:
         PT.cable_run(g, ctrl, n, 0.02, 0.045, mats)
 
@@ -259,18 +261,31 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
     M = g.M
     E = M["emit"]
     if e in (10, 11, 15):
-        paint = {10: M["jacket"], 11: M["cream"], 15: M["cream"]}[e]
+        paint = {10: M["jacket"], 11: M["jacket"], 15: M["cream"]}[e]
         band = {10: M["matte"], 11: M["ring"], 15: M["jacket"]}[e]
         P3.vtank(g, x, y, r, h, M, paint=paint, emat=E, ladder_dir=ladder_dir, stub_dir=stub_dir, gauges=gauges,
                  glow_gauges=True, glow_rings=0, band=band)
         _tank_lights(g, x, y, r, h, e)
         if e == 11:
-            for a in (-0.6, -2.5):
+            # 3 grands ailerons d'alliage blanc patiné (profil de fusée), nervure et rivets
+            for a in (0.0, -0.8, 0.8):
                 d = V((math.cos(a), math.sin(a), 0))
-                t = V((-d.y, d.x, 0)) * 0.025
+                t = V((-d.y, d.x, 0)) * 0.03
                 c = V((x, y, 0))
-                P2.wedge(g, c + d * r + V((0, 0, 0.15)), c + d * r + V((0, 0, h * 0.75)),
-                         c + d * (r + 0.13) + V((0, 0, 0.2)), t, M["ring"], what="aileron")
+                P2.wedge(g, c + d * (r - 0.01) + V((0, 0, 0.1)), c + d * (r - 0.01) + V((0, 0, h * 0.82)),
+                         c + d * (r + 0.2) + V((0, 0, 0.12)), t, M["ring"], what="aileron")
+                g.box(c + d * (r + 0.06) + V((0, 0, 0.32)), (0.05, 0.05, 0.4), M["steel_dk"], "hard",
+                      R=Matrix.Rotation(a, 3, "Z"), what="nervure")
+        if e == 10:
+            # carénages gris clair rapportés, antenne fouet, fenêtre de niveau bleue
+            for a in (-1.35, -2.05):
+                d = V((math.cos(a), math.sin(a), 0))
+                Rr = Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed()
+                g.box(V((x, y, h * 0.55)) + d * (r + 0.012), (0.26, 0.024, h * 0.5), M["matte"], "hard", R=Rr,
+                      what="carenage")
+                g.box(V((x, y, h * 0.55)) + d * (r + 0.026), (0.03, 0.006, h * 0.4), M["emit"], "flat", R=Rr,
+                      what="niveau")
+            g.cyl((x, y, h + r * 0.42 + 0.2), "z", 0.006, 0.4, M["steel_dk"], n=6, what="antenne")
         if e == 15:
             zt = h + r * 0.42
             for k in range(5):
@@ -360,7 +375,7 @@ def _seg_ring(g, x, y, R, z, n, emat):
         Rr = Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed()
         if d.y > 0.7:
             continue
-        g.box(V((x, y, z)) + d * R, (min(0.12, TAU * R / n * 0.45), 0.014, 0.03), emat, "flat", R=Rr, what="segment")
+        g.box(V((x, y, z)) + d * R, (TAU * R / n * 0.8, 0.014, 0.03), emat, "flat", R=Rr, what="segment")
         a2 = TAU * k / n
         d2 = V((math.cos(a2), math.sin(a2), 0))
         Rr2 = Matrix((V((-d2.y, d2.x, 0)), d2, V((0, 0, 1)))).transposed()
@@ -387,8 +402,8 @@ def signature(g, e, p, kind=0):
     if e == 10:
         # antenne fouet courte sur embase, boîtier de connexion
         g.box(p + V((0, 0, 0.03)), (0.12, 0.1, 0.06), M["matte"], "hard", what="boitier")
-        g.cyl(p + V((0.03, 0, 0.07)), "z", 0.018, 0.04, M["steel_hi"], n=8, what="embase")
-        g.cyl(p + V((0.03, 0, 0.25)), "z", 0.006, 0.34, M["steel_dk"], n=6, what="antenne")
+        g.cyl(p + V((-0.04, 0.03, 0.07)), "z", 0.018, 0.04, M["steel_hi"], n=8, what="embase")
+        g.cyl(p + V((-0.04, 0.03, 0.18)), "z", 0.006, 0.2, M["steel_dk"], n=6, what="antenne")
         g.cyl(p + V((-0.03, 0, 0.065)), "z", 0.012, 0.012, M["emit"], n=8, style="flat", what="voyant")
     elif e == 11:
         for s in (-1, 1):
@@ -492,6 +507,10 @@ def even_piece(g, e, x, yb, sx):
         _seg_ring(g, x, yb, 0.22, z0 + 0.33, 6, E)
         g.cyl(c + V((0, 0, 0.64)), "z", 0.12, 0.06, M["copper"], n=20, what="chapeau")
         g.cyl(c + V((0, 0, 0.68)), "z", 0.06, 0.02, M["emit2"], n=16, style="flat", what="coeur")
+        for a in (-1.1, -2.0):
+            dd = V((math.cos(a), math.sin(a), 0))
+            g.cyl(c + V((0, 0, 0.14)) + dd * 0.17, dd, 0.03, 0.03, M["steel_dk"], n=12, what="hublot")
+            g.cyl(c + V((0, 0, 0.14)) + dd * 0.186, dd, 0.02, 0.005, M["emit2"], n=10, style="flat", what="hublot_lum")
         g.hose([tuple(c + V((-sx * 0.15, 0.1, 0.5))), tuple(c + V((-sx * 0.35, 0.3, 0.4))),
                 tuple(c + V((-sx * 0.42, 0.55, 0.15)))], 0.04, M["copper"], step=0.03)
     elif e == 14:
@@ -556,10 +575,34 @@ def column(g, e, ladder_ang):
     P2.pedestal(g, B["R"], 0.0, B["h"], 16, M, [M["olive"], M["steel_dk"], M["olive"], M["redpaint"]],
                 ladder_at=ladder_ang)
     PT.slewing_ring(g, B["R"] - 0.02, B["h"], B["rh"])
-    ng = {10: 5, 11: 6, 12: 7, 13: 7, 14: 8, 15: 9}[e]
+    ring_lights(g, e, B["R"] - 0.08, B["h"] + B["rh"] + 0.02)
+    ng = {10: 4, 11: 7, 12: 8, 13: 4, 14: 9, 15: 11}[e]
     slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, ng, M["emit"], a0=math.pi + 0.2, span=math.pi - 0.4)
     slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, ng - 1, M["emit"], a0=math.pi + 0.35, span=math.pi - 0.7,
                   per=(3, 2))
+
+
+def ring_lights(g, e, R, z):
+    """Feux de couronne, sur la face sud de la couronne d'orientation (la moitié nord est sous la tête) :
+    11 chenillard bleu-blanc (segments courts), 14 balises rouges, 15 « particules » or blanc sur poteaux de nacre.
+    Chaque feu est un foyer séparé (espacement > 20 px hr)."""
+    n = {11: 13, 14: 16, 15: 20}.get(e, 0)
+    M = g.M
+    for k in range(n):
+        a = math.pi + math.pi * (k + 0.5) / n
+        d = V((math.cos(a), math.sin(a), 0))
+        t = V((-d.y, d.x, 0))
+        Rr = Matrix((t, d, V((0, 0, 1)))).transposed()
+        p = V((0, 0, z)) + d * R
+        if e == 11:
+            g.box(p, (0.1, 0.04, 0.03), M["steel_dk"], "hard", R=Rr, what="support")
+            g.box(p + V((0, 0, 0.018)), (0.075, 0.018, 0.008), M["emit"], "flat", R=Rr, what="chenillard")
+        elif e == 14:
+            g.cyl(p + V((0, 0, 0.02)), "z", 0.028, 0.04, M["steel_dk"], n=10, what="balise_pied")
+            g.cyl(p + V((0, 0, 0.048)), "z", 0.019, 0.018, M["emit"], n=10, style="flat", what="balise")
+        else:
+            g.cyl(p + V((0, 0, 0.035)), "z", 0.016, 0.07, M["trim"], n=8, what="poteau")
+            g.sphere(p + V((0, 0, 0.085)), 0.02, M["emit"], n=10, m=6, what="particule")
 
 
 def socle(g, e, piece=False):
@@ -586,7 +629,7 @@ def _socle_iv(g, e, piece):
         P2.open_crate(g, (0, 0, 0), 0.78, 0.72, 0.3, M)
     with at(g, -1.05, -2.35, 0.08):
         P2.open_crate(g, (0, 0, 0), 0.6, 0.5, 0.22, M, paint=M["ochre"])
-    turrets = [(1.78, -1.82, 0.0)] + ([(-2.12, -2.32, 0.25)] if e >= 12 else [])
+    turrets = [(1.78, -1.82, 0.0)] + ([(-2.0, -2.28, 0.25)] if e >= 12 else [])
     for (x, yn, rz) in turrets:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
@@ -683,8 +726,7 @@ def _socle_v(g, e, piece):
     conduit_e(g, e, [(-1.98, Y(-0.6), 0.45), (-1.78, Y(-0.65), 0.72), (-1.52, Y(-0.55), 0.86)], 0.05)
     cables_e(g, e, [(-1.98, Y(0.05), 0.45), (-1.75, Y(0.02), 0.7), (-1.5, Y(0.0), 0.8)])
     if e == 13:
-        for yy in (-0.9, 0.35):
-            signature(g, 13, (-2.43, Y(yy), 0.6))
+        signature(g, 13, (-2.43, Y(0.35), 0.6))
     # nord-ouest : banc de condensateurs en biais (réserve d'énergie visible)
     with at(g, -2.05, 2.25, -0.6):
         PT.hull(g, -0.62, 0.62, -0.5, 0.5, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3, mats=[M["steel_dk"]],
@@ -786,7 +828,7 @@ def gun_side(g, e, sx, H):
     wr, hr = H["wr"], H["hr"]
     R = H["R"]
     xa, xb = sorted((sx * R * 0.8, x - sx * wr / 2))
-    PT.hull(g, xa, xb, y0 + 0.12, y1 - 0.18, zg - hr * 0.7, zg + hr * 0.55, ins=(0.0, 0.02, 0.02), panel=0.22,
+    PT.hull(g, xa, xb, y0 + 0.12, y1 - 0.03, zg - hr * 0.7, zg + hr * 0.55, ins=(0.0, 0.02, 0.02), panel=0.22,
             mats=[M["olive"], M["steel_dk"]], faces="tsn", rivet_step=0.12)
     g.cyl(((xa + xb) / 2, (y0 + y1) / 2 - 0.04, zg - hr * 0.1), "x", hr * 0.62, abs(xb - xa) + 0.12, M["steel_dk"],
           n=20, what="tourillon")
@@ -796,7 +838,7 @@ def gun_side(g, e, sx, H):
         a = TAU * k / 6
         g.dome(V((x + sx * (wr / 2 + 0.065), (y0 + y1) / 2 - 0.04 + math.cos(a) * hr * 0.36,
                   zg - hr * 0.1 + math.sin(a) * hr * 0.36)), (sx, 0, 0), 0.015, M["rivet"])
-    PT.receiver(g, x, y0, y1, zg - hr, zg + hr, wr, mats=[M["ochre"], M["olive"]])
+    PT.receiver(g, x, y0, y1, zg - hr, zg + hr, wr, mats=A.recv_mats(g, e))
     motor(g, (x, y0 - 0.2 - hr * 0.3, zg), hr * 0.78, 0.3 + hr * 0.6)
     A.barrel(g, e, x, y1, zg, H["L"], H["nb"], H["rb"], H["rr"], H["L"] * 0.5)
     PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
@@ -830,7 +872,7 @@ def head_core(g, e, H):
             mats=[M["ochre"], M["olive"]], rivet_step=0.11)
     for s, w in ((-1, 0.34), (1, 0.22)):
         g.box((s * mw * 0.42, R + 0.235, zs + 0.02), (mw * w, 0.02, 0.04), M["emit"], "flat", what="fente")
-    g.box((0, R + 0.25, zs + 0.065), (mw * 1.3, 0.03, 0.025), M["steel_hi"], "hard", what="visiere")
+    g.box((0, R + 0.2, zs + 0.065), (mw * 1.3, 0.13, 0.025), M["steel_hi"], "hard", what="visiere")
     g.cyl((mw * 0.45, R + 0.2 + 0.18, zs - 0.06), "y", 0.03, 0.4, M["steel_dk"], n=10, what="coax")
     g.cyl((mw * 0.45, R + 0.2 + 0.28, zs - 0.06), "y", 0.045, 0.16, M["ring"], n=12, what="coax_manchon")
     bx = R * 0.62
@@ -868,7 +910,7 @@ def dome_gun(g, e, H, nb, L, s=1.0):
     zc = zr + 0.3 * s
     PT.hull(g, -0.38 * s, 0.38 * s, -0.22 * s, 0.66 * s, zr - 0.04, zr + 0.2 * s, ins=(0.04, 0.04, 0.1),
             panel=0.22, mats=[M["olive"], M["ochre"]], rivet_step=0.11)
-    PT.receiver(g, 0.0, -0.22 * s, 0.66 * s, zc - 0.18 * s, zc + 0.16 * s, 0.36 * s, mats=[M["ochre"], M["olive"]])
+    PT.receiver(g, 0.0, -0.22 * s, 0.66 * s, zc - 0.18 * s, zc + 0.16 * s, 0.36 * s, mats=A.recv_mats(g, e))
     rb, rr = 0.052 * s, 0.125 * s * (1.0 if nb == 6 else 0.85)
     A.barrel(g, e, 0.0, 0.66 * s, zc, L, nb, rb, rr, L * 0.4)
     for sx in (-1, 1):
@@ -893,19 +935,21 @@ def tete(g, e):
     R = H["R"]
     z0 = ring_top(e)
     era5 = ERA[e] == 5
-    slits_grouped(g, R, z0 + 0.2, {10: 5, 11: 6, 12: 7, 13: 7, 14: 8, 15: 9}[e], M["emit"])
+    slits_grouped(g, R, z0 + 0.2, {10: 4, 11: 8, 12: 9, 13: 4, 14: 10, 15: 12}[e], M["emit"])
     if era5:
-        slits_grouped(g, R, z0 + 0.36, {13: 6, 14: 7, 15: 8}[e], M["emit"], a0=0.3, per=(3, 2))
+        slits_grouped(g, R, z0 + 0.36, {13: 3, 14: 10, 15: 12}[e], M["emit"], a0=0.3, per=(3, 2))
     for sx in (-1, 1):
         gun_side(g, e, sx, H)
-        c = [(sx * 0.3, -R - 0.3, H["zs"] + 0.25), (sx * 0.8, -0.6, H["zs"] + 0.2), (sx * H["gx"], -0.4, H["zg"] + H["hr"])]
-        if era5:
-            c = [(sx * 0.35, -R - 0.35, H["zs"] + 0.3), (sx * 0.95, -0.7, H["zs"] + 0.24),
-                 (sx * H["gx"], -0.5, H["zg"] + H["hr"])]
+        # liaisons nacelle -> bras de tourillon : elles passent SUR la coupole et finissent SUR le bras (aucune
+        # boucle au-dessus du sol : contrôle des trous enfermés)
+        xe = sx * (H["gx"] - H["wr"] * 0.5 - 0.08)
+        ye = H["recv"][0] + 0.35
+        c = [(sx * 0.3, -R - 0.3, H["zs"] + 0.25), (sx * R * 0.62, -R * 0.42, H["zs"] + H["rz"] * 0.55),
+             (xe, ye, H["zg"] + H["hr"] * 0.6)]
         cables_e(g, e, c)
         if era5:
-            conduit_e(g, e, [(sx * 0.6, -R - 0.3, H["zs"] + 0.2), (sx * 1.1, -0.95, H["zs"] + 0.12),
-                             (sx * H["gx"], -0.7, H["zg"] + H["hr"] * 0.6)], 0.04)
+            conduit_e(g, e, [(sx * 0.6, -R - 0.3, H["zs"] + 0.2), (sx * R * 0.72, -R * 0.5, H["zs"] + H["rz"] * 0.4),
+                             (xe, ye + 0.2, H["zg"] + H["hr"] * 0.55)], 0.04)
     # plaques rapportées (blindage) : 1re rangée qui se complète, puis 2e rangée (catalogue §A.5)
     row1 = {10: (0.6, 1.2, math.pi - 0.6, math.pi - 1.2), 11: (0.5, 0.95, 1.4, math.pi - 0.5, math.pi - 0.95,
                                                                   math.pi - 1.4),
@@ -955,7 +999,7 @@ def tete(g, e):
     if e >= 12:
         nbd = 4 if e == 12 else 6
         s = 0.85 if e == 12 else 1.0
-        dome_gun(g, e, H, nbd, 1.35 if e == 12 else 1.7, s)
+        dome_gun(g, e, H, nbd, 1.02 if e == 12 else 1.7, s)
     if e == 14:
         # petite parabole sur le tourelleau, 2 panneaux dorés repliés le long de la nacelle
         cx, cy, ztop = top_turret
