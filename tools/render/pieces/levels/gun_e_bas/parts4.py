@@ -564,7 +564,7 @@ def br_octo(g, st, x, yb, z, rs, pos, H):
     g.tube_shell((x, yb - 0.025, z), "y", R8 + 0.006, R8 - 0.03, 0.022, M["hazy"], n=8, what="liseré")
 
 
-BRAKES = {"crown": br_crown, "steam": br_steam, "slots": br_slots, "wedge": br_wedge, "insul": br_insul,
+BRAKES = {"none": lambda *a, **k: None, "crown": br_crown, "steam": br_steam, "slots": br_slots, "wedge": br_wedge, "insul": br_insul,
           "claws": br_claws, "nozzle": br_nozzle, "octo": br_octo}
 
 
@@ -1122,7 +1122,7 @@ def deck_mat(e):
     habillage seulement) : planches (forge), tôles rivetées (vapeur), caillebotis galvanisé (pétrole), dalles de
     fonte (volcan), caillebotis (électricité), dalles de pierre (cristal), caillebotis de bois sur caoutchouc
     (marais), dalles de béton (atome)."""
-    return {2: "wood2", 3: "rawiron", 4: "galva", 5: "castiron", 6: "grate", 7: "stone", 8: "wood2", 9: "concrete"}[e]
+    return {2: "wood2", 3: "rawiron", 4: "galva", 5: "castiron", 6: "tread", 7: "stone2", 8: "wood2", 9: "concrete"}[e]
 
 
 def deck_e(g, e, x0, x1, y0, y1, z=0.05):
@@ -1130,7 +1130,7 @@ def deck_e(g, e, x0, x1, y0, y1, z=0.05):
     M = g.M
     m = M[deck_mat(e)]
     g.box(((x0 + x1) / 2, (y0 + y1) / 2, z - 0.035), (x1 - x0, y1 - y0, 0.02), M["void"], "flat", what="fond")
-    if e in (4, 6):
+    if e == 4:
         P2.grating(g, x0, x1, y0, y1, z, M, frame=False)
         if e == 4:  # lames galvanisées par-dessus le caillebotis de la lignée
             n = max(1, int((y1 - y0) / 0.17))
@@ -1139,24 +1139,27 @@ def deck_e(g, e, x0, x1, y0, y1, z=0.05):
                 g.box(((x0 + x1) / 2, yy, z - 0.004), (x1 - x0 - 0.03, 0.03, 0.016), m, "flat", what="lame")
         return
     if e in (2, 8):  # planches (forge) ou caillebotis de bois (marais), clous, joints sombres
-        pitch = 0.085 if e == 2 else 0.07
+        pitch = 0.15 if e == 2 else 0.07
         n = max(1, int((y1 - y0) / pitch))
         for i in range(n):
             yy = y0 + (y1 - y0) * (i + 0.5) / n
-            mm = M["wood"] if (i * 7) % 3 else M["wood2"]
+            mm = (M["wood"] if (i * 7) % 3 else M["wood2"]) if e == 2 else (M["leather"] if (i * 7) % 3 else M["rubber"])
             g.box(((x0 + x1) / 2, yy, z - 0.012), (x1 - x0 - 0.02, pitch * 0.78, 0.035), mm, "hard", what="planche")
         nc = max(1, int((x1 - x0) / 0.32))
         for i in range(1, nc):
             xx = x0 + (x1 - x0) * i / nc
             g.box((xx, (y0 + y1) / 2, z + 0.008), (0.03, y1 - y0 - 0.02, 0.012),
                   M["rawiron"] if e == 2 else M["rubber"], "hard", what="traverse")
+            if e == 8:  # clous de laiton à chaque croisement planche-traverse
+                for j in range(n):
+                    g.dome((xx, y0 + (y1 - y0) * (j + 0.5) / n, z + 0.016), (0, 0, 1), 0.012, M["brass"])
         return
     # dalles (tôle rivetée, fonte, pierre, béton) : plaques séparées par des joints sombres
-    size = {3: 0.3, 5: 0.26, 7: 0.34, 9: 0.42}[e]
+    size = {3: 0.2, 5: 0.26, 6: 0.3, 7: 0.34, 9: 0.42}[e]
     nu = max(1, int(round((x1 - x0) / size)))
     nv = max(1, int(round((y1 - y0) / (size * SQ2))))
     q = [V((x0, y0, z - 0.03)), V((x1, y0, z - 0.03)), V((x1, y1, z - 0.03)), V((x0, y1, z - 0.03))]
-    g.panels(q, nu, nv, m, t=0.03, gap=0.022, rivet_mat=(M["rivet"] if e in (3, 5) else None), mats=[m],
+    g.panels(q, nu, nv, m, t=0.03, gap=0.022, rivet_mat=(M["rivet"] if e in (3, 5, 6) else None), mats=[m],
              rivet_step=0.14, jitter=0.25 if e in (7, 9) else 0.1)
     if e == 5:
         # quelques joints de dalle rougeoyants (braise sous la fonte), segments courts, jamais une coulée

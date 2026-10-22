@@ -27,6 +27,7 @@ import parts as PT
 import parts2 as P2
 import parts3 as P3
 import parts4 as P4
+import ages as A
 from kit import SQ2, TAU
 
 V = Vector
@@ -53,7 +54,7 @@ def ring_top(e):
     return B["h"] + B["rh"]
 
 
-_H2 = dict(R=0.44, zs=0.74, rz=0.3, gx=0.62, zg=0.86, recv=(-0.24, 0.3), wr=0.2, hr=0.12)
+_H2 = dict(R=0.38, zs=0.7, rz=0.27, gx=0.56, zg=0.82, recv=(-0.22, 0.28), wr=0.19, hr=0.115)
 _H3 = dict(R=0.68, zs=1.0, rz=0.42, gx=0.94, zg=1.15, recv=(-0.36, 0.5), wr=0.28, hr=0.16)
 _H4 = dict(R=0.92, zs=1.3, rz=0.52, gx=1.24, zg=1.47, recv=(-0.5, 0.66), wr=0.37, hr=0.21)
 HEAD = {
@@ -67,15 +68,17 @@ HEAD = {
     9: dict(_H4, L=1.8, nb=6, rb=0.052, rr=0.128),
 }
 
+DOME = {2: "bolted", 3: "armor", 4: "yellowpaint", 5: "tungsten", 6: "olive", 7: "bronze", 8: "verdigris", 9: "lead"}
+
 # styles d'époque (emplacements E1 à E5 du catalogue) : noms de matières de kit.materials
 ST = {
     2: dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("bolted", "rawiron"),
             recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="bolted", gmask=("bolted", "rawiron"),
             arm=("bolted", "blackiron"), cap="brass", mask="shield", jacket_f=0.6, col=("bolted", "blackiron"),
             nac=("bolted", "rawiron"), arr="row", barrel="blackiron"),
-    3: dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"),
+    3: dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"), jacket_f=0.72,
             feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("castiron", "olive"),
-            arm=("olive", "castiron"), cap="brass", jacket_f=0.66, col=("olive", "castiron"),
+            arm=("olive", "castiron"), cap="brass", col=("olive", "castiron"),
             nac=("castiron", "olive")),
     4: dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
             recv_mats=("yellowpaint", "yellowpaint"), recv_sig="stripes", feed="barrels", skirt="galva",
@@ -160,233 +163,9 @@ def hopper(g, e, x0, x1, y0, y1, h, ring):
                         belt_mats=tuple(M[k] for k in BELT[e]))
     P2.feed_chute(g, [tuple(out), (0.0, ring[0], ring[1] - 0.02), (0.0, ring[2], ring[1] + 0.02)],
                   0.11 + 0.03 * (SIDE[e] - 2), M)
-    if e >= 3:
+    if e >= 2:
         P4.lamp_group(g, (x0 + 0.07, y0 - 0.03, h * 0.62), (1, 0, 0), (0, -1, 0), M["emit"], n=2 + (e >= 6))
     return out
-
-
-# ------------------------------------------------------------------------------------------------
-# Ère I (2×2) : époques 2 et 3 (le niveau 1 est la mitrailleuse vanilla)
-# ------------------------------------------------------------------------------------------------
-def _socle_era1(g, e):
-    M = g.M
-    E = M["emit"]
-    k = KIN[e]
-    deck(g, 2, 0.48, inset=0.24, e=e)
-    column(g, e)
-    rt = ring_top(e)
-    hopper(g, e, -0.3, 0.3, Y(-0.97), -0.74, 0.32, (-0.62, rt, -0.42))
-    # est : réservoir (forge : acier boulonné ; vapeur : chaudière rivetée plus haute à hublot et sifflet)
-    hh = 0.46 if k == 1 else 0.58
-    P4.tank_e(g, e, 0.74, Y(0.12), 0.19, hh, E, ladder_dir=(1, 0.4), stub_dir=(-1, 0), gauges=1 + (e >= 3))
-    # ouest : petit groupe électrogène à 2 cylindres (volant d'inertie à la forge, régulateur à boules à la vapeur)
-    P4.engine_e(g, e, -0.97, -0.6, Y(-0.42), Y(0.4), 0.0, 0.26, 2, emat=E)
-    # nord-ouest : pile de caisses
-    with at(g, -0.66, 0.66, 0.3):
-        PT.crate(g, (0, 0, 0), (0.36, 0.3, 0.17), mat=M["wood"] if e == 2 else M["olive"])
-        PT.crate(g, (0.02, 0.0, 0.2), (0.3, 0.24, 0.14), mat=M["wood2"] if e == 2 else M["ochre"])
-    # nord : radiateur bas
-    P2.fan_radiator(g, -0.34, 0.34, Y(0.64), Y(0.95), 0.0, 0.2, 2, M)
-    if e == 2:
-        # conduit d'air riveté (soufflet), chaîne de transmission du volant vers la colonne, tuyau de fer noir
-        P4.duct(g, [(-0.62, Y(0.25), 0.2), (-0.5, Y(0.25), 0.34), (-0.36, Y(0.18), 0.36)], 0.09, 0.07)
-        P4.chain(g, (-0.79, Y(-0.42) - 0.12, 0.2), (-0.4, Y(-0.3), 0.3), sag=0.03)
-        P4.link(g, 2, [(0.56, Y(0.12), 0.25), (0.48, Y(0.05), 0.36), (0.36, Y(0.0), 0.38)], 0.045)
-        # lanterne (nuit) sur la pile de caisses, fentes de forge sur le groupe
-        P4.lantern(g, (-0.64, Y(0.66) - 0.02, 0.37), E)
-        for i in range(2):
-            g.box((-0.6 - 0.004, Y(-0.12) + i * 0.1, 0.1), (0.008, 0.06, 0.03), E, "flat", what="forge")
-        _halo(g, [(-0.64, Y(0.6), 0.55), (-0.5, Y(-0.12), 0.3)], 10.0)
-    else:
-        # vapeur : tuyaux de cuivre coudés à brides de laiton, tuyau de vapeur calorifugé, manomètres, soupape
-        P4.link(g, 3, [(0.56, Y(0.12), 0.25), (0.48, Y(0.05), 0.38), (0.36, Y(0.0), 0.4)], 0.045)
-        lag = [V((0.74, Y(0.12) + 0.2, hh + 0.02)), V((0.55, Y(0.3), hh + 0.06)), V((0.3, Y(0.42), 0.42))]
-        S_, T = g.tube(g.spline(lag, 8), 0.035, M["canvas"], n=10, what="calorifuge")
-        for i in range(1, len(S_) - 1, 3):
-            g.tube_shell(S_[i], T[i], 0.042, 0.03, 0.016, M["brass"], n=12, what="cerclage")
-        P4.link(g, 3, [(-0.6, Y(-0.1), 0.2), (-0.5, Y(-0.1), 0.33), (-0.36, Y(-0.1), 0.36)], 0.035)
-        P2.gauge(g, (-0.6 - 0.02, Y(0.25), 0.18), (-1, 0, 0.3), 0.04, M)
-        P2.gauge(g, (0.25, Y(-0.97) - 0.03, 0.12), (0, -1, 0.3), 0.038, M)
-        # instruments de la vapeur (puissance de la 3e époque de l'ère : plus de pièces, catalogue §A.5)
-        P2.gauge(g, (-0.25, Y(-0.97) - 0.03, 0.2), (0, -1, 0.3), 0.032, M)
-        P2.gauge(g, (-0.97 - 0.02, Y(-0.3), 0.17), (-1, 0, 0.3), 0.034, M)
-        P2.handwheel(g, (-0.5, Y(-0.1), 0.42), (0, 0, 1), 0.05, M)
-        for xx in (0.22, -0.22):  # soupapes posées sur le radiateur nord (dessus à z = 0,2)
-            g.cyl((xx, Y(0.8), 0.25), "z", 0.022, 0.1, M["brass"], n=10, what="soupape")
-            g.cyl((xx, Y(0.8), 0.31), "z", 0.034, 0.02, M["brass"], n=12, what="chapeau")
-        # 2e machine (3e époque de l'ère) : armoire au nord-est, soupape à levier
-        P4.cabinet_e(g, 0.5, 0.92, Y(0.62), Y(0.95), 0.0, 0.3, M, E, [M["castiron"], M["olive"]], lamps=2)
-        g.box((0.8, Y(0.12) - 0.1, hh + 0.12), (0.12, 0.016, 0.016), M["steel_hi"], "hard", what="levier")
-        # hublots de foyer sur le groupe
-        for i in range(2):
-            d = V((-1, 0, 0))
-            c = V((-0.97 - 0.004, Y(-0.25) + i * 0.32, 0.13))
-            g.cyl(c, d, 0.034, 0.02, M["brass"], n=14, what="hublot_cadre")
-            g.cyl(c + d * 0.011, d, 0.022, 0.006, E, n=14, style="flat", what="hublot")
-        _halo(g, [(0.74, Y(0.0), 0.4), (-1.0, Y(0.0), 0.3), (0.0, Y(-1.0), 0.3)], 12.0)
-
-
-# ------------------------------------------------------------------------------------------------
-# Ère II (3×3) : époques 4, 5, 6 (corps du n11 de l'industriel, coins avant dégagés)
-# ------------------------------------------------------------------------------------------------
-def _socle_era2(g, e):
-    M = g.M
-    E = M["emit"]
-    k = KIN[e]
-    deck(g, 3, 0.86, e=e)
-    column(g, e)
-    rt = ring_top(e)
-    hopper(g, e, -0.38, 0.38, Y(-1.42), -1.0, 0.46, (-0.9, rt, -0.66))
-    with at(g, -0.98, -0.62, 0.38):
-        P2.open_crate(g, (0, 0, 0), 0.48, 0.5, 0.24, M, paint=M["olive"] if e != 4 else M["yellowpaint"])
-    with at(g, 0.98, -0.62, -0.32):
-        PT.crate(g, (0, 0, 0), (0.44, 0.44, 0.27), mat=M[{4: "galva", 5: "tungsten", 6: "olive"}[e]])
-        if e >= 5:
-            P4.lamp_group(g, (-0.1, -0.24, 0.2), (1, 0, 0), (0, -1, 0), E, n=2)
-    # est : réservoir (cuve couchée à l'époque 4)
-    P4.tank_e(g, e, 1.12, Y(0.3), 0.3, 0.62 + 0.08 * (k == 2), E, ladder_dir=(1, 0.3), stub_dir=(-1, 0),
-              gauges=2, rings=(1 if e == 6 else 0))
-    # ouest : groupe électrogène (4, 5) ; batterie à isolateurs du témoin n11 (6)
-    if e == 6:
-        PT.hull(g, -1.45, -0.98, Y(-0.4), Y(0.72), 0.0, 0.34, ins=(0.02, 0.02, 0.02), panel=0.26,
-                mats=[M["olive"], M["steel_dk"]], rivet_step=0.13)
-        for dy in (-0.42, 0.0, 0.42):
-            PT.insulators(g, (-1.21, Y(0.16) + dy, 0.34), 4, 0.045)
-        for dy in (-0.21, 0.21):
-            g.box((-1.21, Y(0.16) + dy, 0.34 + 4 * 0.034 + 0.02), (0.024, 0.34, 0.024), E, "flat", what="arc")
-        for dy in (-0.3, 0.3):  # bobines de cuivre rondes posées sur la batterie (hybride, gros plan n11)
-            g.cyl((-1.38, Y(0.16) + dy, 0.42), "y", 0.05, 0.12, M["steel_dk"], n=18, what="noyau")
-            for t in range(4):
-                g.torus((-1.38, Y(0.16) + dy - 0.045 + t * 0.03, 0.42), "y", 0.056, 0.012, M["copper"], n=22, m=6,
-                        what="spire")
-    else:
-        P4.engine_e(g, e, -1.46, -0.98, Y(-0.4), Y(0.72), 0.0, 0.34, 3 + (k >= 1), emat=E)
-    # nord : radiateur à ventilateurs
-    P2.fan_radiator(g, -0.6, 0.6, Y(1.0), Y(1.42), 0.0, 0.28, 2, M, emat=(E if e >= 5 else None))
-    # nord-est : armoire ; nord-ouest : caisses en biais
-    P4.cabinet_e(g, 0.7, 1.38, Y(0.98), Y(1.38), 0.0, 0.4, M, E,
-                 [M[{4: "yellowpaint", 5: "tungsten", 6: "olive"}[e]], M["steel_dk"]], lamps=2 + (k >= 1))
-    with at(g, -1.08, 1.12, 0.3):
-        PT.crate(g, (0, 0, 0), (0.5, 0.42, 0.24), mat=M["olive"])
-        if k >= 1:  # machine de plus (2e époque de l'ère) : 2e caisse empilée
-            PT.crate(g, (0.02, 0.0, 0.27), (0.42, 0.34, 0.2), mat=M["ochre"])
-    # liaisons d'époque
-    P4.link(g, e, [(0.84, Y(0.42), 0.3), (0.72, Y(0.32), 0.5), (0.58, Y(0.22), 0.56)], 0.06)
-    P4.link(g, e, [(-0.98, Y(0.45), 0.3), (-0.86, Y(0.4), 0.48), (-0.7, Y(0.3), 0.55)], 0.055)
-    P4.link(g, e, [(0.0, Y(1.0), 0.3), (0.05, Y(0.8), 0.5), (0.05, Y(0.55), 0.62)], 0.05)
-    if e == 4:
-        # fûts empilés à côté de la trémie, flexibles noirs, torchère (pied au sol, tige fine)
-        for i, (x, yn) in enumerate(((0.62, -1.12), (0.62, -1.38))):
-            barrel_drum(g, (x, Y(yn), 0.0), 0.11, 0.3, M["yellowpaint"] if i else M["galva"])
-        g.hose([(1.0, Y(-0.05), 0.2), (0.85, Y(-0.25), 0.35), (0.6, Y(-0.35), 0.5)], 0.035, M["rubber"])
-        P4.lamp_group(g, (0.72, Y(1.38) + 0.02, 0.3), (1, 0, 0), (0, 1, 0), E, n=2)
-        _halo(g, [(1.12, Y(0.0), 0.4), (-1.2, Y(0.2), 0.45), (0.0, Y(-1.5), 0.35), (1.0, Y(1.4), 0.4)], 16.0)
-    elif e == 5:
-        # pointes de basalte aux arêtes des machines, contreforts inclinés sur les armoires, fentes de braise
-        for (x, yn) in ((0.7, 0.98), (1.38, 0.98)):
-            g.box((x, Y(yn) - 0.06, 0.18), (0.06, 0.16, 0.34), M["tungsten"], "hard", R=Matrix.Rotation(0.45, 3, "X"),
-                  what="contrefort")
-        for (x, yn, z) in ((-1.45, -0.4, 0.36), (-0.98, 0.72, 0.36), (0.6, 1.42, 0.3), (-0.6, 1.42, 0.3)):
-            g.cyl((x, Y(yn), z + 0.05), (0.2 * (1 if x > 0 else -1), -0.3, 1), 0.035, 0.13, M["basalt"], n=5,
-                  r2=0.004, style="hard", what="pointe")
-        for i in range(3):
-            g.box((-0.38 - 0.004, Y(-1.3) + i * 0.16, 0.15), (0.008, 0.08, 0.016), E, "flat", what="braise")
-        _halo(g, [(-1.2, Y(0.2), 0.4), (1.1, Y(0.1), 0.4), (0.0, Y(-1.5), 0.35), (1.0, Y(1.4), 0.4)], 16.0)
-    else:
-        # électricité (témoin n11) : câbles sur isolateurs, jeu de barres de cuivre, plaques haute tension, arcs
-        for i in range(2):
-            g.box((-0.85 + i * 0.07, Y(-0.2), 0.42), (0.03, 0.5, 0.03), M["copper"], "hard", what="barre")
-        for s in (-0.85, -0.78):
-            PT.insulators(g, (s, Y(-0.38), 0.2), 2, 0.03, h=0.03)
-        g.box((-1.2, Y(-0.42) - 0.01, 0.2), (0.1, 0.012, 0.08), M["hazy"], "flat", what="haute_tension")
-        _halo(g, [(-1.2, Y(0.16), 0.6), (1.02, Y(-0.7), 0.45), (1.12, Y(0.0), 0.4), (0.0, Y(-1.5), 0.35)], 16.0)
-    if k == 2:
-        # 3e époque de l'ère : étage de plus (réservoir plus haut : déjà), 2e armoire au sud-ouest
-        P4.cabinet_e(g, -1.45, -1.06, Y(-0.95), Y(-0.72), 0.0, 0.38, M, E, [M["olive"], M["steel_dk"]], lamps=2)
-
-
-def barrel_drum(g, c, r, h, mat):
-    """Fût debout (pétrole) : virole, bandes de roulement, bondes."""
-    M = g.M
-    x, y, z = c
-    g.cyl((x, y, z + h / 2), "z", r, h, mat, n=20, what="fut")
-    for f in (0.3, 0.7):
-        g.tube_shell((x, y, z + h * f), "z", r + 0.012, r - 0.01, 0.025, M["hazk"], n=20, what="bande")
-    g.cyl((x, y, z + h + 0.005), "z", r * 0.9, 0.012, M["steel_dk"], n=20, what="fond")
-    g.cyl((x + r * 0.45, y, z + h + 0.016), "z", 0.02, 0.02, M["brass"], n=8, what="bonde")
-
-
-# ------------------------------------------------------------------------------------------------
-# Ère III (4×4) : époques 7, 8, 9 (corps nouveau dans la lignée, entre le n11 et le n21)
-# ------------------------------------------------------------------------------------------------
-def _socle_era3(g, e):
-    M = g.M
-    E = M["emit"]
-    k = KIN[e]
-    deck(g, 4, 1.14, e=e)
-    column(g, e)
-    rt = ring_top(e)
-    hopper(g, e, -0.44, 0.44, Y(-1.93), -1.3, 0.58, (-1.2, rt, -0.9))
-    with at(g, -0.86, -1.5, 0.3):
-        P2.open_crate(g, (0, 0, 0), 0.5, 0.52, 0.26, M)
-    with at(g, 0.86, -1.5, -0.3):
-        P2.open_crate(g, (0, 0, 0), 0.5, 0.52, 0.26, M, paint=M["ochre"])
-    # ouest : groupe électrogène à 4 cylindres
-    P4.engine_e(g, e, -1.95, -1.32, Y(-1.05), Y(0.95), 0.0, 0.46, 4 + (k >= 1), emat=E)
-    # est : deux réservoirs debout (le 2e plus haut à la 3e époque)
-    P4.tank_e(g, e, 1.6, Y(0.72), 0.33, 0.78, E, ladder_dir=(1, 0.2), stub_dir=(-1, 0), gauges=2,
-              rings=(1 if e >= 8 else 0))
-    P4.tank_e(g, e, 1.6, Y(-0.5), 0.33, 0.78 + 0.16 * (k == 2), E, ladder_dir=(1, -0.2), stub_dir=(-1, 0), gauges=2,
-              rings=(1 if e >= 8 else 0))
-    # nord-ouest : radiateur à ventilateurs posé en biais
-    with at(g, -1.35, 1.5, -0.55):
-        P2.fan_radiator(g, -0.48, 0.48, -0.36, 0.36, 0.0, 0.34, 2, M, emat=E)
-    # nord : caisses de réserve ; nord-est : armoire (ou tourelle secondaire à la 3e époque)
-    PT.crate(g, (-0.3, Y(1.62), 0.0), (0.56, 0.5, 0.26), mat=M["olive"])
-    if k >= 1:  # machine de plus : 2e armoire au nord
-        P4.cabinet_e(g, 0.12, 0.82, Y(1.45), Y(1.88), 0.0, 0.48, M, E, [M["olive"], M["steel_dk"]], lamps=3)
-    else:
-        PT.crate(g, (0.42, Y(1.62), 0.0), (0.56, 0.5, 0.26), mat=M["ochre"])
-    if k == 2:
-        # dalle sous la tourelle secondaire jusqu'au bord nord (trou enfermé de 12 px hr en pose N sinon)
-        P4.deck_e(g, e, 0.95, 1.95, Y(1.1), Y(1.95), 0.05)
-        with at(g, 1.5, 1.52, 0.0):
-            P2.pedestal(g, 0.36, 0.0, 0.26, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
-            # orientée vers le nord-est : ses canons ne forment plus de poche avec le canon de flanc (pose N)
-            mini_turret_e(g, e, (0, 0, 0.26), 0.82, -0.55, E)
-    else:
-        P4.cabinet_e(g, 1.05, 1.85, Y(1.42), Y(1.86), 0.0, 0.5, M, E,
-                     [M[{7: "bronze", 8: "verdigris", 9: "lead"}[e]], M["steel_dk"]], lamps=3)
-    P2.anchor(g, -1.85, Y(1.85), 0.24, M)
-    # liaisons d'époque (machines -> colonne)
-    P4.link(g, e, [(1.27, Y(0.72), 0.3), (1.12, Y(0.6), 0.62), (0.9, Y(0.42), 0.7)], 0.065)
-    P4.link(g, e, [(1.27, Y(-0.5), 0.3), (1.12, Y(-0.42), 0.6), (0.92, Y(-0.3), 0.7)], 0.065)
-    P4.link(g, e, [(-1.32, Y(0.5), 0.36), (-1.15, Y(0.45), 0.6), (-0.92, Y(0.35), 0.72)], 0.06)
-    P4.link(g, e, [(-1.32, Y(-0.5), 0.36), (-1.15, Y(-0.45), 0.6), (-0.92, Y(-0.35), 0.72)], 0.06)
-    P4.link(g, e, [(-1.0, Y(1.1), 0.3), (-0.8, Y(0.88), 0.62), (-0.62, Y(0.62), 0.76)], 0.055)
-    P4.link(g, e, [(0.4, Y(1.42), 0.4), (0.38, Y(1.1), 0.68), (0.3, Y(0.7), 0.78)], 0.055)
-    if e == 7:
-        # plinthes de pierre, grappes de cristal serties sur les armoires, prismes
-        P4.crystals(g, (1.45, Y(1.64), 0.53), 1.05)
-        P4.crystals(g, (-0.3, Y(1.62), 0.29), 0.95)
-        for x in (-0.9, 0.9):
-            g.box((x, Y(-1.5) - 0.32, 0.03), (0.6, 0.08, 0.06), M["stone"], "hard", what="plinthe")
-        _halo(g, [(1.45, Y(1.6), 0.8), (-1.6, Y(0.0), 0.6), (1.6, Y(0.1), 0.6), (0.0, Y(-2.0), 0.4)], 18.0)
-    elif e == 8:
-        # bonbonnes clissées, bocaux, conduits de caoutchouc annelé
-        for (x, yn) in ((-1.62, -1.32), (-1.38, -1.4)):
-            wicker_jug(g, (x, Y(yn), 0.0), 0.11)
-        g.hose([(-1.6, Y(-1.25), 0.2), (-1.4, Y(-1.1), 0.45), (-1.32, Y(-0.9), 0.4)], 0.035, M["rubber"])
-        _halo(g, [(1.6, Y(0.1), 0.6), (-1.6, Y(0.0), 0.6), (0.0, Y(-2.0), 0.4), (1.45, Y(1.6), 0.6)], 18.0)
-    else:
-        # plinthes de béton, balises de radiation, bandes jaunes et noires
-        for x in (-0.9, 0.9):
-            g.box((x, Y(-1.5) - 0.32, 0.03), (0.6, 0.08, 0.06), M["concrete"], "hard", what="plinthe")
-        for (x, yn) in ((-1.85, 0.0), (0.0, 1.9)):
-            beacon(g, (x, Y(yn), 0.04), E)
-        g.hazard([V((-1.95, Y(-1.08), 0.05)), V((-1.32, Y(-1.08), 0.05)), V((-1.32, Y(-1.08) + 0.08, 0.05)),
-                  V((-1.95, Y(-1.08) + 0.08, 0.05))], 6, t=0.01)
-        _halo(g, [(1.6, Y(0.1), 0.6), (-1.6, Y(0.0), 0.6), (0.0, Y(-2.0), 0.4), (1.5, Y(1.5), 0.7)], 20.0)
 
 
 def wicker_jug(g, c, r):
@@ -448,8 +227,30 @@ def base_pipes(g, e):
     P4.link(g, e, [(r * math.cos(a), r * math.sin(a), z) for a in angs], 0.044 + 0.01 * (SIDE[e] - 2))
 
 
+# troisième passe (22/10, 19 h) : le socle garde la LIGNÉE (tablier continu, colonne à goussets et couronne dentée,
+# trémie au sud, collecteur au pied de la colonne) ; tous les grands volumes annexes sont ceux de l'âge (ages.py :
+# foyer et soufflet, chaudière et volant, cuves couchées, bunkers et scories, tours de Tesla et touret, grappes de
+# cristal, cuves de verre, tour de refroidissement et sphère plombée).
+NOTCH = {2: 0.48, 3: 0.86, 4: 1.14}
+INSET = {2: 0.24, 3: 0.3, 4: 0.3}
+HOP = {2: (-0.3, 0.3, -0.97, -0.74, 0.32), 3: (-0.38, 0.38, -1.42, -1.0, 0.46), 4: (-0.44, 0.44, -1.93, -1.3, 0.58)}
+
+
 def socle(g, e):
-    {1: _socle_era1, 2: _socle_era2, 3: _socle_era3}[ERA[e]](g, e)
+    side = SIDE[e]
+    deck(g, side, NOTCH[side], inset=INSET[side], e=e)
+    column(g, e)
+    rt = ring_top(e)
+    x0, x1, yn0, y1, h = HOP[side]
+    R = BASE[side]["R"]
+    hopper(g, e, x0, x1, Y(yn0), y1, h, (-(R + 0.12), rt, -(R - 0.08)))
+    A.SOCLE[e](g, KIN[e])
+    if e == 9:
+        # 3e époque de l'ère III : 1re tourelle secondaire (catalogue §A.4), au nord-ouest, sur sa dalle
+        P4.deck_e(g, e, -1.98, -1.05, Y(1.05), Y(1.98), 0.05)
+        with at(g, -1.56, 1.58, 0.0):
+            P2.pedestal(g, 0.36, 0.0, 0.26, 8, g.M, [g.M["olive"], g.M["steel_dk"]], gussets=False)
+            mini_turret_e(g, e, (0, 0, 0.26), 0.82, 0.55, g.M["emit"])
     base_pipes(g, e)
 
 
@@ -620,22 +421,16 @@ def gun_side(g, e, sx):
           style="hard", what="chapeau")
     P4.bolts_ring(g, (x + sx * (wr / 2 + 0.062), (y0 + y1) / 2 - 0.04, zg - hr * 0.1), (sx, 0, 0), hr * 0.36, 6,
                   M["rivet"], r=0.015)
-    P4.breech(g, st, x, y0, y1, zg - hr, zg + hr, wr)
-    Ld = 0.26 + hr * 0.6
-    P4.drive(g, st, (x, y0 - Ld / 2 + 0.03, zg), hr * 0.78, Ld)
-    P4.gun_e(g, st, H, x, sx)
-    # masque de canon (lignée), matière d'époque
-    PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
-            ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M[k] for k in st["gmask"]], rivet_step=0.11)
-    xo = x + sx * (wr / 2 - 0.005)   # l'alimentation touche la culasse : aucun jour entre les deux
-    P4.feed(g, st, H, x, sx, xo)
+    # arme de l'époque (ages.py) : canon forgé, gatling à vapeur, gatling à fût-chargeur, obusier, canon-bobine,
+    # gatling à prisme, gatling à cuve de verre, gatling plombé à ailettes
+    A.WEAPON[e](g, st, H, x, sx)
     if e >= 3:
         PT.lamp(g, (x - sx * wr * 0.25, y0 + 0.1, zg + hr + 0.03), (0, 0.4, 1), 0.026, M["emit"], cage=(e != 7))
 
 
 # voyants isolés de la tête (un foyer chacun, jamais en rangée) : la puissance monte d'une époque à la suivante
 # (catalogue §A.5 : « +20 % de foyers, jamais plus gros » ; dominance de progression.py : foyers non décroissants)
-HEAD_LAMPS = {2: 0, 3: 4, 4: 6, 5: 4, 6: 12, 7: 6, 8: 10, 9: 12}
+HEAD_LAMPS = {2: 0, 3: 4, 4: 6, 5: 6, 6: 12, 7: 14, 8: 16, 9: 18}
 
 
 def head_lamps(g, e):
@@ -683,41 +478,47 @@ def head_core(g, e):
         a = TAU * k / nb
         g.dome(((R + 0.04) * math.cos(a), (R + 0.04) * math.sin(a), z0 + 0.07), (0, 0, 1), 0.016, M["rivet"])
     skirt(g, R, z0 + 0.07, zs, [M["olive"], M["olive"], M["steel_dk"]], max(12, int(TAU * R / 0.26)), M[st["skirt"]])
-    Pf, Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, M["olive"], M, seams=max(10, int(TAU * R / 0.3)),
+    # troisième passe : la coupole (forme de la lignée) prend la matière de l'âge (fer boulonné, tôle rouillée de
+    # chaudière, peinture jaune délavée, tungstène, kaki, bronze, vert-de-gris, plomb) : en gris, elle change de valeur
+    Pf, Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, M[DOME[e]], M, seams=max(10, int(TAU * R / 0.3)),
                           band_mat=M["steel_dk"], ring_seams=(0.62,) if SIDE[e] <= 3 else (0.5, 0.95))
     mw = R * 0.5
     mask = st.get("mask")
     if mask == "shield":
-        # bouclier frontal riveté de la forge, bord haut CRÉNELÉ qui dépasse au-dessus de la tête. Reprise : il est
-        # INCLINÉ vers l'arrière (30° sur la verticale) pour que sa face rivetée se voie d'en haut à toutes les
-        # poses (droit, on n'en voyait que la tranche), et ses merlons sont dans son plan.
-        # Il se dresse DEVANT la coupole, sur une console rivetée qui part de la jupe (aucune pièce qui flotte).
-        sw = H["gx"] - H["wr"] * 0.72 - 0.02
-        hS = rz + 0.2
-        yS = R + 0.16
-        tilt = 0.6
-        PT.hull(g, -sw, sw, R * 0.85, yS + 0.06, zs - 0.24, zs - 0.12, ins=(0.0, 0.0, 0.0), panel=0.2,
-                mats=[M["blackiron"], M["rawiron"]], faces="tsew", rivet_step=0.1)
-        g.push((0.0, yS, zs - 0.14), rx=tilt)
-        PT.hull(g, -sw, sw, -0.025, 0.025, 0.0, hS, ins=(0.0, 0.0, 0.0), panel=0.2,
-                mats=[M["bolted"], M["rawiron"]], faces="tsnew", rivet_step=0.1)
-        n = 7
+        # forge (troisième passe) : BOUCLIER COURBE CRÉNELÉ qui enveloppe l'avant de la coupole entre les deux canons,
+        # incliné vers l'extérieur (sa face rivetée se voit d'en haut à toutes les poses), merlons d'acier, fentes de
+        # visée, console annulaire rivetée qui le relie à la jupe (aucune pièce qui flotte)
+        Rs = R + 0.1
+        z0s, z1s = zs - 0.24, zs + rz + 0.1
+        half = math.asin(min(0.98, (H["gx"] - H["wr"] * 0.6) / Rs))
+        n = 9
+        segw = 2 * Rs * math.sin(half / n) * 1.04
         for i in range(n):
+            a = math.pi / 2 - half + 2 * half * (i + 0.5) / n
+            d = V((math.cos(a), math.sin(a), 0.0))
+            t = V((-math.sin(a), math.cos(a), 0.0))
+            R3 = Matrix((t, d, V((0, 0, 1)))).transposed() @ Matrix.Rotation(-0.32, 3, "X")
+            c = d * Rs + V((0, 0, (z0s + z1s) / 2))
+            g.box(c, (segw, 0.04, z1s - z0s), M["steel"] if i % 2 else M["bolted"], "hard", R=R3, what="bouclier")
+            for zz in (0.42,):
+                for s_ in (-1, 1):
+                    g.dome(c + R3 @ V((s_ * segw * 0.32, 0.022, (zz - 0.5) * (z1s - z0s) * 1.6)), R3 @ V((0, 1, 0)),
+                           0.016, M["rivet"])
             if i % 2 == 0:
-                xx = -sw + (2 * sw) * (i + 0.5) / n
-                g.box((xx, 0.0, hS + 0.05), (2 * sw / n, 0.05, 0.1), M["bolted"], "hard", what="merlon")
-                g.dome((xx, 0.027, hS + 0.05), (0, 1, 0), 0.014, M["rivet"])
-        g.box((0, 0.028, hS - 0.02), (sw * 2 + 0.02, 0.016, 0.034), M["rawiron"], "hard", what="rebord")
-        for yy in (0.25, 0.6):
-            g.box((0, 0.03, hS * yy), (sw * 2 + 0.03, 0.014, 0.036), M["blackiron"], "hard", what="cerclage")
-            for k in range(7):
-                g.dome((-sw + 2 * sw * (k + 0.5) / 7, 0.038, hS * yy), (0, 1, 0), 0.014, M["brass"])
-        for s in (-1, 1):
-            g.box((s * sw * 0.45, 0.03, hS * 0.78), (0.08, 0.008, 0.03), M["void"], "flat", what="visee")
-        g.pop()
-        for s in (-1, 1):
-            g.box((s * sw * 0.7, yS - 0.14, zs + 0.0), (0.03, 0.3, 0.03), M["blackiron"], "hard",
-                  R=Matrix.Rotation(0.75, 3, "X"), what="etai")
+                g.box(c + R3 @ V((0, 0.0, (z1s - z0s) / 2 + 0.045)), (segw * 0.8, 0.044, 0.09), M["rawiron"], "hard",
+                      R=R3, what="merlon")
+            if i in (2, 6):
+                g.box(c + R3 @ V((0, 0.022, (z1s - z0s) * 0.22)), (segw * 0.5, 0.008, 0.028), M["void"], "flat", R=R3,
+                      what="visee")
+        # rebord haut et console annulaire (jupe -> bouclier)
+        for i in range(n):
+            a = math.pi / 2 - half + 2 * half * (i + 0.5) / n
+            d = V((math.cos(a), math.sin(a), 0.0))
+            t = V((-math.sin(a), math.cos(a), 0.0))
+            R3 = Matrix((t, d, V((0, 0, 1)))).transposed()
+            g.box(d * (R + Rs) / 2 + V((0, 0, z0s + 0.02)), (segw * 1.05, Rs - R + 0.06, 0.05), M["blackiron"], "hard",
+                  R=R3, what="console")
+            g.dome(d * ((R + Rs) / 2) + V((0, 0, z0s + 0.05)), (0, 0, 1), 0.015, M["brass"])
     elif mask == "glacis":
         T = PT.hull(g, -mw, mw, R * 0.55, R + 0.24, zs - 0.18, zs + rz * 0.55, ins=(0.04, 0.02, R * 0.32), panel=0.22,
                     mats=[M["tungsten"], M["burnrust"]], rivet_step=0.11)
@@ -833,7 +634,7 @@ def tete(g, e):
     R = H["R"]
     k = KIN[e]
     Pf, Nf = head_core(g, e)
-    nsl = {2: 0, 3: 4, 4: 5, 5: 6, 6: 7, 7: 9, 8: 11, 9: 13}[e]
+    nsl = {2: 0, 3: 0, 4: 5, 5: 6, 6: 7, 7: 9, 8: 11, 9: 13}[e]
     if nsl:
         slits(g, R, ring_top(e) + 0.1 + 0.02 * SIDE[e], nsl, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
     for sx in (-1, 1):
@@ -841,12 +642,12 @@ def tete(g, e):
     head_lamps(g, e)
     # liaisons de la tête (nacelle -> canons) dans le style de l'époque
     # reprise : elles passent EN ARC au-dessus de la tête (avant : à hauteur de la jupe, cachées par la coupole)
-    if e != 8:
+    if e not in (8, 9):
         zt = H["zs"] + H["rz"] * 0.42
         for sx in (-1, 1):
             P4.arch_hose(g, e, (sx * 0.15, -R - 0.06, zt + 0.02),
                          (sx * (H["gx"] - 0.03), H["recv"][0] + 0.1, H["zg"] + H["hr"] + 0.03),
-                         0.1 + 0.03 * (SIDE[e] - 2), 0.034 + 0.008 * (SIDE[e] - 2))
+                         (0.03 if e == 9 else 0.1 + 0.03 * (SIDE[e] - 2)), 0.034 + 0.008 * (SIDE[e] - 2))
     # viseur (ère II : 1 lentille ; ère III : 2)
     if SIDE[e] >= 3:
         PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (SIDE[e] - 3), 0.18, 0.1, M["emit"],
@@ -855,7 +656,7 @@ def tete(g, e):
         P2.gauge(g, (R * 0.3, R * 0.5, H["zs"] + H["rz"] * 0.55), (0, 0.6, 1), 0.04, M)
     # plaques rapportées de la coupole (blindage : base, 1re rangée complète, 2e rangée ; catalogue §A.5)
     appl = M[st["appl"]]
-    n1 = {0: 3, 1: 6, 2: 8}[k] + (SIDE[e] - 2)
+    n1 = ({0: 3, 1: 6, 2: 8}[k] + (SIDE[e] - 2)) if SIDE[e] > 2 else {2: 2, 3: 6}[e]   # ère I : moins de pièces (e)
     for i in range(n1):
         th = 0.45 + (math.pi - 0.9) * (i + 0.5) / n1
         if e == 5:
@@ -863,7 +664,7 @@ def tete(g, e):
                 P2.applique(g, Pf, Nf, th + 0.12 * j, 0.25 + 0.15 * j, 0.24, 0.16, M["tungsten"], M, bolts=0)
         else:
             P2.applique(g, Pf, Nf, th, 0.3, 0.22 + 0.03 * (SIDE[e] - 2), 0.18 + 0.03 * (SIDE[e] - 2), appl, M)
-    if k >= 1 or SIDE[e] >= 4:
+    if (k >= 1 and SIDE[e] > 2) or SIDE[e] >= 4:
         n2 = 2 + 2 * k
         for i in range(n2):
             th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
@@ -880,3 +681,51 @@ def tete(g, e):
             P4.bolts_ring(g, c + V((sx * 0.012, 0, 0)), (sx, 0, 0), 0.051, 6, M["rivet"], r=0.012)
         g.hazard([V((-R * 0.5, R + 0.24, H["zs"] - 0.14)), V((R * 0.5, R + 0.24, H["zs"] - 0.14)),
                   V((R * 0.5, R + 0.24, H["zs"] - 0.08)), V((-R * 0.5, R + 0.24, H["zs"] - 0.08))], 8, t=0.008)
+    dome_age(g, e, Pf, Nf)
+
+
+def dome_age(g, e, Pf, Nf):
+    """Signature d'âge posée SUR la coupole (troisième passe, exigences (b) et (c)) : bague de danger (pétrole), fentes
+    de braise (volcan), ceinture de spires de cuivre et isolateurs (électricité), cristaux sertis (cristal), lanterneau
+    de verre (marais), bague de danger (atome)."""
+    M = g.M
+    H = HEAD[e]
+    R, zs, rz = H["R"], H["zs"], H["rz"]
+
+    def rad_at(z):
+        t = max(0.0, min(1.0, (z - zs) / rz))
+        return R * math.sqrt(max(0.0, 1 - t * t))
+    if e in (4, 9):
+        A.hazard_ring(g, (0, 0, zs + 0.035), "z", R * 1.03, 0.07, n=max(16, int(TAU * R / 0.14)))
+    elif e == 5:
+        for i in range(7):
+            th = math.pi * 0.2 + math.pi * 0.6 * i / 6
+            p, nrm = Pf(th, 0.55, 1.012), Nf(th, 0.55)
+            g.push_frame(p, nrm, xdir=(math.cos(th + math.pi / 2), math.sin(th + math.pi / 2), 0))
+            g.box((0, 0, 0.004), (0.12, 0.022, 0.01), M["emit"], "flat", what="braise")
+            g.box((0, 0.024, 0.014), (0.15, 0.025, 0.02), M["tungsten"], "hard", what="visiere")
+            g.pop()
+    elif e == 6:
+        for t in range(6):
+            z = zs + 0.03 + t * 0.032
+            g.torus((0, 0, z), "z", rad_at(z) * 1.03 + 0.012, 0.016, M["copper"], n=48, m=6, what="spire")
+        zt = PT.insulators(g, (R * 0.25, -R * 0.35, zs + rz * 0.9), 3, 0.05, h=0.04)
+        P4.sphere(g, (R * 0.25, -R * 0.35, zt + 0.06), 0.06, M["copper"], n=16, m=10, what="boule")
+    elif e == 7:
+        for i, (th, ph, h) in enumerate(((math.pi * 0.3, 0.5, 0.26), (math.pi * 0.7, 0.55, 0.22),
+                                         (math.pi * 1.2, 0.45, 0.24), (math.pi * 1.8, 0.5, 0.2),
+                                         (math.pi * 0.5, 0.95, 0.3))):
+            p, nrm = Pf(th, ph, 1.0), Nf(th, ph)
+            g.tube_shell(p + nrm * 0.015, nrm, 0.08, 0.05, 0.03, M["brass"], n=6, what="sertissure")
+            A.crystal(g, p, nrm, 0.06, h, M["crystal"], tip=0.35)
+    elif e == 8:
+        rG = R * 0.36
+        zc = zs + rz * 0.82
+        P4.sphere(g, (0, -R * 0.1, zc), rG, M["emit_soft"], n=24, m=12, sz=0.75, what="lanterneau")
+        for k in range(6):
+            a = TAU * k / 6
+            g.tube([V((math.cos(a) * rG * 1.02, -R * 0.1 + math.sin(a) * rG * 1.02, zc - 0.02)),
+                    V((math.cos(a) * rG * 0.7, -R * 0.1 + math.sin(a) * rG * 0.7, zc + rG * 0.55)),
+                    V((0, -R * 0.1, zc + rG * 0.77))], 0.014, M["verdigris"], n=6, what="cote")
+        g.torus((0, -R * 0.1, zc), "z", rG * 1.01, 0.02, M["brass"], n=28, m=6, what="cerclage")
+

@@ -37,7 +37,7 @@ LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
 WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3E/bas")
 HALO_PEAK = 0.45
-NIGHT_ONLY = (1, 2)
+NIGHT_ONLY = (1,)
 
 
 def largest_hole(alpha):
