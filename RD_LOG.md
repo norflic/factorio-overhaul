@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (22/10, vers 23 h, après l'intégration du lot V3-T3 et la consignation du lot V3-T4, livré NON intégré) : **F119, E63**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (22/10, vers 23 h, après l'intégration du lot V3-T3 et la consignation du lot V3-T4, livré NON intégré) : **F119, E64**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -357,6 +357,24 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E63 · NON VALIDÉ (juges : pas prêt) · V3-E, troisième passe : la mitrailleuse sur les 15 époques, une direction
+artistique par âge (22/10, 19 h 03 à 23 h 59 ; run `wf_0608aa1f-b85`)** :
+- Protocole : catalogue `fo-logs\2026-10-22_V3E\catalogue\DA_PAR_EPOQUE.md` (15 fiches) ; deux constructeurs en
+  parallèle (époques 1 à 9, branche `worktree-wf_0608aa1f-b85-2`, tête `69c3cc9` ; époques 10 à 15, `-3`, tête
+  `d68f353`), relancés deux fois (17 h 31 : doublon d'agents ; 19 h 02 : époques encore distinguées par la couleur) ;
+  rendus de production à 128 échantillons ; regard naïf à l'aveugle sur 15 vignettes mélangées, en couleur et en gris ;
+  deux juges ; planches recomposées hors moteur.
+- Résultats : regard naïf, ordre presque juste mais porté par la taille (Spearman 0,957 et 6 inversions en couleur ;
+  0,979 et 4 en gris) ; environ 8 âges sur 15 reconnus sans légende (seuil du catalogue : 12). Bien lus : Vapeur,
+  Pétrole, Cristal, Fusion, Orbite. Confusions : Électricité lue « vapeur », Marais « nucléaire », Atome « électronique »,
+  Titane « industrie lourde », Légende « railgun » (rangée sous 13 et 14), Volcan « résistances ». Juges : 5 et 6 sur 10,
+  « pas prêt » ; deux kits divergents (rupture entre 9 et 10), organe d'époque qui recouvre l'arme au lieu de s'y
+  ajouter, identités par la couleur seule, ère I plus faible que la vanilla, tuyaux de la plage haute identiques,
+  pose N lue comme des cheminées, 8 îlots détachés, points blancs de scintillement, vignettes écrites dans l'ordre.
+- Montré au DC : page privée https://claude.ai/artifact/N47FzmN1QtKUbDMNAuHJA7 (23/10, 0 h 20).
+- Suite : passe 4 (run `wf_b0a51b34-fe1`, lancée le 23/10 vers 0 h 25) : kit d'époque unifié, puis correction des
+  époques 2, 5, 6, 8, 9, 10, 11, 12 et 15, tuyaux par époque, pose N, îlots et scintillements.
+
 **E62 · VALIDÉ en moteur réel ; lot LIVRÉ, NON INTÉGRÉ (Q-T4-1) · Correction du lot V3-T4 : munitions, modules,
 blindés, coûts et rentabilité (correcteur `2b18742`, 22/10, de 22 h 10 à 22 h 40 ; numéro provisoire E58)** :
 - But : corriger les 23 défauts de la revue adverse à 3 regards du lot V3-T4 (Q-T2-2 répondue A le 22/10 à 21 h 12)
