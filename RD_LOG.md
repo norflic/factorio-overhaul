@@ -194,7 +194,7 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
-**E45 · NON VALIDÉ (aucune approche au niveau du vanilla) · Trois approches de la mitrailleuse jugées (lot V3-S, 22/10,
+**E45 · STYLE RETENU PAR LE DC (22/10, 16 h 45), direction artistique par époque manquante ; juges : aucune approche au niveau du vanilla · Trois approches de la mitrailleuse jugées (lot V3-S, 22/10,
 13 h 20 à 16 h 10, run `wf_ed692a11-bba`)** :
 - Protocole : 3 explorateurs (industriel lourd, haute technologie, hybride) reprennent les essais coupés à 8 h 55
   (REPRISE §5) et livrent en production (128 échantillons, 64 px par tuile, poses N et E) les niveaux 11 (3×3), 21
@@ -219,6 +219,7 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 - Preuves : `<racine>\fo-logs\2026-10-22_V3S\` (`industriel\`, `hightech\`, `hybride\`, `juges\`, `presentation\`) ;
   branches `worktree-wf_483106c7-c7f-2` (industriel, `265574d`), `-3` (haute technologie), `-4` (hybride, `e0571df`).
 - Limites : tout est composé hors moteur ; rien n'a été vu en jeu.
+- Verdict du DC (22/10, 16 h 45, page lue au téléphone) : « Q S1 çui, Q S2 oui et " oui. j ai regarde et les designs sont fou, je lss trçuve parfait mais on n a pas l" cote changement d epoque avec un DA par epoque, en revanche les dezigns actuel sçnt absoluement epoustçuflan surtout pour les canons et je pense quil est facile de reprendre le meme style en mode changer des canons et des tuyaux àour correspondre a une DA d un age, pour le moment je trçuve que c est trs precis et je vçus felic_te ». Lecture : le style des trois approches est retenu, les canons en tête ; il manque une direction artistique PAR ÉPOQUE (canons, tuyaux, accents propres à chaque âge). Son verdict prime sur celui des juges : la passe de synthèse `wf_eaa96606-5f1`, qui retouchait la forme, est arrêtée à 16 h 47 sans livrable. Suite : lot V3-E (mitrailleuse sur les 15 époques).
 
 **E44 · VALIDÉ en moteur réel pour la mécanique de la mitrailleuse ; panneau, migration et autres familles NON
 prouvés en moteur réel · Emprise croissante et agrandissement sur place (lot V3-T, Q23 et Q24, 22/10, 13 h 45 à

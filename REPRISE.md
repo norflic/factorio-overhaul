@@ -64,8 +64,10 @@
    autre que munitions et PV (fluides, brûleur, recette, fils, réglages de foreuse), remboursement F40,
    machines agrandies (liste complète : RD_LOG E44).
 8. Ensuite :
-   - choix de la direction V3-S par les juges (le DC délègue : Q25, 22/10, 15 h 48), puis reprise des
-     7 familles sans attendre son verdict (planches publiées pour son regard ultérieur) ;
+   - lot V3-E : direction artistique PAR ÉPOQUE de la mitrailleuse (style V3-S retenu par le DC le 22/10 à
+     16 h 45 ; canons, tuyaux et accents changés selon chaque âge), puis les 6 autres familles ;
+   - activation des tailles croissantes pour les 6 autres familles (Q-S1 : oui), après l'intégration des
+     suites de V3-T ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;
    - contenu des époques (X1 à X15) ;
    - idle (I).
@@ -93,14 +95,12 @@
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
-- **Regard sur V3-S** (non bloquant depuis Q25) : les planches comparatives sont publiées pour lui sur une
-  page claude.ai privée dès qu'elles sont prêtes ; son verdict, quand il vient, peut renverser les choix
-  provisoires.
+- **V3-S : verdict rendu** le 22/10 à 16 h 45 (style retenu, « parfaits », « époustouflants surtout pour les
+  canons » ; il manque une direction artistique par époque : lot V3-E). Prochain regard : les planches V3-E.
 - Q-V2c-1 et Q-V2c-2 : rythme du centre et chemin le plus court vers l'époque 15 (OBJECTIFS §4).
-- Q-S1 à Q-S3 : questions de la charte (`docs/DA_FACTORIO.md` §9 ; Q-S1 au §4 d'OBJECTIFS). Tranchées
-  PROVISOIREMENT par l'orchestrateur le 22/10 à 15 h 50 (délégation Q25) : échelle pour toutes les familles,
-  plafond 6×6 pour les machines, centre 4 → 8, mur inchangé ; luminance de la charte pour toutes les époques ;
-  regard naïf par des agents sans contexte. Réversibles.
+- Q-S1 à Q-S3 : **répondues oui** par le DC le 22/10 à 16 h 45 (échelle pour toutes les familles, plafond 6×6
+  pour les machines, centre 4 → 8, mur inchangé ; luminance de la charte pour toutes les époques ; regard naïf
+  par des agents sans contexte).
 - Q-IA1-1 à Q-IA1-7 : équipes de PNJ (OBJECTIFS §4, avec les recommandations).
 - Critères marqués ❔ (C4, C5, D4…) : à faire valider quand l'occasion se présente.
 - Répondues récemment : Q19 (amélioration instantanée), Q20 et Q21 (mémoire vidéo, basse qualité
@@ -163,14 +163,12 @@
   intégré à Blender (3.13).
 
 ## 7. Prochaines étapes, dans l'ordre
-1. À la livraison de V3-S :
-   - ~~intégrer la charte dans `docs/`~~ : fait le 22/10 à 13 h 25 (`docs/DA_FACTORIO.md`) ;
-   - regarder soi-même les planches, puis les envoyer au DC avec les questions Q-S1 à Q-S3 de la charte
-     (§9) ;
-   - ne plus attendre son verdict (Q25) : retenir la direction des juges.
+1. ~~V3-S~~ : fait. Charte intégrée (13 h 25), première passe jugée (E45), verdict du DC le 22/10 à 16 h 45 :
+   style retenu ; il manque une direction artistique par époque.
 2. Ensuite, sans attendre :
-   - reprendre V3 pour les 7 familles avec la direction retenue, la taille croissante (Q23) et la
-     charte ;
+   - lot V3-E (run lancé le 22/10 vers 16 h 55) : la mitrailleuse sur les 15 époques, même style, canons,
+     tuyaux et accents selon la fiche de chaque époque (`docs/DESIGN_EPOQUES.md` §5) ; puis les 6 autres
+     familles avec la même méthode, la taille croissante (Q23, Q-S1) et la charte ;
    - ~~la mécanique d'agrandissement sur place (Q24)~~ : **faite** (lot V3-T, intégré le 22/10 à 14 h 50),
      activée pour la mitrailleuse. Avec la réponse à Q-S1, activer les autres familles = leur ligne dans
      `L.footprints`, plus 3 attentes de `levels_test` à réécrire et `get_control_behavior` à ajouter au
