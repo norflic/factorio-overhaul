@@ -16,12 +16,16 @@
   - Q16 : pour passer le centre du niveau c au niveau c + 1, chaque famille dont la force possède au moins
     un bâtiment doit en avoir un au niveau min(30, 2c) (L.cc_condition_level, L.cc_blockers).
   - QX7 et QX10 : le calendrier des époques a UNE source, le scénario approuvé (shared/content/epochs.lua,
-    lot X0) : durées, débit de l'usine et budget (L.target les LIT). Le temps d'attente ne rythme plus le
-    jeu : ce sont les COÛTS qui le portent, recalibrés pour que la durée impliquée tombe sur ce calendrier.
-    Le passage du centre vise 10 % du budget de l'époque (X.CODEX_LOT_SHARE), dans la limite de la règle de
-    place (BALANCE_SHEET §12 : au-delà de l'époque 4, la place l'empêche ; écart chiffré).
-  - QX9 : la recherche vanilla des premières époques est allégée (X.VANILLA_UNIT_SCALE, appliqué par
-    data-final-fixes.lua : L.vanilla_research).
+    lot X0) : durées, débit de l'usine et budget, RECOPIÉS dans L.target au chargement. Le temps d'attente
+    ne rythme plus le jeu : ce sont les COÛTS qui le portent, recalibrés pour que la durée impliquée tombe sur
+    ce calendrier. Le passage du centre vise 10 % du budget de l'époque (X.CODEX_LOT_SHARE) mais la règle de
+    place le borne : 23 à 5,6 % aux époques 1 à 4, puis 3,3 à 0,11 % (ÉCART NON CONFORME à QX10, chiffré dans
+    BALANCE_SHEET §12, à trancher par le Directeur Créatif ; tests/levels_test.lua le compte comme écart connu).
+  - QX9 : la recherche vanilla des premières époques est allégée (X.VANILLA_UNIT_SCALE recopié dans
+    L.VANILLA_UNIT_SCALE, appliqué par data-final-fixes.lua : L.vanilla_unit_count).
+  - Correction V2c : la config ne lit plus X après son chargement (tout ce qu'elle en lit est recopié dans des
+    clés de L, comparées par la garde de dress) ; un dress qui modifierait X n'a donc aucun effet sur elle, et
+    la garde le refuse en plus (prototypes/levels/common.lua).
 
   Règles du jeu (inchangées depuis la session 5, E24) :
   - Le niveau 1 est le bâtiment vanilla (ou le centre de commandement de base) ; les niveaux suivants sont
@@ -65,6 +69,8 @@ L.TEAM_FACTOR = 1
 -- Scénario approuvé (lot X0) : SEULE source du calendrier des époques (durées, débit, budget) et des règles
 -- de la recherche vanilla. Chargé au chargement du module (jamais pendant un événement, F24). Le mod de test
 -- (fo-autotest) requiert ce fichier par « __factorio-overhaul__/… » : le second chemin couvre ce cas.
+-- Tout ce que la config lit dans X est lu ICI, au chargement, et recopié dans L (L.VANILLA_UNIT_SCALE,
+-- L.target, index de QX9) : aucune fonction de L ne lit X ensuite (correction V2c de la garde de dress).
 ---------------------------------------------------------------------------------------------------
 local X
 do
@@ -80,14 +86,17 @@ end
 --                relative à l'époque 2 (× epoch_value de la famille, × 1,25 au 2e niveau d'une époque) ;
 --   cc_value   : valeur payée en matériaux d'époque par le passage du centre PAYÉ pendant cette époque
 --                (celui qui ouvre l'époque suivante), en plus de son panier de base. Visée : 10 % du budget
---                de l'époque (X.CODEX_LOT_SHARE), bornée par la règle de place (40 % du coffre payeur).
+--                de l'époque (X.CODEX_LOT_SHARE), bornée par la règle de place (45 % du coffre payeur, au
+--                plus 2 000 objets d'une sorte) : visée NON atteinte après l'époque 4 (écart QX10).
+-- `--calibrate` part d'un état de référence FIXE (panier V2 du centre) : sa sortie est égale à ces tables
+-- (testé par tests/levels_test.lua) ; aucune retouche à la main.
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
   { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.43, cc_value = 407 },
-  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.56, cc_value = 1070 },
+  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.46, cc_value = 1050 },
   { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 4.5, cc_value = 6000 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 6070 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 6060 },
   { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29.2, cc_value = 6160 },
   { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.9, cc_value = 6290 },
   { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
@@ -199,9 +208,10 @@ L.families = {
       { path = { "max_health" }, op = "mul", k = 0.20 },
       { path = { "inventory_size" }, op = "add", k = 16 },
     },
-    -- Panier calibré (V2c) : le passage 1 → 2 comble le budget des niveaux de l'époque 1 (950 u, 23 % du budget
-    -- de l'époque ; V2 : 775 u).
-    base_cost = { { "iron-plate", 315 }, { "copper-plate", 155 }, { "stone-brick", 155 }, { "electronic-circuit", 60 } },
+    -- Panier calibré (V2c, `--calibrate` depuis le panier V2 260/130/130/50 : 775 u) : le passage 1 → 2 comble
+    -- le budget des niveaux de l'époque 1 (940 u, 23,2 % du budget de l'époque). Arrondi de L.round_nice : c'est
+    -- exactement ce que le joueur paie au passage 1 → 2.
+    base_cost = { { "iron-plate", 310 }, { "copper-plate", 160 }, { "stone-brick", 160 }, { "electronic-circuit", 60 } },
     base_growth = 0.15,
   },
   {
@@ -356,6 +366,8 @@ local function round_nice(x)
   if x < 100 then return math.floor(x / 5 + 0.5) * 5 end
   return math.floor(x / 10 + 0.5) * 10
 end
+--- Même arrondi, exposé pour `--calibrate` (le panier écrit est celui que le joueur paie au niveau 2).
+L.round_nice = round_nice
 
 --- Valeur payée en matériaux d'époque pour le niveau n (0 à l'époque 1), facteur d'équipe compris.
 --- Familles : epoch_value × value_mult de l'époque (× 1,25 au 2e niveau d'une époque) ; centre : cc_value
@@ -551,7 +563,12 @@ end
 -- technologie vanilla appartient à l'époque de son re-rangement explicite (X.vanilla_tech_epochs), sinon à
 -- la plus haute époque des recettes qu'elle débloque (X.base_recipe_epochs, sans X.base_recipe_never),
 -- sinon à la plus haute époque de ses packs ; son nombre d'unités est multiplié par X.VANILLA_UNIT_SCALE
--- de cette époque (arrondi, au moins 1). Index construits ici, au chargement, à partir de X seulement.
+-- de cette époque (arrondi, au moins 1). Index et échelles recopiés ici, au chargement, à partir de X.
+-- Correction V2c (étape data réelle) : les recettes de baril que base/data-updates.lua génère pour CHAQUE
+-- fluide (« fill-<fluide>-barrel », « empty-<fluide>-barrel ») et rattache d'office à fluid-handling ne
+-- rangent pas la technologie. X0 calibre fluid-handling sur technology.lua, sans elles (époque 4) ; avec le
+-- baril de méthane du mod (époque 8 dans X.base_recipe_epochs), elle passait à l'époque 8 et gardait
+-- 50 unités au lieu de 2 (169 technologies allégées en jeu au lieu de 170).
 ---------------------------------------------------------------------------------------------------
 local recipe_epoch, recipe_never, pack_epoch, tech_epoch_fixed = {}, {}, {}, {}
 for _, row in ipairs(X.base_recipe_epochs) do
@@ -562,7 +579,18 @@ for _, r in ipairs(X.base_recipe_never) do recipe_never[r] = true end
 for k, e in ipairs(X.epochs) do pack_epoch[e.pack] = k end
 for _, row in ipairs(X.vanilla_tech_epochs) do tech_epoch_fixed[row[1]] = row[2] end
 
+--- Échelle du nombre d'unités des technologies vanilla de l'époque e (copie de X.VANILLA_UNIT_SCALE).
+L.VANILLA_UNIT_SCALE = {}
+for e = 1, L.EPOCHS do L.VANILLA_UNIT_SCALE[e] = X.VANILLA_UNIT_SCALE[e] or 1 end
+
 local function ingredient_name(ing) return ing.name or ing[1] end
+
+--- Recette de baril générée par le jeu de base pour un fluide (voir plus haut) ? « empty-barrel » (le baril
+--- vide, recette de technology.lua) n'en est pas une.
+function L.generated_barrel(recipe)
+  return type(recipe) == "string"
+    and (recipe:match("^fill%-.+%-barrel$") ~= nil or recipe:match("^empty%-.+%-barrel$") ~= nil)
+end
 
 --- Époque (1 à 15) d'une technologie, décrite comme à l'étape data : { name, effects, unit = { ingredients } }
 --- (le runtime passe effects et research_unit_ingredients sous la même forme). Ingrédients au format court
@@ -572,7 +600,7 @@ function L.vanilla_tech_epoch(tech)
   if not e then
     e = 0
     for _, ef in ipairs(tech.effects or {}) do
-      if ef.type == "unlock-recipe" and not recipe_never[ef.recipe] then
+      if ef.type == "unlock-recipe" and not recipe_never[ef.recipe] and not L.generated_barrel(ef.recipe) then
         local re = recipe_epoch[ef.recipe]
         if re and re > e then e = re end
       end
@@ -588,31 +616,42 @@ function L.vanilla_tech_epoch(tech)
   return math.max(1, math.min(L.EPOCHS, e))
 end
 
---- Nouveau nombre d'unités d'une technologie vanilla (QX9) : count × X.VANILLA_UNIT_SCALE[époque], arrondi,
+--- Nouveau nombre d'unités d'une technologie vanilla (QX9) : count × L.VANILLA_UNIT_SCALE[époque], arrondi,
 --- au moins 1 ; et son époque. nil si elle n'est pas concernée : préfixe « fo- » (technologies du mod),
 --- recherche infinie (max_level) ou sans `count` (formule).
 function L.vanilla_unit_count(tech, count)
   if type(tech.name) ~= "string" or tech.name:sub(1, 3) == "fo-" then return nil end
   if tech.max_level or type(count) ~= "number" then return nil end
   local e = L.vanilla_tech_epoch(tech)
-  local scale = X.VANILLA_UNIT_SCALE[e] or 1
+  local scale = L.VANILLA_UNIT_SCALE[e] or 1
   return math.max(1, math.floor(count * scale + 0.5)), e, scale
 end
 
 ---------------------------------------------------------------------------------------------------
 -- Cible de durée de jeu (OBJECTIFS F1-3 ; QX7 : 60 h = ouverture de la Porte, époque 15 vers 52 h) et
 -- HYPOTHÈSES du modèle qui relie la courbe aux heures de jeu (BALANCE_SHEET §12, à valider en partie
--- réelle). Le calendrier (durées, débit, budget) est LU dans le scénario X0 : aucune copie ici. Données
--- pour les tableaux et les tests : le jeu ne les lit pas.
+-- réelle). Le calendrier (durées, débit, budget) vient du scénario X0 : ses valeurs sont RECOPIÉES ici au
+-- chargement (une seule source, X ; aucune courbe propre). Données pour les tableaux et les tests : le jeu
+-- ne les lit pas.
 ---------------------------------------------------------------------------------------------------
+local target_hours, target_reach, target_rate, target_budget = {}, {}, {}, {}
+for e = 1, L.EPOCHS do
+  target_hours[e] = X.epoch_hours(e)
+  target_reach[e] = X.reach_hour(e)
+  target_rate[e] = X.rate_avg(e)
+  target_budget[e] = X.budget(e)
+end
 L.target = {
-  -- Durée visée de l'époque e (heures) et heure à laquelle on l'atteint : X.epoch_hours, X.reach_hour.
-  epoch_hours = function(e) return X.epoch_hours(e) end,
-  reach_hour = function(e) return X.reach_hour(e) end,
-  -- Débit MOYEN de l'usine du joueur pendant l'époque e (unités de matière brute par seconde) : X.rate_avg.
-  production = function(e) return X.rate_avg(e) end,
-  -- Budget de l'époque e (débit moyen × durée) : X.budget.
-  budget = function(e) return X.budget(e) end,
+  -- Copies du calendrier X0, par époque : durée (h, X.epoch_hours), heure d'arrivée (h, X.reach_hour),
+  -- débit MOYEN de l'usine du joueur (unités de matière brute par seconde, X.rate_avg), budget (débit moyen ×
+  -- durée, X.budget) ; heure d'ouverture de la Porte (X.player_gate_hour).
+  hours = target_hours, reach = target_reach, rate = target_rate, budget_mu = target_budget,
+  gate_hour = X.player_gate_hour(),
+  -- Accès par fonction (interface des tableaux et des tests), sur ces copies.
+  epoch_hours = function(e) return L.target.hours[e] end,
+  reach_hour = function(e) return L.target.reach[e] end,
+  production = function(e) return L.target.rate[e] end,
+  budget = function(e) return L.target.budget_mu[e] end,
   -- Part du budget visée par le passage du centre (QX10 ; X.CODEX_LOT_SHARE).
   cc_share = X.CODEX_LOT_SHARE,
   -- Part de la production consacrée aux niveaux (centre compris ; X0 : la recherche en prend 35 %).

@@ -518,15 +518,19 @@ famille ; runtime : `script/levels/` ; recherche vanilla : `data-final-fixes.lua
 > `lua5.2 tests/levels_test.lua --tables | tr -d '\r'` (ne pas les retoucher à la main : changer la config,
 > relancer ; `tr` retire les retours chariot que `print` ajoute sous Windows, le fichier est en LF). La courbe
 > elle-même (`value_mult`, `cc_value`, panier du centre) est recalculée par `lua5.2 tests/levels_test.lua
-> --calibrate` sur le calendrier du scénario X0, puis reportée à la main dans la config (des NOMBRES écrits :
-> aucun calcul en flottants de logarithme ou de puissance au chargement du jeu, même résultat sur tous les
-> clients).
+> --calibrate` sur le calendrier du scénario X0, puis reportée dans la config (des NOMBRES écrits : aucun calcul
+> en flottants de logarithme ou de puissance au chargement du jeu, même résultat sur tous les clients).
+> Correction V2c (vérification) : `--calibrate` part d'un **état de référence fixe** (panier V2 du centre,
+> 260/130/130/50, valeurs d'époque à 0), jamais de la config en place ; `levels_test` vérifie que la config
+> livrée EST sa sortie (aucune retouche à la main ; la version précédente n'était pas un point fixe).
 >
-> **État au 22/10 (lot V2c)** : prouvé **hors jeu** (levels_test 1 421 OK, migration_test 29 OK, étape data
-> 0 erreur, api_lint 0 erreur). **Non prouvé en moteur réel** : le diff du banc `content`
-> (`content_test.lua`, 63 contrôles de niveaux, bilan attendu 212 OK) est livré à l'orchestrateur, qui seul
-> passe le moteur. Le modèle de durée de jeu repose sur des **hypothèses ❔** à valider en partie réelle.
-> Visuel : provisoire (E25), inchangé par V2c.
+> **État au 22/10 (lot V2c, après correction)** : prouvé **hors jeu** (levels_test 1 459 OK et **11 écarts
+> connus** au contrat comptés à part, migration_test 29 OK, étape data 0 erreur, api_lint 0 erreur). **Non
+> prouvé en moteur réel** : le diff du banc `content` (`content_test.lua`, 63 contrôles de niveaux, bilan
+> attendu 212 OK) est livré à l'orchestrateur, qui seul passe le moteur. Le modèle de durée de jeu repose sur
+> des **hypothèses ❔** à valider en partie réelle. **QX10 n'est PAS tenu** (passage du centre sous 5 % du
+> budget aux époques 5 à 14) et le calendrier de 52 h n'est tenu que par la base de référence complète (chemin
+> le plus court : 3 h 27) : à trancher par le Directeur Créatif. Visuel : provisoire (E25), inchangé par V2c.
 
 **Règles**
 - **15 époques = 15 niveaux du centre de commandement** (l'hôtel de ville, 4×4, un par force) : le niveau du
@@ -549,11 +553,20 @@ famille ; runtime : `script/levels/` ; recherche vanilla : `data-final-fixes.lua
   min(30, 2c) (`L.cc_condition_level`, `L.cc_blockers`). Une famille non possédée ne bloque pas. Refus
   « cc-families » sans paiement ; le panneau du centre affiche le niveau visé et nomme les familles qui
   bloquent ; l'interface distante renvoie le motif. Recensement en jeu : `count_entities_filtered{ force, name,
-  limit = 1 }`, au plus 2 recherches par famille et par surface, pour le CENTRE seulement (aperçu toutes les
-  30 ticks quand son panneau est ouvert, touche U, interface distante) ; **coût en moteur réel non mesuré**.
+  limit = 1 }` SANS zone, au plus 2 recherches par famille et par surface (une famille absente ou sous le
+  niveau visé coûte un balayage de toute la surface), pour le CENTRE seulement. Correction V2c (vérification) :
+  le panneau se rafraîchit toutes les 30 ticks ; le recensement est donc gardé **en cache par force** (dans
+  `global`, même état sur tous les clients) : une construction le met à jour exactement, un retrait de bâtiment
+  à niveaux l'invalide, il expire après 600 ticks, et chaque **décision** (touche U, bouton, interface
+  distante) refait le recensement complet. Testé en moteur simulé : 10 aperçus = 1 recensement, panneau du
+  centre ouvert 300 ticks = 0 recensement. **Coût d'un recensement en moteur réel sur une grande carte : non
+  mesuré** (borné désormais à un par force et par 10 s pendant qu'un panneau du centre est ouvert, plus un par
+  décision et par retrait suivi d'un rafraîchissement).
 - **Paiement** : le stock du centre d'abord, puis l'inventaire du joueur (l'usine alimente le centre par
-  convoyeurs : boucle « idle »). Stockage du centre : 48 cases + 16 par niveau (272 au niveau 15). Un joueur
-  n'ouvre et n'améliore que les bâtiments de SA force (le centre payeur est celui de la force du bâtiment).
+  convoyeurs : boucle « idle »). Testé (V2c) : centre à moitié approvisionné, le joueur ne paie que le
+  complément ; un refus « no-resources » ne débite personne. Stockage du centre : 48 cases + 16 par niveau
+  (272 au niveau 15). Un joueur n'ouvre et n'améliore que les bâtiments de SA force (le centre payeur est celui
+  de la force du bâtiment) ; une rangée de murs ne s'étend pas aux murs d'une autre force (testé).
 - **Place** : chaque coût tient dans **la moitié du coffre du centre qui le paie** (centre : le centre
   lui-même au niveau n - 1 ; famille : le plus petit centre qui l'autorise, ⌈n/2⌉), calculé avec les vraies
   tailles de pile (`L.stack_size`, relevées sur l'étape data). Testé à chaque niveau ; le pire coût est le
@@ -567,8 +580,9 @@ par exposant »)
 - **Combien** : coût = panier de base + valeur d'époque, le tout × `L.TEAM_FACTOR` (1 aujourd'hui).
   - Panier de base (époque 1 : fer, cuivre, pierre, engrenages, circuits) : **croissance linéaire**,
     × (1 + 0,15 (n - 2)). Paniers des 6 familles inchangés depuis V2 (mitrailleuse : 6 fer, 3 engrenages,
-    3 cuivre au niveau 2). Panier du centre recalibré (V2c) : 315 fer, 155 cuivre, 155 briques, 60 circuits
-    (950 u au passage 1 → 2 ; V2 : 775 u).
+    3 cuivre au niveau 2). Panier du centre recalibré (V2c) : **310 fer, 160 cuivre, 160 briques, 60 circuits**,
+    exactement ce que le joueur paie au passage 1 → 2 (940 u ; V2 : 775 u). La version livrée avant correction
+    écrivait 315/155/155/60 (930 u) mais faisait payer 320/160/160/60 (arrondi), soit 960 u.
   - Valeur d'époque des familles = `epoch_value` de la famille × `value_mult` de l'époque, × 1,25 au 2e
     niveau d'une époque. Valeur d'époque du centre = `cc_value` de l'époque qui paie le passage (nouveau
     champ V2c ; V2 : `epoch_value` 150 × `value_mult`). Elle se paie à **60 % en matériau de l'époque** et 40 %
@@ -582,8 +596,9 @@ par exposant »)
     centre 14 l'atteignent) parce que le matériau change à chaque époque. La vraie contrainte est la **place**.
 - **Recalibrage V2c** : le temps d'attente ne rythme plus le jeu, ce sont les COÛTS. `value_mult` passe de
   1 → 1 460 (V2) à 1,43 → 7 070 (× 4,8 à l'époque 15 : le budget X0 est 4,8 fois celui du modèle V2), et le
-  centre reçoit sa propre table `cc_value`. Méthode (`--calibrate`) : (1) le panier du centre comble le budget
-  des niveaux de l'époque 1 que les paniers des bâtiments laissent ; (2) chaque passage du centre vise
+  centre reçoit sa propre table `cc_value`. Méthode (`--calibrate`, depuis l'état de référence fixe) : (1) le
+  panier V2 du centre est mis à l'échelle pour combler le budget des niveaux de l'époque 1 que les paniers des
+  bâtiments laissent, puis arrondi comme le joueur le paie ; (2) chaque passage du centre vise
   10 % du budget de l'époque, borné par la place (45 % du coffre payeur, au plus 2 000 objets d'une sorte) et
   par la croissance stricte de son coût (chaque borne vaut au plus 97 % de la suivante) ; (3) aux époques 2
   à 15, `value_mult` (+ 2 % au moins d'une époque à l'autre) comble le reste du budget des niveaux ; si les
@@ -603,10 +618,13 @@ runtime qui journalise `[FO-LEVELS]`). Les époques 11 à 15 utilisent des **rem
 livré, l'intégrateur change `item` et `value` de la ligne de l'époque, ajoute sa pile à `L.stack_size`, puis
 relance `--calibrate` (les bornes de place du centre changent avec la densité de la monnaie).
 
-**Modèle de durée de jeu (lot V2c)**. Le calendrier a UNE source, le scénario approuvé : `L.target` LIT
-`shared/content/epochs.lua` (durée `X.epoch_hours` : 0,5 h × k, au plus 7 h ; débit moyen `X.rate_avg` : de
-2,25 à 10 511 u/s ; budget `X.budget` = débit moyen × durée). L'ancienne courbe de V2 (0,5 × 1,261^(e-1) h,
-production de 2 à 1 200 u/s) n'existe plus. Hypothèses conservées (à valider en partie réelle) :
+**Modèle de durée de jeu (lot V2c)**. Le calendrier a UNE source, le scénario approuvé : `L.target` en RECOPIE
+les valeurs au chargement de la config (durée `X.epoch_hours` : 0,5 h × k, au plus 7 h ; débit moyen
+`X.rate_avg` : de 2,25 à 10 511 u/s ; budget `X.budget` = débit moyen × durée ; heure de la Porte), sans courbe
+propre ; la copie est comparée par la garde de dress comme le reste de la config (correction V2c : avant, la
+config relisait X à chaque appel, et un dress qui modifiait X la changeait). L'ancienne courbe de V2
+(0,5 × 1,261^(e-1) h, production de 2 à 1 200 u/s) n'existe plus. Hypothèses conservées (à valider en partie
+réelle) :
 - 30 % de la production consacrée aux niveaux (centre compris ; X0 : la recherche en prend 35 %) ;
 - base de référence de V2 : mitrailleuses 4 + 3 (e-1), tourelles laser à partir de l'époque 6 (4 + 4 (e-6)),
   murs 20 + 30 (e-1), foreuses 6 + 8 (e-1), fours et machines d'assemblage à partir de l'époque 3 ; chaque
@@ -615,7 +633,8 @@ production de 2 à 1 200 u/s) n'existe plus. Hypothèses conservées (à valider
   l'époque 3) la changera, et la courbe sera à recalibrer ;
 - `L.TEAM_FACTOR` (lot IA1, « recalibrer les coûts des époques sur joueur + équipe ») : production de la force
   rapportée à celle du joueur seul ; tous les coûts sont multipliés par ce facteur et la production du modèle
-  aussi. **1 aujourd'hui (joueur seul)**. Testé à 2 : coûts × 2,01, durées à 15 % près par époque (les
+  aussi. **1 aujourd'hui (joueur seul)**. Testé à 2 : coûts × 2,00 à 2,01 (2,004 sur l'ensemble des niveaux,
+  mesure de la vérification ; le contrôle porte sur le laser 30), durées à 15 % près par époque (les
   planchers des époques 2 à 4, « au moins 1 objet » et monotonie, ne doublent pas), total à 2 % près ; mais 9
   passages du centre (vers les niveaux 5, 6, 8, 9, 10 et 12 à 15) sortent alors de la règle de place : le lot
   IA1 relancera `--calibrate` avec son facteur.
@@ -624,21 +643,33 @@ La **durée impliquée** est le RÉSULTAT : le temps de payer la dépense de la 
 production (même méthode que V2, sans le terme des ouvriers, qui n'existent plus). Avec la courbe V2c, chaque
 époque est à **± 1,5 %** de sa durée X0 (testé ± 5 %), l'époque 15 est atteinte à **52 h 36** (X0 : 52 h 30,
 testé ± 2 %) et la Porte ouverte à **59 h 35** (X0 : 59 h 30, QX7 « 60 h = ouverture de la Porte » ; testé
-± 2 %). Production × 0,7 : 85 h ; × 1,3 : 46 h. **Non prouvé en partie réelle.**
+± 2 %). Production × 0,7 : 85 h ; × 1,3 : 46 h. **Non prouvé en partie réelle.** **Limite (vérification
+V2c)** : ces heures supposent que le joueur monte TOUTE la base de référence. Rien ne l'y oblige : le chemin le
+plus court (centre + un bâtiment de chaque famille possédée monté au niveau visé, condition Q16) atteint le
+centre 15 en **3 h 27** avec 30 % de la production X0 (1 h 02 avec 100 % ; centre seul : 2 h 20), contre
+52 h 30 au calendrier ; les époques 7 à 14 s'y franchissent en 6 à 10 min chacune (époques 1 à 6 : 14 à 34 min). Écart connu au contrat
+QX7 (compté par `levels_test`), lié à QX10 ci-dessous.
 
-**Passage du centre (QX10) : NON TENU au-delà de l'époque 4, borné par la règle de place.** Visée : 10 % du
-budget de l'époque. Obtenu : 23,4 % (époque 1 : le centre comble le budget que les paniers des bâtiments
-laissent), 9,95 % (2), 5,6 % (3 : il cède aux fours et machines), 7,4 % (4), puis 3,3 %, 1,6 %, 0,76 %,
-0,37 %, 0,35 %, 0,52 %, 0,27 %, 0,14 %, 0,11 % et 0,13 % (époques 5 à 14). Cause, chiffrée par `--calibrate` :
-le passage vers n doit tenir dans 45 % du coffre du centre n - 1 avec des monnaies peu denses (baril de méthane
-à 100 u par case, cristal à 150) ; seul, le passage 8 → 9 tient au plus 8 290 u (10 % du budget : 221 575 u),
-et comme un passage ne coûte jamais moins que le précédent, les passages 4 → 5 à 8 → 9 restent sous cette
-borne (de 7 363 à 8 260 u, + 3 % par époque). Le centre ne pèse que 0,29 % de la dépense totale (V2 : 0,9 %) ;
-avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé), le chemin le plus
-court vers le centre 15 coûte 0,96 % de la dépense de la base de référence. Remèdes possibles, à décider : un
-objet dense propre au passage (le « Codex k » du scénario X0, qui en porterait la valeur), des monnaies plus
-denses (X0 : biopolymère à 400 u par case à l'époque 8), ou un coffre du centre plus grand (+ 32 cases par
-niveau au lieu de 16 doublerait la borne).
+**Passage du centre (QX10) : NON CONFORME au-delà de l'époque 4, borné par la règle de place.** Contrat : le
+passage du centre pèse environ 10 % du budget de l'époque. Obtenu : 23,2 % (époque 1 : le centre comble le budget
+que les paniers des bâtiments laissent), 9,95 % (2), 5,6 % (3 : il cède aux fours et machines), 7,4 % (4), puis
+3,35 %, 1,57 %, 0,76 %, 0,37 %, 0,35 %, 0,52 %, 0,27 %, 0,14 %, 0,11 % et 0,13 % (époques 5 à 14) : à l'époque
+14, 192 820 u pour 14,5 M u visés (75 fois moins). `levels_test` compte ces 10 époques comme **écarts connus**
+(ni OK, ni échec) ; le contrôle « au plus près de la borne de place » ne vérifie que le calibrage, pas le
+contrat. Cause, chiffrée par `--calibrate` : le passage vers n doit tenir dans 45 % du coffre du centre n - 1
+avec des monnaies peu denses (baril de méthane à 100 u par case, cristal à 150) ; seul, le passage 8 → 9 tient
+au plus 8 310 u (10 % du budget : 221 575 u ; même à 50 % du coffre et sans plafond de quantité : 9 300 u,
+0,42 %), et comme un passage ne coûte jamais moins que le précédent, les passages 4 → 5 à 8 → 9 restent sous
+cette borne (de 7 383 à 8 280 u, + 3 % par époque). Le centre ne pèse que 0,29 % de la dépense totale (V2 :
+0,9 %) ; avec la condition Q16, le chemin le plus court vers le centre 15 coûte 0,96 % de la dépense de la base
+de référence. L'écart est STRUCTUREL avec les monnaies d'aujourd'hui. Remèdes possibles, **à trancher par le
+Directeur Créatif** : (a) un objet dense propre au passage (le « Codex k » du scénario X0, qui en porterait la
+valeur) ; (b) un remplaçant dense provisoire, comme pour les monnaies 11 à 15, en attendant les monnaies de X0
+(biopolymère à 400 u par case à l'époque 8) ; (c) une règle de place assouplie pour le seul centre, ou un
+coffre plus grand (+ 32 cases par niveau au lieu de 16 doublerait la borne). Option partielle chiffrée par la
+vérification, non appliquée (elle rend le coût du centre non monotone et ne règle pas les époques 8 à 14) :
+lever la croissance stricte du coût du centre aux époques 4 à 7 donnerait 10 / 6,5 / 4,4 / 1,1 % au lieu de
+7,4 / 3,3 / 1,6 / 0,76 %.
 
 **QX9 : recherche vanilla allégée (lot V2c)**. `data-final-fixes.lua` multiplie le nombre d'unités de chaque
 technologie vanilla par `X.VANILLA_UNIT_SCALE` de son époque (0,9 ; 0,15 ; 0,07 ; 0,04 aux époques 1 à 4 ;
@@ -649,10 +680,24 @@ mod (« fo- ») et les recherches infinies ne changent pas. Résultat sur les 18
 nombre d'unités fixe (192 en tout, dont 9 infinies ; levels_test exécute `data-final-fixes.lua` sur
 `data/base/prototypes/technology.lua`) : **170 allégées**
 (époque 1 : 7, 2 : 18, 3 : 21, 4 : 47, 6 : 24, 10 : 53) ; exemples : automatisation 10 → 1, acier 50 → 8,
-pétrole 100 → 4, logistique 20 → 18, pack utilitaire 100 → 25 ; char (époque 5) 250 inchangé. Étape data
-réelle (harness) : `technology/automation` à 1 unité. Limite : en jeu, les packs vanilla ne suivent PAS
-encore la fenêtre de packs du scénario X0 (lots X1 à X15) ; l'allègement s'applique donc aux packs vanilla
-d'origine. Une technologie d'un autre mod (sans préfixe « fo- ») serait traitée comme une vanilla.
+pétrole 100 → 4, logistique 20 → 18, pack utilitaire 100 → 25 ; char (époque 5) 250 inchangé.
+**Correction V2c (vérification, étape data réelle)** : `base/data-updates.lua` rattache à `fluid-handling` les
+recettes de baril de CHAQUE fluide, dont le méthane du mod, rangé à l'époque 8 par X0 ; `fluid-handling` passait
+donc à l'époque 8 et gardait 50 unités (169 technologies allégées en jeu, et non 170). Ces recettes générées
+(`fill-<fluide>-barrel`, `empty-<fluide>-barrel` ; `L.generated_barrel`) ne rangent plus la technologie :
+`fluid-handling` reste à l'époque 4 (X0), 50 → 2 unités. `levels_test` le vérifie désormais sur l'étape data
+RÉELLE (il rejoue le harness : `fluid-handling` à 2 unités, journal
+`[FO-LEVELS] recherche vanilla allégée (QX9) : 170 technologie(s)`), et `content_test` contrôle
+`fluid-handling` (2) et `mining-productivity-1` (250 → 10, re-rangée par X0) en moteur réel.
+**Part du budget (mesure V2c)** : la recherche vanilla allégée, payée avec les packs VANILLA de chaque
+technologie (valeurs en MU du modèle X0 : rouge 2,5, vert 6,2, militaire 22,8, bleu 19,9, production 69,7,
+utilitaire 32, espace 105,5), prend **17,8 / 15,9 / 14,1 / 13,2 %** du budget X0 des époques 1 à 4 (X0 vise
+17,5 % avec ses fenêtres de packs), puis 5,7 % (5), 10,2 % (6), 4,8 % (7), 0,07 % (8), 2,6 % (9), 7,1 % (10).
+Elle n'est donc pas « presque gratuite » aux époques 2 à 4 : 13 à 16 % du budget, un peu moins que dans X0
+(ses fenêtres comptent des packs plus chers, militaire compris). Aux époques 5 et suivantes, le reste de la
+recherche visée par X0 (35 % du budget) dépend des technologies nouvelles de X0, pas encore en jeu. Limite :
+en jeu, les packs vanilla ne suivent PAS encore la fenêtre de packs du scénario X0 (lots X1 à X15). Une
+technologie d'un autre mod (sans préfixe « fo- ») serait traitée comme une vanilla.
 
 **Statistiques** (niveau 1 = valeur vanilla × facteur ; tableaux complets plus bas ; inchangées par V2c)
 - mêmes formules qu'en 0.3.0, prolongées jusqu'au niveau 30 : PV × (1 + 0,15 (n-1)), portée + 0,25 / niveau,
@@ -675,7 +720,8 @@ d'origine. Une technologie d'un autre mod (sans préfixe « fo- ») serait trait
   Q19 dit « si on a les ressources, on améliore, terminé » : le joueur retrouve le niveau acheté. Annuler et
   rembourser aurait versé le coût entier dans un coffre peut-être plein (objets au sol) et obligé à relancer
   à la main. Le chantier d'un centre est achevé lui aussi, SANS la condition Q16, qui n'existait pas quand il
-  a été payé. Bâtiment disparu : chantier perdu (compté). Les barres de progression sont effacées, les
+  a été payé. Bâtiment disparu : chantier perdu (compté). Cible invalide (niveau déjà atteint, ou au-delà du
+  maximum) : bâtiment remis en service, chantier perdu (testé depuis la correction V2c). Les barres de progression sont effacées, les
   ouvriers et le réglage de durée enregistrés sont retirés. Fait dans `on_configuration_changed`, et par un
   filet toutes les 30 ticks si la sauvegarde est rechargée sans changement de version (testé dans les deux
   cas). Limite : un bâtiment en chantier démonté entre le chargement et le filet (30 ticks au plus, 0 avec un
@@ -708,9 +754,19 @@ garde de sa famille (son code de premier niveau est gardé comme `dress`) et `ge
 garde par des locales (remplacer `Common.dress` depuis un fichier de famille n'a plus d'effet). Limites
 écrites en tête de `common.lua` : la garde arrête les erreurs, pas un contournement délibéré (bibliothèque
 `debug`, fonction globale remplacée, métatable posée sur `L`, écart restauré avant la comparaison).
-Tests hors jeu (`levels_test`) : 83 cas d'agent V3 (V2c : + 2, `cc_value` et `L.TEAM_FACTOR`) (15 acceptés, 68 refusés, motif vérifié pour chaque refus,
+**Correction V2c (sonde probe_x de la vérification)** : la config V2c lisait le scénario X0 à l'appel
+(`X.VANILLA_UNIT_SCALE` en data-final-fixes, le calendrier) ; un `dress` qui écrivait
+`require("shared.content.epochs").VANILLA_UNIT_SCALE[3] = 3` était ACCEPTÉ et `automation` passait de 1 à
+30 unités. Désormais la config recopie au chargement tout ce qu'elle lit dans X (`L.VANILLA_UNIT_SCALE`,
+`L.target`), comparé avec le reste de `L`, et la garde compare EN PLUS le scénario X0 entier à la fermeture de
+chaque famille (refus « a modifié le scénario X0 X.… », qui nomme la famille). Coût mesuré (harness, 5 passes,
+copie instrumentée hors dépôt) : 0,002 à 0,006 s pour la copie, 0,014 à 0,015 s pour les 7 comparaisons (X
+compte environ 16 000 nœuds, 23 fois la config : le comparer après chaque `dress` coûterait de l'ordre de
+0,8 s, d'où la comparaison par famille).
+Tests hors jeu (`levels_test`) : 85 cas d'agent V3 (V2c : + 2, `cc_value` et `L.TEAM_FACTOR` ; correction V2c :
++ 2, scénario X0 modifié par `require`, valeur et fonction) (15 acceptés, 70 refusés, motif vérifié pour chaque refus,
 dont 12 cas de la contre-vérification : copie déclarée modifiée après `edit` (jeu, nom, nom affiché), `icons`
-fautif, famille suivante) et 43 sondes (V2c), une par clé de `L`, toutes refusées avec leur chemin ; 4 mutants de la garde
+fautif, famille suivante) et 46 sondes, une par clé de `L`, toutes refusées avec leur chemin ; 4 mutants de la garde
 (revérifications retirées une à une) sont tous détectés (1 à 6 échecs chacun). Sondes dans l'étape data
 réelle (harness, copies hors dépôt, 21/10 vers 23 h) : 35 sondes, 31 refusées avec fichier, niveau et chemin
 (dont p17 copie déclarée gardée, p20 `icons` du niveau 9, p22 `Common.dress` remplacé, p23 famille suivante,
@@ -758,17 +814,20 @@ en moteur réel.
   `turret-attack`, 11 en 0.3.0). Fonctionnel, mais chargé ; l'API 1.1.91 n'a pas de champ pour masquer un
   effet. Accepté.
 - Au changement d'époque, la monnaie de l'époque précédente passe de 60 % × 1,25 à 40 % de la valeur d'époque :
-  sa quantité baisse d'un niveau au suivant dans **36 cas** (compté par `levels_test` ; V2 : 49), surtout au
+  sa quantité baisse d'un niveau au suivant dans **37 cas** (compté par `levels_test` ; V2 : 49), surtout au
   centre (par exemple centre 6, plastique 1 200 → 810). La valeur totale, elle, croît toujours (testé).
-- **Passage du centre (QX10) non tenu au-delà de l'époque 4** : voir plus haut (borne de place, monnaies peu
-  denses ; remèdes à décider).
+- **Passage du centre (QX10) NON CONFORME au-delà de l'époque 4**, et **calendrier de 52 h tenu seulement par la
+  base de référence complète** (chemin le plus court : 3 h 27) : voir plus haut (borne de place, monnaies peu
+  denses ; remèdes à trancher par le Directeur Créatif). `levels_test` compte 11 écarts connus.
 - **Le pire coût occupe 45 % du coffre payeur** (centre 12 → 13 : 100 cases sur 224 ; V2 : 38 %) : le centre
   est calibré au plus près de la borne de place ; il reste 5 % de marge sous la règle (50 %).
 - Les remplaçants des époques 13 (uranium 235 : enrichissement de Kovarex) et 15 (pack de science spatiale :
   une fusée lancée) sont des portes technologiques à confirmer en partie réelle.
-- Coût du recensement de la condition Q16 (`count_entities_filtered`, centre seulement) et coût script des
-  niveaux non mesurés au banc épinglé (H-L1). Les chantiers n'existent plus : le passage toutes les 30 ticks ne
-  coûte plus rien hors du filet des sauvegardes 0.4.0 (`next` sur une table vide).
+- Coût d'UN recensement de la condition Q16 (`count_entities_filtered` sans zone, centre seulement) et coût
+  script des niveaux non mesurés au banc épinglé (H-L1). Le cache par force borne le nombre de recensements
+  (voir « Condition du centre ») ; une mesure en moteur réel sur une grande carte (d4-geant), panneau du centre
+  ouvert, reste à faire. Les chantiers n'existent plus : le passage toutes les 30 ticks ne coûte plus rien hors
+  du filet des sauvegardes 0.4.0 (`next` sur une table vide).
 - Un bâtiment est remplacé par une NOUVELLE entité à chaque niveau (remplacement rapide) : monter de 28 à 30
   d'affilée fait deux remplacements et deux célébrations dans le même tick (voulu : Q19).
 
@@ -778,9 +837,9 @@ en moteur réel.
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | Pionnier | fer, cuivre, pierre (panier de base) | panier de base | — | — | 0 | panier seul | 1 | 1-2 | un bâtiment de chaque famille possédée au niveau 2 |
 | 2 | Forge | acier | `steel-plate` | 5 | 100 | 1,43 | 407 | 2 | 3-4 | un bâtiment de chaque famille possédée au niveau 4 |
-| 3 | Vapeur | moteur (mécanique de l'ère vapeur) | `engine-unit` | 9 | 50 | 1,56 | 1 070 | 3 | 5-6 | un bâtiment de chaque famille possédée au niveau 6 |
+| 3 | Vapeur | moteur (mécanique de l'ère vapeur) | `engine-unit` | 9 | 50 | 1,46 | 1 050 | 3 | 5-6 | un bâtiment de chaque famille possédée au niveau 6 |
 | 4 | Pétrole | plastique | `plastic-bar` | 3 | 100 | 4,5 | 6 000 | 4 | 7-8 | un bâtiment de chaque famille possédée au niveau 8 |
-| 5 | Volcan | plaque de tungstène | `fo-tungsten-plate` | 4 | 100 | 15,5 | 6 070 | 5 | 9-10 | un bâtiment de chaque famille possédée au niveau 10 |
+| 5 | Volcan | plaque de tungstène | `fo-tungsten-plate` | 4 | 100 | 15,5 | 6 060 | 5 | 9-10 | un bâtiment de chaque famille possédée au niveau 10 |
 | 6 | Électricité | batterie | `battery` | 9 | 200 | 29,2 | 6 160 | 6 | 11-12 | un bâtiment de chaque famille possédée au niveau 12 |
 | 7 | Cristal | cristal de résonance | `fo-resonance-crystal` | 3 | 50 | 57,9 | 6 290 | 7 | 13-14 | un bâtiment de chaque famille possédée au niveau 14 |
 | 8 | Marais | méthane (baril) | `fo-methane-barrel` | 10 | 10 | 110 | 6 380 | 8 | 15-16 | un bâtiment de chaque famille possédée au niveau 16 |
@@ -817,21 +876,21 @@ en moteur réel.
 
 | Époque | Durée X0 | Atteinte X0 | Débit moyen X0 (u/s) | Budget de l'époque X0 (u) | Budget des niveaux (30 %) | Dépense de la base de référence (u) | Dépense / budget des niveaux | Passage du centre suivant (u) | Part du budget de l'époque | Durée impliquée | Cumul impliqué |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 30 min | 0 h | 2 | 4 054 | 1 216 | 1 232 | 1,01 | 950 | 23,43 % | 30 min 23 s | 30 min 23 s |
+| 1 | 30 min | 0 h | 2 | 4 054 | 1 216 | 1 222 | 1 | 940 | 23,18 % | 30 min 08 s | 30 min 08 s |
 | 2 | 1 h 00 | 30 min | 4 | 14 826 | 4 448 | 4 464 | 1 | 1 475 | 9,95 % | 1 h 00 | 1 h 30 |
-| 3 | 1 h 30 | 1 h 30 | 8 | 40 662 | 12 199 | 12 182 | 1 | 2 265 | 5,57 % | 1 h 29 | 3 h 00 |
-| 4 | 2 h 00 | 3 h 00 | 14 | 99 130 | 29 739 | 29 840 | 1 | 7 363 | 7,43 % | 2 h 00 | 5 h 00 |
-| 5 | 2 h 30 | 5 h 00 | 25 | 226 561 | 67 968 | 67 887 | 1 | 7 558 | 3,34 % | 2 h 29 | 7 h 30 |
-| 6 | 3 h 00 | 7 h 30 | 46 | 497 094 | 149 128 | 148 012 | 0,99 | 7 805 | 1,57 % | 2 h 58 | 10 h 29 |
-| 7 | 3 h 30 | 10 h 30 | 84 | 1 060 369 | 318 111 | 320 804 | 1,01 | 8 045 | 0,76 % | 3 h 31 | 14 h 01 |
-| 8 | 4 h 00 | 14 h 00 | 154 | 2 215 750 | 664 725 | 672 416 | 1,01 | 8 260 | 0,37 % | 4 h 02 | 18 h 03 |
-| 9 | 4 h 30 | 18 h 00 | 281 | 4 557 694 | 1 367 308 | 1 364 453 | 1 | 16 035 | 0,35 % | 4 h 29 | 22 h 33 |
-| 10 | 5 h 00 | 22 h 30 | 514 | 9 259 223 | 2 777 767 | 2 778 366 | 1 | 48 260 | 0,52 % | 5 h 00 | 27 h 33 |
-| 11 | 5 h 30 | 27 h 30 | 941 | 18 622 549 | 5 586 765 | 5 610 217 | 1 | 49 435 | 0,27 % | 5 h 31 | 33 h 04 |
-| 12 | 6 h 00 | 33 h 00 | 1 720 | 37 144 935 | 11 143 481 | 11 221 606 | 1,01 | 51 090 | 0,14 % | 6 h 02 | 39 h 07 |
-| 13 | 6 h 30 | 39 h 00 | 3 144 | 73 575 568 | 22 072 670 | 22 060 964 | 1 | 82 745 | 0,11 % | 6 h 29 | 45 h 37 |
-| 14 | 7 h 00 | 45 h 30 | 5 749 | 144 873 923 | 43 462 177 | 43 409 980 | 1 | 192 810 | 0,13 % | 6 h 59 | 52 h 36 |
-| 15 | 7 h 00 | 52 h 30 | 10 511 | 264 887 907 | 79 466 372 | 79 293 188 | 1 | — | — | 6 h 59 | 59 h 35 |
+| 3 | 1 h 30 | 1 h 30 | 8 | 40 662 | 12 199 | 12 202 | 1 | 2 285 | 5,62 % | 1 h 30 | 3 h 00 |
+| 4 | 2 h 00 | 3 h 00 | 14 | 99 130 | 29 739 | 29 860 | 1 | 7 383 | 7,45 % | 2 h 00 | 5 h 00 |
+| 5 | 2 h 30 | 5 h 00 | 25 | 226 561 | 67 968 | 67 917 | 1 | 7 588 | 3,35 % | 2 h 29 | 7 h 30 |
+| 6 | 3 h 00 | 7 h 30 | 46 | 497 094 | 149 128 | 147 996 | 0,99 | 7 825 | 1,57 % | 2 h 58 | 10 h 29 |
+| 7 | 3 h 30 | 10 h 30 | 84 | 1 060 369 | 318 111 | 320 788 | 1,01 | 8 065 | 0,76 % | 3 h 31 | 14 h 01 |
+| 8 | 4 h 00 | 14 h 00 | 154 | 2 215 750 | 664 725 | 672 400 | 1,01 | 8 280 | 0,37 % | 4 h 02 | 18 h 03 |
+| 9 | 4 h 30 | 18 h 00 | 281 | 4 557 694 | 1 367 308 | 1 364 437 | 1 | 16 055 | 0,35 % | 4 h 29 | 22 h 33 |
+| 10 | 5 h 00 | 22 h 30 | 514 | 9 259 223 | 2 777 767 | 2 778 380 | 1 | 48 310 | 0,52 % | 5 h 00 | 27 h 33 |
+| 11 | 5 h 30 | 27 h 30 | 941 | 18 622 549 | 5 586 765 | 5 610 201 | 1 | 49 455 | 0,27 % | 5 h 31 | 33 h 04 |
+| 12 | 6 h 00 | 33 h 00 | 1 720 | 37 144 935 | 11 143 481 | 11 221 590 | 1,01 | 51 110 | 0,14 % | 6 h 02 | 39 h 07 |
+| 13 | 6 h 30 | 39 h 00 | 3 144 | 73 575 568 | 22 072 670 | 22 060 978 | 1 | 82 795 | 0,11 % | 6 h 29 | 45 h 37 |
+| 14 | 7 h 00 | 45 h 30 | 5 749 | 144 873 923 | 43 462 177 | 43 409 954 | 1 | 192 820 | 0,13 % | 6 h 59 | 52 h 36 |
+| 15 | 7 h 00 | 52 h 30 | 10 511 | 264 887 907 | 79 466 372 | 79 293 152 | 1 | — | — | 6 h 59 | 59 h 35 |
 
 #### Sensibilité de la durée impliquée totale (15 époques)
 
@@ -841,27 +900,29 @@ en moteur réel.
 | × 1 | 59 h 35 |
 | × 1,3 | 45 h 50 |
 
-Chemin « centre seul » (centre 1 → 15) : 484 095 u, soit 0,29 % de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : 1 602 081 u, soit 0,96 % (V2, sans condition : 0,9 %).
+Chemin « centre seul » (centre 1 → 15) : 484 385 u, soit 0,29 % de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : 1 602 362 u, soit 0,96 % (V2, sans condition : 0,9 %).
+
+En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : centre 15 atteint en **3 h 27** avec 30 % de la production X0 et les 6 familles possédées (1 h 02 avec 100 % ; centre seul, aucune famille possédée : 2 h 20), pour **52 h 30** au calendrier X0. Le calendrier n'est tenu que si le joueur monte toute la base de référence : rien ne l'y oblige (écart connu, compté par `levels_test`).
 
 #### Centre de commandement (15 niveaux)
 
 | Niveau | Époque | PV | cases | Coût du passage à ce niveau | Valeur (u) | Cases / coffre du centre payeur |
 |---|---|---|---|---|---|---|
 | 1 | 1 Pionnier | 3 000 | 48 | — | — | — |
-| 2 | 2 Forge | 3 600 | 64 | 320 iron-plate, 160 copper-plate, 160 stone-brick, 60 electronic-circuit | 950 | 9 / 48 |
+| 2 | 2 Forge | 3 600 | 64 | 310 iron-plate, 160 copper-plate, 160 stone-brick, 60 electronic-circuit | 940 | 9 / 48 |
 | 3 | 3 Vapeur | 4 200 | 80 | 360 iron-plate, 180 copper-plate, 180 stone-brick, 70 electronic-circuit, 80 steel-plate | 1 475 | 10 / 64 |
-| 4 | 4 Pétrole | 4 800 | 96 | 410 iron-plate, 200 copper-plate, 200 stone-brick, 80 electronic-circuit, 70 engine-unit, 85 steel-plate | 2 265 | 13 / 80 |
-| 5 | 5 Volcan | 5 400 | 112 | 460 iron-plate, 220 copper-plate, 220 stone-brick, 85 electronic-circuit, 1 200 plastic-bar, 270 engine-unit | 7 363 | 30 / 96 |
-| 6 | 6 Électricité | 6 000 | 128 | 500 iron-plate, 250 copper-plate, 250 stone-brick, 95 electronic-circuit, 910 fo-tungsten-plate, 810 plastic-bar | 7 558 | 31 / 112 |
-| 7 | 7 Cristal | 6 600 | 144 | 550 iron-plate, 270 copper-plate, 270 stone-brick, 110 electronic-circuit, 410 battery, 620 fo-tungsten-plate | 7 805 | 23 / 128 |
-| 8 | 8 Marais | 7 200 | 160 | 600 iron-plate, 290 copper-plate, 290 stone-brick, 110 electronic-circuit, 1 260 fo-resonance-crystal, 280 battery | 8 045 | 41 / 144 |
-| 9 | 9 Atome | 7 800 | 176 | 650 iron-plate, 320 copper-plate, 320 stone-brick, 120 electronic-circuit, 380 fo-methane-barrel, 850 fo-resonance-crystal | 8 260 | 71 / 160 |
-| 10 | 10 Haute technologie | 8 400 | 192 | 690 iron-plate, 340 copper-plate, 340 stone-brick, 130 electronic-circuit, 600 uranium-238, 560 fo-methane-barrel | 16 035 | 78 / 176 |
-| 11 | 11 Titane | 9 000 | 208 | 740 iron-plate, 360 copper-plate, 360 stone-brick, 140 electronic-circuit, 370 processing-unit, 1 310 uranium-238 | 48 260 | 35 / 192 |
-| 12 | 12 Supraconducteurs | 9 600 | 224 | 790 iron-plate, 390 copper-plate, 390 stone-brick, 150 electronic-circuit, 630 low-density-structure, 250 processing-unit | 49 435 | 83 / 208 |
-| 13 | 13 Fusion | 10 200 | 240 | 830 iron-plate, 410 copper-plate, 410 stone-brick, 160 electronic-circuit, 1 830 electric-engine-unit, 430 low-density-structure | 51 090 | 100 / 224 |
-| 14 | 14 Orbite | 10 800 | 256 | 880 iron-plate, 430 copper-plate, 430 stone-brick, 170 electronic-circuit, 1 070 uranium-235, 2 000 electric-engine-unit | 82 745 | 71 / 240 |
-| 15 | 15 Légende | 11 400 | 272 | 930 iron-plate, 460 copper-plate, 460 stone-brick, 180 electronic-circuit, 760 rocket-control-unit, 1 690 uranium-235 | 192 810 | 114 / 256 |
+| 4 | 4 Pétrole | 4 800 | 96 | 400 iron-plate, 210 copper-plate, 210 stone-brick, 80 electronic-circuit, 70 engine-unit, 85 steel-plate | 2 285 | 14 / 80 |
+| 5 | 5 Volcan | 5 400 | 112 | 450 iron-plate, 230 copper-plate, 230 stone-brick, 85 electronic-circuit, 1 200 plastic-bar, 270 engine-unit | 7 383 | 30 / 96 |
+| 6 | 6 Électricité | 6 000 | 128 | 500 iron-plate, 260 copper-plate, 260 stone-brick, 95 electronic-circuit, 910 fo-tungsten-plate, 810 plastic-bar | 7 588 | 31 / 112 |
+| 7 | 7 Cristal | 6 600 | 144 | 540 iron-plate, 280 copper-plate, 280 stone-brick, 110 electronic-circuit, 410 battery, 620 fo-tungsten-plate | 7 825 | 23 / 128 |
+| 8 | 8 Marais | 7 200 | 160 | 590 iron-plate, 300 copper-plate, 300 stone-brick, 110 electronic-circuit, 1 260 fo-resonance-crystal, 280 battery | 8 065 | 41 / 144 |
+| 9 | 9 Atome | 7 800 | 176 | 640 iron-plate, 330 copper-plate, 330 stone-brick, 120 electronic-circuit, 380 fo-methane-barrel, 850 fo-resonance-crystal | 8 280 | 71 / 160 |
+| 10 | 10 Haute technologie | 8 400 | 192 | 680 iron-plate, 350 copper-plate, 350 stone-brick, 130 electronic-circuit, 600 uranium-238, 560 fo-methane-barrel | 16 055 | 78 / 176 |
+| 11 | 11 Titane | 9 000 | 208 | 730 iron-plate, 380 copper-plate, 380 stone-brick, 140 electronic-circuit, 370 processing-unit, 1 310 uranium-238 | 48 310 | 35 / 192 |
+| 12 | 12 Supraconducteurs | 9 600 | 224 | 780 iron-plate, 400 copper-plate, 400 stone-brick, 150 electronic-circuit, 630 low-density-structure, 250 processing-unit | 49 455 | 83 / 208 |
+| 13 | 13 Fusion | 10 200 | 240 | 820 iron-plate, 420 copper-plate, 420 stone-brick, 160 electronic-circuit, 1 830 electric-engine-unit, 430 low-density-structure | 51 110 | 100 / 224 |
+| 14 | 14 Orbite | 10 800 | 256 | 870 iron-plate, 450 copper-plate, 450 stone-brick, 170 electronic-circuit, 1 070 uranium-235, 2 000 electric-engine-unit | 82 795 | 71 / 240 |
+| 15 | 15 Légende | 11 400 | 272 | 910 iron-plate, 470 copper-plate, 470 stone-brick, 180 electronic-circuit, 760 rocket-control-unit, 1 690 uranium-235 | 192 820 | 114 / 256 |
 
 #### Mitrailleuse (30 niveaux)
 
@@ -907,7 +968,7 @@ Chemin « centre seul » (centre 1 → 15) : 484 095 u, soit 0,29 % de la dépen
 | 3 | 2 Forge (silhouette) | 1 300 | 2,32 | 24,5 | 9 steel-plate, 3 electronic-circuit, 2 battery | 71 | 3 / 64 |
 | 4 | 2 Forge (+ pièce) | 1 450 | 2,48 | 24,75 | 11 steel-plate, 4 electronic-circuit, 3 battery | 92 | 3 / 64 |
 | 5 | 3 Vapeur (silhouette) | 1 600 | 2,64 | 25 | 6 steel-plate, 4 electronic-circuit, 3 battery, 3 engine-unit | 94 | 4 / 80 |
-| 6 | 3 Vapeur (+ pièce) | 1 750 | 2,8 | 25,25 | 8 steel-plate, 5 electronic-circuit, 3 battery, 3 engine-unit | 107 | 4 / 80 |
+| 6 | 3 Vapeur (+ pièce) | 1 750 | 2,8 | 25,25 | 8 steel-plate, 5 electronic-circuit, 3 battery, 2 engine-unit | 98 | 4 / 80 |
 | 7 | 4 Pétrole (silhouette) | 1 900 | 2,96 | 25,5 | 5 steel-plate, 5 electronic-circuit, 4 battery, 18 plastic-bar, 4 engine-unit | 164 | 5 / 96 |
 | 8 | 4 Pétrole (+ pièce) | 2 050 | 3,12 | 25,75 | 6 steel-plate, 6 electronic-circuit, 4 battery, 25 plastic-bar, 5 engine-unit | 201 | 5 / 96 |
 | 9 | 5 Volcan (silhouette) | 2 200 | 3,28 | 26 | 6 steel-plate, 6 electronic-circuit, 4 battery, 45 fo-tungsten-plate, 40 plastic-bar | 381 | 5 / 112 |

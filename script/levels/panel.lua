@@ -255,6 +255,8 @@ Events.on(defines.events.on_gui_click, function(e)
   refresh(player)
 end)
 
+-- Rafraîchissement : l'aperçu du centre lit le recensement Q16 EN CACHE (Levels.census_cached : au plus un
+-- balayage des surfaces par force et par Levels.CENSUS_TTL ticks, ou après un retrait de bâtiment à niveaux).
 Events.on_nth_tick(30, function()
   local ui = UI()
   for _, player in ipairs(game.connected_players) do

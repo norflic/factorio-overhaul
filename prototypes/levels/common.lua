@@ -65,6 +65,8 @@
       et le style commun (prototypes/levels/style.lua). Peu importe le chemin : ctx.L,
       require("shared.levels.config"), ou une table rendue par une fonction de L (L.parse rend la vraie
       famille) : toute modification est refusée.
+    - Le scénario X0 (require("shared.content.epochs"), lu par la config) est en lecture seule aussi : il est
+      comparé EN ENTIER à la fermeture de chaque famille (le refus nomme la famille ; lot V2c).
     - Le fichier (chargement, dress, icons) ne modifie JAMAIS data.raw. data.raw est copié une fois avant la
       première famille ; après le dernier icons de chaque famille sont comparés, en nommant la famille : les types surveillés
       (WATCHED_TYPES : beam, ammo, projectile, artillery-projectile, explosion, corpse, rail-remnants,
@@ -114,6 +116,10 @@ local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local L = require("shared.levels.config")
 local Style = require("prototypes.levels.style")
+-- Scénario X0 : la config en recopie ce qu'elle lit au chargement (L.VANILLA_UNIT_SCALE, L.target) ; la garde
+-- le compare EN PLUS à la fermeture de chaque famille (correction V2c : un dress qui modifiait
+-- X.VANILLA_UNIT_SCALE changeait le nombre d'unités des recherches vanilla en data-final-fixes).
+local X = require("shared.content.epochs")
 
 -- Fichiers de famille : chargés par generate, chacun DANS la garde de sa famille (son code de premier niveau
 -- est gardé comme dress ; correction de la contre-vérification V2b).
@@ -191,7 +197,8 @@ end
 -- une clé de jeu nouvelle ou oubliée est protégée par défaut. En plus :
 --   - les vitesses d'animation des tourelles (preparing_speed…) sont libres, mais la DURÉE de l'animation
 --     (nombre d'images / vitesse) ne doit pas changer : c'est un délai de jeu (déploiement, repli) ;
---   - l'état partagé ENTIER (config L, boîte à outils, style commun) ne doit pas bouger ;
+--   - l'état partagé ENTIER (config L, boîte à outils, style commun) ne doit pas bouger ; le scénario X0 non
+--     plus (comparé à la fermeture de chaque famille, lot V2c) ;
 --   - data.raw ne doit pas bouger (types surveillés et référencés par famille, puis tout data.raw) ;
 --   - ctx est en lecture seule (écrire un champ de ctx est une erreur ; family et color sont des copies).
 -- Méthode (V2b) : COPIE profonde avant, comparaison par CONTENU après (tables : contenu, identité ignorée,
@@ -736,6 +743,21 @@ local function shared_check(copy, where, who)
   end
 end
 
+-- Scénario X0 (shared/content/epochs.lua), lu par la config au chargement : en lecture seule lui aussi.
+-- Comparé à la FERMETURE de chaque famille seulement (guard_end : 16 000 nœuds environ, 23 fois la config ;
+-- après chaque dress, la comparaison coûterait plusieurs dixièmes de seconde à l'étape data) : le refus nomme
+-- la famille et ses niveaux, pas le niveau exact. generate prend UNE copie pour les 7 familles.
+local function scenario_copy() return deep_copy(X, nil, {}) end
+
+local function scenario_check(copy, where, who)
+  if not differs(copy, X, {}) then return end
+  local path, why = diff_sorted(copy, X)
+  if not path then path, why = {}, "écart non localisé" end
+  error("prototypes/levels/" .. where .. " : " .. who .. " a modifié le scénario X0 " .. path_text("X", path)
+    .. " (" .. why .. ") ; shared/content/epochs.lua est en lecture seule (la config en recopie au chargement ce"
+    .. " qu'elle lit)")
+end
+
 -- Types de data.raw comparés après CHAQUE famille (en plus des types des sources et des types référencés) :
 -- ceux qu'un visuel de bâtiment est tenté de toucher (faisceau, munition, projectile, explosion, reste,
 -- autocollant, fumée, particule, jet, feu, tuile du socle). Un type absent de data.raw est ignoré.
@@ -926,11 +948,13 @@ end
 
 --- Ouvre la garde d'une famille, AVANT son premier dress (generate : avant le chargement de son fichier).
 --- raw : copie de data.raw déjà prise (generate : une seule copie pour les 7 familles) ; nil : prise ici, et
---- TOUT data.raw sera comparé à la fermeture.
-local function guard_begin(family, raw)
+--- TOUT data.raw sera comparé à la fermeture. scenario : copie du scénario X0 (generate : une seule) ; nil :
+--- prise ici.
+local function guard_begin(family, raw, scenario)
   return {
     file = family.key .. ".lua", sources = sources_of(family), raw = raw or raw_copy(), own_raw = raw == nil,
     watched = watched_types(family), shared = shared_copy(), family_copy = deep_copy(family, nil, {}),
+    scenario = scenario or scenario_copy(),
     levels = {}, declared = {}, declared_info = {}, alias = {}, loaded = false,
   }
 end
@@ -951,6 +975,7 @@ local function guard_end(g)
   for _, l in ipairs(lv) do check_snapshot(l.snap, l.p, l.where, g.alias, later) end
   for _, d in ipairs(g.declared_info) do check_declared(d, g.file .. " (niveau " .. d.n .. ")", g.alias, later) end
   shared_check(g.shared, where, "un appel")
+  scenario_check(g.scenario, where, "un appel")
   local path, why, t, name = raw_diff(g.raw, g.watched)
   if path then raw_error(g, where, path, why, t, name) end
   if g.own_raw then
@@ -1037,9 +1062,10 @@ function Common.generate()
   -- LOCALES (guard_begin, guarded_dress, icons_check, guard_end, final_check) : un fichier de famille qui
   -- remplacerait Common.dress n'aurait aucun effet ici.
   local raw = raw_copy()
+  local scenario = scenario_copy()
   local guards = {}
   for _, family in ipairs(L.families) do
-    local guard = guard_begin(family, raw)
+    local guard = guard_begin(family, raw, scenario)
     guards[#guards + 1] = guard
     local visual = load_visual(family, guard)
     for n = 1, family.max do

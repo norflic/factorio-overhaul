@@ -12,7 +12,8 @@
     limite d'ouvriers. Murs : rangée entière possible.
   - Condition du centre (Q16) : pour passer du niveau c à c + 1, chaque famille dont la force possède au
     moins un bâtiment doit en avoir un au niveau min(30, 2c) ; sinon refus « cc-families » (familles qui
-    bloquent dans info.blocking, niveau visé dans info.condition_level).
+    bloquent dans info.blocking, niveau visé dans info.condition_level). Recensement en cache par force pour
+    l'affichage, complet pour chaque décision (Levels.census_cached).
   - Sauvegarde 0.4.0 : les chantiers en cours (déjà payés) sont ACHEVÉS au chargement (Levels.finish_legacy_jobs).
   Déterminisme : tout se passe dans des événements ; listes triées (chantiers hérités par numéro, surfaces
   par index), jamais l'ordre de pairs.
@@ -26,9 +27,10 @@ local Levels = {}
 
 -- `jobs` et `busy` restent des tables VIDES : ils portaient les chantiers minutés de 0.4.0 (achevés au
 -- chargement) et l'interface distante (script/remote.lua, levels_status) les lit encore ; à retirer avec
--- le diff proposé à l'intégrateur.
+-- le diff proposé à l'intégrateur. `census` : recensement Q16 en cache, par force (voir plus bas).
 Storage.declare("levels", function()
-  return { cc = {}, jobs = {}, busy = {}, replacing = false, stats = { upgrades = 0, instant = 0, cancelled = 0, lost = 0 } }
+  return { cc = {}, jobs = {}, busy = {}, census = {}, replacing = false,
+           stats = { upgrades = 0, instant = 0, cancelled = 0, lost = 0, census_scans = 0 } }
 end)
 
 local function S() return Storage.ns("levels") end
@@ -177,10 +179,13 @@ local function exists(surfaces, force, names)
   return false
 end
 
---- Recensement de la force pour la condition du centre : census[clé] = { any, top } (L.cc_blockers).
---- Coût : au plus 2 recherches par famille et par surface, arrêtées au premier bâtiment trouvé (limit = 1) ;
---- fait seulement pour le CENTRE (aperçu, touche U, interface distante).
+--- Recensement COMPLET de la force pour la condition du centre : census[clé] = { any, top } (L.cc_blockers).
+--- Coût : au plus 2 recherches par famille et par surface (12 par surface), SANS zone : sur une grande carte,
+--- une famille absente ou sous le niveau visé coûte un balayage de toute la surface (limit = 1 n'arrête qu'au
+--- premier bâtiment trouvé). D'où le cache ci-dessous : ce balayage n'est fait qu'à la demande.
 function Levels.census(force, top)
+  local st = S()
+  st.stats.census_scans = (st.stats.census_scans or 0) + 1
   local surfaces = sorted_surfaces()
   local out = {}
   for _, f in ipairs(L.families) do
@@ -191,6 +196,49 @@ function Levels.census(force, top)
     end
   end
   return out
+end
+
+--- Correction V2c (vérification) : le panneau du centre se rafraîchit toutes les 30 ticks, pour chaque joueur
+--- qui l'a ouvert ; avec le recensement complet à chaque aperçu, une base de 60 h aurait payé 12 balayages de
+--- surface toutes les 30 ticks (coût en moteur réel non mesuré). Le recensement est donc gardé EN CACHE par
+--- force, dans global (même état sur tous les clients) :
+---   - une construction d'un bâtiment à niveaux de la force le met à jour EXACTEMENT (any, et top si le
+---     niveau atteint le niveau visé) ; une amélioration aussi (le remplacement est une construction) ;
+---   - un retrait (minage, mort, destruction par script) l'INVALIDE (la famille peut disparaître) ;
+---   - il expire après CENSUS_TTL ticks (filet pour ce qu'aucun événement ne signale : changement de force,
+---     clonage, entité créée par un autre mod sans raise_built) ;
+---   - une DÉCISION (Levels.start : touche U, bouton, interface distante) refait toujours le recensement
+---     complet : le cache ne sert qu'à l'AFFICHAGE du panneau.
+--- Au plus un balayage par force et par CENSUS_TTL ticks pendant qu'un panneau du centre reste ouvert, plus un
+--- par retrait de bâtiment à niveaux suivi d'un rafraîchissement.
+Levels.CENSUS_TTL = 600
+
+function Levels.census_cached(force, top, fresh)
+  local st = S()
+  st.census = st.census or {}
+  local c = st.census[force.name]
+  if fresh or not (c and c.top == top and game.tick - c.tick < Levels.CENSUS_TTL) then
+    c = { tick = game.tick, top = top, data = Levels.census(force, top) }
+    st.census[force.name] = c
+  end
+  return c.data
+end
+
+--- Construction (ou amélioration) d'un bâtiment à niveaux : mise à jour exacte du cache de sa force.
+local function census_built(entity, family, n)
+  local census = S().census
+  local c = census and census[entity.force.name]
+  if not c then return end
+  local d = c.data[family.key]
+  if not d then return end
+  d.any = true
+  if n >= math.min(c.top, family.max) then d.top = true end
+end
+
+--- Retrait d'un bâtiment à niveaux : le cache de sa force est invalidé.
+local function census_removed(entity)
+  local census = S().census
+  if census then census[entity.force.name] = nil end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -283,8 +331,9 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Coût et autorisation de l'amélioration suivante de `entity` (sans rien changer).
 --- Renvoie une table { family, level, next, cost, ok, reason, missing, cc_level, required_cc,
---- condition_level, blocking, unknown }.
-function Levels.preview(entity, player)
+--- condition_level, blocking, unknown }. fresh : recensement Q16 complet (décision) ; sinon, le cache
+--- (affichage du panneau).
+function Levels.preview(entity, player, fresh)
   local family, n = L.parse(entity.name)
   if not family then return nil end
   local force = entity.force
@@ -312,7 +361,7 @@ function Levels.preview(entity, player)
   -- maximal de l'époque.
   if family.key == "command" then
     info.condition_level = L.cc_condition_level(n)
-    info.blocking = L.cc_blockers(Levels.census(force, info.condition_level))
+    info.blocking = L.cc_blockers(Levels.census_cached(force, info.condition_level, fresh))
     if info.ok and #info.blocking > 0 then info.ok, info.reason = false, "cc-families" end
   end
   info.missing = missing(sources(force, player), info.cost)
@@ -324,7 +373,8 @@ end
 --- Renvoie ok, raison, info, nouvelle entité. Raison du succès : "done".
 function Levels.start(entity, player)
   if not (entity and entity.valid) then return false, "invalid" end
-  local info = Levels.preview(entity, player)
+  -- Décision : recensement Q16 complet, jamais le cache.
+  local info = Levels.preview(entity, player, true)
   if not info then return false, "not-levelable" end
   if not info.ok then return false, info.reason, info end
   local st = S()
@@ -423,6 +473,9 @@ end
 function Levels.repair()
   local st = S()
   local done, lost = Levels.finish_legacy_jobs()
+  -- Recensement Q16 en cache : vidé (une mise à jour peut changer les niveaux et les noms ; sauvegarde 0.4.0 :
+  -- la clé n'existe pas encore).
+  st.census = {}
   local forces = {}
   for name in pairs(st.cc) do forces[#forces + 1] = name end
   table.sort(forces)
@@ -481,8 +534,12 @@ end)
 local function on_built(e)
   local ent = e.created_entity or e.entity
   if not (ent and ent.valid) then return end
-  local family = L.parse(ent.name)
-  if not (family and family.key == "command") then return end
+  local family, n = L.parse(ent.name)
+  if not family then return end
+  if family.key ~= "command" then
+    census_built(ent, family, n)
+    return
+  end
   local st = S()
   local cur = Levels.cc(ent.force)
   if cur and cur ~= ent and not st.replacing then
@@ -510,6 +567,8 @@ local function on_removed(e)
   local ent = e.entity
   if not (ent and ent.valid) then return end
   local st = S()
+  local family = L.parse(ent.name)
+  if family and family.key ~= "command" then census_removed(ent) end
   if st.cc[ent.force.name] == ent and not st.replacing then st.cc[ent.force.name] = nil end
 end
 

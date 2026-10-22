@@ -626,8 +626,12 @@ local function test_level_prototypes()
     tostring(d1[1]) .. " " .. tostring(d1[6]) .. " / " .. tostring(d14[6]) .. " / " .. tostring(d15[1]))
   -- Lot V2c, QX9 : recherche vanilla allégée (data-final-fixes.lua). Nombres d'unités vanilla relevés dans
   -- data/base/prototypes/technology.lua (1.1.91) ; attendu : arrondi(nombre × X.VANILLA_UNIT_SCALE de l'époque).
+  -- Correction V2c : fluid-handling reçoit en jeu les barils de chaque fluide (base/data-updates.lua), dont le
+  -- méthane du mod (époque 8) ; elle reste à l'époque 4 (2 unités). mining-productivity-1 : re-rangée par X0.
+  -- Le journal de l'étape data doit dire « [FO-LEVELS] recherche vanilla allégée (QX9) : 170 technologie(s) ».
   local VANILLA_UNITS = { { "logistics", 20, 18 }, { "steel-processing", 50, 8 }, { "automation", 10, 1 },
-    { "oil-processing", 100, 4 }, { "tank", 250, 250 }, { "utility-science-pack", 100, 25 } }
+    { "oil-processing", 100, 4 }, { "fluid-handling", 50, 2 }, { "mining-productivity-1", 250, 10 }, { "tank", 250, 250 },
+    { "utility-science-pack", 100, 25 } }
   local bad_qx9, txt = {}, {}
   for _, v in ipairs(VANILLA_UNITS) do
     local tp = game.technology_prototypes[v[1]]
@@ -637,7 +641,7 @@ local function test_level_prototypes()
     txt[#txt + 1] = v[1] .. " " .. v[2] .. "->" .. tostring(got)
     if not (got == v[3] and want == v[3]) then bad_qx9[#bad_qx9 + 1] = v[1] .. "=" .. tostring(got) .. "/" .. v[3] .. "/" .. tostring(want) end
   end
-  check(#bad_qx9 == 0, "niveaux (QX9) : recherche vanilla allegee aux epoques 1 a 4 et 10, inchangee a l'epoque 5",
+  check(#bad_qx9 == 0, "niveaux (QX9) : recherche vanilla allegee aux epoques 1 a 4 et 10 (fluid-handling comprise), inchangee a l'epoque 5",
     #bad_qx9 > 0 and table.concat(bad_qx9, ", ") or table.concat(txt, ", "))
   local inf = game.technology_prototypes["physical-projectile-damage-7"]
   check(inf and inf.research_unit_count_formula == "2^(L-7)*1000",

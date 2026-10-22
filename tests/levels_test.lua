@@ -113,20 +113,42 @@ local function model(prod_k)
   return rows
 end
 
+--- Chemin le plus court vers le centre 15 (vérification V2c), en heures : le centre, plus UN bâtiment de chaque
+--- famille de `keys` monté jusqu'au niveau visé à chaque passage (Q16 ; niveaux 2 à 28), payés avec la part
+--- `share` de la production X0 (débit moyen de chaque époque).
+local function rush_hours(keys, share)
+  local h = 0
+  for e = 1, L.CC_MAX - 1 do
+    local spend = cc_spend(e)
+    for _, key in ipairs(keys) do
+      local f = L.by_key[key]
+      for _, n in ipairs(epoch_levels(f, e)) do spend = spend + L.cost_value(L.cost(f, n)) end
+    end
+    h = h + spend / (share * L.target.production(e) * 3600)
+  end
+  return h
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Mode --calibrate : recalcule la courbe sur le calendrier X0 et imprime les tables à reporter dans
 -- shared/levels/config.lua (déterministe ; la config du jeu garde des NOMBRES écrits, jamais un calcul en
 -- flottants de log ou de puissance au chargement : même résultat sur tous les clients).
---   1. panier du centre : passage 1 → 2 = L.target.cc_share × budget de l'époque 1 ;
+-- Correction V2c (vérification) : le calcul part d'un état de RÉFÉRENCE FIXE (panier V2 du centre, toutes les
+-- valeurs d'époque à 0), jamais de la config en place : sa sortie ne dépend que du calendrier X0, des familles
+-- et de ce panier de référence. Les tests vérifient que la config livrée EST cette sortie (aucune retouche).
+--   1. panier du centre : le passage 1 → 2 comble le budget des niveaux de l'époque 1 que les paniers des
+--      bâtiments laissent ; panier V2 mis à l'échelle et arrondi comme le joueur le paie (L.round_nice) ;
 --   2. cc_value de l'époque e (passage e → e + 1) : cc_share × budget(e) moins le panier, BORNÉ par la place
 --      (CC_SLOT_SHARE du coffre du centre payeur), par MAX_QTY objets d'une sorte, et par la croissance
 --      stricte du coût du centre (un passage ne coûte jamais moins que le précédent : la borne d'une époque
 --      vaut au plus 97 % de celle de l'époque suivante) ;
---   3. basket_mult de l'époque 1 : les paniers des 6 familles portent seuls la durée de l'époque 1 ;
---   4. époques 2 à 15 : value_mult (strictement croissant, au moins + 2 %) comble le reste du budget des
---      niveaux ; si le panier seul le dépasse déjà (époques 2 à 4), basket_mult < 1 l'allège.
+--   3. époques 2 à 15 : value_mult (strictement croissant, au moins + 2 %) comble le reste du budget des
+--      niveaux ; si les bâtiments le dépassent déjà au plus petit value_mult permis, le passage du centre de
+--      l'époque cède la différence.
 ---------------------------------------------------------------------------------------------------
 local CC_SLOT_SHARE, MAX_QTY = 0.45, 2000
+-- Panier de référence du centre (celui du lot V2) : seules ses PROPORTIONS comptent.
+local REF_CC_BASKET = { { "iron-plate", 260 }, { "copper-plate", 130 }, { "stone-brick", 130 }, { "electronic-circuit", 50 } }
 
 local function sig_floor(x, digits)
   if x <= 0 then return 0 end
@@ -156,20 +178,29 @@ local function max_ok(lo, hi, ok)
   return lo
 end
 
+--- Calibre la courbe EN PLACE dans L (à partir de l'état de référence fixe) et renvoie les bornes de place du
+--- centre (cap, eff). L'appelant sauvegarde et restaure la config s'il le faut (calib_state, calib_restore).
 local function calibrate()
   local T = L.target
   local C = L.by_key.command
   local function levels_target(e)
     return T.spend_share * T.production(e) * L.TEAM_FACTOR * T.epoch_hours(e) * 3600
   end
+  -- 0. État de référence : panier V2 du centre, aucune valeur d'époque (époque 1 : 0, jamais calibrée).
+  for i, b in ipairs(REF_CC_BASKET) do C.base_cost[i] = { b[1], b[2] } end
+  for i = #REF_CC_BASKET + 1, #C.base_cost do C.base_cost[i] = nil end
+  for e = 1, L.EPOCHS do
+    L.epochs[e].cc_value = 0
+    if e >= 2 then L.epochs[e].value_mult = 0 end
+  end
+  L.rebuild()
   -- 1. Panier du centre : le passage 1 → 2 comble le budget des niveaux de l'époque 1 que les paniers des
   --    bâtiments (poids 1) laissent. Un panier plus lourd à l'époque 1 renchérirait les niveaux 3 à 8 (règle
-  --    de monotonie, rattrapage) et ferait déborder les époques 2 à 4 de 30 à 70 % (essai du 22/10).
-  for e = 1, L.EPOCHS do L.epochs[e].cc_value = 0; L.epochs[e].basket_mult = nil end
-  L.rebuild()
+  --    de monotonie, rattrapage) et ferait déborder les époques 2 à 4 de 30 à 70 % (essai du 22/10). Arrondi
+  --    de L.round_nice (multiple de 10 au-dessus de 100) : le panier écrit est celui que le joueur paie.
   local want1 = levels_target(1) - buildings_spend(1)
   local s = want1 / L.cost_value(L.cost(C, 2))
-  for _, b in ipairs(C.base_cost) do b[2] = math.max(5, math.floor(b[2] * s / 5 + 0.5) * 5) end
+  for _, b in ipairs(C.base_cost) do b[2] = math.max(5, L.round_nice(b[2] * s)) end
   L.rebuild()
   -- 2. Passage du centre vers n (payé à l'époque n - 1) : borne de place de chaque passage, seul (les autres
   --    à 0, la monotonie ne joue pas), puis bornes rendues strictement croissantes depuis l'époque 15.
@@ -228,6 +259,26 @@ local function calibrate()
     L.epochs[e].value_mult = math.max(vm_min, sig_round(v, 3))
     L.rebuild()
   end
+  return cap, eff
+end
+
+--- État calibré de la config (panier du centre, value_mult, cc_value) : copie, et restauration.
+local function calib_state()
+  local s = { basket = {}, value_mult = {}, cc_value = {} }
+  for i, b in ipairs(L.by_key.command.base_cost) do s.basket[i] = { b[1], b[2] } end
+  for e = 1, L.EPOCHS do s.value_mult[e], s.cc_value[e] = L.epochs[e].value_mult, L.epochs[e].cc_value end
+  return s
+end
+local function calib_restore(s)
+  local C = L.by_key.command
+  for i = 1, math.max(#C.base_cost, #s.basket) do C.base_cost[i] = s.basket[i] and { s.basket[i][1], s.basket[i][2] } or nil end
+  for e = 1, L.EPOCHS do L.epochs[e].value_mult, L.epochs[e].cc_value = s.value_mult[e], s.cc_value[e] end
+  L.rebuild()
+end
+
+local function print_calibration(cap, eff)
+  local T = L.target
+  local C = L.by_key.command
   -- Sortie : lignes à reporter dans la config.
   print("-- panier du centre (base_cost) :")
   local parts = {}
@@ -251,7 +302,7 @@ local function calibrate()
 end
 
 if arg and arg[1] == "--calibrate" then
-  calibrate()
+  print_calibration(calibrate())
   os.exit(0)
 end
 
@@ -398,6 +449,11 @@ local function print_tables()
   p("")
   p(string.format("Chemin « centre seul » (centre 1 → 15) : %s u, soit %s %% de la dépense de la base de référence. Avec la condition Q16 (un bâtiment de chaque famille possédée monté jusqu'au niveau visé, ici les 6 familles jusqu'au niveau 28) : %s u, soit %s %% (V2, sans condition : 0,9 %%).",
     thousands(cc_v), num(100 * cc_v / spent, 2), thousands(cc_v + q16), num(100 * (cc_v + q16) / spent, 2)))
+  local six = { "gun", "laser", "wall", "drill", "furnace", "assembler" }
+  p("")
+  p(string.format("En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : centre 15 atteint en **%s** avec 30 %% de la production X0 et les 6 familles possédées (%s avec 100 %% ; centre seul, aucune famille possédée : %s), pour **%s** au calendrier X0. Le calendrier n'est tenu que si le joueur monte toute la base de référence : rien ne l'y oblige (écart connu, compté par `levels_test`).",
+    duration(rush_hours(six, L.target.spend_share) * 3600), duration(rush_hours(six, 1) * 3600),
+    duration(rush_hours({}, L.target.spend_share) * 3600), duration(L.target.reach_hour(15) * 3600)))
   for _, f in ipairs(L.families) do
     p("")
     p("#### " .. FAMILY_NAMES[f.key] .. " (" .. f.max .. " niveaux)")
@@ -439,6 +495,13 @@ end
 local passes, failures = 0, 0
 local function check(cond, msg)
   if cond then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. msg) end
+end
+-- ÉCART CONNU (correction V2c) : un point du CONTRAT qui n'est pas tenu et attend un arbitrage du Directeur
+-- Créatif. Tenu : compté OK ; non tenu : affiché « ÉCART CONNU » et compté à part (ni OK, ni ECHEC), pour ne
+-- jamais le faire passer pour conforme sans bloquer les bancs.
+local gaps = {}
+local function known_gap(cond, msg)
+  if cond then passes = passes + 1 else gaps[#gaps + 1] = msg; print("  ÉCART CONNU : " .. msg) end
 end
 local function section(name) print("== " .. name) end
 
@@ -777,11 +840,16 @@ check(math.abs(reach15 / X.reach_hour(15) - 1) <= 0.02,
   string.format("époque 15 atteinte à %.2f h (X0 : %.1f h, ± 2 %%)", reach15, X.reach_hour(15)))
 check(math.abs(rows[15].implied_cumul / X.player_gate_hour() - 1) <= 0.02,
   string.format("Porte ouverte à %.2f h (X0 : %.1f h, ± 2 %%)", rows[15].implied_cumul, X.player_gate_hour()))
--- QX10 : le passage du centre pèse une vraie part du budget de l'époque, 10 % visés, dans la limite de la
--- place. Époques 1 à 4 : au moins 5 % (V2 : le centre ne pesait que 0,9 % de toute la dépense). Au-delà, la
--- règle de place le borne (BALANCE_SHEET §12) : on vérifie qu'il en est au plus près (≥ 80 % de la borne).
+-- QX10 (contrat) : le passage du centre pèse environ 10 % du budget de l'époque. Époques 1 à 4 : au moins 5 %
+-- (contrôle). Époques 5 à 14 : la règle de place (moitié du coffre du centre payeur, monnaies d'aujourd'hui)
+-- le borne entre 3,4 et 0,11 % : le contrat n'est PAS tenu. Chaque époque sous 5 % est un ÉCART CONNU (non
+-- conforme ; remèdes chiffrés dans BALANCE_SHEET §12, à trancher par le Directeur Créatif).
 for e = 1, 4 do
   check(rows[e].cc_share >= 0.05, string.format("époque %d : passage du centre = %.1f %% du budget (≥ 5 %%)", e, 100 * rows[e].cc_share))
+end
+for e = 5, L.CC_MAX - 1 do
+  known_gap(rows[e].cc_share >= 0.05, string.format("QX10 : époque %d, passage du centre = %.2f %% du budget (contrat : environ 10 %%, seuil 5 %%)",
+    e, 100 * rows[e].cc_share))
 end
 --- Plus grande valeur du passage du centre vers n qui tient dans 45 % du coffre payeur (au plus 2 000 objets
 --- d'une sorte), les autres passages à 0 ; la config est rendue intacte.
@@ -804,13 +872,55 @@ local bounds, eff_bound = {}, {}
 for n = 3, L.CC_MAX do bounds[n] = cc_place_bound(n) end
 eff_bound[L.CC_MAX] = bounds[L.CC_MAX]
 for n = L.CC_MAX - 1, 3, -1 do eff_bound[n] = math.min(bounds[n], eff_bound[n + 1]) end
+-- Contrôle de CALIBRAGE (pas du contrat QX10) : le passage du centre est au plus près de ce que la place permet.
 for e = 4, L.CC_MAX - 1 do
   local n = e + 1
   local v = rows[e].cc_value
   local want = L.target.cc_share * L.target.budget(e)
   check(v >= 0.8 * math.min(want, eff_bound[n]),
-    string.format("époque %d : passage du centre %.0f u (%.2f %% du budget), au plus près de min(10 %% = %.0f, borne de place %.0f)",
+    string.format("calibrage, époque %d : passage du centre %.0f u (%.2f %% du budget), au plus près de min(10 %% = %.0f, borne de place %.0f)",
       e, v, 100 * rows[e].cc_share, want, eff_bound[n]))
+end
+-- Chemin le plus court vers le centre 15 (vérification V2c) : le centre, plus UN bâtiment de chaque famille
+-- possédée monté jusqu'au niveau visé à chaque passage (Q16 ; niveaux 2 à 28), payés avec une part de la
+-- production X0 (débit moyen de chaque époque). Le calendrier (époque 15 à 52,5 h) ne vaut que si le joueur
+-- monte TOUTE la base de référence : rien ne l'y oblige. ÉCART CONNU tant que ce chemin prend moins de la
+-- moitié du calendrier.
+local SIX = { "gun", "laser", "wall", "drill", "furnace", "assembler" }
+local rush30, rush100 = rush_hours(SIX, L.target.spend_share), rush_hours(SIX, 1)
+local rush_cc = rush_hours({}, L.target.spend_share)
+print(string.format("  Chemin le plus court vers le centre 15 : %.2f h avec 30 %% de la production X0 (%.2f h avec 100 %%) ; centre seul (aucune famille possédée) : %.2f h ; calendrier X0 : %.1f h",
+  rush30, rush100, rush_cc, L.target.reach_hour(15)))
+check(rush30 > 0 and rush100 < rush30 and rush_cc < rush30, "chemin le plus court : chiffré (6 familles > centre seul ; 100 % de la production < 30 %)")
+known_gap(rush30 >= 0.5 * L.target.reach_hour(15),
+  string.format("QX7 : centre 15 atteignable en %.2f h (6 familles possédées, 30 %% de la production X0 ; %.2f h à 100 %%) pour %.1f h au calendrier : la durée de 52 h ne vaut que pour la base de référence complète",
+    rush30, rush100, L.target.reach_hour(15)))
+-- Correction V2c (vérification) : la config livrée EST la sortie de `--calibrate`, qui part d'un état de
+-- référence fixe (panier V2 du centre) : la procédure documentée est reproductible, sans retouche à la main.
+do
+  local shipped = calib_state()
+  calibrate()
+  local got = calib_state()
+  calib_restore(shipped)
+  local function near(a, b) return math.abs(a - b) <= 1e-9 * math.max(1, math.abs(a)) end
+  local diffs = {}
+  for i = 1, math.max(#shipped.basket, #got.basket) do
+    local a, b = shipped.basket[i], got.basket[i]
+    if not (a and b and a[1] == b[1] and a[2] == b[2]) then
+      diffs[#diffs + 1] = "panier " .. i .. " : " .. (a and (a[1] .. " " .. a[2]) or "—") .. " / " .. (b and (b[1] .. " " .. b[2]) or "—")
+    end
+  end
+  for e = 1, L.EPOCHS do
+    if not near(shipped.value_mult[e], got.value_mult[e]) then diffs[#diffs + 1] = "value_mult " .. e .. " : " .. shipped.value_mult[e] .. " / " .. got.value_mult[e] end
+    if not near(shipped.cc_value[e], got.cc_value[e]) then diffs[#diffs + 1] = "cc_value " .. e .. " : " .. shipped.cc_value[e] .. " / " .. got.cc_value[e] end
+  end
+  check(#diffs == 0, "`--calibrate` (état de référence fixe) redonne exactement la config livrée" .. (#diffs > 0 and (" : " .. table.concat(diffs, " ; ")) or ""))
+  local after = model()
+  check(math.abs(after[L.EPOCHS].implied_cumul - rows[L.EPOCHS].implied_cumul) < 1e-9, "config rendue intacte après le calibrage du test")
+  -- Le panier écrit est celui que le joueur paie au passage 1 → 2 (arrondi de L.round_nice).
+  local paid, same = L.cost(L.by_key.command, 2), true
+  for i, b in ipairs(L.by_key.command.base_cost) do if not (paid[i] and paid[i][1] == b[1] and paid[i][2] == b[2]) then same = false end end
+  check(same, "panier du centre écrit = panier payé au passage 1 → 2 (" .. cost_text(paid) .. ")")
 end
 -- Paramètre de l'équipe de PNJ (lot IA1) : coûts × facteur et production × facteur, durées presque inchangées.
 -- Aux époques 2 à 4, les planchers (au moins 1 objet de la monnaie, niveau jamais moins cher que le précédent)
@@ -1151,6 +1261,37 @@ local DECLARE_CASES = {
 
 for _, gc in ipairs(GUARD_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
 for _, gc in ipairs(DECLARE_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
+
+-- Correction V2c (sonde probe_x de la vérification) : un dress qui modifiait le scénario X0, lu par la config,
+-- était ACCEPTÉ, et automation passait de 1 à 30 unités (X.VANILLA_UNIT_SCALE lu à l'appel en data-final-fixes).
+-- Désormais (1) la config recopie au chargement tout ce qu'elle lit dans X : une modification de X n'a AUCUN
+-- effet sur elle ; (2) la garde compare X à la fermeture de la famille et refuse, motif vérifié.
+do
+  local X0 = require("shared.content.epochs")
+  local X_REC = record({ X0 })
+  local function restore_x()
+    for _, e in ipairs(X_REC) do
+      for k in pairs(e.t) do if e.kv[k] == nil then e.t[k] = nil end end
+      for k, v in pairs(e.kv) do e.t[k] = v end
+    end
+  end
+  local AUTOMATION = { name = "automation", effects = { { type = "unlock-recipe", recipe = "assembling-machine-1" },
+    { type = "unlock-recipe", recipe = "long-handed-inserter" } }, unit = { ingredients = { { "automation-science-pack", 1 } } } }
+  local before_units = L.vanilla_unit_count(AUTOMATION, 10)
+  run_case(G, fake_gun, function() require("shared.content.epochs").VANILLA_UNIT_SCALE[3] = 3 end,
+    { "gun.lua (niveau 5", "a modifié le scénario X0 X.VANILLA_UNIT_SCALE[3]", "valeur modifiée", RO },
+    "scénario X0 par require (X.VANILLA_UNIT_SCALE[3] = 3 : sonde probe_x, V2c)")
+  check(X0.VANILLA_UNIT_SCALE[3] == 3 and before_units == 1 and L.vanilla_unit_count(AUTOMATION, 10) == 1
+    and L.VANILLA_UNIT_SCALE[3] == 0.07,
+    "X modifié : la config n'en dépend plus (automation reste à 1 unité, L.VANILLA_UNIT_SCALE[3] = 0,07)")
+  restore_x()
+  run_case(G, fake_gun, function() require("shared.content.epochs").epoch_hours = function() return 99 end end,
+    { "a modifié le scénario X0 X.epoch_hours", RO }, "scénario X0 : fonction du calendrier remplacée (V2c)")
+  check(L.target.epoch_hours(15) == 7 and L.target.budget(15) == L.target.budget_mu[15],
+    "X.epoch_hours remplacée : le calendrier de la config reste celui recopié au chargement (époque 15 : 7 h)")
+  restore_x()
+  check(X0.VANILLA_UNIT_SCALE[3] == 0.07 and X0.epoch_hours(15) == 7, "scénario X0 restauré après les cas de garde")
+end
 
 -- Sonde EXHAUSTIVE de la config : pour CHAQUE clé de L (triées), un dress modifie sa première feuille
 -- (nombre + 1, chaîne + "x", booléen inversé, fonction remplacée ; table vide : clé ajoutée). Tous refusés,
@@ -1498,6 +1639,62 @@ local done = Levels.start_row(walls[3], nil)
 check(done == 6, "rangée de 6 murs améliorée d'un coup (" .. tostring(done) .. ")")
 check(s.find_entity("fo-lvl-wall-2", { x = 30, y = 5 }) ~= nil and s.find_entity("stone-wall", { x = 35, y = 5 }) == nil, "murs niveau 2 posés")
 
+-- Rangée MIXTE (vérification V2c, mutant M19) : des murs d'une autre force collés à la rangée ne sont pas
+-- améliorés, même quand cette force a un centre approvisionné (sinon le joueur ferait dépenser une autre force).
+do
+  game.create_force("fo-row-rival")
+  local rcc = s.create_entity({ name = "fo-command-center", position = { x = 60.5, y = 40.5 }, force = "fo-row-rival" })
+  built(rcc)
+  local rinv_row = rcc.get_inventory(defines.inventory.chest)
+  stock(rinv_row, L.by_key.wall, 2, 4)
+  local rival_bricks = rinv_row.get_item_count("stone-brick")
+  local mixed = {}
+  for i = 0, 3 do
+    mixed[#mixed + 1] = s.create_entity({ name = "stone-wall", position = { x = 30 + i, y = 7 }, force = i < 2 and "player" or "fo-row-rival" })
+  end
+  stock(cinv, L.by_key.wall, 2, 4)
+  local bricks_before = cinv.get_item_count("stone-brick")
+  local done_m = Levels.start_row(mixed[1], nil)
+  check(done_m == 2 and s.find_entity("fo-lvl-wall-2", { x = 31, y = 7 }) ~= nil and s.find_entity("stone-wall", { x = 32, y = 7 }) ~= nil
+    and s.find_entity("stone-wall", { x = 33, y = 7 }) ~= nil,
+    "rangée mixte : seuls les 2 murs de la force du mur visé sont améliorés (" .. tostring(done_m) .. ")")
+  check(bricks_before - cinv.get_item_count("stone-brick") == 2 * L.cost(L.by_key.wall, 2)[1][2]
+    and rinv_row.get_item_count("stone-brick") == rival_bricks,
+    "rangée mixte : le centre paie 2 murs ; le centre approvisionné de l'autre force n'est pas touché")
+end
+
+-- Paiement : centre de commandement D'ABORD, puis inventaire du joueur (vérification V2c, mutant M10). Le centre
+-- tient la moitié du coût, le joueur le reste et 5 de plus de chaque objet.
+do
+  local pg = s.create_entity({ name = "gun-turret", position = { x = 40, y = 14 }, force = "player" })
+  local pinv = Wd.player.get_main_inventory()
+  local cost = L.cost(G, 2)
+  for _, c in ipairs(cost) do
+    local have = cinv.get_item_count(c[1])
+    if have > 0 then cinv.remove({ name = c[1], count = have }) end
+    local p_have = pinv.get_item_count(c[1])
+    if p_have > 0 then pinv.remove({ name = c[1], count = p_have }) end
+    cinv.insert({ name = c[1], count = math.floor(c[2] / 2) })
+  end
+  -- Refus « no-resources » (le joueur n'a rien) : personne n'est débité.
+  local ok_m, why_m = Levels.start(pg, Wd.player)
+  local untouched = true
+  for _, c in ipairs(cost) do
+    if cinv.get_item_count(c[1]) ~= math.floor(c[2] / 2) or pinv.get_item_count(c[1]) ~= 0 then untouched = false end
+  end
+  check(not ok_m and why_m == "no-resources" and untouched and pg.valid, "paiement mixte : refus « no-resources » sans débiter ni le centre ni le joueur")
+  for _, c in ipairs(cost) do pinv.insert({ name = c[1], count = c[2] - math.floor(c[2] / 2) + 5 }) end
+  ok_m, why_m = Levels.start(pg, Wd.player)
+  local centre_empty, player_rest = true, true
+  for _, c in ipairs(cost) do
+    if cinv.get_item_count(c[1]) ~= 0 then centre_empty = false end
+    if pinv.get_item_count(c[1]) ~= 5 then player_rest = false end
+  end
+  check(ok_m and why_m == "done" and s.find_entity(L.name(G, 2), { x = 40, y = 14 }) ~= nil,
+    "paiement mixte : amélioration faite (centre + joueur) (" .. tostring(why_m) .. ")")
+  check(centre_empty and player_rest, "paiement mixte : le centre est vidé D'ABORD, le joueur ne paie que le complément (il garde 5 de chaque)")
+end
+
 ---------------------------------------------------------------------------------------------------
 section("Hautes époques : plafond, niveau 30, centre 15, condition du centre")
 ---------------------------------------------------------------------------------------------------
@@ -1601,18 +1798,58 @@ local rr = remote.call("factorio-overhaul", "levels_upgrade", cq)
 check(type(rr) == "table" and rr.ok == false and rr.reason == "cc-families",
   "interface distante : levels_upgrade sur le centre renvoie le motif « cc-families » (" .. tostring(rr and rr.reason) .. ")")
 check(qinv.get_item_count("iron-plate") == qiron and Levels.cc_level(fq) == 3, "interface distante : refus sans paiement")
--- Une famille qui n'est plus possédée ne bloque plus : la tourelle laser démontée.
+-- Une famille qui n'est plus possédée ne bloque plus : la tourelle laser démontée (destroy sans événement :
+-- aperçu en recensement COMPLET, celui des décisions).
 qlaser.destroy()
-info = Levels.preview(cq, nil)
+info = Levels.preview(cq, nil, true)
 check(info and #info.blocking == 1 and info.blocking[1] == "drill", "laser retiré : seule la foreuse bloque encore")
 -- Les bâtiments d'une AUTRE force ne comptent pas.
 s.create_entity({ name = L.name(L.by_key.drill, 6), position = { x = 126, y = 300 }, force = "player" })
-info = Levels.preview(cq, nil)
+info = Levels.preview(cq, nil, true)
 check(info and #info.blocking == 1 and info.blocking[1] == "drill", "une foreuse 6 d'une autre force ne lève pas la condition")
 put("drill", 6, 130)
 rr = remote.call("factorio-overhaul", "levels_upgrade", cq)
 check(type(rr) == "table" and rr.ok == true and rr.reason == "done" and Levels.cc_level(fq) == 4,
   "foreuse 6 posée : interface distante, centre 3 → 4 fait aussitôt (" .. tostring(rr and rr.reason) .. ")")
+
+-- Recensement EN CACHE (vérification V2c : 12 balayages de surface toutes les 30 ticks par panneau ouvert).
+-- Centre 4 (niveau visé 8) : mitrailleuse, mur, foreuse et machine au niveau 6 bloquent.
+local stv = global.fo.levels.stats
+local c4q = Levels.cc(fq)
+local scans0, calls0 = stv.census_scans, Wd.count_calls or 0
+info = Levels.preview(c4q, nil)
+local scans1, calls1 = stv.census_scans, Wd.count_calls or 0
+for _ = 1, 10 do info = Levels.preview(c4q, nil) end
+check(scans1 == scans0 + 1 and stv.census_scans == scans1 and (Wd.count_calls or 0) == calls1 and calls1 > calls0,
+  string.format("cache : 1 recensement au premier aperçu du centre 4, puis 10 aperçus sans balayer (%d recensement(s), %d appel(s) moteur)",
+    stv.census_scans - scans0, (Wd.count_calls or 0) - calls0))
+check(info and #info.blocking == 4 and info.blocking[1] == "gun" and info.blocking[4] == "assembler",
+  "cache : aperçu du centre 4, 4 familles bloquent (niveau visé 8)")
+-- Une construction met le cache à jour EXACTEMENT, sans balayer : mitrailleuse 8 construite.
+local qg8 = put("gun", 8, 140)
+built(qg8)
+info = Levels.preview(c4q, nil)
+check(stv.census_scans == scans1 and info and #info.blocking == 3 and info.blocking[1] == "wall",
+  "cache : mitrailleuse 8 construite (on_built) : la mitrailleuse ne bloque plus, aucun balayage")
+-- Un retrait l'invalide : la mitrailleuse 8 minée, le prochain aperçu recense de nouveau.
+ev[defines.events.on_player_mined_entity]({ entity = qg8, player_index = 1, tick = game.tick })
+qg8.destroy()
+info = Levels.preview(c4q, nil)
+check(stv.census_scans == scans1 + 1 and info and #info.blocking == 4, "cache : un bâtiment à niveaux miné invalide le cache (nouveau recensement, 4 familles bloquent)")
+-- Filet : le cache expire après Levels.CENSUS_TTL ticks.
+local t_saved = game.tick
+game.tick = game.tick + Levels.CENSUS_TTL - 1
+Levels.preview(c4q, nil)
+local before_ttl = stv.census_scans
+game.tick = t_saved + Levels.CENSUS_TTL
+Levels.preview(c4q, nil)
+check(before_ttl == scans1 + 1 and stv.census_scans == scans1 + 2, "cache : valable " .. Levels.CENSUS_TTL .. " ticks, puis recensé de nouveau")
+game.tick = t_saved
+-- Une DÉCISION ne lit jamais le cache : chaque Levels.start sur le centre recense.
+local scans_d = stv.census_scans
+Levels.start(c4q, nil)
+Levels.start(c4q, nil)
+check(stv.census_scans == scans_d + 2, "cache : chaque décision (Levels.start) refait le recensement complet")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1681,6 +1918,14 @@ check(okc and txt:find("{fo-epochs.cc-rule:4}", 1, true) ~= nil and txt:find("fo
   and txt:find("[entity=stone-wall]", 1, true) ~= nil and txt:find("[entity=gun-turret]", 1, true) == nil
   and txt:find("{fo-epochs.reason-cc-families:4,", 1, true) ~= nil,
   "panneau du centre 2 : condition (niveau 4) et famille qui bloque nommée (murs ; mitrailleuse et foreuse en règle)")
+-- Vérification V2c : le panneau du centre reste ouvert 300 ticks (10 rafraîchissements) sans aucun recensement
+-- (cache par force ; avant : 12 balayages de surface à chaque rafraîchissement).
+do
+  local scans_p = global.fo.levels.stats.census_scans
+  local okr, errr = pcall(M.run_ticks, 300)
+  check(okr and global.fo.levels.stats.census_scans == scans_p and global.fo.levels_ui.target[1] == Levels.cc(force),
+    "panneau du centre ouvert 300 ticks : aucun recensement (" .. (global.fo.levels.stats.census_scans - scans_p) .. ", " .. tostring(errr) .. ")")
+end
 local f3, c3 = new_force_with_cc("fo-test-3", 3, 160.5)
 local home = player.force
 rawset(player, "force", f3)
@@ -1754,6 +1999,16 @@ local ghost = s.create_entity({ name = L.name(L.by_key.drill, 5), position = { x
 local gjob = job_040(ghost, "drill", 6, 600)
 lv.jobs[gjob.unit] = gjob
 ghost.destroy()
+-- Chantiers à CIBLE invalide (vérification V2c, mutant M18) : niveau déjà atteint (to = niveau actuel) et
+-- niveau au-delà du maximum. Le bâtiment est remis en service, le chantier compté perdu.
+local same_lv = s.create_entity({ name = L.name(L.by_key.furnace, 24), position = { x = 90, y = 280 }, force = "fo-test-13" })
+local sjob = job_040(same_lv, "furnace", 25, 6000)
+sjob.to = 24
+lv.jobs[sjob.unit] = sjob
+local over_lv = s.create_entity({ name = L.name(L.by_key.furnace, 30), position = { x = 100, y = 280 }, force = "fo-test-13" })
+local ojob = job_040(over_lv, "furnace", 30, 6000)
+ojob.to = 31
+lv.jobs[ojob.unit] = ojob
 lv.busy = { ["fo-test-13"] = 5, ["fo-test-4"] = 1 }
 lv.time_factor = 0.05
 local up0, lost0 = lv.stats.upgrades, lv.stats.lost or 0
@@ -1782,8 +2037,15 @@ check(up == 5 and active_all, "chantiers 0.4.0 ACHEVÉS au chargement : 5 fours 
 check(ore_ok, "chantiers 0.4.0 achevés : contenu des fours conservé (remplacement rapide)")
 check(Levels.cc_level(game.forces["fo-test-4"]) == 5, "chantier 0.4.0 d'un centre achevé (payé avant Q16 : condition non exigée)")
 check(next(lv.jobs) == nil and next(lv.busy) == nil and lv.time_factor == nil, "plus aucun chantier, ouvrier ni réglage de durée enregistré")
-check(lv.stats.upgrades == up0 + 6 and lv.stats.lost == lost0 + 1,
-  string.format("statistiques : +6 achevés, +1 perdu (bâtiment disparu) (%d, %d)", lv.stats.upgrades - up0, lv.stats.lost - lost0))
+check(lv.stats.upgrades == up0 + 6 and lv.stats.lost == lost0 + 3,
+  string.format("statistiques : +6 achevés, +3 perdus (bâtiment disparu, cible déjà atteinte, cible au-delà de 30) (%d, %d)",
+    lv.stats.upgrades - up0, lv.stats.lost - lost0))
+local same_after = s.find_entity(L.name(L.by_key.furnace, 24), { x = 90, y = 280 })
+local over_after = s.find_entity(L.name(L.by_key.furnace, 30), { x = 100, y = 280 })
+check(same_after == same_lv and same_lv.valid and same_lv.active ~= false,
+  "chantier 0.4.0 à cible déjà atteinte : bâtiment inchangé (four 24) et REMIS EN SERVICE")
+check(over_after == over_lv and over_lv.valid and over_lv.active ~= false,
+  "chantier 0.4.0 à cible au-delà du maximum : bâtiment inchangé (four 30) et REMIS EN SERVICE")
 local drawn = 0
 for _, id in ipairs(renders) do if rendering.is_valid(id) then drawn = drawn + 1 end end
 check(drawn == 0, "barres de progression 0.4.0 effacées")
@@ -1809,8 +2071,9 @@ end
 section("Recherche vanilla allégée (QX9) : data-final-fixes.lua sur les technologies de base")
 ---------------------------------------------------------------------------------------------------
 -- Les technologies vanilla de 1.1.91 relues dans data/base/prototypes/technology.lua (comme
--- tests/epochs_test.lua), puis data-final-fixes.lua exécuté sur un data.raw qui les contient.
-do
+-- tests/epochs_test.lua), puis data-final-fixes.lua exécuté sur un data.raw qui les contient. Fonction anonyme :
+-- portée de variables locales propre (limite de 200 locales du bloc principal).
+;(function()
 local vanilla
 for _, p in ipairs({ "../../data/base/prototypes/technology.lua", "../../../../../data/base/prototypes/technology.lua" }) do
   if not vanilla then
@@ -1825,6 +2088,19 @@ for _, p in ipairs({ "../../data/base/prototypes/technology.lua", "../../../../.
     end
   end
 end
+-- Correction V2c (vérification) : base/data-updates.lua rattache les barils de CHAQUE fluide à fluid-handling,
+-- dont le baril de méthane du mod (époque 8 dans X0). Ils ne rangent pas la technologie.
+local FH = { name = "fluid-handling", effects = { { type = "unlock-recipe", recipe = "storage-tank" },
+  { type = "unlock-recipe", recipe = "empty-barrel" }, { type = "unlock-recipe", recipe = "pump" },
+  { type = "unlock-recipe", recipe = "fill-fo-methane-barrel" }, { type = "unlock-recipe", recipe = "empty-fo-methane-barrel" },
+  { type = "unlock-recipe", recipe = "fill-water-barrel" } },
+  unit = { ingredients = { { "automation-science-pack", 1 }, { "logistic-science-pack", 1 } } } }
+local fh_units, fh_epoch = L.vanilla_unit_count(FH, 50)
+check(fh_units == 2 and fh_epoch == 4, "QX9 : fluid-handling avec les barils générés (méthane du mod compris) : époque 4, 50 → 2 unités ("
+  .. tostring(fh_epoch) .. ", " .. tostring(fh_units) .. ")")
+check(L.generated_barrel("fill-fo-methane-barrel") and L.generated_barrel("empty-crude-oil-barrel")
+  and not L.generated_barrel("empty-barrel") and not L.generated_barrel("fo-methane-cracking"),
+  "QX9 : barils générés reconnus (fill-/empty-<fluide>-barrel), pas le baril vide ni les autres recettes")
 check(vanilla ~= nil and #vanilla > 150, "technologies vanilla relues (" .. tostring(vanilla and #vanilla) .. ")")
 if vanilla then
   local before, raw_tech = {}, {}
@@ -1874,9 +2150,71 @@ if vanilla then
   for e = 1, L.EPOCHS do if by_epoch[e] then parts[#parts + 1] = "ép. " .. e .. " : " .. by_epoch[e] end end
   print("  Technologies vanilla allégées : " .. lighter .. " (" .. table.concat(parts, ", ") .. ")")
   check(lighter >= 50 and not by_epoch[5] and not by_epoch[7], "QX9 : les époques 1 à 4, 6 et 10 sont allégées, pas les époques à × 1 (" .. lighter .. ")")
+  check(lighter == 170 and by_epoch[4] == 47, "QX9 : 170 technologies allégées, dont 47 à l'époque 4 (technology.lua)")
   check(raw_tech["fo-test-tech"].unit.count == 500, "QX9 : une technologie du mod (fo-) ne change pas")
-end
+
+
+  -- Part du budget X0 que prend la recherche vanilla allégée payée avec les packs VANILLA (vérification V2c,
+  -- non mesurée jusque-là) : X0 a calibré les échelles avec SES fenêtres de packs (X.pack_window), plus chères
+  -- que les packs de la technologie aux époques 2 à 4. Valeurs des packs en MU : modèle « chemin le moins
+  -- cher » du lot X0, relevées dans la sortie de tests/epochs_test.lua (« MU des packs par époque », 22/10).
+  local PACK_MU = { ["automation-science-pack"] = 2.5, ["logistic-science-pack"] = 6.2, ["military-science-pack"] = 22.8,
+    ["chemical-science-pack"] = 19.9, ["production-science-pack"] = 69.7, ["utility-science-pack"] = 32.0,
+    ["space-science-pack"] = 105.5 }
+  local spent, unknown_pack = {}, {}
+  for _, t in ipairs(vanilla) do
+    if before[t.name] and not t.max_level then
+      local e = L.vanilla_tech_epoch(t)
+      local per_unit = 0
+      for _, ing in ipairs(t.unit.ingredients or {}) do
+        local name, amount = ing.name or ing[1], ing.amount or ing[2] or 1
+        if PACK_MU[name] then per_unit = per_unit + amount * PACK_MU[name] else unknown_pack[#unknown_pack + 1] = name end
+      end
+      spent[e] = (spent[e] or 0) + t.unit.count * per_unit
+    end
+  end
+  check(#unknown_pack == 0, "part de la recherche vanilla : chaque pack valorisé (" .. table.concat(unknown_pack, ", ") .. ")")
+  local share_txt = {}
+  for e = 1, L.EPOCHS do
+    if spent[e] then share_txt[#share_txt + 1] = string.format("ép. %d : %.2f %%", e, 100 * spent[e] / L.target.budget(e)) end
+  end
+  print("  Recherche vanilla allégée payée en packs vanilla, part du budget X0 de l'époque (X0 vise 17,5 % avec ses fenêtres de packs) : "
+    .. table.concat(share_txt, ", "))
+  -- Mesure (22/10) : 13 à 16 % du budget aux époques 2 à 4, pas « presque gratuite » ; plus bas qu'X0 (17,5 %)
+  -- parce que ses fenêtres comptent des packs plus chers (militaire à l'époque 4).
+  for _, e in ipairs({ 1, 2, 3, 4 }) do
+    local sh = (spent[e] or 0) / L.target.budget(e)
+    check(sh >= 0.05 and sh <= 0.25, string.format("QX9 : époque %d, recherche vanilla allégée payée en packs vanilla = %.2f %% du budget X0 (entre 5 et 25 %% ; X0 : 17,5 %%)",
+      e, 100 * sh))
+  end
 end
 
+-- Étape data RÉELLE (vérification V2c : levels_test ne voyait que technology.lua brut, et fluid-handling restait
+-- à 50 unités en jeu) : le banc de l'étape data (tests/datastage/harness.lua) rejoue core, base, le mod,
+-- data-updates (barils générés) et data-final-fixes. Attendus : fluid-handling à 2 unités, et la ligne
+-- [FO-LEVELS] du journal (celle que le moteur réel écrit aussi) à 170 technologies.
+local data_dir
+for _, d in ipairs({ "../../data", "../../../../../data" }) do
+  local fh = io.open(d .. "/base/prototypes/technology.lua", "rb")
+  if fh and not data_dir then fh:close(); data_dir = d elseif fh then fh:close() end
+end
+check(data_dir ~= nil, "données du jeu trouvées pour le banc de l'étape data (" .. tostring(data_dir) .. ")")
+if data_dir then
+  local lua = (arg and arg[-1]) or "lua5.2"
+  local cmd = lua .. " tests/datastage/harness.lua " .. data_dir .. " . --verbose --dump-final technology/fluid-handling 2>&1"
+  local ph = io.popen(cmd, "r")
+  local out = ph and ph:read("*a") or ""
+  local closed_ok = ph and ph:close()
+  local unit_block = out:match("unit = {(.-)}")
+  local fh_count = unit_block and tonumber(unit_block:match("count = (%d+)"))
+  local logged = tonumber(out:match("%[FO%-LEVELS%] recherche vanilla allégée %(QX9%) : (%d+) technologie"))
+  check(closed_ok and out:find('name = "fluid-handling"', 1, true) ~= nil,
+    "étape data réelle rejouée sans erreur (garde de dress comprise, scénario X0 comparé à chaque famille)")
+  check(fh_count == 2, "étape data réelle : fluid-handling à 2 unités après les barils générés (" .. tostring(fh_count) .. ")")
+  check(logged == 170, "étape data réelle : [FO-LEVELS] recherche vanilla allégée (QX9) : 170 technologie(s) (" .. tostring(logged) .. ")")
+end
+end)()
+
+print(string.format("Écarts connus au contrat (non conformes, à trancher par le Directeur Créatif) : %d", #gaps))
 print(string.format("Résultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
