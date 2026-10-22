@@ -11,56 +11,56 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-four-glow.png",
-          height = 32,
-          shift = { -0.59375, -2.1875 },
+          height = 34,
+          shift = { -0.5625, -2.171875 },
           width = 32
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-four-glow.png",
-          height = 16,
-          shift = { -0.59375, -2.1875 },
+          height = 17,
+          shift = { -0.5625, -2.171875 },
           width = 16
         }
       },
       light = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-four-light.png",
-          height = 266,
-          shift = { -0.484375, -1.015625 },
-          width = 242
+          height = 120,
+          shift = { -0.59375, -0.625 },
+          width = 128
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-four-light.png",
-          height = 133,
-          shift = { -0.484375, -1.015625 },
-          width = 121
+          height = 60,
+          shift = { -0.59375, -0.625 },
+          width = 64
         }
       },
       main = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-four-main.png",
-          height = 144,
-          shift = { -0.6875, -1.40625 },
-          width = 60
+          height = 138,
+          shift = { -0.5625, -1.453125 },
+          width = 52
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-four-main.png",
-          height = 72,
-          shift = { -0.6875, -1.40625 },
-          width = 30
+          height = 69,
+          shift = { -0.5625, -1.453125 },
+          width = 26
         }
       },
       shadow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-four-shadow.png",
           height = 36,
-          shift = { 0.46875, -0.625 },
+          shift = { 0.5, -0.625 },
           width = 176
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-four-shadow.png",
           height = 18,
-          shift = { 0.46875, -0.625 },
+          shift = { 0.5, -0.625 },
           width = 88
         }
       }
@@ -69,29 +69,29 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-seule-glow.png",
-          height = 32,
-          shift = { 0, -1.5625 },
+          height = 34,
+          shift = { 0, -1.546875 },
           width = 32
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-seule-glow.png",
-          height = 16,
-          shift = { 0, -1.5625 },
+          height = 17,
+          shift = { 0, -1.546875 },
           width = 16
         }
       },
       light = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-seule-light.png",
-          height = 266,
-          shift = { 0.109375, -0.390625 },
-          width = 242
+          height = 126,
+          shift = { 0, 0.046875 },
+          width = 132
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-seule-light.png",
-          height = 133,
-          shift = { 0.109375, -0.390625 },
-          width = 121
+          height = 63,
+          shift = { 0, 0.046875 },
+          width = 66
         }
       },
       main = {

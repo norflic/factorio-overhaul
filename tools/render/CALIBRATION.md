@@ -188,12 +188,11 @@ Couleurs mesurées :
   - lumière au sol `hr-steel-furnace-ground-light.png` : prémultiplié max (0,79 ; 0,39 ; 0,04) ;
   - orchestrateur : lumières des fours orange de (99,49,3) à (241,144,2), en PNG couleur sans teinte.
 
-Halo : éclairage direct seul de six sources ponctuelles devant la grille d'évents. Il est borné par deux
-fenêtres circulaires :
-- flaque au sol : pleine jusqu'à 1,1 tuile du pied, nulle à 2,1 tuiles ;
-- cœur : autour des évents.
-
-Une flaque compacte, comme `hr-steel-furnace-ground-light.png` (152 × 126 px).
+Halo (V0, **remplacé au lot V0b**, voir §5 ter) : éclairage direct seul de six sources ponctuelles devant la
+grille d'évents, borné par deux fenêtres circulaires (flaque au sol pleine jusqu'à 1,1 tuile du pied, nulle à
+2,1 ; cœur autour des évents). Mesuré en moteur (rapport V0) : 6,3 tuiles² au lieu de 0,9 à 1,8, cœur
+blanc sur le fût, trou à la forme du pied caché sur le four équipé (F64). V0b : flaque au sol seulement,
+pièce découpée, valeurs linéaires.
 
 ## 5. Photométrie de la couche principale (pixels opaques, sRGB)
 
@@ -222,6 +221,153 @@ verticale, sans dessus plats éclairés par le soleil et l'appoint. Les cerclage
 monter la saturation de 0,197 à 0,338, mais pas le p95. Pistes :
 - plus de pièces horizontales claires (passerelle et lèvre en tôle claire) ;
 - reflets d'arête plus vifs.
+
+### 5 bis. Lot V0b : photométrie du CORPS (hors zones émissives), 21/10/2026
+
+La mesure du tableau ci-dessus porte sur toute la couche, braises comprises (vérification V0, rapport 3 :
+« fausse conformité »). `fo_checks.photometry` mesure désormais le CORPS seul (alpha ≥ 0,99, hors lueur
+dilatée de 2 px). Même méthode, cheminée seule :
+
+| Rendu | L moy | écart-type | p05 | p50 | p95 | part > 0,5 | grain | gradient | réglage |
+|---|---|---|---|---|---|---|---|---|---|
+| V0 (fichier livré) | 0,271 | 0,131 | 0,114 | 0,238 | 0,511 | 5,3 % | 0,054 | 0,056 | — |
+| V0b, filtre 1,0 px (balayage 1) | 0,318 | 0,150 | 0,128 | 0,300 | 0,514 | 6,0 % | **0,089** | 0,080 | rejeté : grain hors plage |
+| V0b, filtre 1,5 px (même balayage) | 0,321 | 0,143 | 0,134 | 0,302 | 0,519 | 5,9 % | 0,072 | 0,074 | gardé |
+| métal 0,25 (moins de reflets, plus de Lambert) | 0,307 | 0,144 | 0,141 | 0,268 | 0,503 | 5,1 % | 0,071 | 0,072 | sans effet |
+| sol des reflets 0,8, ciel des reflets 0 | 0,361 | 0,164 | 0,132 | 0,344 | 0,607 | 20,6 % | 0,077 | 0,087 | — |
+| sol des reflets 1,0, ciel 0 | 0,387 | 0,176 | 0,137 | 0,371 | 0,663 | 23,8 % | 0,079 | 0,093 | trop clair |
+| **V0b livré** (256 échantillons, sol 0,8, ciel 0, tôle (0,20 ; 0,17 ; 0,13) métal 0,85 rugosité 0,22) | **0,363** | **0,166** | **0,139** | **0,339** | **0,624** | **21,3 %** | **0,076** | **0,088** | — |
+| plages vanilla (§5) | 0,178–0,361 | 0,177–0,243 | 0–0,105 | 0,092–0,293 | 0,657–0,847 | — | 0,036–0,082 | — | — |
+
+Balayages : 21 configurations à 96 échantillons (scripts hors dépôt, scratchpad du lot), rendus par le verrou.
+
+**Bilan honnête : la photométrie du corps n'est PAS dans les plages vanilla.** Écart-type +27 % et p95 +22 %
+par rapport à V0 (gradient +57 %), mais l'écart-type (0,166) et le p95 (0,624) restent sous le minimum
+vanilla, le p05 (0,139) au-dessus du maximum, la moyenne (0,363) et la médiane (0,339) au-dessus. Causes
+mesurées :
+- un fût vertical vu à 45° n'a ni dessus plat éclairé ni creux profond : aucun réglage de matériau n'a fait
+  descendre le p05 sous 0,105 (21 essais) ; les sombres vanilla viennent des intérieurs de bâtiments ;
+- avec l'éclairage étalonné, un cylindre vertical ne reçoit aucun reflet spéculaire du soleil ni de
+  l'appoint (demi-vecteur à 56° de toute normale horizontale) : seuls les reflets du SOL peuvent créer la
+  bande claire vanilla, d'où le sol des reflets (`GROUND_GLOSSY_ALBEDO`) ; il éclaircit aussi les tons moyens ;
+- le filtre de 1,0 px (constat du rapport) ajoute surtout du bruit : grain 0,089, hors plage. Gardé à 1,5.
+La pièce est donc plus claire et plus métallique que V0 (aspect acier clair). **Le style a été validé sur
+V0 : le Directeur Créatif doit revoir ce changement de ton** (captures du lot V0b).
+
+**Rejeté par la vérification des captures V0b, puis remplacé par le correcteur V0b (§5 quater)** : ce réglage
+déplaçait la plage tonale vers le haut au lieu de l'élargir et changeait le style validé.
+
+### 5 ter. Lot V0b : halo (draw_as_light) étalonné en moteur
+
+| Mesure (capture debut-z2, même scène que V0) | V0 | V0b | four vanilla (même capture) |
+|---|---|---|---|
+| surface à λ ≥ 0,1 | 7,10 tuile² | **1,45** | 1,70 |
+| intégrale | 1,64 | **0,38** | 0,67 |
+| pic (p99) | 0,279 | **0,315** | 0,572 (vacille) |
+| portées S / E / O à λ ≥ 0,1 | 1,48 / 1,64 / 1,50 (N 2,19) | **0,86 / 0,88 / 0,86** | — |
+| λ sur le corps de la cheminée (médiane, p90) | 0,006 / 0,48 | **0,000 / 0,005** | corps du four 0,03 |
+| λ sur la collerette | 0,47 | **0,001** | — |
+
+Réglage : 6 sources de 50 W (300 W), couleur (1 ; 0,49 ; 0,05) de `hr-steel-furnace-ground-light.png`,
+fenêtre au sol pleine jusqu'à 0,55 tuile, nulle à 1,05 tuile, valeurs linéaires. Hors moteur (`render.py`) :
+pic 0,474, surface 1,53 tuile². La passerelle cache le sol au pied des évents : la flaque est un anneau
+(disque sombre de 0,45 tuile autour du pied), géométrie réelle, pas un défaut de calcul.
+
+### 5 quater. Correcteur V0b : retour au ton V0 (22/10/2026)
+
+**Constat de la vérification des captures V0b** (vérification adverse, mesures en jeu) : le « sol clair dans les
+reflets » (`GROUND_GLOSSY_ALBEDO` 0,8) n'élargissait pas la plage tonale, il la DÉPLAÇAIT vers le haut : médiane
+du corps 83-86/255 (bible : 52 ± 10 à l'époque 2, 58 ± 10 à l'époque 3), 1,9 fois la médiane du four porteur
+(V0 : 1,3), pixels neutres doublés, aspect argenté. Le style validé le 21/10 portait sur V0. Le correcteur revient
+au ton V0 et cherche le contraste dans les SOMBRES.
+
+**Référence de même nature.** Les plages du §5 sont celles de bâtiments ENTIERS (intérieurs, tuyaux, dessus plats).
+La cheminée du four en acier vanilla (`hr-steel-furnace.png`, colonnes 103-152 ou 112-152, lignes 0-118, même
+méthode `fo_checks.photometry`) est bien plus sombre et moins contrastée que le four entier :
+
+| Sprite | p05 | p50 | p95 | écart-type | bible p05/p50/p95 | saturation | lap./éc.-type | pics isolés |
+|---|---|---|---|---|---|---|---|---|
+| four en acier entier | 0,015 | 0,181 | 0,661 | 0,201 | 4/46/169 | 0,36 | 1,19 | 0,66 % |
+| sa cheminée (103-152) | 0,020 | 0,148 | 0,423 | 0,148 | 6/38/112 | 0,31 | 1,33 | 0,49 % |
+| sa cheminée (112-152) | 0,019 | 0,143 | 0,319 | 0,101 | 5/36/82 | 0,31 | 1,71 | 0,38 % |
+
+En jeu (capture V0b 020, z2 de jour, cheminée du four PORTEUR ÉTEINT de la rangée 03, mêmes pixels que le
+sprite, script `chimney_ref.py`) : p05 0,019, p50 0,148 (38/255), p95 0,408, écart-type 0,142, saturation 0,34 :
+identique au fichier (écart moyen −0,4/255). Attention : le four vanilla ALLUMÉ est recouvert de jour par sa
+visualisation de marche additive (+27, +12, +1 /255 en moyenne sur sa cheminée) ; les références « four allumé »
+des vérifications V0 et V0b (p50 0,263, p95 0,908) sont donc gonflées.
+
+Une cheminée vanilla a donc des noirs profonds (p05 0,02), des tons moyens sombres et PEU de hautes lumières
+(p95 0,32-0,42). Viser le p95 et l'écart-type d'un bâtiment entier (≥ 0,657 et ≥ 0,177) pousse une cheminée vers
+l'argenté.
+
+**Balayages** (96 échantillons, cheminée seule, couche principale composée avec le liseré ; scripts hors dépôt,
+`<scratchpad>/v0bf/sweep2.py`, rendus par le verrou ; « env. sombre » = `GROUND_GLOSSY_ALBEDO` 0,05 et
+`SKY_GLOSSY_FACTOR` 0) :
+
+| Rendu | p05 | p50 | p95 | éc.-type | bible p50 | pics | remarque |
+|---|---|---|---|---|---|---|---|
+| V0b implémenteur (sol des reflets 0,8) | 0,137 | 0,335 | 0,623 | 0,166 | 87 | 1,20 % | rejeté (vérification) |
+| matériaux V0, géométrie V0b | 0,112 | 0,248 | 0,519 | 0,139 | 64 | 1,01 % | base |
+| tôle plus sombre, suie de couronne, lèvre et grille noires (d2) | 0,099 | 0,203 | 0,436 | 0,133 | 53 | 1,16 % | — |
+| d2 + reflet de façade (soleil spéculaire seul sous l'horizon, 4 à 8 W) | 0,139-0,147 | 0,277-0,316 | 0,865-0,998 | 0,209-0,231 | 71-80 | 1,9-2,4 % | rejeté : médiane +20, blancs saturés, échelle en treillis clair |
+| d2 + rivets sombres et rugueux (k1) | 0,099 | 0,200 | 0,404 | 0,125 | 52 | 0,81 % | — |
+| k1 + env. sombre (k3) | 0,072 | 0,157 | 0,385 | 0,130 | 41 | 0,86 % | noirs atteints, médiane trop basse |
+| k1 + env. sombre, tôle (0,20 à 0,30) | 0,077-0,081 | 0,164-0,171 | 0,445 | 0,135-0,138 | 43-44 | 0,81-0,84 % | la couleur de la tôle ne pèse presque pas : la rouille (50 % de la surface) fait la médiane |
+| k1 + sol 0,10 (`GROUND_ALBEDO`, essai) | 0,073 | 0,167 | 0,445 | 0,137 | 43 | 0,84 % | non retenu : changerait l'éclairage diffus étalonné |
+| k1 + cerclages laiton plus clairs (k10) | 0,099 | 0,205 | 0,464 | 0,136 | 53 | 0,75 % | — |
+| k10 + env. sombre ou 0,08, rouille plus claire (0,34 à 0,46), tores 0,40, rivets mats (n1, n2, n4, n6) | 0,078-0,085 | 0,167-0,178 | 0,476-0,477 | 0,137-0,139 | 43-46 | 0,77 % | la rouille non plus ne remonte pas la médiane : sous la cible de l'époque 3 |
+| **k10 + tores 0,40 + rivets mats, environnement par défaut (n5, RETENU)** | **0,100** | **0,206** | **0,494** | **0,137** | **53** | **0,75 %** | — |
+
+Règle de choix écrite AVANT le balayage final (`<scratchpad>/v0bf/chain.py`) : médiane bible 50 à 56 (la
+variante four, plus claire, doit rester sous 1,3 × 46 = 59,8), pics ≤ 0,75 %, puis p05 le plus bas ; repli
+n5. Aucune configuration à environnement sombre n'atteint la médiane : n5 est retenu. **Le compromis est donc
+explicite** : les noirs profonds (p05 0,078) coûtent 10 niveaux de médiane (43-44/255, sous la cible de
+l'époque 3) ; garder la bible coûte les noirs (p05 0,100, la cheminée vanilla est à 0,02). À trancher par le
+Directeur Créatif si l'époque 2 seule suffit pour cette pièce.
+
+Les « pics isolés » restants étaient des points BLANCS saturés (255, 255, 2xx) sur les cerclages en TORE (section
+ronde : le reflet du soleil y tient sur un pixel), pas sur les rivets : matériau `ring` plus rugueux (0,40).
+
+**Braises** : leur surface éteinte (couche principale) gardait un reflet spéculaire gris (diélectrique), ajouté
+sous la lueur : braises (243, 162, 30), bleu/rouge 0,12-0,16. Surface mate (rugosité 1, `Specular IOR Level` 0) :
+(232, 141, 6), bleu/rouge 0,02 ; pixels clairs 0,08, saturation 0,92 (feu vanilla en jeu, même capture : voir la
+mesure en moteur ci-dessous).
+
+**Rendu final** (256 échantillons, `render.py`, sprites HR livrés, méthode `fo_checks.photometry`) : cheminée
+seule p05 0,101, p50 0,206, p95 0,502, écart-type 0,138, bible 19/53/132, saturation 0,29, laplacien/écart-type
+1,48 (V0 1,84), pics isolés 0,73 % (V0b 1,17 %, four en acier 0,66 %) ; variante four, partie visible : bible
+29/55/140, **rapport au four porteur 55/46 = 1,19** (≤ 1,3 ; V0b 2,00). Règles 1 à 3 de la bible : conformes
+pour les époques 2 et 3. Déterminisme : deux rendus indépendants (`render.py --check` de la chaîne de choix, puis `render.py`, pièce reformatée entre les deux sans changer ses valeurs) : **18 fichiers sur 18 identiques**.
+
+**En moteur réel** (`<racine>\fo-logs\2026-10-21_V0b_vitrine-final\`, captures `haute`, `normale`,
+`diagnostic` ; scripts des vérificateurs V0b et du correcteur dans `mesures\`), corps hors lueur, z2 de jour :
+
+| Mesure | V0 | V0b implémenteur | **correcteur** | cheminée vanilla (porteur éteint) | assembleur 2 | four éteint (corps) |
+|---|---|---|---|---|---|---|
+| moyenne | 0,270 | 0,362 | **0,243** | 0,172 | 0,248 | 0,253 |
+| écart-type | 0,131 | 0,165 | **0,138** | 0,142 | 0,190 | 0,211 |
+| p05 | 0,113 | 0,141 | **0,100** | 0,019 | 0,034 | 0,035 |
+| p50 | 0,237 (60/255) | 0,338 (86) | **0,205 (52)** | 0,148 (38) | 0,198 (50) | 0,191 (49) |
+| p95 | 0,509 | 0,630 | **0,503** | 0,408 | 0,645 | 0,728 |
+| saturation | 0,28 | 0,26 | **0,29** | 0,34 | 0,41 | — |
+| p50 / p50 du four porteur éteint (0,191) | 1,24 | 1,77 | **1,07** | — | — | — |
+
+Qualité graphique normale (sprites 32 px) : p50 0,216, écart-type 0,126, p05 0,114, p95 0,494.
+
+Braises de jour (pixels de lueur ≥ 0,9, `ember.py`) : (249, 152, 4), bleu/rouge 0,02, saturation 0,98 ; feu du
+four vanilla de la même capture (sprite recalé) : (218, 148, 21), 0,10, 0,90 ; V0b (255, 199, 89), 0,35. Les
+braises sont maintenant un peu PLUS saturées que le feu vanilla (aucun bleu).
+
+**Bilan honnête.** Le ton revient à celui de V0 (médiane 52/255 contre 60, aspect tôle brune sombre) et la règle 1
+de la bible est tenue ; la médiane égale celle de l'assembleur 2. Le défaut « rendu trop mat » n'est PAS corrigé
+au sens des bâtiments entiers (écart-type 0,138 contre 0,190-0,211, p05 0,100 contre 0,034, p95 0,503 contre
+0,645-0,728) ; face à la cheminée vanilla, l'écart-type est égal (0,138 contre 0,142) et les hautes lumières plus
+fortes, mais les noirs restent bien plus clairs (p05 0,100 contre 0,019). Les noirs profonds demandent soit de
+quitter la cible de l'époque 3 (environnement sombre : p05 0,078, médiane 43), soit une géométrie à creux
+(intérieur visible, gorges profondes), soit un éclairage d'ambiance plus faible pour TOUTES les pièces
+(`SKY_STRENGTH`, `GROUND_ALBEDO` : hors du périmètre du correcteur, changerait les rendus V3). Décision du
+Directeur Créatif attendue (planches `planches-dc\`).
 
 ## 6. Maquette hors moteur
 

@@ -26,6 +26,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import fo_blender  # noqa: E402
 import fo_calib as C  # noqa: E402
+import fo_checks  # noqa: E402
 import fo_post as P  # noqa: E402
 
 MOD_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -62,9 +63,29 @@ def place_alpha(canvas_shape, origin, sprite_path, shift, px_per_tile):
     return out
 
 
+def light_mode(meta):
+    """« v0b » : halo au sol seulement, valeurs linéaires, couche principale non découpée par le bâtiment
+    porteur ; « v0 » : ancien calcul. Choisi par PIECE["light_mode"], sinon par LIGHT_HOLDOUT (surcharge de la
+    pièce PIECE["calib"], sinon fo_calib : défaut False, comportement V0)."""
+    if meta.get("light_mode") in ("v0", "v0b"):
+        return meta["light_mode"]
+    hold = (meta.get("calib") or {}).get("LIGHT_HOLDOUT", getattr(C, "LIGHT_HOLDOUT", False))
+    return "v0b" if hold else "v0"
+
+
+def mask_layers(vmeta):
+    """Couches découpées par l'alpha du sprite vanilla porteur. V0b : la couche principale n'est plus
+    découpée (le jeu dessine le bâtiment PAR-DESSUS : couches de la pièce insérées AVANT les siennes) ; la
+    lueur l'est (elle alimente aussi la carte des lumières) ; le halo l'est toujours (flaque hors silhouette)."""
+    return tuple(vmeta.get("mask_layers", ("glow",)))
+
+
 def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cache_root, log):
     vmeta = meta["variants"][variant]
-    info, dt = fo_blender.render(piece_path, variant, cache_root, samples=samples, log=log, margin=meta.get("margin_px"))
+    # surcharges d'étalonnage propres à la pièce (V0b, facultatif) : PIECE["calib"] = {"NOM": valeur}
+    sets = ["%s=%r" % (k, v) for k, v in sorted((meta.get("calib") or {}).items())]
+    info, dt = fo_blender.render(piece_path, variant, cache_root, samples=samples, log=log, margin=meta.get("margin_px"),
+                                 sets=sets)
     d, pre = info["_dir"], info["_prefix"]
 
     def npy(layer):
@@ -72,8 +93,21 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         return np.load(p).astype(np.float64) if os.path.exists(p) else None
 
     origin = tuple(info["origin_px"])
+    mode = light_mode(meta)
+    mask = vmeta.get("mask")
+    main_raw = npy("main")
+    m_hr = None
+    if mask:
+        m_hr = place_alpha(main_raw.shape[:2], origin, os.path.join(data_dir, "base", "graphics", "entity", mask["hr"]["file"]),
+                           mask["hr"]["shift"], 64)
     hr = {}
-    main = P.compose_main(npy("main"), npy("ao"), C)
+    ao = npy("ao")
+    fringe_mask = None
+    if m_hr is not None and ao is not None and mode == "v0b":
+        # liseré de contact retiré près du bâtiment porteur (silhouette dilatée de la portée de l'AO) : un pied
+        # caché ne laisse pas de salissure sans cause visible sur le flanc (rapport V0)
+        fringe_mask = fo_checks.dilate(m_hr >= 0.5, C.AO_DISTANCE * C.PX_PER_UNIT_HR).astype(np.float64)
+    main = P.compose_main(main_raw, ao, C, fringe_mask=fringe_mask)
     hr["main"] = main
     sh = npy("shadow")
     if sh is not None:
@@ -86,7 +120,14 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         # halo borné par des fenêtres circulaires (PIECE["halo"] : centre relatif à l'ancre, hauteur z,
         # rayons plein/nul en tuiles) ; sans fenêtre déclarée : C.LIGHT_RADIUS_TILES autour du pied
         ax, ay = vmeta.get("anchor_tiles", (0.0, 0.0))
-        lay = P.additive_layer(li)
+        if mode == "v0b":
+            # valeurs linéaires ; aucun halo sur la pièce elle-même (y compris ses parties cachées, visibles dans
+            # la couche principale) : facteur min(alpha du rendu halo, 1 - alpha de la passe principale)
+            free = np.minimum(li[..., 3], 1.0 - np.clip(main_raw[..., 3], 0, 1))
+            lay = P.light_layer(np.concatenate([li[..., :3], free[..., None]], -1),
+                                C.LIGHT_SCALE * float(meta.get("light_scale", 1.0)))
+        else:
+            lay = P.additive_layer(li)
         wins = meta.get("halo") or [{"at": (0.0, 0.0, 0.0), "r": C.LIGHT_RADIUS_TILES}]
         best = None
         for wdef in wins:
@@ -98,13 +139,16 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         hr["light"] = P.floor_alpha(P.fade_edges(best))
 
     raw = dict(hr)  # avant masque : sert à la version 32 px/tuile, masquée ensuite par le sprite LR vanilla
-    mask = vmeta.get("mask")
+    if mode == "v0b":
+        mlayers = mask_layers(vmeta) + ("light",)
+    else:
+        mlayers = ("main", "glow")
     if mask:
-        m_hr = place_alpha(main.shape[:2], origin, os.path.join(data_dir, "base", "graphics", "entity", mask["hr"]["file"]),
-                           mask["hr"]["shift"], 64)
-        for k in ("main", "glow"):
+        for k in mlayers:
             if k in hr:
                 hr[k] = P.mask_with(hr[k], m_hr)
+        if "light" in hr and "light" in mlayers:
+            hr["light"] = P.floor_alpha(hr["light"])
 
     name = "%s-%s" % (meta["name"], variant)
     dest = os.path.join(out_root, *vmeta["dest"].split("/"))
@@ -121,11 +165,13 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         # version 32 px/tuile : réduction 2× de l'image NON masquée, puis masque par le sprite vanilla LR
         src = raw[layer][y0:y1, x0:x1]
         crop_lr = P.downsample2_additive(src) if layer in ("glow", "light") else P.downsample2(src)
-        if mask and layer in ("main", "glow"):
+        if mask and layer in mlayers:
             lr_origin = ((origin[0] - x0) / 2.0, (origin[1] - y0) / 2.0)
             m_lr = place_alpha(crop_lr.shape[:2], lr_origin,
                                os.path.join(data_dir, "base", "graphics", "entity", mask["lr"]["file"]), mask["lr"]["shift"], 32)
             crop_lr = P.mask_with(crop_lr, m_lr)
+            if layer == "light":
+                crop_lr = P.floor_alpha(crop_lr)
         fn_hr = "hr-%s-%s.png" % (name, layer)
         fn_lr = "%s-%s.png" % (name, layer)
         files[fn_hr] = P.write_png(crop_hr, os.path.join(dest, fn_hr))
@@ -133,10 +179,101 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         sd_hr = P.sprite_def(box, origin, 64)
         sd_lr = P.sprite_def(box, origin, 32)
         spec[layer] = {"hr": dict(sd_hr, filename=fn_hr), "lr": dict(sd_lr, filename=fn_lr)}
-    return {"name": name, "dest": vmeta["dest"], "spec": spec, "files": files, "render": {
-        "canvas": info["canvas"], "origin_px": info["origin_px"], "seconds": round(dt, 1),
-        "samples": info["samples"], "seed": info["seed"], "blender": info["blender"],
-        "blender_hash": info["blender_hash"]}}, hr, origin
+    carrier = None
+    if mask:
+        carrier = np.asarray(Image.open(os.path.join(data_dir, "base", "graphics", "entity", mask["hr"]["file"]))
+                             .convert("RGBA")).astype(np.float64) / 255.0
+    checks, fails = run_checks(meta, vmeta, hr, main_raw, m_hr, origin, carrier)
+    return {"name": name, "dest": vmeta["dest"], "spec": spec, "files": files, "checks": checks, "check_failures": fails,
+            "render": {
+                "canvas": info["canvas"], "origin_px": info["origin_px"], "seconds": round(dt, 1),
+                "samples": info["samples"], "seed": info["seed"], "blender": info["blender"],
+                "blender_hash": info["blender_hash"], "hidden": info.get("hidden", []),
+                "occluders": info.get("occluders", []), "calib_overrides": sets}}, hr, origin
+
+
+def _r(x, n=4):
+    if isinstance(x, float):
+        return round(x, n)
+    if isinstance(x, dict):
+        return {k: _r(v, n) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_r(v, n) for v in x]
+    return x
+
+
+def piece_epochs(meta):
+    """Époques déclarées par la pièce (PIECE["epoque"] : entier ou liste), pour les règles de la bible."""
+    e = meta.get("epoque")
+    if e is None:
+        return []
+    return [int(x) for x in (e if isinstance(e, (list, tuple)) else [e])]
+
+
+def run_checks(meta, vmeta, hr, main_raw, m_hr, origin, carrier=None):
+    """Contrôles V0b (fo_checks.py) sur les couches HR finales. Renvoie (mesures, échecs bloquants).
+    carrier : sprite HR du bâtiment vanilla porteur (variante à masque), pour le rapport de luminance."""
+    out, fails = {}, []
+    a = hr["main"][..., 3]
+    n, am, _ = fo_checks.enclosed_transparent(a)
+    tol = int(meta.get("enclosed_tolerance_px", 0))
+    out["main_enclosed_px"] = n
+    out["main_enclosed_mean_alpha"] = am
+    if n > tol:
+        fails.append("couche principale : %d px transparents enfermés dans la silhouette (tolérance %d)" % (n, tol))
+    tn, tf = fo_checks.thin_pixels(a)
+    out["main_thin_px"], out["main_thin_frac"] = tn, tf
+    glow = hr.get("glow")
+    vis = hr["main"]
+    if m_hr is not None:  # partie visible seulement (le bâtiment porteur couvre le reste)
+        vis = vis.copy()
+        vis[..., 3] = vis[..., 3] * (1 - m_hr)
+    out["photometry"] = fo_checks.photometry(vis, glow)
+    ph = out["photometry"]
+    out["photometry_out_of_range"] = sorted(k for k, (lo, hi) in C.PHOTO_RANGES.items()
+                                            if k in ph and not (lo <= ph[k] <= hi))
+    if ph.get("n"):
+        # règles de la bible (bloquantes si la pièce déclare son époque) et rapport au bâtiment porteur
+        ep = piece_epochs(meta)
+        if ep:
+            out["bible_epochs"] = ep
+            fails.extend(fo_checks.bible_rules(ph, ep, C.BIBLE_MEDIAN, C.BIBLE_TOL))
+        if carrier is not None:
+            cm = fo_checks.bible_median(carrier)
+            ratio = ph["bible_p05_p50_p95"][1] / cm if cm > 0 else float("inf")
+            out["carrier_median"], out["carrier_ratio"] = cm, ratio
+            if ratio > C.CARRIER_RATIO_MAX:
+                fails.append("luminance médiane pièce / bâtiment porteur %.2f > %.2f (%.0f contre %.0f /255)" % (
+                    ratio, C.CARRIER_RATIO_MAX, ph["bible_p05_p50_p95"][1], cm))
+    if glow is not None:
+        # D2-1 : plus grand carré plein au-dessus de la médiane du corps + 80/255, sur la composition de jour
+        day = np.clip(vis[..., :3] * vis[..., 3:4] + glow[..., :3] * glow[..., 3:4], 0, 1)
+        thr = ph.get("p50", 0.25) + 80.0 / 255
+        out["emissive_square_px"] = fo_checks.largest_full_square(fo_checks.lum(day) > thr)
+    if "light" in hr:
+        L = hr["light"]
+        ax, ay = vmeta.get("anchor_tiles", (0.0, 0.0))
+        foot = (origin[0] + ax * 64.0, origin[1] + ay * 64.0)
+        out["light"] = fo_checks.light_extent(L, center=foot)
+        fr, mx = fo_checks.light_on(L, np.clip(main_raw[..., 3], 0, 1))
+        out["light_on_piece_frac"], out["light_on_piece_max"] = fr, mx
+        blocked = main_raw[..., 3] >= 0.5
+        if m_hr is not None:
+            fb, mb = fo_checks.light_on(L, m_hr)
+            out["light_on_building_frac"], out["light_on_building_max"] = fb, mb
+            blocked = blocked | (m_hr >= 0.5)
+            if fb > 0.03:
+                fails.append("halo : %.1f %% de l'énergie sur le bâtiment porteur (≤ 3 %%)" % (100 * fb))
+        out["light_pockets_px"] = fo_checks.light_pockets(L, blocked)
+        if out["light_pockets_px"] > 0:
+            fails.append("halo : poche sombre enfermée de %d px (ombre d'un objet absent)" % out["light_pockets_px"])
+        if light_mode(meta) == "v0b" and fr > 0.03:
+            fails.append("halo : %.1f %% de l'énergie sur la pièce (≤ 3 %%)" % (100 * fr))
+        lo, hi = C.LIGHT_PEAK_RANGE
+        out["light_peak_in_range"] = lo <= out["light"]["peak"] <= hi
+        lo, hi = C.LIGHT_AREA_RANGE
+        out["light_area_in_range"] = lo <= out["light"]["area_tiles2"] <= hi
+    return _r(out), fails
 
 
 def lua_value(v, ind=""):
@@ -248,6 +385,40 @@ def main():
         for layer, sd in sorted(r["spec"].items()):
             print("  %-16s %-6s hr %3dx%-3d shift (%.6f, %.6f)" % (r["name"], layer, sd["hr"]["width"], sd["hr"]["height"],
                                                                  sd["hr"]["shift"][0], sd["hr"]["shift"][1]))
+    print_checks(m)
+    if any(r.get("check_failures") for r in m["variants"]):
+        sys.exit(3)
+
+
+def print_checks(m):
+    """Résumé lisible des contrôles V0b (détail complet dans le manifeste, clé « checks »)."""
+    for r in m["variants"]:
+        c = r.get("checks") or {}
+        ph = c.get("photometry", {})
+        print("[FO-CHECK] %s : trous enfermés %s px, fins %s px (%.1f %%), carré émissif %s px" % (
+            r["name"], c.get("main_enclosed_px"), c.get("main_thin_px"), 100 * c.get("main_thin_frac", 0),
+            c.get("emissive_square_px")))
+        if ph.get("n"):
+            print("[FO-CHECK] %s : corps L moy %.3f éc.-type %.3f p05 %.3f p50 %.3f p95 %.3f part>0,5 %.1f %% grad %.3f "
+                  "lap/std %.2f sat %.3f pics %.2f %% ; hors plage vanilla (avertissement) : %s" % (
+                      r["name"], ph["mean"], ph["std"], ph["p05"], ph["p50"], ph["p95"], 100 * ph["frac_gt_0_5"],
+                      ph["grad"], ph["lap_over_std"], ph.get("sat", 0), 100 * ph.get("specks", 0),
+                      ", ".join(c.get("photometry_out_of_range", [])) or "aucun"))
+            b = ph["bible_p05_p50_p95"]
+            print("[FO-CHECK] %s : bible p05/p50/p95 %.0f/%.0f/%.0f (époques %s)%s" % (
+                r["name"], b[0], b[1], b[2], c.get("bible_epochs", "non déclarées"),
+                (" ; porteur médiane %.0f, rapport %.2f" % (c["carrier_median"], c["carrier_ratio"]))
+                if "carrier_ratio" in c else ""))
+        if "light" in c:
+            li = c["light"]
+            print("[FO-CHECK] %s : halo pic %.3f, surface %.2f tuile², intégrale %.2f, portées N %.2f S %.2f E %.2f O %.2f ; "
+                  "sur la pièce %.1f %%, sur le bâtiment %s, poches %d px" % (
+                      r["name"], li["peak"], li["area_tiles2"], li["integral"], li.get("north", 0), li.get("south", 0),
+                      li.get("east", 0), li.get("west", 0), 100 * c.get("light_on_piece_frac", 0),
+                      ("%.1f %%" % (100 * c["light_on_building_frac"])) if "light_on_building_frac" in c else "-",
+                      c.get("light_pockets_px", 0)))
+        for f in r.get("check_failures", []):
+            print("[FO-CHECK] ECHEC %s : %s" % (r["name"], f))
 
 
 if __name__ == "__main__":

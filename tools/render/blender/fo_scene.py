@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 import fo_calib as C  # noqa: E402
 
 PIECE_COLL = "fo_piece"
+OCCLUDER_COLL = "fo_occluders"   # volumes de remplacement d'un bâtiment porteur (passe halo seulement, V0b)
 HALO_LIGHTS = []    # sources ponctuelles de la seule passe halo (lumière portée sans bruit)
 EXTRA_LIGHTS = []   # lumières d'appoint (sans ombre), allumées avec le soleil
 GROUND_NAME = "fo_ground"
@@ -116,8 +117,38 @@ def setup_world(scene, strength=None, color=None):
     out = w.node_tree.nodes.get("World Output") or w.node_tree.nodes.new("ShaderNodeOutputWorld")
     if not bg.outputs["Background"].links:
         w.node_tree.links.new(bg.outputs["Background"], out.inputs["Surface"])
+    sg = getattr(C, "SKY_GLOSSY_FACTOR", None)
+    if sg is not None and sg != 1.0:
+        # V0b (facultatif) : ciel vu par les seuls rayons spéculaires × SKY_GLOSSY_FACTOR (bords rasants des
+        # métaux sombres, comme en vanilla). Le nœud « Background » garde son nom et sa force (render_passes
+        # éteint le ciel en mettant sa force à 0 : la multiplication suit).
+        nt = w.node_tree
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        mr = nt.nodes.new("ShaderNodeMapRange")
+        mr.inputs["To Min"].default_value = 1.0
+        mr.inputs["To Max"].default_value = float(sg)
+        nt.links.new(lp.outputs["Is Glossy Ray"], mr.inputs["Value"])
+        bg2 = nt.nodes.new("ShaderNodeBackground")
+        bg2.inputs["Color"].default_value = (col[0], col[1], col[2], 1.0)
+        mul = nt.nodes.new("ShaderNodeMath")
+        mul.operation = "MULTIPLY"
+        nt.links.new(mr.outputs["Result"], mul.inputs[0])
+        # la force du nœud « Background » est lue par render_passes : on la reprend par un pilote simple
+        # (valeur copiée à chaque changement d'état, voir _sync_sky)
+        mul.inputs[1].default_value = bg.inputs["Strength"].default_value
+        mul.name = "fo_sky_glossy_mul"
+        nt.links.new(mul.outputs[0], bg2.inputs["Strength"])
+        nt.links.new(bg2.outputs["Background"], out.inputs["Surface"])
     scene.world = w
     return w
+
+
+def _sync_sky(world):
+    """Recopie la force du nœud « Background » dans le montage SKY_GLOSSY_FACTOR (s'il existe)."""
+    nt = world.node_tree
+    mul = nt.nodes.get("fo_sky_glossy_mul")
+    if mul is not None:
+        mul.inputs[1].default_value = nt.nodes["Background"].inputs["Strength"].default_value
 
 
 def add_sun(scene, strength=None, elev=None, azimuth=None, name="fo_sun", color=None, angle=None):
@@ -172,12 +203,76 @@ def add_ground(scene, size=60.0):
     scene.collection.objects.link(g)
     m = bpy.data.materials.new("fo_ground_mat")
     m.use_nodes = True
-    p = m.node_tree.nodes["Principled BSDF"]
+    nt = m.node_tree
+    p = nt.nodes["Principled BSDF"]
     a = C.GROUND_ALBEDO
     p.inputs["Base Color"].default_value = (a, a, a, 1)
     p.inputs["Roughness"].default_value = 1.0
+    ga = getattr(C, "GROUND_GLOSSY_ALBEDO", None)
+    if ga is not None and ga != a:
+        # V0b (facultatif) : sol plus clair pour les SEULS rayons spéculaires (reflets des métaux tournés vers la
+        # caméra, comme les rendus vanilla : sol clair, ciel sombre). Les rayons diffus voient GROUND_ALBEDO :
+        # l'équilibre façade/dessus (CALIBRATION §3.3) ne change pas.
+        lp = nt.nodes.new("ShaderNodeLightPath")
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        mix.inputs[6].default_value = (a, a, a, 1)
+        mix.inputs[7].default_value = (ga, ga, ga, 1)
+        nt.links.new(lp.outputs["Is Glossy Ray"], mix.inputs["Factor"])
+        nt.links.new(mix.outputs[2], p.inputs["Base Color"])
     g.data.materials.append(m)
     return g
+
+
+# ------------------------------------------------------------------------------------------------
+# Pièces posées sur un bâtiment vanilla (V0b) : parties cachées et volume de remplacement
+# ------------------------------------------------------------------------------------------------
+def mark_hidden(obj):
+    """Partie cachée par le bâtiment porteur (pied d'une cheminée derrière le corps d'un four...).
+
+    - couche principale : rendue normalement (le moteur la recouvre par le bâtiment, dont les couches sont
+      dessinées APRÈS celles de la pièce) ;
+    - passe halo : invisible à la caméra, mais elle bloque toujours la lumière (aucun « trou » à sa forme) ;
+    - passe AO : retirée (son liseré de contact tomberait sans cause visible à côté du bâtiment) ;
+    - passe ombre : garde son ombre."""
+    if obj is not None:
+        obj["fo_hidden"] = 1
+    return obj
+
+
+def is_hidden(obj):
+    return bool(obj.get("fo_hidden", 0))
+
+
+def occluder_collection():
+    if OCCLUDER_COLL not in bpy.data.collections:
+        coll = bpy.data.collections.new(OCCLUDER_COLL)
+        bpy.context.scene.collection.children.link(coll)
+    return bpy.data.collections[OCCLUDER_COLL]
+
+
+def add_occluder(size, loc, name="fo_occluder"):
+    """Volume de remplacement du bâtiment porteur (boîte noire, unités Blender) : présent dans la SEULE passe
+    halo, où il bloque la lumière des sources et cache ce qui est derrière lui. Il ne reçoit aucune lumière
+    (aucun halo sur le corps du bâtiment : rapport V0, F64) et n'apparaît dans aucune autre passe."""
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=loc)
+    o = bpy.context.active_object
+    o.scale = size
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    for c in list(o.users_collection):
+        c.objects.unlink(o)
+    occluder_collection().objects.link(o)
+    o.name = name
+    o.data.materials.clear()
+    o.data.materials.append(_black_mat())
+    o.hide_render = True
+    return o
+
+
+def occluder_objects():
+    if OCCLUDER_COLL not in bpy.data.collections:
+        return []
+    return sorted(bpy.data.collections[OCCLUDER_COLL].all_objects, key=lambda o: o.name)
 
 
 def link_exclude(light_obj, objs, name):
@@ -201,11 +296,14 @@ def _nodes(mat):
 
 
 def mat_metal(name, color, rough=0.45, metallic=0.85, grain=0.18, grain_scale=60.0, rust=None,
-              rust_amount=0.0, rust_scale=6.0, dirt=0.0, seed=0.0):
+              rust_amount=0.0, rust_scale=6.0, dirt=0.0, seed=0.0, soot=None, dirt_distance=0.25):
     """Métal peint ou brut : couleur de base modulée par un grain fin (bruit) et des taches de rouille.
 
     grain : amplitude relative du grain (0,18 = ±18 %), mesurée contre le « grain » vanilla.
-    dirt  : assombrissement des creux par occlusion ambiante (0 à 1).
+    dirt  : assombrissement des creux par occlusion ambiante (0 à 1), portée dirt_distance (unités).
+    soot  : (V0b, facultatif) suie selon la hauteur, (z0, z1, amount) en unités du monde : la couleur est
+            multipliée par 1 - amount × lissé((Z - z0) / (z1 - z0)) et la surface devient mate (rugosité
+            0,85, non métallique) au même rythme. z1 < z0 : suie vers le BAS. None : comportement V0.
     """
     m = bpy.data.materials.new(name)
     nt, N, L = _nodes(m)
@@ -271,9 +369,43 @@ def mat_metal(name, color, rough=0.45, metallic=0.85, grain=0.18, grain_scale=60
         rm.inputs["To Max"].default_value = 0.1
         L.new(mr.outputs["Result"], rm.inputs["Value"])
         L.new(rm.outputs["Result"], p.inputs["Metallic"])
+    if soot is not None:
+        z0, z1, amount = soot
+        geo = N.new("ShaderNodeNewGeometry")
+        sz = N.new("ShaderNodeSeparateXYZ")
+        L.new(geo.outputs["Position"], sz.inputs["Vector"])
+        sm = N.new("ShaderNodeMapRange")
+        sm.interpolation_type = "SMOOTHSTEP"
+        sm.inputs["From Min"].default_value = float(z0)
+        sm.inputs["From Max"].default_value = float(z1)
+        sm.inputs["To Min"].default_value = 0.0
+        sm.inputs["To Max"].default_value = 1.0
+        sm.clamp = True
+        L.new(sz.outputs["Z"], sm.inputs["Value"])
+        sk = N.new("ShaderNodeMapRange")
+        sk.inputs["To Min"].default_value = 1.0
+        sk.inputs["To Max"].default_value = 1.0 - float(amount)
+        L.new(sm.outputs["Result"], sk.inputs["Value"])
+        smul = N.new("ShaderNodeVectorMath")
+        smul.operation = "SCALE"
+        L.new(col_out, smul.inputs[0])
+        L.new(sk.outputs["Result"], smul.inputs["Scale"])
+        col_out = smul.outputs["Vector"]
+        # la suie est mate : rugosité et métallicité suivent la même rampe (sur la valeur déjà calculée)
+        for inp, target in (("Roughness", 0.85), ("Metallic", 0.0)):
+            src = p.inputs[inp].links[0].from_socket if p.inputs[inp].links else None
+            mx = N.new("ShaderNodeMix")
+            mx.data_type = "FLOAT"
+            L.new(sm.outputs["Result"], mx.inputs["Factor"])
+            if src is not None:
+                L.new(src, mx.inputs[2])
+            else:
+                mx.inputs[2].default_value = p.inputs[inp].default_value
+            mx.inputs[3].default_value = target
+            L.new(mx.outputs[0], p.inputs[inp])
     if dirt > 0:
         ao = N.new("ShaderNodeAmbientOcclusion")
-        ao.inputs["Distance"].default_value = 0.25
+        ao.inputs["Distance"].default_value = float(dirt_distance)
         ao.samples = 8
         dm = N.new("ShaderNodeMapRange")
         dm.inputs["To Min"].default_value = 1.0 - dirt
@@ -300,15 +432,46 @@ def mat_flat(name, color, rough=0.6, metallic=0.0):
     return m
 
 
-def mat_emissive(name, color, strength=8.0, base=(0.05, 0.03, 0.02)):
-    """Surface lumineuse : sert aux couches lueur (draw_as_glow) et halo (draw_as_light)."""
+def mat_emissive(name, color, strength=8.0, base=(0.05, 0.03, 0.02), main_scale=1.0, crust=None):
+    """Surface lumineuse : sert aux couches lueur (draw_as_glow) et halo (draw_as_light).
+
+    main_scale (V0b, facultatif) : facteur de l'émission dans la passe PRINCIPALE. En jeu, la lueur additive
+    s'ajoute à la couche principale : avec 1,0 (défaut, comportement V0) l'émission compte deux fois et les
+    braises sortent jaune pâle. Avec 0,0, la couche principale montre la surface éteinte (sombre) et la lueur
+    seule donne la couleur, comme le feu vanilla (foyer sombre + feu additif).
+    crust (V0b, facultatif) : (échelle, part, graine) : croûte des braises, l'émission est multipliée par
+    1 - part + part × bruit (un lit de braises n'est pas un disque uniforme). None : émission uniforme (V0)."""
     m = bpy.data.materials.new(name)
+    m["fo_main_scale"] = float(main_scale)
     nt, N, L = _nodes(m)
     p = N["Principled BSDF"]
     p.inputs["Base Color"].default_value = (base[0], base[1], base[2], 1)
     p.inputs["Roughness"].default_value = 0.5
     p.inputs["Emission Color"].default_value = (color[0], color[1], color[2], 1)
     p.inputs["Emission Strength"].default_value = strength
+    if crust is not None:
+        scale, part, seed = crust
+        tc = N.new("ShaderNodeTexCoord")
+        nz = N.new("ShaderNodeTexNoise")
+        nz.inputs["Scale"].default_value = float(scale)
+        nz.inputs["Detail"].default_value = 3.0
+        nz.inputs["Roughness"].default_value = 0.5
+        if "W" in nz.inputs:
+            nz.noise_dimensions = "4D"
+            nz.inputs["W"].default_value = float(seed)
+        L.new(tc.outputs["Object"], nz.inputs["Vector"])
+        mr = N.new("ShaderNodeMapRange")
+        mr.inputs["From Min"].default_value = 0.35
+        mr.inputs["From Max"].default_value = 0.65
+        mr.inputs["To Min"].default_value = 1.0 - float(part)
+        mr.inputs["To Max"].default_value = 1.0
+        L.new(nz.outputs["Fac"], mr.inputs["Value"])
+        k = N.new("ShaderNodeMath")
+        k.operation = "MULTIPLY"
+        k.name = "fo_emit_strength"
+        k.inputs[1].default_value = strength
+        L.new(mr.outputs["Result"], k.inputs[0])
+        L.new(k.outputs[0], p.inputs["Emission Strength"])
     # La surface n'éclaire pas la scène (pas de bruit) : la lumière portée vient des sources ponctuelles
     # déclarées par la pièce (halo_light), dans la seule passe halo.
     m.cycles.emission_sampling = "NONE"
@@ -499,6 +662,16 @@ def _white_mat():
 _BOOSTED = {}
 
 
+def _set_emit_strength(mat, value):
+    """Force d'émission d'une copie de matériau émissif : nœud « fo_emit_strength » s'il existe (croûte,
+    V0b), sinon l'entrée du Principled BSDF (comportement V0)."""
+    k = mat.node_tree.nodes.get("fo_emit_strength")
+    if k is not None:
+        k.inputs[1].default_value = value
+    else:
+        mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = value
+
+
 def _emissive_or_white(mat):
     """Passe halo : sources plus fortes (C.LIGHT_GAIN) pour que la lumière portée se voie au sol ;
     tout le reste en gris clair mat (la carte des lumières révèle la couleur de jour : game.frag)."""
@@ -507,11 +680,31 @@ def _emissive_or_white(mat):
         if b is None:
             b = mat.copy()
             b.name = mat.name + "_halo"
-            p = b.node_tree.nodes["Principled BSDF"]
-            p.inputs["Emission Strength"].default_value = mat["fo_emit_strength"] * C.LIGHT_EMIT_GAIN
+            _set_emit_strength(b, mat["fo_emit_strength"] * C.LIGHT_EMIT_GAIN)
             _BOOSTED[mat.name] = b
         return b
     return _white_mat()
+
+
+def _main_emission_swapper():
+    """Passe principale : émission × fo_main_scale (1,0 : matériau inchangé, comportement V0). Copies
+    locales à l'appel (aucun cache de module : les boucles de rendu des lots V3 réinitialisent la scène)."""
+    made = {}
+
+    def fn(mat):
+        if mat is None or mat.get("fo_kind") != "emissive":
+            return mat
+        k = float(mat.get("fo_main_scale", 1.0))
+        if k == 1.0:
+            return mat
+        b = made.get(mat.name)
+        if b is None:
+            b = mat.copy()
+            b.name = mat.name + "_main"
+            _set_emit_strength(b, mat["fo_emit_strength"] * k)
+            made[mat.name] = b
+        return b
+    return fn
 
 
 def render_to(scene, path):
@@ -528,21 +721,34 @@ def render_passes(scene, out_dir, prefix, layers, sun, ground):
              sombre et doux intégré aux sprites vanilla.
     shadow : ombre portée du seul soleil sur le sol (attrape-ombre, ciel éteint, pièce invisible).
     glow   : émission seule, cachée par les parties opaques (rendues noires).
-    light  : lumière reçue des seules sources (sol blanc, pièce gris clair) + les sources elles-mêmes.
+    light  : lumière reçue des seules sources sur le sol blanc. V0b (C.LIGHT_HOLDOUT vrai : surcharge de la
+             pièce PIECE["calib"], défaut False depuis le correcteur V0b) : la pièce est DÉCOUPÉE (holdout :
+             alpha 0 sur sa silhouette, elle garde son ombre) car draw_as_light révèle la couleur de jour de
+             tout ce qu'il recouvre (F64) ; les parties cachées (mark_hidden) sont invisibles à la caméra ; les
+             volumes de remplacement (add_occluder) bloquent la lumière et restent noirs. Avec
+             LIGHT_HOLDOUT = False (défaut) : comportement V0 (pièce gris clair éclairée + sources).
+
+    Parties cachées (mark_hidden) : retirées de la passe ao ; invisibles à la caméra dans la passe light.
+    Volumes de remplacement : présents dans la seule passe light.
     """
     objs = piece_objects()
+    occ = occluder_objects()
+    hidden = [o for o in objs if is_hidden(o)]
     world = scene.world
     bg = world.node_tree.nodes["Background"]
     sky = bg.inputs["Strength"].default_value
     has_emit = any(s.material is not None and s.material.get("fo_kind") == "emissive"
                    for o in objs if o.type == "MESH" for s in o.material_slots)
     results = {}
+    for o in occ:
+        o.hide_render = True
 
     def state(sun_on, sky_on, catcher, ground_cam, obj_cam, fill_on=False):
         sun.hide_render = not sun_on
         for x in EXTRA_LIGHTS:
             x.hide_render = not fill_on
         bg.inputs["Strength"].default_value = sky if sky_on else 0.0
+        _sync_sky(world)
         ground.is_shadow_catcher = catcher
         ground.visible_camera = ground_cam
         for o in objs:
@@ -550,17 +756,23 @@ def render_passes(scene, out_dir, prefix, layers, sun, ground):
 
     if "main" in layers:
         state(True, True, False, False, True, fill_on=True)
+        saved = _swap_materials(objs, _main_emission_swapper())
         p = os.path.join(out_dir, "%s-main.png" % prefix)
         render_to(scene, p)
         results["main"] = p
+        _restore(saved)
     if "ao" in layers:
         # Sol émissif dont la couleur = facteur d'occlusion ambiante à courte portée (nœud AO limité à
         # AO_DISTANCE) : 1 = dégagé, 0 = occulté. Pièce invisible à la caméra, aucune lumière.
         gsaved = _swap_materials([ground], lambda m: _ao_ground_mat())
         state(False, False, False, True, False)
+        for o in hidden:
+            o.hide_render = True
         p = os.path.join(out_dir, "%s-ao.png" % prefix)
         render_to(scene, p)
         results["ao"] = p
+        for o in hidden:
+            o.hide_render = False
         _restore(gsaved)
     if "shadow" in layers:
         state(True, False, True, True, False)
@@ -578,6 +790,15 @@ def render_passes(scene, out_dir, prefix, layers, sun, ground):
         saved = _swap_materials(objs, _emissive_or_white)
         gsaved = _swap_materials([ground], lambda m: _white_mat())
         state(False, False, False, True, True)
+        holdout = bool(getattr(C, "LIGHT_HOLDOUT", False))
+        if holdout:
+            for o in objs:
+                if is_hidden(o):
+                    o.visible_camera = False
+                else:
+                    o.is_holdout = True
+            for o in occ:
+                o.hide_render = False
         for x in HALO_LIGHTS:
             x.hide_render = False
         # les surfaces émissives restent vues par la caméra mais pas par les rayons indirects
@@ -601,6 +822,11 @@ def render_passes(scene, out_dir, prefix, layers, sun, ground):
             o.visible_glossy = True
         for x in HALO_LIGHTS:
             x.hide_render = True
+        if holdout:
+            for o in objs:
+                o.is_holdout = False
+            for o in occ:
+                o.hide_render = True
         _restore(saved)
         _restore(gsaved)
     state(True, True, False, False, True, fill_on=True)
