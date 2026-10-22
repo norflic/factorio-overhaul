@@ -261,6 +261,10 @@ def materials(S, epoch, tone=1.0):
     elif ep == 13:    # fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre
         metal("jacket", (0.48, 0.46, 0.41), rough=0.55, met=0.0, grain=0.14, gscale=34.0, rust=(0.22, 0.12, 0.06),
               ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.6, streak=0.55, mottle=0.25)
+        # cuivre des gaines et cerclages : plus rugueux et plus sombre (reflets saturés comptés comme foyers sinon)
+        metal("copper13", (0.46, 0.2, 0.085), rough=0.42, met=0.9, grain=0.2, rust=(0.12, 0.2, 0.12), ra=0.12,
+              dirt=0.7, stain=0.35, wear=0.8)
+        M["copper"] = M["copper13"]
         M["ring"] = M["copper"]
         M["trim"] = M["jacket"]
         M["pipe"] = M["copper"]
@@ -282,7 +286,9 @@ def materials(S, epoch, tone=1.0):
     else:             # 15 légende : or blanc patiné, nacre
         metal("jacket", (0.6, 0.52, 0.32), rough=0.26, met=0.95, grain=0.14, gscale=40.0, rust=(0.25, 0.12, 0.05),
               ra=0.1, dirt=0.85, stain=0.35, sscale=6.0, wear=0.5)
-        M["ring"] = M["jacket"]
+        # bagues, flèches de couronne : or blanc PATINÉ, plus rugueux (aucun éclat blanc franc : « pas de bague blanche »)
+        metal("ring", (0.46, 0.39, 0.22), rough=0.42, met=0.9, grain=0.18, gscale=36.0, rust=(0.25, 0.12, 0.05),
+              ra=0.14, dirt=0.9, stain=0.5, sscale=6.0, wear=0.6)
         metal("trim", (0.5, 0.47, 0.42), rough=0.3, met=0.15, grain=0.12, gscale=30.0, dirt=0.9, stain=0.5,
               sscale=5.0, wear=0.6, streak=0.4)                                                        # nacre
         M["pipe"] = M["trim"]

@@ -201,7 +201,7 @@ def hose_e(g, e, ctrl, r):
         for i in range(3, len(P) - 2, 7):
             g.cyl(P[i], T[i], r * 1.42, 0.025, M["trim"], n=12, style="flat", what="givre")
     elif e == 13:
-        g.hose(ctrl, r * 1.35, M["copper"], step=0.034, n=12)
+        g.hose(ctrl, r * 1.35, M["copper"], step=0.048, n=12)
     elif e == 14:
         P, T = g.tube(g.spline(ctrl, 10), r * 1.05, M["jacket"], n=10, style="flat", what="gaine_or")
         for i in range(2, len(P) - 1, 5):
@@ -231,7 +231,7 @@ def conduit_e(g, e, ctrl, r):
     """Conduit d'énergie : bagues lumineuses PAR GROUPES (chenillard), colliers en matière d'époque."""
     M = g.M
     if e == 13:
-        g.hose(ctrl, r * 1.5, M["copper"], step=0.034, n=12)
+        g.hose(ctrl, r * 1.5, M["copper"], step=0.048, n=12)
         return
     P = g.spline(ctrl, 10)
     P, T = g.tube(P, r, M["jacket"] if e in (12, 14) else M["steel_dk"], n=10, what="conduit")
@@ -276,6 +276,9 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
                          c + d * (r + 0.2) + V((0, 0, 0.12)), t, M["ring"], what="aileron")
                 g.box(c + d * (r + 0.06) + V((0, 0, 0.32)), (0.05, 0.05, 0.4), M["steel_dk"], "hard",
                       R=Matrix.Rotation(a, 3, "Z"), what="nervure")
+                for zz in (0.16, 0.3, 0.44, 0.58):
+                    for s_ in (-1, 1):
+                        g.dome(c + d * (r + 0.035) + V((0, 0, zz)) + t * s_ * 0.6, t * s_, 0.012, M["rivet"])
         if e == 10:
             # carénages gris clair rapportés, antenne fouet, fenêtre de niveau bleue
             for a in (-1.35, -2.05):
@@ -287,6 +290,16 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
                       what="niveau")
             g.cyl((x, y, h + r * 0.42 + 0.2), "z", 0.006, 0.4, M["steel_dk"], n=6, what="antenne")
         if e == 15:
+            # bande ciselée : losanges d'or blanc sertis de nacre sur la virole (face visible)
+            for k in range(14):
+                a = -math.pi * 0.05 - math.pi * 0.9 * k / 13
+                d = V((math.cos(a), math.sin(a), 0))
+                Rr = Matrix((V((-d.y, d.x, 0)), V((0, 0, 1)), d)).transposed() @ Matrix.Rotation(math.pi / 4, 3, "Z")
+                for zz in (h * 0.56, h * 0.7):
+                    g.box(V((x, y, zz)) + d * (r + 0.012), (0.045, 0.045, 0.014), M["jacket"], "hard", R=Rr,
+                          what="ciselure")
+                    g.box(V((x, y, zz)) + d * (r + 0.02), (0.02, 0.02, 0.008), M["trim"], "hard", R=Rr,
+                          what="ciselure")
             zt = h + r * 0.42
             for k in range(5):
                 a = TAU * k / 5 + 0.3
@@ -349,10 +362,17 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
         rm = rs * math.sqrt(max(0.05, 1 - ((zm - zc) / rs) ** 2))
         g.crumple((x, y, zm), "z", rm, z1 - z0 + 0.01, M["jacket"], n=24, k=2, amp=0.012)
     g.torus((x, y, zc), "z", rs + 0.01, 0.03, M["ring"], n=48, m=8, what="ceinture")
-    for k in range(10):
-        a = TAU * k / 10
+    for k in range(24):
+        a = TAU * k / 24
         g.dome((x + (rs + 0.04) * math.cos(a), y + (rs + 0.04) * math.sin(a), zc), (math.cos(a), math.sin(a), 0),
                0.015, M["rivet"])
+    for zz in (-0.45, 0.45):
+        rr_ = rs * math.sqrt(1 - zz * zz)
+        g.torus((x, y, zc + rs * zz), "z", rr_ + 0.006, 0.014, M["ring"], n=40, m=6, what="sangle")
+        for k in range(12):
+            a = TAU * (k + 0.5) / 12
+            g.box((x + (rr_ + 0.02) * math.cos(a), y + (rr_ + 0.02) * math.sin(a), zc + rs * zz), (0.03, 0.03, 0.03),
+                  M["steel_hi"], "hard", what="boucle")
     g.cyl((x, y, zc + rs + 0.02), "z", 0.06, 0.06, M["steel_dk"], n=14, what="bride")
     g.cyl((x, y, zc + rs + 0.07), "z", 0.025, 0.035, M["emit"], n=10, style="flat", what="balise")
     _halo(g, [(x, y, zc + rs + 0.1)], 6.0, g.M["_emit_rgb"])

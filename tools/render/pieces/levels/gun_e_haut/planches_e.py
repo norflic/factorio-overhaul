@@ -35,7 +35,7 @@ def ent(e, pose, piece=False):
     return PL.own(socle) + PL.own("e%02d-tete-%s" % (e, pose))
 
 
-def row_board(data, refs, pose, piece=False, title="", paths=(), night_path=None, gap=1.2):
+def row_board(data, refs, pose, piece=False, title="", paths=(), night_path=None, gap=1.6):
     ents = []
     x = 1.0
     yf = 7.2
@@ -48,7 +48,7 @@ def row_board(data, refs, pose, piece=False, title="", paths=(), night_path=None
         x += side / 2.0
         lvl = 2 * e - 1 + (1 if piece else 0)
         ents.append({"pos": (x, yf), "layers": ent(e, pose, piece),
-                     "lab": ["époque %d · %s · %d×%d" % (e, NAME[e], side, side), "niveau %d" % lvl], "side": side})
+                     "lab": ["époque %d" % e, NAME[e], "%d×%d · niveau %d" % (side, side, lvl)], "side": side})
         x += side / 2.0 + gap
     W, H = x + 0.5, yf + 4.6
     day, night = PL.compose(data, ents, W, H)
@@ -68,7 +68,7 @@ def canons(data, out, pose):
         W = H = side + 3.0
         day, _ = PL.compose(data, [{"pos": (c, c), "layers": ent(e, pose)}], W, H)
         if pose == "E":
-            box = (c - 0.24 * side, c - 0.66 * side, c + 0.62 * side + 0.5, c + 0.16 * side)
+            box = (c - 0.3 * side, c - 0.74 * side, c + 0.8 * side + 0.3, c + 0.12 * side)
         else:
             box = (c - 0.58 * side, c - 0.98 * side - 0.3, c + 0.58 * side, c - 0.02 * side)
         x0, y0, x1, y1 = [int(round(v * 64)) for v in box]
