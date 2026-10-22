@@ -10,13 +10,15 @@ seulement, bible §5), elle n'est donc pas dessinée de jour.
 
 Planches écrites dans docs/epoques/planches/centre/ (PNG compacts, versionnés) :
   centre-a-jour-zoom1.png    (a) les 15 niveaux côte à côte, zoom 1 (32 px/tuile), de jour, avec ombres ;
-  centre-b-nuit-zoom1.png    (b) la même, de nuit ;
+  centre-b-nuit-zoom1.png    (b) la même, de nuit, AVEC le halo par script simulé (script_halo : I et S de la
+                                 bible §1.6, texture light-medium du moteur) ;
   centre-c-gris-zoom1.png    (c) la même en niveaux de gris (test du gris, D1-1) ;
   centre-d-vignettes.png     (d) masques noirs (masque D1 : sans couches plates au sol) à la même échelle,
                                  le plus grand dans 64 px (D1-2), dans l'ordre puis mélangés (clé dans
                                  vignettes_cle.json) ;
   centre-e-zoom2-jour.png / centre-e-zoom2-nuit.png   (e) gros plans au zoom 2 (64 px/tuile) des époques 1,
-                                 5, 10 et 15 à côté du niveau 1 ACTUEL (composition roboport + radar).
+                                 5, 10 et 15 à côté du niveau 1 ACTUEL (composition roboport + radar) ;
+  centre-f1-zoom2-jour.png, centre-f2-zoom2-jour.png   (f) idem pour les époques 2, 3, 4, 6, 7 et 8, 9, 11 à 14.
 LIMITES (non prouvées hors moteur) : lightMul et lightAdd du moteur inconnus (pris à 1 et 0) ; zoom 1 =
 moyenne 2 × 2 au lieu des mipmaps du jeu ; aperçus à échantillons réduits (grain).
 """
@@ -55,7 +57,24 @@ def font(size, bold=False):
     return ImageFont.load_default()
 
 
-def level_layers(e, res="hr"):
+def script_halo(data, e):
+    """Halo de nuit POSÉ PAR SCRIPT en phase 2 (rendering.draw_light, F44), simulé : texture du moteur
+    core/graphics/light-medium.png (luminance × alpha) étirée sur S tuiles, couleur émissive principale de la
+    bible, intensité I (bible §1.6 : I = 0,05 + 0,02 N ; S = 4 (1 + 0,05 N) ; N = 2e). Couche « light » : elle
+    n'agit que sur la carte des lumières (planches de nuit), jamais de jour. NON PROUVÉ en moteur."""
+    hs = PR.halo_script(e)
+    tex = Image.open(os.path.join(data, "core", "graphics", "light-medium.png")).convert("LA")
+    px = int(round(hs["size"] * 64 / 2.0)) * 2
+    t = np.asarray(tex.resize((px, px), Image.BILINEAR)).astype(np.float64) / 255.0
+    col = np.array(PR._hex(PR.EMISSIVE[e][0]), dtype=np.float64)
+    col = col / col.max()
+    img = np.zeros((px, px, 4))
+    img[..., :3] = col
+    img[..., 3] = np.clip(t[..., 0] * t[..., 1] * hs["intensity"], 0, 1)
+    return {"img": img, "shift": (0.0, 0.0), "kind": "light"}
+
+
+def level_layers(e, res="hr", data=None):
     d = os.path.join(OUT, "n%02d" % e)
     with open(os.path.join(d, "render.json"), encoding="utf-8") as f:
         r = json.load(f)
@@ -68,6 +87,8 @@ def level_layers(e, res="hr"):
         if layer == "glow" and e in PR.NIGHT_ONLY:
             kind = "light"      # époques 1-2 : lumière de nuit seulement (draw_as_light)
         lays.append({"img": load(os.path.join(d, sd["filename"])), "shift": tuple(sd["shift"]), "kind": kind})
+    if data:
+        lays.append(script_halo(data, e))
     return lays
 
 
@@ -143,7 +164,7 @@ def plate_lineup(data, levels, dest):
     for r, row in enumerate(rows):
         for i, e in enumerate(row):
             pos = (x0 + i * dx, ys[r])
-            ents.append({"pos": pos, "layers": level_layers(e)})
+            ents.append({"pos": pos, "layers": level_layers(e, data=data)})
             labels.append((pos[0], pos[1] + 2.15, "%d · %s" % (e, SHORT[e])))
     Wt = x0 + 7 * dx + 4.6
     Ht = ys[1] + 2.75
@@ -217,24 +238,27 @@ def plate_vignettes(levels, dest):
     return p
 
 
-def plate_closeups(data, dest, epochs=(1, 5, 10, 15)):
+def plate_closeups(data, dest, epochs=(1, 5, 10, 15), name="centre-e-zoom2", with_night=True):
     core = os.path.join(data, "core")
     dx, x0, y = 6.5, 3.0, 6.5
+    # référence vanilla au zoom 2 : le niveau 1 actuel (corps du ROBOPORT + radar), densité de détail du jeu
     ents = [{"pos": (x0, y), "layers": current_level1(data)}]
-    labels = [(x0, y + 2.2, "niveau 1 actuel (à remplacer)")]
+    labels = [(x0, y + 2.2, "niveau 1 actuel (roboport, à remplacer)")]
     for i, e in enumerate(epochs):
         if not os.path.exists(os.path.join(OUT, "n%02d" % e, "render.json")):
             continue
         pos = (x0 + (i + 1) * dx, y)
-        ents.append({"pos": pos, "layers": level_layers(e)})
+        ents.append({"pos": pos, "layers": level_layers(e, data=data)})
         labels.append((pos[0], pos[1] + 2.2, "%d · %s" % (e, PR.NAMES[e])))
     Wt = x0 + len(epochs) * dx + 5.6
     Ht = y + 2.75
     day, night = compose(data, core, ents, Wt, Ht)
     f = font(17, bold=True)
     lab = [(x * 64, yy * 64, t) for x, yy, t in labels]
-    return {"jour": save(label(to_img(day), lab, f), "centre-e-zoom2-jour.png", dest),
-            "nuit": save(label(to_img(night), lab, f), "centre-e-zoom2-nuit.png", dest)}
+    out = {"jour": save(label(to_img(day), lab, f), name + "-jour.png", dest)}
+    if with_night:
+        out["nuit"] = save(label(to_img(night), lab, f), name + "-nuit.png", dest)
+    return out
 
 
 def main():
@@ -246,6 +270,9 @@ def main():
     files = plate_lineup(a.data, levels, a.dest)
     files["d"] = plate_vignettes(levels, a.dest)
     files["e"] = plate_closeups(a.data, a.dest)
+    # gros plans des autres époques (densité de détail jugée à côté du roboport vanilla)
+    files["f1"] = plate_closeups(a.data, a.dest, epochs=(2, 3, 4, 6, 7), name="centre-f1-zoom2", with_night=False)
+    files["f2"] = plate_closeups(a.data, a.dest, epochs=(8, 9, 11, 12, 13, 14), name="centre-f2-zoom2", with_night=False)
     for k, v in sorted(files.items()):
         print("[FO-PLANCHE] %s %s" % (k, v))
 

@@ -112,22 +112,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-glow.png",
       "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-glow.png",
-      "width": 184,
-      "height": 118,
+      "width": 186,
+      "height": 120,
       "shift": [
-       -0.0625,
-       0.703125
+       -0.078125,
+       0.71875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-glow.png",
       "apercu": "tools/render/out/levels/centre/n01/centre-n01-glow.png",
-      "width": 92,
-      "height": 59,
+      "width": 93,
+      "height": 60,
       "shift": [
-       -0.0625,
-       0.703125
+       -0.078125,
+       0.71875
       ],
       "scale": 1.0
      }
@@ -141,22 +141,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/hr-centre-e01-light.png",
       "apercu": "tools/render/out/levels/centre/n01/hr-centre-n01-light.png",
-      "width": 274,
-      "height": 158,
+      "width": 300,
+      "height": 162,
       "shift": [
-       0.140625,
-       0.984375
+       0.21875,
+       1.015625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e01/centre-e01-light.png",
       "apercu": "tools/render/out/levels/centre/n01/centre-n01-light.png",
-      "width": 137,
-      "height": 79,
+      "width": 150,
+      "height": 81,
       "shift": [
-       0.140625,
-       0.984375
+       0.21875,
+       1.015625
       ],
       "scale": 1.0
      }
@@ -181,16 +181,21 @@
    "mesures": {
     "O": 0.45,
     "O_tige": 1.36,
-    "L": 3.34,
-    "area_t2": 9.59,
-    "events": 1
+    "L": 3.33,
+    "area_t2": 9.67,
+    "events": 5,
+    "V_pct": 0.0
    },
    "pieces": {
     "masses": [
+     "abouts",
      "ame_murs",
      "caisse",
      "caisse_feuillard",
+     "caisse_planche",
+     "clous_toit",
      "faitiere",
+     "fenetre_appui",
      "fenetre_cadre",
      "fenetre_croisillon",
      "fenetre_traverse",
@@ -198,20 +203,28 @@
      "lanterne_pied",
      "lanterne_toit",
      "lanterne_verre",
+     "lest",
+     "liens_sacs",
+     "liteau",
      "murs_rondins",
      "penture",
+     "penture_clous",
      "pignon_e",
      "pignon_o",
      "pile_rondins",
      "porte_cadre",
+     "porte_joint",
      "porte_vantail",
      "rempart_sacs",
      "sabliere",
      "toit_ar",
-     "toit_av"
+     "toit_av",
+     "tonneau",
+     "tonneau_cercles"
     ],
     "tiges": [
      "drapeau",
+     "hauban",
      "mat_drapeau",
      "mat_pommeau",
      "potence_lanterne",
@@ -226,22 +239,22 @@
    "halo_sprite": [
     {
      "source_tiles": [
-      0.42,
+      0.44,
       0.5,
-      0.63
+      0.665
      ],
      "ecran_tiles": [
-      0.42,
-      0.055
+      0.44,
+      0.03
      ],
      "couleur": "#FFB060",
      "fenetre_sprite_tiles": [
-      0.35,
-      0.9
+      0.45,
+      1.2
      ],
      "flaque_sol_tiles": [
-      1.0,
-      2.0
+      1.2,
+      2.4
      ]
     },
     {
@@ -256,12 +269,12 @@
      ],
      "couleur": "#FFB060",
      "fenetre_sprite_tiles": [
-      0.2,
-      0.6
+      0.3,
+      0.8
      ],
      "flaque_sol_tiles": [
-      0.6,
-      1.4
+      0.8,
+      1.6
      ]
     }
    ],
@@ -273,6 +286,12 @@
    },
    "animation_script": null,
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 0.55,
+    "gain": 0.9079,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
@@ -285,7 +304,37 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 62.2
+    "seconds": 49.5,
+    "variantes": {
+     "glow_light": "n01",
+     "main_ao_shadow": "n01-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:52:52",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -301,22 +350,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-main.png",
       "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-main.png",
-      "width": 248,
-      "height": 332,
+      "width": 252,
+      "height": 322,
       "shift": [
        0.0,
-       -1.15625
+       -1.234375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-main.png",
       "apercu": "tools/render/out/levels/centre/n02/centre-n02-main.png",
-      "width": 124,
-      "height": 166,
+      "width": 126,
+      "height": 161,
       "shift": [
        0.0,
-       -1.15625
+       -1.234375
       ],
       "scale": 1.0
      }
@@ -329,22 +378,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-shadow.png",
       "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-shadow.png",
-      "width": 368,
-      "height": 178,
+      "width": 366,
+      "height": 168,
       "shift": [
-       1.1875,
-       -0.109375
+       1.171875,
+       -0.1875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-shadow.png",
       "apercu": "tools/render/out/levels/centre/n02/centre-n02-shadow.png",
-      "width": 184,
-      "height": 89,
+      "width": 183,
+      "height": 84,
       "shift": [
-       1.1875,
-       -0.109375
+       1.171875,
+       -0.1875
       ],
       "scale": 1.0
      }
@@ -358,22 +407,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-glow.png",
       "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-glow.png",
-      "width": 208,
-      "height": 304,
+      "width": 210,
+      "height": 294,
       "shift": [
-       0.03125,
-       -1.28125
+       0.046875,
+       -1.296875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-glow.png",
       "apercu": "tools/render/out/levels/centre/n02/centre-n02-glow.png",
-      "width": 104,
-      "height": 152,
+      "width": 105,
+      "height": 147,
       "shift": [
-       0.03125,
-       -1.28125
+       0.046875,
+       -1.296875
       ],
       "scale": 1.0
      }
@@ -388,10 +437,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/hr-centre-e02-light.png",
       "apercu": "tools/render/out/levels/centre/n02/hr-centre-n02-light.png",
       "width": 326,
-      "height": 196,
+      "height": 186,
       "shift": [
        0.203125,
-       0.34375
+       0.265625
       ],
       "scale": 0.5
      },
@@ -399,10 +448,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e02/centre-e02-light.png",
       "apercu": "tools/render/out/levels/centre/n02/centre-n02-light.png",
       "width": 163,
-      "height": 98,
+      "height": 93,
       "shift": [
        0.203125,
-       0.34375
+       0.265625
       ],
       "scale": 1.0
      }
@@ -416,34 +465,38 @@
    ],
    "drawing_box": [
     [
-     -1.9375,
+     -1.9688,
      -3.75
     ],
     [
-     4.0625,
-     1.4375
+     4.0312,
+     1.2812
     ]
    ],
    "mesures": {
-    "O": 0.69,
+    "O": 0.67,
     "O_tige": 1.72,
-    "L": 3.5,
-    "area_t2": 11.68,
-    "iou_prev": 0.639,
-    "events": 1
+    "L": 3.47,
+    "area_t2": 11.17,
+    "iou_prev": 0.663,
+    "events": 3,
+    "V_pct": 14.1
    },
    "pieces": {
     "masses": [
      "bloc_bas",
      "bloc_haut",
      "cerclage_av",
+     "cerclage_boulons",
      "cerclage_cote",
      "cerclage_haut",
+     "cerclage_haut_boulons",
      "cheminee_forge",
      "cheminee_forge_bouche",
      "cheminee_forge_cercle",
      "cheminee_forge_chapeau",
      "echauguette",
+     "echauguette_boulons",
      "echauguette_cercle",
      "echauguette_couronne",
      "echauguette_encorbellement",
@@ -454,6 +507,7 @@
      "grille_barreaux",
      "grille_forge",
      "merlon_av",
+     "merlon_av_b",
      "merlon_cote",
      "merlon_haut",
      "merlon_hc",
@@ -461,15 +515,15 @@
      "parapet_av",
      "parapet_cote",
      "plaque",
+     "plaque_joint",
      "porte_bande",
      "porte_blindee_cadre",
      "porte_blindee_vantail",
      "porte_rivets",
      "rivets",
-     "terrasse_joint",
+     "terrasse_dessus",
      "toit_haut",
-     "toit_joint",
-     "toit_rivets",
+     "toit_plaques_dessus",
      "trappe",
      "trappe_poignee"
     ],
@@ -502,12 +556,12 @@
     {
      "source_tiles": [
       -1.36,
-      1.2,
+      1.05,
       0.54
      ],
      "ecran_tiles": [
       -1.36,
-      0.818
+      0.668
      ],
      "couleur": "#FF6A20",
      "fenetre_sprite_tiles": [
@@ -522,12 +576,12 @@
     {
      "source_tiles": [
       1.36,
-      1.2,
+      1.05,
       0.54
      ],
      "ecran_tiles": [
       1.36,
-      0.818
+      0.668
      ],
      "couleur": "#FF6A20",
      "fenetre_sprite_tiles": [
@@ -542,12 +596,12 @@
     {
      "source_tiles": [
       0.0,
-      1.24,
+      1.09,
       0.68
      ],
      "ecran_tiles": [
       0.0,
-      0.759
+      0.609
      ],
      "couleur": "#FF6A20",
      "fenetre_sprite_tiles": [
@@ -568,11 +622,17 @@
    },
    "animation_script": null,
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 0.67,
+    "gain": 0.6151,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
      460,
-     406
+     396
     ],
     "origin_px": [
      152,
@@ -580,7 +640,37 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 49.2
+    "seconds": 64.4,
+    "variantes": {
+     "glow_light": "n02",
+     "main_ao_shadow": "n02-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:53:56",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -596,22 +686,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-main.png",
       "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-main.png",
-      "width": 234,
-      "height": 278,
+      "width": 244,
+      "height": 282,
       "shift": [
-       -0.015625,
-       -0.734375
+       -0.09375,
+       -0.765625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-main.png",
       "apercu": "tools/render/out/levels/centre/n03/centre-n03-main.png",
-      "width": 117,
-      "height": 139,
+      "width": 122,
+      "height": 141,
       "shift": [
-       -0.015625,
-       -0.734375
+       -0.09375,
+       -0.765625
       ],
       "scale": 1.0
      }
@@ -624,22 +714,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-shadow.png",
       "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-shadow.png",
-      "width": 328,
-      "height": 168,
+      "width": 338,
+      "height": 178,
       "shift": [
-       0.96875,
-       -0.09375
+       0.890625,
+       -0.015625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-shadow.png",
       "apercu": "tools/render/out/levels/centre/n03/centre-n03-shadow.png",
-      "width": 164,
-      "height": 84,
+      "width": 169,
+      "height": 89,
       "shift": [
-       0.96875,
-       -0.09375
+       0.890625,
+       -0.015625
       ],
       "scale": 1.0
      }
@@ -653,22 +743,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-glow.png",
       "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-glow.png",
-      "width": 202,
-      "height": 112,
+      "width": 194,
+      "height": 162,
       "shift": [
-       -0.015625,
-       0.0
+       -0.109375,
+       0.078125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-glow.png",
       "apercu": "tools/render/out/levels/centre/n03/centre-n03-glow.png",
-      "width": 101,
-      "height": 56,
+      "width": 97,
+      "height": 81,
       "shift": [
-       -0.015625,
-       0.0
+       -0.109375,
+       0.078125
       ],
       "scale": 1.0
      }
@@ -682,22 +772,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/hr-centre-e03-light.png",
       "apercu": "tools/render/out/levels/centre/n03/hr-centre-n03-light.png",
-      "width": 244,
-      "height": 152,
+      "width": 270,
+      "height": 180,
       "shift": [
-       0.0,
-       0.625
+       -0.234375,
+       0.5625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e03/centre-e03-light.png",
       "apercu": "tools/render/out/levels/centre/n03/centre-n03-light.png",
-      "width": 122,
-      "height": 76,
+      "width": 135,
+      "height": 90,
       "shift": [
-       0.0,
-       0.625
+       -0.234375,
+       0.5625
       ],
       "scale": 1.0
      }
@@ -711,8 +801,8 @@
    ],
    "drawing_box": [
     [
-     -1.8438,
-     -2.9062
+     -2.0,
+     -2.9688
     ],
     [
      3.5312,
@@ -721,14 +811,18 @@
    ],
    "mesures": {
     "O": 0.89,
-    "O_tige": 0.89,
-    "L": 3.16,
-    "area_t2": 10.82,
-    "iou_prev": 0.843,
-    "events": 3
+    "O_tige": 0.94,
+    "L": 3.45,
+    "area_t2": 9.84,
+    "iou_prev": 0.72,
+    "events": 7,
+    "V_pct": 19.4
    },
    "pieces": {
     "masses": [
+     "ac_assise",
+     "ardoise_rang",
+     "assise",
      "avant_corps",
      "avant_corps_arc",
      "avant_corps_corniche",
@@ -738,19 +832,32 @@
      "cadran_axe",
      "cadran_bague",
      "cadran_face",
+     "chaudiere_cercles",
+     "chaudiere_conduite",
+     "chaudiere_dome",
+     "chaudiere_foyer",
+     "chaudiere_fut",
+     "chaudiere_hublot",
+     "chaudiere_rivets",
+     "chaudiere_socle",
      "chem_bourrelet",
      "chem_bride",
+     "chem_bride_boulons",
      "chem_cercle",
      "chem_fut",
      "chem_gueule",
      "chem_levre",
+     "chem_rivets",
      "corniche",
+     "corniche_rivets",
      "corps",
      "faitage",
      "fen_b",
      "fen_b_cadre",
+     "fen_b_meneau",
      "fen_h",
      "fen_h_cadre",
+     "graduations",
      "imposte",
      "imposte_cache",
      "lucarne",
@@ -758,22 +865,33 @@
      "lucarne_toit",
      "lucarne_vitre",
      "manchon",
+     "marche",
      "pilastre_ar",
      "pilastre_av",
+     "pilastre_rivets_b",
+     "pilastre_rivets_h",
+     "porte_clous",
      "porte_double_cadre",
      "porte_double_vantail",
      "porte_joint",
      "regulateur_boule",
+     "reservoir",
+     "reservoir_cercles",
+     "reservoir_conduite",
+     "reservoir_douelles",
+     "reservoir_toit",
      "soubassement",
-     "toit",
      "toit_pans",
      "tuyauterie",
      "vanne"
     ],
     "tiges": [
+     "chaudiere_soupape",
+     "chaudiere_soupape_tete",
      "fanion",
      "mat",
      "mat_pommeau",
+     "pilotis",
      "regulateur_axe"
     ],
     "plates_au_sol": []
@@ -783,12 +901,12 @@
     {
      "source_tiles": [
       0.0,
-      1.2,
+      1.16,
       1.06
      ],
      "ecran_tiles": [
       0.0,
-      0.45
+      0.41
      ],
      "couleur": "#FFC060",
      "fenetre_sprite_tiles": [
@@ -802,13 +920,13 @@
     },
     {
      "source_tiles": [
-      -0.97,
-      1.05,
+      -0.93,
+      0.46,
       0.74
      ],
      "ecran_tiles": [
-      -0.97,
-      0.527
+      -0.93,
+      -0.063
      ],
      "couleur": "#FFC060",
      "fenetre_sprite_tiles": [
@@ -819,13 +937,13 @@
     },
     {
      "source_tiles": [
-      0.97,
-      1.05,
+      0.93,
+      0.46,
       0.74
      ],
      "ecran_tiles": [
-      0.97,
-      0.527
+      0.93,
+      -0.063
      ],
      "couleur": "#FFC060",
      "fenetre_sprite_tiles": [
@@ -833,6 +951,26 @@
       0.9
      ],
      "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.5,
+      0.22,
+      0.42
+     ],
+     "ecran_tiles": [
+      -1.5,
+      -0.077
+     ],
+     "couleur": "#FFC060",
+     "fenetre_sprite_tiles": [
+      0.25,
+      0.7
+     ],
+     "flaque_sol_tiles": [
+      0.6,
+      1.2
+     ]
     }
    ],
    "halo_script": {
@@ -843,19 +981,55 @@
    },
    "animation_script": "panache de vapeur (facultatif, 16 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 0.79,
+    "gain": 0.6141,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     408,
-     344
+     420,
+     358
     ],
     "origin_px": [
-     142,
-     226
+     153,
+     229
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 36.1
+    "seconds": 57.0,
+    "variantes": {
+     "glow_light": "n03",
+     "main_ao_shadow": "n03-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:54:53",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -871,22 +1045,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-main.png",
       "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-main.png",
-      "width": 244,
-      "height": 428,
+      "width": 246,
+      "height": 420,
       "shift": [
-       0.03125,
-       -1.25
+       0.078125,
+       -1.5625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-main.png",
       "apercu": "tools/render/out/levels/centre/n04/centre-n04-main.png",
-      "width": 122,
-      "height": 214,
+      "width": 123,
+      "height": 210,
       "shift": [
-       0.03125,
-       -1.25
+       0.078125,
+       -1.5625
       ],
       "scale": 1.0
      }
@@ -899,22 +1073,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-shadow.png",
       "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-shadow.png",
-      "width": 454,
+      "width": 462,
       "height": 220,
       "shift": [
-       1.921875,
-       0.21875
+       2.015625,
+       -0.15625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-shadow.png",
       "apercu": "tools/render/out/levels/centre/n04/centre-n04-shadow.png",
-      "width": 227,
+      "width": 231,
       "height": 110,
       "shift": [
-       1.921875,
-       0.21875
+       2.015625,
+       -0.15625
       ],
       "scale": 1.0
      }
@@ -929,10 +1103,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-glow.png",
       "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-glow.png",
       "width": 208,
-      "height": 408,
+      "height": 404,
       "shift": [
-       0.03125,
-       -1.40625
+       0.0625,
+       -1.6875
       ],
       "scale": 0.5
      },
@@ -940,10 +1114,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-glow.png",
       "apercu": "tools/render/out/levels/centre/n04/centre-n04-glow.png",
       "width": 104,
-      "height": 204,
+      "height": 202,
       "shift": [
-       0.03125,
-       -1.40625
+       0.0625,
+       -1.6875
       ],
       "scale": 1.0
      }
@@ -957,22 +1131,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/hr-centre-e04-light.png",
       "apercu": "tools/render/out/levels/centre/n04/hr-centre-n04-light.png",
-      "width": 236,
-      "height": 454,
+      "width": 228,
+      "height": 444,
       "shift": [
        0.0,
-       -1.046875
+       -1.375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e04/centre-e04-light.png",
       "apercu": "tools/render/out/levels/centre/n04/centre-n04-light.png",
-      "width": 118,
-      "height": 227,
+      "width": 114,
+      "height": 222,
       "shift": [
        0.0,
-       -1.046875
+       -1.375
       ],
       "scale": 1.0
      }
@@ -986,66 +1160,83 @@
    ],
    "drawing_box": [
     [
-     -1.875,
-     -4.5938
+     -1.8438,
+     -4.8438
     ],
     [
-     5.4688,
-     2.0938
+     5.625,
+     1.7188
     ]
    ],
    "mesures": {
     "O": 1.12,
-    "O_tige": 2.56,
-    "L": 3.34,
-    "area_t2": 14.48,
-    "iou_prev": 0.747,
-    "events": 1
+    "O_tige": 2.81,
+    "L": 3.53,
+    "area_t2": 11.75,
+    "iou_prev": 0.567,
+    "events": 8,
+    "V_pct": 28.8
    },
    "pieces": {
     "masses": [
-     "acrotere",
      "bande_jaune",
-     "bandeau_vitre",
-     "berceau_ar_e",
-     "berceau_ar_o",
-     "berceau_av_e",
-     "berceau_av_o",
-     "conduite_cuves",
-     "conduite_v",
-     "corps",
-     "cuve_ar_bande",
-     "cuve_ar_fond",
-     "cuve_ar_virole",
-     "cuve_av_bande",
-     "cuve_av_fond",
-     "cuve_av_virole",
+     "berceau",
+     "berceau_haut_e",
+     "berceau_haut_o",
+     "berceau_semelle",
+     "cabine",
+     "cabine_clim",
+     "cabine_clim_grille",
+     "cabine_plaques_dessus",
+     "cabine_plaques_sud",
+     "caillebotis",
+     "conduite_basse",
+     "conduite_montante",
+     "conduite_ouest",
+     "cuve_bande",
+     "cuve_event",
+     "cuve_fond",
+     "cuve_haute_bande",
+     "cuve_haute_fond",
+     "cuve_haute_joints",
+     "cuve_haute_rivets",
+     "cuve_haute_virole",
+     "cuve_joints",
+     "cuve_plaque",
+     "cuve_plaque_vis",
+     "cuve_rivets",
+     "cuve_trou_homme",
+     "cuve_trou_homme_boulons",
+     "cuve_virole",
      "fut",
      "fut_cercle",
+     "longeron",
      "meneau",
-     "nervure",
      "passerelle",
      "porte_cadre",
+     "porte_feu",
      "porte_lame",
      "porte_rideau",
      "poteau",
      "rayures",
      "torchere_ballon",
-     "vanne_cuves",
+     "vanne_basse",
+     "vitrage",
      "voyant",
      "voyant_boitier"
     ],
     "tiges": [
      "contrevent",
-     "contrevent_t",
-     "echelle_montant_a",
-     "echelle_montant_b",
+     "garde_corps_cabine",
+     "garde_corps_cuve",
      "garde_corps_passerelle",
-     "garde_corps_toit",
+     "marche_esc",
+     "rampe_esc",
      "torchere_bague",
      "torchere_bec",
      "torchere_flamme",
-     "torchere_fut"
+     "torchere_fut",
+     "torchere_hauban"
     ],
     "plates_au_sol": []
    },
@@ -1053,13 +1244,13 @@
    "halo_sprite": [
     {
      "source_tiles": [
-      1.35,
-      -1.35,
-      4.28
+      1.45,
+      -1.55,
+      4.3
      ],
      "ecran_tiles": [
-      1.35,
-      -4.376
+      1.45,
+      -4.591
      ],
      "couleur": "#FF8C1A",
      "fenetre_sprite_tiles": [
@@ -1071,12 +1262,12 @@
     {
      "source_tiles": [
       0.0,
-      1.45,
+      1.47,
       0.5
      ],
      "ecran_tiles": [
       0.0,
-      1.096
+      1.116
      ],
      "couleur": "#FF8C1A",
      "fenetre_sprite_tiles": [
@@ -1097,19 +1288,55 @@
    },
    "animation_script": "flamme de torchère (16 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 0.91,
+    "gain": 5.0497,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     542,
-     500
+     560,
+     492
     ],
     "origin_px": [
-     145,
-     338
+     153,
+     354
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 108.8
+    "seconds": 85.1,
+    "variantes": {
+     "glow_light": "n04",
+     "main_ao_shadow": "n04-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:56:18",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -1125,7 +1352,7 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-main.png",
       "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-main.png",
-      "width": 264,
+      "width": 256,
       "height": 360,
       "shift": [
        0.0,
@@ -1136,7 +1363,7 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-main.png",
       "apercu": "tools/render/out/levels/centre/n05/centre-n05-main.png",
-      "width": 132,
+      "width": 128,
       "height": 180,
       "shift": [
        0.0,
@@ -1153,10 +1380,10 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-shadow.png",
       "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-shadow.png",
-      "width": 386,
-      "height": 224,
+      "width": 382,
+      "height": 216,
       "shift": [
-       1.171875,
+       1.203125,
        0.0
       ],
       "scale": 0.5
@@ -1164,10 +1391,10 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-shadow.png",
       "apercu": "tools/render/out/levels/centre/n05/centre-n05-shadow.png",
-      "width": 193,
-      "height": 112,
+      "width": 191,
+      "height": 108,
       "shift": [
-       1.171875,
+       1.203125,
        0.0
       ],
       "scale": 1.0
@@ -1182,10 +1409,10 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-glow.png",
       "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-glow.png",
-      "width": 210,
+      "width": 202,
       "height": 344,
       "shift": [
-       0.015625,
+       -0.015625,
        -1.0
       ],
       "scale": 0.5
@@ -1193,10 +1420,10 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-glow.png",
       "apercu": "tools/render/out/levels/centre/n05/centre-n05-glow.png",
-      "width": 105,
+      "width": 101,
       "height": 172,
       "shift": [
-       0.015625,
+       -0.015625,
        -1.0
       ],
       "scale": 1.0
@@ -1212,10 +1439,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/hr-centre-e05-light.png",
       "apercu": "tools/render/out/levels/centre/n05/hr-centre-n05-light.png",
       "width": 260,
-      "height": 330,
+      "height": 328,
       "shift": [
        0.0,
-       -0.265625
+       -0.28125
       ],
       "scale": 0.5
      },
@@ -1223,10 +1450,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e05/centre-e05-light.png",
       "apercu": "tools/render/out/levels/centre/n05/centre-n05-light.png",
       "width": 130,
-      "height": 165,
+      "height": 164,
       "shift": [
        0.0,
-       -0.265625
+       -0.28125
       ],
       "scale": 1.0
      }
@@ -1240,7 +1467,7 @@
    ],
    "drawing_box": [
     [
-     -2.0625,
+     -2.0,
      -3.75
     ],
     [
@@ -1251,25 +1478,33 @@
    "mesures": {
     "O": 1.34,
     "O_tige": 1.72,
-    "L": 3.66,
-    "area_t2": 13.42,
-    "iou_prev": 0.752,
-    "events": 3
+    "L": 3.55,
+    "area_t2": 13.29,
+    "iou_prev": 0.586,
+    "events": 7,
+    "V_pct": 8.4
    },
    "pieces": {
     "masses": [
      "avant_porte",
+     "avant_porte_rivets",
      "avant_porte_toit",
      "contrefort",
      "cratere_braises",
      "cratere_levre",
+     "cratere_rivets",
      "ecaille",
      "fente_g1",
      "fente_g2",
      "fente_g3",
      "gradin",
+     "gradin_1_joint",
+     "gradin_1_palier_dessus",
      "gradin_1_rivets",
+     "gradin_2_joint",
+     "gradin_2_palier_dessus",
      "gradin_2_rivets",
+     "gradin_3_joint",
      "gradin_3_rivets",
      "ogive_braise",
      "ogive_cadre",
@@ -1349,19 +1584,55 @@
    },
    "animation_script": "pulsation des braises (8 à 16 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.03,
+    "gain": 1.2596,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     468,
-     428
+     464,
+     426
     ],
     "origin_px": [
-     158,
+     154,
      278
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 123.6
+    "seconds": 65.3,
+    "variantes": {
+     "glow_light": "n05",
+     "main_ao_shadow": "n05-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:57:23",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -1377,22 +1648,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-main.png",
       "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-main.png",
-      "width": 240,
-      "height": 338,
+      "width": 256,
+      "height": 304,
       "shift": [
        0.0,
-       -0.984375
+       -1.1875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-main.png",
       "apercu": "tools/render/out/levels/centre/n06/centre-n06-main.png",
-      "width": 120,
-      "height": 169,
+      "width": 128,
+      "height": 152,
       "shift": [
        0.0,
-       -0.984375
+       -1.1875
       ],
       "scale": 1.0
      }
@@ -1405,22 +1676,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-shadow.png",
       "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-shadow.png",
-      "width": 374,
-      "height": 182,
+      "width": 394,
+      "height": 128,
       "shift": [
-       1.265625,
-       0.046875
+       1.296875,
+       0.0
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-shadow.png",
       "apercu": "tools/render/out/levels/centre/n06/centre-n06-shadow.png",
-      "width": 187,
-      "height": 91,
+      "width": 197,
+      "height": 64,
       "shift": [
-       1.265625,
-       0.046875
+       1.296875,
+       0.0
       ],
       "scale": 1.0
      }
@@ -1434,22 +1705,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-glow.png",
       "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-glow.png",
-      "width": 210,
-      "height": 286,
+      "width": 224,
+      "height": 258,
       "shift": [
-       -0.015625,
-       -0.859375
+       0.0,
+       -1.078125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-glow.png",
       "apercu": "tools/render/out/levels/centre/n06/centre-n06-glow.png",
-      "width": 105,
-      "height": 143,
+      "width": 112,
+      "height": 129,
       "shift": [
-       -0.015625,
-       -0.859375
+       0.0,
+       -1.078125
       ],
       "scale": 1.0
      }
@@ -1463,22 +1734,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/hr-centre-e06-light.png",
       "apercu": "tools/render/out/levels/centre/n06/hr-centre-n06-light.png",
-      "width": 236,
-      "height": 318,
+      "width": 204,
+      "height": 274,
       "shift": [
        0.0,
-       -0.421875
+       -0.640625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e06/centre-e06-light.png",
       "apercu": "tools/render/out/levels/centre/n06/centre-n06-light.png",
-      "width": 118,
-      "height": 159,
+      "width": 102,
+      "height": 137,
       "shift": [
        0.0,
-       -0.421875
+       -0.640625
       ],
       "scale": 1.0
      }
@@ -1492,33 +1763,29 @@
    ],
    "drawing_box": [
     [
-     -1.875,
-     -3.625
+     -2.0,
+     -3.5625
     ],
     [
-     4.1875,
-     1.6562
+     4.375,
+     1.1875
     ]
    ],
    "mesures": {
-    "O": 1.55,
-    "O_tige": 1.61,
-    "L": 3.28,
-    "area_t2": 13.32,
-    "iou_prev": 0.776,
-    "events": 1
+    "O": 1.53,
+    "O_tige": 1.53,
+    "L": 3.56,
+    "area_t2": 9.44,
+    "iou_prev": 0.483,
+    "events": 3,
+    "V_pct": 35.6
    },
    "pieces": {
     "masses": [
-     "aeration",
-     "aeration_lame",
-     "bandeau_ceramique_ar",
-     "bandeau_ceramique_av",
-     "bandeau_ceramique_e",
-     "bandeau_ceramique_o",
      "bobine",
-     "col_disque",
+     "col_disques",
      "col_noyau",
+     "collier_boulons",
      "fen",
      "fen_cadre",
      "pile_chapeau",
@@ -1526,21 +1793,28 @@
      "pile_electrode",
      "pile_noyau",
      "pile_socle",
+     "pile_socle_boulons",
+     "porche",
+     "porche_toit",
      "porte_cadre",
      "porte_vantail",
-     "salle",
      "socle",
-     "toit",
-     "toit_joint",
+     "socle_boulons",
      "tore_dome",
+     "tore_goujons",
      "tore_tesla",
+     "tour",
+     "tour_bagues",
      "tour_collier",
-     "tour_fut",
-     "tour_noyau",
+     "tour_nervures",
+     "transfo",
+     "transfo_ailettes",
+     "transfo_borne",
      "voyant_porte"
     ],
     "tiges": [
      "arc",
+     "cable",
      "paratonnerre",
      "pile_etincelle"
     ],
@@ -1551,12 +1825,12 @@
     {
      "source_tiles": [
       0.0,
-      -0.45,
-      3.48
+      -0.2,
+      3.78
      ],
      "ecran_tiles": [
       0.0,
-      -2.911
+      -2.873
      ],
      "couleur": "#60D0FF",
      "fenetre_sprite_tiles": [
@@ -1567,13 +1841,13 @@
     },
     {
      "source_tiles": [
-      -1.3,
-      -0.35,
-      3.0
+      -1.56,
+      0.15,
+      2.9
      ],
      "ecran_tiles": [
-      -1.3,
-      -2.471
+      -1.56,
+      -1.901
      ],
      "couleur": "#60D0FF",
      "fenetre_sprite_tiles": [
@@ -1584,13 +1858,13 @@
     },
     {
      "source_tiles": [
-      1.3,
-      -0.35,
-      3.0
+      1.56,
+      0.15,
+      2.9
      ],
      "ecran_tiles": [
-      1.3,
-      -2.471
+      1.56,
+      -1.901
      ],
      "couleur": "#60D0FF",
      "fenetre_sprite_tiles": [
@@ -1602,12 +1876,12 @@
     {
      "source_tiles": [
       0.0,
-      1.45,
-      0.62
+      0.66,
+      0.81
      ],
      "ecran_tiles": [
       0.0,
-      1.012
+      0.087
      ],
      "couleur": "#60D0FF",
      "fenetre_sprite_tiles": [
@@ -1628,19 +1902,55 @@
    },
    "animation_script": "arcs entre les piles et le tore (16 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.15,
+    "gain": 13.1089,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     458,
-     406
+     488,
+     374
     ],
     "origin_px": [
-     145,
-     272
+     154,
+     271
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 62.1
+    "seconds": 68.2,
+    "variantes": {
+     "glow_light": "n06",
+     "main_ao_shadow": "n06-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:58:32",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -1656,22 +1966,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-main.png",
       "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-main.png",
-      "width": 244,
-      "height": 370,
+      "width": 236,
+      "height": 354,
       "shift": [
        0.0,
-       -0.953125
+       -1.078125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-main.png",
       "apercu": "tools/render/out/levels/centre/n07/centre-n07-main.png",
-      "width": 122,
-      "height": 185,
+      "width": 118,
+      "height": 177,
       "shift": [
        0.0,
-       -0.953125
+       -1.078125
       ],
       "scale": 1.0
      }
@@ -1684,22 +1994,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-shadow.png",
       "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-shadow.png",
-      "width": 394,
-      "height": 212,
+      "width": 390,
+      "height": 194,
       "shift": [
-       1.421875,
-       0.125
+       1.453125,
+       0.015625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-shadow.png",
       "apercu": "tools/render/out/levels/centre/n07/centre-n07-shadow.png",
-      "width": 197,
-      "height": 106,
+      "width": 195,
+      "height": 97,
       "shift": [
-       1.421875,
-       0.125
+       1.453125,
+       0.015625
       ],
       "scale": 1.0
      }
@@ -1713,22 +2023,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-glow.png",
       "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-glow.png",
-      "width": 236,
-      "height": 354,
+      "width": 232,
+      "height": 336,
       "shift": [
        -0.03125,
-       -1.078125
+       -1.21875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-glow.png",
       "apercu": "tools/render/out/levels/centre/n07/centre-n07-glow.png",
-      "width": 118,
-      "height": 177,
+      "width": 116,
+      "height": 168,
       "shift": [
        -0.03125,
-       -1.078125
+       -1.21875
       ],
       "scale": 1.0
      }
@@ -1742,22 +2052,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/hr-centre-e07-light.png",
       "apercu": "tools/render/out/levels/centre/n07/hr-centre-n07-light.png",
-      "width": 236,
+      "width": 280,
       "height": 364,
       "shift": [
-       0.03125,
-       -0.90625
+       0.09375,
+       -0.9375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e07/centre-e07-light.png",
       "apercu": "tools/render/out/levels/centre/n07/centre-n07-light.png",
-      "width": 118,
+      "width": 140,
       "height": 182,
       "shift": [
-       0.03125,
-       -0.90625
+       0.09375,
+       -0.9375
       ],
       "scale": 1.0
      }
@@ -1771,36 +2081,49 @@
    ],
    "drawing_box": [
     [
-     -1.9062,
+     -1.8438,
      -3.8438
     ],
     [
      4.5,
-     1.9375
+     1.6875
     ]
    ],
    "mesures": {
     "O": 1.81,
     "O_tige": 1.81,
-    "L": 3.66,
-    "area_t2": 12.31,
-    "iou_prev": 0.761,
-    "events": 3
+    "L": 3.59,
+    "area_t2": 10.45,
+    "iou_prev": 0.511,
+    "events": 12,
+    "V_pct": 27.6
    },
    "pieces": {
     "masses": [
+     "borne",
+     "borne_coupe",
+     "dallage_1_dessus",
+     "dallage_2_dessus",
      "eclat",
+     "eclat_roche",
      "grand_cristal",
      "grappe",
+     "joints_montants",
      "marche",
      "porte_cadre",
      "porte_cristal",
      "porte_vantail",
      "sanctuaire",
+     "sanctuaire_assise",
      "sanctuaire_toit",
+     "sanctuaire_toit_rivets",
      "sertissure_basse",
      "sertissure_haute",
-     "socle"
+     "sertissure_rivets",
+     "socle",
+     "socle_1_lit",
+     "socle_2_liseré",
+     "socle_2_lit"
     ],
     "tiges": [
      "griffe"
@@ -1855,19 +2178,55 @@
    },
    "animation_script": "respiration du cristal (16 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.27,
+    "gain": 0.8176,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
      508,
-     454
+     438
     ],
     "origin_px": [
-     159,
+     158,
      302
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 73.8
+    "seconds": 60.2,
+    "variantes": {
+     "glow_light": "n07",
+     "main_ao_shadow": "n07-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 04:59:32",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -1883,22 +2242,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-main.png",
       "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-main.png",
-      "width": 254,
-      "height": 390,
+      "width": 262,
+      "height": 386,
       "shift": [
-       0.046875,
-       -1.328125
+       0.015625,
+       -1.421875
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-main.png",
       "apercu": "tools/render/out/levels/centre/n08/centre-n08-main.png",
-      "width": 127,
-      "height": 195,
+      "width": 131,
+      "height": 193,
       "shift": [
-       0.046875,
-       -1.328125
+       0.015625,
+       -1.421875
       ],
       "scale": 1.0
      }
@@ -1911,10 +2270,10 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-shadow.png",
       "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-shadow.png",
-      "width": 374,
-      "height": 200,
+      "width": 428,
+      "height": 184,
       "shift": [
-       1.265625,
+       1.5625,
        -0.03125
       ],
       "scale": 0.5
@@ -1922,10 +2281,10 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-shadow.png",
       "apercu": "tools/render/out/levels/centre/n08/centre-n08-shadow.png",
-      "width": 187,
-      "height": 100,
+      "width": 214,
+      "height": 92,
       "shift": [
-       1.265625,
+       1.5625,
        -0.03125
       ],
       "scale": 1.0
@@ -1940,22 +2299,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-glow.png",
       "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-glow.png",
-      "width": 228,
-      "height": 370,
+      "width": 234,
+      "height": 366,
       "shift": [
-       0.09375,
-       -1.484375
+       0.015625,
+       -1.578125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-glow.png",
       "apercu": "tools/render/out/levels/centre/n08/centre-n08-glow.png",
-      "width": 114,
-      "height": 185,
+      "width": 117,
+      "height": 183,
       "shift": [
-       0.09375,
-       -1.484375
+       0.015625,
+       -1.578125
       ],
       "scale": 1.0
      }
@@ -1969,22 +2328,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/hr-centre-e08-light.png",
       "apercu": "tools/render/out/levels/centre/n08/hr-centre-n08-light.png",
-      "width": 218,
-      "height": 234,
+      "width": 258,
+      "height": 374,
       "shift": [
-       0.171875,
-       -0.515625
+       -0.078125,
+       -1.515625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e08/centre-e08-light.png",
       "apercu": "tools/render/out/levels/centre/n08/centre-n08-light.png",
-      "width": 109,
-      "height": 117,
+      "width": 129,
+      "height": 187,
       "shift": [
-       0.171875,
-       -0.515625
+       -0.078125,
+       -1.515625
       ],
       "scale": 1.0
      }
@@ -1998,53 +2357,79 @@
    ],
    "drawing_box": [
     [
-     -1.9375,
-     -4.375
+     -2.0312,
+     -4.4375
     ],
     [
-     4.1875,
-     1.7188
+     4.9062,
+     1.5938
     ]
    ],
    "mesures": {
-    "O": 1.91,
-    "O_tige": 2.34,
-    "L": 3.59,
-    "area_t2": 14.79,
-    "iou_prev": 0.684,
-    "events": 1
+    "O": 2.03,
+    "O_tige": 2.42,
+    "L": 3.66,
+    "area_t2": 10.29,
+    "iou_prev": 0.551,
+    "events": 5,
+    "V_pct": 27.0
    },
    "pieces": {
     "masses": [
-     "annexe_basse",
-     "bulbe_moyen_cercle_bas",
-     "bulbe_moyen_cercle_haut",
-     "bulbe_moyen_joint",
-     "bulbe_moyen_liquide",
-     "bulbe_moyen_tambour",
-     "bulbe_moyen_verre",
+     "ballon_moyen_bague",
+     "ballon_moyen_bague_basse",
+     "ballon_moyen_col",
+     "ballon_moyen_col_bagues",
+     "ballon_moyen_cuve",
+     "ballon_moyen_cuve_nervures",
+     "ballon_moyen_cuve_rivets",
+     "ballon_moyen_liquide",
+     "ballon_moyen_montants",
+     "ballon_moyen_plateau",
+     "ballon_moyen_traverse",
+     "ballon_moyen_traverse_m1",
+     "ballon_moyen_verre",
      "conduits",
-     "fen",
-     "fen_cadre",
-     "grand_bulbe_cercle_bas",
-     "grand_bulbe_cercle_haut",
-     "grand_bulbe_joint",
-     "grand_bulbe_liquide",
-     "grand_bulbe_tambour",
-     "grand_bulbe_verre",
+     "grand_ballon_axe",
+     "grand_ballon_bague",
+     "grand_ballon_bague_basse",
+     "grand_ballon_chapeau",
+     "grand_ballon_col",
+     "grand_ballon_col_bagues",
+     "grand_ballon_cuve",
+     "grand_ballon_cuve_nervures",
+     "grand_ballon_cuve_rivets",
+     "grand_ballon_liquide",
+     "grand_ballon_montants",
+     "grand_ballon_plateau",
+     "grand_ballon_serpentin",
+     "grand_ballon_traverse",
+     "grand_ballon_traverse_m1",
+     "grand_ballon_traverse_m2",
+     "grand_ballon_traverse_m3",
+     "grand_ballon_verre",
      "hublot",
      "hublot_cadre",
-     "labo",
-     "labo_corniche",
-     "petit_bulbe_cercle_bas",
-     "petit_bulbe_cercle_haut",
-     "petit_bulbe_joint",
-     "petit_bulbe_liquide",
-     "petit_bulbe_tambour",
-     "petit_bulbe_verre",
+     "petit_ballon_bague",
+     "petit_ballon_bague_basse",
+     "petit_ballon_col",
+     "petit_ballon_col_bagues",
+     "petit_ballon_cuve",
+     "petit_ballon_cuve_nervures",
+     "petit_ballon_cuve_rivets",
+     "petit_ballon_liquide",
+     "petit_ballon_montants",
+     "petit_ballon_plateau",
+     "petit_ballon_traverse",
+     "petit_ballon_traverse_m1",
+     "petit_ballon_verre",
      "porte_cadre",
+     "porte_imposte",
      "porte_vantail",
-     "tuyau_souple"
+     "tuyau_souple",
+     "vestibule",
+     "vestibule_corniche",
+     "vestibule_plaques_dessus"
     ],
     "tiges": [
      "antenne",
@@ -2056,18 +2441,18 @@
    "halo_sprite": [
     {
      "source_tiles": [
-      -0.3,
-      -0.85,
-      2.1
+      -0.05,
+      -0.55,
+      0.9
      ],
      "ecran_tiles": [
-      -0.3,
-      -2.335
+      -0.05,
+      -1.186
      ],
      "couleur": "#A8FF3A",
      "fenetre_sprite_tiles": [
-      0.6,
-      1.6
+      0.7,
+      1.8
      ],
      "flaque_sol_tiles": [
       1.3,
@@ -2076,35 +2461,52 @@
     },
     {
      "source_tiles": [
-      -1.15,
-      0.65,
-      1.0
+      1.33,
+      -0.25,
+      0.5
      ],
      "ecran_tiles": [
-      -1.15,
-      -0.057
-     ],
-     "couleur": "#A8FF3A",
-     "fenetre_sprite_tiles": [
-      0.4,
-      1.0
-     ],
-     "flaque_sol_tiles": null
-    },
-    {
-     "source_tiles": [
-      1.25,
-      -0.5,
-      1.25
-     ],
-     "ecran_tiles": [
-      1.25,
-      -1.384
+      1.33,
+      -0.604
      ],
      "couleur": "#A8FF3A",
      "fenetre_sprite_tiles": [
       0.35,
       0.9
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -1.4,
+      0.62,
+      0.42
+     ],
+     "ecran_tiles": [
+      -1.4,
+      0.323
+     ],
+     "couleur": "#A8FF3A",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      -0.05,
+      -0.55,
+      5.38
+     ],
+     "ecran_tiles": [
+      -0.05,
+      -4.354
+     ],
+     "couleur": "#A8FF3A",
+     "fenetre_sprite_tiles": [
+      0.2,
+      0.6
      ],
      "flaque_sol_tiles": null
     }
@@ -2117,19 +2519,55 @@
    },
    "animation_script": "bulles montantes (16 à 24 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.39,
+    "gain": 0.9747,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     486,
-     458
+     512,
+     454
     ],
     "origin_px": [
-     148,
-     321
+     157,
+     325
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 43.6
+    "seconds": 65.1,
+    "variantes": {
+     "glow_light": "n08",
+     "main_ao_shadow": "n08-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:00:37",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -2145,22 +2583,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-main.png",
       "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-main.png",
-      "width": 248,
-      "height": 404,
+      "width": 266,
+      "height": 392,
       "shift": [
-       0.03125,
-       -1.40625
+       0.015625,
+       -1.5
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-main.png",
       "apercu": "tools/render/out/levels/centre/n09/centre-n09-main.png",
-      "width": 124,
-      "height": 202,
+      "width": 133,
+      "height": 196,
       "shift": [
-       0.03125,
-       -1.40625
+       0.015625,
+       -1.5
       ],
       "scale": 1.0
      }
@@ -2173,22 +2611,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-shadow.png",
       "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-shadow.png",
-      "width": 476,
-      "height": 204,
+      "width": 486,
+      "height": 190,
       "shift": [
-       2.03125,
-       0.0
+       1.953125,
+       -0.109375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-shadow.png",
       "apercu": "tools/render/out/levels/centre/n09/centre-n09-shadow.png",
-      "width": 238,
-      "height": 102,
+      "width": 243,
+      "height": 95,
       "shift": [
-       2.03125,
-       0.0
+       1.953125,
+       -0.109375
       ],
       "scale": 1.0
      }
@@ -2202,22 +2640,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-glow.png",
       "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-glow.png",
-      "width": 194,
-      "height": 384,
+      "width": 224,
+      "height": 372,
       "shift": [
-       0.015625,
-       -1.5625
+       0.0,
+       -1.65625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-glow.png",
       "apercu": "tools/render/out/levels/centre/n09/centre-n09-glow.png",
-      "width": 97,
-      "height": 192,
+      "width": 112,
+      "height": 186,
       "shift": [
-       0.015625,
-       -1.5625
+       0.0,
+       -1.65625
       ],
       "scale": 1.0
      }
@@ -2231,22 +2669,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/hr-centre-e09-light.png",
       "apercu": "tools/render/out/levels/centre/n09/hr-centre-n09-light.png",
-      "width": 278,
-      "height": 432,
+      "width": 282,
+      "height": 480,
       "shift": [
-       0.046875,
-       -1.1875
+       0.015625,
+       -0.8125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e09/centre-e09-light.png",
       "apercu": "tools/render/out/levels/centre/n09/centre-n09-light.png",
-      "width": 139,
-      "height": 216,
+      "width": 141,
+      "height": 240,
       "shift": [
-       0.046875,
-       -1.1875
+       0.015625,
+       -0.8125
       ],
       "scale": 1.0
      }
@@ -2260,39 +2698,52 @@
    ],
    "drawing_box": [
     [
-     -1.9062,
+     -2.0625,
      -4.5625
     ],
     [
      5.75,
-     1.75
+     1.5625
     ]
    ],
    "mesures": {
     "O": 2.3,
-    "O_tige": 2.55,
-    "L": 3.39,
-    "area_t2": 14.31,
-    "iou_prev": 0.652,
-    "events": 3
+    "O_tige": 2.53,
+    "L": 3.69,
+    "area_t2": 13.23,
+    "iou_prev": 0.452,
+    "events": 7,
+    "V_pct": 21.3
    },
    "pieces": {
     "masses": [
      "bande_pied",
      "chanfrein",
+     "chevrons",
      "corps",
+     "corps_boulons",
+     "corps_joint",
+     "corps_liseré",
      "dome",
      "dome_bague",
      "dome_bande_verte",
+     "dome_coutures",
      "dome_tambour",
+     "dome_tambour_boulons",
+     "event",
+     "event_anneaux",
+     "event_chapeau",
      "hublot",
      "hublot_cadre",
+     "porte_boulons",
      "porte_cadre",
      "porte_chevron",
      "porte_vantail",
      "tour_bande",
+     "tour_cercle",
      "tour_gueule",
      "tour_levre",
+     "tour_pieds",
      "tour_refroid",
      "trefle_disque",
      "trefle_pales"
@@ -2300,7 +2751,8 @@
     "tiges": [
      "balise_bague",
      "balise_feu",
-     "balise_mat"
+     "balise_mat",
+     "echelle"
     ],
     "plates_au_sol": []
    },
@@ -2369,19 +2821,55 @@
    },
    "animation_script": "pulsation verte (uranium-glow équivalent)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.51,
+    "gain": 0.7869,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     556,
-     474
+     568,
+     524
     ],
     "origin_px": [
-     147,
+     158,
      333
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 68.0
+    "seconds": 82.5,
+    "variantes": {
+     "glow_light": "n09",
+     "main_ao_shadow": "n09-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 04:52:02",
+     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32612,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:01:59",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
+     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": [
+      "centre_ere4.py",
+      "centre_ere5.py"
+     ]
+    }
    }
   },
   {
@@ -2397,22 +2885,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-main.png",
       "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-main.png",
-      "width": 204,
-      "height": 482,
+      "width": 244,
+      "height": 462,
       "shift": [
        0.0,
-       -2.046875
+       -1.984375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-main.png",
       "apercu": "tools/render/out/levels/centre/n10/centre-n10-main.png",
-      "width": 102,
-      "height": 241,
+      "width": 122,
+      "height": 231,
       "shift": [
        0.0,
-       -2.046875
+       -1.984375
       ],
       "scale": 1.0
      }
@@ -2425,22 +2913,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-shadow.png",
       "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-shadow.png",
-      "width": 436,
-      "height": 190,
+      "width": 432,
+      "height": 200,
       "shift": [
-       2.0,
-       0.078125
+       1.90625,
+       -0.09375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-shadow.png",
       "apercu": "tools/render/out/levels/centre/n10/centre-n10-shadow.png",
-      "width": 218,
-      "height": 95,
+      "width": 216,
+      "height": 100,
       "shift": [
-       2.0,
-       0.078125
+       1.90625,
+       -0.09375
       ],
       "scale": 1.0
      }
@@ -2454,22 +2942,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-glow.png",
       "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-glow.png",
-      "width": 188,
-      "height": 468,
+      "width": 218,
+      "height": 444,
       "shift": [
-       0.0,
-       -2.15625
+       -0.140625,
+       -2.125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-glow.png",
       "apercu": "tools/render/out/levels/centre/n10/centre-n10-glow.png",
-      "width": 94,
-      "height": 234,
+      "width": 109,
+      "height": 222,
       "shift": [
-       0.0,
-       -2.15625
+       -0.140625,
+       -2.125
       ],
       "scale": 1.0
      }
@@ -2483,22 +2971,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/hr-centre-e10-light.png",
       "apercu": "tools/render/out/levels/centre/n10/hr-centre-n10-light.png",
-      "width": 290,
-      "height": 510,
+      "width": 308,
+      "height": 490,
       "shift": [
-       0.140625,
-       -1.828125
+       0.0,
+       -1.765625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e10/centre-e10-light.png",
       "apercu": "tools/render/out/levels/centre/n10/centre-n10-light.png",
-      "width": 145,
-      "height": 255,
+      "width": 154,
+      "height": 245,
       "shift": [
-       0.140625,
-       -1.828125
+       0.0,
+       -1.765625
       ],
       "scale": 1.0
      }
@@ -2512,43 +3000,52 @@
    ],
    "drawing_box": [
     [
-     -1.5938,
-     -5.8125
+     -1.9062,
+     -5.5938
     ],
     [
-     5.4062,
-     1.7188
+     5.2812,
+     1.625
     ]
    ],
    "mesures": {
-    "O": 2.45,
-    "O_tige": 3.78,
-    "L": 3.12,
-    "area_t2": 12.76,
-    "iou_prev": 0.612,
-    "events": 2
+    "O": 2.47,
+    "O_tige": 3.58,
+    "L": 3.75,
+    "area_t2": 13.71,
+    "iou_prev": 0.547,
+    "events": 5,
+    "V_pct": 19.3
    },
    "pieces": {
     "masses": [
      "bandeau_noir",
      "coque",
-     "ecran_facade",
+     "coutures",
      "fouet_embase",
+     "goujons_bandeau",
+     "grille_lames",
+     "liseré_bas",
      "marche",
      "parabole",
      "parabole_pied",
      "patin",
      "pied",
+     "pied_bague",
+     "pied_tube",
+     "piedestal",
+     "piedestal_boulons",
+     "piedestal_embase",
+     "piedestal_nervures",
      "porte",
      "porte_cadre",
      "porte_feu",
+     "porte_joint",
      "radome",
-     "radome_couture",
-     "radome_couture_eq",
+     "radome_coutures",
      "radome_feu",
-     "tour_collier",
-     "tour_pied",
-     "tour_radome",
+     "trappe",
+     "trappe_vis",
      "voyant"
     ],
     "tiges": [
@@ -2563,12 +3060,12 @@
     {
      "source_tiles": [
       0.0,
-      1.15,
-      0.9
+      1.05,
+      1.0
      ],
      "ecran_tiles": [
       0.0,
-      0.514
+      0.343
      ],
      "couleur": "#3AA8FF",
      "fenetre_sprite_tiles": [
@@ -2582,13 +3079,13 @@
     },
     {
      "source_tiles": [
-      0.45,
-      -0.65,
-      3.07
+      0.5,
+      -0.2,
+      2.78
      ],
      "ecran_tiles": [
-      0.45,
-      -2.821
+      0.5,
+      -2.166
      ],
      "couleur": "#3AA8FF",
      "fenetre_sprite_tiles": [
@@ -2599,13 +3096,13 @@
     },
     {
      "source_tiles": [
-      -1.3,
-      -0.95,
+      -1.35,
+      -0.75,
       6.77
      ],
      "ecran_tiles": [
-      -1.3,
-      -5.737
+      -1.35,
+      -5.537
      ],
      "couleur": "#3AA8FF",
      "fenetre_sprite_tiles": [
@@ -2623,19 +3120,52 @@
    },
    "animation_script": "parabole tournante + voyants (frame_sequence)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.63,
+    "gain": 1.2305,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     562,
-     552
+     592,
+     534
     ],
     "origin_px": [
-     141,
-     412
+     173,
+     399
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 66.1
+    "seconds": 65.4,
+    "variantes": {
+     "glow_light": "n10",
+     "main_ao_shadow": "n10-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:17:24",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   },
   {
@@ -2651,7 +3181,7 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-main.png",
       "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-main.png",
-      "width": 236,
+      "width": 240,
       "height": 466,
       "shift": [
        0.0,
@@ -2662,7 +3192,7 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-main.png",
       "apercu": "tools/render/out/levels/centre/n11/centre-n11-main.png",
-      "width": 118,
+      "width": 120,
       "height": 233,
       "shift": [
        0.0,
@@ -2708,22 +3238,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-glow.png",
       "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-glow.png",
-      "width": 218,
-      "height": 452,
+      "width": 238,
+      "height": 424,
       "shift": [
-       0.015625,
-       -1.875
+       -0.015625,
+       -1.65625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-glow.png",
       "apercu": "tools/render/out/levels/centre/n11/centre-n11-glow.png",
-      "width": 109,
-      "height": 226,
+      "width": 119,
+      "height": 212,
       "shift": [
-       0.015625,
-       -1.875
+       -0.015625,
+       -1.65625
       ],
       "scale": 1.0
      }
@@ -2737,22 +3267,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/hr-centre-e11-light.png",
       "apercu": "tools/render/out/levels/centre/n11/hr-centre-n11-light.png",
-      "width": 290,
-      "height": 398,
+      "width": 272,
+      "height": 388,
       "shift": [
-       0.109375,
-       -0.984375
+       0.0625,
+       -1.0625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e11/centre-e11-light.png",
       "apercu": "tools/render/out/levels/centre/n11/centre-n11-light.png",
-      "width": 145,
-      "height": 199,
+      "width": 136,
+      "height": 194,
       "shift": [
-       0.109375,
-       -0.984375
+       0.0625,
+       -1.0625
       ],
       "scale": 1.0
      }
@@ -2766,7 +3296,7 @@
    ],
    "drawing_box": [
     [
-     -1.8438,
+     -1.875,
      -5.5312
     ],
     [
@@ -2775,32 +3305,50 @@
     ]
    ],
    "mesures": {
-    "O": 2.66,
+    "O": 2.69,
     "O_tige": 3.52,
-    "L": 3.44,
-    "area_t2": 10.25,
-    "iou_prev": 0.579,
-    "events": 1
+    "L": 3.72,
+    "area_t2": 12.24,
+    "iou_prev": 0.664,
+    "events": 5,
+    "V_pct": 24.9
    },
    "pieces": {
     "masses": [
      "aileron",
      "aileron_jambe",
+     "aileron_nervure",
+     "hublot",
+     "hublot_cadre",
+     "nacelle",
+     "nacelle_fond",
+     "nacelle_toit",
+     "nacelle_vitrage",
      "patin",
      "pied",
      "plate_forme",
-     "plate_forme_liseré",
+     "plate_forme_bord",
+     "plate_forme_vis",
      "porte",
      "porte_feu",
      "rampe",
+     "rampe_strie",
+     "rotule",
      "tour",
+     "tour_aretes",
      "tour_bague"
     ],
     "tiges": [
      "aileron_ligne",
+     "aileron_ligne_0_fond",
+     "aileron_ligne_1_fond",
+     "aileron_ligne_2_fond",
+     "aileron_ligne_3_fond",
      "fleche",
      "fleche_feu",
-     "tour_ligne"
+     "tour_ligne",
+     "tour_ligne_-1_fond",
+     "tour_ligne_1_fond"
     ],
     "plates_au_sol": []
    },
@@ -2852,19 +3400,52 @@
    },
    "animation_script": "chenillard le long des ailerons",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.75,
+    "gain": 2.4741,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     616,
+     626,
      542
     ],
     "origin_px": [
-     150,
+     160,
      396
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 81.3
+    "seconds": 50.8,
+    "variantes": {
+     "glow_light": "n11",
+     "main_ao_shadow": "n11-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:18:15",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   },
   {
@@ -2880,7 +3461,7 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-main.png",
       "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-main.png",
-      "width": 240,
+      "width": 244,
       "height": 448,
       "shift": [
        0.0,
@@ -2891,7 +3472,7 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-main.png",
       "apercu": "tools/render/out/levels/centre/n12/centre-n12-main.png",
-      "width": 120,
+      "width": 122,
       "height": 224,
       "shift": [
        0.0,
@@ -2909,10 +3490,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-shadow.png",
       "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-shadow.png",
       "width": 516,
-      "height": 200,
+      "height": 206,
       "shift": [
        2.34375,
-       0.0
+       -0.046875
       ],
       "scale": 0.5
      },
@@ -2920,10 +3501,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-shadow.png",
       "apercu": "tools/render/out/levels/centre/n12/centre-n12-shadow.png",
       "width": 258,
-      "height": 100,
+      "height": 103,
       "shift": [
        2.34375,
-       0.0
+       -0.046875
       ],
       "scale": 1.0
      }
@@ -2937,22 +3518,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-glow.png",
       "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-glow.png",
-      "width": 216,
-      "height": 392,
+      "width": 234,
+      "height": 384,
       "shift": [
-       0.0,
-       -1.59375
+       0.015625,
+       -1.53125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-glow.png",
       "apercu": "tools/render/out/levels/centre/n12/centre-n12-glow.png",
-      "width": 108,
-      "height": 196,
+      "width": 117,
+      "height": 192,
       "shift": [
-       0.0,
-       -1.59375
+       0.015625,
+       -1.53125
       ],
       "scale": 1.0
      }
@@ -2966,22 +3547,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/hr-centre-e12-light.png",
       "apercu": "tools/render/out/levels/centre/n12/hr-centre-n12-light.png",
-      "width": 192,
-      "height": 292,
+      "width": 212,
+      "height": 296,
       "shift": [
        0.0,
-       -1.5625
+       -1.59375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e12/centre-e12-light.png",
       "apercu": "tools/render/out/levels/centre/n12/centre-n12-light.png",
-      "width": 96,
-      "height": 146,
+      "width": 106,
+      "height": 148,
       "shift": [
        0.0,
-       -1.5625
+       -1.59375
       ],
       "scale": 1.0
      }
@@ -2995,7 +3576,7 @@
    ],
    "drawing_box": [
     [
-     -1.875,
+     -1.9062,
      -5.3125
     ],
     [
@@ -3004,26 +3585,35 @@
     ]
    ],
    "mesures": {
-    "O": 2.92,
-    "O_tige": 3.28,
-    "L": 3.16,
-    "area_t2": 9.16,
-    "iou_prev": 0.501,
-    "events": 1
+    "O": 2.95,
+    "O_tige": 3.25,
+    "L": 3.75,
+    "area_t2": 12.75,
+    "iou_prev": 0.579,
+    "events": 5,
+    "V_pct": 40.5
    },
    "pieces": {
     "masses": [
      "anneau",
+     "anneau_bobines",
      "anneau_lueur",
+     "anneau_lueur_fond",
+     "bloc_flottant",
+     "bloc_lueur",
      "entree",
+     "entree_plaques_dessus",
      "noyau",
      "noyau_givre",
+     "noyau_grille",
      "noyau_joint",
+     "noyau_plaque",
      "noyau_pointe",
      "porte",
      "porte_feu",
      "porte_montant",
      "pylone",
+     "pylone_bague",
      "pylone_chapeau",
      "pylone_givre",
      "pylone_pointe"
@@ -3051,12 +3641,12 @@
      ],
      "couleur": "#4AF0FF",
      "fenetre_sprite_tiles": [
-      0.6,
-      1.7
+      0.9,
+      2.2
      ],
      "flaque_sol_tiles": [
-      1.5,
-      2.8
+      1.6,
+      3.0
      ]
     },
     {
@@ -3071,8 +3661,8 @@
      ],
      "couleur": "#4AF0FF",
      "fenetre_sprite_tiles": [
-      0.5,
-      1.4
+      0.8,
+      2.0
      ],
      "flaque_sol_tiles": null
     },
@@ -3088,8 +3678,8 @@
      ],
      "couleur": "#4AF0FF",
      "fenetre_sprite_tiles": [
-      0.45,
-      1.2
+      0.7,
+      1.8
      ],
      "flaque_sol_tiles": null
     }
@@ -3102,19 +3692,52 @@
    },
    "animation_script": "rotation des 3 anneaux",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.87,
+    "gain": 11.7568,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     596,
+     614,
      520
     ],
     "origin_px": [
-     147,
+     161,
      380
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 71.7
+    "seconds": 48.4,
+    "variantes": {
+     "glow_light": "n12",
+     "main_ao_shadow": "n12-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:19:03",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   },
   {
@@ -3131,10 +3754,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-main.png",
       "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-main.png",
       "width": 248,
-      "height": 468,
+      "height": 470,
       "shift": [
        0.0,
-       -2.0
+       -1.984375
       ],
       "scale": 0.5
      },
@@ -3142,10 +3765,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-main.png",
       "apercu": "tools/render/out/levels/centre/n13/centre-n13-main.png",
       "width": 124,
-      "height": 234,
+      "height": 235,
       "shift": [
        0.0,
-       -2.0
+       -1.984375
       ],
       "scale": 1.0
      }
@@ -3158,22 +3781,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-shadow.png",
       "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-shadow.png",
-      "width": 542,
-      "height": 212,
+      "width": 546,
+      "height": 224,
       "shift": [
-       2.515625,
-       -0.1875
+       2.484375,
+       -0.125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-shadow.png",
       "apercu": "tools/render/out/levels/centre/n13/centre-n13-shadow.png",
-      "width": 271,
-      "height": 106,
+      "width": 273,
+      "height": 112,
       "shift": [
-       2.515625,
-       -0.1875
+       2.484375,
+       -0.125
       ],
       "scale": 1.0
      }
@@ -3188,10 +3811,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-glow.png",
       "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-glow.png",
       "width": 248,
-      "height": 452,
+      "height": 416,
       "shift": [
        0.0,
-       -2.09375
+       -1.625
       ],
       "scale": 0.5
      },
@@ -3199,10 +3822,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-glow.png",
       "apercu": "tools/render/out/levels/centre/n13/centre-n13-glow.png",
       "width": 124,
-      "height": 226,
+      "height": 208,
       "shift": [
        0.0,
-       -2.09375
+       -1.625
       ],
       "scale": 1.0
      }
@@ -3216,22 +3839,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/hr-centre-e13-light.png",
       "apercu": "tools/render/out/levels/centre/n13/hr-centre-n13-light.png",
-      "width": 280,
-      "height": 444,
+      "width": 260,
+      "height": 466,
       "shift": [
        0.0,
-       -1.4375
+       -1.484375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e13/centre-e13-light.png",
       "apercu": "tools/render/out/levels/centre/n13/centre-n13-light.png",
-      "width": 140,
-      "height": 222,
+      "width": 130,
+      "height": 233,
       "shift": [
        0.0,
-       -1.4375
+       -1.484375
       ],
       "scale": 1.0
      }
@@ -3250,40 +3873,56 @@
     ],
     [
      6.75,
-     1.6562
+     1.6875
     ]
    ],
    "mesures": {
-    "O": 3.14,
+    "O": 3.17,
     "O_tige": 3.62,
-    "L": 3.81,
-    "area_t2": 12.69,
-    "iou_prev": 0.329,
-    "events": 1
+    "L": 3.84,
+    "area_t2": 14.74,
+    "iou_prev": 0.412,
+    "events": 4,
+    "V_pct": 60.9
    },
    "pieces": {
     "masses": [
      "anneau_soutien",
+     "anneau_soutien_boulons",
+     "bobine",
+     "bobine_chapeau",
      "bunker",
+     "bunker_grille",
+     "bunker_plaques_dessus",
+     "ceinture_boulons",
      "conduit_plasma",
      "fleche_embase",
      "hublot",
+     "injecteur",
+     "injecteur_buse",
      "patin",
      "pied",
-     "pied_genou",
+     "pied_bague",
+     "pince",
      "porte",
      "porte_feu",
+     "porte_joint",
      "sphere",
-     "sphere_bande",
-     "sphere_couture",
+     "sphere_ceinture",
+     "sphere_coutures",
      "sphere_hublot",
+     "sphere_hublot_cadre",
+     "sphere_tuiles",
      "tore_plasma"
     ],
     "tiges": [
-     "fleche",
-     "pince"
+     "fleche"
     ],
-    "plates_au_sol": []
+    "plates_au_sol": [
+     "dalle",
+     "dalle_bord",
+     "dalle_cercle"
+    ]
    },
    "lumiere_jour": true,
    "halo_sprite": [
@@ -3291,11 +3930,11 @@
      "source_tiles": [
       0.0,
       -0.35,
-      4.65
+      4.62
      ],
      "ecran_tiles": [
       0.0,
-      -3.638
+      -3.617
      ],
      "couleur": "#FF4FD8",
      "fenetre_sprite_tiles": [
@@ -3310,12 +3949,12 @@
     {
      "source_tiles": [
       0.0,
-      1.5,
+      1.45,
       0.5
      ],
      "ecran_tiles": [
       0.0,
-      1.146
+      1.096
      ],
      "couleur": "#FF9A3A",
      "fenetre_sprite_tiles": [
@@ -3333,19 +3972,52 @@
    },
    "animation_script": "plasma qui tourne (16 à 32 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 1.99,
+    "gain": 2.6289,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     654,
-     542
+     660,
+     556
     ],
     "origin_px": [
-     163,
-     409
+     164,
+     413
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 107.7
+    "seconds": 56.1,
+    "variantes": {
+     "glow_light": "n13",
+     "main_ao_shadow": "n13-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:19:59",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   },
   {
@@ -3389,10 +4061,10 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-shadow.png",
       "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-shadow.png",
-      "width": 540,
+      "width": 550,
       "height": 208,
       "shift": [
-       2.4375,
+       2.515625,
        0.0
       ],
       "scale": 0.5
@@ -3400,10 +4072,10 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-shadow.png",
       "apercu": "tools/render/out/levels/centre/n14/centre-n14-shadow.png",
-      "width": 270,
+      "width": 275,
       "height": 104,
       "shift": [
-       2.4375,
+       2.515625,
        0.0
       ],
       "scale": 1.0
@@ -3447,22 +4119,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e14/hr-centre-e14-light.png",
       "apercu": "tools/render/out/levels/centre/n14/hr-centre-n14-light.png",
-      "width": 300,
-      "height": 508,
+      "width": 298,
+      "height": 534,
       "shift": [
-       0.03125,
-       -1.75
+       0.015625,
+       -1.953125
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e14/centre-e14-light.png",
       "apercu": "tools/render/out/levels/centre/n14/centre-n14-light.png",
-      "width": 150,
-      "height": 254,
+      "width": 149,
+      "height": 267,
       "shift": [
-       0.03125,
-       -1.75
+       0.015625,
+       -1.953125
       ],
       "scale": 1.0
      }
@@ -3480,31 +4152,41 @@
      -5.7188
     ],
     [
-     6.6562,
+     6.8125,
      1.7188
     ]
    ],
    "mesures": {
-    "O": 3.36,
+    "O": 3.42,
     "O_tige": 3.7,
-    "L": 3.84,
-    "area_t2": 10.19,
-    "iou_prev": 0.523,
-    "events": 6
+    "L": 3.81,
+    "area_t2": 14.29,
+    "iou_prev": 0.624,
+    "events": 11,
+    "V_pct": 57.5
    },
    "pieces": {
     "masses": [
+     "aile_longeron",
      "aile_poutre",
      "balise_aile",
      "cellules",
+     "cellules_fil",
      "hangar",
+     "hangar_plaques_dessus",
+     "hangar_plaques_sud",
      "panneau",
      "parabole",
      "parabole_bras",
      "porte",
      "porte_feu",
+     "porte_lame",
+     "reservoir",
+     "reservoir_ceinture",
+     "reservoir_pied",
      "tour",
      "tour_bague",
+     "tour_grille",
      "tour_hublot"
     ],
     "tiges": [
@@ -3539,13 +4221,13 @@
     },
     {
      "source_tiles": [
-      -1.85,
+      -1.83,
       -0.5,
-      3.9
+      3.95
      ],
      "ecran_tiles": [
-      -1.85,
-      -3.258
+      -1.83,
+      -3.293
      ],
      "couleur": "#FF2A2A",
      "fenetre_sprite_tiles": [
@@ -3556,13 +4238,13 @@
     },
     {
      "source_tiles": [
-      1.85,
+      1.83,
       -0.5,
-      3.9
+      3.95
      ],
      "ecran_tiles": [
-      1.85,
-      -3.258
+      1.83,
+      -3.293
      ],
      "couleur": "#FF2A2A",
      "fenetre_sprite_tiles": [
@@ -3574,12 +4256,12 @@
     {
      "source_tiles": [
       0.0,
-      1.55,
-      0.55
+      1.5,
+      0.6
      ],
      "ecran_tiles": [
       0.0,
-      1.161
+      1.076
      ],
      "couleur": "#2F6BFF",
      "fenetre_sprite_tiles": [
@@ -3590,6 +4272,40 @@
       1.3,
       2.6
      ]
+    },
+    {
+     "source_tiles": [
+      -1.17,
+      -0.62,
+      4.4
+     ],
+     "ecran_tiles": [
+      -1.17,
+      -3.731
+     ],
+     "couleur": "#2F6BFF",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      1.17,
+      -0.62,
+      4.4
+     ],
+     "ecran_tiles": [
+      1.17,
+      -3.731
+     ],
+     "couleur": "#2F6BFF",
+     "fenetre_sprite_tiles": [
+      0.3,
+      0.8
+     ],
+     "flaque_sol_tiles": null
     }
    ],
    "halo_script": {
@@ -3600,19 +4316,52 @@
    },
    "animation_script": "balises qui clignotent, reflet des cellules",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 2.11,
+    "gain": 6.0971,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     632,
+     636,
      552
     ],
     "origin_px": [
-     163,
+     162,
      408
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 79.4
+    "seconds": 50.7,
+    "variantes": {
+     "glow_light": "n14",
+     "main_ao_shadow": "n14-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:20:50",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   },
   {
@@ -3628,22 +4377,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-main.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-main.png",
-      "width": 240,
-      "height": 492,
+      "width": 252,
+      "height": 408,
       "shift": [
        0.0,
-       -2.0625
+       -2.40625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-main.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-main.png",
-      "width": 120,
-      "height": 246,
+      "width": 126,
+      "height": 204,
       "shift": [
        0.0,
-       -2.0625
+       -2.40625
       ],
       "scale": 1.0
      }
@@ -3656,22 +4405,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-shadow.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-shadow.png",
-      "width": 550,
-      "height": 206,
+      "width": 534,
+      "height": 178,
       "shift": [
-       3.015625,
-       0.171875
+       2.890625,
+       -0.140625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-shadow.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-shadow.png",
-      "width": 275,
-      "height": 103,
+      "width": 267,
+      "height": 89,
       "shift": [
-       3.015625,
-       0.171875
+       2.890625,
+       -0.140625
       ],
       "scale": 1.0
      }
@@ -3685,22 +4434,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-glow.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-glow.png",
-      "width": 236,
-      "height": 474,
+      "width": 244,
+      "height": 396,
       "shift": [
-       0.0,
-       -2.140625
+       0.03125,
+       -2.375
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-glow.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-glow.png",
-      "width": 118,
-      "height": 237,
+      "width": 122,
+      "height": 198,
       "shift": [
-       0.0,
-       -2.140625
+       0.03125,
+       -2.375
       ],
       "scale": 1.0
      }
@@ -3714,22 +4463,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-light.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-light.png",
-      "width": 328,
-      "height": 494,
+      "width": 330,
+      "height": 444,
       "shift": [
-       0.1875,
-       -1.578125
+       0.140625,
+       -1.65625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-light.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-light.png",
-      "width": 164,
-      "height": 247,
+      "width": 165,
+      "height": 222,
       "shift": [
-       0.1875,
-       -1.578125
+       0.140625,
+       -1.65625
       ],
       "scale": 1.0
      }
@@ -3743,46 +4492,63 @@
    ],
    "drawing_box": [
     [
-     -1.875,
-     -5.9062
+     -1.9688,
+     -5.5938
     ],
     [
-     7.3125,
-     1.7812
+     7.0625,
+     1.25
     ]
    ],
    "mesures": {
-    "O": 3.5,
-    "O_tige": 3.86,
-    "L": 3.69,
-    "area_t2": 9.74,
-    "iou_prev": 0.278,
-    "events": 1
+    "O": 3.58,
+    "O_tige": 3.58,
+    "L": 3.88,
+    "area_t2": 12.41,
+    "iou_prev": 0.467,
+    "events": 5,
+    "V_pct": 58.2
    },
    "pieces": {
     "masses": [
      "anneau_halo",
      "anneau_or",
+     "balustrade",
+     "balustrade_main",
      "base_anneau_lueur",
      "base_bourrelet",
      "base_emetteur",
      "base_flottante",
+     "base_rayons",
+     "base_rivets",
+     "carene",
+     "carene_anneau",
+     "carene_nervures",
      "donjon",
      "donjon_corniche",
+     "donjon_dome_nervures",
+     "donjon_pilastres",
+     "fenetre",
      "fleche",
-     "fleche_centrale_embase",
+     "fleche_bague",
      "fleche_collier",
      "fleche_orbe",
-     "marche_flottante",
-     "marche_lueur",
+     "lanterne",
+     "lanterne_baie",
+     "lanterne_corniche",
+     "lanterne_pilastres",
+     "orbe",
      "porte_cadre",
-     "porte_lumiere"
+     "porte_lumiere",
+     "tourelle",
+     "tourelle_baie",
+     "tourelle_corniche",
+     "tourelle_couronne",
+     "tourelle_pilastres"
     ],
     "tiges": [
      "faisceau",
-     "faisceau_bague",
-     "fleche_centrale",
-     "fleche_centrale_anneau"
+     "faisceau_bague"
     ],
     "plates_au_sol": [
      "emetteur_anneau",
@@ -3795,12 +4561,12 @@
     {
      "source_tiles": [
       0.0,
-      -0.1,
-      1.0
+      -0.15,
+      0.3
      ],
      "ecran_tiles": [
       0.0,
-      -0.807
+      -0.362
      ],
      "couleur": "#FFF2C0",
      "fenetre_sprite_tiles": [
@@ -3815,12 +4581,29 @@
     {
      "source_tiles": [
       0.0,
-      -0.1,
-      5.35
+      0.05,
+      4.95
      ],
      "ecran_tiles": [
       0.0,
-      -3.883
+      -3.45
+     ],
+     "couleur": "#FFF2C0",
+     "fenetre_sprite_tiles": [
+      0.35,
+      0.9
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.35,
+      5.05
+     ],
+     "ecran_tiles": [
+      0.0,
+      -3.921
      ],
      "couleur": "#FFF2C0",
      "fenetre_sprite_tiles": [
@@ -3832,12 +4615,29 @@
     {
      "source_tiles": [
       0.0,
-      0.42,
-      3.1
+      0.5,
+      3.75
      ],
      "ecran_tiles": [
       0.0,
-      -1.772
+      -2.152
+     ],
+     "couleur": "#FFF2C0",
+     "fenetre_sprite_tiles": [
+      0.4,
+      1.0
+     ],
+     "flaque_sol_tiles": null
+    },
+    {
+     "source_tiles": [
+      0.0,
+      -0.15,
+      2.45
+     ],
+     "ecran_tiles": [
+      0.0,
+      -1.882
      ],
      "couleur": "#FFF2C0",
      "fenetre_sprite_tiles": [
@@ -3855,19 +4655,52 @@
    },
    "animation_script": "particules partagées (32 à 60 images)",
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+   "lumiere_sprite": {
+    "energie_visee_t2": 2.23,
+    "gain": 0.8222,
+    "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
+   },
+   "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     670,
-     574
+     676,
+     538
     ],
     "origin_px": [
-     159,
-     419
+     164,
+     417
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 101.4
+    "seconds": 51.7,
+    "variantes": {
+     "glow_light": "n15",
+     "main_ao_shadow": "n15-jour"
+    },
+    "verrou_de_rendu": {
+     "checked": "2026-10-22 05:16:19",
+     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 32456,
+     "slot": "fo-render.lock.1"
+    },
+    "rendu_le": "2026-10-22 05:21:42",
+    "scripts_sha256": {
+     "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
+     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
+     "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
+     "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
+     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+    },
+    "empreintes": {
+     "conformes": true,
+     "ecarts_determinants": [],
+     "ecarts_sans_effet": []
+    }
    }
   }
  ]

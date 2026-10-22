@@ -43,6 +43,25 @@ def stems(objs, role):
     return sorted(out)
 
 
+def sha(path):
+    import hashlib
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def fingerprints(e, rec):
+    """Empreintes des scripts qui DÉTERMINENT le niveau e (centre.py, centre_kit.py, centre_params.py,
+    centre_ere<ère>.py, render_centre.py), relevées au rendu (render.json) et comparées aux fichiers actuels.
+    Les autres scripts du dossier (autres ères) n'influent pas sur le niveau : leur écart est seulement signalé."""
+    rec_sha = rec.get("scripts_sha256") or {}
+    era = (e - 1) // 3 + 1
+    rel = ["centre.py", "centre_kit.py", "centre_params.py", "centre_ere%d.py" % era, "render_centre.py"]
+    bad = [f for f in rel if rec_sha.get(f) != sha(os.path.join(HERE, f))]
+    other = sorted(f for f, h in rec_sha.items() if f not in rel and os.path.exists(os.path.join(HERE, f))
+                   and h != sha(os.path.join(HERE, f)))
+    return {"conformes": not bad and bool(rec_sha), "ecarts_determinants": bad, "ecarts_sans_effet": other}
+
+
 def main():
     meas = {}
     mp = os.path.join(HERE, "mesures_d1.json")
@@ -99,7 +118,7 @@ def main():
             "layers": layers,
             "ordre": [l["role"] for l in layers],
             "drawing_box": [[round(x0, 4), round(y0, 4)], [round(x1, 4), round(y1, 4)]] if layers else None,
-            "mesures": {k: m.get(k) for k in ("O", "O_tige", "L", "area_t2", "iou_prev", "events") if k in m},
+            "mesures": {k: m.get(k) for k in ("O", "O_tige", "L", "area_t2", "iou_prev", "events", "V_pct") if k in m},
             "pieces": {"masses": stems(pieces, "mass"), "tiges": stems(pieces, "tige"), "plates_au_sol": stems(pieces, "flat")},
             "lumiere_jour": e not in PR.NIGHT_ONLY,
             "halo_sprite": lights,
@@ -107,8 +126,14 @@ def main():
                             "minimum_darkness": 0.3 if e in PR.NIGHT_ONLY else 0.0},
             "animation_script": PR.ANIMATION[e],
             "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
+            "lumiere_sprite": {"energie_visee_t2": r.get("light_target_t2"), "gain": r.get("light_gain"),
+                               "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"},
+            "couche_principale_sans_emission": bool(r.get("main_sans_emission")),
             "apercu": {"samples": r.get("samples"), "canvas": r.get("canvas"), "origin_px": r.get("origin_px"),
-                       "blender": r.get("blender"), "blender_hash": r.get("blender_hash"), "seconds": r.get("seconds")},
+                       "blender": r.get("blender"), "blender_hash": r.get("blender_hash"), "seconds": r.get("seconds"),
+                       "variantes": r.get("variants"), "verrou_de_rendu": r.get("render_lock"),
+                       "rendu_le": r.get("rendered_at"), "scripts_sha256": r.get("scripts_sha256"),
+                       "empreintes": fingerprints(e, r)},
         })
     man = {
         "famille": "centre", "cle_v2": "command", "type": "container", "niveaux": 15,
@@ -132,7 +157,9 @@ def main():
     os.makedirs(os.path.dirname(DEST), exist_ok=True)
     with open(DEST, "w", encoding="utf-8", newline="\n") as f:
         json.dump(man, f, indent=1, ensure_ascii=False)
-    print("[FO-MANIFESTE] %s : %d niveaux" % (DEST, len(levels)))
+    ok = sum(1 for lv in levels if lv["apercu"]["empreintes"]["conformes"])
+    print("[FO-MANIFESTE] %s : %d niveaux ; empreintes des scripts déterminants conformes : %d/%d ; verrou tracé : %d/%d" % (
+        DEST, len(levels), ok, len(levels), sum(1 for lv in levels if lv["apercu"]["verrou_de_rendu"]), len(levels)))
 
 
 if __name__ == "__main__":

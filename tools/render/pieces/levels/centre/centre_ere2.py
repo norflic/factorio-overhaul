@@ -1,4 +1,14 @@
-"""Ère II lourde (époques 4 à 6) : cylindres, pentes, empilements ; plus large et plus haut (bible §1.2, §5)."""
+"""Ère II lourde (époques 4 à 6) : cylindres, pentes, empilements ; plus large et plus haut (bible §1.2, §5).
+
+Correction V3 du 22/10 (vérification adverse, problème majeur 4) : le même corps-boîte servait de l'époque 2 à
+l'époque 8 (IoU des corps 0,86 à 0,94) ; l'ère ne se lisait pas. Chaque époque de l'ère II a maintenant un CORPS
+propre, en cylindres et en empilements :
+  - époque 4 : la masse principale EST une grande cuve horizontale sur berceaux, une seconde cuve empilée
+    au-dessus sur un portique, une cabine de contrôle basse devant (porte au sud) ; vides sous les cuves ;
+  - époque 5 : pyramide tronquée à gradins (inchangée : déjà propre), plus de rivets et d'écailles ;
+  - époque 6 : tour centrale RONDE partant du sol et 2 hautes piles d'isolateurs posées AU SOL de chaque côté
+    (fiche E6 : « tour centrale » ; l'ancienne salle-boîte est supprimée).
+"""
 import math
 
 R2 = 2.0 ** 0.5
@@ -8,110 +18,153 @@ def _h(i, a=0.0):
     return math.sin(i * 12.9898 + a * 78.233) * 0.5 + math.sin(i * 4.1414 + a * 1.618) * 0.5
 
 
-def _tank_x(k, x0, x1, ty, zc, r, mat, band, name, heads=0.55):
-    """Cuve horizontale d'axe est-ouest à fonds bombés, deux bandes noires."""
+def _tank_x(k, x0, x1, ty, zc, r, mat, band, name, heads=0.55, nb=(0.22, 0.78)):
+    """Cuve horizontale d'axe est-ouest à fonds bombés, bandes noires."""
     k.hcyl("x", x0, x1, 0, ty, zc, r, mat, name + "_virole", verts=48, bevel=0)
     for s, x in ((-1, x0), (1, x1)):
         o = k.sphere(x, ty, zc, r, mat, "%s_fond_%d" % (name, s), seg=40, rings=20)
         if o is not None:
             o.scale = (heads, 1, 1)
-    for t in (0.22, 0.78):
+    for t in nb:
         x = x0 + (x1 - x0) * t
         k.torus(x, ty, zc, r + 0.004, 0.022, band, "%s_bande_%d" % (name, int(t * 100)), rot=(0, math.pi / 2, 0),
                 minor_seg=10)
 
 
+def _tank_seams(k, x0, x1, ty, zc, r, n, mat, stud_mat, name):
+    """Viroles soudées : joints circulaires (tores fins) et goujons sur la génératrice avant-haute."""
+    objs = []
+    for i in range(1, n):
+        x = x0 + (x1 - x0) * i / n
+        objs.append(k.torus(x, ty, zc, r + 0.002, 0.009, mat, "%s_joint_%d" % (name, i), rot=(0, math.pi / 2, 0),
+                            minor_seg=6))
+    k.join(objs, name + "_joints")
+    pts = []
+    for i in range(n * 5):
+        x = x0 + (x1 - x0) * (i + 0.5) / (n * 5)
+        for ang in (0.55, 1.0, 1.45):     # génératrices visibles (dessus et face sud), angle depuis +y Blender
+            cx, cy, _ = k.P(x, ty, 0)
+            ny, nz = -math.sin(ang), math.cos(ang)
+            pts.append(((x, cy + ny * r, zc + nz * r), (0.0, ny, nz)))
+    k.studs(pts, 0.012, stud_mat, name + "_rivets")
+
+
 def _saddle(k, x, ty, z0, zc, r, mat, name):
-    """Berceau sous une cuve d'axe X : plaque verticale échancrée (approchée par une boîte + jambes)."""
-    k.box(x - 0.05, x + 0.05, ty - 0.2, ty + 0.2, z0, zc - r * 0.55, mat, name, bevel=0.006)
+    """Berceau sous une cuve d'axe X : plaque verticale échancrée (approchée par une boîte)."""
+    k.box(x - 0.05, x + 0.05, ty - 0.22, ty + 0.22, z0, zc - r * 0.55, mat, name, bevel=0.006)
 
 
 # ----------------------------------------------------------------------------------------------------------
-# Époque 4 · QG de raffinerie : bâtiment à toit-terrasse ; 2 cuves horizontales sur le toit ; passerelle à
-# garde-corps ; torchère haute à l'arrière droit (tige et flamme).
+# Époque 4 · QG de raffinerie : grande cuve horizontale (corps) sur berceaux ; seconde cuve empilée sur un
+# portique ; passerelle à garde-corps ; cabine de contrôle (porte au sud) ; torchère haute (tige et flamme).
 # ----------------------------------------------------------------------------------------------------------
 def build_e04(k):
-    galva = k.metal("galva", "#6E7378", rough=0.4, metallic=0.7, grain=0.14, dirt=0.5)
-    jaune = k.metal("jaune", "#8C7A3A", rough=0.5, metallic=0.3, rust="#5E4A2A", rust_amount=0.3, dirt=0.5)
-    noir = k.metal("noir", "#232323", rough=0.6, metallic=0.3, grain=0.08, dirt=0.2)
-    acier = k.metal("acier", "#55595E", rough=0.45, metallic=0.7, grain=0.12, dirt=0.5)
+    galva = k.metal("galva", "#6E7378", rough=0.34, metallic=0.72, dirt=0.55)
+    jaune = k.metal("jaune", "#8C7A3A", rough=0.45, metallic=0.3, rust="#5E4A2A", rust_amount=0.32, dirt=0.55)
+    noir = k.metal("noir", "#232323", rough=0.55, metallic=0.3)
+    acier = k.metal("acier", "#55595E", rough=0.38, metallic=0.72, dirt=0.55)
+    boulon = k.metal("boulon", "#9A9CA0", rough=0.22, metallic=0.95, clean=True)
     vitre = k.glass("vitre", "#22262A")
-    orange = k.emit("voyant", "#FF8C1A", strength=0.85)
-    flamme = k.emit("flamme", "#FF8C1A", strength=1.2)
-    fut_bleu = k.metal("fut_bleu", "#3E4A5A", rough=0.5, metallic=0.5, dirt=0.4)
+    orange = k.emit("voyant", "#FF8C1A", strength=1.0)
+    flamme = k.emit("flamme", "#FF8C1A", strength=1.0)
+    fut_bleu = k.metal("fut_bleu", "#3E4A5A", rough=0.45, metallic=0.5, dirt=0.5)
 
-    # --- corps à toit-terrasse ---
-    k.box(-1.6, 1.6, -1.3, 1.3, 0.0, 1.15, galva, "corps", bevel=0.012)
-    for i in range(16):
-        x = -1.5 + i * 0.2
-        if abs(x) < 0.45:
-            continue
-        k.box(x - 0.02, x + 0.02, 1.3, 1.315, 0.16, 1.1, galva, "nervure_%d" % i, bevel=0)
-    # bande d'avertissement jaune et noire au pied
-    k.box(-1.62, 1.62, 1.29, 1.32, 0.0, 0.15, jaune, "bande_jaune", bevel=0.004)
+    # --- grande cuve horizontale (corps principal) sur 3 berceaux ---
+    tz, tty, tr = 1.0, -0.28, 0.62
+    for x in (-0.95, 0.0, 0.95):
+        _saddle(k, x, tty, 0.0, tz, tr, acier, "berceau_%d" % int((x + 1) * 10))
+        k.box(x - 0.16, x + 0.16, tty - 0.26, tty + 0.26, 0.0, 0.06, noir, "berceau_semelle_%d" % int((x + 1) * 10),
+              bevel=0.006)
+    _tank_x(k, -1.42, 1.42, tty, tz, tr, jaune, noir, "cuve", nb=(0.12, 0.88))
+    _tank_seams(k, -1.42, 1.42, tty, tz, tr, 4, noir, boulon, "cuve")
+    # trou d'homme et évent sur la génératrice haute, échelle à crinoline côté est (tige)
+    k.cyl(-0.55, tty, 0.14, tz + tr - 0.05, tz + tr + 0.08, galva, "cuve_trou_homme", verts=24)
+    k.ring_studs(-0.55, tty, 0.14, tz + tr + 0.03, 8, 0.012, boulon, "cuve_trou_homme_boulons", a0=0, a1=2 * math.pi)
+    k.cyl(0.6, tty, 0.05, tz + tr - 0.05, tz + tr + 0.22, galva, "cuve_event", verts=12)
+    # bande d'identification noire et inscription (plaque claire) sur la face sud de la cuve
+    k.box(-0.35, 0.35, tty + 0.30, tty + 0.34, tz - 0.06, tz + 0.18, galva, "cuve_plaque", bevel=0.006)
+    k.stud_row(-0.32, 0.32, tty + 0.34, tz + 0.15, 6, 0.011, boulon, "cuve_plaque_vis")
+
+    # --- cuve haute empilée, sur portique (arrière) ---
+    hz, hty, hr = 2.05, -1.2, 0.46
+    for sx in (-1, 1):
+        for ty in (-0.95, -1.45):
+            k.box(sx * 1.0 - 0.045, sx * 1.0 + 0.045, ty - 0.035, ty + 0.035, 0.0, hz - hr * 0.6, acier,
+                  "poteau_%d_%d" % (sx, int(-ty * 100)), bevel=0.004)
+        k.rod(k.P(sx * 1.0, -0.95, 0.15), k.P(sx * 1.0, -1.45, hz - hr * 0.7), 0.016, acier, "contrevent_%d" % sx, role="tige")
+    for ty in (-0.95, -1.45):
+        k.box(-1.05, 1.05, ty - 0.04, ty + 0.04, hz - hr * 0.6 - 0.08, hz - hr * 0.6, acier, "longeron_%d" % int(-ty * 100),
+              bevel=0.004)
+    _saddle(k, -0.55, hty, hz - hr * 0.6, hz, hr, acier, "berceau_haut_o")
+    _saddle(k, 0.55, hty, hz - hr * 0.6, hz, hr, acier, "berceau_haut_e")
+    _tank_x(k, -1.12, 1.12, hty, hz, hr, galva, noir, "cuve_haute")
+    _tank_seams(k, -1.12, 1.12, hty, hz, hr, 3, noir, boulon, "cuve_haute")
+
+    # --- passerelle à caillebotis entre les cuves, garde-corps (tige), escalier (tige) ---
+    pz = tz + tr + 0.12
+    k.box(-1.3, 1.3, -0.82, -0.62, pz - 0.03, pz, acier, "passerelle", bevel=0.004)
+    gr = [k.box(x - 0.008, x + 0.008, -0.82, -0.62, pz, pz + 0.008, noir, "caillebotis_%d" % i, bevel=0)
+          for i, x in enumerate([-1.25 + 0.1 * j for j in range(26)])]
+    k.join(gr, "caillebotis")
+    k.railing([(-1.3, -0.64), (1.3, -0.64)], pz, 0.2, acier, "garde_corps_passerelle")
+    k.railing([(-1.3, tty + 0.2), (1.3, tty + 0.2)], tz + tr, 0.18, acier, "garde_corps_cuve")
+    for i in range(7):
+        z = 0.1 + i * (pz - 0.1) / 7
+        k.box(1.55, 1.70, 0.40 - i * 0.12, 0.47 - i * 0.12, z, z + 0.025, acier, "marche_esc_%d" % i, bevel=0, role="tige")
+    k.rod(k.P(1.55, 0.47, 0.35), k.P(1.55, -0.40, pz + 0.2), 0.012, acier, "rampe_esc", role="tige")
+
+    # --- cabine de contrôle (avant, porte au sud) ---
+    c0, c1, ch = 0.52, 1.42, 0.82
+    k.box(-0.95, 0.95, c0, c1, 0.0, ch, galva, "cabine", bevel=0.015)
+    k.panels(-0.95, 0.95, c0, c1, 0.0, ch, galva, "cabine_plaques", top=(4, 2), south=(6, 2), gap=0.03,
+             skip=lambda f, xa, xb, a, b: f == "south" and (xb > -0.38 and xa < 0.38 or a > 0.38))
+    k.box(-0.97, 0.97, c1 - 0.01, c1 + 0.02, 0.0, 0.14, jaune, "bande_jaune", bevel=0.004)
     stripes = []
-    for i in range(14):
-        x = -1.55 + i * 0.235
-        stripes.append(k.prism([(x, 1.32), (x + 0.1, 1.32), (x + 0.1, 1.33), (x, 1.33)], 0.0, 0.15, noir,
-                               "rayure_%d" % i, top_poly_game=[(x + 0.1, 1.32), (x + 0.2, 1.32), (x + 0.2, 1.33), (x + 0.1, 1.33)],
+    for i in range(9):
+        x = -0.93 + i * 0.21
+        stripes.append(k.prism([(x, c1 + 0.02), (x + 0.09, c1 + 0.02), (x + 0.09, c1 + 0.03), (x, c1 + 0.03)], 0.0, 0.14,
+                               noir, "rayure_%d" % i, top_poly_game=[(x + 0.09, c1 + 0.02), (x + 0.18, c1 + 0.02),
+                                                                     (x + 0.18, c1 + 0.03), (x + 0.09, c1 + 0.03)],
                                bevel=0))
     k.join(stripes, "rayures")
-    # bandeau vitré de l'étage
     for s in (-1, 1):
-        k.box(s * 0.5, s * 1.48, 1.29, 1.33, 0.70, 0.93, vitre, "bandeau_vitre_%d" % s, bevel=0.004)
-        for x in (0.75, 1.0, 1.25):
-            k.box(s * x - 0.015, s * x + 0.015, 1.31, 1.34, 0.70, 0.93, acier, "meneau_%d_%d" % (s, int(x * 100)), bevel=0)
-    k.box(-1.64, 1.64, -1.34, 1.34, 1.10, 1.17, acier, "acrotere", bevel=0.006)
-    k.railing([(-1.55, 1.25), (1.55, 1.25), (1.55, -1.25)], 1.17, 0.2, acier, "garde_corps_toit")
+        k.box(s * 0.42, s * 0.88, c1, c1 + 0.03, 0.46, 0.70, vitre, "vitrage_%d" % s, bevel=0.004)
+        for x in (0.57, 0.73):
+            k.box(s * x - 0.012, s * x + 0.012, c1 + 0.02, c1 + 0.04, 0.46, 0.70, acier, "meneau_%d_%d" % (s, int(x * 100)),
+                  bevel=0)
+        k.box(s * 0.62 - 0.08, s * 0.62 + 0.08, c1, c1 + 0.04, 0.20, 0.36, noir, "voyant_boitier_%d" % s, bevel=0.004)
+        k.box(s * 0.62 - 0.06, s * 0.62 + 0.06, c1 + 0.035, c1 + 0.05, 0.22, 0.34, orange, "voyant_%d" % s, bevel=0)
+    k.box(-0.36, 0.36, c1 - 0.02, c1 + 0.05, 0.0, 0.68, jaune, "porte_cadre", bevel=0.006)
+    k.box(-0.30, 0.30, c1 + 0.02, c1 + 0.06, 0.0, 0.62, acier, "porte_rideau", bevel=0.004)
+    for z in (0.08, 0.16, 0.24, 0.32, 0.40, 0.48, 0.56):
+        k.box(-0.30, 0.30, c1 + 0.06, c1 + 0.07, z - 0.008, z + 0.008, noir, "porte_lame_%d" % int(z * 100), bevel=0)
+    k.box(-0.34, 0.34, c1 + 0.03, c1 + 0.07, 0.70, 0.76, orange, "porte_feu", bevel=0)
+    k.railing([(-0.93, c1 - 0.03), (0.93, c1 - 0.03), (0.93, c0 + 0.03)], ch, 0.18, acier, "garde_corps_cabine")
+    k.box(-0.62, -0.22, 0.75, 1.05, ch, ch + 0.16, galva, "cabine_clim", bevel=0.01)
+    k.louvres(-0.60, -0.24, 1.05, ch + 0.02, ch + 0.14, 4, noir, "cabine_clim_grille")
 
-    # --- porte roulante et voyants orange ---
-    k.box(-0.42, 0.42, 1.28, 1.36, 0.0, 0.72, jaune, "porte_cadre", bevel=0.006)
-    k.box(-0.35, 0.35, 1.30, 1.37, 0.0, 0.66, acier, "porte_rideau", bevel=0.004)
-    for z in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6):
-        k.box(-0.35, 0.35, 1.37, 1.38, z - 0.008, z + 0.008, noir, "porte_lame_%d" % int(z * 10), bevel=0)
-    for s in (-1, 1):
-        k.box(s * 0.58 - 0.08, s * 0.58 + 0.08, 1.30, 1.36, 0.40, 0.60, noir, "voyant_boitier_%d" % s, bevel=0.004)
-        k.box(s * 0.58 - 0.065, s * 0.58 + 0.065, 1.355, 1.37, 0.415, 0.585, orange, "voyant_%d" % s, bevel=0)
-
-    # --- cuve avant (sur berceaux, sur le toit) ---
-    _saddle(k, -0.7, 0.35, 1.15, 1.65, 0.36, acier, "berceau_av_o")
-    _saddle(k, 0.7, 0.35, 1.15, 1.65, 0.36, acier, "berceau_av_e")
-    _tank_x(k, -1.15, 1.15, 0.35, 1.65, 0.36, jaune, noir, "cuve_av")
-
-    # --- cuve arrière, haute, sur un châssis à 4 poteaux (empilement), passerelle à garde-corps ---
-    zc, r = 2.75, 0.40
-    for sx in (-1, 1):
-        for ty in (-0.45, -1.05):
-            k.box(sx * 0.95 - 0.045, sx * 0.95 + 0.045, ty - 0.032, ty + 0.032, 1.17, 2.32, acier,
-                  "poteau_%d_%d" % (sx, int(-ty * 100)), bevel=0.004)
-        k.rod(k.P(sx * 0.95, -0.45, 1.2), k.P(sx * 0.95, -1.05, 2.25), 0.018, acier, "contrevent_%d" % sx, role="tige")
-    for ty in (-0.45, -1.05):
-        k.rod(k.P(-0.95, ty, 1.25), k.P(0.95, ty, 2.25), 0.018, acier, "contrevent_t_%d" % int(-ty * 100), role="tige")
-    k.box(-1.2, 1.2, -1.15, -0.35, 2.32, 2.37, acier, "passerelle", bevel=0.004)
-    k.railing([(-1.18, -0.37), (1.18, -0.37)], 2.37, 0.2, acier, "garde_corps_passerelle")
-    _saddle(k, -0.6, -0.75, 2.37, zc, r, acier, "berceau_ar_o")
-    _saddle(k, 0.6, -0.75, 2.37, zc, r, acier, "berceau_ar_e")
-    _tank_x(k, -1.2, 1.2, -0.75, zc, r, jaune, noir, "cuve_ar")
-    # échelle (tige) et conduite descendante
-    k.box(1.62, 1.66, 0.6, 0.62, 0.0, 1.17, acier, "echelle_montant_a", bevel=0, role="tige")
-    k.box(1.62, 1.66, 0.85, 0.87, 0.0, 1.17, acier, "echelle_montant_b", bevel=0, role="tige")
-    k.hcyl("y", -0.75, 0.35, 1.25, 0, 2.2, 0.05, galva, "conduite_cuves", verts=14, bevel=0)
-    k.cyl(1.25, 0.35, 0.05, 1.7, 2.2, galva, "conduite_v", verts=14, bevel=0)
-    k.torus(1.31, 0.0, 2.2, 0.09, 0.014, noir, "vanne_cuves", rot=(0, math.pi / 2, 0), minor_seg=8)
+    # --- conduites et vannes entre cuves et cabine ---
+    k.hcyl("y", -1.2, 0.6, 1.25, 0, 0.42, 0.05, galva, "conduite_basse", verts=14, bevel=0)
+    k.cyl(1.25, -1.2, 0.05, 0.42, hz - 0.2, galva, "conduite_montante", verts=14, bevel=0)
+    k.torus(1.25, 0.25, 0.42, 0.09, 0.014, noir, "vanne_basse", rot=(0, math.pi / 2, 0), minor_seg=8)
+    k.cyl(-1.25, -0.6, 0.05, 0.0, tz, galva, "conduite_ouest", verts=14, bevel=0)
 
     # --- fûts (pied avant gauche) ---
-    for j, (x, ty) in enumerate(((-1.42, 1.55), (-1.12, 1.62), (-1.48, 1.80))):
-        k.cyl(x, ty, 0.13, 0.0, 0.38, fut_bleu if j != 1 else jaune, "fut_%d" % j, verts=24)
-        for z in (0.12, 0.26):
-            k.torus(x, ty, z, 0.132, 0.012, noir, "fut_cercle_%d_%d" % (j, int(z * 100)), minor_seg=8)
+    for j, (x, ty) in enumerate(((-1.42, 1.0), (-1.15, 1.22), (-1.46, 1.42), (1.25, 1.35))):
+        k.cyl(x, ty, 0.13, 0.0, 0.38, fut_bleu if j % 2 == 0 else jaune, "fut_%d" % j, verts=24)
+        k.bands(x, ty, 0.13, (0.12, 0.26), noir, "fut_cercle_%d" % j, minor=0.012)
 
     # --- torchère (tige) et sa flamme, arrière droit : point le plus haut ---
-    k.cyl(1.35, -1.35, 0.16, 0.0, 0.5, acier, "torchere_ballon", verts=24)
-    k.cyl(1.35, -1.35, 0.06, 0.5, 4.05, acier, "torchere_fut", verts=14, bevel=0, role="tige")
-    k.cyl(1.35, -1.35, 0.085, 3.95, 4.08, noir, "torchere_bec", verts=14, bevel=0, role="tige")
+    fx, fty = 1.45, -1.55
+    k.cyl(fx, fty, 0.16, 0.0, 0.5, acier, "torchere_ballon", verts=24)
+    k.cyl(fx, fty, 0.06, 0.5, 4.05, acier, "torchere_fut", verts=14, bevel=0, role="tige")
+    k.cyl(fx, fty, 0.085, 3.95, 4.08, noir, "torchere_bec", verts=14, bevel=0, role="tige")
     for z in (1.5, 2.5, 3.5):
-        k.torus(1.35, -1.35, z, 0.065, 0.012, noir, "torchere_bague_%d" % int(z), minor_seg=8, role="tige")
-    k.lathe(1.35, -1.35, [(0.0, 4.06), (0.09, 4.12), (0.11, 4.22), (0.08, 4.36), (0.035, 4.48), (0.0, 4.55)], flamme,
+        k.torus(fx, fty, z, 0.065, 0.012, noir, "torchere_bague_%d" % int(z), minor_seg=8, role="tige")
+    for a in (0.0, 2.1, 4.2):
+        k.rod(k.P(fx, fty, 2.6), (fx + 0.5 * math.cos(a), -fty * R2 + 0.5 * math.sin(a), 0.0), 0.006, acier,
+              "torchere_hauban_%d" % int(a * 10), role="tige")
+    k.lathe(fx, fty, [(0.0, 4.06), (0.10, 4.13), (0.12, 4.24), (0.09, 4.40), (0.04, 4.54), (0.0, 4.62)], flamme,
             "torchere_flamme", segs=24, role="tige")
 
 
@@ -134,6 +187,14 @@ def _face_pt(k, x, v, face):
     """Point d'une face avant inclinée : face = (ty_bas, z_bas, ty_haut, z_haut) ; v de 0 (bas) à 1 (haut)."""
     tb, zb, th, zh = face
     return k.P(x, tb + (th - tb) * v, zb + (zh - zb) * v)
+
+
+def _face_n(face):
+    """Normale (Blender) d'une face avant inclinée."""
+    tb, zb, th, zh = face
+    dy, dz = -(th - tb) * R2, zh - zb
+    L = math.hypot(dy, dz)
+    return (0.0, -dz / L, dy / L)
 
 
 def _ogive(w, h_rect, h_tip, n=10):
@@ -162,13 +223,13 @@ def _panel_xz(k, pts_xz, ty0, ty1, mat, name, dx=0.0):
 # 4 coins ; porte en ogive rougeoyante ; 2 pointes de basalte ; fentes de braise (lueur de jour).
 # ----------------------------------------------------------------------------------------------------------
 def build_e05(k):
-    tung = k.metal("tungstene", "#3E3D42", rough=0.42, metallic=0.75, rust="#5A3A2A", rust_amount=0.35, dirt=0.55)
-    ecaille = k.metal("ecaille", "#46444A", rough=0.38, metallic=0.8, rust="#5A3A2A", rust_amount=0.3, dirt=0.4)
-    rouille = k.metal("rouille", "#5A3A2A", rough=0.7, metallic=0.3, grain=0.25, dirt=0.5)
-    basalte = k.matte("basalte", "#2E2C30", rough=0.7, grain=0.3, grain_scale=30.0)
-    rivet = k.metal("rivet", "#6A6670", rough=0.3, metallic=0.9, grain=0.08, dirt=0.2)
-    braise = k.emit("braise", "#FF4A10", strength=0.6)
-    braise_v = k.emit("braise_vive", "#FF7A30", strength=0.85)
+    tung = k.metal("tungstene", "#3E3D42", rough=0.36, metallic=0.78, rust="#5A3A2A", rust_amount=0.35, dirt=0.6)
+    ecaille = k.metal("ecaille", "#4A484E", rough=0.32, metallic=0.82, rust="#5A3A2A", rust_amount=0.3, dirt=0.5)
+    rouille = k.metal("rouille", "#5A3A2A", rough=0.7, metallic=0.3, grain=0.3, dirt=0.55)
+    basalte = k.matte("basalte", "#2E2C30", rough=0.65, grain=0.34, grain_scale=30.0)
+    rivet = k.metal("rivet", "#A29EA8", rough=0.2, metallic=0.95, clean=True)
+    braise = k.emit("braise", "#FF4A10", strength=1.0)
+    braise_v = k.emit("braise_vive", "#FF4A10", strength=1.0)
     banniere = k.matte("banniere", "#4A1E18", rough=0.85)
 
     tiers = [
@@ -182,36 +243,63 @@ def build_e05(k):
     faces = []
     for name, bot, top, z0, z1 in tiers:
         k.prism(bot, z0, z1, tung, name, top_poly_game=top, bevel=0.012)
-        faces.append((bot[2][1], z0, top[2][1], z1))   # face avant : (ty, z) du bas et du haut
-        k.rivets_line(k.P(-bot[1][0] + 0.12, bot[2][1] + 0.01, z0 + 0.06), k.P(bot[1][0] - 0.12, bot[2][1] + 0.01, z0 + 0.06),
-                      int(bot[1][0] * 6), 0.028, rivet, name + "_rivets")
-    # écailles de blindage sur la face avant du gradin 1 (deux rangs qui se chevauchent), hors avant-porte
-    fc = faces[0]
-    for row, (v0, v1) in enumerate(((0.10, 0.52), (0.45, 0.88))):
-        n = 7
-        for j in range(n):
-            xa = -1.5 + j * (3.0 / n) + (0.1 if row else 0.0)
-            xb = xa + 3.0 / n - 0.03
-            if xb < -0.45 or xa > 0.45:
-                _slab(k, [_face_pt(k, xa, v0, fc), _face_pt(k, xb, v0, fc), _face_pt(k, xb, v1, fc), _face_pt(k, xa, v1, fc)],
-                      0.018, ecaille, "ecaille_%d_%d" % (row, j), push_bottom=0.035)
+        fc = (bot[2][1], z0, top[2][1], z1)
+        faces.append(fc)   # face avant : (ty, z) du bas et du haut
+        nrm = _face_n(fc)
+        # rangées de rivets lourds en bas et en haut de chaque gradin (goujons à la normale de la face)
+        pts = []
+        for v in (0.12, 0.38, 0.62, 0.86):
+            w = abs(bot[1][0]) + (abs(top[1][0]) - abs(bot[1][0])) * v - 0.1
+            n = int(w * 9)
+            for i in range(n):
+                x = -w + 2 * w * (i + 0.5) / n
+                pts.append((_face_pt(k, x, v, fc), nrm))
+        k.studs(pts, 0.028, rivet, name + "_rivets")
+        # joints verticaux de plaques (bandes sombres en relief)
+        w0 = abs(bot[1][0])
+        for i, x in enumerate([-w0 + 0.6 * j for j in range(1, int(2 * w0 / 0.6) + 1)]):
+            if abs(x) < 0.5 and name == "gradin_1":
+                continue
+            _slab(k, [_face_pt(k, x - 0.015, 0.02, fc), _face_pt(k, x + 0.015, 0.02, fc), _face_pt(k, x + 0.015, 0.98, fc),
+                      _face_pt(k, x - 0.015, 0.98, fc)], 0.012, rouille, "%s_joint_%d" % (name, i))
+        # plaques du dessus (palier) : tôles boulonnées
+        tb = top[2][1]
+        if name != "gradin_3":
+            k.panels(top[0][0] + 0.05, top[1][0] - 0.05, top[0][1] + 0.05, tb - 0.05, 0, z1, ecaille, name + "_palier",
+                     top=(int((top[1][0] - top[0][0]) / 0.5), 2), south=None, gap=0.03, thick=0.012)
+    # écailles de blindage sur la face avant des gradins 1 et 2 (deux rangs qui se chevauchent), hors avant-porte
+    for fi, fc in enumerate(faces[:3]):
+        for row, (v0, v1) in enumerate(((0.10, 0.52), (0.45, 0.88))):
+            n = (7, 5, 3)[fi]
+            W = (3.0, 2.1, 1.25)[fi]
+            for j in range(n):
+                xa = -W / 2 + j * (W / n) + (0.1 if row else 0.0)
+                xb = xa + W / n - 0.03
+                if fi >= 1 and abs((xa + xb) / 2) < 0.3:
+                    continue
+                if xb < -0.45 or xa > 0.45 or fi >= 1:
+                    _slab(k, [_face_pt(k, xa, v0, fc), _face_pt(k, xb, v0, fc), _face_pt(k, xb, v1, fc),
+                              _face_pt(k, xa, v1, fc)], 0.018, ecaille, "ecaille_%d_%d_%d" % (fi, row, j), push_bottom=0.035)
     # fentes de braise (lueur de jour) sur les faces avant
+    fc = faces[0]
     for x in (-1.0, 1.0):
-        _slab(k, [_face_pt(k, x - 0.16, 0.35, fc), _face_pt(k, x + 0.16, 0.35, fc), _face_pt(k, x + 0.16, 0.62, fc),
-                  _face_pt(k, x - 0.16, 0.62, fc)], 0.03, braise, "fente_g1_%d" % int(x))
+        _slab(k, [_face_pt(k, x - 0.17, 0.33, fc), _face_pt(k, x + 0.17, 0.33, fc), _face_pt(k, x + 0.17, 0.64, fc),
+                  _face_pt(k, x - 0.17, 0.64, fc)], 0.03, braise, "fente_g1_%d" % int(x))
     f2 = faces[1]
     for x in (-0.55, 0.0, 0.55):
-        _slab(k, [_face_pt(k, x - 0.15, 0.32, f2), _face_pt(k, x + 0.15, 0.32, f2), _face_pt(k, x + 0.15, 0.66, f2),
-                  _face_pt(k, x - 0.15, 0.66, f2)], 0.03, braise, "fente_g2_%d" % int(x * 10))
+        _slab(k, [_face_pt(k, x - 0.16, 0.30, f2), _face_pt(k, x + 0.16, 0.30, f2), _face_pt(k, x + 0.16, 0.68, f2),
+                  _face_pt(k, x - 0.16, 0.68, f2)], 0.03, braise, "fente_g2_%d" % int(x * 10))
     f3 = faces[2]
-    _slab(k, [_face_pt(k, -0.2, 0.3, f3), _face_pt(k, 0.2, 0.3, f3), _face_pt(k, 0.2, 0.7, f3), _face_pt(k, -0.2, 0.7, f3)],
+    _slab(k, [_face_pt(k, -0.22, 0.28, f3), _face_pt(k, 0.22, 0.28, f3), _face_pt(k, 0.22, 0.72, f3), _face_pt(k, -0.22, 0.72, f3)],
           0.03, braise, "fente_g3")
     # cratère de braise au sommet
     k.cyl(0.0, -0.3, 0.3, 2.2, 2.32, rouille, "cratere_levre", verts=32)
+    k.ring_studs(0.0, -0.3, 0.3, 2.26, 10, 0.02, rivet, "cratere_rivets", a0=0, a1=2 * math.pi)
     k.cyl(0.0, -0.3, 0.22, 2.3, 2.33, braise_v, "cratere_braises", verts=32, bevel=0)
 
     # --- avant-porte et porte en ogive rougeoyante ---
     k.box(-0.45, 0.45, 1.20, 1.62, 0.0, 0.95, tung, "avant_porte", bevel=0.012)
+    k.stud_row(-0.4, 0.4, 1.62, 0.9, 8, 0.02, rivet, "avant_porte_rivets")
     k.prism([(-0.5, 1.15), (0.5, 1.15), (0.5, 1.66), (-0.5, 1.66)], 0.95, 1.08, rouille, "avant_porte_toit",
             top_poly_game=[(-0.36, 1.25), (0.36, 1.25), (0.36, 1.52), (-0.36, 1.52)], bevel=0.008)
     _panel_xz(k, _ogive(0.27, 0.42, 0.80), 1.62, 1.635, rouille, "ogive_cadre")
@@ -225,7 +313,7 @@ def build_e05(k):
         for sy in (-1, 1):
             nx, ny = -sy * 0.075, sx * 0.075
             pin = (sx * 1.30, sy * 1.18)
-            pout = (sx * 1.76, sy * 1.64)
+            pout = (sx * 1.70, sy * 1.60)
             ring0 = [k.P(pin[0] - nx, pin[1] - ny, 0.0), k.P(pin[0] + nx, pin[1] + ny, 0.0),
                      k.P(pout[0] + nx, pout[1] + ny, 0.0), k.P(pout[0] - nx, pout[1] - ny, 0.0)]
             ring1 = [k.P(pin[0] - nx, pin[1] - ny, 1.18), k.P(pin[0] + nx, pin[1] + ny, 1.18),
@@ -244,75 +332,89 @@ def build_e05(k):
 
 
 # ----------------------------------------------------------------------------------------------------------
-# Époque 6 · Centrale de commandement : tour centrale ; 2 hautes piles d'isolateurs sur les côtés ; tore de
-# Tesla au sommet ; arcs entre les piles (pose de référence ; animés par script en phase 2).
+# Époque 6 · Centrale de commandement : TOUR CENTRALE ronde partant du sol (porte au sud) ; 2 hautes piles
+# d'isolateurs POSÉES AU SOL de chaque côté ; tore de Tesla au sommet ; arcs entre les piles et le tore (pose de
+# référence ; animés par script en phase 2) ; transformateurs au pied des piles.
 # ----------------------------------------------------------------------------------------------------------
 def build_e06(k):
-    acier = k.metal("acier", "#5C6168", rough=0.4, metallic=0.7, grain=0.14, dirt=0.5)
-    cera = k.matte("ceramique", "#D8D4C8", rough=0.35, grain=0.08, dirt=0.45)
-    cuivre = k.metal("cuivre", "#B0703A", rough=0.3, metallic=0.9, grain=0.12, rust="#4A6A58", rust_amount=0.15, dirt=0.35)
-    alu = k.metal("alu", "#B8BCC0", rough=0.22, metallic=0.9, grain=0.06, dirt=0.25)
-    sombre = k.metal("sombre", "#2A2C30", rough=0.5, metallic=0.5, dirt=0.3)
-    cyan = k.emit("cyan", "#60D0FF", strength=0.6)
-    arc = k.emit("arc", "#9FE6FF", strength=1.4)
+    acier = k.metal("acier", "#5C6168", rough=0.34, metallic=0.75, dirt=0.55)
+    cera = k.matte("ceramique", "#D8D4C8", rough=0.32, grain=0.26, dirt=0.55, gain=0.55)
+    cuivre = k.metal("cuivre", "#B0703A", rough=0.26, metallic=0.92, rust="#4A6A58", rust_amount=0.2, dirt=0.4)
+    alu = k.metal("alu", "#B8BCC0", rough=0.2, metallic=0.92, clean=True, gain=0.7)
+    sombre = k.metal("sombre", "#2A2C30", rough=0.45, metallic=0.5)
+    boulon = k.metal("boulon", "#A0A4A8", rough=0.22, metallic=0.95, clean=True)
+    beton = k.matte("beton", "#6A6862", rough=0.85, grain=0.3, grain_scale=35.0)
+    cyan = k.emit("cyan", "#60D0FF", strength=1.0)
+    arc = k.emit("arc", "#60D0FF", strength=1.0)
 
-    # --- salle de base ---
-    k.box(-1.6, 1.6, -1.3, 1.35, 0.0, 0.70, acier, "salle", bevel=0.012)
-    # Reprise V3 : le bandeau de céramique était une dalle PLEINE qui couvrait tout le toit (toit blanc
-    # uniforme, L50 mesurée 160 pour une cible de 64). Bandeau sur les 4 murs seulement, toit d'acier sombre
-    # à joints, trappes d'aération.
-    for nm, (x0, x1, t0, t1) in (("av", (-1.63, 1.63, 1.33, 1.38)), ("ar", (-1.63, 1.63, -1.33, -1.28)),
-                                 ("o", (-1.63, -1.58, -1.33, 1.38)), ("e", (1.58, 1.63, -1.33, 1.38))):
-        k.box(x0, x1, t0, t1, 0.56, 0.74, cera, "bandeau_ceramique_%s" % nm, bevel=0.008)
-    k.box(-1.58, 1.58, -1.28, 1.33, 0.70, 0.725, acier, "toit", bevel=0)
-    for j, ty in enumerate((-0.95, -0.25, 0.45, 1.0)):
-        k.box(-1.56, 1.56, ty - 0.015, ty + 0.015, 0.725, 0.745, acier, "toit_joint_%d" % j, bevel=0)
-    for s in (-1, 1):
-        k.box(s * 0.95 - 0.16, s * 0.95 + 0.16, 0.55, 0.85, 0.725, 0.80, acier, "aeration_%d" % s, bevel=0.006)
-        for q in range(4):
-            ty = 0.6 + q * 0.065
-            k.box(s * 0.95 - 0.13, s * 0.95 + 0.13, ty, ty + 0.025, 0.80, 0.815, sombre, "aeration_lame_%d_%d" % (s, q), bevel=0)
-    k.box(-1.63, 1.63, -1.33, 1.38, 0.0, 0.07, sombre, "socle", bevel=0.004)
-    k.door(-0.3, 0.3, 1.36, 0.5, sombre, acier, name="porte")
-    k.box(-0.17, 0.17, 1.36, 1.40, 0.555, 0.735, cyan, "voyant_porte", bevel=0)
-    for x in (-1.25, -0.8, 0.8, 1.25):
-        k.box(x - 0.12, x + 0.12, 1.34, 1.37, 0.20, 0.46, sombre, "fen_cadre_%d" % int((x + 2) * 100), bevel=0.004)
-        k.box(x - 0.10, x + 0.10, 1.36, 1.38, 0.22, 0.44, cyan, "fen_%d" % int((x + 2) * 100), bevel=0)
-
-    # --- tour centrale : fût d'acier, bobine de cuivre, col d'isolateurs, tore de Tesla ---
-    cx, cty = 0.0, -0.45
-    k.cyl(cx, cty, 0.6, 0.70, 1.52, acier, "tour_fut", verts=48)
-    k.cyl(cx, cty, 0.5, 1.52, 2.56, sombre, "tour_noyau", verts=48)
-    coil = [k.torus(cx, cty, 1.56 + i * 0.083, 0.52, 0.036, cuivre, "bobine_%d" % i, minor_seg=10) for i in range(13)]
+    cx, cty = 0.0, -0.2
+    # --- socle rond (dalle épaisse) et tour d'acier ---
+    k.cyl(cx, cty, 1.08, 0.0, 0.22, beton, "socle", verts=64)
+    k.ring_studs(cx, cty, 1.08, 0.11, 14, 0.02, boulon, "socle_boulons")
+    k.cyl(cx, cty, 0.74, 0.22, 2.55, acier, "tour", verts=64)
+    k.ribs(cx, cty, 0.74, 0.3, 2.5, 10, sombre, "tour_nervures", w=0.04, d=0.02)
+    k.bands(cx, cty, 0.75, (0.32, 0.95, 2.48), cera, "tour_bagues", minor=0.035)
+    # bobine de cuivre enroulée autour de la tour
+    coil = [k.torus(cx, cty, 1.1 + i * 0.075, 0.78, 0.032, cuivre, "bobine_%d" % i, minor_seg=10) for i in range(17)]
     k.join(coil, "bobine")
-    k.cyl(cx, cty, 0.6, 2.56, 2.8, acier, "tour_collier", verts=48)
-    k.cyl(cx, cty, 0.16, 2.8, 3.32, cera, "col_noyau", verts=24)
-    for i, z in enumerate((2.88, 3.0, 3.12, 3.24)):
-        k.cyl(cx, cty, 0.3 - 0.02 * i, z, z + 0.055, cera, "col_disque_%d" % i, verts=32, bevel=0.012)
-    k.torus(cx, cty, 3.48, 0.62, 0.19, alu, "tore_tesla", minor_seg=20)
-    k.sphere(cx, cty, 3.5, 0.44, alu, "tore_dome", sz=0.42)
-    k.mast(cx, cty, 3.6, 4.45, 0.022, cuivre, "paratonnerre")
+    k.cyl(cx, cty, 0.82, 2.55, 2.78, acier, "tour_collier", verts=64)
+    k.ring_studs(cx, cty, 0.82, 2.66, 12, 0.018, boulon, "collier_boulons")
+    # col d'isolateurs (disques empilés) et tore de Tesla
+    k.cyl(cx, cty, 0.18, 2.78, 3.55, cera, "col_noyau", verts=24)
+    discs = [k.cyl(cx, cty, 0.34 - 0.02 * i, 2.86 + i * 0.13, 2.91 + i * 0.13, cera, "col_disque_%d" % i, verts=32,
+                   bevel=0.012) for i in range(5)]
+    k.join(discs, "col_disques")
+    k.torus(cx, cty, 3.78, 0.64, 0.2, alu, "tore_tesla", minor_seg=20)
+    k.sphere(cx, cty, 3.8, 0.46, alu, "tore_dome", sz=0.42)
+    tp = []
+    ccx, ccy, _ = k.P(cx, cty, 0)
+    for i in range(16):
+        a = math.pi + math.pi * (i + 0.5) / 16
+        tp.append(((ccx + 0.64 * math.cos(a), ccy + 0.64 * math.sin(a), 3.78 + 0.2), (0.0, 0.0, 1.0)))
+    k.studs(tp, 0.016, sombre, "tore_goujons")
+    k.mast(cx, cty, 3.9, 4.6, 0.022, cuivre, "paratonnerre")
 
-    # --- 2 hautes piles d'isolateurs (colonnes crantées) ---
+    # --- porche et porte au sud de la tour, fenêtres cyan ---
+    p0 = cty + 0.74 / R2 - 0.08
+    k.box(-0.36, 0.36, p0, p0 + 0.38, 0.22, 0.92, acier, "porche", bevel=0.015)
+    k.prism([(-0.42, p0 - 0.02), (0.42, p0 - 0.02), (0.42, p0 + 0.42), (-0.42, p0 + 0.42)], 0.92, 1.0, sombre, "porche_toit",
+            top_poly_game=[(-0.40, p0), (0.40, p0), (0.40, p0 + 0.32), (-0.40, p0 + 0.32)], bevel=0.006)
+    k.door(-0.22, 0.22, p0 + 0.38, 0.72, sombre, acier, name="porte")
+    k.box(-0.18, 0.18, p0 + 0.40, p0 + 0.44, 0.76, 0.86, cyan, "voyant_porte", bevel=0)
+    for i, x in enumerate((-0.42, 0.0, 0.42)):
+        ty = cty + math.sqrt(max(0.0, 0.74 ** 2 - x * x)) / R2 + 0.005
+        k.box(x - 0.07, x + 0.07, ty - 0.03, ty + 0.01, 1.55, 2.25, sombre, "fen_cadre_%d" % i, bevel=0.004)
+        k.box(x - 0.05, x + 0.05, ty, ty + 0.02, 1.6, 2.2, cyan, "fen_%d" % i, bevel=0)
+
+    # --- 2 hautes piles d'isolateurs posées au sol (colonnes crantées), transformateurs ---
     for s in (-1, 1):
-        x, ty = s * 1.3, -0.35
-        k.box(x - 0.2, x + 0.2, ty - 0.2, ty + 0.2, 0.70, 0.92, acier, "pile_socle_%d" % s, bevel=0.008)
-        k.cyl(x, ty, 0.085, 0.92, 2.86, cera, "pile_noyau_%d" % s, verts=20)
-        discs = [k.cyl(x, ty, 0.22, 1.0 + i * 0.13, 1.05 + i * 0.13, cera, "pile_disque_%d_%d" % (s, i), verts=32, bevel=0.014)
-                 for i in range(14)]
-        k.join(discs, "pile_disques_%d" % s)
-        k.cyl(x, ty, 0.12, 2.82, 2.9, cuivre, "pile_chapeau_%d" % s, verts=20)
-        k.sphere(x, ty, 3.0, 0.13, cuivre, "pile_electrode_%d" % s, seg=24, rings=12)
-        k.sphere(x - s * 0.1, ty, 3.06, 0.07, arc, "pile_etincelle_%d" % s, seg=16, rings=8, role="tige")
+        x, ty = s * 1.56, 0.15
+        k.box(x - 0.2, x + 0.2, ty - 0.2, ty + 0.2, 0.0, 0.34, acier, "pile_socle_%d" % s, bevel=0.012)
+        k.stud_row(x - 0.16, x + 0.16, ty + 0.2, 0.28, 3, 0.016, boulon, "pile_socle_boulons_%d" % s)
+        k.cyl(x, ty, 0.085, 0.34, 2.72, cera, "pile_noyau_%d" % s, verts=20)
+        dd = [k.cyl(x, ty, 0.22, 0.44 + i * 0.13, 0.49 + i * 0.13, cera, "pile_disque_%d_%d" % (s, i), verts=32, bevel=0.014)
+              for i in range(17)]
+        k.join(dd, "pile_disques_%d" % s)
+        k.cyl(x, ty, 0.12, 2.68, 2.78, cuivre, "pile_chapeau_%d" % s, verts=20)
+        k.sphere(x, ty, 2.9, 0.14, cuivre, "pile_electrode_%d" % s, seg=24, rings=12)
+        k.sphere(x - s * 0.12, ty, 2.96, 0.07, arc, "pile_etincelle_%d" % s, seg=16, rings=8, role="tige")
+        # transformateur à ailettes au pied de la pile (vers la tour)
+        tx = s * 1.05
+        k.box(tx - 0.2, tx + 0.2, 0.55, 0.95, 0.0, 0.5, sombre, "transfo_%d" % s, bevel=0.012)
+        k.louvres(tx - 0.17, tx + 0.17, 0.95, 0.06, 0.44, 6, acier, "transfo_ailettes_%d" % s)
+        for j, dx in enumerate((-0.1, 0.1)):
+            k.cyl(tx + dx, 0.75, 0.035, 0.5, 0.68, cera, "transfo_borne_%d_%d" % (s, j), verts=12)
+        # câble au sol de la pile au transformateur, puis à la tour (tige)
+        k.rod(k.P(x - s * 0.15, ty + 0.1, 0.05), k.P(tx, 0.75, 0.05), 0.02, sombre, "cable_%d" % s, role="tige")
         # arc électrique (pose de référence) de l'électrode au tore
         pts = []
-        n = 7
-        a = k.P(x - s * 0.1, ty, 3.06)
-        b = k.P(s * 0.62, cty, 3.46)
+        n = 8
+        a = k.P(x - s * 0.12, ty, 2.96)
+        b = k.P(s * 0.62, cty, 3.76)
         for i in range(n + 1):
             t = i / n
             j = 0.0 if i in (0, n) else 0.07 * _h(i + 3 * s, 2)
             pts.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t + 0.5 * j,
-                        a[2] + (b[2] - a[2]) * t + j + 0.12 * math.sin(math.pi * t)))
-        segs = [k.rod(pts[i], pts[i + 1], 0.022, arc, "arc_%d_%d" % (s, i), verts=8, role="tige") for i in range(n)]
+                        a[2] + (b[2] - a[2]) * t + j + 0.14 * math.sin(math.pi * t)))
+        segs = [k.rod(pts[i], pts[i + 1], 0.024, arc, "arc_%d_%d" % (s, i), verts=8, role="tige") for i in range(n)]
         k.join(segs, "arc_%d" % s)

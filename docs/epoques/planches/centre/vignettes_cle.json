@@ -1,8 +1,8 @@
 {
- "echelle_px_par_tuile": 8.258,
+ "echelle_px_par_tuile": 8.605,
  "boite_commune_px_hr": [
-  246,
-  496
+  249,
+  476
  ],
  "melange": {
   "A": 11,

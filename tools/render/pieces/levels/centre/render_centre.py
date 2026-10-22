@@ -1,21 +1,33 @@
 """Pilote des rendus d'APERÇU du centre de commandement (lot V3-a, phase 1). Python système.
 
     python tools/render/with_render_lock.py -- python -P tools/render/pieces/levels/centre/render_centre.py \
-        [--levels 1-15] [--samples 64] [--mask-samples 8] [--only full|masks]
+        [--levels 1-15] [--samples 64] [--mask-samples 8] [--only full|masks|quick]
 
-Toujours lancé SOUS le verrou de rendu (CLAUDE.md §4, interdit 6). N'écrit que dans :
+Toujours lancé SOUS le verrou de rendu (CLAUDE.md §4, interdit 6) : le script le VÉRIFIE avant tout appel à
+Blender (un dossier <racine du jeu>/fo-render.lock.<k> dont owner.txt porte le PID d'un processus ancêtre) et
+refuse de rendre sinon ; la place obtenue est tracée dans render.json (« render_lock »), avec l'empreinte
+sha256 des scripts du centre (« scripts_sha256 »). N'écrit que dans :
   tools/render/out/levels/centre/   (aperçus : 4 couches hr + lr, masques, json ; ignoré par git)
   tools/render/cache/levels-centre/ (rendus 16 bits bruts, EFFACÉS après chaque niveau : disque limité)
 Réutilise sans les modifier fo_blender.render (appel de Blender) et fo_post (post-traitement V0).
 Différences avec render.py (pipeline partagé) : fenêtres de halo propres à chaque niveau
-(centre_params.HALO), lumière de nuit seule aux époques 1-2 (variante « -nuit » : la lueur part dans la
-couche halo), masques D1 sans couches plates (« -sil ») et sans tiges (« -mass »), purge des caches.
+(centre_params.HALO), masques D1 sans couches plates (« -sil ») et sans tiges (« -mass »), purge des caches,
+et surtout DEUX rendus par niveau (correction V3 du 21/10) :
+  « nEE-jour » (émissifs ÉTEINTS, verre sombre de leur teinte) -> couches main, ao, shadow ;
+  « nEE »      (émissifs allumés)                               -> couches glow, light.
+La couche principale ne contient donc plus l'émission : la lueur draw_as_glow, additive, n'est comptée
+qu'une fois (avant : main + glow doublaient l'éclat ; 79 à 96 % des pixels de lueur saturés). Aux époques 1-2
+la même lueur sert de lumière de nuit seulement (draw_as_light, manifeste et planches).
+Couche light : énergie normalisée sur centre_params.light_target (croissante avec l'époque, D2-3).
+Mode --only quick : aperçu de réglage (couche principale seule, out/levels/centre/quick/), seul mode permis avec
+le réglage d'essai FO_CENTRE_TUNE (un rendu livré est refusé si la variable existe). Un niveau en échec n'arrête
+pas les suivants (code de sortie 1 à la fin).
 """
 import argparse
+import glob
 import hashlib
 import json
 import os
-import shutil
 import sys
 import time
 
@@ -32,9 +44,47 @@ import fo_post as P  # noqa: E402
 import centre_params as PR  # noqa: E402
 
 PIECE = os.path.join(HERE, "centre.py")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
 OUT = os.path.join(RENDER, "out", "levels", "centre")
 CACHE = os.path.join(RENDER, "cache", "levels-centre")
 MARGIN = 40
+
+
+def scripts_sha256():
+    """Empreinte des scripts qui fixent la géométrie et les matériaux (preuve de correspondance avec le commit)."""
+    out = {}
+    for p in sorted(glob.glob(os.path.join(HERE, "centre*.py")) + [os.path.join(HERE, "render_centre.py")]):
+        with open(p, "rb") as f:
+            out[os.path.basename(p)] = hashlib.sha256(f.read()).hexdigest()
+    return out
+
+
+def lock_held():
+    """Vérifie que ce processus tourne SOUS with_render_lock.py : un dossier fo-render.lock.<k> dont owner.txt
+    porte le PID d'un de nos ancêtres (le script du verrou lance la commande en sous-processus). Renvoie la
+    trace (dossier, PID, ligne de owner.txt) ou None. Lecture seule : ne prend ni ne libère aucun verrou."""
+    try:
+        import psutil
+        anc = set()
+        p = psutil.Process(os.getpid())
+        for _ in range(6):
+            p = p.parent()
+            if p is None:
+                break
+            anc.add(p.pid)
+    except Exception:  # psutil absent : parent direct seulement
+        anc = {os.getppid()}
+    for d in sorted(glob.glob(os.path.join(LOCK_DIR, "fo-render.lock.*"))):
+        try:
+            with open(os.path.join(d, "owner.txt"), encoding="utf-8") as f:
+                line = f.read().strip()
+            pid = int(line.split()[0])
+        except (OSError, ValueError, IndexError):
+            continue
+        if pid in anc:
+            return {"slot": os.path.basename(d), "owner_pid": pid, "owner": line[:400],
+                    "checked": time.strftime("%Y-%m-%d %H:%M:%S")}
+    return None
 
 
 def parse_levels(s):
@@ -90,6 +140,36 @@ def halo_layer(light, origin, e):
     return P.floor_alpha(P.fade_edges(out))
 
 
+LUMA = np.array([0.2126, 0.7152, 0.0722])
+
+
+def normalize_light(lay, target):
+    """Couche additive (codée c / max, A = max) dont l'ÉNERGIE (somme de la luminance émise / 64², en t²) est
+    ramenée à `target` par un gain (dichotomie ; écrêtage à 1 compris). D2-3 : halo de nuit croissant avec le
+    niveau (centre_params.light_target). Renvoie (couche, gain)."""
+    pm = lay[..., :3] * lay[..., 3:4]
+
+    def energy(g):
+        return float((np.clip(pm * g, 0, 1) @ LUMA).sum() / 64.0 ** 2)
+    if energy(1.0) <= 0:
+        return lay, 1.0
+    lo, hi = 0.0, 40.0
+    if energy(hi) < target:
+        g = hi
+    else:
+        for _ in range(40):
+            mid = (lo + hi) / 2
+            if energy(mid) < target:
+                lo = mid
+            else:
+                hi = mid
+        g = (lo + hi) / 2
+    c = np.clip(pm * g, 0, 1)
+    m = c.max(-1, keepdims=True)
+    rgb = np.where(m > 1e-6, c / np.maximum(m, 1e-6), 0)
+    return np.concatenate([rgb, m], -1), g
+
+
 def dilate(m, r):
     """Dilatation d'un masque booléen par un carré de côté 2r+1 (décalages successifs, numpy seul)."""
     out = m.copy()
@@ -137,7 +217,7 @@ def save_mask(alpha, origin, path):
                         origin=np.array([origin[0] - x0, origin[1] - y0]))
 
 
-def render_level(e, samples, mask_samples, what, log):
+def render_level(e, samples, mask_samples, what, log, lock):
     name = "centre-n%02d" % e
     dest = os.path.join(OUT, "n%02d" % e)
     os.makedirs(dest, exist_ok=True)
@@ -145,19 +225,16 @@ def render_level(e, samples, mask_samples, what, log):
     t0 = time.time()
     if what in ("all", "full"):
         dump = os.path.join(dest, "pieces.json")
-        if e in PR.NIGHT_ONLY:
-            ij, dt1 = run_blender("n%02d-jour" % e, samples, ["main", "ao", "shadow"], log, dump=dump)
-            inn, dt2 = run_blender("n%02d-nuit" % e, samples, ["glow", "light"], log)
-            if ij["canvas"] != inn["canvas"] or ij["origin_px"] != inn["origin_px"]:
-                raise RuntimeError("jour et nuit sur des canevas différents : %s / %s" % (ij["canvas"], inn["canvas"]))
-            infos = [ij, inn]
-        else:
-            ij, dt1 = run_blender("n%02d" % e, samples, None, log, dump=dump)
-            infos = [ij]
+        # main, ao, shadow : émissifs éteints ; glow, light : émissifs allumés (même géométrie, même canevas)
+        ij, dt1 = run_blender("n%02d-jour" % e, samples, ["main", "ao", "shadow"], log, dump=dump)
+        inn, dt2 = run_blender("n%02d" % e, samples, ["glow", "light"], log)
+        if ij["canvas"] != inn["canvas"] or ij["origin_px"] != inn["origin_px"]:
+            raise RuntimeError("jour et lueur sur des canevas différents : %s / %s" % (ij["canvas"], inn["canvas"]))
+        infos = [ij, inn]
         origin = tuple(ij["origin_px"])
         main = compose_main_clean(load_npy(ij, "main"), load_npy(ij, "ao"))
         layers = {"main": main, "shadow": P.shadow_layer(load_npy(ij, "shadow"))}
-        src = infos[-1]
+        src = inn
         g = load_npy(src, "glow")
         if g is not None:
             layers["glow"] = P.additive_layer(g)
@@ -165,6 +242,9 @@ def render_level(e, samples, mask_samples, what, log):
         if li is not None:
             hl = halo_layer(li, origin, e)
             if hl is not None:
+                hl, lg = normalize_light(hl, PR.light_target(e))
+                rec["light_gain"] = round(lg, 4)
+                rec["light_target_t2"] = PR.light_target(e)
                 layers["light"] = hl
         spec = {}
         for layer, img in layers.items():
@@ -173,9 +253,24 @@ def render_level(e, samples, mask_samples, what, log):
                 spec[layer] = sd
         save_mask(main[..., 3], origin, os.path.join(dest, "mask-full.npz"))
         rec.update({"spec": spec, "canvas": ij["canvas"], "origin_px": ij["origin_px"], "samples": ij["samples"],
-                    "seed": ij["seed"], "blender": ij["blender"], "blender_hash": ij["blender_hash"]})
+                    "seed": ij["seed"], "blender": ij["blender"], "blender_hash": ij["blender_hash"],
+                    "variants": {"main_ao_shadow": ij["variant"], "glow_light": inn["variant"]},
+                    "main_sans_emission": True})
         for inf in infos:
             purge(inf)
+    if what == "quick":
+        # aperçu rapide de réglage (photométrie) : couche principale seule, dans out/levels/centre/quick/,
+        # suffixé par FO_CENTRE_TAG (réglage d'essai FO_CENTRE_TUNE)
+        iq, _ = run_blender("n%02d-jour" % e, samples, ["main", "ao"], log)
+        mq = compose_main_clean(load_npy(iq, "main"), load_npy(iq, "ao"))
+        qd = os.path.join(OUT, "quick")
+        os.makedirs(qd, exist_ok=True)
+        box = P.trim_box(mq, tuple(iq["origin_px"]))
+        x0, y0, x1, y1 = box
+        tag = os.environ.get("FO_CENTRE_TAG", "")
+        P.write_png(mq[y0:y1, x0:x1], os.path.join(qd, "n%02d%s-main.png" % (e, ("-" + tag) if tag else "")))
+        purge(iq)
+        rec = {"quick": True}
     if what in ("all", "masks"):
         for suf in ("sil", "mass"):
             im, _ = run_blender("n%02d-%s" % (e, suf), mask_samples, ["main"], log)
@@ -183,6 +278,11 @@ def render_level(e, samples, mask_samples, what, log):
             save_mask(a, tuple(im["origin_px"]), os.path.join(dest, "mask-%s.npz" % suf))
             purge(im)
     rec["seconds"] = round(time.time() - t0, 1)
+    if what == "quick":
+        return rec
+    rec["render_lock"] = lock
+    rec["scripts_sha256"] = scripts_sha256()
+    rec["rendered_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     old = {}
     pj = os.path.join(dest, "render.json")
     if os.path.exists(pj):
@@ -199,14 +299,32 @@ def main():
     ap.add_argument("--levels", default="1-15")
     ap.add_argument("--samples", type=int, default=64)
     ap.add_argument("--mask-samples", type=int, default=8)
-    ap.add_argument("--only", default="all", choices=("all", "full", "masks"))
+    ap.add_argument("--only", default="all", choices=("all", "full", "masks", "quick"))
     a = ap.parse_args()
+    if a.only != "quick" and os.environ.get("FO_CENTRE_TUNE"):
+        print("[FO-CENTRE] REFUS : FO_CENTRE_TUNE (réglage d'essai) est défini ; un rendu livré n'en dépend jamais.",
+              flush=True)
+        sys.exit(4)
+    lock = lock_held()
+    if lock is None:
+        print("[FO-CENTRE] REFUS : pas lancé sous tools/render/with_render_lock.py (aucun fo-render.lock.<k> "
+              "tenu par un processus ancêtre dans %s). CLAUDE.md §4, interdit 6." % LOCK_DIR, flush=True)
+        sys.exit(3)
+    print("[FO-CENTRE] verrou de rendu : %s (PID %d)" % (lock["slot"], lock["owner_pid"]), flush=True)
     os.makedirs(CACHE, exist_ok=True)
     log = os.path.join(CACHE, "blender.log")
     t0 = time.time()
+    failed = []
     for e in parse_levels(a.levels):
-        r = render_level(e, a.samples, a.mask_samples, a.only, log)
+        try:
+            r = render_level(e, a.samples, a.mask_samples, a.only, log, lock)
+        except Exception as exc:  # un niveau en échec n'arrête pas les suivants (le verrou est tenu)
+            failed.append(e)
+            print("[FO-CENTRE] n%02d ÉCHEC : %s" % (e, str(exc)[-1500:]), flush=True)
+            continue
         print("[FO-CENTRE] n%02d %-28s %6.1f s" % (e, PR.NAMES[e], r["seconds"]), flush=True)
+    if failed:
+        print("[FO-CENTRE] niveaux en échec : %s" % failed, flush=True)
     # le journal Blender peut grossir : on le garde court
     if os.path.exists(log) and os.path.getsize(log) > 4_000_000:
         with open(log, "rb") as f:
@@ -215,6 +333,8 @@ def main():
         with open(log, "wb") as f:
             f.write(tail)
     print("[FO-CENTRE] total %.1f s" % (time.time() - t0))
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
