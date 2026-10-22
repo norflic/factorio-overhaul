@@ -151,6 +151,23 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
 
+### Faits vérifiés en moteur réel (lot V3-T, emprise croissante, 22/10, 13 h 56 à 14 h 51)
+Banc `content` avec le greffon `checks/levels_taille.lua` (mitrailleuse, Factorio 1.1.91 sans affichage). Passages :
+`content-1` et `content-2` (13 h 56, arbre de travail avant le commit) puis `content-3-captures` (13 h 57,
+lancé après le commit `de6e628` de 13 h 57 min 17 s), 234 OK chacun, deux passages intermédiaires non
+archivés (14 h 45 et 14 h 46, 238 OK), `content-final` (14 h 46, commit `3b06952`, 238 OK) et le banc
+d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-10-22_V3T\` et
+`<racine>\fo-logs\2026-10-22_V3T-integration_content\`. Numéros attribués à l'intégration (22/10, 14 h 55).
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F70 | `create_entity` SANS `fast_replace` pose une tourelle 3×3 par-dessus l'ancienne 2×2 encore présente : le moteur ne vérifie pas la place ; `raise_built` passe ; l'ancienne est détruite ensuite par le script (`destroy{raise_destroy = false}`). Preuve : « place libre : mitrailleuse 6 -> 7 agrandie aussitot », munitions transférées (10 chargeurs), PV en proportion (380 / 760), `resized 1, fallback 0, spilled 0` (banc d'intégration, 14 h 51). | Chemin de l'agrandissement sur place (Q24). Le moteur ne refusant rien, la place doit être vérifiée par le script AVANT (`Levels.room`) : sinon les bâtiments se chevauchent. |
+| F71 | `create_entity{move_stuck_players = true}` écarte un personnage pris dans la nouvelle boîte : (549,2 ; 248,6) → (548,60 ; 248,00), juste hors de la boîte. | Un personnage ne bloque jamais un agrandissement ; le script ne le compte pas parmi les gênes. |
+| F72 | Une boîte de collision et de sélection agrandie (3×3 à 6×6, marge de 0,3 tuile au style vanilla) est acceptée par l'étape data. Le remplacement rapide moteur fonctionne entre deux niveaux de MÊME taille avec un groupe commun à toutes les tailles : chaîne 6 → 30 de la mitrailleuse, 24 améliorations, 4 agrandissements par script, 20 remplacements rapides, 0 secours ; 30 prototypes contrôlés (« emprise 2x2 -> 6x6 par ere, collision au style vanilla, portee + (cote - 2) / 2, meme groupe »). | Un seul `fast_replaceable_group` par famille suffit ; F39 reste le chemin à taille égale. |
+| F73 | `rendering.get_time_to_live(id)`, lu dans le tick du dessin, rend la durée entière (300). Les rectangles à durée limitée disparaissent seuls : 0 rectangle restant au tick 3000, 500 ticks après le dernier dessin (tick 2500). `get_forces` rend la seule force donnée au dessin. | Le contour de refus ne laisse rien dans `global` et ne demande aucun nettoyage. |
+| F74 | `create_entity` (sans `fast_replace`, avec `raise_built` et `move_stuck_players`) d'une mitrailleuse 3×3 sur un fantôme de mur qu'elle heurte : le moteur RETIRE ce fantôme de lui-même. Le fantôme était valide juste avant, il ne l'est plus après, et le filet du script n'en a retiré aucun (« retire par le moteur (script : 0) », compteur final « fantomes retires 0 »). Observé à 14 h 46 (passage intermédiaire, puis `content-final`) et au banc d'intégration (14 h 51). | Défaut 5 de la relecture de V3-T réfuté en moteur réel (il n'existait que dans le moteur simulé). Le filet `remove_ghosts` est gardé ; il n'a jamais servi en moteur réel. |
+| F75 | `find_non_colliding_position("item-on-ground", position de l'objet, 5, 0.25)`, appelé sous une mitrailleuse 3×3 neuve, rend une position hors de sa boîte : (550,00 ; 248,00) pour une boîte qui commence à y = 248,30. `LuaControl.teleport` sur un objet au sol (`item-entity`) réussit et l'objet reste valide (« deplaces 1 » ; pile de 3 plaques de fer non relue par le banc). | Un objet au sol recouvert par l'agrandissement est déposé juste à côté, à portée de ramassage. |
+
 ### Faits vérifiés en moteur réel ou dans les sources (lots P1 et V0, 21/10, 18 h 20 à 19 h 10)
 | ID | Fait | Conséquence |
 |---|---|---|
@@ -177,6 +194,78 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E44 · VALIDÉ en moteur réel pour la mécanique de la mitrailleuse ; panneau, migration et autres familles NON
+prouvés en moteur réel · Emprise croissante et agrandissement sur place (lot V3-T, Q23 et Q24, 22/10, 13 h 45 à
+14 h 51)** :
+- Demandes : Q24 (22/10, 7 h 40) « agrandissement sur place si la place autour est libre ; sinon l'amélioration
+  est refusée et le contour nécessaire s'affiche » ; Q23 (7 h 20), des tailles qui augmentent.
+- Décisions de l'orchestrateur :
+  - mécanique ACTIVÉE pour la seule mitrailleuse, famille témoin de V3-S ;
+  - échelle 2×2 → 3×3 → 4×4 → 5×5 → 6×6, une taille par ère de 3 époques (niveaux 1-6, 7-12, 13-18, 19-24,
+    25-30 ; BALANCE_SHEET §12) ;
+  - les autres familles attendent Q-S1 (charte V3-S, §9) ;
+  - version montée à 0.4.2 à l'intégration, pour que `on_configuration_changed` migre les sauvegardes.
+- Parcours : un ingénieur en worktree (`de6e628`), 3 relecteurs adverses (17 défauts, dont 5 majeurs), un
+  correcteur (`3b06952`, 17 défauts traités : 16 corrigés et tenus par un test, le défaut 5 réfuté en moteur réel
+  par F74). Fusion `--no-ff` dans `main` le 22/10 à 14 h 50 (commit `13b4134`), puis `integrateur.diff`
+  (`tools/api_lint.py`, membres de V3-T) et version 0.4.2. Notes de l'ingénieur :
+  `<racine>\fo-logs\2026-10-22_V3T\NOTES_V3T.md`.
+- Protocole en moteur réel : banc `content` (4 000 ticks) avec le greffon `checks/levels_taille.lua`, 26
+  contrôles joués au tick 1700 et à la vérification (tick 3000) ; force « fo-lv-taille » au centre 15 ; obstacles
+  posés à la main (mur, coffre, eau, fantôme de mur, objet au sol, personnage, vrai minerai `iron-ore`).
+- Résultats en moteur réel (banc d'intégration sur `main`, `done.txt` « termine 22/10/2026 14:51:18,38 », code 0,
+  source = dossier du mod en version 0.4.2 non commitée) : **BILAN : 238 OK, 0 ECHEC(S)**, soit 210 contrôles du
+  banc, 2 de l'exemple greffé et 26 du greffon. Valeurs clés observées :
+  - place libre : 6 → 7 agrandie aussitôt, 3×3 en (469,5 ; 249,5), collision 468,30 à 470,70 ; 10 chargeurs
+    transférés ; PV 380 / 760 ; objet de l'ancien niveau disparu ;
+  - mur au nord et coffre au sud : refus « no-room », coût NON payé, contour 3×3 de (488, 248) à (491, 251),
+    visible de la seule force du bâtiment pendant 300 ticks, gêne « stone-wall » ;
+  - eau au nord et au sud : refus, gêne « tile:water » ;
+  - position préférée bloquée, 2e libre : agrandissement au nord-est (530,5 ; 249,5), rang 2 ;
+  - cas W (eau au nord, coffre au sud) : contour sur la sud-ouest (rang 3, gêne « iron-chest »), puis, le coffre
+    retiré, agrandissement à cette position (489,5 ; 270,5) ;
+  - personnage écarté (F71), objet au sol sorti (F75), fantôme retiré par le moteur (F74), minerai sous la
+    préférée de P : agrandie au rang 1, minerai valide ;
+  - chaîne 6 → 30 : 24 améliorations, 4 agrandissements, 0 secours ; centres successifs (469,5 ; 289,5) en
+    3×3, (470 ; 290) en 4×4, (469,5 ; 289,5) en 5×5, (470 ; 290) en 6×6 : le niveau 30 est revenu au centre
+    d'origine (règle de parité), avec ses 20 chargeurs ;
+  - compteurs finaux : 13 contours, 13 refus, 8 agrandissements, 0 objet renversé, 0 échec de remplacement,
+    0 placement forcé, 0 objet laissé sous un bâtiment ; contours effacés par le moteur (0 rectangle au tick 3000).
+  - `content-final` (worktree, commit `3b06952`, 14 h 46) avait donné le même bilan.
+- Mutations (copie jetable du worktree) : à la relecture du premier commit, 24 jouées, 15 tuées ; après
+  correction, **24 jouées, 23 tuées, 1 équivalente** (`was_cc` dans la migration : `create_entity{raise_built}`
+  appelle `on_built`, qui suit déjà le centre ; la double mutation `was_cc` + `on_built` est tuée, 2 échecs).
+- Étape data réelle sur une copie jetable où les 6 familles sont activées par leur seule ligne : 0 erreur,
+  0 violation. Niveau 25 : la foreuse dépose en (−0,5 ; −3,35), extrait sur un rayon de 3,99 (8×8 tuiles),
+  raccords en (−3,5 ; −0,5), (3,5 ; −0,5) et (−0,5 ; 3,5) ; l'assembleur a ses raccords en (−0,5 ; ±3,5) ; la
+  collision des quatre familles 6×6 vaut ±2,7 ; la portée du laser vaut 32. Centre 15 (8×8) : collision ±3,7.
+  Côté tests, la même copie casse 3 attentes de `levels_test` (relevé à 24 niveaux, « 5 fours niveau 25 ») et
+  `migration_test` (le moteur simulé n'a pas `get_control_behavior` sur une foreuse).
+- Bancs hors jeu rejoués sur `main` après l'intégration (22/10, 14 h 51 à 14 h 55) : run 114, war 92, td 270,
+  pteam 15, **migration 50** (29 avant V3-T), **levels 1 564** (1 459) + 11 écarts connus, pvp 596 (179 s), epochs
+  16 665, org 362 ; étape data : 911 prototypes, 0 erreur nouvelle, 0 violation, 0 clé manquante ; **api_lint 434
+  usages, 0 erreur** (le lot annonçait 437 avec le même diff ; écart de 3 non expliqué) ; d4m **4/5** : l'étape
+  « vram.py sur 13 journaux archivés » échoue AUSSI sur l'ancien `main` (`91097e6`, rejoué le 22/10 à 14 h 56 dans
+  un worktree jetable, puis de nouveau à 15 h 10 par le correcteur des documents : 4/5, code 1, même étape ;
+  aucun fichier de l'outil d4m ne diffère entre `91097e6` et `13b4134`) : elle exige 15 atlas par journal, et les journaux D4m 3
+  à 5 (qualité normale et plancher) en ont 14. Défaut de l'outil de test, préexistant, sans lien avec V3-T.
+- Limites (non prouvé) :
+  - en moteur réel, le panneau, son aperçu au sol (carré vert, contour orange), le bouton actif pour « no-room »
+    et le clic : le mode benchmark n'a pas de joueur ; prouvés en moteur simulé seulement, sans capture ;
+  - la migration d'une vraie sauvegarde 0.4.1, avec ou sans montée de version, filet compris (H-T3) : moteur
+    simulé seulement ;
+  - le remboursement F40 inventaire par inventaire : moteur simulé seulement (aucun gestionnaire actuel ne
+    détruit le bâtiment neuf) ;
+  - le transfert des fluides, du brûleur, de la recette, des fils de circuit et des réglages de foreuse :
+    moteur simulé seulement ;
+  - les machines agrandies (foreuse, assembleur, four, laser, centre) : étape data réelle seulement, aucun
+    runtime ni visuel ;
+  - fils de connexion, connecteurs de circuit et image de la zone d'extraction : non déplacés ;
+  - visuel PROVISOIRE : le sprite actuel des niveaux (celui de `main`, rejeté le 21/10) mis à l'échelle de
+    l'emprise par `kit.sprite_scale` (aucun détail ajouté, ce que D1-4 interdit à terme) ; aucune capture nouvelle après les
+    corrections (captures de la phase initiale : `<racine>\fo-logs\2026-10-22_V3T\captures\`, 056 à 063, 109 à
+    111) ; le visuel attend le verdict sur V3-S.
+
 **E38 · VALIDÉ, y compris en moteur réel (`content` 212 OK, 0 échec, 22/10, 2 h 43 ; journal « recherche vanilla allégée (QX9) : 170 technologie(s) ») · Amélioration instantanée, condition du centre,
 recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)** :
 - Décisions appliquées (citées au §4 d'OBJECTIFS) : Q19 « si on a les ressources, on améliore, terminé » ;
@@ -505,6 +594,24 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
 
 ### Hypothèses (session 6)
+- **H-T3 · OUVERTE** (lot V3-T, E44, 22/10 ; nom repris du lot V3-T, H-T2 n'est attribué à rien) :
+  en moteur réel, une vraie sauvegarde 0.4.1 chargée avec la version 0.4.2 repose bien ses mitrailleuses de niveau 7 et plus à leur nouvelle emprise. Voie normale : la
+  montée de version déclenche `on_configuration_changed`, puis `Levels.repair` et `Levels.migrate_footprints` ;
+  à défaut (version non montée), le filet `on_nth_tick(30)` migre au premier passage si
+  `Levels.footprints_stale()` voit que le relevé `global.fo.levels.footprints` diffère de la table. Attendu :
+  bâtiment reposé à la première position libre (contenu, PV en proportion, crochets `on_replaced`, centre
+  suivi), laissé en place et journalisé sans place, second chargement sans effet.
+  Aujourd'hui prouvé en moteur simulé seulement (`migration_test`, 50 OK). La doc 1.1.91 ne cite pas le
+  changement d'une `collision_box` parmi les déclencheurs de `on_configuration_changed`, d'où le filet.
+  Protocole proposé (outillage à écrire) : le banc crée la carte (étape `create`) avec la source 0.4.1 (worktree
+  jetable au commit `91097e6`), y pose des mitrailleuses de niveaux 7 à 30 (dont deux voisines collées, une
+  sans place, et des munitions), puis la rejoue (étape `benchmark`) avec la source 0.4.2 ; une seconde passe
+  rejoue la même carte avec le code 0.4.2 dont `info.json` garde 0.4.1 (aucun changement de version : le filet
+  seul). La sauvegarde de test vit dans le dossier d'écriture
+  du banc (`fo-autotest\`), JAMAIS dans `<racine>\saves\`. Contrôles : positions, munitions, PV, ligne
+  « [FO-LEVELS] mise à jour des emprises » (montée de version ; écrite seulement si un bâtiment est reposé ou
+  laissé) ou « [FO-LEVELS] emprises (filet, sans changement de version) » (seconde passe), compteurs
+  `levels_status`.
 - **H-T1 · VALIDÉE** (E28) : captures entièrement automatiques, sans session à fermer à la main.
 - **H-V1 · VALIDÉE (verdict du Directeur Créatif, 21/10, 19 h 36)** : le pipeline est étalonné (E29) et la
   pièce est posée en jeu (E30). Verdict : « Verdict V0 : le style de la cheminée s'intègre bien au vanilla, validé. Corrigez les défauts techniques relevés et lancez la production V3. »

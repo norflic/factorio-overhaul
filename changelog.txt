@@ -1,4 +1,24 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.2
+Date: 2026-10-22
+  Features:
+    - Niveaux : la mitrailleuse grandit avec les époques (2×2 aux époques 1 à 3, puis 3×3, 4×4, 5×5, et 6×6
+      aux époques 13 à 15). Les autres familles gardent leur taille en attendant la décision sur l'échelle.
+    - Amélioration sur place : quand le niveau suivant est plus grand, le bâtiment s'agrandit autour de
+      lui-même si la place est libre. Sinon l'amélioration est refusée, rien n'est payé, et le contour à
+      libérer s'affiche avec ce qui le bloque. Les munitions, les points de vie (en proportion) et les
+      statistiques de la tourelle (abattages, dégâts infligés) sont conservés.
+    - Panneau du bâtiment : il montre au sol, pour vous seul, la place que prendra le niveau suivant (carré
+      vert) ou le contour à libérer (orange), et la direction si la position habituelle est prise et que le
+      bâtiment s'étend d'un autre côté.
+  Changes:
+    - Portée : une tourelle qui grandit garde la même portée au-delà de son bord (la portée se mesure depuis
+      son centre).
+    - Les objets au sol recouverts par l'agrandissement sont déposés juste à côté du bâtiment.
+  Info:
+    - Sauvegardes : au chargement, les mitrailleuses de niveau 7 et plus prennent leur nouvelle taille si la
+      place est libre ; sinon elles restent en place et le journal le signale.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-10-22
   Changes:

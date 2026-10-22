@@ -21,8 +21,8 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F69, expériences E1 à E43, hypothèses ouvertes (H-V2, H-X1, H-L1,
-   H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F70, E44**.
+4. `RD_LOG.md` : faits moteur F1 à F75, expériences E1 à E44, hypothèses ouvertes (H-T3, H-V2, H-X1,
+   H-L1, H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F76, E45**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -69,15 +69,19 @@ lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 92 OK
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
-lua5.2 tests/migration_test.lua  -> 29 OK
-lua5.2 tests/levels_test.lua     -> 1459 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
+lua5.2 tests/migration_test.lua  -> 50 OK
+lua5.2 tests/levels_test.lua     -> 1564 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
 lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 381 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
-python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 434 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 4/5 étapes (banc D4m hors jeu ; voir ci-dessous)
 ```
+Chiffres mesurés sur `main` le 22/10, de 14 h 51 à 14 h 55, après l'intégration du lot V3-T (version 0.4.2).
+**d4m à 4/5 : échec connu de l'outil, sans lien avec le mod.** L'étape « vram.py sur 13 journaux archivés »
+exige 15 atlas par journal, or les journaux D4m 3 à 5 (qualité normale et plancher) en ont 14. Même échec
+sur l'ancien `main` (`91097e6`, rejoué le 22/10 à 14 h 56). Correction de l'outil à faire (OBJECTIFS §7).
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
 1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
@@ -90,14 +94,16 @@ python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 ét
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 212 OK, 0 ECHEC(S)` (lot V2c, observé en moteur réel le 22/10 à 2 h 43 : 210
-   contrôles, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` ; 209 avant V2c).
+   attend `BILAN : 238 OK, 0 ECHEC(S)` (lot V3-T, observé en moteur réel le 22/10 à 14 h 51 : 210
+   contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du greffon
+   `checks/levels_taille.lua` ; la ligne « greffons » du journal dit « exemple 2 OK 0 ECHEC, levels_taille
+   26 OK 0 ECHEC » ; 212 avant V3-T, 209 avant V2c).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 212 contrôles ;
+- `content` : banc de contenu, 238 contrôles avec les greffons ;
 - scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
   (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
   tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;
@@ -183,6 +189,9 @@ inutile dans Claude Code : lancez le `.bat` directement.
   - `take_screenshot` rend hors écran ;
   - les faisceaux et les jets ne sont pas déterministes au pixel ;
   - en fenêtre réduite, Windows place le jeu sur les cœurs E, et le cache d'atlas compense.
+- **F70 et F74** (lot V3-T) : `create_entity` SANS `fast_replace` pose le nouveau bâtiment par-dessus l'ancien
+  encore présent, sans vérifier la place (le script doit la vérifier avant) ; en revanche, il a retiré
+  lui-même le fantôme de mur recouvert (un seul cas observé).
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :

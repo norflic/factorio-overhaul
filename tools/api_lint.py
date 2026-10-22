@@ -84,6 +84,27 @@ RECEIVERS = [
     (["LuaEntity"], "name"),
     (["LuaEntityPrototype"], "resource_category"),
     (["LuaEntityPrototype"], "max_health"),
+    # --- lot V3-T (membres ajoutés par le lot ; proposés à l'intégrateur) ---
+    (["LuaTile"], "collides_with"),
+    (["LuaEntity"], "bounding_box"), (["LuaEntity"], "energy"), (["LuaEntity"], "burner"),
+    (["LuaEntity"], "fluidbox"), (["LuaEntity"], "crafting_progress"), (["LuaEntity"], "bonus_progress"),
+    (["LuaEntity"], "mining_progress"), (["LuaEntity"], "bonus_mining_progress"), (["LuaEntity"], "kills"),
+    (["LuaEntity"], "damage_dealt"), (["LuaEntity"], "shooting_target"), (["LuaEntity"], "last_user"),
+    (["LuaEntity"], "circuit_connection_definitions"), (["LuaEntity"], "connect_neighbour"),
+    (["LuaEntity"], "get_control_behavior"), (["LuaEntity"], "get_or_create_control_behavior"),
+    (["LuaEntity"], "get_recipe"), (["LuaEntity"], "set_recipe"), (["LuaEntity"], "get_health_ratio"),
+    (["LuaEntity"], "direction"), (["LuaBurner"], "currently_burning"), (["LuaBurner"], "remaining_burning_fuel"),
+    (["LuaBurner"], "heat"), (["LuaSurface"], "destroy_decoratives"), (["LuaSurface"], "spill_item_stack"),
+    (["LuaInventory"], "is_empty"), (["LuaInventory"], "get_contents"), (["LuaInventory"], "remove"),
+    (["LuaItemStack"], "transfer_stack"), (["LuaItemStack"], "valid_for_read"),
+    (["LuaMiningDrillControlBehavior"], "circuit_read_resources"), (["LuaMiningDrillControlBehavior"], "resource_read_mode"),
+    (["LuaMiningDrillControlBehavior"], "circuit_condition"), (["LuaMiningDrillControlBehavior"], "logistic_condition"),
+    (["LuaMiningDrillControlBehavior"], "connect_to_logistic_network"), (["LuaMiningDrillControlBehavior"], "circuit_enable_disable"),
+    (["LuaEntityPrototype"], "fast_replaceable_group"), (["LuaEntityPrototype"], "selection_box"),
+    (["LuaEntityPrototype"], "attack_parameters"), (["LuaEntity"], "get_item_count"), (["LuaEntity"], "type"),
+    # --- lot V3-T, corrections (objets au sol, fantômes, panneau) ---
+    (["LuaSurface"], "find_non_colliding_position"), (["LuaControl", "LuaEntity"], "teleport"),
+    (["LuaEntity"], "ghost_prototype"), (["LuaGuiElement"], "enabled"), (["LuaInventory"], "insert"),
 ]
 
 

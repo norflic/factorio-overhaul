@@ -527,7 +527,8 @@ famille ; runtime : `script/levels/` ; recherche vanilla : `data-final-fixes.lua
 > **État au 22/10 (lot V2c, après correction)** : prouvé **hors jeu** (levels_test 1 459 OK et **11 écarts
 > connus** au contrat comptés à part, migration_test 29 OK, étape data 0 erreur, api_lint 0 erreur). **Non
 > prouvé en moteur réel** : le diff du banc `content` (`content_test.lua`, 63 contrôles de niveaux, bilan
-> attendu 212 OK) est livré à l'orchestrateur, qui seul passe le moteur. Le modèle de durée de jeu repose sur
+> attendu 212 OK) est livré à l'orchestrateur, qui seul passe le moteur (mise à jour : passé en moteur réel le
+> 22/10 à 2 h 43, 212 OK, E38 ; 238 OK depuis le lot V3-T, 22/10 à 14 h 51, E44). Le modèle de durée de jeu repose sur
 > des **hypothèses ❔** à valider en partie réelle. **QX10 n'est PAS tenu** (passage du centre sous 5 % du
 > budget aux époques 5 à 14) et le calendrier de 52 h n'est tenu que par la base de référence complète (chemin
 > le plus court : 3 h 27) : à trancher par le Directeur Créatif. Visuel : provisoire (E25), inchangé par V2c.
@@ -958,6 +959,54 @@ En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : c
 | 28 | 14 Orbite (+ pièce) | 2 020 | 2,08 | 24,75 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 250 rocket-control-unit, 550 uranium-235 | 62 325 | 34 / 256 |
 | 29 | 15 Légende (silhouette) | 2 080 | 2,1 | 25 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
 | 30 | 15 Légende (+ pièce) | 2 140 | 2,12 | 25,25 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
+
+#### Emprise au sol par niveau (lot V3-T, Q23 et Q24 ; intégré le 22/10 à 14 h 50, version 0.4.2)
+
+Table `L.footprints` de `shared/levels/config.lua`, relue avec `L.footprint` et `L.range_bonus` (lua5.2, 22/10). Ce
+tableau est écrit à la main : `levels_test --tables` ne le produit pas. La colonne « portée » du tableau de la
+mitrailleuse ci-dessus est la STATISTIQUE ; le prototype reçoit en plus le bonus de portée ci-dessous.
+
+**Mitrailleuse (seule famille activée)** : une taille de plus par ère de 3 époques.
+
+| Ère | Époques | Niveaux | Emprise | Collision | Sélection | Bonus de portée | Portée du prototype (statistique + bonus), premier et dernier niveau de l'ère |
+|---|---|---|---|---|---|---|---|
+| I | 1 à 3 | 1 à 6 | 2×2 (vanilla) | ± 0,7 | ± 1 | 0 | 18 et 19,25 |
+| II | 4 à 6 | 7 à 12 | 3×3 | ± 1,2 | ± 1,5 | + 0,5 | 20 et 21,25 |
+| III | 7 à 9 | 13 à 18 | 4×4 | ± 1,7 | ± 2 | + 1 | 22 et 23,25 |
+| IV | 10 à 12 | 19 à 24 | 5×5 | ± 2,2 | ± 2,5 | + 1,5 | 24 et 25,25 |
+| V | 13 à 15 | 25 à 30 | 6×6 | ± 2,7 | ± 3 | + 2 | 26 et 27,25 |
+
+- **Boîtes** : sélection = le carré exact (± côté / 2) ; collision = le carré réduit de 0,3 tuile de chaque côté,
+  comme le vanilla (mitrailleuse ± 0,7, machine 3×3 ± 1,2, roboport ± 1,7).
+- **Bonus de portée = (côté − côté du niveau 1) / 2.** Raison : la portée du moteur se mesure depuis le CENTRE
+  (`range_mode` « center-to-center » par défaut en 1.1.91). Sans ce complément, une mitrailleuse 6×6 porterait
+  2 tuiles de moins au-delà de son bord qu'une 2×2 du même niveau ; avec lui, la portée au-delà du bord reste
+  celle de la statistique. Contrôlé en moteur réel sur les 30 prototypes (`content`, greffon `levels_taille`,
+  22/10).
+- **Positions candidates** : (b − a + 1)² = 4 à chaque changement de taille d'une tuile. En montant d'une taille à
+  la fois, le bâtiment se décale d'une demi-tuile vers le nord-ouest aux tailles impaires et revient sur son
+  centre d'origine aux tailles paires (règle de position : ARCHITECTURE §7 bis).
+- **Contour de refus** : 300 ticks (5 s).
+
+**Rayon d'extraction d'une foreuse agrandie : r + (b − a) / 2** (même débord au-delà du bord). Foreuse
+électrique vanilla 3×3 : 2,49 (5×5 tuiles) ; 4×4 : 2,99 ; 5×5 : 3,49 ; 6×6 : 3,99 (8×8 tuiles). Prévu par le code
+et vérifié à l'étape data réelle sur une copie jetable (foreuse 25 : rayon 3,99, dépôt en (−0,5 ; −3,35)), **NON
+activé** dans le jeu livré.
+
+**Échelle PROPOSÉE pour les autres familles, NON VALIDÉE (Q-S1 ouverte ; aucune ligne dans `L.footprints`)** :
+
+| Famille | Niveau 1 (vanilla) | Proposition du commentaire de `config.lua` (ères I à V) | Proposition de la charte (`docs/DA_FACTORIO.md`, Q-S1) |
+|---|---|---|---|
+| Tourelle laser | 2×2 | 2, 3, 4, 5, 6 | non citée (la règle « une taille de plus par ère » donnerait 2×2 → 6×6) |
+| Foreuse électrique | 3×3 | 3, 4, 5, 6, 6 | non citée (la même règle donnerait 3×3 → 7×7) |
+| Machine d'assemblage 2 | 3×3 | 3, 4, 5, 6, 6 | 3×3 → 7×7 |
+| Four en acier | 2×2 | 2, 3, 4, 5, 6 ou 2, 4, 5, 6, 6 | 2×2 → 6×6 |
+| Centre de commandement (15 niveaux) | 4×4 | 4, 5, 6, 7, 8 | 4×4 → 8×8 |
+| Mur | 1×1 | inchangé (pas de ligne) | ? |
+
+Les deux propositions divergent pour les machines 3×3 (6×6 ou 7×7 à l'ère V) ; OBJECTIFS D1-4 propose « machines
+3×3 → 6×6 ». La garde `L.footprint_errors` impose un niveau 1
+égal à la taille vanilla et une emprise qui ne rétrécit jamais : « four 3 → 6 » est donc refusé.
 
 #### Tourelle laser (30 niveaux)
 

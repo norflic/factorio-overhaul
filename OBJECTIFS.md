@@ -27,8 +27,9 @@
 > **Citations.** Les guillemets « » reproduisent vos messages ; (r) signale une demande consignée en
 > la reformulant dans le RD_LOG.
 >
-> Dernière mise à jour : 2026-10-21, 18 h, session 6 (Claude Code, orchestrateur) : **lot P0 terminé**,
-> suivi des lots au §7. Session 5 close à 17 h 45.
+> Dernière mise à jour : 2026-10-22, 14 h 56, session 6 (Claude Code, orchestrateur) : **lot V3-T intégré**
+> (emprise croissante de la mitrailleuse et agrandissement sur place, Q23 et Q24 ; version 0.4.2), suivi des
+> lots au §7. Session 5 close le 21/10 à 17 h 45.
 >
 > Documents liés :
 > - `CLAUDE.md` : mode d'emploi de reprise ;
@@ -77,7 +78,7 @@
 | C3 | Défense de tours activable à tout moment | ✅ | — |
 | C4 | PvP | 🟨 | Attaques contre vous, 5 difficultés, bases défendues attaquées, assaut coordonné et budget A1 **prouvés en moteur réel** (22/10). Restent : ordre strict des niveaux non prouvé hors du modèle nominal ; critères C4 encore ❔ (à valider par vous) |
 | **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Conception livrée et intégrée (IA1, `docs/EQUIPES_PNJ.md`) ; construction après le visuel (Q18) ; 7 questions Q-IA1 |
-| D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
+| D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26. Emprise croissante (D1-4) : mécanique livrée pour la mitrailleuse seule (V3-T, 22/10, moteur réel), avec un visuel provisoire (sprite actuel agrandi, aucun détail ajouté) |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
 | E1 | Échelons façon Clash of Clans (mécanique) | 🟨 | V2c (22/10, corrigé) : amélioration instantanée, condition du centre (Q16), coûts recalibrés sur X0 ; **prouvé en moteur réel** (`content` 212 OK, 22/10, 2 h 43 ; 170 technologies vanilla allégées). **Non conforme** : passage du centre ≈ 10 % du budget (QX10) tenu aux époques 1 à 4 seulement (3,35 % à 0,11 % ensuite, règle de place) ; calendrier de 52 h tenu par la base de référence complète seulement (chemin le plus court : 3 h 27). À trancher : Q-V2c-1 |
@@ -318,6 +319,19 @@
      n'est jamais un simple agrandissement d'échelle. Échelle de tailles proposée ❔ : une taille de plus par
      ère (tourelles 2×2 → 6×6 ; machines 3×3 → 6×6 ; centre 4×4 → 8×8 ; mur 1×1). Mode d'amélioration au
      changement de taille : Q24.
+     **État de D1-4 (22/10, 14 h 56, lot V3-T intégré, E44)** :
+     - 🟨 **mécanique livrée pour la seule mitrailleuse** : 2×2 aux niveaux 1 à 6, 3×3 de 7 à 12, 4×4 de 13 à
+       18, 5×5 de 19 à 24, 6×6 de 25 à 30 (une taille par ère de 3 époques ; table `L.footprints`). Prouvé en
+       moteur réel (`content` 238 OK, 0 échec, 22/10 à 14 h 51) : agrandissement sur place, refus sans paiement
+       et contour, transfert des munitions et des PV, chaîne 6 → 30 revenue au centre d'origine ;
+     - ❌ **aucun détail ajouté** : le visuel est PROVISOIRE (le sprite actuel des niveaux mis à l'échelle de
+       l'emprise), donc un simple agrandissement, ce que ce critère interdit. Le visuel attend le verdict sur V3-S ;
+     - ⏳ **autres familles** : en attente de Q-S1 (charte `docs/DA_FACTORIO.md` : l'échelle vaut-elle pour toutes
+       les familles ?). Pour le JEU, activer une famille, c'est ajouter sa ligne dans `L.footprints` : prototypes,
+       place, migration et panneau suivent ; l'étape data réelle passe avec les 6 familles activées (0 erreur).
+       Côté TESTS, il faudra en plus réécrire 3 attentes de `levels_test` liées à la table livrée et ajouter
+       `get_control_behavior` au moteur simulé (`tests/mock_engine.lua`). Aucune machine agrandie n'a tourné, ni
+       en moteur simulé avec sa ligne activée, ni en moteur réel.
   4 bis. **Test du regard naïf** (Q23) : un inconnu qui voit deux niveaux côte à côte dit sans hésiter
      lequel est le plus puissant.
   5. Ombres, socles et calques sont alignés au pixel en gros plan (R4).
@@ -393,7 +407,8 @@
 - **Demande** : « niveau clash of clans en termes d'échelons, de qualité de levels… pratiquement idle
   game ».
 - **Critères d'acceptation** (1 à 7 prouvés en moteur réel par V2 avant Q19 ; 3, 4 et 8 révisés ou ajoutés
-  par V2c, prouvés hors jeu seulement)
+  par V2c, prouvés hors jeu seulement ; mise à jour : passés en moteur réel le 22/10 à 2 h 43, 212 OK, E38 ;
+  238 OK depuis V3-T, E44)
   1. Un centre de commandement (l'hôtel de ville) plafonne les autres bâtiments.
   2. ~~Les ouvriers limitent les chantiers simultanés.~~ Sans objet depuis Q19 (amélioration instantanée). Les PNJ
      améliorent eux aussi les bâtiments en y apportant les ressources (C5, lot IA1).
@@ -417,7 +432,8 @@
   - 0 secours manuel.
   La courbe par époque est dans BALANCE_SHEET §12. Q14 à Q16 répondues (21/10, 21 h 25) ; question ouverte :
   Q-V2c-1 (§4).
-- **Lot V2c (22/10, hors jeu ; moteur réel NON passé)** : amélioration instantanée (Q19 : payée, puis
+- **Lot V2c (22/10, hors jeu ; moteur réel NON passé)** (mise à jour : passé en moteur réel le 22/10 à
+  2 h 43, 212 OK, E38 ; 238 OK depuis V3-T, E44) : amélioration instantanée (Q19 : payée, puis
   remplacement rapide dans le même appel ; plus d'ouvriers, de durées, de bâtiment hors service) ;
   condition du centre (Q16 : refus « cc-families » sans paiement, panneau et interface distante) ;
   chantiers 0.3.0 et 0.4.0 en cours ACHEVÉS au chargement ; coûts recalibrés sur le calendrier X0
@@ -427,7 +443,8 @@
   générés), `--calibrate` reproductible (la config livrée est sa sortie), paiement mixte, chantiers à cible
   invalide et rangée mixte testés. Preuves : levels_test 1 459 OK et **11 écarts connus** comptés à part,
   migration_test 29 OK, étape data 0 erreur, api_lint 0 erreur. Diff du banc `content` livré : 63 contrôles
-  de niveaux (60 avant), **BILAN attendu 212 OK**.
+  de niveaux (60 avant), **BILAN attendu 212 OK** (mise à jour : passé en moteur réel le 22/10 à 2 h 43,
+  212 OK, E38 ; 238 OK depuis V3-T, E44).
   **Non conforme (QX10)** : le passage du centre vaut 23,2 %, 9,95 %, 5,6 % et 7,4 % du budget aux époques
   1 à 4, puis de 3,35 % à 0,11 % (époque 14 : 192 820 u pour 14,5 M u visés, 75 fois moins) : la règle de
   place (moitié du coffre) et des monnaies peu denses (baril de méthane, cristal) le bornent ; l'écart est
@@ -463,8 +480,13 @@
   3. Une rangée de murs s'améliore en une fois.
 - **État** : 🟨 Testé hors jeu en moteur simulé (levels_test, V2c : panneau, touche U, bouton, rangée de
   murs, condition du centre et recensement en cache). Amélioration instantanée par l'interface distante :
-  banc `content` V2c à passer (attendu 212 OK ; les chantiers de V2 avaient été prouvés en moteur réel le
-  21/10). **Le panneau n'a jamais été vu à l'écran.**
+  prouvée en moteur réel par le banc `content` (212 OK le 22/10 à 2 h 43, E38 ; 238 OK depuis V3-T ; les
+  chantiers de V2 avaient été prouvés en moteur réel le 21/10). **Le panneau n'a jamais été vu à l'écran.**
+  Lot V3-T (22/10) : le panneau d'un bâtiment qui va grandir montre la nouvelle taille, dessine au sol, pour
+  son seul joueur, la place retenue (carré vert, avec la direction si la position habituelle est prise et que
+  le bâtiment s'étend d'un autre côté) ou le contour à libérer (orange, avec ce qui gêne) ; le bouton reste
+  actif pour un refus « no-room » (le clic refuse sans payer et dessine le contour 300 ticks). Prouvé en moteur simulé seulement (levels_test),
+  sans capture : le mode benchmark n'a pas de joueur.
 
 ### F1 · Jeu continu en 15 époques (nouveau, 21/10, 17 h 35)
 - **Demande** : « Pièces + 15 époques, comme je le disais, si je veux jouer en continue je veux pouvoir
@@ -566,10 +588,11 @@
 | Q-IA1-5 | Votre équipe en mode « Assisté » par défaut (elle construit dans des zones que vous tracez, première couronne de 8 lots constructible d'office), mode « Autonome » en option ? | **Ouverte** (proposition : oui) | C5-4 |
 | Q-IA1-6 | Que pilotent les 5 généralistes ? (1) un domaine chacun ; (2) des parties durables de la base, avec des exécutants nommés ; (3) des projets de bout en bout | **Ouverte** (proposition : 2) | C5-2 |
 | Q-IA1-7 | « S'améliorer plus vite » : les rangs des PNJ, ou la vitesse d'amélioration des bâtiments ? En fin de partie, les PNJ gardent-ils un léger avantage de vitesse sur le joueur ? | **Ouverte** (proposition : les rangs ; avantage maintenu) | C5-6 |
-| Q23 | Précision sur la puissance perçue et la taille (22/10, 7 h 20) | « il y a un truc qui est assez difficile à faire en design […] si jamais on ne connaît pas le jeu et qu'on regarde tel niveau, on a vraiment l'impression que ce niveau-là est plus puissant que le niveau du dessous […] Et surtout, il y a aussi un manque de taille, il y a un problème également de taille, des bâtiments, ça fait bizarre d'avoir un bâtiment qui est vraiment très petit […] les dernières machines pour construire, elles sont de taille, je sais pas moi 6 par six, par exemple, ça m'étonnerait pas […] des tailles qui augmentent des hauteurs qui augmentent aussi un peu pas les hauteurs moins mais les tailles oui, peut-être beaucoup plus […] Et du coup avec la taille, c'est pas que on agrandir l'échelle finalement, c'est on augmente aussi les détails, voilà. » | D1-4 révisé (emprise croissante, détail croissant), D1-4 bis (regard naïf) ; V3-S relancé avec ces règles |
-| Q24 | Quand un bâtiment change de taille (par exemple 3×3 → 4×4) : (1) il s'agrandit sur place si la place autour est libre, sinon l'amélioration est refusée et le contour nécessaire s'affiche ; ou (2) la nouvelle taille est un bâtiment à part, à construire à côté (l'ancien garde sa taille) ? | 22/10, 7 h 40 : « Q24 : agrandissement sur place si la place autour est libre ; sinon l'amélioration est refusée et le contour nécessaire s'affiche. Aussi, notez bien l'avancée du projet quelque part, histoire que si un autre agent doit reprendre la gestion du projet, elle ne recommence pas tout » | Agrandissement sur place si la place est libre, sinon refus avec le contour nécessaire affiché (remplacement par script, contenu transféré) ; état du projet tenu dans `REPRISE.md` |
+| Q23 | Précision sur la puissance perçue et la taille (22/10, 7 h 20) | « il y a un truc qui est assez difficile à faire en design […] si jamais on ne connaît pas le jeu et qu'on regarde tel niveau, on a vraiment l'impression que ce niveau-là est plus puissant que le niveau du dessous […] Et surtout, il y a aussi un manque de taille, il y a un problème également de taille, des bâtiments, ça fait bizarre d'avoir un bâtiment qui est vraiment très petit […] les dernières machines pour construire, elles sont de taille, je sais pas moi 6 par six, par exemple, ça m'étonnerait pas […] des tailles qui augmentent des hauteurs qui augmentent aussi un peu pas les hauteurs moins mais les tailles oui, peut-être beaucoup plus […] Et du coup avec la taille, c'est pas que on agrandir l'échelle finalement, c'est on augmente aussi les détails, voilà. » | D1-4 révisé (emprise croissante, détail croissant), D1-4 bis (regard naïf) ; V3-S relancé avec ces règles. **22/10, 14 h 50 (lot V3-T intégré)** : tailles croissantes ACTIVES pour la mitrailleuse (2×2 → 6×6, une taille par ère) ; autres familles en attente de Q-S1 ; détail croissant : pas encore (visuel provisoire agrandi) |
+| Q24 | Quand un bâtiment change de taille (par exemple 3×3 → 4×4) : (1) il s'agrandit sur place si la place autour est libre, sinon l'amélioration est refusée et le contour nécessaire s'affiche ; ou (2) la nouvelle taille est un bâtiment à part, à construire à côté (l'ancien garde sa taille) ? | 22/10, 7 h 40 : « Q24 : agrandissement sur place si la place autour est libre ; sinon l'amélioration est refusée et le contour nécessaire s'affiche. Aussi, notez bien l'avancée du projet quelque part, histoire que si un autre agent doit reprendre la gestion du projet, elle ne recommence pas tout » | Agrandissement sur place si la place est libre, sinon refus avec le contour nécessaire affiché (remplacement par script, contenu transféré) ; état du projet tenu dans `REPRISE.md`. **Fait pour la mitrailleuse (lot V3-T, intégré le 22/10 à 14 h 50, `13b4134`, version 0.4.2)** : prouvé en moteur réel (`content` 238 OK) pour l'agrandissement, le refus sans paiement et le contour ; panneau, aperçu au sol et migration d'une vraie sauvegarde prouvés en moteur simulé seulement (H-T3) |
 | Q-V2c-1 | QX10 (passage du centre ≈ 10 % du budget) n'est tenu qu'aux époques 1 à 4 : la règle de place (le coût tient dans la moitié du coffre du centre) et les monnaies d'aujourd'hui le bornent à 3,35 % puis 0,11 % du budget, et le centre 15 s'atteint en 3 h 27 par le chemin le plus court (52 h 30 au calendrier). Remède : (a) un objet dense propre au passage (le « Codex k » du scénario X0) ; (b) un remplaçant dense provisoire en attendant les monnaies de X0 ; (c) une règle de place assouplie (ou un coffre plus grand) pour le seul centre ; ou (d) accepter l'écart ? | — (ouverte, lot V2c, 22/10) | Recommandation de l'architecte : (a), le Codex k étant déjà prévu par X0 ; d'ici là, QX10 et le rythme de 52 h sont NON CONFORMES (comptés « écarts connus » par levels_test) |
 | Q-V2c-2 | Depuis Q19 (amélioration instantanée), l'« Horloge éternelle » (6e ouvrier, 2 sabliers par chantier, QX6) et le « Sablier quantique » (− 25 % de durée de chantier) du scénario X0 n'ont plus d'effet. Que doivent-ils offrir ? (par exemple : remise sur le coût des améliorations, amélioration d'une zone entière d'un coup, rangées de tous les bâtiments) | — (ouverte, lot V2c, 22/10) | Diff de nettoyage de `shared/content/epochs.lua` et de `docs/SCENARIO_EPOQUES.md` proposé (commentaires « sans objet depuis Q19 ») ; l'effet nouveau attend votre réponse |
+| Q-S1 | L'échelle d'emprise « une taille de plus par ère » vaut-elle pour toutes les familles (assembleur 3×3 → 7×7, centre 4×4 → 8×8, four 2×2 → 6×6, mur 1×1 → ?) ou seulement pour la mitrailleuse ? (charte `docs/DA_FACTORIO.md` §9, lot V3-S, 22/10) | — (ouverte) | Bloque l'activation des autres familles dans `L.footprints` (lot V3-T : seule la mitrailleuse est activée, D1-4) ; propositions divergentes pour les machines 3×3 (6×6 ou 7×7 à l'ère V, BALANCE_SHEET §12). Q-S2 (luminance des époques « blanches ») et Q-S3 (qui passe le test du regard naïf) : même charte, §9, ouvertes aussi |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -678,9 +701,9 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | V0 Pipeline de rendu | ✅ **style validé par vous** (21/10, 19 h 36 : « Verdict V0 : le style de la cheminée s'intègre bien au vanilla, validé. Corrigez les défauts techniques relevés et lancez la production V3. ») ; défauts techniques à corriger au lot V0b | Blender 5.2.2 (somme vérifiée) ; étalonnage mesuré (E29) ; cheminée rivetée rendue (4 couches) et posée en jeu à côté du vanilla ; 18/18 captures jour/nuit, zooms 1, 2 et 4 (E30). Défauts connus : pièce trop mate (écart-type et p95 hors plages vanilla), anneau translucide la nuit | 21/10, 19 h 36 |
 | V1 Bible des époques | 🟨 👁 bible livrée et intégrée (`docs/DESIGN_EPOQUES.md`, 1 153 lignes, + `docs/epoques/mesures/`) ; aucune planche (attend V0) ; questions Q8 à Q12 ouvertes ; faits vérifiés par 3 vérificateurs adverses : F44, F45, F46, F48 confirmés avec corrections, F47 (soleil au nord-ouest) RÉFUTÉ et corrigé (ombres plein est), E27 corrigé ; bible corrigée | Fusion `b1348e2` ; mesures vanilla sourcées fichier par fichier ; rien de vérifié en jeu | 21/10, 18 h 45 |
 | V0b Corrections du pipeline | ✅ technique, intégré ; 👁 planches V0 / V0b envoyées pour votre regard (le style V0 validé est conservé) | Trou du halo du four équipé corrigé (écart au voisinage 0,245 → 0,011) ; collerette opaque (0 pixel transparent enfermé, contre 49) ; braises orange (b/r 0,42 → 0,02, comme le feu vanilla) ; photométrie du corps au niveau de l'assembleur vanilla (p50 0,205 contre 0,198) ; recalage au pixel ; qualité normale capturée ; contrôles de la bible bloquants dans le pipeline ; déterminisme 18/18 ; `content` 212 OK après fusion ; planches : fo-logs\2026-10-21_V0b_vitrine-final\planches-dc | 22/10, 2 h 45 |
-apport.md | 21/10, 19 h 55 |
 | V3 phase 1 : modélisation des 7 familles | ❌ **direction artistique rejetée par vous** (22/10, 7 h 15 : manque de détail, ne respecte pas la DA de Factorio, niveaux hauts pas plus « badass ») ; finition arrêtée, travail conservé (silhouettes et scripts réutilisables) | Aperçus des 15 époques du centre et des 30 niveaux de 3 familles ; D1-3 tenu en mesure, mais la mesure ne disait rien de la DA ni de la progression de puissance | 22/10, 7 h 15 |
 | V3-S Direction artistique Factorio et progression « badass » | ⏳ **Charte livrée et intégrée** : `docs/DA_FACTORIO.md`, 23 seuils tirés de 28 bâtiments vanilla, loi de densité « pièces ≈ 29,5 × masse », règle de dominance, échelle 2×2 → 6×6 proposée ; V3 phase 1 échoue à 9 seuils en médiane, contre 1 pour le vanilla (E43). **Explorations** : 3 approches de la mitrailleuse (niveaux 11, 21, 29 et 30), coupées à 8 h 55 par la limite d'usage, reprises à 13 h 20 (run `wf_ed692a11-bba`). Écart vu par l'orchestrateur sur les essais de 8 h 50 : les trois se lisent comme des dalles carrées grises et plates, pas comme des tourelles ; le détail baisse avec la taille (46 → 30 pièces/t²). Ensuite : regard naïf à l'aveugle, 2 juges, planches, puis votre verdict avant toute reprise des 7 familles | `docs/da/` ; `<racine>\fo-logs\2026-10-22_V3S\` | 22/10, 13 h 35 |
+| V3-T Emprise croissante et agrandissement sur place (Q23, Q24) | ✅ **intégré dans `main` le 22/10 à 14 h 50** (fusion `13b4134` de `de6e628` + `3b06952`), **version 0.4.2** ; mécanique ACTIVÉE pour la seule mitrailleuse (2×2 → 3×3 → 4×4 → 5×5 → 6×6, une taille par ère), autres familles en attente de Q-S1 ; **aucun visuel nouveau** (sprite actuel agrandi, provisoire : le visuel attend votre verdict sur V3-S). 3 relecteurs adverses : 17 défauts (5 majeurs), 16 corrigés et 1 réfuté en moteur réel (F74). **Non prouvé en moteur réel** : panneau, aperçu au sol et bouton (pas de joueur en mode benchmark ; moteur simulé seulement, aucune capture) ; migration d'une vraie sauvegarde 0.4.1, filet compris (H-T3) ; remboursement F40 inventaire par inventaire ; transfert des fluides, du brûleur, de la recette, des fils et des réglages de foreuse ; machines agrandies (étape data réelle seulement) | **Moteur réel** `content` sur `main` : **238 OK, 0 échec** (210 du banc, 2 de l'exemple, 26 du greffon `levels_taille` ; 22/10, 14 h 51 ; 13 contours, 13 refus, 8 agrandissements, 0 renversé, 0 échec, 0 forcé, 0 laissé). Hors jeu : run 114, war 92, td 270, pteam 15, migration 50, levels 1 564 + 11 écarts connus, pvp 596, epochs 16 665, org 362 ; étape data 0 erreur ; api_lint 434 usages, 0 erreur ; d4m 4/5 (échec préexistant de l'outil, sans lien). Mutations : 24 jouées, 23 tuées, 1 équivalente. RD_LOG E44, F70 à F75 ; journaux `<racine>\fo-logs\2026-10-22_V3T\` et `<racine>\fo-logs\2026-10-22_V3T-integration_content\` | 22/10, 14 h 56 |
 | V2 Cadre des 15 époques | ✅ intégré (contre-vérification : 1 majeur et 5 mineurs → lot V2b) | Hors jeu : levels 1 228, migration 27 ; étape data 748 prototypes, 0 erreur ; **moteur réel `content` 209 OK, 0 échec** (20 h 39) ; journaux <racine>\fo-logs\2026-10-21_integration_* | 21/10, 20 h 40 |
 | X0 Scénario, crafts, branches | ✅ hors jeu ; **scénario approuvé par vous** (Q19 : « le scénario est bien […] je l'aime bien ») ; QX1 à QX9 répondues | « La Caustique d'Érèbe » : `docs/SCENARIO_EPOQUES.md`, données pures `shared/content/epochs.lua`, banc `tests/epochs_test.lua` (16 665 OK, 0 échec ; 3 défauts injectés tous détectés) ; 3 concepteurs, 2 juges, 3 critiques (45 problèmes, dont 19 majeurs ou bloquants, corrigés) ; rien en jeu | 21/10, 21 h 15 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
@@ -689,6 +712,19 @@ apport.md | 21/10, 19 h 55 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ✅ intégré et prouvé en moteur réel ; 2 écarts connus soumis à vous (Q-V2c-1 : part du centre aux époques 5 à 14 ; Q-V2c-2 : centre 15 atteignable en 3 h 27 par le chemin le plus court) | Hors jeu : levels 1 459 OK + 11 écarts connus, migration 29. **Moteur réel** : `content` **212 OK, 0 échec** (22/10, 2 h 43 ; fluid-handling 50 → 2, oil-processing 100 → 4, 170 technologies allégées) | 22/10, 2 h 45 |
 | IA1 Conception des équipes de PNJ organisées (C5) | ✅ conception intégrée ; 👁 7 questions à vous poser | 3 concepteurs, 2 juges, 2 critiques (10 majeurs et 14 mineurs corrigés) ; org_test 362 OK ; aucun comportement en jeu | 22/10, 1 h 15 |
 | D4m Banc mémoire vidéo et usine géante (D4) | ✅ banc intégré et passé en moteur réel (5 passages, code 0, BILAN 16 OK chacun) | Mémoire vidéo dédiée mesurée : 1,59 à 1,70 Go (haute), 0,67 Go (normale), 0,42 Go (plancher) ; 60 UPS avec 2 588 bâtiments à niveaux à l'écran ; images/s non mesurées ; journaux fo-logs\2026-10-22_D4m_* ; à refaire avec les sprites V3 | 22/10, 3 h |
+
+**Suites du lot V3-T pour l'intégrateur (proposées par le lot, NON faites au 22/10, 14 h 56)** ; elles touchent
+des fichiers partagés, donc un seul intégrateur :
+1. `tests/datastage/harness.lua` : ajouter la règle moteur « raccord de tuyau et point de dépôt hors de la boîte
+   de collision ». Aujourd'hui, seul `footprint_problems` (`prototypes/levels/common.lua`) la tient, et seulement
+   pour les niveaux agrandis.
+2. `tests/mock_engine.lua` : ajouter `get_control_behavior` sur les entités simulées, éventuellement
+   `destroy_decoratives`, et une recherche par zone qui suit la boîte de collision comme le vrai moteur
+   (`migration_test` l'enveloppe localement en attendant). Préalable aux tests d'une machine agrandie.
+3. Outil d4m (`tools/autotest/tests/run_d4m.py`) : l'étape « vram.py sur les journaux archivés » exige 15 atlas
+   par journal, alors que les journaux D4m 3 à 5 (qualité normale et plancher) en ont 14 ; elle échoue sur
+   `main` ET sur l'ancien `main` `91097e6` (constaté le 22/10 à 14 h 55 et 14 h 56). Le « 5/5 » noté auparavant
+   dans CLAUDE.md ne se reproduit plus avec les archives actuelles.
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les

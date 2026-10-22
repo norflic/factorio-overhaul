@@ -44,7 +44,8 @@ factorio-overhaul/
 │   ├── team/{config,book,planner}.lua                   # économie réelle, livre de recettes, CERVEAU D'ÉQUIPE
 │   ├── team/org.lua                # modèle pur des rôles (C5, lot IA1) : pôles, affectation différée, jetons de travail, résurrection, rangs
 │   ├── td/waves.lua                                     # composition des vagues (défense de tours)
-│   └── levels/config.lua                                # NIVEAUX : familles, stats, coûts, durées, plafond, design
+│   ├── levels/config.lua                                # NIVEAUX : familles, stats, coûts, plafond, design ; emprises (L.footprints, lot V3-T)
+│   └── levels/footprint.lua        # emprise croissante (lot V3-T) : géométrie des carrés, RÈGLE DE POSITION, place, contour, migration (pur)
 ├── prototypes/                     # générateurs de prototypes (lisent shared/)
 │   ├── lib.lua                     # copie, teintes, échelle de sprites, icônes à numéro de palier
 │   ├── companion/body.lua, world.lua, modules.lua, enemies.lua, arsenal.lua, faction.lua
@@ -65,19 +66,22 @@ factorio-overhaul/
 ├── tests/
 │   ├── mock_engine.lua             # moteur simulé partagé (inventaires, brûleurs, fabrication, tir…)
 │   ├── run.lua                     # socle + compagnons (114)
-│   ├── war_test.lua                # guerre à économie réelle + monde (86)
+│   ├── war_test.lua                # guerre à économie réelle + monde (92)
 │   ├── td_test.lua                 # défense de tours (270)
 │   ├── pteam_test.lua              # équipe du joueur (15)
-│   ├── migration_test.lua          # sauvegarde 0.2 -> 0.3 (12)
-│   ├── levels_test.lua             # niveaux : règles + chantiers en moteur simulé (556)
+│   ├── migration_test.lua          # sauvegardes 0.2 → 0.4.2 (et 0.4.1 sans changement de version) : chantiers, PV, emprises V3-T, filet (50)
+│   ├── levels_test.lua             # niveaux : règles, amélioration, emprise croissante, en moteur simulé (1 564 + 11 écarts connus)
 │   ├── fixtures/recipes.lua        # 246 recettes vanilla réelles (livre de recettes hors-jeu)
 │   └── datastage/                  # rejoue l'étape data réelle + validateur de schéma + règles moteur
 └── tools/
     ├── api_lint.py                 # chaque appel d'API contre runtime-api.json
     ├── print_balance.lua, print_content.lua
     └── autotest/                   # MOTEUR RÉEL : mod fo-autotest (scénarios, banc de contenu, captures),
-                                    # fo-autotest.bat, fo-autotest-watch.bat, fo-visual.bat, analyze.py
+                                    # fo-autotest.bat, fo-autotest-watch.bat, fo-visual.bat, analyze.py ;
+                                    # fo-autotest/checks/levels_taille.lua : greffon du banc content, emprise croissante (lot V3-T, 26 contrôles)
 ```
+Traductions : `locale/fr/` et `locale/en/`, un fichier par lot (par exemple `levels-taille.cfg`, lot V3-T : taille,
+place libre ou prise, directions, motif « no-room »).
 
 ## 2. Règles (non négociables)
 
@@ -313,15 +317,84 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   appliquées aux seuls champs graphiques principaux de chaque type.
 - **Pilotage sans joueur** : `levels_upgrade` (motif du refus, dont « cc-families »), `levels_row`,
   `levels_status` (interface distante, pour le banc de contenu ; `levels_time_factor` retiré au lot V2c).
+- **Emprise par niveau (lot V3-T, Q23 et Q24, intégré le 22/10 à 14 h 50, version 0.4.2 ; E44).**
+  - **Table.** `L.footprints` (`shared/levels/config.lua`) donne le côté de l'emprise par famille : par ère
+    (`era`, 5 côtés, une ère = `L.ERA_EPOCHS` = 3 époques) ou niveau par niveau (`level`). `L.footprint(famille, n)`
+    le lit ; une famille absente garde `family.size`. Seule ligne livrée : `gun = { era = { 2, 3, 4, 5, 6 } }`
+    (chiffres : BALANCE_SHEET §12). Activer une autre famille = ajouter sa ligne (Q-S1 ouverte).
+  - **Garde.** `L.footprint_errors()` refuse une ligne dont la famille est inconnue, la forme fausse, un côté non
+    entier, une emprise qui rétrécit, ou un niveau 1 différent de `family.size` (le niveau 1 EST le bâtiment
+    vanilla, jamais retouché). Elle est appelée en tête de `Common.generate` : l'étape data s'arrête avec le motif.
+  - **Prototypes.** `apply_footprint` (`prototypes/levels/common.lua`) ne touche que les niveaux dont le côté
+    diffère du niveau 1 : boîtes au style vanilla (sélection = le carré exact, collision = le carré réduit de
+    0,3 tuile de chaque côté), `drawing_box` à l'échelle, portée des tourelles + `L.range_bonus` (la portée du
+    moteur se mesure depuis le centre), et points de jeu déplacés par `move_point` (voir plus bas).
+    `footprint_problems` arrête l'étape data si un raccord de tuyau ou le point de dépôt tombe dans la boîte de
+    collision, si un raccord n'est pas sur un centre de tuile, ou si la zone d'extraction est plus petite que
+    l'emprise. Le groupe de remplacement rapide reste commun à toutes les tailles (F72). Le sprite est agrandi
+    du rapport des côtés (`kit.sprite_scale`) : visuel PROVISOIRE, sans détail ajouté.
+  - **Règle de position** (texte de référence, mot pour mot : en tête de `shared/levels/footprint.lua`). Le
+    nouveau bâtiment (côté b) CONTIENT l'ancien (côté a), aligné sur la grille : (b − a + 1)² candidates. Ordre
+    déterministe : la plus centrée d'abord (dx² + dy² le plus petit), puis, à égalité, côté IMPAIR : nord puis
+    ouest ; côté PAIR : sud puis est. La première position LIBRE est retenue. Aucune libre : refus « no-room »,
+    rien de payé, et le contour montre la position LA PLUS FACILE À LIBÉRER (d'abord sans tuile bloquante, puis
+    le moins d'entités, puis le moins de tuiles, puis l'ordre de préférence). Conséquence voulue : en montant
+    d'une taille à la fois (2 → 6), le bâtiment se décale d'une demi-tuile vers le nord-ouest aux tailles
+    impaires et revient sur son centre d'origine aux tailles paires.
+  - **Ce qui bloque** : une tuile qui touche le masque du nouveau prototype (eau, hors carte) ; une entité dont
+    la boîte touche la nouvelle et qui partage une couche, sauf l'ancien bâtiment, les personnages (écartés par
+    `move_stuck_players`, F71), les unités et les objets au sol (sortis après l'agrandissement, F75). Ressources
+    et fantômes ne bloquent jamais (couches absentes du masque) ; le fantôme de mur recouvert a été retiré par
+    le moteur lui-même (F74, un seul cas observé) ; le filet `remove_ghosts` du script couvre les autres cas,
+    non observés en moteur réel ; les décors sont retirés (`destroy_decoratives`).
+  - **Remplacement.** À taille égale : le remplacement rapide moteur d'avant (F39), inchangé. Quand la taille
+    change : remplacement PAR SCRIPT (`Levels.resize_replace`) : `create_entity` SANS `fast_replace` à la position
+    retenue (`raise_built`, `move_stuck_players` ; F70), puis transfert du contenu (`Levels.transfer` : munitions,
+    abattages et dégâts, fluides, brûleur, recette et progression, fils et réglages de circuit ; PV en
+    proportion et direction posés par l'appelant, `replace`, fonction locale, ou `Levels.migrate_footprints`),
+    décors, fantômes et objets au sol, et enfin destruction de l'ancien sans événement. Si un gestionnaire détruit le nouveau (F40), l'ancien reste intact et `refund` rend chaque part du coût à
+    l'inventaire qui l'a payée (relevé de `pay`).
+  - **Ordre des motifs.** La place est calculée dans l'aperçu, donc AVANT le paiement ; « no-room » ne passe
+    qu'APRÈS les autres motifs (« max », « no-cc », « cc-too-low », « unknown-item », « cc-families »,
+    « no-resources » ; `Levels.preview`). Le test c2. de `levels_test` ne vérifie que l'ordre « no-resources »
+    avant « no-room ».
+  - **Contour de refus.** `rendering.draw_rectangle` à durée limitée (`Levels.CONTOUR_TTL` = 300 ticks) : le carré
+    nécessaire en orange, chaque entité et chaque tuile qui gêne marquées en rouge ; visible du seul joueur qui a
+    demandé, sinon de la seule force du bâtiment (F73) ; rien dans `global`, effacé par le moteur. Compté dans
+    `stats.contours`.
+  - **Aperçu du panneau.** Pour son seul joueur, tant que le panneau est ouvert : carré vert de la position
+    retenue (avec la direction écrite si ce n'est pas la préférée), ou contour orange à libérer ; redessiné à
+    chaque rafraîchissement, durée jusqu'au rafraîchissement suivant + 2 ticks (jamais empilé), non compté comme
+    refus. Le bouton reste actif pour « no-room » (le clic refuse sans payer et dessine le contour 300 ticks).
+    Prouvé en moteur simulé seulement.
+  - **Migration.** `global.fo.levels.footprints` garde le relevé des côtés de la version qui a écrit la
+    sauvegarde (nombres seulement ; absent avant V3-T). `Levels.migrate_footprints` compare ce relevé à la
+    table : bâtiment reposé à la première position libre (même transfert, crochets `on_replaced`, centre suivi)
+    ou laissé en place, compté et journalisé ; les chantiers hérités forcés prennent la position la plus facile
+    à libérer. Déclencheurs : `on_configuration_changed` (via `Levels.repair`, voie normale : montée de version)
+    ET, à défaut, le filet `on_nth_tick(30)`, au premier passage où `Levels.footprints_stale()` voit un relevé
+    périmé. Prouvé en moteur simulé seulement (H-T3).
+  - **Pilotage sans joueur.** `levels_upgrade` et `levels_preview` rendent `resize`, `position`, `candidate`,
+    `contour`, `contour_candidate` et `blockers` ; `levels_status` ajoute `resized`, `room_refused`, `contours`,
+    `forced`, `resize_failed`, `ghosts_removed`, `ground_moved`, `ground_left`…
+- **Déplacement des points de jeu (lot V3-T, `move_point`, `prototypes/levels/common.lua`).** Du côté a au côté
+  b, centre du bâtiment = origine :
+  - une coordonnée AU-DELÀ du bord (|v| ≥ a/2) garde son écart au bord : signe(v) × (|v| − a/2 + b/2) ; un
+    raccord à une demi-tuile hors d'un 3×3 (± 2) reste à une demi-tuile hors d'un 6×6 (± 3,5) ;
+  - une coordonnée À L'INTÉRIEUR est portée à la même proportion du côté, puis calée sur le centre de tuile le
+    plus proche du nouveau côté (à égalité, le plus petit ; jamais « −0 ») ;
+  - rayon d'extraction : r + (b − a)/2 (foreuse 3×3 : 2,49, soit 5×5 tuiles ; en 6×6 : 3,99, soit 8×8).
+  Concernés : raccords de toutes les boîtes à fluide, `vector_to_place_result`, `resource_searching_radius`.
+  Non déplacés : fils de connexion, connecteurs de circuit, image de la zone d'extraction.
 
 ## 8. Chaîne de vérification
 
 | Banc | Ce qu'il prouve | Ce qu'il ne prouve pas |
 |---|---|---|
-| `tests/datastage/harness.lua` | L'étape data s'exécute (core + base + mod, dans l'ordre moteur) ; schéma, références, localisation FR/EN ; règles moteur connues (ex. `slice` des animations tournantes, F23) | Rendu, génération de carte réelle |
-| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel | Comportement à l'exécution |
-| `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration | Fidélité du moteur |
-| `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux (180 contrôles, dont 35 de niveaux) | Rendu |
+| `tests/datastage/harness.lua` | L'étape data s'exécute (core + base + mod, dans l'ordre moteur) ; schéma, références, localisation FR/EN ; règles moteur connues (ex. `slice` des animations tournantes, F23). Résultat attendu au 22/10 (lot V3-T) : 911 prototypes ajoutés ou modifiés, 0 erreur nouvelle, 0 violation, 0 clé manquante | Rendu, génération de carte réelle ; la règle « raccord et point de dépôt hors de la boîte » n'y est pas encore (tenue par `footprint_problems` pour les niveaux agrandis seulement) |
+| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel (434 usages, 0 erreur au 22/10) | Comportement à l'exécution |
+| `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration ; résultats attendus au 22/10 : CLAUDE.md §5 (dont migration 50 et levels 1 564) | Fidélité du moteur (exemple : le moteur simulé ne retirait pas les fantômes recouverts, le vrai moteur le fait, F74) |
+| `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux. **238 contrôles** depuis le lot V3-T (22/10, 14 h 51) : 210 du banc, dont 63 de niveaux, 2 de l'exemple greffé et 26 du greffon `levels_taille` (agrandissement sur place, refus et contour, transfert, chaîne 6 → 30) | Rendu ; panneau et aperçu au sol (pas de joueur en mode benchmark) ; migration d'une vraie sauvegarde (H-T3) |
 | `fo-autotest.bat` scénarios `default`, `waves`, `pteam`… | **Le vrai jeu** sans affichage, dossiers isolés : guerre à économie réelle, défense de tours, équipe du joueur ; temps par tick et par poste ; étalon machine | Rendu |
 | `fo-captures.bat` (= `fo-autotest.bat` + `fo-visual.bat`) + `shots.lua`, `vitrine.lua` | **Le vrai jeu avec images** (`--benchmark-graphics`, arrêt seul), captures automatiques, session fermée sans intervention, index et planche-contact ; vitrine d'entités à côté des références vanilla ; greffons de scénarios et de contrôles (`tools/autotest/README.md`) | Le jugement esthétique (verdict du Directeur Créatif) |
 | `tools/da/seuils.py`, `progression.py` (charte `docs/DA_FACTORIO.md`) | Un sprite tient les bandes mesurées sur 28 bâtiments vanilla (détail, patine, palette, lumière, masse) ; la puissance ne baisse pas d'une époque à la suivante (dominance) | Le style, la lisibilité, le « badass » : filtre de refus automatique seulement, le verdict reste au Directeur Créatif |
@@ -332,7 +405,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   de la normale ; étalon machine `[FO-CALIB]` (charge Lua fixe chronométrée toutes les 10 s) lu par
   `analyze.py`, qui signale les fenêtres où la machine ralentit.
 - `analyze.py <dossier> --spikes` : pics de script attribués aux traces `[FO-TRACE]` du même tick.
-- Scénarios : `default`, `content` (banc de contenu, 180 contrôles depuis la session 5), `waves` (défense de tours + guerre),
+- Scénarios : `default`, `content` (banc de contenu : 238 contrôles avec les greffons depuis le lot V3-T ; 180 à la session 5), `waves` (défense de tours + guerre),
   `pteam` (équipe du joueur + guerre), `baseline`, `stress`, `noexp`, `peace`, `parked`, `worker`.
 - `shots.lua` : en session graphique (`fo-visual.bat`), captures automatiques des points d'intérêt dans
   `fo-visual\write\script-output\fo-shots\`, de jour et de nuit. Le mod de test coupe l'introduction
