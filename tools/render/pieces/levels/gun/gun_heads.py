@@ -30,7 +30,24 @@ def gear_teeth(k, z, r, n, mat, size=0.05):
     k._keep(k.S.join(objs, k._name("denture")))
 
 
+# Agrandissement du corps de la tête (reprise 3, 22/10) : aux époques 10 à 15, la tête faisait 0,5 à 1,1 tuile de
+# large au sommet d'un mât de 1,4 à 1,9 tuile (lecture « lampadaire »). Le corps (au-dessus du col, repères posés
+# dans _head) est agrandi de ce facteur autour de (0, 0, zg), comprimé au-delà de ±0,45 pour rester dans la
+# largeur L de la bible (gun.L_TARGET) ; le col est épaissi à la main ; tune.py règle ensuite zg sur O.
+HEAD_SCALE = {10: 1.25, 11: 1.35, 12: 1.30, 13: 1.22, 14: 1.35, 15: 1.30}
+L_HALF = {10: 1.055, 11: 1.065, 12: 1.075, 13: 1.08, 14: 1.09, 15: 1.10}
+
+
 def head(k, e, M, z0, zg):
+    k.body_marks = None
+    _head(k, e, M, z0, zg)
+    if e in HEAD_SCALE:
+        m0, m1 = k.body_marks
+        h = L_HALF[e]
+        k.deform(m0, m1, (0.0, 0.0, zg), HEAD_SCALE[e], {"x": (-h, h), "y": (-h, h)})
+
+
+def _head(k, e, M, z0, zg):
     if e == 2:
         # FORGE : caisson riveté à 2 canons, bouclier frontal plat qui dépasse au-dessus de la tête
         zt = turntable(k, z0, 0.72, M["band"], M["main"])
@@ -225,30 +242,36 @@ def head(k, e, M, z0, zg):
         zt = turntable(k, z0, 0.70, M["main"], M["jaune"])
         k.cyl(0.38, zg - 0.40 - zt, (0, -0.06, (zt + zg - 0.40) / 2), M["beton"], verts=8, spin=math.pi / 8, name="fut")
         k.cyl(0.40, 0.08, (0, -0.06, zt + 0.12), M["jaune"], verts=8, spin=math.pi / 8, name="bande")
-        k.cyl(0.58, 0.58, (0, -0.08, zg), M["main"], verts=8, spin=math.pi / 8, bevel=0.025, name="octogone")
-        k.cyl(0.58, 0.16, (0, -0.08, zg + 0.37), M["main"], r2=0.38, verts=8, spin=math.pi / 8, bevel=0.012, name="chanfrein")
-        k.cyl(0.46, 0.14, (0, -0.08, zg - 0.36), M["main"], r2=0.58, verts=8, spin=math.pi / 8, bevel=0.012, name="chanfrein_bas")
-        k.cyl(0.59, 0.08, (0, -0.08, zg - 0.20), M["jaune"], verts=8, spin=math.pi / 8, bevel=0, name="bande")
+        # octogone élargi (reprise 3) : IoU(époque 8, époque 9) = 0,86 en pose N au 1er aperçu (> 0,85, D1-2) ; la
+        # tête plombée, large et à pans, se distingue du bulbe rond de l'époque 8
+        k.cyl(0.66, 0.58, (0, -0.08, zg), M["main"], verts=8, spin=math.pi / 8, bevel=0.025, name="octogone")
+        k.cyl(0.66, 0.16, (0, -0.08, zg + 0.37), M["main"], r2=0.44, verts=8, spin=math.pi / 8, bevel=0.012, name="chanfrein")
+        k.cyl(0.50, 0.14, (0, -0.08, zg - 0.36), M["main"], r2=0.66, verts=8, spin=math.pi / 8, bevel=0.012, name="chanfrein_bas")
+        k.cyl(0.67, 0.08, (0, -0.08, zg - 0.20), M["jaune"], verts=8, spin=math.pi / 8, bevel=0, name="bande")
         for sx in (-1, 1):
             k.cyl(0.055, 0.78, (sx * 0.18, 0.84, zg - 0.05), M["gun"], axis="y", verts=14, name="canon")
             k.cyl(0.10, 0.44, (sx * 0.18, 0.66, zg - 0.05), M["main"], axis="y", verts=8, name="manchon")
             for yy in (0.48, 0.58, 0.68, 0.78):
                 k.cyl(0.125, 0.03, (sx * 0.18, yy, zg - 0.05), M["main"], axis="y", verts=8, name="ailette")
-        k.cyl(0.15, 0.045, (0, 0.47, zg + 0.10), M["jaune"], axis="y", verts=28, name="hublot_cadre")
-        k.cyl(0.12, 0.05, (0, 0.475, zg + 0.10), M["emit"], axis="y", verts=28, name="hublot")
+        k.cyl(0.15, 0.045, (0, 0.54, zg + 0.10), M["jaune"], axis="y", verts=28, name="hublot_cadre")
+        k.cyl(0.12, 0.05, (0, 0.545, zg + 0.10), M["emit"], axis="y", verts=28, name="hublot")
         for sx in (-1, 1):   # deux hublots de toit, hors de l'ombre de la tour (cachés en pose N sinon : 21/10)
             k.cyl(0.10, 0.04, (sx * 0.27, -0.02, zg + 0.44), M["emit"], verts=24, name="hublot_toit")
         hb = zg + 0.36
-        k.cyl(0.24, 0.30, (0.0, -0.44, hb + 0.15), M["beton"], r2=0.15, verts=28, name="hyper_bas")
-        k.cyl(0.15, 0.28, (0.0, -0.44, hb + 0.44), M["beton"], r2=0.21, verts=28, name="hyper_haut")
-        k.box((0.30, 0.05, 0.20), (0.0, -0.66, zg), M["jaune"], bevel=0, name="plaque")
+        # tour de refroidissement hyperboloïde plus grande et DÉCENTRÉE (silhouette asymétrique, signature de l'époque)
+        k.cyl(0.30, 0.36, (0.22, -0.46, hb + 0.18), M["beton"], r2=0.19, verts=32, name="hyper_bas")
+        k.cyl(0.19, 0.34, (0.22, -0.46, hb + 0.53), M["beton"], r2=0.27, verts=32, name="hyper_haut")
+        k.tor(0.27, 0.02, (0.22, -0.46, hb + 0.70), M["jaune"], name="hyper_levre")
+        k.box((0.30, 0.05, 0.20), (0.0, -0.715, zg), M["jaune"], bevel=0, name="plaque")
         k.halo((0, 0.3, zg + 0.2), emit_rgb("#5CFF4A"), 20.0)
         return
     if e == 10:
         # HAUTE TECHNOLOGIE : dôme caréné, 4 canons courts dans un manchon, capteur optique ; col élancé
         zt = turntable(k, z0, 0.46, M["noir"], M["main"])
-        k.cyl(0.15, zg - zt, (0, 0.0, (zt + zg) / 2), M["main"], verts=28, name="col")
-        k.cyl(0.21, 0.12, (0, 0.0, zt + 0.12), M["noir"], verts=28, name="bague")
+        k.cyl(0.22, zg - zt, (0, 0.0, (zt + zg) / 2), M["main"], r2=0.17, verts=32, name="col")
+        k.cyl(0.29, 0.12, (0, 0.0, zt + 0.12), M["noir"], verts=32, name="bague")
+        k.cyl(0.235, 0.05, (0, 0.0, zt + 0.21), M["emit"], verts=32, bevel=0, name="bague_lueur")
+        m0 = k.mark()
         k.cyl(0.56, 0.24, (0, -0.06, zg - 0.14), M["noir"], verts=48, bevel=0.025, name="jupe")
         k.cyl(0.565, 0.06, (0, -0.06, zg - 0.05), M["emit"], verts=48, bevel=0, name="bandeau")
         k.sph(0.56, (0, -0.06, zg - 0.02), M["main"], scale=(1, 1, 0.80), seg=48, rings=24, name="dome")
@@ -259,12 +282,14 @@ def head(k, e, M, z0, zg):
         k.cyl(0.085, 0.035, (0.0, 0.33, zg + 0.41), M["emit"], axis="y", verts=24, name="lentille")
         k.cyl(0.014, 0.95, (-0.26, -0.36, zg + 0.70), M["noir"], verts=8, bevel=0, name="antenne")
         k.halo((0, -0.06, zg), emit_rgb("#3AA8FF"), 20.0)
+        k.body_marks = (m0, None)
         return
     if e == 11:
         # TITANE : tête effilée (fuseau) à ailerons arrière, 2 canons longs ; mât de titane
         zt = turntable(k, z0, 0.40, M["titane"], M["main"])
-        k.cyl(0.11, zg - zt, (0, -0.12, (zt + zg) / 2), M["titane"], verts=20, name="mat")
-        k.cyl(0.17, 0.12, (0, -0.12, zg - 0.30), M["titane"], verts=20, name="rotule")
+        k.cyl(0.16, zg - zt, (0, -0.12, (zt + zg) / 2), M["titane"], r2=0.12, verts=24, name="mat")
+        k.cyl(0.23, 0.14, (0, -0.12, zg - 0.30), M["titane"], verts=24, name="rotule")
+        m0 = k.mark()
         k.cyl(0.32, 0.95, (0, 0.12, zg), M["main"], axis="y", r2=0.14, verts=36, bevel=0.012, name="fuseau")
         k.sph(0.32, (0, -0.35, zg), M["main"], scale=(1, 1.3, 1), seg=28, rings=14, name="queue")
         k.cyl(0.325, 0.12, (0, -0.08, zg), M["emit"], axis="y", verts=36, bevel=0, name="ligne")
@@ -279,11 +304,13 @@ def head(k, e, M, z0, zg):
             k.prism_y([(sx * 0.20, zg - 0.04), (sx * 0.80, zg + 0.24), (sx * 0.75, zg + 0.36), (sx * 0.20, zg + 0.14)],
                       -0.52, 0.30, M["main"], bevel=0.008, name="aileron_lat")
         k.halo((0, -0.08, zg + 0.1), emit_rgb("#BFE6FF"), 20.0)
+        k.body_marks = (m0, None)
         return
     if e == 12:
         # SUPRACONDUCTEURS : fusil à rail flottant au-dessus du socle annulaire (aucun mât : vide)
         k.cyl(0.22, 0.08, (0, 0, z0 + 0.06), M["chrome"], verts=36, name="emetteur")
         k.cyl(0.12, 0.03, (0, 0, z0 + 0.115), M["emit"], verts=28, name="emetteur_lueur")
+        m0 = k.mark()
         k.box((0.72, 0.86, 0.46), (0, -0.26, zg), M["main"], bevel=0.035, name="noyau")
         k.box((0.66, 0.76, 0.07), (0, -0.26, zg + 0.24), M["givre"], bevel=0.025, name="givre")
         k.box((0.40, 0.24, 0.28), (0, -0.76, zg + 0.04), M["chrome"], bevel=0.025, name="culasse")
@@ -295,20 +322,23 @@ def head(k, e, M, z0, zg):
             k.tor(0.26, 0.03, (0, yy, zg - 0.03), M["emit"], axis="y", name="anneau_lueur")
         # colonne d'anneaux chromés en lévitation entre l'émetteur du socle et la tête (signature de l'époque :
         # « anneaux en lévitation », vides entre eux) ; ils tournent avec la tête (couche object)
-        z_lo, z_hi = z0 + 0.36, zg - 0.44
+        m1 = k.mark()
+        z_lo, z_hi = z0 + 0.36, zg - 0.50
         n = max(3, int(round((z_hi - z_lo) / 0.36)) + 1)
         for i in range(n):
             t = i / (n - 1)
             k.tor(0.20 + 0.14 * t, 0.034 + 0.012 * t, (0, -0.26 * t, z_lo + (z_hi - z_lo) * t), M["chrome"], name="lev")
         k.halo((0, 0.3, zg), emit_rgb("#4AF0FF"), 20.0)
+        k.body_marks = (m0, m1)
         return
     if e == 13:
         # FUSION : canon à plasma, tête sphérique ceinturée d'un tore de plasma, 2 canons courts ; col de cuivre
-        k.cyl(0.13, zg - z0 - 0.40, (0, 0, (z0 + zg - 0.40) / 2), M["cuivre"], verts=24, name="col")
-        zz = z0 + 0.35
-        while zz < zg - 0.55:
-            k.tor(0.16, 0.035, (0, 0, zz), M["main"], name="bague")
-            zz += 0.35
+        k.cyl(0.19, zg - z0 - 0.40, (0, 0, (z0 + zg - 0.40) / 2), M["cuivre"], verts=28, name="col")
+        zz = z0 + 0.30
+        while zz < zg - 0.62:
+            k.tor(0.22, 0.045, (0, 0, zz), M["main"], name="bague")
+            zz += 0.30
+        m0 = k.mark()
         k.sph(0.48, (0, -0.05, zg), M["main"], seg=48, rings=24, name="sphere")
         k.tor(0.66, 0.08, (0, -0.05, zg - 0.02), M["emit"], seg=72, mseg=14, name="tore")
         k.tor(0.49, 0.035, (0, -0.05, zg - 0.02), M["cuivre"], name="ceinture")
@@ -322,11 +352,13 @@ def head(k, e, M, z0, zg):
             k.sph(0.065, (sx * 0.18, 0.99, zg - 0.08), M["emit2"], seg=14, rings=7, name="coeur")
         k.sph(0.14, (0, -0.12, zg + 0.48), M["cuivre"], seg=18, rings=9, name="injecteur")
         k.halo((0, -0.05, zg), emit_rgb("#FF4FD8"), 22.0)
+        k.body_marks = (m0, None)
         return
     if e == 14:
         # ORBITE : tête-satellite, bus en feuille d'or, 2 canons, 2 petits panneaux dorés, parabole de visée
-        k.cyl(0.09, zg - z0 - 0.26, (0, 0, (z0 + zg - 0.26) / 2), M["blanc"], verts=20, name="mat")
-        k.cyl(0.16, 0.10, (0, 0, zg - 0.30), M["blanc"], verts=20, name="rotule")
+        k.cyl(0.15, zg - z0 - 0.26, (0, 0, (z0 + zg - 0.26) / 2), M["blanc"], r2=0.11, verts=24, name="mat")
+        k.cyl(0.22, 0.12, (0, 0, zg - 0.36), M["blanc"], verts=24, name="rotule")
+        m0 = k.mark()
         k.box((0.52, 0.64, 0.52), (0, -0.08, zg), M["main"], bevel=0.025, name="bus")
         k.box((0.54, 0.07, 0.54), (0, 0.26, zg), M["blanc"], bevel=0.012, name="face")
         for sx in (-1, 1):
@@ -337,13 +369,17 @@ def head(k, e, M, z0, zg):
                   name="panneau")
             k.box((0.48, 0.40, 0.018), (sx * 0.84, -0.08, zg + 0.02), M["main"], rot=(0, sx * 0.30, 0), bevel=0.0,
                   name="cadre")
-            k.box((0.40, 0.05, 0.035), (sx * 0.84, -0.08, zg + 0.065), M["emit2"], rot=(0, sx * 0.30, 0), bevel=0,
+            # reflet bleu des cellules : bande de 0,12 (≥ 8 px hr après agrandissement, F37) ; D2-1 (pose O : 170 px
+            # seulement au 1er aperçu, luminance sous la médiane du corps + 80)
+            k.box((0.40, 0.12, 0.035), (sx * 0.84, -0.08, zg + 0.065), M["emit2"], rot=(0, sx * 0.30, 0), bevel=0,
                   name="reflet")
         k.cyl(0.04, 0.26, (0, -0.12, zg + 0.38), M["blanc"], verts=10, name="pied_parabole")
         k.sph(0.38, (0, -0.06, zg + 0.66), M["blanc"], scale=(1, 0.30, 1), seg=36, rings=18, name="parabole")
         k.cyl(0.025, 0.30, (0, 0.08, zg + 0.66), M["main"], axis="y", verts=8, name="cornet")
-        k.sph(0.075, (0, -0.26, zg + 1.08), M["emit"], seg=16, rings=8, name="balise")
+        k.cyl(0.05, 0.10, (0, -0.24, zg + 0.98), M["blanc"], verts=12, name="pied_balise")
+        k.sph(0.10, (0, -0.24, zg + 1.10), M["emit"], seg=20, rings=10, name="balise")
         k.halo((0, -0.1, zg + 0.7), emit_rgb("#FF2A2A"), 20.0)
+        k.body_marks = (m0, None)
         return
     if e == 15:
         # LÉGENDE : couronne de 6 canons en étoile flottant sur le socle-disque ; flèches ; halo ; tronçons flottants
@@ -353,6 +389,7 @@ def head(k, e, M, z0, zg):
             k.tor(rr + 0.008, 0.011, (0, 0, zz), M["emit"], name="troncon_lueur")
             zz += 0.42
             rr = max(0.12, rr - 0.04)
+        m0 = k.mark()
         k.sph(0.34, (0, 0, zg), M["nacre"], seg=40, rings=20, name="noyau")
         k.tor(0.38, 0.05, (0, 0, zg), M["main"], name="ceinture")
         k.tor(0.36, 0.04, (0, 0, zg), M["main"], axis="y", name="ceinture2")
@@ -371,5 +408,6 @@ def head(k, e, M, z0, zg):
                     name="fleche")
         k.tor(0.58, 0.026, (0, -0.02, zg + 0.74), M["emit"], seg=72, name="halo")
         k.halo((0, 0, zg + 0.3), emit_rgb("#FFF2C0"), 24.0)
+        k.body_marks = (m0, None)
         return
     raise ValueError(e)

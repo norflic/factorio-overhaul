@@ -192,8 +192,12 @@ def with_header(rgb_zoom1, labels, title, head_px=26, cell_w=4.0):
     return out
 
 
-def save(img, path):
+def save(img, path, compact=False):
+    """compact=True : PNG à palette de 256 couleurs (tramage de Floyd-Steinberg), planches de vue d'ensemble au zoom
+    1 versionnées dans docs/ (disque H: limité) ; les gros plans (D3, précision au pixel) restent en RGB sans perte."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    if compact and img.mode == "RGB":
+        img = img.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
     img.save(path, optimize=True)
     return path
 
@@ -283,7 +287,7 @@ def poses_planche(out_dir, cell_w=4.0, top=4.0, bottom=1.6):
             labels.append((x / 2, (ri * row_h + top + bottom - 0.35) * PPT / 2 + 26, "%d %s" % (2 * e - 1, pose)))
     day, _ = compose(ents, Wpx, Hpx)
     img = with_header(down2(day), labels, "Mitrailleuse : niveaux impairs, 4 poses de référence (N, E, S, O), jour, zoom 1")
-    return save(img, os.path.join(out_dir, "gun-f-poses-zoom1.png"))
+    return save(img, os.path.join(out_dir, "gun-f-poses-zoom1.png"), True)
 
 
 def main():
@@ -298,12 +302,12 @@ def main():
         t = "Mitrailleuse : 30 niveaux, pose %s, zoom 1 (32 px/tuile), " % a.pose
         if "a" in a.only:
             paths.append(save(with_header(down2(day), labels, t + "jour (impair en haut, pair en bas)"),
-                              os.path.join(a.out, "gun-a-jour-zoom1.png")))
+                              os.path.join(a.out, "gun-a-jour-zoom1.png"), True))
         if "b" in a.only:
-            paths.append(save(with_header(down2(night), labels, t + "nuit"), os.path.join(a.out, "gun-b-nuit-zoom1.png")))
+            paths.append(save(with_header(down2(night), labels, t + "nuit"), os.path.join(a.out, "gun-b-nuit-zoom1.png"), True))
         if "c" in a.only:
             paths.append(save(with_header(gray(down2(day)), labels, t + "niveaux de gris (test du gris D1-1)"),
-                              os.path.join(a.out, "gun-c-gris-zoom1.png")))
+                              os.path.join(a.out, "gun-c-gris-zoom1.png"), True))
     if "d" in a.only:
         ps, ppt = vignettes(a.out)
         paths += ps

@@ -38,8 +38,10 @@ import gun as G  # noqa: E402
 
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 CACHE = os.path.join(D.MOD_ROOT, "tools", "render", "cache", "levels-gun", "cycles")
-# verrou de rendu partagé, appelé tel quel par lock_poll.py (scrutation 0,5 s au lieu de 5 s : voir ce fichier)
-LOCK = os.path.join(HERE, "lock_poll.py")
+# verrou de rendu partagé, appelé TEL QUEL (interdit n° 6 : « python tools/render/with_render_lock.py -- <commande> ») :
+# lock_retry.py relance « with_render_lock.py --wait 0 -- <commande> » toutes les 0,5 s tant qu'il n'y a pas de place
+# (la variante lock_poll.py de la reprise 2, qui remplaçait time.sleep DANS le module partagé, est retirée)
+LOCK = os.path.join(HERE, "lock_retry.py")
 BATCH = os.path.join(HERE, "render_batch.py")
 
 

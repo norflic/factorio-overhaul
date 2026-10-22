@@ -229,6 +229,81 @@ class K:
             z += 0.06
         return z
 
+    # --- agrandissement du corps de la tête (époques 10 à 15, reprise 3) ---------------------------
+    def mark(self):
+        """Repère : (nombre d'objets, nombre de sources) déjà créés ; borne une plage d'objets pour deform()."""
+        return (len(self.objs), len(self.lights))
+
+    def deform(self, m0, m1, pivot, s, lim):
+        """Agrandit d'un facteur s, autour de pivot = (x, y, z), les objets et sources créés entre les repères m0
+        et m1 (m1 = None : jusqu'au dernier) : le CORPS de la tête au-dessus du col, jamais le col ni le socle.
+
+        Pourquoi (reprise 3, 22/10) : aux époques 10 à 15 la tête faisait 0,5 à 1,1 tuile de large au sommet d'un
+        mât de 1,4 à 1,9 tuile (lecture « lampadaire », pas « tourelle ») ; la masse se reporte sur la tête, le
+        mât raccourcit (tune.py règle zg sur l'enveloppe O).
+        lim = {"x": (xmin, xmax), "y": (ymin, ymax)} : en X et en Y (repère de la tête, canons vers +Y), la partie
+        du corps au-delà de ±0,45 du pivot est COMPRIMÉE juste ce qu'il faut pour rester dans les bornes (largeur
+        L de la bible dans les 4 poses : bout des canons, panneaux) ; le cœur (±0,45) est agrandi de s exactement.
+        La transformation de chaque objet (position, rotation, échelle) est d'abord cuite dans son maillage (les
+        modificateurs, biseau et lissage, restent actifs), puis la déformation affine par morceaux est appliquée
+        aux sommets en coordonnées monde. Déterministe (aucun aléa)."""
+        bpy.context.view_layer.update()
+        objs = self.objs[m0[0]:(m1[0] if m1 else None)]
+        lights = self.lights[m0[1]:(m1[1] if m1 else None)]
+        px, py, pz = pivot
+        T = 0.45
+        # étendue actuelle (monde) du corps, pour régler la compression
+        ext = {"x": [0.0, 0.0], "y": [0.0, 0.0]}
+        for o in objs:
+            if o.type != "MESH":
+                continue
+            mw = o.matrix_world
+            for v in o.data.vertices:
+                w = mw @ v.co
+                for ax, val, c in (("x", w.x, px), ("y", w.y, py)):
+                    ext[ax][0] = min(ext[ax][0], val - c)
+                    ext[ax][1] = max(ext[ax][1], val - c)
+
+        def axis_map(ax, c0):
+            lo, hi = lim.get(ax, (-1e9, 1e9))
+            # pente au-delà du cœur, de chaque côté : s si la borne n'est pas atteinte, sinon compression
+            def slope(umax, bound):
+                if umax <= T or s * umax <= bound:
+                    return s
+                return max(0.15, (bound - s * T) / (umax - T))
+            kp = slope(ext[ax][1], hi - c0)
+            kn = slope(-ext[ax][0], -(lo - c0))
+
+            def f(u):
+                d = u - c0
+                if d > T:
+                    return c0 + s * T + kp * (d - T)
+                if d < -T:
+                    return c0 - s * T - kn * (-d - T)
+                return c0 + s * d
+            return f
+
+        fx, fy = axis_map("x", px), axis_map("y", py)
+
+        def fz(z):
+            return pz + s * (z - pz)
+
+        from mathutils import Matrix
+        for o in objs:
+            if o.type != "MESH":
+                continue
+            me = o.data
+            me.transform(o.matrix_basis)
+            o.matrix_basis = Matrix.Identity(4)
+            for v in me.vertices:
+                x, y, z = v.co
+                v.co = (fx(x), fy(y), fz(z))
+            me.update()
+        for o in lights:
+            x, y, z = o.location
+            o.location = (fx(x), fy(y), fz(z))
+        bpy.context.view_layer.update()
+
     # --- rotation de la tête ----------------------------------------------------------------------
     def rotate(self, angle):
         """Tourne tous les objets et sources collectés autour de l'axe Z du monde (origine de l'entité)."""
@@ -331,7 +406,9 @@ def materials(S, e, g):
         metal("blanc", "#CFCBC2", rough=0.4, met=0.1, grain=0.1, dirt=0.5, gain=g * 0.62)
         metal("cells", "#1E2A55", rough=0.18, met=0.35, grain=0.06, gain=g * 1.1)
         emissive("emit", "#FF2A2A", 2.6)
-        emissive("emit2", "#2F6BFF", 1.6)
+        # reflet des cellules : #2F6BFF de la bible a une luminance de 105/255, sous le seuil D2-1 (médiane du corps
+        # 88 + 80) ; le reflet (lumière réfléchie, donc plus claire que la cellule) passe à un bleu clair
+        emissive("emit2", "#8FB4FF", 1.8)
     elif e == 15:
         metal("main", "#E8DCB0", rough=0.28, met=0.9, grain=0.1, dirt=0.5, gain=g * 0.62)   # or blanc patiné
         metal("nacre", "#D8D2C8", rough=0.22, met=0.2, grain=0.08, dirt=0.5, gain=g * 0.62)

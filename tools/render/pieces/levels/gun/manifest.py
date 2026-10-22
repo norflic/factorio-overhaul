@@ -151,6 +151,18 @@ def main():
                                                    "attack_parameters.projectile_creation_distance",
                                                    "attack_parameters.shell_particle.center (non calculé)"],
             "inchanges": "collision_box ±0,7, selection_box ±1 (D1-4) ; fast_replaceable_group (F39)",
+            "garde_V2b": {
+                "duree_des_animations_de_jeu": "images / vitesse inchangé (garde de dress, common.lua) : vanilla "
+                                               "preparing et folding = 5 images à 0,08 (62,5 ticks), attacking = 2 "
+                                               "images à 0,5 (4 ticks) ; Q12 : on garde 5 et 2 images, vitesses "
+                                               "inchangées",
+                "sous_cles_de_jeu_libres": "attack_parameters.projectile_center, projectile_creation_distance, "
+                                           "shell_particle (VISUAL_SUBKEYS de common.lua) : seules ces valeurs de jeu "
+                                           "peuvent suivre la nouvelle géométrie",
+                "water_reflection": "à RETIRER ou à refaire par époque (bible §1.8.5 : le reflet vanilla sous une "
+                                    "autre silhouette est un défaut D3)",
+                "drawing_box": "champ graphique (GRAPHIC_KEYS) : enveloppe mesurée du niveau, ci-dessous "
+                               "(drawing_box_proposee) ; découpe des sprites hauts en bord d'écran NON vérifiée"},
             "chemins_phase2": "graphics/levels/gun/e<NN>/{socle,tete,piece}-{couleur,ombre,emissif,lumiere,masque}.png "
                               "(bible §1.9 ; hr seulement ou hr + lr réduite : à trancher par V0b)"},
         "conventions": {"hr_px_par_tuile": 64, "scale_hr": 0.5, "shift": "tuiles, multiples exacts de 1/64",
