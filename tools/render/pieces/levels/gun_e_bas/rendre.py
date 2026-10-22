@@ -1,22 +1,21 @@
-"""Rendu + post-traitement de la mitrailleuse « industriel lourd » (lot V3-S).
+"""Rendu + post-traitement de la mitrailleuse, lot V3-E époques 1 à 9 (gun_e_bas).
 
-    python tools/render/pieces/levels/gun_s_industriel/rendre.py [--only a,b] [--samples 128] [--quick]
-                                                                 [--post-only]
+    py -3.9 tools/render/pieces/levels/gun_e_bas/rendre.py [--only a,b] [--samples 128] [--quick] [--post-only]
+                                                           [--cache DIR] [--out DIR]
 
 1. Les variantes demandées sont rendues dans UNE session Blender (batch_blender.py), lancée par le verrou de
    rendu prescrit (interdit n° 6) : « python tools/render/with_render_lock.py -- <blender ...> » (2 rendus au
-   plus sur le PC, priorité inférieure à la normale ; attente interne à 5 s, aucun essai en boucle serrée).
+   plus sur le PC, priorité inférieure à la normale). Ce script ne prend qu'UNE place à la fois.
 2. Post-traitement avec tools/render/fo_post.py (inchangé) : liseré de contact sous la couche principale du
-   socle, ombre (noir, alpha), lueur additive (RGB = c/max, A = max), halo V0b (valeurs linéaires, pièce
-   découpée) borné par une fenêtre radiale autour de l'entité et normalisé au sol (pic 0,45 : plage vanilla
-   0,30-0,55, fo_calib.LIGHT_PEAK_RANGE) ; recadrage sur la grille paire, shift exact.
-3. Sortie (non versionnée) : tools/render/out/levels/gun_s_industriel/<variante>/hr-gunind-<variante>-<couche>.png
-   et spec.json (largeur, hauteur, shift hr, durées). Journal des durées : <cache>/temps.json.
+   socle et de la pièce paire, ombre, lueur additive, halo V0b borné et normalisé au sol (pic 0,45).
+   Époques 1 et 2 (foyers de NUIT, catalogue §A.3) : la lueur passe dans la couche halo (draw_as_light), il n'y a
+   pas de couche lueur.
+3. Sorties hr (64 px/tuile) ET normales (32 px/tuile : réduction 2×2 en linéaire, additive pour lueur et halo),
+   spec.json (largeur, hauteur, shift, sha256, contrôles : trous enfermés, plus grand trou, éléments fins).
 """
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -29,20 +28,38 @@ MOD = os.path.dirname(os.path.dirname(RENDER))
 sys.path.insert(0, RENDER)
 sys.path.insert(0, HERE)
 import fo_calib as C  # noqa: E402
+import fo_checks as FC  # noqa: E402
 import fo_post as P  # noqa: E402
 import ind  # noqa: E402
 
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
-CACHE = os.path.join(WORK, "cache")
-OUT = os.path.join(WORK, "out")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3E/bas")
 HALO_PEAK = 0.45
+NIGHT_ONLY = (1, 2)
 
 
-def post(name):
-    d = os.path.join(CACHE, name)
+def largest_hole(alpha):
+    n, _, holes = FC.enclosed_transparent(alpha)
+    if not n:
+        return 0, 0, 0
+    sys.path.insert(0, os.path.join(MOD, "tools", "da"))
+    import da_lib as D
+    sizes, _ = D.components(holes, conn8=False)
+    return n, len(sizes), max(sizes.values())
+
+
+def merge_additive(a, b):
+    """Somme de deux couches additives (RGB normalisé, A = intensité) -> même format."""
+    pm = a[..., :3] * a[..., 3:4] + b[..., :3] * b[..., 3:4]
+    m = np.clip(pm.max(-1, keepdims=True), 0, 1)
+    rgb = np.where(m > 1e-6, pm / np.maximum(pm.max(-1, keepdims=True), 1e-6), 0)
+    return np.concatenate([rgb, m], -1)
+
+
+def post(name, cache, out_root):
+    d = os.path.join(cache, name)
     with open(os.path.join(d, "render.json"), encoding="utf-8") as f:
         info = json.load(f)
     meta = ind.PIECE["variants"][name]
@@ -50,7 +67,7 @@ def post(name):
 
     def npy(layer):
         if layer not in info.get("layers", []):
-            return None  # passe d'un rendu précédent (autre canevas) : ignorée
+            return None
         p = os.path.join(d, "%s-%s.npy" % (name, layer))
         return np.load(p).astype(np.float64) if os.path.exists(p) else None
 
@@ -66,31 +83,50 @@ def post(name):
     if li is not None:
         free = np.minimum(li[..., 3], 1.0 - np.clip(main_raw[..., 3], 0, 1))
         lay = P.light_layer(np.concatenate([li[..., :3], free[..., None]], -1), C.LIGHT_SCALE)
-        side = ind.SIDE[meta["epoch"]]
+        side = meta["side"]
         lay = P.radial_window(lay, origin, (0.5 * side + 0.15) * 64, (0.5 * side + 1.25) * 64)
         ground = (free > 0.5) & (lay[..., 3] > 0)
         ref = np.percentile(lay[..., 3][ground], 99.5) if ground.any() else 0.0
         if ref > 1e-6:
             lay[..., 3] = np.minimum(1.0, lay[..., 3] * HALO_PEAK / ref)
         hr["light"] = P.floor_alpha(P.fade_edges(lay))
-    out = os.path.join(OUT, name)
+    if meta["epoch"] in NIGHT_ONLY and "glow" in hr:
+        gl = hr.pop("glow")
+        hr["light"] = merge_additive(hr["light"], gl) if "light" in hr else gl
+    out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
+    for f in os.listdir(out):
+        if f.endswith(".png"):
+            os.remove(os.path.join(out, f))
     spec = {"variant": name, "level": meta["level"], "epoch": meta["epoch"], "part": meta["part"],
-            "dir": meta.get("dir"), "samples": info["samples"], "seconds": info["seconds"],
+            "dir": meta.get("dir"), "side": meta["side"], "samples": info["samples"], "seconds": info["seconds"],
             "seconds_render": info.get("seconds_render"), "verts": info.get("verts"), "count": info.get("count"),
-            "quick": info.get("quick"), "canvas": info["canvas"], "layers": {}}
+            "quick": info.get("quick"), "canvas": info["canvas"], "night_only": meta["epoch"] in NIGHT_ONLY,
+            "layers": {}}
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
-        box = P.trim_box(hr[layer], origin)
+        img = hr[layer]
+        box = P.trim_box(img, origin)
         if box is None:
             continue
         x0, y0, x1, y1 = box
-        fn = "hr-gunind-%s-%s.png" % (name, layer)
-        sha = P.write_png(hr[layer][y0:y1, x0:x1], os.path.join(out, fn))
+        crop = img[y0:y1, x0:x1]
+        crop_lr = P.downsample2_additive(crop) if layer in ("glow", "light") else P.downsample2(crop)
+        fn = "hr-gune-%s-%s.png" % (name, layer)
+        fn_lr = "gune-%s-%s.png" % (name, layer)
+        sha = P.write_png(crop, os.path.join(out, fn))
+        sha_lr = P.write_png(crop_lr, os.path.join(out, fn_lr))
         sd = P.sprite_def(box, origin, 64)
+        sd_lr = P.sprite_def(box, origin, 32)
         spec["layers"][layer] = {"file": fn, "width": sd["width"], "height": sd["height"], "shift": sd["shift"],
-                                 "sha256": sha}
+                                 "sha256": sha, "draw_as": {"shadow": "shadow", "glow": "glow",
+                                                            "light": "light"}.get(layer, "main"),
+                                 "lr": dict(sd_lr, file=fn_lr, sha256=sha_lr)}
+    n, ng, big = largest_hole(main_raw[..., 3])
+    thin, thin_part = FC.thin_pixels(hr["main"][..., 3])
+    spec["checks"] = {"enclosed_transparent_px": int(n), "enclosed_groups": int(ng), "largest_hole_px": int(big),
+                      "holes_ok": bool(big <= 8), "thin_px": int(thin), "thin_part": float(thin_part)}
     with open(os.path.join(out, "spec.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(spec, f, indent=1, sort_keys=True)
     return spec
@@ -102,12 +138,14 @@ def main():
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--post-only", action="store_true")
+    ap.add_argument("--cache", default=os.path.join(WORK, "cache"))
+    ap.add_argument("--out", default=os.path.join(WORK, "out"))
     a = ap.parse_args()
     names = [n for n in a.only.split(",") if n] or sorted(ind.PIECE["variants"])
-    os.makedirs(CACHE, exist_ok=True)
+    os.makedirs(a.cache, exist_ok=True)
     if not a.post_only:
-        cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--",
-               "--names", ",".join(names), "--out", CACHE, "--samples", str(a.samples)]
+        cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1",
+               "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache, "--samples", str(a.samples)]
         if a.quick:
             cmd.append("--quick")
         t0 = time.time()
@@ -124,9 +162,9 @@ def main():
                 print(line, flush=True)
         rc = p.wait()
         dt = time.time() - t0
-        with open(os.path.join(CACHE, "rendre.log"), "a", encoding="utf-8") as f:
+        with open(os.path.join(a.cache, "rendre.log"), "a", encoding="utf-8") as f:
             f.write("\n".join(log[-400:]) + "\n")
-        tj = os.path.join(CACHE, "temps.json")
+        tj = os.path.join(a.cache, "temps.json")
         hist = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else []
         hist.append({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "names": names, "samples": a.samples, "quick": a.quick,
                      "total_s": round(dt, 1), "attente_verrou_et_demarrage_s": round(t_lock or 0, 1), "code": rc})
@@ -138,9 +176,12 @@ def main():
             print("\n".join(log[-60:]))
             sys.exit(rc)
     for n in names:
-        if os.path.exists(os.path.join(CACHE, n, "render.json")):
-            s = post(n)
-            print("[FO-POST] %s %s %.0f s" % (n, sorted(s["layers"]), s["seconds"]), flush=True)
+        if os.path.exists(os.path.join(a.cache, n, "render.json")):
+            s = post(n, a.cache, a.out)
+            c = s["checks"]
+            print("[FO-POST] %s %s %.0f s ; trous %d px en %d groupes, plus grand %d px %s" % (
+                n, sorted(s["layers"]), s["seconds"], c["enclosed_transparent_px"], c["enclosed_groups"],
+                c["largest_hole_px"], "OK" if c["holes_ok"] else "ECHEC"), flush=True)
 
 
 if __name__ == "__main__":

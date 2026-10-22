@@ -148,6 +148,18 @@ def _insert_edgewear(mat, amount, dist=0.014):
     L.new(mul.outputs["Vector"], inp)
 
 
+# Lot V3-E (époques 1 à 9) : corrections des juges appliquées SANS toucher aux volumes (catalogue §A.6) :
+#   grain de surface adouci (P1 5,5-6,2 -> visé 4,7-5,0 ; D3 au-dessus du plafond 45 venait surtout du grain),
+#   taches moyennes ajoutées (P2 13-15 -> plancher 16), reflets francs sur l'acier nu et le laiton (C2 visé 165-200).
+GRAIN_K = 0.62
+STAIN2 = 0.32
+EPOCH_EMIT = {1: (1.0, 0.69, 0.376), 2: (1.0, 0.416, 0.125), 3: (1.0, 0.753, 0.376), 4: (1.0, 0.549, 0.102),
+              5: (1.0, 0.29, 0.063), 6: (0.376, 0.816, 1.0), 7: (0.69, 0.44, 1.0), 8: (0.659, 1.0, 0.227),
+              9: (0.361, 1.0, 0.29), 11: (0.75, 0.9, 1.0), 15: (1.0, 0.93, 0.7)}
+# époques dont les foyers ne se voient que la nuit (catalogue §A.3) : leur lueur passe en couche halo (draw_as_light)
+NIGHT_ONLY = (1, 2)
+
+
 def materials(S, epoch, tone=1.0):
     """Palette commune à TOUTES les époques (charte §6.4 : le corps reste du métal sombre, chaud et usé) ;
     seuls changent l'accent d'époque (≤ 15 % du corps, patiné) et la couleur des éléments lumineux."""
@@ -155,14 +167,17 @@ def materials(S, epoch, tone=1.0):
     k = [0]
 
     def metal(key, col, rough=0.4, met=0.75, grain=0.38, gscale=24.0, rust=None, ra=0.0, dirt=0.85, stain=0.5,
-              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0):
+              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0, stain2=None):
         k[0] += 1
         c = tuple(min(0.9, x * tone) for x in col)
-        m = S.mat_metal("ind_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
-                        rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt, seed=float(11 * k[0] + epoch),
-                        soot=soot, dirt_distance=dd)
+        m = S.mat_metal("ind_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain * GRAIN_K,
+                        grain_scale=gscale, rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt,
+                        seed=float(11 * k[0] + epoch), soot=soot, dirt_distance=dd)
         if stain:
             _insert_stain(m, stain, sscale, float(11 * k[0] + epoch))
+            s2 = STAIN2 if stain2 is None else stain2
+            if s2:
+                _insert_stain(m, s2, 13.0, float(17 * k[0] + epoch + 0.5))
         if streak:
             _insert_streaks(m, streak, 14.0, float(13 * k[0] + epoch))
         if wear:
@@ -176,14 +191,14 @@ def materials(S, epoch, tone=1.0):
     metal("armor2", (0.075, 0.068, 0.058), rough=0.4, met=0.75, rust=(0.18, 0.07, 0.03), ra=0.15, dirt=0.7, wear=2.2)
     metal("khaki", (0.17, 0.14, 0.08), rough=0.48, met=0.4, rust=rust, ra=0.18, wear=1.4)
     metal("seam", (0.01, 0.009, 0.008), rough=0.8, met=0.2, grain=0.2, dirt=0.4, stain=0.0)
-    metal("steel", (0.2, 0.19, 0.175), rough=0.3, met=0.9, grain=0.26, gscale=40.0, rust=rust, ra=0.1, dirt=0.6,
+    metal("steel", (0.2, 0.19, 0.175), rough=0.22, met=0.9, grain=0.26, gscale=40.0, rust=rust, ra=0.1, dirt=0.6,
           stain=0.25, wear=1.2)
-    metal("gun", (0.075, 0.072, 0.068), rough=0.3, met=0.9, grain=0.26, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
-    metal("brass", (0.8, 0.56, 0.22), rough=0.3, met=0.95, grain=0.22, gscale=50.0, rust=(0.3, 0.12, 0.05),
+    metal("gun", (0.075, 0.072, 0.068), rough=0.22, met=0.9, grain=0.26, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
+    metal("brass", (0.8, 0.56, 0.22), rough=0.2, met=0.95, grain=0.22, gscale=50.0, rust=(0.3, 0.12, 0.05),
           ra=0.2, dirt=0.5, stain=0.15, wear=0.5)
     metal("copper", (0.62, 0.26, 0.1), rough=0.36, met=0.95, grain=0.22, rust=(0.12, 0.2, 0.12), ra=0.12, dirt=0.55,
           stain=0.2, wear=0.6)
-    metal("rivet", (0.56, 0.48, 0.36), rough=0.28, met=0.9, grain=0.12, dirt=0.3, stain=0.0)
+    metal("rivet", (0.56, 0.48, 0.36), rough=0.18, met=0.9, grain=0.12, dirt=0.3, stain=0.0)
     metal("hazy", (0.6, 0.38, 0.025), rough=0.5, met=0.1, grain=0.38, rust=rust, ra=0.35, dirt=0.85, stain=0.35,
           wear=0.6)
     metal("hazk", (0.025, 0.022, 0.02), rough=0.55, met=0.2, grain=0.3, dirt=0.4, stain=0.0, wear=3.0)
@@ -204,25 +219,69 @@ def materials(S, epoch, tone=1.0):
           dirt=0.9, stain=0.95, sscale=5.0, wear=3.0, streak=0.6)
     metal("steel_dk", (0.1, 0.094, 0.086), rough=0.32, met=0.9, grain=0.18, gscale=36.0, rust=rust, ra=0.5,
           dirt=0.8, stain=0.75, sscale=5.0, wear=2.8, streak=0.55)
-    metal("steel_hi", (0.52, 0.5, 0.46), rough=0.22, met=0.95, grain=0.3, gscale=44.0, rust=rust, ra=0.12,
+    metal("steel_hi", (0.52, 0.5, 0.46), rough=0.14, met=0.95, grain=0.3, gscale=44.0, rust=rust, ra=0.12,
           dirt=0.75, stain=0.25, sscale=16.0, wear=0.6, streak=0.3)
     metal("grate", (0.11, 0.1, 0.09), rough=0.4, met=0.8, grain=0.3, gscale=40.0, rust=rust, ra=0.35, dirt=0.6,
           stain=0.5, wear=1.5)
     metal("dial", (0.4, 0.37, 0.3), rough=0.4, met=0.0, grain=0.2, dirt=0.4, stain=0.2)
-    # accents d'époque (≤ 15 % du corps, patinés, sur structure sombre)
-    if epoch <= 6:
-        metal("accent", (0.42, 0.39, 0.33), rough=0.35, met=0.0, grain=0.22, dirt=0.85, stain=0.3)      # céramique
-    elif epoch <= 12:
-        metal("accent", (0.26, 0.26, 0.255), rough=0.35, met=0.9, grain=0.25, dirt=0.8, stain=0.22,
-              wear=0.8)                                                                                 # titane
-    else:
-        metal("accent", (0.52, 0.42, 0.22), rough=0.38, met=0.9, grain=0.22, dirt=0.8, stain=0.2,
-              rust=(0.25, 0.12, 0.05), ra=0.15, wear=0.5)                                               # or blanc patiné
-    # éléments lumineux : couleur d'époque (charte §6.4) ; surface éteinte dans la couche principale (V0b)
-    emit = {6: (0.376, 0.816, 1.0), 11: (0.75, 0.9, 1.0), 15: (1.0, 0.93, 0.7)}.get(epoch, (1.0, 0.6, 0.2))
-    M["emit"] = S.mat_emissive("ind_e%02d_emit" % epoch, emit, strength=1.0, base=(0.01, 0.01, 0.012),
+    # accents d'époque (≤ 15 % du corps, patinés, sur structure sombre). Lot V3-E : une matière par emplacement
+    # E4 du catalogue (DA_PAR_EPOQUE §A.3) ; valeurs LINÉAIRES (albédos de départ, à vérifier sur le rendu).
+    metal("accent", (0.42, 0.39, 0.33), rough=0.35, met=0.0, grain=0.22, dirt=0.85, stain=0.3)          # céramique
+    # 1 Pionnier / 2 Forge
+    metal("wood", (0.16, 0.088, 0.042), rough=0.75, met=0.0, grain=0.5, gscale=18.0, dirt=0.9, stain=0.8,
+          sscale=6.0, wear=1.2, streak=0.5)
+    metal("wood2", (0.11, 0.062, 0.03), rough=0.8, met=0.0, grain=0.5, gscale=18.0, dirt=0.9, stain=0.8,
+          sscale=6.0, wear=1.2, streak=0.5)
+    metal("canvas", (0.27, 0.18, 0.085), rough=0.92, met=0.0, grain=0.45, gscale=40.0, dirt=0.9, stain=0.9,
+          sscale=5.0, wear=0.8)
+    metal("canvas2", (0.21, 0.145, 0.07), rough=0.92, met=0.0, grain=0.45, gscale=40.0, dirt=0.9, stain=0.9,
+          sscale=5.0, wear=0.8)
+    metal("rawiron", (0.1, 0.08, 0.064), rough=0.5, met=0.6, grain=0.4, rust=rust, ra=0.6, dirt=0.85, stain=0.8,
+          sscale=5.0, wear=2.4, streak=0.5)
+    metal("blackiron", (0.042, 0.038, 0.034), rough=0.42, met=0.75, grain=0.3, rust=rust, ra=0.35, dirt=0.7,
+          stain=0.6, sscale=5.0, wear=3.4, streak=0.4)
+    metal("bolted", (0.13, 0.115, 0.095), rough=0.36, met=0.8, grain=0.22, rust=rust, ra=0.45, dirt=0.85, stain=0.85,
+          sscale=5.0, wear=2.8, streak=0.55)
+    # 3 Vapeur
+    metal("castiron", (0.05, 0.043, 0.038), rough=0.55, met=0.6, grain=0.35, rust=rust, ra=0.3, dirt=0.8, stain=0.6,
+          sscale=5.0, wear=2.6)
+    metal("copper_pol", (0.5, 0.2, 0.075), rough=0.26, met=0.95, grain=0.22, rust=(0.08, 0.13, 0.08), ra=0.18,
+          dirt=0.75, stain=0.45, sscale=6.0, wear=1.8)
+    # 4 Pétrole
+    metal("galva", (0.16, 0.168, 0.172), rough=0.34, met=0.85, grain=0.3, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
+          stain=0.75, sscale=5.0, wear=1.6, streak=0.45)
+    metal("yellowpaint", (0.34, 0.245, 0.04), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.35,
+          dirt=0.9, stain=0.95, sscale=5.0, wear=2.8, streak=0.65)
+    # 5 Volcan
+    metal("tungsten", (0.055, 0.052, 0.058), rough=0.32, met=0.9, grain=0.22, rust=(0.16, 0.06, 0.025), ra=0.3,
+          dirt=0.75, stain=0.7, sscale=5.0, wear=3.6, streak=0.45)
+    metal("burnrust", (0.11, 0.045, 0.024), rough=0.62, met=0.35, grain=0.3, rust=(0.05, 0.03, 0.02), ra=0.4,
+          dirt=0.85, stain=0.85, sscale=5.0, wear=2.0, streak=0.5)
+    metal("basalt", (0.035, 0.032, 0.03), rough=0.6, met=0.1, grain=0.45, dirt=0.6, stain=0.5, wear=3.0)
+    # 7 Cristal
+    metal("bronze", (0.15, 0.088, 0.04), rough=0.4, met=0.85, grain=0.26, gscale=36.0, rust=(0.06, 0.1, 0.065),
+          ra=0.4, dirt=0.85, stain=0.75, sscale=5.0, wear=2.2, streak=0.45)
+    metal("stone", (0.075, 0.056, 0.044), rough=0.85, met=0.0, grain=0.5, gscale=26.0, dirt=0.9, stain=0.8,
+          sscale=5.0, wear=2.2)
+    # 8 Marais
+    metal("verdigris", (0.07, 0.11, 0.08), rough=0.55, met=0.4, grain=0.3, rust=(0.1, 0.07, 0.04), ra=0.35,
+          dirt=0.85, stain=0.8, sscale=5.0, wear=1.6, streak=0.5)
+    metal("glass_dk", (0.02, 0.035, 0.02), rough=0.08, met=0.0, grain=0.1, dirt=0.4, stain=0.2)
+    metal("wicker", (0.13, 0.085, 0.04), rough=0.85, met=0.0, grain=0.6, gscale=60.0, dirt=0.9, stain=0.6, wear=1.0)
+    # 9 Atome
+    metal("lead", (0.085, 0.082, 0.078), rough=0.48, met=0.65, grain=0.28, rust=(0.11, 0.1, 0.085), ra=0.3,
+          dirt=0.85, stain=0.8, sscale=5.0, wear=2.4, streak=0.5)
+    metal("concrete", (0.17, 0.155, 0.135), rough=0.92, met=0.0, grain=0.5, gscale=30.0, dirt=0.9, stain=0.85,
+          sscale=5.0, wear=1.4, streak=0.6)
+    # éléments lumineux : couleur d'époque (charte §6.4, catalogue §A.3) ; surface éteinte dans la couche principale
+    # (V0b). Époques 1 et 2 (foyers de nuit) : la surface garde une teinte chaude visible de jour (verre de lanterne,
+    # fente de forge) et la lueur passe en couche halo au post-traitement (rendre.py, NIGHT_ONLY).
+    emit = EPOCH_EMIT.get(epoch, (1.0, 0.6, 0.2))
+    night = epoch in NIGHT_ONLY
+    base = tuple(0.42 * c for c in emit) if night else (0.01, 0.01, 0.012)
+    M["emit"] = S.mat_emissive("ind_e%02d_emit" % epoch, emit, strength=1.0, base=base,
                                main_scale=0.0, crust=(18.0, 0.25, 1.0 + epoch))
-    M["emit_soft"] = S.mat_emissive("ind_e%02d_emit2" % epoch, emit, strength=0.7, base=(0.01, 0.01, 0.012),
+    M["emit_soft"] = S.mat_emissive("ind_e%02d_emit2" % epoch, emit, strength=0.7, base=base,
                                     main_scale=0.0, crust=(12.0, 0.35, 2.0 + epoch))
     # voyants ambre (vocabulaire vanilla : lampes de travail), admis à toutes les époques
     M["amber"] = S.mat_emissive("ind_e%02d_amber" % epoch, (1.0, 0.45, 0.06), strength=1.0, base=(0.01, 0.006, 0.003),
@@ -232,6 +291,8 @@ def materials(S, epoch, tone=1.0):
         p.inputs["Roughness"].default_value = 1.0
         if "Specular IOR Level" in p.inputs:
             p.inputs["Specular IOR Level"].default_value = 0.0
+    if night:
+        M["amber"] = M["emit"]
     M["_emit_rgb"] = emit
     return M
 
