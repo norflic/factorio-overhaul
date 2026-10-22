@@ -1055,7 +1055,19 @@ que le minimum d'améliorations exigé par Q16 (relecteur du défaut 8). **Quest
 ne doit pas baisser. **Avis de l'orchestrateur, pas un constat** : la baisse irait à rebours de la Compaction ×4 ;
 mais §3 et B1 portent sur le débit par tapis des paliers T1 à T5 (machines distinctes, 32 machines par tapis), pas
 sur la production par tuile d'une même machine à travers ses 30 niveaux. Aucune règle n'est retenue avant
-la réponse : les chiffres ci-dessus sont ceux du jeu livré (0.4.3).
+la réponse : les chiffres ci-dessus sont ceux du jeu livré (0.4.3 ; inchangés en 0.4.4, qui n'ajoute que le bouton
+« Libérer la place »).
+
+**Note du 22/10, vers 23 h : V3-T4 livré, NON intégré (Q-T4-1).** Q-T2-2 a été répondue A le 22/10 à 21 h 12 (« la
+production suit la surface »). Le lot V3-T4 l'applique sur sa branche (`worktree-wf_9d38a6df-249-1`, tête `2b18742`) :
+statistique(n) = v1 × m(n) × R(n), avec R = (côté(n)/côté(1))², et des coûts recalibrés sur le calendrier (jusqu'à × 7,33
+pour le four ; foreuse × 6,27, assembleur × 6,26 ; au niveau 30 : × 5,96 à × 6,85). La densité est tenue, la rentabilité ne l'est pas (foreuse 29 → 30 remboursée en 510 h, contre 342 h en
+0.4.3) : le lot attend la réponse du Directeur Créatif à Q-T4-1 (OBJECTIFS §4 ; chiffres et écarts : RD_LOG E60 à E62).
+**Les tableaux de ce paragraphe et des familles ci-dessous restent ceux du jeu livré** : ils ne sont PAS remplacés,
+parce que le jeu n'a pas l'équilibre de la branche. Tableaux de la branche, corrigés par son correcteur (production par
+tuile, coûts, calendrier) : `<racine>\fo-logs\2026-10-22_V3T4\tables_BALANCE_SHEET_12_corrige.md` ; le fichier voisin
+`tables_BALANCE_SHEET_12.md` est PÉRIMÉ (chiffres de l'ingénieur, dont plusieurs faux). À reporter ici seulement si le
+lot est intégré, après la fusion et un nouveau `--calibrate`.
 
 #### Tourelle laser (30 niveaux)
 

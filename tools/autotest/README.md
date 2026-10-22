@@ -321,6 +321,48 @@ Scénarios greffés des lots de niveaux :
   `& "<racine>\fo-autotest.bat" nopause 60 bord-a-bord "<source>"`. Attendu sur `main` (22/10, 20:11:23,82) :
   « [FO-BORD-A-BORD] BILAN : 12 OK, 0 ECHEC(S) ». Premier passage avant l'alignement (19:48) : 11 OK, 1 ECHEC,
   21 écarts sur 45 cas.
+- `t3-libere` (lot V3-T3, 1 900 ticks ; `check_tick` = 1 800, à cause des vrais robots) : bouton « Libérer la place »
+  en moteur réel (RD_LOG E59), par l'interface distante `levels_free_room`, comme le bouton du panneau. Zone de
+  (300, 240) à (444, 344), douze zones (en-tête du scénario) :
+  - A : usine dense (assembleur 6 bordé d'un bras d'entrée et d'un bras de sortie FILTRANT, convoyeurs, voisin collé,
+    poteau) ; B1 : mitrailleuse collée à un mur, nourrie par un bras (Q-T3) ; B2 : mur épais et eau (candidate
+    nord-est, ligne refermée par 2 murs de liaison) ;
+  - C1 : Annuler tout de suite ; C2 : Annuler après le démontage du bras (usine remise comme avant, la machine
+    refabrique) ; D : sans clic, rien ne change ;
+  - E : coût absent (clic refusé), présent, retiré (la demande attend), revenu (agrandissement) ; F : assembleur
+    serré entre deux voisins (refus « blocked », rien de marqué) ; G : deux voisins libérés l'un après l'autre
+    (carrés disjoints) ;
+  - R : VRAIS robots de construction (roboport, 20 robots, coffre de stockage) ; V : une voiture dans la candidate
+    (signalée, autre candidate retenue) ; L : clic APRÈS le bilan, pour les captures (et F recliqué : refus en violet).
+  Forces `fo-t3` (centre 15 qui paie), `fo-t3p` (centre 15 vide d'abord), `fo-t3r` (robots réels). Ailleurs qu'en R, le
+  banc joue les robots : il MINE les entités marquées dans un inventaire (rien ne se perd), le mod agrandit le bâtiment
+  de lui-même à sa vérification périodique (60 ticks), puis le banc construit les fantômes (`revive`). Sans double
+  source : `& "<racine>\fo-autotest.bat" nopause 1900 t3-libere "<source>"`. Attendu sur `main` (22/10, 22:50:58,19) :
+  « [FO-T3-LIBERE] BILAN : 41 OK, 0 ECHEC(S) ». Images : `& "<racine>\fo-captures.bat" t3-libere "<source>"` depuis
+  PowerShell, 4 captures prises après le bilan (`shots_delay` = 1 840) : `001-usine-dense-apres`, `002-robots-apres`,
+  `003-liberee-avant-robots`, `004-refus-voisins-violet`. Exemple archivé :
+  `<racine>\fo-logs\2026-10-22_V3T3\correcteur\captures-t3-libere\` ;
+- `t3-migration` (lot V3-T3, 1 000 ticks) : « libérer la place » pour un bâtiment laissé HORS GRILLE par une VRAIE
+  migration, en double source SEULEMENT (§1.1 ; un script ne sait pas fabriquer un bâtiment hors grille : RD_LOG F104).
+  Création par `<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2` (deux assembleurs 8 collés, en 3×3, force `fo-t3m`) ;
+  benchmark par 0.4.4 : l'assembleur laissé hors grille est refusé (« no-room ») ; au clic, bras sud et deux tuiles du
+  convoyeur marqués, fantômes posés ; les marques minées, il est remis sur la grille au niveau 9 de lui-même ; l'usine
+  remarche :
+  ```
+  $env:FO_CREATE_SRC = "<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2"
+  & "<racine>\fo-autotest.bat" nopause 1000 t3-migration "<source 0.4.4>"
+  $env:FO_CREATE_SRC = $null
+  ```
+  Attendu sur `main` (22/10, 22:51:53,59) : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) ». À 700 ticks, le banc
+  s'arrête avant le contrôle, sans BILAN (passage du 22/10 à 22:51:02,43). Pas de contrôle de journal.
+
+Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
+« LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul
+(`{ dry = true }`, rien n'est posé) pour chaque bâtiment laissé par la migration. Cette ligne est HORS bilan : le
+BILAN et le contrôle du journal par `ht3_journal.py` restent ceux d'avant (`t2-migration` 64 + 26 ; `ht3-migration`
+30 + 7 ; `t2-defense` 36 + 19 et 36 + 11, verts sur `main` le 22/10 de 22:51:06 à 22:51:19). Valeurs sur `main` : 5
+sur 19 (`t2-migration`), 2 sur 13 (`t2-defense`, création 0.4.1), 0 sur 5 (création 0.4.2) : seuls les bouts de
+rangée se libèrent (RD_LOG E59).
 
 ### 4.2 Contrôles greffés au banc `content` : `fo-autotest/checks/<nom>.lua`
 

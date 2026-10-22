@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (22/10, après l'intégration du lot R1) : **F103, E56**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (22/10, vers 23 h, après l'intégration du lot V3-T3 et la consignation du lot V3-T4, livré NON intégré) : **F119, E63**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -124,6 +124,20 @@
   → mécanique d'agrandissement à faire avec la reprise de V3 ; création de `REPRISE.md` (état du projet pour
   l'orchestrateur suivant), à tenir à jour à chaque jalon.
 
+- 22/10, 21 h 06, **Q-T2-1 (usine réelle et règle du carré contenant)** : « QT21 option B ». B = le bouton
+  « libérer la place », tel que posé dans le chat : « On garde la règle, et j'ajoute un bouton "libérer la place". Il
+  marque les gêneurs à démonter par les robots et pose des fantômes pour les reconstruire décalés. »
+  → lot V3-T3, lancé à 21 h 10, intégré dans `main` le 22/10 à 22 h 50 (fusion `8a28804`, version 0.4.4 ; E56 à E59,
+  F103 à F110). La règle Q24 ne change pas. Limite déclarée : dans une rangée de bâtiments collés, seuls les bouts de
+  rangée se libèrent (5 sur 19 sur l'usine dense de test, 2 sur 13 sur la défense dense ; E59).
+- 22/10, 21 h 06, **Q-T2-2 (production par tuile)** : « QT22 j'ai rien compris ». Question reformulée dans le chat à
+  21 h 08 (exemple du four : 9 fois plus de place pour 2,4 fois plus de vitesse). Réponse à 21 h 12 : « QT22 ah ouais
+  non du coup, l'idée est vraiment d'avoir un idle massif en fait, des coûts qui augmentent évidemment, mais ça
+  typiquement c'est pas possible donc A » (A = la production suit la surface ; améliorer reste toujours rentable).
+  → lot V3-T4, lancé à 21 h 15, livré sur sa branche (`worktree-wf_9d38a6df-249-1`, tête `2b18742`) et **NON intégré** :
+  la densité est tenue, la rentabilité ne l'est pas (E60 à E62, F111 à F118 ; question Q-T4-1, posée dans le chat
+  vers 22 h 45, ouverte).
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
@@ -151,6 +165,62 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F46 | Socle des tourelles jamais recouvert par la tête, tous états affichés compris : mitrailleuse 50,5 %, laser 69,3 %. Bande visible sur toute la largeur : mitrailleuse y ≥ +0,11 tuile, laser y ≥ -0,05 tuile. | Zone sûre pour la pièce du niveau pair posée sur le socle des tourelles. |
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
+
+### Faits vérifiés en moteur réel (lot V3-T4, la production suit la surface, 22/10, 21 h 36 à 22 h 38 ; lot LIVRÉ, NON INTÉGRÉ)
+Numéros DÉFINITIFS, attribués à la consignation des lots V3-T3 et V3-T4 (22/10, vers 23 h). Les deux lots ont tourné en
+parallèle et ont proposé des numéros provisoires qui se chevauchent à partir de F103 et de E56. Règle retenue : le
+lot INTÉGRÉ (V3-T3) garde ses numéros, parce que son code dans `main` les cite (`free.lua` : F103, E58 ; `clear.lua`,
+`levels_clear_cases.lua`, `t3-migration.lua` : E56 ; `mock_engine.lua`, `t3-libere.lua` : F103) ; le lot non intégré
+(V3-T4) prend le bloc suivant. Correspondance pour V3-T4 :
+- faits : F103 → **F111**, F104 → **F112**, F105 → **F113**, F106 → **F114**, F107 → **F115**, F108 → **F116**,
+  F109 → **F117**, F110 → **F118** ;
+- expériences : E56 → **E60**, E57 → **E61**, E58 → **E62** ;
+- les commentaires et les libellés de la branche citent encore les numéros provisoires (par exemple « F107 », « (E58) »
+  dans les libellés du greffon `levels_production`) : à renommer à l'intégration du lot, si elle a lieu.
+
+Sources : `fo-autotest.bat` lancé avec le worktree `wf_9d38a6df-249-1` comme source (branche
+`worktree-wf_9d38a6df-249-1`, partie de `main` `e27bda9` ; ingénieur `f86f2fb`, `37c9c3f`, `4ee10f1` ; correcteur
+`2b18742`), code 0 et `done.txt` relu à chaque passage. Archives : `<racine>\fo-logs\2026-10-22_V3T4\` (passages `01_` à
+`23_` ; notes `NOTES_V3T4.md` : §1 à §8 de l'ingénieur, §9 du correcteur, qui fait foi). Ces faits portent sur le
+MOTEUR : ils valent quel que soit le sort du lot. F3 (« une recette par tick », session 1) est CONFIRMÉ en moteur réel
+par E62, sans nouveau numéro. Hypothèse ouverte : H-T4-1. Expériences : E60 à E62.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F111 | **Observé en moteur réel** (E60, version `f86f2fb`, passage `02_t4-production_cadence_E56`, 21:37:45,84). Une mitrailleuse (ammo-turret, chargeurs) ne tire pas plus de 30 fois par seconde, même avec un délai entre tirs inférieur à 2 ticks. Délai 6 ticks → 10,00 tirs/s ; 2,667 → 22,50 ; 1,5 → 30,00 (40 attendus) ; 0,96 → 30,00 (62,5) ; 0,667 → 30,00 (90). La doc 1.1.91 (`BaseAttackParameters.cooldown` : « If < 1, multiple shots can be performed in one tick ») ne le dit pas. | Le lot V3-T4 a renoncé à faire porter la règle de surface par la CADENCE des tourelles (la recherche de cadence, + 150 % pour les balles, aurait aussi été perdue) : ce sont les DÉGÂTS par tir qui portent R. Cause non prouvée : hypothèse H-T4-1. |
+| F112 | **Observé en moteur réel, sur une version NON livrée** (E60, `f86f2fb`). Une tourelle laser dont le délai entre deux tirs (4,44 ticks) était inférieur à la durée de son faisceau superposait ses faisceaux et infligeait toute sa cadence (DPS × 19,08 du niveau 1, débit d'entrée de 186 624 kW). | Réécrit par le correcteur : sans objet pour la règle livrée par la branche, où le laser garde son délai de 40 ticks (relu par le harness : cooldown 40). À lire comme un résultat d'E60, pas comme un fait applicable au mod. |
+| F113 | **Observé en moteur réel** (E61, passages `03_` et `04_` ; rejoué au passage `23_`, 22:38:32,19). Avec `crafting_speed` 59,76 (four) et 9,96 (assembleur) et `mining_speed` 7,8 (foreuse), le moteur fabrique et extrait exactement à la vitesse du prototype : écart < 0,03 % sur 40 s (`products_finished` + `crafting_progress`, `mining_progress`). La doc 1.1.91 ne donne aucun maximum (« positive »). | Aucune borne moteur sur la vitesse dans la plage du lot. La limite réelle est ailleurs : une fabrication par tick pour l'assembleur (F3, E62) et un seul point de dépôt pour la foreuse (F117). |
+| F114 | **Observé en moteur réel** (E61 ; rejoué au passage `23_`). `emissions_per_minute` est la pollution à pleine consommation : les statistiques de pollution du jeu donnent, par objet, la valeur du prototype divisée par la production (four : 0,1067 → 0,0321 par plaque, du niveau 1 au niveau 30). | Multiplier énergie et pollution par R garde l'énergie et la pollution PAR OBJET de la courbe d'avant (× 0,301 = 1/m(30) pour le four et l'assembleur, × 0,256 pour la foreuse). La pollution TOTALE d'une usine qui convertit le gain en débit est multipliée par ce gain : effet sur l'évolution et les attaques non analysé. |
+| F115 | **Observé en moteur réel** (E62, passages `12_` à `14_`, 22:26:30,56 à 22:30:17,34). Avec `ammo_consumption_modifier` > 1, un tir de mitrailleuse ne prend QUE sur le chargeur entamé : il consomme min(modificateur, cartouches restantes du chargeur), sans entamer le suivant. Chargeurs de 10, 10 tirs/s : modificateur 2,25 → 2,0 cartouches par tir ; 4 → 3,33 ; 6,25 → 5 ; 9 → 5. Avec 2,50025 / 3,33367 / 5,0005 / 10,001 : 2,5 / 3,333 / 5 / 10, exactement. La doc 1.1.91 dit seulement « Must be greater than or equal to 0 ». | La 6×6 ne prenait que 5 cartouches par tir au lieu de 9 (munitions 1,8 fois trop rentables avec le modificateur 9 ; R fois sans modificateur, version de l'ingénieur). Correctif de la branche : modificateur arrondi au chargeur (`L.magazine_quantize`), soit 1 ; 2,5 ; 3,33 ; 5 ; 10 cartouches par tir, et par dégât × 1,11 ; 0,83 ; 0,80 ; 1,11 de la courbe d'avant. La marge de 0,01 % n'est pas prouvée nécessaire (le mutant sans marge survit hors jeu). |
+| F116 | **Observé en moteur réel** (E62). Une foreuse n'a PAS de plafond d'un résultat par tick : foreuse 30 avec 3 modules de vitesse de palier 10, sortie dans un coffre vidé à chaque tick : 63,96 minerais/s mesurés, égal à la théorie. | Contraste avec F3 (assembleur). Le débit réel d'une foreuse est borné par sa sortie (F117). |
+| F117 | **Observé en moteur réel** (E62). La même foreuse, qui dépose sur un tapis express, ne remplit qu'UNE voie : 22,22 minerais/s mesurés, pour une voie de 22,5/s (`belt_speed` × 60 × 4). Un seul point de dépôt par foreuse. | Une foreuse 6×6 de haut niveau avec modules vaut moins sur un tapis que les foreuses plus petites posées à sa place : la règle « la grande vaut au moins les petites » (Q-T2-2, A) ne tient pas avec des modules aux niveaux 13 et 19 (écart connu de la branche). |
+| F118 | **Observé en moteur réel** (E62). La formule de résistance du moteur 1.1 est vérifiée au dixième près à 6 tourelles, contre `fo-armored-colossal-biter` (physique 26 fixe, 78 % ; aucune résistance au laser) : si les dégâts dépassent la part fixe, (dégâts − fixe) × (1 − %). DPS mesurés : mitrailleuse 1 au tungstène 30,8/s (7,70 par tuile) ; mitrailleuse 30 1 621,8/s (45,05 par tuile) ; tourelle lourde 112,2/s (12,47) ; lasers 1, 30 et lourd 30,0, 572,4 et 60,0/s (7,50 ; 15,90 ; 6,67 par tuile). | Des dégâts par tir multipliés par R traversent une résistance FIXE : au niveau 1, laser et tungstène font jeu égal ; au niveau 30, la mitrailleuse au tungstène fait 2,8 fois le laser par tuile. Le laser perd son rôle de contre des blindés (question du correcteur, Q-T4-3 proposée). Branche « 1/(2 − x) » (dégâts sous la part fixe) non mesurée : la régénération de l'unité, 0,1 PV par tick, la masquerait. |
+
+### Faits vérifiés en moteur réel (lot V3-T3, « Libérer la place », 22/10, 21 h 41 à 22 h 51)
+Numéros DÉFINITIFS (même consignation, 22/10, vers 23 h ; règle ci-dessus) : le lot V3-T3, intégré, GARDE ses numéros
+provisoires, qui se suivent sans trou après F102 : F103 à F106 de l'ingénieur, F107 à F110 du correcteur ; expériences
+E56 et E57 de l'ingénieur, E58 et E59 du correcteur. Les renvois du code de `main` restent justes ; le mot
+« provisoire » des commentaires (`mock_engine.lua`, `t3-libere.lua`) est périmé.
+
+Sources : `fo-autotest.bat` lancé depuis PowerShell, code 0 et `done.txt` relu à chaque passage, sur le worktree
+`wf_49a2ed53-111-1` (branche `worktree-wf_49a2ed53-111-1`, partie de `main` `e7caed1` ; ingénieur `f26e9c3`, passage
+final de 21:57:50 à 21:58:30 ; correcteur `d0b40da`, passages `passe1-*` de 22:45:34 à 22:46:07), puis sur `main` après la
+fusion `8a28804` (22:50:45,71 à 22:51:53,59). Archives : `<racine>\fo-logs\2026-10-22_V3T3\` (notes `NOTES_V3T3.md` :
+§1 à §4 de l'ingénieur, §5 du correcteur, qui fait foi ; `essai-E56\`, `correcteur\essai-E58\`) et
+`<racine>\fo-logs\2026-10-22_V3T3-integration\`. Confirmés au passage, sans nouveau numéro : F79 et F89 (le bras d'entrée
+vise la machine agrandie ; le bras reposé prend dans l'assembleur 7) ; un poteau moyen reconstruit par `revive` se
+relie seul à son voisin (un cas, comme F101). Expériences : E56 à E59.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F103 | **Observé en moteur réel** (`t3-libere`, tick 60 ; ingénieur, 22/10 à 21:41 et 21:51 ; observé une seconde fois par le correcteur). Annuler par script la marque de démontage (`cancel_deconstruction`) d'une entité sur laquelle un fantôme a été posé par script RETIRE ce fantôme ; miner l'entité marquée le GARDE. | Payé : le premier passage comptait 4 fantômes retirés au lieu de 6. `Free.cancel` retire les fantômes du mod AVANT d'annuler les marques (étape f, en dernier, de `script/levels/free.lua`) ; même ordre quand une exécution est refusée par le moteur. |
+| F104 | **Observé en moteur réel** (essai jetable E56). `create_entity` d'un assembleur 4×4 à une position hors grille (310,5 ; 250,5) le pose en (311 ; 251), et `teleport` vers (320,5 ; 250,5) le recale aussi, en (321 ; 251) : un script ne fabrique pas un bâtiment hors grille ; seule une migration le fait (F76). Cohérent avec F86 (position recalée par `create_entity`). | Le cas « bâtiment laissé hors grille » ne se joue qu'en double source : scénario `t3-migration` (création par `src-0.4.2`). |
+| F105 | **Observé en moteur réel** (E56). `can_place_entity{name = "entity-ghost", inner_name, build_check_type = script_ghost}`, avec ou sans `forced`, n'est pas utilisable pour tester la place d'un fantôme : il rend true pour un bras posé sur un bras NON marqué et false pour un convoyeur sur une tuile libre. `can_place_entity{name = <nom réel>, build_check_type = ghost_revive}` rend false sur une entité marquée et true sur une tuile libre. Au passage : `create_entity` accepte un fantôme posé par-dessus une entité marquée ; `order_deconstruction` rend true ; `mine{inventory}` rend l'objet ; `revive` rend l'entité, orientation gardée. | La place d'un fantôme est contrôlée par la règle PURE, sur la scène relevée (`shared/levels/clear.lua`). Le banc vérifie ensuite chaque place avec `ghost_revive` juste avant de construire (ingénieur : 29 places, 0 refusée). |
+| F106 | **Observé en moteur réel** (E56, puis zones A, B1 et E de `t3-libere` et `t3-migration`). Bosse d'une tuile dans une ligne de convoyeurs (tuile amont tournée vers l'extérieur, tuiles décalées, retour sur la tuile aval, qui devient un virage) : la ligne reste continue, et un bras posé sur l'ancienne tuile prend sur la bosse (4 plaques en 360 ticks). | Base de la règle 2 de `clear.lua` (« BOSSE ») : un convoyeur n'est jamais décalé seul. Une bosse coûte 2 convoyeurs de plus par tuile de profondeur. Deux bosses à la suite sur une même ligne marchent (zone G, E59). |
+| F107 | **Observé en moteur réel** (essai jetable E58, correcteur, 22/10 à 22 h 19). `LuaEntity.copy_settings` sur un `entity-ghost` recopie les filtres et le mode d'un bras filtrant, sa condition de circuit, les demandes d'un coffre de demande et la barre d'un coffre ; tout est gardé au `revive`. La taille de pile imposée n'est PAS recopiée (0 après `revive`) ; posée directement sur le fantôme, elle est acceptée (2 sur le fantôme, 1 après `revive` : bornée par la force). | Les gêneurs reposés gardent leurs réglages (défauts 3 et 14 de la revue) ; la taille de pile est posée à part. Tenu en moteur réel par la zone A d'E59 (bras filtrant : filtre sur le fantôme, puis sur le bras reconstruit). Les fils de circuit, eux, ne sont pas refaits (message `free-wired`, non joué). |
+| F108 | **Observé en moteur réel** (E58). `create_entity` d'un fantôme par-dessus une entité NON marquée est accepté (un bras sur un convoyeur). | Le moteur ne protège pas la place d'un fantôme : le script la contrôle lui-même (`place_free` de `clear.lua`). Étend F70 (pose sans contrôle de place) aux fantômes. |
+| F109 | **Observé en moteur réel** (E58). `revive` rend une entité de NOUVEAU numéro d'unité (11 → 36). | Une entité construite à partir d'un fantôme du mod se retrouve par nom, position, direction et force, jamais par le numéro du fantôme (annulation après reconstruction, E59 zone C2). |
+| F110 | **Observé en moteur réel** (E58, puis zone R d'E59). Avec de vrais robots de construction, un convoyeur marqué qui porte un fantôme tourné est démonté (environ 150 ticks après la marque, à 6 tuiles du roboport), puis le fantôme est construit (environ 60 ticks plus tard) ; un fantôme libre est construit sans attendre ; les objets démontés vont au coffre de stockage. Zone R : démontage fini au tick 390, agrandissement à la vérification du tick 450, reconstruction finie au tick 930. | Le mode principal du bouton (robots) marche en moteur réel. Sans robots (époques 4 à 9, avant les robots de construction), le joueur démonte et pose à la main : non joué par un vrai joueur. |
 
 ### Faits vérifiés en moteur réel ou dans le binaire (lot R1, robustesse, 22/10, 19 h 38 à 20 h 11)
 Numéros DÉFINITIFS, attribués à l'intégration des documents du lot (22/10, vers 20 h 20). Les deux suites du lot
@@ -287,6 +357,216 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E62 · VALIDÉ en moteur réel ; lot LIVRÉ, NON INTÉGRÉ (Q-T4-1) · Correction du lot V3-T4 : munitions, modules,
+blindés, coûts et rentabilité (correcteur `2b18742`, 22/10, de 22 h 10 à 22 h 40 ; numéro provisoire E58)** :
+- But : corriger les 23 défauts de la revue adverse à 3 regards du lot V3-T4 (Q-T2-2 répondue A le 22/10 à 21 h 12)
+  et MESURER ce que l'ingénieur avait seulement calculé.
+- Protocole (moteur réel) : seconde fenêtre du scénario greffé `t4-production` (5 300 ticks ; ticks 2 760 à 5 160,
+  zone supplémentaire (588,352)-(868,520)) : assembleur 30 avec 2 modules de vitesse de palier 10 (engrenages) ;
+  foreuse 30 avec 3 modules de vitesse de palier 10, sortie dans un coffre vidé à chaque tick, puis sur un tapis
+  express ; 6 tourelles contre un blindé « colosse » (chargeurs au tungstène) ; cartouches par tir aux niveaux 7, 13,
+  19, 25 et 30. Cible des tourelles : tourelle laser 30 sans courant, 5 350 PV (marge × 14 sur le plus gros coup).
+- Passages (`<racine>\fo-logs\2026-10-22_V3T4\`, code 0, `done.txt` relu) :
+  - `11_` (22:26:11,23) : 3 OK, 18 ECHEC, erreur du greffon (inventaire de munitions demandé à un laser), corrigée ;
+  - `12_` (22:26:30,56) : 18 OK, 2 ECHEC : la 6×6 ne prend que 5 cartouches par tir au lieu de 9 (F115) ;
+  - `13_` (22:28:06,44) : 19 OK, 2 ECHEC : modèle « chargeur entamé » confirmé aux tailles 7, 13, 19, 25 et 30 ;
+  - `14_` (22:30:17,34) : 21 OK, 0 ECHEC : cartouches arrondies au chargeur, mesurées exactement ;
+  - `15_` (22:31:13,87) : 21 OK (contrôle de la voie de tapis resserré) ;
+  - `23_` (22:38:32,19), sur le commit exact `2b18742` : **21 OK, 0 ECHEC**.
+- Résultats : F3 CONFIRMÉ (assembleur : 60,00 engrenages/s pour 115,5 demandés, `speed_bonus` lu 4,80), F115 à F118.
+- Règle livrée par la branche (NOTES §9.2) : statistique(n) = v1 × m(n) × R(n), avec R(n) = (côté(n)/côté(1))². Suivent R :
+  vitesse, minage, dégâts par tir, énergie, pollution, énergie par tir, tampon et débit d'entrée du laser, cartouches
+  par tir de la mitrailleuse (arrondies au chargeur de 10 : 1 ; 2,5 ; 3,33 ; 5 ; 10). Ne suivent pas R : PV, portée,
+  cadence, rotation, emplacements de modules. Production par tuile strictement croissante (× 3,32 au niveau 30 ; foreuse
+  × 3,9) ; par bâtiment au niveau 30 : four × 29,9, assembleur × 13,3, foreuse × 15,6 ; dégâts de mitrailleuse × 19,08.
+- Coûts et calendrier (`levels_test`, hors jeu ; `--calibrate` relancé) :
+  - gain moyen G aux transitions (époques 1 à 3 : 1 ; 4 : 25/18 ; 5-6 : 16/9 ; 7 : 41/18 ; 8-9 : 25/9 ; 10 : 61/18 ;
+    11 à 15 : 4), appliqué au débit et au budget X0 ; les familles de production paient en plus leur gain ;
+  - `value_mult` des époques 2 à 15 : 1,5 ; 2,5 ; 8,44 ; 26,7 ; 45,7 ; 84,4 ; 188 ; 331 ; 562 ; 1 220 ; 2 200 ; 3 970 ;
+    7 240 ; 12 200 (0.4.3 : 1,43 à 7 070) ; `cc_value` de l'époque 3 : 1 410 ;
+  - coût du niveau 30, 0.4.3 → branche : foreuse 61 587 → 367 087 u ; four 53 582 → 367 082 u ; assembleur 61 602 →
+    367 102 u ; mitrailleuse 104 578 → 183 578 u ; laser 175 710 → 304 210 u ; mur 17 532 → 30 032 u ;
+  - calendrier = MODÈLE conditionnel à G, qui ne vaut que pour la dépense de niveaux : Porte à 59 h 30 ; production
+    × 0,7 : 85 h 00 ; × 1,3 : 45 h 46 ; gain gardé en place : 192 h 05 ; recherche et jalon X0 non multipliés par G :
+    34 h 11 ; chemin le plus court vers le centre 15 : 5 h 01 (centre seul : 2 h 23).
+- **Pourquoi le lot n'est PAS intégré (Q-T4-1, OBJECTIFS §4)** : la DENSITÉ est tenue, la RENTABILITÉ ne l'est pas. La
+  moitié « améliorer reste toujours rentable » de la réponse A manque : passer la foreuse du niveau 29 au niveau 30 se
+  rembourse en 510 h de sa valeur ajoutée (0.4.3 : 342 h) ; 16 améliorations sur 29 se remboursent au-delà de la durée
+  de leur époque (0.4.3 : 16 aussi), jusqu'à 73 fois cette durée ; four et assembleur : valeur ajoutée en matière NULLE (remboursement brut
+  29 → 30 : 227 h et 106 h ; 0.4.3 : 298 h et 71 h). Options du correcteur : (a) une pente bien plus forte (+ 7,28 de
+  multiplicateur par niveau au lieu de + 0,10) ; (b) des coûts calés sur le gain (foreuse 30 à 5 040 u au lieu de
+  367 087, soit × 0,014 ; le calendrier ne tient plus). Posée dans le chat vers 22 h 45 ; recommandation de
+  l'orchestrateur : A (vrai idle) ; le jeu garde l'équilibre de 0.4.3 en attendant.
+- Écarts connus de la branche : 11 sur `main` → **23** (12 nouveaux) : 2 000 objets d'une sorte (2 980) ; × 16 par
+  bâtiment (6 statistiques) ; Q14 mitrailleuse et Q14 laser (× 8,5 par tourelle ; par tuile × 2,12 et × 2,39 : la
+  tourelle lourde du mod est un 3×3, le « 0,94 par tuile » de l'ingénieur était FAUX) ; assembleur ≤ 2 × la machine 3 ;
+  centre 13 (3 coûts sur 6 dans le coffre) ; coûts sous 0.4.3 (6 baisses : foreuse niveaux 4, 5, 6 : 38 → 33, 47 → 38,
+  50 → 46 ; assembleur : 41 → 36, 50 → 41, 55 → 51) ; améliorations en lot (2 coûts d'un même niveau dans le coffre au
+  plus bas, contre 10 à 12 en 0.4.3 ; 39 niveaux sous 6) ; rentabilité (16 sur 29 ; 0.4.3 : 16 aussi, donc pas une aggravation par rapport au jeu livré) ; plafond par tick de l'assembleur
+  avec modules ; voie unique de la foreuse ; PV par tuile (× 0,51 pour la mitrailleuse, le laser et le four au niveau
+  30). QX10 à l'époque 4, ajouté par l'ingénieur, est résolu par le gain moyen (5,36 %). Aucun écart masqué.
+- Bancs sur le worktree (`2b18742`) :
+  - hors jeu (22 h 33 à 22 h 36) : run 114, war 92, td 270, pteam 15, migration 81, levels **1 615** (+ 23 écarts
+    connus), pvp 596, epochs 16 665, org 362, harness 0 erreur nouvelle / 0 violation / 0 clé manquante (11/11),
+    api_lint **558**, d4m 5/5, mut_atlas 40, mut_vram 18/18, test_ht3_journal 15, bat_double_source 4 ;
+  - moteur réel (passages `16_` à `22_`, 22:37:11,09 à 22:37:47,01) : content **331** (317 + `levels_production` 14),
+    t2-machines 80, bord-a-bord 12, t2-migration 64 + journal 26, ht3-migration 30 + journal 7, t2-defense 36 + 19
+    (création 0.4.1) et 36 + 11 (0.4.2) ;
+  - mutants (script jetable `t4_mutants.py`) : 6 sur 7 tués ; la marge de 0,01 % des cartouches survit.
+- Pour une intégration éventuelle : la branche part de `e27bda9`, AVANT V3-T3 ; elle touche des fichiers partagés
+  (`shared/levels/config.lua`, `tests/datastage/harness.lua`) ; conflit attendu avec V3-T3 dans `tests/levels_test.lua`
+  (seul fichier modifié des deux côtés, vérifié par `git merge-tree`). Après la fusion : relancer `lua5.2 tests/levels_test.lua --calibrate` (la sortie doit égaler la
+  config), renuméroter les identifiants cités (F111 à F118, E60 à E62), rejouer tous les bancs. À transmettre au lot
+  propriétaire de X0 : `X.TECH_UNITS` et `X.milestone_production` × gain, sinon le calendrier réel raccourcit (34 h).
+- Non prouvé : l'hypothèse G (le joueur convertit le gain en débit ; `value_mult` provisoires jusqu'à un banc ou une
+  partie d'usine réelle, bras et tapis compris) ; la pollution totale × G et son effet sur l'évolution et les
+  attaques ; défense de tours, guerre et PvP face aux tourelles à niveaux du joueur (vagues ni rejouées ni
+  recalibrées) ; la branche « 1/(2 − x) » de la résistance ; balises, modules de productivité, assembleur à fluide de
+  haut niveau ; le panneau avec les nouvelles valeurs (aucune capture) ; le ressenti « idle massif » ; la cause de F111
+  (H-T4-1). Le critère « remboursement dans la durée de l'époque » est une PROPOSITION du correcteur, pas une décision
+  du Directeur Créatif.
+
+**E61 · VALIDÉ en moteur réel (machine seule, nourrie par script) · Production réelle des bâtiments agrandis (lot V3-T4,
+ingénieur, 22/10 ; numéro provisoire E57)** :
+- Protocole : scénario greffé `t4-production` et greffon `checks/levels_production.lua` (version `37c9c3f`) : 12
+  machines (four, assembleur, foreuse aux niveaux 1, 6, 7 et 30) et 4 tourelles, nourries par script, production
+  mesurée sur 40 s (fenêtre des ticks 300 à 2 700) ; pollution par objet lue dans les statistiques du jeu.
+- Résultats : écart à la théorie du prototype < 0,03 % (F113) ; pollution par objet = celle de la courbe d'avant
+  (F114). Passages : `03_t4-production` (21:41:40,35) 13 OK, 0 ECHEC ; `04_content` (21:41:52,33) 329 OK (317 + 12 de
+  `levels_production`) ; `05_` à `10_` (21:42:08,09 à 21:48:10,04) : t2-machines 80, t2-migration 64 + 26, ht3-migration
+  30 + 7, t2-defense 36 + 19 et 36 + 11, bord-a-bord 12. Hors jeu (vers 21 h 45) : levels 1 610 (+ 12 écarts connus),
+  api_lint 551, le reste inchangé.
+- Limite : machine SEULE ; la production d'une usine réelle (bras, tapis, balises) n'est pas mesurée. Constaté au
+  passage : un bras simple (0,83 objet/s) ne suffit plus dès le niveau 7 (four 7 affamé dans `levels_points` au
+  premier passage, bras rapide posé). Plusieurs chiffres de l'ingénieur ont été corrigés ensuite (E62).
+
+**E60 · VALIDÉ en moteur réel ; règle changée · Cadence des tourelles agrandies (lot V3-T4, ingénieur, version
+`f86f2fb`, 22/10 ; numéro provisoire E56)** :
+- Protocole : greffon `levels_production`, scénario `t4-production` (2 800 ticks, fenêtre 300-2 700) ; mitrailleuses
+  aux niveaux 1, 7, 13, 19, 25 et 30, R porté par la CADENCE (délai divisé par R), cible soignée à chaque tick,
+  cartouches comptées.
+- Résultats : `01_content_premier` (21:36:09,78) 326 OK, 3 ECHEC (cadence plafonnée ; four 7 affamé) ;
+  `02_t4-production_cadence_E56` (21:37:45,84) 11 OK, 2 ECHEC : la cadence × 9 ne donne que × 3 (F111) ; le laser à
+  4,44 ticks superpose ses faisceaux (F112, version non livrée).
+- Décision de l'ingénieur (`37c9c3f`) : les DÉGÂTS par tir portent R, la cadence ne change pas. Écart assumé par lui,
+  repris comme question par le correcteur : contre des essaims de très faibles ennemis, la grande vaut moins que les
+  petites ; contre des blindés à résistance fixe, bien plus (F118).
+
+**E59 · VALIDÉ en moteur réel ; limite des rangées collées DÉCLARÉE, non résolue · « Libérer la place » corrigé : tout
+ou rien, Annuler qui remet l'usine comme avant, vrais robots (lot V3-T3, correcteur, 22/10, à partir de 22 h 15 ;
+commit `d0b40da` à 22 h 48 ; intégré dans `main` le 22/10 par la fusion `8a28804`, version 0.4.4)** :
+- But : corriger les 24 défauts relevés par la revue adverse à 3 regards sur la version de l'ingénieur (E57), dont 2
+  bloquants : un plan PARTIEL était exécuté (usine laissée cassée), et « Annuler » n'était pas sûr. Verdict de la revue
+  sur E57 : « NON VALIDABLE en l'état ». 23 défauts confirmés et traités, 1 réfuté (défaut 8, `info.json` 0.4.4 : la
+  tâche le demandait).
+- Conception corrigée (détail : `NOTES_V3T3.md` §5.1 ; ARCHITECTURE §7 bis, « Libérer la place ») :
+  - tout ou rien au niveau de la DEMANDE : un plan n'est exécuté que s'il est COMPLET ; sinon refus, rien de marqué,
+    gêneurs entourés de VIOLET et listés avec leur position `[gps]` ; `C.choose` essaie la candidate du contour, puis les
+    autres ; une marque ou un fantôme refusé par le moteur retire tout (motif `engine-refused`) ;
+  - condition Q16 et coût réunis AU CLIC (seul le motif « no-room » ouvre le bouton) ; le coût peut encore être dépensé
+    entre le clic et la libération (message, la demande attend, puis expire) ;
+  - relevé = critère de `Levels.room` (`Levels.blocks`, `Levels.mask_layers`) ; carrés et gêneurs RÉSERVÉS entre
+    demandes voisines ; réglages recopiés (`copy_settings`, F107) ; « Annuler », l'expiration (30 min) ou le bâtiment
+    disparu remettent l'usine comme avant (étapes a à f de `free.lua`, marques annulées en dernier : F103) ; crochet
+    `Levels.pending_box` (le bouton « Améliorer » et la touche U ne visent que le carré libéré) ; zone d'alimentation
+    d'un poteau décalé vérifiée (poteaux cherchés jusqu'à 12 tuiles, contrôle prudent) ; aucun ordre de `pairs`.
+- Protocole (moteur réel) : scénario greffé `t3-libere` (1 900 ticks ; `check_tick` 1 800 à cause des vrais robots) ;
+  forces `fo-t3` (centre 15 qui paie), `fo-t3p` (centre vide d'abord), `fo-t3r` (robots réels) ; zones A, B1, B2, C1,
+  C2, D, E, F, G, R, V et L (en-tête du scénario ; `tools/autotest/README.md` §4.1). Le banc joue les robots (il MINE les
+  entités marquées dans un inventaire, puis construit les fantômes) sauf en R, où de vrais robots travaillent.
+  `t3-migration` en double source (`src-0.4.2`, 1 000 ticks). En plus, `t2-migration` et `t2-defense` journalisent
+  « LIBERER LA PLACE (plan seul, hors bilan) » pour chaque bâtiment laissé.
+- Résultats (correcteur, `passe1-*`, 22:45:34 à 22:46:07 ; identiques sur `main`) : **`t3-libere` 41 OK, 0 ECHEC** (27
+  dans E57) :
+  - A : le bras de sortie, FILTRANT, garde son filtre sur le fantôme puis sur le bras reconstruit ; 9 fabrications,
+    + 17 engrenages au coffre ;
+  - C2 : bras démonté, puis Annuler : 3 marques annulées, 6 fantômes retirés, 1 fantôme posé à l'origine ; le banc le
+    reconstruit, la machine refabrique (9 fois) ;
+  - E : clic refusé « no-resources » sans le coût, accepté avec ; coût retiré : message au tick 420 ; coût revenu : la
+    mitrailleuse grandit ;
+  - F : assembleur serré entre deux voisins : refus « blocked » après 4 candidates essayées, rien de marqué, la machine
+    fabrique toujours ;
+  - G : deux voisins libérés l'un après l'autre : carrés disjoints (351-355 et 347-351), aucun fantôme dans le carré de
+    l'autre ; les deux grandissent et fabriquent (10 et 9 fois, + 16 au coffre) ;
+  - R, VRAIS robots (20 robots, roboport, stockage) : démontage fini au tick 390, agrandissement à la vérification de
+    450, 6 fantômes construits par les robots au tick 930, puis 9 fabrications et + 15 au coffre (F110) ;
+  - V : une voiture dans la candidate sud-est du contour : ni ignorée ni marquée ; la candidate nord-est (murs) est
+    retenue, puis Annuler rend tout ;
+  - B2 : les 2 murs de liaison (murs de BASE) sont dits au joueur ; D (sans clic) : rien ne change jusqu'au bilan ;
+  - aucune entité détruite par le mod ; 0 renversé, 0 secours, 0 demande restante au bilan.
+  `t3-migration` : 7 OK, 0 ECHEC (l'assembleur laissé hors grille par la vraie migration est remis sur la grille au
+  niveau 9 après la libération ; l'usine remarche).
+- **Limite déclarée, non résolue (défaut 13 de la revue) : les rangées collées.** Le bouton ne libère qu'un bâtiment
+  qui a un côté libre ; au milieu d'une rangée jointive, un voisin gêne toujours. Plan seul sur les bâtiments laissés
+  par les vraies migrations (journal, hors bilan) : `t2-migration` **5 libérables sur 19** (centre 6 ; assembleurs 1
+  et 6, fours 1 et 6 : les BOUTS de rangée ; les 14 autres touchent un voisin) ; `t2-defense` création 0.4.1 **2 sur
+  13** (A1 et A8, bouts de tronçon ; 5 tourelles de C non évaluables, « no-cc » : la force n'a pas de centre pour
+  elles) ; création 0.4.2 **0 sur 5**. Le bouton ne règle donc pas les dispositions qui ont motivé Q-T2-1 (E50, E54).
+  Question à poser au Directeur Créatif (proposée par le correcteur) : déplacer aussi les voisins en cascade, agrandir
+  une rangée entière d'un coup, ou accepter la limite.
+- Hors jeu : sur le worktree (22 h 40 à 22 h 50) run 114, war 92, td 270, pteam 15, migration 82, levels **1 642** (+ 11
+  écarts connus ; 1 622 avant correction : 64 contrôles du lot, 41 cas purs et 23 en moteur simulé), pvp 596, epochs
+  16 665, org 362, harness 0/0/0 (11/11), **api_lint 615** (8 membres ajoutés), d4m 5/5, mut_atlas 40, mut_vram 18/18,
+  test_ht3_journal 15, bat_double_source 4. Mutants hors jeu sur le code corrigé (copie restaurée à l'identique,
+  `cmp`) : 9 sur 9 détectés.
+- Sur `main` après la fusion `8a28804` (version 0.4.4 ; changelog 0.4.4 commité ensuite, `4a7a365`) :
+  - moteur réel (archives `<racine>\fo-logs\2026-10-22_V3T3-integration\`, code 0) : content **317** (22:50:45,71),
+    t2-machines 80 (22:50:50,22), bord-a-bord 12 (22:50:54,07), **t3-libere 41 OK** (22:50:58,19), t2-migration 64 +
+    journal 26 (22:51:06,58), ht3-migration 30 + journal 7 (22:51:10,76), t2-defense 36 + 19 (création 0.4.1,
+    22:51:15,21) et 36 + 11 (0.4.2, 22:51:19,45), **t3-migration 7 OK** (22:51:53,59). Un premier passage de
+    `t3-migration` à 700 ticks (22:51:02,43) était trop court, sans BILAN (`NOTE.txt`) : le banc demande 1 000 ticks ;
+  - hors jeu (de 22 h 50 environ à 22 h 55, fin de la sortie à 22:55:17) : run 114, war 92, td 270, pteam 15,
+    migration 82, levels 1 642 (+ 11), epochs 16 665, org 362, pvp 596 (195 s), harness 0/0/0 (11/11), **api_lint 609** usages, 0 erreur, d4m 5/5, mut_atlas 40, mut_vram 18/18,
+    test_ht3_journal 15, bat_double_source 4. **Écart non expliqué, noté tel quel** : le correcteur annonçait 615
+    usages dans son worktree, `main` en compte 609 ; la cause n'a pas été cherchée.
+- Captures (`<racine>\fo-logs\2026-10-22_V3T3\correcteur\captures-t3-libere\`, `fo-captures.bat t3-libere`, 4 images
+  prises après le bilan, `shots_delay` = 1 840) : `001-usine-dense-apres` (assembleur 4×4, bras filtrant reposé une
+  tuile au sud, bosse traversée par les engrenages, poteau décalé et relié) ; `002-robots-apres` (zone R après les
+  vrais robots) ; `003-liberee-avant-robots` (carré orange, gêneurs en jaune, places des fantômes en bleu clair ; l'icône
+  rouge du moteur ne se voit pas à ce zoom ; les rectangles du bras et du poteau sont petits) ; `004-refus-voisins-violet`
+  (F refusé, voisin en violet). `t3-migration` n'a pas été recapturé. Aucun verdict du Directeur Créatif.
+- Non prouvé : le panneau et ses boutons avec un VRAI joueur, y compris un jeu entièrement à la main (minage puis
+  pose) ; l'expiration (30 min) et le bâtiment disparu (moteur simulé seulement ; même code qu'Annuler, prouvé par C2) ;
+  la place d'origine prise à l'annulation (`free-restore-blocked`, jamais rencontrée) ; la fusion de deux réseaux
+  électriques par le raccord automatique d'un poteau reposé (non traitée) ; ligne raccourcie, coffre qui suit un bras ou
+  le dépôt d'une foreuse, arbres et rochers, falaise, autre force, eau DANS la candidate (cas purs ou moteur simulé) ;
+  foreuses, fours, lasers et centre (aucun cas propre en moteur réel) ; coût bloqué au clic (non fait) ; fils de
+  circuit des gêneurs reposés (NON refaits : message `free-wired`, non joué) ; coût en temps (H-L1, non mesuré) ; les
+  usines réelles du Directeur Créatif (jamais jouées) ; le visuel (aucun verdict).
+
+**E58 · VALIDÉ en moteur réel (essai jetable) · Réglages des fantômes et vrais robots (lot V3-T3, correcteur, 22/10 à
+22 h 19)** :
+- Protocole : scénario jetable `<racine>\fo-logs\2026-10-22_V3T3\correcteur\essai-E58\t3-essai2.lua`, retiré du
+  dépôt : `copy_settings` d'un bras filtrant, d'un coffre de demande et d'un coffre à barre vers un `entity-ghost`, puis
+  `revive` ; fantôme posé sur une entité non marquée ; numéro d'unité avant et après `revive` ; roboport, robots et
+  coffre de stockage devant un convoyeur marqué qui porte un fantôme tourné.
+- Résultats : F107 à F110. Conséquences dans le code : `copy_settings` et taille de pile posée à part ; `place_free` ;
+  entités construites retrouvées par nom, position, direction et force ; zone R de `t3-libere` (E59).
+
+**E57 · VALIDÉ en moteur réel, puis REMPLACÉ par E59 · Premier jet de « Libérer la place » (lot V3-T3, ingénieur
+`f26e9c3`, 22/10, de 21 h 10 à 22 h 05)** :
+- Protocole : scénarios greffés `t3-libere` (1 500 ticks ; zones A, B1, B2, C1, C2, D, E ; le banc mine les marques et
+  construit les fantômes par script) et `t3-migration` (double source `src-0.4.2`, 1 000 ticks).
+- Résultats (passage final, `done.txt` de 21:57:50 à 21:58:30) : `t3-libere` 27 OK, 0 ECHEC ; `t3-migration` 7 OK ;
+  autres bancs verts (content 317, t2-machines 80, bord-a-bord 12, t2-migration 64 + 26, ht3-migration 30 + 7,
+  t2-defense 36 + 19 et 36 + 11). Hors jeu : migration 82, levels 1 622 (+ 11), api_lint 599. F103 observé au tick 60
+  (le premier passage comptait 4 fantômes retirés au lieu de 6).
+- Ce que la revue adverse a trouvé ensuite (24 défauts) : plan partiel exécuté, Annuler qui gardait un groupe commencé
+  (bras reconstruit décalé pour un bâtiment qui ne grandit plus), candidate pas forcément libérable, réglages perdus,
+  gêneurs du relevé différents de `Levels.room`, vrais robots jamais observés, ordre de `pairs`, et l'« écart à la
+  consigne : aucun connu » des notes, FAUX (rangées collées). Tout est corrigé ou déclaré dans E59. Captures de ce
+  premier jet (3 + 1 images, avant les robots) : `<racine>\fo-logs\2026-10-22_V3T3\captures-final-t3-libere\` et
+  `captures-final-t3-migration\` (les deux assembleurs 4×4 laissés hors grille se chevauchent : laid, non jugé).
+
+**E56 · VALIDÉ en moteur réel (essai jetable) · Appels du moteur pour « libérer la place » (lot V3-T3, ingénieur,
+22/10, avant le premier passage de `t3-libere`)** :
+- Protocole : scénario jetable `<racine>\fo-logs\2026-10-22_V3T3\essai-E56\t3-essai.lua`, retiré du dépôt :
+  `create_entity` et `teleport` d'un 4×4 vers une position hors grille ; `order_deconstruction`, fantôme posé
+  par-dessus une entité marquée, `mine{inventory}`, `revive` ; `can_place_entity` d'un fantôme (`script_ghost`, avec
+  ou sans `forced`) et du nom réel (`ghost_revive`) ; bosse d'une tuile dans une ligne de convoyeurs.
+- Résultats : F104, F105 et F106. Conséquences : `t3-migration` en double source ; place des fantômes contrôlée par la
+  règle pure ; règle de la BOSSE.
+
 **E55 · VALIDÉ (hors jeu) · Atlas virtuel compté par `vram.py` (lot R1, suite vram, 22/10 ; constructeur `dac93fd`
 de 19 h 38 à 19 h 49, revue adverse, correcteur `75863a5` de 19 h 53 à 20 h 00 ; intégrée dans `main` le 22/10 par la
 fusion `58db82c`)** :
@@ -1335,6 +1615,11 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
 
 ### Hypothèses (session 6)
+- **H-T4-1 · OUVERTE** (lot V3-T4, E60, F111 ; 22/10) : la mitrailleuse plafonne à 30 tirs/s parce que son
+  `attacking_speed` vaut 0,5 (une image d'attaque toutes les 2 ticks). Cause non prouvée ; la doc 1.1.91 ne dit rien de
+  ce plafond. Protocole proposé par l'intégrateur des documents (non joué) : sur une copie jetable de la mitrailleuse,
+  faire varier `attacking_speed` (0,5 ; 1 ; 2) à délai fixe sous 2 ticks, et mesurer la cadence comme dans E60. Sans
+  objet tant que les tourelles portent R par les dégâts.
 - **H-T3 · (1) prouvée en moteur réel ; (2) prémisse réfutée (F77) ; filet prouvé seulement en expérience de
   contrôle** (suite H-T3, E46, 22/10, commit `d6ba888` ; journaux dans
   `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\correcteur-d6ba888\` ; rejouée sur `main` le 22/10 à 17 h 06 :
@@ -1501,6 +1786,9 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   boucle appelle la fonction directement). Rien ne dépend de cette mesure.
   **Toujours NON mesurés** : le coût avec des progressions en attente, un recensement Q16 sur une grande carte, le
   calcul de place du panneau (V3-T) et celui des points servis (V3-T2). H-L1 reste OUVERTE.
+  **Lot V3-T3 (22/10)** : un abonnement de plus, `on_nth_tick(60)` (`Free.check`, demandes « libérer la place » en
+  attente ; liste vide : un seul test), et le relevé de la scène au clic (au plus 64 gêneurs, poteaux cherchés jusqu'à
+  12 tuiles) : coût NON mesuré (aucune mesure de performance pendant les rendus Blender du lot V3-E).
 - **H-T1 · OUVERTE** : rendre les captures entièrement automatiques, sans session interactive à
   fermer à la main.
   - Piste 1 : vérifier si `factorio.exe --help` (1.1.91) propose un benchmark avec rendu.
@@ -1801,7 +2089,7 @@ les méthodes positionnelles dont le paramètre est une table (`set_command`, `i
 |---|---|---|
 | F1 | Un `character` **associé** à un joueur (`associated_player`) est déconnecté avec lui en multijoueur. | Les corps de compagnons ne sont jamais associés ; propriétaire stocké dans l'agent. |
 | F2 | Pathfinder partagé avec les biters : 10 nouvelles requêtes/tick, 1 000 nœuds/tick (défauts). Résultats asynchrones, `try_again_later` possible. | `PathService` avec plafond en vol, relances, tickets, timeout. |
-| F3 | Une machine ne complète qu'**une recette par tick**. Vitesse tapis en virgule fixe 1/256. | Contraintes codées dans `balance_model.lua`. |
+| F3 | Une machine ne complète qu'**une recette par tick**. Vitesse tapis en virgule fixe 1/256. **Confirmé en moteur réel le 22/10** (E62, lot V3-T4, branche non intégrée) : assembleur 30 avec 2 modules de vitesse de palier 10, engrenages : 60,00/s mesurés pour 115,5 demandés. Une foreuse n'a pas ce plafond (F116). | Contraintes codées dans `balance_model.lua`. |
 | F4 | `LuaProfiler` non sérialisable ; `on_load` sans accès à `game`. | Aucun budget piloté par le temps mesuré ; caches locaux paresseux. |
 | F5 | Un seul handler par événement et par mod (`script.on_event` écrase). | Bus `Events` multi-abonnés, câblage statique. |
 | F6 | `LuaEntity.mine{inventory=…}` accepte un inventaire d'entité ou un inventaire script. `LuaEntity.active = false` sort une entité de la boucle de mise à jour. | Repli pour H2 ; base de H-F1. |
