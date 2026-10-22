@@ -47,6 +47,14 @@
      et de nouveaux agents le reprennent.
    - La suite : test du regard naïf à l'aveugle, 2 juges, puis les planches pour le téléphone.
    - Le test de Stable Diffusion local est fait (E42) : c'est un outil d'inspiration seulement.
+   **En parallèle : V3-T** (13 h 45, workflow `wf_2e0c7966-6df`, même session), mécanique Q24 :
+   - emprise par famille et par niveau, pilotée par une table de `shared/levels/config.lua` ;
+   - agrandissement sur place si la place est libre ; sinon refus, avec le contour affiché ;
+   - contenu transféré.
+   La mécanique n'est ACTIVÉE que pour la mitrailleuse (échelle 2×2 → 6×6 proposée), avec un visuel
+   provisoire ; les autres familles attendent Q-S1. Le parcours prévu : un ingénieur en worktree, 3
+   relecteurs adverses, puis un correcteur. L'ingénieur est le SEUL agent autorisé à lancer
+   `fo-autotest.bat` pendant ce lot. Journaux dans `<racine>\fo-logs\2026-10-22_V3T\`.
 8. Ensuite :
    - verdict du DC sur V3-S, puis reprise des 7 familles ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;
