@@ -18,6 +18,10 @@ Date: 2026-10-22
   Info:
     - Sauvegardes : au chargement, les mitrailleuses de niveau 7 et plus prennent leur nouvelle taille si la
       place est libre ; sinon elles restent en place et le journal le signale.
+    - Sauvegardes : une mitrailleuse qui reste en place prend quand même sa nouvelle taille, sans être recalée
+      sur la grille ; elle peut alors empiéter sur un voisin (chevauchement toléré). Dans le cas essayé
+      (mitrailleuse collée à une ligne de murs, bras à combustible derrière elle), elle est restée en service
+      et nourrie.
 ---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-10-22

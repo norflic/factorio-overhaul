@@ -3,6 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
+> Prochains identifiants libres (22/10, après l'intégration des suites de V3-T) : **F83, E49**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -151,6 +152,37 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
 
+### Faits vérifiés (suites de V3-T, 22/10, 15 h 23 à 17 h 06)
+Numéros DÉFINITIFS, attribués à l'intégration des trois suites (22/10, vers 17 h 20). Les suites avaient donné des
+numéros provisoires qui se chevauchaient. Correspondance :
+- suite H-T3 : F76, F77, F78 et F79 gardent leur numéro ;
+- suite d4m : son F76 devient F80, son F77 devient F81 ;
+- suite des bancs hors jeu : ses F76+ et F77+ deviennent ensemble F82.
+
+Sources :
+- F76 à F79 : `fo-autotest.bat` en double source (`FO_CREATE_SRC`, scénario greffé `ht3-migration`, E46), journaux
+  dans `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\` ;
+- F80 et F81 : relecture des 13 journaux archivés de D4m et de P1, sans nouvelle session (E48) ;
+- F82 : `tests/datastage/harness.lua` sur vanilla 1.1.91 et la doc 1.1.91 (E47). Ce n'est pas un essai en moteur
+  réel.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F76 | **Observé en moteur réel** (passage c du constructeur, `113ddba`, 15 h 31 ; passages a à c du correcteur, `d6ba888`, 15 h 59). Au chargement d'une sauvegarde, une entité dont le prototype a changé de taille garde sa position enregistrée, sans recalage sur la grille ni destruction, et prend la nouvelle boîte. Relevés au passage c, avant la migration : mitrailleuse 7 en (310 ; 250) avec la boîte 308,80..311,20 ; mitrailleuse 19 en (330 ; 250) avec 327,80..332,20. Relevé après la migration : rempart7, laissée en place en (330 ; 292), avec 328,80..331,20. | Une sauvegarde 0.4.1 se charge sans perte. Entre le chargement et la migration, un bâtiment agrandi peut chevaucher ses voisins. Un bâtiment laissé faute de place GARDE la nouvelle taille, hors grille (« chevauchement toléré »). |
+| F77 | **Observé en moteur réel** (passage b, deux fois : `113ddba` à 15 h 31, `d6ba888` à 15 h 59). `on_configuration_changed` est appelé au chargement quand les données de prototypes EXISTANTS ont changé, même sans montée de version ni prototype ajouté : `mod_changes` VIDE, `mod_startup_settings_changed false`, `migration_applied false`. « Checksum of factorio-overhaul » vaut 1706978588 à la création et 2895350727 au benchmark ; « Prototype list checksum » vaut 2254679425 des deux côtés. Témoins : un commentaire ajouté à `script/levels/levels.lua` (passage d) ne change pas la somme et n'appelle pas l'événement ; une copie identique (passage e) non plus. La doc 1.1.91 ne cite pas ce cas. **Déduit, non prouvé** : que ce soient les DONNÉES de prototypes qui déclenchent l'appel. Aucun essai n'a modifié le comportement du code de control sans changer les données. | Sans montée de version, c'est `Levels.repair` qui migre. La prémisse de la branche (2) de H-T3 (« le filet migre ») est donc fausse. On ne connaît aucun cas réel où le filet `on_nth_tick(30)` serait le seul recours. |
+| F78 | **Observé en moteur réel** (`113ddba`, 15 h 31 ; précisé par le correcteur à 15 h 59). `LuaEntity.bounding_box` d'un mur relié à ses voisins déborde de la boîte de collision du prototype (± 0,29) du côté de ses voisins : 308,2109..308,9883 pour un mur en 308,5. Dans une ligne de murs horizontale, ce débord ne gagne pas la rangée voisine en hauteur : rempart7 (3×3 hors grille, boîte 290,80..293,20 en y) ne chevauche pas les murs de la rangée 290. | `Levels.room` lit `bounding_box` : il compte ces débords comme gêne dans le sens de la ligne. |
+| F79 | **Observé en moteur réel** (correcteur, `d6ba888`, 15 h 59, dans les trois voies ; premier essai sur `a3bf9e4` à 15 h 56). Un bras dont la cible de dépôt est détruite puis remplacée par script (`Levels.resize_replace` : `destroy`, puis `create_entity{raise_built = true}`) vise la nouvelle entité sans aide du mod. Au tick 90, `drop_target` vaut fo-lvl-gun-7 n° 62 dans les trois voies, y compris celle du filet, où le remplacement a lieu au tick 30. Le bras continue de la nourrir : 3 puis 9 chargeurs du tick 90 au tick 600. Un seul cas joué (defense7, bras à combustible). | Le remplacement par script n'a pas à recâbler les bras. Non joués : inserteurs électriques, ligne qui alimente plusieurs tourelles. |
+| F80 | **Observé dans des journaux archivés** (suite d4m, relecture de `fo-logs\2026-10-22_D4m_1` à `_5` et des 8 journaux P1 ; aucune nouvelle session). En 1.1.91, avec vanilla et le mod 0.4.1 ou antérieur, une session avec images crée 15 atlas « Created atlas bitmap » en haute qualité et 14 en qualité normale, avec la mémoire vidéo sur « all » comme sur « low ». L'écart est un second atlas « [none] » (sprites principaux) : en haute qualité, le premier mesure 16384×16364 ou 16384×16380, pour un bord maximal annoncé de 16384. Les 13 autres atlas figurent une fois PAR CATÉGORIE dans chacun des 13 journaux, avec les mêmes drapeaux, sauf un : l'atlas [low-object] porte linear-minification en haute qualité et au plancher, pas en normal/all. Pixels « [none] » : 475,8 Mpx en haute qualité, 141,0 en normale, 2,7 au plancher. **Déduit, non prouvé** : la cause (premier atlas plein, `hr_version`), cohérente avec les journaux et la doc, mais non mesurée sprite par sprite. | Un banc qui compte les atlas doit lire la qualité que déclare le journal. C'était la cause de l'échec d4m à 4/5 (E44), corrigé par E48. |
+| F81 | **Observé dans un journal archivé** (`fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log`). Avec « Video memory usage: low » (« Tex.Stream.: 1 »), l'atlas « [none] » tombe à 2048×1316. Le journal ajoute alors une ligne du moteur « Created virtual atlas pages 4096x4096x9 », puis « Generated mipmaps for virtual atlas of size 16384x12288 ». Ces lignes sont absentes des 12 autres journaux. L'atlas virtuel, d'environ 151 Mpx, n'est pas une ligne « Created atlas bitmap ». | `vram.py` le relève et le signale (« atlas VIRTUEL … NON compte »), mais ne le compte pas : l'estimation du plancher d'E40 (0,20 à 0,31 Go) le laisse de côté. Tâche d'outillage ouverte (OBJECTIFS §7). |
+| F82 | **Relevé de l'étape data, pas un essai en moteur réel** (suite des bancs hors jeu, `harness.lua --verbose` sur vanilla 1.1.91, 22/10), complété par la doc 1.1.91. 18 entités vanilla portent des raccords de tuyau ou un point de dépôt, soit 51 points : assembling-machine-2 et 3, chemical-plant, oil-refinery, boiler, heat-exchanger, flamethrower-turret, steam-engine, steam-turbine, infinity-pipe, burner-mining-drill, electric-mining-drill, pumpjack, offshore-pump, pipe, pipe-to-ground, pump, storage-tank. Toutes ont leurs raccords hors de la boîte de collision et sur un centre de tuile, et leur dépôt hors de la boîte et des tuiles de la foreuse. Seule exception : le chevalet de pompage dépose en {0, 0}, dans sa boîte. Il ne dépose qu'un fluide, et la doc de `vector_to_place_result` dit : « a vector of {0,0} disables the yellow arrow alt-mode indicator ». Sans cette exception, la règle se déclenche sur `mining-drill/pumpjack` (essai du 22/10). Aucune entité vanilla n'utilise `pipe_connections[].positions`. | Base de la règle des points de jeu du harness (E47) ; une foreuse à `output_fluid_box` n'est pas contrôlée pour son dépôt. Ce que fait le moteur réel d'un raccord mal placé n'est PAS observé : c'est déduit de la géométrie. |
+
+Observations sans numéro (moteur réel, suite H-T3) :
+- pendant `on_init`, sans aucun tick écoulé, `LuaTransportLine.insert_at_back` n'accepte qu'un objet par voie d'un
+  convoyeur. Sur un convoyeur seul, 8 essais donnent 2 chargeurs ; sur 4 convoyeurs, 8 chargeurs (essai sur
+  `a3bf9e4` à 15 h 56, d'où le commit `d6ba888`) ;
+- au tick 0 du passage c, le `on_tick` du mod de test s'exécute avant le filet `on_nth_tick(30)` de
+  factorio-overhaul : ses lignes précèdent celle du filet dans le journal. Noté, non exploité.
+
 ### Faits vérifiés en moteur réel (lot V3-T, emprise croissante, 22/10, 13 h 56 à 14 h 51)
 Banc `content` avec le greffon `checks/levels_taille.lua` (mitrailleuse, Factorio 1.1.91 sans affichage). Passages :
 `content-1` et `content-2` (13 h 56, arbre de travail avant le commit) puis `content-3-captures` (13 h 57,
@@ -194,6 +226,221 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E48 · VALIDÉ (hors jeu) · Banc d4m corrigé : atlas attendus selon les réglages de chaque journal (suite d4m de
+V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée dans `main` le 22/10 par la fusion
+`18a00d4`, tête `c023664`)** :
+- Origine de l'échec à 4/5 (E44) : l'étape 5 de `tools/autotest/tests/run_d4m.py` cherchait seulement « (15) » dans
+  la ligne « -- Atlas de sprites (N) » du rapport de `vram.py`. Or le nombre d'atlas dépend de la qualité (F80) :
+  15 en haute qualité, 14 en normale et au plancher. `vram.py` ne contenait aucune constante 15.
+- Correction (commits `796ac4d` du constructeur, puis `c023664` du correcteur) :
+  - table `ATLAS_ATTENDUS`, de clé (qualité, mémoire vidéo, DXT), lue dans la ligne « Graphics options » à travers
+    le JSON de `vram.py`. Trois entrées, étalonnées sur les 13 journaux : high/all/high-quality, 15 atlas dont
+    2 [none] ; normal/all/high-quality, 14 dont 1 ; normal/low/low-quality, 14 dont 1, avec l'atlas virtuel et le
+    drapeau « plancher ». Une combinaison non étalonnée est un échec ;
+  - `AUTRES_ATLAS` : les 13 signatures de drapeaux hors [none], chacune exactement une fois. Seule variante
+    tolérée : linear-minification sur [low-object] ;
+  - `SEUIL_NONE_PX` = 4096², soit 16,8 Mpx : au plancher, les pixels [none] restent sous ce seuil ; ailleurs, ils
+    le dépassent. C'est une ligne de partage entre les valeurs observées (2,7, 141,0 et 475,8 Mpx), pas une
+    limite du moteur ;
+  - `vram.py` : `RE_ATLAS`, `RE_MIP` et la nouvelle `RE_VIRTUAL` sont ancrées sur l'horodatage du moteur. Une
+    impression de script qui contient ces mots ne compte plus. L'atlas virtuel est relevé (`virtual_atlases`) et
+    signalé, mais toujours hors de l'estimation (F81).
+- Revue adverse : 1 défaut majeur et 3 mineurs, tous confirmés puis corrigés.
+  - Majeur : le garde-fou de `--out` de `mut_atlas.py` était mal placé. Rejoué avec le code de `796ac4d` : `--out`
+    égal au dossier d'archives était accepté, puis l'étape 5 lisait 23 journaux, dont 15 en écart.
+  - Mineurs : composition des atlas non contrôlée (3 mutations survivaient, dont un plancher non appliqué) ; atlas
+    virtuel détecté par une simple sous-chaîne ; formulation « une fois chacun » au lieu de « une fois par
+    catégorie ».
+- Résultats du correcteur (worktree, `c023664`) :
+  - `run_d4m.py --logs fo-logs` : 5/5, code 0. Essai à blanc 11 OK, greffon 16 OK, unitaires de `vram.py` 57 OK
+    (51 avant), intégration 17 OK, 13 journaux sans écart ;
+  - `mut_atlas.py` : 40 OK sur 40. Ce sont 7 témoins acceptés, 21 mutants refusés, 11 cas du garde-fou et 1 contrôle
+    final (aucune des 28 copies n'est lue par l'étape 5) ;
+  - boîte noire sur le dossier des mutants : 28 journaux lus, 21 en écart, exactement les 21 mutants ;
+  - mutations du code corrigé : 6 sur 7 détectées. La 7e (retrait de `normcase`) est équivalente sur ce poste,
+    car `realpath` de Python 3.14 sous Windows rétablit déjà la casse.
+- Sur `main` après l'intégration (rejoués le 22/10 à 17 h 12) : d4m 5/5 ; mut_atlas 40 OK, avec `--out` hors de
+  `fo-logs`.
+- Preuves : `<racine>\fo-logs\2026-10-22_V3T-suites\d4m\` (sorties du constructeur à la racine, du correcteur dans
+  `correcteur\`, `NOTES.md`).
+- Limites :
+  - la cause du second atlas [none] reste déduite (F80) ;
+  - pourquoi l'atlas [low-object] porte linear-minification en haute qualité et au plancher, mais pas en
+    normal/all : observé, pas expliqué (c'est la seule variation que l'étape tolère) ;
+  - que le format « horodatage puis message » vaille pour TOUTE ligne d'atlas du moteur : vrai dans les 13
+    journaux, supposé ailleurs (une ligne sans horodatage ne serait plus comptée, et l'étape échouerait) ;
+  - les réglages non observés (mémoire high ou medium, DXT none, haute qualité avec mémoire low…) sont refusés
+    tant qu'aucun journal réel ne les étalonne ;
+  - la composition et le seuil devront être réétalonnés avec les sprites V3 (l'étape échouera alors, c'est voulu) ;
+  - une archive sans `visual.log` (dossier d'un banc `content`, par exemple) n'est pas reconnue par le garde-fou ;
+  - l'atlas virtuel n'est toujours pas compté dans l'estimation de `vram.py` (tâche ouverte, OBJECTIFS §7).
+
+**E47 · VALIDÉ (hors jeu) · Règle des points de jeu dans le harness, moteur simulé à boîtes vanilla, attentes de
+`levels_test` tirées de `L.footprints` (suite des bancs hors jeu de V3-T, 22/10 ; bancs du constructeur finis à
+16 h 07, du correcteur à 17 h 03 ; intégrée dans
+`main` le 22/10 par la fusion `1f2ff79`, tête `da9d283`)** :
+- But : les suites 1 et 2 de V3-T (OBJECTIFS §7), et les 3 attentes de `levels_test` liées à la table livrée (D1-4).
+- Règle des points de jeu (`tests/datastage/engine_rules.lua`), comptée dans « Règles moteur : N violation(s) » :
+  - pipe-inside : raccord de tuyau hors de la boîte de collision, le bord comptant comme dedans ;
+  - pipe-off-center : raccord sur un centre de tuile (sautée pour une entité `placeable-off-grid`) ;
+  - drop-inside : dépôt de foreuse hors de la boîte ;
+  - drop-on-footprint : dépôt hors des TUILES de la foreuse. Une foreuse 4×4 restée aux points vanilla dépose en
+    −1,85 : hors de sa boîte (±1,7), mais sur ses tuiles (±2).
+  Vérifiée sur vanilla d'abord : 18 entités, 51 points, 0 alerte (F82). Exception du chevalet de pompage prouvée
+  par désactivation. Mod : 61 entités, 182 points, 0 violation. Auto-contrôle de 11 cas fabriqués à chaque passage ;
+  depuis la correction, un cas faux compte dans les violations.
+- Mutations de l'étape data :
+  - `move_point` désactivé seul : l'étape data s'arrête dans `footprint_problems` (`common.lua:1255`,
+    fo-lvl-drill-7), comme le moteur réel s'arrêterait au chargement ;
+  - `move_point` désactivé et `footprint_problems` neutralisé : le harness seul attrape 222 violations (90
+    pipe-inside, 90 pipe-off-center, 18 drop-inside, 24 drop-on-footprint), code 1 ;
+  - rotation vers l'est fausse : « Règles moteur : 1 violation(s) (dont 1 cas faux de l'auto-contrôle) », 10/11,
+    code 1.
+- Moteur simulé (`tests/mock_engine.lua`) : `bounding_box` et recherche par zone sur la boîte du prototype (formats
+  runtime et étape data ; contact bord à bord exclu), `get_control_behavior` et `get_or_create_control_behavior`
+  (foreuse), `get_recipe` et `set_recipe`, `destroy_decoratives` relevé.
+- Défaut MAJEUR de la revue, confirmé et corrigé : le constructeur appelait « fidèle » un modèle hybride. Les
+  prototypes intégrés au moteur simulé (QG, mitrailleuse, foreuses, four, coffres, personnage) n'avaient pas de
+  boîte et recevaient le 1×1 ; les petits déchiqueteurs tombaient sur le prototype générique.
+  - Correction : boîtes vanilla relevées par `harness --dump-final`. QG {−8,7 ; −3,3 ; 6,9 ; 4,5}, décentré
+    (copie de crash-site-spaceship) ; gun-turret, burner-mining-drill et stone-furnace ±0,7 ; electric-mining-drill
+    ±1,4 ; coffres ±0,35 ; character et fo-companion ±0,2 ; small-biter ±0,2 ; small-spitter ±0,3.
+  - Masques par défaut de leur type ; filtre `collision_mask` (au moins une couche commune) dans la recherche non
+    inversée. `legacy_boxes` (l'ancien modèle) reste une option de comparaison, qu'aucun banc n'utilise.
+- PvP : avec le modèle hybride, `pvp_test` tombait à 594 OK, 2 échecs (taille moyenne d'attaque Normal 18,2 >
+  Difficile 18,0). Avec les boîtes vanilla : 596 OK, et `pvp_test.lua` est identique à `edac1b3`.
+  - Mesure par niveau : Normal 17,2 < Difficile 17,7 < Impitoyable 20,5 (ancien modèle : 16,8 < 18,7 < 19,9).
+  - Trois variantes donnent un journal identique : sans le filtre de masque, avec une boîte ±1,2 pour
+    assembling-machine-1, avec `limit` respecté. L'écart venait donc des boîtes 1×1 par défaut.
+  - « Normal 18,2 > Difficile 18,0 » est un artefact : à ne PAS transmettre à IA0b.
+- Trajectoires changées par les boîtes, tous les bancs restant verts :
+  - run.lua : départs dégagés 11 → 34 dans un scénario, 39 → 147 dans un autre ;
+  - war_test : stocks et nombre d'attaques différents ;
+  - td et pteam : identiques.
+  Lequel des deux modèles est le plus proche du jeu réel : rien ne le dit.
+- Attentes de `levels_test` et `migration_test` calculées depuis `L.footprints` (relevé à 24 niveaux, liste des
+  niveaux qui changent, fours niveau 25, portée du laser), et `FO_DATA_DIR` accepté. `migration_test` : 50 → 55
+  (constructeur), puis 60 (correction).
+  - Les 5 contrôles de la correction : boîte au format de l'étape data, contact bord à bord exclu, zone qui mord de
+    0,01, filtre `collision_mask`, boîtes intégrées gun-turret et QG égales au vanilla.
+  - Le transfert de circuit règle aussi `connect_to_logistic_network = true` et une `logistic_condition` non par
+    défaut.
+- Mutations du moteur simulé et de `Levels.transfer`, toutes tuées par `migration_test` :
+  - zone par position seule, boîte 1×1, décors non relevés : 1 échec chacune ;
+  - `get_control_behavior` retiré : arrêt du banc ;
+  - runtimeonly (format data), edgein (bord à bord), nologi, nologinet, nomask : 59 OK et 1 échec chacune ;
+  - unitbox : 57 OK et 3 échecs.
+- Copie jetable aux 6 familles activées (laser {2,3,4,5,6}, drill {3,4,5,6,6}, assembler {3,4,5,6,6}, furnace
+  {2,3,4,5,6}, command {4,5,6,7,8}) : run 114, war 92, td 270, pteam 15, migration 60, levels 1564, org 362, pvp 596,
+  harness 0/0/0 et 11/11, api_lint 434/0.
+  - Revue : chaque famille activée seule donne levels 1564 et migration 55, 0 échec.
+  - Témoin `edac1b3` aux 6 familles : migration 37 OK et 13 échecs, levels 6 échecs. La suite corrige donc de
+    vrais échecs.
+- Preuves : `<racine>\fo-logs\2026-10-22_V3T-suites\harness-mock-levels\` (`NOTES.md` du constructeur,
+  `correcteur\NOTES.md`, journaux et outils). Aucun banc en moteur réel.
+- Limites (non prouvé) :
+  - le contact bord à bord de `find_entities_filtered{area}` en moteur réel n'est pas observé. Le moteur simulé
+    l'exclut par choix, tenu par un contrôle ; ce n'est pas un fait ;
+  - le filtre `collision_mask` du moteur réel est lu dans la doc, non observé ;
+  - la recherche non inversée ignore toujours `limit` ; `count_entities_filtered` n'est pas comparé au moteur
+    réel ; `get_control_behavior` ne simule que la foreuse ;
+  - assembling-machine-1 (`pvp_test`) et fo-command-center (`levels_test`) restent en 1×1, car ces bancs les
+    déclarent sans boîte ;
+  - l'ordre nord, est, sud, ouest de `pipe_connections[].positions` est supposé d'après la doc ;
+  - le chargeur du moteur réel face à un raccord dans la boîte n'est pas observé. Qu'un dépôt sur les tuiles hors
+    de la boîte (drop-on-footprint) soit inutilisable en jeu est déduit de la géométrie ;
+  - aucune machine agrandie n'a tourné en moteur réel : la copie à 6 familles n'est prouvée que hors jeu ;
+  - `epochs_test` sur une copie hors de l'arborescence du jeu : 16540 OK, 1 échec (chemins relatifs, préexistant) ;
+  - le dernier passage complet du correcteur a précédé le changement d'une ligne de commentaire de
+    `mock_engine.lua`. Les bancs rejoués sur `main` (22/10, 17 h 06 à 17 h 13) couvrent l'état final.
+
+**E46 · H-T3 : (1) PROUVÉE en moteur réel ; (2) prémisse réfutée (F77) ; filet prouvé seulement en expérience de
+contrôle · Migration d'une vraie sauvegarde 0.4.1 vers 0.4.2 (suite H-T3 de V3-T, 22/10, 15 h 23 à 16 h 05 ;
+intégrée dans `main` le 22/10 par la fusion `e1a6a6f`, tête `d6ba888` ; rejouée sur `main` à 17 h 06)** :
+- Outillage :
+  - `fo-autotest.bat` : variable d'environnement facultative `FO_CREATE_SRC`. Si elle est définie, la copie de
+    factorio-overhaul faite pour l'étape `--create` vient de ce chemin. À l'étape [2b/4], cette copie est effacée
+    puis remplacée par la source habituelle avant le `--benchmark`. Le mod de test vient toujours de la source
+    habituelle, et `create-source.txt` n'est écrit qu'en double source. Ajout du correcteur : arrêt avec le code 1,
+    sans `done.txt` ni benchmark, si la copie de création n'est pas effacée en entier ou si robocopy de la source
+    du benchmark rend 8 ou plus. Sans la variable, ce bloc est sauté ;
+  - `greffons.lua` : les contrôles greffés ne sont chargés que pour `content` ou un scénario greffé de base
+    `content`. Sans cela, le mod de test récent ne se chargeait pas avec la source 0.4.1 :
+    `checks/levels_taille.lua` requiert `shared/levels/footprint.lua`, absent de 0.4.1 ;
+  - `script/remote.lua` : `levels_status` rend aussi `footprints` et `footprints_stale` (le `global` d'un mod est
+    illisible depuis un autre, F35) ;
+  - nouveaux fichiers : scénario greffé `ht3-migration.lua`, contrôle du journal `ht3_journal.py`, bancs hors jeu
+    `test_ht3_journal.py` (9 OK) et `bat_double_source/run.py` (4 OK : faux factorio.exe et faux robocopy.exe
+    compilés avec le gcc de `C:\mingw64`, racines jetables).
+- Carte : créée par 0.4.1 (`src-0.4.1`, identique à `git archive 91097e6`), puis rejouée par 0.4.2.
+  - 13 mitrailleuses posées en 2×2 et un centre 15 : libre7, libre19, pair13, pair30, coince7 (coffre et murs),
+    eau25 (eau), duoA et duoB (voisines collées), voisin8, bas3, bas6 ;
+  - deux défenses types, ajoutées par le correcteur, en force « player » et posées avec `raise_built` : defense7
+    (ligne de 10 murs une rangée devant, bras à combustible nourri par 4 convoyeurs) et rempart7 (murs collés
+    devant, bras nourri par un coffre) ;
+  - munitions (dont un chargeur entamé à 4 coups) et PV variés.
+- Trois voies, jouées par le correcteur sur `d6ba888` (15 h 59, code 0 chacune) :
+  - a, montée de version : `mod_changes` { factorio-overhaul 0.4.1 -> 0.4.2 }, migration par `Levels.repair` ;
+  - b, sans montée de version (`git archive d6ba888`, `info.json` remis à 0.4.1) : `on_configuration_changed` est
+    QUAND MÊME appelé, avec `mod_changes` vide (F77), et `Levels.repair` migre (ligne 1000 de `levels.lua`) ;
+  - c, expérience de contrôle (même copie, ligne 998 de `levels.lua` neutralisée) : relevé PÉRIMÉ au premier tick,
+    puis migration par le filet `on_nth_tick(30)` (« emprises (filet, sans changement de version) : 6, 2, 3 ») ;
+  - témoins du constructeur (`113ddba`, 15 h 31) : d (un commentaire ajouté à `levels.lua`) et e (copie
+    identique). `on_configuration_changed` n'est pas appelé, la somme ne change pas.
+- Résultat, identique dans a, b et c : « [FO-HT3-MIGRATION] BILAN : 29 OK, 0 ECHEC(S) » et « JOURNAL H-T3 : 7 OK,
+  0 ECHEC(S) ».
+  - 6 reposées : libre7 en (309,5 ; 249,5) et libre19 en (329,5 ; 249,5), à la candidate 1 ; duoA, duoB et voisin8 ;
+    defense7, n° 32 → n° 62, en (309,5 ; 291,5) ;
+  - 2 déjà en place (pair13 en 4×4, pair30 en 6×6, même entité) ;
+  - 3 laissées faute de place et journalisées : coince7 en (310 ; 275), gênée par le coffre et les murs ; eau25 en
+    (330 ; 275), par l'eau ; rempart7 en (330 ; 292), par le bras ;
+  - bas3 et bas6 inchangées ;
+  - munitions case par case (piercing:37:4 conservé) et PV en proportion ; « aucun chevauchement : 10 boites
+    controlees » ; compteurs migrated 6, overlap_kept 3, resized 6 ; spilled, resize_failed, forced et ground_left
+    à 0 ; centre 15 suivi ; relevé écrit ;
+  - filet sans effet une fois le relevé à jour : garde `footprints_stale` faux, et aucune ligne rejournalisée
+    jusqu'au tick 600 ;
+  - defense7 : le bras vise la nouvelle tourelle et la nourrit, 3 puis 9 chargeurs (F79) ; rempart7 : laissée hors
+    grille, boîte 328,80..331,20 × 290,80..293,20, sans chevauchement réel, toujours nourrie (3 puis 8).
+- **Constat à remonter** : une mitrailleuse collée à une ligne de murs et nourrie par un bras placé derrière reste
+  hors grille, en service, chevauchement toléré. Dans une vraie défense, ce cas peut être courant ; combien de
+  tourelles seraient ainsi laissées dans une vraie partie, on ne le sait pas.
+- Revue adverse : 5 défauts mineurs, tous confirmés et corrigés.
+  - Journalisation des mitrailleuses laissées non contrôlée par le banc : le scénario écrit les lignes « JOURNAL
+    ATTENDU », et `ht3_journal.py` les compare aux lignes [FO-LEVELS]. En moteur simulé, la mutation était déjà
+    refusée (`migration_test` 49 OK, 1 ECHEC).
+  - Intitulé « H-T3 prouvée » trop large : statut en trois parties (ci-dessus).
+  - rmdir et robocopy de l'étape [2b/4] non vérifiés. Reproduit hors jeu sur le .bat de `113ddba` : code 0 avec un
+    fichier ancien resté au benchmark, ou avec un benchmark sans `info.json`. `bat_double_source` donne 2 OK et
+    2 ECHEC sur `113ddba`, 4 OK sur `d6ba888`.
+  - Carte peu représentative : defense7 et rempart7 ajoutées. Corrigé EN PARTIE : pas de défense dense.
+  - Libellé « second passage » : renommé, c'est le garde qui est vérifié.
+- Intégration sur `main` (22/10) :
+  - fusion `e1a6a6f` ; la copie racine de `fo-autotest.bat` est identique à `tools/autotest/fo-autotest.bat` (cmp).
+    Elle avait été installée par la suite en tenant le verrou ;
+  - banc `content` : « [FO-CONTENT] BILAN : 238 OK, 0 ECHEC(S) », `done.txt` du 22/10/2026 à 17:06:23,34 ;
+  - `ht3-migration` en double source (`FO_CREATE_SRC` = `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1`,
+    700 ticks) : `mod_changes` 0.4.1 -> 0.4.2 ; « mise à jour des emprises : 6 bâtiment(s) reposé(s), 2 déjà en
+    place, 3 laissé(s) faute de place (chevauchement toléré) » ; 29 OK, 0 ECHEC ; `done.txt` à 17:06:44,67 ;
+    `ht3_journal.py` donne 7 OK, 0 ECHEC (rejoué sur l'archive par l'intégrateur des documents : même résultat,
+    code 0) ;
+  - archives : `<racine>\fo-logs\2026-10-22_V3T-suites-integration\content\` et `…\ht3-migration\`.
+- Preuves de la suite : `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\` (`NOTES.md` ; `correcteur-d6ba888\<passage>\`
+  avec create.log, benchmark.log, done.txt, source.txt, create-source.txt, commit.txt, code-de-sortie.txt et
+  ht3_journal.txt ; passages a à e du constructeur).
+- Non prouvé :
+  - un vrai second CHARGEMENT d'une carte déjà migrée, sauvegardée puis rechargée ;
+  - une défense dense : beaucoup de tourelles côte à côte, des inserteurs électriques, des poteaux, une ligne qui
+    alimente plusieurs tourelles ;
+  - l'amélioration ultérieure d'une mitrailleuse laissée hors grille (coince7, rempart7) ;
+  - les crochets `on_replaced`, le transfert d'un chantier 0.4.0 et la mise à jour de `st.cc` pour un centre
+    reposé : moteur simulé seulement ;
+  - la propagation de `FO_CREATE_SRC` par `fo-captures.bat` ; un vrai échec partiel de robocopy (simulé par un
+    faux robocopy.exe) ;
+  - les sauvegardes du Directeur Créatif : ni touchées ni testées. Aucune capture : rien de visuel n'est nouveau.
+  Le filet `on_nth_tick(30)` coûte une comparaison toutes les 30 ticks, sans cas réel connu où il serait le seul
+  recours (F77). Le garder ou le retirer n'est pas décidé.
+
 **E45 · STYLE RETENU PAR LE DC (22/10, 16 h 45), direction artistique par époque manquante ; juges : aucune approche au niveau du vanilla · Trois approches de la mitrailleuse jugées (lot V3-S, 22/10,
 13 h 20 à 16 h 10, run `wf_ed692a11-bba`)** :
 - Protocole : 3 explorateurs (industriel lourd, haute technologie, hybride) reprennent les essais coupés à 8 h 55
@@ -276,11 +523,13 @@ prouvés en moteur réel · Emprise croissante et agrandissement sur place (lot 
   un worktree jetable, puis de nouveau à 15 h 10 par le correcteur des documents : 4/5, code 1, même étape ;
   aucun fichier de l'outil d4m ne diffère entre `91097e6` et `13b4134`) : elle exige 15 atlas par journal, et les journaux D4m 3
   à 5 (qualité normale et plancher) en ont 14. Défaut de l'outil de test, préexistant, sans lien avec V3-T.
+  **Corrigé le 22/10 par la suite d4m (E48, F80) : d4m 5/5 sur `main` (rejoué le 22/10 à 17 h 12).**
 - Limites (non prouvé) :
   - en moteur réel, le panneau, son aperçu au sol (carré vert, contour orange), le bouton actif pour « no-room »
     et le clic : le mode benchmark n'a pas de joueur ; prouvés en moteur simulé seulement, sans capture ;
   - la migration d'une vraie sauvegarde 0.4.1, avec ou sans montée de version, filet compris (H-T3) : moteur
-    simulé seulement ;
+    simulé seulement (**prouvée en moteur réel depuis, sur une carte de banc : E46, 22/10 ; filet en expérience de
+    contrôle seulement ; sans montée de version, c'est `Levels.repair` qui migre, F77**) ;
   - le remboursement F40 inventaire par inventaire : moteur simulé seulement (aucun gestionnaire actuel ne
     détruit le bâtiment neuf) ;
   - le transfert des fluides, du brûleur, de la recette, des fils de circuit et des réglages de foreuse :
@@ -621,8 +870,31 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Verrou : `fo-autotest.bat` lancé avec le verrou pris rend le code 2 (vérifié).
 
 ### Hypothèses (session 6)
-- **H-T3 · OUVERTE** (lot V3-T, E44, 22/10 ; nom repris du lot V3-T, H-T2 n'est attribué à rien) :
-  en moteur réel, une vraie sauvegarde 0.4.1 chargée avec la version 0.4.2 repose bien ses mitrailleuses de niveau 7 et plus à leur nouvelle emprise. Voie normale : la
+- **H-T3 · (1) prouvée en moteur réel ; (2) prémisse réfutée (F77) ; filet prouvé seulement en expérience de
+  contrôle** (suite H-T3, E46, 22/10, commit `d6ba888` ; journaux dans
+  `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\correcteur-d6ba888\` ; rejouée sur `main` le 22/10 à 17 h 06 :
+  `<racine>\fo-logs\2026-10-22_V3T-suites-integration\ht3-migration\`).
+  - Une carte est créée par 0.4.1 (`git archive 91097e6`), puis rejouée par 0.4.2 sur la même carte grâce à la
+    double source du banc (`FO_CREATE_SRC`). Elle contient 13 mitrailleuses posées en 2×2 et un centre 15, dont
+    deux défenses types en force player (ligne de murs, bras à combustible nourri par convoyeur ou par coffre).
+  - Après migration : 6 sont reposées à la position de la règle (candidate 1 pour libre7, libre19 et defense7) ; 2
+    de côté pair sont déjà en place (même entité) ; 3 sont laissées faute de place (murs et coffre ; eau ; murs
+    collés et bras) ; 2 de niveau 1 à 6 sont inchangées. Munitions case par case et PV en proportion conservés,
+    aucun chevauchement. Le bras vise la tourelle reposée et la nourrit encore (F79). Le relevé est écrit.
+  - Contrôle du journal (`ht3_journal.py`) : une ligne « laissé en place » par mitrailleuse laissée, une seule
+    ligne de bilan, de la voie attendue. Le filet reste sans effet une fois le relevé à jour (garde vérifié
+    jusqu'au tick 600). Résultat : 29 OK, 0 ECHEC, et journal 7 OK dans les trois voies.
+  - (1) Montée de version : migration par `on_configuration_changed` (0.4.1 -> 0.4.2). PROUVÉE.
+  - (2) Version non montée : `on_configuration_changed` est QUAND MÊME appelé, avec `mod_changes` vide (F77), et
+    c'est `Levels.repair` qui migre. La prémisse « le filet migre » est donc fausse. Le filet n'a été exercé
+    qu'en expérience de contrôle (migration au chargement neutralisée dans une copie jetable) : 29 OK.
+  - **Constat** : une mitrailleuse collée à une ligne de murs et nourrie par un bras placé derrière reste hors
+    grille, en service, chevauchement toléré (rempart7). Question au Directeur Créatif (Q-T3, OBJECTIFS §4) : est-ce
+    acceptable, ou faut-il une autre règle (par exemple déplacer aussi le bras) ?
+  - Non prouvé : rechargement d'une carte déjà migrée ; défense dense ; amélioration ultérieure d'une tourelle
+    laissée hors grille ; crochets `on_replaced` et chantiers 0.4.0 en moteur réel (liste complète : E46).
+  Énoncé et protocole d'origine (22/10, 14 h 56, alors OUVERTE ; lot V3-T, E44 ; nom repris du lot V3-T, H-T2
+  n'est attribué à rien) : en moteur réel, une vraie sauvegarde 0.4.1 chargée avec la version 0.4.2 repose bien ses mitrailleuses de niveau 7 et plus à leur nouvelle emprise. Voie normale : la
   montée de version déclenche `on_configuration_changed`, puis `Levels.repair` et `Levels.migrate_footprints` ;
   à défaut (version non montée), le filet `on_nth_tick(30)` migre au premier passage si
   `Levels.footprints_stale()` voit que le relevé `global.fo.levels.footprints` diffère de la table. Attendu :

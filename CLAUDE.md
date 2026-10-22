@@ -21,8 +21,9 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F75, expériences E1 à E45, hypothèses ouvertes (H-T3, H-V2, H-X1,
-   H-L1, H-B1, H-E1 ; H-T1 et H-V1 validées). Prochains identifiants : **F76, E46**.
+4. `RD_LOG.md` : faits moteur F1 à F82, expériences E1 à E48 (E3 jamais attribué), hypothèses ouvertes
+   (H-V2, H-X1, H-L1, H-B1, H-E1 ; H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse
+   réfutée par F77, filet prouvé seulement en expérience de contrôle). Prochains identifiants : **F83, E49**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -69,19 +70,22 @@ lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 92 OK
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
-lua5.2 tests/migration_test.lua  -> 50 OK
+lua5.2 tests/migration_test.lua  -> 60 OK
 lua5.2 tests/levels_test.lua     -> 1564 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
 lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 434 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
-python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 4/5 étapes (banc D4m hors jeu ; voir ci-dessous)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 447 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; unitaires de vram.py 57 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal)
+python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 40 OK (7 témoins acceptés, 21 mutants refusés, 11 cas du garde-fou, 1 contrôle final)
+python -B tools/autotest/tests/test_ht3_journal.py   -> 9 OK (contrôle du journal du banc de migration, hors jeu)
+python -B tools/autotest/tests/bat_double_source/run.py   -> 4 OK (fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 ```
-Chiffres mesurés sur `main` le 22/10, de 14 h 51 à 14 h 55, après l'intégration du lot V3-T (version 0.4.2).
-**d4m à 4/5 : échec connu de l'outil, sans lien avec le mod.** L'étape « vram.py sur 13 journaux archivés »
-exige 15 atlas par journal, or les journaux D4m 3 à 5 (qualité normale et plancher) en ont 14. Même échec
-sur l'ancien `main` (`91097e6`, rejoué le 22/10 à 14 h 56). Correction de l'outil à faire (OBJECTIFS §7).
+`levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
+l'arborescence du jeu.
+Chiffres mesurés sur `main` le 22/10, de 17 h 06 à 17 h 13, après l'intégration des suites de V3-T (version 0.4.2 ;
+pvp en 301 s).
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
 1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
@@ -97,13 +101,35 @@ sur l'ancien `main` (`91097e6`, rejoué le 22/10 à 14 h 56). Correction de l'ou
    attend `BILAN : 238 OK, 0 ECHEC(S)` (lot V3-T, observé en moteur réel le 22/10 à 14 h 51 : 210
    contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du greffon
    `checks/levels_taille.lua` ; la ligne « greffons » du journal dit « exemple 2 OK 0 ECHEC, levels_taille
-   26 OK 0 ECHEC » ; 212 avant V3-T, 209 avant V2c).
+   26 OK 0 ECHEC » ; 212 avant V3-T, 209 avant V2c). Rejoué sur `main` après les suites de V3-T : 238 OK
+   (`done.txt` du 22/10 à 17:06:23,34).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
+**Double source : migration d'une vraie sauvegarde** (suite H-T3, RD_LOG E46 ; `tools/autotest/README.md` §1.1).
+La variable d'environnement `FO_CREATE_SRC` donne une autre source de factorio-overhaul pour la seule création de
+la carte ; le benchmark rejoue la même carte avec la source habituelle. Sous PowerShell :
+```
+$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
+& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 ht3-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = $null
+python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+```
+- `src-0.4.1` est identique à `git archive 91097e6` (version 0.4.1) ; `fo-autotest\create-source.txt` dit quelle
+  source a créé la carte.
+- Attendu : « [FO-HT3-MIGRATION] BILAN : 29 OK, 0 ECHEC(S) » dans `benchmark.log`, ET « JOURNAL H-T3 : 7 OK,
+  0 ECHEC(S) », code 0. Observé sur `main` le 22/10 (`done.txt` 17:06:44,67).
+- Le banc s'arrête avec le code 1, sans `done.txt`, si la copie de création n'est pas remplacée en entier.
+- Toujours vider la variable après usage : elle reste définie pour les bancs suivants de la même session
+  PowerShell. Son effet sur `fo-captures.bat` n'a pas été essayé.
+- Préférer `$env:FO_CREATE_SRC = $null` : sous Claude Code, `Remove-Item Env:FO_CREATE_SRC` peut être refusé
+  par la protection de chemin de l'outil (non consigné : ni date ni message relevés).
+
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 238 contrôles avec les greffons ;
+- `content` : banc de contenu, 238 contrôles avec les greffons (les contrôles greffés ne se chargent que pour
+  `content` et les scénarios greffés de base `content`) ;
+- `ht3-migration` (scénario greffé) : migration d'une sauvegarde 0.4.1, en double source seulement (ci-dessus) ;
 - scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
   (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
   tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;
@@ -192,6 +218,11 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F70 et F74** (lot V3-T) : `create_entity` SANS `fast_replace` pose le nouveau bâtiment par-dessus l'ancien
   encore présent, sans vérifier la place (le script doit la vérifier avant) ; en revanche, il a retiré
   lui-même le fantôme de mur recouvert (un seul cas observé).
+- **F76, F77 et F79** (suite H-T3) : au chargement, une entité dont le prototype a changé de taille garde sa
+  position et prend la nouvelle boîte ; `on_configuration_changed` est aussi appelé, avec `mod_changes` VIDE,
+  quand les données de prototypes existants changent sans montée de version (attribution aux données :
+  déduite, non prouvée) ; un bras a retrouvé seul une cible remplacée par script (un seul cas joué : bras à
+  combustible).
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :

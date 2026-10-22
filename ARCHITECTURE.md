@@ -64,21 +64,27 @@ factorio-overhaul/
 │   ├── world/                      # dangers des biomes, couvée des déchiqueteurs
 │   └── remote.lua                  # interface "factorio-overhaul" (pilotage sans joueur)
 ├── tests/
-│   ├── mock_engine.lua             # moteur simulé partagé (inventaires, brûleurs, fabrication, tir…)
+│   ├── mock_engine.lua             # moteur simulé partagé (inventaires, brûleurs, fabrication, tir…) ; boîtes vanilla, recherche par boîte (suite V3-T)
 │   ├── run.lua                     # socle + compagnons (114)
 │   ├── war_test.lua                # guerre à économie réelle + monde (92)
 │   ├── td_test.lua                 # défense de tours (270)
 │   ├── pteam_test.lua              # équipe du joueur (15)
-│   ├── migration_test.lua          # sauvegardes 0.2 → 0.4.2 (et 0.4.1 sans changement de version) : chantiers, PV, emprises V3-T, filet (50)
-│   ├── levels_test.lua             # niveaux : règles, amélioration, emprise croissante, en moteur simulé (1 564 + 11 écarts connus)
+│   ├── migration_test.lua          # sauvegardes 0.2 → 0.4.2 (et 0.4.1 sans changement de version) : chantiers, PV, emprises V3-T, filet (60)
+│   ├── levels_test.lua             # niveaux : règles, amélioration, emprise croissante, en moteur simulé (1 564 + 11 écarts connus) ; attentes tirées de L.footprints
 │   ├── fixtures/recipes.lua        # 246 recettes vanilla réelles (livre de recettes hors-jeu)
 │   └── datastage/                  # rejoue l'étape data réelle + validateur de schéma + règles moteur
+│       └── engine_rules.lua        # règle des points de jeu : pipe-inside, pipe-off-center, drop-inside, drop-on-footprint (suite V3-T, E47)
 └── tools/
     ├── api_lint.py                 # chaque appel d'API contre runtime-api.json
     ├── print_balance.lua, print_content.lua
     └── autotest/                   # MOTEUR RÉEL : mod fo-autotest (scénarios, banc de contenu, captures),
                                     # fo-autotest.bat, fo-autotest-watch.bat, fo-visual.bat, analyze.py ;
                                     # fo-autotest/checks/levels_taille.lua : greffon du banc content, emprise croissante (lot V3-T, 26 contrôles)
+                                    # fo-autotest/scenarios/ht3-migration.lua : scénario greffé, migration d'une sauvegarde 0.4.1 (double source, E46)
+                                    # ht3_journal.py : contrôle du journal d'un passage ht3-migration (7 contrôles)
+                                    # vram.py : atlas relevés dans visual.log (atlas virtuel signalé, non compté)
+                                    # tests/ : run_d4m.py (banc D4m, 5 étapes), unit_vram.py, mut_atlas.py (40 cas),
+                                    #   test_ht3_journal.py (9), bat_double_source/ (faux factorio.exe et robocopy.exe, 4 cas)
 ```
 Traductions : `locale/fr/` et `locale/en/`, un fichier par lot (par exemple `levels-taille.cfg`, lot V3-T : taille,
 place libre ou prise, directions, motif « no-room »).
@@ -331,7 +337,9 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
     moteur se mesure depuis le centre), et points de jeu déplacés par `move_point` (voir plus bas).
     `footprint_problems` arrête l'étape data si un raccord de tuyau ou le point de dépôt tombe dans la boîte de
     collision, si un raccord n'est pas sur un centre de tuile, ou si la zone d'extraction est plus petite que
-    l'emprise. Le groupe de remplacement rapide reste commun à toutes les tailles (F72). Le sprite est agrandi
+    l'emprise. Depuis la suite V3-T (E47), le banc de l'étape data vérifie aussi les règles des raccords et du dépôt
+    pour toute entité du mod (`tests/datastage/engine_rules.lua`). Le groupe de remplacement rapide reste commun à
+    toutes les tailles (F72). Le sprite est agrandi
     du rapport des côtés (`kit.sprite_scale`) : visuel PROVISOIRE, sans détail ajouté.
   - **Règle de position** (texte de référence, mot pour mot : en tête de `shared/levels/footprint.lua`). Le
     nouveau bâtiment (côté b) CONTIENT l'ancien (côté a), aligné sur la grille : (b − a + 1)² candidates. Ordre
@@ -373,10 +381,18 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
     ou laissé en place, compté et journalisé ; les chantiers hérités forcés prennent la position la plus facile
     à libérer. Déclencheurs : `on_configuration_changed` (via `Levels.repair`, voie normale : montée de version)
     ET, à défaut, le filet `on_nth_tick(30)`, au premier passage où `Levels.footprints_stale()` voit un relevé
-    périmé. Prouvé en moteur simulé seulement (H-T3).
+    périmé. Prouvé en moteur simulé, puis **en moteur réel le 22/10** sur une carte de banc créée par 0.4.1
+    (RD_LOG E46, H-T3). Le moteur appelle `on_configuration_changed` même SANS montée de version, avec
+    `mod_changes` vide, quand les données de prototypes ont changé (F77 ; attribution aux données : déduite,
+    non prouvée) : c'est alors aussi `Levels.repair` qui migre. Le filet n'a servi qu'en expérience de
+    contrôle ; aucun cas réel connu n'en dépend. Au chargement, l'entité agrandie garde sa position et prend la
+    nouvelle boîte avant la migration (F76) ; un bras qui la nourrissait a visé seul la nouvelle entité (F79 ;
+    un seul cas joué : bras à combustible). Une mitrailleuse sans place reste hors grille, avec sa nouvelle
+    taille (question Q-T3).
   - **Pilotage sans joueur.** `levels_upgrade` et `levels_preview` rendent `resize`, `position`, `candidate`,
     `contour`, `contour_candidate` et `blockers` ; `levels_status` ajoute `resized`, `room_refused`, `contours`,
-    `forced`, `resize_failed`, `ghosts_removed`, `ground_moved`, `ground_left`…
+    `forced`, `resize_failed`, `ghosts_removed`, `ground_moved`, `ground_left`… et, depuis la suite H-T3,
+    `footprints` (copie du relevé) et `footprints_stale` (le `global` d'un mod est illisible des autres, F35).
 - **Déplacement des points de jeu (lot V3-T, `move_point`, `prototypes/levels/common.lua`).** Du côté a au côté
   b, centre du bâtiment = origine :
   - une coordonnée AU-DELÀ du bord (|v| ≥ a/2) garde son écart au bord : signe(v) × (|v| − a/2 + b/2) ; un
@@ -391,12 +407,14 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 
 | Banc | Ce qu'il prouve | Ce qu'il ne prouve pas |
 |---|---|---|
-| `tests/datastage/harness.lua` | L'étape data s'exécute (core + base + mod, dans l'ordre moteur) ; schéma, références, localisation FR/EN ; règles moteur connues (ex. `slice` des animations tournantes, F23). Résultat attendu au 22/10 (lot V3-T) : 911 prototypes ajoutés ou modifiés, 0 erreur nouvelle, 0 violation, 0 clé manquante | Rendu, génération de carte réelle ; la règle « raccord et point de dépôt hors de la boîte » n'y est pas encore (tenue par `footprint_problems` pour les niveaux agrandis seulement) |
-| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel (434 usages, 0 erreur au 22/10) | Comportement à l'exécution |
-| `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration ; résultats attendus au 22/10 : CLAUDE.md §5 (dont migration 50 et levels 1 564) | Fidélité du moteur (exemple : le moteur simulé ne retirait pas les fantômes recouverts, le vrai moteur le fait, F74) |
-| `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux. **238 contrôles** depuis le lot V3-T (22/10, 14 h 51) : 210 du banc, dont 63 de niveaux, 2 de l'exemple greffé et 26 du greffon `levels_taille` (agrandissement sur place, refus et contour, transfert, chaîne 6 → 30) | Rendu ; panneau et aperçu au sol (pas de joueur en mode benchmark) ; migration d'une vraie sauvegarde (H-T3) |
+| `tests/datastage/harness.lua` | L'étape data s'exécute (core + base + mod, dans l'ordre moteur) ; schéma, références, localisation FR/EN ; règles moteur connues (ex. `slice` des animations tournantes, F23). **Règle des points de jeu** (suite V3-T, E47, `tests/datastage/engine_rules.lua`) : raccords hors de la boîte de collision et sur un centre de tuile, dépôt de foreuse hors de la boîte et des tuiles, pour toute entité ; exception vanilla : le chevalet de pompage (F82) ; auto-contrôle de 11 cas, compté dans les violations. Résultat attendu au 22/10 (17 h 06 à 17 h 13, `main`) : 911 prototypes ajoutés ou modifiés, 0 erreur nouvelle, « Règles moteur : 0 violation(s) », points de jeu vanilla 18 entités / 51 points et mod 61 / 182, auto-contrôle 11/11, 0 clé manquante | Rendu, génération de carte réelle ; ce que fait le moteur réel d'un raccord ou d'un dépôt mal placé (déduit de la géométrie, non observé) |
+| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel (447 usages, 0 erreur au 22/10, 17 h 06 à 17 h 13 ; 434 avant les suites de V3-T) | Comportement à l'exécution |
+| `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration ; résultats attendus au 22/10 : CLAUDE.md §5 (dont migration 60 et levels 1 564). **Moteur simulé** (suite V3-T, E47) : boîtes de collision et masques vanilla des prototypes intégrés (relevés par `harness --dump-final`), `bounding_box` et recherche par zone sur la boîte (contact bord à bord exclu, convention non observée en moteur réel), filtre `collision_mask`, `get_control_behavior`, `get_recipe` et `set_recipe`, `destroy_decoratives` relevé ; option `legacy_boxes` = ancien modèle, pour comparaison seulement. Attentes de `levels_test` et `migration_test` tirées de `L.footprints` ; `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de l'arborescence du jeu | Fidélité du moteur (exemple : le moteur simulé ne retirait pas les fantômes recouverts, le vrai moteur le fait, F74) ; contact bord à bord, `limit` de la recherche non inversée, `count_entities_filtered` ; les prototypes que les bancs déclarent sans boîte restent en 1×1 |
+| `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux. **238 contrôles** depuis le lot V3-T (22/10, 14 h 51 ; rejoué sur `main` après les suites le 22/10 à 17 h 06) : 210 du banc, dont 63 de niveaux, 2 de l'exemple greffé et 26 du greffon `levels_taille` (agrandissement sur place, refus et contour, transfert, chaîne 6 → 30) | Rendu ; panneau et aperçu au sol (pas de joueur en mode benchmark) ; machines agrandies |
+| `fo-autotest.bat` en **double source** (`FO_CREATE_SRC`), scénario greffé `ht3-migration` + `ht3_journal.py` | **Une vraie sauvegarde d'une version ancienne migrée par la nouvelle** (suite H-T3, E46) : la carte est créée par la source de `FO_CREATE_SRC` (0.4.1), puis rejouée par la source habituelle (0.4.2). 29 contrôles (mitrailleuses reposées, déjà en place ou laissées, munitions, PV, chevauchements, bras, relevé, filet), puis 7 contrôles du journal hors jeu (`ht3_journal.py`) : une ligne « laissé en place » par mitrailleuse laissée, une seule ligne de bilan, de la voie attendue. Attendu au 22/10 (17 h 06, `main`) : 29 OK et journal 7 OK | Rechargement d'une carte déjà migrée ; défense dense ; les sauvegardes du Directeur Créatif (jamais touchées) |
 | `fo-autotest.bat` scénarios `default`, `waves`, `pteam`… | **Le vrai jeu** sans affichage, dossiers isolés : guerre à économie réelle, défense de tours, équipe du joueur ; temps par tick et par poste ; étalon machine | Rendu |
 | `fo-captures.bat` (= `fo-autotest.bat` + `fo-visual.bat`) + `shots.lua`, `vitrine.lua` | **Le vrai jeu avec images** (`--benchmark-graphics`, arrêt seul), captures automatiques, session fermée sans intervention, index et planche-contact ; vitrine d'entités à côté des références vanilla ; greffons de scénarios et de contrôles (`tools/autotest/README.md`) | Le jugement esthétique (verdict du Directeur Créatif) |
+| `tools/autotest/tests/run_d4m.py` (banc D4m hors jeu) + `mut_atlas.py` | Hors jeu, en 5 étapes : essai à blanc du greffon `d4-geant`, fixtures synthétiques, unitaires de `vram.py` (57), intégration de `visual_session.py`, et les 13 journaux archivés relus avec les atlas ATTENDUS selon les réglages que déclare chaque journal (qualité, mémoire vidéo, DXT ; table `ATLAS_ATTENDUS`) : nombre d'atlas, atlas [none], les 13 autres une fois par catégorie, atlas virtuel, seuil des [none] au plancher ; lignes horodatées du moteur seulement (E48, F80). `mut_atlas.py` : 40 cas (7 témoins, 21 mutants, 11 cas du garde-fou de `--out`, 1 contrôle final). Attendu au 22/10 : 5/5 et 40 OK | La mémoire vidéo réelle (seulement en moteur réel, E40) ; les réglages jamais observés (refusés tant qu'aucun journal ne les étalonne) ; l'atlas virtuel n'entre pas dans l'estimation de `vram.py` (F81) |
 | `tools/da/seuils.py`, `progression.py` (charte `docs/DA_FACTORIO.md`) | Un sprite tient les bandes mesurées sur 28 bâtiments vanilla (détail, patine, palette, lumière, masse) ; la puissance ne baisse pas d'une époque à la suivante (dominance) | Le style, la lisibilité, le « badass » : filtre de refus automatique seulement, le verdict reste au Directeur Créatif |
 
 ### Outillage du moteur réel
@@ -404,6 +422,19 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 - `fo-autotest.bat` : benchmark épinglé sur les cœurs P (processeur hybride : F30) et priorité au-dessus
   de la normale ; étalon machine `[FO-CALIB]` (charge Lua fixe chronométrée toutes les 10 s) lu par
   `analyze.py`, qui signale les fenêtres où la machine ralentit.
+- **Double source** (`fo-autotest.bat`, suite H-T3, 22/10 ; `tools/autotest/README.md` §1.1) : variable
+  d'environnement facultative `FO_CREATE_SRC`. Si elle est définie, la copie de factorio-overhaul faite pour
+  l'étape `--create` vient de ce chemin (par exemple une version ancienne exportée par `git archive`). À l'étape
+  [2b/4], cette copie est effacée puis remplacée par la source habituelle (argument 4 ou `fo-autotest-params.txt`)
+  avant le `--benchmark`. Le mod de test vient toujours de la source habituelle. `source.txt` donne la source du
+  benchmark ; `create-source.txt` n'est écrit qu'en double source. Le banc s'arrête avec le code 1, sans
+  `done.txt` ni benchmark, si la copie de création n'est pas effacée en entier ou si robocopy de la source du
+  benchmark rend 8 ou plus. Sans la variable, ce bloc est sauté et le comportement est celui d'avant (vérifié par
+  `tools/autotest/tests/bat_double_source/run.py`, 4 cas, et par le banc `content` standard, 238 OK). Non
+  essayé : la propagation de la variable par `fo-captures.bat`.
+- **Greffons** (`fo-autotest/greffons.lua`) : les contrôles greffés (`checks/`) ne sont chargés que pour le banc
+  `content` ou un scénario greffé dont la base est `content`. Sinon, un mod de test récent ne se chargerait pas
+  avec une source ancienne qui n'a pas les fichiers que les contrôles requièrent.
 - `analyze.py <dossier> --spikes` : pics de script attribués aux traces `[FO-TRACE]` du même tick.
 - Scénarios : `default`, `content` (banc de contenu : 238 contrôles avec les greffons depuis le lot V3-T ; 180 à la session 5), `waves` (défense de tours + guerre),
   `pteam` (équipe du joueur + guerre), `baseline`, `stress`, `noexp`, `peace`, `parked`, `worker`.
@@ -416,7 +447,8 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   (prototype tel que le mod le livre : vérifier une couche ajoutée sans lancer le jeu).
 - Hors-jeu : `tests/run.lua`, `tests/war_test.lua`, `tests/td_test.lua`, `tests/pteam_test.lua`,
   `tests/migration_test.lua` (moteur simulé) ; `tests/datastage/harness.lua` (étape data + règles moteur) ;
-  `tools/api_lint.py` (appels d'API contre la doc 1.1.91).
+  `tools/api_lint.py` (appels d'API contre la doc 1.1.91) ; outillage du banc : `tools/autotest/tests/run_d4m.py`,
+  `mut_atlas.py`, `test_ht3_journal.py`, `bat_double_source/run.py` (attendus : CLAUDE.md §5).
 
 ## 9. Budget UPS
 

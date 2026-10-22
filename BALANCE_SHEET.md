@@ -464,6 +464,14 @@ rivale (17 envoyables < 25) : la fin de l'impasse règle alors son rythme contre
 | idem : nombre d'attaques | 1 | 4 | 6 (IA0 : 6) | 9 (IA0 : 8) |
 | idem : taille moyenne | 11,0 | 16,8 (IA0 : 18,0) | 18,7 | 19,9 (IA0 : 19,4) |
 
+**Mise à jour du 22/10 (suite V3-T des bancs hors jeu, RD_LOG E47).** Le moteur simulé donne désormais aux
+prototypes intégrés leurs boîtes de collision vanilla (avant : 1×1). `pvp_test` reste à 596 OK, mais la taille
+moyenne de la ligne ci-dessus devient **Normal 17,2 < Difficile 17,7 < Impitoyable 20,5** (le tableau garde
+l'ancien modèle : 16,8 < 18,7 < 19,9). 5 lignes du journal de `pvp_test` diffèrent de l'ancien modèle ; les
+autres lignes du tableau ne sont pas relevées à nouveau ici. Lequel des deux modèles est le plus proche du jeu
+réel : rien ne le dit. Un état intermédiaire (modèle hybride du constructeur de la suite) donnait Normal 18,2 >
+Difficile 18,0 : c'était un artefact des boîtes 1×1 par défaut, à ne pas retenir.
+
 | Banc (moteur simulé, 4 factions) | Code IA0 | Après correction |
 |---|---|---|
 | Normal, 12 tourelles, 60 min (`pvp_test`) | 2 attaques (Azur seule, 1re à 46,5 min) ; Écarlate déclarée à 20 min, 0 attaque | 11 attaques de 4 factions (Écarlate 5), 1re à 22,8 min (défense estimée 96), 6 sièges, 1 dissuasion |
