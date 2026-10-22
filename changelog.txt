@@ -14,6 +14,8 @@ Date: 2026-10-22
   Bugfixes:
     - Améliorer à taille égale un bâtiment resté hors grille après une mise à jour ne pose plus un second bâtiment
       par-dessus le premier : il est remis sur la grille, à une demi-tuile au plus, si la place est libre.
+    - Un objet au sol qui touche seulement le bord d'un bâtiment agrandi n'est plus déplacé ni signalé comme
+      laissé dessous.
   Info:
     - Sauvegardes : au chargement, les bâtiments qui changent de taille (niveau 7 et plus ; centre : niveau 4 et
       plus) sont reposés si la place est libre ; sinon ils restent en place, en léger chevauchement, et continuent de
