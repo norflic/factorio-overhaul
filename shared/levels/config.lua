@@ -93,20 +93,20 @@ end
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
-  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.43, cc_value = 407 },
-  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.46, cc_value = 1050 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 4.5, cc_value = 6000 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 6060 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29.2, cc_value = 6160 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.9, cc_value = 6290 },
-  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
-  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 14100 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 371, cc_value = 46000 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 675, cc_value = 47300 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1250, cc_value = 48700 },
-  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 2270, cc_value = 80100 },
-  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 4140, cc_value = 190000 },
-  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 7070, cc_value = 0 },
+  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.5, cc_value = 407 },
+  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 2.5, cc_value = 1410 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 13.8, cc_value = 6000 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 26.4, cc_value = 6060 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 44.5, cc_value = 6160 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 105, cc_value = 6290 },
+  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 185, cc_value = 6380 },
+  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 330, cc_value = 14100 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 687, cc_value = 46000 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 1210, cc_value = 47300 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 2190, cc_value = 48700 },
+  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 3960, cc_value = 80100 },
+  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 7220, cc_value = 190000 },
+  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 12200, cc_value = 0 },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -194,12 +194,16 @@ L.MIN_MATERIAL_STACK = 50
 --   stats       : { chemin, op, k } appliqué au prototype du niveau 1 :
 --                 "mul" : v × (1 + k·(n-1))     "add" : v + k·(n-1)
 --                 knee, k2 : au-delà du niveau `knee`, la pente devient k2 (dégressif) ;
+--                 area : la statistique SUIT LA SURFACE (lot V3-T4, Q-T2-2 répondue A) : « mul » la multiplie,
+--                        « div » la divise par le rapport des surfaces L.area_ratio (L.stat_value) ;
 --                 hidden : statistique absente du panneau ; label : clé de locale du panneau
 --   base_cost   : panier de base (époque 1) ; quantité × (1 + base_growth·(n-2)) : croissance LINÉAIRE ;
 --   epoch_value : valeur payée en matériaux d'époque au 1er niveau de l'époque 2 (× value_mult) ; le centre
 --                 n'en a pas : L.epochs[e].cc_value ;
 --   main_share  : part du matériau de l'époque (défaut L.MAIN_SHARE ; murs : 1, sans matériau précédent) ;
---   row         : bouton « Toute la rangée » (murs reliés de même niveau, améliorés d'un coup).
+--   row         : bouton « Toute la rangée » (murs reliés de même niveau, améliorés d'un coup) ;
+--   production  : famille de PRODUCTION (lot V3-T4 : foreuse, four, assembleur) : elle fixe le gain de production
+--                 de l'usine (L.level_gain, L.production_gain) et sa valeur d'époque est multipliée par ce gain.
 ---------------------------------------------------------------------------------------------------
 L.families = {
   {
@@ -216,13 +220,16 @@ L.families = {
   },
   {
     -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
-    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Testé : DPS ≤ 1,1 × la lourde.
+    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Lot V3-T4 : la CADENCE suit la surface
+    -- (délai entre deux tirs ÷ L.area_ratio : 6 ticks → 0,67 au 6×6, plusieurs tirs par tick, doc 1.1.91 de
+    -- BaseAttackParameters.cooldown) ; testé : DPS PAR TUILE ≤ 1,1 × la lourde (2×2).
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
       { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
+      { path = { "attack_parameters", "cooldown" }, op = "mul", k = 0, area = "div", hidden = true },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
     base_growth = 0.15, epoch_value = 12,
@@ -230,7 +237,9 @@ L.families = {
   {
     -- Mêmes dégâts dégressifs (× 4,24 au niveau 30 contre 4 pour la tourelle laser lourde) ; l'énergie par
     -- tir (et le tampon, qui doit la contenir) croît de 4 % par niveau : × 2,16 au niveau 30, les dégâts par
-    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts).
+    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts). Lot V3-T4 : la cadence suit
+    -- la surface (40 ticks → 4,4 au 6×6), l'énergie par tir non ; le débit d'entrée (input_flow_limit) suit la
+    -- cadence ET l'énergie par tir, sinon le tampon ne se recharge pas entre deux tirs (9,6 MW → 187 MW au 30).
     key = "laser", type = "electric-turret", base = "laser-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
@@ -240,6 +249,8 @@ L.families = {
       { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04,
         label = "fo-epochs.stat-energy_consumption" },
       { path = { "energy_source", "buffer_capacity" }, op = "mul", k = 0.04, hidden = true },
+      { path = { "attack_parameters", "cooldown" }, op = "mul", k = 0, area = "div", hidden = true },
+      { path = { "energy_source", "input_flow_limit" }, op = "mul", k = 0.04, area = "mul", hidden = true },
     },
     base_cost = { { "steel-plate", 3 }, { "electronic-circuit", 3 }, { "battery", 2 } },
     base_growth = 0.15, epoch_value = 20,
@@ -256,34 +267,45 @@ L.families = {
     base_growth = 0.15, epoch_value = 2, main_share = 1,
   },
   {
-    key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30,
+    -- Lot V3-T4 : vitesse de minage, énergie et pollution suivent la surface (une foreuse 6×6 = 4 foreuses 3×3
+    -- du même niveau : × 15,6 au niveau 30, 7,8 minerais/s).
+    key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30, production = true,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "mining_speed" }, op = "mul", k = 0.10 },
-      { path = { "energy_usage" }, op = "mul", k = 0.07 },
+      { path = { "mining_speed" }, op = "mul", k = 0.10, area = "mul" },
+      { path = { "energy_usage" }, op = "mul", k = 0.07, area = "mul" },
+      { path = { "energy_source", "emissions_per_minute" }, op = "mul", k = 0, area = "mul", hidden = true },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 2 } },
-    base_growth = 0.15, epoch_value = 7,
+    -- Lot V3-T4 : 7 → 6. Avec le gain de production (× 4 aux niveaux 19 à 30), le niveau 24 (époque 12 : moteurs
+    -- électriques en pile de 50 et structures légères PROVISOIRES en pile de 10) prenait 118 cases sur 224, au-delà de
+    -- la règle de place (112) ; à 6, il la tient (`--calibrate` relancé).
+    base_growth = 0.15, epoch_value = 6,
   },
   {
-    key = "furnace", type = "furnace", base = "steel-furnace", size = 2, max = 30,
+    -- Lot V3-T4 : un four 6×6 = 9 fours 2×2 du même niveau (vitesse 59,8 au niveau 30 : 18,7 plaques de fer/s).
+    key = "furnace", type = "furnace", base = "steel-furnace", size = 2, max = 30, production = true,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "crafting_speed" }, op = "mul", k = 0.08 },
-      { path = { "energy_usage" }, op = "mul", k = 0.06 },
+      { path = { "crafting_speed" }, op = "mul", k = 0.08, area = "mul" },
+      { path = { "energy_usage" }, op = "mul", k = 0.06, area = "mul" },
+      { path = { "energy_source", "emissions_per_minute" }, op = "mul", k = 0, area = "mul", hidden = true },
     },
     base_cost = { { "steel-plate", 2 }, { "stone-brick", 3 } },
     base_growth = 0.15, epoch_value = 6,
   },
   {
-    key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30,
+    -- Lot V3-T4 : une machine 6×6 = 4 machines 3×3 du même niveau (vitesse 9,96 au niveau 30).
+    key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30, production = true,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "crafting_speed" }, op = "mul", k = 0.08 },
-      { path = { "energy_usage" }, op = "mul", k = 0.06 },
+      { path = { "crafting_speed" }, op = "mul", k = 0.08, area = "mul" },
+      { path = { "energy_usage" }, op = "mul", k = 0.06, area = "mul" },
+      { path = { "energy_source", "emissions_per_minute" }, op = "mul", k = 0, area = "mul", hidden = true },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 3 } },
-    base_growth = 0.15, epoch_value = 7,
+    -- Lot V3-T4 : 7 → 6, même raison que la foreuse (règle de place au niveau 24).
+    base_growth = 0.15, epoch_value = 6,
   },
 }
 
@@ -423,6 +445,68 @@ function L.range_bonus(family, n)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- LA PRODUCTION SUIT LA SURFACE (lot V3-T4). Q-T2-2 (OBJECTIFS §4), réponse du Directeur Créatif (22/10, 21 h 12) :
+-- « QT22 ah ouais non du coup, l'idée est vraiment d'avoir un idle massif en fait, des coûts qui augmentent
+-- évidemment, mais ça typiquement c'est pas possible donc A ». A = « on accélère les grandes machines pour que la
+-- grande vaille au moins les petites qu'on pourrait poser à sa place ; améliorer reste toujours rentable ».
+-- Règle : un bâtiment de niveau n qui occupe R(n) = (côté(n) / côté(1))² fois la surface du niveau 1 VAUT R(n)
+-- bâtiments de son niveau posés côte à côte, pour tout ce qui entre et sort par seconde :
+--   statistique(n) = v1 × m(n) × R(n)     (m(n) : multiplicateur du niveau, 1 + k·(n − 1), inchangé)
+--   - production : vitesse de fabrication (four, assembleur), vitesse de minage (foreuse), CADENCE des tourelles
+--     (délai entre deux tirs ÷ R(n)) ;
+--   - ce qui l'accompagne, pour qu'aucune entrée ne devienne gratuite : énergie consommée, pollution
+--     (emissions_per_minute, donnée « à pleine consommation »), débit d'entrée électrique de la tourelle laser ;
+--   - inchangés : PV, portée (déjà complétée par L.range_bonus), dégâts par tir, énergie par tir, rotation,
+--     emplacements de modules (un module agit en POURCENTAGE de la machine entière : 2 modules sur une machine
+--     6×6 valent 2 modules sur chacune des 4 machines 3×3).
+-- Conséquence : production par tuile = v1 × m(n) / côté(1)², strictement croissante d'un niveau au suivant et
+-- jamais sous celle du niveau 1 (testé pour chaque famille et chaque niveau par tests/levels_test.lua) ; au
+-- niveau 30, × 3,32 par tuile (× 3,9 pour la foreuse) et × 29,9 par four, × 13,3 par machine d'assemblage,
+-- × 15,6 par foreuse, × 9 de cadence par tourelle (BALANCE_SHEET §12). Le mur (1×1 à tous les niveaux) et le
+-- centre (stockage, PV) ne sont pas concernés : R(n) = 1 pour eux, ou aucune statistique « area ».
+-- Pourquoi la cadence et non les dégâts des tourelles : des dégâts × 9 par tir tueraient un petit ennemi avec un
+-- seul projectile (gaspillage) là où 9 tourelles en tireraient 9 ; la cadence garde dégâts par tir, munitions par
+-- dégât et énergie par tir de la petite : la grande vaut EXACTEMENT 9 petites, contre tout ennemi.
+---------------------------------------------------------------------------------------------------
+
+--- Rapport des surfaces du niveau n au niveau 1 : (côté(n) / côté(1))², ≥ 1 (entiers au carré : exact).
+function L.area_ratio(family, n)
+  local s1, s = L.footprint(family, 1), L.footprint(family, n)
+  return (s * s) / (s1 * s1)
+end
+
+--- Valeur d'une statistique au niveau n à partir de la valeur du niveau 1, rapport des surfaces compris
+--- (stat.area : « mul » ou « div » ; sinon L.apply_stat seul). C'est la valeur du PROTOTYPE (étape data).
+function L.stat_value(family, stat, v1, n)
+  local v = L.apply_stat(stat, v1, n)
+  if stat.area == "mul" then return v * L.area_ratio(family, n) end
+  if stat.area == "div" then return v / L.area_ratio(family, n) end
+  return v
+end
+
+--- Gain de production de l'usine pendant l'époque e (modèle de durée, lot V3-T4) : le débit X0 suppose les
+--- vitesses d'AVANT la règle de surface ; avec elle, la même base de référence (même nombre de bâtiments, ici
+--- tous montés au niveau 2e de l'époque) produit R fois plus, R étant le PLUS PETIT rapport des surfaces des
+--- familles de production (production = true) : la foreuse et l'assembleur, qui fixent le débit de matière
+--- (le four, qui grandit plus vite, suit). 1 aux époques 1 à 3, 16/9 aux 4 à 6, 25/9 aux 7 à 9, 4 aux 10 à 15.
+--- Hypothèse ❔ à valider en partie réelle (le joueur peut aussi garder le gain en PLACE au lieu de débit).
+function L.production_gain(e)
+  return L.level_gain(2 * e)
+end
+
+--- Gain de production au NIVEAU n : plus petit rapport des surfaces des familles de production au niveau n.
+function L.level_gain(n)
+  local g
+  for _, f in ipairs(L.families) do
+    if f.production then
+      local r = L.area_ratio(f, math.min(f.max, n))
+      if not g or r < g then g = r end
+    end
+  end
+  return g or 1
+end
+
+---------------------------------------------------------------------------------------------------
 -- Époques et niveaux
 ---------------------------------------------------------------------------------------------------
 --- Niveau maximal d'une famille.
@@ -509,6 +593,9 @@ function L.epoch_value(family, n)
   else
     v = family.epoch_value * ep.value_mult
     if L.step_of(family, n) == 2 then v = v * L.SECOND_LEVEL_FACTOR end
+    -- Lot V3-T4 (« des coûts qui augmentent évidemment ») : une famille de production paie aussi le gain de
+    -- production du niveau (L.level_gain : 1, 16/9, 25/9 puis 4), ce qu'elle rapporte en plus à l'usine.
+    if family.production then v = v * L.level_gain(n) end
   end
   return v * L.TEAM_FACTOR
 end
@@ -776,11 +863,16 @@ L.target = {
   -- durée, X.budget) ; heure d'ouverture de la Porte (X.player_gate_hour).
   hours = target_hours, reach = target_reach, rate = target_rate, budget_mu = target_budget,
   gate_hour = X.player_gate_hour(),
+  -- Lot V3-T4 : gain de production de la règle de surface, par époque (L.production_gain, calculé au chargement
+  -- sur L.footprints : des rapports d'entiers, même valeur sur tous les clients). Le modèle de durée et
+  -- `--calibrate` multiplient débit ET budget X0 par ce gain : le joueur produit plus, les coûts suivent.
+  gains = {},
   -- Accès par fonction (interface des tableaux et des tests), sur ces copies.
   epoch_hours = function(e) return L.target.hours[e] end,
   reach_hour = function(e) return L.target.reach[e] end,
   production = function(e) return L.target.rate[e] end,
   budget = function(e) return L.target.budget_mu[e] end,
+  gain = function(e) return L.target.gains[e] end,
   -- Part du budget visée par le passage du centre (QX10 ; X.CODEX_LOT_SHARE).
   cc_share = X.CODEX_LOT_SHARE,
   -- Part de la production consacrée aux niveaux (centre compris ; X0 : la recherche en prend 35 %).
@@ -798,6 +890,7 @@ L.target = {
     assembler = function(e) return e >= 3 and 6 + 10 * (e - 3) or 0 end,
   },
 }
+for e = 1, L.EPOCHS do L.target.gains[e] = L.production_gain(e) end
 
 L.rebuild()
 

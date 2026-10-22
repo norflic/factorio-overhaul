@@ -45,15 +45,17 @@ local VANILLA = {
 local GUN_COOLDOWN, LASER_COOLDOWN = 6, 40
 
 local stat_at
---- DPS relatif à la tourelle vanilla de même famille : dégâts × cadence (la cadence des niveaux ne change pas).
+--- DPS relatif à la tourelle vanilla de même famille : dégâts × cadence. Lot V3-T4 : la cadence suit la surface
+--- (délai entre deux tirs ÷ L.area_ratio), donc DPS = dégâts relatifs × rapport des surfaces.
 local function dps_at(family, n)
-  return stat_at(family, "damage_modifier", n) / VANILLA[family.key].damage_modifier
+  return stat_at(family, "damage_modifier", n) / VANILLA[family.key].damage_modifier * L.area_ratio(family, n)
 end
 
+--- Valeur du PROTOTYPE (lot V3-T4 : L.stat_value, rapport des surfaces compris pour les statistiques « area »).
 function stat_at(family, key, n)
   if key == "dps" then return dps_at(family, n) end
   for _, st in ipairs(family.stats) do
-    if st.path[#st.path] == key then return L.apply_stat(st, VANILLA[family.key][key], n) end
+    if st.path[#st.path] == key then return L.stat_value(family, st, VANILLA[family.key][key], n) end
   end
   if family.resist_step and family.resist_step[key] then
     return VANILLA[family.key][key] + family.resist_step[key] * (n - 1)
@@ -107,23 +109,25 @@ local function cc_spend(e)
 end
 
 --- prod_k : facteur sur la production supposée (sensibilité). La production de la force est celle du
---- joueur × L.TEAM_FACTOR (équipe de PNJ, lot IA1).
-local function model(prod_k)
+--- joueur × L.TEAM_FACTOR (équipe de PNJ, lot IA1). Lot V3-T4 : × L.target.gain(e) (règle de surface : la même
+--- base produit plus), débit ET budget ; gain_off = true rend le modèle d'avant (gain 1, sensibilité).
+local function model(prod_k, gain_off)
   prod_k = prod_k or 1
   local T = L.target
   local rows, cumul, implied_cumul = {}, 0, 0
   for e = 1, L.EPOCHS do
     local D = T.epoch_hours(e)
     cumul = cumul + D
-    local P = T.production(e) * prod_k * L.TEAM_FACTOR
+    local G = gain_off and 1 or T.gain(e)
+    local P = T.production(e) * prod_k * L.TEAM_FACTOR * G
     local levels_budget = T.spend_share * P * D * 3600
     local cc_value = cc_spend(e)
     local spend = buildings_spend(e) + cc_value
     local implied = spend / (T.spend_share * P * 3600)
     implied_cumul = implied_cumul + implied
-    rows[e] = { e = e, hours = D, cumul = cumul, production = P, budget = T.budget(e) * L.TEAM_FACTOR,
+    rows[e] = { e = e, hours = D, cumul = cumul, production = P, gain = G, budget = T.budget(e) * L.TEAM_FACTOR * G,
                 levels_budget = levels_budget, spend = spend, ratio = spend / levels_budget, cc_value = cc_value,
-                cc_share = cc_value / (T.budget(e) * prod_k * L.TEAM_FACTOR), implied = implied,
+                cc_share = cc_value / (T.budget(e) * prod_k * L.TEAM_FACTOR * G), implied = implied,
                 implied_cumul = implied_cumul }
   end
   return rows
@@ -140,7 +144,8 @@ local function rush_hours(keys, share)
       local f = L.by_key[key]
       for _, n in ipairs(epoch_levels(f, e)) do spend = spend + L.cost_value(L.cost(f, n)) end
     end
-    h = h + spend / (share * L.target.production(e) * 3600)
+    -- Lot V3-T4 : débit X0 × gain de la règle de surface (comme le modèle).
+    h = h + spend / (share * L.target.production(e) * L.target.gain(e) * 3600)
   end
   return h
 end
@@ -199,8 +204,9 @@ end
 local function calibrate()
   local T = L.target
   local C = L.by_key.command
+  -- Lot V3-T4 : débit et budget X0 × gain de la règle de surface (L.target.gain).
   local function levels_target(e)
-    return T.spend_share * T.production(e) * L.TEAM_FACTOR * T.epoch_hours(e) * 3600
+    return T.spend_share * T.production(e) * L.TEAM_FACTOR * T.gain(e) * T.epoch_hours(e) * 3600
   end
   -- 0. État de référence : panier V2 du centre, aucune valeur d'époque (époque 1 : 0, jamais calibrée).
   for i, b in ipairs(REF_CC_BASKET) do C.base_cost[i] = { b[1], b[2] } end
@@ -223,7 +229,7 @@ local function calibrate()
   local basket, cap = {}, {}
   for n = 3, L.CC_MAX do
     basket[n] = L.cost_value(L.cost(C, n))
-    local v = max_ok(0, T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, function(x)
+    local v = max_ok(0, T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR * T.gain(n - 1), function(x)
       L.epochs[n - 1].cc_value = x
       L.rebuild()
       return cc_fits(n)
@@ -238,7 +244,7 @@ local function calibrate()
   eff[L.CC_MAX] = cap[L.CC_MAX]
   for n = L.CC_MAX - 1, 3, -1 do eff[n] = math.min(cap[n], 0.97 * eff[n + 1]) end
   for n = 3, L.CC_MAX do
-    local total = math.min(T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, eff[n])
+    local total = math.min(T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR * T.gain(n - 1), eff[n])
     L.epochs[n - 1].cc_value = sig_floor(math.max(0, total - basket[n]), 3)
   end
   L.rebuild()
@@ -308,7 +314,7 @@ local function print_calibration(cap, eff)
   print("-- bornes de place du centre (valeur totale du passage, u) :")
   for n = 3, L.CC_MAX do
     print(string.format("vers %2d : visée %.0f, borne seule %.0f, borne croissante %.0f", n,
-      T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR, cap[n], eff[n]))
+      T.cc_share * T.budget(n - 1) * L.TEAM_FACTOR * T.gain(n - 1), cap[n], eff[n]))
   end
   print("-- contrôle :")
   for _, r in ipairs(model()) do
@@ -433,11 +439,12 @@ local function print_tables()
   p("")
   p("#### Modèle de durée de jeu (calendrier du scénario X0 ; hypothèses de `L.target`, à valider en partie réelle)")
   p("")
-  p("| Époque | Durée X0 | Atteinte X0 | Débit moyen X0 (u/s) | Budget de l'époque X0 (u) | Budget des niveaux (30 %) | Dépense de la base de référence (u) | Dépense / budget des niveaux | Passage du centre suivant (u) | Part du budget de l'époque | Durée impliquée | Cumul impliqué |")
-  p("|---|---|---|---|---|---|---|---|---|---|---|---|")
+  -- Lot V3-T4 : débit et budget = X0 × gain de production de la règle de surface (colonne « Gain »).
+  p("| Époque | Durée X0 | Atteinte X0 | Gain (surface) | Débit du modèle (X0 × gain, u/s) | Budget de l'époque (X0 × gain, u) | Budget des niveaux (30 %) | Dépense de la base de référence (u) | Dépense / budget des niveaux | Passage du centre suivant (u) | Part du budget de l'époque | Durée impliquée | Cumul impliqué |")
+  p("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
   for _, r in ipairs(model()) do
-    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
-      r.e == 1 and "0 h" or duration(L.target.reach_hour(r.e) * 3600), thousands(r.production), thousands(r.budget), thousands(r.levels_budget),
+    p(string.format("| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |", r.e, duration(r.hours * 3600),
+      r.e == 1 and "0 h" or duration(L.target.reach_hour(r.e) * 3600), num(r.gain, 2), thousands(r.production), thousands(r.budget), thousands(r.levels_budget),
       thousands(r.spend), num(r.ratio), r.cc_value > 0 and thousands(r.cc_value) or "—",
       r.cc_value > 0 and (num(100 * r.cc_share, 2) .. " %") or "—", duration(r.implied * 3600), duration(r.implied_cumul * 3600)))
   end
@@ -449,6 +456,8 @@ local function print_tables()
   for _, k in ipairs({ 0.7, 1, 1.3 }) do
     p(string.format("| × %s | %s |", num(k), duration(model(k)[L.EPOCHS].implied_cumul * 3600)))
   end
+  -- Lot V3-T4 : le joueur garde le gain de la règle de surface en PLACE (même débit X0, machines moins nombreuses).
+  p(string.format("| × 1, sans le gain de surface (débit X0 seul) | %s |", duration(model(1, true)[L.EPOCHS].implied_cumul * 3600)))
   local cc_v = 0
   for n = 2, L.CC_MAX do cc_v = cc_v + L.cost_value(L.cost(L.by_key.command, n)) end
   -- Q16 : le chemin le plus court vers le centre 15 monte aussi UN bâtiment de chaque famille possédée jusqu'au
@@ -496,6 +505,33 @@ local function print_tables()
         num(stat_at(f, ms[1], n), 3))
       if os_ then row = row .. " | " .. num(stat_at(f, os_[1], n), 3) end
       p(row .. " | " .. cost .. " | " .. value .. " | " .. slots .. " |")
+    end
+  end
+  -- Lot V3-T4 : production par tuile, avant (L.apply_stat seul, jeu 0.4.3) et après la règle de surface (L.stat_value).
+  local PROD = {
+    { "assembler", "crafting_speed", "vitesse de fabrication" }, { "furnace", "crafting_speed", "vitesse de fabrication" },
+    { "drill", "mining_speed", "vitesse de minage" }, { "gun", "dps", "DPS relatif (dégâts × cadence)" },
+    { "laser", "dps", "DPS relatif (dégâts × cadence)" },
+  }
+  for _, row in ipairs(PROD) do
+    local f, key = L.by_key[row[1]], row[2]
+    local function before(n)
+      if key == "dps" then return stat_at(f, "damage_modifier", n) / VANILLA[f.key].damage_modifier end
+      for _, st in ipairs(f.stats) do
+        if st.path[#st.path] == key then return L.apply_stat(st, VANILLA[f.key][key], n) end
+      end
+    end
+    p("")
+    p("#### Production par tuile (lot V3-T4) : " .. FAMILY_NAMES[f.key] .. ", " .. row[3])
+    p("")
+    p("| Niveau | Emprise | Rapport des surfaces R | Avant (0.4.3) | Par tuile avant | Après (R × avant) | Par tuile après | Par tuile, rapport au niveau 1 |")
+    p("|---|---|---|---|---|---|---|---|")
+    local t1 = stat_at(f, key, 1) / L.footprint(f, 1) ^ 2
+    for n = 1, f.max do
+      local side = L.footprint(f, n)
+      local b, a = before(n), stat_at(f, key, n)
+      p(string.format("| %d | %d×%d | %s | %s | %s | %s | %s | × %s |", n, side, side, num(L.area_ratio(f, n), 3), num(b, 3),
+        num(b / side ^ 2, 3), num(a, 3), num(a / side ^ 2, 3), num(a / side ^ 2 / t1, 3)))
     end
   end
 end
@@ -621,6 +657,7 @@ end
 section("Courbe de coûts par époque")
 ---------------------------------------------------------------------------------------------------
 local max_qty, max_items = 0, 0
+MAX_RAW_QTY = 0 -- globale : le bloc principal est à la limite de 200 locales (Lua 5.2)
 for _, f in ipairs(L.families) do
   local prev_value = -1
   local strict_value, positive = true, true
@@ -629,7 +666,11 @@ for _, f in ipairs(L.families) do
     max_items = math.max(max_items, #cost)
     for _, c in ipairs(cost) do
       if not (c[2] >= 1 and c[2] == math.floor(c[2])) then positive = false end
-      max_qty = math.max(max_qty, c[2])
+      -- Lot V3-T4 : la production de l'époque qui paie est multipliée par son gain (règle de surface, × 4 au plus) et
+      -- les coûts suivent : la borne de 2 000 objets s'applique à la quantité RAMENÉE à ce gain (la place reste la
+      -- vraie contrainte, section suivante).
+      max_qty = math.max(max_qty, c[2] / L.production_gain(math.max(1, L.pay_epoch(f, n))))
+      MAX_RAW_QTY = math.max(MAX_RAW_QTY, c[2])
     end
     local v = L.cost_value(cost)
     if not (v > prev_value) then strict_value = false; print("    " .. f.key .. " N" .. n .. " : valeur " .. v .. " <= " .. prev_value) end
@@ -670,7 +711,7 @@ for _, f in ipairs(L.families) do
 end
 print("  Quantités d'une même monnaie en baisse d'un niveau au suivant : " .. drops .. " cas (" .. table.concat(drop_ex, " ; ") .. "…)")
 -- Borne sur les OBJETS (la vraie contrainte est la PLACE, section suivante).
-check(max_qty <= 2000, "pas d'explosion : au plus 2 000 objets d'une sorte par amélioration (" .. max_qty .. ")")
+check(max_qty <= 2000, string.format("pas d'explosion : au plus 2 000 objets d'une sorte par amélioration, × le gain de production de l'époque qui paie (lot V3-T4) (%.0f ramenés ; %d au plus en tout)", max_qty, MAX_RAW_QTY))
 check(max_items <= 6, "au plus 6 sortes d'objets par amélioration (" .. max_items .. ")")
 -- Croissance par époque, pas par exposant : le panier de base est linéaire (× 5,2 au niveau 30 au plus).
 for _, f in ipairs(L.families) do
@@ -782,9 +823,13 @@ for _, f in ipairs(L.families) do
       if not (stat_at(f, key, n) > stat_at(f, key, n - 1)) then growing = false end
     end
     check(growing, f.key .. " : " .. key .. " strictement croissant de 1 à " .. f.max)
-    -- Pas d'explosion : au plus × 16 entre le niveau 1 et le dernier (PV des murs : × 15,5).
+    -- Pas d'explosion : au plus × 16 entre le niveau 1 et le dernier (PV des murs : × 15,5). Lot V3-T4 : une
+    -- statistique qui suit la surface est jugée PAR TUILE (÷ L.area_ratio) : le four 30 vaut 9 fours 2×2.
     local r = stat_at(f, key, f.max) / VANILLA[f.key][key]
-    check(r <= 16, f.key .. " : " .. key .. " × " .. string.format("%.2f", r) .. " au niveau " .. f.max .. " (≤ 16)")
+    local area_st
+    for _, st in ipairs(f.stats) do if st.path[#st.path] == key and st.area == "mul" then area_st = st end end
+    if area_st then r = r / L.area_ratio(f, f.max) end
+    check(r <= 16, f.key .. " : " .. key .. " × " .. string.format("%.2f", r) .. (area_st and " par tuile" or "") .. " au niveau " .. f.max .. " (≤ 16)")
   end
 end
 -- Niveaux 1 à 10 : mêmes statistiques qu'en 0.3.0 (sauf les PV et résistances des murs, rééquilibrés).
@@ -800,12 +845,17 @@ for _, w in ipairs(A.walls) do if w.name == "fo-armored-wall" then armored = w e
 local gun30, laser30 = stat_at(G, "max_health", 30), stat_at(L.by_key.laser, "max_health", 30)
 check(gun30 >= heavy["gun-turret"].hp and gun30 <= 1.5 * heavy["gun-turret"].hp,
   "mitrailleuse 30 : " .. gun30 .. " PV, entre 1 et 1,5 × la tourelle lourde (" .. heavy["gun-turret"].hp .. ")")
--- DPS (dégâts × cadence) : le dernier niveau rejoint la version lourde sans la dépasser de plus de 10 %.
+-- DPS (dégâts × cadence) : le dernier niveau rejoint la version lourde sans la dépasser de plus de 10 %. Lot
+-- V3-T4 : la cadence suit la surface ; la comparaison (Q14, option A) se fait PAR TUILE (la lourde est un 2×2
+-- comme le niveau 1, arsenal.lua copie la tourelle vanilla) : DPS × 19,08 par tourelle 6×6, soit 0,53 par tuile
+-- contre 0,56 pour la mitrailleuse lourde.
 local LZ = L.by_key.laser
 for _, f in ipairs({ G, LZ }) do
   local d30, dh = dps_at(f, f.max), heavy_dps(f.key)
-  check(d30 <= 1.1 * dh and d30 >= 0.8 * dh,
-    string.format("%s 30 : DPS × %.2f, entre 0,8 et 1,1 × la version lourde (× %.2f)", f.key, d30, dh))
+  local t30, th = d30 / L.footprint(f, f.max) ^ 2, dh / f.size ^ 2
+  check(t30 <= 1.1 * th and t30 >= 0.8 * th,
+    string.format("%s 30 : DPS par tuile %.3f (× %.2f sur %d×%d), entre 0,8 et 1,1 × la version lourde (%.3f : × %.2f sur %d×%d)",
+      f.key, t30, d30, L.footprint(f, f.max), L.footprint(f, f.max), th, dh, f.size, f.size))
 end
 -- Niveaux 1 à 10 inchangés depuis 0.3.0 (+ 8 % de dégâts par niveau), dégressifs ensuite.
 check(math.abs(stat_at(G, "damage_modifier", 10) - 1.72) < 1e-9 and math.abs(stat_at(G, "damage_modifier", 11) - 1.74) < 1e-9,
@@ -826,8 +876,11 @@ check(laser30 <= 2 * heavy["laser-turret"].hp, "tourelle laser 30 : PV ≤ 2 × 
 local wall30 = stat_at(L.by_key.wall, "max_health", 30)
 check(armored and wall30 >= armored.hp and wall30 <= 2 * armored.hp,
   "mur 30 : " .. wall30 .. " PV, entre 1 et 2 × le mur blindé (" .. (armored and armored.hp or "?") .. ")")
-check(stat_at(L.by_key.assembler, "crafting_speed", 30) <= 2 * 1.25,
-  "machine d'assemblage 2 niveau 30 : vitesse ≤ 2 × la machine 3 vanilla (1,25)")
+-- Lot V3-T4 : jugé par tuile (la machine 30 est un 6×6 : vitesse 9,96, soit 0,277 par tuile ; machine 3 vanilla,
+-- 3×3 : 0,139 par tuile).
+check(stat_at(L.by_key.assembler, "crafting_speed", 30) / L.footprint(L.by_key.assembler, 30) ^ 2 <= 2 * 1.25 / 9,
+  string.format("machine d'assemblage 2 niveau 30 : vitesse par tuile ≤ 2 × la machine 3 vanilla (1,25 sur 3×3) (%.2f sur %d×%d)",
+    stat_at(L.by_key.assembler, "crafting_speed", 30), L.footprint(L.by_key.assembler, 30), L.footprint(L.by_key.assembler, 30)))
 
 ---------------------------------------------------------------------------------------------------
 section("Durée de jeu : calendrier du scénario X0, durée impliquée par les coûts (lot V2c)")
@@ -860,10 +913,12 @@ check(math.abs(rows[15].implied_cumul / X.player_gate_hour() - 1) <= 0.02,
 -- (contrôle). Époques 5 à 14 : la règle de place (moitié du coffre du centre payeur, monnaies d'aujourd'hui)
 -- le borne entre 3,4 et 0,11 % : le contrat n'est PAS tenu. Chaque époque sous 5 % est un ÉCART CONNU (non
 -- conforme ; remèdes chiffrés dans BALANCE_SHEET §12, à trancher par le Directeur Créatif).
-for e = 1, 4 do
+-- Lot V3-T4 : le budget est celui de la production AVEC le gain de la règle de surface (× 16/9 dès l'époque 4) ;
+-- la borne de place ne bouge pas, l'époque 4 passe sous 5 % (4,19 %) : NOUVEL écart connu (époques 1 à 3 : contrôle).
+for e = 1, 3 do
   check(rows[e].cc_share >= 0.05, string.format("époque %d : passage du centre = %.1f %% du budget (≥ 5 %%)", e, 100 * rows[e].cc_share))
 end
-for e = 5, L.CC_MAX - 1 do
+for e = 4, L.CC_MAX - 1 do
   known_gap(rows[e].cc_share >= 0.05, string.format("QX10 : époque %d, passage du centre = %.2f %% du budget (contrat : environ 10 %%, seuil 5 %%)",
     e, 100 * rows[e].cc_share))
 end
@@ -892,7 +947,7 @@ for n = L.CC_MAX - 1, 3, -1 do eff_bound[n] = math.min(bounds[n], eff_bound[n + 
 for e = 4, L.CC_MAX - 1 do
   local n = e + 1
   local v = rows[e].cc_value
-  local want = L.target.cc_share * L.target.budget(e)
+  local want = L.target.cc_share * L.target.budget(e) * L.target.gain(e)
   check(v >= 0.8 * math.min(want, eff_bound[n]),
     string.format("calibrage, époque %d : passage du centre %.0f u (%.2f %% du budget), au plus près de min(10 %% = %.0f, borne de place %.0f)",
       e, v, 100 * rows[e].cc_share, want, eff_bound[n]))
@@ -1740,17 +1795,22 @@ local am9 = s.create_entity({ name = L.name(L.by_key.assembler, 8), position = {
 info = Levels.preview(am9, nil)
 check(info and not info.ok and info.reason == "cc-too-low" and info.required_cc == 5, "centre 4 : niveau 9 refusé (centre 5 requis)")
 
--- Centre 13 : 6 foreuses 25 → 26 d'un coup.
+-- Centre 13 : plusieurs foreuses 25 → 26 d'un coup. Lot V3-T4 : la foreuse paie le gain de production (× 4) ;
+-- 6 coûts du niveau 26 ne tiennent plus dans le coffre du centre 13 (240 cases) : autant qu'il en tient (au
+-- plus 6, au moins 2). Bloc « do » : le bloc principal est à la limite de 200 locales.
+do
 local f13, c13 = new_force_with_cc("fo-test-13", 13, 40.5)
 local inv13 = c13.get_inventory(defines.inventory.chest)
 local drills = {}
-for i = 1, 6 do
+local n13 = math.min(6, math.floor(L.chest_slots(13) / L.cost_slots(L.cost(L.by_key.drill, 26))))
+for i = 1, n13 do
   drills[i] = s.create_entity({ name = L.name(L.by_key.drill, 25), position = { x = 10 * i, y = 240 }, force = "fo-test-13" })
 end
-check(stock(inv13, L.by_key.drill, 26, 6), "centre 13 : 6 coûts du niveau 26 rangés dans le coffre")
+check(n13 >= 2 and stock(inv13, L.by_key.drill, 26, n13), "centre 13 : " .. n13 .. " coûts du niveau 26 rangés dans le coffre")
 local up6 = 0
-for i = 1, 6 do if Levels.start(drills[i], nil) then up6 = up6 + 1 end end
-check(up6 == 6 and Levels.busy(f13) == 0, "centre 13 : 6 foreuses niveau 26 d'un coup (" .. up6 .. ")")
+for i = 1, n13 do if Levels.start(drills[i], nil) then up6 = up6 + 1 end end
+check(up6 == n13 and Levels.busy(f13) == 0, "centre 13 : " .. n13 .. " foreuses niveau 26 d'un coup (" .. up6 .. ")")
+end
 
 -- Centre 14 → 15, condition Q16 (niveau visé 28) ; puis niveau 29 → 30 ; plus rien au-delà.
 local f15, c15 = new_force_with_cc("fo-test-15", 14, 80.5)
@@ -3295,6 +3355,189 @@ rawset(player, "force", home)
 local okt, errt = pcall(M.run_ticks, 60)
 check(okt, "jeu continu après les agrandissements (panneau rafraîchi) (" .. tostring(errt) .. ")")
 rendering.draw_rectangle = raw_rect
+end)()
+
+---------------------------------------------------------------------------------------------------
+-- LOT V3-T4 : LA PRODUCTION SUIT LA SURFACE (Q-T2-2 répondue A, 22/10, 21 h 12 : « l'idée est vraiment d'avoir un
+-- idle massif en fait, des coûts qui augmentent évidemment »). Section à part (fusion avec le lot V3-T3, qui
+-- travaille dans ce fichier en parallèle). Règle : statistique(n) = v1 × m(n) × R(n), R(n) = (côté(n)/côté(1))²
+-- (shared/levels/config.lua, L.stat_value). Fonction à part : le bloc principal est à la limite de 200 locales.
+---------------------------------------------------------------------------------------------------
+;(function()
+section("Lot V3-T4 : la production suit la surface")
+-- 1. La formule, telle qu'écrite : R(n) exact, niveau 1 intact, statistiques « area » = apply_stat × R (ou ÷ R).
+local formula_ok, formula_bad = true, {}
+for _, f in ipairs(L.families) do
+  for n = 1, f.max do
+    local side, s1 = L.footprint(f, n), L.footprint(f, 1)
+    if L.area_ratio(f, n) ~= (side * side) / (s1 * s1) then formula_ok = false; formula_bad[#formula_bad + 1] = f.key .. n .. " R" end
+    for _, st in ipairs(f.stats) do
+      local base, v = L.apply_stat(st, 1, n), L.stat_value(f, st, 1, n)
+      local want = st.area == "mul" and base * L.area_ratio(f, n) or (st.area == "div" and base / L.area_ratio(f, n) or base)
+      if math.abs(v - want) > 1e-12 * math.max(1, want) then formula_ok = false; formula_bad[#formula_bad + 1] = f.key .. n .. " " .. st.path[#st.path] end
+      if n == 1 and v ~= base then formula_ok = false; formula_bad[#formula_bad + 1] = f.key .. "1 " .. st.path[#st.path] .. " (niveau 1 retouché)" end
+    end
+  end
+end
+check(formula_ok, "formule : statistique(n) = v1 × m(n) × R(n), R(n) = (côté(n) / côté(1))², niveau 1 intact, sur les 7 familles"
+  .. (#formula_bad > 0 and (" : " .. table.concat(formula_bad, ", ")) or ""))
+-- Statistiques qui suivent la surface, famille par famille (ni plus, ni moins) : production, énergie, pollution,
+-- cadence des tourelles, débit d'entrée du laser. PV, portée, dégâts, énergie par tir, rotation : inchangés.
+local AREA = {
+  gun = { cooldown = "div" }, laser = { cooldown = "div", input_flow_limit = "mul" },
+  drill = { mining_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
+  furnace = { crafting_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
+  assembler = { crafting_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
+}
+for _, f in ipairs(L.families) do
+  local got, want = {}, {}
+  for _, st in ipairs(f.stats) do if st.area then got[#got + 1] = st.path[#st.path] .. "=" .. st.area end end
+  for k, v in pairs(AREA[f.key] or {}) do want[#want + 1] = k .. "=" .. v end
+  table.sort(got); table.sort(want)
+  check(table.concat(got, ",") == table.concat(want, ","), f.key .. " : statistiques qui suivent la surface : " .. (#got > 0 and table.concat(got, ", ") or "aucune"))
+end
+-- 2. Production par tuile : strictement croissante d'un niveau au suivant, jamais sous le niveau 1 (la grande vaut au
+-- moins les petites qu'on poserait à sa place, du niveau précédent comme du niveau 1), et elle MONTE nettement :
+-- + 2 % au moins par niveau pour les machines (« idle massif ») ; tourelles : strictement croissante (dégâts
+-- dégressifs de Q14, + 1 % par niveau au-delà du niveau 10).
+local PROD = { { "assembler", "crafting_speed", 0.02 }, { "furnace", "crafting_speed", 0.02 }, { "drill", "mining_speed", 0.02 },
+  { "gun", "dps", 0 }, { "laser", "dps", 0 } }
+for _, row in ipairs(PROD) do
+  local f, key, step = L.by_key[row[1]], row[2], row[3]
+  local function tile(n) return stat_at(f, key, n) / L.footprint(f, n) ^ 2 end
+  local ok, min_step, worst = true, math.huge, 0
+  for n = 2, f.max do
+    local r = tile(n) / tile(n - 1) - 1
+    if r < min_step then min_step, worst = r, n end
+    if not (r > step) or tile(n) < tile(1) then ok = false end
+  end
+  check(ok, string.format("%s : %s par tuile strictement croissante, + %.1f %% au moins par niveau (niveau %d), jamais sous le niveau 1 ; niveau %d : × %.2f par tuile, × %.2f par bâtiment (%d×%d)",
+    f.key, key, 100 * min_step, worst, f.max, tile(f.max) / tile(1), stat_at(f, key, f.max) / stat_at(f, key, 1), L.footprint(f, f.max), L.footprint(f, f.max)))
+  -- La grande vaut au moins les petites : au changement de taille, le bâtiment n vaut R(n)/R(n-1) bâtiments n-1.
+  local swap_ok = true
+  for n = 2, f.max do
+    if L.footprint(f, n) ~= L.footprint(f, n - 1) and stat_at(f, key, n) < stat_at(f, key, n - 1) * L.area_ratio(f, n) / L.area_ratio(f, n - 1) then swap_ok = false end
+  end
+  check(swap_ok, f.key .. " : à chaque agrandissement, le bâtiment vaut au moins les bâtiments du niveau précédent posés sur sa surface")
+end
+-- Q-T2-2, chiffres du constat (lot V3-T2) rejoués : assembleur 0,117 (n6, 3×3) → 0,277 (n30, 6×6) ; four 0,700 → 1,66 ;
+-- foreuse 0,083 → 0,217 ; mitrailleuse : sur la surface d'une 6×6 de niveau 30, neuf 2×2 de niveau 6 font 12,6, elle 19,08.
+local A30, F30, D30 = L.by_key.assembler, L.by_key.furnace, L.by_key.drill
+check(math.abs(stat_at(A30, "crafting_speed", 30) - 9.96) < 1e-9 and math.abs(stat_at(F30, "crafting_speed", 30) - 59.76) < 1e-9
+  and math.abs(stat_at(D30, "mining_speed", 30) - 7.8) < 1e-9 and math.abs(dps_at(L.by_key.gun, 30) - 19.08) < 1e-9
+  and dps_at(L.by_key.gun, 30) > 9 * dps_at(L.by_key.gun, 6),
+  "niveau 30 : assembleur 9,96, four 59,76, foreuse 7,8 minerais/s ; mitrailleuse 6×6 DPS × 19,08 > 9 mitrailleuses 2×2 de niveau 6 (12,6)")
+-- 3. Ce qui accompagne la production : énergie et pollution PAR OBJET inchangées par la règle (celles de la courbe
+-- d'avant : la surface s'annule) ; laser : débit d'entrée = 8 fois la consommation moyenne en tir continu à tous
+-- les niveaux (vanilla : 9 600 kW pour 800 kJ × 1,5 tir/s), tampon ≥ un tir ; mitrailleuse 6×6 : moins d'un tick
+-- entre deux tirs (plusieurs tirs par tick, doc 1.1.91 de BaseAttackParameters.cooldown ; mesuré en moteur réel
+-- par le greffon levels_production).
+local per_item_ok = true
+for _, key in ipairs({ "drill", "furnace", "assembler" }) do
+  local f = L.by_key[key]
+  local sp, en, em
+  for _, st in ipairs(f.stats) do
+    local k = st.path[#st.path]
+    if k == "mining_speed" or k == "crafting_speed" then sp = st elseif k == "energy_usage" then en = st elseif k == "emissions_per_minute" then em = st end
+  end
+  for n = 1, f.max do
+    local new_e = L.stat_value(f, en, 1, n) / L.stat_value(f, sp, 1, n)
+    local old_e = L.apply_stat(en, 1, n) / L.apply_stat(sp, 1, n)
+    local new_p = L.stat_value(f, em, 1, n) / L.stat_value(f, sp, 1, n)
+    local old_p = L.apply_stat(em, 1, n) / L.apply_stat(sp, 1, n)
+    if math.abs(new_e / old_e - 1) > 1e-12 or math.abs(new_p / old_p - 1) > 1e-12 then per_item_ok = false end
+  end
+end
+check(per_item_ok, "foreuse, four, assembleur : énergie et pollution PAR OBJET identiques à la courbe d'avant, à tous les niveaux (énergie et emissions_per_minute × R)")
+local LZ = L.by_key.laser
+local flow_ok, flow_ratio = true, nil
+local st_by = {}
+for _, st in ipairs(LZ.stats) do st_by[st.path[#st.path]] = st end
+for n = 1, LZ.max do
+  local shot = L.stat_value(LZ, st_by.energy_consumption, 800, n)          -- kJ par tir
+  local per_s = 60 / L.stat_value(LZ, st_by.cooldown, 40, n)               -- tirs par seconde
+  local flow = L.stat_value(LZ, st_by.input_flow_limit, 9600, n)            -- kW
+  local r = flow / (shot * per_s)
+  flow_ratio = flow_ratio or r
+  if math.abs(r - 8) > 1e-9 or L.stat_value(LZ, st_by.buffer_capacity, 801, n) <= shot then flow_ok = false end
+end
+check(flow_ok, string.format("laser : débit d'entrée = 8 × la consommation en tir continu à tous les niveaux (niveau 30 : %.0f kW pour %.0f kJ × %.1f tirs/s), tampon ≥ un tir",
+  L.stat_value(LZ, st_by.input_flow_limit, 9600, 30), L.stat_value(LZ, st_by.energy_consumption, 800, 30), 60 / L.stat_value(LZ, st_by.cooldown, 40, 30)))
+local gcd
+for _, st in ipairs(L.by_key.gun.stats) do if st.path[#st.path] == "cooldown" then gcd = st end end
+check(math.abs(L.stat_value(L.by_key.gun, gcd, 6, 30) - 6 / 9) < 1e-12 and L.stat_value(L.by_key.gun, gcd, 6, 6) == 6,
+  "mitrailleuse : 6 ticks entre deux tirs aux niveaux 1 à 6, 0,67 au 6×6 (90 tirs/s : 1,5 tir par tick)")
+-- Dégâts PAR TIR et munitions par dégât inchangés par la règle (la cadence porte le gain : pas de gaspillage sur les
+-- petits ennemis) ; le DPS d'une tourelle = dégâts × R(n).
+check(math.abs(stat_at(L.by_key.gun, "damage_modifier", 30) - 2.12) < 1e-9 and math.abs(stat_at(LZ, "damage_modifier", 30) - 4.24) < 1e-9,
+  "tourelles : dégâts par tir inchangés par la règle (mitrailleuse 30 : × 2,12 ; laser 30 : 4,24)")
+-- 4. Gain de production du modèle de durée : plus petit R des familles de production au niveau 2e de l'époque.
+local want_gain = { 1, 1, 1, 16 / 9, 16 / 9, 16 / 9, 25 / 9, 25 / 9, 25 / 9, 4, 4, 4, 4, 4, 4 }
+local gain_ok = true
+for e = 1, L.EPOCHS do if math.abs(L.target.gain(e) - want_gain[e]) > 1e-12 then gain_ok = false end end
+check(gain_ok, "gain de production par époque : 1 (époques 1-3), 16/9 (4-6), 25/9 (7-9), 4 (10-15)")
+-- 5. « Des coûts qui augmentent » : la dépense de la base de référence suit la production (budget × gain, ± 5 %),
+-- chaque value_mult des époques 3 à 15 dépasse celui du jeu 0.4.3 (e27bda9), et une famille de production paie le
+-- gain de son niveau.
+local OLD_VM = { 0, 1.43, 1.46, 4.5, 15.5, 29.2, 57.9, 110, 204, 371, 675, 1250, 2270, 4140, 7070 }
+local rows_g, rows_0 = model(), model(1, true)
+local spend_ok, vm_ok, detail = true, true, {}
+for e = 1, L.EPOCHS do
+  local r = rows_g[e].spend / rows_0[e].levels_budget
+  if math.abs(r / L.target.gain(e) - 1) > 0.05 then spend_ok = false end
+  if e >= 3 and not (L.epochs[e].value_mult > OLD_VM[e]) then vm_ok = false end
+  if e == 4 or e == 10 or e == 15 then detail[#detail + 1] = string.format("ép. %d : × %.2f (gain %.2f)", e, r, L.target.gain(e)) end
+end
+check(spend_ok, "dépense de la base de référence = budget X0 des niveaux × gain, à 5 % près par époque (" .. table.concat(detail, " ; ") .. ")")
+check(vm_ok, string.format("value_mult des époques 3 à 15 au-dessus du jeu 0.4.3 (époque 15 : %s contre %s)", tostring(L.epochs[15].value_mult), tostring(OLD_VM[15])))
+local pay_ok = true
+for _, key in ipairs({ "drill", "furnace", "assembler" }) do
+  local f = L.by_key[key]
+  for n = 3, f.max do
+    local base = f.epoch_value * L.epochs[L.pay_epoch(f, n)].value_mult * (L.step_of(f, n) == 2 and L.SECOND_LEVEL_FACTOR or 1)
+    if math.abs(L.epoch_value(f, n) - base * L.level_gain(n)) > 1e-9 * base then pay_ok = false end
+  end
+end
+check(pay_ok and L.level_gain(30) == 4 and L.level_gain(18) == 25 / 9,
+  "foreuse, four, assembleur : valeur d'époque × gain de production du niveau (16/9 aux niveaux 7-12, 25/9 aux 13-18, 4 au-delà)")
+local turret_ok = true
+for n = 3, 30 do
+  local f = L.by_key.gun
+  if math.abs(L.epoch_value(f, n) - f.epoch_value * L.epochs[L.pay_epoch(f, n)].value_mult * (L.step_of(f, n) == 2 and 1.25 or 1)) > 1e-9 then turret_ok = false end
+end
+check(turret_ok, "tourelles et murs : pas de facteur de gain sur leur valeur d'époque (seul value_mult, commun, monte)")
+local hours_off = rows_0[L.EPOCHS].implied_cumul
+print(string.format("  Si le joueur garde le gain en PLACE (débit X0 seul) : Porte ouverte à %.1f h au lieu de %.1f h", hours_off, rows_g[L.EPOCHS].implied_cumul))
+check(hours_off > rows_g[L.EPOCHS].implied_cumul, "sensibilité : sans le gain de production, le calendrier s'allonge (" .. string.format("%.1f h", hours_off) .. ")")
+-- 6. Les factions (guerre, PvP) et la défense de tours ne posent que des bâtiments de NIVEAU 1 : aucun fichier de
+-- leur code ne nomme un niveau (« fo-lvl- ») ni ne lit la config des niveaux ; les noms qu'elles posent sont vanilla.
+local SCAN = {
+  "script/faction/commander.lua", "script/faction/military.lua", "script/faction/outposts.lua", "script/faction/pvp.lua",
+  "script/faction/sites.lua", "script/faction/state.lua", "script/faction/war.lua", "script/td/director.lua",
+  "script/team/board.lua", "script/team/player_team.lua", "script/team/team.lua", "script/team/worker.lua",
+  "shared/team/config.lua", "shared/team/org.lua",
+}
+local scan_bad, scanned = {}, 0
+for _, path in ipairs(SCAN) do
+  local fh = io.open(path, "rb")
+  if not fh then scan_bad[#scan_bad + 1] = path .. " (absent)" else
+    local src = fh:read("*a"); fh:close(); scanned = scanned + 1
+    if src:find("fo-lvl-", 1, true) or src:find("L.PREFIX", 1, true) or src:find("L.name(", 1, true)
+      or src:find("require(\"shared.levels.config\")", 1, true) then
+      scan_bad[#scan_bad + 1] = path
+    end
+  end
+end
+local TC = require("shared.team.config")
+local placed = { "gun-turret", TC.DRILL, TC.SMELTER }
+local lvl_bad = {}
+for _, name in ipairs(placed) do
+  local fam, lv = L.parse(name)
+  if fam and lv ~= 1 then lvl_bad[#lvl_bad + 1] = name end
+end
+check(#scan_bad == 0 and #lvl_bad == 0 and scanned == #SCAN,
+  "factions, équipe et défense de tours : " .. scanned .. " fichiers sans niveau ; elles posent " .. table.concat(placed, ", ") .. " (niveau 1 ou hors familles)"
+  .. (#scan_bad > 0 and (" ; en faute : " .. table.concat(scan_bad, ", ")) or ""))
 end)()
 
 print(string.format("Écarts connus au contrat (non conformes, à trancher par le Directeur Créatif) : %d", #gaps))

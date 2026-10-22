@@ -157,10 +157,15 @@ end
 local function scale_energy(s, f)
   local num, unit = tostring(s):match("^([%d%.]+)(%a+)$")
   if not num then return s end
-  return string.format("%.4g", tonumber(num) * f) .. unit
+  local x = tonumber(num) * f
+  -- Lot V3-T4 : au-delà de 9 999, « %.4g » écrirait « 1.866e+05kW » (débit d'entrée du laser 30 : 186 624 kW),
+  -- notation que le format d'énergie du moteur ne promet pas : entier arrondi. En dessous, inchangé (octet pour octet).
+  if x >= 9999.5 then return string.format("%d", math.floor(x + 0.5)) .. unit end
+  return string.format("%.4g", x) .. unit
 end
 
---- Applique les statistiques de la famille au niveau n.
+--- Applique les statistiques de la famille au niveau n. Lot V3-T4 : L.stat_value (rapport des surfaces compris
+--- pour les statistiques « area » : vitesse, énergie, pollution, cadence des tourelles, débit d'entrée du laser).
 local function apply_stats(p, family, n)
   for _, st in ipairs(family.stats) do
     local parent, key = get_path(p, st.path)
@@ -168,13 +173,13 @@ local function apply_stats(p, family, n)
       local v = parent[key]
       if v == nil then v = st.default end
       if type(v) == "number" then
-        local nv = L.apply_stat(st, v, n)
+        local nv = L.stat_value(family, st, v, n)
         if key == "inventory_size" then nv = math.floor(nv + 0.5) end
         parent[key] = nv
       elseif type(v) == "string" then
         -- Puissance « 90kW » : même formule sur le nombre.
         local num = tonumber(v:match("^([%d%.]+)"))
-        if num then parent[key] = scale_energy(v, L.apply_stat(st, num, n) / num) end
+        if num then parent[key] = scale_energy(v, L.stat_value(family, st, num, n) / num) end
       end
     end
   end

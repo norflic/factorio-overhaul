@@ -842,16 +842,16 @@ local function setup_high_epoch(s, L)
   local st = call("levels_status", hi.name)
   check(cc and st.cc_level == 14, "niveaux (epoque 14) : centre 14 enregistre", "niveau " .. st.cc_level)
   local inv = cc and cc.get_inventory(defines.inventory.chest)
-  local all_in = inv ~= nil
-  if inv then
-    inv.insert({ name = "iron-chest", count = 7 })
-    for _, key in ipairs({ "gun", "laser", "drill", "furnace", "assembler", "gun" }) do
-      all_in = stock(inv, LV.by_key[key], 28, 1) and all_in
-    end
-    all_in = stock(inv, Wl, 28, 3) and all_in
+  -- Lot V3-T4 (la production suit la surface, des coûts qui augmentent) : les 6 coûts du niveau 28 et ceux de 3 murs
+  -- ne tiennent plus ENSEMBLE dans le coffre du centre 14 (557 cases pour 256 ; chacun tient dans la moitié, règle
+  -- de place testée hors jeu) : chaque coût est rangé juste avant SON amélioration, toujours dans le même tick.
+  local all_in, max_used = inv ~= nil, 0
+  local function stock_now(key, times)
+    if not inv then return end
+    all_in = stock(inv, LV.by_key[key], 28, times or 1) and all_in
+    max_used = math.max(max_used, #inv - inv.count_empty_stacks())
   end
-  check(all_in, "niveaux (epoque 14) : couts du niveau 28 (6 batiments et 3 murs) ranges dans le coffre du centre 14",
-    inv and ((#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees") or "centre introuvable")
+  if inv then inv.insert({ name = "iron-chest", count = 7 }) end
   local function put(key, pos, n)
     return s.create_entity({ name = LV.name(LV.by_key[key], n or 27), position = pos, force = hi })
   end
@@ -869,6 +869,7 @@ local function setup_high_epoch(s, L)
   -- 5 améliorations dans le même tick (4 familles et une mitrailleuse de plus) ; le four attend.
   local done, why = 0, {}
   for _, b in ipairs({ { "gun", H.gun }, { "laser", H.la }, { "drill", H.dr }, { "assembler", H.am }, { "gun", H.gun2 } }) do
+    stock_now(b[1])
     local r = call("levels_upgrade", at(s, LV.name(LV.by_key[b[1]], 27), b[2].x, b[2].y))
     if r.ok and r.reason == "done" then done = done + 1 else why[#why + 1] = b[1] .. "=" .. tostring(r.reason) end
   end
@@ -878,6 +879,7 @@ local function setup_high_epoch(s, L)
   check(not r.ok and r.reason == "cc-too-low", "niveaux (epoque 14) : niveau 29 refuse avec un centre 14 (plafond 28)", tostring(r.reason))
   -- Murs : rangée de 3 au niveau 27.
   for i = 0, 2 do s.create_entity({ name = LV.name(Wl, 27), position = { 467.5 + i, y + 0.5 }, force = hi }) end
+  stock_now("wall", 3)
   local nw = call("levels_row", at(s, LV.name(Wl, 27), 468.5, y + 0.5))
   local walls = 0
   for i = 0, 2 do if at(s, LV.name(Wl, 28), 467.5 + i, y + 0.5) then walls = walls + 1 end end
@@ -897,6 +899,9 @@ local function setup_high_epoch(s, L)
     inv and ((#inv - inv.count_empty_stacks()) .. " / " .. #inv .. " cases occupees") or "centre introuvable")
   r = cc and call("levels_upgrade", cc) or { reason = "centre introuvable" }
   check(not r.ok and r.reason == "cc-families", "niveaux (epoque 14, Q16) : centre 14 -> 15 refuse, four au niveau 27", tostring(r.reason))
+  stock_now("furnace")
+  check(all_in, "niveaux (epoque 14) : chaque cout du niveau 28 (6 batiments et 3 murs) range dans le coffre du centre 14 juste avant son amelioration",
+    inv and (max_used .. " / " .. #inv .. " cases occupees au plus") or "centre introuvable")
   r = call("levels_upgrade", fu)
   local fu28 = at(s, LV.name(LV.by_key.furnace, 28), H.fu.x, H.fu.y)
   local ore = fu28 and fu28.get_item_count("iron-ore") or 0

@@ -169,7 +169,11 @@ function M.setup(ctx)
   local xf = x0 + 10.5
   local f7 = put(s, f, FU, 7, xf, yc + 0.5)
   if f7 then f7.get_inventory(defines.inventory.fuel).insert({ name = "coal", count = 20 }) end
-  st.f7, st.f7_ins, st.f7_chest = f7, ins(s, f, xf, yc - 1.5, defines.direction.north), chest(s, f, xf, yc - 2.5)
+  -- Lot V3-T4 : le four 7 (3×3) fond désormais 2,08 plaques/s (la production suit la surface) ; un bras simple
+  -- (0,83 objet/s) le laissait vide les deux tiers du temps, et il n'était plus en pleine fusion au tick ACT (constaté
+  -- en moteur réel, 22/10) : bras rapide (2,31 objets/s).
+  st.f7, st.f7_ins, st.f7_chest = f7, s.create_entity({ name = "fast-inserter", position = { x = xf, y = yc - 1.5 },
+    direction = defines.direction.north, force = f, raise_built = true }), chest(s, f, xf, yc - 2.5)
   st.f7_chest.insert({ name = "iron-ore", count = 200 })
   -- Four 6 (2×2) : 6 → 7 par script au tick ACT, puis 7 → 8 par le moteur au tick ACT + 1.
   local xg = x0 + 24

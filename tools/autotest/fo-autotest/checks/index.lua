@@ -5,4 +5,5 @@ return {
   "levels_taille", -- lot V3-T : emprise croissante (agrandissement sur place, refus et contour)
   "levels_machines", -- lot V3-T2 : emprise croissante de toutes les familles (machines, laser, centre)
   "levels_points", -- lot V3-T2 (corrections) : points de jeu servis, fabrication à travers le remplacement rapide
+  "levels_production", -- lot V3-T4 : la production suit la surface, mesurée (fours, assembleurs, foreuses, tourelles)
 }
