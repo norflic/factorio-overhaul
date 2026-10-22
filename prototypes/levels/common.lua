@@ -165,7 +165,8 @@ local function scale_energy(s, f)
 end
 
 --- Applique les statistiques de la famille au niveau n. Lot V3-T4 : L.stat_value (rapport des surfaces compris
---- pour les statistiques « area » : vitesse, énergie, pollution, cadence des tourelles, débit d'entrée du laser).
+--- pour les statistiques « area » : vitesse de fabrication et de minage, énergie, pollution, dégâts par tir et
+--- cartouches par tir des tourelles, énergie par tir, tampon et débit d'entrée du laser ; jamais la cadence).
 local function apply_stats(p, family, n)
   for _, st in ipairs(family.stats) do
     local parent, key = get_path(p, st.path)

@@ -3,8 +3,11 @@
   que dans le banc content : fours, assembleurs, foreuses aux niveaux 1, 6, 7, 30 ; mitrailleuses et lasers 1 et 30),
   plus la POLLUTION par objet, mesurée par les statistiques de pollution du jeu (dans le banc content, d'autres
   greffons font tourner des machines de même nom : la mesure n'y est pas propre). Pollution de la carte activée.
-  Commande : & "<racine>\fo-autotest.bat" nopause 2800 t4-production "<source>" (depuis PowerShell).
-  Attendu : « [FO-T4-PRODUCTION] BILAN : 13 OK, 0 ECHEC(S) ». Format : tools/autotest/README.md §4.
+  Correction du lot (E58) : seconde fenêtre de 40 s (ticks 2 760 à 5 160), après la mesure de pollution : assembleur 30
+  et foreuses 30 avec modules de vitesse 10 (plafond d'une fabrication par tick, coffre, tapis express), six tourelles
+  contre un blindé (formule de résistance du moteur). Zone supplémentaire : (588, 352) à (868, 472).
+  Commande : & "<racine>\fo-autotest.bat" nopause 5300 t4-production "<source>" (depuis PowerShell).
+  Attendu : « [FO-T4-PRODUCTION] BILAN : 20 OK, 0 ECHEC(S) ». Format : tools/autotest/README.md §4.
 ]]
 
 local Prod = require("checks/levels_production").module
@@ -20,7 +23,7 @@ end
 return {
   description = "V3-T4 : la production suit la surface, mesuree en moteur reel (greffon levels_production seul, pollution comprise)",
   base = nil,
-  check_tick = Prod.T1 + 60,
+  check_tick = Prod.X1 + 60,
 
   init = function(ctx)
     solo(ctx)

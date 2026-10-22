@@ -95,17 +95,17 @@ L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
   { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.5, cc_value = 407 },
   { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 2.5, cc_value = 1410 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 13.8, cc_value = 6000 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 26.4, cc_value = 6060 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 44.5, cc_value = 6160 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 105, cc_value = 6290 },
-  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 185, cc_value = 6380 },
-  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 330, cc_value = 14100 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 687, cc_value = 46000 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 1210, cc_value = 47300 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 2190, cc_value = 48700 },
-  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 3960, cc_value = 80100 },
-  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 7220, cc_value = 190000 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 8.44, cc_value = 6000 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 26.7, cc_value = 6060 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 45.7, cc_value = 6160 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 84.4, cc_value = 6290 },
+  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 188, cc_value = 6380 },
+  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 331, cc_value = 14100 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 562, cc_value = 46000 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 1220, cc_value = 47300 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 2200, cc_value = 48700 },
+  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 3970, cc_value = 80100 },
+  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 7240, cc_value = 190000 },
   { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 12200, cc_value = 0 },
 }
 
@@ -221,16 +221,26 @@ L.families = {
   {
     -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
     -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Lot V3-T4 : les DÉGÂTS suivent la surface
-    -- (× 19,08 au 6×6 de niveau 30) ; testé : DPS PAR TUILE ≤ 1,1 × la lourde (2×2). Pas la cadence : mesuré en moteur
-    -- réel (RD_LOG E56), une mitrailleuse ne tire pas plus de 30 fois par seconde (délai effectif ≥ 2 ticks) malgré la
-    -- doc 1.1.91 (« If < 1, multiple shots can be performed in one tick ») ; la recherche de cadence (+ 150 % pour les
-    -- balles) aurait été perdue au-delà.
+    -- (× 19,08 au 6×6 de niveau 30). Q14 (« DPS du niveau 30 ≈ tourelle lourde ») n'est donc PLUS tenu, ni par
+    -- tourelle (× 8,5) ni par tuile (la lourde est un 3×3 : × 2,1) : écart connu compté par tests/levels_test.lua, à
+    -- trancher par le Directeur Créatif. Pas la cadence : mesuré en moteur réel (RD_LOG E56), une mitrailleuse ne tire
+    -- pas plus de 30 fois par seconde (délai effectif ≥ 2 ticks) malgré la doc 1.1.91 (« If < 1, multiple shots can be
+    -- performed in one tick ») ; la recherche de cadence (+ 150 % pour les balles) aurait été perdue au-delà.
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
       { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1, area = "mul" },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
+      -- Correction V3-T4 : les munitions suivent la surface comme l'énergie des machines. Un tir de la grande tourelle
+      -- coûte environ R cartouches (BaseAttackParameters.ammo_consumption_modifier, doc 1.1.91 : défaut 1, « greater
+      -- than or equal to 0 ») : les munitions PAR DÉGÂT restent proches de la courbe d'avant (1 / m(n)). Mesuré en
+      -- moteur réel (RD_LOG E58, F107 provisoire) : un tir ne prend QUE sur le chargeur entamé, min(modificateur,
+      -- cartouches restantes) ; avec R = 9 et des chargeurs de 10, un tir sur deux ne prenait qu'une cartouche (5 par
+      -- tir en moyenne, 0,56 de la courbe). magazine = 10 : le modificateur est arrondi à 10 / k (k tirs par chargeur,
+      -- k le plus proche de 10 / R ; L.magazine_quantize) : 2,5 ; 3,33 ; 5 ; 10 cartouches par tir aux tailles 3×3 à
+      -- 6×6, soit 1,11 ; 0,83 ; 0,80 ; 1,11 de la courbe d'avant (tous les chargeurs de balles du jeu : 10, contrôlé).
+      { path = { "attack_parameters", "ammo_consumption_modifier" }, op = "mul", k = 0, default = 1, area = "mul", magazine = 10, hidden = true },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
     base_growth = 0.15, epoch_value = 12,
@@ -456,20 +466,25 @@ end
 --   - production : vitesse de fabrication (four, assembleur), vitesse de minage (foreuse), DÉGÂTS par tir des
 --     tourelles ;
 --   - ce qui l'accompagne, pour qu'aucune entrée ne devienne gratuite : énergie consommée, pollution
---     (emissions_per_minute, donnée « à pleine consommation »), énergie par tir, tampon et débit d'entrée de la
---     tourelle laser ;
+--     (emissions_per_minute, donnée « à pleine consommation »), cartouches par tir de la mitrailleuse
+--     (ammo_consumption_modifier), énergie par tir, tampon et débit d'entrée de la tourelle laser ;
 --   - inchangés : PV, portée (déjà complétée par L.range_bonus), cadence et rotation des tourelles, emplacements de
---     modules (un module agit en POURCENTAGE de la machine entière : 2 modules sur une machine 6×6 valent 2 modules
---     sur chacune des 4 machines 3×3).
+--     modules (un module agit en POURCENTAGE de la machine entière). LIMITE du moteur (RD_LOG F3 : une fabrication
+--     par tick et par machine, 60 par seconde) : avec des modules de vitesse ou des balises, une machine 6×6 peut
+--     buter sur ce plafond quand les petites qu'elle remplace ne l'atteignent pas ; elle vaut alors MOINS qu'elles
+--     (écart connu compté par tests/levels_test.lua, recettes courtes : barils 0,2 s, engrenages 0,5 s).
 -- Conséquence : production par tuile = v1 × m(n) / côté(1)², strictement croissante d'un niveau au suivant et
 -- jamais sous celle du niveau 1 (testé pour chaque famille et chaque niveau par tests/levels_test.lua) ; au
 -- niveau 30, × 3,32 par tuile (× 3,9 pour la foreuse) et × 29,9 par four, × 13,3 par machine d'assemblage,
 -- × 15,6 par foreuse, × 19,08 de dégâts par tourelle (BALANCE_SHEET §12). Le mur (1×1 à tous les niveaux) et le
 -- centre (stockage, PV) ne sont pas concernés : R(n) = 1 pour eux, ou aucune statistique « area ».
 -- Tourelles : la cadence aurait été plus fidèle (des dégâts × 9 par tir gaspillent sur un petit ennemi qu'un tir
--- de base tue déjà, et une munition fait 9 fois plus de dégâts), mais le moteur plafonne la mitrailleuse à 30 tirs
--- par seconde (mesuré, RD_LOG E56 : délai effectif ≥ 2 ticks) et la recherche de cadence (+ 150 % balles, + 220 %
--- laser) aurait été perdue : les dégâts portent la règle. Écart assumé, écrit dans BALANCE_SHEET §12.
+-- de base tue déjà), mais le moteur plafonne la mitrailleuse à 30 tirs par seconde (mesuré, RD_LOG E56 : délai
+-- effectif ≥ 2 ticks) et la recherche de cadence (+ 150 % balles, + 220 % laser) aurait été perdue : les dégâts
+-- portent la règle, et le tir coûte R cartouches (munitions par dégât inchangées). Conséquences NON tranchées
+-- (écarts connus comptés par tests/levels_test.lua, questions au Directeur Créatif) : Q14 dépassé, PV par tuile
+-- sous le niveau 1, et contre une résistance FIXE (blindés), un tir × R la traverse là où les petites tourelles ne
+-- font presque rien.
 ---------------------------------------------------------------------------------------------------
 
 --- Rapport des surfaces du niveau n au niveau 1 : (côté(n) / côté(1))², ≥ 1 (entiers au carré : exact).
@@ -482,19 +497,34 @@ end
 --- (stat.area : « mul » ou « div » ; sinon L.apply_stat seul). C'est la valeur du PROTOTYPE (étape data).
 function L.stat_value(family, stat, v1, n)
   local v = L.apply_stat(stat, v1, n)
-  if stat.area == "mul" then return v * L.area_ratio(family, n) end
-  if stat.area == "div" then return v / L.area_ratio(family, n) end
+  if stat.area == "mul" then v = v * L.area_ratio(family, n)
+  elseif stat.area == "div" then v = v / L.area_ratio(family, n) end
+  if stat.magazine then v = L.magazine_quantize(v, stat.magazine) end
   return v
 end
 
+--- Cartouches par tir arrondies au chargeur (correction V3-T4, RD_LOG F107 provisoire : un tir ne prend que sur le
+--- chargeur entamé). v ≤ 1 : inchangé (niveau 1 intact). Sinon k = entier le plus proche de mag / v (au moins 1) tirs
+--- par chargeur, et mag / k cartouches par tir, majoré de 0,01 % pour que le dernier tir du chargeur prenne le reste.
+--- PRÉCAUTION non prouvée nécessaire : en double précision, 3 × (10 / 3) vide exactement le chargeur ; la marge évite
+--- qu'un arrondi du moteur laisse un reste minuscule et un tir presque gratuit (le mutant sans marge survit hors jeu).
+function L.magazine_quantize(v, mag)
+  if v <= 1 then return v end
+  local k = math.max(1, math.floor(mag / v + 0.5))
+  return mag / k * 1.0001
+end
+
 --- Gain de production de l'usine pendant l'époque e (modèle de durée, lot V3-T4) : le débit X0 suppose les
---- vitesses d'AVANT la règle de surface ; avec elle, la même base de référence (même nombre de bâtiments, ici
---- tous montés au niveau 2e de l'époque) produit R fois plus, R étant le PLUS PETIT rapport des surfaces des
---- familles de production (production = true) : la foreuse et l'assembleur, qui fixent le débit de matière
---- (le four, qui grandit plus vite, suit). 1 aux époques 1 à 3, 16/9 aux 4 à 6, 25/9 aux 7 à 9, 4 aux 10 à 15.
---- Hypothèse ❔ à valider en partie réelle (le joueur peut aussi garder le gain en PLACE au lieu de débit).
+--- vitesses d'AVANT la règle de surface ; avec elle, la même base de référence (même nombre de bâtiments)
+--- produit R fois plus, R étant le PLUS PETIT rapport des surfaces des familles de production (production =
+--- true) : la foreuse et l'assembleur, qui fixent le débit de matière (le four, qui grandit plus vite, suit).
+--- Correction V3-T4 (défaut 5 du correcteur) : MOYENNE du gain d'entrée (niveau 2e − 2, bâtiments de l'époque
+--- précédente) et du gain de sortie (niveau 2e) ; l'agrandissement se paie PENDANT l'époque, le gain n'arrive pas
+--- dès son début. 1 aux époques 1 à 3, 25/18 à la 4, 16/9 aux 5 et 6, 41/18 à la 7, 25/9 aux 8 et 9, 61/18 à
+--- la 10, 4 aux 11 à 15. Hypothèse ❔ NON PROUVÉE (le joueur peut aussi garder le gain en PLACE au lieu de débit ;
+--- la recherche, les jalons et le centre du scénario X0 ne suivent pas ce gain : BALANCE_SHEET §12).
 function L.production_gain(e)
-  return L.level_gain(2 * e)
+  return (L.level_gain(math.max(1, 2 * e - 2)) + L.level_gain(2 * e)) / 2
 end
 
 --- Gain de production au NIVEAU n : plus petit rapport des surfaces des familles de production au niveau n.

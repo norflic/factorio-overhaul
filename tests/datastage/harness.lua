@@ -212,10 +212,17 @@ local function pp(v, ind, seen)
   return "{\n" .. table.concat(parts, ",\n") .. "\n" .. ind .. "}"
 end
 
+--- Lot V3-T4 : plusieurs prototypes séparés par des virgules (« type/nom,type/nom ») en un seul passage de l'étape
+--- data, chacun précédé de « ==== type/nom » ; un seul : sortie inchangée (sans en-tête).
 local function dump(raw, spec)
-  local ptype, pname = spec:match("^(.-)/(.*)$")
-  local proto = raw[ptype] and raw[ptype][pname]
-  print(proto and pp(proto, "", {}) or ("introuvable : " .. spec))
+  local specs = {}
+  for s in spec:gmatch("[^,]+") do specs[#specs + 1] = s end
+  for _, s in ipairs(specs) do
+    local ptype, pname = s:match("^(.-)/(.*)$")
+    local proto = raw[ptype] and raw[ptype][pname]
+    if #specs > 1 then print("==== " .. s) end
+    print(proto and pp(proto, "", {}) or ("introuvable : " .. s))
+  end
   os.exit(0)
 end
 
