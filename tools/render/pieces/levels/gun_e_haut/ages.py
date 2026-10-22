@@ -191,7 +191,7 @@ def ring_gantry(g, x, y0, y1, R, zc):
         for d in A._ring_dirs(4, math.pi / 4, -2):
             g.box(V((x, yy, zc)) + d * (R * 0.55), (0.05, 0.07, R * 0.42), M["steel_dk"], "hard", R=A._Rax(d),
                   what="entretoise")
-        for d in A._ring_dirs(6, 0.0, -0.3):
+        for d in A._ring_dirs(3, 0.5, -0.3):
             g.box(V((x, yy - 0.068, zc)) + d * (R * 0.87), (0.07, 0.004, 0.024), E, "flat", R=A._Rax(d),
                   what="segment_lum")
         g.box((x - R * 0.5, yy + 0.07, zc + R * 0.75), (0.08, 0.03, 0.02), M["trim"], "flat", what="givre")
@@ -218,7 +218,7 @@ def east(g, e, tank_fn):
         for (x, y, rz) in ((2.4, Y(1.0), 0.35), (2.4, Y(-0.55), -0.25)):
             PT.hull(g, x - 0.4, x + 0.4, y - 0.4, y + 0.4, 0.0, 0.3, ins=(0.04, 0.04, 0.04), panel=0.26,
                     mats=[M["steel_dk"], M["olive"]], rivet_step=0.12)
-            hatches(g, (x - 0.3, y - 0.405, 0.15), (x + 0.3, y - 0.405, 0.15), 3, (0, -1, 0), M["ring"],
+            hatches(g, (x - 0.32, y - 0.405, 0.15), (x + 0.32, y - 0.405, 0.15), 6, (0, -1, 0), M["ring"],
                     size=(0.08, 0.06), frame=M["steel_dk"])
             g.cyl((x, y, 0.36), "z", 0.22, 0.12, M["ring"], n=28, what="pivot")
             g.cyl((x, y, 0.55), "z", 0.07, 0.3, M["steel_dk"], n=16, what="mat")
@@ -270,7 +270,7 @@ def west(g, e):
     elif e == 11:
         # TURBINE de titane couchée : entrée d'air en cône au nord, tuyère au sud, aubes, berceaux
         plinth(g, x0, x1, y0, y1, 0.1)
-        r = (x1 - x0) * 0.4
+        r = (x1 - x0) * 0.46
         zc = 0.1 + r + 0.04
         ya, yb = y0 + 0.3, y1 - 0.35
         g.cyl((cx, (ya + yb) / 2, zc), "y", r, yb - ya, M["jacket"], n=8, style="hard", phase=TAU / 16, what="carter")
@@ -370,9 +370,9 @@ def west(g, e):
                     continue
                 g.dome(V((cx - (x1 - x0) * 0.18, yy, zc)) + d * (r + 0.022), d, 0.012, M["rivet"])
         hatches(g, (cx - (x1 - x0) * 0.18 - r * 0.45, y0 + 0.2, zc + r * 0.92),
-                (cx - (x1 - x0) * 0.18 - r * 0.45, y1 - 0.2, zc + r * 0.92), 9, (-0.4, 0, 0.92), M["steel_hi"],
+                (cx - (x1 - x0) * 0.18 - r * 0.45, y1 - 0.2, zc + r * 0.92), 14, (-0.4, 0, 0.92), M["steel_hi"],
                 size=(0.05, 0.06))
-        hatches(g, (x0 + 0.05, y0 + 0.3, 0.16), (x0 + 0.05, y1 - 0.3, 0.16), 8, (0, 0, 1), M["ring"], size=(0.07, 0.07),
+        hatches(g, (x0 + 0.05, y0 + 0.3, 0.16), (x0 + 0.05, y1 - 0.3, 0.16), 14, (0, 0, 1), M["ring"], size=(0.06, 0.06),
                 frame=M["steel_dk"])
         P3.lamp_group(g, (x0 + 0.08, y0 - 0.02, 0.1), (1, 0, 0), (0, -1, 0), E, M, n=3)
         for (bx_, by_) in ((x1 - 0.06, y0 + 0.08), (x1 - 0.06, y1 - 0.08), (x1 - 0.06, cy)):
@@ -499,6 +499,12 @@ def dome_top(g, e, H, top_turret, nac, Pf, Nf, zsurf):
             g.box(C + V((0, 0, rs * 0.2)) + d * (rs * 0.98 + 0.012), (0.07, 0.01, 0.025), E, "flat",
                   R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="tore_seg")
         g.cyl(C + V((0, 0, rs + 0.03)), "z", 0.08, 0.06, M["copper"], n=16, what="bride")
+        for k in range(12):
+            a = TAU * (k + 0.5) / 12
+            d = V((math.cos(a) * 0.94, math.sin(a) * 0.94, 0.34))
+            g.push_frame(C + d * (rs + 0.003), d)
+            g.box((0, 0, 0.006), (0.05, 0.05, 0.014), M["steel_dk"], "hard", what="trappe")
+            g.pop()
         g.cyl(C + V((0, 0, rs + 0.065)), "z", 0.04, 0.006, M["emit2"], n=12, style="flat", what="coeur")
         for k in range(10):
             a = TAU * k / 10
@@ -612,6 +618,8 @@ def solar_array(g, x0, x1, y0, y1, h):
     M = g.M
     E = M["emit"]
     plinth(g, x0, x1, y0, y1, 0.12)
+    hatches(g, (x0 + 0.1, y0 - 0.005, 0.06), (x1 - 0.1, y0 - 0.005, 0.06), 14, (0, -1, 0), M["ring"], size=(0.06, 0.05),
+            frame=M["steel_dk"])
     n = 3
     for i in range(n):
         xa = x0 + 0.05 + (x1 - x0 - 0.1) * i / n
@@ -632,7 +640,7 @@ def nw_iv(g, e):
     """Bloc nord-ouest de l'ère IV (même place que le radiateur de la lignée, posé en biais)."""
     M = g.M
     if e == 10:
-        faired_box(g, -0.55, 0.55, -0.42, 0.42, 0.44, louvers=1, cables=False)
+        faired_box(g, -0.42, 0.42, -0.32, 0.32, 0.4, louvers=1, cables=False)
     elif e == 11:
         fin_exchanger(g, -0.55, 0.55, -0.42, 0.42, 0.62)
     else:

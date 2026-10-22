@@ -551,6 +551,8 @@ def even_piece(g, e, x, yb, sx):
         PT.hull(g, x - 0.2, x + 0.2, yb - 0.2, yb + 0.2, z0, z0 + 0.22, ins=(0.02, 0.02, 0.02), panel=0.22,
                 mats=[M["ring"], M["olive"]], rivet_step=0.11)
         g.cyl((x, yb, z0 + 0.34), "z", 0.045, 0.24, M["steel_dk"], n=12, what="mat")
+        for s_ in (-1, 1):
+            g.cyl((x + s_ * 0.17, yb - 0.17, z0 + 0.25), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
         g.push((x, yb - 0.02, z0 + 0.5), rx=-0.7)
         n = 28
         vs, fs = [], []

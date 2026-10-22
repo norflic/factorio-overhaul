@@ -334,8 +334,6 @@ def _gun12(g, x, y0, z, L, nb, rb, rr):
         g.torus((x, yy, z), "y", ro - 0.07 * k, 0.07 * k, M["ring"], n=48, m=12, what="anneau")
         g.tube_shell((x, yy, z), "y", ro - 0.12 * k, ri, w * 0.95, M["steel_dk"], n=36, what="jonc")
         g.cyl((x, yy, z), "y", ri + 0.01, w * 0.45, M["jacket"], n=36, what="flasque")
-        for d in _ring_dirs(6, 0.3, -2):
-            g.dome(V((x, yy + w * 0.23, z)) + d * (ri * 0.72), V((0, 1, 0)), 0.014, M["rivet"])
         for d in _ring_dirs(4, math.pi / 4, -2):
             R = _Rax(d)
             # entretoise : de l'anneau aux rails (ferme le jour de « lévitation »)
