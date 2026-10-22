@@ -42,7 +42,9 @@ EMIT_K = 0.40        # facteur des forces émissives de glow() (≈ 1 en sortie,
 # e13 74 avec 0,32 (92 ; tore de plasma = 33 % du corps) -> 0,52.
 # e14 56 avec 0,47 (88 ; cellules émissives = 28 % du corps, exclues) -> 1,20.
 # e15 96 à 100 avec 0,80 (108) -> 1,0.
-ALB_GAIN = {2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 7: 1.90, 10: 0.33, 11: 1.55, 13: 0.52, 14: 1.20, 15: 1.00}
+# e1 (pièce du niveau 2) : bois #6B4F35 rendu presque noir à côté du vanilla (gros plan zoom 2) -> 1,5.
+# e15 : niveau 30 à 112 (> 110, borne de la règle 1) avec 1,0 -> 0,95.
+ALB_GAIN = {1: 1.50, 2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 7: 1.90, 10: 0.33, 11: 1.55, 13: 0.52, 14: 1.20, 15: 0.95}
 
 
 def metal(ctx, key, hexc, rough=0.40, metallic=0.55, grain=0.20, gs=55.0, rust=None, ra=0.0, dirt=0.45, k=1.0):
@@ -849,7 +851,10 @@ def e10(ctx, piece):
             a, b = sa * 1.12, sb * 1.12
             ctx.cyl(a, b, 0.0, 0.05, 0.16, black, name="patin")
             ctx.cyl(a, b, 0.05, 0.42, 0.085, black, name="pied_bas")
-            ctx.cyl(a, b, 0.42, 0.86, 0.06, shell, name="pied_haut")
+            # fût haut incliné vers le dessous du boîtier (1re version : fût vertical à ±1,12 sous un boîtier
+            # de ±1,0 aux arêtes arrondies : pieds DÉTACHÉS du corps au gros plan zoom 2 du 22/10)
+            ctx.rod((a, b, 0.42), (sa * 0.84, sb * 0.84, 0.92), 0.06, shell, name="pied_haut")
+            ctx.sph(sa * 0.84, sb * 0.84, 0.90, 0.08, black, name="pied_rotule")
             ctx.tor(a, b, 0.42, 0.088, 0.02, blue, name="pied_voyant")
     # boîtier lisse aux arêtes arrondies, joint noir, bandeaux de voyants
     ctx.tbox(-1.0, -1.0, 1.0, 1.0, 0.86, 1.46, shell, bevel=0.11, name="boitier")
@@ -1070,7 +1075,7 @@ def e13(ctx, piece):
 def e14(ctx, piece):
     gold = metal(ctx, "e14_or", "#C9A23A", rough=0.22, metallic=0.9, grain=0.45, gs=14.0, dirt=0.35, k=0.85)
     white = paint(ctx, "e14_blanc", "#CFCBC2", rough=0.35, metallic=0.2, grain=0.08, dirt=0.5, k=0.8)
-    cells = ctx.S.mat_emissive(ctx.name("e14_cellules"), srgb("#2F6BFF"), strength=0.35, base=srgb("#1E2A55"))
+    cells = ctx.S.mat_emissive(ctx.name("e14_cellules"), srgb("#2F6BFF"), strength=0.55, base=srgb("#1E2A55"))  # 0,35 -> 0,55 : contraste D2-1 +76 (< +80)
     red = glow(ctx, "e14_balise", "#FF2A2A", strength=3.2)
     # jambes en treillis blanc des angles vers le tambour (vide dessous)
     for sa in (-1, 1):

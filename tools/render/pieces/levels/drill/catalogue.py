@@ -26,9 +26,10 @@ EPOCHS = {
     4: {"key": "oil", "nom": "Pétrole", "ere": "II Lourde",
         "silhouette": "châssis jaune en poutres sur pieds galvanisés, bandes d'avertissement ; maison du moteur et "
                       "toit-passerelle à garde-corps ; 2 vérins hydrauliques et traverse ; colonne de pompe ; cuve "
-                      "horizontale à l'arrière sur berceaux",
+                      "horizontale à l'arrière sur berceaux ; torchère à l'angle arrière gauche (kit d'époque) ; "
+                      "4 feux ronds aux angles du garde-corps",
         "piece": "derrick en treillis avec plate-forme d'accrochage, moufle et feu au sommet",
-        "lumiere": "voyants orange #FF8C1A ; feu de derrick", "emissif": "#FF8C1A"},
+        "lumiere": "feux d'angle orange #FF8C1A, flamme de torchère ; feu de derrick", "emissif": "#FF8C1A"},
     5: {"key": "volcano", "nom": "Volcan", "ere": "II Lourde",
         "silhouette": "carcasse en tronc de pyramide : 3 bandes d'écailles de tungstène, contreforts inclinés aux "
                       "angles, tourelle blindée rivetée et crête pyramidale ; 2 pointes de basalte",
