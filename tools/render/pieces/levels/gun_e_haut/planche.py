@@ -23,7 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
-WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3E/haut")
 OUT = os.path.join(WORK, "out")
 sys.path.insert(0, RENDER)
 sys.path.insert(0, os.path.join(RENDER, "calib"))
@@ -37,6 +37,11 @@ except OSError:
     FONT = FONTB = ImageFont.load_default()
 
 TINT = (0.869, 0.5, 0.13)
+SIDES = {10: 5, 11: 5, 12: 5, 13: 6, 14: 6, 15: 6}
+
+
+def SIDE_OF(name):
+    return SIDES[int(name[1:3])]
 
 
 def own(name, kinds=("shadow", "main", "glow", "light")):

@@ -150,89 +150,164 @@ def _insert_edgewear(mat, amount, dist=0.014):
 
 def materials(S, epoch, tone=1.0):
     """Palette commune à TOUTES les époques (charte §6.4 : le corps reste du métal sombre, chaud et usé) ;
-    seuls changent l'accent d'époque (≤ 15 % du corps, patiné) et la couleur des éléments lumineux."""
+    seuls changent les matières d'accent de l'époque (≤ 15 % du corps, patinées, catalogue V3-E §A.3) et la
+    couleur des foyers lumineux.
+
+    Lot V3-E (époques 10 à 15), corrections des juges de V3-S faites EN PASSANT (catalogue §A.6) :
+      - grain de surface plus doux (P1 et D3 trop hauts : 0,18 -> 0,11 sur les peintures), rouille moins piquetée ;
+      - taches basses fréquences plus larges (P2 sous le plancher : 2e couche de taches à grande échelle) ;
+      - reflets francs sur l'acier nu, le laiton et les rivets (C2 trop terne : rugosité plus basse).
+    Clés d'époque (mêmes noms à toutes les époques, matières différentes) : jacket (jaquette des canons), ring
+    (bagues et colliers), trim (plaques rapportées, ailerons, sertissures), pipe et pipe2 (liaisons), cable_a et
+    cable_b, spec (matière spéciale : cellules, givre, nacre…), emit et emit2 (deux couleurs de foyer)."""
     M = {}
     k = [0]
 
     def metal(key, col, rough=0.4, met=0.75, grain=0.38, gscale=24.0, rust=None, ra=0.0, dirt=0.85, stain=0.5,
-              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0):
+              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0, mottle=0.0):
         k[0] += 1
         c = tuple(min(0.9, x * tone) for x in col)
-        m = S.mat_metal("ind_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
+        m = S.mat_metal("gune_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
                         rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt, seed=float(11 * k[0] + epoch),
                         soot=soot, dirt_distance=dd)
         if stain:
             _insert_stain(m, stain, sscale, float(11 * k[0] + epoch))
+        if mottle:
+            _insert_stain(m, mottle, 1.6, float(17 * k[0] + epoch + 0.5))
         if streak:
             _insert_streaks(m, streak, 14.0, float(13 * k[0] + epoch))
         if wear:
             _insert_edgewear(m, wear)
         M[key] = m
+        return m
 
     rust = (0.24, 0.085, 0.03)
-    # corps : tôle brune rouillée (cheminée V0 : shell) pour la tête, tôle sombre et kaki usé pour le socle ;
-    # arêtes usées claires (wear) ; rouille en taches rares (la rouille partout se lisait comme un motif)
-    metal("armor", (0.15, 0.125, 0.095), rough=0.36, met=0.7, rust=rust, ra=0.18, dd=0.35, wear=1.6)
-    metal("armor2", (0.075, 0.068, 0.058), rough=0.4, met=0.75, rust=(0.18, 0.07, 0.03), ra=0.15, dirt=0.7, wear=2.2)
-    metal("khaki", (0.17, 0.14, 0.08), rough=0.48, met=0.4, rust=rust, ra=0.18, wear=1.4)
+    G = 0.11   # grain des peintures (V3-S : 0,18)
+    # corps : tôle brune rouillée (cheminée V0) pour la tête, tôle sombre et kaki usé pour le socle
+    metal("armor", (0.15, 0.125, 0.095), rough=0.36, met=0.7, grain=0.3, rust=rust, ra=0.13, dd=0.35, wear=1.6,
+          mottle=0.35)
+    metal("armor2", (0.075, 0.068, 0.058), rough=0.38, met=0.75, grain=0.3, rust=(0.18, 0.07, 0.03), ra=0.11, dirt=0.7,
+          wear=2.2, mottle=0.3)
+    metal("khaki", (0.17, 0.14, 0.08), rough=0.48, met=0.4, grain=0.3, rust=rust, ra=0.13, wear=1.4, mottle=0.35)
     metal("seam", (0.01, 0.009, 0.008), rough=0.8, met=0.2, grain=0.2, dirt=0.4, stain=0.0)
-    metal("steel", (0.2, 0.19, 0.175), rough=0.3, met=0.9, grain=0.26, gscale=40.0, rust=rust, ra=0.1, dirt=0.6,
+    metal("steel", (0.2, 0.19, 0.175), rough=0.22, met=0.92, grain=0.2, gscale=40.0, rust=rust, ra=0.07, dirt=0.6,
           stain=0.25, wear=1.2)
-    metal("gun", (0.075, 0.072, 0.068), rough=0.3, met=0.9, grain=0.26, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
-    metal("brass", (0.8, 0.56, 0.22), rough=0.3, met=0.95, grain=0.22, gscale=50.0, rust=(0.3, 0.12, 0.05),
-          ra=0.2, dirt=0.5, stain=0.15, wear=0.5)
-    metal("copper", (0.62, 0.26, 0.1), rough=0.36, met=0.95, grain=0.22, rust=(0.12, 0.2, 0.12), ra=0.12, dirt=0.55,
+    metal("gun", (0.13, 0.125, 0.118), rough=0.22, met=0.92, grain=0.2, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
+    metal("brass", (0.8, 0.56, 0.22), rough=0.2, met=0.95, grain=0.16, gscale=50.0, rust=(0.3, 0.12, 0.05),
+          ra=0.14, dirt=0.5, stain=0.15, wear=0.5)
+    metal("copper", (0.62, 0.26, 0.1), rough=0.26, met=0.95, grain=0.16, rust=(0.12, 0.2, 0.12), ra=0.08, dirt=0.55,
           stain=0.2, wear=0.6)
-    metal("rivet", (0.56, 0.48, 0.36), rough=0.28, met=0.9, grain=0.12, dirt=0.3, stain=0.0)
-    metal("hazy", (0.6, 0.38, 0.025), rough=0.5, met=0.1, grain=0.38, rust=rust, ra=0.35, dirt=0.85, stain=0.35,
+    metal("rivet", (0.56, 0.48, 0.36), rough=0.2, met=0.92, grain=0.1, dirt=0.3, stain=0.0)
+    metal("hazy", (0.6, 0.38, 0.025), rough=0.5, met=0.1, grain=0.25, rust=rust, ra=0.25, dirt=0.85, stain=0.35,
           wear=0.6)
-    metal("hazk", (0.025, 0.022, 0.02), rough=0.55, met=0.2, grain=0.3, dirt=0.4, stain=0.0, wear=3.0)
-    metal("rubber", (0.03, 0.028, 0.026), rough=0.7, met=0.0, grain=0.15, dirt=0.3, stain=0.0)
-    metal("redcable", (0.26, 0.035, 0.022), rough=0.55, met=0.0, grain=0.15, dirt=0.4, stain=0.0)
+    metal("hazk", (0.025, 0.022, 0.02), rough=0.55, met=0.2, grain=0.25, dirt=0.4, stain=0.0, wear=3.0)
+    metal("rubber", (0.03, 0.028, 0.026), rough=0.7, met=0.0, grain=0.12, dirt=0.3, stain=0.0)
+    metal("redcable", (0.26, 0.035, 0.022), rough=0.55, met=0.0, grain=0.12, dirt=0.4, stain=0.0)
     metal("void", (0.008, 0.007, 0.006), rough=0.9, met=0.0, grain=0.1, dirt=0.0, stain=0.0)
-    metal("soot", (0.05, 0.042, 0.038), rough=0.8, met=0.2, grain=0.3, dirt=0.5)
-    # --- reprise (22/10, 2e explorateur) : peintures et métaux du vocabulaire vanilla (réacteur, artillerie,
-    # silo) : plaques peintes patinées (ocre, brun-rouge, crème, kaki), acier clair aux arêtes franches, laiton
-    # et cuivre des tuyaux. Le corps reste chaud et sombre (C1 cible 50 à 60) mais n'est plus monochrome.
-    metal("ochre", (0.33, 0.19, 0.045), rough=0.4, met=0.35, grain=0.18, gscale=30.0, rust=rust, ra=0.3,
-          dirt=0.9, stain=0.95, sscale=5.0, dd=0.3, wear=2.6, streak=0.6)
-    metal("redpaint", (0.27, 0.065, 0.025), rough=0.4, met=0.35, grain=0.18, gscale=30.0, rust=(0.1, 0.05, 0.025),
-          ra=0.3, dirt=0.9, stain=0.95, sscale=5.0, wear=2.6, streak=0.55)
-    metal("cream", (0.42, 0.35, 0.2), rough=0.38, met=0.2, grain=0.18, gscale=26.0, rust=(0.2, 0.09, 0.04),
-          ra=0.3, dirt=0.95, stain=0.75, sscale=5.0, dd=0.35, wear=0.8, streak=0.65)
-    metal("olive", (0.15, 0.125, 0.06), rough=0.38, met=0.45, grain=0.18, gscale=30.0, rust=rust, ra=0.5,
-          dirt=0.9, stain=0.95, sscale=5.0, wear=3.0, streak=0.6)
-    metal("steel_dk", (0.1, 0.094, 0.086), rough=0.32, met=0.9, grain=0.18, gscale=36.0, rust=rust, ra=0.5,
-          dirt=0.8, stain=0.75, sscale=5.0, wear=2.8, streak=0.55)
-    metal("steel_hi", (0.52, 0.5, 0.46), rough=0.22, met=0.95, grain=0.3, gscale=44.0, rust=rust, ra=0.12,
+    metal("soot", (0.05, 0.042, 0.038), rough=0.8, met=0.2, grain=0.25, dirt=0.5)
+    metal("ochre", (0.33, 0.19, 0.045), rough=0.4, met=0.35, grain=G, gscale=30.0, rust=rust, ra=0.22,
+          dirt=0.9, stain=0.95, sscale=5.0, dd=0.3, wear=2.6, streak=0.6, mottle=0.45)
+    metal("redpaint", (0.27, 0.065, 0.025), rough=0.4, met=0.35, grain=G, gscale=30.0, rust=(0.1, 0.05, 0.025),
+          ra=0.22, dirt=0.9, stain=0.95, sscale=5.0, wear=2.6, streak=0.55, mottle=0.45)
+    metal("cream", (0.42, 0.35, 0.2), rough=0.38, met=0.2, grain=G, gscale=26.0, rust=(0.2, 0.09, 0.04),
+          ra=0.22, dirt=0.95, stain=0.75, sscale=5.0, dd=0.35, wear=0.8, streak=0.65, mottle=0.4)
+    metal("olive", (0.15, 0.125, 0.06), rough=0.38, met=0.45, grain=G, gscale=30.0, rust=rust, ra=0.36,
+          dirt=0.9, stain=0.95, sscale=5.0, wear=3.0, streak=0.6, mottle=0.45)
+    metal("steel_dk", (0.1, 0.094, 0.086), rough=0.3, met=0.9, grain=G, gscale=36.0, rust=rust, ra=0.36,
+          dirt=0.8, stain=0.75, sscale=5.0, wear=2.8, streak=0.55, mottle=0.4)
+    metal("steel_hi", (0.52, 0.5, 0.46), rough=0.15, met=0.95, grain=0.22, gscale=44.0, rust=rust, ra=0.08,
           dirt=0.75, stain=0.25, sscale=16.0, wear=0.6, streak=0.3)
-    metal("grate", (0.11, 0.1, 0.09), rough=0.4, met=0.8, grain=0.3, gscale=40.0, rust=rust, ra=0.35, dirt=0.6,
+    metal("grate", (0.11, 0.1, 0.09), rough=0.4, met=0.8, grain=0.22, gscale=40.0, rust=rust, ra=0.25, dirt=0.6,
           stain=0.5, wear=1.5)
-    metal("dial", (0.4, 0.37, 0.3), rough=0.4, met=0.0, grain=0.2, dirt=0.4, stain=0.2)
-    # accents d'époque (≤ 15 % du corps, patinés, sur structure sombre)
-    if epoch <= 6:
-        metal("accent", (0.42, 0.39, 0.33), rough=0.35, met=0.0, grain=0.22, dirt=0.85, stain=0.3)      # céramique
-    elif epoch <= 12:
-        metal("accent", (0.26, 0.26, 0.255), rough=0.35, met=0.9, grain=0.25, dirt=0.8, stain=0.22,
-              wear=0.8)                                                                                 # titane
-    else:
-        metal("accent", (0.52, 0.42, 0.22), rough=0.38, met=0.9, grain=0.22, dirt=0.8, stain=0.2,
-              rust=(0.25, 0.12, 0.05), ra=0.15, wear=0.5)                                               # or blanc patiné
+    metal("dial", (0.4, 0.37, 0.3), rough=0.4, met=0.0, grain=0.15, dirt=0.4, stain=0.2)
+    metal("matte", (0.022, 0.021, 0.022), rough=0.62, met=0.1, grain=0.12, dirt=0.4, stain=0.2, wear=2.0)
+    # --- matières d'accent d'époque (catalogue §A.3) ; albédos de départ, à mesurer sur le rendu (F36, F38)
+    ep = epoch
+    if ep == 10:      # haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus
+        metal("jacket", (0.34, 0.34, 0.33), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
+              dirt=0.9, stain=0.7, sscale=6.0, wear=1.2, streak=0.5, mottle=0.3)
+        M["ring"] = M["matte"]
+        M["trim"] = M["jacket"]
+        metal("pipe", (0.11, 0.108, 0.104), rough=0.5, met=0.2, grain=0.1, dirt=0.6, stain=0.4, wear=1.0)
+        M["pipe2"] = M["steel_hi"]
+        M["cable_a"] = M["redcable"]
+        metal("cable_b", (0.02, 0.06, 0.2), rough=0.5, met=0.0, grain=0.12, dirt=0.4, stain=0.0)
+        metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
+        emit, emit2 = (0.227, 0.659, 1.0), (0.227, 0.659, 1.0)
+    elif ep == 11:    # titane : titane patiné, alliage blanc patiné (ailerons, colliers)
+        metal("jacket", (0.25, 0.255, 0.26), rough=0.28, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
+              dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
+        metal("ring", (0.42, 0.4, 0.36), rough=0.3, met=0.7, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
+              ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
+        M["trim"] = M["ring"]
+        M["pipe"] = M["jacket"]
+        M["pipe2"] = M["ring"]
+        M["cable_a"], M["cable_b"] = M["redcable"], M["rubber"]
+        M["spec"] = M["ring"]
+        emit, emit2 = (0.749, 0.902, 1.0), (0.749, 0.902, 1.0)
+    elif ep == 12:    # supraconducteurs : noir profond, chrome à reflets francs, givre (≤ 3 %)
+        metal("jacket", (0.02, 0.021, 0.024), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
+              wear=1.5)
+        metal("ring", (0.72, 0.73, 0.74), rough=0.07, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
+              wear=0.3)
+        metal("trim", (0.55, 0.6, 0.64), rough=0.85, met=0.0, grain=0.3, gscale=80.0, dirt=0.3, stain=0.3)  # givre
+        metal("pipe", (0.38, 0.37, 0.34), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.2, 0.18, 0.15),
+              ra=0.15, dirt=0.8, stain=0.6, sscale=5.0, streak=0.5)                                   # mousse givrée
+        M["pipe2"] = M["ring"]
+        metal("cable_a", (0.018, 0.018, 0.02), rough=0.55, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
+        M["cable_b"] = M["cable_a"]
+        M["spec"] = M["trim"]
+        emit, emit2 = (0.29, 0.94, 1.0), (0.29, 0.94, 1.0)
+    elif ep == 13:    # fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre
+        metal("jacket", (0.48, 0.46, 0.41), rough=0.55, met=0.0, grain=0.14, gscale=34.0, rust=(0.22, 0.12, 0.06),
+              ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.6, streak=0.55, mottle=0.25)
+        M["ring"] = M["copper"]
+        M["trim"] = M["jacket"]
+        M["pipe"] = M["copper"]
+        M["pipe2"] = M["jacket"]
+        M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
+        M["spec"] = M["jacket"]
+        emit, emit2 = (1.0, 0.31, 0.847), (1.0, 0.604, 0.227)
+    elif ep == 14:    # orbite : feuille d'or froissée, blanc cassé patiné, cellules bleu nuit (≤ 5 %)
+        metal("jacket", (0.6, 0.4, 0.08), rough=0.3, met=1.0, grain=0.45, gscale=22.0, rust=(0.25, 0.14, 0.04),
+              ra=0.12, dirt=0.75, stain=0.5, sscale=7.0, wear=0.4)
+        metal("ring", (0.44, 0.42, 0.37), rough=0.5, met=0.05, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
+              ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.8, streak=0.6)
+        M["trim"] = M["jacket"]
+        M["pipe"] = M["jacket"]
+        M["pipe2"] = M["ring"]
+        M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
+        metal("spec", (0.012, 0.02, 0.075), rough=0.14, met=0.6, grain=0.05, dirt=0.3, stain=0.0)      # cellules
+        emit, emit2 = (1.0, 0.165, 0.165), (0.184, 0.42, 1.0)
+    else:             # 15 légende : or blanc patiné, nacre
+        metal("jacket", (0.6, 0.52, 0.32), rough=0.26, met=0.95, grain=0.14, gscale=40.0, rust=(0.25, 0.12, 0.05),
+              ra=0.1, dirt=0.85, stain=0.35, sscale=6.0, wear=0.5)
+        M["ring"] = M["jacket"]
+        metal("trim", (0.5, 0.47, 0.42), rough=0.3, met=0.15, grain=0.12, gscale=30.0, dirt=0.9, stain=0.5,
+              sscale=5.0, wear=0.6, streak=0.4)                                                        # nacre
+        M["pipe"] = M["trim"]
+        M["pipe2"] = M["jacket"]
+        M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
+        M["spec"] = M["trim"]
+        emit, emit2 = (1.0, 0.949, 0.753), (1.0, 0.949, 0.753)
+    M["accent"] = M["trim"]
     # éléments lumineux : couleur d'époque (charte §6.4) ; surface éteinte dans la couche principale (V0b)
-    emit = {6: (0.376, 0.816, 1.0), 11: (0.75, 0.9, 1.0), 15: (1.0, 0.93, 0.7)}.get(epoch, (1.0, 0.6, 0.2))
-    M["emit"] = S.mat_emissive("ind_e%02d_emit" % epoch, emit, strength=1.0, base=(0.01, 0.01, 0.012),
+    M["emit"] = S.mat_emissive("gune_e%02d_emit" % epoch, emit, strength=1.0, base=(0.01, 0.01, 0.012),
                                main_scale=0.0, crust=(18.0, 0.25, 1.0 + epoch))
-    M["emit_soft"] = S.mat_emissive("ind_e%02d_emit2" % epoch, emit, strength=0.7, base=(0.01, 0.01, 0.012),
+    M["emit_soft"] = S.mat_emissive("gune_e%02d_emit_s" % epoch, emit, strength=0.7, base=(0.01, 0.01, 0.012),
                                     main_scale=0.0, crust=(12.0, 0.35, 2.0 + epoch))
+    M["emit2"] = S.mat_emissive("gune_e%02d_emit2" % epoch, emit2, strength=1.0, base=(0.01, 0.01, 0.012),
+                                main_scale=0.0, crust=(14.0, 0.25, 3.0 + epoch))
     # voyants ambre (vocabulaire vanilla : lampes de travail), admis à toutes les époques
-    M["amber"] = S.mat_emissive("ind_e%02d_amber" % epoch, (1.0, 0.45, 0.06), strength=1.0, base=(0.01, 0.006, 0.003),
-                                main_scale=0.0)
-    for key in ("emit", "emit_soft", "amber"):
+    M["amber"] = S.mat_emissive("gune_e%02d_amber" % epoch, (1.0, 0.45, 0.06), strength=1.0,
+                                base=(0.01, 0.006, 0.003), main_scale=0.0)
+    for key in ("emit", "emit_soft", "emit2", "amber"):
         p = M[key].node_tree.nodes["Principled BSDF"]
         p.inputs["Roughness"].default_value = 1.0
         if "Specular IOR Level" in p.inputs:
             p.inputs["Specular IOR Level"].default_value = 0.0
     M["_emit_rgb"] = emit
+    M["_emit2_rgb"] = emit2
     return M
 
 
@@ -363,6 +438,51 @@ class Geo:
                 i2, j2 = (i + 1) % n, (j + 1) % m
                 fs.append((i * m + j, i2 * m + j, i2 * m + j2, i * m + j2))
         self._add(mat, style, vs, fs, what)
+
+    def sphere(self, c, r, mat, n=24, m=12, scale=(1.0, 1.0, 1.0), style="smooth", what="sphere"):
+        """Sphère (ou ellipsoïde) UV fermée."""
+        c = Vector(c)
+        vs, fs = [], []
+        for i in range(1, m):
+            ph = -math.pi / 2 + math.pi * i / m
+            for j in range(n):
+                th = TAU * j / n
+                vs.append((c.x + r * scale[0] * math.cos(ph) * math.cos(th), c.y + r * scale[1] * math.cos(ph) * math.sin(th),
+                           c.z + r * scale[2] * math.sin(ph)))
+        vs.append((c.x, c.y, c.z - r * scale[2]))
+        vs.append((c.x, c.y, c.z + r * scale[2]))
+        bot, top = len(vs) - 2, len(vs) - 1
+        for i in range(m - 2):
+            for j in range(n):
+                j2 = (j + 1) % n
+                fs.append((i * n + j, i * n + j2, (i + 1) * n + j2, (i + 1) * n + j))
+        for j in range(n):
+            j2 = (j + 1) % n
+            fs.append((bot, j2, j))
+            fs.append(((m - 2) * n + j, (m - 2) * n + j2, top))
+        self._add(mat, style, vs, fs, what)
+
+    def crumple(self, c, axis, r, h, mat, n=18, k=6, amp=0.012, what="feuille"):
+        """Manchon froissé (feuille d'or, couverture thermique) : cylindre à facettes dont les sommets sont
+        décalés au hasard ; ombrage plat (style « flat ») pour que chaque facette accroche la lumière."""
+        a, u, w = basis(axv(axis))
+        c = Vector(c)
+        vs, fs = [], []
+        for i in range(k + 1):
+            t = -h / 2.0 + h * i / k
+            for j in range(n):
+                ang = TAU * (j + 0.5 * (i % 2)) / n
+                rr = r + amp * (self.rng.random() * 2 - 1) * (0.4 if i in (0, k) else 1.0)
+                vs.append(tuple(c + a * (t + amp * 0.6 * (self.rng.random() * 2 - 1) * (0 if i in (0, k) else 1))
+                                + (u * math.cos(ang) + w * math.sin(ang)) * rr))
+        for i in range(k):
+            for j in range(n):
+                j2 = (j + 1) % n
+                fs.append((i * n + j, i * n + j2, (i + 1) * n + j2))
+                fs.append((i * n + j, (i + 1) * n + j2, (i + 1) * n + j))
+        fs.append(tuple(range(n))[::-1])
+        fs.append(tuple(range(k * n, (k + 1) * n)))
+        self._add(mat, "flat", vs, fs, what)
 
     def dome(self, p, nrm, r, mat, n=6, h=None, style="smooth", what="rivet"):
         """Rivet / tête de boulon bombée, posée sur une surface de normale nrm."""

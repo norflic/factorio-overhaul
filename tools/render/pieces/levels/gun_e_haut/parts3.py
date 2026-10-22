@@ -14,10 +14,11 @@ V = Vector
 
 
 def vtank(g, x, y, r, h, M, paint=None, emat=None, z0=0.0, ladder_dir=(-1.0, 0.0), gauges=2, stub_dir=None,
-          glow_gauges=False, glow_rings=0):
+          glow_gauges=False, glow_rings=0, band=None):
     """Réservoir debout : socle boulonné, virole peinte cerclée de laiton, fond bombé riveté, trou d'homme,
     évent en col de cygne, échelle, manomètres, fenêtre de niveau lumineuse, piquage à bride."""
     paint = paint or M["cream"]
+    band = band or M["brass"]
     g.cyl((x, y, z0 + 0.04), "z", r + 0.07, 0.08, M["steel_dk"], n=32, style="soft", what="socle")
     nb = int(TAU * (r + 0.05) / 0.12)
     for k in range(nb):
@@ -29,7 +30,7 @@ def vtank(g, x, y, r, h, M, paint=None, emat=None, z0=0.0, ladder_dir=(-1.0, 0.0
     nband = max(2, int((zt - zb) / 0.28))
     for i in range(nband):
         zz = zb + (zt - zb) * (i + 0.5) / nband
-        g.tube_shell((x, y, zz), "z", r + 0.018, r - 0.01, 0.04, M["brass"] if i % 2 == 0 else M["steel_dk"], n=40,
+        g.tube_shell((x, y, zz), "z", r + 0.018, r - 0.01, 0.04, band if i % 2 == 0 else M["steel_dk"], n=40,
                      what="cerclage")
         nr = int(TAU * r / 0.12)
         for k in range(nr):
@@ -47,7 +48,7 @@ def vtank(g, x, y, r, h, M, paint=None, emat=None, z0=0.0, ladder_dir=(-1.0, 0.0
         g.box(V((x, y, (zb + zt) / 2)) + d * (r + 0.004), (0.022, 0.012, zt - zb - 0.04), M["steel_dk"], "hard",
               R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="soudure")
     P, N = P2.dome_hull(g, (x, y, zt), r, r, r * 0.42, paint, M, n=40, m=8, seams=8, seam_mat=M["steel_dk"],
-                        band_mat=M["brass"], rivet_step=0.1)
+                        band_mat=band, rivet_step=0.1)
     g.cyl((x + r * 0.3, y - r * 0.2, zt + r * 0.38), "z", r * 0.24, 0.06, M["steel_dk"], n=16, what="trou_homme")
     for k in range(6):
         a = TAU * k / 6
@@ -82,7 +83,7 @@ def vtank(g, x, y, r, h, M, paint=None, emat=None, z0=0.0, ladder_dir=(-1.0, 0.0
         d = V((stub_dir[0], stub_dir[1], 0)).normalized()
         p = V((x, y, z0 + 0.25)) + d * r
         g.cyl(p + d * 0.08, d, 0.05, 0.16, M["copper"], n=12, what="piquage")
-        g.cyl(p + d * 0.17, d, 0.075, 0.035, M["brass"], n=14, style="hard", what="bride")
+        g.cyl(p + d * 0.17, d, 0.075, 0.035, band, n=14, style="hard", what="bride")
     return P, N
 
 
@@ -109,14 +110,58 @@ def conduit(g, ctrl, r, M, emat, step=0.2):
             g.tube_shell(R[i], T2[i], r + 0.016, r * 0.5, 0.03, M["brass"], n=12, what="collier")
 
 
-def cabinet(g, x0, x1, y0, y1, z0, z1, M, emat, rows=2):
-    """Armoire de commande : caisson riveté, façade sud à rangées de voyants, manomètres, poignées, toit."""
+def lamp_group(g, p, along, nrm, emat, M, n=3, size=0.03, shapes=None, gaps=(0.0, 0.07, 0.16)):
+    """Groupe de voyants (catalogue V3-E §A.6 : jamais plus de 3 voyants alignés, espacements inégaux, formes
+    mêlées : rond, carré, fente). p : premier voyant ; along : direction de la rangée ; nrm : normale de la face."""
+    p = V(p)
+    al = V(along).normalized()
+    a, u, w = basis(V(nrm))
+    shapes = shapes or ("rond", "carre", "fente")
+    for i in range(min(3, n)):
+        q = p + al * gaps[i] * (size / 0.03)
+        sh = shapes[i % len(shapes)]
+        Rr = Matrix((al, a.cross(al).normalized(), a)).transposed()
+        if sh == "rond":
+            g.cyl(q + a * 0.01, a, size * 0.95, 0.02, M["steel_dk"], n=10, style="hard", what="bague")
+            g.cyl(q + a * 0.022, a, size * 0.62, 0.006, emat, n=10, style="flat", what="voyant")
+        elif sh == "carre":
+            g.box(q + a * 0.01, (size * 1.8, size * 1.8, 0.02), M["steel_dk"], "hard", R=Rr, what="bague")
+            g.box(q + a * 0.022, (size * 1.1, size * 1.1, 0.006), emat, "flat", R=Rr, what="voyant")
+        else:
+            g.box(q + a * 0.01, (size * 3.0, size * 1.3, 0.02), M["steel_dk"], "hard", R=Rr, what="bague")
+            g.box(q + a * 0.022, (size * 2.3, size * 0.55, 0.006), emat, "flat", R=Rr, what="voyant")
+
+
+def screen(g, p, nrm, w, h, M, emat=None):
+    """Petit écran (haute technologie et après, ≤ 0,02 t²) : cadre noir mat, dalle sombre, 1 ligne lumineuse."""
+    p = V(p)
+    a, u, w_ = basis(V(nrm))
+    up = V((0, 0, 1))
+    side = up.cross(a)
+    if side.length < 1e-3:
+        side = V((1, 0, 0))
+    side.normalize()
+    upv = a.cross(side).normalized()
+    Rr = Matrix((side, upv, a)).transposed()
+    g.box(p + a * 0.012, (w + 0.03, h + 0.03, 0.024), M["matte"], "hard", R=Rr, what="ecran_cadre")
+    g.box(p + a * 0.026, (w, h, 0.004), M.get("spec", M["seam"]), "flat", R=Rr, what="ecran")
+    if emat is not None:
+        g.box(p + a * 0.03 + upv * h * 0.2, (w * 0.6, 0.012, 0.003), emat, "flat", R=Rr, what="ecran_ligne")
+
+
+def cabinet(g, x0, x1, y0, y1, z0, z1, M, emat, rows=2, screen_=False):
+    """Armoire de commande : caisson riveté, façade sud à GROUPES de voyants (≤ 3, formes mêlées), manomètres,
+    poignées, toit ; écran facultatif (ères IV et V)."""
     PT.hull(g, x0, x1, y0, y1, z0, z1, ins=(0.015, 0.015, 0.015), panel=0.24, mats=[M["olive"], M["steel_dk"]],
             rivet_step=0.12)
     w = x1 - x0
     for k in range(rows):
-        zz = z0 + (z1 - z0) * (0.55 + 0.18 * k)
-        lamp_row(g, (x0 + 0.05, y0 - 0.02, zz), (x1 - 0.05, y0 - 0.02, zz), max(2, int(w / 0.09)), (0, -1, 0), emat, M)
+        zz = z0 + (z1 - z0) * (0.58 + 0.17 * k)
+        x = x0 + 0.06 + (0.07 if k % 2 else 0.0)
+        lamp_group(g, (x, y0 - 0.02, zz), (1, 0, 0), (0, -1, 0), emat if k == 0 else M["amber"], M,
+                   n=3 if k == 0 else 2, shapes=("rond", "fente", "carre") if k == 0 else ("carre", "rond"))
+    if screen_:
+        screen(g, (x1 - w * 0.28, y0 - 0.015, z0 + (z1 - z0) * 0.66), (0, -1, 0), min(0.14, w * 0.3), 0.08, M, emat)
     P2.gauge(g, (x0 + w * 0.3, y0 - 0.02, z0 + (z1 - z0) * 0.3), (0, -1, 0.2), 0.045, M)
     P2.gauge(g, (x0 + w * 0.7, y0 - 0.02, z0 + (z1 - z0) * 0.3), (0, -1, 0.2), 0.045, M)
     g.box(((x0 + x1) / 2, (y0 + y1) / 2, z1 + 0.02), (w + 0.06, y1 - y0 + 0.06, 0.03), M["steel_dk"], "hard",

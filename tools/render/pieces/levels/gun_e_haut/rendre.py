@@ -1,6 +1,6 @@
-"""Rendu + post-traitement de la mitrailleuse « industriel lourd » (lot V3-S).
+"""Rendu + post-traitement de la mitrailleuse, lot V3-E, époques 10 à 15 (lignée « industriel lourd »).
 
-    python tools/render/pieces/levels/gun_s_industriel/rendre.py [--only a,b] [--samples 128] [--quick]
+    py -3.9 tools/render/pieces/levels/gun_e_haut/rendre.py [--only a,b] [--samples 128] [--quick]
                                                                  [--post-only]
 
 1. Les variantes demandées sont rendues dans UNE session Blender (batch_blender.py), lancée par le verrou de
@@ -10,8 +10,9 @@
    socle, ombre (noir, alpha), lueur additive (RGB = c/max, A = max), halo V0b (valeurs linéaires, pièce
    découpée) borné par une fenêtre radiale autour de l'entité et normalisé au sol (pic 0,45 : plage vanilla
    0,30-0,55, fo_calib.LIGHT_PEAK_RANGE) ; recadrage sur la grille paire, shift exact.
-3. Sortie (non versionnée) : tools/render/out/levels/gun_s_industriel/<variante>/hr-gunind-<variante>-<couche>.png
-   et spec.json (largeur, hauteur, shift hr, durées). Journal des durées : <cache>/temps.json.
+3. Sortie (non versionnée, hors dépôt) : <FO_IND_WORK>/out/<variante>/hr-gune-<variante>-<couche>.png (64 px par
+   tuile) et gune-<variante>-<couche>.png (32 px par tuile : réduction 2×2 de fo_post, additive pour la lueur et
+   la lumière), spec.json (largeur, hauteur, shift hr et 32 px, SHA-256, durées). Journal : <cache>/temps.json.
 """
 import argparse
 import json
@@ -35,7 +36,7 @@ import ind  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3E/haut")
 CACHE = os.path.join(WORK, "cache")
 OUT = os.path.join(WORK, "out")
 HALO_PEAK = 0.45
@@ -86,11 +87,19 @@ def post(name):
         if box is None:
             continue
         x0, y0, x1, y1 = box
-        fn = "hr-gunind-%s-%s.png" % (name, layer)
-        sha = P.write_png(hr[layer][y0:y1, x0:x1], os.path.join(out, fn))
+        crop = hr[layer][y0:y1, x0:x1]
+        fn = "hr-gune-%s-%s.png" % (name, layer)
+        sha = P.write_png(crop, os.path.join(out, fn))
         sd = P.sprite_def(box, origin, 64)
+        crop_lr = P.downsample2_additive(crop) if layer in ("glow", "light") else P.downsample2(crop)
+        fn_lr = "gune-%s-%s.png" % (name, layer)
+        sha_lr = P.write_png(crop_lr, os.path.join(out, fn_lr))
+        sd_lr = P.sprite_def(box, origin, 32)
         spec["layers"][layer] = {"file": fn, "width": sd["width"], "height": sd["height"], "shift": sd["shift"],
-                                 "sha256": sha}
+                                 "sha256": sha, "draw_as": {"main": None, "shadow": "draw_as_shadow",
+                                                            "glow": "draw_as_glow", "light": "draw_as_light"}[layer],
+                                 "lr": {"file": fn_lr, "width": crop_lr.shape[1], "height": crop_lr.shape[0],
+                                        "shift": sd_lr["shift"], "sha256": sha_lr}}
     with open(os.path.join(out, "spec.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(spec, f, indent=1, sort_keys=True)
     return spec
