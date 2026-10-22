@@ -194,6 +194,32 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E45 · NON VALIDÉ (aucune approche au niveau du vanilla) · Trois approches de la mitrailleuse jugées (lot V3-S, 22/10,
+13 h 20 à 16 h 10, run `wf_ed692a11-bba`)** :
+- Protocole : 3 explorateurs (industriel lourd, haute technologie, hybride) reprennent les essais coupés à 8 h 55
+  (REPRISE §5) et livrent en production (128 échantillons, 64 px par tuile, poses N et E) les niveaux 11 (3×3), 21
+  (5×5), 29 (6×6) et la pièce du 30 ; test du regard naïf à l'aveugle (6 paires, clé seulement dans la valeur de
+  retour) ; 2 juges indépendants : mesures (tools/da refait sur les sprites) et œil de directeur artistique ;
+  planches recomposées pour le téléphone.
+- Résultats : industriel 6 et 6 sur 10 (gagnant de peu), hybride 5,5 et 4, haute technologie 5 et 5. Regard naïf :
+  industriel 6/6, hybride 6/6 ; haute technologie NON FAIT (le juge naïf a regardé les images d'une autre série :
+  la consigne citait des noms de fichiers sans dossier ; corrigé dans les consignes suivantes : chemins absolus).
+  Dominance 4 sur 4 (1 → 11 → 21 → 29 → 30) dans les trois approches, plus aucune dalle plate.
+- Défauts communs (les deux juges) : pas de forme maîtresse (assemblage de modules face à la sphère du réacteur et
+  à l'anneau du silo) ; arme qui ne domine pas la masse (sauf haute technologie en pose E) ; reflets C2 de 114 à 144,
+  sous le MINIMUM vanilla (144 ; médiane 181) ; P2 de 13 à 15 sous le plancher de 16 partout (défaut du pipeline
+  partagé) ; pose N lue comme des cheminées d'usine ; niveau 30 indiscernable du 29 (certitude naïve 2) ; nuit en
+  « fenêtres allumées » (hybride, haute technologie). Industriel : D3 de 48 à 57 au-dessus du plafond de 45, baisse
+  de 8,8 % entre n11 et n21. Hybride : seule densité constante (42,7 → 44,2 → 44,2). Haute technologie : densité qui
+  chute de 15 % entre n11 et n21.
+- Décision (orchestrateur, délégation Q25) : ne pas étendre une direction à 6/10 aux 7 familles ; passe de synthèse
+  sur la mitrailleuse (run `wf_eaa96606-5f1`, 2 variantes partant de l'industriel : « affût rond » et « industrielle
+  resserrée », avec les greffes des juges). Page privée pour le DC :
+  https://claude.ai/artifact/EjdBUNfU1BLdkTU7cqWWMB .
+- Preuves : `<racine>\fo-logs\2026-10-22_V3S\` (`industriel\`, `hightech\`, `hybride\`, `juges\`, `presentation\`) ;
+  branches `worktree-wf_483106c7-c7f-2` (industriel, `265574d`), `-3` (haute technologie), `-4` (hybride, `e0571df`).
+- Limites : tout est composé hors moteur ; rien n'a été vu en jeu.
+
 **E44 · VALIDÉ en moteur réel pour la mécanique de la mitrailleuse ; panneau, migration et autres familles NON
 prouvés en moteur réel · Emprise croissante et agrandissement sur place (lot V3-T, Q23 et Q24, 22/10, 13 h 45 à
 14 h 51)** :
