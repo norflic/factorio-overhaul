@@ -1,0 +1,5628 @@
+{
+ "famille": "furnace",
+ "lot": "V3 phase 1",
+ "entite": "steel-furnace (2x2, brûleur)",
+ "statut": "APERÇU : tailles et shift issus des rendus d'aperçu (échantillons réduits) ; la phase 2 les régénère au rendu final. Rien n'est vérifié en moteur réel. Design non validé (verdict du Directeur Créatif requis).",
+ "interface": "prototypes/levels/common.lua (en tête, version V2b de main) : le fichier prototypes/levels/furnace.lua renvoie { dress = function(p, ctx), icons = function(icons, ctx) } ; dress est appelée pour les niveaux 2 à 30 ; ctx.level, ctx.epoch, ctx.step (1 = la silhouette change, 2 = une pièce s'ajoute) en lecture seule. Champs touchés : animation, working_visualisations, water_reflection, drawing_box (GRAPHIC_KEYS) et energy_source.smoke (sous-clé à mot visuel « smoke ») : tous permis par la garde inversée ; aucun champ de jeu, emprise inchangée",
+ "phase2": [
+  "rendu final (256 échantillons après V0b), dimensions HR paires, shift générés ; la qualité normale (32 px/tuile) RENDUE à sa taille (D4-2, Q21), pas réduite",
+  "niveau pair : la pièce devient une couche SÉPARÉE ajoutée au rendu impair (bible §1.9, §3.3) ; en phase 1 le niveau pair est un rendu complet",
+  "lueur : séparer la lueur de la BOUCHE (working_visualisations, fadeout, feu animé de l'ère) de la lueur de DÉCOR (cristaux, anneaux, voyants : always_draw = true), pour que le décor reste visible four à l'arrêt",
+  "icône : rendu de la pose de référence (64 px + 3 mipmaps) et numéro de niveau, par icons()"
+ ],
+ "emprise": {
+  "collision_box": [
+   [
+    -0.7,
+    -0.7
+   ],
+   [
+    0.7,
+    0.7
+   ]
+  ],
+  "selection_box": [
+   [
+    -0.8,
+    -1
+   ],
+   [
+    0.8,
+    1
+   ]
+  ],
+  "regle": "inchangées à tous les niveaux (D1-4)"
+ },
+ "arborescence_phase2": "graphics/levels/furnace/eNN/ (bible §1.9), hr (64 px/tuile, scale 0,5) + normale (32 px/tuile)",
+ "pose_de_reference": "image unique (1 direction, pas de couleur d'équipe)",
+ "niveaux": [
+  {
+   "n": 1,
+   "epoque": 1,
+   "step": 1,
+   "vanilla": true,
+   "note": "four en acier vanilla inchangé (Q11) : référence D1-3 ; aucun fichier",
+   "fumee": [
+    {
+     "position": [
+      0.7,
+      -1.2
+     ],
+     "source": "entities.lua:7268"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "epoque": 1,
+   "step": 2,
+   "epoque_nom": "Pionnier",
+   "ere": "I",
+   "corps": "vanilla (four en acier inchangé)",
+   "piece_paire": "Hotte et conduit de fumée en tôle rivetée à l'arrière, posés DERRIÈRE le corps vanilla (masque au pixel par l'alpha du sprite vanilla, comme la variante « four » de V0) ; la fumée part du haut du conduit",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     304,
+     280
+    ],
+    "origine_px": [
+     105,
+     212
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.29,
+      -1.3641
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "vanilla conservé (animation, working_visualisations, water_reflection) ; la pièce est une couche AJOUTÉE à p.animation.layers, AVANT le corps vanilla (elle passe derrière : déjà masquée au pixel par l'alpha du sprite vanilla, comme la variante « four » de V0) ; son ombre rejoint les ombres. Aucune lueur ni halo propre (époque 1 : lumière de nuit seulement par la lanterne, absente du four ; bible §5) : la passe light n'est pas rendue, ce qui évite le défaut F64/E31 (trou de lumière sur le toit du four)",
+    "animation_layers_ajoutees": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e01/furnace-n02-shadow.png",
+      "width": 40,
+      "height": 14,
+      "shift": [
+       0.78125,
+       -0.78125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e01/hr-furnace-n02-shadow.png",
+       "width": 80,
+       "height": 28,
+       "shift": [
+        0.78125,
+        -0.78125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "40d2d2fd42b43db4a27841ef85ae5a4019d58b054296119a3cd0d56f6519e229",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e01/furnace-n02-main.png",
+      "width": 23,
+      "height": 31,
+      "shift": [
+       0.234375,
+       -1.140625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e01/hr-furnace-n02-main.png",
+       "width": 46,
+       "height": 62,
+       "shift": [
+        0.234375,
+        -1.140625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "02c2becdc30dc25cb7fa25ddbcbcd3b2d3bd5804561f1aa8f6b0fdaa0a560dd9",
+      "couche": "main"
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position (sortie sous le chapeau du conduit)"
+   },
+   "drawing_box": [
+    [
+     -1.375,
+     -1.625
+    ],
+    [
+     1.2969,
+     1.4219
+    ]
+   ],
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e01/furnace-n02-icon.png"
+   },
+   "o_cible": 0.55
+  },
+  {
+   "n": 3,
+   "epoque": 2,
+   "step": 1,
+   "epoque_nom": "Forge",
+   "ere": "I",
+   "corps": "Four en briques réfractaires cerclé d'acier, créneaux d'acier, première cheminée carrée haute à l'arrière droit, porte à volets",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     408,
+     388
+    ],
+    "origine_px": [
+     166,
+     211
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -1.4334
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n03-shadow.png",
+      "width": 96,
+      "height": 57,
+      "shift": [
+       0.59375,
+       0.203125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n03-shadow.png",
+       "width": 192,
+       "height": 114,
+       "shift": [
+        0.59375,
+        0.203125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "89fa5d9822ef7c17d69e940c171da1de10f8ed206c4b12a7e2eb24a44d740f16",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n03-main.png",
+      "width": 76,
+      "height": 91,
+      "shift": [
+       0.0,
+       -0.203125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n03-main.png",
+       "width": 152,
+       "height": 182,
+       "shift": [
+        0.0,
+        -0.203125
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "a8e6f20675cc25e488e19260d50483212fc66ea6a1926c7581af95d262bd4704",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n03-glow.png",
+       "width": 45,
+       "height": 21,
+       "shift": [
+        -0.203125,
+        0.671875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n03-glow.png",
+        "width": 90,
+        "height": 42,
+        "shift": [
+         -0.203125,
+         0.671875
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "a2376eb8f7514e43f81410ee003475fec5d65a8bcf8da9d6f81a38b017bd2f26",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n03-light.png",
+       "width": 77,
+       "height": 63,
+       "shift": [
+        -0.046875,
+        1.328125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n03-light.png",
+        "width": 154,
+        "height": 126,
+        "shift": [
+         -0.046875,
+         1.328125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "2e6b05e0f1e4cb7c98736d474309c931b26206fab03cbbc90a1947c137b83111",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.1875,
+     -1.625
+    ],
+    [
+     1.1875,
+     1.2188
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.19,
+      0.7803
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.8,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.62,
+     1.42
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.11,
+     "size": 2.3,
+     "color": "#FF6A20",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n03-icon.png"
+   },
+   "o_cible": 0.6
+  },
+  {
+   "n": 4,
+   "epoque": 2,
+   "step": 2,
+   "epoque_nom": "Forge",
+   "ere": "I",
+   "corps": "Four en briques réfractaires cerclé d'acier, créneaux d'acier, première cheminée carrée haute à l'arrière droit, porte à volets",
+   "piece_paire": "Soufflet de forge sur le flanc gauche (dépasse à gauche), levier en bois",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     434,
+     394
+    ],
+    "origine_px": [
+     188,
+     214
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -1.4334
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n04-shadow.png",
+      "width": 105,
+      "height": 59,
+      "shift": [
+       0.453125,
+       0.171875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n04-shadow.png",
+       "width": 210,
+       "height": 118,
+       "shift": [
+        0.453125,
+        0.171875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "3e8bd292b70447c39aac900cc322e71c278850b950e40d491407afc20e92ebea",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n04-main.png",
+      "width": 81,
+      "height": 91,
+      "shift": [
+       -0.078125,
+       -0.203125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n04-main.png",
+       "width": 162,
+       "height": 182,
+       "shift": [
+        -0.078125,
+        -0.203125
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "7b3cc2654405d6ca41eba423280cbd20d9766c43416f3109d17b9626bae8d53f",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n04-glow.png",
+       "width": 45,
+       "height": 20,
+       "shift": [
+        -0.171875,
+        0.65625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n04-glow.png",
+        "width": 90,
+        "height": 40,
+        "shift": [
+         -0.171875,
+         0.65625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "821678878a7b97b3565e103cab2c960d3486eff65479544c173a0c6d770dfaef",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n04-light.png",
+       "width": 79,
+       "height": 64,
+       "shift": [
+        -0.046875,
+        1.34375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e02/hr-furnace-n04-light.png",
+        "width": 158,
+        "height": 128,
+        "shift": [
+         -0.046875,
+         1.34375
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "07f47b7ea56d57ffc3c7b9ad75ca8ee2ab5409c8ad7fb5bc242ddb357bf29a0e",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3438,
+     -1.625
+    ],
+    [
+     1.1875,
+     1.2188
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.19,
+      0.7803
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.806,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.64,
+     1.46
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.13,
+     "size": 2.4,
+     "color": "#FF6A20",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e02/furnace-n04-icon.png"
+   },
+   "o_cible": 0.624
+  },
+  {
+   "n": 5,
+   "epoque": 3,
+   "step": 1,
+   "epoque_nom": "Vapeur",
+   "ere": "I",
+   "corps": "Haut-fourneau rond en fonte cerclé de laiton, cheminée ronde à collerette plus haute, tuyère de cuivre, hublot ambré, manomètre",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     422,
+     398
+    ],
+    "origine_px": [
+     177,
+     220
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.55,
+      -1.4899
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n05-shadow.png",
+      "width": 94,
+      "height": 54,
+      "shift": [
+       0.59375,
+       0.15625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n05-shadow.png",
+       "width": 188,
+       "height": 108,
+       "shift": [
+        0.59375,
+        0.15625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "5246347a8d083912844f70b52b948a45d9ccd6107a6ad17929239b1739a11f22",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n05-main.png",
+      "width": 71,
+      "height": 92,
+      "shift": [
+       -0.078125,
+       -0.25
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n05-main.png",
+       "width": 142,
+       "height": 184,
+       "shift": [
+        -0.078125,
+        -0.25
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "fbd4bcbae3ecab6af78163f8c54ab77d70d44e610df4046bc4a513674687dd24",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n05-glow.png",
+       "width": 46,
+       "height": 79,
+       "shift": [
+        -0.125,
+        -0.265625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n05-glow.png",
+        "width": 92,
+        "height": 158,
+        "shift": [
+         -0.125,
+         -0.265625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "962552e7c779daab3918bbf6d5e099cfc7d029496e441d08e94a7c1d519c0465",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n05-light.png",
+       "width": 85,
+       "height": 108,
+       "shift": [
+        -0.015625,
+        0.71875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n05-light.png",
+        "width": 170,
+        "height": 216,
+        "shift": [
+         -0.015625,
+         0.71875
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "9706e95d36e77bf5a4234c05b1e575fcc38a28ae0bcc8f73b47aadfa468866e6",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.1875,
+     -1.6875
+    ],
+    [
+     1.0312,
+     1.1875
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.25,
+      0.8298
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.25,
+      0.0016
+     ],
+     "couleur": "#FFC060",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.811,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.66,
+     1.5
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.15,
+     "size": 2.5,
+     "color": "#FFC060",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n05-icon.png"
+   },
+   "o_cible": 0.64
+  },
+  {
+   "n": 6,
+   "epoque": 3,
+   "step": 2,
+   "epoque_nom": "Vapeur",
+   "ere": "I",
+   "corps": "Haut-fourneau rond en fonte cerclé de laiton, cheminée ronde à collerette plus haute, tuyère de cuivre, hublot ambré, manomètre",
+   "piece_paire": "Chaudière de récupération (cylindre horizontal riveté, dôme de vapeur) sur le flanc gauche",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     444,
+     404
+    ],
+    "origine_px": [
+     195,
+     223
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.55,
+      -1.4899
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n06-shadow.png",
+      "width": 103,
+      "height": 54,
+      "shift": [
+       0.453125,
+       0.15625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n06-shadow.png",
+       "width": 206,
+       "height": 108,
+       "shift": [
+        0.453125,
+        0.15625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "7d3ea3b3ee1d829945420a0a5dd8f75ba327e47881b4fde58f3fef13e870b614",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n06-main.png",
+      "width": 79,
+      "height": 92,
+      "shift": [
+       -0.203125,
+       -0.25
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n06-main.png",
+       "width": 158,
+       "height": 184,
+       "shift": [
+        -0.203125,
+        -0.25
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "50a801c4d658c39da8649dc9f260a990bb8df07e3ec3fcac35373ee4add307cc",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n06-glow.png",
+       "width": 58,
+       "height": 78,
+       "shift": [
+        -0.3125,
+        -0.25
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n06-glow.png",
+        "width": 116,
+        "height": 156,
+        "shift": [
+         -0.3125,
+         -0.25
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "0aa53b1313dea33992eef2d4d630c7f9a5156a34da43a263006edb4979571703",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n06-light.png",
+       "width": 87,
+       "height": 109,
+       "shift": [
+        -0.015625,
+        0.734375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e03/hr-furnace-n06-light.png",
+        "width": 174,
+        "height": 218,
+        "shift": [
+         -0.015625,
+         0.734375
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "694d0c90d1c63b94a75bfb8f7397f4248c1c05283085ebe8acd0be5ab8ea44be",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.4375,
+     -1.6875
+    ],
+    [
+     1.0312,
+     1.1875
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.25,
+      0.8298
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.25,
+      0.0016
+     ],
+     "couleur": "#FFC060",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.817,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.68,
+     1.54
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.17,
+     "size": 2.6,
+     "color": "#FFC060",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e03/furnace-n06-icon.png"
+   },
+   "o_cible": 0.664
+  },
+  {
+   "n": 7,
+   "epoque": 4,
+   "step": 1,
+   "epoque_nom": "Pétrole",
+   "ere": "II",
+   "corps": "Brûleur au fioul : foyer en cylindre horizontal (axe nord-sud, bouche ronde au sud), réservoir de fioul latéral, cheminée galvanisée à bandes noires, passerelle et garde-corps",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     422,
+     408
+    ],
+    "origine_px": [
+     176,
+     226
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.55,
+      -1.5682
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n07-shadow.png",
+      "width": 89,
+      "height": 55,
+      "shift": [
+       0.609375,
+       0.140625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n07-shadow.png",
+       "width": 178,
+       "height": 110,
+       "shift": [
+        0.609375,
+        0.140625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "67f1fdf7440afd7949edfb47cea3436dacfab2ba48d3f46070d08039eeea5990",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n07-main.png",
+      "width": 69,
+      "height": 90,
+      "shift": [
+       0.078125,
+       -0.28125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n07-main.png",
+       "width": 138,
+       "height": 180,
+       "shift": [
+        0.078125,
+        -0.28125
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "3c49f37075213c71df033507fe22ef3d7cd87eb78b8f01a8f488cc56b35de3bb",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n07-glow.png",
+       "width": 55,
+       "height": 69,
+       "shift": [
+        0.015625,
+        -0.234375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n07-glow.png",
+        "width": 110,
+        "height": 138,
+        "shift": [
+         0.015625,
+         -0.234375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "644ea5ec04587aaff20a1a3b8454af9427dcf4a3ac4ee3a65fb01faa01b90517",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n07-light.png",
+       "width": 96,
+       "height": 91,
+       "shift": [
+        0.03125,
+        1.109375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n07-light.png",
+        "width": 192,
+        "height": 182,
+        "shift": [
+         0.03125,
+         1.109375
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "856cbe572b0d7e261dd192cae4e48e1834f054fa465adddf677dd499076ff136",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.0,
+     -1.6875
+    ],
+    [
+     1.1562,
+     1.125
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.3,
+      0.4333
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      0.62,
+      0.6672
+     ],
+     "couleur": "#FF8C1A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.822,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.7,
+     1.58
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.19,
+     "size": 2.7,
+     "color": "#FF8C1A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n07-icon.png"
+   },
+   "o_cible": 0.68
+  },
+  {
+   "n": 8,
+   "epoque": 4,
+   "step": 2,
+   "epoque_nom": "Pétrole",
+   "ere": "II",
+   "corps": "Brûleur au fioul : foyer en cylindre horizontal (axe nord-sud, bouche ronde au sud), réservoir de fioul latéral, cheminée galvanisée à bandes noires, passerelle et garde-corps",
+   "piece_paire": "Torchère greffée sur la cheminée (tube, couronne de brûleur, flamme)",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     466,
+     420
+    ],
+    "origine_px": [
+     179,
+     235
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.55,
+      -1.5682
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n08-shadow.png",
+      "width": 106,
+      "height": 56,
+      "shift": [
+       0.875,
+       0.15625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n08-shadow.png",
+       "width": 212,
+       "height": 112,
+       "shift": [
+        0.875,
+        0.15625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "4c060ce189c9a51fb48a860d70ab825f03748689ea8bb01e8cf1dbbaac74a388",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n08-main.png",
+      "width": 69,
+      "height": 91,
+      "shift": [
+       0.078125,
+       -0.296875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n08-main.png",
+       "width": 138,
+       "height": 182,
+       "shift": [
+        0.078125,
+        -0.296875
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "a2eb5b766c31c5e24647bbed4c2901730da2b52c84ae07609ec461be9b9b194a",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n08-glow.png",
+       "width": 60,
+       "height": 82,
+       "shift": [
+        0.03125,
+        -0.4375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n08-glow.png",
+        "width": 120,
+        "height": 164,
+        "shift": [
+         0.03125,
+         -0.4375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "8aa744d59d225d0c5c8f9ffc3e9465d5976eae28c3e7d52cd718de8031119352",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n08-light.png",
+       "width": 97,
+       "height": 93,
+       "shift": [
+        0.015625,
+        1.140625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e04/hr-furnace-n08-light.png",
+        "width": 194,
+        "height": 186,
+        "shift": [
+         0.015625,
+         1.140625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "a6c578a36292b9117f91f0181527289d7b445913b0443b4645f43b57572bcc4c",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.0,
+     -1.7188
+    ],
+    [
+     1.1562,
+     1.125
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.3,
+      0.4333
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      0.62,
+      0.6672
+     ],
+     "couleur": "#FF8C1A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.828,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.72,
+     1.62
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.21,
+     "size": 2.8,
+     "color": "#FF8C1A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e04/furnace-n08-icon.png"
+   },
+   "o_cible": 0.704
+  },
+  {
+   "n": 9,
+   "epoque": 5,
+   "step": 1,
+   "epoque_nom": "Volcan",
+   "ere": "II",
+   "corps": "Four-forge en tronc de pyramide noir, blindage en écailles, rivets lourds, bouche de lave, fissures rougeoyantes, cheminée blindée inclinée",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     446,
+     424
+    ],
+    "origine_px": [
+     190,
+     236
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.48,
+      -1.6019
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n09-shadow.png",
+      "width": 100,
+      "height": 54,
+      "shift": [
+       0.5,
+       0.125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n09-shadow.png",
+       "width": 200,
+       "height": 108,
+       "shift": [
+        0.5,
+        0.125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "562bd82ce86cedc144a124a57b78d058aabf80cca7160738b1ac76c97d3664d5",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n09-main.png",
+      "width": 76,
+      "height": 93,
+      "shift": [
+       -0.125,
+       -0.296875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n09-main.png",
+       "width": 152,
+       "height": 186,
+       "shift": [
+        -0.125,
+        -0.296875
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "17f95b30e533b16c60a0e0af83a2337d3b8d053a6515c908ed06fd31a93256f1",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n09-glow.png",
+       "width": 58,
+       "height": 76,
+       "shift": [
+        -0.125,
+        -0.21875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n09-glow.png",
+        "width": 116,
+        "height": 152,
+        "shift": [
+         -0.125,
+         -0.21875
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "3d88d01df67cc7dafa59f2cc9c01a067eb4a381a0fe34d4555b413a76105a6b1",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n09-light.png",
+       "width": 97,
+       "height": 103,
+       "shift": [
+        -0.015625,
+        0.953125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n09-light.png",
+        "width": 194,
+        "height": 206,
+        "shift": [
+         -0.015625,
+         0.953125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "279603a134809f6e46d2c8a671d62123c5b146e008fac3fa2613319766c04632",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3125,
+     -1.75
+    ],
+    [
+     1.0625,
+     1.1562
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.14,
+      0.8086
+     ],
+     "couleur": "#FF4A10",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.14,
+      0.1257
+     ],
+     "couleur": "#FF4A10",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.833,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.74,
+     1.66
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.23,
+     "size": 2.9,
+     "color": "#FF4A10",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n09-icon.png"
+   },
+   "o_cible": 0.72
+  },
+  {
+   "n": 10,
+   "epoque": 5,
+   "step": 2,
+   "epoque_nom": "Volcan",
+   "ere": "II",
+   "corps": "Four-forge en tronc de pyramide noir, blindage en écailles, rivets lourds, bouche de lave, fissures rougeoyantes, cheminée blindée inclinée",
+   "piece_paire": "Rigole de coulée de lave qui déborde à l'avant (dépasse au sud)",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     452,
+     444
+    ],
+    "origine_px": [
+     193,
+     239
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.48,
+      -1.6019
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n10-shadow.png",
+      "width": 99,
+      "height": 62,
+      "shift": [
+       0.484375,
+       0.28125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n10-shadow.png",
+       "width": 198,
+       "height": 124,
+       "shift": [
+        0.484375,
+        0.28125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "4ffbecb22be25f9adc92c2301750f04f609bfabe813a19b844a5c38228417686",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n10-main.png",
+      "width": 76,
+      "height": 101,
+      "shift": [
+       -0.125,
+       -0.171875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n10-main.png",
+       "width": 152,
+       "height": 202,
+       "shift": [
+        -0.125,
+        -0.171875
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "4d6e4495f9608e544fd959ce90870674bc0d62abb7c93f2668eba15508739bf1",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n10-glow.png",
+       "width": 55,
+       "height": 84,
+       "shift": [
+        -0.078125,
+        -0.125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n10-glow.png",
+        "width": 110,
+        "height": 168,
+        "shift": [
+         -0.078125,
+         -0.125
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "fdc3cf0360c1e46a65ceb7bcdf153bf0f671a253e82980d43bb8296a392d9158",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n10-light.png",
+       "width": 97,
+       "height": 104,
+       "shift": [
+        -0.015625,
+        0.96875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e05/hr-furnace-n10-light.png",
+        "width": 194,
+        "height": 208,
+        "shift": [
+         -0.015625,
+         0.96875
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "6bfb131357bfd3444293d69120a167f14f9947126801b909b6e683482416d127",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3125,
+     -1.75
+    ],
+    [
+     1.0625,
+     1.4062
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.14,
+      0.8086
+     ],
+     "couleur": "#FF4A10",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.14,
+      0.1257
+     ],
+     "couleur": "#FF4A10",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.839,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.76,
+     1.7
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.25,
+     "size": 3.0,
+     "color": "#FF4A10",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e05/furnace-n10-icon.png"
+   },
+   "o_cible": 0.744
+  },
+  {
+   "n": 11,
+   "epoque": 6,
+   "step": 1,
+   "epoque_nom": "Électricité",
+   "ere": "II",
+   "corps": "Four à arc : cuve ronde, couvercle bombé, 3 électrodes verticales sur bras isolés, piles d'isolateurs, arcs cyan ; trou de coulée lumineux ; extraction des fumées à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     456,
+     426
+    ],
+    "origine_px": [
+     190,
+     240
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -1.646
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n11-shadow.png",
+      "width": 98,
+      "height": 51,
+      "shift": [
+       0.625,
+       0.109375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n11-shadow.png",
+       "width": 196,
+       "height": 102,
+       "shift": [
+        0.625,
+        0.109375
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "71026e596cd1c88d8c44845fdaf6956f2c17cf286ea45f8764df10975f50d94b",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n11-main.png",
+      "width": 95,
+      "height": 101,
+      "shift": [
+       -0.453125,
+       -0.203125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n11-main.png",
+       "width": 190,
+       "height": 202,
+       "shift": [
+        -0.453125,
+        -0.203125
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "cf411116f24f7e5f2803356ad7164ac807152822f6c19a026026b476d019dfb9",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n11-glow.png",
+       "width": 52,
+       "height": 72,
+       "shift": [
+        -0.0625,
+        -0.4375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n11-glow.png",
+        "width": 104,
+        "height": 144,
+        "shift": [
+         -0.0625,
+         -0.4375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "2e83159d58a1814bac678362861d326c2861c89388d7da085802cc027ce4a21e",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n11-light.png",
+       "width": 101,
+       "height": 125,
+       "shift": [
+        -0.015625,
+        0.640625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n11-light.png",
+        "width": 202,
+        "height": 250,
+        "shift": [
+         -0.015625,
+         0.640625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "373ef268f40fb5a5b136aaef989230e98886a0e26b51590f7de483a7ba955138",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.9375,
+     -1.7812
+    ],
+    [
+     1.0312,
+     1.375
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.7379
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.6071
+     ],
+     "couleur": "#60D0FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.844,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.78,
+     1.74
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.27,
+     "size": 3.1,
+     "color": "#60D0FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n11-icon.png"
+   },
+   "o_cible": 0.76
+  },
+  {
+   "n": 12,
+   "epoque": 6,
+   "step": 2,
+   "epoque_nom": "Électricité",
+   "ere": "II",
+   "corps": "Four à arc : cuve ronde, couvercle bombé, 3 électrodes verticales sur bras isolés, piles d'isolateurs, arcs cyan ; trou de coulée lumineux ; extraction des fumées à l'arrière droit",
+   "piece_paire": "Transformateur à ailettes et traversées en céramique sur le flanc gauche",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     474,
+     432
+    ],
+    "origine_px": [
+     204,
+     243
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -1.646
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n12-shadow.png",
+      "width": 106,
+      "height": 51,
+      "shift": [
+       0.53125,
+       0.109375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n12-shadow.png",
+       "width": 212,
+       "height": 102,
+       "shift": [
+        0.53125,
+        0.109375
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "e8ea11ee89e79900871c5ae32174b19d57b8afcd8243667a5626381df04f1646",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n12-main.png",
+      "width": 78,
+      "height": 89,
+      "shift": [
+       -0.1875,
+       -0.359375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n12-main.png",
+       "width": 156,
+       "height": 178,
+       "shift": [
+        -0.1875,
+        -0.359375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "c8e3f91fd7b41bcb951f114fce2b386947241301fd65d8d162fafb4cf749e7f5",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n12-glow.png",
+       "width": 61,
+       "height": 72,
+       "shift": [
+        -0.171875,
+        -0.4375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n12-glow.png",
+        "width": 122,
+        "height": 144,
+        "shift": [
+         -0.171875,
+         -0.4375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "54a531ecd6bb87ee2151a197e0039f2626eccfff02bf2d62ff2d63c9dd653ce3",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n12-light.png",
+       "width": 103,
+       "height": 126,
+       "shift": [
+        -0.015625,
+        0.65625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e06/hr-furnace-n12-light.png",
+        "width": 206,
+        "height": 252,
+        "shift": [
+         -0.015625,
+         0.65625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "26f2b7e9a2b8aa05a12fc0351dfd0857a4a1ae2018349000d45444455a834104",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.4062,
+     -1.75
+    ],
+    [
+     1.0312,
+     1.0312
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.7379
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.6071
+     ],
+     "couleur": "#60D0FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.85,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.8,
+     1.78
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.29,
+     "size": 3.2,
+     "color": "#60D0FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e06/furnace-n12-icon.png"
+   },
+   "o_cible": 0.814
+  },
+  {
+   "n": 13,
+   "epoque": 7,
+   "step": 1,
+   "epoque_nom": "Cristal",
+   "ere": "III",
+   "corps": "Creuset de bronze tenu par 4 griffes de cristal pointées vers le haut, sur socle de pierre taillée ; cheminée de bronze sertie de cristal",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     480,
+     440
+    ],
+    "origine_px": [
+     197,
+     254
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.6,
+      -1.7238
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n13-shadow.png",
+      "width": 105,
+      "height": 49,
+      "shift": [
+       0.671875,
+       0.046875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n13-shadow.png",
+       "width": 210,
+       "height": 98,
+       "shift": [
+        0.671875,
+        0.046875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "27d43bee10e1fc2604679d97fcfd1927aeb10eba1e4140a471937cd5da8ebdec",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n13-main.png",
+      "width": 73,
+      "height": 92,
+      "shift": [
+       -0.109375,
+       -0.4375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n13-main.png",
+       "width": 146,
+       "height": 184,
+       "shift": [
+        -0.109375,
+        -0.4375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "f72f52491cf84f6bb14038ff0650229d4b0eed6a0fb967b6f4263f0db22048f3",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n13-glow.png",
+       "width": 59,
+       "height": 83,
+       "shift": [
+        -0.046875,
+        -0.484375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n13-glow.png",
+        "width": 118,
+        "height": 166,
+        "shift": [
+         -0.046875,
+         -0.484375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "f1f76449d633c91b889e6654ba576c061c5d1fd35888c828fb37c980f109b5ee",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n13-light.png",
+       "width": 99,
+       "height": 123,
+       "shift": [
+        -0.015625,
+        0.578125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n13-light.png",
+        "width": 198,
+        "height": 246,
+        "shift": [
+         -0.015625,
+         0.578125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "44c62febb325db9f31ffdf6a28b21d4a64244c0c2bcf48293f3d2d28446bc713",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.25,
+     -1.875
+    ],
+    [
+     1.0312,
+     1.0
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      0.8439
+     ],
+     "couleur": "#B070FF",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -0.5571
+     ],
+     "couleur": "#B070FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.856,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.82,
+     1.82
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.31,
+     "size": 3.3,
+     "color": "#B070FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n13-icon.png"
+   },
+   "o_cible": 0.85
+  },
+  {
+   "n": 14,
+   "epoque": 7,
+   "step": 2,
+   "epoque_nom": "Cristal",
+   "ere": "III",
+   "corps": "Creuset de bronze tenu par 4 griffes de cristal pointées vers le haut, sur socle de pierre taillée ; cheminée de bronze sertie de cristal",
+   "piece_paire": "Prisme focalisateur au-dessus du creuset, tenu par deux bras de bronze",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     484,
+     444
+    ],
+    "origine_px": [
+     199,
+     256
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.6,
+      -1.7238
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n14-shadow.png",
+      "width": 105,
+      "height": 49,
+      "shift": [
+       0.671875,
+       0.046875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n14-shadow.png",
+       "width": 210,
+       "height": 98,
+       "shift": [
+        0.671875,
+        0.046875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "7da2c7afc59650c112c02eee7152b3e276dc89f9910562896f37a20492951c6c",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n14-main.png",
+      "width": 73,
+      "height": 92,
+      "shift": [
+       -0.109375,
+       -0.4375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n14-main.png",
+       "width": 146,
+       "height": 184,
+       "shift": [
+        -0.109375,
+        -0.4375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "7b20ff93a1ce6774b4e94a4bdacc28ac0491360ae77ec795ebf5a9c4f0f1ae28",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n14-glow.png",
+       "width": 58,
+       "height": 86,
+       "shift": [
+        -0.03125,
+        -0.53125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n14-glow.png",
+        "width": 116,
+        "height": 172,
+        "shift": [
+         -0.03125,
+         -0.53125
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "14fc40c6787bb40081521fff333ed52fdcec5dbedce2e37ecacabfd3f2b844ec",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n14-light.png",
+       "width": 102,
+       "height": 125,
+       "shift": [
+        -0.03125,
+        0.609375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e07/hr-furnace-n14-light.png",
+        "width": 204,
+        "height": 250,
+        "shift": [
+         -0.03125,
+         0.609375
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "572f8b707b1f421ebe289226c59eb85703dc3daff18a1618691f1ab081276304",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.25,
+     -1.875
+    ],
+    [
+     1.0312,
+     1.0
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      0.8439
+     ],
+     "couleur": "#B070FF",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -0.5571
+     ],
+     "couleur": "#B070FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.861,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.84,
+     1.86
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.33,
+     "size": 3.4,
+     "color": "#B070FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e07/furnace-n14-icon.png"
+   },
+   "o_cible": 0.904
+  },
+  {
+   "n": 15,
+   "epoque": 8,
+   "step": 1,
+   "epoque_nom": "Marais",
+   "ere": "III",
+   "corps": "Creuset-alambic sphérique de verre sur base vert-de-gris, liquide luminescent, col de cygne qui monte puis redescend en cheminée à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     518,
+     476
+    ],
+    "origine_px": [
+     204,
+     280
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -1.9289
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n15-shadow.png",
+      "width": 111,
+      "height": 49,
+      "shift": [
+       0.734375,
+       0.078125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n15-shadow.png",
+       "width": 222,
+       "height": 98,
+       "shift": [
+        0.734375,
+        0.078125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "0209e3523e87a3ff0ce9a39d633a0f4386d0acaa4b52b93cf774fbc9c2ed5e07",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n15-main.png",
+      "width": 73,
+      "height": 98,
+      "shift": [
+       -0.140625,
+       -0.5
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n15-main.png",
+       "width": 146,
+       "height": 196,
+       "shift": [
+        -0.140625,
+        -0.5
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "b8320bbfa3831d81c011aff5d9acdb90f52f020dd21797ba3cd4345825c38caf",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n15-glow.png",
+       "width": 56,
+       "height": 88,
+       "shift": [
+        -0.125,
+        -0.53125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n15-glow.png",
+        "width": 112,
+        "height": 176,
+        "shift": [
+         -0.125,
+         -0.53125
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "ab7c9a658fbca09b70f65ae2b9505408f2278d201604c10489fe3fd3fefbd3a7",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n15-light.png",
+       "width": 100,
+       "height": 88,
+       "shift": [
+        -0.03125,
+        1.0625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n15-light.png",
+        "width": 200,
+        "height": 176,
+        "shift": [
+         -0.03125,
+         1.0625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "61757cca67856528a5466966bd52570001a64e31115ecb2a37ce9c5a300aa3e0",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.2812,
+     -2.0312
+    ],
+    [
+     1.0,
+     1.0312
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.8651
+     ],
+     "couleur": "#A8FF3A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.345
+     ],
+     "couleur": "#A8FF3A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.867,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.86,
+     1.9
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.35,
+     "size": 3.5,
+     "color": "#A8FF3A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n15-icon.png"
+   },
+   "o_cible": 0.94
+  },
+  {
+   "n": 16,
+   "epoque": 8,
+   "step": 2,
+   "epoque_nom": "Marais",
+   "ere": "III",
+   "corps": "Creuset-alambic sphérique de verre sur base vert-de-gris, liquide luminescent, col de cygne qui monte puis redescend en cheminée à l'arrière droit",
+   "piece_paire": "Second alambic (petite sphère sur trépied) sur le flanc gauche, relié par un tube",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     538,
+     480
+    ],
+    "origine_px": [
+     222,
+     282
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -1.9289
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n16-shadow.png",
+      "width": 116,
+      "height": 49,
+      "shift": [
+       0.65625,
+       0.078125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n16-shadow.png",
+       "width": 232,
+       "height": 98,
+       "shift": [
+        0.65625,
+        0.078125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "4aafd28829cf0a24d1dceaaeeeb4bde4f7fee6eea4012c70f697675467aa7ea2",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n16-main.png",
+      "width": 73,
+      "height": 98,
+      "shift": [
+       -0.140625,
+       -0.5
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n16-main.png",
+       "width": 146,
+       "height": 196,
+       "shift": [
+        -0.140625,
+        -0.5
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "5fda2804d9da12ff958729178eda7c50cf1654f8e7e2cdec8af84ac586996b48",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n16-glow.png",
+       "width": 63,
+       "height": 86,
+       "shift": [
+        -0.203125,
+        -0.5
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n16-glow.png",
+        "width": 126,
+        "height": 172,
+        "shift": [
+         -0.203125,
+         -0.5
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "0108b376db88c6b024a5223a14a9336f72d78e3bda30a1abf68c815a4dfeca54",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n16-light.png",
+       "width": 105,
+       "height": 107,
+       "shift": [
+        -0.015625,
+        0.890625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e08/hr-furnace-n16-light.png",
+        "width": 210,
+        "height": 214,
+        "shift": [
+         -0.015625,
+         0.890625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "a3886e4b3e3e8d515b32b2921c9a4ef17d05727e9fddea20780149000489f0dc",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.2812,
+     -2.0312
+    ],
+    [
+     1.0,
+     1.0312
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.8651
+     ],
+     "couleur": "#A8FF3A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.345
+     ],
+     "couleur": "#A8FF3A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.872,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.88,
+     1.94
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.37,
+     "size": 3.6,
+     "color": "#A8FF3A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e08/furnace-n16-icon.png"
+   },
+   "o_cible": 0.994
+  },
+  {
+   "n": 17,
+   "epoque": 9,
+   "step": 1,
+   "epoque_nom": "Atome",
+   "ere": "III",
+   "corps": "Base octogonale plombée chanfreinée, dôme chanfreiné, cœur vert par hublots, bande d'avertissement, petite tour de refroidissement hyperboloïde à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     522,
+     476
+    ],
+    "origine_px": [
+     208,
+     278
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.6,
+      -1.8294
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n17-shadow.png",
+      "width": 114,
+      "height": 52,
+      "shift": [
+       0.8125,
+       0.03125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n17-shadow.png",
+       "width": 228,
+       "height": 104,
+       "shift": [
+        0.8125,
+        0.03125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "3d7fc7bd6289fe26438e1ba8d7b3976564f14a230ffcd702241de07553e8b881",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n17-main.png",
+      "width": 82,
+      "height": 99,
+      "shift": [
+       -0.03125,
+       -0.515625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n17-main.png",
+       "width": 164,
+       "height": 198,
+       "shift": [
+        -0.03125,
+        -0.515625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "400ccb51c70a3ac9be762dfd39cda2f617999cf746764abbb3f7bf8079fdd860",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n17-glow.png",
+       "width": 60,
+       "height": 92,
+       "shift": [
+        -0.03125,
+        -0.59375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n17-glow.png",
+        "width": 120,
+        "height": 184,
+        "shift": [
+         -0.03125,
+         -0.59375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "24dcbe063430a09ef7bc08b1d13da11b3ac94fa35270885988c634c8d4bdaafb",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n17-light.png",
+       "width": 110,
+       "height": 92,
+       "shift": [
+        -0.03125,
+        1.25
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n17-light.png",
+        "width": 220,
+        "height": 184,
+        "shift": [
+         -0.03125,
+         1.25
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "27385bda7bedf274a7c675c8aa28f64d02e0069fe0c82feb94be074f42a18cf6",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3125,
+     -2.0625
+    ],
+    [
+     1.25,
+     1.0312
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.8086
+     ],
+     "couleur": "#5CFF4A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.201
+     ],
+     "couleur": "#5CFF4A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.878,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.9,
+     1.98
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.39,
+     "size": 3.7,
+     "color": "#5CFF4A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n17-icon.png"
+   },
+   "o_cible": 1.03
+  },
+  {
+   "n": 18,
+   "epoque": 9,
+   "step": 2,
+   "epoque_nom": "Atome",
+   "ere": "III",
+   "corps": "Base octogonale plombée chanfreinée, dôme chanfreiné, cœur vert par hublots, bande d'avertissement, petite tour de refroidissement hyperboloïde à l'arrière droit",
+   "piece_paire": "Conduit annelé sur le flanc droit, de la base à la tour",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     530,
+     480
+    ],
+    "origine_px": [
+     210,
+     280
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.6,
+      -1.8294
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n18-shadow.png",
+      "width": 114,
+      "height": 52,
+      "shift": [
+       0.8125,
+       0.03125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n18-shadow.png",
+       "width": 228,
+       "height": 104,
+       "shift": [
+        0.8125,
+        0.03125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "584cdf9a057fbfe5dbb3b3b6970afee87fc76f9a1c0ad6f10eacefdf5846f379",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n18-main.png",
+      "width": 82,
+      "height": 99,
+      "shift": [
+       -0.03125,
+       -0.515625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n18-main.png",
+       "width": 164,
+       "height": 198,
+       "shift": [
+        -0.03125,
+        -0.515625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "d87cc7de660a777700a8b9df22bc47d0d79a41d4bff4e01a325f665fc999d4e1",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n18-glow.png",
+       "width": 65,
+       "height": 92,
+       "shift": [
+        0.015625,
+        -0.59375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n18-glow.png",
+        "width": 130,
+        "height": 184,
+        "shift": [
+         0.015625,
+         -0.59375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "aed9aee897a6e63d41d388e24153efa51fbac07da0a11cd5d3219d8571aa5a9b",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n18-light.png",
+       "width": 112,
+       "height": 101,
+       "shift": [
+        -0.03125,
+        1.140625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e09/hr-furnace-n18-light.png",
+        "width": 224,
+        "height": 202,
+        "shift": [
+         -0.03125,
+         1.140625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "119a46fc7792ed97bdbb194282943054d4597825bea6cdcce4bdd156d7bde2ac",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3125,
+     -2.0625
+    ],
+    [
+     1.25,
+     1.0312
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.15,
+      0.8086
+     ],
+     "couleur": "#5CFF4A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.15,
+      -0.201
+     ],
+     "couleur": "#5CFF4A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.883,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.92,
+     2.02
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.41,
+     "size": 3.8,
+     "color": "#5CFF4A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e09/furnace-n18-icon.png"
+   },
+   "o_cible": 1.09
+  },
+  {
+   "n": 19,
+   "epoque": 10,
+   "step": 1,
+   "epoque_nom": "Haute technologie",
+   "ere": "IV",
+   "corps": "Four à induction : capsule lisse verticale, anneaux bleus, sur anneau de base et 4 pieds courts (vide dessous), mât d'évacuation caréné à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     516,
+     466
+    ],
+    "origine_px": [
+     201,
+     285
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -2.0484
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n19-shadow.png",
+      "width": 104,
+      "height": 40,
+      "shift": [
+       0.96875,
+       -0.125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n19-shadow.png",
+       "width": 208,
+       "height": 80,
+       "shift": [
+        0.96875,
+        -0.125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "b3dd5ebb2d6096f1362ec074d3f83ffe29935a6707b80a6690be5cec8e824b14",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n19-main.png",
+      "width": 65,
+      "height": 87,
+      "shift": [
+       0.046875,
+       -0.765625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n19-main.png",
+       "width": 130,
+       "height": 174,
+       "shift": [
+        0.046875,
+        -0.765625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "0806b84d986acd33d9a6c9322e438a3b6f450ce96ad1c1d46fcdf41ad950b3bf",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n19-glow.png",
+       "width": 52,
+       "height": 76,
+       "shift": [
+        0.0,
+        -0.84375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n19-glow.png",
+        "width": 104,
+        "height": 152,
+        "shift": [
+         0.0,
+         -0.84375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "84f650b0fe6badaaf54f15b23bccf08f2356b5874826254283c3fbc5c01e0123",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n19-light.png",
+       "width": 119,
+       "height": 130,
+       "shift": [
+        -0.015625,
+        0.65625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n19-light.png",
+        "width": 238,
+        "height": 260,
+        "shift": [
+         -0.015625,
+         0.65625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "facdeb44017fac17d4c7adfbfd0e735a7eaa2d75db9f50a6d35eb4f7ee4f5e5c",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -0.9688,
+     -2.125
+    ],
+    [
+     1.0625,
+     0.5938
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.1157
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.6192
+     ],
+     "couleur": "#3AA8FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.889,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.94,
+     2.06
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.43,
+     "size": 3.9,
+     "color": "#3AA8FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n19-icon.png"
+   },
+   "o_cible": 1.13
+  },
+  {
+   "n": 20,
+   "epoque": 10,
+   "step": 2,
+   "epoque_nom": "Haute technologie",
+   "ere": "IV",
+   "corps": "Four à induction : capsule lisse verticale, anneaux bleus, sur anneau de base et 4 pieds courts (vide dessous), mât d'évacuation caréné à l'arrière droit",
+   "piece_paire": "Écran latéral sur bras et antenne fouet, flanc gauche",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     548,
+     472
+    ],
+    "origine_px": [
+     230,
+     288
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -2.0484
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n20-shadow.png",
+      "width": 104,
+      "height": 40,
+      "shift": [
+       0.96875,
+       -0.125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n20-shadow.png",
+       "width": 208,
+       "height": 80,
+       "shift": [
+        0.96875,
+        -0.125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "576ea6dcb2e4fb8d345aa42124092b85e4f86ded4e267e72eab3d6b7901d9ead",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n20-main.png",
+      "width": 73,
+      "height": 87,
+      "shift": [
+       -0.078125,
+       -0.765625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n20-main.png",
+       "width": 146,
+       "height": 174,
+       "shift": [
+        -0.078125,
+        -0.765625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "e09e1e20d97413347acfc4c7a656f73bb18dfd34d4d1d6bc339c6e9a14c603ba",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n20-glow.png",
+       "width": 64,
+       "height": 77,
+       "shift": [
+        -0.21875,
+        -0.859375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n20-glow.png",
+        "width": 128,
+        "height": 154,
+        "shift": [
+         -0.21875,
+         -0.859375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "8d5c653ca3a4a51472e5bc70af64d5f6e09292d60ee69aad225e3f8f436de96e",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n20-light.png",
+       "width": 123,
+       "height": 131,
+       "shift": [
+        -0.015625,
+        0.671875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e10/hr-furnace-n20-light.png",
+        "width": 246,
+        "height": 262,
+        "shift": [
+         -0.015625,
+         0.671875
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "da1a461ef5b1aabd8ee6f4ca334d60744e5acd9ebada854273e53982a8fd0461",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.2188,
+     -2.125
+    ],
+    [
+     1.0625,
+     0.5938
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.1157
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.6192
+     ],
+     "couleur": "#3AA8FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.894,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.96,
+     2.1
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.45,
+     "size": 4.0,
+     "color": "#3AA8FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e10/furnace-n20-icon.png"
+   },
+   "o_cible": 1.184
+  },
+  {
+   "n": 21,
+   "epoque": 11,
+   "step": 1,
+   "epoque_nom": "Titane",
+   "ere": "IV",
+   "corps": "Four vertical élancé en alliage blanc à 4 ailerons de refroidissement, sur 4 pieds (vides), lignes bleu-blanc ; évent effilé à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     544,
+     478
+    ],
+    "origine_px": [
+     215,
+     299
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.1474
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n21-shadow.png",
+      "width": 110,
+      "height": 37,
+      "shift": [
+       0.96875,
+       -0.171875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n21-shadow.png",
+       "width": 220,
+       "height": 74,
+       "shift": [
+        0.96875,
+        -0.171875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "2af82e45a4bfce85b017f7a124400f8ea30e17b6e608d01ed767087aa49b0461",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n21-main.png",
+      "width": 65,
+      "height": 86,
+      "shift": [
+       0.046875,
+       -0.90625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n21-main.png",
+       "width": 130,
+       "height": 172,
+       "shift": [
+        0.046875,
+        -0.90625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "1724d878ec18dcc39d18044c7bc0a155dbbe6af4de5c7950974e16b566646eb4",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n21-glow.png",
+       "width": 60,
+       "height": 78,
+       "shift": [
+        -0.03125,
+        -0.875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n21-glow.png",
+        "width": 120,
+        "height": 156,
+        "shift": [
+         -0.03125,
+         -0.875
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "09188f67d6aa8fea0606ec337792ab3fd1f2a31f609fb4bce1eed574544f2d43",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n21-light.png",
+       "width": 125,
+       "height": 135,
+       "shift": [
+        -0.015625,
+        0.578125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n21-light.png",
+        "width": 250,
+        "height": 270,
+        "shift": [
+         -0.015625,
+         0.578125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "99c74b9ce745e4dc76bf101d12905dd19d903760b7a93fd69843dad4a7daa6c4",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -0.9688,
+     -2.25
+    ],
+    [
+     1.0625,
+     0.4375
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.2157
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.7899
+     ],
+     "couleur": "#BFE6FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.9,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     0.98,
+     2.14
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.47,
+     "size": 4.1,
+     "color": "#BFE6FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n21-icon.png"
+   },
+   "o_cible": 1.22
+  },
+  {
+   "n": 22,
+   "epoque": 11,
+   "step": 2,
+   "epoque_nom": "Titane",
+   "ere": "IV",
+   "corps": "Four vertical élancé en alliage blanc à 4 ailerons de refroidissement, sur 4 pieds (vides), lignes bleu-blanc ; évent effilé à l'arrière droit",
+   "piece_paire": "Aileron dorsal (grand aileron triangulaire au sommet)",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     562,
+     484
+    ],
+    "origine_px": [
+     218,
+     302
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.1474
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n22-shadow.png",
+      "width": 110,
+      "height": 37,
+      "shift": [
+       0.96875,
+       -0.171875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n22-shadow.png",
+       "width": 220,
+       "height": 74,
+       "shift": [
+        0.96875,
+        -0.171875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "3bc2648b01abf134e49219684b642d6e99f26917f34a72db11d3ff20ed7c71c5",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n22-main.png",
+      "width": 65,
+      "height": 87,
+      "shift": [
+       0.046875,
+       -0.890625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n22-main.png",
+       "width": 130,
+       "height": 174,
+       "shift": [
+        0.046875,
+        -0.890625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "f34f2d3cb83152c14378a14bff3cb67be2120606df4cb1710c5bb6c01172c67c",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n22-glow.png",
+       "width": 60,
+       "height": 82,
+       "shift": [
+        -0.03125,
+        -0.90625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n22-glow.png",
+        "width": 120,
+        "height": 164,
+        "shift": [
+         -0.03125,
+         -0.90625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "50e3f35e2e102f42663fc01e08c8749a5bb6b2ba3fac66cee4bab3386862d9a8",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n22-light.png",
+       "width": 127,
+       "height": 142,
+       "shift": [
+        -0.015625,
+        0.5
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e11/hr-furnace-n22-light.png",
+        "width": 254,
+        "height": 284,
+        "shift": [
+         -0.015625,
+         0.5
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "775f49783cea7d87ae230926e8fbb954d41fb10bdf2f427b366b9e33049d3876",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -0.9688,
+     -2.25
+    ],
+    [
+     1.0625,
+     0.4688
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.2157
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.7899
+     ],
+     "couleur": "#BFE6FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.906,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.0,
+     2.18
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.49,
+     "size": 4.2,
+     "color": "#BFE6FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e11/furnace-n22-icon.png"
+   },
+   "o_cible": 1.28
+  },
+  {
+   "n": 23,
+   "epoque": 12,
+   "step": 1,
+   "epoque_nom": "Supraconducteurs",
+   "ere": "IV",
+   "corps": "Creuset noir en lévitation entre 2 anneaux magnétiques chromés (vide dessous), socle hexagonal noir, colonne d'évacuation en blocs flottants à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     550,
+     506
+    ],
+    "origine_px": [
+     214,
+     306
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.211
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n23-shadow.png",
+      "width": 108,
+      "height": 45,
+      "shift": [
+       1.0625,
+       -0.046875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n23-shadow.png",
+       "width": 216,
+       "height": 90,
+       "shift": [
+        1.0625,
+        -0.046875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "bf179efa88a5994092e3e070edcd7965b8849c91e747d1a7223ed0d51cad8e49",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n23-main.png",
+      "width": 62,
+      "height": 93,
+      "shift": [
+       0.09375,
+       -0.859375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n23-main.png",
+       "width": 124,
+       "height": 186,
+       "shift": [
+        0.09375,
+        -0.859375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "60f63695a15bac7edd54526d8fa7e765dfb9a410bfcbf1cb4347515f44c86d8e",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n23-glow.png",
+       "width": 52,
+       "height": 83,
+       "shift": [
+        -0.03125,
+        -0.859375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n23-glow.png",
+        "width": 104,
+        "height": 166,
+        "shift": [
+         -0.03125,
+         -0.859375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "142edad7d217a3132608a4f91ef07e39a1c0edd25ad906d0f946f109bed73588",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n23-light.png",
+       "width": 129,
+       "height": 133,
+       "shift": [
+        -0.015625,
+        0.828125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n23-light.png",
+        "width": 258,
+        "height": 266,
+        "shift": [
+         -0.015625,
+         0.828125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "72342ac2bf82e3298a123bc5c7a6ddc108d9c07d409cf7b29839a6d3033ef292",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -0.875,
+     -2.3125
+    ],
+    [
+     1.0625,
+     0.5938
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.3425
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.2689
+     ],
+     "couleur": "#4AF0FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.911,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.02,
+     2.22
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.51,
+     "size": 4.3,
+     "color": "#4AF0FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n23-icon.png"
+   },
+   "o_cible": 1.32
+  },
+  {
+   "n": 24,
+   "epoque": 12,
+   "step": 2,
+   "epoque_nom": "Supraconducteurs",
+   "ere": "IV",
+   "corps": "Creuset noir en lévitation entre 2 anneaux magnétiques chromés (vide dessous), socle hexagonal noir, colonne d'évacuation en blocs flottants à l'arrière droit",
+   "piece_paire": "Pylône cryogénique givré à gauche, bobine cyan au sommet",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     574,
+     512
+    ],
+    "origine_px": [
+     234,
+     309
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.211
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n24-shadow.png",
+      "width": 123,
+      "height": 45,
+      "shift": [
+       0.859375,
+       -0.046875
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n24-shadow.png",
+       "width": 246,
+       "height": 90,
+       "shift": [
+        0.859375,
+        -0.046875
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "55d8d49b2d0f2beb5caa4187b07d0d0e21ca7e7f5700642031f4d2313ae3cd53",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n24-main.png",
+      "width": 76,
+      "height": 93,
+      "shift": [
+       -0.125,
+       -0.859375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n24-main.png",
+       "width": 152,
+       "height": 186,
+       "shift": [
+        -0.125,
+        -0.859375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "a019002f7eabcaa8bfd70cb43797e3c3354acbdf6527605e32de3fe8f1db1562",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n24-glow.png",
+       "width": 61,
+       "height": 84,
+       "shift": [
+        -0.171875,
+        -0.875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n24-glow.png",
+        "width": 122,
+        "height": 168,
+        "shift": [
+         -0.171875,
+         -0.875
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "40075a65b28b082f4249941fdcac71169628441452564af797c9699b893c66da",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n24-light.png",
+       "width": 131,
+       "height": 135,
+       "shift": [
+        -0.015625,
+        0.859375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e12/hr-furnace-n24-light.png",
+        "width": 262,
+        "height": 270,
+        "shift": [
+         -0.015625,
+         0.859375
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "e5c49c1bae61776efbf9c2b7a784104cf1cdb00f8503473b25048f2cea9f5159",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.3125,
+     -2.3125
+    ],
+    [
+     1.0625,
+     0.5938
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.3425
+     ],
+     "couleur": "#FF8A1E",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.2689
+     ],
+     "couleur": "#4AF0FF",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.917,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.04,
+     2.26
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.53,
+     "size": 4.4,
+     "color": "#4AF0FF",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e12/furnace-n24-icon.png"
+   },
+   "o_cible": 1.374
+  },
+  {
+   "n": 25,
+   "epoque": 13,
+   "step": 1,
+   "epoque_nom": "Fusion",
+   "ere": "V",
+   "corps": "Sphère de céramique sur trépied de cuivre, tore de plasma horizontal (grand vide sous la sphère), injecteurs, flèche d'évacuation à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     586,
+     534
+    ],
+    "origine_px": [
+     233,
+     320
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.3312
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n25-shadow.png",
+      "width": 114,
+      "height": 49,
+      "shift": [
+       1.15625,
+       0.015625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n25-shadow.png",
+       "width": 228,
+       "height": 98,
+       "shift": [
+        1.15625,
+        0.015625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "fc7fa17935c9f4ff6d11ba47b23417fdd1f6410899f2185aa7a5779a4008600e",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n25-main.png",
+      "width": 68,
+      "height": 101,
+      "shift": [
+       -0.03125,
+       -0.859375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n25-main.png",
+       "width": 136,
+       "height": 202,
+       "shift": [
+        -0.03125,
+        -0.859375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "d8509491554721e726eb035eb9050fa41906feb29d8fefa65b1d515a68f562fc",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n25-glow.png",
+       "width": 62,
+       "height": 98,
+       "shift": [
+        -0.125,
+        -0.90625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n25-glow.png",
+        "width": 124,
+        "height": 196,
+        "shift": [
+         -0.125,
+         -0.90625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "1cdf4a75932e60b286852fdd8ccc9fe7f74f9592387b201913d79177528410b2",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n25-light.png",
+       "width": 136,
+       "height": 152,
+       "shift": [
+        0.0,
+        0.71875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n25-light.png",
+        "width": 272,
+        "height": 304,
+        "shift": [
+         0.0,
+         0.71875
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "f8c4f99a4347fc8ed946101edacb68c4961ac24408bee549e53b53dca6bef31a",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.0938,
+     -2.4375
+    ],
+    [
+     1.0312,
+     0.7188
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.5753
+     ],
+     "couleur": "#FF9A3A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.9453
+     ],
+     "couleur": "#FF4FD8",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.922,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.06,
+     2.3
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.55,
+     "size": 4.5,
+     "color": "#FF4FD8",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n25-icon.png"
+   },
+   "o_cible": 1.41
+  },
+  {
+   "n": 26,
+   "epoque": 13,
+   "step": 2,
+   "epoque_nom": "Fusion",
+   "ere": "V",
+   "corps": "Sphère de céramique sur trépied de cuivre, tore de plasma horizontal (grand vide sous la sphère), injecteurs, flèche d'évacuation à l'arrière droit",
+   "piece_paire": "Second tore de plasma incliné autour de la sphère",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     598,
+     540
+    ],
+    "origine_px": [
+     242,
+     323
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.62,
+      -2.3312
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n26-shadow.png",
+      "width": 114,
+      "height": 49,
+      "shift": [
+       1.15625,
+       0.015625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n26-shadow.png",
+       "width": 228,
+       "height": 98,
+       "shift": [
+        1.15625,
+        0.015625
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "4bd508be0d57af9ade5c12dc50d6861a392d0a84420efb3132967289d78d3f48",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n26-main.png",
+      "width": 68,
+      "height": 101,
+      "shift": [
+       -0.03125,
+       -0.859375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n26-main.png",
+       "width": 136,
+       "height": 202,
+       "shift": [
+        -0.03125,
+        -0.859375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "af263c855de751b5b61dae7d5917a6806b596d1fa98404089cf37f26add1429a",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n26-glow.png",
+       "width": 63,
+       "height": 99,
+       "shift": [
+        -0.109375,
+        -0.890625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n26-glow.png",
+        "width": 126,
+        "height": 198,
+        "shift": [
+         -0.109375,
+         -0.890625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "bd7f10d74650173f40d145a4aa167940c19e07c707a3ca4d74f43a9c057ca41c",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n26-light.png",
+       "width": 138,
+       "height": 159,
+       "shift": [
+        0.0,
+        0.640625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e13/hr-furnace-n26-light.png",
+        "width": 276,
+        "height": 318,
+        "shift": [
+         0.0,
+         0.640625
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "65b9494d112fcd70a3c0dd2ad911b6ab4b1461a47a0d42d5a4f1f34f6fe41202",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.0938,
+     -2.4375
+    ],
+    [
+     1.0312,
+     0.7188
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.12,
+      -0.5753
+     ],
+     "couleur": "#FF9A3A",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.12,
+      -0.9453
+     ],
+     "couleur": "#FF4FD8",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.928,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.08,
+     2.34
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.57,
+     "size": 4.6,
+     "color": "#FF4FD8",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e13/furnace-n26-icon.png"
+   },
+   "o_cible": 1.47
+  },
+  {
+   "n": 27,
+   "epoque": 14,
+   "step": 1,
+   "epoque_nom": "Orbite",
+   "ere": "V",
+   "corps": "Four solaire : colonne blanche, creuset éclatant au foyer d'une corolle de pétales-miroirs dorés (la plus large), mât-balise à l'arrière droit",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     624,
+     560
+    ],
+    "origine_px": [
+     245,
+     334
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -2.5009
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n27-shadow.png",
+      "width": 125,
+      "height": 53,
+      "shift": [
+       1.296875,
+       0.078125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n27-shadow.png",
+       "width": 250,
+       "height": 106,
+       "shift": [
+        1.296875,
+        0.078125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "cdcca5b49adadd9fc67f949dc15f2daeb8256346515b3816b4ba4f13b3b61ee6",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n27-main.png",
+      "width": 95,
+      "height": 125,
+      "shift": [
+       -0.421875,
+       -0.609375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n27-main.png",
+       "width": 190,
+       "height": 250,
+       "shift": [
+        -0.421875,
+        -0.609375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "132905f1fca01625f00154618b4b815bfb784672cfb8a91a0ba526a2e06d5e8e",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n27-glow.png",
+       "width": 67,
+       "height": 97,
+       "shift": [
+        -0.078125,
+        -1.015625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n27-glow.png",
+        "width": 134,
+        "height": 194,
+        "shift": [
+         -0.078125,
+         -1.015625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "268bcdddf6c1ff388bcce71a726e7ef3b74a701c7db4718e70f0ba5d12a2b48b",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n27-light.png",
+       "width": 137,
+       "height": 182,
+       "shift": [
+        -0.015625,
+        0.3125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n27-light.png",
+        "width": 274,
+        "height": 364,
+        "shift": [
+         -0.015625,
+         0.3125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "6b4fa02cde3170cf9975fccb0b234b059aa300a31ef10ab0a31a2b8d3d5f7f0c",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.9062,
+     -2.5625
+    ],
+    [
+     1.0625,
+     1.3438
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      0.4151
+     ],
+     "couleur": "#FFC060",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -1.1387
+     ],
+     "couleur": "#FFE6A0",
+     "role": "lueur de décor"
+    },
+    {
+     "position_ecran": [
+      0.79,
+      -2.4655
+     ],
+     "couleur": "#FF2A2A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.933,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.1,
+     2.38
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.59,
+     "size": 4.7,
+     "color": "#FF2A2A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n27-icon.png"
+   },
+   "o_cible": 1.51
+  },
+  {
+   "n": 28,
+   "epoque": 14,
+   "step": 2,
+   "epoque_nom": "Orbite",
+   "ere": "V",
+   "corps": "Four solaire : colonne blanche, creuset éclatant au foyer d'une corolle de pétales-miroirs dorés (la plus large), mât-balise à l'arrière droit",
+   "piece_paire": "Pétale supplémentaire à l'arrière, plus redressé",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     630,
+     566
+    ],
+    "origine_px": [
+     248,
+     337
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.66,
+      -2.5009
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n28-shadow.png",
+      "width": 125,
+      "height": 53,
+      "shift": [
+       1.296875,
+       0.078125
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n28-shadow.png",
+       "width": 250,
+       "height": 106,
+       "shift": [
+        1.296875,
+        0.078125
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "4562b2992aa935403f93f9583de406594f57825550562cc23996106878aaeb6b",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n28-main.png",
+      "width": 71,
+      "height": 104,
+      "shift": [
+       -0.078125,
+       -0.9375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n28-main.png",
+       "width": 142,
+       "height": 208,
+       "shift": [
+        -0.078125,
+        -0.9375
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "a26c163b44fed74a4ac190259188131c21d62c14bbf0768df01bcd044a66777e",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n28-glow.png",
+       "width": 65,
+       "height": 97,
+       "shift": [
+        -0.109375,
+        -1.015625
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n28-glow.png",
+        "width": 130,
+        "height": 194,
+        "shift": [
+         -0.109375,
+         -1.015625
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "bfea18f58260ef4bc9874c72fdf3995f10e6f4e42736ee44cb559fa45e05934a",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n28-light.png",
+       "width": 139,
+       "height": 183,
+       "shift": [
+        -0.015625,
+        0.328125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e14/hr-furnace-n28-light.png",
+        "width": 278,
+        "height": 366,
+        "shift": [
+         -0.015625,
+         0.328125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "bb2841491cc55f0d054e028cec2ddfaf58938868683ac328eff407eaf7c0c0e0",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.1875,
+     -2.5625
+    ],
+    [
+     1.0312,
+     0.6875
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      0.4151
+     ],
+     "couleur": "#FFC060",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -1.1387
+     ],
+     "couleur": "#FFE6A0",
+     "role": "lueur de décor"
+    },
+    {
+     "position_ecran": [
+      0.79,
+      -2.4655
+     ],
+     "couleur": "#FF2A2A",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.939,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.12,
+     2.42
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.61,
+     "size": 4.8,
+     "color": "#FF2A2A",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e14/furnace-n28-icon.png"
+   },
+   "o_cible": 1.522
+  },
+  {
+   "n": 29,
+   "epoque": 15,
+   "step": 1,
+   "epoque_nom": "Légende",
+   "ere": "V",
+   "corps": "Creuset en couronne de flèches d'or blanc, flottant au-dessus d'un disque flottant (vide maximal), anneau-halo ; la flèche arrière droite est la cheminée",
+   "piece_paire": null,
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     646,
+     576
+    ],
+    "origine_px": [
+     249,
+     345
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.36,
+      -2.531
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n29-shadow.png",
+      "width": 128,
+      "height": 49,
+      "shift": [
+       1.40625,
+       0.109375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n29-shadow.png",
+       "width": 256,
+       "height": 98,
+       "shift": [
+        1.40625,
+        0.109375
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "c046a510a1c7e86fef2e7e8545df3f4059687bd3b9cd6f2be145d79dc417f4d3",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n29-main.png",
+      "width": 69,
+      "height": 95,
+      "shift": [
+       -0.109375,
+       -1.140625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n29-main.png",
+       "width": 138,
+       "height": 190,
+       "shift": [
+        -0.109375,
+        -1.140625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "89c2eb970fe1be71cfbe98db0189c157ee11f969bad1854974b419800ce914a5",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n29-glow.png",
+       "width": 66,
+       "height": 91,
+       "shift": [
+        -0.09375,
+        -1.109375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n29-glow.png",
+        "width": 132,
+        "height": 182,
+        "shift": [
+         -0.09375,
+         -1.109375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "585d2cda949bb57b22aa180e61d0a20ff0846b8c19ba92901c41f3287571cbe8",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n29-light.png",
+       "width": 143,
+       "height": 163,
+       "shift": [
+        -0.015625,
+        0.703125
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n29-light.png",
+        "width": 286,
+        "height": 326,
+        "shift": [
+         -0.015625,
+         0.703125
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "65799dba44d8e3d572ef2c34010f71cd7f7ad6ae257e6cd1dce0477a086fcca6",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.1875,
+     -2.625
+    ],
+    [
+     0.9688,
+     0.3438
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      -0.3349
+     ],
+     "couleur": "#FFF2C0",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -0.8758
+     ],
+     "couleur": "#FFC060",
+     "role": "lueur de décor"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      0.0293
+     ],
+     "couleur": "#FFF2C0",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.944,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.14,
+     2.46
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.63,
+     "size": 4.9,
+     "color": "#FFF2C0",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n29-icon.png"
+   },
+   "o_cible": 1.53
+  },
+  {
+   "n": 30,
+   "epoque": 15,
+   "step": 2,
+   "epoque_nom": "Légende",
+   "ere": "V",
+   "corps": "Creuset en couronne de flèches d'or blanc, flottant au-dessus d'un disque flottant (vide maximal), anneau-halo ; la flèche arrière droite est la cheminée",
+   "piece_paire": "Seconde couronne flottante au-dessus de la première",
+   "apercu": {
+    "echantillons": 32,
+    "graine": 20261021,
+    "blender": "5.2.2 LTS",
+    "toile": [
+     650,
+     580
+    ],
+    "origine_px": [
+     251,
+     347
+    ]
+   },
+   "fumee": [
+    {
+     "position": [
+      0.36,
+      -2.531
+     ],
+     "note": "haut de la cheminée de l'époque (écran, tuiles) : energy_source.smoke[1].position"
+    }
+   ],
+   "dress": {
+    "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations (feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+    "animation_layers": [
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n30-shadow.png",
+      "width": 128,
+      "height": 49,
+      "shift": [
+       1.40625,
+       0.109375
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n30-shadow.png",
+       "width": 256,
+       "height": 98,
+       "shift": [
+        1.40625,
+        0.109375
+       ],
+       "scale": 0.5,
+       "draw_as_shadow": true
+      },
+      "draw_as_shadow": true,
+      "sha256_apercu": "2ea33b0e85dc63c8f61f7add0179c967c17e9ad91e178ac881eab64ae5effa62",
+      "couche": "shadow"
+     },
+     {
+      "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n30-main.png",
+      "width": 69,
+      "height": 95,
+      "shift": [
+       -0.109375,
+       -1.140625
+      ],
+      "hr_version": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n30-main.png",
+       "width": 138,
+       "height": 190,
+       "shift": [
+        -0.109375,
+        -1.140625
+       ],
+       "scale": 0.5
+      },
+      "sha256_apercu": "7bf0a38ee35a2fd8b990e37cc969b1508c99aee8ae9e500807e80ca3fe02110e",
+      "couche": "main"
+     }
+    ],
+    "working_visualisations": [
+     {
+      "couche": "glow",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n30-glow.png",
+       "width": 66,
+       "height": 91,
+       "shift": [
+        -0.09375,
+        -1.109375
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n30-glow.png",
+        "width": 132,
+        "height": 182,
+        "shift": [
+         -0.09375,
+         -1.109375
+        ],
+        "scale": 0.5,
+        "draw_as_glow": true,
+        "blend_mode": "additive"
+       },
+       "draw_as_glow": true,
+       "blend_mode": "additive",
+       "sha256_apercu": "9f846b266b178f447a7f0700b6a294223f8720118eede7c19e031c52e12feec0",
+       "couche": "glow"
+      }
+     },
+     {
+      "couche": "light",
+      "fadeout": true,
+      "effect": "flicker",
+      "animation": {
+       "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n30-light.png",
+       "width": 146,
+       "height": 164,
+       "shift": [
+        0.0,
+        0.71875
+       ],
+       "hr_version": {
+        "filename": "__factorio-overhaul__/graphics/levels/furnace/e15/hr-furnace-n30-light.png",
+        "width": 292,
+        "height": 328,
+        "shift": [
+         0.0,
+         0.71875
+        ],
+        "scale": 0.5,
+        "draw_as_light": true,
+        "draw_as_sprite": false,
+        "blend_mode": "additive"
+       },
+       "draw_as_light": true,
+       "draw_as_sprite": false,
+       "blend_mode": "additive",
+       "sha256_apercu": "16fad2c5f706344367a7c070d3b1fcbb392515ae5373e1f10d8f7dde9c657899",
+       "couche": "light"
+      }
+     }
+    ],
+    "smoke": "p.energy_source.smoke[1].position = fumee[0].position"
+   },
+   "drawing_box": [
+    [
+     -1.1875,
+     -2.625
+    ],
+    [
+     0.9688,
+     0.3438
+    ]
+   ],
+   "zones_lumineuses": [
+    {
+     "position_ecran": [
+      -0.1,
+      -0.3349
+     ],
+     "couleur": "#FFF2C0",
+     "role": "bouche (feu de l'ère, animé en phase 2)"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      -0.8758
+     ],
+     "couleur": "#FFC060",
+     "role": "lueur de décor"
+    },
+    {
+     "position_ecran": [
+      -0.1,
+      0.0293
+     ],
+     "couleur": "#FFF2C0",
+     "role": "lueur de décor"
+    }
+   ],
+   "halo": {
+    "couche_light_max": 0.95,
+    "flaque_centre": [
+     0.0,
+     1.15
+    ],
+    "rayons_plein_nul_tuiles": [
+     1.16,
+     2.5
+    ],
+    "light_definition_proposee": {
+     "intensity": 0.65,
+     "size": 5.0,
+     "color": "#FFF2C0",
+     "note": "bible §1.6, I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N)"
+    }
+   },
+   "icone": {
+    "source": "couche principale de la pose de référence (P.icon_strip : 64 px + 3 mipmaps)",
+    "fichier_phase2": "__factorio-overhaul__/graphics/levels/furnace/e15/furnace-n30-icon.png"
+   },
+   "o_cible": 1.6
+  }
+ ]
+}
