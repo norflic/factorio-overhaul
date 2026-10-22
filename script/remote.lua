@@ -22,6 +22,27 @@ local Storage = require("script.core.storage")
 
 local function surface() return game.surfaces[1] end
 
+--- Lot V3-T : emprise et place d'un aperçu ou d'une amélioration, en données simples (aucune fonction, aucune
+--- référence interne) : resize = { from, to } (côtés) ; position = centre retenu (nil : aucune place) ;
+--- candidate = rang de la position retenue dans l'ordre de préférence ; contour = carré de la position À
+--- MONTRER { x0, y0, x1, y1 } (celui que dessine un refus : la plus facile à libérer, correction V3-T, défaut 8) ;
+--- contour_candidate = son rang ; blockers = ce qui la bloque (noms d'entités, « tile:<nom> » pour une tuile),
+--- trié.
+local function room_fields(out, info)
+  if not (info and info.resize) then return out end
+  out.resize = { from = info.resize.from, to = info.resize.to }
+  local room = info.room
+  if room then
+    local c, p = room.chosen, room.target or room.preferred
+    out.position = c and { x = c.x, y = c.y } or nil
+    out.candidate = room.index
+    out.contour_candidate = room.target_index
+    out.contour = p and { x0 = p.box.x0, y0 = p.box.y0, x1 = p.box.x1, y1 = p.box.y1 } or nil
+    out.blockers = Levels.blocker_names(p)
+  end
+  return out
+end
+
 local function log_lines(lines)
   for _, line in ipairs(lines) do log(line) end
 end
@@ -84,10 +105,20 @@ remote.add_interface("factorio-overhaul", {
   -- Niveaux (session 5 ; amélioration instantanée depuis le lot V2c) : améliorer sans joueur (paiement : centre
   -- de commandement). Renvoie { ok, reason } ; reason = "done" en cas de succès, sinon le motif du refus
   -- ("max", "no-cc", "cc-too-low", "cc-families" (condition Q16 du centre), "no-resources", "unknown-item"…) ;
-  -- pour le centre, blocking = familles qui bloquent et condition_level = niveau visé.
+  -- pour le centre, blocking = familles qui bloquent et condition_level = niveau visé. Lot V3-T : entity = le
+  -- bâtiment amélioré (nil en cas de refus) ; changement d'emprise : resize, position, candidate, contour,
+  -- blockers (room_fields ci-dessus) ; refus faute de place : reason = "no-room" (rien n'est payé, le contour
+  -- est dessiné pour la force du bâtiment).
   levels_upgrade = function(entity)
-    local ok, reason, info = Levels.start(entity, nil)
-    return { ok = ok, reason = reason, blocking = info and info.blocking, condition_level = info and info.condition_level }
+    local ok, reason, info, new = Levels.start(entity, nil)
+    return room_fields({ ok = ok, reason = reason, blocking = info and info.blocking,
+      condition_level = info and info.condition_level, entity = new }, info)
+  end,
+  -- Lot V3-T : aperçu sans rien payer ni dessiner (banc) : { ok, reason, level, next } + room_fields.
+  levels_preview = function(entity)
+    local info = Levels.preview(entity, nil, true)
+    if not info then return nil end
+    return room_fields({ ok = info.ok, reason = info.reason, level = info.level, next = info.next }, info)
   end,
   levels_row = function(entity)
     return Levels.start_row(entity, nil)
@@ -95,8 +126,18 @@ remote.add_interface("factorio-overhaul", {
   levels_status = function(force_name)
     local force = game.forces[force_name or "player"]
     local st = Storage.ns("levels")
-    return { cc_level = Levels.cc_level(force), upgrades = st.stats.upgrades, lost = st.stats.lost,
-             fallback = st.stats.fallback or 0 }
+    local x = st.stats
+    -- Lot V3-T : resized (remplacements par script à une autre taille), room_refused (refus « no-room »),
+    -- contours (contours dessinés), forced (chantiers hérités posés sans place), resize_failed, refunds,
+    -- spilled (objets renversés au sol par un transfert : 0 attendu), wires_lost, migrated, overlap_kept ;
+    -- corrections V3-T : ghosts_removed (fantômes recouverts retirés), ground_moved / ground_left (objets au sol
+    -- sortis du bâtiment agrandi / laissés faute de place).
+    return { cc_level = Levels.cc_level(force), upgrades = x.upgrades, lost = x.lost, fallback = x.fallback or 0,
+             resized = x.resized or 0, room_refused = x.room_refused or 0, contours = x.contours or 0,
+             forced = x.forced or 0, resize_failed = x.resize_failed or 0, refunds = x.refunds or 0,
+             spilled = x.spilled or 0, wires_lost = x.wires_lost or 0, migrated = x.migrated or 0,
+             overlap_kept = x.overlap_kept or 0, ghosts_removed = x.ghosts_removed or 0,
+             ground_moved = x.ground_moved or 0, ground_left = x.ground_left or 0 }
   end,
   profiler = function(on)
     Profiler.set_enabled(on and true or false, game.tick)
