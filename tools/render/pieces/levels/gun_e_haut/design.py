@@ -21,6 +21,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages as AG
 import armes as A
 import parts as PT
 import parts2 as P2
@@ -331,6 +332,14 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
             g.box(V((x, y, 0.04)) + d * rs * 0.72, (0.16, 0.16, 0.08), M["steel_dk"], "hard", what="semelle")
         g.cyl((x, y, 0.06), "z", r * 0.8, 0.12, M["steel_dk"], n=24, style="soft", what="socle")
         g.sphere((x, y, zc), rs, M["jacket"], n=32, m=16)
+        for zz_, nn in ((0.18, 14), (0.62, 10), (-0.2, 12)):
+            rr_ = rs * math.sqrt(1 - zz_ * zz_)
+            for k in range(nn):
+                a = TAU * (k + 0.5) / nn
+                d = V((math.cos(a) * math.sqrt(1 - zz_ * zz_), math.sin(a) * math.sqrt(1 - zz_ * zz_), zz_))
+                g.push_frame(V((x, y, zc)) + d * (rs + 0.004), d)
+                g.box((0, 0, 0.006), (0.06, 0.06, 0.014), M["steel_dk"], "hard", what="trappe")
+                g.pop()
         for zz in (-0.35, 0.0, 0.4):
             rr = rs * math.cos(math.asin(max(-0.99, min(0.99, zz))))
             g.torus((x, y, zc + rs * zz), "z", rr + 0.006, 0.016, M["copper"], n=40, m=6, what="cerclage")
@@ -475,6 +484,8 @@ def even_piece(g, e, x, yb, sx):
     g.hazard([V((x - w / 2, yb - d / 2 - 0.02, 0.02)), V((x + w / 2, yb - d / 2 - 0.02, 0.02)),
               V((x + w / 2, yb - d / 2 - 0.02, 0.12)), V((x - w / 2, yb - d / 2 - 0.02, 0.12))], 6, t=0.012, skew=0.6)
     z0 = 0.14
+    P3.lamp_group(g, (x - w / 2 + 0.06, yb - d / 2 - 0.025, 0.07), (1, 0, 0), (0, -1, 0), E, M, n=2,
+                  shapes=("rond", "fente"))
     if e == 10:
         # RADÔME de conduite de tir sur affût blindé (embase à armoire), antenne courte
         PT.hull(g, x - 0.22, x + 0.22, yb - 0.24, yb + 0.2, z0, z0 + 0.26, ins=(0.02, 0.02, 0.02), panel=0.22,
@@ -490,6 +501,8 @@ def even_piece(g, e, x, yb, sx):
     elif e == 11:
         # LANCE-MISSILES À AILERONS : caisson 2 × 2 cellules incliné, nez des missiles, ailerons arrière
         g.cyl((x, yb, z0 + 0.04), "z", 0.24, 0.08, M["steel_dk"], n=28, style="soft", what="couronne")
+        P3.lamp_group(g, (x - 0.28, yb - 0.31, 0.08), (1, 0, 0), (0, -1, 0), E, M, n=2, shapes=("fente", "rond"))
+        P3.lamp_group(g, (x + 0.12, yb - 0.31, 0.08), (1, 0, 0), (0, -1, 0), E, M, n=1, shapes=("carre",))
         g.push((x, yb, z0 + 0.1), rz=0.0, rx=0.3)
         PT.hull(g, -0.24, 0.24, -0.22, 0.22, 0.0, 0.36, ins=(0.01, 0.01, 0.01), panel=0.24,
                 mats=[M["olive"], M["jacket"]], rivet_step=0.11, faces="tsewn")
@@ -606,7 +619,7 @@ def ring_lights(g, e, R, z):
     """Feux de couronne, sur la face sud de la couronne d'orientation (la moitié nord est sous la tête) :
     11 chenillard bleu-blanc (segments courts), 14 balises rouges, 15 « particules » or blanc sur poteaux de nacre.
     Chaque feu est un foyer séparé (espacement > 20 px hr)."""
-    n = {11: 13, 14: 16, 15: 20}.get(e, 0)
+    n = {11: 13, 14: 20, 15: 22}.get(e, 0)
     M = g.M
     for k in range(n):
         a = math.pi + math.pi * (k + 0.5) / n
@@ -637,7 +650,7 @@ def _socle_iv(g, e, piece):
     12 : + 2e tourelle secondaire et réservoirs plus hauts (catalogue §A.5)."""
     M = g.M
     E = M["emit"]
-    cf = {10: 0.95, 11: 0.7, 12: 0.45}[e]
+    cf = {10: 1.15, 11: 0.55, 12: 0.4}[e]
     apron(g, 5, cf, cf * 0.8, inset=0.14, front=2.44)
     column(g, e, -math.pi * 0.7)
     P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
@@ -654,20 +667,18 @@ def _socle_iv(g, e, piece):
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             _turret_legs(g, e, 0.42, 0.28)
-            PT.mini_turret(g, (0, 0, 0.28), 0.95, rz, E)
+            AG.mini_turret(g, e, (0, 0, 0.28), 0.95, rz)
             if e == 11:
                 signature(g, 11, (0.0, -0.18, 0.28 + 0.4 * 0.95))
     # ouest : groupe électrogène à 5 cylindres, liaisons d'énergie vers la colonne
-    P2.engine(g, -2.42, -1.62, Y(-0.95), Y(1.25), 0.0, 0.52, 5, M, emat=E)
+    AG.west(g, e)
     conduit_e(g, e, [(-1.62, Y(0.55), 0.4), (-1.42, Y(0.6), 0.62), (-1.2, Y(0.5), 0.72)], 0.045)
     cables_e(g, e, [(-1.62, Y(-0.25), 0.4), (-1.42, Y(-0.3), 0.6), (-1.18, Y(-0.35), 0.68)])
     # nord-ouest : radiateur à ventilateurs posé en biais
     with at(g, -1.72, 2.02, -0.55):
-        P2.fan_radiator(g, -0.55, 0.55, -0.42, 0.42, 0.0, 0.38, 2, M, emat=E)
+        AG.nw_iv(g, e)
     # est : deux réservoirs (habillés par époque), pompe à vannes, tuyaux, gaines
-    th = 0.88 if e < 12 else 1.0
-    tank_e(g, e, 2.02, Y(0.95), 0.38, th, (1, 0.2), (-1, 0))
-    tank_e(g, e, 2.02, Y(-0.4), 0.38, th, (1, -0.2), (-1, 0))
+    AG.east(g, e, tank_e)
     # sud-ouest : armoire de commande
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=(e == 10))
     PT.hull(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.0, 0.3, ins=(0.02, 0.02, 0.02), panel=0.22,
@@ -684,6 +695,10 @@ def _socle_iv(g, e, piece):
     PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
     signature(g, e, (0.4, Y(1.95), 0.3), 1)
     signature(g, e, (-2.24, -1.98, 0.53), 2)
+    if e == 11:
+        for p in ((1.75, Y(2.18), 0.6), (-0.4, Y(1.95), 0.3), (2.02, Y(-1.02), 0.3),
+                  (-1.95, Y(-1.5), 0.45), (0.0, Y(-2.0), 0.68), (-0.95, Y(-2.35), 0.24)):
+            signature(g, 11, p)
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
     if piece:
@@ -730,18 +745,18 @@ def _socle_v(g, e, piece):
         P2.open_crate(g, (0, 0, 0), 0.84, 0.78, 0.32, M)
     with at(g, 1.45, -1.95, -0.45):
         P2.open_crate(g, (0, 0, 0), 0.84, 0.78, 0.32, M, paint=M["ochre"])
-    turrets = [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3)] + ([(2.4, 2.45, 0.6)] if e >= 14 else [])
+    turrets = [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3)] + ([(2.4, 2.45, 1.25 if e == 14 else -0.4)] if e >= 14 else [])
     for (x, yn, rz) in turrets:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             _turret_legs(g, e, 0.46, 0.32)
-            PT.mini_turret(g, (0, 0, 0.32), 1.02, rz, E)
+            AG.mini_turret(g, e, (0, 0, 0.32), 1.02, rz)
             if e == 15:
                 signature(g, 15, (0.0, -0.12, 0.32 + 0.4 * 1.02 + 0.01))
             if e == 14:
                 signature(g, 14, (0.18, 0.2, 0.32 + 0.4 * 1.02 - 0.02))
     # ouest : groupe électrogène à 6 cylindres ; liaisons
-    P2.engine(g, -2.88, -1.98, Y(-1.35), Y(1.35), 0.0, 0.6, 6, M, emat=E)
+    AG.west(g, e)
     conduit_e(g, e, [(-1.98, Y(0.7), 0.45), (-1.78, Y(0.75), 0.72), (-1.52, Y(0.62), 0.86)], 0.05)
     conduit_e(g, e, [(-1.98, Y(-0.6), 0.45), (-1.78, Y(-0.65), 0.72), (-1.52, Y(-0.55), 0.86)], 0.05)
     cables_e(g, e, [(-1.98, Y(0.05), 0.45), (-1.75, Y(0.02), 0.7), (-1.5, Y(0.0), 0.8)])
@@ -756,9 +771,7 @@ def _socle_v(g, e, piece):
         P3.lamp_group(g, (0.2, -0.52, 0.09), (1, 0, 0), (0, -1, 0), M["amber"], M, n=2, shapes=("carre", "fente"))
     conduit_e(g, e, [(-1.6, Y(1.95), 0.5), (-1.35, Y(1.6), 0.8), (-1.1, Y(1.25), 0.95)], 0.05)
     # est : deux réservoirs (habillés par époque), pompe, tuyaux, gaines
-    th = 0.98 if e < 15 else 1.1
-    tank_e(g, e, 2.4, Y(1.0), 0.44, th, (1, 0.2), (-1, 0), gauges=3)
-    tank_e(g, e, 2.4, Y(-0.55), 0.44, th, (1, -0.2), (-1, 0), gauges=3)
+    AG.east(g, e, tank_e)
     P3.cabinet(g, -2.85, -2.08, -2.85, -2.2, 0.0, 0.55, M, E)
     if e >= 14:
         P3.cabinet(g, 1.95, 2.85, 2.02, 2.5, 0.0, 0.5, M, E)
@@ -775,9 +788,18 @@ def _socle_v(g, e, piece):
         hose_e(g, e, [(1.95, Y(1.0), 0.95), (1.68, Y(0.95), 1.15), (1.4, Y(0.8), 0.95)], 0.06)
         hose_e(g, e, [(1.95, Y(-0.55), 0.95), (1.68, Y(-0.55), 1.12), (1.42, Y(-0.4), 0.95)], 0.06)
     # nord : radiateur à trois ventilateurs ; armoires de commande
-    P2.fan_radiator(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.0, 0.42, 3, M, emat=E)
+    if e == 13:
+        AG.torus_bank(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.42)
+    elif e == 14:
+        AG.solar_array(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.42)
+    else:
+        P2.fan_radiator(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.0, 0.42, 3, M, emat=E)
     P3.cabinet(g, -1.15, -0.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
     P3.cabinet(g, 0.35, 1.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
+    if e == 15:
+        for x in (-2.75, -2.35, 2.05, 2.55):
+            g.sphere((x, Y(-2.97) + 0.12, 0.09), 0.022, E, n=10, m=6, what="pierre")
+            g.cyl((x, Y(-2.97) + 0.12, 0.04), "z", 0.035, 0.07, M["ring"], n=10, what="pierre_pied")
     signature(g, e, (-0.7, Y(1.79), 0.54))
     signature(g, e, (0.8, Y(1.79), 0.54), 1)
     P2.anchor(g, -2.6, Y(0.0), 0.26, M)
@@ -933,6 +955,16 @@ def dome_gun(g, e, H, nb, L, s=1.0):
     PT.receiver(g, 0.0, -0.22 * s, 0.66 * s, zc - 0.18 * s, zc + 0.16 * s, 0.36 * s, mats=A.recv_mats(g, e))
     rb, rr = 0.052 * s, 0.125 * s * (1.0 if nb == 6 else 0.85)
     A.barrel(g, e, 0.0, 0.66 * s, zc, L, nb, rb, rr, L * 0.4)
+    if e == 12:
+        # petit canon à rails de coupole : caisson d'accélérateur plein entre les anneaux (aucun jour enfermé sous le
+        # canon de flanc, qui le recouvre en pose E)
+        kk = (rb + rr) / 0.205
+        ro = 0.42 * kk
+        ya, yb = 0.66 * s + 0.33 * L, 0.66 * s + 0.98 * L
+        g.box((0.0, (ya + yb) / 2, zc + ro * 0.12), (2 * ro * 0.86, yb - ya, 2 * ro * 1.0), M["jacket"], "hard",
+              what="caisson")
+        for f in (0.2, 0.5, 0.8):
+            g.box((0.0, ya + (yb - ya) * f, zc + ro * 0.87), (ro * 1.2, 0.05, 0.012), M["ring"], "hard", what="plaque")
     for sx in (-1, 1):
         PT.piston(g, (sx * 0.26 * s, 0.3 * s, zr + 0.02), (sx * 0.32 * s, 0.6 * s, zr + 0.2 * s), 0.026)
     P2.feed_chute(g, [(0.45 * s, -0.38 * s, zr + 0.05), (0.4 * s, -0.06 * s, zc + 0.12 * s),
@@ -996,9 +1028,6 @@ def tete(g, e):
     zt = H["zs"] + H["rz"] * 0.86
     if e == 10:
         # radôme de visée sur le tourelleau, antennes fouet courtes, petit écran sur la nacelle
-        cx, cy, ztop = top_turret
-        g.cyl((cx, cy, ztop + 0.03), "z", 0.13, 0.05, M["steel_dk"], n=24, what="embase")
-        g.sphere((cx, cy, ztop + 0.06), 0.13, M["jacket"], n=24, m=12, scale=(1, 1, 0.85))
         for (ax, ay) in ((-0.5, -0.3), (0.55, -0.55)):
             g.cyl((ax * R, ay * R, H["zs"] + H["rz"] * 0.65), "z", 0.02, 0.05, M["steel_hi"], n=8, what="embase")
             g.cyl((ax * R, ay * R, H["zs"] + H["rz"] * 0.65 + 0.2), "z", 0.006, 0.36, M["steel_dk"], n=6,
@@ -1022,24 +1051,6 @@ def tete(g, e):
         dome_gun(g, e, H, nbd, 1.02 if e == 12 else 1.7, s)
     if e == 14:
         # petite parabole sur le tourelleau, 2 panneaux dorés repliés le long de la nacelle
-        cx, cy, ztop = top_turret
-        g.cyl((cx, cy, ztop + 0.08), "z", 0.025, 0.14, M["steel_dk"], n=10, what="mat")
-        g.push((cx, cy, ztop + 0.16), rx=-0.9)
-        n = 20
-        vs, fs = [], []
-        for i in range(4):
-            rr = 0.15 * i / 3
-            for j in range(n):
-                a = TAU * j / n
-                vs.append((rr * math.cos(a), rr * math.sin(a), 0.09 * (rr / 0.15) ** 2))
-        for i in range(3):
-            for j in range(n):
-                j2 = (j + 1) % n
-                fs.append((i * n + j, i * n + j2, (i + 1) * n + j2, (i + 1) * n + j))
-        g._add(M["jacket"], "flat", vs, fs, "parabole")
-        g._add(M["steel_dk"], "smooth", [(v[0], v[1], v[2] - 0.015) for v in vs], [f[::-1] for f in fs], "parabole_dos")
-        g.cyl((0, 0, 0.14), "z", 0.012, 0.12, M["steel_dk"], n=6, what="cornet")
-        g.pop()
         bx, yb0, yb1 = nac
         for sx in (-1, 1):
             xx = sx * (bx + 0.03)
@@ -1051,14 +1062,10 @@ def tete(g, e):
                       (0.006, (yb1 - yb0) * 0.25, 0.24), M["spec"] if k != 1 else M["jacket"], "flat", R=Rr,
                       what="cellules")
             g.cyl((xx, yb0 + 0.05, H["zs"] + 0.24), "z", 0.016, 0.03, M["emit"], n=8, style="flat", what="balise")
-    if e == 15:
-        # couronne de 5 flèches sur la coupole
-        for k in range(5):
-            th = math.pi / 2 + (k - 2) * 0.55
-            p = Pf(th, 0.55, 1.0)
-            n = Nf(th, 0.55)
-            t = V((-math.sin(th), math.cos(th), 0))
-            P2.wedge(g, p - t * 0.05, p + t * 0.05, p + n * 0.2, n.cross(t) * 0.03, M["jacket"], what="fleche")
+
+    def zsurf(x, y):
+        return H["zs"] + H["rz"] * math.sqrt(max(0.0, 1 - (x / R) ** 2 - (y / (R * 1.06)) ** 2))
+    AG.dome_top(g, e, H, top_turret, nac, Pf, Nf, zsurf)
     if era5:
         PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
         PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)

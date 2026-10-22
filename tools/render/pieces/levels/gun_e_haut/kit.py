@@ -224,7 +224,7 @@ def materials(S, epoch, tone=1.0):
     # --- matières d'accent d'époque (catalogue §A.3) ; albédos de départ, à mesurer sur le rendu (F36, F38)
     ep = epoch
     if ep == 10:      # haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus
-        metal("jacket", (0.34, 0.34, 0.33), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
+        metal("jacket", (0.4, 0.4, 0.39), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
               dirt=0.9, stain=0.7, sscale=6.0, wear=1.2, streak=0.5, mottle=0.3)
         M["ring"] = M["matte"]
         M["trim"] = M["jacket"]
@@ -235,7 +235,7 @@ def materials(S, epoch, tone=1.0):
         metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
         emit, emit2 = (0.227, 0.659, 1.0), (0.227, 0.659, 1.0)
     elif ep == 11:    # titane : titane patiné, alliage blanc patiné (ailerons, colliers)
-        metal("jacket", (0.25, 0.255, 0.26), rough=0.28, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
+        metal("jacket", (0.31, 0.315, 0.32), rough=0.3, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
               dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
         metal("ring", (0.42, 0.4, 0.36), rough=0.3, met=0.7, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
               ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
@@ -246,9 +246,9 @@ def materials(S, epoch, tone=1.0):
         M["spec"] = M["ring"]
         emit, emit2 = (0.749, 0.902, 1.0), (0.749, 0.902, 1.0)
     elif ep == 12:    # supraconducteurs : noir profond, chrome à reflets francs, givre (≤ 3 %)
-        metal("jacket", (0.02, 0.021, 0.024), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
+        metal("jacket", (0.034, 0.035, 0.038), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
               wear=1.5)
-        metal("ring", (0.72, 0.73, 0.74), rough=0.07, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
+        metal("ring", (0.8, 0.81, 0.83), rough=0.16, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
               wear=0.3)
         metal("trim", (0.55, 0.6, 0.64), rough=0.85, met=0.0, grain=0.3, gscale=80.0, dirt=0.3, stain=0.3)  # givre
         metal("pipe", (0.38, 0.37, 0.34), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.2, 0.18, 0.15),
