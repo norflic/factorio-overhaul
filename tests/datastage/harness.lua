@@ -512,7 +512,10 @@ for i = 1, math.min(#new_errors, 80) do
   local e = new_errors[i]
   print("  ERREUR " .. e.where .. " : " .. e.msg)
 end
-print(string.format("Règles moteur : %d violation(s)%s", #rule_errors,
+-- Un cas faux de l'auto-contrôle (plus bas) compte comme une violation : la ligne « Règles moteur » seule suffit
+-- à juger le banc (correction de la suite : avant, seuls le code de sortie et une ligne à part le signalaient).
+print(string.format("Règles moteur : %d violation(s)%s%s", #rule_errors + #selftest_fail,
+  #selftest_fail > 0 and (" (dont " .. #selftest_fail .. " cas faux de l'auto-contrôle)") or "",
   #disabled_rules > 0 and (" (désactivées car vanilla les viole : " .. table.concat(disabled_rules, ", ") .. ")") or ""))
 for i = 1, math.min(#rule_errors, 60) do
   local e = rule_errors[i]

@@ -172,8 +172,9 @@ end
 
 --- Boîte de collision d'un prototype, relative à la position : { x0, y0, x1, y1 }. Formats acceptés : celui du
 --- runtime ({ left_top = {x, y}, right_bottom = {x, y} }) et celui de l'étape data ({ {x, y}, {x, y} }).
---- Prototype sans boîte : 1×1 (± 0,5), la boîte de toute entité simulée avant la suite d'intégration de V3-T.
---- Monde créé avec legacy_boxes = true (ancien modèle, gardé pour tests/pvp_test.lua) : 1×1 pour toute entité.
+--- Prototype sans boîte : 1×1 (± 0,5), la boîte de toute entité simulée avant la suite d'intégration de V3-T
+--- (les prototypes intégrés ont tous leur boîte vanilla ; seul un prototype déclaré par un banc sans boîte, ou un
+--- nom inconnu, la reçoit encore). Monde créé avec legacy_boxes = true (ancien modèle, comparaison) : 1×1 partout.
 local function collision_of(name)
   local cb = (not W.legacy_boxes) and W.prototype(name).collision_box
   if type(cb) == "table" then
@@ -187,8 +188,9 @@ end
 M.collision_of = collision_of
 
 --- La boîte de collision de l'entité e touche-t-elle la zone `area` ({ {x0, y0}, {x1, y1} } ou left_top /
---- right_bottom) ? Contact bord à bord exclu (doc 1.1.91 de find_entities_filtered : « entities colliding with
---- that area »). Monde à legacy_boxes = true : ancien modèle, la seule POSITION dans la zone (bords compris).
+--- right_bottom) ? Doc 1.1.91 de find_entities_filtered : « entities colliding with that area ». Le contact bord à
+--- bord est EXCLU : choix du moteur simulé (tenu par tests/migration_test.lua), le moteur réel n'a pas été observé
+--- sur ce cas. Monde à legacy_boxes = true : ancien modèle, la seule POSITION dans la zone (bords compris).
 local function touches_area(e, area)
   local lt, rb = area.left_top or area[1], area.right_bottom or area[2]
   local ax0, ay0, ax1, ay1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
@@ -196,6 +198,37 @@ local function touches_area(e, area)
   local b = collision_of(e.name)
   return e._x + b.x0 < ax1 and ax0 < e._x + b.x1 and e._y + b.y0 < ay1 and ay0 < e._y + b.y1
 end
+
+-- Masques par défaut des types que les bancs posent (data/core/lualib/collision-mask-util.lua, default_masks) ;
+-- un type absent de cette liste prend le masque des bâtiments.
+local BUILDING_MASK = { "item-layer", "object-layer", "player-layer", "water-tile" }
+local DEFAULT_MASKS = {
+  character = { "player-layer", "train-layer", "consider-tile-transitions" },
+  unit = { "player-layer", "train-layer", "not-colliding-with-itself" },
+  ["item-entity"] = { "item-layer" },
+  ["entity-ghost"] = { "ghost-layer" },
+  ["tile-ghost"] = { "ghost-layer" },
+  resource = { "resource-layer" },
+  cliff = { "item-layer", "object-layer", "player-layer", "water-tile", "not-colliding-with-itself" },
+}
+
+--- Le masque de collision de l'entité e contient-il au moins une des couches demandées (`layers` : une couche ou
+--- une liste, paramètre collision_mask de find_entities_filtered) ? Masque du prototype (dictionnaire ou liste),
+--- sinon celui par défaut du type. Interprétation « au moins une couche » : celle de la doc 1.1.91 telle que nous
+--- la lisons, pas observée en moteur réel. Monde à legacy_boxes = true : filtre ignoré (ancien modèle).
+local function mask_hits(e, layers)
+  if W.legacy_boxes then return true end
+  local m = W.prototype(e.name).collision_mask or DEFAULT_MASKS[e.type] or BUILDING_MASK
+  local set = {}
+  for k, v in pairs(m) do
+    if type(k) == "number" then set[v] = true elseif v then set[k] = true end
+  end
+  for _, l in ipairs(type(layers) == "table" and layers or { layers }) do
+    if set[l] then return true end
+  end
+  return false
+end
+M.mask_hits = mask_hits
 
 local CRAFTERS = { ["assembling-machine"] = true, furnace = true, ["rocket-silo"] = true }
 
@@ -560,41 +593,73 @@ function M.new_world(opts)
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
     -- Suite d'intégration de V3-T : true = ANCIEN modèle des boîtes (toute entité 1×1, recherche par zone sur la
-    -- seule position). Gardé pour tests/pvp_test.lua : avec les boîtes du prototype, le départ des chemins des
-    -- soldats (path_service, recherche d'obstacles par zone) change, et la mesure par niveau donne une taille
-    -- moyenne d'attaque Normal 18,2 > Difficile 18,0 (ordre strict IA0b manqué de 0,2 soldat ; 596 → 594 OK).
+    -- seule position, filtre collision_mask ignoré). Aucun banc ne l'utilise : option de COMPARAISON seulement
+    -- (rejouer un banc dans l'ancien modèle pour voir ce que les boîtes changent). Correction de la suite : l'écart
+    -- pvp « Normal 18,2 > Difficile 18,0 » relevé par le constructeur venait d'un modèle HYBRIDE : boîtes 1×1 par
+    -- défaut pour les prototypes intégrés (QG, mitrailleuse, personnage...). Avec les boîtes vanilla ci-dessous,
+    -- tests/pvp_test.lua passe sans cette option (596 OK) ; le filtre collision_mask n'y change rien (rejoué sans
+    -- lui : journal identique).
     legacy_boxes = opts.legacy_boxes or false,
   }
   math.randomseed(W.seed)
 
+  -- Prototypes intégrés : boîtes de collision et masques RÉELS (correction de la suite d'intégration de V3-T ;
+  -- avant, seuls fo-companion et les unités fo-* avaient une boîte, tous les autres recevaient le 1×1 par défaut).
+  -- Boîtes relevées par `lua5.2 tests/datastage/harness.lua "<racine>/data" . --dump-final <type>/<nom>` (prototypes
+  -- FINAUX, mod compris) ; masques absents de ces prototypes, donc ceux par défaut de leur type
+  -- (data/core/lualib/collision-mask-util.lua, default_masks). Format runtime (LuaEntityPrototype).
+  local function box(x0, y0, x1, y1)
+    return { left_top = { x = x0, y = y0 }, right_bottom = { x = x1, y = y1 } }
+  end
+  local MASK_BUILDING = { ["item-layer"] = true, ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true }
+  local MASK_CHARACTER = { ["player-layer"] = true, ["train-layer"] = true, ["consider-tile-transitions"] = true }
+  local MASK_UNIT = { ["player-layer"] = true, ["train-layer"] = true, ["not-colliding-with-itself"] = true }
   W.prototypes = {
     ["fo-companion"] = {
       type = "character", running_speed = 0.15, max_health = 250,
-      collision_box = { left_top = { x = -0.2, y = -0.2 }, right_bottom = { x = 0.2, y = 0.2 } },
-      collision_mask = { ["player-layer"] = true },
+      collision_box = box(-0.2, -0.2, 0.2, 0.2), collision_mask = MASK_CHARACTER,
     },
-    character = { type = "character", max_health = 250 },
-    ["fo-faction-hq"] = { type = "container", max_health = 25000 },
-    ["gun-turret"] = { type = "ammo-turret", max_health = 400 },
+    character = { type = "character", max_health = 250, collision_box = box(-0.2, -0.2, 0.2, 0.2),
+      collision_mask = MASK_CHARACTER },
+    -- Copie de crash-site-spaceship (prototypes/faction.lua) : boîte décentrée de l'épave vanilla.
+    ["fo-faction-hq"] = { type = "container", max_health = 25000, collision_box = box(-8.7, -3.3, 6.9, 4.5),
+      collision_mask = MASK_BUILDING },
+    ["gun-turret"] = { type = "ammo-turret", max_health = 400, collision_box = box(-0.7, -0.7, 0.7, 0.7),
+      collision_mask = MASK_BUILDING },
     ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
-      resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true } },
-    ["burner-mining-drill"] = { type = "mining-drill", max_health = 150 },
-    ["stone-furnace"] = { type = "furnace", max_health = 200 },
-    ["iron-chest"] = { type = "container", max_health = 200 },
-    ["fo-team-chest"] = { type = "container", max_health = 800 },
-    ["wooden-chest"] = { type = "container", max_health = 100 },
+      resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true },
+      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING },
+    ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
+      collision_mask = MASK_BUILDING },
+    ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
+      collision_mask = MASK_BUILDING },
+    ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
+      collision_mask = MASK_BUILDING },
+    ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
+      collision_mask = MASK_BUILDING },
+    ["wooden-chest"] = { type = "container", max_health = 100, collision_box = box(-0.35, -0.35, 0.35, 0.35),
+      collision_mask = MASK_BUILDING },
+    -- Ennemis vanilla posés par tests/td_test.lua (boîtes finales : le mod ne les agrandit pas). Points de vie : ceux
+    -- de l'ancien prototype générique (200), gardés tels quels pour ne changer que les boîtes.
+    ["small-biter"] = { type = "unit", max_health = 200, collision_box = box(-0.2, -0.2, 0.2, 0.2),
+      collision_mask = MASK_UNIT },
+    ["small-spitter"] = { type = "unit", max_health = 200, collision_box = box(-0.3, -0.3, 0.3, 0.3),
+      collision_mask = MASK_UNIT },
   }
   W.recipes = dofile("tests/fixtures/recipes.lua")
-  -- Soldats et unités du mod : prototype d'unité générique (boîte et masque pour le pathfinding).
+  -- Soldats et unités du mod : prototype d'unité générique, boîte des soldats (prototypes/faction.lua, ± 0,2) et
+  -- masque par défaut des unités (aucun soldat n'en déclare).
   setmetatable(W.prototypes, { __index = function(_, name)
     if type(name) == "string" and name:match("^fo%-") then
       return {
         type = "unit", max_health = 200,
-        collision_box = { left_top = { x = -0.2, y = -0.2 }, right_bottom = { x = 0.2, y = 0.2 } },
-        collision_mask = { ["player-layer"] = true },
+        collision_box = box(-0.2, -0.2, 0.2, 0.2),
+        collision_mask = MASK_UNIT,
       }
     end
   end })
+  -- Nom inconnu : unité générique SANS boîte (collision_of rend alors le 1×1 historique). Aucun banc n'en pose
+  -- aujourd'hui hors des noms ci-dessus et de ceux qu'il déclare lui-même (relevé de la correction de la suite).
   W.prototype = function(name)
     return W.prototypes[name] or { type = "unit", max_health = 200 }
   end
@@ -771,6 +836,8 @@ function M.new_world(opts)
         end
         -- Zone : boîte de collision du prototype (moteur), plus la seule position (suite d'intégration de V3-T).
         if t.area then ok = ok and touches_area(e, t.area) end
+        -- Masque (start_blocker de path_service) : seules les entités qui ont une des couches demandées.
+        if t.collision_mask then ok = ok and mask_hits(e, t.collision_mask) end
         if t.type then
           local types = type(t.type) == "table" and t.type or { t.type }
           local match = false

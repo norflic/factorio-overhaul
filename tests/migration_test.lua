@@ -176,6 +176,16 @@ local d10_at = expected_at({ x = 30, y = 30 }, { DR.size, L.footprint(DR, 9), L.
 local d10 = s.find_entity("fo-lvl-drill-10", d10_at)
 check(d10 ~= nil and d10.position.x == d10_at.x and d10.position.y == d10_at.y and d10.active ~= false and not drill.valid,
   "chantier 0.3.0 achevé au chargement : foreuse niveau 10 posée (" .. d10_at.x .. " ; " .. d10_at.y .. "), en service")
+-- Correction de la suite : la boîte de ces prototypes est au format de l'ÉTAPE DATA ({ {x, y}, {x, y} },
+-- Foot.proto_boxes) ; le moteur simulé doit la lire (bounding_box = ± (côté / 2 − MARGIN) autour de la position).
+do
+  local h = L.footprint(DR, 10) / 2 - Foot.MARGIN
+  local bb = d10 and d10.bounding_box
+  local function near(a, b) return math.abs(a - b) < 1e-9 end
+  check(bb ~= nil and near(bb.left_top.x, d10_at.x - h) and near(bb.left_top.y, d10_at.y - h)
+    and near(bb.right_bottom.x, d10_at.x + h) and near(bb.right_bottom.y, d10_at.y + h),
+    "moteur simulé : boîte au format de l'étape data lue (foreuse 10 : ± " .. h .. " autour de sa position)")
+end
 check(next(lv.jobs) == nil and next(lv.busy) == nil and lv.time_factor == nil, "plus aucun chantier, ouvrier ni réglage de durée enregistré")
 check(lv.stats.upgrades == 14 and lv.stats.lost == 1 and lv.stats.cancelled == 1 and lv.stats.instant == 40,
   "statistiques 0.3.0 conservées : +2 achevés (foreuse, mitrailleuse), +1 perdu (chantier sans bâtiment) (" .. lv.stats.upgrades .. ", " .. lv.stats.lost .. ")")
@@ -410,6 +420,10 @@ check(dra.get_control_behavior() == nil, "moteur simulé : une foreuse sans fil 
 local cba = dra.get_or_create_control_behavior()
 cba.circuit_enable_disable, cba.circuit_read_resources, cba.resource_read_mode = true, true, 1
 cba.circuit_condition = { condition = { comparator = ">", first_signal = { type = "item", name = "iron-ore" }, constant = 50 } }
+-- Correction de la suite : réseau logistique et condition logistique aussi réglés hors de leurs valeurs par défaut
+-- (avant, seul « false » était vérifié : une régression de leur transfert passait inaperçue).
+cba.connect_to_logistic_network = true
+cba.logistic_condition = { condition = { comparator = "=", first_signal = { type = "item", name = "copper-ore" }, constant = 7 } }
 local asa = s3.create_entity({ name = "fo-lvl-assembler-12", position = { x = 220.5, y = 200.5 }, force = "player" })
 local asb = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 230, y = 200 }, force = "player" })
 asa.set_recipe("iron-gear-wheel")
@@ -417,13 +431,52 @@ asa.insert({ name = "iron-plate", count = 6 })
 local ok_tr, err_tr = pcall(function() Levels3.transfer(dra, drb); Levels3.transfer(asa, asb) end)
 local cbb = drb.get_control_behavior()
 check(ok_tr and cbb and cbb.circuit_enable_disable == true and cbb.circuit_read_resources == true and cbb.resource_read_mode == 1
-  and cbb.connect_to_logistic_network == false and cbb.circuit_condition.condition.comparator == ">"
-  and cbb.circuit_condition.condition.constant == 50,
-  "Levels.transfer en moteur simulé : réglages du circuit de la foreuse recopiés (activation, lecture, mode, condition) ("
+  and cbb.connect_to_logistic_network == true and cbb.circuit_condition.condition.comparator == ">"
+  and cbb.circuit_condition.condition.constant == 50
+  and cbb.logistic_condition.condition.comparator == "=" and cbb.logistic_condition.condition.constant == 7
+  and cbb.logistic_condition.condition.first_signal.name == "copper-ore",
+  "Levels.transfer en moteur simulé : réglages du circuit de la foreuse recopiés (activation, lecture, mode, condition, réseau et condition logistiques) ("
   .. tostring(err_tr) .. ")")
 check(ok_tr and asb.get_recipe() and asb.get_recipe().name == "iron-gear-wheel" and asb.get_item_count("iron-plate") == 6
   and asa.get_item_count("iron-plate") == 0,
   "Levels.transfer en moteur simulé : recette de l'assembleur recopiée, contenu transféré")
+
+-- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une
+-- mutation de tests/mock_engine.lua doit casser ce banc). Le CONTACT BORD À BORD est exclu : c'est le choix du
+-- moteur simulé, pas un fait observé en moteur réel (les boîtes du mod, réduites de MARGIN, ne s'y frottent pas).
+-- Boîtes de ± 0,75 (exactes en binaire) posées loin du reste, en (−500 ; −500) et (−498,5 ; −500) : elles se
+-- touchent en x = −499,25.
+rawset(W().prototypes, "test-edge-box", { type = "container", max_health = 10,
+  collision_box = { left_top = { x = -0.75, y = -0.75 }, right_bottom = { x = 0.75, y = 0.75 } } })
+rawset(W().prototypes, "test-edge-item", { type = "item-entity", max_health = 10,
+  collision_box = { left_top = { x = -0.14, y = -0.14 }, right_bottom = { x = 0.14, y = 0.14 } } })
+local ea = s3.create_entity({ name = "test-edge-box", position = { x = -500, y = -500 }, force = "player" })
+local eb = s3.create_entity({ name = "test-edge-box", position = { x = -498.5, y = -500 }, force = "player" })
+local ei = s3.create_entity({ name = "test-edge-item", position = { x = -500, y = -500 }, force = "neutral" })
+local function found(area, extra)
+  local q = { area = area }
+  for k, v in pairs(extra or {}) do q[k] = v end
+  local has = {}
+  for _, e in ipairs(s3.find_entities_filtered(q)) do has[e] = true end
+  return has
+end
+local in_a = found({ { -500.75, -500.75 }, { -499.25, -499.25 } })
+check(in_a[ea] and not in_a[eb], "moteur simulé : zone égale à la boîte d'un bâtiment, le voisin qui la touche bord à bord n'est pas rendu")
+local in_ab = found({ { -500.75, -500.75 }, { -499.24, -499.25 } })
+check(in_ab[ea] and in_ab[eb], "moteur simulé : zone qui mord de 0,01 dans la boîte du voisin, les deux sont rendus")
+local only_player = found({ { -501, -501 }, { -499, -499 } }, { collision_mask = "player-layer" })
+local only_item = found({ { -501, -501 }, { -499, -499 } }, { collision_mask = { "item-layer" } })
+check(only_player[ea] and not only_player[ei] and only_item[ea] and only_item[ei],
+  "moteur simulé : filtre collision_mask (objet au sol : couche item-layer seule ; conteneur : masque des bâtiments par défaut)")
+-- Prototypes intégrés du moteur simulé : boîtes vanilla (gun-turret ± 0,7 ; QG = épave décentrée).
+local gt = s3.create_entity({ name = "gun-turret", position = { x = -480, y = -480 }, force = "player" })
+local hq = s3.create_entity({ name = "fo-faction-hq", position = { x = -460, y = -460 }, force = "player" })
+local gb, hb = gt.bounding_box, hq.bounding_box
+check(math.abs(gb.left_top.x + 480.7) < 1e-9 and math.abs(gb.right_bottom.y + 479.3) < 1e-9
+  and math.abs(hb.left_top.x + 468.7) < 1e-9 and math.abs(hb.right_bottom.x + 453.1) < 1e-9
+  and math.abs(hb.left_top.y + 463.3) < 1e-9 and math.abs(hb.right_bottom.y + 455.5) < 1e-9,
+  "moteur simulé : boîtes des prototypes intégrés = vanilla (mitrailleuse ± 0,7 ; QG -8,7 / -3,3 / 6,9 / 4,5)")
+for _, e in ipairs({ ea, eb, ei, gt, hq }) do e.destroy() end
 
 print(string.format("\n%d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
