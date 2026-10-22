@@ -1,7 +1,7 @@
 """Époque 11 · Titane (ère IV, 5×5, niveaux 21 et 22). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 11) : « ailerons, effilé, titane ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
 mot ; les aiguillages par époque sont réduits à la branche de l'époque 11) sur le kit commun gun_e : seul le CORPS a
 changé (corps.py, kit.py). Aucune correction de design d'époque.
 Emplacements remplis : arme (canon LONG et FIN, manchon à pans anguleux, grand EMPENNAGE en flèche, frein en pointe

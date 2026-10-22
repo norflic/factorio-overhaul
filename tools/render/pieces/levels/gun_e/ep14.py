@@ -1,7 +1,7 @@
 """Époque 14 · Orbite (ère V, 6×6, niveaux 27 et 28). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 14) : « or, paraboles, balises ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
 mot ; les aiguillages par époque sont réduits à la branche de l'époque 14) sur le kit commun gun_e : seul le CORPS a
 changé (corps.py, kit.py ; la règle commune de reflets rend la feuille d'or un peu plus satinée). Aucune correction
 de design d'époque.

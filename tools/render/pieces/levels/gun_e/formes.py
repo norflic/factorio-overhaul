@@ -2,7 +2,7 @@
 par plusieurs époques. S'exécute DANS Blender. FICHIER GELÉ pour les constructeurs (une forme propre à une époque se
 met dans son epNN.py ; un besoin commun se décrit dans le retour du constructeur).
 
-Reprises MOT POUR MOT des deux plages de la passe 3 (outil de portage) :
+Reprises MOT POUR MOT des deux plages de la passe 3 (outil de portage ; code d'origine au commit 4c57982) :
   plage basse (gun_e_bas/parts4.py, ages.py, design.py) : repères (Ry, Rz, Rd), prisme vertical, sphère, couronnes de
     rivets, anneau lumineux, oreilles de frein, rosace, trèfle, groupe de voyants, armoire, sol d'époque (deck_e),
     garde-corps, chaîne, conduit d'air, lanterne, briques, blocs, cristal, volant, tonneau, fût, bague de danger,

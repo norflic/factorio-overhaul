@@ -1,7 +1,7 @@
 """Époque 13 · Fusion (ère V, 6×6, niveaux 25 et 26). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 13) : « plasma, céramique, injecteurs ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
 mot ; les aiguillages par époque sont réduits à la branche de l'époque 13) sur le kit commun gun_e : seul le CORPS a
 changé (corps.py, kit.py). Aucune correction de design d'époque.
 Emplacements remplis : arme (canon à plasma : CHAMBRE SPHÉRIQUE de céramique au pied, 7 ANNEAUX TORIQUES empilés,

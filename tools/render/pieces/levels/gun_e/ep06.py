@@ -1,7 +1,7 @@
 """Époque 6 · Électricité (ère II, 3×3, niveaux 11 et 12). Constructeur : PLAGE BASSE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 6) : « bobines, isolateurs, arcs ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_bas : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py). Aucune correction de design d'époque.
 Emplacements remplis : arme (CANON-BOBINE : tube central gainé de 5 grosses bobines de cuivre et d'isolateurs, bouche
 à électrodes, moteur bobiné, tambour), mitrailleuse coaxiale, grands volumes du socle (tour de Tesla, transformateur

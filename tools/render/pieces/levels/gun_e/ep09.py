@@ -1,7 +1,7 @@
 """Époque 9 · Atome (ère III, 4×4, niveaux 17 et 18). Constructeur : PLAGE BASSE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 9) : « plomb, hublots, radioactif ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_bas : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py ; la dalle de béton de la tourelle secondaire
 devient une dalle de caillebotis du kit). Aucune correction de design d'époque.
 Emplacements remplis : arme (gatling à 6 tubes sous fourreau OCTOGONAL de plomb, paquets d'ailettes, frein

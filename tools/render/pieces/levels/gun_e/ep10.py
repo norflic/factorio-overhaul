@@ -1,7 +1,7 @@
 """Époque 10 · Haute technologie (ère IV, 5×5, niveaux 19 et 20). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 10) : « caréné, câbles, voyants ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
 mot ; les aiguillages par époque sont réduits à la branche de l'époque 10) sur le kit commun gun_e : seul le CORPS a
 changé (corps.py : bras de tourillon à berceaux de la lignée, cotes communes ; kit.py : palette et règles de reflets
 communes). Aucune correction de design d'époque.

@@ -1,7 +1,7 @@
 """Époque 2 · Forge (ère I, 2×2, niveaux 3 et 4). Constructeur : PLAGE BASSE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 2) : « fer, boulons, bouclier ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_bas : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
+PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, parts4.py ; outil de portage, code d'origine mot pour
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py : plateforme de caillebotis, colonne, coupole, nacelle
 et masque de la lignée ; kit.py : palette et règles de reflets communes). Aucune correction de design d'époque.
 Emplacements remplis : arme (canon forgé unique par flanc, culasse à levier, manivelle, caisse cerclée et bande),

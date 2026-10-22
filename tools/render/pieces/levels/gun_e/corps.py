@@ -484,8 +484,9 @@ def bouche(g, x, y, z, pos, rb, rim_mat, r_lum, w=0.026):
 def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein=True, frein_mat="steel",
                  bague_mat="steel_dk", masque_mats=("ochre", "olive"), alim=True):
     """Canon de lignée COMPLET, corrigé pour la pose N (règle d'or 7) : culasse blindée, moteur arrière bobiné,
-    rosette, jaquette perforée sur la moitié arrière au plus, frein de bouche PLUS LARGE que le faisceau à évents
-    latéraux et oreilles (en pose N, le bout du canon fait un « T », jamais un chapeau de cheminée), bouche éclairée,
+    rosette, jaquette perforée sur la moitié arrière au plus, frein de bouche EN BLOC près de deux fois plus large que
+    le faisceau, à évents latéraux et ouïes éclairées sur le dessus (en pose N, le bout du canon fait un « T » plat,
+    jamais un chapeau de cheminée : vérifié sur le témoin k3 et k5 le 23/10), rosace éclairée en face avant,
     bagues sombres (aucune bague claire horizontale), caisse d'alimentation au pied qui déborde sur le côté extérieur,
     masque de canon. Une époque peut l'appeler tel quel et y AJOUTER son organe, ou s'en inspirer."""
     M = g.M
@@ -497,6 +498,10 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
     PT.receiver(g, x, y0, y1, zg - hr, zg + hr, wr, mats=[M[k] for k in recv_mats])
     moteur_lignee(g, (x, y0 - 0.2 - hr * 0.3, zg), hr * 0.78, 0.3 + hr * 0.6)
     pos = rosette(g, x, y1, zg, L, nb, rb, rr, colliers=(0.62, 0.86), collier_mat=M[bague_mat], bouts=not frein)
+    # âme prolongée jusque dans le frein : sinon le sol se voit entre les tubes juste derrière la collerette (trou
+    # enfermé de 9 à 10 px hr en pose N, témoins k4 et k6 du 23/10)
+    g.cyl((x, y1 + L * 0.99, zg), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
+          what="ame_bout")
     rs = rr + rb + 0.028
     Lj = L * min(jaquette, JAQUETTE_MAX)
     if Lj > 0.05:
@@ -516,17 +521,25 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
             F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rs + 0.024, 6, M["rivet"], r=0.015, phase=0.2, skip_down=-0.3)
     yb = y1 + L
     if frein:
-        ro = rs + 0.04
-        g.tube_shell((x, yb + 0.07, zg), "y", ro, rr * 0.5, 0.15, M[frein_mat], n=28, what="frein")
-        for k in range(8):
-            a = TAU * k / 8 + 0.2
-            d = V((math.cos(a), 0.0, math.sin(a)))
-            if d.z < -0.5:
-                continue
-            g.box(V((x, yb + 0.07, zg)) + d * (ro + 0.001), (0.04, 0.09, 0.02), M["void"], "flat",
-                  R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="event")
-        F.ears(g, x, yb + 0.07, zg, ro + 0.03, 0.12, ro * 1.1, M[frein_mat])
-        bouche(g, x, yb + 0.146, zg, pos, rb, M[bague_mat], ro - 0.004)
+        # frein de bouche en BLOC rectangulaire, près de deux fois plus large que le faisceau : vu de dessus (pose N),
+        # le bout du canon fait un « T » plat, jamais le chapeau rond d'une cheminée ; évents latéraux sombres, ouïes
+        # sur le dessus avec une lueur de bouche (petit foyer, < 0,03 t²), collerette sombre, rosace éclairée devant
+        Lb = 0.1 + 0.05 * L
+        wb = 2 * rs * 1.9
+        hb = 2 * (rr + rb) + 0.06   # plus haut que le faisceau : ni bout de tube ni anneau ne dépasse (aucune boucle)
+        g.box((x, yb + Lb / 2, zg), (wb, Lb, hb), M[frein_mat], "hard", what="frein")
+        for s in (-1, 1):
+            for k in range(2):
+                g.box((x + s * (wb / 2 + 0.002), yb + Lb * (0.3 + 0.4 * k), zg), (0.006, Lb * 0.22, hb * 0.6),
+                      M["void"], "flat", what="event")
+        for k in range(2):
+            yy = yb + Lb * (0.3 + 0.4 * k)
+            g.box((x, yy, zg + hb / 2 + 0.002), (wb * 0.7, Lb * 0.14, 0.006), M["void"], "flat", what="ouie")
+            g.box((x, yy, zg + hb / 2 + 0.005), (wb * 0.45, Lb * 0.06, 0.004), M["emit"], "flat", what="ouie_lum")
+        g.box((x, yb - 0.01, zg), (wb * 0.9, 0.025, hb * 0.9), M[bague_mat], "hard", what="collerette")
+        for s in (-1, 1):
+            g.dome((x + s * wb * 0.38, yb + Lb * 0.5, zg + hb / 2 + 0.002), (0, 0, 1), 0.016, M["rivet"])
+        bouche(g, x, yb + Lb + 0.002, zg, pos, rb, M[bague_mat], min(rs, hb / 2 - 0.02))
     else:
         F.lit_ring(g, (x, yb + 0.004, zg), "y", rr + rb + 0.004, M["emit"], w=0.02)
     PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
@@ -539,6 +552,10 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
         PT.hull(g, bx0, bx1, y0 - 0.1, y0 - 0.1 + bl, zg - bh * 0.62, zg + bh * 0.42, ins=(0.015, 0.015, 0.015),
                 panel=0.24, mats=[M["olive"], M["ochre"]], rivet_step=0.11)
         bc = (bx0 + bx1) / 2
+        # voile plein entre la culasse et la caisse, sous la goulotte (l'arche enfermait un jour : 9 px hr, témoin k4)
+        xa_, xb_ = sorted((x + sx * wr / 2 - sx * 0.01, xo + sx * 0.03))
+        g.box(((xa_ + xb_) / 2, y0 + bl * 0.45, zg + hr * 0.05), (xb_ - xa_, bl * 0.5, hr * 1.1), M["steel_dk"], "hard",
+              what="voile")
         P2.feed_chute(g, [(bc, y0 - 0.1 + bl * 0.6, zg + bh * 0.42 + 0.02), (bc - sx * 0.05, y0 + bl * 0.55, zg + bh * 0.62),
                           (x + sx * wr * 0.2, y0 + bl * 0.5, zg + hr + 0.06)], 0.12 * wr / 0.4 + 0.04, M)
     return pos

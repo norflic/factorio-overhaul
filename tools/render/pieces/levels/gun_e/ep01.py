@@ -3,7 +3,7 @@
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 1) : « sacs, bois, bricolé ».
 Le niveau 1 est la mitrailleuse VANILLA, jamais retouchée ; ce module ne fournit que la pièce du niveau 2
 (variante e01-piece, dessinée SOUS la mitrailleuse vanilla), foyers de NUIT seulement (lanterne).
-PORTÉ TEL QUEL de la passe 3 (gun_e_bas : design.py, parts4.py ; outil de portage, code d'origine mot pour mot).
+PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, parts4.py ; outil de portage, code d'origine mot pour mot).
 """
 import math
 
