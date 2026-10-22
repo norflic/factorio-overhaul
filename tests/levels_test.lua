@@ -1502,6 +1502,9 @@ for _, f in ipairs(L.families) do
   end
 end
 local s = game.surfaces[1]
+-- Lot V3-T : le moteur simulé ne connaît pas les décors (retirés sous un bâtiment agrandi) ; posé dès ici pour
+-- que l'activation d'une autre famille dans L.footprints ne casse pas les sections d'avant V3-T.
+s.destroy_decoratives = function(t) assert(t.area and t.area[1] and t.area[2], "destroy_decoratives : zone attendue") end
 local ev = Wd.events
 local function built(e) ev[defines.events.on_built_entity]({ created_entity = e, player_index = 1, tick = game.tick }) end
 local Levels = require("script.levels.levels")
@@ -2231,18 +2234,50 @@ local want_gun = { 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5
 local gun_ok = true
 for n = 1, 30 do if L.footprint(GUN, n) ~= want_gun[n] then gun_ok = false end end
 check(gun_ok, "table : mitrailleuse 2×2 (niveaux 1-6, époques 1-3), 3×3 (7-12), 4×4 (13-18), 5×5 (19-24), 6×6 (25-30)")
-local others_ok, mono_ok = true, true
+-- Correction V3-T (défaut 3) : le contrôle ne vise plus « toute famille autre que gun » (il cassait dès qu'on
+-- activait une autre famille) : famille ABSENTE de la table → côté de base à tous les niveaux ; ligne de la
+-- table → niveau 1 au côté de base (le niveau 1 est le prototype vanilla).
+local absent_ok, row_ok, mono_ok = true, true, true
 for _, f in ipairs(L.families) do
   local prev = 0
   for n = 1, f.max do
     local side = L.footprint(f, n)
     if side < prev then mono_ok = false end
     prev = side
-    if f.key ~= "gun" and side ~= f.size then others_ok = false end
+    if not L.footprints[f.key] and side ~= f.size then absent_ok = false end
   end
+  if L.footprints[f.key] and L.footprint(f, 1) ~= f.size then row_ok = false end
 end
-check(others_ok, "table : les 6 autres familles gardent leur côté de base (Q-S1 non tranchée), niveau 1 = côté vanilla")
+check(absent_ok and row_ok and L.footprints.gun ~= nil,
+  "table : famille absente de la table → côté de base partout ; ligne de la table → niveau 1 au côté vanilla")
 check(mono_ok, "table : l'emprise ne rétrécit jamais d'un niveau au suivant (toutes les familles)")
+-- Garde de la table (L.footprint_errors, appelée par l'étape data avant toute génération).
+check(#L.footprint_errors() == 0, "garde : la table livrée est valide")
+do
+  local Common0 = require("prototypes.levels.common")
+  -- gen : l'étape data aussi (Common.generate s'arrête sur la garde AVANT de toucher à data.raw ; appelée
+  -- seulement avec une table fautive).
+  local function errs_with(key, row, gen)
+    L.footprints[key] = row
+    local e = L.footprint_errors()
+    local okg, errg
+    if gen then okg, errg = pcall(Common0.generate) end
+    L.footprints[key] = nil
+    return table.concat(e, " | "), okg, tostring(errg)
+  end
+  local e1, ok1, g1 = errs_with("furnace", { era = { 3, 4, 5, 6, 6 } }, true)
+  check(e1:find("furnace", 1, true) and e1:find("niveau 1", 1, true) and e1:find("steel-furnace", 1, true)
+    and not ok1 and g1:find("table des emprises refusée", 1, true),
+    "garde : four « 3 → 6 » REFUSÉ (niveau 1 vanilla 2×2), avec son motif, à l'étape data aussi (" .. e1 .. ")")
+  local e2 = errs_with("laser", { era = { 2, 4, 3, 5, 6 } })
+  local e3 = errs_with("drill", { era = { 3, 4, 5 } })
+  local e4 = errs_with("nope", { era = { 1, 1, 1, 1, 1 } })
+  local e5 = errs_with("assembler", { level = { 3, 3 } })
+  check(e2:find("rétrécit", 1, true) and e3:find("5 côtés", 1, true) and e4:find("inconnue", 1, true)
+    and e5:find("30 côtés", 1, true), "garde : emprise qui rétrécit, ligne incomplète, famille inconnue refusées")
+  local e6 = errs_with("furnace", { era = { 2, 3, 4, 5, 6 } })
+  check(e6 == "" and #L.footprint_errors() == 0, "garde : four « 2 → 6 » accepté ; table remise en état")
+end
 check(L.footprint(GUN, 1) == GUN.size and L.footprint_max(GUN) == 6 and L.footprint_max(L.by_key.wall) == 1,
   "table : niveau 1 = bâtiment vanilla (2×2) ; plus grand côté 6 (mitrailleuse), 1 (mur)")
 check(L.era_of(GUN, 6) == 1 and L.era_of(GUN, 7) == 2 and L.era_of(GUN, 30) == 5 and L.era_of(L.by_key.command, 3) == 1
@@ -2349,6 +2384,18 @@ r = Foot.evaluate(Foot.candidates(b2, 3), { { x = 9, y = 8, name = "water" }, { 
 check(r.index == nil and #r.preferred.tiles == 1 and r.preferred.tiles[1].name == "water", "eau au nord et au sud : refus, tuile nommée")
 r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(7, 9), wall_at(12, 9), wall_at(9, 7), wall_at(9, 12) })
 check(r.index == 1, "murs collés au carré de 4×4 (contact bord à bord, hors des candidates) : rien ne bloque")
+-- Correction V3-T (défaut 8) : refus, candidate MONTRÉE = la plus facile à libérer.
+r = Foot.evaluate(Foot.candidates(b2, 3), { { x = 9, y = 8, name = "water" }, { x = 10, y = 8, name = "water" } },
+  { { box = { x0 = 9.15, y0 = 11.15, x1 = 9.85, y1 = 11.85 }, name = "wooden-chest" } })
+check(r.chosen == nil and #r.candidates[1].tiles == 2 and #r.candidates[1].entities == 0 and #r.candidates[3].tiles == 0
+  and #r.candidates[3].entities == 1 and r.target_index == 3 and r.target.y == 10.5 and r.target.entities[1].name == "wooden-chest",
+  "refus, eau au nord et coffre au sud : la candidate montrée est la SUD-OUEST (rang 3, gênée par le coffre seul), pas la préférée dans l'eau")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(9, 8), wall_at(10, 8), wall_at(9, 11) })
+check(r.target_index == 3 and #r.target.entities == 1, "refus : à tuiles égales, la candidate la moins encombrée en entités (sud-ouest : 1 mur contre 2 au nord)")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(9, 8), wall_at(9, 11) })
+check(r.target_index == 1 and r.target == r.preferred, "refus : à égalité parfaite, l'ordre de la règle (la préférée)")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(8, 8) })
+check(r.target == r.chosen and r.target_index == 2, "place libre : la candidate montrée est la retenue")
 
 -- 6. Prototypes : garde (l'emprise est une clé de JEU) et boîtes posées par common.lua.
 local Common = require("prototypes.levels.common")
@@ -2357,6 +2404,62 @@ local fake = { type = "ammo-turret", name = "fo-lvl-gun-25", collision_box = { {
 Common.apply_footprint(fake, GUN, 25)
 check(same_box(fake.collision_box, 2.7) and same_box(fake.selection_box, 3) and fake.attack_parameters.range == 26,
   "common.lua : mitrailleuse 25 → boîtes 6×6, portée + 2")
+-- Correction V3-T (défaut 9) : activer une MACHINE déplace ses points de jeu (prototypes au style vanilla :
+-- foreuse électrique et assembleur 2 relevés par harness --dump-final).
+do
+  local DR, AS = L.by_key.drill, L.by_key.assembler
+  local function vanilla_drill()
+    return { type = "mining-drill", name = "fo-lvl-drill-x", collision_box = { { -1.4, -1.4 }, { 1.4, 1.4 } },
+      selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } }, vector_to_place_result = { 0, -1.85 }, resource_searching_radius = 2.49,
+      input_fluid_box = { pipe_connections = { { position = { -2, 0 } }, { position = { 2, 0 } }, { position = { 0, 2 } } } } }
+  end
+  local function vanilla_assembler()
+    return { type = "assembling-machine", name = "fo-lvl-assembler-x", collision_box = { { -1.2, -1.2 }, { 1.2, 1.2 } },
+      selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } },
+      fluid_boxes = { { pipe_connections = { { type = "input", position = { 0, -2 } } } },
+        { pipe_connections = { { type = "output", position = { 0, 2 } } } }, off_when_no_fluid_recipe = true } }
+  end
+  local function pt(v) return (v.x or v[1]) .. "," .. (v.y or v[2]) end
+  local function pipes(fbs)
+    local t = {}
+    for _, fb in ipairs(fbs) do for _, pc in ipairs(fb.pipe_connections) do t[#t + 1] = pt(pc.position) end end
+    return table.concat(t, " ")
+  end
+  L.footprints.drill = { era = { 3, 4, 5, 6, 6 } }
+  L.footprints.assembler = { era = { 3, 4, 5, 6, 6 } }
+  local d25, d13, d7, d1 = vanilla_drill(), vanilla_drill(), vanilla_drill(), vanilla_drill()
+  Common.apply_footprint(d25, DR, 25)
+  Common.apply_footprint(d13, DR, 13)
+  Common.apply_footprint(d7, DR, 7)
+  Common.apply_footprint(d1, DR, 1)
+  local a25 = vanilla_assembler()
+  Common.apply_footprint(a25, AS, 25)
+  local unmoved = vanilla_drill()
+  unmoved.collision_box, unmoved.selection_box = Foot.proto_boxes(6)
+  local probs_bad = Common.footprint_problems(unmoved, 6)
+  local a_bad = vanilla_assembler()
+  local probs_abad = Common.footprint_problems(a_bad, 6)
+  L.footprints.drill, L.footprints.assembler = nil, nil
+  check(same_box(d25.collision_box, 2.7) and pt(d25.vector_to_place_result) == "-0.5,-3.35"
+    and math.abs(d25.resource_searching_radius - 3.99) < 1e-9 and pipes({ d25.input_fluid_box }) == "-3.5,-0.5 3.5,-0.5 -0.5,3.5",
+    "activation foreuse 6×6 : dépôt " .. pt(d25.vector_to_place_result) .. " (0,35 au-delà du bord nord, comme la 3×3), extraction 8×8 (rayon "
+    .. d25.resource_searching_radius .. "), raccords " .. pipes({ d25.input_fluid_box }) .. " (une demi-tuile hors du bord, centres de tuile)")
+  check(pt(d13.vector_to_place_result) == "0,-2.85" and pipes({ d13.input_fluid_box }) == "-3,0 3,0 0,3"
+    and pt(d7.vector_to_place_result) == "-0.5,-2.35" and pipes({ d7.input_fluid_box }) == "-2.5,-0.5 2.5,-0.5 -0.5,2.5"
+    and pt(d1.vector_to_place_result) == "0,-1.85" and d1.resource_searching_radius == 2.49,
+    "activation foreuse : 5×5 (" .. pipes({ d13.input_fluid_box }) .. ") et 4×4 (" .. pipes({ d7.input_fluid_box }) .. ") ; niveau 1 intouché")
+  check(same_box(a25.collision_box, 2.7) and pipes(a25.fluid_boxes) == "-0.5,-3.5 -0.5,3.5" and a25.fluid_boxes.off_when_no_fluid_recipe == true,
+    "activation assembleur 6×6 : raccords " .. pipes(a25.fluid_boxes) .. " hors du bâtiment, réglage de la boîte gardé")
+  local bad, abad = table.concat(probs_bad, " | "), table.concat(probs_abad, " | ")
+  check(#Common.footprint_problems(d25, 6) == 0 and #Common.footprint_problems(d13, 5) == 0 and #Common.footprint_problems(d7, 4) == 0
+    and #Common.footprint_problems(a25, 6) == 0,
+    "contrôle de l'étape data (common.lua, footprint_problems) : 0 problème après déplacement (foreuse 4×4, 5×5, 6×6 ; assembleur 6×6)")
+  check(bad:find("raccord de tuyau (-2, 0) dans la boîte", 1, true) and bad:find("point de dépôt", 1, true)
+    and bad:find("rayon d'extraction", 1, true) and bad:find("hors des centres de tuile", 1, true)
+    and abad:find("raccord de tuyau (0, -2) dans la boîte", 1, true),
+    "contrôle : la foreuse 6×6 aux points vanilla est REFUSÉE (raccords et dépôt dans le corps, extraction plus petite que l'emprise), l'assembleur aussi ("
+    .. #probs_bad .. " et " .. #probs_abad .. " problèmes)")
+end
 local fake6 = { type = "ammo-turret", name = "fo-lvl-gun-6", collision_box = { { -0.7, -0.7 }, { 0.7, 0.7 } },
   selection_box = { { -1, -1 }, { 1, 1 } }, attack_parameters = { range = 19.25 } }
 Common.apply_footprint(fake6, GUN, 6)
@@ -2419,6 +2522,14 @@ proto("tree-01", "tree", 0.4, { ["object-layer"] = true, ["item-layer"] = true, 
 proto("item-on-ground", "item-entity", 0.14, { ["item-layer"] = true })
 proto("iron-ore", "resource", 0.1, { ["resource-layer"] = true })
 proto("fo-test-walker", "character", 0.2, { ["player-layer"] = true })
+-- Correction V3-T (défaut 14) : minerai posé comme une VRAIE entité du moteur simulé (le nom « iron-ore » y
+-- part dans les gisements, que find_entities_filtered{area} ne rend jamais : le contrôle était vide) ; seul le
+-- filtre par couche commune peut l'écarter.
+proto("fo-test-ore", "resource", 0.49, { ["resource-layer"] = true })
+-- Correction V3-T (défaut 5) : fantômes (couche « ghost-layer » seulement, comme le moteur).
+proto("fo-test-ghost", "entity-ghost", 0.49, { ["ghost-layer"] = true })
+proto("fo-test-tile-ghost", "tile-ghost", 0.5, { ["ghost-layer"] = true })
+proto("fo-test-floor-thing", "simple-entity", 0.4, { ["floor-layer"] = true })  -- aucune couche commune avec la tourelle
 local probe = s.create_entity({ name = "stone-wall", position = { x = -500.5, y = -500.5 }, force = "player" })
 local EMT = getmetatable(probe)
 local base_index = EMT.__index
@@ -2528,12 +2639,29 @@ check(rp and rp.reason == "no-room" and st().contours == ct0 + 2, "interface dis
 nd = #drawn
 Levels.start(gb, Wd.player)
 check(drawn[nd + 1] and drawn[nd + 1].players and drawn[nd + 1].players[1] == 1 and drawn[nd + 1].forces == nil,
-  "refus d'un joueur (touche U, bouton) : contour visible de ce seul joueur")
+  "refus d'un joueur (Levels.start avec joueur : touche U et bouton y mènent, voir j.) : contour visible de ce seul joueur")
 local fo_keys = {}
 for k in pairs(global.fo.levels) do fo_keys[#fo_keys + 1] = k end
 table.sort(fo_keys)
 check(table.concat(fo_keys, ",") == "busy,cc,census,footprints,jobs,replacing,stats",
   "global : aucun identifiant de rendu gardé (contours effacés par le moteur) (" .. table.concat(fo_keys, ",") .. ")")
+
+-- c2. Correction V3-T (défaut 16) : « no-room » passe APRÈS les autres motifs. Mitrailleuse bloquée par des
+-- murs, centre SANS le coût du niveau 7 : motif « no-resources », aucun contour, aucun refus faute de place
+-- compté, mais la place reste calculée pour le panneau.
+do
+  local gr = gun_at(6, 600, 500)
+  s.create_entity({ name = "stone-wall", position = { x = 599.5, y = 498.5 }, force = TF })
+  s.create_entity({ name = "stone-wall", position = { x = 599.5, y = 501.5 }, force = TF })
+  local item1 = L.cost(GUN, 7)[1][1]
+  local kept = tinv.remove({ name = item1, count = 1e9 })
+  local ct1, rr1, nd1 = st().contours or 0, st().room_refused or 0, #drawn
+  local okr, whyr, infor = Levels.start(gr, nil)
+  if kept > 0 then tinv.insert({ name = item1, count = kept }) end
+  check(not okr and whyr == "no-resources" and #drawn == nd1 and (st().contours or 0) == ct1 and (st().room_refused or 0) == rr1
+    and infor.room and infor.room.chosen == nil and infor.resize.to == 3,
+    "priorité des motifs : sans ressources ET sans place → « no-resources » (pas de contour, pas de refus faute de place compté ; place calculée pour le panneau) (" .. tostring(whyr) .. ")")
+end
 
 -- d. Bloquée par l'eau : refus, tuile nommée.
 local gw = gun_at(6, 440, 500)
@@ -2544,6 +2672,29 @@ WATER["439,498"], WATER["439,501"] = nil, nil
 check(not okw and whyw == "no-room" and gw.valid and Levels.blocker_names(infow.room.preferred)[1] == "tile:water",
   "eau au nord et au sud : refus « no-room », eau nommée (" .. tostring(whyw) .. ")")
 
+-- d2. Correction V3-T (défaut 8) : eau au nord (rangée y = 498) et coffre au sud-ouest. Le contour montre la
+-- candidate SUD-OUEST (rang 3 : gênée par le coffre seul), pas la préférée dans l'eau ; sans le coffre,
+-- l'agrandissement passe là.
+do
+  local gd = gun_at(6, 640, 500, 4)
+  WATER["639,498"], WATER["640,498"] = "water", "water"
+  local chest = s.create_entity({ name = "iron-chest", position = { x = 639.5, y = 501.5 }, force = TF })
+  stock(tinv, GUN, 7, 1)
+  local nd2 = #drawn
+  local rd2 = remote.call("factorio-overhaul", "levels_upgrade", gd)
+  local main2 = drawn[nd2 + 1]
+  check(rd2.reason == "no-room" and rd2.contour_candidate == 3 and rd2.contour.x0 == 638 and rd2.contour.y0 == 499
+    and rd2.contour.x1 == 641 and rd2.contour.y1 == 502 and #rd2.blockers == 1 and rd2.blockers[1] == "iron-chest"
+    and main2 and main2.left_top[1] == 638 and main2.left_top[2] == 499,
+    "refus, eau au nord, coffre au sud : contour sur la position SUD-OUEST (gênée par le coffre seul), pas sur l'eau (rang "
+    .. tostring(rd2.contour_candidate) .. ", gêne : " .. table.concat(rd2.blockers or {}, ",") .. ")")
+  chest.destroy()
+  local rd3 = remote.call("factorio-overhaul", "levels_upgrade", gd)
+  WATER["639,498"], WATER["640,498"] = nil, nil
+  check(rd3.ok and rd3.candidate == 3 and rd3.position.x == 639.5 and rd3.position.y == 500.5 and rd3.entity.get_item_count("firearm-magazine") == 4,
+    "coffre retiré : l'agrandissement passe au sud-ouest, là où le contour l'indiquait (" .. tostring(rd3.reason) .. ")")
+end
+
 -- e. Position alternative : arbre dans le coin nord-ouest seulement → la 2e position (nord-est).
 local ga = gun_at(6, 460, 500, 3)
 stock(tinv, GUN, 7, 1)
@@ -2553,14 +2704,53 @@ check(oka and ga7 and infoa.room.index == 2 and ga7.position.x == 460.5 and ga7.
   and ga7.get_item_count("firearm-magazine") == 3,
   "position préférée bloquée par un arbre, la 2e libre (nord-est) : agrandissement à 460,5 ; 499,5 (" .. tostring(whya) .. ")")
 
--- f. Ni personnage, ni objet au sol, ni minerai ne bloquent.
+-- f. Ni personnage, ni objet au sol, ni minerai, ni fantôme ne bloquent. Corrections V3-T : l'objet au sol est
+-- SORTI du nouveau bâtiment (défaut 4), le fantôme d'entité recouvert est RETIRÉ, le fantôme de tuile reste
+-- (défaut 5), le minerai est une vraie entité de la zone (défaut 14).
 local gn = gun_at(6, 480, 500)
 s.create_entity({ name = "fo-test-walker", position = { x = 478.6, y = 498.6 }, force = TF })
-s.create_entity({ name = "item-on-ground", position = { x = 479.5, y = 498.5 }, force = "neutral" })
-s.create_entity({ name = "iron-ore", position = { x = 478.5, y = 500.5 }, force = "neutral" })
+local ground = s.create_entity({ name = "item-on-ground", position = { x = 479.5, y = 498.5 }, force = "neutral" })
+local ore = s.create_entity({ name = "fo-test-ore", position = { x = 478.5, y = 500.5 }, force = "neutral" })
+local ghost = s.create_entity({ name = "fo-test-ghost", position = { x = 478.5, y = 499.5 }, force = TF })
+rawset(ghost, "ghost_prototype", Wd.prototypes["stone-wall"])
+local tghost = s.create_entity({ name = "fo-test-tile-ghost", position = { x = 480.5, y = 498.5 }, force = TF })
+-- Fantôme d'une entité qui ne heurte pas la tourelle (aucune couche commune) : le moteur le laisserait, nous aussi.
+local fghost = s.create_entity({ name = "fo-test-ghost", position = { x = 479.5, y = 500.5 }, force = TF })
+rawset(fghost, "ghost_prototype", Wd.prototypes["fo-test-floor-thing"])
+local in_zone = false
+for _, e in ipairs(s.find_entities_filtered({ area = { { 478, 498 }, { 482, 502 } } })) do if e == ore then in_zone = true end end
+check(in_zone, "minerai de test rendu par la recherche de zone (le filtre par couche est bien exercé)")
 stock(tinv, GUN, 7, 1)
-local okn, whyn, infon = Levels.start(gn, nil)
-check(okn and infon.room.index == 1, "personnage (écarté par le moteur), objet au sol (laissé, ramassable) et minerai : ne bloquent pas (" .. tostring(whyn) .. ")")
+local raw_fncp = s.find_non_colliding_position
+local fncp_calls = {}
+s.find_non_colliding_position = function(name, center, radius, precision)
+  fncp_calls[#fncp_calls + 1] = { name = name, radius = radius, precision = precision }
+  return { x = 477.5, y = center.y }  -- moteur réel : position libre la plus proche, hors du bâtiment
+end
+local gm0, gr0 = st().ground_moved or 0, st().ghosts_removed or 0
+local okn, whyn, infon, gn7 = Levels.start(gn, nil)
+s.find_non_colliding_position = raw_fncp
+check(okn and infon.room.index == 1 and ore.valid, "personnage (écarté par le moteur), objet au sol, minerai et fantômes : ne bloquent pas (" .. tostring(whyn) .. ")")
+local rect_n = gn7 and Foot.collision_rect(Foot.tile_box(gn7.position, 3))
+check(ground.valid and ground.position.x == 477.5 and rect_n and ground.position.x < rect_n.x0 and st().ground_moved == gm0 + 1
+  and #fncp_calls == 1 and fncp_calls[1].name == "item-on-ground" and fncp_calls[1].radius == 5,
+  "objet au sol du nouveau carré SORTI du bâtiment (téléporté à la position libre la plus proche, compté) : il reste ramassable")
+check(not ghost.valid and tghost.valid and fghost.valid and st().ghosts_removed == gr0 + 1,
+  "fantôme d'entité recouvert retiré (comme une pose à la main), compté ; fantôme de tuile et fantôme sans couche commune laissés")
+-- Aucune position libre rendue (moteur : nil) : l'objet reste, compté et journalisé ; jamais détruit.
+do
+  local gl0 = st().ground_left or 0
+  local gz = gun_at(6, 680, 500)
+  local it = s.create_entity({ name = "item-on-ground", position = { x = 679.5, y = 498.5 }, force = "neutral" })
+  stock(tinv, GUN, 7, 1)
+  s.find_non_colliding_position = function() return nil end
+  local okz = Levels.start(gz, nil)
+  s.find_non_colliding_position = raw_fncp
+  local logged = false
+  for _, line in ipairs(Wd.logs) do if line:find("laissé(s) sous fo-lvl-gun-7", 1, true) then logged = true end end
+  check(okz and it.valid and it.position.x == 679.5 and st().ground_left == gl0 + 1 and logged,
+    "objet au sol sans position libre autour : laissé en place (jamais détruit), compté et journalisé")
+end
 
 -- g. F40 simulé : le nouveau bâtiment détruit pendant raise_built (create_entity rend nil) → coût rendu.
 local gf = gun_at(6, 500, 500, 4)
@@ -2577,6 +2767,47 @@ s.create_entity = raw_create
 check(not okf and whyf == "replace-failed" and gf.valid and gf.get_item_count("firearm-magazine") == 4
   and math.abs(chest_value() - val_before) < 1e-9 and st().refunds == rf0 + 1 and st().resize_failed == rfail0 + 1,
   "F40 : nouveau bâtiment détruit pendant sa construction → ancien intact, munitions comprises, coût RENDU au centre")
+
+-- g2. Correction V3-T (défauts 6 et 17) : F40 avec un paiement RÉPARTI (centre, puis joueur) : chaque part
+-- revient à l'inventaire qui l'a payée.
+do
+  local gs = gun_at(6, 520, 540, 2)
+  local cost7 = L.cost(GUN, 7)
+  local item1, need1 = cost7[1][1], cost7[1][2]
+  local kept1 = tinv.remove({ name = item1, count = 1e9 })
+  local half = math.floor(need1 / 2)
+  tinv.insert({ name = item1, count = half })
+  for i = 2, #cost7 do tinv.insert({ name = cost7[i][1], count = cost7[i][2] }) end
+  local pinv = Wd.player.get_main_inventory()
+  pinv.insert({ name = item1, count = need1 - half })
+  local cb, pb = {}, {}
+  for _, c in ipairs(cost7) do cb[c[1]] = tinv.get_item_count(c[1]); pb[c[1]] = pinv.get_item_count(c[1]) end
+  local raw_create2 = s.create_entity
+  s.create_entity = function(t)
+    if t.name == L.name(GUN, 7) and not t.fast_replace then return nil end
+    return raw_create2(t)
+  end
+  local oks, whys = Levels.start(gs, Wd.player)
+  s.create_entity = raw_create2
+  local same = true
+  for _, c in ipairs(cost7) do
+    if tinv.get_item_count(c[1]) ~= cb[c[1]] or pinv.get_item_count(c[1]) ~= pb[c[1]] then same = false end
+  end
+  check(not oks and whys == "replace-failed" and gs.valid and same and pb[item1] >= need1 - half,
+    "F40, paiement réparti (" .. half .. " au centre, " .. (need1 - half) .. " au joueur) : chaque part rendue à l'inventaire qui l'a payée")
+  pinv.remove({ name = item1, count = need1 - half })
+  tinv.remove({ name = item1, count = half })
+  if kept1 > 0 then tinv.insert({ name = item1, count = kept1 }) end
+  -- Relevé de pay : retraits effectifs, dans l'ordre (centre puis joueur).
+  local a = { n = 0 }
+  a.remove = function(it) local k = math.min(a.n, it.count); a.n = a.n - k; return k end
+  local b = { n = 100 }
+  b.remove = function(it) local k = math.min(b.n, it.count); b.n = b.n - k; return k end
+  a.n = 40
+  local ledger = Levels.pay({ a, b }, { { "iron-plate", 100 } })
+  check(#ledger == 2 and ledger[1].inv == a and ledger[1].count == 40 and ledger[2].inv == b and ledger[2].count == 60,
+    "paiement : relevé des retraits par inventaire (40 au centre, 60 au joueur)")
+end
 
 -- h. Chaîne 6 → 30 : 4 agrandissements (3, 4, 5, 6) ; retour au centre d'origine en 6×6.
 local gc = gun_at(6, 540, 520, 40)
@@ -2721,12 +2952,87 @@ check(okp and txt:find("{fo-levels-taille.resize-line:2×2,3×3}", 1, true) ~= n
   and txt:find("{fo-levels-taille.room-blocked:[entity=stone-wall]}", 1, true) ~= nil
   and txt:find("{fo-levels-taille.reason-no-room:3×3,[entity=stone-wall]}", 1, true) ~= nil,
   "panneau : « Taille : 2×2 → 3×3 », place insuffisante et motif du refus avec ce qui gêne (" .. tostring(errp) .. ")")
+-- Corrections V3-T (défauts 2 et 7) : panneau ouvert, AUCUNE touche : le contour nécessaire est déjà dessiné
+-- pour ce joueur (aperçu non compté comme refus), et le bouton reste actif pour le motif « no-room ».
+local function find_el(el, name)
+  for _, c in ipairs(rawget(el, "_list") or {}) do
+    if c.name == name then return c end
+    local f = find_el(c, name)
+    if f then return f end
+  end
+  return nil
+end
+local function rects_on(from, x0, y0, x1, y1)
+  local out = {}
+  for i = from + 1, #drawn do
+    local d = drawn[i]
+    if d.left_top[1] == x0 and d.left_top[2] == y0 and d.right_bottom[1] == x1 and d.right_bottom[2] == y1 then out[#out + 1] = d end
+  end
+  return out
+end
+do
+  local hov = rects_on(0, 558, 558, 561, 561)
+  local last = hov[#hov]
+  check(last and last.players and last.players[1] == 1 and last.forces == nil and last.time_to_live <= 32 and last.time_to_live >= 2,
+    "panneau ouvert sans touche : contour nécessaire dessiné pour ce seul joueur, jusqu'au rafraîchissement suivant (" .. tostring(last and last.time_to_live) .. " ticks)")
+  local btn = fr and find_el(fr, "fo_lvl_up")
+  check(btn and btn.enabled == true, "bouton « Améliorer » ACTIF pour le motif « no-room » (un bouton désactivé n'émet aucun clic)")
+  local ct2, nd3 = st().contours or 0, #drawn
+  local nlt2 = Wd.local_texts and #Wd.local_texts or 0
+  local okc2, errc2 = pcall(M.dispatch, ev[defines.events.on_gui_click], { element = btn, player_index = 1, tick = game.tick })
+  local clicked = rects_on(nd3, 558, 558, 561, 561)
+  check(okc2 and gp.valid and st().contours == ct2 + 1 and #clicked == 1 and clicked[1].time_to_live == Levels.CONTOUR_TTL
+    and clicked[1].players[1] == 1 and Wd.local_texts[nlt2 + 1]:find("fo-levels-taille.reason-no-room", 1, true) ~= nil,
+    "clic sur « Améliorer » (souris seule) : refus sans paiement, contour pour ce joueur 300 ticks, message (" .. tostring(errc2) .. ")")
+  -- Le panneau reste ouvert 60 ticks : un aperçu par rafraîchissement (2), jamais empilé.
+  local nd4, ct3 = #drawn, st().contours
+  local okr2, errr2 = pcall(M.run_ticks, 60)
+  local periodic = rects_on(nd4, 558, 558, 561, 561)
+  check(okr2 and #periodic == 2 and periodic[1].time_to_live == 32 and periodic[2].time_to_live == 32 and st().contours == ct3,
+    "panneau ouvert 60 ticks : contour redessiné à chaque rafraîchissement (2 fois, 32 ticks chacun), sans empilement, non compté comme refus (" .. #periodic .. ", " .. tostring(errr2) .. ")")
+end
 nd = #drawn
 local nlt = Wd.local_texts and #Wd.local_texts or 0
 okp, errp = pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
 check(okp and gp.valid and drawn[nd + 1] and drawn[nd + 1].players[1] == 1
   and Wd.local_texts[nlt + 1]:find("fo-levels-taille.reason-no-room", 1, true) ~= nil,
   "touche U refusée faute de place : message au joueur et contour pour lui seul (" .. tostring(errp) .. ")")
+-- Correction V3-T (défaut 10) : place libre, le joueur voit OÙ ira le bâtiment avant de payer : carré vert de la
+-- position retenue ; position autre que l'habituelle (arbre au nord-ouest) : direction écrite au panneau.
+do
+  local gq = gun_at(6, 600, 560)
+  s.create_entity({ name = "tree-01", position = { x = 598.5, y = 558.5 }, force = "neutral" })
+  stock(tinv, GUN, 7, 1)
+  local nd5 = #drawn
+  rawset(player, "selected", nil)
+  rawset(player, "selected", gq)
+  local okq, errq = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
+  local frq = player.gui.left["fo_lvl_panel"]
+  local tq = frq and table.concat(texts(frq), "\n") or ""
+  local green = rects_on(nd5, 599, 558, 602, 561)
+  check(okq and #green == 1 and green[1].color.g > green[1].color.r and green[1].players[1] == 1 and green[1].time_to_live <= 32,
+    "place libre : carré VERT de la position retenue (nord-est, 599 → 602), pour ce seul joueur (" .. tostring(errq) .. ")")
+  check(tq:find("fo-levels-taille.room-free-moved", 1, true) ~= nil and tq:find("fo-levels-taille.dir-ne", 1, true) ~= nil,
+    "place libre mais position habituelle prise : le panneau dit « vers le nord-est »")
+  local gq2 = gun_at(6, 620, 560)
+  local nd6 = #drawn
+  rawset(player, "selected", gq2)
+  pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
+  local tq2 = table.concat(texts(player.gui.left["fo_lvl_panel"]), "\n")
+  check(#rects_on(nd6, 618, 558, 621, 561) == 1 and tq2:find("{fo-levels-taille.room-free:}", 1, true) ~= nil
+    and tq2:find("room-free-moved", 1, true) == nil, "place libre à la position habituelle : carré vert au nord-ouest, pas de direction")
+end
+-- Traductions FR et EN des clés du lot (y compris les directions, construites par le panneau).
+for _, lang in ipairs({ "fr", "en" }) do
+  local keys = {}
+  local okk = cfg_keys("locale/" .. lang .. "/levels-taille.cfg", keys)
+  local miss = {}
+  for _, k in ipairs({ "resize-line", "room-free", "room-free-moved", "room-blocked", "reason-no-room", "dir-n", "dir-s",
+      "dir-e", "dir-w", "dir-ne", "dir-nw", "dir-se", "dir-sw" }) do
+    if not keys["fo-levels-taille." .. k] then miss[#miss + 1] = k end
+  end
+  check(okk and #miss == 0, lang .. " : clés fo-levels-taille présentes (" .. table.concat(miss, ",") .. ")")
+end
 rawset(player, "selected", nil)
 rawset(player, "force", home)
 local okt, errt = pcall(M.run_ticks, 60)

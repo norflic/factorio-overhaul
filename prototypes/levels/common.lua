@@ -201,18 +201,119 @@ end
 --- Emprise au sol du niveau n (lot V3-T ; table L.footprints, géométrie shared/levels/footprint.lua). Si le côté
 --- diffère du côté du prototype source (niveau 1), boîtes de collision et de sélection au style vanilla (sélection
 --- = le carré exact, collision = le carré réduit de 0,3 tuile de chaque côté), drawing_box mise à l'échelle si
---- la source en a une, et portée des tourelles complétée de la moitié de la croissance (L.range_bonus : la portée
---- au-delà du bord reste celle de la statistique). Un niveau à l'emprise du niveau 1 n'est PAS touché (chemin
---- d'avant le lot V3-T, octet pour octet). Groupe de remplacement rapide inchangé (F39) : le moteur refuse de
---- lui-même un remplacement rapide entre deux tailles, et le runtime ne le lui demande jamais.
+--- la source en a une, portée des tourelles complétée de la moitié de la croissance (L.range_bonus : la portée
+--- au-delà du bord reste celle de la statistique) et, correction V3-T (défaut 9), les POINTS DE JEU mesurés
+--- depuis le centre (move_point ci-dessous) : raccords de tuyaux de toutes les boîtes à fluide, point de dépôt
+--- de la foreuse (vector_to_place_result), rayon d'extraction (resource_searching_radius). Un niveau à
+--- l'emprise du niveau 1 n'est PAS touché (chemin d'avant le lot V3-T, octet pour octet). Groupe de
+--- remplacement rapide inchangé (F39) : le moteur refuse de lui-même un remplacement rapide entre deux
+--- tailles, et le runtime ne le lui demande jamais.
+---
+--- Règle des points (côté a → côté b, centre du bâtiment = origine) :
+---   - une coordonnée AU-DELÀ du bord (|v| ≥ a/2) garde son écart au bord : signe(v) × (|v| − a/2 + b/2) ;
+---     un raccord de tuyau à une demi-tuile hors du 3×3 (± 2) reste à une demi-tuile hors du 6×6 (± 3,5) ;
+---   - une coordonnée À L'INTÉRIEUR (le long du bord) est portée à la même proportion du côté, puis calée
+---     sur le centre de tuile le plus proche du nouveau côté (centres entiers pour un côté impair, demi-entiers
+---     pour un côté pair ; à égalité, le plus petit) : 0 sur un 3×3 → −0,5 sur un 6×6 (comme la foreuse à
+---     charbon vanilla, 2×2, qui dépose en −0,5) ;
+---   - rayon d'extraction : même débord au-delà du bord, r + (b − a) / 2 (2,49 sur un 3×3, soit 5×5 tuiles,
+---     → 3,99 sur un 6×6, soit 8×8 tuiles).
+local function snap_center(raw, b)
+  if b % 2 == 0 then return math.ceil(raw) - 0.5 end
+  local v = math.ceil(raw - 0.5)
+  return v == 0 and 0 or v  -- jamais « -0 » (math.ceil(-0,5) en Lua 5.2)
+end
+
+local function move_coord(v, a, b)
+  local ha, hb = a / 2, b / 2
+  if math.abs(v) >= ha - 1e-9 then
+    local out = math.abs(v) - ha + hb
+    return v < 0 and -out or out
+  end
+  return snap_center(v * b / a, b)
+end
+
+--- Point { x, y } ou { [1], [2] } d'un prototype (centre = origine), du côté a au côté b ; même forme rendue.
+local function move_point(pt, a, b)
+  if type(pt) ~= "table" then return pt end
+  if pt.x ~= nil or pt.y ~= nil then return { x = move_coord(pt.x or 0, a, b), y = move_coord(pt.y or 0, a, b) } end
+  return { move_coord(pt[1] or 0, a, b), move_coord(pt[2] or 0, a, b) }
+end
+
+--- Boîtes à fluide d'un prototype (toutes les clés connues de 1.1.91, dans un ordre fixe).
+local function fluid_boxes_of(p)
+  local out = {}
+  for _, k in ipairs({ "fluid_box", "input_fluid_box", "output_fluid_box" }) do
+    if type(p[k]) == "table" then out[#out + 1] = p[k] end
+  end
+  if type(p.fluid_boxes) == "table" then
+    for _, fb in ipairs(p.fluid_boxes) do
+      if type(fb) == "table" then out[#out + 1] = fb end
+    end
+  end
+  local es = p.energy_source
+  if type(es) == "table" and type(es.fluid_box) == "table" then out[#out + 1] = es.fluid_box end
+  return out
+end
+
+local function move_fluid_boxes(p, a, b)
+  for _, fb in ipairs(fluid_boxes_of(p)) do
+    for _, pc in ipairs(fb.pipe_connections or {}) do
+      if pc.position then pc.position = move_point(pc.position, a, b) end
+      if type(pc.positions) == "table" then
+        for i, q in ipairs(pc.positions) do pc.positions[i] = move_point(q, a, b) end
+      end
+    end
+  end
+end
+
 local function apply_footprint(p, family, n)
   local side = L.footprint(family, n)
   if side == family.size then return end
+  local a = family.size
   p.collision_box, p.selection_box = Foot.proto_boxes(side)
-  if p.drawing_box then p.drawing_box = lib.scale_box(p.drawing_box, side / family.size) end
+  if p.drawing_box then p.drawing_box = lib.scale_box(p.drawing_box, side / a) end
   local bonus = L.range_bonus(family, n)
   local ap = p.attack_parameters
   if bonus ~= 0 and type(ap) == "table" and type(ap.range) == "number" then ap.range = ap.range + bonus end
+  move_fluid_boxes(p, a, side)
+  if p.vector_to_place_result then p.vector_to_place_result = move_point(p.vector_to_place_result, a, side) end
+  if type(p.resource_searching_radius) == "number" then
+    p.resource_searching_radius = p.resource_searching_radius + (side - a) / 2
+  end
+end
+
+--- Contrôle des points de jeu d'un prototype à l'emprise `side` (étape data, après apply_footprint ; tests) :
+--- liste des problèmes (vide si tout va bien). Règles du moteur que le harness ne vérifie pas : un raccord de
+--- tuyau et le point de dépôt d'une foreuse sont HORS de la boîte de collision (sinon le tuyau ne se raccorde
+--- jamais et le minerai tombe dans la foreuse elle-même), un raccord est sur un centre de tuile, et la zone
+--- d'extraction couvre au moins l'emprise.
+local function footprint_problems(p, side)
+  local out = {}
+  local c = side / 2 - Foot.MARGIN
+  local function outside(x, y) return math.abs(x) > c + 1e-9 or math.abs(y) > c + 1e-9 end
+  local function on_center(v) return math.abs((v + side / 2) % 1 - 0.5) < 1e-9 end
+  local function check_point(pt, what)
+    local x, y = pt.x or pt[1] or 0, pt.y or pt[2] or 0
+    if not outside(x, y) then out[#out + 1] = what .. " (" .. x .. ", " .. y .. ") dans la boîte de collision ±" .. c end
+    return x, y
+  end
+  for _, fb in ipairs(fluid_boxes_of(p)) do
+    for _, pc in ipairs(fb.pipe_connections or {}) do
+      local list = pc.position and { pc.position } or pc.positions or {}
+      for _, q in ipairs(list) do
+        local x, y = check_point(q, "raccord de tuyau")
+        if not (on_center(x) and on_center(y)) then
+          out[#out + 1] = "raccord de tuyau (" .. x .. ", " .. y .. ") hors des centres de tuile"
+        end
+      end
+    end
+  end
+  if p.vector_to_place_result then check_point(p.vector_to_place_result, "point de dépôt") end
+  if type(p.resource_searching_radius) == "number" and p.resource_searching_radius < side / 2 - 0.01 - 1e-9 then
+    out[#out + 1] = "rayon d'extraction " .. p.resource_searching_radius .. " < côté / 2 − 0,01 (" .. (side / 2 - 0.01) .. ")"
+  end
+  return out
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1109,6 +1210,12 @@ local function load_visual(family, g)
 end
 
 function Common.generate()
+  -- Correction V3-T (défaut 3) : table des emprises vérifiée AVANT toute génération (niveau 1 = côté vanilla,
+  -- jamais de rétrécissement, forme de la ligne) ; une ligne fautive arrête le chargement avec son motif.
+  local ferrs = L.footprint_errors()
+  if #ferrs > 0 then
+    error("[FO-LEVELS] table des emprises refusée (shared/levels/config.lua, L.footprints) : " .. table.concat(ferrs, " ; "))
+  end
   local out = {}
   for _, key in ipairs({ "gun", "laser" }) do
     local f = L.by_key[key]
@@ -1140,6 +1247,14 @@ function Common.generate()
         p.fast_replaceable_group = BASE_GROUP[family.key] or p.fast_replaceable_group
         apply_stats(p, family, n)
         apply_footprint(p, family, n)
+      end
+      -- Correction V3-T (défaut 9) : points de jeu d'un niveau agrandi hors de sa boîte de collision.
+      if p and L.footprint(family, n) ~= family.size then
+        local probs = footprint_problems(p, L.footprint(family, n))
+        if #probs > 0 then
+          error("[FO-LEVELS] " .. name .. " (emprise " .. L.footprint(family, n) .. "×" .. L.footprint(family, n)
+            .. ") : " .. table.concat(probs, " ; "))
+        end
       end
       if p then
         local e = L.epoch_of(family, n)
@@ -1225,4 +1340,6 @@ Common.final_check = final_check
 Common.kit = kit
 Common.game_snapshot = game_snapshot
 Common.apply_footprint = apply_footprint
+Common.footprint_problems = footprint_problems
+Common.move_point = move_point
 return Common

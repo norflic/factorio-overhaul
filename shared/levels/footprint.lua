@@ -29,8 +29,11 @@
        l'ouest (dy croissant, puis dx croissant) ; côté PAIR, le sud d'abord puis l'est (dy décroissant,
        puis dx décroissant).
   La première position LIBRE est retenue. Aucune n'est libre : l'amélioration est refusée (motif
-  « no-room »), rien n'est payé, et le contour de la position PRÉFÉRÉE (la première de la liste) s'affiche
-  avec ce qui la bloque.
+  « no-room »), rien n'est payé, et le contour de la position LA PLUS FACILE À LIBÉRER s'affiche avec ce qui
+  la bloque : d'abord une position sans tuile bloquante (eau, hors carte : rien qu'on retire à la main), puis
+  celle qui a le moins d'entités bloquantes, puis le moins de tuiles bloquantes, enfin l'ordre de préférence
+  ci-dessus (correction V3-T, défaut 8 : montrer la préférée dans l'eau quand un coffre de l'autre côté
+  suffisait donnait une consigne impossible).
   Conséquence voulue de l'alternance : en montant d'une taille à la fois (2 → 3 → 4 → 5 → 6), le bâtiment
   se décale d'une demi-tuile vers le nord-ouest aux tailles impaires et revient sur son centre d'ORIGINE aux
   tailles paires (sans elle, il dériverait d'une tuile et demie vers le nord-ouest en quatre étapes).
@@ -44,9 +47,12 @@
   - une ENTITÉ dont la boîte de collision touche la boîte de collision du nouveau bâtiment ET dont le masque
     partage une couche avec le sien, SAUF l'ancien bâtiment lui-même et les types que le moteur pousse ou
     laisse sous un bâtiment posé (personnage : écarté par create_entity{move_stuck_players = true} ; unité ;
-    objet au sol, qui reste ramassable) ;
+    objet au sol : DÉPLACÉ hors du nouveau bâtiment après l'agrandissement, sinon il resterait hors de portée
+    de ramassage, le personnage ramassant à 1 tuile et ne pouvant entrer dans la boîte de collision) ;
   - jamais une ressource (couche « resource-layer », absente du masque des bâtiments : une foreuse se pose sur
-    le minerai), ni un décor (les décors du nouveau carré sont retirés, comme sous un bâtiment posé à la main).
+    le minerai), ni un décor (les décors du nouveau carré sont retirés, comme sous un bâtiment posé à la main),
+    ni un fantôme (couche « ghost-layer », absente du masque : les fantômes d'entités recouverts sont RETIRÉS
+    après l'agrandissement, comme le fait une pose à la main).
 ]]
 
 local F = {}
@@ -148,11 +154,23 @@ function F.search_box(old, side)
   return { x0 = old.x0, y0 = old.y0, x1 = old.x1, y1 = old.y1 }
 end
 
+--- La candidate `p` est-elle plus facile à libérer que `q` (refus « no-room », règle en tête du fichier) ?
+--- Sans tuile bloquante d'abord, puis le moins d'entités, puis le moins de tuiles, puis le rang.
+local function easier(p, q, ip, iq)
+  local tp, tq = #p.tiles > 0 and 1 or 0, #q.tiles > 0 and 1 or 0
+  if tp ~= tq then return tp < tq end
+  if #p.entities ~= #q.entities then return #p.entities < #q.entities end
+  if #p.tiles ~= #q.tiles then return #p.tiles < #q.tiles end
+  return ip < iq
+end
+
 --- Évalue les candidates dans l'ordre. tiles : tuiles bloquantes { {x, y, name} } (coin nord-ouest de la
 --- tuile) ; blockers : entités bloquantes { {box = {x0, y0, x1, y1} (boîte de collision, carte), name, ...} }.
 --- Chaque candidate évaluée reçoit `tiles` et `entities` (ce qui la touche, dans l'ordre des listes) et `free`.
---- Renvoie { index, chosen (nil si aucune libre), preferred (= candidates[1]), candidates } ; l'évaluation
---- s'arrête à la première libre (la préférée est toujours évaluée).
+--- Renvoie { index, chosen (nil si aucune libre), preferred (= candidates[1]), target, target_index,
+--- candidates } ; l'évaluation s'arrête à la première libre (la préférée est toujours évaluée). `target` est
+--- la candidate À MONTRER (contour, panneau, interface distante) : la retenue s'il y en a une ; sinon (refus,
+--- toutes évaluées) la plus facile à libérer (fonction easier ci-dessus).
 function F.evaluate(cands, tiles, blockers, margin)
   local res = { candidates = cands, preferred = cands[1] }
   for i, c in ipairs(cands) do
@@ -167,8 +185,10 @@ function F.evaluate(cands, tiles, blockers, margin)
     c.tiles, c.entities, c.free = ht, he, (#ht == 0 and #he == 0)
     if c.free then
       res.index, res.chosen = i, c
+      res.target, res.target_index = c, i
       return res
     end
+    if not res.target or easier(c, res.target, i, res.target_index) then res.target, res.target_index = c, i end
   end
   return res
 end

@@ -178,10 +178,21 @@ check(lv.stats.migrated == 2 and lv.stats.overlap_kept == 1 and (lv.stats.forced
   .. tostring(lv.stats.overlap_kept) .. ", " .. tostring(lv.stats.forced) .. ")")
 check(lv.footprints and lv.footprints.gun[6] == 2 and lv.footprints.gun[7] == 3 and lv.footprints.gun[30] == 6
   and lv.footprints.drill[30] == L.by_key.drill.size, "V3-T : relevé des emprises de la sauvegarde mis à jour")
-local migrated0 = lv.stats.migrated
-ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.1", new_version = "0.4.1" } } })
-check(ok and lv.stats.migrated == migrated0 and gun.valid and gun_blocked.valid,
-  "V3-T : second changement de configuration : relevé à jour, aucune nouvelle migration (" .. tostring(err) .. ")")
+local migrated0, kept0 = lv.stats.migrated, lv.stats.overlap_kept
+local function emprise_lines()
+  local n = 0
+  for _, line in ipairs(W().logs) do if line:find("[FO-LEVELS] emprise", 1, true) then n = n + 1 end end
+  return n
+end
+local lines0 = emprise_lines()
+-- (Changement de configuration envoyé à la main : un autre mod mis à jour, par exemple.)
+ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["other-mod"] = { old_version = "1.0.0", new_version = "1.0.1" } } })
+-- Correction V3-T (défaut 15) : le relevé est RELU, pas seulement le compteur de déplacements : aucun bâtiment
+-- réexaminé, aucun « laissé en place » recompté ni rejournalisé.
+check(ok and lv.stats.migrated == migrated0 and lv.stats.overlap_kept == kept0 and emprise_lines() == lines0
+  and gun.valid and gun_blocked.valid,
+  "V3-T : second changement de configuration : relevé à jour, aucune nouvelle migration, rien de recompté ni de rejournalisé ("
+  .. tostring(err) .. ")")
 local drawn = 0
 for _, id in ipairs(renders) do if rendering.is_valid(id) then drawn = drawn + 1 end end
 check(drawn == 0, "barre de progression du chantier 0.3.0 effacée")
@@ -214,6 +225,160 @@ for _, c in ipairs(L.cost(L.by_key.gun, 12)) do cc.get_inventory(defines.invento
 local rr = remote.call("factorio-overhaul", "levels_upgrade", g11)
 check(rr and rr.ok and rr.reason == "done" and s.find_entity("fo-lvl-gun-12", { x = 9.5, y = 9.5 }) ~= nil,
   "levels_time_factor ignoré : levels_upgrade toujours instantané (" .. tostring(rr and rr.reason) .. ")")
+
+---------------------------------------------------------------------------------------------------
+-- Lot V3-T, corrections (défauts 1, 11, 12, 13) : sauvegarde 0.4.1 (d'avant V3-T, sans relevé des emprises)
+-- rechargée SANS changement de version ni de prototypes. Le moteur n'appelle PAS on_configuration_changed (doc
+-- 1.1.91) : ce test n'en envoie aucun, seul le filet on_nth_tick(30) peut migrer. Le moteur simulé applique ici
+-- le NOUVEAU prototype aux bâtiments posés à l'ancienne taille (hypothèse H-T3) : leur boîte suit le
+-- prototype, voisins non encore migrés compris.
+---------------------------------------------------------------------------------------------------
+section("V3-T : sauvegarde 0.4.1 rechargée sans changement de version (filet), voisins déjà grossis, chantier forcé")
+M.new_game({ p_busy = 0, p_nopath = 0, p_lost = 0 })
+local L3 = require("shared.levels.config")       -- instance chargée par le mod (M.load_mod vide le cache)
+local Foot3 = require("shared.levels.footprint")
+local Levels3 = require("script.levels.levels")
+local s3 = game.surfaces[1]
+s3.destroy_decoratives = function(t) assert(t.area, "destroy_decoratives : zone attendue") end
+local MASK3 = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true, ["item-layer"] = true }
+local function set_protos()
+  for _, f in ipairs(L3.families) do
+    for n = 1, f.max do
+      local cb = Foot3.proto_boxes(L3.footprint(f, n))
+      rawset(W().prototypes, L3.name(f, n), {
+        type = f.type, max_health = 1000, collision_mask = MASK3,
+        selection_box = { left_top = { x = -f.size / 2, y = -f.size / 2 }, right_bottom = { x = f.size / 2, y = f.size / 2 } },
+        collision_box = { left_top = { x = cb[1][1], y = cb[1][2] }, right_bottom = { x = cb[2][1], y = cb[2][2] } },
+      })
+    end
+  end
+end
+set_protos()
+rawset(W().prototypes, "stone-wall", { type = "wall", max_health = 350, collision_mask = MASK3 })
+-- Boîte de collision simulée = celle du prototype autour de la position (comme le moteur).
+local probe = s3.create_entity({ name = "stone-wall", position = { x = -900.5, y = -900.5 }, force = "player" })
+local EMT = getmetatable(probe)
+local base_index = EMT.__index
+EMT.__index = function(t, k)
+  if k == "bounding_box" then
+    local cb = W().prototype(rawget(t, "name")).collision_box
+    if cb then
+      return { left_top = { x = t._x + cb.left_top.x, y = t._y + cb.left_top.y },
+               right_bottom = { x = t._x + cb.right_bottom.x, y = t._y + cb.right_bottom.y } }
+    end
+  end
+  return base_index(t, k)
+end
+probe.destroy()
+-- Recherche par zone comme le moteur (doc 1.1.91 : « entities colliding with that area ») : par BOÎTE, pas par
+-- position (le moteur simulé ne regarde que la position ; un voisin déjà grossi qui déborde dans la zone serait
+-- manqué).
+local raw_find = s3.find_entities_filtered
+s3.find_entities_filtered = function(t)
+  if not t.area or t.invert or t.type == "resource" then return raw_find(t) end
+  local a = t.area
+  local wide = {}
+  for k, v in pairs(t) do wide[k] = v end
+  wide.area = { { a[1][1] - 4, a[1][2] - 4 }, { a[2][1] + 4, a[2][2] + 4 } }
+  local out = {}
+  for _, e in ipairs(raw_find(wide)) do
+    local bb = e.bounding_box
+    if bb.left_top.x < a[2][1] and a[1][1] < bb.right_bottom.x and bb.left_top.y < a[2][2] and a[1][2] < bb.right_bottom.y then
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+local hooked = {}
+table.insert(Levels3.on_replaced, function(old_unit, new) hooked[#hooked + 1] = { old_unit, new } end)
+-- Bâtiments posés par 0.4.1 à l'ANCIENNE taille (2×2, positions entières) :
+--   - mitrailleuse 8 seule, à 50 % de PV, 9 chargeurs ;
+--   - deux mitrailleuses 8 COLLÉES (2×2 bord à bord) : une fois grossies en 3×3 sur place, elles se chevauchent ;
+--   - mitrailleuse 6 entourée de murs, avec un chantier 0.4.0 payé vers le niveau 7 (3×3) : aucune place.
+local g8 = s3.create_entity({ name = "fo-lvl-gun-8", position = { x = 10, y = 10 }, force = "player" })
+g8.insert({ name = "firearm-magazine", count = 9 })
+g8.health = 500
+local na = s3.create_entity({ name = "fo-lvl-gun-8", position = { x = 30, y = 10 }, force = "player" })
+local nb = s3.create_entity({ name = "fo-lvl-gun-8", position = { x = 32, y = 10 }, force = "player" })
+local g6 = s3.create_entity({ name = "fo-lvl-gun-6", position = { x = 50, y = 50 }, force = "player" })
+g6.insert({ name = "piercing-rounds-magazine", count = 3 })
+s3.create_entity({ name = "stone-wall", position = { x = 49.5, y = 48.5 }, force = "player" })
+s3.create_entity({ name = "stone-wall", position = { x = 49.5, y = 51.5 }, force = "player" })
+--   - mitrailleuse 6 avec un chantier vers 7 : eau au nord (rangée y = 48), mur au sud-ouest : aucune place ;
+--     le chantier forcé prend la position la plus facile à libérer (sud-ouest), jamais l'eau.
+local gw6 = s3.create_entity({ name = "fo-lvl-gun-6", position = { x = 70, y = 50 }, force = "player" })
+s3.create_entity({ name = "stone-wall", position = { x = 69.5, y = 51.5 }, force = "player" })
+local WATER3 = { ["69,48"] = "water", ["70,48"] = "water" }
+local raw_tile_at = W().tile_at
+W().tile_at = function(x, y) return WATER3[x .. "," .. y] or (raw_tile_at and raw_tile_at(x, y)) or "grass-1" end
+local units = { g8 = g8.unit_number, na = na.unit_number, nb = nb.unit_number }
+local lv3 = global.fo.levels
+lv3.footprints = nil  -- sauvegarde d'avant V3-T : aucun relevé
+lv3.jobs = { [g6.unit_number] = { entity = g6, unit = g6.unit_number, force = "player", family = "gun", to = 7,
+  cost = { { "iron-plate", 10 } } },
+  [gw6.unit_number] = { entity = gw6, unit = gw6.unit_number, force = "player", family = "gun", to = 7,
+  cost = { { "iron-plate", 10 } } } }
+local logs0 = #W().logs
+check(Levels3.footprints_stale(), "filet : relevé absent → emprises à migrer")
+ok, err = pcall(M.run_ticks, 30)
+check(ok, "30 ticks sans changement de configuration (" .. tostring(err) .. ")")
+local function find_log(pat, from)
+  for i = (from or 0) + 1, #W().logs do if W().logs[i]:find(pat, 1, true) then return W().logs[i] end end
+  return nil
+end
+local n8 = s3.find_entity("fo-lvl-gun-8", { x = 9.5, y = 9.5 })
+check(lv3.footprints and lv3.footprints.gun[8] == 3 and not Levels3.footprints_stale() and find_log("emprises (filet", logs0),
+  "filet on_nth_tick(30) : sauvegarde 0.4.1 SANS on_configuration_changed migrée au premier passage, relevé écrit, journalisé")
+-- Défaut 12 : PV en proportion, crochets on_replaced appelés pendant la MIGRATION.
+check(n8 and not g8.valid and math.abs(n8.get_health_ratio() - 0.5) < 1e-9 and n8.get_item_count("firearm-magazine") == 9,
+  "migration : mitrailleuse 8 reposée en 3×3 (9,5 ; 9,5), PV en proportion (50 %), munitions transférées")
+local seen = {}
+for _, h in ipairs(hooked) do seen[h[1]] = h[2] end
+check(seen[units.g8] == n8 and seen[units.na] ~= nil and seen[units.nb] ~= nil,
+  "migration : crochets Levels.on_replaced appelés avec l'ancien numéro (le panneau ouvert suit le bâtiment reposé)")
+-- Défaut 12 : voisins non encore migrés dont la boîte a DÉJÀ grossi (H-T3).
+local ma, mb = seen[units.na], seen[units.nb]
+local function overlap_bb(a, b)
+  local x, y = a.bounding_box, b.bounding_box
+  return x.left_top.x < y.right_bottom.x and y.left_top.x < x.right_bottom.x and x.left_top.y < y.right_bottom.y and y.left_top.y < x.right_bottom.y
+end
+check(ma and mb and ma.position.x == 29.5 and mb.position.x == 32.5 and ma.position.y == 9.5 and mb.position.y == 9.5
+  and not overlap_bb(ma, mb),
+  "migration : deux mitrailleuses collées, déjà grossies sur place (chevauchement), reposées sans chevauchement (29,5 et 32,5 : nord-ouest puis nord-est)")
+-- Défaut 13 : chantier hérité payé, aucune place → position forcée (chevauchement toléré), compté, journalisé.
+local g7 = s3.find_entity("fo-lvl-gun-7", { x = 49.5, y = 49.5 })
+local gw7 = s3.find_entity("fo-lvl-gun-7", { x = 69.5, y = 50.5 })
+check(g7 and not g6.valid and g7.get_item_count("piercing-rounds-magazine") == 3 and lv3.stats.forced == 2
+  and find_log("agrandissement forcé", logs0) and next(lv3.jobs) == nil,
+  "chantiers 0.4.0 payés (6 → 7) sans place : achevés quand même à la position montrée, comptés (forced = 2), journalisés, munitions comprises")
+check(gw7 ~= nil and gw7.position.x == 69.5 and gw7.position.y == 50.5 and not gw6.valid,
+  "chantier forcé : position la plus facile à libérer (sud-ouest, un mur), jamais la préférée dans l'eau")
+check(lv3.stats.migrated == 3 and (lv3.stats.overlap_kept or 0) == 0, "statistiques : 3 reposées, 0 laissée (" .. tostring(lv3.stats.migrated) .. ")")
+-- Le filet ne refait rien ensuite (relevé à jour).
+local m3, k3, l3 = lv3.stats.migrated, lv3.stats.overlap_kept or 0, #W().logs
+ok, err = pcall(M.run_ticks, 90)
+check(ok and lv3.stats.migrated == m3 and (lv3.stats.overlap_kept or 0) == k3 and not find_log("[FO-LEVELS] emprise", l3),
+  "filet : 3 passages de plus, rien à refaire, rien de journalisé (" .. tostring(err) .. ")")
+-- Défaut 12 : CENTRE suivi pendant la migration. Ligne « command » temporaire (activation par la table) : le
+-- centre 9 passe de 4×4 à 6×6 ; un mur bloque les positions centrée, sud et est : il est reposé à l'ouest.
+L3.footprints.command = { era = { 4, 5, 6, 7, 8 } }
+set_protos()
+local cc3 = s3.create_entity({ name = "fo-lvl-command-9", position = { x = 100, y = 100 }, force = "player" })
+cc3.get_inventory(defines.inventory.chest).insert({ name = "iron-plate", count = 77 })
+lv3.cc.player = cc3
+s3.create_entity({ name = "stone-wall", position = { x = 102.5, y = 100.5 }, force = "player" })
+local cc_unit = cc3.unit_number
+ok, err = pcall(M.run_ticks, 30)
+local cc_new
+for _, h in ipairs(hooked) do if h[1] == cc_unit then cc_new = h[2] end end
+check(ok and cc_new and not cc3.valid and cc_new.position.x == 99 and cc_new.position.y == 100 and lv3.cc.player == cc_new
+  and Levels3.cc(game.forces.player) == cc_new and cc_new.get_item_count("iron-plate") == 77,
+  "migration du centre (ligne « command » activée) : reposé à l'ouest (99 ; 100), SUIVI comme centre de la force, coffre transféré ("
+  .. tostring(err) .. ")")
+ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.1", new_version = "0.4.2" } } })
+check(ok and lv3.cc.player == cc_new and Levels3.cc_level(game.forces.player) == 9,
+  "réparation au changement de version : le centre reposé reste le centre (pas oublié) (" .. tostring(err) .. ")")
+L3.footprints.command = nil
 
 print(string.format("\n%d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

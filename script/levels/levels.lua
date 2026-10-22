@@ -19,11 +19,14 @@
     l'amélioration est refusée et le contour nécessaire s'affiche ») : quand le niveau suivant a une emprise
     plus grande (table L.footprints), la PLACE est vérifiée AVANT le paiement (Levels.room : tuiles et entités,
     sauf l'ancien bâtiment) ; libre : remplacement PAR SCRIPT à la première position libre de la règle
-    (shared/levels/footprint.lua) avec transfert du contenu (Levels.transfer) ; aucune libre : refus « no-room »,
-    rien de payé, contour de la position préférée et de ce qui la bloque dessiné pour une durée limitée
-    (rendering, time_to_live : rien dans global). À emprise égale, le remplacement rapide moteur d'avant (F39)
-    est gardé tel quel. Sauvegarde d'avant V3-T : les bâtiments dont l'emprise a changé sont réinstallés au
-    chargement (Levels.migrate_footprints).
+    (shared/levels/footprint.lua) avec transfert du contenu (Levels.transfer), objets au sol sortis du nouveau
+    bâtiment, fantômes recouverts retirés ; aucune libre : refus « no-room », rien de payé, contour de la
+    position LA PLUS FACILE À LIBÉRER et de ce qui la bloque dessiné pour une durée limitée (rendering,
+    time_to_live : rien dans global). Le panneau dessine aussi, pour son seul joueur, la position retenue (vert)
+    ou ce contour (Levels.draw_room). À emprise égale, le remplacement rapide moteur d'avant (F39) est gardé tel
+    quel. Sauvegarde d'avant V3-T : les bâtiments dont l'emprise a changé sont réinstallés au chargement
+    (Levels.migrate_footprints), sur on_configuration_changed ET, à défaut (sauvegarde rechargée sans
+    changement de version), au premier passage du filet on_nth_tick(30).
   Déterminisme : tout se passe dans des événements ; listes triées (chantiers hérités par numéro, surfaces
   par index), jamais l'ordre de pairs.
 ]]
@@ -140,18 +143,26 @@ local function missing(invs, cost)
   return m
 end
 
+--- Prélève `cost` dans `invs`, dans l'ordre (centre, puis joueur). Renvoie le RELEVÉ des retraits effectifs
+--- { {inv, objet, quantité} } (correction V3-T, défauts 6 et 17 : le remboursement rend chaque part à
+--- l'inventaire qui l'a payée).
 local function pay(invs, cost)
+  local ledger = {}
   for _, c in ipairs(cost) do
     local left = c[2]
     for _, inv in ipairs(invs) do
       if left <= 0 then break end
-      left = left - inv.remove({ name = c[1], count = left })
+      local got = inv.remove({ name = c[1], count = left })
+      if got > 0 then ledger[#ledger + 1] = { inv = inv, item = c[1], count = got } end
+      left = left - got
     end
   end
+  return ledger
 end
 
 Levels.sources = sources
 Levels.available = available
+Levels.pay = pay
 
 ---------------------------------------------------------------------------------------------------
 -- Condition du centre (Q16) : recensement des familles de la force
@@ -299,9 +310,11 @@ end
 -- Emprise croissante (lot V3-T) : place, contour, transfert du contenu, remplacement par script
 ---------------------------------------------------------------------------------------------------
 --- Types qui ne bloquent jamais un agrandissement : le personnage est écarté par le moteur
---- (create_entity{move_stuck_players = true}), une unité se dégage seule, un objet au sol reste où il est
---- (ramassable : rien n'est renversé ni perdu). Tout le reste bloque s'il partage une couche de collision avec
---- le nouveau bâtiment (arbre, rocher, falaise, mur, coffre, véhicule, autre bâtiment…).
+--- (create_entity{move_stuck_players = true}), une unité se dégage seule, un objet au sol est SORTI du nouveau
+--- bâtiment après l'agrandissement (move_ground_items : sinon il resterait hors de portée de ramassage).
+--- Tout le reste bloque s'il partage une couche de collision avec le nouveau bâtiment (arbre, rocher, falaise,
+--- mur, coffre, véhicule, autre bâtiment…) ; un fantôme (« ghost-layer ») et une ressource (« resource-layer »)
+--- n'en partagent aucune.
 Levels.NON_BLOCKING = { character = true, unit = true, ["item-entity"] = true }
 --- Durée d'affichage du contour d'un refus « no-room » (ticks) : effacé par le moteur, rien dans global.
 Levels.CONTOUR_TTL = 300
@@ -328,7 +341,8 @@ end
 --- Place pour passer `entity` (emprise actuelle : old_side) au prototype `new_name` de côté new_side.
 --- Une seule recherche d'entités et une lecture des tuiles sur la réunion des positions candidates (au plus
 --- (2b - a)² tuiles : 49 pour 5 → 6) ; la décision est la fonction pure Foot.evaluate. Renvoie
---- { index, chosen, preferred, candidates, from, to, box_old } (chosen = nil : aucune position libre).
+--- { index, chosen, preferred, target, target_index, candidates, from, to, box_old } (chosen = nil : aucune
+--- position libre ; target = la candidate à montrer, shared/levels/footprint.lua F.evaluate).
 function Levels.room(entity, old_side, new_name, new_side)
   local surface = entity.surface
   local old_box = Foot.tile_box(entity.position, old_side)
@@ -397,12 +411,14 @@ function Levels.blocker_names(cand)
   return out
 end
 
---- Contour d'un refus « no-room » : le carré nécessaire (position préférée), chaque entité qui le bloque et
---- chaque tuile qui le bloque, visibles du seul joueur concerné (sinon de la force du bâtiment), effacés par
---- le moteur au bout de Levels.CONTOUR_TTL ticks. Rien n'est gardé dans global (compteur seulement).
-local function draw_contour(entity, room, player)
+--- Contour d'un refus « no-room » : le carré nécessaire (la candidate À MONTRER, room.target : la plus facile
+--- à libérer, shared/levels/footprint.lua), chaque entité qui le bloque et chaque tuile qui le bloque, visibles
+--- du seul joueur concerné (sinon de la force du bâtiment), effacés par le moteur au bout de `ttl` ticks
+--- (Levels.CONTOUR_TTL par défaut). Rien n'est gardé dans global. preview = true (dessin du panneau, répété à
+--- chaque rafraîchissement) : non compté dans stats.contours, qui compte les REFUS dessinés.
+local function draw_contour(entity, room, player, ttl, preview)
   local st = S()
-  local cand = room.preferred
+  local cand = room.target or room.preferred
   if not cand then return end
   local surface = entity.surface
   local players = (player and player.valid) and { player.index } or nil
@@ -410,7 +426,7 @@ local function draw_contour(entity, room, player)
   local function rect(x0, y0, x1, y1, color, width, filled)
     rendering.draw_rectangle({
       color = color, width = width, filled = filled, left_top = { x0, y0 }, right_bottom = { x1, y1 },
-      surface = surface, time_to_live = Levels.CONTOUR_TTL, players = players, forces = forces,
+      surface = surface, time_to_live = ttl or Levels.CONTOUR_TTL, players = players, forces = forces,
     })
   end
   local b = cand.box
@@ -426,9 +442,27 @@ local function draw_contour(entity, room, player)
     marks = marks + 1
     rect(t.x, t.y, t.x + 1, t.y + 1, { r = 0.6, g = 0.05, b = 0.05, a = 0.35 }, 1, true)
   end
-  st.stats.contours = (st.stats.contours or 0) + 1
+  if not preview then st.stats.contours = (st.stats.contours or 0) + 1 end
 end
 Levels.draw_contour = draw_contour
+
+--- Aperçu de la place pour le PANNEAU (correction V3-T, défauts 2, 7 et 10), visible du seul `player`, effacé
+--- par le moteur au bout de `ttl` ticks : place libre → le carré RETENU en vert pâle (où ira le bâtiment, même
+--- s'il glisse vers une autre position que la préférée) ; place prise → le contour du refus (draw_contour).
+--- Rien dans global, rien de compté.
+function Levels.draw_room(entity, room, player, ttl)
+  if not (room and player and player.valid) then return end
+  local c = room.chosen
+  if not c then
+    draw_contour(entity, room, player, ttl, true)
+    return
+  end
+  local b = c.box
+  rendering.draw_rectangle({
+    color = { r = 0.35, g = 0.9, b = 0.35, a = 0.8 }, width = 2, filled = false, left_top = { b.x0, b.y0 },
+    right_bottom = { b.x1, b.y1 }, surface = entity.surface, time_to_live = ttl, players = { player.index },
+  })
+end
 
 local TURRET_TYPES = { ["ammo-turret"] = true, ["electric-turret"] = true, ["fluid-turret"] = true, turret = true }
 local CRAFTER_TYPES = { ["assembling-machine"] = true, furnace = true, ["rocket-silo"] = true }
@@ -502,12 +536,17 @@ function Levels.transfer(old, new)
     nb.remaining_burning_fuel = ob.remaining_burning_fuel
     nb.heat = ob.heat
   end
+  -- Progressions : écrites seulement si non nulles (un bâtiment neuf part de 0 ; écrire 0 ne changerait rien).
+  local function carry(k)
+    local v = old[k]
+    if v and v > 0 then new[k] = v end
+  end
   if CRAFTER_TYPES[old.type] then
-    new.crafting_progress = old.crafting_progress
-    new.bonus_progress = old.bonus_progress
+    carry("crafting_progress")
+    carry("bonus_progress")
   elseif old.type == "mining-drill" then
-    new.mining_progress = old.mining_progress
-    new.bonus_mining_progress = old.bonus_mining_progress
+    carry("mining_progress")
+    carry("bonus_mining_progress")
   end
   if TURRET_TYPES[old.type] then
     local kills, dealt = old.kills, old.damage_dealt
@@ -547,17 +586,66 @@ function Levels.transfer(old, new)
   return out
 end
 
+--- Objets au sol (item-entity) dont la boîte touche la boîte de collision `rect` du nouveau bâtiment : sortis
+--- à la position libre la plus proche (find_non_colliding_position : l'objet au sol a la couche « item-layer »,
+--- présente dans le masque du bâtiment, donc la position rendue est hors du bâtiment) et téléportés (l'objet
+--- garde sa pile et ses données). Correction V3-T (défaut 4) : laissé dessous, un objet au milieu d'un 5×5 ou
+--- d'un 6×6 serait hors de portée (ramassage à 1 tuile, personnage hors de la boîte). Échec (aucune position,
+--- téléport refusé) : laissé en place, compté (ground_left). Renvoie déplacés, laissés.
+local function move_ground_items(surface, rect, radius)
+  local moved, left = 0, 0
+  local items = surface.find_entities_filtered({ area = { { rect.x0, rect.y0 }, { rect.x1, rect.y1 } }, type = "item-entity" })
+  for _, it in ipairs(items) do
+    if it.valid then
+      local ok = false
+      local to = surface.find_non_colliding_position("item-on-ground", it.position, radius, 0.25)
+      if to and not (to.x > rect.x0 and to.x < rect.x1 and to.y > rect.y0 and to.y < rect.y1) then
+        ok = it.teleport(to) and true or false
+      end
+      if ok then moved = moved + 1 else left = left + 1 end
+    end
+  end
+  return moved, left
+end
+
+--- Fantômes d'entités (entity-ghost) recouverts par le nouveau bâtiment : retirés, comme le fait le moteur
+--- quand on pose un bâtiment à la main (correction V3-T, défaut 5 : sinon les robots tentent sans fin de le
+--- construire). Retiré : un fantôme dont la boîte touche `rect` et dont le prototype fantôme partage une couche
+--- avec le masque du nouveau bâtiment (`layers`). Les fantômes de TUILES restent (une tuile se pose sous un
+--- bâtiment). Renvoie le nombre retiré. Moteur réel 1.1.91 (banc content, greffon levels_taille, 22/10) : le
+--- create_entity du nouveau bâtiment retire DÉJÀ lui-même le fantôme de mur recouvert (0 retiré ici) ; ce filet
+--- reste pour ce que le banc n'a pas couvert (autres fantômes, autres moteurs simulés) et ne coûte qu'une
+--- recherche sur l'emprise.
+local function remove_ghosts(surface, rect, layers)
+  local removed = 0
+  local ghosts = surface.find_entities_filtered({ area = { { rect.x0, rect.y0 }, { rect.x1, rect.y1 } }, type = "entity-ghost" })
+  for _, g in ipairs(ghosts) do
+    if g.valid then
+      local bb = g.bounding_box
+      local gp = g.ghost_prototype
+      if Foot.overlap(rect, { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y })
+          and shares(layers, gp and gp.collision_mask) then
+        g.destroy({ raise_destroy = true })
+        removed = removed + 1
+      end
+    end
+  end
+  return removed
+end
+
 --- Remplacement PAR SCRIPT de `entity` par `name` (côté new_side) à la première position libre de la règle
 --- (opts.room : place déjà calculée par l'aperçu ; sinon calculée ici). Ordre (F40 tenu) :
 ---   1. le nouveau bâtiment est créé À CÔTÉ de l'ancien, qui existe encore (create_entity ne vérifie pas la
 ---      place : c'est Levels.room qui l'a fait), raise_built = true : nos gestionnaires tournent aussitôt ; s'ils
 ---      le détruisent, create_entity renvoie nil et l'ancien est INTACT (l'appelant rembourse) ;
 ---   2. tout le contenu passe de l'ancien au nouveau (Levels.transfer), sans rien renverser ;
----   3. les décors du nouveau carré sont retirés (comme sous un bâtiment posé à la main) ;
+---   3. les décors du nouveau carré sont retirés, les fantômes d'entités recouverts aussi (comme sous un
+---      bâtiment posé à la main), les objets au sol sont sortis du bâtiment ;
 ---   4. l'ancien est détruit sans événement (comme le remplacement rapide moteur) : son objet disparaît.
---- opts.force (chantiers hérités, déjà payés) : sans position libre, la position préférée est prise quand même
---- (chevauchement toléré, compté) plutôt que de perdre le chantier. Renvoie la nouvelle entité, ou nil et la
---- place (refus, rien n'a changé).
+--- opts.force (chantiers hérités, déjà payés) : sans position libre, la position À MONTRER (room.target : la
+--- plus facile à libérer, jamais dans l'eau s'il existe mieux) est prise quand même (chevauchement toléré,
+--- compté) plutôt que de perdre le chantier. Renvoie la nouvelle entité, ou nil et la place (refus, rien n'a
+--- changé).
 function Levels.resize_replace(entity, name, old_side, new_side, opts)
   opts = opts or {}
   local st = S()
@@ -565,7 +653,7 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
   local cand = room.chosen
   if not cand then
     if not opts.force then return nil, room end
-    cand = room.preferred
+    cand = room.target or room.preferred
     st.stats.forced = (st.stats.forced or 0) + 1
     log("[FO-LEVELS] agrandissement forcé (chantier hérité, place prise) : " .. name .. " en "
       .. cand.x .. ", " .. cand.y .. " ; gêne : " .. Levels.blockers_text(cand))
@@ -587,22 +675,31 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
   st.stats.wires_lost = (st.stats.wires_lost or 0) + moved.wires_lost
   local b = cand.box
   surface.destroy_decoratives({ area = { { b.x0, b.y0 }, { b.x1, b.y1 } } })
+  local rect = Foot.collision_rect(b)
+  local gone = remove_ghosts(surface, rect, mask_layers(new.prototype.collision_mask))
+  if gone > 0 then st.stats.ghosts_removed = (st.stats.ghosts_removed or 0) + gone end
+  local gm, gl = move_ground_items(surface, rect, new_side + 2)
+  if gm > 0 then st.stats.ground_moved = (st.stats.ground_moved or 0) + gm end
+  if gl > 0 then
+    st.stats.ground_left = (st.stats.ground_left or 0) + gl
+    log("[FO-LEVELS] agrandissement : " .. gl .. " objet(s) au sol laissé(s) sous " .. name .. " (aucune place libre autour)")
+  end
   entity.destroy({ raise_destroy = false })
   st.stats.resized = (st.stats.resized or 0) + 1
   return new, room
 end
 
 --- Remet le coût payé (refus après paiement : la nouvelle entité n'a pas pu être créée et l'ancienne est
---- intacte) : dans les mêmes inventaires, dans le même ordre (centre, puis joueur) ; ce qui n'entre plus est
---- posé au pied du bâtiment (jamais attendu : ces cases viennent d'être vidées).
-local function refund(invs, cost, entity)
-  for _, c in ipairs(cost) do
-    local left = c[2]
-    for _, inv in ipairs(invs) do
-      if left <= 0 then break end
-      left = left - inv.insert({ name = c[1], count = left })
+--- intacte) : chaque part dans l'inventaire QUI L'A PAYÉE, d'après le relevé de pay (correction V3-T, défauts 6
+--- et 17 : la part du joueur revient au joueur, celle du centre au centre) ; ce qui n'entre plus (jamais
+--- attendu : ces cases viennent d'être vidées ; inventaire disparu) est posé au pied du bâtiment.
+local function refund(ledger, entity)
+  for _, part in ipairs(ledger) do
+    local put = 0
+    if part.inv and part.inv.valid ~= false then put = part.inv.insert({ name = part.item, count = part.count }) end
+    if put < part.count then
+      entity.surface.spill_item_stack(entity.position, { name = part.item, count = part.count - put }, true, entity.force, false)
     end
-    if left > 0 then entity.surface.spill_item_stack(entity.position, { name = c[1], count = left }, true, entity.force, false) end
   end
   local st = S()
   st.stats.refunds = (st.stats.refunds or 0) + 1
@@ -715,7 +812,7 @@ end
 --- Renvoie ok, raison, info, nouvelle entité. Raison du succès : "done". Lot V3-T : la place est vérifiée par
 --- l'aperçu, donc AVANT le paiement ; refus « no-room » : rien n'est payé, le contour nécessaire est dessiné
 --- (visible du joueur, ou de la force sans joueur). Échec du remplacement par script alors que l'ancien
---- bâtiment est intact : le coût est rendu.
+--- bâtiment est intact : le coût est rendu, chaque part à l'inventaire qui l'a payée.
 function Levels.start(entity, player)
   if not (entity and entity.valid) then return false, "invalid" end
   -- Décision : recensement Q16 complet, jamais le cache.
@@ -730,10 +827,10 @@ function Levels.start(entity, player)
     return false, info.reason, info
   end
   local invs = sources(entity.force, player)
-  pay(invs, info.cost)
+  local ledger = pay(invs, info.cost)
   local new = replace(entity, info.family, info.next, { room = info.room })
   if not new then
-    if entity.valid then refund(invs, info.cost, entity) end
+    if entity.valid then refund(ledger, entity) end
     return false, "replace-failed", info
   end
   st.stats.upgrades = (st.stats.upgrades or 0) + 1
@@ -877,7 +974,7 @@ function Levels.migrate_footprints()
               kept = kept + 1
               log("[FO-LEVELS] emprise : " .. name .. " en " .. pos.x .. ", " .. pos.y .. " laissé en place ("
                 .. ch.from .. "×" .. ch.from .. " → " .. ch.to .. "×" .. ch.to .. ", aucune place libre ; gêne : "
-                .. Levels.blockers_text(room.preferred) .. ")")
+                .. Levels.blockers_text(room.target) .. ")")
             end
           end
         end
@@ -948,10 +1045,37 @@ Events.on_configuration_changed(function()
   if clamped > 0 then log("[FO-LEVELS] mise à jour : PV ramenés au maximum sur " .. clamped .. " bâtiment(s)") end
 end)
 
--- Filet : une sauvegarde 0.4.0 rechargée SANS changement de version (on_configuration_changed n'est alors
--- pas appelé) garde ses chantiers ; ils sont achevés au premier passage. Coût nul hors de ce cas (next sur
--- une table vide).
+--- Le relevé des emprises de la sauvegarde (global : footprints) diffère-t-il de la table du mod chargé ?
+--- Absent (sauvegarde d'avant V3-T) : oui. Comparaison sans rien allouer (familles puis niveaux, dans l'ordre de
+--- la config) : au plus 7 × 30 lectures, arrêtées à la première différence.
+function Levels.footprints_stale()
+  local saved = S().footprints
+  if not saved then return true end
+  for _, f in ipairs(L.families) do
+    local row = saved[f.key]
+    if not row then return true end
+    for n = 1, f.max do
+      if row[n] ~= L.footprint(f, n) then return true end
+    end
+  end
+  return false
+end
+
+-- Filets pour une sauvegarde rechargée SANS changement de version ni de prototypes (on_configuration_changed
+-- n'est alors pas appelé ; doc 1.1.91 de LuaBootstrap.on_configuration_changed : « game version or any mod
+-- version changed, mod added or removed, startup setting changed, prototypes added or removed, migration
+-- applied » ; changer la collision_box d'un prototype existant n'en fait pas partie) :
+--   - correction V3-T (défauts 1 et 11) : EMPRISES d'abord, si le relevé de la sauvegarde diffère de la table
+--     (sauvegarde 0.4.1 chargée par le mod V3-T sans montée de version) : migration au premier passage, puis le
+--     relevé est à jour et le filet ne coûte plus que la comparaison ;
+--   - chantiers 0.4.0 : achevés au premier passage (next sur une table vide sinon).
+-- Même ordre que Levels.repair : un chantier hérité suit son bâtiment reposé, puis il est achevé.
 Events.on_nth_tick(30, function()
+  if Levels.footprints_stale() then
+    local moved, inplace, kept = Levels.migrate_footprints()
+    log("[FO-LEVELS] emprises (filet, sans changement de version) : " .. moved .. " bâtiment(s) reposé(s), "
+      .. inplace .. " déjà en place, " .. kept .. " laissé(s) faute de place (chevauchement toléré)")
+  end
   local jobs = S().jobs
   if jobs and next(jobs) ~= nil then
     local done, lost = Levels.finish_legacy_jobs()

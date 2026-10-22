@@ -305,11 +305,15 @@ end
 -- 2×2 aux époques 1-3 (niveaux 1 à 6), 3×3 aux époques 4-6 (7 à 12), 4×4 aux époques 7-9 (13 à 18), 5×5 aux
 -- époques 10-12 (19 à 24), 6×6 aux époques 13-15 (25 à 30).
 -- Échelle PROPOSÉE pour les autres familles, NON VALIDÉE (question Q-S1 ouverte : vaut-elle pour toutes les
--- familles ?) ; les activer = ajouter leur ligne ici, rien d'autre (prototypes, place, migration et tests
--- suivent la table) :
+-- familles ?). Les activer = ajouter leur ligne ici : boîtes, portée, raccords de tuyaux, point de dépôt et
+-- rayon d'extraction des prototypes (prototypes/levels/common.lua, apply_footprint), place, migration et tests
+-- suivent la table. CONDITION (garde L.footprint_errors, refusée à l'étape data et par tests/levels_test.lua) :
+-- le côté du NIVEAU 1 vaut family.size, car le niveau 1 EST le bâtiment vanilla, jamais retouché ; une ligne
+-- ne rétrécit jamais d'un niveau au suivant.
 --   laser     = { era = { 2, 3, 4, 5, 6 } },
 --   drill     = { era = { 3, 4, 5, 6, 6 } },   assembler = { era = { 3, 4, 5, 6, 6 } } (« machines 3×3 → 6×6 ») ;
---   furnace   : le four en acier vanilla est un 2×2 (family.size = 2) : 2 → 6 ou 3 → 6, à trancher ;
+--   furnace   : le four en acier vanilla est un 2×2 (family.size = 2) : { era = { 2, 3, 4, 5, 6 } } ou
+--               { era = { 2, 4, 5, 6, 6 } } ; « 3 → 6 » exigerait un niveau 1 non vanilla (hors de ce lot) ;
 --   command   = { era = { 4, 5, 6, 7, 8 } }   (« centre 4×4 → 8×8 ») ;
 --   wall      : 1×1 inchangé (pas de ligne).
 -- Règle de position (le nouveau bâtiment CONTIENT l'ancien, la plus centrée d'abord, puis un ordre fixe) et
@@ -320,6 +324,49 @@ L.ERA_EPOCHS = 3
 L.footprints = {
   gun = { era = { 2, 3, 4, 5, 6 } },
 }
+
+--- Garde de la table (correction V3-T, défaut 3) : liste des erreurs (vide si la table est valide), dans
+--- l'ordre des familles. Une ligne doit nommer une famille, avoir la forme par ère (5 côtés) ou niveau par
+--- niveau (family.max côtés), des côtés entiers ≥ 1, un niveau 1 au côté de base (family.size : le niveau 1
+--- est le prototype vanilla, que l'étape data ne retouche pas) et ne jamais rétrécir.
+function L.footprint_errors()
+  local errs = {}
+  local keys = {}
+  for k in pairs(L.footprints) do keys[#keys + 1] = k end
+  table.sort(keys)
+  for _, k in ipairs(keys) do
+    local f, row = L.by_key[k], L.footprints[k]
+    if not f then
+      errs[#errs + 1] = "famille inconnue : " .. tostring(k)
+    elseif type(row) ~= "table" or (row.era == nil) == (row.level == nil) then
+      errs[#errs + 1] = k .. " : une ligne a soit « era » (5 côtés), soit « level » (" .. f.max .. " côtés)"
+    elseif row.era and #row.era ~= 5 then
+      errs[#errs + 1] = k .. " : « era » doit avoir 5 côtés (ères I à V), pas " .. #row.era
+    elseif row.level and #row.level ~= f.max then
+      errs[#errs + 1] = k .. " : « level » doit avoir " .. f.max .. " côtés, pas " .. #row.level
+    else
+      local prev = 0
+      for n = 1, f.max do
+        local side = L.footprint(f, n)
+        if type(side) ~= "number" or side < 1 or side ~= math.floor(side) then
+          errs[#errs + 1] = k .. " : côté du niveau " .. n .. " invalide (" .. tostring(side) .. ")"
+          break
+        end
+        if side < prev then
+          errs[#errs + 1] = k .. " : l'emprise rétrécit au niveau " .. n .. " (" .. prev .. " → " .. side .. ")"
+          break
+        end
+        prev = side
+      end
+      local s1 = L.footprint(f, 1)
+      if s1 ~= f.size then
+        errs[#errs + 1] = k .. " : le niveau 1 (" .. f.base .. ", prototype vanilla jamais retouché) fait "
+          .. f.size .. "×" .. f.size .. ", la table dit " .. tostring(s1) .. " (mettre le premier côté à " .. f.size .. ")"
+      end
+    end
+  end
+  return errs
+end
 
 --- Ère (1 à 5) du niveau n : ⌈époque / L.ERA_EPOCHS⌉.
 function L.era_of(family, n)

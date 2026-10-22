@@ -9,8 +9,12 @@
   la condition Q16 (niveau visé et familles qui bloquent). Bouton « Améliorer » ou touche U sur le bâtiment
   survolé : l'amélioration est faite aussitôt.
   Lot V3-T : quand le prochain niveau change d'emprise, une ligne « Taille : 2×2 → 3×3 » et l'état de la place
-  (libre, ou ce qui gêne) ; un refus faute de place (« no-room ») le dit avec ce qui bloque, et le contour
-  nécessaire est dessiné en jeu pour ce joueur (script/levels/levels.lua).
+  (libre, ou ce qui gêne) ; un refus faute de place (« no-room ») le dit avec ce qui bloque. Correction V3-T
+  (défauts 2, 7 et 10) : tant que le panneau est ouvert, la place est DESSINÉE au sol pour ce seul joueur, sans
+  qu'il ait rien à faire (Levels.draw_room) : le carré retenu en vert (place libre : où ira le bâtiment, et la
+  direction si ce n'est pas la position habituelle), ou le contour nécessaire et ce qui le bloque (place
+  prise) ; le bouton « Améliorer » reste actif pour ce motif (un clic refuse sans rien payer et redessine le
+  contour pour 300 ticks, comme la touche U).
 ]]
 
 local Events = require("script.core.events")
@@ -20,8 +24,16 @@ local Levels = require("script.levels.levels")
 
 local FRAME = "fo_lvl_panel"
 
-Storage.declare("levels_ui", function() return { target = {}, unit = {} } end)
+-- drawn (correction V3-T) : dernier aperçu de place dessiné pour chaque joueur { unit, free, until_tick }
+-- (nombres et booléens seulement, jamais d'identifiant de rendu) ; absent d'une sauvegarde d'avant : créé au
+-- premier dessin.
+Storage.declare("levels_ui", function() return { target = {}, unit = {}, drawn = {} } end)
 local function UI() return Storage.ns("levels_ui") end
+
+--- Période du rafraîchissement du panneau (ticks) : l'aperçu de place dessiné vit jusqu'au rafraîchissement
+--- suivant, plus PREVIEW_OVERLAP ticks (jamais d'éclipse entre deux dessins).
+local PERIOD = 30
+local PREVIEW_OVERLAP = 2
 
 ---------------------------------------------------------------------------------------------------
 -- Statistiques lues dans les prototypes (une seule source de vérité : l'étape data)
@@ -81,7 +93,7 @@ local function reason_message(info, reason)
   if reason == "no-room" and info and info.resize then
     local side = info.resize.to
     return { "fo-levels-taille.reason-no-room", side .. "×" .. side,
-      Levels.blockers_text(info.room and info.room.preferred) }
+      Levels.blockers_text(info.room and info.room.target) }
   end
   return { "fo-levels.reason-" .. tostring(reason) }
 end
@@ -101,6 +113,31 @@ local function currency_line(family, next_level)
     return { "fo-epochs.currency-provisional", icon, name, { "fo-epochs.want-" .. m.key } }
   end
   return { "fo-epochs.currency", icon, name }
+end
+
+--- Direction d'un décalage (dx, dy) du centre, en clé de traduction (nord = y négatif) ; nil sans décalage.
+local function direction_key(dx, dy)
+  local ns = dy < 0 and "n" or (dy > 0 and "s" or "")
+  local ew = dx < 0 and "w" or (dx > 0 and "e" or "")
+  if ns == "" and ew == "" then return nil end
+  return "fo-levels-taille.dir-" .. ns .. ew
+end
+
+--- Aperçu de la place au sol pour ce joueur (Levels.draw_room). Dessiné au plus une fois par période de
+--- rafraîchissement pour un même bâtiment et un même état (libre / pris), avec une durée qui court jusqu'au
+--- rafraîchissement suivant (+ PREVIEW_OVERLAP) : l'aperçu reste affiché en continu, sans s'empiler.
+local function draw_preview(player, target, info)
+  local room = info.room
+  if not room then return end
+  local ui = UI()
+  ui.drawn = ui.drawn or {}
+  local tick = game.tick
+  local free = room.chosen ~= nil
+  local d = ui.drawn[player.index]
+  if d and d.unit == target.unit_number and d.free == free and tick < d.until_tick then return end
+  local ttl = PERIOD - tick % PERIOD + PREVIEW_OVERLAP
+  Levels.draw_room(target, room, player, ttl)
+  ui.drawn[player.index] = { unit = target.unit_number, free = free, until_tick = tick + ttl - PREVIEW_OVERLAP }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -158,13 +195,21 @@ local function refresh(player)
       local room = info.room
       local lbl
       if room and room.chosen then
-        lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-free" } })
+        -- Position retenue autre que l'habituelle (la préférée est prise) : le joueur voit où le bâtiment
+        -- va s'étendre avant de payer (texte + carré vert au sol).
+        local dir = (room.index or 1) > 1 and direction_key(room.chosen.dx, room.chosen.dy)
+        if dir then
+          lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-free-moved", { dir } } })
+        else
+          lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-free" } })
+        end
         lbl.style.font_color = { r = 0.6, g = 1, b = 0.6 }
       else
         lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-blocked",
-          Levels.blockers_text(room and room.preferred) } })
+          Levels.blockers_text(room and room.target) } })
         lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
       end
+      draw_preview(player, target, info)
     end
     local now = game.entity_prototypes[target.name]
     local nxt = game.entity_prototypes[L.name(family, info.next)]
@@ -208,7 +253,10 @@ local function refresh(player)
     end
     local row = frame.add({ type = "flow", direction = "horizontal" })
     local b = row.add({ type = "button", name = "fo_lvl_up", caption = { "fo-levels.upgrade" }, style = "confirm_button" })
-    b.enabled = info.ok
+    -- Correction V3-T (défauts 2 et 7) : actif aussi pour le motif « no-room » (un bouton désactivé n'émet pas
+    -- on_gui_click, doc 1.1.91 de LuaGuiElement.enabled) : le clic refuse sans rien payer et redessine le
+    -- contour nécessaire, comme la touche U.
+    b.enabled = info.ok or info.reason == "no-room"
     if family.row then row.add({ type = "button", name = "fo_lvl_row", caption = { "fo-levels.upgrade-row" } }) end
   end
   frame.add({ type = "button", name = "fo_lvl_close", caption = { "fo-levels.close" } })
@@ -280,7 +328,7 @@ end)
 
 -- Rafraîchissement : l'aperçu du centre lit le recensement Q16 EN CACHE (Levels.census_cached : au plus un
 -- balayage des surfaces par force et par Levels.CENSUS_TTL ticks, ou après un retrait de bâtiment à niveaux).
-Events.on_nth_tick(30, function()
+Events.on_nth_tick(PERIOD, function()
   local ui = UI()
   for _, player in ipairs(game.connected_players) do
     if ui.target[player.index] ~= nil then refresh(player) end
@@ -290,6 +338,7 @@ end)
 Events.on(defines.events.on_player_left_game, function(e)
   UI().target[e.player_index] = nil
   UI().unit[e.player_index] = nil
+  if UI().drawn then UI().drawn[e.player_index] = nil end
 end)
 
 -- Après une amélioration, le bâtiment est une NOUVELLE entité : le panneau la suit.

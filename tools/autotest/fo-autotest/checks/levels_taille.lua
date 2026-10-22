@@ -16,6 +16,11 @@
     de niveaux du banc content, 300 à 1545), tous les contrôles d'agrandissement ;
   - verify (tick 3000) : prototypes des 30 niveaux, contours effacés par le moteur (le dernier, dessiné au tick
     2500 pour 300 ticks, a disparu), compteurs.
+  Corrections V3-T : fantôme de mur recouvert par A (retiré ; le compteur dit si c'est le moteur ou le script),
+  objet au sol de P sorti du bâtiment (téléporté à côté), minerai réel sous P (ne bloque pas), cas W (eau au nord,
+  coffre au sud : le contour montre la position sud-ouest, où l'agrandissement passe une fois le coffre retiré).
+  Hors de portée de ce banc (pas de joueur en mode benchmark) : le panneau et son aperçu au sol ; la migration
+  d'une vraie sauvegarde.
 ]]
 
 local LV = require("__factorio-overhaul__/shared/levels/config")
@@ -96,8 +101,9 @@ return {
     -- Coût du niveau 7 rangé une fois pour la tentative répétée (jamais payée : refus « no-room »).
     if inv then stock(inv, 7, 1) end
     local y = z.y0 + 10
-    -- A : place libre. B : mur au nord, coffre au sud. C : eau au nord et au sud. D : mur dans le coin
-    -- nord-ouest seulement. P : personnage et objet au sol dans le nouveau carré. E : chaîne 6 -> 30.
+    -- A : place libre (+ un fantôme de mur dans le nouveau carré). B : mur au nord, coffre au sud. C : eau au
+    -- nord et au sud. D : mur dans le coin nord-ouest seulement. P : personnage, objet au sol et minerai dans le
+    -- nouveau carré. W : eau au nord, coffre au sud (candidate montrée). E : chaîne 6 -> 30.
     local function gun(x, yy, ammo, kind)
       local g = s.create_entity({ name = LV.name(G, 6), position = { x, yy }, force = f })
       if g and ammo then g.insert({ name = kind or "firearm-magazine", count = ammo }) end
@@ -117,8 +123,16 @@ return {
     st.ground = s.create_entity({ name = "item-on-ground", position = { z.x0 + 106.5, y - 1.5 }, stack = { name = "iron-plate", count = 3 } })
     st.e = gun(z.x0 + 26, z.y0 + 50, 20, "uranium-rounds-magazine")
     st.y = y
-    ctx.check(st.a and st.b and st.c and st.d and st.p and st.e and st.walker and st.ground,
-      "mitrailleuses niveau 6 et obstacles poses (mur, coffre, eau, personnage, objet au sol)")
+    -- Corrections V3-T : fantôme de mur dans le nouveau carré de A (défaut 5), minerai sous la position
+    -- préférée de P (défaut 14), cas W (défaut 8).
+    st.ghost = s.create_entity({ name = "entity-ghost", inner_name = "stone-wall", position = { z.x0 + 25.5, y - 1.5 }, force = f })
+    st.ore = s.create_entity({ name = "iron-ore", position = { z.x0 + 104.5, y + 0.5 }, amount = 50 })
+    local y2 = z.y0 + 30
+    st.w = gun(z.x0 + 46, y2, 4)
+    s.set_tiles({ { name = "water", position = { z.x0 + 45, y2 - 2 } }, { name = "water", position = { z.x0 + 46, y2 - 2 } } })
+    st.wchest = s.create_entity({ name = "iron-chest", position = { z.x0 + 45.5, y2 + 1.5 }, force = f })
+    ctx.check(st.a and st.b and st.c and st.d and st.p and st.e and st.walker and st.ground and st.ghost and st.ore and st.w and st.wchest,
+      "mitrailleuses niveau 6 et obstacles poses (mur, coffre, eau, personnage, objet au sol, fantome, minerai)")
   end,
 
   tick = function(ctx, e)
@@ -141,6 +155,7 @@ return {
     stock(inv, 7, 1)
     local pos_a = st.a.position
     local want = expected(pos_a, 2, 3)
+    local ghost_before = st.ghost and st.ghost.valid
     local ra = ctx.call("levels_upgrade", st.a)
     local a7 = ra.entity
     ctx.check(ra.ok and ra.reason == "done" and a7 and a7.valid and a7.name == LV.name(G, 7) and not st.a.valid,
@@ -164,6 +179,11 @@ return {
     ctx.check(s1.resized == s0.resized + 1 and s1.fallback == s0.fallback and s1.spilled == 0,
       "remplacement par script compte, 0 secours manuel, rien renverse",
       string.format("resized %d, fallback %d, spilled %d", s1.resized, s1.fallback, s1.spilled))
+    -- Fantôme recouvert (défaut 5) : retiré. Le compteur dit QUI l'a retiré : 1 = notre script (le moteur ne
+    -- retire rien sous un create_entity sans fast_replace), 0 = le moteur l'avait déjà retiré.
+    local by_script = s1.ghosts_removed - s0.ghosts_removed
+    ctx.check(ghost_before and not st.ghost.valid, "fantome de mur present juste avant, retire par l'agrandissement",
+      by_script == 1 and "retire par le script (le moteur l'avait laisse)" or ("retire par le moteur (script : " .. by_script .. ")"))
 
     -- B. Mur au nord et coffre au sud : refus, rien payé, contour.
     stock(inv, 7, 1)
@@ -226,9 +246,37 @@ return {
       walker_out = not (a.left_top.x < b.right_bottom.x and b.left_top.x < a.right_bottom.x
         and a.left_top.y < b.right_bottom.y and b.left_top.y < a.right_bottom.y)
     end
-    ctx.check(rp.ok and rp.candidate == 1 and walker_out and st.ground.valid,
-      "personnage ecarte par le moteur (move_stuck_players), objet au sol laisse en place : aucun ne bloque",
+    ctx.check(rp.ok and rp.candidate == 1 and walker_out and st.ground.valid and st.ore.valid,
+      "personnage ecarte par le moteur (move_stuck_players), objet au sol et minerai : aucun ne bloque",
       st.walker.valid and string.format("personnage en %.2f, %.2f", st.walker.position.x, st.walker.position.y) or tostring(rp.reason))
+    -- Objet au sol (défaut 4) : sorti du bâtiment agrandi, à portée de ramassage depuis son bord.
+    if p7 and p7.valid and st.ground.valid then
+      local a, g = p7.bounding_box, st.ground.position
+      local inside = g.x > a.left_top.x and g.x < a.right_bottom.x and g.y > a.left_top.y and g.y < a.right_bottom.y
+      local dx = math.max(a.left_top.x - g.x, 0, g.x - a.right_bottom.x)
+      local dy = math.max(a.left_top.y - g.y, 0, g.y - a.right_bottom.y)
+      local sp = status(ctx)
+      ctx.check(not inside and math.sqrt(dx * dx + dy * dy) < 1.5 and sp.ground_moved >= 1 and sp.ground_left == 0,
+        "objet au sol sorti du batiment agrandi (teleporte a cote, ramassable), compte",
+        string.format("objet en %.2f, %.2f ; boite %.2f..%.2f ; deplaces %d", g.x, g.y, a.left_top.x, a.right_bottom.x, sp.ground_moved))
+    end
+
+    -- W. Eau au nord, coffre au sud (défaut 8) : le contour montre la candidate SUD-OUEST (gênée par le coffre
+    -- seul), pas la préférée dans l'eau ; sans le coffre, l'agrandissement passe là.
+    stock(inv, 7, 1)
+    local tw = expected(st.w.position, 2, 3, 3)
+    local rw = ctx.call("levels_upgrade", st.w)
+    local mw = find_rect(rectangles(z), tw.box)
+    ctx.check(not rw.ok and rw.reason == "no-room" and rw.contour_candidate == 3 and rw.contour and rw.contour.x0 == tw.box.x0
+      and rw.contour.y0 == tw.box.y0 and mw ~= nil and table.concat(rw.blockers or {}, ",") == "iron-chest",
+      "eau au nord, coffre au sud : contour sur la position sud-ouest (genee par le coffre seul), pas sur l'eau",
+      tostring(rw.reason) .. " ; rang " .. tostring(rw.contour_candidate) .. " ; gene : " .. table.concat(rw.blockers or {}, ","))
+    st.wchest.destroy()
+    local rw2 = ctx.call("levels_upgrade", st.w)
+    ctx.check(rw2.ok and rw2.candidate == 3 and rw2.entity and near(rw2.entity.position.x, tw.x) and near(rw2.entity.position.y, tw.y)
+      and rw2.entity.get_item_count("firearm-magazine") == 4,
+      "coffre retire : agrandissement a la position que le contour indiquait (sud-ouest)",
+      rw2.entity and string.format("%.1f, %.1f (rang %s)", rw2.entity.position.x, rw2.entity.position.y, tostring(rw2.candidate)) or tostring(rw2.reason))
 
     -- E. Chaîne 6 -> 30 : 24 améliorations dont 4 agrandissements ; retour au centre d'origine en 6x6.
     local cur, origin = st.e, st.e.position
@@ -277,8 +325,10 @@ return {
     ctx.check(#left == 0, "contours effaces par le moteur (duree limitee : rien ne reste 500 ticks apres la derniere tentative)",
       #left .. " rectangle(s)")
     local s = status(ctx)
-    ctx.check(s.spilled == 0 and s.resize_failed == 0 and s.forced == 0, "aucun objet renverse, aucun echec de remplacement, aucun placement force",
-      string.format("contours %d, refus %d, agrandissements %d", s.contours, s.room_refused, s.resized))
+    ctx.check(s.spilled == 0 and s.resize_failed == 0 and s.forced == 0 and s.ground_left == 0,
+      "aucun objet renverse, aucun echec de remplacement, aucun placement force, aucun objet laisse sous un batiment",
+      string.format("contours %d, refus %d, agrandissements %d, fantomes retires %d, objets sortis %d", s.contours, s.room_refused,
+        s.resized, s.ghosts_removed, s.ground_moved))
   end,
 
   shots = function(ctx, add)
