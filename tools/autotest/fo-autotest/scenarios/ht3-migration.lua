@@ -11,10 +11,17 @@
     l'ancienne taille, relève tout (positions, numéros, PV, munitions case par case) dans l'état du greffon
     (global du mod de test, donc DANS la sauvegarde) ;
   - phase « benchmark » (--benchmark sur la même carte) avec la source NOUVELLE : tick() contrôle au tick ACT
-    (après le filet du tick 30 au plus tard), puis finish() (tick 600) vérifie qu'un second passage n'a rien
-    changé.
+    (après le filet du tick 30 au plus tard), puis finish() (tick 600) vérifie que le filet est resté sans
+    effet une fois le relevé à jour (garde footprints_stale faux : migrate_footprints n'est PAS rejoué ; un vrai
+    rechargement d'une carte déjà migrée n'est pas joué par ce banc).
   Lancée avec une seule source récente, init() le voit (prototype du niveau 7 déjà en 3×3) et échoue : banc
   sans objet.
+
+  Journal (correction du correcteur H-T3, défaut 1) : le mod de test ne lit pas le journal du moteur. Le
+  scénario écrit donc ce que le journal DOIT contenir (lignes « JOURNAL ATTENDU ») et
+  tools/autotest/ht3_journal.py le compare, hors jeu, aux lignes [FO-LEVELS] de benchmark.log (une ligne
+  « laissé en place » par bâtiment laissé, une seule ligne de bilan, de la voie attendue). Critère du passage :
+  BILAN du scénario sans échec ET ht3_journal.py à 0.
 
   Bâtiments posés en 0.4.1 (force « fo-ht3 », mitrailleuses 2×2 à une position entière) :
     libre7   niveau 7 (→ 3×3), place libre                    : reposée à la candidate 1 (nord-ouest)
@@ -27,6 +34,16 @@
     voisin8  niveau 8 collé à une niveau 6 (bas6, qui ne doit pas bouger) : reposée sans chevaucher bas6
     bas3     niveau 3 seule (2×2 inchangé) : même entité, même position, mêmes PV et munitions
   et un centre de commandement 15 (emprise inchangée) : toujours suivi après la migration.
+  Défense type (correction du correcteur H-T3, défaut 4) : force « player », posée avec raise_built (comme à la
+  main), derrière une ligne de murs ouverte, nourrie par un bras à combustible (burner-inserter, au sud, qui
+  dépose vers le nord) :
+    defense7 niveau 7, murs une tuile devant (une rangée libre), bras nourri par un CONVOYEUR : reposée à la
+             candidate 1 (nord-ouest), sans chevaucher murs ni bras ; le bras vise la NOUVELLE tourelle
+             (drop_target) et la nourrit encore (munitions en hausse entre le tick ACT et le tick 600) ;
+    rempart7 niveau 7, murs COLLÉS devant, bras nourri par un COFFRE : aucune candidate libre (murs au nord,
+             bras au sud) : LAISSÉE en place, journalisée ; le bras la nourrit encore.
+  Les ennemis à moins de 48 tuiles de la zone sont retirés à la création (les tourelles « player » ne tirent
+  pas : munitions comparables).
 ]]
 
 local LV = require("__factorio-overhaul__/shared/levels/config")
@@ -143,7 +160,57 @@ local CASES = {
   { key = "bas6", n = 6, x = X0 + 70, y = Y0 + 35, expect = "same", ammo = { "firearm-magazine", 2 } },
   { key = "voisin8", n = 8, x = X0 + 72, y = Y0 + 35, expect = "moved", ammo = { "firearm-magazine", 8 } },
   { key = "bas3", n = 3, x = X0 + 90, y = Y0 + 10, expect = "same", health = 0.9, ammo = { "firearm-magazine", 5 } },
+  -- Défense type (force « player », raise_built) : wall = rangée des murs (dy depuis la position), feed = source
+  -- du bras (convoyeur ou coffre) ; 2 chargeurs au départ (le bras complète jusqu'à automated_ammo_count = 10).
+  { key = "defense7", n = 7, x = X0 + 10, y = Y0 + 52, expect = "moved", force = "player", ammo = { "firearm-magazine", 2 },
+    wall = -3, feed = "belt" },
+  { key = "rempart7", n = 7, x = X0 + 30, y = Y0 + 52, expect = "kept", force = "player", ammo = { "firearm-magazine", 2 },
+    wall = -2, feed = "chest" },
 }
+
+--- Nombre total de munitions (chargeurs) d'une liste « nom:nombre:balles » et noms différents de `want`.
+local function ammo_total(list, want)
+  local n, other = 0, {}
+  for _, s in ipairs(list) do
+    local name, count = s:match("^(.-):(%d+):")
+    n = n + (tonumber(count) or 0)
+    if name ~= want then other[#other + 1] = s end
+  end
+  return n, other
+end
+
+--- Défense type autour de la mitrailleuse 2×2 centrée en (x, y) (tuiles x - 1 .. x, y - 1 .. y) : ligne de murs
+--- de 10 tuiles à la rangée y + c.wall, bras à combustible en tuile (x - 1, y + 1) qui prend au sud (tuile
+--- (x - 1, y + 2) : convoyeur ou coffre) et dépose au nord, dans la tourelle (1.1 : un bras « regarde » sa prise,
+--- direction sud). Renvoie le bras et sa source.
+local function build_defense(s, c, force)
+  local walls = 0
+  for tx = c.x - 5, c.x + 4 do
+    if s.create_entity({ name = "stone-wall", position = { tx + 0.5, c.y + c.wall + 0.5 }, force = force, raise_built = true }) then
+      walls = walls + 1
+    end
+  end
+  local ins = s.create_entity({ name = "burner-inserter", position = { c.x - 0.5, c.y + 1.5 },
+    direction = defines.direction.south, force = force, raise_built = true })
+  if ins then ins.get_fuel_inventory().insert({ name = "coal", count = 20 }) end
+  local src, fed = nil, 0
+  if c.feed == "belt" then
+    src = s.create_entity({ name = "transport-belt", position = { c.x - 0.5, c.y + 2.5 },
+      direction = defines.direction.east, force = force, raise_built = true })
+    if src then
+      for line = 1, 2 do
+        local tl = src.get_transport_line(line)
+        for _ = 1, 4 do
+          if tl.insert_at_back({ name = c.ammo[1], count = 1 }) then fed = fed + 1 end
+        end
+      end
+    end
+  else
+    src = s.create_entity({ name = "iron-chest", position = { c.x - 0.5, c.y + 2.5 }, force = force, raise_built = true })
+    if src then fed = src.insert({ name = c.ammo[1], count = 20 }) end
+  end
+  return ins, src, walls, fed
+end
 
 --- Anneau d'une tuile autour du carré 2×2 centré en (x, y) (tuiles x - 2 .. x + 1) : coins nord-ouest des tuiles.
 local function ring_tiles(x, y)
@@ -162,7 +229,7 @@ local function find_final(s, rec)
   local side = proto_side(rec.name)
   local old = Foot.tile_box({ x = rec.x, y = rec.y }, 2)
   local found = {}
-  for _, e in ipairs(s.find_entities_filtered({ area = { { rec.x - 8, rec.y - 8 }, { rec.x + 8, rec.y + 8 } }, name = rec.name, force = FORCE })) do
+  for _, e in ipairs(s.find_entities_filtered({ area = { { rec.x - 8, rec.y - 8 }, { rec.x + 8, rec.y + 8 } }, name = rec.name, force = rec.force or FORCE })) do
     if Foot.contains(Foot.tile_box(e.position, side), old) then found[#found + 1] = e end
   end
   return found, side
@@ -188,13 +255,20 @@ return {
     end
     local f = test_force()
     ctx.prepare_area(X0, Y0, X1, Y1, "grass-1")
+    -- Défense type en force « player » : aucun ennemi à portée (munitions comparables d'un tick à l'autre).
+    local foes = 0
+    for _, en in ipairs(s.find_entities_filtered({ area = { { X0 - 48, Y0 - 48 }, { X1 + 48, Y1 + 48 } }, force = "enemy" })) do
+      if en.valid then en.destroy(); foes = foes + 1 end
+    end
+    ctx.log("ennemis retires autour de la zone : " .. foes)
     local cc = s.create_entity({ name = LV.name(LV.by_key.command, 15), position = { X0 + 90, Y0 + 40 }, force = f, raise_built = true })
     st.cc_unit = cc and cc.unit_number
     st.rec = {}
     local made = 0
     for _, c in ipairs(CASES) do
       local name = LV.name(G, c.n)
-      local e = s.create_entity({ name = name, position = { c.x, c.y }, force = f })
+      local cf = c.force and game.forces[c.force] or f
+      local e = s.create_entity({ name = name, position = { c.x, c.y }, force = cf, raise_built = c.force ~= nil })
       if e then
         made = made + 1
         if c.ammo then e.insert({ name = c.ammo[1], count = c.ammo[2] }) end
@@ -214,9 +288,22 @@ return {
           s.set_tiles(tiles)
         end
         st.rec[c.key] = { key = c.key, n = c.n, name = name, x = e.position.x, y = e.position.y, unit = e.unit_number,
-          entity = e, ratio = e.get_health_ratio(), ammo = ammo_list(e), expect = c.expect }
+          entity = e, ratio = e.get_health_ratio(), ammo = ammo_list(e), expect = c.expect, force = c.force }
         ctx.log(string.format("pose %s : %s en %s, %s, PV %.2f, munitions %s", c.key, name, fmt_pos(e.position),
           "n° " .. e.unit_number, e.get_health_ratio(), table.concat(st.rec[c.key].ammo, " ")))
+        if c.feed then
+          local ins, src, walls, fed = build_defense(s, c, cf)
+          local r = st.rec[c.key]
+          r.inserter, r.feed = ins, src
+          r.ammo_count = ammo_total(r.ammo, c.ammo[1])
+          ctx.log(string.format("defense %s (force %s) : %d murs en rangee %d, bras %s (prise %s, depot %s), %s avec %d chargeur(s)",
+            c.key, cf.name, walls, c.y + c.wall, ins and ("n° " .. ins.unit_number) or "ABSENT",
+            ins and fmt_pos(ins.pickup_position) or "-", ins and fmt_pos(ins.drop_position) or "-",
+            src and src.name or "source ABSENTE", fed))
+          ctx.check(ins ~= nil and src ~= nil and walls == 10 and fed > 0 and e.valid,
+            c.key .. " : defense type posee (10 murs, bras a combustible, " .. c.feed .. " garni)",
+            string.format("murs %d, bras %s, source %s, %d chargeur(s)", walls, tostring(ins ~= nil), tostring(src ~= nil), fed))
+        end
       end
     end
     ctx.check(made == #CASES and cc ~= nil and status().cc_level == 15,
@@ -298,11 +385,18 @@ return {
         local detail = string.format("%s n°%d -> n°%d en %s, %dx%d, PV %.3f -> %.3f, munitions %s", fmt_pos({ x = r.x, y = r.y }),
           r.unit, fin.unit_number, fmt_pos(fin.position), side, side, r.ratio, ratio, table.concat(ammo, " "))
         local common = side == want_side and same_list(ammo, r.ammo) and math.abs(ratio - r.ratio) < 0.005
+        if c.feed then
+          -- Défense nourrie : le bras a pu ajouter des chargeurs depuis le chargement ; munitions conservées =
+          -- même type seulement, et au moins autant qu'à la sauvegarde.
+          local total, other = ammo_total(ammo, c.ammo[1])
+          common = side == want_side and #other == 0 and total >= r.ammo_count and math.abs(ratio - r.ratio) < 0.005
+          detail = detail .. string.format(" ; chargeurs %d -> %d (bras)", r.ammo_count, total)
+        end
         if c.expect == "moved" then
           moved = moved + 1
           local aligned = Foot.aligned(fin.position, side)
           local ok = common and not same and aligned
-          if c.key == "libre7" or c.key == "libre19" then
+          if c.key == "libre7" or c.key == "libre19" or c.key == "defense7" then
             local want = Foot.candidates(Foot.tile_box({ x = r.x, y = r.y }, 2), side)[1]
             ok = ok and math.abs(fin.position.x - want.x) < 1e-6 and math.abs(fin.position.y - want.y) < 1e-6
             detail = detail .. " ; candidate 1 attendue en " .. fmt_pos(want)
@@ -332,7 +426,23 @@ return {
       end
     end
 
-    -- Aucun chevauchement, sauf les deux laissées faute de place.
+    -- Défense type : le bras vise la mitrailleuse FINALE (reposée ou laissée) et prend toujours à sa source.
+    for _, c in ipairs(CASES) do
+      local r, f = st.rec[c.key], st.final[c.key]
+      if c.feed and f then
+        local ins = r.inserter
+        local dt = ins and ins.valid and ins.drop_target
+        local pt = ins and ins.valid and ins.pickup_target
+        f.ammo_act = ammo_total(ammo_list(f.entity), c.ammo[1])
+        ctx.check(dt ~= nil and dt == f.entity and pt ~= nil and r.feed and r.feed.valid and pt == r.feed,
+          c.key .. " : le bras vise la mitrailleuse finale (drop_target) et prend a sa source (pickup_target)",
+          string.format("depot %s -> %s n°%s ; prise %s ; %d chargeur(s) au tick %d",
+            ins and ins.valid and fmt_pos(ins.drop_position) or "-", dt and dt.name or "rien", dt and tostring(dt.unit_number) or "-",
+            pt and pt.name or "rien", f.ammo_act, e.tick))
+      end
+    end
+
+    -- Aucun chevauchement, sauf les mitrailleuses laissées faute de place.
     local overs = {}
     for _, c in ipairs(CASES) do
       local f = st.final[c.key]
@@ -342,7 +452,7 @@ return {
       end
     end
     ctx.check(#overs == 0, "aucun chevauchement (find_entities_filtered sur la boite de chaque mitrailleuse non laissee)",
-      #overs > 0 and table.concat(overs, " | ") or (#CASES - 2) .. " boites controlees")
+      #overs > 0 and table.concat(overs, " | ") or (#CASES - kept) .. " boites controlees")
     local da, db = st.final.duoA, st.final.duoB
     ctx.check(da and db and da.entity.valid and db.entity.valid and not overlap(box_of(da.entity), box_of(db.entity)),
       "duo colle : les deux finissent sans se chevaucher",
@@ -358,6 +468,18 @@ return {
     local items = s.count_entities_filtered({ area = { { X0, Y0 }, { X1, Y1 } }, type = "item-entity" })
     ctx.check(items == 0, "aucun objet au sol dans la zone", items .. " objet(s)")
     ctx.check(s1.cc_level == 15, "centre de commandement 15 toujours suivi", "cc_level " .. tostring(s1.cc_level))
+
+    -- Ce que le journal du moteur DOIT contenir (comparé hors jeu par tools/autotest/ht3_journal.py) : une ligne
+    -- « [FO-LEVELS] emprise : <nom> en <x>, <y> laissé en place » par mitrailleuse laissée, et UNE ligne de
+    -- bilan de la voie suivie (relevé déjà à jour au premier tick : on_configuration_changed → Levels.repair ;
+    -- relevé périmé : le filet on_nth_tick(30)). Positions au format du mod (tostring d'un nombre).
+    for _, c in ipairs(CASES) do
+      local r = st.rec[c.key]
+      if c.expect == "kept" then
+        ctx.log("JOURNAL ATTENDU : laisse " .. r.name .. " en " .. tostring(r.x) .. ", " .. tostring(r.y))
+      end
+    end
+    ctx.log(string.format("JOURNAL ATTENDU : bilan %d %d %d voie %s", moved, inplace, kept, st.first.stale and "filet" or "repair"))
   end,
 
   finish = function(ctx)
@@ -366,7 +488,9 @@ return {
       ctx.fail("controles de migration joues", st.invalid and "carte invalide" or "tick " .. tostring(st.first_tick) .. "+" .. ACT .. " non atteint")
       return
     end
-    -- Second passage : le filet a tourné 17 fois de plus (tick 30 à 600) ; rien ne doit avoir bougé.
+    -- Filet sans effet une fois le relevé à jour : il a tourné encore 17 fois (tick 30 à 600) et son garde
+    -- (footprints_stale) est resté faux, donc migrate_footprints n'a PAS été rejoué ; rien ne doit avoir bougé.
+    -- Ce n'est pas une seconde migration d'une carte déjà migrée (rechargement réel : non joué par ce banc).
     local s2 = status()
     local moved = {}
     for _, c in ipairs(CASES) do
@@ -377,8 +501,19 @@ return {
     end
     ctx.check(#moved == 0 and s2.migrated == st.s1.migrated and s2.overlap_kept == st.s1.overlap_kept and s2.resized == st.s1.resized
       and s2.footprints_stale == false,
-      "second passage sans effet (filet on_nth_tick(30) jusqu'au tick " .. CHECK .. ") : memes entites, memes positions, compteurs inchanges",
+      "filet sans effet une fois le releve a jour (garde footprints_stale faux jusqu'au tick " .. CHECK .. ") : memes entites, memes positions, compteurs inchanges",
       #moved > 0 and ("bouge : " .. table.concat(moved, ", ")) or string.format("migrated %d, overlap_kept %d", s2.migrated, s2.overlap_kept))
+    -- Défense type : le bras a continué de nourrir la mitrailleuse finale après la migration (tick ACT → CHECK).
+    for _, c in ipairs(CASES) do
+      local r, f = st.rec[c.key], st.final[c.key]
+      if c.feed and f and f.ammo_act then
+        local now = f.entity.valid and ammo_total(ammo_list(f.entity), c.ammo[1]) or -1
+        local ins = r.inserter
+        ctx.check(now > f.ammo_act and ins and ins.valid and ins.drop_target == f.entity,
+          c.key .. " : le bras nourrit encore la mitrailleuse finale (chargeurs en hausse du tick " .. (st.first_tick + ACT) .. " au tick " .. CHECK .. ")",
+          string.format("%d -> %d chargeur(s)", f.ammo_act, now))
+      end
+    end
     ctx.log(string.format("versions : creation %s, benchmark %s", tostring(st.version_create), tostring(st.version_bench)))
   end,
 }

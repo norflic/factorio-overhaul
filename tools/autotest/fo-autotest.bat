@@ -111,7 +111,20 @@ rem Double source : la carte creee est rejouee avec la source du benchmark (la c
 if not defined CREATESRC goto :benchsrc
 echo [2b/4] Source du benchmark : %MODSRC% (carte creee avec %CREATESRC%)
 rmdir /s /q "%MODS%\factorio-overhaul"
+rem Copie de creation non effacee (fichier verrouille...) : on arrete, sinon des fichiers de la source
+rem ancienne resteraient meles a la source du benchmark sans que rien ne le signale.
+if exist "%MODS%\factorio-overhaul" (
+  echo Copie de creation non effacee : %MODS%\factorio-overhaul
+  set RC=1
+  goto :end
+)
 robocopy "%MODSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%MODSRC%\tools\render" __pycache__ /NFL /NDL /NJH /NJS /NP >nul
+rem robocopy : code 8 ou plus = au moins un fichier non copie.
+if errorlevel 8 (
+  echo Copie de la source du benchmark incomplete : %MODSRC%
+  set RC=1
+  goto :end
+)
 :benchsrc
 
 rem Processeur hybride (12e gen. Intel : 12 fils P puis 4 coeurs E) : un benchmark en arriere-plan est
