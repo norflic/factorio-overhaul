@@ -110,6 +110,15 @@
   - les couleurs d'époque sont réservées aux éléments lumineux ;
   - validation sur UNE famille témoin (la mitrailleuse) avant de reprendre les 7.
 
+- 22/10, 7 h 20, **Q23, puissance perçue et taille** : « il y a un truc qui est assez difficile à faire en design […] si jamais on ne connaît pas le jeu et qu'on regarde tel niveau, on a vraiment l'impression que ce niveau-là est plus puissant que le niveau du dessous […] Et surtout, il y a aussi un manque de taille, il y a un problème également de taille, des bâtiments, ça fait bizarre d'avoir un bâtiment qui est vraiment très petit […] les dernières machines pour construire, elles sont de taille, je sais pas moi 6 par six, par exemple, ça m'étonnerait pas […] des tailles qui augmentent des hauteurs qui augmentent aussi un peu pas les hauteurs moins mais les tailles oui, peut-être beaucoup plus […] Et du coup avec la taille, c'est pas que on agrandir l'échelle finalement, c'est on augmente aussi les détails, voilà. »
+  → D1-4 révisé : l'emprise grandit avec les époques, jusqu'à environ 6 × 6, avec plus de détail.
+  Ajout du test du regard naïf. V3-S arrêté puis relancé avec ces règles (échelle proposée pour la
+  mitrailleuse : 2×2, 3×3, 4×4, 5×5, 6×6 par ère).
+  Question Q24 : agrandissement sur place si la place est libre, ou bâtiment à part.
+- 22/10, 7 h 22 : Stable Diffusion local. Le Directeur Créatif : « je pense que le stabelle diffusion locale
+  c'est mauvaise idée euh parce que il est pas très puissant. Et faites des tests, sait jamais faites des
+  tests et dites-moi du coup. » → test lancé (concepts seulement, rien installé ni téléchargé).
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`

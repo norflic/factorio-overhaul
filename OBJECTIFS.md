@@ -312,7 +312,14 @@
        ressemble le plus possible au dernier niveau, et le recouvrement restant doit rester sous un
        seuil étalonné sur les premières pièces (proposition : 0,75). Le design rejeté obtient 1,00, c'est-à-dire
        qu'il est refusé.
-  4. L'emprise au sol reste la même, pour ne pas changer le jeu. La hauteur visuelle peut croître.
+  4. ~~L'emprise au sol reste la même, pour ne pas changer le jeu.~~ **Révisé le 22/10 (Q23)** : l'EMPRISE
+     GRANDIT avec les époques, jusqu'à environ 6 × 6 pour les dernières machines ; la hauteur croît moins. Un
+     plus grand bâtiment porte PLUS de détails (densité de détail par tuile au moins égale au vanilla) : ce
+     n'est jamais un simple agrandissement d'échelle. Échelle de tailles proposée ❔ : une taille de plus par
+     ère (tourelles 2×2 → 6×6 ; machines 3×3 → 6×6 ; centre 4×4 → 8×8 ; mur 1×1). Mode d'amélioration au
+     changement de taille : Q24.
+  4 bis. **Test du regard naïf** (Q23) : un inconnu qui voit deux niveaux côte à côte dit sans hésiter
+     lequel est le plus puissant.
   5. Ombres, socles et calques sont alignés au pixel en gros plan (R4).
 - **Preuve** : galerie jour et nuit, la même en gris, planche de vignettes, gros plans, mesure
   automatique des silhouettes.
@@ -559,6 +566,8 @@
 | Q-IA1-5 | Votre équipe en mode « Assisté » par défaut (elle construit dans des zones que vous tracez, première couronne de 8 lots constructible d'office), mode « Autonome » en option ? | **Ouverte** (proposition : oui) | C5-4 |
 | Q-IA1-6 | Que pilotent les 5 généralistes ? (1) un domaine chacun ; (2) des parties durables de la base, avec des exécutants nommés ; (3) des projets de bout en bout | **Ouverte** (proposition : 2) | C5-2 |
 | Q-IA1-7 | « S'améliorer plus vite » : les rangs des PNJ, ou la vitesse d'amélioration des bâtiments ? En fin de partie, les PNJ gardent-ils un léger avantage de vitesse sur le joueur ? | **Ouverte** (proposition : les rangs ; avantage maintenu) | C5-6 |
+| Q23 | Précision sur la puissance perçue et la taille (22/10, 7 h 20) | « il y a un truc qui est assez difficile à faire en design […] si jamais on ne connaît pas le jeu et qu'on regarde tel niveau, on a vraiment l'impression que ce niveau-là est plus puissant que le niveau du dessous […] Et surtout, il y a aussi un manque de taille, il y a un problème également de taille, des bâtiments, ça fait bizarre d'avoir un bâtiment qui est vraiment très petit […] les dernières machines pour construire, elles sont de taille, je sais pas moi 6 par six, par exemple, ça m'étonnerait pas […] des tailles qui augmentent des hauteurs qui augmentent aussi un peu pas les hauteurs moins mais les tailles oui, peut-être beaucoup plus […] Et du coup avec la taille, c'est pas que on agrandir l'échelle finalement, c'est on augmente aussi les détails, voilà. » | D1-4 révisé (emprise croissante, détail croissant), D1-4 bis (regard naïf) ; V3-S relancé avec ces règles |
+| Q24 | Quand un bâtiment change de taille (par exemple 3×3 → 4×4) : (1) il s'agrandit sur place si la place autour est libre, sinon l'amélioration est refusée et le contour nécessaire s'affiche ; ou (2) la nouvelle taille est un bâtiment à part, à construire à côté (l'ancien garde sa taille) ? | **Ouverte** (proposition : 1, cohérent avec l'amélioration instantanée) | Le remplacement rapide du moteur exige la même taille : au changement de taille, remplacement par script, contenu transféré |
 | Q-V2c-1 | QX10 (passage du centre ≈ 10 % du budget) n'est tenu qu'aux époques 1 à 4 : la règle de place (le coût tient dans la moitié du coffre du centre) et les monnaies d'aujourd'hui le bornent à 3,35 % puis 0,11 % du budget, et le centre 15 s'atteint en 3 h 27 par le chemin le plus court (52 h 30 au calendrier). Remède : (a) un objet dense propre au passage (le « Codex k » du scénario X0) ; (b) un remplaçant dense provisoire en attendant les monnaies de X0 ; (c) une règle de place assouplie (ou un coffre plus grand) pour le seul centre ; ou (d) accepter l'écart ? | — (ouverte, lot V2c, 22/10) | Recommandation de l'architecte : (a), le Codex k étant déjà prévu par X0 ; d'ici là, QX10 et le rythme de 52 h sont NON CONFORMES (comptés « écarts connus » par levels_test) |
 | Q-V2c-2 | Depuis Q19 (amélioration instantanée), l'« Horloge éternelle » (6e ouvrier, 2 sabliers par chantier, QX6) et le « Sablier quantique » (− 25 % de durée de chantier) du scénario X0 n'ont plus d'effet. Que doivent-ils offrir ? (par exemple : remise sur le coût des améliorations, amélioration d'une zone entière d'un coup, rangées de tous les bâtiments) | — (ouverte, lot V2c, 22/10) | Diff de nettoyage de `shared/content/epochs.lua` et de `docs/SCENARIO_EPOQUES.md` proposé (commentaires « sans objet depuis Q19 ») ; l'effet nouveau attend votre réponse |
 
