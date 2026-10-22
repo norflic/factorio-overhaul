@@ -12,6 +12,8 @@ réellement écrites (Levels.migrate_footprints, Levels.repair, filet on_nth_tic
   4. le BILAN du scénario est présent, sans échec.
 
     python -B tools/autotest/ht3_journal.py <benchmark.log>     (ou le dossier fo-autotest\\ d'un passage)
+    python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION <benchmark.log>   (lot V3-T2 : scénario t2-migration,
+                                                                 toutes les familles ; même format de lignes)
 
 Code de sortie : 0 si tout concorde, 1 sinon (critère d'un passage, avec le BILAN du scénario).
 """
@@ -22,17 +24,23 @@ import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # accents lisibles dans Git Bash et les journaux
 
-TAG = "[FO-HT3-MIGRATION]"
-RE_EXPECT_KEPT = re.compile(r"\[FO-HT3-MIGRATION\] JOURNAL ATTENDU : laisse (\S+) en (\S+), (\S+)\s*$")
-RE_EXPECT_SUM = re.compile(r"\[FO-HT3-MIGRATION\] JOURNAL ATTENDU : bilan (\d+) (\d+) (\d+) voie (repair|filet)\s*$")
+DEFAULT_TAG = "FO-HT3-MIGRATION"
 RE_KEPT = re.compile(r"\[FO-LEVELS\] emprise : (\S+) en (\S+), (\S+) laissé en place")
 RE_SUM = re.compile(r"\[FO-LEVELS\] (mise à jour des emprises|emprises \(filet, sans changement de version\)) : "
                     r"(\d+) bâtiment\(s\) reposé\(s\), (\d+) déjà en place, (\d+) laissé\(s\)")
-RE_BILAN = re.compile(r"\[FO-HT3-MIGRATION\] BILAN : (\d+) OK, (\d+) ECHEC")
 
 
-def check_text(text):
+def tag_patterns(tag):
+    """Expressions des lignes du scénario de balise `tag` (sans crochets : « FO-HT3-MIGRATION », « FO-T2-MIGRATION »)."""
+    t = re.escape("[" + tag + "]")
+    return (re.compile(t + r" JOURNAL ATTENDU : laisse (\S+) en (\S+), (\S+)\s*$"),
+            re.compile(t + r" JOURNAL ATTENDU : bilan (\d+) (\d+) (\d+) voie (repair|filet)\s*$"),
+            re.compile(t + r" BILAN : (\d+) OK, (\d+) ECHEC"))
+
+
+def check_text(text, tag=DEFAULT_TAG):
     """Renvoie (liste de (ok, libellé, détail)) pour le texte d'un benchmark.log."""
+    RE_EXPECT_KEPT, RE_EXPECT_SUM, RE_BILAN = tag_patterns(tag)
     exp_kept, exp_sum, kept, sums, bilan = [], [], [], [], None
     for line in text.splitlines():
         m = RE_EXPECT_KEPT.search(line)
@@ -77,18 +85,22 @@ def check_text(text):
 
 
 def main(argv):
-    if len(argv) != 2:
+    args = list(argv[1:])
+    tag = DEFAULT_TAG
+    if len(args) == 3 and args[0] == "--tag":
+        tag, args = args[1], args[2:]
+    if len(args) != 1:
         print(__doc__)
         return 2
-    path = argv[1]
+    path = args[0]
     if os.path.isdir(path):
         path = os.path.join(path, "benchmark.log")
     with open(path, encoding="utf-8", errors="replace") as f:
-        res = check_text(f.read())
+        res = check_text(f.read(), tag)
     for ok, label, detail in res:
         print("%s %s : %s" % ("OK    " if ok else "ECHEC ", label, detail))
     n_ok = sum(1 for r in res if r[0])
-    print("JOURNAL H-T3 : %d OK, %d ECHEC(S)  (%s)" % (n_ok, len(res) - n_ok, path))
+    print("JOURNAL %s : %d OK, %d ECHEC(S)  (%s)" % ("H-T3" if tag == DEFAULT_TAG else tag, n_ok, len(res) - n_ok, path))
     return 0 if n_ok == len(res) else 1
 
 

@@ -33,7 +33,8 @@
     duoA/B   deux niveau 7 collées (bord à bord) : les deux finissent sans chevauchement
     voisin8  niveau 8 collé à une niveau 6 (bas6, qui ne doit pas bouger) : reposée sans chevaucher bas6
     bas3     niveau 3 seule (2×2 inchangé) : même entité, même position, mêmes PV et munitions
-  et un centre de commandement 15 (emprise inchangée) : toujours suivi après la migration.
+  et un centre de commandement 15 : toujours suivi après la migration (lot V3-T2 : il grandit aussi, 4×4 → 8×8,
+  et reste sur place, compté « déjà en place »).
   Défense type (correction du correcteur H-T3, défaut 4) : force « player », posée avec raise_built (comme à la
   main), derrière une ligne de murs ouverte, nourrie par un bras à combustible (burner-inserter, au sud, qui
   dépose vers le nord) :
@@ -471,6 +472,18 @@ return {
     local items = s.count_entities_filtered({ area = { { X0, Y0 }, { X1, Y1 } }, type = "item-entity" })
     ctx.check(items == 0, "aucun objet au sol dans la zone", items .. " objet(s)")
     ctx.check(s1.cc_level == 15, "centre de commandement 15 toujours suivi", "cc_level " .. tostring(s1.cc_level))
+    -- Lot V3-T2 : le centre grandit aussi (4×4 en 0.4.1 → L.footprint du centre 15, 8×8). Centré sur un coin de
+    -- tuile et libre autour, il reste la MÊME entité à la même position (« déjà en place » au bilan du journal).
+    local cside = LV.footprint(LV.by_key.command, 15)
+    if cside ~= 4 then
+      local ccs = s.find_entities_filtered({ name = LV.name(LV.by_key.command, 15), force = FORCE })
+      local cc = ccs[1]
+      local same = cc and cc.unit_number == st.cc_unit and #ccs == 1
+      ctx.check(same and proto_side(cc.name) == cside and Foot.aligned(cc.position, cside),
+        "centre 15 (4x4 -> " .. cside .. "x" .. cside .. ") : meme entite, sur place (deja sur la grille), suivi",
+        cc and string.format("n° %d (creation n° %s) en %s", cc.unit_number, tostring(st.cc_unit), fmt_pos(cc.position)) or "introuvable")
+      if same then inplace = inplace + 1 end
+    end
 
     -- Ce que le journal du moteur DOIT contenir (comparé hors jeu par tools/autotest/ht3_journal.py) : une ligne
     -- « [FO-LEVELS] emprise : <nom> en <x>, <y> laissé en place » par mitrailleuse laissée, et UNE ligne de

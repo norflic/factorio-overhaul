@@ -615,7 +615,16 @@ function Levels.transfer(old, new)
     -- l'écriture de crafting_progress (il ne choisit sa recette qu'à sa mise à jour) : le four agrandi perdait le
     -- minerai de la fusion en cours. D'où : ingrédients de la fabrication en cours RENDUS à la nouvelle machine,
     -- progression reportée au premier tick où elle fabrique de nouveau la même recette (resume_progress).
-    if old.is_crafting and old.is_crafting() then
+    local pending = S().pending
+    local waiting = pending and old.unit_number and pending[old.unit_number]
+    if waiting then
+      -- Machine agrandie de nouveau avant d'avoir repris (deux améliorations dans le même tick) : la progression
+      -- notée suit la nouvelle machine (ses ingrédients ont déjà été rendus, une seule fois).
+      pending[old.unit_number] = nil
+      waiting.entity = new
+      pending[new.unit_number] = waiting
+      out.resumed = true
+    elseif old.is_crafting and old.is_crafting() then
       out.resumed = resume_later(old, new)
     else
       carry("crafting_progress")
@@ -829,6 +838,14 @@ local function replace(entity, family, n, opts)
   end
   new.health = new.prototype.max_health * ratio
   if was_cc then st.cc[force.name] = new end
+  -- Lot V3-T2 : progression notée (resume_later) d'une machine remplacée par le moteur avant d'avoir repris : elle
+  -- suit la nouvelle (le remplacement par script la déplace déjà dans Levels.transfer).
+  local waiting = st.pending and old_unit and st.pending[old_unit]
+  if waiting and new.unit_number ~= old_unit then
+    st.pending[old_unit] = nil
+    waiting.entity = new
+    st.pending[new.unit_number] = waiting
+  end
   celebrate(new, family, n)
   for _, f in ipairs(Levels.on_replaced) do f(old_unit, new) end
   return new

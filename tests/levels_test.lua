@@ -2274,6 +2274,41 @@ check(absent_ok and row_ok and L.footprints.gun ~= nil,
 check(mono_ok, "table : l'emprise ne rétrécit jamais d'un niveau au suivant (toutes les familles)")
 -- Garde de la table (L.footprint_errors, appelée par l'étape data avant toute génération).
 check(#L.footprint_errors() == 0, "garde : la table livrée est valide")
+-- Lot V3-T2 : table livrée = la réponse du Directeur Créatif à Q-S1 (22/10, 16 h 45 : oui ; toutes les familles,
+-- plafond 6×6 pour les machines, centre 4×4 → 8×8, mur inchangé).
+do
+  local want_rows = { command = { 4, 5, 6, 7, 8 }, gun = { 2, 3, 4, 5, 6 }, laser = { 2, 3, 4, 5, 6 }, drill = { 3, 4, 5, 6, 6 },
+    furnace = { 2, 3, 4, 5, 6 }, assembler = { 3, 4, 5, 6, 6 } }
+  local rows_ok, maxes = true, {}
+  for _, f in ipairs(L.families) do
+    local row, want = L.footprints[f.key], want_rows[f.key]
+    if want then
+      if not (row and row.era and #row.era == 5) then rows_ok = false
+      else for i = 1, 5 do if row.era[i] ~= want[i] then rows_ok = false end end end
+    elseif row ~= nil then
+      rows_ok = false
+    end
+    maxes[#maxes + 1] = f.key .. " " .. L.footprint_max(f)
+  end
+  local machines_capped = L.footprint_max(L.by_key.drill) == 6 and L.footprint_max(L.by_key.assembler) == 6
+    and L.footprint_max(L.by_key.furnace) == 6 and L.footprint(L.by_key.drill, 19) == 6 and L.footprint(L.by_key.drill, 18) == 5
+  check(rows_ok and machines_capped and L.footprint(L.by_key.command, 13) == 8 and L.footprint(L.by_key.command, 12) == 7
+    and L.footprints.wall == nil and L.footprint_max(L.by_key.wall) == 1,
+    "table livrée (Q-S1, lot V3-T2) : toutes les familles sauf le mur ; machines plafonnées à 6×6 (foreuse et assembleur dès le niveau 19), centre 8×8 dès le niveau 13 ("
+    .. table.concat(maxes, ", ") .. ")")
+  -- Depuis une sauvegarde 0.4.2 (seule la mitrailleuse grandissait) : niveaux qui changent.
+  local Foot0 = require("shared.levels.footprint")
+  local snap42 = L.footprint_snapshot(true)
+  for n = 1, L.by_key.gun.max do snap42.gun[n] = L.footprint(L.by_key.gun, n) end
+  local ks = {}
+  for _, f in ipairs(L.families) do ks[#ks + 1] = f.key end
+  local d42 = Foot0.diff(snap42, L.footprint_snapshot(), ks, function(k) return L.by_key[k].size end)
+  local per = {}
+  for _, c in ipairs(d42) do per[c.key] = (per[c.key] or 0) + 1 end
+  check(#d42 == 108 and per.command == 12 and per.laser == 24 and per.drill == 24 and per.furnace == 24 and per.assembler == 24 and per.gun == nil,
+    "migration 0.4.2 → 0.4.3 : " .. #d42 .. " niveaux changent (centre " .. tostring(per.command) .. ", laser " .. tostring(per.laser) .. ", foreuse "
+    .. tostring(per.drill) .. ", four " .. tostring(per.furnace) .. ", assembleur " .. tostring(per.assembler) .. ", mitrailleuse 0)")
+end
 do
   local Common0 = require("prototypes.levels.common")
   -- gen : l'étape data aussi (Common.generate s'arrête sur la garde AVANT de toucher à data.raw ; appelée

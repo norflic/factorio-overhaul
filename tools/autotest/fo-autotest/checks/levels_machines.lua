@@ -257,7 +257,14 @@ function M.setup(ctx)
   -- Assembleur EN FABRICATION au tick ACT (moteurs : 10 s par fabrication, nourri par un bras) : bilan de matière
   -- (une fabrication en cours a déjà pris ses ingrédients ; le transfert ne doit ni les perdre ni en créer).
   local a2 = keep("as2", put(s, f, AS, 6, x0 + 112.5, ya, N))
-  if a2 then a2.set_recipe(SLOW) end
+  if a2 then
+    a2.set_recipe(SLOW)
+    -- Ingrédients d'une première fabrication déjà en place : la machine fabrique dès le premier tick (scénario
+    -- t2-machines, tick 60) ; ensuite le bras la nourrit.
+    a2.insert({ name = "steel-plate", count = 1 })
+    a2.insert({ name = "iron-gear-wheel", count = 1 })
+    a2.insert({ name = "pipe", count = 2 })
+  end
   keep("as2_ins", ins(s, f, x0 + 110.5, ya, W))
   local chest_a2 = keep("as2_chest", s.create_entity({ name = "iron-chest", position = { x0 + 109.5, ya }, force = f, raise_built = true }))
   if chest_a2 then
@@ -639,8 +646,10 @@ function M.act(ctx)
 
   -- C. Chaînes.
   local ca = st.chain[4].e
-  local plates0 = ca.get_item_count("iron-plate") + 2 * ca.get_item_count("iron-gear-wheel")
+  -- Plaques d'une fabrication en cours comprises (rendues à la machine agrandie, script/levels/levels.lua).
+  local plates0 = ca.get_item_count("iron-plate") + 2 * ca.get_item_count("iron-gear-wheel") + (ca.is_crafting() and 2 or 0)
   local fuel0 = st.chain[3].e.get_item_count("coal")
+  st.chain_prog0 = ca.is_crafting() and ca.crafting_progress or nil
   for _, c in ipairs(st.chain) do
     c.final = chain(ctx, c.key, c.e, function() return inv end, 30)
   end
@@ -674,6 +683,15 @@ function M.after(ctx)
   st.after_done = true
   if st.fu7 and st.fu7.valid then st.fu_prog2 = st.fu7.crafting_progress end
   if st.as27 and st.as27.valid then st.as2_prog2 = st.as27.crafting_progress end
+  local cf = st.chain and st.chain[4] and st.chain[4].final
+  if st.chain_prog0 and cf and cf.valid then
+    -- Assembleur de la chaîne EN FABRICATION au tick ACT (scénario t2-machines) : 24 améliorations dans le même tick,
+    -- 3 par script et 21 par le moteur ; la progression notée suit chaque nouvelle machine.
+    local p = cf.crafting_progress
+    ctx.check(p >= st.chain_prog0 - 1e-6 and p < st.chain_prog0 + 0.05,
+      "chaine de l'assembleur en pleine fabrication (24 ameliorations dans le meme tick) : progression reposee sur le niveau 30",
+      string.format("%.3f -> %.3f", st.chain_prog0, p))
+  end
   local sp = status(ctx)
   ctx.log(string.format("ACT + 2 (tick %d) : progression four %s, assembleur %s ; progressions reposees %d, en attente %d", game.tick,
     tostring(st.fu_prog2), tostring(st.as2_prog2), sp.resumed or -1, sp.pending or -1))
