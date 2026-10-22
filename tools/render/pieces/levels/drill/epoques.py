@@ -37,7 +37,12 @@ EMIT_K = 0.40        # facteur des forces émissives de glow() (≈ 1 en sortie,
 # Gain ≈ (cible / mesure)^2,2 (sRGB -> linéaire), arrondi ; les autres époques sont dans la tolérance.
 # 2e passe (1 h 05) : e5 38 (42) -> 1,25 ; e13 104 avec 0,42 -> 0,32 ; e14 101 avec 0,70 -> 0,52, puis 0,47
 # (pose N à 100 avec 0,52 ; poses E, S, O de 77 à 80 : corps bimodal blanc, or, cellules sombres).
-ALB_GAIN = {2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 10: 0.33, 13: 0.32, 14: 0.47, 15: 0.80}
+# 3e passe (rendus complets, corps HORS zones émissives) : e7 41 (55 ; cristaux = 25 % du corps) -> 1,9.
+# e11 81 (100 ; lignes du chenillard = 12 % du corps) -> 1,55.
+# e13 74 avec 0,32 (92 ; tore de plasma = 33 % du corps) -> 0,52.
+# e14 56 avec 0,47 (88 ; cellules émissives = 28 % du corps, exclues) -> 1,20.
+# e15 96 à 100 avec 0,80 (108) -> 1,0.
+ALB_GAIN = {2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 7: 1.90, 10: 0.33, 11: 1.55, 13: 0.52, 14: 1.20, 15: 1.00}
 
 
 def metal(ctx, key, hexc, rough=0.40, metallic=0.55, grain=0.20, gs=55.0, rust=None, ra=0.0, dirt=0.45, k=1.0):
@@ -412,6 +417,19 @@ def e04(ctx, piece):
             ctx.tbox(a - 0.01 * na, b - 0.10, a + 0.03 * na, b + 0.10, 1.02, 1.20, orange, bevel=0, name="voyant")
     faces4(ctx, 0.55, led)
     halo(ctx, 0.0, 0.70, 1.1, "#FF8C1A", 12.0)
+    # D2-1 (22/10) : les voyants des faces sont cachés par la passerelle (aperçu complet : 0 px de lueur de
+    # jour dans les 4 poses). Lueurs visibles : 4 feux ronds aux angles du garde-corps et la TORCHÈRE du kit
+    # d'époque (bible §5, époque 4 : « torchère et sa flamme ») à l'angle arrière gauche, flamme ≥ 10 px hr.
+    for sa in (-1, 1):
+        for sb in (-1, 1):
+            ctx.cyl(sa * 0.78, sb * 0.78, 1.62, 1.66, 0.06, black, name="feu_socle")
+            ctx.sph(sa * 0.78, sb * 0.78, 1.73, 0.085, orange, name="feu_angle")
+    ctx.cyl(-1.05, 1.05, 0.42, 1.30, 0.035, galva, name="torchere")
+    ctx.cyl(-1.05, 1.05, 1.24, 1.30, 0.06, black, name="torchere_bec")
+    flame = glow(ctx, "e04_flamme", "#FFB040", strength=2.8)
+    ctx.lathe(-1.05, 1.05, [(0.0, 1.30), (0.085, 1.36), (0.07, 1.46), (0.0, 1.58)], flame, seg=16,
+              name="torchere_flamme")
+    halo(ctx, -1.05, 1.05, 1.45, "#FF8C1A", 6.0)
     # colonne de pompe centrale (tour) et chapeau
     ctx.cyl(0, 0, 1.36, 2.74, 0.20, galva, name="colonne")
     for z in (1.80, 2.30):

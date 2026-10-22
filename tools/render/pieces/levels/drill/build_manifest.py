@@ -45,6 +45,7 @@ def main():
         if fn.endswith(".py"):
             src[fn] = sha(os.path.join(HERE, fn))
     levels = {}
+    all_even, all_grid = [True], [True]
     for lvl in range(2, 31):
         e = (lvl + 1) // 2
         ep = catalogue.EPOCHS[e]
@@ -71,6 +72,10 @@ def main():
                     "lr": {"filename": final.replace("/hr-", "/"), "width": sd["width"] // 2,
                            "height": sd["height"] // 2, "shift": sd["shift"], "scale": 1},
                 }, **FLAGS[layer])
+                if sd["width"] % 2 or sd["height"] % 2:
+                    all_even[0] = False
+                if any(abs(v * 64 - round(v * 64)) > 1e-6 for v in sd["shift"]):
+                    all_grid[0] = False
                 if layer == "main":
                     w, h = sd["width"] / 64.0, sd["height"] / 64.0
                     x0, x1 = min(x0, sd["shift"][0] - w / 2), max(x1, sd["shift"][0] + w / 2)
@@ -126,7 +131,14 @@ def main():
             "circuit_connector": "les points vanilla tombent sur l'ancienne géométrie : à redéfinir par époque "
                                  "en phase 2 (défaut D3 sinon)",
             "icons": "icons(icons, ctx) : rendu de la pose N (64 px, 4 mipmaps) + numéro de niveau, en phase 2",
+            "garde_V2b": "clés posées par dress toutes dans GRAPHIC_KEYS de prototypes/levels/common.lua (main, "
+                         "701722c) : graphics_set, wet_mining_graphics_set, working_visualisations, "
+                         "integration_patch, drawing_box, circuit_connector_sprites, circuit_wire_connection_points ; "
+                         "aucun ctx.declare nécessaire (ni faisceau, ni reste, ni explosion propre)",
+            "basse_qualite": "lr = hr réduit de moitié (dimensions hr paires, shift identique) ; Q21/D4-2 : basse "
+                             "qualité soignée, à juger sur capture en phase 2",
         },
+        "controles": {"hr_pair": all_even[0], "shift_multiple_1_64": all_grid[0]},
         "levels": levels,
     }
     os.makedirs(os.path.dirname(DEST), exist_ok=True)

@@ -34,6 +34,7 @@ import fo_calib as C  # noqa: E402
 import fo_post as P  # noqa: E402
 import fo_blender  # noqa: E402
 import vanilla  # noqa: E402
+import shadow_clean  # noqa: E402
 
 OUT = os.path.join(RENDER, "out", "levels", "drill")
 CACHE = os.path.join(RENDER, "cache", "levels-drill")
@@ -86,7 +87,8 @@ def post_variant(info, level, d, mask_dir=None):
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
     sh = npy("shadow")
     if sh is not None:
-        hr["shadow"] = P.shadow_layer(sh)
+        # bruit isolé de l'attrape-ombre retiré (shadow_clean.py : constat du 22/10, niveau 2)
+        hr["shadow"] = shadow_clean.despeckle(P.shadow_layer(sh))[0]
     g = npy("glow")
     if g is not None:
         hr["glow"] = P.additive_layer(g)
@@ -129,6 +131,8 @@ def post_variant(info, level, d, mask_dir=None):
         sd = P.sprite_def(box, origin, 64)
         spec[layer] = {"file": os.path.relpath(fn, RENDER).replace("\\", "/"), "width": sd["width"],
                        "height": sd["height"], "shift": sd["shift"], "sha256": sha}
+        if layer == "shadow":
+            spec[layer]["despeckled"] = True
     return spec
 
 
