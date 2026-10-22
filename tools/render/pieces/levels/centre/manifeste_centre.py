@@ -56,6 +56,9 @@ def fingerprints(e, rec):
     rec_sha = rec.get("scripts_sha256") or {}
     era = (e - 1) // 3 + 1
     rel = ["centre.py", "centre_kit.py", "centre_params.py", "centre_ere%d.py" % era, "render_centre.py"]
+    # imports entre ères (centre_ere3 et centre_ere5 : _ogive, _panel_xz de centre_ere2 ; centre_ere5 : _dish de
+    # centre_ere4) : ces scripts déterminent aussi le niveau
+    rel += {3: ["centre_ere2.py"], 5: ["centre_ere2.py", "centre_ere4.py"]}.get(era, [])
     bad = [f for f in rel if rec_sha.get(f) != sha(os.path.join(HERE, f))]
     other = sorted(f for f, h in rec_sha.items() if f not in rel and os.path.exists(os.path.join(HERE, f))
                    and h != sha(os.path.join(HERE, f)))

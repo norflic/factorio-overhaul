@@ -268,11 +268,24 @@ def build_e15(k):
         tyl = kty - 0.05 + math.sqrt(max(0.0, 0.8 ** 2 - x * x)) / R2
         _panel_xz(k, [(xx, z + zb + 1.62) for xx, z in _ogive(0.08, 0.16, 0.32)], tyl - 0.02, tyl + 0.02, lum,
                   "lanterne_baie_%d" % (s + 1), dx=x)
-    # carène sous la soucoupe (cône renversé, nacre) : la base flottante gagne en masse
-    k.lathe(0.0, bty, [(0.0, z0 - 0.8), (0.3, z0 - 0.7), (0.75, z0 - 0.42), (1.15, z0 - 0.14), (1.45, z0 + 0.12),
-                       (0.0, z0 + 0.13)], nacre, "carene", segs=56)
-    k.sphere_seams(0.0, bty, z0 - 0.3, 0.9, orb, "carene_nervures", lats=(), mers=8, minor=0.012, sz=0.6)
-    k.torus(0.0, bty, z0 - 0.42, 0.75, 0.035, lum, "carene_anneau", minor_seg=8)
+    # carène sous la soucoupe (cône renversé, nacre) : la base flottante gagne en masse. Passe 7 (2e correction du
+    # 22/10) : carène plus profonde et plus large (aire de silhouette 12,85 t² pour une cible >= 13 ; vide V 58 %
+    # pour un minimum de 25 % : la masse ajoutée SOUS la soucoupe réduit aussi ce vide excessif)
+    k.lathe(0.0, bty, [(0.0, z0 - 1.2), (0.32, z0 - 1.1), (0.8, z0 - 0.76), (1.22, z0 - 0.36), (1.55, z0 + 0.04),
+                       (1.6, z0 + 0.12), (0.0, z0 + 0.13)], nacre, "carene", segs=64)
+    prof = [(0.32, z0 - 1.1), (0.8, z0 - 0.76), (1.22, z0 - 0.36), (1.55, z0 + 0.04)]   # nervures sur le profil
+    cxk, cyk, _ = k.P(0.0, bty, 0)
+    ner = []
+    for j in range(12):
+        a = 2 * math.pi * (j + 0.5) / 12
+        ca, sa = math.cos(a), math.sin(a)
+        for (r1, z1), (r2, z2) in zip(prof[:-1], prof[1:]):
+            ner.append(k.rod((cxk + (r1 + 0.012) * ca, cyk + (r1 + 0.012) * sa, z1),
+                             (cxk + (r2 + 0.012) * ca, cyk + (r2 + 0.012) * sa, z2), 0.014, orb, "carene_nervure_%d" % len(ner),
+                             verts=6))
+    k.join(ner, "carene_nervures")
+    k.torus(0.0, bty, z0 - 0.36, 1.22, 0.035, orb, "carene_bague", minor_seg=8)
+    k.torus(0.0, bty, z0 - 0.7, 0.92, 0.035, lum, "carene_anneau", minor_seg=8)
     ty_d = kty + 1.29 / R2
     _panel_xz(k, [(x, z + zb) for x, z in _ogive(0.26, 0.32, 0.64)], ty_d - 0.02, ty_d + 0.02, orb, "porte_cadre")
     _panel_xz(k, [(x, z + zb + 0.02) for x, z in _ogive(0.19, 0.3, 0.55)], ty_d + 0.01, ty_d + 0.035, lum, "porte_lumiere")
@@ -284,19 +297,26 @@ def build_e15(k):
 
     # --- couronne de 5 flèches (x distincts, hauteurs étagées ; la centrale fixe O = 3,60) ---
     # pointes visées à l'écran (v = ty - 0,707 z) : centrale -5,60 ; paire intérieure -5,08 ; paire extérieure -4,58
-    crown = [(0.0, kty - 0.12, zb + 2.3, -5.60, 0.46),
-             (-0.80, kty - 0.45, z0 + 0.98, -5.12, 0.40), (0.80, kty - 0.45, z0 + 0.98, -5.12, 0.40),
-             (-1.47, kty + 0.02, z0 + 1.9, -4.64, 0.34), (1.47, kty + 0.02, z0 + 1.9, -4.64, 0.34)]
+    # passe 7 (22/10, 2e correction) : pointe centrale à -5,62 (O mesuré 3,58 pour le sommet 3,60 de la fiche : la
+    # pointe fine perd 1 à 2 px au seuil alpha 0,5) ; bases des flèches élargies (aire de silhouette 12,4 t²)
+    crown = [(0.0, kty - 0.12, zb + 2.3, -5.62, 0.52),
+             (-0.80, kty - 0.45, z0 + 0.98, -5.12, 0.48), (0.80, kty - 0.45, z0 + 0.98, -5.12, 0.48),
+             (-1.47, kty + 0.02, z0 + 2.22, -4.70, 0.38), (1.47, kty + 0.02, z0 + 2.22, -4.70, 0.38)]
     # passe 5 : les 2 flèches extérieures se dressent sur des TOURELLES de nacre posées au bord de la soucoupe
     # (aire de silhouette 12,1 t² à la passe 4 pour une cible >= 13 ; masse au-dessus de v = -2,5)
+    # passe 7 : tourelles plus hautes et plus larges (rayon 0,36 -> 0,43 ; sommet z0 + 1,96 -> z0 + 2,28), un 2e
+    # rang de baies : masse AU-DESSUS de v = -2,5 (hors du masque du niveau 1)
+    rt = 0.43
     for s in (-1, 1):
         x, ty = s * 1.47, kty + 0.02
-        k.cyl(x, ty, 0.36, z0 + 0.98, z0 + 1.72, nacre, "tourelle_%d" % (s + 1), verts=32)
-        k.ribs(x, ty, 0.36, z0 + 1.0, z0 + 1.7, 6, orb, "tourelle_pilastres_%d" % (s + 1), w=0.04, d=0.02)
-        k.cyl(x, ty, 0.42, z0 + 1.72, z0 + 1.84, orb, "tourelle_corniche_%d" % (s + 1), verts=32)
-        k.cyl(x, ty, 0.40, z0 + 1.84, z0 + 1.96, nacre, "tourelle_couronne_%d" % (s + 1), verts=32, r2=0.30)
-        _panel_xz(k, [(xx, z + z0 + 1.2) for xx, z in _ogive(0.07, 0.14, 0.28)], ty + 0.36 / R2 - 0.02, ty + 0.36 / R2 + 0.02,
-                  lum, "tourelle_baie_%d" % (s + 1), dx=x)
+        k.cyl(x, ty, rt, z0 + 0.98, z0 + 2.04, nacre, "tourelle_%d" % (s + 1), verts=32)
+        k.ribs(x, ty, rt, z0 + 1.0, z0 + 2.02, 6, orb, "tourelle_pilastres_%d" % (s + 1), w=0.04, d=0.02)
+        k.torus(x, ty, z0 + 1.55, rt + 0.005, 0.022, orb, "tourelle_bague_%d" % (s + 1), minor_seg=6, major_seg=48)
+        k.cyl(x, ty, rt + 0.035, z0 + 2.04, z0 + 2.16, orb, "tourelle_corniche_%d" % (s + 1), verts=32)
+        k.cyl(x, ty, rt + 0.025, z0 + 2.16, z0 + 2.28, nacre, "tourelle_couronne_%d" % (s + 1), verts=32, r2=0.34)
+        for j, zz in enumerate((z0 + 1.15, z0 + 1.66)):
+            _panel_xz(k, [(xx, z + zz) for xx, z in _ogive(0.07, 0.14, 0.28)], ty + rt / R2 - 0.02, ty + rt / R2 + 0.02,
+                      lum, "tourelle_baie_%d_%d" % (s + 1, j), dx=x)
     for i, (x, ty, zs, vtip, rb) in enumerate(crown):
         ztip = (ty - vtip) / 0.7071
         k.ngon(x, ty, rb, 8, zs, ztip, orb, "fleche_%d" % i, r_top=0.0, rot=math.pi / 8, bevel=0.006)

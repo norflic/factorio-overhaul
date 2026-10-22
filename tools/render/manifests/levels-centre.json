@@ -304,36 +304,33 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 49.5,
+    "seconds": 31.0,
     "variantes": {
      "glow_light": "n01",
      "main_ao_shadow": "n01-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:18:39",
+     "owner": "24324 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-3 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 24324,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:52:52",
+    "rendu_le": "2026-10-22 06:19:10",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
-     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere1.py": "c9aebec0a5073936af623efe965c2e9520f1296c28982787c25460e48bb393e1",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
-     ]
+     "ecarts_sans_effet": []
     }
    }
   },
@@ -640,36 +637,33 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 64.4,
+    "seconds": 34.9,
     "variantes": {
      "glow_light": "n02",
      "main_ao_shadow": "n02-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:18:39",
+     "owner": "24324 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-3 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 24324,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:53:56",
+    "rendu_le": "2026-10-22 06:19:45",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
-     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere1.py": "c9aebec0a5073936af623efe965c2e9520f1296c28982787c25460e48bb393e1",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
-     ]
+     "ecarts_sans_effet": []
     }
    }
   },
@@ -999,36 +993,33 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 57.0,
+    "seconds": 31.8,
     "variantes": {
      "glow_light": "n03",
      "main_ao_shadow": "n03-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:18:39",
+     "owner": "24324 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-3 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 24324,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:54:53",
+    "rendu_le": "2026-10-22 06:20:16",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
-     "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
+     "centre_ere1.py": "c9aebec0a5073936af623efe965c2e9520f1296c28982787c25460e48bb393e1",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
-     ]
+     "ecarts_sans_effet": []
     }
    }
   },
@@ -1306,35 +1297,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 85.1,
+    "seconds": 45.3,
     "variantes": {
      "glow_light": "n04",
      "main_ao_shadow": "n04-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:56:18",
+    "rendu_le": "2026-10-22 06:08:33",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -1602,35 +1592,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 65.3,
+    "seconds": 34.9,
     "variantes": {
      "glow_light": "n05",
      "main_ao_shadow": "n05-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:57:23",
+    "rendu_le": "2026-10-22 06:09:08",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -1920,35 +1909,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 68.2,
+    "seconds": 34.2,
     "variantes": {
      "glow_light": "n06",
      "main_ao_shadow": "n06-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:58:32",
+    "rendu_le": "2026-10-22 06:09:42",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -2196,35 +2184,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 60.2,
+    "seconds": 36.6,
     "variantes": {
      "glow_light": "n07",
      "main_ao_shadow": "n07-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 04:59:32",
+    "rendu_le": "2026-10-22 06:10:19",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -2537,35 +2524,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 65.1,
+    "seconds": 40.5,
     "variantes": {
      "glow_light": "n08",
      "main_ao_shadow": "n08-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:00:37",
+    "rendu_le": "2026-10-22 06:10:59",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -2839,35 +2825,34 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 82.5,
+    "seconds": 46.1,
     "variantes": {
      "glow_light": "n09",
      "main_ao_shadow": "n09-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 04:52:02",
-     "owner": "32612 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32612,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:01:59",
+    "rendu_le": "2026-10-22 06:11:45",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
-     "centre_ere4.py": "5d26dc60194fec9cf4597247dd4657410a6ed4b5998dd63d4dcf0ab411168cf2",
-     "centre_ere5.py": "75c26baf9a54076069e010498b6a4bba1822ef72f1a1a50bd9b025a59b3aee13",
+     "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
      "ecarts_sans_effet": [
-      "centre_ere4.py",
-      "centre_ere5.py"
+      "centre_ere1.py"
      ]
     }
    }
@@ -3138,33 +3123,35 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 65.4,
+    "seconds": 48.1,
     "variantes": {
      "glow_light": "n10",
      "main_ao_shadow": "n10-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:17:24",
+    "rendu_le": "2026-10-22 06:12:33",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   },
@@ -3418,33 +3405,35 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 50.8,
+    "seconds": 51.1,
     "variantes": {
      "glow_light": "n11",
      "main_ao_shadow": "n11-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:18:15",
+    "rendu_le": "2026-10-22 06:13:24",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   },
@@ -3710,33 +3699,35 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 48.4,
+    "seconds": 48.9,
     "variantes": {
      "glow_light": "n12",
      "main_ao_shadow": "n12-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:19:03",
+    "rendu_le": "2026-10-22 06:14:13",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   },
@@ -3990,33 +3981,35 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 56.1,
+    "seconds": 57.1,
     "variantes": {
      "glow_light": "n13",
      "main_ao_shadow": "n13-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:19:59",
+    "rendu_le": "2026-10-22 06:15:10",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   },
@@ -4334,33 +4327,35 @@
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 50.7,
+    "seconds": 51.6,
     "variantes": {
      "glow_light": "n14",
      "main_ao_shadow": "n14-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:05:58",
+     "owner": "26476 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 1-14 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 26476,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:20:50",
+    "rendu_le": "2026-10-22 06:16:02",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   },
@@ -4378,10 +4373,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-main.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-main.png",
       "width": 252,
-      "height": 408,
+      "height": 410,
       "shift": [
        0.0,
-       -2.40625
+       -2.421875
       ],
       "scale": 0.5
      },
@@ -4389,10 +4384,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-main.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-main.png",
       "width": 126,
-      "height": 204,
+      "height": 205,
       "shift": [
        0.0,
-       -2.40625
+       -2.421875
       ],
       "scale": 1.0
      }
@@ -4405,10 +4400,10 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-shadow.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-shadow.png",
-      "width": 534,
+      "width": 540,
       "height": 178,
       "shift": [
-       2.890625,
+       2.9375,
        -0.140625
       ],
       "scale": 0.5
@@ -4416,10 +4411,10 @@
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-shadow.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-shadow.png",
-      "width": 267,
+      "width": 270,
       "height": 89,
       "shift": [
-       2.890625,
+       2.9375,
        -0.140625
       ],
       "scale": 1.0
@@ -4434,22 +4429,22 @@
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-glow.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-glow.png",
-      "width": 244,
-      "height": 396,
+      "width": 240,
+      "height": 398,
       "shift": [
-       0.03125,
-       -2.375
+       0.0,
+       -2.390625
       ],
       "scale": 0.5
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-glow.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-glow.png",
-      "width": 122,
-      "height": 198,
+      "width": 120,
+      "height": 199,
       "shift": [
-       0.03125,
-       -2.375
+       0.0,
+       -2.390625
       ],
       "scale": 1.0
      }
@@ -4464,10 +4459,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/hr-centre-e15-light.png",
       "apercu": "tools/render/out/levels/centre/n15/hr-centre-n15-light.png",
       "width": 330,
-      "height": 444,
+      "height": 440,
       "shift": [
        0.140625,
-       -1.65625
+       -1.625
       ],
       "scale": 0.5
      },
@@ -4475,10 +4470,10 @@
       "filename": "__factorio-overhaul__/graphics/levels/centre/e15/centre-e15-light.png",
       "apercu": "tools/render/out/levels/centre/n15/centre-n15-light.png",
       "width": 165,
-      "height": 222,
+      "height": 220,
       "shift": [
        0.140625,
-       -1.65625
+       -1.625
       ],
       "scale": 1.0
      }
@@ -4493,21 +4488,21 @@
    "drawing_box": [
     [
      -1.9688,
-     -5.5938
+     -5.625
     ],
     [
-     7.0625,
+     7.1562,
      1.25
     ]
    ],
    "mesures": {
-    "O": 3.58,
-    "O_tige": 3.58,
+    "O": 3.59,
+    "O_tige": 3.59,
     "L": 3.88,
-    "area_t2": 12.41,
-    "iou_prev": 0.467,
+    "area_t2": 13.32,
+    "iou_prev": 0.485,
     "events": 5,
-    "V_pct": 58.2
+    "V_pct": 53.2
    },
    "pieces": {
     "masses": [
@@ -4523,6 +4518,7 @@
      "base_rivets",
      "carene",
      "carene_anneau",
+     "carene_bague",
      "carene_nervures",
      "donjon",
      "donjon_corniche",
@@ -4541,6 +4537,7 @@
      "porte_cadre",
      "porte_lumiere",
      "tourelle",
+     "tourelle_bague",
      "tourelle_baie",
      "tourelle_corniche",
      "tourelle_couronne",
@@ -4657,49 +4654,51 @@
    "water_reflection": "retirer (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)",
    "lumiere_sprite": {
     "energie_visee_t2": 2.23,
-    "gain": 0.8222,
+    "gain": 0.8421,
     "regle": "énergie de la couche light normalisée sur centre_params.light_target (croissante, D2-3)"
    },
    "couche_principale_sans_emission": true,
    "apercu": {
     "samples": 32,
     "canvas": [
-     676,
-     538
+     684,
+     542
     ],
     "origin_px": [
      164,
-     417
+     421
     ],
     "blender": "5.2.2 LTS",
     "blender_hash": "d13f752e3b9c",
-    "seconds": 51.7,
+    "seconds": 58.2,
     "variantes": {
      "glow_light": "n15",
      "main_ao_shadow": "n15-jour"
     },
     "verrou_de_rendu": {
-     "checked": "2026-10-22 05:16:19",
-     "owner": "32456 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 10-15 --samples 32 --mask-samples 8 --only all",
-     "owner_pid": 32456,
+     "checked": "2026-10-22 06:03:37",
+     "owner": "13640 tools/render/with_render_lock.py --wait 0 -- python -P tools/render/pieces/levels/centre/render_centre.py --levels 15 --samples 32 --mask-samples 8 --only all",
+     "owner_pid": 13640,
      "slot": "fo-render.lock.1"
     },
-    "rendu_le": "2026-10-22 05:21:42",
+    "rendu_le": "2026-10-22 06:04:35",
     "scripts_sha256": {
      "centre.py": "d3f5cb6161661e49c359eee941664839e82b5bb5c13db9118eb3ed4f109a0fc0",
      "centre_ere1.py": "77e01becee8f553590e74066f809198392777b254c1d1cf4acf0571ef6feed5e",
      "centre_ere2.py": "7f12e6800c53b7e9770b56d655dba2df4b8b5e55851887e013a590972edb1aa2",
      "centre_ere3.py": "7c465465aa422dd297330d6a94944bd07cc1720a99eddf3cac235e7e08ddfac7",
      "centre_ere4.py": "0039e8f6a6fc66294f123ce0e711e16f065af1c83134b68088d10c42dfb48786",
-     "centre_ere5.py": "3ea854bb9b513aeae4567b83e5c03fb27856c1dee2af64a88db87bab129ecd16",
+     "centre_ere5.py": "64e5a7e832ae77628d4df3aef9ddc58ee50f9208c76202afb1bab41c6f308c34",
      "centre_kit.py": "6f754c63d590c8db68594840048a56963438b26cae1699a0f2a19ce4477ad415",
      "centre_params.py": "b8ddc3316b9b4259801c756f01e05544e9042f8105f692a4fc37af2a4092c843",
-     "render_centre.py": "f65506475a665f6096299c808f5399efb195296e3373d9077512120755dfb7ae"
+     "render_centre.py": "2ff8c6e0e8aee16207e16ae9274702c3834db6a5dd35cbc3459dc190b72e3934"
     },
     "empreintes": {
      "conformes": true,
      "ecarts_determinants": [],
-     "ecarts_sans_effet": []
+     "ecarts_sans_effet": [
+      "centre_ere1.py"
+     ]
     }
    }
   }

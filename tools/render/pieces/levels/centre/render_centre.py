@@ -18,6 +18,8 @@ et surtout DEUX rendus par niveau (correction V3 du 21/10) :
 La couche principale ne contient donc plus l'émission : la lueur draw_as_glow, additive, n'est comptée
 qu'une fois (avant : main + glow doublaient l'éclat ; 79 à 96 % des pixels de lueur saturés). Aux époques 1-2
 la même lueur sert de lumière de nuit seulement (draw_as_light, manifeste et planches).
+Lueur bornée (tame_glow, 2e correction du 22/10) : là où main + lueur ferait du blanc (min(R, G, B) >= 238), la
+lueur de ce pixel est réduite juste assez pour garder sa teinte ; nombre de pixels bornés dans render.json.
 Couche light : énergie normalisée sur centre_params.light_target (croissante avec l'époque, D2-3).
 Mode --only quick : aperçu de réglage (couche principale seule, out/levels/centre/quick/), seul mode permis avec
 le réglage d'essai FO_CENTRE_TUNE (un rendu livré est refusé si la variable existe). Un niveau en échec n'arrête
@@ -170,6 +172,29 @@ def normalize_light(lay, target):
     return np.concatenate([rgb, m], -1), g
 
 
+WHITE_T = 238.0 / 255.0
+
+
+def tame_glow(glow, main, t=WHITE_T):
+    """Lueur additive BORNÉE sur les surfaces claires (2e correction V3 du 22/10) : là où main + lueur donnerait du
+    blanc (min(R, G, B) >= 238/255 : le halo du cœur déborde sur l'alliage blanc, la nacre ou un reflet), la lueur
+    de CE pixel est réduite juste assez pour qu'un canal au moins reste sous le seuil (sa teinte garde la couleur
+    de la bible) ; sur un pixel déjà blanc dans la couche principale (reflet spéculaire), la lueur est retirée.
+    Ailleurs, rien ne change. Les deux couches sont sur le même canevas. Renvoie (lueur, nombre de pixels bornés)."""
+    base = main[..., :3] * main[..., 3:4]
+    add = glow[..., :3] * glow[..., 3:4]
+    hot = (base + add).min(-1) >= t
+    if not hot.any():
+        return glow, 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sj = np.where((base < t) & (add > 1e-6), (t - 2e-3 - base) / np.maximum(add, 1e-6), -1.0)
+    s = np.where(hot, np.clip(sj.max(-1), 0.0, 1.0), 1.0)
+    c = add * s[..., None]
+    m = c.max(-1, keepdims=True)
+    rgb = np.where(m > 1e-6, c / np.maximum(m, 1e-6), 0)
+    return np.concatenate([rgb, m], -1), int(hot.sum())
+
+
 def dilate(m, r):
     """Dilatation d'un masque booléen par un carré de côté 2r+1 (décalages successifs, numpy seul)."""
     out = m.copy()
@@ -237,7 +262,9 @@ def render_level(e, samples, mask_samples, what, log, lock):
         src = inn
         g = load_npy(src, "glow")
         if g is not None:
-            layers["glow"] = P.additive_layer(g)
+            gl, n_tamed = tame_glow(P.additive_layer(g), main)
+            rec["glow_tamed_px"] = n_tamed
+            layers["glow"] = gl
         li = load_npy(src, "light")
         if li is not None:
             hl = halo_layer(li, origin, e)

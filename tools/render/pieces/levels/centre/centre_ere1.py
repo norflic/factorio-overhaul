@@ -65,8 +65,11 @@ def build_e01(k):
     corde = k.matte("corde", "#8A7650", rough=0.9, grain=0.3, gain=1.2)
     drap = k.matte("drapeau", "#7A3A2C", rough=0.85, grain=0.24)
     # lumière de nuit (draw_as_light) : plus forte qu'avant (planche de nuit du 22/10 : lanterne invisible)
-    lant = k.emit("lanterne", "#FFB060", strength=4.0, off_hex="#A08860")
-    fen = k.emit("fenetre", "#FFB060", strength=1.6, off_hex="#6A5E4A")
+    # 2e correction du 22/10 : une couche draw_as_light ne fait que RÉVÉLER la couleur de jour (maquette : nuit =
+    # mix(LUT nuit, jour, lumière)) ; la lanterne et la fenêtre « éteintes » étaient sombres, donc ternes de nuit.
+    # Verre de lanterne et vitre chauds et clairs de jour (mèche, intérieur éclairé), sans lueur de jour (§5).
+    lant = k.emit("lanterne", "#FFB060", strength=4.0, off_hex="#F0C878")
+    fen = k.emit("fenetre", "#FFB060", strength=1.6, off_hex="#B89060")
 
     # --- plate-forme de rondins (couche plate posée au sol) ---
     logs = []
