@@ -71,6 +71,15 @@ section("Niveaux : sauvegarde 0.3.0 avec un chantier en cours")
 local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
 M.new_game({ p_busy = 0, p_nopath = 0, p_lost = 0 })
+-- Correction V3-T2 (défaut 9) : le message de migration passe par LuaForce.print, absent du moteur simulé : posé ici
+-- sur les trois forces (messages relevés dans fprints).
+local fprints = {}
+local function force_prints()
+  for _, name in ipairs({ "player", "enemy", "neutral" }) do
+    rawset(game.forces[name], "print", function(msg) fprints[#fprints + 1] = { force = name, msg = msg } end)
+  end
+end
+force_prints()
 -- Prototypes des niveaux (le moteur simulé ne lit pas l'étape data).
 for _, f in ipairs(L.families) do
   for n = 1, f.max do
@@ -156,11 +165,17 @@ check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté �
 -- L.footprints. `sides` : côtés successifs (celui de la sauvegarde d'avant V3-T, puis celui de chaque niveau) ; à
 -- chaque changement de côté, la candidate préférée de la règle d'agrandissement (shared/levels/footprint.lua ; les
 -- zones de ce test sont libres). Table livrée (seule la mitrailleuse grandit) : la foreuse et le centre restent.
+-- Lot V3-T2 : l'emprise actuelle d'un bâtiment HORS grille est le carré de côté + 1 qui le contient exactement
+-- (Levels.current_box) ; ce banc pose la foreuse 9 en (30 ; 30), position entière qu'un 3×3 n'a jamais en moteur réel.
+local function current_box(at, side)
+  if side >= 2 and not Foot.aligned(at, side) then return Foot.tile_box(at, side + 1) end
+  return Foot.tile_box(at, side)
+end
 local function expected_at(pos, sides)
   local at = { x = pos.x, y = pos.y }
   for i = 2, #sides do
     if sides[i] ~= sides[i - 1] then
-      local c = Foot.candidates(Foot.tile_box(at, sides[i - 1]), sides[i])[1]
+      local c = Foot.candidates(current_box(at, sides[i - 1]), sides[i])[1]
       at = { x = c.x, y = c.y }
     end
   end
@@ -202,6 +217,17 @@ check(gun_blocked.valid and gun_blocked.position.x == 50 and gun_blocked.get_ite
 local kept_logged = false
 for _, line in ipairs(W().logs) do if line:find("fo-lvl-gun-8", 1, true) and line:find("laissé en place", 1, true) then kept_logged = true end end
 check(kept_logged, "V3-T : bâtiment laissé faute de place journalisé ([FO-LEVELS] emprise)")
+-- Correction V3-T2 (défaut 9) : les joueurs de la force sont prévenus, une fois, avec le nombre et un lien de carte.
+do
+  local kept_msgs = {}
+  for _, m in ipairs(fprints) do
+    if type(m.msg) == "table" and m.msg[1] == "fo-levels-taille.migration-kept" then kept_msgs[#kept_msgs + 1] = m end
+  end
+  local m = kept_msgs[1]
+  check(#kept_msgs == 1 and m.force == "player" and m.msg[2] == 1 and m.msg[3] == "[gps=50,50]",
+    "V3-T2 : message unique à la force après la migration : 1 bâtiment laissé hors grille, lien [gps=50,50] ("
+    .. tostring(#kept_msgs) .. " message(s))")
+end
 check(gun_even.valid and gun_even.position.x == 70, "V3-T : mitrailleuse 14 (2×2 → 4×4, déjà sur la grille, place libre) : même entité, rien à faire")
 local g13 = s.find_entity("fo-lvl-gun-13", { x = 90, y = 90 })
 check(g13 ~= nil and g13.position.x == 90 and g13.position.y == 90 and not gun_job.valid
@@ -285,6 +311,7 @@ check(rr and rr.ok and rr.reason == "done" and s.find_entity("fo-lvl-gun-12", { 
 ---------------------------------------------------------------------------------------------------
 section("V3-T : sauvegarde 0.4.1 rechargée sans changement de version (filet), voisins déjà grossis, chantier forcé")
 M.new_game({ p_busy = 0, p_nopath = 0, p_lost = 0 })
+force_prints()
 local L3 = require("shared.levels.config")       -- instance chargée par le mod (M.load_mod vide le cache)
 local Foot3 = require("shared.levels.footprint")
 local Levels3 = require("script.levels.levels")
@@ -440,6 +467,232 @@ check(ok_tr and cbb and cbb.circuit_enable_disable == true and cbb.circuit_read_
 check(ok_tr and asb.get_recipe() and asb.get_recipe().name == "iron-gear-wheel" and asb.get_item_count("iron-plate") == 6
   and asa.get_item_count("iron-plate") == 0,
   "Levels.transfer en moteur simulé : recette de l'assembleur recopiée, contenu transféré")
+
+-- Lot V3-T2 (F83, moteur réel : un four neuf ignore l'écriture de crafting_progress, et une fabrication en cours a
+-- déjà pris ses ingrédients) : Levels.transfer d'une machine EN FABRICATION rend ses ingrédients à la nouvelle
+-- machine et note la progression, que Levels.resume_progress repose dès que la nouvelle fabrique la même recette.
+-- Le moteur simulé n'a ni is_crafting ni ingrédients de recette : posés sur ces deux entités seulement.
+do
+  local asc = s3.create_entity({ name = "fo-lvl-assembler-12", position = { x = 240.5, y = 200.5 }, force = "player" })
+  local asd = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 250, y = 200 }, force = "player" })
+  asc.set_recipe("iron-gear-wheel")
+  asc.insert({ name = "iron-plate", count = 4 })
+  rawset(asc, "is_crafting", function() return true end)
+  rawset(asc, "crafting_progress", 0.4)
+  rawset(asc, "get_recipe", function()
+    return { name = "iron-gear-wheel", valid = true, ingredients = { { type = "item", name = "iron-plate", amount = 2 } } }
+  end)
+  local crafting = false
+  rawset(asd, "is_crafting", function() return crafting end)
+  rawset(asd, "crafting_progress", 0) -- champ écrivable (le moteur simulé refuse toute écriture inconnue)
+  local resumed0 = lv3.stats.resumed or 0
+  local ok_r, err_r = pcall(Levels3.transfer, asc, asd)
+  local pend = lv3.pending and lv3.pending[asd.unit_number]
+  check(ok_r and asd.get_item_count("iron-plate") == 6 and pend and pend.progress == 0.4 and pend.recipe == "iron-gear-wheel"
+    and (rawget(asd, "crafting_progress") or 0) == 0,
+    "fabrication en cours : ingrédients rendus (4 + 2 plaques), progression 0,4 notée, pas écrite sur la machine neuve (" .. tostring(err_r) .. ")")
+  local n1 = Levels3.resume_progress()
+  check(n1 == 0 and lv3.pending[asd.unit_number] ~= nil, "progression notée gardée tant que la machine neuve ne fabrique pas")
+  crafting = true
+  local n2 = Levels3.resume_progress()
+  check(n2 == 1 and asd.crafting_progress == 0.4 and lv3.pending[asd.unit_number] == nil and (lv3.stats.resumed or 0) == resumed0 + 1,
+    "la machine neuve fabrique la même recette : progression reposée (0,4), entrée retirée, comptée")
+  -- Autre recette au redémarrage : rien n'est écrit, l'entrée est retirée (les ingrédients sont déjà rendus).
+  local ase = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 260, y = 200 }, force = "player" })
+  lv3.pending[ase.unit_number] = { entity = ase, recipe = "copper-cable", progress = 0.7, bonus = 0, tick = game.tick }
+  ase.set_recipe("iron-gear-wheel")
+  rawset(ase, "is_crafting", function() return true end)
+  rawset(ase, "crafting_progress", 0)
+  local n3 = Levels3.resume_progress()
+  check(n3 == 0 and lv3.pending[ase.unit_number] == nil and (rawget(ase, "crafting_progress") or 0) == 0,
+    "redémarrage sur une autre recette : progression NON reposée, entrée retirée")
+  for _, e in ipairs({ asc, asd, ase }) do if e.valid then e.destroy() end end
+end
+
+-- Lot V3-T2 (F86, moteur réel : create_entity{fast_replace = true} d'un bâtiment HORS grille recale la position, ne
+-- remplace rien et pose un second bâtiment par-dessus) : un bâtiment hors grille passe par le remplacement par
+-- script, même à côté égal, et revient sur la grille à une demi-tuile (Levels.current_box).
+do
+  local cc9 = Levels3.cc(game.forces.player)
+  local as8 = s3.create_entity({ name = "fo-lvl-assembler-8", position = { x = 300.5, y = 300.5 }, force = "player" })
+  local side = L3.footprint(L3.by_key.assembler, 8)
+  local info = Levels3.preview(as8, nil, true)
+  local off = side % 2 == 0 -- (300,5 ; 300,5) : hors grille pour un côté pair
+  check(off and info and info.resize and info.resize.regrid == true and info.resize.from == side and info.resize.to == side
+    and info.room and info.room.chosen ~= nil,
+    "bâtiment hors grille (assembleur 8, " .. side .. "×" .. side .. " centré sur une tuile) : l'aperçu demande une remise sur la grille, place libre")
+  for _, c in ipairs(L3.cost(L3.by_key.assembler, 9)) do cc9.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
+  local r0, fb0 = lv3.stats.resized or 0, lv3.stats.fallback or 0
+  local ok_s, why, _, a9 = Levels3.start(as8, nil)
+  local want = Foot3.candidates(Foot3.tile_box({ x = 300.5, y = 300.5 }, side + 1), side)[1]
+  check(ok_s and a9 and a9.name == "fo-lvl-assembler-9" and not as8.valid and a9.position.x == want.x and a9.position.y == want.y
+    and lv3.stats.resized == r0 + 1 and (lv3.stats.fallback or 0) == fb0,
+    "amélioration à côté égal d'un bâtiment hors grille : par script (pas de remplacement rapide), reposé sur la grille en ("
+    .. want.x .. " ; " .. want.y .. "), l'ancien retiré (" .. tostring(why) .. ")")
+  if a9 and a9.valid then a9.destroy() end
+end
+
+-- Correction V3-T2 (défauts 2, 15 et 16) : progression notée (pending) qui suit la machine dans TOUS les chemins.
+-- Mutations jouées par le correcteur et qui survivaient : m7 (le remplacement rapide ne fait plus suivre l'entrée) et
+-- m9 (la branche « en attente » de Levels.transfer désactivée) ; et le défaut 2/15 : la machine a déjà REPRIS une
+-- fabrication (ingrédients rendus consommés) quand une seconde amélioration arrive avant le on_tick.
+do
+  local AS3 = L3.by_key.assembler
+  local cc9 = Levels3.cc(game.forces.player)
+  local function recipe2()
+    return { name = "iron-gear-wheel", valid = true, ingredients = { { type = "item", name = "iron-plate", amount = 2 } } }
+  end
+  local function machine(n, x, y, crafting, progress)
+    local e = s3.create_entity({ name = L3.name(AS3, n), position = { x = x, y = y }, force = "player" })
+    e.set_recipe("iron-gear-wheel")
+    local state = { crafting = crafting }
+    rawset(e, "is_crafting", function() return state.crafting end)
+    rawset(e, "crafting_progress", progress or 0)
+    rawset(e, "get_recipe", recipe2)
+    return e, state
+  end
+  lv3.pending = lv3.pending or {}
+  -- (a) Remplacement rapide (même taille : 8 → 9, 4×4), machine pas encore repartie : l'entrée suit la nouvelle.
+  local side8 = L3.footprint(AS3, 8)
+  local x8 = 400 + (side8 % 2 == 1 and 0.5 or 0)
+  local a8 = machine(8, x8, x8, false, 0)
+  lv3.pending[a8.unit_number] = { entity = a8, recipe = "iron-gear-wheel", progress = 0.3, bonus = 0, tick = game.tick }
+  for _, c in ipairs(L3.cost(AS3, 9)) do cc9.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
+  local u8 = a8.unit_number
+  local ok_a, why_a, _, a9 = Levels3.start(a8, nil)
+  local pa = a9 and lv3.pending[a9.unit_number]
+  check(ok_a and a9 and L3.footprint(AS3, 9) == side8 and pa and pa.progress == 0.3 and pa.entity == a9 and lv3.pending[u8] == nil,
+    "progression notée d'une machine pas encore repartie : SUIT la nouvelle après un remplacement rapide (8 → 9, même taille) ("
+    .. tostring(why_a) .. ")")
+  -- (b) Second remplacement PAR SCRIPT (Levels.transfer), machine pas encore repartie : l'entrée suit, rien n'est rendu.
+  local b1 = machine(12, 420.5, 400.5, false, 0)
+  local b2 = machine(13, 430, 400, false, 0)
+  lv3.pending[b1.unit_number] = { entity = b1, recipe = "iron-gear-wheel", progress = 0.6, bonus = 0, tick = game.tick }
+  local ub1 = b1.unit_number
+  local ok_b, err_b = pcall(Levels3.transfer, b1, b2)
+  local pb = lv3.pending[b2.unit_number]
+  check(ok_b and pb and pb.progress == 0.6 and pb.entity == b2 and lv3.pending[ub1] == nil and b2.get_item_count("iron-plate") == 0,
+    "progression notée d'une machine pas encore repartie : SUIT la nouvelle après un second remplacement par script, aucun ingrédient rendu deux fois ("
+    .. tostring(err_b) .. ")")
+  lv3.pending[b2.unit_number] = nil
+  -- (c) Défauts 2 et 15 : la machine a déjà repris (fabrication neuve, progression 0,01, 2 plaques consommées) :
+  -- progression notée (0,6) reposée d'abord, puis ingrédients de la fabrication en cours rendus à la nouvelle, et la
+  -- progression 0,6 notée pour elle.
+  local c1 = machine(12, 440.5, 400.5, true, 0.01)
+  local c2 = machine(13, 450, 400, false, 0)
+  lv3.pending[c1.unit_number] = { entity = c1, recipe = "iron-gear-wheel", progress = 0.6, bonus = 0, tick = game.tick }
+  local uc1 = c1.unit_number
+  local ok_c, err_c = pcall(Levels3.transfer, c1, c2)
+  local pc = lv3.pending[c2.unit_number]
+  check(ok_c and pc and pc.progress == 0.6 and lv3.pending[uc1] == nil and c2.get_item_count("iron-plate") == 2,
+    "machine DÉJÀ repartie avant la seconde amélioration : ingrédients de sa fabrication rendus (2 plaques), progression notée 0,6 gardée ("
+    .. tostring(err_c) .. ")")
+  lv3.pending[c2.unit_number] = nil
+  -- (d) Même cas par le remplacement rapide (Levels.start, même taille) : la progression notée est reposée AVANT.
+  local d8 = machine(8, x8 + 20, x8, true, 0.01)
+  lv3.pending[d8.unit_number] = { entity = d8, recipe = "iron-gear-wheel", progress = 0.5, bonus = 0, tick = game.tick }
+  local ud8 = d8.unit_number
+  local r0 = lv3.stats.resumed or 0
+  for _, c in ipairs(L3.cost(AS3, 9)) do cc9.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
+  local seen_progress
+  table.insert(Levels3.on_replaced, function(old_unit) if old_unit == ud8 then seen_progress = rawget(d8, "crafting_progress") end end)
+  local ok_d = Levels3.start(d8, nil)
+  table.remove(Levels3.on_replaced)
+  check(ok_d and lv3.pending[ud8] == nil and (lv3.stats.resumed or 0) == r0 + 1 and seen_progress == 0.5,
+    "machine déjà repartie, remplacement rapide : progression notée reposée sur elle AVANT le remplacement (0,5), entrée retirée ("
+    .. tostring(seen_progress) .. ")")
+  for _, e in ipairs({ a9, b1, b2, c1, c2 }) do if e and e.valid then e.destroy() end end
+end
+
+-- Correction V3-T2 (défaut 16) : migration 0.4.2 → 0.4.3 hors jeu FAMILLE PAR FAMILLE (avant, seule la famille
+-- « command » était tenue hors jeu : une migration qui sautait l'assembleur ou le four passait tous les bancs hors
+-- jeu, mutations m4a et m4c du correcteur). Relevé 0.4.2 (seule la mitrailleuse grandissait) ; une machine de chaque
+-- famille au niveau 7, posée à l'ANCIENNE taille (côté de base) en terrain libre : reposée à la position préférée
+-- de la règle, contenu transféré, ancien retiré.
+section("V3-T2 : sauvegarde 0.4.2 → 0.4.3, une machine par famille (assembleur, four, foreuse, laser)")
+do
+  local snap42 = L3.footprint_snapshot(true)
+  for n = 1, L3.by_key.gun.max do snap42.gun[n] = L3.footprint(L3.by_key.gun, n) end
+  lv3.footprints = snap42
+  local want, ents = {}, {}
+  local specs = {
+    { key = "assembler", x = 600.5, y = 600.5, item = "iron-plate", count = 5 },
+    { key = "furnace", x = 620, y = 600, item = "coal", count = 4 },
+    { key = "drill", x = 640.5, y = 600.5 },
+    { key = "laser", x = 660, y = 600 },
+  }
+  for _, sp in ipairs(specs) do
+    local f = L3.by_key[sp.key]
+    local e = s3.create_entity({ name = L3.name(f, 7), position = { x = sp.x, y = sp.y }, force = "player" })
+    if sp.item then e.insert({ name = sp.item, count = sp.count }) end
+    local c = Foot3.candidates(Foot3.tile_box({ x = sp.x, y = sp.y }, f.size), L3.footprint(f, 7))[1]
+    want[sp.key] = { x = c.x, y = c.y }
+    ents[sp.key] = e
+  end
+  -- Défaut 14 : assembleur 7 EN PLEINE FABRICATION dans la sauvegarde (2 plaques déjà prises, progression 0,3) : la
+  -- migration le repose par script ; ses ingrédients sont rendus et la progression reposée au premier tick où il
+  -- refabrique. (En moteur réel, une carte créée par --create est sauvegardée au tick 0 : aucune machine n'y fabrique ;
+  -- ce cas n'est tenu qu'ici.)
+  local AS3 = L3.by_key.assembler
+  local busy = s3.create_entity({ name = L3.name(AS3, 7), position = { x = 680.5, y = 600.5 }, force = "player" })
+  busy.set_recipe("iron-gear-wheel")
+  busy.insert({ name = "iron-plate", count = 4 })
+  rawset(busy, "is_crafting", function() return true end)
+  rawset(busy, "crafting_progress", 0.3)
+  rawset(busy, "get_recipe", function()
+    return { name = "iron-gear-wheel", valid = true, ingredients = { { type = "item", name = "iron-plate", amount = 2 } } }
+  end)
+  local busy_at = Foot3.candidates(Foot3.tile_box({ x = 680.5, y = 600.5 }, AS3.size), L3.footprint(AS3, 7))[1]
+  local ok_m, err_m = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.2", new_version = "0.4.3" } } })
+  do
+    local nb = s3.find_entity(L3.name(AS3, 7), { x = busy_at.x, y = busy_at.y })
+    local pend = nb and lv3.pending and lv3.pending[nb.unit_number]
+    check(nb and not busy.valid and nb.get_item_count("iron-plate") == 6 and pend and pend.progress == 0.3,
+      "migration d'un assembleur EN PLEINE FABRICATION : reposé, ingrédients de la fabrication rendus (4 + 2 plaques), progression 0,3 notée")
+    if nb then
+      rawset(nb, "is_crafting", function() return true end)
+      rawset(nb, "crafting_progress", 0)
+      rawset(nb, "get_recipe", function() return { name = "iron-gear-wheel", valid = true, ingredients = {} } end)
+      local done = Levels3.resume_progress()
+      check(done == 1 and nb.crafting_progress == 0.3 and lv3.pending[nb.unit_number] == nil,
+        "… puis, au premier tick où il refabrique : progression 0,3 reposée")
+      nb.destroy()
+    end
+  end
+  check(ok_m, "on_configuration_changed 0.4.2 → 0.4.3 sans erreur (" .. tostring(err_m) .. ")")
+  for _, sp in ipairs(specs) do
+    local f = L3.by_key[sp.key]
+    local w = want[sp.key]
+    local e = s3.find_entity(L3.name(f, 7), w)
+    local content_ok = not sp.item or (e and e.get_item_count(sp.item) == sp.count)
+    check(e ~= nil and not ents[sp.key].valid and e.position.x == w.x and e.position.y == w.y and content_ok,
+      "migration 0.4.2 → 0.4.3 : " .. sp.key .. " 7 (" .. f.size .. "×" .. f.size .. " → " .. L3.footprint(f, 7) .. "×" .. L3.footprint(f, 7)
+      .. ") reposé à la position préférée (" .. w.x .. " ; " .. w.y .. "), contenu transféré, ancien retiré")
+  end
+end
+
+-- Correction V3-T2 (défaut 13) : doublons superposés hérités d'avant 0.4.3 (F86 : améliorer un bâtiment hors grille
+-- posait le nouveau par-dessus l'ancien) relevés, journalisés et signalés, jamais retirés.
+section("V3-T2 : doublons superposés hérités, relevés au chargement")
+do
+  local G = L3.by_key.gun
+  local d1 = s3.create_entity({ name = L3.name(G, 8), position = { x = 700.5, y = 700.5 }, force = "player" })
+  local d2 = s3.create_entity({ name = L3.name(G, 9), position = { x = 701, y = 701 }, force = "player" })
+  local lone = s3.create_entity({ name = L3.name(G, 9), position = { x = 720, y = 720 }, force = "player" })
+  local logs0, msgs0, st0 = #W().logs, #fprints, lv3.stats.stacked or 0
+  local ok_s, err_s = pcall(M.dispatch, W().on_config, { mod_changes = { ["other-mod"] = { old_version = "1.0.0", new_version = "1.0.1" } } })
+  local logged = 0
+  for i = logs0 + 1, #W().logs do if W().logs[i]:find("doublon superposé", 1, true) then logged = logged + 1 end end
+  local msg
+  for i = msgs0 + 1, #fprints do
+    local m = fprints[i].msg
+    if type(m) == "table" and m[1] == "fo-levels-taille.migration-stacked" then msg = m end
+  end
+  check(ok_s and logged == 1 and (lv3.stats.stacked or 0) == st0 + 1 and msg and msg[2] == 1 and d1.valid and d2.valid and lone.valid,
+    "doublon superposé (mitrailleuses 8 et 9 à une demi-tuile) : relevé une fois, journalisé, signalé à la force, aucun retiré ("
+    .. tostring(err_s) .. ")")
+  for _, e in ipairs({ d1, d2, lone }) do e.destroy() end
+end
 
 -- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une
 -- mutation de tests/mock_engine.lua doit casser ce banc). Le CONTACT BORD À BORD est exclu : c'est le choix du

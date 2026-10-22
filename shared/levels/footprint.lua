@@ -40,6 +40,14 @@
   Côté plus petit (b < a ; migration seulement, si la table venait à rétrécir) : le nouveau carré est
   CONTENU dans l'ancien, même ordre.
   =====================================================================================================
+  Compléments du lot V3-T2 :
+  - POINTS SERVIS (shared/levels/points.lua) : une position qui ferait sortir un point de jeu servi (dépôt d'une
+    foreuse dans un coffre, raccord de tuyau raccordé) de l'entité qui le sert n'est pas libre ; elle est bloquée
+    par cette entité (contour, gênes). Sans cela, une foreuse tournée vers le sud ou l'ouest déposait à côté de son
+    coffre après l'agrandissement ;
+  - bâtiment HORS grille (laissé par une migration) : son emprise actuelle est le carré de côté + 1 qui le contient
+    exactement (script/levels/levels.lua, Levels.current_box) ; à côté égal, il est remis sur la grille à une
+    demi-tuile au plus (cas « côté plus petit » ci-dessus).
 
   Ce qui bloque une position (décidé ici, appliqué par script/levels/levels.lua) :
   - une TUILE du carré qui entre en collision avec le masque du nouveau prototype (eau, eau profonde, hors
@@ -159,7 +167,8 @@ end
 local function easier(p, q, ip, iq)
   local tp, tq = #p.tiles > 0 and 1 or 0, #q.tiles > 0 and 1 or 0
   if tp ~= tq then return tp < tq end
-  if #p.entities ~= #q.entities then return #p.entities < #q.entities end
+  local ep, eq = #p.entities + #(p.moved or {}), #q.entities + #(q.moved or {})
+  if ep ~= eq then return ep < eq end
   if #p.tiles ~= #q.tiles then return #p.tiles < #q.tiles end
   return ip < iq
 end
@@ -167,6 +176,9 @@ end
 --- Évalue les candidates dans l'ordre. tiles : tuiles bloquantes { {x, y, name} } (coin nord-ouest de la
 --- tuile) ; blockers : entités bloquantes { {box = {x0, y0, x1, y1} (boîte de collision, carte), name, ...} }.
 --- Chaque candidate évaluée reçoit `tiles` et `entities` (ce qui la touche, dans l'ordre des listes) et `free`.
+--- Lot V3-T2 : une candidate marquée par shared/levels/points.lua (P.mark : `moved`, entités dont un point de jeu
+--- SERVI sortirait) n'est pas libre ; `moved` est réduit aux entités absentes de `entities` (même table : pas de
+--- doublon) et compte avec elles pour la position la plus facile à libérer.
 --- Renvoie { index, chosen (nil si aucune libre), preferred (= candidates[1]), target, target_index,
 --- candidates } ; l'évaluation s'arrête à la première libre (la préférée est toujours évaluée). `target` est
 --- la candidate À MONTRER (contour, panneau, interface distante) : la retenue s'il y en a une ; sinon (refus,
@@ -182,7 +194,13 @@ function F.evaluate(cands, tiles, blockers, margin)
     for _, b in ipairs(blockers or {}) do
       if F.overlap(rect, b.box) then he[#he + 1] = b end
     end
-    c.tiles, c.entities, c.free = ht, he, (#ht == 0 and #he == 0)
+    local mv = {}
+    for _, m in ipairs(c.moved or {}) do
+      local dup = false
+      for _, e in ipairs(he) do if e == m then dup = true end end
+      if not dup then mv[#mv + 1] = m end
+    end
+    c.tiles, c.entities, c.moved, c.free = ht, he, mv, (#ht == 0 and #he == 0 and #mv == 0)
     if c.free then
       res.index, res.chosen = i, c
       res.target, res.target_index = c, i

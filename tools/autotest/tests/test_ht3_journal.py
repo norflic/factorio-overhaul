@@ -29,9 +29,9 @@ GOOD = [
 ok = fail = 0
 
 
-def expect(lines, want_ok, label):
+def expect(lines, want_ok, label, tag=ht3_journal.DEFAULT_TAG):
     global ok, fail
-    res = ht3_journal.check_text("\n".join(lines))
+    res = ht3_journal.check_text("\n".join(lines), tag)
     got = all(r[0] for r in res)
     bad = [r[1] for r in res if not r[0]]
     if got == want_ok:
@@ -55,5 +55,18 @@ expect([l.replace("mise à jour des emprises", "emprises (filet, sans changement
 expect([l.replace("5 bâtiment(s)", "4 bâtiment(s)") for l in GOOD], False, "nombres du bilan différents")
 expect([l.replace("21 OK, 0 ECHEC", "20 OK, 1 ECHEC") for l in GOOD], False, "BILAN du scénario en échec")
 expect([l for l in GOOD if "JOURNAL ATTENDU : bilan" not in l], False, "attentes du scénario absentes")
+# Lot V3-T2 : balise du scénario t2-migration (--tag) ; les lignes d'une autre balise ne comptent pas.
+T2 = [l.replace("[FO-HT3-MIGRATION]", "[FO-T2-MIGRATION]") for l in GOOD]
+expect(T2, True, "balise FO-T2-MIGRATION (scenario t2-migration) : journal conforme", "FO-T2-MIGRATION")
+expect(GOOD, False, "balise FO-T2-MIGRATION demandee, journal du scenario ht3 : attentes absentes", "FO-T2-MIGRATION")
+# Lot V3-T2 (corrections, défaut 9) : message aux joueurs après la migration, journalisé par le mod.
+MSG = T2 + [P % 4 + "[FO-LEVELS] message de migration à la force fo-t2 : 2 laissé(s), 0 doublon(s)",
+            T % 5 + "[FO-T2-MIGRATION] JOURNAL ATTENDU : message fo-t2 2 0"]
+expect(MSG, True, "message de migration attendu et journalise une fois", "FO-T2-MIGRATION")
+expect([l for l in MSG if "message de migration à la force" not in l], False, "message de migration attendu mais absent", "FO-T2-MIGRATION")
+expect(MSG + [P % 5 + "[FO-LEVELS] message de migration à la force fo-t2 : 2 laissé(s), 0 doublon(s)"], False,
+       "message de migration en double", "FO-T2-MIGRATION")
+expect([l.replace("2 laissé(s), 0 doublon(s)", "3 laissé(s), 0 doublon(s)") for l in MSG], False,
+       "message de migration avec un autre nombre", "FO-T2-MIGRATION")
 print("BILAN : %d OK, %d ECHEC(S)" % (ok, fail))
 sys.exit(0 if fail == 0 else 1)

@@ -672,7 +672,7 @@ local function test_force(name)
   return f
 end
 
--- Lot V2c, Q16 : force « fo-lv-q16 » (y = 198, sous la galerie), centre 1, une mitrailleuse au niveau 1 et
+-- Lot V2c, Q16 : force « fo-lv-q16 » (y = 215, sous la galerie ; 198 avant V3-T2, la galerie agrandie y descend), centre 1, une mitrailleuse au niveau 1 et
 -- une foreuse au niveau 2. Le centre est refusé (« cc-families » : la mitrailleuse n'est pas au niveau 2)
 -- sans rien payer ; la mitrailleuse passe au niveau 2, puis le centre passe au niveau 2 (les familles que la
 -- force ne possède pas ne bloquent pas) ; enfin le centre 2 → 3 est refusé (niveau visé 4). 5 contrôles.
@@ -680,7 +680,7 @@ local function setup_q16(s)
   local call = function(fn, ...) return remote.call("factorio-overhaul", fn, ...) end
   local G, C = LV.by_key.gun, LV.by_key.command
   local q = test_force("fo-lv-q16")
-  local y = 198
+  local y = 215
   local cc = s.create_entity({ name = "fo-command-center", position = { 302, y }, force = q, raise_built = true })
   local gun = s.create_entity({ name = "gun-turret", position = { 310, y }, force = q })
   for dx = -1, 1 do for dy = -1, 1 do s.create_entity({ name = "iron-ore", position = { 314.5 + dx, y + 0.5 + dy }, amount = 5000 }) end end
@@ -831,10 +831,12 @@ local function setup_high_epoch(s, L)
   local G, C, Wl = LV.by_key.gun, LV.by_key.command, LV.by_key.wall
   local hi = test_force("fo-lv-hi")
   local y = 131
-  local H = { force = hi.name, cc = { x = 402, y = y }, gun = { x = 410, y = y }, la = { x = 414, y = y },
-              dr = { x = 419.5, y = y + 0.5 }, fu = { x = 425, y = y }, am = { x = 430.5, y = y + 0.5 },
-              -- g28 en x = 452 (lot V3-T : la mitrailleuse 28 fait 6×6 ; en 440, elle chevauchait gun2)
-              gun2 = { x = 436, y = y }, g28 = { x = 452, y = y } }
+  -- Lot V3-T2 : toutes les familles grandissent (L.footprints) ; aux niveaux 27 à 30, mitrailleuse, laser, foreuse,
+  -- four et assembleur font 6×6 et le centre 14-15 fait 8×8 : un bâtiment toutes les 8 tuiles, centres entiers
+  -- (côtés pairs), pour qu'aucun ne chevauche son voisin (avant V3-T2 : 4 à 6 tuiles d'écart).
+  local H = { force = hi.name, cc = { x = 402, y = y }, gun = { x = 412, y = y }, la = { x = 420, y = y },
+              dr = { x = 428, y = y }, fu = { x = 436, y = y }, am = { x = 444, y = y },
+              gun2 = { x = 452, y = y }, g28 = { x = 460, y = y } }
   L.hi = H
   local cc = s.create_entity({ name = LV.name(C, 14), position = H.cc, force = hi, raise_built = true })
   local st = call("levels_status", hi.name)
@@ -875,10 +877,10 @@ local function setup_high_epoch(s, L)
   local r = call("levels_upgrade", put("gun", H.g28, 28))
   check(not r.ok and r.reason == "cc-too-low", "niveaux (epoque 14) : niveau 29 refuse avec un centre 14 (plafond 28)", tostring(r.reason))
   -- Murs : rangée de 3 au niveau 27.
-  for i = 0, 2 do s.create_entity({ name = LV.name(Wl, 27), position = { 445.5 + i, y + 0.5 }, force = hi }) end
-  local nw = call("levels_row", at(s, LV.name(Wl, 27), 446.5, y + 0.5))
+  for i = 0, 2 do s.create_entity({ name = LV.name(Wl, 27), position = { 467.5 + i, y + 0.5 }, force = hi }) end
+  local nw = call("levels_row", at(s, LV.name(Wl, 27), 468.5, y + 0.5))
   local walls = 0
-  for i = 0, 2 do if at(s, LV.name(Wl, 28), 445.5 + i, y + 0.5) then walls = walls + 1 end end
+  for i = 0, 2 do if at(s, LV.name(Wl, 28), 467.5 + i, y + 0.5) then walls = walls + 1 end end
   check(nw == 3 and walls == 3, "niveaux (epoque 14) : rangee de 3 murs au niveau 28", nw .. " / " .. walls)
   -- Contenus conservés au niveau 28.
   local g28 = at(s, LV.name(G, 28), H.gun.x, H.gun.y)
@@ -1082,7 +1084,8 @@ function T.start()
   -- Niveaux : sol d'herbe (les socles de béton se verraient mal sur du béton).
   -- Lot V2 : 30 niveaux par famille, la galerie s'étend jusqu'à x = 480 ; époque 14 en y = 129-134.
   -- Lot V3-T : la rangée des mitrailleuses (jusqu'à 6×6) s'étend jusqu'à x = 538.
-  prepare_area(s, 290, 110, 545, 210, "grass-1")
+  -- Lot V3-T2 : toutes les familles grandissent ; la galerie descend jusqu'à y = 207, la force Q16 passe en y = 215.
+  prepare_area(s, 290, 110, 545, 225, "grass-1")
   test_techs()
   setup_recipes(s, S)
   setup_modules(s, S)

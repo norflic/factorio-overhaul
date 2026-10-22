@@ -2047,10 +2047,16 @@ for i = 1, 5 do
   -- Position attendue calculée depuis la TABLE L.footprints (suite d'intégration de V3-T) : même place si les
   -- niveaux 24 et 25 ont la même emprise (table livrée : four 2×2), sinon la candidate préférée de la règle
   -- d'agrandissement (shared/levels/footprint.lua ; la zone est libre).
+  -- Lot V3-T2 : le moteur simulé laisse ces fours 24 en (10 i ; 280), position entière : HORS grille dès que leur
+  -- côté est impair (table livrée : 5×5) ; l'emprise actuelle est alors le carré de côté + 1 qui les contient
+  -- (Levels.current_box), et un bâtiment hors grille passe toujours par le remplacement par script.
+  -- (Sans locale de plus : le bloc principal est à la limite de 200 locales de Lua 5.2.)
   local at = { x = 10 * i, y = 280 }
-  if L.footprint(L.by_key.furnace, 24) ~= L.footprint(L.by_key.furnace, 25) then
+  if L.footprint(L.by_key.furnace, 24) ~= L.footprint(L.by_key.furnace, 25)
+      or not require("shared.levels.footprint").aligned(at, L.footprint(L.by_key.furnace, 24)) then
     at = require("shared.levels.footprint").candidates(require("shared.levels.footprint").tile_box(at,
-      L.footprint(L.by_key.furnace, 24)), L.footprint(L.by_key.furnace, 25))[1]
+      L.footprint(L.by_key.furnace, 24) + (require("shared.levels.footprint").aligned(at, L.footprint(L.by_key.furnace, 24)) and 0 or 1)),
+      L.footprint(L.by_key.furnace, 25))[1]
   end
   local fu = s.find_entity(L.name(L.by_key.furnace, 25), { x = at.x, y = at.y })
   if fu and (fu.position.x ~= at.x or fu.position.y ~= at.y) then fu = nil end
@@ -2081,7 +2087,13 @@ check(ok_run, "jeu continu après le chargement (" .. tostring(err_run) .. ")")
 
 -- Même sauvegarde rechargée SANS changement de version (on_configuration_changed absent) : le filet des 30
 -- ticks achève les chantiers.
-local fu2 = s.create_entity({ name = L.name(L.by_key.furnace, 20), position = { x = 10, y = 320 }, force = "fo-test-13" })
+-- Lot V3-T2 : posé SUR la grille de son côté (le moteur réel recale toujours la position ; le moteur simulé non :
+-- en (10 ; 320), un four 5×5 serait hors grille et remis sur la grille par script, à une demi-tuile). Bloc do : le
+-- bloc principal est à la limite de 200 locales de Lua 5.2.
+do
+local p20 = require("shared.levels.footprint").center(require("shared.levels.footprint").tile_box({ x = 10, y = 320 },
+  L.footprint(L.by_key.furnace, 20)))
+local fu2 = s.create_entity({ name = L.name(L.by_key.furnace, 20), position = p20, force = "fo-test-13" })
 local j2 = job_040(fu2, "furnace", 21, 6000)
 global.fo.levels.jobs[j2.unit] = j2
 saved = M.deepcopy_global(global)
@@ -2090,8 +2102,9 @@ _G.global = saved
 ok_load = pcall(function() Wd.on_load() end)
 Levels = require("script.levels.levels")
 ok_run, err_run = pcall(M.run_ticks, 31)
-check(ok_load and ok_run and s.find_entity(L.name(L.by_key.furnace, 21), { x = 10, y = 320 }) ~= nil
+check(ok_load and ok_run and s.find_entity(L.name(L.by_key.furnace, 21), p20) ~= nil
   and next(global.fo.levels.jobs) == nil, "sans changement de version : chantier 0.4.0 achevé dans les 30 ticks (" .. tostring(err_run) .. ")")
+end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -2274,6 +2287,41 @@ check(absent_ok and row_ok and L.footprints.gun ~= nil,
 check(mono_ok, "table : l'emprise ne rétrécit jamais d'un niveau au suivant (toutes les familles)")
 -- Garde de la table (L.footprint_errors, appelée par l'étape data avant toute génération).
 check(#L.footprint_errors() == 0, "garde : la table livrée est valide")
+-- Lot V3-T2 : table livrée = la réponse du Directeur Créatif à Q-S1 (22/10, 16 h 45 : oui ; toutes les familles,
+-- plafond 6×6 pour les machines, centre 4×4 → 8×8, mur inchangé).
+do
+  local want_rows = { command = { 4, 5, 6, 7, 8 }, gun = { 2, 3, 4, 5, 6 }, laser = { 2, 3, 4, 5, 6 }, drill = { 3, 4, 5, 6, 6 },
+    furnace = { 2, 3, 4, 5, 6 }, assembler = { 3, 4, 5, 6, 6 } }
+  local rows_ok, maxes = true, {}
+  for _, f in ipairs(L.families) do
+    local row, want = L.footprints[f.key], want_rows[f.key]
+    if want then
+      if not (row and row.era and #row.era == 5) then rows_ok = false
+      else for i = 1, 5 do if row.era[i] ~= want[i] then rows_ok = false end end end
+    elseif row ~= nil then
+      rows_ok = false
+    end
+    maxes[#maxes + 1] = f.key .. " " .. L.footprint_max(f)
+  end
+  local machines_capped = L.footprint_max(L.by_key.drill) == 6 and L.footprint_max(L.by_key.assembler) == 6
+    and L.footprint_max(L.by_key.furnace) == 6 and L.footprint(L.by_key.drill, 19) == 6 and L.footprint(L.by_key.drill, 18) == 5
+  check(rows_ok and machines_capped and L.footprint(L.by_key.command, 13) == 8 and L.footprint(L.by_key.command, 12) == 7
+    and L.footprints.wall == nil and L.footprint_max(L.by_key.wall) == 1,
+    "table livrée (Q-S1, lot V3-T2) : toutes les familles sauf le mur ; machines plafonnées à 6×6 (foreuse et assembleur dès le niveau 19), centre 8×8 dès le niveau 13 ("
+    .. table.concat(maxes, ", ") .. ")")
+  -- Depuis une sauvegarde 0.4.2 (seule la mitrailleuse grandissait) : niveaux qui changent.
+  local Foot0 = require("shared.levels.footprint")
+  local snap42 = L.footprint_snapshot(true)
+  for n = 1, L.by_key.gun.max do snap42.gun[n] = L.footprint(L.by_key.gun, n) end
+  local ks = {}
+  for _, f in ipairs(L.families) do ks[#ks + 1] = f.key end
+  local d42 = Foot0.diff(snap42, L.footprint_snapshot(), ks, function(k) return L.by_key[k].size end)
+  local per = {}
+  for _, c in ipairs(d42) do per[c.key] = (per[c.key] or 0) + 1 end
+  check(#d42 == 108 and per.command == 12 and per.laser == 24 and per.drill == 24 and per.furnace == 24 and per.assembler == 24 and per.gun == nil,
+    "migration 0.4.2 → 0.4.3 : " .. #d42 .. " niveaux changent (centre " .. tostring(per.command) .. ", laser " .. tostring(per.laser) .. ", foreuse "
+    .. tostring(per.drill) .. ", four " .. tostring(per.furnace) .. ", assembleur " .. tostring(per.assembler) .. ", mitrailleuse 0)")
+end
 do
   local Common0 = require("prototypes.levels.common")
   -- gen : l'étape data aussi (Common.generate s'arrête sur la garde AVANT de toucher à data.raw ; appelée
@@ -2930,10 +2978,12 @@ check(recipe_set == "iron-gear-wheel" and new_am.get_inventory(2)[1].name == "ir
   and new_am.get_inventory(2)[1].extra == "plaques" and new_am.get_inventory(3)[1].count == 7
   and new_am.get_inventory(4)[2].name == "speed-module" and old_am.get_inventory(2).is_empty() and moved.spilled == 0,
   "transfert (cases) : recette, entrée (pile ENTIÈRE avec ses données), sortie, modules ; ancien vidé, rien renversé")
-check(nfluid[1] == ofluid[1] and nfluid[2] == ofluid[2] and new_am.energy == 1234 and new_am.crafting_progress == 0.4
+-- Correction V3-T2 (défaut 10) : la machine ne fabrique pas (pas d'is_crafting) : crafting_progress n'est PAS recopiée
+-- (F84 : l'écrire sur une machine à l'arrêt lance une fabrication sans prendre d'ingrédients) ; le bonus, si.
+check(nfluid[1] == ofluid[1] and nfluid[2] == ofluid[2] and new_am.energy == 1234 and new_am.crafting_progress == nil
   and new_am.bonus_progress == 0.2 and new_am.last_user == "joueur-1" and new_am.burner.currently_burning == "coal"
   and new_am.burner.remaining_burning_fuel == 2e6 and new_am.burner.heat == 5,
-  "transfert : fluides, énergie, progression, dernier utilisateur, brûleur (combustible en cours, chaleur)")
+  "transfert : fluides, énergie, bonus de productivité, dernier utilisateur, brûleur (combustible en cours, chaleur) ; progression d'une machine qui ne fabrique pas NON recopiée (F84)")
 check(#connected == 2 and connected[1].wire == 1 and connected[1].target_entity == target and moved.wires_lost == 1,
   "transfert : fils de circuit rebranchés vers les mêmes voisins ; un fil trop long compté perdu")
 local tg = { valid = true }
@@ -3064,6 +3114,144 @@ for _, lang in ipairs({ "fr", "en" }) do
     if not keys["fo-levels-taille." .. k] then miss[#miss + 1] = k end
   end
   check(okk and #miss == 0, lang .. " : clés fo-levels-taille présentes (" .. table.concat(miss, ",") .. ")")
+end
+-- 8. Lot V3-T2 (correction des défauts 1 et 6 du correcteur) : POINTS SERVIS. Règle : shared/levels/points.lua.
+-- a. Pure : la règle des points d'un prototype (déplacée de prototypes/levels/common.lua) s'inverse sur les points
+--    vanilla des familles (dépôt de la foreuse, raccords de tuyau) à tous les côtés de leur ligne.
+local Points = require("shared.levels.points")
+do
+  local pts = { { x = 0, y = -1.85 }, { x = 0, y = -2 }, { x = 0, y = 2 }, { x = -2, y = 0 }, { x = 2, y = 0 } }
+  local bad = {}
+  for _, side in ipairs({ 3, 4, 5, 6 }) do
+    for _, pt in ipairs(pts) do
+      local m = Points.move_point(pt, 3, side)
+      local back = Points.base_point(m, 3, side)
+      if math.abs(back.x - pt.x) > 1e-9 or math.abs(back.y - pt.y) > 1e-9 then bad[#bad + 1] = side .. ":" .. pt.x .. "," .. pt.y end
+    end
+  end
+  -- Virgule fixe du moteur (1/256) : dépôt d'une foreuse 4×4 tournée vers l'est relu (2,34765625 ; −0,49609375) en moteur
+  -- réel ; ramené au nord puis à la base : (0 ; −1,84765625), pas une proportion fausse.
+  local fx = Points.base_point(Points.unrotate({ x = 2.34765625, y = -0.49609375 }, defines.direction.east), 3, 4)
+  if math.abs(fx.x) > 1e-9 or math.abs(fx.y + 1.84765625) > 1e-9 then bad[#bad + 1] = "virgule fixe " .. fx.x .. "," .. fx.y end
+  local r = Points.rotate({ x = 0, y = -1 }, defines.direction.east)
+  local rs = Points.rotate({ x = -0.5, y = -2.35 }, defines.direction.south)
+  check(#bad == 0 and r.x == 1 and r.y == 0 and rs.x == 0.5 and rs.y == 2.35
+    and Points.unrotate(Points.rotate({ x = 0.5, y = -2.5 }, 6), 6).x == 0.5,
+    "points : règle inversible sur les points vanilla (côtés 3 à 6), rotation du moteur (nord → est : (0, −1) → (1, 0) ; sud : (−0,5 ; −2,35) → (0,5 ; 2,35)) ("
+    .. table.concat(bad, " ") .. ")")
+end
+-- b. Pure : reproduction du correcteur. Foreuse (dépôt (0 ; −1,85) au côté 3) qui dépose dans un coffre, assembleur
+--    (raccord (0 ; −2)) raccordé à un tuyau, 4 orientations, passages 3 → 4, 4 → 5, 5 → 6, terrain libre sinon. Règle
+--    d'avant (sans points) : le point servi change de tuile pour une partie des cas ; règle V3-T2 : jamais, et une
+--    position libre existe toujours.
+do
+  local cases = { { what = "foreuse", pt = { x = 0, y = -1.85 }, half = 0.35 }, { what = "assembleur", pt = { x = 0, y = -2 }, half = 0.29 } }
+  local old_moved, new_moved, new_none, total, old_list = 0, 0, 0, 0, {}
+  for _, cs in ipairs(cases) do
+    for _, tr in ipairs({ { 3, 4 }, { 4, 5 }, { 5, 6 } }) do
+      for _, dir in ipairs({ 0, 2, 4, 6 }) do
+        local a, b = tr[1], tr[2]
+        local c0 = (a % 2 == 1) and { x = 10.5, y = 10.5 } or { x = 10, y = 10 }
+        local t = Points.transpose(Points.move_point(cs.pt, 3, a), 3, a, a, b, dir)
+        local px, py = c0.x + t.old.x, c0.y + t.old.y
+        local tx, ty = math.floor(px) + 0.5, math.floor(py) + 0.5
+        local rec = { box = { x0 = tx - cs.half, y0 = ty - cs.half, x1 = tx + cs.half, y1 = ty + cs.half }, name = cs.what }
+        local function run(with_points)
+          local cands = Foot.candidates(Foot.tile_box(c0, a), b)
+          if with_points then Points.mark(cands, { { rel = t.new, box = rec.box, entity = rec } }) end
+          local res = Foot.evaluate(cands, {}, { rec }, Foot.MARGIN)
+          local c = res.chosen
+          return c and Points.inside(rec.box, c.x + t.new.x, c.y + t.new.y), c
+        end
+        total = total + 1
+        local ok_old = run(false)
+        local ok_new, cnew = run(true)
+        if not ok_old then
+          old_moved = old_moved + 1
+          old_list[#old_list + 1] = cs.what .. " " .. a .. "→" .. b .. " dir " .. dir
+        end
+        if not cnew then new_none = new_none + 1 elseif not ok_new then new_moved = new_moved + 1 end
+      end
+    end
+  end
+  check(old_moved > 0 and new_moved == 0 and new_none == 0,
+    "points servis : règle d'avant, le point change de tuile dans " .. old_moved .. "/" .. total .. " cas (" .. table.concat(old_list, ", ")
+    .. ") ; règle V3-T2 : 0 cas, une position libre trouvée dans les " .. total .. " cas")
+  -- Deux raccords OPPOSÉS servis (entrée au nord, sortie au sud) : aucune position ne garde les deux, refus ; la
+  -- position montrée désigne un des deux tuyaux.
+  local c0 = { x = 10.5, y = 10.5 }
+  local n = { box = { x0 = 10.21, y0 = 8.21, x1 = 10.79, y1 = 8.79 }, name = "pipe-n" }
+  local so = { box = { x0 = 10.21, y0 = 12.21, x1 = 10.79, y1 = 12.79 }, name = "pipe-s" }
+  local tn = Points.transpose({ x = 0, y = -2 }, 3, 3, 3, 4, 0)
+  local ts = Points.transpose({ x = 0, y = 2 }, 3, 3, 3, 4, 0)
+  local cands = Points.mark(Foot.candidates(Foot.tile_box(c0, 3), 4),
+    { { rel = tn.new, box = n.box, entity = n }, { rel = ts.new, box = so.box, entity = so } })
+  local res = Foot.evaluate(cands, {}, { n, so }, Foot.MARGIN)
+  check(res.chosen == nil and res.target and (#res.target.entities + #res.target.moved) >= 1,
+    "points servis : deux raccords opposés raccordés, aucune position ne garde les deux : refus, contour avec un tuyau à retirer")
+  -- Dépôt sur un CONVOYEUR (foreuse tournée vers le sud) : la position nord-est (rang 3 ; les deux sud recouvrent le
+  -- convoyeur) décale le dépôt d'une tuile, sur le convoyeur voisin de la même ligne : servi (alt) ; sans ce voisin, non.
+  local tb = Points.transpose({ x = 0, y = -1.85 }, 3, 3, 3, 4, 4)
+  local belt = { box = { x0 = 10.1, y0 = 12.1, x1 = 10.9, y1 = 12.9 }, name = "transport-belt" }
+  local nextb = { x0 = 11.1, y0 = 12.1, x1 = 11.9, y1 = 12.9 }
+  local cb1 = Points.mark(Foot.candidates(Foot.tile_box(c0, 3), 4), { { rel = tb.new, box = belt.box, entity = belt, alt = { nextb } } })
+  local cb2 = Points.mark(Foot.candidates(Foot.tile_box(c0, 3), 4), { { rel = tb.new, box = belt.box, entity = belt } })
+  check(cb1[3].dx == 0.5 and cb1[3].dy == -0.5 and #cb1[3].moved == 0 and #cb2[3].moved == 1 and cb2[3].moved[1] == belt,
+    "points servis : dépôt sur un convoyeur, la position qui le décale d'une tuile sur le convoyeur voisin reste servie ; sans ce voisin, non")
+end
+-- c. Moteur simulé : Levels.room sur une foreuse 6 tournée vers le SUD qui dépose dans un coffre, puis la même avec
+--    la position qui garde le dépôt prise (arbre) : refus, le coffre est désigné comme point servi (« point: »), et le
+--    panneau le dit (points-moved).
+do
+  local DR = L.by_key.drill
+  for n = 1, DR.max do
+    local pr = Wd.prototypes[L.name(DR, n)]
+    local cbox = Foot.proto_boxes(L.footprint(DR, n))
+    pr.collision_mask = MASK
+    pr.collision_box = { left_top = { x = cbox[1][1], y = cbox[1][2] }, right_bottom = { x = cbox[2][1], y = cbox[2][2] } }
+    pr.selection_box = { left_top = { x = -L.footprint(DR, n) / 2, y = -L.footprint(DR, n) / 2 },
+      right_bottom = { x = L.footprint(DR, n) / 2, y = L.footprint(DR, n) / 2 } }
+  end
+  local function drill_south(x, y)
+    local d = s.create_entity({ name = L.name(DR, 6), position = { x = x, y = y }, force = TF })
+    rawset(d, "direction", defines.direction.south)
+    rawset(d, "drop_position", { x = x, y = y + 1.85 })
+    local chest = s.create_entity({ name = "iron-chest", position = { x = x, y = y + 2 }, force = TF })
+    return d, chest
+  end
+  local d1, ch1 = drill_south(760.5, 500.5)
+  local room = Levels.room(d1, 3, L.name(DR, 7), 4)
+  local c = room.chosen
+  local dropx, dropy = c and (c.x + 0.5), c and (c.y + 2.35)
+  local cb = ch1.bounding_box
+  check(c and c.dx == -0.5 and c.dy == -0.5 and room.index == 4 and #room.points == 1
+    and dropx >= cb.left_top.x and dropx <= cb.right_bottom.x and dropy >= cb.left_top.y and dropy <= cb.right_bottom.y,
+    "moteur simulé : foreuse 6 tournée vers le sud, coffre au dépôt : 3×3 → 4×4 au nord-ouest (rang 4), le dépôt (" .. tostring(dropx)
+    .. " ; " .. tostring(dropy) .. ") reste dans le coffre")
+  -- Arbre au nord-ouest (la position qui garde le dépôt) ; arbre au sud-est du coffre (les deux positions sud, qui
+  -- recouvrent déjà le coffre, ont alors 2 gênes) : la plus facile à libérer est le nord-est (rang 3), libre
+  -- d'entités, mais qui ferait déposer à côté du coffre.
+  local d2 = drill_south(780.5, 500.5)
+  s.create_entity({ name = "tree-01", position = { x = 778.5, y = 498.5 }, force = "neutral" })
+  s.create_entity({ name = "tree-01", position = { x = 781.5, y = 502.5 }, force = "neutral" })
+  local room2 = Levels.room(d2, 3, L.name(DR, 7), 4)
+  local names = table.concat(Levels.blocker_names(room2.target), ",")
+  check(room2.chosen == nil and room2.target_index == 3 and names == "point:iron-chest",
+    "moteur simulé : la seule position qui garde le dépôt est prise (arbre) : refus « no-room » ; contour au nord-est, seule gêne : le coffre comme point servi (" .. names .. ")")
+  local okp = pcall(function()
+    rawset(player, "selected", nil)
+    rawset(player, "selected", d2)
+    M.dispatch(ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
+  end)
+  local tp = table.concat(texts(player.gui.left["fo_lvl_panel"]), "\n")
+  check(okp and tp:find("fo-levels-taille.points-moved", 1, true) ~= nil,
+    "panneau : ligne « point de sortie ou raccord » quand la position montrée déplacerait un point servi")
+  for _, lang in ipairs({ "fr", "en" }) do
+    local keys = {}
+    cfg_keys("locale/" .. lang .. "/levels-taille.cfg", keys)
+    check(keys["fo-levels-taille.points-moved"] and keys["fo-levels-taille.migration-kept"] and keys["fo-levels-taille.migration-stacked"]
+      and keys["fo-levels-taille.regrid-line"], lang .. " : clés du lot V3-T2 (points-moved, migration-kept, migration-stacked, regrid-line)")
+  end
 end
 rawset(player, "selected", nil)
 rawset(player, "force", home)

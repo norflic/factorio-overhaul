@@ -39,8 +39,19 @@ local function room_fields(out, info)
     out.contour_candidate = room.target_index
     out.contour = p and { x0 = p.box.x0, y0 = p.box.y0, x1 = p.box.x1, y1 = p.box.y1 } or nil
     out.blockers = Levels.blocker_names(p)
+    -- Lot V3-T2 (corrections) : points de jeu servis relevés (« drop:iron-chest@x,y », « pipe:… »), dans l'ordre.
+    local pts = {}
+    for _, q in ipairs(room.points or {}) do pts[#pts + 1] = q.kind .. ":" .. q.entity.name .. "@" .. q.x .. "," .. q.y end
+    out.points = pts
   end
   return out
+end
+
+--- Nombre de clés d'une table (nil : 0) ; le compte ne dépend pas de l'ordre de parcours.
+local function count_keys(t)
+  local n = 0
+  for _ in pairs(t or {}) do n = n + 1 end
+  return n
 end
 
 local function log_lines(lines)
@@ -138,12 +149,25 @@ remote.add_interface("factorio-overhaul", {
              spilled = x.spilled or 0, wires_lost = x.wires_lost or 0, migrated = x.migrated or 0,
              overlap_kept = x.overlap_kept or 0, ghosts_removed = x.ghosts_removed or 0,
              ground_moved = x.ground_moved or 0, ground_left = x.ground_left or 0,
+             -- Lot V3-T2 : progressions de fabrication reposées après agrandissement (resume_later), et en attente.
+             resumed = x.resumed or 0, pending = count_keys(st.pending),
+             -- Corrections V3-T2 : fluide d'une fabrication en cours non rendu (boîte pleine ; 0 attendu), doublons
+             -- superposés hérités d'avant 0.4.3 relevés à la migration (Levels.find_stacked).
+             fluid_lost = x.fluid_lost or 0, stacked = x.stacked or 0,
              -- Suite H-T3 : relevé des emprises gardé dans la sauvegarde (global.fo.levels.footprints, copie : nombres
              -- seulement ; nil dans une sauvegarde d'avant V3-T pas encore migrée) et son écart à la table du mod
              -- chargé (true : la migration n'a pas encore tourné). Lu par le banc de migration en moteur réel
              -- (tools/autotest/fo-autotest/scenarios/ht3-migration.lua) : le global d'un mod est illisible des
              -- autres (F35).
              footprints = st.footprints, footprints_stale = Levels.footprints_stale() }
+  end,
+  -- Correction V3-T2 (défaut 13, H-L1) : coût de l'abonnement on_tick de Levels.resume_progress, mesuré par le banc
+  -- (n appels de suite dans un LuaProfiler, écrit au journal ; la mesure ne pilote rien).
+  levels_bench_resume = function(n)
+    local p = game.create_profiler()
+    for _ = 1, n or 1 do Levels.resume_progress() end
+    p.stop()
+    log({ "", "[FO-LEVELS] banc resume_progress : " .. (n or 1) .. " appels, en attente " .. count_keys(Storage.ns("levels").pending) .. " : ", p })
   end,
   profiler = function(on)
     Profiler.set_enabled(on and true or false, game.tick)
