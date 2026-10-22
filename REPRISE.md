@@ -185,6 +185,14 @@
   que l'original continuait dans le workflow : deux écritures concurrentes dans le même worktree, signalées par
   l'agent lui-même. Pour corriger un agent en route : arrêter le workflow (TaskStop), commiter son worktree,
   éditer le script et relancer avec `resumeFromRunId`.
+- **Disque H: presque plein** (30 Go, dont 8,6 Go pour ce dossier ; le reste n'est pas à nous). Le 22/10 à
+  18 h 25 il ne restait que 505 Mo : l'orchestrateur a DÉPLACÉ (robocopy /MOVE, rien d'effacé) vers
+  `C:\Users\evan2\fo-archives\` les caches de rendu régénérables et deux archives anciennes :
+  `fo-logs\2026-10-22_V3S\hybride\cache`, `industriel\cache`, `hightech\work`,
+  `tools\render\cache` des worktrees `wf_483106c7-c7f-2`, `-3`, `-4`, `fo-logs\2026-10-22_V3S-synthese`
+  (passe arrêtée, sans livrable) et `fo-logs\2026-10-21_session5_fo-shots_anciennes`. Libre ensuite :
+  2,67 Go. Ne JAMAIS déplacer les archives `fo-logs\*` qui contiennent un `visual.log` (le banc d4m les lit)
+  ni les preuves citées par RD_LOG. Surveiller la place avant un grand lot de rendus ou de captures.
 - Les agents déposent parfois des diffs pour l'intégrateur dans le dossier temporaire de la session,
   qui peut disparaître. Appliquez-les vite, ou copiez-les dans `fo-logs`.
 - Le DC peut jouer pendant les bancs : jamais d'arrêt global de factorio.exe, fermeture ciblée seulement
