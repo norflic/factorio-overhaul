@@ -44,7 +44,8 @@ def main(argv):
                 print("[lock_retry] pas de place (%d essais, %.0f s)" % (n, time.time() - t0), flush=True)
             time.sleep(0.5)
             continue
-        print("[lock_retry] place obtenue après %d essai(s), %.0f s ; code %d" % (n, time.time() - t0, rc), flush=True)
+        print("[lock_retry] terminé : place obtenue au %de essai, %.0f s en tout (attente + commande) ; code %d" % (
+            n, time.time() - t0, rc), flush=True)
         return rc
 
 

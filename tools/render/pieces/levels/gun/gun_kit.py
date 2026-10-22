@@ -358,6 +358,9 @@ def materials(S, e, g):
     elif e == 4:
         metal("main", "#8C7A3A", rough=0.5, met=0.25, rust="#4A3A20", ra=0.3, dirt=0.55)  # tôle jaune délavée
         metal("galva", "#6E7378", rough=0.38, met=0.8)
+        # caillebotis de la passerelle (niveau 8) : galvanisé terni ; vu de dessus, il montait la médiane du corps
+        # à 73 (cible 60 ± 10) au 1er aperçu de la reprise 3
+        metal("grille", "#6E7378", rough=0.6, met=0.5, gain=g * 0.28)
         metal("black", "#1C1C1C", rough=0.6, met=0.3, gain=g * 1.2)
         emissive("emit", "#FF8C1A", 2.4)
     elif e == 5:
@@ -399,7 +402,9 @@ def materials(S, e, g):
     elif e == 13:
         metal("main", "#D9D6CF", rough=0.32, met=0.0, grain=0.08, dirt=0.5, gain=g * 0.62)   # céramique blanche
         metal("cuivre", "#B0703A", rough=0.3, met=0.9, grain=0.12)
-        emissive("emit", "#FF4FD8", 2.4)
+        # surfaces de plasma : rose clair #FF9AE8 (luminance 181) ; le magenta #FF4FD8 de la bible (126) ne peut pas
+        # dépasser la médiane du corps (≈ 92) de 80 (D2-1) ; le halo de nuit garde #FF4FD8 (EMIT_HEX, k.halo)
+        emissive("emit", "#FF9AE8", 2.4)
         emissive("emit2", "#FF9A3A", 2.6)
     elif e == 14:
         metal("main", "#C9A23A", rough=0.32, met=1.0, grain=0.45, dirt=0.45, gain=g * 0.75)  # feuille d'or froissée
@@ -408,7 +413,7 @@ def materials(S, e, g):
         emissive("emit", "#FF2A2A", 2.6)
         # reflet des cellules : #2F6BFF de la bible a une luminance de 105/255, sous le seuil D2-1 (médiane du corps
         # 88 + 80) ; le reflet (lumière réfléchie, donc plus claire que la cellule) passe à un bleu clair
-        emissive("emit2", "#8FB4FF", 1.8)
+        emissive("emit2", "#A8C8FF", 1.8)
     elif e == 15:
         metal("main", "#E8DCB0", rough=0.28, met=0.9, grain=0.1, dirt=0.5, gain=g * 0.62)   # or blanc patiné
         metal("nacre", "#D8D2C8", rough=0.22, met=0.2, grain=0.08, dirt=0.5, gain=g * 0.62)
@@ -673,7 +678,7 @@ def piece(k, e, M):
         return
     if e == 4:   # passerelle à garde-corps autour de l'avant, dépasse de 0,15 de chaque côté
         yb, yf = gy(0.15), gy(1.05)
-        k.box((2.30, yb - yf, 0.04), (0, (yb + yf) / 2, 0.10), M["galva"], bevel=0.005, name="caillebotis")
+        k.box((2.30, yb - yf, 0.04), (0, (yb + yf) / 2, 0.10), M["grille"], bevel=0.005, name="caillebotis")
         for i in range(9):
             k.box((0.02, yb - yf - 0.04, 0.02), (-1.0 + i * 0.25, (yb + yf) / 2, 0.125), M["dark"], bevel=0, name="latte")
         posts = [(-1.13, yb), (-1.13, (yb + yf) / 2), (-1.13, yf), (-0.40, yf), (0.40, yf), (1.13, yf),

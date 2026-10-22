@@ -197,7 +197,9 @@ def save(img, path, compact=False):
     1 versionnées dans docs/ (disque H: limité) ; les gros plans (D3, précision au pixel) restent en RGB sans perte."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if compact and img.mode == "RGB":
-        img = img.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.FLOYDSTEINBERG)
+        # FASTOCTREE : MEDIANCUT perdait les couleurs émissives rares (bulbe vert é8 et cristaux violets é7 devenus
+        # blanchâtres, constaté le 22/10) ; l'octree garde les teintes saturées peu fréquentes
+        img = img.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.FLOYDSTEINBERG)
     img.save(path, optimize=True)
     return path
 
@@ -257,6 +259,8 @@ def gros_plans(out_dir, epochs=(1, 5, 10, 15)):
     for e in epochs:
         spec = [(1, "E", "niv. 1 (vanilla)"), (2 * e - 1, "E", "niv. %d" % (2 * e - 1)), (2 * e, "E", "niv. %d" % (2 * e)),
                 (2 * e, "S", "niv. %d (S)" % (2 * e))]
+        if e == 1:   # le niveau impair de l'époque 1 EST le vanilla : on montre plutôt le niveau 2 en pose N
+            spec[1] = (2, "N", "niv. 2 (N)")
         cw, top, bottom = 3.6, 4.0, 1.5
         Wpx, Hpx = int(len(spec) * cw * PPT), int((top + bottom) * PPT)
         ents = [{"pos": ((i * cw + 1.5) * PPT, top * PPT), "layers": level_layers(lv, pose)} for i, (lv, pose, _) in enumerate(spec)]

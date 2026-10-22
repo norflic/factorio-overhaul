@@ -371,7 +371,7 @@ def _head(k, e, M, z0, zg):
                   name="cadre")
             # reflet bleu des cellules : bande de 0,12 (≥ 8 px hr après agrandissement, F37) ; D2-1 (pose O : 170 px
             # seulement au 1er aperçu, luminance sous la médiane du corps + 80)
-            k.box((0.40, 0.12, 0.035), (sx * 0.84, -0.08, zg + 0.065), M["emit2"], rot=(0, sx * 0.30, 0), bevel=0,
+            k.box((0.40, 0.20, 0.035), (sx * 0.84, -0.08, zg + 0.065), M["emit2"], rot=(0, sx * 0.30, 0), bevel=0,
                   name="reflet")
         k.cyl(0.04, 0.26, (0, -0.12, zg + 0.38), M["blanc"], verts=10, name="pied_parabole")
         k.sph(0.38, (0, -0.06, zg + 0.66), M["blanc"], scale=(1, 0.30, 1), seg=36, rings=18, name="parabole")

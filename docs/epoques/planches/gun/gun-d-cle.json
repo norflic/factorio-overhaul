@@ -1,0 +1,66 @@
+{
+ "cle": {
+  "A": {
+   "epoque": 2,
+   "niveau": 3
+  },
+  "B": {
+   "epoque": 3,
+   "niveau": 5
+  },
+  "C": {
+   "epoque": 5,
+   "niveau": 9
+  },
+  "D": {
+   "epoque": 12,
+   "niveau": 23
+  },
+  "E": {
+   "epoque": 15,
+   "niveau": 29
+  },
+  "F": {
+   "epoque": 13,
+   "niveau": 25
+  },
+  "G": {
+   "epoque": 8,
+   "niveau": 15
+  },
+  "H": {
+   "epoque": 4,
+   "niveau": 7
+  },
+  "I": {
+   "epoque": 6,
+   "niveau": 11
+  },
+  "J": {
+   "epoque": 11,
+   "niveau": 21
+  },
+  "K": {
+   "epoque": 14,
+   "niveau": 27
+  },
+  "L": {
+   "epoque": 1,
+   "niveau": 1
+  },
+  "M": {
+   "epoque": 10,
+   "niveau": 19
+  },
+  "N": {
+   "epoque": 7,
+   "niveau": 13
+  },
+  "O": {
+   "epoque": 9,
+   "niveau": 17
+  }
+ },
+ "echelle_px_par_tuile": 15.114,
+ "pose": "E"
+}
