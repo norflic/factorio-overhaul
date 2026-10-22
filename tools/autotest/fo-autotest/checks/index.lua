@@ -3,4 +3,5 @@
 return {
   "exemple",
   "levels_taille", -- lot V3-T : emprise croissante (agrandissement sur place, refus et contour)
+  "levels_machines", -- lot V3-T2 : emprise croissante de toutes les familles (machines, laser, centre)
 }

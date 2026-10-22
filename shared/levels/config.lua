@@ -300,29 +300,36 @@ end
 -- refusée et le contour nécessaire s'affiche »). OBJECTIFS D1-4 révisé.
 --   L.footprints[clé] = { era = { côté de l'ère I, II, III, IV, V } }  (une ère = L.ERA_EPOCHS époques), ou
 --                       { level = { côté du niveau 1, 2, … max } }       (réglage fin, niveau par niveau).
---   Famille absente de la table : côté constant = family.size (aujourd'hui : toutes sauf la mitrailleuse).
--- ACTIVÉE pour la seule MITRAILLEUSE (famille témoin du lot V3-S ; décision de l'orchestrateur du 22/10) :
--- 2×2 aux époques 1-3 (niveaux 1 à 6), 3×3 aux époques 4-6 (7 à 12), 4×4 aux époques 7-9 (13 à 18), 5×5 aux
--- époques 10-12 (19 à 24), 6×6 aux époques 13-15 (25 à 30).
--- Échelle PROPOSÉE pour les autres familles, NON VALIDÉE (question Q-S1 ouverte : vaut-elle pour toutes les
--- familles ?). Les activer = ajouter leur ligne ici : boîtes, portée, raccords de tuyaux, point de dépôt et
--- rayon d'extraction des prototypes (prototypes/levels/common.lua, apply_footprint), place, migration et tests
--- suivent la table. CONDITION (garde L.footprint_errors, refusée à l'étape data et par tests/levels_test.lua) :
--- le côté du NIVEAU 1 vaut family.size, car le niveau 1 EST le bâtiment vanilla, jamais retouché ; une ligne
--- ne rétrécit jamais d'un niveau au suivant.
---   laser     = { era = { 2, 3, 4, 5, 6 } },
---   drill     = { era = { 3, 4, 5, 6, 6 } },   assembler = { era = { 3, 4, 5, 6, 6 } } (« machines 3×3 → 6×6 ») ;
---   furnace   : le four en acier vanilla est un 2×2 (family.size = 2) : { era = { 2, 3, 4, 5, 6 } } ou
---               { era = { 2, 4, 5, 6, 6 } } ; « 3 → 6 » exigerait un niveau 1 non vanilla (hors de ce lot) ;
---   command   = { era = { 4, 5, 6, 7, 8 } }   (« centre 4×4 → 8×8 ») ;
---   wall      : 1×1 inchangé (pas de ligne).
+--   Famille absente de la table : côté constant = family.size (aujourd'hui : le mur seul).
+-- Lot V3-T (22/10, 14 h 50, version 0.4.2) : activée pour la seule MITRAILLEUSE (famille témoin du lot V3-S).
+-- Lot V3-T2 (22/10, version 0.4.3) : activée pour TOUTES les familles. Q-S1 répondue OUI par le Directeur
+-- Créatif (22/10, 16 h 45) : l'échelle vaut pour toutes les familles, plafond 6×6 pour les machines de
+-- production, centre 4×4 → 8×8, mur inchangé. Une ère = 3 époques = 6 niveaux d'une famille (3 niveaux du
+-- centre) :
+--   gun, laser, furnace : 2×2 aux niveaux 1-6, 3×3 aux 7-12, 4×4 aux 13-18, 5×5 aux 19-24, 6×6 aux 25-30 ;
+--   drill, assembler    : 3×3 aux niveaux 1-6, 4×4 aux 7-12, 5×5 aux 13-18, 6×6 aux 19-30 (plafond atteint à
+--                         l'ère IV : « machines 3×3 → 6×6 ») ;
+--   command             : 4×4 aux niveaux 1-3, 5×5 aux 4-6, 6×6 aux 7-9, 7×7 aux 10-12, 8×8 aux 13-15 ;
+--   wall                : 1×1 inchangé (pas de ligne).
+-- Le four en acier vanilla est un 2×2 (family.size = 2) : « 3 → 6 » exigerait un niveau 1 non vanilla ; la
+-- ligne { 2, 3, 4, 5, 6 } est retenue (même échelle que les tourelles). Boîtes, portée, raccords de tuyaux,
+-- point de dépôt et rayon d'extraction des prototypes (prototypes/levels/common.lua, apply_footprint), place,
+-- migration et tests suivent la table. CONDITION (garde L.footprint_errors, refusée à l'étape data et par
+-- tests/levels_test.lua) : le côté du NIVEAU 1 vaut family.size, car le niveau 1 EST le bâtiment vanilla, jamais
+-- retouché ; une ligne ne rétrécit jamais d'un niveau au suivant. Visuel PROVISOIRE : le sprite actuel mis à
+-- l'échelle de l'emprise (kit.sprite_scale), en attendant les sprites du lot V3-E.
 -- Règle de position (le nouveau bâtiment CONTIENT l'ancien, la plus centrée d'abord, puis un ordre fixe) et
 -- géométrie : shared/levels/footprint.lua. Prototypes : prototypes/levels/common.lua. Remplacement par script,
 -- refus « no-room » et contour : script/levels/levels.lua.
 ---------------------------------------------------------------------------------------------------
 L.ERA_EPOCHS = 3
 L.footprints = {
+  command = { era = { 4, 5, 6, 7, 8 } },
   gun = { era = { 2, 3, 4, 5, 6 } },
+  laser = { era = { 2, 3, 4, 5, 6 } },
+  drill = { era = { 3, 4, 5, 6, 6 } },
+  furnace = { era = { 2, 3, 4, 5, 6 } },
+  assembler = { era = { 3, 4, 5, 6, 6 } },
 }
 
 --- Garde de la table (correction V3-T, défaut 3) : liste des erreurs (vide si la table est valide), dans

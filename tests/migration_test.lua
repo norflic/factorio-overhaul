@@ -441,6 +441,47 @@ check(ok_tr and asb.get_recipe() and asb.get_recipe().name == "iron-gear-wheel" 
   and asa.get_item_count("iron-plate") == 0,
   "Levels.transfer en moteur simulé : recette de l'assembleur recopiée, contenu transféré")
 
+-- Lot V3-T2 (F83, moteur réel : un four neuf ignore l'écriture de crafting_progress, et une fabrication en cours a
+-- déjà pris ses ingrédients) : Levels.transfer d'une machine EN FABRICATION rend ses ingrédients à la nouvelle
+-- machine et note la progression, que Levels.resume_progress repose dès que la nouvelle fabrique la même recette.
+-- Le moteur simulé n'a ni is_crafting ni ingrédients de recette : posés sur ces deux entités seulement.
+do
+  local asc = s3.create_entity({ name = "fo-lvl-assembler-12", position = { x = 240.5, y = 200.5 }, force = "player" })
+  local asd = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 250, y = 200 }, force = "player" })
+  asc.set_recipe("iron-gear-wheel")
+  asc.insert({ name = "iron-plate", count = 4 })
+  rawset(asc, "is_crafting", function() return true end)
+  rawset(asc, "crafting_progress", 0.4)
+  rawset(asc, "get_recipe", function()
+    return { name = "iron-gear-wheel", valid = true, ingredients = { { type = "item", name = "iron-plate", amount = 2 } } }
+  end)
+  local crafting = false
+  rawset(asd, "is_crafting", function() return crafting end)
+  rawset(asd, "crafting_progress", 0) -- champ écrivable (le moteur simulé refuse toute écriture inconnue)
+  local resumed0 = lv3.stats.resumed or 0
+  local ok_r, err_r = pcall(Levels3.transfer, asc, asd)
+  local pend = lv3.pending and lv3.pending[asd.unit_number]
+  check(ok_r and asd.get_item_count("iron-plate") == 6 and pend and pend.progress == 0.4 and pend.recipe == "iron-gear-wheel"
+    and (rawget(asd, "crafting_progress") or 0) == 0,
+    "fabrication en cours : ingrédients rendus (4 + 2 plaques), progression 0,4 notée, pas écrite sur la machine neuve (" .. tostring(err_r) .. ")")
+  local n1 = Levels3.resume_progress()
+  check(n1 == 0 and lv3.pending[asd.unit_number] ~= nil, "progression notée gardée tant que la machine neuve ne fabrique pas")
+  crafting = true
+  local n2 = Levels3.resume_progress()
+  check(n2 == 1 and asd.crafting_progress == 0.4 and lv3.pending[asd.unit_number] == nil and (lv3.stats.resumed or 0) == resumed0 + 1,
+    "la machine neuve fabrique la même recette : progression reposée (0,4), entrée retirée, comptée")
+  -- Autre recette au redémarrage : rien n'est écrit, l'entrée est retirée (les ingrédients sont déjà rendus).
+  local ase = s3.create_entity({ name = "fo-lvl-assembler-13", position = { x = 260, y = 200 }, force = "player" })
+  lv3.pending[ase.unit_number] = { entity = ase, recipe = "copper-cable", progress = 0.7, bonus = 0, tick = game.tick }
+  ase.set_recipe("iron-gear-wheel")
+  rawset(ase, "is_crafting", function() return true end)
+  rawset(ase, "crafting_progress", 0)
+  local n3 = Levels3.resume_progress()
+  check(n3 == 0 and lv3.pending[ase.unit_number] == nil and (rawget(ase, "crafting_progress") or 0) == 0,
+    "redémarrage sur une autre recette : progression NON reposée, entrée retirée")
+  for _, e in ipairs({ asc, asd, ase }) do if e.valid then e.destroy() end end
+end
+
 -- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une
 -- mutation de tests/mock_engine.lua doit casser ce banc). Le CONTACT BORD À BORD est exclu : c'est le choix du
 -- moteur simulé, pas un fait observé en moteur réel (les boîtes du mod, réduites de MARGIN, ne s'y frottent pas).

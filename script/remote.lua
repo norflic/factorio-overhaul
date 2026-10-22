@@ -43,6 +43,13 @@ local function room_fields(out, info)
   return out
 end
 
+--- Nombre de clés d'une table (nil : 0) ; le compte ne dépend pas de l'ordre de parcours.
+local function count_keys(t)
+  local n = 0
+  for _ in pairs(t or {}) do n = n + 1 end
+  return n
+end
+
 local function log_lines(lines)
   for _, line in ipairs(lines) do log(line) end
 end
@@ -138,6 +145,8 @@ remote.add_interface("factorio-overhaul", {
              spilled = x.spilled or 0, wires_lost = x.wires_lost or 0, migrated = x.migrated or 0,
              overlap_kept = x.overlap_kept or 0, ghosts_removed = x.ghosts_removed or 0,
              ground_moved = x.ground_moved or 0, ground_left = x.ground_left or 0,
+             -- Lot V3-T2 : progressions de fabrication reposées après agrandissement (resume_later), et en attente.
+             resumed = x.resumed or 0, pending = count_keys(st.pending),
              -- Suite H-T3 : relevé des emprises gardé dans la sauvegarde (global.fo.levels.footprints, copie : nombres
              -- seulement ; nil dans une sauvegarde d'avant V3-T pas encore migrée) et son écart à la table du mod
              -- chargé (true : la migration n'a pas encore tourné). Lu par le banc de migration en moteur réel

@@ -508,6 +508,75 @@ local function transfer_inventories(old, new)
   return spilled
 end
 
+--- Progressions reportées (lot V3-T2) : global.fo.levels.pending[numéro] = { entity, recipe, progress, bonus, tick }
+--- (une entité, des nombres et un nom : aucune fonction). Au plus PENDING_TTL ticks d'attente : passé ce délai (machine
+--- sans énergie, sans combustible, autre recette), l'entrée est oubliée ; les ingrédients ont déjà été rendus, rien
+--- n'est perdu, seule la fraction de fabrication l'est.
+Levels.PENDING_TTL = 3600
+
+--- Fabrication en cours de `old` (crafting machine, is_crafting vrai) : ses ingrédients (déjà pris par le moteur au
+--- début de la fabrication) sont rendus à `new` (objets dans ses inventaires, fluides dans ses boîtes ; ce qui
+--- n'entre pas est renversé au pied et compté), et sa progression est notée pour être reposée dès que `new`
+--- fabrique de nouveau la même recette (Levels.resume_progress, au tick suivant en général). Renvoie true si une
+--- progression a été notée.
+local function resume_later(old, new)
+  local recipe = old.get_recipe() or (old.type == "furnace" and old.previous_recipe) or nil
+  if not recipe then return false end
+  local st = S()
+  for _, ing in ipairs(recipe.ingredients) do
+    if ing.type == "fluid" then
+      if new.insert_fluid({ name = ing.name, amount = ing.amount }) < ing.amount - 1e-6 then
+        log("[FO-LEVELS] agrandissement : fluide de la fabrication en cours non rendu en entier (" .. ing.name .. ")")
+      end
+    else
+      local put = new.insert({ name = ing.name, count = ing.amount })
+      if put < ing.amount then
+        new.surface.spill_item_stack(new.position, { name = ing.name, count = ing.amount - put }, true, new.force, false)
+        st.stats.spilled = (st.stats.spilled or 0) + ing.amount - put
+        log("[FO-LEVELS] agrandissement : " .. (ing.amount - put) .. " " .. ing.name .. " de la fabrication en cours renversé(s) au sol")
+      end
+    end
+  end
+  st.pending = st.pending or {}
+  st.pending[new.unit_number] = { entity = new, recipe = recipe.name, progress = old.crafting_progress or 0,
+    bonus = old.bonus_progress or 0, tick = game.tick }
+  return true
+end
+
+--- Repose les progressions notées par resume_later (dans l'ordre des numéros) : machine qui fabrique la même recette
+--- → progression et bonus de productivité recopiés, entrée retirée ; machine disparue, autre recette, ou délai
+--- dépassé → entrée retirée. Renvoie le nombre de progressions reposées.
+function Levels.resume_progress()
+  local pending = S().pending
+  if not pending or next(pending) == nil then return 0 end
+  local units = {}
+  for u in pairs(pending) do units[#units + 1] = u end
+  table.sort(units)
+  local done = 0
+  for _, u in ipairs(units) do
+    local rec = pending[u]
+    local e = rec.entity
+    if not (e and e.valid) then
+      pending[u] = nil
+    elseif e.is_crafting() then
+      local r = e.get_recipe() or (e.type == "furnace" and e.previous_recipe) or nil
+      if r and r.name == rec.recipe then
+        e.crafting_progress = rec.progress
+        if rec.bonus > 0 then e.bonus_progress = rec.bonus end
+        done = done + 1
+      end
+      pending[u] = nil
+    elseif game.tick - rec.tick > Levels.PENDING_TTL then
+      pending[u] = nil
+    end
+  end
+  if done > 0 then
+    local st = S()
+    st.stats.resumed = (st.stats.resumed or 0) + done
+  end
+  return done
+end
+
 --- Transfert COMPLET de `old` vers `new` (nouvelle entité, autre taille, posée par script) : recette, inventaires
 --- de tous types (munitions, carburant, entrée, sortie, modules…), fluides, énergie et brûleur, progression de
 --- fabrication ou d'extraction, tourelle (cible, victimes, dégâts infligés), dernier utilisateur, fils de circuit
@@ -542,8 +611,16 @@ function Levels.transfer(old, new)
     if v and v > 0 then new[k] = v end
   end
   if CRAFTER_TYPES[old.type] then
-    carry("crafting_progress")
-    carry("bonus_progress")
+    -- Lot V3-T2 (moteur réel, F83) : une fabrication EN COURS a déjà pris ses ingrédients, et un four neuf ignore
+    -- l'écriture de crafting_progress (il ne choisit sa recette qu'à sa mise à jour) : le four agrandi perdait le
+    -- minerai de la fusion en cours. D'où : ingrédients de la fabrication en cours RENDUS à la nouvelle machine,
+    -- progression reportée au premier tick où elle fabrique de nouveau la même recette (resume_progress).
+    if old.is_crafting and old.is_crafting() then
+      out.resumed = resume_later(old, new)
+    else
+      carry("crafting_progress")
+      carry("bonus_progress")
+    end
   elseif old.type == "mining-drill" then
     carry("mining_progress")
     carry("bonus_mining_progress")
@@ -1085,6 +1162,13 @@ Events.on_nth_tick(30, function()
     local done, lost = Levels.finish_legacy_jobs()
     log("[FO-LEVELS] chantiers hérités : " .. done .. " achevé(s), " .. lost .. " perdu(s)")
   end
+end)
+
+-- Lot V3-T2 : progressions de fabrication reportées (resume_later). Chaque tick : une lecture de table vide dans
+-- le cas courant ; une entrée vit un tick en général (la machine agrandie reprend sa fabrication à sa première
+-- mise à jour).
+Events.on(defines.events.on_tick, function()
+  Levels.resume_progress()
 end)
 
 ---------------------------------------------------------------------------------------------------
