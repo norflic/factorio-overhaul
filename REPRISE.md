@@ -166,7 +166,8 @@
 1. ~~V3-S~~ : fait. Charte intégrée (13 h 25), première passe jugée (E45), verdict du DC le 22/10 à 16 h 45 :
    style retenu ; il manque une direction artistique par époque.
 2. Ensuite, sans attendre :
-   - lot V3-E (run lancé le 22/10 vers 16 h 55) : la mitrailleuse sur les 15 époques, même style, canons,
+   - lot V3-E (run `wf_0608aa1f-b85`, lancé le 22/10 à 16 h 55, session `8a9c0503` ; sorties dans
+     `<racine>\fo-logs\2026-10-22_V3E\`) : la mitrailleuse sur les 15 époques, même style, canons,
      tuyaux et accents selon la fiche de chaque époque (`docs/DESIGN_EPOQUES.md` §5) ; puis les 6 autres
      familles avec la même méthode, la taille croissante (Q23, Q-S1) et la charte ;
    - ~~la mécanique d'agrandissement sur place (Q24)~~ : **faite** (lot V3-T, intégré le 22/10 à 14 h 50),
