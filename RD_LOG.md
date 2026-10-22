@@ -98,6 +98,18 @@
   Directeur Créatif. Un design reste soumis à son verdict sur captures : les planches seront prêtes à son
   retour.
 
+- 22/10, 7 h 15, **verdict sur les planches V3 phase 1** : « Alors en regardant plus près j'ai l'impression que ça ne respecte pas la direction artistique du jeu un peu. C'est peut-être qu'impression de ma part. Mais du coup, j'ai l'impression que ça ne respecte pas la direction artistique du jeu. Ça manque de détail en fait les dizaines sont pas mal, je dis pas, mais j'ai l'impression que ça manque de détail et en fait, on a pas l'impression que les niveaux supérieurs sont vraiment plus badasque les niveaux inférieurs en réalité. »
+  Décisions :
+  - finition de la phase 1 arrêtée (travail conservé) ;
+  - lot V3-S : définir une charte de direction artistique MESURABLE (densité de détail, palette, patine,
+    masse) à partir des sprites vanilla et de la cheminée V0 validée ;
+  - la puissance doit croître avec l'époque : plus de masse, de blindage, de complexité mécanique et
+    d'énergie visible, jamais des formes plus grêles ;
+  - « ajourer » (Q8) se relit comme des treillis et des structures mécaniques denses, et non comme des vides
+    nus ;
+  - les couleurs d'époque sont réservées aux éléments lumineux ;
+  - validation sur UNE famille témoin (la mitrailleuse) avant de reprendre les 7.
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
