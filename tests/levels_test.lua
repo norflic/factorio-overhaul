@@ -3514,6 +3514,21 @@ for n = 3, 30 do
   if math.abs(L.epoch_value(f, n) - f.epoch_value * L.epochs[L.pay_epoch(f, n)].value_mult * (L.step_of(f, n) == 2 and 1.25 or 1)) > 1e-9 then turret_ok = false end
 end
 check(turret_ok, "tourelles et murs : pas de facteur de gain sur leur valeur d'époque (seul value_mult, commun, monte)")
+-- AVIS (pas un contrôle) : remboursement BRUT d'une amélioration par sa seule production en plus (minerai à 1 u,
+-- plaque à 1 u, engrenage à 2 u). Les coûts sont calibrés sur le calendrier (budget X0 × gain), pas sur le gain du
+-- niveau : dans une ère (même taille), une amélioration tardive ne se rembourse qu'en dizaines ou centaines d'heures
+-- (0.4.3 : déjà 71 à 342 h au niveau 30) ; un agrandissement se rembourse en minutes. Question au Directeur Créatif.
+do
+  local SPEC = { { "drill", "mining_speed", 0.5, 1, 1 }, { "furnace", "crafting_speed", 2, 3.2, 1 }, { "assembler", "crafting_speed", 0.75, 0.5, 2 } }
+  local parts = {}
+  for _, sp in ipairs(SPEC) do
+    local f = L.by_key[sp[1]]
+    local function out(n) return stat_at(f, sp[2], n) / sp[4] * sp[5] end
+    local function hours(n) return L.cost_value(L.cost(f, n)) / (out(n) - out(n - 1)) / 3600 end
+    parts[#parts + 1] = string.format("%s 6->7 %.2f h, 24->25 %.1f h, 29->30 %.1f h", sp[1], hours(7), hours(25), hours(30))
+  end
+  print("  Remboursement brut d'une amélioration par sa production en plus : " .. table.concat(parts, " ; "))
+end
 local hours_off = rows_0[L.EPOCHS].implied_cumul
 print(string.format("  Si le joueur garde le gain en PLACE (débit X0 seul) : Porte ouverte à %.1f h au lieu de %.1f h", hours_off, rows_g[L.EPOCHS].implied_cumul))
 check(hours_off > rows_g[L.EPOCHS].implied_cumul, "sensibilité : sans le gain de production, le calendrier s'allonge (" .. string.format("%.1f h", hours_off) .. ")")
