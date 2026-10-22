@@ -19,8 +19,8 @@ Définitions (bible docs/DESIGN_EPOQUES.md §1.4, OBJECTIFS D1 amendé par Q13) 
   max_k IoU(niveau 1 agrandi de k, niveau 30), k de 0,50 à 2,50 par pas de 0,01, homothétie de centre
   l'origine de l'entité (méthode E27 : échelle et shift multipliés par k) ; on rapporte aussi le maximum
   sur deux centres (origine ; milieu du bord bas du masque du niveau 1) : la valeur la plus défavorable ;
-- photométrie de la couche principale (pixels du masque, sRGB codé) : luminance Rec. 709 p5/p50/p95 sur
-  255, saturation moyenne (max-min)/max ; lueur (draw_as_glow) : aire, et meilleure fenêtre de 8 × 8 px hr
+- photométrie du CORPS = pixels du masque hors zones émissives (lueur alpha ≥ 0,25 ; passe 4c), sRGB codé :
+  luminance Rec. 709 p5/p50/p95 sur 255, saturation moyenne (max-min)/max ; part émissive du masque ; lueur (draw_as_glow) : aire, et meilleure fenêtre de 8 × 8 px hr
   entièrement lumineuse : luminance moyenne composée sur le corps moins la médiane du corps (≥ 80 visé, §1.6) ;
 - halo : alpha maximal de la couche draw_as_light (I(N) = 0,05 + 0,02·N visé) et rayon au sol.
 Chaque grandeur est donnée par pose (droit = straight_horizontal, isole = single).
@@ -191,11 +191,21 @@ def measure(db):
             m = a >= 0.5
             masks[(lv, pose)] = (m, rgb, a)
             ys, xs = np.nonzero(m)
-            l_body = lum(rgb[m]) * 255
-            mx, mn = rgb[m].max(-1), rgb[m].min(-1)
+            # Corps = masque HORS zones émissives (lueur alpha >= 0,25). Passe 4c (22/10) : la couche principale
+            # d'une surface émissive est le rendu MOINS la lueur, en sRGB codé (render_wall.py : principale + lueur
+            # = rendu Blender au pixel) ; sur un cristal très émissif, ce reste est sombre et faussement saturé
+            # (cristaux de l'époque 7 : RGB moyen (31, 41, 2)). Bible §1.5 règle 3 : les couleurs vives vivent dans
+            # les couches émissives ; on mesure donc le corps sans elles et on rapporte leur part.
+            gmax = additive(layers, "glow").max(-1)
+            body = m & (gmax < 0.25)
+            if body.sum() < 0.3 * m.sum():
+                body = m
+            l_body = lum(rgb[body]) * 255
+            mx, mn = rgb[body].max(-1), rgb[body].min(-1)
             sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0)
             o_all, o_mass = o_values(m)
             r = {
+                "part_emissive": round(float((m & (gmax >= 0.25)).sum() / max(1, m.sum())), 3),
                 "aire_t2": round(m.sum() / PPT ** 2, 3),
                 "x": [round(X0 + xs.min() / PPT, 3), round(X0 + (xs.max() + 1) / PPT, 3)],
                 "y": [round(Y0 + ys.min() / PPT, 3), round(Y0 + (ys.max() + 1) / PPT, 3)],

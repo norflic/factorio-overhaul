@@ -531,7 +531,7 @@ def e06(k, pose, piece):
 # Pièce (niveau 14) : cristal plus haut au centre (+0,20)
 # =====================================================================================================
 def e07(k, pose, piece):
-    stone = k.stone("e07_pierre", "#4A4038", mul=2.1, grain=0.35, seed=71, stain="#2E2622", stain_amount=0.3)
+    stone = k.stone("e07_pierre", "#4A4038", mul=1.6, grain=0.35, seed=71, stain="#2E2622", stain_amount=0.3)
     bronze = k.metal("e07_bronze", "#6A5236", mul=1.4, rough=0.3, metallic=0.9, grain=0.14, rust="#3E6A55",
                      rust_amount=0.25, dirt=0.3, seed=72)
     # (passe 4b-c : base claire et PEU saturée : la couche principale des cristaux, sans émission, sortait presque
@@ -925,6 +925,10 @@ def e12(k, pose, piece):
     zb = 0.66 if pose == "droit" else 0.84
     zt = zv(vt(12), t0)
     k.box(xa + 0.008, xb - 0.008, t0, t1, zb, zt, black, "bloc_levitation", bev=0.02)
+    # (passe 4d : couvercle noir sans givre : le dessus givré, vu d'en haut, portait la médiane du pilier à 72-76)
+    k.box(xa + 0.02, xb - 0.02, t0 + 0.012, t1 - 0.012, zt - 0.01, zt + 0.012,
+          k.metal("e12_couvercle", "#26282E", mul=1.5, rough=0.35, metallic=0.5, grain=0.08, dirt=0.3, seed=123),
+          "couvercle", bev=0.006)
     k.box(xa + 0.01, xb - 0.01, t1 - 0.02, t1 + 0.004, zb - 0.002, zb + 0.035, cyan, "lueur_dessous", bev=0)
     for z in (zt - 0.05, zb + 0.08):
         k.box(xa + 0.008, xb - 0.008, t1, t1 + 0.012, z - 0.02, z + 0.02, chrome, "filet_chrome", bev=0.004)
@@ -959,7 +963,7 @@ def e12(k, pose, piece):
 # Pièce (niveau 26) : sphère au sommet du pylône (+0,20)
 # =====================================================================================================
 def e13(k, pose, piece):
-    ceramic = k.metal("e13_ceramique", "#D9D6CF", mul=0.62, rough=0.25, metallic=0.05, grain=0.06, dirt=0.4, seed=131)
+    ceramic = k.metal("e13_ceramique", "#D9D6CF", mul=0.56, rough=0.25, metallic=0.05, grain=0.06, dirt=0.4, seed=131)
     copper = k.metal("e13_cuivre", "#B0703A", mul=1.0, rough=0.25, metallic=0.95, grain=0.1, dirt=0.2, seed=132)
     plasma = k.emit("e13_plasma", "#FF4FD8", strength=3.0, base="#3A0A30")
     core = k.emit("e13_coeur", "#FF9A3A", strength=3.0, base="#3A2008")
@@ -1010,11 +1014,13 @@ def e13(k, pose, piece):
         zsc = zv(v_c, tp)
         if zsc - rs + 0.03 > ztop + 0.01:
             k.cylv(0.0, tp, ztop, zsc - rs + 0.03, 0.055, copper, "col_sphere", verts=24)
-        k.sph(0.0, tp, zsc, rs, ceramic, "sphere_confinement", seg=32, rings=16)
+        sph_mat = k.metal("e13_ceramique_sphere", "#D9D6CF", mul=0.30, rough=0.3, metallic=0.05, grain=0.06, dirt=0.45,
+                          seed=133)       # (passe 4d : la sphère claire portait la médiane du corps à 103-111 pour 92)
+        k.sph(0.0, tp, zsc, rs, sph_mat, "sphere_confinement", seg=32, rings=16)
         k.tor_h(0.0, tp, zsc, rs + 0.01, 0.012, copper, "equateur")
         # hublot du cœur (orange) sur la face sud de la sphère : elle cache l'œil du pylône (passe 4, D2-1)
-        k.cyly(0.0, tp + 0.125 / SQ2, tp + (rs + 0.006) / SQ2, zsc - 0.02, 0.072, core, "hublot_coeur", verts=32)
-        k.cyly(0.0, tp + 0.12 / SQ2, tp + (rs + 0.004) / SQ2, zsc - 0.02, 0.085, copper, "bague_hublot", verts=32)
+        k.cyly(0.0, tp + 0.125 / SQ2, tp + (rs + 0.006) / SQ2, zsc - 0.02, 0.092, core, "hublot_coeur", verts=32)
+        k.cyly(0.0, tp + 0.12 / SQ2, tp + (rs + 0.004) / SQ2, zsc - 0.02, 0.108, copper, "bague_hublot", verts=32)
         k.S.torus(Ra, ra, k.P(0.0, tp, zsc), plasma, k._name("anneau_plasma"), rot=(tilt, 0.0, 0.0), major_seg=64,
                   minor_seg=8)
         k.halo(0.0, tp + 0.15, zsc, "#FF4FD8", 5.0)
@@ -1127,7 +1133,7 @@ def e15(k, pose, piece):
     # de l'ère V, bible §0). Vide sous les pinacles (base flottante) et entre eux (D1-3).
     # (passe 4b : borne d'albédo relevée à 0,95 pour l'or blanc : médiane 88 à 92 pour 108, p95 à 203 seulement)
     wgold = k.metal("e15_or_blanc", "#E8DCB0", mul=1.0, rough=0.26, metallic=0.12, grain=0.08, rust="#9A8A60",
-                    rust_amount=0.2, dirt=0.35, seed=151, cap=0.95)
+                    rust_amount=0.2, dirt=0.35, seed=151, cap=0.90)
     nacre = k.metal("e15_nacre", "#D8D2C8", mul=0.40, rough=0.3, metallic=0.15, grain=0.06, dirt=0.35, seed=152)
     nacre2 = k.metal("e15_nacre_claire", "#D8D2C8", mul=0.55, rough=0.22, metallic=0.2, grain=0.05, dirt=0.3, seed=153)
     light = k.emit("e15_lumiere", "#FFF2C0", strength=1.2, base="#3A3420")

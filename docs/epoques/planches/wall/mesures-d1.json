@@ -1,0 +1,1801 @@
+{
+ "d1_3": {
+  "droit": {
+   "iou_1_29": 0.421,
+   "iou_1_30": 0.386,
+   "iou_norm_1_29_origine": 0.428,
+   "iou_norm_bas": 0.414,
+   "iou_norm_origine": 0.397,
+   "k_bas": 1.45,
+   "k_origine": 1.1
+  },
+  "isole": {
+   "iou_1_29": 0.414,
+   "iou_1_30": 0.377,
+   "iou_norm_1_29_origine": 0.566,
+   "iou_norm_bas": 0.529,
+   "iou_norm_origine": 0.528,
+   "k_bas": 1.61,
+   "k_origine": 1.35
+  }
+ },
+ "ecarts": [
+  "N26 droit : lueur de jour insuffisante (76.6) (D2-1)",
+  "N11 isole : IoU avec l'époque précédente 0.860 > 0,85 (D1-2)",
+  "N23 isole : luminance médiane 72 hors de 60 ± 10 (§1.5)",
+  "N24 isole : luminance médiane 74 hors de 60 ± 10 (§1.5)",
+  "N26 isole : luminance médiane 104 hors de 92 ± 10 (§1.5)"
+ ],
+ "niveaux": {
+  "1-droit": {
+   "L": 1.0,
+   "O_masses": 0.25,
+   "O_tout": 0.25,
+   "aire_t2": 1.241,
+   "halo": null,
+   "lueur": null,
+   "lum_p5": 23.3,
+   "lum_p50": 50.6,
+   "lum_p95": 175.3,
+   "part_emissive": 0.0,
+   "sat": 0.255,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.75,
+    0.547
+   ]
+  },
+  "1-isole": {
+   "L": 0.875,
+   "O_masses": 0.25,
+   "O_tout": 0.25,
+   "aire_t2": 0.679,
+   "halo": null,
+   "lueur": null,
+   "lum_p5": 17.9,
+   "lum_p50": 50.5,
+   "lum_p95": 158.8,
+   "part_emissive": 0.0,
+   "sat": 0.244,
+   "x": [
+    -0.438,
+    0.438
+   ],
+   "y": [
+    -0.75,
+    0.422
+   ]
+  },
+  "10-droit": {
+   "L": 1.0,
+   "O_masses": 0.516,
+   "O_tout": 0.609,
+   "aire_t2": 1.37,
+   "halo": {
+    "alpha_max": 0.251,
+    "rayon_tuiles": 1.1
+   },
+   "iou_prec": 0.91,
+   "lueur": {
+    "area_px": 264,
+    "best_delta": 88.0,
+    "fenetres_8x8": 123
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 43.2,
+   "lum_p95": 51.7,
+   "part_emissive": 0.047,
+   "piece_aire_ajoutee_t2": 0.123,
+   "piece_lum20_t2": 0.047,
+   "sat": 0.148,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.109,
+    0.578
+   ]
+  },
+  "10-isole": {
+   "L": 0.906,
+   "O_masses": 0.516,
+   "O_tout": 0.609,
+   "aire_t2": 0.966,
+   "halo": {
+    "alpha_max": 0.251,
+    "rayon_tuiles": 1.07
+   },
+   "iou_prec": 0.846,
+   "lueur": {
+    "area_px": 263,
+    "best_delta": 93.0,
+    "fenetres_8x8": 123
+   },
+   "lum_p5": 6.9,
+   "lum_p50": 38.3,
+   "lum_p95": 66.0,
+   "part_emissive": 0.066,
+   "piece_aire_ajoutee_t2": 0.148,
+   "piece_lum20_t2": 0.036,
+   "sat": 0.201,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.109,
+    0.562
+   ]
+  },
+  "11-droit": {
+   "L": 1.0,
+   "O_masses": 0.516,
+   "O_tout": 0.547,
+   "aire_t2": 1.028,
+   "halo": {
+    "alpha_max": 0.271,
+    "rayon_tuiles": 1.22
+   },
+   "iou_epoque_prec": 0.781,
+   "iou_prec": 0.739,
+   "lueur": {
+    "area_px": 80,
+    "best_delta": 148.0,
+    "fenetres_8x8": 18
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 54.0,
+   "lum_p95": 164.6,
+   "part_emissive": 0.018,
+   "sat": 0.167,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.047,
+    0.578
+   ]
+  },
+  "11-isole": {
+   "L": 0.906,
+   "O_masses": 0.516,
+   "O_tout": 0.547,
+   "aire_t2": 0.79,
+   "halo": {
+    "alpha_max": 0.271,
+    "rayon_tuiles": 1.22
+   },
+   "iou_epoque_prec": 0.86,
+   "iou_prec": 0.769,
+   "lueur": {
+    "area_px": 81,
+    "best_delta": 145.7,
+    "fenetres_8x8": 20
+   },
+   "lum_p5": 6.4,
+   "lum_p50": 56.6,
+   "lum_p95": 153.5,
+   "part_emissive": 0.023,
+   "sat": 0.164,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.047,
+    0.578
+   ]
+  },
+  "12-droit": {
+   "L": 1.0,
+   "O_masses": 0.562,
+   "O_tout": 0.609,
+   "aire_t2": 1.195,
+   "halo": {
+    "alpha_max": 0.29,
+    "rayon_tuiles": 1.25
+   },
+   "iou_prec": 0.861,
+   "lueur": {
+    "area_px": 80,
+    "best_delta": 145.4,
+    "fenetres_8x8": 18
+   },
+   "lum_p5": 9.2,
+   "lum_p50": 55.8,
+   "lum_p95": 154.0,
+   "part_emissive": 0.015,
+   "piece_aire_ajoutee_t2": 0.166,
+   "piece_lum20_t2": 0.04,
+   "sat": 0.172,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.109,
+    0.578
+   ]
+  },
+  "12-isole": {
+   "L": 0.906,
+   "O_masses": 0.562,
+   "O_tout": 0.609,
+   "aire_t2": 0.963,
+   "halo": {
+    "alpha_max": 0.29,
+    "rayon_tuiles": 1.25
+   },
+   "iou_prec": 0.82,
+   "lueur": {
+    "area_px": 81,
+    "best_delta": 134.1,
+    "fenetres_8x8": 20
+   },
+   "lum_p5": 6.8,
+   "lum_p50": 66.7,
+   "lum_p95": 145.0,
+   "part_emissive": 0.019,
+   "piece_aire_ajoutee_t2": 0.173,
+   "piece_lum20_t2": 0.042,
+   "sat": 0.163,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.109,
+    0.578
+   ]
+  },
+  "13-droit": {
+   "L": 1.0,
+   "O_masses": 0.578,
+   "O_tout": 0.656,
+   "aire_t2": 1.294,
+   "halo": {
+    "alpha_max": 0.31,
+    "rayon_tuiles": 1.24
+   },
+   "iou_epoque_prec": 0.775,
+   "iou_prec": 0.697,
+   "lueur": {
+    "area_px": 1576,
+    "best_delta": 140.8,
+    "fenetres_8x8": 1014
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 59.7,
+   "lum_p95": 151.4,
+   "part_emissive": 0.287,
+   "sat": 0.272,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.156,
+    0.578
+   ]
+  },
+  "13-isole": {
+   "L": 1.125,
+   "O_masses": 0.562,
+   "O_tout": 0.641,
+   "aire_t2": 1.08,
+   "halo": {
+    "alpha_max": 0.31,
+    "rayon_tuiles": 1.25
+   },
+   "iou_epoque_prec": 0.712,
+   "iou_prec": 0.62,
+   "lueur": {
+    "area_px": 1823,
+    "best_delta": 137.1,
+    "fenetres_8x8": 1274
+   },
+   "lum_p5": 5.7,
+   "lum_p50": 61.5,
+   "lum_p95": 158.4,
+   "part_emissive": 0.396,
+   "sat": 0.271,
+   "x": [
+    -0.547,
+    0.578
+   ],
+   "y": [
+    -1.141,
+    0.562
+   ]
+  },
+  "14-droit": {
+   "L": 1.0,
+   "O_masses": 0.719,
+   "O_tout": 0.828,
+   "aire_t2": 1.487,
+   "halo": {
+    "alpha_max": 0.329,
+    "rayon_tuiles": 1.27
+   },
+   "iou_prec": 0.87,
+   "lueur": {
+    "area_px": 2499,
+    "best_delta": 143.2,
+    "fenetres_8x8": 2003
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 59.3,
+   "lum_p95": 153.2,
+   "part_emissive": 0.4,
+   "piece_aire_ajoutee_t2": 0.193,
+   "piece_lum20_t2": 0.098,
+   "sat": 0.265,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.328,
+    0.578
+   ]
+  },
+  "14-isole": {
+   "L": 1.125,
+   "O_masses": 0.688,
+   "O_tout": 0.812,
+   "aire_t2": 1.204,
+   "halo": {
+    "alpha_max": 0.329,
+    "rayon_tuiles": 1.27
+   },
+   "iou_prec": 0.897,
+   "lueur": {
+    "area_px": 2386,
+    "best_delta": 137.7,
+    "fenetres_8x8": 1866
+   },
+   "lum_p5": 5.7,
+   "lum_p50": 61.3,
+   "lum_p95": 160.6,
+   "part_emissive": 0.467,
+   "piece_aire_ajoutee_t2": 0.124,
+   "piece_lum20_t2": 0.04,
+   "sat": 0.265,
+   "x": [
+    -0.547,
+    0.578
+   ],
+   "y": [
+    -1.312,
+    0.562
+   ]
+  },
+  "15-droit": {
+   "L": 1.0,
+   "O_masses": 0.578,
+   "O_tout": 0.594,
+   "aire_t2": 1.357,
+   "halo": {
+    "alpha_max": 0.349,
+    "rayon_tuiles": 0.88
+   },
+   "iou_epoque_prec": 0.771,
+   "iou_prec": 0.834,
+   "lueur": {
+    "area_px": 305,
+    "best_delta": 167.0,
+    "fenetres_8x8": 96
+   },
+   "lum_p5": 35.6,
+   "lum_p50": 60.8,
+   "lum_p95": 129.5,
+   "part_emissive": 0.055,
+   "sat": 0.398,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.094,
+    0.562
+   ]
+  },
+  "15-isole": {
+   "L": 0.938,
+   "O_masses": 0.578,
+   "O_tout": 0.594,
+   "aire_t2": 1.026,
+   "halo": {
+    "alpha_max": 0.349,
+    "rayon_tuiles": 1.01
+   },
+   "iou_epoque_prec": 0.71,
+   "iou_prec": 0.754,
+   "lueur": {
+    "area_px": 354,
+    "best_delta": 166.5,
+    "fenetres_8x8": 161
+   },
+   "lum_p5": 7.0,
+   "lum_p50": 61.4,
+   "lum_p95": 137.6,
+   "part_emissive": 0.084,
+   "sat": 0.376,
+   "x": [
+    -0.469,
+    0.469
+   ],
+   "y": [
+    -1.094,
+    0.547
+   ]
+  },
+  "16-droit": {
+   "L": 1.0,
+   "O_masses": 0.781,
+   "O_tout": 0.797,
+   "aire_t2": 1.468,
+   "halo": {
+    "alpha_max": 0.369,
+    "rayon_tuiles": 1.09
+   },
+   "iou_prec": 0.924,
+   "lueur": {
+    "area_px": 333,
+    "best_delta": 165.3,
+    "fenetres_8x8": 99
+   },
+   "lum_p5": 37.5,
+   "lum_p50": 62.5,
+   "lum_p95": 130.5,
+   "part_emissive": 0.055,
+   "piece_aire_ajoutee_t2": 0.111,
+   "piece_lum20_t2": 0.078,
+   "sat": 0.405,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.297,
+    0.562
+   ]
+  },
+  "16-isole": {
+   "L": 0.938,
+   "O_masses": 0.781,
+   "O_tout": 0.797,
+   "aire_t2": 1.153,
+   "halo": {
+    "alpha_max": 0.369,
+    "rayon_tuiles": 1.02
+   },
+   "iou_prec": 0.888,
+   "lueur": {
+    "area_px": 389,
+    "best_delta": 163.8,
+    "fenetres_8x8": 163
+   },
+   "lum_p5": 7.3,
+   "lum_p50": 64.1,
+   "lum_p95": 138.7,
+   "part_emissive": 0.082,
+   "piece_aire_ajoutee_t2": 0.128,
+   "piece_lum20_t2": 0.065,
+   "sat": 0.388,
+   "x": [
+    -0.469,
+    0.469
+   ],
+   "y": [
+    -1.297,
+    0.547
+   ]
+  },
+  "17-droit": {
+   "L": 1.0,
+   "O_masses": 0.672,
+   "O_tout": 0.672,
+   "aire_t2": 1.172,
+   "halo": {
+    "alpha_max": 0.388,
+    "rayon_tuiles": 1.31
+   },
+   "iou_epoque_prec": 0.773,
+   "iou_prec": 0.749,
+   "lueur": {
+    "area_px": 316,
+    "best_delta": 153.7,
+    "fenetres_8x8": 112
+   },
+   "lum_p5": 11.3,
+   "lum_p50": 56.6,
+   "lum_p95": 108.2,
+   "part_emissive": 0.065,
+   "sat": 0.195,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.172,
+    0.562
+   ]
+  },
+  "17-isole": {
+   "L": 0.906,
+   "O_masses": 0.656,
+   "O_tout": 0.672,
+   "aire_t2": 0.903,
+   "halo": {
+    "alpha_max": 0.388,
+    "rayon_tuiles": 1.32
+   },
+   "iou_epoque_prec": 0.79,
+   "iou_prec": 0.743,
+   "lueur": {
+    "area_px": 231,
+    "best_delta": 146.9,
+    "fenetres_8x8": 63
+   },
+   "lum_p5": 6.7,
+   "lum_p50": 63.3,
+   "lum_p95": 123.9,
+   "part_emissive": 0.062,
+   "sat": 0.178,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.172,
+    0.562
+   ]
+  },
+  "18-droit": {
+   "L": 1.0,
+   "O_masses": 0.719,
+   "O_tout": 0.734,
+   "aire_t2": 1.528,
+   "halo": {
+    "alpha_max": 0.412,
+    "rayon_tuiles": 1.32
+   },
+   "iou_prec": 0.767,
+   "lueur": {
+    "area_px": 343,
+    "best_delta": 152.5,
+    "fenetres_8x8": 112
+   },
+   "lum_p5": 19.0,
+   "lum_p50": 57.8,
+   "lum_p95": 117.1,
+   "part_emissive": 0.054,
+   "piece_aire_ajoutee_t2": 0.356,
+   "piece_lum20_t2": 0.112,
+   "sat": 0.189,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.234,
+    0.562
+   ]
+  },
+  "18-isole": {
+   "L": 0.906,
+   "O_masses": 0.703,
+   "O_tout": 0.734,
+   "aire_t2": 1.174,
+   "halo": {
+    "alpha_max": 0.412,
+    "rayon_tuiles": 1.33
+   },
+   "iou_prec": 0.766,
+   "lueur": {
+    "area_px": 258,
+    "best_delta": 150.6,
+    "fenetres_8x8": 61
+   },
+   "lum_p5": 7.9,
+   "lum_p50": 59.7,
+   "lum_p95": 125.0,
+   "part_emissive": 0.054,
+   "piece_aire_ajoutee_t2": 0.273,
+   "piece_lum20_t2": 0.096,
+   "sat": 0.181,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.234,
+    0.562
+   ]
+  },
+  "19-droit": {
+   "L": 1.0,
+   "O_masses": 0.688,
+   "O_tout": 0.703,
+   "aire_t2": 1.367,
+   "halo": {
+    "alpha_max": 0.431,
+    "rayon_tuiles": 1.11
+   },
+   "iou_epoque_prec": 0.622,
+   "iou_prec": 0.711,
+   "lueur": {
+    "area_px": 565,
+    "best_delta": 83.9,
+    "fenetres_8x8": 83
+   },
+   "lum_p5": 26.4,
+   "lum_p50": 85.8,
+   "lum_p95": 179.4,
+   "part_emissive": 0.099,
+   "sat": 0.086,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.203,
+    0.562
+   ]
+  },
+  "19-isole": {
+   "L": 0.906,
+   "O_masses": 0.688,
+   "O_tout": 0.703,
+   "aire_t2": 1.08,
+   "halo": {
+    "alpha_max": 0.431,
+    "rayon_tuiles": 1.06
+   },
+   "iou_epoque_prec": 0.76,
+   "iou_prec": 0.833,
+   "lueur": {
+    "area_px": 409,
+    "best_delta": 82.3,
+    "fenetres_8x8": 105
+   },
+   "lum_p5": 7.2,
+   "lum_p50": 87.6,
+   "lum_p95": 162.4,
+   "part_emissive": 0.091,
+   "sat": 0.091,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.203,
+    0.547
+   ]
+  },
+  "2-droit": {
+   "L": 1.0,
+   "O_masses": 0.375,
+   "O_tout": 0.438,
+   "aire_t2": 1.409,
+   "halo": null,
+   "iou_prec": 0.881,
+   "lueur": null,
+   "lum_p5": 24.8,
+   "lum_p50": 51.1,
+   "lum_p95": 145.4,
+   "part_emissive": 0.0,
+   "piece_aire_ajoutee_t2": 0.168,
+   "piece_lum20_t2": 0.09,
+   "sat": 0.26,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.938,
+    0.547
+   ]
+  },
+  "2-isole": {
+   "L": 0.875,
+   "O_masses": 0.344,
+   "O_tout": 0.438,
+   "aire_t2": 0.798,
+   "halo": null,
+   "iou_prec": 0.851,
+   "lueur": null,
+   "lum_p5": 18.9,
+   "lum_p50": 51.2,
+   "lum_p95": 130.3,
+   "part_emissive": 0.0,
+   "piece_aire_ajoutee_t2": 0.119,
+   "piece_lum20_t2": 0.039,
+   "sat": 0.246,
+   "x": [
+    -0.438,
+    0.438
+   ],
+   "y": [
+    -0.938,
+    0.422
+   ]
+  },
+  "20-droit": {
+   "L": 1.0,
+   "O_masses": 0.828,
+   "O_tout": 0.922,
+   "aire_t2": 1.492,
+   "halo": {
+    "alpha_max": 0.451,
+    "rayon_tuiles": 1.39
+   },
+   "iou_prec": 0.916,
+   "lueur": {
+    "area_px": 667,
+    "best_delta": 85.9,
+    "fenetres_8x8": 83
+   },
+   "lum_p5": 23.7,
+   "lum_p50": 83.8,
+   "lum_p95": 160.4,
+   "part_emissive": 0.107,
+   "piece_aire_ajoutee_t2": 0.125,
+   "piece_lum20_t2": 0.113,
+   "sat": 0.091,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.422,
+    0.562
+   ]
+  },
+  "20-isole": {
+   "L": 0.906,
+   "O_masses": 0.844,
+   "O_tout": 0.922,
+   "aire_t2": 1.212,
+   "halo": {
+    "alpha_max": 0.451,
+    "rayon_tuiles": 1.19
+   },
+   "iou_prec": 0.891,
+   "lueur": {
+    "area_px": 526,
+    "best_delta": 85.0,
+    "fenetres_8x8": 105
+   },
+   "lum_p5": 7.8,
+   "lum_p50": 84.9,
+   "lum_p95": 162.4,
+   "part_emissive": 0.105,
+   "piece_aire_ajoutee_t2": 0.132,
+   "piece_lum20_t2": 0.07,
+   "sat": 0.095,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.422,
+    0.547
+   ]
+  },
+  "21-droit": {
+   "L": 1.0,
+   "O_masses": 0.734,
+   "O_tout": 0.734,
+   "aire_t2": 1.439,
+   "halo": {
+    "alpha_max": 0.471,
+    "rayon_tuiles": 1.22
+   },
+   "iou_epoque_prec": 0.676,
+   "iou_prec": 0.695,
+   "lueur": {
+    "area_px": 1007,
+    "best_delta": 139.7,
+    "fenetres_8x8": 46
+   },
+   "lum_p5": 41.4,
+   "lum_p50": 102.9,
+   "lum_p95": 181.7,
+   "part_emissive": 0.171,
+   "sat": 0.087,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.234,
+    0.562
+   ]
+  },
+  "21-isole": {
+   "L": 0.906,
+   "O_masses": 0.734,
+   "O_tout": 0.734,
+   "aire_t2": 1.035,
+   "halo": {
+    "alpha_max": 0.471,
+    "rayon_tuiles": 1.25
+   },
+   "iou_epoque_prec": 0.808,
+   "iou_prec": 0.775,
+   "lueur": {
+    "area_px": 684,
+    "best_delta": 139.1,
+    "fenetres_8x8": 46
+   },
+   "lum_p5": 6.8,
+   "lum_p50": 103.4,
+   "lum_p95": 185.2,
+   "part_emissive": 0.161,
+   "sat": 0.104,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.234,
+    0.562
+   ]
+  },
+  "22-droit": {
+   "L": 1.0,
+   "O_masses": 0.953,
+   "O_tout": 0.953,
+   "aire_t2": 1.602,
+   "halo": {
+    "alpha_max": 0.49,
+    "rayon_tuiles": 1.36
+   },
+   "iou_prec": 0.899,
+   "lueur": {
+    "area_px": 1200,
+    "best_delta": 140.7,
+    "fenetres_8x8": 46
+   },
+   "lum_p5": 47.0,
+   "lum_p50": 101.9,
+   "lum_p95": 171.2,
+   "part_emissive": 0.181,
+   "piece_aire_ajoutee_t2": 0.162,
+   "piece_lum20_t2": 0.013,
+   "sat": 0.095,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.453,
+    0.562
+   ]
+  },
+  "22-isole": {
+   "L": 0.906,
+   "O_masses": 0.953,
+   "O_tout": 0.953,
+   "aire_t2": 1.176,
+   "halo": {
+    "alpha_max": 0.49,
+    "rayon_tuiles": 1.25
+   },
+   "iou_prec": 0.88,
+   "lueur": {
+    "area_px": 710,
+    "best_delta": 141.3,
+    "fenetres_8x8": 46
+   },
+   "lum_p5": 7.1,
+   "lum_p50": 101.2,
+   "lum_p95": 175.9,
+   "part_emissive": 0.147,
+   "piece_aire_ajoutee_t2": 0.141,
+   "piece_lum20_t2": 0.012,
+   "sat": 0.11,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.453,
+    0.562
+   ]
+  },
+  "23-droit": {
+   "L": 1.0,
+   "O_masses": 0.766,
+   "O_tout": 0.766,
+   "aire_t2": 1.667,
+   "halo": {
+    "alpha_max": 0.51,
+    "rayon_tuiles": 0.9
+   },
+   "iou_epoque_prec": 0.73,
+   "iou_prec": 0.779,
+   "lueur": {
+    "area_px": 784,
+    "best_delta": 165.3,
+    "fenetres_8x8": 309
+   },
+   "lum_p5": 32.7,
+   "lum_p50": 53.7,
+   "lum_p95": 150.9,
+   "part_emissive": 0.114,
+   "sat": 0.153,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.266,
+    0.562
+   ]
+  },
+  "23-isole": {
+   "L": 0.906,
+   "O_masses": 0.766,
+   "O_tout": 0.766,
+   "aire_t2": 1.009,
+   "halo": {
+    "alpha_max": 0.51,
+    "rayon_tuiles": 1.3
+   },
+   "iou_epoque_prec": 0.773,
+   "iou_prec": 0.825,
+   "lueur": {
+    "area_px": 545,
+    "best_delta": 147.4,
+    "fenetres_8x8": 229
+   },
+   "lum_p5": 6.6,
+   "lum_p50": 71.5,
+   "lum_p95": 123.3,
+   "part_emissive": 0.127,
+   "sat": 0.165,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.266,
+    0.562
+   ]
+  },
+  "24-droit": {
+   "L": 1.0,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.776,
+   "halo": {
+    "alpha_max": 0.529,
+    "rayon_tuiles": 0.9
+   },
+   "iou_prec": 0.93,
+   "lueur": {
+    "area_px": 937,
+    "best_delta": 164.1,
+    "fenetres_8x8": 309
+   },
+   "lum_p5": 34.1,
+   "lum_p50": 54.8,
+   "lum_p95": 141.0,
+   "part_emissive": 0.127,
+   "piece_aire_ajoutee_t2": 0.117,
+   "piece_lum20_t2": 0.169,
+   "sat": 0.155,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "24-isole": {
+   "L": 0.906,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.142,
+   "halo": {
+    "alpha_max": 0.529,
+    "rayon_tuiles": 1.3
+   },
+   "iou_prec": 0.879,
+   "lueur": {
+    "area_px": 722,
+    "best_delta": 145.1,
+    "fenetres_8x8": 229
+   },
+   "lum_p5": 7.1,
+   "lum_p50": 73.8,
+   "lum_p95": 138.2,
+   "part_emissive": 0.148,
+   "piece_aire_ajoutee_t2": 0.135,
+   "piece_lum20_t2": 0.078,
+   "sat": 0.168,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "25-droit": {
+   "L": 1.0,
+   "O_masses": 0.797,
+   "O_tout": 0.812,
+   "aire_t2": 0.963,
+   "halo": {
+    "alpha_max": 0.549,
+    "rayon_tuiles": 1.38
+   },
+   "iou_epoque_prec": 0.501,
+   "iou_prec": 0.478,
+   "lueur": {
+    "area_px": 1597,
+    "best_delta": 81.8,
+    "fenetres_8x8": 477
+   },
+   "lum_p5": 7.9,
+   "lum_p50": 94.4,
+   "lum_p95": 224.9,
+   "part_emissive": 0.233,
+   "sat": 0.215,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.312,
+    0.562
+   ]
+  },
+  "25-isole": {
+   "L": 0.906,
+   "O_masses": 0.797,
+   "O_tout": 0.812,
+   "aire_t2": 0.918,
+   "halo": {
+    "alpha_max": 0.549,
+    "rayon_tuiles": 1.37
+   },
+   "iou_epoque_prec": 0.799,
+   "iou_prec": 0.722,
+   "lueur": {
+    "area_px": 1523,
+    "best_delta": 107.6,
+    "fenetres_8x8": 536
+   },
+   "lum_p5": 5.9,
+   "lum_p50": 95.4,
+   "lum_p95": 217.7,
+   "part_emissive": 0.259,
+   "sat": 0.211,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.312,
+    0.562
+   ]
+  },
+  "26-droit": {
+   "L": 1.0,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.085,
+   "halo": {
+    "alpha_max": 0.569,
+    "rayon_tuiles": 1.38
+   },
+   "iou_prec": 0.87,
+   "lueur": {
+    "area_px": 2000,
+    "best_delta": 76.6,
+    "fenetres_8x8": 619
+   },
+   "lum_p5": 8.0,
+   "lum_p50": 98.7,
+   "lum_p95": 235.4,
+   "part_emissive": 0.285,
+   "piece_aire_ajoutee_t2": 0.132,
+   "piece_lum20_t2": 0.117,
+   "sat": 0.185,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "26-isole": {
+   "L": 0.906,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.045,
+   "halo": {
+    "alpha_max": 0.569,
+    "rayon_tuiles": 1.37
+   },
+   "iou_prec": 0.867,
+   "lueur": {
+    "area_px": 1871,
+    "best_delta": 98.7,
+    "fenetres_8x8": 646
+   },
+   "lum_p5": 6.4,
+   "lum_p50": 104.1,
+   "lum_p95": 216.3,
+   "part_emissive": 0.299,
+   "piece_aire_ajoutee_t2": 0.134,
+   "piece_lum20_t2": 0.096,
+   "sat": 0.187,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "27-droit": {
+   "L": 1.0,
+   "O_masses": 0.828,
+   "O_tout": 0.875,
+   "aire_t2": 1.579,
+   "halo": {
+    "alpha_max": 0.588,
+    "rayon_tuiles": 1.33
+   },
+   "iou_epoque_prec": 0.399,
+   "iou_prec": 0.411,
+   "lueur": {
+    "area_px": 380,
+    "best_delta": 95.4,
+    "fenetres_8x8": 241
+   },
+   "lum_p5": 27.5,
+   "lum_p50": 84.1,
+   "lum_p95": 188.2,
+   "part_emissive": 0.059,
+   "sat": 0.361,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.375,
+    0.562
+   ]
+  },
+  "27-isole": {
+   "L": 0.906,
+   "O_masses": 0.844,
+   "O_tout": 0.875,
+   "aire_t2": 1.18,
+   "halo": {
+    "alpha_max": 0.588,
+    "rayon_tuiles": 1.3
+   },
+   "iou_epoque_prec": 0.619,
+   "iou_prec": 0.639,
+   "lueur": {
+    "area_px": 217,
+    "best_delta": 94.1,
+    "fenetres_8x8": 111
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 85.3,
+   "lum_p95": 201.5,
+   "part_emissive": 0.045,
+   "sat": 0.28,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.375,
+    0.547
+   ]
+  },
+  "28-droit": {
+   "L": 1.0,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.732,
+   "halo": {
+    "alpha_max": 0.612,
+    "rayon_tuiles": 1.33
+   },
+   "iou_prec": 0.91,
+   "lueur": {
+    "area_px": 486,
+    "best_delta": 95.1,
+    "fenetres_8x8": 251
+   },
+   "lum_p5": 27.5,
+   "lum_p50": 84.4,
+   "lum_p95": 194.2,
+   "part_emissive": 0.067,
+   "piece_aire_ajoutee_t2": 0.154,
+   "piece_lum20_t2": 0.067,
+   "sat": 0.343,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "28-isole": {
+   "L": 1.0,
+   "O_masses": 0.969,
+   "O_tout": 1.0,
+   "aire_t2": 1.31,
+   "halo": {
+    "alpha_max": 0.612,
+    "rayon_tuiles": 1.38
+   },
+   "iou_prec": 0.899,
+   "lueur": {
+    "area_px": 409,
+    "best_delta": 93.5,
+    "fenetres_8x8": 118
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 85.9,
+   "lum_p95": 203.2,
+   "part_emissive": 0.072,
+   "piece_aire_ajoutee_t2": 0.132,
+   "piece_lum20_t2": 0.067,
+   "sat": 0.272,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.5,
+    0.547
+   ]
+  },
+  "29-droit": {
+   "L": 1.0,
+   "O_masses": 0.875,
+   "O_tout": 0.906,
+   "aire_t2": 1.15,
+   "halo": {
+    "alpha_max": 0.631,
+    "rayon_tuiles": 1.41
+   },
+   "iou_epoque_prec": 0.649,
+   "iou_prec": 0.619,
+   "lueur": {
+    "area_px": 868,
+    "best_delta": 149.9,
+    "fenetres_8x8": 340
+   },
+   "lum_p5": 11.1,
+   "lum_p50": 101.8,
+   "lum_p95": 214.9,
+   "part_emissive": 0.181,
+   "sat": 0.202,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.406,
+    0.562
+   ]
+  },
+  "29-isole": {
+   "L": 0.906,
+   "O_masses": 0.859,
+   "O_tout": 0.906,
+   "aire_t2": 1.059,
+   "halo": {
+    "alpha_max": 0.631,
+    "rayon_tuiles": 1.39
+   },
+   "iou_epoque_prec": 0.796,
+   "iou_prec": 0.745,
+   "lueur": {
+    "area_px": 749,
+    "best_delta": 136.4,
+    "fenetres_8x8": 281
+   },
+   "lum_p5": 6.8,
+   "lum_p50": 115.3,
+   "lum_p95": 207.6,
+   "part_emissive": 0.169,
+   "sat": 0.196,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.406,
+    0.562
+   ]
+  },
+  "3-droit": {
+   "L": 1.0,
+   "O_masses": 0.281,
+   "O_tout": 0.281,
+   "aire_t2": 1.123,
+   "halo": null,
+   "iou_epoque_prec": 0.797,
+   "iou_prec": 0.75,
+   "lueur": null,
+   "lum_p5": 11.0,
+   "lum_p50": 52.6,
+   "lum_p95": 177.5,
+   "part_emissive": 0.0,
+   "sat": 0.127,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.781,
+    0.578
+   ]
+  },
+  "3-isole": {
+   "L": 0.906,
+   "O_masses": 0.281,
+   "O_tout": 0.281,
+   "aire_t2": 0.896,
+   "halo": null,
+   "iou_epoque_prec": 0.636,
+   "iou_prec": 0.633,
+   "lueur": null,
+   "lum_p5": 6.8,
+   "lum_p50": 53.7,
+   "lum_p95": 179.3,
+   "part_emissive": 0.0,
+   "sat": 0.146,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -0.781,
+    0.562
+   ]
+  },
+  "30-droit": {
+   "L": 1.0,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.302,
+   "halo": {
+    "alpha_max": 0.651,
+    "rayon_tuiles": 1.39
+   },
+   "iou_prec": 0.87,
+   "lueur": {
+    "area_px": 988,
+    "best_delta": 145.0,
+    "fenetres_8x8": 340
+   },
+   "lum_p5": 16.1,
+   "lum_p50": 106.7,
+   "lum_p95": 214.5,
+   "part_emissive": 0.182,
+   "piece_aire_ajoutee_t2": 0.161,
+   "piece_lum20_t2": 0.103,
+   "sat": 0.221,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "30-isole": {
+   "L": 0.906,
+   "O_masses": 0.984,
+   "O_tout": 1.0,
+   "aire_t2": 1.182,
+   "halo": {
+    "alpha_max": 0.651,
+    "rayon_tuiles": 1.41
+   },
+   "iou_prec": 0.895,
+   "lueur": {
+    "area_px": 901,
+    "best_delta": 135.7,
+    "fenetres_8x8": 280
+   },
+   "lum_p5": 6.9,
+   "lum_p50": 116.0,
+   "lum_p95": 207.7,
+   "part_emissive": 0.182,
+   "piece_aire_ajoutee_t2": 0.123,
+   "piece_lum20_t2": 0.08,
+   "sat": 0.212,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.5,
+    0.562
+   ]
+  },
+  "4-droit": {
+   "L": 1.0,
+   "O_masses": 0.312,
+   "O_tout": 0.406,
+   "aire_t2": 1.25,
+   "halo": null,
+   "iou_prec": 0.898,
+   "lueur": null,
+   "lum_p5": 22.3,
+   "lum_p50": 51.7,
+   "lum_p95": 168.3,
+   "part_emissive": 0.0,
+   "piece_aire_ajoutee_t2": 0.128,
+   "piece_lum20_t2": 0.099,
+   "sat": 0.121,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.906,
+    0.578
+   ]
+  },
+  "4-isole": {
+   "L": 0.906,
+   "O_masses": 0.359,
+   "O_tout": 0.406,
+   "aire_t2": 0.999,
+   "halo": null,
+   "iou_prec": 0.895,
+   "lueur": null,
+   "lum_p5": 7.1,
+   "lum_p50": 52.8,
+   "lum_p95": 170.5,
+   "part_emissive": 0.0,
+   "piece_aire_ajoutee_t2": 0.104,
+   "piece_lum20_t2": 0.117,
+   "sat": 0.137,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -0.906,
+    0.562
+   ]
+  },
+  "5-droit": {
+   "L": 1.0,
+   "O_masses": 0.312,
+   "O_tout": 0.328,
+   "aire_t2": 1.112,
+   "halo": {
+    "alpha_max": 0.149,
+    "rayon_tuiles": 0.53
+   },
+   "iou_epoque_prec": 0.747,
+   "iou_prec": 0.818,
+   "lueur": {
+    "area_px": 91,
+    "best_delta": 149.4,
+    "fenetres_8x8": 24
+   },
+   "lum_p5": 10.2,
+   "lum_p50": 57.6,
+   "lum_p95": 196.9,
+   "part_emissive": 0.02,
+   "sat": 0.288,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.828,
+    0.562
+   ]
+  },
+  "5-isole": {
+   "L": 0.906,
+   "O_masses": 0.312,
+   "O_tout": 0.328,
+   "aire_t2": 0.856,
+   "halo": {
+    "alpha_max": 0.149,
+    "rayon_tuiles": 0.53
+   },
+   "iou_epoque_prec": 0.794,
+   "iou_prec": 0.831,
+   "lueur": {
+    "area_px": 87,
+    "best_delta": 150.6,
+    "fenetres_8x8": 24
+   },
+   "lum_p5": 6.6,
+   "lum_p50": 58.6,
+   "lum_p95": 195.1,
+   "part_emissive": 0.025,
+   "sat": 0.278,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -0.828,
+    0.562
+   ]
+  },
+  "6-droit": {
+   "L": 1.0,
+   "O_masses": 0.516,
+   "O_tout": 0.516,
+   "aire_t2": 1.226,
+   "halo": {
+    "alpha_max": 0.169,
+    "rayon_tuiles": 1.08
+   },
+   "iou_prec": 0.904,
+   "lueur": {
+    "area_px": 206,
+    "best_delta": 149.6,
+    "fenetres_8x8": 24
+   },
+   "lum_p5": 22.7,
+   "lum_p50": 58.7,
+   "lum_p95": 196.5,
+   "part_emissive": 0.04,
+   "piece_aire_ajoutee_t2": 0.116,
+   "piece_lum20_t2": 0.052,
+   "sat": 0.299,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.016,
+    0.562
+   ]
+  },
+  "6-isole": {
+   "L": 0.906,
+   "O_masses": 0.516,
+   "O_tout": 0.516,
+   "aire_t2": 0.961,
+   "halo": {
+    "alpha_max": 0.169,
+    "rayon_tuiles": 1.05
+   },
+   "iou_prec": 0.886,
+   "lueur": {
+    "area_px": 212,
+    "best_delta": 146.8,
+    "fenetres_8x8": 24
+   },
+   "lum_p5": 6.9,
+   "lum_p50": 60.9,
+   "lum_p95": 194.5,
+   "part_emissive": 0.052,
+   "piece_aire_ajoutee_t2": 0.108,
+   "piece_lum20_t2": 0.053,
+   "sat": 0.291,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.016,
+    0.562
+   ]
+  },
+  "7-droit": {
+   "L": 1.0,
+   "O_masses": 0.391,
+   "O_tout": 0.391,
+   "aire_t2": 1.21,
+   "halo": {
+    "alpha_max": 0.188,
+    "rayon_tuiles": 0.58
+   },
+   "iou_epoque_prec": 0.806,
+   "iou_prec": 0.81,
+   "lueur": {
+    "area_px": 93,
+    "best_delta": 109.9,
+    "fenetres_8x8": 30
+   },
+   "lum_p5": 18.0,
+   "lum_p50": 60.8,
+   "lum_p95": 142.3,
+   "part_emissive": 0.019,
+   "sat": 0.215,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.891,
+    0.578
+   ]
+  },
+  "7-isole": {
+   "L": 0.906,
+   "O_masses": 0.391,
+   "O_tout": 0.438,
+   "aire_t2": 0.947,
+   "halo": {
+    "alpha_max": 0.188,
+    "rayon_tuiles": 0.58
+   },
+   "iou_epoque_prec": 0.77,
+   "iou_prec": 0.792,
+   "lueur": {
+    "area_px": 94,
+    "best_delta": 105.2,
+    "fenetres_8x8": 30
+   },
+   "lum_p5": 6.9,
+   "lum_p50": 65.4,
+   "lum_p95": 131.5,
+   "part_emissive": 0.024,
+   "sat": 0.216,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -0.938,
+    0.562
+   ]
+  },
+  "8-droit": {
+   "L": 1.0,
+   "O_masses": 0.531,
+   "O_tout": 0.578,
+   "aire_t2": 1.344,
+   "halo": {
+    "alpha_max": 0.212,
+    "rayon_tuiles": 1.14
+   },
+   "iou_prec": 0.899,
+   "lueur": {
+    "area_px": 440,
+    "best_delta": 111.0,
+    "fenetres_8x8": 197
+   },
+   "lum_p5": 17.9,
+   "lum_p50": 59.6,
+   "lum_p95": 130.0,
+   "part_emissive": 0.08,
+   "piece_aire_ajoutee_t2": 0.135,
+   "piece_lum20_t2": 0.109,
+   "sat": 0.241,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -1.078,
+    0.578
+   ]
+  },
+  "8-isole": {
+   "L": 0.906,
+   "O_masses": 0.547,
+   "O_tout": 0.578,
+   "aire_t2": 1.065,
+   "halo": {
+    "alpha_max": 0.212,
+    "rayon_tuiles": 1.14
+   },
+   "iou_prec": 0.885,
+   "lueur": {
+    "area_px": 449,
+    "best_delta": 107.5,
+    "fenetres_8x8": 204
+   },
+   "lum_p5": 6.9,
+   "lum_p50": 63.0,
+   "lum_p95": 119.6,
+   "part_emissive": 0.102,
+   "piece_aire_ajoutee_t2": 0.121,
+   "piece_lum20_t2": 0.093,
+   "sat": 0.246,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -1.078,
+    0.562
+   ]
+  },
+  "9-droit": {
+   "L": 1.0,
+   "O_masses": 0.422,
+   "O_tout": 0.453,
+   "aire_t2": 1.248,
+   "halo": {
+    "alpha_max": 0.231,
+    "rayon_tuiles": 0.63
+   },
+   "iou_epoque_prec": 0.768,
+   "iou_prec": 0.766,
+   "lueur": {
+    "area_px": 220,
+    "best_delta": 86.2,
+    "fenetres_8x8": 123
+   },
+   "lum_p5": 8.1,
+   "lum_p50": 45.0,
+   "lum_p95": 55.9,
+   "part_emissive": 0.043,
+   "sat": 0.167,
+   "x": [
+    -0.5,
+    0.5
+   ],
+   "y": [
+    -0.953,
+    0.578
+   ]
+  },
+  "9-isole": {
+   "L": 0.906,
+   "O_masses": 0.453,
+   "O_tout": 0.453,
+   "aire_t2": 0.82,
+   "halo": {
+    "alpha_max": 0.231,
+    "rayon_tuiles": 0.63
+   },
+   "iou_epoque_prec": 0.694,
+   "iou_prec": 0.709,
+   "lueur": {
+    "area_px": 219,
+    "best_delta": 86.4,
+    "fenetres_8x8": 123
+   },
+   "lum_p5": 6.7,
+   "lum_p50": 44.8,
+   "lum_p95": 69.3,
+   "part_emissive": 0.065,
+   "sat": 0.227,
+   "x": [
+    -0.453,
+    0.453
+   ],
+   "y": [
+    -0.953,
+    0.562
+   ]
+  }
+ }
+}

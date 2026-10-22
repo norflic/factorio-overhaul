@@ -1,4 +1,5 @@
 {
+ "basse_qualite": "aperçus : lr = réduction 2x de la hr (fo_post.downsample2) ; D4-2 (Q21) demande des sprites 32 px/tuile RENDUS à leur taille : besoin envoyé au pipeline partagé, à faire en phase 2",
  "convention": {
   "halo": "draw_as_light, additive, hors de la silhouette du mur (F64), intensité I(N) = 0,05 + 0,02 N, rayon <= 1 tuile",
   "hr": "64 px/tuile, scale = 0.5",
@@ -9,24 +10,25 @@
  },
  "d1_3": {
   "droit": {
-   "iou_1_29": 0.437,
-   "iou_1_30": 0.422,
-   "iou_norm_1_29_origine": 0.445,
-   "iou_norm_bas": 0.442,
-   "iou_norm_origine": 0.43,
-   "k_bas": 1.23,
+   "iou_1_29": 0.421,
+   "iou_1_30": 0.386,
+   "iou_norm_1_29_origine": 0.428,
+   "iou_norm_bas": 0.414,
+   "iou_norm_origine": 0.397,
+   "k_bas": 1.45,
    "k_origine": 1.1
   },
   "isole": {
-   "iou_1_29": 0.449,
-   "iou_1_30": 0.435,
-   "iou_norm_1_29_origine": 0.614,
-   "iou_norm_bas": 0.581,
-   "iou_norm_origine": 0.601,
-   "k_bas": 1.46,
+   "iou_1_29": 0.414,
+   "iou_1_30": 0.377,
+   "iou_norm_1_29_origine": 0.566,
+   "iou_norm_bas": 0.529,
+   "iou_norm_origine": 0.528,
+   "k_bas": 1.61,
    "k_origine": 1.35
   }
  },
+ "dress_lua": "pour ctx.level = n : L = niveaux[n] ; pour chaque clé c de L.cles : p.pictures[c] = { layers = { couches dans l'ordre : filename, width, height, shift, drapeaux, hr_version = { filename, width, height, shift, scale = 0.5, drapeaux } } } ; clés pas encore produites (phase 2) : image vanilla gardée ; aucun champ de jeu touché (garde de Common.dress)",
  "famille": "wall",
  "fichiers_phase2": "__factorio-overhaul__/graphics/levels/wall/eNN/hr-wall-nNN-<clé>-<couche>.png (+ version lr sans « hr- »)",
  "interface": "prototypes/levels/wall.lua : dress(p, ctx) -> p.pictures[cle] = {layers = ...} pour ctx.level ; icons(icons, ctx) : rendu de la pose single (phase 2)",
@@ -48,7 +50,7 @@
         "height": 120,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 88
        },
@@ -57,7 +59,7 @@
         "height": 60,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 44
        },
@@ -72,21 +74,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-single-glow.png",
-        "height": 96,
+        "height": 78,
         "shift": [
-         0.0,
-         -0.28125
+         0.046875,
+         -0.421875
         ],
-        "width": 52
+        "width": 42
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-single-glow.png",
-        "height": 48,
+        "height": 39,
         "shift": [
-         0.0,
-         -0.28125
+         0.046875,
+         -0.421875
         ],
-        "width": 26
+        "width": 21
        },
        "source": "rendu"
       },
@@ -99,19 +101,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-single-light.png",
-        "height": 104,
+        "height": 120,
         "shift": [
          0.0,
-         0.25
+         0.125
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-single-light.png",
-        "height": 52,
+        "height": 60,
         "shift": [
          0.0,
-         0.25
+         0.125
         ],
         "width": 44
        },
@@ -152,20 +154,29 @@
       "L": 0.906,
       "O_masses": 0.516,
       "O_tout": 0.609,
-      "aire_t2": 1.058,
+      "aire_t2": 0.966,
       "iou_epoque_prec": null,
-      "iou_prec": 0.954,
-      "lum_p50": 44.0,
-      "lum_p95": 65.3,
-      "piece_aire_ajoutee_t2": 0.049,
-      "sat": 0.238
+      "iou_prec": 0.846,
+      "lueur_delta_8x8": 93.0,
+      "lum_p50": 38.3,
+      "lum_p95": 66.0,
+      "piece_aire_ajoutee_t2": 0.148,
+      "sat": 0.201,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.109,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 22.8
+      "secondes": 25.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -178,19 +189,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-straight_horizontal-main.png",
-        "height": 120,
+        "height": 122,
         "shift": [
          0.0,
-         -0.1875
+         -0.203125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-straight_horizontal-main.png",
-        "height": 60,
+        "height": 61,
         "shift": [
          0.0,
-         -0.1875
+         -0.203125
         ],
         "width": 32
        },
@@ -205,19 +216,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-straight_horizontal-glow.png",
-        "height": 96,
+        "height": 98,
         "shift": [
          0.0,
-         -0.34375
+         -0.265625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-straight_horizontal-glow.png",
-        "height": 48,
+        "height": 49,
         "shift": [
          0.0,
-         -0.34375
+         -0.265625
         ],
         "width": 32
        },
@@ -232,19 +243,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-straight_horizontal-light.png",
-        "height": 122,
+        "height": 118,
         "shift": [
          0.0,
-         0.109375
+         0.140625
         ],
         "width": 84
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-straight_horizontal-light.png",
-        "height": 61,
+        "height": 59,
         "shift": [
          0.0,
-         0.109375
+         0.140625
         ],
         "width": 42
        },
@@ -258,21 +269,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n10-straight_horizontal-shadow.png",
-        "height": 28,
+        "height": 30,
         "shift": [
-         0.640625,
-         0.375
+         0.6875,
+         0.359375
         ],
-        "width": 146
+        "width": 152
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n10-straight_horizontal-shadow.png",
-        "height": 14,
+        "height": 15,
         "shift": [
-         0.640625,
-         0.375
+         0.6875,
+         0.359375
         ],
-        "width": 73
+        "width": 76
        },
        "source": "rendu"
       }
@@ -283,22 +294,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.531,
+      "O_masses": 0.516,
       "O_tout": 0.609,
-      "aire_t2": 1.443,
+      "aire_t2": 1.37,
       "iou_epoque_prec": null,
-      "iou_prec": 0.943,
-      "lum_p50": 44.4,
-      "lum_p95": 57.3,
-      "piece_aire_ajoutee_t2": 0.083,
-      "sat": 0.192
+      "iou_prec": 0.91,
+      "lueur_delta_8x8": 88.0,
+      "lum_p50": 43.2,
+      "lum_p95": 51.7,
+      "piece_aire_ajoutee_t2": 0.123,
+      "sat": 0.148,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.109,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 16.1
+      "secondes": 23.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -317,8 +337,8 @@
    ],
    "emissif": "#FF4A10",
    "epoque": 5,
-   "piece": "colonnes de basalte (pointe haute au centre) fissurées de braise",
-   "silhouette": "glacis en écailles de tungstène, dents sur l'arête, joints de braise",
+   "piece": "orgue de basalte : colonne centrale au-dessus de la dent, colonnes dans les creux de la scie",
+   "silhouette": "glacis bas en écailles de tungstène, crête en scie (grande dent au centre, demi-dents aux joints), évent et joints de braise",
    "step": 2
   },
   "11": {
@@ -360,21 +380,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n11-single-glow.png",
-        "height": 22,
+        "height": 38,
         "shift": [
-         0.109375,
-         -0.890625
+         0.0,
+         -0.765625
         ],
-        "width": 26
+        "width": 36
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n11-single-glow.png",
-        "height": 11,
+        "height": 19,
         "shift": [
-         0.109375,
-         -0.890625
+         0.0,
+         -0.765625
         ],
-        "width": 13
+        "width": 18
        },
        "source": "rendu"
       },
@@ -438,22 +458,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.5,
-      "O_tout": 0.531,
-      "aire_t2": 0.873,
-      "iou_epoque_prec": 0.79,
-      "iou_prec": 0.82,
-      "lum_p50": 86.3,
-      "lum_p95": 195.2,
+      "O_masses": 0.516,
+      "O_tout": 0.547,
+      "aire_t2": 0.79,
+      "iou_epoque_prec": 0.86,
+      "iou_prec": 0.769,
+      "lueur_delta_8x8": 145.7,
+      "lum_p50": 56.6,
+      "lum_p95": 153.5,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.161
+      "sat": 0.164,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.047,
+       0.578
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 13.7
+      "secondes": 14.0
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -493,19 +522,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n11-straight_horizontal-glow.png",
-        "height": 52,
+        "height": 82,
         "shift": [
          0.0,
-         -0.65625
+         -0.421875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n11-straight_horizontal-glow.png",
-        "height": 26,
+        "height": 41,
         "shift": [
          0.0,
-         -0.65625
+         -0.421875
         ],
         "width": 32
        },
@@ -548,19 +577,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n11-straight_horizontal-shadow.png",
         "height": 26,
         "shift": [
-         0.71875,
+         0.703125,
          0.390625
         ],
-        "width": 156
+        "width": 154
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n11-straight_horizontal-shadow.png",
         "height": 13,
         "shift": [
-         0.71875,
+         0.703125,
          0.390625
         ],
-        "width": 78
+        "width": 77
        },
        "source": "rendu"
       }
@@ -571,22 +600,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.5,
-      "O_tout": 0.531,
-      "aire_t2": 1.109,
-      "iou_epoque_prec": 0.727,
-      "iou_prec": 0.759,
-      "lum_p50": 62.1,
-      "lum_p95": 194.6,
+      "O_masses": 0.516,
+      "O_tout": 0.547,
+      "aire_t2": 1.028,
+      "iou_epoque_prec": 0.781,
+      "iou_prec": 0.739,
+      "lueur_delta_8x8": 148.0,
+      "lum_p50": 54.0,
+      "lum_p95": 164.6,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.161
+      "sat": 0.167,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.047,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.8
+      "secondes": 23.4
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -648,21 +686,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n12-single-glow.png",
-        "height": 20,
+        "height": 32,
         "shift": [
-         -0.015625,
-         -0.90625
+         0.0,
+         -0.84375
         ],
-        "width": 30
+        "width": 28
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n12-single-glow.png",
-        "height": 10,
+        "height": 16,
         "shift": [
-         -0.015625,
-         -0.90625
+         0.0,
+         -0.84375
         ],
-        "width": 15
+        "width": 14
        },
        "source": "rendu"
       },
@@ -728,20 +766,29 @@
       "L": 0.906,
       "O_masses": 0.562,
       "O_tout": 0.609,
-      "aire_t2": 1.021,
+      "aire_t2": 0.963,
       "iou_epoque_prec": null,
-      "iou_prec": 0.856,
-      "lum_p50": 98.5,
-      "lum_p95": 192.1,
-      "piece_aire_ajoutee_t2": 0.147,
-      "sat": 0.152
+      "iou_prec": 0.82,
+      "lueur_delta_8x8": 134.1,
+      "lum_p50": 66.7,
+      "lum_p95": 145.0,
+      "piece_aire_ajoutee_t2": 0.173,
+      "sat": 0.163,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.109,
+       0.578
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 17.4
+      "secondes": 21.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -781,21 +828,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n12-straight_horizontal-glow.png",
-        "height": 28,
+        "height": 86,
         "shift": [
          0.0,
-         -0.875
+         -0.453125
         ],
-        "width": 32
+        "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n12-straight_horizontal-glow.png",
-        "height": 14,
+        "height": 43,
         "shift": [
          0.0,
-         -0.875
+         -0.453125
         ],
-        "width": 16
+        "width": 32
        },
        "source": "rendu"
       },
@@ -808,7 +855,7 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/hr-wall-n12-straight_horizontal-light.png",
-        "height": 132,
+        "height": 128,
         "shift": [
          0.0,
          0.09375
@@ -817,7 +864,7 @@
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e06/wall-n12-straight_horizontal-light.png",
-        "height": 66,
+        "height": 64,
         "shift": [
          0.0,
          0.09375
@@ -861,20 +908,29 @@
       "L": 1.0,
       "O_masses": 0.562,
       "O_tout": 0.609,
-      "aire_t2": 1.265,
+      "aire_t2": 1.195,
       "iou_epoque_prec": null,
-      "iou_prec": 0.876,
-      "lum_p50": 81.1,
-      "lum_p95": 193.1,
-      "piece_aire_ajoutee_t2": 0.156,
-      "sat": 0.159
+      "iou_prec": 0.861,
+      "lueur_delta_8x8": 145.4,
+      "lum_p50": 55.8,
+      "lum_p95": 154.0,
+      "piece_aire_ajoutee_t2": 0.166,
+      "sat": 0.172,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.109,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 17.7
+      "secondes": 11.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -909,19 +965,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-single-main.png",
-        "height": 116,
+        "height": 120,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-single-main.png",
-        "height": 58,
+        "height": 60,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 44
        },
@@ -936,21 +992,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-single-glow.png",
-        "height": 82,
+        "height": 98,
         "shift": [
-         0.0,
-         -0.453125
+         0.015625,
+         -0.390625
         ],
-        "width": 40
+        "width": 74
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-single-glow.png",
-        "height": 41,
+        "height": 49,
         "shift": [
-         0.0,
-         -0.453125
+         0.015625,
+         -0.390625
         ],
-        "width": 20
+        "width": 37
        },
        "source": "rendu"
       },
@@ -991,19 +1047,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-single-shadow.png",
         "height": 32,
         "shift": [
-         0.625,
+         0.828125,
          0.28125
         ],
-        "width": 132
+        "width": 158
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-single-shadow.png",
         "height": 16,
         "shift": [
-         0.625,
+         0.828125,
          0.28125
         ],
-        "width": 66
+        "width": 79
        },
        "source": "rendu"
       }
@@ -1013,23 +1069,32 @@
       "S": 0.825
      },
      "mesures": {
-      "L": 0.906,
-      "O_masses": 0.484,
-      "O_tout": 0.578,
-      "aire_t2": 0.944,
-      "iou_epoque_prec": 0.892,
-      "iou_prec": 0.797,
-      "lum_p50": 43.0,
-      "lum_p95": 128.4,
+      "L": 1.125,
+      "O_masses": 0.562,
+      "O_tout": 0.641,
+      "aire_t2": 1.08,
+      "iou_epoque_prec": 0.712,
+      "iou_prec": 0.62,
+      "lueur_delta_8x8": 137.1,
+      "lum_p50": 61.5,
+      "lum_p95": 158.4,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.309
+      "sat": 0.271,
+      "x": [
+       -0.547,
+       0.578
+      ],
+      "y": [
+       -1.141,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.9
+      "secondes": 17.2
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1042,19 +1107,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-straight_horizontal-main.png",
-        "height": 118,
+        "height": 122,
         "shift": [
          0.0,
-         -0.203125
+         -0.234375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-straight_horizontal-main.png",
-        "height": 59,
+        "height": 61,
         "shift": [
          0.0,
-         -0.203125
+         -0.234375
         ],
         "width": 32
        },
@@ -1069,19 +1134,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-straight_horizontal-glow.png",
-        "height": 86,
+        "height": 84,
         "shift": [
          0.0,
-         -0.453125
+         -0.53125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-straight_horizontal-glow.png",
-        "height": 43,
+        "height": 42,
         "shift": [
          0.0,
-         -0.453125
+         -0.53125
         ],
         "width": 32
        },
@@ -1122,21 +1187,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n13-straight_horizontal-shadow.png",
-        "height": 22,
+        "height": 24,
         "shift": [
-         0.609375,
-         0.359375
+         0.84375,
+         0.34375
         ],
-        "width": 142
+        "width": 172
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n13-straight_horizontal-shadow.png",
-        "height": 11,
+        "height": 12,
         "shift": [
-         0.609375,
-         0.359375
+         0.84375,
+         0.34375
         ],
-        "width": 71
+        "width": 86
        },
        "source": "rendu"
       }
@@ -1147,22 +1212,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.5,
-      "O_tout": 0.578,
-      "aire_t2": 1.325,
-      "iou_epoque_prec": 0.817,
-      "iou_prec": 0.806,
-      "lum_p50": 42.2,
-      "lum_p95": 124.7,
+      "O_masses": 0.578,
+      "O_tout": 0.656,
+      "aire_t2": 1.294,
+      "iou_epoque_prec": 0.775,
+      "iou_prec": 0.697,
+      "lueur_delta_8x8": 140.8,
+      "lum_p50": 59.7,
+      "lum_p95": 151.4,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.311
+      "sat": 0.272,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.156,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 16.1
+      "secondes": 17.6
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1197,19 +1271,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-single-main.png",
-        "height": 128,
+        "height": 132,
         "shift": [
          0.0,
-         -0.28125
+         -0.3125
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-single-main.png",
-        "height": 64,
+        "height": 66,
         "shift": [
          0.0,
-         -0.28125
+         -0.3125
         ],
         "width": 44
        },
@@ -1224,21 +1298,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-single-glow.png",
-        "height": 70,
+        "height": 110,
         "shift": [
          0.015625,
-         -0.734375
+         -0.484375
         ],
-        "width": 42
+        "width": 74
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-single-glow.png",
-        "height": 35,
+        "height": 55,
         "shift": [
          0.015625,
-         -0.734375
+         -0.484375
         ],
-        "width": 21
+        "width": 37
        },
        "source": "rendu"
       },
@@ -1251,19 +1325,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-single-light.png",
-        "height": 134,
+        "height": 136,
         "shift": [
          0.0,
-         0.109375
+         0.09375
         ],
         "width": 100
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-single-light.png",
-        "height": 67,
+        "height": 68,
         "shift": [
          0.0,
-         0.109375
+         0.09375
         ],
         "width": 50
        },
@@ -1279,19 +1353,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-single-shadow.png",
         "height": 32,
         "shift": [
-         0.734375,
+         0.828125,
          0.28125
         ],
-        "width": 146
+        "width": 158
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-single-shadow.png",
         "height": 16,
         "shift": [
-         0.734375,
+         0.828125,
          0.28125
         ],
-        "width": 73
+        "width": 79
        },
        "source": "rendu"
       }
@@ -1301,23 +1375,32 @@
       "S": 0.85
      },
      "mesures": {
-      "L": 0.906,
-      "O_masses": 0.656,
-      "O_tout": 0.766,
-      "aire_t2": 0.995,
+      "L": 1.125,
+      "O_masses": 0.688,
+      "O_tout": 0.812,
+      "aire_t2": 1.204,
       "iou_epoque_prec": null,
-      "iou_prec": 0.947,
-      "lum_p50": 41.9,
-      "lum_p95": 128.5,
-      "piece_aire_ajoutee_t2": 0.052,
-      "sat": 0.319
+      "iou_prec": 0.897,
+      "lueur_delta_8x8": 137.7,
+      "lum_p50": 61.3,
+      "lum_p95": 160.6,
+      "piece_aire_ajoutee_t2": 0.124,
+      "sat": 0.265,
+      "x": [
+       -0.547,
+       0.578
+      ],
+      "y": [
+       -1.312,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 16.9
+      "secondes": 16.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1330,19 +1413,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-straight_horizontal-main.png",
-        "height": 128,
+        "height": 132,
         "shift": [
          0.0,
-         -0.28125
+         -0.3125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-straight_horizontal-main.png",
-        "height": 64,
+        "height": 66,
         "shift": [
          0.0,
-         -0.28125
+         -0.3125
         ],
         "width": 32
        },
@@ -1360,7 +1443,7 @@
         "height": 100,
         "shift": [
          0.0,
-         -0.5
+         -0.5625
         ],
         "width": 64
        },
@@ -1369,7 +1452,7 @@
         "height": 50,
         "shift": [
          0.0,
-         -0.5
+         -0.5625
         ],
         "width": 32
        },
@@ -1410,21 +1493,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/hr-wall-n14-straight_horizontal-shadow.png",
-        "height": 24,
+        "height": 26,
         "shift": [
-         0.6875,
-         0.34375
+         0.84375,
+         0.328125
         ],
-        "width": 152
+        "width": 172
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e07/wall-n14-straight_horizontal-shadow.png",
-        "height": 12,
+        "height": 13,
         "shift": [
-         0.6875,
-         0.34375
+         0.84375,
+         0.328125
         ],
-        "width": 76
+        "width": 86
        },
        "source": "rendu"
       }
@@ -1435,22 +1518,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.672,
-      "O_tout": 0.766,
-      "aire_t2": 1.393,
+      "O_masses": 0.719,
+      "O_tout": 0.828,
+      "aire_t2": 1.487,
       "iou_epoque_prec": null,
-      "iou_prec": 0.951,
-      "lum_p50": 39.8,
-      "lum_p95": 124.1,
-      "piece_aire_ajoutee_t2": 0.068,
-      "sat": 0.323
+      "iou_prec": 0.87,
+      "lueur_delta_8x8": 143.2,
+      "lum_p50": 59.3,
+      "lum_p95": 153.2,
+      "piece_aire_ajoutee_t2": 0.193,
+      "sat": 0.265,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.328,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 16.6
+      "secondes": 21.2
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1485,19 +1577,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-single-main.png",
-        "height": 114,
+        "height": 118,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-single-main.png",
-        "height": 57,
+        "height": 59,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 44
        },
@@ -1512,21 +1604,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-single-glow.png",
-        "height": 88,
+        "height": 86,
         "shift": [
-         0.0,
-         -0.1875
+         -0.015625,
+         -0.171875
         ],
-        "width": 48
+        "width": 50
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-single-glow.png",
-        "height": 44,
+        "height": 43,
         "shift": [
-         0.0,
-         -0.1875
+         -0.015625,
+         -0.171875
         ],
-        "width": 24
+        "width": 25
        },
        "source": "rendu"
       },
@@ -1539,19 +1631,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-single-light.png",
-        "height": 114,
+        "height": 118,
         "shift": [
          0.0,
-         0.296875
+         0.265625
         ],
         "width": 104
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-single-light.png",
-        "height": 57,
+        "height": 59,
         "shift": [
          0.0,
-         0.296875
+         0.265625
         ],
         "width": 52
        },
@@ -1567,19 +1659,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-single-shadow.png",
         "height": 32,
         "shift": [
-         0.71875,
+         0.734375,
          0.28125
         ],
-        "width": 144
+        "width": 142
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-single-shadow.png",
         "height": 16,
         "shift": [
-         0.71875,
+         0.734375,
          0.28125
         ],
-        "width": 72
+        "width": 71
        },
        "source": "rendu"
       }
@@ -1590,22 +1682,31 @@
      },
      "mesures": {
       "L": 0.938,
-      "O_masses": 0.547,
-      "O_tout": 0.547,
-      "aire_t2": 1.121,
-      "iou_epoque_prec": 0.83,
-      "iou_prec": 0.827,
-      "lum_p50": 56.6,
-      "lum_p95": 126.5,
+      "O_masses": 0.578,
+      "O_tout": 0.594,
+      "aire_t2": 1.026,
+      "iou_epoque_prec": 0.71,
+      "iou_prec": 0.754,
+      "lueur_delta_8x8": 166.5,
+      "lum_p50": 61.4,
+      "lum_p95": 137.6,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.425
+      "sat": 0.376,
+      "x": [
+       -0.469,
+       0.469
+      ],
+      "y": [
+       -1.094,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 12.9
+      "secondes": 17.0
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1618,19 +1719,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-straight_horizontal-main.png",
-        "height": 114,
+        "height": 118,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-straight_horizontal-main.png",
-        "height": 57,
+        "height": 59,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 32
        },
@@ -1645,19 +1746,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-straight_horizontal-glow.png",
-        "height": 86,
+        "height": 94,
         "shift": [
          0.0,
-         -0.203125
+         -0.234375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-straight_horizontal-glow.png",
-        "height": 43,
+        "height": 47,
         "shift": [
          0.0,
-         -0.203125
+         -0.234375
         ],
         "width": 32
        },
@@ -1672,19 +1773,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-straight_horizontal-light.png",
-        "height": 86,
+        "height": 104,
         "shift": [
          0.0,
-         0.515625
+         0.375
         ],
         "width": 104
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-straight_horizontal-light.png",
-        "height": 43,
+        "height": 52,
         "shift": [
          0.0,
-         0.515625
+         0.375
         ],
         "width": 52
        },
@@ -1698,21 +1799,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n15-straight_horizontal-shadow.png",
-        "height": 20,
+        "height": 18,
         "shift": [
-         0.71875,
-         0.375
+         0.6875,
+         0.390625
         ],
-        "width": 156
+        "width": 152
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n15-straight_horizontal-shadow.png",
-        "height": 10,
+        "height": 9,
         "shift": [
-         0.71875,
-         0.375
+         0.6875,
+         0.390625
         ],
-        "width": 78
+        "width": 76
        },
        "source": "rendu"
       }
@@ -1723,22 +1824,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.547,
-      "O_tout": 0.547,
-      "aire_t2": 1.51,
-      "iou_epoque_prec": 0.86,
-      "iou_prec": 0.859,
-      "lum_p50": 57.1,
-      "lum_p95": 124.9,
+      "O_masses": 0.578,
+      "O_tout": 0.594,
+      "aire_t2": 1.357,
+      "iou_epoque_prec": 0.771,
+      "iou_prec": 0.834,
+      "lueur_delta_8x8": 167.0,
+      "lum_p50": 60.8,
+      "lum_p95": 129.5,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.443
+      "sat": 0.398,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.094,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.2
+      "secondes": 15.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1773,19 +1883,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-single-main.png",
-        "height": 128,
+        "height": 130,
         "shift": [
          0.0,
-         -0.28125
+         -0.296875
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-single-main.png",
-        "height": 64,
+        "height": 65,
         "shift": [
          0.0,
-         -0.28125
+         -0.296875
         ],
         "width": 44
        },
@@ -1800,19 +1910,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-single-glow.png",
-        "height": 104,
+        "height": 100,
         "shift": [
          0.0,
-         -0.3125
+         -0.28125
         ],
         "width": 48
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-single-glow.png",
-        "height": 52,
+        "height": 50,
         "shift": [
          0.0,
-         -0.3125
+         -0.28125
         ],
         "width": 24
        },
@@ -1827,19 +1937,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-single-light.png",
-        "height": 122,
+        "height": 132,
         "shift": [
          0.0,
-         0.234375
+         0.15625
         ],
         "width": 108
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-single-light.png",
-        "height": 61,
+        "height": 66,
         "shift": [
          0.0,
-         0.234375
+         0.15625
         ],
         "width": 54
        },
@@ -1855,19 +1965,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-single-shadow.png",
         "height": 32,
         "shift": [
-         0.84375,
+         0.875,
          0.28125
         ],
-        "width": 160
+        "width": 164
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-single-shadow.png",
         "height": 16,
         "shift": [
-         0.84375,
+         0.875,
          0.28125
         ],
-        "width": 80
+        "width": 82
        },
        "source": "rendu"
       }
@@ -1878,22 +1988,31 @@
      },
      "mesures": {
       "L": 0.938,
-      "O_masses": 0.734,
-      "O_tout": 0.75,
-      "aire_t2": 1.227,
+      "O_masses": 0.781,
+      "O_tout": 0.797,
+      "aire_t2": 1.153,
       "iou_epoque_prec": null,
-      "iou_prec": 0.914,
-      "lum_p50": 57.9,
-      "lum_p95": 126.5,
-      "piece_aire_ajoutee_t2": 0.106,
-      "sat": 0.426
+      "iou_prec": 0.888,
+      "lueur_delta_8x8": 163.8,
+      "lum_p50": 64.1,
+      "lum_p95": 138.7,
+      "piece_aire_ajoutee_t2": 0.128,
+      "sat": 0.388,
+      "x": [
+       -0.469,
+       0.469
+      ],
+      "y": [
+       -1.297,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 16.6
+      "secondes": 15.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -1906,19 +2025,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-straight_horizontal-main.png",
-        "height": 128,
+        "height": 130,
         "shift": [
          0.0,
-         -0.28125
+         -0.296875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-straight_horizontal-main.png",
-        "height": 64,
+        "height": 65,
         "shift": [
          0.0,
-         -0.28125
+         -0.296875
         ],
         "width": 32
        },
@@ -1933,19 +2052,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-straight_horizontal-glow.png",
-        "height": 96,
+        "height": 94,
         "shift": [
          0.0,
-         -0.25
+         -0.234375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-straight_horizontal-glow.png",
-        "height": 48,
+        "height": 47,
         "shift": [
          0.0,
-         -0.25
+         -0.234375
         ],
         "width": 32
        },
@@ -1960,19 +2079,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-straight_horizontal-light.png",
-        "height": 102,
+        "height": 120,
         "shift": [
          0.0,
-         0.390625
+         0.25
         ],
         "width": 104
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-straight_horizontal-light.png",
-        "height": 51,
+        "height": 60,
         "shift": [
          0.0,
-         0.390625
+         0.25
         ],
         "width": 52
        },
@@ -1988,19 +2107,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/hr-wall-n16-straight_horizontal-shadow.png",
         "height": 22,
         "shift": [
-         0.796875,
+         0.828125,
          0.359375
         ],
-        "width": 166
+        "width": 170
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e08/wall-n16-straight_horizontal-shadow.png",
         "height": 11,
         "shift": [
-         0.796875,
+         0.828125,
          0.359375
         ],
-        "width": 83
+        "width": 85
        },
        "source": "rendu"
       }
@@ -2011,22 +2130,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.734,
-      "O_tout": 0.75,
-      "aire_t2": 1.61,
+      "O_masses": 0.781,
+      "O_tout": 0.797,
+      "aire_t2": 1.468,
       "iou_epoque_prec": null,
-      "iou_prec": 0.938,
-      "lum_p50": 57.7,
-      "lum_p95": 124.9,
-      "piece_aire_ajoutee_t2": 0.1,
-      "sat": 0.441
+      "iou_prec": 0.924,
+      "lueur_delta_8x8": 165.3,
+      "lum_p50": 62.5,
+      "lum_p95": 130.5,
+      "piece_aire_ajoutee_t2": 0.111,
+      "sat": 0.405,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.297,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.9
+      "secondes": 16.4
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2061,19 +2189,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-single-main.png",
-        "height": 120,
+        "height": 124,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-single-main.png",
-        "height": 60,
+        "height": 62,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 44
        },
@@ -2088,21 +2216,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-single-glow.png",
-        "height": 74,
+        "height": 88,
         "shift": [
-         -0.015625,
-         -0.078125
+         -0.03125,
+         -0.3125
         ],
-        "width": 30
+        "width": 40
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-single-glow.png",
-        "height": 37,
+        "height": 44,
         "shift": [
-         -0.015625,
-         -0.078125
+         -0.03125,
+         -0.3125
         ],
-        "width": 15
+        "width": 20
        },
        "source": "rendu"
       },
@@ -2115,19 +2243,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-single-light.png",
-        "height": 118,
+        "height": 142,
         "shift": [
          0.0,
-         0.296875
+         0.109375
         ],
         "width": 112
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-single-light.png",
-        "height": 59,
+        "height": 71,
         "shift": [
          0.0,
-         0.296875
+         0.109375
         ],
         "width": 56
        },
@@ -2143,19 +2271,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-single-shadow.png",
         "height": 32,
         "shift": [
-         0.65625,
+         0.734375,
          0.28125
         ],
-        "width": 136
+        "width": 146
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-single-shadow.png",
         "height": 16,
         "shift": [
-         0.65625,
+         0.734375,
          0.28125
         ],
-        "width": 68
+        "width": 73
        },
        "source": "rendu"
       }
@@ -2166,22 +2294,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.594,
-      "O_tout": 0.594,
-      "aire_t2": 1.152,
-      "iou_epoque_prec": 0.921,
-      "iou_prec": 0.911,
-      "lum_p50": 68.1,
-      "lum_p95": 126.1,
+      "O_masses": 0.656,
+      "O_tout": 0.672,
+      "aire_t2": 0.903,
+      "iou_epoque_prec": 0.79,
+      "iou_prec": 0.743,
+      "lueur_delta_8x8": 146.9,
+      "lum_p50": 63.3,
+      "lum_p95": 123.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.205
+      "sat": 0.178,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.172,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.4
+      "secondes": 23.8
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2194,19 +2331,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-straight_horizontal-main.png",
-        "height": 120,
+        "height": 124,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-straight_horizontal-main.png",
-        "height": 60,
+        "height": 62,
         "shift": [
          0.0,
-         -0.1875
+         -0.21875
         ],
         "width": 32
        },
@@ -2221,21 +2358,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-straight_horizontal-glow.png",
-        "height": 24,
+        "height": 86,
         "shift": [
          0.0,
-         -0.5625
+         -0.296875
         ],
-        "width": 52
+        "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-straight_horizontal-glow.png",
-        "height": 12,
+        "height": 43,
         "shift": [
          0.0,
-         -0.5625
+         -0.296875
         ],
-        "width": 26
+        "width": 32
        },
        "source": "rendu"
       },
@@ -2248,21 +2385,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-straight_horizontal-light.png",
-        "height": 48,
+        "height": 140,
         "shift": [
          0.0,
-         0.875
+         0.125
         ],
-        "width": 112
+        "width": 108
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-straight_horizontal-light.png",
-        "height": 24,
+        "height": 70,
         "shift": [
          0.0,
-         0.875
+         0.125
         ],
-        "width": 56
+        "width": 54
        },
        "source": "rendu"
       },
@@ -2276,19 +2413,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n17-straight_horizontal-shadow.png",
         "height": 24,
         "shift": [
-         0.75,
+         0.71875,
          0.34375
         ],
-        "width": 160
+        "width": 156
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n17-straight_horizontal-shadow.png",
         "height": 12,
         "shift": [
-         0.75,
+         0.71875,
          0.34375
         ],
-        "width": 80
+        "width": 78
        },
        "source": "rendu"
       }
@@ -2299,22 +2436,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.594,
-      "O_tout": 0.594,
-      "aire_t2": 1.63,
-      "iou_epoque_prec": 0.926,
-      "iou_prec": 0.943,
-      "lum_p50": 67.7,
-      "lum_p95": 124.0,
+      "O_masses": 0.672,
+      "O_tout": 0.672,
+      "aire_t2": 1.172,
+      "iou_epoque_prec": 0.773,
+      "iou_prec": 0.749,
+      "lueur_delta_8x8": 153.7,
+      "lum_p50": 56.6,
+      "lum_p95": 108.2,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.221
+      "sat": 0.195,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.172,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 14.9
+      "secondes": 20.9
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2334,7 +2480,7 @@
    "emissif": "#5CFF4A",
    "epoque": 9,
    "piece": null,
-   "silhouette": "bloc de plomb chanfreiné (profil octogonal), fenêtre verte, trèfle",
+   "silhouette": "bloc de plomb bas chanfreiné, tour de refroidissement à 8 pans (taille de guêpe, lèvre), anneau d'avertissement, bande verte, fenêtre verte, trèfle",
    "step": 1
   },
   "18": {
@@ -2352,7 +2498,7 @@
         "height": 126,
         "shift": [
          0.0,
-         -0.234375
+         -0.265625
         ],
         "width": 88
        },
@@ -2361,7 +2507,7 @@
         "height": 63,
         "shift": [
          0.0,
-         -0.234375
+         -0.265625
         ],
         "width": 44
        },
@@ -2378,19 +2524,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-single-glow.png",
         "height": 102,
         "shift": [
-         0.0,
-         -0.296875
+         0.015625,
+         -0.421875
         ],
-        "width": 40
+        "width": 42
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-single-glow.png",
         "height": 51,
         "shift": [
-         0.0,
-         -0.296875
+         0.015625,
+         -0.421875
         ],
-        "width": 20
+        "width": 21
        },
        "source": "rendu"
       },
@@ -2403,19 +2549,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-single-light.png",
-        "height": 140,
+        "height": 144,
         "shift": [
          0.0,
-         0.15625
+         0.125
         ],
         "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-single-light.png",
-        "height": 70,
+        "height": 72,
         "shift": [
          0.0,
-         0.15625
+         0.125
         ],
         "width": 58
        },
@@ -2431,19 +2577,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-single-shadow.png",
         "height": 32,
         "shift": [
-         0.765625,
+         0.890625,
          0.28125
         ],
-        "width": 150
+        "width": 166
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-single-shadow.png",
         "height": 16,
         "shift": [
-         0.765625,
+         0.890625,
          0.28125
         ],
-        "width": 75
+        "width": 83
        },
        "source": "rendu"
       }
@@ -2455,21 +2601,30 @@
      "mesures": {
       "L": 0.906,
       "O_masses": 0.703,
-      "O_tout": 0.719,
-      "aire_t2": 1.182,
+      "O_tout": 0.734,
+      "aire_t2": 1.174,
       "iou_epoque_prec": null,
-      "iou_prec": 0.975,
-      "lum_p50": 67.5,
-      "lum_p95": 147.5,
-      "piece_aire_ajoutee_t2": 0.03,
-      "sat": 0.206
+      "iou_prec": 0.766,
+      "lueur_delta_8x8": 150.6,
+      "lum_p50": 59.7,
+      "lum_p95": 125.0,
+      "piece_aire_ajoutee_t2": 0.273,
+      "sat": 0.181,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.234,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 30.8
+      "secondes": 25.2
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2509,21 +2664,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-straight_horizontal-glow.png",
-        "height": 46,
+        "height": 100,
         "shift": [
          0.0,
-         -0.734375
+         -0.40625
         ],
-        "width": 60
+        "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-straight_horizontal-glow.png",
-        "height": 23,
+        "height": 50,
         "shift": [
          0.0,
-         -0.734375
+         -0.40625
         ],
-        "width": 30
+        "width": 32
        },
        "source": "rendu"
       },
@@ -2536,19 +2691,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-straight_horizontal-light.png",
-        "height": 48,
+        "height": 144,
         "shift": [
          0.0,
-         0.875
+         0.125
         ],
         "width": 112
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-straight_horizontal-light.png",
-        "height": 24,
+        "height": 72,
         "shift": [
          0.0,
-         0.875
+         0.125
         ],
         "width": 56
        },
@@ -2564,19 +2719,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/hr-wall-n18-straight_horizontal-shadow.png",
         "height": 24,
         "shift": [
-         0.875,
+         0.953125,
          0.34375
         ],
-        "width": 176
+        "width": 186
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e09/wall-n18-straight_horizontal-shadow.png",
         "height": 12,
         "shift": [
-         0.875,
+         0.953125,
          0.34375
         ],
-        "width": 88
+        "width": 93
        },
        "source": "rendu"
       }
@@ -2587,22 +2742,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.703,
-      "O_tout": 0.719,
-      "aire_t2": 1.677,
+      "O_masses": 0.719,
+      "O_tout": 0.734,
+      "aire_t2": 1.528,
       "iou_epoque_prec": null,
-      "iou_prec": 0.972,
-      "lum_p50": 67.5,
-      "lum_p95": 126.1,
-      "piece_aire_ajoutee_t2": 0.046,
-      "sat": 0.222
+      "iou_prec": 0.767,
+      "lueur_delta_8x8": 152.5,
+      "lum_p50": 57.8,
+      "lum_p95": 117.1,
+      "piece_aire_ajoutee_t2": 0.356,
+      "sat": 0.189,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.234,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 20.1
+      "secondes": 29.0
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2621,8 +2785,8 @@
    ],
    "emissif": "#5CFF4A",
    "epoque": 9,
-   "piece": "conduit annelé de crête et évent annelé",
-   "silhouette": "bloc de plomb chanfreiné (profil octogonal), fenêtre verte, trèfle",
+   "piece": "évents annelés sur les épaules, conduit annelé",
+   "silhouette": "bloc de plomb bas chanfreiné, tour de refroidissement à 8 pans (taille de guêpe, lèvre), anneau d'avertissement, bande verte, fenêtre verte, trèfle",
    "step": 2
   },
   "19": {
@@ -2637,19 +2801,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-single-main.png",
-        "height": 120,
+        "height": 124,
         "shift": [
          0.0,
-         -0.21875
+         -0.25
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-single-main.png",
-        "height": 60,
+        "height": 62,
         "shift": [
          0.0,
-         -0.21875
+         -0.25
         ],
         "width": 44
        },
@@ -2664,19 +2828,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-single-glow.png",
-        "height": 102,
+        "height": 80,
         "shift": [
          0.0,
-         -0.296875
+         -0.53125
         ],
         "width": 44
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-single-glow.png",
-        "height": 51,
+        "height": 40,
         "shift": [
          0.0,
-         -0.296875
+         -0.53125
         ],
         "width": 22
        },
@@ -2691,19 +2855,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-single-light.png",
-        "height": 150,
+        "height": 148,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-single-light.png",
-        "height": 75,
+        "height": 74,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 58
        },
@@ -2719,7 +2883,7 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-single-shadow.png",
         "height": 32,
         "shift": [
-         0.71875,
+         0.75,
          0.28125
         ],
         "width": 144
@@ -2728,7 +2892,7 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-single-shadow.png",
         "height": 16,
         "shift": [
-         0.71875,
+         0.75,
          0.28125
         ],
         "width": 72
@@ -2742,22 +2906,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.625,
-      "O_tout": 0.641,
-      "aire_t2": 1.082,
-      "iou_epoque_prec": 0.927,
-      "iou_prec": 0.914,
-      "lum_p50": 54.8,
-      "lum_p95": 166.0,
+      "O_masses": 0.688,
+      "O_tout": 0.703,
+      "aire_t2": 1.08,
+      "iou_epoque_prec": 0.76,
+      "iou_prec": 0.833,
+      "lueur_delta_8x8": 82.3,
+      "lum_p50": 87.6,
+      "lum_p95": 162.4,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.163
+      "sat": 0.091,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.203,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 25.2
+      "secondes": 14.9
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2770,19 +2943,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-straight_horizontal-main.png",
-        "height": 120,
+        "height": 126,
         "shift": [
          0.0,
-         -0.21875
+         -0.234375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-straight_horizontal-main.png",
-        "height": 60,
+        "height": 63,
         "shift": [
          0.0,
-         -0.21875
+         -0.234375
         ],
         "width": 32
        },
@@ -2797,19 +2970,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-straight_horizontal-glow.png",
-        "height": 102,
+        "height": 98,
         "shift": [
          0.0,
-         -0.296875
+         -0.390625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-straight_horizontal-glow.png",
-        "height": 51,
+        "height": 49,
         "shift": [
          0.0,
-         -0.296875
+         -0.390625
         ],
         "width": 32
        },
@@ -2824,19 +2997,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-straight_horizontal-light.png",
-        "height": 150,
+        "height": 148,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-straight_horizontal-light.png",
-        "height": 75,
+        "height": 74,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 58
        },
@@ -2850,19 +3023,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n19-straight_horizontal-shadow.png",
-        "height": 22,
+        "height": 24,
         "shift": [
-         0.71875,
-         0.359375
+         0.75,
+         0.34375
         ],
         "width": 160
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n19-straight_horizontal-shadow.png",
-        "height": 11,
+        "height": 12,
         "shift": [
-         0.71875,
-         0.359375
+         0.75,
+         0.34375
         ],
         "width": 80
        },
@@ -2875,22 +3048,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.625,
-      "O_tout": 0.641,
-      "aire_t2": 1.42,
-      "iou_epoque_prec": 0.864,
-      "iou_prec": 0.847,
-      "lum_p50": 66.9,
-      "lum_p95": 172.5,
+      "O_masses": 0.688,
+      "O_tout": 0.703,
+      "aire_t2": 1.367,
+      "iou_epoque_prec": 0.622,
+      "iou_prec": 0.711,
+      "lueur_delta_8x8": 83.9,
+      "lum_p50": 85.8,
+      "lum_p95": 179.4,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.151
+      "sat": 0.086,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.203,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 32.7
+      "secondes": 16.0
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -2910,7 +3092,7 @@
    "emissif": "#3AA8FF",
    "epoque": 10,
    "piece": null,
-   "silhouette": "panneau lisse sur pieds (vide sous le corps), bandeau bleu, capteur en dôme",
+   "silhouette": "carénage arrondi sur pieds (vide sous le corps), bandeau bleu, écran, capteur en dôme",
    "step": 1
   },
   "2": {
@@ -3030,17 +3212,26 @@
       "aire_t2": 0.798,
       "iou_epoque_prec": null,
       "iou_prec": 0.851,
+      "lueur_delta_8x8": null,
       "lum_p50": 51.2,
       "lum_p95": 130.3,
       "piece_aire_ajoutee_t2": 0.119,
-      "sat": 0.246
+      "sat": 0.246,
+      "x": [
+       -0.438,
+       0.438
+      ],
+      "y": [
+       -0.938,
+       0.422
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 18.2
+      "secondes": 17.3
      },
      "repeat_count_note": "niveau 2 : la surcouche reçoit repeat_count = variation_count de la couche vanilla de la clé (6 pour straight_horizontal, 2 pour single)",
      "variation_count": 1
@@ -3158,17 +3349,26 @@
       "aire_t2": 1.409,
       "iou_epoque_prec": null,
       "iou_prec": 0.881,
+      "lueur_delta_8x8": null,
       "lum_p50": 51.1,
       "lum_p95": 145.4,
       "piece_aire_ajoutee_t2": 0.168,
-      "sat": 0.26
+      "sat": 0.26,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.938,
+       0.547
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 6.1
+      "secondes": 10.5
      },
      "repeat_count_note": "niveau 2 : la surcouche reçoit repeat_count = variation_count de la couche vanilla de la clé (6 pour straight_horizontal, 2 pour single)",
      "variation_count": 1
@@ -3203,19 +3403,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-single-main.png",
-        "height": 134,
+        "height": 138,
         "shift": [
          0.0,
-         -0.328125
+         -0.359375
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-single-main.png",
-        "height": 67,
+        "height": 69,
         "shift": [
          0.0,
-         -0.328125
+         -0.359375
         ],
         "width": 44
        },
@@ -3230,19 +3430,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-single-glow.png",
-        "height": 120,
+        "height": 98,
         "shift": [
          0.0,
-         -0.4375
+         -0.671875
         ],
         "width": 44
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-single-glow.png",
-        "height": 60,
+        "height": 49,
         "shift": [
          0.0,
-         -0.4375
+         -0.671875
         ],
         "width": 22
        },
@@ -3257,19 +3457,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-single-light.png",
-        "height": 152,
+        "height": 142,
         "shift": [
          0.0,
-         0.125
+         0.203125
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-single-light.png",
-        "height": 76,
+        "height": 71,
         "shift": [
          0.0,
-         0.125
+         0.203125
         ],
         "width": 60
        },
@@ -3285,19 +3485,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-single-shadow.png",
         "height": 32,
         "shift": [
-         0.96875,
+         1.015625,
          0.28125
         ],
-        "width": 176
+        "width": 178
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-single-shadow.png",
         "height": 16,
         "shift": [
-         0.96875,
+         1.015625,
          0.28125
         ],
-        "width": 88
+        "width": 89
        },
        "source": "rendu"
       }
@@ -3308,22 +3508,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.672,
-      "O_tout": 0.859,
-      "aire_t2": 1.142,
+      "O_masses": 0.844,
+      "O_tout": 0.922,
+      "aire_t2": 1.212,
       "iou_epoque_prec": null,
-      "iou_prec": 0.946,
-      "lum_p50": 47.9,
-      "lum_p95": 126.8,
-      "piece_aire_ajoutee_t2": 0.061,
-      "sat": 0.181
+      "iou_prec": 0.891,
+      "lueur_delta_8x8": 85.0,
+      "lum_p50": 84.9,
+      "lum_p95": 162.4,
+      "piece_aire_ajoutee_t2": 0.132,
+      "sat": 0.095,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.422,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 49.8
+      "secondes": 15.5
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -3336,19 +3545,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-straight_horizontal-main.png",
-        "height": 134,
+        "height": 140,
         "shift": [
          0.0,
-         -0.328125
+         -0.34375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-straight_horizontal-main.png",
-        "height": 67,
+        "height": 70,
         "shift": [
          0.0,
-         -0.328125
+         -0.34375
         ],
         "width": 32
        },
@@ -3363,19 +3572,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-straight_horizontal-glow.png",
-        "height": 120,
+        "height": 116,
         "shift": [
          0.0,
-         -0.4375
+         -0.53125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-straight_horizontal-glow.png",
-        "height": 60,
+        "height": 58,
         "shift": [
          0.0,
-         -0.4375
+         -0.53125
         ],
         "width": 32
        },
@@ -3416,21 +3625,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/hr-wall-n20-straight_horizontal-shadow.png",
-        "height": 22,
+        "height": 24,
         "shift": [
-         1.0,
-         0.359375
+         1.015625,
+         0.34375
         ],
-        "width": 192
+        "width": 194
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e10/wall-n20-straight_horizontal-shadow.png",
-        "height": 11,
+        "height": 12,
         "shift": [
-         1.0,
-         0.359375
+         1.015625,
+         0.34375
         ],
-        "width": 96
+        "width": 97
        },
        "source": "rendu"
       }
@@ -3441,22 +3650,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.688,
-      "O_tout": 0.844,
-      "aire_t2": 1.49,
+      "O_masses": 0.828,
+      "O_tout": 0.922,
+      "aire_t2": 1.492,
       "iou_epoque_prec": null,
-      "iou_prec": 0.952,
-      "lum_p50": 59.9,
-      "lum_p95": 130.4,
-      "piece_aire_ajoutee_t2": 0.071,
-      "sat": 0.164
+      "iou_prec": 0.916,
+      "lueur_delta_8x8": 85.9,
+      "lum_p50": 83.8,
+      "lum_p95": 160.4,
+      "piece_aire_ajoutee_t2": 0.125,
+      "sat": 0.091,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.422,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 29.4
+      "secondes": 15.9
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -3476,7 +3694,7 @@
    "emissif": "#3AA8FF",
    "epoque": 10,
    "piece": "antennes (fouet et dipôles) sur embases",
-   "silhouette": "panneau lisse sur pieds (vide sous le corps), bandeau bleu, capteur en dôme",
+   "silhouette": "carénage arrondi sur pieds (vide sous le corps), bandeau bleu, écran, capteur en dôme",
    "step": 2
   },
   "21": {
@@ -3491,19 +3709,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-single-main.png",
-        "height": 124,
+        "height": 126,
         "shift": [
          0.0,
-         -0.25
+         -0.265625
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-single-main.png",
-        "height": 62,
+        "height": 63,
         "shift": [
          0.0,
-         -0.25
+         -0.265625
         ],
         "width": 44
        },
@@ -3518,21 +3736,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-single-glow.png",
-        "height": 106,
+        "height": 110,
         "shift": [
-         0.0,
-         -0.328125
+         0.015625,
+         -0.359375
         ],
-        "width": 48
+        "width": 50
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-single-glow.png",
-        "height": 53,
+        "height": 55,
         "shift": [
-         0.0,
-         -0.328125
+         0.015625,
+         -0.359375
         ],
-        "width": 24
+        "width": 25
        },
        "source": "rendu"
       },
@@ -3545,19 +3763,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-single-light.png",
-        "height": 146,
+        "height": 148,
         "shift": [
          0.0,
-         0.140625
+         0.125
         ],
         "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-single-light.png",
-        "height": 73,
+        "height": 74,
         "shift": [
          0.0,
-         0.140625
+         0.125
         ],
         "width": 58
        },
@@ -3573,19 +3791,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-single-shadow.png",
         "height": 32,
         "shift": [
-         0.859375,
+         0.890625,
          0.28125
         ],
-        "width": 158
+        "width": 162
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-single-shadow.png",
         "height": 16,
         "shift": [
-         0.859375,
+         0.890625,
          0.28125
         ],
-        "width": 79
+        "width": 81
        },
        "source": "rendu"
       }
@@ -3596,22 +3814,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.688,
-      "O_tout": 0.688,
-      "aire_t2": 1.013,
-      "iou_epoque_prec": 0.833,
-      "iou_prec": 0.823,
-      "lum_p50": 91.0,
-      "lum_p95": 156.3,
+      "O_masses": 0.734,
+      "O_tout": 0.734,
+      "aire_t2": 1.035,
+      "iou_epoque_prec": 0.808,
+      "iou_prec": 0.775,
+      "lueur_delta_8x8": 139.1,
+      "lum_p50": 103.4,
+      "lum_p95": 185.2,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.167
+      "sat": 0.104,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.234,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 9.9
+      "secondes": 21.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -3624,19 +3851,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-straight_horizontal-main.png",
-        "height": 124,
+        "height": 126,
         "shift": [
          0.0,
-         -0.25
+         -0.265625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-straight_horizontal-main.png",
-        "height": 62,
+        "height": 63,
         "shift": [
          0.0,
-         -0.25
+         -0.265625
         ],
         "width": 32
        },
@@ -3651,19 +3878,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-straight_horizontal-glow.png",
-        "height": 106,
+        "height": 112,
         "shift": [
          0.0,
-         -0.328125
+         -0.375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-straight_horizontal-glow.png",
-        "height": 53,
+        "height": 56,
         "shift": [
          0.0,
-         -0.328125
+         -0.375
         ],
         "width": 32
        },
@@ -3678,19 +3905,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-straight_horizontal-light.png",
-        "height": 144,
+        "height": 146,
         "shift": [
          0.0,
-         0.15625
+         0.140625
         ],
         "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-straight_horizontal-light.png",
-        "height": 72,
+        "height": 73,
         "shift": [
          0.0,
-         0.15625
+         0.140625
         ],
         "width": 58
        },
@@ -3706,19 +3933,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n21-straight_horizontal-shadow.png",
         "height": 22,
         "shift": [
-         0.890625,
+         0.921875,
          0.359375
         ],
-        "width": 178
+        "width": 182
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n21-straight_horizontal-shadow.png",
         "height": 11,
         "shift": [
-         0.890625,
+         0.921875,
          0.359375
         ],
-        "width": 89
+        "width": 91
        },
        "source": "rendu"
       }
@@ -3729,22 +3956,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.688,
-      "O_tout": 0.688,
-      "aire_t2": 1.403,
-      "iou_epoque_prec": 0.724,
-      "iou_prec": 0.735,
-      "lum_p50": 90.0,
-      "lum_p95": 154.0,
+      "O_masses": 0.734,
+      "O_tout": 0.734,
+      "aire_t2": 1.439,
+      "iou_epoque_prec": 0.676,
+      "iou_prec": 0.695,
+      "lueur_delta_8x8": 139.7,
+      "lum_p50": 102.9,
+      "lum_p95": 181.7,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.154
+      "sat": 0.087,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.234,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 11.3
+      "secondes": 13.6
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -3779,19 +4015,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-single-main.png",
-        "height": 138,
+        "height": 140,
         "shift": [
          0.0,
-         -0.359375
+         -0.375
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-single-main.png",
-        "height": 69,
+        "height": 70,
         "shift": [
          0.0,
-         -0.359375
+         -0.375
         ],
         "width": 44
        },
@@ -3806,21 +4042,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-single-glow.png",
-        "height": 120,
+        "height": 124,
         "shift": [
-         0.0,
-         -0.4375
+         0.015625,
+         -0.46875
         ],
-        "width": 48
+        "width": 50
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-single-glow.png",
-        "height": 60,
+        "height": 62,
         "shift": [
-         0.0,
-         -0.4375
+         0.015625,
+         -0.46875
         ],
-        "width": 24
+        "width": 25
        },
        "source": "rendu"
       },
@@ -3861,19 +4097,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-single-shadow.png",
         "height": 32,
         "shift": [
-         0.875,
+         0.90625,
          0.28125
         ],
-        "width": 160
+        "width": 164
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-single-shadow.png",
         "height": 16,
         "shift": [
-         0.875,
+         0.90625,
          0.28125
         ],
-        "width": 80
+        "width": 82
        },
        "source": "rendu"
       }
@@ -3884,22 +4120,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.906,
-      "O_tout": 0.906,
-      "aire_t2": 1.151,
+      "O_masses": 0.953,
+      "O_tout": 0.953,
+      "aire_t2": 1.176,
       "iou_epoque_prec": null,
       "iou_prec": 0.88,
-      "lum_p50": 88.2,
-      "lum_p95": 145.3,
-      "piece_aire_ajoutee_t2": 0.138,
-      "sat": 0.168
+      "lueur_delta_8x8": 141.3,
+      "lum_p50": 101.2,
+      "lum_p95": 175.9,
+      "piece_aire_ajoutee_t2": 0.141,
+      "sat": 0.11,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.453,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 13.1
+      "secondes": 16.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -3912,19 +4157,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-straight_horizontal-main.png",
-        "height": 138,
+        "height": 142,
         "shift": [
          0.0,
-         -0.359375
+         -0.390625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-straight_horizontal-main.png",
-        "height": 69,
+        "height": 71,
         "shift": [
          0.0,
-         -0.359375
+         -0.390625
         ],
         "width": 32
        },
@@ -3939,19 +4184,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-straight_horizontal-glow.png",
-        "height": 120,
+        "height": 124,
         "shift": [
          0.0,
-         -0.4375
+         -0.46875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-straight_horizontal-glow.png",
-        "height": 60,
+        "height": 62,
         "shift": [
          0.0,
-         -0.4375
+         -0.46875
         ],
         "width": 32
        },
@@ -3994,19 +4239,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/hr-wall-n22-straight_horizontal-shadow.png",
         "height": 26,
         "shift": [
-         0.890625,
+         0.921875,
          0.328125
         ],
-        "width": 178
+        "width": 182
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e11/wall-n22-straight_horizontal-shadow.png",
         "height": 13,
         "shift": [
-         0.890625,
+         0.921875,
          0.328125
         ],
-        "width": 89
+        "width": 91
        },
        "source": "rendu"
       }
@@ -4017,22 +4262,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.906,
-      "O_tout": 0.906,
-      "aire_t2": 1.562,
+      "O_masses": 0.953,
+      "O_tout": 0.953,
+      "aire_t2": 1.602,
       "iou_epoque_prec": null,
-      "iou_prec": 0.898,
-      "lum_p50": 87.1,
-      "lum_p95": 147.2,
-      "piece_aire_ajoutee_t2": 0.159,
-      "sat": 0.166
+      "iou_prec": 0.899,
+      "lueur_delta_8x8": 140.7,
+      "lum_p50": 101.9,
+      "lum_p95": 171.2,
+      "piece_aire_ajoutee_t2": 0.162,
+      "sat": 0.095,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.453,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 13.2
+      "secondes": 21.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4067,7 +4321,7 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-single-main.png",
-        "height": 126,
+        "height": 130,
         "shift": [
          0.0,
          -0.265625
@@ -4076,7 +4330,7 @@
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-single-main.png",
-        "height": 63,
+        "height": 65,
         "shift": [
          0.0,
          -0.265625
@@ -4094,19 +4348,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-single-glow.png",
-        "height": 92,
+        "height": 84,
         "shift": [
          0.0,
-         -0.21875
+         -0.1875
         ],
         "width": 52
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-single-glow.png",
-        "height": 46,
+        "height": 42,
         "shift": [
          0.0,
-         -0.21875
+         -0.1875
         ],
         "width": 26
        },
@@ -4121,19 +4375,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-single-light.png",
-        "height": 140,
+        "height": 142,
         "shift": [
          0.0,
-         0.1875
+         0.171875
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-single-light.png",
-        "height": 70,
+        "height": 71,
         "shift": [
          0.0,
-         0.1875
+         0.171875
         ],
         "width": 60
        },
@@ -4149,19 +4403,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-single-shadow.png",
         "height": 32,
         "shift": [
-         0.828125,
+         0.8125,
          0.28125
         ],
-        "width": 158
+        "width": 156
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-single-shadow.png",
         "height": 16,
         "shift": [
-         0.828125,
+         0.8125,
          0.28125
         ],
-        "width": 79
+        "width": 78
        },
        "source": "rendu"
       }
@@ -4172,22 +4426,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.719,
-      "O_tout": 0.719,
-      "aire_t2": 1.207,
-      "iou_epoque_prec": 0.839,
-      "iou_prec": 0.887,
-      "lum_p50": 41.8,
-      "lum_p95": 147.3,
+      "O_masses": 0.766,
+      "O_tout": 0.766,
+      "aire_t2": 1.009,
+      "iou_epoque_prec": 0.773,
+      "iou_prec": 0.825,
+      "lueur_delta_8x8": 147.4,
+      "lum_p50": 71.5,
+      "lum_p95": 123.3,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.202
+      "sat": 0.165,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.266,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 54.3
+      "secondes": 12.9
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4200,7 +4463,7 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-straight_horizontal-main.png",
-        "height": 126,
+        "height": 130,
         "shift": [
          0.0,
          -0.265625
@@ -4209,7 +4472,7 @@
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-straight_horizontal-main.png",
-        "height": 63,
+        "height": 65,
         "shift": [
          0.0,
          -0.265625
@@ -4227,19 +4490,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-straight_horizontal-glow.png",
-        "height": 86,
+        "height": 90,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-straight_horizontal-glow.png",
-        "height": 43,
+        "height": 45,
         "shift": [
          0.0,
-         -0.171875
+         -0.203125
         ],
         "width": 32
        },
@@ -4282,19 +4545,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n23-straight_horizontal-shadow.png",
         "height": 20,
         "shift": [
-         0.921875,
+         0.96875,
          0.375
         ],
-        "width": 186
+        "width": 188
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n23-straight_horizontal-shadow.png",
         "height": 10,
         "shift": [
-         0.921875,
+         0.96875,
          0.375
         ],
-        "width": 93
+        "width": 94
        },
        "source": "rendu"
       }
@@ -4305,22 +4568,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.719,
-      "O_tout": 0.719,
-      "aire_t2": 1.622,
-      "iou_epoque_prec": 0.729,
-      "iou_prec": 0.777,
-      "lum_p50": 35.3,
-      "lum_p95": 154.2,
+      "O_masses": 0.766,
+      "O_tout": 0.766,
+      "aire_t2": 1.667,
+      "iou_epoque_prec": 0.73,
+      "iou_prec": 0.779,
+      "lueur_delta_8x8": 165.3,
+      "lum_p50": 53.7,
+      "lum_p95": 150.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.193
+      "sat": 0.153,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.266,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 8.3
+      "secondes": 17.0
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4355,19 +4627,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-single-main.png",
-        "height": 140,
+        "height": 144,
         "shift": [
          0.0,
-         -0.34375
+         -0.40625
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-single-main.png",
-        "height": 70,
+        "height": 72,
         "shift": [
          0.0,
-         -0.34375
+         -0.40625
         ],
         "width": 44
        },
@@ -4382,19 +4654,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-single-glow.png",
-        "height": 122,
+        "height": 128,
         "shift": [
          0.0,
-         -0.453125
+         -0.5
         ],
         "width": 52
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-single-glow.png",
-        "height": 61,
+        "height": 64,
         "shift": [
          0.0,
-         -0.453125
+         -0.5
         ],
         "width": 26
        },
@@ -4409,19 +4681,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-single-light.png",
-        "height": 142,
+        "height": 144,
         "shift": [
          0.0,
-         0.203125
+         0.15625
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-single-light.png",
-        "height": 71,
+        "height": 72,
         "shift": [
          0.0,
-         0.203125
+         0.15625
         ],
         "width": 60
        },
@@ -4435,21 +4707,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-single-shadow.png",
-        "height": 32,
+        "height": 34,
         "shift": [
-         0.90625,
-         0.28125
+         0.96875,
+         0.296875
         ],
-        "width": 168
+        "width": 176
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-single-shadow.png",
-        "height": 16,
+        "height": 17,
         "shift": [
-         0.90625,
-         0.28125
+         0.96875,
+         0.296875
         ],
-        "width": 84
+        "width": 88
        },
        "source": "rendu"
       }
@@ -4460,22 +4732,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.906,
-      "O_tout": 0.922,
-      "aire_t2": 1.283,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.142,
       "iou_epoque_prec": null,
-      "iou_prec": 0.939,
-      "lum_p50": 44.0,
-      "lum_p95": 162.6,
-      "piece_aire_ajoutee_t2": 0.077,
-      "sat": 0.205
+      "iou_prec": 0.879,
+      "lueur_delta_8x8": 145.1,
+      "lum_p50": 73.8,
+      "lum_p95": 138.2,
+      "piece_aire_ajoutee_t2": 0.135,
+      "sat": 0.168,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 9.2
+      "secondes": 14.8
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4488,19 +4769,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-straight_horizontal-main.png",
-        "height": 138,
+        "height": 144,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-straight_horizontal-main.png",
-        "height": 69,
+        "height": 72,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 32
        },
@@ -4515,19 +4796,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-straight_horizontal-glow.png",
-        "height": 124,
+        "height": 128,
         "shift": [
          0.0,
-         -0.46875
+         -0.5
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-straight_horizontal-glow.png",
-        "height": 62,
+        "height": 64,
         "shift": [
          0.0,
-         -0.46875
+         -0.5
         ],
         "width": 32
        },
@@ -4542,19 +4823,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-straight_horizontal-light.png",
-        "height": 122,
+        "height": 130,
         "shift": [
          0.0,
-         0.359375
+         0.296875
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-straight_horizontal-light.png",
-        "height": 61,
+        "height": 65,
         "shift": [
          0.0,
-         0.359375
+         0.296875
         ],
         "width": 60
        },
@@ -4568,21 +4849,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/hr-wall-n24-straight_horizontal-shadow.png",
-        "height": 30,
+        "height": 40,
         "shift": [
-         0.9375,
-         0.359375
+         0.96875,
+         0.34375
         ],
-        "width": 184
+        "width": 188
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e12/wall-n24-straight_horizontal-shadow.png",
-        "height": 15,
+        "height": 20,
         "shift": [
-         0.9375,
-         0.359375
+         0.96875,
+         0.34375
         ],
-        "width": 92
+        "width": 94
        },
        "source": "rendu"
       }
@@ -4593,22 +4874,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.922,
-      "O_tout": 0.922,
-      "aire_t2": 1.701,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.776,
       "iou_epoque_prec": null,
-      "iou_prec": 0.945,
-      "lum_p50": 36.0,
-      "lum_p95": 167.7,
-      "piece_aire_ajoutee_t2": 0.087,
-      "sat": 0.199
+      "iou_prec": 0.93,
+      "lueur_delta_8x8": 164.1,
+      "lum_p50": 54.8,
+      "lum_p95": 141.0,
+      "piece_aire_ajoutee_t2": 0.117,
+      "sat": 0.155,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 11.6
+      "secondes": 28.4
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4627,7 +4917,7 @@
    ],
    "emissif": "#4AF0FF",
    "epoque": 12,
-   "piece": "anneau chromé flottant au-dessus du bloc",
+   "piece": "gyroscope flottant : anneau horizontal, anneau vertical, noyau noir",
    "silhouette": "plinthe et bloc noir givré en lévitation (vide), anneau chromé",
    "step": 2
   },
@@ -4643,19 +4933,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-single-main.png",
-        "height": 130,
+        "height": 132,
         "shift": [
          0.0,
-         -0.296875
+         -0.3125
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-single-main.png",
-        "height": 65,
+        "height": 66,
         "shift": [
          0.0,
-         -0.296875
+         -0.3125
         ],
         "width": 44
        },
@@ -4670,19 +4960,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-single-glow.png",
-        "height": 112,
+        "height": 114,
         "shift": [
          0.0,
-         -0.375
+         -0.390625
         ],
         "width": 52
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-single-glow.png",
-        "height": 56,
+        "height": 57,
         "shift": [
          0.0,
-         -0.375
+         -0.390625
         ],
         "width": 26
        },
@@ -4697,19 +4987,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-single-light.png",
-        "height": 150,
+        "height": 148,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-single-light.png",
-        "height": 75,
+        "height": 74,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 60
        },
@@ -4725,7 +5015,7 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-single-shadow.png",
         "height": 36,
         "shift": [
-         0.859375,
+         0.890625,
          0.3125
         ],
         "width": 162
@@ -4734,7 +5024,7 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-single-shadow.png",
         "height": 18,
         "shift": [
-         0.859375,
+         0.890625,
          0.3125
         ],
         "width": 81
@@ -4748,22 +5038,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.766,
-      "O_tout": 0.781,
-      "aire_t2": 0.886,
-      "iou_epoque_prec": 0.717,
-      "iou_prec": 0.69,
-      "lum_p50": 79.0,
-      "lum_p95": 190.5,
+      "O_masses": 0.797,
+      "O_tout": 0.812,
+      "aire_t2": 0.918,
+      "iou_epoque_prec": 0.799,
+      "iou_prec": 0.722,
+      "lueur_delta_8x8": 107.6,
+      "lum_p50": 95.4,
+      "lum_p95": 217.7,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.328
+      "sat": 0.211,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.312,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 17.7
+      "secondes": 14.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4776,19 +5075,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-straight_horizontal-main.png",
-        "height": 130,
+        "height": 132,
         "shift": [
          0.0,
-         -0.296875
+         -0.3125
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-straight_horizontal-main.png",
-        "height": 65,
+        "height": 66,
         "shift": [
          0.0,
-         -0.296875
+         -0.3125
         ],
         "width": 32
        },
@@ -4803,19 +5102,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-straight_horizontal-glow.png",
-        "height": 112,
+        "height": 116,
         "shift": [
          0.0,
-         -0.375
+         -0.40625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-straight_horizontal-glow.png",
-        "height": 56,
+        "height": 58,
         "shift": [
          0.0,
-         -0.375
+         -0.40625
         ],
         "width": 32
        },
@@ -4835,7 +5134,7 @@
          0.0,
          0.125
         ],
-        "width": 120
+        "width": 116
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-straight_horizontal-light.png",
@@ -4844,7 +5143,7 @@
          0.0,
          0.125
         ],
-        "width": 60
+        "width": 58
        },
        "source": "rendu"
       },
@@ -4856,21 +5155,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n25-straight_horizontal-shadow.png",
-        "height": 32,
+        "height": 34,
         "shift": [
-         0.8125,
-         0.375
+         0.828125,
+         0.359375
         ],
-        "width": 168
+        "width": 170
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n25-straight_horizontal-shadow.png",
-        "height": 16,
+        "height": 17,
         "shift": [
-         0.8125,
-         0.375
+         0.828125,
+         0.359375
         ],
-        "width": 84
+        "width": 85
        },
        "source": "rendu"
       }
@@ -4881,22 +5180,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.766,
-      "O_tout": 0.781,
-      "aire_t2": 0.925,
-      "iou_epoque_prec": 0.489,
-      "iou_prec": 0.475,
-      "lum_p50": 76.4,
-      "lum_p95": 197.2,
+      "O_masses": 0.797,
+      "O_tout": 0.812,
+      "aire_t2": 0.963,
+      "iou_epoque_prec": 0.501,
+      "iou_prec": 0.478,
+      "lueur_delta_8x8": 81.8,
+      "lum_p50": 94.4,
+      "lum_p95": 224.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.339
+      "sat": 0.215,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.312,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 35.8
+      "secondes": 18.5
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -4931,19 +5239,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-single-main.png",
-        "height": 146,
+        "height": 142,
         "shift": [
          0.0,
-         -0.421875
+         -0.390625
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-single-main.png",
-        "height": 73,
+        "height": 71,
         "shift": [
          0.0,
-         -0.421875
+         -0.390625
         ],
         "width": 44
        },
@@ -4958,21 +5266,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-single-glow.png",
-        "height": 130,
+        "height": 128,
         "shift": [
-         0.0,
-         -0.546875
+         0.015625,
+         -0.5
         ],
-        "width": 52
+        "width": 50
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-single-glow.png",
-        "height": 65,
+        "height": 64,
         "shift": [
-         0.0,
-         -0.546875
+         0.015625,
+         -0.5
         ],
-        "width": 26
+        "width": 25
        },
        "source": "rendu"
       },
@@ -4985,19 +5293,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-single-light.png",
-        "height": 150,
+        "height": 148,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-single-light.png",
-        "height": 75,
+        "height": 74,
         "shift": [
          0.0,
-         0.109375
+         0.125
         ],
         "width": 60
        },
@@ -5011,21 +5319,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-single-shadow.png",
-        "height": 34,
+        "height": 36,
         "shift": [
          1.015625,
-         0.296875
+         0.3125
         ],
-        "width": 182
+        "width": 178
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-single-shadow.png",
-        "height": 17,
+        "height": 18,
         "shift": [
          1.015625,
-         0.296875
+         0.3125
         ],
-        "width": 91
+        "width": 89
        },
        "source": "rendu"
       }
@@ -5036,22 +5344,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 1.031,
-      "O_tout": 1.031,
-      "aire_t2": 0.99,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.045,
       "iou_epoque_prec": null,
-      "iou_prec": 0.879,
-      "lum_p50": 79.8,
-      "lum_p95": 191.2,
-      "piece_aire_ajoutee_t2": 0.112,
-      "sat": 0.343
+      "iou_prec": 0.867,
+      "lueur_delta_8x8": 98.7,
+      "lum_p50": 104.1,
+      "lum_p95": 216.3,
+      "piece_aire_ajoutee_t2": 0.134,
+      "sat": 0.187,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 30.9
+      "secondes": 24.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5064,19 +5381,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-straight_horizontal-main.png",
-        "height": 150,
+        "height": 144,
         "shift": [
          0.0,
-         -0.421875
+         -0.40625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-straight_horizontal-main.png",
-        "height": 75,
+        "height": 72,
         "shift": [
          0.0,
-         -0.421875
+         -0.40625
         ],
         "width": 32
        },
@@ -5091,19 +5408,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-straight_horizontal-glow.png",
-        "height": 134,
+        "height": 130,
         "shift": [
          0.0,
-         -0.546875
+         -0.515625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-straight_horizontal-glow.png",
-        "height": 67,
+        "height": 65,
         "shift": [
          0.0,
-         -0.546875
+         -0.515625
         ],
         "width": 32
        },
@@ -5120,19 +5437,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-straight_horizontal-light.png",
         "height": 148,
         "shift": [
-         0.0,
+         0.015625,
          0.125
         ],
-        "width": 120
+        "width": 118
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-straight_horizontal-light.png",
         "height": 74,
         "shift": [
-         0.0,
+         0.015625,
          0.125
         ],
-        "width": 60
+        "width": 59
        },
        "source": "rendu"
       },
@@ -5144,21 +5461,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/hr-wall-n26-straight_horizontal-shadow.png",
-        "height": 30,
+        "height": 36,
         "shift": [
-         0.984375,
-         0.359375
+         0.953125,
+         0.375
         ],
-        "width": 190
+        "width": 186
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e13/wall-n26-straight_horizontal-shadow.png",
-        "height": 15,
+        "height": 18,
         "shift": [
-         0.984375,
-         0.359375
+         0.953125,
+         0.375
         ],
-        "width": 95
+        "width": 93
        },
        "source": "rendu"
       }
@@ -5169,22 +5486,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 1.078,
-      "O_tout": 1.078,
-      "aire_t2": 1.041,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.085,
       "iou_epoque_prec": null,
-      "iou_prec": 0.871,
-      "lum_p50": 76.6,
-      "lum_p95": 199.1,
-      "piece_aire_ajoutee_t2": 0.126,
-      "sat": 0.361
+      "iou_prec": 0.87,
+      "lueur_delta_8x8": 76.6,
+      "lum_p50": 98.7,
+      "lum_p95": 235.4,
+      "piece_aire_ajoutee_t2": 0.132,
+      "sat": 0.185,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 36.2
+      "secondes": 13.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5203,7 +5529,7 @@
    ],
    "emissif": "#FF4FD8",
    "epoque": 13,
-   "piece": "sphère de confinement et anneau de plasma au sommet du pylône",
+   "piece": "sphère de confinement à hublot, anneau de plasma incliné au sommet du pylône",
    "silhouette": "plinthe, pylône de céramique à bobines, tore de plasma, champ de plasma",
    "step": 2
   },
@@ -5219,19 +5545,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-single-main.png",
-        "height": 132,
+        "height": 136,
         "shift": [
          0.0,
-         -0.3125
+         -0.34375
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-single-main.png",
-        "height": 66,
+        "height": 68,
         "shift": [
          0.0,
-         -0.3125
+         -0.34375
         ],
         "width": 44
        },
@@ -5246,21 +5572,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-single-glow.png",
-        "height": 74,
+        "height": 52,
         "shift": [
-         0.109375,
-         -0.609375
+         0.15625,
+         -0.71875
         ],
-        "width": 26
+        "width": 20
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-single-glow.png",
-        "height": 37,
+        "height": 26,
         "shift": [
-         0.109375,
-         -0.609375
+         0.15625,
+         -0.71875
         ],
-        "width": 13
+        "width": 10
        },
        "source": "rendu"
       },
@@ -5273,21 +5599,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-single-light.png",
-        "height": 148,
+        "height": 150,
         "shift": [
-         0.0,
-         0.15625
+         0.015625,
+         0.140625
         ],
-        "width": 124
+        "width": 122
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-single-light.png",
-        "height": 74,
+        "height": 75,
         "shift": [
-         0.0,
-         0.15625
+         0.015625,
+         0.140625
         ],
-        "width": 62
+        "width": 61
        },
        "source": "rendu"
       },
@@ -5301,19 +5627,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-single-shadow.png",
         "height": 32,
         "shift": [
-         0.9375,
+         0.96875,
          0.28125
         ],
-        "width": 168
+        "width": 172
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-single-shadow.png",
         "height": 16,
         "shift": [
-         0.9375,
+         0.96875,
          0.28125
         ],
-        "width": 84
+        "width": 86
        },
        "source": "rendu"
       }
@@ -5324,22 +5650,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.656,
-      "O_tout": 0.812,
-      "aire_t2": 1.094,
-      "iou_epoque_prec": 0.6,
-      "iou_prec": 0.562,
-      "lum_p50": 90.3,
-      "lum_p95": 204.8,
+      "O_masses": 0.844,
+      "O_tout": 0.875,
+      "aire_t2": 1.18,
+      "iou_epoque_prec": 0.619,
+      "iou_prec": 0.639,
+      "lueur_delta_8x8": 94.1,
+      "lum_p50": 85.3,
+      "lum_p95": 201.5,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.281
+      "sat": 0.28,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.375,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 28.2
+      "secondes": 25.8
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5352,19 +5687,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-straight_horizontal-main.png",
-        "height": 132,
+        "height": 136,
         "shift": [
          0.0,
-         -0.3125
+         -0.34375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-straight_horizontal-main.png",
-        "height": 66,
+        "height": 68,
         "shift": [
          0.0,
-         -0.3125
+         -0.34375
         ],
         "width": 32
        },
@@ -5379,19 +5714,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-straight_horizontal-glow.png",
-        "height": 52,
+        "height": 64,
         "shift": [
          0.203125,
-         -0.5625
+         -0.6875
         ],
         "width": 38
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-straight_horizontal-glow.png",
-        "height": 26,
+        "height": 32,
         "shift": [
          0.203125,
-         -0.5625
+         -0.6875
         ],
         "width": 19
        },
@@ -5434,19 +5769,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n27-straight_horizontal-shadow.png",
         "height": 26,
         "shift": [
-         0.96875,
+         1.0,
          0.328125
         ],
-        "width": 188
+        "width": 192
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n27-straight_horizontal-shadow.png",
         "height": 13,
         "shift": [
-         0.96875,
+         1.0,
          0.328125
         ],
-        "width": 94
+        "width": 96
        },
        "source": "rendu"
       }
@@ -5457,22 +5792,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.719,
-      "O_tout": 0.812,
-      "aire_t2": 1.47,
-      "iou_epoque_prec": 0.394,
-      "iou_prec": 0.371,
-      "lum_p50": 89.1,
-      "lum_p95": 191.6,
+      "O_masses": 0.828,
+      "O_tout": 0.875,
+      "aire_t2": 1.579,
+      "iou_epoque_prec": 0.399,
+      "iou_prec": 0.411,
+      "lueur_delta_8x8": 95.4,
+      "lum_p50": 84.1,
+      "lum_p95": 188.2,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.365
+      "sat": 0.361,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.375,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 28.2
+      "secondes": 20.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5507,19 +5851,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-single-main.png",
-        "height": 138,
+        "height": 144,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-single-main.png",
-        "height": 69,
+        "height": 72,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 44
        },
@@ -5534,21 +5878,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-single-glow.png",
-        "height": 116,
+        "height": 128,
         "shift": [
          0.0,
-         -0.53125
+         -0.5
         ],
-        "width": 40
+        "width": 68
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-single-glow.png",
-        "height": 58,
+        "height": 64,
         "shift": [
          0.0,
-         -0.53125
+         -0.5
         ],
-        "width": 20
+        "width": 34
        },
        "source": "rendu"
       },
@@ -5561,19 +5905,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-single-light.png",
-        "height": 152,
+        "height": 150,
         "shift": [
          0.0,
-         0.125
+         0.140625
         ],
         "width": 124
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-single-light.png",
-        "height": 76,
+        "height": 75,
         "shift": [
          0.0,
-         0.125
+         0.140625
         ],
         "width": 62
        },
@@ -5589,19 +5933,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-single-shadow.png",
         "height": 32,
         "shift": [
-         0.921875,
+         1.03125,
          0.28125
         ],
-        "width": 166
+        "width": 180
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-single-shadow.png",
         "height": 16,
         "shift": [
-         0.921875,
+         1.03125,
          0.28125
         ],
-        "width": 83
+        "width": 90
        },
        "source": "rendu"
       }
@@ -5611,23 +5955,32 @@
       "S": 1.0
      },
      "mesures": {
-      "L": 0.906,
-      "O_masses": 0.703,
-      "O_tout": 0.922,
-      "aire_t2": 1.157,
+      "L": 1.0,
+      "O_masses": 0.969,
+      "O_tout": 1.0,
+      "aire_t2": 1.31,
       "iou_epoque_prec": null,
-      "iou_prec": 0.942,
-      "lum_p50": 90.2,
-      "lum_p95": 204.5,
-      "piece_aire_ajoutee_t2": 0.065,
-      "sat": 0.291
+      "iou_prec": 0.899,
+      "lueur_delta_8x8": 93.5,
+      "lum_p50": 85.9,
+      "lum_p95": 203.2,
+      "piece_aire_ajoutee_t2": 0.132,
+      "sat": 0.272,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.5,
+       0.547
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 33.4
+      "secondes": 31.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5640,19 +5993,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-straight_horizontal-main.png",
-        "height": 138,
+        "height": 144,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-straight_horizontal-main.png",
-        "height": 69,
+        "height": 72,
         "shift": [
          0.0,
-         -0.359375
+         -0.40625
         ],
         "width": 32
        },
@@ -5667,19 +6020,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-straight_horizontal-glow.png",
-        "height": 120,
+        "height": 122,
         "shift": [
          0.0,
-         -0.5
+         -0.546875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-straight_horizontal-glow.png",
-        "height": 60,
+        "height": 61,
         "shift": [
          0.0,
-         -0.5
+         -0.546875
         ],
         "width": 32
        },
@@ -5694,19 +6047,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-straight_horizontal-light.png",
-        "height": 152,
+        "height": 150,
         "shift": [
          0.0,
-         0.125
+         0.140625
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-straight_horizontal-light.png",
-        "height": 76,
+        "height": 75,
         "shift": [
          0.0,
-         0.125
+         0.140625
         ],
         "width": 60
        },
@@ -5720,21 +6073,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/hr-wall-n28-straight_horizontal-shadow.png",
-        "height": 26,
+        "height": 28,
         "shift": [
-         0.96875,
-         0.328125
+         1.0625,
+         0.3125
         ],
-        "width": 188
+        "width": 200
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e14/wall-n28-straight_horizontal-shadow.png",
-        "height": 13,
+        "height": 14,
         "shift": [
-         0.96875,
-         0.328125
+         1.0625,
+         0.3125
         ],
-        "width": 94
+        "width": 100
        },
        "source": "rendu"
       }
@@ -5745,22 +6098,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.719,
-      "O_tout": 0.922,
-      "aire_t2": 1.553,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.732,
       "iou_epoque_prec": null,
-      "iou_prec": 0.945,
-      "lum_p50": 89.3,
-      "lum_p95": 190.5,
-      "piece_aire_ajoutee_t2": 0.084,
-      "sat": 0.364
+      "iou_prec": 0.91,
+      "lueur_delta_8x8": 95.1,
+      "lum_p50": 84.4,
+      "lum_p95": 194.2,
+      "piece_aire_ajoutee_t2": 0.154,
+      "sat": 0.343,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 23.3
+      "secondes": 22.5
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5795,19 +6157,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-single-main.png",
-        "height": 134,
+        "height": 138,
         "shift": [
          0.0,
-         -0.328125
+         -0.359375
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-single-main.png",
-        "height": 67,
+        "height": 69,
         "shift": [
          0.0,
-         -0.328125
+         -0.359375
         ],
         "width": 44
        },
@@ -5822,19 +6184,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-single-glow.png",
-        "height": 86,
+        "height": 108,
         "shift": [
          0.0,
-         -0.296875
+         -0.40625
         ],
         "width": 52
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-single-glow.png",
-        "height": 43,
+        "height": 54,
         "shift": [
          0.0,
-         -0.296875
+         -0.40625
         ],
         "width": 26
        },
@@ -5849,21 +6211,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-single-light.png",
-        "height": 148,
+        "height": 154,
         "shift": [
          0.0,
-         0.15625
+         0.109375
         ],
-        "width": 124
+        "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-single-light.png",
-        "height": 74,
+        "height": 77,
         "shift": [
          0.0,
-         0.15625
+         0.109375
         ],
-        "width": 62
+        "width": 60
        },
        "source": "rendu"
       },
@@ -5877,19 +6239,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-single-shadow.png",
         "height": 32,
         "shift": [
-         0.875,
+         0.984375,
          0.28125
         ],
-        "width": 160
+        "width": 174
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-single-shadow.png",
         "height": 16,
         "shift": [
-         0.875,
+         0.984375,
          0.28125
         ],
-        "width": 80
+        "width": 87
        },
        "source": "rendu"
       }
@@ -5900,22 +6262,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.797,
-      "O_tout": 0.844,
-      "aire_t2": 1.05,
-      "iou_epoque_prec": 0.771,
-      "iou_prec": 0.775,
-      "lum_p50": 91.9,
-      "lum_p95": 191.9,
+      "O_masses": 0.859,
+      "O_tout": 0.906,
+      "aire_t2": 1.059,
+      "iou_epoque_prec": 0.796,
+      "iou_prec": 0.745,
+      "lueur_delta_8x8": 136.4,
+      "lum_p50": 115.3,
+      "lum_p95": 207.6,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.2
+      "sat": 0.196,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.406,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 29.6
+      "secondes": 12.2
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -5928,19 +6299,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-straight_horizontal-main.png",
-        "height": 134,
+        "height": 140,
         "shift": [
          0.0,
-         -0.328125
+         -0.34375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-straight_horizontal-main.png",
-        "height": 67,
+        "height": 70,
         "shift": [
          0.0,
-         -0.328125
+         -0.34375
         ],
         "width": 32
        },
@@ -5955,19 +6326,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-straight_horizontal-glow.png",
-        "height": 100,
+        "height": 110,
         "shift": [
          0.0,
-         -0.28125
+         -0.359375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-straight_horizontal-glow.png",
-        "height": 50,
+        "height": 55,
         "shift": [
          0.0,
-         -0.28125
+         -0.359375
         ],
         "width": 32
        },
@@ -5982,19 +6353,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-straight_horizontal-light.png",
-        "height": 150,
+        "height": 154,
         "shift": [
          0.0,
-         0.140625
+         0.109375
         ],
         "width": 120
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-straight_horizontal-light.png",
-        "height": 75,
+        "height": 77,
         "shift": [
          0.0,
-         0.140625
+         0.109375
         ],
         "width": 60
        },
@@ -6010,19 +6381,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n29-straight_horizontal-shadow.png",
         "height": 22,
         "shift": [
-         0.9375,
+         1.0,
          0.359375
         ],
-        "width": 184
+        "width": 192
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n29-straight_horizontal-shadow.png",
         "height": 11,
         "shift": [
-         0.9375,
+         1.0,
          0.359375
         ],
-        "width": 92
+        "width": 96
        },
        "source": "rendu"
       }
@@ -6033,22 +6404,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.844,
-      "O_tout": 0.844,
-      "aire_t2": 1.174,
-      "iou_epoque_prec": 0.633,
-      "iou_prec": 0.636,
-      "lum_p50": 90.5,
-      "lum_p95": 247.3,
+      "O_masses": 0.875,
+      "O_tout": 0.906,
+      "aire_t2": 1.15,
+      "iou_epoque_prec": 0.649,
+      "iou_prec": 0.619,
+      "lueur_delta_8x8": 149.9,
+      "lum_p50": 101.8,
+      "lum_p95": 214.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.193
+      "sat": 0.202,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.406,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 33.6
+      "secondes": 15.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6068,7 +6448,7 @@
    "emissif": "#FFF2C0",
    "epoque": 15,
    "piece": null,
-   "silhouette": "plinthe nacrée et créneaux flottants en or blanc, anneau-halo, vides",
+   "silhouette": "plinthe nacrée et pinacles flottants à 8 pans en or blanc (couronne de flèches), anneau-halo, vides sous et entre les pinacles",
    "step": 1
   },
   "3": {
@@ -6139,17 +6519,26 @@
       "aire_t2": 0.896,
       "iou_epoque_prec": 0.636,
       "iou_prec": 0.633,
-      "lum_p50": 54.6,
-      "lum_p95": 181.5,
+      "lueur_delta_8x8": null,
+      "lum_p50": 53.7,
+      "lum_p95": 179.3,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.146
+      "sat": 0.146,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -0.781,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 11.9
+      "secondes": 15.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6218,17 +6607,26 @@
       "aire_t2": 1.123,
       "iou_epoque_prec": 0.797,
       "iou_prec": 0.75,
-      "lum_p50": 53.0,
-      "lum_p95": 180.3,
+      "lueur_delta_8x8": null,
+      "lum_p50": 52.6,
+      "lum_p95": 177.5,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.127
+      "sat": 0.127,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.781,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 14.9
+      "secondes": 11.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6263,19 +6661,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-single-main.png",
-        "height": 142,
+        "height": 144,
         "shift": [
          0.0,
-         -0.390625
+         -0.375
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-single-main.png",
-        "height": 71,
+        "height": 72,
         "shift": [
          0.0,
-         -0.390625
+         -0.375
         ],
         "width": 44
        },
@@ -6290,7 +6688,7 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-single-glow.png",
-        "height": 110,
+        "height": 126,
         "shift": [
          0.0,
          -0.484375
@@ -6299,7 +6697,7 @@
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-single-glow.png",
-        "height": 55,
+        "height": 63,
         "shift": [
          0.0,
          -0.484375
@@ -6317,19 +6715,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-single-light.png",
-        "height": 142,
+        "height": 154,
         "shift": [
          0.0,
-         0.203125
+         0.109375
         ],
         "width": 124
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-single-light.png",
-        "height": 71,
+        "height": 77,
         "shift": [
          0.0,
-         0.203125
+         0.109375
         ],
         "width": 62
        },
@@ -6345,19 +6743,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-single-shadow.png",
         "height": 32,
         "shift": [
-         1.03125,
+         1.046875,
          0.28125
         ],
-        "width": 180
+        "width": 182
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-single-shadow.png",
         "height": 16,
         "shift": [
-         1.03125,
+         1.046875,
          0.28125
         ],
-        "width": 90
+        "width": 91
        },
        "source": "rendu"
       }
@@ -6368,22 +6766,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.828,
-      "O_tout": 0.922,
-      "aire_t2": 1.088,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.182,
       "iou_epoque_prec": null,
-      "iou_prec": 0.965,
-      "lum_p50": 92.5,
-      "lum_p95": 192.5,
-      "piece_aire_ajoutee_t2": 0.038,
-      "sat": 0.2
+      "iou_prec": 0.895,
+      "lueur_delta_8x8": 135.7,
+      "lum_p50": 116.0,
+      "lum_p95": 207.7,
+      "piece_aire_ajoutee_t2": 0.123,
+      "sat": 0.212,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 11.8
+      "secondes": 13.6
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6396,19 +6803,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-straight_horizontal-main.png",
-        "height": 142,
+        "height": 144,
         "shift": [
          0.0,
-         -0.390625
+         -0.40625
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-straight_horizontal-main.png",
-        "height": 71,
+        "height": 72,
         "shift": [
          0.0,
-         -0.390625
+         -0.40625
         ],
         "width": 32
        },
@@ -6423,19 +6830,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-straight_horizontal-glow.png",
-        "height": 124,
+        "height": 126,
         "shift": [
          0.0,
-         -0.46875
+         -0.484375
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-straight_horizontal-glow.png",
-        "height": 62,
+        "height": 63,
         "shift": [
          0.0,
-         -0.46875
+         -0.484375
         ],
         "width": 32
        },
@@ -6476,21 +6883,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/hr-wall-n30-straight_horizontal-shadow.png",
-        "height": 22,
+        "height": 24,
         "shift": [
-         1.046875,
-         0.359375
+         1.0625,
+         0.34375
         ],
-        "width": 198
+        "width": 200
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e15/wall-n30-straight_horizontal-shadow.png",
-        "height": 11,
+        "height": 12,
         "shift": [
-         1.046875,
-         0.359375
+         1.0625,
+         0.34375
         ],
-        "width": 99
+        "width": 100
        },
        "source": "rendu"
       }
@@ -6501,22 +6908,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.875,
-      "O_tout": 0.938,
-      "aire_t2": 1.236,
+      "O_masses": 0.984,
+      "O_tout": 1.0,
+      "aire_t2": 1.302,
       "iou_epoque_prec": null,
-      "iou_prec": 0.95,
-      "lum_p50": 90.5,
-      "lum_p95": 245.0,
-      "piece_aire_ajoutee_t2": 0.062,
-      "sat": 0.19
+      "iou_prec": 0.87,
+      "lueur_delta_8x8": 145.0,
+      "lum_p50": 106.7,
+      "lum_p95": 214.5,
+      "piece_aire_ajoutee_t2": 0.161,
+      "sat": 0.221,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.5,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 23.6
+      "secondes": 26.8
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6535,8 +6951,8 @@
    ],
    "emissif": "#FFF2C0",
    "epoque": 15,
-   "piece": "flèche de couronne et fleurons",
-   "silhouette": "plinthe nacrée et créneaux flottants en or blanc, anneau-halo, vides",
+   "piece": "couronne : grand halo d'or blanc, flèche centrale, couronnes à fleurons",
+   "silhouette": "plinthe nacrée et pinacles flottants à 8 pans en or blanc (couronne de flèches), anneau-halo, vides sous et entre les pinacles",
    "step": 2
   },
   "4": {
@@ -6579,19 +6995,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e02/hr-wall-n04-single-shadow.png",
         "height": 32,
         "shift": [
-         0.578125,
+         0.625,
          0.28125
         ],
-        "width": 126
+        "width": 132
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e02/wall-n04-single-shadow.png",
         "height": 16,
         "shift": [
-         0.578125,
+         0.625,
          0.28125
         ],
-        "width": 63
+        "width": 66
        },
        "source": "rendu"
       }
@@ -6602,22 +7018,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.312,
+      "O_masses": 0.359,
       "O_tout": 0.406,
-      "aire_t2": 0.954,
+      "aire_t2": 0.999,
       "iou_epoque_prec": null,
-      "iou_prec": 0.937,
-      "lum_p50": 53.6,
-      "lum_p95": 177.3,
-      "piece_aire_ajoutee_t2": 0.059,
-      "sat": 0.141
+      "iou_prec": 0.895,
+      "lueur_delta_8x8": null,
+      "lum_p50": 52.8,
+      "lum_p95": 170.5,
+      "piece_aire_ajoutee_t2": 0.104,
+      "sat": 0.137,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -0.906,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 12.3
+      "secondes": 17.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6683,20 +7108,29 @@
       "L": 1.0,
       "O_masses": 0.312,
       "O_tout": 0.406,
-      "aire_t2": 1.21,
+      "aire_t2": 1.25,
       "iou_epoque_prec": null,
-      "iou_prec": 0.926,
-      "lum_p50": 52.7,
-      "lum_p95": 174.3,
-      "piece_aire_ajoutee_t2": 0.088,
-      "sat": 0.123
+      "iou_prec": 0.898,
+      "lueur_delta_8x8": null,
+      "lum_p50": 51.7,
+      "lum_p95": 168.3,
+      "piece_aire_ajoutee_t2": 0.128,
+      "sat": 0.121,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.906,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 14.4
+      "secondes": 11.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6840,18 +7274,27 @@
       "O_tout": 0.328,
       "aire_t2": 0.856,
       "iou_epoque_prec": 0.794,
-      "iou_prec": 0.846,
-      "lum_p50": 58.4,
+      "iou_prec": 0.831,
+      "lueur_delta_8x8": 150.6,
+      "lum_p50": 58.6,
       "lum_p95": 195.1,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.287
+      "sat": 0.278,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -0.828,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 9.2
+      "secondes": 17.5
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -6973,18 +7416,27 @@
       "O_tout": 0.328,
       "aire_t2": 1.112,
       "iou_epoque_prec": 0.747,
-      "iou_prec": 0.788,
-      "lum_p50": 57.5,
+      "iou_prec": 0.818,
+      "lueur_delta_8x8": 149.4,
+      "lum_p50": 57.6,
       "lum_p95": 196.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.293
+      "sat": 0.288,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.828,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 19.2
+      "secondes": 18.5
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7129,17 +7581,26 @@
       "aire_t2": 0.961,
       "iou_epoque_prec": null,
       "iou_prec": 0.886,
-      "lum_p50": 59.8,
+      "lueur_delta_8x8": 146.8,
+      "lum_p50": 60.9,
       "lum_p95": 194.5,
       "piece_aire_ajoutee_t2": 0.108,
-      "sat": 0.31
+      "sat": 0.291,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.016,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 18.5
+      "secondes": 21.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7262,17 +7723,26 @@
       "aire_t2": 1.226,
       "iou_epoque_prec": null,
       "iou_prec": 0.904,
-      "lum_p50": 58.3,
-      "lum_p95": 196.8,
+      "lueur_delta_8x8": 149.6,
+      "lum_p50": 58.7,
+      "lum_p95": 196.5,
       "piece_aire_ajoutee_t2": 0.116,
-      "sat": 0.313
+      "sat": 0.299,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.016,
+       0.562
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 27.0
+      "secondes": 16.6
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7389,19 +7859,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n07-single-shadow.png",
         "height": 32,
         "shift": [
-         0.6875,
+         0.671875,
          0.28125
         ],
-        "width": 136
+        "width": 138
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n07-single-shadow.png",
         "height": 16,
         "shift": [
-         0.6875,
+         0.671875,
          0.28125
         ],
-        "width": 68
+        "width": 69
        },
        "source": "rendu"
       }
@@ -7417,17 +7887,26 @@
       "aire_t2": 0.947,
       "iou_epoque_prec": 0.77,
       "iou_prec": 0.792,
-      "lum_p50": 68.3,
-      "lum_p95": 133.4,
+      "lueur_delta_8x8": 105.2,
+      "lum_p50": 65.4,
+      "lum_p95": 131.5,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.232
+      "sat": 0.216,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -0.938,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 24.1
+      "secondes": 15.4
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7550,17 +8029,26 @@
       "aire_t2": 1.21,
       "iou_epoque_prec": 0.806,
       "iou_prec": 0.81,
-      "lum_p50": 63.5,
-      "lum_p95": 147.4,
+      "lueur_delta_8x8": 109.9,
+      "lum_p50": 60.8,
+      "lum_p95": 142.3,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.227
+      "sat": 0.215,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.891,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 18.2
+      "secondes": 18.1
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7595,19 +8083,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-single-main.png",
-        "height": 114,
+        "height": 116,
         "shift": [
          0.0,
-         -0.171875
+         -0.1875
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-single-main.png",
-        "height": 57,
+        "height": 58,
         "shift": [
          0.0,
-         -0.171875
+         -0.1875
         ],
         "width": 44
        },
@@ -7622,21 +8110,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-single-glow.png",
-        "height": 98,
+        "height": 102,
         "shift": [
-         0.0,
-         -0.265625
+         -0.03125,
+         -0.296875
         ],
-        "width": 48
+        "width": 44
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-single-glow.png",
-        "height": 49,
+        "height": 51,
         "shift": [
-         0.0,
-         -0.265625
+         -0.03125,
+         -0.296875
         ],
-        "width": 24
+        "width": 22
        },
        "source": "rendu"
       },
@@ -7677,19 +8165,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-single-shadow.png",
         "height": 32,
         "shift": [
-         0.765625,
+         0.796875,
          0.28125
         ],
-        "width": 146
+        "width": 154
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-single-shadow.png",
         "height": 16,
         "shift": [
-         0.765625,
+         0.796875,
          0.28125
         ],
-        "width": 73
+        "width": 77
        },
        "source": "rendu"
       }
@@ -7700,22 +8188,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.453,
-      "O_tout": 0.531,
-      "aire_t2": 1.041,
+      "O_masses": 0.547,
+      "O_tout": 0.578,
+      "aire_t2": 1.065,
       "iou_epoque_prec": null,
-      "iou_prec": 0.909,
-      "lum_p50": 64.9,
-      "lum_p95": 124.9,
-      "piece_aire_ajoutee_t2": 0.094,
-      "sat": 0.287
+      "iou_prec": 0.885,
+      "lueur_delta_8x8": 107.5,
+      "lum_p50": 63.0,
+      "lum_p95": 119.6,
+      "piece_aire_ajoutee_t2": 0.121,
+      "sat": 0.246,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -1.078,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 14.3
+      "secondes": 34.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7728,19 +8225,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-straight_horizontal-main.png",
-        "height": 114,
+        "height": 116,
         "shift": [
          0.0,
-         -0.171875
+         -0.1875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-straight_horizontal-main.png",
-        "height": 57,
+        "height": 58,
         "shift": [
          0.0,
-         -0.171875
+         -0.1875
         ],
         "width": 32
        },
@@ -7755,19 +8252,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-straight_horizontal-glow.png",
-        "height": 98,
+        "height": 102,
         "shift": [
          0.0,
-         -0.265625
+         -0.296875
         ],
         "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-straight_horizontal-glow.png",
-        "height": 49,
+        "height": 51,
         "shift": [
          0.0,
-         -0.265625
+         -0.296875
         ],
         "width": 32
        },
@@ -7810,19 +8307,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/hr-wall-n08-straight_horizontal-shadow.png",
         "height": 22,
         "shift": [
-         0.765625,
+         0.796875,
          0.359375
         ],
-        "width": 162
+        "width": 166
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e04/wall-n08-straight_horizontal-shadow.png",
         "height": 11,
         "shift": [
-         0.765625,
+         0.796875,
          0.359375
         ],
-        "width": 81
+        "width": 83
        },
        "source": "rendu"
       }
@@ -7833,22 +8330,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.453,
-      "O_tout": 0.531,
-      "aire_t2": 1.313,
+      "O_masses": 0.531,
+      "O_tout": 0.578,
+      "aire_t2": 1.344,
       "iou_epoque_prec": null,
-      "iou_prec": 0.922,
-      "lum_p50": 61.5,
-      "lum_p95": 132.3,
-      "piece_aire_ajoutee_t2": 0.103,
-      "sat": 0.276
+      "iou_prec": 0.899,
+      "lueur_delta_8x8": 111.0,
+      "lum_p50": 59.6,
+      "lum_p95": 130.0,
+      "piece_aire_ajoutee_t2": 0.135,
+      "sat": 0.241,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -1.078,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 18.4
+      "secondes": 24.3
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -7883,19 +8389,19 @@
        "drapeaux": {},
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-single-main.png",
-        "height": 110,
+        "height": 108,
         "shift": [
          0.0,
-         -0.109375
+         -0.125
         ],
         "width": 88
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-single-main.png",
-        "height": 55,
+        "height": 54,
         "shift": [
          0.0,
-         -0.109375
+         -0.125
         ],
         "width": 44
        },
@@ -7910,21 +8416,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-single-glow.png",
-        "height": 74,
+        "height": 64,
         "shift": [
-         0.0,
-         -0.109375
+         -0.03125,
+         -0.3125
         ],
-        "width": 52
+        "width": 28
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-single-glow.png",
-        "height": 37,
+        "height": 32,
         "shift": [
-         0.0,
-         -0.109375
+         -0.03125,
+         -0.3125
         ],
-        "width": 26
+        "width": 14
        },
        "source": "rendu"
       },
@@ -7937,19 +8443,19 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-single-light.png",
-        "height": 100,
+        "height": 46,
         "shift": [
          0.0,
-         0.25
+         0.671875
         ],
         "width": 84
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-single-light.png",
-        "height": 50,
+        "height": 23,
         "shift": [
          0.0,
-         0.25
+         0.671875
         ],
         "width": 42
        },
@@ -7965,19 +8471,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-single-shadow.png",
         "height": 34,
         "shift": [
-         0.609375,
+         0.546875,
          0.296875
         ],
-        "width": 130
+        "width": 122
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-single-shadow.png",
         "height": 17,
         "shift": [
-         0.609375,
+         0.546875,
          0.296875
         ],
-        "width": 65
+        "width": 61
        },
        "source": "rendu"
       }
@@ -7988,22 +8494,31 @@
      },
      "mesures": {
       "L": 0.906,
-      "O_masses": 0.406,
+      "O_masses": 0.453,
       "O_tout": 0.453,
-      "aire_t2": 1.01,
-      "iou_epoque_prec": 0.879,
-      "iou_prec": 0.921,
-      "lum_p50": 45.2,
-      "lum_p95": 67.7,
+      "aire_t2": 0.82,
+      "iou_epoque_prec": 0.694,
+      "iou_prec": 0.709,
+      "lueur_delta_8x8": 86.4,
+      "lum_p50": 44.8,
+      "lum_p95": 69.3,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.221
+      "sat": 0.227,
+      "x": [
+       -0.453,
+       0.453
+      ],
+      "y": [
+       -0.953,
+       0.562
+      ]
      },
      "pose": "isole",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 15.8
+      "secondes": 13.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -8043,21 +8558,21 @@
        },
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-straight_horizontal-glow.png",
-        "height": 66,
+        "height": 68,
         "shift": [
          0.0,
-         -0.359375
+         -0.28125
         ],
-        "width": 48
+        "width": 64
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-straight_horizontal-glow.png",
-        "height": 33,
+        "height": 34,
         "shift": [
          0.0,
-         -0.359375
+         -0.28125
         ],
-        "width": 24
+        "width": 32
        },
        "source": "rendu"
       },
@@ -8098,19 +8613,19 @@
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/hr-wall-n09-straight_horizontal-shadow.png",
         "height": 28,
         "shift": [
-         0.640625,
+         0.6875,
          0.375
         ],
-        "width": 146
+        "width": 152
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/wall/e05/wall-n09-straight_horizontal-shadow.png",
         "height": 14,
         "shift": [
-         0.640625,
+         0.6875,
          0.375
         ],
-        "width": 73
+        "width": 76
        },
        "source": "rendu"
       }
@@ -8121,22 +8636,31 @@
      },
      "mesures": {
       "L": 1.0,
-      "O_masses": 0.453,
+      "O_masses": 0.422,
       "O_tout": 0.453,
-      "aire_t2": 1.361,
-      "iou_epoque_prec": 0.857,
-      "iou_prec": 0.883,
-      "lum_p50": 45.4,
-      "lum_p95": 62.3,
+      "aire_t2": 1.248,
+      "iou_epoque_prec": 0.768,
+      "iou_prec": 0.766,
+      "lueur_delta_8x8": 86.2,
+      "lum_p50": 45.0,
+      "lum_p95": 55.9,
       "piece_aire_ajoutee_t2": null,
-      "sat": 0.185
+      "sat": 0.167,
+      "x": [
+       -0.5,
+       0.5
+      ],
+      "y": [
+       -0.953,
+       0.578
+      ]
      },
      "pose": "droit",
      "rendu": {
       "blender": "5.2.2 LTS",
       "echantillons": 32,
       "graine": 20261021,
-      "secondes": 24.1
+      "secondes": 23.7
      },
      "repeat_count_note": null,
      "variation_count": 1
@@ -8156,7 +8680,7 @@
    "emissif": "#FF4A10",
    "epoque": 5,
    "piece": null,
-   "silhouette": "glacis en écailles de tungstène, dents sur l'arête, joints de braise",
+   "silhouette": "glacis bas en écailles de tungstène, crête en scie (grande dent au centre, demi-dents aux joints), évent et joints de braise",
    "step": 1
   }
  },
