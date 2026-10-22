@@ -135,7 +135,8 @@ def guns_plate(out, path):
             x = 10 + j * cw
             plate.paste(t, (x, y))
             a, b = label(e)
-            d.text((x + 6, y + t.size[1] + 4), a + " · " + b, font=f1, fill=TXT)
+            d.text((x + 6, y + t.size[1] + 4), a, font=f1, fill=TXT)
+            d.text((x + 6 + d.textlength(a + "  ", font=f1), y + t.size[1] + 7), b, font=f2, fill=SUB)
         y += rows_h[i // cols]
     plate.save(path)
     print(path)
@@ -164,6 +165,20 @@ def pairs_plate(out, path, zoom=1, epochs=range(1, 10)):
     print(path)
 
 
+def grey_plate(out, path):
+    """Planche (a) en niveaux de gris (test noir et blanc, exigence (d)) : même composition, luma Rec. 709."""
+    items = items_line(out, "E")
+    ents, Wt, Ht, xs = row(out, items, "E", minslot=5.4)
+    day, _ = K.compose(ents, Wt, Ht)
+    rgb = K.down2(day)
+    g = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
+    img = K.to_im(np.stack([g, g, g], -1))
+    labels = [("vanilla", "niv. 1 · 2×2", "repère")] + [label(1, True)] + [label(e) for e in range(2, 10)]
+    framed(img, "Test noir et blanc · époques 1 à 9 · jour · zoom 1", "pose E · 32 px par tuile · luma Rec. 709 · "
+           "composé hors moteur", xs, labels, 32).save(path)
+    print(path)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
@@ -174,6 +189,7 @@ def main():
     line_plate(a.out, "E", False, P("a-zoom1-jour-E.png"), "Mitrailleuse V3-E · époques 1 à 9 · jour · zoom 1")
     line_plate(a.out, "E", True, P("a-zoom1-nuit-E.png"), "Mitrailleuse V3-E · époques 1 à 9 · nuit · zoom 1")
     line_plate(a.out, "N", False, P("b-zoom1-jour-N.png"), "Mitrailleuse V3-E · époques 1 à 9 · pose N · jour · zoom 1")
+    grey_plate(a.out, P("a-zoom1-gris-E.png"))
     guns_plate(a.out, P("c-canons-zoom2.png"))
     pairs_plate(a.out, P("d-impair-pair-ere1-zoom2.png"), zoom=2, epochs=range(1, 4))
     pairs_plate(a.out, P("d-impair-pair-ere2-zoom1.png"), zoom=1, epochs=range(4, 7))

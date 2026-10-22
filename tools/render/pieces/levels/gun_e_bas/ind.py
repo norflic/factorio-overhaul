@@ -19,7 +19,8 @@ Chaîne (depuis la racine du worktree ; Python 3.9 pour numpy ; sorties hors dé
     py -3.9 .../gun_e_bas/mesure_e.py O mesures.json --prev P # charte tools/da, poses E et N, pièces paires
     py -3.9 .../gun_e_bas/prog_e.py <tools/da> <docs/da/mesures_vanilla.json> mesures.json D  # progression.py
     py -3.9 .../gun_e_bas/planches_e.py O <planches>          # planches (a) à (d)
-    py -3.9 .../gun_e_bas/vignettes_e.py O <vignettes>        # test à l'aveugle (correspondance sur stdout)
+    py -3.9 .../gun_e_bas/vignettes_e.py O <vignettes> --gris <vignettes-gris>  # test à l aveugle (stdout seulement)
+    py -3.9 .../gun_e_bas/gris.py O --json J                  # test noir et blanc et part de forme changée (c), (d)
     py -3.9 .../gun_e_bas/voir.py O <dossier> <préfixe>       # aperçus de travail au zoom 2
 mesure.py, planche.py, prog.py et naif.py sont ceux de la lignée (niveaux 11, 21, 29, 30) : non utilisés ici.
 """

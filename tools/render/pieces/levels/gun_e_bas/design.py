@@ -17,6 +17,12 @@ DA d un age ». Donc :
 Corrections des juges faites en passant (catalogue §A.6) : bouches lisibles en pose N (frein plus large, rosace,
 pourtour éclairé, culasses et magasins au pied des tubes), aucune bague blanche, aucun alignement de voyants,
 tablier continu sous les machines (aucun trou enfermé), coins avant libres pour la pièce du niveau pair.
+TROISIÈME PASSE (22/10, 19 h) : la deuxième passe ne distinguait les époques de même taille que par la COULEUR des
+foyers et la texture des jaquettes. Désormais (ages.py) l'arme change de TYPE à chaque époque et tous les grands
+volumes annexes du socle suivent l'âge ; la coupole prend la matière de l'âge et porte une signature (bague de danger,
+fentes de braise, spires de cuivre, cristaux, lanterneau de verre). Restent de la lignée : tablier continu, colonne et
+couronne dentée, trémie au sud, collecteur, collier, jupe, coupole, nacelle, tourelleau, bras de tourillon. Mesure de
+la différence de forme et test noir et blanc : gris.py.
 Conventions : 1 unité = une tuile en X ; une tuile de jeu vers le nord = 1,414 unité en Y (Y()) ; +Z haut.
 """
 import math

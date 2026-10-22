@@ -94,7 +94,7 @@ def main():
     print("BILAN trous enfermés : %d échec(s) sur %d contrôles (seuil : aucun groupe > %d px hr)" % (bad, len(rows),
                                                                                                   LIMIT))
     if a.json:
-        json.dump(rows, open(a.json, "w", encoding="utf-8"), indent=1)
+        json.dump(rows, open(a.json, "w", encoding="utf-8"), indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o))
     sys.exit(1 if bad else 0)
 
 
