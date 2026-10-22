@@ -53,7 +53,7 @@
         ],
         "width": 104
        },
-       "sha256_apercu": "ff33ab0ca949b9b78cd408891fca7c5751165ba150b54f59a9335c5635a82208"
+       "sha256_apercu": "85b486bf5d20f0074353dd41e6c55c1c435ad110a93cab2f15015a343f061385"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L02/E-main.png",
@@ -77,7 +77,7 @@
         ],
         "width": 86
        },
-       "sha256_apercu": "ff1f03038ee2db25c6ff542fedf2ac4a2d907bb56b0479720af21bd7011beba3"
+       "sha256_apercu": "d1b539614bdf8117e4c1308b8e5d6407c6b62198e9685900076383f4a45296cf"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L02/E-shadow.png",
@@ -90,7 +90,7 @@
          0.75,
          -0.640625
         ],
-        "width": 272
+        "width": 268
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-E-shadow.png",
@@ -100,15 +100,15 @@
          0.75,
          -0.640625
         ],
-        "width": 136
+        "width": 134
        },
-       "sha256_apercu": "911e9dee9c3d42f7eb9b29946fe8e56ed5161f97f72e35dad2daaf23a0b03e6c"
+       "sha256_apercu": "dda8a0347494246ea666d892c3edfca8b68273b3d5ea9be5b4dc2520bb31b478"
       }
      },
      "mesures": {
       "L": 3.109375,
-      "O": 0.765625,
-      "O_tige": 0.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
       "added": 0.68115234375,
       "area": 5.801025390625,
       "iou_prev": 0.8825806994655108
@@ -140,7 +140,7 @@
         ],
         "width": 104
        },
-       "sha256_apercu": "593dbf5dbaeb6abceadc46db406832bec7e0ae3e71e95449127412887ae69cf9"
+       "sha256_apercu": "68c57bf592a2fdd5d0484c00cb194417a5358b6e87e65eaf22436969a76d3fdf"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L02/N-main.png",
@@ -164,7 +164,7 @@
         ],
         "width": 86
        },
-       "sha256_apercu": "2a42eda48cee0ad38bdbde0f0454d66295889e9094c2ab3a4994fd03a22d53e3"
+       "sha256_apercu": "944f967429404b757573a9fb644c6235b8b5a6c3f0228d7bbf93f18c3380c0fd"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L02/N-shadow.png",
@@ -177,7 +177,7 @@
          0.75,
          -0.640625
         ],
-        "width": 272
+        "width": 268
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-N-shadow.png",
@@ -187,15 +187,15 @@
          0.75,
          -0.640625
         ],
-        "width": 136
+        "width": 134
        },
-       "sha256_apercu": "911e9dee9c3d42f7eb9b29946fe8e56ed5161f97f72e35dad2daaf23a0b03e6c"
+       "sha256_apercu": "dda8a0347494246ea666d892c3edfca8b68273b3d5ea9be5b4dc2520bb31b478"
       }
      },
      "mesures": {
       "L": 2.9375,
-      "O": 0.765625,
-      "O_tige": 0.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
       "added": 0.536376953125,
       "area": 5.5244140625,
       "iou_prev": 0.9029079017146898
@@ -227,7 +227,7 @@
         ],
         "width": 104
        },
-       "sha256_apercu": "ff33ab0ca949b9b78cd408891fca7c5751165ba150b54f59a9335c5635a82208"
+       "sha256_apercu": "85b486bf5d20f0074353dd41e6c55c1c435ad110a93cab2f15015a343f061385"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L02/S-main.png",
@@ -251,7 +251,7 @@
         ],
         "width": 86
        },
-       "sha256_apercu": "31d98b8327492c4a1b7d52b5a74b19a67cbf8b1d44224c2287f10c7400cb8bf5"
+       "sha256_apercu": "72f2f34de403b7a19839f0f697c6b3ee682dc698b618a262a2a21decf49db4bb"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L02/S-shadow.png",
@@ -264,7 +264,7 @@
          0.75,
          -0.640625
         ],
-        "width": 272
+        "width": 268
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-S-shadow.png",
@@ -274,15 +274,15 @@
          0.75,
          -0.640625
         ],
-        "width": 136
+        "width": 134
        },
-       "sha256_apercu": "911e9dee9c3d42f7eb9b29946fe8e56ed5161f97f72e35dad2daaf23a0b03e6c"
+       "sha256_apercu": "dda8a0347494246ea666d892c3edfca8b68273b3d5ea9be5b4dc2520bb31b478"
       }
      },
      "mesures": {
       "L": 2.9375,
-      "O": 0.765625,
-      "O_tige": 0.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
       "added": 0.696533203125,
       "area": 6.35986328125,
       "iou_prev": 0.8904798464491362
@@ -314,7 +314,7 @@
         ],
         "width": 104
        },
-       "sha256_apercu": "ff33ab0ca949b9b78cd408891fca7c5751165ba150b54f59a9335c5635a82208"
+       "sha256_apercu": "85b486bf5d20f0074353dd41e6c55c1c435ad110a93cab2f15015a343f061385"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L02/W-main.png",
@@ -338,7 +338,7 @@
         ],
         "width": 86
        },
-       "sha256_apercu": "6210d6547da25bcde2c1f83094f067a90c89d7bd076b091930023704b8890455"
+       "sha256_apercu": "9c7aeaf8e38e2b29adcdcf8d2b459018bddfc629e0068da29ef4200abf8d1bcf"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L02/W-shadow.png",
@@ -351,7 +351,7 @@
          0.75,
          -0.640625
         ],
-        "width": 272
+        "width": 268
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e01/drill-L02-W-shadow.png",
@@ -361,15 +361,15 @@
          0.75,
          -0.640625
         ],
-        "width": 136
+        "width": 134
        },
-       "sha256_apercu": "911e9dee9c3d42f7eb9b29946fe8e56ed5161f97f72e35dad2daaf23a0b03e6c"
+       "sha256_apercu": "dda8a0347494246ea666d892c3edfca8b68273b3d5ea9be5b4dc2520bb31b478"
       }
      },
      "mesures": {
       "L": 3.125,
-      "O": 0.765625,
-      "O_tige": 0.9375,
+      "O": 0.828125,
+      "O_tige": 0.921875,
       "added": 0.68115234375,
       "area": 5.91845703125,
       "iou_prev": 0.8849104859335039
@@ -486,7 +486,7 @@
       "O": 0.515625,
       "O_tige": 0.59375,
       "area": 6.787353515625,
-      "iou_prev": 0.5512033694344164
+      "iou_prev": 0.5511567040702746
      }
     },
     "north": {
@@ -572,7 +572,7 @@
       "O": 0.515625,
       "O_tige": 0.59375,
       "area": 6.708984375,
-      "iou_prev": 0.5472595337347538
+      "iou_prev": 0.5472117581671092
      }
     },
     "south": {
@@ -658,7 +658,7 @@
       "O": 0.515625,
       "O_tige": 0.59375,
       "area": 7.1318359375,
-      "iou_prev": 0.5243428130085785
+      "iou_prev": 0.524300766811938
      }
     },
     "west": {
@@ -744,7 +744,7 @@
       "O": 0.515625,
       "O_tige": 0.59375,
       "area": 6.7841796875,
-      "iou_prev": 0.5618058473914871
+      "iou_prev": 0.5617589674320876
      }
     }
    },
@@ -7837,7 +7837,7 @@
         ],
         "width": 93
        },
-       "sha256_apercu": "027728566a27aa5f16afdc8fd6eeac249af98be9c8a4eb2f18fca52d11572b7a"
+       "sha256_apercu": "4cb5b92ac511be379ad303e9384273013e32bad5bc9b5215633e0f72e0abe7ed"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L19/E-light.png",
@@ -7845,25 +7845,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L19-E-light.png",
-        "height": 302,
+        "height": 298,
         "scale": 0.5,
         "shift": [
-         -0.59375,
-         -0.140625
+         -0.578125,
+         -0.171875
         ],
-        "width": 236
+        "width": 234
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-E-light.png",
-        "height": 151,
+        "height": 149,
         "scale": 1,
         "shift": [
-         -0.59375,
-         -0.140625
+         -0.578125,
+         -0.171875
         ],
-        "width": 118
+        "width": 117
        },
-       "sha256_apercu": "cdb2fa04800e7937cf90f35962e24916b8c2ee345f885804d4373ce42d874176"
+       "sha256_apercu": "747705711755614f0552b767903a98cec7fc98f0cb5cd424d30a39376c1b5d75"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L19/E-main.png",
@@ -7872,22 +7872,22 @@
         "height": 284,
         "scale": 0.5,
         "shift": [
-         0.078125,
+         0.09375,
          -0.84375
         ],
-        "width": 202
+        "width": 200
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-E-main.png",
         "height": 142,
         "scale": 1,
         "shift": [
-         0.078125,
+         0.09375,
          -0.84375
         ],
-        "width": 101
+        "width": 100
        },
-       "sha256_apercu": "b0df6b9c1928122186cf5b26d5c182d71c5a08691733167af5c33a614eab3d8c"
+       "sha256_apercu": "c95d2dc5bfb365b626e2453225a30a37c3cbe8decdbff1040e59e7ee4ca160b9"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L19/E-shadow.png",
@@ -7912,15 +7912,15 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "30b43d91af4375aa031c96eb168559f5f01834b71a6c9ffbdd913859f189c850"
+       "sha256_apercu": "dcc634c6c9afd6908c72bc4061d480c86f8c914f6b1b62bc46a02d047e87a3da"
       }
      },
      "mesures": {
       "L": 2.890625,
       "O": 1.171875,
       "O_tige": 1.546875,
-      "area": 5.880859375,
-      "iou_prev": 0.6572676268147377
+      "area": 5.86083984375,
+      "iou_prev": 0.6623478488220086
      }
     },
     "north": {
@@ -7949,7 +7949,7 @@
         ],
         "width": 82
        },
-       "sha256_apercu": "b2105e2e13f4c248a93766693e2d33b2ac6b3e7a08a628301ba80bc64b6d6ba6"
+       "sha256_apercu": "ea14ea9e26ff6a881a0eb68534e54cee5348268b9e4568340505f1a9fccc410c"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L19/N-light.png",
@@ -7957,25 +7957,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L19-N-light.png",
-        "height": 312,
+        "height": 308,
         "scale": 0.5,
         "shift": [
          0.0,
-         0.0
+         -0.03125
         ],
-        "width": 292
+        "width": 284
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-N-light.png",
-        "height": 156,
+        "height": 154,
         "scale": 1,
         "shift": [
          0.0,
-         0.0
+         -0.03125
         ],
-        "width": 146
+        "width": 142
        },
-       "sha256_apercu": "056bdbcd47ea91bebecf84e4590869b7e2fa56d5c44f09e97289bdf67afa6d42"
+       "sha256_apercu": "0ea2996554348a18f6304e8480accc22ca18a95d9aa3a8bb4cf8dd34f757294b"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L19/N-main.png",
@@ -7984,22 +7984,22 @@
         "height": 284,
         "scale": 0.5,
         "shift": [
-         -0.015625,
+         0.0,
          -0.84375
         ],
-        "width": 190
+        "width": 188
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-N-main.png",
         "height": 142,
         "scale": 1,
         "shift": [
-         -0.015625,
+         0.0,
          -0.84375
         ],
-        "width": 95
+        "width": 94
        },
-       "sha256_apercu": "21ee02c949da4e22ef3bfa098fc43bfe92b284dc3158cc16c438b1927a5f6906"
+       "sha256_apercu": "9e028d68e5aa87966995f35c785dea52cef131c8634bd171b7ad6e012a39500d"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L19/N-shadow.png",
@@ -8024,15 +8024,15 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "927ed9a7c3cce0b9fa2bb64a83f950bb15ae1dd172bd1cc0183fdf01da99e504"
+       "sha256_apercu": "1309c1804f746b34071529dc9c7f99faa577e1bdba441371233e2cf1d1ba7ae5"
       }
      },
      "mesures": {
       "L": 2.53125,
       "O": 1.171875,
       "O_tige": 1.546875,
-      "area": 5.64111328125,
-      "iou_prev": 0.6555488902219556
+      "area": 5.62060546875,
+      "iou_prev": 0.6608504354639424
      }
     },
     "south": {
@@ -8061,7 +8061,7 @@
         ],
         "width": 82
        },
-       "sha256_apercu": "667e12fd01bd637df2160e133c01ba5366bf9d7c14d64cdf227ab1c52d1ba3f1"
+       "sha256_apercu": "6d815868369b8976633f6067510d9bd70200247fd797b6eec2e5e85847753b2c"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L19/S-light.png",
@@ -8075,7 +8075,7 @@
          0.0,
          -0.96875
         ],
-        "width": 292
+        "width": 284
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-S-light.png",
@@ -8085,9 +8085,9 @@
          0.0,
          -0.96875
         ],
-        "width": 146
+        "width": 142
        },
-       "sha256_apercu": "4e1c1b6325ce8bfb0e6e4091ebd6274e118abd95c95055fbccf9955b5cd7612c"
+       "sha256_apercu": "a1a95e7a6fe9c14e732fbe25e632ba8ce57426f5b17a8a6f8727c174445d6728"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L19/S-main.png",
@@ -8111,7 +8111,7 @@
         ],
         "width": 94
        },
-       "sha256_apercu": "7fa81bf3a1bbb5e0001928d7f6236aafa339e4c94c8a8ac42c1dad607f05414e"
+       "sha256_apercu": "b88d978d83e42f815cfff15a6a78a735f443c9bae2c8a3a5c9dfd10bade5220b"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L19/S-shadow.png",
@@ -8136,15 +8136,15 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "6c639482fa5847b450d882499b9b3f550a8c8792945b314449a26a89676b677e"
+       "sha256_apercu": "db40e9ccd66b473ec31229383cc6d67c88e708b43ef2dae448e5512c703e7a56"
       }
      },
      "mesures": {
       "L": 2.53125,
       "O": 1.171875,
       "O_tige": 1.546875,
-      "area": 6.0615234375,
-      "iou_prev": 0.6919197876732527
+      "area": 6.040283203125,
+      "iou_prev": 0.697513853083237
      }
     },
     "west": {
@@ -8155,25 +8155,25 @@
        "draw_as_glow": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L19-W-glow.png",
-        "height": 276,
+        "height": 274,
         "scale": 0.5,
         "shift": [
          -0.171875,
-         -0.90625
+         -0.921875
         ],
         "width": 186
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-W-glow.png",
-        "height": 138,
+        "height": 137,
         "scale": 1,
         "shift": [
          -0.171875,
-         -0.90625
+         -0.921875
         ],
         "width": 93
        },
-       "sha256_apercu": "6ca21e221c3cbe8ba0f867e45f3f9abd6850429e7e3e98e2f0ff6fcb709b8453"
+       "sha256_apercu": "bdff7b17bea49c38e180dcabf7eb262a99c976984c00f1e2ee149f7dcedd9dc5"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L19/W-light.png",
@@ -8181,25 +8181,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L19-W-light.png",
-        "height": 304,
+        "height": 298,
         "scale": 0.5,
         "shift": [
          0.59375,
-         -0.125
+         -0.171875
         ],
         "width": 236
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L19-W-light.png",
-        "height": 152,
+        "height": 149,
         "scale": 1,
         "shift": [
          0.59375,
-         -0.125
+         -0.171875
         ],
         "width": 118
        },
-       "sha256_apercu": "ce70d5a9f535c346dcd3dd0d925f827fc00f69ff4a810750045b79de9d1d67c7"
+       "sha256_apercu": "f82a155ea9c15c8c1b9044675314d122b19c23f961326951599ab29f1b84edd3"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L19/W-main.png",
@@ -8223,7 +8223,7 @@
         ],
         "width": 100
        },
-       "sha256_apercu": "473dbf796b2d889240d314c843c8d8c91744a856c3c7768b974678f9f50a61cb"
+       "sha256_apercu": "cc15acabfc60fd85ff051c692dfae69d44a05f56d4c1193ff496df6b1df19c7b"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L19/W-shadow.png",
@@ -8248,15 +8248,15 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "dea7e97f28cb05f7f32dbfb33f85d02d7ddc1e489e3543a3c32e68846ba5c9aa"
+       "sha256_apercu": "269d64b71d40ba31192c39f5ffc60ffbf4af0cac7316958852199780aee752a0"
       }
      },
      "mesures": {
       "L": 2.890625,
       "O": 1.171875,
       "O_tige": 1.546875,
-      "area": 5.879638671875,
-      "iou_prev": 0.657353579175705
+      "area": 5.859619140625,
+      "iou_prev": 0.662386333924058
      }
     }
    },
@@ -8310,7 +8310,7 @@
         ],
         "width": 93
        },
-       "sha256_apercu": "f6465fc8307284a9fd08a0adde6b7a6468285b81bee031a49edb16a238f0463e"
+       "sha256_apercu": "af867b49d652f0196797cf58dc042da42f2dae5ed1ccb096619950d3649e4e0b"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L20/E-light.png",
@@ -8318,25 +8318,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L20-E-light.png",
-        "height": 348,
+        "height": 346,
         "scale": 0.5,
         "shift": [
-         -0.625,
-         -0.4375
+         -0.59375,
+         -0.484375
         ],
-        "width": 240
+        "width": 236
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-E-light.png",
-        "height": 174,
+        "height": 173,
         "scale": 1,
         "shift": [
-         -0.625,
-         -0.4375
+         -0.59375,
+         -0.484375
         ],
-        "width": 120
+        "width": 118
        },
-       "sha256_apercu": "8da5db8736250ff4a1cac2d59b5c8932032f9069321c24322694234a17db2d5e"
+       "sha256_apercu": "ff7049bd9461c95ff826389d5cfe559757d87173991e1278a5f58aeb5cc9dfe9"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L20/E-main.png",
@@ -8345,22 +8345,22 @@
         "height": 284,
         "scale": 0.5,
         "shift": [
-         0.078125,
+         0.09375,
          -0.84375
         ],
-        "width": 202
+        "width": 200
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-E-main.png",
         "height": 142,
         "scale": 1,
         "shift": [
-         0.078125,
+         0.09375,
          -0.84375
         ],
-        "width": 101
+        "width": 100
        },
-       "sha256_apercu": "848afb3e3abfe68a72f5595c344b2be39baf9ce02b082c47d2cc830eb45ae345"
+       "sha256_apercu": "4912cd2ddfa3cfc197521c50465ee1fd795d24b82319b1463e1be8b109c72779"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L20/E-shadow.png",
@@ -8385,16 +8385,16 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "c69176db47d392dc008f174ddca3e9f5e18b49029df6ef1cf15a760705287098"
+       "sha256_apercu": "d5098610858613e36cd161d9e9446a2c70a78ff05a8a92e6b5356badb294e575"
       }
      },
      "mesures": {
       "L": 2.890625,
       "O": 1.5,
       "O_tige": 1.546875,
-      "added": 0.1787109375,
-      "area": 6.0595703125,
-      "iou_prev": 0.9705076551168412
+      "added": 0.178955078125,
+      "area": 6.039794921875,
+      "iou_prev": 0.9703706697926351
      }
     },
     "north": {
@@ -8423,7 +8423,7 @@
         ],
         "width": 82
        },
-       "sha256_apercu": "3ebfb1c6ff02fda137722ca017d2460ab89028f41375cef89b796d2cdb5ca98a"
+       "sha256_apercu": "f137799bfcac98fae7fb235a9076fbb60b8cb1f6a7b686ff45e774e73f5f801a"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L20/N-light.png",
@@ -8431,25 +8431,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L20-N-light.png",
-        "height": 354,
+        "height": 350,
         "scale": 0.5,
         "shift": [
-         -0.015625,
-         -0.296875
+         0.0,
+         -0.328125
         ],
-        "width": 298
+        "width": 292
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-N-light.png",
-        "height": 177,
+        "height": 175,
         "scale": 1,
         "shift": [
-         -0.015625,
-         -0.296875
+         0.0,
+         -0.328125
         ],
-        "width": 149
+        "width": 146
        },
-       "sha256_apercu": "eaa7cf53d16e8714fbce4c744a12c864fce51592626c2f3f366f994486ed802a"
+       "sha256_apercu": "10373cb296ba1ac870d819b94581bbc853c902786748bb3d89d85e3e780344d0"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L20/N-main.png",
@@ -8458,22 +8458,22 @@
         "height": 284,
         "scale": 0.5,
         "shift": [
-         -0.015625,
+         0.0,
          -0.84375
         ],
-        "width": 190
+        "width": 188
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-N-main.png",
         "height": 142,
         "scale": 1,
         "shift": [
-         -0.015625,
+         0.0,
          -0.84375
         ],
-        "width": 95
+        "width": 94
        },
-       "sha256_apercu": "f6a6c763c32ca0ddfef75b0332a3018bbb87263a2152ca5864d23f21232df018"
+       "sha256_apercu": "fcf73eb4d71b5f6baa1d94cbbcefdb446609f6a0ff85bd3cc4d052c4e575a2f0"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L20/N-shadow.png",
@@ -8498,16 +8498,16 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "f002c1653080ac0602f0cd8513fc83943872aec48b6b6f952d8ed28d340fd1b3"
+       "sha256_apercu": "2185edeb8724389b6e2ab689c02d22b5d093a2be556812f1d7e258cfbfd5c43a"
       }
      },
      "mesures": {
       "L": 2.53125,
       "O": 1.5,
       "O_tige": 1.546875,
-      "added": 0.1787109375,
-      "area": 5.81982421875,
-      "iou_prev": 0.9692927258998238
+      "added": 0.178955078125,
+      "area": 5.799560546875,
+      "iou_prev": 0.9691433382445801
      }
     },
     "south": {
@@ -8536,7 +8536,7 @@
         ],
         "width": 82
        },
-       "sha256_apercu": "534127cd706c62d191002762fbad13e91af29b0b5574fcd3b42831cabf1c9b1b"
+       "sha256_apercu": "42a5531b54ce10e6f1e052416dc07cc6889cf1f267d1c3fb34edc37e3f3b0a19"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L20/S-light.png",
@@ -8547,22 +8547,22 @@
         "height": 296,
         "scale": 0.5,
         "shift": [
-         -0.015625,
+         0.0,
          -1.375
         ],
-        "width": 298
+        "width": 292
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-S-light.png",
         "height": 148,
         "scale": 1,
         "shift": [
-         -0.015625,
+         0.0,
          -1.375
         ],
-        "width": 149
+        "width": 146
        },
-       "sha256_apercu": "e987527104b93dd8cfaee6fc63b88fda36c1472e1a1b765007a7c79d31e5284b"
+       "sha256_apercu": "35cc8142f70fe7c0cad08d29ed9326327f6b4f5bc437c1c03aa1f8eabfdf7493"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L20/S-main.png",
@@ -8586,7 +8586,7 @@
         ],
         "width": 94
        },
-       "sha256_apercu": "d663b6f4364a64240c5c1bcee645bd0779ba56c42804cb73e8547172dfa2302f"
+       "sha256_apercu": "1b10eb99c4c396bdceabe37c366983bb0f0087817f1dd8f74204f2c9e4b3b2a8"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L20/S-shadow.png",
@@ -8611,7 +8611,7 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "7119ffb3191322a9c428a71829c0be976692f778b8d14d9fadf69ea761145d2b"
+       "sha256_apercu": "44172b3aefd660244953d55421650df1b185a0389f03ab6d614082d5bd14981e"
       }
      },
      "mesures": {
@@ -8619,8 +8619,8 @@
       "O": 1.5,
       "O_tige": 1.546875,
       "added": 0.178466796875,
-      "area": 6.239990234375,
-      "iou_prev": 0.9713995070229665
+      "area": 6.21875,
+      "iou_prev": 0.9713018216080402
      }
     },
     "west": {
@@ -8631,25 +8631,25 @@
        "draw_as_glow": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L20-W-glow.png",
-        "height": 276,
+        "height": 274,
         "scale": 0.5,
         "shift": [
          -0.171875,
-         -0.90625
+         -0.921875
         ],
         "width": 186
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-W-glow.png",
-        "height": 138,
+        "height": 137,
         "scale": 1,
         "shift": [
          -0.171875,
-         -0.90625
+         -0.921875
         ],
         "width": 93
        },
-       "sha256_apercu": "b40e0802ab51fb038ae7df9b318639da5c6d278209a328dc34e0ff41ecd6cfd2"
+       "sha256_apercu": "2e8dabc372c8c3161c2eda9bcca30f50a7e006533093db8cc3a61b716de3c5cf"
       },
       "light": {
        "apercu": "tools/render/out/levels/drill/L20/W-light.png",
@@ -8657,25 +8657,25 @@
        "draw_as_light": true,
        "hr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/hr-drill-L20-W-light.png",
-        "height": 350,
+        "height": 346,
         "scale": 0.5,
         "shift": [
          0.625,
-         -0.453125
+         -0.484375
         ],
         "width": 240
        },
        "lr": {
         "filename": "__factorio-overhaul__/graphics/levels/drill/e10/drill-L20-W-light.png",
-        "height": 175,
+        "height": 173,
         "scale": 1,
         "shift": [
          0.625,
-         -0.453125
+         -0.484375
         ],
         "width": 120
        },
-       "sha256_apercu": "564c4d21e9c636dee33836aab00b9a71d93415aa102cb3054a457cce9ae0b6ae"
+       "sha256_apercu": "797523343a5e9dcee2603f2a6467f64b3edef168538003d9c29f6c339020d64f"
       },
       "main": {
        "apercu": "tools/render/out/levels/drill/L20/W-main.png",
@@ -8699,7 +8699,7 @@
         ],
         "width": 100
        },
-       "sha256_apercu": "6271924c097d9548905f49735e0bc0b06f3de54af19ab37aba86ab31915719b2"
+       "sha256_apercu": "557fb394fe76b31955ce90b5660ee33dd91004875202c11ae88c108f181e10f3"
       },
       "shadow": {
        "apercu": "tools/render/out/levels/drill/L20/W-shadow.png",
@@ -8724,16 +8724,16 @@
         ],
         "width": 167
        },
-       "sha256_apercu": "e0a7947ac350f604b68c4dd22fb8a36732e49a38f9d65ebd33c9c71e841ac9d0"
+       "sha256_apercu": "43832977b8d33b08c92aea75939c29b5ed6cb052d5125b759497c396f3943de8"
       }
      },
      "mesures": {
       "L": 2.890625,
       "O": 1.5,
       "O_tige": 1.546875,
-      "added": 0.178466796875,
-      "area": 6.05810546875,
-      "iou_prev": 0.9705408237285403
+      "added": 0.17822265625,
+      "area": 6.037841796875,
+      "iou_prev": 0.9704823905220169
      }
     }
    },
@@ -8872,7 +8872,7 @@
       "O": 1.265625,
       "O_tige": 1.375,
       "area": 3.876220703125,
-      "iou_prev": 0.4307259623835472
+      "iou_prev": 0.42512280701754385
      }
     },
     "north": {
@@ -8984,7 +8984,7 @@
       "O": 1.265625,
       "O_tige": 1.375,
       "area": 3.599853515625,
-      "iou_prev": 0.39128083080917353
+      "iou_prev": 0.38613861386138615
      }
     },
     "south": {
@@ -9096,7 +9096,7 @@
       "O": 1.265625,
       "O_tige": 1.375,
       "area": 3.98193359375,
-      "iou_prev": 0.4363786064702048
+      "iou_prev": 0.43147868987255034
      }
     },
     "west": {
@@ -9208,7 +9208,7 @@
       "O": 1.265625,
       "O_tige": 1.375,
       "area": 3.87451171875,
-      "iou_prev": 0.43057069517212276
+      "iou_prev": 0.424946478082336
      }
     }
    },
@@ -13533,7 +13533,7 @@
    "build_manifest.py": "3af6841b2cd94822383c3e7f7e946b174ec783761ed228e282b99fe40ce117b9",
    "catalogue.py": "5ed3a2f168718f0bdf28eb50c72361348cfe68ff37f65f628850b0480bfe1fc2",
    "drill_levels.py": "d209c816e69e64517c8c853e16956964a7a87f3bcffe3806884db8561ac46b55",
-   "epoques.py": "4fd6942a91f654ef0e39c211f71b72858724bc3ee54167b70fc3d90e356c3816",
+   "epoques.py": "5365c3d11b06f6d21e28bb2f277fd5bdc90cbdb99ef74aacc1763eb784617402",
    "kit.py": "1bf8898f2430e02fdd8aa6256a47bc4164cc5e5bfee1bd5b2cc0a8eb0b97c26c",
    "levels_io.py": "e347a74cfdadd20d802e5778e683d0306a0845cfd93066a122f10eb41f315759",
    "measure_d1.py": "147bb5a17ff06971b68daa2f785431e8cb3e58c5ec3f9b13371d29ed437bcb57",

@@ -42,9 +42,10 @@ EMIT_K = 0.40        # facteur des forces émissives de glow() (≈ 1 en sortie,
 # e13 74 avec 0,32 (92 ; tore de plasma = 33 % du corps) -> 0,52.
 # e14 56 avec 0,47 (88 ; cellules émissives = 28 % du corps, exclues) -> 1,20.
 # e15 96 à 100 avec 0,80 (108) -> 1,0.
-# e1 (pièce du niveau 2) : bois #6B4F35 rendu presque noir à côté du vanilla (gros plan zoom 2) -> 1,5.
+# e1 (pièce du niveau 2) : bois #6B4F35 rendu presque noir à côté du vanilla (gros plan zoom 2) -> 1,5, encore
+# trop sombre au gros plan suivant -> 2,6.
 # e15 : niveau 30 à 112 (> 110, borne de la règle 1) avec 1,0 -> 0,95.
-ALB_GAIN = {1: 1.50, 2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 7: 1.90, 10: 0.33, 11: 1.55, 13: 0.52, 14: 1.20, 15: 0.95}
+ALB_GAIN = {1: 2.60, 2: 0.85, 3: 1.70, 4: 0.85, 5: 1.25, 7: 1.90, 10: 0.33, 11: 1.55, 13: 0.52, 14: 1.20, 15: 0.95}
 
 
 def metal(ctx, key, hexc, rough=0.40, metallic=0.55, grain=0.20, gs=55.0, rust=None, ra=0.0, dirt=0.45, k=1.0):
