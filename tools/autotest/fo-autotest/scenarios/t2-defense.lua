@@ -487,6 +487,23 @@ return {
       ctx.fail("controles de la ligne de defense joues", st.invalid and "carte invalide" or "tick ACT non atteint")
       return
     end
+    -- Lot V3-T3 (correction, défaut 13 ; JOURNAL SEULEMENT, hors bilan) : « libérer la place » en plan seul (rien n'est
+    -- posé) sur chaque bâtiment laissé par la migration : combien deviennent libérables sans rien démonter à la main ?
+    if ctx.has("factorio-overhaul", "levels_free_room") then
+      local n, ok, parts = 0, 0, {}
+      for _, r in ipairs(st.rec) do
+        local f = st.final[r.key]
+        if f and f.kind == "kept" and f.entity.valid then
+          n = n + 1
+          local d = ctx.call("levels_free_room", f.entity, nil, { dry = true })
+          if d.ok then ok = ok + 1 end
+          local sig = {}
+          for i, x in ipairs(d.signalled or {}) do if i <= 3 then sig[#sig + 1] = tostring(x.name) .. "(" .. tostring(x.why) .. ")" end end
+          parts[#parts + 1] = r.key .. "=" .. tostring(d.reason) .. (d.ok and ("[" .. #d.marks .. "m," .. #d.ghosts .. "f]") or ("{" .. table.concat(sig, ",") .. "}"))
+        end
+      end
+      ctx.log(string.format("LIBERER LA PLACE (plan seul, hors bilan) : %d liberable(s) sur %d laisse(s) : %s", ok, n, table.concat(parts, " ")))
+    end
     local s = ctx.surface()
     -- Filet sans effet une fois le relevé à jour.
     local s2 = ctx.call("levels_status", F_DEF)

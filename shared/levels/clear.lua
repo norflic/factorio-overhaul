@@ -2,12 +2,15 @@
   Niveaux : « LIBÉRER LA PLACE » (lot V3-T3 ; Q-T2-1, réponse du Directeur Créatif le 22/10 à 21 h 06 : « QT21
   option B », soit, telle que posée dans le chat : « On garde la règle, et j'ajoute un bouton "libérer la place". Il
   marque les gêneurs à démonter par les robots et pose des fantômes pour les reconstruire décalés. »).
-  Pur Lua, testable hors jeu (tests/levels_test.lua). Lu par script/levels/levels.lua (Levels.free_room), qui relève
-  la scène autour du bâtiment, appelle C.plan, puis exécute le plan (marques de démontage, fantômes).
+  Pur Lua, testable hors jeu (tests/levels_test.lua). Lu par script/levels/free.lua (Free.free_room, aussi
+  Levels.free_room), qui relève la scène autour du bâtiment, appelle C.plan pour chaque candidate, puis exécute le
+  plan retenu (marques de démontage, fantômes).
 
   La règle Q24 ne change pas : le bâtiment ne grandit que quand la place est libre. Ce module ne fait que dire QUOI
-  démonter et OÙ reposer chaque gêneur, pour la candidate que montre déjà le contour (shared/levels/footprint.lua,
-  F.evaluate : target, la plus facile à libérer).
+  démonter et OÙ reposer chaque gêneur, pour UNE candidate ; script/levels/free.lua essaie d'abord celle que montre
+  déjà le contour (shared/levels/footprint.lua, F.evaluate : target, la plus facile à libérer), puis les autres dans
+  le même ordre (correction V3-T3, défaut 12 : la plus facile n'est pas toujours libérable), et n'exécute qu'un plan
+  COMPLET (ok : rien de signalé ; correction, défaut 10 : un plan partiel déplacerait des bras pour rien).
 
   =====================================================================================================
   RÈGLE DE DÉCALAGE (lot V3-T3), mot pour mot :
@@ -37,7 +40,9 @@
        qui longe le côté : BOSSE (règle 2) ; autre cas (ligne qui traverse le carré, embranchement, tuyau qui longe,
        souterrain, séparateur) : signalé. Décaler une seule tuile d'une ligne la casserait : jamais fait.
     4. POTEAU : sortie minimale (règle 1), seulement si chaque fil de cuivre reste à portée (distance au plus la plus
-       petite des deux portées) ; sinon signalé.
+       petite des deux portées) ET si rien de ce qu'il alimentait ne sort de toute zone d'alimentation (correction
+       V3-T3) : chaque entité électrique de la scène (et le bâtiment agrandi, s'il est électrique) qui touchait sa
+       zone doit toucher sa nouvelle zone ou celle d'un autre poteau resté ou reposé ; sinon signalé.
     5. MUR et PORTE : chaque tuile du carré sort par le côté le plus proche ; une tuile qui arriverait sur un mur
        resté en place le pousse lui aussi (mur épais, 3 rangées au plus) ; la ligne est REFERMÉE : au bout de chaque
        tronçon décalé, des murs de liaison (le mur de base de la famille, que le joueur fabrique : un mur de niveau
@@ -47,11 +52,17 @@
        qui sert un point de jeu du bâtiment (dépôt d'une foreuse) suit ce point (décalé du déplacement du point).
     7. ARBRE, ROCHER : marqués à démonter, rien à reposer.
     8. Tout le reste (bâtiment voisin, autre force, falaise, véhicule…) et l'eau : SIGNALÉS (à retirer à la main),
-       jamais marqués.
+       jamais marqués. Un seul gêneur signalé suffit à refuser toute la demande (rien n'est marqué, aucun fantôme) :
+       correction V3-T3, défaut 10.
   Contrôles communs : un bras resté en place (d'un voisin) dont un point tombe sur une tuile démontée sans
   remplaçant interdit le groupe (il serait privé) ; chaque groupe (un gêneur et ce qu'il entraîne) est tout ou rien :
   s'il ne tient pas, ses gêneurs sont signalés et rien de lui n'est marqué. Ordre déterministe : bras, puis lignes,
   puis murs, puis le reste, chacun trié par position (y, puis x, puis nom).
+  Correction V3-T3 (défauts 1 et 21) : un gêneur déjà réservé par une AUTRE demande en attente (marqué ou porteur
+  d'un de ses fantômes : `reserved`) est signalé ; une tuile de ligne, l'amont ou l'aval d'une bosse, ou le partenaire
+  d'un bras déjà marqué à démonter (par le joueur ou une autre demande) fait échouer son groupe (signalé) : le mod ne
+  s'approprie jamais une marque qui n'est pas la sienne ; aucun fantôme n'est posé dans le carré réservé d'une autre
+  demande (`reserved_boxes`). Plan COMPLET seulement (voir plus haut) : `ok` = rien de signalé.
   =====================================================================================================
 
   Conventions : directions du moteur 1.1.91 (defines.direction : nord 0, est 2, sud 4, ouest 6) ; boîtes
@@ -218,6 +229,10 @@ end
 local function occupant(S, P, rect, ignore)
   if Foot.overlap(rect, P.B) then return "carre" end
   if P.old and Foot.overlap(rect, P.old) then return "batiment" end
+  -- Correction V3-T3 (défaut 1) : carré réservé d'une autre demande en attente (son bâtiment y grandira).
+  for _, b in ipairs(P.reserved) do
+    if Foot.overlap(rect, b) then return "carre reserve" end
+  end
   for _, t in ipairs(S.tiles) do
     if Foot.overlap(rect, t) then return "tuile:" .. tostring(t.name) end
   end
@@ -264,8 +279,9 @@ local function g_check(S, P, G)
       if Foot.overlap(g.box, G.ghosts[j].box) then return false, "fantomes superposes" end
     end
   end
-  -- Bras restés en place (voisins) : un point sur une entité démontée sans remplaçant sur la même tuile.
-  for id in pairs(G.vacate) do
+  -- Bras restés en place (voisins) : un point sur une entité démontée sans remplaçant sur la même tuile. Liste
+  -- ordonnée G.marks (correction V3-T3, défaut 7 : jamais l'ordre de pairs, le motif rendu en dépend).
+  for _, id in ipairs(G.marks) do
     local v = S.by_id[id]
     local replaced = false
     for _, g in ipairs(G.ghosts) do
@@ -331,6 +347,8 @@ local function shorten(S, first, u, zones, pipe)
     local hit = false
     for _, zr in ipairs(zones) do if Foot.overlap(cur.box, zr) then hit = true end end
     if not hit then break end
+    -- Correction V3-T3 (défaut 21) : une tuile déjà marquée (joueur, autre demande) n'est jamais reprise par le mod.
+    if cur.marked then return nil, "tuile deja marquee" end
     -- Côtés : aucun convoyeur ni tuyau ne doit s'y raccorder (embranchement, chargement par le côté).
     for _, s in ipairs({ { x = -u.y, y = u.x }, { x = u.y, y = -u.x } }) do
       local o = at[tile_key(cur.x + s.x, cur.y + s.y)]
@@ -343,6 +361,7 @@ local function shorten(S, first, u, zones, pipe)
     cut[#cut + 1] = cur
     local nxt = at[tile_key(cur.x + u.x, cur.y + u.y)]
     if not same(nxt) then return nil, "ligne qui ne continue pas au-dela" end
+    if nxt.marked then return nil, "tuile deja marquee" end
     cur = nxt
   end
   if #cut == 0 then return nil, "rien a raccourcir" end
@@ -364,7 +383,11 @@ local function bump(S, G, run, u, d)
   if Wb and Wb ~= W then return false, "aval complexe (" .. Wb.name .. ")" end
   if U and not (U.dir == P1.dir and C.belt_straight(S, U)) then return false, "amont en virage" end
   if W and not (W.dir == P1.dir and C.belt_straight(S, W)) then return false, "aval en virage" end
+  -- Correction V3-T3 (défaut 21) : amont, aval ou tuile de la ligne déjà marqués (joueur, autre demande) : le mod ne
+  -- les reprend pas (une marque qui n'est pas la sienne ne serait jamais annulée par lui).
+  if (U and U.marked) or (W and W.marked) then return false, "tuile deja marquee" end
   for _, t in ipairs(run) do
+    if t.marked then return false, "tuile deja marquee" end
     if t.dir ~= P1.dir or not C.belt_straight(S, t) then return false, "ligne en virage" end
     -- Côté bâtiment de chaque tuile démontée : aucun convoyeur qui s'y raccorde.
     local o = belt_near(t.x - u.x, t.y - u.y)
@@ -419,6 +442,52 @@ local function line_span(S, r, lo, hi)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Zone d'alimentation d'un poteau décalé (correction V3-T3, règle 4)
+---------------------------------------------------------------------------------------------------
+local function supply_square(x, y, d)
+  return { x0 = x - d, y0 = y - d, x1 = x + d, y1 = y + d }
+end
+
+--- Le poteau `r` du groupe G, reposé en (nx, ny), laisse-t-il alimenté tout ce qu'il alimentait ? Chaque entité
+--- électrique de la scène restée en place (r.powered), chaque fantôme prévu d'une entité électrique, et le bâtiment
+--- agrandi (P.powered_box, s'il est électrique), qui touchaient l'ancienne zone, doivent toucher la nouvelle zone ou
+--- celle d'un autre poteau resté en place ou reposé (fantôme). Un poteau hors de la scène n'est pas vu : le contrôle
+--- est prudent (il peut refuser à tort, jamais accepter à tort pour ce qu'il voit). Renvoie true, ou false et le motif.
+function C.supply_kept(S, P, G, r, nx, ny)
+  local d = r.supply
+  if not d or d <= 0 then return true end
+  local old = supply_square(r.x, r.y, d)
+  local areas = { supply_square(nx, ny, d) }
+  for _, o in ipairs(S.recs) do
+    if o.kind == "pole" and o.id ~= r.id and o.supply and not P.vacated[o.id] and not G.vacate[o.id] then
+      areas[#areas + 1] = supply_square(o.x, o.y, o.supply)
+    end
+  end
+  for _, g in ipairs(P.ghosts) do
+    if g.supply then areas[#areas + 1] = supply_square(g.x, g.y, g.supply) end
+  end
+  local function covered(box)
+    for _, a in ipairs(areas) do if Foot.overlap(box, a) then return true end end
+    return false
+  end
+  for _, o in ipairs(S.recs) do
+    if o.powered and o.kind ~= "ghost" and not P.vacated[o.id] and not G.vacate[o.id] and Foot.overlap(o.box, old) and not covered(o.box) then
+      return false, "alimentation perdue (" .. o.name .. ")"
+    end
+  end
+  for _, g in ipairs(P.ghosts) do
+    local o = g.of and S.by_id[g.of]
+    if o and o.powered and Foot.overlap(g.box, old) and not covered(g.box) then
+      return false, "alimentation perdue (" .. g.name .. ")"
+    end
+  end
+  if P.powered_box and P.old and Foot.overlap(P.old, old) and not covered(P.powered_box) then
+    return false, "alimentation perdue (batiment)"
+  end
+  return true
+end
+
+---------------------------------------------------------------------------------------------------
 -- Plan
 ---------------------------------------------------------------------------------------------------
 --- input = {
@@ -430,14 +499,19 @@ end
 ---              qui servent un point de jeu qui sortirait), tiles = { {x, y, name} } (tuiles bloquantes de la
 ---              candidate) ou nil, area_tiles = tuiles bloquantes autour (eau) pour les places des fantômes,
 ---   connector = nom du mur de liaison (mur de base de la famille),
+---   Correction V3-T3 : reserved_boxes = carrés réservés par les AUTRES demandes en attente (aucun fantôme n'y va) ;
+---   missing = { {name, x, y} } gênes de la candidate absentes de la scène (signalées) ; powered_box = boîte de
+---   collision du bâtiment agrandi s'il est électrique (règle 4) ; dans la scène : reserved (entité réservée par une
+---   autre demande), powered (entité électrique), supply (zone d'alimentation d'un poteau, demi-côté).
 --- }
 --- Renvoie { groups, marks (ids), ghosts ({name, x, y, dir, of, box}), signals ({id, why} ; id = nil pour une
---- tuile), warnings, ok (rien de signalé) }.
+--- tuile ou une gêne hors du relevé : tile ou missing), warnings, ok (rien de signalé) }.
 function C.plan(input)
   local S = index_scene({ scene = input.scene, tiles = input.area_tiles })
   local B = input.new_box
   local old = input.old_rect
-  local P = { B = B, old = old, vacated = {}, done = {}, marks = {}, ghosts = {}, groups = {}, signals = {}, warnings = {} }
+  local P = { B = B, old = old, vacated = {}, done = {}, marks = {}, ghosts = {}, groups = {}, signals = {}, warnings = {},
+    reserved = input.reserved_boxes or {}, powered_box = input.powered_box }
 
   -- Gêneurs, triés (y, x, nom) ; ceux déjà marqués par quelqu'un d'autre partent quand même (rien à reposer :
   -- le joueur les a voulus démontés), ils ne sont ni marqués ni reposés par le mod.
@@ -454,9 +528,22 @@ function C.plan(input)
   P.blocker = {}
   for _, r in ipairs(list) do
     P.blocker[r.id] = true
-    if r.marked then P.done[r.id] = true; P.vacated[r.id] = true end
   end
   for _, m in ipairs(input.moved or {}) do P.blocker[m.id] = true end
+  for _, r in ipairs(list) do
+    -- Correction V3-T3 (défaut 1) : réservé par une autre demande en attente (marqué par elle, ou fantôme à elle) :
+    -- signalé ; deux demandes ne se partagent jamais un gêneur.
+    if r.reserved then
+      signal(P, r.id, "reserve par une autre demande")
+    elseif r.marked then
+      P.done[r.id] = true; P.vacated[r.id] = true
+    end
+  end
+  -- Entités qui ne figurent pas dans la scène (relevé incomplet : défauts 2 et 20) : signalées par l'appelant
+  -- (input.missing = { {name, x, y} }), jamais ignorées.
+  for _, m in ipairs(input.missing or {}) do
+    P.signals[#P.signals + 1] = { missing = { name = m.name, x = m.x, y = m.y }, why = "hors du releve" }
+  end
 
   -- Tuiles bloquantes de la candidate : signalées (eau : à remblayer).
   for _, t in ipairs(input.tiles or {}) do
@@ -499,6 +586,7 @@ function C.plan(input)
   local clusters, ckeys = {}, {}
   for _, it in ipairs(intents) do
     local p, u = it.partner, it.u
+    -- Partenaire marqué : traité avec les autres bras (signalé, voir plus bas).
     if p and p.type == "transport-belt" and not p.marked then
       local f = C.DIRV[p.dir]
       if f.x * u.x + f.y * u.y == 0 then
@@ -557,6 +645,9 @@ function C.plan(input)
       local G = new_group("bras", a.id)
       local ok, why = true, nil
       if not point_in_tiles(B, it.mach.x + sx, it.mach.y + sy) then ok, why = false, "bras : son point ne tomberait pas dans le batiment" end
+      -- Correction V3-T3 (défaut 21) : partenaire déjà marqué (joueur, autre demande) : le bras ne serait plus servi
+      -- là où il arrive, et la marque n'est pas celle du mod : signalé.
+      if ok and p and p.marked then ok, why = false, "partenaire deja marque (" .. p.name .. ")" end
       g_mark(G, a)
       g_ghost(G, a.name, a.x + sx, a.y + sy, a.dir, rel_box(a), a.id)
       if ok and p and not p.marked then
@@ -783,8 +874,15 @@ function C.plan(input)
               if dx * dx + dy * dy > lim * lim + C.EPS then reach_ok = false end
             end
           end
+          local supply_ok, supply_why = true, nil
+          if reach_ok and r.kind == "pole" then
+            supply_ok, supply_why = C.supply_kept(S, P, G, r, r.x + sx, r.y + sy)
+            if supply_ok then G.ghosts[#G.ghosts].supply = r.supply end
+          end
           if not reach_ok then
             last = "fil hors de portee"
+          elseif not supply_ok then
+            last = supply_why
           else
             local okc, why = g_check(S, P, G)
             if okc then commit(P, G) okp = true break end
@@ -821,6 +919,40 @@ function C.plan(input)
   for _, g in ipairs(P.ghosts) do ghosts[#ghosts + 1] = g end
   return { groups = P.groups, marks = P.marks, ghosts = ghosts, signals = P.signals, warnings = P.warnings,
            ok = #P.signals == 0 }
+end
+
+--- Choix de la candidate à libérer (correction V3-T3, défaut 12) : `cands` = candidates évaluées par
+--- shared/levels/footprint.lua (F.evaluate : tiles, entities, moved), `target` = indice de celle que montre le contour,
+--- `plan_of(i)` = plan de la candidate i (C.plan), ou nil si elle est exclue (carré réservé par une autre demande).
+--- Ordre d'essai : la candidate du contour d'abord, puis les autres dans l'ordre « la plus facile à libérer » de
+--- footprint.lua (sans tuile bloquante, le moins de gêneurs, le moins de tuiles, le rang). Retenue : la première dont
+--- le plan est COMPLET (ok). Renvoie l'indice retenu (ou nil), son plan, et le plan de la candidate du contour (à
+--- montrer en cas de refus ; nil si elle est exclue).
+function C.choose(cands, target, plan_of)
+  local order = {}
+  for i = 1, #cands do order[#order + 1] = i end
+  local function key(i)
+    local c = cands[i]
+    local nt = #(c.tiles or {})
+    return nt > 0 and 1 or 0, #(c.entities or {}) + #(c.moved or {}), nt
+  end
+  table.sort(order, function(a, b)
+    if a == target then return b ~= target end
+    if b == target then return false end
+    local ta, ea, na = key(a)
+    local tb, eb, nb = key(b)
+    if ta ~= tb then return ta < tb end
+    if ea ~= eb then return ea < eb end
+    if na ~= nb then return na < nb end
+    return a < b
+  end)
+  local shown
+  for _, i in ipairs(order) do
+    local p = plan_of(i)
+    if i == target then shown = p end
+    if p and p.ok and not p.too_many then return i, p, shown end
+  end
+  return nil, nil, shown
 end
 
 return C

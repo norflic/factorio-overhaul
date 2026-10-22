@@ -350,6 +350,10 @@ end
 local function blocks(entity, e, layers)
   return e.valid and e ~= entity and not Levels.NON_BLOCKING[e.type] and shares(layers, e.prototype.collision_mask)
 end
+-- Lot V3-T3 (correction, défauts 2 et 20) : le relevé de « libérer la place » (script/levels/free.lua) prend
+-- EXACTEMENT le même critère de gêne que Levels.room (voiture, char, araignée, wagons, signaux ferroviaires compris).
+Levels.mask_layers = mask_layers
+Levels.blocks = blocks
 
 --- Clé d'une entité (numéro d'unité ; sinon nom et position) : un même enregistrement par entité (Levels.room).
 local function entity_key(e)
@@ -1075,6 +1079,14 @@ end
 function Levels.preview(entity, player, fresh, opts)
   local family, n = L.parse(entity.name)
   if not family then return nil end
+  -- Lot V3-T3 (correction, défauts 5 et 24) : tant qu'une demande « libérer la place » attend pour ce bâtiment, TOUTE
+  -- décision et tout aperçu (bouton « Améliorer », touche U, rangée, interface distante) ne visent que le carré
+  -- libéré : ailleurs, le bâtiment pourrait se poser sur les fantômes du mod. Crochet posé par script/levels/free.lua
+  -- (fonction du module, jamais dans global).
+  if not (opts and opts.box) and Levels.pending_box then
+    local b = Levels.pending_box(entity)
+    if b then opts = { box = b } end
+  end
   local force = entity.force
   local info = { family = family, level = n, next = n + 1, cc_level = Levels.cc_level(force) }
   if n >= family.max then

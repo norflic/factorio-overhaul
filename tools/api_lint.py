@@ -113,6 +113,10 @@ RECEIVERS = [
     (["LuaEntity"], "get_transport_line"), (["LuaEntity"], "remove_item"), (["LuaEntityPrototype"], "max_wire_distance"),
     (["LuaEntityPrototype"], "items_to_place_this"), (["LuaInventory"], "clear"), (["LuaTransportLine"], "get_contents"),
     (["LuaPlayer"], "connected"), (["LuaPlayer"], "create_local_flying_text"),
+    # --- lot V3-T3, corrections (réglages recopiés sur un fantôme, zone d'alimentation, essai E58) ---
+    (["LuaEntity"], "copy_settings"), (["LuaEntity"], "get_filter"), (["LuaEntity"], "set_filter"),
+    (["LuaEntity"], "inserter_filter_mode"), (["LuaEntity"], "inserter_stack_size_override"), (["LuaEntity"], "ghost_type"),
+    (["LuaEntityPrototype"], "supply_area_distance"), (["LuaEntityPrototype"], "electric_energy_source_prototype"),
 ]
 
 

@@ -172,8 +172,8 @@ function Cases.pure(check, section)
   for _, s in ipairs(p4.signals) do if s.id == 1 then neigh_sig = true end end
   local neigh_marked = false
   for _, id in ipairs(p4.marks) do if id == 1 then neigh_marked = true end end
-  check(B4.x0 == 14 and neigh_sig and not neigh_marked and #p4.groups == 1,
-    "candidate sud-ouest : l'assembleur voisin est signalé (à retirer à la main), jamais marqué ; le bras sud est quand même traité",
+  check(B4.x0 == 14 and neigh_sig and not neigh_marked and not p4.ok,
+    "candidate sud-ouest : l'assembleur voisin est signalé (à retirer à la main), jamais marqué ; le plan est PARTIEL (ok faux) : script/levels/free.lua ne l'exécute pas (correction V3-T3, défaut 10)",
     "B4 " .. B4.x0 .. "," .. B4.y0 .. " ; signaux " .. sig_ids(p4))
 
   -- 5. Bras nourri par un coffre : le coffre suit le bras.
@@ -303,7 +303,139 @@ function Cases.pure(check, section)
   for x = 0.5, 70.5 do S19.add("tree-01", "tree", x, 50.5) end
   local p19 = plan(S19, { x0 = 0, y0 = 49, x1 = 72, y1 = 53 }, { x0 = 30, y0 = 49.3, x1 = 31, y1 = 49.4 })
   check(p19.too_many and #p19.marks == 0, "plus de " .. C.MAX_MARKS .. " gêneurs : refus, rien marqué")
+
+  -- Correction V3-T3 (relecture adverse) -----------------------------------------------------------------------
+  --- Candidates évaluées comme Levels.room (Foot.evaluate, bloqueurs = toute la scène sauf le bâtiment `self_id`), et
+  --- plan de chacune comme script/levels/free.lua (gêneurs de la candidate).
+  local function evaluated(S, center, from, to, self_id)
+    local cs = Foot.candidates(Foot.tile_box(center, from), to)
+    local all = {}
+    for _, r in ipairs(S.recs) do
+      if r.id ~= self_id and r.kind ~= "ghost" then all[#all + 1] = { box = r.box, name = r.name, id = r.id } end
+    end
+    local res = Foot.evaluate(cs, {}, all)
+    return cs, res
+  end
+  local function plan_fn(S, cs, old, extra)
+    return function(i)
+      local bl = {}
+      for _, e in ipairs(cs[i].entities or {}) do bl[#bl + 1] = e.id end
+      local input = { new_box = cs[i].box, old_rect = old, scene = S.recs, blockers = bl, connector = "stone-wall" }
+      for k, v in pairs(extra or {}) do input[k] = v end
+      return C.plan(input)
+    end
+  end
+  --- Scène sans le bâtiment lui-même (le relevé de free.lua ne le contient pas).
+  local function without(S, id)
+    local T = scene()
+    for _, r in ipairs(S.recs) do if r.id ~= id then T.recs[#T.recs + 1] = r end end
+    return T
+  end
+
+  -- 20. Défaut 10 (plan partiel) : voisins collés à l'est ET à l'ouest, bras au nord et au sud, convoyeurs au-delà.
+  --     Aucune candidate n'est libérable sans démonter un voisin : C.choose ne retient rien (refus, rien touché).
+  local S20 = scene()
+  local old20 = { x0 = 15.3, y0 = 49.3, x1 = 17.7, y1 = 51.7 }
+  local self20 = S20.add("assembling-machine-2", "assembling-machine", 16.5, 50.5)
+  S20.add("assembling-machine-2", "assembling-machine", 19.5, 50.5)
+  S20.add("assembling-machine-2", "assembling-machine", 13.5, 50.5)
+  S20.add("inserter", "inserter", 16.5, 48.5, 0)
+  S20.add("inserter", "inserter", 16.5, 52.5, 0)
+  for x = 11.5, 22.5 do
+    S20.add("transport-belt", "transport-belt", x, 47.5, 2)
+    S20.add("transport-belt", "transport-belt", x, 53.5, 2)
+  end
+  local cs20, res20 = evaluated(S20, { x = 16.5, y = 50.5 }, 3, 4, self20.id)
+  local T20 = without(S20, self20.id)
+  local i20, p20, shown20 = C.choose(cs20, res20.target_index, plan_fn(T20, cs20, old20))
+  check(i20 == nil and p20 == nil and shown20 and not shown20.ok and #shown20.signals >= 1,
+    "voisins collés des deux côtés : aucune candidate libérable, refus (rien marqué, aucun fantôme) ; la candidate du contour montre ses gêneurs signalés",
+    shown20 and sig_ids(shown20))
+
+  -- 21. Défaut 12 (choix) : voisin collé à l'est, colonne ouest avec un poteau et un coffre (déplaçables), bras au nord
+  --     et au sud. La candidate du contour (le moins de gêneurs) touche le voisin ; une autre se libère entièrement.
+  local S21 = scene()
+  local self21 = S21.add("assembling-machine-2", "assembling-machine", 16.5, 50.5)
+  S21.add("assembling-machine-2", "assembling-machine", 19.5, 50.5)
+  S21.add("medium-electric-pole", "electric-pole", 14.5, 49.5, 0, { reach = 9, wires = {} })
+  S21.add("iron-chest", "container", 14.5, 51.5)
+  S21.add("inserter", "inserter", 16.5, 48.5, 0)
+  S21.add("inserter", "inserter", 16.5, 52.5, 0)
+  local cs21, res21 = evaluated(S21, { x = 16.5, y = 50.5 }, 3, 4, self21.id)
+  local T21 = without(S21, self21.id)
+  local i21, p21, shown21 = C.choose(cs21, res21.target_index, plan_fn(T21, cs21, old20))
+  check(i21 ~= nil and i21 ~= res21.target_index and p21.ok and shown21 and not shown21.ok and cs21[i21].box.x0 == 14,
+    "la candidate du contour touche le voisin (non libérable) : une autre, entièrement libérable (poteau, coffre, bras), est retenue",
+    "contour " .. tostring(res21.target_index) .. ", retenue " .. tostring(i21) .. (i21 and (" (" .. cs21[i21].box.x0 .. "," .. cs21[i21].box.y0 .. ")") or ""))
+
+  -- 22. Défaut 12 (choix, deux rangées autour d'un convoyeur partagé) : la candidate du contour ne peut pas faire sa
+  --     bosse (le bras de la rangée sud prend sur la ligne) ; la candidate nord-est (rang 3) se libère : retenue.
+  local S22 = scene()
+  local self22 = S22.add("assembling-machine-2", "assembling-machine", 16.5, 50.5)
+  S22.add("inserter", "inserter", 16.5, 48.5, 0)
+  S22.add("inserter", "inserter", 16.5, 52.5, 0)
+  for x = 11.5, 22.5 do S22.add("transport-belt", "transport-belt", x, 53.5, 2); S22.add("transport-belt", "transport-belt", x, 47.5, 2) end
+  S22.add("inserter", "inserter", 17.5, 54.5, 0)
+  S22.add("assembling-machine-2", "assembling-machine", 16.5, 56.5)
+  local cs22, res22 = evaluated(S22, { x = 16.5, y = 50.5 }, 3, 4, self22.id)
+  local T22 = without(S22, self22.id)
+  local i22, p22 = C.choose(cs22, res22.target_index, plan_fn(T22, cs22, old20))
+  check(i22 == 3 and p22.ok and cs22[3].box.y0 == 48,
+    "deux rangées autour d'un convoyeur partagé : la candidate du contour (sud) ne se libère pas, la nord-est (rang 3) est retenue",
+    "contour " .. tostring(res22.target_index) .. ", retenue " .. tostring(i22))
+
+  -- 23. Défaut 1 : carré réservé par une autre demande sur la place de la bosse : aucun fantôme n'y va (groupe signalé).
+  local S23 = dense()
+  local p23 = plan(S23, B1, old1, { reserved_boxes = { { x0 = 15, y0 = 54, x1 = 19, y1 = 58 } } })
+  check(not p23.ok and #p23.marks == 0 and #p23.ghosts == 0 and p23.signals[1] and p23.signals[1].why:find("reserve", 1, true),
+    "carré réservé par une autre demande sur la place de la bosse : groupe signalé, aucun fantôme dans ce carré", p23.signals[1] and p23.signals[1].why)
+  -- Gêneur réservé (marqué par une autre demande) : signalé.
+  local S23b, _, _, armS23b = dense()
+  armS23b.reserved = true
+  armS23b.marked = true
+  local p23b = plan(S23b, B1, old1)
+  check(not p23b.ok and #p23b.marks == 0 and p23b.signals[1] and p23b.signals[1].id == armS23b.id,
+    "gêneur déjà réservé par une autre demande : signalé, jamais repris")
+
+  -- 24. Défaut 21 : tuile de la ligne marquée par le joueur (amont de la bosse) : le groupe échoue, la marque du joueur
+  --     n'est jamais reprise par le mod.
+  local S24 = dense()
+  for _, r in ipairs(S24.recs) do if r.type == "transport-belt" and r.x == 15.5 and r.y == 53.5 then r.marked = true end end
+  local p24 = plan(S24, B1, old1)
+  local takes = false
+  for _, id in ipairs(p24.marks) do if S24.recs[id].marked then takes = true end end
+  check(not p24.ok and not takes and #p24.ghosts == 0, "tuile amont de la bosse déjà marquée par le joueur : groupe signalé, jamais reprise par le mod",
+    p24.signals[1] and p24.signals[1].why)
+  -- Partenaire d'un bras (coffre) déjà marqué : le bras est signalé.
+  local S24b = scene()
+  S24b.add("inserter", "inserter", 16.5, 52.5, 4)
+  S24b.add("iron-chest", "container", 16.5, 53.5, 0, { marked = true })
+  local p24b = plan(S24b, B1, old5)
+  check(not p24b.ok and #p24b.marks == 0 and p24b.signals[1] and p24b.signals[1].why:find("partenaire", 1, true),
+    "coffre d'un bras déjà marqué par le joueur : le bras est signalé", p24b.signals[1] and p24b.signals[1].why)
+
+  -- 25. Règle 4 (zone d'alimentation, correction V3-T3) : un bras électrique au nord-ouest n'est alimenté que par le
+  --     poteau ; sortie est (1 tuile) : il sortirait de la zone ; sortie nord (2 tuiles) : il y reste : retenue.
+  local S25 = scene()
+  S25.add("medium-electric-pole", "electric-pole", 18.5, 50.5, 0, { reach = 9, wires = {}, supply = 3.5 })
+  S25.add("inserter", "inserter", 15.5, 47.5, 0, { powered = true })
+  local p25 = plan(S25, B1, old5, { blockers = { 1 }, powered_box = Foot.collision_rect(B1) })
+  check(p25.ok and has_ghost(p25, "medium-electric-pole", 18.5, 48.5) and not has_ghost(p25, "medium-electric-pole", 19.5, 50.5),
+    "poteau : la sortie est priverait un bras de courant, la sortie nord le garde alimenté (et le bâtiment agrandi)", ghosts_text(p25))
+  local S25b = scene()
+  S25b.add("medium-electric-pole", "electric-pole", 18.5, 50.5, 0, { reach = 9, wires = {}, supply = 3.5 })
+  S25b.add("inserter", "inserter", 15.5, 47.5, 0, { powered = true })
+  S25b.add("inserter", "inserter", 21.5, 53.5, 0, { powered = true })
+  local p25b = plan(S25b, B1, old5, { blockers = { 1 }, powered_box = Foot.collision_rect(B1) })
+  check(not p25b.ok and #p25b.marks == 0 and p25b.signals[1] and p25b.signals[1].why:find("alimentation", 1, true),
+    "poteau : aucune sortie ne garde alimentés les deux bras : signalé, pas marqué", p25b.signals[1] and p25b.signals[1].why)
+
+  -- 26. Gêne de la candidate absente de la scène (relevé incomplet, défauts 2 et 20) : signalée, jamais ignorée.
+  local p26 = plan(scene(), B1, old5, { missing = { { name = "car", x = 17, y = 51 } } })
+  check(not p26.ok and p26.signals[1] and p26.signals[1].missing and p26.signals[1].missing.name == "car",
+    "gêne absente du relevé (voiture) : signalée, le plan n'est pas complet")
 end
+
 
 --- Script en moteur simulé (script/levels/free.lua) : demande, marques, fantômes, attente, agrandissement, annulation,
 --- expiration, bâtiment disparu, panneau, état de global (données simples). À jouer APRÈS les sections de
@@ -331,7 +463,8 @@ function Cases.runtime(check, section)
   game.create_force(F3)
   local cc = s.create_entity({ name = L.name(CCF, 15), position = { x = 2900.5, y = 2900.5 }, force = F3, raise_built = true })
   local cinv = cc.get_inventory(defines.inventory.chest)
-  for _ = 1, 3 do for _, c in ipairs(L.cost(GUN, 7)) do cinv.insert({ name = c[1], count = c[2] }) end end
+  -- Correction V3-T3 : le coût doit être réuni AU CLIC (motif « no-room » seulement) ; de quoi payer chaque cas.
+  for _ = 1, 12 do for _, c in ipairs(L.cost(GUN, 7)) do cinv.insert({ name = c[1], count = c[2] }) end end
 
   --- Mitrailleuse 6 collée à un mur au nord, nourrie par un bras au sud (convoyeur vers l'est au-delà).
   local function layout(x, y)
@@ -385,11 +518,15 @@ function Cases.runtime(check, section)
   -- Robots : les marques minées ; la vérification suivante agrandit, à la position du contour, coût payé.
   local robot = game.create_inventory(50)
   for _, e in ipairs(marked_near(3000, 3000)) do e.mine({ inventory = robot, raise_destroyed = true }) end
-  local done = Free.check()
+  -- Correction V3-T3 (défaut 21, mutant « on_nth_tick vide ») : la vérification passe par le gestionnaire PÉRIODIQUE
+  -- abonné (Events.on_nth_tick(Free.PERIOD)), pas par un appel direct.
+  local nth = Wd.nth and Wd.nth[Free.PERIOD]
+  local okn = nth ~= nil and pcall(nth, { tick = game.tick, nth_tick = Free.PERIOD })
+  local done = okn and 1 or 0
   local g7 = s.find_entities_filtered({ name = L.name(GUN, 7), area = { { 2995, 2995 }, { 3005, 3005 } } })[1]
   check(done == 1 and g7 and g7.position.x == 2999.5 and g7.position.y == 3000.5 and not g1.valid and #Free.status().requests == 0
     and robot.get_item_count("inserter") == 1 and robot.get_item_count("transport-belt") == 2,
-    "moteur simulé : gêneurs démontés → agrandissement en attente fait à la vérification suivante (3×3 au sud-ouest, position du contour)",
+    "moteur simulé : gêneurs démontés → agrandissement en attente fait à la vérification PÉRIODIQUE suivante (on_nth_tick ; 3×3 au sud-ouest, position du contour)",
     g7 and (g7.position.x .. "," .. g7.position.y) or "absent")
   local revived = 0
   for _, gh in ipairs(s.find_entities_filtered({ area = { { 2992, 2992 }, { 3008, 3008 } }, type = "entity-ghost" })) do
@@ -406,9 +543,140 @@ function Cases.runtime(check, section)
   call("levels_free_room", g2)
   local c = call("levels_free_cancel", g2)
   local left = marked_near(3100, 3000)
-  check(c and c.unmarked == 3 and c.removed == 5 and c.kept == 0 and #left == 1 and left[1] == chest and other.valid
+  check(c and c.unmarked == 3 and c.removed == 5 and c.restored == 0 and c.unbuilt == 0 and #left == 1 and left[1] == chest and other.valid
     and ghosts_near(3100, 3000) == "iron-chest@3104.5,3005.5/0" and #Free.status().requests == 0,
     "moteur simulé : Annuler retire 3 marques et 5 fantômes du mod ; la marque et le fantôme du joueur restent")
+
+  -- Correction V3-T3 (relecture adverse) -----------------------------------------------------------------------
+  local function find_at(name, x, y)
+    for _, e in ipairs(s.find_entities_filtered({ name = name })) do
+      if e.valid and e.position.x == x and e.position.y == y then return e end
+    end
+    return nil
+  end
+  local function in_box(b, x, y) return x > b.x0 and x < b.x1 and y > b.y0 and y < b.y1 end
+
+  -- 2b. Défaut 11 : groupe COMMENCÉ (bras déjà démonté), puis Annuler : l'usine est remise comme avant (fantôme du bras à
+  --     sa place et à son orientation d'origine), marques des tuiles annulées, fantômes décalés retirés.
+  local gb, armb = layout(3150, 3000)
+  call("levels_free_room", gb)
+  local bin = game.create_inventory(10)
+  armb.mine({ inventory = bin })
+  local cb = call("levels_free_cancel", gb)
+  check(cb and cb.restored == 1 and cb.unmarked == 2 and cb.removed == 5 and cb.blocked == 0 and #marked_near(3150, 3000) == 0
+    and ghosts_near(3150, 3000) == "inserter@3150.5,3001.5/4",
+    "moteur simulé : bras déjà démonté puis Annuler : fantôme du bras à sa place et à son orientation d'ORIGINE, marques des tuiles annulées, fantômes décalés retirés",
+    ghosts_near(3150, 3000))
+  local revb = 0
+  for _, gh in ipairs(s.find_entities_filtered({ area = { { 3142, 2992 }, { 3158, 3008 } }, type = "entity-ghost" })) do
+    local _, e = gh.revive({})
+    if e then revb = revb + 1 end
+  end
+  local back = find_at("inserter", 3150.5, 3001.5)
+  check(revb == 1 and back and back.direction == 4 and gb.valid, "moteur simulé : le bras est reconstruit à son origine, le bâtiment n'a pas bougé")
+  -- Annuler APRÈS la reconstruction décalée (bras décalé déjà construit, tuiles de la bosse construites) : les entités
+  -- construites sont remises à démonter, l'origine reçoit ses fantômes.
+  local gb2, armb2 = layout(3250, 3000)
+  call("levels_free_room", gb2)
+  for _, e in ipairs(marked_near(3250, 3000)) do e.mine({ inventory = bin }) end
+  for _, gh in ipairs(s.find_entities_filtered({ area = { { 3242, 2992 }, { 3258, 3008 } }, type = "entity-ghost" })) do gh.revive({}) end
+  local cb2 = call("levels_free_cancel", gb2)
+  check(cb2 and cb2.unbuilt == 5 and cb2.restored == 3 and cb2.blocked == 0 and gb2.valid
+    and ghosts_near(3250, 3000) == "inserter@3250.5,3001.5/4 transport-belt@3249.5,3002.5/2 transport-belt@3250.5,3002.5/2",
+    "moteur simulé : Annuler après la reconstruction décalée : 5 entités construites remises à démonter, 3 fantômes à l'origine (bras, 2 tuiles)",
+    cb2 and (cb2.unbuilt .. " / " .. cb2.restored .. " / " .. cb2.blocked .. " ; " .. ghosts_near(3250, 3000)))
+  bin.destroy()
+
+  -- 2c. Défauts 2 et 20 : une voiture garée dans chaque candidate (couches player-layer et train-layer, pas object-layer) :
+  --     signalée, jamais ignorée ; refus, rien de marqué, aucun fantôme, aucune demande.
+  proto("car", "car", 0.9, { ["player-layer"] = true, ["train-layer"] = true })
+  local gc = layout(3500, 3000)
+  s.create_entity({ name = "car", position = { x = 3500, y = 3001.6 }, force = F3 })
+  s.create_entity({ name = "car", position = { x = 3500, y = 2998.4 }, force = F3 })
+  local n0 = #Free.status().requests
+  local rc = call("levels_free_room", gc)
+  local carsig = false
+  for _, x in ipairs(rc.signalled or {}) do if x.name == "car" then carsig = true end end
+  check(not rc.ok and rc.reason == "blocked" and carsig and #marked_near(3500, 3000) == 0 and ghosts_near(3500, 3000) == ""
+    and #Free.status().requests == n0,
+    "moteur simulé : voiture dans chaque candidate : signalée (relevé = critère de Levels.room), refus, rien de marqué ni posé, aucune demande",
+    tostring(rc.reason))
+
+  -- 2d. Défaut 21 : tuile de la ligne déjà marquée par le JOUEUR (amont de la bosse) : jamais reprise ; après le refus ou
+  --     l'annulation, sa marque est toujours là.
+  local gd = layout(3600, 3000)
+  local ub = find_at("transport-belt", 3599.5, 3002.5)
+  ub.order_deconstruction(game.forces[F3])
+  local rd = call("levels_free_room", gd)
+  local took = false
+  for _, m in ipairs(rd.marks or {}) do if m.x == 3599.5 and m.y == 3002.5 then took = true end end
+  if rd.ok then call("levels_free_cancel", gd) end
+  check(not took and ub.valid and ub.to_be_deconstructed(),
+    "moteur simulé : marque du joueur sur l'amont de la bosse : jamais reprise par le mod, toujours là après l'annulation", tostring(rd.reason))
+
+  -- 2e. Défaut 1 : deux mitrailleuses collées, libérées l'une après l'autre : la seconde n'utilise jamais le carré
+  --     réservé par la première, n'y pose aucun fantôme, ne reprend aucun de ses gêneurs ; les deux grandissent.
+  local g1e = layout(3800, 3000)
+  local g2e = s.create_entity({ name = L.name(GUN, 6), position = { x = 3802, y = 3000 }, force = F3 })
+  s.create_entity({ name = "inserter", position = { x = 3802.5, y = 3001.5 }, direction = 4, force = F3 })
+  local ra = call("levels_free_room", g1e)
+  local rb = call("levels_free_room", g2e)
+  local inv_ok = ra.ok and rb.ok
+  if inv_ok then
+    if Foot.overlap(Foot.collision_rect(rb.box), ra.box) then inv_ok = false end
+    for _, g in ipairs(rb.ghosts) do if in_box(ra.box, g.x, g.y) then inv_ok = false end end
+    for _, g in ipairs(ra.ghosts) do if in_box(rb.box, g.x, g.y) then inv_ok = false end end
+    for _, m in ipairs(rb.marks) do for _, n in ipairs(ra.marks) do if m.x == n.x and m.y == n.y then inv_ok = false end end end
+  end
+  local rob = game.create_inventory(50)
+  for _, e in ipairs(marked_near(3801, 3000)) do e.mine({ inventory = rob }) end
+  Free.check()
+  local grown = #s.find_entities_filtered({ name = L.name(GUN, 7), area = { { 3795, 2995 }, { 3807, 3005 } } })
+  check(inv_ok and grown == 2 and not g1e.valid and not g2e.valid,
+    "moteur simulé : deux voisines libérées l'une après l'autre : carrés disjoints, aucun fantôme dans le carré de l'autre, gêneurs disjoints ; les deux grandissent",
+    string.format("%s / %s ; agrandies %d", tostring(ra.reason), tostring(rb.reason), grown))
+  for _, gh in ipairs(s.find_entities_filtered({ area = { { 3790, 2990 }, { 3812, 3010 } }, type = "entity-ghost" })) do gh.revive({}) end
+  rob.destroy()
+
+  -- 2f. Défaut 6 : un fantôme refusé par le moteur : TOUT est retiré (fantômes posés, puis marques), aucune demande.
+  local gf = layout(3900, 3000)
+  local raw_ce = s.create_entity
+  s.create_entity = function(t)
+    if t.name == "entity-ghost" and t.inner_name == "transport-belt" then return nil end
+    return raw_ce(t)
+  end
+  local nf = #Free.status().requests
+  local rf = call("levels_free_room", gf)
+  s.create_entity = raw_ce
+  check(not rf.ok and rf.reason == "engine-refused" and #marked_near(3900, 3000) == 0 and ghosts_near(3900, 3000) == ""
+    and #Free.status().requests == nf, "moteur simulé : fantôme refusé par le moteur : tout est retiré, aucune demande", tostring(rf.reason))
+
+  -- 2g. Défauts 5 et 24 : plan seul (dry), puis, pendant l'attente, tout aperçu ou décision sans carré ne vise que le
+  --     carré libéré (crochet Levels.pending_box).
+  local gg = layout(4000, 3000)
+  local dry = call("levels_free_room", gg, nil, { dry = true })
+  check(dry.ok and dry.reason == "dry" and #marked_near(4000, 3000) == 0 and ghosts_near(4000, 3000) == "" and Free.request_of(gg) == nil,
+    "moteur simulé : plan seul (banc) : rien de marqué ni posé, aucune demande", tostring(dry.reason))
+  local rg = call("levels_free_room", gg)
+  local pv = Levels.preview(gg, nil, false)
+  local c1 = pv and pv.room and pv.room.candidates
+  check(rg.ok and c1 and #c1 == 1 and c1[1].box.x0 == rg.box.x0 and c1[1].box.y0 == rg.box.y0
+    and not call("levels_upgrade", gg).ok and gg.valid,
+    "moteur simulé : demande en attente : l'aperçu et la décision sans carré ne visent que le carré libéré (bouton Améliorer, touche U)")
+  call("levels_free_cancel", gg)
+
+  -- 2h. Défaut 10 : coût absent au clic (centre 15 vide) : refus « no-resources », rien de marqué, aucun fantôme, aucune
+  --     demande (le bouton n'est proposé que pour le motif « no-room »).
+  local FP = "fo-t3-sim-p"
+  game.create_force(FP)
+  s.create_entity({ name = L.name(CCF, 15), position = { x = 2900.5, y = 3200.5 }, force = FP, raise_built = true })
+  local gp = s.create_entity({ name = L.name(GUN, 6), position = { x = 4100, y = 3000 }, force = FP })
+  s.create_entity({ name = "inserter", position = { x = 4100.5, y = 3001.5 }, direction = 4, force = FP })
+  for wx = 4095.5, 4105.5 do s.create_entity({ name = "stone-wall", position = { x = wx, y = 2998.5 }, force = FP }) end
+  local np = #Free.status().requests
+  local rp = call("levels_free_room", gp)
+  check(not rp.ok and rp.reason == "no-resources" and #marked_near(4100, 3000) == 0 and ghosts_near(4100, 3000) == "" and #Free.status().requests == np,
+    "moteur simulé : coût absent au clic : refus « no-resources », rien de marqué ni posé, aucune demande", tostring(rp.reason))
 
   -- 3. Expiration : au-delà de Free.TTL, la demande est retirée comme par Annuler.
   local g3 = layout(3200, 3000)
@@ -464,9 +732,11 @@ function Cases.runtime(check, section)
     local txt = fh and fh:read("*a") or ""
     if fh then fh:close() end
     local miss = {}
-    for _, k in ipairs({ "free-button", "free-tooltip", "free-cancel-button", "free-pending", "free-started", "free-signalled",
-        "free-wall-open", "free-wired", "free-done", "free-no-resources", "free-cancelled", "free-expired", "free-gone", "free-kept",
-        "free-refused-room-free", "free-refused-already", "free-refused-too-many", "free-refused-other" }) do
+    for _, k in ipairs({ "free-button", "free-tooltip", "free-cancel-button", "free-pending", "free-started", "free-blocked",
+        "free-items", "free-wall-links", "free-wall-open", "free-wired", "free-done", "free-no-resources", "free-waiting",
+        "free-cancelled", "free-expired", "free-gone", "free-restored", "free-restore-blocked", "free-refused-room-free",
+        "free-refused-already", "free-refused-too-many", "free-refused-blocked", "free-refused-no-resources",
+        "free-refused-engine-refused", "free-refused-other" }) do
       if not txt:find("\n" .. k .. "=", 1, true) then miss[#miss + 1] = k end
     end
     check(#miss == 0, lang .. " : clés du lot V3-T3 (libérer la place)", table.concat(miss, ", "))

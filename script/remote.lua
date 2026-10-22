@@ -172,13 +172,14 @@ remote.add_interface("factorio-overhaul", {
   end,
   -- Lot V3-T3 : « libérer la place » sans joueur (banc) : marques de démontage, fantômes décalés, demande
   -- d'agrandissement en attente (script/levels/free.lua). Données simples seulement.
-  --   levels_free_room(entity[, player_index]) -> { ok, reason, id, box, marks, ghosts, signalled, warnings, already, wired }
-  --   levels_free_cancel(entity) -> { unmarked, removed, kept } ou nil (aucune demande)
+  --   levels_free_room(entity[, player_index[, opts]]) -> { ok, reason, id, box, candidate, tried, marks, ghosts, signalled,
+  --     warnings, wired, links } ; opts.dry = true : plan seulement, rien n'est posé (reason « dry » ou le refus)
+  --   levels_free_cancel(entity) -> { unmarked, removed, unbuilt, restored, blocked } ou nil (aucune demande)
   --   levels_free_status() -> { stats, requests }
   --   levels_free_check() -> demandes accomplies (vérification tout de suite, sans attendre la période)
-  levels_free_room = function(entity, player_index)
+  levels_free_room = function(entity, player_index, opts)
     local p = player_index and game.get_player(player_index) or nil
-    return Free.free_room(entity, { player = p })
+    return Free.free_room(entity, { player = p, dry = opts and opts.dry or nil })
   end,
   levels_free_cancel = function(entity)
     return Free.cancel(entity, "cancelled")

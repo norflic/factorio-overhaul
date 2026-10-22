@@ -271,12 +271,13 @@ local function refresh(player)
       r.style.font_color = { r = 1, g = 0.6, b = 0.3 }
     end
     -- Lot V3-T3 (Q-T2-1, réponse « QT21 option B ») : demande « libérer la place » en attente, ou bouton pour la lancer
-    -- quand la place manque (motif « no-room », ou coût qui manque ET place prise : le coût n'est payé qu'à
-    -- l'agrandissement). La règle Q24 ne change pas : sans clic, refus et contour comme avant.
+    -- quand SEULE la place manque (motif « no-room » : condition Q16 et coût réunis ; correction, défaut 10 : avec un
+    -- coût qui manque, les bras seraient déplacés pour un bâtiment qui ne grandirait pas). La règle Q24 ne change pas :
+    -- sans clic, refus et contour comme avant.
     local req = Free.request_of(target)
-    local can_free = (not req) and info.room and not info.room.chosen and (info.reason == "no-room" or info.reason == "no-resources")
+    local can_free = (not req) and info.room and not info.room.chosen and info.reason == "no-room"
     if req then
-      local lbl = frame.add({ type = "label", caption = { "fo-levels-taille.free-pending", #req.marks, #req.ghosts, req.signalled,
+      local lbl = frame.add({ type = "label", caption = { "fo-levels-taille.free-pending", #req.marks, #req.ghosts,
         math.max(0, math.ceil((req.expire - game.tick) / 3600)) } })
       lbl.style.font_color = { r = 0.6, g = 0.85, b = 1 }
     end
@@ -360,7 +361,8 @@ Events.on(defines.events.on_gui_click, function(e)
     -- Lot V3-T3 : « libérer la place » (marques, fantômes, demande en attente) ; le détail part dans la console.
     local r = Free.free_room(target, { player = player })
     if not r.ok then
-      local key = (r.reason == "room-free" or r.reason == "already" or r.reason == "too-many") and r.reason or "other"
+      local known = { ["room-free"] = true, already = true, ["too-many"] = true, blocked = true, ["no-resources"] = true, ["engine-refused"] = true }
+      local key = known[r.reason] and r.reason or "other"
       player.create_local_flying_text({ text = { "fo-levels-taille.free-refused-" .. key }, position = target.position })
     end
   elseif name == "fo_lvl_free_cancel" then
