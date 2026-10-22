@@ -87,6 +87,49 @@ def halo_layer(li, meta, level, origin):
     return out
 
 
+def to_light_canvas(img, origin):
+    """Recopie une couche du canevas des aperçus sur le canevas (plus grand) des couches halo, même grille."""
+    out = np.zeros((D.LIGHT_H, D.LIGHT_W, 4))
+    dx, dy = D.LIGHT_ORIGIN_PX[0] - origin[0], D.LIGHT_ORIGIN_PX[1] - origin[1]
+    h, w = img.shape[:2]
+    out[dy:dy + h, dx:dx + w] = img
+    return out
+
+
+def ground_pool(level):
+    """Correction V3 (vérification passe 5, mineur 3) : flaque de lumière AU SOL autour de l'entité (couche halo du
+    socle). Pic = LIGHT_MAX × I(N)/I(30) (bible §1.6 : I(N) = 0,05 + 0,02 N) ; profil radial plein jusqu'à 0,25 S(N),
+    nul à 0,75 S(N), soit un rayon à MI-INTENSITÉ de S(N)/2 (S(N) = 2 (1 + 0,05 N)) : l'aire croît avec le niveau.
+    En passe 5, seul le pic suivait I(N) (lumière rendue de sources ponctuelles, gain plafonné à 4) : rayon équivalent
+    de 1,6 tuile au plus, 0,07 t² au niveau 27, aucune lumière de socle aux niveaux 15 et 16. Couleur : émissif de
+    l'époque (bible §1.5 ; lanterne #FFB060 au niveau 2)."""
+    S = D.halo_size(level)
+    peak = C.LIGHT_MAX * D.halo_intensity(level) / D.halo_intensity(30)
+    H, W = D.LIGHT_H, D.LIGHT_W
+    yy, xx = np.mgrid[0:H, 0:W]
+    r = np.hypot(xx + 0.5 - D.LIGHT_ORIGIN_PX[0], yy + 0.5 - D.LIGHT_ORIGIN_PX[1]) / 64.0
+    r0, r1 = 0.25 * S, 0.75 * S
+    t = np.clip((r - r0) / (r1 - r0), 0, 1)
+    a = peak * (1.0 - t * t * (3 - 2 * t))
+    col = np.array(D.hex_srgb(D.EMISSIVE[D.epoch_of(level)]))
+    col = col / col.max()
+    out = np.zeros((H, W, 4))
+    out[..., :3] = col
+    out[..., 3] = a
+    return P.floor_alpha(P.fade_edges(out))
+
+
+def merge_light(a, b):
+    """Union de deux couches additives codées (RGB = c / max, A = max) : maximum des alphas, couleur de la plus forte."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    take = (b[..., 3] > a[..., 3])[..., None]
+    out = np.where(take, b, a)
+    return out
+
+
 def normalize_light(light, main_alpha, level):
     target = C.LIGHT_MAX * D.halo_intensity(level) / D.halo_intensity(30)
     ground = light[..., 3] * (main_alpha < 0.05)
@@ -140,21 +183,39 @@ def process(level, part):
     if g is not None:
         lay["glow"] = P.additive_layer(g)
     li = npz("light")
+    light = None
     if li is not None:
         hl = halo_layer(li, meta, level, origin)
         if hl is not None:
-            lay["light"] = normalize_light(hl, full[..., 3], level)
+            light = to_light_canvas(normalize_light(hl, full[..., 3], level), origin)
+            # V3 : les cœurs rendus autour des sources ne dépassent pas le pic du niveau (le pic suit I(N) partout ;
+            # en passe 5 le gain plafonné laissait 0,6 au niveau 3 et 1,0 au niveau 27 près des sources)
+            light[..., 3] = np.minimum(light[..., 3], C.LIGHT_MAX * D.halo_intensity(level) / D.halo_intensity(30))
+    if part == "base":
+        light = merge_light(light, ground_pool(level))
+    if light is not None:
+        lay["light"] = light
+    nf = npz("noflat")
     dst = os.path.join(OUT, "L%02d" % level)
     os.makedirs(dst, exist_ok=True)
     spec = {}
     for k, img in lay.items():
         sha = write(img, os.path.join(dst, "%s-%s.png" % (part, k)))
-        box = P.trim_box(img, origin)
+        org = D.LIGHT_ORIGIN_PX if k == "light" else origin
+        box = P.trim_box(img, org)
         if box is None:
             continue
-        hr = P.sprite_def(box, origin, 64)
-        lr = P.sprite_def(box, origin, 32)
-        spec[k] = {"box_px": list(box), "hr": hr, "lr": lr, "sha256_canvas": sha}
+        hr = P.sprite_def(box, org, 64)
+        lr = P.sprite_def(box, org, 32)
+        spec[k] = {"box_px": list(box), "hr": hr, "lr": lr, "sha256_canvas": sha, "origin_px": list(org)}
+    # masque D1-3 sans couches plates au sol (alpha seul ; aucun usage en jeu)
+    pnf = os.path.join(dst, "%s-noflat.png" % part)
+    if nf is not None:
+        m = np.zeros_like(nf)
+        m[..., 3] = nf[..., 3]
+        write(m, pnf)
+    elif os.path.exists(pnf):
+        os.remove(pnf)
     # passe 5 : une couche absente ou vide de CE rendu n'a pas de fichier (un ancien PNG était repris par les planches)
     for k in ("main", "shadow", "glow", "light"):
         if k not in spec:
@@ -162,8 +223,9 @@ def process(level, part):
             if os.path.exists(p):
                 os.remove(p)
     rep = {"level": level, "part": part, "epoch": meta["epoch"], "heading_deg": meta["heading_deg"],
-           "layers": spec, "render": {k: meta[k] for k in ("samples", "pass_samples", "seconds", "blender", "seed",
-                                                            "objects", "holdout_objects", "back_objects")},
+           "layers": spec, "render": {k: meta.get(k) for k in ("samples", "pass_samples", "seconds", "blender", "seed",
+                                                                "objects", "holdout_objects", "back_objects",
+                                                                "code_sha256")},
            "halos": meta["halos"]}
     with open(os.path.join(dst, "%s.json" % part), "w", encoding="utf-8") as f:
         json.dump(rep, f, indent=1, sort_keys=True)

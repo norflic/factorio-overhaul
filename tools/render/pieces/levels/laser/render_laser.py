@@ -37,7 +37,7 @@ import fo_scene as S  # noqa: E402
 import laser_design as D  # noqa: E402
 import laser_model as M  # noqa: E402
 
-PASS_SAMPLES = {"main": 1.0, "front": 1.0, "ao": 0.5, "shadow": 0.25, "glow": 0.25, "light": 0.5}
+PASS_SAMPLES = {"main": 1.0, "front": 1.0, "ao": 0.5, "shadow": 0.25, "glow": 0.25, "light": 0.5, "noflat": 0.25}
 HALO_W = 14.0          # puissance (W) d'une source de halo de poids 1 (normalisée ensuite au post-traitement)
 
 
@@ -197,6 +197,17 @@ def render_job(level, part, out_root, samples):
         done.append(render_pass(scene, "front", out_dir, prefix, samples))
         for o in objs:
             o.is_holdout = False
+    # correction V3 (mineur 5) : masque D1-3 SANS les couches plates au sol (Q13) : même rendu, objets plats cachés
+    if part == "base" and level >= 3:
+        flats = [o for o in objs if max((o.matrix_world @ Vector(c)).z for c in o.bound_box) <= D.FLAT_Z]
+        if flats and len(flats) < len(objs):
+            for o in flats:
+                o.hide_render = True
+            done.append(render_pass(scene, "noflat", out_dir, prefix, samples))
+            for o in flats:
+                o.hide_render = False
+            print("[FO-LASER] L%02d objets plats exclus du masque D1-3 : %s" % (level, ",".join(sorted(o.name for o in flats))),
+                  flush=True)
     # liseré de contact (socle seulement : la tête ne touche pas le sol)
     if part == "base":
         gsaved = S._swap_materials([ground], lambda m: S._ao_ground_mat())
@@ -240,7 +251,8 @@ def render_job(level, part, out_root, samples):
             "pass_samples": {k: max(4, int(round(samples * v))) for k, v in PASS_SAMPLES.items()},
             "halos": [{"loc": list(h["loc"]), "power": h["power"]} for h in info["halos"]],
             "objects": len(objs), "holdout_objects": len(hold), "back_objects": len(back),
-            "blender": bpy.app.version_string, "seed": scene.cycles.seed, "seconds": round(time.time() - t0, 2)}
+            "blender": bpy.app.version_string, "seed": scene.cycles.seed, "seconds": round(time.time() - t0, 2),
+            "code_sha256": D.code_hash()}
     with open(os.path.join(out_dir, "%s.json" % prefix), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=1, sort_keys=True)
     print("[FO-LASER] L%02d %-4s %s %.1fs" % (level, part, ",".join(done), time.time() - t0), flush=True)

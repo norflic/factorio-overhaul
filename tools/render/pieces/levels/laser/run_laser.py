@@ -59,9 +59,36 @@ def jobs_for(levels, parts):
 
 
 NOLOCK = False   # vrai seulement quand le pilote entier tourne déjà sous with_render_lock.py (commande pipeline)
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+
+
+def held_lock():
+    """Correction V3 (vérification passe 5, mineur 8) : --nolock n'est plus cru sur parole. Renvoie le dossier
+    fo-render.lock.<k> dont owner.txt nomme un ANCÊTRE de ce processus (with_render_lock.py écrit son propre PID et
+    lance la commande en enfant), ou None. Lecture seule : aucun verrou n'est pris ni libéré ici."""
+    try:
+        import psutil
+        ancestors = {p.pid for p in psutil.Process(os.getpid()).parents()}
+    except Exception:            # psutil absent : au moins le parent direct
+        ancestors = {os.getppid()}
+    try:
+        names = sorted(n for n in os.listdir(LOCK_DIR) if n.startswith("fo-render.lock."))
+    except OSError:
+        return None
+    for n in names:
+        try:
+            with open(os.path.join(LOCK_DIR, n, "owner.txt"), encoding="utf-8") as f:
+                pid = int(f.read().split()[0])
+        except (OSError, ValueError, IndexError):
+            continue
+        if pid in ancestors:
+            return os.path.join(LOCK_DIR, n)
+    return None
 
 
 def blender(args, log_name):
+    if NOLOCK and held_lock() is None:     # double garde : aucun Blender hors verrou (CLAUDE.md, interdit n° 6)
+        raise SystemExit("[run_laser] --nolock sans verrou de rendu tenu par un processus parent : refusé")
     pre = [] if NOLOCK else [sys.executable, LOCK, "--"]
     cmd = pre + [fo_blender.blender_exe(), "-b", "--factory-startup", "-noaudio", "-P", ENTRY, "--"] + args
     os.makedirs(RAW, exist_ok=True)
@@ -82,26 +109,25 @@ def blender(args, log_name):
 
 
 def o_max_by_epoch():
-    """O maximal (4 poses) de chaque niveau impair, mesuré sur les triangles exportés par le mode sec."""
+    """O des MASSES maximal (4 poses) de chaque niveau impair, mesuré sur la géométrie exportée par le mode sec,
+    RASTÉRISÉE à 64 px/tuile (bible §1.4 : tiges de moins de 0,15 tuile exclues ; masses.py). Correction V3 : la passe 5
+    mesurait le sommet de TOUS les triangles (antennes et épines comprises) et réglait donc les pivots sur des tiges.
+    Renvoie {époque: (O masses, O brut avec tiges, O du socle seul)}."""
     import numpy as np
     import geo_check as G
-    import laser_design as D
     out = {}
     for e in range(2, 16):
-        p = os.path.join(G.GEO, "geo-L%02d.npz" % (2 * e - 1))
-        g = np.load(p)
-        bx, by = G.screen(g["base"])
-        tops = []
-        for d in ("N", "E", "S", "W"):
-            hx, hy = G.screen(G.rot(g["head"], D.DIRECTIONS[d]))
-            tops.append(min(by.min(), hy.min()))
-        out[e] = (-min(tops) - 1.0, -by.min() - 1.0)
+        mt = G.metrics(2 * e - 1)
+        g = np.load(os.path.join(G.GEO, "geo-L%02d.npz" % (2 * e - 1)))
+        _, by = G.screen(g["base"])
+        out[e] = (max(v["O"] for v in mt.values()), max(v["O_brut"] for v in mt.values()), -by.min() - 1.0)
     return out
 
 
 def tune(rounds=3):
     """Règle le pivot de chaque époque pour que O (sommet des 4 poses) tombe sur la cible du §4 (±0,01 tuile).
-    y écran = -K (Y + Z) : monter le pivot de dz monte la tête de K dz. Écrit pivot_regle.txt (lu par laser_design)."""
+    y écran = -K (Y + Z) : monter le pivot de dz monte la tête de K dz. Écrit pivot_regle.txt (lu par laser_design).
+    O = sommet des MASSES (tiges exclues, bible §1.4) ; la hauteur des tiges (O brut) est notée à part."""
     import importlib
     import laser_design as D
     K = 0.5 ** 0.5
@@ -109,16 +135,18 @@ def tune(rounds=3):
         blender(["--dry", "--levels", ",".join(str(2 * e - 1) for e in range(2, 16)), "--out", os.path.join(RAW, "geo")],
                 "dry.log")
         om = o_max_by_epoch()
-        lines = ["# pivot réglé par run_laser.py tune (tour %d) : époque pivot   # O mesuré -> cible (O du socle seul)" % (r + 1)]
+        lines = ["# pivot réglé par run_laser.py tune (tour %d) sur O des MASSES (tiges < 0,15 tuile exclues, masses.py) : "
+                 "époque pivot   # O masses -> cible (O brut avec tiges ; O du socle seul)" % (r + 1)]
         worst = 0.0
         for e in range(2, 16):
-            o, ob = om[e]
+            o, obrut, ob = om[e]
             tgt = D.O_TARGET[e]
             # on ne touche qu'aux époques hors tolérance (±0,01 tuile) : les autres gardent le pivot de leur rendu
             new = D.PIVOT[e] + (tgt - o) / K if abs(o - tgt) > 0.01 else D.PIVOT[e]
             new = max(D.PIVOT_MIN[e], new)
             worst = max(worst, abs(o - tgt))
-            lines.append("%d %.4f   # O %.3f -> %.2f (socle %.2f), pivot précédent %.4f" % (e, new, o, tgt, ob, D.PIVOT[e]))
+            lines.append("%d %.4f   # O %.3f -> %.2f (brut %.2f ; socle %.2f), pivot précédent %.4f" % (
+                e, new, o, tgt, obrut, ob, D.PIVOT[e]))
         print("\n".join(lines), flush=True)
         if worst <= 0.01:
             print("[tune] O sur la cible à 0,01 près pour les 14 époques", flush=True)
@@ -140,6 +168,10 @@ def main():
     ap.add_argument("--batch", type=int, default=6, help="niveaux par prise du verrou (partage des 2 places)")
     a = ap.parse_args()
     NOLOCK = a.nolock
+    if NOLOCK and a.cmd != "pipeline":
+        raise SystemExit("[run_laser] --nolock n'est admis qu'avec la commande pipeline (lancée sous with_render_lock.py)")
+    if NOLOCK and held_lock() is None:
+        raise SystemExit("[run_laser] --nolock : aucun verrou fo-render.lock.<k> tenu par un processus parent : refusé")
     levels = levels_from(a.levels)
     if a.cmd == "tune":
         tune()
@@ -149,6 +181,9 @@ def main():
             raise SystemExit("pipeline : à lancer sous tools/render/with_render_lock.py avec --nolock")
         tune()
         blender(["--dry", "--levels", "2-30", "--out", os.path.join(RAW, "geo")], "dry.log")
+        import geo_check
+        geo_check.main()          # trace de la géométrie réglée (O des masses, L) avant le rendu
+        geo_check.iou_table()
         a.cmd = "all"
     if a.cmd == "dry":
         blender(["--dry", "--levels", a.levels, "--out", os.path.join(RAW, "geo")], "dry.log")

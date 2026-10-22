@@ -3,16 +3,21 @@ Directeur Créatif n'a pas rendu son verdict (OBJECTIFS D1 à D3). Rien n'a ét�
 
 Production : python tools/render/pieces/levels/laser/boards_laser.py (depuis la racine du mod), à partir des
 aperçus de tools/render/out/levels/laser/ (rendus Blender 5.2.2 à 32 échantillons, poses de référence seules :
-socle + tête « prepared » N, E, S, O). Composition hors moteur (compose_laser.py) dans l'ordre du moteur :
-ombres (max des alphas, sol × (1 - 0,5 alpha)), couches lower-object (socles) puis object (têtes), lueur
-additive ; nuit = LUT lut-night.png + carte des lumières, lightMul et lightAdd du moteur pris à 1 et 0
-(INCONNUS : la nuit hors moteur n'est pas une preuve). Sol : texture vanilla hr-dirt-4. Entités posées sur des
-coins de tuile (positions entières), comme en jeu.
+socle + tête « prepared » N, E, S, O). Composition hors moteur (compose_laser.py) dans l'ordre supposé du moteur :
+ombres (max des alphas, sol × (1 - 0,5 alpha)), couche lower-object, puis couche object triée par y de l'entité,
+secondary_draw_order, puis x (ordre SUPPOSÉ, non vérifié en moteur) ; lueur additive ; nuit = LUT lut-night.png +
+carte des lumières, lightMul et lightAdd du moteur pris à 1 et 0 (INCONNUS : la nuit hors moteur n'est pas une
+preuve). Sol : texture vanilla hr-dirt-4. Entités posées sur des coins de tuile (positions entières), comme en jeu.
+Socles qui montent au-dessus du bord nord de l'emprise : couche « object », sous la tête (correction V3, voir g).
 
 laser-a-niveaux-zoom1-jour.png  (a) les 30 niveaux, zoom 1 (32 px/tuile), de jour, avec ombres ; rangée du haut :
                                 niveaux impairs (nouvelle silhouette d'époque), rangée du bas : niveaux pairs
                                 (+ une pièce sur le socle) ; tête au sud (lentille de face). Niveau 1 = vanilla.
-laser-b-niveaux-zoom1-nuit.png  (b) la même, de nuit (halo I(N) = 0,05 + 0,02 N, bible §1.6).
+laser-b-niveaux-zoom1-nuit.png  (b) la même, de nuit. Halo du socle (couche draw_as_light) : pic au sol
+                                LIGHT_MAX × I(N)/I(30), I(N) = 0,05 + 0,02 N, et flaque de rayon à mi-intensité
+                                S(N)/2, S(N) = 2 (1 + 0,05 N) (bible §1.6, D2-3 ; correction V3 : en passe 5 seul le
+                                pic suivait I(N)). Sur cette planche les flaques de tourelles voisines (3 tuiles)
+                                se chevauchent dès le niveau 10 environ.
 laser-c-niveaux-zoom1-gris.png  (c) la même en niveaux de gris (test du gris D1-1).
 laser-d-vignettes.png           (d) les 15 niveaux impairs en masques noirs (alpha >= 128, couches principales
                                 socle + tête, sans ombre ni lumière), MÊME échelle pour tous (le plus grand
@@ -23,16 +28,50 @@ laser-e-gros-plans-zoom2-jour.png / -nuit.png
                                 et au sud, à côté du vanilla niveau 1.
 laser-f-poses-zoom1-jour.png    (f) les 30 niveaux dans les 4 poses de tête (contrôle des poses, D1-3 se mesure
                                 au maximum sur les poses). Planche de CONTRÔLE : sol UNI (couleur moyenne de
-                                hr-dirt-4) pour rester compacte (5,4 Mo sur sol texturé) ; ombres conservées.
+                                hr-dirt-4) pour rester compacte ; ombres conservées.
+laser-g-ordre-nord-zoom2.png    (g) correction V3 (majeur 2) : tourelle A derrière une rangée de murs vanilla, avec
+                                une 2e tourelle B au NORD (cas « tourelles en ligne derrière les murs »), têtes au
+                                nord, zoom 2. À gauche : socle en lower-object (défaut vanilla de base_picture) : le
+                                mur et la tourelle B, dessinés en object, recouvrent la colonne de A qui est DEVANT
+                                eux (tête flottante, coupée de son mât). À droite : socle en object, sous la tête
+                                (base_picture_secondary_draw_order 0 < gun_animation_secondary_draw_order 1).
+                                Composition hors moteur : l'ordre réel du moteur reste à prouver par capture (phase 2).
 laser-mesures-d1.txt            tableau des mesures D1 (measure_laser.py) sur ces mêmes aperçus.
 
-Passe 5 (22/10, reprise après limite d'usage) : tous les aperçus RE-RENDUS avec le code commité (les aperçus de la
-passe 4 dataient d'avant ses dernières retouches : lanterne du niveau 2, gain de l'époque 8, prismes de l'époque
-15) ; ampoule de l'époque 8 refaite (verre + liquide : le disque jaune saturé venait de la lueur additive posée
-sur une couche principale déjà émissive) ; époques 10, 12, 13, 14, 15 moins « sucette » (tête plus grande, cou
-plus épais, anneaux en lévitation sur la tige à l'époque 12, réservoir doré sur le cou à l'époque 14) ; base
-réellement flottante à l'époque 15 ; disque de l'époque 10 relevé (pieds visibles).
+Correction V3 (22/10, après la vérification de la passe 5) : voir le message de commit et le tableau des mesures.
+- O se mesure sur les MASSES (tiges de moins de 0,15 tuile exclues, bible §1.4) ; les pivots sont re-réglés sur
+  cette mesure (en passe 5, l'antenne de l'époque 10, l'épine de l'époque 11 et le mât de l'époque 14 portaient O).
+- Lentille lisible : époque 3 (verre ambré cerclé de laiton au lieu du pavillon évasé), époque 2 (cube cerclé,
+  grande lentille rubis, visière relevée), époque 4 (lentille affleurante), époque 11 (nez vitré), époque 9 (tête
+  octogonale trapue, lentille dans le pan avant).
+- Largeurs ramenées : caisson de l'époque 2, prisme de l'époque 7, pointes de basalte (niveau 10), couronne et
+  anneau-halo de l'époque 15.
+- Halo de nuit du socle à rayon croissant (S(N)/2), fentes de braise de l'époque 5 épaissies, jupe du niveau 4
+  allongée (+1,15), noyau arrière de l'époque 12 relié, socles hauts en couche object.
+- Tous les aperçus sont re-rendus d'une traite après la dernière modification du modèle ; chaque partie porte
+  l'empreinte SHA-256 du code qui l'a produite (concordance vérifiée par measure_laser.py).
+
+Mesures (laser-mesures-d1.txt, aperçus de la correction V3, 22/10 vers 4 h 40) :
+- O des masses par époque : 1,00 (vanilla) 1,12 1,23 1,34 1,47 1,58 1,70 1,80 1,91 2,03 2,14 2,25 2,36 2,48 2,59 :
+  croissant, à 0,02 au plus de la cible du §4 ; tiges notées à part (O brut 2,33 au niveau 19, 2,55 au niveau 21,
+  2,56 au niveau 27, 2,61 aux niveaux 29 et 30 : la pointe de la couronne dépasse le plafond de 2,60 de 0,01).
+- D1-3, niveau 1 contre niveau 30, masque sans les plats au sol : IoU 0,309 (0,376 avec l'anneau-halo et les
+  patins) ; normalisée en échelle 0,365 ; échelle + translation ±32 px 0,469 (borne atteinte ; ±64 px : 0,476).
+  Niveau 29 : 0,309 / 0,363 / 0,472.
+- IoU entre époques (niveaux impairs) <= 0,815 ; époques 8 / 9 : 0,755 (0,847 en passe 5).
+- Lueur de jour : dans CHAQUE pose, une zone d'au moins 8 × 8 px hr entièrement couverte, sauf au niveau 21
+  (7 px dans la pose N). Halo de nuit : rayon à mi-intensité = S(N)/2 à tous les niveaux, aire croissante.
+- Événements de silhouette (comptage proposé, non étalonné, vanilla = 6) : ils ne suivent PAS la progression de la
+  bible (1-2, 2-3, 3-4, 4-5, 5-6 par ère).
+
+QUESTION au Directeur Créatif (vérification passe 5, mineur 10) : aux ères IV et V, la plupart des silhouettes
+sont « mât fin + élément au sommet » (« sucette »). C'est la conséquence des plafonds O (Q9 : 2,04 à 2,60 tuiles
+au-dessus du bord nord) sur une emprise 2 × 2, du vide demandé aux ères IV et V (Q8, Q13) et de la mesure de O
+sans les tiges. Acceptez-vous cette structure, ou préférez-vous (a) des têtes beaucoup plus grandes (jusqu'au
+plafond L de 2,10), (b) un socle haut et massif (moins de vide : D1-3 plus difficile), (c) des plafonds O plus bas
+pour la tourelle laser ?
 
 Ce que ces planches ne montrent PAS (phase 2) : les 60 autres directions de la tête, le déploiement (15 images
 × 4 directions), le masque de couleur d'équipe, la lueur de tir de la lentille, les animations de socle, la
-qualité finale (échantillons pleins, après V0b), le rendu en moteur (mipmaps, carte des lumières réelle).
+qualité finale (échantillons pleins, après V0b : rendu encore trop mat, bruit d'aperçu à 32 échantillons), le rendu
+en moteur (mipmaps, carte des lumières réelle, ordre de dessin réel des socles en couche object).

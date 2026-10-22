@@ -409,37 +409,59 @@ def base_e02(cx):
 
 
 def head_e02(cx):
+    """Correction V3 (vérification passe 5, mineurs 1 et 2) : la passe 5 avait un caisson LONG (1,02 + boîte arrière,
+    L_max 2,20 > 1,75 au §4, ±1,34 tuile) dont la lentille, sous une visière RABATTUE à -58°, ne se voyait ni en E/O
+    (masquée) ni en S (sombre, sous la tête) : on lisait un caisson-canon. Ici : CUBE cerclé (0,62 × 0,86 × 0,52),
+    joues de blindage plates, GRANDE lentille de verre rubis bombée (Ø 0,48 tuile) cerclée de laiton qui DÉPASSE de la
+    face, visière RELEVÉE en casquette au-dessus (elle ne couvre plus la lentille en S, voir la note de visée) ;
+    longueur totale ±0,81 unité, soit ±1,05 tuile à l'échelle 1,30."""
     m = mats_e02(cx)
     z0 = cx.zp
+    zc = z0 + 0.33
+    ruby = glass(cx, "rubis", "#6A140C", gain=1.0, rough=0.05)
     cyl(cx, 0.21, 0.08, (0, 0, z0 + 0.04), m["steel"], "plateau", verts=24)
-    # caisson riveté autour de l'émetteur
-    box(cx, (0.50, 1.02, 0.46), (0, 0.16, z0 + 0.33), m["steel"], "caisson", bevel=0.018)
-    for k, y in enumerate((-0.18, 0.18, 0.52)):
-        box(cx, (0.535, 0.05, 0.495), (0, y, z0 + 0.33), m["band"], "cerclage_%d" % k, bevel=0.005)
-        rivet_row(cx, (0.27, y, z0 + 0.13), (0.27, y, z0 + 0.53), 4, 0.014, m["brass"], "rv_d_%d" % k)
-        rivet_row(cx, (-0.27, y, z0 + 0.13), (-0.27, y, z0 + 0.53), 4, 0.014, m["brass"], "rv_g_%d" % k)
-    # face avant : cadre de lentille en laiton, lentille rubis
-    box(cx, (0.44, 0.06, 0.40), (0, 0.69, z0 + 0.33), m["band"], "face", bevel=0.01)
-    tube_y(cx, 0.15, 0.70, 0.78, z0 + 0.31, m["brass"], "cadre_lentille")
-    tube_y(cx, 0.115, 0.76, 0.80, z0 + 0.31, m["lens"], "lentille")
-    # visière : bouclier plat incliné au-dessus de la lentille, qui dépasse en haut et sur les côtés
-    plate(cx, [(-0.34, 0.0), (0.34, 0.0), (0.30, 0.34), (-0.30, 0.34)], 0.045, m["steel"], "visiere", axis="Y",
-          loc=(0, 0.74, z0 + 0.48), rot=(math.radians(-58), 0, 0))
-    rivet_row(cx, (-0.26, 0.80, z0 + 0.53), (0.26, 0.80, z0 + 0.53), 5, 0.014, m["brass"], "rv_visiere")
-    # arrière : boîte d'alimentation et câble
-    box(cx, (0.34, 0.20, 0.30), (0, -0.44, z0 + 0.26), m["steel"], "boite_arriere", bevel=0.012)
-    strut(cx, (0.12, -0.52, z0 + 0.14), (0.16, -0.30, 0.70), 0.03, m["band"], "cable_arriere")
+    # cube riveté autour de l'émetteur (signature d'époque : cubes cerclés)
+    box(cx, (0.62, 0.86, 0.52), (0, 0.0, zc), m["steel"], "caisson", bevel=0.02)
+    for k, y in enumerate((-0.30, 0.05, 0.38)):
+        box(cx, (0.655, 0.05, 0.555), (0, y, zc), m["band"], "cerclage_%d" % k, bevel=0.005)
+        rivet_row(cx, (0.33, y, zc - 0.20), (0.33, y, zc + 0.20), 4, 0.014, m["brass"], "rv_d_%d" % k)
+        rivet_row(cx, (-0.33, y, zc - 0.20), (-0.33, y, zc + 0.20), 4, 0.014, m["brass"], "rv_g_%d" % k)
+    # joues : boucliers plats à arêtes vives sur les flancs, légèrement évasés vers l'avant
+    for s in (-1, 1):
+        # (premier rendu V3 : joues jusqu'à +0,46, elles cachaient le cadre de lentille en E/O : arrêtées à +0,28)
+        plate(cx, [(-0.36, -0.24), (0.26, -0.24), (0.30, 0.20), (-0.30, 0.26)], 0.035, m["steel"], "joue_%d" % s,
+              axis="X", loc=(s * 0.36, 0.02, zc), rot=(0, 0, math.radians(s * -6)))
+    # face avant et lentille : cadre de laiton qui dépasse, verre rubis BOMBÉ (reflet), bague de cerclage
+    box(cx, (0.56, 0.06, 0.48), (0, 0.46, zc), m["band"], "face", bevel=0.01)
+    tube_y(cx, 0.215, 0.48, 0.60, zc - 0.02, m["brass"], "cadre_lentille")
+    ring_y(cx, 0.205, 0.030, 0.605, zc - 0.02, m["brass"], "bague_lentille")
+    sph(cx, 0.185, (0, 0.60, zc - 0.02), ruby, "lentille", seg=40, rings=20, scale=(1, 0.30, 1))
+    for k in range(8):
+        a = math.pi / 8 + k * math.pi / 4
+        sph(cx, 0.016, (0.235 * math.cos(a), 0.58, zc - 0.02 + 0.235 * math.sin(a)), m["brass"], "rv_cadre_%d" % k,
+            seg=8, rings=4)
+    # visière RELEVÉE : casquette plate au ras du dessus, qui avance de 0,13 au-dessus de la lentille (inclinée de 12°
+    # vers le haut). Visée en S (caméra au sud, 45°) : le rayon issu du haut de la lentille (z +0,19) passe sous le bord
+    # de la casquette (z +0,29 à y -0,62) : la lentille reste visible.
+    plate(cx, [(-0.34, 0.0), (0.34, 0.0), (0.30, 0.30), (-0.30, 0.30)], 0.04, m["steel"], "visiere", axis="Z",
+          loc=(0, 0.32, zc + 0.27), rot=(math.radians(12), 0, 0))
+    rivet_row(cx, (-0.26, 0.40, zc + 0.30), (0.26, 0.40, zc + 0.30), 5, 0.014, m["brass"], "rv_visiere")
+    # arrière : boîte d'alimentation courte et câble
+    box(cx, (0.40, 0.16, 0.30), (0, -0.51, zc - 0.07), m["steel"], "boite_arriere", bevel=0.012)
+    strut(cx, (0.12, -0.55, z0 + 0.14), (0.16, -0.30, 0.70), 0.03, m["band"], "cable_arriere")
 
 
 def piece_e02(cx):
     m = mats_e02(cx)
-    # jupe de blindage boulonnée : 3 plaques inclinées, bord bas à 0,15 tuile au-delà de l'emprise sud
+    # jupe de blindage boulonnée : 3 plaques inclinées, bord bas à 0,15 tuile au-delà de l'emprise sud.
+    # Correction V3 (mineur 7) : en passe 5 le pied était à yb + 0,30 (bas mesuré +0,98, DANS l'emprise) ; ici le pied
+    # est À yb (+1,15) et les plaques, plus longues (0,95) et plus couchées (60°), remontent jusqu'au tambour.
     yb = ty(1.15)
-    a = math.radians(52)
+    a = math.radians(60)
     for k, (x, w, rz) in enumerate(((-0.52, 0.42, -0.42), (0.0, 0.62, 0.0), (0.52, 0.42, 0.42))):
-        o = loft(cx, (0, 0, w, 0.06), (0, 0, w * 0.92, 0.06), 0.0, 0.66, m["steel"], "jupe_%d" % k, bevel=0.01)
+        o = loft(cx, (0, 0, w, 0.06), (0, 0, w * 0.92, 0.06), 0.0, 0.95, m["steel"], "jupe_%d" % k, bevel=0.01)
         # plaque inclinée : pied en avant (sud), tête contre le tambour
-        y0 = yb + 0.30 + abs(x) * 0.25
+        y0 = yb + 0.03 + abs(x) * 0.25
         o.location = (x, y0, 0.0)
         o.rotation_euler = (-a, 0, rz)
         # rangée de rivets POSÉE sur la face avant de la tôle, à 0,14 du pied : repère local de la plaque
@@ -450,7 +472,7 @@ def piece_e02(cx):
             return (x + u * math.cos(rz) - yy * math.sin(rz), y0 + u * math.sin(rz) + yy * math.cos(rz), zz)
         rivet_row(cx, xf(-w * 0.36, -0.035, 0.14), xf(w * 0.36, -0.035, 0.14), 4, 0.018, m["brass"], "rv_jupe_bas_%d" % k)
     # semelle au pied de la plaque centrale (elle flottait 0,17 tuile au sud : défaut D3 vu sur l'aperçu)
-    box(cx, (0.70, 0.10, 0.05), (0, yb + 0.30, 0.025), m["band"], "semelle", bevel=0.006)
+    box(cx, (0.70, 0.10, 0.05), (0, yb + 0.05, 0.025), m["band"], "semelle", bevel=0.006)
 
 
 # ================================================================================================
@@ -463,6 +485,7 @@ def mats_e03(cx):
                 brass=metal(cx, "laiton", "#9C7E45", gain=1.6, rough=0.22, metallic=0.95, grain=0.08, seed=6.0),
                 soot=flat(cx, "suie", "#141210", rough=0.9),
                 lens=flat(cx, "lentille", "#3A0A06", rough=0.05, metallic=0.2),
+                lensglass=glass(cx, "verre_ambre", "#4A3418", gain=1.0, rough=0.04),
                 amber=emis(cx, "ambre", "#FFC060", strength=1.5))
 
 
@@ -512,16 +535,24 @@ def head_e03(cx):
     z = zp + 0.265
     cyl(cx, 0.19, 0.10, (0, 0, zp + 0.045), m["iron"], "plateau", verts=24)
     box(cx, (0.16, 0.24, 0.16), (0, 0, zp + 0.125), m["iron"], "chape", bevel=0.01)
-    tube_y(cx, 0.24, -0.40, 0.62, z, m["iron"], "fut")
+    tube_y(cx, 0.24, -0.40, 0.555, z, m["iron"], "fut")   # V3 : s’arrête sous la collerette (la lentille affleure)
     # serpentins de cuivre (spires serrées)
     for k in range(9):
         ring_y(cx, 0.255, 0.024, -0.26 + 0.075 * k, z, m["copper"], "spire_%d" % k)
     tube_y(cx, 0.27, 0.40, 0.56, z, m["brass"], "bague_avant")
     tube_y(cx, 0.28, -0.42, -0.36, z, m["brass"], "bague_arriere")
-    # lentille cerclée de laiton : pavillon évasé PLUS LARGE que le fût (une optique de phare, pas une bouche)
-    tube_y(cx, 0.26, 0.54, 0.68, z, m["brass"], "pavillon", r2=0.33)
-    ring_y(cx, 0.33, 0.035, 0.68, z, m["brass"], "cercle_lentille")
-    tube_y(cx, 0.30, 0.64, 0.70, z, m["lens"], "lentille")
+    # Correction V3 (vérification passe 5, majeur 3) : le PAVILLON évasé de la passe 5 (bouche noire de 0,55 tuile) se
+    # lisait comme un tromblon ou un gramophone ; aucune surface de lentille n'était visible. Ici : LENTILLE de verre
+    # ambré fumé, à peine bombée, au ras de la bague avant, CERCLÉE de laiton (bible §5), cœur ambré émissif (lueur de
+    # jour) qui affleure au centre ; aucun évasement.
+    tube_y(cx, 0.255, 0.555, 0.585, z, m["brass"], "collerette")
+    ring_y(cx, 0.245, 0.032, 0.585, z, m["brass"], "cercle_lentille")
+    sph(cx, 0.24, (0, 0.58, z), m["lensglass"], "lentille", seg=40, rings=20, scale=(1, 0.20, 1))
+    sph(cx, 0.12, (0, 0.60, z), m["amber"], "coeur_lentille", seg=32, rings=16, scale=(1, 0.50, 1))
+    for k in range(10):
+        a = 2 * math.pi * k / 10
+        sph(cx, 0.014, (0.262 * math.cos(a), 0.575, z + 0.262 * math.sin(a)), m["brass"], "rv_cercle_%d" % k, seg=8,
+            rings=4)
     # évent court (cheminée ronde) sur le dos
     cyl(cx, 0.075, 0.30, (0, -0.12, z + 0.36), m["iron"], "event", verts=20)
     cyl(cx, 0.075, 0.06, (0, -0.12, z + 0.53), m["iron"], "event_levre", verts=20, r2=0.10, caps=False, bevel=0)
@@ -531,7 +562,7 @@ def head_e03(cx):
         cyl(cx, 0.058, 0.02, (s * 0.268, 0.12, z), m["amber"], "hublot_%d" % s, verts=20, rot=(0, math.pi / 2, 0))
     # manomètre sur le dos
     cyl(cx, 0.07, 0.035, (0.12, 0.22, z + 0.25), m["brass"], "mano_tete", verts=20, rot=(math.radians(-30), 0, 0))
-    halo(cx, (0.0, 0.12, z), 0.8)
+    halo(cx, (0.0, 0.66, z), 0.8)
 
 
 def piece_e03(cx):
@@ -560,6 +591,7 @@ def mats_e04(cx):
                 galva=metal(cx, "galva", "#6E7378", gain=1.35, rough=0.32, metallic=0.85, grain=0.12, seed=8.0),
                 black=flat(cx, "noir", "#1E1E1E", rough=0.55),
                 lens=flat(cx, "lentille", "#3A0A06", rough=0.05, metallic=0.2),
+                lensglass=glass(cx, "verre_fume", "#3A2A1A", gain=1.0, rough=0.04),
                 orange=emis(cx, "orange", "#FF8C1A", strength=1.6))
 
 
@@ -599,7 +631,7 @@ def base_e04(cx):
         rivet_ring(cx, 0.175, z + 0.025, 10, 0.012, m["black"], "boulons_%.2f" % z)
     cyl(cx, 0.24, 0.07, (0, 0, zp - 0.035), m["yellow"], "couronne", verts=32)
     # voyant orange au pied de la colonne
-    sph(cx, 0.065, (0.18, -0.14, 0.30), m["orange"], "voyant_socle")
+    sph(cx, 0.10, (0.18, -0.16, 0.32), m["orange"], "voyant_socle")   # V3 : 0,065 -> 0,10 (lueur 8 × 8 px hr)
     halo(cx, (0.16, -0.20, 0.30), 0.5)
 
 
@@ -609,8 +641,13 @@ def head_e04(cx):
     cyl(cx, 0.20, 0.10, (0, 0, cx.zp + 0.045), m["galva"], "plateau", verts=24)
     box(cx, (0.48, 1.00, 0.34), (0, 0.10, z), m["yellow"], "carter", bevel=0.03)
     box(cx, (0.50, 0.06, 0.36), (0, -0.20, z), m["black"], "bande_carter", bevel=0.004)
-    tube_y(cx, 0.15, 0.58, 0.70, z - 0.02, m["galva"], "nez")
-    tube_y(cx, 0.115, 0.69, 0.73, z - 0.02, m["lens"], "lentille")
+    # Correction V3 (mineur 1) : la buse tubulaire de la passe 5 (lentille au fond d'un tube court pointé vers la cible)
+    # lisait comme un canon. Ici : lentille AFFLEURANTE sur la face avant du carter, verre fumé bombé cerclé de galva,
+    # cœur orange émissif (lueur de jour).
+    tube_y(cx, 0.17, 0.595, 0.625, z - 0.02, m["galva"], "cerclage_lentille")
+    ring_y(cx, 0.165, 0.022, 0.625, z - 0.02, m["black"], "joint_lentille")
+    sph(cx, 0.15, (0, 0.62, z - 0.02), m["lensglass"], "lentille", seg=36, rings=18, scale=(1, 0.24, 1))
+    sph(cx, 0.08, (0, 0.635, z - 0.02), m["orange"], "coeur_lentille", seg=24, rings=12, scale=(1, 0.5, 1))
     # cuve de refroidissement horizontale dorsale, TRANSVERSALE (axe X) : posée le long du tir, elle se lisait
     # comme un canon (identité de la famille : une lentille, jamais de canon) ; fonds bombés
     zc = z + 0.36
@@ -627,7 +664,7 @@ def head_e04(cx):
         strut(cx, (s * 0.46, yc, zc - 0.06), (s * 0.27, yc + 0.10, z - 0.02), 0.028, m["galva"], "tuyau_%d" % s)
         strut(cx, (s * 0.27, yc + 0.10, z - 0.02), (s * 0.27, 0.45, z - 0.02), 0.028, m["galva"], "tuyau_long_%d" % s)
     # voyant orange (jour) sur la face avant de la cuve et vanne à volant
-    sph(cx, 0.065, (0.20, yc + 0.17, zc + 0.02), m["orange"], "voyant")
+    sph(cx, 0.085, (0.20, yc + 0.18, zc + 0.02), m["orange"], "voyant")   # V3 : 0,065 -> 0,085
     tor(cx, 0.06, 0.012, (-0.20, yc + 0.02, zc + 0.19), m["black"], "volant", seg=20)
     cyl(cx, 0.012, 0.05, (-0.20, yc + 0.02, zc + 0.165), m["galva"], "volant_tige", verts=8, bevel=0)
     halo(cx, (0.20, yc + 0.24, zc), 0.8)
@@ -673,9 +710,9 @@ def base_e05(cx):
     # rivets lourds le long des arêtes de la face sud
     rivet_row(cx, (-0.62, -0.74, 0.12), (0.62, -0.74, 0.12), 7, 0.026, m["rivet"], "rv_sud")
     # fentes de braise (jour) sur la pente sud
-    for k, z in enumerate((0.20, 0.31)):
-        w = 0.70 - 0.18 * k
-        o = box(cx, (w, 0.03, 0.09), (0, -0.70 + 0.12 * k, z), m["ember"], "fente_%d" % k, bevel=0)
+    # Correction V3 (mineur 4) : fentes de 0,09 (5,8 px hr à l'écran) -> grande fente de 0,17 (11 px hr) + fente fine
+    for k, (z, y, w, h) in enumerate(((0.21, -0.665, 0.66, 0.17), (0.36, -0.555, 0.40, 0.08))):
+        o = box(cx, (w, 0.03, h), (0, y, z), m["ember"], "fente_%d" % k, bevel=0)
         o.rotation_euler = (math.radians(-45), 0, 0)
     halo(cx, (0.0, -0.95, 0.25), 1.0)
     # colonne en tronc de pyramide
@@ -696,9 +733,10 @@ def head_e05(cx):
         o.location = (0, 0.30 - 0.22 * k, z0 + 0.53)
         o.rotation_euler = (math.radians(-14), 0, 0)
     # fente d'émission rougeoyante (la « lentille » de l'époque)
-    box(cx, (0.50, 0.04, 0.13), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
-    box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.35), m["rivet"], "levre_haute", bevel=0.005)
-    box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.21), m["rivet"], "levre_basse", bevel=0.005)
+    # Correction V3 (mineur 4) : fente de 0,13 -> 0,20 de haut (11,8 px hr à l'écran en pose S, échelle 1,30)
+    box(cx, (0.50, 0.04, 0.20), (0, 0.67, z0 + 0.28), m["ember"], "fente_emission", bevel=0)
+    box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.395), m["rivet"], "levre_haute", bevel=0.005)
+    box(cx, (0.58, 0.05, 0.03), (0, 0.67, z0 + 0.165), m["rivet"], "levre_basse", bevel=0.005)
     # ailettes de dissipation sur les flancs (dépassent)
     for s in (-1, 1):
         for k in range(5):
@@ -710,12 +748,14 @@ def head_e05(cx):
 
 def piece_e05(cx):
     m = mats_e05(cx)
+    # Correction V3 (mineur 2) : pointes à ±0,80 penchées de 14 à 26° vers l'extérieur -> L_max 2,19 (§4 : 1,83) ;
+    # rapprochées (±0,68) et moins penchées
     for s in (-1, 1):
-        x, y = s * 0.80, ty(0.92)
-        crystal(cx, 0.12, 0.66, (x, y, 0.02), m["basalt"], "basalte_%d" % s, tilt=(math.radians(-12), math.radians(s * 14)),
+        x, y = s * 0.68, ty(0.92)
+        crystal(cx, 0.12, 0.66, (x, y, 0.02), m["basalt"], "basalte_%d" % s, tilt=(math.radians(-12), math.radians(s * 7)),
                 sides=5, spin=0.3 * s)
-        crystal(cx, 0.08, 0.42, (x + s * 0.13, y - 0.10, 0.0), m["basalt"], "basalte_p_%d" % s,
-                tilt=(math.radians(-22), math.radians(s * 26)), sides=5, spin=0.9)
+        crystal(cx, 0.08, 0.42, (x + s * 0.12, y - 0.10, 0.0), m["basalt"], "basalte_p_%d" % s,
+                tilt=(math.radians(-22), math.radians(s * 12)), sides=5, spin=0.9)
         crystal(cx, 0.06, 0.28, (x - s * 0.12, y - 0.08, 0.0), m["basalt"], "basalte_pp_%d" % s,
                 tilt=(math.radians(-25), math.radians(-s * 10)), sides=5, spin=1.7)
         # fissure de braise au pied
@@ -754,7 +794,7 @@ def base_e06(cx):
     insulator_stack(cx, m, 0, 0, 0.24, n, 0.19, "cou", pitch=pitch)
     cyl(cx, 0.24, 0.06, (0, 0, cx.zp - 0.03), m["steel"], "couronne", verts=24)
     # éclateur cyan au pied (lueur de jour) sur la face sud
-    sph(cx, 0.05, (0.0, -0.62, 0.30), m["cyan"], "eclateur")
+    sph(cx, 0.095, (0.0, -0.64, 0.34), m["cyan"], "eclateur")   # V3 : 0,05 -> 0,095 (lueur 8 × 8 px hr dans chaque pose)
     box(cx, (0.20, 0.06, 0.08), (0.0, -0.60, 0.22), m["cer"], "eclateur_isolant", bevel=0.01)
     halo(cx, (0.0, -0.70, 0.30), 0.6)
 
@@ -825,7 +865,7 @@ def base_e07(cx):
                 tilt=(math.radians(tx), math.radians(tyy)), spin=0.4 * k)
         halo(cx, (x, y, 0.20 + h * 0.5), 0.4)
     # colonne de bronze et griffes
-    cyl(cx, 0.15, cx.zp - 0.38, (0, 0, (0.30 + cx.zp - 0.08) / 2), m["bronze"], "colonne", verts=7, bevel=0.01)
+    cyl(cx, 0.21, cx.zp - 0.38, (0, 0, (0.30 + cx.zp - 0.08) / 2), m["bronze"], "colonne", verts=7, bevel=0.01)
     for k in range(3):
         a = 2 * math.pi * k / 3 + 0.3
         strut(cx, (0.30 * math.cos(a), 0.30 * math.sin(a), 0.30), (0.10 * math.cos(a), 0.10 * math.sin(a), 0.75), 0.035,
@@ -837,18 +877,21 @@ def head_e07(cx):
     m = mats_e07(cx)
     z = cx.zp + 0.25
     cyl(cx, 0.17, 0.12, (0, 0, cx.zp + 0.05), m["bronze"], "plateau", verts=14)
-    tube_y(cx, 0.22, -0.45, 0.18, z, m["bronze"], "corps", verts=7)
-    tube_y(cx, 0.25, 0.10, 0.22, z, m["bronze"], "sertissure_avant", verts=7)
-    # grand prisme de cristal saillant vers l'avant (la lentille devient prisme)
-    crystal(cx, 0.17, 1.05, (0, 0.10, z), m["crys"], "prisme", tilt=(math.radians(-90), 0), sides=6, base_frac=0.10)
+    tube_y(cx, 0.24, -0.42, 0.18, z, m["bronze"], "corps", verts=7)
+    tube_y(cx, 0.27, 0.10, 0.22, z, m["bronze"], "sertissure_avant", verts=7)
+    # grand prisme de cristal saillant vers l'avant (la lentille devient prisme). Correction V3 (mineur 2) : 1,05 de
+    # long en passe 5 (pointe à 1,32 tuile du centre en E/O, L_max 2,16 à 2,23) ; 0,62 ici, à l'échelle 1,40 de la tête
+    # (au lieu de 1,15) : pointe à 1,01 tuile. La tête plus grande évite la « sucette » apparue au premier rendu V3
+    # (O mesuré sans la pointe : le pivot était monté de 0,41)
+    crystal(cx, 0.19, 0.62, (0, 0.10, z), m["crys"], "prisme", tilt=(math.radians(-90), 0), sides=6, base_frac=0.10)
     # griffes de bronze qui tiennent le prisme
     for k in range(3):
         a = 2 * math.pi * k / 3 + math.pi / 2
         strut(cx, (0.22 * math.cos(a), 0.14, z + 0.22 * math.sin(a)), (0.13 * math.cos(a), 0.45, z + 0.13 * math.sin(a)),
               0.025, m["bronze"], "griffe_t_%d" % k)
     # grappe asymétrique sur le dos
-    crystal(cx, 0.08, 0.42, (0.06, -0.20, z + 0.18), m["crys"], "grappe_1", tilt=(math.radians(-15), math.radians(12)))
-    crystal(cx, 0.06, 0.28, (-0.08, -0.30, z + 0.18), m["crys_dark"], "grappe_2", tilt=(math.radians(10), math.radians(-25)))
+    crystal(cx, 0.09, 0.42, (0.06, -0.18, z + 0.18), m["crys"], "grappe_1", tilt=(math.radians(-15), math.radians(12)))
+    crystal(cx, 0.07, 0.30, (-0.09, -0.30, z + 0.18), m["crys_dark"], "grappe_2", tilt=(math.radians(10), math.radians(-25)))
     halo(cx, (0.0, 0.70, z), 1.0)
 
 
@@ -963,7 +1006,8 @@ def mats_e09(cx):
                 concrete=metal(cx, "beton", "#7A7670", gain=1.0, rough=0.85, metallic=0.0, grain=0.3, grain_scale=25.0,
                                seed=22.0),
                 green=emis(cx, "uranium", "#5CFF4A", strength=1.4, base=(0.05, 0.2, 0.05)),
-                lens=flat(cx, "lentille", "#0A200A", rough=0.05, metallic=0.2))
+                lens=flat(cx, "lentille", "#0A200A", rough=0.05, metallic=0.2),
+                lensglass=glass(cx, "verre_plombe", "#1E3A1E", gain=1.0, rough=0.04))
 
 
 def base_e09(cx):
@@ -987,35 +1031,53 @@ def base_e09(cx):
     prof = [(0.22, 0.0), (0.18, 0.15), (0.155, 0.30), (0.16, 0.45), (0.19, 0.58)]
     lathe(cx, prof, m["concrete"], "tour_hyper", seg=32, loc=(0.48, 0.50, 0.30))
     lathe(cx, [(0.175, 0.0), (0.175, 0.01)], m["black"], "tour_bouche", seg=32, loc=(0.48, 0.50, 0.30 + 0.575))
-    # colonne octogonale plombée
+    # colonne octogonale plombée MASSIVE (correction V3 : 0,19 -> 0,27 de rayon, contreforts ; la colonne fine portait
+    # une « capsule sur un mât », comme l'époque 8)
     zp = cx.zp
-    cyl(cx, 0.19, zp - 0.42, (0, 0, (0.34 + zp - 0.08) / 2), m["lead"], "colonne", verts=8, rot=r8, bevel=0.01)
-    cyl(cx, 0.195, 0.06, (0, 0, 0.80), m["yellow"], "colonne_bande", verts=8, rot=r8, bevel=0.003)
-    cyl(cx, 0.26, 0.08, (0, 0, zp - 0.04), m["lead"], "couronne", verts=8, rot=r8)
+    cyl(cx, 0.27, zp - 0.42, (0, 0, (0.34 + zp - 0.08) / 2), m["lead"], "colonne", verts=8, rot=r8, bevel=0.012)
+    cyl(cx, 0.275, 0.06, (0, 0, 0.80), m["yellow"], "colonne_bande", verts=8, rot=r8, bevel=0.003)
+    cyl(cx, 0.34, 0.08, (0, 0, zp - 0.04), m["lead"], "couronne", verts=8, rot=r8)
+    for k in range(4):
+        a = k * math.pi / 2
+        o = loft(cx, (0, 0, 0.10, 0.34), (0, 0, 0.08, 0.06), 0.0, 0.42, m["lead"], "contrefort_%d" % k, bevel=0.01)
+        o.location = (0.40 * math.cos(a), 0.40 * math.sin(a), 0.34)
+        o.rotation_euler = (0, 0, a + math.pi / 2)
 
 
 def head_e09(cx):
+    """Correction V3 (vérification passe 5, mineur 6) : la tête de la passe 5 était une gélule octogonale LONGUE sur un
+    mât (même structure « disque + mât + capsule » que l'époque 8 : IoU 0,847 entre les époques 8 et 9, à 0,003 du
+    seuil). Ici : tête franchement OCTOGONALE et TRAPUE, un tambour blindé à 8 pans, d'axe vertical, chanfreiné en haut
+    (Ø 0,92 unité, 0,40 de haut), lentille affleurante dans le pan avant, cœur vert visible par le hublot du dessus."""
     m = mats_e09(cx)
-    z = cx.zp + 0.32
-    cyl(cx, 0.18, 0.14, (0, 0, cx.zp + 0.06), m["lead"], "plateau", verts=8, rot=(0, 0, math.pi / 8))
-    # corps en prisme octogonal chanfreiné (axe avant-arrière)
-    o = tube_y(cx, 0.30, -0.42, 0.40, z, m["lead"], "corps", verts=8)
-    o.rotation_euler = (-math.pi / 2, math.pi / 8, 0)
-    o2 = tube_y(cx, 0.30, 0.40, 0.58, z, m["lead"], "chanfrein_av", verts=8, r2=0.18)
-    o2.rotation_euler = (-math.pi / 2, math.pi / 8, 0)
-    o3 = tube_y(cx, 0.30, -0.42, -0.56, z, m["lead"], "chanfrein_ar", verts=8, r2=0.20)
-    o3.rotation_euler = (-math.pi / 2, math.pi / 8, 0)
-    ring_y(cx, 0.305, 0.022, -0.05, z, m["yellow"], "bande_jaune")
-    # hublot du cœur vert sur le dessus et les flancs
-    cyl(cx, 0.12, 0.05, (0, 0.05, z + 0.29), m["lead"], "hublot_dessus_cadre", verts=8)
-    cyl(cx, 0.09, 0.02, (0, 0.05, z + 0.32), m["green"], "coeur_dessus", verts=8)
+    r8 = (0, 0, math.pi / 8)
+    zp = cx.zp
+    cyl(cx, 0.22, 0.10, (0, 0, zp + 0.05), m["lead"], "plateau", verts=8, rot=r8)
+    # tambour octogonal : fût droit + chanfrein haut (tronc d'octogone) + bande jaune
+    cyl(cx, 0.46, 0.28, (0, 0, zp + 0.24), m["lead"], "tambour", verts=8, rot=r8, bevel=0.02)
+    cyl(cx, 0.46, 0.12, (0, 0, zp + 0.44), m["lead"], "chanfrein", verts=8, rot=r8, r2=0.32, bevel=0.012)
+    cyl(cx, 0.465, 0.05, (0, 0, zp + 0.18), m["yellow"], "bande_jaune", verts=8, rot=r8, bevel=0.003)
+    for k in range(8):
+        a = k * math.pi / 4
+        o = box(cx, (0.07, 0.012, 0.05), (0.452 * math.cos(a), 0.452 * math.sin(a), zp + 0.18), m["black"],
+                "chevron_t_%d" % k, bevel=0)
+        o.rotation_euler = (0, math.radians(35), a + math.pi / 2)
+    # hublot du dessus : cœur vert (lueur de jour), cadre plombé octogonal
+    cyl(cx, 0.17, 0.05, (0, 0, zp + 0.52), m["lead"], "hublot_cadre", verts=8, rot=r8)
+    cyl(cx, 0.13, 0.03, (0, 0, zp + 0.55), m["green"], "coeur_dessus", verts=8, rot=r8)
+    # lentille affleurante dans le pan AVANT (+Y) : verre vert sombre bombé, anneau vert lumineux
+    yf = 0.46 * math.cos(math.pi / 8)
+    tube_y(cx, 0.16, yf - 0.01, yf + 0.03, zp + 0.27, m["lead"], "lentille_cadre", verts=8)
+    sph(cx, 0.13, (0, yf + 0.03, zp + 0.27), m["lensglass"], "lentille", seg=32, rings=16, scale=(1, 0.25, 1))
+    ring_y(cx, 0.14, 0.02, yf + 0.035, zp + 0.27, m["green"], "anneau_lentille")
+    # hublots des flancs (cœur vert)
     for s in (-1, 1):
-        cyl(cx, 0.09, 0.04, (s * 0.29, 0.05, z), m["lead"], "hublot_flanc_cadre_%d" % s, verts=8, rot=(0, math.pi / 2, 0))
-        cyl(cx, 0.065, 0.02, (s * 0.31, 0.05, z), m["green"], "coeur_flanc_%d" % s, verts=8, rot=(0, math.pi / 2, 0))
-    tube_y(cx, 0.12, 0.57, 0.62, z, m["lens"], "lentille", verts=8)
-    ring_y(cx, 0.13, 0.02, 0.60, z, m["green"], "anneau_lentille")
-    # trèfle : 3 pales jaunes sur la face arrière
-    halo(cx, (0.0, 0.05, z + 0.32), 1.0)
+        cyl(cx, 0.09, 0.04, (s * 0.43, 0.0, zp + 0.27), m["lead"], "hublot_flanc_cadre_%d" % s, verts=8,
+            rot=(0, math.pi / 2, 0))
+        cyl(cx, 0.065, 0.02, (s * 0.45, 0.0, zp + 0.27), m["green"], "coeur_flanc_%d" % s, verts=8, rot=(0, math.pi / 2, 0))
+    # bloc arrière plombé (contrepoids) : le tambour garde un avant et un arrière
+    loft(cx, (0, -0.42, 0.40, 0.16), (0, -0.40, 0.30, 0.10), zp + 0.12, zp + 0.36, m["lead"], "contrepoids", bevel=0.012)
+    halo(cx, (0.0, 0.0, zp + 0.56), 1.0)
 
 
 def piece_e09(cx):
@@ -1060,6 +1122,8 @@ def base_e10(cx):
         o = box(cx, (0.11, 0.02, 0.085), (0.755 * math.cos(a), 0.755 * math.sin(a), zd + 0.08), m["blue"], "voyant_%d" % k,
                 bevel=0)
         o.rotation_euler = (0, 0, a + math.pi / 2)
+    # V3 : voyant principal en dôme sur l'avant du disque (les voyants du chant font 4 px hr de haut à l'écran)
+    sph(cx, 0.10, (0.0, -0.56, zd + 0.15), m["blue"], "voyant_dome", seg=24, rings=12, scale=(1, 1, 0.7))
     halo(cx, (0.0, -0.80, zd + 0.08), 0.6)
     # cou caréné (passe 5 : rayon 0,10 -> 0,15 et manchon lisse plus haut ; le cou fin donnait une « sucette »)
     zp = cx.zp
@@ -1076,7 +1140,8 @@ def head_e10(cx):
     z = cx.zp + 0.34
     cyl(cx, 0.14, 0.12, (0, 0, cx.zp + 0.06), m["black"], "plateau", verts=32)
     # tête-dôme : coque lisse ovoïde allongée vers l'avant
-    sph(cx, 0.40, (0, 0.06, z + 0.02), m["fair"], "dome", seg=40, rings=20, scale=(0.85, 1.15, 0.72))
+    # V3 : dôme plus haut (0,72 -> 0,86) : O des masses (sans l'antenne) monte avec moins de cou
+    sph(cx, 0.40, (0, 0.06, z + 0.02), m["fair"], "dome", seg=40, rings=20, scale=(0.85, 1.15, 0.86))
     lathe(cx, [(0.36, 0.0), (0.34, 0.03), (0.0, 0.03)], m["black"], "jupe_dome", seg=40, loc=(0, 0.06, z - 0.10))
     # fente bleue frontale (la lentille de l'époque)
     o = box(cx, (0.36, 0.05, 0.10), (0, 0.50, z + 0.03), m["blue"], "fente", bevel=0)
@@ -1111,6 +1176,7 @@ def mats_e11(cx):
                             rust="#8E8A80", rust_amount=0.25, seed=25.0),
                 ti=metal(cx, "titane", "#8E9AA6", gain=0.95, rough=0.25, metallic=0.85, grain=0.06, seed=26.0),
                 dark=flat(cx, "sombre", "#2A2E34", rough=0.4),
+                noseglass=glass(cx, "verriere", "#5A7A90", gain=1.0, rough=0.04),
                 line=emis(cx, "ligne", "#BFE6FF", strength=0.8))
 
 
@@ -1128,6 +1194,8 @@ def base_e11(cx):
         plate(cx, [(0.0, 0.0), (0.30, 0.0), (0.0, 0.42)], 0.025, m["white"], "aileron_pied_%d" % k, axis="Y",
               loc=(0.62 * math.cos(a) - 0.0, 0.62 * math.sin(a), 0.02), rot=(0, 0, a + math.pi / 2 + math.pi))
     sph(cx, 0.14, (0, 0, 0.80), m["ti"], "noeud", scale=(1, 1, 0.8))
+    # V3 : cœur lumineux du nœud (la ligne du mât fait 3 px hr de large : aucune lueur de 8 × 8 dans la pose N)
+    sph(cx, 0.085, (0, -0.10, 0.80), m["line"], "noeud_coeur", seg=24, rings=12)
     # mât élancé
     zp = cx.zp
     cyl(cx, 0.07, zp - 0.96, (0, 0, (0.88 + zp - 0.08) / 2), m["ti"], "mat", verts=16)
@@ -1143,21 +1211,26 @@ def head_e11(cx):
     z = cx.zp + 0.24
     cyl(cx, 0.12, 0.14, (0, 0, cx.zp + 0.06), m["ti"], "plateau", verts=24)
     # fuseau : profil de révolution le long de Y, pointe avant = lentille
-    prof = [(0.0, -0.66), (0.08, -0.60), (0.17, -0.40), (0.21, -0.10), (0.20, 0.20), (0.14, 0.52), (0.06, 0.74),
-            (0.0, 0.80)]
+    # Correction V3 (mineur 1) : la pointe blanche de quelques pixels de la passe 5 (fuseau effilé : on lisait un
+    # missile) devient un NEZ VITRÉ large : fuseau tronqué à 0,56 (rayon 0,16), verrière bleu-blanc bombée (Ø 0,40
+    # tuile), cœur lumineux qui affleure au centre, bague de titane.
+    prof = [(0.0, -0.66), (0.08, -0.60), (0.17, -0.40), (0.21, -0.10), (0.20, 0.20), (0.175, 0.46), (0.16, 0.56),
+            (0.0, 0.56)]
     lathe(cx, prof, m["white"], "fuseau", seg=32, loc=(0, 0, z), rot=(-math.pi / 2, 0, 0))
-    tube_y(cx, 0.045, 0.74, 0.86, z, m["line"], "lentille_pointe")
+    ring_y(cx, 0.158, 0.022, 0.56, z, m["ti"], "bague_nez")
+    sph(cx, 0.15, (0, 0.56, z), m["noseglass"], "verriere", seg=32, rings=16, scale=(1, 0.90, 1))
+    sph(cx, 0.08, (0, 0.64, z), m["line"], "lentille_coeur", seg=24, rings=12)
     # ailerons triangulaires de queue (dessus et flancs) : silhouette en flèche
     plate(cx, [(0.0, 0.0), (-0.42, 0.0), (-0.52, 0.40)], 0.03, m["white"], "aileron_dessus", axis="X",
           loc=(0, -0.08, z + 0.18))
     for s in (-1, 1):
         plate(cx, [(0.0, 0.0), (-0.40, 0.0), (-0.50, 0.30)], 0.025, m["white"], "aileron_flanc_%d" % s, axis="X",
               loc=(s * 0.17, -0.10, z), rot=(0, math.radians(s * 75), 0))
-    plate(cx, [(0.0, 0.0), (0.30, 0.0), (0.05, 0.20)], 0.02, m["ti"], "aileron_nez", axis="X", loc=(0, 0.20, z + 0.18))
+    plate(cx, [(0.0, 0.0), (0.24, 0.0), (0.04, 0.16)], 0.02, m["ti"], "aileron_nez", axis="X", loc=(0, 0.16, z + 0.17))
     # lignes bleu-blanc qui courent sur les flancs
     for s in (-1, 1):
         o = box(cx, (0.03, 0.62, 0.05), (s * 0.205, 0.05, z + 0.02), m["line"], "ligne_%d" % s, bevel=0)
-    halo(cx, (0.0, 0.85, z), 1.0)
+    halo(cx, (0.0, 0.74, z), 1.0)
 
 
 def piece_e11(cx):
@@ -1226,6 +1299,10 @@ def head_e12(cx):
     sph(cx, 0.17, (0, 0.20, z), m["cyan"], "lentille", seg=32, rings=16, scale=(1, 0.55, 1))
     tube_y(cx, 0.15, -0.55, -0.22, z, m["black"], "noyau_arriere")
     tube_y(cx, 0.155, -0.40, -0.36, z, m["frost"], "givre_arriere")
+    # correction V3 (mineur 10) : le noyau arrière flottait sans liaison visible (en E/O on lisait un cube noir à croix
+    # blanche, comme une icône) ; il est porté par une jambe de force chromée qui part du plateau
+    strut(cx, (0.0, -0.05, zp + 0.08), (0.0, -0.36, z - 0.12), 0.04, m["chrome"], "jambe_noyau")
+    sph(cx, 0.05, (0.0, -0.36, z - 0.12), m["black"], "jambe_noyau_rotule")
     halo(cx, (0.0, 0.20, z), 1.0)
 
 
@@ -1333,9 +1410,13 @@ def base_e14(cx):
         o.rotation_euler = (0, math.radians(s * 25), 0)
         o = box(cx, (0.32, 0.52, 0.012), (s * 0.82, 0.10, 0.405), m["gold"], "aile_cadre_%d" % s, bevel=0.003)
         o.rotation_euler = (0, math.radians(s * 25), 0)
+        # V3 : reflet bleu des cellules (bible §5, lueur de jour) : panneau émissif inséré dans l'aile
+        o = box(cx, (0.20, 0.38, 0.006), (s * 0.82, 0.10, 0.440), m["blue"], "aile_cellules_%d" % s, bevel=0)
+        o.rotation_euler = (0, math.radians(s * 25), 0)
     # mât-balise à l'arrière gauche
     cyl(cx, 0.02, 1.25, (-0.45, 0.40, 0.42 + 0.62), m["white"], "mat_balise", verts=10, bevel=0)
-    sph(cx, 0.06, (-0.45, 0.40, 1.70), m["red"], "balise")
+    # V3 : balise 0,06 -> 0,085 (zone de lueur de 6 px hr en passe 5, 8 × 8 visés : bible §1.6, D2-1)
+    sph(cx, 0.085, (-0.45, 0.40, 1.70), m["red"], "balise")
     halo(cx, (-0.45, 0.40, 1.70), 0.5, color="#FF2A2A")
     # cou blanc et cardan doré
     zp = cx.zp
@@ -1364,14 +1445,14 @@ def head_e14(cx):
     tor(cx, 0.50, 0.02, (0, 0.155, z), m["white"], "levre", rot=(math.pi / 2, 0, 0), seg=64)
     # cornet d'émission au foyer, tenu par 3 haubans
     tube_y(cx, 0.06, 0.32, 0.52, z, m["white"], "cornet", r2=0.09)
-    sph(cx, 0.07, (0, 0.53, z), m["blue"], "emetteur")
+    sph(cx, 0.10, (0, 0.54, z), m["blue"], "emetteur")   # V3 : 0,07 -> 0,10 (lueur 8 × 8 px hr)
     for k in range(3):
         a = math.pi / 2 + 2 * math.pi * k / 3
         strut(cx, (0.44 * math.cos(a), 0.12, z + 0.44 * math.sin(a)), (0.06 * math.cos(a), 0.40, z + 0.06 * math.sin(a)),
               0.012, m["white"], "hauban_%d" % k)
     # balise rouge sur le dos
-    cyl(cx, 0.015, 0.30, (0, -0.30, z + 0.30), m["white"], "mat_tete", verts=8, bevel=0)
-    sph(cx, 0.045, (0, -0.30, z + 0.47), m["red"], "balise_tete")
+    cyl(cx, 0.015, 0.24, (0, -0.30, z + 0.27), m["white"], "mat_tete", verts=8, bevel=0)   # V3 : 0,30 -> 0,24
+    sph(cx, 0.045, (0, -0.30, z + 0.41), m["red"], "balise_tete")
     halo(cx, (0.0, 0.53, z), 1.0, color="#2F6BFF")
 
 
@@ -1441,7 +1522,9 @@ def head_e15(cx):
     tor(cx, 0.26, 0.045, (0, 0, z), m["wgold"], "anneau_couronne", seg=56)
     sph(cx, 0.15, (0, 0, z + 0.04), m["nacre"], "coeur_couronne", seg=28, rings=14)
     # couronne de prismes émetteurs : 5 flèches inclinées vers l'extérieur, la plus grande vers l'avant (tir)
-    spikes = [(90, 0.95, 0.10, -32), (90 + 72, 0.62, 0.07, 22), (90 - 72, 0.62, 0.07, 22), (90 + 144, 0.50, 0.06, 20),
+    # correction V3 (mineur 2) : émetteur principal penché de 32° en passe 5 (pointe à 1,2 tuile en E/O, L30 = 2,23 >
+    # plafond 2,10) ; 18° ici
+    spikes = [(90, 0.95, 0.10, -18), (90 + 72, 0.62, 0.07, 22), (90 - 72, 0.62, 0.07, 22), (90 + 144, 0.50, 0.06, 20),
               (90 - 144, 0.50, 0.06, 20)]
     for k, (adeg, h, r, tilt) in enumerate(spikes):
         a = math.radians(adeg)
@@ -1466,11 +1549,12 @@ def head_e15(cx):
 def piece_e15(cx):
     m = mats_e15(cx)
     # anneau-halo au sol autour du socle (ellipse vue), qui dépasse de l'emprise sur les côtés
-    tor(cx, 0.92, 0.022, (0, 0, 0.085), m["light"], "anneau_halo_sol", seg=96, mseg=8)
-    tor(cx, 0.92, 0.06, (0, 0, 0.02), m["wgold"], "anneau_halo_berceau", seg=96, mseg=8)
+    # correction V3 (mineur 2) : rayon 0,92 -> 0,86 et particules à 0,92 (L30 <= 2,10)
+    tor(cx, 0.86, 0.022, (0, 0, 0.085), m["light"], "anneau_halo_sol", seg=96, mseg=8)
+    tor(cx, 0.86, 0.06, (0, 0, 0.02), m["wgold"], "anneau_halo_berceau", seg=96, mseg=8)
     for k in range(8):
         a = 2 * math.pi * k / 8 + 0.2
-        sph(cx, 0.03, (1.0 * math.cos(a), 1.0 * math.sin(a), 0.12 + 0.05 * (k % 2)), m["light"], "particule_sol_%d" % k,
+        sph(cx, 0.03, (0.92 * math.cos(a), 0.92 * math.sin(a), 0.12 + 0.05 * (k % 2)), m["light"], "particule_sol_%d" % k,
             seg=8, rings=4)
     halo(cx, (0.0, -0.98, 0.05), 0.6)
 

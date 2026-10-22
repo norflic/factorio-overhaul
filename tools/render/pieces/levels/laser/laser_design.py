@@ -69,7 +69,7 @@ ODD_DESIGN = {
     6: "émetteur entouré d'isolateurs empilés (mini-bobine Tesla), bobine annulaire ; cou en pile d'isolateurs",
     7: "la lentille devient un grand prisme de cristal saillant ; socle de pierre à éclats violets",
     8: "émetteur dans une ampoule de verre frontale à plasma vert ; bulbes au socle",
-    9: "tête octogonale plombée, cœur vert par un hublot ; socle chanfreiné à tour hyperboloïde",
+    9: "tête octogonale plombée TRAPUE (tambour à 8 pans), cœur vert par un hublot ; colonne massive à contreforts, socle chanfreiné à tour hyperboloïde",
     10: "tête-dôme à fente bleue, antenne courte ; socle caréné sur 3 pieds courts",
     11: "tête en fuseau à ailerons ; socle tripode",
     12: "lentille en lévitation entre 2 anneaux ; socle fragmenté, anneau flottant",
@@ -111,7 +111,7 @@ PIVOT_MIN = {2: 0.75, 3: 1.45, 4: 1.0, 5: 0.95, 6: 0.95, 7: 1.0, 8: 1.1, 9: 1.1,
 # Passe 5 (reprise 2, 22/10) : époques 10, 12 et 13 encore en « sucette » sur la planche (a) (tête menue au bout d'une
 # tige de 1,5 à 2 tuiles, largeur L mesurée 1,41 à 1,55 pour 1,96 à 2,05 au §4) : tête +10 à +11 %, cou épaissi dans
 # laser_model.py ; le pivot redescend au réglage (run_laser.py tune) pour garder O sur la cible.
-HEAD_SCALE = {2: 1.30, 3: 1.25, 4: 1.30, 5: 1.30, 6: 1.45, 7: 1.15, 8: 1.20, 9: 1.30, 10: 1.60, 11: 1.35, 12: 1.50,
+HEAD_SCALE = {2: 1.30, 3: 1.25, 4: 1.30, 5: 1.30, 6: 1.45, 7: 1.40, 8: 1.20, 9: 1.30, 10: 1.60, 11: 1.35, 12: 1.50,
               13: 1.50, 14: 1.30, 15: 1.45}
 # Pivots réglés par `run_laser.py tune` (O mesuré sur la géométrie -> cible §4) : surchargent PIVOT.
 PIVOT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pivot_regle.txt")
@@ -125,10 +125,11 @@ except OSError:
     pass
 # Centre de la face émettrice (lentille, fente, prisme...) dans le repère de la tête AVANT échelle : (x, y avant,
 # z au-dessus du pivot). Sert à proposer attack_parameters.source_offset et beam.source_offset (bible §1.8-6).
-LENS_LOCAL = {2: (0.0, 0.80, 0.31), 3: (0.0, 0.70, 0.265), 4: (0.0, 0.73, 0.205), 5: (0.0, 0.69, 0.28),
-              6: (0.0, 0.775, 0.26), 7: (0.0, 1.15, 0.25), 8: (0.0, 0.81, 0.22), 9: (0.0, 0.62, 0.32),
-              10: (0.0, 0.53, 0.37), 11: (0.0, 0.86, 0.24), 12: (0.0, 0.30, 0.62), 13: (0.0, 0.50, 0.57),
-              14: (0.0, 0.60, 0.615), 15: (0.0, 0.76, 0.81)}
+# Correction V3 : lentilles des époques 2, 3, 4, 7, 9, 11 et 15 redessinées (voir laser_model.py).
+LENS_LOCAL = {2: (0.0, 0.65, 0.31), 3: (0.0, 0.66, 0.265), 4: (0.0, 0.655, 0.205), 5: (0.0, 0.69, 0.28),
+              6: (0.0, 0.775, 0.26), 7: (0.0, 0.72, 0.25), 8: (0.0, 0.81, 0.22), 9: (0.0, 0.455, 0.27),
+              10: (0.0, 0.53, 0.37), 11: (0.0, 0.72, 0.24), 12: (0.0, 0.30, 0.62), 13: (0.0, 0.50, 0.57),
+              14: (0.0, 0.60, 0.615), 15: (0.0, 0.55, 0.90)}
 
 # Poses de référence de la phase 1 (Q12 : seules les poses de référence sont rendues en phase 1)
 # tête « prepared » : N, E, S, O = images 0, 16, 32, 48 de la feuille vanilla de 64 directions
@@ -150,6 +151,17 @@ CANVAS_TILES = (-2.0, 6.0, -4.5, 2.0)        # x0, x1, y0, y1 en tuiles (les omb
 CANVAS_W = int((CANVAS_TILES[1] - CANVAS_TILES[0]) * PPT)   # 512
 CANVAS_H = int((CANVAS_TILES[3] - CANVAS_TILES[2]) * PPT)   # 416
 ORIGIN_PX = (int(-CANVAS_TILES[0] * PPT), int(-CANVAS_TILES[2] * PPT))   # (128, 288)
+# Correction V3 (vérification passe 5, mineur 3) : la couche halo (draw_as_light) du SOCLE porte une flaque de lumière au
+# sol de rayon à mi-intensité S(N)/2 (bible §1.6, D2-3 : S(N) = 2 (1 + 0,05 N), soit 1,1 à 2,5 tuiles ; nulle à
+# 0,75 S(N) = 3,75 tuiles au niveau 30). Elle ne tient pas dans le canevas des aperçus (2 tuiles à l'ouest et au sud) :
+# les couches halo ont leur PROPRE canevas, plus grand, de même grille (64 px/tuile, origine = position de l'entité).
+LIGHT_CANVAS_TILES = (-4.0, 6.0, -5.0, 4.0)
+LIGHT_W = int((LIGHT_CANVAS_TILES[1] - LIGHT_CANVAS_TILES[0]) * PPT)   # 640
+LIGHT_H = int((LIGHT_CANVAS_TILES[3] - LIGHT_CANVAS_TILES[2]) * PPT)   # 576
+LIGHT_ORIGIN_PX = (int(-LIGHT_CANVAS_TILES[0] * PPT), int(-LIGHT_CANVAS_TILES[2] * PPT))   # (256, 320)
+# Masque D1-3 « sans couches plates au sol » (Q13) : objets du socle dont le point le plus haut est à moins de FLAT_Z
+# unité du sol (patins, soles, anneau-halo au sol, berceaux) ; rendus à part (passe « noflat », render_laser.py).
+FLAT_Z = 0.12
 
 # --- Vanilla (turrets.lua:883-1041) : couches hr, scale 0,5 ---
 VANILLA = {
@@ -163,3 +175,21 @@ VANILLA = {
                   "shift": (-0.5 / 32, -35 / 32), "line_length": 8},
     "lr_base": {"file": "laser-turret/laser-turret-base.png", "w": 70, "h": 52, "shift": (0.0, 2 / 32)},
 }
+
+
+
+def code_hash():
+    """Correction V3 (vérification passe 5, mineur 9) : empreinte SHA-256 du code et des réglages qui déterminent un
+    aperçu (modèle, données de design, pivots, gains d'albédo, pilote de rendu). Écrite dans le json de chaque partie
+    rendue ; measure_laser.py vérifie que TOUS les aperçus portent l'empreinte des fichiers actuels."""
+    import hashlib
+    here = os.path.dirname(os.path.abspath(__file__))
+    h = hashlib.sha256()
+    for fn in ("laser_model.py", "laser_design.py", "pivot_regle.txt", "albedo_gain.txt", "render_laser.py"):
+        h.update(fn.encode("utf-8") + bytes([0]))
+        try:
+            with open(os.path.join(here, fn), "rb") as f:
+                h.update(f.read().replace(bytes([13, 10]), bytes([10])))
+        except OSError:
+            h.update(b"absent")
+    return h.hexdigest()

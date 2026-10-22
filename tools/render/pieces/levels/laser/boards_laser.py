@@ -10,7 +10,9 @@
     une rangée par pose N, E, S, O, puis une rangée mélangée (clé dans laser-d-vignettes-cle.txt) ;
 (e) laser-e-gros-plans-zoom2-{jour,nuit}.png : époques 1, 5, 10, 15 au zoom 2 (64 px/tuile, sprites hr 1:1),
     à côté du sprite vanilla du niveau 1 ;
-(f) laser-f-poses-zoom1-jour.png : les 30 niveaux dans les 4 directions de tête (contrôle des poses).
+(f) laser-f-poses-zoom1-jour.png : les 30 niveaux dans les 4 directions de tête (contrôle des poses) ;
+(g) laser-g-ordre-nord-zoom2.png : correction V3 (majeur 2) : tourelle derrière un mur, avec un mur et une 2e tourelle
+    au NORD ; à gauche le socle en « lower-object » (défaut vanilla), à droite en « object » sous la tête (proposé).
 Composition hors moteur : compose_laser.py (ordre des couches du moteur, nuit sans lightMul/lightAdd : non prouvée).
 """
 import argparse
@@ -240,11 +242,45 @@ def board_poses():
     return full
 
 
+def board_north(levels):
+    """(g) : ordre de dessin au nord (majeur 2). Scène : tourelle B au nord (y = -3), rangée de murs vanilla (y = -1,5),
+    tourelle A (y = 0), têtes au nord (vers l'ennemi). Gauche : socles en lower-object (défaut vanilla) ; droite : règle
+    V3 (socle « object » s'il dépasse le bord nord, sous la tête). Ordre supposé dans une couche : y, secondary_draw_order,
+    x (NON VÉRIFIÉ en moteur). Zoom 2 (64 px/tuile)."""
+    rows = []
+    for lv in levels:
+        ims = []
+        for variant in ("lower", None):
+            W, H = 6 * PPT, int(8.6 * PPT)
+            ox, oy = 3 * PPT, int(6.9 * PPT)
+            ents = [{"pos": (ox, oy - 3 * PPT), "layers": CL.level_layers(lv, "N", base_order=variant)},
+                    {"pos": (ox, oy), "layers": CL.level_layers(lv, "N", base_order=variant)}]
+            for i, x in enumerate((-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)):
+                ents.append({"pos": (ox + int(x * PPT), oy - int(1.5 * PPT)), "layers": CL.wall_layers(i)})
+            day, _, _ = CL.compose(ents, W, H)
+            lab = ("socle lower-object (défaut vanilla)" if variant == "lower"
+                   else "socle %s (règle V3)" % ("object, sous la tête" if CL.base_order_of(lv) == "object" else "lower-object"))
+            ims.append(label_band(CL.to_img(day), [(W / 2, lab)], 20, 13))
+        row = Image.new("RGB", (sum(i.width for i in ims) + 8, ims[0].height), (24, 22, 20))
+        row.paste(ims[0], (0, 0))
+        row.paste(ims[1], (ims[0].width + 8, 0))
+        rows.append(label_band(row, [(row.width / 2, "niveau %d (époque %d · %s) : mur et 2e tourelle au nord" % (
+            lv, D.epoch_of(lv), D.EPOCH_NAME[D.epoch_of(lv)]))], 22, 15))
+    W = max(r.width for r in rows)
+    full = Image.new("RGB", (W, sum(r.height for r in rows)), (24, 22, 20))
+    y = 0
+    for r in rows:
+        full.paste(r, (0, y))
+        y += r.height
+    return full
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="S", help="direction de tête des planches a, b, c (S : lentille de face ; "
                     "la planche f montre les 4 poses)")
-    ap.add_argument("--only", default="abcdef")
+    ap.add_argument("--only", default="abcdefg")
+    ap.add_argument("--north", default="5,17,25,27,30", help="niveaux de la planche g")
     a = ap.parse_args()
     paths = []
     if any(c in a.only for c in "abc"):
@@ -263,6 +299,8 @@ def main():
         paths.append(save(c["nuit"], "laser-e-gros-plans-zoom2-nuit.png"))
     if "f" in a.only:
         paths.append(save(board_poses(), "laser-f-poses-zoom1-jour.png"))
+    if "g" in a.only:
+        paths.append(save(board_north([int(x) for x in a.north.split(",")]), "laser-g-ordre-nord-zoom2.png"))
     return paths
 
 

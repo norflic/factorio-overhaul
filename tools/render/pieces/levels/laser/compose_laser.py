@@ -46,22 +46,46 @@ def vanilla_layer(key, frame=0, kind="main", order="lower"):
     return {"img": img, "x0": int(round(x0)), "y0": int(round(y0)), "kind": kind, "order": order}
 
 
-def own_layer(level, part, layer, order):
+def own_layer(level, part, layer, order, sec=0):
     p = os.path.join(OUT, "L%02d" % level, "%s-%s.png" % (part, layer))
     if not os.path.exists(p):
         return None
-    return {"img": load_rgba(p), "x0": -D.ORIGIN_PX[0], "y0": -D.ORIGIN_PX[1], "kind": layer, "order": order}
+    org = D.LIGHT_ORIGIN_PX if layer == "light" else D.ORIGIN_PX     # couche halo : canevas propre (V3)
+    return {"img": load_rgba(p), "x0": -org[0], "y0": -org[1], "kind": layer, "order": order, "sec": sec}
 
 
-def level_layers(level, direction="E", with_glow=True):
-    """Couches d'un niveau dans une direction de tête (N, E, S, W)."""
+def base_north_top(level):
+    """Haut (tuiles, y vers le bas) du socle seul (couche principale, alpha ≥ 0,5) ; None pour les niveaux 1 et 2."""
+    if level <= 2:
+        return None
+    p = os.path.join(OUT, "L%02d" % level, "base-main.png")
+    if not os.path.exists(p):
+        return None
+    rows = np.nonzero((load_rgba(p)[..., 3] >= 0.5).any(1))[0]
+    return float((rows.min() - D.ORIGIN_PX[1]) / 64.0) if rows.size else None
+
+
+def base_order_of(level):
+    """Correction V3 (vérification passe 5, majeur 2) : couche du SOCLE. Le vanilla dessine base_picture en
+    « lower-object » (défaut de TurretPrototype.base_picture_render_layer) : un socle qui MONTE au-dessus du bord nord de
+    l'emprise (colonne, mât, cheminée) serait alors recouvert par tout sprite de la couche « object » posé au nord (mur,
+    autre tourelle), alors qu'il est DEVANT. Règle : socle dont le haut dépasse le bord nord (y < -1) -> « object »,
+    base_picture_secondary_draw_order 0 < gun_animation_secondary_draw_order 1 (la tête reste au-dessus de son socle).
+    Ordre supposé dans une couche : y de l'entité, puis secondary_draw_order, puis x (NON VÉRIFIÉ en moteur)."""
+    top = base_north_top(level)
+    return "object" if (top is not None and top < -1.0) else "lower"
+
+
+def level_layers(level, direction="E", with_glow=True, base_order=None):
+    """Couches d'un niveau dans une direction de tête (N, E, S, W). base_order : None = règle base_order_of (V3),
+    « lower » = comportement vanilla par défaut (planche de comparaison g)."""
     lays = []
     fr = D.DIR_FRAME[direction]
     if level <= 2:
         lays.append(vanilla_layer("base_shadow", kind="shadow"))
         lays.append(vanilla_layer("base", order="lower"))
         lays.append(vanilla_layer("head_shadow", frame=fr, kind="shadow"))
-        lays.append(vanilla_layer("head", frame=fr, order="object"))
+        lays.append(dict(vanilla_layer("head", frame=fr, order="object"), sec=1))
         if level == 2:
             for k in ("shadow", "main", "glow", "light"):
                 l2 = own_layer(2, "base", k, "lower")
@@ -69,14 +93,31 @@ def level_layers(level, direction="E", with_glow=True):
                     lays.append(l2)
         return lays
     odd = level if level % 2 else level - 1
+    border = base_order or base_order_of(level)
     for k in ("shadow", "main", "glow", "light"):
-        l2 = own_layer(level, "base", k, "lower")
+        l2 = own_layer(level, "base", k, border, sec=0)
         if l2 is not None and (with_glow or k in ("shadow", "main")):
             lays.append(l2)
     for k in ("shadow", "main", "glow", "light"):
-        l2 = own_layer(odd, direction, k, "object")
+        l2 = own_layer(odd, direction, k, "object", sec=1)
         if l2 is not None and (with_glow or k in ("shadow", "main")):
             lays.append(l2)
+    return lays
+
+
+# --- mur vanilla (entities.lua:5084-5125, stone-wall straight_horizontal, hr) : planche (g), ordre au nord
+WALL = {"file": "wall/hr-wall-horizontal.png", "w": 64, "h": 92, "shift": (0.0, -2 / 32), "line_length": 6}
+WALL_SHADOW = {"file": "wall/hr-wall-horizontal-shadow.png", "w": 124, "h": 68, "shift": (14 / 32, 15 / 32)}
+
+
+def wall_layers(variant=0):
+    lays = []
+    for spec, kind, fr in ((WALL_SHADOW, "shadow", 0), (WALL, "main", variant % 6)):
+        im = load_rgba(os.path.join(DATA, "base", "graphics", "entity", spec["file"]))
+        img = im[0:spec["h"], fr * spec["w"]:(fr + 1) * spec["w"]]
+        x0 = spec["shift"][0] * 64 - spec["w"] / 2.0
+        y0 = spec["shift"][1] * 64 - spec["h"] / 2.0
+        lays.append({"img": img, "x0": int(round(x0)), "y0": int(round(y0)), "kind": kind, "order": "object", "sec": 0})
     return lays
 
 
@@ -111,10 +152,15 @@ def compose(entities, W, H, bg=None):
                     shadow[d] = np.maximum(shadow[d], lay["img"][s][..., 3])
     day = day * (1 - 0.5 * shadow)[..., None]
     for order in ("lower", "object"):
-        for e in sorted(entities, key=lambda e: (e["pos"][1], e["pos"][0])):
-            for lay in e["layers"]:
+        # ordre supposé dans une couche (V3, NON VÉRIFIÉ en moteur) : y de l'entité, secondary_draw_order, x
+        items = []
+        for i, e in enumerate(entities):
+            for j, lay in enumerate(e["layers"]):
                 if lay["kind"] == "shadow" or lay["order"] != order:
                     continue
+                items.append((e["pos"][1], lay.get("sec", 0), e["pos"][0], i, j, e, lay))
+        for (_, _, _, _, _, e, lay) in sorted(items, key=lambda t: t[:5]):
+            if True:
                 s, d = region(lay, e["pos"])
                 if s is None:
                     continue
@@ -134,16 +180,22 @@ def compose(entities, W, H, bg=None):
     return day, night, cover
 
 
-def mask_of(level, direction, thr=0.5):
+def mask_of(level, direction, thr=0.5, noflat=False):
     """Masque D1 (alpha ≥ 128) des couches principales (socle + tête), sur le canevas fixe, 64 px/tuile.
-    Sans ombre, lueur ni halo (bible §1.4) ; aucune couche plate au sol n'existe dans ces rendus."""
+    Sans ombre, lueur ni halo (bible §1.4). noflat (correction V3, mineur 5 ; Q13) : le socle est pris dans la passe
+    « noflat », rendue SANS ses objets plats au sol (anneau-halo du niveau 30, patins, soles : laser_design.FLAT_Z) et
+    sans liseré de contact ; la docstring de la passe 5 affirmait à tort qu'aucune couche plate n'existait."""
     W, H = D.CANVAS_W, D.CANVAS_H
     a = np.zeros((H, W))
     lays = [l for l in level_layers(level, direction, with_glow=False) if l["kind"] == "main"]
-    for order in ("lower", "object"):
-        for lay in lays:
-            if lay["order"] != order:
-                continue
+    if noflat and level >= 3:
+        p = os.path.join(OUT, "L%02d" % level, "base-noflat.png")
+        if os.path.exists(p):
+            lays = [l for l in lays if l["sec"] != 0] + [{"img": load_rgba(p), "x0": -D.ORIGIN_PX[0], "y0": -D.ORIGIN_PX[1],
+                                                         "kind": "main", "order": "lower", "sec": 0}]
+            lays.sort(key=lambda l: l["sec"])
+    for lay in sorted(lays, key=lambda l: l.get("sec", 0)):
+        if True:
             h, w = lay["img"].shape[:2]
             xi, yi = D.ORIGIN_PX[0] + lay["x0"], D.ORIGIN_PX[1] + lay["y0"]
             src = lay["img"][..., 3]

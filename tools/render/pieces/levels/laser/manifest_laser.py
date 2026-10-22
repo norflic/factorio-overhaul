@@ -8,6 +8,8 @@ comme graphics/<dest>/sprites.lua de tools/render/render.py) avec la clé "%02d"
 GRAPHIQUES du prototype electric-turret qui y sont nommés, et eux seuls (garde de Common.dress) :
   base_picture, prepared_animation, folded_animation, preparing_animation, folding_animation,
   energy_glow_animation, glow_light_intensity, water_reflection, drawing_box,
+  base_picture_render_layer, base_picture_secondary_draw_order, gun_animation_secondary_draw_order (correction V3,
+  majeur 2 : socles qui montent au-dessus du bord nord de l'emprise ; champs admis par la garde, common.lua:169-170),
   attack_parameters.source_offset, attack_parameters.ammo_type.action.action_delivery.source_offset
 (source_offset est une sous-clé visuelle autorisée : VISUAL_SUBKEYS). Les durées de jeu (preparing_speed,
 folding_speed × nombre d'images) restent celles du vanilla : 15 images de déploiement, vitesse 0,05.
@@ -70,6 +72,22 @@ def part_spec(level, part, file_stem):
                                         "graine": rr["seed"]}}
 
 
+def layer_fields(lv, m):
+    """Couche du socle proposée. Vanilla : base_picture en « lower-object » (défaut). Un socle dont le haut dépasse le
+    bord nord de l'emprise (colonne, mât, cheminée) serait recouvert par tout sprite « object » posé au nord (mur,
+    autre tourelle) alors qu'il est devant : il passe en « object », sous la tête (secondary_draw_order 0 < 1)."""
+    top = m.get("base_top") if m else None
+    layer = m.get("base_layer", "lower") if m else "lower"
+    if layer == "object":
+        return {"base_picture_render_layer": "object", "base_picture_secondary_draw_order": 0,
+                "gun_animation_secondary_draw_order": 1,
+                "note_couche": ("haut du socle seul à y = %.2f tuile, au-dessus du bord nord de l'emprise (y = -1) : socle en "
+                                "« object » sous la tête. Ordre de dessin NON VÉRIFIÉ en moteur (capture phase 2 : mur et "
+                                "2e tourelle au nord)" % top)}
+    return {"note_couche": "socle sous le bord nord de l'emprise (haut %s) : base_picture_render_layer vanilla "
+                           "(lower-object) conservé" % ("%.2f" % top if top is not None else "-")}
+
+
 def lens_world(e, heading):
     """Lentille de l'époque, cap donné : (dx, dy) au sol en tuiles depuis le centre et hauteur à l'écran (tuiles)."""
     x, y, z = D.LENS_LOCAL[e]
@@ -107,13 +125,19 @@ def main():
     for lv in D.LEVELS:
         e = D.epoch_of(lv)
         odd = lv if lv % 2 else lv - 1
+        m_lv = meas.get("levels", {}).get(str(lv))
         ent = {"epoque": e, "nom_epoque": D.EPOCH_NAME[e], "ere": D.ERA_NAME[D.ERA[e]],
                "step": 1 if lv % 2 else 2,
                "silhouette": D.ODD_DESIGN[e], "piece": D.EVEN_PIECE[e] if lv % 2 == 0 else None,
                "collision_box": [[-0.7, -0.7], [0.7, 0.7]], "selection_box": [[-1, -1], [1, 1]],
                "halo_nuit": {"glow_light_intensity": round(D.halo_intensity(lv), 3),
                              "taille_tuiles": round(D.halo_size(lv), 3),
-                             "source": "bible §1.6, D2-3 : I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N) (proposition)"}}
+                             "source": "bible §1.6, D2-3 : I(N) = 0,05 + 0,02 N, S(N) = 2 (1 + 0,05 N) (proposition)",
+                             "realisation_v3": ("couche draw_as_light du socle : flaque au sol de pic LIGHT_MAX × I(N)/I(30), "
+                                                "pleine jusqu'à 0,25 S(N), nulle à 0,75 S(N) (rayon à mi-intensité S(N)/2), "
+                                                "+ cœurs rendus autour des sources ; canevas propre des halos "
+                                                "(origine %s px, %d × %d px hr)" % (list(D.LIGHT_ORIGIN_PX), D.LIGHT_W, D.LIGHT_H)),
+                             "mesure": ({k: round(v, 3) for k, v in m_lv["halo"].items()} if (m_lv and "halo" in m_lv) else None)}}
         if lv == 1:
             ent["source"] = "vanilla inchangé (Q11) : data/base/prototypes/entity/turrets.lua:883-1041 ; dress n'est pas appelée"
         elif lv == 2:
@@ -140,6 +164,8 @@ def main():
                                                                   "qu'une couche de pièce séparée, ombres et liseré exacts)"
                                                                   if lv % 2 == 0 else "")),
                                  "couches": base},
+                # correction V3 (vérification passe 5, majeur 2) : couche du socle (compose_laser.base_order_of)
+                **layer_fields(lv, m_lv),
                 "prepared_animation": {"mode": "remplace", "direction_count": 64, "frame_count": 1, "line_length": 8,
                                        "tete_du_niveau": odd,
                                        "poses_apercu": heads,
@@ -157,7 +183,7 @@ def main():
                 "pivot_z_unites": D.PIVOT[e], "tete_echelle": D.HEAD_SCALE[e],
             }
             ent["water_reflection_note"] = "retiré (bible §1.8-5 : garder le reflet vanilla sous une autre silhouette est un défaut D3)"
-        m = meas.get("levels", {}).get(str(lv))
+        m = m_lv
         if m:
             env = [min(p["left"] for p in m["poses"].values()), min(p["top"] for p in m["poses"].values()),
                    max(p["right"] for p in m["poses"].values()), max(p["bottom"] for p in m["poses"].values())]
@@ -165,6 +191,8 @@ def main():
             ent["drawing_box_proposee"] = [[round(min(env[0], -1.0), 2), round(env[1], 2)],
                                            [round(max(env[2], 1.0), 2), round(max(env[3], 1.0), 2)]]
             ent["O_max"] = round(m["O_max"], 3)
+            ent["O_brut_max"] = round(m.get("O_brut_max", m["O_max"]), 3)
+            ent["note_O"] = "O = sommet des masses (tiges < 0,15 tuile exclues, bible §1.4) ; O_brut = tiges comprises"
             if "dress" in ent:
                 ent["dress"]["drawing_box"] = ent["drawing_box_proposee"]
         levels["%02d" % lv] = ent
@@ -178,7 +206,9 @@ def main():
                          "champs_poses": ["base_picture", "prepared_animation", "folded_animation", "preparing_animation",
                                           "folding_animation", "energy_glow_animation", "glow_light_intensity",
                                           "water_reflection", "drawing_box", "attack_parameters.source_offset",
-                                          "attack_parameters.ammo_type.action.action_delivery.source_offset"],
+                                          "attack_parameters.ammo_type.action.action_delivery.source_offset",
+                                          "base_picture_render_layer", "base_picture_secondary_draw_order",
+                                          "gun_animation_secondary_draw_order"],
                          "icons": "phase 2 : rendu de la pose de référence (tête N + socle), 64 px et 3 mipmaps, + numéro (lib.tier_icons)"},
         "conventions": {"hr": "64 px/tuile, scale 0,5", "lr": "32 px/tuile, scale 1 (réduction 2× en linéaire prémultiplié)",
                         "shift": "tuiles, multiples de 1/64, générés (jamais réglés à la main)",
@@ -186,7 +216,9 @@ def main():
                         "codage_additif": "RGB = c / max(c), A = max(c) (fo_post.additive_layer)",
                         "arborescence_phase2": "graphics/levels/laser/e<NN>/{socle-nNN,tete,piece-n02}-{couleur,ombre,lueur,halo,masque}.png (bible §1.9)"},
         "canevas_apercu": {"largeur": D.CANVAS_W, "hauteur": D.CANVAS_H, "origine_px": list(D.ORIGIN_PX),
-                           "px_par_tuile": D.PPT, "note": "toutes les couches d'aperçu partagent ce canevas : origine = position de l'entité"},
+                           "px_par_tuile": D.PPT, "note": "couches couleur, ombre et lueur : origine = position de l'entité",
+                           "halo": {"largeur": D.LIGHT_W, "hauteur": D.LIGHT_H, "origine_px": list(D.LIGHT_ORIGIN_PX),
+                                    "note": "couches halo (draw_as_light) sur un canevas plus grand, même grille (V3)"}},
         "phase2_a_rendre": {"tete_prepared": "64 directions (8 × 8, comme le vanilla), 1 image",
                             "deploiement": "15 images × 4 directions (Q12 : aucune économie)",
                             "masque_couleur_equipe": "à rendre (apply_runtime_tint), absent des aperçus",
