@@ -80,11 +80,11 @@
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
 | D3 | Précision du rendu | 🟨 | Socle caché sous le four ; aucune revue en gros plan |
-| E1 | Échelons façon Clash of Clans (mécanique) | ✅ | Étendu à 15 époques et 30 niveaux, prouvé en moteur réel (`content` 209 OK, 21/10, 20 h 39) |
+| E1 | Échelons façon Clash of Clans (mécanique) | 🟨 | V2c (22/10, corrigé) : amélioration instantanée, condition du centre (Q16), coûts recalibrés sur X0 ; prouvé hors jeu, **moteur réel à passer** (`content` attendu 212 OK). **Non conforme** : passage du centre ≈ 10 % du budget (QX10) tenu aux époques 1 à 4 seulement (3,35 % à 0,11 % ensuite, règle de place) ; calendrier de 52 h tenu par la base de référence complète seulement (chemin le plus court : 3 h 27). À trancher : Q-V2c-1 |
 | E2 | **Qualité des niveaux : chaque niveau se voit** | ❌ | Même constat que D1 |
-| E3 | Boucle « presque idle game » | 🟨 | Mécanismes idle manquants. **Écart chiffré par V2 : sans file de chantiers, il faut relancer un chantier toutes les 10 s à l'époque 6 (Q17)** |
+| E3 | Boucle « presque idle game » | 🟨 | Mécanismes idle manquants. Plus de chantiers à relancer depuis V2c (amélioration instantanée, Q19) : l'écart « un chantier toutes les 10 s » est sans objet |
 | E4 | Interface des niveaux (panneau, touche U) | 🟨 | Jamais vue à l'écran en moteur réel |
-| **F1** | **Jeu continu en 15 époques** | 🟨 | Cadre posé et prouvé en moteur réel (V2) ; contenu des époques en conception (X0) ; visuel en production (V3) |
+| **F1** | **Jeu continu en 15 époques** | 🟨 | Cadre posé et prouvé en moteur réel (V2) ; calendrier unique (X0) recopié par les niveaux, durée impliquée 59 h 35 pour la base de référence complète (V2c, hors jeu ; rien n'impose ce rythme : Q-V2c-1) ; contenu des époques en conception (X0) ; visuel en production (V3) |
 
 ---
 
@@ -375,17 +375,21 @@
 ### E1 · Échelons façon Clash of Clans (mécanique)
 - **Demande** : « niveau clash of clans en termes d'échelons, de qualité de levels… pratiquement idle
   game ».
-- **Critères d'acceptation** (tous ✅)
+- **Critères d'acceptation** (1 à 7 prouvés en moteur réel par V2 avant Q19 ; 3, 4 et 8 révisés ou ajoutés
+  par V2c, prouvés hors jeu seulement)
   1. Un centre de commandement (l'hôtel de ville) plafonne les autres bâtiments.
   2. ~~Les ouvriers limitent les chantiers simultanés.~~ Sans objet depuis Q19 (amélioration instantanée). Les PNJ
      améliorent eux aussi les bâtiments en y apportant les ressources (C5, lot IA1).
-  3. Coûts et durées croissent ; les ressources des biomes servent de monnaie aux hauts niveaux.
+  3. Les coûts croissent (les durées n'existent plus depuis Q19) ; les ressources des biomes servent de
+     monnaie aux hauts niveaux.
   4. ~~Le bâtiment est hors service pendant son chantier.~~ **Révisé le 21/10 (Q19)** : l'amélioration est
      INSTANTANÉE dès que les ressources sont là, comme poser un bâtiment. Plus de durée de chantier, plus de
      limite d'« ouvriers » de chantier (lot V2c).
   5. Contenu, recette, munitions et santé sont conservés.
-  6. 7 familles × 10 niveaux.
+  6. 7 familles : centre de 1 à 15, les 6 autres de 1 à 30 (V2 ; 10 niveaux en 0.3.0).
   7. Le bonus de recherche est hérité.
+  8. **Q16 (lot V2c)** : le centre ne passe du niveau c à c + 1 que si chaque famille possédée a un bâtiment
+     au niveau min(30, 2c) ; le panneau dit ce qui bloque.
 - **État** : ✅ Étendu à 15 époques par le lot V2, prouvé en moteur réel (`content` **209 OK, 0
   échec**, 21/10, 20 h 39 ; E32). Le banc couvre :
   - 195 niveaux : centre de 1 à 15, 6 familles de 1 à 30 ;
@@ -394,7 +398,26 @@
   - règle de place : un chantier tient dans la moitié du coffre du centre ;
   - héritage F21 jusqu'au niveau 30 ;
   - 0 secours manuel.
-  La courbe par époque est dans BALANCE_SHEET §12. Questions ouvertes : Q14 à Q16.
+  La courbe par époque est dans BALANCE_SHEET §12. Q14 à Q16 répondues (21/10, 21 h 25) ; question ouverte :
+  Q-V2c-1 (§4).
+- **Lot V2c (22/10, hors jeu ; moteur réel NON passé)** : amélioration instantanée (Q19 : payée, puis
+  remplacement rapide dans le même appel ; plus d'ouvriers, de durées, de bâtiment hors service) ;
+  condition du centre (Q16 : refus « cc-families » sans paiement, panneau et interface distante) ;
+  chantiers 0.3.0 et 0.4.0 en cours ACHEVÉS au chargement ; coûts recalibrés sur le calendrier X0
+  (BALANCE_SHEET §12). Correction après vérification (2 vérificateurs, 13 problèmes) : garde de dress étendue
+  au scénario X0 (sonde probe_x refusée), recensement Q16 en cache par force (panneau du centre ouvert :
+  0 recensement en 300 ticks ; chaque décision recense en entier), fluid-handling allégée en jeu (barils
+  générés), `--calibrate` reproductible (la config livrée est sa sortie), paiement mixte, chantiers à cible
+  invalide et rangée mixte testés. Preuves : levels_test 1 459 OK et **11 écarts connus** comptés à part,
+  migration_test 29 OK, étape data 0 erreur, api_lint 0 erreur. Diff du banc `content` livré : 63 contrôles
+  de niveaux (60 avant), **BILAN attendu 212 OK**.
+  **Non conforme (QX10)** : le passage du centre vaut 23,2 %, 9,95 %, 5,6 % et 7,4 % du budget aux époques
+  1 à 4, puis de 3,35 % à 0,11 % (époque 14 : 192 820 u pour 14,5 M u visés, 75 fois moins) : la règle de
+  place (moitié du coffre) et des monnaies peu denses (baril de méthane, cristal) le bornent ; l'écart est
+  structurel. **Conséquence (QX7)** : le chemin le plus court (centre + un bâtiment de chaque famille
+  possédée au niveau visé) atteint le centre 15 en 3 h 27 avec 30 % de la production X0, contre 52 h 30 au
+  calendrier : les 52 h ne valent que si le joueur monte toute la base de référence. Remèdes chiffrés
+  (BALANCE_SHEET §12) : Q-V2c-1.
 
 ### E2 · Qualité des niveaux : chaque niveau se voit
 - **Critères d'acceptation** : D1, D2 et D3 appliqués à toutes les familles et à toutes les époques.
@@ -407,21 +430,24 @@
   1. L'usine alimente le centre par tapis, et la progression en découle. ✅
   2. Un score de « puissance de base » s'affiche et croît. ❌
   3. Des objectifs et récompenses par époque. ❌
-  4. Une file de chantiers (le suivant démarre dès qu'un ouvrier se libère). ❌
+  4. ~~Une file de chantiers (le suivant démarre dès qu'un ouvrier se libère).~~ Sans objet depuis Q19
+     (amélioration instantanée, lot V2c).
   5. Plus de familles à niveaux : tapis, bras, labos, énergie, tourelles spéciales, radars. ❌
   6. Les factions IA et la défense de tours utilisent aussi les niveaux et les époques. ❌
-- **État** : 🟨 **Écart chiffré par V2 (BALANCE_SHEET §12)** : sans file de chantiers (critère 4), la base de
-  référence relance 567 chantiers à l'époque 6, soit un toutes les 10 s. À l'époque 15, c'est 1 755
-  chantiers, un toutes les 26 s. Ce n'est pas une boucle « idle ». Proposition : avancer le critère 4
-  (Q17).
+- **État** : 🟨 L'écart chiffré par V2 (un chantier à relancer toutes les 10 s à l'époque 6) est **sans objet
+  depuis V2c** : il n'y a plus de chantier, chaque amélioration payable se fait aussitôt. Les critères 2, 3, 5
+  et 6 restent à faire.
 
 ### E4 · Interface des niveaux
 - **Critères d'acceptation**
-  1. Le panneau au survol affiche niveau, gains, coût (vert ou rouge), durée et ouvriers.
+  1. Le panneau au survol affiche niveau, gains, coût (vert ou rouge) et « amélioration instantanée » ; sur
+     le centre, la condition de son passage (niveau visé, familles qui bloquent ; Q16, lot V2c).
   2. La touche U et le bouton « Améliorer » fonctionnent.
   3. Une rangée de murs s'améliore en une fois.
-- **État** : 🟨 Testé hors jeu (556 contrôles), chantiers prouvés en moteur réel par l'interface
-  distante. **Le panneau n'a jamais été vu à l'écran.**
+- **État** : 🟨 Testé hors jeu en moteur simulé (levels_test, V2c : panneau, touche U, bouton, rangée de
+  murs, condition du centre et recensement en cache). Amélioration instantanée par l'interface distante :
+  banc `content` V2c à passer (attendu 212 OK ; les chantiers de V2 avaient été prouvés en moteur réel le
+  21/10). **Le panneau n'a jamais été vu à l'écran.**
 
 ### F1 · Jeu continu en 15 époques (nouveau, 21/10, 17 h 35)
 - **Demande** : « Pièces + 15 époques, comme je le disais, si je veux jouer en continue je veux pouvoir
@@ -445,7 +471,8 @@
     - au moins une **ressource exploitable** ou un matériau ;
     - de **nouveaux bâtiments** ou familles ;
     - tous les 3 époques, un **palier logistique** Compaction (B1).
-  - Les ouvriers passent de 1 à 5 (un de plus toutes les 3 époques).
+  - ~~Les ouvriers passent de 1 à 5 (un de plus toutes les 3 époques).~~ Sans objet depuis Q19 (amélioration
+    instantanée, lot V2c).
 - **Critères d'acceptation** ❔
   1. Les 15 époques sont jouables à la suite sur une même carte, sans blocage.
   2. Chaque époque apporte au moins une ressource ou un matériau, au moins un bâtiment nouveau, et une
@@ -459,9 +486,16 @@
      ce qui est vérifié automatiquement hors jeu, puis en moteur réel quand la branche est implémentée.
 - **État** : 🟨
   - **Cadre posé (V2), prouvé en moteur réel** (voir E1).
-  - Durée de jeu donnée par le modèle : 60 h 26 pour 60 h visées, chaque époque entre -2 % et +20 % de
-    sa cible. Selon les hypothèses : 73 h si les ouvriers ne sont occupés qu'à 50 % ; 86 h ou 46 h si
-    la production vaut × 0,7 ou × 1,3. **Non prouvé en partie réelle.**
+  - Durée de jeu donnée par le modèle (lot V2c, calendrier du scénario X0 lu par `L.target`, coûts
+    recalibrés) : époque 15 atteinte à 52 h 36 (X0 : 52 h 30), Porte ouverte à 59 h 35 (QX7 : 60 h),
+    chaque époque à 1,5 % près de sa durée X0 ; 85 h ou 46 h si la production vaut × 0,7 ou × 1,3. **Non
+    prouvé en partie réelle.** (V2 : 60 h 26 sur sa propre courbe, abandonnée.) **Limite** : ces heures
+    supposent que le joueur monte toute la base de référence ; le chemin le plus court atteint le centre 15
+    en 3 h 27 (30 % de la production X0). Le rythme n'est donc pas imposé (QX10 non tenu, Q-V2c-1).
+  - Recherche vanilla allégée (QX9, lot V2c) : 170 technologies vanilla sur 183 à nombre fixe d'unités
+    (par exemple automatisation 10 → 1, acier 50 → 8, fluid-handling 50 → 2 après correction : les barils
+    générés pour chaque fluide la faisaient passer à l'époque 8). Vérifié sur l'étape data réelle (harness) ;
+    non vu en jeu. Payée en packs vanilla, elle prend 13 à 18 % du budget X0 aux époques 1 à 4 (X0 : 17,5 %).
   - 5 matériaux d'époque sont encore provisoires (époques 11 à 15), en attendant X0.
   - X0 livré (21/10, 21 h 15, hors jeu) : « La Caustique d'Érèbe ». Scénario en 4 actes ; 15 époques ;
     4 branches avancées de l'époque 7 à 14 (A matière noire, B antimatière, C chronodynamique,
@@ -492,17 +526,17 @@
 | Q13 | Amender D1-3 (faille E27 : un simple agrandissement passait) ? | 21/10, 18 h 54 : « Oui, j'accepte l'amendement de D1-3 : socle exclu de la silhouette et mesure insensible à la taille (seuil à étalonner sur les premières pièces). » | D1-3 amendé : (a) couches plates au sol exclues du masque ; (b) recouvrement normalisé en échelle ≤ seuil à étalonner (proposition 0,75) ; s'ajoute à IoU < 0,50 |
 | Q14 | Tourelles à niveaux et tourelles lourdes du mod : (A) dégâts +2 %/niveau après le niveau 10, d'où un DPS au niveau 30 de 0,94 × la mitrailleuse lourde et 1,06 × le laser lourd (appliqué par V2) ; ou (B) des niveaux pour les tourelles lourdes, ou leur retrait ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → option A conservée | Tourelles à niveaux : DPS du niveau 30 ≈ tourelles lourdes |
 | Q15 | Sauvegardes 0.3.0 : un mur de niveau 10 passe de 3 712 à 1 925 PV (nouvelle courbe). D'accord ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → accepté | Murs 0.3.0 : PV ramenés au nouveau maximum au chargement |
-| Q16 | Condition façon Clash of Clans pour monter le centre (par exemple, tous les bâtiments au niveau maximal de l'époque) ? Aujourd'hui, monter le centre seul ne coûte que 0,9 % de la dépense | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, condition légère : au moins un bâtiment de chaque famille possédée au niveau maximal de l'époque pour monter le centre | Lot V2c |
+| Q16 | Condition façon Clash of Clans pour monter le centre (par exemple, tous les bâtiments au niveau maximal de l'époque) ? Aujourd'hui, monter le centre seul ne coûte que 0,9 % de la dépense | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, condition légère : au moins un bâtiment de chaque famille possédée au niveau maximal de l'époque pour monter le centre | Lot V2c : fait (22/10, hors jeu ; moteur réel à passer) |
 | Q17 | Avancer la file de chantiers (E3-4) avant la Compaction ? Sans elle, il faut relancer un chantier toutes les 10 s à l'époque 6 | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui, la file de chantiers passe avant la Compaction | **Sans objet depuis Q19** (amélioration instantanée) |
 | QX1 | Phase « brûleur » aux époques 1 et 2, l'électricité n'arrivant qu'à l'époque 3 ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | Lots X1-X3 |
 | QX2 | Le Serment (époque 13) : une seule maîtrise de branche (III) et sa merveille avant l'époque 15, les autres à l'époque 15 ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | Branches |
 | QX3 | Défaite si une faction ouvre sa Porte avant vous (X0 : en Difficile et en Impitoyable) ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → défaite seulement en Impitoyable | C4, fin de partie |
 | QX4 | Antimatière : (a) environ 1,8 GW nets par réacteur (rendement positif, fiction assumée) ou (b) simple stockage d'énergie ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → (a) énergie nette, fiction assumée | Branche B |
 | QX5 | Les noms : Érèbe, Caustique, Cœur, Convoi, Compagnie, Porte ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → noms conservés (Érèbe, Caustique, Cœur, Convoi, Compagnie, Porte) | Textes |
-| QX6 | Un 6e ouvrier offert par la merveille « Horloge éternelle », au-delà de « 1 à 5 » ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | F1 : 6e ouvrier par la merveille |
-| QX7 | « Époque 15 vers 60 h » : heure où l'on ATTEINT l'époque 15, ou heure où l'on ouvre la Porte (lecture actuelle : époque 15 à 52,5 h, Porte à 59,5 h) ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → 60 h = ouverture de la Porte (époque 15 vers 52 h) | Lot V2c (recalibrage) |
+| QX6 | Un 6e ouvrier offert par la merveille « Horloge éternelle », au-delà de « 1 à 5 » ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → oui | ~~F1 : 6e ouvrier par la merveille~~ **Sans objet depuis Q19** (plus d'ouvriers) ; nouvel effet de l'Horloge éternelle : Q-V2c-2 |
+| QX7 | « Époque 15 vers 60 h » : heure où l'on ATTEINT l'époque 15, ou heure où l'on ouvre la Porte (lecture actuelle : époque 15 à 52,5 h, Porte à 59,5 h) ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → 60 h = ouverture de la Porte (époque 15 vers 52 h) | Lot V2c : modèle tenu pour la base de référence COMPLÈTE (époque 15 à 52 h 36, Porte à 59 h 35 ; hors jeu) ; chemin le plus court : centre 15 en 3 h 27 (30 % de la production) : rythme non imposé, voir Q-V2c-1 |
 | QX8 | Les bâtiments vanilla qui arrivent après l'époque 1 (mur, four, foreuse, assembleur, laser) naissent au niveau 1 et rattrapent leurs niveaux en payant, ou naissent au niveau de leur époque ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → naissance au niveau 1, rattrapage payant | E1, F1 |
-| QX9 | Aux époques 2 à 4, 6 et 10, la recherche vanilla coûte jusqu'à 11 fois le budget du modèle : alléger la recherche vanilla (×0,04 à ×0,25 d'unités) ou plus de production plus tôt ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → alléger la recherche vanilla des premières époques | Lot V2c (recalibrage) |
+| QX9 | Aux époques 2 à 4, 6 et 10, la recherche vanilla coûte jusqu'à 11 fois le budget du modèle : alléger la recherche vanilla (×0,04 à ×0,25 d'unités) ou plus de production plus tôt ? | 21/10, 21 h 25 : « OK pour toutes vos recommandations sur Q14 à Q17 et QX1 à QX9. » → alléger la recherche vanilla des premières époques | Lot V2c : fait hors jeu (`data-final-fixes.lua`, 170 technologies allégées, fluid-handling comprise après correction ; étape data réelle vérifiée) ; moteur réel à passer |
 | Q18 | Quand construire IA1 (équipes de PNJ organisées, C5) ? | 21/10, 21 h 38 : « Oui : IA1 se construit en parallèle de la Compaction, juste après le visuel. » | Ordre : visuel (V) → Compaction (C) ET IA1 en parallèle (fichiers distincts) → contenu des époques (X) → idle (I) |
 | Q19 | Précision sur l'amélioration, les PNJ et le scénario (transcription du 21/10, 21 h 45) | « quand je parlais d'amélioration […] Dans Clash of Clans, c'est on améliore et on attend. Alors que là, l'idée, c'est si on a les ressources, on améliore, terminé. Parce que c'est comme pour poser les constructions […] c'est instantané. Bah, c'est pareil pour l'amélioration en vérité. […] la logique en fait de pipeline […] de production, qui s'adapterait à l'environnement […] il y aurait différents pôles […] peut-être que 5 entre guillemets, et ces 5 là ils piloteraient en fait différentes parties […] ça serait vraiment des ouvriers à part entière, mais qui soient multifonctions […] les couteaux suisses […] concentrer nos efforts sur tel ou tel aspect, que ce soit la ressource, que ce soit l'amélioration de la base […] la protection […] pouvoir dire je veux contrôler cette zone là […] j'ai relu votre scénario et le scénario est bien […] je l'aime bien. Très difficile à mon avis à faire en modèle, etc., 3D, mais je suis sûr que vos agents y arriveront. Paralyser un maximum pour essayer d'avancer au plus vite, mais tant que c'est qualitatif […] et pas uniquement on change la saturation ou la teinte des bâtiments […] il faut que ce soit également optimisé […] il faut pas qu'il y ait 1 million de polygones » | (1) **Amélioration instantanée** dès que les ressources sont là, pour le joueur comme pour les PNJ : plus de durée ni de limite de chantiers (E1 révisé ; Q17 sans objet) → lot V2c. (2) C5 précisé : production adaptative pilotée par les objectifs, pôles, environ 5 généralistes sur 30, contrôle de zones → lot IA1 relancé. (3) **Scénario X0 approuvé**. (4) 3D : qualité exigée, parallélisme maximal, budget d'optimisation (D4) |
 | Q20 | Synthèse de Q19 conforme ? Mémoire vidéo visée ? | 21/10, 21 h 52 : « Ok, oui, continuez, la synthèse est parfaite. […] Concernant la mémoire vidéo, partez du principe que je jouerai sur des PC qui auront au minimum 8 Go de VRAM. Ce PC actuel en a 16. C'est une RX 6900 XT […] globalement 8 Go de VRAM, c'est bien pour la mémoire vidéo. » | Synthèse validée ; D4-1 : PC cible à 8 Go de mémoire vidéo minimum, atlas du jeu ≤ 6 Go |
@@ -515,6 +549,8 @@
 | Q-IA1-5 | Votre équipe en mode « Assisté » par défaut (elle construit dans des zones que vous tracez, première couronne de 8 lots constructible d'office), mode « Autonome » en option ? | **Ouverte** (proposition : oui) | C5-4 |
 | Q-IA1-6 | Que pilotent les 5 généralistes ? (1) un domaine chacun ; (2) des parties durables de la base, avec des exécutants nommés ; (3) des projets de bout en bout | **Ouverte** (proposition : 2) | C5-2 |
 | Q-IA1-7 | « S'améliorer plus vite » : les rangs des PNJ, ou la vitesse d'amélioration des bâtiments ? En fin de partie, les PNJ gardent-ils un léger avantage de vitesse sur le joueur ? | **Ouverte** (proposition : les rangs ; avantage maintenu) | C5-6 |
+| Q-V2c-1 | QX10 (passage du centre ≈ 10 % du budget) n'est tenu qu'aux époques 1 à 4 : la règle de place (le coût tient dans la moitié du coffre du centre) et les monnaies d'aujourd'hui le bornent à 3,35 % puis 0,11 % du budget, et le centre 15 s'atteint en 3 h 27 par le chemin le plus court (52 h 30 au calendrier). Remède : (a) un objet dense propre au passage (le « Codex k » du scénario X0) ; (b) un remplaçant dense provisoire en attendant les monnaies de X0 ; (c) une règle de place assouplie (ou un coffre plus grand) pour le seul centre ; ou (d) accepter l'écart ? | — (ouverte, lot V2c, 22/10) | Recommandation de l'architecte : (a), le Codex k étant déjà prévu par X0 ; d'ici là, QX10 et le rythme de 52 h sont NON CONFORMES (comptés « écarts connus » par levels_test) |
+| Q-V2c-2 | Depuis Q19 (amélioration instantanée), l'« Horloge éternelle » (6e ouvrier, 2 sabliers par chantier, QX6) et le « Sablier quantique » (− 25 % de durée de chantier) du scénario X0 n'ont plus d'effet. Que doivent-ils offrir ? (par exemple : remise sur le coût des améliorations, amélioration d'une zone entière d'un coup, rangées de tous les bâtiments) | — (ouverte, lot V2c, 22/10) | Diff de nettoyage de `shared/content/epochs.lua` et de `docs/SCENARIO_EPOQUES.md` proposé (commentaires « sans objet depuis Q19 ») ; l'effet nouveau attend votre réponse |
 
 ## 5. Historique des écarts signalés par vous
 
@@ -629,7 +665,7 @@ apport.md | 21/10, 19 h 55 |
 | IA0 PvP et difficulté | 🟨 intégré, C4-4 prouvé en moteur réel ; A1 non mesuré ; base défendue jamais attaquée → lot IA0b | pvp_test 274, war 92 ; ia0-normal 14 OK, ia0-paisible 11 OK, ia0-difficile 7 OK (20 h 40 à 20 h 45) | 21/10, 20 h 45 |
 | IA0b Base défendue attaquée selon la difficulté | ✅ intégré et prouvé en moteur réel | Hors jeu : pvp_test 596 OK. **Moteur réel** (22/10, 0 h 53 à 0 h 55) : ia0-defendue 11 OK (base de 3 tourelles attaquée au tick 96 601) ; ia0-defendue-forte 13 OK (12 tourelles, défense 96 : Écarlate revient à 16, 29, 40 puis 46 soldats) ; ia0-defendue-impitoyable 14 OK (assaut coordonné : Écarlate ouvre au tick 50 700, Ambre et Émeraude le rejoignent) ; journaux fo-logs\2026-10-22_integration_IA0b-V2b_* | 22/10, 0 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
-| V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ⏳ à lancer après l'intégration de V2b (mêmes fichiers) | — | — |
+| V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | 🟨 livré et corrigé hors jeu ; **moteur réel à passer** (`content` attendu 212 OK) ; **QX10 non conforme après l'époque 4, rythme de 52 h non imposé** (Q-V2c-1) | levels_test 1 459 OK + 11 écarts connus, migration_test 29 OK, run 114, war 92, td 270, pteam 15, epochs 16 665, pvp 596 ; étape data 0 erreur, 0 violation, 0 clé manquante ; api_lint 0 erreur ; durée impliquée 59 h 35 (base de référence complète) ; chemin le plus court 3 h 27 | 22/10 |
 | IA1 Conception des équipes de PNJ organisées (C5) | ✅ conception intégrée ; 👁 7 questions à vous poser | 3 concepteurs, 2 juges, 2 critiques (10 majeurs et 14 mineurs corrigés) ; org_test 362 OK ; aucun comportement en jeu | 22/10, 1 h 15 |
 | D4m Banc mémoire vidéo et usine géante (D4) | 🟨 intégré (22/10, 1 h) ; hors jeu 5/5 (vram.py sur 8 journaux : 15 atlas, 1,10 à 1,25 Go estimés ; greffon d4-geant : jusqu'à 2 588 bâtiments à niveaux dans le champ z0,3) ; mesures en moteur réel après V0b | — | 22/10, 1 h |
 

@@ -231,8 +231,8 @@ X.acts = {
 }
 
 --- Durée de l'époque k en heures (greffe P2 : 0,5 h × k, plafonnée à 7 h).
---- ÉCART connu : le lot V2 (shared/levels/config.lua, L.target.epoch_hours) vise 0,5 × 1,261^(k-1) h
---- (12,9 h pour l'époque 15) ; même total d'environ 60 h, répartition différente (QX7, §9 du scénario).
+--- Depuis le lot V2c, la config des niveaux (shared/levels/config.lua, L.target) RECOPIE ce calendrier au
+--- chargement : une seule source (QX10). La courbe propre du lot V2 (0,5 × 1,261^(k-1) h) n'existe plus.
 function X.epoch_hours(k) return math.min(0.5 * k, 7) end
 --- Heure (cumulée, nominale) à laquelle le joueur ATTEINT l'époque k.
 function X.reach_hour(k)
@@ -243,6 +243,8 @@ end
 --- Palier logistique (Compaction) de l'époque k : T1 aux époques 1-3, T2 aux 4-6… T5 aux 13-15.
 function X.logistics_tier(k) return math.floor((k - 1) / 3) + 1 end
 --- Ouvriers d'amélioration : un de plus toutes les 3 époques (1 à 5) ; +1 avec l'Horloge éternelle (QX6).
+--- SANS OBJET depuis Q19 (amélioration instantanée, lot V2c : plus d'ouvriers ni de chantiers) ; gardé tant que
+--- tests/epochs_test.lua le contrôle et que l'effet nouveau de l'Horloge n'est pas décidé (Q-V2c-2).
 function X.builders(k, has_eternal_clock) return X.logistics_tier(k) + (has_eternal_clock and 1 or 0) end
 --- Niveau maximal d'un bâtiment quand le centre est à l'époque k (Q6 : 2 niveaux par époque).
 function X.max_building_level(k) return 2 * k end
@@ -260,8 +262,9 @@ end
 --- Budget de l'époque k en MU : débit MOYEN × durée (corrigé : le débit de fin d'époque surestimait de 33 %).
 function X.budget(k) return X.rate_avg(k) * 3600 * X.epoch_hours(k) end
 --- Passage du centre de k à k+1 (gabarit P3) : un Codex k plus un lot de monnaie d'époque de 10 % du
---- budget de l'époque, en MU. ÉCART connu : V2 (L.epochs[k].value_mult × epoch_value 150) chiffre ce
---- passage 50 à 100 fois plus bas ; à trancher entre les deux lots (§10 du scénario).
+--- budget de l'époque, en MU. ÉCART connu (lot V2c, BALANCE_SHEET §12) : sans le Codex, la règle de place du
+--- centre borne ce passage à 23 à 5,6 % du budget aux époques 1 à 4, puis 3,35 à 0,11 % (époque 14 : 75 fois
+--- moins) ; remède à trancher (Q-V2c-1 : Codex k, remplaçant dense ou règle de place assouplie).
 X.CODEX_LOT_SHARE = 0.10
 function X.cc_upgrade_mu(k) return X.CODEX_LOT_SHARE * X.budget(k) end
 
@@ -1985,7 +1988,8 @@ X.branch_params = {
     period_ticks = 60, off_after_checks = 3, one_per_machine = true,
     excluded_protos = { "mining-drill", "lab" }, excluded_flags = { "confinement" }, maintenance_s = 120 },
   -- Sablier (corrigé) : 1 par fabrication, une monnaie d'époque (titane) dans son coût ; au plus 1 par
-  -- chantier, 2 avec l'Horloge éternelle.
+  -- chantier, 2 avec l'Horloge éternelle. SANS OBJET depuis Q19 (plus de durée de chantier) : effet nouveau
+  -- à décider (Q-V2c-2).
   hourglass = { share = 0.25, min_minutes = 10, per_craft = 1, max_per_job = 1, max_per_job_clock = 2 },
   -- Coffres intriqués (corrigés) : 1 case ; 2 paires par force au niveau II, 4 au niveau III ; chaque
   -- paire active tire 20 MW (le moteur n'expose pas les transferts : un prélèvement par objet est
@@ -2123,6 +2127,8 @@ function X.power(levels_weighted, epoch, wonders, milestones)
 end
 -- Chantiers de zone (greffe P3, à valider par V2) : un ouvrier améliore jusqu'à 10 bâtiments identiques
 -- dans un rayon de 20 tuiles ; familles de production seulement, les défenses restent à l'unité.
+-- Depuis Q19 (lot V2c) : plus d'ouvriers ni de durée ; seule la partie « coût × N » garderait un sens (une
+-- amélioration de zone instantanée), à décider avec Q-V2c-2. time_per_extra est sans objet.
 X.zone_upgrade = { max_buildings = 10, radius = 20, time_per_extra = 0.1 }
 function X.zone_upgrade_factors(n) return 1 + X.zone_upgrade.time_per_extra * (n - 1), n end
 

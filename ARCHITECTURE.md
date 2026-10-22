@@ -258,11 +258,16 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 
 - **Structure (lot V2).** `shared/levels/config.lua` porte les règles pures :
   - 15 époques ; centre de 1 à 15 ; familles de 1 à 30 ; plafond = min(30, 2 × centre) ;
-  - ouvriers de 1 à 5 ;
-  - courbe de coûts et de durées par époque, avec ses monnaies et une table d'indirection pour les
-    matériaux encore provisoires ;
-  - règle de place (`L.stack_size`, `L.cost_slots`, `L.chest_slots`) : un chantier tient dans la
-    moitié du coffre du centre qui le paie.
+  - lot V2c : amélioration INSTANTANÉE (Q19 ; plus d'ouvriers ni de durées) ; condition du centre (Q16 :
+    `L.cc_condition_level`, `L.cc_blockers`) ;
+  - courbe de coûts par époque (`value_mult` des familles, `cc_value` du centre, × `L.TEAM_FACTOR`), avec ses
+    monnaies et une table d'indirection pour les matériaux encore provisoires ; calendrier RECOPIÉ au
+    chargement depuis le scénario X0 (`shared/content/epochs.lua`, dans `L.target` : une seule source ; la
+    config ne lit plus X ensuite, et la garde de dress compare X à la fermeture de chaque famille) ;
+  - règle de place (`L.stack_size`, `L.cost_slots`, `L.chest_slots`) : un coût tient dans la
+    moitié du coffre du centre qui le paie ;
+  - recherche vanilla allégée (QX9 : `L.vanilla_tech_epoch`, `L.vanilla_unit_count`, appliqués par
+    `data-final-fixes.lua`).
 
   `prototypes/levels/common.lua` génère tout ce qui n'est pas visuel. Chaque `prototypes/levels/<famille>.lua`
   fournit son visuel par `dress`/`icons`, sous une **garde inversée**, qui fonctionne ainsi :
@@ -277,7 +282,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   objet, pour qu'un bâtiment démonté garde son niveau. Pas de `next_upgrade`, pour que le planificateur
   d'amélioration ne contourne ni le coût ni le plafond. `L.parse(nom)` donne famille et niveau
   (table de correspondance, coût constant).
-- **Remplacement moteur.** Au terme d'un chantier, `create_entity{fast_replace = true, spill = false,
+- **Remplacement moteur.** Aussitôt le coût payé (lot V2c), `create_entity{fast_replace = true, spill = false,
   raise_built = true}` remplace le bâtiment comme un remplacement rapide fait à la main : contenu,
   recette, modules et fils de circuit sont conservés, et l'objet de l'ancien niveau est détruit. Il faut
   pour cela un groupe de remplacement commun : les tourelles vanilla n'en ont pas, le mod leur en donne un
@@ -285,8 +290,15 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   et le banc exige 0.
 - **Paiement.** Le stock du centre de commandement d'abord, puis l'inventaire du joueur. Le centre est un
   coffre : l'usine l'alimente, et la production nourrit la progression.
-- **État** (`global.fo.levels`) : centre par force, chantiers indexés par `unit_number`, ouvriers occupés
-  par force, statistiques. Les chantiers sont parcourus triés toutes les 30 ticks : coût nul hors chantier.
+- **État** (`global.fo.levels`) : centre par force, statistiques. Depuis V2c, `jobs` et `busy` restent vides :
+  les chantiers d'une sauvegarde 0.3.0 ou 0.4.0 sont ACHEVÉS au chargement (`Levels.finish_legacy_jobs`,
+  dans `on_configuration_changed`, et un filet toutes les 30 ticks sans changement de version).
+- **Condition du centre (Q16, V2c).** `Levels.census(force, niveau)` recense, par famille, « en possède au
+  moins un » et « en a un au niveau visé ou plus » (`count_entities_filtered{ force, name, limit = 1 }` sans
+  zone, surfaces triées par index) ; calculé pour le centre seulement. `Levels.census_cached` le garde en
+  cache par force dans `global.fo.levels.census` (construction : mise à jour exacte ; retrait : invalidation ;
+  expiration après `Levels.CENSUS_TTL` = 600 ticks) : le panneau lit le cache, chaque décision
+  (`Levels.start`) recense en entier. Compteur `stats.census_scans`.
 - **Interface.** Panneau « Évolution » au survol (`on_selected_entity_changed`), touche U (entrée
   personnalisée `fo-level-up`), bouton « Toute la rangée » pour les murs. Les tourelles laser et les murs
   n'ont pas d'interface moteur, d'où un panneau propre plutôt qu'une interface relative. Le panneau suit
@@ -297,8 +309,8 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   découpée à l'emprise, en première couche), reflet `draw_as_glow`, halo `draw_as_light`, et une échelle de
   sprite qui croît. Ces opérations sont dans `prototypes/levels.lua` et `prototypes/evolution.lua`, et
   appliquées aux seuls champs graphiques principaux de chaque type.
-- **Pilotage sans joueur** : `levels_upgrade`, `levels_row`, `levels_time_factor`, `levels_status`
-  (interface distante, pour le banc de contenu).
+- **Pilotage sans joueur** : `levels_upgrade` (motif du refus, dont « cc-families »), `levels_row`,
+  `levels_status` (interface distante, pour le banc de contenu ; `levels_time_factor` retiré au lot V2c).
 
 ## 8. Chaîne de vérification
 

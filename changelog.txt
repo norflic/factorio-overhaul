@@ -1,4 +1,28 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: 2026-10-22
+  Changes:
+    - Niveaux : l'amélioration est instantanée dès que le coût est payé (stock du centre, puis inventaire).
+      Plus de durée de chantier, plus de bâtiment hors service, plus d'ouvriers d'amélioration.
+    - Centre de commandement : pour le monter du niveau c au niveau c + 1, chaque famille de bâtiments que
+      vous possédez doit avoir au moins un bâtiment au niveau 2 × c (au plus 30). Le panneau du centre
+      affiche le niveau visé et les familles qui bloquent.
+    - Coûts des niveaux recalibrés sur le calendrier du scénario des 15 époques (Porte vers 60 h de jeu).
+    - Recherche vanilla allégée aux premières époques (par exemple : automatisation 1 unité, acier 8,
+      traitement du pétrole 4).
+    - Le réglage « Niveaux : durée des chantiers » est retiré.
+  Bugfixes:
+    - Recherche vanilla : « Manutention des fluides » (fluid-handling) est bien allégée (2 unités) ; les barils
+      générés pour chaque fluide la rangeaient à l'époque du méthane.
+    - Panneau du centre de commandement : la condition de son passage est recensée en cache (plus de balayage
+      de la carte toutes les demi-secondes) ; chaque amélioration la vérifie en entier.
+    - Panier du passage 1 → 2 du centre : le coût affiché est exactement le coût payé (310 fer, 160 cuivre,
+      160 briques, 60 circuits).
+  Info:
+    - Sauvegardes : un chantier en cours est achevé au chargement (son coût était déjà payé).
+    - Écart connu, à trancher : aux époques 5 à 14, le passage du centre pèse moins de 5 % du budget de
+      l'époque (10 % visés) ; monter le centre seul reste rapide.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2026-10-21
   Features:

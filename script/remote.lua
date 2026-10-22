@@ -81,25 +81,22 @@ remote.add_interface("factorio-overhaul", {
     out.player = team(State.faction("player"))
     return out
   end,
-  -- Niveaux (session 5) : lancer une amélioration sans joueur (paiement : centre de commandement).
+  -- Niveaux (session 5 ; amélioration instantanée depuis le lot V2c) : améliorer sans joueur (paiement : centre
+  -- de commandement). Renvoie { ok, reason } ; reason = "done" en cas de succès, sinon le motif du refus
+  -- ("max", "no-cc", "cc-too-low", "cc-families" (condition Q16 du centre), "no-resources", "unknown-item"…) ;
+  -- pour le centre, blocking = familles qui bloquent et condition_level = niveau visé.
   levels_upgrade = function(entity)
-    local ok, reason = Levels.start(entity, nil)
-    return { ok = ok, reason = reason }
+    local ok, reason, info = Levels.start(entity, nil)
+    return { ok = ok, reason = reason, blocking = info and info.blocking, condition_level = info and info.condition_level }
   end,
   levels_row = function(entity)
     return Levels.start_row(entity, nil)
   end,
-  levels_time_factor = function(f)
-    Storage.ns("levels").time_factor = f
-  end,
   levels_status = function(force_name)
     local force = game.forces[force_name or "player"]
     local st = Storage.ns("levels")
-    local jobs = 0
-    for _, j in pairs(st.jobs) do if j.force == force.name then jobs = jobs + 1 end end
-    return { cc_level = Levels.cc_level(force), busy = Levels.busy(force), jobs = jobs,
-             upgrades = st.stats.upgrades, instant = st.stats.instant, lost = st.stats.lost,
-             cancelled = st.stats.cancelled, fallback = st.stats.fallback or 0 }
+    return { cc_level = Levels.cc_level(force), upgrades = st.stats.upgrades, lost = st.stats.lost,
+             fallback = st.stats.fallback or 0 }
   end,
   profiler = function(on)
     Profiler.set_enabled(on and true or false, game.tick)

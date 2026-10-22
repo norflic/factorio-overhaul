@@ -67,8 +67,8 @@ lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 92 OK
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
-lua5.2 tests/migration_test.lua  -> 27 OK
-lua5.2 tests/levels_test.lua     -> 1325 OK
+lua5.2 tests/migration_test.lua  -> 29 OK
+lua5.2 tests/levels_test.lua     -> 1459 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
 lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
@@ -88,14 +88,14 @@ python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 ét
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 209 OK, 0 ECHEC(S)` (21/10, 20 h 39 : 207 contrôles, dont les 15 époques du lot V2,
-   + 2 de l'exemple greffé `checks/exemple.lua`).
+   attend `BILAN : 212 OK, 0 ECHEC(S)` (lot V2c, 22/10, **non encore observé en moteur réel** : 210
+   contrôles, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` ; 209 avant V2c).
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 209 contrôles ;
+- `content` : banc de contenu, 212 contrôles ;
 - scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
   (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
   tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;

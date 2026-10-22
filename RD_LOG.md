@@ -144,12 +144,68 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F61 | Les bâtiments vanilla portent un liseré de contact sombre (alpha de 0,94 à 0,1 sur environ 9 px HR). Les coffres n'en ont pas. | Pipeline V0 : liseré rendu (0,84 / 0,56 / 0,26 à 1, 3 et 6 px). |
 | F62 | En moteur réel, des couches `draw_as_glow` et `draw_as_light` dans le `picture` d'une `simple-entity-with-owner` s'affichent : lueur visible de jour, halo au sol la nuit (captures 009, 010, 017, 018 de `fo-logs\2026-10-21_V0_vitrine-cheminee\`). | Voie valide pour des pièces lumineuses fixes. |
 | F63 | En moteur réel, l'étape data accepte `require("__factorio-overhaul__/graphics/…")` vers un fichier Lua du mod. Banc `content` à 182 OK le 21/10 à 19 h 06. | Le pipeline peut générer un `sprites.lua` par pièce. |
+| F68 | Étape data 1.1.91 : `base/data-updates.lua` génère un baril, une recette « fill-<fluide>-barrel » et une recette « empty-<fluide>-barrel » pour CHAQUE fluide sans `auto_barrel = false`, mods compris, et les ajoute TOUTES aux effets de `fluid-handling` (constante `technology_name` du fichier). Avec le mod : `fill-fo-methane-barrel` et `empty-fo-methane-barrel` y figurent (relu avec `tests/datastage/harness.lua --dump-final technology/fluid-handling`, 22/10). | Une règle qui range une technologie par ses recettes doit ignorer ces recettes générées : sinon fluid-handling suit l'époque du fluide le plus tardif (V2c, QX9 : époque 8 au lieu de 4, 50 unités au lieu de 2). |
 | F67 | Recettes vanilla 1.1.91 : le moteur (`engine-unit`) est de catégorie `advanced-crafting`, le plastique et le soufre de catégorie `chemistry`. Ils ne se fabriquent PAS à la main, alors que les ouvriers des factions ne fabriquent qu'en `crafting` (vérifié dans `tests/fixtures/recipes.lua` et contrôlé par `org_test.lua`). | **Cause précise de H-E1** : le pack chimique exige un assembleur, une usine chimique ET du pétrole. Les équipes IA stagnaient donc après la recherche 3. Correction prévue aux lots IA1 (production adaptative, modules d'usine). |
 | F66 | Au chargement d'une session avec images, le journal liste les atlas de sprites créés (« Created atlas bitmap L×H [drapeaux] »), avant toute partie. Toutes les images sont donc chargées UNE fois, indépendamment du nombre d'entités. Avec le jeu actuel (vanilla + mod, haute qualité, « DXT: high-quality »), on compte ≈ 1,07 milliard de pixels d'atlas, soit environ 1,1 Go estimés compressés et 4,25 Go sans compression ; le journal annonce aussi le budget de mémoire vidéo (« Budget: 15570MB »). Source : `fo-logs\2026-10-21_P1_vitrine-exemple-final\visual.log`. | Le coût d'une usine géante est du temps de dessin, pas de la mémoire vidéo. La mémoire se budgète par famille de sprites (D4). Une mesure directe est à faire (lot D4m). |
 | F65 | `laser-turret` : `energy_source.buffer_capacity` = 801 kJ et `ammo_type.energy_consumption` = 800 kJ par tir (relu avec `--dump-final`) : le tampon doit contenir un tir. `nuclear-fuel` s'empile par 1, alors que `uranium-235` et `uranium-238` s'empilent par 100. | Lot V2 : l'énergie et le tampon du laser croissent ensemble ; un matériau d'époque s'empile par 50 au moins (`L.MIN_MATERIAL_STACK`). |
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E38 · VALIDÉ hors jeu, NON PROUVÉ en moteur réel · Amélioration instantanée, condition du centre,
+recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)** :
+- Décisions appliquées (citées au §4 d'OBJECTIFS) : Q19 « si on a les ressources, on améliore, terminé » ;
+  Q16 « condition légère » ; QX7 « 60 h = ouverture de la Porte (époque 15 vers 52 h) » ; QX9 « alléger la
+  recherche vanilla des premières époques » ; QX10 (arbitrage de l'architecte) : une seule source pour le
+  calendrier, passage du centre ≈ 10 % du budget.
+- Décision de l'implémenteur (sauvegardes) : un chantier 0.3.0 ou 0.4.0 en cours est ACHEVÉ au chargement,
+  pas annulé et remboursé (coût déjà payé ; Q19 ; un remboursement entier pourrait déborder du coffre).
+- Protocole du recalibrage : `lua5.2 tests/levels_test.lua --calibrate` lit le calendrier X0 (durée, débit
+  moyen, budget), garde les hypothèses de V2 (30 % de la production pour les niveaux, base de référence) et
+  résout, époque par époque : panier du centre (époque 1), `cc_value` (10 % visés, borné par la place et par
+  la croissance stricte), `value_mult` (le reste du budget).
+- Résultats (après correction) : durée impliquée de chaque époque à 1,5 % près de X0 ; époque 15 à 52 h 36,
+  Porte à 59 h 35 (X0 : 52,5 h et 59,5 h), pour la base de référence COMPLÈTE. **Passage du centre : 23,2 %,
+  9,95 %, 5,6 %, 7,4 % du budget aux époques 1 à 4, puis 3,35 % → 0,11 %** : QX10 NON CONFORME après
+  l'époque 4. Cause chiffrée : la monnaie de l'époque 8 (baril de méthane, 100 u par case) borne le passage
+  8 → 9 à 8 310 u (10 % visés : 221 575 u ; 9 300 u même à 50 % du coffre sans plafond de quantité) et, par
+  la croissance stricte, tous les passages précédents. Pire coût : 45 % du coffre payeur (centre 12 → 13).
+- Chemin le plus court (mesure ajoutée au banc par la correction) : centre + un bâtiment de chaque famille
+  possédée monté au niveau visé (Q16) : centre 15 en **3 h 27** avec 30 % de la production X0 (1 h 02 avec
+  100 % ; centre seul : 2 h 20), contre 52 h 30 au calendrier ; époques 7 à 14 en 6 à 10 min chacune. Le
+  calendrier n'est tenu que par la base de référence complète : écart connu au contrat QX7, lié à QX10.
+- Essais écartés (chiffrés) : un panier des bâtiments × 2,75 à l'époque 1 faisait déborder les époques 2 à 4
+  de 33 à 84 % (monotonie et rattrapage) ; d'où le panier du centre qui comble l'époque 1 (23 %).
+- QX9 : `data-final-fixes.lua` exécuté hors jeu sur les 192 technologies de `technology.lua` : 170
+  allégées (automatisation 10 → 1, acier 50 → 8, pétrole 100 → 4, logistique 20 → 18, pack utilitaire
+  100 → 25), char (époque 5) et 9 recherches infinies inchangés. Étape data RÉELLE : la vérification a trouvé
+  169, `fluid-handling` restant à 50 unités (F68) ; corrigé (barils générés ignorés), `levels_test` rejoue
+  désormais le harness : `fluid-handling` à 2, journal « 170 technologie(s) ». Part du budget X0 de cette
+  recherche, payée en packs vanilla (MU du modèle X0) : 17,8 / 15,9 / 14,1 / 13,2 % aux époques 1 à 4 (X0 :
+  17,5 % avec ses fenêtres de packs).
+- Correction après vérification (2 vérificateurs, 13 problèmes ; correcteur, 22/10) :
+  - garde de dress : la sonde probe_x (un `dress` qui écrit `X.VANILLA_UNIT_SCALE[3] = 3`) était acceptée et
+    `automation` passait de 1 à 30 unités ; la config recopie désormais au chargement ce qu'elle lit dans X,
+    et la garde compare X à la fermeture de chaque famille (refus motivé ; coût : 0,017 à 0,021 s par étape
+    data, 5 passes) ;
+  - recensement Q16 : 12 `count_entities_filtered` sans zone à chaque rafraîchissement du panneau du centre
+    (toutes les 30 ticks) ; mis en cache par force dans `global` (construction : mise à jour exacte ; retrait :
+    invalidation ; expiration 600 ticks ; chaque décision recense en entier). Moteur simulé : 10 aperçus =
+    1 recensement, panneau ouvert 300 ticks = 0 ;
+  - `--calibrate` n'était pas un point fixe (relancé depuis la config : panier 310/150/150/60 au lieu de
+    315/155/155/60, 7 `cc_value` différents) et le panier écrit (930 u) n'était pas celui payé (960 u) : il
+    part désormais d'un état de référence fixe, la config livrée est sa sortie (testé), panier 310/160/160/60
+    payé tel quel ;
+  - tests ajoutés (mutants M10, M18, M19 de la vérification, désormais tués) : paiement mixte centre puis
+    joueur, chantiers 0.4.0 à cible invalide remis en service, rangée de murs mixte avec centre adverse
+    approvisionné ; 12 mutants ciblés de la correction : 11 tués, 1 équivalent (calibrage déjà au point fixe).
+- Bancs (après correction) : levels_test 1 459 OK et 11 écarts connus comptés à part (QX10 aux époques 5 à
+  14, QX7), migration_test 29 OK (27), run 114, war 92, td 270, pteam 15, epochs 16 665, pvp 596 ; étape
+  data : 911 prototypes ajoutés ou modifiés (200 technologies), 0 erreur, 0 violation, 0 clé manquante ;
+  api_lint 362 usages, 0 erreur. Fusion simulée avec main (8dbfba6) sans conflit : org_test 362, d4_dryrun
+  11 OK, étape data 0 erreur, api_lint 377 usages 0 erreur.
+- Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
+  l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
+
 **E37 · VALIDÉ (hors jeu) · Conception des équipes de PNJ organisées (lot IA1, 22/10, 1 h 15)** :
 - 3 concepteurs (organisation, joueur, technique), relancés après la précision Q19.
 - 2 juges ; gagnante : la conception technique (82 points, contre 77 et 75).
@@ -418,7 +474,13 @@ apport.md`.
     aux zooms 1 et 2, comparer la lumière, l'ombre et le grain, puis obtenir le verdict du Directeur
     Créatif.
 - **H-L1 · OUVERTE** : coût script des niveaux nul hors chantier, ≤ 0,02 ms/tick avec 4 chantiers et 1
-  panneau ouvert. Il n'a pas encore été mesuré au benchmark épinglé.
+  panneau ouvert. Il n'a pas encore été mesuré au benchmark épinglé. **Mise à jour V2c (22/10)** : plus de
+  chantiers ; le coût à mesurer devient celui d'UN recensement de la condition Q16 (au plus 12
+  `count_entities_filtered{ limit = 1 }` sans zone par surface) sur une grande carte où une famille n'est pas
+  possédée (recherche sans résultat sur toute la surface). Depuis la correction V2c, le recensement est en
+  cache par force : au plus un par 600 ticks pendant qu'un panneau du centre est ouvert, plus un par décision
+  sur le centre et par retrait de bâtiment à niveaux suivi d'un rafraîchissement. Protocole proposé : carte
+  d4-geant, panneau du centre ouvert, banc épinglé, `[FO-PROF]` sur 3 600 ticks.
 - **H-T1 · OUVERTE** : rendre les captures entièrement automatiques, sans session interactive à
   fermer à la main.
   - Piste 1 : vérifier si `factorio.exe --help` (1.1.91) propose un benchmark avec rendu.

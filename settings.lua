@@ -44,16 +44,8 @@ data:extend({
   -- « fo-pvp-difficulty » (settings/faction.lua) le remplace (« Paisible » = ancien comportement). Une
   -- sauvegarde qui en contient une valeur la perd sans erreur ; une guerre en cours reçoit son état PvP au
   -- chargement (script/faction/pvp.lua, PvP.ensure : hostilités existantes conservées).
-  {
-    -- Niveaux : multiplicateur de durée des chantiers d'amélioration (0 = instantané).
-    type = "double-setting",
-    name = "fo-level-time-factor",
-    setting_type = "runtime-global",
-    default_value = 1,
-    minimum_value = 0,
-    maximum_value = 10,
-    order = "f",
-  },
+  -- Lot V2c : « fo-level-time-factor » retiré : l'amélioration est instantanée (Q19), plus aucun code ne le
+  -- lit. Une sauvegarde qui en contient une valeur la perd sans erreur (réglage inconnu ignoré au chargement).
 })
 
 -- Réglages par lot (un fichier par lot, requis ici par l'intégrateur).

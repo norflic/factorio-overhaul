@@ -354,11 +354,12 @@ pour C ; hypothèse de la matière étrange (Witten, 1984) pour D.
     lecture seule (vérifié).
   - **Sablier quantique** (II) : **1 par fabrication**, avec 10 plaques de titane (la monnaie de l'époque) dans
     son coût ; **au plus 1 par chantier** (2 avec l'Horloge), qui retire 25 % de la durée initiale (10 min au
-    moins).
+    moins). **Sans objet depuis Q19** (amélioration instantanée, lot V2c) : effet nouveau à décider (Q-V2c-2).
   - **Coffres intriqués** (II) : **1 case**, **2 paires** par force au niveau II, 4 au niveau III ; chaque
     paire active tire 20 MW. Le moteur n'expose pas les transferts : un prélèvement par objet est impossible
     à mesurer à bas coût, d'où un prélèvement constant. Le tapis intriqué reste écarté.
   - **Horloge éternelle** (merveille III) : 6e ouvrier (QX6), 2 sabliers par chantier, laboratoires +50 %.
+    **Depuis Q19, seuls les laboratoires +50 % gardent un sens** ; le reste attend Q-V2c-2.
 - **Risque** : la **rupture de phase** (une chambre privée de courant perd son cristal stable) et le coût
   énergétique de la dilatation.
 
@@ -402,8 +403,11 @@ pour C ; hypothèse de la matière étrange (Witten, 1984) pour D.
 
 ### 3.1 Calendrier et monnaies (F1-3, Q5, Q6)
 
-- Durée de l'époque k : 0,5 h × k, plafonnée à 7 h : **59,5 h** pour les 15 époques. **Écart connu** : le lot
-  V2 (`L.target.epoch_hours`) vise 0,5 × 1,261^(k−1) h, soit le même total, autrement réparti (QX7).
+- Durée de l'époque k : 0,5 h × k, plafonnée à 7 h : **59,5 h** pour les 15 époques. Depuis le lot V2c, la
+  config des niveaux recopie ce calendrier (`L.target`) : une seule source (QX10) ; la courbe propre de V2
+  (0,5 × 1,261^(k−1) h) n'existe plus. Les coûts des niveaux sont calibrés pour que la base de référence
+  complète tienne ce calendrier ; le chemin le plus court atteint pourtant le centre 15 en 3 h 27
+  (BALANCE_SHEET §12, Q-V2c-1).
 - Débit visé de l'usine : de 3 MU/s à 14 000 MU/s en fin d'époque (×1,83 par époque). **Budget** = débit
   **moyen** de l'époque × durée (correction : le débit de fin d'époque surestimait de 33 %).
 - **Passage du centre** de k à k+1 : un **Codex k** plus un lot de monnaie de 10 % du budget de l'époque.
@@ -1129,9 +1133,13 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 ### 4.3 Niveaux des bâtiments (V2), monnaies, ouvriers
 - Centre de commandement : niveau = époque (1 à 15). Bâtiments : niveau maximal = 2 × niveau du centre (Q6).
 - Monnaies au format V2 (§3.1) ; Codex k exigé pour passer le centre au niveau k+1 (diff au §10).
-- **Ouvriers** : 1 à 5 (un de plus toutes les 3 époques), +1 avec l'Horloge éternelle (QX6).
+- ~~**Ouvriers** : 1 à 5 (un de plus toutes les 3 époques), +1 avec l'Horloge éternelle (QX6).~~ **Sans objet
+  depuis Q19** (amélioration instantanée dès que le coût est payé, lot V2c) ; la colonne « Ouvriers » du
+  tableau du §4 est à retirer de son générateur (`tests/epochs_test.lua --write-doc`).
 - **Chantiers de zone** (à valider par V2, `X.zone_upgrade`) : un ouvrier améliore jusqu'à 10 bâtiments
-  identiques dans un rayon de 20 tuiles, durée ×(1 + 0,1 × (N − 1)), coût ×N ; défenses à l'unité.
+  identiques dans un rayon de 20 tuiles, durée ×(1 + 0,1 × (N − 1)), coût ×N ; défenses à l'unité. Depuis
+  Q19 : ni ouvrier ni durée ; une amélioration de zone instantanée (coût ×N) reste possible, à décider avec
+  Q-V2c-2.
 - **Volume des niveaux** : voir §3.3 et §5.5 (environ 730 entités de niveau et autant d'objets).
 
 ### 4.4 Recherche : l'arbre des technologies nouvelles
@@ -1466,7 +1474,9 @@ d'hélium-3, veines au balayage, énergie transportable, époque 4 étoffée).
   fois). Faut-il **alléger la recherche vanilla** (proposition : ×0,04 à ×0,25 d'unités) ou **relever le
   débit des premières époques** (plus de production plus tôt) ?
 - **QX10** : le passage du centre vaut 10 % du budget de l'époque chez X0, mais 50 à 100 fois moins dans la
-  courbe du lot V2 (`value_mult`). Lequel des deux doit gouverner ?
+  courbe du lot V2 (`value_mult`). Lequel des deux doit gouverner ? Arbitré (X0 gouverne, lot V2c) ; tenu aux
+  époques 1 à 4 seulement, la règle de place du centre bornant le passage à 3,35 puis 0,11 % du budget sans
+  le Codex : Q-V2c-1.
 
 ---
 
