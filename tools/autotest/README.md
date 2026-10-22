@@ -322,6 +322,28 @@ sur une racine factice avec un faux jeu (`driver_it.py`, `fake_game.py`) et, ave
 journal archivé. Attendu le 21/10 : **5/5 étapes** (essai à blanc 11 OK, BILAN du greffon 16 OK ; unitaires 51 OK ;
 intégration 17 OK ; 8 journaux). Ne lance pas Factorio et n'écrit rien dans la racine du jeu.
 
+**Étape 5 : atlas attendus selon les réglages du journal** (corrigée le 22/10 ; avant, elle exigeait 15 atlas
+partout et refusait les journaux D4m 3 à 5). Le nombre d'atlas dépend de ce que le journal déclare sur sa ligne
+« Graphics options » (qualité, usage de la mémoire vidéo, compression DXT). La table `ATLAS_ATTENDUS` de
+`run_d4m.py`, étalonnée sur les 13 journaux archivés au 22/10, donne pour chaque combinaison le nombre d'atlas en
+tout, le nombre d'atlas « [none] » (sprites principaux) et la présence d'un atlas virtuel :
+
+| Réglages déclarés | Atlas | dont « [none] » | Atlas virtuel | Journaux d'étalonnage |
+|---|---|---|---|---|
+| high / all / high-quality | 15 | 2 (16384×16364 plein, puis 16384×12676) | non | P1 (8), D4m 1 et 2 |
+| normal / all / high-quality | 14 | 1 (16384×8604) | non | D4m 3 et 4 |
+| normal / low / low-quality (plancher) | 14 | 1 (2048×1316) | oui (« Created virtual atlas pages 4096x4096x9 ») | D4m 5 |
+
+Les 13 autres atlas (decal, low-object, terrain, ombres, icônes, etc.) figurent une fois dans chaque journal. Des
+réglages absents de la table, ou une ligne « Graphics options » absente, font échouer l'étape : on ajoute une entrée
+après avoir lu un journal réel, on n'en élargit jamais une. Attendu le 22/10 : **5/5 étapes, 13 journaux**.
+`python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable>` vérifie la table
+par mutation : 4 témoins (copies intactes) doivent passer et 15 mutants doivent être refusés, par exemple une
+haute qualité à 14 atlas, une normale à 13 ou à 15, 15 atlas avec un seul « [none] », une qualité déclarée qui
+ne correspond pas au contenu, un plancher sans atlas virtuel ou des réglages non étalonnés. Attendu : `19 OK,
+0 ECHEC(S)`. Le dossier jetable ne doit pas être un sous-dossier direct de `fo-logs`, sinon l'étape 5 lirait les
+mutants.
+
 ### 5.2 Scénario greffé `d4-geant`
 
 `fo-autotest/scenarios/d4-geant.lua` : usine de **288 × 188 tuiles** de béton en (64, −96), 2 fois la suite des
