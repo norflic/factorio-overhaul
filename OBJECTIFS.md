@@ -75,7 +75,7 @@
 | C1 | Guerre « 100 contre 100 contre 100 contre 100 » | 🟨 | 24 à 30 soldats par armée, pas 100 |
 | C2 | Des PNJ qui jouent, un cerveau par équipe | 🟨 | Pétrole jamais produit : stagnation après la recherche 3 |
 | C3 | Défense de tours activable à tout moment | ✅ | — |
-| C4 | PvP | ✅ | Attaques contre vous, 5 difficultés, bases défendues attaquées, assaut coordonné et budget A1 **prouvés en moteur réel** (22/10). Écarts mineurs : ordre strict hors modèle nominal, un seul joueur visé |
+| C4 | PvP | 🟨 | Attaques contre vous, 5 difficultés, bases défendues attaquées, assaut coordonné et budget A1 **prouvés en moteur réel** (22/10). Restent : ordre strict des niveaux non prouvé hors du modèle nominal ; critères C4 encore ❔ (à valider par vous) |
 | **C5** | **Équipes de PNJ organisées, environ 30 par faction** | ❌ | Conception livrée et intégrée (IA1, `docs/EQUIPES_PNJ.md`) ; construction après le visuel (Q18) ; 7 questions Q-IA1 |
 | D1 | **Des designs qui changent, pas seulement la couleur** | ❌ niveaux, 🟨 ailleurs | Niveaux : teinte + 1,2 % de taille + socle + lueur. Constat du 21/10, 17 h 26 |
 | D2 | Effets lumineux (« glowing ») | 🟨 | Effets la nuit seulement |
