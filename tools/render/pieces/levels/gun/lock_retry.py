@@ -28,16 +28,19 @@ def main(argv):
     t0, n = time.time(), 0
     while True:
         n += 1
+        # sorties des descendants Python en UTF-8, recopiées OCTET POUR OCTET (reprise 4 : le 22/10 à 4 h 02, un « é »
+        # écrit en cp1252 par tune.py, décodé en U+FFFD puis réécrit sur une console cp1252, a tué ce script, donc la
+        # chaîne : place du verrou rendue, rien de rendu)
+        env = dict(os.environ, PYTHONIOENCODING="utf-8")
         p = subprocess.Popen([sys.executable, LOCK, "--wait", "0", "--"] + cmd, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
+                             stderr=subprocess.STDOUT, env=env)
         busy = False
         for raw in p.stdout:
-            line = raw.decode("utf-8", errors="replace")
-            if MARK in line:
+            if MARK.encode("utf-8") in raw:
                 busy = True
                 continue
-            sys.stdout.write(line)
-            sys.stdout.flush()
+            sys.stdout.buffer.write(raw)
+            sys.stdout.buffer.flush()
         rc = p.wait()
         if rc == 2 and busy:
             if n % 600 == 1:

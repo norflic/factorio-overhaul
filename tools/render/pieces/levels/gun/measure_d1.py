@@ -16,7 +16,15 @@ Pour chaque niveau (1 à 30) et chaque pose de référence (tête « prepared »
     ≤ 0,75). Masque complet (le socle d'une tourelle est un volume de 0,4 tuile, pas une couche plate) ET
     masque « tête seule » (lecture stricte de « socle exclu de la silhouette », Q13) : on retient le PIRE ;
   - vide V (époques 10 à 15) : part du masque du niveau 1 laissée vide par le niveau impair (min sur poses) ;
-  - photométrie (source final, pose S) : luminance médiane, p95, saturation du corps, part émissive.
+  - O PAR POSE (reprise 4) : O_p non décroissant d'une époque à l'autre pour CHAQUE pose (pas seulement le maximum),
+    et O « masses 2D » (ouverture carrée de 10 px : un anneau fin horizontal ne porte pas le sommet), information ;
+  - photométrie (source final, LES 4 POSES, reprise 4 ; avant : pose S seule, ce que le tableau ne disait pas) :
+    luminance médiane (L50) par pose, p95 maximal sur les poses, saturation maximale, part émissive ;
+  - D2-1 (reprise 4, bible §1.6 : « chaque zone fait au moins 8 × 8 px hr ») : lueur VISIBLE (la lueur du socle
+    est cachée par la couche principale de la tête, ordre lower-object puis object), seuil 0,25 (prémultipliée),
+    puis ouverture morphologique 8 × 8 : il faut au moins un bloc plein de 8 × 8 px hr dans CHAQUE pose, de
+    luminance médiane ≥ médiane du corps + 80. Avant : total des pixels ≥ 64, ce qui laissait passer des fentes
+    de 2 à 3 px (F37).
 """
 import argparse
 import json
@@ -34,31 +42,76 @@ LUMA_TARGET = {1: None, 2: 52, 3: 58, 4: 60, 5: 42, 6: 64, 7: 55, 8: 60, 9: 56, 
                14: 88, 15: 108}
 
 
+def visible_glow(layers):
+    """Lueur visible (prémultipliée, maximum des canaux) dans l'ordre de dessin du moteur : une couche principale
+    dessinée APRÈS une lueur la cache (la tête, couche object, passe sur la lueur du socle, lower-object)."""
+    g = np.zeros((D.H, D.W))
+    for l in layers:
+        if l["kind"] == "main":
+            g = g * (1 - D.to_canvas(l["img"], l["tl"])[..., 3])
+        elif l["kind"] == "glow":
+            c = D.to_canvas(l["img"], l["tl"])
+            g = np.maximum(g, (c[..., :3] * c[..., 3:4]).max(-1))
+    return g
+
+
+def open_square(mask, n=8):
+    """Ouverture morphologique par un carré n × n : union des fenêtres n × n entièrement vraies."""
+    m = mask.astype(np.int32)
+    ii = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int64)
+    ii[1:, 1:] = m.cumsum(0).cumsum(1)
+    full = (ii[n:, n:] - ii[:-n, n:] - ii[n:, :-n] + ii[:-n, :-n]) == n * n   # coin haut-gauche (i, j)
+    f = np.zeros((m.shape[0] + 1, m.shape[1] + 1), np.int64)
+    f[1:full.shape[0] + 1, 1:full.shape[1] + 1] = full.cumsum(0).cumsum(1)
+    Hm, Wm = mask.shape
+    ys, xs = np.mgrid[0:Hm, 0:Wm]
+    y0, x0 = np.maximum(0, ys - n + 1), np.maximum(0, xs - n + 1)
+    y1, x1 = np.minimum(ys, full.shape[0] - 1), np.minimum(xs, full.shape[1] - 1)
+    ok = (y1 >= y0) & (x1 >= x0)
+    y1c, x1c = np.maximum(y1, y0), np.maximum(x1, x0)
+    cnt = f[y1c + 1, x1c + 1] - f[y0, x1c + 1] - f[y1c + 1, x0] + f[y0, x0]
+    return ok & (cnt > 0)
+
+
+def o2d(mask, n=10):
+    """O des masses avec une ouverture CARRÉE de n px (information) : un anneau ou une barre fine horizontale ne
+    porte plus le sommet (vérification adverse, mineur 6 : l'anneau-halo de l'époque 15)."""
+    rows = np.nonzero(open_square(mask, n).any(1))[0]
+    return float((D.OY - rows.min()) / D.PPT - 1.0) if len(rows) else None
+
+
 def photometry(layers):
-    """Corps = couche principale opaque (alpha ≥ 0,5) ; émissif = lueur prémultipliée > 0,25."""
+    """Corps = couche principale opaque (alpha ≥ 0,5) hors lueur visible ; émissif = lueur visible > 0,25.
+    D2-1 : blocs pleins de 8 × 8 px hr de lueur visible > 0,25 (ouverture), luminance de jour ≥ L50 du corps + 80."""
     rgb, a = D.compose_rgb(layers)
     m = a >= 0.5
     if not m.any():
         return None
-    glow = np.zeros(m.shape)
+    gv = visible_glow(layers)
     day = np.clip(rgb, 0, 1)
     for l in layers:
         if l["kind"] == "glow":
             g = D.to_canvas(l["img"], l["tl"])
-            pm = g[..., :3] * g[..., 3:4]
-            glow = np.maximum(glow, pm.max(-1))
-            day = np.clip(day + pm, 0, 1)
-    em = (glow > 0.25) & m
-    # corps = couche principale opaque HORS zones émissives (la lumière est dans la lueur, D2-1 compare les deux)
-    body = m & (glow <= 0.05)
+            day = np.clip(day + g[..., :3] * g[..., 3:4], 0, 1)
+    em = gv > 0.25
+    body = m & (gv <= 0.05)
     c = rgb[body if body.any() else m]
     lum = D.luminance(c) * 255
     mx, mn = c.max(1), c.min(1)
     sat = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0)
-    emis_l = float(np.median(D.luminance(day[em]) * 255)) if em.any() else None
-    return {"L50": float(np.median(lum)), "L95": float(np.percentile(lum, 95)), "L05": float(np.percentile(lum, 5)),
-            "sat": float(sat.mean()), "emis_part": float(em.sum() / m.sum()), "emis_px": int(em.sum()),
-            "emis_L50": emis_l}
+    L50 = float(np.median(lum))
+    blk = open_square(em, 8)
+    blk_l50 = float(np.median(D.luminance(day[blk]) * 255)) if blk.any() else None
+    side = 0   # côté du plus grand carré plein de lueur (information : « 6 × 6 au mieux »)
+    for n in (16, 12, 10, 8, 6, 4, 2):
+        if open_square(em, n).any():
+            side = n
+            break
+    return {"L50": L50, "L95": float(np.percentile(lum, 95)), "L05": float(np.percentile(lum, 5)),
+            "L99": float(np.percentile(lum, 99)), "px_ge_245": int((lum >= 245).sum()),
+            "sat": float(sat.mean()), "emis_part": float((em & m).sum() / m.sum()), "emis_px": int(em.sum()),
+            "d21_block_px": int(blk.sum()), "d21_block_L50": blk_l50, "d21_carre_max": side,
+            "d21_ok": bool(blk.any() and blk_l50 is not None and blk_l50 >= L50 + 80)}
 
 
 def run(source):
@@ -70,12 +123,7 @@ def run(source):
             head_masks[(lv, pose)] = D.main_alpha(lays, ("tete",)) >= 0.5
             socle_masks[(lv, pose)] = D.main_alpha(lays, ("socle",)) >= 0.5
             if source == "final":
-                ph = photometry(lays)
-                if pose == "S":
-                    phot[lv] = ph
-                # D2-1 : zone émissive visible de jour dans CHAQUE pose (pixels hr de lueur > 0,25 sur le corps,
-                # luminance > médiane du corps + 80) ; on retient la pire pose
-                phot.setdefault(("em", lv), {})[pose] = (ph["emis_px"], ph["emis_L50"], ph["L50"])
+                phot.setdefault(lv, {})[pose] = photometry(lays)
     sweeps = {e: D.head_sweep(e) >= 0.5 for e in range(1, 16)}
     res = {"source": source, "levels": {}, "epochs": {}, "d13": {}}
     for lv in range(1, 31):
@@ -88,7 +136,8 @@ def run(source):
              "x": [min(per[p]["left"] for p in D.POSES), max(per[p]["right"] for p in D.POSES)],
              "top": min(per[p]["top"] for p in D.POSES),
              "socle_top": sm["top"], "socle_x": [sm["left"], sm["right"]], "socle_bottom": sm["bottom"],
-             "O_poses": {p: round(per[p]["O"], 3) for p in D.POSES}}
+             "O_poses": {p: round(per[p]["O"], 3) for p in D.POSES},
+             "O_masses_2D": max(o2d(masks[(lv, p)]) for p in D.POSES)}
         if lv % 2 == 0:
             added = {p: float((masks[(lv, p)] & ~masks[(lv - 1, p)]).sum() / D.PPT ** 2) for p in D.POSES}
             r["piece_added_min"] = min(added.values())
@@ -102,12 +151,20 @@ def run(source):
         if e >= 10 and lv % 2 == 1:
             r["vide_V"] = min(float((masks[(1, p)] & ~masks[(lv, p)]).sum() / masks[(1, p)].sum()) for p in D.POSES)
         if lv in phot:
-            r["photo"] = phot[lv]
-        if ("em", lv) in phot:
-            em = phot[("em", lv)]
-            r["d21_px_min"] = min(v[0] for v in em.values())
-            r["d21_pose_min"] = min(em, key=lambda p: em[p][0])
-            r["d21_ok"] = all(v[0] >= 64 and v[1] is not None and v[1] >= v[2] + 80 for v in em.values())
+            ph = phot[lv]
+            r["photo_poses"] = ph
+            r["photo"] = {"L50_poses": {p: ph[p]["L50"] for p in D.POSES},
+                          "L50_min": min(ph[p]["L50"] for p in D.POSES), "L50_max": max(ph[p]["L50"] for p in D.POSES),
+                          "L95_max": max(ph[p]["L95"] for p in D.POSES),
+                          "L95_pose": max(D.POSES, key=lambda p: ph[p]["L95"]),
+                          "px_ge_245_max": max(ph[p]["px_ge_245"] for p in D.POSES),
+                          "sat_max": max(ph[p]["sat"] for p in D.POSES),
+                          "emis_min": min(ph[p]["emis_part"] for p in D.POSES),
+                          "emis_max": max(ph[p]["emis_part"] for p in D.POSES)}
+            if e >= 3:
+                r["d21_ok"] = all(ph[p]["d21_ok"] for p in D.POSES)
+                r["d21_poses_ok"] = [p for p in D.POSES if ph[p]["d21_ok"]]
+                r["d21_carre_min"] = min(ph[p]["d21_carre_max"] for p in D.POSES)
         res["levels"][lv] = r
     for e in range(1, 15):
         a, b = 2 * e - 1, 2 * e + 1
@@ -123,32 +180,57 @@ def run(source):
     d["iou_retenu"] = max(d["complet"]["iou"], d["tete"]["iou"])
     d["iou_norm_retenu"] = max(d["complet"]["iou_norm"], d["tete"]["iou_norm"])
     res["d13"] = d
-    # O ne décroît jamais (niveaux impairs, puis tous les niveaux)
+    # O ne décroît jamais (niveaux impairs) : sur le maximum ET pose par pose (reprise 4)
     Os = [res["levels"][2 * e - 1]["O"] for e in range(1, 16)]
     res["O_monotone_impairs"] = all(Os[i + 1] >= Os[i] - 1e-9 for i in range(14))
+    rec = []
+    for p in D.POSES:
+        for e in range(2, 16):
+            a, b = res["levels"][2 * e - 3]["O_poses"][p], res["levels"][2 * e - 1]["O_poses"][p]
+            if b < a - 1e-9:
+                rec.append("ép. %d pose %s : %.2f < %.2f" % (e, p, b, a))
+    res["O_monotone_par_pose"] = not rec
+    res["O_reculs_par_pose"] = rec
     res["O_sous_plafond"] = all(res["levels"][lv]["O"] <= G.O_PLAFOND + 1e-9 for lv in range(1, 31))
     return res, masks
 
 
 def table(res):
-    lines = ["| Niv. | Ép. | O (cible) | L | haut socle | pièce : ajout min 4 poses / visible 64 dir. (t²) | IoU préc. | IoU ép. suiv. | V | L50 (cible) | p95 | sat | émissif |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    P = G.load_params()
+    lines = ["Tableau 1 : géométrie (masque = alpha ≥ 0,5 des couches principales socle + tête ; O, L en tuiles ; "
+             "pièce en tuiles²)", "",
+             "| Niv. | Ép. | O max (cible) | O par pose N / E / S / O | O 2D | L | haut socle | pièce : ajout min 4 poses / visible 64 dir. | IoU préc. | IoU ép. suiv. | V |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     for lv in range(1, 31):
         r = res["levels"][lv]
         e = r["epoch"]
-        ph = r.get("photo") or {}
         pa = ("%.2f / %.2f" % (r["piece_added_min"], r["piece_visible_64"])) if "piece_added_min" in r else ""
         ip = "%.2f" % r["iou_prev"] if "iou_prev" in r else ""
         ie = "%.2f" % res["epochs"][e] if (lv % 2 == 1 and e in res["epochs"]) else ""
         V = "%d %%" % round(100 * r["vide_V"]) if "vide_V" in r else ""
-        lt = LUMA_TARGET.get(e)
-        l50 = ("%.0f (%s)" % (ph["L50"], lt if lt else "-")) if ph else ""
-        em = ("%.1f %%" % (100 * ph["emis_part"])) if ph and ph.get("emis_px") else ""
-        if "d21_px_min" in r and e >= 3:
-            em += " ; D2-1 %s (min %d px, %s)" % ("oui" if r["d21_ok"] else "NON", r["d21_px_min"], r["d21_pose_min"])
-        lines.append("| %d | %d | %.2f (%.2f) | %.2f | %.2f | %s | %s | %s | %s | %s | %s | %s | %s |" % (
-            lv, e, r["O"], G.O_TARGET[e], r["L"], r["socle_top"], pa, ip, ie, V, l50,
-            ("%.0f" % ph["L95"]) if ph else "", ("%.2f" % ph["sat"]) if ph else "", em))
+        op = " / ".join("%.2f" % r["O_poses"][p] for p in D.POSES)
+        lines.append("| %d | %d | %.2f (%.2f) | %s | %.2f | %.2f | %.2f | %s | %s | %s | %s |" % (
+            lv, e, r["O"], G.O_TARGET[e], op, r["O_masses_2D"], r["L"], r["socle_top"], pa, ip, ie, V))
+    if any("photo" in res["levels"][lv] for lv in range(1, 31)):
+        lines += ["", "Tableau 2 : photométrie sur les 4 poses (corps = couche principale opaque hors lueur ; "
+                  "luminances sRGB sur 255 ; D2-1 = bloc plein de 8 × 8 px hr de lueur visible dans chaque pose)", "",
+                  "| Niv. | Ép. | L50 N / E / S / O (cible ± 10) | p95 max (pose) | px ≥ 245 max | sat max | émissif min-max | D2-1 (poses OK ; plus grand carré) |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for lv in range(1, 31):
+            r = res["levels"][lv]
+            e = r["epoch"]
+            ph = r.get("photo")
+            if not ph:
+                continue
+            lt = LUMA_TARGET.get(e)
+            l50 = " / ".join("%.0f" % ph["L50_poses"][p] for p in D.POSES) + (" (%s)" % (lt if lt else "-"))
+            em = "%.1f-%.1f %%" % (100 * ph["emis_min"], 100 * ph["emis_max"]) if ph["emis_max"] > 0 else ""
+            d21 = ""
+            if "d21_ok" in r:
+                d21 = "%s (%s ; %d px)" % ("oui" if r["d21_ok"] else "NON", ",".join(r["d21_poses_ok"]) or "aucune",
+                                           r["d21_carre_min"])
+            lines.append("| %d | %d | %s | %.0f (%s) | %d | %.2f | %s | %s |" % (
+                lv, e, l50, ph["L95_max"], ph["L95_pose"], ph["px_ge_245_max"], ph["sat_max"], em, d21))
     d = res["d13"]
     lines.append("")
     for tag, title in (("complet", "masque complet (socle + tête)"), ("tete", "tête seule (socle exclu)")):
@@ -157,9 +239,13 @@ def table(res):
             title, x["iou"], ", ".join("%s %.3f" % (p, v) for p, v in x["iou_poses"].items()), x["iou_norm"],
             ", ".join("%s %.3f k=%.2f" % (p, v[0], v[1]) for p, v in x["iou_norm_poses"].items()), x["iou_29"]))
     lines.append("D1-3 retenu (le pire des deux) : IoU = %.3f (< 0,50, cible ≤ 0,45) ; IoU normalisée = %.3f "
-                 "(proposition ≤ 0,75)" % (d["iou_retenu"], d["iou_norm_retenu"]))
-    lines.append("O monotone (impairs) : %s ; O sous le plafond %.2f : %s" % (
-        res["O_monotone_impairs"], G.O_PLAFOND, res["O_sous_plafond"]))
+                 "(proposition ≤ 0,75, seuil NON étalonné)" % (d["iou_retenu"], d["iou_norm_retenu"]))
+    lines.append("O monotone (maximum des poses, impairs) : %s ; O monotone POSE PAR POSE : %s%s ; O sous le plafond "
+                 "%.2f : %s" % (res["O_monotone_impairs"], res["O_monotone_par_pose"],
+                                (" (" + " ; ".join(res["O_reculs_par_pose"]) + ")") if res["O_reculs_par_pose"] else "",
+                                G.O_PLAFOND, res["O_sous_plafond"]))
+    lines.append("Hauteur d'axe des canons zg (unités Blender) : " + ", ".join(
+        "é%d %.3f" % (e, P["zg"][e]) for e in range(2, 16)))
     return "\n".join(lines)
 
 
@@ -177,6 +263,7 @@ def main():
     ap.add_argument("--json", default="")
     ap.add_argument("--check-geo", action="store_true")
     a = ap.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")
     res, masks = run(a.source)
     print(table(res))
     if a.check_geo and a.source == "final":

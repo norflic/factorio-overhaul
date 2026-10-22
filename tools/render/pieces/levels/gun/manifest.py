@@ -28,6 +28,13 @@ SIN45 = math.sin(math.radians(45))
 V_PROJ_CENTER = (0.0, -0.0875)          # turrets.lua:831
 V_PROJ_DIST = 1.39375                   # turrets.lua:830
 V_MUZZLE_E = (1.000, -1.045)            # bout du canon vanilla, pose E, mesuré sur hr-gun-turret-shooting-2 (image 0)
+# halo de nuit (vérification adverse, mineur 2) : la bible §1.6 écrit « rayon S(N) = s × (1 + 0,05·N) » ; la phase 1
+# lit S(N) comme la TAILLE (diamètre) d'une LightDefinition : rayon nul = S(N)/2 (2,5 tuiles au niveau 30). Lecture
+# « rayon » : 5 tuiles au niveau 30 (halo 2 fois plus large, 4 fois plus d'aire). Choix à trancher par le Directeur
+# Créatif ; les deux valeurs sont écrites ci-dessous pour chaque niveau.
+HALO_NOTE = ("PROPOSITION À TRANCHER : S(N) = 2 × (1 + 0,05·N) lu comme un DIAMÈTRE (LightDefinition.size) ; rayon nul "
+             "= S(N)/2. La bible §1.6 dit « rayon » : l'autre lecture double le rayon (champ "
+             "rayon_si_S_est_un_rayon_tuiles).")
 
 
 def rel(p):
@@ -123,7 +130,9 @@ def main():
                           "rendue_avec_le_socle": lv != 2}
         if e >= 3:
             L["halo"] = {"couche": "light du socle (draw_as_light)", "intensite_I": round(G.halo_intensity(lv), 3),
-                         "rayon_nul_tuiles": round(G.halo_radius(lv), 3), "couleur": G.EMIT_HEX[e],
+                         "rayon_nul_tuiles": round(G.halo_radius(lv), 3),
+                         "rayon_si_S_est_un_rayon_tuiles": round(2.0 * G.halo_radius(lv), 3),
+                         "interpretation_S": HALO_NOTE, "couleur": G.EMIT_HEX[e],
                          "normalisation": "max alpha = LIGHT_MAX × I(N)/I(30)"}
             L["lueur_de_jour"] = {"couleur": G.EMIT_HEX[e], "couches": "glow du socle et de la tête (draw_as_glow)"}
         m = (meas.get("levels") or {}).get(str(lv))
@@ -165,6 +174,17 @@ def main():
                                "(drawing_box_proposee) ; découpe des sprites hauts en bord d'écran NON vérifiée"},
             "chemins_phase2": "graphics/levels/gun/e<NN>/{socle,tete,piece}-{couleur,ombre,emissif,lumiere,masque}.png "
                               "(bible §1.9 ; hr seulement ou hr + lr réduite : à trancher par V0b)"},
+        "a_trancher_par_le_directeur_creatif": [
+            "Halo de nuit : S(N) de la bible §1.6 lu comme un DIAMÈTRE (rayon nul 2,5 tuiles au niveau 30) ou comme un "
+            "RAYON (5 tuiles) ; voir niveaux.*.halo.interpretation_S.",
+            "Plafond L = 2,20 (bible §1.4) contre débord des pièces paires (F42 : 0,10 à 0,25 ; fiches : sacs de sable et "
+            "caisse 0,10, passerelle et jupe 0,15 de chaque côté = L 2,30 par construction) : aux niveaux pairs, L = "
+            "portée des canons d'un côté + débord de la pièce de l'autre ; planche gun-g-rangs-zoom1.png (3 tourelles "
+            "jointives) pour juger le recouvrement entre voisines.",
+            "Part émissive du corps au-dessus de la proposition ❔ de la bible (5 à 15 %) aux époques 8, 12, 13 et 15 "
+            "(chiffres dans docs/epoques/planches/gun/gun-mesures-d1.txt, tableau 2).",
+            "Seuil de l'IoU normalisée (D1-3) : proposition 0,75 NON étalonnée.",
+            "Design : verdict sur les planches (D1 à D3) ; rien n'est validé sans lui."],
         "conventions": {"hr_px_par_tuile": 64, "scale_hr": 0.5, "shift": "tuiles, multiples exacts de 1/64",
                         "origine": "position de l'entité au sol", "projection": "orthographique 45°, tuile sud = √2 unité",
                         "poses": "N = canons vers le nord (direction 0), E = 16, S = 32, O = 48"},

@@ -357,7 +357,9 @@ def materials(S, e, g):
         emissive("emit", "#FFC060", 2.2)
     elif e == 4:
         metal("main", "#8C7A3A", rough=0.5, met=0.25, rust="#4A3A20", ra=0.3, dirt=0.55)  # tôle jaune délavée
-        metal("galva", "#6E7378", rough=0.38, met=0.8)
+        # galvanisé terni (reprise 4) : les bidons, vus de flanc en poses E et O, montaient la luminance médiane du
+        # corps à 73-75 (cible 60 ± 10 ; mesure par pose de la vérification adverse, majeur 2)
+        metal("galva", "#6E7378", rough=0.45, met=0.75, gain=g * 0.55)
         # caillebotis de la passerelle (niveau 8) : galvanisé terni ; vu de dessus, il montait la médiane du corps
         # à 73 (cible 60 ± 10) au 1er aperçu de la reprise 3
         metal("grille", "#6E7378", rough=0.6, met=0.5, gain=g * 0.28)
@@ -391,8 +393,12 @@ def materials(S, e, g):
         metal("noir", "#222428", rough=0.45, met=0.4, grain=0.08, gain=g * 1.2)
         emissive("emit", "#3AA8FF", 2.4)
     elif e == 11:
-        metal("main", "#C9C6BE", rough=0.32, met=0.4, grain=0.08, dirt=0.5, gain=g * 0.62)   # alliage blanc
-        metal("titane", "#8E9AA6", rough=0.32, met=0.85, grain=0.1)
+        # alliage blanc SATINÉ (reprise 4) : à rugosité 0,32, l'aileron dorsal (face plane) sortait en rectangle blanc
+        # cramé en poses E et O (494 px hr ≥ 245, p95 du corps 254 ; bible §1.5 règle 2 : p95 ≤ 240)
+        metal("main", "#C9C6BE", rough=0.5, met=0.25, grain=0.12, dirt=0.6, gain=g * 0.62)
+        # ailerons : alliage plus sombre et mat, crasse forte (patine des arêtes) ; jamais de grande face miroir
+        metal("aileron", "#A9A69E", rough=0.62, met=0.15, grain=0.2, dirt=0.75, gain=g * 0.55)
+        metal("titane", "#8E9AA6", rough=0.38, met=0.8, grain=0.12)
         emissive("emit", "#BFE6FF", 2.2)
     elif e == 12:
         metal("main", "#26282E", rough=0.3, met=0.6, grain=0.08, gain=g * 1.3)    # noir profond
@@ -415,8 +421,13 @@ def materials(S, e, g):
         # 88 + 80) ; le reflet (lumière réfléchie, donc plus claire que la cellule) passe à un bleu clair
         emissive("emit2", "#A8C8FF", 1.8)
     elif e == 15:
-        metal("main", "#E8DCB0", rough=0.28, met=0.9, grain=0.1, dirt=0.5, gain=g * 0.62)   # or blanc patiné
-        metal("nacre", "#D8D2C8", rough=0.22, met=0.2, grain=0.08, dirt=0.5, gain=g * 0.62)
+        # or blanc PATINÉ (reprise 4) : à rugosité 0,28 les canons (pointes à facettes) sortaient blancs cramés en
+        # poses E et O (p95 241 à 251, 520 à 660 px ≥ 250) ; rugosité et crasse relevées, gain abaissé
+        # 2e réglage (reprise 4) : plus mates, ces surfaces diffusaient davantage (L50 de 124 à 139 pour une cible de
+        # 108 ± 10) : albédos × 0,66
+        metal("main", "#E8DCB0", rough=0.42, met=0.8, grain=0.14, dirt=0.65, gain=g * 0.37)
+        metal("canon", "#D8C89A", rough=0.5, met=0.7, grain=0.16, dirt=0.7, gain=g * 0.31)
+        metal("nacre", "#D8D2C8", rough=0.34, met=0.15, grain=0.1, dirt=0.6, gain=g * 0.39)
         emissive("emit", "#FFF2C0", 2.0)
     return M
 
@@ -448,7 +459,9 @@ def sandbag(k, x, y, z, ang, m, length=0.26, depth=0.17, h=0.105):
 
 def piece_e01(k, M, part):
     """Arc de sacs de sable : coins avant et flancs (y de jeu ≥ -0,66), avant-centre libre.
-    Dépasse de 0,10 de chaque côté (x ±1,10) et de 0,15 sous l'emprise (y de jeu +1,15).
+    Dépasse de 0,10 de chaque côté (x ±1,10 À L'ÉCRAN, liseré de contact compris) et de 0,15 sous l'emprise
+    (y de jeu +1,15). Reprise 4 : l'arc mesurait ±1,17 sur l'aperçu (vérification adverse, mineur 1 : le
+    plafond L = 2,20 de la bible était dépassé) ; tout est rentré de 0,07 (le liseré ajoute 0,05 à 0,06).
     part = "avant" (devant le socle : jamais masqué) ou "flancs" (à côté du socle : masqué au pixel par
     l'alpha du socle vanilla, comme la variante « four » de V0)."""
     m = M["toile"]
@@ -456,7 +469,7 @@ def piece_e01(k, M, part):
     if part == "flancs":
         # deux colonnes de sacs le long des flancs, de y de jeu -0,62 à +0,40
         for side in (-1, 1):
-            xs = side * 1.015
+            xs = side * 0.945
             ys = [gy(t) for t in (-0.50, -0.25, 0.0, 0.25, 0.47)]
             for i, y in enumerate(ys):
                 sandbag(k, xs + rnd.uniform(-0.01, 0.01), y, 0.0, math.pi / 2 + rnd.uniform(-0.08, 0.08), m,
@@ -472,13 +485,13 @@ def piece_e01(k, M, part):
             # arc de cercle en coordonnées de jeu, centré (side*0.62, +0.62), rayon 0,45
             for a in (0.0, 0.33, 0.66, 1.0):
                 th = a * math.pi / 2
-                tx = side * (0.60 + 0.415 * math.cos(th))
+                tx = side * (0.53 + 0.415 * math.cos(th))
                 ty = 0.62 + 0.45 * math.sin(th)
                 pts.append((tx, ty, th))
             for tx, ty, th in pts:
                 sandbag(k, tx, gy(ty), 0.0, (math.pi / 2 - th) * side + rnd.uniform(-0.06, 0.06), m, length=0.27)
             # bout de rangée vers le centre
-            sandbag(k, side * 0.40, gy(1.07), 0.0, rnd.uniform(-0.05, 0.05), m, length=0.25)
+            sandbag(k, side * 0.36, gy(1.07), 0.0, rnd.uniform(-0.05, 0.05), m, length=0.25)
             # 2e rangée sur l'arc
             for j in range(3):
                 tx = (pts[j][0] + pts[j + 1][0]) / 2
@@ -488,7 +501,7 @@ def piece_e01(k, M, part):
                         length=0.26, depth=0.16)
         # piquets de bois qui retiennent l'arc
         for side in (-1, 1):
-            k.cyl(0.022, 0.30, (side * 1.07, gy(0.62), 0.15), M["bois"], verts=8, name="piquet")
+            k.cyl(0.022, 0.30, (side * 1.00, gy(0.62), 0.15), M["bois"], verts=8, name="piquet")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -541,13 +554,20 @@ def socle(k, e, M):
                     rr = 0.80 + r
                     v.append((rr * c - d * s, rr * s + d * c, z))
             k.mesh(v, [[0, 1, 2], [5, 4, 3], [0, 3, 4, 1], [1, 4, 5, 2], [2, 5, 3, 0]], M["rouille"], 0.008, "contrefort")
-        # fentes de braise sur les faces avant et latérales (zones ≥ 8 × 8 px hr)
-        for ang, (fx, fy) in ((0.0, (0.0, -0.74)), (math.pi / 2, (0.74, 0.0)), (-math.pi / 2, (-0.74, 0.0))):
-            k.box((0.30, 0.04, 0.11), (fx, fy, 0.15), M["emit"], rot=(0.62 if ang == 0 else 0, 0, ang), bevel=0.0,
-                  name="braise")
+        # fentes de braise COUCHÉES SUR les faces du tronc (pente de 0,71 rad depuis la verticale) : zones de 8 × 8 px
+        # hr au moins (D2-1). Reprise 4 : la fente avant était inclinée du MAUVAIS côté (0,62 rad vers l'extérieur,
+        # face à 0,71 vers l'intérieur) et les fentes latérales étaient verticales, à moitié noyées dans la pente :
+        # 2 à 3 px de haut à l'écran (vérification adverse, majeur 3)
+        t = 0.71
+        k.box((0.40, 0.035, 0.20), (0.0, -0.74, 0.15), M["emit"], rot=(-t, 0, 0), bevel=0.0, name="braise")
+        for j in (-1, 1):
+            k.box((0.04, 0.05, 0.22), (j * 0.22, -0.745, 0.15), M["rouille"], rot=(-t, 0, 0), bevel=0.0, name="grille")
+        for sx in (-1, 1):
+            # face ±x : monter le long de la face, c'est aller vers l'axe : rotation de -sx·t autour de Y
+            k.box((0.035, 0.36, 0.22), (sx * 0.74, 0.0, 0.15), M["emit"], rot=(0, -sx * t, 0), bevel=0.0, name="braise")
             for j in (-1, 1):
-                k.box((0.035, 0.06, 0.13), (fx + (j * 0.16 if ang == 0 else 0), fy + (0 if ang == 0 else j * 0.16), 0.15),
-                      M["rouille"], rot=(0, 0, ang), bevel=0.0, name="grille")
+                k.box((0.05, 0.04, 0.24), (sx * 0.745, j * 0.20, 0.15), M["rouille"], rot=(0, -sx * t, 0), bevel=0.0,
+                      name="grille")
         return 0.36
     if e == 6:   # socle d'acier, couronne d'isolateurs qui DÉPASSE du plateau (bord « cranté » en silhouette)
         k.cyl(0.70, 0.16, (0, 0, 0.08), M["steel"], verts=40, bevel=0.015, name="plate")
@@ -564,10 +584,12 @@ def socle(k, e, M):
             r = (0.84 if i % 2 == 0 else 0.70) + rnd.uniform(-0.05, 0.05)
             poly.append((r * math.cos(a), r * math.sin(a)))
         k.frustum_poly(poly, 0.0, 0.26, 0.82, M["pierre"], bevel=0.02, name="roc")
-        # trois éclats de roche levés sur le pourtour arrière et latéral (asymétrie de l'ère III)
-        for a, h in ((2.2, 0.42), (0.9, 0.34), (3.3, 0.30)):
+        # éclats de roche levés sur le pourtour (asymétrie de l'ère III) ; reprise 4 (vérification adverse, mineur 4 :
+        # en masque noir, les époques 2 à 9 se lisaient toutes « disque + bouteille ») : plus hauts et plus nombreux,
+        # ils sortent de la silhouette de la colonne de chaque côté (dents de pierre)
+        for a, h in ((2.2, 0.66), (0.9, 0.52), (3.3, 0.46), (-0.2, 0.40), (4.4, 0.36)):
             c, s = math.cos(a), math.sin(a)
-            k.spike((0.70 * c, 0.70 * s, 0.10), (0.80 * c, 0.80 * s, 0.10 + h), 0.09, M["pierre"], sides=5, name="eclat_roc")
+            k.spike((0.70 * c, 0.70 * s, 0.10), (0.84 * c, 0.84 * s, 0.10 + h), 0.10, M["pierre"], sides=5, name="eclat_roc")
         k.tor(0.66, 0.035, (0, 0, 0.26), M["main"], name="sertissure")
         k.cyl(0.58, 0.08, (0, 0, 0.29), M["main"], verts=40, name="plateau")
         return 0.33
@@ -579,11 +601,30 @@ def socle(k, e, M):
             a = math.pi / 4 + i * math.pi / 2
             k.cyl(0.05, 0.30, (0.70 * math.cos(a), 0.70 * math.sin(a), 0.16), M["main"], axis=(0.9, 0, a + math.pi / 2),
                   verts=12, name="tubulure")
+        # 3 cosses bombées sur le pourtour (reprise 4, mineur 4) : bosses qui sortent du disque en silhouette (forme
+        # organique de l'ère III), jonc de caoutchouc à leur pied
+        for i in range(3):
+            a = math.pi / 2 + TAU * i / 3 + math.pi / 3
+            c, s = math.cos(a), math.sin(a)
+            k.sph(0.20, (0.86 * c, 0.86 * s, 0.16), M["main"], scale=(1, 1, 1.25), seg=28, rings=14, name="cosse")
+            k.tor(0.17, 0.03, (0.86 * c, 0.86 * s, 0.05), M["rubber"], name="jonc_cosse")
         return 0.30
     if e == 9:   # base octogonale chanfreinée en béton, bande jaune
         k.cyl(0.84, 0.18, (0, 0, 0.09), M["beton"], verts=8, spin=math.pi / 8, bevel=0.01, name="beton")
         k.cyl(0.85, 0.06, (0, 0, 0.13), M["jaune"], verts=8, spin=math.pi / 8, bevel=0.0, name="bande")
         k.cyl(0.84, 0.10, (0, 0, 0.23), M["main"], r2=0.66, verts=8, spin=math.pi / 8, bevel=0.01, name="chanfrein")
+        # 4 contreforts de béton aux coins (reprise 4, mineur 4) : créneaux droits qui sortent de l'octogone en
+        # silhouette (ère III : octogones, béton de centrale), bande jaune en tête
+        for i in range(4):
+            a = math.pi / 4 + i * math.pi / 2
+            c, s = math.cos(a), math.sin(a)
+            # hors du rayon du plateau tournant de la tête (0,70) : aucune interpénétration entre socle et tête
+            k.box((0.22, 0.22, 0.50), (0.82 * c, 0.82 * s, 0.25), M["beton"], rot=(0, 0, a), bevel=0.012, name="contrefort")
+            k.box((0.23, 0.23, 0.06), (0.82 * c, 0.82 * s, 0.47), M["jaune"], rot=(0, 0, a), bevel=0.0, name="bande_contrefort")
+            if s > 0:
+                # lampe d'uranium sur les contreforts ARRIÈRE (12,8 px hr de diamètre) : seule zone lumineuse jamais
+                # cachée par la tête, quelle que soit sa direction (D2-1 en pose N : 6 px au mieux au 1er aperçu)
+                k.sph(0.10, (0.82 * c, 0.82 * s, 0.58), M["emit"], seg=20, rings=10, name="lampe")
         return 0.28
     if e == 10:  # disque caréné sur 3 pieds courts (vides sous le corps), bandeau bleu
         k.cyl(0.58, 0.10, (0, 0, 0.36), M["main"], verts=48, bevel=0.03, name="disque")
@@ -608,7 +649,9 @@ def socle(k, e, M):
     if e == 12:  # socle annulaire noir et chrome (vide au centre)
         k.tor(0.62, 0.11, (0, 0, 0.16), M["main"], mseg=14, name="anneau")
         k.tor(0.62, 0.035, (0, 0, 0.27), M["chrome"], name="jonc")
-        k.tor(0.50, 0.03, (0, 0, 0.20), M["emit"], name="lueur")
+        # anneau lumineux ÉPAIS (reprise 4) : r = 0,03 donnait 4 px hr, aucune zone de 8 × 8 en poses N et S (D2-1) ;
+        # vu sur les flancs (x = ±0,44), il fait 0,15 de large, soit 9 px hr, jamais couvert par la tête
+        k.tor(0.44, 0.075, (0, 0, 0.21), M["emit"], mseg=14, name="lueur")
         for i in range(4):
             a = math.pi / 4 + i * math.pi / 2
             k.box((0.16, 0.16, 0.10), (0.62 * math.cos(a), 0.62 * math.sin(a), 0.05), M["chrome"], rot=(0, 0, a),
@@ -635,7 +678,14 @@ def socle(k, e, M):
     if e == 15:  # socle-disque flottant au-dessus d'un petit pied (vide sous le disque)
         k.cyl(0.20, 0.22, (0, 0, 0.11), M["nacre"], r2=0.12, verts=32, name="pied")
         k.cyl(0.72, 0.06, (0, 0, 0.27), M["main"], verts=64, bevel=0.02, name="disque")
-        k.tor(0.56, 0.025, (0, 0, 0.305), M["emit"], seg=64, name="halo_disque")
+        # anneau lumineux fin du disque + 4 lentilles lumineuses de 0,24 (reprise 4) : le tube de 0,05 seul donnait
+        # 3 px hr, aucune zone de 8 × 8 (D2-1) ; un anneau large portait la part émissive à 22-25 % : 4 lentilles
+        # (ellipses de 15 × 11 px hr à l'écran) suffisent et ne sont jamais cachées par la tête
+        k.tor(0.54, 0.025, (0, 0, 0.305), M["emit"], seg=64, name="halo_disque")
+        for i in range(4):
+            a = math.pi / 4 + i * math.pi / 2
+            k.cyl(0.12, 0.02, (0.54 * math.cos(a), 0.54 * math.sin(a), 0.305), M["emit"], verts=32, bevel=0,
+                  name="lentille")
         k.cyl(0.34, 0.05, (0, 0, 0.325), M["nacre"], verts=48, name="plateau")
         k.tor(0.73, 0.02, (0, 0, 0.27), M["nacre"], seg=64, name="jonc")
         return 0.35
@@ -658,8 +708,9 @@ def fin(k, base, ang, pts, thick, mat, name):
 def piece(k, e, M):
     """Pièce du niveau pair 2e, sur le socle de l'époque e (zone toujours visible, y de jeu ≥ +0,11)."""
     FL, FR = (-0.86, gy(0.80)), (0.86, gy(0.80))   # coins avant de l'emprise (y de jeu +0,80)
+    # débords ramenés aux valeurs des fiches À L'ÉCRAN, liseré de contact compris (reprise 4, mineur 1)
     if e == 2:   # caisse de munitions cerclée sur le flanc gauche, dépasse de 0,10 à gauche
-        x, y = -0.90, gy(0.40)
+        x, y = -0.81, gy(0.40)
         k.box((0.36, 0.52, 0.30), (x, y, 0.15), M["bois"], bevel=0.015, name="caisse")
         for dy in (-0.18, 0.18):
             k.box((0.38, 0.04, 0.32), (x, y + dy, 0.155), M["band"], bevel=0.005, name="cercle")
@@ -667,7 +718,7 @@ def piece(k, e, M):
         k.box((0.22, 0.30, 0.18), (x + 0.04, gy(0.86), 0.09), M["bois"], rot=(0, 0, 0.2), bevel=0.012, name="caisse2")
         return
     if e == 3:   # réservoir de vapeur debout au coin avant droit, dépasse de 0,10 à droite
-        x, y = 0.93, gy(0.66)
+        x, y = 0.89, gy(0.66)
         k.cyl(0.17, 0.56, (x, y, 0.28), M["main"], verts=32, bevel=0.01, name="reservoir")
         k.sph(0.17, (x, y, 0.56), M["main"], scale=(1, 1, 0.55), name="dome")
         for z in (0.12, 0.42):
@@ -678,24 +729,24 @@ def piece(k, e, M):
         return
     if e == 4:   # passerelle à garde-corps autour de l'avant, dépasse de 0,15 de chaque côté
         yb, yf = gy(0.15), gy(1.05)
-        k.box((2.30, yb - yf, 0.04), (0, (yb + yf) / 2, 0.10), M["grille"], bevel=0.005, name="caillebotis")
+        W, X = 2.16, 1.06     # ±1,15 à l'écran avec le liseré (aperçu précédent : ±1,22)
+        k.box((W, yb - yf, 0.04), (0, (yb + yf) / 2, 0.10), M["grille"], bevel=0.005, name="caillebotis")
         for i in range(9):
-            k.box((0.02, yb - yf - 0.04, 0.02), (-1.0 + i * 0.25, (yb + yf) / 2, 0.125), M["dark"], bevel=0, name="latte")
-        posts = [(-1.13, yb), (-1.13, (yb + yf) / 2), (-1.13, yf), (-0.40, yf), (0.40, yf), (1.13, yf),
-                 (1.13, (yb + yf) / 2), (1.13, yb)]
+            k.box((0.02, yb - yf - 0.04, 0.02), (-0.94 + i * 0.235, (yb + yf) / 2, 0.125), M["dark"], bevel=0, name="latte")
+        posts = [(-X, yb), (-X, (yb + yf) / 2), (-X, yf), (-0.38, yf), (0.38, yf), (X, yf), (X, (yb + yf) / 2), (X, yb)]
         for x, y in posts:
             k.cyl(0.022, 0.42, (x, y, 0.33), M["main"], verts=8, bevel=0, name="poteau")
         for z in (0.30, 0.52):
-            k.box((0.03, yb - yf, 0.03), (-1.13, (yb + yf) / 2, z), M["main"], bevel=0, name="lisse")
-            k.box((0.03, yb - yf, 0.03), (1.13, (yb + yf) / 2, z), M["main"], bevel=0, name="lisse")
-            k.box((2.26, 0.03, 0.03), (0, yf, z), M["main"], bevel=0, name="lisse")
-        k.box((2.30, 0.03, 0.08), (0, yf, 0.16), M["black"], bevel=0, name="plinthe")
+            k.box((0.03, yb - yf, 0.03), (-X, (yb + yf) / 2, z), M["main"], bevel=0, name="lisse")
+            k.box((0.03, yb - yf, 0.03), (X, (yb + yf) / 2, z), M["main"], bevel=0, name="lisse")
+            k.box((2 * X, 0.03, 0.03), (0, yf, z), M["main"], bevel=0, name="lisse")
+        k.box((W, 0.03, 0.08), (0, yf, 0.16), M["black"], bevel=0, name="plinthe")
         return
     if e == 5:   # jupe d'écailles inclinées autour de l'avant, dépasse de 0,15 au sud et sur les côtés
         for i in range(9):
             t = i / 8.0
             ang = math.pi * (1.0 + t)            # de l'ouest (π) au sud (3π/2) puis à l'est (2π)
-            cx, cy = 1.02 * math.cos(ang), 1.02 * math.sin(ang) * 1.38
+            cx, cy = 0.99 * math.cos(ang), 0.99 * math.sin(ang) * 1.38
             if cy > 0.25:
                 continue
             k.box((0.34, 0.06, 0.30), (cx, cy, 0.15), M["main"], rot=(0.55, 0, ang + math.pi / 2), bevel=0.012,
@@ -722,7 +773,7 @@ def piece(k, e, M):
             k.halo((x, y, 0.30), emit_rgb("#B070FF"), 6.0)
         return
     if e == 8:   # bonbonne de verre sur le flanc gauche (berceau de caoutchouc)
-        x, y = -0.92, gy(0.42)
+        x, y = -0.83, gy(0.42)
         k.cyl(0.22, 0.06, (x, y, 0.03), M["rubber"], verts=24, name="berceau")
         k.sph(0.24, (x, y, 0.27), M["emit"], seg=32, rings=16, name="bonbonne_liquide")
         k.tor(0.245, 0.016, (x, y, 0.27), M["rubber"], axis=(math.pi / 2, 0, 0.6), name="sangle_v")
@@ -753,7 +804,7 @@ def piece(k, e, M):
     if e == 11:  # ailerons de socle aux coins avant, orientés à 45° (lisibles de face comme de profil)
         for x, y in (FL, FR):
             a = math.radians(135 if x < 0 else 45)
-            fin(k, (x, y, 0.0), a, [(-0.32, 0.0), (0.30, 0.0), (-0.20, 0.78)], 0.05, M["main"], "aileron")
+            fin(k, (x, y, 0.0), a, [(-0.32, 0.0), (0.30, 0.0), (-0.20, 0.78)], 0.05, M["aileron"], "aileron")
             fin(k, (x, y, 0.0), a, [(-0.25, 0.30), (-0.17, 0.30), (-0.21, 0.66), (-0.27, 0.62)], 0.065, M["emit"], "ligne")
             k.box((0.12, 0.62, 0.05), (x, y, 0.025), M["titane"], rot=(0, 0, a - math.pi / 2), name="pied")
         return

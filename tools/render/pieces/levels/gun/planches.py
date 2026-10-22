@@ -19,7 +19,11 @@ Planches écrites (PNG) :
                                dans 64 px), 4 poses, et gun-d-vignettes-melange.png (ordre mélangé, clé dans
                                gun-d-cle.json) ;
   e) gun-e-gros-plan-eNN.png   époques 1, 5, 10, 15 au zoom 2 (64 px/tuile), jour et nuit, à côté du niveau 1 ;
-  f) gun-f-poses-zoom1.png     les 15 niveaux impairs dans les 4 poses de référence, de jour (complément).
+  f) gun-f-poses-zoom1.png     les 15 niveaux impairs dans les 4 poses de référence, de jour (complément) ;
+  g) gun-g-rangs-zoom1.png     reprise 4 (vérification adverse, mineur 1) : pour chaque niveau pair, un rang de 3
+                               tourelles JOINTIVES (emprises 2 × 2 côte à côte, cas courant derrière les murs), pose N
+                               et pose E, de jour, zoom 1 ; repères des bords d'emprise sous chaque rang. Montre le
+                               recouvrement des pièces débordantes (plafond L = 2,20 contre débord F42 : à trancher).
 """
 import argparse
 import json
@@ -107,24 +111,27 @@ def compose(entities, Wpx, Hpx):
                 if r:
                     shadow[r[1]] = np.maximum(shadow[r[1]], r[0][..., 3])
     day = day * (1 - 0.5 * shadow)[..., None]
-    for e in sorted(entities, key=lambda e: (e["pos"][1], e["pos"][0])):
-        # moteur : toutes les couches lower-object (socle) avant les couches object (tête)
-        order = [l for l in e["layers"] if l["module"] == "socle"] + [l for l in e["layers"] if l["module"] != "socle"]
-        for lay in order:
-            if lay["kind"] == "shadow":
-                continue
-            r = region(lay, e["pos"])
-            if not r:
-                continue
-            src, d = r
-            a = src[..., 3:4]
-            if lay["kind"] == "main":
-                day[d] = src[..., :3] * a + day[d] * (1 - a)
-            elif lay["kind"] == "glow":
-                day[d] = np.clip(day[d] + src[..., :3] * a, 0, 1)
-                light[d] += src[..., :3] * a
-            elif lay["kind"] == "light":
-                light[d] += src[..., :3] * a
+    # moteur : TOUTES les couches lower-object (socles) de toutes les entités avant les couches object (têtes) ;
+    # dans chaque couche, ordre des entités par y puis x (reprise 4 : avant, la passe était faite entité par entité,
+    # ce qui posait le socle d'une tourelle voisine par-dessus la tête de la précédente, planche g)
+    ents = sorted(entities, key=lambda e: (e["pos"][1], e["pos"][0]))
+    passes = [(e, l) for e in ents for l in e["layers"] if l["module"] == "socle"]
+    passes += [(e, l) for e in ents for l in e["layers"] if l["module"] != "socle"]
+    for e, lay in passes:
+        if lay["kind"] == "shadow":
+            continue
+        r = region(lay, e["pos"])
+        if not r:
+            continue
+        src, d = r
+        a = src[..., 3:4]
+        if lay["kind"] == "main":
+            day[d] = src[..., :3] * a + day[d] * (1 - a)
+        elif lay["kind"] == "glow":
+            day[d] = np.clip(day[d] + src[..., :3] * a, 0, 1)
+            light[d] += src[..., :3] * a
+        elif lay["kind"] == "light":
+            light[d] += src[..., :3] * a
     light = np.clip(light, 0, 1)
     night = lut_apply(day, os.path.join(CORE, "graphics", "color_luts", "lut-night.png")) * (1 - light) + day * light
     return day, night
@@ -294,11 +301,43 @@ def poses_planche(out_dir, cell_w=4.0, top=4.0, bottom=1.6):
     return save(img, os.path.join(out_dir, "gun-f-poses-zoom1.png"), True)
 
 
+def rangs_planche(out_dir, poses=("N", "E"), cols=5, gap=1.2, top=4.0, bottom=1.4):
+    """Niveaux pairs : 3 tourelles jointives (x = -2, 0, +2 tuiles) par case, 5 cases par rangée, poses N puis E."""
+    lvls = list(range(2, 31, 2))
+    cell_w = 6.0 + gap
+    rows = [(pose, lvls[i:i + cols]) for pose in poses for i in range(0, len(lvls), cols)]
+    Wpx, Hpx = int(cols * cell_w * PPT), int(len(rows) * (top + bottom) * PPT)
+    ents, labels, ticks = [], [], []
+    for ri, (pose, lv_row) in enumerate(rows):
+        for ci, lv in enumerate(lv_row):
+            cx = (ci * cell_w + gap / 2 + 3.0) * PPT
+            y = (ri * (top + bottom) + top) * PPT
+            for dx in (-2, 0, 2):
+                ents.append({"pos": (cx + dx * PPT, y), "layers": level_layers(lv, pose)})
+            labels.append((cx / 2, (ri * (top + bottom) + top + bottom - 0.3) * PPT / 2, "niv. %d %s" % (lv, pose)))
+            for bx in (-3, -1, 1, 3):
+                ticks.append(((cx + bx * PPT) / 2, (y + 1.0 * PPT) / 2))
+    day, _ = compose(ents, Wpx, Hpx)
+    im = to_img(down2(day))
+    T = 22
+    out = Image.new("RGB", (im.width, im.height + T), (24, 22, 20))
+    out.paste(im, (0, T))
+    dr = ImageDraw.Draw(out)
+    dr.text((6, T / 2 + 2), "Mitrailleuse : niveaux pairs, 3 tourelles jointives (emprises 2 × 2 côte à côte), poses N et E, "
+                            "jour, zoom 1 ; traits blancs = bords d'emprise", fill=(235, 230, 215), font=font(13), anchor="lm")
+    for x, y in ticks:
+        dr.line([(x, y + T + 2), (x, y + T + 9)], fill=(255, 255, 255), width=1)
+    for (x, y, t) in labels:
+        dr.text((x + 1, y + T + 1), t, fill=(0, 0, 0), font=font(12), anchor="mm")
+        dr.text((x, y + T), t, fill=(250, 245, 230), font=font(12), anchor="mm")
+    return save(out, os.path.join(out_dir, "gun-g-rangs-zoom1.png"), True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pose", default="E")
     ap.add_argument("--out", default=os.path.join(D.MOD_ROOT, "docs", "epoques", "planches", "gun"))
-    ap.add_argument("--only", default="abcdef")
+    ap.add_argument("--only", default="abcdefg")
     a = ap.parse_args()
     paths = []
     if any(c in a.only for c in "abc"):
@@ -320,6 +359,8 @@ def main():
         paths += gros_plans(a.out)
     if "f" in a.only:
         paths.append(poses_planche(a.out))
+    if "g" in a.only:
+        paths.append(rangs_planche(a.out))
     for p in paths:
         print(os.path.abspath(p), "%d Ko" % (os.path.getsize(p) // 1024))
 

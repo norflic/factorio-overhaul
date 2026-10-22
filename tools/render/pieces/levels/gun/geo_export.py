@@ -8,7 +8,9 @@ S'exécute dans Blender, TOUJOURS par le verrou de rendu (interdit n° 6) :
         --factory-startup -noaudio -P tools/render/pieces/levels/gun/geo_export.py -- --out <dossier> [--only a,b]
 
 Sortie : <out>/<variante>.npz : tris (n, 3, 3) float32 en unités Blender (repère de l'entité, modificateurs
-appliqués), emis (n,) bool (face d'un matériau émissif), halos (k, 3) positions des sources de halo.
+appliqués), emis (n,) bool (face d'un matériau émissif), halos (k, 3) positions des sources de halo, obj (n,)
+int32 (indice de l'objet de chaque triangle) et names (noms des objets, « t_canon_012 ») : attribution du sommet
+de silhouette à une pièce (pose_o.py, reprise 4).
 Les têtes ne sont exportées qu'en pose N (canons vers +Y) : les autres directions sont des rotations exactes
 autour de Z (gun.py, K.rotate), refaites par geo.py.
 """
@@ -31,7 +33,7 @@ import fo_scene as S  # noqa: E402
 
 def export(path):
     dg = bpy.context.evaluated_depsgraph_get()
-    tris, emis = [], []
+    tris, emis, objid, names = [], [], [], []
     for o in S.piece_objects():
         if o.type != "MESH":
             continue
@@ -51,13 +53,16 @@ def export(path):
             mw = np.array(oe.matrix_world)
             wco = co @ mw[:3, :3].T + mw[:3, 3]
             tris.append(wco[vi].astype(np.float32))
+            objid.append(np.full(n, len(names), np.int32))
+            names.append(o.name)
             flags = [bool(s.material is not None and s.material.get("fo_kind") == "emissive") for s in o.material_slots]
             fl = np.array(flags or [False])
             emis.append(fl[np.clip(mi, 0, len(fl) - 1)])
         oe.to_mesh_clear()
     halos = np.array([tuple(h.location) for h in S.HALO_LIGHTS], np.float32).reshape(-1, 3)
     np.savez_compressed(path, tris=np.concatenate(tris) if tris else np.zeros((0, 3, 3), np.float32),
-                        emis=np.concatenate(emis) if emis else np.zeros(0, bool), halos=halos)
+                        emis=np.concatenate(emis) if emis else np.zeros(0, bool), halos=halos,
+                        obj=np.concatenate(objid) if objid else np.zeros(0, np.int32), names=np.array(names or [""]))
     return sum(len(t) for t in tris)
 
 
