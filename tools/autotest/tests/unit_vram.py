@@ -148,9 +148,165 @@ check(len(r4["atlases"]) == 1 and r4["atlases"][0]["h"] == 1316, "atlas : impres
 check(r4["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 9}], "atlas virtuel releve une fois (pas la ligne de script)")
 check(r4["atlases"][0]["mips"] == 3, "mipmaps : ligne de script ignoree")
 vram.estimate(r4)
-check(any("atlas VIRTUEL : 9 page(s) de 4096x4096 (151.0 Mpx)" in ln for ln in vram.report_lines(r4)),
-      "rapport : atlas virtuel signale, hors estimation")
-check(vram.estimate(r4)["pixels"] == 2048 * 1316, "atlas virtuel hors du total de pixels")
+check(any("atlas VIRTUEL : 9 page(s) de 4096x4096 (151.0 Mpx) ; COMPTE dans l'estimation" in ln
+          for ln in vram.report_lines(r4)), "rapport : atlas virtuel signale et compte")
+check(vram.estimate(r4)["pixels"] == 2048 * 1316, "pixels des atlas bitmap seuls (pages virtuelles a part)")
 check(vram.parse_log(LOG)["virtual_atlases"] == [], "pas d'atlas virtuel sans la ligne")
+
+# ------------------------------------------------------------------------------------------------
+# Suite vram (22/10) : l'atlas virtuel COMPTE dans l'estimation (règle « Atlas virtuel » en tête de vram.py).
+# ------------------------------------------------------------------------------------------------
+PAGES_PX = 4096 * 4096 * 9            # « Created virtual atlas pages 4096x4096x9 »
+VIRT_PX = 16384 * 12288               # « Generated mipmaps for virtual atlas of size 16384x12288 »
+# Sans atlas virtuel : l'estimation ne change pas (12 journaux archivés sur 13).
+t0 = vram.estimate(vram.parse_log(LOG))
+check(t0["virtuel_bas"] == 0 and t0["virtuel_haut"] == 0 and t0["pixels_virtuels"] == 0, "sans atlas virtuel : rien en plus")
+check(t0["bas"] == t0["atlas_bas"] and t0["haut"] == t0["atlas_haut"], "sans atlas virtuel : total = atlas bitmap")
+r0 = vram.parse_log(LOG)
+vram.estimate(r0)
+check(any(ln.startswith("  TOTAL : ") and "virtuel" not in ln for ln in vram.report_lines(r0)),
+      "sans atlas virtuel : ligne TOTAL inchangee")
+check(vram.VIRTUEL not in r0["categories"], "sans atlas virtuel : pas de categorie virtuelle")
+
+# Lignes RÉELLES du journal du plancher (fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log, lignes 30 et 49 à 80,
+# copiées telles quelles, espaces finals compris) : l'ancienne estimation d'E40 (0,20 à 0,31 Go) reste la part des
+# atlas bitmap ; la nouvelle compte en plus les pages.
+PLANCHER = (
+    "   0.324 Graphics options: [Graphics quality: normal] [Video memory usage: low] [DXT: low-quality] [Color: 32bit]\n"
+    "   2.579 Initial atlas bitmap size is 16384\n"
+    "   2.579 Created atlas bitmap 2048x1316 [none]\n"
+    "   2.579 Created atlas bitmap 4096x2120 [decal]\n"
+    "   2.580 Created atlas bitmap 8192x2960 [low-object, linear-minification]\n"
+    "   2.580 Created atlas bitmap 4096x3072 [mipmap, linear-minification, linear-magnification, linear-mip-level]\n"
+    "   2.581 Created atlas bitmap 8192x3840 [terrain, mipmap, linear-minification, linear-mip-level]\n"
+    "   2.581 Created atlas bitmap 4096x1632 [terrain-effect-map, mipmap, linear-minification, linear-mip-level]\n"
+    "   2.581 Created atlas bitmap 4096x1664 [smoke, mipmap, linear-minification, linear-magnification]\n"
+    "   2.581 Created atlas bitmap 256x112 [low-object, mipmap, linear-minification, linear-magnification, "
+    "linear-mip-level]\n"
+    "   2.581 Created atlas bitmap 4096x928 [mipmap]\n"
+    "   2.581 Created atlas bitmap 8192x2272 [icon, not-compressed, mipmap, linear-minification, linear-magnification, "
+    "linear-mip-level]\n"
+    "   2.581 Created atlas bitmap 4096x828 [alpha-mask]\n"
+    "   2.584 Created atlas bitmap 16384x4352 [shadow, linear-magnification, alpha-mask]\n"
+    "   2.584 Created atlas bitmap 4096x1328 [shadow, mipmap, linear-magnification, alpha-mask]\n"
+    "   2.584 Created atlas bitmap 2048x240 [icon-background, not-compressed, mipmap, linear-minification, "
+    "linear-magnification, linear-mip-level, ]\n"
+    "   2.681 Created virtual atlas pages 4096x4096x9\n"
+    "   2.685 Atlases were not loaded from disk cache.\n"
+    "   5.653 Sprites loaded\n"
+    "   6.140 Generated mipmaps (3) for atlas [2] of size 8192x2960   \n"
+    "   6.152 Generated mipmaps (3) for atlas [3] of size 4096x3072   \n"
+    "   6.163 Generated mipmaps (3) for atlas [4] of size 8192x3840   \n"
+    "   6.174 Generated mipmaps (3) for atlas [5] of size 4096x1632   \n"
+    "   6.185 Generated mipmaps (3) for atlas [6] of size 4096x1664   \n"
+    "   6.196 Generated mipmaps (3) for atlas [7] of size 256x112   \n"
+    "   6.218 Generated mipmaps (3) for atlas [8] of size 4096x928   \n"
+    "   6.229 Generated mipmaps (5) for atlas [9] of size 8192x2272   \n"
+    "   6.240 Generated mipmaps (3) for atlas [12] of size 4096x1328   \n"
+    "   6.243 Custom mipmaps uploaded (1945)\n"
+    "   6.404 Generated mipmaps for virtual atlas of size 16384x12288\n")
+rp = vram.parse_log(PLANCHER)
+check(rp["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 9}] and rp["virtual_mips"] == [{"w": 16384, "h": 12288}],
+      "plancher : pages et mipmaps de l'atlas virtuel relevees")
+check(len(rp["atlases"]) == 14 and rp["virtual_page_lines"] == 0, "plancher : 14 atlas bitmap, aucune ligne au singulier")
+tp = vram.estimate(rp)
+check(vram.fmt_range(tp["atlas_bas"], tp["atlas_haut"]) == "0.20 a 0.31 Go", "plancher : part des atlas = E40 (0,20 a 0,31)")
+check(abs(tp["virtuel_bas"] - PAGES_PX * 0.5) < 1, "plancher : virtuel bas = pages x 0,5 (DXT basse), sans mipmaps")
+check(abs(tp["virtuel_haut"] - (PAGES_PX + VIRT_PX / 3.0) * 1.0) < 1,
+      "plancher : virtuel haut = (pages + 1/3 de l'atlas virtuel annonce) x 1")
+check(abs(tp["bas"] - (tp["atlas_bas"] + tp["virtuel_bas"])) < 1 and abs(tp["haut"] - (tp["atlas_haut"] + tp["virtuel_haut"])) < 1,
+      "plancher : total = atlas + virtuel")
+check(vram.fmt_range(tp["bas"], tp["haut"]) == "0.28 a 0.53 Go", "plancher : nouvelle estimation 0,28 a 0,53 Go")
+check(tp["pixels"] == sum(a["w"] * a["h"] for a in rp["atlases"]) and tp["pixels_virtuels"] == PAGES_PX,
+      "plancher : pixels bitmap et pixels de pages separes")
+check(abs(tp["virtuel_non_compresse"] - 4.0 * PAGES_PX) < 1, "plancher : variante non compressee = pages x 4")
+c = rp["categories"].get(vram.VIRTUEL)
+check(c is not None and c["n"] == 1 and c["pixels"] == PAGES_PX and c["haut"] == tp["virtuel_haut"],
+      "plancher : categorie atlas virtuel")
+lp = vram.report_lines(rp)
+check(any(ln.startswith("  TOTAL : ") and "0.151 de pages d'atlas virtuel" in ln and "estimation 0.28 a 0.53 Go" in ln
+          and "atlas 0.20 a 0.31 Go" in ln and "atlas virtuel 0.08 a 0.22 Go" in ln for ln in lp), "plancher : ligne TOTAL")
+check(any("TENU par l'estimation haute (0.53 Go)" in ln for ln in lp), "plancher : verdict D4-1 sur le total compte")
+check(any("au plus 67.1 Mpx en plus" in ln and "HYPOTHESE" in ln for ln in lp), "plancher : mipmaps et hypothese ecrites")
+check(any("variante NON compressee" in ln and "0.60 Go" in ln for ln in lp), "plancher : variante non compressee ecrite")
+check(not any("atlas virtuel et mesure" in ln for ln in lp), "plancher sans releve : pas de confrontation")
+
+# Confrontation à la mesure directe (relevés synthétiques aux pics du passage 5 d'E40 : dédiée 0,42 Go, partagée 0,10).
+def mesure(dedie, partage=None):
+    m = {"n": 3, "dedie_o": vram.stats([dedie * 0.9, dedie, dedie * 0.95]), "phases": []}
+    if partage is not None:
+        m["partage_o"] = vram.stats([partage])
+    return m
+
+
+rp["mesure"] = mesure(0.42e9, 0.10e9)
+vm = vram.virtual_vs_measure(rp)
+check(vm is not None and abs(vm["plafond"] - 0.52e9) < 1 and vm["avec_partage"], "mesure : plafond = dedie + partage")
+check(vm["nc_exclue"] and abs(vm["plancher_nc"] - (tp["atlas_bas"] + 4.0 * PAGES_PX)) < 1,
+      "mesure : variante non compressee (0,81 Go) exclue par 0,52 Go")
+check(vm["bas_compatible"], "mesure : estimation basse comptee (0,28) sous le pic dedie (0,42)")
+lm = vram.report_lines(rp)
+check(any("EXCLUE par la mesure" in ln and "0.81 Go > 0.52 Go" in ln for ln in lm), "mesure : exclusion ecrite")
+check(any("ecart mesure - estimation haute" in ln and "NEGATIF" in ln for ln in lm), "mesure : ecart negatif signale")
+rp["mesure"] = mesure(1.2e9)
+vm = vram.virtual_vs_measure(rp)
+check(not vm["nc_exclue"] and not vm["avec_partage"] and abs(vm["plafond"] - 1.2e9) < 1,
+      "mesure : sans partage, plafond = dedie seul ; variante non exclue")
+check(any("NON exclue par la mesure" in ln for ln in vram.report_lines(rp)), "mesure : non-exclusion ecrite")
+rp["mesure"] = mesure(0.25e9, 0.0)
+check(not vram.virtual_vs_measure(rp)["bas_compatible"]
+      and any("INCOMPATIBLE" in ln for ln in vram.report_lines(rp)), "mesure : estimation basse au-dessus du pic signalee")
+check(vram.virtual_vs_measure(r0) is None, "mesure : rien sans atlas virtuel")
+
+# Règle de compression des pages : celle d'un atlas « [none] » sous la DXT du journal ; sans ligne de mipmaps, pas de
+# mipmaps comptées ; plusieurs atlas virtuels appariés dans l'ordre à leurs lignes de mipmaps.
+def virt(dxt, extra=""):
+    return vram.parse_log("   0.3 Graphics options: [Graphics quality: normal] [Video memory usage: low] [DXT: %s]\n"
+                          "   1.0 Created atlas bitmap 64x64 [none]\n%s" % (dxt, extra))
+
+
+rh = virt("high-quality", "   2.0 Created virtual atlas pages 1024x1024x2\n")
+th = vram.estimate(rh)
+check(th["virtuel_bas"] == th["virtuel_haut"] == 2 * 1024 * 1024 * 1.0, "DXT haute : 1 o/px, sans ligne de mipmaps")
+rn = virt("none", "   2.0 Created virtual atlas pages 1024x1024x2\n   3.0 Generated mipmaps for virtual atlas of size 512x512\n")
+tn = vram.estimate(rn)
+check(tn["virtuel_bas"] == 2 * 1024 * 1024 * 4.0 and abs(tn["virtuel_haut"] - 2 * 1024 * 1024 * 4.0 * (4 / 3.0)) < 1,
+      "sans DXT : 4 o/px ; mipmaps = 1/3 des pages quand elles sont plus grandes que l'atlas annonce")
+r2v = virt("low-quality", "   2.0 Created virtual atlas pages 1024x1024x1\n   2.1 Created virtual atlas pages 2048x2048x1\n"
+           "   3.0 Generated mipmaps for virtual atlas of size 4096x4096\n")
+t2v = vram.estimate(r2v)
+v1, v2 = r2v["virtuels"]
+check(v1["mip_taille"] == (4096, 4096) and v2["mip_taille"] is None and abs(v1["mip_px"] - 4096 * 4096 / 3.0) < 1e-6,
+      "deux atlas virtuels : mipmaps appariees dans l'ordre")
+check(t2v["pixels_virtuels"] == 1024 * 1024 + 2048 * 2048 and r2v["categories"][vram.VIRTUEL]["n"] == 2, "deux atlas virtuels comptes")
+
+# Lignes du MOTEUR seulement : impressions de script ignorées ; ligne au singulier signalée, pas comptée ; chiffres du
+# moteur « Atlas memory size » rapportés s'ils existent.
+LOG6 = (r"""   1.000 Created atlas bitmap 64x64 [none]
+   1.100 Script @__factorio-overhaul__/x.lua:1: Generated mipmaps for virtual atlas of size 16384x12288
+   1.200 Script @__factorio-overhaul__/x.lua:2: Atlas memory size: 1.00MB; 2.00MB (virtual)
+   1.300 Created virtual atlas page 4096x4096 [none]
+   1.400 Created virtual atlas pages 4096x4096x2
+   1.500 Atlas memory size: 1234.50MB; 96.25MB (virtual)
+   1.600 Size of sprites outside of atlas: 12.00MB
+""")
+r6 = vram.parse_log(LOG6)
+check(r6["virtual_mips"] == [] and r6["engine_atlas_mb"] == {"atlas": 1234.5, "virtuel": 96.25},
+      "impressions de script ignorees (mipmaps virtuelles, chiffre du moteur)")
+check(r6["virtual_page_lines"] == 1 and r6["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 2}],
+      "ligne au singulier relevee a part, non comptee")
+check(r6["engine_outside_mb"] == 12.0, "chiffre du moteur : sprites hors atlas")
+vram.estimate(r6)
+l6 = vram.report_lines(r6)
+check(any("ATTENTION 1 ligne(s)" in ln and "NON comptees" in ln for ln in l6), "ligne au singulier signalee")
+check(any("chiffre du MOTEUR" in ln and "96.25 MB" in ln and "0.10 Go" in ln for ln in l6), "chiffre du moteur rapporte")
+check(r6["totaux"]["pixels_virtuels"] == 2 * 4096 * 4096, "seule la ligne au pluriel compte")
+
+# Résumé du pilote : les pages virtuelles y sont nommées, l'estimation les compte.
+rp["mesure"] = mesure(0.42e9, 0.10e9)
+rec6 = types.SimpleNamespace(proc=types.SimpleNamespace(pid=7), gpu=types.SimpleNamespace(error=None), peaks=None)
+ms6 = vs.memory_summary(rp, rec6, True, "hd")
+check(any("151.0 Mpx de pages d'atlas virtuel" in ln and "0.28 a 0.53 Go" in ln for ln in ms6),
+      "resume du pilote : pages virtuelles comptees")
 print("BILAN unitaire : %d OK, %d ECHEC(S)" % (ok, fail))
 sys.exit(1 if fail else 0)

@@ -20,7 +20,9 @@ Rapport :
   2. atlas de sprites : une ligne « Created atlas bitmap LxH [drapeaux] » chacun (ligne du moteur, horodatée ; une
      impression de script ne compte pas), avec les niveaux de mipmaps (« Generated mipmaps (N) for atlas [i] »), et
      une FOURCHETTE d'octets estimés par la règle ci-dessous ; l'atlas VIRTUEL du plancher (« Created virtual atlas
-     pages LxHxN ») est signalé mais n'entre PAS dans l'estimation ;
+     pages LxHxN ») est COMPTÉ à part dans l'estimation (règle « Atlas virtuel » ci-dessous), avec sa variante non
+     compressée confrontée à la mesure directe ; le chiffre du moteur « Atlas memory size: … (virtual) » est
+     rapporté s'il est écrit (aucun journal archivé ne le contient au 22/10) ;
      totaux par catégorie et comparaison au seuil D4-1 (6 Go en haute qualité) ;
   3. chargement (D4-3) : instants « Sprites loaded » et « Factorio initialised », cache des atlas lu ou refait ;
   4. mesure DIRECTE (vram.tsv) : mémoire vidéo dédiée du seul processus de test (compteurs Windows
@@ -60,6 +62,27 @@ Règle d'octets par pixel (bas–haut), justifiée :
   - mipmaps : « Generated mipmaps (N) » → facteur 1 + 1/4 + … ; bas = N niveaux en tout, haut = N niveaux
     en plus de l'image de base ; drapeau « mipmap » sans ligne : 1 à 4/3.
   Unités : 1 Go = 10^9 octets, 1 Mo = 10^6 octets ; les « MB » du journal du jeu valent 2^20 octets.
+
+Atlas virtuel (« Video memory usage: low », « Tex.Stream.: 1 » ; RD_LOG F81), règle justifiée :
+  - PROUVÉ par le journal : le moteur crée N pages de LxH pixels (« Created virtual atlas pages 4096x4096x9 » :
+    9 × 16,8 = 151,0 Mpx) et produit des mipmaps pour un atlas virtuel de VLxVH (« Generated mipmaps for virtual
+    atlas of size 16384x12288 », 201,3 Mpx : 12 surfaces de page, plus que les 9 pages ; nombre de niveaux non écrit) ;
+  - lu dans le binaire 1.1.91 (chaînes, sens déduit) : clés de config.ini « texture-streaming »,
+    « streamed-atlas-physical-vram-size » et « compress-virtual-atlas » (valeurs par défaut inconnues) ; assertion
+    « virtualAtlasPage->getFormat() == BitmapFormat::RGBA_8888 » (Atlas.cpp) ; message « Couldn't create %s bitmap
+    … Probably not enough video memory » partagé par « virtual atlas » et « atlas » ; ligne « Atlas memory size:
+    %.2fMB; %.2fMB (virtual) », jamais écrite dans les 13 journaux archivés ;
+  - locale du jeu (data/core/locale/en/core.cfg, clé texture-streaming) : « Sprites that were not put into any
+    sprite atlas … will be kept in RAM until needed by the GPU » ;
+  - règle COMPTÉE : les pages comme si elles résidaient en mémoire vidéo, compressées comme les sprites principaux
+    (règle DXT du journal, celle d'un atlas « [none] ») : bas = pages × octets/px bas, sans mipmaps ; haut = (pages +
+    1/3 de la plus grande des deux surfaces, pages ou atlas virtuel annoncé, si la ligne de mipmaps existe) ×
+    octets/px haut. HYPOTHÈSES : résidence (les pages peuvent rester en mémoire vive, la carte ne gardant qu'un
+    cache physique dont la taille n'est pas écrite ; compter les pages est alors le sens PRUDENT d'un budget),
+    compression (option compress-virtual-atlas), emplacement des mipmaps (1/3 borne la série 1/4 + 1/16 + …) ;
+  - variante NON compressée (RGBA 8888, format de l'assertion) : pages × 4 octets, sans mipmaps ; NON comptée, mais
+    confrontée à la mesure directe : si les atlas (bas) plus cette variante dépassent le pic dédié + le pic partagé,
+    elle est exclue par la mesure (sous l'hypothèse que les pages sont allouées en entier).
 L'estimation ne remplace pas la mesure directe (point 4), qui seule prouve D4-1 et D4-5.
 """
 import argparse
@@ -79,9 +102,18 @@ RE_TIME = re.compile(r"^\s*(\d+\.\d+)\s")
 # Created atlas bitmap … ») ou tout autre texte libre qui contient ces mots n'est pas compté.
 RE_ATLAS = re.compile(r"^\s*\d+\.\d+ Created atlas bitmap (\d+)x(\d+) \[([^\]]*)\]")
 RE_MIP = re.compile(r"^\s*\d+\.\d+ Generated mipmaps \((\d+)\) for atlas \[(\d+)\] of size (\d+)x(\d+)")
-# Atlas VIRTUEL (pages de textures en flux), créé au plancher « Video memory usage: low » (F77 provisoire) : relevé
-# dans r["virtual_atlases"] mais NON compté dans l'estimation des atlas (tâche d'outillage ouverte).
+# Atlas VIRTUEL (pages de textures en flux), créé au plancher « Video memory usage: low » (RD_LOG F81) : relevé dans
+# r["virtual_atlases"] et compté à part par virtual_estimate (règle en tête du fichier).
 RE_VIRTUAL = re.compile(r"^\s*\d+\.\d+ Created virtual atlas pages (\d+)x(\d+)x(\d+)\s*$")
+# Mipmaps de l'atlas virtuel : taille de l'atlas virtuel, sans nombre de niveaux (« … of size 16384x12288 »).
+RE_VIRTUAL_MIP = re.compile(r"^\s*\d+\.\d+ Generated mipmaps for virtual atlas of size (\d+)x(\d+)\s*$")
+# Variante au singulier, lue dans le binaire (« Created virtual atlas page %ux%u [%s] ») mais jamais vue dans un
+# journal : relevée pour être SIGNALÉE, pas comptée (on ne sait pas si elle double la ligne au pluriel).
+RE_VIRTUAL_PAGE = re.compile(r"^\s*\d+\.\d+ Created virtual atlas page (\d+)x(\d+) \[([^\]]*)\]")
+# Chiffres du moteur lui-même, lus dans le binaire, jamais écrits dans les 13 journaux archivés (22/10) : rapportés
+# tels quels s'ils apparaissent (« MB » du jeu supposés valoir 2^20 octets, comme ceux des lignes de budget).
+RE_ATLAS_MEM = re.compile(r"^\s*\d+\.\d+ Atlas memory size: ([0-9.]+)MB; ([0-9.]+)MB \(virtual\)")
+RE_OUTSIDE = re.compile(r"^\s*\d+\.\d+ Size of sprites outside of atlas: ([0-9.]+)MB")
 RE_QUALITY = re.compile(r"\[Graphics quality: ([^\]]+)\]")
 RE_VMU = re.compile(r"\[Video memory usage: ([^\]]+)\]")
 RE_DXT = re.compile(r"\[DXT: ([^\]]+)\]")
@@ -140,7 +172,7 @@ def stamp(line):
 def parse_log(text):
     """Tout ce que le journal dit de la mémoire vidéo, du chargement et des phases d4-geant."""
     r = {"atlases": [], "budgets": {}, "events": {}, "phases": [], "bench": {}, "perf_summary": {}, "champs": [],
-         "displays": [], "virtual_atlases": []}
+         "displays": [], "virtual_atlases": [], "virtual_mips": [], "virtual_page_lines": 0}
     open_phase = {}
     for line in text.splitlines():
         t = stamp(line)
@@ -153,6 +185,21 @@ def parse_log(text):
         m = RE_VIRTUAL.search(line)
         if m:
             r["virtual_atlases"].append({"w": int(m.group(1)), "h": int(m.group(2)), "pages": int(m.group(3))})
+            continue
+        m = RE_VIRTUAL_MIP.search(line)
+        if m:
+            r["virtual_mips"].append({"w": int(m.group(1)), "h": int(m.group(2))})
+            continue
+        if RE_VIRTUAL_PAGE.search(line):
+            r["virtual_page_lines"] += 1
+            continue
+        m = RE_ATLAS_MEM.search(line)
+        if m:
+            r["engine_atlas_mb"] = {"atlas": float(m.group(1)), "virtuel": float(m.group(2))}
+            continue
+        m = RE_OUTSIDE.search(line)
+        if m:
+            r["engine_outside_mb"] = float(m.group(1))
             continue
         m = RE_MIP.search(line)
         if m:
@@ -321,8 +368,63 @@ def estimate(r):
         c["pixels"] += px
         c["bas"] += a["bas"]
         c["haut"] += a["haut"]
-    r["totaux"], r["categories"] = tot, cats
+    # Atlas bitmap seuls (référence avant le comptage de l'atlas virtuel, et base de la variante non compressée).
+    tot["atlas_bas"], tot["atlas_haut"] = tot["bas"], tot["haut"]
+    virt = virtual_estimate(r)
+    tot["pixels_virtuels"] = sum(v["pixels"] for v in virt)
+    tot["virtuel_bas"] = sum(v["bas"] for v in virt)
+    tot["virtuel_haut"] = sum(v["haut"] for v in virt)
+    tot["virtuel_non_compresse"] = sum(v["non_compresse"] for v in virt)
+    tot["bas"] += tot["virtuel_bas"]
+    tot["haut"] += tot["virtuel_haut"]
+    if virt:
+        cats[VIRTUEL] = {"n": len(virt), "pixels": tot["pixels_virtuels"], "bas": tot["virtuel_bas"],
+                         "haut": tot["virtuel_haut"]}
+    r["totaux"], r["categories"], r["virtuels"] = tot, cats, virt
     return tot
+
+
+VIRTUEL = "atlas virtuel (pages)"
+
+
+def virtual_estimate(r):
+    """Octets des pages d'atlas virtuel (règle « Atlas virtuel » en tête du fichier) : une entrée par ligne « Created
+    virtual atlas pages LxHxN », appariée dans l'ordre à la ligne « Generated mipmaps for virtual atlas of size … »
+    de même rang si elle existe. Les pixels comptés sont ceux des PAGES (prouvés par le journal) ; la surface de
+    l'atlas virtuel annoncé n'intervient que dans la borne haute des mipmaps."""
+    out = []
+    mips = r.get("virtual_mips") or []
+    for i, v in enumerate(r.get("virtual_atlases") or []):
+        px = v["w"] * v["h"] * v["pages"]
+        # HYPOTHÈSE de compression : celle d'un atlas « [none] » (sprites principaux) sous la DXT du journal.
+        b_lo, b_hi, _ = bpp_range(["none"], r.get("dxt"))
+        mip = mips[i] if i < len(mips) else None
+        mip_px = max(px, mip["w"] * mip["h"]) / 3.0 if mip else 0.0
+        out.append({"w": v["w"], "h": v["h"], "pages": v["pages"], "pixels": px, "bas": px * b_lo,
+                    "haut": (px + mip_px) * b_hi, "octets_px": (b_lo, b_hi), "mip_px": mip_px,
+                    "mip_taille": (mip["w"], mip["h"]) if mip else None,
+                    "non_compresse": 4.0 * px,
+                    "regle": "HYPOTHESE pages residentes en memoire video, compressees selon la DXT du journal "
+                             "(%s) ; mipmaps au plus 1/3 de la plus grande surface" % (r.get("dxt") or "inconnue")})
+    return out
+
+
+def virtual_vs_measure(r):
+    """Confronte la variante NON compressée des pages (RGBA 8888) et l'estimation comptée à la mesure directe.
+    Renvoie None sans atlas virtuel ou sans mesure ; sinon un dict : plafond (pic dédié + pic partagé, ou dédié seul),
+    plancher_nc (atlas bas + pages × 4 octets), nc_exclue (plancher_nc > plafond), bas_compatible (estimation basse
+    comptée <= pic dédié). Les deux pics sont des maximums pris à des instants qui peuvent différer : leur somme est
+    un plafond généreux, ce qui rend l'exclusion prudente."""
+    t = r.get("totaux") or {}
+    m = r.get("mesure") or {}
+    d = m.get("dedie_o")
+    if not t.get("pixels_virtuels") or not d:
+        return None
+    p = m.get("partage_o")
+    plafond = d["max"] + (p["max"] if p else 0.0)
+    plancher_nc = t["atlas_bas"] + t["virtuel_non_compresse"]
+    return {"plafond": plafond, "avec_partage": bool(p), "plancher_nc": plancher_nc, "nc_exclue": plancher_nc > plafond,
+            "pic_dedie": d["max"], "bas_compatible": t["bas"] <= d["max"]}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -780,9 +882,26 @@ def report_lines(r, seuil_go=6.0):
                                                         b["current_mib"]))
     L.append("")
     L.append("-- Atlas de sprites (%d) : estimation, regle par drapeau en tete de vram.py" % len(r["atlases"]))
-    for v in r.get("virtual_atlases") or []:
-        L.append("  atlas VIRTUEL : %d page(s) de %dx%d (%.1f Mpx) ; NON compte dans l'estimation ci-dessous (F77 "
-                 "provisoire)" % (v["pages"], v["w"], v["h"], v["pages"] * v["w"] * v["h"] / 1e6))
+    for v in r.get("virtuels") or []:
+        L.append("  atlas VIRTUEL : %d page(s) de %dx%d (%.1f Mpx) ; COMPTE dans l'estimation : %s (%.1f-%.1f octets/px%s ; "
+                 "%s)" % (v["pages"], v["w"], v["h"], v["pixels"] / 1e6, fmt_range(v["bas"], v["haut"]),
+                          v["octets_px"][0], v["octets_px"][1],
+                          (" ; mipmaps de l'atlas virtuel %dx%d : au plus %.1f Mpx en plus" % (
+                              v["mip_taille"][0], v["mip_taille"][1], v["mip_px"] / 1e6)) if v["mip_taille"] else
+                          " ; aucune ligne de mipmaps", v["regle"]))
+        L.append("    variante NON compressee (RGBA 8888, format affirme par le binaire pour une page) : %s sans mipmaps ; "
+                 "NON comptee, confrontee a la mesure directe plus bas (RD_LOG F81)" % go(v["non_compresse"]))
+    if r.get("virtual_page_lines"):
+        L.append("  ATTENTION %d ligne(s) « Created virtual atlas page LxH [...] » (singulier) : format jamais etalonne, "
+                 "NON comptees" % r["virtual_page_lines"])
+    em = r.get("engine_atlas_mb")
+    if em:
+        L.append("  chiffre du MOTEUR « Atlas memory size » : atlas %.2f MB, virtuel %.2f MB (%s et %s si MB = 2^20 "
+                 "octets ; sens non documente)" % (em["atlas"], em["virtuel"], go(em["atlas"] * MIB),
+                                                   go(em["virtuel"] * MIB)))
+    if r.get("engine_outside_mb") is not None:
+        L.append("  chiffre du MOTEUR « Size of sprites outside of atlas » : %.2f MB (%s si MB = 2^20 octets)" % (
+            r["engine_outside_mb"], go(r["engine_outside_mb"] * MIB)))
     if r["atlases"]:
         L.append("  #  taille        Mpx   mips  octets/px   estimation       categorie / drapeaux")
         for a in r["atlases"]:
@@ -795,9 +914,18 @@ def report_lines(r, seuil_go=6.0):
         for name, c in sorted(r["categories"].items(), key=lambda kv: -kv[1]["haut"]):
             L.append("    %-28s %2d atlas  %7.1f Mpx  %s" % (name, c["n"], c["pixels"] / 1e6, fmt_range(c["bas"], c["haut"])))
         t = r["totaux"]
-        L.append("  TOTAL : %.3f milliard de pixels ; estimation %s ; sans compression %s (4 octets/px, "
-                 "sans mipmaps : reference F66) ou %s avec mipmaps" % (
-                     t["pixels"] / 1e9, fmt_range(t["bas"], t["haut"]), go(t["brut"]), go(t["brut_mips"])))
+        if t.get("pixels_virtuels"):
+            # Atlas virtuel compté : le total le dit, avec la part des atlas bitmap seuls (ancienne estimation).
+            L.append("  TOTAL : %.3f milliard de pixels d'atlas + %.3f de pages d'atlas virtuel ; estimation %s (atlas %s, "
+                     "atlas virtuel %s) ; atlas sans compression %s (4 octets/px, sans mipmaps : reference F66) ou %s "
+                     "avec mipmaps" % (t["pixels"] / 1e9, t["pixels_virtuels"] / 1e9, fmt_range(t["bas"], t["haut"]),
+                                       fmt_range(t["atlas_bas"], t["atlas_haut"]),
+                                       fmt_range(t["virtuel_bas"], t["virtuel_haut"]), go(t["brut"]),
+                                       go(t["brut_mips"])))
+        else:
+            L.append("  TOTAL : %.3f milliard de pixels ; estimation %s ; sans compression %s (4 octets/px, "
+                     "sans mipmaps : reference F66) ou %s avec mipmaps" % (
+                         t["pixels"] / 1e9, fmt_range(t["bas"], t["haut"]), go(t["brut"]), go(t["brut_mips"])))
         q = (r.get("quality") or "?").lower()
         verdict = "TENU" if t["haut"] <= seuil_go * GO else "DEPASSE"
         L.append("  D4-1 (atlas <= %.0f Go en haute qualite) : %s par l'estimation haute (%s)%s" % (
@@ -837,8 +965,20 @@ def report_lines(r, seuil_go=6.0):
             if p["dedie"]:
                 L.append("  phase %-12s : memoire dediee moyenne %s, pic %s" % (p["name"], go(p["dedie"]["moy"]), go(p["dedie"]["max"])))
         if d and r["atlases"]:
-            L.append("ecart mesure - estimation haute des atlas : %+.2f Go (rendus intermediaires, tampons, "
-                     "sprites hors atlas...)" % ((d["max"] - r["totaux"]["haut"]) / GO))
+            ecart = d["max"] - r["totaux"]["haut"]
+            L.append("ecart mesure - estimation haute des atlas : %+.2f Go (%s)" % (
+                ecart / GO, "rendus intermediaires, tampons, sprites hors atlas..." if ecart >= 0 else
+                "NEGATIF : l'estimation haute depasse toute la memoire dediee mesuree, elle surestime cette session"))
+        vm = virtual_vs_measure(r)
+        if vm:
+            L.append("atlas virtuel et mesure : estimation basse comptee %s %s le pic dedie %s%s" % (
+                go(r["totaux"]["bas"]), "<=" if vm["bas_compatible"] else "> (INCOMPATIBLE)", go(vm["pic_dedie"]),
+                "" if vm["bas_compatible"] else " : les pages ne sont pas toutes residentes, ou la regle est fausse"))
+            L.append("  variante NON compressee : atlas (bas) + pages x 4 octets = %s %s %s (pic dedie%s) : %s" % (
+                go(vm["plancher_nc"]), ">" if vm["nc_exclue"] else "<=", go(vm["plafond"]),
+                " + pic partage" if vm["avec_partage"] else "",
+                "EXCLUE par la mesure, si les pages sont allouees en entier" if vm["nc_exclue"] else
+                "NON exclue par la mesure"))
     L.append("")
     L.append("-- Champ reel des vues d4-geant (ce qui est dessine : lignes CHAMP du greffon)")
     if r.get("champs"):

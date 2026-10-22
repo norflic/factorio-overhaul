@@ -236,8 +236,11 @@ def memory_summary(r, rec, measure, window="min"):
             rec.peaks["pic_privee"] / vram.GO, rec.peaks["pic_ws"] / vram.GO))
     t = r.get("totaux") or {}
     if r.get("atlases"):
-        lines.append("atlas de sprites : %d, %.3f milliard de pixels, estimation %s (regles : vram.py)" % (
-            len(r["atlases"]), t["pixels"] / 1e9, vram.fmt_range(t["bas"], t["haut"])))
+        lines.append("atlas de sprites : %d, %.3f milliard de pixels%s, estimation %s (regles : vram.py)" % (
+            len(r["atlases"]), t["pixels"] / 1e9,
+            (" + %.1f Mpx de pages d'atlas virtuel (comptees : HYPOTHESE residentes et compressees)"
+             % (t["pixels_virtuels"] / 1e6)) if t.get("pixels_virtuels") else "",
+            vram.fmt_range(t["bas"], t["haut"])))
     ev = r.get("events") or {}
     if ev:
         lines.append("chargement : atlas %s, sprites charges a %s s, jeu initialise a %s s" % (
