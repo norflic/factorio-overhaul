@@ -177,6 +177,11 @@ bâtiment, poches, règles de la bible, rapport au bâtiment porteur).
    lumières), halo en `draw_as_light = true, draw_as_sprite = false` (idiome vanilla du four en acier) : ils
    s'éteignent avec le bâtiment.
 6. **Ancre** sur la grille de 1/32 de tuile (la version 32 px/tuile tombe alors au pixel).
+7. **Jonction** (bord anticrénelé du bâtiment dessiné par-dessus la pièce) : critère proposé « écart moyen
+   ≤ 3 niveaux et |écart| par pixel ≤ témoin de bord ». Mesure du correcteur V0b (cheminée sur four, z2, 51 px) :
+   écart moyen −1,3 à −1,6 (le liseré systématique de V0, −9, a disparu) mais |écart| moyen 7,4 contre 2,9
+   pour le bord du même four sur un sol uniforme (`seam_floor.py`, captures `diagnostic`) : le résidu n'est
+   PAS expliqué par le seul codage des bords ; non prouvé, non corrigé.
 
 **Filtrage au zoom 1 (toutes les pièces, prouvé en moteur au lot V0b)** : poser
 `flags = { "linear-minification" }` sur la couche principale ET sur la lueur (normale et `hr_version` ; la
