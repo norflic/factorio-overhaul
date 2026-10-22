@@ -15,6 +15,8 @@ avant tout travail.
   D1 à D3 d'OBJECTIFS.md).
 
 ## 2. Lecture obligatoire, dans cet ordre
+0. **`REPRISE.md`** : où en est le projet, ce qui tourne, quoi faire ensuite (à lire EN PREMIER par un
+   orchestrateur qui reprend ; à mettre à jour à chaque jalon).
 1. `OBJECTIFS.md` : demandes citées, critères d'acceptation, état réel, questions ouvertes, feuille de
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.

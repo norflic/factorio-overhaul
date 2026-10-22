@@ -119,6 +119,10 @@
   c'est mauvaise idée euh parce que il est pas très puissant. Et faites des tests, sait jamais faites des
   tests et dites-moi du coup. » → test lancé (concepts seulement, rien installé ni téléchargé).
 
+- 22/10, 7 h 40, **Q24** : « Q24 : agrandissement sur place si la place autour est libre ; sinon l'amélioration est refusée et le contour nécessaire s'affiche. Aussi, notez bien l'avancée du projet quelque part, histoire que si un autre agent doit reprendre la gestion du projet, elle ne recommence pas tout »
+  → mécanique d'agrandissement à faire avec la reprise de V3 ; création de `REPRISE.md` (état du projet pour
+  l'orchestrateur suivant), à tenir à jour à chaque jalon.
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
