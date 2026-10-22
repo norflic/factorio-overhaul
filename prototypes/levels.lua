@@ -7,7 +7,8 @@
   - prototypes/levels/<famille>.lua : le visuel de la famille, par niveau et par époque (lots V3) ;
   - prototypes/levels/style.lua : le style COMMUN des 7 familles par époque (palette ; un seul propriétaire) ;
   - shared/levels/config.lua : données et règles (pur Lua, testées hors jeu) ;
-  - script/levels/ : runtime (chantiers, plafond, ouvriers, panneau « Évolution »).
+  - script/levels/ : runtime (amélioration instantanée, plafond, condition du centre, panneau « Évolution ») ;
+  - data-final-fixes.lua : héritage des bonus de recherche (F21) et allègement de la recherche vanilla (QX9).
 ]]
 
 require("prototypes.levels.common").generate()

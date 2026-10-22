@@ -1,21 +1,36 @@
 --[[
-  Niveaux de bâtiments « façon Clash of Clans » en 15 ÉPOQUES (lot V2, session 6).
-  Pur Lua : données et règles, testables hors jeu ; lues par l'étape data (prototypes/levels/) et le
-  runtime (script/levels/). Chiffres commentés : BALANCE_SHEET §12 (tableaux générés par
-  `lua5.2 tests/levels_test.lua --tables`).
+  Niveaux de bâtiments « façon Clash of Clans » en 15 ÉPOQUES (lot V2, session 6 ; lot V2c).
+  Pur Lua : données et règles, testables hors jeu ; lues par l'étape data (prototypes/levels/,
+  data-final-fixes.lua) et le runtime (script/levels/). Chiffres commentés : BALANCE_SHEET §12 (tableaux
+  générés par `lua5.2 tests/levels_test.lua --tables`, courbe recalculée par `--calibrate`).
 
   Décisions du Directeur Créatif (OBJECTIFS.md F1, Q6 et Q7, 21/10, 18 h 07) :
   - 15 époques = 15 niveaux du CENTRE DE COMMANDEMENT (l'hôtel de ville) : le niveau du centre EST l'époque.
   - Les 6 autres familles ont 30 niveaux : 2 par époque. Niveau maximal d'un bâtiment = 2 × niveau du centre.
     Le 1er niveau d'une époque change la silhouette, le 2e ajoute une pièce (visuel : lots V3).
-  - Ouvriers (chantiers simultanés) : 1 (centre 1-3), 2 (4-6), 3 (7-9), 4 (10-12), 5 (13-15).
+
+  Lot V2c (OBJECTIFS.md §4) :
+  - Q19 (21/10, 21 h 45) : « si on a les ressources, on améliore, terminé » : l'amélioration est
+    INSTANTANÉE dès que le coût est payé (stock du centre, puis inventaire du joueur). Plus de durée, plus
+    de bâtiment hors service, plus d'ouvriers de chantier (L.MAX_BUILDERS, L.builders, « no-builder » : retirés).
+  - Q16 : pour passer le centre du niveau c au niveau c + 1, chaque famille dont la force possède au moins
+    un bâtiment doit en avoir un au niveau min(30, 2c) (L.cc_condition_level, L.cc_blockers).
+  - QX7 et QX10 : le calendrier des époques a UNE source, le scénario approuvé (shared/content/epochs.lua,
+    lot X0) : durées, débit de l'usine et budget, RECOPIÉS dans L.target au chargement. Le temps d'attente
+    ne rythme plus le jeu : ce sont les COÛTS qui le portent, recalibrés pour que la durée impliquée tombe sur
+    ce calendrier. Le passage du centre vise 10 % du budget de l'époque (X.CODEX_LOT_SHARE) mais la règle de
+    place le borne : 23 à 5,6 % aux époques 1 à 4, puis 3,3 à 0,11 % (ÉCART NON CONFORME à QX10, chiffré dans
+    BALANCE_SHEET §12, à trancher par le Directeur Créatif ; tests/levels_test.lua le compte comme écart connu).
+  - QX9 : la recherche vanilla des premières époques est allégée (X.VANILLA_UNIT_SCALE recopié dans
+    L.VANILLA_UNIT_SCALE, appliqué par data-final-fixes.lua : L.vanilla_unit_count).
+  - Correction V2c : la config ne lit plus X après son chargement (tout ce qu'elle en lit est recopié dans des
+    clés de L, comparées par la garde de dress) ; un dress qui modifierait X n'a donc aucun effet sur elle, et
+    la garde le refuse en plus (prototypes/levels/common.lua).
 
   Règles du jeu (inchangées depuis la session 5, E24) :
   - Le niveau 1 est le bâtiment vanilla (ou le centre de commandement de base) ; les niveaux suivants sont
     des prototypes à part, posables et minables (un bâtiment ramassé garde son niveau).
   - Un seul centre par force ; sans centre, rien ne s'améliore.
-  - Une amélioration coûte des objets (stock du centre, puis inventaire du joueur) et dure un temps ; le
-    bâtiment est HORS SERVICE pendant le chantier. Les murs s'améliorent instantanément, rangée entière.
 
   Courbe de coûts PAR ÉPOQUE (BALANCE_SHEET §12 : « la croissance se fait par époque (nouveau matériau
   requis), pas par exposant ») :
@@ -24,13 +39,13 @@
     à l'époque 2, l'époque 1 n'ayant pas de matériau, l'acier paie 100 % ; le matériau de l'époque est
     toujours exigé (au moins 1) ;
   - le panier de base de la famille (fer, cuivre, pierre…) croît LINÉAIREMENT ;
-  - la valeur d'époque suit une table PAR ÉPOQUE (L.epochs[e].value_mult) ; les quantités restent bornées
-    parce que le matériau change à chaque époque : la valeur monte, le nombre d'objets non ;
-  - PLACE : un chantier tient dans la moitié du coffre du centre qui le paie (L.cost_slots, testé), avec
+  - la valeur d'époque suit une table PAR ÉPOQUE (L.epochs[e].value_mult ; centre : L.epochs[e].cc_value) ;
+    les quantités restent bornées parce que le matériau change à chaque époque ;
+  - PLACE : un coût tient dans la moitié du coffre du centre qui le paie (L.cost_slots, testé), avec
     les vraies tailles de pile (L.stack_size).
-  Compatibilité 0.3.0 : les noms fo-command-center et fo-lvl-<famille>-<n> gardent leur sens (même famille,
-  même niveau) ; les statistiques des niveaux 1 à 10 sont celles de 0.3.0, sauf les PV et résistances des
-  murs (BALANCE_SHEET §12).
+  Compatibilité : les noms fo-command-center et fo-lvl-<famille>-<n> gardent leur sens (même famille,
+  même niveau) depuis 0.3.0 ; les chantiers en cours d'une sauvegarde 0.4.0 sont achevés au chargement
+  (script/levels/levels.lua, Levels.finish_legacy_jobs).
 ]]
 
 local L = {}
@@ -38,38 +53,60 @@ local L = {}
 L.EPOCHS = 15
 L.MAX = 30            -- niveau maximal des 6 familles (2 niveaux par époque)
 L.CC_MAX = 15         -- niveau maximal du centre de commandement (= nombre d'époques)
-L.MAX_BUILDERS = 5
 L.LEGACY_MAX = 10     -- 0.3.0 : 10 niveaux par famille (compatibilité des sauvegardes)
 L.PREFIX = "fo-lvl-"
 L.CC_HEALTH = 3000    -- centre niveau 1 : PV
 L.CC_INVENTORY = 48   -- centre niveau 1 : cases du coffre (+ 16 par niveau, stats ci-dessous)
 
+--- Équipe de PNJ (lot IA1, C5 : « recalibrer les coûts des époques sur joueur + équipe ») : production de
+--- la force (joueur + son équipe) rapportée à celle du joueur seul. TOUS les coûts (panier de base et valeur
+--- d'époque, centre compris) sont multipliés par ce facteur, et le modèle de durée multiplie la production
+--- par le même : la durée impliquée ne change pas. 1 = joueur seul (aujourd'hui). Le lot IA1 le fixe ; la
+--- règle de place est alors à revérifier (tests/levels_test.lua l'affiche pour un facteur 2).
+L.TEAM_FACTOR = 1
+
+---------------------------------------------------------------------------------------------------
+-- Scénario approuvé (lot X0) : SEULE source du calendrier des époques (durées, débit, budget) et des règles
+-- de la recherche vanilla. Chargé au chargement du module (jamais pendant un événement, F24). Le mod de test
+-- (fo-autotest) requiert ce fichier par « __factorio-overhaul__/… » : le second chemin couvre ce cas.
+-- Tout ce que la config lit dans X est lu ICI, au chargement, et recopié dans L (L.VANILLA_UNIT_SCALE,
+-- L.target, index de QX9) : aucune fonction de L ne lit X ensuite (correction V2c de la garde de dress).
+---------------------------------------------------------------------------------------------------
+local X
+do
+  local ok, res = pcall(require, "shared.content.epochs")
+  if ok and type(res) == "table" then X = res else X = require("__factorio-overhaul__/shared/content/epochs") end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Les 15 époques (OBJECTIFS.md §6, validées par Q7). `color` : couleur d'interface (célébration) et
--- teinte du visuel PROVISOIRE. Multiplicateurs par époque :
---   value_mult   : valeur (unités de matière brute) payée en matériaux d'époque, relative à l'époque 2 ;
---   time_mult    : durée des chantiers des 6 familles, relative à l'époque 1 ;
---   cc_time_mult : durée du chantier du centre PAYÉ pendant cette époque (celui qui ouvre la suivante).
--- Ces tables SONT la courbe : on la règle époque par époque. Elle est GÉOMÉTRIQUE dans les faits (valeur
--- ≈ × 1,7 par époque à partir de l'époque 7, durée ≈ × 1,2), compensée par la production de l'usine
--- (≈ × 1,46 par époque, L.target) : c'est le nombre d'OBJETS qui ne croît pas, puisque la monnaie change.
+-- teinte du visuel PROVISOIRE. Multiplicateurs par époque (CALIBRÉS par `lua5.2 tests/levels_test.lua
+-- --calibrate` sur le calendrier du lot X0, puis arrondis ; ne pas retoucher sans relancer le banc) :
+--   value_mult : valeur (unités de matière brute) payée en matériaux d'époque par les 6 familles,
+--                relative à l'époque 2 (× epoch_value de la famille, × 1,25 au 2e niveau d'une époque) ;
+--   cc_value   : valeur payée en matériaux d'époque par le passage du centre PAYÉ pendant cette époque
+--                (celui qui ouvre l'époque suivante), en plus de son panier de base. Visée : 10 % du budget
+--                de l'époque (X.CODEX_LOT_SHARE), bornée par la règle de place (45 % du coffre payeur, au
+--                plus 2 000 objets d'une sorte) : visée NON atteinte après l'époque 4 (écart QX10).
+-- `--calibrate` part d'un état de référence FIXE (panier V2 du centre) : sa sortie est égale à ces tables
+-- (testé par tests/levels_test.lua) ; aucune retouche à la main.
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
-  { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, time_mult = 1, cc_time_mult = 1 },
-  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1, time_mult = 1.25, cc_time_mult = 2 },
-  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.1, time_mult = 1.4, cc_time_mult = 3 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 1.25, time_mult = 1.55, cc_time_mult = 5 },
-  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 5, time_mult = 1.75, cc_time_mult = 8 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 9.1, time_mult = 1.95, cc_time_mult = 12 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 18.5, time_mult = 3.2, cc_time_mult = 16 },
-  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 32, time_mult = 3.6, cc_time_mult = 20 },
-  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 54, time_mult = 4.1, cc_time_mult = 25 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 93.5, time_mult = 6.8, cc_time_mult = 30 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 160, time_mult = 7.6, cc_time_mult = 36 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 275, time_mult = 8.6, cc_time_mult = 42 },
-  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 490, time_mult = 13, cc_time_mult = 50 },
-  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 810, time_mult = 15.5, cc_time_mult = 60 },
-  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 1460, time_mult = 18.5, cc_time_mult = 60 },
+  { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
+  { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.43, cc_value = 407 },
+  { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.46, cc_value = 1050 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 4.5, cc_value = 6000 },
+  { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 6060 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29.2, cc_value = 6160 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.9, cc_value = 6290 },
+  { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
+  { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 14100 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 371, cc_value = 46000 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 675, cc_value = 47300 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1250, cc_value = 48700 },
+  { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 2270, cc_value = 80100 },
+  { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 4140, cc_value = 190000 },
+  { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 7070, cc_value = 0 },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -116,10 +153,8 @@ L.epoch_materials = {
 
 --- Part de la valeur d'époque payée avec le matériau de l'époque (le reste : matériau de l'époque précédente).
 L.MAIN_SHARE = 0.6
---- Le 2e niveau d'une époque coûte 25 % de plus que le 1er, et son chantier dure 10 % de plus (la durée
---- reste ainsi strictement croissante : time_mult croît de plus de 10 % d'une époque à la suivante).
+--- Le 2e niveau d'une époque coûte 25 % de plus que le 1er.
 L.SECOND_LEVEL_FACTOR = 1.25
-L.SECOND_LEVEL_TIME_FACTOR = 1.1
 
 --- Valeur des objets des paniers de base (unités de matière brute : 1 = une plaque de fer ; 10 unités
 --- de fluide = 1). Approximations d'après les recettes vanilla, détaillées dans BALANCE_SHEET §12.
@@ -145,7 +180,7 @@ L.stack_size = {
   ["electric-engine-unit"] = 50, ["uranium-235"] = 100, ["rocket-control-unit"] = 10,
   ["space-science-pack"] = 2000,
 }
---- Un chantier tient dans cette part du coffre du centre qui le paie (le reste : l'usine continue de le
+--- Un coût tient dans cette part du coffre du centre qui le paie (le reste : l'usine continue de le
 --- remplir, et le joueur garde son inventaire).
 L.MAX_SLOT_SHARE = 0.5
 --- Pile minimale exigée d'un matériau d'époque À VENIR (lot X0 : fo-titanium-plate, fo-superconductor,
@@ -161,10 +196,10 @@ L.MIN_MATERIAL_STACK = 50
 --                 knee, k2 : au-delà du niveau `knee`, la pente devient k2 (dégressif) ;
 --                 hidden : statistique absente du panneau ; label : clé de locale du panneau
 --   base_cost   : panier de base (époque 1) ; quantité × (1 + base_growth·(n-2)) : croissance LINÉAIRE ;
---   epoch_value : valeur payée en matériaux d'époque au 1er niveau de l'époque 2 (× value_mult) ;
+--   epoch_value : valeur payée en matériaux d'époque au 1er niveau de l'époque 2 (× value_mult) ; le centre
+--                 n'en a pas : L.epochs[e].cc_value ;
 --   main_share  : part du matériau de l'époque (défaut L.MAIN_SHARE ; murs : 1, sans matériau précédent) ;
---   time0       : durée de référence en secondes (× time_mult de l'époque, × 1,1 au 2e niveau) ;
---                 centre : × cc_time_mult de l'époque qui paie le chantier.
+--   row         : bouton « Toute la rangée » (murs reliés de même niveau, améliorés d'un coup).
 ---------------------------------------------------------------------------------------------------
 L.families = {
   {
@@ -173,8 +208,11 @@ L.families = {
       { path = { "max_health" }, op = "mul", k = 0.20 },
       { path = { "inventory_size" }, op = "add", k = 16 },
     },
-    base_cost = { { "iron-plate", 260 }, { "copper-plate", 130 }, { "stone-brick", 130 }, { "electronic-circuit", 50 } },
-    base_growth = 0.15, epoch_value = 150, time0 = 60,
+    -- Panier calibré (V2c, `--calibrate` depuis le panier V2 260/130/130/50 : 775 u) : le passage 1 → 2 comble
+    -- le budget des niveaux de l'époque 1 (940 u, 23,2 % du budget de l'époque). Arrondi de L.round_nice : c'est
+    -- exactement ce que le joueur paie au passage 1 → 2.
+    base_cost = { { "iron-plate", 310 }, { "copper-plate", 160 }, { "stone-brick", 160 }, { "electronic-circuit", 60 } },
+    base_growth = 0.15,
   },
   {
     -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
@@ -187,7 +225,7 @@ L.families = {
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
-    base_growth = 0.15, epoch_value = 12, time0 = 8,
+    base_growth = 0.15, epoch_value = 12,
   },
   {
     -- Mêmes dégâts dégressifs (× 4,24 au niveau 30 contre 4 pour la tourelle laser lourde) ; l'énergie par
@@ -204,10 +242,10 @@ L.families = {
       { path = { "energy_source", "buffer_capacity" }, op = "mul", k = 0.04, hidden = true },
     },
     base_cost = { { "steel-plate", 3 }, { "electronic-circuit", 3 }, { "battery", 2 } },
-    base_growth = 0.15, epoch_value = 20, time0 = 12,
+    base_growth = 0.15, epoch_value = 20,
   },
   {
-    key = "wall", type = "wall", base = "stone-wall", size = 1, max = 30, instant = true,
+    key = "wall", type = "wall", base = "stone-wall", size = 1, max = 30, row = true,
     stats = {
       -- 0.3.0 : × 1,30^(n-1) (× 2 000 au niveau 30 : explosion). Désormais linéaire : 350 → 5 425 PV.
       { path = { "max_health" }, op = "mul", k = 0.50 },
@@ -215,7 +253,7 @@ L.families = {
     -- Résistances : réduction fixe physique et explosion + 0,5 par niveau (en plus de la vanilla).
     resist_step = { explosion = 0.5, physical = 0.5 },
     base_cost = { { "stone-brick", 3 } },
-    base_growth = 0.15, epoch_value = 2, main_share = 1, time0 = 0,
+    base_growth = 0.15, epoch_value = 2, main_share = 1,
   },
   {
     key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30,
@@ -225,7 +263,7 @@ L.families = {
       { path = { "energy_usage" }, op = "mul", k = 0.07 },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 2 } },
-    base_growth = 0.15, epoch_value = 7, time0 = 6,
+    base_growth = 0.15, epoch_value = 7,
   },
   {
     key = "furnace", type = "furnace", base = "steel-furnace", size = 2, max = 30,
@@ -235,7 +273,7 @@ L.families = {
       { path = { "energy_usage" }, op = "mul", k = 0.06 },
     },
     base_cost = { { "steel-plate", 2 }, { "stone-brick", 3 } },
-    base_growth = 0.15, epoch_value = 6, time0 = 5,
+    base_growth = 0.15, epoch_value = 6,
   },
   {
     key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30,
@@ -245,7 +283,7 @@ L.families = {
       { path = { "energy_usage" }, op = "mul", k = 0.06 },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 3 } },
-    base_growth = 0.15, epoch_value = 7, time0 = 6,
+    base_growth = 0.15, epoch_value = 7,
   },
 }
 
@@ -328,12 +366,22 @@ local function round_nice(x)
   if x < 100 then return math.floor(x / 5 + 0.5) * 5 end
   return math.floor(x / 10 + 0.5) * 10
 end
+--- Même arrondi, exposé pour `--calibrate` (le panier écrit est celui que le joueur paie au niveau 2).
+L.round_nice = round_nice
 
---- Valeur payée en matériaux d'époque pour le niveau n (0 à l'époque 1).
+--- Valeur payée en matériaux d'époque pour le niveau n (0 à l'époque 1), facteur d'équipe compris.
+--- Familles : epoch_value × value_mult de l'époque (× 1,25 au 2e niveau d'une époque) ; centre : cc_value
+--- de l'époque qui paie le passage.
 function L.epoch_value(family, n)
-  local v = family.epoch_value * L.epochs[L.pay_epoch(family, n)].value_mult
-  if L.step_of(family, n) == 2 then v = v * L.SECOND_LEVEL_FACTOR end
-  return v
+  local ep = L.epochs[L.pay_epoch(family, n)]
+  local v
+  if family.key == "command" then
+    v = ep.cc_value or 0
+  else
+    v = family.epoch_value * ep.value_mult
+    if L.step_of(family, n) == 2 then v = v * L.SECOND_LEVEL_FACTOR end
+  end
+  return v * L.TEAM_FACTOR
 end
 
 --- Valeur d'un coût (unités de matière brute), d'après L.item_value.
@@ -351,9 +399,9 @@ local function raw_cost(family, n)
     if not acc[item] then order[#order + 1] = item; acc[item] = 0 end
     acc[item] = acc[item] + q
   end
-  local growth = 1 + family.base_growth * (n - 2)
-  for _, b in ipairs(family.base_cost) do add(b[1], round_nice(b[2] * growth)) end
   local e = L.pay_epoch(family, n)
+  local growth = (1 + family.base_growth * (n - 2)) * L.TEAM_FACTOR
+  for _, b in ipairs(family.base_cost) do add(b[1], round_nice(b[2] * growth)) end
   local v = L.epoch_value(family, n)
   local main = L.epoch_materials[e]
   if main and v > 0 then
@@ -405,20 +453,6 @@ function L.cost(family, n)
   return out
 end
 
---- Durée du chantier vers le niveau n, en ticks (0 = instantané). factor : réglage de partie.
-function L.time_ticks(family, n, factor)
-  if family.instant or family.time0 == 0 then return 0 end
-  local ep = L.epochs[L.pay_epoch(family, n)]
-  local s
-  if family.key == "command" then
-    s = family.time0 * ep.cc_time_mult
-  else
-    s = family.time0 * ep.time_mult
-    if L.step_of(family, n) == 2 then s = s * L.SECOND_LEVEL_TIME_FACTOR end
-  end
-  return math.floor(s * 60 * (factor or 1) + 0.5)
-end
-
 --- Plafond des bâtiments (toutes familles sauf le centre) pour un centre de niveau cc : 2 × cc (2 niveaux
 --- par époque), au plus 30 ; sans centre, 1. C'est le chiffre qu'affiche le panneau du centre.
 function L.building_cap(cc_level)
@@ -433,23 +467,37 @@ function L.max_level(family, cc_level)
   return math.min(family.max, L.building_cap(cc_level))
 end
 
---- Ouvriers d'amélioration (chantiers simultanés) selon le niveau du centre : 1 de plus toutes les 3 époques.
-function L.builders(cc_level)
-  if not cc_level or cc_level < 1 then return 0 end
-  return math.min(L.MAX_BUILDERS, 1 + math.floor((cc_level - 1) / 3))
-end
-
---- Peut-on lancer l'amélioration vers le niveau n ? Renvoie true ou false, raison (clé de locale).
-function L.check(family, n, cc_level, busy_builders)
+--- Peut-on améliorer vers le niveau n (règles pures : maximum, plafond du centre) ? Renvoie true ou
+--- false, raison (clé de locale). L'amélioration est instantanée (Q19) : plus aucune limite d'ouvriers.
+--- La condition du centre (Q16) dépend des bâtiments de la force : L.cc_blockers.
+function L.check(family, n, cc_level)
   if n > family.max then return false, "max" end
   if n > L.max_level(family, cc_level) then
     if not cc_level or cc_level < 1 then return false, "no-cc" end
     return false, "cc-too-low"
   end
-  if not (family.instant or family.time0 == 0) and (busy_builders or 0) >= L.builders(cc_level) then
-    return false, "no-builder"
-  end
   return true
+end
+
+--- Q16 (« condition légère ») : niveau qu'un bâtiment de CHAQUE famille possédée doit avoir pour que le
+--- centre quitte le niveau c (passage c → c + 1) : le niveau maximal de l'époque c, min(30, 2c).
+function L.cc_condition_level(c)
+  return L.building_cap(c)
+end
+
+--- Familles qui BLOQUENT le passage du centre (Q16), dans l'ordre de L.families. census[clé] décrit les
+--- bâtiments de la force pour une famille : { any = au moins un bâtiment de la famille, tout niveau ;
+--- top = au moins un au niveau L.cc_condition_level(c) ou plus }. Une famille que la force ne possède pas
+--- ne bloque jamais. Renvoie une liste de clés (vide : condition remplie).
+function L.cc_blockers(census)
+  local out = {}
+  for _, f in ipairs(L.families) do
+    if f.key ~= "command" then
+      local c = census and census[f.key]
+      if c and c.any and not c.top then out[#out + 1] = f.key end
+    end
+  end
+  return out
 end
 
 --- Liste triée des objets de coût de toutes les familles à tous les niveaux (pour vérifier qu'ils existent).
@@ -511,20 +559,107 @@ function L.provisional_materials()
 end
 
 ---------------------------------------------------------------------------------------------------
--- Cible de durée de jeu (OBJECTIFS F1-3 ❔ : époque 1 en ~30 min, époque 15 vers ~60 h cumulées) et
--- HYPOTHÈSES du modèle qui relie la courbe aux heures de jeu (BALANCE_SHEET §12, à valider en partie
--- réelle). Données pour les tableaux et les tests : le jeu ne les lit pas.
+-- QX9 : recherche vanilla allégée des premières époques. Règles du lot X0 (tests/epochs_test.lua) : une
+-- technologie vanilla appartient à l'époque de son re-rangement explicite (X.vanilla_tech_epochs), sinon à
+-- la plus haute époque des recettes qu'elle débloque (X.base_recipe_epochs, sans X.base_recipe_never),
+-- sinon à la plus haute époque de ses packs ; son nombre d'unités est multiplié par X.VANILLA_UNIT_SCALE
+-- de cette époque (arrondi, au moins 1). Index et échelles recopiés ici, au chargement, à partir de X.
+-- Correction V2c (étape data réelle) : les recettes de baril que base/data-updates.lua génère pour CHAQUE
+-- fluide (« fill-<fluide>-barrel », « empty-<fluide>-barrel ») et rattache d'office à fluid-handling ne
+-- rangent pas la technologie. X0 calibre fluid-handling sur technology.lua, sans elles (époque 4) ; avec le
+-- baril de méthane du mod (époque 8 dans X.base_recipe_epochs), elle passait à l'époque 8 et gardait
+-- 50 unités au lieu de 2 (169 technologies allégées en jeu au lieu de 170).
 ---------------------------------------------------------------------------------------------------
+local recipe_epoch, recipe_never, pack_epoch, tech_epoch_fixed = {}, {}, {}, {}
+for _, row in ipairs(X.base_recipe_epochs) do
+  for _, r in ipairs(row[2]) do recipe_epoch[r] = row[1] end
+end
+for _, row in ipairs(X.base_recipe_hidden_allowed) do recipe_epoch[row[1]] = row[2] end
+for _, r in ipairs(X.base_recipe_never) do recipe_never[r] = true end
+for k, e in ipairs(X.epochs) do pack_epoch[e.pack] = k end
+for _, row in ipairs(X.vanilla_tech_epochs) do tech_epoch_fixed[row[1]] = row[2] end
+
+--- Échelle du nombre d'unités des technologies vanilla de l'époque e (copie de X.VANILLA_UNIT_SCALE).
+L.VANILLA_UNIT_SCALE = {}
+for e = 1, L.EPOCHS do L.VANILLA_UNIT_SCALE[e] = X.VANILLA_UNIT_SCALE[e] or 1 end
+
+local function ingredient_name(ing) return ing.name or ing[1] end
+
+--- Recette de baril générée par le jeu de base pour un fluide (voir plus haut) ? « empty-barrel » (le baril
+--- vide, recette de technology.lua) n'en est pas une.
+function L.generated_barrel(recipe)
+  return type(recipe) == "string"
+    and (recipe:match("^fill%-.+%-barrel$") ~= nil or recipe:match("^empty%-.+%-barrel$") ~= nil)
+end
+
+--- Époque (1 à 15) d'une technologie, décrite comme à l'étape data : { name, effects, unit = { ingredients } }
+--- (le runtime passe effects et research_unit_ingredients sous la même forme). Ingrédients au format court
+--- { "pack", n } ou long { name = "pack", amount = n }.
+function L.vanilla_tech_epoch(tech)
+  local e = tech_epoch_fixed[tech.name]
+  if not e then
+    e = 0
+    for _, ef in ipairs(tech.effects or {}) do
+      if ef.type == "unlock-recipe" and not recipe_never[ef.recipe] and not L.generated_barrel(ef.recipe) then
+        local re = recipe_epoch[ef.recipe]
+        if re and re > e then e = re end
+      end
+    end
+    if e == 0 then
+      local unit = tech.unit or {}
+      for _, ing in ipairs(unit.ingredients or {}) do
+        local pe = pack_epoch[ingredient_name(ing)] or 1
+        if pe > e then e = pe end
+      end
+    end
+  end
+  return math.max(1, math.min(L.EPOCHS, e))
+end
+
+--- Nouveau nombre d'unités d'une technologie vanilla (QX9) : count × L.VANILLA_UNIT_SCALE[époque], arrondi,
+--- au moins 1 ; et son époque. nil si elle n'est pas concernée : préfixe « fo- » (technologies du mod),
+--- recherche infinie (max_level) ou sans `count` (formule).
+function L.vanilla_unit_count(tech, count)
+  if type(tech.name) ~= "string" or tech.name:sub(1, 3) == "fo-" then return nil end
+  if tech.max_level or type(count) ~= "number" then return nil end
+  local e = L.vanilla_tech_epoch(tech)
+  local scale = L.VANILLA_UNIT_SCALE[e] or 1
+  return math.max(1, math.floor(count * scale + 0.5)), e, scale
+end
+
+---------------------------------------------------------------------------------------------------
+-- Cible de durée de jeu (OBJECTIFS F1-3 ; QX7 : 60 h = ouverture de la Porte, époque 15 vers 52 h) et
+-- HYPOTHÈSES du modèle qui relie la courbe aux heures de jeu (BALANCE_SHEET §12, à valider en partie
+-- réelle). Le calendrier (durées, débit, budget) vient du scénario X0 : ses valeurs sont RECOPIÉES ici au
+-- chargement (une seule source, X ; aucune courbe propre). Données pour les tableaux et les tests : le jeu
+-- ne les lit pas.
+---------------------------------------------------------------------------------------------------
+local target_hours, target_reach, target_rate, target_budget = {}, {}, {}, {}
+for e = 1, L.EPOCHS do
+  target_hours[e] = X.epoch_hours(e)
+  target_reach[e] = X.reach_hour(e)
+  target_rate[e] = X.rate_avg(e)
+  target_budget[e] = X.budget(e)
+end
 L.target = {
-  -- Durée visée de l'époque e (heures) : 0,5 × 1,261^(e-1) ; somme des 15 époques ≈ 60 h.
-  epoch_hours = function(e) return 0.5 * 1.261 ^ (e - 1) end,
-  -- Production de l'usine (unités de matière brute par seconde) pendant l'époque e : de 2/s (fours à
-  -- combustible) à 1 200/s (usine de fin de partie, avec la Compaction ×4 du lot C).
-  production = { 2, 5, 10, 17, 27, 40, 60, 88, 125, 180, 260, 380, 560, 820, 1200 },
-  -- Part de la production consacrée aux niveaux.
+  -- Copies du calendrier X0, par époque : durée (h, X.epoch_hours), heure d'arrivée (h, X.reach_hour),
+  -- débit MOYEN de l'usine du joueur (unités de matière brute par seconde, X.rate_avg), budget (débit moyen ×
+  -- durée, X.budget) ; heure d'ouverture de la Porte (X.player_gate_hour).
+  hours = target_hours, reach = target_reach, rate = target_rate, budget_mu = target_budget,
+  gate_hour = X.player_gate_hour(),
+  -- Accès par fonction (interface des tableaux et des tests), sur ces copies.
+  epoch_hours = function(e) return L.target.hours[e] end,
+  reach_hour = function(e) return L.target.reach[e] end,
+  production = function(e) return L.target.rate[e] end,
+  budget = function(e) return L.target.budget_mu[e] end,
+  -- Part du budget visée par le passage du centre (QX10 ; X.CODEX_LOT_SHARE).
+  cc_share = X.CODEX_LOT_SHARE,
+  -- Part de la production consacrée aux niveaux (centre compris ; X0 : la recherche en prend 35 %).
   spend_share = 0.3,
   -- Base de référence : nombre de bâtiments de chaque famille pendant l'époque e (four en acier et machine
-  -- d'assemblage 2 : science verte, vers l'époque 3 ; tourelle laser : époque 6, Électricité).
+  -- d'assemblage 2 : science verte, vers l'époque 3 ; tourelle laser : époque 6, Électricité). Hypothèse du
+  -- lot V2 conservée : elle suit le jeu d'AUJOURD'HUI (murs et foreuses dès l'époque 1) ; le re-rangement
+  -- du lot X0 (X.v2_family_epochs : murs et fours à l'époque 2, foreuses à l'époque 3) la changera.
   base = {
     gun = function(e) return 4 + 3 * (e - 1) end,
     laser = function(e) return e >= 6 and 4 + 4 * (e - 6) or 0 end,

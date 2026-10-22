@@ -700,6 +700,8 @@ function M.new_world(opts)
     return 0
   end
   surface.count_entities_filtered = function(t)
+    -- Compteur d'appels (lot V2c : coût du recensement Q16 en cache, tests/levels_test.lua).
+    W.count_calls = (W.count_calls or 0) + 1
     return #surface.find_entities_filtered(t)
   end
   surface.spill_item_stack = function(pos, stack)
