@@ -254,7 +254,7 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   - piste la plus utile : img2img depuis un sprite existant, à un débruitage de 0,55. Il garde la caméra,
     la silhouette et la palette, et ajoute du détail.
 - Jamais un sprite final : une image 2D isolée n'a ni cohérence entre directions ni calques séparés.
-- Planche et journaux : `<racine>o-logs6-10-22_SD-test\`.
+- Planche et journaux : `<racine>\fo-logs\2026-10-22_SD-test\`.
 
 **E41 · VALIDÉ · Budget A1 avec le PvP, banc épinglé (22/10, 3 h 10)** :
 - `ia0-perf` : 216 000 ticks, 4 factions, 50 compagnons, difficulté Normale, conditions d'E21.
@@ -267,7 +267,7 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   - Script : 0,059 ms/tick (p99 0,489).
   - Tick complet : 0,339 ms (p99 2,29 ; maximum 103 ms, dû au générateur de carte, pas au mod).
 - `pvp:scan` : 0,0043 ms/tick en moyenne dans les deux bancs.
-- Journaux et analyses : `<racine>o-logs6-10-22_A1_*`.
+- Journaux et analyses : `<racine>\fo-logs\2026-10-22_A1_*`.
 
 **E40 · VALIDÉ · Mémoire vidéo et usine géante en moteur réel (lot D4m, 22/10, 2 h 50 à 3 h)** :
 - Protocole : greffon `d4-geant` (6 672 bâtiments à niveaux, 7 072 tapis, 6 088 bras sur 288 × 188 tuiles).
@@ -288,7 +288,7 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   un écran à 144 Hz.
 - Chargement avec le cache d'atlas : sprites chargés en 3,3 à 4,5 s.
 - La carte occupe 4,3 Go au total, tous programmes confondus.
-- Journaux : `<racine>o-logs6-10-22_D4m_*`.
+- Journaux : `<racine>\fo-logs\2026-10-22_D4m_*`.
 
 **E39 · VALIDÉ (technique) · Pipeline de rendu corrigé, en moteur réel (lot V0b, 22/10, 2 h 40)** :
 - Mesures sur les captures en jeu, z2 de jour, corps hors lueur :
@@ -399,8 +399,7 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   - recalage de chaque couche sur la capture (recherche exhaustive du décalage) ;
   - carte des lumières de nuit reconstruite à partir de la paire jour/nuit et de la LUT `lut-night.png` ;
   - photométrie par masques.
-- Rapport : `<racine>o-logs6-10-21_V0_verif-captures
-apport.md`.
+- Rapport : `<racine>\fo-logs\2026-10-21_V0_verif-captures\rapport.md`.
 - Conforme : les 4 couches tombent exactement sur leurs décalages déclarés (0 px d'écart) aux zooms 1, 2 et 4,
   de jour comme de nuit ; l'ombre part du pied ; aucun pixel de la cheminée ne passe devant le four.
 - **Bloquant** (four équipé, nuit) : la passe light a été rendue sans le four. Elle projette donc un trou en

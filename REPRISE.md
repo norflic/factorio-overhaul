@@ -63,7 +63,7 @@
 | D4m mémoire vidéo et usine géante | ✅ fusionné, moteur réel | E40 ; `fo-logs\2026-10-22_D4m_*` |
 | **V3 phase 1** modélisation des 7 familles | ❌ direction rejetée ; travail CONSERVÉ sur des branches non fusionnées (voir §4) | planches dans les branches `worktree-wf_1f9884be-7b6-1` à `-7`, `docs/epoques/planches/<famille>/` |
 | **V3-S** direction artistique | ⏳ workflow en cours (run `wf_483106c7-c7f`) | sorties attendues dans `<racine>\fo-logs\2026-10-22_V3S\` |
-| Test de Stable Diffusion local | ⏳ agent en cours | sorties attendues dans `<racine>\fo-logs\2026-10-22_SD-test\` |
+| Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
 - **Verdict sur V3-S** : les planches comparatives sont à lui envoyer dès qu'elles sont prêtes.
@@ -107,6 +107,11 @@
 - api_lint ignore les chaînes et les commentaires Lua (correctif du 21/10).
 - `pairs` en Lua 5.2 hors jeu est NON déterministe (graine de hachage aléatoire), contrairement au jeu.
   Triez toujours les clés.
+- **Antislashs dans les scripts Python écrits en ligne** (heredoc dans Bash) : ils peuvent être réduits
+  en route, et `\fo-logs` devient alors un caractère de contrôle. Le 22/10, 5 chemins de documents ont été
+  abîmés puis réparés. Pour modifier un document qui contient des chemins Windows, utilisez l'outil
+  d'édition, ou un script écrit dans un FICHIER. Contrôle : `repare_ctrl.py` (caractères de contrôle dans
+  les documents).
 - Les agents déposent parfois des diffs pour l'intégrateur dans le dossier temporaire de la session,
   qui peut disparaître. Appliquez-les vite, ou copiez-les dans `fo-logs`.
 - Le DC peut jouer pendant les bancs : jamais d'arrêt global de factorio.exe, fermeture ciblée seulement
