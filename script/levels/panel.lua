@@ -191,7 +191,12 @@ local function refresh(player)
     -- Lot V3-T : emprise qui grandit, et place autour du bâtiment.
     if info.resize then
       local a, b = info.resize.from, info.resize.to
-      frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", a .. "×" .. a, b .. "×" .. b } })
+      if info.resize.regrid then
+        -- Lot V3-T2 : bâtiment laissé hors grille par une mise à jour du mod : l'amélioration le remet sur la grille.
+        frame.add({ type = "label", caption = { "fo-levels-taille.regrid-line", a .. "×" .. a, b .. "×" .. b } })
+      else
+        frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", a .. "×" .. a, b .. "×" .. b } })
+      end
       local room = info.room
       local lbl
       if room and room.chosen then

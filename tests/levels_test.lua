@@ -2047,10 +2047,16 @@ for i = 1, 5 do
   -- Position attendue calculée depuis la TABLE L.footprints (suite d'intégration de V3-T) : même place si les
   -- niveaux 24 et 25 ont la même emprise (table livrée : four 2×2), sinon la candidate préférée de la règle
   -- d'agrandissement (shared/levels/footprint.lua ; la zone est libre).
+  -- Lot V3-T2 : le moteur simulé laisse ces fours 24 en (10 i ; 280), position entière : HORS grille dès que leur
+  -- côté est impair (table livrée : 5×5) ; l'emprise actuelle est alors le carré de côté + 1 qui les contient
+  -- (Levels.current_box), et un bâtiment hors grille passe toujours par le remplacement par script.
+  -- (Sans locale de plus : le bloc principal est à la limite de 200 locales de Lua 5.2.)
   local at = { x = 10 * i, y = 280 }
-  if L.footprint(L.by_key.furnace, 24) ~= L.footprint(L.by_key.furnace, 25) then
+  if L.footprint(L.by_key.furnace, 24) ~= L.footprint(L.by_key.furnace, 25)
+      or not require("shared.levels.footprint").aligned(at, L.footprint(L.by_key.furnace, 24)) then
     at = require("shared.levels.footprint").candidates(require("shared.levels.footprint").tile_box(at,
-      L.footprint(L.by_key.furnace, 24)), L.footprint(L.by_key.furnace, 25))[1]
+      L.footprint(L.by_key.furnace, 24) + (require("shared.levels.footprint").aligned(at, L.footprint(L.by_key.furnace, 24)) and 0 or 1)),
+      L.footprint(L.by_key.furnace, 25))[1]
   end
   local fu = s.find_entity(L.name(L.by_key.furnace, 25), { x = at.x, y = at.y })
   if fu and (fu.position.x ~= at.x or fu.position.y ~= at.y) then fu = nil end
@@ -2081,7 +2087,13 @@ check(ok_run, "jeu continu après le chargement (" .. tostring(err_run) .. ")")
 
 -- Même sauvegarde rechargée SANS changement de version (on_configuration_changed absent) : le filet des 30
 -- ticks achève les chantiers.
-local fu2 = s.create_entity({ name = L.name(L.by_key.furnace, 20), position = { x = 10, y = 320 }, force = "fo-test-13" })
+-- Lot V3-T2 : posé SUR la grille de son côté (le moteur réel recale toujours la position ; le moteur simulé non :
+-- en (10 ; 320), un four 5×5 serait hors grille et remis sur la grille par script, à une demi-tuile). Bloc do : le
+-- bloc principal est à la limite de 200 locales de Lua 5.2.
+do
+local p20 = require("shared.levels.footprint").center(require("shared.levels.footprint").tile_box({ x = 10, y = 320 },
+  L.footprint(L.by_key.furnace, 20)))
+local fu2 = s.create_entity({ name = L.name(L.by_key.furnace, 20), position = p20, force = "fo-test-13" })
 local j2 = job_040(fu2, "furnace", 21, 6000)
 global.fo.levels.jobs[j2.unit] = j2
 saved = M.deepcopy_global(global)
@@ -2090,8 +2102,9 @@ _G.global = saved
 ok_load = pcall(function() Wd.on_load() end)
 Levels = require("script.levels.levels")
 ok_run, err_run = pcall(M.run_ticks, 31)
-check(ok_load and ok_run and s.find_entity(L.name(L.by_key.furnace, 21), { x = 10, y = 320 }) ~= nil
+check(ok_load and ok_run and s.find_entity(L.name(L.by_key.furnace, 21), p20) ~= nil
   and next(global.fo.levels.jobs) == nil, "sans changement de version : chantier 0.4.0 achevé dans les 30 ticks (" .. tostring(err_run) .. ")")
+end
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -156,11 +156,17 @@ check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté �
 -- L.footprints. `sides` : côtés successifs (celui de la sauvegarde d'avant V3-T, puis celui de chaque niveau) ; à
 -- chaque changement de côté, la candidate préférée de la règle d'agrandissement (shared/levels/footprint.lua ; les
 -- zones de ce test sont libres). Table livrée (seule la mitrailleuse grandit) : la foreuse et le centre restent.
+-- Lot V3-T2 : l'emprise actuelle d'un bâtiment HORS grille est le carré de côté + 1 qui le contient exactement
+-- (Levels.current_box) ; ce banc pose la foreuse 9 en (30 ; 30), position entière qu'un 3×3 n'a jamais en moteur réel.
+local function current_box(at, side)
+  if side >= 2 and not Foot.aligned(at, side) then return Foot.tile_box(at, side + 1) end
+  return Foot.tile_box(at, side)
+end
 local function expected_at(pos, sides)
   local at = { x = pos.x, y = pos.y }
   for i = 2, #sides do
     if sides[i] ~= sides[i - 1] then
-      local c = Foot.candidates(Foot.tile_box(at, sides[i - 1]), sides[i])[1]
+      local c = Foot.candidates(current_box(at, sides[i - 1]), sides[i])[1]
       at = { x = c.x, y = c.y }
     end
   end
@@ -480,6 +486,29 @@ do
   check(n3 == 0 and lv3.pending[ase.unit_number] == nil and (rawget(ase, "crafting_progress") or 0) == 0,
     "redémarrage sur une autre recette : progression NON reposée, entrée retirée")
   for _, e in ipairs({ asc, asd, ase }) do if e.valid then e.destroy() end end
+end
+
+-- Lot V3-T2 (F86, moteur réel : create_entity{fast_replace = true} d'un bâtiment HORS grille recale la position, ne
+-- remplace rien et pose un second bâtiment par-dessus) : un bâtiment hors grille passe par le remplacement par
+-- script, même à côté égal, et revient sur la grille à une demi-tuile (Levels.current_box).
+do
+  local cc9 = Levels3.cc(game.forces.player)
+  local as8 = s3.create_entity({ name = "fo-lvl-assembler-8", position = { x = 300.5, y = 300.5 }, force = "player" })
+  local side = L3.footprint(L3.by_key.assembler, 8)
+  local info = Levels3.preview(as8, nil, true)
+  local off = side % 2 == 0 -- (300,5 ; 300,5) : hors grille pour un côté pair
+  check(off and info and info.resize and info.resize.regrid == true and info.resize.from == side and info.resize.to == side
+    and info.room and info.room.chosen ~= nil,
+    "bâtiment hors grille (assembleur 8, " .. side .. "×" .. side .. " centré sur une tuile) : l'aperçu demande une remise sur la grille, place libre")
+  for _, c in ipairs(L3.cost(L3.by_key.assembler, 9)) do cc9.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
+  local r0, fb0 = lv3.stats.resized or 0, lv3.stats.fallback or 0
+  local ok_s, why, _, a9 = Levels3.start(as8, nil)
+  local want = Foot3.candidates(Foot3.tile_box({ x = 300.5, y = 300.5 }, side + 1), side)[1]
+  check(ok_s and a9 and a9.name == "fo-lvl-assembler-9" and not as8.valid and a9.position.x == want.x and a9.position.y == want.y
+    and lv3.stats.resized == r0 + 1 and (lv3.stats.fallback or 0) == fb0,
+    "amélioration à côté égal d'un bâtiment hors grille : par script (pas de remplacement rapide), reposé sur la grille en ("
+    .. want.x .. " ; " .. want.y .. "), l'ancien retiré (" .. tostring(why) .. ")")
+  if a9 and a9.valid then a9.destroy() end
 end
 
 -- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une

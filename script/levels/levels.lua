@@ -338,6 +338,26 @@ local function shares(layers, mask)
   return false
 end
 
+--- Carré de tuiles qui représente l'emprise ACTUELLE de `entity` (côté `side`) pour la règle de position.
+--- Sur la grille : le carré exact. HORS grille (lot V3-T2 : bâtiment « laissé en place » par une migration, F76 : un
+--- côté impair centré sur un coin de tuile, ou l'inverse ; les deux axes à la fois pour un bâtiment carré posé à
+--- l'ancienne taille) : le carré de côté side + 1 qui le contient exactement (sa parité est celle de la position).
+--- Conséquences : un agrandissement contient toujours la vraie boîte ; à côté égal (amélioration d'un bâtiment hors
+--- grille), les 4 positions sur la grille contenues dans ce carré, dans l'ordre de la règle (shared/levels/footprint.lua,
+--- cas « côté plus petit ») : le bâtiment est REMIS sur la grille, à une demi-tuile au plus.
+function Levels.current_box(entity, side)
+  local pos = entity.position
+  if not Levels.off_grid(entity, side) then return Foot.tile_box(pos, side) end
+  return Foot.tile_box(pos, side + 1)
+end
+
+--- Le bâtiment est-il hors de la grille de son côté (laissé en place par une migration) ? Un bâtiment 1×1 ne l'est
+--- jamais : le moteur le pose toujours au centre d'une tuile (F41), et aucune famille 1×1 ne change de taille (mur).
+function Levels.off_grid(entity, side)
+  if side < 2 then return false end
+  return not Foot.aligned(entity.position, side)
+end
+
 --- Place pour passer `entity` (emprise actuelle : old_side) au prototype `new_name` de côté new_side.
 --- Une seule recherche d'entités et une lecture des tuiles sur la réunion des positions candidates (au plus
 --- (2b - a)² tuiles : 49 pour 5 → 6) ; la décision est la fonction pure Foot.evaluate. Renvoie
@@ -345,7 +365,7 @@ end
 --- position libre ; target = la candidate à montrer, shared/levels/footprint.lua F.evaluate).
 function Levels.room(entity, old_side, new_name, new_side)
   local surface = entity.surface
-  local old_box = Foot.tile_box(entity.position, old_side)
+  local old_box = Levels.current_box(entity, old_side)
   local cands = Foot.candidates(old_box, new_side)
   local area = Foot.search_box(old_box, new_side)
   local proto = game.entity_prototypes[new_name]
@@ -820,7 +840,10 @@ local function replace(entity, family, n, opts)
   local surface, pos, dir, force = entity.surface, entity.position, entity.direction, entity.force
   local _, cur = L.parse(entity.name)
   local new
-  if cur and L.footprint(family, cur) ~= L.footprint(family, n) then
+  -- Lot V3-T2 (moteur réel, F86) : un bâtiment HORS grille ne passe jamais par le remplacement rapide moteur, même à
+  -- côté égal : create_entity{fast_replace = true} recale la position sur la grille, ne trouve donc pas l'ancien à
+  -- remplacer, et pose quand même le nouveau (sans vérifier la place) : deux bâtiments superposés, l'ancien gardé.
+  if cur and (L.footprint(family, cur) ~= L.footprint(family, n) or Levels.off_grid(entity, L.footprint(family, cur))) then
     new = Levels.resize_replace(entity, name, L.footprint(family, cur), L.footprint(family, n), opts)
     if not new then return nil end
   else
@@ -894,8 +917,11 @@ function Levels.preview(entity, player, fresh)
   info.missing = missing(sources(force, player), info.cost)
   if info.ok and #info.missing > 0 then info.ok, info.reason = false, "no-resources" end
   local from, to = L.footprint(family, n), L.footprint(family, n + 1)
-  if from ~= to then
-    info.resize = { from = from, to = to }
+  -- Lot V3-T2 : bâtiment hors grille (laissé par une migration) : même à côté égal, il est reposé sur la grille par
+  -- script, après vérification de la place (regrid = true).
+  local off = Levels.off_grid(entity, from)
+  if from ~= to or off then
+    info.resize = { from = from, to = to, regrid = off or nil }
     info.room = Levels.room(entity, from, L.name(family, n + 1), to)
     if info.ok and not info.room.chosen then info.ok, info.reason = false, "no-room" end
   end

@@ -536,6 +536,54 @@ return {
     end
     ctx.check(#lasers == 0, "usine dense : lasers relies au reseau, tampon charge (laisses compris)", #lasers > 0 and table.concat(lasers, ", ") or "6 lasers")
     ctx.log("USINE DENSE (rappel) : " .. tostring(st.dense_text))
+    -- Amélioration ULTÉRIEURE d'une machine laissée hors grille (assembleur 8 → 9 : même côté, 4×4), comme le joueur
+    -- la demanderait dans l'usine dense. Premier essai (avant correctif, F86) : « done », mais le moteur avait posé le
+    -- niveau 9 recalé sur la grille PAR-DESSUS le niveau 8, resté en place (deux machines superposées).
+    local s = ctx.surface()
+    local k = st.final["dense-assembleur-1"]
+    local cc = s.find_entities_filtered({ name = LV.name(CC, 15), force = F_MAIN })[1]
+    if not (k and k.kind == "kept" and k.entity.valid and cc) then
+      ctx.fail("amelioration d'une machine laissee hors grille : assembleur dense-assembleur-1 laisse introuvable")
+    else
+      local m = k.entity
+      local pos = m.position
+      local inv = cc.get_inventory(defines.inventory.chest)
+      for _, c in ipairs(LV.cost(AS, 9)) do inv.insert({ name = c[1], count = c[2] }) end
+      local before = {}
+      for _, c in ipairs(LV.cost(AS, 9)) do before[c[1]] = inv.get_item_count(c[1]) end
+      -- Bâtiments de ce nom dont la boîte contient l'ancienne position (le voisin collé n'y est pas).
+      local function count_here(name)
+        return s.count_entities_filtered({ position = pos, name = name })
+      end
+      local s3 = ctx.call("levels_status", F_MAIN)
+      local r = ctx.call("levels_upgrade", m)
+      local unpaid = true
+      for _, c in ipairs(LV.cost(AS, 9)) do if inv.get_item_count(c[1]) ~= before[c[1]] then unpaid = false end end
+      ctx.check(not r.ok and r.reason == "no-room" and m.valid and count_here(LV.name(AS, 9)) == 0 and unpaid and r.contour,
+        "machine laissee hors grille, amelioration 8 -> 9 (meme cote) : refus « no-room » (ses propres bras gênent la remise sur la grille), cout non paye, aucune machine superposee",
+        string.format("%s ; contour rang %s ; gene : %s", tostring(r.reason), tostring(r.contour_candidate), table.concat(r.blockers or {}, ",")))
+      if r.contour and m.valid then
+        -- Le joueur libère ce que le contour désigne : la remise sur la grille passe.
+        local rect = Foot.collision_rect(r.contour)
+        local gone = {}
+        for _, o in ipairs(s.find_entities_filtered({ area = { { rect.x0, rect.y0 }, { rect.x1, rect.y1 } } })) do
+          if o.valid and o ~= m and not SKIP[o.type] and overlap(rect, box_of(o)) and o.type ~= "electric-pole" then
+            gone[#gone + 1] = o.name
+            o.destroy()
+          end
+        end
+        table.sort(gone)
+        local r2 = ctx.call("levels_upgrade", m)
+        local s4 = ctx.call("levels_status", F_MAIN)
+        local ne = r2.entity
+        local over = ne and ne.valid and overlapping(ne) or {}
+        ctx.check(r2.ok and ne and ne.valid and not m.valid and Foot.aligned(ne.position, 4) and #over == 0 and count_here(LV.name(AS, 8)) == 0
+          and s4.fallback == s3.fallback and s4.resized == s3.resized + 1,
+          "contour libere : la machine est remise sur la grille au niveau 9 (par script, sans chevauchement, l'ancienne disparue)",
+          string.format("retire : %s ; %s en %s ; chevauche : %s ; secours +%d, par script +%d", table.concat(gone, ","), tostring(r2.reason),
+            ne and ne.valid and fmt(ne.position) or "-", #over > 0 and table.concat(over, ", ") or "rien", s4.fallback - s3.fallback, s4.resized - s3.resized))
+      end
+    end
     ctx.log(string.format("versions : creation %s, benchmark %s", tostring(st.version_create), tostring(st.version_bench)))
   end,
 
