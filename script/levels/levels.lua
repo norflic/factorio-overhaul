@@ -847,11 +847,16 @@ end
 --- garde sa pile et ses données). Correction V3-T (défaut 4) : laissé dessous, un objet au milieu d'un 5×5 ou
 --- d'un 6×6 serait hors de portée (ramassage à 1 tuile, personnage hors de la boîte). Échec (aucune position,
 --- téléport refusé) : laissé en place, compté (ground_left). Renvoie déplacés, laissés.
+--- Suite « défense dense » (correction, 22/10) : la recherche par zone du moteur réel rend aussi un objet dont la
+--- boîte TOUCHE seulement le bord du bâtiment (intervalles fermés, RD_LOG F96 provisoire, E53) ; un tel objet n'est
+--- pas dessous. Il est écarté par le chevauchement STRICT (Foot.overlap, comme remove_ghosts) : sinon il serait
+--- poussé pour rien, compté « déplacé », ou compté et journalisé « laissé sous » le bâtiment sans y être.
 local function move_ground_items(surface, rect, radius)
   local moved, left = 0, 0
   local items = surface.find_entities_filtered({ area = { { rect.x0, rect.y0 }, { rect.x1, rect.y1 } }, type = "item-entity" })
   for _, it in ipairs(items) do
-    if it.valid then
+    local bb = it.valid and it.bounding_box
+    if bb and Foot.overlap(rect, { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y }) then
       local ok = false
       local to = surface.find_non_colliding_position("item-on-ground", it.position, radius, 0.25)
       if to and not (to.x > rect.x0 and to.x < rect.x1 and to.y > rect.y0 and to.y < rect.y1) then

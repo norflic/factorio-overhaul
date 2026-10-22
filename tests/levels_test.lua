@@ -2831,6 +2831,43 @@ do
   check(okz and it.valid and it.position.x == 679.5 and st().ground_left == gl0 + 1 and logged,
     "objet au sol sans position libre autour : laissé en place (jamais détruit), compté et journalisé")
 end
+-- Suite « défense dense » (correction, 22/10) : un objet au sol dont la boîte TOUCHE seulement le bord (ou le coin) du
+-- nouveau bâtiment n'est pas dessous. La recherche par zone le rend (intervalles fermés, comme le moteur réel :
+-- RD_LOG F96 provisoire, E53) ; move_ground_items l'écarte par chevauchement strict : ni poussé, ni compté, ni
+-- journalisé « laissé sous ». Boîtes de ± 0,25 : position = bord ± 0,25, exacte en double (même binade), la boîte
+-- rendue retombe exactement sur le bord. Aucune position libre (nil) : un objet traité à tort serait compté
+-- ground_left et journalisé, ce qui rend le contrôle sensible.
+do
+  rawset(Wd.prototypes, "fo-test-edge-item", { type = "item-entity", max_health = 10, collision_mask = { ["item-layer"] = true },
+    collision_box = { left_top = { x = -0.25, y = -0.25 }, right_bottom = { x = 0.25, y = 0.25 } } })
+  local ge = gun_at(6, 700, 500)
+  -- Place attendue : la 1re position de la règle (nord-ouest), comme au cas f : centre 699,5 ; 499,5.
+  local pr = Foot.collision_rect(Foot.tile_box({ x = 699.5, y = 499.5 }, 3))
+  local side = s.create_entity({ name = "fo-test-edge-item", position = { x = pr.x1 + 0.25, y = 499.5 }, force = "neutral" })
+  local corner = s.create_entity({ name = "fo-test-edge-item", position = { x = pr.x1 + 0.25, y = pr.y0 - 0.25 }, force = "neutral" })
+  local seen = {}
+  for _, e in ipairs(s.find_entities_filtered({ area = { { pr.x0, pr.y0 }, { pr.x1, pr.y1 } }, type = "item-entity" })) do seen[e] = true end
+  local sb, cb = side.bounding_box, corner.bounding_box
+  check(seen[side] and seen[corner] and sb.left_top.x == pr.x1 and cb.left_top.x == pr.x1 and cb.right_bottom.y == pr.y0,
+    "objets au sol de test bord à bord et par un coin : rendus par la recherche de zone (le refiltre est bien exercé)")
+  local gl0, gm0 = st().ground_left or 0, st().ground_moved or 0
+  local nlog = #Wd.logs
+  local calls = 0
+  stock(tinv, GUN, 7, 1)
+  s.find_non_colliding_position = function() calls = calls + 1; return nil end
+  local oke, whye, _, ge7 = Levels.start(ge, nil)
+  s.find_non_colliding_position = raw_fncp
+  local logged = false
+  for i = nlog + 1, #Wd.logs do if Wd.logs[i]:find("laissé(s) sous", 1, true) then logged = true end end
+  local rr = ge7 and Foot.collision_rect(Foot.tile_box(ge7.position, 3))
+  check(oke and rr and rr.x1 == pr.x1 and rr.y0 == pr.y0 and calls == 0 and not logged
+    and side.valid and side.position.x == pr.x1 + 0.25 and corner.valid and corner.position.y == pr.y0 - 0.25
+    and (st().ground_left or 0) == gl0 and (st().ground_moved or 0) == gm0,
+    "objet au sol qui touche le nouveau bâtiment par un bord ou un coin, sans être dessous : ni poussé, ni compté, ni journalisé ("
+    .. tostring(whye) .. ", appels " .. calls .. ")")
+  side.destroy()
+  corner.destroy()
+end
 
 -- g. F40 simulé : le nouveau bâtiment détruit pendant raise_built (create_entity rend nil) → coût rendu.
 local gf = gun_at(6, 500, 500, 4)
