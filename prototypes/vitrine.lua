@@ -64,13 +64,23 @@ local LAYER_ORDER = { "shadow", "main", "glow", "light" }
 -- moyenne 2×2) ; avec un drapeau de filtrage, filtrée 2×2 comme les bâtiments vanilla. Captures :
 -- <racine>\fo-logs\2026-10-21_V0b_vitrine\ (haute, diagnostic-sans-essais, filtre).
 local MAIN_FLAGS = { "linear-minification" }
+-- Correcteur V0b : même drapeau sur la LUEUR (draw_as_glow), qui n'en avait pas (vérification V0b : au zoom 1,
+-- échantillonnage au plus proche probable, scintillement des braises non mesuré). Le halo (draw_as_light) n'est
+-- dessiné que dans la carte des lumières : sans drapeau.
+local GLOW_FLAGS = { "linear-minification" }
 
-local function layers_of(variant, main_flags)
+local function flags_of(kind)
+  if kind == "main" then return MAIN_FLAGS end
+  if kind == "glow" then return GLOW_FLAGS end
+  return nil
+end
+
+local function layers_of(variant)
   local v = SPR.variants[variant]
   if not v then error("vitrine : variante de sprites absente : " .. variant) end
   local out = {}
   for _, kind in ipairs(LAYER_ORDER) do
-    if v[kind] then out[#out + 1] = sprite_layer(v[kind], kind, kind == "main" and main_flags or nil) end
+    if v[kind] then out[#out + 1] = sprite_layer(v[kind], kind, flags_of(kind)) end
   end
   return out
 end
@@ -95,7 +105,7 @@ out[#out + 1] = {
   -- boîte d'affichage (fiche de l'entité) : la cheminée monte à 2,4 unités, soit 1,7 tuile à l'écran
   drawing_box = { { -0.6, -2.3 }, { 0.6, 0.5 } },
   render_layer = "object",
-  picture = { layers = layers_of("cheminee-seule", MAIN_FLAGS) },
+  picture = { layers = layers_of("cheminee-seule") },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -125,7 +135,7 @@ if not v then error("vitrine : variante de sprites absente : cheminee-four") end
 local pos = 1
 for _, kind in ipairs({ "shadow", "main" }) do
   if v[kind] then
-    table.insert(four.animation.layers, pos, sprite_layer(v[kind], kind, kind == "main" and MAIN_FLAGS or nil))
+    table.insert(four.animation.layers, pos, sprite_layer(v[kind], kind, flags_of(kind)))
     pos = pos + 1
   end
 end
@@ -134,23 +144,24 @@ end
 -- (draw_as_light au niveau de la visualisation, idiome vanilla d'entities.lua) ; halo : carte des lumières
 -- seulement (draw_as_sprite = false).
 four.working_visualisations = four.working_visualisations or {}
-local function anim_of(def)
+local function anim_of(def, flags)
   local lr, hr = def.lr, def.hr
   return {
     filename = lr.filename, width = lr.width, height = lr.height, shift = { lr.shift[1], lr.shift[2] },
-    priority = "medium", frame_count = 1, blend_mode = "additive",
+    priority = "medium", frame_count = 1, blend_mode = "additive", flags = flags,
     hr_version = {
       filename = hr.filename, width = hr.width, height = hr.height, shift = { hr.shift[1], hr.shift[2] },
-      priority = "medium", frame_count = 1, blend_mode = "additive", scale = 0.5,
+      priority = "medium", frame_count = 1, blend_mode = "additive", scale = 0.5, flags = flags,
     },
   }
 end
 if v.glow then
-  table.insert(four.working_visualisations, { fadeout = true, draw_as_light = true, animation = anim_of(v.glow) })
+  table.insert(four.working_visualisations,
+    { fadeout = true, draw_as_light = true, animation = anim_of(v.glow, GLOW_FLAGS) })
 end
 if v.light then
   table.insert(four.working_visualisations,
-    { fadeout = true, draw_as_light = true, draw_as_sprite = false, animation = anim_of(v.light) })
+    { fadeout = true, draw_as_light = true, draw_as_sprite = false, animation = anim_of(v.light, nil) })
 end
 out[#out + 1] = four
 

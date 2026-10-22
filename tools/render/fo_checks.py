@@ -12,6 +12,11 @@ Origine des contrôles : vérification indépendante des captures V0
 - poches sombres enfermées dans le halo (« ombre fantôme » d'une partie cachée) ;
 - photométrie du CORPS hors zones émissives (la lueur additive masquait le défaut de matité) ;
 - plus grand carré émissif plein (critère D2-1 : au moins 8 × 8 px HR).
+Ajouts du correcteur V0b (vérification des captures V0b) :
+- règles de palette de la bible (docs/DESIGN_EPOQUES.md §1.5 : médiane d'époque ± 10, p95 ≤ 240, saturation
+  ≤ 0,45) et rapport de luminance pièce / bâtiment vanilla porteur ;
+- saturation, pics isolés d'un pixel (« lucioles » des rivets) et rapport laplacien / écart-type dans la
+  photométrie.
 """
 import numpy as np
 
@@ -114,6 +119,56 @@ def largest_full_square(mask):
     return int(best)
 
 
+def saturation(rgb, mask):
+    """Saturation HSV moyenne ((max - min) / max) des pixels de `mask` (méthode de la bible et de fitlib)."""
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    s = np.where(mx > 1e-6, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
+    return float(s[mask].mean()) if np.any(mask) else 0.0
+
+
+def specks(img, thr=0.25):
+    """Part des pixels opaques qui sont des PICS ISOLÉS : luminance supérieure de plus de `thr` à la moyenne
+    de leurs 8 voisins (tous opaques) et au moins égale à leur maximum - 0,02 (vérification V0b, b11 : cheminée
+    V0b 1,17 %, four en acier 0,66 %, assembleur 0,46 %). Ils font scintiller le zoom 1 et dominent le grain."""
+    a = img[..., 3]
+    L = lum(img[..., :3])
+    op = a >= 0.99
+    H, W = L.shape
+    P = np.pad(L, 1, mode="edge")
+    Pa = np.pad(op, 1)
+    neigh = [P[1 + dy:1 + dy + H, 1 + dx:1 + dx + W] for dy in (-1, 0, 1) for dx in (-1, 0, 1) if (dy, dx) != (0, 0)]
+    allop = np.all([Pa[1 + dy:1 + dy + H, 1 + dx:1 + dx + W] for dy in (-1, 0, 1) for dx in (-1, 0, 1)], 0)
+    sp = allop & (L - np.mean(neigh, 0) > thr) & (L > np.max(neigh, 0) - 0.02)
+    return float(sp.sum()) / max(1, int(op.sum()))
+
+
+def bible_median(img, glow=None):
+    """Médiane de luminance (/255) des pixels d'alpha ≥ 0,5 hors empreinte émissive (méthode de la bible)."""
+    bb = img[..., 3] >= 0.5
+    if glow is not None:
+        bb &= ~emissive_mask(glow)
+    return float(np.percentile(lum(img[..., :3])[bb] * 255, 50)) if bb.any() else float("nan")
+
+
+def bible_rules(ph, epochs, medians, tol):
+    """Règles 1 à 3 de la bible (§1.5) sur une photométrie `ph` (photometry). `epochs` : époques déclarées par
+    la pièce ; `medians` : cible de médiane par époque. Renvoie la liste des infractions (texte)."""
+    out = []
+    p05, p50, p95 = ph["bible_p05_p50_p95"]
+    for e in epochs:
+        t = medians[int(e)]
+        if abs(p50 - t) > tol:
+            out.append("bible règle 1 : médiane du corps %.0f/255 hors de la cible de l'époque %d (%d ± %.0f)" % (
+                p50, e, t, tol))
+    if not 40 <= p50 <= 110:
+        out.append("bible règle 1 : médiane du corps %.0f/255 hors de 40..110" % p50)
+    if p95 > 240:
+        out.append("bible règle 2 : p95 %.0f/255 > 240 (aucun blanc pur)" % p95)
+    if ph.get("sat", 0.0) > 0.45:
+        out.append("bible règle 3 : saturation moyenne %.2f > 0,45" % ph["sat"])
+    return out
+
+
 def emissive_mask(glow, thr=0.02, grow=2):
     """Empreinte de la lueur (alpha > thr), dilatée de `grow` px : zone exclue de la photométrie du corps."""
     return dilate(np.asarray(glow)[..., 3] > thr, grow)
@@ -155,6 +210,8 @@ def photometry(main, glow=None, opaque=0.99):
         bb &= ~emissive_mask(glow)
     vb = L[bb] * 255
     r["bible_p05_p50_p95"] = [float(np.percentile(vb, q)) for q in (5, 50, 95)]
+    r["sat"] = saturation(main[..., :3], bb)
+    r["specks"] = specks(main)
     return r
 
 

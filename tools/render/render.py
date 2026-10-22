@@ -64,10 +64,13 @@ def place_alpha(canvas_shape, origin, sprite_path, shift, px_per_tile):
 
 
 def light_mode(meta):
-    """« v0b » (défaut si C.LIGHT_HOLDOUT) : halo au sol seulement, valeurs linéaires ; « v0 » : ancien calcul."""
+    """« v0b » : halo au sol seulement, valeurs linéaires, couche principale non découpée par le bâtiment
+    porteur ; « v0 » : ancien calcul. Choisi par PIECE["light_mode"], sinon par LIGHT_HOLDOUT (surcharge de la
+    pièce PIECE["calib"], sinon fo_calib : défaut False, comportement V0)."""
     if meta.get("light_mode") in ("v0", "v0b"):
         return meta["light_mode"]
-    return "v0b" if getattr(C, "LIGHT_HOLDOUT", False) else "v0"
+    hold = (meta.get("calib") or {}).get("LIGHT_HOLDOUT", getattr(C, "LIGHT_HOLDOUT", False))
+    return "v0b" if hold else "v0"
 
 
 def mask_layers(vmeta):
@@ -176,7 +179,11 @@ def process_variant(piece_path, meta, variant, samples, data_dir, out_root, cach
         sd_hr = P.sprite_def(box, origin, 64)
         sd_lr = P.sprite_def(box, origin, 32)
         spec[layer] = {"hr": dict(sd_hr, filename=fn_hr), "lr": dict(sd_lr, filename=fn_lr)}
-    checks, fails = run_checks(meta, vmeta, hr, main_raw, m_hr, origin)
+    carrier = None
+    if mask:
+        carrier = np.asarray(Image.open(os.path.join(data_dir, "base", "graphics", "entity", mask["hr"]["file"]))
+                             .convert("RGBA")).astype(np.float64) / 255.0
+    checks, fails = run_checks(meta, vmeta, hr, main_raw, m_hr, origin, carrier)
     return {"name": name, "dest": vmeta["dest"], "spec": spec, "files": files, "checks": checks, "check_failures": fails,
             "render": {
                 "canvas": info["canvas"], "origin_px": info["origin_px"], "seconds": round(dt, 1),
@@ -195,8 +202,17 @@ def _r(x, n=4):
     return x
 
 
-def run_checks(meta, vmeta, hr, main_raw, m_hr, origin):
-    """Contrôles V0b (fo_checks.py) sur les couches HR finales. Renvoie (mesures, échecs bloquants)."""
+def piece_epochs(meta):
+    """Époques déclarées par la pièce (PIECE["epoque"] : entier ou liste), pour les règles de la bible."""
+    e = meta.get("epoque")
+    if e is None:
+        return []
+    return [int(x) for x in (e if isinstance(e, (list, tuple)) else [e])]
+
+
+def run_checks(meta, vmeta, hr, main_raw, m_hr, origin, carrier=None):
+    """Contrôles V0b (fo_checks.py) sur les couches HR finales. Renvoie (mesures, échecs bloquants).
+    carrier : sprite HR du bâtiment vanilla porteur (variante à masque), pour le rapport de luminance."""
     out, fails = {}, []
     a = hr["main"][..., 3]
     n, am, _ = fo_checks.enclosed_transparent(a)
@@ -216,6 +232,19 @@ def run_checks(meta, vmeta, hr, main_raw, m_hr, origin):
     ph = out["photometry"]
     out["photometry_out_of_range"] = sorted(k for k, (lo, hi) in C.PHOTO_RANGES.items()
                                             if k in ph and not (lo <= ph[k] <= hi))
+    if ph.get("n"):
+        # règles de la bible (bloquantes si la pièce déclare son époque) et rapport au bâtiment porteur
+        ep = piece_epochs(meta)
+        if ep:
+            out["bible_epochs"] = ep
+            fails.extend(fo_checks.bible_rules(ph, ep, C.BIBLE_MEDIAN, C.BIBLE_TOL))
+        if carrier is not None:
+            cm = fo_checks.bible_median(carrier)
+            ratio = ph["bible_p05_p50_p95"][1] / cm if cm > 0 else float("inf")
+            out["carrier_median"], out["carrier_ratio"] = cm, ratio
+            if ratio > C.CARRIER_RATIO_MAX:
+                fails.append("luminance médiane pièce / bâtiment porteur %.2f > %.2f (%.0f contre %.0f /255)" % (
+                    ratio, C.CARRIER_RATIO_MAX, ph["bible_p05_p50_p95"][1], cm))
     if glow is not None:
         # D2-1 : plus grand carré plein au-dessus de la médiane du corps + 80/255, sur la composition de jour
         day = np.clip(vis[..., :3] * vis[..., 3:4] + glow[..., :3] * glow[..., 3:4], 0, 1)
@@ -371,9 +400,15 @@ def print_checks(m):
             c.get("emissive_square_px")))
         if ph.get("n"):
             print("[FO-CHECK] %s : corps L moy %.3f éc.-type %.3f p05 %.3f p50 %.3f p95 %.3f part>0,5 %.1f %% grad %.3f "
-                  "lap/std %.2f ; hors plage vanilla : %s" % (
+                  "lap/std %.2f sat %.3f pics %.2f %% ; hors plage vanilla (avertissement) : %s" % (
                       r["name"], ph["mean"], ph["std"], ph["p05"], ph["p50"], ph["p95"], 100 * ph["frac_gt_0_5"],
-                      ph["grad"], ph["lap_over_std"], ", ".join(c.get("photometry_out_of_range", [])) or "aucun"))
+                      ph["grad"], ph["lap_over_std"], ph.get("sat", 0), 100 * ph.get("specks", 0),
+                      ", ".join(c.get("photometry_out_of_range", [])) or "aucun"))
+            b = ph["bible_p05_p50_p95"]
+            print("[FO-CHECK] %s : bible p05/p50/p95 %.0f/%.0f/%.0f (époques %s)%s" % (
+                r["name"], b[0], b[1], b[2], c.get("bible_epochs", "non déclarées"),
+                (" ; porteur médiane %.0f, rapport %.2f" % (c["carrier_median"], c["carrier_ratio"]))
+                if "carrier_ratio" in c else ""))
         if "light" in c:
             li = c["light"]
             print("[FO-CHECK] %s : halo pic %.3f, surface %.2f tuile², intégrale %.2f, portées N %.2f S %.2f E %.2f O %.2f ; "

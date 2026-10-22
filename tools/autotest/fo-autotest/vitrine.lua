@@ -181,6 +181,8 @@ function V.start()
   local out = { sol = sol, source = SOURCE, rows = {}, x0 = X0, y0 = Y0, x1 = x1, y1 = y1, opt = {
     alt_mode = PARAMS.alt_mode == true, anti_alias = PARAMS.anti_alias == true,
     gros_plans = type(PARAMS.gros_plans) == "table" and PARAMS.gros_plans or { 2 },
+    -- correcteur V0b (facultatif) : décalages sous-pixel de la caméra au zoom 1, { {dx, dy}, ... } en tuiles
+    phases_z1 = type(PARAMS.phases_z1) == "table" and PARAMS.phases_z1 or {},
   } }
   local failures = 0
   for _, row in ipairs(rows) do
@@ -281,6 +283,14 @@ function V.shot_list(night)
       local cy = math.floor((r.ey + (bt + bb) / 2) * k + 0.5) / k
       for _, t in ipairs(times) do
         add(string.format("%s-gros-plan-z%g-%s", p, z, t[2]), cx, cy, z, t[1], { pw, ph })
+      end
+    end
+    -- Correcteur V0b : rangée entière au zoom 1, de jour, la caméra décalée d'une fraction de pixel
+    -- (`phases_z1 = { {dx, dy}, ... }` en tuiles ; 1/64 de tuile = 1/2 pixel au zoom 1) : scintillement d'une
+    -- pièce quand la caméra glisse, mesuré pixel à pixel contre les références vanilla de la même rangée.
+    for i, ph in ipairs(o.phases_z1 or {}) do
+      if type(ph) == "table" and type(ph[1]) == "number" and type(ph[2]) == "number" then
+        add(string.format("%s-phase-z1-%d-jour", p, i), (r.x0 + r.x1) / 2 + ph[1], r.y - 0.5 + ph[2], 1, 0)
       end
     end
   end

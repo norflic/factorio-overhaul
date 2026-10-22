@@ -77,9 +77,12 @@ SKY_GLOSSY_FACTOR = None
 
 # --- Halo (draw_as_light), V0b ------------------------------------------------------------------
 # Moteur (F64) : draw_as_light est une carte de lumière en ESPACE ÉCRAN, elle révèle la couleur de jour de
-# tout ce qu'elle recouvre. Passe halo : pièce découpée (holdout), parties cachées invisibles, volumes de
-# remplacement noirs (fo_scene.render_passes). False : comportement V0 (pièce éclairée dans le halo).
-LIGHT_HOLDOUT = True
+# tout ce qu'elle recouvre. True : passe halo avec la pièce découpée (holdout), parties cachées invisibles,
+# volumes de remplacement noirs (fo_scene.render_passes), et dans render.py halo au sol en valeurs linéaires.
+# DÉFAUT False (comportement V0, correcteur V0b) : les familles V3, qui passent par render_passes, gardent
+# leurs rendus validés à l'octet après la fusion. Une pièce l'active par PIECE["calib"]["LIGHT_HOLDOUT"] = True
+# (cheminée) ; toute pièce NOUVELLE avec un halo doit l'activer (README, « Pièces posées sur un bâtiment »).
+LIGHT_HOLDOUT = False
 # Couche halo produite par render.py (fo_post.light_layer) : valeurs LINÉAIRES du rendu × LIGHT_SCALE (le
 # codage sRGB de V0 étalait la flaque en nappe pâle). Couleur visée : lumière au sol du four en acier
 # vanilla (hr-steel-furnace-ground-light.png, prémultiplié max (0,79 ; 0,39 ; 0,04), soit (1 ; 0,49 ; 0,05)).
@@ -91,8 +94,23 @@ LIGHT_PEAK_RANGE = (0.30, 0.55)          # alpha (canal max) du halo au sol
 LIGHT_AREA_RANGE = (0.8, 2.2)            # tuiles² où alpha ≥ 0,1 / 0,89
 
 # --- Contrôles photométriques du CORPS (hors zones émissives), V0b ----------------------------------
-# Plages des sprites vanilla (CALIBRATION §5 ; méthode fo_checks.photometry, pixels d'alpha ≥ 0,99).
-PHOTO_RANGES = {"std": (0.177, 0.243), "p95": (0.657, 0.847), "p05": (0.0, 0.105), "mean": (0.178, 0.361)}
+# Plages des sprites vanilla (CALIBRATION §5 ; méthode fo_checks.photometry, pixels d'alpha ≥ 0,99) : simples
+# AVERTISSEMENTS (photometry_out_of_range). Correcteur V0b : p50 ajouté (V0b était hors plage sans alerte),
+# saturation (bible §1.5 règle 3 et plage vanilla), rapport laplacien / écart-type (grain qui domine la forme :
+# 0,69-1,19 sur 9 sprites vanilla, vérification V0b) et part de pics isolés d'un pixel (four en acier 0,66 %).
+PHOTO_RANGES = {"std": (0.177, 0.243), "p95": (0.657, 0.847), "p05": (0.0, 0.105), "mean": (0.178, 0.361),
+                "p50": (0.092, 0.293), "sat": (0.17, 0.45), "lap_over_std": (0.69, 1.19), "specks": (0.0, 0.007)}
+# Règles de palette de la bible (docs/DESIGN_EPOQUES.md §1.5), BLOQUANTES quand la pièce déclare son ou ses
+# époques (PIECE["epoque"] : entier ou liste) : règle 1, médiane de luminance du corps (alpha ≥ 0,5, /255) à
+# ± BIBLE_TOL de la cible de CHAQUE époque déclarée, et entre 40 et 110 ; règle 2, p95 ≤ 240 ; règle 3,
+# saturation moyenne ≤ 0,45.
+BIBLE_MEDIAN = {1: 50, 2: 52, 3: 58, 4: 60, 5: 42, 6: 64, 7: 55, 8: 60, 9: 56, 10: 82, 11: 100, 12: 60, 13: 92,
+                14: 88, 15: 108}
+BIBLE_TOL = 10.0
+# Pièce posée sur un bâtiment vanilla (variante à masque) : médiane de luminance de la partie visible de la pièce
+# / médiane du sprite vanilla porteur (même méthode) au plus CARRIER_RATIO_MAX (BLOQUANT). V0 : 1,3, style validé ;
+# V0b : 1,9 en jeu, aspect argenté (vérification V0b).
+CARRIER_RATIO_MAX = 1.3
 
 
 def recompute():

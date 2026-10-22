@@ -7,8 +7,9 @@ Blender saturent les 16 fils du processeur. TOUT appel à Blender passe par ce s
 
 Usage (depuis la racine d'un worktree ou du mod) :
     python tools/render/with_render_lock.py [--slots N] [--wait S] [--priority below|normal] [--poll S] -- <commande...>
-(--poll : intervalle de scrutation en secondes, défaut 5 ; aucune file d'attente : la première scrutation
-qui trouve une place libre la prend.)
+(--poll : intervalle de scrutation en secondes, défaut 5, MINIMUM 5 : correcteur V0b, une scrutation plus
+rapide passait devant les autres agents, qui scrutent toutes les 5 s ; aucune file d'attente : la première
+scrutation qui trouve une place libre la prend.)
 Exemple :
     python tools/render/with_render_lock.py -- python -P tools/render/render.py tools/render/pieces/cheminee.py
 
@@ -26,6 +27,7 @@ import time
 
 DEFAULT_DIR = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
+MIN_POLL_S = 5.0   # même rythme pour tous les agents : aucun ne passe devant les autres
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 
@@ -114,7 +116,7 @@ def main(argv):
         elif opts[i] == "--wait":
             wait_s = float(opts[i + 1]); i += 2
         elif opts[i] == "--poll":
-            poll_s = max(0.2, float(opts[i + 1])); i += 2
+            poll_s = max(MIN_POLL_S, float(opts[i + 1])); i += 2
         elif opts[i] == "--priority":
             priority = opts[i + 1]; i += 2
         else:

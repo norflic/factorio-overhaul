@@ -11,15 +11,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-four-glow.png",
-          height = 68,
-          shift = { -0.546875, -1.9375 },
-          width = 34
+          height = 34,
+          shift = { -0.5625, -2.171875 },
+          width = 32
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-four-glow.png",
-          height = 34,
-          shift = { -0.546875, -1.9375 },
-          width = 17
+          height = 17,
+          shift = { -0.5625, -2.171875 },
+          width = 16
         }
       },
       light = {
@@ -69,15 +69,15 @@ return {
       glow = {
         hr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/hr-cheminee-seule-glow.png",
-          height = 68,
-          shift = { 0.015625, -1.3125 },
-          width = 34
+          height = 34,
+          shift = { 0, -1.546875 },
+          width = 32
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/vitrine/cheminee/cheminee-seule-glow.png",
-          height = 34,
-          shift = { 0.015625, -1.3125 },
-          width = 17
+          height = 17,
+          shift = { 0, -1.546875 },
+          width = 16
         }
       },
       light = {
