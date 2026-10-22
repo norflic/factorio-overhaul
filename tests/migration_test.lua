@@ -76,10 +76,15 @@ for _, f in ipairs(L.families) do
     rawset(W().prototypes, L.name(f, n), {
       type = f.type, max_health = 1000,
       selection_box = { left_top = { x = -f.size / 2, y = -f.size / 2 }, right_bottom = { x = f.size / 2, y = f.size / 2 } },
+      -- Lot V3-T : masque de collision (place d'un agrandissement ; le moteur simulé n'a pas d'étape data).
+      collision_mask = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true },
     })
   end
 end
+rawset(W().prototypes, "stone-wall", { type = "wall", max_health = 350, collision_mask = { ["object-layer"] = true } })
 local s = game.surfaces[1]
+-- Lot V3-T : le moteur simulé ne connaît pas les décors (retirés sous un bâtiment agrandi).
+s.destroy_decoratives = function(t) assert(t.area or t.position, "destroy_decoratives : zone attendue") end
 -- Entités telles que 0.3.0 les a laissées : centre niveau 9, mitrailleuse au niveau maximal de 0.3.0 (10),
 -- mur niveau 10, foreuse en chantier 9 → 10 (hors service), foreuse dont le chantier a perdu son bâtiment.
 local cc = s.create_entity({ name = "fo-lvl-command-9", position = { x = 0.5, y = 0.5 }, force = "player" })
@@ -89,6 +94,16 @@ local wall = s.create_entity({ name = "fo-lvl-wall-10", position = { x = 20.5, y
 -- 0.3.0 : un mur niveau 10 avait 3 712 PV ; V2 lui en donne 1 925 (ici : maximum simulé 1 000). La santé
 -- enregistrée dans la sauvegarde peut dépasser le nouveau maximum.
 rawset(wall, "_health", 3711.6)
+-- Lot V3-T : mitrailleuses posées à l'ANCIENNE taille (2×2, position entière) que le lot V3-T agrandit : niveau 8
+-- (3×3) bloqué par deux murs au nord et au sud (aucune des 4 positions candidates n'est libre), niveau 14 (4×4,
+-- côté pair : déjà sur la grille, place libre), niveau 12 (3×3) dont un chantier 0.4.0 vise le niveau 13 (4×4).
+local gun_blocked = s.create_entity({ name = "fo-lvl-gun-8", position = { x = 50, y = 50 }, force = "player" })
+gun_blocked.insert({ name = "firearm-magazine", count = 5 })
+s.create_entity({ name = "stone-wall", position = { x = 50.5, y = 48.5 }, force = "player" })
+s.create_entity({ name = "stone-wall", position = { x = 50.5, y = 51.5 }, force = "player" })
+local gun_even = s.create_entity({ name = "fo-lvl-gun-14", position = { x = 70, y = 70 }, force = "player" })
+local gun_job = s.create_entity({ name = "fo-lvl-gun-12", position = { x = 90, y = 90 }, force = "player" })
+gun_job.insert({ name = "piercing-rounds-magazine", count = 7 })
 local drill = s.create_entity({ name = "fo-lvl-drill-9", position = { x = 30, y = 30 }, force = "player" })
 drill.active = false
 local ghost = s.create_entity({ name = "fo-lvl-drill-5", position = { x = 40, y = 30 }, force = "player" })
@@ -104,7 +119,8 @@ local function job_030(e, family, to, left)
 end
 global.fo.levels = {
   cc = { player = cc },
-  jobs = { [drill.unit_number] = job_030(drill, "drill", 10, 600), [ghost.unit_number] = job_030(ghost, "drill", 6, 600) },
+  jobs = { [drill.unit_number] = job_030(drill, "drill", 10, 600), [ghost.unit_number] = job_030(ghost, "drill", 6, 600),
+           [gun_job.unit_number] = job_030(gun_job, "gun", 13, 600) },
   busy = { player = 2 },
   replacing = false,
   time_factor = nil,
@@ -137,8 +153,35 @@ check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté �
 local d10 = s.find_entity("fo-lvl-drill-10", { x = 30, y = 30 })
 check(d10 ~= nil and d10.active ~= false and not drill.valid, "chantier 0.3.0 achevé au chargement : foreuse niveau 10 posée, en service")
 check(next(lv.jobs) == nil and next(lv.busy) == nil and lv.time_factor == nil, "plus aucun chantier, ouvrier ni réglage de durée enregistré")
-check(lv.stats.upgrades == 13 and lv.stats.lost == 1 and lv.stats.cancelled == 1 and lv.stats.instant == 40,
-  "statistiques 0.3.0 conservées : +1 achevé, +1 perdu (chantier sans bâtiment) (" .. lv.stats.upgrades .. ", " .. lv.stats.lost .. ")")
+check(lv.stats.upgrades == 14 and lv.stats.lost == 1 and lv.stats.cancelled == 1 and lv.stats.instant == 40,
+  "statistiques 0.3.0 conservées : +2 achevés (foreuse, mitrailleuse), +1 perdu (chantier sans bâtiment) (" .. lv.stats.upgrades .. ", " .. lv.stats.lost .. ")")
+-- Lot V3-T : emprises. Sauvegarde d'avant V3-T (aucun relevé) : les mitrailleuses de niveau 7 et plus sont
+-- reposées par la règle d'agrandissement (shared/levels/footprint.lua).
+local old_gun = gun
+gun = s.find_entity("fo-lvl-gun-10", { x = 9.5, y = 9.5 })
+check(not old_gun.valid and gun ~= nil and gun.position.x == 9.5 and gun.position.y == 9.5,
+  "V3-T : mitrailleuse 10 (2×2 → 3×3) reposée à la position préférée (9,5 ; 9,5 : nord-ouest, côté impair)")
+check(gun and gun.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine") == 20,
+  "V3-T : munitions transférées à la mitrailleuse reposée")
+check(gun_blocked.valid and gun_blocked.position.x == 50 and gun_blocked.get_item_count("firearm-magazine") == 5,
+  "V3-T : mitrailleuse 8 sans place libre (murs au nord et au sud) LAISSÉE en place, munitions comprises")
+local kept_logged = false
+for _, line in ipairs(W().logs) do if line:find("fo-lvl-gun-8", 1, true) and line:find("laissé en place", 1, true) then kept_logged = true end end
+check(kept_logged, "V3-T : bâtiment laissé faute de place journalisé ([FO-LEVELS] emprise)")
+check(gun_even.valid and gun_even.position.x == 70, "V3-T : mitrailleuse 14 (2×2 → 4×4, déjà sur la grille, place libre) : même entité, rien à faire")
+local g13 = s.find_entity("fo-lvl-gun-13", { x = 90, y = 90 })
+check(g13 ~= nil and g13.position.x == 90 and g13.position.y == 90 and not gun_job.valid
+  and g13.get_item_count("piercing-rounds-magazine") == 7,
+  "V3-T : chantier 0.4.0 d'une mitrailleuse 12 → 13 : bâtiment reposé (3×3) puis chantier ACHEVÉ en 4×4, revenu au centre d'origine, munitions comprises")
+check(lv.stats.migrated == 2 and lv.stats.overlap_kept == 1 and (lv.stats.forced or 0) == 0,
+  "V3-T : statistiques de migration (2 reposées, 1 laissée, 0 forcée) (" .. tostring(lv.stats.migrated) .. ", "
+  .. tostring(lv.stats.overlap_kept) .. ", " .. tostring(lv.stats.forced) .. ")")
+check(lv.footprints and lv.footprints.gun[6] == 2 and lv.footprints.gun[7] == 3 and lv.footprints.gun[30] == 6
+  and lv.footprints.drill[30] == L.by_key.drill.size, "V3-T : relevé des emprises de la sauvegarde mis à jour")
+local migrated0 = lv.stats.migrated
+ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.1", new_version = "0.4.1" } } })
+check(ok and lv.stats.migrated == migrated0 and gun.valid and gun_blocked.valid,
+  "V3-T : second changement de configuration : relevé à jour, aucune nouvelle migration (" .. tostring(err) .. ")")
 local drawn = 0
 for _, id in ipairs(renders) do if rendering.is_valid(id) then drawn = drawn + 1 end end
 check(drawn == 0, "barre de progression du chantier 0.3.0 effacée")
@@ -169,7 +212,7 @@ check(ok and st and (st.busy or 0) == 0 and (st.jobs or 0) == 0 and st.cc_level 
   "interface distante (levels_time_factor, levels_status) : sans erreur, 0 ouvrier, 0 chantier (" .. tostring(err) .. ")")
 for _, c in ipairs(L.cost(L.by_key.gun, 12)) do cc.get_inventory(defines.inventory.chest).insert({ name = c[1], count = c[2] }) end
 local rr = remote.call("factorio-overhaul", "levels_upgrade", g11)
-check(rr and rr.ok and rr.reason == "done" and s.find_entity("fo-lvl-gun-12", { x = 10, y = 10 }) ~= nil,
+check(rr and rr.ok and rr.reason == "done" and s.find_entity("fo-lvl-gun-12", { x = 9.5, y = 9.5 }) ~= nil,
   "levels_time_factor ignoré : levels_upgrade toujours instantané (" .. tostring(rr and rr.reason) .. ")")
 
 print(string.format("\n%d OK, %d ECHEC(S)", passes, failures))

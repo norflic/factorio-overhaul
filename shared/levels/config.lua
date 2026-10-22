@@ -294,6 +294,81 @@ for i, f in ipairs(L.families) do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- EMPRISE AU SOL par famille et par niveau (lot V3-T). Q23 (22/10, 7 h 20 : « les dernières machines pour
+-- construire, elles sont de taille, je sais pas moi 6 par six […] des tailles qui augmentent ») et Q24
+-- (22/10, 7 h 40 : « agrandissement sur place si la place autour est libre ; sinon l'amélioration est
+-- refusée et le contour nécessaire s'affiche »). OBJECTIFS D1-4 révisé.
+--   L.footprints[clé] = { era = { côté de l'ère I, II, III, IV, V } }  (une ère = L.ERA_EPOCHS époques), ou
+--                       { level = { côté du niveau 1, 2, … max } }       (réglage fin, niveau par niveau).
+--   Famille absente de la table : côté constant = family.size (aujourd'hui : toutes sauf la mitrailleuse).
+-- ACTIVÉE pour la seule MITRAILLEUSE (famille témoin du lot V3-S ; décision de l'orchestrateur du 22/10) :
+-- 2×2 aux époques 1-3 (niveaux 1 à 6), 3×3 aux époques 4-6 (7 à 12), 4×4 aux époques 7-9 (13 à 18), 5×5 aux
+-- époques 10-12 (19 à 24), 6×6 aux époques 13-15 (25 à 30).
+-- Échelle PROPOSÉE pour les autres familles, NON VALIDÉE (question Q-S1 ouverte : vaut-elle pour toutes les
+-- familles ?) ; les activer = ajouter leur ligne ici, rien d'autre (prototypes, place, migration et tests
+-- suivent la table) :
+--   laser     = { era = { 2, 3, 4, 5, 6 } },
+--   drill     = { era = { 3, 4, 5, 6, 6 } },   assembler = { era = { 3, 4, 5, 6, 6 } } (« machines 3×3 → 6×6 ») ;
+--   furnace   : le four en acier vanilla est un 2×2 (family.size = 2) : 2 → 6 ou 3 → 6, à trancher ;
+--   command   = { era = { 4, 5, 6, 7, 8 } }   (« centre 4×4 → 8×8 ») ;
+--   wall      : 1×1 inchangé (pas de ligne).
+-- Règle de position (le nouveau bâtiment CONTIENT l'ancien, la plus centrée d'abord, puis un ordre fixe) et
+-- géométrie : shared/levels/footprint.lua. Prototypes : prototypes/levels/common.lua. Remplacement par script,
+-- refus « no-room » et contour : script/levels/levels.lua.
+---------------------------------------------------------------------------------------------------
+L.ERA_EPOCHS = 3
+L.footprints = {
+  gun = { era = { 2, 3, 4, 5, 6 } },
+}
+
+--- Ère (1 à 5) du niveau n : ⌈époque / L.ERA_EPOCHS⌉.
+function L.era_of(family, n)
+  return math.floor((L.epoch_of(family, n) - 1) / L.ERA_EPOCHS) + 1
+end
+
+--- Côté de l'emprise (tuiles) du niveau n de la famille (table L.footprints ; sinon family.size).
+function L.footprint(family, n)
+  local row = L.footprints[family.key]
+  if not row then return family.size end
+  if row.level then return row.level[n] end
+  return row.era[L.era_of(family, n)]
+end
+
+--- Plus grand côté d'une famille (tous niveaux).
+function L.footprint_max(family)
+  local m = 0
+  for n = 1, family.max do m = math.max(m, L.footprint(family, n)) end
+  return m
+end
+
+--- Relevé des côtés de toutes les familles : { [clé] = { côté du niveau 1, … } } (nombres seulement :
+--- gardé dans la sauvegarde pour la migration, script/levels/levels.lua). legacy = true : le relevé d'une
+--- sauvegarde d'avant le lot V3-T (toutes les emprises au côté de base).
+function L.footprint_snapshot(legacy)
+  local out = {}
+  for _, f in ipairs(L.families) do
+    local t = {}
+    for n = 1, f.max do t[n] = legacy and f.size or L.footprint(f, n) end
+    out[f.key] = t
+  end
+  return out
+end
+
+--- Portée ajoutée au niveau n d'une tourelle qui a grandi : (côté − côté du niveau 1) / 2. La portée du
+--- moteur se mesure depuis le CENTRE (range_mode « center-to-center » par défaut en 1.1.91) : sans ce
+--- complément, une mitrailleuse 6×6 porterait 2 tuiles de moins au-delà de son bord qu'une 2×2 du même
+--- niveau. Avec lui, la portée au-delà du bord reste celle de la statistique (BALANCE_SHEET §12). 0 pour une
+--- famille sans statistique de portée.
+function L.range_bonus(family, n)
+  for _, st in ipairs(family.stats) do
+    if st.path[#st.path] == "range" then
+      return (L.footprint(family, n) - L.footprint(family, 1)) / 2
+    end
+  end
+  return 0
+end
+
+---------------------------------------------------------------------------------------------------
 -- Époques et niveaux
 ---------------------------------------------------------------------------------------------------
 --- Niveau maximal d'une famille.

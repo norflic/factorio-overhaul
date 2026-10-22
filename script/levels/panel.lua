@@ -8,6 +8,9 @@
   faut), « amélioration instantanée », raison d'un refus (centre de commandement trop bas…). Sur le CENTRE :
   la condition Q16 (niveau visé et familles qui bloquent). Bouton « Améliorer » ou touche U sur le bâtiment
   survolé : l'amélioration est faite aussitôt.
+  Lot V3-T : quand le prochain niveau change d'emprise, une ligne « Taille : 2×2 → 3×3 » et l'état de la place
+  (libre, ou ce qui gêne) ; un refus faute de place (« no-room ») le dit avec ce qui bloque, et le contour
+  nécessaire est dessiné en jeu pour ce joueur (script/levels/levels.lua).
 ]]
 
 local Events = require("script.core.events")
@@ -75,6 +78,11 @@ local function reason_message(info, reason)
   end
   if reason == "no-resources" and info then return { "fo-levels.reason-no-resources", missing_text(info.missing or {}) } end
   if reason == "unknown-item" and info then return { "fo-epochs.reason-unknown-item", table.concat(info.unknown or {}, ", ") } end
+  if reason == "no-room" and info and info.resize then
+    local side = info.resize.to
+    return { "fo-levels-taille.reason-no-room", side .. "×" .. side,
+      Levels.blockers_text(info.room and info.room.preferred) }
+  end
   return { "fo-levels.reason-" .. tostring(reason) }
 end
 
@@ -143,6 +151,21 @@ local function refresh(player)
     frame.add({ type = "label", caption = { "fo-epochs.next-line", info.next, ne, epoch_name(ne), what } })
     local cur = currency_line(family, info.next)
     if cur then frame.add({ type = "label", caption = cur }) end
+    -- Lot V3-T : emprise qui grandit, et place autour du bâtiment.
+    if info.resize then
+      local a, b = info.resize.from, info.resize.to
+      frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", a .. "×" .. a, b .. "×" .. b } })
+      local room = info.room
+      local lbl
+      if room and room.chosen then
+        lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-free" } })
+        lbl.style.font_color = { r = 0.6, g = 1, b = 0.6 }
+      else
+        lbl = frame.add({ type = "label", caption = { "fo-levels-taille.room-blocked",
+          Levels.blockers_text(room and room.preferred) } })
+        lbl.style.font_color = { r = 1, g = 0.45, b = 0.4 }
+      end
+    end
     local now = game.entity_prototypes[target.name]
     local nxt = game.entity_prototypes[L.name(family, info.next)]
     for _, st in ipairs(family.stats) do

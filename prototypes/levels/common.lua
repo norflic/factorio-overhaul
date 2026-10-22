@@ -39,6 +39,8 @@
                   le centre n'a qu'un niveau par époque (step = 1)
       epoch_key : clé de l'époque ("pioneer", "forge", "steam"… : config L.epochs)
       color     : COPIE de la couleur de l'époque { r, g, b } (interface ; teinte du visuel provisoire)
+      footprint : côté de l'emprise du niveau, en tuiles (L.footprint ; lot V3-T) : 2 pour une mitrailleuse
+                  des époques 1 à 3, 6 aux époques 13 à 15 ; ctx.family.size reste le côté du niveau 1
       L         : la configuration (shared/levels/config.lua), à LIRE seulement : elle est comparée EN ENTIER
                   après chaque dress (voir les règles)
       kit       : boîte à outils visuelle (ci-dessous), à lire seulement (comparée de même)
@@ -75,7 +77,10 @@
       balise) et tout type RÉFÉRENCÉ par une source (un type qui contient un prototype dont le nom apparaît
       dans la source). Après la dernière famille, TOUT data.raw est comparé (le reste est refusé aussi, sans
       pouvoir nommer la famille). Ajouter un prototype (data:extend) pendant dress est aussi refusé.
-    - L'emprise au sol ne change jamais (critère D1-4) ; seule la hauteur visuelle peut croître.
+    - L'EMPRISE AU SOL est une clé de JEU (lot V3-T ; Q23, Q24 ; critère D1-4 révisé) : common.lua la règle
+      d'après la table de la config (L.footprint : collision_box, selection_box, et la portée des tourelles,
+      L.range_bonus), et la garde la protège comme tout champ de jeu. Le fichier de famille la LIT dans
+      ctx.footprint (côté du niveau, en tuiles) et dessine à cette taille ; drawing_box reste libre (visuel).
     - Nouvelles images : graphics/levels/<famille>/ (lots V3). Chemins "__factorio-overhaul__/graphics/…".
 
   Déclarer un prototype visuel : ctx.declare(type, source, suffixe, edit)
@@ -102,7 +107,8 @@
     kit.layered(t, key)            transforme t[key] (sprite isolé) en { layers = { sprite } }
     kit.tint(anim, color)          teinte (multiplie) toutes les couches non lumineuses
     kit.scale(anim, f)             agrandit toutes les couches (échelle et décalage)
-    kit.sprite_scale(ctx)          échelle provisoire du niveau : 1 → 1,10 au dernier niveau (plafonnée)
+    kit.sprite_scale(ctx)          échelle provisoire du niveau : 1 → 1,10 au dernier niveau (plafonnée),
+                                   × ctx.footprint / ctx.family.size quand l'emprise a grandi (lot V3-T)
     kit.sheen(anim, color, alpha)  reflet additif draw_as_glow (visible de jour)
     kit.halo(anim, color, k)       halo de nuit draw_as_light
     kit.foundation_sprite(tile, size, tint) / kit.add_foundation(anim, sprite)   socle en première couche
@@ -115,6 +121,7 @@
 local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local L = require("shared.levels.config")
+local Foot = require("shared.levels.footprint")
 local Style = require("prototypes.levels.style")
 -- Scénario X0 : la config en recopie ce qu'elle lit au chargement (L.VANILLA_UNIT_SCALE, L.target) ; la garde
 -- le compare EN PLUS à la fermeture de chaque famille (correction V2c : un dress qui modifiait
@@ -189,6 +196,23 @@ local function apply_stats(p, family, n)
     end
     table.sort(p.resistances, function(a, b) return a.type < b.type end)
   end
+end
+
+--- Emprise au sol du niveau n (lot V3-T ; table L.footprints, géométrie shared/levels/footprint.lua). Si le côté
+--- diffère du côté du prototype source (niveau 1), boîtes de collision et de sélection au style vanilla (sélection
+--- = le carré exact, collision = le carré réduit de 0,3 tuile de chaque côté), drawing_box mise à l'échelle si
+--- la source en a une, et portée des tourelles complétée de la moitié de la croissance (L.range_bonus : la portée
+--- au-delà du bord reste celle de la statistique). Un niveau à l'emprise du niveau 1 n'est PAS touché (chemin
+--- d'avant le lot V3-T, octet pour octet). Groupe de remplacement rapide inchangé (F39) : le moteur refuse de
+--- lui-même un remplacement rapide entre deux tailles, et le runtime ne le lui demande jamais.
+local function apply_footprint(p, family, n)
+  local side = L.footprint(family, n)
+  if side == family.size then return end
+  p.collision_box, p.selection_box = Foot.proto_boxes(side)
+  if p.drawing_box then p.drawing_box = lib.scale_box(p.drawing_box, side / family.size) end
+  local bonus = L.range_bonus(family, n)
+  local ap = p.attack_parameters
+  if bonus ~= 0 and type(ap) == "table" and type(ap.range) == "number" then ap.range = ap.range + bonus end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -473,11 +497,35 @@ function kit.scale(anim, f) if anim then lib.scale_sprites(anim, f) end end
 function kit.sheen(anim, color, alpha) if anim then return Evo.sheen_layers(anim, color, alpha) end return 0 end
 function kit.halo(anim, color, k) if anim then return Evo.light_layers(anim, color, k) end return 0 end
 
---- Échelle provisoire : +10 % au plus, atteinte au dernier niveau (emprise inchangée).
+--- Échelle provisoire : +10 % au plus, atteinte au dernier niveau ; lot V3-T : × le rapport des emprises
+--- (côté du niveau / côté du niveau 1) quand l'emprise a grandi, pour que le sprite actuel couvre sa nouvelle
+--- emprise au lieu de paraître minuscule (visuel PROVISOIRE jusqu'aux sprites V3 : un agrandissement d'échelle
+--- n'ajoute aucun détail, ce que D1-4 exige à terme).
 function kit.sprite_scale(ctx)
   local f = ctx.family
-  if f.max <= 1 then return 1 end
-  return 1 + 0.10 * (ctx.level - 1) / (f.max - 1)
+  local ratio = (ctx.footprint or f.size) / f.size
+  if f.max <= 1 then return ratio end
+  return (1 + 0.10 * (ctx.level - 1) / (f.max - 1)) * ratio
+end
+
+--- Points d'origine des tirs (bouche du canon, douilles, source du faisceau) mis à l'échelle de l'emprise :
+--- sous-clés graphiques des paramètres d'attaque (VISUAL_SUBKEYS), libres pour dress. Sans effet si le
+--- rapport vaut 1.
+function kit.scale_muzzle(p, f)
+  local ap = p.attack_parameters
+  if f == 1 or type(ap) ~= "table" then return end
+  local function vec(v)
+    if type(v) ~= "table" then return v end
+    return { (v[1] or v.x or 0) * f, (v[2] or v.y or 0) * f }
+  end
+  if type(ap.projectile_creation_distance) == "number" then ap.projectile_creation_distance = ap.projectile_creation_distance * f end
+  if ap.projectile_center then ap.projectile_center = vec(ap.projectile_center) end
+  if ap.source_offset then ap.source_offset = vec(ap.source_offset) end
+  local sp = ap.shell_particle
+  if type(sp) == "table" then
+    if sp.center then sp.center = vec(sp.center) end
+    if type(sp.creation_distance) == "number" then sp.creation_distance = sp.creation_distance * f end
+  end
 end
 
 local TURRET_HEAD = { "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation", "folding_animation" }
@@ -522,6 +570,9 @@ function kit.foundation_sprite(tile_name, size, tint)
   local tile = data.raw.tile[FOUNDATION_TILE[tile_name] or tile_name]
   local v = tile.variants
   local src
+  -- Côté (tuiles) d'une variante de la texture : 8 pour le fond des bétons (images de 256 px de haut, relevé
+  -- du 22/10 sur data/base/graphics/terrain), 4 pour la variante 4×4 du pavé (128 px).
+  local cap = 8
   if v.material_background then
     src = v.material_background
   else
@@ -529,12 +580,18 @@ function kit.foundation_sprite(tile_name, size, tint)
     for _, m in ipairs(v.main) do
       if m.size == 4 then src = m end
     end
+    cap = 4
   end
-  local px = 32 * size
+  -- Lot V3-T : une emprise plus grande que la variante est couverte en agrandissant la découpe (sinon le
+  -- rectangle sortirait de l'image).
+  local tiles = math.min(size, cap)
+  local px = 32 * tiles
+  local k = size / tiles
   local s = { filename = src.picture, width = px, height = px, x = 0, y = 0, priority = "low", tint = tint }
+  if k ~= 1 then s.scale = k end
   if src.hr_version then
     s.hr_version = {
-      filename = src.hr_version.picture, width = 2 * px, height = 2 * px, x = 0, y = 0, scale = 0.5,
+      filename = src.hr_version.picture, width = 2 * px, height = 2 * px, x = 0, y = 0, scale = 0.5 * k,
       priority = "low", tint = tint,
     }
   end
@@ -621,6 +678,7 @@ function kit.provisional(p, ctx, opts)
   if opts.scale ~= false then
     local f = kit.sprite_scale(ctx)
     for _, a in ipairs(scaled) do kit.scale(a, f) end
+    kit.scale_muzzle(p, (ctx.footprint or ctx.family.size) / ctx.family.size)
   end
   -- 2. Teinte de l'époque.
   if e >= 2 then
@@ -643,7 +701,7 @@ function kit.provisional(p, ctx, opts)
   -- 5. Socle (niveau 2+).
   local fspec = kit.palette.foundation[e]
   if opts.foundation ~= false and fspec and ctx.level >= 2 then
-    local sprite = kit.foundation_sprite(fspec.tile, ctx.family.size, fspec.tint)
+    local sprite = kit.foundation_sprite(fspec.tile, ctx.footprint or ctx.family.size, fspec.tint)
     for _, a in ipairs(base) do kit.add_foundation(a, sprite) end
   end
 end
@@ -934,7 +992,7 @@ local function context(family, n, g)
   local ep = L.epochs[e]
   local inner = {
     family = table.deepcopy(family), level = n, epoch = e, step = L.step_of(family, n), epoch_key = ep.key,
-    color = table.deepcopy(ep.color), L = L, kit = kit,
+    color = table.deepcopy(ep.color), L = L, kit = kit, footprint = L.footprint(family, n),
   }
   if g then
     inner.declare = function(ptype, source, suffix, edit) return declare(g, family, n, ptype, source, suffix, edit) end
@@ -1074,12 +1132,14 @@ function Common.generate()
       if family.key == "command" then
         p = command_center_skeleton(n)
         apply_stats(p, family, n)
+        apply_footprint(p, family, n)
       elseif n >= 2 then
         p = lib.copy(family.type, family.base)
         p.name = name
         p.next_upgrade = nil
         p.fast_replaceable_group = BASE_GROUP[family.key] or p.fast_replaceable_group
         apply_stats(p, family, n)
+        apply_footprint(p, family, n)
       end
       if p then
         local e = L.epoch_of(family, n)
@@ -1164,4 +1224,5 @@ Common.icons_check = icons_check
 Common.final_check = final_check
 Common.kit = kit
 Common.game_snapshot = game_snapshot
+Common.apply_footprint = apply_footprint
 return Common

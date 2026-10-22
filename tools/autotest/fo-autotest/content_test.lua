@@ -783,10 +783,16 @@ local function setup_levels(s, S)
   local gaps = {}
   local row_y = gy
   for _, f in ipairs(LV.families) do
-    local step = (f.key == "wall") and 5 or (f.size + 3)
-    local y = row_y + f.size / 2
+    -- Lot V3-T : une famille dont l'emprise grandit (LV.footprint) est rangée à son plus grand côté (sinon ses
+    -- niveaux se chevaucheraient) ; chaque niveau est calé sur le bord nord-ouest de sa case, centré selon la
+    -- parité de SON côté. Familles à emprise constante : disposition inchangée.
+    local fmax = LV.footprint_max(f)
+    local step = (f.key == "wall") and 5 or (fmax + (fmax > f.size and 2 or 3))
+    local y = row_y + fmax / 2
     for n = 1, f.max do
-      local x = gx + (n - 1) * step + f.size / 2
+      local side = LV.footprint(f, n)
+      local x = gx + (n - 1) * step + side / 2
+      if fmax > f.size then y = row_y + side / 2 end
       if f.key == "wall" then
         for k = -1, 1 do s.create_entity({ name = LV.name(f, n), position = { x + k, y }, force = "player" }) end
       else
@@ -796,16 +802,16 @@ local function setup_levels(s, S)
         s.create_entity({ name = LV.name(f, n), position = { x, y }, force = "player", raise_built = false })
       end
     end
-    S.gallery[#S.gallery + 1] = { key = f.key, x1 = gx + f.size / 2, step = step, y = y, size = f.size, levels = f.max }
-    gaps[#gaps + 1] = row_y + f.size + 2
-    row_y = row_y + f.size + 4
+    S.gallery[#S.gallery + 1] = { key = f.key, x1 = gx + fmax / 2, step = step, y = row_y + fmax / 2, size = fmax, levels = f.max }
+    gaps[#gaps + 1] = row_y + fmax + 2
+    row_y = row_y + fmax + 4
   end
   -- Courant : petits poteaux dans les allées entre les rangées (sprite discret ; les sous-stations
   -- masquaient la galerie sur les captures). Portée 2,5 : l'allée de 4 tuiles couvre les deux rangées.
   local prev_row
   for _, gy_ in ipairs(gaps) do
     local row = {}
-    for x = gx + 0.5, gx + 180, 5 do
+    for x = gx + 0.5, gx + 240, 5 do
       local p = s.create_entity({ name = "small-electric-pole", position = { x, gy_ - 0.5 }, force = "player" })
       if row[#row] then p.connect_neighbour(row[#row]) end
       if prev_row and #row == 0 then p.connect_neighbour(prev_row[1]) end
@@ -827,7 +833,8 @@ local function setup_high_epoch(s, L)
   local y = 131
   local H = { force = hi.name, cc = { x = 402, y = y }, gun = { x = 410, y = y }, la = { x = 414, y = y },
               dr = { x = 419.5, y = y + 0.5 }, fu = { x = 425, y = y }, am = { x = 430.5, y = y + 0.5 },
-              gun2 = { x = 436, y = y }, g28 = { x = 440, y = y } }
+              -- g28 en x = 452 (lot V3-T : la mitrailleuse 28 fait 6×6 ; en 440, elle chevauchait gun2)
+              gun2 = { x = 436, y = y }, g28 = { x = 452, y = y } }
   L.hi = H
   local cc = s.create_entity({ name = LV.name(C, 14), position = H.cc, force = hi, raise_built = true })
   local st = call("levels_status", hi.name)
@@ -1074,7 +1081,8 @@ function T.start()
   power_grid(s, 299, 49, 500, 100)
   -- Niveaux : sol d'herbe (les socles de béton se verraient mal sur du béton).
   -- Lot V2 : 30 niveaux par famille, la galerie s'étend jusqu'à x = 480 ; époque 14 en y = 129-134.
-  prepare_area(s, 290, 110, 490, 210, "grass-1")
+  -- Lot V3-T : la rangée des mitrailleuses (jusqu'à 6×6) s'étend jusqu'à x = 538.
+  prepare_area(s, 290, 110, 545, 210, "grass-1")
   test_techs()
   setup_recipes(s, S)
   setup_modules(s, S)

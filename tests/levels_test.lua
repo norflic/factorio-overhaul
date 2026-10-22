@@ -2215,6 +2215,525 @@ if data_dir then
 end
 end)()
 
+---------------------------------------------------------------------------------------------------
+section("Emprise croissante (lot V3-T) : table, règle de position, place, agrandissement, contour")
+---------------------------------------------------------------------------------------------------
+-- Q23 (22/10, 7 h 20) et Q24 (22/10, 7 h 40 : « agrandissement sur place si la place autour est libre ;
+-- sinon l'amélioration est refusée et le contour nécessaire s'affiche »). Règles pures : shared/levels/footprint.lua
+-- et L.footprint ; runtime : script/levels/levels.lua (moteur simulé, enveloppé ci-dessous). Fonction anonyme :
+-- portée de variables locales propre.
+;(function()
+local Foot = require("shared.levels.footprint")
+local GUN = L.by_key.gun
+
+-- 1. Table d'emprise : mitrailleuse 2 → 6 par ère (3 époques), les autres familles à leur côté de base.
+local want_gun = { 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6 }
+local gun_ok = true
+for n = 1, 30 do if L.footprint(GUN, n) ~= want_gun[n] then gun_ok = false end end
+check(gun_ok, "table : mitrailleuse 2×2 (niveaux 1-6, époques 1-3), 3×3 (7-12), 4×4 (13-18), 5×5 (19-24), 6×6 (25-30)")
+local others_ok, mono_ok = true, true
+for _, f in ipairs(L.families) do
+  local prev = 0
+  for n = 1, f.max do
+    local side = L.footprint(f, n)
+    if side < prev then mono_ok = false end
+    prev = side
+    if f.key ~= "gun" and side ~= f.size then others_ok = false end
+  end
+end
+check(others_ok, "table : les 6 autres familles gardent leur côté de base (Q-S1 non tranchée), niveau 1 = côté vanilla")
+check(mono_ok, "table : l'emprise ne rétrécit jamais d'un niveau au suivant (toutes les familles)")
+check(L.footprint(GUN, 1) == GUN.size and L.footprint_max(GUN) == 6 and L.footprint_max(L.by_key.wall) == 1,
+  "table : niveau 1 = bâtiment vanilla (2×2) ; plus grand côté 6 (mitrailleuse), 1 (mur)")
+check(L.era_of(GUN, 6) == 1 and L.era_of(GUN, 7) == 2 and L.era_of(GUN, 30) == 5 and L.era_of(L.by_key.command, 3) == 1
+  and L.era_of(L.by_key.command, 4) == 2 and L.era_of(L.by_key.command, 15) == 5, "ères : 3 époques chacune (centre : niveau = époque)")
+-- Activer une autre famille = remplir la table (forme par ère ou niveau par niveau), rien d'autre.
+do
+  local LZ = L.by_key.laser
+  L.footprints.laser = { era = { 2, 3, 4, 5, 6 } }
+  local era_ok = L.footprint(LZ, 6) == 2 and L.footprint(LZ, 7) == 3 and L.footprint(LZ, 30) == 6 and L.range_bonus(LZ, 30) == 2
+  local lv = {}
+  for n = 1, 30 do lv[n] = n < 16 and 2 or 4 end
+  L.footprints.laser = { level = lv }
+  local lvl_ok = L.footprint(LZ, 15) == 2 and L.footprint(LZ, 16) == 4
+  L.footprints.laser = nil
+  check(era_ok and lvl_ok and L.footprint(LZ, 30) == 2, "table : une famille s'active par sa seule ligne (forme par ère ou par niveau), puis se désactive")
+end
+local legacy, current = L.footprint_snapshot(true), L.footprint_snapshot()
+check(legacy.gun[30] == 2 and current.gun[30] == 6 and current.command[15] == 4 and #current.gun == 30 and #current.command == 15,
+  "relevé des emprises : actuel (mitrailleuse 30 : 6) et d'avant V3-T (toutes au côté de base)")
+local keys = {}
+for _, f in ipairs(L.families) do keys[#keys + 1] = f.key end
+local ch = Foot.diff(nil, current, keys, function(k) return L.by_key[k].size end)
+check(#ch == 24 and ch[1].key == "gun" and ch[1].level == 7 and ch[1].from == 2 and ch[1].to == 3
+  and ch[24].level == 30 and ch[24].to == 6, "migration : 24 niveaux changent depuis une sauvegarde d'avant V3-T (mitrailleuse 7 à 30)")
+check(#Foot.diff(current, current, keys, function() return 0 end) == 0, "migration : rien à faire quand le relevé est à jour")
+-- Portée : la moitié de la croissance (portée au-delà du bord inchangée).
+check(L.range_bonus(GUN, 6) == 0 and L.range_bonus(GUN, 7) == 0.5 and L.range_bonus(GUN, 30) == 2
+  and L.range_bonus(L.by_key.wall, 30) == 0 and L.range_bonus(L.by_key.laser, 30) == 0,
+  "portée : + (côté − 2) / 2 pour la mitrailleuse agrandie (7 : + 0,5 ; 30 : + 2), 0 ailleurs")
+
+-- 2. Boîtes au style vanilla (relevées par harness --dump-proto : mitrailleuse, machine 2, roboport).
+local function same_box(b, x) return math.abs(b[1][1] + x) < 1e-9 and math.abs(b[1][2] + x) < 1e-9 and math.abs(b[2][1] - x) < 1e-9 and math.abs(b[2][2] - x) < 1e-9 end
+local c2, s2 = Foot.proto_boxes(2)
+local c3, s3 = Foot.proto_boxes(3)
+local c4, s4 = Foot.proto_boxes(4)
+local c6, s6 = Foot.proto_boxes(6)
+check(same_box(c2, 0.7) and same_box(s2, 1) and same_box(c3, 1.2) and same_box(s3, 1.5) and same_box(c4, 1.7) and same_box(s4, 2)
+  and same_box(c6, 2.7) and same_box(s6, 3), "boîtes : collision = carré − 0,3 par côté, sélection = carré (2×2 ±0,7/±1 vanilla, 3×3 ±1,2/±1,5, 4×4 ±1,7/±2, 6×6 ±2,7/±3)")
+
+-- 3. Parité et grille.
+local b2 = Foot.tile_box({ x = 10, y = 10 }, 2)
+local b3 = Foot.tile_box({ x = 9.5, y = 9.5 }, 3)
+check(b2.x0 == 9 and b2.x1 == 11 and b3.x0 == 8 and b3.x1 == 11 and Foot.aligned({ x = 10, y = 10 }, 2)
+  and Foot.aligned({ x = 9.5, y = 9.5 }, 3) and not Foot.aligned({ x = 10, y = 10 }, 3) and not Foot.aligned({ x = 9.5, y = 10 }, 2),
+  "parité : côté pair centré sur un coin de tuile, côté impair au milieu d'une tuile (F41)")
+local b3r = Foot.tile_box({ x = 10, y = 10 }, 3)
+check(b3r.x1 - b3r.x0 == 3 and Foot.contains(Foot.tile_box({ x = 10, y = 10 }, 4), b3r) or false,
+  "parité : position hors grille (sauvegarde d'avant V3-T) arrondie au carré le plus proche")
+
+-- 4. Positions candidates : contiennent l'ancien, dans l'ordre de la règle.
+local function centers(list)
+  local t = {}
+  for i, c in ipairs(list) do t[i] = c.x .. "," .. c.y end
+  return table.concat(t, " ")
+end
+local k23 = Foot.candidates(b2, 3)
+check(#k23 == 4 and centers(k23) == "9.5,9.5 10.5,9.5 9.5,10.5 10.5,10.5",
+  "2 → 3 : 4 candidates à égale distance, côté impair : nord-ouest, nord-est, sud-ouest, sud-est (" .. centers(k23) .. ")")
+local k34 = Foot.candidates(Foot.tile_box({ x = 9.5, y = 9.5 }, 3), 4)
+check(#k34 == 4 and centers(k34) == "10,10 9,10 10,9 9,9", "3 → 4 : côté pair : sud-est d'abord, puis sud-ouest, nord-est, nord-ouest (" .. centers(k34) .. ")")
+local k24 = Foot.candidates(b2, 4)
+check(#k24 == 9 and centers(k24):sub(1, 30) == "10,10 10,11 11,10 9,10 10,9 11" and k24[1].d2 == 0,
+  "2 → 4 : 9 candidates, la centrée d'abord, puis les 4 à une tuile (sud, est, ouest, nord), puis les diagonales (" .. centers(k24) .. ")")
+local all_ok = true
+for a = 1, 6 do
+  for b = a, 7 do
+    local old = Foot.tile_box({ x = 100 + (a % 2) / 2, y = 50 + (a % 2) / 2 }, a)
+    local list = Foot.candidates(old, b)
+    if #list ~= (b - a + 1) ^ 2 then all_ok = false end
+    local seen, prev = {}, -1
+    for _, c in ipairs(list) do
+      local key = c.x .. "," .. c.y
+      if seen[key] or not Foot.contains(c.box, old) or not Foot.aligned({ x = c.x, y = c.y }, b) or c.d2 < prev then all_ok = false end
+      seen[key], prev = true, c.d2
+      if not Foot.contains(Foot.search_box(old, b), c.box) then all_ok = false end
+    end
+    if centers(list) ~= centers(Foot.candidates(old, b)) then all_ok = false end
+  end
+end
+check(all_ok, "candidates (côtés 1 à 7) : (b − a + 1)² positions distinctes, chacune CONTIENT l'ancien, sur la grille, écart croissant, dans le rectangle de recherche, même ordre à chaque appel")
+-- Chaîne 2 → 3 → 4 → 5 → 6 en prenant chaque fois la préférée : le centre d'origine revient aux tailles paires.
+local box, trail = Foot.tile_box({ x = 0, y = 0 }, 2), {}
+for side = 3, 6 do
+  local c = Foot.candidates(box, side)[1]
+  box = c.box
+  trail[#trail + 1] = c.x .. "," .. c.y
+end
+check(table.concat(trail, " ") == "-0.5,-0.5 0,0 -0.5,-0.5 0,0",
+  "chaîne 2 → 6 : demi-tuile au nord-ouest aux tailles impaires, retour au centre d'origine aux tailles paires (" .. table.concat(trail, " ") .. ")")
+local shrink = Foot.candidates(Foot.tile_box({ x = 0, y = 0 }, 6), 3)
+check(#shrink == 16 and Foot.contains(Foot.tile_box({ x = 0, y = 0 }, 6), shrink[1].box) and shrink[1].x == -0.5,
+  "côté plus petit (migration seulement) : 16 positions CONTENUES dans l'ancien, même ordre")
+
+-- 5. Évaluation : tuiles, entités, contact bord à bord.
+local function wall_at(tx, ty) return { box = { x0 = tx + 0.01, y0 = ty + 0.01, x1 = tx + 0.99, y1 = ty + 0.99 }, name = "stone-wall" } end
+local r = Foot.evaluate(Foot.candidates(b2, 3), {}, {})
+check(r.index == 1 and r.chosen == r.preferred, "place libre : la préférée est retenue")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(9, 8), wall_at(9, 11) })
+check(r.index == nil and r.chosen == nil and #r.preferred.entities == 1 and r.preferred.entities[1].name == "stone-wall",
+  "un mur au nord et un au sud : les 4 positions sont bloquées (refus) ; la préférée nomme son bloqueur")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(8, 8) })
+check(r.index == 2 and r.chosen.x == 10.5 and r.chosen.y == 9.5, "mur dans le coin nord-ouest : la 2e position (nord-est) est retenue")
+r = Foot.evaluate(Foot.candidates(b2, 3), { { x = 9, y = 8, name = "water" }, { x = 10, y = 11, name = "deepwater" } }, {})
+check(r.index == nil and #r.preferred.tiles == 1 and r.preferred.tiles[1].name == "water", "eau au nord et au sud : refus, tuile nommée")
+r = Foot.evaluate(Foot.candidates(b2, 3), {}, { wall_at(7, 9), wall_at(12, 9), wall_at(9, 7), wall_at(9, 12) })
+check(r.index == 1, "murs collés au carré de 4×4 (contact bord à bord, hors des candidates) : rien ne bloque")
+
+-- 6. Prototypes : garde (l'emprise est une clé de JEU) et boîtes posées par common.lua.
+local Common = require("prototypes.levels.common")
+local fake = { type = "ammo-turret", name = "fo-lvl-gun-25", collision_box = { { -0.7, -0.7 }, { 0.7, 0.7 } },
+  selection_box = { { -1, -1 }, { 1, 1 } }, attack_parameters = { range = 24 } }
+Common.apply_footprint(fake, GUN, 25)
+check(same_box(fake.collision_box, 2.7) and same_box(fake.selection_box, 3) and fake.attack_parameters.range == 26,
+  "common.lua : mitrailleuse 25 → boîtes 6×6, portée + 2")
+local fake6 = { type = "ammo-turret", name = "fo-lvl-gun-6", collision_box = { { -0.7, -0.7 }, { 0.7, 0.7 } },
+  selection_box = { { -1, -1 }, { 1, 1 } }, attack_parameters = { range = 19.25 } }
+Common.apply_footprint(fake6, GUN, 6)
+check(same_box(fake6.collision_box, 0.7) and fake6.attack_parameters.range == 19.25, "common.lua : niveau à l'emprise de base intouché")
+local snap = Common.game_snapshot({ collision_box = 1, selection_box = 2, drawing_box = 3, picture = 4 })
+check(snap.part.collision_box == 1 and snap.part.selection_box == 2 and snap.part.drawing_box == nil,
+  "garde : collision_box et selection_box sont des champs de JEU (protégés de dress), drawing_box est graphique")
+local saved_deep = table.deepcopy
+table.deepcopy = deepcopy
+local ctx = Common.context(GUN, 25)
+check(ctx.footprint == 6 and math.abs(Common.kit.sprite_scale(ctx) - 3 * (1 + 0.10 * 24 / 29)) < 1e-9
+  and math.abs(Common.kit.sprite_scale(Common.context(GUN, 6)) - (1 + 0.10 * 5 / 29)) < 1e-9,
+  "visuel provisoire : ctx.footprint = 6 ; sprite × 3 (rapport des emprises) au niveau 25, inchangé au niveau 6")
+local fp = { attack_parameters = { projectile_creation_distance = 1.39375, projectile_center = { 0, -0.0875 },
+  shell_particle = { center = { -0.0625, 0 }, creation_distance = -1.925 } } }
+Common.kit.scale_muzzle(fp, 3)
+check(math.abs(fp.attack_parameters.projectile_creation_distance - 4.18125) < 1e-9 and math.abs(fp.attack_parameters.projectile_center[2] + 0.2625) < 1e-9
+  and math.abs(fp.attack_parameters.shell_particle.creation_distance + 5.775) < 1e-9,
+  "visuel provisoire : bouche du canon et douilles à l'échelle de l'emprise (sous-clés graphiques)")
+table.deepcopy = saved_deep
+
+-- Étape data RÉELLE (harness) : la mitrailleuse 25 telle que le mod la livre.
+local data_dir
+for _, d in ipairs({ "../../data", "../../../../../data" }) do
+  local fh = io.open(d .. "/base/prototypes/technology.lua", "rb")
+  if fh and not data_dir then fh:close(); data_dir = d elseif fh then fh:close() end
+end
+if data_dir then
+  local lua = (arg and arg[-1]) or "lua5.2"
+  local ph = io.popen(lua .. " tests/datastage/harness.lua " .. data_dir .. " . --dump-final ammo-turret/fo-lvl-gun-25 2>&1", "r")
+  local out = ph and ph:read("*a") or ""
+  if ph then ph:close() end
+  local col = out:match("\n  collision_box = (%b{})")
+  local sel = out:match("\n  selection_box = (%b{})")
+  local rng = tonumber(out:match("\n    range = ([%d%.]+)"))
+  local want_range = L.apply_stat(GUN.stats[3], 18, 25) + 2
+  check(col and col:find("2.7", 1, true) and sel and sel:find("= 3", 1, true) and rng and math.abs(rng - want_range) < 1e-9
+    and out:find('fast_replaceable_group = "fo-lvl-gun"', 1, true),
+    "étape data réelle : fo-lvl-gun-25 en 6×6 (collision ±2,7, sélection ±3), portée " .. tostring(rng) .. ", même groupe de remplacement (F39)")
+else
+  check(false, "données du jeu introuvables pour l'étape data réelle")
+end
+
+-- 7. Runtime en moteur simulé. Enveloppes du moteur simulé (il ne lit pas l'étape data) : prototypes avec
+-- masque et boîte, bounding_box d'après la boîte du prototype, décors, rendu capturé, tuiles d'eau.
+local MASK = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true, ["item-layer"] = true }
+for n = 1, 30 do
+  local p = Wd.prototypes[L.name(GUN, n)]
+  local cbox = Foot.proto_boxes(L.footprint(GUN, n))
+  p.collision_mask = MASK
+  p.collision_box = { left_top = { x = cbox[1][1], y = cbox[1][2] }, right_bottom = { x = cbox[2][1], y = cbox[2][2] } }
+end
+local function proto(name, ptype, half, mask)
+  rawset(Wd.prototypes, name, { type = ptype, max_health = 100, collision_mask = mask,
+    collision_box = { left_top = { x = -half, y = -half }, right_bottom = { x = half, y = half } } })
+end
+proto("stone-wall", "wall", 0.49, { ["object-layer"] = true, ["item-layer"] = true, ["player-layer"] = true, ["water-tile"] = true })
+proto("iron-chest", "container", 0.35, { ["object-layer"] = true, ["item-layer"] = true, ["player-layer"] = true, ["water-tile"] = true })
+proto("tree-01", "tree", 0.4, { ["object-layer"] = true, ["item-layer"] = true, ["player-layer"] = true, ["water-tile"] = true })
+proto("item-on-ground", "item-entity", 0.14, { ["item-layer"] = true })
+proto("iron-ore", "resource", 0.1, { ["resource-layer"] = true })
+proto("fo-test-walker", "character", 0.2, { ["player-layer"] = true })
+local probe = s.create_entity({ name = "stone-wall", position = { x = -500.5, y = -500.5 }, force = "player" })
+local EMT = getmetatable(probe)
+local base_index = EMT.__index
+EMT.__index = function(t, k)
+  if k == "bounding_box" then
+    local cb = Wd.prototype(rawget(t, "name")).collision_box
+    if cb then
+      return { left_top = { x = t._x + cb.left_top.x, y = t._y + cb.left_top.y },
+               right_bottom = { x = t._x + cb.right_bottom.x, y = t._y + cb.right_bottom.y } }
+    end
+  end
+  return base_index(t, k)
+end
+probe.destroy()
+s.destroy_decoratives = function(t) assert(t.area and t.area[1] and t.area[2], "destroy_decoratives : zone attendue") end
+local WATER = {}
+Wd.tile_at = function(x, y) return WATER[x .. "," .. y] or "grass-1" end
+local drawn = {}
+local raw_rect = rendering.draw_rectangle
+rendering.draw_rectangle = function(t)
+  assert(t.time_to_live and t.time_to_live > 0, "draw_rectangle : durée limitée attendue (time_to_live)")
+  drawn[#drawn + 1] = t
+  return raw_rect(t)
+end
+
+local TF = "fo-taille"
+game.create_force(TF)
+local tcc = s.create_entity({ name = L.name(L.by_key.command, 15), position = { x = 300.5, y = 500.5 }, force = TF })
+built(tcc)
+limit_chest(tcc)
+local tinv = tcc.get_inventory(defines.inventory.chest)
+local replaced_seen = {}
+table.insert(Levels.on_replaced, function(old_unit, new) replaced_seen[#replaced_seen + 1] = { old_unit, new } end)
+local function st() return global.fo.levels.stats end
+local function gun_at(n, x, y, ammo)
+  local g = s.create_entity({ name = L.name(GUN, n), position = { x = x, y = y }, force = TF })
+  if ammo then g.insert({ name = "firearm-magazine", count = ammo }) end
+  return g
+end
+local function chest_value() return L.cost_value((function()
+  local t = {}
+  for _, c in ipairs(L.cost(GUN, 7)) do t[#t + 1] = { c[1], tinv.get_item_count(c[1]) } end
+  return t
+end)()) end
+
+-- a. Place libre : 6 → 7 (2×2 → 3×3), munitions, PV, ancien objet disparu, 0 secours, recensement.
+local g6 = gun_at(6, 400, 500, 25)
+g6.health = Wd.prototype(L.name(GUN, 6)).max_health / 2
+stock(tinv, GUN, 7, 1)
+local fb0, rs0, up0 = st().fallback or 0, st().resized or 0, st().upgrades
+local seen0 = #replaced_seen
+local unit6 = g6.unit_number
+local ok7, why7, info7, g7 = Levels.start(g6, nil)
+check(ok7 and why7 == "done" and g7 and g7.name == L.name(GUN, 7) and not g6.valid,
+  "agrandissement 6 → 7 sur place libre : fait aussitôt (" .. tostring(why7) .. ")")
+check(g7 and g7.position.x == 399.5 and g7.position.y == 499.5 and info7.resize.from == 2 and info7.resize.to == 3 and info7.room.index == 1,
+  "agrandissement : position préférée (nord-ouest, 399,5 ; 499,5), 2×2 → 3×3")
+check(g7 and g7.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine") == 25, "agrandissement : 25 chargeurs transférés")
+check(g7 and math.abs(g7.get_health_ratio() - 0.5) < 1e-9, "agrandissement : PV en proportion (50 %)")
+check((st().fallback or 0) == fb0 and st().resized == rs0 + 1 and st().upgrades == up0 + 1,
+  "agrandissement : remplacement par script compté (resized), 0 secours manuel, 1 amélioration")
+check(tinv.get_item_count(L.name(GUN, 6)) == 0 and (Wd.spilled == nil or (Wd.spilled[L.name(GUN, 6)] or 0) == 0),
+  "agrandissement : l'objet de l'ancien niveau disparaît (ni dans le centre, ni au sol)")
+check(#replaced_seen == seen0 + 1 and replaced_seen[#replaced_seen][1] == unit6 and replaced_seen[#replaced_seen][2] == g7,
+  "agrandissement : crochet Levels.on_replaced appelé (ancien numéro, nouvelle entité : le panneau suit)")
+local cen = Levels.census(game.forces[TF], 7)
+check(cen.gun.any and cen.gun.top, "agrandissement : recensement Q16 à jour (mitrailleuse au niveau 7)")
+
+-- b. Taille constante : 7 → 8, remplacement rapide moteur, inchangé.
+local fr0, rs1 = Wd.fast_replaced or 0, st().resized
+stock(tinv, GUN, 8, 1)
+local ok8, why8, _, g8 = Levels.start(g7, nil)
+check(ok8 and g8 and g8.position.x == 399.5 and (Wd.fast_replaced or 0) == fr0 + 1 and st().resized == rs1,
+  "taille constante (3×3 → 3×3) : remplacement rapide du moteur, même position, aucun remplacement par script (" .. tostring(why8) .. ")")
+check(g8 and g8.get_inventory(defines.inventory.turret_ammo).get_item_count("firearm-magazine") == 25, "taille constante : munitions conservées")
+
+-- c. Bloquée par un mur au nord et un coffre au sud : refus « no-room », rien payé, contour.
+local gb = gun_at(6, 420, 500, 10)
+s.create_entity({ name = "stone-wall", position = { x = 419.5, y = 498.5 }, force = TF })
+s.create_entity({ name = "iron-chest", position = { x = 419.5, y = 501.5 }, force = TF })
+stock(tinv, GUN, 7, 1)
+local before = {}
+for _, c in ipairs(L.cost(GUN, 7)) do before[c[1]] = tinv.get_item_count(c[1]) end
+local ct0, rr0, nd = st().contours or 0, st().room_refused or 0, #drawn
+local okb, whyb, infob = Levels.start(gb, nil)
+local unpaid = true
+for _, c in ipairs(L.cost(GUN, 7)) do if tinv.get_item_count(c[1]) ~= before[c[1]] then unpaid = false end end
+check(not okb and whyb == "no-room" and gb.valid and gb.get_item_count("firearm-magazine") == 10,
+  "mur au nord et coffre au sud : refus « no-room », mitrailleuse 6 intacte (" .. tostring(whyb) .. ")")
+check(unpaid, "refus « no-room » : coût NON payé (place vérifiée avant le paiement)")
+local main = drawn[nd + 1]
+check(#drawn == nd + 2 and main and main.left_top[1] == 418 and main.left_top[2] == 498 and main.right_bottom[1] == 421
+  and main.right_bottom[2] == 501 and main.filled == false and main.players == nil and main.forces and main.forces[1] == TF
+  and main.time_to_live == Levels.CONTOUR_TTL,
+  "contour dessiné : carré 3×3 de la position préférée (418, 498 → 421, 501), visible de la force (pas de joueur), durée limitée, + le mur qui la bloque surligné")
+check(st().contours == ct0 + 1 and st().room_refused == rr0 + 1, "compteurs : 1 contour, 1 refus faute de place")
+local names = Levels.blocker_names(infob.room.preferred)
+check(#names == 1 and names[1] == "stone-wall" and Levels.blockers_text(infob.room.preferred) == "[entity=stone-wall]",
+  "bloqueur de la position préférée nommé (mur)")
+local rb = remote.call("factorio-overhaul", "levels_upgrade", gb)
+check(rb and rb.ok == false and rb.reason == "no-room" and rb.entity == nil and rb.resize.to == 3 and rb.position == nil
+  and rb.contour.x0 == 418 and rb.contour.y1 == 501 and rb.blockers[1] == "stone-wall",
+  "interface distante : levels_upgrade rend « no-room », la taille visée, le contour et les bloqueurs")
+local rp = remote.call("factorio-overhaul", "levels_preview", gb)
+check(rp and rp.reason == "no-room" and st().contours == ct0 + 2, "interface distante : levels_preview ne dessine rien (seul levels_upgrade a dessiné)")
+-- Avec un joueur : contour visible de lui seul.
+nd = #drawn
+Levels.start(gb, Wd.player)
+check(drawn[nd + 1] and drawn[nd + 1].players and drawn[nd + 1].players[1] == 1 and drawn[nd + 1].forces == nil,
+  "refus d'un joueur (touche U, bouton) : contour visible de ce seul joueur")
+local fo_keys = {}
+for k in pairs(global.fo.levels) do fo_keys[#fo_keys + 1] = k end
+table.sort(fo_keys)
+check(table.concat(fo_keys, ",") == "busy,cc,census,footprints,jobs,replacing,stats",
+  "global : aucun identifiant de rendu gardé (contours effacés par le moteur) (" .. table.concat(fo_keys, ",") .. ")")
+
+-- d. Bloquée par l'eau : refus, tuile nommée.
+local gw = gun_at(6, 440, 500)
+WATER["439,498"], WATER["439,501"] = "water", "water"
+stock(tinv, GUN, 7, 1)
+local okw, whyw, infow = Levels.start(gw, nil)
+WATER["439,498"], WATER["439,501"] = nil, nil
+check(not okw and whyw == "no-room" and gw.valid and Levels.blocker_names(infow.room.preferred)[1] == "tile:water",
+  "eau au nord et au sud : refus « no-room », eau nommée (" .. tostring(whyw) .. ")")
+
+-- e. Position alternative : arbre dans le coin nord-ouest seulement → la 2e position (nord-est).
+local ga = gun_at(6, 460, 500, 3)
+stock(tinv, GUN, 7, 1)
+s.create_entity({ name = "tree-01", position = { x = 458.5, y = 498.5 }, force = "neutral" })
+local oka, whya, infoa, ga7 = Levels.start(ga, nil)
+check(oka and ga7 and infoa.room.index == 2 and ga7.position.x == 460.5 and ga7.position.y == 499.5
+  and ga7.get_item_count("firearm-magazine") == 3,
+  "position préférée bloquée par un arbre, la 2e libre (nord-est) : agrandissement à 460,5 ; 499,5 (" .. tostring(whya) .. ")")
+
+-- f. Ni personnage, ni objet au sol, ni minerai ne bloquent.
+local gn = gun_at(6, 480, 500)
+s.create_entity({ name = "fo-test-walker", position = { x = 478.6, y = 498.6 }, force = TF })
+s.create_entity({ name = "item-on-ground", position = { x = 479.5, y = 498.5 }, force = "neutral" })
+s.create_entity({ name = "iron-ore", position = { x = 478.5, y = 500.5 }, force = "neutral" })
+stock(tinv, GUN, 7, 1)
+local okn, whyn, infon = Levels.start(gn, nil)
+check(okn and infon.room.index == 1, "personnage (écarté par le moteur), objet au sol (laissé, ramassable) et minerai : ne bloquent pas (" .. tostring(whyn) .. ")")
+
+-- g. F40 simulé : le nouveau bâtiment détruit pendant raise_built (create_entity rend nil) → coût rendu.
+local gf = gun_at(6, 500, 500, 4)
+stock(tinv, GUN, 7, 1)
+local val_before = chest_value()
+local raw_create = s.create_entity
+s.create_entity = function(t)
+  if t.name == L.name(GUN, 7) and not t.fast_replace then return nil end
+  return raw_create(t)
+end
+local rf0, rfail0 = st().refunds or 0, st().resize_failed or 0
+local okf, whyf = Levels.start(gf, nil)
+s.create_entity = raw_create
+check(not okf and whyf == "replace-failed" and gf.valid and gf.get_item_count("firearm-magazine") == 4
+  and math.abs(chest_value() - val_before) < 1e-9 and st().refunds == rf0 + 1 and st().resize_failed == rfail0 + 1,
+  "F40 : nouveau bâtiment détruit pendant sa construction → ancien intact, munitions comprises, coût RENDU au centre")
+
+-- h. Chaîne 6 → 30 : 4 agrandissements (3, 4, 5, 6) ; retour au centre d'origine en 6×6.
+local gc = gun_at(6, 540, 520, 40)
+local rs2 = st().resized
+local cur, chain_ok, why_c = gc, true, nil
+local sides = {}
+for n = 7, 30 do
+  stock(tinv, GUN, n, 1)
+  local okc, whyc, _, nxt = Levels.start(cur, nil)
+  if not (okc and nxt) then chain_ok, why_c = false, n .. ":" .. tostring(whyc) break end
+  if n == 7 or n == 13 or n == 19 or n == 25 then sides[#sides + 1] = nxt.position.x .. "," .. nxt.position.y end
+  cur = nxt
+end
+check(chain_ok and cur.name == L.name(GUN, 30) and st().resized == rs2 + 4,
+  "chaîne 6 → 30 : 24 améliorations dont 4 agrandissements (" .. tostring(why_c) .. ")")
+check(table.concat(sides, " ") == "539.5,519.5 540,520 539.5,519.5 540,520" and cur.position.x == 540 and cur.position.y == 520,
+  "chaîne : 3×3 et 5×5 décalés d'une demi-tuile au nord-ouest, 4×4 et 6×6 au centre d'origine (" .. table.concat(sides, " ") .. ")")
+check(cur.get_item_count("firearm-magazine") == 40 and (st().fallback or 0) == fb0, "chaîne : 40 chargeurs au niveau 30, 0 secours manuel")
+local ok_ser, err_ser = pcall(M.serialize, global)
+check(ok_ser, "global sérialisable après les agrandissements (" .. tostring(err_ser) .. ")")
+
+-- i. Transfert complet (entités simulées à cases, fluides, recette, brûleur, tourelle, fils, foreuse).
+local function stack(name, count, extra)
+  local st_ = { valid_for_read = name ~= nil, name = name, count = count or 0, extra = extra }
+  st_.transfer_stack = function(src)
+    if st_.valid_for_read then return false end
+    st_.valid_for_read, st_.name, st_.count, st_.extra = true, src.name, src.count, src.extra
+    src.valid_for_read, src.name, src.count, src.extra = false, nil, 0, nil
+    return true
+  end
+  return st_
+end
+local function inventory(slots)
+  local inv = { _slots = slots }
+  setmetatable(inv, { __len = function(t) return #t._slots end, __index = function(t, k) return rawget(t, "_slots")[k] end })
+  inv.is_empty = function() for _, x in ipairs(slots) do if x.valid_for_read then return false end end return true end
+  inv.get_contents = function()
+    local c = {}
+    for _, x in ipairs(slots) do if x.valid_for_read then c[x.name] = (c[x.name] or 0) + x.count end end
+    return c
+  end
+  inv.insert = function(it)
+    for _, x in ipairs(slots) do if not x.valid_for_read then x.valid_for_read, x.name, x.count = true, it.name, it.count return it.count end end
+    return 0
+  end
+  inv.remove = function(it)
+    local left = it.count
+    for _, x in ipairs(slots) do
+      if left > 0 and x.valid_for_read and x.name == it.name then
+        local k = math.min(left, x.count)
+        x.count, left = x.count - k, left - k
+        if x.count == 0 then x.valid_for_read, x.name = false, nil end
+      end
+    end
+    return it.count - left
+  end
+  return inv
+end
+local target = { valid = true }
+local connected = {}
+local function fake_entity(etype, invs, extra)
+  local e = { type = etype, valid = true, _invs = invs, surface = s, position = { x = 0, y = 0 }, force = game.forces[TF] }
+  e.get_inventory = function(i) return invs[i] end
+  e.insert = function() return 0 end
+  for k, v in pairs(extra or {}) do e[k] = v end
+  return e
+end
+local ofluid = { { name = "water", amount = 80 }, { name = "steam", amount = 10, temperature = 165 } }
+local nfluid = { false, false }
+local cb_old = { circuit_enable_disable = true, connect_to_logistic_network = false, circuit_read_resources = true,
+  resource_read_mode = 1, circuit_condition = { condition = { comparator = ">", first_signal = { type = "item", name = "coal" }, constant = 5 }, fulfilled = true } }
+local cb_new = {}
+local old_am = fake_entity("assembling-machine",
+  { [2] = inventory({ stack("iron-plate", 40, "plaques"), stack(nil) }), [3] = inventory({ stack("iron-gear-wheel", 7) }),
+    [4] = inventory({ stack("speed-module", 1), stack("speed-module", 1) }) },
+  { get_recipe = function() return "iron-gear-wheel" end, fluidbox = ofluid, energy = 1234, crafting_progress = 0.4,
+    bonus_progress = 0.2, last_user = "joueur-1",
+    burner = { currently_burning = "coal", remaining_burning_fuel = 2e6, heat = 5 },
+    circuit_connection_definitions = { { wire = 1, target_entity = target, source_circuit_id = 1, target_circuit_id = 1 },
+      { wire = 2, target_entity = { valid = true }, source_circuit_id = 1, target_circuit_id = 2 } } })
+local recipe_set
+local new_am = fake_entity("assembling-machine",
+  { [2] = inventory({ stack(nil), stack(nil) }), [3] = inventory({ stack(nil) }), [4] = inventory({ stack(nil), stack(nil), stack(nil) }) },
+  { set_recipe = function(r) recipe_set = r end, fluidbox = nfluid, burner = {},
+    connect_neighbour = function(d) connected[#connected + 1] = d; return d.target_entity == target end })
+local moved = Levels.transfer(old_am, new_am)
+check(recipe_set == "iron-gear-wheel" and new_am.get_inventory(2)[1].name == "iron-plate" and new_am.get_inventory(2)[1].count == 40
+  and new_am.get_inventory(2)[1].extra == "plaques" and new_am.get_inventory(3)[1].count == 7
+  and new_am.get_inventory(4)[2].name == "speed-module" and old_am.get_inventory(2).is_empty() and moved.spilled == 0,
+  "transfert (cases) : recette, entrée (pile ENTIÈRE avec ses données), sortie, modules ; ancien vidé, rien renversé")
+check(nfluid[1] == ofluid[1] and nfluid[2] == ofluid[2] and new_am.energy == 1234 and new_am.crafting_progress == 0.4
+  and new_am.bonus_progress == 0.2 and new_am.last_user == "joueur-1" and new_am.burner.currently_burning == "coal"
+  and new_am.burner.remaining_burning_fuel == 2e6 and new_am.burner.heat == 5,
+  "transfert : fluides, énergie, progression, dernier utilisateur, brûleur (combustible en cours, chaleur)")
+check(#connected == 2 and connected[1].wire == 1 and connected[1].target_entity == target and moved.wires_lost == 1,
+  "transfert : fils de circuit rebranchés vers les mêmes voisins ; un fil trop long compté perdu")
+local tg = { valid = true }
+local old_t = fake_entity("ammo-turret", { [1] = inventory({ stack("uranium-rounds-magazine", 9) }) },
+  { kills = 12, damage_dealt = 3400.5, shooting_target = tg })
+local new_t = fake_entity("ammo-turret", { [1] = inventory({ stack(nil) }) })
+Levels.transfer(old_t, new_t)
+check(new_t.kills == 12 and new_t.damage_dealt == 3400.5 and new_t.shooting_target == tg
+  and new_t.get_inventory(1)[1].name == "uranium-rounds-magazine" and new_t.get_inventory(1)[1].count == 9,
+  "transfert (tourelle) : munitions, cible en cours, victimes et dégâts infligés")
+local old_d = fake_entity("mining-drill", {}, { mining_progress = 0.7, bonus_mining_progress = 0.1,
+  get_control_behavior = function() return cb_old end })
+local new_d = fake_entity("mining-drill", {}, { get_or_create_control_behavior = function() return cb_new end })
+Levels.transfer(old_d, new_d)
+check(new_d.mining_progress == 0.7 and cb_new.circuit_enable_disable == true and cb_new.resource_read_mode == 1
+  and cb_new.circuit_condition.condition == cb_old.circuit_condition.condition and cb_new.circuit_condition.fulfilled == nil,
+  "transfert (foreuse) : progression et réglages du circuit (condition sans le champ en lecture seule « fulfilled »)")
+-- Cases en nombre différent : le reste passe par contenu, puis au pied du bâtiment en dernier recours (compté).
+local old_x = fake_entity("container", { [1] = inventory({ stack("iron-plate", 50), stack("copper-plate", 30) }) })
+local new_x = fake_entity("container", { [1] = inventory({ stack(nil) }) })
+local spill0 = Wd.spilled and (Wd.spilled["copper-plate"] or 0) or 0
+local mx = Levels.transfer(old_x, new_x)
+check(new_x.get_inventory(1)[1].count == 50 and mx.spilled == 30 and Wd.spilled["copper-plate"] == spill0 + 30,
+  "transfert : sans case libre, le reste est renversé au pied du bâtiment, COMPTÉ (jamais attendu : le niveau suivant a autant de cases)")
+
+-- j. Panneau « Évolution » : taille et place, puis touche U refusée (contour pour ce joueur).
+local player = Wd.player
+local home = player.force
+rawset(player, "force", game.forces[TF])
+local gp = gun_at(6, 560, 560)
+s.create_entity({ name = "stone-wall", position = { x = 559.5, y = 558.5 }, force = TF })
+s.create_entity({ name = "stone-wall", position = { x = 559.5, y = 561.5 }, force = TF })
+stock(tinv, GUN, 7, 1)
+local function texts(el, out)
+  out = out or {}
+  for _, c in ipairs(rawget(el, "_list") or {}) do
+    if c.caption then out[#out + 1] = M.ls_to_string(c.caption) end
+    texts(c, out)
+  end
+  return out
+end
+rawset(player, "selected", nil)
+rawset(player, "selected", gp)
+local okp, errp = pcall(M.dispatch, ev[defines.events.on_selected_entity_changed], { player_index = 1, tick = game.tick })
+local fr = player.gui.left["fo_lvl_panel"]
+local txt = fr and table.concat(texts(fr), "\n") or ""
+check(okp and txt:find("{fo-levels-taille.resize-line:2×2,3×3}", 1, true) ~= nil
+  and txt:find("{fo-levels-taille.room-blocked:[entity=stone-wall]}", 1, true) ~= nil
+  and txt:find("{fo-levels-taille.reason-no-room:3×3,[entity=stone-wall]}", 1, true) ~= nil,
+  "panneau : « Taille : 2×2 → 3×3 », place insuffisante et motif du refus avec ce qui gêne (" .. tostring(errp) .. ")")
+nd = #drawn
+local nlt = Wd.local_texts and #Wd.local_texts or 0
+okp, errp = pcall(M.dispatch, ev["fo-level-up"], { player_index = 1, tick = game.tick })
+check(okp and gp.valid and drawn[nd + 1] and drawn[nd + 1].players[1] == 1
+  and Wd.local_texts[nlt + 1]:find("fo-levels-taille.reason-no-room", 1, true) ~= nil,
+  "touche U refusée faute de place : message au joueur et contour pour lui seul (" .. tostring(errp) .. ")")
+rawset(player, "selected", nil)
+rawset(player, "force", home)
+local okt, errt = pcall(M.run_ticks, 60)
+check(okt, "jeu continu après les agrandissements (panneau rafraîchi) (" .. tostring(errt) .. ")")
+rendering.draw_rectangle = raw_rect
+end)()
+
 print(string.format("Écarts connus au contrat (non conformes, à trancher par le Directeur Créatif) : %d", #gaps))
 print(string.format("Résultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
