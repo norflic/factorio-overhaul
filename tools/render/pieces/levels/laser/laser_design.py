@@ -108,8 +108,11 @@ PIVOT_MIN = {2: 0.75, 3: 1.45, 4: 1.0, 5: 0.95, 6: 0.95, 7: 1.0, 8: 1.1, 9: 1.1,
 # mât fin (« sucette ») ; elles gagnent 15 à 30 % et le pivot descend pour garder O sur la cible du §4.
 # Aux ères IV et V (et à l'époque 6), même défaut en plus marqué : tête menue au bout d'un mât de 2 à 2,5 unités ;
 # elles gagnent 10 à 25 % de plus (passe 3).
-HEAD_SCALE = {2: 1.30, 3: 1.25, 4: 1.30, 5: 1.30, 6: 1.45, 7: 1.15, 8: 1.20, 9: 1.30, 10: 1.45, 11: 1.35, 12: 1.35,
-              13: 1.35, 14: 1.30, 15: 1.45}
+# Passe 5 (reprise 2, 22/10) : époques 10, 12 et 13 encore en « sucette » sur la planche (a) (tête menue au bout d'une
+# tige de 1,5 à 2 tuiles, largeur L mesurée 1,41 à 1,55 pour 1,96 à 2,05 au §4) : tête +10 à +11 %, cou épaissi dans
+# laser_model.py ; le pivot redescend au réglage (run_laser.py tune) pour garder O sur la cible.
+HEAD_SCALE = {2: 1.30, 3: 1.25, 4: 1.30, 5: 1.30, 6: 1.45, 7: 1.15, 8: 1.20, 9: 1.30, 10: 1.60, 11: 1.35, 12: 1.50,
+              13: 1.50, 14: 1.30, 15: 1.45}
 # Pivots réglés par `run_laser.py tune` (O mesuré sur la géométrie -> cible §4) : surchargent PIVOT.
 PIVOT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pivot_regle.txt")
 try:

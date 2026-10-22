@@ -868,11 +868,27 @@ def piece_e07(cx):
 # Époque 8 · Marais : bulbes et sphères de verre, conduits vert-de-gris ; liquide vert-jaune
 # ================================================================================================
 def mats_e08(cx):
+    # passe 5 : liquide de l'ampoule à émission FAIBLE et fond sombre. La lueur (draw_as_glow) est dessinée PAR-DESSUS la
+    # couche principale, qui montre déjà l'émission : les deux s'additionnent. Avec l'émission 0,35 sur fond clair de la
+    # passe 4, l'ampoule (le plus grand émissif de la famille, 0,37 tuile de rayon) saturait en un disque JAUNE plat
+    # (vert + vert = vert écrêté, rouge doublé). Ici : moitié de la couleur voulue dans chaque couche.
     return dict(verd=metal(cx, "vertdegris", "#4F6B5A", gain=1.7, rough=0.40, metallic=0.6, rust="#2A2A28", rust_amount=0.3,
                            seed=19.0),
                 rubber=flat(cx, "caoutchouc", "#2A2A28", rough=0.7),
                 glassm=glass(cx, "verre", "#8FBF4A", gain=0.75),
-                plasma=emis(cx, "plasma", "#A8FF3A", strength=0.35, base=(0.15, 0.3, 0.05)))
+                plasma=emis(cx, "plasma", "#A8FF3A", strength=0.35, base=(0.15, 0.3, 0.05)),
+                liquid=emis(cx, "liquide", "#A8FF3A", strength=0.16, base=(0.02, 0.05, 0.01)),
+                bulbglass=glass(cx, "verre_ampoule", "#6E9A3A", gain=0.55))
+
+
+def sphere_cap(cx, r, center, t0, t1, mat, name, seg=32, n=10):
+    """Calotte de sphère de rayon r entre les angles polaires t0 < t1 (0 = pôle haut, pi = pôle bas), axe Z.
+    Les bords non polaires sont fermés par un disque plat (surface du liquide)."""
+    prof = []
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n
+        prof.append((max(0.0, r * math.sin(t)) if 1e-6 < t < math.pi - 1e-6 else 0.0, r * math.cos(t)))
+    return lathe(cx, prof, mat, name, seg=seg, loc=center, smooth=70)
 
 
 def bulb(cx, m, x, y, z, r, name, glow=True):
@@ -909,9 +925,15 @@ def head_e08(cx):
     # corps en gélule
     tube_y(cx, 0.21, -0.40, 0.18, z, m["verd"], "gelule")
     sph(cx, 0.21, (0, -0.40, z), m["verd"], "gelule_ar", scale=(1, 0.8, 1))
-    # ampoule frontale de plasma vert : enveloppe de verre et cœur lumineux
+    # ampoule frontale de plasma vert (passe 5) : calotte de verre en haut, liquide luminescent dessous (surface
+    # horizontale), cerclage vert-de-gris au niveau du liquide ; le verre porte les reflets, le liquide la lueur.
+    # Niveau à 42° du pôle : vu à 45°, le liquide occupe la moitié basse du disque de l'ampoule à l'écran (à 78°, essai
+    # de la passe 5, on ne voyait qu'un croissant vert sous un casque de verre sombre).
     tor(cx, 0.22, 0.04, (0, 0.20, z), m["rubber"], "col_ampoule", rot=(math.pi / 2, 0, 0), seg=32)
-    sph(cx, 0.31, (0, 0.50, z), m["plasma"], "ampoule", seg=32, rings=16)
+    t_lvl = math.radians(42)
+    sphere_cap(cx, 0.31, (0, 0.50, z), 0.0, t_lvl, m["bulbglass"], "ampoule_verre")
+    sphere_cap(cx, 0.305, (0, 0.50, z), t_lvl, math.pi, m["liquid"], "ampoule_liquide")
+    tor(cx, 0.31 * math.sin(t_lvl), 0.018, (0, 0.50, z + 0.31 * math.cos(t_lvl)), m["verd"], "ampoule_cerclage", seg=40)
     # conduits le long du corps
     for s in (-1, 1):
         strut(cx, (s * 0.22, -0.40, z - 0.05), (s * 0.20, 0.18, z - 0.02), 0.035, m["rubber"], "conduit_t_%d" % s)
@@ -1020,27 +1042,33 @@ def mats_e10(cx):
 
 def base_e10(cx):
     m = mats_e10(cx)
-    # 3 pieds courts : vide visible sous le disque
+    # 3 pieds courts : vide visible sous le disque (passe 5 : disque relevé de 0,24 à 0,36 et pieds plus écartés ; à 0,24
+    # le chant du disque cachait les pieds et le vide, « les corps se lèvent » ne se lisait pas)
+    zd = 0.36
     for k in range(3):
         a = math.radians(90 + 120 * k)
-        x, y = 0.52 * math.cos(a), 0.52 * math.sin(a)
-        strut(cx, (x * 1.15, y * 1.15, 0.0), (x, y, 0.26), 0.05, m["black"], "pied_%d" % k)
-        cyl(cx, 0.09, 0.03, (x * 1.15, y * 1.15, 0.015), m["black"], "patin_%d" % k, verts=16)
-    lathe(cx, [(0.30, 0.24), (0.70, 0.24), (0.76, 0.29), (0.74, 0.36), (0.55, 0.42), (0.0, 0.44)], m["fair"], "disque",
-          seg=48)
-    lathe(cx, [(0.0, 0.18), (0.30, 0.18), (0.30, 0.24), (0.0, 0.24)], m["black"], "moyeu", seg=32)
+        x, y = 0.50 * math.cos(a), 0.50 * math.sin(a)
+        strut(cx, (x * 1.36, y * 1.36, 0.02), (x, y, zd + 0.02), 0.055, m["black"], "pied_%d" % k)
+        cyl(cx, 0.10, 0.035, (x * 1.36, y * 1.36, 0.0175), m["black"], "patin_%d" % k, verts=16)
+        sph(cx, 0.06, (x * 1.18, y * 1.18, zd * 0.45), m["fair"], "genou_%d" % k, seg=16, rings=8)
+    lathe(cx, [(0.30, zd), (0.70, zd), (0.76, zd + 0.05), (0.74, zd + 0.12), (0.55, zd + 0.18), (0.0, zd + 0.20)],
+          m["fair"], "disque", seg=48)
+    lathe(cx, [(0.0, zd - 0.08), (0.30, zd - 0.08), (0.30, zd), (0.0, zd)], m["black"], "moyeu", seg=32)
     # bandeau de voyants bleus (jour) sur le chant avant
     for k in range(5):
         a = math.radians(-120 + 15 * k)
-        o = box(cx, (0.11, 0.02, 0.085), (0.755 * math.cos(a), 0.755 * math.sin(a), 0.32), m["blue"], "voyant_%d" % k,
+        o = box(cx, (0.11, 0.02, 0.085), (0.755 * math.cos(a), 0.755 * math.sin(a), zd + 0.08), m["blue"], "voyant_%d" % k,
                 bevel=0)
         o.rotation_euler = (0, 0, a + math.pi / 2)
-    halo(cx, (0.0, -0.80, 0.32), 0.6)
-    # cou lisse noir mat
+    halo(cx, (0.0, -0.80, zd + 0.08), 0.6)
+    # cou caréné (passe 5 : rayon 0,10 -> 0,15 et manchon lisse plus haut ; le cou fin donnait une « sucette »)
     zp = cx.zp
-    cyl(cx, 0.10, zp - 0.54, (0, 0, (0.44 + zp - 0.10) / 2), m["black"], "cou", verts=32)
-    lathe(cx, [(0.20, zp - 0.14), (0.24, zp - 0.08), (0.18, zp), (0.0, zp)], m["fair"], "collier", seg=32)
-    lathe(cx, [(0.0, 0.42), (0.16, 0.42), (0.12, 0.60), (0.10, 0.62)], m["fair"], "manchon", seg=32)
+    z0 = zd + 0.20
+    cyl(cx, 0.15, zp - z0 - 0.10, (0, 0, (z0 + zp - 0.10) / 2), m["black"], "cou", verts=32)
+    lathe(cx, [(0.24, zp - 0.16), (0.28, zp - 0.09), (0.21, zp), (0.0, zp)], m["fair"], "collier", seg=32)
+    hm = min(0.55, 0.45 * (zp - z0))
+    lathe(cx, [(0.0, z0 - 0.02), (0.26, z0 - 0.02), (0.20, z0 + hm * 0.7), (0.165, z0 + hm), (0.15, z0 + hm + 0.02)],
+          m["fair"], "manchon", seg=32)
 
 
 def head_e10(cx):
@@ -1071,7 +1099,7 @@ def piece_e10(cx):
         box(cx, (0.11, 0.02, 0.085), (-0.24 + 0.16 * k, y - 0.155, 0.17), m["blue"], "batterie_led_%d" % k, bevel=0)
     for s in (-1, 1):
         cyl(cx, 0.035, 0.06, (s * 0.25, y + 0.05, 0.29), m["black"], "borne_%d" % s, verts=12)
-    strut(cx, (0.25, y + 0.12, 0.28), (0.20, ty(0.55), 0.35), 0.025, m["black"], "cable_batterie")
+    strut(cx, (0.25, y + 0.12, 0.28), (0.20, ty(0.50), 0.40), 0.025, m["black"], "cable_batterie")
     halo(cx, (0.0, y - 0.20, 0.17), 0.5)
 
 
@@ -1170,7 +1198,13 @@ def base_e12(cx):
         box(cx, (0.115, 0.115, 0.05), (x, y, 0.79), m["black"], "pylone_tete_%d" % k, bevel=0.008)
     # noyau noir vertical (pivot) : bloc flottant au-dessus d'un fût fin
     zp = cx.zp
-    cyl(cx, 0.06, zp - 0.78, (0, 0, (0.15 + zp - 0.63) / 2), m["chrome"], "tige", verts=16)
+    cyl(cx, 0.085, zp - 0.78, (0, 0, (0.15 + zp - 0.63) / 2), m["chrome"], "tige", verts=16)
+    # passe 5 : 2 anneaux chromés en lévitation autour de la tige (signature d'époque ; la tige seule faisait « sucette »),
+    # sans contact (vide de 0,08 entre tige et anneau)
+    for k, f in enumerate((0.36, 0.66)):
+        zr = 0.15 + (zp - 0.78) * f
+        tor(cx, 0.21, 0.04, (0, 0, zr), m["chrome"], "anneau_tige_%d" % k, seg=48)
+        tor(cx, 0.21, 0.013, (0, 0, zr + 0.035), m["cyan"], "anneau_tige_lueur_%d" % k, seg=48, mseg=8)
     box(cx, (0.24, 0.24, 0.62), (0, 0, zp - 0.32), m["black"], "noyau", bevel=0.03)
     box(cx, (0.25, 0.25, 0.05), (0, 0, zp - 0.50), m["frost"], "noyau_givre", bevel=0.01)
     halo(cx, (0.0, -0.60, 0.42), 0.6)
@@ -1231,9 +1265,12 @@ def base_e13(cx):
     tor(cx, 0.42, 0.035, (0, 0, 0.70), m["plasma"], "tore_moyeu", seg=64)
     halo(cx, (0.0, -0.45, 0.70), 0.6)
     zp = cx.zp
-    cyl(cx, 0.10, zp - 1.01, (0, 0, (0.95 + zp - 0.06) / 2), m["copper"], "cou", verts=24)
-    tor(cx, 0.11, 0.03, (0, 0, (0.95 + zp) / 2), m["cer"], "cou_bague", seg=32)
-    cyl(cx, 0.20, 0.06, (0, 0, zp - 0.03), m["cer"], "couronne", verts=32)
+    # passe 5 : cou 0,10 -> 0,15 en cuivre, gainé de 3 bagues de céramique (injecteurs) ; le cou fin faisait « sucette »
+    cyl(cx, 0.15, zp - 1.01, (0, 0, (0.95 + zp - 0.06) / 2), m["copper"], "cou", verts=24)
+    for k in range(3):
+        zb = 0.95 + (zp - 1.01) * (0.25 + 0.25 * k)
+        cyl(cx, 0.19, 0.09, (0, 0, zb), m["cer"], "cou_bague_%d" % k, verts=32, bevel=0.015)
+    cyl(cx, 0.24, 0.06, (0, 0, zp - 0.03), m["cer"], "couronne", verts=32)
 
 
 def head_e13(cx):
@@ -1302,7 +1339,13 @@ def base_e14(cx):
     halo(cx, (-0.45, 0.40, 1.70), 0.5, color="#FF2A2A")
     # cou blanc et cardan doré
     zp = cx.zp
-    cyl(cx, 0.11, zp - 0.49, (0, 0, (0.42 + zp - 0.07) / 2), m["white"], "cou", verts=24)
+    cyl(cx, 0.14, zp - 0.49, (0, 0, (0.42 + zp - 0.07) / 2), m["white"], "cou", verts=24)
+    # passe 5 : réservoir sphérique doré du kit d'époque, enfilé sur le cou (le cou nu faisait « sucette »)
+    zt = 0.42 + 0.42 * (zp - 0.49)
+    sph(cx, 0.27, (0, 0, zt), m["gold"], "reservoir", seg=40, rings=20)
+    tor(cx, 0.27, 0.022, (0, 0, zt), m["white"], "reservoir_ceinture", seg=48)
+    cyl(cx, 0.17, 0.05, (0, 0, zt - 0.27), m["white"], "reservoir_bride_bas", verts=24)
+    cyl(cx, 0.17, 0.05, (0, 0, zt + 0.27), m["white"], "reservoir_bride_haut", verts=24)
     tor(cx, 0.20, 0.03, (0, 0, zp - 0.18), m["gold"], "cardan", rot=(math.pi / 2, 0, 0), seg=40)
     cyl(cx, 0.19, 0.07, (0, 0, zp - 0.035), m["white"], "couronne", verts=24)
 
@@ -1356,28 +1399,40 @@ def mats_e15(cx):
                 nacre=metal(cx, "nacre", "#D8D2C8", gain=0.62, rough=0.3, metallic=0.15, grain=0.12, dirt=0.5, seed=36.0),
                 light=emis(cx, "lumiere", "#FFF2C0", strength=0.8),
                 crys=emis(cx, "cristal_clair", "#FFF2C0", strength=0.55, base=(0.6, 0.55, 0.45)),
-                clear=glass(cx, "cristal_incolore", "#E2DCCB", gain=0.55))
+                # passe 5 : gain 0,55 -> 0,85 (prismes GRIS TERNES au premier rendu de la passe 4 : la couronne de
+                # l'époque la plus claire, cible 108, se lisait en métal gris)
+                clear=glass(cx, "cristal_incolore", "#E2DCCB", gain=0.85))
 
 
 def base_e15(cx):
     m = mats_e15(cx)
-    # pied de nacre étroit : la base flotte au-dessus (vide)
-    lathe(cx, [(0.26, 0.0), (0.18, 0.06), (0.10, 0.22), (0.08, 0.30), (0.0, 0.30)], m["nacre"], "pied", seg=40)
-    # disque flottant d'or blanc
-    lathe(cx, [(0.10, 0.36), (0.60, 0.38), (0.66, 0.42), (0.62, 0.47), (0.30, 0.50), (0.0, 0.51), (0.0, 0.36)],
-          m["wgold"], "disque_flottant", seg=56)
-    tor(cx, 0.64, 0.012, (0, 0, 0.42), m["light"], "liseré_disque", seg=64, mseg=6)
-    # particules (statiques en phase 1)
+    # passe 5 : BASE FLOTTANTE lisible (signature d'époque, bible §5). Passe 4 : disque à 0,36 posé sur un pied de nacre
+    # de 0,26 de rayon : vu à 45°, le chant du disque cachait le vide, la base se lisait comme un pied de coupe posé.
+    # Ici : une sole basse et étroite (émetteur de lévitation) et le disque d'or blanc nettement au-dessus (vide de 0,52),
+    # sans aucun contact ; la tour repart du disque.
+    # sole ÉTROITE (rayon 0,26 ; 0,46 au premier essai : vue à 45°, cette rondelle blanche bouchait le vide sous le
+    # disque, qui se lisait comme une bobine posée) ; en or blanc, plus sombre que la nacre
+    lathe(cx, [(0.0, 0.0), (0.26, 0.0), (0.27, 0.03), (0.22, 0.07), (0.09, 0.10), (0.0, 0.10)], m["wgold"], "sole",
+          seg=48)
+    tor(cx, 0.16, 0.014, (0, 0, 0.088), m["light"], "sole_emetteur", seg=48, mseg=6)
+    zd = 0.62
+    lathe(cx, [(0.0, zd), (0.30, zd + 0.01), (0.60, zd + 0.03), (0.66, zd + 0.07), (0.62, zd + 0.12), (0.30, zd + 0.15),
+               (0.0, zd + 0.16)], m["wgold"], "disque_flottant", seg=56)
+    tor(cx, 0.645, 0.012, (0, 0, zd + 0.07), m["light"], "liseré_disque", seg=64, mseg=6)
+    # pointe sous le disque (cône inversé) : le disque « tient » sur le vide
+    cyl(cx, 0.16, 0.16, (0, 0, zd - 0.06), m["wgold"], "pointe_dessous", verts=32, r2=0.02, rot=(math.pi, 0, 0), bevel=0)
+    # particules (statiques en phase 1), dans le vide entre la sole et le disque
     for k in range(7):
         a = 2.1 * k
-        sph(cx, 0.025, (0.70 * math.cos(a), 0.70 * math.sin(a), 0.18 + 0.05 * (k % 3)), m["light"], "particule_%d" % k,
+        sph(cx, 0.025, (0.70 * math.cos(a), 0.70 * math.sin(a), 0.22 + 0.06 * (k % 3)), m["light"], "particule_%d" % k,
             seg=8, rings=4)
-    # flèche centrale (cou) effilée
+    # flèche centrale (cou) effilée, plus épaisse qu'en passe 4 (0,06 -> 0,10 au plus fin)
     zp = cx.zp
-    lathe(cx, [(0.14, 0.50), (0.09, 0.80), (0.06, zp - 0.40), (0.10, zp - 0.25), (0.0, zp - 0.22)], m["wgold"], "fleche",
-          seg=32)
-    tor(cx, 0.12, 0.02, (0, 0, (0.80 + zp - 0.40) / 2), m["light"], "bague_lumiere", seg=32)
-    halo(cx, (0.0, -0.40, 0.42), 0.6)
+    z0 = zd + 0.15
+    lathe(cx, [(0.22, z0), (0.13, z0 + 0.30), (0.10, zp - 0.40), (0.15, zp - 0.25), (0.0, zp - 0.22)], m["wgold"],
+          "fleche", seg=32)
+    tor(cx, 0.13, 0.022, (0, 0, (z0 + 0.30 + zp - 0.40) / 2), m["light"], "bague_lumiere", seg=32)
+    halo(cx, (0.0, -0.40, zd + 0.07), 0.6)
 
 
 def head_e15(cx):

@@ -205,6 +205,8 @@ def head_mask(level, direction, thr=0.5):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", default=os.path.join(RENDER, "out", "levels", "laser", "mesures-d1.json"))
+    ap.add_argument("--txt", default=os.path.join(RENDER, "..", "..", "docs", "epoques", "planches", "laser",
+                                                  "laser-mesures-d1.txt"), help="tableau texte (versionné avec les planches)")
     ap.add_argument("--calibrate", action="store_true", help="étalonne albedo_gain.txt (luminance §1.5) et s'arrête")
     a = ap.parse_args()
     if a.calibrate:
@@ -268,7 +270,11 @@ def main():
                                       "iou_scaled_max": max(x["iou_scaled"] for x in hd.values())}
     # contrôle de la mesure normalisée : un simple agrandissement du vanilla doit donner 1,00
     rep["d13"]["controle_homothetie"] = scaled_iou(masks[(1, "N")], homothety(masks[(1, "N")], 1.35), ks)[0]
-    print_tables(rep)          # complète aussi rep (contraste des zones lumineuses)
+    lines = print_tables(rep)          # complète aussi rep (contraste des zones lumineuses)
+    os.makedirs(os.path.dirname(a.txt), exist_ok=True)
+    with open(a.txt, "w", encoding="utf-8", newline="\n") as f:
+        f.write("# Tourelle laser, mesures D1 sur les aperçus de phase 1 (measure_laser.py) : légende en tête du script\n")
+        f.write("\n".join(lines) + "\n")
     os.makedirs(os.path.dirname(a.json), exist_ok=True)
     with open(a.json, "w", encoding="utf-8") as f:
         json.dump(rep, f, indent=1, sort_keys=True)
@@ -310,7 +316,14 @@ def vanilla_head_envelope():
     return env
 
 
-def print_tables(rep):
+def print_tables(rep, out=None):
+    out = [] if out is None else out
+    import builtins
+    _print = builtins.print
+
+    def print(line):  # noqa: A001 : chaque ligne va à l'écran ET au fichier texte des mesures
+        out.append(line)
+        _print(line)
     L = rep["levels"]
     print("niv ép | O_N   O_max cible plaf | L_N  L_max cible | aire_N | IoU préc | ajout pièce min t² | pièce visible | IoU ép. préc | lum p50 cible p95 sat | lueur 8x8 contraste")
     for lv in D.LEVELS:
@@ -334,6 +347,7 @@ def print_tables(rep):
                 "%s %.3f/%.3f (k %.2f)" % (d, x["iou"], x["iou_scaled"], x["k"]) for d, x in v["poses"].items())))
         else:
             print("D1-3 %s : %.3f (attendu 1,000)" % (k, v))
+    return out
 
 
 if __name__ == "__main__":

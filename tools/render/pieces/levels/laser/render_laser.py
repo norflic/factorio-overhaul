@@ -158,6 +158,11 @@ def render_job(level, part, out_root, samples):
     out_dir = os.path.join(out_root, "L%02d" % level)
     os.makedirs(out_dir, exist_ok=True)
     prefix = part
+    # passe 5 : aucune passe d'un rendu PRÉCÉDENT ne doit survivre (une passe non rendue cette fois, par exemple la
+    # lueur d'une partie qui n'a plus d'émissif, laissait son ancien .npz, repris ensuite par le post-traitement)
+    for fn in os.listdir(out_dir):
+        if fn.startswith(prefix + "-") and fn.endswith(".npz"):
+            os.remove(os.path.join(out_dir, fn))
     mats = [s.material for o in objs for s in o.material_slots]
     has_day = any(kind(m) == "emissive" for m in mats)
     has_any = has_day or any(kind(m) == "night" for m in mats)

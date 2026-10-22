@@ -22,7 +22,16 @@ laser-e-gros-plans-zoom2-jour.png / -nuit.png
                                 (e) époques 1, 5, 10, 15 au zoom 2 (64 px/tuile, sprites hr 1:1), têtes à l'est
                                 et au sud, à côté du vanilla niveau 1.
 laser-f-poses-zoom1-jour.png    (f) les 30 niveaux dans les 4 poses de tête (contrôle des poses, D1-3 se mesure
-                                au maximum sur les poses).
+                                au maximum sur les poses). Planche de CONTRÔLE : sol UNI (couleur moyenne de
+                                hr-dirt-4) pour rester compacte (5,4 Mo sur sol texturé) ; ombres conservées.
+laser-mesures-d1.txt            tableau des mesures D1 (measure_laser.py) sur ces mêmes aperçus.
+
+Passe 5 (22/10, reprise après limite d'usage) : tous les aperçus RE-RENDUS avec le code commité (les aperçus de la
+passe 4 dataient d'avant ses dernières retouches : lanterne du niveau 2, gain de l'époque 8, prismes de l'époque
+15) ; ampoule de l'époque 8 refaite (verre + liquide : le disque jaune saturé venait de la lueur additive posée
+sur une couche principale déjà émissive) ; époques 10, 12, 13, 14, 15 moins « sucette » (tête plus grande, cou
+plus épais, anneaux en lévitation sur la tige à l'époque 12, réservoir doré sur le cou à l'époque 14) ; base
+réellement flottante à l'époque 15 ; disque de l'époque 10 relevé (pieds visibles).
 
 Ce que ces planches ne montrent PAS (phase 2) : les 60 autres directions de la tête, le déploiement (15 images
 × 4 directions), le masque de couleur d'équipe, la lueur de tir de la lentille, les animations de socle, la

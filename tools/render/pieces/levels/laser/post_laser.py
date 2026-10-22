@@ -155,6 +155,12 @@ def process(level, part):
         hr = P.sprite_def(box, origin, 64)
         lr = P.sprite_def(box, origin, 32)
         spec[k] = {"box_px": list(box), "hr": hr, "lr": lr, "sha256_canvas": sha}
+    # passe 5 : une couche absente ou vide de CE rendu n'a pas de fichier (un ancien PNG était repris par les planches)
+    for k in ("main", "shadow", "glow", "light"):
+        if k not in spec:
+            p = os.path.join(dst, "%s-%s.png" % (part, k))
+            if os.path.exists(p):
+                os.remove(p)
     rep = {"level": level, "part": part, "epoch": meta["epoch"], "heading_deg": meta["heading_deg"],
            "layers": spec, "render": {k: meta[k] for k in ("samples", "pass_samples", "seconds", "blender", "seed",
                                                             "objects", "holdout_objects", "back_objects")},

@@ -211,7 +211,10 @@ def board_closeups():
 
 
 def board_poses():
-    """(f) : les 30 niveaux, têtes N, E, S, O, zoom 1 ; 2 niveaux par rangée."""
+    """(f) : les 30 niveaux, têtes N, E, S, O, zoom 1 ; 2 niveaux par rangée. Planche de CONTRÔLE des poses : sol UNI
+    (couleur moyenne du sol vanilla hr-dirt-4) pour qu'elle reste compacte (5,4 Mo sur sol texturé en passe 4) ; les
+    ombres y restent visibles. Les planches de design (a à e) gardent le sol vanilla."""
+    bg = tuple(float(c) for c in CL.ground(256, 256).reshape(-1, 3).mean(0))
     rows = []
     for r in range(15):
         lvs = [2 * r + 1, 2 * r + 2]
@@ -226,7 +229,7 @@ def board_poses():
                 i += 1
         W = int((2 + 8 * sp + 2) * PPT)
         H = int(6 * PPT)
-        day, _, _ = CL.compose(ents, W, H)
+        day, _, _ = CL.compose(ents, W, H, bg=bg)
         rows.append(label_band(CL.to_img(CL.down2(day)), labels, 14, 11))
     W = rows[0].width
     full = Image.new("RGB", (W, sum(r.height for r in rows)), (24, 22, 20))
