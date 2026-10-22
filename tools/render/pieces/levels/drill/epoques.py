@@ -62,13 +62,52 @@ def paint(ctx, key, hexc, rough=0.48, grain=0.16, dirt=0.5, k=1.0, metallic=0.15
     return metal(ctx, key, hexc, rough=rough, metallic=metallic, grain=grain, gs=40.0, rust=rust, ra=ra, dirt=dirt, k=k)
 
 
-def glow(ctx, key, hexc, strength=2.0, base="#202020"):
+GLOW_CORE, GLOW_RIM = 1.45, 0.40   # dégradé des émissifs : cœur (face à la caméra) et bord rasant
+
+
+def gradient(m, core=GLOW_CORE, rim=GLOW_RIM):
+    """Émission en DÉGRADÉ (correction V3 du 22/10 : aplats uniformes, « autocollant », tore pris pour un
+    cercle de sélection) : force × core là où la surface fait face à la caméra, × rim en incidence rasante
+    (nœud Layer Weight « Facing »). Le nœud Map Range s'appelle fo_emit_range (blender_batch.set_emit)."""
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    s = float(m["fo_emit_strength"])
+    lw = N.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.5
+    rng = N.new("ShaderNodeMapRange")
+    rng.name = "fo_emit_range"
+    rng.clamp = True
+    rng.inputs["From Min"].default_value = 0.0
+    rng.inputs["From Max"].default_value = 1.0
+    rng.inputs["To Min"].default_value = s * core
+    rng.inputs["To Max"].default_value = s * rim
+    L.new(lw.outputs["Facing"], rng.inputs["Value"])
+    L.new(rng.outputs["Result"], p.inputs["Emission Strength"])
+    m["fo_emit_min"] = s * core
+    m["fo_emit_max"] = s * rim
+    return m
+
+
+def glow(ctx, key, hexc, strength=2.0, base="#202020", core=GLOW_CORE, rim=GLOW_RIM):
     """Surface émissive. La force est multipliée par EMIT_K : à 2 à 3,2 (1re version), la passe principale
-    saturait (cadran du manomètre BLANC au lieu d'ambre, aperçus du 21/10) ; ~1 comme la cheminée V0."""
-    return ctx.S.mat_emissive(ctx.name(key), srgb(hexc), strength=strength * EMIT_K, base=srgb(base))
+    saturait (cadran du manomètre BLANC au lieu d'ambre, aperçus du 21/10) ; ~1 comme la cheminée V0.
+    Émission en dégradé (gradient())."""
+    m = ctx.S.mat_emissive(ctx.name(key), srgb(hexc), strength=strength * EMIT_K, base=srgb(base))
+    return gradient(m, core, rim)
+
+
+def emissive(ctx, key, hexc, strength, base, core=GLOW_CORE, rim=GLOW_RIM):
+    """Émissif à force directe (cristaux, cellules), lui aussi en dégradé."""
+    m = ctx.S.mat_emissive(ctx.name(key), srgb(hexc), strength=strength, base=srgb(base))
+    return gradient(m, core, rim)
 
 
 def glass(ctx, key, hexc, alpha=0.6, rough=0.06):
+    """Verre. Marqué fo_glass : transparent dans la passe de lueur (blender_batch.py), pour que le liquide
+    lumineux vu à travers reste dans la couche de lueur (correction V3 : bulbes de l'époque 8 sombres la
+    nuit) ; opaque dans la passe d'ombre (noir mat). fo_kind « emissive » (émission nulle) : la passe de
+    lueur garde le matériau au lieu de le remplacer par un noir opaque."""
     m = bpy.data.materials.new(ctx.name(key))
     m.use_nodes = True
     p = m.node_tree.nodes["Principled BSDF"]
@@ -76,7 +115,10 @@ def glass(ctx, key, hexc, alpha=0.6, rough=0.06):
     p.inputs["Base Color"].default_value = (c[0], c[1], c[2], 1.0)
     p.inputs["Roughness"].default_value = rough
     p.inputs["Alpha"].default_value = alpha
-    m["fo_kind"] = "surface"
+    p.inputs["Emission Strength"].default_value = 0.0
+    m["fo_kind"] = "emissive"
+    m["fo_glass"] = True
+    m["fo_alpha"] = alpha
     return m
 
 
@@ -86,10 +128,26 @@ def I(n):
 
 
 def halo(ctx, a, b, z, hexc, watts):
-    """Source de la seule passe halo (draw_as_light) ; puissance ∝ I(niveau) (= watts au niveau 10)."""
+    """Source DÉCORATIVE (position et couleur d'une lumière propre de la pièce), gardée dans render.json.
+    Correction V3 du 22/10 (vérification adverse, D2-3) : les halos rendus autour de ces sources ne
+    croissaient pas avec le niveau (somme de la couche light : 1,36 en L06, 0,32 en L07 ; 0,23 en L15). Le
+    halo de NUIT est désormais une LightDefinition de working_visualisations par niveau, intensité I(N) et
+    rayon S(N), identique pour toutes les époques (build_manifest.py, levels_io.level_halo) ; la passe
+    « light » n'est plus rendue. Ces sources ne servent plus qu'à documenter les lumières décoratives
+    possibles en phase 2."""
     p = ctx.P(a, b, z)
     c = srgb(hexc)
     ctx.S.halo_light(tuple(p), c, watts * I(ctx.level) / I(10), radius=0.06, name=ctx.name("halo"))
+
+
+def wear_plate(ctx, p0, p1, wid, lift, name="goulotte_usure"):
+    """Tôle d'usure mate et sombre sur le dessus d'une goulotte (de p0 à p1, relevée de `lift`).
+    Correction V3 du 22/10 : en pose S, la face supérieure d'une goulotte inclinée de 15 à 22° renvoyait
+    l'appoint zénithal vers la caméra (luminance médiane 207 à 255, p95 255 en L21 et L22)."""
+    worn = metal(ctx, name, "#34302C", rough=0.80, metallic=0.15, grain=0.32, gs=38.0, rust="#4A2E1E", ra=0.30,
+                 dirt=0.5)
+    ctx.beam((p0[0], p0[1], p0[2] + lift), (p1[0], p1[1], p1[2] + lift), wid, worn, h=0.014, bevel=0, name=name)
+    return worn
 
 
 # ------------------------------------------------------------------------------------------------
@@ -151,6 +209,30 @@ def lattice(ctx, z0, z1, w0, w1, member, m, rings=3, name="treillis"):
                 p, q = cs[i], cs[(i + 1) % 4]
                 ctx.beam(corner(p[0], p[1], t), corner(q[0], q[1], t2), member * 0.6, m, name=name + "_croix")
                 ctx.beam(corner(q[0], q[1], t), corner(p[0], p[1], t2), member * 0.6, m, name=name + "_croix")
+
+
+def half_L(ctx):
+    """Demi-largeur visée des masses en pose N (bible §4, colonne L du rang de l'époque).
+    Correction V3 du 22/10 (vérification adverse) : 12 époques sur 14 étaient plus étroites que le vanilla
+    (2,94) et l'époque 15 faisait 2,66 pour 3,20. Chaque époque porte désormais des masses latérales qui
+    atteignent ±L/2 en pose N (débord latéral <= 0,10 tuile, sol des milieux de côtés dégagé)."""
+    L = [2.94, 2.96, 2.98, 3.00, 3.01, 3.03, 3.05, 3.07, 3.09, 3.11, 3.13, 3.14, 3.16, 3.18, 3.20]
+    return L[(ctx.level + 1) // 2 - 1] / 2.0
+
+
+def fin4(ctx, z0, z1, zt0, zt1, reach, mat, heading_deg, thick=0.04, name="aileron"):
+    """Aileron vertical en TRAPÈZE : bord d'attache sur l'axe de z0 à z1, bout tronqué à `reach` unités
+    (cap heading_deg : 0 = est, 90 = nord, repère N) de zt0 à zt1. Un bout pointu (kit.fin) n'a pas de
+    masse lisible : l'ouverture de 10 px des mesures D1 l'efface sur 15 % de la portée."""
+    h = math.radians(heading_deg)
+    pts = [(0.0, z0), (0.0, z1), (reach, zt1), (reach, zt0)]
+    v = []
+    for side in (-thick / 2, thick / 2):
+        for (u, z) in pts:
+            v.append((u, side, z))
+    f = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+    o = ctx.mesh(v, f, mat, name)
+    return ctx._finish(o, local=Matrix.Rotation(h, 4, "Z"), at=ctx.P(0.0, 0.0, 0.0))
 
 
 def faces4(ctx, half, fn):
@@ -237,6 +319,18 @@ def e02(ctx, piece):
             for z0 in (0.22, 0.56):
                 ctx.tbox(a - 0.145, b - 0.125, a + 0.145, b + 0.125, z0, z0 + 0.08, hoop, name="cerclage")
             ctx.sph(a, b, 0.90, 0.045, brass, name="boulon")
+    # boucliers plats boulonnés sur les faces est et ouest des montants (kit d'époque ; largeur L du rang 2,
+    # liseré de contact compris : bord à hx - 0,08, levés à 0,16 du sol)
+    hx = half_L(ctx) - 0.08
+    for sa in (-1, 1):
+        for sb in (-1, 1):
+            a0, a1 = sorted((sa * (hx - 0.20), sa * hx))
+            b0, b1 = sorted((sb * 1.02, sb * 1.36))
+            ctx.tbox(a0, b0, a1, b1, 0.16, 0.74, steel, bevel=0.012, name="bouclier")
+            ctx.tbox(a0 - 0.008, b0, a1 + 0.008, b1, 0.36, 0.43, hoop, bevel=0, name="bouclier_cerclage")
+            for z in (0.20, 0.62):
+                for bb in (b0 + 0.07, b1 - 0.07):
+                    ctx.sph(sa * hx, bb, z, 0.022, brass, seg=10, rings=5, name="bouclier_rivet")
     # portique haut
     for s in (-1, 1):
         ctx.tbox(-CP, s * CP - 0.06, CP, s * CP + 0.06, 0.70, 0.82, steel, name="portique")
@@ -281,9 +375,17 @@ def e02(ctx, piece):
             f.beam((s * 0.22, 0.0, 2.50), (s * 0.03, 0.0, 3.12), 0.05, iron, name="potence")
         f.wheel(0.0, 0.03, 3.10, 0.30, 0.04, iron, spokes=6, name="poulie")
         f.beam((0.0, 0.0, 3.12), (0.52, 0.0, 3.00), 0.045, iron, name="bras_lanterne")
-        f.rod((0.50, 0.0, 3.00), (0.50, 0.0, 2.84), 0.009, iron, name="chaine")
-        f.cyl(0.50, 0.0, 2.66, 2.84, 0.085, iron, name="lanterne")
-        f.cyl(0.50, 0.0, 2.69, 2.81, 0.07, flame, name="lanterne_verre")
+        f.rod((0.50, 0.0, 3.00), (0.50, 0.0, 2.88), 0.009, iron, name="chaine")
+        # lanterne en CAGE ouverte (correction V3 du 22/10 : le verre était enfermé dans un cylindre de fer
+        # plein, invisible la nuit) : chapeau, fond, 4 barreaux fins, flamme visible entre eux
+        f.cyl(0.50, 0.0, 2.84, 2.88, 0.10, iron, name="lanterne_chapeau")
+        f.cyl(0.50, 0.0, 2.62, 2.65, 0.09, iron, name="lanterne_fond")
+        for t in range(4):
+            tt = math.pi / 4 + t * math.pi / 2
+            f.rod((0.50 + 0.085 * math.cos(tt), -0.085 * math.sin(tt) / 1.414, 2.65),
+                  (0.50 + 0.085 * math.cos(tt), -0.085 * math.sin(tt) / 1.414, 2.84), 0.009, iron,
+                  name="lanterne_barreau")
+        f.cyl(0.50, 0.0, 2.66, 2.83, 0.075, flame, name="lanterne_verre")
         halo(f, 0.50, 0.0, 2.75, "#FFB060", 20.0)
 
 
@@ -313,7 +415,7 @@ def e03(ctx, piece):
     ctx.cyl(0, 0, 0.30, 2.20, R, copper, verts=56, name="chaudiere")
     for z in (0.46, 1.06, 1.66, 2.12):
         ctx.tor(0, 0, z, R + 0.005, 0.028, brass, name="cerclage")
-    for z in (0.76, 1.36, 1.90):
+    for z in (0.76, 1.90):
         for i in range(22):
             t = 2 * math.pi * i / 22
             ctx.sph(R * math.cos(t), -R * math.sin(t) / 1.4142, z, 0.017, brass, seg=8, rings=4, name="rivet")
@@ -323,16 +425,34 @@ def e03(ctx, piece):
     ctx.cyl(0, 0, 2.53, 2.76, 0.17, brass, name="dome_vapeur")
     ctx.sph(0, 0, 2.76, 0.17, brass, sz=0.55, name="dome_vapeur_chapeau")
     ctx.cyl(0, 0, 2.78, 2.98, 0.035, brass, name="soupape")
-    # hublots ambrés sur 4 côtés (≥ 8×8 px hr), cerclés de laiton
-    for t in (-90.0, 0.0, 90.0, 180.0):
-        tt = math.radians(t)
+    # hublots ambrés cerclés de laiton : 8 autour du fût, à 22,5° + k·45° (correction V3 du 22/10,
+    # vérification adverse : avec 4 hublots aux points cardinaux, celui qui fait face à la caméra en pose S
+    # était caché par la goulotte et le tuyau (13 px de lueur) ; zone chaude < 64 px dans les 3 autres
+    # poses). Deux hublots sont vus de trois quarts dans chaque pose, de part et d'autre du tuyau ;
+    # rayon 0,095 -> 0,17 (hublot d'au moins 10 × 10 px hr)
+    for k in range(8):
+        tt = math.radians(22.5 + 45.0 * k)
         x, y = (R + 0.01) * math.cos(tt), (R + 0.01) * math.sin(tt)
-        o = ctx.S.cylinder(0.095, 0.03, (0, 0, 0), amber, ctx.name("hublot"), verts=24, bevel_w=0)
+        o = ctx.S.cylinder(0.17, 0.03, (0, 0, 0), amber, ctx.name("hublot"), verts=32, bevel_w=0)
         ctx._finish(o, local=Matrix.Rotation(tt, 4, "Z") @ Matrix.Rotation(math.pi / 2, 4, "Y"),
-                    at=ctx.P(x, -y / 1.4142, 0.95))
-        o2 = ctx.S.torus(0.10, 0.02, (0, 0, 0), brass, ctx.name("hublot_bague"), major_seg=24, minor_seg=6)
+                    at=ctx.P(x, -y / 1.4142, 1.36))
+        o2 = ctx.S.torus(0.175, 0.024, (0, 0, 0), brass, ctx.name("hublot_bague"), major_seg=32, minor_seg=6)
         ctx._finish(o2, local=Matrix.Rotation(tt, 4, "Z") @ Matrix.Rotation(math.pi / 2, 4, "Y"),
-                    at=ctx.P((R + 0.025) * math.cos(tt), -(R + 0.025) * math.sin(tt) / 1.4142, 0.95))
+                    at=ctx.P((R + 0.025) * math.cos(tt), -(R + 0.025) * math.sin(tt) / 1.4142, 1.36))
+    # réservoirs d'eau d'alimentation aux angles avant (largeur L du rang 3, liseré de contact compris)
+    hx = half_L(ctx) - 0.05
+    for s in (-1, 1):
+        ra = 0.24
+        ta, tb = s * (hx - ra), -0.78
+        for k in range(3):
+            tt = 2 * math.pi * k / 3 + 0.5
+            ctx.rod((ta + 0.16 * math.cos(tt), tb - 0.16 * math.sin(tt) / 1.414, 0.0),
+                    (ta + 0.16 * math.cos(tt), tb - 0.16 * math.sin(tt) / 1.414, 0.20), 0.03, iron, name="reservoir_pied")
+        ctx.cyl(ta, tb, 0.18, 0.98, ra, copper, verts=40, name="reservoir")
+        ctx.lathe(ta, tb, [(ra, 0.98), (ra * 0.85, 1.06), (ra * 0.45, 1.11), (0.0, 1.12)], copper, name="reservoir_dome")
+        for z in (0.30, 0.86):
+            ctx.tor(ta, tb, z, ra + 0.004, 0.022, brass, name="reservoir_cerclage")
+        ctx.pipe_path([(ta - s * 0.18, tb + 0.05, 0.70), (s * 0.50, -0.55, 0.70)], 0.035, copper)
     halo(ctx, 0.0, 0.62, 0.95, "#FFC060", 16.0)
     # cheminée ronde au coin arrière gauche (opposé à la sortie), collerette et lèvre
     ca, cb = -0.62, 0.50
@@ -348,13 +468,14 @@ def e03(ctx, piece):
     ctx.beam((0.40, -0.25, 0.95), (0.85, -0.25, 0.95), 0.14, copper, name="cylindre_moteur")
     # tuyaux de cuivre vers la goulotte
     ctx.pipe_path([(0.0, -0.40, 1.60), (0.0, -0.75, 1.60), (0.0, -0.75, 0.95)], 0.045, copper)
-    chute(ctx, copper, iron, z_in=0.88, z_out=0.38, lip=brass)
+    # lèvre en fonte (correction V3 du 22/10 : lèvre en laiton brillant, p95 248 sur la goulotte en pose S)
+    chute(ctx, copper, iron, z_in=0.88, z_out=0.38, lip=iron)
     bit(ctx, iron, 0.25, r=0.2)
     if piece:
         f = ctx.fixed()
         f.level = ctx.level
         brass2 = metal(f, "e03p_laiton", "#9C7E45", rough=0.22, metallic=0.9, grain=0.1, dirt=0.3)
-        dial = glow(f, "e03p_cadran", "#FFC060", strength=2.6)
+        dial = glow(f, "e03p_cadran", "#FFC060", strength=2.0, core=1.25, rim=0.55)
         # grand manomètre sur console, à gauche du dôme de vapeur (sort de la silhouette)
         f.beam((-0.12, 0.0, 2.63), (-0.42, 0.0, 2.90), 0.05, brass2, name="console_manometre")
         gz, ga = 3.00, -0.44
@@ -363,8 +484,20 @@ def e03(ctx, piece):
         f._finish(o, local=tilt, at=f.P(ga, 0.0, gz))
         o = f.S.cylinder(0.205, 0.012, (0, 0, 0), dial, f.name("manometre_cadran"), verts=40, bevel_w=0)
         f._finish(o, local=Matrix.Translation((0, -0.03, 0.01)) @ tilt, at=f.P(ga, 0.0, gz))
-        f.box3(ga, -0.02, gz, (0.02, 0.012, 0.14), metal(f, "e03p_aiguille", "#1A1612", metallic=0.2),
-               local=Matrix.Rotation(math.radians(35), 4, "Y") @ Matrix.Translation((0, -0.06, 0)), name="aiguille")
+        # cadran lisible (correction V3 du 22/10 : disque crème plat) : 10 graduations et aiguille sombres
+        # DEVANT le cadran lumineux (donc hors de la couche de lueur), moyeu en laiton
+        ink = metal(f, "e03p_aiguille", "#1A1612", metallic=0.2)
+        for k in range(10):
+            t = math.radians(-225 + 27 * k)
+            o = f.S.box((0.018, 0.055, 0.012), (0, 0, 0), ink, f.name("graduation"), bevel_w=0)
+            f._finish(o, local=Matrix.Translation((0, -0.036, 0.012)) @ tilt @ Matrix.Translation(
+                (0.16 * math.cos(t), 0.16 * math.sin(t), 0.008)) @ Matrix.Rotation(t - math.pi / 2, 4, "Z"),
+                at=f.P(ga, 0.0, gz))
+        o = f.S.box((0.022, 0.15, 0.012), (0, 0, 0), ink, f.name("aiguille"), bevel_w=0)
+        f._finish(o, local=Matrix.Translation((0, -0.040, 0.014)) @ tilt @ Matrix.Rotation(math.radians(-35), 4, "Z")
+                  @ Matrix.Translation((0, 0.06, 0.010)), at=f.P(ga, 0.0, gz))
+        o = f.S.cylinder(0.03, 0.03, (0, 0, 0), brass2, f.name("moyeu"), verts=16, bevel_w=0)
+        f._finish(o, local=Matrix.Translation((0, -0.044, 0.016)) @ tilt, at=f.P(ga, 0.0, gz))
         # sifflet en laiton au sommet
         f.cyl(0.0, 0.0, 2.98, 3.20, 0.05, brass2, name="sifflet")
         f.lathe(0.0, 0.0, [(0.05, 3.20), (0.09, 3.28), (0.07, 3.36), (0.0, 3.38)], brass2, name="sifflet_cloche")
@@ -427,26 +560,30 @@ def e04(ctx, piece):
         for sb in (-1, 1):
             ctx.cyl(sa * 0.78, sb * 0.78, 1.62, 1.66, 0.06, black, name="feu_socle")
             ctx.sph(sa * 0.78, sb * 0.78, 1.73, 0.085, orange, name="feu_angle")
-    ctx.cyl(-1.05, 1.05, 0.42, 1.30, 0.035, galva, name="torchere")
-    ctx.cyl(-1.05, 1.05, 1.24, 1.30, 0.06, black, name="torchere_bec")
+    ctx.cyl(-1.30, 1.28, 0.42, 1.30, 0.035, galva, name="torchere")
+    ctx.cyl(-1.30, 1.28, 1.24, 1.30, 0.06, black, name="torchere_bec")
     flame = glow(ctx, "e04_flamme", "#FFB040", strength=2.8)
-    ctx.lathe(-1.05, 1.05, [(0.0, 1.30), (0.085, 1.36), (0.07, 1.46), (0.0, 1.58)], flame, seg=16,
+    ctx.lathe(-1.30, 1.28, [(0.0, 1.30), (0.085, 1.36), (0.07, 1.46), (0.0, 1.58)], flame, seg=16,
               name="torchere_flamme")
-    halo(ctx, -1.05, 1.05, 1.45, "#FF8C1A", 6.0)
+    halo(ctx, -1.30, 1.28, 1.45, "#FF8C1A", 6.0)
     # colonne de pompe centrale (tour) et chapeau
     ctx.cyl(0, 0, 1.36, 2.74, 0.20, galva, name="colonne")
     for z in (1.80, 2.30):
         ctx.cyl(0, 0, z, z + 0.08, 0.215, yellow, name="colonne_bande")
     ctx.cyl(0, 0, 2.74, 2.86, 0.26, yellow, name="colonne_chapeau")
-    # cuve horizontale à l'arrière (axe est-ouest dans le repère N), sur berceaux
-    o = ctx.S.cylinder(0.30, 1.50, (0, 0, 0), galva, ctx.name("cuve"), verts=40, bevel_w=0.01)
+    # cuve horizontale à l'arrière (axe est-ouest dans le repère N), sur berceaux ; allongée jusqu'à la
+    # largeur L du rang 4 (correction V3 du 22/10 : L = 2,78 en pose N, cible 3,00), fonds bombés
+    hx = half_L(ctx)
+    lc = 2 * (hx - 0.105)
+    o = ctx.S.cylinder(0.30, lc, (0, 0, 0), galva, ctx.name("cuve"), verts=40, bevel_w=0.01)
     ctx._finish(o, local=Matrix.Rotation(math.pi / 2, 4, "Y"), at=ctx.P(0.0, 1.00, 0.72))
     for s in (-1, 1):
         o = ctx.S.sphere(0.30, (0, 0, 0), galva, ctx.name("cuve_fond"), seg=24, rings=12)
         o.data.transform(Matrix.Diagonal((0.35, 1, 1, 1)))
-        ctx._finish(o, at=ctx.P(s * 0.75, 1.00, 0.72))
-        ctx.tbox(s * 0.50 - 0.05, 0.80, s * 0.50 + 0.05, 1.20, 0.40, 0.55, black, name="berceau")
-    for x in (-0.25, 0.25):
+        ctx._finish(o, at=ctx.P(s * lc / 2, 1.00, 0.72))
+        for xb in (0.50, 1.05):
+            ctx.tbox(s * xb - 0.05, 0.80, s * xb + 0.05, 1.20, 0.40, 0.55, black, name="berceau")
+    for x in (-1.0, -0.25, 0.25, 1.0):
         o = ctx.S.torus(0.305, 0.02, (0, 0, 0), black, ctx.name("cuve_cerclage"), major_seg=32, minor_seg=6)
         ctx._finish(o, local=Matrix.Rotation(math.pi / 2, 4, "Y"), at=ctx.P(x, 1.00, 0.72))
     ctx.pipe_path([(0.0, 0.80, 0.90), (0.0, 0.55, 0.90)], 0.04, galva)
@@ -489,10 +626,11 @@ def e05(ctx, piece):
     tung_d = metal(ctx, "e05_tungstene_sombre", "#2C2B2F", rough=0.45, metallic=0.5, grain=0.25, k=1.2)
     basalt = metal(ctx, "e05_basalte", "#2A2624", rough=0.85, metallic=0.0, grain=0.45, gs=25.0)
     ember = glow(ctx, "e05_braise", "#FF4A10", strength=2.8)
-    # contreforts inclinés aux 4 angles
+    # contreforts inclinés aux 4 angles ; pied élargi jusqu'à la largeur L du rang 5 (correction V3 du 22/10)
+    hx = half_L(ctx) - 0.026   # liseré de contact compris
     for sa in (-1, 1):
         for sb in (-1, 1):
-            a0, a1 = sorted((sa * 1.42, sa * 0.98))
+            a0, a1 = sorted((sa * hx, sa * 0.98))
             b0, b1 = sorted((sb * 1.42, sb * 0.98))
             tr = (min(sa * 1.22, sa * 1.04), min(sb * 1.22, sb * 1.04), max(sa * 1.22, sa * 1.04), max(sb * 1.22, sb * 1.04))
             ctx.tfrustum(a0, b0, a1, b1, 0.0, 0.0, 0.95, tung_d, top_rect=tr, name="contrefort")
@@ -521,14 +659,23 @@ def e05(ctx, piece):
             for (a, b) in ((tt, h), (tt, -h), (h, tt), (-h, tt)):
                 ctx.sph(a, b, z, 0.034, tung_d, seg=10, rings=5, name="rivet_lourd")
     ctx.tfrustum(-0.50, -0.50, 0.50, 0.50, 1.72, 0.32, 2.95, tung_d, name="crete")
-    # fentes de braise sur la tourelle (face sud de chaque direction comprise)
+    # gueule de braise sur chaque face de la tourelle (face sud de chaque direction comprise). Correction
+    # V3 du 22/10 (D2-1 strict : « une bande de quelques pixels ne se voit pas ») : fentes de 0,06 de haut
+    # (3 px hr) -> gueule de 0,30 × 0,24 (carré chaud de 8 × 8 px hr dans les 4 poses), braise plus claire
+    ember_hot = glow(ctx, "e05_gueule", "#FF7A2A", strength=3.4, core=1.6, rim=0.5)
     def slits2(a, b, na, nb):
         if na == 0:
-            ctx.box3(0, b, 1.40, (0.40, 0.05, 0.06), ember, bevel=0,
-                     local=Matrix.Rotation(math.radians(-22) * nb, 4, "X"), name="fente_haute")
+            ctx.box3(0, b, 1.38, (0.34, 0.05, 0.24), ember_hot, bevel=0,
+                     local=Matrix.Rotation(math.radians(-22) * nb, 4, "X"), name="gueule")
+            for t in (-0.21, 0.21):
+                ctx.box3(t, b, 1.38, (0.06, 0.07, 0.30), tung_d, bevel=0.01,
+                         local=Matrix.Rotation(math.radians(-22) * nb, 4, "X"), name="gueule_cadre")
         else:
-            ctx.box3(a, 0, 1.40, (0.05, 0.55, 0.06), ember, bevel=0,
-                     local=Matrix.Rotation(math.radians(22) * na, 4, "Y"), name="fente_haute")
+            ctx.box3(a, 0, 1.38, (0.05, 0.34, 0.24), ember_hot, bevel=0,
+                     local=Matrix.Rotation(math.radians(22) * na, 4, "Y"), name="gueule")
+            for t in (-0.21 / 1.4142, 0.21 / 1.4142):
+                ctx.box3(a, t, 1.38, (0.07, 0.06, 0.30), tung_d, bevel=0.01,
+                         local=Matrix.Rotation(math.radians(22) * na, 4, "Y"), name="gueule_cadre")
     faces4(ctx, 0.66, slits2)
     # 2 pointes de basalte aux angles arrière
     for s in (-1, 1):
@@ -578,6 +725,19 @@ def e06(ctx, piece):
         ctx.tbox(-CP, s * CP - 0.06, CP, s * CP + 0.06, 0.40, 0.52, steel, name="longeron")
         ctx.tbox(s * CP - 0.06, -CP, s * CP + 0.06, CP, 0.40, 0.52, steel, name="longeron")
         ctx.tbox(-CP, s * 0.5 - 0.05, CP, s * 0.5 + 0.05, 0.40, 0.50, steel, name="porteur")
+    # bobines d'inductance latérales sur consoles (kit d'époque : bobines ; largeur L du rang 6, correction
+    # V3 du 22/10 : L = 2,69 en pose N, cible 3,03) ; sol des milieux de côtés dégagé (entrées de fluide)
+    hx = half_L(ctx)
+    for s in (-1, 1):
+        rc = 0.215
+        ca = s * (hx - rc)
+        ctx.tbox(min(s * 1.16, s * 1.30), -0.10, max(s * 1.16, s * 1.30), 0.10, 0.40, 0.52, steel, name="console_bobine")
+        ctx.cyl(ca, 0.0, 0.52, 0.60, rc + 0.01, steel, name="bobine_flasque")
+        ctx.cyl(ca, 0.0, 0.60, 1.02, rc - 0.02, copper, name="bobine_laterale")
+        for i in range(5):
+            ctx.tor(ca, 0.0, 0.64 + i * 0.085, rc - 0.018, 0.022, copper, mseg=8, name="bobine_spire")
+        ctx.cyl(ca, 0.0, 1.02, 1.10, rc + 0.01, steel, name="bobine_flasque")
+        insulator_stack(ctx, ca, 0.0, 1.10, 2, 0.09, 0.08, cer, dark, name="bobine_borne")
     # carter à persiennes
     ctx.tbox(-0.62, -0.62, 0.62, 0.62, 0.50, 1.10, steel, bevel=0.02, name="carter")
     def louvers(a, b, na, nb):
@@ -649,12 +809,14 @@ def e07(ctx, piece):
     bronze = metal(ctx, "e07_bronze", "#6A5236", rough=0.30, metallic=0.75, grain=0.18, rust="#3E5A48", ra=0.25, k=1.2)
     stone = metal(ctx, "e07_pierre", "#4A4038", rough=0.85, metallic=0.0, grain=0.4, gs=22.0, k=1.15)
     crys = ctx.S.mat_emissive(ctx.name("e07_cristal"), srgb("#B070FF"), strength=0.9, base=srgb("#9A5CFF"))
-    # 4 blocs de pierre taillée aux angles + barres de bronze
+    # 4 blocs de pierre taillée aux angles + barres de bronze ; blocs élargis vers l'extérieur jusqu'à la
+    # largeur L du rang 7 (correction V3 du 22/10)
+    hx = half_L(ctx) - 0.07   # liseré de contact compris
     for sa in (-1, 1):
         for sb in (-1, 1):
-            a, b = sa * 1.14, sb * 1.14
-            ctx.tfrustum(a - 0.26, b - 0.26, a + 0.26, b + 0.26, 0.0, 0.05, 0.42, stone, name="bloc")
-            ctx.tbox(a - 0.20, b - 0.20, a + 0.20, b + 0.20, 0.42, 0.48, bronze, name="sertissure")
+            a, b = sa * (hx - 0.32), sb * 1.14
+            ctx.tfrustum(a - 0.32, b - 0.26, a + 0.32, b + 0.26, 0.0, 0.05, 0.42, stone, name="bloc")
+            ctx.tbox(a - 0.24, b - 0.20, a + 0.24, b + 0.20, 0.42, 0.48, bronze, name="sertissure")
     for s in (-1, 1):
         ctx.tbox(-0.9, s * 1.14 - 0.05, 0.9, s * 1.14 + 0.05, 0.20, 0.30, bronze, name="barre")
         ctx.tbox(s * 1.14 - 0.05, -0.9, s * 1.14 + 0.05, 0.9, 0.20, 0.30, bronze, name="barre")
@@ -732,16 +894,19 @@ def e08(ctx, piece):
         ctx.tor(0, 0, zr, 0.19, 0.022, vdg, name="cage_bague")
     ctx.lathe(0, 0, [(0.24, 3.21), (0.24, 3.29), (0.16, 3.37), (0.0, 3.41)], vdg, name="chapeau")
     # 2 cuves sphériques en verre aux angles arrière (liquide lumineux dans la moitié basse), berceaux
+    # cuves écartées et agrandies jusqu'à la largeur L du rang 8 (correction V3 du 22/10 : L = 2,75)
+    hx = half_L(ctx)
     for s in (-1, 1):
-        a, b = s * 0.93, 0.93
-        ctx.sph2(a, b, 0.86, 0.40, gl, liq, level=0.05, name="cuve_verre")
-        ctx.tor(a, b, 0.66, 0.33, 0.04, vdg, name="berceau")
+        rt = 0.48
+        a, b = s * (hx - rt), 0.86
+        ctx.sph2(a, b, 0.90, rt, gl, liq, level=0.05, name="cuve_verre")
+        ctx.tor(a, b, 0.68, 0.36, 0.04, vdg, name="berceau")
         for t in range(3):
             tt = 2 * math.pi * t / 3 + 0.4
-            ctx.rod((a + 0.30 * math.cos(tt), b - 0.30 * math.sin(tt) / 1.414, 0.0),
-                    (a + 0.33 * math.cos(tt), b - 0.33 * math.sin(tt) / 1.414, 0.66), 0.035, vdg, name="berceau_pied")
-        ctx.cyl(a, b, 1.22, 1.34, 0.08, vdg, name="col")
-        ctx.pipe_path([(a, b, 1.30), (a, b, 1.50), (s * 0.55, 0.40, 1.62), (s * 0.24, 0.12, 1.62)], 0.045, vdg)
+            ctx.rod((a + 0.33 * math.cos(tt), b - 0.33 * math.sin(tt) / 1.414, 0.0),
+                    (a + 0.36 * math.cos(tt), b - 0.36 * math.sin(tt) / 1.414, 0.68), 0.035, vdg, name="berceau_pied")
+        ctx.cyl(a, b, 1.30, 1.42, 0.08, vdg, name="col")
+        ctx.pipe_path([(a, b, 1.38), (a, b, 1.56), (s * 0.55, 0.40, 1.66), (s * 0.24, 0.12, 1.66)], 0.045, vdg)
         halo(ctx, a, b, 0.8, "#A8FF3A", 8.0)
     halo(ctx, 0, 0, 2.9, "#A8FF3A", 10.0)
     chute(ctx, vdg, rubber, z_in=0.95, z_out=0.55, lip=rubber)
@@ -796,6 +961,17 @@ def e09(ctx, piece):
                     at=ctx.P(a + 0.02 * na, b + 0.02 * nb, 0.70))
     faces4(ctx, 1.12, port)
     halo(ctx, 0, 1.25, 0.7, "#5CFF4A", 10.0)
+    # radiateurs de plomb à ailettes sur les faces est et ouest (largeur L du rang 9, correction V3 du 22/10 :
+    # L = 2,80 en pose N, cible 3,09) ; posés à z >= 0,38 : sol des milieux de côtés dégagé
+    hx = half_L(ctx)
+    for s in (-1, 1):
+        a0, a1 = sorted((s * 1.08, s * hx))
+        ctx.tbox(a0, -0.44, a1, 0.44, 0.38, 0.86, lead, bevel=0.015, name="radiateur")
+        ctx.tbox(a0 + 0.01, -0.42, a1 - 0.01, 0.42, 0.86, 0.90, dark, bevel=0, name="radiateur_fond")
+        for k in range(7):
+            bb = -0.36 + k * 0.12
+            ctx.tbox(a0, bb - 0.035, a1, bb + 0.035, 0.86, 1.04, lead, bevel=0.006, name="ailette")
+        ctx.tbox(a0 - 0.005, -0.445, a1 + 0.005, 0.445, 0.52, 0.60, warn, bevel=0.006, name="radiateur_bande")
     # pont octogonal supérieur
     ctx.tprism(octagon(0.72, 0.28), 1.16, 1.34, lead, name="pont")
     # évent hyperboloïde (tour de refroidissement) au-dessus de la tige, ouvert en haut, cœur vert
@@ -846,38 +1022,54 @@ def e10(ctx, piece):
     shell = paint(ctx, "e10_carenage", "#A8ADB3", rough=0.32, metallic=0.25, grain=0.08, dirt=0.4, k=0.85)
     black = paint(ctx, "e10_noir", "#222428", rough=0.45, metallic=0.3, grain=0.08)
     blue = glow(ctx, "e10_bleu", "#3AA8FF", strength=2.8)
-    # 4 pieds télescopiques et patins (le corps se lève : vide sous le boîtier)
+    # Correction V3 du 22/10 (vérification adverse, D1-2 : IoU(époque 9, époque 10) = 0,68, plus que des
+    # paires de même ère) : boîtier plus compact (±0,88 au lieu de ±1,0) levé plus haut (dessous à 1,10 au
+    # lieu de 0,86) sur des pieds plus fins, nacelles latérales (largeur L du rang 10 : 2,53 -> 3,11 en N)
+    zb0, zb1, hb = 1.10, 1.70, 0.88
+    # 4 pieds télescopiques fins et patins (le corps se lève : vide sous le boîtier)
     for sa in (-1, 1):
         for sb in (-1, 1):
             a, b = sa * 1.12, sb * 1.12
-            ctx.cyl(a, b, 0.0, 0.05, 0.16, black, name="patin")
-            ctx.cyl(a, b, 0.05, 0.42, 0.085, black, name="pied_bas")
+            ctx.cyl(a, b, 0.0, 0.05, 0.13, black, name="patin")
+            ctx.cyl(a, b, 0.05, 0.46, 0.06, black, name="pied_bas")
             # fût haut incliné vers le dessous du boîtier (1re version : fût vertical à ±1,12 sous un boîtier
             # de ±1,0 aux arêtes arrondies : pieds DÉTACHÉS du corps au gros plan zoom 2 du 22/10)
-            ctx.rod((a, b, 0.42), (sa * 0.84, sb * 0.84, 0.92), 0.06, shell, name="pied_haut")
-            ctx.sph(sa * 0.84, sb * 0.84, 0.90, 0.08, black, name="pied_rotule")
-            ctx.tor(a, b, 0.42, 0.088, 0.02, blue, name="pied_voyant")
+            ctx.rod((a, b, 0.46), (sa * (hb - 0.14), sb * (hb - 0.14), zb0 + 0.06), 0.042, shell, name="pied_haut")
+            ctx.sph(sa * (hb - 0.14), sb * (hb - 0.14), zb0 + 0.04, 0.065, black, name="pied_rotule")
+            ctx.tor(a, b, 0.46, 0.063, 0.016, blue, name="pied_voyant")
     # boîtier lisse aux arêtes arrondies, joint noir, bandeaux de voyants
-    ctx.tbox(-1.0, -1.0, 1.0, 1.0, 0.86, 1.46, shell, bevel=0.11, name="boitier")
-    ctx.tbox(-1.015, -1.015, 1.015, 1.015, 1.12, 1.17, black, bevel=0.02, name="joint")
+    ctx.tbox(-hb, -hb, hb, hb, zb0, zb1, shell, bevel=0.11, name="boitier")
+    ctx.tbox(-hb - 0.015, -hb - 0.015, hb + 0.015, hb + 0.015, zb0 + 0.26, zb0 + 0.31, black, bevel=0.02, name="joint")
     def leds(a, b, na, nb):
         if na == 0:
-            ctx.tbox(-0.50, b - 0.01 * nb, 0.50, b + 0.025 * nb, 1.26, 1.36, blue, bevel=0, name="bandeau")
+            ctx.tbox(-0.42, b - 0.01 * nb, 0.42, b + 0.025 * nb, zb0 + 0.40, zb0 + 0.50, blue, bevel=0, name="bandeau")
         else:
-            ctx.tbox(a - 0.01 * na, -0.50, a + 0.025 * na, 0.50, 1.26, 1.36, blue, bevel=0, name="bandeau")
-    faces4(ctx, 1.0, leds)
+            ctx.tbox(a - 0.01 * na, -0.42, a + 0.025 * na, 0.42, zb0 + 0.40, zb0 + 0.50, blue, bevel=0, name="bandeau")
+    faces4(ctx, hb, leds)
     halo(ctx, 0, 1.1, 1.3, "#3AA8FF", 12.0)
+    # nacelles de capteurs latérales (capsules horizontales nord-sud), sur pylônes
+    hx = half_L(ctx)
+    for s in (-1, 1):
+        rp = 0.19
+        pa = s * (hx - rp)
+        ctx.tbox(min(s * (hb - 0.05), s * (hx - 0.30)), -0.09, max(s * (hb - 0.05), s * (hx - 0.30)), 0.09, zb0 + 0.20, zb0 + 0.34,
+                 black, bevel=0.01, name="nacelle_pylone")
+        ctx.rod((pa, -0.30, zb0 + 0.27), (pa, 0.30, zb0 + 0.27), rp, shell, verts=32, name="nacelle")
+        for bb in (-0.30, 0.30):
+            ctx.sph(pa, bb, zb0 + 0.27, rp, shell, seg=24, rings=12, name="nacelle_bout")
+        ctx.rod((pa, -0.05, zb0 + 0.27), (pa, 0.05, zb0 + 0.27), rp + 0.006, black, verts=32, name="nacelle_bague")
     # trépan sous le boîtier (dans le vide), anneau bleu
-    ctx.cyl(0, 0, 0.12, 0.86, 0.22, black, name="tige")
-    ctx.cyl(0, 0, 0.0, 0.14, 0.22, black, r2=0.06, name="pointe")
-    ctx.tor(0, 0, 0.50, 0.23, 0.03, blue, name="anneau")
+    ctx.cyl(0, 0, 0.12, zb0, 0.20, black, name="tige")
+    ctx.cyl(0, 0, 0.0, 0.14, 0.20, black, r2=0.06, name="pointe")
+    ctx.tor(0, 0, 0.55, 0.21, 0.03, blue, name="anneau")
     # dôme lisse et capsule de capteurs (tour)
-    ctx.sph(0, 0, 1.46, 0.70, shell, sz=0.55, name="dome")
-    ctx.cyl(0, 0, 1.70, 3.48, 0.23, shell, name="capsule")
+    ctx.sph(0, 0, zb1, 0.60, shell, sz=0.55, name="dome")
+    ctx.cyl(0, 0, zb1 + 0.24, 3.48, 0.23, shell, name="capsule")
     ctx.sph(0, 0, 3.48, 0.23, shell, name="capsule_tete")
-    for z in (2.10, 2.80):
+    for z in (2.10, 2.86):
         ctx.cyl(0, 0, z, z + 0.07, 0.235, black, bevel=0, name="capsule_bande")
-    ctx.cyl(0, 0, 2.45, 2.57, 0.236, blue, bevel=0, name="capsule_voyant")
+    # voyant de la capsule : 0,12 -> 0,26 de haut (D2-1 strict, carré chaud de 8 × 8 px hr dans les 4 poses)
+    ctx.cyl(0, 0, 2.36, 2.62, 0.236, blue, bevel=0, name="capsule_voyant")
     o = ctx.S.cylinder(0.10, 0.04, (0, 0, 0), black, ctx.name("optique"), verts=24, bevel_w=0)
     ctx._finish(o, local=Matrix.Rotation(math.pi / 2, 4, "X"), at=ctx.P(0, 0.17, 3.10))
     # mât de capteurs (fin) et antennes fouet
@@ -886,11 +1078,14 @@ def e10(ctx, piece):
         ctx.sph(0.0, 0.0, z, 0.045, shell, name="capteur")
     ctx.sph(0, 0, 4.25, 0.04, blue, name="mat_feu")
     for s in (-1, 1):
-        ctx.rod((s * 0.85, 0.85, 1.46), (s * 0.95, 0.95, 2.35), 0.012, black, name="antenne_fouet")
-        ctx.sph(s * 0.95, 0.95, 2.36, 0.025, blue, name="antenne_feu")
+        ctx.rod((s * (hb - 0.12), hb - 0.12, zb1), (s * hb, hb, zb1 + 0.89), 0.012, black, name="antenne_fouet")
+        ctx.sph(s * hb, hb, zb1 + 0.90, 0.025, blue, name="antenne_feu")
     halo(ctx, 0, 0, 2.45, "#3AA8FF", 8.0)
-    ctx.beam((0, -0.70, 1.05), (0, CHUTE_OUT, 0.55), 0.42, shell, h=0.10, name="goulotte_carenee")
-    ctx.beam((0, -0.75, 1.10), (0, CHUTE_OUT + 0.05, 0.60), 0.44, black, h=0.03, name="goulotte_levre")
+    # goulotte carénée, dessus en tôle d'usure sombre (correction V3 du 22/10, pose S : carénage clair tourné
+    # vers l'appoint zénithal)
+    ctx.beam((0, -0.70, zb0 + 0.19), (0, CHUTE_OUT, 0.62), 0.42, shell, h=0.10, name="goulotte_carenee")
+    ctx.beam((0, -0.75, zb0 + 0.24), (0, CHUTE_OUT + 0.05, 0.67), 0.44, black, h=0.03, name="goulotte_levre")
+    wear_plate(ctx, (0, -0.75, zb0 + 0.24), (0, CHUTE_OUT + 0.05, 0.67), 0.34, 0.02)
     if piece:
         f = ctx.fixed()
         f.level = ctx.level
@@ -937,19 +1132,31 @@ def e11(ctx, piece):
     # flèche élancée (tour)
     prof = [(0.30, 1.20), (0.26, 1.90), (0.20, 2.70), (0.13, 3.40), (0.085, 3.86), (0.0, 4.08)]
     ctx.lathe(0, 0, prof, white, seg=32, name="fleche")
-    for z in (1.70, 2.35, 3.00):
-        r = 0.30 - (z - 1.2) * 0.075 + 0.006
-        ctx.cyl(0, 0, z, z + 0.11, r, light, bevel=0, name="ligne_fleche")
-    # 4 ailerons triangulaires (caps diagonaux), pointe balayée vers le bas
+    # lignes bleu-blanc ; celle du milieu passe de 0,11 à 0,24 de haut (D2-1 strict : carré chaud de
+    # 8 × 8 px hr dans les 4 poses)
+    for z, hz in ((1.70, 0.11), (2.30, 0.24), (3.00, 0.11)):
+        r = 0.30 - (z + hz / 2 - 1.25) * 0.075 + 0.010
+        ctx.cyl(0, 0, z, z + hz, r, light, bevel=0, name="ligne_fleche")
+    # 4 grands ailerons en trapèze (caps diagonaux), bord de fuite balayé vers le bas. Correction V3 du
+    # 22/10 (vérification adverse : L = 2,59 en pose N pour 3,13, aire 3,60 t² sous le vanilla 4,99) :
+    # portée 0,88 -> jusqu'à la largeur L du rang 11, bout tronqué de 0,40 de haut (masse lisible) ;
+    # les 4 caps diagonaux donnent la même silhouette dans les 4 poses
+    R11 = half_L(ctx) / math.cos(math.radians(45.0))
     for h in (45.0, 135.0, 225.0, 315.0):
-        ctx.fin(0, 0, 1.25, 2.95, 0.88, -0.22, white, h, thick=0.045, name="aileron")
+        fin4(ctx, 1.25, 2.80, 0.95, 1.35, R11, white, h, thick=0.045, name="aileron")
         hh = math.radians(h)
-        ctx.beam((0.30 * math.cos(hh), -0.30 * math.sin(hh) / 1.414, 1.95),
-                 (0.78 * math.cos(hh), -0.78 * math.sin(hh) / 1.414, 1.10), 0.03, light, h=0.06, name="ligne_aileron")
+        ctx.beam((0.35 * math.cos(hh), -0.35 * math.sin(hh) / 1.414, 2.05),
+                 ((R11 - 0.12) * math.cos(hh), -(R11 - 0.12) * math.sin(hh) / 1.414, 1.30), 0.03, light, h=0.06,
+                 name="ligne_aileron")
     halo(ctx, 0, 0.5, 1.6, "#BFE6FF", 10.0)
     halo(ctx, 0, 0, 2.6, "#BFE6FF", 8.0)
-    ctx.beam((0, -0.45, 1.10), (0, CHUTE_OUT, 0.62), 0.36, white, h=0.08, name="goulotte_effilee")
-    ctx.beam((0, -0.45, 1.16), (0, CHUTE_OUT, 0.68), 0.10, ti, h=0.05, name="goulotte_arete")
+    # goulotte effilée en titane PATINÉ, tôle d'usure sombre sur le dessus (correction V3 du 22/10 : en pose S,
+    # l'alliage blanc tourné vers l'appoint zénithal donnait une dalle presque blanche, p95 255)
+    patina = metal(ctx, "e11_titane_patine", "#6E747A", rough=0.58, metallic=0.40, grain=0.22, dirt=0.6)
+    ctx.beam((0, -0.45, 1.10), (0, CHUTE_OUT, 0.62), 0.36, patina, h=0.08, name="goulotte_effilee")
+    wear_plate(ctx, (0, -0.45, 1.10), (0, CHUTE_OUT, 0.62), 0.28, 0.047)
+    ctx.beam((-0.18, -0.45, 1.15), (-0.18, CHUTE_OUT, 0.67), 0.03, ti, h=0.05, name="goulotte_rive")
+    ctx.beam((0.18, -0.45, 1.15), (0.18, CHUTE_OUT, 0.67), 0.03, ti, h=0.05, name="goulotte_rive")
     if piece:
         f = ctx.fixed()
         f.level = ctx.level
@@ -957,13 +1164,17 @@ def e11(ctx, piece):
         light2 = glow(f, "e11p_ligne", "#BFE6FF", strength=3.0)
         # flèche-capteur : collier, fût fin, pointe en losange, 3 ailettes
         # (1re version : fût fin et ailettes de 0,24 : 0,08 t² ajoutés, sous la cible 0,10)
+        # correction V3 du 22/10 (vérification adverse : flèche-capteur grise sur la flèche grise, changement
+        # fort sur 80 à 100 px seulement) : nacelle en céramique claire, bague lumineuse bleu-blanc, feu plus gros
+        bright = paint(f, "e11p_ceramique", "#D4DCE4", rough=0.30, metallic=0.1, grain=0.06, dirt=0.35, k=0.85)
         f.tor(0, 0, 3.92, 0.17, 0.04, ti2, name="collier")
-        f.lathe(0, 0, [(0.0, 3.90), (0.09, 4.02), (0.10, 4.18), (0.06, 4.30), (0.0, 4.40)], ti2, seg=24,
+        f.lathe(0, 0, [(0.0, 3.90), (0.09, 4.02), (0.10, 4.18), (0.06, 4.30), (0.0, 4.40)], bright, seg=24,
                 name="nacelle_capteur")
+        f.cyl(0, 0, 4.05, 4.15, 0.104, light2, bevel=0, name="capteur_bague")
         f.rod((0, 0, 4.36), (0, 0, 4.66), 0.02, ti2, name="pointe_capteur")
         for h in (0.0, 120.0, 240.0):
-            f.fin(0, 0, 3.90, 4.20, 0.36, -0.12, ti2, h, thick=0.035, name="ailette")
-        f.sph(0, -0.06, 4.16, 0.055, light2, name="capteur_feu")
+            f.fin(0, 0, 3.90, 4.20, 0.36, -0.12, bright, h, thick=0.035, name="ailette")
+        f.sph(0, -0.06, 4.24, 0.07, light2, name="capteur_feu")
         halo(f, 0, 0, 4.2, "#BFE6FF", 6.0)
 
 
@@ -992,14 +1203,22 @@ def e12(ctx, piece):
     for z in (1.00, 1.75, 2.55, 3.30):
         ctx.cyl(0, 0, z, z + 0.10, 0.185, chrome, name="segment")
     ctx.cyl(0, 0, 3.82, 4.12, 0.17, chrome, r2=0.0, name="fuseau")
-    # 3 anneaux chromés horizontaux en lévitation, liseré cyan
-    for z, R in ((1.30, 0.98), (2.12, 0.76), (2.90, 0.56)):
-        ctx.tor(0, 0, z, R, 0.07, chrome, mseg=14, name="anneau")
-        ctx.tor(0, 0, z - 0.015, R - 0.055, 0.03, cyan, mseg=8, name="anneau_cyan")
+    # 3 anneaux chromés horizontaux en lévitation, liseré cyan. Correction V3 du 22/10 (vérification
+    # adverse : L = 2,84 en pose N pour 3,14 ; aire 4,37 t² sous le vanilla) : l'anneau bas déborde du cadre
+    # jusqu'à la largeur L du rang 12, anneaux plus épais
+    hx = half_L(ctx)
+    tube = 0.09
+    for z, R in ((1.30, hx - tube), (2.12, 1.06), (2.90, 0.74)):
+        ctx.tor(0, 0, z, R, tube, chrome, mseg=14, name="anneau")
+        ctx.tor(0, 0, z - 0.02, R - 0.07, 0.035, cyan, mseg=8, name="anneau_cyan")
+    # collier cyan sur la tige (D2-1 strict : liserés de 2 à 4 px ; carré chaud de 8 × 8 px hr dans les 4 poses)
+    ctx.cyl(0, 0, 2.30, 2.56, 0.19, cyan, bevel=0, name="collier_cyan")
     halo(ctx, 0, 0.5, 1.3, "#4AF0FF", 10.0)
     halo(ctx, 0, 0, 2.5, "#4AF0FF", 8.0)
-    # goulotte flottante (sans appui)
-    ctx.beam((0, -0.62, 0.95), (0, CHUTE_OUT, 0.62), 0.40, chrome, h=0.06, name="goulotte_flottante")
+    # goulotte flottante (sans appui) : chrome patiné et tôle d'usure (correction V3 du 22/10, pose S)
+    patina = metal(ctx, "e12_chrome_patine", "#5E656D", rough=0.45, metallic=0.75, grain=0.15, dirt=0.5)
+    ctx.beam((0, -0.62, 0.95), (0, CHUTE_OUT, 0.62), 0.40, patina, h=0.06, name="goulotte_flottante")
+    wear_plate(ctx, (0, -0.62, 0.95), (0, CHUTE_OUT, 0.62), 0.32, 0.037)
     ctx.beam((0, -0.62, 0.90), (0, CHUTE_OUT, 0.57), 0.30, cyan, h=0.02, name="goulotte_champ")
     if piece:
         f = ctx.fixed()
@@ -1019,8 +1238,11 @@ def e13(ctx, piece):
     copper = metal(ctx, "e13_cuivre", "#B0703A", rough=0.26, metallic=0.85, grain=0.15, k=0.9)
     plasma = glow(ctx, "e13_plasma", "#FF4FD8", strength=3.0)
     core = glow(ctx, "e13_coeur", "#FF9A3A", strength=3.0)
-    # trépied (repère N : pieds au nord, sud-ouest, sud-est)
-    zc, R = 1.92, 0.80
+    # trépied (repère N : pieds au nord, sud-ouest, sud-est). Correction V3 du 22/10 (vérification adverse :
+    # L = 2,72 en pose N pour 3,16 ; aire 4,31 t² sous le vanilla) : coque 0,80 -> 0,88, tore jusqu'à la
+    # largeur L du rang 13
+    zc, R = 1.98, 0.88
+    hx = half_L(ctx)
     for t in (90.0, 210.0, 330.0):
         tt = math.radians(t)
         foot = (1.15 * math.cos(tt), -1.15 * math.sin(tt) / 1.414 * 1.25, 0.0)
@@ -1031,14 +1253,17 @@ def e13(ctx, piece):
                 name="jambe_bague")
     # coque sphérique, coutures de cuivre
     ctx.sph(0, 0, zc, R, cer, seg=48, rings=24, name="coque")
-    for dz, rr in ((0.40, 0.69), (-0.40, 0.69)):
+    for dz in (0.40, -0.40):
+        rr = math.sqrt(R * R - dz * dz)
         ctx.tor(0, 0, zc + dz, rr + 0.012, 0.025, copper, name="couture")
     # tore de plasma équatorial, pinces de cuivre
-    ctx.tor(0, 0, zc, 1.26, 0.11, plasma, mseg=16, name="tore_plasma")
+    tr = 0.12
+    RT = hx - tr
+    ctx.tor(0, 0, zc, RT, tr, plasma, mseg=16, name="tore_plasma")
     for h in (45.0, 135.0, 225.0, 315.0):
         hh = math.radians(h)
-        ctx.beam((0.78 * math.cos(hh), -0.78 * math.sin(hh) / 1.414, zc), (1.40 * math.cos(hh),
-                 -1.40 * math.sin(hh) / 1.414, zc), 0.06, copper, h=0.08, name="pince")
+        ctx.beam(((R - 0.06) * math.cos(hh), -(R - 0.06) * math.sin(hh) / 1.414, zc), ((RT + 0.14) * math.cos(hh),
+                 -(RT + 0.14) * math.sin(hh) / 1.414, zc), 0.07, copper, h=0.09, name="pince")
     halo(ctx, 0, 0.9, zc, "#FF4FD8", 16.0)
     halo(ctx, 0, -0.9, zc, "#FF4FD8", 8.0)
     # trépan sous la coque : cône de cuivre à pointe de plasma
@@ -1077,7 +1302,6 @@ def e14(ctx, piece):
     gold = metal(ctx, "e14_or", "#C9A23A", rough=0.22, metallic=0.9, grain=0.45, gs=14.0, dirt=0.35, k=0.85)
     white = paint(ctx, "e14_blanc", "#CFCBC2", rough=0.35, metallic=0.2, grain=0.08, dirt=0.5, k=0.8)
     cells = ctx.S.mat_emissive(ctx.name("e14_cellules"), srgb("#2F6BFF"), strength=0.55, base=srgb("#1E2A55"))  # 0,35 -> 0,55 : contraste D2-1 +76 (< +80)
-    red = glow(ctx, "e14_balise", "#FF2A2A", strength=3.2)
     # jambes en treillis blanc des angles vers le tambour (vide dessous)
     for sa in (-1, 1):
         for sb in (-1, 1):
@@ -1095,31 +1319,56 @@ def e14(ctx, piece):
     ctx.cyl(0, 0, 0.40, 0.92, 0.12, gold, r2=0.05, name="trepan")
     for s in (-1, 1):
         ctx.sph(s * 0.52, 0.55, 0.95, 0.18, gold, name="reservoir")
-    # 2 ailes de panneaux dorés (est / ouest dans le repère N), inclinées vers le sud
-    for s in (-1, 1):
-        ctx.beam((s * 0.40, 0.0, 1.70), (s * 0.60, 0.0, 1.70), 0.06, white, name="bras_aile")
-        for k, (a0, a1) in enumerate(((0.58, 1.05), (1.08, 1.56))):
-            ac = s * (a0 + a1) / 2
-            w = a1 - a0
-            tilt = Matrix.Rotation(math.radians(28), 4, "X")
-            ctx.box3(ac, 0.0, 1.72, (w, 0.62, 0.025), gold, bevel=0.004, local=tilt, name="panneau_cadre")
-            ctx.box3(ac, 0.0, 1.735, (w - 0.05, 0.56, 0.012), cells, bevel=0, local=tilt, name="panneau_cellules")
-            for g in (-0.14, 0.14):
-                ctx.box3(ac, 0.0, 1.745, (w - 0.05, 0.012, 0.006), gold, bevel=0,
-                         local=tilt @ Matrix.Translation((0, g, 0)), name="panneau_grille")
-        ctx.sph(s * 1.58, 0.0, 1.76, 0.05, red, name="balise_aile")
+    # 4 ailes de panneaux dorés en X (caps diagonaux). Correction V3 du 22/10 (vérification adverse) : les
+    # 2 ailes est-ouest inclinées vers le sud étaient vues de chant en poses E, S, O (aucune lueur de jour
+    # à +80, corps 108 à 124 contre 88 en N) et l'aire (3,38 t²) passait sous le vanilla. En X, panneaux
+    # horizontaux tournés vers le ciel : même lecture dans les 4 poses ; bouts d'ailes à la largeur L du
+    # rang 14 (époque « la plus large », bible §0)
+    hx = half_L(ctx)
+    Rw = hx / math.cos(math.radians(45.0))
+    zw = 1.74
+    hot = glow(ctx, "e14_balise", "#FF6A5A", strength=3.6, core=1.6, rim=0.35)
+    tips = []
+    for h in (45.0, 135.0, 225.0, 315.0):
+        hh = math.radians(h)
+        c, sn = math.cos(hh), math.sin(hh)
+
+        def W(u, z, c=c, sn=sn):
+            return (u * c, -u * sn / 1.4142, z)
+        ctx.beam(W(0.36, zw - 0.04), W(Rw - 0.12, zw - 0.04), 0.07, white, h=0.06, name="bras_aile")
+        # bout du panneau extérieur : son ANGLE (panneau tourné de 45°, demi-largeur 0,32) atteint la largeur L
+        for (u0, u1) in ((0.56, 1.30), (1.34, Rw - 0.19)):
+            uc, w = (u0 + u1) / 2, u1 - u0
+            p = W(uc, zw)
+            ctx.box3(p[0], p[1], p[2], (w, 0.64, 0.025), gold, rotz=hh, bevel=0.004, name="panneau_cadre")
+            p = W(uc, zw + 0.016)
+            ctx.box3(p[0], p[1], p[2], (w - 0.05, 0.58, 0.012), cells, rotz=hh, bevel=0, name="panneau_cellules")
+            for g in (-0.145, 0.145):
+                p = W(uc, zw + 0.024)
+                ctx.box3(p[0], p[1], p[2], (w - 0.05, 0.012, 0.006), gold, bevel=0,
+                         local=Matrix.Rotation(hh, 4, "Z") @ Matrix.Translation((0, g, 0)), name="panneau_grille")
+            p = W(uc, zw + 0.024)
+            ctx.box3(p[0], p[1], p[2], (0.012, 0.58, 0.006), gold, rotz=hh, bevel=0, name="panneau_grille")
+        # balise rouge au bout de l'aile (cœur chaud, bord rouge : D2-1 dans les 4 poses)
+        t = W(Rw - 0.30, zw)
+        ctx.cyl(t[0], t[1], zw, zw + 0.10, 0.05, white, name="balise_socle")
+        ctx.sph(t[0], t[1], zw + 0.19, 0.12, hot, name="balise_aile")
+        tips.append(t)
     halo(ctx, 0, 0.3, 1.8, "#2F6BFF", 8.0)
     # câble-mât : colonne blanche, haubans vers les bouts d'ailes, balise rouge au sommet
-    # mât relevé de 4,10 à 4,20 (22/10) : O de l'époque 14 = 1,45 en aperçu, égal à l'époque 13 (cible 1,51)
-    ctx.cyl(0, 0, 2.20, 4.20, 0.10, white, name="mat")
+    # mât : la balise de tête (rayon 0,10, désormais comptée dans les masses) culmine à 4,28 : O = 1,51
+    # (cible du rang 14) et l'époque 15 garde +0,08 au-dessus (vérification adverse, mineur 4)
+    ctx.cyl(0, 0, 2.20, 4.10, 0.10, white, name="mat")
     for z in (2.80, 3.40):
         ctx.cyl(0, 0, z, z + 0.06, 0.11, gold, name="mat_bague")
-    ctx.sph(0, 0, 4.24, 0.075, red, name="balise")
-    for s in (-1, 1):
-        ctx.rod((0, 0, 4.08), (s * 1.50, 0.0, 1.80), 0.008, gold, name="hauban")
+    ctx.sph(0, 0, 4.18, 0.10, hot, name="balise")
+    for t in tips:
+        ctx.rod((0, 0, 4.00), (t[0], t[1], zw + 0.06), 0.008, gold, name="hauban")
     halo(ctx, 0, 0, 4.24, "#FF2A2A", 6.0)
-    ctx.beam((0, -0.40, 1.00), (0, CHUTE_OUT, 0.60), 0.40, gold, h=0.06, name="goulotte_or")
-    ctx.beam((0, -0.40, 1.06), (0, CHUTE_OUT, 0.66), 0.42, white, h=0.025, name="goulotte_bord")
+    # goulotte en or PATINÉ et tôle d'usure (correction V3 du 22/10 : bord blanc en dalle claire en pose S)
+    gold_p = metal(ctx, "e14_or_patine", "#8C7330", rough=0.48, metallic=0.7, grain=0.3, gs=14.0, dirt=0.55)
+    ctx.beam((0, -0.40, 1.00), (0, CHUTE_OUT, 0.60), 0.40, gold_p, h=0.06, name="goulotte_or")
+    wear_plate(ctx, (0, -0.40, 1.00), (0, CHUTE_OUT, 0.60), 0.32, 0.037)
     if piece:
         f = ctx.fixed()
         f.level = ctx.level
@@ -1150,25 +1399,30 @@ def e15(ctx, piece):
     # plate-forme flottante (aucun appui) : ANNEAU octogonal ajouré au centre (Q8 : vides ; 1re version
     # pleine : IoU(niveau 1, niveau 30) = 0,47 en pose N, au-dessus de la cible 0,45) ; coussin de lumière
     zp0, zp1 = 0.84, 0.96
-    ring = [(0.94, 0.78), (1.30, zp0), (1.32, zp1 - 0.04), (1.26, zp1), (0.82, zp1), (0.79, 0.90), (0.94, 0.78)]
+    ring = [(0.94, 0.78), (1.40, zp0), (1.42, zp1 - 0.04), (1.36, zp1), (0.82, zp1), (0.79, 0.90), (0.94, 0.78)]
     ctx.lathe(0, 0, ring, nacre, seg=8, phase=math.pi / 8, smooth_deg=None, caps=False, name="plateforme")
-    ctx.lathe(0, 0, [(1.335, zp0 + 0.02), (1.335, zp1 - 0.05)], wgold, seg=8, phase=math.pi / 8, caps=False,
+    ctx.lathe(0, 0, [(1.435, zp0 + 0.02), (1.435, zp1 - 0.05)], wgold, seg=8, phase=math.pi / 8, caps=False,
               smooth_deg=None, name="plateforme_bande")
     ctx.tor(0, 0, 0.50, 0.66, 0.045, light, name="coussin")
     # trépan de lumière vers le sol
     ctx.cyl(0, 0, 0.04, 0.52, 0.03, light, r2=0.16, name="trepan_lumiere")
     halo(ctx, 0, 0, 0.45, "#FFF2C0", 16.0)
-    # 4 obélisques flottants aux angles (les « 4 montants » de l'identité)
+    # 4 obélisques flottants aux angles (les « 4 montants » de l'identité). Correction V3 du 22/10
+    # (vérification adverse : L = 2,66 en pose N pour 3,20 ; aire 4,44 t² sous le vanilla) : écartés
+    # jusqu'à la largeur L du rang 15 et plus hauts
+    hx = half_L(ctx)
     for sa in (-1, 1):
         for sb in (-1, 1):
-            a, b = sa * 1.22, sb * 1.22
-            ctx.lathe(a, b, [(0.09, 0.22), (0.11, 0.30), (0.07, 1.05), (0.0, 1.30)], wgold, seg=4,
+            a, b = sa * (hx - 0.15), sb * 1.30
+            ctx.lathe(a, b, [(0.12, 0.20), (0.15, 0.30), (0.10, 1.25), (0.0, 1.62)], wgold, seg=4,
                       smooth_deg=None, name="obelisque")
-            ctx.sph(a, b, 0.14, 0.045, light, name="obelisque_feu")
+            ctx.sph(a, b, 0.12, 0.05, light, name="obelisque_feu")
     # tour-flèche centrale
     # tour-flèche centrale, elle aussi flottante (pointe vers le bas), tenue par 4 rayons
-    prof = [(0.0, 0.46), (0.30, 0.72), (0.44, zp1), (0.40, 1.20), (0.30, 1.60), (0.24, 2.40), (0.17, 3.30),
-            (0.10, 4.12), (0.0, 4.67)]
+    # sommet relevé de 0,08 (correction V3 du 22/10 : O de l'époque 15 = 1,53, à 0,01 de l'époque 14 ; cible
+    # 1,57 à 1,60, plafond Q9)
+    prof = [(0.0, 0.46), (0.30, 0.72), (0.44, zp1), (0.40, 1.20), (0.30, 1.60), (0.24, 2.40), (0.17, 3.38),
+            (0.10, 4.20), (0.0, 4.80)]
     ctx.lathe(0, 0, prof, wgold, seg=8, phase=math.pi / 8, smooth_deg=None, name="fleche")
     for z, r in ((1.62, 0.31), (2.50, 0.235), (3.40, 0.165)):
         ctx.tor(0, 0, z, r, 0.03, light, name="collier_lumiere")
@@ -1179,16 +1433,18 @@ def e15(ctx, piece):
     # couronne de petites flèches autour de la base
     for i in range(8):
         t = 2 * math.pi * (i + 0.5) / 8
-        hgt = 1.95 if i % 2 == 0 else 1.62
+        hgt = 2.10 if i % 2 == 0 else 1.75
         a, b = 1.04 * math.cos(t), -1.04 * math.sin(t) / 1.414
-        ctx.lathe(a, b, [(0.08, zp1), (0.06, hgt - 0.35), (0.0, hgt)], wgold, seg=4, smooth_deg=None,
+        ctx.lathe(a, b, [(0.095, zp1), (0.07, hgt - 0.35), (0.0, hgt)], wgold, seg=4, smooth_deg=None,
                   name="petite_fleche")
         ctx.crystal((a, b, hgt - 0.38), (math.cos(t) * 0.25, math.sin(t) * 0.25, 1.0), 0.30, 0.045, crys,
                     name="eclat")
     halo(ctx, 0, 0.6, 1.4, "#FFF2C0", 12.0)
     halo(ctx, 0, 0, 3.0, "#FFF2C0", 8.0)
-    # goulotte flottante
-    ctx.beam((0, -0.75, 0.90), (0, CHUTE_OUT, 0.65), 0.38, wgold, h=0.05, name="goulotte_flottante")
+    # goulotte flottante : or blanc patiné et tôle d'usure (correction V3 du 22/10, pose S)
+    patina = metal(ctx, "e15_or_patine", "#A89A72", rough=0.50, metallic=0.55, grain=0.2, dirt=0.6)
+    ctx.beam((0, -0.75, 0.90), (0, CHUTE_OUT, 0.65), 0.38, patina, h=0.05, name="goulotte_flottante")
+    wear_plate(ctx, (0, -0.75, 0.90), (0, CHUTE_OUT, 0.65), 0.30, 0.032)
     ctx.beam((0, -0.75, 0.85), (0, CHUTE_OUT, 0.60), 0.26, light, h=0.02, name="goulotte_lumiere")
     if piece:
         f = ctx.fixed()
@@ -1219,5 +1475,5 @@ def build_level(ctx, level):
         # époques 1 et 2 : « de jour, aucune lueur » (bible §5) ; lanterne et fentes de forge ne
         # s'allument que dans la couche halo (nuit) : émission réduite dans la passe principale
         for m in bpy.data.materials:
-            if m.get("fo_kind") == "emissive":
+            if m.get("fo_kind") == "emissive" and m.get("fo_emit_strength") is not None:
                 m["fo_day_gain"] = DAY_GAIN_E12

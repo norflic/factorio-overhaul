@@ -1,20 +1,26 @@
 """Rendus d'APERÇU des niveaux de la foreuse (lot V3, phase 1), toujours par le verrou de rendu.
 
     python -P tools/render/pieces/levels/drill/render_levels.py [--levels 2-30] [--dirs N,E,S,W]
-           [--samples 32] [--quick] [--per-call 4]
+           [--samples 32] [--samples-aux 12] [--no-denoise] [--quick] [--per-call 4]
 
 - Chaque appel Blender passe par tools/render/with_render_lock.py (2 rendus au plus sur le PC, priorité
   basse) et rend au plus `--per-call` poses (un niveau = 4 directions) avant de rendre sa place.
-- Post-traitement par les fonctions de tools/render/fo_post.py (liseré de contact, ombre, lueur, halo
-  borné), sans les modifier. Sorties compactes (PNG 8 bits HR, 64 px/tuile) :
-      tools/render/out/levels/drill/LNN/<D>-<couche>.png    couches main, shadow, glow, light
+- Passes rendues : main (débruitée par OIDN, --samples), ao, shadow, glow (--samples-aux). La passe
+  « light » n'est PLUS rendue (correction V3 du 22/10, vérification adverse D2-3 : son énergie ne croissait
+  pas avec le niveau) : le halo de nuit est une LightDefinition proportionnelle au niveau
+  (levels_io.level_halo, bible §1.6), composée par planches.py et mesurée par measure_d1.py.
+- Post-traitement par les fonctions de tools/render/fo_post.py (liseré de contact, ombre, lueur), sans les
+  modifier. Sorties compactes (PNG 8 bits HR, 64 px/tuile) :
+      tools/render/out/levels/drill/LNN/<D>-<couche>.png    couches main, shadow, glow (+ light aux
+                                                             époques 1 et 2 : lueur « de nuit »)
       tools/render/out/levels/drill/spec.json               tailles, shift (tuiles), réglages, durées
   Les .npy intermédiaires (tools/render/cache/levels-drill/) sont supprimés après usage (disque H:).
-- Époques 1 et 2 : aucune lueur de jour (bible §5) : la passe lueur est versée dans la couche halo
-  (draw_as_light, nuit seulement).
+- Époques 1 et 2 : aucune lueur de jour (bible §5) : la passe lueur est versée dans une couche
+  draw_as_light (nuit seulement).
 - Niveau 2 : la pièce invariante est rendue une fois (L02-N) puis masquée par l'alpha du sprite vanilla de
   chaque direction (vanilla.py), pour les couches principale et lueur, comme la variante « four » de V0.
-- --quick : couche principale seule, 4 échantillons, sans liseré : silhouettes pour régler les hauteurs.
+- --quick : couches principale et ao (liseré de contact), 4 échantillons : silhouettes pour régler hauteurs
+  et largeurs (même masque que les rendus complets).
 """
 import argparse
 import json
@@ -56,23 +62,9 @@ def parse_levels(s):
     return out
 
 
-def halo_windows(level):
-    """Fenêtres du halo (tuiles) : flaque au sol autour du pied, croissante avec le niveau (bible §1.6,
-    D2-3 : S(N) ∝ 1 + 0,05·N), et cœurs autour de chaque source déclarée par le modèle.
-    Plus compacte que la 1re version (E31 : halo V0 trop grand, 242 × 266 px hr contre 152 × 126 en
-    vanilla) : pleine jusqu'à 0,6 + 0,04·N, nulle à 1,6 + 0,05·N tuiles (N = 2 : 0,68 / 1,70 ;
-    N = 30 : 1,80 / 3,10). Proposition ❔, à juger sur capture."""
-    g0 = 0.60 + 0.04 * level
-    g1 = 1.60 + 0.05 * level
-    return (g0, g1), (0.40, 0.90)
-
-
 def margin_for(level, quick=False):
-    """Marge du canevas (px hr) : la flaque du halo (rayon nul g1) doit tenir dans le canevas."""
-    if quick:
-        return 16
-    g1 = halo_windows(level)[0][1]
-    return int(max(32, (g1 - 1.45) * 64 + 12))
+    """Marge du canevas (px hr) autour de la boîte projetée des objets ET de leurs ombres (blender_batch)."""
+    return 16 if quick else 32
 
 
 def post_variant(info, level, d, mask_dir=None):
@@ -92,16 +84,6 @@ def post_variant(info, level, d, mask_dir=None):
     g = npy("glow")
     if g is not None:
         hr["glow"] = P.additive_layer(g)
-    li = npy("light")
-    if li is not None:
-        lay = P.additive_layer(li)
-        (g0, g1), (c0, c1) = halo_windows(level)
-        best = P.radial_window(lay, origin, g0 * 64, g1 * 64)
-        for hsrc in info.get("halos", []):
-            ctr = (origin[0] + hsrc["px"][0], origin[1] + hsrc["px"][1])
-            wl = P.radial_window(lay, ctr, c0 * 64, c1 * 64)
-            best = np.concatenate([wl[..., :3], np.maximum(best[..., 3:], wl[..., 3:])], -1)
-        hr["light"] = P.floor_alpha(P.fade_edges(best))
     if mask_dir is not None:
         van = vanilla.compose(mask_dir, canvas=(H, W), origin=origin)
         for k in ("main", "glow"):
@@ -111,13 +93,15 @@ def post_variant(info, level, d, mask_dir=None):
     if epoch <= 2 and "glow" in hr:
         # aucune lueur de jour aux époques 1 et 2 : la lueur passe dans la couche halo (nuit seulement)
         gl = hr.pop("glow")
-        pm = gl[..., :3] * gl[..., 3:4]
-        if "light" in hr:
-            pm = pm + hr["light"][..., :3] * hr["light"][..., 3:4]
-        pm = np.clip(pm, 0, 1)
+        pm = np.clip(gl[..., :3] * gl[..., 3:4], 0, 1)
         m = pm.max(-1, keepdims=True)
         hr["light"] = np.concatenate([np.where(m > 1e-6, pm / np.maximum(m, 1e-6), 0), m], -1)
     dest = os.path.join(OUT, "L%02d" % level)
+    # fichiers périmés de cette direction (ancienne couche « light » rendue, par exemple)
+    for layer in ("main", "shadow", "glow", "light"):
+        fn = os.path.join(dest, "%s-%s.png" % (d, layer))
+        if layer not in hr and os.path.exists(fn):
+            os.remove(fn)
     spec = {}
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
@@ -139,6 +123,11 @@ def post_variant(info, level, d, mask_dir=None):
 def post_quick(info, level, d):
     pre = os.path.join(CACHE, "drill-%s" % info["variant"])
     main = np.load("%s-main.npy" % pre).astype(np.float64)
+    ao = "%s-ao.npy" % pre
+    if os.path.exists(ao):
+        # liseré de contact compris : le masque des aperçus rapides est alors celui des rendus complets
+        # (constat du 22/10 : le liseré élargit L de 0,04 à 0,20 tuile quand une pièce touche le sol au bord)
+        main = P.compose_main(main, np.load(ao).astype(np.float64), C)
     origin = tuple(info["origin_px"])
     box = P.trim_box(main, origin)
     x0, y0, x1, y1 = box
@@ -183,7 +172,7 @@ def _ready(v):
         return None   # en cours d'écriture : on repassera
 
 
-def call_blender(variants, samples, layers, log, margin=64, on_ready=None, retries=2):
+def call_blender(variants, samples, layers, log, margin=64, on_ready=None, retries=2, samples_aux=None, denoise=False):
     """Rend les variantes dans UN processus Blender (une seule prise du verrou) et post-traite chaque pose
     dès qu'elle est finie (on_ready), pour que le cache ne garde qu'une pose ou deux (disque H: limité).
     Si Blender s'arrête en cours de lot, relance les variantes restantes (au plus `retries` fois)."""
@@ -209,6 +198,10 @@ def call_blender(variants, samples, layers, log, margin=64, on_ready=None, retri
         cmd = [sys.executable, LOCK, "--wait", "0", "--", fo_blender.blender_exe(), "-b", "--factory-startup",
                "-noaudio", "-P", BATCH, "--", "--piece", PIECE_FILE, "--out", CACHE, "--variants", ",".join(rest),
                "--samples", str(samples), "--layers", layers, "--margin", str(margin)]
+        if samples_aux:
+            cmd += ["--samples-aux", str(samples_aux)]
+        if denoise:
+            cmd += ["--denoise"]
         out_path = os.path.join(CACHE, "blender-run.txt")
         while True:
             with open(out_path, "w", encoding="utf-8") as fo:
@@ -239,6 +232,8 @@ def main():
     ap.add_argument("--levels", default="2-30")
     ap.add_argument("--dirs", default="N,E,S,W")
     ap.add_argument("--samples", type=int, default=32)
+    ap.add_argument("--samples-aux", type=int, default=12, help="échantillons des passes ao, ombre, lueur")
+    ap.add_argument("--no-denoise", action="store_true", help="sans débruitage OIDN de la passe principale")
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--per-call", type=int, default=4)
     ap.add_argument("--post-only", action="store_true",
@@ -254,7 +249,7 @@ def main():
             jobs.append((lvl, d))
     spec = load_spec()
     samples = 4 if a.quick else a.samples
-    layers = "main" if a.quick else "main,ao,shadow,glow,light"
+    layers = "main,ao" if a.quick else "main,ao,shadow,glow"
     t_all = time.time()
     def post(v):
         lvl, d = int(v[1:3]), v.split("-")[1]
@@ -265,10 +260,14 @@ def main():
             for dd in dirs:
                 spec["levels"].setdefault("L02", {})[dd] = post_variant(info, 2, dd, mask_dir=dd)
             spec["levels"]["L02"]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
+                                               "samples_aux": info.get("samples_aux"),
+                                               "denoise": info.get("denoise", False),
                                                "canvas": info["canvas"], "objects": info["objects"]}
         else:
             spec["levels"].setdefault("L%02d" % lvl, {})[d] = post_variant(info, lvl, d)
             spec["levels"]["L%02d" % lvl][d]["render"] = {"seconds": info["seconds"], "samples": info["samples"],
+                                                         "samples_aux": info.get("samples_aux"),
+                                                         "denoise": info.get("denoise", False),
                                                          "canvas": info["canvas"], "objects": info["objects"]}
         clean(v)
         os.remove(os.path.join(CACHE, "drill-%s-render.json" % v))
@@ -284,7 +283,8 @@ def main():
                     post(v)
             continue
         dt = call_blender(variants, samples, layers, log, margin=max(margin_for(l, a.quick) for l, _ in chunk),
-                          on_ready=post)
+                          on_ready=post, samples_aux=None if a.quick else a.samples_aux,
+                          denoise=not (a.quick or a.no_denoise))
         print("[FO-V3-DRILL] %s : %.1f s (attente du verrou comprise)" % (",".join(variants), dt), flush=True)
     print("[FO-V3-DRILL] total %.1f s" % (time.time() - t_all))
 

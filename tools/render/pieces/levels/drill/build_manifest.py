@@ -23,6 +23,17 @@ RENDER = IO.RENDER
 MOD_ROOT = os.path.dirname(os.path.dirname(RENDER))
 DEST = os.path.join(RENDER, "manifests", "levels-drill.json")
 DIR_KEY = {"N": "north", "E": "east", "S": "south", "W": "west"}
+# pièces paires qui ne sont pas « au sommet de la tour » comme le dit la fiche (vérification adverse du 22/10,
+# mineur 5) : justification du placement
+PLACEMENTS = {
+    "L18": "2 balises sur consoles de part et d'autre de la lèvre de l'évent (gain de hauteur 0,00 au lieu de "
+           "+0,25) : l'évent est ouvert en haut (tour de refroidissement), une balise posée dessus le fermerait ; "
+           "le placement latéral garde la courbe des hauteurs (L18 = L17, pas de dent de scie avec L19) ; "
+           "ajout de masque >= 0,10 t² dans les 4 poses (D1-1). À soumettre au Directeur Créatif",
+    "L28": "parabole sur console au flanc du mât (gain de hauteur 0,00 au lieu de +0,30) : au sommet, elle "
+           "porterait l'époque 14 au-dessus de l'époque 15 (plafond 1,60, Q9) ; ajout de masque >= 0,10 t² "
+           "dans les 4 poses. À soumettre au Directeur Créatif",
+}
 FLAGS = {
     "main": {},
     "shadow": {"draw_as_shadow": True},
@@ -81,8 +92,10 @@ def main():
                     x0, x1 = min(x0, sd["shift"][0] - w / 2), max(x1, sd["shift"][0] + w / 2)
                     y0, y1 = min(y0, sd["shift"][1] - h / 2), max(y1, sd["shift"][1] + h / 2)
             m = mes["levels"].get(key, {}).get(d, {})
-            dirs[DIR_KEY[d]] = {"layers": layers, "mesures": {k: m[k] for k in ("O", "O_tige", "L", "area", "added",
-                                                                                 "iou_prev") if k in m}}
+            dirs[DIR_KEY[d]] = {"layers": layers, "mesures": {k: m[k] for k in (
+                "O", "O_tige", "L", "Lx", "area", "added", "iou_prev", "iou_epoch_prev", "iou_L1", "lum_p50",
+                "lum_p95", "sat", "glow_zone_px", "glow_sq8", "glow_contrast", "shadow_low", "chute_p95")
+                if m.get(k) is not None}}
         entry = {
             "level": lvl, "epoch": e, "epoch_key": ep["key"], "epoch_nom": ep["nom"], "ere": ep["ere"],
             "step": 1 if lvl % 2 == 1 else 2,
@@ -91,6 +104,7 @@ def main():
             "piece_invariante": lvl % 2 == 0,
             "lumiere": ep["lumiere"],
             "lueur_de_jour": e >= 3,
+            "halo_de_nuit": IO.level_halo(lvl),
             "drawing_box": [[round(x0, 4), round(y0, 4)], [round(x1, 4), round(y1, 4)]],
             "directions": dirs,
         }
@@ -98,6 +112,14 @@ def main():
             entry["sur_vanilla"] = ("couches AJOUTÉES au graphics_set vanilla (animation et visualisations "
                                     "inchangées) ; couches main et glow masquées au pixel par l'alpha vanilla de "
                                     "chaque direction ; pièce rendue une fois (pose N, repère fixe)")
+            entry["risque_non_prouve"] = (
+                "le masque vient de l'IMAGE 0 du sprite vanilla ; le trépan vanilla s'anime "
+                "(shift_animation_waypoints de -0,5 à +0,6 tuile, 30 images) et la sortie a 5 images : trous ou "
+                "chevauchements possibles en jeu. NON PROUVÉ en moteur. Phase 2 : vérifier le masque sur toutes les "
+                "images du trépan (ou placer le chevalement hors de l'enveloppe balayée par la tige), capture en "
+                "moteur obligatoire")
+        if key in PLACEMENTS:
+            entry["placement_de_la_piece"] = PLACEMENTS[key]
         levels[key] = entry
     manifest = {
         "famille": "drill", "base": "electric-mining-drill", "lot": "V3 phase 1 (aperçus)",
@@ -105,19 +127,35 @@ def main():
                   "toutes images et branchement en jeu : phase 2 (après V0b et V2). Design NON validé "
                   "(verdict du Directeur Créatif requis).",
         "pipeline": {"px_par_tuile_hr": 64, "projection": "orthographique 45° (F60)", "soleil": "ouest, 48°",
-                     "apercus": "Cycles CPU, échantillons réduits (voir spec.json : samples)",
+                     "apercus": "Cycles CPU, échantillons réduits (spec.json : samples, samples_aux), passe "
+                                "principale débruitée (OIDN), passe ombre au soleil seul (matériaux noirs mats "
+                                "opaques, sans rebond)",
                      "sources_sha256": src},
         "interface_dress": {
             "fichier": "prototypes/levels/drill.lua (dress(p, ctx), en tête de prototypes/levels/common.lua)",
             "selection": "e = ctx.epoch ; niveau = ctx.level ; ctx.step == 1 : silhouette de l'époque ; "
                          "ctx.step == 2 : même chose + pièce (couches du niveau pair, qui CONTIENNENT déjà la pièce)",
+            "ecart_contrat_piece": (
+                "ÉCART à la bible (§1.9 et §3.3-1 : la pièce paire est une couche AJOUTÉE au rendu impair) : en "
+                "phase 1, chaque niveau pair est un rendu COMPLET qui contient la pièce. Chiffrage (aperçus, pose "
+                "de référence seule) : 14 niveaux pairs × 4 directions = 56 poses complètes au lieu de 14 poses "
+                "de pièce (pièce invariante : 1 pose), et 2 fois la mémoire vidéo des corps (un corps par niveau "
+                "au lieu d'un par époque). En phase 2 (trépans 30 images, sorties 5 images, jeu humide), le même "
+                "schéma doublerait les poses et la mémoire vidéo par rapport à l'estimation de la bible §3.2. "
+                "Décision proposée : en phase 2, rendre la pièce SEULE (le corps impair en masque d'occultation, "
+                "comme le niveau 2 sur le vanilla) et l'ajouter en couche au rendu impair"),
             "graphics_set.animation": "Animation4Way : north/east/south/west = { layers = { main, shadow } } "
                                       "(frame_count 1, repeat_count = nombre d'images du trépan si celui-ci reste animé)",
             "graphics_set.working_visualisations": [
                 "{ always_draw = true, <dir>_animation = { layers = { glow } } } : lueur de jour (époques 3+) ; "
                 "effect/frame_sequence par époque en phase 2 (pulsation, arcs, bulles, uranium-glow…)",
-                "{ always_draw = true, draw_as_light, <dir>_animation = { layers = { light } } } : halo de nuit, "
-                "OU LightDefinition proportionnelle au niveau (bible §1.6 : I = 0,05 + 0,02·N)",
+                "{ always_draw = true, light = <halo_de_nuit du niveau> } : halo de nuit = LightDefinition "
+                "proportionnelle au niveau (bible §1.6 ; TRANCHÉ le 22/10 après vérification adverse : la couche "
+                "rendue « light » ne croissait pas avec le niveau, elle n'est plus produite) : intensité "
+                "I = 0,05 + 0,02·N, size (rayon) S = 1,5 × (1 + 0,05·N), couleur de l'époque ramenée à une "
+                "luminance de 0,55 ; énergie strictement croissante (mesures_d1.json)",
+                "époques 1 et 2 : couche « light » (draw_as_light) = lueur de la lanterne et des fentes de forge, "
+                "la nuit seulement (bible §5 : de jour, aucune lueur)",
                 "retirer aux niveaux 3+ les visualisations vanilla de la tige (electric_mining_drill_animation, "
                 "_horizontal_*) : chaque époque porte sa propre tour ; trépan animé par ère en phase 2 (bible §3.3-5)",
                 "garder la fumée et la poussière (teinte du minerai) et les DEL d'état, à repositionner si besoin"],
@@ -128,6 +166,10 @@ def main():
             "drawing_box": "par niveau : champ drawing_box ci-dessous (union des 4 directions, couche principale)",
             "invariants_de_jeu": "collision_box, selection_box, vector_to_place_result {0, -1,85}, entrées de "
                                  "fluide et resource_searching_radius inchangés (D1-4, garde de dress)",
+            "goulotte_pose_N": ("en pose N, la goulotte (au nord, basse) est cachée par la tour aux époques 5 à 15 ; "
+                                "l'orientation N se lit par l'absence de goulotte ailleurs (la sortie vanilla, elle, "
+                                "dépasse au nord). Choix de design signalé au Directeur Créatif (vérification "
+                                "adverse, mineur 2), non corrigé en phase 1"),
             "circuit_connector": "les points vanilla tombent sur l'ancienne géométrie : à redéfinir par époque "
                                  "en phase 2 (défaut D3 sinon)",
             "icons": "icons(icons, ctx) : rendu de la pose N (64 px, 4 mipmaps) + numéro de niveau, en phase 2",
