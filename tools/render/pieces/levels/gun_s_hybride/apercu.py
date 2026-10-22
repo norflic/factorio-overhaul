@@ -5,8 +5,8 @@ rendu (les indicateurs de détail et de patine, eux, ne se mesurent que sur le r
 
     python apercu.py <dossier de sortie> [niveaux 11,21,29,30] [poses N,E]
 
-Écrit <sortie>/apercu-nNN-<pose>.png (64 px/tuile) et apercu.txt : masse, remplissage, part massive, O, et la
-règle du bord nord du socle (rien du socle au-dessus du bord nord de l'emprise à l'écran).
+Écrit <sortie>/apercu-nNN-<pose>.png (64 px/tuile) et apercu.txt : masse, remplissage, part massive, O, et le
+dépassement du socle seul (information : depuis la reprise du 22/10 après midi, le socle est prévu en calque « object »).
 """
 import math
 import os
@@ -142,7 +142,7 @@ def main():
             bg.convert("RGB").save(p)
             nverts = sum(len(m.v) for m in gs.meshes.values()) + sum(len(m.v) for m in gh.meshes.values())
             line = ("n%02d %s : masse %.1f t² (%.2f/tuile), remplissage %.2f, massive %.2f, O %.2f (max %.1f), "
-                    "O du socle %.2f (<= 0), sommets %d, pièces posées socle %d tête %d" % (
+                    "O du socle %.2f (info : socle en calque object), sommets %d, pièces posées socle %d tête %d" % (
                         lv, pose, st["masse"], st["masse_par_tuile"], st["remplissage"], st["massive"], st["O"],
                         0.4 * side, o_socle, nverts, sum(gs.counts.values()), sum(gh.counts.values())))
             print(line, flush=True)

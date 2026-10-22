@@ -39,6 +39,42 @@ import design as Dz  # noqa: E402
 EMBER_BASE = (0.008, 0.006, 0.005)
 
 
+def add_mottle(m, amount, scale, seed):
+    """Taches basse fréquence (salissure, coulures, patine inégale) : la couleur de base est MULTIPLIÉE par un bruit
+    large (1 ± amount). Le grain fin et la rouille de fo_scene.mat_metal (inchangé) restent dessous. Raison : sur
+    les essais de 8 h 50 et de 13 h 40, la variance basse fréquence des surfaces planes (P2 de la charte) restait
+    à 12-13 contre un plancher de 16 (vanilla : médiane 20) ; le vanilla a des taches de 5 à 25 px."""
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    bsdf = N["Principled BSDF"]
+    sock = bsdf.inputs["Base Color"]
+    if not sock.is_linked:
+        return
+    src = sock.links[0].from_socket
+    tc = N.new("ShaderNodeTexCoord")
+    nz = N.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = scale
+    nz.inputs["Detail"].default_value = 3.0
+    nz.inputs["Roughness"].default_value = 0.55
+    if "W" in nz.inputs:
+        nz.noise_dimensions = "4D"
+        nz.inputs["W"].default_value = seed + 31.7
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    mr = N.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value = 0.4
+    mr.inputs["From Max"].default_value = 0.6
+    mr.inputs["To Min"].default_value = 1.0 - amount
+    mr.inputs["To Max"].default_value = 1.0 + amount
+    L.new(nz.outputs["Fac"], mr.inputs["Value"])
+    mix = N.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    mix.inputs["Factor"].default_value = 1.0
+    L.new(src, mix.inputs[6])
+    L.new(mr.outputs["Result"], mix.inputs[7])
+    L.new(mix.outputs[2], sock)
+
+
 def make_materials(specs, used):
     mats = {}
     for key in sorted(used):
@@ -46,7 +82,12 @@ def make_materials(specs, used):
         p = dict(par)
         if kind == "metal":
             col = p.pop("color")
-            mats[key] = S.mat_metal("hyb_" + key, col, seed=float(sum(ord(c) for c in key) % 97), **p)
+            mot = p.pop("mottle", 0.0)
+            mot_s = p.pop("mottle_scale", 4.0)
+            seed = float(sum(ord(c) for c in key) % 97)
+            mats[key] = S.mat_metal("hyb_" + key, col, seed=seed, **p)
+            if mot > 0:
+                add_mottle(mats[key], mot, mot_s, seed)
         else:
             m = S.mat_emissive("hyb_" + key, p["color"], strength=p["strength"], main_scale=0.0, crust=p.get("crust"),
                                base=EMBER_BASE)
@@ -113,6 +154,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--margin", type=int, default=48)
+    ap.add_argument("--layers", default="", help="essais rapides : couches à rendre (ex. main,glow) ; vide = toutes")
     a = ap.parse_args(argv)
     out = os.path.abspath(a.out)
     for name in [n for n in a.names.split(",") if n]:
@@ -120,6 +162,8 @@ def main():
         meta = Dz.variants()[name]
         head = meta["part"] == "tete"
         layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow", "light"]
+        if a.layers:
+            layers = [l for l in layers if l in a.layers.split(",")]
         C.LIGHT_HOLDOUT = not head
         S.reset()
         S.HALO_LIGHTS.clear()

@@ -103,6 +103,7 @@ def main():
     ap.add_argument("--names", default="")
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--post-only", action="store_true")
+    ap.add_argument("--layers", default="", help="essais rapides : main,glow (sans ombre, AO ni halo)")
     ap.add_argument("--cache", default=CACHE)
     ap.add_argument("--out", default=OUT)
     a = ap.parse_args()
@@ -114,11 +115,11 @@ def main():
         # attente du verrou pendant laquelle design.py change
         snap = os.path.join(a.cache, "snap-%s" % time.strftime("%Y%m%d-%H%M%S"))
         os.makedirs(snap, exist_ok=True)
-        for fn in ("geo.py", "kit.py", "design.py", "blender_render.py"):
+        for fn in ("geo.py", "kit.py", "parts.py", "design.py", "blender_render.py"):
             shutil.copy2(os.path.join(HERE, fn), os.path.join(snap, fn))
         cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "-P",
                os.path.join(snap, "blender_render.py"), "--", "--names", ",".join(names), "--out", a.cache,
-               "--samples", str(a.samples)]
+               "--samples", str(a.samples)] + (["--layers", a.layers] if a.layers else [])
         t0 = time.time()
         env = dict(os.environ, PYTHONIOENCODING="utf-8", FO_RENDER_DIR=RENDER)
         with open(log, "a", encoding="utf-8") as lf:

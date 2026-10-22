@@ -1,19 +1,28 @@
-"""Planches de l'exploration hybride : la mitrailleuse vanilla (niveau 1) puis les niveaux 11, 21, 29 et 30, à
-côté de bâtiments vanilla de référence (tourelle laser, machine d'assemblage 3, réacteur nucléaire), sur un sol
-vanilla, de jour et de nuit, au zoom 2 (64 px/tuile, sprites HR 1:1) et au zoom 1 (32 px/tuile), même échelle
-partout (charte §6.5 : la taille doit se lire).
+"""Planches de l'exploration hybride (reprise de l'après-midi du 22/10) et images du test du regard naïf.
 
-    python planches.py <couches (rendre.py --out)> <dossier des dumps vanilla> <sortie>
+    python planches.py planches <couches (rendre.py --out)> <dumps vanilla> <sortie>
+    python planches.py regard <couches> <dumps vanilla> <sortie>
+
+« planches » : la mitrailleuse vanilla (niveau 1) puis les niveaux 11, 21, 29 et 30, intercalés avec des bâtiments
+vanilla de référence (tourelle laser, assembleuse 3, réacteur nucléaire, silo à fusée), sur un sol vanilla, à la
+MÊME échelle : zoom 2 (64 px/tuile, sprites HR 1:1) et zoom 1 (32 px/tuile, vue du joueur), de jour et de nuit en
+pose E, plus une planche en pose N au zoom 1 de jour, et des gros plans (zoom 2 agrandi 2×) de chaque niveau.
+
+« regard » : six images paire-01.png à paire-06.png (paires (1, 11), (11, 21), (21, 29), (29, 30), (1, 21),
+(11, 29)), dans un ordre TIRÉ AU HASARD à chaque exécution (graine système, jamais écrite), le plus puissant
+tantôt à gauche tantôt à droite ; zoom 1, jour, pose E, sol vanilla ; seules légendes : « A » et « B ». La clé
+n'est écrite NULLE PART sur le disque : elle est imprimée sur la sortie standard, une seule fois.
 
 Composition (recopie de tools/render/calib/maquette.py, qui suit les shaders du jeu) : ombres = tampon d'ombre
 (maximum des alphas), sol × (1 − 0,5 × alpha) ; entités dans l'ordre de leur position (y puis x), couches dans
-l'ordre de dessin (socle puis tête) ; lueur additive (jour) ajoutée à la carte des lumières ; nuit =
-mix(LUT_nuit(jour), jour, lumière) avec lut-night.png du jeu ; lightMul et lightAdd du moteur inconnus (1 et 0).
-Les lumières moteur (LightDefinition) du vanilla ne sont PAS des sprites : la nuit, les bâtiments vanilla
-paraissent plus sombres qu'en jeu (limite connue de la maquette). Zoom 1 : moyenne 2×2 en lumière linéaire.
-Vanilla : couches lues dans le Lua vanilla (dumps de tests/datastage/harness.lua --dump-proto), image 0.
+l'ordre de dessin (socle puis tête) ; lueur additive ajoutée à la carte des lumières ; nuit = mix(LUT_nuit(jour),
+jour, lumière) avec lut-night.png du jeu. Les lumières moteur (LightDefinition) du vanilla ne sont PAS des sprites :
+la nuit, les bâtiments vanilla paraissent plus sombres qu'en jeu (limite connue de la maquette). Zoom 1 : moyenne
+2×2 en lumière linéaire.
 """
+import json
 import os
+import random
 import sys
 
 import numpy as np
@@ -30,16 +39,16 @@ import da_lib as DL  # noqa: E402
 import fo_post as P  # noqa: E402
 from maquette import lut_apply  # noqa: E402
 import design as Dz  # noqa: E402
-import json  # noqa: E402
 
 DATA = os.environ.get("FO_DATA", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
 PPT = 64
-try:
-    FONT = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 22)
-    FONTS = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 14)
-    FONTB = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 26)
-except OSError:
-    FONT = FONTS = FONTB = ImageFont.load_default()
+
+
+def font(name, size):
+    try:
+        return ImageFont.truetype("C:/Windows/Fonts/%s" % name, size)
+    except OSError:
+        return ImageFont.load_default()
 
 
 def dump(dumps, n):
@@ -61,6 +70,15 @@ def vanilla(dumps, which, pose="E"):
     elif which == "reactor":
         d = dump(dumps, "reactor_nuclear-reactor")
         nodes = [(d["lower_layer_picture"], 0, None), (d["picture"], 0, None), (d["working_light_picture"], 0, "light")]
+    elif which == "silo":
+        d = dump(dumps, "rocket-silo_rocket-silo")
+        nodes = [(d["hole_sprite"], 0, None), (d["door_back_sprite"], 0, None), (d["door_front_sprite"], 0, None),
+                 (d["base_day_sprite"], 0, None), (d["base_front_sprite"], 0, None),
+                 (d["red_lights_back_sprites"], 0, "glow"), (d["red_lights_front_sprites"], 0, "glow")]
+        if "shadow_sprite" in d:
+            nodes.insert(0, (d["shadow_sprite"], 0, None))
+    else:
+        raise KeyError(which)
     lays = DL.vanilla_layers(nodes, DATA)
     out = []
     for l in lays:
@@ -71,7 +89,6 @@ def vanilla(dumps, which, pose="E"):
             img = np.concatenate([lum * np.array(DL.TEAM_TINT), img[..., 3:4]], -1)
             k = "main"
         out.append({"img": img, "shift": l["shift"], "kind": k})
-    # ombres d'abord (tampon d'ombre), puis l'ordre déclaré
     return out
 
 
@@ -92,7 +109,7 @@ def level(root, lv, pose):
 
 
 def compose(entities, W_t, H_t):
-    """Recopie de maquette.compose, positions arrondies au pixel. Renvoie (jour, lumière, nuit) en sRGB [0, 1]."""
+    """Recopie de maquette.compose, positions arrondies au pixel. Renvoie (jour, nuit) en sRGB [0, 1]."""
     W, H = int(W_t * PPT), int(H_t * PPT)
     ground = DL.load_rgba(os.path.join(DATA, "base", "graphics", "terrain", "hr-dirt-4.png"))[320:576, :, :3].astype(np.float64)
     gh, gw = ground.shape[:2]
@@ -145,109 +162,124 @@ def to_img(rgb):
     return Image.fromarray(np.clip(np.round(rgb * 255), 0, 255).astype(np.uint8), "RGB")
 
 
-def labelled(rgb, labels, title, zoom, band=80):
-    """Ajoute un titre en haut et les étiquettes sous chaque entité (labels : [(x_tuiles, y_tuiles, lignes)])."""
+def labelled(rgb, labels, title, k, band, sizes=(26, 20, 17)):
+    """Titre en haut, étiquettes sous chaque entité (labels : [(x_tuiles, y_tuiles, lignes)]) ; k = px écran par px
+    HR (1 au zoom 2, 0,5 au zoom 1)."""
     im = to_img(rgb)
-    k = 1 if zoom == 2 else 0.5
-    out = Image.new("RGB", (im.width, im.height + band + 40), (28, 28, 28))
-    out.paste(im, (0, 40))
+    ft, f1, f2 = font("arialbd.ttf", sizes[0]), font("arialbd.ttf", sizes[1]), font("arial.ttf", sizes[2])
+    head = sizes[0] + 20
+    out = Image.new("RGB", (im.width, im.height + band + head), (26, 26, 26))
+    out.paste(im, (0, head))
     d = ImageDraw.Draw(out)
-    d.text((10, 6), title, fill=(235, 235, 235), font=FONTB if zoom == 2 else FONT)
+    d.text((12, 8), title, fill=(236, 236, 236), font=ft)
     for x, y, lines in labels:
         px = int(x * PPT * k)
-        py = int(y * PPT * k) + 40
+        py = int(y * PPT * k) + head
         for j, t in enumerate(lines):
-            f = FONT if (zoom == 2 and j == 0) else (FONTS if zoom == 1 else FONT)
+            f = f1 if j == 0 else f2
             w = d.textlength(t, font=f)
-            d.text((px - w / 2, py + 4 + j * (22 if zoom == 2 else 17)), t, fill=(240, 240, 240) if j == 0 else (200, 200, 200),
-                   font=f)
+            # fond sombre sous le texte (lisible sur le sol)
+            d.rectangle((px - w / 2 - 4, py + 2 + j * (sizes[1] + 4), px + w / 2 + 4, py + 4 + j * (sizes[1] + 4) + sizes[1]),
+                        fill=(20, 20, 20))
+            d.text((px - w / 2, py + 3 + j * (sizes[1] + 4)), t, fill=(250, 250, 250) if j == 0 else (215, 215, 215), font=f)
     return out
 
 
-def row(root, dumps, pose, y_base, x0=1.0, gap=2.0):
-    """Une rangée : vanilla n1, laser, n11, assembleuse 3, n21, réacteur, n29, n30 (bas des emprises alignés)."""
-    items = [("gun", 2, "mitrailleuse", "vanilla n1, 2×2"),
-             ("laser", 2, "laser", "vanilla, 2×2"),
-             (11, 3, "hybride n11", "ép. 6, 3×3"),
-             ("am3", 3, "assembleuse 3", "vanilla, 3×3"),
-             (21, 5, "hybride n21", "ép. 11, 5×5"),
-             ("reactor", 5, "réacteur", "vanilla, 5×5"),
-             (29, 6, "hybride n29", "ép. 15, 6×6"),
-             (30, 6, "hybride n30", "+ bastions, 6×6")]
+# (clé, côté, ligne 1, ligne 2)
+ROW = [("gun", 2, "mitrailleuse vanilla", "niveau 1 · époque 1 · 2×2"),
+       ("laser", 2, "tourelle laser", "vanilla · 2×2"),
+       (11, 3, "hybride niveau 11", "époque 6 · ère II · 3×3"),
+       ("am3", 3, "assembleuse 3", "vanilla · 3×3"),
+       (21, 5, "hybride niveau 21", "époque 11 · ère IV · 5×5"),
+       ("reactor", 5, "réacteur nucléaire", "vanilla · 5×5"),
+       (29, 6, "hybride niveau 29", "époque 15 · ère V · 6×6"),
+       (30, 6, "hybride niveau 30", "époque 15 · 6×6 · + lance-roquettes"),
+       ("silo", 9, "silo à fusée", "vanilla · 9×9")]
+
+
+def row(root, dumps, pose, y_base, x0=1.0, gap=1.6):
     ents, labels = [], []
     x = x0
-    for key, side, l1, l2 in items:
+    for key, side, l1, l2 in ROW:
+        side_slot = max(side, 4.4)          # la légende tient sous son bâtiment (zoom 1)
+        x += (side_slot - side) / 2.0
         cx = x + side / 2.0
         cy = y_base - side / 2.0
         lays = level(root, key, pose) if isinstance(key, int) else vanilla(dumps, key, pose)
         ents.append({"pos": (cx, cy), "layers": lays})
-        labels.append((cx, y_base + 0.15, [l1, l2]))
-        x += side + gap
+        labels.append((cx, y_base + 0.25, [l1, l2]))
+        x += side + (side_slot - side) / 2.0 + gap
     return ents, labels, x
 
 
-def main():
-    root, dumps, out = sys.argv[1], sys.argv[2], sys.argv[3]
+def planches(root, dumps, out):
     os.makedirs(out, exist_ok=True)
-    # deux rangées : pose E (méthode de la charte) puis pose N
-    top = 3.2           # marge au-dessus des plus grands (dépassement de la tête)
-    e1, l1, wx = row(root, dumps, "E", top + 6.0)
-    y2 = top + 6.0 + 1.6 + top + 6.0 - 1.4
-    e2, l2, _ = row(root, dumps, "N", y2)
-    W_t = wx + 0.2
-    H_t = y2 + 1.6
-    day, night = compose(e1 + e2, W_t, H_t)
-    labels = l1 + l2
-    titles = {"jour": "de jour", "nuit": "de nuit (maquette : lumières moteur vanilla absentes)"}
     files = []
-    for tag, img in (("jour", day), ("nuit", night)):
-        t2 = "Mitrailleuse « hybride progressive » (V3-S) : vanilla n1 puis n11, n21, n29, n30 parmi des bâtiments vanilla ; zoom 2 (64 px/tuile), %s ; rangée 1 pose E, rangée 2 pose N" % titles[tag]
-        p = os.path.join(out, "planche-hybride-zoom2-%s.png" % tag)
-        labelled(img, labels, t2, 2).save(p, optimize=True)
-        files.append(p)
-        t1 = "Hybride V3-S, zoom 1 (32 px/tuile, vue du joueur), %s ; rangée 1 pose E, rangée 2 pose N" % titles[tag]
-        p = os.path.join(out, "planche-hybride-zoom1-%s.png" % tag)
-        labelled(down2(img), labels, t1, 1, band=60).save(p, optimize=True)
-        files.append(p)
-    # gros plans zoom 2 (×2 au plus proche) : chaque niveau témoin en pose E, de jour
+    top = 3.0
+    yb = top + 9.0
+    for pose in ("E", "N"):
+        ents, labels, wx = row(root, dumps, pose, yb)
+        day, night = compose(ents, wx + 0.4, yb + 0.6)
+        tags = (("jour", day), ("nuit", night)) if pose == "E" else (("jour", day),)
+        for tag, img in tags:
+            nt = "de nuit (maquette : lumières moteur vanilla absentes)" if tag == "nuit" else "de jour"
+            if pose == "E":
+                p = os.path.join(out, "planche-hybride-zoom2-%s-poseE.png" % tag)
+                labelled(img, labels, "Mitrailleuse « hybride progressive » (V3-S) parmi des bâtiments vanilla, même échelle ; "
+                         "zoom 2 (64 px/tuile) ; %s ; pose E" % nt, 1.0, 120, (30, 24, 20)).save(p, optimize=True)
+                files.append(p)
+            p = os.path.join(out, "planche-hybride-zoom1-%s-pose%s.png" % (tag, pose))
+            labelled(down2(img), labels, "Hybride V3-S, zoom 1 (32 px/tuile, vue du joueur) ; %s ; pose %s" % (nt, pose), 0.5,
+                     80, (20, 16, 14)).save(p, optimize=True)
+            files.append(p)
+    # gros plans : chaque niveau en pose E au zoom 2, agrandi 2× (lecture du détail)
     for lv, side in ((11, 3), (21, 5), (29, 6), (30, 6)):
-        ents = [{"pos": (side / 2.0 + 0.8, 3.0 + side / 2.0), "layers": level(root, lv, "E")}]
-        d1, n1 = compose(ents, side + 3.4, side + 4.2)
+        ents = [{"pos": (side / 2.0 + 1.0, 2.6 + side / 2.0), "layers": level(root, lv, "E")}]
+        d1, n1 = compose(ents, side + 3.6, side + 3.6)
         for tag, img in (("jour", d1), ("nuit", n1)):
             im = to_img(img)
             im = im.resize((im.width * 2, im.height * 2), Image.NEAREST)
             p = os.path.join(out, "gros-plan-n%02d-E-zoom2x2-%s.png" % (lv, tag))
             im.save(p, optimize=True)
             files.append(p)
-    # test du regard naïf (charte §6.5) : paires (e, e+k) au même zoom, ordre mélangé (graine fixe), clé à part
-    import random
-    rnd = random.Random(15)
-    pairs = [((1, "gun", 2), (11, 11, 3)), ((11, 11, 3), (21, 21, 5)), ((21, 21, 5), (29, 29, 6)), ((1, "gun", 2), (29, 29, 6)),
-             ((29, 29, 6), (30, 30, 6))]
-    ents, labels, key = [], [], []
-    x = 1.0
-    for i, (a, b) in enumerate(pairs):
-        ab = [a, b]
-        if rnd.random() < 0.5:
-            ab = [b, a]
-        for j, (lvl, k, side) in enumerate(ab):
-            cx = x + side / 2.0
-            cy = 3.2 + 6.0 - side / 2.0
-            lays = vanilla(dumps, "gun", "E") if k == "gun" else level(root, k, "E")
-            ents.append({"pos": (cx, cy), "layers": lays})
-            labels.append((cx, 9.35, ["paire %d : %s" % (i + 1, "AB"[j])]))
-            key.append("paire %d, %s = niveau %d" % (i + 1, "AB"[j], lvl))
-            x += side + 0.8
-        x += 1.4
-    d1, _ = compose(ents, x, 10.0)
-    p = os.path.join(out, "regard-naif-pose-E-zoom2.png")
-    labelled(d1, labels, "Test du regard naïf (charte §6.5) : dans chaque paire, lequel est le plus puissant ? (clé : regard-naif-cle.txt)", 2,
-             band=40).save(p, optimize=True)
-    files.append(p)
-    open(os.path.join(out, "regard-naif-cle.txt"), "w", encoding="utf-8").write("\n".join(key) + "\n")
     for f in files:
         print(f)
 
 
+PAIRS = [(1, 11), (11, 21), (21, 29), (29, 30), (1, 21), (11, 29)]
+SIDE = {1: 2, 11: 3, 21: 5, 29: 6, 30: 6}
+
+
+def regard(root, dumps, out):
+    """Paires du test du regard naïf ; la clé n'est imprimée QUE sur la sortie standard."""
+    os.makedirs(out, exist_ok=True)
+    rnd = random.SystemRandom()
+    order = list(PAIRS)
+    rnd.shuffle(order)
+    # le plus puissant à gauche dans 3 paires sur 6, à droite dans les 3 autres (tirage)
+    left_strong = [True] * 3 + [False] * 3
+    rnd.shuffle(left_strong)
+    key = []
+    for i, (lo, hi) in enumerate(order):
+        ab = (hi, lo) if left_strong[i] else (lo, hi)
+        ents, labels = [], []
+        x = 1.2
+        H = 9.6
+        yb = H - 0.9
+        for j, lv in enumerate(ab):
+            side = SIDE[lv]
+            cx = x + side / 2.0
+            lays = vanilla(dumps, "gun", "E") if lv == 1 else level(root, lv, "E")
+            ents.append({"pos": (cx, yb - side / 2.0), "layers": lays})
+            labels.append((cx, yb + 0.15, ["AB"[j]]))
+            x += side + 2.0
+        day, _ = compose(ents, x - 0.8, H)
+        p = os.path.join(out, "paire-%02d.png" % (i + 1))
+        labelled(down2(day), labels, "", 0.5, 46, (8, 30, 16)).save(p, optimize=True)
+        key.append("paire-%02d.png : A = %d, B = %d" % (i + 1, ab[0], ab[1]))
+    sys.stdout.write("CLE (non écrite sur le disque)\n" + "\n".join(key) + "\n")
+
+
 if __name__ == "__main__":
-    main()
+    mode, root, dumps, out = sys.argv[1:5]
+    (planches if mode == "planches" else regard)(root, dumps, out)

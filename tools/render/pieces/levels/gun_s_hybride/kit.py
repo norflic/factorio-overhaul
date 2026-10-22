@@ -394,7 +394,7 @@ def capacitor_bank(g, M, c, nx, ny, r=0.12, h=0.5, pitch=0.3, emit=None, cap="la
 # Armement
 # ------------------------------------------------------------------------------------------------
 def gatling(g, M, n, ring_r, br, y0, y1, x=0.0, z=0.0, phase=0.0, rings=(0.08, 0.42, 0.78, 0.97), jacket=None,
-            muzzle=True, hub_r=None, barrel="canon", clamp="acier", bolt_mat="boulon"):
+            muzzle=True, hub_r=None, barrel="canon", clamp="acier", bolt_mat="boulon", vent=None):
     """Canons rotatifs (identité « tête à plusieurs canons ») : n tubes autour d'un axe, frettes, moyeu,
     frein de bouche ; jacket = (y_a, y_b, r) manchon de refroidissement à évents."""
     L = y1 - y0
@@ -419,7 +419,7 @@ def gatling(g, M, n, ring_r, br, y0, y1, x=0.0, z=0.0, phase=0.0, rings=(0.08, 0
             for a in (0.0, math.pi / 2, math.pi, 1.5 * math.pi, math.pi / 4, 3 * math.pi / 4, 5 * math.pi / 4,
                       7 * math.pi / 4):
                 g.push(); g.move((x + rj * math.cos(a), yy, z + rj * math.sin(a))); g.turn("y", -a)
-                g.box(M["joint"], (0.012, 0.05, 0.034), (0, 0, 0), 0.0)
+                g.box(vent or M["joint"], (0.014, 0.05, 0.034), (0, 0, 0), 0.0)
                 g.pop()
                 g.count("event")
         for yy in (ya, yb):
