@@ -19,7 +19,8 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
-OUT = os.path.join(MOD, "tools", "render", "out", "levels", "gun_s_industriel")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+OUT = os.path.join(WORK, "out")
 LEVELS = {11: (6, "e06-socle", "e06-tete"), 21: (11, "e11-socle", "e11-tete"), 29: (15, "e15-socle", "e15-tete"),
           30: (15, "e15-socle-piece", "e15-tete")}
 SIDE = {6: 3, 11: 5, 15: 6}

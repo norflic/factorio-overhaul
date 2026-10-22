@@ -9,6 +9,17 @@ lisses. Le corps garde la palette de la cheminée V0 validée (tôle brune rouil
 Niveaux témoins (charte §6.2) : 11 (époque 6, 3×3), 21 (époque 11, 5×5), 29 (époque 15, 6×6), 30 (29 + pièce).
 Variantes : eNN-socle (base_picture), e15-socle-piece (niveau 30), eNN-tete-N|E (tête, pose « prepared »).
 Format de tools/render/README.md (PIECE + build(S, C, variant)) ; rendu par rendre.py (verrou de rendu).
+
+Reprise du 22/10 après-midi (2e explorateur) : forme refaite (design.py, parts2.py, parts3.py), voir la tête de
+design.py. Chaîne complète, depuis la racine du worktree (Python 3.9 : numpy manque au Python 3.14 du PC depuis
+le 22/10 ; sorties hors dépôt dans FO_IND_WORK, par défaut <racine>/fo-logs/2026-10-22_V3S/industriel) :
+    py -3.9 tools/render/pieces/levels/gun_s_industriel/rendre.py --samples 128      # 10 variantes, verrou
+    py -3.9 .../mesure.py <outils charte> <sortie.json> --pose E|N                    # 23 planchers + cibles
+    py -3.9 .../planche.py <racine>/data <dumps> <outils charte> <dossier> --pose E|N   # planches z1/z2 jour/nuit
+    py -3.9 .../prog.py <outils charte> <mesures_vanilla.json> <mesures E> <dossier>   # dominance 1-11-21-29-30
+    py -3.9 .../naif.py <racine>/data <dumps> <outils charte> <dossier>               # paires A/B, clé à l'écran
+Essais rapides : rendre.py --quick --samples 16 (passes main, glow, shadow ; pas de liseré de contact, donc
+masse et remplissage sous-estimés d'environ 10 % par rapport au rendu complet).
 """
 import math
 import os

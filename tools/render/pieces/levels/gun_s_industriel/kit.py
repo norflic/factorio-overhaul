@@ -68,10 +68,47 @@ def _insert_stain(mat, amount, scale, seed):
         nz.inputs["W"].default_value = seed + 3.1
     L.new(tc.outputs["Object"], nz.inputs["Vector"])
     mr = N.new("ShaderNodeMapRange")
-    mr.inputs["From Min"].default_value = 0.4
-    mr.inputs["From Max"].default_value = 0.6
-    mr.inputs["To Min"].default_value = 1.0 - amount
-    mr.inputs["To Max"].default_value = 1.0 + amount
+    mr.inputs["From Min"].default_value = 0.3
+    mr.inputs["From Max"].default_value = 0.7
+    mr.inputs["To Min"].default_value = 1.0 - amount * 0.85
+    mr.inputs["To Max"].default_value = 1.0 + amount * 0.45
+    L.new(nz.outputs["Fac"], mr.inputs["Value"])
+    mul = N.new("ShaderNodeVectorMath")
+    mul.operation = "SCALE"
+    L.new(src, mul.inputs[0])
+    L.new(mr.outputs["Result"], mul.inputs["Scale"])
+    L.new(mul.outputs["Vector"], inp)
+
+
+def _insert_streaks(mat, amount, scale, seed):
+    """Coulures et crasse verticales : bruit étiré en Z (coordonnées Object), multiplie la couleur par
+    1 - amount au plus. Donne la variance basse fréquence (P2) des tôles vanilla sans motif de camouflage."""
+    nt = mat.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    inp = p.inputs["Base Color"]
+    if not inp.links:
+        return
+    src = inp.links[0].from_socket
+    tc = N.new("ShaderNodeTexCoord")
+    sc = N.new("ShaderNodeVectorMath")
+    sc.operation = "MULTIPLY"
+    sc.inputs[1].default_value = (scale, scale, scale * 0.18)
+    L.new(tc.outputs["Object"], sc.inputs[0])
+    nz = N.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 1.0
+    nz.inputs["Detail"].default_value = 4.0
+    nz.inputs["Roughness"].default_value = 0.6
+    if "W" in nz.inputs:
+        nz.noise_dimensions = "4D"
+        nz.inputs["W"].default_value = seed + 5.7
+    L.new(sc.outputs["Vector"], nz.inputs["Vector"])
+    mr = N.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value = 0.45
+    mr.inputs["From Max"].default_value = 0.7
+    mr.inputs["To Min"].default_value = 1.0
+    mr.inputs["To Max"].default_value = 1.0 - amount
+    mr.clamp = True
     L.new(nz.outputs["Fac"], mr.inputs["Value"])
     mul = N.new("ShaderNodeVectorMath")
     mul.operation = "SCALE"
@@ -95,7 +132,7 @@ def _insert_edgewear(mat, amount, dist=0.014):
     ao = N.new("ShaderNodeAmbientOcclusion")
     ao.inside = True
     ao.only_local = True
-    ao.samples = 6
+    ao.samples = 16
     ao.inputs["Distance"].default_value = dist
     mr = N.new("ShaderNodeMapRange")
     mr.inputs["From Min"].default_value = 1.0
@@ -118,7 +155,7 @@ def materials(S, epoch, tone=1.0):
     k = [0]
 
     def metal(key, col, rough=0.4, met=0.75, grain=0.38, gscale=24.0, rust=None, ra=0.0, dirt=0.85, stain=0.5,
-              sscale=7.0, dd=0.3, soot=None, wear=0.0):
+              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0):
         k[0] += 1
         c = tuple(min(0.9, x * tone) for x in col)
         m = S.mat_metal("ind_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
@@ -126,6 +163,8 @@ def materials(S, epoch, tone=1.0):
                         soot=soot, dirt_distance=dd)
         if stain:
             _insert_stain(m, stain, sscale, float(11 * k[0] + epoch))
+        if streak:
+            _insert_streaks(m, streak, 14.0, float(13 * k[0] + epoch))
         if wear:
             _insert_edgewear(m, wear)
         M[key] = m
@@ -136,22 +175,40 @@ def materials(S, epoch, tone=1.0):
     metal("armor", (0.15, 0.125, 0.095), rough=0.36, met=0.7, rust=rust, ra=0.18, dd=0.35, wear=1.6)
     metal("armor2", (0.075, 0.068, 0.058), rough=0.4, met=0.75, rust=(0.18, 0.07, 0.03), ra=0.15, dirt=0.7, wear=2.2)
     metal("khaki", (0.17, 0.14, 0.08), rough=0.48, met=0.4, rust=rust, ra=0.18, wear=1.4)
-    metal("seam", (0.02, 0.018, 0.016), rough=0.7, met=0.3, grain=0.2, dirt=0.4, stain=0.0)
-    metal("steel", (0.2, 0.19, 0.175), rough=0.3, met=0.9, grain=0.3, gscale=40.0, rust=rust, ra=0.1, dirt=0.6,
+    metal("seam", (0.01, 0.009, 0.008), rough=0.8, met=0.2, grain=0.2, dirt=0.4, stain=0.0)
+    metal("steel", (0.2, 0.19, 0.175), rough=0.3, met=0.9, grain=0.26, gscale=40.0, rust=rust, ra=0.1, dirt=0.6,
           stain=0.25, wear=1.2)
-    metal("gun", (0.075, 0.072, 0.068), rough=0.3, met=0.9, grain=0.25, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
-    metal("brass", (0.6, 0.44, 0.2), rough=0.36, met=0.9, grain=0.22, gscale=50.0, rust=(0.3, 0.12, 0.05),
+    metal("gun", (0.075, 0.072, 0.068), rough=0.3, met=0.9, grain=0.26, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
+    metal("brass", (0.8, 0.56, 0.22), rough=0.3, met=0.95, grain=0.22, gscale=50.0, rust=(0.3, 0.12, 0.05),
           ra=0.2, dirt=0.5, stain=0.15, wear=0.5)
-    metal("copper", (0.5, 0.22, 0.1), rough=0.38, met=0.9, grain=0.22, rust=(0.12, 0.2, 0.12), ra=0.12, dirt=0.55,
+    metal("copper", (0.62, 0.26, 0.1), rough=0.36, met=0.95, grain=0.22, rust=(0.12, 0.2, 0.12), ra=0.12, dirt=0.55,
           stain=0.2, wear=0.6)
-    metal("rivet", (0.36, 0.31, 0.24), rough=0.34, met=0.85, grain=0.12, dirt=0.3, stain=0.0)
-    metal("hazy", (0.46, 0.3, 0.03), rough=0.55, met=0.1, grain=0.38, rust=rust, ra=0.35, dirt=0.85, stain=0.35,
+    metal("rivet", (0.56, 0.48, 0.36), rough=0.28, met=0.9, grain=0.12, dirt=0.3, stain=0.0)
+    metal("hazy", (0.6, 0.38, 0.025), rough=0.5, met=0.1, grain=0.38, rust=rust, ra=0.35, dirt=0.85, stain=0.35,
           wear=0.6)
     metal("hazk", (0.025, 0.022, 0.02), rough=0.55, met=0.2, grain=0.3, dirt=0.4, stain=0.0, wear=3.0)
     metal("rubber", (0.03, 0.028, 0.026), rough=0.7, met=0.0, grain=0.15, dirt=0.3, stain=0.0)
     metal("redcable", (0.26, 0.035, 0.022), rough=0.55, met=0.0, grain=0.15, dirt=0.4, stain=0.0)
     metal("void", (0.008, 0.007, 0.006), rough=0.9, met=0.0, grain=0.1, dirt=0.0, stain=0.0)
     metal("soot", (0.05, 0.042, 0.038), rough=0.8, met=0.2, grain=0.3, dirt=0.5)
+    # --- reprise (22/10, 2e explorateur) : peintures et métaux du vocabulaire vanilla (réacteur, artillerie,
+    # silo) : plaques peintes patinées (ocre, brun-rouge, crème, kaki), acier clair aux arêtes franches, laiton
+    # et cuivre des tuyaux. Le corps reste chaud et sombre (C1 cible 50 à 60) mais n'est plus monochrome.
+    metal("ochre", (0.33, 0.19, 0.045), rough=0.4, met=0.35, grain=0.18, gscale=30.0, rust=rust, ra=0.3,
+          dirt=0.9, stain=0.95, sscale=5.0, dd=0.3, wear=2.6, streak=0.6)
+    metal("redpaint", (0.27, 0.065, 0.025), rough=0.4, met=0.35, grain=0.18, gscale=30.0, rust=(0.1, 0.05, 0.025),
+          ra=0.3, dirt=0.9, stain=0.95, sscale=5.0, wear=2.6, streak=0.55)
+    metal("cream", (0.42, 0.35, 0.2), rough=0.38, met=0.2, grain=0.18, gscale=26.0, rust=(0.2, 0.09, 0.04),
+          ra=0.3, dirt=0.95, stain=0.75, sscale=5.0, dd=0.35, wear=0.8, streak=0.65)
+    metal("olive", (0.15, 0.125, 0.06), rough=0.38, met=0.45, grain=0.18, gscale=30.0, rust=rust, ra=0.5,
+          dirt=0.9, stain=0.95, sscale=5.0, wear=3.0, streak=0.6)
+    metal("steel_dk", (0.1, 0.094, 0.086), rough=0.32, met=0.9, grain=0.18, gscale=36.0, rust=rust, ra=0.5,
+          dirt=0.8, stain=0.75, sscale=5.0, wear=2.8, streak=0.55)
+    metal("steel_hi", (0.52, 0.5, 0.46), rough=0.22, met=0.95, grain=0.3, gscale=44.0, rust=rust, ra=0.12,
+          dirt=0.75, stain=0.25, sscale=16.0, wear=0.6, streak=0.3)
+    metal("grate", (0.11, 0.1, 0.09), rough=0.4, met=0.8, grain=0.3, gscale=40.0, rust=rust, ra=0.35, dirt=0.6,
+          stain=0.5, wear=1.5)
+    metal("dial", (0.4, 0.37, 0.3), rough=0.4, met=0.0, grain=0.2, dirt=0.4, stain=0.2)
     # accents d'époque (≤ 15 % du corps, patinés, sur structure sombre)
     if epoch <= 6:
         metal("accent", (0.42, 0.39, 0.33), rough=0.35, met=0.0, grain=0.22, dirt=0.85, stain=0.3)      # céramique
@@ -182,6 +239,8 @@ def materials(S, epoch, tone=1.0):
 # ------------------------------------------------------------------------------------------------
 # Accumulateur de géométrie
 # ------------------------------------------------------------------------------------------------
+RIVET_K = 1.8  # espacement des rivets des plaques (reprise 22/10 : D3 au-dessus de 45 sinon)
+
 STYLES = {
     "hard": {"bevel": 0.016, "smooth": 30.0},
     "soft": {"bevel": 0.024, "smooth": 35.0},
@@ -209,6 +268,21 @@ class Geo:
 
     def pop(self):
         self.stack.pop()
+
+    def push_frame(self, p, nrm, xdir=None):
+        """Repère local d'origine p dont l'axe z suit la normale nrm (pièces posées sur une surface courbe)."""
+        a = Vector(nrm).normalized()
+        if xdir is None:
+            _, x, _ = basis(a)
+        else:
+            x = Vector(xdir)
+            x = (x - a * x.dot(a))
+            if x.length < 1e-6:
+                _, x, _ = basis(a)
+            x.normalize()
+        y = a.cross(x).normalized()
+        m = Matrix(((x.x, y.x, a.x, p[0]), (x.y, y.y, a.y, p[1]), (x.z, y.z, a.z, p[2]), (0, 0, 0, 1)))
+        self.stack.append(self.stack[-1] @ m)
 
     def W(self, p):
         """Point local -> repère de la pièce (avant la rotation de pose)."""
@@ -460,8 +534,8 @@ class Geo:
                     iu, iv = rivet_inset / max(lu, 1e-6), rivet_inset / max(lv, 1e-6)
                     pw = (s1 - s0) * lu
                     ph = (t1 - t0) * lv
-                    nu_r = max(2, int(pw / rivet_step) + 1)
-                    nv_r = max(2, int(ph / rivet_step) + 1)
+                    nu_r = max(2, int(pw / (rivet_step * RIVET_K)) + 1)
+                    nv_r = max(2, int(ph / (rivet_step * RIVET_K)) + 1)
                     pts = set()
                     for kk in range(nu_r):
                         s = s0 + iu + (s1 - s0 - 2 * iu) * kk / (nu_r - 1)

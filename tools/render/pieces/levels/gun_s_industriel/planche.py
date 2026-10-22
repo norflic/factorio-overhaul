@@ -23,14 +23,15 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
-OUT = os.path.join(MOD, "tools", "render", "out", "levels", "gun_s_industriel")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+OUT = os.path.join(WORK, "out")
 sys.path.insert(0, RENDER)
 sys.path.insert(0, os.path.join(RENDER, "calib"))
 import fo_post as P  # noqa: E402
 from maquette import lut_apply  # noqa: E402
 
 try:
-    FONT = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 15)
+    FONT = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 15)
     FONTB = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 17)
 except OSError:
     FONT = FONTB = ImageFont.load_default()
@@ -151,9 +152,9 @@ def main():
         meas = {r["niveau"]: r for r in json.load(open(a.mesures, encoding="utf-8"))}
     pose = a.pose
     gun = vanilla(D, a.dumps, a.data, "ammo-turret_gun-turret",
-                  lambda d: [(d["base_picture"], 0, None), (d["prepared_animation"], pose, None)])
+                  lambda d: [(d["base_picture"], 0, None), (d["prepared_animation"], 0 if pose == "N" else pose, None)])
     laser = vanilla(D, a.dumps, a.data, "electric-turret_laser-turret",
-                    lambda d: [(d["base_picture"], 0, None), (d["prepared_animation"], pose, None)])
+                    lambda d: [(d["base_picture"], 0, None), (d["prepared_animation"], 0 if pose == "N" else pose, None)])
     am3 = vanilla(D, a.dumps, a.data, "assembling-machine_assembling-machine-3", lambda d: [(d["animation"], 0, None)])
     reactor = vanilla(D, a.dumps, a.data, "reactor_nuclear-reactor",
                       lambda d: [(d["lower_layer_picture"], 0, None), (d["picture"], 0, None),
@@ -170,23 +171,24 @@ def main():
         {"pos": (5.5, yb + 1.5), "layers": am3, "lab": ["assembleuse 3 · 3×3"]},
         {"pos": (11.5, yb + 1.0), "layers": reactor, "lab": ["réacteur nucléaire 5×5"]},
         {"pos": (21.5, yb - 0.5), "layers": silo, "lab": ["silo à fusée 9×9"]},
-        {"pos": (2.0, yf), "layers": gun, "lab": ["niv. 1 (vanilla) 2×2"]},
+        {"pos": (2.0, yf), "layers": gun, "lab": ["niv. 1 · époque 1", "vanilla · 2×2"]},
     ]
     x = 4.5
-    for lvl, (socle, tete, side) in ((11, ("e06-socle", "e06-tete", 3)), (21, ("e11-socle", "e11-tete", 5)),
-                                     (29, ("e15-socle", "e15-tete", 6)), (30, ("e15-socle-piece", "e15-tete", 6))):
+    for lvl, (socle, tete, side, ep) in ((11, ("e06-socle", "e06-tete", 3, 6)), (21, ("e11-socle", "e11-tete", 5, 11)),
+                                         (29, ("e15-socle", "e15-tete", 6, 15)),
+                                         (30, ("e15-socle-piece", "e15-tete", 6, 15))):
         if not os.path.exists(os.path.join(OUT, socle, "spec.json")):
             continue
         x += side / 2.0
-        lab = ["niv. %d · %d×%d" % (lvl, side, side)]
+        lab = ["niv. %d · époque %d" % (lvl, ep), "emprise %d×%d" % (side, side)]
         r = meas.get(lvl)
-        if r:
-            lab.append("%d pièces · %.1f t²" % (r["petites_pieces"], r["masse_tuiles2"]))
+        if r and lvl == 30:
+            lab.append("= niv. 29 + cellules")
         ents.append({"pos": (x, yf - (side - 2) / 2.0 * 0.0), "layers": own(socle) + own("%s-%s" % (tete, pose)),
                      "lab": lab, "side": side})
         x += side / 2.0 + 1.0
     Wt = max(31.0, x + 0.5)
-    Ht = yf + 4.2
+    Ht = yf + 4.9
     day, night = compose(a.data, ents, Wt, Ht)
     labels = []
     for e in ents:

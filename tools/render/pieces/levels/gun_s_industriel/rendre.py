@@ -35,8 +35,9 @@ import ind  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-CACHE = os.path.join(MOD, "tools", "render", "cache", "levels-gunind")
-OUT = os.path.join(MOD, "tools", "render", "out", "levels", "gun_s_industriel")
+WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+CACHE = os.path.join(WORK, "cache")
+OUT = os.path.join(WORK, "out")
 HALO_PEAK = 0.45
 
 
@@ -48,6 +49,8 @@ def post(name):
     origin = tuple(info["origin_px"])
 
     def npy(layer):
+        if layer not in info.get("layers", []):
+            return None  # passe d'un rendu précédent (autre canevas) : ignorée
         p = os.path.join(d, "%s-%s.npy" % (name, layer))
         return np.load(p).astype(np.float64) if os.path.exists(p) else None
 
@@ -103,7 +106,7 @@ def main():
     names = [n for n in a.only.split(",") if n] or sorted(ind.PIECE["variants"])
     os.makedirs(CACHE, exist_ok=True)
     if not a.post_only:
-        cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "-P", BATCH, "--",
+        cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--",
                "--names", ",".join(names), "--out", CACHE, "--samples", str(a.samples)]
         if a.quick:
             cmd.append("--quick")

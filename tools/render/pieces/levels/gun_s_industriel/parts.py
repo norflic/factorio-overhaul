@@ -55,7 +55,7 @@ def slewing_ring(g, r, z0, h):
     """Couronne d'orientation : fût, denture, anneau de danger, couronne de boulons."""
     M = g.M
     g.cyl((0, 0, z0 + h / 2), "z", r, h, M["armor2"], n=72, style="soft", what="couronne")
-    nt = int(TAU * r / 0.075)
+    nt = int(TAU * r / 0.12)
     for i in range(nt):
         a = TAU * i / nt
         R = Matrix.Rotation(a, 3, "Z")
@@ -69,7 +69,7 @@ def slewing_ring(g, r, z0, h):
         bot = [V((ri * math.cos(a0), ri * math.sin(a0), zt)), V((ro * math.cos(a0 + 0.03), ro * math.sin(a0 + 0.03), zt)),
                V((ro * math.cos(a1 + 0.03), ro * math.sin(a1 + 0.03), zt)), V((ri * math.cos(a1), ri * math.sin(a1), zt))]
         g.hexa(bot + [p + V((0, 0, 0.02)) for p in bot], M["hazy"] if i % 2 else M["hazk"], "flat", "danger")
-    nb = int(TAU * (r - 0.19) / 0.12)
+    nb = int(TAU * (r - 0.19) / 0.17)
     for i in range(nb):
         a = TAU * i / nb
         g.dome(((r - 0.18) * math.cos(a), (r - 0.18) * math.sin(a), zt), (0, 0, 1), 0.024, M["rivet"])
@@ -248,7 +248,7 @@ def capacitors(g, c, nx, ny, r, h, emat, rz=0.0):
             g.cyl((x, y, h / 2), "z", r, h, M["armor2"], n=20, style="soft", what="condensateur")
             for zz in (0.08, h - 0.1):
                 g.tube_shell((x, y, zz), "z", r + 0.014, r - 0.01, 0.03, M["brass"], n=20, what="cerclage")
-            g.tube_shell((x, y, h + 0.012), "z", r * 0.82, r * 0.5, 0.02, emat, n=20, what="couronne_lum")
+            g.tube_shell((x, y, h + 0.012), "z", r * 0.7, r * 0.56, 0.02, emat, n=20, what="couronne_lum")
             g.cyl((x, y, h + 0.006), "z", r * 0.5, 0.016, M["seam"], n=16, style="flat")
             g.cyl((x, y, h + 0.04), "z", r * 0.22, 0.06, M["copper"], n=8, what="borne")
     for j in range(ny):
