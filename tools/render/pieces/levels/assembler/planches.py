@@ -16,8 +16,11 @@ Planches (bible §1.4 et consigne V3) :
   d-vignettes-masques.png les 15 niveaux impairs, masques noirs (alpha ≥ 0,5 de la couche principale), même échelle,
                           le plus grand tenant dans 64 px (test de la vignette D1-2) ; + d-vignettes-melangees.png et
                           sa clé d-vignettes-melangees-cle.txt (ordre tiré avec une graine fixe)
-  e-gros-plan-epNN.png    époques 1, 5, 10, 15 au zoom 2 : vanilla (niveau 1), niveau impair, niveau pair ; jour en
-                          haut, nuit en bas
+  d-vignettes-evenements.png  vignettes ×2 avec les pics de l'indicateur d'événements (comptage à l'œil)
+  e-gros-plan-epNN.png    époques 1, 2, 3, 5, 10, 13, 15 au zoom 2 : vanilla (niveau 1), niveau impair, niveau pair ;
+                          jour en haut, nuit en bas
+  f-raccords-*.png        départs de tuyau de chaque époque (niveaux impairs) raccordés aux tuyaux vanilla : N et S,
+                          puis E et O (machine tournée) ; zoom 1 (toutes) et zoom 2 (époques 5, 10, 15)
 """
 import argparse
 import json
@@ -69,20 +72,64 @@ def vanilla_layers():
     return out
 
 
-def level_layers(n):
-    """Couches hr d'un niveau (ordre du moteur : ombre, principale, lueur, halo)."""
+def level_layers(n, tuyaux=None):
+    """Couches hr d'un niveau (ordre du moteur : ombre, principale, [départs de tuyau], lueur, halo). tuyaux :
+    « tuyaux_ns » ou « tuyaux_ew » pour ajouter les pipe_picture de l'époque (rendues avec l'entité en holdout : la
+    partie nord, dessinée DERRIÈRE en jeu (secondary_draw_orders north = -1), est déjà cachée là où le corps passe
+    devant)."""
     if n == 1:
         return vanilla_layers()
     d = os.path.join(OUT, "n%02d" % n)
     with open(os.path.join(d, "n%02d.json" % n), encoding="utf-8") as f:
         rec = json.load(f)
     lays = vanilla_layers() if n == 2 else []
-    for kind in ("shadow", "main", "glow", "light"):
+    kinds = ("shadow", "main") + ((tuyaux,) if tuyaux else ()) + ("glow", "light")
+    for kind in kinds:
         sd = rec["spec"].get(kind)
         if sd:
             lays.append({"img": load(os.path.join(d, sd["hr"]["filename"])), "shift": tuple(sd["hr"]["shift"]),
-                         "kind": kind})
+                         "kind": "main" if kind.startswith("tuyaux") else kind})
     return lays
+
+
+def pipe_entity(kind):
+    """Tuyau vanilla droit (hr, 128 × 128, shift nul) pour vérifier le raccord."""
+    fn = {"v": "hr-pipe-straight-vertical.png", "h": "hr-pipe-straight-horizontal.png"}[kind]
+    return [{"img": load(os.path.join(DATA, "base", "graphics", "entity", "pipe", fn)), "shift": (0.0, 0.0),
+             "kind": "main"}]
+
+
+def raccords(levels, dest, zoom=1, name="f-raccords-zoom1.png"):
+    """Planche des départs de tuyau : pour chaque niveau impair, rangée 1 = machine + départs N et S + tuyaux vanilla
+    en (0, -2) et (0, 2) ; rangée 2 = départs E et O + tuyaux en (-2, 0) et (2, 0). Jour seulement."""
+    per = len(levels)
+    cw, top, bot = 6.0, 4.5, 3.0
+    ents_ns, ents_ew, pos = [], [], {}
+    for i, n in enumerate(levels):
+        cx = cw * i + 3.0
+        pos[n] = (cx, top)
+        ents_ns.append({"pos": (cx, top), "layers": level_layers(n, "tuyaux_ns")})
+        ents_ns.append({"pos": (cx, top - 2.0), "layers": pipe_entity("v")})
+        ents_ns.append({"pos": (cx, top + 2.0), "layers": pipe_entity("v")})
+        ents_ew.append({"pos": (cx, top), "layers": level_layers(n, "tuyaux_ew")})
+        ents_ew.append({"pos": (cx - 2.0, top), "layers": pipe_entity("h")})
+        ents_ew.append({"pos": (cx + 2.0, top), "layers": pipe_entity("h")})
+    rows = []
+    for ents, lab in ((ents_ns, "départs N et S (tuyaux vanilla en (0, -2) et (0, 2))"),
+                      (ents_ew, "machine tournée : départs E et O (tuyaux vanilla en (-2, 0) et (2, 0))")):
+        day, _ = compose(DATA, CORE, ents, cw * per, top + bot)
+        img = down2(day) if zoom == 1 else day
+        rows.append(label(img, pos, 32 * zoom, "Machine d'assemblage 2 · raccords de tuyaux par époque · zoom %d · %s · "
+                          "APERÇU phase 1, non validé" % (zoom, lab), levels))
+    W_ = max(r.width for r in rows)
+    out = Image.new("RGB", (W_, sum(r.height for r in rows)), (24, 22, 20))
+    y = 0
+    for r in rows:
+        out.paste(r, (0, y))
+        y += r.height
+    p = os.path.join(dest, name)
+    out.save(p, optimize=True)
+    return p
 
 
 def available():
@@ -183,6 +230,39 @@ def vignettes(levels, dest, header):
         return path
 
     order = list(levels)
+    # vignettes agrandies (×2) avec les pics de l'indicateur marqués : support du comptage à l'œil des événements
+    import mesures_d1 as M
+    pad, big2 = 10, 128
+    im = Image.new("RGB", (len(order) * (big2 + pad) + pad, big2 + 2 * pad + 40), (236, 232, 222))
+    dr = ImageDraw.Draw(im)
+    dr.text((pad, 3), header + " · événements : pics du profil supérieur (proéminence ≥ 0,12 t) marqués en rouge ; "
+            "chiffre = indicateur", fill=(30, 30, 30), font=font(12))
+    for i, n in enumerate(order):
+        x0, y0, x1, y1 = boxes[n]
+        crop = masks[n][y0:y1, x0:x1].astype(np.float32)
+        w, h = max(1, int(round((x1 - x0) * s * 2))), max(1, int(round((y1 - y0) * s * 2)))
+        r = np.asarray(Image.fromarray(crop * 255).resize((w, h), Image.BOX)) >= 127.5
+        cell = Image.new("RGB", (big2, big2), (255, 255, 255))
+        ox, oy = (big2 - w) // 2, big2 - h
+        cell.paste(Image.fromarray(np.where(r, 0, 255).astype(np.uint8), "L").convert("RGB"), (ox, oy))
+        cd = ImageDraw.Draw(cell)
+        # pics : même indicateur que mesures_d1 (toile de main_mask : origine à (4 ; 5,5) tuiles du coin)
+        mm = np.zeros((M.H, M.W), bool)
+        hh, ww = masks[n].shape
+        mx0, my0 = int(M.OX - 4.0 * 64), int(M.OY - 5.5 * 64)
+        mm[my0:my0 + min(hh, M.H), mx0:mx0 + min(ww, M.W)] = masks[n][:M.H, :M.W]
+        k, pk = M.profile_peaks(mm)
+        for px, py, _ in pk:
+            u = ox + ((px + 4.0) * 64 - x0) * s * 2
+            v = oy + ((5.5 - py) * 64 - y0) * s * 2
+            cd.polygon([(u, v - 2), (u - 4, v - 9), (u + 4, v - 9)], fill=(220, 30, 30))
+        x = pad + i * (big2 + pad)
+        im.paste(cell, (x, 20 + pad))
+        dr.rectangle((x - 1, 20 + pad - 1, x + big2, 20 + pad + big2), outline=(190, 185, 175))
+        dr.text((x + 2, 20 + pad + big2 + 3), "N%d ép.%d : %d" % (n, params.epoque(n), k), fill=(30, 30, 30),
+                font=font(11))
+    pe = os.path.join(dest, "d-vignettes-evenements.png")
+    im.save(pe, optimize=True)
     p1 = strip(order, ["N%d ép.%d" % (n, params.epoque(n)) for n in order], os.path.join(dest, "d-vignettes-masques.png"),
                header + " · ordre des époques · échelle commune : %.3f px par px hr (le plus grand = 64 px)" % s)
     rnd = random.Random(20261021)
@@ -195,7 +275,7 @@ def vignettes(levels, dest, header):
         f.write("Clé du test de la vignette (D1-2), machine d'assemblage 2 : lettre -> niveau (époque)\n")
         for L_, n in zip(letters, mixed):
             f.write("%s -> niveau %d (époque %d)\n" % (L_, n, params.epoque(n)))
-    return [p1, p2], s
+    return [p1, p2, pe], s
 
 
 def gros_plan(e, dest):
@@ -223,7 +303,7 @@ def main():
     ap.add_argument("--dest", default=DEST)
     ap.add_argument("--levels", default="")
     ap.add_argument("--per-row", type=int, default=15)
-    ap.add_argument("--only", default="abcde")
+    ap.add_argument("--only", default="abcdef")
     ap.add_argument("--zoom", type=int, default=1, help="2 : planches a à c au zoom 2 (revue)")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
@@ -254,9 +334,15 @@ def main():
         ps, s = vignettes(odd, a.dest, "Machine d'assemblage 2 · niveaux impairs (1 par époque)")
         made += ps
     if "e" in a.only:
-        for e in (1, 5, 10, 15):
+        for e in (1, 2, 3, 5, 10, 13, 15):
             if all(n in levels for n in (2 * e - 1, 2 * e) if n != 1):
                 made.append(gros_plan(e, a.dest))
+    if "f" in a.only:
+        odd = [n for n in levels if n % 2 == 1 and n > 1]
+        made.append(raccords(odd, a.dest))
+        sel = [n for n in (9, 19, 29) if n in odd]
+        if sel:
+            made.append(raccords(sel, a.dest, zoom=2, name="f-raccords-zoom2-ep05-10-15.png"))
     for p in made:
         print("[FO-PLANCHE] %s (%d o)" % (p, os.path.getsize(p)))
 

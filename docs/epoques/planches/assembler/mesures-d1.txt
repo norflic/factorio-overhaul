@@ -1,169 +1,229 @@
-Mesures D1 · machine d'assemblage 2 · source : rendus d'aperçu « complet » (64 px/tuile, masque alpha ≥ 0,5)
-Colonnes : O masses / O total (tuiles au-dessus de l'emprise) ; L masses ; aire (t²) ; emprise couverte ; V = part du masque du niveau 1 laissée vide ; IoU avec le niveau précédent ; ajout = aire de la pièce paire hors du masque impair (t²) ; ΔL = aire où la luminance change de ≥ 20/255 (t²) ; IoU(1, n).
+Mesures D1 · machine d'assemblage 2 · source : rendus d'aperçu « complet » (64 px/tuile, masque alpha ≥ 0,5 de la couche principale ; niveau 1 = vanilla hr image 0 ; niveau 2 = vanilla + pièce)
+Correction V3 du 22/10 : O des masses par ouverture HORIZONTALE 1 × 10 px (bible §1.4 : seules les tiges de moins de 0,15 tuile de LARGE sont retirées ; l'ancienne ouverture carrée est donnée pour mémoire, « O_car ») ;
+IoU normalisée en échelle (Q13 b) : max sur k ∈ [0,50 ; 2,50] de IoU(a agrandi de k, b), ancrage à l'ORIGINE et au PIED (bas-centre de la boîte de a) ; la valeur retenue est le maximum des deux.
+Seuils de travail (vérificateur V3) : nIoU(1, n) ≤ 0,80 ; nIoU entre époques consécutives ≤ 0,85, ≤ 0,75 aux changements d'ère ; D1-3 : IoU(1, 30) ≤ 0,45 et nIoU(1, 30) ≤ 0,75.
 
-niv ép  O_mas  O_tot  L_mas  aire   empr   V%    IoU_prec  ajout  dL     IoU_1n  plafondO  envO   envL   envV
-  1   1   0.05   0.06   2.56   6.98    77%     0      -      -      -    1.000   ok     0.06   2.56     0
-  2   1   0.64   0.64   2.81   7.60    79%     0    0.919   0.62   0.00  0.919   ok     0.06   2.56     0
-  3   2   0.20   0.23   2.80   7.74    83%     4    0.790    -      -    0.834   ok     0.16   2.60     0
-  4   2   0.48   0.50   2.80   7.96    84%     4    0.969   0.24   0.44  0.820   ok     0.16   2.60     0
-  5   3   0.38   0.39   2.44   6.72    73%     9    0.805    -      -    0.869   ok     0.27   2.64     0
-  6   3   0.39   0.66   2.44   6.91    74%     9    0.972   0.19   0.13  0.850   ok     0.27   2.64     0
-  7   4   0.41   0.56   2.84   7.61    79%     7    0.807    -      -    0.809   ok     0.37   2.68     0
-  8   4   0.41   0.56   2.94   7.99    83%     5    0.951   0.39   0.34  0.802   ok     0.37   2.68     0
-  9   5   0.50   0.75   2.91   9.39    93%     1    0.789    -      -    0.728   ok     0.47   2.71     0
- 10   5   0.50   0.75   3.06   9.56    95%     1    0.981   0.18   0.67  0.715   ok     0.47   2.71     0
- 11   6   0.61   0.64   2.72   7.90    82%     4    0.761    -      -    0.813   ok     0.57   2.75     0
- 12   6   0.84   0.86   2.72   8.37    83%     4    0.941   0.48   0.17  0.781   ok     0.57   2.75     0
- 13   7   0.78   1.08   2.78   7.82    83%     5    0.779    -      -    0.816   ok     0.68   2.79     0
- 14   7   1.09   1.31   2.78   8.22    84%     4    0.949   0.41   0.44  0.793   ok     0.68   2.79     0
- 15   8   0.92   0.94   2.86   7.63    80%     7    0.776    -      -    0.805   ok     0.78   2.83     0
- 16   8   1.20   1.22   2.84   8.23    84%     2    0.926   0.60   0.33  0.816   ok     0.78   2.83     0
- 17   9   1.00   1.00   2.81   8.79    88%     0    0.837    -      -    0.793   ok     0.88   2.87     0
- 18   9   1.17   1.17   2.81   9.31    88%     0    0.942   0.53   0.16  0.749   ok     0.88   2.87     0
- 19  10   1.09   1.59   2.53   6.81    67%    16    0.667    -      -    0.732   ok     0.99   2.91     6
- 20  10   1.27   1.59   2.53   7.39    67%    16    0.921   0.58   0.11  0.683   ok     0.99   2.91     6
- 21  11   1.11   1.33   2.50   4.57    36%    57    0.444    -      -    0.356   ok     1.09   2.95    12
- 22  11   1.42   1.47   2.69   5.04    36%    57    0.905   0.47   0.23  0.337   ok     1.09   2.95    12
- 23  12   1.12   1.12   2.62   6.60    65%    20    0.403    -      -    0.704   ok     1.19   2.98    18
- 24  12   1.41   1.44   2.62   7.06    65%    20    0.933   0.47   0.42  0.666   ok     1.19   2.98    18
- 25  13   1.27   1.30   2.53   4.83    41%    51    0.391    -      -    0.412   ok     1.29   3.02    23
- 26  13   1.27   1.47   2.53   5.08    41%    51    0.947   0.26   0.07  0.399   ok     1.29   3.02    23
- 27  14   1.45   1.45   3.00   5.07    35%    58    0.425    -      -    0.319   ok     1.40   3.06    29
- 28  14   1.45   1.45   3.00   5.39    35%    58    0.936   0.33   0.09  0.309   ok     1.40   3.06    29
- 29  15   1.50   1.88   2.19   4.30    38%    52    0.412    -      -    0.428   ok     1.50   3.10    35
- 30  15   1.48   2.12   2.19   4.67    38%    52    0.918   0.37   0.14  0.409   ok     1.50   3.10    35
+niv ép  O_mas  O_car  O_tot  L_mas  aire   empr  V%   IoU_prec  ajout  dL     IoU_1n  nIoU_1n(o/p)   envO  envL  envV  ΔO/env
+  1  1   0.05   0.05   0.06   2.56   6.98   77%    0     -      -      -    1.000      -            0.06  2.56    0  -0.01
+  2  1   0.52   0.52   0.52   2.88   7.54   79%    0   0.926   0.56   0.00  0.926   0.926/0.926 HAUT  0.06  2.56    0    pair
+  3  2   0.17   0.17   0.27   2.78   6.50   69%   16   0.718    -      -    0.769   0.771/0.769 ok  0.16  2.60    0  +0.01
+  4  2   0.50   0.50   0.52   2.78   6.88   71%   15   0.943   0.39   0.15  0.756   0.763/0.762 ok  0.16  2.60    0    pair
+  5  3   0.28   0.28   0.28   2.75   5.94   65%   22   0.601    -      -    0.728   0.732/0.732 ok  0.27  2.64    0  +0.01
+  6  3   0.56   0.55   0.77   2.75   6.18   66%   21   0.959   0.24   0.08  0.715   0.722/0.715 ok  0.27  2.64    0    pair
+  7  4   0.38   0.38   0.84   2.78   7.17   75%   11   0.658    -      -    0.778   0.789/0.783 ok  0.37  2.68    0  +0.01
+  8  4   0.38   0.38   0.84   2.91   7.36   77%   11   0.972   0.20   0.33  0.766   0.783/0.774 ok  0.37  2.68    0    pair
+  9  5   0.44   0.44   0.52   2.59   5.32   57%   29   0.632    -      -    0.680   0.744/0.728 ok  0.47  2.71    0  -0.03
+ 10  5   0.44   0.44   0.52   2.94   6.40   69%   20   0.830   1.09   0.52  0.712   0.715/0.721 ok  0.47  2.71    0    pair
+ 11  6   0.61   0.61   0.64   2.75   7.24   75%   13   0.648    -      -    0.748   0.768/0.757 ok  0.57  2.75    0  +0.04
+ 12  6   0.86   0.86   0.86   2.75   7.69   75%   12   0.939   0.46   0.19  0.714   0.738/0.731 ok  0.57  2.75    0    pair
+ 13  7   0.69   0.69   0.97   2.83   5.59   60%   26   0.600    -      -    0.693   0.693/0.696 ok  0.68  2.79    0  +0.01
+ 14  7   0.92   0.92   1.11   2.83   6.36   65%   21   0.874   0.79   0.13  0.712   0.712/0.712 ok  0.68  2.79    0    pair
+ 15  8   0.80   0.80   0.81   2.91   6.18   65%   22   0.597    -      -    0.711   0.714/0.733 ok  0.78  2.83    0  +0.02
+ 16  8   1.06   1.06   1.08   2.91   6.86   70%   16   0.898   0.69   0.29  0.742   0.743/0.742 ok  0.78  2.83    0    pair
+ 17  9   0.88   0.88   1.03   2.81   6.73   66%   19   0.685    -      -    0.705   0.721/0.739 ok  0.88  2.87    0  -0.01
+ 18  9   1.23   1.23   1.25   2.81   7.57   68%   16   0.888   0.84   0.06  0.674   0.676/0.676 ok  0.88  2.87    0    pair
+ 19 10   0.98   0.98   1.62   2.97   6.85   67%   16   0.583    -      -    0.734   0.734/0.741 ok  0.99  2.91    6  -0.01
+ 20 10   1.27   1.27   1.62   2.97   7.41   67%   16   0.924   0.56   0.06  0.687   0.687/0.694 ok  0.99  2.91    6    pair
+ 21 11   1.09   1.09   1.31   2.81   7.02   61%   28   0.688    -      -    0.563   0.578/0.643 ok  1.09  2.95   12  +0.00
+ 22 11   1.39   1.39   1.42   2.89   7.55   61%   28   0.929   0.53   0.18  0.532   0.548/0.610 ok  1.09  2.95   12    pair
+ 23 12   1.20   1.20   1.20   2.94   7.03   67%   23   0.453    -      -    0.622   0.630/0.636 ok  1.19  2.98   18  +0.01
+ 24 12   1.45   1.45   1.48   2.94   7.39   67%   23   0.950   0.36   0.42  0.597   0.603/0.608 ok  1.19  2.98   18    pair
+ 25 13   1.31   1.31   1.33   3.06   6.99   58%   42   0.452    -      -    0.406   0.496/0.543 ok  1.29  3.02   23  +0.02
+ 26 13   1.47   1.31   1.92   3.06   7.44   58%   42   0.939   0.45   0.07  0.389   0.476/0.528 ok  1.29  3.02   23    pair
+ 27 14   1.41   1.41   1.41   3.09   5.70   39%   55   0.432    -      -    0.332   0.338/0.420 ok  1.40  3.06   29  +0.01
+ 28 14   1.48   1.48   1.48   3.09   6.01   39%   55   0.947   0.32   0.09  0.322   0.326/0.412 ok  1.40  3.06   29    pair
+ 29 15   1.48   1.48   1.75   3.00   7.76   59%   37   0.454    -      -    0.422   0.484/0.522 ok  1.50  3.10   35  -0.02
+ 30 15   1.48   1.48   1.75   3.00   7.97   59%   37   0.971   0.22   0.41  0.413   0.475/0.518 ok  1.50  3.10   35    pair
 
-D1-2 · époques consécutives (niveaux impairs) : IoU (≤ 0,85) et O des masses (jamais décroissant)
-  niveaux  1 ->  3 (époques  1 ->  2) : IoU 0.834 ok ; ΔO masses +0.16 ok
-  niveaux  3 ->  5 (époques  2 ->  3) : IoU 0.810 ok ; ΔO masses +0.17 ok
-  niveaux  5 ->  7 (époques  3 ->  4) : IoU 0.807 ok ; ΔO masses +0.03 ok
-  niveaux  7 ->  9 (époques  4 ->  5) : IoU 0.757 ok ; ΔO masses +0.09 ok
-  niveaux  9 -> 11 (époques  5 ->  6) : IoU 0.774 ok ; ΔO masses +0.11 ok
-  niveaux 11 -> 13 (époques  6 ->  7) : IoU 0.794 ok ; ΔO masses +0.17 ok
-  niveaux 13 -> 15 (époques  7 ->  8) : IoU 0.813 ok ; ΔO masses +0.14 ok
-  niveaux 15 -> 17 (époques  8 ->  9) : IoU 0.818 ok ; ΔO masses +0.08 ok
-  niveaux 17 -> 19 (époques  9 -> 10) : IoU 0.705 ok ; ΔO masses +0.09 ok
-  niveaux 19 -> 21 (époques 10 -> 11) : IoU 0.428 ok ; ΔO masses +0.02 ok
-  niveaux 21 -> 23 (époques 11 -> 12) : IoU 0.417 ok ; ΔO masses +0.02 ok
-  niveaux 23 -> 25 (époques 12 -> 13) : IoU 0.392 ok ; ΔO masses +0.14 ok
-  niveaux 25 -> 27 (époques 13 -> 14) : IoU 0.410 ok ; ΔO masses +0.19 ok
-  niveaux 27 -> 29 (époques 14 -> 15) : IoU 0.430 ok ; ΔO masses +0.05 ok
+Plafond Q9 : O des masses ≤ 1,50 à tous les niveaux : RESPECTÉ ; maximum 1.48 (niveau 28)
+Écart des niveaux impairs à l'enveloppe O du rang (bible §4, visé ±0,05) : 1:-0.01  3:+0.01  5:+0.01  7:+0.01  9:-0.03  11:+0.04  13:+0.01  15:+0.02  17:-0.01  19:-0.01  21:+0.00  23:+0.01  25:+0.02  27:+0.01  29:-0.02
+Écart des niveaux impairs à l'enveloppe L du rang : 1:+0.00  3:+0.18  5:+0.11  7:+0.10  9:-0.12  11:+0.00  13:+0.04  15:+0.08  17:-0.06  19:+0.06  21:-0.14  23:-0.04  25:+0.04  27:+0.03  29:-0.10
 
-D1-2 · événements de silhouette des niveaux impairs (indicateur APPROCHÉ : composantes qui dépassent du corps ouvert à 0,5 t, aire ≥ 0,03 t², étendue ≥ 0,12 t ; cible de l'époque, bible §5). NON FIABLE pour les structures ajourées (ères IV et V) : quand le corps plein disparaît, tout le cadre devient UNE composante ; compter alors à l'œil sur la planche d
-  niveau  1 (ép.  1, ère I  ) : 2 événement(s) [visé 1] au-dessus ; centres (x ; y) = (-0.56 ; -1.50)  (-0.07 ; -1.53)
-  niveau  3 (ép.  2, ère I  ) : 2 événement(s) [visé 1 à 2] ok ; centres (x ; y) = (+0.12 ; -1.50)  (+1.41 ; +0.88)
-  niveau  5 (ép.  3, ère I  ) : 2 événement(s) [visé 2] ok ; centres (x ; y) = (-0.87 ; -1.52)  (+0.23 ; -1.50)
-  niveau  7 (ép.  4, ère II ) : 2 événement(s) [visé 2] ok ; centres (x ; y) = (-0.91 ; -1.72)  (-0.02 ; -1.70)
-  niveau  9 (ép.  5, ère II ) : 2 événement(s) [visé 2 à 3] ok ; centres (x ; y) = (-1.17 ; -1.56)  (+1.14 ; -1.56)
-  niveau 11 (ép.  6, ère II ) : 2 événement(s) [visé 3] sous ; centres (x ; y) = (-0.20 ; -1.49)  (+0.01 ; -1.74)
-  niveau 13 (ép.  7, ère III) : 3 événement(s) [visé 3] ok ; centres (x ; y) = (-0.79 ; -1.49)  (-0.15 ; -1.80)  (+0.42 ; -1.63)
-  niveau 15 (ép.  8, ère III) : 2 événement(s) [visé 3 à 4] sous ; centres (x ; y) = (-0.82 ; -1.88)  (+0.79 ; -1.88)
-  niveau 17 (ép.  9, ère III) : 4 événement(s) [visé 4] ok ; centres (x ; y) = (-1.06 ; -1.98)  (-0.70 ; -2.06)  (+0.67 ; -2.06)  (+1.03 ; -1.89)
-  niveau 19 (ép. 10, ère IV ) : 4 événement(s) [visé 4] ok (non fiable) ; centres (x ; y) = (-1.02 ; +1.06)  (-0.84 ; -2.02)  (+0.79 ; -2.00)  (+0.99 ; +1.06)
-  niveau 21 (ép. 11, ère IV ) : 2 événement(s) [visé 4 à 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -0.77)  (-0.02 ; -2.37)
-  niveau 23 (ép. 12, ère IV ) : 2 événement(s) [visé 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -1.27)  (-0.02 ; -1.94)
-  niveau 25 (ép. 13, ère V  ) : 1 événement(s) [visé 5] sous (non fiable) ; centres (x ; y) = (-0.02 ; -0.78)
-  niveau 27 (ép. 14, ère V  ) : 4 événement(s) [visé 5 à 6] sous (non fiable) ; centres (x ; y) = (-0.71 ; +0.60)  (-0.02 ; -1.68)  (+0.68 ; +0.60)  (+1.09 ; -0.80)
-  niveau 29 (ép. 15, ère V  ) : 6 événement(s) [visé 6] ok (non fiable) ; centres (x ; y) = (-0.70 ; -1.20)  (-0.39 ; -2.32)  (-0.02 ; -1.12)  (-0.02 ; -2.59)  (+0.36 ; -2.32)  (+0.67 ; -1.20)
+D1-2 · époques consécutives (niveaux impairs) : IoU brute, IoU normalisée (origine/pied, max) ; seuil 0,85, 0,75 aux changements d'ère ; O des masses jamais décroissant
+   1 ->  3 (ép.  1 ->  2) : IoU 0.769 ; nIoU 0.771/0.769 -> 0.771 (≤ 0.85 : ok) ; ΔO +0.12 ok
+   3 ->  5 (ép.  2 ->  3) : IoU 0.619 ; nIoU 0.619/0.620 -> 0.620 (≤ 0.85 : ok) ; ΔO +0.11 ok
+   5 ->  7 (ép.  3 ->  4, CHANGEMENT D'ÈRE) : IoU 0.673 ; nIoU 0.676/0.675 -> 0.676 (≤ 0.75 : ok) ; ΔO +0.09 ok
+   7 ->  9 (ép.  4 ->  5) : IoU 0.647 ; nIoU 0.734/0.724 -> 0.734 (≤ 0.85 : ok) ; ΔO +0.06 ok
+   9 -> 11 (ép.  5 ->  6) : IoU 0.627 ; nIoU 0.668/0.647 -> 0.668 (≤ 0.85 : ok) ; ΔO +0.17 ok
+  11 -> 13 (ép.  6 ->  7, CHANGEMENT D'ÈRE) : IoU 0.624 ; nIoU 0.634/0.641 -> 0.641 (≤ 0.75 : ok) ; ΔO +0.08 ok
+  13 -> 15 (ép.  7 ->  8) : IoU 0.567 ; nIoU 0.568/0.603 -> 0.603 (≤ 0.85 : ok) ; ΔO +0.11 ok
+  15 -> 17 (ép.  8 ->  9) : IoU 0.688 ; nIoU 0.691/0.690 -> 0.691 (≤ 0.85 : ok) ; ΔO +0.08 ok
+  17 -> 19 (ép.  9 -> 10, CHANGEMENT D'ÈRE) : IoU 0.589 ; nIoU 0.593/0.616 -> 0.616 (≤ 0.75 : ok) ; ΔO +0.11 ok
+  19 -> 21 (ép. 10 -> 11) : IoU 0.690 ; nIoU 0.691/0.698 -> 0.698 (≤ 0.85 : ok) ; ΔO +0.11 ok
+  21 -> 23 (ép. 11 -> 12) : IoU 0.460 ; nIoU 0.504/0.482 -> 0.504 (≤ 0.85 : ok) ; ΔO +0.11 ok
+  23 -> 25 (ép. 12 -> 13, CHANGEMENT D'ÈRE) : IoU 0.452 ; nIoU 0.474/0.476 -> 0.476 (≤ 0.75 : ok) ; ΔO +0.11 ok
+  25 -> 27 (ép. 13 -> 14) : IoU 0.426 ; nIoU 0.432/0.433 -> 0.433 (≤ 0.85 : ok) ; ΔO +0.09 ok
+  27 -> 29 (ép. 14 -> 15) : IoU 0.443 ; nIoU 0.470/0.462 -> 0.470 (≤ 0.85 : ok) ; ΔO +0.08 ok
 
-O des masses sur les 30 niveaux (la règle D1-2 « O ne décroît jamais » porte sur les époques, niveaux impairs ; un niveau pair porte la pièce de la bible, souvent AU-DESSUS (+0,30) : le niveau impair suivant peut donc être plus bas que lui ; 1 px = 0,016 t de bruit d'échantillonnage sur les bords)
-  1:0.05  2:0.64  3:0.20  4:0.48  5:0.38  6:0.39  7:0.41  8:0.41  9:0.50  10:0.50  11:0.61  12:0.84  13:0.78  14:1.09  15:0.92  16:1.20  17:1.00  18:1.17  19:1.09  20:1.27  21:1.11  22:1.42  23:1.12  24:1.41  25:1.27  26:1.27  27:1.45  28:1.45  29:1.50  30:1.48
-  baisses d'un niveau au suivant : 2->3 (-0.44), 4->5 (-0.11), 12->13 (-0.06), 14->15 (-0.17), 16->17 (-0.20), 18->19 (-0.08), 20->21 (-0.16), 22->23 (-0.30), 24->25 (-0.14), 29->30 (-0.02)
+D1-2 · événements de silhouette des niveaux impairs. Indicateur 1 (vérificateur V3) : pics du profil supérieur de proéminence ≥ 0,12 t (de plusieurs sommets égaux, seul le premier garde la proéminence totale). Indicateur 2 (ancien) : composantes qui dépassent du corps ouvert à 0,5 t. À l'œil : planche d-vignettes-evenements.png. Cible : fiche d'époque (bible §5), fourchette de l'ère (§1.2)
+  niveau  1 (ép.  1, ère I  ) : pics 2 [visé 1] au-dessus ; ancien 2 ; à l'œil 1 ; pics x = -0.53 -0.05
+  niveau  3 (ép.  2, ère I  ) : pics 1 [visé 1 à 2] ok ; ancien 2 ; à l'œil 2 ; pics x = -1.06
+  niveau  5 (ép.  3, ère I  ) : pics 2 [visé 2] ok ; ancien 3 ; à l'œil 2 ; pics x = -0.11 +0.88
+  niveau  7 (ép.  4, ère II ) : pics 2 [visé 2] ok ; ancien 3 ; à l'œil 2 ; pics x = -0.98 -0.02
+  niveau  9 (ép.  5, ère II ) : pics 3 [visé 2 à 3] ok ; ancien 3 ; à l'œil 3 ; pics x = -1.33 -0.02 +1.31
+  niveau 11 (ép.  6, ère II ) : pics 3 [visé 3] ok ; ancien 4 ; à l'œil 3 ; pics x = -1.12 -0.22 +1.11
+  niveau 13 (ép.  7, ère III) : pics 3 [visé 3] ok ; ancien 3 ; à l'œil 3 ; pics x = -1.45 -0.28 +1.42
+  niveau 15 (ép.  8, ère III) : pics 4 [visé 3 à 4] ok ; ancien 4 ; à l'œil 4 ; pics x = -1.27 -0.59 +0.58 +1.25
+  niveau 17 (ép.  9, ère III) : pics 4 [visé 4] ok ; ancien 4 ; à l'œil 4 ; pics x = -1.27 -0.81 +0.80 +1.23
+  niveau 19 (ép. 10, ère IV ) : pics 4 [visé 4] ok ; ancien 5 ; à l'œil 4 ; pics x = -1.39 -1.03 -0.02 +1.38
+  niveau 21 (ép. 11, ère IV ) : pics 5 [visé 4 à 5] ok ; ancien 7 ; à l'œil 5 ; pics x = -1.31 -0.69 -0.02 +0.67 +1.30
+  niveau 23 (ép. 12, ère IV ) : pics 5 [visé 5] ok ; ancien 8 ; à l'œil 5 ; pics x = -1.31 -0.77 -0.02 +0.73 +1.30
+  niveau 25 (ép. 13, ère V  ) : pics 5 [visé 5] ok ; ancien 1 ; à l'œil 5 ; pics x = -1.36 -0.61 -0.02 +0.59 +1.33
+  niveau 27 (ép. 14, ère V  ) : pics 5 [visé 5 à 6] ok ; ancien 6 ; à l'œil 5 ; pics x = -1.53 -1.00 -0.02 +0.97 +1.52
+  niveau 29 (ép. 15, ère V  ) : pics 6 [visé 6] ok ; ancien 1 ; à l'œil 6 ; pics x = -1.31 -0.62 -0.23 +0.22 +0.61 +1.30
+
+O des masses sur les 30 niveaux (un niveau pair porte la pièce, souvent au-dessus : le niveau impair suivant peut être plus bas que lui)
+  1:0.05  2:0.52  3:0.17  4:0.50  5:0.28  6:0.56  7:0.38  8:0.38  9:0.44  10:0.44  11:0.61  12:0.86  13:0.69  14:0.92  15:0.80  16:1.06  17:0.88  18:1.23  19:0.98  20:1.27  21:1.09  22:1.39  23:1.20  24:1.45  25:1.31  26:1.47  27:1.41  28:1.48  29:1.48  30:1.48
 
 D1-1 · niveaux pairs : aire ajoutée par la pièce (≥ 0,10 t²) ; niveaux impairs : IoU avec le pair précédent (≤ 0,85)
-  niveau  2 : pièce +0.618 t² hors du masque impair ; luminance changée sur 0.000 t² -> ok
-  niveau  3 : IoU avec le niveau 2 = 0.790 -> ok
-  niveau  4 : pièce +0.236 t² hors du masque impair ; luminance changée sur 0.437 t² -> ok
-  niveau  5 : IoU avec le niveau 4 = 0.805 -> ok
-  niveau  6 : pièce +0.189 t² hors du masque impair ; luminance changée sur 0.129 t² -> ok
-  niveau  7 : IoU avec le niveau 6 = 0.807 -> ok
-  niveau  8 : pièce +0.387 t² hors du masque impair ; luminance changée sur 0.337 t² -> ok
-  niveau  9 : IoU avec le niveau 8 = 0.789 -> ok
-  niveau 10 : pièce +0.180 t² hors du masque impair ; luminance changée sur 0.672 t² -> ok
-  niveau 11 : IoU avec le niveau 10 = 0.761 -> ok
-  niveau 12 : pièce +0.484 t² hors du masque impair ; luminance changée sur 0.169 t² -> ok
-  niveau 13 : IoU avec le niveau 12 = 0.779 -> ok
-  niveau 14 : pièce +0.413 t² hors du masque impair ; luminance changée sur 0.437 t² -> ok
-  niveau 15 : IoU avec le niveau 14 = 0.776 -> ok
-  niveau 16 : pièce +0.601 t² hors du masque impair ; luminance changée sur 0.325 t² -> ok
-  niveau 17 : IoU avec le niveau 16 = 0.837 -> ok
-  niveau 18 : pièce +0.529 t² hors du masque impair ; luminance changée sur 0.164 t² -> ok
-  niveau 19 : IoU avec le niveau 18 = 0.667 -> ok
-  niveau 20 : pièce +0.580 t² hors du masque impair ; luminance changée sur 0.113 t² -> ok
-  niveau 21 : IoU avec le niveau 20 = 0.444 -> ok
-  niveau 22 : pièce +0.473 t² hors du masque impair ; luminance changée sur 0.228 t² -> ok
-  niveau 23 : IoU avec le niveau 22 = 0.403 -> ok
-  niveau 24 : pièce +0.465 t² hors du masque impair ; luminance changée sur 0.424 t² -> ok
-  niveau 25 : IoU avec le niveau 24 = 0.391 -> ok
-  niveau 26 : pièce +0.263 t² hors du masque impair ; luminance changée sur 0.072 t² -> ok
-  niveau 27 : IoU avec le niveau 26 = 0.425 -> ok
-  niveau 28 : pièce +0.332 t² hors du masque impair ; luminance changée sur 0.090 t² -> ok
-  niveau 29 : IoU avec le niveau 28 = 0.412 -> ok
-  niveau 30 : pièce +0.375 t² hors du masque impair ; luminance changée sur 0.141 t² -> ok
+  niveau  2 : pièce +0.557 t² hors du masque impair ; luminance changée sur 0.000 t² ; O +0.47 -> ok
+  niveau  3 : IoU avec le niveau 2 = 0.718 -> ok
+  niveau  4 : pièce +0.385 t² hors du masque impair ; luminance changée sur 0.151 t² ; O +0.33 -> ok
+  niveau  5 : IoU avec le niveau 4 = 0.601 -> ok
+  niveau  6 : pièce +0.244 t² hors du masque impair ; luminance changée sur 0.083 t² ; O +0.28 -> ok
+  niveau  7 : IoU avec le niveau 6 = 0.658 -> ok
+  niveau  8 : pièce +0.197 t² hors du masque impair ; luminance changée sur 0.326 t² ; O +0.00 -> ok
+  niveau  9 : IoU avec le niveau 8 = 0.632 -> ok
+  niveau 10 : pièce +1.086 t² hors du masque impair ; luminance changée sur 0.519 t² ; O +0.00 -> ok
+  niveau 11 : IoU avec le niveau 10 = 0.648 -> ok
+  niveau 12 : pièce +0.460 t² hors du masque impair ; luminance changée sur 0.191 t² ; O +0.25 -> ok
+  niveau 13 : IoU avec le niveau 12 = 0.600 -> ok
+  niveau 14 : pièce +0.788 t² hors du masque impair ; luminance changée sur 0.128 t² ; O +0.23 -> ok
+  niveau 15 : IoU avec le niveau 14 = 0.597 -> ok
+  niveau 16 : pièce +0.691 t² hors du masque impair ; luminance changée sur 0.286 t² ; O +0.27 -> ok
+  niveau 17 : IoU avec le niveau 16 = 0.685 -> ok
+  niveau 18 : pièce +0.840 t² hors du masque impair ; luminance changée sur 0.059 t² ; O +0.36 -> ok
+  niveau 19 : IoU avec le niveau 18 = 0.583 -> ok
+  niveau 20 : pièce +0.557 t² hors du masque impair ; luminance changée sur 0.060 t² ; O +0.28 -> ok
+  niveau 21 : IoU avec le niveau 20 = 0.688 -> ok
+  niveau 22 : pièce +0.530 t² hors du masque impair ; luminance changée sur 0.180 t² ; O +0.30 -> ok
+  niveau 23 : IoU avec le niveau 22 = 0.453 -> ok
+  niveau 24 : pièce +0.365 t² hors du masque impair ; luminance changée sur 0.417 t² ; O +0.25 -> ok
+  niveau 25 : IoU avec le niveau 24 = 0.452 -> ok
+  niveau 26 : pièce +0.451 t² hors du masque impair ; luminance changée sur 0.072 t² ; O +0.16 -> ok
+  niveau 27 : IoU avec le niveau 26 = 0.432 -> ok
+  niveau 28 : pièce +0.316 t² hors du masque impair ; luminance changée sur 0.094 t² ; O +0.08 -> ok
+  niveau 29 : IoU avec le niveau 28 = 0.454 -> ok
+  niveau 30 : pièce +0.222 t² hors du masque impair ; luminance changée sur 0.408 t² ; O +0.00 -> ok
 
-D1-4 · emprise : collision ±1,2 et sélection ±1,5 INCHANGÉES par construction (garde de prototypes/levels/common.lua) ; débord visuel du masque hors de l'emprise 3 × 3 (bible §1.3 : une pièce de socle peut dépasser de 0,10 à 0,25 tuile ; le haut peut croître)
+D1-4 · emprise : collision ±1,2 et sélection ±1,5 INCHANGÉES par construction ; débord visuel du masque hors de l'emprise 3 × 3 (≤ 0,25 admis, bible §1.3)
   niveau  1 : x de -1.28 à +1.28, bas +1.44 ; débord latéral 0.00, bas 0.00 -> ok
   niveau  2 : x de -1.28 à +1.59, bas +1.44 ; débord latéral 0.09, bas 0.00 -> ok
-  niveau  3 : x de -1.50 à +1.52, bas +1.48 ; débord latéral 0.02, bas 0.00 -> ok
-  niveau  4 : x de -1.50 à +1.52, bas +1.48 ; débord latéral 0.02, bas 0.00 -> ok
-  niveau  5 : x de -1.22 à +1.22, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau  6 : x de -1.22 à +1.22, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau  7 : x de -1.44 à +1.44, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau  8 : x de -1.44 à +1.53, bas +1.50 ; débord latéral 0.03, bas 0.00 -> ok
-  niveau  9 : x de -1.47 à +1.45, bas +1.61 ; débord latéral 0.00, bas 0.11 -> ok
-  niveau 10 : x de -1.53 à +1.53, bas +1.61 ; débord latéral 0.03, bas 0.11 -> ok
+  niveau  3 : x de -1.28 à +1.50, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  4 : x de -1.28 à +1.50, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  5 : x de -1.36 à +1.39, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  6 : x de -1.36 à +1.39, bas +1.48 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  7 : x de -1.39 à +1.39, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau  8 : x de -1.39 à +1.52, bas +1.50 ; débord latéral 0.02, bas 0.00 -> ok
+  niveau  9 : x de -1.33 à +1.33, bas +1.27 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 10 : x de -1.47 à +1.47, bas +1.27 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 11 : x de -1.38 à +1.38, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
   niveau 12 : x de -1.38 à +1.38, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 13 : x de -1.39 à +1.39, bas +1.47 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 14 : x de -1.39 à +1.39, bas +1.47 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 15 : x de -1.44 à +1.45, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
-  niveau 16 : x de -1.45 à +1.45, bas +1.52 ; débord latéral 0.00, bas 0.02 -> ok
-  niveau 17 : x de -1.42 à +1.42, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 18 : x de -1.42 à +1.42, bas +1.50 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 19 : x de -1.27 à +1.27, bas +1.20 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 20 : x de -1.27 à +1.27, bas +1.20 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 21 : x de -1.38 à +1.38, bas +1.19 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 22 : x de -1.39 à +1.44, bas +1.19 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 23 : x de -1.36 à +1.36, bas +1.34 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 24 : x de -1.36 à +1.36, bas +1.34 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 25 : x de -1.30 à +1.30, bas +1.30 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 26 : x de -1.30 à +1.31, bas +1.30 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 27 : x de -1.56 à +1.56, bas +0.86 ; débord latéral 0.06, bas 0.00 -> ok
-  niveau 28 : x de -1.56 à +1.56, bas +0.86 ; débord latéral 0.06, bas 0.00 -> ok
-  niveau 29 : x de -1.11 à +1.11, bas +0.78 ; débord latéral 0.00, bas 0.00 -> ok
-  niveau 30 : x de -1.11 à +1.11, bas +0.78 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 13 : x de -1.45 à +1.44, bas +1.42 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 14 : x de -1.45 à +1.44, bas +1.42 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 15 : x de -1.45 à +1.45, bas +1.39 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 16 : x de -1.45 à +1.45, bas +1.39 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 17 : x de -1.39 à +1.42, bas +1.44 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 18 : x de -1.39 à +1.42, bas +1.44 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 19 : x de -1.48 à +1.48, bas +1.20 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 20 : x de -1.48 à +1.48, bas +1.20 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 21 : x de -1.41 à +1.41, bas +1.19 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 22 : x de -1.41 à +1.48, bas +1.19 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 23 : x de -1.47 à +1.47, bas +1.34 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 24 : x de -1.47 à +1.47, bas +1.34 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 25 : x de -1.53 à +1.53, bas +1.31 ; débord latéral 0.03, bas 0.00 -> ok
+  niveau 26 : x de -1.53 à +1.53, bas +1.31 ; débord latéral 0.03, bas 0.00 -> ok
+  niveau 27 : x de -1.59 à +1.59, bas +0.86 ; débord latéral 0.09, bas 0.00 -> ok
+  niveau 28 : x de -1.59 à +1.59, bas +0.86 ; débord latéral 0.09, bas 0.00 -> ok
+  niveau 29 : x de -1.50 à +1.50, bas +1.41 ; débord latéral 0.00, bas 0.00 -> ok
+  niveau 30 : x de -1.50 à +1.50, bas +1.41 ; débord latéral 0.00, bas 0.00 -> ok
 
-D1-3 amendé (Q13) · niveau 1 contre dernier niveau, masque sans couche plate au sol
-  niveau 1 / niveau 29 : IoU 0.428 (< 0,50 ; cible ≤ 0,45 : ok) ; IoU normalisée en échelle 0.545 (k = 0.75 ; seuil proposé 0,75 : ok)
-  niveau 1 / niveau 30 : IoU 0.409 (< 0,50 ; cible ≤ 0,45 : ok) ; IoU normalisée en échelle 0.510 (k = 0.75 ; seuil proposé 0,75 : ok)
+D1-3 amendé (Q13) · niveau 1 contre les niveaux 29 et 30, masque sans couche plate au sol
+  niveau 1 / niveau 29 : IoU 0.422 (cible ≤ 0,45 : ok) ; nIoU origine 0.484 (k 1.11), pied 0.522 (k 1.14) -> 0.522 (≤ 0,75 : ok) ; V 37 % (≥ 35) ; aire 7.76 t² (vanilla 6,98)
+  niveau 1 / niveau 30 : IoU 0.413 (cible ≤ 0,45 : ok) ; nIoU origine 0.475 (k 1.11), pied 0.518 (k 1.19) -> 0.518 (≤ 0,75 : ok) ; V 37 % (≥ 35) ; aire 7.97 t² (vanilla 6,98)
 
 Photométrie de la couche principale (pixels opaques ; luminance sRGB sur 255 ; bible §1.5 : p50 cible de l'époque ±10, p95 ≤ 240, saturation ≤ 0,45) et lueur de jour (aire alpha ≥ 0,35, t² ; part du masque)
-  niveau  2 (ép.  1) : p05   8.4  p50  48.4 (cible  50 ok)  p95 163.0 ok  sat 0.40 ok  lueur 0.000 t² (0.0 %)
-  niveau  3 (ép.  2) : p05   8.1  p50  44.4 (cible  52 ok)  p95  91.5 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
-  niveau  4 (ép.  2) : p05   9.0  p50  43.0 (cible  52 ok)  p95  90.7 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
-  niveau  5 (ép.  3) : p05   8.1  p50  50.5 (cible  58 ok)  p95 106.5 ok  sat 0.29 ok  lueur 0.076 t² (1.1 %)
-  niveau  6 (ép.  3) : p05   8.1  p50  50.5 (cible  58 ok)  p95 106.2 ok  sat 0.30 ok  lueur 0.077 t² (1.1 %)
-  niveau  7 (ép.  4) : p05   8.1  p50  59.5 (cible  60 ok)  p95 114.7 ok  sat 0.23 ok  lueur 0.130 t² (1.7 %)
-  niveau  8 (ép.  4) : p05   8.1  p50  59.7 (cible  60 ok)  p95 114.7 ok  sat 0.24 ok  lueur 0.143 t² (1.8 %)
-  niveau  9 (ép.  5) : p05  27.2  p50  45.4 (cible  42 ok)  p95 123.9 ok  sat 0.18 ok  lueur 0.740 t² (7.9 %)
-  niveau 10 (ép.  5) : p05  12.4  p50  43.4 (cible  42 ok)  p95 123.9 ok  sat 0.24 ok  lueur 0.739 t² (7.7 %)
-  niveau 11 (ép.  6) : p05  12.1  p50  65.1 (cible  64 ok)  p95 139.4 ok  sat 0.18 ok  lueur 0.227 t² (2.9 %)
-  niveau 12 (ép.  6) : p05  13.1  p50  62.7 (cible  64 ok)  p95 145.4 ok  sat 0.20 ok  lueur 0.329 t² (3.9 %)
-  niveau 13 (ép.  7) : p05  11.3  p50  54.7 (cible  55 ok)  p95 110.6 ok  sat 0.43 ok  lueur 0.725 t² (9.3 %)
-  niveau 14 (ép.  7) : p05  12.1  p50  55.5 (cible  55 ok)  p95 113.6 ok  sat 0.44 ok  lueur 1.314 t² (16.0 %)
-  niveau 15 (ép.  8) : p05   8.1  p50  64.8 (cible  60 ok)  p95 220.8 ok  sat 0.36 ok  lueur 0.607 t² (7.9 %)
-  niveau 16 (ép.  8) : p05   8.1  p50  65.6 (cible  60 ok)  p95 220.6 ok  sat 0.40 ok  lueur 0.674 t² (8.2 %)
-  niveau 17 (ép.  9) : p05  15.9  p50  58.7 (cible  56 ok)  p95 148.7 ok  sat 0.21 ok  lueur 0.465 t² (5.3 %)
-  niveau 18 (ép.  9) : p05  15.9  p50  57.7 (cible  56 ok)  p95 211.4 ok  sat 0.21 ok  lueur 0.587 t² (6.3 %)
-  niveau 19 (ép. 10) : p05  23.9  p50  84.1 (cible  82 ok)  p95 174.8 ok  sat 0.14 ok  lueur 0.330 t² (4.8 %)
-  niveau 20 (ép. 10) : p05  24.2  p50  84.7 (cible  82 ok)  p95 174.8 ok  sat 0.14 ok  lueur 0.333 t² (4.5 %)
-  niveau 21 (ép. 11) : p05  22.2  p50 107.2 (cible 100 ok)  p95 199.1 ok  sat 0.11 ok  lueur 0.470 t² (10.3 %)
-  niveau 22 (ép. 11) : p05  28.0  p50  97.0 (cible 100 ok)  p95 199.1 ok  sat 0.10 ok  lueur 0.444 t² (8.8 %)
-  niveau 23 (ép. 12) : p05   9.1  p50  51.5 (cible  60 ok)  p95 215.4 ok  sat 0.33 ok  lueur 0.393 t² (5.9 %)
-  niveau 24 (ép. 12) : p05  11.8  p50  51.6 (cible  60 ok)  p95 219.7 ok  sat 0.34 ok  lueur 0.525 t² (7.4 %)
-  niveau 25 (ép. 13) : p05  25.2  p50  98.1 (cible  92 ok)  p95 143.6 ok  sat 0.30 ok  lueur 1.208 t² (25.0 %)
-  niveau 26 (ép. 13) : p05  22.5  p50  94.8 (cible  92 ok)  p95 142.8 ok  sat 0.33 ok  lueur 1.246 t² (24.5 %)
-  niveau 27 (ép. 14) : p05  24.9  p50  86.6 (cible  88 ok)  p95 169.3 ok  sat 0.38 ok  lueur 0.189 t² (3.7 %)
-  niveau 28 (ép. 14) : p05  25.1  p50  84.8 (cible  88 ok)  p95 169.3 ok  sat 0.40 ok  lueur 0.189 t² (3.5 %)
-  niveau 29 (ép. 15) : p05  44.9  p50  99.9 (cible 108 ok)  p95 216.3 ok  sat 0.18 ok  lueur 0.223 t² (5.2 %)
-  niveau 30 (ép. 15) : p05  46.9  p50 111.3 (cible 108 ok)  p95 237.3 ok  sat 0.19 ok  lueur 0.666 t² (14.3 %)
+  niveau  2 (ép.  1) : p05   8.4  p50  48.5 (cible  50 ok)  p95 163.2 ok  sat 0.40 ok  lueur 0.000 t² (0.0 %)
+  niveau  3 (ép.  2) : p05   8.1  p50  51.7 (cible  52 ok)  p95  93.5 ok  sat 0.14 ok  lueur 0.000 t² (0.0 %)
+  niveau  4 (ép.  2) : p05   8.1  p50  47.3 (cible  52 ok)  p95  92.8 ok  sat 0.15 ok  lueur 0.000 t² (0.0 %)
+  niveau  5 (ép.  3) : p05   8.1  p50  52.2 (cible  58 ok)  p95  95.3 ok  sat 0.29 ok  lueur 0.095 t² (1.6 %)
+  niveau  6 (ép.  3) : p05   8.1  p50  52.7 (cible  58 ok)  p95  96.1 ok  sat 0.30 ok  lueur 0.094 t² (1.5 %)
+  niveau  7 (ép.  4) : p05   8.1  p50  67.1 (cible  60 ok)  p95 116.9 ok  sat 0.30 ok  lueur 0.163 t² (2.3 %)
+  niveau  8 (ép.  4) : p05   8.1  p50  66.0 (cible  60 ok)  p95 117.6 ok  sat 0.31 ok  lueur 0.187 t² (2.5 %)
+  niveau  9 (ép.  5) : p05  19.4  p50  41.5 (cible  42 ok)  p95 123.0 ok  sat 0.24 ok  lueur 0.679 t² (12.8 %)
+  niveau 10 (ép.  5) : p05  10.5  p50  36.4 (cible  42 ok)  p95 123.0 ok  sat 0.30 ok  lueur 0.680 t² (10.6 %)
+  niveau 11 (ép.  6) : p05   8.1  p50  62.9 (cible  64 ok)  p95 152.3 ok  sat 0.22 ok  lueur 0.317 t² (4.4 %)
+  niveau 12 (ép.  6) : p05   8.1  p50  59.9 (cible  64 ok)  p95 157.1 ok  sat 0.24 ok  lueur 0.420 t² (5.5 %)
+  niveau 13 (ép.  7) : p05  21.8  p50  59.1 (cible  55 ok)  p95 108.7 ok  sat 0.41 ok  lueur 1.186 t² (21.2 %)
+  niveau 14 (ép.  7) : p05  23.5  p50  63.2 (cible  55 ok)  p95 111.4 ok  sat 0.43 ok  lueur 2.004 t² (31.5 %)
+  niveau 15 (ép.  8) : p05   8.1  p50  65.1 (cible  60 ok)  p95 223.4 ok  sat 0.41 ok  lueur 0.750 t² (12.1 %)
+  niveau 16 (ép.  8) : p05   8.1  p50  65.6 (cible  60 ok)  p95 223.2 ok  sat 0.44 ok  lueur 0.802 t² (11.7 %)
+  niveau 17 (ép.  9) : p05  16.0  p50  57.6 (cible  56 ok)  p95 210.8 ok  sat 0.22 ok  lueur 0.404 t² (6.0 %)
+  niveau 18 (ép.  9) : p05  16.9  p50  55.1 (cible  56 ok)  p95 213.2 ok  sat 0.23 ok  lueur 0.594 t² (7.8 %)
+  niveau 19 (ép. 10) : p05  23.8  p50  88.7 (cible  82 ok)  p95 175.8 ok  sat 0.16 ok  lueur 0.481 t² (7.0 %)
+  niveau 20 (ép. 10) : p05  24.1  p50  88.7 (cible  82 ok)  p95 175.5 ok  sat 0.16 ok  lueur 0.498 t² (6.7 %)
+  niveau 21 (ép. 11) : p05  26.1  p50 110.0 (cible 100 ok)  p95 199.1 ok  sat 0.10 ok  lueur 0.571 t² (8.1 %)
+  niveau 22 (ép. 11) : p05  31.1  p50 101.1 (cible 100 ok)  p95 199.1 ok  sat 0.10 ok  lueur 0.565 t² (7.5 %)
+  niveau 23 (ép. 12) : p05   8.1  p50  52.3 (cible  60 ok)  p95 219.9 ok  sat 0.36 ok  lueur 0.543 t² (7.7 %)
+  niveau 24 (ép. 12) : p05   8.1  p50  52.7 (cible  60 ok)  p95 219.9 ok  sat 0.36 ok  lueur 0.650 t² (8.8 %)
+  niveau 25 (ép. 13) : p05  22.2  p50  90.2 (cible  92 ok)  p95 145.2 ok  sat 0.34 ok  lueur 1.508 t² (21.6 %)
+  niveau 26 (ép. 13) : p05  21.2  p50  84.9 (cible  92 ok)  p95 145.0 ok  sat 0.36 ok  lueur 1.607 t² (21.6 %)
+  niveau 27 (ép. 14) : p05  24.5  p50  81.5 (cible  88 ok)  p95 167.3 ok  sat 0.41 ok  lueur 0.279 t² (4.9 %)
+  niveau 28 (ép. 14) : p05  24.5  p50  80.8 (cible  88 ok)  p95 168.0 ok  sat 0.42 ok  lueur 0.278 t² (4.6 %)
+  niveau 29 (ép. 15) : p05  29.1  p50 109.8 (cible 108 ok)  p95 191.6 ok  sat 0.26 ok  lueur 1.495 t² (19.3 %)
+  niveau 30 (ép. 15) : p05  30.1  p50 110.9 (cible 108 ok)  p95 200.7 ok  sat 0.26 ok  lueur 1.910 t² (24.0 %)
+
+Flèches de couronne de l'époque 15 (or blanc #E8DCB0, luminance de l'albédo ≈ 215) : pixels opaques au-dessus de la traverse haute du cadre (y < -2,70) et |x| < 0,95 ; visé p50 ≥ 140
+  niveau 29 : 710 px ; RGB moyen (183, 172, 135) ; luminance p50 167.5 -> ok
+  niveau 30 : 1024 px ; RGB moyen (193, 181, 141) ; luminance p50 184.5 -> ok
+
+Zones de lueur (draw_as_glow, alpha ≥ 0,35, composantes 8-connexes) : bible §1.6 et F37 : au moins 8 × 8 px hr ; zones plus petites listées (largeur × hauteur en px hr)
+  niveau  2 :  0 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  3 :  0 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  4 :  0 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  5 :  3 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  6 :  3 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  7 :  5 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  8 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau  9 : 10 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 10 : 10 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 11 :  9 zone(s), 2 sous 8 × 8 px (3×3, 4×3)
+  niveau 12 : 10 zone(s), 2 sous 8 × 8 px (3×3, 4×3)
+  niveau 13 :  7 zone(s), 1 sous 8 × 8 px (17×7)
+  niveau 14 :  8 zone(s), 1 sous 8 × 8 px (17×7)
+  niveau 15 : 11 zone(s), 2 sous 8 × 8 px (6×5, 5×5)
+  niveau 16 : 18 zone(s), 6 sous 8 × 8 px (1×1, 1×1, 1×1, 2×2, 5×5, 7×4)
+  niveau 17 :  4 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 18 :  5 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 19 : 10 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 20 : 11 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 21 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 22 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 23 : 14 zone(s), 5 sous 8 × 8 px (1×6, 3×10, 3×9, 3×6, 3×6)
+  niveau 24 : 14 zone(s), 5 sous 8 × 8 px (38×7, 3×9, 3×9, 3×6, 3×6)
+  niveau 25 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 26 : 12 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 27 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 28 :  6 zone(s), 0 sous 8 × 8 px -> ok
+  niveau 29 : 14 zone(s), 3 sous 8 × 8 px (6×19, 4×2, 7×3)
+  niveau 30 : 11 zone(s), 3 sous 8 × 8 px (6×19, 4×2, 7×3)
+
+Halo de nuit (draw_as_light) : surface d'alpha > 0,1 (t²), visée croissante avec le niveau (bible §1.6, D2-3 ; flaque imposée de rayon S(N) = 0,80 × (1 + 0,05·N) : π·S² donné pour comparaison)
+  2:2.4(2.4)  3:2.7(2.7)  4:2.9(2.9)  5:3.1(3.1)  6:3.4(3.4)  7:3.7(3.7)  8:3.9(3.9)  9:4.2(4.2)  10:4.5(4.5)  11:4.8(4.8)  12:5.1(5.1)  13:5.5(5.5)  14:5.8(5.8)  15:6.2(6.2)  16:6.5(6.5)  17:6.9(6.9)  18:7.3(7.3)  19:7.6(7.6)  20:8.0(8.0)  21:8.5(8.4)  22:8.9(8.9)  23:9.3(9.3)  24:9.7(9.7)  25:10.2(10.2)  26:10.6(10.6)  27:11.1(11.1)  28:11.6(11.6)  29:12.1(12.1)  30:12.6(12.6)
+  niveaux plus petits qu'un niveau inférieur (tolérance 0,05 t²) : aucun
+
+Mécanisme animé (module meca) : part VISIBLE dans le masque du niveau impair, centre (x ; y) et part située en haut-centre (|x| ≤ 0,95 et y ≤ +0,70 : zone animée du vanilla prolongée vers le haut) ; vanilla : 30 %, haut-centre ; visé > 20 % en haut-centre (bible §2.8)
+  niveau  3 : mécanisme 15.3 % des pixels ; centre (+0.66 ; +0.19) ;  58 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 15.3 % -> sous 20 %
+  niveau  5 : mécanisme 14.2 % des pixels ; centre (-0.48 ; -0.85) ;  82 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 15.8 % -> sous 20 %
+  niveau  7 : mécanisme 10.5 % des pixels ; centre (-0.03 ; -0.95) ;  97 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 12.5 % -> sous 20 %
+  niveau  9 : mécanisme  3.8 % des pixels ; centre (-0.01 ; -1.64) ; 100 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 16.6 % -> sous 20 %
+  niveau 11 : mécanisme 12.8 % des pixels ; centre (+0.10 ; -0.77) ;  96 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 14.8 % -> sous 20 %
+  niveau 13 : mécanisme  4.1 % des pixels ; centre (-0.04 ; +0.11) ; 100 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 23.4 % -> ok
+  niveau 15 : mécanisme 26.8 % des pixels ; centre (-0.01 ; -0.95) ; 100 % en haut-centre -> ok ; avec les zones émissives animées : 36.3 % -> ok
+  niveau 17 : mécanisme 13.1 % des pixels ; centre (-0.01 ; -1.60) ; 100 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 19.1 % -> sous 20 %
+  niveau 19 : mécanisme 20.2 % des pixels ; centre (+0.21 ; -1.44) ;  55 % en haut-centre -> ok ; avec les zones émissives animées : 26.2 % -> ok
+  niveau 21 : mécanisme  8.2 % des pixels ; centre (-0.02 ; -0.44) ;  93 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 16.3 % -> sous 20 %
+  niveau 23 : mécanisme 48.8 % des pixels ; centre (-0.01 ; -0.76) ;  97 % en haut-centre -> ok ; avec les zones émissives animées : 50.7 % -> ok
+  niveau 25 : mécanisme 23.4 % des pixels ; centre (-0.01 ; -0.97) ;  67 % en haut-centre -> ok ; avec les zones émissives animées : 25.1 % -> ok
+  niveau 27 : mécanisme 18.0 % des pixels ; centre (+0.16 ; -2.11) ;  91 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 22.6 % -> ok
+  niveau 29 : mécanisme  7.3 % des pixels ; centre (+0.03 ; -0.63) ; 100 % en haut-centre -> sous 20 % ; avec les zones émissives animées : 23.0 % -> ok

@@ -39,7 +39,7 @@ CACHE = os.path.join(RENDER, "cache", "levels", params.FAMILLE)
 MANIFEST = os.path.join(RENDER, "manifests", "levels-%s.json" % params.FAMILLE)
 ENTRY = os.path.join(HERE, "blender_entry.py")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
-LAYERS = ("main", "shadow", "glow", "light")
+LAYERS = ("main", "shadow", "glow", "light", "tuyaux_ns", "tuyaux_ew")
 
 
 def parse_levels(s):
@@ -104,6 +104,31 @@ def blender_call(ns, samples, mode, cdir, log):
     return time.time() - t0
 
 
+def pool_layer(shape, origin, n):
+    """Flaque de lumière imposée (params.flaque : rayon S(N) de la bible §1.6, alpha 0,1 à S), couleur émissive de
+    l'époque, centrée sur l'entité ; couche additive codée (RGB = c / max, A = max)."""
+    f = params.flaque(n)
+    H_, W_ = shape
+    yy, xx = np.mgrid[0:H_, 0:W_]
+    d = np.hypot(xx + 0.5 - origin[0], yy + 0.5 - origin[1]) / 64.0
+    a = np.where(d <= f["r0"], f["a0"], f["a0"] * np.clip((f["r1"] - d) / (f["r1"] - f["r0"]), 0.0, 1.0))
+    h = params.EPOQUES[params.epoque(n)]["emissif"].lstrip("#")
+    c = np.array([int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)])
+    c = c / c.max()
+    out = np.zeros((H_, W_, 4))
+    out[..., :3] = c
+    out[..., 3] = a
+    return out
+
+
+def add_max(a, b):
+    """Union de deux couches additives codées : maximum des couleurs prémultipliées, canal par canal."""
+    pm = np.maximum(a[..., :3] * a[..., 3:4], b[..., :3] * b[..., 3:4])
+    m = pm.max(-1, keepdims=True)
+    rgb = np.where(m > 1e-6, pm / np.maximum(m, 1e-6), 0)
+    return np.concatenate([rgb, m], -1)
+
+
 def light_layer(li, info, n, main_alpha, body_alpha=None):
     origin = info["origin_px"]
     lay = P.additive_layer(li)
@@ -123,7 +148,48 @@ def light_layer(li, info, n, main_alpha, body_alpha=None):
         if ref > 1e-4:
             f = float(np.clip(params.halo_cible(n) / ref, 0.25, 3.0))
             out[..., 3] = np.clip(out[..., 3] * f, 0, 1)
-    return P.floor_alpha(out)
+    # taille du halo IMPOSÉE par la bible (D2-3, correction V3 du 22/10) : la lumière rendue est bornée au disque de
+    # rayon S(N) centré sur l'entité (pleine jusqu'à 0,85·S, nulle à S), puis la flaque (alpha 0,1 exactement à S)
+    # est ajoutée : la surface d'alpha > 0,1 vaut π·S(N)², strictement croissante avec N
+    out = clamp_disc(out, origin, n)
+    out = add_max(out, pool_layer(out.shape[:2], origin, n))
+    return P.floor_alpha(P.fade_edges(out, 8))
+
+
+def clamp_disc(img, origin, n):
+    S = params.flaque(n)["S"]
+    H_, W_ = img.shape[:2]
+    yy, xx = np.mgrid[0:H_, 0:W_]
+    d = np.hypot(xx + 0.5 - origin[0], yy + 0.5 - origin[1]) / 64.0
+    out = img.copy()
+    out[..., 3] = out[..., 3] * np.clip((S - d) / (0.15 * S), 0.0, 1.0)
+    return out
+
+
+def rehalo(n):
+    """Applique la borne du halo (clamp_disc + flaque) à la couche halo DÉJÀ rendue d'un niveau (sans relancer
+    Blender) : recadrage et shift inchangés ; réécrit hr et basse résolution, et les sommes du nNN.json."""
+    d = os.path.join(OUT, "n%02d" % n)
+    p = os.path.join(d, "n%02d.json" % n)
+    with open(p, encoding="utf-8") as f:
+        rec = json.load(f)
+    sd = rec["spec"].get("light")
+    if not sd:
+        return False
+    fn = os.path.join(d, sd["hr"]["filename"])
+    img = np.asarray(Image.open(fn).convert("RGBA")).astype(np.float64) / 255.0
+    h, w = img.shape[:2]
+    sx, sy = sd["hr"]["shift"]
+    origin = (w / 2.0 - sx * 64.0, h / 2.0 - sy * 64.0)
+    out = add_max(clamp_disc(img, origin, n), pool_layer((h, w), origin, n))
+    out = P.floor_alpha(out)
+    rec["files"][sd["hr"]["filename"]] = P.write_png(out, fn)
+    lr = P.downsample2_additive(out)
+    rec["files"][sd["lr"]["filename"]] = P.write_png(lr, os.path.join(d, sd["lr"]["filename"]))
+    rec["halo_rebound"] = "flaque S(N) et borne au disque appliquées après rendu (rendre.py --rehalo, 22/10)"
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(rec, f, indent=1, sort_keys=True)
+    return True
 
 
 def post_level(n, cdir, odir):
@@ -147,6 +213,15 @@ def post_level(n, cdir, odir):
     li = npy("light")
     if li is not None:
         hr["light"] = light_layer(li, info, n, hr["main"][..., 3], m_hr)
+    for key in ("tuyaux_ns", "tuyaux_ew"):            # départs de tuyau (pipe_picture de l'époque), sans liseré
+        t_ = npy(key.replace("tuyaux", "tuyau") + "-main")
+        if t_ is not None and (t_[..., 3] > 1.0 / 255).any():
+            hr[key] = P.compose_main(t_, None, C)
+    me = npy("meca-main")                              # part visible du mécanisme animé (contrôle, pas une couche)
+    if me is not None:
+        os.makedirs(odir, exist_ok=True)
+        Image.fromarray(np.clip(np.round(me[..., 3] * 255), 0, 255).astype(np.uint8), "L").save(
+            os.path.join(odir, "n%02d-meca-alpha.png" % n), optimize=True)
     raw = dict(hr)
     if masked:
         for k in ("main", "glow"):
@@ -176,6 +251,9 @@ def post_level(n, cdir, odir):
                        "lr": dict(P.sprite_def(box, origin, 32), filename=fn_lr)}
     icon = P.icon_strip(hr["main"])
     files["%s-icon.png" % name] = P.write_png(icon, os.path.join(odir, "%s-icon.png" % name))
+    if me is not None:
+        spec["_meca_alpha"] = {"filename": "n%02d-meca-alpha.png" % n, "origin_px": list(origin),
+                               "note": "contrôle : alpha visible du module meca (8 échantillons), pas une couche de jeu"}
     rec = {"level": n, "epoch": params.epoque(n), "spec": spec, "files": files, "modules": info["modules"],
            "parts": info.get("parts", {}),
            "halo_windows": info["halo"], "masked_by_vanilla": masked,
@@ -227,6 +305,9 @@ def _phase2_files(n):
         for mod in ("corps", "meca"):
             for ps in ("couleur", "ombre", "emissif", "lumiere"):
                 out["%s-%s" % (mod, ps)] = base + "hr-%s-%s.png" % (mod, ps)
+        # pipe_picture de l'époque (correction V3 du 22/10 : les pipe_picture vanilla flottent loin des corps levés)
+        for d in ("N", "E", "S", "W"):
+            out["tuyau-%s" % d] = base + "hr-tuyau-%s.png" % d
         return out
     return {"piece-%s" % ps: base + "piece/hr-piece-%s.png" % ps for ps in ("couleur", "ombre", "emissif", "lumiere")}
 
@@ -275,8 +356,9 @@ def write_manifest(recs, samples, seconds):
                 ent["base"] = "niveau %d + pièce (module « piece » : couche séparée en phase 2)" % (n - 1)
         m = mes.get(str(n))
         if m:
-            ent["measures_d1"] = {k: m[k] for k in ("O_masses", "O_total", "L_masses", "area", "V_pct", "iou_1",
-                                                     "iou_prev", "piece_added") if k in m}
+            ent["measures_d1"] = {k: m[k] for k in ("O_masses", "O_carre", "O_total", "L_masses", "area", "V_pct",
+                                                     "iou_1", "niou_1", "iou_prev", "piece_added", "events",
+                                                     "meca_share", "halo_surface") if k in m}
         levels.append(ent)
     man = {
         "family": params.FAMILLE, "name": params.NOM, "footprint": params.EMPRISE, "ceiling_O": params.PLAFOND_O,
@@ -307,8 +389,14 @@ def write_manifest(recs, samples, seconds):
                 "size 3 × (1 + 0,05·n), color = émissif d'époque) : à mesurer en jeu",
                 "p.drawing_box = drawing_box du niveau (ci-dessous) ; collision_box et selection_box : INCHANGÉES (D1-4)",
                 "p.icons via icons(icons, ctx) : rendu de la pose de référence (64 px, 4 mipmaps) + numéro de niveau",
-                "tuyaux : fluid_boxes (0,-2) et (0,2) inchangés ; pipe_picture et pipe_covers vanilla conservés en "
-                "phase 1, raccord visuel à VÉRIFIER en capture (bible §1.8-6)"]},
+                "tuyaux : fluid_boxes (0,-2) et (0,2) inchangés (secondary_draw_orders = { north = -1 } comme le "
+                "vanilla) ; pipe_picture PAR ÉPOQUE (N, E, S, W : modules tuyau_ns et tuyau_ew de modeles.py, bout "
+                "calé sur le tuyau vanilla au bord de l'emprise), shift relatif au point de raccord (0,-2), (2,0), "
+                "(0,2), (-2,0) ; pipe_covers vanilla gardées (le bout du départ a la section du tuyau vanilla). Aperçu "
+                "phase 1 : couches tuyaux_ns et tuyaux_ew des niveaux impairs (N+S et E+O ensemble). Capture en jeu "
+                "avec une recette à fluide : À FAIRE en phase 2 (bible §1.8-6)",
+                "lumière : la couche light contient la flaque au rayon S(N) = 0,80 × (1 + 0,05·n) (params.flaque) ; "
+                "LightDefinition de phase 2 : size = 2·S(N), intensity 0,05 + 0,02·n"]},
         "preview_render": {"samples": samples, "seconds_total": round(seconds, 1),
                            "blender": C.BLENDER_VERSION, "calib": {k: getattr(C, k) for k in dir(C) if k.isupper()}},
         "sources": {"modeles": "tools/render/pieces/levels/assembler/modeles.py",
@@ -345,7 +433,12 @@ def main():
     ap.add_argument("--batch", type=int, default=6, help="niveaux par appel Blender (un passage par le verrou)")
     ap.add_argument("--no-manifest", action="store_true")
     ap.add_argument("--manifest-only", action="store_true", help="réécrit le manifeste depuis les rendus existants")
+    ap.add_argument("--rehalo", default="", help="niveaux dont la couche halo existante reçoit la borne S(N)")
     a = ap.parse_args()
+    if a.rehalo:
+        for n in parse_levels(a.rehalo):
+            print("[FO-HALO] niveau %d : %s" % (n, "borné" if rehalo(n) else "sans couche halo"))
+        return None
     if a.manifest_only:
         return manifest_only()
     levels = parse_levels(a.levels)

@@ -165,6 +165,12 @@ def render_level(n, a):
     night = [mm for mm in bpy.data.materials if mm.get("fo_night_only")]
     emissive = [mm for mm in bpy.data.materials if mm.get("fo_kind") == "emissive"]
     res = {}
+    # départs de tuyau (modules tuyau_ns, tuyau_ew) : absents des passes de l'entité (ils n'existent en jeu qu'avec
+    # une recette à fluide : pipe_picture), rendus à part plus bas
+    pipes = {m: [o for o in objs if o.get("fo_module") == m] for m in ("tuyau_ns", "tuyau_ew")}
+    for lst in pipes.values():
+        for o in lst:
+            o.hide_render = True
     # 1) principale : surfaces « de nuit » éteintes
     for mm in night:
         mm.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 0.0
@@ -186,6 +192,35 @@ def render_level(n, a):
         proxy_state(proxy, "light")
         res.update(S.render_passes(scene, a.out, prefix, ["light"], sun, ground))
         proxy_state(proxy, "autre")
+    if a.mode == "complet" and n % 2 == 1:
+        # passes de contrôle des niveaux impairs (correction V3 du 22/10), le reste de l'entité en « holdout »
+        # (trou dans l'image, mais toujours présent pour les ombres et les reflets) :
+        # - meca : part VISIBLE du mécanisme animé (masque seul, 8 échantillons) ;
+        # - tuyaux_ns / tuyaux_ew : départs de tuyau en couleur, cachés là où l'entité passe devant.
+        body = [o for o in objs if not str(o.get("fo_module", "corps")).startswith("tuyau")]
+        proxy_state(proxy, "autre")
+
+        def holdout(keep):
+            for o in body:
+                o.is_holdout = o.get("fo_module", "corps") not in keep
+        smp = scene.cycles.samples
+        scene.cycles.samples = 8
+        holdout(("meca",))
+        r = S.render_passes(scene, a.out, prefix + "-meca", ["main"], sun, ground)
+        res["meca"] = r["main"]
+        scene.cycles.samples = smp
+        for key, lst in pipes.items():
+            if not lst:
+                continue
+            holdout(())
+            for o in lst:
+                o.hide_render = False
+            r = S.render_passes(scene, a.out, prefix + "-" + key, ["main"], sun, ground)
+            res[key] = r["main"]
+            for o in lst:
+                o.hide_render = True
+        for o in body:
+            o.is_holdout = False
     for k, path in res.items():
         to_npy(path, path[:-4] + ".npy")
     info = {

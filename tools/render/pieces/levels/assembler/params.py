@@ -90,6 +90,20 @@ def halo_cible(n):
     return min(0.80, 0.25 + 0.0185 * n)
 
 
+def flaque(n):
+    """Flaque de lumière de nuit (couche draw_as_light) imposée par la bible (§1.6, D2-3) : rayon S(N) = s × (1 +
+    0,05·N) tuiles (s = 0,80) où l'alpha vaut 0,1 ; plateau d'alpha A0 = 0,8 × halo_cible(N) jusqu'à 0,5·S, puis
+    décroissance linéaire jusqu'à r1 (alpha nul), r1 choisi pour que l'alpha vaille exactement 0,1 à S. La surface
+    (alpha > 0,1) vaut donc π·S² au moins et croît avec N (correction V3 du 22/10). La LightDefinition de la phase 2
+    suivra la même formule (size = 2·S)."""
+    S = 0.80 * (1.0 + 0.05 * n)
+    a0 = 0.8 * halo_cible(n)
+    q = 0.1 / a0
+    r0 = 0.5 * S
+    r1 = S * (1.0 - 0.5 * q) / (1.0 - q)
+    return {"S": S, "a0": a0, "r0": r0, "r1": r1}
+
+
 def halo_puissance(n):
     """Puissance totale (W) des sources ponctuelles du halo d'un niveau."""
     return 10.0 + 1.3 * n
