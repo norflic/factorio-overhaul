@@ -55,8 +55,16 @@ PALETTE = {
 # Correction d'albédo par époque (multiplie la couleur de TOUTES les surfaces non émissives) : la luminance
 # médiane du corps rendu doit suivre la cible de la bible §1.5 (±10). Valeurs fixées sur les mesures des
 # rendus (measure_d1.py, photométrie du corps hors zones émissives) : voir mesures_d1.txt.
-ALBEDO_K = {1: 0.36, 2: 1.0, 3: 0.97, 4: 0.56, 5: 0.54, 6: 0.40, 7: 0.85, 8: 0.38, 9: 0.64, 10: 0.82, 11: 1.22,
-            12: 0.79, 13: 0.40, 14: 0.48, 15: 0.44}
+# Reprise 2 : les valeurs laissées par l'interruption (0,36 à 1,22) n'avaient été appliquées à aucun rendu
+# conservé ; remises à 1,0, tout est rendu, puis K est recalculé sur la mesure du corps hors zones émissives
+# (measure_d1.py) : K = lin(cible) / lin(mesure) × K précédent (rendu linéaire en albédo, au premier ordre).
+# Le recalcul a retrouvé l'ordre de grandeur des valeurs du premier modeleur (époque 8 : 0,38 ; époque 6 :
+# 0,40) : ses facteurs étaient justes ; seul manquait le rendu qui les vérifie.
+# Mesure du 22/10 (rendus à K = 1, 32 échantillons) -> facteurs appliqués aux époques hors tolérance (±10) ;
+# époque 1 (pièce du niveau 2) : cible 58 (haut de la tolérance, pour se détacher du four vanilla sombre),
+# gain déjà abaissé de 2,7 à 1,9 dans furnace_levels.e1_piece, d'où 0,60 et non 0,43.
+ALBEDO_K = {e: 1.0 for e in range(1, 16)}
+ALBEDO_K.update({1: 0.60, 4: 0.595, 5: 0.456, 6: 0.407, 8: 0.405, 9: 0.666, 13: 0.459, 14: 0.76})
 # Feu de la bouche (identité du four : « bouche lumineuse au sud ») ; vanilla : (99,49,3) à (241,144,2)
 FIRE = "#FF8A1E"
 

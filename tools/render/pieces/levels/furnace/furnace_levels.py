@@ -57,10 +57,10 @@ KEY = {
          "emit": [(-0.12, 0.40, 1.05, PRM.FIRE), (-0.12, 0.12, 0.55, "#4AF0FF")]},
     13: {"chimney": [(0.62, -0.62, 2.42)],
          "emit": [(-0.12, 0.45, 1.45, "#FF9A3A"), (-0.12, 0.08, 1.45, "#FF4FD8")]},
-    14: {"chimney": [(0.66, -0.62, 2.53)],
+    14: {"chimney": [(0.66, -0.62, 2.66)],
          "emit": [(-0.12, 0.10, 1.40, "#FFF2C0"), (0.66, -0.62, 2.62, "#FF2A2A")]},
-    15: {"chimney": [(0.45, -0.45, 2.82)],
-         "emit": [(-0.12, 0.10, 1.15, "#FFF2C0"), (-0.12, 0.10, 0.20, "#FFF2C0")]},
+    15: {"chimney": [(0.36, -0.24, 3.24)],
+         "emit": [(-0.10, 0.45, 0.95, "#FFF2C0"), (-0.10, 0.10, 1.22, "#FFD98A"), (-0.10, 0.10, 0.10, "#FFF2C0")]},
 }
 
 
@@ -184,7 +184,7 @@ E1_STACK = {"x": 0.29, "y": -0.78, "r": 0.13}
 
 def e1_piece(k):
     g, S = k.g, k.S
-    tole = k.metal("fer", gain=2.7, rough=0.40, metallic=0.55, rust="#6B3A20", rust_amount=0.55, dirt=0.5, grain=0.28)
+    tole = k.metal("fer", gain=1.9, rough=0.40, metallic=0.55, rust="#5A3420", rust_amount=0.45, dirt=0.55, grain=0.28)
     band = k.metal("bande", "#3A3430", gain=2.2, rough=0.32, metallic=0.8, dirt=0.35)
     riv = k.metal("rivet", "#8A7A62", gain=2.6, rough=0.25, metallic=0.9, grain=0.1, dirt=0.15)
     st = E1_STACK
@@ -197,20 +197,20 @@ def e1_piece(k):
         g.cyl(xc, yc, z - 0.012, r + 0.012, 0.024, "cerclage_%d" % i, band, verts=40, bevel_w=0.004)
         g.rivet_ring_at(xc, yc, r + 0.010, z + 0.03, 14, 0.011, riv, "rivets_%d" % i, phase=0.2 * i)
     # hotte évasée (tronc de cône riveté) au sommet, lèvre, puis chapeau chinois sur 3 pattes
-    g.cyl(xc, yc, zt - 0.16, r, 0.16, "hotte", tole, verts=40, r2=r + 0.075, caps=False, bevel_w=0)
-    S.torus(r + 0.075, 0.016, g.G(xc, yc, zt), band, "levre_hotte")
-    g.rivet_ring_at(xc, yc, r + 0.045, zt - 0.08, 16, 0.010, riv, "rivets_hotte")
-    smoke_mouth(k, xc, yc, zt - 0.005, r + 0.06)
+    g.cyl(xc, yc, zt - 0.18, r, 0.18, "hotte", tole, verts=40, r2=r + 0.10, caps=False, bevel_w=0)
+    S.torus(r + 0.10, 0.02, g.G(xc, yc, zt), band, "levre_hotte")
+    g.rivet_ring_at(xc, yc, r + 0.06, zt - 0.09, 18, 0.011, riv, "rivets_hotte")
+    smoke_mouth(k, xc, yc, zt - 0.005, r + 0.085)
     legs = []
     p0 = g.G(xc, yc, 0)
     for i in range(3):
         a = 2 * math.pi * i / 3 + 0.5
-        rr = r + 0.06
+        rr = r + 0.08
         legs.append(g.cyl_between((p0[0] + rr * math.cos(a), p0[1] + rr * math.sin(a), zt - 0.01),
                                   (p0[0] + rr * math.cos(a), p0[1] + rr * math.sin(a), zt + 0.07), 0.011,
                                   "patte_%d" % i, band, verts=8))
     g.join(legs, "pattes_chapeau")
-    g.cyl(xc, yc, zt + 0.065, r + 0.11, 0.075, "chapeau", tole, verts=40, r2=0.03, bevel_w=0.004)
+    g.cyl(xc, yc, zt + 0.065, r + 0.15, 0.085, "chapeau", tole, verts=40, r2=0.03, bevel_w=0.004)
     # hauban de fer plat vers la cheminée vanilla (repère de liaison ; masqué là où il passe derrière)
     g.cyl_between(g.G(xc + r, yc, zt - 0.22), g.G(0.60, -0.62, 0.70), 0.010, "hauban", band, verts=6)
 
@@ -259,7 +259,11 @@ def e2(k, even):
     ry0, ry1 = y0 + 0.02, 0.14
     rcx, rw = cxb + 0.02, x1 - x0 - 0.20
     g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw, ry1 - ry0), h, h + 0.32, "chambre", steel, bevel_w=0.012)
-    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.37, "chambre_chapeau", strap,
+    # chapeau en tôle d'acier MATE : en acier poli, ce grand dessus plat reflétait le ciel et se lisait comme une
+    # dalle noire (aperçu du 22/10)
+    acier_mat = k.metal("acier_mat", "#5C6168", gain=2.6, rough=0.62, metallic=0.35, rust="#5A3A26", rust_amount=0.3,
+                        dirt=0.55, grain=0.3)
+    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.37, "chambre_chapeau", acier_mat,
             bevel_w=0.006)
     for z in (h + 0.06, h + 0.22):
         g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.025, ry1 - ry0 + 0.02), z, z + 0.04, "chambre_cercle_%d" % int(z * 100),
@@ -345,14 +349,16 @@ def e3(k, even):
     # tour en fonte (profil de haut-fourneau : ventre puis cuve conique)
     tx, ty = -0.25, -0.05
     prof = [(0.60, 0.0), (0.66, 0.30), (0.71, 0.55), (0.66, 0.80), (0.54, 1.02), (0.44, 1.14), (0.40, 1.20)]
-    g.lathe(prof, (tx, ty), "haut_fourneau", fonte, segs=48)
+    # gueulard OUVERT (cap_top=False) : le premier aperçu fermait le haut par un disque de fonte à la même
+    # cote que la lueur ambrée (z 1,20) : chevauchement de faces, triangle sombre sur le feu (vu le 22/10)
+    g.lathe(prof, (tx, ty), "haut_fourneau", fonte, segs=48, cap_top=False)
     for z, r in ((0.30, 0.675), (0.55, 0.72), (0.80, 0.67)):
         S.torus(r, 0.022, g.G(tx, ty, z), laiton, "cercle_%d" % int(z * 100))
         g.rivet_ring_at(tx, ty, r + 0.01, z + 0.05, 24, 0.012, laiton, "rivets_%d" % int(z * 100))
     # gueulard : couronne et lueur ambrée au sommet
     S.torus(0.40, 0.035, g.G(tx, ty, 1.20), laiton, "gueulard")
     k_amb = k.emit("ambre", "#FFC060", 1.3)
-    g.cyl(tx, ty, 1.12, 0.36, 0.08, "gueulard_feu", k_amb, verts=40, bevel_w=0)
+    g.cyl(tx, ty, 1.08, 0.37, 0.07, "gueulard_feu", k_amb, verts=40, bevel_w=0)
     # hublot ambré sur la face avant de la tour
     hy = ty + 0.70 / g.K
     S.cylinder(0.105, 0.03, g.G(tx, hy + 0.005, 0.62), k_amb, "hublot", verts=32, rot=(math.pi / 2, 0, 0), bevel_w=0)
@@ -1074,105 +1080,227 @@ def petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, mat, back_mat, thick=0.0
     return o
 
 
+def mirror_petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, gold, cells, thick=0.03):
+    """Pétale-miroir : face intérieure (vers le foyer) en feuille d'or, dos en cellules bleu nuit, légèrement
+    creusé (les bords se relèvent). Coordonnées Blender ; ang : direction radiale."""
+    g = k.g
+    from mathutils import Vector
+    u = Vector((math.cos(ang), math.sin(ang), 0.0))
+    t = Vector((-math.sin(ang), math.cos(ang), 0.0))
+    p0 = Vector((cx, cy, z0)) + u * r0
+    p1 = Vector((cx, cy, z1)) + u * r1
+    axis = (p1 - p0).normalized()
+    nrm = axis.cross(t).normalized()           # vers le haut et vers le foyer
+    lift = 0.06                                # creux : les bords se relèvent
+    rows = []
+    for s, (p, w) in enumerate(((p0, w0), (p1, w1))):
+        rows.append([p - t * w + nrm * lift * (s * 0.6 + 0.4), p - t * w * 0.5 + nrm * lift * 0.25, p,
+                     p + t * w * 0.5 + nrm * lift * 0.25, p + t * w + nrm * lift * (s * 0.6 + 0.4)])
+    verts, faces = [], []
+    for off in (thick / 2, -thick / 2):             # 0-9 : dessus (rangée p0 puis p1) ; 10-19 : dessous
+        for r in rows:
+            verts += [tuple(q + nrm * off) for q in r]
+    n = 5
+    T0, T1, B0, B1 = 0, n, 2 * n, 3 * n
+    for i in range(n - 1):
+        faces.append((T0 + i, T0 + i + 1, T1 + i + 1, T1 + i))      # face d'or
+        faces.append((B0 + i + 1, B0 + i, B1 + i, B1 + i + 1))      # dos en cellules
+        faces.append((B0 + i, B0 + i + 1, T0 + i + 1, T0 + i))      # chant intérieur
+        faces.append((T1 + i, T1 + i + 1, B1 + i + 1, B1 + i))      # chant extérieur
+    faces.append((T0, T1, B1, B0))                                  # chants latéraux
+    faces.append((T0 + n - 1, B0 + n - 1, B1 + n - 1, T1 + n - 1))
+    o = g.mesh(name, verts, faces, None, smooth_deg=None, bevel_w=0.003)
+    o.data.materials.append(gold)
+    o.data.materials.append(cells)
+    # matériau par face : la face dont la normale regarde vers +nrm est en or, l'autre en cellules
+    nv = Vector(nrm)
+    for poly in o.data.polygons:
+        poly.material_index = 0 if Vector(poly.normal).dot(nv) > -0.2 else 1
+    return o
+
+
 def e14(k, even):
     g, S = k.g, k.S
-    blanc = k.metal("blanc", gain=1.0, rough=0.4, metallic=0.1, grain=0.08, dirt=0.45)
-    orf = k.metal("or", "#C4A454", gain=1.5, rough=0.32, metallic=0.55, grain=0.35, grain_scale=25.0, dirt=0.3)
-    cell = k.glossy("cellules", gain=1.0, rough=0.25, metallic=0.3)
-    eclat = k.emit("creuset", "#FFF2C0", 2.2)
+    blanc = k.metal("blanc", gain=0.75, rough=0.35, metallic=0.15, grain=0.08, dirt=0.5, rust="#8A8478", rust_amount=0.35)
+    # feuille d'or FROISSÉE (bible §5 : jamais lisse) : métal franc, grain fort et serré ; teinte désaturée
+    # (#BFA45E, même luminance que #C9A23A) : la corolle est l'essentiel du corps, saturation ≤ 0,45 (§1.5)
+    orf = k.metal("or", "#BFA45E", gain=1.15, rough=0.30, metallic=0.85, grain=0.55, grain_scale=18.0, dirt=0.4,
+                  rust="#6A5A30", rust_amount=0.35)
+    cell = k.glossy("cellules", gain=2.2, rough=0.2, metallic=0.4)
+    eclat = k.emit("creuset", "#FFE6A0", 1.6)
+    bouche = k.emit("bouche", "#FFC060", 1.6)
     rouge = k.emit("balise", "#FF2A2A", 2.0)
-    cx, cy = -0.12, 0.10
-    g.frustum(g.regular(cx, cy, 0.42, 6, 0.0), 0.0, g.regular(cx, cy, 0.36, 6, 0.0), 0.14, "base", blanc, bevel_w=0.01)
-    g.cyl(cx, cy, 0.14, 0.12, 1.10, "colonne", blanc, verts=24)
-    S.torus(0.13, 0.03, g.G(cx, cy, 0.62), orf, "bague_colonne")
-    # creuset éclatant au foyer (bouche)
-    g.lathe([(0.10, 1.24), (0.22, 1.30), (0.26, 1.42), (0.24, 1.48)], (cx, cy), "creuset", blanc, segs=32, cap_top=False)
-    g.cyl(cx, cy, 1.40, 0.22, 0.05, "foyer", eclat, verts=32, bevel_w=0)
-    S.sphere(0.12, g.G(cx, cy, 1.52), eclat, "eclat", seg=24, rings=12)
-    # corolle de 6 pétales-miroirs dorés (dos en cellules bleu nuit)
+    cx, cy = -0.10, 0.12
+    # tambour de base hexagonal blanc, bandeau d'or, bouche lumineuse au sud (face plate au sud : phase 0)
+    g.frustum(g.regular(cx, cy, 0.54, 6, 0.0), 0.0, g.regular(cx, cy, 0.48, 6, 0.0), 0.36, "base", blanc, bevel_w=0.012)
+    g.frustum(g.regular(cx, cy, 0.55, 6, 0.0), 0.24, g.regular(cx, cy, 0.53, 6, 0.0), 0.29, "base_bandeau", orf, bevel_w=0.004)
+    fire_mouth(k, cx, cy + 0.54 * math.cos(math.pi / 6) / g.K - 0.01, 0.05, 0.30, 0.15, orf, "#FFC060", strength=1.6, arch=True)
+    # colonne blanche à bagues d'or, moyeu de la corolle
+    g.cyl(cx, cy, 0.36, 0.16, 0.70, "colonne", blanc, verts=32)
+    for z in (0.55, 0.85):
+        S.torus(0.165, 0.028, g.G(cx, cy, z), orf, "bague_colonne_%d" % int(z * 100))
+    g.lathe([(0.16, 1.00), (0.30, 1.04), (0.34, 1.10), (0.20, 1.16)], (cx, cy), "moyeu", blanc, segs=40)
+    # corolle de 8 pétales-miroirs (la plus large des époques : L ≈ 2,1), faces d'or vers le foyer
     bx, by, _ = g.G(cx, cy, 0)
-    for i in range(6):
-        a = math.radians(30 + 60 * i)
-        petal(k, bx, by, a, 0.22, 0.78, 1.03, 1.42, 0.07, 0.26, "petale_%d" % i, orf, cell)
-        g.cyl_between((bx, by, 0.70), (bx + 0.55 * math.cos(a), by + 0.55 * math.sin(a), 1.07), 0.02, "hauban_%d" % i, blanc, verts=8)
-    # mât-balise à l'arrière droit (cheminée), balise rouge
+    for i in range(8):
+        a = math.radians(22.5 + 45 * i)
+        mirror_petal(k, bx, by, a, 0.26, 1.06, 1.04, 1.62, 0.10, 0.36, "petale_%d" % i, orf, cell)
+    # creuset éclatant au foyer, tenu par 3 bras au-dessus du moyeu
+    zf = 1.78
+    g.lathe([(0.06, zf - 0.12), (0.17, zf - 0.08), (0.21, zf + 0.02), (0.19, zf + 0.06)], (cx, cy), "creuset", blanc, segs=32,
+            cap_top=False)
+    g.cyl(cx, cy, zf - 0.02, 0.17, 0.03, "foyer", eclat, verts=32, bevel_w=0)
+    S.sphere(0.085, g.G(cx, cy, zf + 0.06), eclat, "eclat", seg=24, rings=12)
+    for i in range(3):
+        a = math.radians(90 + 120 * i)
+        g.cyl_between((bx + 0.30 * math.cos(a), by + 0.30 * math.sin(a), 1.12), (bx + 0.17 * math.cos(a), by + 0.17 * math.sin(a), zf - 0.08),
+                      0.022, "bras_%d" % i, blanc, verts=8)
+    # mât-balise à l'arrière droit (cheminée : sortie de fumée sous le chapeau), balise rouge
     mx, my = 0.66, -0.62
     zt = KEY[14]["chimney"][0][2]
-    g.cyl(mx, my, 0.0, 0.10, zt - 0.10, "mat", blanc, verts=24)
-    for z in (0.7, 1.5):
+    g.cyl(mx, my, 0.0, 0.13, 0.20, "pied_mat", blanc, verts=24)
+    g.cyl(mx, my, 0.20, 0.10, zt - 0.30, "mat", blanc, verts=24)
+    for z in (0.7, 1.5, 2.1):
         S.torus(0.105, 0.025, g.G(mx, my, z), orf, "bague_mat_%d" % int(z * 10))
-    g.cyl(mx, my, zt - 0.10, 0.10, 0.10, "chapeau", orf, verts=24, r2=0.07)
-    S.sphere(0.075, g.G(mx, my, zt + 0.03), rouge, "balise", seg=16, rings=8)
-    k.halo(cx, cy + 0.2, 1.45, "#FFF2C0", 8.0, "halo_creuset")
-    k.halo(mx, my, zt + 0.03, "#FF2A2A", 2.0, "halo_balise")
+    g.cyl(mx, my, zt - 0.10, 0.11, 0.10, "chapeau", orf, verts=24, r2=0.08)
+    g.cyl(mx, my, zt - 0.02, 0.07, 0.02, "gueule", k.soot(), verts=16, bevel_w=0)
+    S.sphere(0.06, g.G(mx + 0.13, my, zt - 0.05), rouge, "balise", seg=16, rings=8)
+    g.cyl_between(g.G(mx + 0.02, my, zt - 0.05), g.G(mx + 0.13, my, zt - 0.05), 0.015, "bras_balise", blanc, verts=8)
+    k.halo(cx, cy + 0.2, zf, "#FFE6A0", 7.0, "halo_creuset")
+    k.halo(cx, 0.60, 0.12, "#FFC060", 6.0, "halo_bouche")
+    k.halo(mx + 0.13, my, zt - 0.05, "#FF2A2A", 2.0, "halo_balise")
     if even:
-        petal(k, bx, by, math.radians(90), 0.25, 0.85, 0.98, 1.95, 0.08, 0.30, "petale_arriere", orf, cell, thick=0.035)
-        g.cyl_between((bx, by + 0.15, 0.80), (bx, by + 0.70, 1.65), 0.025, "hauban_arriere", blanc, verts=8)
+        # pétale supplémentaire à l'arrière, plus grand et plus redressé, sur son hauban (+0,25)
+        mirror_petal(k, bx, by + 0.10, math.radians(90), 0.30, 1.10, 1.02, 2.30, 0.12, 0.40, "petale_arriere", orf, cell,
+                     thick=0.035)
+        g.cyl_between((bx, by + 0.30, 1.05), (bx, by + 0.80, 2.00), 0.03, "hauban_arriere", blanc, verts=8)
 
 
 # -------------------------------------------------------------------------------------------------
 # Époque 15 · Légende : creuset en couronne flottant, halo ; pièce : seconde couronne
 # -------------------------------------------------------------------------------------------------
-def crown(k, x, y, z0, r, h_band, spikes, mat, gem, name):
+def crown(k, x, y, z0, r, h_band, spikes, mat, gem, name, gem_k=0.45, verts=8):
+    """Bandeau de couronne (rayon r, de z0 à z0 + h_band) et flèches facettées posées dessus ; une petite gemme
+    lumineuse au pied de chaque flèche. spikes = [(angle Blender en degrés, hauteur, rayon du pied)] ; 90° =
+    nord (arrière), 270° = sud (avant, face à la caméra)."""
     g, S = k.g, k.S
-    g.lathe([(r * 0.92, z0), (r, z0 + 0.04), (r, z0 + h_band - 0.04), (r * 1.04, z0 + h_band)], (x, y), name + "_bandeau", mat,
-            segs=48, cap_top=False, cap_bottom=False)
-    g.lathe([(r * 0.86, z0), (r * 0.86, z0 + h_band)], (x, y), name + "_interieur", mat, segs=48, cap_top=False, cap_bottom=False)
+    g.lathe([(r * 0.94, z0), (r, z0 + 0.03), (r, z0 + h_band - 0.03), (r * 1.06, z0 + h_band)], (x, y), name + "_bandeau",
+            mat, segs=48, cap_top=False, cap_bottom=False)
+    g.lathe([(r * 0.86, z0), (r * 0.86, z0 + h_band)], (x, y), name + "_interieur", mat, segs=48, cap_top=False,
+            cap_bottom=False)
+    g.lathe([(r * 0.86, z0 + h_band), (r * 1.06, z0 + h_band)], (x, y), name + "_dessus", mat, segs=48, cap_top=False,
+            cap_bottom=False)
     bx, by, _ = g.G(x, y, 0)
     for i, (a_deg, hh, rr) in enumerate(spikes):
         a = math.radians(a_deg)
         px, py = bx + r * math.cos(a), by + r * math.sin(a)
-        S.cylinder(rr, hh, (px, py, z0 + h_band + hh / 2 - 0.02), mat, "%s_fleche_%d" % (name, i), verts=12, radius2=0.0,
-                   bevel_w=0)
-        S.sphere(rr * 0.9, (px, py, z0 + h_band * 0.55), gem, "%s_gemme_%d" % (name, i), seg=12, rings=6)
+        # flèche facettée : fût prismatique puis pointe (arêtes franches qui accrochent le soleil)
+        S.cylinder(rr, hh * 0.55, (px, py, z0 + h_band + hh * 0.275 - 0.01), mat, "%s_fut_%d" % (name, i), verts=verts,
+                   radius2=rr * 0.78, bevel_w=0.004)
+        S.cylinder(rr * 0.78, hh * 0.47, (px, py, z0 + h_band + hh * 0.55 + hh * 0.235 - 0.02), mat,
+                   "%s_pointe_%d" % (name, i), verts=verts, radius2=0.0, bevel_w=0)
+        if gem is not None and gem_k > 0:
+            S.sphere(rr * gem_k, (px + 0.0, py, z0 + h_band * 0.5), gem, "%s_gemme_%d" % (name, i), seg=12, rings=6)
+
+
+# Époque 15 · Légende (refaite à la reprise 2) : le premier jet (anneau entièrement émissif, cœur blanc de
+# 0,24, couronne de 0,48 de rayon) se lisait comme une lampe blanche éblouie, plus étroite que le four
+# vanilla (L 1,48 contre 1,97) et sans bouche. Ici : socle hexagonal FLOTTANT au-dessus d'un plot émetteur,
+# creuset d'or blanc flottant au-dessus du socle (deux vides superposés), couronné de 7 flèches facettées,
+# bain doré visible dans le creuset, bouche lumineuse au sud, anneau-halo en or (perles lumineuses
+# seulement), flèche-cheminée à l'arrière droit, particules.
+E15 = {"cx": -0.10, "cy": 0.10, "disc": (0.30, 0.42, 0.96), "bowl_z": (0.72, 1.24), "rim_r": 0.72,
+       "chim": (0.36, -0.24)}
 
 
 def e15(k, even):
     g, S = k.g, k.S
-    orb = k.metal("orblanc", gain=1.1, rough=0.30, metallic=0.35, grain=0.1, dirt=0.35, rust="#B8A880", rust_amount=0.3)
-    nacre = k.metal("nacre", gain=0.95, rough=0.3, metallic=0.2, grain=0.08, dirt=0.35)
-    lum = k.emit("lumiere", "#FFF2C0", 0.75)
-    cx, cy = -0.12, 0.10
-    # petit plot émetteur au sol (seul contact), disque flottant au-dessus (vide)
-    g.cyl(cx, cy, 0.0, 0.16, 0.05, "plot", nacre, verts=24)
-    g.cyl(cx, cy, 0.05, 0.10, 0.015, "plot_lueur", lum, verts=24, bevel_w=0)
-    g.lathe([(0.001, 0.30), (0.58, 0.30), (0.66, 0.36), (0.62, 0.42), (0.001, 0.42)], (cx, cy), "disque", nacre, segs=6,
-            smooth_deg=None, bevel_w=0.01)
-    g.lathe([(0.665, 0.355), (0.665, 0.375)], (cx, cy), "liseré_disque", lum, segs=6, cap_top=False, cap_bottom=False,
-            smooth_deg=None)
-    # couronne flottante (vide sous la couronne), cœur lumineux
-    spikes = [(0, 0.75, 0.10), (51, 0.95, 0.095), (103, 1.15, 0.11), (154, 0.90, 0.095), (206, 0.70, 0.09), (257, 0.62, 0.085),
-              (309, 0.66, 0.09)]
-    crown(k, cx, cy, 0.58, 0.48, 0.30, spikes, orb, lum, "couronne")
-    S.sphere(0.24, g.G(cx, cy, 0.86), lum, "coeur", seg=32, rings=16)
-    # anneau-halo
-    S.torus(0.80, 0.045, g.G(cx, cy, 1.12), lum, "anneau_halo", major_seg=72, minor_seg=10)
-    # flèche-cheminée arrière droite, creuse
-    mx, my = 0.45, -0.45
+    orb = k.metal("orblanc", gain=0.72, rough=0.24, metallic=0.65, grain=0.12, dirt=0.5, rust="#8A7A58", rust_amount=0.4)
+    nacre = k.metal("nacre", gain=0.58, rough=0.32, metallic=0.15, grain=0.10, dirt=0.5, rust="#8A8478", rust_amount=0.35)
+    lum = k.emit("lumiere", "#FFF2C0", 0.9)
+    bain = k.emit("bain", "#FFC060", 1.0)
+    p = E15
+    cx, cy = p["cx"], p["cy"]
+    # plot émetteur au sol (seul contact) et colonne de lumière qui porte le socle (vide sous le socle)
+    g.frustum(g.regular(cx, cy, 0.30, 6, 0.0), 0.0, g.regular(cx, cy, 0.24, 6, 0.0), 0.09, "plot", nacre, bevel_w=0.01)
+    S.torus(0.20, 0.02, g.G(cx, cy, 0.095), orb, "plot_bague")
+    g.cyl(cx, cy, 0.09, 0.05, p["disc"][0] - 0.09, "colonne_lumiere", lum, verts=16, bevel_w=0)
+    # socle hexagonal flottant (nacre, chant d'or blanc, liseré lumineux)
+    z0, z1, R = p["disc"]
+    g.frustum(g.regular(cx, cy, R - 0.10, 6, 0.0), z0, g.regular(cx, cy, R, 6, 0.0), z0 + 0.07, "socle_dessous", nacre,
+              bevel_w=0.01)
+    g.frustum(g.regular(cx, cy, R, 6, 0.0), z0 + 0.07, g.regular(cx, cy, R, 6, 0.0), z1 - 0.03, "socle_chant", orb,
+              bevel_w=0.006)
+    g.frustum(g.regular(cx, cy, R, 6, 0.0), z1 - 0.03, g.regular(cx, cy, R - 0.07, 6, 0.0), z1, "socle_dessus", nacre,
+              bevel_w=0.008)
+    g.lathe([(R * 0.868 + 0.004, z0 + 0.085), (R * 0.868 + 0.004, z0 + 0.105)], (cx, cy), "socle_lisere", lum, segs=6,
+            cap_top=False, cap_bottom=False, smooth_deg=None)
+    # creuset d'or blanc FLOTTANT au-dessus du socle (second vide), profil de coupe ; bain doré à l'intérieur
+    zb0, zb1 = p["bowl_z"]
+    rr = p["rim_r"]
+    g.lathe([(0.10, zb0), (0.28, zb0 + 0.03), (0.46, zb0 + 0.12), (0.60, zb0 + 0.27), (rr - 0.02, zb1 - 0.08), (rr, zb1)],
+            (cx, cy), "creuset", orb, segs=56, cap_top=False, smooth_deg=50)
+    g.lathe([(0.001, zb0 - 0.01), (0.10, zb0 - 0.01), (0.10, zb0)], (cx, cy), "creuset_fond", nacre, segs=24)
+    # croûte d'or bruni sur le bain : seule une coulée centrale luit (le premier jet, bain plein de 0,59 de rayon,
+    # faisait un seau de lumière blanche)
+    g.cyl(cx, cy, zb1 - 0.14, rr - 0.05, 0.04, "croute", k.metal("croute", "#5A4A30", gain=1.2, rough=0.6, metallic=0.4,
+                                                                       grain=0.4, dirt=0.6), verts=56, bevel_w=0)
+    g.cyl(cx, cy, zb1 - 0.105, 0.30, 0.012, "bain", bain, verts=40, bevel_w=0)
+    S.torus(0.30, 0.03, g.G(cx, cy, zb0 + 0.05), orb, "creuset_bague")
+    # bouche lumineuse au sud : baie en ogive dans la paroi du creuset (identité du four)
+    by_ = cy + 0.50 / g.K
+    S.cylinder(0.13, 0.05, g.G(cx, by_, zb0 + 0.25), lum, "bouche", verts=32, rot=(math.radians(62), 0, 0), bevel_w=0)
+    S.torus(0.145, 0.028, g.G(cx, by_ + 0.012, zb0 + 0.25), orb, "bouche_cadre", rot=(math.radians(62), 0, 0))
+    # couronne de 7 flèches facettées sur la lèvre du creuset (plus hautes à l'arrière ; l'avant reste ouvert
+    # sur le bain et la bouche)
+    spikes = [(90, 1.35, 0.115), (40, 1.08, 0.105), (140, 1.12, 0.105), (355, 0.80, 0.095), (185, 0.84, 0.095),
+              (310, 0.55, 0.085), (230, 0.58, 0.085)]
+    crown(k, cx, cy, zb1 - 0.02, rr, 0.16, spikes, orb, lum, "couronne", gem_k=0.42)
+    # anneau-halo en or blanc incliné, perles lumineuses (pas d'anneau tout blanc)
+    zh = zb1 + 0.40
+    o = S.torus(1.02, 0.03, g.G(cx, cy, zh), orb, "anneau_halo", major_seg=96, minor_seg=10)
+    o.rotation_euler = (math.radians(7), 0, 0)
+    bx, by, _ = g.G(cx, cy, 0)
+    beads = []
+    for i in range(10):
+        a = 2 * math.pi * (i + 0.5) / 10
+        zz = zh + 1.02 * math.sin(a) * math.sin(math.radians(7))
+        beads.append(S.sphere(0.045, (bx + 1.02 * math.cos(a), by + 1.02 * math.sin(a) * math.cos(math.radians(7)), zz), lum,
+                              "perle_%d" % i, seg=10, rings=5))
+    g.join(beads, "perles_halo")
+    # flèche-cheminée à l'arrière droit, debout sur le socle flottant, creuse (sortie de fumée)
+    mx, my = p["chim"]
     zt = KEY[15]["chimney"][0][2]
-    g.lathe([(0.15, 0.62), (0.12, 0.80), (0.11, zt - 0.40), (0.13, zt - 0.08), (0.12, zt)], (mx, my), "fleche_cheminee", orb, segs=32,
-            cap_top=False)
-    g.cyl(mx, my, zt - 0.10, 0.10, 0.09, "fond", k.soot(), verts=24, bevel_w=0)
-    S.torus(0.13, 0.02, g.G(mx, my, zt - 0.20), lum, "bague_fleche")
-    g.cyl_between(g.G(mx, my, 0.80), g.G(cx + 0.25, cy - 0.10, 0.78), 0.035, "liaison", orb, verts=12)
-    # particules (petites sphères lumineuses)
+    g.lathe([(0.17, z1), (0.15, z1 + 0.25), (0.125, zt - 0.55), (0.105, zt - 0.14), (0.13, zt - 0.06), (0.12, zt)], (mx, my),
+            "fleche_cheminee", orb, segs=8, cap_top=False, smooth_deg=None, bevel_w=0.004)
+    g.cyl(mx, my, zt - 0.12, 0.10, 0.11, "fond", k.soot(), verts=16, bevel_w=0)
+    for z in (z1 + 0.55, zt - 0.85):
+        g.cyl(mx, my, z, 0.16, 0.05, "bague_fleche_%d" % int(z * 100), nacre, verts=8, bevel_w=0.004)
+    g.lathe([(0.112, zt - 0.36), (0.112, zt - 0.24)], (mx, my), "lueur_fleche", lum, segs=8, cap_top=False, cap_bottom=False,
+            smooth_deg=None)
+    g.cyl_between(g.G(mx, my, zb1 - 0.20), g.G(cx + 0.45, cy - 0.32, zb1 - 0.25), 0.035, "liaison", orb, verts=12)
+    # particules (petites sphères lumineuses), graine fixe
     import random
     rnd = random.Random(15)
     parts = []
-    for i in range(14):
+    for i in range(16):
         a = rnd.uniform(0, 2 * math.pi)
-        rr = rnd.uniform(0.55, 0.95)
-        z = rnd.uniform(0.5, 1.9)
-        px, py, _ = g.G(cx, cy, 0)
-        parts.append(S.sphere(rnd.uniform(0.018, 0.03), (px + rr * math.cos(a), py + rr * math.sin(a), z), lum, "part_%d" % i,
+        rrr = rnd.uniform(0.70, 1.05)
+        z = rnd.uniform(0.55, 2.20)
+        parts.append(S.sphere(rnd.uniform(0.020, 0.032), (bx + rrr * math.cos(a), by + rrr * math.sin(a), z), lum, "part_%d" % i,
                               seg=8, rings=4))
     g.join(parts, "particules")
-    k.halo(cx, cy + 0.3, 0.9, "#FFF2C0", 8.0, "halo_coeur")
-    k.halo(cx, cy, 0.15, "#FFF2C0", 4.0, "halo_plot")
+    k.halo(cx, cy + 0.45, zb0 + 0.25, "#FFF2C0", 8.0, "halo_bouche")
+    k.halo(cx, cy, zb1, "#FFD98A", 5.0, "halo_bain")
+    k.halo(cx, cy, 0.12, "#FFF2C0", 3.0, "halo_plot")
     if even:
-        spikes2 = [(30, 0.36, 0.075), (102, 0.44, 0.08), (174, 0.36, 0.07), (246, 0.32, 0.065), (318, 0.34, 0.07)]
-        crown(k, cx, cy - 0.05, 1.78, 0.34, 0.16, spikes2, orb, lum, "couronne2")
-        S.sphere(0.11, g.G(cx, cy - 0.05, 1.86), lum, "coeur2", seg=24, rings=12)
+        # seconde couronne flottante au-dessus de la première, reliée au bain par un trait de lumière
+        zc2 = zb1 + 1.20
+        spikes2 = [(90, 0.62, 0.085), (18, 0.50, 0.08), (162, 0.50, 0.08), (306, 0.38, 0.07), (234, 0.38, 0.07)]
+        crown(k, cx, cy - 0.04, zc2, 0.42, 0.13, spikes2, orb, lum, "couronne2", gem_k=0.40)
+        g.cyl(cx, cy - 0.04, zc2 - 0.10, 0.20, 0.10, "couronne2_fond", nacre, verts=32, r2=0.30, bevel_w=0.004)
+        g.cyl(cx, cy - 0.02, zb1 - 0.10, 0.025, zc2 - zb1, "trait_lumiere", lum, verts=12, bevel_w=0)
+        k.halo(cx, cy - 0.04, zc2 + 0.1, "#FFF2C0", 3.0, "halo_couronne2")
 
 
 BUILDERS = {2: e2, 3: e3, 4: e4, 5: e5, 6: e6, 7: e7, 8: e8, 9: e9, 10: e10, 11: e11, 12: e12, 13: e13, 14: e14, 15: e15}

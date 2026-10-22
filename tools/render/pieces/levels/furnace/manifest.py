@@ -92,10 +92,19 @@ def main():
                 "principe": "vanilla conservé (animation, working_visualisations, water_reflection) ; la pièce "
                             "est une couche AJOUTÉE à p.animation.layers, AVANT le corps vanilla (elle passe "
                             "derrière : déjà masquée au pixel par l'alpha du sprite vanilla, comme la variante "
-                            "« four » de V0) ; son ombre rejoint les ombres",
+                            "« four » de V0) ; son ombre rejoint les ombres. Aucune lueur ni halo propre (époque 1 : "
+                            "lumière de nuit seulement par la lanterne, absente du four ; bible §5) : la passe light "
+                            "n'est pas rendue, ce qui évite le défaut F64/E31 (trou de lumière sur le toit du four)",
                 "animation_layers_ajoutees": lay,
                 "smoke": "p.energy_source.smoke[1].position = fumee[0].position (sortie sous le chapeau du conduit)",
             }
+            mains = L["main"]
+            hw, hh = mains["width"] / 128.0, mains["height"] / 128.0
+            sx, sy = mains["shift"]
+            # boîte du sprite vanilla (171 × 174 HR, shift (-1,25 ; 2) px) unie à la pièce
+            vb = [[-0.0390625 - 171 / 128.0, 0.0625 - 174 / 128.0], [-0.0390625 + 171 / 128.0, 0.0625 + 174 / 128.0]]
+            ent["drawing_box"] = [[round(min(vb[0][0], sx - hw), 4), round(min(vb[0][1], sy - hh), 4)],
+                                  [round(max(vb[1][0], sx + hw), 4), round(max(vb[1][1], sy + hh), 4)]]
         else:
             ent["dress"] = {
                 "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce "
@@ -132,8 +141,21 @@ def main():
         "statut": "APERÇU : tailles et shift issus des rendus d'aperçu (échantillons réduits) ; la phase 2 les "
                   "régénère au rendu final. Rien n'est vérifié en moteur réel. Design non validé (verdict du "
                   "Directeur Créatif requis).",
-        "interface": "prototypes/levels/common.lua (en tête) : dress(p, ctx) appelé pour les niveaux 2 à 30 ; "
-                     "ctx.level, ctx.epoch, ctx.step ; champs graphiques seulement (garde de common.lua)",
+        "interface": "prototypes/levels/common.lua (en tête, version V2b de main) : le fichier "
+                     "prototypes/levels/furnace.lua renvoie { dress = function(p, ctx), icons = function(icons, ctx) } ; "
+                     "dress est appelée pour les niveaux 2 à 30 ; ctx.level, ctx.epoch, ctx.step (1 = la silhouette "
+                     "change, 2 = une pièce s'ajoute) en lecture seule. Champs touchés : animation, "
+                     "working_visualisations, water_reflection, drawing_box (GRAPHIC_KEYS) et "
+                     "energy_source.smoke (sous-clé à mot visuel « smoke ») : tous permis par la garde inversée ; "
+                     "aucun champ de jeu, emprise inchangée",
+        "phase2": ["rendu final (256 échantillons après V0b), dimensions HR paires, shift générés ; la qualité "
+                   "normale (32 px/tuile) RENDUE à sa taille (D4-2, Q21), pas réduite",
+                   "niveau pair : la pièce devient une couche SÉPARÉE ajoutée au rendu impair (bible §1.9, §3.3) ; "
+                   "en phase 1 le niveau pair est un rendu complet",
+                   "lueur : séparer la lueur de la BOUCHE (working_visualisations, fadeout, feu animé de l'ère) "
+                   "de la lueur de DÉCOR (cristaux, anneaux, voyants : always_draw = true), pour que le décor "
+                   "reste visible four à l'arrêt",
+                   "icône : rendu de la pose de référence (64 px + 3 mipmaps) et numéro de niveau, par icons()"],
         "emprise": {"collision_box": [[-0.7, -0.7], [0.7, 0.7]], "selection_box": [[-0.8, -1], [0.8, 1]],
                     "regle": "inchangées à tous les niveaux (D1-4)"},
         "arborescence_phase2": "graphics/levels/furnace/eNN/ (bible §1.9), hr (64 px/tuile, scale 0,5) + normale (32 px/tuile)",
