@@ -30,6 +30,9 @@
   - POINTS SERVIS (lot V3-T2, correction) : une position qui ferait sortir le point de dépôt d'une foreuse de son
     coffre (ou de son convoyeur), ou un raccord de tuyau de son tuyau, n'est pas libre (Levels.served_points,
     shared/levels/points.lua) ; le contour montre l'entité servie en jaune.
+  - LIBÉRER LA PLACE (lot V3-T3, Q-T2-1 : « QT21 option B ») : script/levels/free.lua (bouton du panneau, demande
+    d'agrandissement en attente) ; ici, seulement la restriction d'une décision à une position (Levels.room, only_box ;
+    Levels.preview et Levels.start, opts.box). La règle Q24 ne change pas.
   Déterminisme : tout se passe dans des événements ; listes triées (chantiers hérités par numéro, surfaces
   par index), jamais l'ordre de pairs.
 ]]
@@ -385,10 +388,22 @@ end
 --- (2b - a)² tuiles : 49 pour 5 → 6) ; la décision est la fonction pure Foot.evaluate. Renvoie
 --- { index, chosen, preferred, target, target_index, candidates, from, to, box_old } (chosen = nil : aucune
 --- position libre ; target = la candidate à montrer, shared/levels/footprint.lua F.evaluate).
-function Levels.room(entity, old_side, new_name, new_side)
+--- Lot V3-T3 : only_box (carré { x0, y0, x1, y1 }) restreint les candidates à ce seul carré (agrandissement en attente
+--- d'une demande « libérer la place » : il ne se fait qu'à la position dont la place a été libérée, aucune autre :
+--- ailleurs, les fantômes posés pour cette position pourraient tomber sous le bâtiment). Carré absent des candidates :
+--- liste vide, chosen = nil, target = nil.
+function Levels.room(entity, old_side, new_name, new_side, only_box)
   local surface = entity.surface
   local old_box = Levels.current_box(entity, old_side)
   local cands = Foot.candidates(old_box, new_side)
+  if only_box then
+    local keep = {}
+    for _, c in ipairs(cands) do
+      local b = c.box
+      if b.x0 == only_box.x0 and b.y0 == only_box.y0 and b.x1 == only_box.x1 and b.y1 == only_box.y1 then keep[#keep + 1] = c end
+    end
+    cands = keep
+  end
   local area = Foot.search_box(old_box, new_side)
   local proto = game.entity_prototypes[new_name]
   local layers = mask_layers(proto and proto.collision_mask)
@@ -1055,8 +1070,9 @@ end
 --- condition_level, blocking, unknown, resize, room }. fresh : recensement Q16 complet (décision) ; sinon, le
 --- cache (affichage du panneau). Lot V3-T : si le niveau suivant change d'emprise, resize = { from, to } et
 --- room = la place (Levels.room) ; sans position libre, refus « no-room », APRÈS les autres motifs (le panneau
---- montre la place dans tous les cas).
-function Levels.preview(entity, player, fresh)
+--- montre la place dans tous les cas). Lot V3-T3 : opts.box = carré { x0, y0, x1, y1 } : la place n'est cherchée qu'à
+--- cette position (Levels.room, only_box ; agrandissement en attente d'une demande « libérer la place »).
+function Levels.preview(entity, player, fresh, opts)
   local family, n = L.parse(entity.name)
   if not family then return nil end
   local force = entity.force
@@ -1095,7 +1111,7 @@ function Levels.preview(entity, player, fresh)
   local off = Levels.off_grid(entity, from)
   if from ~= to or off then
     info.resize = { from = from, to = to, regrid = off or nil }
-    info.room = Levels.room(entity, from, L.name(family, n + 1), to)
+    info.room = Levels.room(entity, from, L.name(family, n + 1), to, opts and opts.box)
     if info.ok and not info.room.chosen then info.ok, info.reason = false, "no-room" end
   end
   return info
@@ -1105,11 +1121,12 @@ end
 --- Renvoie ok, raison, info, nouvelle entité. Raison du succès : "done". Lot V3-T : la place est vérifiée par
 --- l'aperçu, donc AVANT le paiement ; refus « no-room » : rien n'est payé, le contour nécessaire est dessiné
 --- (visible du joueur, ou de la force sans joueur). Échec du remplacement par script alors que l'ancien
---- bâtiment est intact : le coût est rendu, chaque part à l'inventaire qui l'a payée.
-function Levels.start(entity, player)
+--- bâtiment est intact : le coût est rendu, chaque part à l'inventaire qui l'a payée. Lot V3-T3 : opts.box (voir
+--- Levels.preview) : agrandissement en attente d'une demande « libérer la place », à la seule position libérée.
+function Levels.start(entity, player, opts)
   if not (entity and entity.valid) then return false, "invalid" end
   -- Décision : recensement Q16 complet, jamais le cache.
-  local info = Levels.preview(entity, player, true)
+  local info = Levels.preview(entity, player, true, opts)
   if not info then return false, "not-levelable" end
   local st = S()
   if not info.ok then

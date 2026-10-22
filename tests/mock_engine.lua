@@ -44,8 +44,12 @@ local DIRV = {
 -- Forces
 ---------------------------------------------------------------------------------------------------
 local function new_force(name)
-  local f = { _lua_object = true, name = name, valid = true, _cease = {}, _ammo_mod = {}, _turret_mod = {} }
+  -- Lot V3-T3 : index de la force (LuaForce.index ; game.forces[index] la retrouve, voir new_world).
+  W.force_index = (W.force_index or 0) + 1
+  local f = { _lua_object = true, name = name, index = W.force_index, valid = true, _cease = {}, _ammo_mod = {}, _turret_mod = {} }
   f.get_spawn_position = function(surface) return { x = 0, y = 0 } end
+  -- Lot V3-T3 : messages à une force (relevés).
+  f.print = function(s) W.force_prints = W.force_prints or {}; W.force_prints[#W.force_prints + 1] = M.ls_to_string(s) end
   f.chart = function(surface, area) assert(surface and area, "chart : arguments") end
   f.set_cease_fire = function(other, v)
     local n = type(other) == "string" and other or other.name
@@ -265,12 +269,15 @@ local function new_control_behavior(e)
   })
 end
 
+local new_entity -- déclarée plus bas (revive, lot V3-T3, en a besoin dans EntityMT)
+
 local EntityMT = {
   __index = function(t, k)
     if k == "position" then return { x = t._x, y = t._y } end
     if k == "unit_group" then return (t._group and t._group.valid) and t._group or nil end
     if k == "bounding_box" then
-      local b = collision_of(t.name)
+      -- Lot V3-T3 : un fantôme a la boîte de l'entité qu'il porte.
+      local b = collision_of(rawget(t, "_ghost_name") or t.name)
       return { left_top = { x = t._x + b.x0, y = t._y + b.y0 }, right_bottom = { x = t._x + b.x1, y = t._y + b.y1 } }
     end
     if k == "get_control_behavior" then return function() return rawget(t, "_cb") end end
@@ -369,6 +376,74 @@ local EntityMT = {
         return got
       end
     end
+    -- Lot V3-T3 (« libérer la place », script/levels/free.lua) : marques de démontage, points d'un bras, fils d'un
+    -- poteau, fantômes (revive), minage dans un inventaire. Géométrie du bras vanilla relevée en moteur réel (essai
+    -- E56) : orienté au nord, il PREND une tuile au nord et DÉPOSE 1,2 tuile au sud.
+    if k == "to_be_deconstructed" then return function() return rawget(t, "_decon") == true end end
+    if k == "order_deconstruction" then
+      return function(force, player)
+        assert(force, "order_deconstruction(force, player) : force attendue")
+        if not t.valid then return false end
+        rawset(t, "_decon", true)
+        return true
+      end
+    end
+    if k == "cancel_deconstruction" then
+      return function(force, player)
+        assert(force, "cancel_deconstruction(force, player) : force attendue")
+        rawset(t, "_decon", false)
+        -- Moteur réel (F103 provisoire, lot V3-T3) : un fantôme posé SUR l'entité est retiré avec la marque.
+        for _, g in ipairs(W.entities) do
+          if g.valid and rawget(g, "_ghost_name") and math.floor(g._x) == math.floor(t._x) and math.floor(g._y) == math.floor(t._y) then
+            destroy_entity(g)
+          end
+        end
+      end
+    end
+    if t.type == "inserter" and (k == "pickup_position" or k == "drop_position") then
+      local v = DIRV[t.direction or 0]
+      if k == "pickup_position" then return { x = t._x + v[1], y = t._y + v[2] } end
+      return { x = t._x - 1.2 * v[1], y = t._y - 1.2 * v[2] }
+    end
+    if k == "neighbours" then
+      if t.type == "electric-pole" then return { copper = rawget(t, "_copper") or {}, red = {}, green = {} } end
+      return nil
+    end
+    if k == "ghost_name" then return rawget(t, "_ghost_name") end
+    if k == "ghost_prototype" and rawget(t, "_ghost_name") then return W.prototype(rawget(t, "_ghost_name")) end
+    if k == "revive" then
+      return function(opts)
+        if not (t.valid and rawget(t, "_ghost_name")) then return nil end
+        local e = new_entity(rawget(t, "_ghost_name"), t._x, t._y, t.surface, t.force)
+        e.direction = t.direction
+        destroy_entity(t)
+        local h = opts and opts.raise_revive and W.events[defines.events.script_raised_revive]
+        if h then h({ entity = e, tick = _G.game.tick }) end
+        return {}, e
+      end
+    end
+    if k == "mine" then
+      return function(opts)
+        if not t.valid then return false end
+        if opts and opts.inventory then
+          opts.inventory.insert({ name = t.name, count = 1 })
+          local idx = {}
+          for i in pairs(t._invs) do idx[#idx + 1] = i end
+          table.sort(idx)
+          for _, i in ipairs(idx) do
+            local c = t._invs[i].get_contents()
+            local names = {}
+            for name in pairs(c) do names[#names + 1] = name end
+            table.sort(names)
+            for _, name in ipairs(names) do opts.inventory.insert({ name = name, count = c[name] }) end
+          end
+        end
+        local h = opts and opts.raise_destroyed and W.events[defines.events.script_raised_destroy]
+        if h then h({ entity = t, tick = _G.game.tick }) end
+        destroy_entity(t)
+        return true
+      end
+    end
     if k == "drop_position" then return { x = t._x, y = t._y - 1.3 } end
     if k == "crafting_queue_size" then return #t._craft end
     if k == "begin_crafting" then
@@ -428,7 +503,7 @@ local EntityMT = {
   end,
 }
 
-local function new_entity(name, x, y, surface, force)
+new_entity = function(name, x, y, surface, force)
   W.unit = W.unit + 1
   local proto = W.prototype(name)
   local e = {
@@ -649,6 +724,8 @@ function M.new_world(opts)
       collision_mask = MASK_UNIT },
     ["small-spitter"] = { type = "unit", max_health = 200, collision_box = box(-0.3, -0.3, 0.3, 0.3),
       collision_mask = MASK_UNIT },
+    -- Lot V3-T3 : fantôme d'entité (sa boîte est celle de l'entité portée ; masque par défaut : ghost-layer).
+    ["entity-ghost"] = { type = "entity-ghost", max_health = 1 },
   }
   W.recipes = dofile("tests/fixtures/recipes.lua")
   -- Soldats et unités du mod : prototype d'unité générique, boîte des soldats (prototypes/faction.lua, ± 0,2) et
@@ -689,6 +766,13 @@ function M.new_world(opts)
   }
 
   W.forces = { player = new_force("player"), enemy = new_force("enemy"), neutral = new_force("neutral") }
+  -- Lot V3-T3 : game.forces[index] (LuaCustomTable du moteur : par nom OU par index) ; métatable seulement, pairs ne
+  -- voit que les noms.
+  setmetatable(W.forces, { __index = function(t, k)
+    if type(k) ~= "number" then return nil end
+    for _, f in pairs(t) do if f.index == k then return f end end
+    return nil
+  end })
 
   local surface = { _lua_object = true, index = 1, valid = true, name = "nauvis" }
   surface.find_non_colliding_position = function(name, center, radius, precision)
@@ -710,6 +794,14 @@ function M.new_world(opts)
     if t.name == "flying-text" then
       W.flying = (W.flying or 0) + 1
       return { valid = true, name = t.name }
+    end
+    if t.name == "entity-ghost" then
+      -- Lot V3-T3 : fantôme posé par script (create_entity ne vérifie pas la place, F70).
+      assert(t.inner_name and t.position and t.force, "create_entity(entity-ghost) : inner_name, position et force attendus")
+      local g = new_entity("entity-ghost", t.position.x, t.position.y, surface, t.force)
+      rawset(g, "_ghost_name", t.inner_name)
+      if t.direction then g.direction = t.direction end
+      return g
     end
     assert(t.name and t.position and t.force, "create_entity : arguments")
     local old
@@ -842,6 +934,8 @@ function M.new_world(opts)
         if t.area then ok = ok and touches_area(e, t.area) end
         -- Masque (start_blocker de path_service) : seules les entités qui ont une des couches demandées.
         if t.collision_mask then ok = ok and mask_hits(e, t.collision_mask) end
+        -- Lot V3-T3 : nom porté par un fantôme.
+        if t.ghost_name then ok = ok and rawget(e, "_ghost_name") == t.ghost_name end
         if t.type then
           local types = type(t.type) == "table" and t.type or { t.type }
           local match = false
@@ -907,7 +1001,7 @@ function M.new_world(opts)
     return setmetatable(c, { __index = function(t, k) return rawget(t, "_children")[k] end })
   end
   W.player = {
-    _lua_object = true, index = 1, valid = true, admin = true, surface = surface, force = W.forces.player,
+    _lua_object = true, index = 1, valid = true, admin = true, connected = true, surface = surface, force = W.forces.player,
     character = player_char,
     print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
     gui = { top = gui_container(), left = gui_container() },

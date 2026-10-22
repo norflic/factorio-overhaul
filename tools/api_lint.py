@@ -105,6 +105,14 @@ RECEIVERS = [
     # --- lot V3-T, corrections (objets au sol, fantômes, panneau) ---
     (["LuaSurface"], "find_non_colliding_position"), (["LuaControl", "LuaEntity"], "teleport"),
     (["LuaEntity"], "ghost_prototype"), (["LuaGuiElement"], "enabled"), (["LuaInventory"], "insert"),
+    # --- lot V3-T3 (« libérer la place » : marques, fantômes, bras, poteaux ; banc t3-libere) ---
+    (["LuaEntity"], "order_deconstruction"), (["LuaEntity"], "cancel_deconstruction"), (["LuaEntity"], "to_be_deconstructed"),
+    (["LuaEntity"], "pickup_position"), (["LuaEntity"], "drop_position"), (["LuaEntity"], "neighbours"),
+    (["LuaEntity"], "revive"), (["LuaEntity"], "mine"), (["LuaEntity"], "ghost_name"), (["LuaEntity"], "pickup_target"),
+    (["LuaEntity"], "drop_target"), (["LuaEntity"], "held_stack"), (["LuaEntity"], "products_finished"),
+    (["LuaEntity"], "get_transport_line"), (["LuaEntity"], "remove_item"), (["LuaEntityPrototype"], "max_wire_distance"),
+    (["LuaEntityPrototype"], "items_to_place_this"), (["LuaInventory"], "clear"), (["LuaTransportLine"], "get_contents"),
+    (["LuaPlayer"], "connected"), (["LuaPlayer"], "create_local_flying_text"),
 ]
 
 

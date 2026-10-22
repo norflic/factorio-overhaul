@@ -3297,6 +3297,12 @@ check(okt, "jeu continu après les agrandissements (panneau rafraîchi) (" .. to
 rendering.draw_rectangle = raw_rect
 end)()
 
+-- Lot V3-T3 : « libérer la place » (fichier à part : limite des 200 locales) : règle de décalage (cas purs), puis le
+-- script en moteur simulé (après les sections qui posent les prototypes des niveaux).
+local ClearCases = require("tests.levels_clear_cases")
+ClearCases.pure(check, section)
+ClearCases.runtime(check, section)
+
 print(string.format("Écarts connus au contrat (non conformes, à trancher par le Directeur Créatif) : %d", #gaps))
 print(string.format("Résultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
