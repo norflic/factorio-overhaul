@@ -189,14 +189,18 @@ M.collision_of = collision_of
 
 --- La boîte de collision de l'entité e touche-t-elle la zone `area` ({ {x0, y0}, {x1, y1} } ou left_top /
 --- right_bottom) ? Doc 1.1.91 de find_entities_filtered : « entities colliding with that area ». Le contact bord à
---- bord est EXCLU : choix du moteur simulé (tenu par tests/migration_test.lua), le moteur réel n'a pas été observé
---- sur ce cas. Monde à legacy_boxes = true : ancien modèle, la seule POSITION dans la zone (bords compris).
+--- bord et par un coin COMPTE (intervalles fermés) : OBSERVÉ en moteur réel le 22/10 (suite « défense dense », RD_LOG
+--- E53, scénario greffé tools/autotest/fo-autotest/scenarios/bord-a-bord.lua : mur, mitrailleuse et laser 7, 4 bords,
+--- 2 coins et une zone nulle posée sur le bord, tous rendus par find_entities_filtered et count_entities_filtered ;
+--- un écart de 1/256 n'est pas rendu). Avant cette date, le moteur simulé l'excluait (choix non observé, E47). Tenu
+--- par tests/migration_test.lua. Monde à legacy_boxes = true : ancien modèle, la seule POSITION dans la zone (bords
+--- compris).
 local function touches_area(e, area)
   local lt, rb = area.left_top or area[1], area.right_bottom or area[2]
   local ax0, ay0, ax1, ay1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
   if W.legacy_boxes then return e._x >= ax0 and e._x <= ax1 and e._y >= ay0 and e._y <= ay1 end
   local b = collision_of(e.name)
-  return e._x + b.x0 < ax1 and ax0 < e._x + b.x1 and e._y + b.y0 < ay1 and ay0 < e._y + b.y1
+  return e._x + b.x0 <= ax1 and ax0 <= e._x + b.x1 and e._y + b.y0 <= ay1 and ay0 <= e._y + b.y1
 end
 
 -- Masques par défaut des types que les bancs posent (data/core/lualib/collision-mask-util.lua, default_masks) ;
