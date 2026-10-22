@@ -1,0 +1,64 @@
+Vanilla : seuils échoués par bâtiment
+  steel-chest            1x1   4 D3,C1,C2,C8
+  stone-furnace          2x2   4 C4,C5,M1,M2
+  boiler                 3x2   0 
+  steam-engine           5x3   2 D1,D2
+  assembling-machine-1   3x3   0 
+  gun-turret             2x2   0 
+  electric-mining-drill  3x3   3 M1,M2,M3
+  radar                  3x3   1 P2
+  lab                    3x3   0 
+  assembling-machine-2   3x3   0 
+  steel-furnace          2x2   0 
+  pumpjack               3x3   6 D1,D2,C3,C5,C7,M3
+  storage-tank           3x3   7 D1,D2,D3,D4,D5,P1,P4
+  oil-refinery           5x5   2 D1,D2
+  chemical-plant         3x3   2 D1,D2
+  laser-turret           2x2   4 C5,M1,M2,M3
+  accumulator            2x2   2 D3,C3
+  substation             2x2   3 C3,C7,M3
+  assembling-machine-3   3x3   1 C5
+  electric-furnace       3x3   0 
+  beacon                 3x3   0 
+  roboport               4x4   1 M2
+  centrifuge             3x3   0 
+  steam-turbine          5x3   0 
+  heat-exchanger         3x2   0 
+  artillery-turret       3x3   2 D1,D2
+  nuclear-reactor        5x5   1 D2
+  rocket-silo            9x9   0 
+Taux d'échec par seuil (vanilla / V3 phase 1 / cheminées)
+  D1   laplacien_moyen                            >= plancher 27/22 cible 31 : vanilla  6/28  V3p1  73/100  cheminées en échec : aucune
+  D2   laplacien_zoom1                            >= plancher 40/33 cible 47 : vanilla  7/28  V3p1  82/100  cheminées en échec : aucune
+  D3   petites_pieces_par_tuile2                  >= plancher 24/24 cible 29 : vanilla  3/28  V3p1  81/100  cheminées en échec : aucune
+  D4   contraste_local_7px                        >= plancher 22/18 cible 27 : vanilla  1/28  V3p1  69/100  cheminées en échec : aucune
+  D5   part_contours                              >= plancher 0.3/0.24 cible 0.4 : vanilla  1/28  V3p1  79/100  cheminées en échec : aucune
+  P1   grain_surfaces                             >= plancher 3.4/3.4 cible 4.7 : vanilla  1/28  V3p1  84/100  cheminées en échec : aucune
+  P2   variance_basse_freq                        >= plancher 16/16 cible 20 : vanilla  1/28  V3p1  41/100  cheminées en échec : aucune
+  P3   part_creux_sombres                         >= plancher 0.1/0.1 cible 0.18 : vanilla  0/28  V3p1  47/100  cheminées en échec : aucune
+  P4   part_surfaces_planes                       <= plancher 0.45/0.48 cible 0.34 : vanilla  1/28  V3p1  91/100  cheminées en échec : aucune
+  C1   lum_p50                                    <= plancher 76/76 cible 60 : vanilla  1/28  V3p1  35/100  cheminées en échec : aucune
+  C1b  lum_p50                                    >= plancher 43/43 cible 50 : vanilla  0/28  V3p1   4/100  cheminées en échec : aucune
+  C2   lum_p95                                    <= plancher 216/216 cible 185 : vanilla  1/28  V3p1  17/100  cheminées en échec : aucune
+  C3   part_teinte_chaude_corps                   >= plancher 0.7/0.7 cible 0.95 : vanilla  3/28  V3p1  34/100  cheminées en échec : aucune
+  C4   part_saturee                               <= plancher 0.13/0.13 cible 0.04 : vanilla  1/28  V3p1  17/100  cheminées en échec : aucune
+  C5   part_saturee_hors_lumineux                 <= plancher 0.04/0.04 cible 0.02 : vanilla  4/28  V3p1  10/100  cheminées en échec : aucune
+  C6   plus_grande_plage_saturee_toutes_tuiles2   <= plancher 0.35/0.35 cible 0.1 : vanilla  0/28  V3p1  10/100  cheminées en échec : aucune
+  C7   part_peinte_froide_hors_lumineux           <= plancher 0.06/0.06 cible 0.0 : vanilla  2/28  V3p1  13/100  cheminées en échec : aucune
+  C8   part_quasi_blanc                           <= plancher 0.04/0.04 cible 0.015 : vanilla  1/28  V3p1   2/100  cheminées en échec : aucune
+  L1   zone_lumineuse_part                        <= plancher 0.15/0.15 cible 0.06 : vanilla  0/28  V3p1  32/100  cheminées en échec : cheminee-V0b,cheminee-V0b-sur-four
+  L2   plus_grand_foyer_lumineux_tuiles2          <= plancher 0.45/0.45 cible 0.15 : vanilla  0/28  V3p1  19/100  cheminées en échec : aucune
+  M1   remplissage_emprise                        >= plancher 0.6/0.6 cible 0.8 : vanilla  3/28  V3p1  63/100  cheminées en échec : cheminee-V0,cheminee-V0-sur-four,cheminee-V0b
+  M2   masse_par_tuile_emprise                    >= plancher 0.65/0.65 cible 0.87 : vanilla  4/28  V3p1  13/100  cheminées en échec : aucune
+  M3   part_massive                               >= plancher 0.88/0.88 cible 0.97 : vanilla  4/28  V3p1  35/100  cheminées en échec : aucune
+V3 phase 1 : seuils échoués par niveau
+  mitrailleuse n03:8 n04:8 n05:9 n06:9 n07:9 n08:10 n09:9 n10:9 n11:4 n12:2 n13:10 n14:11 n15:12 n16:12 n17:11 n18:10 n19:11 n20:11 n21:12 n22:12 n23:9 n24:9 n25:11 n26:11 n27:10 n28:10 n29:8 n30:8
+  laser        n03:6 n04:9 n05:9 n06:9 n07:10 n08:9 n09:10 n10:9 n11:7 n12:6 n13:12 n14:13 n15:13 n16:14 n17:10 n18:9 n19:11 n20:12 n21:10 n22:10 n23:5 n24:5 n25:14 n26:13 n27:10 n28:12 n29:7 n30:9
+  assembleur   n02:5 n03:9 n04:9 n05:9 n06:9 n07:8 n08:8 n09:13 n10:9 n11:8 n12:7 n13:16 n14:14 n15:12 n16:12 n17:9 n18:9 n19:9 n20:9 n21:11 n22:11 n23:10 n24:9 n25:17 n26:17 n27:13 n28:12 n29:11 n30:11
+  centre       n01:1 n02:5 n03:8 n04:6 n05:10 n06:4 n07:13 n08:10 n09:7 n10:7 n11:7 n12:6 n13:7 n14:10 n15:6
+  niveaux V3p1 sans aucun échec : 0/100 ; médiane des échecs : 9.0
+  vanilla : médiane des échecs 1.0, max 7, sans échec 12/28
+  cheminee-V0                échecs : 1 M1
+  cheminee-V0-sur-four       échecs : 1 M1
+  cheminee-V0b               échecs : 2 L1,M1
+  cheminee-V0b-sur-four      échecs : 1 L1

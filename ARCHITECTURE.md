@@ -31,6 +31,8 @@ factorio-overhaul/
 ├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
 ├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
 ├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
+├── docs/DA_FACTORIO.md             # charte de direction artistique mesurable (lot V3-S, E43) ; docs/da/ : mesures vanilla et V3 phase 1, planches
+├── tools/da/                       # mesure de la charte sur des sprites (py -3.9 : numpy, Pillow) : da_lib, seuils (23 planchers), progression (dominance entre époques)
 ├── info.json, changelog.txt, settings.lua
 ├── data.lua / data-updates.lua / data-final-fixes.lua   # prototypes uniquement
 ├── control.lua                                          # câblage uniquement
@@ -322,6 +324,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 | `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux (180 contrôles, dont 35 de niveaux) | Rendu |
 | `fo-autotest.bat` scénarios `default`, `waves`, `pteam`… | **Le vrai jeu** sans affichage, dossiers isolés : guerre à économie réelle, défense de tours, équipe du joueur ; temps par tick et par poste ; étalon machine | Rendu |
 | `fo-captures.bat` (= `fo-autotest.bat` + `fo-visual.bat`) + `shots.lua`, `vitrine.lua` | **Le vrai jeu avec images** (`--benchmark-graphics`, arrêt seul), captures automatiques, session fermée sans intervention, index et planche-contact ; vitrine d'entités à côté des références vanilla ; greffons de scénarios et de contrôles (`tools/autotest/README.md`) | Le jugement esthétique (verdict du Directeur Créatif) |
+| `tools/da/seuils.py`, `progression.py` (charte `docs/DA_FACTORIO.md`) | Un sprite tient les bandes mesurées sur 28 bâtiments vanilla (détail, patine, palette, lumière, masse) ; la puissance ne baisse pas d'une époque à la suivante (dominance) | Le style, la lisibilité, le « badass » : filtre de refus automatique seulement, le verdict reste au Directeur Créatif |
 
 ### Outillage du moteur réel
 

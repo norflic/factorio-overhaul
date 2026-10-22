@@ -10,8 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 22/10/2026, 7 h 55** (orchestrateur, session Claude Code du 21-22/10).
-> Mettez à jour ce fichier à chaque jalon.
+> **Dernière mise à jour : 22/10/2026, 13 h 35** (nouvel orchestrateur, session Claude Code
+> `8a9c0503`, qui reprend la session `6b481308` du 21-22/10, coupée à 8 h 55 par la limite d'usage
+> hebdomadaire de son compte). Mettez à jour ce fichier à chaque jalon.
 
 ## 1. En dix lignes
 1. Mod Factorio 1.1.91, version **0.4.1**, dépôt git `main` dans ce dossier.
@@ -38,8 +39,14 @@
    - les bâtiments GRANDISSENT avec les époques, jusqu'à environ 6×6, avec plus de détail ;
    - test du regard naïf ;
    - agrandissement sur place si la place est libre.
-7. **En cours : V3-S** (charte de direction artistique, 3 approches sur la mitrailleuse). Le test de
-   Stable Diffusion local est fait (E42) : outil d'inspiration seulement.
+7. **En cours : V3-S, reprise** (13 h 20, workflow `wf_ed692a11-bba` de la session `8a9c0503`).
+   - La charte est livrée (7 h 42) et intégrée : `docs/DA_FACTORIO.md`, chiffres dans `docs/da/`,
+     outils dans `tools/da/`.
+   - Les 3 explorateurs (industriel, haute technologie, hybride) avaient été coupés à 8 h 55 pendant
+     leurs itérations. Leur travail est commité dans leurs worktrees (`wf_483106c7-c7f-2`, `-3`, `-4`),
+     et de nouveaux agents le reprennent.
+   - La suite : test du regard naïf à l'aveugle, 2 juges, puis les planches pour le téléphone.
+   - Le test de Stable Diffusion local est fait (E42) : c'est un outil d'inspiration seulement.
 8. Ensuite :
    - verdict du DC sur V3-S, puis reprise des 7 familles ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;
@@ -62,7 +69,7 @@
 | IA1 conception des équipes de PNJ | ✅ fusionné, hors jeu ; Q-IA1-1 à 7 ouvertes | E37 ; `docs/EQUIPES_PNJ.md` |
 | D4m mémoire vidéo et usine géante | ✅ fusionné, moteur réel | E40 ; `fo-logs\2026-10-22_D4m_*` |
 | **V3 phase 1** modélisation des 7 familles | ❌ direction rejetée ; travail CONSERVÉ sur des branches non fusionnées (voir §4) | planches dans les branches `worktree-wf_1f9884be-7b6-1` à `-7`, `docs/epoques/planches/<famille>/` |
-| **V3-S** direction artistique | ⏳ workflow en cours (run `wf_483106c7-c7f`) | sorties attendues dans `<racine>\fo-logs\2026-10-22_V3S\` |
+| **V3-S** direction artistique | Charte ✅ livrée et intégrée (`docs/DA_FACTORIO.md`, `docs/da/`, `tools/da/`). Explorations ⏳ : le run `wf_483106c7-c7f` a été coupé à 8 h 55 (limite d'usage) ; la reprise tourne dans le run `wf_ed692a11-bba` (session `8a9c0503`) | `<racine>\fo-logs\2026-10-22_V3S\` : `charte\`, `reprise\` (journaux des explorateurs coupés et leurs essais), puis `<approche>\`, `juges\`, `presentation\` |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
@@ -97,6 +104,15 @@
   - ne modifiez QUE le texte des agents à relancer, sinon le cache des autres saute.
 - Verrous orphelins : `fo-autotest.lock` se supprime avec `rmdir` si aucun factorio.exe de test ne tourne ;
   `fo-render.lock.<k>` est repris tout seul par `with_render_lock.py`.
+- **Session entière coupée** (limite d'usage, vécu le 22/10 à 8 h 55) : `resumeFromRunId` ne marche QUE
+  dans la session qui a lancé le workflow. Depuis une nouvelle session, on reprend ainsi :
+  1. lire le run, qui donne le résultat des agents finis et l'ID des agents coupés :
+     `~\.claude\projects\H--Factorio-v1-1-91-Modding\<session>\workflows\wf_<run>.json` ;
+  2. commiter le travail partiel de chaque worktree ;
+  3. extraire le journal de chaque agent coupé (`<session>\subagents\workflows\wf_<run>\agent-<id>.jsonl`).
+     Exemple d'extraction : `fo-logs\2026-10-22_V3S\reprise\notes_*.txt` ;
+  4. mettre à l'abri ce que les agents avaient écrit dans le dossier temporaire de l'ANCIENNE session ;
+  5. lancer un nouveau workflow dont les agents reprennent ces worktrees.
 
 ## 6. Pièges d'outillage déjà payés
 - **F69** : depuis Git Bash, `fo-captures.bat` avec une source entre guillemets échoue, parce que
@@ -116,11 +132,15 @@
   qui peut disparaître. Appliquez-les vite, ou copiez-les dans `fo-logs`.
 - Le DC peut jouer pendant les bancs : jamais d'arrêt global de factorio.exe, fermeture ciblée seulement
   (CLAUDE.md §4).
+- **Python** : le `python` par défaut (3.14) a Pillow, mais PAS numpy. Les outils de mesure de la charte
+  (`tools/da/`) se lancent avec `py -3.9` (numpy 2.0.2 et Pillow). Les scripts Blender utilisent le Python
+  intégré à Blender (3.13).
 
 ## 7. Prochaines étapes, dans l'ordre
 1. À la livraison de V3-S :
-   - intégrer la charte (`fo-logs\2026-10-22_V3S\charte\DA_FACTORIO.md`) dans `docs/` ;
-   - envoyer les planches au DC ;
+   - ~~intégrer la charte dans `docs/`~~ : fait le 22/10 à 13 h 25 (`docs/DA_FACTORIO.md`) ;
+   - regarder soi-même les planches, puis les envoyer au DC avec les questions Q-S1 à Q-S3 de la charte
+     (§9) ;
    - attendre son verdict.
 2. Après le verdict :
    - reprendre V3 pour les 7 familles avec la direction retenue, la taille croissante (Q23) et la

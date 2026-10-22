@@ -1,0 +1,324 @@
+==============================================================================================================
+1. VANILLA 1.1.91 : 28 bâtiments (hr, image 0, tourelles en pose E)
+   basiques : steel-chest, stone-furnace, boiler, steam-engine, assembling-machine-1, gun-turret, electric-mining-drill, assembling-machine-2, steel-furnace, pumpjack, storage-tank
+   avancés  : radar, lab, oil-refinery, chemical-plant, laser-turret, accumulator, substation, assembling-machine-3, electric-furnace, beacon, roboport, centrifuge, steam-turbine, heat-exchanger, artillery-turret, nuclear-reactor, rocket-silo
+==============================================================================================================
+indicateur                                         | tous : min / p25 / méd / p75 / max | méd bas.  | méd av.  
+Laplacien moyen |∇²L| (lum/px)                     | 18.6 / 27.7 / 31.4 / 35.5 / 40.6   | 31.6      | 31.4     
+Laplacien au zoom 1 (32 px/t)                      | 28.3 / 40.2 / 47.1 / 51.5 / 66.6   | 45.8      | 47.8     
+Part de pixels de contour (Sobel>12)               | 0.243 / 0.364 / 0.407 / 0.459 / 0.578 | 0.407     | 0.407    
+Pixels de contour par tuile²                       | 996 / 1491 / 1667 / 1880 / 2369    | 1667      | 1668     
+Petites pièces (DoG) par tuile² de corps           | 16.4 / 25.7 / 29.6 / 32.9 / 44.4   | 32.3      | 28.8     
+Petites pièces (total)                             | 18 / 156 / 210 / 284 / 1885        | 181       | 257      
+Contraste local (σ 7×7, lum)                       | 18.4 / 24.8 / 27.0 / 30.3 / 38.9   | 27.0      | 27.0     
+Luminance p5                                       | 1 / 6 / 10 / 15 / 28               | 11        | 10       
+Luminance p50                                      | 43 / 50 / 56 / 68 / 76             | 55        | 56       
+Luminance p95                                      | 144 / 167 / 181 / 199 / 216        | 173       | 187      
+Saturation moyenne du corps                        | 0.18 / 0.27 / 0.35 / 0.40 / 0.60   | 0.39      | 0.29     
+Part saturée (S≥0,5 et V≥0,5)                      | 0.001 / 0.018 / 0.029 / 0.050 / 0.132 | 0.025     | 0.035    
+Part saturée hors lumineux                         | 0.001 / 0.008 / 0.016 / 0.021 / 0.064 | 0.016     | 0.017    
+Part des saturés situés sur un lumineux            | 0.00 / 0.10 / 0.34 / 0.62 / 0.90   | 0.21      | 0.38     
+Part saturée froide (70-330°)                      | 0.000 / 0.000 / 0.000 / 0.000 / 0.070 | 0.000     | 0.000    
+Plus grande plage saturée (part du corps)          | 0.000 / 0.002 / 0.006 / 0.018 / 0.049 | 0.005     | 0.007    
+Plus grande plage saturée (tuiles²)                | 0.000 / 0.018 / 0.064 / 0.112 / 0.341 | 0.064     | 0.064    
+Part peinte (S≥0,35, V≥0,3) hors lumineux          | 0.025 / 0.083 / 0.107 / 0.172 / 0.275 | 0.161     | 0.106    
+Part peinte froide hors lumineux                   | 0.000 / 0.000 / 0.000 / 0.002 / 0.153 | 0.000     | 0.000    
+Part de teinte chaude du corps (chroma≥0,08)       | 0.28 / 0.85 / 0.96 / 0.99 / 1.00   | 0.98      | 0.96     
+Zone lumineuse (part du corps)                     | 0.000 / 0.014 / 0.027 / 0.040 / 0.133 | 0.027     | 0.027    
+Foyers lumineux (≥16 px)                           | 0 / 4 / 7 / 10 / 101               | 4         | 7        
+Plus grand foyer lumineux (tuiles²)                | 0.000 / 0.017 / 0.057 / 0.136 / 0.440 | 0.062     | 0.056    
+Halo de nuit (draw_as_light > 0,25, tuiles²)       | 0.00 / 0.00 / 0.00 / 0.19 / 0.56   | 0.00      | 0.00     
+Part quasi blanche (L≥220) hors lumineux           | 0.000 / 0.008 / 0.013 / 0.026 / 0.040 | 0.010     | 0.019    
+Grain des surfaces planes |L-G1| (lum)             | 3.22 / 4.07 / 4.74 / 5.63 / 7.56   | 4.92      | 4.53     
+Variance basse fréquence σ(G2-G8) (lum)            | 14.08 / 17.78 / 20.50 / 23.18 / 26.70 | 19.78     | 20.65    
+Part de creux sombres (L<G3-20)                    | 0.104 / 0.169 / 0.187 / 0.224 / 0.312 | 0.187     | 0.188    
+Part d'arêtes claires (L>G3+20)                    | 0.107 / 0.155 / 0.174 / 0.202 / 0.245 | 0.169     | 0.175    
+Part de surfaces planes (Sobel<6)                  | 0.192 / 0.267 / 0.336 / 0.381 / 0.476 | 0.336     | 0.335    
+Remplissage de l'emprise                           | 0.45 / 0.72 / 0.80 / 0.87 / 0.99   | 0.78      | 0.80     
+Masse (tuiles² de corps / tuile d'emprise)         | 0.55 / 0.77 / 0.87 / 0.92 / 1.11   | 0.87      | 0.87     
+Masse (tuiles² de corps)                           | 1.1 / 4.8 / 7.1 / 9.9 / 70.6       | 5.4       | 8.2      
+O : dépassement au-dessus de l'emprise (tuiles)    | -0.20 / 0.15 / 0.42 / 0.61 / 1.72  | 0.28      | 0.48     
+Part massive (ouverture 17 px)                     | 0.63 / 0.93 / 0.97 / 0.98 / 0.99   | 0.97      | 0.97     
+Part très massive (ouverture 33 px)                | 0.22 / 0.83 / 0.92 / 0.96 / 1.00   | 0.94      | 0.92     
+Remplissage de la boîte englobante                 | 0.43 / 0.65 / 0.75 / 0.80 / 0.96   | 0.76      | 0.70     
+
+1 bis. Tableau par bâtiment (vanilla)
+nom                    cote_emp laplacie part_con petites_ petites_ contrast grain_su part_cre  lum_p50 saturati part_sat zone_lum foyers_l rempliss masse_tu O_depass part_mas
+assembling-machine-1(T1)      3x3     34.2    0.443     25.8    183.0     30.7      4.9    0.222     52.1    0.413    0.017    0.028     12.0    0.783      7.1    0.172    0.982
+boiler(T1)                  3x2     28.1    0.408     38.9    212.0     25.9      5.1    0.178     56.3    0.355    0.023    0.031      4.0    0.852      5.4    0.562    0.966
+electric-mining-drill(T1)      3x3     35.5    0.479     36.3    181.0     30.2      6.2    0.235     74.5    0.206    0.049    0.043      7.0    0.518      5.0    0.375    0.880
+gun-turret(T1)              2x2     28.8    0.373     44.4    156.0     27.0      3.5    0.177     44.9    0.440    0.026    0.018      4.0    0.724      3.5    0.672    0.952
+lab(T1)                     3x3     31.2    0.317     24.8    155.0     24.0      4.3    0.150     68.2    0.175    0.004    0.015      9.0    0.695      6.3   -0.203    0.989
+radar(T1)                   3x3     31.4    0.372     29.7    208.0     26.0      4.1    0.187     55.7    0.299    0.026    0.018      3.0    0.718      7.0    0.609    0.894
+steam-engine(T1)            5x3     24.2    0.319     30.0    401.0     22.3      4.3    0.148     55.1    0.306    0.018    0.002      2.0    0.857     13.4    0.500    0.931
+steel-chest(T1)             1x1     37.6    0.578     16.4     18.0     38.9      5.6    0.312     76.5    0.257    0.001    0.000    0.000    0.989      1.1    0.125    0.984
+stone-furnace(T1)           2x2     35.5    0.528     30.4     69.0     30.5      7.0    0.230     72.6    0.603    0.132    0.133      4.0    0.567      2.3   -0.078    0.981
+accumulator(T2)             2x2     33.1    0.429     20.4     82.0     29.1      3.9    0.207     72.6    0.270    0.046    0.072     15.0    0.898      4.0    0.812    0.942
+assembling-machine-2(T2)      3x3     31.6    0.371     32.4    226.0     26.9      4.8    0.187     48.1    0.402    0.025    0.027      9.0    0.773      7.0    0.062    0.982
+chemical-plant(T2)          3x3     21.2    0.335     29.4    291.0     22.8      3.5    0.133     48.8    0.470    0.067    0.038     13.0    0.920      9.9      1.0    0.979
+laser-turret(T2)            2x2     37.0    0.499     30.7     78.0     34.9      4.7    0.249     50.5    0.358    0.067    0.016      2.0    0.447      2.5    0.625    0.627
+oil-refinery(T2)            5x5     18.6    0.243     24.4    581.0     18.4      3.5    0.104     44.1    0.489    0.040    0.036      7.0    0.903     23.8    0.641    0.957
+pumpjack(T2)                3x3     24.9    0.397     32.3    253.0     24.9      4.5    0.173     52.6    0.516    0.078    0.026      9.0    0.743      7.8    0.469    0.780
+steel-furnace(T2)           2x2     36.5    0.407     37.5    135.0     29.1      5.2    0.197     51.2    0.388    0.056    0.090      7.0    0.865      3.6    0.281    0.959
+storage-tank(T2)            3x3     20.7    0.274     23.2    174.0     19.8      3.2    0.114     70.2    0.380    0.008    0.003      3.0    0.832      7.5    0.016    0.987
+artillery-turret(T3)        3x3     26.6    0.384     29.6    296.0     26.0      4.3    0.177     62.1    0.362    0.058    0.043     11.0    0.802     10.0    0.484    0.986
+assembling-machine-3(T3)      3x3     33.3    0.454     34.4    239.0     29.2      5.6    0.216     53.3    0.525    0.045    0.028      8.0    0.766      7.0    0.359    0.977
+beacon(T3)                  3x3     32.7    0.421     39.6    282.0     26.4      6.8    0.198     69.1    0.362    0.035    0.007      5.0    0.789      7.1    0.172    0.971
+centrifuge(T3)              3x3     40.6    0.516     28.1    257.0     34.3      6.1    0.250     74.1    0.274    0.052    0.060     14.0    0.926      9.2    0.969    0.917
+electric-furnace(T3)        3x3     36.6    0.510     25.4    208.0     32.3      5.8    0.251     66.8    0.233    0.048    0.043      3.0    0.899      8.2    0.016    0.966
+heat-exchanger(T3)          3x2     28.3    0.433     35.7    192.0     27.5      5.1    0.188     57.1    0.349    0.012    0.009      4.0    0.845      5.4    0.562    0.967
+nuclear-reactor(T3)         5x5     24.0    0.261     28.8    509.0     19.7      3.9    0.107     43.3    0.241    0.004    0.004      5.0    0.702     17.7    0.156    0.944
+roboport(T3)                4x4     31.5    0.407     26.8    270.0     28.6      4.9    0.209     56.8    0.262    0.020    0.016     16.0    0.623     10.1    0.359    0.912
+rocket-silo(T3)             9x9     28.8    0.344     26.7   1885.0     24.2      4.0    0.155     44.7    0.294    0.031    0.027    101.0    0.869     70.6    0.141    0.981
+steam-turbine(T3)           5x3     30.1    0.387     25.4    303.0     27.0      4.5    0.186     48.2    0.201    0.002    0.001      3.0    0.750     11.9    0.469    0.986
+substation(T3)              2x2     38.3    0.474     31.3    137.0     31.3      7.6    0.249     56.3    0.269    0.028    0.027      7.0    0.820      4.4      1.7    0.766
+
+1 ter. Chaînes de progression vanilla (rapport palier haut / palier bas)
+  assembling-machine-1 [3x3] -> assembling-machine-2 [3x3] -> assembling-machine-3 [3x3]
+     laplacien_moyen                 34.170     31.647     33.313
+     petites_pieces_par_tuile2       25.787     32.381     34.363
+     petites_pieces                 183.000    226.000    239.000
+     masse_tuiles2                    7.097      6.979      6.955
+     lum_p50                         52.058     48.078     53.265
+     part_saturee                     0.017      0.025      0.045
+     zone_lumineuse_part              0.028      0.027      0.028
+     O_depassement_haut               0.172      0.062      0.359
+  stone-furnace [2x2] -> steel-furnace [2x2] -> electric-furnace [3x3]
+     laplacien_moyen                 35.474     36.536     36.638
+     petites_pieces_par_tuile2       30.449     37.530     25.355
+     petites_pieces                  69.000    135.000    208.000
+     masse_tuiles2                    2.266      3.597      8.204
+     lum_p50                         72.566     51.207     66.783
+     part_saturee                     0.132      0.056      0.048
+     zone_lumineuse_part              0.133      0.090      0.043
+     O_depassement_haut              -0.078      0.281      0.016
+  gun-turret [2x2] -> laser-turret [2x2] -> artillery-turret [3x3]
+     laplacien_moyen                 28.793     36.983     26.639
+     petites_pieces_par_tuile2       44.392     30.661     29.571
+     petites_pieces                 156.000     78.000    296.000
+     masse_tuiles2                    3.514      2.544     10.010
+     lum_p50                         44.930     50.529     62.084
+     part_saturee                     0.026      0.067      0.058
+     zone_lumineuse_part              0.018      0.016      0.043
+     O_depassement_haut               0.672      0.625      0.484
+  steam-engine [5x3] -> steam-turbine [5x3]
+     laplacien_moyen                 24.162     30.056
+     petites_pieces_par_tuile2       29.981     25.434
+     petites_pieces                 401.000    303.000
+     masse_tuiles2                   13.375     11.913
+     lum_p50                         55.107     48.151
+     part_saturee                     0.018      0.002
+     zone_lumineuse_part              0.002      0.001
+     O_depassement_haut               0.500      0.469
+  boiler [3x2] -> heat-exchanger [3x2]
+     laplacien_moyen                 28.082     28.325
+     petites_pieces_par_tuile2       38.903     35.727
+     petites_pieces                 212.000    192.000
+     masse_tuiles2                    5.449      5.374
+     lum_p50                         56.287     57.111
+     part_saturee                     0.023      0.012
+     zone_lumineuse_part              0.031      0.009
+     O_depassement_haut               0.562      0.562
+  electric-mining-drill [3x3] -> pumpjack [3x3] -> oil-refinery [5x5]
+     laplacien_moyen                 35.481     24.942     18.558
+     petites_pieces_par_tuile2       36.287     32.324     24.414
+     petites_pieces                 181.000    253.000    581.000
+     masse_tuiles2                    4.988      7.827     23.798
+     lum_p50                         74.549     52.573     44.145
+     part_saturee                     0.049      0.078      0.040
+     zone_lumineuse_part              0.043      0.026      0.036
+     O_depassement_haut               0.375      0.469      0.641
+  lab [3x3] -> beacon [3x3] -> roboport [4x4] -> nuclear-reactor [5x5] -> rocket-silo [9x9]
+     laplacien_moyen                 31.236     32.709     31.503     24.009     28.847
+     petites_pieces_par_tuile2       24.769     39.635     26.804     28.835     26.703
+     petites_pieces                 155.000    282.000    270.000    509.000   1885.000
+     masse_tuiles2                    6.258      7.115     10.073     17.652     70.593
+     lum_p50                         68.162     69.082     56.800     43.339     44.662
+     part_saturee                     0.004      0.035      0.020      0.004      0.031
+     zone_lumineuse_part              0.015      0.007      0.016      0.004      0.027
+     O_depassement_haut              -0.203      0.172      0.359      0.156      0.141
+
+==============================================================================================================
+2. CHEMINÉE V0 validée (21/10) et V0b finale
+==============================================================================================================
+Laplacien moyen |∇²L| (lum/px)                     | cheminee-V0=31.3 | cheminee-V0-sur-four=34.0 | cheminee-V0b=32.7 | cheminee-V0b-sur-four=34.5
+Laplacien au zoom 1 (32 px/t)                      | cheminee-V0=41.0 | cheminee-V0-sur-four=49.9 | cheminee-V0b=51.1 | cheminee-V0b-sur-four=52.6
+Part de pixels de contour (Sobel>12)               | cheminee-V0=0.342 | cheminee-V0-sur-four=0.471 | cheminee-V0b=0.387 | cheminee-V0b-sur-four=0.473
+Pixels de contour par tuile²                       | cheminee-V0=1401 | cheminee-V0-sur-four=1929 | cheminee-V0b=1587 | cheminee-V0b-sur-four=1937
+Petites pièces (DoG) par tuile² de corps           | cheminee-V0=30.1 | cheminee-V0-sur-four=29.0 | cheminee-V0b=39.7 | cheminee-V0b-sur-four=34.3
+Petites pièces (total)                             | cheminee-V0=36 | cheminee-V0-sur-four=90 | cheminee-V0b=49 | cheminee-V0b-sur-four=115
+Contraste local (σ 7×7, lum)                       | cheminee-V0=24.0 | cheminee-V0-sur-four=28.6 | cheminee-V0b=27.6 | cheminee-V0b-sur-four=29.3
+Luminance p5                                       | cheminee-V0=20 | cheminee-V0-sur-four=18 | cheminee-V0b=19 | cheminee-V0b-sur-four=19
+Luminance p50                                      | cheminee-V0=64 | cheminee-V0-sur-four=72 | cheminee-V0b=56 | cheminee-V0b-sur-four=66
+Luminance p95                                      | cheminee-V0=153 | cheminee-V0-sur-four=182 | cheminee-V0b=155 | cheminee-V0b-sur-four=171
+Saturation moyenne du corps                        | cheminee-V0=0.34 | cheminee-V0-sur-four=0.54 | cheminee-V0b=0.36 | cheminee-V0b-sur-four=0.53
+Part saturée (S≥0,5 et V≥0,5)                      | cheminee-V0=0.059 | cheminee-V0-sur-four=0.119 | cheminee-V0b=0.084 | cheminee-V0b-sur-four=0.119
+Part saturée hors lumineux                         | cheminee-V0=0.000 | cheminee-V0-sur-four=0.034 | cheminee-V0b=0.001 | cheminee-V0b-sur-four=0.031
+Part des saturés situés sur un lumineux            | cheminee-V0=0.99 | cheminee-V0-sur-four=0.71 | cheminee-V0b=0.99 | cheminee-V0b-sur-four=0.74
+Part saturée froide (70-330°)                      | cheminee-V0=0.000 | cheminee-V0-sur-four=0.000 | cheminee-V0b=0.000 | cheminee-V0b-sur-four=0.000
+Plus grande plage saturée (part du corps)          | cheminee-V0=0.034 | cheminee-V0-sur-four=0.035 | cheminee-V0b=0.050 | cheminee-V0b-sur-four=0.032
+Plus grande plage saturée (tuiles²)                | cheminee-V0=0.041 | cheminee-V0-sur-four=0.109 | cheminee-V0b=0.062 | cheminee-V0b-sur-four=0.109
+Part peinte (S≥0,35, V≥0,3) hors lumineux          | cheminee-V0=0.124 | cheminee-V0-sur-four=0.230 | cheminee-V0b=0.147 | cheminee-V0b-sur-four=0.231
+Part peinte froide hors lumineux                   | cheminee-V0=0.000 | cheminee-V0-sur-four=0.000 | cheminee-V0b=0.000 | cheminee-V0b-sur-four=0.000
+Part de teinte chaude du corps (chroma≥0,08)       | cheminee-V0=1.00 | cheminee-V0-sur-four=1.00 | cheminee-V0b=1.00 | cheminee-V0b-sur-four=1.00
+Zone lumineuse (part du corps)                     | cheminee-V0=0.110 | cheminee-V0-sur-four=0.138 | cheminee-V0b=0.169 | cheminee-V0b-sur-four=0.150
+Foyers lumineux (≥16 px)                           | cheminee-V0=3 | cheminee-V0-sur-four=8 | cheminee-V0b=4 | cheminee-V0b-sur-four=8
+Plus grand foyer lumineux (tuiles²)                | cheminee-V0=0.107 | cheminee-V0-sur-four=0.178 | cheminee-V0b=0.172 | cheminee-V0b-sur-four=0.178
+Halo de nuit (draw_as_light > 0,25, tuiles²)       | cheminee-V0=4.33 | cheminee-V0-sur-four=4.53 | cheminee-V0b=0.93 | cheminee-V0b-sur-four=0.70
+Part quasi blanche (L≥220) hors lumineux           | cheminee-V0=0.003 | cheminee-V0-sur-four=0.010 | cheminee-V0b=0.003 | cheminee-V0b-sur-four=0.006
+Grain des surfaces planes |L-G1| (lum)             | cheminee-V0=3.80 | cheminee-V0-sur-four=5.46 | cheminee-V0b=4.12 | cheminee-V0b-sur-four=5.63
+Variance basse fréquence σ(G2-G8) (lum)            | cheminee-V0=16.50 | cheminee-V0-sur-four=23.73 | cheminee-V0b=17.22 | cheminee-V0b-sur-four=23.33
+Part de creux sombres (L<G3-20)                    | cheminee-V0=0.111 | cheminee-V0-sur-four=0.204 | cheminee-V0b=0.192 | cheminee-V0b-sur-four=0.219
+Part d'arêtes claires (L>G3+20)                    | cheminee-V0=0.151 | cheminee-V0-sur-four=0.212 | cheminee-V0b=0.176 | cheminee-V0b-sur-four=0.210
+Part de surfaces planes (Sobel<6)                  | cheminee-V0=0.429 | cheminee-V0-sur-four=0.278 | cheminee-V0b=0.343 | cheminee-V0b-sur-four=0.262
+Remplissage de l'emprise                           | cheminee-V0=0.47 | cheminee-V0-sur-four=0.58 | cheminee-V0b=0.47 | cheminee-V0b-sur-four=0.63
+Masse (tuiles² de corps / tuile d'emprise)         | cheminee-V0=1.20 | cheminee-V0-sur-four=0.78 | cheminee-V0b=1.24 | cheminee-V0b-sur-four=0.84
+Masse (tuiles² de corps)                           | cheminee-V0=1.2 | cheminee-V0-sur-four=3.1 | cheminee-V0b=1.2 | cheminee-V0b-sur-four=3.4
+O : dépassement au-dessus de l'emprise (tuiles)    | cheminee-V0=1.38 | cheminee-V0-sur-four=1.50 | cheminee-V0b=1.38 | cheminee-V0b-sur-four=1.50
+Part massive (ouverture 17 px)                     | cheminee-V0=0.94 | cheminee-V0-sur-four=0.95 | cheminee-V0b=0.96 | cheminee-V0b-sur-four=0.98
+Part très massive (ouverture 33 px)                | cheminee-V0=0.28 | cheminee-V0-sur-four=0.71 | cheminee-V0b=0.30 | cheminee-V0b-sur-four=0.73
+Remplissage de la boîte englobante                 | cheminee-V0=0.78 | cheminee-V0-sur-four=0.51 | cheminee-V0b=0.74 | cheminee-V0b-sur-four=0.55
+
+==============================================================================================================
+3. APERÇUS V3 PHASE 1 (rejetés le 22/10) : par famille, par ère (moyenne des niveaux de l'ère)
+==============================================================================================================
+
+--- mitrailleuse (28 niveaux mesurés) ; référence vanilla : gun-turret
+indicateur                                ère I   ère II  ère III   ère IV    ère V |  vanilla  méd van  rho ép.
+laplacien_moyen                          19.253   19.502   13.764   24.581   24.720 |   28.793   31.430     0.41
+petites_pieces_par_tuile2                23.214   21.294   13.547   11.053   12.699 |   44.392   29.621    -0.72
+contraste_local_7px                      15.781   18.154   13.991   24.780   25.186 |   27.019   27.032     0.66
+grain_surfaces                            2.398    2.854    1.885    1.973    2.525 |    3.547    4.736    -0.14
+part_creux_sombres                        0.081    0.114    0.065    0.178    0.190 |    0.177    0.187     0.67
+lum_p50                                  52.636   61.303   58.598   84.555  106.799 |   44.930   55.993     0.76
+lum_p95                                 115.910  160.841  173.097  214.676  224.367 |  166.938  181.101     0.77
+saturation_moyenne                        0.230    0.218    0.276    0.143    0.266 |    0.440    0.352    -0.00
+part_teinte_chaude_corps                  0.978    0.999    0.666    0.005    0.978 |    0.998    0.963    -0.14
+part_saturee                              0.022    0.054    0.018    0.000    0.024 |    0.026    0.029    -0.38
+plus_grande_plage_saturee_toutes_part     0.003    0.019    0.012    0.000    0.009 |    0.005    0.006    -0.33
+plus_grande_plage_saturee_toutes_tuiles2    0.008    0.080    0.053    0.000    0.027 |    0.018    0.064    -0.33
+part_peinte_froide_hors_lumineux          0.000    0.000    0.003    0.006    0.007 |    0.000    0.000     0.89
+zone_lumineuse_part                       0.045    0.064    0.100    0.155    0.219 |    0.018    0.027     0.80
+plus_grand_foyer_lumineux_tuiles2         0.033    0.114    0.246    0.289    0.459 |    0.018    0.057     0.68
+halo_nuit_tuiles2                         0.523    1.642    3.396    5.906    8.629 |    0.000    0.000     1.00
+part_quasi_blanc                          0.000    0.000    0.000    0.013    0.002 |    0.012    0.013     0.65
+laplacien_zoom1                          24.700   28.597   20.526   35.222   35.163 |   42.691   47.081     0.42
+petites_pieces                           79.250   82.833   52.000   37.000   40.167 |  156.000  210.000    -0.76
+remplissage_emprise                       0.605    0.651    0.587    0.336    0.297 |    0.724    0.795    -0.72
+masse_par_tuile_emprise                   0.852    1.007    0.963    0.840    0.794 |    0.879    0.871    -0.29
+part_massive                              0.926    0.916    0.911    0.860    0.773 |    0.952    0.966    -0.67
+O_depassement_haut                        0.961    1.234    1.594    2.057    2.281 |    0.672    0.422     0.95
+
+--- laser (28 niveaux mesurés) ; référence vanilla : laser-turret
+indicateur                                ère I   ère II  ère III   ère IV    ère V |  vanilla  méd van  rho ép.
+laplacien_moyen                          22.761   18.810   11.761   27.622   26.314 |   36.983   31.430     0.31
+petites_pieces_par_tuile2                26.434   16.701   14.628   22.253   21.480 |   30.661   29.621     0.07
+contraste_local_7px                      18.622   16.068   11.942   25.721   23.346 |   34.910   27.032     0.49
+grain_surfaces                            2.673    2.277    1.644    2.627    3.054 |    4.710    4.736     0.20
+part_creux_sombres                        0.096    0.084    0.047    0.159    0.139 |    0.249    0.187     0.48
+lum_p50                                  55.584   55.772   57.983   83.239  105.695 |   50.529   55.993     0.76
+lum_p95                                 131.501  130.015  148.981  191.233  199.366 |  202.663  181.101     0.80
+saturation_moyenne                        0.222    0.331    0.294    0.143    0.368 |    0.358    0.352     0.05
+part_teinte_chaude_corps                  0.957    0.991    0.520    0.058    0.929 |    0.960    0.963    -0.27
+part_saturee                              0.024    0.055    0.119    0.049    0.168 |    0.067    0.029     0.20
+plus_grande_plage_saturee_toutes_part     0.006    0.021    0.057    0.020    0.082 |    0.025    0.006     0.15
+plus_grande_plage_saturee_toutes_tuiles2    0.022    0.080    0.192    0.049    0.180 |    0.064    0.064     0.11
+part_peinte_froide_hors_lumineux          0.000    0.001    0.061    0.014    0.018 |    0.002    0.000     0.56
+zone_lumineuse_part                       0.040    0.066    0.104    0.136    0.265 |    0.016    0.027     0.73
+plus_grand_foyer_lumineux_tuiles2         0.032    0.109    0.214    0.118    0.272 |    0.028    0.057     0.54
+halo_nuit_tuiles2                         0.006    3.546    9.294   15.076   21.959 |    0.177    0.000     0.99
+part_quasi_blanc                          0.004    0.002    0.000    0.013    0.017 |    0.030    0.013     0.42
+laplacien_zoom1                          31.077   24.843   16.383   35.474   31.027 |   66.612   47.081     0.19
+petites_pieces                           94.750   57.833   49.833   54.000   53.167 |   78.000  210.000    -0.34
+remplissage_emprise                       0.582    0.561    0.533    0.294    0.339 |    0.447    0.795    -0.72
+masse_par_tuile_emprise                   0.908    0.904    0.855    0.607    0.635 |    0.636    0.871    -0.70
+part_massive                              0.920    0.927    0.937    0.691    0.758 |    0.627    0.966    -0.57
+O_depassement_haut                        1.000    1.307    1.620    1.948    2.354 |    0.625    0.422     0.96
+
+--- assembleur (29 niveaux mesurés) ; référence vanilla : assembling-machine-2
+indicateur                                ère I   ère II  ère III   ère IV    ère V |  vanilla  méd van  rho ép.
+laplacien_moyen                          15.411   16.640   14.815   22.104   17.234 |   31.647   31.430     0.22
+petites_pieces_par_tuile2                19.567   18.502   15.072   11.892   12.741 |   32.381   29.621    -0.54
+contraste_local_7px                      14.724   15.388   14.571   21.233   16.459 |   26.850   27.032     0.30
+grain_surfaces                            2.168    2.402    1.793    1.867    1.900 |    4.761    4.736    -0.16
+part_creux_sombres                        0.084    0.091    0.073    0.146    0.100 |    0.187    0.187     0.37
+lum_p50                                  53.540   56.107   62.157   83.743   94.083 |   48.078   55.993     0.69
+lum_p95                                  99.586  136.021  176.593  195.694  179.909 |  166.842  181.101     0.79
+saturation_moyenne                        0.261    0.276    0.372    0.223    0.353 |    0.402    0.352     0.10
+part_teinte_chaude_corps                  1.000    0.975    0.614    0.000    0.763 |    0.759    0.963    -0.44
+part_saturee                              0.021    0.091    0.171    0.084    0.097 |    0.025    0.029     0.08
+plus_grande_plage_saturee_toutes_part     0.007    0.019    0.064    0.028    0.076 |    0.009    0.006     0.26
+plus_grande_plage_saturee_toutes_tuiles2    0.024    0.131    0.405    0.203    0.536 |    0.064    0.064     0.26
+part_peinte_froide_hors_lumineux          0.000    0.000    0.107    0.045    0.022 |    0.056    0.000     0.55
+zone_lumineuse_part                       0.023    0.090    0.186    0.133    0.195 |    0.027    0.027     0.64
+plus_grand_foyer_lumineux_tuiles2         0.036    0.123    0.579    0.358    0.930 |    0.062    0.057     0.76
+halo_nuit_tuiles2                         0.690    2.298    4.214    6.257    8.684 |    0.000    0.000     1.00
+part_quasi_blanc                          0.000    0.000    0.001    0.014    0.004 |    0.010    0.013     0.60
+laplacien_zoom1                          20.070   24.173   21.846   29.510   26.963 |   45.846   47.081     0.31
+petites_pieces                           85.600  129.333   98.167   86.000   90.667 |  226.000  210.000    -0.15
+remplissage_emprise                       0.545    0.711    0.657    0.651    0.520 |    0.773    0.795    -0.45
+masse_par_tuile_emprise                   0.579    0.763    0.728    0.802    0.777 |    0.775    0.871     0.44
+part_massive                              0.776    0.923    0.885    0.817    0.709 |    0.982    0.966    -0.58
+O_depassement_haut                        0.469    0.703    1.044    1.445    1.609 |    0.062    0.422     0.92
+
+--- centre (15 niveaux mesurés) ; référence vanilla : None
+indicateur                                ère I   ère II  ère III   ère IV    ère V |  vanilla  méd van  rho ép.
+laplacien_moyen                          30.686   28.918   23.330   35.150   27.828 |        -   31.430     0.04
+petites_pieces_par_tuile2                24.087   24.669   21.313   16.185   25.226 |        -   29.621    -0.11
+contraste_local_7px                      21.283   18.076   17.303   22.274   18.379 |        -   27.032    -0.19
+grain_surfaces                            3.672    3.526    3.119    3.742    3.606 |        -    4.736     0.19
+part_creux_sombres                        0.131    0.093    0.105    0.141    0.108 |        -    0.187    -0.05
+lum_p50                                  55.813   58.880   63.900   81.286   97.537 |        -   55.993     0.80
+lum_p95                                 147.580  147.164  166.766  194.155  189.813 |        -  181.101     0.77
+saturation_moyenne                        0.231    0.199    0.342    0.097    0.195 |        -    0.352    -0.34
+part_teinte_chaude_corps                  0.997    0.998    0.634    0.333    0.870 |        -    0.963    -0.01
+part_saturee                              0.025    0.033    0.074    0.028    0.009 |        -    0.029    -0.26
+plus_grande_plage_saturee_toutes_part     0.009    0.008    0.048    0.008    0.001 |        -    0.006    -0.40
+plus_grande_plage_saturee_toutes_tuiles2    0.104    0.100    0.544    0.137    0.014 |        -    0.064    -0.40
+part_peinte_froide_hors_lumineux          0.000    0.000    0.142    0.000    0.000 |        -    0.000     0.71
+zone_lumineuse_part                       0.045    0.047    0.150    0.113    0.113 |        -    0.027     0.52
+plus_grand_foyer_lumineux_tuiles2         0.160    0.135    1.137    0.501    0.785 |        -    0.057     0.51
+halo_nuit_tuiles2                         1.152    2.218    2.323    2.798    3.439 |        -    0.000     0.68
+part_quasi_blanc                          0.002    0.011    0.000    0.027    0.009 |        -    0.013     0.37
+laplacien_zoom1                          36.696   29.834   29.075   37.158   30.122 |        -   47.081    -0.20
+petites_pieces                          277.333  291.000  248.333  238.667  457.000 |        -  210.000     0.40
+remplissage_emprise                       0.628    0.615    0.568    0.589    0.546 |        -    0.795    -0.30
+masse_par_tuile_emprise                   0.712    0.754    0.744    0.921    1.124 |        -    0.871     0.74
+part_massive                              0.978    0.944    0.972    0.954    0.979 |        -    0.966     0.20
+O_depassement_haut                        1.339    2.016    2.266    3.453    3.635 |        -    0.422     0.89
+
+==============================================================================================================
+4. ÉCARTS : part des niveaux V3 phase 1 sous le minimum vanilla (ou au-dessus du maximum)
+==============================================================================================================
+mitrailleuse  laplacien_moyen<18.558: 13/28 ; petites_pieces_par<16.431: 20/28 ; contraste_local_7p<18.384: 11/28 ; grain_surfaces<3.223: 24/28 ; part_creux_sombres<0.104: 11/28 ; lum_p50>76.492: 10/28 ; lum_p95>216.229: 10/28 ; part_saturee>0.132: 0/28 ; plus_grande_plage_>0.049: 0/28 ; plus_grande_plage_>0.341: 0/28 ; plus_grand_foyer_l>0.440: 8/28 ; halo_nuit_tuiles2>0.560: 26/28 ; part_teinte_chaude<0.281: 8/28 ; zone_lumineuse_par>0.133: 10/28 ; part_quasi_blanc>0.040: 0/28 ; part_massive<0.627: 0/28 ; remplissage_empris<0.447: 10/28
+laser         laplacien_moyen<18.558: 12/28 ; petites_pieces_par<16.431: 10/28 ; contraste_local_7p<18.384: 13/28 ; grain_surfaces<3.223: 24/28 ; part_creux_sombres<0.104: 15/28 ; lum_p50>76.492: 10/28 ; lum_p95>216.229: 4/28 ; part_saturee>0.132: 7/28 ; plus_grande_plage_>0.049: 7/28 ; plus_grande_plage_>0.341: 2/28 ; plus_grand_foyer_l>0.440: 2/28 ; halo_nuit_tuiles2>0.560: 23/28 ; part_teinte_chaude<0.281: 8/28 ; zone_lumineuse_par>0.133: 10/28 ; part_quasi_blanc>0.040: 1/28 ; part_massive<0.627: 6/28 ; remplissage_empris<0.447: 11/28
+assembleur    laplacien_moyen<18.558: 19/29 ; petites_pieces_par<16.431: 18/29 ; contraste_local_7p<18.384: 22/29 ; grain_surfaces<3.223: 28/29 ; part_creux_sombres<0.104: 18/29 ; lum_p50>76.492: 10/29 ; lum_p95>216.229: 3/29 ; part_saturee>0.132: 8/29 ; plus_grande_plage_>0.049: 6/29 ; plus_grande_plage_>0.341: 6/29 ; plus_grand_foyer_l>0.440: 5/29 ; halo_nuit_tuiles2>0.560: 27/29 ; part_teinte_chaude<0.281: 8/29 ; zone_lumineuse_par>0.133: 12/29 ; part_quasi_blanc>0.040: 0/29 ; part_massive<0.627: 3/29 ; remplissage_empris<0.447: 3/29
+centre        laplacien_moyen<18.558: 0/15 ; petites_pieces_par<16.431: 3/15 ; contraste_local_7p<18.384: 5/15 ; grain_surfaces<3.223: 4/15 ; part_creux_sombres<0.104: 4/15 ; lum_p50>76.492: 5/15 ; lum_p95>216.229: 0/15 ; part_saturee>0.132: 1/15 ; plus_grande_plage_>0.049: 1/15 ; plus_grande_plage_>0.341: 2/15 ; plus_grand_foyer_l>0.440: 6/15 ; halo_nuit_tuiles2>0.560: 15/15 ; part_teinte_chaude<0.281: 2/15 ; zone_lumineuse_par>0.133: 5/15 ; part_quasi_blanc>0.040: 1/15 ; part_massive<0.627: 0/15 ; remplissage_empris<0.447: 1/15
+tous          laplacien_moyen<18.558: 44/100 ; petites_pieces_par<16.431: 51/100 ; contraste_local_7p<18.384: 51/100 ; grain_surfaces<3.223: 80/100 ; part_creux_sombres<0.104: 48/100 ; lum_p50>76.492: 35/100 ; lum_p95>216.229: 17/100 ; part_saturee>0.132: 16/100 ; plus_grande_plage_>0.049: 14/100 ; plus_grande_plage_>0.341: 10/100 ; plus_grand_foyer_l>0.440: 21/100 ; halo_nuit_tuiles2>0.560: 91/100 ; part_teinte_chaude<0.281: 26/100 ; zone_lumineuse_par>0.133: 37/100 ; part_quasi_blanc>0.040: 2/100 ; part_massive<0.627: 9/100 ; remplissage_empris<0.447: 25/100
+
+==============================================================================================================
+5. NIVEAUX TÉMOINS (rapport au vanilla de la famille et à la médiane vanilla avancée)
+==============================================================================================================
+mitrailleuse n11 (ép. 6) : laplacien_moyen=26.655 (x0.93 van.fam, x0.85 méd.av.) ; petites_pieces_par_tuile2=29.142 (x0.66 van.fam, x1.01 méd.av.) ; grain_surfaces=3.839 (x1.08 van.fam, x0.85 méd.av.) ; part_creux_sombres=0.176 (x0.99 van.fam, x0.93 méd.av.) ; lum_p50=68.972 (x1.54 van.fam, x1.22 méd.av.) ; part_saturee=0.015 (x0.58 van.fam, x0.42 méd.av.) ; part_massive=0.850 (x0.89 van.fam, x0.88 méd.av.) ; remplissage_emprise=0.509 (x0.70 van.fam, x0.63 méd.av.) ; masse_tuiles2=3.157 (x0.90 van.fam, x0.38 méd.av.)
+mitrailleuse n21 (ép. 11) : laplacien_moyen=20.683 (x0.72 van.fam, x0.66 méd.av.) ; petites_pieces_par_tuile2=12.593 (x0.28 van.fam, x0.44 méd.av.) ; grain_surfaces=2.131 (x0.60 van.fam, x0.47 méd.av.) ; part_creux_sombres=0.137 (x0.77 van.fam, x0.73 méd.av.) ; lum_p50=114.028 (x2.54 van.fam, x2.02 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.874 (x0.92 van.fam, x0.91 méd.av.) ; remplissage_emprise=0.177 (x0.24 van.fam, x0.22 méd.av.) ; masse_tuiles2=2.621 (x0.75 van.fam, x0.32 méd.av.)
+mitrailleuse n29 (ép. 15) : laplacien_moyen=31.690 (x1.10 van.fam, x1.01 méd.av.) ; petites_pieces_par_tuile2=10.448 (x0.24 van.fam, x0.36 méd.av.) ; grain_surfaces=3.455 (x0.97 van.fam, x0.76 méd.av.) ; part_creux_sombres=0.240 (x1.36 van.fam, x1.28 méd.av.) ; lum_p50=122.825 (x2.73 van.fam, x2.18 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.765 (x0.80 van.fam, x0.79 méd.av.) ; remplissage_emprise=0.403 (x0.56 van.fam, x0.50 méd.av.) ; masse_tuiles2=3.446 (x0.98 van.fam, x0.42 méd.av.)
+laser n11 (ép. 6) : laplacien_moyen=25.325 (x0.68 van.fam, x0.81 méd.av.) ; petites_pieces_par_tuile2=25.660 (x0.84 van.fam, x0.89 méd.av.) ; grain_surfaces=2.813 (x0.60 van.fam, x0.62 méd.av.) ; part_creux_sombres=0.130 (x0.52 van.fam, x0.69 méd.av.) ; lum_p50=65.644 (x1.30 van.fam, x1.17 méd.av.) ; part_saturee=0.062 (x0.93 van.fam, x1.76 méd.av.) ; part_massive=0.911 (x1.45 van.fam, x0.94 méd.av.) ; remplissage_emprise=0.457 (x1.02 van.fam, x0.57 méd.av.) ; masse_tuiles2=3.040 (x1.19 van.fam, x0.37 méd.av.)
+laser n21 (ép. 11) : laplacien_moyen=28.411 (x0.77 van.fam, x0.91 méd.av.) ; petites_pieces_par_tuile2=18.864 (x0.62 van.fam, x0.65 méd.av.) ; grain_surfaces=2.738 (x0.58 van.fam, x0.60 méd.av.) ; part_creux_sombres=0.174 (x0.70 van.fam, x0.93 méd.av.) ; lum_p50=104.985 (x2.08 van.fam, x1.86 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.563 (x0.90 van.fam, x0.58 méd.av.) ; remplissage_emprise=0.114 (x0.25 van.fam, x0.14 méd.av.) ; masse_tuiles2=1.590 (x0.63 van.fam, x0.19 méd.av.)
+laser n29 (ép. 15) : laplacien_moyen=45.041 (x1.22 van.fam, x1.44 méd.av.) ; petites_pieces_par_tuile2=38.015 (x1.24 van.fam, x1.32 méd.av.) ; grain_surfaces=6.592 (x1.40 van.fam, x1.45 méd.av.) ; part_creux_sombres=0.180 (x0.72 van.fam, x0.96 méd.av.) ; lum_p50=116.355 (x2.30 van.fam, x2.07 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.622 (x0.99 van.fam, x0.64 méd.av.) ; remplissage_emprise=0.274 (x0.61 van.fam, x0.34 méd.av.) ; masse_tuiles2=2.289 (x0.90 van.fam, x0.28 méd.av.)
+assembleur n11 (ép. 6) : laplacien_moyen=21.012 (x0.66 van.fam, x0.67 méd.av.) ; petites_pieces_par_tuile2=20.824 (x0.64 van.fam, x0.72 méd.av.) ; grain_surfaces=2.642 (x0.55 van.fam, x0.58 méd.av.) ; part_creux_sombres=0.097 (x0.52 van.fam, x0.52 méd.av.) ; lum_p50=63.564 (x1.32 van.fam, x1.13 méd.av.) ; part_saturee=0.060 (x2.35 van.fam, x1.68 méd.av.) ; part_massive=0.945 (x0.96 van.fam, x0.98 méd.av.) ; remplissage_emprise=0.747 (x0.97 van.fam, x0.93 méd.av.) ; masse_tuiles2=7.251 (x1.04 van.fam, x0.88 méd.av.)
+assembleur n21 (ép. 11) : laplacien_moyen=19.709 (x0.62 van.fam, x0.63 méd.av.) ; petites_pieces_par_tuile2=8.966 (x0.28 van.fam, x0.31 méd.av.) ; grain_surfaces=1.639 (x0.34 van.fam, x0.36 méd.av.) ; part_creux_sombres=0.145 (x0.78 van.fam, x0.77 méd.av.) ; lum_p50=111.627 (x2.32 van.fam, x1.98 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.859 (x0.87 van.fam, x0.89 méd.av.) ; remplissage_emprise=0.612 (x0.79 van.fam, x0.76 méd.av.) ; masse_tuiles2=7.027 (x1.01 van.fam, x0.86 méd.av.)
+assembleur n29 (ép. 15) : laplacien_moyen=21.567 (x0.68 van.fam, x0.69 méd.av.) ; petites_pieces_par_tuile2=12.603 (x0.39 van.fam, x0.44 méd.av.) ; grain_surfaces=1.958 (x0.41 van.fam, x0.43 méd.av.) ; part_creux_sombres=0.139 (x0.74 van.fam, x0.74 méd.av.) ; lum_p50=110.032 (x2.29 van.fam, x1.95 méd.av.) ; part_saturee=0.000 (x0.00 van.fam, x0.00 méd.av.) ; part_massive=0.711 (x0.72 van.fam, x0.74 méd.av.) ; remplissage_emprise=0.591 (x0.76 van.fam, x0.74 méd.av.) ; masse_tuiles2=7.776 (x1.11 van.fam, x0.95 méd.av.)
+centre n06 (ép. 6) : laplacien_moyen=34.026 (xnan van.fam, x1.09 méd.av.) ; petites_pieces_par_tuile2=33.164 (xnan van.fam, x1.15 méd.av.) ; grain_surfaces=4.421 (xnan van.fam, x0.98 méd.av.) ; part_creux_sombres=0.126 (xnan van.fam, x0.67 méd.av.) ; lum_p50=69.131 (xnan van.fam, x1.23 méd.av.) ; part_saturee=0.025 (xnan van.fam, x0.70 méd.av.) ; part_massive=0.971 (xnan van.fam, x1.00 méd.av.) ; remplissage_emprise=0.494 (xnan van.fam, x0.62 méd.av.) ; masse_tuiles2=10.252 (xnan van.fam, x1.25 méd.av.)
+centre n11 (ép. 11) : laplacien_moyen=38.972 (xnan van.fam, x1.24 méd.av.) ; petites_pieces_par_tuile2=13.302 (xnan van.fam, x0.46 méd.av.) ; grain_surfaces=4.317 (xnan van.fam, x0.95 méd.av.) ; part_creux_sombres=0.141 (xnan van.fam, x0.75 méd.av.) ; lum_p50=97.886 (xnan van.fam, x1.74 méd.av.) ; part_saturee=0.000 (xnan van.fam, x0.00 méd.av.) ; part_massive=0.904 (xnan van.fam, x0.94 méd.av.) ; remplissage_emprise=0.513 (xnan van.fam, x0.64 méd.av.) ; masse_tuiles2=12.554 (xnan van.fam, x1.53 méd.av.)
+centre n15 (ép. 15) : laplacien_moyen=29.332 (xnan van.fam, x0.94 méd.av.) ; petites_pieces_par_tuile2=24.251 (xnan van.fam, x0.84 méd.av.) ; grain_surfaces=3.486 (xnan van.fam, x0.77 méd.av.) ; part_creux_sombres=0.125 (xnan van.fam, x0.66 méd.av.) ; lum_p50=113.441 (xnan van.fam, x2.01 méd.av.) ; part_saturee=0.000 (xnan van.fam, x0.00 méd.av.) ; part_massive=0.986 (xnan van.fam, x1.02 méd.av.) ; remplissage_emprise=0.400 (xnan van.fam, x0.50 méd.av.) ; masse_tuiles2=16.453 (xnan van.fam, x2.01 méd.av.)
+
+==============================================================================================================
+6. LOI D'ÉCHELLE VANILLA : petites pièces totales en fonction de la masse (tuiles²)
+==============================================================================================================
+log(pièces) = 0.997 * log(masse) + 3.385  -> pièces ≈ 29.5 × masse^1.00
+densité (pièces/tuile²) : méd. 2×2 = 31.0 ; 3×3 = 29.6 ; ≥ 4×4 = 26.8
+laplacien : méd. 2×2 = 36.0 ; 3×3 = 31.6 ; ≥ 4×4 = 26.5
+mitrailleuse  pièces totales par ère : I=79 ; II=83 ; III=52 ; IV=37 ; V=40
+laser         pièces totales par ère : I=95 ; II=58 ; III=50 ; IV=54 ; V=53
+assembleur    pièces totales par ère : I=86 ; II=129 ; III=98 ; IV=86 ; V=91
+centre        pièces totales par ère : I=277 ; II=291 ; III=248 ; IV=239 ; V=457

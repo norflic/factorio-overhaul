@@ -232,6 +232,35 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
   l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
 
+**E43 · VALIDÉ (comme outil de mesure ; la charte reste à valider par le DC) · Charte de direction artistique mesurée sur le vanilla (lot V3-S, 22/10, 7 h 20 à 7 h 42)** :
+- Protocole :
+  - mesurés : 28 bâtiments vanilla 1.1.91 (sprites hr, couches et décalages lus par `harness.lua
+    --dump-proto`), la cheminée V0 validée (commit `4599023`) avec sa version V0b, et les 100 aperçus
+    rejetés de V3 phase 1 ;
+  - même code partout (`tools/da/da_lib.py`) : 64 px par tuile, corps seul ;
+  - 23 indicateurs : détail D1 à D5, patine P1 à P4, palette C1 à C8, lumière L1 et L2, masse M1 à M3.
+- Résultats :
+  - **loi vanilla : pièces ≈ 29,5 × masse**, en tuiles² de corps (pente log-log de 0,997) ; la densité
+    est constante du coffre 1×1 au silo 9×9 (mitrailleuse 156 pièces, réacteur 509, silo 1 885) ;
+  - un bâtiment vanilla échoue à 1 seuil sur 23 en médiane ; la cheminée V0 passe tout ce qui
+    s'applique à une pièce. L'étalonnage tient ;
+  - V3 phase 1 : 0 niveau sur 100 ne passe, 9 seuils échoués en médiane. De l'époque 2 à 15, la
+    mitrailleuse garde sa masse (×1,01) et perd ses pièces (×0,43) ; la dominance n'est tenue que sur 2
+    paires d'époques sur 13. Les corps blanchissent (luminance p50 jusqu'à 123, vanilla ≤ 76).
+  - Mesure déterministe : deux passes donnent des JSON identiques à l'octet (4 s pour le vanilla, 15 s
+    pour les aperçus).
+- Intégration (13 h 25) :
+  - `docs/DA_FACTORIO.md`, `docs/da/` et `tools/da/` ;
+  - relancés depuis le dépôt avec `py -3.9`, `seuils.py`, `analyse.py` et `progression.py` redonnent les
+    fichiers d'origine à l'octet ;
+  - le `python` 3.14 par défaut n'a pas numpy.
+- Limites (charte §2.3) :
+  - indicateurs approchés : D3 compte aussi la rouille ;
+  - halo de nuit non comparable, car le vanilla éclaire par des `LightDefinition` ;
+  - une seule pose, sans animation ;
+  - regard naïf jamais testé sur des personnes.
+- Questions ouvertes : Q-S1 à Q-S3 (charte §9).
+
 **E42 · Résultat mitigé · Stable Diffusion local, pour des images de concept (22/10, 7 h 25 à 7 h 50)** :
 - Installation : AUTOMATIC1111 (version AMD v1.10.1) avec ZLUDA, sur la RX 6900 XT. Modèles présents :
   DreamShaper 8 (SD 1.5), DreamShaper XL 2.1 Turbo (SDXL) et SD 1.5 de base. Ni ControlNet ni LoRA.

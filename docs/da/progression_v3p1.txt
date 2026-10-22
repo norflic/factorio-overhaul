@@ -1,0 +1,61 @@
+mitrailleuse : dominance 2/13 ; masse en hausse 8/13 ; pièces totales en hausse 7/13 ; densité maintenue 5/13 ; part massive >= 0,88 : 7/13
+   première époque mesurée (2) -> époque 15 : masse x1.01, pièces x0.43, densité x0.43, foyers 1 -> 11
+     ép.2->3 masse 3.4->3.1 pièces 84->68 foyers 1->15 massive 0.93->0.93 : non
+     ép.3->4 masse 3.1->3.4 pièces 68->58 foyers 15->1 massive 0.93->0.99 : non
+     ép.4->5 masse 3.4->4.1 pièces 58->55 foyers 1->5 massive 0.99->0.94 : non
+     ép.5->6 masse 4.1->3.2 pièces 55->92 foyers 5->6 massive 0.94->0.85 : non
+     ép.6->7 masse 3.2->3.2 pièces 92->45 foyers 6->5 massive 0.85->0.90 : non
+     ép.7->8 masse 3.2->3.8 pièces 45->49 foyers 5->1 massive 0.90->0.93 : non
+     ép.8->9 masse 3.8->4.2 pièces 49->53 foyers 1->5 massive 0.93->0.93 : DOMINE
+     ép.9->10 masse 4.2->3.2 pièces 53->25 foyers 5->5 massive 0.93->0.94 : non
+     ép.10->11 masse 3.2->2.6 pièces 25->33 foyers 5->4 massive 0.94->0.87 : non
+     ép.11->12 masse 2.6->3.7 pièces 33->40 foyers 4->2 massive 0.87->0.82 : non
+     ép.12->13 masse 3.7->2.9 pièces 40->42 foyers 2->6 massive 0.82->0.77 : non
+     ép.13->14 masse 2.9->2.9 pièces 42->27 foyers 6->6 massive 0.77->0.84 : non
+     ép.14->15 masse 2.9->3.4 pièces 27->36 foyers 6->11 massive 0.84->0.76 : DOMINE
+laser : dominance 2/13 ; masse en hausse 7/13 ; pièces totales en hausse 6/13 ; densité maintenue 6/13 ; part massive >= 0,88 : 8/13
+   première époque mesurée (2) -> époque 15 : masse x0.66, pièces x0.86, densité x1.31, foyers 0 -> 8
+     ép.2->3 masse 3.5->3.2 pièces 101->89 foyers 0->18 massive 0.99->0.85 : non
+     ép.3->4 masse 3.2->3.6 pièces 89->54 foyers 18->3 massive 0.85->0.97 : non
+     ép.4->5 masse 3.6->3.8 pièces 54->33 foyers 3->2 massive 0.97->0.95 : non
+     ép.5->6 masse 3.8->3.0 pièces 33->78 foyers 2->12 massive 0.95->0.91 : non
+     ép.6->7 masse 3.0->3.1 pièces 78->57 foyers 12->5 massive 0.91->0.93 : non
+     ép.7->8 masse 3.1->3.2 pièces 57->36 foyers 5->1 massive 0.93->0.96 : non
+     ép.8->9 masse 3.2->3.5 pièces 36->47 foyers 1->5 massive 0.96->0.99 : DOMINE
+     ép.9->10 masse 3.5->3.0 pièces 47->84 foyers 5->8 massive 0.99->0.97 : non
+     ép.10->11 masse 3.0->1.6 pièces 84->30 foyers 8->4 massive 0.97->0.56 : non
+     ép.11->12 masse 1.6->2.3 pièces 30->61 foyers 4->3 massive 0.56->0.56 : non
+     ép.12->13 masse 2.3->1.9 pièces 61->38 foyers 3->4 massive 0.56->0.80 : non
+     ép.13->14 masse 1.9->2.8 pièces 38->44 foyers 4->11 massive 0.80->0.89 : DOMINE
+     ép.14->15 masse 2.8->2.3 pièces 44->87 foyers 11->8 massive 0.89->0.62 : non
+assembleur : dominance 3/13 ; masse en hausse 8/13 ; pièces totales en hausse 6/13 ; densité maintenue 6/13 ; part massive >= 0,88 : 8/13
+   première époque mesurée (2) -> époque 15 : masse x1.20, pièces x0.86, densité x0.72, foyers 1 -> 13
+     ép.2->3 masse 6.5->5.9 pièces 114->77 foyers 1->17 massive 0.92->0.93 : non
+     ép.3->4 masse 5.9->7.2 pièces 77->144 foyers 17->5 massive 0.93->0.92 : non
+     ép.4->5 masse 7.2->5.3 pièces 144->70 foyers 5->10 massive 0.92->0.90 : non
+     ép.5->6 masse 5.3->7.3 pièces 70->151 foyers 10->13 massive 0.90->0.95 : DOMINE
+     ép.6->7 masse 7.3->5.6 pièces 151->101 foyers 13->10 massive 0.95->0.90 : non
+     ép.7->8 masse 5.6->6.2 pièces 101->80 foyers 10->8 massive 0.90->0.92 : non
+     ép.8->9 masse 6.2->6.7 pièces 80->98 foyers 8->4 massive 0.92->0.84 : non
+     ép.9->10 masse 6.7->6.9 pièces 98->55 foyers 4->10 massive 0.84->0.88 : non
+     ép.10->11 masse 6.9->7.0 pièces 55->63 foyers 10->6 massive 0.88->0.86 : non
+     ép.11->12 masse 7.0->7.0 pièces 63->122 foyers 6->14 massive 0.86->0.73 : DOMINE
+     ép.12->13 masse 7.0->7.0 pièces 122->110 foyers 14->9 massive 0.73->0.50 : non
+     ép.13->14 masse 7.0->5.7 pièces 110->50 foyers 9->8 massive 0.50->0.91 : non
+     ép.14->15 masse 5.7->7.8 pièces 50->98 foyers 8->13 massive 0.91->0.71 : DOMINE
+centre : dominance 1/14 ; masse en hausse 7/14 ; pièces totales en hausse 8/14 ; densité maintenue 8/14 ; part massive >= 0,88 : 14/14
+   première époque mesurée (1) -> époque 15 : masse x1.37, pièces x1.04, densité x0.76, foyers 2 -> 12
+     ép.1->2 masse 12.0->11.8 pièces 382->253 foyers 2->9 massive 0.97->0.98 : non
+     ép.2->3 masse 11.8->10.4 pièces 253->197 foyers 9->22 massive 0.98->0.98 : non
+     ép.3->4 masse 10.4->12.3 pièces 197->224 foyers 22->12 massive 0.98->0.90 : non
+     ép.4->5 masse 12.3->13.7 pièces 224->309 foyers 12->8 massive 0.90->0.96 : non
+     ép.5->6 masse 13.7->10.3 pièces 309->340 foyers 8->26 massive 0.96->0.97 : non
+     ép.6->7 masse 10.3->10.9 pièces 340->254 foyers 26->15 massive 0.97->0.95 : non
+     ép.7->8 masse 10.9->10.9 pièces 254->272 foyers 15->14 massive 0.95->0.99 : non
+     ép.8->9 masse 10.9->13.9 pièces 272->219 foyers 14->8 massive 0.99->0.98 : non
+     ép.9->10 masse 13.9->13.8 pièces 219->274 foyers 8->8 massive 0.98->0.98 : non
+     ép.10->11 masse 13.8->12.6 pièces 274->167 foyers 8->8 massive 0.98->0.90 : non
+     ép.11->12 masse 12.6->17.8 pièces 167->275 foyers 8->14 massive 0.90->0.98 : DOMINE
+     ép.12->13 masse 17.8->19.7 pièces 275->582 foyers 14->13 massive 0.98->0.96 : non
+     ép.13->14 masse 19.7->17.8 pièces 582->390 foyers 13->50 massive 0.96->0.99 : non
+     ép.14->15 masse 17.8->16.5 pièces 390->399 foyers 50->12 massive 0.99->0.99 : non
