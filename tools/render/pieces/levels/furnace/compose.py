@@ -10,6 +10,9 @@ modifier ce fichier :
   lightMul et lightAdd du moteur inconnus, pris à 1 et 0 : NON PROUVÉ hors moteur.
 Le niveau 1 est le four en acier vanilla EN MARCHE (feu, intérieur allumé, lumière au sol), pour comparer
 à égalité avec les niveaux rendus, montrés allumés.
+Correction V3 : couches « patch » (plaque au sol, integration_patch : dessinée sous les ombres et les
+corps), « glowdeco » (lueurs de décor, always_draw : visibles four à l'arrêt) ; level_layers(n, working=False)
+montre le four À L'ARRÊT (ni feu « glow » ni halo « light », comme le vanilla sans ses working_visualisations).
 """
 import json
 import os
@@ -58,7 +61,7 @@ def spec(n):
         return json.load(f)
 
 
-def own_layers(n, kinds=("shadow", "main", "glow", "light")):
+def own_layers(n, kinds=("patch", "shadow", "main", "glow", "glowdeco", "light")):
     sp = spec(n)
     out = []
     for k in kinds:
@@ -78,7 +81,8 @@ def level_layers(n, working=True):
         own = own_layers(2)
         return [l for l in own if l["kind"] == "shadow"] + [l for l in own if l["kind"] != "shadow"] + \
             [l for l in v if l["kind"] != "shadow"] + [l for l in v if l["kind"] == "shadow"]
-    return own_layers(n)
+    kinds = ("patch", "shadow", "main", "glow", "glowdeco", "light") if working else ("patch", "shadow", "main", "glowdeco")
+    return own_layers(n, kinds)
 
 
 def mask_canvas(x0=-2.5, x1=2.5, y0=-3.5, y1=1.75):
@@ -136,6 +140,13 @@ def compose(entities, W_t, H_t, ppt=PPT):
         ww, hh = min(w - xs0, W - xd0), min(h - ys0, H - yd0)
         return img[ys0:ys0 + hh, xs0:xs0 + ww], (slice(yd0, yd0 + hh), slice(xd0, xd0 + ww))
 
+    # plaques au sol (integration_patch, couche lower-object) : sous les ombres et sous tous les corps
+    for e in entities:
+        for lay in e["layers"]:
+            if lay["kind"] == "patch":
+                src, d = place(lay, e["pos"])
+                a = src[..., 3:4]
+                day[d] = src[..., :3] * a + day[d] * (1 - a)
     for e in entities:
         for lay in e["layers"]:
             if lay["kind"] == "shadow":
@@ -145,7 +156,7 @@ def compose(entities, W_t, H_t, ppt=PPT):
     for e in sorted(entities, key=lambda e: (e["pos"][1], e["pos"][0])):
         for lay in e["layers"]:
             k = lay["kind"]
-            if k == "shadow":
+            if k in ("shadow", "patch"):
                 continue
             src, d = place(lay, e["pos"])
             a = src[..., 3:4]
@@ -153,7 +164,7 @@ def compose(entities, W_t, H_t, ppt=PPT):
                 day[d] = src[..., :3] * a + day[d] * (1 - a)
                 if k == "main+light":
                     light[d] += src[..., :3] * a
-            elif k == "glow":
+            elif k in ("glow", "glowdeco"):
                 day[d] = np.clip(day[d] + src[..., :3] * a, 0, 1)
                 light[d] += src[..., :3] * a
             elif k == "light":

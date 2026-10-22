@@ -9,8 +9,13 @@
 (c) galerie-gris-zoom1 : la même en niveaux de gris (test du gris D1-1) ;
 (d) vignettes-64 : les 15 niveaux impairs en masques noirs à la MÊME échelle (le plus grand tient dans 64 px),
     dans l'ordre, puis mélangés (lettres ; la clé est dans planches.json) : test de la vignette D1-2 ;
-(e) gros-plan-eNN-zoom2 : époques 1, 5, 10 et 15 au zoom 2 (64 px/tuile, HR 1:1), jour (haut) et nuit (bas),
-    à côté du four vanilla du niveau 1.
+(e) gros-plan-eNN-zoom2 : les 15 époques (correction V3, OBJECTIFS D3-2 : « une revue en gros plan aux zooms
+    1 et 2 pour chaque famille et chaque époque » ; le premier jet n'en avait que 4) au zoom 2 (64 px/tuile, HR
+    1:1), niveau impair et niveau pair à côté du four vanilla du niveau 1 ; trois bandes : jour EN MARCHE, jour
+    À L'ARRÊT (ni feu ni halo : seules les lueurs de décor always_draw restent), nuit en marche ;
+(g) situation-zoom1 : 3 fours côte à côte (rangée serrée) aux niveaux 1, 16 et 29, plates-formes d'inserteurs
+    vanilla au sud (sans bras) et courroie vanilla : lecture de l'emprise, chevauchements, ancrage au sol
+    (correction V3 : la capture en moteur demandée reste à faire, phase 2).
 Composition : compose.py (formules de tools/render/calib/maquette.py). Rien n'est prouvé en moteur réel.
 """
 import argparse
@@ -40,7 +45,7 @@ def font(size):
     return ImageFont.load_default()
 
 
-def gallery(levels_grid, col_w=3.6, row_h=5.0, top_pad=0.3):
+def gallery(levels_grid, col_w=3.6, row_h=5.0, top_pad=0.3, working=True):
     """levels_grid : liste de colonnes, chaque colonne = liste de niveaux (lignes). Renvoie (jour, lumière, positions)."""
     ncol = len(levels_grid)
     nrow = max(len(c) for c in levels_grid)
@@ -50,7 +55,7 @@ def gallery(levels_grid, col_w=3.6, row_h=5.0, top_pad=0.3):
             if n is None:
                 continue
             p = (round((i * col_w + 1.25) * 64) / 64.0, round((top_pad + j * row_h + 3.3) * 64) / 64.0)
-            ents.append({"pos": p, "layers": CP.level_layers(n)})
+            ents.append({"pos": p, "layers": CP.level_layers(n, working)})
             pos[n] = p
     day, light = CP.compose(ents, ncol * col_w, nrow * row_h + top_pad)
     return day, light, pos
@@ -150,27 +155,63 @@ def vignettes(meta):
 
 def closeups(meta):
     out = {}
-    for e in (1, 5, 10, 15):
+    for e in range(1, 16):
         cols = [1] if e == 1 else [1, 2 * e - 1]
         cols += [2 * e]
         grid = [[n] for n in cols]
         day, light, pos = gallery(grid, col_w=3.8, row_h=4.7, top_pad=0.15)
+        off, _l, _p = gallery(grid, col_w=3.8, row_h=4.7, top_pad=0.15, working=False)
         nig = CP.night(day, light)
-        img_d, img_n = CP.to_img(day), CP.to_img(nig)
-        W = img_d.width
-        canvas = Image.new("RGB", (W, img_d.height * 2 + 24), (24, 22, 20))
-        canvas.paste(img_d, (0, 24))
-        canvas.paste(img_n, (0, img_d.height + 24))
-        items = [(6, 4, "Époque %d · %s · zoom 2 (64 px/tuile) · haut : jour, bas : nuit" % (e, PRM.EPOCHS[e]["nom"]))]
-        for i, n in enumerate(cols):
-            t = "n1 vanilla" if n == 1 else "n%d" % n
-            items.append((int(i * 3.8 * 64) + 8, 28, t))
-            items.append((int(i * 3.8 * 64) + 8, img_d.height + 28, t))
+        bands = [("jour, en marche", CP.to_img(day)), ("jour, à l'arrêt (sans feu ni halo)", CP.to_img(off)),
+                 ("nuit, en marche", CP.to_img(nig))]
+        h = bands[0][1].height
+        W = bands[0][1].width
+        canvas = Image.new("RGB", (W, 24 + 3 * (h + 20)), (24, 22, 20))
+        items = [(6, 4, "Époque %d · %s (ère %s) · zoom 2 (64 px/tuile)" % (e, PRM.EPOCHS[e]["nom"], PRM.EPOCHS[e]["ere"]))]
+        for j, (title, im) in enumerate(bands):
+            y = 24 + j * (h + 20)
+            canvas.paste(im, (0, y + 20))
+            items.append((6, y + 2, title))
+            for i, n in enumerate(cols):
+                t = "n1 vanilla" if n == 1 else "n%d" % n
+                items.append((int(i * 3.8 * 64) + 8, y + 24, t))
         label(canvas, items, 15)
         p = os.path.join(DST, "gros-plan-e%02d-zoom2.png" % e)
         canvas.save(p, optimize=True)
         out["gros-plan-e%02d" % e] = p
     return out
+
+
+def situation(meta):
+    """(g) Mise en situation hors moteur : rangées serrées de 3 fours (niveaux 1, 16, 29), inserteurs et courroie."""
+    ent_dir = os.path.join(CP.DATA, "base", "graphics", "entity")
+    plat = CP.frame(CP.load(os.path.join(ent_dir, "inserter", "hr-inserter-platform.png")), 105, 79, 0)
+    belt = CP.frame(CP.load(os.path.join(ent_dir, "transport-belt", "hr-transport-belt.png")), 128, 128, 0, 0)
+    rows = [1, 16, 29]
+    row_h = 6.0
+    ents = []
+    for j, n in enumerate(rows):
+        y0 = 3.0 + j * row_h                   # entité 2×2 : centre sur un nœud de la grille
+        for i in range(3):
+            x = 1.0 + 2 * i
+            ents.append({"pos": (x, y0), "layers": CP.level_layers(n)})
+            ents.append({"pos": (x - 0.5, y0 + 1.5), "layers": [{"img": plat, "shift": CP.bp(1.5, 6.5), "kind": "main"}]})
+        for t in range(7):
+            ents.append({"pos": (0.5 + t, y0 + 2.5), "layers": [{"img": belt, "shift": (0.0, 0.0), "kind": "main"}]})
+    W_t, H_t = 7.0, row_h * len(rows) + 0.4
+    day, light = CP.compose(ents, W_t, H_t)
+    z1 = CP.to_img(CP.down2(day))
+    nig = CP.to_img(CP.down2(CP.night(day, light)))
+    canvas = Image.new("RGB", (z1.width * 2 + 8, z1.height + 24), (24, 22, 20))
+    canvas.paste(z1, (0, 24))
+    canvas.paste(nig, (z1.width + 8, 24))
+    items = [(6, 4, "Situation (zoom 1) : rangées serrées, inserteurs (plates-formes vanilla) et courroie au sud · jour | nuit")]
+    for j, n in enumerate(rows):
+        items.append((4, 24 + int((0.2 + j * row_h) * 32), "n%d" % n))
+    label(canvas, items, 13)
+    p = os.path.join(DST, "situation-zoom1.png")
+    canvas.save(p, optimize=True)
+    return {"situation": p}
 
 
 def overlay_d13(meta):
@@ -218,6 +259,7 @@ def main():
     files.update(galleries(meta))
     files.update(vignettes(meta))
     files.update(closeups(meta))
+    files.update(situation(meta))
     files.update(overlay_d13(meta))
     meta["fichiers"] = {k: os.path.relpath(v, MOD_ROOT).replace("\\", "/") for k, v in files.items()}
     with open(os.path.join(DST, "planches.json"), "w", encoding="utf-8", newline="\n") as f:

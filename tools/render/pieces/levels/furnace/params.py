@@ -65,6 +65,11 @@ PALETTE = {
 # gain déjà abaissé de 2,7 à 1,9 dans furnace_levels.e1_piece ; 0,60 a donné 63 au rendu, d'où 0,50.
 ALBEDO_K = {e: 1.0 for e in range(1, 16)}
 ALBEDO_K.update({1: 0.50, 4: 0.595, 5: 0.456, 6: 0.407, 8: 0.405, 9: 0.666, 13: 0.459, 14: 0.70})
+# Correction V3 (22/10) : la couche principale est désormais rendue ÉMETTEURS ÉTEINTS et les ères IV et V ont reçu
+# pieds, pôles, injecteurs et flèches ; mesure du rendu complet (32 échantillons, hors zones émissives) -> facteurs
+# K = lin(cible) / lin(mesure) × K précédent, pour les époques hors tolérance : 2 (67 pour 52), 10 (68 pour 82),
+# 11 (89-95 pour 100), 13 (69-72 pour 92), 14 (63-72 pour 88), 15 (88-91 pour 108).
+ALBEDO_K.update({2: 0.61, 10: 1.47, 11: 1.12, 13: 0.78, 14: 1.20, 15: 1.50})
 # Feu de la bouche (identité du four : « bouche lumineuse au sud ») ; vanilla : (99,49,3) à (241,144,2)
 FIRE = "#FF8A1E"
 

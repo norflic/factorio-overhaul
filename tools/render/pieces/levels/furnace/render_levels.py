@@ -14,8 +14,16 @@ Différences avec render.py, propres à cette famille :
 - fenêtres de halo par niveau (furnace_levels.PIECE["variants"][v]["halo"]) et maximum du halo
   proportionnel au niveau (bible §1.6, D2-3) ;
 - le cache Blender du niveau (PNG 16 bits et .npy) est supprimé après traitement (disque partagé).
+Correction V3 (vérification adverse) :
+- couches « glow » (feu de marche) et « glowdeco » (lueurs de décor) séparées, couche principale rendue avec
+  les émetteurs éteints, couche « patch » (plaque au sol) : passes.py (côté Blender) ;
+- halo de nuit : flaque analytique AJOUTÉE à la lumière rendue (maximum des deux), de rayon utile
+  S(N)/2 = 1 + 0,05 N tuiles (alpha ≥ 0,05) : l'étendue du halo croît avec le niveau (D2-3, mineur 4) ;
+- spec.json : sommes SHA-256 des scripts de modèle et de paramètres (mineur 8) et place du verrou de rendu
+  tenue par le processus parent ; sans verrou (parent qui n'est pas with_render_lock.py), le rendu est REFUSÉ.
 """
 import argparse
+import glob
 import hashlib
 import importlib.util
 import json
@@ -82,6 +90,61 @@ def photometry(img):
             "L_p95": float(np.percentile(Lm, 95) * 255), "L_std": float(Lm.std() * 255), "sat": float(sat[m].mean())}
 
 
+SOURCES = ("furnace_levels.py", "params.py", "geo.py", "passes.py", "render_levels.py")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+
+
+def sources_sha():
+    out = {}
+    for f in SOURCES:
+        with open(os.path.join(HERE, f), "rb") as fh:
+            out[f] = hashlib.sha256(fh.read()).hexdigest()
+    return out
+
+
+def lock_slot():
+    """Place du verrou de rendu tenue par le processus PARENT (with_render_lock.py écrit son PID dans owner.txt
+    et lance cette commande en sous-processus) ; None si le rendu n'est pas sous verrou. Lecture seule."""
+    ppid = os.getppid()
+    for d in sorted(glob.glob(os.path.join(LOCK_DIR, "fo-render.lock.*"))):
+        try:
+            with open(os.path.join(d, "owner.txt"), encoding="utf-8") as f:
+                pid = int(f.read().split()[0])
+        except (OSError, ValueError, IndexError):
+            continue
+        if pid == ppid:
+            return os.path.basename(d)
+    return None
+
+
+def halo_pool(img, origin, n, color_hex):
+    """Ajoute la flaque analytique de nuit (D2-3) : alpha 0,30 au centre, nul à R1 (smoothstep), soit alpha ≥ 0,05
+    jusqu'à r05 = S(N)/2 = 1 + 0,05 N tuiles ; centre de la flaque de halo_layer(n). La couche est agrandie (bords
+    transparents) pour contenir la flaque ; renvoie (couche, nouvelle origine)."""
+    hl = PRM.halo_layer(n)
+    r05 = PRM.halo_intensity(n)[1] / 2.0
+    R1 = r05 / 0.74
+    cxp, cyp = hl["center"][0] * 64.0, hl["center"][1] * 64.0
+    H, W = img.shape[:2]
+    ox, oy = origin
+    need = [int(np.ceil(R1 * 64 - (ox + cxp))) + 4, int(np.ceil((ox + cxp) + R1 * 64 - W)) + 4,
+            int(np.ceil(R1 * 64 - (oy + cyp))) + 4, int(np.ceil((oy + cyp) + R1 * 64 - H)) + 4]
+    l, r, t, b = [max(0, v + (v % 2)) for v in need]
+    out = np.zeros((H + t + b, W + l + r, 4))
+    out[t:t + H, l:l + W] = img
+    ox, oy = ox + l, oy + t
+    yy, xx = np.mgrid[0:out.shape[0], 0:out.shape[1]]
+    rr = np.hypot(xx + 0.5 - (ox + cxp), yy + 0.5 - (oy + cyp)) / (R1 * 64)
+    tt = np.clip(rr, 0, 1)
+    pa = 0.30 * (1 - tt * tt * (3 - 2 * tt))
+    col = np.array(PRM.hex_rgb(color_hex), float) / 255.0
+    col = col / col.max()
+    use = pa > out[..., 3]
+    out[use, :3] = col
+    out[..., 3] = np.maximum(out[..., 3], pa)
+    return out, (ox, oy)
+
+
 def light_max(n):
     """Maximum de la couche halo : croît avec le niveau (bible §1.6, D2-3), jamais sous le vanilla (0,79)."""
     return PRM.halo_layer(n)["max"]
@@ -105,17 +168,22 @@ def process(mod, n, samples, log, quick=False):
         return np.load(p).astype(np.float64) if os.path.exists(p) else None
 
     origin = tuple(info["origin_px"])
+    origins = {}
     raw_main = npy("main")
     hr = {"main": P.compose_main(raw_main, npy("ao"), C)}
+    pa = npy("patch")
+    if pa is not None and not quick:
+        hr["patch"] = pa
     om = np.zeros(raw_main.shape[:2] + (4,))
     om[..., 3] = raw_main[..., 3]
     hr["objmask"] = om
     sh = npy("shadow")
     if sh is not None:
         hr["shadow"] = P.shadow_layer(sh)
-    g = npy("glow")
-    if g is not None:
-        hr["glow"] = P.additive_layer(g)
+    for key in ("glow", "glowdeco"):
+        g = npy(key)
+        if g is not None:
+            hr[key] = P.additive_layer(g)
     li = npy("light")
     if li is not None and vm["halo"]:
         lay = P.additive_layer(li)
@@ -139,12 +207,13 @@ def process(mod, n, samples, log, quick=False):
             ref = best[..., 3].max()
         if ref > 1e-6:
             best[..., 3] = np.clip(best[..., 3] * (light_max(n) / ref), 0, 1)
+        best, origins["light"] = halo_pool(best, origin, n, mod.MOUTH.get(PRM.epoch_of(n), PRM.FIRE))
         hr["light"] = best
     if vm.get("mask"):
         mk = vm["mask"]["hr"]
         m_hr = place_alpha(hr["main"].shape[:2], origin, os.path.join(DATA, "base", "graphics", "entity", mk["file"]),
                            mk["shift"], 64)
-        for key in ("main", "glow", "objmask"):
+        for key in ("main", "glow", "glowdeco", "objmask"):
             if key in hr:
                 hr[key] = P.mask_with(hr[key], m_hr)
     dest = os.path.join(OUT, "quick", v) if quick else os.path.join(OUT, v)
@@ -152,23 +221,26 @@ def process(mod, n, samples, log, quick=False):
         shutil.rmtree(dest, ignore_errors=True)
     os.makedirs(dest, exist_ok=True)
     spec = {}
-    for layer in ("main", "shadow", "glow", "light", "objmask"):
+    for layer in ("patch", "main", "shadow", "glow", "glowdeco", "light", "objmask"):
         if layer not in hr:
             continue
         img = hr[layer]
-        box = P.trim_box(img, origin)
+        org = origins.get(layer, origin)
+        box = P.trim_box(img, org)
         if box is None:
             continue
         x0, y0, x1, y1 = box
         fn = "hr-furnace-%s-%s.png" % (v, layer)
         sha = P.write_png(img[y0:y1, x0:x1], os.path.join(dest, fn))
-        sd = P.sprite_def(box, origin, 64)
+        sd = P.sprite_def(box, org, 64)
         spec[layer] = dict(sd, filename=fn, sha256=sha, size_bytes=os.path.getsize(os.path.join(dest, fn)))
     res = {"level": n, "variant": v, "epoch": PRM.epoch_of(n), "layers": spec, "samples": info["samples"],
            "seed": info["seed"], "blender": info["blender"], "blender_hash": info["blender_hash"],
            "canvas": info["canvas"], "origin_px": info["origin_px"], "seconds_blender": round(dt, 1),
            "photometry_main": photometry(hr["main"]) if n != 2 else photometry(hr["main"]),
-           "light_max": light_max(n) if "light" in spec else None, "quick": bool(quick)}
+           "light_max": light_max(n) if "light" in spec else None, "quick": bool(quick),
+           "sources_sha256": sources_sha(), "verrou": lock_slot(), "ppid": os.getppid(),
+           "rendu_le": time.strftime("%Y-%m-%d %H:%M:%S")}
     with open(os.path.join(dest, "spec.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(res, f, indent=1, sort_keys=True)
     shutil.rmtree(cache, ignore_errors=True)
@@ -181,6 +253,13 @@ def main():
     ap.add_argument("--samples", type=int, default=64)
     ap.add_argument("--quick", action="store_true", help="passe principale seule (silhouettes), dans out/.../quick/")
     a = ap.parse_args()
+    slot = lock_slot()
+    if slot is None:
+        print("[FO-V3-FOUR] REFUS : ce pilote lance Blender et doit être appelé par tools/render/with_render_lock.py "
+              "(aucune place du verrou %s/fo-render.lock.* n'appartient au processus parent %d)" % (LOCK_DIR, os.getppid()),
+              flush=True)
+        sys.exit(3)
+    print("[FO-V3-FOUR] verrou de rendu : %s (parent %d)" % (slot, os.getppid()), flush=True)
     mod = load_piece()
     os.makedirs(CACHE, exist_ok=True)
     log = os.path.join(CACHE, "blender.log")

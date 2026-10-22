@@ -27,6 +27,17 @@ aident le verdict du Directeur Créatif sans le remplacer :
 - lumière de jour (D2-1) : zones où la lueur (draw_as_glow, additive) porte la luminance du jour à au moins
   la médiane du corps + 80/255 ; part émissive du corps ; présence d'un carré plein de 8 × 8 px HR ;
 - halo de nuit (D2-3) : maximum et étendue de la couche halo.
+Ajouts de la correction V3 (vérification adverse) :
+- dépassements : un plateau ne compte qu'une fois (défaut corrigé, voir peaks) ; fourchette de l'ère (§1.2)
+  vérifiée et écrite au bilan, échec compris ;
+- lueur en deux couches (glow : feu de marche ; glowdeco : décor) ; couleur émissive COMPOSÉE (couche
+  principale + lueurs) : teinte médiane par classe et écart à la cible (feu : couleur de bouche de l'époque ;
+  décor : couleur d'époque de la bible §1.5), part de pixels saturés à 255 sur deux canaux ;
+- part émissive comparée à la courbe proposée par la bible §1.6 (1 % ép. 3 … 12-15 % ép. 15) ;
+- halo : étendue (alpha > 0,05, tuile²) et monotonie sur les niveaux 3 à 30 (D2-3) ;
+- ancrage : bas du masque, bords ouest et est, couverture de la bande y ∈ [0,5 ; 1] de l'emprise ;
+- D1-3 : trois variantes de l'IoU normalisée (homothétie centrée sur l'origine ; centrée sur le pied
+  (0 ; +1) ; avec en plus une translation libre jusqu'à ±1 tuile), pour l'étalonnage du seuil de Q13.
 Sorties : docs/epoques/planches/furnace/mesures_d1.json et mesures_d1.txt (tableau).
 """
 import argparse
@@ -41,6 +52,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import compose as CP  # noqa: E402
 import params as PRM  # noqa: E402
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location("furnace_meta", os.path.join(HERE, "furnace_levels.py"))
+furnace_meta = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(furnace_meta)
 
 MOD_ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 DST = os.path.join(MOD_ROOT, "docs", "epoques", "planches", "furnace")
@@ -76,6 +91,7 @@ def load_png(path):
 class Level:
     def __init__(self, n, src):
         self.n = n
+        self.src = src
         self.layers = {}
         if n in (1, 2):
             v = CP.vanilla_layers(False)[1]
@@ -157,17 +173,20 @@ def peaks(m_mass, prom=0.10, min_sep_px=10):
     cands = [x for x in range(1, n - 1) if has[x] and hs[x] >= hs[max(0, x - 6):x + 7].max() - 1e-9]
     out = []
     for x in cands:
-        # proéminence : descente minimale nécessaire pour atteindre un point plus haut
+        # proéminence : descente minimale nécessaire pour atteindre un point plus haut. Correction V3 : un
+        # PLATEAU ne compte qu'une fois (à droite, un point de même hauteur vaut « plus haut ») ; l'ancien
+        # calcul comptait un pic tous les 10 px d'un sommet plat (n3 : 3 « pics » sur le seul couronnement
+        # de la cheminée ; même défaut dans le compte du vérificateur, identique au mien)
         left = hs[:x][::-1]
         right = hs[x + 1:]
-        def col(seq):
+        def col(seq, ties):
             mn = hs[x]
             for v in seq:
                 mn = min(mn, v)
-                if v > hs[x] + 1e-9:
+                if v > hs[x] + 1e-9 or (ties and v >= hs[x] - 1e-9):
                     return mn
             return mn  # bord : on descend jusqu'au minimum du côté
-        p = hs[x] - max(col(left), col(right))
+        p = hs[x] - max(col(left, False), col(right, True))
         if p >= prom and all(abs(x - y) >= min_sep_px for y in out):
             out.append(x)
     return len(out), [round((x - OX) / PPT, 2) for x in out]
@@ -193,18 +212,95 @@ def square_inside(z, s=8):
     return bool((win == s * s).any())
 
 
+def glow_sum(lv):
+    """Lueurs additives (feu de marche + décor), prémultipliées, et alpha maximal."""
+    gs = [lv.layers[k] for k in ("glow", "glowdeco") if k in lv.layers]
+    if not gs:
+        return None, None
+    add = sum(g[..., :3] * g[..., 3:4] for g in gs)
+    amax = np.max(np.stack([g[..., 3] for g in gs]), 0)
+    return add, amax
+
+
+def hue_deg(rgb):
+    r, g, b = [float(x) for x in rgb]
+    mx, mn = max(r, g, b), min(r, g, b)
+    if mx - mn < 1e-6:
+        return 0.0
+    if mx == r:
+        h = 60 * (((g - b) / (mx - mn)) % 6)
+    elif mx == g:
+        h = 60 * ((b - r) / (mx - mn) + 2)
+    else:
+        h = 60 * ((r - g) / (mx - mn) + 4)
+    return h % 360
+
+
+def hue_gap(a, b):
+    d = abs(a - b) % 360
+    return min(d, 360 - d)
+
+
+# part émissive proposée par la bible §1.6 (❔) : 1 % (ép. 3), 3 % (5), 5 % (7), 7 % (10), 10 % (13), 12-15 % (15)
+PART_BIBLE = {3: 0.01, 5: 0.03, 7: 0.05, 10: 0.07, 13: 0.10, 15: 0.135}
+
+
+def part_bible(e):
+    ks = sorted(PART_BIBLE)
+    if e < ks[0]:
+        return 0.0
+    for a, b in zip(ks, ks[1:]):
+        if a <= e <= b:
+            return PART_BIBLE[a] + (PART_BIBLE[b] - PART_BIBLE[a]) * (e - a) / (b - a)
+    return PART_BIBLE[ks[-1]]
+
+
 def emissive(lv, ph):
-    g = lv.layers.get("glow")
-    if g is None or not ph:
+    add, amax = glow_sum(lv)
+    if add is None or not ph:
         return {"zone_px": 0, "part": 0.0, "carre_8px": False}
     main = lv.layers["main"]
     pm = main[..., :3] * main[..., 3:4]                # composé sur noir
-    day = np.clip(pm + g[..., :3] * g[..., 3:4], 0, 1)
+    day = np.clip(pm + add, 0, 1)
     L = day @ LUMA * 255
-    zone = (g[..., 3] >= 0.10) & (L >= ph["L_p50"] + 80) & (main[..., 3] >= 0.5)
+    zone = (amax >= 0.10) & (L >= ph["L_p50"] + 80) & (main[..., 3] >= 0.5)
     n_body = lv.body.sum()
-    return {"zone_px": int(zone.sum()), "part": round(float(zone.sum() / max(1, n_body)), 4),
-            "carre_8px": square_inside(zone, 8)}
+    e = PRM.epoch_of(lv.n)
+    out = {"zone_px": int(zone.sum()), "part": round(float(zone.sum() / max(1, n_body)), 4),
+           "carre_8px": square_inside(zone, 8), "part_bible": round(part_bible(e), 4)}
+    # couleur composée (jour, en marche) : couche principale (émetteurs éteints) + lueurs ; chaque pixel lumineux
+    # (alpha de sa couche ≥ 0,5) est rapporté à la cible de teinte la plus proche parmi les couleurs émissives
+    # déclarées de l'époque (furnace_levels.EMIT_TARGETS) ; par cible : RGB médian, écart de teinte, part de pixels
+    # saturés à 255 sur deux canaux
+    tg = furnace_meta.EMIT_TARGETS.get(e, [])
+    th = np.array([hue_deg(PRM.hex_rgb(t)) for t in tg]) if tg else None
+    for key in ("glow", "glowdeco"):
+        g = lv.layers.get(key)
+        if g is None or th is None:
+            continue
+        z = (g[..., 3] >= 0.5) & (main[..., 3] >= 0.5)
+        if z.sum() < 16:
+            continue
+        c = day[z] * 255
+        mx, mn = c.max(1), c.min(1)
+        d = np.maximum(mx - mn, 1e-6)
+        r_, g_, b_ = c[:, 0], c[:, 1], c[:, 2]
+        h = np.where(mx == r_, 60 * (((g_ - b_) / d) % 6), np.where(mx == g_, 60 * ((b_ - r_) / d + 2), 60 * ((r_ - g_) / d + 4))) % 360
+        gap = np.abs(h[:, None] - th[None, :]) % 360
+        gap = np.minimum(gap, 360 - gap)
+        near = gap.argmin(1)
+        res = []
+        for i, t in enumerate(tg):
+            sel = near == i
+            if sel.sum() < 30:
+                continue
+            med = np.median(c[sel], 0)
+            hm = hue_deg(med)
+            res.append({"cible": t, "px": int(sel.sum()), "rgb_median": [int(round(x)) for x in med], "teinte": round(hm, 1),
+                        "ecart_deg": round(hue_gap(hm, th[i]), 1),
+                        "part_2canaux_255": round(float(((c[sel] >= 250).sum(1) >= 2).mean()), 3)})
+        out["couleur_" + key] = res
+    return out
 
 
 def halo(lv):
@@ -212,8 +308,60 @@ def halo(lv):
     if li is None:
         return None
     s = lv.spec["layers"]["light"]
+    # étendue sur l'image ENTIÈRE de la couche (la toile commune peut la couper)
+    full = load_png(os.path.join(lv.src, "n%02d" % lv.n, s["filename"]))
     return {"max": round(float(li[..., 3].max()), 3), "largeur_t": round(s["width"] / PPT, 2),
-            "hauteur_t": round(s["height"] / PPT, 2)}
+            "hauteur_t": round(s["height"] / PPT, 2), "etendue_t2": round(float((full[..., 3] > 0.05).sum() / TILE2), 2),
+            "S_N": round(PRM.halo_intensity(lv.n)[1], 2)}
+
+
+def scaled_iou_variants(m1, mn):
+    """IoU normalisée en échelle, trois variantes (étalonnage du seuil de Q13) :
+    origine : homothétie de centre l'origine (définition de la bible) ;
+    pied : homothétie de centre le milieu du bord sud de l'emprise (0 ; +1) ;
+    translation : homothétie de centre le pied, plus une translation libre jusqu'à ±1 tuile (pas de 1 px),
+    calculée par corrélation (FFT)."""
+    out = {}
+    si, k = scaled_iou(m1, mn)
+    out["origine"] = {"iou": round(si, 3), "k": round(k, 2)}
+    yy, xx = np.mgrid[0:H, 0:W]
+    fy = OY + PPT
+    best, bk = 0.0, 1.0
+    scs = {}
+    for k in np.arange(0.50, 2.0001, 0.01):
+        sx = np.floor(OX + (xx + 0.5 - OX) / k).astype(np.int64)
+        sy = np.floor(fy + (yy + 0.5 - fy) / k).astype(np.int64)
+        ok = (sx >= 0) & (sx < W) & (sy >= 0) & (sy < H)
+        sc = np.zeros((H, W), bool)
+        sc[ok] = m1[sy[ok], sx[ok]]
+        v = iou(sc, mn)
+        scs[round(float(k), 2)] = sc
+        if v > best:
+            best, bk = v, float(k)
+    out["pied"] = {"iou": round(best, 3), "k": round(bk, 2)}
+    P = PPT
+    Fm = np.fft.rfft2(np.pad(mn.astype(np.float64), P))
+    nn = float(mn.sum())
+    bt = (0.0, 1.0, 0, 0)
+    for k, sc in scs.items():
+        ns = float(sc.sum())
+        if ns == 0:
+            continue
+        Fs = np.fft.rfft2(np.pad(sc.astype(np.float64), P))
+        corr = np.fft.irfft2(Fm * np.conj(Fs), s=(H + 2 * P, W + 2 * P))
+        # corr[dy, dx] = somme mn(y + dy, x + dx) · sc(y, x) ; translations |dx|, |dy| ≤ 64 px
+        sub = np.concatenate([corr[-P:, :], corr[:P + 1, :]], 0)
+        sub = np.concatenate([sub[:, -P:], sub[:, :P + 1]], 1)
+        inter = np.round(sub)
+        val = inter / np.maximum(1.0, ns + nn - inter)
+        j = np.unravel_index(np.argmax(val), val.shape)
+        if val[j] > bt[0]:
+            bt = (float(val[j]), k, int(j[1]) - P, int(j[0]) - P)
+    out["translation"] = {"iou": round(bt[0], 3), "k": round(bt[1], 2), "dx_px": bt[2], "dy_px": bt[3]}
+    return out
+
+
+RANGE_ERE = {"I": (1, 2), "II": (2, 3), "III": (3, 4), "IV": (4, 5), "V": (5, 6)}
 
 
 def measure(src, levels):
@@ -225,8 +373,8 @@ def measure(src, levels):
         mass = h_open(L_.mask, 10)
         bb, bbr = bbox(mass), bbox(L_.mask)
         fp = L_.mask[OY - PPT:OY + PPT, OX - PPT:OX + PPT]
-        g_ = L_.layers.get("glow")
-        emis = (g_[..., 3] >= 0.10) if g_ is not None else np.zeros_like(L_.body)
+        _a, amax = glow_sum(L_)
+        emis = (amax >= 0.10) if amax is not None else np.zeros_like(L_.body)
         ph = photometry(L_.rgb, L_.body & ~emis)
         r = {"n": n, "epoque": PRM.epoch_of(n), "pair": n % 2 == 0,
              "aire_t2": round(L_.mask.sum() / TILE2, 3),
@@ -237,6 +385,13 @@ def measure(src, levels):
              "vide_V": round(float((m1 & ~L_.mask).sum() / m1.sum()), 3),
              "photometrie": ph, "palette_cible_L50": PRM.PALETTE[PRM.epoch_of(n)]["L50"]}
         r["depassements"], r["pics_x"] = peaks(h_open(L_.mask, 4))
+        rg = RANGE_ERE[PRM.EPOCHS[PRM.epoch_of(n)]["ere"]]
+        r["fourchette_ere"] = list(rg)
+        r["depassements_ok"] = rg[0] <= r["depassements"] <= rg[1]
+        r["bas_masque"] = round(bbr["bottom"], 3)
+        r["bord_ouest"], r["bord_est"] = round(bbr["left"], 3), round(bbr["right"], 3)
+        band = L_.mask[OY + PPT // 2:OY + PPT, OX - PPT:OX + PPT]
+        r["bande_sud_couverte"] = round(float(band.mean()), 3)
         if n >= 2:
             prev = lv[n - 1].mask
             r["iou_prec"] = round(iou(prev, L_.mask), 3)
@@ -252,9 +407,14 @@ def measure(src, levels):
     if last >= 29:
         d13 = {}
         for n in sorted({29, last}):
-            si, k = scaled_iou(m1, lv[n].mask)
-            d13["n%02d" % n] = {"iou": rows[n]["iou_n1"], "iou_normalisee": round(si, 3), "k": round(k, 2)}
+            var = scaled_iou_variants(m1, lv[n].mask)
+            d13["n%02d" % n] = {"iou": rows[n]["iou_n1"], "iou_normalisee": var["origine"]["iou"], "k": var["origine"]["k"],
+                                "variantes": var}
         res["D1_3"] = d13
+    # halo : étendue monotone (D2-3)
+    hx = [(n, rows[n]["halo"]["etendue_t2"]) for n in levels if rows[n].get("halo")]
+    res["halo_etendue_monotone"] = all(b[1] >= a[1] - 0.01 for a, b in zip(hx, hx[1:]))
+    res["halo_etendue_baisses"] = [(a[0], b[0], a[1], b[1]) for a, b in zip(hx, hx[1:]) if b[1] < a[1] - 0.01]
     # monotonie de O sur les 30 niveaux
     Os = [rows[n]["O"] for n in levels]
     res["O_monotone"] = all(b >= a - 0.005 for a, b in zip(Os, Os[1:]))
@@ -263,28 +423,80 @@ def measure(src, levels):
 
 
 def table(res):
-    out = ["| n | ép. | O (masses) | O brut | O cible | L | emprise | aire t² | +pièce t² | IoU préc. | IoU impair préc. | IoU n1 | V | dépass. | L p50 (cible) | p95 | sat | lueur jour (part, 8×8) | halo max |",
-           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    out = ["| n | ép. | O (masses) | O brut | O cible | L | emprise | aire t² | +pièce t² | IoU préc. | IoU impair préc. | IoU n1 | V | dépass. (ère) | bas | ouest / est | L p50 (cible) | p95 | sat | lueur jour (part, bible, 8×8) | couleur composée du feu (cible : RGB écart) | couleur composée du décor | halo max, étendue t² |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+
+    def col(lj, key):
+        cs = lj.get("couleur_" + key)
+        if not cs:
+            return "—"
+        return " ; ".join("%s : (%d,%d,%d) %s°%s" % (c["cible"], c["rgb_median"][0], c["rgb_median"][1], c["rgb_median"][2],
+                                                     c["ecart_deg"], ", 2 canaux à 255 : %.0f %%" % (100 * c["part_2canaux_255"])
+                                                     if c["part_2canaux_255"] > 0.05 else "") for c in cs)
     for r in res["lignes"]:
         ph = r["photometrie"]
         lj = r.get("lumiere_jour") or {}
         ha = r.get("halo") or {}
-        out.append("| %d | %d | %.2f | %.2f | %.2f | %.2f | %.0f %% | %.2f | %s | %s | %s | %.2f | %.0f %% | %d | %s (%d) | %s | %s | %s | %s |" % (
+        out.append("| %d | %d | %.2f | %.2f | %.2f | %.2f | %.0f %% | %.2f | %s | %s | %s | %.2f | %.0f %% | %d %s(%d-%d) | %+.2f | %+.2f / %+.2f | %s (%d) | %s | %s | %s | %s | %s | %s |" % (
             r["n"], r["epoque"], r["O"], r["O_brut"], r["O_cible"], r["L"], 100 * r["emprise_couverte"], r["aire_t2"],
             "%.2f" % r["aire_ajoutee_t2"] if "aire_ajoutee_t2" in r else "—",
             "%.2f" % r["iou_prec"] if "iou_prec" in r else "—",
             "%.2f" % r["iou_impair_prec"] if "iou_impair_prec" in r else "—",
-            r["iou_n1"], 100 * r["vide_V"], r["depassements"], ph.get("L_p50", "—"), r["palette_cible_L50"],
-            ph.get("L_p95", "—"), ph.get("sat", "—"),
-            ("%.1f %%, %s" % (100 * lj["part"], "oui" if lj["carre_8px"] else "non")) if lj else "—",
-            ha.get("max", "—") if ha else "—"))
+            r["iou_n1"], 100 * r["vide_V"], r["depassements"], "" if r["depassements_ok"] or r["pair"] else "HORS ",
+            r["fourchette_ere"][0], r["fourchette_ere"][1], r["bas_masque"], r["bord_ouest"], r["bord_est"],
+            ph.get("L_p50", "—"), r["palette_cible_L50"], ph.get("L_p95", "—"), ph.get("sat", "—"),
+            ("%.1f %%, %.1f %%, %s" % (100 * lj["part"], 100 * lj.get("part_bible", 0), "oui" if lj["carre_8px"] else "non"))
+            if lj else "—", col(lj, "glow"), col(lj, "glowdeco"),
+            ("%s, %s" % (ha.get("max"), ha.get("etendue_t2"))) if ha else "—"))
+    out.append("")
+    out.append("Bilan des indicateurs (aucun n'est un verdict : seul le Directeur Créatif valide un design)")
+    odd = [r for r in res["lignes"] if not r["pair"]]
+    hors = ["n%d (%d, fourchette %d-%d)" % (r["n"], r["depassements"], r["fourchette_ere"][0], r["fourchette_ere"][1])
+            for r in odd if not r["depassements_ok"]]
+    out.append("- D1-2, dépassements des niveaux impairs dans la fourchette de l'ère : %s" %
+               ("oui, 15 sur 15" if not hors else "NON, hors fourchette : " + ", ".join(hors)))
+    ious = [r.get("iou_impair_prec") for r in odd if r.get("iou_impair_prec") is not None]
+    out.append("- D1-2, IoU entre époques consécutives : max %.2f (seuil 0,85) ; O non décroissant sur les 30 niveaux : %s %s" % (
+        max(ious), "oui" if res["O_monotone"] else "NON", res["O_decroissances"] or ""))
+    steps = [(odd[i + 1]["n"], round(odd[i + 1]["O"] - odd[i]["O"], 3)) for i in range(len(odd) - 1)]
+    small = [x for x in steps if x[1] < 0.03 - 1e-9]
+    out.append("- pas de O entre époques (≥ 0,03 visé) : %s" % ("oui (min %.2f)" % min(x[1] for x in steps) if not small
+                                                            else "NON : " + ", ".join("n%d +%.2f" % x for x in small)))
+    ev = [r for r in res["lignes"] if r["pair"] and r["n"] >= 2]
+    low = [r["n"] for r in ev if r.get("aire_ajoutee_t2", 0) < 0.10]
+    out.append("- D1-1, pièce paire ≥ 0,10 t² hors du masque impair : %s (min %.2f t²)" % (
+        "oui" if not low else "NON : " + str(low), min(r.get("aire_ajoutee_t2", 0) for r in ev)))
+    west = [(r["n"], r["bord_ouest"]) for r in res["lignes"] if r["n"] >= 2 and r["bord_ouest"] < -1.10 - 1e-9]
+    east = [(r["n"], r["bord_est"]) for r in res["lignes"] if r["n"] >= 2 and r["bord_est"] > 1.10 + 1e-9]
+    out.append("- débord latéral ≤ 1,10 de chaque côté : %s" % ("oui" if not west and not east else "NON : %s %s" % (west, east)))
+    bas = [(r["n"], r["bas_masque"]) for r in res["lignes"] if r["n"] >= 3 and r["bas_masque"] < 0.75]
+    out.append("- ancrage, bas du masque ≥ +0,75 (vanilla +1,02) : %s" % ("oui" if not bas else "NON : %s" % bas))
+    hues = []
+    for r in res["lignes"]:
+        lj = r.get("lumiere_jour") or {}
+        for key in ("glow", "glowdeco"):
+            for c in lj.get("couleur_" + key) or []:
+                if c["ecart_deg"] > 15 or c["part_2canaux_255"] > 0.05:
+                    hues.append("n%d %s %s %s° (2 canaux à 255 : %.0f %%)" % (r["n"], "feu" if key == "glow" else "décor",
+                                                                            c["cible"], c["ecart_deg"], 100 * c["part_2canaux_255"]))
+    out.append("- couleur émissive composée à moins de 15° de sa cible, sans saturation de deux canaux : %s" % (
+        "oui" if not hues else "NON : " + " ; ".join(hues)))
+    parts = [(r["n"], r["lumiere_jour"]["part"], r["lumiere_jour"].get("part_bible", 0)) for r in res["lignes"]
+             if r.get("lumiere_jour") and r["n"] >= 5]
+    far = ["n%d %.0f %% (bible %.0f %%)" % (n, 100 * a, 100 * b) for n, a, b in parts if b > 0 and (a > 2 * b or a < 0.5 * b)]
+    out.append("- part émissive dans un facteur 2 de la courbe proposée par la bible §1.6 (❔) : %s" % (
+        "oui" if not far else "ÉCART : " + ", ".join(far)))
+    out.append("- D2-3, étendue du halo (alpha > 0,05) non décroissante, niveaux 3 à 30 : %s %s" % (
+        "oui" if res.get("halo_etendue_monotone") else "NON", res.get("halo_etendue_baisses") or ""))
     if "D1_3" in res:
         for k, v in sorted(res["D1_3"].items()):
-            out.append("")
-            out.append("D1-3 (%s contre n01) : IoU = %.3f (seuil < 0,50, cible ≤ 0,45) ; IoU normalisée en échelle = %.3f "
-                       "(k = %.2f ; seuil proposé ≤ 0,75)" % (k, v["iou"], v["iou_normalisee"], v["k"]))
-    out.append("")
-    out.append("O non décroissant sur les 30 niveaux : %s %s" % ("oui" if res["O_monotone"] else "NON", res["O_decroissances"] or ""))
+            var = v.get("variantes", {})
+            out.append("- D1-3 (%s contre n01) : IoU = %.3f (seuil < 0,50, cible ≤ 0,45) ; IoU normalisée en échelle = %.3f "
+                       "(k = %.2f, centre l'origine ; seuil proposé ≤ 0,75) ; variantes pour l'étalonnage : centre au pied %.3f "
+                       "(k %.2f), pied + translation libre ±1 tuile %.3f (k %.2f, dx %d px, dy %d px)" % (
+                           k, v["iou"], v["iou_normalisee"], v["k"], var["pied"]["iou"], var["pied"]["k"],
+                           var["translation"]["iou"], var["translation"]["k"], var["translation"]["dx_px"],
+                           var["translation"]["dy_px"]))
     return "\n".join(out)
 
 

@@ -32,36 +32,55 @@ VANILLA_MASK = {
 # emit    : zones émissives [(x, y_sol, z, couleur)] -> sources du halo et fenêtres de la couche halo
 KEY = {
     1: {"chimney": [(0.70, -1.20, None), (0.29, -0.78, 0.826)],
+        "smoke": (0.29, -0.78, 0.976),          # haut du chapeau chinois (z 0,826 + 0,15)
         "emit": []},
-    2: {"chimney": [(0.66, -0.50, 1.32)],
-        "emit": [(-0.19, 0.95, 0.24, PRM.FIRE)]},
+    2: {"chimney": [(0.66, -0.50, 1.37)],      # +0,05 : O de n3 au-dessus de celui de n2 (0,61)
+        "emit": [(-0.19, 0.95, 0.24, "#FF6A20")]},
     3: {"chimney": [(0.55, -0.50, 1.40)],
-        "emit": [(-0.25, 0.95, 0.17, PRM.FIRE), (-0.25, 0.44, 0.62, "#FFC060")]},
-    4: {"chimney": [(0.55, -0.55, 1.44)],
-        "emit": [(-0.30, 0.90, 0.66, PRM.FIRE), (0.62, 0.95, 0.40, "#FF8C1A")]},
-    5: {"chimney": [(0.48, -0.52, 1.53)],
-        "emit": [(-0.14, 0.95, 0.20, "#FF4A10"), (-0.14, 0.55, 0.60, "#FF4A10")]},
-    6: {"chimney": [(0.62, -0.55, 1.55)],
-        "emit": [(-0.15, 0.95, 0.30, PRM.FIRE), (-0.15, 0.10, 1.00, "#60D0FF")]},
+        "emit": [(-0.25, 0.95, 0.17, "#FFB050"), (-0.25, 0.44, 0.62, "#FFC060")]},
+    4: {"chimney": [(0.55, -0.55, 1.50)],      # +0,06 : O 0,66 -> 0,70 (pas d'O non nul, mineur 5)
+        "emit": [(-0.30, 0.90, 0.66, "#FF8C1A"), (0.62, 0.95, 0.40, "#FF8C1A")]},
+    5: {"chimney": [(0.48, -0.52, 1.60)],      # +0,07 : O 0,72 -> 0,76 (pas ≥ 0,03 sur l'époque 4)
+        "emit": [(-0.08, 0.95, 0.20, "#FF4A10"), (-0.08, 0.55, 0.60, "#FF4A10")]},
+    6: {"chimney": [(0.62, -0.55, 1.64)],      # +0,09 : O 0,72 -> 0,78
+        "emit": [(-0.15, 0.98, 0.30, "#FF8A1E"), (-0.15, 0.20, 1.20, "#60D0FF")]},
     7: {"chimney": [(0.60, -0.55, 1.66)],
         "emit": [(-0.10, 0.95, 0.15, "#B070FF"), (-0.10, 0.15, 1.00, "#B070FF")]},
     8: {"chimney": [(0.62, -0.55, 1.95)],
         "emit": [(-0.15, 0.95, 0.12, "#A8FF3A"), (-0.15, 0.15, 0.70, "#A8FF3A")]},
     9: {"chimney": [(0.60, -0.50, 1.88)],
         "emit": [(-0.15, 0.95, 0.20, "#5CFF4A"), (-0.15, 0.40, 0.85, "#5CFF4A")]},
-    10: {"chimney": [(0.66, -0.62, 2.02)],
-         "emit": [(-0.12, 0.45, 0.80, PRM.FIRE), (-0.12, 0.30, 1.30, "#3AA8FF")]},
-    11: {"chimney": [(0.62, -0.62, 2.16)],
-         "emit": [(-0.12, 0.35, 0.80, PRM.FIRE), (-0.12, 0.20, 1.40, "#BFE6FF")]},
-    12: {"chimney": [(0.62, -0.62, 2.25)],
-         "emit": [(-0.12, 0.40, 1.05, PRM.FIRE), (-0.12, 0.12, 0.55, "#4AF0FF")]},
-    13: {"chimney": [(0.62, -0.62, 2.42)],
+    10: {"chimney": [(0.72, -0.62, 2.02)],
+         "emit": [(-0.14, 0.42, 0.74, "#FFB060"), (-0.14, 0.30, 1.30, "#3AA8FF")]},
+    11: {"chimney": [(0.80, -0.55, 2.36)],     # évent déplacé et relevé : O 1,20 -> 1,22
+         "emit": [(-0.14, 0.33, 0.80, "#FFB060"), (-0.14, 0.18, 1.15, "#BFE6FF")]},
+    12: {"chimney": [(0.62, -0.62, 2.35)],     # colonne relevée : O 1,25 -> 1,32
+         "emit": [(-0.12, 0.40, 1.05, "#FFD080"), (-0.12, 0.12, 0.55, "#4AF0FF")]},
+    13: {"chimney": [(0.62, -0.62, 2.45)],
          "emit": [(-0.12, 0.45, 1.45, "#FF9A3A"), (-0.12, 0.08, 1.45, "#FF4FD8")]},
-    14: {"chimney": [(0.66, -0.62, 2.66)],
-         "emit": [(-0.10, 0.50, 0.12, "#FFC060"), (-0.10, 0.12, 1.78, "#FFE6A0"), (0.79, -0.62, 2.61, "#FF2A2A")]},
+    14: {"chimney": [(0.55, -0.66, 2.58)],     # mât-balise déplacé (x 0,66 -> 0,55) pour séparer les sommets
+         "emit": [(-0.10, 0.50, 0.12, "#FFC060"), (-0.10, 0.12, 1.78, "#FFE6A0"), (0.68, -0.66, 2.53, "#FF2A2A")]},
     15: {"chimney": [(0.36, -0.24, 3.24)],
          "emit": [(-0.10, 0.45, 1.11, "#FFF2C0"), (-0.10, 0.10, 1.38, "#FFC060"), (-0.10, 0.10, 0.10, "#FFF2C0")]},
 }
+
+
+# Couleur du feu de la bouche par époque (« feu de l'ère », correction V3, majeur 1) : aux époques 2 à 5, la
+# couleur émissive de la bible §1.5 (forge #FF6A20, ambre, orange #FF8C1A, braise #FF4A10) ; ensuite, la
+# bouche garde un feu chaud et la couleur d'époque vit dans les lueurs de décor (KEY[e]["emit"]).
+MOUTH = {2: "#FF6A20", 3: "#FFB050", 4: "#FF8C1A", 5: "#FF4A10", 6: "#FF8A1E", 7: "#B070FF", 8: "#A8FF3A", 9: "#5CFF4A",
+         10: "#FFB060", 11: "#FFB060", 12: "#FFD080", 13: "#FF9A3A", 14: "#FFC060", 15: "#FFC060"}
+
+# Couleurs émissives déclarées par époque (matériaux de k.emit) : cibles de la mesure de couleur composée
+# (measure_d1.py : chaque pixel lumineux est rapporté à la cible de teinte la plus proche).
+EMIT_TARGETS = {2: ["#FF6A20"], 3: ["#FFB050", "#FFC060"], 4: ["#FF8C1A", "#FFB040"], 5: ["#FF4A10"],
+                6: ["#FF8A1E", "#60D0FF"], 7: ["#B070FF", "#8A50E0"], 8: ["#A8FF3A"], 9: ["#5CFF4A"],
+                10: ["#FFB060", "#3AA8FF"], 11: ["#FFB060", "#BFE6FF"], 12: ["#FFD080", "#4AF0FF"],
+                13: ["#FF9A3A", "#FF4FD8"], 14: ["#FFC060", "#FFE6A0", "#FF2A2A"], 15: ["#FFC060", "#FFF2C0"]}
+
+# Clés des matériaux émissifs du FEU DE MARCHE (couche glow : working_visualisations, fadeout, flicker) ;
+# toutes les autres sont des lueurs de DÉCOR (couche glowdeco : always_draw, sans flicker).
+FEU_KEYS = {"bouche", "ambre", "lave", "flamme", "arc", "bain", "uranium", "coeur", "creuset"}
 
 
 def _variants():
@@ -118,10 +137,35 @@ class Kit:
                                              metallic=metallic, grain=0.06, grain_scale=20.0, dirt=0.3, seed=self.e)
         return self._m[name]
 
-    def emit(self, key, hexc, strength=1.4):
+    def emit(self, key, hexc, strength=1.4, cls=None, tex=True, scale=14.0, crust=None):
+        """Matériau émissif (correction V3, problème majeur 1). cls : « feu » (feu de MARCHE : couche glow,
+        working_visualisations, fadeout, flicker) ou « decor » (couche glowdeco, always_draw) ; par défaut
+        selon la clé (FEU_KEYS). La force est plafonnée pour que le 2e canal reste ≤ 0,6 en linéaire : la
+        couleur composée garde sa teinte (le premier aperçu saturait deux canaux : jaune citron). Le matériau
+        froid (fo_cold) remplace l'émetteur dans la couche principale : braise éteinte sombre pour le feu,
+        verre ou métal teinté sombre pour le décor."""
         name = "emit_%s_%d" % (key, self.e)
         if name not in self._m:
-            self._m[name] = self.S.mat_emissive(name, PRM.hex_lin(hexc), strength=strength)
+            col = PRM.hex_lin(hexc)
+            c2 = sorted(col, reverse=True)[1]
+            # plafond : 2e canal ≤ 0,6 en linéaire (sRGB ≤ 204) ; les couleurs pâles (#FFF2C0, #BFE6FF, #4AF0FF)
+            # passent SOUS 1 : sinon deux canaux saturent à 255 une fois la couche principale ajoutée
+            s = min(strength, 1.6, 0.6 / max(c2, 1e-3))
+            cls = cls or ("feu" if key in FEU_KEYS else "decor")
+            if tex:
+                cru = crust if crust is not None else (0.30 if cls == "feu" else 0.62)
+                m = self.g.mat_emit_tex(name, col, s, scale=scale, crust=cru, core=0.28 if cls == "feu" else 0.18,
+                                        seed=float(self.e) + len(self._m))
+            else:
+                m = self.S.mat_emissive(name, col, strength=s)
+            m["fo_emit_class"] = cls
+            if cls == "feu":
+                m["fo_cold"] = list(PRM.hex_lin("#241812"))
+                m["fo_cold_rough"], m["fo_cold_metal"] = 0.8, 0.05
+            else:
+                m["fo_cold"] = [0.010 + 0.06 * c for c in col]
+                m["fo_cold_rough"], m["fo_cold_metal"] = 0.3, 0.3
+            self._m[name] = m
         return self._m[name]
 
     def cache(self, key, fn):
@@ -184,7 +228,10 @@ E1_STACK = {"x": 0.29, "y": -0.78, "r": 0.13}
 
 def e1_piece(k):
     g, S = k.g, k.S
-    tole = k.metal("fer", gain=1.9, rough=0.40, metallic=0.55, rust="#5A3420", rust_amount=0.45, dirt=0.55, grain=0.28)
+    # tôle réchauffée (correction V3, mineur 3 : le chapeau gris mauve froid, saturation 0,21, détonnait sur le
+    # four vanilla chaud, 0,36) : fer rouillé brun chaud, rouille plus étendue
+    tole = k.metal("fer", "#64503C", gain=1.9, rough=0.40, metallic=0.5, rust="#6A3A1E", rust_amount=0.6, dirt=0.55,
+                   grain=0.28)
     band = k.metal("bande", "#3A3430", gain=2.2, rough=0.32, metallic=0.8, dirt=0.35)
     riv = k.metal("rivet", "#8A7A62", gain=2.6, rough=0.25, metallic=0.9, grain=0.1, dirt=0.15)
     st = E1_STACK
@@ -211,6 +258,9 @@ def e1_piece(k):
                                   "patte_%d" % i, band, verts=8))
     g.join(legs, "pattes_chapeau")
     g.cyl(xc, yc, zt + 0.065, r + 0.15, 0.085, "chapeau", tole, verts=40, r2=0.03, bevel_w=0.004)
+    # chapeau riveté : ourlet et couronne de rivets
+    S.torus(r + 0.15, 0.012, g.G(xc, yc, zt + 0.068), band, "ourlet_chapeau")
+    g.rivet_ring_at(xc, yc, r + 0.10, zt + 0.098, 12, 0.012, riv, "rivets_chapeau")
     # hauban de fer plat vers la cheminée vanilla (repère de liaison ; masqué là où il passe derrière)
     g.cyl_between(g.G(xc + r, yc, zt - 0.22), g.G(0.60, -0.62, 0.70), 0.010, "hauban", band, verts=6)
 
@@ -259,11 +309,31 @@ def e2(k, even):
     ry0, ry1 = y0 + 0.02, 0.14
     rcx, rw = cxb + 0.02, x1 - x0 - 0.20
     g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw, ry1 - ry0), h, h + 0.32, "chambre", steel, bevel_w=0.012)
-    # chapeau cerclé (cerclage d'acier sombre, choix du premier modeleur). Essai de la reprise 2 retiré : un acier
-    # mat plus clair portait la médiane du corps de 49 à 75-77 (cible 52), quel que soit son albédo (gain 2,6 ;
-    # 1,45 ; 0,70) : c'est le reflet diffus du grand dessus, pas sa couleur, qui pèse dans la médiane.
-    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.37, "chambre_chapeau", strap,
-            bevel_w=0.006)
+    # chapeau de la chambre (correction V3, mineur 1 : « dalle noire plate et sans détail ») : TROIS tôles
+    # rivetées séparées par des joints creux, chacune biseautée (le biseau accroche le soleil), une bouche de
+    # chargement à couvercle et une lumière d'échappement. La médiane du corps est tenue par la rugosité et le
+    # cerclage sombre, pas par l'albédo (un grand dessus clair portait la médiane de 49 à 75)
+    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.345, "chambre_chapeau", strap,
+            bevel_w=0.004)
+    plate = k.metal("tole_chambre", "#4A4C50", gain=0.9, rough=0.75, metallic=0.25, rust="#4A2E1E", rust_amount=0.35,
+                    dirt=0.6, grain=0.30)
+    pw = (rw + 0.02) / 3.0
+    for i in range(3):
+        px0 = rcx - (rw + 0.02) / 2 + pw * (i + 0.5)
+        g.prism(g.rect(px0, (ry0 + ry1) / 2, pw - 0.035, ry1 - ry0 - 0.02), h + 0.345, h + 0.375 + 0.008 * (i % 2),
+                "tole_chapeau_%d" % i, plate, bevel_w=0.012)
+        g.rivets([g.G(px0 + dx, (ry0 + ry1) / 2 + dy, h + 0.38 + 0.008 * (i % 2)) for dx in (-pw / 2 + 0.05, pw / 2 - 0.05)
+                  for dy in (-0.14, 0.0, 0.14)], 0.013, brass, "rivets_tole_%d" % i)
+    # bouche de chargement (couvercle bombé à charnière) sur la tôle gauche, lumière d'échappement à droite
+    hx = rcx - (rw + 0.02) / 2 + pw * 0.5
+    g.cyl(hx, (ry0 + ry1) / 2 + 0.02, h + 0.37, 0.11, 0.05, "col_chargement", strap, verts=24, bevel_w=0.006)
+    g.cyl(hx, (ry0 + ry1) / 2 + 0.02, h + 0.42, 0.125, 0.04, "couvercle_chargement", steel, verts=24, r2=0.07,
+          bevel_w=0.006)
+    S.torus(0.04, 0.010, g.G(hx, (ry0 + ry1) / 2 + 0.02, h + 0.475), brass, "anneau_couvercle")
+    ex = rcx + (rw + 0.02) / 2 - pw * 0.5
+    g.box(ex, (ry0 + ry1) / 2 + 0.03, h + 0.37, 0.16, 0.10, 0.06, "event_chambre", strap, bevel_w=0.008)
+    S.box((0.11, 0.012, 0.025), g.G(ex, (ry0 + ry1) / 2 + 0.03 + 0.05 / g.K + 0.004, h + 0.40),
+          k.emit("bouche", MOUTH[2], 1.6), "lumiere_echappement", bevel_w=0)
     for z in (h + 0.06, h + 0.22):
         g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.025, ry1 - ry0 + 0.02), z, z + 0.04, "chambre_cercle_%d" % int(z * 100),
                 strap, bevel_w=0.005)
@@ -282,7 +352,7 @@ def e2(k, even):
         g.rivets([(px + dx, yf - 0.036, z) for dx in (-0.085, 0.085) for z in (0.14, 0.46)], 0.017, brass,
                  "boulons_%d" % (sx + 1))
     # porte à volets ouverts et bouche de feu
-    fire_mouth(k, -0.19, y1, 0.10, 0.36, 0.28, steel, PRM.FIRE, strength=1.6)
+    fire_mouth(k, -0.19, y1, 0.10, 0.36, 0.28, steel, MOUTH[2], strength=1.6)
     for sx in (-1, 1):
         hinge = -0.19 + sx * 0.23
         v = S.box((0.20, 0.025, 0.30), (0, 0, 0), steel, "volet_%d" % (sx + 1), bevel_w=0.006)
@@ -303,35 +373,55 @@ def e2(k, even):
     # volant d'inertie à manivelle sur le flanc droit (kit d'époque)
     S.cylinder(0.16, 0.04, g.G(x1 + 0.04, 0.50, 0.28), steel, "volant", verts=32, rot=(0, math.pi / 2, 0), bevel_w=0.006)
     S.cylinder(0.05, 0.06, g.G(x1 + 0.05, 0.50, 0.28), brass, "moyeu", verts=16, rot=(0, math.pi / 2, 0), bevel_w=0.004)
-    k.halo(-0.19, 0.95, 0.24, PRM.FIRE, 7.0, "halo_bouche")
+    k.halo(-0.19, 0.95, 0.24, MOUTH[2], 7.0, "halo_bouche")
     if even:
-        # soufflet de forge couché contre le flanc gauche (dépasse à gauche), levier à contrepoids
+        # soufflet de forge (correction V3, mineur 3 : l'ancien se lisait comme « une planche ou un poteau surmonté
+        # d'un carré ») : GRAND soufflet couché à cheval sur l'arête gauche du four, posé sur un chevalet au-dessus
+        # des créneaux (z 0,80 à 1,02, arrière relevé) : plateaux de bois en POIRE (gros bout au sud, face à la
+        # caméra, 0,40 de large), poche de cuir PLISSÉE en accordéon, buse de laiton qui plonge dans la chambre,
+        # levier à poignée. Premier essai de la correction (soufflet debout contre le flanc, 0,21 de large) rejeté
+        # sur aperçu : vu par la tranche, il se lisait encore comme une planche. Bord ouest -1,06 (mineur 5).
         wood = k.stone("bois", "#6B4F35", gain=1.5, rough=0.7, grain=0.4)
-        leather = k.stone("cuir", "#4A3324", gain=1.3, rough=0.6, grain=0.25)
-        xl, xr = -1.20, -0.90
-        yb0, yb1 = -0.28, 0.62
-        poly = [(xl + 0.03, yb1), (xr - 0.02, yb1), (xr, yb0 + 0.10), (xr - 0.04, yb0), (xl + 0.04, yb0), (xl, yb0 + 0.10)]
-        for i, (lx, ly) in enumerate(((xl + 0.05, yb0 + 0.08), (xr - 0.05, yb0 + 0.08), (xl + 0.05, yb1 - 0.08),
-                                      (xr - 0.05, yb1 - 0.08))):
-            g.box(lx, ly, 0.0, 0.045, 0.045, 0.34, "treteau_%d" % i, wood, bevel_w=0.004)
-        g.prism(poly, 0.34, 0.39, "planche_bas", wood, bevel_w=0.008)
+        leather = k.stone("cuir", "#8A5A3A", gain=1.4, rough=0.5, grain=0.25)
+        xc_b, xw = -0.86, 0.20                 # centre et demi-largeur maximale (x de jeu)
+        yn, ys = -0.32, 0.62                    # bout étroit (nord, buse) et gros bout (sud)
+        tilt = 0.14                             # l'arrière (nord) est relevé de 0,14
 
-        def lift(y):
-            return 0.45 + 0.20 * (yb1 - y) / (yb1 - yb0)
-        ring0 = [g.G(x, y, 0.39) for x, y in poly]
-        ring1 = [g.G(x, y, lift(y) - 0.005) for x, y in poly]
-        g.loft([ring0, ring1], "cuir", leather, True, True, None, 0.01)
-        top0 = [g.G(x, y, lift(y)) for x, y in poly]
-        top1 = [g.G(x, y, lift(y) + 0.045) for x, y in poly]
-        g.loft([top0, top1], "planche_haut", wood, True, True, None, 0.008)
-        for i, y in enumerate((0.05, 0.35)):
-            g.rivets_line(g.G(xl + 0.06, y, lift(y) + 0.05), g.G(xr - 0.06, y, lift(y) + 0.05), 3, 0.017, brass, "clous_%d" % i)
-        g.pipe([g.G((xl + xr) / 2, yb1, 0.42), g.G((xl + xr) / 2, yb1 + 0.07, 0.38), g.G(x0 - 0.02, yb1 - 0.05, 0.28)],
-               0.04, "buse", brass)
-        px = -1.08
-        g.box(px, -0.46, 0.0, 0.075, 0.075, 0.84, "poteau_soufflet", wood, bevel_w=0.006)
-        g.cyl_between(g.G(px, 0.18, lift(0.18) + 0.07), g.G(px, -0.62, 0.94), 0.032, "fleau", wood, verts=10)
-        g.box(px, -0.64, 0.84, 0.20, 0.20, 0.17, "contrepoids", k.stone("pierre", "#5A5048", gain=1.4), bevel_w=0.03)
+        def pear(sc, z):
+            pts = []
+            for i in range(24):
+                t = 2 * math.pi * i / 24
+                u = -math.cos(t)                # -1 au nord, +1 au sud
+                st = math.sin(t)
+                sgn = 0.0 if abs(st) < 1e-9 else math.copysign(1.0, st)
+                wdt = xw * sc * (0.35 + 0.65 * ((u + 1) / 2) ** 0.6) * sgn * abs(st) ** 0.7
+                y = yn + (ys - yn) * (u + 1) / 2
+                pts.append(g.G(xc_b + wdt, y, z + tilt * (ys - y) / (ys - yn)))
+            return pts
+        # chevalet : deux montants au sol à gauche, traverses posées sur les créneaux
+        for i, yy in enumerate((yn + 0.18, ys - 0.16)):
+            g.box(-1.02, yy, 0.0, 0.05, 0.05, 0.80 + tilt * (ys - yy) / (ys - yn), "montant_%d" % i, wood, bevel_w=0.004)
+            g.cyl_between(g.G(-1.03, yy, 0.78 + tilt * (ys - yy) / (ys - yn)), g.G(-0.62, yy, 0.78 + tilt * (ys - yy) / (ys - yn)),
+                          0.022, "traverse_%d" % i, wood, verts=8)
+        z_b, z_t = 0.78, 1.06
+        g.loft([pear(1.0, z_b), pear(1.0, z_b + 0.035)], "plateau_bas", wood, True, True, None, 0.006)
+        rings = []
+        for j in range(7):
+            f = j / 6.0
+            sc = 1.08 if j % 2 == 1 else 0.86          # accordéon : plis SAILLANTS (dépassent les plateaux) et rentrants
+            rings.append(pear(sc, z_b + 0.035 + f * (z_t - z_b - 0.035)))
+        g.loft(rings, "poche_cuir", leather, False, False, None, 0.0)
+        g.loft([pear(1.0, z_t), pear(1.0, z_t + 0.035)], "plateau_haut", wood, True, True, None, 0.006)
+        g.rivets_line(g.G(xc_b, yn + 0.14, z_t + 0.05 + tilt * 0.85), g.G(xc_b, ys - 0.08, z_t + 0.05 + tilt * 0.05), 4, 0.014,
+                      brass, "clous_plateau")
+        # buse de laiton au bout étroit, qui plonge dans la chambre de chauffe
+        g.pipe([g.G(xc_b, yn + 0.02, z_b + 0.10 + tilt), g.G(xc_b, yn - 0.05, z_b + 0.06 + tilt),
+                g.G(xc_b + 0.18, yn - 0.02, 0.70)], 0.032, "buse", brass)
+        # levier à poignée sur le gros bout, vers le sud-ouest
+        g.cyl_between(g.G(xc_b - 0.04, ys - 0.12, z_t + 0.05), g.G(xc_b - 0.10, ys + 0.10, z_t + 0.30), 0.022, "levier", wood,
+                      verts=10)
+        g.cyl_between(g.G(xc_b - 0.17, ys + 0.10, z_t + 0.30), g.G(xc_b - 0.03, ys + 0.10, z_t + 0.30), 0.024, "poignee", wood,
+                      verts=10)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -344,7 +434,7 @@ def e3(k, even):
     laiton = k.metal("laiton", gain=1.9, rough=0.28, metallic=0.9, grain=0.12, dirt=0.25)
     # creuset bas (foyer) devant, avec la bouche en arc
     g.prism(g.rect(-0.25, 0.48, 1.20, 0.88), 0.0, 0.34, "foyer", fonte, bevel_w=0.03)
-    fire_mouth(k, -0.25, 0.92, 0.06, 0.34, 0.14, laiton, PRM.FIRE, strength=1.6, arch=True)
+    fire_mouth(k, -0.25, 0.92, 0.06, 0.34, 0.14, laiton, MOUTH[3], strength=1.6, arch=True)
     # tour en fonte (profil de haut-fourneau : ventre puis cuve conique)
     tx, ty = -0.25, -0.05
     prof = [(0.60, 0.0), (0.66, 0.30), (0.71, 0.55), (0.66, 0.80), (0.54, 1.02), (0.44, 1.14), (0.40, 1.20)]
@@ -357,10 +447,17 @@ def e3(k, even):
     # gueulard : couronne et lueur ambrée au sommet
     S.torus(0.40, 0.035, g.G(tx, ty, 1.20), laiton, "gueulard")
     k_amb = k.emit("ambre", "#FFC060", 1.3)
-    g.cyl(tx, ty, 1.08, 0.37, 0.07, "gueulard_feu", k_amb, verts=40, bevel_w=0)
+    # gueulard FERMÉ par la cloche de chargement en fonte (correction V3, mineur 2 : le disque crème de 0,37 de
+    # rayon couvrait 13 % du corps et se lisait comme une lampe) : seul un ANNEAU ambré luit entre la cloche et
+    # la couronne (bible : environ 1 % de part émissive à l'époque 3)
+    g.lathe([(0.30, 1.13), (0.37, 1.13), (0.37, 1.15), (0.30, 1.15)], (tx, ty), "gueulard_anneau", k_amb, segs=48,
+            smooth_deg=None)
+    g.lathe([(0.31, 1.10), (0.31, 1.16), (0.20, 1.24), (0.06, 1.29), (0.001, 1.30)], (tx, ty), "cloche", fonte, segs=48,
+            smooth_deg=50)
+    g.cyl(tx, ty, 1.29, 0.035, 0.12, "tige_cloche", laiton, verts=12, bevel_w=0)
     # hublot ambré sur la face avant de la tour
     hy = ty + 0.70 / g.K
-    S.cylinder(0.105, 0.03, g.G(tx, hy + 0.005, 0.62), k_amb, "hublot", verts=32, rot=(math.pi / 2, 0, 0), bevel_w=0)
+    S.cylinder(0.085, 0.03, g.G(tx, hy + 0.005, 0.62), k_amb, "hublot", verts=32, rot=(math.pi / 2, 0, 0), bevel_w=0)
     S.torus(0.115, 0.025, g.G(tx, hy + 0.012, 0.62), laiton, "hublot_cadre", rot=(math.pi / 2, 0, 0))
     # tuyère de cuivre : conduite d'air chaud depuis la base de la cheminée
     p = [g.G(0.55, -0.32, 0.30), g.G(0.50, -0.10, 0.48), g.G(0.30, 0.05, 0.52), g.G(0.08, 0.10, 0.50)]
@@ -382,11 +479,11 @@ def e3(k, even):
         S.torus(cr + 0.005, 0.018, g.G(cx, cy, z), laiton, "cercle_chem_%d" % int(z * 100))
     smoke_mouth(k, cx, cy, zt, 0.19)
     g.cyl(cx, cy, zt - 0.11, 0.19, 0.02, "fond_gueule", k.soot(), verts=40, bevel_w=0)
-    k.halo(-0.25, 0.97, 0.15, PRM.FIRE, 8.0, "halo_bouche")
+    k.halo(-0.25, 0.97, 0.15, MOUTH[3], 8.0, "halo_bouche")
     k.halo(-0.25, 0.55, 0.62, "#FFC060", 3.0, "halo_hublot")
     if even:
         # chaudière de récupération : cylindre horizontal riveté (axe nord-sud) sur le flanc gauche
-        bx, by, bz, br = -0.98, 0.05, 0.36, 0.22
+        bx, by, bz, br = -0.86, 0.05, 0.36, 0.22          # bord ouest -1,10 avec les cerclages (était -1,20 ; mineur 5)
         S.cylinder(br, 1.25, g.G(bx, by, bz), cuivre, "chaudiere", verts=40, rot=(math.pi / 2, 0, 0), bevel_w=0.01)
         for dy in (-0.38, 0.0, 0.38):
             S.torus(br + 0.004, 0.018, g.G(bx, by + dy, bz), laiton, "cercle_chaud", rot=(math.pi / 2, 0, 0))
@@ -421,7 +518,7 @@ def e4(k, even):
     yb = -fy1 * g.K
     S.cylinder(fr - 0.03, 0.10, (fx, yb - 0.05, fz), galva, "fond", verts=48, rot=(math.pi / 2, 0, 0), radius2=fr - 0.12,
                bevel_w=0.01)
-    fire = k.emit("bouche", PRM.FIRE, 1.7)
+    fire = k.emit("bouche", MOUTH[4], 1.7)
     S.cylinder(0.20, 0.03, (fx, yb - 0.105, fz), fire, "bouche_feu", verts=40, rot=(math.pi / 2, 0, 0), bevel_w=0)
     S.torus(0.215, 0.03, (fx, yb - 0.11, fz), noir, "bouche_cadre", rot=(math.pi / 2, 0, 0))
     # berceaux
@@ -461,7 +558,7 @@ def e4(k, even):
     smoke_mouth(k, cx, cy, zt, cr - 0.02)
     g.pipe([g.G(fx + 0.30, -0.35, fz + 0.30), g.G(0.25, -0.45, fz + 0.45), g.G(cx - 0.10, cy, fz + 0.45)], 0.07,
            "carneau", galva)
-    k.halo(fx, 0.95, fz, PRM.FIRE, 9.0, "halo_bouche")
+    k.halo(fx, 0.95, fz, MOUTH[4], 9.0, "halo_bouche")
     k.halo(tx, 0.98, tz + 0.12, "#FF8C1A", 2.0, "halo_voyant")
     if even:
         # torchère greffée sur la cheminée : tube, couronne de brûleur et flamme
@@ -481,26 +578,29 @@ def e4(k, even):
 # -------------------------------------------------------------------------------------------------
 # Époque 5 · Volcan : tronc de pyramide en écailles, bouche de lave, fissures ; pièce : rigole de coulée
 # -------------------------------------------------------------------------------------------------
+E5_X = -0.08          # axe du four-forge (était -0,13 : bord ouest ramené à -1,08)
+
+
 def e5(k, even):
+    """Correction V3 : flancs franchement inclinés (base 2,00, sommet 0,72 : trapèze en vignette, mineur 6),
+    gradins qui débordent, contreforts inclinés aux coins avant (kit), 2 pointes de basalte à l'arrière de la
+    dalle (événements de silhouette : ère II, 2 à 3), lave texturée (croûte, veines), O 0,72 -> 0,76."""
     g, S = k.g, k.S
     tung = k.metal("tungstene", gain=2.0, rough=0.45, metallic=0.6, rust="#5A3A2A", rust_amount=0.35, dirt=0.6)
     rouille = k.metal("rouille", gain=1.6, rough=0.7, metallic=0.3, dirt=0.5)
     riv = k.metal("rivet", "#6A6670", gain=2.2, rough=0.3, metallic=0.85, grain=0.08)
-    lava = k.emit("lave", "#FF4A10", 1.8)
-    # pyramide tronquée en trois gradins d'écailles (chaque gradin déborde un peu sur le suivant)
-    tiers = [((-0.13, 0.17, 1.84, 1.44), 0.0, (-0.13, 0.12, 1.58, 1.22), 0.34),
-             ((-0.13, 0.12, 1.60, 1.24), 0.30, (-0.13, 0.07, 1.30, 0.98), 0.64),
-             ((-0.13, 0.07, 1.32, 1.00), 0.60, (-0.13, 0.02, 0.92, 0.66), 0.94)]
+    lava = k.emit("lave", "#FF4A10", 1.8, scale=26.0, crust=0.15)
+    X = E5_X
+    # tronc de pyramide en trois gradins ; chaque gradin DÉBORDE de 0,02 sur le haut du précédent (lèvre)
+    tiers = [((X, 0.17, 2.00, 1.50), 0.0, (X, 0.13, 1.70, 1.26), 0.32),
+             ((X, 0.13, 1.74, 1.28), 0.28, (X, 0.08, 1.32, 1.00), 0.62),
+             ((X, 0.08, 1.36, 1.02), 0.58, (X, 0.03, 0.90, 0.68), 0.92)]
     for i, ((ax, ay, aw, ad), z0, (bx, by, bw, bd), z1) in enumerate(tiers):
         g.frustum(g.rect(ax, ay, aw, ad), z0, g.rect(bx, by, bw, bd), z1, "gradin_%d" % i, tung, bevel_w=0.02)
-        # rivets lourds le long du bord bas de chaque gradin (face avant)
         g.rivets_line(g.G(ax - aw / 2 + 0.1, ay + ad / 2 + 0.01, z0 + 0.04), g.G(ax + aw / 2 - 0.1, ay + ad / 2 + 0.01, z0 + 0.04),
                       7 - i, 0.024, riv, "rivets_g%d" % i)
-    g.frustum(g.rect(-0.13, 0.02, 0.94, 0.68), 0.94, g.rect(-0.13, 0.02, 0.80, 0.56), 1.00, "dalle", rouille, bevel_w=0.01)
-    # écailles de blindage (bardeaux inclinés) sur la face avant de chaque gradin ; la braise luit DANS les
-    # joints entre gradins et dans deux fissures en zigzag (premier essai rejeté sur aperçu : des carrés
-    # lumineux qui se lisaient comme des fenêtres de maison)
-    cracks = {1: -0.55, 2: 0.28}
+    g.frustum(g.rect(X, 0.03, 0.90, 0.68), 0.92, g.rect(X, 0.03, 0.74, 0.54), 0.98, "dalle", rouille, bevel_w=0.01)
+    cracks = {1: X - 0.42, 2: X + 0.33}
     scales = []
     for ti, ((ax, ay, aw, ad), z0, (bx_, by_, bw, bd), z1) in enumerate(tiers):
         ya, yb_ = ay + ad / 2, by_ + bd / 2
@@ -518,7 +618,7 @@ def e5(k, even):
                 o.rotation_euler = (th - 0.22, 0, 0)
                 scales.append(o)
         if ti >= 1:
-            g.box(ax, ya - 0.004, z0 + 0.02, aw - 0.16, 0.03, 0.055, "joint_braise_%d" % ti, lava, bevel_w=0)
+            g.box(ax, ya - 0.004, z0 + 0.02, aw - 0.16, 0.03, 0.035, "joint_braise_%d" % ti, lava, bevel_w=0)
     g.join(scales, "ecailles")
     for ti, xc0 in sorted(cracks.items()):
         (ax, ay, aw, ad), z0, (bx_, by_, bw, bd), z1 = tiers[ti]
@@ -526,12 +626,16 @@ def e5(k, even):
         pts = [g.G(xc0 + dx, ya + (yb_ - ya) * t + 0.016, z0 + (z1 - z0) * t)
                for dx, t in ((0.0, 0.08), (0.06, 0.36), (-0.04, 0.62), (0.05, 0.92))]
         g.pipe(pts, 0.03, "fissure_%d" % ti, lava, segs=8)
-    # bouche de lave à l'avant (arc)
-    fire_mouth(k, -0.13, 0.89, 0.04, 0.42, 0.16, rouille, "#FF4A10", strength=1.9, arch=True)
-    # pointes de basalte sur la dalle
-    for i, (x, y) in enumerate(((-0.48, 0.25), (0.20, 0.30))):
-        g.cyl(x, y, 0.98, 0.07, 0.30, "pointe_%d" % i, tung, verts=6, r2=0.0, bevel_w=0)
-    # cheminée blindée en tronc de pyramide, arrière droit, fente de braise près du sommet
+    # contreforts inclinés aux deux coins avant (kit d'époque) : le pied déborde, le haut s'appuie sur le gradin
+    for sx in (-1, 1):
+        xb = X + sx * 0.90
+        g.frustum(g.rect(xb, 0.80, 0.20, 0.22), 0.0, g.rect(xb - sx * 0.10, 0.70, 0.10, 0.10), 0.52,
+                  "contrefort_%d" % (sx + 1), tung, bevel_w=0.012)
+    fire_mouth(k, X, 0.89, 0.04, 0.42, 0.16, rouille, MOUTH[5], strength=1.9, arch=True)
+    # deux pointes de basalte (colonnes hexagonales à pointe) à l'ARRIÈRE de la dalle : elles sortent du profil
+    for i, (x, y, top) in enumerate(((X - 0.40, -0.17, 1.46), (X + 0.16, -0.19, 1.40))):
+        g.cyl(x, y, 0.90, 0.10, top - 0.90, "pointe_%d" % i, tung, verts=6, bevel_w=0.004)
+        g.cyl(x, y, top, 0.10, 0.13, "pointe_tete_%d" % i, tung, verts=6, r2=0.0, bevel_w=0)
     cx, cy = 0.48, -0.52
     zt = KEY[5]["chimney"][0][2]
     g.frustum(g.rect(cx, cy, 0.44, 0.44 / g.K), 0.0, g.rect(cx, cy, 0.26, 0.26 / g.K), zt, "cheminee", tung, bevel_w=0.012)
@@ -540,21 +644,28 @@ def e5(k, even):
     S.box((0.20, 0.20, 0.01), g.G(cx, cy, zt + 0.025), k.soot(), "gueule", bevel_w=0)
     o = S.box((0.12, 0.03, 0.16), g.G(cx, cy + 0.145 / g.K, zt - 0.32), lava, "fente_chem", bevel_w=0)
     o.rotation_euler = (-math.atan(0.09 / zt), 0, 0)
-    k.halo(-0.13, 0.98, 0.15, "#FF4A10", 9.0, "halo_bouche")
-    k.halo(-0.13, 0.75, 0.62, "#FF4A10", 3.0, "halo_fentes")
+    k.halo(X, 0.98, 0.15, MOUTH[5], 9.0, "halo_bouche")
+    k.halo(X, 0.75, 0.62, "#FF4A10", 3.0, "halo_fentes")
     if even:
-        # rigole de coulée de lave qui déborde à l'avant (+0,20 au sud) et lingotière
+        # rigole de coulée (correction V3, mineur 2 : « tracé vectoriel », ne se lisait pas comme un canal) : lit en
+        # U creusé entre deux RIVES de pierre à blocs irréguliers, lave en retrait sous une croûte (texture), bec
+        # de coulée, lingotière à droite
         st = k.stone("pierre", "#3A3634", gain=1.4, rough=0.9)
         y0, y1 = 0.80, 1.18
-        g.box(-0.13, (y0 + y1) / 2, 0.0, 0.50, (y1 - y0) * g.K, 0.10, "rigole_fond", st, bevel_w=0.015)
+        g.box(X, (y0 + y1) / 2, 0.0, 0.54, (y1 - y0) * g.K, 0.08, "rigole_fond", st, bevel_w=0.015)
+        rocks = []
         for sx in (-1, 1):
-            g.box(-0.13 + sx * 0.22, (y0 + y1) / 2, 0.08, 0.07, (y1 - y0) * g.K, 0.10, "rigole_bord_%d" % (sx + 1), st,
-                  bevel_w=0.012)
-        g.box(-0.13, (y0 + y1) / 2 + 0.02, 0.10, 0.36, (y1 - y0) * g.K - 0.06, 0.02, "rigole_lave", lava, bevel_w=0)
-        # lingotière en bout de rigole (déborde à droite), lave figée lumineuse
-        g.box(0.30, 1.10, 0.0, 0.40, 0.30, 0.16, "lingotiere", tung, bevel_w=0.015)
-        g.box(0.30, 1.10, 0.16, 0.30, 0.20, 0.012, "lingot", lava, bevel_w=0)
-        k.halo(-0.13, 1.12, 0.15, "#FF4A10", 4.0, "halo_rigole")
+            for j in range(4):
+                yy = y0 + 0.05 + j * (y1 - y0 - 0.10) / 3
+                hh = 0.16 + 0.03 * ((j + (sx > 0)) % 2)
+                rocks.append(g.box(X + sx * 0.22, yy, 0.0, 0.10, 0.13, hh, "rive_%d_%d" % (sx + 1, j), st, bevel_w=0.025))
+        g.join(rocks, "rives")
+        lav2 = k.emit("lave", "#FF4A10", 1.8)
+        g.box(X, (y0 + y1) / 2 + 0.01, 0.08, 0.32, (y1 - y0) * g.K - 0.04, 0.02, "rigole_lave", lav2, bevel_w=0)
+        S.box((0.30, 0.10, 0.03), g.G(X, y0 - 0.005, 0.10), st, "bec_coulee", bevel_w=0.01)
+        g.box(0.33, 1.10, 0.0, 0.36, 0.30, 0.16, "lingotiere", tung, bevel_w=0.015)
+        g.box(0.33, 1.10, 0.16, 0.26, 0.20, 0.012, "lingot", lav2, bevel_w=0)
+        k.halo(X, 1.12, 0.15, "#FF4A10", 4.0, "halo_rigole")
 
 
 # -------------------------------------------------------------------------------------------------
@@ -575,7 +686,9 @@ def e6(k, even):
     cuivre = k.metal("cuivre", gain=1.6, rough=0.3, metallic=0.85, dirt=0.3)
     graph = k.metal("graphite", "#2A2A2C", gain=1.6, rough=0.55, metallic=0.2, grain=0.15)
     cyan = k.emit("arc", "#60D0FF", 1.8)
-    vx, vy = -0.15, 0.12
+    # cuve avancée de 0,10 vers le sud (correction V3, majeur 2 : bas du masque à +0,70 seulement), électrodes,
+    # mât et isolateurs relevés de 0,20 pour garder le sommet
+    vx, vy = -0.15, 0.22
     # cuve ronde et couvercle bombé
     g.lathe([(0.74, 0.0), (0.78, 0.08), (0.78, 0.55), (0.80, 0.62)], (vx, vy), "cuve", acier, segs=48)
     g.lathe([(0.80, 0.62), (0.74, 0.70), (0.55, 0.80), (0.30, 0.86), (0.0, 0.88)], (vx, vy), "couvercle",
@@ -583,12 +696,12 @@ def e6(k, even):
     for z in (0.18, 0.45):
         S.torus(0.785, 0.025, g.G(vx, vy, z), cuivre, "barre_%d" % int(z * 100))
     # trou de coulée (bouche) : bec avant avec métal en fusion
-    fire = k.emit("bouche", PRM.FIRE, 1.8)
+    fire = k.emit("bouche", MOUTH[6], 1.8)
     g.box(vx, vy + 0.62, 0.24, 0.24, 0.40, 0.12, "bec", acier, bevel_w=0.02)
     g.box(vx, vy + 0.66, 0.36, 0.14, 0.30, 0.01, "coulee", fire, bevel_w=0)
     S.box((0.30, 0.03, 0.12), g.G(vx, vy + 0.555, 0.30), fire, "trou_coulee", bevel_w=0)
     # 3 électrodes verticales (graphite), colliers lumineux cyan au passage du couvercle
-    tops = (1.40, 1.52, 1.62)
+    tops = (1.60, 1.72, 1.82)
     for i, a in enumerate((math.radians(250), math.radians(10), math.radians(130))):
         ex = vx + 0.30 * math.cos(a)
         ey = vy - 0.30 * math.sin(a) / g.K
@@ -598,13 +711,13 @@ def e6(k, even):
         g.cyl(ex, ey, tops[i] - 0.22, 0.11, 0.12, "pince_%d" % i, cuivre, verts=20)
         g.cyl_between(g.G(ex, ey, tops[i] - 0.16), g.G(-0.80, -0.30, tops[i] - 0.16), 0.035, "bras_%d" % i, cuivre, verts=10)
     # mât gauche et piles d'isolateurs
-    g.box(-0.80, -0.30, 0.0, 0.14, 0.14, 1.60, "mat", acier, bevel_w=0.01)
-    insulator_stack(k, -0.80, -0.30, 1.60, 2, "isol_mat")
-    for i, z in enumerate((0.95, 1.12)):
+    g.box(-0.80, -0.30, 0.0, 0.14, 0.14, 1.80, "mat", acier, bevel_w=0.01)
+    insulator_stack(k, -0.80, -0.30, 1.80, 2, "isol_mat")
+    for i, z in enumerate((1.15, 1.32)):
         insulator_stack(k, -0.62, -0.18, z, 2, "isol_bras_%d" % i, r=0.06)
     # arcs (zigzags émissifs) entre les sommets des électrodes
     pts = [g.G(vx + 0.30 * math.cos(math.radians(250)), vy - 0.30 * math.sin(math.radians(250)) / g.K, 0.95),
-           g.G(vx - 0.02, vy + 0.02, 1.05), g.G(vx + 0.05, vy - 0.06, 0.98),
+           g.G(vx - 0.02, vy + 0.02, 1.08), g.G(vx + 0.05, vy - 0.06, 1.00),
            g.G(vx + 0.30 * math.cos(math.radians(10)), vy - 0.30 * math.sin(math.radians(10)) / g.K, 1.02)]
     g.pipe(pts, 0.025, "arc_1", cyan, segs=8)
     # extraction des fumées : coude depuis le couvercle vers la gaine arrière droite (cheminée)
@@ -616,11 +729,11 @@ def e6(k, even):
     insulator_stack(k, cx, cy, zt - 0.36, 3, "isol_gaine", r=0.165)
     smoke_mouth(k, cx, cy, zt, cr - 0.02)
     g.pipe([g.G(vx + 0.35, vy - 0.30, 0.82), g.G(0.35, -0.45, 1.05), g.G(cx - 0.05, cy, 1.10)], 0.08, "coude_fumees", acier)
-    k.halo(vx, 0.98, 0.30, PRM.FIRE, 8.0, "halo_bouche")
+    k.halo(vx, 0.98, 0.30, MOUTH[6], 8.0, "halo_bouche")
     k.halo(vx, vy, 1.05, "#60D0FF", 4.0, "halo_arcs")
     if even:
         # transformateur à ailettes et traversées en céramique, flanc gauche
-        tx, ty = -0.88, -0.25
+        tx, ty = -0.84, -0.25                               # ailettes à -1,10 (était -1,14 ; mineur 5)
         g.box(tx, ty, 0.0, 0.36, 0.70, 0.62, "transfo", acier, bevel_w=0.015)
         fins = []
         for i in range(7):
@@ -674,10 +787,17 @@ def e7(k, even):
     S.torus(0.56, 0.035, g.G(px, py, 0.96), bronze, "levre_creuset")
     # bain violet en retrait sous une croûte sombre (le premier essai, bain plein de 0,52, faisait une table rose)
     g.cyl(px, py, 0.80, 0.50, 0.05, "croute", k.soot(), verts=48, bevel_w=0)
-    g.cyl(px, py, 0.84, 0.36, 0.03, "bain", k.emit("bain", "#8A50E0", 1.1), verts=48, bevel_w=0)
+    # bain réduit (rayon 0,36 -> 0,24 ; correction V3, mineur 2 : part émissive de l'époque 7 à 18-22 % pour 5 %
+    # proposés par la bible) : la croûte sombre occupe le reste du creuset
+    g.cyl(px, py, 0.84, 0.24, 0.03, "bain", k.emit("bain", "#8A50E0", 1.1), verts=48, bevel_w=0)
     # 4 griffes de cristal pointées vers le haut (hauteurs asymétriques), avec éclats lumineux au pied
-    claws = [(-0.78, 0.62, 0.95, (0.10, 0.05)), (0.52, 0.66, 1.15, (-0.10, 0.06)),
-             (-0.80, -0.30, 1.55, (0.12, -0.04)), (0.40, -0.22, 1.30, (-0.10, -0.03))]
+    # griffes replacées (correction V3, majeur 3 : 2 événements de silhouette pour 3 à 4 en ère III) : la griffe
+    # arrière droite s'écarte de la cheminée (x 0,40 -> 0,20), un CRISTAL CENTRAL perce la croûte du bain ; le
+    # profil a ainsi 4 sommets séparés (griffe gauche, cristal central, griffe droite, cheminée)
+    claws = [(-0.80, 0.55, 1.05, (0.10, 0.05)), (0.50, 0.62, 0.95, (-0.10, 0.06)),
+             (-0.72, -0.30, 1.62, (0.10, -0.04)), (0.20, -0.34, 1.42, (-0.06, -0.03))]
+    crystal(k, -0.30, -0.06, 0.78, 0.11, 1.02, (0.03, 0.0), "cristal_central", cris, rot=0.2)
+    crystal(k, -0.16, 0.02, 0.80, 0.07, 0.55, (0.06, -0.02), "cristal_central_b", cris, rot=0.7)
     for i, (x, y, h, ln) in enumerate(claws):
         crystal(k, x, y, 0.22, 0.13, h, ln, "griffe_%d" % i, cris, rot=0.3 * i)
         crystal(k, x + 0.10, y + 0.06, 0.25, 0.07, h * 0.45, (ln[0] * 0.6 + 0.08, ln[1]), "eclat_%d" % i, cglow, rot=0.5)
@@ -746,16 +866,33 @@ def e8(k, even):
                       0.035, "pied_berceau_%d" % i, vdg, verts=10)
     zc, r = 0.95, 0.60
     alembic(k, bx, by, zc, r, "alambic", verre, liq, vdg)
-    # col de cygne : monte, s'arrondit et redescend vers la cheminée arrière droite
+    # correction V3 (majeur 3 : 1 seul événement de silhouette pour 3 à 4 en ère III) : TÊTE d'alambic (petite
+    # sphère de verre) coiffée d'un évent vertical, col de cygne ABAISSÉ qui part de la tête et ne domine plus le
+    # profil, COLONNE de condensation à bulbe à l'arrière gauche ; sommets : colonne, évent, cheminée
     cx0, cy0, _ = g.G(bx, by, 0)
     chx, chy = 0.62, -0.55
     zt = KEY[8]["chimney"][0][2]
     p_ch = g.G(chx, chy, 0)
-    neck = [(cx0, cy0, zc + r - 0.05), (cx0, cy0 + 0.05, zc + r + 0.25), (cx0 + 0.15, cy0 + 0.25, zc + r + 0.45),
-            (cx0 + 0.40, cy0 + 0.55, zc + r + 0.62), (p_ch[0] - 0.10, p_ch[1] - 0.05, zc + r + 0.45),
-            (p_ch[0], p_ch[1], zt - 0.25)]
-    g.pipe(neck, 0.085, "col_de_cygne", vdg)
-    S.torus(0.10, 0.025, (cx0, cy0, zc + r + 0.02), caout, "joint_col")
+    zh = zc + r + 0.17
+    g.cyl(bx, by, zc + r - 0.06, 0.07, 0.14, "col_tete", vdg, verts=20)
+    S.sphere(0.15, (cx0, cy0, zh), verre, "tete_alambic", seg=32, rings=16)
+    S.torus(0.155, 0.02, (cx0, cy0, zh), vdg, "ceinture_tete")
+    g.cyl(bx, by, zh + 0.12, 0.05, 2.28 - zh - 0.12, "event_tete", vdg, verts=16)
+    g.cyl(bx, by, 2.24, 0.075, 0.05, "chapeau_event", caout, verts=16, bevel_w=0.004)
+    neck = [(cx0 + 0.13, cy0, zh), (cx0 + 0.30, cy0 + 0.12, zh + 0.10), (cx0 + 0.52, cy0 + 0.36, zh + 0.10),
+            (p_ch[0] - 0.12, p_ch[1] - 0.06, zh - 0.02), (p_ch[0], p_ch[1], zt - 0.45)]
+    g.pipe(neck, 0.075, "col_de_cygne", vdg)
+    S.torus(0.09, 0.022, (cx0 + 0.13, cy0, zh), caout, "joint_col")
+    # colonne de condensation à bulbe, arrière gauche
+    qx, qy = -0.52, -0.42
+    g.cyl(qx, qy, 0.0, 0.10, 0.12, "pied_colonne", vdg, verts=20)
+    g.cyl(qx, qy, 0.12, 0.055, 1.42, "tube_colonne", verre, verts=20)
+    for z in (0.40, 0.80, 1.20):
+        S.torus(0.06, 0.016, g.G(qx, qy, z), vdg, "bague_colonne")
+    S.sphere(0.14, g.G(qx, qy, 1.62), verre, "bulbe_colonne", seg=32, rings=16)
+    S.torus(0.145, 0.018, g.G(qx, qy, 1.62), vdg, "ceinture_bulbe_colonne")
+    g.cyl(qx, qy, 1.74, 0.04, 0.10, "event_colonne", vdg, verts=12)
+    g.pipe([g.G(qx, qy, 1.10), g.G(qx + 0.12, qy + 0.10, 1.05), g.G(bx - 0.30, by - 0.20, zc + 0.30)], 0.03, "tube_condenseur", caout)
     # cheminée : colonne de verre et vert-de-gris, bulbe d'évent
     g.cyl(chx, chy, 0.0, 0.12, zt - 0.30, "colonne", vdg, verts=32)
     S.sphere(0.16, g.G(chx, chy, zt - 0.22), verre, "bulbe_event", seg=32, rings=16)
@@ -768,7 +905,7 @@ def e8(k, even):
     k.halo(bx, 0.98, 0.08, "#A8FF3A", 6.0, "halo_bouche")
     k.halo(bx, by + 0.3, 0.70, "#A8FF3A", 5.0, "halo_alambic")
     if even:
-        sx, sy, sz, sr = -0.92, -0.25, 0.80, 0.30
+        sx, sy, sz, sr = -0.76, -0.25, 0.80, 0.30           # bord ouest -1,10 avec la ceinture (était -1,22 ; mineur 5)
         alembic(k, sx, sy, sz, sr, "alambic2", verre, liq, vdg)
         for i in range(3):
             a = 2 * math.pi * i / 3 + 0.2
@@ -815,13 +952,26 @@ def e9(k, even):
     g.lathe([(0.255, 1.60), (0.27, 1.75)], (cx, cy), "bande_tour", jaune, segs=40, cap_top=False, cap_bottom=False)
     g.cyl(cx, cy, zt - 0.12, 0.26, 0.11, "fond_tour", k.soot(), verts=40, bevel_w=0)
     S.torus(0.24, 0.03, g.G(cx, cy, zt - 0.10), vert, "vapeur_verte")
+    # correction V3 (majeur 3 : 2 événements pour 3 à 4 en ère III) : cheminée de ventilation octogonale au
+    # sommet du dôme (bande jaune), mât-balise de radiation à gauche
+    g.lathe([(0.14, 1.00), (0.14, 1.62), (0.16, 1.66), (0.16, 1.74), (0.12, 1.76)], (bx, by - 0.16), "ventilation", plomb,
+            segs=8, phase=ph, smooth_deg=None, bevel_w=0.006, cap_top=False)
+    g.lathe([(0.145, 1.42), (0.145, 1.52)], (bx, by - 0.16), "ventilation_bande", jaune, segs=8, phase=ph, smooth_deg=None,
+            cap_top=False, cap_bottom=False)
+    g.cyl(bx, by - 0.16, 1.66, 0.10, 0.06, "ventilation_fond", k.soot(), verts=8, bevel_w=0)
+    g.cyl(-0.64, 0.02, 0.80, 0.055, 0.78, "mat_balise", jaune, verts=10, bevel_w=0.004)
+    S.sphere(0.095, g.G(-0.64, 0.02, 1.66), k.emit("balise", "#5CFF4A", 1.4), "balise", seg=16, rings=8)
+    S.torus(0.10, 0.02, g.G(-0.64, 0.02, 1.60), plomb, "collier_balise")
     k.halo(bx, 0.98, 0.20, "#5CFF4A", 7.0, "halo_bouche")
     k.halo(bx, 0.55, 0.62, "#5CFF4A", 4.0, "halo_hublots")
     if even:
         # conduit annelé sur le flanc droit, de la base jusqu'à la tour
         pts = [g.G(0.62, 0.55, 0.20), g.G(0.92, 0.45, 0.30), g.G(0.95, 0.10, 0.65), g.G(0.92, -0.20, 1.10),
                g.G(cx + 0.22, cy + 0.05, 1.30)]
-        g.pipe(pts, 0.085, "conduit_annele", plomb)
+        # contraste au gris (correction V3, mineur 3) : conduit galvanisé clair, anneaux jaunes et noirs alternés
+        galv = k.metal("galva_conduit", "#9EA4AA", gain=1.6, rough=0.32, metallic=0.75, dirt=0.35, grain=0.08)
+        noirc = k.metal("noir_conduit", "#1E1E20", gain=1.4, rough=0.5, metallic=0.4)
+        g.pipe(pts, 0.085, "conduit_annele", galv)
         # anneaux le long du conduit
         from mathutils import Vector
         rings = []
@@ -830,7 +980,7 @@ def e9(k, even):
             d = vb - va
             for i in range(1, 4):
                 p = va + d * (i / 4)
-                o = S.torus(0.10, 0.022, tuple(p), jaune if i == 2 else plomb, "anneau", minor_seg=8)
+                o = S.torus(0.10, 0.026, tuple(p), jaune if i % 2 else noirc, "anneau", minor_seg=8)
                 o.rotation_mode = "QUATERNION"
                 o.rotation_quaternion = d.normalized().to_track_quat("Z", "Y")
                 rings.append(o)
@@ -839,68 +989,146 @@ def e9(k, even):
 
 
 # -------------------------------------------------------------------------------------------------
-# Époque 10 · Haute technologie : capsule d'induction sur pieds courts ; pièce : écran et antenne
+# Ères IV et V : ancrage au sol (correction V3, problème majeur 2)
 # -------------------------------------------------------------------------------------------------
+# Le vérificateur a mesuré le bas des masques des niveaux 19 à 30 à y = +0,31..+0,62 (vanilla : +1,02) : le
+# bâtiment n'occupait plus le tiers sud de son emprise et paraissait décalé vers le nord. Deux remèdes, tous
+# deux demandés au choix et cumulés ici :
+# (a) des PIEDS ou plots aux coins de l'emprise ; les pieds avant arrivent à y ≈ +0,76 (+0,84 avec la
+#     semelle) ; ils font partie du masque D1 ;
+# (b) une PLAQUE AU SOL par époque, de la taille de l'emprise 2×2 (couche « patch » : integration_patch du
+#     prototype, couche lower-object, bible §1.8.8), rendue à part (passes.py) et exclue du masque D1 (Q13).
+# Pas de matériau émissif dans les plaques : les couches de lueur restent les seules sources de couleur vive.
+FRONT_Y, BACK_Y = 0.76, -0.62
+
+
+def ground_pad(k, top, rim, inlay=None, name="plaque", inset=0.04, square=0.74):
+    """Plaque au sol (patch) : dalle de l'emprise moins un retrait, cadre en saillie, liseré peint en carré."""
+    g = k.g
+    w = 2.0 - 2 * inset
+    objs = [g.box(0.0, 0.0, 0.0, w, w * g.K, 0.020, name + "_dalle", top, bevel_w=0.006)]
+    b = 0.07
+    for i, (cx, cy, ww, dd) in enumerate(((0.0, w / 2 - b / 2, w, b), (0.0, -w / 2 + b / 2, w, b),
+                                          (-w / 2 + b / 2, 0.0, b, w - 2 * b), (w / 2 - b / 2, 0.0, b, w - 2 * b))):
+        objs.append(g.box(cx, cy, 0.0, ww, dd * g.K, 0.030, "%s_cadre_%d" % (name, i), rim, bevel_w=0.008))
+    for i, (cx, cy, ww, dd) in enumerate(((0.0, 0.0, w - 0.1, 0.03), (0.0, 0.0, 0.03, w - 0.1))):
+        objs.append(g.box(cx, cy, 0.0, ww, dd * g.K, 0.022, "%s_joint_%d" % (name, i), rim, bevel_w=0.002))
+    if inlay is not None:
+        q, t = square, 0.035
+        for i, (cx, cy, ww, dd) in enumerate(((0.0, q, 2 * q, t), (0.0, -q, 2 * q, t), (-q, 0.0, t, 2 * q), (q, 0.0, t, 2 * q))):
+            objs.append(g.box(cx, cy, 0.0, ww, dd * g.K, 0.024, "%s_liseret_%d" % (name, i), inlay, bevel_w=0.002))
+        for i, (sx, sy) in enumerate(((-1, 1), (1, 1), (-1, -1), (1, -1))):
+            objs.append(g.box(sx * q, sy * q, 0.0, 0.14, 0.14 * g.K, 0.026, "%s_coin_%d" % (name, i), rim, bevel_w=0.01))
+    return g.mark_patch(objs)
+
+
+def foot(k, x, y, mat, r=0.085, h=0.06, name="pied"):
+    """Semelle au sol ; renvoie le point d'attache (Blender) au-dessus."""
+    k.g.cyl(x, y, 0.0, r, h, name + "_semelle", mat, verts=16, bevel_w=0.01)
+    return k.g.G(x, y, h)
+
+
+def leg(k, foot_pt, att, knee_z, mat, r, name, joint_mat=None):
+    """Jambe en deux segments (pied -> genou relevé -> attache), genou sphérique."""
+    g, S = k.g, k.S
+    kx = foot_pt[0] + 0.45 * (att[0] - foot_pt[0])
+    ky = foot_pt[1] + 0.45 * (att[1] - foot_pt[1])
+    knee = (kx, ky, knee_z)
+    g.cyl_between(foot_pt, knee, r, name + "_bas", mat, verts=12)
+    g.cyl_between(knee, att, r * 0.9, name + "_haut", mat, verts=12)
+    S.sphere(r * 1.35, knee, joint_mat or mat, name + "_genou", seg=16, rings=8)
+
+
+# -------------------------------------------------------------------------------------------------
+# Époque 10 · Haute technologie : capsule d'induction sur 4 pieds aux coins ; pièce : écran et antenne
+# -------------------------------------------------------------------------------------------------
+# Correction V3 : pieds aux 4 coins de l'emprise, plaque au sol ; capsule affinée (rayon 0,56 -> 0,46) pour
+# libérer le profil ; 4 sommets séparés (ère IV : 4 à 5 événements) : parabole sur mât à gauche, pointe-voyant
+# au sommet de la capsule, mât-capteur à droite, mât d'évacuation (cheminée) déplacé à x 0,72.
+E10 = {"cx": -0.14, "cy": 0.02}
+
+
 def e10(k, even):
     g, S = k.g, k.S
     car = k.metal("carenage", gain=1.25, rough=0.30, metallic=0.25, grain=0.06, dirt=0.35)
     noir = k.metal("noir", gain=1.6, rough=0.55, metallic=0.3, grain=0.05, dirt=0.2)
     bleu = k.emit("bleu", "#3AA8FF", 1.8)
-    fire = k.emit("bouche", "#FFB060", 1.6)
-    cx, cy = -0.12, -0.02
-    # 4 pieds courts écartés, anneau de base noir (vide dessous)
-    for i, a in enumerate((math.radians(45), math.radians(135), math.radians(225), math.radians(315))):
-        fx, fy = cx + 0.62 * math.cos(a), cy - 0.62 * math.sin(a) / g.K
-        g.cyl_between(g.G(fx, fy, 0.03), g.G(cx + 0.48 * math.cos(a), cy - 0.48 * math.sin(a) / g.K, 0.30), 0.045,
-                      "pied_%d" % i, noir, verts=12)
-        g.cyl(fx, fy, 0.0, 0.07, 0.04, "semelle_%d" % i, noir, verts=16)
-    g.lathe([(0.40, 0.26), (0.66, 0.28), (0.68, 0.36), (0.40, 0.40)], (cx, cy), "anneau_base", noir, segs=48)
+    fire = k.emit("bouche", MOUTH[10], 1.6)
+    cx, cy = E10["cx"], E10["cy"]
+    ground_pad(k, k.metal("dalle", "#5C6066", gain=1.3 / k.k_alb, rough=0.62, metallic=0.3, grain=0.18, dirt=0.5), noir,
+               inlay=k.metal("peinture_bleue", "#2F6FA8", gain=1.0, rough=0.45, metallic=0.1))
+    # anneau de base noir (vide dessous) et voyants
+    g.lathe([(0.34, 0.30), (0.56, 0.32), (0.58, 0.40), (0.34, 0.44)], (cx, cy), "anneau_base", noir, segs=48)
     led = []
     for i in range(7):
         a = math.radians(200 + i * 20)
-        led.append(S.sphere(0.022, g.G(cx + 0.68 * math.cos(a), cy - 0.68 * math.sin(a) / g.K, 0.33), bleu, "led_%d" % i, seg=8, rings=4))
+        led.append(S.sphere(0.024, g.G(cx + 0.58 * math.cos(a), cy - 0.58 * math.sin(a) / g.K, 0.36), bleu, "led_%d" % i,
+                            seg=8, rings=4))
     g.join(led, "leds_base")
+    # 4 pieds aux coins de l'emprise, genoux relevés (silhouette d'atterrisseur)
+    cxb, cyb, _ = g.G(cx, cy, 0)
+    for i, (fx, fy) in enumerate(((cx - 0.62, FRONT_Y), (cx + 0.62, FRONT_Y), (cx - 0.62, BACK_Y), (cx + 0.56, BACK_Y))):
+        fp = foot(k, fx, fy, noir, name="pied_%d" % i)
+        a = math.atan2(fp[1] - cyb, fp[0] - cxb)
+        leg(k, fp, (cxb + 0.50 * math.cos(a), cyb + 0.50 * math.sin(a), 0.36), 0.62, noir, 0.040, "jambe_%d" % i, car)
     # capsule lisse verticale
-    r, z0, z1 = 0.56, 0.36, 2.30
-    prof = [(0.001, z0), (0.30, z0 + 0.02)] + [(r * math.sin(math.pi / 2 * i / 6), z0 + 0.25 - 0.25 * math.cos(math.pi / 2 * i / 6))
+    r, z0, z1 = 0.46, 0.40, 2.25
+    prof = [(0.001, z0), (0.26, z0 + 0.02)] + [(r * math.sin(math.pi / 2 * i / 6), z0 + 0.22 - 0.22 * math.cos(math.pi / 2 * i / 6))
                                               for i in range(2, 7)]
     prof += [(r, z1 - r)] + [(r * math.cos(math.pi / 2 * i / 8), z1 - r + r * math.sin(math.pi / 2 * i / 8)) for i in range(1, 8)]
     prof += [(0.001, z1)]
     g.lathe(prof, (cx, cy), "capsule", car, segs=56, smooth_deg=60)
-    # anneaux d'induction bleus (bandes épaisses : zones lumineuses >= 8 px HR)
     for z in (1.05, 1.55):
-        g.lathe([(r + 0.012, z), (r + 0.012, z + 0.18)], (cx, cy), "induction_%d" % int(z * 100), bleu, segs=56,
+        g.lathe([(r + 0.012, z + 0.035), (r + 0.012, z + 0.145)], (cx, cy), "induction_%d" % int(z * 100), bleu, segs=56,
                 cap_top=False, cap_bottom=False)
         g.lathe([(r + 0.02, z - 0.03), (r + 0.02, z)], (cx, cy), "joint_%d" % int(z * 100), noir, segs=56)
-    # fenêtre de coulée à l'avant (bouche)
-    S.box((0.30, 0.05, 0.30), g.G(cx, cy + r / g.K + 0.005, 0.72), fire, "fenetre_bouche", bevel_w=0.01)
-    S.box((0.40, 0.06, 0.05), g.G(cx, cy + r / g.K + 0.012, 0.895), noir, "cadre_bouche_h", bevel_w=0.005)
-    S.box((0.40, 0.06, 0.05), g.G(cx, cy + r / g.K + 0.012, 0.545), noir, "cadre_bouche_b", bevel_w=0.005)
-    # mât d'évacuation caréné, arrière droit (la cheminée), bandeau bleu
-    mx, my = 0.66, -0.62
+    # pointe-voyant au sommet
+    g.cyl(cx, cy, z1 - 0.04, 0.10, 0.06, "embase_pointe", noir, verts=24)
+    g.cyl(cx, cy, z1 + 0.02, 0.05, 0.40, "pointe", noir, verts=12, r2=0.035)
+    S.sphere(0.06, g.G(cx, cy, z1 + 0.46), bleu, "pointe_led", seg=16, rings=8)
+    # fenêtre de coulée (bouche)
+    S.box((0.28, 0.05, 0.28), g.G(cx, cy + r / g.K + 0.005, 0.74), fire, "fenetre_bouche", bevel_w=0.01)
+    S.box((0.38, 0.06, 0.05), g.G(cx, cy + r / g.K + 0.012, 0.905), noir, "cadre_bouche_h", bevel_w=0.005)
+    S.box((0.38, 0.06, 0.05), g.G(cx, cy + r / g.K + 0.012, 0.575), noir, "cadre_bouche_b", bevel_w=0.005)
+    # parabole sur mât, arrière gauche
+    px, py = -0.86, -0.30
+    g.cyl(px, py, 0.0, 0.06, 0.08, "pied_parabole", noir, verts=16)
+    g.cyl(px, py, 0.08, 0.032, 1.22, "mat_parabole", noir, verts=10)
+    S.cylinder(0.05, 0.10, g.G(px, py, 1.36), car, "parabole", verts=32, radius2=0.17, rot=(math.radians(-25), 0, 0),
+               bevel_w=0.004)
+    g.cyl_between(g.G(px, py, 1.40), g.G(px, py + 0.10, 1.62), 0.012, "source_parabole", noir, verts=6)
+    S.sphere(0.03, g.G(px, py + 0.10, 1.63), bleu, "source_led", seg=10, rings=5)
+    # mât-capteur à droite, sur l'anneau de base, tenu à la capsule
+    qx, qy = 0.40, 0.06
+    g.cyl(qx, qy, 0.40, 0.04, 1.92, "capteur_mat", noir, verts=10)
+    g.cyl(qx, qy, 2.30, 0.07, 0.12, "capteur_tete", car, verts=20, bevel_w=0.01)
+    S.sphere(0.035, g.G(qx, qy, 2.46), bleu, "capteur_led", seg=10, rings=5)
+    g.cyl_between(g.G(qx, qy, 1.80), g.G(cx + r * 0.95, cy, 1.80), 0.02, "bras_capteur", noir, verts=8)
+    # mât d'évacuation caréné, arrière droit (la cheminée)
+    mx, my = 0.72, -0.62
     zt = KEY[10]["chimney"][0][2]
     g.box(mx, my, 0.0, 0.24, 0.24, zt - 0.08, "mat", car, bevel_w=0.06)
     g.box(mx, my, zt - 0.08, 0.20, 0.20, 0.08, "event", noir, bevel_w=0.03)
     S.box((0.08, 0.02, 0.60), g.G(mx, my + 0.12 / g.K + 0.01, 1.10), bleu, "bandeau_mat", bevel_w=0)
-    g.cyl_between(g.G(mx - 0.12, my + 0.05, 0.80), g.G(cx + 0.45, cy - 0.20, 0.95), 0.05, "liaison", noir, verts=16)
+    g.cyl_between(g.G(mx - 0.12, my + 0.05, 0.80), g.G(cx + 0.35, cy - 0.20, 0.95), 0.05, "liaison", noir, verts=16)
     S.box((0.14, 0.14, 0.01), g.G(mx, my, zt + 0.002), k.soot(), "gueule", bevel_w=0)
-    k.halo(cx, 0.60, 0.70, "#FFB060", 7.0, "halo_bouche")
+    k.halo(cx, 0.60, 0.74, MOUTH[10], 7.0, "halo_bouche")
     k.halo(cx, cy + 0.45, 1.30, "#3AA8FF", 4.0, "halo_anneaux")
     if even:
-        # écran latéral sur bras articulé et antenne fouet (flanc gauche)
-        ex, ey, ez = -0.98, 0.05, 1.25
-        g.cyl_between(g.G(cx - 0.50, cy, 1.20), g.G(ex + 0.20, ey, ez - 0.05), 0.035, "bras_ecran", noir, verts=12)
-        scr = S.box((0.44, 0.04, 0.40), g.G(ex, ey, ez), noir, "ecran", bevel_w=0.015)
+        # écran latéral sur bras articulé et antenne fouet (flanc gauche, devant ; bord ouest ≤ -1,10)
+        ex, ey, ez = -0.82, 0.36, 1.00
+        g.cyl_between(g.G(cx - 0.42, cy + 0.10, 1.12), g.G(ex + 0.18, ey, ez - 0.02), 0.035, "bras_ecran", noir, verts=12)
+        scr = S.box((0.48, 0.04, 0.42), g.G(ex, ey, ez), noir, "ecran", bevel_w=0.015)
         scr.rotation_euler = (math.radians(-12), 0, math.radians(-18))
-        face = S.box((0.38, 0.01, 0.34), g.G(ex + 0.006, ey + 0.016, ez), bleu, "ecran_face", bevel_w=0)
+        face = S.box((0.42, 0.01, 0.36), g.G(ex + 0.006, ey + 0.016, ez), bleu, "ecran_face", bevel_w=0)
         face.rotation_euler = (math.radians(-12), 0, math.radians(-18))
-        g.cyl(ex - 0.12, ey - 0.05, ez + 0.20, 0.012, 1.10, "antenne_fouet", noir, verts=6, bevel_w=0)
-        S.sphere(0.03, g.G(ex - 0.12, ey - 0.05, ez + 1.31), bleu, "pointe_antenne", seg=10, rings=5)
+        g.cyl(ex - 0.10, ey - 0.05, ez + 0.18, 0.012, 1.00, "antenne_fouet", noir, verts=6, bevel_w=0)
+        S.sphere(0.03, g.G(ex - 0.10, ey - 0.05, ez + 1.19), bleu, "pointe_antenne", seg=10, rings=5)
         k.halo(ex, ey + 0.2, ez, "#3AA8FF", 3.0, "halo_ecran")
 
 
 # -------------------------------------------------------------------------------------------------
-# Époque 11 · Titane : four vertical élancé à 4 ailerons, sur pieds ; pièce : aileron dorsal
+# Époque 11 · Titane : four vertical élancé, ailerons relevés en flèche, 4 pieds aux coins ; pièce : aileron dorsal
 # -------------------------------------------------------------------------------------------------
 def fin(k, x, y, ang, r_in, z_lo, z_hi, r_out, z_out, name, mat, thick=0.035):
     """Aileron triangulaire dans le plan vertical radial d'angle ang (Blender) autour de (x, y) de jeu."""
@@ -911,135 +1139,179 @@ def fin(k, x, y, ang, r_in, z_lo, z_hi, r_out, z_out, name, mat, thick=0.035):
     return g.slab(pts, (cx, cy, 0.0), u, (0, 0, 1), thick, name, mat)
 
 
+# Correction V3 : ailerons RELEVÉS (pointe extérieure la plus haute, silhouette en flèche) aux angles 125°, 55°,
+# 235°, 305° ; évent (cheminée) déplacé à x 0,80 et relevé (O 1,22) ; 4 pieds en V aux coins ; plaque au sol.
+# Sommets : aileron arrière gauche, tour, aileron arrière droit, évent (ère IV : 4 à 5 événements).
+E11 = {"cx": -0.14, "cy": -0.02}
+
+
 def e11(k, even):
     g, S = k.g, k.S
     alli = k.metal("alliage", gain=1.0, rough=0.35, metallic=0.25, rust="#8A8478", rust_amount=0.35, dirt=0.45, grain=0.1)
     tit = k.metal("titane", gain=1.6, rough=0.3, metallic=0.75, dirt=0.3, grain=0.08)
     ligne = k.emit("ligne", "#BFE6FF", 1.7)
-    fire = k.emit("bouche", "#FFB060", 1.6)
-    cx, cy = -0.12, -0.05
-    # 4 pieds en V (vides au sol)
-    for i, a in enumerate((math.radians(45), math.radians(135), math.radians(225), math.radians(315))):
-        fx, fy = cx + 0.78 * math.cos(a), cy - 0.78 * math.sin(a) / g.K
+    fire = k.emit("bouche", MOUTH[11], 1.6)
+    cx, cy = E11["cx"], E11["cy"]
+    ground_pad(k, k.metal("dalle", "#8E8C88", gain=0.75 / k.k_alb, rough=0.6, metallic=0.2, grain=0.12, dirt=0.5), tit,
+               inlay=k.metal("peinture", "#6E8AA0", gain=1.0, rough=0.4, metallic=0.2))
+    # 4 pieds en V aux coins de l'emprise (vides au sol)
+    cxb, cyb, _ = g.G(cx, cy, 0)
+    for i, (fx, fy) in enumerate(((cx - 0.62, FRONT_Y), (cx + 0.62, FRONT_Y), (cx - 0.62, BACK_Y), (cx + 0.56, BACK_Y))):
+        fp = foot(k, fx, fy, tit, r=0.07, name="pied_%d" % i)
+        a = math.atan2(fp[1] - cyb, fp[0] - cxb)
         for da in (-0.25, 0.25):
-            g.cyl_between(g.G(fx, fy, 0.02), g.G(cx + 0.30 * math.cos(a + da), cy - 0.30 * math.sin(a + da) / g.K, 0.62), 0.032,
+            g.cyl_between(fp, (cxb + 0.30 * math.cos(a + da), cyb + 0.30 * math.sin(a + da), 0.62), 0.030,
                           "pied_%d_%d" % (i, int(da > 0)), tit, verts=10)
-        g.cyl(fx, fy, 0.0, 0.06, 0.04, "semelle_%d" % i, tit, verts=12)
-    # tour élancée effilée
     prof = [(0.001, 0.50), (0.30, 0.52), (0.42, 0.64), (0.42, 1.30), (0.36, 1.85), (0.24, 2.30), (0.12, 2.55), (0.001, 2.66)]
     g.lathe(prof, (cx, cy), "tour", alli, segs=48, smooth_deg=50)
     g.lathe([(0.425, 1.05), (0.42, 1.22)], (cx, cy), "bague_lumineuse", ligne, segs=48, cap_top=False, cap_bottom=False)
-    # bouche : fente verticale avant
     S.box((0.16, 0.05, 0.30), g.G(cx, cy + 0.42 / g.K - 0.01, 0.82), fire, "bouche_fente", bevel_w=0.01)
-    # 4 ailerons de refroidissement (diagonales), lignes lumineuses sur le bord d'attaque
-    for i, a in enumerate((math.radians(35), math.radians(145), math.radians(215), math.radians(325))):
-        fin(k, cx, cy, a, 0.40, 0.58, 1.70, 0.98, 0.52, "aileron_%d" % i, alli)
-        bx, by, _ = g.G(cx, cy, 0)
-        g.cyl_between((bx + 0.98 * math.cos(a), by + 0.98 * math.sin(a), 0.54),
-                      (bx + 0.40 * 0.9 * math.cos(a), by + 0.40 * 0.9 * math.sin(a), 1.68), 0.022, "ligne_%d" % i, ligne, verts=8)
-    # évent effilé à l'arrière droit (la cheminée)
-    mx, my = 0.62, -0.62
+    bx, by, _ = g.G(cx, cy, 0)
+    for i, a_deg in enumerate((125, 55, 235, 305)):
+        a = math.radians(a_deg)
+        fin(k, cx, cy, a, 0.40, 0.78, 1.55, 0.86, 2.05, "aileron_%d" % i, alli)
+        g.cyl_between((bx + 0.86 * math.cos(a), by + 0.86 * math.sin(a), 2.02),
+                      (bx + 0.42 * math.cos(a), by + 0.42 * math.sin(a), 0.82), 0.022, "ligne_%d" % i, ligne, verts=8)
+    mx, my = 0.80, -0.55
     zt = KEY[11]["chimney"][0][2]
     g.lathe([(0.15, 0.0), (0.14, 0.6), (0.12, zt - 0.30), (0.09, zt - 0.05), (0.10, zt)], (mx, my), "event", alli, segs=32,
             cap_top=False)
     g.cyl(mx, my, zt - 0.10, 0.09, 0.09, "fond_event", k.soot(), verts=24, bevel_w=0)
-    fin(k, mx, my, math.radians(0), 0.13, 0.30, 1.20, 0.32, 0.25, "aileron_event", tit, thick=0.03)
+    fin(k, mx, my, math.radians(0), 0.13, 0.30, 1.20, 0.26, 0.25, "aileron_event", tit, thick=0.03)
     g.lathe([(0.145, 0.95), (0.14, 1.12)], (mx, my), "ligne_event", ligne, segs=32, cap_top=False, cap_bottom=False)
-    k.halo(cx, 0.55, 0.80, "#FFB060", 7.0, "halo_bouche")
+    g.cyl_between(g.G(mx - 0.12, my + 0.04, 0.95), g.G(cx + 0.38, cy - 0.10, 1.00), 0.04, "liaison", tit, verts=12)
+    k.halo(cx, 0.55, 0.80, MOUTH[11], 7.0, "halo_bouche")
     k.halo(cx, cy + 0.4, 1.15, "#BFE6FF", 4.0, "halo_bague")
     if even:
-        # aileron dorsal : grand aileron triangulaire au dos du sommet, face à la caméra (plan est-ouest)
-        bx, by, _ = g.G(cx, cy - 0.28, 0)
+        bx2, by2, _ = g.G(cx, cy - 0.28, 0)
         pts = [(-0.66, 1.18), (0.66, 1.18), (0.12, 2.62), (-0.05, 2.62)]
-        g.slab(pts, (bx, by, 0.0), (1, 0, 0), (0, 0, 1), 0.05, "aileron_dorsal", tit)
-        g.slab([(-0.58, 1.24), (0.58, 1.24), (0.08, 2.45), (-0.03, 2.45)], (bx, by - 0.035, 0.0), (1, 0, 0), (0, 0, 1), 0.02,
+        g.slab(pts, (bx2, by2, 0.0), (1, 0, 0), (0, 0, 1), 0.05, "aileron_dorsal", tit)
+        g.slab([(-0.58, 1.24), (0.58, 1.24), (0.08, 2.45), (-0.03, 2.45)], (bx2, by2 - 0.035, 0.0), (1, 0, 0), (0, 0, 1), 0.02,
                "aileron_dorsal_ame", alli)
         for sx in (-1, 1):
-            g.cyl_between((bx + sx * 0.64, by - 0.03, 1.20), (bx + sx * 0.10, by - 0.03, 2.58), 0.022,
+            g.cyl_between((bx2 + sx * 0.64, by2 - 0.03, 1.20), (bx2 + sx * 0.10, by2 - 0.03, 2.58), 0.022,
                           "ligne_dorsale_%d" % (sx + 1), ligne, verts=8)
 
 
 # -------------------------------------------------------------------------------------------------
 # Époque 12 · Supraconducteurs : creuset en lévitation entre 2 anneaux ; pièce : pylône cryogénique
 # -------------------------------------------------------------------------------------------------
+# Correction V3 : 3 PÔLES magnétiques chromés dressés sur l'anneau supérieur (angles 165°, 100°, 50°) ; colonne
+# d'évacuation relevée ; 3 plots d'ancrage aux coins (le 4e coin est la colonne) ; plaque au sol. Sommets : 3 pôles
+# et la colonne (ère IV : 4 à 5).
 def e12(k, even):
     g, S = k.g, k.S
     noir = k.metal("noir", gain=1.6, rough=0.35, metallic=0.5, grain=0.05, dirt=0.25)
     chrome = k.metal("chrome", gain=1.4, rough=0.15, metallic=0.95, grain=0.05, rust="#DDEEFF", rust_amount=0.35, dirt=0.15)
     cyan = k.emit("cyan", "#4AF0FF", 1.8)
-    fire = k.emit("bouche", "#FFD080", 1.7)
+    fire = k.emit("bouche", MOUTH[12], 1.7)
     cx, cy = -0.12, 0.12
-    # socle hexagonal noir bas, fente cyan
+    ground_pad(k, k.metal("dalle", "#2C2E34", gain=1.6 / k.k_alb, rough=0.5, metallic=0.4, grain=0.12, dirt=0.4), chrome,
+               inlay=k.metal("peinture_cyan", "#2A8A96", gain=1.0, rough=0.4, metallic=0.2))
     g.frustum(g.regular(cx, cy, 0.50, 6, 0.0), 0.0, g.regular(cx, cy, 0.44, 6, 0.0), 0.16, "socle", noir, bevel_w=0.012)
     g.lathe([(0.47, 0.06), (0.47, 0.10)], (cx, cy), "fente_socle", cyan, segs=6, cap_top=False, cap_bottom=False, smooth_deg=None)
-    # anneau inférieur flottant (chrome + bande cyan)
+    # plots d'ancrage aux coins (avant gauche, avant droit, arrière gauche) reliés au socle par des poutres basses
+    for i, (fx, fy) in enumerate(((cx - 0.64, FRONT_Y), (cx + 0.64, FRONT_Y), (cx - 0.64, BACK_Y))):
+        g.frustum(g.regular(fx, fy, 0.10, 6, 0.0), 0.0, g.regular(fx, fy, 0.07, 6, 0.0), 0.34, "plot_%d" % i, noir,
+                  bevel_w=0.008)
+        g.cyl(fx, fy, 0.34, 0.075, 0.05, "plot_tete_%d" % i, chrome, verts=6, bevel_w=0.006)
+        S.sphere(0.045, g.G(fx, fy, 0.42), cyan, "plot_pole_%d" % i, seg=12, rings=6)
+        g.cyl_between(g.G(fx, fy, 0.10), g.G(cx + (fx - cx) * 0.35, cy + (fy - cy) * 0.35, 0.10), 0.035, "poutre_%d" % i,
+                      chrome, verts=10)
     for z, R in ((0.50, 0.66), (1.62, 0.58)):
         S.torus(R, 0.075, g.G(cx, cy, z), chrome, "anneau_%d" % int(z * 100), minor_seg=16)
         g.lathe([(R - 0.07, z - 0.05), (R - 0.07, z + 0.05)], (cx, cy), "bande_%d" % int(z * 100), cyan, segs=48,
                 cap_top=False, cap_bottom=False)
-    # creuset noir en lévitation entre les deux anneaux, fenêtre de bain (bouche)
+    # pôles magnétiques sur l'anneau supérieur
+    bx, by, _ = g.G(cx, cy, 0)
+    for i, (a_deg, top) in enumerate(((165, 2.20), (100, 2.42), (50, 2.22))):
+        a = math.radians(a_deg)
+        px_, py_ = bx + 0.58 * math.cos(a), by + 0.58 * math.sin(a)
+        S.cylinder(0.075, 0.10, (px_, py_, 1.70), noir, "pole_pied_%d" % i, verts=16, bevel_w=0.006)
+        S.cylinder(0.055, top - 1.75, (px_, py_, 1.75 + (top - 1.75) / 2), chrome, "pole_%d" % i, verts=16, radius2=0.04,
+                   bevel_w=0.004)
+        S.torus(0.06, 0.018, (px_, py_, top - 0.22), cyan, "pole_bague_%d" % i)
+        S.sphere(0.05, (px_, py_, top + 0.02), chrome, "pole_tete_%d" % i, seg=16, rings=8)
     g.lathe([(0.001, 0.80), (0.24, 0.82), (0.36, 0.95), (0.40, 1.12), (0.38, 1.28), (0.30, 1.36)], (cx, cy), "creuset", noir,
             segs=48, cap_top=False)
     S.torus(0.30, 0.03, g.G(cx, cy, 1.36), chrome, "levre")
     g.cyl(cx, cy, 1.30, 0.29, 0.04, "bain", fire, verts=40, bevel_w=0)
     S.box((0.26, 0.04, 0.14), g.G(cx, cy + 0.40 / g.K - 0.01, 1.08), fire, "fenetre_bain", bevel_w=0.008)
-    # colonne d'évacuation en blocs flottants (arrière droit)
     mx, my = 0.62, -0.62
     zt = KEY[12]["chimney"][0][2]
-    blocks = [(0.0, 0.42, 0.17), (0.50, 0.92, 0.155), (1.00, 1.40, 0.14), (1.48, 1.84, 0.13), (1.92, zt, 0.12)]
+    blocks = [(0.0, 0.42, 0.17), (0.50, 0.94, 0.155), (1.02, 1.44, 0.14), (1.52, 1.92, 0.13), (2.00, zt, 0.12)]
     for i, (z0, z1, r) in enumerate(blocks):
         g.frustum(g.regular(mx, my, r, 8, math.pi / 8), z0, g.regular(mx, my, r * 0.92, 8, math.pi / 8), z1, "bloc_%d" % i,
                   chrome if i % 2 else noir, bevel_w=0.01)
         if i:
             g.cyl(mx, my, z0 - 0.06, r * 0.5, 0.05, "lueur_%d" % i, cyan, verts=16, bevel_w=0)
     g.cyl(mx, my, zt - 0.06, 0.07, 0.07, "gueule", k.soot(), verts=16, bevel_w=0)
-    k.halo(cx, 0.60, 1.05, "#FFD080", 6.0, "halo_bouche")
+    k.halo(cx, 0.60, 1.05, MOUTH[12], 6.0, "halo_bouche")
     k.halo(cx, cy + 0.3, 0.50, "#4AF0FF", 4.0, "halo_anneaux")
     if even:
-        # pylône cryogénique givré à gauche, bobine cyan au sommet, tuyau vers le socle
-        px, py = -0.92, -0.25
+        px, py = -0.88, -0.25                                # bord ouest ≤ -1,10 (était -1,12 ; mineur 5)
         givre = k.metal("givre", gain=0.9, rough=0.6, metallic=0.1, grain=0.2, dirt=0.2)
         g.frustum(g.regular(px, py, 0.13, 6, 0.0), 0.0, g.regular(px, py, 0.09, 6, 0.0), 1.55, "pylone", noir, bevel_w=0.01)
         for z in (0.30, 0.70, 1.10):
             g.cyl(px, py, z, 0.13, 0.10, "givre_%d" % int(z * 100), givre, verts=20, bevel_w=0.02)
         for i in range(4):
-            S.torus(0.16, 0.035, g.G(px, py, 1.58 + i * 0.07), cyan if i % 2 == 0 else chrome, "bobine_%d" % i)
+            S.torus(0.15, 0.035, g.G(px, py, 1.58 + i * 0.07), cyan if i % 2 == 0 else chrome, "bobine_%d" % i)
         S.sphere(0.08, g.G(px, py, 1.90), chrome, "tete", seg=16, rings=8)
         g.pipe([g.G(px + 0.10, py, 0.25), g.G(px + 0.35, py + 0.15, 0.12), g.G(cx - 0.40, cy, 0.10)], 0.035, "tuyau_cryo", chrome)
         k.halo(px, py, 1.65, "#4AF0FF", 3.0, "halo_pylone")
 
 
 # -------------------------------------------------------------------------------------------------
-# Époque 13 · Fusion : sphère sur trépied, tore de plasma ; pièce : second tore incliné
+# Époque 13 · Fusion : sphère sur trépied aux coins, tore de plasma, injecteurs dressés ; pièce : second tore
 # -------------------------------------------------------------------------------------------------
+# Correction V3 : le trépied pose ses pieds aux coins de l'emprise (avant gauche, avant droit, arrière) ; plaque
+# au sol ; 3 INJECTEURS dressés sur le tore (165°, 115°, 65°) et une antenne-électrode au sommet de la sphère.
+# Sommets : injecteurs, antenne, flèche d'évacuation (ère V : 5 à 6 événements).
 def e13(k, even):
     g, S = k.g, k.S
     cer = k.metal("ceramique", gain=1.0, rough=0.4, metallic=0.05, grain=0.08, dirt=0.45, rust="#9A9284", rust_amount=0.3)
     cuivre = k.metal("cuivre", gain=1.5, rough=0.3, metallic=0.85, dirt=0.3)
     plasma = k.emit("plasma", "#FF4FD8", 1.3)
-    coeur = k.emit("coeur", "#FF9A3A", 1.8)
+    coeur = k.emit("coeur", MOUTH[13], 1.8)
     cx, cy, zc, R = -0.12, 0.08, 1.45, 0.55
-    # trépied de cuivre (grand vide sous la sphère)
-    for i in range(3):
-        a = math.radians(90 + 120 * i + 30)
-        fx, fy = cx + 0.80 * math.cos(a), cy - 0.80 * math.sin(a) / g.K
-        g.cyl_between(g.G(fx, fy, 0.02), g.G(cx + 0.28 * math.cos(a), cy - 0.28 * math.sin(a) / g.K, zc - 0.45), 0.05,
-                      "pied_%d" % i, cuivre, verts=12)
-        g.cyl(fx, fy, 0.0, 0.09, 0.05, "semelle_%d" % i, cuivre, verts=16)
+    ground_pad(k, k.metal("dalle", "#9A968E", gain=0.62 / k.k_alb, rough=0.6, metallic=0.05, grain=0.12, dirt=0.5), cuivre,
+               inlay=k.metal("cuivre_incruste", "#8A5A30", gain=1.4, rough=0.35, metallic=0.8))
+    cxb, cyb, _ = g.G(cx, cy, 0)
+    for i, (fx, fy) in enumerate(((cx - 0.66, FRONT_Y), (cx + 0.66, FRONT_Y), (cx, BACK_Y - 0.04))):
+        fp = foot(k, fx, fy, cuivre, r=0.10, h=0.06, name="pied_%d" % i)
+        a = math.atan2(fp[1] - cyb, fp[0] - cxb)
+        att = (cxb + 0.28 * math.cos(a), cyb + 0.28 * math.sin(a), zc - 0.45)
+        g.cyl_between(fp, att, 0.05, "jambe_%d" % i, cuivre, verts=12)
+        mid = tuple(fp[j] + 0.35 * (att[j] - fp[j]) for j in range(3))
+        S.torus(0.065, 0.02, mid, cer, "bague_jambe_%d" % i)
     S.sphere(R, g.G(cx, cy, zc), cer, "sphere", seg=48, rings=24)
     S.torus(R + 0.005, 0.03, g.G(cx, cy, zc), cuivre, "equateur")
     S.torus(0.30, 0.05, g.G(cx, cy, zc - R + 0.08), cuivre, "collier_bas")
-    # fenêtre du cœur (bouche) à l'avant
     S.cylinder(0.16, 0.06, g.G(cx, cy + R / g.K - 0.03, zc - 0.10), coeur, "coeur", verts=32, rot=(math.radians(60), 0, 0), bevel_w=0)
     S.torus(0.17, 0.03, g.G(cx, cy + R / g.K - 0.015, zc - 0.10), cuivre, "cadre_coeur", rot=(math.radians(60), 0, 0))
-    # tore de plasma horizontal + 3 injecteurs
-    S.torus(0.88, 0.075, g.G(cx, cy, zc), plasma, "tore", major_seg=72, minor_seg=16)
-    bx, by, _ = g.G(cx, cy, 0)
+    # tore de plasma affiné et gainé de 8 brides de cuivre (correction V3, mineur 2 : part émissive de l'époque 13 à
+    # 33-41 % pour 10 % proposés par la bible)
+    S.torus(0.88, 0.055, g.G(cx, cy, zc), plasma, "tore", major_seg=72, minor_seg=16)
+    for i in range(8):
+        a = 2 * math.pi * (i + 0.5) / 8
+        o = S.torus(0.075, 0.03, (cxb + 0.88 * math.cos(a), cyb + 0.88 * math.sin(a), zc), cuivre, "bride_tore_%d" % i,
+                    rot=(0, math.pi / 2, a + math.pi / 2), major_seg=24, minor_seg=8)
+    bx, by = cxb, cyb
     for i in range(3):
         a = math.radians(60 + 120 * i)
         g.cyl_between((bx + (R - 0.02) * math.cos(a), by + (R - 0.02) * math.sin(a), zc),
                       (bx + 0.80 * math.cos(a), by + 0.80 * math.sin(a), zc), 0.035, "injecteur_%d" % i, cuivre, verts=12)
-    # flèche d'évacuation à l'arrière droit
+    # injecteurs dressés sur le tore et antenne-électrode
+    for i, (a_deg, top) in enumerate(((165, 2.20), (115, 2.42), (65, 2.32))):
+        a = math.radians(a_deg)
+        px_, py_ = bx + 0.88 * math.cos(a), by + 0.88 * math.sin(a)
+        S.cylinder(0.085, 0.10, (px_, py_, zc + 0.09), cuivre, "inj_collier_%d" % i, verts=16, bevel_w=0.006)
+        S.cylinder(0.05, top - zc - 0.14, (px_, py_, (zc + 0.14 + top) / 2), cuivre, "inj_tige_%d" % i, verts=12,
+                   radius2=0.035, bevel_w=0.004)
+        S.sphere(0.06, (px_, py_, top + 0.03), plasma, "inj_pointe_%d" % i, seg=16, rings=8)
+    g.cyl(cx, cy, zc + R - 0.04, 0.09, 0.08, "embase_antenne", cuivre, verts=20)
+    g.cyl(cx, cy, zc + R + 0.04, 0.045, 0.82, "antenne", cuivre, verts=12, r2=0.03)
+    S.sphere(0.06, g.G(cx, cy, zc + R + 0.90), plasma, "antenne_pointe", seg=16, rings=8)
     mx, my = 0.62, -0.62
     zt = KEY[13]["chimney"][0][2]
     g.lathe([(0.14, 0.0), (0.12, 0.30), (0.11, zt - 0.20), (0.13, zt)], (mx, my), "fleche", cer, segs=32, cap_top=False)
@@ -1047,41 +1319,23 @@ def e13(k, even):
         S.torus(0.12, 0.025, g.G(mx, my, z), cuivre, "bague_%d" % int(z * 10))
     g.cyl(mx, my, zt - 0.10, 0.11, 0.09, "fond", k.soot(), verts=24, bevel_w=0)
     S.torus(0.115, 0.02, g.G(mx, my, zt - 0.03), plasma, "lueur_fleche")
-    k.halo(cx, 0.55, zc - 0.1, "#FF9A3A", 6.0, "halo_coeur")
+    k.halo(cx, 0.55, zc - 0.1, MOUTH[13], 6.0, "halo_coeur")
     k.halo(cx, cy + 0.5, zc, "#FF4FD8", 6.0, "halo_tore")
     if even:
-        o = S.torus(0.78, 0.06, g.G(cx, cy, zc + 0.05), plasma, "tore_incline", major_seg=72, minor_seg=16)
+        o = S.torus(0.76, 0.055, g.G(cx, cy, zc + 0.05), plasma, "tore_incline", major_seg=72, minor_seg=16)
         o.rotation_euler = (math.radians(55), math.radians(20), 0)
         for sgn in (-1, 1):
-            p = (bx + sgn * 0.74, by, zc + 0.05)
+            p = (bx + sgn * 0.72, by, zc + 0.05)
             S.sphere(0.07, p, cuivre, "noeud_%d" % (sgn + 1), seg=16, rings=8)
 
 
 # -------------------------------------------------------------------------------------------------
 # Époque 14 · Orbite : four solaire, pétales-miroirs dorés ; pièce : pétale arrière supplémentaire
 # -------------------------------------------------------------------------------------------------
-def petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, mat, back_mat, thick=0.03):
-    """Pétale trapézoïdal de (r0, z0) à (r1, z1) dans la direction ang (Blender), autour de (cx, cy) Blender."""
-    g = k.g
-    from mathutils import Vector
-    u = Vector((math.cos(ang), math.sin(ang), 0.0))
-    t = Vector((-math.sin(ang), math.cos(ang), 0.0))
-    p0 = Vector((cx, cy, z0)) + u * r0
-    p1 = Vector((cx, cy, z1)) + u * r1
-    axis = (p1 - p0).normalized()
-    nrm = axis.cross(t).normalized()
-    quad = [p0 - t * w0, p0 + t * w0, p1 + t * w1, p1 - t * w1]
-    # léger creux : les bords se relèvent vers le foyer
-    mid0, mid1 = (p0 + nrm * 0.0), (p1 + nrm * 0.0)
-    front = [tuple(q + nrm * (thick / 2)) for q in quad]
-    back = [tuple(q - nrm * (thick / 2)) for q in quad]
-    o = g.loft([back, front], name, mat, True, True, None, 0.004)
-    return o
-
-
-def mirror_petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, gold, cells, thick=0.03):
+def mirror_petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, gold, cells, thick=0.03, rim=None):
     """Pétale-miroir : face intérieure (vers le foyer) en feuille d'or, dos en cellules bleu nuit, légèrement
-    creusé (les bords se relèvent). Coordonnées Blender ; ang : direction radiale."""
+    creusé (les bords se relèvent). Coordonnées Blender ; ang : direction radiale. rim : matériau d'un
+    liseré sombre le long des bords (contraste au test du gris, correction V3)."""
     g = k.g
     from mathutils import Vector
     u = Vector((math.cos(ang), math.sin(ang), 0.0))
@@ -1111,40 +1365,58 @@ def mirror_petal(k, cx, cy, ang, r0, z0, r1, z1, w0, w1, name, gold, cells, thic
     o = g.mesh(name, verts, faces, None, smooth_deg=None, bevel_w=0.003)
     o.data.materials.append(gold)
     o.data.materials.append(cells)
-    # matériau par face : la face dont la normale regarde vers +nrm est en or, l'autre en cellules
     nv = Vector(nrm)
     for poly in o.data.polygons:
         poly.material_index = 0 if Vector(poly.normal).dot(nv) > -0.2 else 1
+    if rim is not None:
+        top = rows[1]
+        bot = rows[0]
+        for j, (a_, b_) in enumerate(((bot[0], top[0]), (top[0], top[4]), (top[4], bot[4]))):
+            g.cyl_between(tuple(a_ + nrm * (thick / 2 + 0.006)), tuple(b_ + nrm * (thick / 2 + 0.006)), 0.016,
+                          "%s_lisere_%d" % (name, j), rim, verts=6)
     return o
+
+
+# Correction V3 : pétales POINTUS de deux longueurs (longs : pointe à z 1,90 ; courts : 1,55), liseré sombre sur
+# les bords (contraste au test du gris : la corolle se fondait dans la terre), mât-balise déplacé à x 0,55 et
+# relevé, tour-récepteur au-dessus du creuset (foyer). Sommets : pétales courts gauche et droit, pétales longs
+# arrière gauche et droit, récepteur, mât (ère V : 5 à 6). Bord ouest ≤ -1,10 (rayon des pétales 1,04 -> 0,98).
+# 3 ancres aux coins (le 4e coin est le mât), plaque au sol.
+E14_PETALS = [(22.5, 1.55, 0.10), (67.5, 1.90, 0.07), (112.5, 1.90, 0.07), (157.5, 1.55, 0.10), (202.5, 1.75, 0.08),
+              (247.5, 1.50, 0.10), (292.5, 1.50, 0.10), (337.5, 1.75, 0.08)]
 
 
 def e14(k, even):
     g, S = k.g, k.S
     blanc = k.metal("blanc", gain=0.75, rough=0.35, metallic=0.15, grain=0.08, dirt=0.5, rust="#8A8478", rust_amount=0.35)
-    # feuille d'or FROISSÉE (bible §5 : jamais lisse) : métal franc, grain fort et serré ; teinte désaturée
-    # (#BFA45E, même luminance que #C9A23A) : la corolle est l'essentiel du corps, saturation ≤ 0,45 (§1.5)
     orf = k.metal("or", "#BFA45E", gain=1.15, rough=0.46, metallic=0.85, grain=0.55, grain_scale=18.0, dirt=0.4,
                   rust="#6A5A30", rust_amount=0.35)
     cell = k.glossy("cellules", gain=2.2, rough=0.2, metallic=0.4)
+    sombre = k.metal("cadre_sombre", "#2A2C32", gain=1.4, rough=0.4, metallic=0.6, grain=0.05)
     eclat = k.emit("creuset", "#FFE6A0", 1.6)
-    bouche = k.emit("bouche", "#FFC060", 1.6)
+    bouche = MOUTH[14]
     rouge = k.emit("balise", "#FF2A2A", 2.0)
     cx, cy = -0.10, 0.12
-    # tambour de base hexagonal blanc, bandeau d'or, bouche lumineuse au sud (face plate au sud : phase 0)
+    ground_pad(k, k.metal("dalle", "#A09A8A", gain=0.62 / k.k_alb, rough=0.55, metallic=0.1, grain=0.12, dirt=0.5), orf,
+               inlay=sombre)
     g.frustum(g.regular(cx, cy, 0.54, 6, 0.0), 0.0, g.regular(cx, cy, 0.48, 6, 0.0), 0.36, "base", blanc, bevel_w=0.012)
     g.frustum(g.regular(cx, cy, 0.55, 6, 0.0), 0.24, g.regular(cx, cy, 0.53, 6, 0.0), 0.29, "base_bandeau", orf, bevel_w=0.004)
-    fire_mouth(k, cx, cy + 0.54 * math.cos(math.pi / 6) / g.K - 0.01, 0.05, 0.30, 0.15, orf, "#FFC060", strength=1.6, arch=True)
-    # colonne blanche à bagues d'or, moyeu de la corolle
+    fire_mouth(k, cx, cy + 0.54 * math.cos(math.pi / 6) / g.K - 0.01, 0.05, 0.30, 0.15, orf, bouche, strength=1.6, arch=True)
+    # 3 ancres aux coins, haubans rigides vers le tambour
+    cxb, cyb, _ = g.G(cx, cy, 0)
+    for i, (fx, fy) in enumerate(((cx - 0.64, FRONT_Y), (cx + 0.64, FRONT_Y), (cx - 0.64, BACK_Y))):
+        g.frustum(g.rect(fx, fy, 0.18, 0.14), 0.0, g.rect(fx, fy, 0.12, 0.09), 0.16, "ancre_%d" % i, blanc, bevel_w=0.01)
+        g.cyl(fx, fy, 0.16, 0.05, 0.04, "ancre_tete_%d" % i, orf, verts=16, bevel_w=0.004)
+        fb = g.G(fx, fy, 0.18)
+        a = math.atan2(fb[1] - cyb, fb[0] - cxb)
+        g.cyl_between(fb, (cxb + 0.50 * math.cos(a), cyb + 0.50 * math.sin(a), 0.30), 0.022, "hauban_%d" % i, sombre, verts=8)
     g.cyl(cx, cy, 0.36, 0.16, 0.70, "colonne", blanc, verts=32)
     for z in (0.55, 0.85):
         S.torus(0.165, 0.028, g.G(cx, cy, z), orf, "bague_colonne_%d" % int(z * 100))
     g.lathe([(0.16, 1.00), (0.30, 1.04), (0.34, 1.10), (0.20, 1.16)], (cx, cy), "moyeu", blanc, segs=40)
-    # corolle de 8 pétales-miroirs (la plus large des époques : L ≈ 2,1), faces d'or vers le foyer
-    bx, by, _ = g.G(cx, cy, 0)
-    for i in range(8):
-        a = math.radians(22.5 + 45 * i)
-        mirror_petal(k, bx, by, a, 0.26, 1.06, 1.04, 1.62, 0.10, 0.36, "petale_%d" % i, orf, cell)
-    # creuset éclatant au foyer, tenu par 3 bras au-dessus du moyeu
+    bx, by = cxb, cyb
+    for i, (a_deg, z1, w1) in enumerate(E14_PETALS):
+        mirror_petal(k, bx, by, math.radians(a_deg), 0.26, 1.06, 0.98, z1, 0.10, w1, "petale_%d" % i, orf, cell, rim=sombre)
     zf = 1.78
     g.lathe([(0.06, zf - 0.12), (0.17, zf - 0.08), (0.21, zf + 0.02), (0.19, zf + 0.06)], (cx, cy), "creuset", blanc, segs=32,
             cap_top=False)
@@ -1154,8 +1426,14 @@ def e14(k, even):
         a = math.radians(90 + 120 * i)
         g.cyl_between((bx + 0.30 * math.cos(a), by + 0.30 * math.sin(a), 1.12), (bx + 0.17 * math.cos(a), by + 0.17 * math.sin(a), zf - 0.08),
                       0.022, "bras_%d" % i, blanc, verts=8)
-    # mât-balise à l'arrière droit (cheminée : sortie de fumée sous le chapeau), balise rouge
-    mx, my = 0.66, -0.62
+    # tour-récepteur : trépied fin au-dessus de l'éclat, tête de réception éclatante
+    for i in range(3):
+        a = math.radians(30 + 120 * i)
+        g.cyl_between((bx + 0.19 * math.cos(a), by + 0.19 * math.sin(a), zf + 0.05), (bx, by, zf + 0.50), 0.016,
+                      "recepteur_pied_%d" % i, blanc, verts=6)
+    g.cyl(cx, cy, zf + 0.48, 0.065, 0.12, "recepteur", blanc, verts=20, bevel_w=0.008)
+    S.sphere(0.06, g.G(cx, cy, zf + 0.64), eclat, "recepteur_eclat", seg=16, rings=8)
+    mx, my = 0.55, -0.66
     zt = KEY[14]["chimney"][0][2]
     g.cyl(mx, my, 0.0, 0.13, 0.20, "pied_mat", blanc, verts=24)
     g.cyl(mx, my, 0.20, 0.10, zt - 0.30, "mat", blanc, verts=24)
@@ -1166,12 +1444,13 @@ def e14(k, even):
     S.sphere(0.06, g.G(mx + 0.13, my, zt - 0.05), rouge, "balise", seg=16, rings=8)
     g.cyl_between(g.G(mx + 0.02, my, zt - 0.05), g.G(mx + 0.13, my, zt - 0.05), 0.015, "bras_balise", blanc, verts=8)
     k.halo(cx, cy + 0.2, zf, "#FFE6A0", 7.0, "halo_creuset")
-    k.halo(cx, 0.60, 0.12, "#FFC060", 6.0, "halo_bouche")
+    k.halo(cx, 0.60, 0.12, bouche, 6.0, "halo_bouche")
     k.halo(mx + 0.13, my, zt - 0.05, "#FF2A2A", 2.0, "halo_balise")
     if even:
-        # pétale supplémentaire à l'arrière, plus grand et plus redressé, sur son hauban (+0,25)
-        mirror_petal(k, bx, by + 0.10, math.radians(90), 0.30, 1.10, 1.02, 2.30, 0.12, 0.40, "petale_arriere", orf, cell,
-                     thick=0.035)
+        # pétale supplémentaire à l'arrière, plus grand et plus redressé : panneau de CELLULES sombres cadré d'or
+        # (correction V3, mineur 3 : faible contraste au gris ; le panneau sombre se détache de l'or et du sol)
+        mirror_petal(k, bx, by + 0.10, math.radians(90), 0.30, 1.10, 1.02, 2.30, 0.12, 0.30, "petale_arriere", cell, orf,
+                     thick=0.035, rim=orf)
         g.cyl_between((bx, by + 0.30, 1.05), (bx, by + 0.80, 2.00), 0.03, "hauban_arriere", blanc, verts=8)
 
 
@@ -1193,7 +1472,6 @@ def crown(k, x, y, z0, r, h_band, spikes, mat, gem, name, gem_k=0.45, verts=8):
     for i, (a_deg, hh, rr) in enumerate(spikes):
         a = math.radians(a_deg)
         px, py = bx + r * math.cos(a), by + r * math.sin(a)
-        # flèche facettée : fût prismatique puis pointe (arêtes franches qui accrochent le soleil)
         S.cylinder(rr, hh * 0.55, (px, py, z0 + h_band + hh * 0.275 - 0.01), mat, "%s_fut_%d" % (name, i), verts=verts,
                    radius2=rr * 0.78, bevel_w=0.004)
         S.cylinder(rr * 0.78, hh * 0.47, (px, py, z0 + h_band + hh * 0.55 + hh * 0.235 - 0.02), mat,
@@ -1202,15 +1480,19 @@ def crown(k, x, y, z0, r, h_band, spikes, mat, gem, name, gem_k=0.45, verts=8):
             S.sphere(rr * gem_k, (px + 0.0, py, z0 + h_band * 0.5), gem, "%s_gemme_%d" % (name, i), seg=12, rings=6)
 
 
-# Époque 15 · Légende (refaite à la reprise 2) : le premier jet (anneau entièrement émissif, cœur blanc de
-# 0,24, couronne de 0,48 de rayon) se lisait comme une lampe blanche éblouie, plus étroite que le four
-# vanilla (L 1,48 contre 1,97) et sans bouche. Ici : socle hexagonal FLOTTANT au-dessus d'un plot émetteur,
-# creuset d'or blanc flottant au-dessus du socle (deux vides superposés), couronné de 7 flèches facettées,
-# bain doré visible dans le creuset, bouche lumineuse au sud, anneau-halo en or (perles lumineuses
-# seulement), flèche-cheminée à l'arrière droit, particules.
-# Socle relevé à z 0,46 (premier rendu : à 0,30, le vide sous le socle se lisait mal au gros plan du 22/10)
+# Époque 15 · Légende. Correction V3 :
+# - couronne de 6 flèches HAUTES et ESPACÉES (165°, 125°, 90°, 15° derrière ; 195°, 345° basses devant) :
+#   avec la flèche-cheminée, 5 sommets séparés de plus de 0,10 tuile (ère V : 5 à 6 ; le profil n'en avait que 2,
+#   l'anneau-halo comblait les creux entre les flèches) ;
+# - anneau-halo ABAISSÉ sous le bandeau de la couronne (z 1,05, rayon 0,96 : bord ouest -1,06) ; 6 perles
+#   GROSSIES (rayon 0,06, environ 8 px HR) ; les 16 particules isolées (« bruit de rendu ») sont retirées : elles
+#   relèvent de la couche de particules animée de la phase 2 ;
+# - lévitation lisible : liseré lumineux SOUS le creuset et tache d'ombre sur le socle ;
+# - plaque au sol et 4 obélisques-émetteurs aux coins (ancrage, majeur 2) ; le plot reste au centre.
 E15 = {"cx": -0.10, "cy": 0.10, "disc": (0.46, 0.58, 0.96), "bowl_z": (0.86, 1.38), "rim_r": 0.72,
        "chim": (0.36, -0.24)}
+E15_SPIKES = [(165, 1.00, 0.10), (125, 1.25, 0.11), (90, 0.95, 0.11), (10, 1.45, 0.10), (195, 0.55, 0.085),
+              (345, 0.55, 0.085)]
 
 
 def e15(k, even):
@@ -1218,14 +1500,21 @@ def e15(k, even):
     orb = k.metal("orblanc", gain=0.72, rough=0.24, metallic=0.65, grain=0.12, dirt=0.5, rust="#8A7A58", rust_amount=0.4)
     nacre = k.metal("nacre", gain=0.58, rough=0.32, metallic=0.15, grain=0.10, dirt=0.5, rust="#8A8478", rust_amount=0.35)
     lum = k.emit("lumiere", "#FFF2C0", 0.9)
-    bain = k.emit("bain", "#FFC060", 1.0)
+    bain = k.emit("bain", MOUTH[15], 1.0)
+    bouche = k.emit("bouche", MOUTH[15], 1.2)
     p = E15
     cx, cy = p["cx"], p["cy"]
-    # plot émetteur au sol (seul contact) et colonne de lumière qui porte le socle (vide sous le socle)
+    ground_pad(k, k.metal("dalle", "#A8A296", gain=0.55 / k.k_alb, rough=0.5, metallic=0.15, grain=0.10, dirt=0.5), orb,
+               inlay=k.metal("or_incruste", "#B89A5A", gain=1.0, rough=0.3, metallic=0.85))
+    # obélisques-émetteurs aux 4 coins (nacre, pointe d'or, gemme)
+    for i, (fx, fy) in enumerate(((-0.78, FRONT_Y), (0.70, FRONT_Y), (-0.78, BACK_Y - 0.04), (0.74, BACK_Y - 0.04))):
+        g.frustum(g.regular(fx, fy, 0.085, 4, math.pi / 4), 0.0, g.regular(fx, fy, 0.055, 4, math.pi / 4), 0.34,
+                  "obelisque_%d" % i, nacre, bevel_w=0.006)
+        g.cyl(fx, fy, 0.34, 0.055, 0.10, "obelisque_pointe_%d" % i, orb, verts=4, r2=0.0, bevel_w=0)
+        S.sphere(0.035, g.G(fx, fy + 0.04, 0.24), lum, "obelisque_gemme_%d" % i, seg=10, rings=5)
     g.frustum(g.regular(cx, cy, 0.24, 6, 0.0), 0.0, g.regular(cx, cy, 0.19, 6, 0.0), 0.09, "plot", nacre, bevel_w=0.01)
     S.torus(0.16, 0.02, g.G(cx, cy, 0.095), orb, "plot_bague")
     g.cyl(cx, cy, 0.09, 0.05, p["disc"][0] - 0.09, "colonne_lumiere", lum, verts=16, bevel_w=0)
-    # socle hexagonal flottant (nacre, chant d'or blanc, liseré lumineux)
     z0, z1, R = p["disc"]
     g.frustum(g.regular(cx, cy, R - 0.10, 6, 0.0), z0, g.regular(cx, cy, R, 6, 0.0), z0 + 0.07, "socle_dessous", nacre,
               bevel_w=0.01)
@@ -1235,40 +1524,37 @@ def e15(k, even):
               bevel_w=0.008)
     g.lathe([(R * 0.868 + 0.004, z0 + 0.085), (R * 0.868 + 0.004, z0 + 0.105)], (cx, cy), "socle_lisere", lum, segs=6,
             cap_top=False, cap_bottom=False, smooth_deg=None)
-    # creuset d'or blanc FLOTTANT au-dessus du socle (second vide), profil de coupe ; bain doré à l'intérieur
+    # tache d'ombre douce sur le socle, sous le creuset (le creuset flotte : il ne touche pas le socle)
+    g.cyl(cx, cy + 0.04, z1 + 0.002, 0.42, 0.004, "ombre_creuset", k.metal("ombre", "#3A342C", gain=1.0, rough=0.8,
+                                                                            metallic=0.0, grain=0.05, dirt=0.0),
+          verts=40, bevel_w=0)
     zb0, zb1 = p["bowl_z"]
     rr = p["rim_r"]
     g.lathe([(0.10, zb0), (0.28, zb0 + 0.03), (0.46, zb0 + 0.12), (0.60, zb0 + 0.27), (rr - 0.02, zb1 - 0.08), (rr, zb1)],
             (cx, cy), "creuset", orb, segs=56, cap_top=False, smooth_deg=50)
     g.lathe([(0.001, zb0 - 0.01), (0.10, zb0 - 0.01), (0.10, zb0)], (cx, cy), "creuset_fond", nacre, segs=24)
-    # croûte d'or bruni sur le bain : seule une coulée centrale luit (le premier jet, bain plein de 0,59 de rayon,
-    # faisait un seau de lumière blanche)
+    # liseré lumineux SOUS le creuset (lévitation)
+    S.torus(0.22, 0.03, g.G(cx, cy, zb0 + 0.01), lum, "lisere_dessous")
     g.cyl(cx, cy, zb1 - 0.14, rr - 0.05, 0.04, "croute", k.metal("croute", "#5A4A30", gain=1.2, rough=0.6, metallic=0.4,
                                                                        grain=0.4, dirt=0.6), verts=56, bevel_w=0)
     g.cyl(cx, cy, zb1 - 0.105, 0.30, 0.012, "bain", bain, verts=40, bevel_w=0)
     S.torus(0.30, 0.03, g.G(cx, cy, zb0 + 0.05), orb, "creuset_bague")
-    # bouche lumineuse au sud : baie en ogive dans la paroi du creuset (identité du four)
     by_ = cy + 0.50 / g.K
-    S.cylinder(0.13, 0.05, g.G(cx, by_, zb0 + 0.25), lum, "bouche", verts=32, rot=(math.radians(62), 0, 0), bevel_w=0)
+    S.cylinder(0.13, 0.05, g.G(cx, by_, zb0 + 0.25), bouche, "bouche", verts=32, rot=(math.radians(62), 0, 0), bevel_w=0)
     S.torus(0.145, 0.028, g.G(cx, by_ + 0.012, zb0 + 0.25), orb, "bouche_cadre", rot=(math.radians(62), 0, 0))
-    # couronne de 7 flèches facettées sur la lèvre du creuset (plus hautes à l'arrière ; l'avant reste ouvert
-    # sur le bain et la bouche)
-    spikes = [(90, 1.35, 0.115), (40, 1.08, 0.105), (140, 1.12, 0.105), (355, 0.80, 0.095), (185, 0.84, 0.095),
-              (310, 0.55, 0.085), (230, 0.58, 0.085)]
-    crown(k, cx, cy, zb1 - 0.02, rr, 0.16, spikes, orb, lum, "couronne", gem_k=0.42)
-    # anneau-halo en or blanc incliné, perles lumineuses (pas d'anneau tout blanc)
-    zh = zb1 + 0.40
-    o = S.torus(1.02, 0.03, g.G(cx, cy, zh), orb, "anneau_halo", major_seg=96, minor_seg=10)
+    crown(k, cx, cy, zb1 - 0.02, rr, 0.16, E15_SPIKES, orb, lum, "couronne", gem_k=0.42)
+    # anneau-halo abaissé, perles grossies
+    zh = 1.05
+    o = S.torus(0.96, 0.03, g.G(cx, cy, zh), orb, "anneau_halo", major_seg=96, minor_seg=10)
     o.rotation_euler = (math.radians(7), 0, 0)
     bx, by, _ = g.G(cx, cy, 0)
     beads = []
-    for i in range(10):
-        a = 2 * math.pi * (i + 0.5) / 10
-        zz = zh + 1.02 * math.sin(a) * math.sin(math.radians(7))
-        beads.append(S.sphere(0.045, (bx + 1.02 * math.cos(a), by + 1.02 * math.sin(a) * math.cos(math.radians(7)), zz), lum,
-                              "perle_%d" % i, seg=10, rings=5))
+    for i in range(6):
+        a = 2 * math.pi * (i + 0.5) / 6
+        zz = zh + 0.96 * math.sin(a) * math.sin(math.radians(7))
+        beads.append(S.sphere(0.06, (bx + 0.96 * math.cos(a), by + 0.96 * math.sin(a) * math.cos(math.radians(7)), zz), lum,
+                              "perle_%d" % i, seg=16, rings=8))
     g.join(beads, "perles_halo")
-    # flèche-cheminée à l'arrière droit, debout sur le socle flottant, creuse (sortie de fumée)
     mx, my = p["chim"]
     zt = KEY[15]["chimney"][0][2]
     g.lathe([(0.17, z1), (0.15, z1 + 0.25), (0.125, zt - 0.55), (0.105, zt - 0.14), (0.13, zt - 0.06), (0.12, zt)], (mx, my),
@@ -1279,27 +1565,18 @@ def e15(k, even):
     g.lathe([(0.112, zt - 0.36), (0.112, zt - 0.24)], (mx, my), "lueur_fleche", lum, segs=8, cap_top=False, cap_bottom=False,
             smooth_deg=None)
     g.cyl_between(g.G(mx, my, zb1 - 0.20), g.G(cx + 0.45, cy - 0.32, zb1 - 0.25), 0.035, "liaison", orb, verts=12)
-    # particules (petites sphères lumineuses), graine fixe
-    import random
-    rnd = random.Random(15)
-    parts = []
-    for i in range(16):
-        a = rnd.uniform(0, 2 * math.pi)
-        rrr = rnd.uniform(0.70, 1.05)
-        z = rnd.uniform(0.55, 2.20)
-        parts.append(S.sphere(rnd.uniform(0.020, 0.032), (bx + rrr * math.cos(a), by + rrr * math.sin(a), z), lum, "part_%d" % i,
-                              seg=8, rings=4))
-    g.join(parts, "particules")
-    k.halo(cx, cy + 0.45, zb0 + 0.25, "#FFF2C0", 8.0, "halo_bouche")
+    k.halo(cx, cy + 0.45, zb0 + 0.25, MOUTH[15], 8.0, "halo_bouche")
     k.halo(cx, cy, zb1, "#FFD98A", 5.0, "halo_bain")
     k.halo(cx, cy, 0.12, "#FFF2C0", 3.0, "halo_plot")
     if even:
-        # seconde couronne flottante au-dessus de la première, reliée au bain par un trait de lumière
-        zc2 = zb1 + 1.20
-        spikes2 = [(90, 0.62, 0.085), (18, 0.50, 0.08), (162, 0.50, 0.08), (306, 0.38, 0.07), (234, 0.38, 0.07)]
-        crown(k, cx, cy - 0.04, zc2, 0.42, 0.13, spikes2, orb, lum, "couronne2", gem_k=0.40)
-        g.cyl(cx, cy - 0.04, zc2 - 0.10, 0.20, 0.10, "couronne2_fond", nacre, verts=32, r2=0.30, bevel_w=0.004)
-        g.cyl(cx, cy - 0.02, zb1 - 0.10, 0.025, zc2 - zb1, "trait_lumiere", lum, verts=12, bevel_w=0)
+        # seconde couronne : MÊME or blanc et mêmes flèches facettées que la première (correction V3, mineur 3 :
+        # le « godet gris terne » de nacre est retiré), dessous en or, trait de lumière depuis le bain
+        zc2 = zb1 + 1.05
+        spikes2 = [(90, 0.72, 0.085), (30, 0.58, 0.08), (150, 0.58, 0.08), (330, 0.42, 0.075), (210, 0.42, 0.075)]
+        crown(k, cx, cy - 0.04, zc2, 0.40, 0.12, spikes2, orb, lum, "couronne2", gem_k=0.40)
+        g.cyl(cx, cy - 0.04, zc2 - 0.08, 0.26, 0.08, "couronne2_dessous", orb, verts=32, r2=0.38, bevel_w=0.004)
+        S.torus(0.20, 0.025, g.G(cx, cy - 0.04, zc2 - 0.09), lum, "couronne2_lisere")
+        g.cyl(cx, cy - 0.02, zb1 - 0.10, 0.025, zc2 - zb1 - 0.02, "trait_lumiere", lum, verts=12, bevel_w=0)
         k.halo(cx, cy - 0.04, zc2 + 0.1, "#FFF2C0", 3.0, "halo_couronne2")
 
 
@@ -1308,7 +1585,9 @@ BUILDERS = {2: e2, 3: e3, 4: e4, 5: e5, 6: e6, 7: e7, 8: e8, 9: e9, 10: e10, 11:
 
 def build(S, C, variant):
     import geo
+    import passes
     geo.S = S
+    passes.install(S)
     n = int(variant[1:])
     k = Kit(S, C, geo, n)
     if n == 2:

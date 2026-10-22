@@ -304,3 +304,46 @@ def mat_brick(name, brick, mortar, brick_w=0.17, row_h=0.075, mortar_size=0.010,
     L.new(col, p.inputs["Base Color"])
     m["fo_kind"] = "surface"
     return m
+
+
+def mat_emit_tex(name, color, strength, scale=14.0, crust=0.35, core=0.30, seed=0.0, detail=4.0):
+    """Émissif texturé (correction V3, problème mineur 2 : « aplats uniformes ») : S.mat_emissive dont la
+    couleur d'émission suit un bruit (croûte sombre -> couleur -> cœur plus clair). La force d'émission reste
+    un scalaire non relié : la passe halo V0 (fo_scene._emissive_or_white) peut toujours la multiplier.
+    crust : part de la couleur gardée dans la croûte (0 = noir) ; core : mélange vers le blanc au cœur."""
+    m = S.mat_emissive(name, color, strength=strength)
+    N, L = m.node_tree.nodes, m.node_tree.links
+    p = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    nz = N.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = scale
+    nz.inputs["Detail"].default_value = detail
+    nz.inputs["Roughness"].default_value = 0.55
+    if "W" in nz.inputs:
+        nz.noise_dimensions = "4D"
+        nz.inputs["W"].default_value = seed
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    ramp = N.new("ShaderNodeValToRGB")
+    cr = ramp.color_ramp
+    cr.interpolation = "LINEAR"
+    dark = [c * crust for c in color] + [1.0]
+    hot = [c + (1.0 - c) * core for c in color] + [1.0]
+    cr.elements[0].position = 0.34
+    cr.elements[0].color = dark
+    cr.elements[1].position = 0.70
+    cr.elements[1].color = hot
+    mid = cr.elements.new(0.52)
+    mid.color = list(color) + [1.0]
+    L.new(nz.outputs["Fac"], ramp.inputs["Fac"])
+    L.new(ramp.outputs["Color"], p.inputs["Emission Color"])
+    return m
+
+
+def mark_patch(objs):
+    """Marque des objets comme plaque au sol (couche « patch », passes.py) ; renvoie la liste."""
+    out = []
+    for o in objs:
+        if o is not None:
+            o["fo_patch"] = True
+            out.append(o)
+    return out

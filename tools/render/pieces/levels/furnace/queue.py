@@ -4,7 +4,10 @@
     python -P tools/render/pieces/levels/furnace/queue.py --levels 2-30 [--samples 32] [--quick]
 
 Chaque niveau : python tools/render/with_render_lock.py --wait 0 -- python -P render_levels.py --levels n ;
-code 2 (aucune place libre) → nouvel essai 1,5 s plus tard. Blender n'est JAMAIS lancé hors du verrou.
+code 2 (aucune place libre) → nouvel essai 1,5 s plus tard. Blender n'est JAMAIS lancé hors du verrou :
+render_levels.py refuse de rendre (code 3) si son processus parent ne tient pas une place du verrou.
+Journal (correction V3, mineur 8) : tools/render/cache/levels-furnace/queue.log (ignoré par git) : heure, niveaux,
+code de sortie, attente, place du verrou déclarée par render_levels.py ; spec.json de chaque niveau la reprend.
 """
 import argparse
 import os
@@ -43,8 +46,12 @@ def main():
                 continue
             break
         lines = [l for l in out.splitlines() if "FO-V3" in l or "Error" in l or "Traceback" in l]
-        print("%s rc=%d attente+rendu %.0f s : %s" % (",".join("n%02d" % x for x in group), r.returncode, time.time() - t0,
-                                                         " | ".join(lines) or out[-400:]), flush=True)
+        msg = "%s rc=%d attente+rendu %.0f s : %s" % (",".join("n%02d" % x for x in group), r.returncode, time.time() - t0,
+                                                       " | ".join(lines) or out[-400:])
+        print(msg, flush=True)
+        os.makedirs(os.path.join(RENDER, "cache", "levels-furnace"), exist_ok=True)
+        with open(os.path.join(RENDER, "cache", "levels-furnace", "queue.log"), "a", encoding="utf-8") as f:
+            f.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
         if r.returncode != 0:
             print(out[-3000:], flush=True)
 

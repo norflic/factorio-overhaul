@@ -34,8 +34,10 @@ def load_piece():
 
 LAYER_FLAGS = {
     "main": {},
+    "patch": {},
     "shadow": {"draw_as_shadow": True},
     "glow": {"draw_as_glow": True, "blend_mode": "additive"},
+    "glowdeco": {"draw_as_glow": True, "blend_mode": "additive"},
     "light": {"draw_as_light": True, "draw_as_sprite": False, "blend_mode": "additive"},
 }
 
@@ -58,6 +60,11 @@ def screen(x, y, z):
 
 def main():
     mod = load_piece()
+    d13 = None
+    mj = os.path.join(MOD_ROOT, "docs", "epoques", "planches", "furnace", "mesures_d1.json")
+    if os.path.exists(mj):
+        with open(mj, encoding="utf-8") as f:
+            d13 = json.load(f).get("D1_3")
     KEY = mod.KEY
     levels = []
     levels.append({"n": 1, "epoque": 1, "step": 1, "vanilla": True,
@@ -74,11 +81,11 @@ def main():
             sp = json.load(f)
         L = sp["layers"]
         lay = []
-        order = ["shadow", "main", "glow", "light"]
+        order = ["patch", "shadow", "main", "glow", "glowdeco", "light"]
         for k in order:
             if k in L:
                 lay.append(dict(layer_entry(n, e, k, L[k]), couche=k))
-        ch = KEY[e]["chimney"][-1] if n == 2 else KEY[e]["chimney"][0]
+        ch = KEY[e].get("smoke") or (KEY[e]["chimney"][-1] if n == 2 else KEY[e]["chimney"][0])
         smoke = screen(ch[0], ch[1], ch[2])
         ent = {"n": n, "epoque": e, "step": step, "epoque_nom": PRM.EPOCHS[e]["nom"], "ere": PRM.EPOCHS[e]["ere"],
                "corps": PRM.EPOCHS[e]["corps"] if n != 2 else "vanilla (four en acier inchangé)",
@@ -106,22 +113,38 @@ def main():
             ent["drawing_box"] = [[round(min(vb[0][0], sx - hw), 4), round(min(vb[0][1], sy - hh), 4)],
                                   [round(max(vb[1][0], sx + hw), 4), round(max(vb[1][1], sy + hh), 4)]]
         else:
+            wv = []
+            for x in lay:
+                if x["couche"] == "glow":
+                    wv.append({"couche": "glow", "role": "feu de MARCHE (bouche, bain, lave, arcs, cœur)", "fadeout": True,
+                               "effect": "flicker", "animation": x})
+                elif x["couche"] == "glowdeco":
+                    wv.append({"couche": "glowdeco", "role": "lueurs de DÉCOR (anneaux, cristaux, voyants, perles)",
+                               "always_draw": True, "animation": x})
+                elif x["couche"] == "light":
+                    wv.append({"couche": "light", "role": "halo de nuit (flaque au sol, D2-3)", "fadeout": True,
+                               "animation": x})
             ent["dress"] = {
-                "principe": "p.animation = { layers = [shadow, main] } (rendu complet de l'époque, pièce "
-                            "comprise au niveau pair en phase 1) ; lueur et halo dans p.working_visualisations "
-                            "(feu de la bouche : effect = 'flicker', fadeout = true ; voir 'bouche') ; "
-                            "p.water_reflection = nil (bible §1.8.5 : le reflet vanilla sous une autre "
-                            "silhouette est un défaut D3) ; p.drawing_box = drawing_box",
+                "principe": "p.animation = { layers = [shadow, main] } : la couche principale est rendue émetteurs "
+                            "ÉTEINTS (bouche sombre au repos, comme le vanilla ; correction V3) ; le feu de marche "
+                            "(glow) et le halo (light) sont dans p.working_visualisations avec fadeout (le feu avec "
+                            "effect = 'flicker') ; les lueurs de décor (glowdeco) en always_draw, sans flicker ; "
+                            "plaque au sol (patch, époques 10 à 15) en p.integration_patch (render layer "
+                            "lower-object, hors masque D1) ; p.water_reflection = nil (bible §1.8.5) ; "
+                            "p.drawing_box = drawing_box",
                 "animation_layers": [x for x in lay if x["couche"] in ("shadow", "main")],
-                "working_visualisations": [
-                    {"couche": x["couche"], "fadeout": True, "effect": "flicker", "animation": x}
-                    for x in lay if x["couche"] in ("glow", "light")],
+                "integration_patch": next((x for x in lay if x["couche"] == "patch"), None),
+                "working_visualisations": wv,
                 "smoke": "p.energy_source.smoke[1].position = fumee[0].position",
             }
-            mains = L["main"]
-            hw, hh = mains["width"] / 128.0, mains["height"] / 128.0
-            sx, sy = mains["shift"]
-            ent["drawing_box"] = [[round(sx - hw, 4), round(sy - hh, 4)], [round(sx + hw, 4), round(sy + hh, 4)]]
+            boxes = []
+            for k in ("main", "patch"):
+                if k in L:
+                    hw, hh = L[k]["width"] / 128.0, L[k]["height"] / 128.0
+                    sx, sy = L[k]["shift"]
+                    boxes.append((sx - hw, sy - hh, sx + hw, sy + hh))
+            ent["drawing_box"] = [[round(min(b[0] for b in boxes), 4), round(min(b[1] for b in boxes), 4)],
+                                  [round(max(b[2] for b in boxes), 4), round(max(b[3] for b in boxes), 4)]]
             ent["zones_lumineuses"] = [{"position_ecran": screen(x, y, z), "couleur": c,
                                         "role": "bouche (feu de l'ère, animé en phase 2)" if i == 0 else "lueur de décor"}
                                        for i, (x, y, z, c) in enumerate(KEY[e]["emit"])]
@@ -152,15 +175,23 @@ def main():
                    "normale (32 px/tuile) RENDUE à sa taille (D4-2, Q21), pas réduite",
                    "niveau pair : la pièce devient une couche SÉPARÉE ajoutée au rendu impair (bible §1.9, §3.3) ; "
                    "en phase 1 le niveau pair est un rendu complet",
-                   "lueur : séparer la lueur de la BOUCHE (working_visualisations, fadeout, feu animé de l'ère) "
-                   "de la lueur de DÉCOR (cristaux, anneaux, voyants : always_draw = true), pour que le décor "
-                   "reste visible four à l'arrêt",
+                   "lueur : FAIT en phase 1 (correction V3) : couche principale émetteurs éteints, couche glow (feu de "
+                   "marche) et couche glowdeco (décor, always_draw) séparées ; reste à faire : le feu ANIMÉ de l'ère "
+                   "(images du feu, comme les 48 images du vanilla) et les animations de décor (bible §1.6)",
+                   "pièces à la fois devant et derrière le corps (tore incliné de n26, pylône et anneaux de n24) : la "
+                   "règle « pièce après le corps si elle est devant, avant s'il est derrière » ne suffit pas ; rendre "
+                   "chaque pièce paire avec le corps impair en HOLDOUT (masquage au pixel par le corps, dans le même "
+                   "rendu), en UN SEUL calque dessiné après le corps (besoin envers le pipeline partagé)",
+                   "D1-3 : la valeur normalisée de la bible (homothétie centrée sur l'origine) ignore toute translation ; "
+                   "valeurs avec translation libre (±1 tuile) dans d1_3_etalonnage, à reprendre dans RD_LOG pour "
+                   "l'étalonnage du seuil de Q13",
                    "icône : rendu de la pose de référence (64 px + 3 mipmaps) et numéro de niveau, par icons()"],
         "emprise": {"collision_box": [[-0.7, -0.7], [0.7, 0.7]], "selection_box": [[-0.8, -1], [0.8, 1]],
                     "regle": "inchangées à tous les niveaux (D1-4)"},
         "arborescence_phase2": "graphics/levels/furnace/eNN/ (bible §1.9), hr (64 px/tuile, scale 0,5) + normale (32 px/tuile)",
         "pose_de_reference": "image unique (1 direction, pas de couleur d'équipe)",
         "niveaux": levels,
+        "d1_3_etalonnage": d13,
     }
     os.makedirs(os.path.dirname(DST), exist_ok=True)
     with open(DST, "w", encoding="utf-8", newline="\n") as f:
