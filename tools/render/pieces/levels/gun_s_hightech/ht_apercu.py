@@ -42,8 +42,19 @@ def triangles(b, angle):
         V = np.concatenate(g["v"]) @ R.T
         for f in g["f"]:
             for k in range(1, len(f) - 1):
-                tris.append((V[f[0]], V[f[k]], V[f[k + 1]]))
-                mats.append(mat)
+                stack = [(V[f[0]], V[f[k]], V[f[k + 1]])]
+                # subdivision des grands triangles (> 0,3 unité) : le tri du peintre par centre se trompe sur les
+                # grandes faces (tablier, dessus de l'affût) et les dessine par-dessus des volumes plus proches
+                while stack:
+                    t = stack.pop()
+                    e = max(np.linalg.norm(t[0] - t[1]), np.linalg.norm(t[1] - t[2]), np.linalg.norm(t[2] - t[0]))
+                    if e > 0.3:
+                        a, b_, c = t
+                        ab, bc, ca = (a + b_) / 2, (b_ + c) / 2, (c + a) / 2
+                        stack += [(a, ab, ca), (ab, b_, bc), (ca, bc, c), (ab, bc, ca)]
+                        continue
+                    tris.append(t)
+                    mats.append(mat)
     return np.array(tris), mats
 
 

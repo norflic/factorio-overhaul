@@ -1,32 +1,37 @@
-"""Mitrailleuse « haute technologie à la Factorio » (explorateur de style, lot V3-S) : niveaux témoins 11, 21, 29
-et pièce du niveau 30. Python PUR (aucun bpy) : géométrie par ht_geo.B, matériaux décrits ici, instanciés dans
-Blender par ht_blender.py.
+"""Mitrailleuse « haute technologie à la Factorio » (explorateur de style, lot V3-S), REPRISE du 22/10 après la
+critique de l'orchestrateur sur les essais de 8 h 50 : niveaux témoins 11, 21, 29 et pièce du niveau 30. Python
+PUR (aucun bpy) : géométrie par ht_geo.B, briques par ht_kit, matériaux décrits ici, instanciés par ht_blender.py.
 
-Approche (consigne de l'orchestrateur, verdict du Directeur Créatif du 22/10, charte DA_FACTORIO) : à la manière
-du vanilla avancé (réacteur, centrifugeuse, silo, balise), les époques hautes deviennent des machines MASSIVES et
-très détaillées : cœurs d'énergie lumineux en petits foyers, carénages techniques épais, conduits, gaines annelées,
-radiateurs, tôles boulonnées, bandes de danger ; le corps reste du métal sombre, chaud et usé à toutes les époques ;
-la couleur d'époque ne vit que dans les éléments lumineux ; les matériaux d'époque (céramique, titane, or blanc)
-ne sont que des accents patinés.
+Ce qui change par rapport au premier essai (dalle de béton à fenêtres) :
+  1. PLUS DE DALLE. Le socle est un AFFÛT BLINDÉ ROND à gradins (comme l'artillerie vanilla) entouré de VOLUMES
+     posés au sol : cuve-cœur sphérique (réacteur vanilla), générateur bobiné, batterie de radiateurs, cellules,
+     réservoirs, pompes, magasin de munitions, gaines annelées de cuivre. Un simple tablier bas (caillebotis, 4 cm)
+     relie les volumes : il est presque entièrement couvert. Contour irrégulier, gaines qui débordent (F42).
+  2. LA TÊTE DOMINE et se lit comme une ARME : coque ronde à glacis, masque frontal, deux faisceaux rotatifs longs
+     (4, 6 puis 8 canons), chemises perforées, culasses, tambours-chargeurs et bandes de cartouches laiton,
+     tourelles secondaires (ère IV et V), viseur. Elle grandit avec l'ère (largeur, longueur des canons, hauteur).
+  3. MATÉRIAUX MÊLÉS à la manière du vanilla : acier brun rouillé (ancre : cheminée V0), tôles peintes patinées
+     olive et crème (réacteur, assembleuse), acier nu à arêtes brillantes, cuivre des gaines, laiton des cerclages
+     et des cartouches, bandes de danger.
+  4. RELIEF : gradins de l'affût, nervures en saillie, tête surélevée, pièces en saillie qui projettent des ombres.
+  5. DÉTAIL CONSTANT PAR TUILE : les pièces (tôles ~0,4, boulons, rivets, grilles) ont la MÊME taille absolue à
+     tous les niveaux ; un grand niveau en a donc plus, il n'est jamais un agrandissement d'échelle.
+Une TOURELLE, pas un bâtiment : aucune fenêtre ; la lumière vient d'orifices (hublots ronds, fentes de chemise,
+jauges de cellules, grilles de radiateur), en petits foyers séparés.
 
-Emprises (charte §6.2, échelle proposée) : niveau 11 (époque 6) 3×3, niveau 21 (époque 11) 5×5, niveau 29 et 30
-(époque 15) 6×6. Le socle remplit l'emprise ; la tête tourne au-dessus d'un tambour fixe.
-
-Repris de V3 phase 1 (pieces/levels/gun, branche worktree-wf_1f9884be-7b6-2) : identité « tête à plusieurs
-canons », socle (base_picture, 1 direction) et tête (64 directions, poses N et E ici) séparés, canons vers +Y en
-repère de tête (pose E = rotation de -90° autour de Z), source du halo portée par le socle, zone toujours visible
-pour la pièce du niveau pair (F46 : ici, les coins avant, hors du balayage de la tête), ombres plein est (F47,
-étalonnage du pipeline inchangé).
-
-Règle de dessin des couches (le socle est dessiné en lower-object, la tête en object) : dans le cercle balayé par
-la tête, les éléments du socle restent plus bas que le dessous des parties tournantes ; les éléments hauts du socle
-sont aux coins ARRIÈRE (derrière la tête, qui les recouvre à raison) ; les coins et le bord AVANT restent bas (sinon
-la tête, dessinée après, les recouvrirait à tort).
+Repère et couches : voir ht_geo.py. Le socle (base_picture, 1 direction) est dessiné avant la tête : dans le cercle
+balayé par la tête, le socle reste plus bas que les parties tournantes (vérifié par ht_apercu.sweep_conflicts) ;
+les volumes hauts sont à l'ARRIÈRE (nord), l'avant (sud) reste bas.
 """
 import math
 
 import ht_geo as G
 from ht_geo import TD, TAU, Rx, Ry, Rz
+from ht_kit import (TONES, AMBER, EPOCH_GLOW, floor_conduit, capacitor, radiator_block, crate, pipe_run, lamp_post, hose_arc,
+                    cable_bundle, hatch, tank_h, big_hose, pump, conveyor, shroud, drum_mag, secondary_turret, sensor,
+                    spline)
+
+np = G.np
 
 # ------------------------------------------------------------------------------------------------
 # Niveaux
@@ -37,22 +42,9 @@ LEVELS = {
     29: {"epoch": 15, "era": 5, "side": 6},
     30: {"epoch": 15, "era": 5, "side": 6},
 }
-# lumière d'époque (DESIGN_EPOQUES §0) en couleur LINÉAIRE d'émission ; foyers petits et nombreux (charte §6.4)
-EPOCH_GLOW = {6: (0.12, 0.62, 1.0),      # arcs cyan #60D0FF
-              11: (0.52, 0.79, 1.0),     # lignes bleu-blanc #BFE6FF
-              15: (1.0, 0.86, 0.50)}     # blanc doré #FFF2C0
-TONES = ("plate", "plate", "plate_l", "plate2")   # tons de tôle tirés au hasard (graine fixe par niveau)
-AMBER = (1.0, 0.42, 0.04)                # voyants d'état (teinte chaude, toutes époques)
-# aileron triangulaire : profil (x, y) local -> plan vertical YZ (x local -> +Y, y local -> +Z, épaisseur selon X)
-FIN_YZ = G.np.array([[0, 0, 1.0], [1.0, 0, 0], [0, 1.0, 0]])
-
-# halo de nuit : intensité relative par niveau (proportionnelle, plafonnée ; charte §8.6 : rayon ≤ 1,5 × côté)
 HALO_GAIN = {11: 0.55, 21: 0.8, 29: 1.0, 30: 1.0}
-# fenêtre du halo au sol : plein jusqu'au bord de l'emprise, nul HALO_EXTRA tuile au-delà (rayon nul = côté/2 + 1,
-# soit 0,83 × côté au plus : sous la borne « rayon ≤ 1,5 × côté » proposée par la charte §8.6)
 HALO_EXTRA = 1.0
-# dessus de la barbette (tambour fixe du socle) = pied de la tête
-Z_DRUM = {11: 0.75, 21: 1.05, 29: 1.3, 30: 1.3}
+HALO_POWER = 18.0          # puissance de chaque source du halo de nuit (W, relative : renormalisée par ht_post)
 
 
 def variants():
@@ -68,1104 +60,1027 @@ def variants():
 VARIANTS = variants()
 DIR_ANGLE = {"N": 0.0, "E": -math.pi / 2, "S": math.pi, "O": math.pi / 2}
 
-
 # ------------------------------------------------------------------------------------------------
-# Palette (couleurs LINÉAIRES ; paramètres de fo_scene.mat_metal). Ancre : cheminée V0 validée (tôle brune
-# rouillée (0,2 ; 0,17 ; 0,13), grain 0,3 à l'échelle 45, crasse des creux 0,85). Le corps est le même à toutes
-# les époques ; seul l'accent d'époque et la lueur changent.
+# Palette (couleurs LINÉAIRES ; paramètres de fo_scene.mat_metal). Corps : acier brun rouillé (cheminée V0).
+# Les tôles peintes (olive, crème) sont patinées, rouillées sur les bords, jamais propres.
 # ------------------------------------------------------------------------------------------------
-RUST = (0.16, 0.058, 0.022)          # rouille plus SOMBRE que la tôle : contraste de luminance (P2), pas seulement de teinte
+RUST = (0.15, 0.055, 0.02)
 
 
 def palette(epoch):
     M = {
-        "body": dict(kind="metal", color=(0.17, 0.148, 0.118), rough=0.42, metallic=0.6, grain=0.4, grain_scale=48.0,
-                     rust=RUST, rust_amount=0.38, rust_scale=10.0, dirt=0.9, dirt_distance=0.5),
-        "plate": dict(kind="metal", color=(0.215, 0.185, 0.145), rough=0.4, metallic=0.6, grain=0.38, grain_scale=52.0,
-                      rust=RUST, rust_amount=0.32, rust_scale=11.0, dirt=0.9, dirt_distance=0.45),
-        "plate_l": dict(kind="metal", color=(0.255, 0.218, 0.17), rough=0.42, metallic=0.55, grain=0.38, grain_scale=50.0,
-                        rust=RUST, rust_amount=0.3, rust_scale=11.0, dirt=0.9, dirt_distance=0.45),
-        "plate2": dict(kind="metal", color=(0.11, 0.098, 0.082), rough=0.5, metallic=0.55, grain=0.4, grain_scale=45.0,
-                       rust=RUST, rust_amount=0.42, rust_scale=9.0, dirt=0.9, dirt_distance=0.5),
+        "body": dict(kind="metal", color=(0.2, 0.168, 0.128), rough=0.45, metallic=0.35, grain=0.22, grain_scale=48.0,
+                     rust=RUST, rust_amount=0.38, rust_scale=10.0, dirt=0.7, dirt_distance=0.5),
+        "plate": dict(kind="metal", color=(0.27, 0.225, 0.17), rough=0.4, metallic=0.4, grain=0.22, grain_scale=52.0,
+                      rust=RUST, rust_amount=0.32, rust_scale=11.0, dirt=0.7, dirt_distance=0.45),
+        "plate_l": dict(kind="metal", color=(0.34, 0.285, 0.21), rough=0.38, metallic=0.4, grain=0.22,
+                        grain_scale=50.0, rust=RUST, rust_amount=0.28, rust_scale=11.0, dirt=0.7, dirt_distance=0.45),
+        "plate2": dict(kind="metal", color=(0.135, 0.118, 0.096), rough=0.5, metallic=0.3, grain=0.22, grain_scale=45.0,
+                       rust=RUST, rust_amount=0.4, rust_scale=9.0, dirt=0.75, dirt_distance=0.5),
+        # tôle peinte olive patinée (assembleuse, réservoirs vanilla)
+        "olive": dict(kind="metal", color=(0.27, 0.235, 0.095), rough=0.6, metallic=0.0, grain=0.22, grain_scale=48.0,
+                      rust=RUST, rust_amount=0.26, rust_scale=9.0, dirt=0.7, dirt_distance=0.45),
+        # peinture crème patinée (réacteur vanilla)
+        "cream": dict(kind="metal", color=(0.52, 0.47, 0.32), rough=0.55, metallic=0.0, grain=0.22, grain_scale=46.0,
+                      rust=RUST, rust_amount=0.22, rust_scale=8.0, dirt=0.7, dirt_distance=0.45),
+        # acier nu usé : arêtes et reflets francs
+        "steel": dict(kind="metal", color=(0.30, 0.275, 0.24), rough=0.28, metallic=0.95, grain=0.3, grain_scale=60.0,
+                      rust=RUST, rust_amount=0.18, rust_scale=8.0, dirt=0.7),
         "dark": dict(kind="metal", color=(0.03, 0.027, 0.024), rough=0.6, metallic=0.4, grain=0.25, grain_scale=45.0,
                      dirt=0.5),
-        "gun": dict(kind="metal", color=(0.085, 0.08, 0.074), rough=0.33, metallic=0.85, grain=0.22, grain_scale=60.0,
+        "gun": dict(kind="metal", color=(0.2, 0.185, 0.165), rough=0.25, metallic=0.9, grain=0.22, grain_scale=60.0,
                     rust=RUST, rust_amount=0.2, rust_scale=7.0, dirt=0.6),
-        "bolt": dict(kind="metal", color=(0.36, 0.315, 0.25), rough=0.5, metallic=0.8, grain=0.12, grain_scale=70.0,
+        "bolt": dict(kind="metal", color=(0.38, 0.33, 0.26), rough=0.42, metallic=0.85, grain=0.12, grain_scale=70.0,
                      dirt=0.3),
-        "brass": dict(kind="metal", color=(0.44, 0.32, 0.15), rough=0.4, metallic=0.9, grain=0.2, grain_scale=60.0,
-                      rust=RUST, rust_amount=0.25, rust_scale=6.0, dirt=0.55),
-        "copper": dict(kind="metal", color=(0.36, 0.17, 0.085), rough=0.42, metallic=0.9, grain=0.22, grain_scale=55.0,
-                       rust=RUST, rust_amount=0.2, rust_scale=6.0, dirt=0.6),
-        "haz_y": dict(kind="metal", color=(0.36, 0.235, 0.02), rough=0.65, metallic=0.15, grain=0.35, grain_scale=45.0,
+        "brass": dict(kind="metal", color=(0.46, 0.33, 0.14), rough=0.36, metallic=0.95, grain=0.2, grain_scale=60.0,
+                      rust=RUST, rust_amount=0.22, rust_scale=6.0, dirt=0.55),
+        "copper": dict(kind="metal", color=(0.40, 0.18, 0.085), rough=0.4, metallic=0.95, grain=0.22, grain_scale=55.0,
+                       rust=RUST, rust_amount=0.18, rust_scale=6.0, dirt=0.6),
+        "haz_y": dict(kind="metal", color=(0.40, 0.26, 0.02), rough=0.62, metallic=0.15, grain=0.35, grain_scale=45.0,
                       rust=RUST, rust_amount=0.4, rust_scale=6.0, dirt=0.75),
         "haz_k": dict(kind="metal", color=(0.028, 0.026, 0.023), rough=0.7, metallic=0.2, grain=0.3, grain_scale=45.0,
                       dirt=0.5),
-        "rubber": dict(kind="metal", color=(0.03, 0.028, 0.026), rough=0.75, metallic=0.0, grain=0.15, grain_scale=60.0,
+        "rubber": dict(kind="metal", color=(0.035, 0.032, 0.03), rough=0.72, metallic=0.0, grain=0.15, grain_scale=60.0,
                        dirt=0.4),
-        "cable_r": dict(kind="metal", color=(0.17, 0.035, 0.015), rough=0.6, metallic=0.0, grain=0.2, grain_scale=60.0,
+        "cable_r": dict(kind="metal", color=(0.2, 0.035, 0.015), rough=0.6, metallic=0.0, grain=0.2, grain_scale=60.0,
                         dirt=0.5),
-        "grille": dict(kind="metal", color=(0.045, 0.04, 0.035), rough=0.65, metallic=0.4, grain=0.2, grain_scale=50.0,
+        "grille": dict(kind="metal", color=(0.05, 0.044, 0.038), rough=0.6, metallic=0.5, grain=0.2, grain_scale=50.0,
                        dirt=0.4),
-        "case": dict(kind="metal", color=(0.46, 0.33, 0.13), rough=0.36, metallic=0.9, grain=0.15, grain_scale=70.0,
+        "case": dict(kind="metal", color=(0.5, 0.36, 0.14), rough=0.32, metallic=0.95, grain=0.15, grain_scale=70.0,
                      dirt=0.4),
         "glow": dict(kind="emit", color=EPOCH_GLOW[epoch], strength=1.0),
         "amber": dict(kind="emit", color=AMBER, strength=1.0),
+        "heat": dict(kind="emit", color=(1.0, 0.36, 0.05), strength=1.0),
     }
     if epoch == 6:
-        # céramique d'isolateur PATINÉE (bible #D8D4C8 assombrie : accent, pas un corps clair)
         M["accent"] = dict(kind="metal", color=(0.40, 0.36, 0.29), rough=0.45, metallic=0.0, grain=0.22,
                            grain_scale=55.0, rust=RUST, rust_amount=0.2, rust_scale=7.0, dirt=0.8)
     elif epoch == 11:
-        # titane terni (bible #8E9AA6 réchauffé et assombri ; plaques d'accent seulement)
-        M["accent"] = dict(kind="metal", color=(0.27, 0.26, 0.24), rough=0.45, metallic=0.75, grain=0.24,
+        M["accent"] = dict(kind="metal", color=(0.27, 0.26, 0.24), rough=0.4, metallic=0.8, grain=0.24,
                            grain_scale=55.0, rust=RUST, rust_amount=0.15, rust_scale=7.0, dirt=0.75)
     else:
-        # or blanc patiné (bible #E8DCB0 assombri), accents de couronne et de cœur
-        M["accent"] = dict(kind="metal", color=(0.44, 0.36, 0.20), rough=0.38, metallic=0.9, grain=0.22,
+        M["accent"] = dict(kind="metal", color=(0.46, 0.37, 0.20), rough=0.34, metallic=0.95, grain=0.22,
                            grain_scale=55.0, rust=RUST, rust_amount=0.2, rust_scale=6.0, dirt=0.65)
     return M
 
 
-# Crasse à moyenne échelle ajoutée par ht_blender.add_grime au matériau du pipeline (fo_scene.mat_metal inchangé) :
-# (taches isotropes, coulures verticales), amplitudes relatives. Pourquoi : la charte (P2, variance basse fréquence
-# des surfaces planes, plancher 16, vanilla 14 à 27) ; le premier rendu mesurait 12 à 13 : grain fin et rouille
-# seulement, sans taches ni coulures entre 4 et 16 px.
-GRIME = {"body": (0.38, 0.4), "plate": (0.38, 0.4), "plate_l": (0.38, 0.4), "plate2": (0.34, 0.34), "gun": (0.2, 0.2), "brass": (0.18, 0.2),
+GRIME = {"body": (0.75, 0.55), "plate": (0.75, 0.55), "plate_l": (0.75, 0.55), "plate2": (0.65, 0.5),
+         "olive": (0.75, 0.55), "cream": (0.6, 0.55), "steel": (0.25, 0.3), "gun": (0.2, 0.2), "brass": (0.18, 0.2),
          "copper": (0.18, 0.2), "haz_y": (0.25, 0.35), "accent": (0.22, 0.28), "case": (0.12, 0.1),
          "haz_k": (0.2, 0.2), "dark": (0.2, 0.2), "grille": (0.15, 0.15)}
 
+# usure additive (peinture écaillée vers l'acier nu, ht_blender.add_grime) : part maximale du mélange
+WEAR = {"body": 0.6, "plate": 0.5, "plate_l": 0.4, "plate2": 0.65, "olive": 0.55, "cream": 0.35, "haz_y": 0.4}
+
+PLATE_W = 0.42        # largeur d'une tôle d'armure (unités) : la même à tous les niveaux
+PLATE_H = 0.3
+
 
 # ------------------------------------------------------------------------------------------------
-# Modules communs
+# Briques nouvelles
 # ------------------------------------------------------------------------------------------------
-def octagon(hx, hy, cf, cb):
-    """Octogone d'emprise : demi-côtés hx (X) et hy (Y Blender), chanfreins avant cf et arrière cb (tuiles)."""
-    return [(-hx + cf, -hy), (hx - cf, -hy), (hx, -hy + cf * TD), (hx, hy - cb * TD), (hx - cb, hy), (-hx + cb, hy),
-            (-hx, hy - cb * TD), (-hx, -hy + cf * TD)]
+def ring_plates(b, R, z0, z1, mats=("plate", "plate", "plate_l", "olive"), skip=None, bolts=True, th=0.04,
+                cone_r1=None, phase=0.0, tone_seed=0, rivets=None):
+    """Tôles d'armure boulonnées autour d'un fût (R, de z0 à z1) ou d'un tronc de cône (R en bas, cone_r1 en haut).
+    Tôles de largeur PLATE_W et de hauteur PLATE_H (constantes) : plus le fût est grand, plus il y en a.
+    skip(a) -> True : secteur laissé libre (angle a du centre de la tôle)."""
+    r1 = R if cone_r1 is None else cone_r1
+    h = z1 - z0
+    slant = math.hypot(h, R - r1)
+    rows = max(1, int(round(slant / PLATE_H)))
+    for row in range(rows):
+        t0, t1 = row / rows, (row + 1) / rows
+        tm = (t0 + t1) / 2
+        rr = R + (r1 - R) * tm
+        zc = z0 + h * tm
+        n = max(6, int(round(TAU * rr / PLATE_W)))
+        w = TAU * rr / n - 0.04
+        off = 0.5 * (row % 2) + phase
+        for i in range(n):
+            a = TAU * (i + 0.5 + off) / n
+            if skip and skip(a):
+                continue
+            ca, sa = math.cos(a), math.sin(a)
+            u = np.array([-sa, ca, 0.0])
+            v = np.array([-ca * (r1 - R), -sa * (r1 - R), h])
+            v /= np.linalg.norm(v)
+            nrm = np.cross(u, v)
+            Rm = np.stack([u, v, nrm], 1)
+            c = np.array([ca * rr, sa * rr, zc]) + nrm * th / 2
+            k = (i * 7 + row * 3 + tone_seed) % len(mats)
+            b.box(mats[k], c, (w, slant / rows - 0.035, th), R=Rm, bev=0.012)
+            if bolts:
+                # petites viroles (R < 1,3) : 2 boulons en diagonale ; grandes : 4 (plafond anti-bouillie D3 <= 45)
+                for su in (-1, 1):
+                    for sv in ((-1, 1) if R >= 1.3 else (su,)):
+                        p = c + u * su * (w / 2 - 0.045) + v * sv * (slant / rows / 2 - 0.05) + nrm * (th / 2 + 0.004)
+                        b.bolt("bolt", p, r=0.019, h=0.014, axis=nrm)
+            if rivets if rivets is not None else R > 1.3:
+                # rivets le long du bord bas de la tôle (grandes viroles : grandes tôles rivetées)
+                nr = max(2, int((w - 0.16) / (0.075 if R < 2.0 else 0.06)))
+                for j in range(nr):
+                    for sv in (-1, 1):
+                        q = c + u * (-(w - 0.16) / 2 + (j + 0.5) * (w - 0.16) / nr) + sv * v * (slant / rows / 2 - 0.035) + nrm * (th / 2 + 0.003)
+                        b.cyl("bolt", q, 0.011, 0.01, axis=nrm, n=6, bev=0)
 
 
-def slab(b, side, z, cf, cb, deck=(8, 10)):
-    """Dalle de fondation octogonale : tôles du dessus, bande de danger et boulons sur la face avant."""
-    hx, hy = side / 2.0, side / 2.0 * TD
-    b.prism("plate2", octagon(hx, hy, cf, cb), 0.0, z, bev=0.03)
-    # bordure (cornière) sur le pourtour du dessus
-    poly = octagon(hx, hy, cf, cb)
-    n = len(poly)
+def ribs(b, R, z0, z1, n, depth=0.14, w=0.07, mat="plate2", phase=0.0, skip=None, top_r=None):
+    """Nervures verticales (goussets triangulaires) en saillie autour d'un fût : relief et ombres internes."""
     for i in range(n):
-        p0, p1 = poly[i], poly[(i + 1) % n]
+        a = TAU * (i + phase) / n
+        if skip and skip(a):
+            continue
+        ca, sa = math.cos(a), math.sin(a)
+        Rm = Rz(a)
+        r_top = R if top_r is None else top_r
+        poly = [(0.0, z0), (depth, z0), (0.012, z1)]
+        # prisme dans le plan radial (x local = radial, y local = z), épaisseur w selon la tangente
+        M = Rm @ np.array([[1.0, 0, 0], [0, 0, 1.0], [0, 1.0, 0]])
+        b.prism(mat, poly, -w / 2, w / 2, R=M, t=(ca * R, sa * R, 0.0), bev=0.01)
+        b.bolt("bolt", (ca * (R + depth * 0.45), sa * (R + depth * 0.45), z0 + (z1 - z0) * 0.35), r=0.018, h=0.012,
+               axis=(ca, sa, 0.0))
+
+
+def mount(b, R0, z_top, tiers, n_ribs, vents=0, glow_vents=0, haz=True, lamps=0, vent_tiers=(0,)):
+    """AFFÛT BLINDÉ (le « socle pivotant ») : gradins circulaires (tiers = [(rayon, hauteur), ...] de bas en haut),
+    tôles boulonnées sur chaque gradin, nervures en saillie, grilles d'aération (certaines lumineuses) sur le
+    secteur avant, bande de danger sur le rebord, couronne de roulement laiton et boulons du dessus."""
+    z = 0.0
+    for k, (r, h) in enumerate(tiers):
+        b.cyl("plate2", (0, 0, z + h / 2), r, h, n=max(48, int(r * 30)), bev=0.02)
+        front = (lambda a: -2.6 < a - TAU * (a > math.pi) < -0.55) if (k in vent_tiers and vents) else None
+        ring_plates(b, r, z + 0.02, z + h - 0.02, skip=front, tone_seed=k * 5)
+        # rebord du gradin : cornière et boulons
+        b.cyl("body", (0, 0, z + h + 0.015), r + 0.03, 0.03, n=max(48, int(r * 30)), bev=0.008)
+        nb = int(TAU * r / 0.16)
+        for i in range(nb):
+            a = TAU * (i + 0.5) / nb
+            b.bolt("bolt", (math.cos(a) * (r - 0.05), math.sin(a) * (r - 0.05), z + h + 0.03), r=0.02)
+        if k == 0:
+            ribs(b, r, z, z + h * 0.95, n_ribs, depth=0.16)
+        if k in vent_tiers:
+            if vents:
+                # grilles sur le secteur avant (face à la caméra)
+                for i in range(vents):
+                    a = -2.55 + (2.55 - 0.6) * (i + 0.5) / vents
+                    ca, sa = math.cos(a), math.sin(a)
+                    u = np.array([-sa, ca, 0.0])
+                    b.vent_face("plate", "steel", "glow" if i % max(1, vents // max(1, glow_vents)) == 0 and glow_vents
+                                else "dark", (ca * (r + 0.01), sa * (r + 0.01), z + h * 0.5), u, (0, 0, 1),
+                                min(0.42, TAU * r / (vents * 1.8)), h * 0.62, max(3, int(h * 0.62 / 0.075)))
+        z += h
+    if haz:
+        # bande de danger du rebord supérieur (secteur avant)
+        r = tiers[-1][0]
+        n = int(TAU * r / 0.3)
+        for i in range(n):
+            a = TAU * (i + 0.5) / n
+            if math.sin(a) > -0.15:
+                continue
+            ca, sa = math.cos(a), math.sin(a)
+            u = np.array([-sa, ca, 0.0])
+            p = np.array((ca * (r + 0.005), sa * (r + 0.005), z - 0.07))
+            w = TAU * r / n
+            b.hazard_band("haz_y", "haz_k", p - u * w / 2, p + u * w / 2, width=0.1, th=0.012, normal=(ca, sa, 0.0),
+                          n=2)
+    # feux de position ronds sur le rebord (secteur avant), comme les feux de la fosse du silo vanilla
+    rims = [(tiers[-1][0], z - 0.02, 0.0)]
+    if lamps >= 999:      # feux de gradin abandonnés : effet guirlande (rendu r6)
+        zz = 0.0
+        for k, (rk, hk) in enumerate(tiers[:-1]):
+            zz += hk
+            if k % 2 == 0:
+                rims.append((rk, zz + 0.01, 0.5))
+    for (r, zr, ph) in (rims if lamps else []):
+        for i in range(lamps):
+            a = math.pi + math.pi * (i + 0.5 + ph) / lamps
+            if a >= TAU:
+                continue
+            ca, sa = math.cos(a), math.sin(a)
+            nrm = np.array([ca * 0.7, sa * 0.7, 0.7])
+            p = np.array([ca * (r - 0.02), sa * (r - 0.02), zr])
+            b.cyl("steel", p, 0.06, 0.05, axis=nrm, n=14, bev=0.006)
+            b.cyl("glow", p + nrm * 0.03, 0.046, 0.016, axis=nrm, n=12, bev=0)
+    # dessus : couronne de roulement (cachée par la tête, sauf le bord)
+    r = tiers[-1][0]
+    b.cyl("steel", (0, 0, z + 0.012), r - 0.1, 0.024, n=72, bev=0.006)
+    b.cyl("dark", (0, 0, z + 0.02), r - 0.22, 0.02, n=72, bev=0)
+    return z
+
+
+def curb(b, R, w=0.16, h=0.07):
+    """Bordure annulaire au pied de l'affût : cornière boulonnée, bande de danger sur le secteur avant."""
+    b.cyl("body", (0, 0, h / 2), R + w, h, n=max(48, int(R * 30)), bev=0.012)
+    nb = int(TAU * (R + w / 2) / 0.2)
+    for i in range(nb):
+        a = TAU * (i + 0.5) / nb
+        b.bolt("bolt", (math.cos(a) * (R + w * 0.6), math.sin(a) * (R + w * 0.6), h + 0.004), r=0.019)
+    n = int(TAU * (R + w) / 0.26)
+    for i in range(n):
+        a = TAU * (i + 0.5) / n
+        if math.sin(a) > -0.3:
+            continue
+        ca, sa = math.cos(a), math.sin(a)
+        u = np.array([-sa, ca, 0.0])
+        p = np.array((ca * (R + w + 0.004), sa * (R + w + 0.004), h * 0.5))
+        ww = TAU * (R + w) / n
+        b.hazard_band("haz_y", "haz_k", p - u * ww / 2, p + u * ww / 2, width=h * 0.7, th=0.008, normal=(ca, sa, 0.0),
+                      n=2)
+
+
+def hoist(b, a, R, z_top, w=0.4, depth=0.34):
+    """MONTE-CHARGE À MUNITIONS plaqué sur l'affût (angle a) : gaine verticale boulonnée en saillie du sol au
+    rebord, porte de visite, bande de danger, goulotte au sommet, conduite d'huile. Casse la monotonie des anneaux
+    et projette une ombre interne (relief, critique point 4)."""
+    ca, sa = math.cos(a), math.sin(a)
+    u = np.array([-sa, ca, 0.0])
+    n_ = np.array([ca, sa, 0.0])
+    Rm = np.stack([u, n_, np.array([0, 0, 1.0])], 1)
+    c = np.array([ca * (R + depth / 2 - 0.06), sa * (R + depth / 2 - 0.06), z_top / 2])
+    b.box("plate2", c, (w, depth, z_top + 0.06), R=Rm, bev=0.02)
+    f = c + n_ * (depth / 2 + 0.012)
+    b.box("plate", f + np.array([0, 0, z_top * 0.1]), (w - 0.08, 0.025, z_top * 0.6), R=Rm, bev=0.01)
+    for sv in (-1, 1):
+        for su in (-1, 1):
+            b.bolt("bolt", f + u * su * (w / 2 - 0.07) + np.array([0, 0, z_top * 0.1 + sv * z_top * 0.27]), r=0.017,
+                   h=0.012, axis=n_)
+    b.hazard_band("haz_y", "haz_k", f - u * (w / 2 - 0.03) + np.array([0, 0, z_top * 0.48]),
+                  f + u * (w / 2 - 0.03) + np.array([0, 0, z_top * 0.48]), width=0.08, th=0.008, normal=n_)
+    b.box("dark", f + np.array([0, 0, -z_top * 0.33]), (w * 0.5, 0.02, 0.05), R=Rm, bev=0)
+    b.box("steel", c + np.array([0, 0, z_top / 2 + 0.05]), (w + 0.04, depth + 0.04, 0.05), R=Rm, bev=0.01)
+    b.cyl("copper", c + u * (w / 2 + 0.04) + n_ * 0.05, 0.03, z_top, n=8, bev=0)
+    for t in (0.25, 0.75):
+        b.box("steel", c + u * (w / 2 + 0.04) + n_ * 0.05 + np.array([0, 0, (t - 0.5) * z_top]), (0.07, 0.07, 0.03),
+              R=Rm, bev=0)
+
+
+def apron(b, side, cf, cb, z=0.045, inset=0.0):
+    """Tablier bas (4,5 cm) qui relie les volumes : caillebotis (barreaux), cornières, boulons ; jamais une dalle
+    lisse. Rentré de `inset` et à grands chanfreins : le contour du bâtiment est fait par les VOLUMES posés au sol
+    (qui le débordent), pas par un carré plat."""
+    hx, hy = side / 2.0 - inset, (side / 2.0 - inset) * TD
+    poly = [(-hx + cf, -hy), (hx - cf, -hy), (hx, -hy + cf * TD), (hx, hy - cb * TD), (hx - cb, hy), (-hx + cb, hy),
+            (-hx, hy - cb * TD), (-hx, -hy + cf * TD)]
+    b.prism("grille", poly, 0.0, z * 0.5, bev=0.0)
+    # barreaux du caillebotis (pas de 0,09), coupés exactement au contour (intersection verticale / polygone)
+    n = int((2 * hx - 0.1) / 0.09)
+    m = len(poly)
+    for i in range(n):
+        x = -hx + 0.05 + (i + 0.5) * (2 * hx - 0.1) / n
+        ys = []
+        for j in range(m):
+            (x0, y0), (x1, y1) = poly[j], poly[(j + 1) % m]
+            if (x0 - x) * (x1 - x) <= 0 and x0 != x1:
+                ys.append(y0 + (y1 - y0) * (x - x0) / (x1 - x0))
+        if len(ys) < 2:
+            continue
+        ya, yb = min(ys) + 0.06, max(ys) - 0.06
+        if yb > ya:
+            b.box("plate2", (x, (ya + yb) / 2, z * 0.5 + 0.012), (0.03, yb - ya, 0.024), bev=0)
+    m = len(poly)
+    for i in range(m):
+        p0, p1 = poly[i], poly[(i + 1) % m]
         dx, dy = p1[0] - p0[0], p1[1] - p0[1]
         L = math.hypot(dx, dy)
         a = math.atan2(dy, dx)
-        cx, cy = (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2
-        # vers l'intérieur
         nx, ny = -dy / L, dx / L
-        b.box("body", (cx + nx * 0.05, cy + ny * 0.05, z + 0.025), (L - 0.06, 0.1, 0.05), R=Rz(a), bev=0.01)
-        k = max(2, int(L / 0.32))
+        cx, cy = (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2
+        b.box("body", (cx + nx * 0.04, cy + ny * 0.04, z * 0.5 + 0.02), (L - 0.04, 0.08, z + 0.005), R=Rz(a), bev=0.008)
+        k = max(2, int(L / 0.28))
         for j in range(k):
             t = (j + 0.5) / k
-            b.bolt("bolt", (p0[0] + dx * t + nx * 0.05, p0[1] + dy * t + ny * 0.05, z + 0.055), r=0.022)
-    # tôles du dessus (les cases coupées par les chanfreins sont omises)
-    nx_, ny_ = deck
-    x0, x1, y0, y1 = -hx + 0.12, hx - 0.12, -hy + 0.12, hy - 0.12
-    skip = set()
-    w = (x1 - x0) / nx_
-    d = (y1 - y0) / ny_
-    for i in range(nx_):
-        for j in range(ny_):
-            cx = x0 + (i + 0.5) * w
-            cy = y0 + (j + 0.5) * d
-            # coin avant / arrière : distance au bord chanfreiné
-            for (sx, sy, c) in ((-1, -1, cf), (1, -1, cf), (-1, 1, cb), (1, 1, cb)):
-                if (sx * cx - (hx - c)) * TD + (sy * cy - (hy - c * TD)) > -0.25 and sx * cx > hx - c - w and \
-                        sy * cy > hy - c * TD - d:
-                    skip.add((i, j))
-    gap = 0.035
-    for i in range(nx_):
-        for j in range(ny_):
-            if (i, j) in skip:
-                continue
-            cx = x0 + (i + 0.5) * w
-            cy = y0 + (j + 0.5) * d
-            pw, pd = w - gap, d - gap
-            r = b.rng.random()
-            if r < 0.12:
-                # grille encastrée (fond sombre)
-                b.grille_top("body", "grille", "dark", cx - pw / 2, cx + pw / 2, cy - pd / 2, cy + pd / 2, z + 0.012,
-                             max(3, int((pd if pw >= pd else pw) / 0.075)), along="x" if pw >= pd else "y")
-                continue
-            if r < 0.18:
-                hatch(b, (cx, cy, z), pw * 0.85, pd * 0.85)
-                continue
-            mat = "plate2" if r < 0.3 else ("plate_l" if r < 0.5 else "plate")
-            b.box(mat, (cx, cy, z + 0.015), (pw, pd, 0.03), bev=0.012)
-            b.bolts_rect("bolt", cx - pw / 2, cx + pw / 2, cy - pd / 2, cy + pd / 2, z + 0.03, r=0.022, inset=0.055)
-    # face avant : bande de danger et boulons
-    yf = -hy - 0.004
-    b.hazard_band("haz_y", "haz_k", (-hx + cf + 0.05, yf, z * 0.55), (hx - cf - 0.05, yf, z * 0.55), width=z * 0.55,
-                  th=0.012, normal="-y")
-    b.bolts_line("bolt", (-hx + cf, yf - 0.006, z * 0.15), (hx - cf, yf - 0.006, z * 0.15), int(side * 3), r=0.02,
-                 axis="-y", h=0.014)
+            b.bolt("bolt", (p0[0] + dx * t + nx * 0.04, p0[1] + dy * t + ny * 0.04, z + 0.028), r=0.018)
+    return poly
 
 
-def capacitor(b, c, r, h, glow_slits=2, terminals=True):
-    """Cellule de réserve d'énergie : fût cerclé, fenêtres de jauge lumineuses vers le sud (caméra), couvercle à
-    bornes cuivre ; grille de protection sur les fenêtres."""
+def core_vessel(b, c, r, glow_ports=3, paint="cream"):
+    """CUVE-CŒUR (à la manière du réacteur vanilla) : sphère peinte patinée sur berceau, cerclages rivetés,
+    trappes rondes boulonnées, hublots RONDS lumineux (petits foyers), bride sommitale et vanne, piquages pour les
+    gaines. Fonction : réserve et conversion d'énergie de la tourelle."""
+    x, y, z = c
+    # berceau : anneau et 4 pieds
+    b.cyl("plate2", (x, y, 0.08), r * 0.7, 0.16, n=36, bev=0.015)
+    for k in range(4):
+        a = TAU * (k + 0.5) / 4
+        px, py = x + math.cos(a) * r * 0.62, y + math.sin(a) * r * 0.62
+        b.box("body", (px, py, (z - r * 0.5) / 2 + 0.08), (0.14, 0.14, z - r * 0.5), R=Rz(a), bev=0.01)
+        b.box("plate", (px, py, 0.05), (0.26, 0.26, 0.1), R=Rz(a), bev=0.01)
+        for s in (-1, 1):
+            b.bolt("bolt", (px + s * 0.08, py, 0.105), r=0.018)
+    b.sphere(paint, (x, y, z), r, n=40, m=20)
+    # cerclages (latitudes) rivetés
+    for lat in (-0.35, 0.05, 0.45):
+        zz = z + r * math.sin(lat)
+        rr = r * math.cos(lat)
+        b.torus("steel", (x, y, zz), rr + 0.004, 0.022, n=56, m=6)
+        nb = int(TAU * rr / 0.13)
+        for i in range(nb):
+            a = TAU * i / nb
+            p = np.array([x + math.cos(a) * rr * 1.02, y + math.sin(a) * rr * 1.02, zz + 0.03])
+            n_ = np.array([math.cos(a) * math.cos(lat), math.sin(a) * math.cos(lat), math.sin(lat)])
+            b.bolt("bolt", p, r=0.016, h=0.012, axis=n_)
+    # méridiens de tôle (joints) sur la face sud
+    for a in (-2.2, -1.57, -0.94):
+        pts = []
+        for k in range(12):
+            t = -0.9 + 1.8 * k / 11
+            pts.append((x + math.cos(a) * math.cos(t) * (r + 0.006), y + math.sin(a) * math.cos(t) * (r + 0.006),
+                        z + math.sin(t) * (r + 0.006)))
+        b.tube("plate2", pts, 0.012, n=6)
+    # hublots ronds lumineux sur la face sud-ouest et sud (petits foyers)
+    for k in range(glow_ports):
+        a = -1.57 + (k - (glow_ports - 1) / 2) * 0.42
+        lat = 0.18 + 0.12 * (k % 2)
+        n_ = np.array([math.cos(a) * math.cos(lat), math.sin(a) * math.cos(lat), math.sin(lat)])
+        p = np.array([x, y, z]) + n_ * r
+        b.cyl("steel", p, 0.11, 0.05, axis=n_, n=20, bev=0.008)
+        b.cyl("dark", p + n_ * 0.026, 0.085, 0.012, axis=n_, n=18, bev=0)
+        b.cyl("glow", p + n_ * 0.03, 0.065, 0.012, axis=n_, n=16, bev=0)
+        for i in range(6):
+            aa = TAU * i / 6
+            F = G.frame_from_axis(n_)
+            q = p + (F[:, 0] * math.cos(aa) + F[:, 1] * math.sin(aa)) * 0.085 + n_ * 0.028
+            b.bolt("bolt", q, r=0.012, h=0.01, axis=n_)
+        b.light(p + n_ * 0.15, (1, 1, 1), 1.0)
+    # trappe ronde boulonnée (face sud-est)
+    a, lat = -0.75, -0.05
+    n_ = np.array([math.cos(a) * math.cos(lat), math.sin(a) * math.cos(lat), math.sin(lat)])
+    p = np.array([x, y, z]) + n_ * r
+    b.cyl("plate", p, r * 0.3, 0.06, axis=n_, n=24, bev=0.01)
+    F = G.frame_from_axis(n_)
+    for i in range(10):
+        aa = TAU * i / 10
+        b.bolt("bolt", p + (F[:, 0] * math.cos(aa) + F[:, 1] * math.sin(aa)) * r * 0.25 + n_ * 0.035, r=0.016,
+               h=0.012, axis=n_)
+    b.box("dark", p + n_ * 0.04, (0.16, 0.03, 0.03), R=F, bev=0)
+    # bride sommitale, vanne
+    b.cyl("steel", (x, y, z + r + 0.02), r * 0.32, 0.08, n=24, bev=0.01)
+    b.cyl("plate2", (x, y, z + r + 0.1), r * 0.16, 0.12, n=16, bev=0.008)
+    b.torus("cable_r", (x, y, z + r + 0.2), r * 0.18, 0.02, n=20, m=6)
+    nb = 12
+    for i in range(nb):
+        aa = TAU * i / nb
+        b.bolt("bolt", (x + math.cos(aa) * r * 0.27, y + math.sin(aa) * r * 0.27, z + r + 0.065), r=0.016)
+
+
+def generator(b, c, L, r, axis="x", glow=True):
+    """GÉNÉRATEUR BOBINÉ couché : carcasse cerclée à bobines de cuivre apparentes, flasques boulonnés, volant
+    d'inertie, pattes de fixation, boîte à bornes et faisceau de câbles, fentes de chaleur (petits foyers)."""
     x, y, z0 = c
-    b.cyl("plate2", (x, y, z0 + 0.04), r + 0.05, 0.08, n=24, bev=0.01)
-    b.cyl("body", (x, y, z0 + 0.08 + h / 2), r, h, n=28, bev=0.012)
-    for t in (0.12, 0.5, 0.88):
-        b.cyl("brass", (x, y, z0 + 0.08 + h * t), r + 0.018, 0.045, n=28, bev=0.006)
-    # fenêtres de jauge (sud et sud-est / sud-ouest)
-    for k in range(glow_slits):
-        a = -math.pi / 2 + (k - (glow_slits - 1) / 2) * 0.55
-        px, py = x + math.cos(a) * (r + 0.004), y + math.sin(a) * (r + 0.004)
+    zc = z0 + r + 0.08
+    ax = np.array([1.0, 0, 0]) if axis == "x" else np.array([0, 1.0, 0])
+    perp = np.array([0, 1.0, 0]) if axis == "x" else np.array([1.0, 0, 0])
+    C = np.array([x, y, zc])
+    # pattes
+    for t in (-0.32, 0.32):
+        p = C + ax * L * t
+        b.box("plate2", (p[0], p[1], z0 + (r + 0.08) / 2), (0.16 if axis == "x" else r * 1.7, r * 1.7 if axis == "x"
+                                                             else 0.16, r + 0.08), bev=0.012)
+    b.cyl("body", C, r, L * 0.78, axis=ax, n=32, bev=0.012)
+    # bobines (tores cuivre) sur le tiers central, carter ajouré au-dessus
+    nk = int(L * 0.5 / 0.065)
+    for k in range(nk):
+        b.torus("copper", C + ax * (-L * 0.25 + k * L * 0.5 / max(1, nk - 1)), r + 0.012, 0.026, axis=ax, n=32, m=6)
+    for t in (-0.3, 0.3):
+        b.cyl("steel", C + ax * L * t, r + 0.04, 0.06, axis=ax, n=32, bev=0.008)
+    for s in (-1, 1):
+        e = C + ax * s * L * 0.42
+        b.cyl("plate", e, r * 0.92, L * 0.08, axis=ax, n=32, bev=0.014)
+        F = G.frame_from_axis(ax * s)
+        for i in range(10):
+            a = TAU * i / 10
+            b.bolt("bolt", e + ax * s * L * 0.04 + (F[:, 0] * math.cos(a) + F[:, 1] * math.sin(a)) * r * 0.78, r=0.018,
+                   h=0.012, axis=ax * s)
+    # volant d'inertie (côté +), moyeu
+    e = C + ax * L * 0.5
+    b.cyl("steel", e + ax * 0.03, r * 1.08, 0.08, axis=ax, n=40, bev=0.01)
+    b.cyl("dark", e + ax * 0.075, r * 0.3, 0.03, axis=ax, n=16, bev=0)
+    for i in range(6):
+        a = TAU * i / 6
+        F = G.frame_from_axis(ax)
+        b.box("plate2", e + ax * 0.08 + (F[:, 0] * math.cos(a) + F[:, 1] * math.sin(a)) * r * 0.6,
+              (0.05, 0.05, 0.05), bev=0)
+    # boîte à bornes et câbles
+    tb = C + np.array([0, 0, r + 0.08]) - ax * L * 0.12
+    b.box("olive", tb, (0.3, 0.26, 0.16) if axis == "x" else (0.26, 0.3, 0.16), bev=0.012)
+    b.bolts_rect("bolt", tb[0] - 0.12, tb[0] + 0.12, tb[1] - 0.1, tb[1] + 0.1, tb[2] + 0.08, r=0.015, inset=0.03)
+    if glow:
+        for k in range(3):
+            q = C - perp * (r + 0.004) + ax * (-0.18 + k * 0.18)
+            b.box("dark", q, (0.12, 0.02, 0.07) if axis == "x" else (0.02, 0.12, 0.07), bev=0)
+            b.box("glow", q - perp * 0.008, (0.08, 0.012, 0.035) if axis == "x" else (0.012, 0.08, 0.035), bev=0)
+    return tb
+
+
+def ammo_magazine(b, c, size, belt_to=None):
+    """MAGASIN DE MUNITIONS : caisson blindé à tôles olive, portes boulonnées à charnières, bande de danger,
+    trappe de chargement sur le dessus, rangée de caisses et goulotte vers l'affût."""
+    x, y, z0 = c
+    sx, sy, sz = size
+    b.box("plate2", (x, y, z0 + sz / 2), (sx, sy, sz), bev=0.025)
+    b.plates_face("olive", (x, y - sy / 2, z0 + sz * 0.5), (1, 0, 0), (0, 0, 1), max(1, int(sx / PLATE_W)),
+                  max(1, int(sz / 0.36)), sx - 0.04, sz - 0.06, th=0.028, bolt_mat="bolt", tones=("olive", "olive",
+                                                                                                    "plate"))
+    b.plates_top("plate", x - sx / 2 + 0.03, x + sx / 2 - 0.03, y - sy / 2 + 0.03, y + sy / 2 - 0.03, z0 + sz,
+                 max(1, int(sx / PLATE_W)), max(1, int(sy / PLATE_W)), th=0.03, gap=0.03, bolt_mat="bolt")
+    b.hazard_band("haz_y", "haz_k", (x - sx / 2 + 0.05, y - sy / 2 - 0.03, z0 + sz * 0.12),
+                  (x + sx / 2 - 0.05, y - sy / 2 - 0.03, z0 + sz * 0.12), width=0.1, th=0.012, normal="-y")
+    for s in (-1, 1):
+        b.box("body", (x + s * (sx / 2 + 0.01), y, z0 + sz / 2), (0.05, sy - 0.04, sz - 0.04), bev=0.008)
+        for zz in (0.3, 0.7):
+            b.cyl("steel", (x + s * (sx / 2 - 0.12), y - sy / 2 - 0.03, z0 + sz * zz), 0.025, 0.1, n=8, bev=0)
+    b.lamp("amber", "plate2", (x + sx * 0.3, y - sy / 2 - 0.035, z0 + sz * 0.82), (0.07, 0.04), axis="-y")
+
+
+def missile_rack(b, c, rot, n=(3, 2)):
+    """PIÈCE DU NIVEAU 30 : lance-missiles blindé incliné (coin avant), ogives à lueur d'époque, socle à bande de
+    danger. Posé hors du balayage de la tête (F46)."""
+    x, y = c
+    b.push(Rz(rot), (x, y, 0.0))
+    b.box("plate2", (0, 0, 0.11), (0.95, 0.9, 0.22), bev=0.02)
+    b.hazard_band("haz_y", "haz_k", (-0.43, -0.455, 0.11), (0.43, -0.455, 0.11), width=0.12, th=0.01, normal="-y")
+    b.bolts_line("bolt", (-0.4, -0.46, 0.2), (0.4, -0.46, 0.2), 6, r=0.016, axis="-y", h=0.01)
+    b.cyl("steel", (0, 0.05, 0.27), 0.34, 0.1, n=32, bev=0.01)
+    b.push(Rx(0.38), (0, 0.05, 0.33))
+    b.box("olive", (0, 0, 0.28), (0.78, 0.66, 0.5), bev=0.025)
+    for s in (-1, 1):
+        b.plates_face("plate", (s * 0.39, 0, 0.28), (0, s, 0), (0, 0, 1), 2, 1, 0.6, 0.44, th=0.02, bolt_mat="bolt")
+    b.bolts_rect("bolt", -0.36, 0.36, -0.31, 0.31, 0.53, r=0.018, inset=0.05, n=(4, 4))
+    b.box("plate", (0, 0.04, 0.545), (0.5, 0.36, 0.03), bev=0.008)
+    nx, nz = n
+    for i in range(nx):
+        for j in range(nz):
+            px, pz = -0.24 + i * 0.24, 0.16 + j * 0.22
+            b.cyl("dark", (px, -0.332, pz), 0.085, 0.03, axis="y", n=16, bev=0)
+            b.cyl("accent", (px, -0.33, pz), 0.095, 0.02, axis="y", n=16, bev=0.004)
+            b.cyl("glow", (px, -0.345, pz), 0.042, 0.012, axis="y", n=12, bev=0)
+    b.pop()
+    b.pop()
+    b.light((x, y - 0.5, 0.5), (1, 1, 1), 1.0)
+
+
+def receiver(b, x, y0, y1, z, w, h, feed_side=1):
+    """CULASSE : boîtier de mécanisme boulonné derrière le faisceau, couvercle à charnière, fenêtre d'éjection,
+    cylindres de recul au-dessus, entrée de bande côté feed_side."""
+    L = y1 - y0
+    b.box("plate2", (x, (y0 + y1) / 2, z), (w, L, h), bev=0.022)
+    b.box("plate", (x, (y0 + y1) / 2, z + h / 2 + 0.018), (w - 0.06, L - 0.08, 0.036), bev=0.01)
+    b.bolts_rect("bolt", x - w / 2 + 0.03, x + w / 2 - 0.03, y0 + 0.04, y1 - 0.04, z + h / 2 + 0.036, r=0.017,
+                 inset=0.04, n=(3, max(2, int(L / 0.2))))
+    for s in (-1, 1):
+        b.cyl("steel", (x + s * w * 0.28, (y0 + y1) / 2 + L * 0.1, z + h / 2 + 0.07), 0.04, L * 0.7, axis="y", n=12,
+              bev=0.005)
+    b.box("dark", (x + feed_side * (w / 2 + 0.005), y0 + L * 0.6, z + h * 0.1), (0.02, L * 0.3, h * 0.35), bev=0)
+    for s in (-1, 1):
+        b.plates_face("plate", (x + s * w / 2, (y0 + y1) / 2, z), (0, s, 0), (0, 0, 1), max(1, int(L / PLATE_W)), 1,
+                      L - 0.06, h - 0.06, th=0.022, bolt_mat="bolt")
+
+
+def gun(b, x, y0, z, P):
+    """FAISCEAU ROTATIF : culasse, berceau à tourillons, faisceau de nb canons (bagues, moyeu, frein de bouche),
+    chemise de refroidissement perforée à fentes de chaleur (petits foyers), cylindres de recul."""
+    nb, ring_r, br, L = P["barrels"], P["ring_r"], P["br"], P["L"]
+    rc = ring_r + br
+    receiver(b, x, y0 - P["rec_L"], y0 + 0.05, z, P["rec_w"], P["rec_h"], feed_side=P.get("feed", 1))
+    # berceau / bouclier de canon (masque) devant la culasse
+    b.cyl("steel", (x, y0 + 0.04, z), rc + 0.1, 0.1, axis="y", n=28, bev=0.012)
+    b.cyl("plate2", (x, y0 + 0.12, z), rc + 0.06, 0.08, axis="y", n=28, bev=0.01)
+    nbo = 10
+    for i in range(nbo):
+        a = TAU * i / nbo
+        b.bolt("bolt", (x + math.cos(a) * (rc + 0.06), y0 + 0.165, z + math.sin(a) * (rc + 0.06)), r=0.016, h=0.012,
+               axis=(0, 1.0, 0))
+    b.gatling("gun", "steel", "dark", (x, y0 + 0.12, z), nb, ring_r, br, L,
+              rings=tuple(t for t in (0.08, 0.5, 0.72, 0.93)), muzzle_mat="plate")
+    # chemise perforée sur le premier tiers, fentes de chaleur sur le dessus
+    sL = L * P.get("shroud", 0.38)
+    shroud(b, (x, y0 + 0.2, z), rc + 0.045, sL, holes_rows=max(3, int(sL / 0.13)), holes_per_row=max(8, int(rc * 50)))
+    # perforations RONDES incandescentes sur le dessus de la chemise (canons chauds) : des trous, pas des fenêtres
+    nsl = max(2, int(sL / 0.12))
+    R_ = rc + 0.045
+    for k in range(nsl):
+        yy = y0 + 0.26 + (k + 0.5) * (sL - 0.12) / nsl
+        for j, a in enumerate((math.pi / 2 - 0.42, math.pi / 2 + 0.42) if k % 2 == 0 else (math.pi / 2,)):
+            n_ = np.array([math.cos(a), 0.0, math.sin(a)])
+            p = np.array([x, yy, z]) + n_ * (R_ + 0.004)
+            b.cyl("dark", p, 0.038, 0.012, axis=n_, n=12, bev=0)
+            b.cyl("heat", p + n_ * 0.004, 0.026, 0.01, axis=n_, n=10, bev=0)
+    # cylindres de recul sous le faisceau (visibles de côté)
+    for s in (-1, 1):
+        b.cyl("steel", (x + s * (rc + 0.03), y0 + 0.35, z - rc * 0.6), 0.035, 0.55, axis="y", n=10, bev=0.004)
+
+
+def armor_skirt(b, R, z0, z1, a0, a1, n, standoff=0.08, mat="olive"):
+    """Blindage espacé : plaques sur entretoises devant le fût (plaques multiples, ère V)."""
+    for i in range(n):
+        a = a0 + (a1 - a0) * (i + 0.5) / n
+        ca, sa = math.cos(a), math.sin(a)
         Rm = Rz(a + math.pi / 2)
-        b.box("dark", (px, py, z0 + 0.08 + h * 0.5), (0.14, 0.03, h * 0.62), R=Rm, bev=0)
-        b.box("glow", (px + math.cos(a) * 0.006, py + math.sin(a) * 0.006, z0 + 0.08 + h * 0.5), (0.095, 0.02, h * 0.5),
-              R=Rm, bev=0)
-        for zz in (0.36, 0.5, 0.64):
-            b.box("grille", (px + math.cos(a) * 0.02, py + math.sin(a) * 0.02, z0 + 0.08 + h * zz), (0.1, 0.02, 0.025),
-                  R=Rm, bev=0)
-    zt = z0 + 0.08 + h
-    b.cyl("plate", (x, y, zt + 0.04), r + 0.02, 0.08, r2=r * 0.8, n=28, bev=0.01)
-    nb = 10
+        w = (a1 - a0) / n * (R + standoff) - 0.05
+        c = (ca * (R + standoff), sa * (R + standoff), (z0 + z1) / 2)
+        b.box(mat, c, (w, 0.05, z1 - z0), R=Rm, bev=0.016)
+        for zz in (z0 + 0.1, z1 - 0.1):
+            for s in (-1, 1):
+                u = np.array([-sa, ca, 0.0])
+                p = np.array([ca * (R + standoff / 2), sa * (R + standoff / 2), zz]) + u * s * w * 0.3
+                b.cyl("steel", p, 0.025, standoff, axis=(ca, sa, 0.0), n=8, bev=0)
+                b.bolt("bolt", p + np.array([ca, sa, 0.0]) * (standoff / 2 + 0.03), r=0.02, h=0.014, axis=(ca, sa, 0.0))
+
+
+def capacitor_cell(b, c, r, h, ports=2):
+    """Cellule de condensateur verticale compacte (tête) : fût cerclé laiton, jauges rondes lumineuses, bornes."""
+    x, y, z = c
+    b.cyl("plate2", (x, y, z + h / 2), r, h, n=24, bev=0.01)
+    for t in (0.15, 0.85):
+        b.cyl("brass", (x, y, z + h * t), r + 0.015, 0.035, n=24, bev=0.005)
+    for k in range(ports):
+        a = -math.pi / 2 + (k - (ports - 1) / 2) * 0.9
+        n_ = np.array([math.cos(a), math.sin(a), 0.0])
+        p = np.array([x, y, z + h * 0.5]) + n_ * r
+        b.cyl("dark", p, 0.045, 0.02, axis=n_, n=12, bev=0)
+        b.cyl("glow", p + n_ * 0.008, 0.03, 0.012, axis=n_, n=12, bev=0)
+    b.cyl("plate", (x, y, z + h + 0.02), r * 0.85, 0.04, n=24, bev=0.006)
+    for s in (-1, 1):
+        b.cyl("copper", (x + s * r * 0.4, y, z + h + 0.07), 0.03, 0.07, n=8, bev=0.004)
+
+
+# ------------------------------------------------------------------------------------------------
+# Tête paramétrée (repère local : canons vers +Y, z absolu)
+# ------------------------------------------------------------------------------------------------
+HEAD = {
+    11: dict(z0=0.55, ring=1.1, hull=0.86, hull_h=0.3, cone_h=0.16, cone_k=0.8, guns=[-0.3, 0.3],
+             gun=dict(barrels=4, ring_r=0.085, br=0.04, L=1.4, rec_L=0.8, rec_w=0.24, rec_h=0.24, shroud=0.42),
+             mantlet=(0.6, 0.12, 0.4), drums=[1], drum=(0.26, 0.62), secondaries=[], sensor=None,
+             bustle=(0.9, 0.3, 0.36), radiators=1, cells=0, skirt=False, hoses=0, insulators=True),
+    21: dict(z0=0.85, ring=1.78, hull=1.4, hull_h=0.42, cone_h=0.24, cone_k=0.8, guns=[-0.52, 0.52],
+             gun=dict(barrels=6, ring_r=0.16, br=0.06, L=2.35, rec_L=1.2, rec_w=0.4, rec_h=0.38, shroud=0.4),
+             mantlet=(1.0, 0.16, 0.62), drums=[1, -1], drum=(0.38, 1.0), secondaries=[(-0.85, -0.55)],
+             sensor=(0.0, 0.2), bustle=(1.5, 0.42, 0.56), radiators=2, cells=2, skirt=False, hoses=2,
+             insulators=False),
+    29: dict(z0=1.05, ring=2.22, hull=1.78, hull_h=0.5, cone_h=0.3, cone_k=0.8, guns=[-1.1, -0.38, 0.38, 1.1],
+             gun=dict(barrels=8, ring_r=0.2, br=0.062, L=2.85, rec_L=1.45, rec_w=0.44, rec_h=0.44, shroud=0.4),
+             mantlet=(1.5, 0.18, 0.78), drums=[1, -1], drum=(0.46, 1.3), secondaries="tambours",
+             sensor="masque", bustle=(2.0, 0.5, 0.7), radiators=3, cells=4, skirt=True, hoses=2,
+             insulators=False),
+}
+HEAD[30] = HEAD[29]
+
+
+def head_dims(lv):
+    P = HEAD[lv]
+    zb = P["z0"] + 0.11
+    zh = zb + P["hull_h"]
+    zt = zh + P["cone_h"]
+    rt = P["hull"] * P["cone_k"]
+    gz = zt + P["gun"]["rec_h"] / 2 + 0.1
+    y0 = rt * 0.85 + 0.12
+    return zb, zh, zt, rt, gz, y0
+
+
+def head(b, lv):
+    """Tête de la tourelle : couronne tournante, coque ronde basse et large (fût + cône de glacis), culasses et
+    faisceaux posés SUR le toit derrière un masque blindé, tambours-chargeurs et bandes de cartouches laiton,
+    bustle arrière (radiateurs, grille), cellules, tourelles secondaires, viseur, gaines et câbles. Les dimensions
+    viennent de HEAD[lv] ; les PIÈCES (tôles, boulons, grilles) gardent leur taille absolue."""
+    P = HEAD[lv]
+    z0, Rr, Rh = P["z0"], P["ring"], P["hull"]
+    zb, zh, zt, rt, gz, y0 = head_dims(lv)
+    G_ = P["gun"]
+    # couronne tournante : plateau, chemin de roulement, boulons
+    b.cyl("plate2", (0, 0, z0 + 0.05), Rr, 0.1, n=72, bev=0.012)
+    b.cyl("steel", (0, 0, z0 + 0.105), Rr - 0.06, 0.02, n=72, bev=0.005)
+    nb = int(TAU * Rr / 0.17)
     for i in range(nb):
         a = TAU * i / nb
-        b.bolt("bolt", (x + math.cos(a) * (r - 0.03), y + math.sin(a) * (r - 0.03), zt + 0.005), r=0.018)
-    if terminals:
-        for s in (-1, 1):
-            b.cyl("copper", (x + s * r * 0.35, y, zt + 0.13), 0.045, 0.1, n=10, bev=0.006)
-            b.cyl("dark", (x + s * r * 0.35, y, zt + 0.08), 0.06, 0.03, n=10, bev=0)
-
-
-def radiator_block(b, c, size, along="x", glow=False, fin_pitch=0.07):
-    """Radiateur : caisson, ailettes au-dessus, grilles latérales, tubulures cuivre aux extrémités."""
-    x, y, z0 = c
-    sx, sy, sz = size
-    b.box("plate2", (x, y, z0 + sz * 0.3), (sx, sy, sz * 0.6), bev=0.02)
-    b.plates_face("plate", (x, y - sy / 2, z0 + sz * 0.3), (1, 0, 0), (0, 0, 1), max(1, int(sx / 0.5)), 1, sx - 0.04,
-                  sz * 0.56, th=0.025, bolt_mat="bolt", tones=TONES)
-    n = int((sx if along == "x" else sy) / fin_pitch) - 1
-    length = (sy if along == "x" else sx) - 0.08
-    b.fins("body", (x, y, z0 + sz * 0.6), along, length, sz * 0.4, n, pitch=fin_pitch, th=0.032, base_mat="plate2")
-    if glow:
-        # lueur du cœur sous les ailettes (fente avant)
-        k = max(2, int((sx - 0.2) / 0.32))
-        for i in range(k):
-            b.box("glow", (x - (sx - 0.2) / 2 + (i + 0.5) * (sx - 0.2) / k, y - sy / 2 - 0.004, z0 + sz * 0.45),
-                  ((sx - 0.2) / k - 0.08, 0.02, 0.08), bev=0)
-    for s in (-1, 1):
-        if along == "x":
-            b.cyl("copper", (x + s * (sx / 2 + 0.05), y, z0 + sz * 0.45), 0.06, sy * 0.85, axis="y", n=12, bev=0.006)
-            for t in (-0.3, 0.3):
-                b.cyl("brass", (x + s * (sx / 2 + 0.05), y + t * sy, z0 + sz * 0.45), 0.08, 0.04, axis="y", n=12, bev=0.005)
-        else:
-            b.cyl("copper", (x, y + s * (sy / 2 + 0.05), z0 + sz * 0.45), 0.06, sx * 0.85, axis="x", n=12, bev=0.006)
-
-
-def crate(b, c, size, rot=0.0, hazard=True, lid=True):
-    """Caisse de munitions blindée : tôles, cornières, bande de danger, poignées, couvercle boulonné."""
-    x, y, z0 = c
-    sx, sy, sz = size
-    R = Rz(rot)
-    b.push(R, (x, y, z0))
-    b.box("plate2", (0, 0, sz / 2), (sx, sy, sz), bev=0.02)
-    for sxx in (-1, 1):
-        for syy in (-1, 1):
-            b.box("body", (sxx * (sx / 2 - 0.02), syy * (sy / 2 - 0.02), sz / 2), (0.06, 0.06, sz + 0.02), bev=0.008)
-    if lid:
-        b.box("plate", (0, 0, sz + 0.02), (sx - 0.08, sy - 0.08, 0.04), bev=0.012)
-        b.bolts_rect("bolt", -sx / 2 + 0.04, sx / 2 - 0.04, -sy / 2 + 0.04, sy / 2 - 0.04, sz + 0.04, r=0.02, inset=0.05,
-                     n=(3, 3))
-        b.box("dark", (0, 0, sz + 0.055), (sx * 0.3, 0.04, 0.03), bev=0.004)
-    if hazard:
-        b.hazard_band("haz_y", "haz_k", (-sx / 2 + 0.06, -sy / 2 - 0.004, sz * 0.62), (sx / 2 - 0.06, -sy / 2 - 0.004,
-                      sz * 0.62), width=sz * 0.22, th=0.01, normal="-y")
-    for s in (-1, 1):
-        b.box("dark", (s * (sx / 2 + 0.02), 0, sz * 0.7), (0.03, sy * 0.35, 0.05), bev=0.004)
-    b.bolts_line("bolt", (-sx / 2 + 0.08, -sy / 2 - 0.006, sz * 0.25), (sx / 2 - 0.08, -sy / 2 - 0.006, sz * 0.25),
-                 max(2, int(sx / 0.15)), r=0.018, axis="-y", h=0.012)
-    b.pop()
-
-
-def pipe_run(b, p0, p1, r, z, flanges=4, valve=True, supports=3):
-    """Conduite rigide sur supports : tube, brides boulonnées, vanne à volant."""
-    p0, p1 = G.np.array([p0[0], p0[1], z], float), G.np.array([p1[0], p1[1], z], float)
-    d = p1 - p0
-    L = float(G.np.linalg.norm(d))
-    u = d / L
-    b.cyl("body", (p0 + p1) / 2, r, L, axis=u, n=14, bev=0.006)
-    for i in range(flanges):
-        p = p0 + d * (i + 0.5) / flanges
-        b.cyl("plate", p, r * 1.5, 0.05, axis=u, n=14, bev=0.006)
-        for k in range(6):
-            a = TAU * k / 6
-            F = G.frame_from_axis(u)
-            q = p + (F[:, 0] * math.cos(a) + F[:, 1] * math.sin(a)) * r * 1.3
-            b.cyl("bolt", q, 0.016, 0.07, axis=u, n=6, bev=0)
-    for i in range(supports):
-        p = p0 + d * (i + 0.5) / supports
-        b.box("plate2", (p[0], p[1], z / 2), (0.08, 0.08, z), bev=0.008)
-        b.box("body", (p[0], p[1], z - r - 0.02), (0.16, 0.12, 0.04), bev=0.006)
-    if valve:
-        p = p0 + d * 0.5 + G.np.array([0, 0, r + 0.08])
-        b.cyl("plate", p - G.np.array([0, 0, 0.04]), 0.035, 0.08, n=10, bev=0.005)
-        b.torus("cable_r", p, 0.085, 0.016, axis="z", n=16, m=6)
-        for k in range(3):
-            a = TAU * k / 3
-            b.box("cable_r", p + G.np.array([math.cos(a) * 0.04, math.sin(a) * 0.04, 0]), (0.08, 0.02, 0.02), R=Rz(a),
-                  bev=0)
-
-
-def stairs(b, x, y_front, width, z_top, n):
-    """Marches d'accès (caillebotis) et garde-corps bas, sur le bord avant."""
-    step_d = 0.12
-    for i in range(n):
-        zz = z_top * (i + 1) / (n + 1)
-        yy = y_front + (n - i - 0.5) * step_d
-        b.box("plate2", (x, yy, zz / 2), (width, step_d, zz), bev=0.006)
-        b.box("haz_y" if i == n - 1 else "grille", (x, yy - step_d / 2 + 0.012, zz - 0.004), (width - 0.04, 0.024, 0.012),
-              bev=0)
-    for s in (-1, 1):
-        b.box("body", (x + s * (width / 2 + 0.03), y_front + n * step_d / 2, z_top * 0.5), (0.04, n * step_d, z_top),
-              bev=0.006)
-
-
-def lamp_post(b, c, h, glow="amber"):
-    """Borne lumineuse basse (bollard) : fût, cerclage, voyant."""
-    x, y, z0 = c
-    b.cyl("plate2", (x, y, z0 + h / 2), 0.06, h, n=12, bev=0.006)
-    b.cyl("haz_y", (x, y, z0 + h * 0.75), 0.064, h * 0.18, n=12, bev=0)
-    b.cyl(glow, (x, y, z0 + h + 0.03), 0.045, 0.06, n=12, bev=0)
-    b.cyl("dark", (x, y, z0 + h + 0.07), 0.055, 0.02, n=12, bev=0.004)
-
-
-def hose_arc(b, p0, p1, lift, r, mat="copper", ring="brass", k=10, pitch=0.075):
-    p0, p1 = G.np.asarray(p0, float), G.np.asarray(p1, float)
-    pts = []
-    for i in range(k + 1):
-        t = i / k
-        p = p0 + (p1 - p0) * t
-        p[2] += lift * 4 * t * (1 - t)
-        pts.append(p)
-    b.hose(mat, ring, pts, r, pitch=pitch)
-
-
-def cable_bundle(b, p0, p1, sag, n=3, r=0.022, spread=0.05):
-    p0, p1 = G.np.asarray(p0, float), G.np.asarray(p1, float)
-    d = p1 - p0
-    side = G.np.cross(d, [0, 0, 1.0])
-    nn = G.np.linalg.norm(side)
-    side = side / nn if nn > 1e-6 else G.np.array([1.0, 0, 0])
-    for i in range(n):
-        o = (i - (n - 1) / 2) * spread
-        mat = "cable_r" if i == n // 2 and n >= 3 else "rubber"
-        b.cable(mat, p0 + side * o, p1 + side * o, sag=sag + 0.02 * i, r=r)
-    # colliers
-    for t in (0.25, 0.5, 0.75):
-        p = p0 + d * t
-        p[2] -= sag * 4 * t * (1 - t) + 0.01
-        b.box("plate", p, (0.05, 0.05, 0.05), bev=0.005)
-
-
-def barbette(b, R, z0, z1, nplates, rows=2, vents=4, glow_vents=0, vent_rows=1):
-    """Barbette (tambour fixe haut et blindé) : fût, rangées de tôles boulonnées, bande de danger sous la
-    couronne, grilles d'aération (certaines lumineuses), échelle, chemin de roulement du dessus."""
-    h = z1 - z0
-    b.cyl("plate2", (0, 0, z0 + h / 2), R, h, n=72, bev=0.02)
-    rh = (h - 0.12) / rows
-    vent_idx = set()
-    front = [i for i in range(nplates) if math.sin(TAU * (i + 0.5) / nplates) < -0.25]
-    step = max(1, len(front) // max(1, vents))
-    for j, i in enumerate(front[::step][:vents]):
-        vent_idx.add(i)
-    glow_idx = set(sorted(vent_idx)[:glow_vents])
-    for row in range(rows):
-        zc = z0 + 0.03 + rh * (row + 0.5)
-        off = 0.5 * (row % 2)
-        for i in range(nplates):
-            a = TAU * (i + 0.5 + off) / nplates
-            w = TAU * R / nplates - 0.045
-            ca, sa = math.cos(a), math.sin(a)
-            Rm = Rz(a + math.pi / 2)
-            c = (ca * (R + 0.028), sa * (R + 0.028), zc)
-            if row >= rows - vent_rows and i in vent_idx:
-                u = G.np.array([-sa, ca, 0.0])
-                b.vent_face("plate", "body", "glow" if i in glow_idx else "dark", (ca * (R + 0.01), sa * (R + 0.01), zc),
-                            u, (0, 0, 1), w * 0.8, rh * 0.8, max(3, int(rh / 0.07)))
-                continue
-            b.box("plate", c, (w, 0.055, rh - 0.04), R=Rm, bev=0.012)
-            u = G.np.array([-sa, ca, 0.0])
-            for s in (-1, 1):
-                for zz in (-0.5, 0.5):
-                    p = G.np.array(c) + u * s * (w / 2 - 0.045)
-                    b.bolt("bolt", (p[0] + ca * 0.03, p[1] + sa * 0.03, zc + zz * (rh - 0.13)), r=0.02, h=0.014,
-                           axis=(ca, sa, 0.0))
-    # bande de danger sous la couronne (secteur avant, face à la caméra)
-    for i in range(nplates):
-        a = TAU * (i + 0.5) / nplates
-        if math.sin(a) > -0.2:
+        b.bolt("bolt", (math.cos(a) * (Rr - 0.06), math.sin(a) * (Rr - 0.06), z0 + 0.12), r=0.021)
+    b.label("socle pivotant")
+    # coque : fût et cône de glacis, tôles boulonnées tout autour
+    b.cyl("body", (0, 0, (zb + zh) / 2), Rh, zh - zb, n=64, bev=0.02)
+    b.cyl("body", (0, 0, (zh + zt) / 2), Rh, zt - zh, r2=rt, n=64, bev=0.02)
+    ring_plates(b, Rh, zb + 0.02, zh, tone_seed=lv, mats=("olive", "olive", "plate_l", "olive", "plate"))
+    ring_plates(b, Rh + 0.02, zh, zt, cone_r1=rt + 0.02, tone_seed=lv + 2, mats=("olive", "plate_l", "olive", "olive", "plate"))
+    # bande de danger sur le bas de la coque (secteur avant)
+    nh = int(TAU * Rh / 0.3)
+    for i in range(nh):
+        a = TAU * (i + 0.5) / nh
+        if not (0.6 < a < 2.55):
             continue
         ca, sa = math.cos(a), math.sin(a)
-        u = G.np.array([-sa, ca, 0.0])
-        w = TAU * R / nplates
-        p = G.np.array((ca * (R + 0.01), sa * (R + 0.01), z1 - 0.06))
-        b.hazard_band("haz_y", "haz_k", p - u * w / 2, p + u * w / 2, width=0.09, th=0.012, normal=(ca, sa, 0.0), n=2)
-    # couronne : bague laiton, joint sombre, rangée de boulons
-    b.cyl("body", (0, 0, z1 - 0.02), R + 0.04, 0.05, n=72, bev=0.01)
-    b.cyl("brass", (0, 0, z1 + 0.015), R * 0.94, 0.03, n=72, bev=0.008)
-    b.cyl("dark", (0, 0, z1 + 0.012), R * 0.87, 0.026, n=72, bev=0)
-    nb = int(TAU * R / 0.15)
+        u = np.array([-sa, ca, 0.0])
+        p = np.array((ca * (Rh + 0.045), sa * (Rh + 0.045), zb + 0.06))
+        w = TAU * Rh / nh
+        b.hazard_band("haz_y", "haz_k", p - u * w / 2, p + u * w / 2, width=0.08, th=0.01, normal=(ca, sa, 0.0), n=2)
+    # voyants ronds d'état en ceinture (ère IV et V) : petits foyers, jamais une bande continue
+    if lv >= 21:
+        nl = int(TAU * Rh / 0.3)
+        for i in range(nl):
+            a = TAU * (i + 0.25) / nl
+            if 0.6 < a < 2.55:
+                continue
+            ca, sa = math.cos(a), math.sin(a)
+            n_ = np.array([ca, sa, 0.0])
+            p = np.array([ca * (Rh + 0.04), sa * (Rh + 0.04), zb + (zh - zb) * 0.62])
+            b.cyl("steel", p, 0.05, 0.04, axis=n_, n=14, bev=0.005)
+            b.cyl("glow", p + n_ * 0.022, 0.032, 0.012, axis=n_, n=12, bev=0)
+    b.label("tête à canons")
+    # toit : tôles, boulons de rive
+    b.cyl("plate", (0, 0, zt + 0.02), rt, 0.04, n=64, bev=0.01)
+    k = max(2, int(2 * rt * 0.7 / PLATE_W + 0.5))
+    sq = rt * 0.7
+    b.plates_top("plate2", -sq, sq, -sq, sq, zt + 0.04, k, k, th=0.025, gap=0.03, bolt_mat="bolt")
+    nb = int(TAU * rt / 0.15)
     for i in range(nb):
         a = TAU * i / nb
-        b.bolt("bolt", (math.cos(a) * R * 0.97, math.sin(a) * R * 0.97, z1 + 0.012), r=0.022)
-    # échelle sur le flanc avant gauche
-    a = math.radians(235)
-    ca, sa = math.cos(a), math.sin(a)
-    for s in (-1, 1):
-        da = s * 0.09 / R
-        b.box("body", (math.cos(a + da) * (R + 0.07), math.sin(a + da) * (R + 0.07), z0 + h / 2), (0.034, 0.034, h),
-              bev=0)
-    for k in range(int(h / 0.14)):
-        b.box("body", (ca * (R + 0.07), sa * (R + 0.07), z0 + 0.1 + k * 0.14), (0.2, 0.032, 0.032), R=Rz(a + math.pi / 2),
-              bev=0)
-
-
-def blast_wall(b, x0, x1, y_front, h, depth=0.42, lamps=None):
-    """Mur pare-éclats bas (face avant inclinée) : tôles boulonnées sur le talus, chaperon à bande de danger,
-    barbacanes d'écoulement."""
-    L = x1 - x0
-    prof = [(y_front, 0.0), (y_front + depth, 0.0), (y_front + depth, h), (y_front + depth * 0.55, h)]
-    b.prism("plate2", [(y, z) for y, z in prof], -L / 2, L / 2, R=G.np.array([[0, 0, 1.0], [1.0, 0, 0], [0, 1.0, 0]]),
-            t=((x0 + x1) / 2, 0, 0), bev=0.02)
-    # tôles sur le talus incliné
-    ang = math.atan2(h, depth * 0.55)
-    n = max(2, int(L / 0.45))
-    w = L / n - 0.04
-    slope_len = math.hypot(h, depth * 0.55)
-    for i in range(n):
-        cx = x0 + (i + 0.5) * L / n
-        cy = y_front + depth * 0.275
-        p = (cx, cy - 0.012, h / 2)
-        Rm = Rx(-(math.pi / 2 - ang))
-        b.box("plate", p, (w, 0.03, slope_len * 0.86), R=Rm, bev=0.01)
+        b.bolt("bolt", (math.cos(a) * (rt - 0.05), math.sin(a) * (rt - 0.05), zt + 0.045), r=0.019)
+    # berceaux sous les culasses
+    for x in P["guns"]:
+        for yy in (y0 - G_["rec_L"] * 0.75, y0 - G_["rec_L"] * 0.2):
+            h = gz - G_["rec_h"] / 2 - zt
+            b.box("plate2", (x, yy, zt + h / 2 + 0.02), (G_["rec_w"] * 0.8, 0.16, h + 0.04), bev=0.012)
+            for s in (-1, 1):
+                b.cyl("steel", (x + s * G_["rec_w"] * 0.42, yy, zt + h * 0.6), 0.05, 0.05, axis="x", n=12, bev=0.005)
+    # masque frontal : bouclier épais incliné devant les culasses, embrasures, bande de danger
+    mw, md, mh = P["mantlet"]
+    b.box("plate2", (0, y0 - md / 2, gz), (mw * 2, md, mh), R=Rx(-0.12), bev=0.03)
+    b.box("olive", (0, y0 + 0.012, gz + 0.02), (mw * 2 - 0.08, 0.04, mh - 0.1), R=Rx(-0.12), bev=0.012)
+    b.bolts_line("bolt", (-mw + 0.07, y0 + 0.04, gz + mh / 2 - 0.08), (mw - 0.07, y0 + 0.07, gz + mh / 2 - 0.08),
+                 max(4, int(mw * 2 / 0.14)), r=0.02, axis=(0, 0.99, 0.12), h=0.014)
+    b.bolts_line("bolt", (-mw + 0.07, y0 + 0.0, gz - mh / 2 + 0.1), (mw - 0.07, y0 + 0.0, gz - mh / 2 + 0.1),
+                 max(4, int(mw * 2 / 0.14)), r=0.02, axis=(0, 0.99, 0.12), h=0.014)
+    b.box("steel", (0, y0 - md / 2, gz + mh / 2 + 0.02), (mw * 2 + 0.04, md + 0.06, 0.04), bev=0.01)
+    b.hazard_band("haz_y", "haz_k", (-mw + 0.04, y0 - md / 2, gz + mh / 2 + 0.045),
+                  (mw - 0.04, y0 - md / 2, gz + mh / 2 + 0.045), width=0.08, th=0.008, normal="z")
+    b.label("blindage frontal")
+    # faisceaux
+    for x in P["guns"]:
+        gun(b, x, y0, gz, dict(G_, feed=1 if x > 0 else -1))
+    if len(P["guns"]) >= 2:
+        b.label("canons jumelés")
+    b.label("refroidissement des canons")
+    # tambours-chargeurs et bandes de cartouches
+    dr, dL = P["drum"]
+    for s in P["drums"]:
+        xd = s * (Rh + dr * 0.72)
+        zd = zb + dr + 0.04
+        b.box("plate2", (s * (Rh + 0.02), 0.0, zb + 0.12), (dr * 0.9, dL * 0.8, 0.24), bev=0.012)
+        xg = P["guns"][0 if s < 0 else -1]
+        drum_mag(b, (xd, 0.0, zd), dr, dL, (xg + s * G_["rec_w"] / 2, y0 - G_["rec_L"] * 0.45, gz))
+        b.ammo_belt("case", "dark", [(xd - s * dr * 0.3, -dL * 0.2, zd + dr * 0.85), (s * (rt + 0.05), -0.15, zt + 0.1),
+                                     (xg + s * G_["rec_w"] * 0.3, y0 - G_["rec_L"] * 0.7, gz + G_["rec_h"] / 2 + 0.02)],
+                    w=0.1)
+    b.label("alimentation en munitions")
+    if lv >= 21:
+        b.label("chargeur automatique")
+    # bustle arrière : coffre, radiateurs à ailettes, grille
+    bw, bd, bh = P["bustle"]
+    yb = -Rh * 0.8 - bd / 2
+    b.box("plate2", (0, yb, zb + bh / 2), (bw, bd, bh), bev=0.025)
+    b.plates_face("plate", (0, yb - bd / 2, zb + bh / 2), (1, 0, 0), (0, 0, 1), max(1, int(bw / PLATE_W)),
+                  max(1, int(bh / 0.34)), bw - 0.04, bh - 0.04, th=0.026, bolt_mat="bolt", tones=TONES)
+    nr = P["radiators"]
+    for k in range(nr):
+        xr = -bw / 2 + (k + 0.5) * bw / nr
+        b.fins("steel", (xr, yb, zb + bh), "x", bd - 0.08, 0.16, max(3, int(bw / nr / 0.07) - 1), pitch=0.065,
+               th=0.03, base_mat="plate2")
+    b.vent_face("body", "steel", "glow" if lv >= 21 else "dark", (0, yb - bd / 2 - 0.03, zb + bh * 0.45), (1, 0, 0),
+                (0, 0, 1), min(0.5, bw * 0.3), bh * 0.5, max(3, int(bh * 0.5 / 0.075)))
+    if nr >= 2:
+        b.label("radiateurs")
+    # cellules d'énergie en rang sur le toit arrière
+    nc = P["cells"]
+    for k in range(nc):
+        xc = (k - (nc - 1) / 2) * 0.3
+        capacitor_cell(b, (xc, -rt * 0.62, zt + 0.04), 0.11 if lv < 29 else 0.12, 0.3 if lv < 29 else 0.36)
+    if nc:
+        b.label("générateur ou condensateur")
+    if nc >= 4:
+        b.label("réserve d'énergie visible")
+    # tourelles secondaires, viseur
+    if P["secondaries"] == "tambours":
+        # ère V : une tourelle secondaire sur chaque tambour-chargeur, bien visible sur les flancs
+        for s in P["drums"]:
+            xd = s * (Rh + P["drum"][0] * 0.72)
+            ztop = zb + 2 * P["drum"][0] + 0.04
+            b.box("plate2", (xd, -0.12, ztop + 0.02), (0.36, 0.5, 0.08), bev=0.01)
+            secondary_turret(b, (xd, -0.12, ztop + 0.06), 1.15)
+        secs = P["drums"]
+    else:
+        secs = P["secondaries"]
+        for (sx, sy) in secs:
+            secondary_turret(b, (sx, sy, zt + 0.04), 1.0)
+    if len(secs) == 1:
+        b.label("tourelle secondaire")
+    elif len(secs) >= 2:
+        b.label("tourelles secondaires")
+    if P["sensor"] == "masque":
+        sensor(b, (0.0, y0 - P["mantlet"][1] / 2, gz + P["mantlet"][2] / 2 + 0.04), 0.17)
+        b.label("viseur")
+    elif P["sensor"]:
+        sensor(b, (P["sensor"][0], P["sensor"][1], zt + 0.04), 0.2)
+        b.label("viseur")
+    # isolateurs céramique et éclateur (époque 6 : électricité)
+    if P["insulators"]:
         for s in (-1, 1):
-            for t in (-0.32, 0.32):
-                q = G.np.array(p) + Rm @ G.np.array([s * (w / 2 - 0.05), -0.02, t * slope_len])
-                b.bolt("bolt", q, r=0.02, h=0.014, axis=Rm @ G.np.array([0, -1.0, 0]))
-        b.box("dark", (cx, y_front - 0.005, 0.05), (0.1, 0.02, 0.05), bev=0)
-        if lamps:
-            # feu de balisage encastré dans le talus (foyer séparé, face à la caméra)
-            q = G.np.array(p) + Rm @ G.np.array([0.0, -0.022, 0.0])
-            b.box(lamps, q, (0.1, 0.012, 0.07), R=Rm, bev=0)
-    # chaperon
-    b.box("body", ((x0 + x1) / 2, y_front + depth * 0.78, h + 0.025), (L, depth * 0.48, 0.05), bev=0.012)
-    b.hazard_band("haz_y", "haz_k", (x0 + 0.04, y_front + depth * 0.56, h + 0.052), (x1 - 0.04, y_front + depth * 0.56,
-                  h + 0.052), width=0.1, th=0.008, normal="z")
-
-
-def floor_conduit(b, x0, x1, y, glow=True, w=0.22):
-    """Caniveau d'énergie dans le pont : cornières, grille, fond lumineux (petits foyers séparés par les barreaux),
-    deux câbles de cuivre."""
-    L = x1 - x0
-    zc = 0.0
-    b.grille_top("body", "grille", "dark", x0, x1, y - w / 2, y + w / 2, zc, int(L / 0.09), along="y")
-    if glow:
-        # foyers séparés (tronçons de 0,3 tuile, entretoises sombres de 0,1) : jamais une longue plage lumineuse
-        k = max(1, int(L / 0.4))
-        for i in range(k):
-            cx = x0 + (i + 0.5) * L / k
-            b.box("glow", (cx, y, zc - 0.004), (L / k - 0.12, w - 0.09, 0.012), bev=0)
-    for s in (-1, 1):
-        b.cyl("copper", ((x0 + x1) / 2, y + s * w * 0.62, zc + 0.03), 0.03, L, axis="x", n=10, bev=0)
-
-
-def manifold(b, x0, x1, y, z, r=0.055, n_tees=4):
-    """Collecteur de refroidissement couché devant la barbette : 2 conduites parallèles sur berceaux, brides,
-    tés montants vers la barbette."""
-    for k, dy in enumerate((0.0, 0.17)):
-        pipe_run(b, (x0, y + dy), (x1, y + dy), r * (1.0 - 0.15 * k), z + 0.04 * k, flanges=n_tees + 1, valve=(k == 0),
-                 supports=n_tees)
-    for i in range(n_tees):
-        x = x0 + (x1 - x0) * (i + 0.5) / n_tees
-        b.cyl("body", (x, y + 0.3, z + 0.1), r * 0.8, 0.26, n=12, bev=0.006)
-        b.cyl("plate", (x, y + 0.3, z + 0.24), r * 1.2, 0.04, n=12, bev=0.005)
-        b.cyl("body", (x, y + 0.15, z + 0.0), r * 0.8, 0.3, axis="y", n=12, bev=0.006)
-
-
-def hatch(b, c, w, d):
-    """Trappe de visite blindée dans le pont : cadre, couvercle boulonné, poignée, charnières."""
-    x, y, z = c
-    b.box("body", (x, y, z + 0.015), (w + 0.06, d + 0.06, 0.03), bev=0.006)
-    b.box("plate", (x, y, z + 0.035), (w, d, 0.03), bev=0.01)
-    b.bolts_rect("bolt", x - w / 2, x + w / 2, y - d / 2, y + d / 2, z + 0.05, r=0.018, inset=0.04, n=(3, 3))
-    b.box("dark", (x, y - d * 0.25, z + 0.06), (w * 0.4, 0.03, 0.025), bev=0)
-    for s in (-1, 1):
-        b.cyl("plate2", (x + s * w * 0.3, y + d / 2 + 0.02, z + 0.04), 0.025, w * 0.18, axis="x", n=8, bev=0)
-
-
-def tank_h(b, c, r, L):
-    """Réservoir couché (fluide de refroidissement) : virole cerclée, fonds bombés, berceaux, manomètre, bande."""
-    x, y, z0 = c
-    zc = z0 + 0.06 + r
-    b.cyl("body", (x, y, zc), r, L, axis="x", n=24, bev=0.01)
-    for s in (-1, 1):
-        b.sphere("plate", (x + s * L / 2, y, zc), r, n=20, m=10, scale=(0.35, 1, 1))
-        b.box("plate2", (x + s * L * 0.3, y, z0 + 0.06 + r * 0.4), (0.08, r * 1.7, r * 0.8 + 0.12), bev=0.01)
-    for t in (-0.38, -0.12, 0.12, 0.38):
-        b.cyl("brass" if abs(t) > 0.3 else "plate", (x + t * L, y, zc), r + 0.015, 0.035, axis="x", n=24, bev=0.005)
-    b.hazard_band("haz_y", "haz_k", (x - L * 0.08, y - r - 0.004, zc), (x + L * 0.08, y - r - 0.004, zc), width=r * 0.6,
-                  th=0.01, normal="-y")
-    b.cyl("plate", (x + L * 0.25, y, zc + r + 0.03), 0.04, 0.06, n=12, bev=0.004)
-    b.cyl("brass", (x + L * 0.25, y - 0.02, zc + r + 0.1), 0.045, 0.02, axis="y", n=14, bev=0)
-    b.cyl("body", (x - L * 0.25, y, zc + r + 0.04), 0.035, 0.1, n=10, bev=0.004)
-    b.torus("cable_r", (x - L * 0.25, y, zc + r + 0.1), 0.05, 0.012, n=12, m=6)
-
-
-def spline(pts, k=8):
-    """Catmull-Rom par les points de contrôle (gaines souples)."""
-    P = [G.np.asarray(p, float) for p in pts]
-    P = [P[0]] + P + [P[-1]]
-    out = []
-    for i in range(1, len(P) - 2):
-        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
-        for j in range(k):
-            t = j / k
-            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
-                              + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3))
-    out.append(P[-2])
-    return out
-
-
-def big_hose(b, pts, r):
-    """Grosse gaine annelée de cuivre (boucle de refroidissement, comme le réacteur et le silo vanilla) : gaine,
-    bagues laiton, brides boulonnées aux deux bouts, colliers de fixation au sol."""
-    path = spline(pts)
-    b.hose("copper", "brass", path, r, pitch=max(0.07, r * 0.85), n=14, ring_r=r * 1.14)
-    for end, nxt in ((path[0], path[1]), (path[-1], path[-2])):
-        d = G.np.asarray(end) - G.np.asarray(nxt)
-        b.cyl("plate", end, r * 1.45, 0.06, axis=d, n=16, bev=0.006)
-        F = G.frame_from_axis(d)
-        for k in range(6):
-            a = TAU * k / 6
-            q = G.np.asarray(end) + (F[:, 0] * math.cos(a) + F[:, 1] * math.sin(a)) * r * 1.25
-            b.cyl("bolt", q, 0.017, 0.08, axis=d, n=6, bev=0)
-    for i in range(1, len(pts) - 1):
-        x, y, z = pts[i]
-        if z - r > 0.25:
-            b.box("plate2", (x, y, (z - r) / 2 + 0.1), (0.07, 0.07, z - r - 0.1), bev=0.006)
-        b.box("body", (x, y, z), (r * 2.6, 0.06, r * 2.6), R=Rz(math.atan2(pts[i + 1][1] - pts[i - 1][1],
-                                                                          pts[i + 1][0] - pts[i - 1][0]) + math.pi / 2),
-              bev=0.01)
-
-
-def pump(b, c, r, h):
-    """Pompe de refroidissement : corps cylindrique bridé, moteur horizontal à ailettes, tubulures."""
-    x, y, z0 = c
-    b.cyl("plate2", (x, y, z0 + 0.04), r + 0.05, 0.08, n=24, bev=0.01)
-    b.cyl("body", (x, y, z0 + 0.08 + h / 2), r, h, n=24, bev=0.012)
-    for t in (0.2, 0.8):
-        b.cyl("plate", (x, y, z0 + 0.08 + h * t), r + 0.03, 0.05, n=24, bev=0.006)
-        for k in range(8):
-            a = TAU * k / 8
-            b.bolt("bolt", (x + math.cos(a) * (r + 0.02), y + math.sin(a) * (r + 0.02), z0 + 0.08 + h * t + 0.03), r=0.016)
-    zt = z0 + 0.08 + h
-    b.cyl("plate2", (x, y, zt + 0.04), r * 0.9, 0.08, n=24, bev=0.01)
-    b.cyl("body", (x, y, zt + 0.08 + r * 0.55), r * 0.55, r * 1.6, axis="y", n=20, bev=0.01)
-    for k in range(7):
-        b.cyl("plate", (x, y - r * 0.7 + k * r * 0.23, zt + 0.08 + r * 0.55), r * 0.62, 0.025, axis="y", n=20, bev=0)
-    b.cyl("haz_y", (x, y - r * 0.82, zt + 0.08 + r * 0.55), r * 0.4, 0.03, axis="y", n=16, bev=0)
-    b.lamp("amber", "plate2", (x + r * 0.7, y - r * 0.3, zt + 0.02), (0.06, 0.05), axis="z")
-
-
-def conveyor(b, p0, p1, w, h=0.12):
-    """Goulotte de munitions inclinée et capotée, fentes de visite (cartouches visibles)."""
-    p0, p1 = G.np.asarray(p0, float), G.np.asarray(p1, float)
-    d = p1 - p0
-    L = float(G.np.linalg.norm(d))
-    u = d / L
-    side = G.np.cross([0, 0, 1.0], u)
-    side /= G.np.linalg.norm(side)
-    up = G.np.cross(u, side)
-    Rm = G.np.stack([side, u, up], 1)
-    b.box("plate2", (p0 + p1) / 2, (w, L, h), R=Rm, bev=0.012)
-    k = max(2, int(L / 0.25))
-    for i in range(k):
-        q = p0 + d * (i + 0.5) / k + up * (h / 2 + 0.004)
-        b.box("dark", q, (w * 0.6, 0.12, 0.012), R=Rm, bev=0)
-        b.cyl("case", q + up * 0.006, 0.018, w * 0.5, axis=side, n=6, bev=0)
-        b.bolts_line("bolt", q - side * w * 0.42 - u * 0.1, q - side * w * 0.42 + u * 0.1, 2, r=0.016, axis=up, h=0.01)
-    for s in (0.0, 1.0):
-        q = p0 + d * s
-        b.box("body", q - up * (h / 2) - G.np.array([0, 0, q[2] / 2 - h / 2]) * 0, (w * 0.4, 0.06, 0.06), R=Rm, bev=0.006)
+            zz = zt + 0.04
+            for kk in range(4):
+                b.cyl("accent", (s * 0.26, -0.36, zz + 0.035), 0.06 if kk % 2 == 0 else 0.045, 0.07, n=14, bev=0.008)
+                zz += 0.07
+            b.cyl("copper", (s * 0.26, -0.36, zz + 0.05), 0.018, 0.1, n=8, bev=0)
+            b.sphere("copper", (s * 0.2, -0.36, zz + 0.1), 0.03, n=10, m=6)
+        b.box("glow", (0, -0.36, zt + 0.04 + 0.28 + 0.1), (0.24, 0.04, 0.05), bev=0)
+        b.light((0, -0.36, zt + 0.5), (1, 1, 1), 1.0)
+    # blindage espacé (plaques multiples) sur les flancs
+    if P["skirt"]:
+        armor_skirt(b, Rh, zb + 0.06, zh - 0.02, -0.75, 0.45, 3)
+        armor_skirt(b, Rh, zb + 0.06, zh - 0.02, math.pi - 0.45, math.pi + 0.75, 3)
+        armor_skirt(b, Rh, zb + 0.06, zh - 0.02, -math.pi / 2 - 0.55, -math.pi / 2 + 0.55, 3, mat="plate")
+        b.label("blindage à plaques multiples")
+    # gaines de refroidissement bustle -> chemises, câbles le long du toit
+    for k in range(P["hoses"]):
+        s = -1 if k == 0 else 1
+        x = P["guns"][0 if s < 0 else -1]
+        hose_arc(b, (s * bw * 0.36, yb + 0.05, zb + bh + 0.1), (x + s * (G_["ring_r"] + G_["br"] + 0.06), y0 + 0.4, gz),
+                 0.4 if lv >= 29 else 0.32, 0.05 if lv >= 29 else 0.042, pitch=0.065)
+    if lv >= 21:
+        for s in (-1, 1):
+            b.cable("rubber", (s * rt * 0.88, -rt * 0.35, zt + 0.07), (s * rt * 0.62, y0 - 0.25, zt + 0.07), sag=-0.03,
+                    r=0.022)
+            b.cable("cable_r", (s * rt * 0.8, -rt * 0.35, zt + 0.07), (s * rt * 0.55, y0 - 0.25, zt + 0.07), sag=-0.03,
+                    r=0.02)
+        b.label("câblage et conduits")
+    # cœur d'énergie de la tête (ère IV et V) : puits rond grillagé sur le toit, lueur d'époque sous les barreaux
+    if lv >= 21:
+        rc = 0.22 if lv < 29 else 0.32
+        cx, cy = 0.0, -rt * 0.18
+        b.cyl("plate2", (cx, cy, zt + 0.07), rc + 0.08, 0.07, n=32, bev=0.01)
+        b.cyl("steel", (cx, cy, zt + 0.11), rc + 0.03, 0.02, n=32, bev=0.004)
+        b.cyl("glow", (cx, cy, zt + 0.1), rc, 0.012, n=28, bev=0)
+        for k in range(5):
+            xx = cx - rc + (k + 1) * 2 * rc / 6
+            hw = math.sqrt(max(0.0, rc * rc - (xx - cx) ** 2))
+            b.box("grille", (xx, cy, zt + 0.12), (0.03, 2 * hw, 0.025), bev=0)
+        nbo = 12
+        for i in range(nbo):
+            a = TAU * i / nbo
+            b.bolt("bolt", (cx + math.cos(a) * (rc + 0.055), cy + math.sin(a) * (rc + 0.055), zt + 0.105), r=0.016)
+        b.light((cx, cy, zt + 0.4), (1, 1, 1), 1.0)
+    # trappe ronde du chef de pièce, voyants
+    hx_, hy_ = (-rt * 0.3, -rt * 0.15) if lv < 21 else (-rt * 0.42, rt * 0.05)
+    b.cyl("plate", (hx_, hy_, zt + 0.07), 0.13, 0.05, n=22, bev=0.008)
+    b.cyl("dark", (hx_, hy_, zt + 0.1), 0.02, 0.02, n=8, bev=0)
+    b.box("steel", (hx_, hy_ + 0.08, zt + 0.11), (0.12, 0.025, 0.02), bev=0)
+    b.lamp("amber", "plate2", (bw * 0.35, yb - bd / 2 - 0.01, zb + bh * 0.82), (0.07, 0.04), axis="-y")
+    b.light((0, yb - bd / 2 - 0.2, zb + bh * 0.5), (1, 1, 1), 1.0)
 
 
 # ------------------------------------------------------------------------------------------------
 # Socles
 # ------------------------------------------------------------------------------------------------
+def crate_stack(b, c, size, tiers=2, rot=0.0):
+    """Pile de caisses de munitions (tiers étages, la seconde légèrement décalée et tournée)."""
+    x, y = c
+    sx, sy, sz = size
+    crate(b, (x, y, 0.0), (sx, sy, sz), rot=rot)
+    if tiers >= 2:
+        crate(b, (x + 0.03, y + 0.05, sz), (sx * 0.86, sy * 0.86, sz * 0.85), rot=rot + 0.12, hazard=False)
+
+
+def feed_station(b, c, L, d, h):
+    """Poste d'alimentation bas (avant) : caisson olive à trappes boulonnées, fente de bande, cartouches visibles,
+    bande de danger, poignées. Bas : ne masque pas l'affût."""
+    x, y = c
+    b.box("plate2", (x, y, h / 2), (L, d, h), bev=0.02)
+    n = max(2, int(L / PLATE_W))
+    w = L / n
+    for i in range(n):
+        cx = x - L / 2 + (i + 0.5) * w
+        b.box("olive" if i % 3 else "plate", (cx, y, h + 0.015), (w - 0.04, d - 0.06, 0.03), bev=0.01)
+        b.bolts_rect("bolt", cx - w / 2 + 0.02, cx + w / 2 - 0.02, y - d / 2 + 0.03, y + d / 2 - 0.03, h + 0.03,
+                     r=0.017, inset=0.04)
+        b.box("dark", (cx, y - d * 0.2, h + 0.035), (w * 0.35, 0.03, 0.02), bev=0)
+    b.box("dark", (x, y + d * 0.1, h + 0.032), (L * 0.6, 0.08, 0.012), bev=0)
+    for i in range(int(L * 0.6 / 0.045)):
+        b.cyl("case", (x - L * 0.3 + (i + 0.5) * 0.045, y + d * 0.1, h + 0.04), 0.017, 0.07, axis="y", n=6, bev=0)
+    b.hazard_band("haz_y", "haz_k", (x - L / 2 + 0.05, y - d / 2 - 0.004, h * 0.5), (x + L / 2 - 0.05, y - d / 2 - 0.004,
+                  h * 0.5), width=h * 0.4, th=0.01, normal="-y")
+    b.bolts_line("bolt", (x - L / 2 + 0.06, y - d / 2 - 0.006, h * 0.15), (x + L / 2 - 0.06, y - d / 2 - 0.006, h * 0.15),
+                 max(3, int(L / 0.15)), r=0.017, axis="-y", h=0.012)
+
+
+def junction_box(b, c, size):
+    """Armoire électrique : caisson, porte boulonnée, ailettes, voyant ambre, presse-étoupes et câbles au sol."""
+    x, y = c
+    sx, sy, sz = size
+    b.box("plate2", (x, y, sz / 2), (sx, sy, sz), bev=0.02)
+    b.box("olive", (x, y - sy / 2 - 0.012, sz * 0.52), (sx - 0.08, 0.025, sz * 0.8), bev=0.01)
+    b.bolts_rect("bolt", x - sx / 2 + 0.04, x + sx / 2 - 0.04, y - sy / 2, y - sy / 2, sz * 0.52, r=0.016, inset=0.0)
+    for zz in (0.25, 0.75):
+        b.cyl("steel", (x + sx / 2 - 0.06, y - sy / 2 - 0.03, sz * zz), 0.02, 0.07, n=8, bev=0)
+    b.lamp("amber", "plate2", (x - sx * 0.25, y - sy / 2 - 0.03, sz * 0.85), (0.05, 0.035), axis="-y")
+    b.fins("steel", (x, y, sz), "x", sy - 0.06, 0.08, max(3, int(sx / 0.07) - 1), pitch=0.065, th=0.028)
+
+
 def socle_11(b):
-    """Époque 6 (Électricité), 3×3 : dalle, barbette, transformateur à bobines et isolateurs (coin arrière gauche),
-    caisse de munitions et goulotte (coin arrière droit), pompe (flanc ouest), coffret (flanc est), mur bas avant."""
+    """Époque 6 (Électricité), 3×3 : affût à 2 gradins sur bordure ; à l'arrière, transformateur à isolateurs
+    céramique et éclateur (arc cyan), cellule, radiateur ; flanc est, caisses de munitions ; flanc ouest, pompe et
+    conduite ; avant bas, poste d'alimentation et piles de caisses ; gaine annelée."""
     side, hx, hy = 3, 1.5, 1.5 * TD
-    zs = 0.15
-    zd = Z_DRUM[11]
-    slab(b, side, zs, cf=0.38, cb=0.15, deck=(9, 12))
+    apron(b, side, cf=0.6, cb=0.4, inset=0.1)
+    curb(b, 1.22, w=0.1, h=0.06)
+    mount(b, 1.22, 0.5, [(1.22, 0.26), (1.13, 0.24)], 14, vents=3, glow_vents=1, lamps=4)
+    hoist(b, -1.9, 1.22, 0.5, w=0.3, depth=0.26)
     b.label("socle pivotant")
-    barbette(b, 0.98, zs, zd, 14, rows=2, vents=4, glow_vents=4)
-    # coin arrière gauche : transformateur (caisson à ailettes, bobines de cuivre, 2 isolateurs céramique, éclateur)
-    x, y = -1.08, 1.62
-    b.box("plate2", (x, y, zs + 0.3), (0.72, 0.85, 0.6), bev=0.02)
-    b.plates_face("plate", (x, y - 0.425, zs + 0.3), (1, 0, 0), (0, 0, 1), 2, 1, 0.68, 0.54, th=0.022, bolt_mat="bolt", tones=TONES)
-    b.fins("body", (x - 0.39, y, zs + 0.06), "y", 0.1, 0.46, 10, pitch=0.072, th=0.032)
-    for k in range(3):
-        b.cyl("copper", (x - 0.15 + k * 0.15, y + 0.12, zs + 0.66), 0.06, 0.12, n=14, bev=0.005)
-        b.torus("copper", (x - 0.15 + k * 0.15, y + 0.12, zs + 0.64), 0.065, 0.016, n=14, m=6)
-    for s in (-1, 1):
-        zz = zs + 0.6
-        for k in range(5):
-            b.cyl("accent", (x + s * 0.2, y - 0.18, zz + 0.04), 0.075 if k % 2 == 0 else 0.055, 0.075, n=16, bev=0.008)
-            zz += 0.075
-        b.cyl("copper", (x + s * 0.2, y - 0.18, zz + 0.05), 0.022, 0.1, n=8, bev=0)
-        b.sphere("copper", (x + s * 0.14, y - 0.18, zz + 0.1), 0.03, n=10, m=6)
-    b.box("glow", (x, y - 0.18, zs + 1.06), (0.22, 0.05, 0.07), bev=0)
-    b.light((x, y - 0.18, zs + 1.06), EPOCH_GLOW[6], 30.0)
-    b.lamp("glow", "plate2", (x + 0.22, y - 0.435, zs + 0.47), (0.08, 0.05), axis="-y")
-    b.lamp("amber", "plate2", (x - 0.12, y - 0.435, zs + 0.47), (0.06, 0.05), axis="-y")
-    cable_bundle(b, (x + 0.36, y - 0.25, zs + 0.45), (-0.5, 0.75, zd - 0.05), sag=0.1, n=3)
-    # coin arrière droit : caisse de munitions + goulotte vers la couronne
-    crate(b, (1.03, 1.55, zs), (0.66, 0.75, 0.46))
-    conveyor(b, (0.92, 1.05, zs + 0.52), (0.62, 0.64, zd - 0.09), 0.16)
-    b.label("alimentation en munitions")
-    # flanc ouest : pompe de refroidissement + conduite
-    pump(b, (-1.2, -0.75, zs), 0.14, 0.32)
-    pipe_run(b, (-1.3, -0.4), (-1.3, 0.75), 0.05, zs + 0.22, flanges=3, valve=True, supports=2)
-    # flanc est : coffret électrique à grille + conduite
-    b.box("plate2", (1.22, -0.55, zs + 0.24), (0.32, 0.5, 0.48), bev=0.012)
-    b.vent_face("body", "plate", "dark", (1.22, -0.805, zs + 0.24), (1, 0, 0), (0, 0, 1), 0.24, 0.3, 4)
-    pipe_run(b, (1.33, -0.2), (1.33, 0.85), 0.045, zs + 0.2, flanges=3, valve=False, supports=2)
-    # avant : mur pare-éclats bas de part et d'autre des marches, caniveau d'énergie
-    blast_wall(b, -hx + 0.42, -0.3, -hy + 0.03, 0.22, depth=0.32)
-    blast_wall(b, 0.3, hx - 0.42, -hy + 0.03, 0.22, depth=0.32)
-    stairs(b, 0.0, -hy + 0.02, 0.5, zs, 2)
-    b.push(None, (0, 0, zs))
-    floor_conduit(b, -0.9, 0.9, -hy + 0.62, glow=True, w=0.18)
-    b.pop()
-    for s in (-1, 1):
-        hatch(b, (s * 0.95, -1.15, zs), 0.3, 0.36)
-    big_hose(b, [(-0.8, 1.2, 0.42), (-1.5, 0.85, 0.32), (-1.58, -0.2, 0.28), (-1.4, -0.75, 0.36)], 0.06)
-    return {"z_drum": zd}
+    # arrière gauche : transformateur (caisson à ailettes, tôles olive, isolateurs)
+    x, y = -0.9, 1.62
+    b.box("plate2", (x, y, 0.33), (0.68, 0.62, 0.62), bev=0.02)
+    b.plates_face("olive", (x, y - 0.31, 0.33), (1, 0, 0), (0, 0, 1), 2, 2, 0.64, 0.58, th=0.022, bolt_mat="bolt",
+                  tones=("olive", "olive", "plate"))
+    b.fins("steel", (x - 0.36, y, 0.05), "y", 0.1, 0.5, 8, pitch=0.07, th=0.03)
+    for k in range(2):
+        xx = x - 0.18 + k * 0.36
+        zz = 0.64
+        for kk in range(4):
+            b.cyl("accent", (xx, y + 0.05, zz + 0.035), 0.06 if kk % 2 == 0 else 0.045, 0.07, n=14, bev=0.008)
+            zz += 0.07
+        b.cyl("copper", (xx, y + 0.05, zz + 0.05), 0.018, 0.1, n=8, bev=0)
+    b.box("glow", (x, y + 0.05, 0.98), (0.2, 0.04, 0.05), bev=0)
+    b.light((x, y - 0.1, 1.0), (1, 1, 1), 1.0)
+    b.label("générateur ou condensateur")
+    # arrière droit : cellule et radiateur
+    capacitor(b, (0.98, 1.72, 0.0), 0.24, 0.62, glow_slits=2)
+    b.light((0.98, 1.4, 0.4), (1, 1, 1), 1.0)
+    radiator_block(b, (0.15, 1.6, 0.0), (0.62, 0.5, 0.5), along="x")
+    pipe_run(b, (-0.4, 1.98), (0.6, 1.98), 0.035, 0.14, flanges=2, valve=False, supports=2)
+    # flanc est : caisses de munitions
+    crate_stack(b, (1.26, 0.35), (0.4, 0.62, 0.3), tiers=2)
+    crate(b, (1.28, -0.55, 0.0), (0.36, 0.5, 0.26))
+    # flanc ouest : pompe, conduite
+    pump(b, (-1.28, 0.1, 0.0), 0.14, 0.26)
+    junction_box(b, (-1.28, -0.75), (0.34, 0.36, 0.34))
+    crate(b, (1.3, -1.2, 0.0), (0.3, 0.36, 0.22), rot=0.08)
+    pipe_run(b, (-1.42, -1.3), (-1.42, 1.15), 0.04, 0.2, flanges=3, valve=False, supports=2)
+    # avant : poste d'alimentation, piles de caisses
+    feed_station(b, (0.0, -1.68), 0.9, 0.46, 0.22)
+    crate_stack(b, (-1.08, -1.72), (0.44, 0.38, 0.24), tiers=1)
+    crate_stack(b, (1.08, -1.72), (0.44, 0.38, 0.24), tiers=1)
+    lamp_post(b, (-0.6, -1.45, 0.0), 0.16)
+    lamp_post(b, (0.6, -1.45, 0.0), 0.16)
+    pump(b, (1.0, 1.15, 0.0), 0.12, 0.2)
+    big_hose(b, [(-0.6, 1.35, 0.4), (-1.35, 1.0, 0.3), (-1.55, 0.6, 0.22)], 0.06)
+    return {}
 
 
 def socle_21(b):
-    """Époque 11 (Titane), 5×5 : dalle, barbette, condensateurs et transformateur (coin arrière gauche), générateur
-    (coin arrière droit), radiateur à ailerons de titane (arrière), caisses et goulotte (flanc est), pompes et
-    conduites (flanc ouest), mur pare-éclats et caniveaux d'énergie à l'avant."""
+    """Époque 11, 5×5 : affût à 3 gradins sur bordure ; à l'arrière, générateur bobiné, deux cellules (réserve),
+    radiateur ; flanc ouest, deux réservoirs verticaux, pompe, armoire ; flanc est, magasin de munitions et
+    goulotte ; avant bas, poste d'alimentation, réservoirs couchés, piles de caisses ; gaines qui débordent."""
     side, hx, hy = 5, 2.5, 2.5 * TD
-    zs = 0.2
-    zd = Z_DRUM[21]
-    slab(b, side, zs, cf=0.55, cb=0.22, deck=(12, 15))
+    apron(b, side, cf=1.0, cb=0.6, inset=0.12)
+    curb(b, 1.95, w=0.14, h=0.07)
+    mount(b, 1.95, 0.8, [(1.95, 0.3), (1.86, 0.28), (1.78, 0.22)], 22, vents=5, glow_vents=3, lamps=10)
+    for a in (-2.16, -0.99):
+        hoist(b, a, 1.95, 0.8, w=0.36)
     b.label("socle pivotant")
-    barbette(b, 1.62, zs, zd, 22, rows=3, vents=8, glow_vents=8, vent_rows=2)
-    # coin arrière gauche : 2 condensateurs + transformateur
-    capacitor(b, (-2.0, 2.98, zs), 0.28, 1.0, glow_slits=2)
-    capacitor(b, (-1.38, 3.1, zs), 0.22, 0.82, glow_slits=1)
-    b.box("plate2", (-2.0, 2.25, zs + 0.32), (0.8, 0.55, 0.64), bev=0.02)
-    b.plates_face("accent", (-2.0, 1.975, zs + 0.32), (1, 0, 0), (0, 0, 1), 2, 1, 0.76, 0.58, th=0.022, bolt_mat="bolt")
-    b.vent_face("body", "plate", "dark", (-2.0, 1.945, zs + 0.32), (1, 0, 0), (0, 0, 1), 0.42, 0.32, 5)
-    b.label("générateur et condensateurs")
-    # coin arrière droit : générateur
-    gx, gy = 1.85, 2.72
-    b.box("plate2", (gx, gy, zs + 0.45), (1.2, 1.5, 0.9), bev=0.025)
-    b.plates_face("plate", (gx, gy - 0.75, zs + 0.45), (1, 0, 0), (0, 0, 1), 3, 2, 1.16, 0.86, th=0.024, bolt_mat="bolt", tones=TONES)
-    b.plates_face("accent", (gx - 0.6, gy, zs + 0.45), (0, -1, 0), (0, 0, 1), 3, 2, 1.46, 0.86, th=0.024,
-                  bolt_mat="bolt")
-    b.vent_face("body", "plate", "glow", (gx + 0.25, gy - 0.78, zs + 0.5), (1, 0, 0), (0, 0, 1), 0.36, 0.36, 5)
-    b.grille_top("body", "grille", "dark", gx - 0.5, gx + 0.5, gy - 0.6, gy - 0.05, zs + 0.9, 8, along="x")
-    b.fins("body", (gx, gy + 0.38, zs + 0.9), "x", 0.55, 0.2, 13, pitch=0.07)
-    for s in (-1, 1):
-        b.cyl("dark", (gx + s * 0.32, gy + 0.55, zs + 1.06), 0.075, 0.36, n=14, bev=0.006)
-        b.cyl("plate", (gx + s * 0.32, gy + 0.55, zs + 1.25), 0.09, 0.04, n=14, bev=0.005)
-    b.lamp("amber", "plate2", (gx - 0.3, gy - 0.765, zs + 0.78), (0.08, 0.06), axis="-y")
-    b.lamp("glow", "plate2", (gx + 0.2, gy - 0.765, zs + 0.8), (0.16, 0.05), axis="-y")
-    b.light((gx, gy - 0.9, zs + 0.6), EPOCH_GLOW[11], 40.0)
-    # arrière : radiateur à ailerons de titane (signature d'époque, massive)
-    radiator_block(b, (-0.05, 3.05, zs), (1.65, 0.75, 0.75), along="x", glow=True)
-    for k in range(6):
-        b.prism("accent", [(0.0, 0.0), (0.46, 0.0), (0.0, 0.34)], -0.017, 0.017, R=FIN_YZ,
-                t=(-0.7 + k * 0.28, 2.76, zs + 0.75), bev=0.006)
+    # arrière gauche : générateur bobiné (axe x)
+    tb = generator(b, (-1.35, 2.85, 0.0), 1.55, 0.36, axis="x")
+    b.label("générateur")
+    junction_box(b, (-2.15, 3.25), (0.4, 0.45, 0.5))
+    # arrière droit : 2 cellules
+    for xx in (1.05, 1.75):
+        capacitor(b, (xx, 2.95, 0.0), 0.27, 0.95, glow_slits=2)
+        b.light((xx, 2.6, 0.6), (1, 1, 1), 1.0)
+    b.label("réserve d'énergie")
+    # arrière centre : radiateur
+    radiator_block(b, (-0.05, 2.78, 0.0), (0.95, 0.8, 0.85), along="x", glow=True)
+    pipe_run(b, (-0.7, 3.38), (0.7, 3.38), 0.045, 0.2, flanges=3, valve=True, supports=2)
+    pump(b, (1.4, 2.2, 0.0), 0.15, 0.3)
+    pump(b, (-1.6, 1.85, 0.0), 0.15, 0.3)
     b.label("radiateurs")
-    cable_bundle(b, (gx - 0.6, gy - 0.5, zs + 0.55), (1.05, 1.3, zd - 0.05), sag=0.15, n=3)
-    hose_arc(b, (-1.0, 2.6, zs + 0.55), (-0.75, 1.42, zd - 0.1), 0.25, 0.055)
-    hose_arc(b, (0.55, 2.7, zs + 0.6), (0.5, 1.55, zd - 0.1), 0.22, 0.05)
-    b.label("câblage et conduits")
-    # flanc est : 2 caisses + goulotte
-    crate(b, (2.05, 0.35, zs), (0.66, 0.85, 0.52))
-    crate(b, (2.05, -0.65, zs), (0.66, 0.85, 0.52))
-    conveyor(b, (1.95, -0.15, zs + 0.6), (1.45, -0.15, zd - 0.02), 0.2)
+    # flanc ouest : réservoirs verticaux, pompe, armoire
+    for yy in (1.6, 0.6):
+        tank_v(b, (-2.2, yy, 0.0), 0.29, 0.82)
+    pump(b, (-2.2, -0.45, 0.0), 0.17, 0.32)
+    junction_box(b, (-2.12, -1.35), (0.4, 0.42, 0.42))
+    crate(b, (2.16, -1.38, 0.0), (0.44, 0.5, 0.3), rot=0.06)
+    pipe_run(b, (-2.48, -1.6), (-2.48, 2.1), 0.05, 0.28, flanges=4, valve=True, supports=3)
+    # flanc est : magasin de munitions et goulotte
+    ammo_magazine(b, (2.12, 0.9, 0.0), (0.62, 1.25, 0.72))
+    conveyor(b, (1.9, 0.2, 0.55), (1.72, -0.3, 0.75), 0.2)
+    crate_stack(b, (2.12, -0.45), (0.5, 0.55, 0.3), tiers=2)
     b.label("alimentation en munitions")
-    # flanc ouest : 2 pompes et conduites
-    pump(b, (-2.05, -1.1, zs), 0.18, 0.4)
-    pump(b, (-2.05, 0.6, zs), 0.18, 0.4)
-    pipe_run(b, (-2.35, -1.9), (-2.35, 1.6), 0.06, zs + 0.3, flanges=4, valve=True, supports=3)
-    # avant : mur pare-éclats, marches, caniveaux d'énergie, bornes
-    blast_wall(b, -hx + 0.6, -0.45, -hy + 0.03, 0.3, depth=0.38, lamps="glow")
-    blast_wall(b, 0.45, hx - 0.6, -hy + 0.03, 0.3, depth=0.38, lamps="glow")
-    stairs(b, 0.0, -hy + 0.02, 0.8, zs, 2)
-    b.push(None, (0, 0, zs))
-    floor_conduit(b, -1.5, 1.5, -hy + 0.75, glow=True, w=0.2)
+    # avant : réservoirs couchés aux coins, piles de caisses, poste d'alimentation, collecteur, bornes
+    for s in (-1, 1):
+        tank_h(b, (s * 1.75, -2.15, 0.0), 0.2, 1.0)
+        crate_stack(b, (s * 1.9, -3.0), (0.55, 0.42, 0.28), tiers=2, rot=s * 0.08)
+        crate(b, (s * 1.12, -2.95, 0.0), (0.48, 0.5, 0.26), rot=-s * 0.05)
+    feed_station(b, (0.0, -2.75), 1.3, 0.5, 0.26)
+    b.push(None, (0, 0, 0.05))
+    floor_conduit(b, -1.3, 1.3, -2.38, glow=True, w=0.16)
     b.pop()
-    manifold(b, -1.3, 1.3, -1.95, zs + 0.1, r=0.05, n_tees=4)
+    pipe_run(b, (-0.85, -3.38), (0.85, -3.38), 0.045, 0.16, flanges=4, valve=True, supports=3)
+    for xx in (-0.85, 0.85):
+        lamp_post(b, (xx * 1.05, -2.3, 0.0), 0.2, glow="glow")
+    # gaines annelées (cœur -> affût), qui débordent du contour
+    big_hose(b, [(-0.6, 2.75, 0.55), (-1.4, 2.3, 0.4), (-2.5, 2.15, 0.3), (-2.68, 1.2, 0.24), (-2.66, -0.2, 0.22),
+                 (-2.4, -1.25, 0.2)], 0.085)
+    big_hose(b, [(0.75, 2.75, 0.5), (1.6, 2.2, 0.3), (2.6, 1.9, 0.22), (2.66, 0.0, 0.2), (2.55, -1.1, 0.18)], 0.075)
+    cable_bundle(b, (tb[0], tb[1], tb[2] + 0.05), (-0.6, 1.95, 0.85), sag=0.12, n=3)
+    b.label("câblage et conduits")
+    return {}
+
+
+def tank_v(b, c, r, h):
+    """Réservoir vertical de fluide de refroidissement : virole peinte olive, cerclages, dôme, échelle, manomètre."""
+    x, y, z0 = c
+    b.cyl("plate2", (x, y, z0 + 0.05), r + 0.06, 0.1, n=28, bev=0.01)
+    b.cyl("olive", (x, y, z0 + 0.1 + h / 2), r, h, n=32, bev=0.012)
+    for t in (0.1, 0.4, 0.7, 0.95):
+        b.cyl("steel" if t != 0.4 else "brass", (x, y, z0 + 0.1 + h * t), r + 0.014, 0.035, n=32, bev=0.005)
+    b.sphere("plate", (x, y, z0 + 0.1 + h), r, n=24, m=10, scale=(1, 1, 0.4))
+    b.cyl("steel", (x, y, z0 + 0.1 + h + r * 0.4), 0.06, 0.06, n=12, bev=0.005)
     for s in (-1, 1):
-        tank_h(b, (s * 1.0, -2.38, zs), 0.15, 0.9)
-    big_hose(b, [(1.3, 2.1, 0.75), (2.5, 1.6, 0.45), (2.62, -0.3, 0.34), (2.47, -1.9, 0.38), (1.6, -2.38, 0.37)], 0.085)
-    big_hose(b, [(-1.45, 2.55, 0.6), (-2.55, 1.9, 0.45), (-2.64, 0.0, 0.34), (-2.5, -1.9, 0.38), (-1.6, -2.38, 0.37)],
-             0.085)
-    for s in (-1, 1):
-        hatch(b, (s * 1.85, -2.1, zs), 0.4, 0.5)
-    for s in (-1, 1):
-        lamp_post(b, (s * 1.75, -hy + 0.7, zs), 0.26, glow="glow")
-    return {"z_drum": zd}
+        b.box("body", (x + s * 0.06, y - r - 0.05, z0 + 0.1 + h / 2), (0.025, 0.025, h), bev=0)
+    for k in range(int(h / 0.12)):
+        b.box("body", (x, y - r - 0.05, z0 + 0.18 + k * 0.12), (0.14, 0.022, 0.022), bev=0)
+    b.cyl("brass", (x + r * 0.7, y - r * 0.7, z0 + 0.1 + h * 0.6), 0.05, 0.02, axis=(0.7, -0.7, 0), n=14, bev=0)
+    b.hazard_band("haz_y", "haz_k", (x - r * 0.6, y - r - 0.004, z0 + 0.2), (x + r * 0.6, y - r - 0.004, z0 + 0.2),
+                  width=0.08, th=0.008, normal="-y")
 
 
 def socle_29(b, piece=False):
-    """Époque 15 (Légende), 6×6 : dalle, barbette haute, réserve d'énergie (4 cellules sous portique, coin arrière
-    gauche), générateur lourd (coin arrière droit), radiateur (arrière), caisses et goulotte (flanc est), pompes et
-    conduites (flanc ouest), mur pare-éclats, caniveaux d'énergie et bornes à l'avant. piece=True : niveau 30,
-    deux lance-missiles aux coins avant (chanfreins)."""
+    """Époque 15 (Légende), 6×6 : affût à 4 gradins sur bordure ; à l'arrière, CUVE-CŒUR sphérique (hublots),
+    batterie de radiateurs, générateur et 2 cellules, armoires ; flanc ouest, réservoirs, pompes, armoire ; flanc
+    est, grand magasin de munitions, goulotte et caisses ; avant bas, réservoirs couchés, piles de caisses, poste
+    d'alimentation, collecteur, bornes ; grosses gaines de cuivre en boucle hors du contour. piece=True : niveau 30,
+    deux lance-missiles aux coins avant (à la place des piles de caisses d'angle)."""
     side, hx, hy = 6, 3.0, 3.0 * TD
-    zs = 0.22
-    zd = Z_DRUM[29]
-    cf = 0.85
-    slab(b, side, zs, cf=cf, cb=0.3, deck=(15, 19))
+    apron(b, side, cf=1.2, cb=0.7, inset=0.14)
+    curb(b, 2.42, w=0.16, h=0.08)
+    mount(b, 2.42, 1.0, [(2.42, 0.3), (2.33, 0.28), (2.25, 0.24), (2.18, 0.18)], 28, vents=7, glow_vents=4, lamps=13)
+    for a in (-2.27, -1.71, -1.43, -0.87):
+        hoist(b, a, 2.42, 1.0)
     b.label("socle pivotant")
-    barbette(b, 2.0, zs, zd, 26, rows=3, vents=11, glow_vents=11, vent_rows=2)
-    # coin arrière gauche : réserve d'énergie visible
-    cells = [(-2.55, 3.68), (-1.92, 3.68), (-2.55, 3.0), (-1.92, 3.0)]
-    for (x, y) in cells:
-        capacitor(b, (x, y, zs), 0.27, 1.15, glow_slits=3)
-    for (x0, y0) in ((-2.9, 2.62), (-1.58, 2.62), (-2.9, 4.04), (-1.58, 4.04)):
-        b.box("body", (x0, y0, zs + 0.72), (0.08, 0.08, 1.44), bev=0.01)
-        b.box("haz_y", (x0, y0, zs + 0.2), (0.085, 0.085, 0.16), bev=0.004)
-    for yy in (2.62, 4.04):
-        b.box("body", (-2.24, yy, zs + 1.42), (1.4, 0.08, 0.08), bev=0.01)
-    for xx in (-2.9, -1.58):
-        b.box("body", (xx, 3.33, zs + 1.42), (0.08, 1.5, 0.08), bev=0.01)
+    # arrière gauche : cuve-cœur
+    core_vessel(b, (-1.95, 3.25, 0.88), 0.78, glow_ports=7)
     b.label("réserve d'énergie visible")
-    for (x, y) in cells[2:]:
-        b.light((x, y - 0.35, zs + 0.7), EPOCH_GLOW[15], 35.0)
-    # coin arrière droit : générateur lourd
-    gx, gy = 2.2, 3.15
-    b.box("plate2", (gx, gy, zs + 0.55), (1.3, 1.85, 1.1), bev=0.03)
-    b.plates_face("plate", (gx, gy - 0.925, zs + 0.55), (1, 0, 0), (0, 0, 1), 3, 2, 1.26, 1.06, th=0.026, bolt_mat="bolt", tones=TONES)
-    b.plates_face("plate", (gx - 0.65, gy, zs + 0.55), (0, -1, 0), (0, 0, 1), 4, 2, 1.8, 1.06, th=0.026, bolt_mat="bolt", tones=TONES)
-    b.vent_face("body", "plate", "glow", (gx - 0.28, gy - 0.955, zs + 0.62), (1, 0, 0), (0, 0, 1), 0.4, 0.4, 6)
-    b.vent_face("body", "plate", "glow", (gx + 0.28, gy - 0.955, zs + 0.62), (1, 0, 0), (0, 0, 1), 0.4, 0.4, 6)
-    b.grille_top("body", "grille", "dark", gx - 0.5, gx + 0.5, gy - 0.8, gy - 0.1, zs + 1.1, 9, along="x",
-                 glow_mat="glow")
-    b.cyl("dark", (gx, gy - 0.45, zs + 1.13), 0.3, 0.02, n=24, bev=0)
-    for k in range(5):
-        a = TAU * k / 5
-        b.box("plate", (gx + math.cos(a) * 0.14, gy - 0.45 + math.sin(a) * 0.14, zs + 1.15), (0.26, 0.07, 0.015),
-              R=Rz(a + 0.4), bev=0)
-    b.fins("body", (gx, gy + 0.45, zs + 1.1), "x", 0.7, 0.2, 14, pitch=0.075)
-    for s in (-1, 1):
-        b.cyl("dark", (gx + s * 0.4, gy + 0.75, zs + 1.3), 0.08, 0.4, n=14, bev=0.006)
-        b.cyl("plate", (gx + s * 0.4, gy + 0.75, zs + 1.5), 0.1, 0.05, n=14, bev=0.005)
-    for k in range(3):
-        b.lamp("amber" if k == 1 else "glow", "plate2", (gx - 0.45 + k * 0.45, gy - 0.955, zs + 0.98), (0.1, 0.05),
-               axis="-y")
-    b.light((gx, gy - 1.05, zs + 0.6), EPOCH_GLOW[15], 45.0)
+    for yy in (3.55, 2.85):
+        capacitor(b, (-0.85, yy + 0.2, 0.0), 0.2, 0.75, glow_slits=1)
+    b.light((-0.85, 2.7, 0.5), (1, 1, 1), 1.0)
+    # arrière centre : batterie de radiateurs
+    radiator_block(b, (0.15, 3.2, 0.0), (1.15, 0.95, 1.0), along="x", glow=True)
+    pipe_run(b, (-0.5, 3.95), (0.75, 3.95), 0.05, 0.22, flanges=3, valve=True, supports=2)
+    pump(b, (1.75, 2.1, 0.0), 0.17, 0.34)
+    pump(b, (-1.75, 2.05, 0.0), 0.17, 0.34)
+    junction_box(b, (-2.15, 1.35), (0.34, 0.4, 0.45))
+    b.label("radiateurs")
+    # arrière droit : générateur + 2 cellules derrière, armoire
+    for xx in (1.6, 2.35):
+        capacitor(b, (xx, 3.85, 0.0), 0.27, 1.1, glow_slits=2)
+        b.light((xx, 3.5, 0.6), (1, 1, 1), 1.0)
+    tb = generator(b, (2.0, 2.95, 0.0), 1.55, 0.36, axis="x")
     b.label("générateur")
-    # arrière : radiateur et gaines
-    radiator_block(b, (-0.2, 3.62, zs), (2.2, 0.85, 0.85), along="x", glow=True)
-    b.label("radiateurs")
-    hose_arc(b, (-1.55, 3.2, zs + 0.7), (-1.15, 1.75, zd - 0.12), 0.25, 0.065)
-    hose_arc(b, (0.9, 3.25, zs + 0.7), (0.9, 1.85, zd - 0.12), 0.22, 0.065)
-    cable_bundle(b, (gx - 0.65, gy - 0.6, zs + 0.7), (1.45, 1.42, zd - 0.06), sag=0.18, n=4)
-    cable_bundle(b, (-1.6, 2.7, zs + 0.9), (-1.42, 1.42, zd - 0.06), sag=0.15, n=3)
-    b.label("câblage et conduits")
-    # flanc est : 3 caisses + goulotte
-    for yy in (0.95, -0.05, -1.05):
-        crate(b, (2.5, yy, zs), (0.72, 0.88, 0.6))
-    conveyor(b, (2.4, 0.45, zs + 0.68), (1.85, 0.45, zd - 0.02), 0.24)
+    junction_box(b, (1.0, 3.7), (0.3, 0.5, 0.6))
+    # flanc ouest : réservoirs, pompes, armoire
+    for yy in (1.8, 0.85):
+        tank_v(b, (-2.66, yy, 0.0), 0.3, 1.0)
+    for yy in (-0.2, -1.1):
+        pump(b, (-2.66, yy, 0.0), 0.17, 0.32)
+    junction_box(b, (-2.62, -1.95), (0.42, 0.4, 0.45))
+    pipe_run(b, (-2.94, -2.5), (-2.94, 2.4), 0.055, 0.3, flanges=5, valve=True, supports=4)
+    # flanc est : grand magasin de munitions, goulotte, caisses
+    ammo_magazine(b, (2.62, 1.0, 0.0), (0.66, 1.5, 0.85))
+    conveyor(b, (2.4, 0.15, 0.65), (2.2, -0.35, 0.95), 0.22)
+    crate_stack(b, (2.62, -0.8), (0.6, 0.55, 0.36), tiers=2)
+    crate(b, (2.62, -1.7, 0.0), (0.55, 0.5, 0.32))
     b.label("alimentation en munitions")
-    # flanc ouest : 3 pompes et conduites
-    for yy in (-1.45, 0.0, 1.45):
-        pump(b, (-2.5, yy, zs), 0.2, 0.45)
-    pipe_run(b, (-2.85, -2.3), (-2.85, 2.0), 0.065, zs + 0.3, flanges=5, valve=True, supports=4)
-    # avant : mur pare-éclats, marches, caniveaux d'énergie lumineux, bornes
-    blast_wall(b, -hx + cf + 0.02, -0.55, -hy + 0.03, 0.36, depth=0.44, lamps="glow")
-    blast_wall(b, 0.55, hx - cf - 0.02, -hy + 0.03, 0.36, depth=0.44, lamps="glow")
-    stairs(b, 0.0, -hy + 0.02, 1.0, zs, 2)
-    b.push(None, (0, 0, zs))
-    floor_conduit(b, -1.9, 1.9, -hy + 0.85, glow=True, w=0.26)
+    # avant : réservoirs couchés, piles de caisses (coins), poste d'alimentation, collecteur, bornes
+    for s in (-1, 1):
+        tank_h(b, (s * 2.05, -2.62, 0.0), 0.22, 1.35)
+        if not piece:
+            crate_stack(b, (s * 2.3, -3.6), (0.62, 0.48, 0.32), tiers=2, rot=s * 0.06)
+        crate_stack(b, (s * 1.38, -3.4), (0.55, 0.62, 0.28), tiers=1, rot=-s * 0.05)
+    feed_station(b, (0.0, -3.25), 1.7, 0.56, 0.3)
+    b.push(None, (0, 0, 0.05))
+    floor_conduit(b, -1.32, 1.32, -2.86, glow=True, w=0.18)
     b.pop()
-    for s in (-1, 1):
-        tank_h(b, (s * 1.2, -2.92, zs), 0.18, 1.3)
-    big_hose(b, [(1.6, 2.3, 0.8), (2.6, 2.05, 0.6), (3.08, 1.45, 0.4), (3.12, -0.2, 0.36), (3.05, -1.9, 0.4),
-                 (2.55, -2.62, 0.46), (2.0, -2.92, 0.46)], 0.1)
-    big_hose(b, [(-1.55, 2.55, 0.66), (-2.95, 2.0, 0.55), (-3.12, 0.7, 0.42), (-3.12, -1.0, 0.42), (-2.92, -2.3, 0.46),
-                 (-2.0, -2.92, 0.46)], 0.1)
-    manifold(b, -1.6, 1.6, -2.35, zs + 0.1, r=0.06, n_tees=5)
-    for s in (-1, 1):
-        hatch(b, (s * 2.25, -2.45, zs), 0.45, 0.55)
-    for s in (-1, 1):
-        lamp_post(b, (s * 2.05, -hy + 0.95, zs), 0.3, glow="glow")
-        lamp_post(b, (s * 0.75, -hy + 0.95, zs), 0.3)
+    pipe_run(b, (-1.0, -3.82), (1.0, -3.82), 0.05, 0.17, flanges=5, valve=True, supports=3)
+    for xx in (-1.05, 1.05):
+        lamp_post(b, (xx, -2.7, 0.0), 0.22, glow="glow")
+    # gaines annelées
+    big_hose(b, [(-1.3, 3.0, 0.75), (-2.3, 2.45, 0.5), (-3.15, 2.1, 0.32), (-3.18, 0.2, 0.26), (-3.05, -1.6, 0.22),
+                 (-2.6, -2.3, 0.2)], 0.1)
+    big_hose(b, [(-1.2, 3.55, 0.95), (-0.55, 2.9, 1.1), (-0.25, 2.55, 0.95)], 0.09)
+    big_hose(b, [(1.2, 2.6, 0.5), (2.1, 2.2, 0.32), (3.12, 2.0, 0.24), (3.18, 0.1, 0.22), (3.05, -1.7, 0.2),
+                 (2.6, -2.35, 0.18)], 0.09)
+    cable_bundle(b, (tb[0], tb[1], tb[2] + 0.05), (0.9, 2.35, 1.0), sag=0.15, n=4)
+    b.label("câblage et conduits")
     if piece:
-        missile_pods(b, zs, hx, hy, cf)
-    return {"z_drum": zd}
+        for s in (-1, 1):
+            missile_rack(b, (s * 2.3, -3.5), s * 0.3)
+    return {}
 
 
-def missile_pods(b, zs, hx, hy, cf):
-    """Pièce du niveau 30 : deux lance-missiles blindés aux coins avant, posés sur les chanfreins (hors du balayage
-    de la tête : toujours visibles, F46), ogives à lueur blanc doré."""
-    for s in (-1, 1):
-        x = s * (hx - 0.5)
-        y = -hy + 0.62
-        b.push(Rz(s * 0.35), (x, y, 0.0))
-        b.box("plate2", (0, 0, 0.12), (0.8, 0.85, 0.24), bev=0.02)
-        b.hazard_band("haz_y", "haz_k", (-0.36, -0.43, 0.12), (0.36, -0.43, 0.12), width=0.12, th=0.01, normal="-y")
-        b.cyl("body", (0, 0.05, 0.3), 0.3, 0.12, n=24, bev=0.01)
-        b.push(Rx(0.32), (0, 0.05, 0.36))
-        b.box("plate", (0, 0, 0.26), (0.66, 0.62, 0.46), bev=0.025)
-        b.plates_face("plate2", (0.33, 0, 0.26), (0, 1, 0), (0, 0, 1), 2, 1, 0.58, 0.42, th=0.02, bolt_mat="bolt")
-        b.plates_face("plate2", (-0.33, 0, 0.26), (0, -1, 0), (0, 0, 1), 2, 1, 0.58, 0.42, th=0.02, bolt_mat="bolt")
-        b.bolts_rect("bolt", -0.31, 0.31, -0.29, 0.29, 0.49, r=0.02, inset=0.05, n=(4, 4))
-        for i in range(3):
-            for j in range(2):
-                px, pz = -0.2 + i * 0.2, 0.15 + j * 0.2
-                b.cyl("dark", (px, -0.312, pz), 0.075, 0.03, axis="y", n=14, bev=0)
-                b.cyl("accent", (px, -0.31, pz), 0.085, 0.02, axis="y", n=14, bev=0.004)
-                b.cyl("glow", (px, -0.322, pz), 0.04, 0.012, axis="y", n=10, bev=0)
-        b.pop()
-        b.pop()
-        b.light((x, y - 0.4, 0.5), EPOCH_GLOW[15], 25.0)
-
-
-# ------------------------------------------------------------------------------------------------
-# Têtes (repère local : canons vers +Y ; z absolu)
-# ------------------------------------------------------------------------------------------------
-def shroud(b, c, r, L, holes_rows=5, holes_per_row=8):
-    """Chemise de refroidissement perforée autour d'un faisceau (axe +Y)."""
-    x, y0, z = c
-    b.cyl("plate", (x, y0 + L / 2, z), r, L, axis="y", n=24, bev=0.008)
-    for i in range(holes_rows):
-        yy = y0 + L * (i + 0.5) / holes_rows
-        for k in range(holes_per_row):
-            a = TAU * (k + 0.5 * (i % 2)) / holes_per_row
-            # demi-cercle visible du dessus seulement (inutile de percer le dessous)
-            if math.sin(a) < -0.3:
-                continue
-            p = (x + math.cos(a) * (r + 0.002), yy, z + math.sin(a) * (r + 0.002))
-            b.cyl("dark", p, 0.028, 0.02, axis=(math.cos(a), 0.0, math.sin(a)), n=8, bev=0)
-    for t in (0.0, 1.0):
-        b.cyl("body", (x, y0 + L * t, z), r + 0.025, 0.06, axis="y", n=24, bev=0.006)
-
-
-def trunnion(b, x, y, z, w, h, d):
-    """Berceau de canon : bloc, tourillons latéraux boulonnés."""
-    b.box("plate2", (x, y, z), (w, d, h), bev=0.02)
-    for s in (-1, 1):
-        b.cyl("body", (x + s * (w / 2 + 0.03), y, z), h * 0.32, 0.06, axis="x", n=16, bev=0.006)
-        for k in range(6):
-            a = TAU * k / 6
-            b.bolt("bolt", (x + s * (w / 2 + 0.065), y + math.cos(a) * h * 0.22, z + math.sin(a) * h * 0.22), r=0.016,
-                   h=0.012, axis=(s, 0.0, 0.0))
-
-
-def drum_mag(b, c, r, L, belt_to):
-    """Tambour-chargeur latéral (axe Y) : fût cerclé, couvercles boulonnés, bande de danger, bande de cartouches."""
-    x, y, z = c
-    b.cyl("plate2", (x, y, z), r, L, axis="y", n=28, bev=0.012)
-    for t in (-0.42, -0.14, 0.14, 0.42):
-        b.cyl("body", (x, y + t * L, z), r + 0.02, 0.05, axis="y", n=28, bev=0.006)
-    for s in (-1, 1):
-        b.cyl("plate", (x, y + s * (L / 2 + 0.02), z), r * 0.85, 0.04, axis="y", n=24, bev=0.008)
-        for k in range(8):
-            a = TAU * k / 8
-            b.bolt("bolt", (x + math.cos(a) * r * 0.7, y + s * (L / 2 + 0.045), z + math.sin(a) * r * 0.7), r=0.018,
-                   h=0.012, axis=(0.0, float(s), 0.0))
-    b.hazard_band("haz_y", "haz_k", (x - r * 0.6, y - L * 0.28, z + r + 0.005), (x - r * 0.6, y + L * 0.28, z + r + 0.005),
-                  width=r * 0.5, th=0.01, normal="z")
-    b.ammo_belt("case", "dark", [(x, y + L * 0.3, z + r * 0.9), belt_to], w=0.11)
-
-
-def secondary_turret(b, c, scale=1.0):
-    """Tourelle secondaire (défense rapprochée) : couronne, caisson, 2 canons, viseur à lueur d'époque."""
-    x, y, z = c
-    k = scale
-    b.cyl("plate2", (x, y, z + 0.05 * k), 0.24 * k, 0.1 * k, n=24, bev=0.008)
-    nb = 10
-    for i in range(nb):
-        a = TAU * i / nb
-        b.bolt("bolt", (x + math.cos(a) * 0.2 * k, y + math.sin(a) * 0.2 * k, z + 0.1 * k), r=0.016)
-    b.box("plate", (x, y, z + 0.2 * k), (0.34 * k, 0.4 * k, 0.2 * k), bev=0.015)
-    b.box("body", (x, y + 0.02 * k, z + 0.31 * k), (0.26 * k, 0.3 * k, 0.04 * k), bev=0.008)
-    for s in (-1, 1):
-        b.cyl("gun", (x + s * 0.07 * k, y + 0.45 * k, z + 0.2 * k), 0.026 * k, 0.55 * k, axis="y", n=10, bev=0)
-        b.cyl("body", (x + s * 0.07 * k, y + 0.26 * k, z + 0.2 * k), 0.045 * k, 0.14 * k, axis="y", n=12, bev=0.005)
-        b.cyl("dark", (x + s * 0.07 * k, y + 0.725 * k, z + 0.2 * k), 0.032 * k, 0.03 * k, axis="y", n=10, bev=0)
-    b.box("glow", (x + 0.1 * k, y + 0.205 * k, z + 0.25 * k), (0.09 * k, 0.012, 0.06 * k), bev=0)
-    b.bolts_rect("bolt", x - 0.15 * k, x + 0.15 * k, y - 0.18 * k, y + 0.18 * k, z + 0.3 * k, r=0.016, inset=0.04)
-
-
-def sensor(b, c, r, glow=True):
-    """Viseur (télémètre) : fût, dôme d'accent, lentille lumineuse vers l'avant, visière."""
-    x, y, z = c
-    b.cyl("plate2", (x, y, z + 0.06), r, 0.12, n=24, bev=0.01)
-    b.sphere("accent", (x, y, z + 0.12), r * 0.92, n=20, m=10, scale=(1, 1, 0.7))
-    b.cyl("dark", (x, y + r * 0.8, z + 0.17), r * 0.42, 0.1, axis="y", n=16, bev=0.006)
-    if glow:
-        b.cyl("glow", (x, y + r * 0.86, z + 0.17), r * 0.28, 0.02, axis="y", n=16, bev=0)
-    b.box("plate", (x, y + r * 0.75, z + 0.27), (r * 1.0, r * 0.4, 0.03), R=Rx(-0.3), bev=0.006)
-    b.cyl("body", (x - r * 0.6, y - r * 0.4, z + 0.32), 0.03, 0.22, n=8, bev=0.004)
-
-
-def head_11(b, z0):
-    """Époque 6 : caisson blindé, 2 mitrailleuses à 4 canons (jumelées) sous chemises perforées, bouclier frontal,
-    moteur électrique bobiné à l'arrière, 2 isolateurs dorsaux et éclateur (arc cyan), caisse de munitions à gauche."""
-    zt = z0 + 0.66
-    # plateau tournant
-    b.cyl("plate2", (0, 0, z0 + 0.04), 0.72, 0.08, n=48, bev=0.01)
-    for i in range(16):
-        a = TAU * i / 16
-        b.bolt("bolt", (math.cos(a) * 0.67, math.sin(a) * 0.67, z0 + 0.085), r=0.02)
-    # caisson (octogone en plan, chanfreins avant)
-    hull = [(-0.58, -0.6), (0.58, -0.6), (0.62, -0.3), (0.62, 0.38), (0.42, 0.6), (-0.42, 0.6), (-0.62, 0.38),
-            (-0.62, -0.3)]
-    b.prism("body", hull, z0 + 0.08, zt, bev=0.03)
-    b.frustum("plate", [(-0.6, -0.58), (0.6, -0.58), (0.6, 0.36), (0.4, 0.58), (-0.4, 0.58), (-0.6, 0.36)], zt,
-              zt + 0.1, 0.9, bev=0.02)
-    b.plates_top("plate2", -0.45, 0.45, -0.45, 0.35, zt + 0.1, 4, 4, th=0.025, gap=0.03, bolt_mat="bolt")
-    for s in (-1, 1):
-        # normale sortante = u × v : u = (0, s, 0) pour la face x = s (correctif : tôles tournées vers l'intérieur)
-        b.plates_face("plate", (s * 0.62, -0.1, z0 + 0.37), (0, s, 0), (0, 0, 1), 3, 2,
-                      0.9, 0.52, th=0.025, bolt_mat="bolt", tones=TONES)
-    b.label("tête à canons")
-    # bouclier frontal incliné (3 plaques), meurtrières des canons
-    b.label("blindage frontal")
-    for px, w in ((0.0, 0.42), (-0.5, 0.2), (0.5, 0.2)):
-        b.box("plate", (px, 0.66, z0 + 0.36), (w, 0.08, 0.6), R=Rx(-0.35), bev=0.02)
-        b.bolts_line("bolt", (px - w / 2 + 0.05, 0.62, z0 + 0.62), (px + w / 2 - 0.05, 0.62, z0 + 0.62), 2, r=0.018,
-                     axis=(0, 0.94, 0.34), h=0.012)
-    # deux mitrailleuses à 4 canons, chemises perforées, berceaux
-    b.label("canons jumelés")
-    b.label("refroidissement des canons")
-    zg = z0 + 0.36
-    for s in (-1, 1):
-        xg = s * 0.36
-        trunnion(b, xg, 0.6, zg, 0.2, 0.22, 0.2)
-        b.gatling("gun", "body", "dark", (xg, 0.62, zg), 4, 0.066, 0.034, 0.74, muzzle_mat="plate")
-        shroud(b, (xg, 0.66, zg), 0.135, 0.42, holes_rows=4, holes_per_row=8)
-    # moteur électrique bobiné (arrière), axe X
-    zm = z0 + 0.36
-    b.cyl("plate2", (0, -0.8, zm), 0.24, 0.8, axis="x", n=28, bev=0.012)
-    for k in range(9):
-        b.torus("copper", (-0.32 + k * 0.08, -0.8, zm), 0.245, 0.024, axis="x", n=28, m=6)
-    for s in (-1, 1):
-        b.cyl("body", (s * 0.42, -0.8, zm), 0.2, 0.05, axis="x", n=24, bev=0.008)
-        for k in range(6):
-            a = TAU * k / 6
-            b.bolt("bolt", (s * 0.45, -0.8 + math.cos(a) * 0.14, zm + math.sin(a) * 0.14), r=0.016, h=0.012,
-                   axis=(float(s), 0.0, 0.0))
-    b.box("plate2", (0, -0.62, zm + 0.26), (0.36, 0.2, 0.14), bev=0.01)
-    for s in (-1, 1):
-        b.box("glow", (s * 0.09, -0.725, zm + 0.26), (0.1, 0.012, 0.08), bev=0)
-    # isolateurs dorsaux et éclateur
-    for s in (-1, 1):
-        zz = zt + 0.12
-        for k in range(5):
-            b.cyl("accent", (s * 0.26, -0.3, zz + 0.04), 0.075 if k % 2 == 0 else 0.055, 0.075, n=16, bev=0.008)
-            zz += 0.075
-        b.cyl("copper", (s * 0.26, -0.3, zz + 0.06), 0.022, 0.12, n=8, bev=0)
-        b.sphere("copper", (s * 0.2, -0.3, zz + 0.12), 0.035, n=10, m=6)
-    b.box("glow", (0, -0.3, zt + 0.12 + 0.375 + 0.12), (0.34, 0.05, 0.07), bev=0)
-    # câbles moteur -> canons
-    for s in (-1, 1):
-        b.cable("rubber", (s * 0.15, -0.6, zm + 0.2), (s * 0.4, 0.4, zt + 0.12), sag=-0.06, r=0.022)
-    # caisse de munitions (flanc gauche) et bande vers la mitrailleuse gauche
-    b.label("alimentation en munitions")
-    b.push(None, (-0.82, -0.05, z0 + 0.1))
-    b.box("plate2", (0, 0, 0.22), (0.26, 0.6, 0.44), bev=0.015)
-    b.hazard_band("haz_y", "haz_k", (-0.13, -0.26, 0.3), (-0.13, 0.26, 0.3), width=0.1, th=0.01, normal="-x")
-    b.box("plate", (0, 0, 0.455), (0.24, 0.56, 0.03), bev=0.008)
-    b.bolts_rect("bolt", -0.1, 0.1, -0.26, 0.26, 0.47, r=0.016, inset=0.03, n=(2, 3))
-    b.pop()
-    b.ammo_belt("case", "dark", [(-0.75, 0.2, z0 + 0.55), (-0.55, 0.45, z0 + 0.5), (-0.4, 0.55, zg + 0.08)], w=0.09)
-    # trappe et poignée sur le dessus
-    b.cyl("plate", (0.2, -0.15, zt + 0.15), 0.12, 0.04, n=20, bev=0.008)
-    b.box("dark", (0.2, -0.15, zt + 0.18), (0.14, 0.025, 0.02), bev=0)
-    b.light((0, -0.3, zt + 0.6), EPOCH_GLOW[6], 20.0)
-
-
-def head_21(b, z0):
-    """Époque 11 : caisson blindé à glacis, gros faisceau de 6 canons sous chemise perforée, tambour-chargeur à
-    droite, tourelle secondaire (arrière gauche), viseur, radiateur dorsal à ailerons (titane) et lignes lumineuses,
-    gaines de refroidissement, câblage."""
-    zt = z0 + 0.95
-    b.cyl("plate2", (0, 0, z0 + 0.05), 1.25, 0.1, n=64, bev=0.012)
-    for i in range(24):
-        a = TAU * i / 24
-        b.bolt("bolt", (math.cos(a) * 1.18, math.sin(a) * 1.18, z0 + 0.105), r=0.022)
-    hull = [(-0.92, -1.0), (0.92, -1.0), (1.0, -0.7), (1.0, 0.55), (0.7, 0.95), (-0.7, 0.95), (-1.0, 0.55), (-1.0, -0.7)]
-    b.prism("body", hull, z0 + 0.1, zt, bev=0.035)
-    # glacis avant incliné
-    b.box("plate", (0, 0.95, z0 + 0.55), (1.3, 0.12, 0.8), R=Rx(-0.45), bev=0.025)
-    b.bolts_line("bolt", (-0.55, 0.88, z0 + 0.88), (0.55, 0.88, z0 + 0.88), 6, r=0.02, axis=(0, 0.9, 0.43), h=0.014)
-    # dessus : tôles, trappes, grilles
-    b.frustum("plate", [(-0.95, -0.95), (0.95, -0.95), (0.95, 0.5), (0.65, 0.88), (-0.65, 0.88), (-0.95, 0.5)], zt,
-              zt + 0.1, 0.94, bev=0.02)
-    b.plates_top("plate2", -0.75, 0.75, -0.85, 0.55, zt + 0.1, 4, 4, th=0.025, gap=0.03, bolt_mat="bolt",
-                 skip={(0, 0), (1, 0)})
-    for s in (-1, 1):
-        b.plates_face("accent" if s < 0 else "plate", (s * 1.0, -0.1, z0 + 0.55), (0, s, 0), (0, 0, 1), 3, 2, 1.2,
-                      0.8, th=0.026, bolt_mat="bolt")
-    b.label("tête à canons")
-    b.label("blindage frontal")
-    # faisceau principal : 6 canons, chemise perforée, berceau
-    zg = z0 + 0.5
-    trunnion(b, 0.0, 1.0, zg, 0.5, 0.42, 0.3)
-    b.gatling("gun", "body", "dark", (0, 1.05, zg), 6, 0.14, 0.056, 1.35, muzzle_mat="plate")
-    shroud(b, (0, 1.12, zg), 0.29, 0.7, holes_rows=5, holes_per_row=10)
-    for k in range(3):
-        b.box("glow", (0, 1.25 + k * 0.17, zg + 0.255), (0.11, 0.065, 0.012), bev=0)
-    b.label("canons jumelés")
-    b.label("refroidissement des canons")
-    # tambour-chargeur à droite
-    drum_mag(b, (1.25, 0.05, z0 + 0.5), 0.34, 1.0, (0.3, 1.0, zg + 0.15))
-    b.box("plate2", (1.05, 0.05, z0 + 0.25), (0.3, 0.7, 0.3), bev=0.015)
-    b.label("chargeur automatique")
-    # tourelle secondaire (arrière gauche) et viseur (avant gauche)
-    secondary_turret(b, (-0.5, -0.45, zt + 0.12), 1.0)
-    b.label("tourelle secondaire")
-    sensor(b, (-0.5, 0.35, zt + 0.12), 0.2)
-    b.label("viseur")
-    # radiateur dorsal : bloc d'ailettes + ailerons triangulaires de titane (signature de l'époque)
-    rx, ry = 0.45, -0.55
-    b.box("plate2", (rx, ry, zt + 0.17), (0.6, 0.6, 0.14), bev=0.01)
-    b.fins("body", (rx, ry, zt + 0.24), "x", 0.52, 0.32, 8, pitch=0.07)
-    for k in range(3):
-        b.prism("accent", [(0.0, 0.0), (0.55, 0.0), (0.0, 0.42)], -0.02, 0.02, R=FIN_YZ,
-                t=(rx - 0.22 + k * 0.22, ry - 0.3, zt + 0.24), bev=0.006)
-    for k in range(2):
-        b.box("glow", (rx - 0.13 + k * 0.26, ry - 0.31, zt + 0.21), (0.2, 0.012, 0.07), bev=0)
-        b.box("glow", (rx + 0.31, ry - 0.13 + k * 0.26, zt + 0.21), (0.012, 0.2, 0.07), bev=0)
-    b.label("radiateurs")
-    # lignes lumineuses sur les flancs (chenillard) et voyants
-    for s in (-1, 1):
-        for k in range(3):
-            b.box("glow", (s * 0.83, -0.65 + k * 0.42, zt + 0.108), (0.07, 0.3, 0.012), bev=0)
-    b.lamp("amber", "plate2", (-0.85, -1.005, z0 + 0.7), (0.08, 0.05), axis="-y")
-    # gaines de refroidissement radiateur -> chemise, câbles
-    hose_arc(b, (rx + 0.25, ry + 0.2, zt + 0.25), (0.15, 0.95, zg + 0.22), 0.3, 0.045, pitch=0.065)
-    hose_arc(b, (rx - 0.2, ry + 0.2, zt + 0.25), (-0.15, 0.95, zg + 0.22), 0.35, 0.045, pitch=0.065)
-    for s in (-1, 1):
-        b.cable("rubber", (s * 0.85, -0.9, zt - 0.05), (s * 0.85, 0.5, zt - 0.05), sag=-0.03, r=0.025)
-    b.label("câblage et conduits")
-    # bustle arrière : coffre boulonné, grille
-    b.box("plate2", (0, -1.1, z0 + 0.5), (1.4, 0.2, 0.7), bev=0.02)
-    b.vent_face("body", "plate", "dark", (0, -1.205, z0 + 0.5), (1, 0, 0), (0, 0, 1), 0.8, 0.45, 6)
-    b.light((0, 0.0, zt + 0.5), EPOCH_GLOW[11], 25.0)
-
-
-def head_29(b, z0):
-    """Époque 15 : forteresse tournante. Caisson à blindage espacé (plaques multiples), 2 faisceaux de 6 canons sous
-    chemises, 2 tambours-chargeurs, 2 tourelles secondaires, viseur, couronne de radiateurs en or blanc à fentes
-    lumineuses, cœur d'énergie visible sous grille, gaines et câbles."""
-    zt = z0 + 1.15
-    b.cyl("plate2", (0, 0, z0 + 0.06), 1.55, 0.12, n=72, bev=0.012)
-    for i in range(30):
-        a = TAU * i / 30
-        b.bolt("bolt", (math.cos(a) * 1.48, math.sin(a) * 1.48, z0 + 0.125), r=0.024)
-    hull = [(-1.2, -1.3), (1.2, -1.3), (1.32, -1.0), (1.32, 0.75), (0.95, 1.2), (-0.95, 1.2), (-1.32, 0.75),
-            (-1.32, -1.0)]
-    b.prism("body", hull, z0 + 0.12, zt, bev=0.04)
-    b.label("tête à canons")
-    # glacis avant
-    b.box("plate", (0, 1.22, z0 + 0.62), (1.8, 0.14, 0.95), R=Rx(-0.42), bev=0.03)
-    b.bolts_line("bolt", (-0.8, 1.13, z0 + 1.0), (0.8, 1.13, z0 + 1.0), 9, r=0.022, axis=(0, 0.91, 0.41), h=0.014)
-    b.label("blindage frontal")
-    # blindage espacé sur les flancs (2 couches : tôles du caisson + plaques sur entretoises)
-    for s in (-1, 1):
-        b.plates_face("plate2", (s * 1.32, -0.15, z0 + 0.62), (0, s, 0), (0, 0, 1), 4, 2, 1.7, 0.95, th=0.026,
-                      bolt_mat="bolt")
-        for k in range(3):
-            yy = -0.75 + k * 0.6
-            b.box("plate", (s * 1.42, yy, z0 + 0.66), (0.06, 0.5, 0.7), bev=0.02)
-            for zz in (0.42, 0.9):
-                b.cyl("body", (s * 1.375, yy, z0 + zz), 0.03, 0.06, axis="x", n=8, bev=0)
-            b.bolts_line("bolt", (s * 1.455, yy - 0.18, z0 + 0.95), (s * 1.455, yy + 0.18, z0 + 0.95), 3, r=0.018,
-                         axis=(float(s), 0, 0), h=0.012)
-            b.bolts_line("bolt", (s * 1.455, yy - 0.18, z0 + 0.37), (s * 1.455, yy + 0.18, z0 + 0.37), 3, r=0.018,
-                         axis=(float(s), 0, 0), h=0.012)
-    b.label("blindage à plaques multiples")
-    # dessus : tôles, trappes
-    b.frustum("plate", [(-1.25, -1.25), (1.25, -1.25), (1.25, 0.7), (0.9, 1.12), (-0.9, 1.12), (-1.25, 0.7)], zt,
-              zt + 0.1, 0.95, bev=0.02)
-    b.plates_top("plate2", -1.05, 1.05, -1.1, 0.75, zt + 0.1, 5, 5, th=0.025, gap=0.03, bolt_mat="bolt")
-    # 2 faisceaux de 6 canons, chemises, berceaux
-    zg = z0 + 0.6
-    for s in (-1, 1):
-        xg = s * 0.62
-        trunnion(b, xg, 1.25, zg, 0.48, 0.44, 0.3)
-        b.gatling("gun", "body", "dark", (xg, 1.3, zg), 6, 0.13, 0.052, 1.55, muzzle_mat="plate")
-        shroud(b, (xg, 1.38, zg), 0.27, 0.8, holes_rows=6, holes_per_row=10)
-        # fentes de chaleur lumineuses sur la chemise (dessus)
-        for k in range(3):
-            b.box("glow", (xg, 1.5 + k * 0.2, zg + 0.235), (0.12, 0.07, 0.012), bev=0)
-    b.label("canons jumelés")
-    b.label("refroidissement des canons")
-    # 2 tambours-chargeurs sur les flancs
-    for s in (-1, 1):
-        drum_mag(b, (s * 1.78, 0.1, z0 + 0.62), 0.4, 1.25, (s * 0.85, 1.25, zg + 0.18))
-        b.box("plate2", (s * 1.55, 0.1, z0 + 0.32), (0.3, 0.9, 0.36), bev=0.015)
-    b.label("chargeur automatique")
-    # couronne de radiateurs (or blanc) à l'arrière du dessus, fentes lumineuses entre les blocs
-    zc = zt + 0.13
-    nblk = 7
-    for k in range(nblk):
-        a = math.pi + math.pi * (k + 0.5) / nblk          # demi-cercle arrière
-        cx, cy = math.cos(a) * 0.95, math.sin(a) * 0.95 - 0.1
-        b.push(Rz(a + math.pi / 2), (cx, cy, zc))
-        b.box("plate2", (0, 0, 0.05), (0.36, 0.3, 0.1), bev=0.01)
-        b.fins("accent", (0, 0, 0.1), "x", 0.26, 0.42 + 0.06 * (k % 2), 5, pitch=0.065, th=0.034)
-        b.box("glow", (0, -0.16, 0.07), (0.26, 0.012, 0.07), bev=0)
-        b.pop()
-    b.label("radiateurs")
-    # cœur d'énergie visible : grille centrale au-dessus d'un noyau lumineux (petits foyers séparés par les barreaux)
-    b.box("plate2", (0.0, -0.35, zc + 0.06), (0.8, 0.6, 0.12), bev=0.012)
-    b.grille_top("accent", "grille", "dark", -0.32, 0.32, -0.6, -0.1, zc + 0.12, 5, along="y", glow_mat="glow")
-    b.label("réserve d'énergie visible")
-    # 2 tourelles secondaires (avant gauche et avant droite du dessus) et viseur central
-    for s in (-1, 1):
-        secondary_turret(b, (s * 0.72, 0.35, zt + 0.12), 1.15)
-    b.label("tourelles secondaires")
-    sensor(b, (0.0, 0.45, zt + 0.12), 0.24)
-    b.label("viseur")
-    b.label("générateur ou condensateur")
-    # gaines et câbles
-    for s in (-1, 1):
-        hose_arc(b, (s * 0.5, -0.9, zc + 0.15), (s * 0.62, 1.15, zg + 0.24), 0.35, 0.05, pitch=0.065)
-        b.cable("rubber", (s * 1.15, -1.15, zt - 0.05), (s * 1.15, 0.6, zt - 0.05), sag=-0.03, r=0.026)
-        b.cable("cable_r", (s * 1.08, -1.15, zt - 0.05), (s * 1.08, 0.6, zt - 0.05), sag=-0.03, r=0.022)
-    b.label("câblage et conduits")
-    # bustle arrière : coffre, grilles lumineuses, voyants
-    b.box("plate2", (0, -1.42, z0 + 0.6), (2.0, 0.26, 0.85), bev=0.025)
-    for s in (-1, 1):
-        b.vent_face("body", "plate", "glow", (s * 0.5, -1.555, z0 + 0.6), (1, 0, 0), (0, 0, 1), 0.6, 0.5, 6)
-    b.lamp("amber", "plate2", (0.0, -1.56, z0 + 0.85), (0.1, 0.05), axis="-y")
-    for s in (-1, 1):
-        for k in range(4):
-            b.box("glow", (s * 1.12, -0.95 + k * 0.42, zt + 0.108), (0.08, 0.3, 0.012), bev=0)
-    b.light((0, -0.35, zt + 0.6), EPOCH_GLOW[15], 30.0)
-
-
-HEADS = {11: head_11, 21: head_21, 29: head_29, 30: head_29}
 SOCLES = {11: socle_11, 21: socle_21, 29: socle_29, 30: lambda b: socle_29(b, piece=True)}
-# échelle de la tête (modélisée à l'échelle 1, agrandie autour de son pied : la masse de la tête croît avec l'ère)
-K_HEAD = {11: 1.2, 21: 1.15, 29: 1.15, 30: 1.15}
 
 
 def build(variant):
@@ -1176,16 +1091,17 @@ def build(variant):
     if v["part"] == "socle":
         SOCLES[lv](b)
         return b, 0.0
-    b.push(G.np.eye(3) * K_HEAD[lv], (0.0, 0.0, Z_DRUM[lv]))
-    HEADS[lv](b, 0.0)
-    b.pop()
+    head(b, 29 if lv == 30 else lv)
     return b, DIR_ANGLE[v["dir"]]
 
 
 def systems(level):
-    """Inventaire des systèmes fonctionnels (socle + tête) du niveau."""
+    """Inventaire des systèmes fonctionnels (socle + tête) du niveau (labels distincts, comptés une fois)."""
     lv = 29 if level == 30 else level
     b1 = G.B()
-    SOCLES[lv](b1)
-    HEADS[lv](b1, 0.0)
-    return b1.systems
+    SOCLES[level if level in SOCLES else lv](b1)
+    head(b1, lv)
+    s = list(b1.systems)
+    if level == 30:
+        s.append("lance-missiles (pièce du niveau 30)")
+    return s

@@ -155,6 +155,20 @@ def main():
         f.write(txt + "\n")
     with open(os.path.join(a.out, "mesures_hightech.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(res, f, indent=1, ensure_ascii=False, default=float)
+    # entrée de progression.py (charte) : mitrailleuse vanilla (niveau 1, époque 1, mesures_vanilla.json de la
+    # charte, pose E) puis nos niveaux, au format des aperçus V3p1 (famille, niveau, époque)
+    van = json.load(open(os.path.join(os.path.dirname(CHARTE), "mesures_vanilla.json"), encoding="utf-8"))
+    g = dict([r for r in van if r["nom"] == "gun-turret"][0])
+    for pose in a.poses.split(","):
+        rows = [dict(g, famille="mitrailleuse", niveau=1, epoque=1, pose=pose)]
+        for r in res:
+            if r["pose"] == pose:
+                q = {k: v for k, v in r.items() if k not in ("verdict", "cibles")}
+                q["famille"] = "mitrailleuse"
+                rows.append(q)
+        with open(os.path.join(a.out, "progression_entree_%s.json" % pose), "w", encoding="utf-8",
+                  newline="\n") as f:
+            json.dump(rows, f, indent=1, ensure_ascii=False, default=float)
 
 
 if __name__ == "__main__":

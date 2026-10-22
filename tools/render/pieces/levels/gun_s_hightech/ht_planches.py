@@ -37,6 +37,7 @@ import da_lib as D  # noqa: E402
 
 DATA = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 PPT = 64
+RENDERS = None    # dossier des rendus post-traités (--renders)
 TEAM = np.array((0.869, 0.5, 0.130), np.float32)
 
 
@@ -101,7 +102,7 @@ def ours(level, pose):
     hl = 29 if level == 30 else level
     out = []
     for var, mod in (("n%02d-socle" % level, "socle"), ("n%02d-tete-%s" % (hl, pose), "tete")):
-        d = os.path.join(ht_post.OUT, var)
+        d = os.path.join(RENDERS, var)
         with open(os.path.join(d, "spec.json"), encoding="utf-8") as f:
             spec = json.load(f)
         for k in ("shadow", "main", "glow", "light"):
@@ -166,11 +167,11 @@ def compose(ents, W, Hh):
     return day, night
 
 
-ROW = [("v", "gun-turret", 2, "mitrailleuse vanilla", "niveau 1 · 2×2"),
+ROW = [("v", "gun-turret", 2, "niveau 1 · époque 1 (vanilla)", "mitrailleuse 2×2"),
        ("o", 11, 3, "niveau 11 · époque 6", "3×3"),
        ("o", 21, 5, "niveau 21 · époque 11", "5×5"),
        ("o", 29, 6, "niveau 29 · époque 15", "6×6"),
-       ("o", 30, 6, "niveau 30 · pièce", "6×6"),
+       ("o", 30, 6, "niveau 30 · époque 15", "6×6 + pièce (lance-missiles)"),
        ("sep",),
        ("v", "laser-turret", 2, "tourelle laser", "vanilla 2×2"),
        ("v", "assembling-machine-3", 3, "assembleuse 3", "vanilla 3×3"),
@@ -178,8 +179,8 @@ ROW = [("v", "gun-turret", 2, "mitrailleuse vanilla", "niveau 1 · 2×2"),
        ("v", "rocket-silo", 9, "silo à fusée", "vanilla 9×9")]
 
 
-def row_scene(dumps, pose, mesures=None, gap=1.4, top=4.2, bottom=1.2):
-    x = 0.8
+def row_scene(dumps, pose, mesures=None, gap=2.0, top=4.2, bottom=1.2):
+    x = 2.2
     ents, labels, seps = [], [], []
     for it in ROW:
         if it[0] == "sep":
@@ -199,7 +200,7 @@ def row_scene(dumps, pose, mesures=None, gap=1.4, top=4.2, bottom=1.2):
             m = mesures[(key, pose)]
             sub = "%s · %.1f t² · %d pièces" % (it[4], m["masse_tuiles2"], m["petites_pieces"])
         labels.append((cx, it[3], sub))
-        x += side + gap
+        x += side + gap + (1.6 if kind == "o" and pose == "E" else 0.0)   # canons qui débordent à l est
     W = int((x + 0.4) * PPT)
     maxside = 9
     base_y = (top + maxside) * PPT     # bord sud commun des emprises
@@ -233,25 +234,77 @@ def annotate(im, labels, seps, base_y, scale, title):
     return out
 
 
+def naive_pairs(dumps, out, pairs):
+    """Test du regard naïf (charte §6.5) : une image par paire, deux bâtiments côte à côte, zoom 1, jour, pose E,
+    sol vanilla, même échelle, SEULEMENT « A » et « B » en légende. `pairs` = [(fichier, gauche, droite), ...] où
+    gauche/droite valent 1 (mitrailleuse vanilla) ou un niveau de l'explorateur. Rien d'autre n'est écrit : la clé
+    n'existe que dans la valeur de retour de l'agent."""
+    os.makedirs(out, exist_ok=True)
+    written = []
+    for fn, left, right in pairs:
+        ents = []
+        x = 1.0
+        cxs = []
+        for key in (left, right):
+            side = 2 if key == 1 else H.LEVELS[key]["side"]
+            lay = vanilla(dumps, "gun-turret", "E") if key == 1 else ours(key, "E")
+            cx = x + side / 2.0
+            ents.append({"pos": (cx * PPT, None), "layers": lay, "side": side})
+            cxs.append(cx)
+            x += side + 2.6
+        W = int((x + 0.2) * PPT)
+        top, maxside, bottom = 3.4, max(e["side"] for e in ents), 1.0
+        base_y = (top + maxside) * PPT
+        for e in ents:
+            e["pos"] = (e["pos"][0], base_y - e["side"] / 2.0 * PPT)
+        Hh = int(base_y + bottom * PPT)
+        day, _ = compose(ents, W, Hh)
+        im = to_img(down2(day))
+        canvas = Image.new("RGB", (im.width, im.height + 34), (24, 22, 20))
+        canvas.paste(im, (0, 0))
+        dr = ImageDraw.Draw(canvas)
+        f = font(22, True)
+        for cx, letter in zip(cxs, ("A", "B")):
+            dr.text((cx * 32, im.height + 17), letter, fill=(250, 245, 230), font=f, anchor="mm")
+        p = os.path.join(out, fn)
+        canvas.save(p, optimize=True)
+        written.append(p)
+    return written
+
+
 def main():
+    global RENDERS
     ap = argparse.ArgumentParser()
     ap.add_argument("--dumps", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--poses", default="E,N")
+    ap.add_argument("--renders", default=ht_post.OUT)
     ap.add_argument("--mesures", default=os.path.join(HERE, "mesures", "mesures_hightech.json"))
+    ap.add_argument("--samples", default="")
+    ap.add_argument("--naif", default="", help="fichier:gauche:droite,... (1 = mitrailleuse vanilla)")
     a = ap.parse_args()
+    RENDERS = a.renders
     os.makedirs(a.out, exist_ok=True)
+    if a.naif:
+        pairs = []
+        for item in a.naif.split(","):
+            fn, l, r = item.split(":")
+            pairs.append((fn, int(l), int(r)))
+        for p in naive_pairs(a.dumps, a.out, pairs):
+            print(p)
+        return
     mes = {}
     if os.path.exists(a.mesures):
         for r in json.load(open(a.mesures, encoding="utf-8")):
             mes[(r["niveau"], r["pose"])] = r
     written = []
+    smp = (" · rendu Cycles %s échantillons" % a.samples) if a.samples else ""
     for pose in a.poses.split(","):
         ents, labels, seps, W, Hh, base_y = row_scene(a.dumps, pose, mes)
         day, night = compose(ents, W, Hh)
         for tag, img in (("jour", day), ("nuit", night)):
-            t2 = "Mitrailleuse « haute technologie à la Factorio » (V3-S) : vanilla, niveaux 11, 21, 29, 30 · " \
-                 "références vanilla · pose %s · %s · zoom 2 (64 px/tuile)" % (pose, tag)
+            t2 = "Mitrailleuse « haute technologie à la Factorio » (V3-S, reprise) : vanilla, niveaux 11, 21, 29, 30 · " \
+                 "références vanilla · pose %s · %s · zoom 2 (64 px/tuile)%s" % (pose, tag, smp)
             im2 = annotate(to_img(img), labels, seps, base_y, 64, t2)
             p2 = os.path.join(a.out, "hightech-%s-%s-zoom2.png" % (pose, tag))
             im2.save(p2, optimize=True)

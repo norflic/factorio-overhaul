@@ -36,7 +36,7 @@ import ht_gun as H  # noqa: E402
 C.LIGHT_HOLDOUT = True
 
 
-def add_grime(m, mottle, streak, seed):
+def add_grime(m, mottle, streak, seed, wear=0.0):
     """Taches (bruit isotrope, ~0,08 unité) et coulures (bruit étiré selon Z) multipliées à la couleur de base d'un
     matériau de fo_scene.mat_metal (le module partagé n'est pas modifié : on insère deux nœuds avant la base)."""
     nt = m.node_tree
@@ -47,16 +47,18 @@ def add_grime(m, mottle, streak, seed):
     n1 = N.new("ShaderNodeTexNoise")
     n1.noise_dimensions = "4D"
     n1.inputs["W"].default_value = seed + 3.1
-    n1.inputs["Scale"].default_value = 7.0
-    n1.inputs["Detail"].default_value = 4.0
+    n1.inputs["Scale"].default_value = 5.0
+    n1.inputs["Detail"].default_value = 2.0
     n1.inputs["Roughness"].default_value = 0.55
     L.new(tc.outputs["Object"], n1.inputs["Vector"])
     m1 = N.new("ShaderNodeMapRange")
     # seuil raide : taches franches de 6 à 15 px (bande 4-16 px de P2), pas un voile doux
-    m1.inputs["From Min"].default_value = 0.44
-    m1.inputs["From Max"].default_value = 0.58
+    # taches DOUCES de 0,1 à 0,3 unité (4 à 16 px) : la mesure P2 ne compte que les surfaces sans arête (Sobel < 6) ;
+    # un seuil raide fabrique des arêtes et sort les taches de la mesure (constat du 22/10 après-midi)
+    m1.inputs["From Min"].default_value = 0.38
+    m1.inputs["From Max"].default_value = 0.62
     m1.inputs["To Min"].default_value = 1.0 - mottle
-    m1.inputs["To Max"].default_value = 1.0 + 0.5 * mottle
+    m1.inputs["To Max"].default_value = 1.0 + 0.6 * mottle
     L.new(n1.outputs["Fac"], m1.inputs["Value"])
     mp = N.new("ShaderNodeMapping")
     mp.inputs["Scale"].default_value = (1.0, 1.0, 0.18)
@@ -68,8 +70,8 @@ def add_grime(m, mottle, streak, seed):
     n2.inputs["Detail"].default_value = 2.0
     L.new(mp.outputs["Vector"], n2.inputs["Vector"])
     m2 = N.new("ShaderNodeMapRange")
-    m2.inputs["From Min"].default_value = 0.5
-    m2.inputs["From Max"].default_value = 0.62
+    m2.inputs["From Min"].default_value = 0.42
+    m2.inputs["From Max"].default_value = 0.68
     m2.inputs["To Min"].default_value = 1.0
     m2.inputs["To Max"].default_value = 1.0 - streak
     L.new(n2.outputs["Fac"], m2.inputs["Value"])
@@ -81,7 +83,29 @@ def add_grime(m, mottle, streak, seed):
     v2.operation = "SCALE"
     L.new(v1.outputs["Vector"], v2.inputs[0])
     L.new(m2.outputs["Result"], v2.inputs["Scale"])
-    L.new(v2.outputs["Vector"], p.inputs["Base Color"])
+    # USURE ADDITIVE (22/10 après-midi) : plaques de peinture écaillée vers l'acier nu, plus claires, de 0,1 à
+    # 0,3 unité, bords adoucis. Une crasse multiplicative ne fait presque rien sur les faces sud à l'ombre (sombres) ;
+    # un mélange vers une couleur claire y crée de la variation absolue de luminance (mesure P2 de la charte).
+    n3 = N.new("ShaderNodeTexNoise")
+    n3.noise_dimensions = "4D"
+    n3.inputs["W"].default_value = seed + 9.9
+    n3.inputs["Scale"].default_value = 6.0
+    n3.inputs["Detail"].default_value = 1.5
+    L.new(tc.outputs["Object"], n3.inputs["Vector"])
+    m3 = N.new("ShaderNodeMapRange")
+    m3.inputs["From Min"].default_value = 0.56
+    m3.inputs["From Max"].default_value = 0.68
+    m3.inputs["To Min"].default_value = 0.0
+    m3.inputs["To Max"].default_value = wear
+    L.new(n3.outputs["Fac"], m3.inputs["Value"])
+    wc = N.new("ShaderNodeRGB")
+    wc.outputs[0].default_value = (0.30, 0.27, 0.22, 1.0)
+    mx = N.new("ShaderNodeMix")
+    mx.data_type = "RGBA"
+    L.new(m3.outputs["Result"], mx.inputs["Factor"])
+    L.new(v2.outputs["Vector"], mx.inputs[6])
+    L.new(wc.outputs[0], mx.inputs[7])
+    L.new(mx.outputs[2], p.inputs["Base Color"])
 
 
 def make_materials(pal):
@@ -93,7 +117,7 @@ def make_materials(pal):
         if kind == "metal":
             mats[k] = S.mat_metal("ht_%s" % k, col, seed=float(3 * i + 1), **spec)
             if k in H.GRIME:
-                add_grime(mats[k], H.GRIME[k][0], H.GRIME[k][1], float(3 * i + 1))
+                add_grime(mats[k], H.GRIME[k][0], H.GRIME[k][1], float(3 * i + 1), H.WEAR.get(k, 0.0))
         else:
             m = S.mat_emissive("ht_%s" % k, col, strength=spec.get("strength", 1.0), main_scale=0.0,
                                base=(0.006, 0.005, 0.004))
@@ -193,8 +217,10 @@ def main():
         if not head:
             # sources du halo : foyers du socle + foyers de la tête (au repos, pose N : près de l'axe)
             bh, _ = H.build("n%02d-tete-N" % (29 if lv == 30 else lv))
-            for (p, col, pw) in b.lights + bh.lights:
-                S.halo_light(p, col, pw * H.HALO_GAIN[lv], radius=0.06)
+            # couleur d'époque, puissance égale par foyer (la couche est renormalisée au sol par ht_post)
+            col = H.EPOCH_GLOW[H.LEVELS[lv]["epoch"]]
+            for (p, _c, _pw) in b.lights + bh.lights:
+                S.halo_light(p, col, H.HALO_POWER * H.HALO_GAIN[lv], radius=0.06)
         bpy.context.view_layer.update()
         t_geo = time.time() - t0
         l, t, r, bt = projected_bounds(objs)
