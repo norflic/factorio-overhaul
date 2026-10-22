@@ -134,7 +134,7 @@ ms3 = vs.memory_summary(r3, types.SimpleNamespace(proc=types.SimpleNamespace(pid
                                                   peaks=None), True)
 check(any("NON MESUREE (PDH)" in ln for ln in ms3), "resume : non mesuree")
 # Lignes du moteur seulement (suite d4m, défaut 3 du correcteur) : une impression de script qui CONTIENT les mots
-# d'une ligne d'atlas ne compte pas ; l'atlas virtuel du plancher est relevé à part (F77 provisoire).
+# d'une ligne d'atlas ne compte pas ; l'atlas virtuel du plancher est relevé à part (RD_LOG F81).
 LOG4 = r"""   1.000 Created atlas bitmap 2048x1316 [none]
    1.500 Script @__factorio-overhaul__/x.lua:1: note : Created atlas bitmap 1x1 [none]
    1.600 Script @__factorio-overhaul__/x.lua:2: note : Created virtual atlas pages 4096x4096x9
@@ -169,8 +169,10 @@ check(any(ln.startswith("  TOTAL : ") and "virtuel" not in ln for ln in vram.rep
 check(vram.VIRTUEL not in r0["categories"], "sans atlas virtuel : pas de categorie virtuelle")
 
 # Lignes RÉELLES du journal du plancher (fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log, lignes 30 et 49 à 80,
-# copiées telles quelles, espaces finals compris) : l'ancienne estimation d'E40 (0,20 à 0,31 Go) reste la part des
-# atlas bitmap ; la nouvelle compte en plus les pages.
+# copiées telles quelles, espaces finals compris : les 33 lignes, y compris « Texture processor created », « Parallel
+# Sprite Loader initialized » et « Sprite atlas cached. », qui ne doivent rien compter ; égalité octet pour octet
+# vérifiée le 22/10 par le correcteur de la suite vram) : l'ancienne estimation d'E40 (0,20 à 0,31 Go) reste la part
+# des atlas bitmap ; la nouvelle compte en plus les pages.
 PLANCHER = (
     "   0.324 Graphics options: [Graphics quality: normal] [Video memory usage: low] [DXT: low-quality] [Color: 32bit]\n"
     "   2.579 Initial atlas bitmap size is 16384\n"
@@ -192,8 +194,12 @@ PLANCHER = (
     "   2.584 Created atlas bitmap 2048x240 [icon-background, not-compressed, mipmap, linear-minification, "
     "linear-magnification, linear-mip-level, ]\n"
     "   2.681 Created virtual atlas pages 4096x4096x9\n"
+    "   2.685 Texture processor created (2048). GPU accelerated compression Supported: yes, Enabled: yes/yes. "
+    "Test passed. YCoCgDXT PSNR: 35.83, BC3 PSNR: 33.82\n"
     "   2.685 Atlases were not loaded from disk cache.\n"
+    "   2.962 Parallel Sprite Loader initialized (threads: 15)\n"
     "   5.653 Sprites loaded\n"
+    "   6.128 Sprite atlas cached.\n"
     "   6.140 Generated mipmaps (3) for atlas [2] of size 8192x2960   \n"
     "   6.152 Generated mipmaps (3) for atlas [3] of size 4096x3072   \n"
     "   6.163 Generated mipmaps (3) for atlas [4] of size 8192x3840   \n"
@@ -206,6 +212,7 @@ PLANCHER = (
     "   6.243 Custom mipmaps uploaded (1945)\n"
     "   6.404 Generated mipmaps for virtual atlas of size 16384x12288\n")
 rp = vram.parse_log(PLANCHER)
+check(PLANCHER.count("\n") == 33, "plancher : les 33 lignes du journal (30 et 49 a 80)")
 check(rp["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 9}] and rp["virtual_mips"] == [{"w": 16384, "h": 12288}],
       "plancher : pages et mipmaps de l'atlas virtuel relevees")
 check(len(rp["atlases"]) == 14 and rp["virtual_page_lines"] == 0, "plancher : 14 atlas bitmap, aucune ligne au singulier")
@@ -227,6 +234,11 @@ lp = vram.report_lines(rp)
 check(any(ln.startswith("  TOTAL : ") and "0.151 de pages d'atlas virtuel" in ln and "estimation 0.28 a 0.53 Go" in ln
           and "atlas 0.20 a 0.31 Go" in ln and "atlas virtuel 0.08 a 0.22 Go" in ln for ln in lp), "plancher : ligne TOTAL")
 check(any("TENU par l'estimation haute (0.53 Go)" in ln for ln in lp), "plancher : verdict D4-1 sur le total compte")
+# Base du verdict éprouvée (correcteur, défaut 2) : un seuil de 0,4 Go est AU-DESSUS de la part des atlas bitmap
+# (0,31 Go) et AU-DESSOUS du total compté (0,53 Go). Le verdict doit dire DEPASSE : il porte sur le total.
+check(tp["atlas_haut"] < 0.4 * vram.GO < tp["haut"], "plancher : seuil de 0,4 Go entre atlas seuls et total")
+check(any("D4-1 (atlas <= 0.4 Go" in ln and "DEPASSE par l'estimation haute (0.53 Go)" in ln
+          for ln in vram.report_lines(rp, 0.4)), "plancher : seuil 0,4 Go DEPASSE par le total (pages comprises)")
 check(any("au plus 67.1 Mpx en plus" in ln and "HYPOTHESE" in ln for ln in lp), "plancher : mipmaps et hypothese ecrites")
 check(any("variante NON compressee" in ln and "0.60 Go" in ln for ln in lp), "plancher : variante non compressee ecrite")
 check(not any("atlas virtuel et mesure" in ln for ln in lp), "plancher sans releve : pas de confrontation")
@@ -278,24 +290,30 @@ t2v = vram.estimate(r2v)
 v1, v2 = r2v["virtuels"]
 check(v1["mip_taille"] == (4096, 4096) and v2["mip_taille"] is None and abs(v1["mip_px"] - 4096 * 4096 / 3.0) < 1e-6,
       "deux atlas virtuels : mipmaps appariees dans l'ordre")
-check(t2v["pixels_virtuels"] == 1024 * 1024 + 2048 * 2048 and r2v["categories"][vram.VIRTUEL]["n"] == 2, "deux atlas virtuels comptes")
+check(t2v["pixels_virtuels"] == 1024 * 1024 + 2048 * 2048 and (r2v["categories"].get(vram.VIRTUEL) or {}).get("n") == 2,
+      "deux atlas virtuels comptes")
 
 # Lignes du MOTEUR seulement : impressions de script ignorées ; ligne au singulier signalée, pas comptée ; chiffres du
 # moteur « Atlas memory size » rapportés s'ils existent.
+# Correcteur (défauts 1 et 2) : chaque impression de script qui imite un chiffre du moteur vient APRÈS la ligne du
+# moteur de même type ; sinon la dernière écriture masquerait un motif sans ancrage (mutant qui survivait). Les
+# impressions de la ligne au singulier et des sprites hors atlas éprouvent l'ancrage de RE_VIRTUAL_PAGE et RE_OUTSIDE.
 LOG6 = (r"""   1.000 Created atlas bitmap 64x64 [none]
    1.100 Script @__factorio-overhaul__/x.lua:1: Generated mipmaps for virtual atlas of size 16384x12288
-   1.200 Script @__factorio-overhaul__/x.lua:2: Atlas memory size: 1.00MB; 2.00MB (virtual)
    1.300 Created virtual atlas page 4096x4096 [none]
    1.400 Created virtual atlas pages 4096x4096x2
    1.500 Atlas memory size: 1234.50MB; 96.25MB (virtual)
    1.600 Size of sprites outside of atlas: 12.00MB
+   1.700 Script @__factorio-overhaul__/x.lua:2: Atlas memory size: 1.00MB; 2.00MB (virtual)
+   1.800 Script @__factorio-overhaul__/x.lua:3: Created virtual atlas page 4096x4096 [none]
+   1.900 Script @__factorio-overhaul__/x.lua:4: Size of sprites outside of atlas: 99.00MB
 """)
 r6 = vram.parse_log(LOG6)
 check(r6["virtual_mips"] == [] and r6["engine_atlas_mb"] == {"atlas": 1234.5, "virtuel": 96.25},
       "impressions de script ignorees (mipmaps virtuelles, chiffre du moteur)")
 check(r6["virtual_page_lines"] == 1 and r6["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 2}],
       "ligne au singulier relevee a part, non comptee")
-check(r6["engine_outside_mb"] == 12.0, "chiffre du moteur : sprites hors atlas")
+check(r6["engine_outside_mb"] == 12.0, "chiffre du moteur : sprites hors atlas (impression de script ignoree)")
 vram.estimate(r6)
 l6 = vram.report_lines(r6)
 check(any("ATTENTION 1 ligne(s)" in ln and "NON comptees" in ln for ln in l6), "ligne au singulier signalee")

@@ -73,12 +73,15 @@ Atlas virtuel (« Video memory usage: low », « Tex.Stream.: 1 » ; RD_LOG F81)
     … Probably not enough video memory » partagé par « virtual atlas » et « atlas » ; ligne « Atlas memory size:
     %.2fMB; %.2fMB (virtual) », jamais écrite dans les 13 journaux archivés ;
   - locale du jeu (data/core/locale/en/core.cfg, clé texture-streaming) : « Sprites that were not put into any
-    sprite atlas … will be kept in RAM until needed by the GPU » ;
+    sprite atlas … will be kept in RAM until needed by the GPU » : elle parle des sprites SOURCES hors atlas ;
+  - lecture la plus probable, NON prouvée : les sprites sources restent en mémoire vive et les N pages créées sont le
+    cache PHYSIQUE côté carte (9 pages créées pour un atlas virtuel annoncé de 12 surfaces de page ; clé
+    streamed-atlas-physical-vram-size) ;
   - règle COMPTÉE : les pages comme si elles résidaient en mémoire vidéo, compressées comme les sprites principaux
     (règle DXT du journal, celle d'un atlas « [none] ») : bas = pages × octets/px bas, sans mipmaps ; haut = (pages +
     1/3 de la plus grande des deux surfaces, pages ou atlas virtuel annoncé, si la ligne de mipmaps existe) ×
-    octets/px haut. HYPOTHÈSES : résidence (les pages peuvent rester en mémoire vive, la carte ne gardant qu'un
-    cache physique dont la taille n'est pas écrite ; compter les pages est alors le sens PRUDENT d'un budget),
+    octets/px haut. HYPOTHÈSES : résidence (la lecture ci-dessus la soutient ; si les pages restaient en mémoire
+    vive, compter les pages resterait le sens PRUDENT d'un budget),
     compression (option compress-virtual-atlas), emplacement des mipmaps (1/3 borne la série 1/4 + 1/16 + …) ;
   - variante NON compressée (RGBA 8888, format de l'assertion) : pages × 4 octets, sans mipmaps ; NON comptée, mais
     confrontée à la mesure directe : si les atlas (bas) plus cette variante dépassent le pic dédié + le pic partagé,
@@ -928,7 +931,8 @@ def report_lines(r, seuil_go=6.0):
                          t["pixels"] / 1e9, fmt_range(t["bas"], t["haut"]), go(t["brut"]), go(t["brut_mips"])))
         q = (r.get("quality") or "?").lower()
         verdict = "TENU" if t["haut"] <= seuil_go * GO else "DEPASSE"
-        L.append("  D4-1 (atlas <= %.0f Go en haute qualite) : %s par l'estimation haute (%s)%s" % (
+        # « %g » : un seuil fractionnaire (--seuil-go 0.4) s'écrit tel quel ; 6 s'écrit toujours « 6 ».
+        L.append("  D4-1 (atlas <= %g Go en haute qualite) : %s par l'estimation haute (%s)%s" % (
             seuil_go, verdict, go(t["haut"]),
             "" if q == "high" else " ; ATTENTION qualite %s : le seuil vise la haute qualite" % q))
     else:
