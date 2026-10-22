@@ -25,8 +25,7 @@ return {
   init = function(ctx)
     solo(ctx)
     game.map_settings.pollution.enabled = true
-    -- Zone du greffon, plus une rangée au sud pour l'expérience de cadence (y0 + 96 à y0 + 128).
-    ctx.prepare_area(ZONE.x0, ZONE.y0, ZONE.x1, ZONE.y1 + 32, "grass-1")
+    ctx.prepare_area(ZONE.x0, ZONE.y0, ZONE.x1, ZONE.y1, "grass-1")
     local foes = 0
     for _, en in ipairs(ctx.surface().find_entities_filtered({ area = { { ZONE.x0 - 64, ZONE.y0 - 64 }, { ZONE.x1 + 64, ZONE.y1 + 64 } }, force = "enemy" })) do
       if en.valid then en.destroy(); foes = foes + 1 end

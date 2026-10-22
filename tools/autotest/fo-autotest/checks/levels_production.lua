@@ -17,6 +17,8 @@
       munitions d'une force ennemie à part), soignée à chaque tick ; dégâts relevés avant chaque soin.
   Fenêtre de mesure : ticks T0 à T1 (40 s). Production = Δ(products_finished + crafting_progress) pour les machines,
   objets sortis + Δ(mining_progress) pour les foreuses ; cadence de la mitrailleuse = cartouches consommées.
+  Première version (commit f86f2fb) : la CADENCE des tourelles suivait la surface ; ce greffon a mesuré que la
+  mitrailleuse plafonne à 30 tirs/s (RD_LOG E56) : ce sont désormais les dégâts par tir.
   Valeurs attendues : prototypes chargés (crafting_speed, mining_speed, cooldown), recettes du jeu (énergie) et config
   (L.stat_value, L.area_ratio) : jamais une copie.
 ]]
@@ -113,18 +115,8 @@ function M.setup(ctx)
   end
   ctx.check(made == 16, "V3-T4 : 4 fours, 4 assembleurs, 4 foreuses (niveaux 1, 6, 7, 30) et 4 tourelles (1 et 30) poses",
     made .. " / 16")
-  -- EXPÉRIENCE (scénario seul) : cadence réelle d'une mitrailleuse selon son délai entre deux tirs (niveaux 7, 13,
-  -- 19, 25 : 2,67 ; 1,5 ; 0,96 ; 0,67 tick), une rangée plus au sud, 36 tuiles entre deux tourelles.
-  if ctx.solo then
-    for i, n in ipairs({ 7, 13, 19, 25 }) do
-      local side = LV.footprint(GUN, n)
-      local c = center(x0 + 6 + 36 * (i - 1) - side / 2, y0 + 110 - side / 2, side)
-      local t = s.create_entity({ name = LV.name(GUN, n), position = c, force = f, raise_built = true })
-      local target = s.create_entity({ name = "gun-turret", position = { c.x, c.y + side / 2 + 4 }, force = TARGET })
-      if t then t.insert({ name = AMMO, count = 50 }) end
-      st.m[#st.m + 1] = { kind = "turret", family = "gun", n = n, e = t, target = target, inserted = 0, damage = 0, exp = true }
-    end
-  end
+  -- L'expérience de cadence E56 (mitrailleuses aux délais 2,67 ; 1,5 ; 0,96 ; 0,67 tick : 22,5 puis 30 tirs/s au plus)
+  -- a été jouée par la première version de ce greffon (commit f86f2fb, journaux fo-logs\2026-10-22_V3T4\02_...).
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -249,7 +241,7 @@ function M.verify(ctx)
   local st = ctx.state()
   local secs = (M.T1 - M.T0) / 60
   ctx.check(st.closed == true, "V3-T4 : fenetre de mesure jouee (ticks " .. M.T0 .. " a " .. M.T1 .. ", " .. secs .. " s)")
-  -- 1. Prototypes chargés = règle de la config (vitesses, cadence, débit d'entrée du laser).
+  -- 1. Prototypes chargés = règle de la config (vitesses, dégâts, cadence inchangée, débit d'entrée du laser).
   local bad, seen = {}, 0
   local P = game.entity_prototypes
   for _, n in ipairs(LEVELS) do
@@ -262,9 +254,10 @@ function M.verify(ctx)
     seen = seen + 3
   end
   for _, fam in ipairs({ GUN, LZ }) do
-    local cd = want_stat(fam, "cooldown", P[fam.base].attack_parameters.cooldown, 30)
-    if math.abs(P[LV.name(fam, 30)].attack_parameters.cooldown - cd) > 1e-6 * cd then bad[#bad + 1] = fam.key .. " 30 cadence" end
-    seen = seen + 1
+    local dm = want_stat(fam, "damage_modifier", P[fam.base].attack_parameters.damage_modifier or 1, 30)
+    if math.abs(P[LV.name(fam, 30)].attack_parameters.damage_modifier - dm) > 1e-6 * dm then bad[#bad + 1] = fam.key .. " 30 degats" end
+    if P[LV.name(fam, 30)].attack_parameters.cooldown ~= P[fam.base].attack_parameters.cooldown then bad[#bad + 1] = fam.key .. " 30 cadence" end
+    seen = seen + 2
   end
   local lz30 = by(st, "laser", 30)
   local lz1 = by(st, "laser", 1)
@@ -273,10 +266,11 @@ function M.verify(ctx)
       - want_stat(LZ, "input_flow_limit", 1, 30)) < 1e-3
   if not flow_ok then bad[#bad + 1] = "laser 30 debit d'entree" end
   seen = seen + 1
-  ctx.check(#bad == 0, "V3-T4 : prototypes charges = regle de surface (vitesses, cadences, debit d'entree du laser)",
-    #bad > 0 and table.concat(bad, ", ") or string.format("%d valeurs ; four 30 : %.2f ; assembleur 30 : %.2f ; foreuse 30 : %.2f ; mitrailleuse 30 : %.3f tick ; laser 30 : %.0f kW",
+  ctx.check(#bad == 0, "V3-T4 : prototypes charges = regle de surface (vitesses, degats, cadence inchangee, debit d'entree du laser)",
+    #bad > 0 and table.concat(bad, ", ") or string.format("%d valeurs ; four 30 : %.2f ; assembleur 30 : %.2f ; foreuse 30 : %.2f ; mitrailleuse 30 : degats x %.2f, delai %g ticks ; laser 30 : degats x %.2f, %.0f kW",
       seen, P[LV.name(FU, 30)].crafting_speed, P[LV.name(AS, 30)].crafting_speed, P[LV.name(DR, 30)].mining_speed,
-      P[LV.name(GUN, 30)].attack_parameters.cooldown, lz30 and lz30.e.valid and lz30.e.electric_input_flow_limit * 60 / 1000 or -1))
+      P[LV.name(GUN, 30)].attack_parameters.damage_modifier, P[LV.name(GUN, 30)].attack_parameters.cooldown,
+      P[LV.name(LZ, 30)].attack_parameters.damage_modifier, lz30 and lz30.e.valid and lz30.e.electric_input_flow_limit * 60 / 1000 or -1))
   -- 2. Machines : production MESURÉE = théorie (± 2 %), et production par tuile croissante (1 ≤ 6 < 7 ≤ 30).
   local specs = {
     { FU, "furnace", "four", function(p) return p.crafting_speed / game.recipe_prototypes["iron-plate"].energy end },
@@ -304,36 +298,21 @@ function M.verify(ctx)
       string.format("n30 / n1 par tuile : x %.2f ; par batiment : x %.2f", tiles[30] / tiles[1],
         (st.rates[key .. 30] or 0) / math.max(1e-9, st.rates[key .. 1] or 1e-9)))
   end
-  -- 3. Mitrailleuse : cadence mesurée (cartouches) × R(30) = 9 au 6×6, plus d'un tir par tick ; DPS par tuile.
-  local g1, g30 = by(st, "gun", 1), by(st, "gun", 30)
-  local shots1 = g1 and g1.r0 and (g1.r0 + g1.inserted * game.item_prototypes[AMMO].magazine_size - g1.r1) / secs
-  local shots30 = g30 and g30.r0 and (g30.r0 + g30.inserted * game.item_prototypes[AMMO].magazine_size - g30.r1) / secs
-  local R30 = LV.area_ratio(GUN, 30)
-  ctx.check(shots1 and shots30 and shots1 > 0 and math.abs(shots30 / shots1 / R30 - 1) <= 0.03 and shots30 > 60,
-    "V3-T4 : mitrailleuse 30 (6x6) : cadence mesuree = 9 x le niveau 1, plus d'un tir par tick (delai < 1 tick accepte par le moteur)",
-    string.format("niveau 1 : %.2f tirs/s ; niveau 30 : %.2f tirs/s (x %.3f ; attendu x %g)", shots1 or -1, shots30 or -1,
-      (shots30 or 0) / math.max(1e-9, shots1 or 1e-9), R30))
+  -- 3. Mitrailleuse : cadence mesurée (cartouches) INCHANGÉE (10 tirs/s au niveau 1 comme au 30 : le moteur plafonne
+  --    la cadence, E56) ; les dégâts par tir portent la règle. Puis DPS mesuré = dégâts × R, par tuile au-dessus du 1.
+  local shots1, shots30 = shots_of(by(st, "gun", 1), secs), shots_of(by(st, "gun", 30), secs)
+  ctx.check(shots1 and shots30 and shots1 > 0 and math.abs(shots30 / shots1 - 1) <= 0.03,
+    "V3-T4 : mitrailleuse 30 (6x6) : cadence mesuree inchangee (les degats par tir portent la regle)",
+    string.format("niveau 1 : %.2f tirs/s ; niveau 30 : %.2f tirs/s", shots1 or -1, shots30 or -1))
   for _, fam in ipairs({ GUN, LZ }) do
     local a, b = by(st, fam.key, 1), by(st, fam.key, 30)
     local d1, d30 = a and a.damage / secs or 0, b and b.damage / secs or 0
     local s1, s30 = LV.footprint(fam, 1), LV.footprint(fam, 30)
-    local want = want_stat(fam, "damage_modifier", 1, 30) * R30
+    local want = want_stat(fam, "damage_modifier", 1, 30)
     ctx.check(d1 > 0 and d30 / (s30 * s30) >= d1 / (s1 * s1) and math.abs(d30 / d1 / want - 1) <= 0.05,
-      "V3-T4 : " .. fam.key .. " 30 : DPS mesure = degats x cadence x R (+/- 5 %), DPS par tuile au-dessus du niveau 1",
+      "V3-T4 : " .. fam.key .. " 30 : DPS mesure = degats x m(30) x R(30) (+/- 5 %), DPS par tuile au-dessus du niveau 1",
       string.format("niveau 1 : %.1f/s ; niveau 30 : %.1f/s (x %.2f, attendu x %.2f) ; par tuile %.2f -> %.2f",
         d1, d30, d30 / math.max(1e-9, d1), want, d1 / (s1 * s1), d30 / (s30 * s30)))
-  end
-  -- EXPÉRIENCE (scénario seul) : cadence réelle selon le délai du prototype ; journalisée, sans contrôle.
-  if ctx.solo then
-    local parts = {}
-    for _, n in ipairs({ 1, 7, 13, 19, 25, 30 }) do
-      local m = by(st, "gun", n)
-      local cd = P[LV.name(GUN, n)].attack_parameters.cooldown
-      local sh = shots_of(m, secs)
-      parts[#parts + 1] = string.format("n%d delai %.3f tick : %.2f tirs/s (theorie %.2f), degats %.1f/s", n, cd, sh or -1, 60 / cd,
-        m and m.damage / secs or -1)
-    end
-    ctx.log("EXPERIENCE cadence mitrailleuse : " .. table.concat(parts, " ; "))
   end
   -- 4. (scénario t4-production seul) Pollution PAR OBJET : celle de la courbe d'avant (× 1/m(30) du niveau 1), la
   --    surface s'annule (émissions × R pour une production × R).

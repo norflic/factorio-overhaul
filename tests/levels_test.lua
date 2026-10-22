@@ -45,10 +45,10 @@ local VANILLA = {
 local GUN_COOLDOWN, LASER_COOLDOWN = 6, 40
 
 local stat_at
---- DPS relatif à la tourelle vanilla de même famille : dégâts × cadence. Lot V3-T4 : la cadence suit la surface
---- (délai entre deux tirs ÷ L.area_ratio), donc DPS = dégâts relatifs × rapport des surfaces.
+--- DPS relatif à la tourelle vanilla de même famille : dégâts × cadence (la cadence des niveaux ne change pas). Lot
+--- V3-T4 : les dégâts du prototype comprennent le rapport des surfaces (stat_at, L.stat_value).
 local function dps_at(family, n)
-  return stat_at(family, "damage_modifier", n) / VANILLA[family.key].damage_modifier * L.area_ratio(family, n)
+  return stat_at(family, "damage_modifier", n) / VANILLA[family.key].damage_modifier
 end
 
 --- Valeur du PROTOTYPE (lot V3-T4 : L.stat_value, rapport des surfaces compris pour les statistiques « area »).
@@ -516,9 +516,9 @@ local function print_tables()
   for _, row in ipairs(PROD) do
     local f, key = L.by_key[row[1]], row[2]
     local function before(n)
-      if key == "dps" then return stat_at(f, "damage_modifier", n) / VANILLA[f.key].damage_modifier end
+      local k = key == "dps" and "damage_modifier" or key
       for _, st in ipairs(f.stats) do
-        if st.path[#st.path] == key then return L.apply_stat(st, VANILLA[f.key][key], n) end
+        if st.path[#st.path] == k then return L.apply_stat(st, VANILLA[f.key][k], n) / (key == "dps" and VANILLA[f.key][k] or 1) end
       end
     end
     p("")
@@ -858,8 +858,11 @@ for _, f in ipairs({ G, LZ }) do
       f.key, t30, d30, L.footprint(f, f.max), L.footprint(f, f.max), th, dh, f.size, f.size))
 end
 -- Niveaux 1 à 10 inchangés depuis 0.3.0 (+ 8 % de dégâts par niveau), dégressifs ensuite.
-check(math.abs(stat_at(G, "damage_modifier", 10) - 1.72) < 1e-9 and math.abs(stat_at(G, "damage_modifier", 11) - 1.74) < 1e-9,
-  "mitrailleuse : dégâts × 1,72 au niveau 10 (0.3.0), puis + 2 % par niveau")
+-- Lot V3-T4 : c'est le MULTIPLICATEUR du niveau (L.apply_stat) qui reste celui de 0.3.0 ; le prototype le multiplie en
+-- plus par le rapport des surfaces (niveau 10 : 3×3, × 2,25, soit 3,87).
+check(math.abs(L.apply_stat(G.stats[2], 1, 10) - 1.72) < 1e-9 and math.abs(L.apply_stat(G.stats[2], 1, 11) - 1.74) < 1e-9
+  and math.abs(stat_at(G, "damage_modifier", 10) - 1.72 * 2.25) < 1e-9,
+  "mitrailleuse : multiplicateur de dégâts × 1,72 au niveau 10 (0.3.0), puis + 2 % par niveau ; prototype × R (3,87 au niveau 10, 3×3)")
 -- Laser : l'énergie par tir suit les dégâts (dégâts par joule au niveau 30 : ± 10 % du niveau 1), et le
 -- tampon contient toujours un tir.
 local eff1 = stat_at(LZ, "damage_modifier", 1) / stat_at(LZ, "energy_consumption", 1)
@@ -3381,10 +3384,11 @@ for _, f in ipairs(L.families) do
 end
 check(formula_ok, "formule : statistique(n) = v1 × m(n) × R(n), R(n) = (côté(n) / côté(1))², niveau 1 intact, sur les 7 familles"
   .. (#formula_bad > 0 and (" : " .. table.concat(formula_bad, ", ")) or ""))
--- Statistiques qui suivent la surface, famille par famille (ni plus, ni moins) : production, énergie, pollution,
--- cadence des tourelles, débit d'entrée du laser. PV, portée, dégâts, énergie par tir, rotation : inchangés.
+-- Statistiques qui suivent la surface, famille par famille (ni plus, ni moins) : production (dégâts des tourelles),
+-- énergie, pollution, énergie par tir, tampon et débit d'entrée du laser. PV, portée, cadence, rotation : inchangés.
 local AREA = {
-  gun = { cooldown = "div" }, laser = { cooldown = "div", input_flow_limit = "mul" },
+  gun = { damage_modifier = "mul" },
+  laser = { damage_modifier = "mul", energy_consumption = "mul", buffer_capacity = "mul", input_flow_limit = "mul" },
   drill = { mining_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
   furnace = { crafting_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
   assembler = { crafting_speed = "mul", energy_usage = "mul", emissions_per_minute = "mul" },
@@ -3429,9 +3433,8 @@ check(math.abs(stat_at(A30, "crafting_speed", 30) - 9.96) < 1e-9 and math.abs(st
   "niveau 30 : assembleur 9,96, four 59,76, foreuse 7,8 minerais/s ; mitrailleuse 6×6 DPS × 19,08 > 9 mitrailleuses 2×2 de niveau 6 (12,6)")
 -- 3. Ce qui accompagne la production : énergie et pollution PAR OBJET inchangées par la règle (celles de la courbe
 -- d'avant : la surface s'annule) ; laser : débit d'entrée = 8 fois la consommation moyenne en tir continu à tous
--- les niveaux (vanilla : 9 600 kW pour 800 kJ × 1,5 tir/s), tampon ≥ un tir ; mitrailleuse 6×6 : moins d'un tick
--- entre deux tirs (plusieurs tirs par tick, doc 1.1.91 de BaseAttackParameters.cooldown ; mesuré en moteur réel
--- par le greffon levels_production).
+-- les niveaux (vanilla : 9 600 kW pour 800 kJ × 1,5 tir/s), tampon ≥ un tir, dégâts par joule inchangés ; cadence
+-- des tourelles inchangée (le moteur plafonne la mitrailleuse à 30 tirs/s : RD_LOG E56).
 local per_item_ok = true
 for _, key in ipairs({ "drill", "furnace", "assembler" }) do
   local f = L.by_key[key]
@@ -3453,24 +3456,29 @@ local LZ = L.by_key.laser
 local flow_ok, flow_ratio = true, nil
 local st_by = {}
 for _, st in ipairs(LZ.stats) do st_by[st.path[#st.path]] = st end
+local per_s = 60 / 40                                                       -- tirs par seconde (cadence vanilla)
 for n = 1, LZ.max do
   local shot = L.stat_value(LZ, st_by.energy_consumption, 800, n)          -- kJ par tir
-  local per_s = 60 / L.stat_value(LZ, st_by.cooldown, 40, n)               -- tirs par seconde
   local flow = L.stat_value(LZ, st_by.input_flow_limit, 9600, n)            -- kW
   local r = flow / (shot * per_s)
   flow_ratio = flow_ratio or r
-  if math.abs(r - 8) > 1e-9 or L.stat_value(LZ, st_by.buffer_capacity, 801, n) <= shot then flow_ok = false end
+  local per_joule = L.stat_value(LZ, st_by.damage_modifier, 2, n) / shot
+  if math.abs(r - 8) > 1e-9 or L.stat_value(LZ, st_by.buffer_capacity, 801, n) <= shot
+    or math.abs(per_joule / (2 / 800) * L.apply_stat(st_by.energy_consumption, 1, n) / L.apply_stat(st_by.damage_modifier, 1, n) - 1) > 1e-12 then
+    flow_ok = false
+  end
 end
-check(flow_ok, string.format("laser : débit d'entrée = 8 × la consommation en tir continu à tous les niveaux (niveau 30 : %.0f kW pour %.0f kJ × %.1f tirs/s), tampon ≥ un tir",
-  L.stat_value(LZ, st_by.input_flow_limit, 9600, 30), L.stat_value(LZ, st_by.energy_consumption, 800, 30), 60 / L.stat_value(LZ, st_by.cooldown, 40, 30)))
-local gcd
-for _, st in ipairs(L.by_key.gun.stats) do if st.path[#st.path] == "cooldown" then gcd = st end end
-check(math.abs(L.stat_value(L.by_key.gun, gcd, 6, 30) - 6 / 9) < 1e-12 and L.stat_value(L.by_key.gun, gcd, 6, 6) == 6,
-  "mitrailleuse : 6 ticks entre deux tirs aux niveaux 1 à 6, 0,67 au 6×6 (90 tirs/s : 1,5 tir par tick)")
--- Dégâts PAR TIR et munitions par dégât inchangés par la règle (la cadence porte le gain : pas de gaspillage sur les
--- petits ennemis) ; le DPS d'une tourelle = dégâts × R(n).
-check(math.abs(stat_at(L.by_key.gun, "damage_modifier", 30) - 2.12) < 1e-9 and math.abs(stat_at(LZ, "damage_modifier", 30) - 4.24) < 1e-9,
-  "tourelles : dégâts par tir inchangés par la règle (mitrailleuse 30 : × 2,12 ; laser 30 : 4,24)")
+check(flow_ok, string.format("laser : débit d'entrée = 8 × la consommation en tir continu à tous les niveaux (niveau 30 : %.0f kW pour %.0f kJ × %.1f tirs/s), tampon ≥ un tir, dégâts par joule de la courbe d'avant",
+  L.stat_value(LZ, st_by.input_flow_limit, 9600, 30), L.stat_value(LZ, st_by.energy_consumption, 800, 30), per_s))
+-- Cadence : aucune statistique de délai entre deux tirs (plafond du moteur, E56).
+local no_cd = true
+for _, key in ipairs({ "gun", "laser" }) do
+  for _, st in ipairs(L.by_key[key].stats) do if st.path[#st.path] == "cooldown" then no_cd = false end end
+end
+check(no_cd, "tourelles : cadence inchangée à tous les niveaux (aucune statistique « cooldown » : la mitrailleuse plafonne à 30 tirs/s, E56)")
+-- Dégâts PAR TIR × R(n) : mitrailleuse 30 × 19,08 (2,12 × 9), laser 30 : 38,16 (4,24 × 9).
+check(math.abs(stat_at(L.by_key.gun, "damage_modifier", 30) - 19.08) < 1e-9 and math.abs(stat_at(LZ, "damage_modifier", 30) - 38.16) < 1e-9,
+  "tourelles : dégâts par tir × R(n) (mitrailleuse 30 : × 19,08 ; laser 30 : 38,16 au lieu de 4,24)")
 -- 4. Gain de production du modèle de durée : plus petit R des familles de production au niveau 2e de l'époque.
 local want_gain = { 1, 1, 1, 16 / 9, 16 / 9, 16 / 9, 25 / 9, 25 / 9, 25 / 9, 4, 4, 4, 4, 4, 4 }
 local gain_ok = true

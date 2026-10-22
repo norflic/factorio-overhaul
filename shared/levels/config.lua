@@ -220,16 +220,17 @@ L.families = {
   },
   {
     -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
-    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Lot V3-T4 : la CADENCE suit la surface
-    -- (délai entre deux tirs ÷ L.area_ratio : 6 ticks → 0,67 au 6×6, plusieurs tirs par tick, doc 1.1.91 de
-    -- BaseAttackParameters.cooldown) ; testé : DPS PAR TUILE ≤ 1,1 × la lourde (2×2).
+    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Lot V3-T4 : les DÉGÂTS suivent la surface
+    -- (× 19,08 au 6×6 de niveau 30) ; testé : DPS PAR TUILE ≤ 1,1 × la lourde (2×2). Pas la cadence : mesuré en moteur
+    -- réel (RD_LOG E56), une mitrailleuse ne tire pas plus de 30 fois par seconde (délai effectif ≥ 2 ticks) malgré la
+    -- doc 1.1.91 (« If < 1, multiple shots can be performed in one tick ») ; la recherche de cadence (+ 150 % pour les
+    -- balles) aurait été perdue au-delà.
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1, area = "mul" },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
-      { path = { "attack_parameters", "cooldown" }, op = "mul", k = 0, area = "div", hidden = true },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
     base_growth = 0.15, epoch_value = 12,
@@ -237,19 +238,19 @@ L.families = {
   {
     -- Mêmes dégâts dégressifs (× 4,24 au niveau 30 contre 4 pour la tourelle laser lourde) ; l'énergie par
     -- tir (et le tampon, qui doit la contenir) croît de 4 % par niveau : × 2,16 au niveau 30, les dégâts par
-    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts). Lot V3-T4 : la cadence suit
-    -- la surface (40 ticks → 4,4 au 6×6), l'énergie par tir non ; le débit d'entrée (input_flow_limit) suit la
-    -- cadence ET l'énergie par tir, sinon le tampon ne se recharge pas entre deux tirs (9,6 MW → 187 MW au 30).
+    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts). Lot V3-T4 : dégâts, énergie
+    -- par tir, tampon et débit d'entrée (input_flow_limit) suivent la surface : dégâts par joule inchangés, le tampon
+    -- contient toujours un tir et se recharge entre deux tirs (9,6 MW → 187 MW au 30). Cadence inchangée (voir la
+    -- mitrailleuse : plafond de cadence mesuré, recherche de cadence du laser + 220 %).
     key = "laser", type = "electric-turret", base = "laser-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1, area = "mul" },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
-      { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04,
+      { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04, area = "mul",
         label = "fo-epochs.stat-energy_consumption" },
-      { path = { "energy_source", "buffer_capacity" }, op = "mul", k = 0.04, hidden = true },
-      { path = { "attack_parameters", "cooldown" }, op = "mul", k = 0, area = "div", hidden = true },
+      { path = { "energy_source", "buffer_capacity" }, op = "mul", k = 0.04, area = "mul", hidden = true },
       { path = { "energy_source", "input_flow_limit" }, op = "mul", k = 0.04, area = "mul", hidden = true },
     },
     base_cost = { { "steel-plate", 3 }, { "electronic-circuit", 3 }, { "battery", 2 } },
@@ -452,21 +453,23 @@ end
 -- Règle : un bâtiment de niveau n qui occupe R(n) = (côté(n) / côté(1))² fois la surface du niveau 1 VAUT R(n)
 -- bâtiments de son niveau posés côte à côte, pour tout ce qui entre et sort par seconde :
 --   statistique(n) = v1 × m(n) × R(n)     (m(n) : multiplicateur du niveau, 1 + k·(n − 1), inchangé)
---   - production : vitesse de fabrication (four, assembleur), vitesse de minage (foreuse), CADENCE des tourelles
---     (délai entre deux tirs ÷ R(n)) ;
+--   - production : vitesse de fabrication (four, assembleur), vitesse de minage (foreuse), DÉGÂTS par tir des
+--     tourelles ;
 --   - ce qui l'accompagne, pour qu'aucune entrée ne devienne gratuite : énergie consommée, pollution
---     (emissions_per_minute, donnée « à pleine consommation »), débit d'entrée électrique de la tourelle laser ;
---   - inchangés : PV, portée (déjà complétée par L.range_bonus), dégâts par tir, énergie par tir, rotation,
---     emplacements de modules (un module agit en POURCENTAGE de la machine entière : 2 modules sur une machine
---     6×6 valent 2 modules sur chacune des 4 machines 3×3).
+--     (emissions_per_minute, donnée « à pleine consommation »), énergie par tir, tampon et débit d'entrée de la
+--     tourelle laser ;
+--   - inchangés : PV, portée (déjà complétée par L.range_bonus), cadence et rotation des tourelles, emplacements de
+--     modules (un module agit en POURCENTAGE de la machine entière : 2 modules sur une machine 6×6 valent 2 modules
+--     sur chacune des 4 machines 3×3).
 -- Conséquence : production par tuile = v1 × m(n) / côté(1)², strictement croissante d'un niveau au suivant et
 -- jamais sous celle du niveau 1 (testé pour chaque famille et chaque niveau par tests/levels_test.lua) ; au
 -- niveau 30, × 3,32 par tuile (× 3,9 pour la foreuse) et × 29,9 par four, × 13,3 par machine d'assemblage,
--- × 15,6 par foreuse, × 9 de cadence par tourelle (BALANCE_SHEET §12). Le mur (1×1 à tous les niveaux) et le
+-- × 15,6 par foreuse, × 19,08 de dégâts par tourelle (BALANCE_SHEET §12). Le mur (1×1 à tous les niveaux) et le
 -- centre (stockage, PV) ne sont pas concernés : R(n) = 1 pour eux, ou aucune statistique « area ».
--- Pourquoi la cadence et non les dégâts des tourelles : des dégâts × 9 par tir tueraient un petit ennemi avec un
--- seul projectile (gaspillage) là où 9 tourelles en tireraient 9 ; la cadence garde dégâts par tir, munitions par
--- dégât et énergie par tir de la petite : la grande vaut EXACTEMENT 9 petites, contre tout ennemi.
+-- Tourelles : la cadence aurait été plus fidèle (des dégâts × 9 par tir gaspillent sur un petit ennemi qu'un tir
+-- de base tue déjà, et une munition fait 9 fois plus de dégâts), mais le moteur plafonne la mitrailleuse à 30 tirs
+-- par seconde (mesuré, RD_LOG E56 : délai effectif ≥ 2 ticks) et la recherche de cadence (+ 150 % balles, + 220 %
+-- laser) aurait été perdue : les dégâts portent la règle. Écart assumé, écrit dans BALANCE_SHEET §12.
 ---------------------------------------------------------------------------------------------------
 
 --- Rapport des surfaces du niveau n au niveau 1 : (côté(n) / côté(1))², ≥ 1 (entiers au carré : exact).
