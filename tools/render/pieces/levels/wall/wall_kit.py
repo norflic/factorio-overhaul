@@ -235,11 +235,12 @@ class Kit:
         return self.mcache[name]
 
     def metal(self, name, hexs, mul=1.0, rough=0.45, metallic=0.8, grain=0.18, gscale=60.0, rust=None, rust_amount=0.0,
-              rust_scale=6.0, dirt=0.4, seed=0.0):
+              rust_scale=6.0, dirt=0.4, seed=0.0, cap=ALB_MAX):
+        """cap : borne d'albédo (passe 4b : 0,95 pour l'or blanc de l'époque 15, dont p95 restait à 203)."""
         mul = mul * self.gain
         metallic = min(metallic, self.metal_cap)
         return self._cache(name, lambda: self.S.mat_metal(
-            name, lin(hexs, mul, ALB_MAX), rough=rough, metallic=metallic, grain=grain, grain_scale=gscale,
+            name, lin(hexs, mul, cap), rough=rough, metallic=metallic, grain=grain, grain_scale=gscale,
             rust=lin(rust) if rust else None, rust_amount=rust_amount, rust_scale=rust_scale, dirt=dirt, seed=seed))
 
     def stone(self, name, hexs, mul=1.0, rough=0.85, grain=0.28, gscale=30.0, dirt=0.5, seed=0.0, stain=None, stain_amount=0.0):

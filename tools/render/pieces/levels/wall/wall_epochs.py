@@ -26,7 +26,7 @@ K45 = 1.0 / SQ2
 # époques 7 à 15 sont relevées pour que O mesuré ne décroisse jamais, sous le plafond de +1,0 (Q9), pièces
 # comprises (vpiece). Bible §4 : 0,25 -> 1,00 sans marge pour la pièce.
 OT = {1: 0.25, 2: 0.293, 3: 0.336, 4: 0.379, 5: 0.421, 6: 0.464, 7: 0.56, 8: 0.60, 9: 0.66, 10: 0.70, 11: 0.73,
-      12: 0.77, 13: 0.80, 14: 0.87, 15: 0.89}
+      12: 0.77, 13: 0.80, 14: 0.87, 15: 0.905}
 V_CEIL = -1.5            # ordonnée écran du plafond (+1,0 tuile au-dessus du bord haut de l'emprise)
 
 
@@ -366,46 +366,68 @@ def e05(k, pose, piece):
         tb, tt, tback = 0.50, 0.22, 0.10
     zcr = zv(-0.40, tt)
     t_at = lambda z: tb - (tb - tt) * (z - 0.12) / (zcr - 0.12)
+    # Pilier (passe 4) : TRONC DE PYRAMIDE (signature de l'époque) : flancs inclinés de ±0,31 au pied à ±0,16 à
+    # l'arête (la pile d'isolateurs de l'époque 6, sur muret plein, donnait IoU 0,86 avec un pilier droit).
+    xtop = 0.16
+    if pose == "droit":
+        xw = lambda z: xb
+    else:
+        xw = lambda z: xb - (xb - xtop) * max(0.0, min(1.0, (z - 0.12) / (zcr - 0.12)))
     # noyau incandescent en retrait (visible dans les joints) et dos de la muraille
+    xn = (xb - 0.02) if pose == "droit" else xtop - 0.02
     k.prism_x([(tback, 0.0), (tb - 0.05, 0.0), (tb - 0.05, 0.12), (tt + 0.0, zcr - 0.04), (tback, zcr - 0.04)],
-              xa + 0.02, xb - 0.02, ember, "noyau_braise")
-    k.box(xa, xb, tback, tt + 0.03, 0.1, zcr, tung, "dos", bev=0.006)
+              -xn, xn, ember, "noyau_braise")
+    if pose == "droit":
+        k.box(xa, xb, tback, tt + 0.03, 0.1, zcr, tung, "dos", bev=0.006)
+    else:
+        k.frustum((xa, xb, tback, tt + 0.03), (-xtop, xtop, tback, tt + 0.03), 0.1, zcr, tung, "dos")
+        # joues inclinées (flancs du tronc de pyramide), du pied de la face à l'arête
+        for sgn in (-1, 1):
+            q = [(sgn * xb, tb + 0.03, 0.09), (sgn * xb, tback, 0.09), (sgn * xtop, tback, zcr), (sgn * xtop, tt + 0.03, zcr)]
+            k.mesh([k.P(*v) for v in q], [[0, 1, 2, 3]], burnt, "joue")
     rows = 3
     for r in range(rows):
         f0, f1 = r / rows, (r + 1) / rows
         g = 0.03
         z0, z1 = 0.12 + (zcr - 0.12) * f0 + g, 0.12 + (zcr - 0.12) * f1 - 0.004
-        segs = [(xa, xb)]
+        w0, w1 = xw(z0), xw(z1)
+        segs = [(-1.0, 1.0)]
         if r == 1:      # évent central : fente de braise (zone lumineuse >= 8 x 8 px hr)
-            segs = [(xa, -0.09), (0.09, xb)]
+            segs = [(-1.0, -0.09), (0.09, 1.0)]
         for a, b in segs:
             off = 0.03
-            quad = [(a, t_at(z0) + off, z0 - 0.03), (b, t_at(z0) + off, z0 - 0.03), (b, t_at(z1) + off * 0.3, z1),
-                    (a, t_at(z1) + off * 0.3, z1)]
+            a0, b0 = max(a, -1.0) * (w0 if a <= -1.0 else 1.0), (b * w0 if b >= 1.0 else b)
+            a1, b1 = (a * w1 if a <= -1.0 else a), (b * w1 if b >= 1.0 else b)
+            quad = [(a0, t_at(z0) + off, z0 - 0.03), (b0, t_at(z0) + off, z0 - 0.03), (b1, t_at(z1) + off * 0.3, z1),
+                    (a1, t_at(z1) + off * 0.3, z1)]
             k.slab(quad, 0.045, tung, "ecaille", bev=0.008)
-            for rx in ((a + 0.06, b - 0.06) if b - a > 0.3 else ((a + b) / 2,)):
+            am, bm = (a0 + a1) / 2, (b0 + b1) / 2
+            for rx in ((am + 0.06, bm - 0.06) if bm - am > 0.3 else ((am + bm) / 2,)):
                 k.rivet(rx, t_at(z0 + 0.06) + off + 0.025, z0 + 0.05, 0.024, burnt)
     k.flush_rivets()
     k.halo(0.0, tb + 0.05, 0.5, "#FF4A10", 7.0)
     # couvre-arête et dents trapézoïdales (crête en scie)
-    k.box(xa, xb, tt - 0.09, tt + 0.05, zcr - 0.05, zcr + 0.01, burnt, "couvre_arete", bev=0.008)
+    xc = xb if pose == "droit" else xtop
+    k.box(-xc, xc, tt - 0.09, tt + 0.05, zcr - 0.05, zcr + 0.01, burnt, "couvre_arete", bev=0.008)
     zt = zv(vt(5), tt - 0.04)
     zj = zv(vt(5) + 0.07, tt - 0.04)
-    hw0, hw1 = (0.20, 0.06) if pose == "droit" else (0.17, 0.05)
+    # (pilier : sommet de la dent large de 0,16 : il compte dans O des masses, qui ne décroît plus)
+    hw0, hw1 = (0.20, 0.06) if pose == "droit" else (0.16, 0.08)
     prof = [(-hw0, zcr - 0.02), (hw0, zcr - 0.02), (hw1, zt), (-hw1, zt)]
     k.prism_t(prof, tt - 0.08, tt + 0.04, tung, "dent", bev=0.01)
     k.rivet(0.0, tt + 0.045, zcr + 0.10, 0.026, burnt)
-    jb, jt = (0.13, 0.04) if pose == "droit" else (0.11, 0.035)
-    for sgn, x in ((1, xa), (-1, xb)):       # demi-dents aux joints (au pilier : aux arêtes)
-        prof = [(x, zcr - 0.02), (x + sgn * jb, zcr - 0.02), (x + sgn * jt, zj), (x, zj)]
-        k.prism_t(prof, tt - 0.08, tt + 0.04, tung, "demi_dent", bev=0.008)
+    if pose == "droit":
+        jb, jt = 0.13, 0.04
+        for sgn, x in ((1, xa), (-1, xb)):       # demi-dents aux joints (elles se rejoignent en rangée)
+            prof = [(x, zcr - 0.02), (x + sgn * jb, zcr - 0.02), (x + sgn * jt, zj), (x, zj)]
+            k.prism_t(prof, tt - 0.08, tt + 0.04, tung, "demi_dent", bev=0.008)
     k.flush_rivets()
     if piece:
         # orgue de basalte : colonne centrale qui dépasse la grande dent jusqu'à O(5) + 0,20, et deux colonnes
         # dressées dans les creux de la scie (passe 4 : elles comblent les creux, D1-1)
         tc = tt - 0.02
         ztip = zv(vpiece(5, 0.20), tc)
-        xg = 0.25 if pose == "droit" else 0.165
+        xg = 0.25 if pose == "droit" else 0.19
         cols = [(0.0, 0.10, ztip, 0.0), (-xg, 0.075, zv(vt(5) - 0.04, tc), -0.10),
                 (xg, 0.07, zv(vt(5) + 0.02, tc), 0.12)]
         for x, r, zt_, tilt in cols:
@@ -433,30 +455,33 @@ def e06(k, pose, piece):
     # Reprise V3 (21/10) : chez le premier modeleur, le poteau (0,07 tuile) et sa petite pile disparaissaient
     # au zoom 1. Ici le POTEAU EST la pile d'isolateurs (disques de céramique de 0,20 tuile, colonne
     # « crantée », signature de l'époque) ; barre de cuivre sur isolateurs le long du muret ; éclateur cyan.
-    ceramic = k.metal("e06_ceramique", "#D8D4C8", mul=0.52, rough=0.22, metallic=0.0, grain=0.08, dirt=0.35, seed=61)
+    ceramic = k.metal("e06_ceramique", "#D8D4C8", mul=0.28, rough=0.22, metallic=0.0, grain=0.08, dirt=0.35, seed=61)
     steel = k.metal("e06_acier", "#5C6168", mul=1.2, rough=0.35, metallic=0.8, grain=0.15, rust="#5A3A24",
                     rust_amount=0.15, dirt=0.4, seed=62)
     copper = k.metal("e06_cuivre", "#B0703A", mul=1.0, rough=0.25, metallic=0.95, grain=0.12, dirt=0.1, seed=63)
-    concrete = k.stone("e06_muret", "#6E6A64", mul=1.15, grain=0.2, seed=64)   # (passe 4 : L50 du pilier 78-90 pour 64)
+    concrete = k.stone("e06_muret", "#6E6A64", mul=1.0, grain=0.2, seed=64)
+    # (passe 4b : le dessus du pilier, vu d'en haut, faisait monter sa médiane à 77-84 pour 64 : couvertine sombre)
+    cap_steel = k.metal("e06_couvertine", "#3A3D42", mul=0.5, rough=0.5, metallic=0.6, grain=0.15, dirt=0.4, seed=66)
     arc = k.emit("e06_arc", "#60D0FF", strength=1.3, base="#0A1A20")
     yellow = k.metal("e06_jaune", "#C9A227", mul=1.2, rough=0.5, metallic=0.2, grain=0.12, dirt=0.3, seed=65)
     black = k.flat("e06_noir", "#141414", rough=0.6)
     plinth(k, pose, steel)
     xa, xb = span(pose)
     t0, t1 = (0.24, 0.48) if pose == "droit" else (0.14, 0.46)
-    zm = zv(-0.36, t0)
+    # (passe 4b : muret plus bas, pile plus fine : IoU avec le tronc de pyramide de l'époque 5 de 0,86 au pilier)
+    zm = zv(-0.26 if pose == "droit" else -0.18, t0)   # (passe 4c : pilier plus bas, IoU 0,863 avec l'époque 5)
     k.box(xa, xb, t0, t1, 0.18, zm, concrete, "muret")
-    k.box(xa, xb, t0 - 0.012, t1 + 0.012, zm, zm + 0.04, steel, "couvertine", bev=0.005)
+    k.box(xa, xb, t0 - 0.012, t1 + 0.012, zm, zm + 0.04, cap_steel, "couvertine", bev=0.005)
     # montants d'acier aux joints (facettes ouest éclairées, rythme de la rangée)
     for a, b in ((xa, xa + 0.05), (xb - 0.05, xb)):
         k.box(a, b, t1, t1 + 0.03, 0.2, zm, steel, "montant", bev=0.005)
     # barre de cuivre sur isolateurs le long de la face du muret
-    zbar = 0.50
+    zbar = min(0.50, zm - 0.07)
     k.cylx(xa, xb, t1 + 0.075, zbar, 0.022, copper, "barre_cuivre", verts=12)
     for x in ((-0.25, 0.25) if pose == "droit" else (0.0,)):
         k.cyly(x, t1, t1 + 0.06, zbar, 0.032, ceramic, "isolateur_barre", verts=16)
     # poteau = pile d'isolateurs sur une embase d'acier, jusqu'à O(6)
-    tp, rp = (t0 + t1) / 2, 0.10
+    tp, rp = (t0 + t1) / 2, 0.088
     k.box(-0.085, 0.085, tp - 0.07, tp + 0.07, zm + 0.02, zm + 0.11, steel, "embase_pile", bev=0.01)
     z_pile_top = zv(vt(6) + K45 * rp, tp)
     n = max(4, int(round((z_pile_top - (zm + 0.11)) / 0.06)))
@@ -493,7 +518,7 @@ def e06(k, pose, piece):
                 k.cylv(x, tp, z + dz2 * 0.68, z + dz2, 0.045, steel, "pile_double_noyau", verts=16, bev=0)
                 z += dz2
             k.sph(x, tp, ztop2 + 0.02, 0.035, copper, "borne")
-        zs = 0.30
+        zs = min(0.30, zm - 0.20)
         hw = 0.13 if pose == "droit" else 0.11
         k.box(-hw, hw, t1 + 0.012, t1 + 0.024, zs, zs + 0.17, yellow, "plaque_danger", bev=0.004)
         k.box(-hw - 0.008, hw + 0.008, t1 + 0.004, t1 + 0.012, zs - 0.008, zs + 0.178, black, "bord_plaque", bev=0)
@@ -506,10 +531,13 @@ def e06(k, pose, piece):
 # Pièce (niveau 14) : cristal plus haut au centre (+0,20)
 # =====================================================================================================
 def e07(k, pose, piece):
-    stone = k.stone("e07_pierre", "#4A4038", mul=1.65, grain=0.35, seed=71, stain="#2E2622", stain_amount=0.3)
+    stone = k.stone("e07_pierre", "#4A4038", mul=2.1, grain=0.35, seed=71, stain="#2E2622", stain_amount=0.3)
     bronze = k.metal("e07_bronze", "#6A5236", mul=1.4, rough=0.3, metallic=0.9, grain=0.14, rust="#3E6A55",
                      rust_amount=0.25, dirt=0.3, seed=72)
-    crystal = k.emit("e07_cristal", "#B070FF", strength=0.95, base="#7A48C8")  # facettes visibles (reprise V3)
+    # (passe 4b-c : base claire et PEU saturée : la couche principale des cristaux, sans émission, sortait presque
+    # noire et saturée (médiane du pilier 16 à 40 pour 55, saturation 0,57 pour 0,45 au plus) ; le violet vit dans
+    # la lueur, qui s'y ajoute (bible §1.5, règle 3))
+    crystal = k.emit("e07_cristal", "#B070FF", strength=0.95, base="#CDBFE2")  # facettes visibles (reprise V3)
     plinth(k, pose, k.stone("e07_socle", "#3A332E", mul=1.3, grain=0.3, seed=73))
     xa, xb = span(pose)
     t0, t1 = (0.22, 0.48) if pose == "droit" else (0.12, 0.46)
@@ -530,13 +558,15 @@ def e07(k, pose, piece):
     if pose == "droit":
         # (reprise V3 : cristaux élargis et pointes moins effilées : la masse atteint O(7), D1-2 ; passe 4 :
         # plus hauts et plus larges, O ne décroît plus après l'époque 6)
-        spec = ((-0.30, 0.10, vt(7) + 0.11, 0.20, 0.05), (0.03, 0.13, vt(7), -0.06, 0.12),
-                (0.32, 0.095, vt(7) + 0.17, -0.22, -0.04))
+        # passe 4b : cristaux latéraux ÉVASÉS (penchés vers l'extérieur ; ils penchaient vers le centre) : la
+        # couronne sort des dômes de l'époque 8 (IoU 0,91 avec une gerbe resserrée)
+        spec = ((-0.27, 0.10, vt(7) + 0.08, -0.30, 0.05), (0.02, 0.12, vt(7), -0.04, 0.12),
+                (0.29, 0.095, vt(7) + 0.13, 0.32, -0.04))
     else:
         # passe 4 : au pilier, gerbe ÉVASÉE (pointes inclinées vers l'extérieur, hors du pilier) : IoU avec la
         # pile d'isolateurs de l'époque 6 de 0,910 ; O du pilier décroissait (0,469 contre 0,500)
-        spec = ((-0.20, 0.095, vt(7) + 0.10, 0.34, 0.05), (0.02, 0.125, vt(7), -0.05, 0.1),
-                (0.21, 0.09, vt(7) + 0.15, -0.38, -0.05))
+        spec = ((-0.18, 0.095, vt(7) + 0.10, -0.36, 0.05), (0.02, 0.12, vt(7), -0.05, 0.1),
+                (0.20, 0.09, vt(7) + 0.15, 0.40, -0.05))
     tc = (t0 + t1) / 2
     for x, r, vtop, tilt_e, tilt_n in spec:
         h = zv(vtop, tc) - zm + 0.06
@@ -583,10 +613,14 @@ def e08(k, pose, piece):
     # joints : IoU avec l'époque 7 de 0,867 et avec l'époque 9 de 0,934)
     zsh = zapex - 0.78 * (xb - xa) / 0.9
     k.box(xa - 0.05, xb + 0.05, 0.27, 0.46, 0.24, zb, vdg, "rail_bas", bev=0.008)
-    for a, b in posts:
-        k.box(a, b, 0.26, 0.47, zb - 0.02, zsh - 0.12, vdg, "montant", bev=0.006)
-    # profil bombé (arc de cercle) : liquide jusqu'à 62 %, verre au-dessus
+    # profil bombé (arc de cercle) : liquide jusqu'à 62 %, verre au-dessus. Passe 4b : la cuve s'évase depuis
+    # un COL étroit (bulbe, signature de l'époque) : IoU avec la couronne de cristaux du niveau 14 de 0,87 ;
+    # montants des joints bas (ils comblaient les flancs du col)
     zl = zb + 0.62 * (zsh - zb)
+    xn = 0.30 if pose == "droit" else 0.19
+    wz = lambda z: xn + (xb - xn) * max(0.0, min(1.0, (z - zb) / (zl - zb)))
+    for a, b in posts:
+        k.box(a, b, 0.26, 0.47, zb - 0.02, zb + 0.10, vdg, "montant", bev=0.006)
     arc = []
     for i in range(17):
         s = i / 16.0
@@ -601,19 +635,26 @@ def e08(k, pose, piece):
         za, zb_ = zl + 0.03, zsh + 0.6 * (zapex - zsh)
         k.prism_t([(x0, za), (x0 + wd, za), (x0 + wd + 0.12 * w, zb_), (x0 + 0.12 * w, zb_)], tg1, tg1 + 0.004, sheen,
                   "reflet_verre")
-    k.box(xa, xb, tg0, tg1, zb, zl, liquid, "liquide", bev=0)
+    prof_l = [(-xn, zb), (xn, zb)]
+    for i in range(1, 7):
+        z = zb + (zl - zb) * i / 6.0
+        prof_l.append((xn + (xb - xn) * math.sin(0.5 * math.pi * i / 6.0), z))
+    prof_l += [(-x, z) for x, z in prof_l[:1:-1]]
+    k.prism_t(prof_l, tg0, tg1, liquid, "liquide")
+    wz = lambda z: xn + (xb - xn) * math.sin(0.5 * math.pi * max(0.0, min(1.0, (z - zb) / (zl - zb))))
     # colonne luminescente (lueur de jour) et bulles
     k.box(-0.07, 0.07, tg1, tg1 + 0.008, zb + 0.05, zl - 0.03, glow, "colonne_lumineuse", bev=0)
     import random
     rnd = random.Random(8)
     for i in range(9 if pose == "droit" else 6):
-        x = rnd.uniform(xa + 0.06, xb - 0.06)
         z = rnd.uniform(zb + 0.08, zl - 0.05)
+        x = rnd.uniform(-wz(z) + 0.06, wz(z) - 0.06)
         k.sph(x, tg1 + 0.004, z, rnd.uniform(0.018, 0.03), glow, "bulle", seg=12, rings=6)
     k.box(xa, xb, tg1 - 0.005, tg1 + 0.012, zl - 0.012, zl + 0.012, glow, "menisque", bev=0)
     # armature : sangles horizontales vert-de-gris
     for z in (zb + 0.28, zl + 0.02):
-        k.box(xa - 0.01, xb + 0.01, tg1, tg1 + 0.02, z - 0.025, z + 0.025, vdg, "sangle", bev=0.004)
+        hw_ = wz(z - 0.025) if z < zl else xb
+        k.box(-hw_ - 0.01, hw_ + 0.01, tg1, tg1 + 0.02, z - 0.025, z + 0.025, vdg, "sangle", bev=0.004)
     k.halo(0.0, tg1 + 0.15, zb + 0.4, "#A8FF3A", 6.0)
     if piece:
         tc = (tg0 + tg1) / 2
@@ -744,7 +785,8 @@ def e10(k, pose, piece):
     # du carénage étant déjà à sa borne : une façade plein sud ne reçoit ni le soleil (ouest) ni l'appoint
     # (zénith). Le panneau devient un CARÉNAGE ARRONDI : face inclinée vers l'arrière, arête supérieure en quart
     # de rond lissé (il prend l'appoint zénithal, dégradé franc) ; plinthe en carénage, pieds noirs.
-    shell = k.metal("e10_carenage", "#A8ADB3", mul=0.78, rough=0.24, metallic=0.3, grain=0.06, dirt=0.3, seed=101)
+    # (passe 4b : carénage arrondi trop clair, médiane 89 à 97 pour 82 : albédo réduit sous la borne ; 0,42 : 64)
+    shell = k.metal("e10_carenage", "#A8ADB3", mul=0.40, rough=0.24, metallic=0.3, grain=0.06, dirt=0.3, seed=101)
     black = k.metal("e10_noir", "#222428", mul=1.3, rough=0.45, metallic=0.3, grain=0.08, dirt=0.2, seed=102)
     glossy = k.flat("e10_capteur", "#16181C", rough=0.12, metallic=0.2)
     blue = k.emit("e10_bleu", "#3AA8FF", strength=3.0, base="#0A1828")
@@ -797,13 +839,13 @@ def e10(k, pose, piece):
         # n'ajoutait presque rien au masque : D1-1) ; dipôles et feu bleu au sommet, à O(10) + 0,20 ; passe 4 :
         # boîtiers plus hauts et plus larges (la pièce n'ajoutait que 0,070 à 0,097 t²)
         tca = (t0 + t1) / 2 - 0.02
-        xs = (0.30, -0.30) if pose == "droit" else (0.205, -0.205)
-        hb, ht = (0.15, 0.08) if pose == "droit" else (0.10, 0.055)
-        hbox = 0.32
+        xs = (0.30, -0.30) if pose == "droit" else (0.235, -0.235)
+        hb, ht = (0.15, 0.08) if pose == "droit" else (0.11, 0.06)
+        hbox = 0.32 if pose == "droit" else 0.42
         tops = (zv(vpiece(10, 0.20), tca), zv(vpiece(10, 0.10), tca))
         for i, (x, ztip) in enumerate(zip(xs, tops)):
             k.frustum((x - hb, x + hb, tca - 0.08, tca + 0.08), (x - ht, x + ht, tca - 0.05, tca + 0.05), zt - 0.20,
-                      zt + hbox, black, "boitier_antenne")
+                      zt + hbox, shell, "boitier_antenne")      # (passe 4b : carénage, plus noir : médiane 64)
             k.box(x - 0.045, x + 0.045, tca + 0.08 - 0.004, tca + 0.086, zt + 0.0, zt + 0.08, blue, "voyant_boitier",
                   bev=0)
             k.cylv(x, tca, zt + hbox, ztip - 0.03, 0.026, shell, "mat_antenne", verts=10, r2=0.014, bev=0)
@@ -867,8 +909,9 @@ def e11(k, pose, piece):
 # =====================================================================================================
 def e12(k, pose, piece):
     # (passe 4 : givre plus présent et noir moins profond : luminance médiane 44 à 51 pour une cible de 60)
-    black = k.frost("e12_noir_givre", "#26282E", "#9AA8B8", mul=1.8, amount=0.28, rough=0.35, metallic=0.4)
-    chrome = k.metal("e12_chrome", "#9AA3AD", mul=1.0, rough=0.12, metallic=1.0, grain=0.04, dirt=0.15, seed=121)
+    black = k.frost("e12_noir_givre", "#26282E", "#9AA8B8", mul=2.1, amount=0.33, rough=0.35, metallic=0.4)
+    chrome = k.metal("e12_chrome", "#9AA3AD", mul=0.30,   # (sous la borne : 0,55 et 0,75 y restaient)
+                      rough=0.12, metallic=1.0, grain=0.04, dirt=0.15, seed=121)
     cyan = k.emit("e12_cyan", "#4AF0FF", strength=3.2, base="#082028")
     plinth(k, pose, k.metal("e12_socle", "#26282E", mul=1.5, rough=0.4, metallic=0.5, grain=0.1, dirt=0.3, seed=122))
     xa, xb = span(pose)
@@ -879,7 +922,7 @@ def e12(k, pose, piece):
     pl = PL_D if pose == "droit" else PL_I
     k.box(pl[0], pl[1], pl[3] - 0.012, pl[3] + 0.002, 0.16, 0.225, chrome, "liseret_chrome", bev=0)
     k.box(pl[0] + 0.01, pl[1] - 0.01, 0.34, 0.44, 0.22, 0.232, cyan, "lueur_plinthe", bev=0)
-    zb = 0.66 if pose == "droit" else 0.72
+    zb = 0.66 if pose == "droit" else 0.84
     zt = zv(vt(12), t0)
     k.box(xa + 0.008, xb - 0.008, t0, t1, zb, zt, black, "bloc_levitation", bev=0.02)
     k.box(xa + 0.01, xb - 0.01, t1 - 0.02, t1 + 0.004, zb - 0.002, zb + 0.035, cyan, "lueur_dessous", bev=0)
@@ -958,10 +1001,11 @@ def e13(k, pose, piece):
     k.halo(0.0, tp + 0.15, ztor, "#FF4FD8", 8.0)
     k.halo(0.0, tp + 0.15, (zf0 + zf1) / 2, "#FF4FD8", 4.0)
     if piece:
-        rs = 0.16                                     # (reprise V3 : sphère agrandie, D1-1)
+        rs = 0.20                                     # (reprise V3 : sphère agrandie, D1-1 ; passe 4b : 0,20)
         # passe 4 : l'anneau incliné (0,32 rad) montait à O = 1,078 (plafond +1,0, Q9) : inclinaison 0,20 et
         # centre abaissé pour que le haut de l'anneau reste sous le plafond
-        Ra, ra, tilt = (0.28 if pose == "droit" else 0.24), 0.024, 0.20
+        # (passe 4b : anneau presque horizontal et plus large : il déborde du tore ; la pièce n'ajoutait que 0,084)
+        Ra, ra, tilt = (0.34 if pose == "droit" else 0.29), 0.026, 0.08
         v_c = max(vt(13) - 0.20 + rs, V_CEIL + Ra * (math.cos(tilt) + math.sin(tilt)) / SQ2 + ra + 0.006)
         zsc = zv(v_c, tp)
         if zsc - rs + 0.03 > ztop + 0.01:
@@ -1048,22 +1092,27 @@ def e14(k, pose, piece):
     k.sph(0.0, tdish + 0.07, zd + 0.15, 0.022, gold, "cornet")
     k.halo(0.25 * w, 0.5, 0.9, "#2F6BFF", 3.0)
     if piece:
-        # mât-balise dans le V : boîtier blanc, mât, feu rouge à O(14) + 0,15, vergue à deux feux
-        tm = 0.28
-        zb = on_plane(0.0, v_lo + 0.02)[2]
-        ztop = zv(vpiece(14, 0.15) + 0.06, tm)
-        hb = 0.16 if pose == "droit" else 0.135     # (passe 3 : boîtier plus grand, il comble le V : D1-1 ; passe 4 : pilier)
-        k.frustum((-hb, hb, tm - 0.06, tm + 0.06), (-hb * 0.55, hb * 0.55, tm - 0.04, tm + 0.04), zb - 0.16, zb + 0.16,
-                  white, "boitier_balise")
-        k.box(-0.04, 0.04, tm + 0.055, tm + 0.062, zb - 0.07, zb + 0.0, red, "voyant_boitier", bev=0)
-        k.cylv(0.0, tm, zb + 0.16, ztop - 0.10, 0.026, white, "mat_balise", verts=8, bev=0)
-        k.cylv(0.0, tm, ztop - 0.12, ztop - 0.07, 0.055, white, "socle_feu", verts=24)
-        k.sph(0.0, tm, ztop - 0.04, 0.06, red, "feu_balise")
-        yv = 0.22 if pose == "droit" else 0.19
-        k.cylx(-yv, yv, tm, ztop - 0.30, 0.014, white, "vergue")
-        for x in (-yv, yv):
-            k.sph(x, tm, ztop - 0.30, 0.055, red, "feu_vergue", seg=12, rings=6)
-        k.halo(0.0, tm + 0.1, ztop - 0.06, "#FF2A2A", 6.0)
+        # Passe 4b : le mât-balise dans le V (boîtier, mât, vergue) n'ajoutait que 0,058 à 0,086 t² : le V, moins
+        # profond depuis la passe 4, l'avalait. La balise devient un RADÔME blanc dressé dans l'ajour central, qui
+        # monte jusqu'au plafond (+1,0), feu rouge sur sa face sud ; feux d'extrémité sur les pointes des ailes ;
+        # au pilier, bras latéraux à feux.
+        tm = 0.27
+        rr_ = 0.19 if pose == "droit" else 0.15
+        v_c = V_CEIL + 0.006 + rr_
+        zc_ = zv(v_c, tm)
+        k.cylv(0.0, tm, 0.34, zc_ - rr_ + 0.03, 0.03, white, "mat_balise", verts=8, bev=0)
+        k.sph(0.0, tm, zc_, rr_, white, "radome", seg=32, rings=16)
+        k.tor_h(0.0, tm, zc_ - rr_ * 0.35, rr_ * 0.94, 0.013, gold, "bague_radome", seg=48)
+        k.cyly(0.0, tm + (rr_ - 0.03) / SQ2, tm + (rr_ + 0.006) / SQ2, zc_ + 0.02, 0.06, red, "feu_balise", verts=24)
+        for sgn in (-1, 1):
+            tx, tty, tz = on_plane(sgn * (ot - 0.02), v_hi)
+            k.cylv(tx, tty, tz - 0.02, tz + 0.07, 0.012, white, "potelet_feu", verts=6, bev=0)
+            k.sph(tx, tty, tz + 0.11, 0.045, red, "feu_aile", seg=12, rings=6)
+            if pose == "isole":
+                ax, aty, az = on_plane(sgn * (ot - 0.01), v_hi + 0.36)
+                k.cylx(min(ax, ax + sgn * 0.15), max(ax, ax + sgn * 0.15), aty, az, 0.014, white, "bras_feu")
+                k.sph(ax + sgn * 0.15, aty, az, 0.05, red, "feu_bras", seg=12, rings=6)
+        k.halo(0.0, tm + 0.15, zc_, "#FF2A2A", 6.0)
 
 
 # =====================================================================================================
@@ -1076,8 +1125,9 @@ def e15(k, pose, piece):
     # des boîtes. Ils deviennent des PINACLES FLOTTANTS À 8 PANS en or blanc, coiffés d'une pointe : les pans
     # ouest prennent le soleil (reflets francs, dégradé), la crête se lit comme une couronne de flèches (signature
     # de l'ère V, bible §0). Vide sous les pinacles (base flottante) et entre eux (D1-3).
-    wgold = k.metal("e15_or_blanc", "#E8DCB0", mul=0.78, rough=0.26, metallic=0.25, grain=0.08, rust="#9A8A60",
-                    rust_amount=0.2, dirt=0.35, seed=151)
+    # (passe 4b : borne d'albédo relevée à 0,95 pour l'or blanc : médiane 88 à 92 pour 108, p95 à 203 seulement)
+    wgold = k.metal("e15_or_blanc", "#E8DCB0", mul=1.0, rough=0.26, metallic=0.12, grain=0.08, rust="#9A8A60",
+                    rust_amount=0.2, dirt=0.35, seed=151, cap=0.95)
     nacre = k.metal("e15_nacre", "#D8D2C8", mul=0.40, rough=0.3, metallic=0.15, grain=0.06, dirt=0.35, seed=152)
     nacre2 = k.metal("e15_nacre_claire", "#D8D2C8", mul=0.55, rough=0.22, metallic=0.2, grain=0.05, dirt=0.3, seed=153)
     light = k.emit("e15_lumiere", "#FFF2C0", strength=1.2, base="#3A3420")
@@ -1089,8 +1139,8 @@ def e15(k, pose, piece):
     t0, t1 = (0.24, 0.44) if pose == "droit" else (0.14, 0.44)
     tc = (t0 + t1) / 2
     zb = 0.86 if pose == "droit" else 0.96          # (reprise V3 : vide sous la crête plus haut au pilier, D1-3)
-    merl = ((-0.25, 0.15), (0.25, 0.15)) if pose == "droit" else ((-0.165, 0.12), (0.165, 0.12))
-    oc = math.pi / 8
+    merl = ((-0.25, 0.15), (0.25, 0.15)) if pose == "droit" else ((-0.17, 0.125), (0.17, 0.125))
+    oc = 0.0          # (passe 4c : une arête au sud, deux pans éclairés au lieu d'un pan sud dans l'ombre)
     zcap = zv(vt(15), tc)                             # pointe du pinacle à O(15)
     hcap = 0.20
     zbody = zcap - hcap
@@ -1102,7 +1152,7 @@ def e15(k, pose, piece):
         k.cylv(cx, tc, zb + 0.10, zb + 0.15, rp + 0.012, nacre2, "bague_nacre", verts=8, bev=0.004, rotz=oc)
         # dessous lumineux (bande au pied du pinacle) et joyau lumineux sur le pan sud (zone >= 8 x 8 px hr)
         k.cylv(cx, tc, zb - 0.002, zb + 0.045, rp + 0.006, light, "dessous_lumineux", verts=8, bev=0, rotz=oc)
-        tfs = tc + 0.924 * rp / SQ2
+        tfs = tc + rp / SQ2                 # arête sud (passe 4c)
         k.box(cx - 0.066, cx + 0.066, tfs - 0.01, tfs + 0.012, zbody - 0.44, zbody - 0.20, light, "joyau_lumineux",
               bev=0.004)
         k.halo(cx, tfs + 0.10, zbody - 0.32, "#FFF2C0", 4.0)
@@ -1114,7 +1164,7 @@ def e15(k, pose, piece):
     if piece:
         # COURONNE : grand halo d'or blanc derrière les pinacles (il déborde sur les côtés et au-dessus), flèche
         # centrale et couronnes à fleurons sur chaque pinacle ; tout sous le plafond de +1,0 (Q9)
-        Rh, rh = (0.44, 0.03) if pose == "droit" else (0.33, 0.026)
+        Rh, rh = (0.44, 0.03) if pose == "droit" else (0.36, 0.026)
         th = tc - 0.08
         v_h = V_CEIL + K45 * Rh + rh + 0.006
         k.tor_f(0.0, th, zv(v_h, th), Rh, rh, wgold, "halo_couronne", seg=96, mseg=10)
