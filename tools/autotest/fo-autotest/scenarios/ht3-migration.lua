@@ -250,9 +250,10 @@ return {
           seen[#seen + 1] = string.format("%s n°%d en %s boite %.2f..%.2f", c.key, r.unit, fmt_pos(r.entity.position), b.x0, b.x1)
         end
       end
-      ctx.log(string.format("benchmark : premier tick %d, factorio-overhaul %s (creation %s), releve %s, migrated %d, overlap_kept %d",
-        e.tick, tostring(st.version_bench), tostring(st.version_create), s0.footprints_stale and "PERIME" or "a jour",
-        s0.migrated, s0.overlap_kept))
+      -- tostring : une source de benchmark ANCIENNE (expérience de contrôle) n'a ni relevé ni ces compteurs.
+      local stale = s0.footprints_stale == nil and "absent (source sans emprise croissante)" or (s0.footprints_stale and "PERIME" or "a jour")
+      ctx.log(string.format("benchmark : premier tick %d, factorio-overhaul %s (creation %s), releve %s, migrated %s, overlap_kept %s",
+        e.tick, tostring(st.version_bench), tostring(st.version_create), stale, tostring(s0.migrated), tostring(s0.overlap_kept)))
       ctx.log("entites d'origine encore valides au premier tick : " .. (#seen > 0 and table.concat(seen, " ; ") or "aucune"))
       -- Voie suivie : la ligne « [FO-LEVELS] mise à jour des emprises » (Levels.repair, on_configuration_changed)
       -- ou « [FO-LEVELS] emprises (filet, sans changement de version) » du journal fait foi ; ceci la complète.
