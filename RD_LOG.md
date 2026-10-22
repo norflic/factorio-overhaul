@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (22/10, après l'intégration du lot V3-T2) : **F96, E53**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (22/10, après l'intégration du lot R1) : **F103, E56**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -152,6 +152,37 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
 
+### Faits vérifiés en moteur réel ou dans le binaire (lot R1, robustesse, 22/10, 19 h 38 à 20 h 11)
+Numéros DÉFINITIFS, attribués à l'intégration des documents du lot (22/10, vers 20 h 20). Les deux suites du lot
+(run `wf_c34819e9-18a`, session `8a9c0503` ; chacune : un constructeur, une revue adverse, un correcteur) avaient
+donné des numéros provisoires qui se chevauchaient. Correspondance :
+- suite « défense dense et bord à bord » : F96 à F101 gardent leur numéro (les commentaires de `levels.lua` et de
+  `levels_test.lua` citent « F96 provisoire, E53 », ceux de `migration_test.lua`, `mock_engine.lua` et
+  `scenarios/bord-a-bord.lua` citent E53 : tous ces renvois restent justes, seul le mot « provisoire » est périmé) ;
+- suite « vram » : son F96 (chaînes du binaire) devient **F102** ; sa « précision de F81 », relue dans un journal
+  archivé et non nouvelle en moteur, ne prend pas de numéro : elle complète F81 ; son expérience E53 devient **E55**
+  (les notes `fo-logs\2026-10-22_R1\vram\NOTES.md` disent encore « E53 (proposée) »).
+
+Sources :
+- F96 à F101 : `fo-autotest.bat` (scénarios greffés `bord-a-bord` et `t2-defense`, ce dernier en double source),
+  lancé par le constructeur (`e74871d`, 19 h 48 à 19 h 55), par le correcteur (`f41753d`, 20:08:11 à 20:08:39), puis
+  sur `main` après les fusions `dcc97b3` et `58db82c` (20:11:14 à 20:11:40) ; code 0 et `done.txt` relu à chaque
+  passage. Archives : `<racine>\fo-logs\2026-10-22_R1\defense\` (`NOTES.md`, §4 : correcteur ; `correcteur\`) et
+  `<racine>\fo-logs\2026-10-22_R1-integration\` ;
+- F102 : lecture des chaînes de `factorio.exe` 1.1.91, en lecture seule, sans lancer le jeu (suite vram, `dac93fd` puis
+  `75863a5`) ; ce n'est PAS un essai en moteur réel. Notes : `<racine>\fo-logs\2026-10-22_R1\vram\NOTES.md`.
+Expériences : E53 à E55.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F96 | **Observé en moteur réel** (scénario `bord-a-bord` ; 22/10 à 19:48, 19:53 et 20:08, puis sur `main` à 20:11:23,82). `find_entities_filtered{area}` et `count_entities_filtered{area}` rendent une entité dont la boîte de collision TOUCHE la zone exactement : par chacun des 4 bords, par un coin (2 coins essayés), ou par une zone NULLE posée sur le bord. Un écart de 1/256 de tuile n'est pas rendu ; un chevauchement de 1/256 l'est. Ce sont des intervalles FERMÉS. Vu sur 3 entités : mur de pierre (± 0,29), mitrailleuse vanilla (± 0,7), tourelle laser 7 du mod (± 1,2). | Toute recherche par zone qui ne doit pas compter le simple contact doit refiltrer par chevauchement strict. Le moteur simulé, qui excluait le contact par choix (E47), est aligné (E53). `Levels.move_ground_items` ne refiltrait pas l'objet trouvé : corrigé le 22/10 (E53). Non examinés : les balayages par secteurs jointifs de `pvp.lua`, `sites.lua` et `war.lua`. |
+| F97 | **Observé en moteur réel** (mêmes passages). `position` seule (sans rayon) rend l'entité quand le point est sur le bord ou au coin de sa boîte de collision (boîte fermée). `position` + `radius` compare la distance du CENTRE de l'entité : un rayon exactement égal à cette distance la rend, un rayon de 1/256 de moins non ; un cercle qui entre dans la boîte sans contenir le centre ne la rend pas. | Conforme à la doc 1.1.91 (« Looks for the center ») et au moteur simulé pour le rayon. Le moteur simulé ignore toujours `position` seule (aucun usage du mod) : non aligné. |
+| F98 | **Observé en moteur réel** (mêmes passages). `bounding_box` rend les boîtes de collision en virgule fixe 1/256 : 0,29 donne 74/256, 0,7 donne 179/256, 1,2 donne 307/256. | Étend F92 aux boîtes. Troncature ou arrondi au plus proche : NON tranché (les trois valeurs donnent le même résultat dans les deux cas). Les zones de recherche d'un banc se bâtissent sur la boîte RENDUE, jamais sur celle du prototype. |
+| F99 | **Observé en moteur réel** (`t2-defense`, création 0.4.1 et 0.4.2 ; 22/10, 19 h 54, 20 h 08 et 20 h 11). Une tourelle LAISSÉE par la migration (hors grille, ou sur la grille mais chevauchante) continue de fonctionner : son bras la nourrit, le laser reste sur le réseau et chargé, elle tire et tue. Le laser 25 de C, laissé en 6×6 sur sa position 2×2, couvre 6 tuiles de convoyeur et 2 bras (ceux de C3-M25 et de C5-M13 ; création 0.4.1) : le convoyeur passe dessous et porte toujours les munitions, et les deux bras couverts nourrissent encore leur tourelle (C3-M25 et C5-M13 à 10 munitions après le combat, 383 et 323 de dégâts infligés depuis la migration). En création 0.4.2, il couvre 6 tuiles de convoyeur et 1 bras (celui de C5-M13). Vu sur 13 tourelles laissées (création 0.4.1) et 5 (création 0.4.2). | Étend F88 aux tourelles et à une ligne de défense : la migration ne désarme pas une défense. Le défaut est visuel et d'usage (Q-T2-1). |
+| F100 | **Observé en moteur réel** (`t2-defense`, création 0.4.1 ; tick FEED = 170). Confirme F79 et F89 pour des TOURELLES : 4 mitrailleuses reposées par script (`Levels.repair`, création 0.4.1 seulement : B1-M7, B3-M7, B5-M8 et B7-M8) sont retrouvées par leur bras électrique : `drop_target` vaut la nouvelle tourelle, qui reçoit 2 ou 3 munitions avant le tick 170 (B1 : 2 ; B3, B5, B7 : 3). Elles sont sur une ligne de plusieurs tourelles nourries par un convoyeur commun, cas absent de F79 et de F89. Les 4 autres tourelles reposées de B sont des lasers, sans bras ; en création 0.4.2, aucune mitrailleuse n'est reposée (11 « même taille »). | **Corrigé par le correcteur de la suite** : la première version disait « 8 mitrailleuses reposées » (faux : 4) et « élargit F79, qui ne reposait que sur un bras à combustible » (faux : F89 couvrait déjà les bras électriques). Le remplacement par script n'a pas à recâbler les bras d'une ligne de défense. |
+| F101 | **Déduit, non observé directement** (`t2-defense`, mêmes passages). Des poteaux moyens posés par `create_entity` se raccordent seuls à leurs voisins à portée : 24 poteaux, aucun raccord ajouté par `connect_neighbour`, un seul réseau pour les 10 lasers et l'interface électrique. | Ce qui est prouvé : un seul réseau, 10 lasers chargés. Ce qui est déduit : le raccord automatique. La valeur que rend `connect_neighbour` sur des poteaux déjà raccordés n'a pas été lue. |
+| F102 | **Lu dans le binaire 1.1.91, pas un essai en moteur réel** (chaînes de `factorio.exe`, lecture seule, aucun lancement ; sens DÉDUIT ; suite vram). Clés de `config.ini` voisines de `texture-compression-level` : `texture-streaming`, `streamed-atlas-physical-vram-size` et `compress-virtual-atlas` (valeurs par défaut absentes du binaire). Assertion « this->virtualAtlasPage->getFormat() == BitmapFormat::RGBA_8888 » (près de `src\Graphics\Atlas.cpp`). Message « Couldn't create %s bitmap … Probably not enough video memory », partagé par « virtual atlas » et « atlas ». Lignes « Created virtual atlas page %ux%u [%s] » (au singulier), « Atlas memory size: %.2fMB; %.2fMB (virtual) » et « Size of sprites outside of atlas: %.2fMB », absentes des 13 journaux archivés. | Base de la règle de l'atlas virtuel de `vram.py` (E55). NON prouvés : où vivent les pages de l'atlas virtuel et leur format en mémoire vidéo. Lecture la plus probable : la locale (« kept in RAM until needed by the GPU ») parle des sprites SOURCES hors atlas, et les pages sont le cache PHYSIQUE côté carte. |
+
 ### Faits vérifiés en moteur réel (lot V3-T2, emprise croissante de toutes les familles, 22/10, 17 h 21 à 19 h 05)
 Numéros DÉFINITIFS, attribués à l'intégration du lot (22/10, vers 19 h 15). Les numéros provisoires du lot se suivent
 sans trou après F82 et sont gardés : F83 à F89 de l'ingénieur, F90 à F95 du correcteur. Deux corrections du
@@ -203,7 +234,7 @@ Sources :
 | F78 | **Observé en moteur réel** (`113ddba`, 15 h 31 ; précisé par le correcteur à 15 h 59). `LuaEntity.bounding_box` d'un mur relié à ses voisins déborde de la boîte de collision du prototype (± 0,29) du côté de ses voisins : 308,2109..308,9883 pour un mur en 308,5. Dans une ligne de murs horizontale, ce débord ne gagne pas la rangée voisine en hauteur : rempart7 (3×3 hors grille, boîte 290,80..293,20 en y) ne chevauche pas les murs de la rangée 290. | `Levels.room` lit `bounding_box` : il compte ces débords comme gêne dans le sens de la ligne. |
 | F79 | **Observé en moteur réel** (correcteur, `d6ba888`, 15 h 59, dans les trois voies ; premier essai sur `a3bf9e4` à 15 h 56). Un bras dont la cible de dépôt est détruite puis remplacée par script (`Levels.resize_replace` : `destroy`, puis `create_entity{raise_built = true}`) vise la nouvelle entité sans aide du mod. Au tick 90, `drop_target` vaut fo-lvl-gun-7 n° 62 dans les trois voies, y compris celle du filet, où le remplacement a lieu au tick 30. Le bras continue de la nourrir : 3 puis 9 chargeurs du tick 90 au tick 600. Un seul cas joué (defense7, bras à combustible). | Le remplacement par script n'a pas à recâbler les bras. Non joués : inserteurs électriques, ligne qui alimente plusieurs tourelles. |
 | F80 | **Observé dans des journaux archivés** (suite d4m, relecture de `fo-logs\2026-10-22_D4m_1` à `_5` et des 8 journaux P1 ; aucune nouvelle session). En 1.1.91, avec vanilla et le mod 0.4.1 ou antérieur, une session avec images crée 15 atlas « Created atlas bitmap » en haute qualité et 14 en qualité normale, avec la mémoire vidéo sur « all » comme sur « low ». L'écart est un second atlas « [none] » (sprites principaux) : en haute qualité, le premier mesure 16384×16364 ou 16384×16380, pour un bord maximal annoncé de 16384. Les 13 autres atlas figurent une fois PAR CATÉGORIE dans chacun des 13 journaux, avec les mêmes drapeaux, sauf un : l'atlas [low-object] porte linear-minification en haute qualité et au plancher, pas en normal/all. Pixels « [none] » : 475,8 Mpx en haute qualité, 141,0 en normale, 2,7 au plancher. **Déduit, non prouvé** : la cause (premier atlas plein, `hr_version`), cohérente avec les journaux et la doc, mais non mesurée sprite par sprite. | Un banc qui compte les atlas doit lire la qualité que déclare le journal. C'était la cause de l'échec d4m à 4/5 (E44), corrigé par E48. |
-| F81 | **Observé dans un journal archivé** (`fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log`). Avec « Video memory usage: low » (« Tex.Stream.: 1 »), l'atlas « [none] » tombe à 2048×1316. Le journal ajoute alors une ligne du moteur « Created virtual atlas pages 4096x4096x9 », puis « Generated mipmaps for virtual atlas of size 16384x12288 ». Ces lignes sont absentes des 12 autres journaux. L'atlas virtuel, d'environ 151 Mpx, n'est pas une ligne « Created atlas bitmap ». | `vram.py` le relève et le signale (« atlas VIRTUEL … NON compte »), mais ne le compte pas : l'estimation du plancher d'E40 (0,20 à 0,31 Go) le laisse de côté. Tâche d'outillage ouverte (OBJECTIFS §7). |
+| F81 | **Observé dans un journal archivé** (`fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log`). Avec « Video memory usage: low » (« Tex.Stream.: 1 »), l'atlas « [none] » tombe à 2048×1316. Le journal ajoute alors une ligne du moteur « Created virtual atlas pages 4096x4096x9 », puis « Generated mipmaps for virtual atlas of size 16384x12288 ». Ces lignes sont absentes des 12 autres journaux. L'atlas virtuel, d'environ 151 Mpx, n'est pas une ligne « Created atlas bitmap ». Précision (suite vram du lot R1, 22/10, relue dans le même journal, non nouvelle en moteur) : la ligne de mipmaps annonce un atlas virtuel de 16384x12288 (201,3 Mpx, soit 12 surfaces de page de 4096²), alors que 9 pages seulement sont créées (151,0 Mpx) ; le nombre de niveaux de mipmaps n'est pas écrit. | Jusqu'au 22/10, `vram.py` le relevait et le signalait (« atlas VIRTUEL … NON compte ») sans le compter. Depuis la suite vram (lot R1, 22/10, commits `dac93fd` et `75863a5`), `vram.py` COMPTE les pages dans l'estimation : bas = pages × octets/px bas sous la DXT du journal ; haut = (pages + 1/3 de la plus grande surface, pages ou atlas virtuel annoncé) × octets/px haut. Résidence et compression sont des hypothèses (F102). Plancher : 0,28 à 0,53 Go, au lieu de 0,20 à 0,31 Go. La variante non compressée (0,81 Go) dépasse le pic dédié + partagé (0,52 Go) : exclue si les pages sont allouées en entier (E55). |
 | F82 | **Relevé de l'étape data, pas un essai en moteur réel** (suite des bancs hors jeu, `harness.lua --verbose` sur vanilla 1.1.91, 22/10), complété par la doc 1.1.91. 18 entités vanilla portent des raccords de tuyau ou un point de dépôt, soit 51 points : assembling-machine-2 et 3, chemical-plant, oil-refinery, boiler, heat-exchanger, flamethrower-turret, steam-engine, steam-turbine, infinity-pipe, burner-mining-drill, electric-mining-drill, pumpjack, offshore-pump, pipe, pipe-to-ground, pump, storage-tank. Toutes ont leurs raccords hors de la boîte de collision et sur un centre de tuile, et leur dépôt hors de la boîte et des tuiles de la foreuse. Seule exception : le chevalet de pompage dépose en {0, 0}, dans sa boîte. Il ne dépose qu'un fluide, et la doc de `vector_to_place_result` dit : « a vector of {0,0} disables the yellow arrow alt-mode indicator ». Sans cette exception, la règle se déclenche sur `mining-drill/pumpjack` (essai du 22/10). Aucune entité vanilla n'utilise `pipe_connections[].positions`. | Base de la règle des points de jeu du harness (E47) ; une foreuse à `output_fluid_box` n'est pas contrôlée pour son dépôt. Ce que fait le moteur réel d'un raccord mal placé n'est PAS observé : c'est déduit de la géométrie. |
 
 Observations sans numéro (moteur réel, suite H-T3) :
@@ -256,6 +287,191 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E55 · VALIDÉ (hors jeu) · Atlas virtuel compté par `vram.py` (lot R1, suite vram, 22/10 ; constructeur `dac93fd`
+de 19 h 38 à 19 h 49, revue adverse, correcteur `75863a5` de 19 h 53 à 20 h 00 ; intégrée dans `main` le 22/10 par la
+fusion `58db82c`)** :
+- But : la tâche d'outillage ouverte depuis F81 (l'estimation du plancher d'E40 laissait l'atlas virtuel de côté).
+- Protocole :
+  - règle écrite en tête de `tools/autotest/vram.py` : pages comptées comme résidentes en mémoire vidéo et
+    compressées comme un atlas « [none] » sous la DXT du journal ; bas = pages × octets/px bas, sans mipmaps ;
+    haut = (pages + max(pages, atlas virtuel annoncé)/3) × octets/px haut ; variante RGBA 8888 (pages × 4) NON
+    comptée, confrontée à la mesure directe (exclue si atlas bas + variante > pic dédié + pic partagé) ; chiffres du
+    moteur (« Atlas memory size », « Size of sprites outside of atlas ») rapportés tels quels s'ils apparaissent ;
+    ligne au singulier signalée, non comptée ; lignes ancrées sur l'horodatage du moteur ;
+  - `unit_vram.py` sur les 33 lignes réelles du plancher (lignes 30 et 49 à 80 de
+    `fo-logs\2026-10-22_D4m_5-plancher-mesure\visual.log` ; égalité vérifiée par script, chaînes identiques) ;
+  - `table13.py` compare l'ancienne et la nouvelle estimation sur les 13 journaux archivés ;
+  - `tools/autotest/tests/mut_vram.py` (versionné dans le dépôt) : un témoin nul, puis 18 mutants de `vram.py`.
+- Résultats (correcteur, `75863a5`) :
+  - unitaires de `vram.py` 99 OK (57 avant la suite, 96 au constructeur) ; `run_d4m.py` 5/5 (essai à blanc 11 OK,
+    greffon 16 OK, intégration 17 OK, 13 journaux) ; `mut_atlas.py` 40 OK ; `mut_vram.py` : témoin nul survivant
+    (99 OK), 18/18 mutants détectés, tous par un contrôle, 0 survivant, 0 motif introuvable, code 0 ;
+  - 12 journaux inchangés (1,10 à 1,25 Go en haute qualité ; 0,40 à 0,45 Go en normale) ; plancher (D4m 5) :
+    **0,2794 à 0,5270 Go** (atlas 0,2039 à 0,3089 + pages 0,0755 à 0,2181), contre 0,20 à 0,31 Go avant et un pic
+    dédié mesuré de 0,42 Go ; variante non compressée 0,2039 + 0,6040 = 0,81 Go, au-dessus des 0,52 Go du pic dédié
+    + partagé (0,42 + 0,10) : EXCLUE si les pages sont allouées en entier ;
+  - archives non modifiées : SHA-256 de 793 fichiers identiques avant et après les bancs (les 43 dossiers de
+    `fo-logs` qui contiennent un `visual.log`).
+- Revue adverse : 1 défaut majeur et 3 mineurs, tous CONFIRMÉS puis corrigés.
+  - Majeur : le banc de mutations du constructeur ne prouvait rien. Il ne copiait que `vram.py` et
+    `visual_session.py` dans le dossier du mutant ; or `visual_session.py` importe `gallery`. Rejoué par le
+    correcteur (`verif_ancien.py`) : une copie intacte sans `gallery.py` donne « ModuleNotFoundError: No module named
+    'gallery' » ; avec une copie complète, 13 mutants sur 14 seulement sont détectés (« chiffre moteur sans ancrage »
+    SURVIT ; « catégorie virtuelle absente » n'est détecté que par un plantage, KeyError). **Le « 14/14 » annoncé
+    par le constructeur était FAUX : 13/14.** Correction : `mut_vram.py` dans le dépôt, qui copie TOUS les modules,
+    exige un témoin nul survivant, distingue un refus par contrôle d'un plantage, et échoue sur un motif
+    introuvable ; 18 mutants (les 14 d'origine et 4 nouveaux).
+  - Mineurs : deux ancrages non testés (ligne au singulier, « Size of sprites outside of atlas ») et verdict D4-1 sur
+    les atlas seuls : les 3 mutants du relecteur survivaient à l'ancien `unit_vram.py` ; fixture du plancher à 30
+    lignes sur 33 (3 lignes du moteur manquaient) ; l'identifiant provisoire E53 du constructeur (aujourd'hui E55)
+    désignait deux choses à la fois.
+- Confrontation entre sessions (point 3 de l'expérience, NON automatisée) : en qualité normale (D4m 4, même fenêtre
+  1920x1080), il reste 0,22 à 0,27 Go hors atlas ; au plancher, le pic dédié de 0,42 Go moins l'estimation basse
+  comptée (0,28 Go) laisse au plus 0,14 Go hors atlas. Trois explications possibles : le reste hors atlas baisse au
+  plancher (le pic partagé passe de 0,44 à 0,10 Go), les pages sont plus compressées que prévu, ou elles sont
+  allouées en partie. Rien ne tranche.
+- Preuves : `<racine>\fo-logs\2026-10-22_R1\vram\` (`NOTES.md`, `table13.txt`, `d4m-apres.txt` ; `mut_vram.py` et
+  `mutations-vram.txt` du constructeur gardés comme trace, INVALIDES) et son sous-dossier `correcteur\`
+  (`mutations-vram-correcteur.txt`, `ancien-banc-rejoue.txt`, `table13-correcteur.txt`, `sha256-archives.txt`). Sur
+  `main` (22/10, vers 20 h 15) : d4m 5/5, mut_atlas 40 OK, mut_vram « témoin nul survivant ; 18/18 mutants
+  détectés ».
+- Limites (non prouvé) :
+  - que les pages résident en mémoire vidéo, et leur format (compression selon la DXT du journal : hypothèse ; option
+    `compress-virtual-atlas`, valeur par défaut inconnue) ; la variante RGBA 8888 n'est exclue que si les pages sont
+    allouées en entier ;
+  - l'emplacement et le nombre des niveaux de mipmaps : la borne d'un tiers est un majorant géométrique ;
+  - l'estimation haute du plancher (0,53 Go) dépasse le pic dédié mesuré (0,42 Go) : elle surestime cette session
+    (le rapport écrit « écart NÉGATIF ») ;
+  - la ligne au singulier et les chiffres « Atlas memory size » et « Size of sprites outside of atlas » ne sont
+    éprouvés que sur des lignes synthétiques ; les « MB » du jeu sont supposés valoir 2^20 octets ;
+  - un seul journal contient un atlas virtuel : aucun autre réglage n'étalonne la règle ;
+  - `mut_vram.py` ne prouve que la sensibilité de `unit_vram.py` aux 18 mutants écrits ;
+  - aucun banc en moteur réel, aucune mesure de performance (le lot V3-E rendait dans Blender) ;
+  - pour trancher la résidence et le format : une session au plancher avec `compress-virtual-atlas` ou
+    `streamed-atlas-physical-vram-size` fixés dans le `config.ini` de TEST (option à câbler dans
+    `visual_session.py`) ;
+  - observation hors périmètre, non corrigée : `python vram.py --help` plante déjà sur `98ac826` (UnicodeEncodeError
+    cp1252 sur « ≈ » de la docstring) quand la sortie est redirigée.
+- Incident du correcteur, signalé au Directeur Créatif : un nettoyage `rm -f <dossier temporaire de session>/*.txt` a
+  visé le dossier temporaire de la session `8a9c0503`, que d'autres agents partagent ; des fichiers `.txt` d'autres
+  agents ont pu y être effacés (liste inconnue). Rien n'a été effacé dans `fo-logs` ni dans le dépôt (SHA-256 des
+  archives identiques).
+
+**E54 · VALIDÉ en moteur réel pour le fonctionnement ; visuel laid et NON jugé · Migration d'une défense dense (lot R1,
+suite « défense dense et bord à bord », 22/10 ; constructeur `e74871d` de 19 h 38 à 19 h 58, revue adverse,
+correcteur `f41753d` de 20 h 03 à 20 h 10 ; intégrée dans `main` le 22/10 par la fusion `dcc97b3`)** :
+- But : la tâche ouverte « jouer une défense dense » (OBJECTIFS §7, Q-T3) : les essais précédents avaient joué une
+  usine dense (E50) et des défenses ISOLÉES (E46), jamais une vraie ligne de défense.
+- Protocole : scénario greffé `t2-defense` (`tools/autotest/fo-autotest/scenarios/t2-defense.lua`), double source
+  (`FO_CREATE_SRC` = `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1`, version 0.4.1 où rien ne grandit, ou
+  `<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2`, version 0.4.2 où seule la mitrailleuse grandit), benchmark par 0.4.3,
+  1 200 ticks ; journal contrôlé hors jeu par `ht3_journal.py --tag FO-T2-DEFENSE`. La carte (force `fo-def`) :
+  - un mur de niveau 7 continu de deux rangées ; 21 tourelles (11 mitrailleuses, 10 lasers) alignées par l'arrière,
+    en trois tronçons : A compact (M7 L7 M7 L7 M8 L8 M8 L8, jointives), C haut niveau compact (M13 L13 M25 L25 M13), B
+    aéré (les 8 de A, une colonne libre avant chacune, une rangée libre devant la plus profonde) ;
+  - un bras électrique par mitrailleuse (prend sur le convoyeur, dépose dans la tourelle), un convoyeur de munitions
+    perforantes par tronçon (tête regarnie par script pendant le benchmark : amont simulé), 24 poteaux moyens et une
+    interface électrique vanilla : un VRAI réseau ;
+  - mitrailleuses VIDES à la création (sauvegarde au tick 0) : toute munition trouvée après la migration est arrivée
+    par le bras ; victimes, dégâts et PV entamés posés sur chaque tourelle ;
+  - classement au tick 90, munitions au tick 170, trois vagues de 21 biters moyens (ticks 200, 380 et 560, posés à
+    9 tuiles du mur), contrôles au tick 1 100.
+- Résultats (identiques chez le constructeur, le correcteur et sur `main`) :
+
+  | Création | Reposées | Laissées | Même taille | Chevauchements vus des tourelles | Ligne du mod | BILAN | Journal |
+  |---|---|---|---|---|---|---|---|
+  | 0.4.1 | 8 (tout B : 4 mitrailleuses, 4 lasers) | **13 (tout A, tout C)** | 0 | 36 murs, 12 convoyeurs, 11 poteaux, 6 bras, 28 tourelles | « 8 bâtiment(s) reposé(s), 0 déjà en place, 13 laissé(s) » | 36 OK, 0 ECHEC | 19 OK |
+  | 0.4.2 | 5 (B : 4 lasers ; A : le dernier laser) | 5 (3 lasers de A, 2 de C) | 11 (les mitrailleuses) | 6 convoyeurs, 2 poteaux, 1 bras, 8 tourelles | « 5, 0, 5 » | 36 OK, 0 ECHEC | 11 OK |
+
+  Répartition des chevauchements (paires vues depuis chaque tourelle, d'où des doublons : un mur touché par deux
+  tourelles compte deux fois) : en création 0.4.1, toutes les paires avec un mur, un convoyeur, un poteau ou un bras
+  viennent des 5 tourelles de C ; les 8 de A, hors grille, ne chevauchent que leurs voisines. En création 0.4.2, les
+  3 lasers laissés de A ne chevauchent rien ; les 2 de C chevauchent leurs voisines et un poteau chacun, le laser 25
+  aussi le convoyeur (6 tuiles) et un bras ; aucun mur n'est chevauché.
+
+  Dans les deux cas : chaque mitrailleuse est nourrie après la migration par SON bras (`drop_target` = la tourelle ;
+  F100), les 10 lasers sont sur le réseau des poteaux et chargés (F101), les **21 tourelles sur 21 ont tiré** (dégâts
+  infligés depuis la migration, sommés sur les 21 tourelles : 5 014 en création 0.4.1, 4 978 en 0.4.2 ; ceux posés
+  à la création, 100 × k par tourelle, ne sont pas comptés), **63 biters tués sur 63**, mitrailleuses à 10 munitions après le
+  combat, mur intact (150/150 et 182/182 murs), rien renversé, 0 échec de remplacement, 0 placement forcé, filet sans
+  effet jusqu'au tick 1 100. Les tourelles laissées fonctionnent (F99).
+- Passages : constructeur (`e74871d`) 19:54:07 (0.4.1) et 19:54:12 (0.4.2) ; correcteur (`f41753d`) 20:08:34 et
+  20:08:39 ; `main` (fusions `dcc97b3` et `58db82c`) **20:11:36,19 : 36 OK + journal 19 OK** et **20:11:40,52 : 36 OK +
+  journal 11 OK**, code 0.
+- Premier essai raté par un défaut DU BANC (création 0.4.2, `t2-defense-0.4.2-essai1`, 34 OK, 2 ECHEC) : un seul bras
+  nourricier (0,83 objet/s) pour 11 mitrailleuses (5 à sec) ; une vague de grands biters non finie en 340 ticks
+  (20 vivants). Corrigé dans le banc (tête de convoyeur regarnie, 3 vagues de biters moyens, contrôle au tick 1 100).
+  Aucun défaut du mod trouvé par la défense dense.
+- Captures (`captures-t2-defense-0.4.1`, constructeur, 22/10 à 19 h 55, `fo-captures.bat t2-defense`, création 0.4.1,
+  2/2 images aux ticks 100 et 110), regardées par l'intégrateur des documents :
+  - `001-defense-ouest.png` : tronçon A, tourelles 3×3 laissées dont les socles s'imbriquent, poteaux plantés
+    au milieu (effet du dessin : aucune boîte de A ne touche un poteau) ; tronçon C, tourelles 4×4 et 6×6 dessinées PAR-DESSUS le mur (elles le masquent) et dont le socle
+    recouvre une partie du convoyeur ;
+  - `002-defense-est.png` : tronçon B, reposé sur la grille, ligne propre.
+  **C'est laid** (sprites agrandis provisoires de V3-T2, superposés), et **non jugé** : seul le Directeur Créatif
+  valide un visuel. Les captures précèdent le correcteur, qui n'a rien changé à la carte ni au classement.
+- Revue adverse de la suite : 1 défaut majeur et 3 mineurs, tous CONFIRMÉS puis corrigés : F100 disait « 8
+  mitrailleuses reposées » (4 en réalité) ; F100 disait « élargit F79 » (F89 le faisait déjà) ; l'en-tête de
+  `bord-a-bord.lua` restait au présent après l'alignement (E53) ; `move_ground_items` ne refiltrait pas l'objet
+  trouvé (corrigé dans le mod, E53).
+- Réponse franche pour le Directeur Créatif (Q-T2-1) : sur une ligne de défense typique de 0.4.1 (tout jointif, collé
+  au mur), 13 tourelles sur 21 sont laissées : les 8 du tronçon A, hors grille, se chevauchent entre elles ; les 5 du
+  tronçon C chevauchent le mur, le convoyeur, les poteaux et les bras ; depuis 0.4.2, 5 lasers sur 10 sont laissés :
+  3 hors grille sans chevauchement (A), 2 qui chevauchent convoyeur, poteaux, un bras et leurs voisines (C), aucun
+  mur ; la défense MARCHE dans tous les cas (nourrie, alimentée, elle tire et tue). [Corrigé le 22/10 par la revue
+  des documents : la première version étendait aux 13 tourelles le chevauchement du mur, des bras, des poteaux et du
+  convoyeur, qui ne concerne que le tronçon C.]
+- Limites (non prouvé) :
+  - l'aspect de la ligne migrée (captures ci-dessus, sans verdict) ;
+  - sélection, minage et remplacement par le JOUEUR d'une tourelle laissée qui chevauche un mur, un convoyeur ou un
+    poteau ; amélioration ultérieure d'une tourelle laissée ;
+  - aucune sauvegarde du Directeur Créatif rejouée ; ligne synthétique (21 tourelles, une seule orientation, ni
+    lance-flammes, ni tourelle lourde, ni mur à portes) ; amont du convoyeur simulé par script ;
+  - vagues de biters moyens posés à 9 tuiles du mur : une vraie attaque (grands biters, cracheurs, expansion) n'est
+    pas jouée ; création 0.4.0 et plus ancienne : non jouée ;
+  - rechargement réel d'une carte déjà migrée : toujours non joué ;
+  - aucune mesure de performance (le lot V3-E rendait dans Blender).
+
+**E53 · VALIDÉ en moteur réel ; moteur simulé aligné ; défaut du mod trouvé et corrigé · Contact bord à bord des
+recherches par zone (lot R1, suite « défense dense et bord à bord », 22/10, 19 h 48 à 20 h 11)** :
+- But : la limite d'E47 (« le contact bord à bord de `find_entities_filtered{area}` en moteur réel n'est pas observé ;
+  le moteur simulé l'exclut par choix »).
+- Protocole : scénario greffé `bord-a-bord` (`tools/autotest/fo-autotest/scenarios/bord-a-bord.lua`, 60 ticks, cas
+  joués au tick 5, contrôles au tick 30). Trois entités en force neutre, zone vidée : mur de pierre (± 0,29),
+  mitrailleuse vanilla (± 0,7), tourelle laser 7 du mod (3×3, ± 1,2). Les zones sont bâties sur la boîte RENDUE
+  (`bounding_box`). Par entité, 15 cas comparés à la règle du moteur simulé, soit **45 cas** : zone égale à la boîte,
+  chevauchement de 1/256 et écart de 1/256 (témoins), contact par chacun des 4 bords et par 2 coins, zone nulle sur
+  le bord et dedans, et 4 cas de rayon (distance exacte, 1/256 de moins, cercle qui touche la boîte sans contenir le
+  centre, cercle centré 1/4 de tuile hors de la boîte, qui y entre jusqu'à 1/256 du centre sans le contenir) ; `find_entities_filtered` et `count_entities_filtered` chacun. La
+  `position` seule (bord, coin, dedans) est journalisée, non comparée.
+- Résultats :
+  - premier passage (19:48:32,08, `bord-a-bord-essai1`) : **11 OK, 1 ECHEC : 21 écarts sur 45 cas**, tous des
+    contacts exacts (4 bords, 2 coins, zone nulle sur le bord, pour chacune des 3 entités) RENDUS par le moteur réel
+    et exclus par le moteur simulé (F96) ;
+  - alignement : `touches_area` de `tests/mock_engine.lua` passe en **intervalles fermés** (contact par un bord ou un
+    coin compris) ; `migration_test` 79 → 81 contrôles (le voisin bord à bord EST rendu, l'écart de 1/256 ne l'est pas,
+    contact par un coin) ; contre-épreuve avec l'ancienne règle stricte : 79 OK, 2 ECHEC ;
+  - second passage : **0 écart, 12 OK** (constructeur 19:53:55 ; correcteur 20:08:11 ; `main` 20:11:23,82) ;
+  - `position` seule et rayon : F97 ; boîtes en virgule fixe : F98.
+- Défaut du mod trouvé par la revue adverse et corrigé par le correcteur (`f41753d`) : les recherches par zone des
+  niveaux refiltrent par chevauchement strict (`Foot.overlap` dans `Levels.room`, `remove_ghosts` et, depuis le
+  correcteur de la suite, `move_ground_items`), `Points.inside`, écart explicite de `find_stacked`. Avant ce correctif,
+  `move_ground_items` poussait, et comptait à tort, un objet au sol qui touchait seulement le bord du bâtiment, ou le
+  journalisait « laissé sous » sans place libre (son test du rectangle portait sur la DESTINATION, jamais sur l'objet
+  trouvé). Correctif d'une condition dans `script/levels/levels.lua` (`Foot.overlap` strict sur la `bounding_box` de
+  l'objet, sur le modèle de `remove_ghosts`) ; 2 contrôles dans `tests/levels_test.lua` (objet de ± 0,25 posé
+  exactement bord à bord, puis par un coin, sans position libre : ni poussé, ni compté, ni journalisé,
+  `find_non_colliding_position` jamais appelé) : levels 1575 → **1577** ; contre-épreuve sans le correctif : 1576 OK,
+  1 ECHEC (« appels 2 »). En moteur réel, `content` 317 OK : l'objet au sol de `levels_taille`, posé SOUS le bâtiment,
+  est toujours sorti (« deplaces 1 »). Changelog 0.4.3 complété (`870f045`).
+- Limites (non prouvé) :
+  - le correctif de `move_ground_items` est prouvé hors jeu (2 contrôles, une contre-épreuve) ; en moteur réel, seule
+    l'absence de régression l'est : aucun objet exactement bord à bord n'a été posé dans un banc en moteur réel ;
+  - les balayages par secteurs jointifs de `pvp.lua`, `sites.lua` et `war.lua` (une entité sur la frontière comptée
+    dans deux secteurs) n'ont pas été examinés ;
+  - le moteur simulé ignore toujours le filtre `position` seule ;
+  - F98 : troncature ou arrondi au plus proche, non tranché.
+
 **E52 · VALIDÉ en moteur réel · Fabrications en cours à travers l'agrandissement et le remplacement rapide (lot
 V3-T2, correcteur, 22/10, 18 h 46 à 18 h 59 ; rejoué sur `main` à 19 h 05)** :
 - Protocole : greffon `checks/levels_points.lua` du banc `content` (4 000 ticks, zone 4 : x 732 à 860, y 240 à 336),
@@ -514,7 +730,8 @@ V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée da
     tant qu'aucun journal réel ne les étalonne ;
   - la composition et le seuil devront être réétalonnés avec les sprites V3 (l'étape échouera alors, c'est voulu) ;
   - une archive sans `visual.log` (dossier d'un banc `content`, par exemple) n'est pas reconnue par le garde-fou ;
-  - l'atlas virtuel n'est toujours pas compté dans l'estimation de `vram.py` (tâche ouverte, OBJECTIFS §7).
+  - l'atlas virtuel n'est toujours pas compté dans l'estimation de `vram.py` (tâche ouverte, OBJECTIFS §7). **Fait
+    depuis** (lot R1, 22/10, E55).
 
 **E47 · VALIDÉ (hors jeu) · Règle des points de jeu dans le harness, moteur simulé à boîtes vanilla, attentes de
 `levels_test` tirées de `L.footprints` (suite des bancs hors jeu de V3-T, 22/10 ; bancs du constructeur finis à
@@ -538,7 +755,8 @@ V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée da
   - rotation vers l'est fausse : « Règles moteur : 1 violation(s) (dont 1 cas faux de l'auto-contrôle) », 10/11,
     code 1.
 - Moteur simulé (`tests/mock_engine.lua`) : `bounding_box` et recherche par zone sur la boîte du prototype (formats
-  runtime et étape data ; contact bord à bord exclu), `get_control_behavior` et `get_or_create_control_behavior`
+  runtime et étape data ; contact bord à bord exclu jusqu'au 22/10, puis compris : E53, observé en moteur réel),
+  `get_control_behavior` et `get_or_create_control_behavior`
   (foreuse), `get_recipe` et `set_recipe`, `destroy_decoratives` relevé.
 - Défaut MAJEUR de la revue, confirmé et corrigé : le constructeur appelait « fidèle » un modèle hybride. Les
   prototypes intégrés au moteur simulé (QG, mitrailleuse, foreuses, four, coffres, personnage) n'avaient pas de
@@ -562,7 +780,8 @@ V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée da
 - Attentes de `levels_test` et `migration_test` calculées depuis `L.footprints` (relevé à 24 niveaux, liste des
   niveaux qui changent, fours niveau 25, portée du laser), et `FO_DATA_DIR` accepté. `migration_test` : 50 → 55
   (constructeur), puis 60 (correction).
-  - Les 5 contrôles de la correction : boîte au format de l'étape data, contact bord à bord exclu, zone qui mord de
+  - Les 5 contrôles de la correction : boîte au format de l'étape data, contact bord à bord exclu (contrôle inversé
+    le 22/10 : le contact est compris, E53), zone qui mord de
     0,01, filtre `collision_mask`, boîtes intégrées gun-turret et QG égales au vanilla.
   - Le transfert de circuit règle aussi `connect_to_logistic_network = true` et une `logistic_condition` non par
     défaut.
@@ -581,7 +800,9 @@ V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée da
   `correcteur\NOTES.md`, journaux et outils). Aucun banc en moteur réel.
 - Limites (non prouvé) :
   - le contact bord à bord de `find_entities_filtered{area}` en moteur réel n'est pas observé. Le moteur simulé
-    l'exclut par choix, tenu par un contrôle ; ce n'est pas un fait ;
+    l'exclut par choix, tenu par un contrôle ; ce n'est pas un fait. **Levée le 22/10 (lot R1, E53)** : le moteur
+    réel REND le contact bord à bord (F96) ; le moteur simulé l'exclut jusqu'au 22/10, puis le comprend (intervalles
+    fermés) ;
   - le filtre `collision_mask` du moteur réel est lu dans la doc, non observé ;
   - la recherche non inversée ignore toujours `limit` ; `count_entities_filtered` n'est pas comparé au moteur
     réel ; `get_control_behavior` ne simule que la foreuse ;
@@ -917,6 +1138,9 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   | Normale | 0,67 Go | 0,61 Go | 0,40 à 0,45 Go | 1,95 Go |
   | Plancher (normale, mémoire faible, compression basse) | 0,42 Go | 0,39 Go | 0,20 à 0,31 Go | 2,05 Go |
 
+  Plancher : atlas estimés 0,20 à 0,31 Go hors atlas virtuel ; 0,28 à 0,53 Go en comptant ses pages (lot R1, 22/10,
+  E55).
+
 - UPS : 60,0 à 60,1 dans les 4 vues (zooms 0,3 et 0,5, jour et nuit). La plus chargée montre 2 588
   bâtiments à niveaux, 2 800 tapis et 2 598 bras en 1920×1080.
 - Images/s : non mesurées. Avec `--output-perf-stats`, le jeu n'a écrit aucun fichier. VSync est actif sur
@@ -1135,7 +1359,9 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
     19 h 05), Q-T3 est rattachée à Q-T2-1 : même nature, pour toutes les familles (18 machines sur 24 d'une usine
     dense restent hors grille, E50).
   - Non prouvé : rechargement d'une carte déjà migrée ; défense dense ; amélioration ultérieure d'une tourelle
-    laissée hors grille ; crochets `on_replaced` et chantiers 0.4.0 en moteur réel (liste complète : E46).
+    laissée hors grille ; crochets `on_replaced` et chantiers 0.4.0 en moteur réel (liste complète : E46). Depuis le
+    lot R1 (22/10, 20 h 11) : défense dense JOUÉE en moteur réel (E54 : 13 tourelles sur 21 laissées depuis 0.4.1, 5 sur
+    21 depuis 0.4.2, toutes en service) ; le reste toujours non prouvé.
   Énoncé et protocole d'origine (22/10, 14 h 56, alors OUVERTE ; lot V3-T, E44 ; nom repris du lot V3-T, H-T2
   n'est attribué à rien) : en moteur réel, une vraie sauvegarde 0.4.1 chargée avec la version 0.4.2 repose bien ses mitrailleuses de niveau 7 et plus à leur nouvelle emprise. Voie normale : la
   montée de version déclenche `on_configuration_changed`, puis `Levels.repair` et `Levels.migrate_footprints` ;

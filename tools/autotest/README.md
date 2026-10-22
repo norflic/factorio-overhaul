@@ -14,8 +14,8 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `compare_shots.py` | Comparaison pixel à pixel de deux séries de captures |
 | `analyze.py` | Analyse des performances d'un banc (`--spikes`) |
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
-| `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs |
-| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1) |
+| `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs ; (lot R1) `--tag FO-T2-DEFENSE` pour le banc `t2-defense` |
+| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1) ; (lot R1) `mut_vram.py`, banc de mutations de la règle de l'atlas virtuel de `vram.py` (§5.1) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
 
@@ -132,7 +132,30 @@ python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION "<racine>\fo-autot
 Attendu sur `main` (22/10, 19:05:48,49) : « [FO-T2-MIGRATION] BILAN : 64 OK, 0 ECHEC(S) » et « JOURNAL
 FO-T2-MIGRATION : 26 OK, 0 ECHEC(S) », code 0 ; ligne du mod « mise à jour des emprises : 21 bâtiment(s)
 reposé(s), 3 déjà en place, 19 laissé(s) faute de place ». `ht3-migration` donne 30 OK depuis 0.4.3 (le centre 15
-grandit lui aussi, compté « déjà en place ») et journal 7 OK.
+grandit lui aussi, compté « déjà en place ») et journal 7 OK. Rejoués sur `main` après le lot R1 (22/10, 20:11:28,04
+et 20:11:32,11) : mêmes chiffres.
+
+Troisième exemple (lot R1, RD_LOG E54) : scénario greffé `t2-defense`, migration d'une DÉFENSE DENSE. Une ligne de
+21 tourelles (11 mitrailleuses, 10 lasers) en trois tronçons (A compact, C haut niveau compact, B aéré) derrière un
+mur continu de niveau 7, un bras électrique par mitrailleuse sur un convoyeur de munitions par tronçon (tête regarnie
+par script pendant le benchmark), 24 poteaux moyens sur une interface électrique vanilla ; mitrailleuses vides à la
+création. Classement au tick 90, munitions au tick 170, trois vagues de 21 biters moyens (ticks 200, 380, 560),
+contrôles au tick 1 100. Double source SEULEMENT, création 0.4.1 ou 0.4.2 :
+
+```
+$env:FO_CREATE_SRC = "<racine>\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1"   # ou "<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2"
+& "<racine>\fo-autotest.bat" nopause 1200 t2-defense "<source 0.4.3>"
+$env:FO_CREATE_SRC = $null
+python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE "<racine>\fo-autotest"
+```
+
+Attendu sur `main` (22/10) :
+- création 0.4.1 (20:11:36,19) : « [FO-T2-DEFENSE] BILAN : 36 OK, 0 ECHEC(S) » et « JOURNAL FO-T2-DEFENSE : 19 OK,
+  0 ECHEC(S) », code 0 ; ligne du mod « 8 bâtiment(s) reposé(s), 0 déjà en place, 13 laissé(s) » ;
+- création 0.4.2 (20:11:40,52) : 36 OK et journal 11 OK, code 0 ; ligne du mod « 5, 0, 5 ».
+Images (création 0.4.1) : `fo-captures.bat t2-defense "<source>"` depuis PowerShell, avec la même variable ; 2 captures
+(`001-defense-ouest.png` : tronçons A et C ; `002-defense-est.png` : tronçon B). Exemple archivé :
+`<racine>\fo-logs\2026-10-22_R1\defense\captures-t2-defense-0.4.1\`.
 
 **Critère d'un passage : le BILAN du scénario sans échec ET le contrôle du journal à 0.** Le mod de test ne lit
 pas le journal du moteur ; le scénario y écrit ce qu'il DOIT contenir (lignes « JOURNAL ATTENDU ») et
@@ -284,8 +307,20 @@ Scénarios greffés des lots de niveaux :
   `ctx.state()`), et rejoue les refus au tick 1440 ; vérification au tick 1400, captures à partir du tick 1450.
   Dans le banc `content`, ces greffons n'agissent qu'aux ticks 1750 et 1760, après les captures de la galerie :
   ce scénario sert à photographier les machines APRÈS l'agrandissement et les contours de refus
-  (`& "<racine>\fo-captures.bat" t2-machines "<source>"`). Attendu sur `main` (22/10, 19:05:44,44) : « [FO-T2-MACHINES]
-  BILAN : 80 OK, 0 ECHEC(S) ».
+  (`& "<racine>\fo-captures.bat" t2-machines "<source>"`). Attendu sur `main` (22/10, 19:05:44,44 ; 20:11:19,61 après le
+  lot R1) : « [FO-T2-MACHINES] BILAN : 80 OK, 0 ECHEC(S) » ;
+- `t2-defense` (lot R1, 1 200 ticks) : migration d'une défense dense, en double source seulement (§1.1, troisième
+  exemple) ; journal : `ht3_journal.py --tag FO-T2-DEFENSE` ;
+- `bord-a-bord` (lot R1, 60 ticks ; cas joués au tick 5, contrôles au tick 30) : contact EXACT entre une zone de
+  recherche et la boîte de collision d'une entité, en moteur réel (RD_LOG E53, F96 à F98). Trois entités en force
+  neutre (mur de pierre ± 0,29, mitrailleuse vanilla ± 0,7, laser 7 du mod ± 1,2), zones bâties sur la boîte RENDUE
+  (`bounding_box`) ; 45 cas (4 bords, 2 coins, zones nulles, chevauchement et écart de 1/256, rayons), chacun joué
+  avec `find_entities_filtered` et `count_entities_filtered` et comparé à la règle du moteur simulé (`STRICT = false` :
+  intervalles fermés, comme `tests/mock_engine.lua` depuis le 22/10). Un écart est un ECHEC : aligner le moteur
+  simulé, puis rejouer tous les bancs hors jeu. `position` seule est journalisée, pas comparée. Sans double source :
+  `& "<racine>\fo-autotest.bat" nopause 60 bord-a-bord "<source>"`. Attendu sur `main` (22/10, 20:11:23,82) :
+  « [FO-BORD-A-BORD] BILAN : 12 OK, 0 ECHEC(S) ». Premier passage avant l'alignement (19:48) : 11 OK, 1 ECHEC,
+  21 écarts sur 45 cas.
 
 ### 4.2 Contrôles greffés au banc `content` : `fo-autotest/checks/<nom>.lua`
 
@@ -436,7 +471,9 @@ les fixtures synthétiques (`make_fixtures.py`), les unitaires de `vram.py` (`un
 sur une racine factice avec un faux jeu (`driver_it.py`, `fake_game.py`) et, avec `--logs`, `vram.py` sur chaque
 journal archivé. Attendu le 21/10 : **5/5 étapes** (essai à blanc 11 OK, BILAN du greffon 16 OK ; unitaires 51 OK ;
 intégration 17 OK ; 8 journaux ; 57 unitaires et 13 journaux depuis le 22/10, voir ci-dessous). Ne lance
-pas Factorio et n'écrit rien dans la racine du jeu.
+pas Factorio et n'écrit rien dans la racine du jeu. **À lancer depuis Git Bash** : l'essai à blanc appelle `lua5.2`,
+qui n'est pas dans le PATH de PowerShell ; sous PowerShell, le banc donne 2/5 (code 127 de l'appel ; constaté le 22/10
+par la suite « défense dense » du lot R1).
 
 **Étape 5 : atlas attendus selon les réglages du journal** (corrigée le 22/10 ; avant, elle exigeait 15 atlas
 partout et refusait les journaux D4m 3 à 5). Le nombre d'atlas dépend de ce que le journal déclare sur sa ligne
@@ -469,7 +506,8 @@ entrée après avoir lu un journal réel, on n'en élargit jamais une. Attendu l
 (unitaires de `vram.py` : 99 OK depuis la suite « vram », 57 avant, dont 6 sur les lignes du moteur et l'atlas
 virtuel ; la suite en ajoute 42 sur le comptage de l'atlas virtuel).
 
-**Atlas virtuel dans l'estimation** (suite « vram », 22/10 ; règle complète en tête de `vram.py`). Au plancher
+**Atlas virtuel dans l'estimation** (suite « vram » du lot R1, 22/10, RD_LOG E55, F81 et F102 ; règle complète en tête
+de `vram.py`). Au plancher
 (« Video memory usage: low », « Tex.Stream.: 1 »), le journal prouve deux choses : la création de N pages de L×H pixels
 (« Created virtual atlas pages 4096x4096x9 », 151,0 Mpx) et des mipmaps pour un atlas virtuel de 16384×12288
 (201,3 Mpx, sans nombre de niveaux). Il ne dit ni où vivent les pages, ni leur format (clé `compress-virtual-atlas`
@@ -492,15 +530,17 @@ qualité, 0,40 à 0,45 Go en normale) ; plancher (`2026-10-22_D4m_5-plancher-mes
 (0,20 + 0,60 = 0,81 Go) dépasse le pic dédié + partagé (0,52 Go) : exclue par la mesure, si les pages sont allouées
 en entier. L'estimation haute (0,53 Go) dépasse la mesure : elle surestime cette session.
 
-`python -B tools/autotest/tests/mut_vram.py [--work DOSSIER]` vérifie la règle par mutation (hors jeu, environ 30 s) :
+`python -B tools/autotest/tests/mut_vram.py [--work DOSSIER]` vérifie la règle par mutation (hors jeu, environ 10 s,
+7 s sur `main` le 22/10 ; `lua5.2` du PATH par défaut : lancer depuis Git Bash, ou passer `--lua <chemin complet de
+lua5.2.exe>` sous PowerShell) :
 il copie TOUS les modules `.py` de `tools/autotest` dans un dossier jetable, joue d'abord un **témoin nul** (copie
 intacte) qui doit survivre, puis 18 mutants de `vram.py` (pages hors du total, mipmaps au quart, pages non
 compressées, ancrages des lignes du moteur retirés, verdict D4-1 sur les atlas seuls, etc.) que `unit_vram.py` doit
 tous faire échouer. Il distingue un mutant refusé par un contrôle d'un mutant qui fait planter les unitaires, et
 échoue si un motif n'est plus trouvé. Attendu le 22/10 : « témoin nul survivant ; 18/18 mutants détectés (18 par un
-contrôle, 0 par un plantage) », code 0. Le premier banc de mutations du constructeur (archivé dans
-`fo-logs\2026-10-22_R1\vram\`) ne copiait pas `gallery.py` : toutes ses copies plantaient, et son « 14/14 » ne
-prouvait rien (13/14 en réalité).
+contrôle, 0 par un plantage) », code 0 (rejoué sur `main` le 22/10 vers 20 h 15 : même résultat). Le premier banc de
+mutations du constructeur (archivé dans `fo-logs\2026-10-22_R1\vram\`) ne copiait pas `gallery.py` : toutes ses copies
+plantaient, et son « 14/14 » ne prouvait rien (13/14 en réalité, RD_LOG E55).
 
 `python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable>` vérifie l'étape par
 mutation. Les témoins doivent passer : 4 copies intactes, plus 3 copies porteuses d'une variation sans effet (la
