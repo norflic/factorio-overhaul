@@ -50,7 +50,7 @@ def row_board(data, refs, pose, piece=False, title="", paths=(), night_path=None
         ents.append({"pos": (x, yf), "layers": ent(e, pose, piece),
                      "lab": ["époque %d" % e, NAME[e], "%d×%d · niveau %d" % (side, side, lvl)], "side": side})
         x += side / 2.0 + gap
-    W, H = x + 0.5, yf + 4.6
+    W, H = x + 0.5, yf + 5.4
     day, night = PL.compose(data, ents, W, H)
     labels = [(((e["pos"][0] - e["side"] / 2.0) * 64, (e["pos"][1] + e["side"] / 2.0 + 0.35) * 64), e["lab"])
               for e in ents]
