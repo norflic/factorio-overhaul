@@ -60,7 +60,8 @@ Mesures (laser-mesures-d1.txt, aperçus de la correction V3, 22/10 vers 4 h 40) 
   Niveau 29 : 0,309 / 0,363 / 0,472.
 - IoU entre époques (niveaux impairs) <= 0,815 ; époques 8 / 9 : 0,755 (0,847 en passe 5).
 - Lueur de jour : dans CHAQUE pose, une zone d'au moins 8 × 8 px hr entièrement couverte, sauf au niveau 21
-  (7 px dans la pose N). Halo de nuit : rayon à mi-intensité = S(N)/2 à tous les niveaux, aire croissante.
+  (7 px dans les poses N, E et O : socle 7, têtes 3 à 6 ; correctif
+  connu, non rendu : cœur du nœud du tripode 0,085 -> 0,10). Halo de nuit : rayon à mi-intensité = S(N)/2 à tous les niveaux, aire croissante.
 - Événements de silhouette (comptage proposé, non étalonné, vanilla = 6) : ils ne suivent PAS la progression de la
   bible (1-2, 2-3, 3-4, 4-5, 5-6 par ère).
 
