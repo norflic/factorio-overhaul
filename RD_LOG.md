@@ -207,6 +207,27 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
   l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
 
+**E40 · VALIDÉ · Mémoire vidéo et usine géante en moteur réel (lot D4m, 22/10, 2 h 50 à 3 h)** :
+- Protocole : greffon `d4-geant` (6 672 bâtiments à niveaux, 7 072 tapis, 6 088 bras sur 288 × 188 tuiles).
+  Sur chaque passage, deux mesures :
+  - compteurs GPU de Windows, sur le seul processus de test ;
+  - UPS par phase de vue.
+- Résultats (sprites actuels, avant V3) :
+
+  | Passage | Mémoire dédiée, pic | Mémoire dédiée, moyenne | Atlas estimés | Mémoire vive privée, pic |
+  |---|---|---|---|---|
+  | Haute qualité | 1,59 à 1,70 Go | 1,47 Go | 1,10 à 1,25 Go | 3,7 à 3,9 Go |
+  | Normale | 0,67 Go | 0,61 Go | 0,40 à 0,45 Go | 1,95 Go |
+  | Plancher (normale, mémoire faible, compression basse) | 0,42 Go | 0,39 Go | 0,20 à 0,31 Go | 2,05 Go |
+
+- UPS : 60,0 à 60,1 dans les 4 vues (zooms 0,3 et 0,5, jour et nuit). La plus chargée montre 2 588
+  bâtiments à niveaux, 2 800 tapis et 2 598 bras en 1920×1080.
+- Images/s : non mesurées. Avec `--output-perf-stats`, le jeu n'a écrit aucun fichier. VSync est actif sur
+  un écran à 144 Hz.
+- Chargement avec le cache d'atlas : sprites chargés en 3,3 à 4,5 s.
+- La carte occupe 4,3 Go au total, tous programmes confondus.
+- Journaux : `<racine>o-logs6-10-22_D4m_*`.
+
 **E39 · VALIDÉ (technique) · Pipeline de rendu corrigé, en moteur réel (lot V0b, 22/10, 2 h 40)** :
 - Mesures sur les captures en jeu, z2 de jour, corps hors lueur :
 

@@ -354,7 +354,16 @@
      Windows) et les images par seconde sur ce PC : 60 images/s visées.
   3. Le chargement du jeu ne s'allonge pas de plus de 30 s (mesuré au banc).
   4. Le temps de rendu hors jeu reste raisonnable : chiffré par famille.
-- **État** : ❌ non mesuré en jeu.
+- **État** : 🟨 **mesuré en moteur réel le 22/10 à 3 h** (E40), avec les sprites ACTUELS (avant V3) :
+  - D4-1 ✅ provisoire : mémoire vidéo DÉDIÉE mesurée sur le processus de test, haute qualité, pic 1,59 à
+    1,70 Go (atlas estimés de 1,10 à 1,25 Go). Le plafond est de 6 Go.
+  - D4-2 : qualité normale 0,67 Go ; plancher (normale, mémoire faible, compression basse) 0,42 Go. Les
+    sprites basse qualité RENDUS de V3 restent à produire et à juger.
+  - D4-5 🟨 : 60 UPS dans toutes les vues de l'usine géante. La plus chargée montre 2 588 bâtiments à
+    niveaux, 2 800 tapis et 2 598 bras, au zoom 0,3 en 1920×1080. Les images par seconde ne sont PAS
+    mesurées : le jeu n'a pas écrit son fichier de statistiques de rendu.
+  - Mémoire vive du jeu : pic 3,9 Go en haute qualité, 2,0 Go en normale.
+  - **À remesurer quand les sprites V3 seront en jeu.**
   - Première estimation, tirée des journaux de chargement (F66) : les atlas du jeu actuel (vanilla + mod,
     haute qualité) font environ 1,1 Go avec la compression DXT active par défaut, 4,25 Go sans
     compression, pour 16 Go sur ce PC.
@@ -668,7 +677,7 @@ apport.md | 21/10, 19 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ✅ intégré et prouvé en moteur réel ; 2 écarts connus soumis à vous (Q-V2c-1 : part du centre aux époques 5 à 14 ; Q-V2c-2 : centre 15 atteignable en 3 h 27 par le chemin le plus court) | Hors jeu : levels 1 459 OK + 11 écarts connus, migration 29. **Moteur réel** : `content` **212 OK, 0 échec** (22/10, 2 h 43 ; fluid-handling 50 → 2, oil-processing 100 → 4, 170 technologies allégées) | 22/10, 2 h 45 |
 | IA1 Conception des équipes de PNJ organisées (C5) | ✅ conception intégrée ; 👁 7 questions à vous poser | 3 concepteurs, 2 juges, 2 critiques (10 majeurs et 14 mineurs corrigés) ; org_test 362 OK ; aucun comportement en jeu | 22/10, 1 h 15 |
-| D4m Banc mémoire vidéo et usine géante (D4) | 🟨 intégré (22/10, 1 h) ; hors jeu 5/5 (vram.py sur 8 journaux : 15 atlas, 1,10 à 1,25 Go estimés ; greffon d4-geant : jusqu'à 2 588 bâtiments à niveaux dans le champ z0,3) ; mesures en moteur réel après V0b | — | 22/10, 1 h |
+| D4m Banc mémoire vidéo et usine géante (D4) | ✅ banc intégré et passé en moteur réel (5 passages, code 0, BILAN 16 OK chacun) | Mémoire vidéo dédiée mesurée : 1,59 à 1,70 Go (haute), 0,67 Go (normale), 0,42 Go (plancher) ; 60 UPS avec 2 588 bâtiments à niveaux à l'écran ; images/s non mesurées ; journaux fo-logs6-10-22_D4m_* ; à refaire avec les sprites V3 | 22/10, 3 h |
 
 **Écarts trouvés pendant P0** (corrigés, et notés parce qu'ils faussaient des preuves)
 - Sous Windows, le banc de l'étape data annonçait 1 736 clés de traduction manquantes : il listait les
