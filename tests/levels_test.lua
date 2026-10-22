@@ -10,6 +10,22 @@
 package.path = "./?.lua;" .. package.path
 local L = require("shared.levels.config")
 
+--- Dossier `data` du jeu pour le banc de l'étape data : la variable d'environnement FO_DATA_DIR (copie jetable du
+--- mod hors de l'arborescence du jeu, suite d'intégration de V3-T), sinon relatif à la racine du mod (dépôt
+--- principal : ../../data ; worktree d'agent : ../../../../../data). nil si introuvable. Fonction GLOBALE du banc :
+--- le bloc principal de ce fichier est à la limite de 200 variables locales de Lua 5.2.
+function game_data_dir()
+  local cands = {}
+  if os.getenv("FO_DATA_DIR") then cands[#cands + 1] = os.getenv("FO_DATA_DIR") end
+  cands[#cands + 1] = "../../data"
+  cands[#cands + 1] = "../../../../../data"
+  for _, d in ipairs(cands) do
+    local fh = io.open(d .. "/base/prototypes/technology.lua", "rb")
+    if fh then fh:close(); return d end
+  end
+  return nil
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Valeurs vanilla du niveau 1 (relevées par tests/datastage/harness.lua --dump-proto ; le centre de
 -- commandement est un prototype du mod : 3 000 PV, 48 cases).
@@ -1502,9 +1518,8 @@ for _, f in ipairs(L.families) do
   end
 end
 local s = game.surfaces[1]
--- Lot V3-T : le moteur simulé ne connaît pas les décors (retirés sous un bâtiment agrandi) ; posé dès ici pour
--- que l'activation d'une autre famille dans L.footprints ne casse pas les sections d'avant V3-T.
-s.destroy_decoratives = function(t) assert(t.area and t.area[1] and t.area[2], "destroy_decoratives : zone attendue") end
+-- Décors retirés sous un bâtiment agrandi : surface.destroy_decoratives du moteur simulé (tests/mock_engine.lua,
+-- suite d'intégration de V3-T ; la doublure locale posée ici par le lot V3-T est retirée).
 local ev = Wd.events
 local function built(e) ev[defines.events.on_built_entity]({ created_entity = e, player_index = 1, tick = game.tick }) end
 local Levels = require("script.levels.levels")
@@ -2029,7 +2044,16 @@ check(ok_cfg, "on_configuration_changed sans erreur (" .. tostring(err_cfg) .. "
 lv = global.fo.levels
 local up, active_all, ore_ok = 0, true, true
 for i = 1, 5 do
-  local fu = s.find_entity(L.name(L.by_key.furnace, 25), { x = 10 * i, y = 280 })
+  -- Position attendue calculée depuis la TABLE L.footprints (suite d'intégration de V3-T) : même place si les
+  -- niveaux 24 et 25 ont la même emprise (table livrée : four 2×2), sinon la candidate préférée de la règle
+  -- d'agrandissement (shared/levels/footprint.lua ; la zone est libre).
+  local at = { x = 10 * i, y = 280 }
+  if L.footprint(L.by_key.furnace, 24) ~= L.footprint(L.by_key.furnace, 25) then
+    at = require("shared.levels.footprint").candidates(require("shared.levels.footprint").tile_box(at,
+      L.footprint(L.by_key.furnace, 24)), L.footprint(L.by_key.furnace, 25))[1]
+  end
+  local fu = s.find_entity(L.name(L.by_key.furnace, 25), { x = at.x, y = at.y })
+  if fu and (fu.position.x ~= at.x or fu.position.y ~= at.y) then fu = nil end
   if fu then
     up = up + 1
     if fu.active == false then active_all = false end
@@ -2078,7 +2102,8 @@ section("Recherche vanilla allégée (QX9) : data-final-fixes.lua sur les techno
 -- portée de variables locales propre (limite de 200 locales du bloc principal).
 ;(function()
 local vanilla
-for _, p in ipairs({ "../../data/base/prototypes/technology.lua", "../../../../../data/base/prototypes/technology.lua" }) do
+local tech_dir = game_data_dir()
+for _, p in ipairs(tech_dir and { tech_dir .. "/base/prototypes/technology.lua" } or {}) do
   if not vanilla then
     local fh = io.open(p, "rb")
     if fh then
@@ -2196,15 +2221,11 @@ end
 -- à 50 unités en jeu) : le banc de l'étape data (tests/datastage/harness.lua) rejoue core, base, le mod,
 -- data-updates (barils générés) et data-final-fixes. Attendus : fluid-handling à 2 unités, et la ligne
 -- [FO-LEVELS] du journal (celle que le moteur réel écrit aussi) à 170 technologies.
-local data_dir
-for _, d in ipairs({ "../../data", "../../../../../data" }) do
-  local fh = io.open(d .. "/base/prototypes/technology.lua", "rb")
-  if fh and not data_dir then fh:close(); data_dir = d elseif fh then fh:close() end
-end
+local data_dir = game_data_dir()
 check(data_dir ~= nil, "données du jeu trouvées pour le banc de l'étape data (" .. tostring(data_dir) .. ")")
 if data_dir then
   local lua = (arg and arg[-1]) or "lua5.2"
-  local cmd = lua .. " tests/datastage/harness.lua " .. data_dir .. " . --verbose --dump-final technology/fluid-handling 2>&1"
+  local cmd = lua .. ' tests/datastage/harness.lua "' .. data_dir .. '" . --verbose --dump-final technology/fluid-handling 2>&1'
   local ph = io.popen(cmd, "r")
   local out = ph and ph:read("*a") or ""
   local closed_ok = ph and ph:close()
@@ -2258,11 +2279,12 @@ do
   -- gen : l'étape data aussi (Common.generate s'arrête sur la garde AVANT de toucher à data.raw ; appelée
   -- seulement avec une table fautive).
   local function errs_with(key, row, gen)
+    local before = L.footprints[key]  -- remise ensuite telle quelle (suite d'intégration de V3-T : jamais nil d'office)
     L.footprints[key] = row
     local e = L.footprint_errors()
     local okg, errg
     if gen then okg, errg = pcall(Common0.generate) end
-    L.footprints[key] = nil
+    L.footprints[key] = before
     return table.concat(e, " | "), okg, tostring(errg)
   end
   local e1, ok1, g1 = errs_with("furnace", { era = { 3, 4, 5, 6, 6 } }, true)
@@ -2285,28 +2307,53 @@ check(L.era_of(GUN, 6) == 1 and L.era_of(GUN, 7) == 2 and L.era_of(GUN, 30) == 5
 -- Activer une autre famille = remplir la table (forme par ère ou niveau par niveau), rien d'autre.
 do
   local LZ = L.by_key.laser
+  local before, side30 = L.footprints.laser, L.footprint(LZ, 30)
   L.footprints.laser = { era = { 2, 3, 4, 5, 6 } }
   local era_ok = L.footprint(LZ, 6) == 2 and L.footprint(LZ, 7) == 3 and L.footprint(LZ, 30) == 6 and L.range_bonus(LZ, 30) == 2
   local lv = {}
   for n = 1, 30 do lv[n] = n < 16 and 2 or 4 end
   L.footprints.laser = { level = lv }
   local lvl_ok = L.footprint(LZ, 15) == 2 and L.footprint(LZ, 16) == 4
-  L.footprints.laser = nil
-  check(era_ok and lvl_ok and L.footprint(LZ, 30) == 2, "table : une famille s'active par sa seule ligne (forme par ère ou par niveau), puis se désactive")
+  L.footprints.laser = before
+  check(era_ok and lvl_ok and L.footprints.laser == before and L.footprint(LZ, 30) == side30,
+    "table : une famille s'active par sa seule ligne (forme par ère ou par niveau), puis la table revient à son état d'avant")
 end
+-- Suite d'intégration de V3-T : attentes CALCULÉES depuis la table L.footprints (activer une famille = sa seule
+-- ligne, Q-S1 ; le relevé à 24 niveaux de la table livrée n'est plus écrit en dur).
 local legacy, current = L.footprint_snapshot(true), L.footprint_snapshot()
-check(legacy.gun[30] == 2 and current.gun[30] == 6 and current.command[15] == 4 and #current.gun == 30 and #current.command == 15,
-  "relevé des emprises : actuel (mitrailleuse 30 : 6) et d'avant V3-T (toutes au côté de base)")
+local snap_ok, want_ch = true, {}
+for _, f in ipairs(L.families) do
+  if #current[f.key] ~= f.max or #legacy[f.key] ~= f.max then snap_ok = false end
+  for n = 1, f.max do
+    if legacy[f.key][n] ~= f.size or current[f.key][n] ~= L.footprint(f, n) then snap_ok = false end
+    if L.footprint(f, n) ~= f.size then want_ch[#want_ch + 1] = { key = f.key, level = n, from = f.size, to = L.footprint(f, n) } end
+  end
+end
+check(snap_ok and legacy.gun[30] == 2 and current.gun[30] == L.footprint(GUN, 30) and #current.gun == 30 and #current.command == 15,
+  "relevé des emprises : actuel (mitrailleuse 30 : " .. current.gun[30] .. ", centre 15 : " .. current.command[15]
+  .. ", tous les niveaux = L.footprint) et d'avant V3-T (toutes au côté de base)")
 local keys = {}
 for _, f in ipairs(L.families) do keys[#keys + 1] = f.key end
 local ch = Foot.diff(nil, current, keys, function(k) return L.by_key[k].size end)
-check(#ch == 24 and ch[1].key == "gun" and ch[1].level == 7 and ch[1].from == 2 and ch[1].to == 3
-  and ch[24].level == 30 and ch[24].to == 6, "migration : 24 niveaux changent depuis une sauvegarde d'avant V3-T (mitrailleuse 7 à 30)")
+local ch_ok = #ch == #want_ch and #ch > 0
+for i, w in ipairs(want_ch) do
+  local c = ch[i]
+  if not (c and c.key == w.key and c.level == w.level and c.from == w.from and c.to == w.to) then ch_ok = false end
+end
+local fams_ch = {}
+for _, c in ipairs(ch) do if fams_ch[#fams_ch] ~= c.key then fams_ch[#fams_ch + 1] = c.key end end
+local first_gun
+for _, c in ipairs(ch) do if c.key == "gun" and not first_gun then first_gun = c end end
+check(ch_ok and first_gun and first_gun.level == 7 and first_gun.from == 2 and first_gun.to == 3,
+  "migration : " .. #ch .. " niveaux changent depuis une sauvegarde d'avant V3-T (familles " .. table.concat(fams_ch, ", ")
+  .. " ; dans l'ordre des familles puis des niveaux ; mitrailleuse d'abord au niveau 7 : 2 → 3)")
 check(#Foot.diff(current, current, keys, function() return 0 end) == 0, "migration : rien à faire quand le relevé est à jour")
 -- Portée : la moitié de la croissance (portée au-delà du bord inchangée).
 check(L.range_bonus(GUN, 6) == 0 and L.range_bonus(GUN, 7) == 0.5 and L.range_bonus(GUN, 30) == 2
-  and L.range_bonus(L.by_key.wall, 30) == 0 and L.range_bonus(L.by_key.laser, 30) == 0,
-  "portée : + (côté − 2) / 2 pour la mitrailleuse agrandie (7 : + 0,5 ; 30 : + 2), 0 ailleurs")
+  and L.range_bonus(L.by_key.wall, 30) == 0
+  and L.range_bonus(L.by_key.laser, 30) == (L.footprint(L.by_key.laser, 30) - L.footprint(L.by_key.laser, 1)) / 2,
+  "portée : + (côté − 2) / 2 pour la mitrailleuse agrandie (7 : + 0,5 ; 30 : + 2), 0 pour le mur ; laser 30 : + "
+  .. L.range_bonus(L.by_key.laser, 30) .. " (selon sa ligne de la table)")
 
 -- 2. Boîtes au style vanilla (relevées par harness --dump-proto : mitrailleuse, machine 2, roboport).
 local function same_box(b, x) return math.abs(b[1][1] + x) < 1e-9 and math.abs(b[1][2] + x) < 1e-9 and math.abs(b[2][1] - x) < 1e-9 and math.abs(b[2][2] - x) < 1e-9 end
@@ -2425,6 +2472,7 @@ do
     for _, fb in ipairs(fbs) do for _, pc in ipairs(fb.pipe_connections) do t[#t + 1] = pt(pc.position) end end
     return table.concat(t, " ")
   end
+  local before_dr, before_as = L.footprints.drill, L.footprints.assembler
   L.footprints.drill = { era = { 3, 4, 5, 6, 6 } }
   L.footprints.assembler = { era = { 3, 4, 5, 6, 6 } }
   local d25, d13, d7, d1 = vanilla_drill(), vanilla_drill(), vanilla_drill(), vanilla_drill()
@@ -2439,7 +2487,7 @@ do
   local probs_bad = Common.footprint_problems(unmoved, 6)
   local a_bad = vanilla_assembler()
   local probs_abad = Common.footprint_problems(a_bad, 6)
-  L.footprints.drill, L.footprints.assembler = nil, nil
+  L.footprints.drill, L.footprints.assembler = before_dr, before_as
   check(same_box(d25.collision_box, 2.7) and pt(d25.vector_to_place_result) == "-0.5,-3.35"
     and math.abs(d25.resource_searching_radius - 3.99) < 1e-9 and pipes({ d25.input_fluid_box }) == "-3.5,-0.5 3.5,-0.5 -0.5,3.5",
     "activation foreuse 6×6 : dépôt " .. pt(d25.vector_to_place_result) .. " (0,35 au-delà du bord nord, comme la 3×3), extraction 8×8 (rayon "
@@ -2482,14 +2530,10 @@ check(math.abs(fp.attack_parameters.projectile_creation_distance - 4.18125) < 1e
 table.deepcopy = saved_deep
 
 -- Étape data RÉELLE (harness) : la mitrailleuse 25 telle que le mod la livre.
-local data_dir
-for _, d in ipairs({ "../../data", "../../../../../data" }) do
-  local fh = io.open(d .. "/base/prototypes/technology.lua", "rb")
-  if fh and not data_dir then fh:close(); data_dir = d elseif fh then fh:close() end
-end
+local data_dir = game_data_dir()
 if data_dir then
   local lua = (arg and arg[-1]) or "lua5.2"
-  local ph = io.popen(lua .. " tests/datastage/harness.lua " .. data_dir .. " . --dump-final ammo-turret/fo-lvl-gun-25 2>&1", "r")
+  local ph = io.popen(lua .. ' tests/datastage/harness.lua "' .. data_dir .. '" . --dump-final ammo-turret/fo-lvl-gun-25 2>&1', "r")
   local out = ph and ph:read("*a") or ""
   if ph then ph:close() end
   local col = out:match("\n  collision_box = (%b{})")
@@ -2504,7 +2548,8 @@ else
 end
 
 -- 7. Runtime en moteur simulé. Enveloppes du moteur simulé (il ne lit pas l'étape data) : prototypes avec
--- masque et boîte, bounding_box d'après la boîte du prototype, décors, rendu capturé, tuiles d'eau.
+-- masque et boîte, rendu capturé, tuiles d'eau (bounding_box, recherche par zone et décors : moteur simulé lui-même
+-- depuis la suite d'intégration de V3-T).
 local MASK = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"] = true, ["item-layer"] = true }
 for n = 1, 30 do
   local p = Wd.prototypes[L.name(GUN, n)]
@@ -2530,21 +2575,8 @@ proto("fo-test-ore", "resource", 0.49, { ["resource-layer"] = true })
 proto("fo-test-ghost", "entity-ghost", 0.49, { ["ghost-layer"] = true })
 proto("fo-test-tile-ghost", "tile-ghost", 0.5, { ["ghost-layer"] = true })
 proto("fo-test-floor-thing", "simple-entity", 0.4, { ["floor-layer"] = true })  -- aucune couche commune avec la tourelle
-local probe = s.create_entity({ name = "stone-wall", position = { x = -500.5, y = -500.5 }, force = "player" })
-local EMT = getmetatable(probe)
-local base_index = EMT.__index
-EMT.__index = function(t, k)
-  if k == "bounding_box" then
-    local cb = Wd.prototype(rawget(t, "name")).collision_box
-    if cb then
-      return { left_top = { x = t._x + cb.left_top.x, y = t._y + cb.left_top.y },
-               right_bottom = { x = t._x + cb.right_bottom.x, y = t._y + cb.right_bottom.y } }
-    end
-  end
-  return base_index(t, k)
-end
-probe.destroy()
-s.destroy_decoratives = function(t) assert(t.area and t.area[1] and t.area[2], "destroy_decoratives : zone attendue") end
+-- bounding_box d'après la boîte du prototype, recherche par zone par boîte et décors : moteur simulé
+-- (tests/mock_engine.lua, suite d'intégration de V3-T ; l'enveloppe locale posée ici par le lot V3-T est retirée).
 local WATER = {}
 Wd.tile_at = function(x, y) return WATER[x .. "," .. y] or "grass-1" end
 local drawn = {}

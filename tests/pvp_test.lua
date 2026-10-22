@@ -802,8 +802,12 @@ local OUTPOST = { x = -96, y = 96 }
 -- fin d'une mesure : chaque attaque du moteur simulé y détruit une installation).
 local TURRET_DX = { 0, -3, 3, -6, 6, -9, 9 }
 local function new_world(level, extra)
+  -- legacy_boxes : ancien modèle des boîtes du moteur simulé (toute entité 1×1, zone sur la position), celui des
+  -- mesures IA0b. Avec les boîtes du prototype (suite d'intégration de V3-T, tests/mock_engine.lua), les mesures par
+  -- niveau donnent une taille moyenne Normal 18,2 > Difficile 18,0 : l'ordre strict ne tient qu'à quelques
+  -- dixièmes de soldat (question ouverte pour le lot IA0b, non tranchée ici).
   local o = { patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = level, groups_hit_player = true,
-    turrets_kill = true }
+    turrets_kill = true, legacy_boxes = true }
   local turrets, machines = 1, 0
   for k, v in pairs(extra or {}) do
     if k == "turrets" then turrets = v elseif k == "machines" then machines = v else o[k] = v end

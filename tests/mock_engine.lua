@@ -5,6 +5,10 @@
   directions, persistance ou non de walking_state (H1), forces et relations, entités (inventaires de
   tourelle, commandes d'unités, mort/destruction), groupes d'unités avec combats abstraits, gisements,
   tuiles, rendu, fichiers, sauvegarde/rechargement (les tables locales sont perdues, `global` conservé).
+  Suite d'intégration du lot V3-T : la boîte d'une entité (bounding_box) et la recherche par zone
+  (find_entities_filtered et count_entities_filtered avec `area`) suivent la BOÎTE DE COLLISION du prototype,
+  comme le moteur ; comportement de circuit (get_control_behavior, get_or_create_control_behavior), recette
+  d'une machine (get_recipe, set_recipe) et retrait des décors (surface.destroy_decoratives, appels relevés).
 
   Il ne simule PAS le vrai moteur : il valide la logique Lua, la sérialisabilité, le déterminisme.
   Toute API appelée par le mod et absente d'ici provoque une erreur explicite (tables strictes).
@@ -166,12 +170,94 @@ local function recipe(name)
   return W.recipes[name]
 end
 
+--- Boîte de collision d'un prototype, relative à la position : { x0, y0, x1, y1 }. Formats acceptés : celui du
+--- runtime ({ left_top = {x, y}, right_bottom = {x, y} }) et celui de l'étape data ({ {x, y}, {x, y} }).
+--- Prototype sans boîte : 1×1 (± 0,5), la boîte de toute entité simulée avant la suite d'intégration de V3-T.
+--- Monde créé avec legacy_boxes = true (ancien modèle, gardé pour tests/pvp_test.lua) : 1×1 pour toute entité.
+local function collision_of(name)
+  local cb = (not W.legacy_boxes) and W.prototype(name).collision_box
+  if type(cb) == "table" then
+    local lt, rb = cb.left_top or cb[1], cb.right_bottom or cb[2]
+    if lt and rb then
+      return { x0 = lt.x or lt[1], y0 = lt.y or lt[2], x1 = rb.x or rb[1], y1 = rb.y or rb[2] }
+    end
+  end
+  return { x0 = -0.5, y0 = -0.5, x1 = 0.5, y1 = 0.5 }
+end
+M.collision_of = collision_of
+
+--- La boîte de collision de l'entité e touche-t-elle la zone `area` ({ {x0, y0}, {x1, y1} } ou left_top /
+--- right_bottom) ? Contact bord à bord exclu (doc 1.1.91 de find_entities_filtered : « entities colliding with
+--- that area »). Monde à legacy_boxes = true : ancien modèle, la seule POSITION dans la zone (bords compris).
+local function touches_area(e, area)
+  local lt, rb = area.left_top or area[1], area.right_bottom or area[2]
+  local ax0, ay0, ax1, ay1 = lt.x or lt[1], lt.y or lt[2], rb.x or rb[1], rb.y or rb[2]
+  if W.legacy_boxes then return e._x >= ax0 and e._x <= ax1 and e._y >= ay0 and e._y <= ay1 end
+  local b = collision_of(e.name)
+  return e._x + b.x0 < ax1 and ax0 < e._x + b.x1 and e._y + b.y0 < ay1 and ay0 < e._y + b.y1
+end
+
+local CRAFTERS = { ["assembling-machine"] = true, furnace = true, ["rocket-silo"] = true }
+
+-- Champs de LuaMiningDrillControlBehavior (1.1.91) : lire ou écrire un autre champ est une erreur (table stricte).
+local DRILL_CB = { circuit_enable_disable = true, connect_to_logistic_network = true, circuit_read_resources = true,
+  resource_read_mode = true, circuit_condition = true, logistic_condition = true }
+
+--- Comportement de circuit (LuaControlBehavior) d'une entité. Le moteur n'en a pas tant qu'aucun fil ni réglage
+--- ne l'a créé (get_control_behavior rend nil) ; get_or_create_control_behavior le crée. Foreuse : les champs de
+--- LuaMiningDrillControlBehavior, aux valeurs par défaut (faux, mode 0, conditions « < 0 ») ; autres types :
+--- table libre.
+local function new_control_behavior(e)
+  local cb = { valid = true, type = e.type }
+  if e.type ~= "mining-drill" then return cb end
+  local v = { circuit_enable_disable = false, connect_to_logistic_network = false, circuit_read_resources = false,
+    resource_read_mode = 0, circuit_condition = { condition = { comparator = "<", constant = 0 } },
+    logistic_condition = { condition = { comparator = "<", constant = 0 } } }
+  return setmetatable(cb, {
+    __index = function(_, k)
+      if not DRILL_CB[k] then error("LuaMiningDrillControlBehavior : champ inconnu " .. tostring(k), 2) end
+      return v[k]
+    end,
+    __newindex = function(_, k, x)
+      if not DRILL_CB[k] then error("LuaMiningDrillControlBehavior : écriture d'un champ inconnu " .. tostring(k), 2) end
+      if k == "circuit_condition" or k == "logistic_condition" then
+        assert(type(x) == "table" and type(x.condition) == "table", k .. " : { condition = {...} } attendu")
+      end
+      v[k] = x
+    end,
+  })
+end
+
 local EntityMT = {
   __index = function(t, k)
     if k == "position" then return { x = t._x, y = t._y } end
     if k == "unit_group" then return (t._group and t._group.valid) and t._group or nil end
     if k == "bounding_box" then
-      return { left_top = { x = t._x - 0.5, y = t._y - 0.5 }, right_bottom = { x = t._x + 0.5, y = t._y + 0.5 } }
+      local b = collision_of(t.name)
+      return { left_top = { x = t._x + b.x0, y = t._y + b.y0 }, right_bottom = { x = t._x + b.x1, y = t._y + b.y1 } }
+    end
+    if k == "get_control_behavior" then return function() return rawget(t, "_cb") end end
+    if k == "get_or_create_control_behavior" then
+      return function()
+        if not rawget(t, "_cb") then rawset(t, "_cb", new_control_behavior(t)) end
+        return rawget(t, "_cb")
+      end
+    end
+    if k == "get_recipe" then
+      return function()
+        assert(CRAFTERS[t.type], "get_recipe : entité sans recette (" .. tostring(t.type) .. ")")
+        local r = rawget(t, "_recipe")
+        return r and { name = r, valid = true } or nil
+      end
+    end
+    if k == "set_recipe" then
+      return function(r)
+        assert(t.type == "assembling-machine", "set_recipe : machine d'assemblage attendue (" .. tostring(t.type) .. ")")
+        local name = type(r) == "table" and r.name or r
+        assert(name == nil or type(name) == "string", "set_recipe : nom ou LuaRecipe attendu")
+        rawset(t, "_recipe", name)
+        return {}
+      end
     end
     if k == "walking_state" then return { walking = t._walking, direction = t._dir } end
     if k == "destroy" then return function() destroy_entity(t) return true end end
@@ -473,6 +559,11 @@ function M.new_world(opts)
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
+    -- Suite d'intégration de V3-T : true = ANCIEN modèle des boîtes (toute entité 1×1, recherche par zone sur la
+    -- seule position). Gardé pour tests/pvp_test.lua : avec les boîtes du prototype, le départ des chemins des
+    -- soldats (path_service, recherche d'obstacles par zone) change, et la mesure par niveau donne une taille
+    -- moyenne d'attaque Normal 18,2 > Difficile 18,0 (ordre strict IA0b manqué de 0,2 soldat ; 596 → 594 OK).
+    legacy_boxes = opts.legacy_boxes or false,
   }
   math.randomseed(W.seed)
 
@@ -565,6 +656,7 @@ function M.new_world(opts)
     if old then
       for idx, inv in pairs(old._invs) do e._invs[idx] = inv end
       old._invs = {}
+      rawset(e, "_recipe", rawget(old, "_recipe"))  -- F39 : la recette est conservée
       destroy_entity(old)
       W.fast_replaced = (W.fast_replaced or 0) + 1
     end
@@ -626,10 +718,7 @@ function M.new_world(opts)
       for _, e in ipairs(W.entities) do
         if e.valid and not ex[e.type] then
           local ok = true
-          if t.area then
-            local a = t.area
-            ok = e._x >= a[1][1] and e._x <= a[2][1] and e._y >= a[1][2] and e._y <= a[2][2]
-          end
+          if t.area then ok = touches_area(e, t.area) end
           if ok and t.position and t.radius then
             local dx, dy = e._x - t.position.x, e._y - t.position.y
             ok = dx * dx + dy * dy <= t.radius * t.radius
@@ -680,10 +769,8 @@ function M.new_world(opts)
           local dx, dy = e._x - t.position.x, e._y - t.position.y
           ok = ok and dx * dx + dy * dy <= t.radius * t.radius
         end
-        if t.area then
-          local a = t.area
-          ok = ok and e._x >= a[1][1] and e._x <= a[2][1] and e._y >= a[1][2] and e._y <= a[2][2]
-        end
+        -- Zone : boîte de collision du prototype (moteur), plus la seule position (suite d'intégration de V3-T).
+        if t.area then ok = ok and touches_area(e, t.area) end
         if t.type then
           local types = type(t.type) == "table" and t.type or { t.type }
           local match = false
@@ -710,6 +797,17 @@ function M.new_world(opts)
     W.spilled[stack.name] = (W.spilled[stack.name] or 0) + (stack.count or 1)
   end
   surface.play_sound = function(t) assert(t.path, "play_sound : path attendu") end
+  -- Décors (retirés sous un bâtiment agrandi, lot V3-T) : le moteur simulé n'en pose pas ; il vérifie la forme de
+  -- l'appel (zone { {x0, y0}, {x1, y1} } ou position) et relève chaque zone dans W.decoratives_cleared.
+  surface.destroy_decoratives = function(t)
+    assert(type(t) == "table" and (t.area or t.position), "destroy_decoratives : zone attendue")
+    if t.area then
+      local lt, rb = t.area.left_top or t.area[1], t.area.right_bottom or t.area[2]
+      assert(lt and rb and (lt.x or lt[1]) and (rb.x or rb[1]), "destroy_decoratives : zone { {x0, y0}, {x1, y1} } attendue")
+    end
+    W.decoratives_cleared = W.decoratives_cleared or {}
+    W.decoratives_cleared[#W.decoratives_cleared + 1] = t.area or t.position
+  end
   surface.find_entity = function(name, pos)
     local x, y = pos.x or pos[1], pos.y or pos[2]
     for _, o in ipairs(W.entities) do

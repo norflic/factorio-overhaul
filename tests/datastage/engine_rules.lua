@@ -46,8 +46,148 @@ local function product_count(rec)
   return 0
 end
 
-function R.check(raw, only)
+---------------------------------------------------------------------------------------------------
+-- Points de jeu d'une entité (suite du lot V3-T, défaut 9) : raccords de tuyau et point de dépôt d'une foreuse.
+-- Règles de jeu que le schéma ne dit pas (conséquences en jeu ; ce que fait le CHARGEUR du moteur d'un prototype
+-- qui les viole n'a pas été observé : il n'est pas prouvé qu'il le refuse) :
+--   - « pipe-inside » : un raccord (pipe_connections[i].position, ou positions[d] pour la direction d) désigne
+--     la tuile VOISINE où doit se trouver le tuyau : il tombe HORS de la boîte de collision, sinon aucun tuyau ne
+--     peut s'y poser et la boîte à fluide ne se raccorde jamais ;
+--   - « pipe-off-center » : ce raccord tombe sur un CENTRE de tuile une fois l'entité posée sur la grille ; la
+--     grille dépend de la largeur en tuiles (tile_width, tile_height ; par défaut la boîte de collision arrondie
+--     au-dessus, doc 1.1.91) : centre en x,5 pour une largeur impaire, sur un bord de tuile pour une paire ;
+--     contrôle sauté pour une entité « placeable-off-grid » (posée hors grille) ;
+--   - « drop-inside » : le point de dépôt d'une foreuse (vector_to_place_result) tombe HORS de sa boîte, sinon le
+--     minerai tombe dans la foreuse elle-même. Exception légitime de vanilla : le chevalet de pompage (pumpjack)
+--     dépose en (0, 0), mais il sort un FLUIDE par son output_fluid_box et ne dépose jamais d'objet ; une
+--     foreuse à output_fluid_box n'est donc pas contrôlée (vérifié : sans cette exception, la règle se déclenche
+--     sur mining-drill/pumpjack et le harness la désactive ; doc 1.1.91 de vector_to_place_result : « If the drill
+--     does not produce any solid items but uses a fluidbox output instead (e.g. pumpjacks), a vector of {0,0}
+--     disables the yellow arrow alt-mode indicator ») ;
+--   - « drop-on-footprint » (plus stricte que la précédente, ajoutée par la suite d'intégration de V3-T) : le
+--     point de dépôt tombe aussi HORS des tuiles de la foreuse (± tile_width / 2, ± tile_height / 2). Un point
+--     hors de la boîte de collision mais sur les tuiles de la foreuse (marge de 0,3 tuile) tombe sur une tuile où
+--     ni tapis ni coffre ne peut se poser : la foreuse 4×4 aux points vanilla (dépôt en −1,85, boîte ±1,7,
+--     tuiles ±2) passe « drop-inside » et échoue ici. Vanilla la respecte : foreuse à combustible (−1,3 pour
+--     des tuiles ±1) et foreuse électrique (−1,85 pour ±1,5).
+-- Boîtes à fluide lues : fluid_box, input_fluid_box, output_fluid_box, fluid_boxes[i], energy_source.fluid_box
+-- (même liste que fluid_boxes_of, prototypes/levels/common.lua, réécrite ici exprès : une erreur dans common.lua
+-- ne doit pas aveugler le banc). Un point de la liste positions[d] (doc 1.1.91 : 4 positions, une par direction,
+-- « one after another ») est contrôlé contre la boîte TOURNÉE dans la direction d (nord, est, sud, ouest ; ordre
+-- supposé, aucun prototype vanilla n'utilise `positions`), largeur et hauteur échangées à l'est et à l'ouest. Le bord de la boîte
+-- compte comme dedans (même convention que footprint_problems). Une entité sans collision_box n'est pas lue.
+---------------------------------------------------------------------------------------------------
+local EPS = 1e-9
+
+local function xy(pt)
+  if type(pt) ~= "table" then return nil end
+  local x, y = pt.x or pt[1], pt.y or pt[2]
+  if type(x) ~= "number" or type(y) ~= "number" then return nil end
+  return x, y
+end
+
+--- Boîte { x0, y0, x1, y1 } d'une collision_box au format de l'étape data ({ {x, y}, {x, y} } ou left_top /
+--- right_bottom), tournée dans la direction d (1 nord, 2 est, 3 sud, 4 ouest ; rotation horaire, y vers le sud).
+local function rotated_box(cb, d)
+  local lt, rb = cb.left_top or cb[1], cb.right_bottom or cb[2]
+  local l, t = xy(lt)
+  local r, b = xy(rb)
+  if not (l and t and r and b) then return nil end
+  if d == 2 then return { x0 = -b, y0 = l, x1 = -t, y1 = r } end
+  if d == 3 then return { x0 = -r, y0 = -b, x1 = -l, y1 = -t } end
+  if d == 4 then return { x0 = t, y0 = -r, x1 = b, y1 = -l } end
+  return { x0 = l, y0 = t, x1 = r, y1 = b }
+end
+
+local function fluid_boxes_of(p)
+  local out = {}
+  for _, k in ipairs({ "fluid_box", "input_fluid_box", "output_fluid_box" }) do
+    if type(p[k]) == "table" then out[#out + 1] = { box = p[k], where = "." .. k } end
+  end
+  if type(p.fluid_boxes) == "table" then
+    for i, fb in ipairs(p.fluid_boxes) do
+      if type(fb) == "table" then out[#out + 1] = { box = fb, where = ".fluid_boxes[" .. i .. "]" } end
+    end
+  end
+  local es = p.energy_source
+  if type(es) == "table" and type(es.fluid_box) == "table" then out[#out + 1] = { box = es.fluid_box, where = ".energy_source.fluid_box" } end
+  return out
+end
+
+local function has_flag(p, flag)
+  for _, f in ipairs(type(p.flags) == "table" and p.flags or {}) do if f == flag then return true end end
+  return false
+end
+
+local function fmt(v) return (string.format("%.4g", v)) end
+
+--- Contrôle les points de jeu du prototype p (clé key). add(where, rule, msg) ; stats compte entités et points lus.
+local function check_points(key, p, add, stats)
+  if type(p.collision_box) ~= "table" then return end
+  local north = rotated_box(p.collision_box, 1)
+  if not north then return end
+  local w = p.tile_width or math.ceil(north.x1 - north.x0 - EPS)
+  local h = p.tile_height or math.ceil(north.y1 - north.y0 - EPS)
+  local grid = not has_flag(p, "placeable-off-grid")
+  local seen = false
+  local function inside(box, x, y)
+    return x >= box.x0 - EPS and x <= box.x1 + EPS and y >= box.y0 - EPS and y <= box.y1 + EPS
+  end
+  local function on_center(v, tiles) return math.abs((v + tiles / 2) % 1 - 0.5) < 1e-6 end
+  local function pipe(where, pt, d)
+    local x, y = xy(pt)
+    if not x then return end
+    seen = true
+    stats.points = stats.points + 1
+    local box = rotated_box(p.collision_box, d)
+    if inside(box, x, y) then
+      add(key .. where, "pipe-inside", "raccord de tuyau (" .. fmt(x) .. ", " .. fmt(y) .. ") dans la boîte de collision ["
+        .. fmt(box.x0) .. ", " .. fmt(box.x1) .. "] × [" .. fmt(box.y0) .. ", " .. fmt(box.y1) .. "]")
+    end
+    local tw, th = w, h
+    if d == 2 or d == 4 then tw, th = h, w end
+    if grid and not (on_center(x, tw) and on_center(y, th)) then
+      add(key .. where, "pipe-off-center", "raccord de tuyau (" .. fmt(x) .. ", " .. fmt(y) .. ") hors des centres de tuile (entité "
+        .. tw .. "×" .. th .. " tuiles)")
+    end
+  end
+  for _, fb in ipairs(fluid_boxes_of(p)) do
+    for i, pc in ipairs(type(fb.box.pipe_connections) == "table" and fb.box.pipe_connections or {}) do
+      if type(pc) == "table" then
+        local where = fb.where .. ".pipe_connections[" .. i .. "]"
+        if pc.position then pipe(where .. ".position", pc.position, 1) end
+        if type(pc.positions) == "table" then
+          for d, q in ipairs(pc.positions) do pipe(where .. ".positions[" .. d .. "]", q, d) end
+        end
+      end
+    end
+  end
+  if p.vector_to_place_result and not p.output_fluid_box then
+    local x, y = xy(p.vector_to_place_result)
+    if x then
+      seen = true
+      stats.points = stats.points + 1
+      if inside(north, x, y) then
+        add(key .. ".vector_to_place_result", "drop-inside", "point de dépôt (" .. fmt(x) .. ", " .. fmt(y)
+          .. ") dans la boîte de collision [" .. fmt(north.x0) .. ", " .. fmt(north.x1) .. "] × [" .. fmt(north.y0) .. ", " .. fmt(north.y1) .. "]")
+      end
+      if inside({ x0 = -w / 2, y0 = -h / 2, x1 = w / 2, y1 = h / 2 }, x, y) then
+        add(key .. ".vector_to_place_result", "drop-on-footprint", "point de dépôt (" .. fmt(x) .. ", " .. fmt(y)
+          .. ") sur les tuiles de la foreuse (" .. w .. "×" .. h .. ", ±" .. fmt(w / 2) .. " × ±" .. fmt(h / 2) .. ")")
+      end
+    end
+  end
+  if seen then
+    stats.entities = stats.entities + 1
+    stats.names[#stats.names + 1] = key
+  end
+end
+
+--- stats (facultatif) : { entities, points } remplis par la règle des points de jeu (preuve qu'elle a lu quelque chose).
+function R.check(raw, only, stats)
   local errors = {}
+  stats = stats or {}
+  stats.entities, stats.points, stats.names = 0, 0, {}
   local function add(where, rule, msg) errors[#errors + 1] = { where = where, rule = rule, msg = msg } end
 
   for _, ptype in ipairs(sorted_keys(raw)) do
@@ -192,6 +332,9 @@ function R.check(raw, only)
         end
 
         if (p.max_health and p.max_health <= 0) then add(key, "health", "max_health <= 0") end
+
+        -- Points de jeu : raccords de tuyau et point de dépôt hors de la boîte (en tête du fichier).
+        check_points(key, p, add, stats)
       end
     end
   end

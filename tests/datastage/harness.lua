@@ -304,14 +304,72 @@ end
 -- Règles de chargement du moteur (valeurs, cohérence) ; une règle qui se déclenche sur vanilla est ignorée.
 local Rules = dofile(HERE .. "/engine_rules.lua")
 local vanilla_rules = {}
-for _, e in ipairs(Rules.check(vanilla, nil)) do vanilla_rules[e.rule] = true end
+local vanilla_pts, mod_pts = {}, {}
+for _, e in ipairs(Rules.check(vanilla, nil, vanilla_pts)) do
+  vanilla_rules[e.rule] = true
+  if VERBOSE then print("  (règle violée par vanilla, désactivée) " .. e.rule .. " " .. e.where .. " : " .. e.msg) end
+end
 local rule_errors = {}
-for _, e in ipairs(Rules.check(modded, changed)) do
+for _, e in ipairs(Rules.check(modded, changed, mod_pts)) do
   if not vanilla_rules[e.rule] then rule_errors[#rule_errors + 1] = e end
 end
 local disabled_rules = {}
 for r in pairs(vanilla_rules) do disabled_rules[#disabled_rules + 1] = r end
 table.sort(disabled_rules)
+
+-- Auto-contrôle de la règle des points de jeu (engine_rules.lua) sur des prototypes FABRIQUÉS : chaque cas dit
+-- quelles règles doivent se déclencher, combien de fois. Vanilla n'utilise jamais `positions` (raccords par
+-- direction) ni de foreuse plus grande que 3×3 : sans ces cas, une rotation fausse ou une règle muette
+-- passeraient inaperçues. Un cas faux compte comme une violation (code de sortie 1).
+local selftest_fail, selftest_total = {}, 0
+do
+  local RULES = { "pipe-inside", "pipe-off-center", "drop-inside", "drop-on-footprint" }
+  local function drill(side, drop, pipes)
+    local c = side / 2 - 0.3
+    local pcs = {}
+    for _, q in ipairs(pipes) do pcs[#pcs + 1] = { position = q } end
+    return { type = "mining-drill", collision_box = { { -c, -c }, { c, c } }, vector_to_place_result = drop,
+      input_fluid_box = { pipe_connections = pcs } }
+  end
+  local function flamer(positions)
+    return { type = "fluid-turret", collision_box = { { -0.7, -1.2 }, { 0.7, 1.2 } },
+      fluid_box = { pipe_connections = { { positions = positions } } } }
+  end
+  local cases = {
+    { "foreuse 3×3 vanilla", drill(3, { 0, -1.85 }, { { -2, 0 }, { 2, 0 }, { 0, 2 } }), {} },
+    { "foreuse 6×6 aux points vanilla (move_point oublié)", drill(6, { 0, -1.85 }, { { -2, 0 }, { 2, 0 }, { 0, 2 } }),
+      { ["pipe-inside"] = 3, ["pipe-off-center"] = 3, ["drop-inside"] = 1, ["drop-on-footprint"] = 1 } },
+    { "foreuse 4×4 aux points vanilla (dépôt hors de la boîte, mais sur les tuiles)",
+      drill(4, { 0, -1.85 }, { { -2, 0 }, { 2, 0 }, { 0, 2 } }), { ["pipe-off-center"] = 3, ["drop-on-footprint"] = 1 } },
+    { "foreuse 6×6 aux points déplacés", drill(6, { -0.5, -3.35 }, { { -3.5, -0.5 }, { 3.5, -0.5 }, { -0.5, 3.5 } }), {} },
+    { "foreuse 6×6, dépôt sur le bord", drill(6, { -0.5, -2.7 }, {}), { ["drop-inside"] = 1, ["drop-on-footprint"] = 1 } },
+    { "foreuse 6×6, dépôt entre la boîte et le bord des tuiles", drill(6, { -0.5, -2.9 }, {}), { ["drop-on-footprint"] = 1 } },
+    { "chevalet (fluide en sortie, dépôt en 0, 0)", { type = "mining-drill", collision_box = { { -1.2, -1.2 }, { 1.2, 1.2 } },
+      vector_to_place_result = { 0, 0 }, output_fluid_box = { pipe_connections = { { position = { 1, -2 } } } } }, {} },
+    { "lance-flammes 2×3, raccords par direction justes", flamer({ { -1.5, 1 }, { -1, -1.5 }, { 1.5, -1 }, { 1, 1.5 } }), {} },
+    { "lance-flammes 2×3, raccord nord recopié à l'est et à l'ouest", flamer({ { -1.5, 1 }, { -1.5, 1 }, { 1.5, -1 }, { -1.5, 1 } }),
+      { ["pipe-off-center"] = 2 } },
+    { "lance-flammes 2×3, raccord dans la boîte tournée (est)", flamer({ { -1.5, 1 }, { -1, -0.5 }, { 1.5, -1 }, { 1, 1.5 } }),
+      { ["pipe-inside"] = 1 } },
+    { "entité hors grille, raccord hors des centres", { type = "pipe", flags = { "placeable-off-grid" },
+      collision_box = { { -0.29, -0.29 }, { 0.29, 0.29 } }, fluid_box = { pipe_connections = { { position = { 0, -0.75 } } } } }, {} },
+  }
+  for i, c in ipairs(cases) do
+    local raw = { [c[2].type] = { ["cas-" .. i] = c[2] } }
+    local got = {}
+    for _, e in ipairs(Rules.check(raw, nil)) do got[e.rule] = (got[e.rule] or 0) + 1 end
+    local ok = true
+    for _, r in ipairs(RULES) do
+      if (got[r] or 0) ~= (c[3][r] or 0) then ok = false end
+    end
+    if not ok then
+      local parts = {}
+      for _, r in ipairs(RULES) do parts[#parts + 1] = r .. "=" .. (got[r] or 0) end
+      selftest_fail[#selftest_fail + 1] = c[1] .. " (" .. table.concat(parts, ", ") .. ")"
+    end
+  end
+  selftest_total = #cases
+end
 
 local unknown_paths = {}
 for p in pairs(Validator.collect_paths(modded, changed)) do
@@ -460,8 +518,15 @@ for i = 1, math.min(#rule_errors, 60) do
   local e = rule_errors[i]
   print("  REGLE " .. e.rule .. " " .. e.where .. " : " .. e.msg)
 end
+-- Preuve que la règle des points de jeu (engine_rules.lua : pipe-inside, pipe-off-center, drop-inside,
+-- drop-on-footprint) a lu des prototypes : vanilla entière, puis les prototypes ajoutés ou modifiés par le mod.
+print(string.format("  Points de jeu contrôlés (raccords de tuyau, dépôts de foreuse) : vanilla %d entités / %d points ; mod %d entités / %d points",
+  vanilla_pts.entities, vanilla_pts.points, mod_pts.entities, mod_pts.points))
+if VERBOSE then print("  Points de jeu, entités vanilla lues : " .. table.concat(vanilla_pts.names, " ")) end
+print(string.format("  Auto-contrôle de la règle des points de jeu : %d/%d cas justes", selftest_total - #selftest_fail, selftest_total))
+for _, f in ipairs(selftest_fail) do print("  AUTO-CONTROLE FAUX " .. f) end
 for _, p in ipairs(unknown_paths) do print("  CHEMIN A VERIFIER " .. p) end
 for _, p in ipairs(own_paths) do print("  FICHIER MANQUANT " .. p) end
 print(string.format("Localisation : %d clé(s) manquante(s)", #missing_locale))
 for i = 1, math.min(#missing_locale, 60) do print("  LOCALE " .. missing_locale[i]) end
-os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0) and 0 or 1)
+os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0) and 0 or 1)
