@@ -18,6 +18,7 @@ local State = require("script.faction.state")
 local Director = require("script.td.director") -- require interdit dans un gestionnaire d'événement
 local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
+local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
 
 local function surface() return game.surfaces[1] end
@@ -168,6 +169,26 @@ remote.add_interface("factorio-overhaul", {
     for _ = 1, n or 1 do Levels.resume_progress() end
     p.stop()
     log({ "", "[FO-LEVELS] banc resume_progress : " .. (n or 1) .. " appels, en attente " .. count_keys(Storage.ns("levels").pending) .. " : ", p })
+  end,
+  -- Lot V3-T3 : « libérer la place » sans joueur (banc) : marques de démontage, fantômes décalés, demande
+  -- d'agrandissement en attente (script/levels/free.lua). Données simples seulement.
+  --   levels_free_room(entity[, player_index[, opts]]) -> { ok, reason, id, box, candidate, tried, marks, ghosts, signalled,
+  --     warnings, wired, links } ; opts.dry = true : plan seulement, rien n'est posé (reason « dry » ou le refus)
+  --   levels_free_cancel(entity) -> { unmarked, removed, unbuilt, restored, blocked } ou nil (aucune demande)
+  --   levels_free_status() -> { stats, requests }
+  --   levels_free_check() -> demandes accomplies (vérification tout de suite, sans attendre la période)
+  levels_free_room = function(entity, player_index, opts)
+    local p = player_index and game.get_player(player_index) or nil
+    return Free.free_room(entity, { player = p, dry = opts and opts.dry or nil })
+  end,
+  levels_free_cancel = function(entity)
+    return Free.cancel(entity, "cancelled")
+  end,
+  levels_free_status = function()
+    return Free.status()
+  end,
+  levels_free_check = function()
+    return Free.check()
   end,
   profiler = function(on)
     Profiler.set_enabled(on and true or false, game.tick)

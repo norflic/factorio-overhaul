@@ -139,6 +139,8 @@ global.fo.levels = {
   stats = { upgrades = 12, instant = 40, cancelled = 1, lost = 0 },
 }
 ghost.destroy()
+-- Lot V3-T3 : une sauvegarde d'avant « libérer la place » n'a pas le namespace levels_free.
+global.fo.levels_free = nil
 local saved = M.deepcopy_global(global)
 
 section("Chargement par la version à amélioration instantanée (lot V2c)")
@@ -156,6 +158,13 @@ ok, err = pcall(function() W().on_load() end)
 check(ok, "on_load sans erreur (" .. tostring(err) .. ")")
 ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.3.0", new_version = "0.4.1" } } })
 check(ok, "on_configuration_changed sans erreur (" .. tostring(err) .. ")")
+-- Lot V3-T3 : namespace des demandes « libérer la place » créé au chargement (liste vide, nombres seulement) ; la
+-- vérification périodique d'une liste vide ne fait rien.
+local Free = require("script.levels.free")
+local fr_ns = global.fo.levels_free
+local okf, nf = pcall(Free.check)
+check(fr_ns and type(fr_ns.list) == "table" and #fr_ns.list == 0 and fr_ns.next == 0 and okf and nf == 0,
+  "sauvegarde d'avant V3-T3 : demandes « libérer la place » créées vides au chargement, vérification sans effet")
 local Levels = require("script.levels.levels")
 local force = game.forces.player
 local lv = global.fo.levels

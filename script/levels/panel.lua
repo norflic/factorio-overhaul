@@ -15,12 +15,16 @@
   direction si ce n'est pas la position habituelle), ou le contour nécessaire et ce qui le bloque (place
   prise) ; le bouton « Améliorer » reste actif pour ce motif (un clic refuse sans rien payer et redessine le
   contour pour 300 ticks, comme la touche U).
+  Lot V3-T3 (Q-T2-1, « QT21 option B ») : quand la place manque, un bouton « Libérer la place » (script/levels/free.lua :
+  gêneurs marqués à démonter, fantômes décalés, agrandissement en attente) ; une demande en attente s'affiche (ligne
+  bleue) avec un bouton « Annuler l'agrandissement ». Sans clic, rien ne change.
 ]]
 
 local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local Levels = require("script.levels.levels")
+local Free = require("script.levels.free")
 
 local FRAME = "fo_lvl_panel"
 
@@ -266,6 +270,17 @@ local function refresh(player)
       local r = frame.add({ type = "label", caption = reason_message(info, info.reason) })
       r.style.font_color = { r = 1, g = 0.6, b = 0.3 }
     end
+    -- Lot V3-T3 (Q-T2-1, réponse « QT21 option B ») : demande « libérer la place » en attente, ou bouton pour la lancer
+    -- quand SEULE la place manque (motif « no-room » : condition Q16 et coût réunis ; correction, défaut 10 : avec un
+    -- coût qui manque, les bras seraient déplacés pour un bâtiment qui ne grandirait pas). La règle Q24 ne change pas :
+    -- sans clic, refus et contour comme avant.
+    local req = Free.request_of(target)
+    local can_free = (not req) and info.room and not info.room.chosen and info.reason == "no-room"
+    if req then
+      local lbl = frame.add({ type = "label", caption = { "fo-levels-taille.free-pending", #req.marks, #req.ghosts,
+        math.max(0, math.ceil((req.expire - game.tick) / 3600)) } })
+      lbl.style.font_color = { r = 0.6, g = 0.85, b = 1 }
+    end
     local row = frame.add({ type = "flow", direction = "horizontal" })
     local b = row.add({ type = "button", name = "fo_lvl_up", caption = { "fo-levels.upgrade" }, style = "confirm_button" })
     -- Correction V3-T (défauts 2 et 7) : actif aussi pour le motif « no-room » (un bouton désactivé n'émet pas
@@ -273,6 +288,11 @@ local function refresh(player)
     -- contour nécessaire, comme la touche U.
     b.enabled = info.ok or info.reason == "no-room"
     if family.row then row.add({ type = "button", name = "fo_lvl_row", caption = { "fo-levels.upgrade-row" } }) end
+    if can_free then
+      row.add({ type = "button", name = "fo_lvl_free", caption = { "fo-levels-taille.free-button" }, tooltip = { "fo-levels-taille.free-tooltip" } })
+    elseif req then
+      row.add({ type = "button", name = "fo_lvl_free_cancel", caption = { "fo-levels-taille.free-cancel-button" } })
+    end
   end
   frame.add({ type = "button", name = "fo_lvl_close", caption = { "fo-levels.close" } })
 end
@@ -326,7 +346,7 @@ Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
   local name = el.name
-  if name ~= "fo_lvl_up" and name ~= "fo_lvl_row" and name ~= "fo_lvl_close" then return end
+  if name ~= "fo_lvl_up" and name ~= "fo_lvl_row" and name ~= "fo_lvl_close" and name ~= "fo_lvl_free" and name ~= "fo_lvl_free_cancel" then return end
   local player = game.get_player(e.player_index)
   if name == "fo_lvl_close" then
     close(player)
@@ -337,7 +357,19 @@ Events.on(defines.events.on_gui_click, function(e)
     close(player)
     return
   end
-  try_upgrade(player, target, name == "fo_lvl_row")
+  if name == "fo_lvl_free" then
+    -- Lot V3-T3 : « libérer la place » (marques, fantômes, demande en attente) ; le détail part dans la console.
+    local r = Free.free_room(target, { player = player })
+    if not r.ok then
+      local known = { ["room-free"] = true, already = true, ["too-many"] = true, blocked = true, ["no-resources"] = true, ["engine-refused"] = true }
+      local key = known[r.reason] and r.reason or "other"
+      player.create_local_flying_text({ text = { "fo-levels-taille.free-refused-" .. key }, position = target.position })
+    end
+  elseif name == "fo_lvl_free_cancel" then
+    Free.cancel(target, "cancelled")
+  else
+    try_upgrade(player, target, name == "fo_lvl_row")
+  end
   refresh(player)
 end)
 
