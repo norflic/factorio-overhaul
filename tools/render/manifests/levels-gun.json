@@ -2019,7 +2019,7 @@
        ],
        "width": 102
       },
-      "sha256_apercu": "08b7727feacc56962d2a050ccfa369a5fb775b8618dc027b93f6fcf8adc04d29"
+      "sha256_apercu": "016af94691eb89e6856b00d4d33fd2dc3e722ed2e848aa04147bc03abfee2951"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e07-socle-piece/hr-gun-e07-socle-piece-main.png",
@@ -3426,6 +3426,30 @@
   "17": {
    "base_picture": {
     "couches": {
+     "glow": {
+      "apercu": "tools/render/out/levels/gun/e09-socle/hr-gun-e09-socle-glow.png",
+      "blend_mode": "additive",
+      "draw_as_glow": true,
+      "hr": {
+       "height": 74,
+       "scale": 0.5,
+       "shift": [
+        0.0,
+        -0.359375
+       ],
+       "width": 100
+      },
+      "lr_prevu": {
+       "height": 37,
+       "scale": 1,
+       "shift": [
+        0.0,
+        -0.359375
+       ],
+       "width": 50
+      },
+      "sha256_apercu": "d95883d6a9e0cfdbc11f6fdcfaabd298d0c792e9ad57c9363e330b1131171d2e"
+     },
      "light": {
       "apercu": "tools/render/out/levels/gun/e09-socle/hr-gun-e09-socle-light.png",
       "blend_mode": "additive",
@@ -3448,29 +3472,29 @@
        ],
        "width": 112
       },
-      "sha256_apercu": "cf2087ce779ecaed6373e468be006624f3aca9b25c268039186b46c4a8eca6c3"
+      "sha256_apercu": "f501b135c33471af2f41e267589750b69ae30e09921787275578a8bfec0e812a"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e09-socle/hr-gun-e09-socle-main.png",
       "hr": {
-       "height": 108,
+       "height": 110,
        "scale": 0.5,
        "shift": [
         0.0,
-        -0.0625
+        -0.078125
        ],
        "width": 140
       },
       "lr_prevu": {
-       "height": 54,
+       "height": 55,
        "scale": 1,
        "shift": [
         0.0,
-        -0.0625
+        -0.078125
        ],
        "width": 70
       },
-      "sha256_apercu": "20933a666a98c2d14509d18aa5e322a647a5357ce38adcd64cb09d95e4b567c0"
+      "sha256_apercu": "e055dd9aa17b7a708aebb7206a0b58e15dfa118798370cd92cac5db58465732a"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e09-socle/hr-gun-e09-socle-shadow.png",
@@ -3479,32 +3503,32 @@
        "height": 76,
        "scale": 0.5,
        "shift": [
-        0.21875,
+        0.234375,
         0.0
        ],
-       "width": 128
+       "width": 130
       },
       "lr_prevu": {
        "height": 38,
        "scale": 1,
        "shift": [
-        0.21875,
+        0.234375,
         0.0
        ],
-       "width": 64
+       "width": 65
       },
-      "sha256_apercu": "0c412c91d6cb76f6f6e16c2df96defd0c6292ac152994de0c209b2a5a95d2575"
+      "sha256_apercu": "c6e977b7e7f7143a0e3e02087b0bea79b42928f519673506bf631a975bfc3234"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 22.59,
+    "secondes_rendu": 14.53,
     "variante": "e09-socle"
    },
    "description": "ATOME : tête octogonale plombée chanfreinée, 2 canons à manchons de refroidissement, hublots verts, tour hyperboloïde sur l'axe ; socle octogonal en béton à contreforts",
    "drawing_box_proposee": [
     [
      -1.234,
-     -2.719
+     -2.734
     ],
     [
      1.234,
@@ -3516,8 +3540,8 @@
     "O": 1.719,
     "O_cible_bible": 1.73,
     "bas_ecran": 0.609,
-    "haut_du_socle_ecran": -0.875,
-    "haut_ecran": -2.719,
+    "haut_du_socle_ecran": -0.922,
+    "haut_ecran": -2.734,
     "x": [
      -1.234,
      1.234
@@ -3544,35 +3568,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.23,
-       -1.6941
+       -1.6976
       ],
       "N": [
        -0.0,
-       -2.5639
+       -2.5673
       ],
       "O": [
        -1.23,
-       -1.6941
+       -1.6976
       ],
       "S": [
        -0.0,
-       -0.8244
+       -0.8279
       ]
      },
-     "hauteur_axe_blender": 2.3959,
-     "hauteur_axe_ecran_tuiles": 1.6941,
+     "hauteur_axe_blender": 2.4008,
+     "hauteur_axe_ecran_tuiles": 1.6976,
      "portee_blender": 1.23,
      "proposition": {
       "projectile_center": [
        0.0,
-       -0.7366
+       -0.7401
       ],
       "projectile_creation_distance": 1.7143,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.28,
-    "hauteur_axe_zg_blender": 2.435,
+    "hauteur_axe_zg_blender": 2.4399,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -3588,24 +3612,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 52,
+         "height": 50,
          "scale": 0.5,
          "shift": [
           0.546875,
-          -1.9375
+          -1.953125
          ],
          "width": 90
         },
         "lr_prevu": {
-         "height": 26,
+         "height": 25,
          "scale": 1,
          "shift": [
           0.546875,
-          -1.9375
+          -1.953125
          ],
          "width": 45
         },
-        "sha256_apercu": "567a5d945f5967a669e786d1194603268b583a3ea7aca5f6b0a6c1a155bd5ab9"
+        "sha256_apercu": "ca7d993990b40ab4a83df7f4bf942040d0a46deb978470945cd9216fe7d1bbd0"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-E/hr-gun-e09-tete-E-main.png",
@@ -3627,7 +3651,7 @@
          ],
          "width": 64
         },
-        "sha256_apercu": "127a12b149f1c3ebb6c586c88d6decfdb64247baa35a1643b77a01b7cf774d47"
+        "sha256_apercu": "484890032bb131cd937123ccbc7cc2d26d34a8616b9ce4464ede7704ef1ba3cd"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-E/hr-gun-e09-tete-E-shadow.png",
@@ -3650,11 +3674,11 @@
          ],
          "width": 125
         },
-        "sha256_apercu": "7a8d8be07ae195edd42d48e9032c99a3e2d21fbf078522328d9068f3546b27f8"
+        "sha256_apercu": "b1e1991ef69d12570fe61c171e50977159bb98c043d017b3e84a7fab7b22774a"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.65,
+      "secondes_rendu": 11.93,
       "variante": "e09-tete-E"
      },
      "N": {
@@ -3664,24 +3688,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 20,
+         "height": 22,
          "scale": 0.5,
          "shift": [
-          -0.03125,
-          -2.125
+          -0.015625,
+          -2.140625
          ],
-         "width": 68
+         "width": 70
         },
         "lr_prevu": {
-         "height": 10,
+         "height": 11,
          "scale": 1,
          "shift": [
-          -0.03125,
-          -2.125
+          -0.015625,
+          -2.140625
          ],
-         "width": 34
+         "width": 35
         },
-        "sha256_apercu": "e3d77a5181e908259a48fe0776b79ca2965aea6acaeaa91e6b2439840c6385b3"
+        "sha256_apercu": "bb1f6d328a2db62108158fccd24a06b6fef40405a367f50e6d32ae9efbaef38d"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-N/hr-gun-e09-tete-N-main.png",
@@ -3703,7 +3727,7 @@
          ],
          "width": 46
         },
-        "sha256_apercu": "15f5a156d96dbc093e4cdac4dee33087d1a529a7616c825399fb4bd522b3248c"
+        "sha256_apercu": "a10ea2e96c06901a60cf9ac5e488a68866fe918e5061cfa2429c06d70f25ff9c"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-N/hr-gun-e09-tete-N-shadow.png",
@@ -3726,11 +3750,11 @@
          ],
          "width": 126
         },
-        "sha256_apercu": "02d0539e670b422c287e7fd8ab0b4a9633f052b4b0dae18ac15bfd15814ed96a"
+        "sha256_apercu": "fc8c5bbe86b54ffd25aa4c40b98a1bcf88f3eb3991d91df7ca84eacc972aae48"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 12.44,
+      "secondes_rendu": 11.89,
       "variante": "e09-tete-N"
      },
      "O": {
@@ -3757,7 +3781,7 @@
          ],
          "width": 45
         },
-        "sha256_apercu": "5e92464303721abb8510d0f8be47f41f1d8398c0066f7255ca9ea99495c2cdb5"
+        "sha256_apercu": "b6000db014a268e7627f97cdc43cb19d8db75e79a1bea3a89e1b7bd385564097"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-O/hr-gun-e09-tete-O-main.png",
@@ -3779,7 +3803,7 @@
          ],
          "width": 65
         },
-        "sha256_apercu": "36d0f6c5f8fcbfc56f4e081c3e4b81049adbba363575850219ca07c9cb966909"
+        "sha256_apercu": "0a06a062a3f49a3454f5ce227811ae0f35bca86c6634f75da0847eccbbe45b10"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-O/hr-gun-e09-tete-O-shadow.png",
@@ -3802,11 +3826,11 @@
          ],
          "width": 128
         },
-        "sha256_apercu": "9eb40fac1a382f3c999dc77cf305178a423f58ff546f0705ca6f996ad1f746a3"
+        "sha256_apercu": "e7f18a7cad39cdb480847d065ce00d09335d52a199f45590d99fceefed0e2477"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.89,
+      "secondes_rendu": 7.4,
       "variante": "e09-tete-O"
      },
      "S": {
@@ -3819,21 +3843,21 @@
          "height": 100,
          "scale": 0.5,
          "shift": [
-          0.015625,
+          0.0,
           -1.625
          ],
-         "width": 66
+         "width": 64
         },
         "lr_prevu": {
          "height": 50,
          "scale": 1,
          "shift": [
-          0.015625,
+          0.0,
           -1.625
          ],
-         "width": 33
+         "width": 32
         },
-        "sha256_apercu": "385927ffefc5849efa34af657c3609f1d289ba785a13cb3e5fc6619b2d121693"
+        "sha256_apercu": "9d6c9bdce80858cc1665da50df0cb95c178800c150568305a670ac7e157d4280"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-S/hr-gun-e09-tete-S-main.png",
@@ -3855,7 +3879,7 @@
          ],
          "width": 46
         },
-        "sha256_apercu": "6ae27be8bbc9c7fc8c497b1cff00de6c99f973d1e1443915ee67f339403b3d36"
+        "sha256_apercu": "a7ef63e0a905d95a2f9b7222ee71265828edb3f9dfc786ea75c59d1bea50e977"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-S/hr-gun-e09-tete-S-shadow.png",
@@ -3878,11 +3902,11 @@
          ],
          "width": 126
         },
-        "sha256_apercu": "9a756821a823e745340b0d21d4bce28b18346adc895073071cb3cbeddebc9235"
+        "sha256_apercu": "02feb81f4ac0647a5923dd376ff3ee627667821ce3110dfbced16f202b9b099a"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.89,
+      "secondes_rendu": 16.62,
       "variante": "e09-tete-S"
      }
     }
@@ -3891,6 +3915,30 @@
   "18": {
    "base_picture": {
     "couches": {
+     "glow": {
+      "apercu": "tools/render/out/levels/gun/e09-socle-piece/hr-gun-e09-socle-piece-glow.png",
+      "blend_mode": "additive",
+      "draw_as_glow": true,
+      "hr": {
+       "height": 96,
+       "scale": 0.5,
+       "shift": [
+        -0.0625,
+        -0.1875
+       ],
+       "width": 120
+      },
+      "lr_prevu": {
+       "height": 48,
+       "scale": 1,
+       "shift": [
+        -0.0625,
+        -0.1875
+       ],
+       "width": 60
+      },
+      "sha256_apercu": "e5e34cd1c3e237495a928833f109589a634696b2254deff813c3250505f2eacd"
+     },
      "light": {
       "apercu": "tools/render/out/levels/gun/e09-socle-piece/hr-gun-e09-socle-piece-light.png",
       "blend_mode": "additive",
@@ -3913,29 +3961,29 @@
        ],
        "width": 116
       },
-      "sha256_apercu": "d427822097c0a8c06c617cbe1b5bf0ce7595dc21bdd6ce3297108d202168114c"
+      "sha256_apercu": "0773273137641ac620de2e5671ba8ee8edb54b52c7a20cead8490324dd7b7a02"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e09-socle-piece/hr-gun-e09-socle-piece-main.png",
       "hr": {
-       "height": 134,
+       "height": 136,
        "scale": 0.5,
        "shift": [
         0.0,
-        0.140625
+        0.125
        ],
        "width": 164
       },
       "lr_prevu": {
-       "height": 67,
+       "height": 68,
        "scale": 1,
        "shift": [
         0.0,
-        0.140625
+        0.125
        ],
        "width": 82
       },
-      "sha256_apercu": "6bed566b8e68d5d49f653290a12c059a122e968f493118a385be727edecfba43"
+      "sha256_apercu": "0884c6b40caded17fb54b6fe1c8decf3bed3c75e1b26e888f24cb5a45f833898"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e09-socle-piece/hr-gun-e09-socle-piece-shadow.png",
@@ -3958,18 +4006,18 @@
        ],
        "width": 82
       },
-      "sha256_apercu": "e52ed4d260b1192307e80e159b201db86d7a60f5921e3968ac912eed59a8d39b"
+      "sha256_apercu": "54354c733abfd397b297f3cd0f7143faeb587ccf1edd128a368ee824a3241e9b"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 22.1,
+    "secondes_rendu": 26.61,
     "variante": "e09-socle-piece"
    },
    "description": "silhouette du niveau 17 + pièce : plaques plombées à trèfle devant les coins avant",
    "drawing_box_proposee": [
     [
      -1.234,
-     -2.719
+     -2.734
     ],
     [
      1.234,
@@ -3981,8 +4029,8 @@
     "O": 1.719,
     "O_cible_bible": 1.73,
     "bas_ecran": 1.016,
-    "haut_du_socle_ecran": -0.875,
-    "haut_ecran": -2.719,
+    "haut_du_socle_ecran": -0.922,
+    "haut_ecran": -2.734,
     "x": [
      -1.234,
      1.234
@@ -4014,35 +4062,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.23,
-       -1.6941
+       -1.6976
       ],
       "N": [
        -0.0,
-       -2.5639
+       -2.5673
       ],
       "O": [
        -1.23,
-       -1.6941
+       -1.6976
       ],
       "S": [
        -0.0,
-       -0.8244
+       -0.8279
       ]
      },
-     "hauteur_axe_blender": 2.3959,
-     "hauteur_axe_ecran_tuiles": 1.6941,
+     "hauteur_axe_blender": 2.4008,
+     "hauteur_axe_ecran_tuiles": 1.6976,
      "portee_blender": 1.23,
      "proposition": {
       "projectile_center": [
        0.0,
-       -0.7366
+       -0.7401
       ],
       "projectile_creation_distance": 1.7143,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.28,
-    "hauteur_axe_zg_blender": 2.435,
+    "hauteur_axe_zg_blender": 2.4399,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -4058,24 +4106,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 52,
+         "height": 50,
          "scale": 0.5,
          "shift": [
           0.546875,
-          -1.9375
+          -1.953125
          ],
          "width": 90
         },
         "lr_prevu": {
-         "height": 26,
+         "height": 25,
          "scale": 1,
          "shift": [
           0.546875,
-          -1.9375
+          -1.953125
          ],
          "width": 45
         },
-        "sha256_apercu": "567a5d945f5967a669e786d1194603268b583a3ea7aca5f6b0a6c1a155bd5ab9"
+        "sha256_apercu": "ca7d993990b40ab4a83df7f4bf942040d0a46deb978470945cd9216fe7d1bbd0"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-E/hr-gun-e09-tete-E-main.png",
@@ -4097,7 +4145,7 @@
          ],
          "width": 64
         },
-        "sha256_apercu": "127a12b149f1c3ebb6c586c88d6decfdb64247baa35a1643b77a01b7cf774d47"
+        "sha256_apercu": "484890032bb131cd937123ccbc7cc2d26d34a8616b9ce4464ede7704ef1ba3cd"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-E/hr-gun-e09-tete-E-shadow.png",
@@ -4120,11 +4168,11 @@
          ],
          "width": 125
         },
-        "sha256_apercu": "7a8d8be07ae195edd42d48e9032c99a3e2d21fbf078522328d9068f3546b27f8"
+        "sha256_apercu": "b1e1991ef69d12570fe61c171e50977159bb98c043d017b3e84a7fab7b22774a"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.65,
+      "secondes_rendu": 11.93,
       "variante": "e09-tete-E"
      },
      "N": {
@@ -4134,24 +4182,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 20,
+         "height": 22,
          "scale": 0.5,
          "shift": [
-          -0.03125,
-          -2.125
+          -0.015625,
+          -2.140625
          ],
-         "width": 68
+         "width": 70
         },
         "lr_prevu": {
-         "height": 10,
+         "height": 11,
          "scale": 1,
          "shift": [
-          -0.03125,
-          -2.125
+          -0.015625,
+          -2.140625
          ],
-         "width": 34
+         "width": 35
         },
-        "sha256_apercu": "e3d77a5181e908259a48fe0776b79ca2965aea6acaeaa91e6b2439840c6385b3"
+        "sha256_apercu": "bb1f6d328a2db62108158fccd24a06b6fef40405a367f50e6d32ae9efbaef38d"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-N/hr-gun-e09-tete-N-main.png",
@@ -4173,7 +4221,7 @@
          ],
          "width": 46
         },
-        "sha256_apercu": "15f5a156d96dbc093e4cdac4dee33087d1a529a7616c825399fb4bd522b3248c"
+        "sha256_apercu": "a10ea2e96c06901a60cf9ac5e488a68866fe918e5061cfa2429c06d70f25ff9c"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-N/hr-gun-e09-tete-N-shadow.png",
@@ -4196,11 +4244,11 @@
          ],
          "width": 126
         },
-        "sha256_apercu": "02d0539e670b422c287e7fd8ab0b4a9633f052b4b0dae18ac15bfd15814ed96a"
+        "sha256_apercu": "fc8c5bbe86b54ffd25aa4c40b98a1bcf88f3eb3991d91df7ca84eacc972aae48"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 12.44,
+      "secondes_rendu": 11.89,
       "variante": "e09-tete-N"
      },
      "O": {
@@ -4227,7 +4275,7 @@
          ],
          "width": 45
         },
-        "sha256_apercu": "5e92464303721abb8510d0f8be47f41f1d8398c0066f7255ca9ea99495c2cdb5"
+        "sha256_apercu": "b6000db014a268e7627f97cdc43cb19d8db75e79a1bea3a89e1b7bd385564097"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-O/hr-gun-e09-tete-O-main.png",
@@ -4249,7 +4297,7 @@
          ],
          "width": 65
         },
-        "sha256_apercu": "36d0f6c5f8fcbfc56f4e081c3e4b81049adbba363575850219ca07c9cb966909"
+        "sha256_apercu": "0a06a062a3f49a3454f5ce227811ae0f35bca86c6634f75da0847eccbbe45b10"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-O/hr-gun-e09-tete-O-shadow.png",
@@ -4272,11 +4320,11 @@
          ],
          "width": 128
         },
-        "sha256_apercu": "9eb40fac1a382f3c999dc77cf305178a423f58ff546f0705ca6f996ad1f746a3"
+        "sha256_apercu": "e7f18a7cad39cdb480847d065ce00d09335d52a199f45590d99fceefed0e2477"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.89,
+      "secondes_rendu": 7.4,
       "variante": "e09-tete-O"
      },
      "S": {
@@ -4289,21 +4337,21 @@
          "height": 100,
          "scale": 0.5,
          "shift": [
-          0.015625,
+          0.0,
           -1.625
          ],
-         "width": 66
+         "width": 64
         },
         "lr_prevu": {
          "height": 50,
          "scale": 1,
          "shift": [
-          0.015625,
+          0.0,
           -1.625
          ],
-         "width": 33
+         "width": 32
         },
-        "sha256_apercu": "385927ffefc5849efa34af657c3609f1d289ba785a13cb3e5fc6619b2d121693"
+        "sha256_apercu": "9d6c9bdce80858cc1665da50df0cb95c178800c150568305a670ac7e157d4280"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e09-tete-S/hr-gun-e09-tete-S-main.png",
@@ -4325,7 +4373,7 @@
          ],
          "width": 46
         },
-        "sha256_apercu": "6ae27be8bbc9c7fc8c497b1cff00de6c99f973d1e1443915ee67f339403b3d36"
+        "sha256_apercu": "a7ef63e0a905d95a2f9b7222ee71265828edb3f9dfc786ea75c59d1bea50e977"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e09-tete-S/hr-gun-e09-tete-S-shadow.png",
@@ -4348,11 +4396,11 @@
          ],
          "width": 126
         },
-        "sha256_apercu": "9a756821a823e745340b0d21d4bce28b18346adc895073071cb3cbeddebc9235"
+        "sha256_apercu": "02feb81f4ac0647a5923dd376ff3ee627667821ce3110dfbced16f202b9b099a"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.89,
+      "secondes_rendu": 16.62,
       "variante": "e09-tete-S"
      }
     }
@@ -6987,7 +7035,7 @@
        ],
        "width": 134
       },
-      "sha256_apercu": "1e585dfb9626a7d3f5570a4105b8234d26fcdabaf4dfd0c57ccf2d31f83ecee8"
+      "sha256_apercu": "898b27461727725da0e67313e8cb670bd38a11c42665d95859421c28cdbfca94"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e12-socle-piece/hr-gun-e12-socle-piece-main.png",
@@ -7457,7 +7505,7 @@
        ],
        "width": 137
       },
-      "sha256_apercu": "bfdfb3dad1f7c54e6519999168ef2c0f75c071c3828931aae866f6f8afa3b6a0"
+      "sha256_apercu": "cf86fbf5c5b19d522ddc50322cee68a67113aff77dddc373c07171b4b71dc2c0"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e13-socle/hr-gun-e13-socle-main.png",
@@ -7506,14 +7554,14 @@
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 14.54,
+    "secondes_rendu": 20.67,
     "variante": "e13-socle"
    },
    "description": "FUSION : tête sphérique ceinturée d'un tore de plasma, 2 canons qui dépassent du tore ; col de cuivre bagué ; socle trépied",
    "drawing_box_proposee": [
     [
      -1.078,
-     -3.266
+     -3.297
     ],
     [
      1.078,
@@ -7521,12 +7569,12 @@
     ]
    ],
    "enveloppe_mesuree": {
-    "L": 2.047,
-    "O": 2.156,
+    "L": 2.016,
+    "O": 2.172,
     "O_cible_bible": 2.18,
     "bas_ecran": 0.422,
     "haut_du_socle_ecran": -0.828,
-    "haut_ecran": -3.266,
+    "haut_ecran": -3.297,
     "x": [
      -1.078,
      1.078
@@ -7553,35 +7601,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.08,
-       -2.4783
+       -2.5098
       ],
       "N": [
        -0.0,
-       -3.242
+       -3.2735
       ],
       "O": [
        -1.08,
-       -2.4783
+       -2.5098
       ],
       "S": [
        -0.0,
-       -1.7146
+       -1.7462
       ]
      },
-     "hauteur_axe_blender": 3.5049,
-     "hauteur_axe_ecran_tuiles": 2.4783,
+     "hauteur_axe_blender": 3.5495,
+     "hauteur_axe_ecran_tuiles": 2.5098,
      "portee_blender": 1.08,
      "proposition": {
       "projectile_center": [
        0.0,
-       -1.5208
+       -1.5523
       ],
       "projectile_creation_distance": 1.5053,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.51,
-    "hauteur_axe_zg_blender": 3.4913,
+    "hauteur_axe_zg_blender": 3.5359,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -7600,21 +7648,21 @@
          "height": 182,
          "scale": 0.5,
          "shift": [
-          0.046875,
+          0.0625,
           -1.734375
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 91,
          "scale": 1,
          "shift": [
-          0.046875,
+          0.0625,
           -1.734375
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "16e9546da4c75b13597711301b60dfcc57e9ccb49673b7f3b1b8554635c3dd02"
+        "sha256_apercu": "ef9a4b3daae4f62ebef8d0ce9773fd39dc5d19d6ab38ab55bbcc1f8942f63ee1"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-E/hr-gun-e13-tete-E-main.png",
@@ -7622,21 +7670,21 @@
          "height": 188,
          "scale": 0.5,
          "shift": [
-          0.046875,
+          0.0625,
           -1.6875
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 94,
          "scale": 1,
          "shift": [
-          0.046875,
+          0.0625,
           -1.6875
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "6b8580ced7f39d0bef909b06aa1361dcf1cb18e52b97a259e31d494794bd9aaa"
+        "sha256_apercu": "da05596fa8bab7154146d1cf928620cfb2c875f33366288730c709ac1bbe304d"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-E/hr-gun-e13-tete-E-shadow.png",
@@ -7645,25 +7693,25 @@
          "height": 84,
          "scale": 0.5,
          "shift": [
-          2.265625,
+          2.28125,
           0.0
          ],
-         "width": 258
+         "width": 260
         },
         "lr_prevu": {
          "height": 42,
          "scale": 1,
          "shift": [
-          2.265625,
+          2.28125,
           0.0
          ],
-         "width": 129
+         "width": 130
         },
-        "sha256_apercu": "2e2dc503e28f22dd2e56d97a0eced4e43e5acfaaf7c495fe572cd844b4aea79a"
+        "sha256_apercu": "ce18165b945a290f253ca5a5939f178e969648021a65e80f9b242e648bba1253"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.4,
+      "secondes_rendu": 11.88,
       "variante": "e13-tete-E"
      },
      "N": {
@@ -7673,73 +7721,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 190,
+         "height": 192,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.765625
+          -1.78125
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 95,
+         "height": 96,
          "scale": 1,
          "shift": [
           0.0,
-          -1.765625
+          -1.78125
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "6023dae89d7f910f2f8281b8648dbdb2552a9979a4bde332d2bc28f49be1eec9"
+        "sha256_apercu": "be7977538e3898fbbfbddcacbffba32c2fe9a18f77392ba157783407ab77b8e6"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-N/hr-gun-e13-tete-N-main.png",
         "hr": {
-         "height": 196,
+         "height": 198,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.75
+          -1.765625
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 98,
+         "height": 99,
          "scale": 1,
          "shift": [
           0.0,
-          -1.75
+          -1.765625
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "cdf4815a5854367117b44291889f71617c51cca68c35c2d17721a86668005f02"
+        "sha256_apercu": "fa43d377ff7ac75064fd97e4066a5b33507955bd51da25778e879c8df7d84a13"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-N/hr-gun-e13-tete-N-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 96,
+         "height": 94,
          "scale": 0.5,
          "shift": [
           2.171875,
-          -0.03125
+          -0.046875
          ],
          "width": 246
         },
         "lr_prevu": {
-         "height": 48,
+         "height": 47,
          "scale": 1,
          "shift": [
           2.171875,
-          -0.03125
+          -0.046875
          ],
          "width": 123
         },
-        "sha256_apercu": "202a279608f2f3dbd6025763d0c644a8ceed763d2cc6e84a58ce6ffdcdca9ae6"
+        "sha256_apercu": "d905fe241fd33225be6f2e7b6a34f7756866b40014f1b5c20b8bb3005d9efcb5"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.45,
+      "secondes_rendu": 8.06,
       "variante": "e13-tete-N"
      },
      "O": {
@@ -7752,21 +7800,21 @@
          "height": 186,
          "scale": 0.5,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.703125
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 93,
          "scale": 1,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.703125
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "f498920707bbd0c46b24d59559b46737b38642170eafb25cef514d34b85ea8ba"
+        "sha256_apercu": "e097a8e5e53dbc7c980be71d7ea86afcbc6912f9a2d74419e8cef2ec1b0e29d6"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-O/hr-gun-e13-tete-O-main.png",
@@ -7774,21 +7822,21 @@
          "height": 188,
          "scale": 0.5,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.6875
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 94,
          "scale": 1,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.6875
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "316b8a3a7b9d5a1b05d9efd63e0e523202251f2489404294fc3fddbb57dd9660"
+        "sha256_apercu": "204885512d309e70c407d45dfc4308cca6f2166e3aea7cec137cdaa27bc3b75b"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-O/hr-gun-e13-tete-O-shadow.png",
@@ -7811,11 +7859,11 @@
          ],
          "width": 125
         },
-        "sha256_apercu": "c7b6879edceaf40fd42eb1c77cf90318328cd2782a896bb94818495e7d04cf4e"
+        "sha256_apercu": "dae20de34c8573a403be154b1c8361f48d159c027b16fa2fc6614e11a5a9e1b2"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.04,
+      "secondes_rendu": 9.47,
       "variante": "e13-tete-O"
      },
      "S": {
@@ -7825,73 +7873,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 186,
+         "height": 182,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.734375
+          -1.765625
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 93,
+         "height": 91,
          "scale": 1,
          "shift": [
           0.0,
-          -1.734375
+          -1.765625
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "f3f4e6235db2cbd16a9a8bc6e223c93ad203b9a767c0e200c1798645464626c6"
+        "sha256_apercu": "c0d0d279265f3c6825965ba9ff9f0200c642b8e0d40b4cb2d315995ec3e65327"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-S/hr-gun-e13-tete-S-main.png",
         "hr": {
-         "height": 190,
+         "height": 192,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.703125
+          -1.71875
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 95,
+         "height": 96,
          "scale": 1,
          "shift": [
           0.0,
-          -1.703125
+          -1.71875
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "496e40bcc2566c95e20fb7b4b30684be93d67270d566cb00336004dd8e775389"
+        "sha256_apercu": "875ab7d8f51ef885d4beb7925b1c6bdd9385371148ceebf0d22ceaccf76a8095"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-S/hr-gun-e13-tete-S-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 96,
+         "height": 94,
          "scale": 0.5,
          "shift": [
           2.171875,
-          0.03125
+          0.046875
          ],
          "width": 246
         },
         "lr_prevu": {
-         "height": 48,
+         "height": 47,
          "scale": 1,
          "shift": [
           2.171875,
-          0.03125
+          0.046875
          ],
          "width": 123
         },
-        "sha256_apercu": "bb38bb8bceffd5b289a8c1e32dadeb799531d587d0b7daf036b59003d58c90bc"
+        "sha256_apercu": "1cd68addbf0913dae117fe98c097aa9085452cb646e15db67be58012415ece61"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 12.2,
+      "secondes_rendu": 6.46,
       "variante": "e13-tete-S"
      }
     }
@@ -7946,7 +7994,7 @@
        ],
        "width": 140
       },
-      "sha256_apercu": "3cfb05f995a7dbc46c99422845648fea873619bc71ed466ad0ebd46d208ff7e6"
+      "sha256_apercu": "bf0073392a1b9ba73ebbd9bb2f193e1ca2da1212672fc15f8197d1164e17735f"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e13-socle-piece/hr-gun-e13-socle-piece-main.png",
@@ -7995,14 +8043,14 @@
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 15.48,
+    "secondes_rendu": 17.85,
     "variante": "e13-socle-piece"
    },
    "description": "silhouette du niveau 25 + pièce : injecteurs à plasma aux coins avant",
    "drawing_box_proposee": [
     [
      -1.078,
-     -3.266
+     -3.297
     ],
     [
      1.078,
@@ -8011,11 +8059,11 @@
    ],
    "enveloppe_mesuree": {
     "L": 2.078,
-    "O": 2.156,
+    "O": 2.172,
     "O_cible_bible": 2.18,
     "bas_ecran": 0.906,
     "haut_du_socle_ecran": -0.828,
-    "haut_ecran": -3.266,
+    "haut_ecran": -3.297,
     "x": [
      -1.078,
      1.078
@@ -8047,35 +8095,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.08,
-       -2.4783
+       -2.5098
       ],
       "N": [
        -0.0,
-       -3.242
+       -3.2735
       ],
       "O": [
        -1.08,
-       -2.4783
+       -2.5098
       ],
       "S": [
        -0.0,
-       -1.7146
+       -1.7462
       ]
      },
-     "hauteur_axe_blender": 3.5049,
-     "hauteur_axe_ecran_tuiles": 2.4783,
+     "hauteur_axe_blender": 3.5495,
+     "hauteur_axe_ecran_tuiles": 2.5098,
      "portee_blender": 1.08,
      "proposition": {
       "projectile_center": [
        0.0,
-       -1.5208
+       -1.5523
       ],
       "projectile_creation_distance": 1.5053,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.51,
-    "hauteur_axe_zg_blender": 3.4913,
+    "hauteur_axe_zg_blender": 3.5359,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -8094,21 +8142,21 @@
          "height": 182,
          "scale": 0.5,
          "shift": [
-          0.046875,
+          0.0625,
           -1.734375
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 91,
          "scale": 1,
          "shift": [
-          0.046875,
+          0.0625,
           -1.734375
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "16e9546da4c75b13597711301b60dfcc57e9ccb49673b7f3b1b8554635c3dd02"
+        "sha256_apercu": "ef9a4b3daae4f62ebef8d0ce9773fd39dc5d19d6ab38ab55bbcc1f8942f63ee1"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-E/hr-gun-e13-tete-E-main.png",
@@ -8116,21 +8164,21 @@
          "height": 188,
          "scale": 0.5,
          "shift": [
-          0.046875,
+          0.0625,
           -1.6875
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 94,
          "scale": 1,
          "shift": [
-          0.046875,
+          0.0625,
           -1.6875
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "6b8580ced7f39d0bef909b06aa1361dcf1cb18e52b97a259e31d494794bd9aaa"
+        "sha256_apercu": "da05596fa8bab7154146d1cf928620cfb2c875f33366288730c709ac1bbe304d"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-E/hr-gun-e13-tete-E-shadow.png",
@@ -8139,25 +8187,25 @@
          "height": 84,
          "scale": 0.5,
          "shift": [
-          2.265625,
+          2.28125,
           0.0
          ],
-         "width": 258
+         "width": 260
         },
         "lr_prevu": {
          "height": 42,
          "scale": 1,
          "shift": [
-          2.265625,
+          2.28125,
           0.0
          ],
-         "width": 129
+         "width": 130
         },
-        "sha256_apercu": "2e2dc503e28f22dd2e56d97a0eced4e43e5acfaaf7c495fe572cd844b4aea79a"
+        "sha256_apercu": "ce18165b945a290f253ca5a5939f178e969648021a65e80f9b242e648bba1253"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.4,
+      "secondes_rendu": 11.88,
       "variante": "e13-tete-E"
      },
      "N": {
@@ -8167,73 +8215,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 190,
+         "height": 192,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.765625
+          -1.78125
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 95,
+         "height": 96,
          "scale": 1,
          "shift": [
           0.0,
-          -1.765625
+          -1.78125
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "6023dae89d7f910f2f8281b8648dbdb2552a9979a4bde332d2bc28f49be1eec9"
+        "sha256_apercu": "be7977538e3898fbbfbddcacbffba32c2fe9a18f77392ba157783407ab77b8e6"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-N/hr-gun-e13-tete-N-main.png",
         "hr": {
-         "height": 196,
+         "height": 198,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.75
+          -1.765625
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 98,
+         "height": 99,
          "scale": 1,
          "shift": [
           0.0,
-          -1.75
+          -1.765625
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "cdf4815a5854367117b44291889f71617c51cca68c35c2d17721a86668005f02"
+        "sha256_apercu": "fa43d377ff7ac75064fd97e4066a5b33507955bd51da25778e879c8df7d84a13"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-N/hr-gun-e13-tete-N-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 96,
+         "height": 94,
          "scale": 0.5,
          "shift": [
           2.171875,
-          -0.03125
+          -0.046875
          ],
          "width": 246
         },
         "lr_prevu": {
-         "height": 48,
+         "height": 47,
          "scale": 1,
          "shift": [
           2.171875,
-          -0.03125
+          -0.046875
          ],
          "width": 123
         },
-        "sha256_apercu": "202a279608f2f3dbd6025763d0c644a8ceed763d2cc6e84a58ce6ffdcdca9ae6"
+        "sha256_apercu": "d905fe241fd33225be6f2e7b6a34f7756866b40014f1b5c20b8bb3005d9efcb5"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.45,
+      "secondes_rendu": 8.06,
       "variante": "e13-tete-N"
      },
      "O": {
@@ -8246,21 +8294,21 @@
          "height": 186,
          "scale": 0.5,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.703125
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 93,
          "scale": 1,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.703125
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "f498920707bbd0c46b24d59559b46737b38642170eafb25cef514d34b85ea8ba"
+        "sha256_apercu": "e097a8e5e53dbc7c980be71d7ea86afcbc6912f9a2d74419e8cef2ec1b0e29d6"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-O/hr-gun-e13-tete-O-main.png",
@@ -8268,21 +8316,21 @@
          "height": 188,
          "scale": 0.5,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.6875
          ],
-         "width": 134
+         "width": 132
         },
         "lr_prevu": {
          "height": 94,
          "scale": 1,
          "shift": [
-          -0.046875,
+          -0.0625,
           -1.6875
          ],
-         "width": 67
+         "width": 66
         },
-        "sha256_apercu": "316b8a3a7b9d5a1b05d9efd63e0e523202251f2489404294fc3fddbb57dd9660"
+        "sha256_apercu": "204885512d309e70c407d45dfc4308cca6f2166e3aea7cec137cdaa27bc3b75b"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-O/hr-gun-e13-tete-O-shadow.png",
@@ -8305,11 +8353,11 @@
          ],
          "width": 125
         },
-        "sha256_apercu": "c7b6879edceaf40fd42eb1c77cf90318328cd2782a896bb94818495e7d04cf4e"
+        "sha256_apercu": "dae20de34c8573a403be154b1c8361f48d159c027b16fa2fc6614e11a5a9e1b2"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.04,
+      "secondes_rendu": 9.47,
       "variante": "e13-tete-O"
      },
      "S": {
@@ -8319,73 +8367,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 186,
+         "height": 182,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.734375
+          -1.765625
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 93,
+         "height": 91,
          "scale": 1,
          "shift": [
           0.0,
-          -1.734375
+          -1.765625
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "f3f4e6235db2cbd16a9a8bc6e223c93ad203b9a767c0e200c1798645464626c6"
+        "sha256_apercu": "c0d0d279265f3c6825965ba9ff9f0200c642b8e0d40b4cb2d315995ec3e65327"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e13-tete-S/hr-gun-e13-tete-S-main.png",
         "hr": {
-         "height": 190,
+         "height": 192,
          "scale": 0.5,
          "shift": [
           0.0,
-          -1.703125
+          -1.71875
          ],
-         "width": 120
+         "width": 116
         },
         "lr_prevu": {
-         "height": 95,
+         "height": 96,
          "scale": 1,
          "shift": [
           0.0,
-          -1.703125
+          -1.71875
          ],
-         "width": 60
+         "width": 58
         },
-        "sha256_apercu": "496e40bcc2566c95e20fb7b4b30684be93d67270d566cb00336004dd8e775389"
+        "sha256_apercu": "875ab7d8f51ef885d4beb7925b1c6bdd9385371148ceebf0d22ceaccf76a8095"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e13-tete-S/hr-gun-e13-tete-S-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 96,
+         "height": 94,
          "scale": 0.5,
          "shift": [
           2.171875,
-          0.03125
+          0.046875
          ],
          "width": 246
         },
         "lr_prevu": {
-         "height": 48,
+         "height": 47,
          "scale": 1,
          "shift": [
           2.171875,
-          0.03125
+          0.046875
          ],
          "width": 123
         },
-        "sha256_apercu": "bb38bb8bceffd5b289a8c1e32dadeb799531d587d0b7daf036b59003d58c90bc"
+        "sha256_apercu": "1cd68addbf0913dae117fe98c097aa9085452cb646e15db67be58012415ece61"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 12.2,
+      "secondes_rendu": 6.46,
       "variante": "e13-tete-S"
      }
     }
@@ -8465,7 +8513,7 @@
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 11.97,
+    "secondes_rendu": 13.24,
     "variante": "e14-socle"
    },
    "description": "ORBITE : tête-satellite (bus en feuille d'or), 2 canons, 2 petits panneaux dorés, parabole de profil et balise sur l'axe, caisson de munitions ; mât ; socle à 3 jambes",
@@ -8595,7 +8643,7 @@
          ],
          "width": 55
         },
-        "sha256_apercu": "86f9e68dbe22d04c3191221f168159b1fd64f8b4698e9d820880edc487c7972a"
+        "sha256_apercu": "5b740ee435c8d2eb088ae540b5457f76a91b3c53bcbfea5f2873f4f592582f4a"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-E/hr-gun-e14-tete-E-shadow.png",
@@ -8618,11 +8666,11 @@
          ],
          "width": 128
         },
-        "sha256_apercu": "4f6d287831cd5ad22c07ce50dc12d1cc728a9fc518a917077dfaacbb2e1ae268"
+        "sha256_apercu": "6e510e1f95368e2dd249d1ceab7090ff528f63ebee44f8296964bc6510b9ebbc"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.26,
+      "secondes_rendu": 7.62,
       "variante": "e14-tete-E"
      },
      "N": {
@@ -8671,7 +8719,7 @@
          ],
          "width": 72
         },
-        "sha256_apercu": "6f40047b90e5ffb02f93a2a49432460fbad328ec530d4454598f48670bbe8bf5"
+        "sha256_apercu": "1b8f13814acc908ed39081854467368971f8b2ddafae04acd8d49168aad49095"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-N/hr-gun-e14-tete-N-shadow.png",
@@ -8694,11 +8742,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "a8fa99872aab0d0c00fef8fb5d8c7b4733479efda15a37e66a46dcce6990883d"
+        "sha256_apercu": "55b6b84ffbe7ef36f2bee1e6c8dfbb22eaf6022ef2b6e87f71dc13dfc12426f3"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 7.95,
+      "secondes_rendu": 5.9,
       "variante": "e14-tete-N"
      },
      "O": {
@@ -8747,7 +8795,7 @@
          ],
          "width": 55
         },
-        "sha256_apercu": "41277e1acacb560f8b6a25a1a0b4a49b8112eb92ff0caaadbfad732f01be8417"
+        "sha256_apercu": "6a73d127c98522015ed9aecd4df5dbff94b45049d14f6c426f925af96664f421"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-O/hr-gun-e14-tete-O-shadow.png",
@@ -8770,11 +8818,11 @@
          ],
          "width": 131
         },
-        "sha256_apercu": "bdad03c2186cb01c7e3467dfb710c159d292462ab3a044c4f9b339fe4015b71d"
+        "sha256_apercu": "e5e617b0e65bdbd9b0f1aa7a56490a9283f79be1132fb09598cd7336b969b399"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 9.69,
+      "secondes_rendu": 11.67,
       "variante": "e14-tete-O"
      },
      "S": {
@@ -8823,7 +8871,7 @@
          ],
          "width": 72
         },
-        "sha256_apercu": "a2b70bde3551bbaec264a70a572389d82e8295470c62f6e8d376fc0050280028"
+        "sha256_apercu": "faf0f461c1e59372f1ed706a392fac7d66011c17cca992a565cac27d4b2086e2"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-S/hr-gun-e14-tete-S-shadow.png",
@@ -8846,11 +8894,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "1e85f316e60b8865e5dd8f42fafd7fd3fa7b18e89a0a8ab2288d8f5dd311edee"
+        "sha256_apercu": "1984871b9fd21498f8f436e40be6a6dd492ee881b51e283c481d380ca0f7e68d"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.55,
+      "secondes_rendu": 7.98,
       "variante": "e14-tete-S"
      }
     }
@@ -8954,7 +9002,7 @@
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 14.03,
+    "secondes_rendu": 12.98,
     "variante": "e14-socle-piece"
    },
    "description": "silhouette du niveau 27 + pièce : mât-balise et son coffret au coin avant gauche",
@@ -9089,7 +9137,7 @@
          ],
          "width": 55
         },
-        "sha256_apercu": "86f9e68dbe22d04c3191221f168159b1fd64f8b4698e9d820880edc487c7972a"
+        "sha256_apercu": "5b740ee435c8d2eb088ae540b5457f76a91b3c53bcbfea5f2873f4f592582f4a"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-E/hr-gun-e14-tete-E-shadow.png",
@@ -9112,11 +9160,11 @@
          ],
          "width": 128
         },
-        "sha256_apercu": "4f6d287831cd5ad22c07ce50dc12d1cc728a9fc518a917077dfaacbb2e1ae268"
+        "sha256_apercu": "6e510e1f95368e2dd249d1ceab7090ff528f63ebee44f8296964bc6510b9ebbc"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.26,
+      "secondes_rendu": 7.62,
       "variante": "e14-tete-E"
      },
      "N": {
@@ -9165,7 +9213,7 @@
          ],
          "width": 72
         },
-        "sha256_apercu": "6f40047b90e5ffb02f93a2a49432460fbad328ec530d4454598f48670bbe8bf5"
+        "sha256_apercu": "1b8f13814acc908ed39081854467368971f8b2ddafae04acd8d49168aad49095"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-N/hr-gun-e14-tete-N-shadow.png",
@@ -9188,11 +9236,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "a8fa99872aab0d0c00fef8fb5d8c7b4733479efda15a37e66a46dcce6990883d"
+        "sha256_apercu": "55b6b84ffbe7ef36f2bee1e6c8dfbb22eaf6022ef2b6e87f71dc13dfc12426f3"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 7.95,
+      "secondes_rendu": 5.9,
       "variante": "e14-tete-N"
      },
      "O": {
@@ -9241,7 +9289,7 @@
          ],
          "width": 55
         },
-        "sha256_apercu": "41277e1acacb560f8b6a25a1a0b4a49b8112eb92ff0caaadbfad732f01be8417"
+        "sha256_apercu": "6a73d127c98522015ed9aecd4df5dbff94b45049d14f6c426f925af96664f421"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-O/hr-gun-e14-tete-O-shadow.png",
@@ -9264,11 +9312,11 @@
          ],
          "width": 131
         },
-        "sha256_apercu": "bdad03c2186cb01c7e3467dfb710c159d292462ab3a044c4f9b339fe4015b71d"
+        "sha256_apercu": "e5e617b0e65bdbd9b0f1aa7a56490a9283f79be1132fb09598cd7336b969b399"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 9.69,
+      "secondes_rendu": 11.67,
       "variante": "e14-tete-O"
      },
      "S": {
@@ -9317,7 +9365,7 @@
          ],
          "width": 72
         },
-        "sha256_apercu": "a2b70bde3551bbaec264a70a572389d82e8295470c62f6e8d376fc0050280028"
+        "sha256_apercu": "faf0f461c1e59372f1ed706a392fac7d66011c17cca992a565cac27d4b2086e2"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e14-tete-S/hr-gun-e14-tete-S-shadow.png",
@@ -9340,11 +9388,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "1e85f316e60b8865e5dd8f42fafd7fd3fa7b18e89a0a8ab2288d8f5dd311edee"
+        "sha256_apercu": "1984871b9fd21498f8f436e40be6a6dd492ee881b51e283c481d380ca0f7e68d"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.55,
+      "secondes_rendu": 7.98,
       "variante": "e14-tete-S"
      }
     }
@@ -9375,7 +9423,7 @@
        ],
        "width": 46
       },
-      "sha256_apercu": "c5a99b3b3ad61c98a8912129227bf39d8f30db1619577bceae06c5edc875bf66"
+      "sha256_apercu": "12cfae190b3f09872addb182ebe61f613f56fee3cea923d8534f4db4b5b85bb0"
      },
      "light": {
       "apercu": "tools/render/out/levels/gun/e15-socle/hr-gun-e15-socle-light.png",
@@ -9399,7 +9447,7 @@
        ],
        "width": 148
       },
-      "sha256_apercu": "a48ec72b153d93092d9f337fdfc2371190b7a54acd81030ee6ed4be1794df094"
+      "sha256_apercu": "7c1ecc346a390ede733758cda9af2578f7f1357644971e416bd645be338c9734"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e15-socle/hr-gun-e15-socle-main.png",
@@ -9421,7 +9469,7 @@
        ],
        "width": 61
       },
-      "sha256_apercu": "a581e52796a986bdcf2f025aad76c7742c50f18f2caec01098e17b6c993a5eec"
+      "sha256_apercu": "006cf52fca076229fe4db54a98e75c3fe8e63b1324650e01b1b77303ac83082f"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e15-socle/hr-gun-e15-socle-shadow.png",
@@ -9444,11 +9492,11 @@
        ],
        "width": 50
       },
-      "sha256_apercu": "6a7461b415b943731218abc30a75c42eda57ceef9521dd2cbedcdb311f32cb39"
+      "sha256_apercu": "88cbeac729a8c568e053ded12858af5b35460f59186b57033b85ff5b7b1dad03"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 16.78,
+    "secondes_rendu": 13.6,
     "variante": "e15-socle"
    },
    "description": "LÉGENDE : couronne de 6 canons en étoile et 5 flèches, anneau-halo autour de la couronne, tronçons flottants ; socle-disque sur pied à anneau lumineux",
@@ -9578,7 +9626,7 @@
          ],
          "width": 63
         },
-        "sha256_apercu": "988eef2443dc31b59f2f1111ae4e2050f986cc7f948c9055f17f9907f3b2f24c"
+        "sha256_apercu": "98069aa82e7c9a4ab67d394e9ca14e9f2ef3fd724e3452b363460e2b4765b592"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-E/hr-gun-e15-tete-E-shadow.png",
@@ -9601,11 +9649,11 @@
          ],
          "width": 134
         },
-        "sha256_apercu": "f6cb836a00c74c927bc02be2b573c9b763ca17fb74336879249f7c6d0bea76b8"
+        "sha256_apercu": "29ce9d82b552c9abf31ce66762702332af9c75661ac7db7a7bec88a1c9068e8b"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 9.68,
+      "secondes_rendu": 11.16,
       "variante": "e15-tete-E"
      },
      "N": {
@@ -9654,7 +9702,7 @@
          ],
          "width": 52
         },
-        "sha256_apercu": "0b85876489d70f2dfc65cf2f8d85c2284a8c0253dc1b18e1a78b7fb5563859ca"
+        "sha256_apercu": "472ad476b6a6cb99bf46dfd761f4b455a7bb621471eee08a020d9bc2205fe950"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-N/hr-gun-e15-tete-N-shadow.png",
@@ -9677,11 +9725,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "9385cfdfafa8d57b1cde3c4b25e18192d43ecf082e92079755dd3a319495f090"
+        "sha256_apercu": "c9ea70e5df8ed6ab5e2ed95d7ecb0a22982816eb0db418b2845013c4f0a73d85"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.01,
+      "secondes_rendu": 7.95,
       "variante": "e15-tete-N"
      },
      "O": {
@@ -9730,7 +9778,7 @@
          ],
          "width": 63
         },
-        "sha256_apercu": "ac35d732734997437c85185cb582e1266515a3bf0421778c3938024f2e7d2923"
+        "sha256_apercu": "70e56b2d8db13723dd0a776d136274c0a9cbce5333b3f17b9a743827c4cb4193"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-O/hr-gun-e15-tete-O-shadow.png",
@@ -9753,11 +9801,11 @@
          ],
          "width": 135
         },
-        "sha256_apercu": "828a1e3638c0e46158d448309983bea22d2b92d27b4be5b2da9c63462d4a72e5"
+        "sha256_apercu": "8aebbcde256f5a57a9a1595ba2ad9c0ebf425249fa6a48f8615c970ddd2ab726"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.25,
+      "secondes_rendu": 11.92,
       "variante": "e15-tete-O"
      },
      "S": {
@@ -9806,7 +9854,7 @@
          ],
          "width": 52
         },
-        "sha256_apercu": "055e2dd5847549026926acf1cefd00ffef604baa5b064f4a8b84143a4dde137e"
+        "sha256_apercu": "ef81ad9aec394f9cc6aa6dcbac19431a9fd8d2a226bc005e437151f878dc09e5"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-S/hr-gun-e15-tete-S-shadow.png",
@@ -9829,11 +9877,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "e97851426dfbb31de54bbc9a6f008814febd8afa69ccc377b13450840ef58b95"
+        "sha256_apercu": "e768180ade034af030b5aac747c030a52c293539ff1934eab4f8bfd3a0947882"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.71,
+      "secondes_rendu": 8.4,
       "variante": "e15-tete-S"
      }
     }
@@ -10196,7 +10244,7 @@
        ],
        "width": 61
       },
-      "sha256_apercu": "90202ff9d8b91f0dd5849bb6264ba763233474591e1fa7453c05103cc2980efb"
+      "sha256_apercu": "83978385691c54b9bf0d470bca18a5d89ce9642dc459ad81aa22558c53df62fd"
      },
      "light": {
       "apercu": "tools/render/out/levels/gun/e15-socle-piece/hr-gun-e15-socle-piece-light.png",
@@ -10220,7 +10268,7 @@
        ],
        "width": 153
       },
-      "sha256_apercu": "9bf78016c100bcb30355de1e333725829a023bdd023f5c3c04c7e6aaec715817"
+      "sha256_apercu": "1be18f5a156e724b98b975c94ca4c15a9f4dd11fa765b037d58924e77c7c1ba4"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e15-socle-piece/hr-gun-e15-socle-piece-main.png",
@@ -10242,7 +10290,7 @@
        ],
        "width": 76
       },
-      "sha256_apercu": "30921d6e0ac7f1c709bb8df401c6c9ca3e077dbd75840cbb92598ecaa87198fb"
+      "sha256_apercu": "6eac38debd56e5fe0d8e5f3b910f4a259f3ac48e2101f82e1b398e0345dd48ba"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e15-socle-piece/hr-gun-e15-socle-piece-shadow.png",
@@ -10265,11 +10313,11 @@
        ],
        "width": 84
       },
-      "sha256_apercu": "be7ae990b63a03ea622f38d2e93d316966f0f5622bc6ba2f77a0ffefc3995141"
+      "sha256_apercu": "caeda66f3a01455ad5bd26ed28d93526e38a4f3104cd73d02e65e5c69f9bca66"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 19.96,
+    "secondes_rendu": 19.49,
     "variante": "e15-socle-piece"
    },
    "description": "silhouette du niveau 29 + pièce : petites flèches à feu aux coins avant",
@@ -10404,7 +10452,7 @@
          ],
          "width": 63
         },
-        "sha256_apercu": "988eef2443dc31b59f2f1111ae4e2050f986cc7f948c9055f17f9907f3b2f24c"
+        "sha256_apercu": "98069aa82e7c9a4ab67d394e9ca14e9f2ef3fd724e3452b363460e2b4765b592"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-E/hr-gun-e15-tete-E-shadow.png",
@@ -10427,11 +10475,11 @@
          ],
          "width": 134
         },
-        "sha256_apercu": "f6cb836a00c74c927bc02be2b573c9b763ca17fb74336879249f7c6d0bea76b8"
+        "sha256_apercu": "29ce9d82b552c9abf31ce66762702332af9c75661ac7db7a7bec88a1c9068e8b"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 9.68,
+      "secondes_rendu": 11.16,
       "variante": "e15-tete-E"
      },
      "N": {
@@ -10480,7 +10528,7 @@
          ],
          "width": 52
         },
-        "sha256_apercu": "0b85876489d70f2dfc65cf2f8d85c2284a8c0253dc1b18e1a78b7fb5563859ca"
+        "sha256_apercu": "472ad476b6a6cb99bf46dfd761f4b455a7bb621471eee08a020d9bc2205fe950"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-N/hr-gun-e15-tete-N-shadow.png",
@@ -10503,11 +10551,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "9385cfdfafa8d57b1cde3c4b25e18192d43ecf082e92079755dd3a319495f090"
+        "sha256_apercu": "c9ea70e5df8ed6ab5e2ed95d7ecb0a22982816eb0db418b2845013c4f0a73d85"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.01,
+      "secondes_rendu": 7.95,
       "variante": "e15-tete-N"
      },
      "O": {
@@ -10556,7 +10604,7 @@
          ],
          "width": 63
         },
-        "sha256_apercu": "ac35d732734997437c85185cb582e1266515a3bf0421778c3938024f2e7d2923"
+        "sha256_apercu": "70e56b2d8db13723dd0a776d136274c0a9cbce5333b3f17b9a743827c4cb4193"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-O/hr-gun-e15-tete-O-shadow.png",
@@ -10579,11 +10627,11 @@
          ],
          "width": 135
         },
-        "sha256_apercu": "828a1e3638c0e46158d448309983bea22d2b92d27b4be5b2da9c63462d4a72e5"
+        "sha256_apercu": "8aebbcde256f5a57a9a1595ba2ad9c0ebf425249fa6a48f8615c970ddd2ab726"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 10.25,
+      "secondes_rendu": 11.92,
       "variante": "e15-tete-O"
      },
      "S": {
@@ -10632,7 +10680,7 @@
          ],
          "width": 52
         },
-        "sha256_apercu": "055e2dd5847549026926acf1cefd00ffef604baa5b064f4a8b84143a4dde137e"
+        "sha256_apercu": "ef81ad9aec394f9cc6aa6dcbac19431a9fd8d2a226bc005e437151f878dc09e5"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e15-tete-S/hr-gun-e15-tete-S-shadow.png",
@@ -10655,11 +10703,11 @@
          ],
          "width": 129
         },
-        "sha256_apercu": "e97851426dfbb31de54bbc9a6f008814febd8afa69ccc377b13450840ef58b95"
+        "sha256_apercu": "e768180ade034af030b5aac747c030a52c293539ff1934eab4f8bfd3a0947882"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 8.71,
+      "secondes_rendu": 8.4,
       "variante": "e15-tete-S"
      }
     }
@@ -11962,7 +12010,7 @@
        ],
        "width": 81
       },
-      "sha256_apercu": "2ac5aa65a635768080623c3badc7a96a1af9fb5be47d475bf63a055c79c1a3be"
+      "sha256_apercu": "1397e9762c500f6dec61ea53fd08d5a1f617fb74a319296faf154f86b43f5d39"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e04-socle/hr-gun-e04-socle-main.png",
@@ -11984,7 +12032,7 @@
        ],
        "width": 70
       },
-      "sha256_apercu": "1314d30a0b7af1ff1f6b8ff4e20b3cd61a1ef14437ffa465259c82161e7d206b"
+      "sha256_apercu": "2d7dada6788e8b34f8f466311fb0ab21740bace8cac423d822ab956d3ab08b11"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e04-socle/hr-gun-e04-socle-shadow.png",
@@ -12007,11 +12055,11 @@
        ],
        "width": 57
       },
-      "sha256_apercu": "b3b9ba82b145e5585c2f0e50972843ea464cb30c86cf1e679804a58c16569e2f"
+      "sha256_apercu": "fa95cfa3e3b07d0197da120e207e008dd19fa5841abc945ffae76949ac00e475"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 12.99,
+    "secondes_rendu": 13.54,
     "variante": "e04-socle"
    },
    "description": "PÉTROLE : caisson jaune délavé à chevrons, 2 bidons-chargeurs latéraux, 3 canons ; garde-corps sur le toit ; plate-forme à patins",
@@ -12058,35 +12106,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.22,
-       -1.1932
+       -1.1835
       ],
       "N": [
        -0.0,
-       -2.0558
+       -2.0462
       ],
       "O": [
        -1.22,
-       -1.1932
+       -1.1835
       ],
       "S": [
        -0.0,
-       -0.3305
+       -0.3208
       ]
      },
-     "hauteur_axe_blender": 1.6874,
-     "hauteur_axe_ecran_tuiles": 1.1932,
+     "hauteur_axe_blender": 1.6737,
+     "hauteur_axe_ecran_tuiles": 1.1835,
      "portee_blender": 1.22,
      "proposition": {
       "projectile_center": [
        0.0,
-       -0.2357
+       -0.226
       ],
       "projectile_creation_distance": 1.7004,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.28,
-    "hauteur_axe_zg_blender": 1.7491,
+    "hauteur_axe_zg_blender": 1.7354,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -12102,73 +12150,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 64,
+         "height": 74,
          "scale": 0.5,
          "shift": [
-          -0.109375,
-          -1.46875
+          0.3125,
+          -1.453125
          ],
-         "width": 62
+         "width": 116
         },
         "lr_prevu": {
-         "height": 32,
+         "height": 37,
          "scale": 1,
          "shift": [
-          -0.109375,
-          -1.46875
+          0.3125,
+          -1.453125
          ],
-         "width": 31
+         "width": 58
         },
-        "sha256_apercu": "db0dafc3e8185c67e672fc49026e5e4713c0cd13913c789fb3adcb83a27c0616"
+        "sha256_apercu": "66db664bbc16d363c103d35b24d30ef6890efcabf89411dc6b61bf8c64399a8c"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-E/hr-gun-e04-tete-E-main.png",
         "hr": {
-         "height": 154,
+         "height": 158,
          "scale": 0.5,
          "shift": [
           0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 128
         },
         "lr_prevu": {
-         "height": 77,
+         "height": 79,
          "scale": 1,
          "shift": [
           0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 64
         },
-        "sha256_apercu": "6a6d816f2890886ba308d26f61123c19d08184d26d78db7c0728a6fd0eaf817a"
+        "sha256_apercu": "8060e100b28b5c8b69103f093edbe4bf0837bab718a58b35405cc5626cdbb6aa"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-E/hr-gun-e04-tete-E-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 84,
+         "height": 96,
          "scale": 0.5,
          "shift": [
-          1.21875,
+          1.203125,
           0.0
          ],
-         "width": 216
+         "width": 218
         },
         "lr_prevu": {
-         "height": 42,
+         "height": 48,
          "scale": 1,
          "shift": [
-          1.21875,
+          1.203125,
           0.0
          ],
-         "width": 108
+         "width": 109
         },
-        "sha256_apercu": "f4fb600c9fd38bf1aa4d9ad7fe8c8c6255ff992354a309fc9d518a6abb502d11"
+        "sha256_apercu": "d27ffe8f035c6912e8e4258a41c6862670277336658e18ca976af628fa5fba38"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 13.92,
+      "secondes_rendu": 7.63,
       "variante": "e04-tete-E"
      },
      "N": {
@@ -12178,24 +12226,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 44,
+         "height": 70,
          "scale": 0.5,
          "shift": [
-          0.046875,
-          -1.375
+          0.03125,
+          -1.578125
          ],
-         "width": 86
+         "width": 108
         },
         "lr_prevu": {
-         "height": 22,
+         "height": 35,
          "scale": 1,
          "shift": [
-          0.046875,
-          -1.375
+          0.03125,
+          -1.578125
          ],
-         "width": 43
+         "width": 54
         },
-        "sha256_apercu": "81ee087452b26e57973a2a081d6abb47293981222d7e6b459505c6acc8647954"
+        "sha256_apercu": "b4a4e996db2a33492399ad892a9db5facd5a78ba1825fe65183be496ce0ebbcd"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-N/hr-gun-e04-tete-N-main.png",
@@ -12206,7 +12254,7 @@
           0.0,
           -0.921875
          ],
-         "width": 120
+         "width": 132
         },
         "lr_prevu": {
          "height": 81,
@@ -12215,36 +12263,36 @@
           0.0,
           -0.921875
          ],
-         "width": 60
+         "width": 66
         },
-        "sha256_apercu": "ca08f555e7b7aae2438cfcc2918e62ce1c55ea0bec4480e3aca37e86d9020130"
+        "sha256_apercu": "b6c871d9a4173800fcbde05cfcea7c31006e66bd82b77a403bd008b6daafd428"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-N/hr-gun-e04-tete-N-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 92,
+         "height": 90,
          "scale": 0.5,
          "shift": [
-          1.109375,
-          -0.1875
+          1.15625,
+          -0.171875
          ],
-         "width": 202
+         "width": 208
         },
         "lr_prevu": {
-         "height": 46,
+         "height": 45,
          "scale": 1,
          "shift": [
-          1.109375,
-          -0.1875
+          1.15625,
+          -0.171875
          ],
-         "width": 101
+         "width": 104
         },
-        "sha256_apercu": "661ceed2142b488aee0fa5ab311c2d1f6d45ef770ee0842c57c2f16ea8cb8e79"
+        "sha256_apercu": "a5ee47bfe3e6442858305539912a7843124b82068bcba07992cb756a9b160d50"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.01,
+      "secondes_rendu": 8.23,
       "variante": "e04-tete-N"
      },
      "O": {
@@ -12254,73 +12302,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 46,
+         "height": 72,
          "scale": 0.5,
          "shift": [
-          0.125,
-          -1.609375
+          -0.25,
+          -1.5
          ],
-         "width": 60
+         "width": 108
         },
         "lr_prevu": {
-         "height": 23,
+         "height": 36,
          "scale": 1,
          "shift": [
-          0.125,
-          -1.609375
+          -0.25,
+          -1.5
          ],
-         "width": 30
+         "width": 54
         },
-        "sha256_apercu": "c18d2dab06e4acbbb85710d42a90f7c33a5e9a486fbb05ae34616c6097c96311"
+        "sha256_apercu": "23d82137137c76df27ed73b45b29b89592174688d3e278ba9c0752c533b715df"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-O/hr-gun-e04-tete-O-main.png",
         "hr": {
-         "height": 154,
+         "height": 158,
          "scale": 0.5,
          "shift": [
           -0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 128
         },
         "lr_prevu": {
-         "height": 77,
+         "height": 79,
          "scale": 1,
          "shift": [
           -0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 64
         },
-        "sha256_apercu": "72e898cfd96de79f5c3268cf029532686dd04f7dc3685abd0551a46a6f2b469e"
+        "sha256_apercu": "30de29fb9f176a524bfd49bfd150681ae8d558bd702d8668bda3e0c329f5f8bd"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-O/hr-gun-e04-tete-O-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 84,
+         "height": 94,
          "scale": 0.5,
          "shift": [
-          1.125,
-          0.0
+          1.109375,
+          0.015625
          ],
-         "width": 208
+         "width": 206
         },
         "lr_prevu": {
-         "height": 42,
+         "height": 47,
          "scale": 1,
          "shift": [
-          1.125,
-          0.0
+          1.109375,
+          0.015625
          ],
-         "width": 104
+         "width": 103
         },
-        "sha256_apercu": "ae815bdea64e2d7a6382d1a410a6e1e6e5ebf6658333446768aee4ceeb25a11f"
+        "sha256_apercu": "714c653b0005d2b662e9846972bad7ea195e33a42637917a0507785490fd3c5c"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 11.76,
+      "secondes_rendu": 15.59,
       "variante": "e04-tete-O"
      },
      "S": {
@@ -12333,21 +12381,21 @@
          "height": 102,
          "scale": 0.5,
          "shift": [
-          -0.03125,
+          -0.015625,
           -1.296875
          ],
-         "width": 88
+         "width": 102
         },
         "lr_prevu": {
          "height": 51,
          "scale": 1,
          "shift": [
-          -0.03125,
+          -0.015625,
           -1.296875
          ],
-         "width": 44
+         "width": 51
         },
-        "sha256_apercu": "abc4fe373b82dcc5df064d2996bfcbdc5bc10ca37207e5ec04e52675cb84e5d4"
+        "sha256_apercu": "9d5728d17cf4d41e0ba11d17f42e5b0f8529ee98dbc9752aa2a9d0dc15a70e6d"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-S/hr-gun-e04-tete-S-main.png",
@@ -12358,7 +12406,7 @@
           0.0,
           -0.890625
          ],
-         "width": 120
+         "width": 132
         },
         "lr_prevu": {
          "height": 79,
@@ -12367,9 +12415,9 @@
           0.0,
           -0.890625
          ],
-         "width": 60
+         "width": 66
         },
-        "sha256_apercu": "82717f0ae21fd5b5ee3435a59f9beb3e10b7ecc676aa42807f99d848c5c76885"
+        "sha256_apercu": "a9a356b9b474c92cd0bb2ac3746cf2b8c9a528aca12060885e4b27ae69b67939"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-S/hr-gun-e04-tete-S-shadow.png",
@@ -12378,25 +12426,25 @@
          "height": 90,
          "scale": 0.5,
          "shift": [
-          1.109375,
+          1.15625,
           0.171875
          ],
-         "width": 202
+         "width": 208
         },
         "lr_prevu": {
          "height": 45,
          "scale": 1,
          "shift": [
-          1.109375,
+          1.15625,
           0.171875
          ],
-         "width": 101
+         "width": 104
         },
-        "sha256_apercu": "99eaf0dea59eb7a1e62cccd2b13204778e1a844f035e585acc35013b8bc9ce88"
+        "sha256_apercu": "11d387f2bda382de40118acde1e35bd354f0ce4e3f3f20bda5b874b47258a7c7"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.47,
+      "secondes_rendu": 14.27,
       "variante": "e04-tete-S"
      }
     }
@@ -12427,7 +12475,7 @@
        ],
        "width": 84
       },
-      "sha256_apercu": "0b983ddb3c23b77f844cbd2570a6f250f020b8e842df8dea3dd0b889c639a9d7"
+      "sha256_apercu": "8ee58b6ebb5716e3b16b7de7df41f44c25d3322996623fea8d6929a824eab6de"
      },
      "main": {
       "apercu": "tools/render/out/levels/gun/e04-socle-piece/hr-gun-e04-socle-piece-main.png",
@@ -12449,7 +12497,7 @@
        ],
        "width": 86
       },
-      "sha256_apercu": "c3e46caa4142ed7fdd705c63dc1a697ba362378db3779e0d0346e1e12a4ff47c"
+      "sha256_apercu": "6df43e95f403f46fedcaabd637b08fe8cbb93bebde0756d097fa628a3897e161"
      },
      "shadow": {
       "apercu": "tools/render/out/levels/gun/e04-socle-piece/hr-gun-e04-socle-piece-shadow.png",
@@ -12472,11 +12520,11 @@
        ],
        "width": 84
       },
-      "sha256_apercu": "5a6e6f04d0761fe94d9516ca9328d9b3e29d0f9b43764de7545f4f03239de73a"
+      "sha256_apercu": "cec1398b7d2c1cfc5ef6ccac142cb4e0aad43658dd0e798c58ec7c569ba3bd11"
      }
     },
     "echantillons": 32,
-    "secondes_rendu": 20.56,
+    "secondes_rendu": 17.82,
     "variante": "e04-socle-piece"
    },
    "description": "silhouette du niveau 7 + pièce : passerelle à garde-corps autour de l'avant du socle, dépasse de 0,15 de chaque côté",
@@ -12528,35 +12576,35 @@
      "bout_ecran_tuiles": {
       "E": [
        1.22,
-       -1.1932
+       -1.1835
       ],
       "N": [
        -0.0,
-       -2.0558
+       -2.0462
       ],
       "O": [
        -1.22,
-       -1.1932
+       -1.1835
       ],
       "S": [
        -0.0,
-       -0.3305
+       -0.3208
       ]
      },
-     "hauteur_axe_blender": 1.6874,
-     "hauteur_axe_ecran_tuiles": 1.1932,
+     "hauteur_axe_blender": 1.6737,
+     "hauteur_axe_ecran_tuiles": 1.1835,
      "portee_blender": 1.22,
      "proposition": {
       "projectile_center": [
        0.0,
-       -0.2357
+       -0.226
       ],
       "projectile_creation_distance": 1.7004,
       "statut": "PROPOSITION non vérifiée : décalage vanilla (centre −0,0875, distance 1,39375) translaté de l'écart de hauteur d'axe à l'écran et mis à l'échelle de la portée ; à caler en phase 2 sur capture de tir (flash de bouche)."
      }
     },
     "dessus_du_socle_z": 0.28,
-    "hauteur_axe_zg_blender": 1.7491,
+    "hauteur_axe_zg_blender": 1.7354,
     "phase2": {
      "angle_direction_k": "−k × 5,625° autour de Z (K.rotate), k = 0..63, 0 = nord",
      "attacking_animation": "64 directions × 2 images (recul ; Q12 : aucune économie)",
@@ -12572,73 +12620,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 64,
+         "height": 74,
          "scale": 0.5,
          "shift": [
-          -0.109375,
-          -1.46875
+          0.3125,
+          -1.453125
          ],
-         "width": 62
+         "width": 116
         },
         "lr_prevu": {
-         "height": 32,
+         "height": 37,
          "scale": 1,
          "shift": [
-          -0.109375,
-          -1.46875
+          0.3125,
+          -1.453125
          ],
-         "width": 31
+         "width": 58
         },
-        "sha256_apercu": "db0dafc3e8185c67e672fc49026e5e4713c0cd13913c789fb3adcb83a27c0616"
+        "sha256_apercu": "66db664bbc16d363c103d35b24d30ef6890efcabf89411dc6b61bf8c64399a8c"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-E/hr-gun-e04-tete-E-main.png",
         "hr": {
-         "height": 154,
+         "height": 158,
          "scale": 0.5,
          "shift": [
           0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 128
         },
         "lr_prevu": {
-         "height": 77,
+         "height": 79,
          "scale": 1,
          "shift": [
           0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 64
         },
-        "sha256_apercu": "6a6d816f2890886ba308d26f61123c19d08184d26d78db7c0728a6fd0eaf817a"
+        "sha256_apercu": "8060e100b28b5c8b69103f093edbe4bf0837bab718a58b35405cc5626cdbb6aa"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-E/hr-gun-e04-tete-E-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 84,
+         "height": 96,
          "scale": 0.5,
          "shift": [
-          1.21875,
+          1.203125,
           0.0
          ],
-         "width": 216
+         "width": 218
         },
         "lr_prevu": {
-         "height": 42,
+         "height": 48,
          "scale": 1,
          "shift": [
-          1.21875,
+          1.203125,
           0.0
          ],
-         "width": 108
+         "width": 109
         },
-        "sha256_apercu": "f4fb600c9fd38bf1aa4d9ad7fe8c8c6255ff992354a309fc9d518a6abb502d11"
+        "sha256_apercu": "d27ffe8f035c6912e8e4258a41c6862670277336658e18ca976af628fa5fba38"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 13.92,
+      "secondes_rendu": 7.63,
       "variante": "e04-tete-E"
      },
      "N": {
@@ -12648,24 +12696,24 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 44,
+         "height": 70,
          "scale": 0.5,
          "shift": [
-          0.046875,
-          -1.375
+          0.03125,
+          -1.578125
          ],
-         "width": 86
+         "width": 108
         },
         "lr_prevu": {
-         "height": 22,
+         "height": 35,
          "scale": 1,
          "shift": [
-          0.046875,
-          -1.375
+          0.03125,
+          -1.578125
          ],
-         "width": 43
+         "width": 54
         },
-        "sha256_apercu": "81ee087452b26e57973a2a081d6abb47293981222d7e6b459505c6acc8647954"
+        "sha256_apercu": "b4a4e996db2a33492399ad892a9db5facd5a78ba1825fe65183be496ce0ebbcd"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-N/hr-gun-e04-tete-N-main.png",
@@ -12676,7 +12724,7 @@
           0.0,
           -0.921875
          ],
-         "width": 120
+         "width": 132
         },
         "lr_prevu": {
          "height": 81,
@@ -12685,36 +12733,36 @@
           0.0,
           -0.921875
          ],
-         "width": 60
+         "width": 66
         },
-        "sha256_apercu": "ca08f555e7b7aae2438cfcc2918e62ce1c55ea0bec4480e3aca37e86d9020130"
+        "sha256_apercu": "b6c871d9a4173800fcbde05cfcea7c31006e66bd82b77a403bd008b6daafd428"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-N/hr-gun-e04-tete-N-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 92,
+         "height": 90,
          "scale": 0.5,
          "shift": [
-          1.109375,
-          -0.1875
+          1.15625,
+          -0.171875
          ],
-         "width": 202
+         "width": 208
         },
         "lr_prevu": {
-         "height": 46,
+         "height": 45,
          "scale": 1,
          "shift": [
-          1.109375,
-          -0.1875
+          1.15625,
+          -0.171875
          ],
-         "width": 101
+         "width": 104
         },
-        "sha256_apercu": "661ceed2142b488aee0fa5ab311c2d1f6d45ef770ee0842c57c2f16ea8cb8e79"
+        "sha256_apercu": "a5ee47bfe3e6442858305539912a7843124b82068bcba07992cb756a9b160d50"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.01,
+      "secondes_rendu": 8.23,
       "variante": "e04-tete-N"
      },
      "O": {
@@ -12724,73 +12772,73 @@
         "blend_mode": "additive",
         "draw_as_glow": true,
         "hr": {
-         "height": 46,
+         "height": 72,
          "scale": 0.5,
          "shift": [
-          0.125,
-          -1.609375
+          -0.25,
+          -1.5
          ],
-         "width": 60
+         "width": 108
         },
         "lr_prevu": {
-         "height": 23,
+         "height": 36,
          "scale": 1,
          "shift": [
-          0.125,
-          -1.609375
+          -0.25,
+          -1.5
          ],
-         "width": 30
+         "width": 54
         },
-        "sha256_apercu": "c18d2dab06e4acbbb85710d42a90f7c33a5e9a486fbb05ae34616c6097c96311"
+        "sha256_apercu": "23d82137137c76df27ed73b45b29b89592174688d3e278ba9c0752c533b715df"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-O/hr-gun-e04-tete-O-main.png",
         "hr": {
-         "height": 154,
+         "height": 158,
          "scale": 0.5,
          "shift": [
           -0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 128
         },
         "lr_prevu": {
-         "height": 77,
+         "height": 79,
          "scale": 1,
          "shift": [
           -0.25,
-          -0.859375
+          -0.890625
          ],
          "width": 64
         },
-        "sha256_apercu": "72e898cfd96de79f5c3268cf029532686dd04f7dc3685abd0551a46a6f2b469e"
+        "sha256_apercu": "30de29fb9f176a524bfd49bfd150681ae8d558bd702d8668bda3e0c329f5f8bd"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-O/hr-gun-e04-tete-O-shadow.png",
         "draw_as_shadow": true,
         "hr": {
-         "height": 84,
+         "height": 94,
          "scale": 0.5,
          "shift": [
-          1.125,
-          0.0
+          1.109375,
+          0.015625
          ],
-         "width": 208
+         "width": 206
         },
         "lr_prevu": {
-         "height": 42,
+         "height": 47,
          "scale": 1,
          "shift": [
-          1.125,
-          0.0
+          1.109375,
+          0.015625
          ],
-         "width": 104
+         "width": 103
         },
-        "sha256_apercu": "ae815bdea64e2d7a6382d1a410a6e1e6e5ebf6658333446768aee4ceeb25a11f"
+        "sha256_apercu": "714c653b0005d2b662e9846972bad7ea195e33a42637917a0507785490fd3c5c"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 11.76,
+      "secondes_rendu": 15.59,
       "variante": "e04-tete-O"
      },
      "S": {
@@ -12803,21 +12851,21 @@
          "height": 102,
          "scale": 0.5,
          "shift": [
-          -0.03125,
+          -0.015625,
           -1.296875
          ],
-         "width": 88
+         "width": 102
         },
         "lr_prevu": {
          "height": 51,
          "scale": 1,
          "shift": [
-          -0.03125,
+          -0.015625,
           -1.296875
          ],
-         "width": 44
+         "width": 51
         },
-        "sha256_apercu": "abc4fe373b82dcc5df064d2996bfcbdc5bc10ca37207e5ec04e52675cb84e5d4"
+        "sha256_apercu": "9d5728d17cf4d41e0ba11d17f42e5b0f8529ee98dbc9752aa2a9d0dc15a70e6d"
        },
        "main": {
         "apercu": "tools/render/out/levels/gun/e04-tete-S/hr-gun-e04-tete-S-main.png",
@@ -12828,7 +12876,7 @@
           0.0,
           -0.890625
          ],
-         "width": 120
+         "width": 132
         },
         "lr_prevu": {
          "height": 79,
@@ -12837,9 +12885,9 @@
           0.0,
           -0.890625
          ],
-         "width": 60
+         "width": 66
         },
-        "sha256_apercu": "82717f0ae21fd5b5ee3435a59f9beb3e10b7ecc676aa42807f99d848c5c76885"
+        "sha256_apercu": "a9a356b9b474c92cd0bb2ac3746cf2b8c9a528aca12060885e4b27ae69b67939"
        },
        "shadow": {
         "apercu": "tools/render/out/levels/gun/e04-tete-S/hr-gun-e04-tete-S-shadow.png",
@@ -12848,25 +12896,25 @@
          "height": 90,
          "scale": 0.5,
          "shift": [
-          1.109375,
+          1.15625,
           0.171875
          ],
-         "width": 202
+         "width": 208
         },
         "lr_prevu": {
          "height": 45,
          "scale": 1,
          "shift": [
-          1.109375,
+          1.15625,
           0.171875
          ],
-         "width": 101
+         "width": 104
         },
-        "sha256_apercu": "99eaf0dea59eb7a1e62cccd2b13204778e1a844f035e585acc35013b8bc9ce88"
+        "sha256_apercu": "11d387f2bda382de40118acde1e35bd354f0ce4e3f3f20bda5b874b47258a7c7"
        }
       },
       "echantillons": 32,
-      "secondes_rendu": 6.47,
+      "secondes_rendu": 14.27,
       "variante": "e04-tete-S"
      }
     }
