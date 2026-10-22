@@ -107,12 +107,15 @@ def guns_plate(out, path):
         day, _ = K.compose(ents, Wt, Ht)
         img = K.to_im(day)
         cx, cy = ents[0]["pos"]
-        # cadre : de l'arrière de la tête au-delà des bouches (pose E : canons vers la droite)
-        x0 = int((cx - side * 0.42) * 64)
-        x1 = int(min(Wt, cx + side * 0.5 + 1.35 + 0.1 * side) * 64)
-        y0 = int((cy - side * 0.5 - 0.95) * 64)
-        y1 = int((cy + side * 0.36) * 64)
-        tiles.append((e, img.crop((x0, max(0, y0), x1, y1))))
+        # cadre serré sur la tête et ses canons (pose E : canons vers la droite), agrandi ×2 pour la lecture
+        spec = K.own(out, "e%02d-tete-E" % e, ("main",))[0]
+        h, w = spec["img"].shape[:2]
+        sx_, sy_ = spec["shift"]
+        hx0 = (cx + sx_) * 64 - w / 2.0
+        hy0 = (cy + sy_) * 64 - h / 2.0
+        box = (int(hx0 - 12), int(hy0 - 12), int(hx0 + w + 12), int(hy0 + h + 12))
+        t = img.crop(box)
+        tiles.append((e, t.resize((t.size[0] * 2, t.size[1] * 2), Image.LANCZOS)))
     f1, f2 = K.font(18), K.font(13, False)
     cols = 2
     cw = max(t[1].size[0] for t in tiles) + 20
@@ -123,9 +126,9 @@ def guns_plate(out, path):
     H = 80 + sum(rows_h)
     plate = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(plate)
-    d.text((14, 10), "Canons de chaque époque · zoom 2 (64 px par tuile)", font=K.font(26), fill=ACC)
-    d.text((14, 44), "jour · pose E · époques 2 à 9 (l'époque 1 garde la tête vanilla) · composé hors moteur",
-           font=K.font(14, False), fill=SUB)
+    d.text((14, 10), "Canons de chaque époque · zoom 2 (64 px par tuile) agrandi ×2", font=K.font(26), fill=ACC)
+    d.text((14, 44), "jour · pose E · tête et canons sur leur socle · époques 2 à 9 (l'époque 1 garde la tête vanilla)"
+           " · composé hors moteur", font=K.font(14, False), fill=SUB)
     y = 80
     for i in range(0, len(tiles), cols):
         for j, (e, t) in enumerate(tiles[i:i + cols]):

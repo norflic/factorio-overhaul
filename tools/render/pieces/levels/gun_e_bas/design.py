@@ -635,7 +635,7 @@ def gun_side(g, e, sx):
 
 # voyants isolés de la tête (un foyer chacun, jamais en rangée) : la puissance monte d'une époque à la suivante
 # (catalogue §A.5 : « +20 % de foyers, jamais plus gros » ; dominance de progression.py : foyers non décroissants)
-HEAD_LAMPS = {2: 0, 3: 4, 4: 6, 5: 4, 6: 16, 7: 6, 8: 14, 9: 18}
+HEAD_LAMPS = {2: 0, 3: 4, 4: 6, 5: 4, 6: 12, 7: 6, 8: 10, 9: 12}
 
 
 def head_lamps(g, e):
