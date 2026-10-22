@@ -62,9 +62,9 @@ PALETTE = {
 # 0,40) : ses facteurs étaient justes ; seul manquait le rendu qui les vérifie.
 # Mesure du 22/10 (rendus à K = 1, 32 échantillons) -> facteurs appliqués aux époques hors tolérance (±10) ;
 # époque 1 (pièce du niveau 2) : cible 58 (haut de la tolérance, pour se détacher du four vanilla sombre),
-# gain déjà abaissé de 2,7 à 1,9 dans furnace_levels.e1_piece, d'où 0,60 et non 0,43.
+# gain déjà abaissé de 2,7 à 1,9 dans furnace_levels.e1_piece ; 0,60 a donné 63 au rendu, d'où 0,50.
 ALBEDO_K = {e: 1.0 for e in range(1, 16)}
-ALBEDO_K.update({1: 0.60, 4: 0.595, 5: 0.456, 6: 0.407, 8: 0.405, 9: 0.666, 13: 0.459, 14: 0.76})
+ALBEDO_K.update({1: 0.50, 4: 0.595, 5: 0.456, 6: 0.407, 8: 0.405, 9: 0.666, 13: 0.459, 14: 0.70})
 # Feu de la bouche (identité du four : « bouche lumineuse au sud ») ; vanilla : (99,49,3) à (241,144,2)
 FIRE = "#FF8A1E"
 

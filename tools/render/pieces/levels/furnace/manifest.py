@@ -122,9 +122,9 @@ def main():
             hw, hh = mains["width"] / 128.0, mains["height"] / 128.0
             sx, sy = mains["shift"]
             ent["drawing_box"] = [[round(sx - hw, 4), round(sy - hh, 4)], [round(sx + hw, 4), round(sy + hh, 4)]]
-            ent["bouche"] = [{"position_ecran": screen(x, y, z), "couleur": c,
-                              "note": "zone émissive (lueur) ; la bouche au sud porte le feu animé de l'ère (phase 2)"}
-                             for (x, y, z, c) in KEY[e]["emit"]]
+            ent["zones_lumineuses"] = [{"position_ecran": screen(x, y, z), "couleur": c,
+                                        "role": "bouche (feu de l'ère, animé en phase 2)" if i == 0 else "lueur de décor"}
+                                       for i, (x, y, z, c) in enumerate(KEY[e]["emit"])]
             I, S = PRM.halo_intensity(n)
             hl = PRM.halo_layer(n)
             ent["halo"] = {"couche_light_max": round(hl["max"], 3), "flaque_centre": list(hl["center"]),

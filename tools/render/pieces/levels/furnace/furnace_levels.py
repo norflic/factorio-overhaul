@@ -58,9 +58,9 @@ KEY = {
     13: {"chimney": [(0.62, -0.62, 2.42)],
          "emit": [(-0.12, 0.45, 1.45, "#FF9A3A"), (-0.12, 0.08, 1.45, "#FF4FD8")]},
     14: {"chimney": [(0.66, -0.62, 2.66)],
-         "emit": [(-0.12, 0.10, 1.40, "#FFF2C0"), (0.66, -0.62, 2.62, "#FF2A2A")]},
+         "emit": [(-0.10, 0.50, 0.12, "#FFC060"), (-0.10, 0.12, 1.78, "#FFE6A0"), (0.79, -0.62, 2.61, "#FF2A2A")]},
     15: {"chimney": [(0.36, -0.24, 3.24)],
-         "emit": [(-0.10, 0.45, 0.95, "#FFF2C0"), (-0.10, 0.10, 1.22, "#FFD98A"), (-0.10, 0.10, 0.10, "#FFF2C0")]},
+         "emit": [(-0.10, 0.45, 1.11, "#FFF2C0"), (-0.10, 0.10, 1.38, "#FFC060"), (-0.10, 0.10, 0.10, "#FFF2C0")]},
 }
 
 
@@ -259,11 +259,10 @@ def e2(k, even):
     ry0, ry1 = y0 + 0.02, 0.14
     rcx, rw = cxb + 0.02, x1 - x0 - 0.20
     g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw, ry1 - ry0), h, h + 0.32, "chambre", steel, bevel_w=0.012)
-    # chapeau en tôle d'acier MATE : en acier poli, ce grand dessus plat reflétait le ciel et se lisait comme une
-    # dalle noire (aperçu du 22/10)
-    acier_mat = k.metal("acier_mat", "#5C6168", gain=2.6, rough=0.62, metallic=0.35, rust="#5A3A26", rust_amount=0.3,
-                        dirt=0.55, grain=0.3)
-    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.37, "chambre_chapeau", acier_mat,
+    # chapeau cerclé (cerclage d'acier sombre, choix du premier modeleur). Essai de la reprise 2 retiré : un acier
+    # mat plus clair portait la médiane du corps de 49 à 75-77 (cible 52), quel que soit son albédo (gain 2,6 ;
+    # 1,45 ; 0,70) : c'est le reflet diffus du grand dessus, pas sa couleur, qui pèse dans la médiane.
+    g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.05, ry1 - ry0 + 0.035), h + 0.32, h + 0.37, "chambre_chapeau", strap,
             bevel_w=0.006)
     for z in (h + 0.06, h + 0.22):
         g.prism(g.rect(rcx, (ry0 + ry1) / 2, rw + 0.025, ry1 - ry0 + 0.02), z, z + 0.04, "chambre_cercle_%d" % int(z * 100),
@@ -1124,7 +1123,7 @@ def e14(k, even):
     blanc = k.metal("blanc", gain=0.75, rough=0.35, metallic=0.15, grain=0.08, dirt=0.5, rust="#8A8478", rust_amount=0.35)
     # feuille d'or FROISSÉE (bible §5 : jamais lisse) : métal franc, grain fort et serré ; teinte désaturée
     # (#BFA45E, même luminance que #C9A23A) : la corolle est l'essentiel du corps, saturation ≤ 0,45 (§1.5)
-    orf = k.metal("or", "#BFA45E", gain=1.15, rough=0.30, metallic=0.85, grain=0.55, grain_scale=18.0, dirt=0.4,
+    orf = k.metal("or", "#BFA45E", gain=1.15, rough=0.46, metallic=0.85, grain=0.55, grain_scale=18.0, dirt=0.4,
                   rust="#6A5A30", rust_amount=0.35)
     cell = k.glossy("cellules", gain=2.2, rough=0.2, metallic=0.4)
     eclat = k.emit("creuset", "#FFE6A0", 1.6)
@@ -1209,7 +1208,8 @@ def crown(k, x, y, z0, r, h_band, spikes, mat, gem, name, gem_k=0.45, verts=8):
 # creuset d'or blanc flottant au-dessus du socle (deux vides superposés), couronné de 7 flèches facettées,
 # bain doré visible dans le creuset, bouche lumineuse au sud, anneau-halo en or (perles lumineuses
 # seulement), flèche-cheminée à l'arrière droit, particules.
-E15 = {"cx": -0.10, "cy": 0.10, "disc": (0.30, 0.42, 0.96), "bowl_z": (0.72, 1.24), "rim_r": 0.72,
+# Socle relevé à z 0,46 (premier rendu : à 0,30, le vide sous le socle se lisait mal au gros plan du 22/10)
+E15 = {"cx": -0.10, "cy": 0.10, "disc": (0.46, 0.58, 0.96), "bowl_z": (0.86, 1.38), "rim_r": 0.72,
        "chim": (0.36, -0.24)}
 
 
@@ -1222,8 +1222,8 @@ def e15(k, even):
     p = E15
     cx, cy = p["cx"], p["cy"]
     # plot émetteur au sol (seul contact) et colonne de lumière qui porte le socle (vide sous le socle)
-    g.frustum(g.regular(cx, cy, 0.30, 6, 0.0), 0.0, g.regular(cx, cy, 0.24, 6, 0.0), 0.09, "plot", nacre, bevel_w=0.01)
-    S.torus(0.20, 0.02, g.G(cx, cy, 0.095), orb, "plot_bague")
+    g.frustum(g.regular(cx, cy, 0.24, 6, 0.0), 0.0, g.regular(cx, cy, 0.19, 6, 0.0), 0.09, "plot", nacre, bevel_w=0.01)
+    S.torus(0.16, 0.02, g.G(cx, cy, 0.095), orb, "plot_bague")
     g.cyl(cx, cy, 0.09, 0.05, p["disc"][0] - 0.09, "colonne_lumiere", lum, verts=16, bevel_w=0)
     # socle hexagonal flottant (nacre, chant d'or blanc, liseré lumineux)
     z0, z1, R = p["disc"]
