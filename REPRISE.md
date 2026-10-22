@@ -10,29 +10,33 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 22/10/2026, 17 h 25** (orchestrateur, session Claude Code `8a9c0503`, qui reprend
+> **Dernière mise à jour : 22/10/2026, 19 h 24** (orchestrateur, session Claude Code `8a9c0503`, qui reprend
 > la session `6b481308` du 21-22/10, coupée à 8 h 55 par la limite d'usage hebdomadaire de son compte ;
-> jalon : suites de V3-T intégrées dans `main` (`e1a6a6f`, `1f2ff79`, `18a00d4`, `c4d37e5`), bancs rejoués de
-> 17 h 06 à 17 h 13 ; jalon précédent : lot V3-T intégré à 14 h 50). Mettez à jour ce fichier à chaque jalon.
+> jalon : lot V3-T2 intégré dans `main` (fusion `681dd5c`, version 0.4.3 ; changelog `aec3baf`), bancs rejoués de
+> 19 h 05 à 19 h 10 ; jalons précédents : suites de V3-T intégrées à 17 h 25, lot V3-T intégré à 14 h 50). Mettez à
+> jour ce fichier à chaque jalon.
 
 ## 1. En dix lignes
-1. Mod Factorio 1.1.91, version **0.4.2** (depuis l'intégration de V3-T), dépôt git `main` dans ce dossier.
-2. Bancs sur `main` (rejoués le 22/10, de 17 h 06 à 17 h 13, après l'intégration des suites de V3-T), tous
-   verts :
-   - hors jeu : run 114, war 92, td 270, pteam 15, migration 60, levels 1564 (+11 écarts connus),
+1. Mod Factorio 1.1.91, version **0.4.3** (depuis l'intégration de V3-T2), dépôt git `main` dans ce dossier.
+2. Bancs sur `main` (rejoués le 22/10, de 19 h 05 à 19 h 10, après l'intégration du lot V3-T2), tous verts :
+   - hors jeu : run 114, war 92, td 270, pteam 15, migration 79, levels 1575 (+11 écarts connus),
      epochs 16665, org 362, pvp 596 ;
    - étape data : 0 erreur nouvelle, 0 violation (règle des points de jeu comprise), 0 clé manquante ;
-   - api_lint : 447 usages, 0 erreur ;
-   - d4m : **5/5** (corrigé par la suite d4m, E48) ; mut_atlas 40 OK ; test_ht3_journal 9 OK ;
-     bat_double_source 4 OK ;
-   - **moteur réel `content` : 238 OK** (210 du banc, 2 de l'exemple, 26 du greffon `levels_taille`) ;
-   - **moteur réel, migration d'une vraie sauvegarde 0.4.1 → 0.4.2** (double source, scénario
-     `ht3-migration`) : 29 OK, 0 échec, journal 7 OK.
+   - api_lint : 519 usages, 0 erreur ;
+   - d4m : **5/5** ; mut_atlas 40 OK ; test_ht3_journal 15 OK ; bat_double_source 4 OK ;
+   - **moteur réel `content` : 317 OK** (210 du banc, 2 de l'exemple, 26 de `levels_taille`, 54 de
+     `levels_machines`, 25 de `levels_points`) ; `t2-machines` : 80 OK ;
+   - **moteur réel, migration d'une vraie sauvegarde 0.4.2 → 0.4.3** (double source, scénario `t2-migration`) :
+     64 OK, journal `--tag FO-T2-MIGRATION` 26 OK ; **0.4.1 → 0.4.3** (`ht3-migration`) : 30 OK, journal 7 OK.
 3. Fait et prouvé en moteur réel :
    - outillage P0 et P1 (captures automatiques) ;
    - V2, V2b et V2c (15 époques, 30 niveaux, amélioration INSTANTANÉE, condition du centre) ;
-   - V3-T, pour la mitrailleuse seule : emprise croissante (2×2 → 6×6, une taille par ère) et
-     agrandissement sur place (Q24 : refus sans paiement et contour si la place manque) ;
+   - V3-T, pour la mitrailleuse : emprise croissante (2×2 → 6×6, une taille par ère) et agrandissement sur place
+     (Q24 : refus sans paiement et contour si la place manque) ;
+   - **V3-T2** (22/10, 19 h 05) : la même mécanique pour toutes les familles sauf le mur (laser et four 2×2 → 6×6,
+     foreuse et assembleur 3×3 → 6×6, centre 4×4 → 8×8), avec transfert complet, fabrication en cours reprise,
+     points de jeu servis dans les 4 orientations, remise sur la grille d'un bâtiment hors grille, message de
+     migration. Visuel provisoire, laid aux grandes tailles. Deux questions posées au DC (Q-T2-1, Q-T2-2, §3) ;
    - **H-T3** (suite de V3-T, 22/10) : une vraie sauvegarde 0.4.1 migre en 0.4.2, sur une carte de banc
      (E46). Statut exact : (1) prouvée en moteur réel ; (2) prémisse réfutée (F77 : sans montée de version,
      `on_configuration_changed` est quand même appelé et `Levels.repair` migre) ; filet prouvé seulement en
@@ -51,8 +55,9 @@
 6. Nouvelles règles visuelles (Q23 et Q24) :
    - les bâtiments GRANDISSENT avec les époques, jusqu'à environ 6×6, avec plus de détail ;
    - test du regard naïf ;
-   - agrandissement sur place si la place est libre : **mécanique faite (V3-T), pour la mitrailleuse
-     seulement** ; le visuel reste provisoire (sprite actuel agrandi, sans détail).
+   - agrandissement sur place si la place est libre : **mécanique faite pour toutes les familles sauf le mur**
+     (V3-T pour la mitrailleuse, V3-T2 pour les autres) ; le visuel reste provisoire (sprite actuel agrandi ×2 à
+     ×3, sans détail, laid aux grandes tailles).
 7. **V3-S : fait** (style retenu par le DC le 22/10 à 16 h 45, E45 ; lot V3-E lancé à 16 h 55, §7). Historique
    de sa reprise (13 h 20, workflow `wf_ed692a11-bba` de la session `8a9c0503`) :
    - La charte est livrée (7 h 42) et intégrée : `docs/DA_FACTORIO.md`, chiffres dans `docs/da/`,
@@ -68,23 +73,33 @@
    - agrandissement sur place si la place est libre ; sinon refus sans paiement, avec le contour affiché ;
    - contenu transféré ; sauvegardes migrées au chargement (`on_configuration_changed`, filet
      `on_nth_tick(30)`).
-   ACTIVÉE pour la seule mitrailleuse ; les autres familles attendent Q-S1. Preuves : RD_LOG E44, F70 à
+   ACTIVÉE pour la seule mitrailleuse (les autres familles depuis V3-T2, ci-dessous). Preuves : RD_LOG E44, F70 à
    F75 ; journaux `<racine>\fo-logs\2026-10-22_V3T\` et `<racine>\fo-logs\2026-10-22_V3T-integration_content\`.
    Non prouvé en moteur réel : panneau et aperçu au sol, transfert autre que munitions et PV (fluides,
    brûleur, recette, fils, réglages de foreuse), remboursement F40, machines agrandies (liste complète :
-   RD_LOG E44). La migration d'une vraie sauvegarde (H-T3) est prouvée en moteur réel le 22/10 à 15 h 59
+   RD_LOG E44). Depuis V3-T2 (RD_LOG E49), le transfert des fluides, du brûleur, de la recette, des fils et des
+   réglages de foreuse, ainsi que les machines agrandies, sont prouvés en moteur réel ; restent non prouvés le
+   panneau, l'aperçu au sol et le remboursement F40. La migration d'une vraie sauvegarde (H-T3) est prouvée en moteur réel le 22/10 à 15 h 59
    (worktree, `d6ba888`), puis rejouée sur `main` à 17 h 06 (E46), sauf le rechargement d'une carte déjà
    migrée, une défense dense et l'amélioration d'une mitrailleuse laissée hors grille (liste complète :
    RD_LOG E46).
    **Suites de V3-T : faites et intégrées** (22/10 ; workflow terminé à 17 h 01) : H-T3 en moteur réel (E46),
    règle des points de jeu du harness et moteur simulé à boîtes vanilla (E47), banc d4m corrigé (E48). Faits
    F76 à F82.
+   **V3-T2 : terminé et intégré** (run `wf_04ba1f63-d67`, lancé vers 17 h 18 ; ingénieur, 3 relecteurs, correcteur ;
+   fusion `--no-ff` `681dd5c` dans `main` à 19 h 05, version 0.4.3 ; changelog réécrit pour le joueur, `aec3baf`).
+   Preuves : RD_LOG E49 à E52, F83 à F95 ; `<racine>\fo-logs\2026-10-22_V3T2\` (`NOTES_V3T2.md`) et
+   `<racine>\fo-logs\2026-10-22_V3T2-integration\`. Le défaut majeur de la revue (points de jeu servis selon
+   l'orientation) a été confirmé par un témoin en moteur réel, puis corrigé ; deux défauts plus graves trouvés en le
+   prouvant (F90 : tuyau perdu ; F91 : orientation perdue), corrigés. Non prouvé, entre autres : migration d'une
+   machine EN fabrication (non jouable avec `--create`), seconde amélioration avant le `on_tick` du mod, panneau et
+   message à l'écran, raccords du fluide de minage, dispositions d'usine réelles.
 8. Ensuite :
    - lot V3-E : direction artistique PAR ÉPOQUE de la mitrailleuse (style V3-S retenu par le DC le 22/10 à
-     16 h 45 ; canons, tuyaux et accents changés selon chaque âge), puis les 6 autres familles ;
-   - activation des tailles croissantes pour les 6 autres familles (Q-S1 : oui) : les suites de V3-T sont
-     intégrées (côté tests, une famille s'active par sa seule ligne de `L.footprints`, prouvé hors jeu) ; reste
-     le moteur réel : aucune machine agrandie n'y a tourné ;
+     16 h 45 ; canons, tuyaux et accents changés selon chaque âge), puis les 6 autres familles ; les sprites V3
+     remplaceront le visuel agrandi de V3-T2, laid aux grandes tailles ;
+   - ~~activation des tailles croissantes pour les 6 autres familles~~ : **faite** (V3-T2, 22/10, 19 h 05) ;
+     attendre les réponses du DC à Q-T2-1 (usine réelle) et Q-T2-2 (production par tuile) ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;
    - contenu des époques (X1 à X15) ;
    - idle (I).
@@ -111,12 +126,26 @@
 | **V3-T** emprise croissante et agrandissement sur place (Q23, Q24) | ✅ intégré le 22/10 à 14 h 50 (`13b4134`, version 0.4.2) ; moteur réel `content` 238 OK ; activé pour la mitrailleuse seule ; aucun visuel nouveau ; non prouvé en moteur réel : panneau et aperçu au sol, transfert autre que munitions et PV, remboursement F40, machines agrandies (la migration d'une vraie sauvegarde est prouvée depuis : ligne suivante) | E44, F70 à F75 ; `<racine>\fo-logs\2026-10-22_V3T\` (notes `NOTES_V3T.md`, `content-final`, captures de la phase initiale), `<racine>\fo-logs\2026-10-22_V3T-integration_content\` |
 | **Suites de V3-T** : H-T3, bancs hors jeu, d4m | ✅ intégrées le 22/10 (fusions `e1a6a6f`, `1f2ff79`, `18a00d4`, puis `c4d37e5`) ; version inchangée (0.4.2). Moteur réel sur `main` : `content` 238 OK (17:06:23) ; migration réelle 0.4.1 → 0.4.2 : 29 OK, journal 7 OK (17:06:44). H-T3 : (1) prouvée en moteur réel ; (2) prémisse réfutée (F77) ; filet prouvé seulement en expérience de contrôle. Hors jeu : migration 60, harness avec la règle des points de jeu (0 violation), api_lint 447, d4m 5/5. Non prouvé, entre autres (liste complète : RD_LOG E46 à E48) : rechargement d'une carte déjà migrée, défense dense, amélioration d'une mitrailleuse laissée hors grille, contact bord à bord de `find_entities_filtered` en moteur réel, machines agrandies en moteur réel | E46 à E48, F76 à F82 ; `<racine>\fo-logs\2026-10-22_V3T-suites\` (`ht3\`, `harness-mock-levels\`, `d4m\`, chacun avec ses `NOTES.md`), `<racine>\fo-logs\2026-10-22_V3T-suites-integration\` (`content\`, `ht3-migration\`) |
 | **V3-E** direction artistique par époque de la mitrailleuse | ⏳ lancé le 22/10 à 16 h 55 (run `wf_0608aa1f-b85`, session `8a9c0503`). Catalogue livré à 16 h 58 (`fo-logs\2026-10-22_V3E\catalogue\DA_PAR_EPOQUE.md`). Constructeurs arrêtés à 17 h 31 (doublon d'agents créé par un SendMessage de l'orchestrateur, §6), travail commité dans leurs worktrees (`16cd57a` sur `worktree-wf_0608aa1f-b85-2`, `2a5eb04` sur `-3`), lot relancé à 17 h 32 (même run, `resumeFromRunId` : catalogue repris du cache ; consigne confirmée par le DC et retour sur les aperçus ajoutés) | `<racine>\fo-logs\2026-10-22_V3E\` (`reprise\notes_bas.txt`, `notes_haut.txt`) |
-| **V3-T2** emprise croissante des 5 autres familles (Q-S1 : oui) | ⏳ lancé le 22/10 vers 17 h 18 (run `wf_04ba1f63-d67`, worktree `wf_04ba1f63-d67-1` sur `c4d37e5`) : laser, foreuse, assembleur, four, centre ; preuve en moteur réel (transfert, raccords, dépôt, refus en usine dense, migration 0.4.2 → 0.4.3) ; 3 relecteurs puis correcteur | `<racine>\fo-logs\2026-10-22_V3T2\` |
+| **V3-T2** emprise croissante des 5 autres familles (Q-S1 : oui) | ✅ intégré le 22/10 à 19 h 05 (fusion `--no-ff` `681dd5c` de `worktree-wf_04ba1f63-d67-1` : ingénieur `3e9a23e`, `f5f6a77`, `be0ee03` ; correcteur `e84ca84`), **version 0.4.3** ; changelog `aec3baf`. Moteur réel sur `main` : `content` 317 OK, `t2-machines` 80 OK, `t2-migration` 64 OK + journal 26 OK, `ht3-migration` 30 OK + journal 7 OK (`done.txt` 19:05:39 à 19:05:52). Hors jeu : migration 79, levels 1575, api_lint 519, test_ht3_journal 15, le reste inchangé. Revue : 19 défauts, le majeur confirmé par témoin (`be0ee03` : 308 OK, 9 échecs dont 1 artefact du témoin) et corrigé. Visuel provisoire, laid aux grandes tailles, sans verdict du DC. Questions Q-T2-1 et Q-T2-2 posées au DC. Non prouvé : liste dans RD_LOG E49 à E52 | E49 à E52, F83 à F95 ; `<racine>\fo-logs\2026-10-22_V3T2\` (`NOTES_V3T2.md`, passages de l'ingénieur et du correcteur, captures, `src-0.4.2` à GARDER), `<racine>\fo-logs\2026-10-22_V3T2-integration\` |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
 - **V3-S : verdict rendu** le 22/10 à 16 h 45 (style retenu, « parfaits », « époustouflants surtout pour les
   canons » ; il manque une direction artistique par époque : lot V3-E). Prochain regard : les planches V3-E.
+- **Q-T2-1 et Q-T2-2, posées le 22/10 à 19 h 20 (lot V3-T2, OBJECTIFS §4), OUVERTES** :
+  - Q-T2-1, usine réelle : une machine bordée de ses bras sur deux côtés opposés ne grandit jamais sans démontage ;
+    à la migration d'une usine dense de 24 machines, 18 restent hors grille (75 %). Options de la revue : accepter
+    tel quel, décaler automatiquement les bras collés (piste de Q-T3), ne faire grandir la machine qu'à sa repose à
+    la main, amélioration en rangée ; option ajoutée par l'orchestrateur : un bouton « libérer la place ». Aucune
+    n'est conçue. Recommandation de l'orchestrateur : garder la règle Q24 et ajouter ce bouton. Q-T3 (mitrailleuse
+    collée aux murs) y est rattachée ;
+  - Q-T2-2, production par tuile qui baisse quand la machine grandit (niveau 6 → niveau 30 : assembleur 0,117 →
+    0,069, four 0,700 → 0,184, foreuse 0,083 → 0,054, tourelles laser et mitrailleuse 0,35 → 0,059 ;
+    BALANCE_SHEET §12). Le joueur a intérêt à ne faire que le minimum d'améliorations exigé par Q16. Options : la
+    production suit la surface, prestige assumé, ou autre. Recommandation de l'orchestrateur : la production par
+    tuile ne doit pas baisser. Son argument (la Compaction ×4) est un avis, pas un constat : B1 porte sur le débit
+    par tapis des paliers T1 à T5, pas sur le niveau d'une même machine.
+  Les deux attendent sa réponse ; rien n'est changé d'ici là.
 - Q-V2c-1 et Q-V2c-2 : rythme du centre et chemin le plus court vers l'époque 15 (OBJECTIFS §4).
 - Q-S1 à Q-S3 : **répondues oui** par le DC le 22/10 à 16 h 45 (échelle pour toutes les familles, plafond 6×6
   pour les machines, centre 4 → 8, mur inchangé ; luminance de la charte pour toutes les époques ; regard naïf
@@ -175,11 +204,14 @@
   JAMAIS de texte qui contient des antislashs par un heredoc, sed ou echo : utilisez l'outil d'édition, ou un
   script Python écrit dans un FICHIER avec des chaînes brutes `r"..."`. Contrôle final obligatoire : aucun
   caractère de contrôle (U+0000 à U+001F sauf saut de ligne et tabulation, U+007F à U+009F) et aucun octet CR
-  dans les documents modifiés (`repare_ctrl.py`).
+  dans les documents modifiés (`repare_ctrl.py`). Payé une 4e fois dans un commentaire de code du lot V3-T2
+  (`checks/levels_points.lua`, ligne 26 : U+0082 et une tabulation ; relevé le 22/10 à 19 h 15, pas encore
+  réparé, §7) : le contrôle vaut aussi pour les fichiers de code d'un lot, pas seulement pour les documents.
 - **PowerShell sous Claude Code : `Remove-Item Env:FO_CREATE_SRC` peut être refusé par la protection de
   chemin** de l'outil. Observé par l'orchestrateur le 22/10 vers 17 h 06 : la commande entière a été refusée
   avant exécution (« Remove-Item on system path 'H:\Factorio.v1.1.91' is blocked »), rien n'a tourné. Videz
-  plutôt la variable avec `$env:FO_CREATE_SRC = $null` (le README de l'outillage, §1.1, montre `Remove-Item`).
+  plutôt la variable avec `$env:FO_CREATE_SRC = $null` (le README de l'outillage, §1.1, le montre depuis le commit
+  `116ed94`, 22/10, 17 h 33).
 - **Ne jamais envoyer de message (SendMessage) à un agent d'un Workflow en cours.** Le 22/10 à 17 h 26, un
   retour envoyé aux deux constructeurs V3-E a créé une COPIE de chacun, relancée depuis son transcript, pendant
   que l'original continuait dans le workflow : deux écritures concurrentes dans le même worktree, signalées par
@@ -210,9 +242,23 @@
      tuyaux et accents selon la fiche de chaque époque (`docs/DESIGN_EPOQUES.md` §5) ; puis les 6 autres
      familles avec la même méthode, la taille croissante (Q23, Q-S1) et la charte ;
    - ~~la mécanique d'agrandissement sur place (Q24)~~ : **faite** (lot V3-T, intégré le 22/10 à 14 h 50),
-     activée pour la mitrailleuse. Activer les autres familles (Q-S1 : oui) = leur ligne dans
-     `L.footprints` ; côté tests, plus rien à réécrire depuis les suites (E47, prouvé hors jeu sur une copie
-     à 6 familles) ; reste un banc en moteur réel d'une machine agrandie (aucune n'y a tourné).
+     activée pour la mitrailleuse ; ~~les autres familles (Q-S1 : oui)~~ : **faites** (lot V3-T2, intégré le
+     22/10 à 19 h 05, version 0.4.3, prouvé en moteur réel : E49 à E52).
+   - Suites ouvertes du lot V3-T2 :
+     - attendre les réponses du DC à Q-T2-1 et Q-T2-2 (§3) avant de toucher à la règle de place ou à l'équilibre
+       des machines agrandies ;
+     - prouver en moteur réel la migration d'une machine EN fabrication : non jouable avec ce banc (`--create`
+       sauvegarde la carte au tick 0) ; outillage à écrire ;
+     - jouer les raccords du fluide de minage d'une foreuse et la boîte à fluide de SORTIE d'un assembleur (même
+       code que les raccords joués) ; jouer une disposition d'usine réelle (insertion directe entre machines,
+       balises), une défense dense et l'amélioration d'une mitrailleuse laissée hors grille ;
+     - filet sans montée de version pour 0.4.3, second chargement d'une carte migrée, doublons hérités sur une
+       vraie carte 0.4.2 : non joués ;
+     - réparer le commentaire abîmé de `tools/autotest/fo-autotest/checks/levels_points.lua`, ligne 26 : le chemin
+       `fo-logs\2026-10-22_V3T2\temoin-be0ee03-points` y contient un caractère de contrôle U+0082 et une tabulation
+       (piège des antislashs, §6, payé une 4e fois ; dans un commentaire, sans effet sur le banc). Fichier de code :
+       hors du périmètre de l'intégrateur des documents ;
+     - visuel : les sprites V3 (lot V3-E) remplaceront le visuel agrandi, laid aux grandes tailles.
    - ~~Suites de l'intégrateur proposées par V3-T~~ : **faites et intégrées** le 22/10 (règle des points de
      jeu du harness, moteur simulé à boîtes vanilla, attentes de `levels_test` tirées de la table, correction
      de d4m : E47, E48).
@@ -222,7 +268,7 @@
    - Tâches ouvertes restantes (OBJECTIFS §7) : compter l'atlas virtuel dans l'estimation de `vram.py` (F81) ;
      observer en moteur réel le contact bord à bord de `find_entities_filtered` ; recharger en moteur réel une
      carte déjà migrée ; jouer une défense dense et l'amélioration d'une mitrailleuse laissée hors grille
-     (liées à la question Q-T3) ; faire tourner une machine agrandie en moteur réel.
+     (liées aux questions Q-T3 et Q-T2-1) ; ~~faire tourner une machine agrandie en moteur réel~~ : fait (V3-T2).
 3. V4, contrôle visuel : gris, vignettes, recouvrement, gros plans, banc `content`, galerie jour et nuit
    en jeu, mesures D4 refaites avec les sprites V3 ; puis le verdict du DC.
 4. Ensuite, en parallèle (Q18) :
@@ -232,8 +278,11 @@
 6. Hypothèses encore ouvertes :
    - ~~H-T3~~ : branche (1) prouvée en moteur réel le 22/10 (E46) ; prémisse de la branche (2) réfutée (F77) ;
      filet prouvé seulement en expérience de contrôle ;
-   - H-L1 : coût du système des niveaux, à mesurer sur banc épinglé (le calcul de place du panneau de V3-T
-     n'est pas mesuré non plus) ;
+   - H-L1 : coût du système des niveaux, à mesurer sur banc épinglé. Mesuré en partie au lot V3-T2 : le corps de
+     `Levels.resume_progress` à liste vide, 100 000 appels en boucle, coûte 0,10 à 0,38 µs par appel ; le coût de
+     l'appel de l'abonnement `on_tick` par le moteur à chaque tick n'est pas mesuré (RD_LOG, H-L1). Restent :
+     progressions en attente, recensement Q16 sur une grande carte, calcul de place du panneau et des points
+     servis ;
    - H-X1 ;
    - H-V2 ;
    - H-B1.

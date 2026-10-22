@@ -23,7 +23,7 @@
      F84 rejoué (défaut 13) : écrire crafting_progress sur un assembleur à l'arrêt, sans ingrédients : relevé.
   E. H-L1 (défaut 13) : coût de l'abonnement on_tick de Levels.resume_progress (100 000 appels, liste vide), au journal.
   X. Deux défauts trouvés par ce greffon au premier essai (22/10, 18 h 46 ; témoin sur le code d'avant : archive
-     fo-logs6-10-22_V3T2	emoin-be0ee03-points) : un bâtiment remplacé PAR SCRIPT n'était plus raccordé au tuyau
+     fo-logs\2026-10-22_V3T2\temoin-be0ee03-points) : un bâtiment remplacé PAR SCRIPT n'était plus raccordé au tuyau
      que l'ancien occupait (12 assembleurs sur 12) ; un assembleur tourné vers l'est, le sud ou l'ouest revenait au
      nord (créé sans recette, il n'est pas orientable). Expérience des remèdes (rien, update_connections du nouveau ou
      du tuyau, téléport sur place de l'un ou de l'autre) et contrôle que le mod refait le raccord seul.

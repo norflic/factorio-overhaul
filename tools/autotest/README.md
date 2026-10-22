@@ -14,7 +14,7 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `compare_shots.py` | Comparaison pixel à pixel de deux séries de captures |
 | `analyze.py` | Analyse des performances d'un banc (`--spikes`) |
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
-| `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) |
+| `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs |
 | `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
@@ -87,8 +87,12 @@ le dossier temporaire, aucun accès à la racine du jeu) :
 `python -B tools/autotest/tests/bat_double_source/run.py` → « BILAN : 4 OK, 0 ECHEC(S) » (sur le `.bat` d'avant
 la correction, `--bat <fichier>` : 2 OK, 2 ECHEC). Sans la variable, le comportement est **identique à l'ancien**
 (même copie, mêmes fichiers). Mêmes protections : dossiers d'écriture et de mods séparés, verrou, aucun accès à
-`saves\`. La variable reste définie pour les bancs suivants de la même session PowerShell : la vider après usage
-(son effet sur `fo-captures.bat`, qui appelle `fo-autotest.bat`, n'a pas été essayé).
+`saves\`. La variable reste définie pour les bancs suivants de la même session PowerShell : la vider après usage.
+Elle passe aussi par `fo-captures.bat`, qui appelle `fo-autotest.bat` : essayé deux fois par le lot V3-T2 (22/10,
+17 h 53 et 18 h 53, `fo-captures.bat t2-migration <source>` avec `FO_CREATE_SRC` = `src-0.4.2`, code 0). La carte
+du banc est créée par la source de création (`banc-create-source.txt` dans l'archive du premier essai ; pour le second, seul `factorio.log` le montre :
+`mod_changes { factorio-overhaul 0.4.2 -> 0.4.3 }`) et la session
+avec images, qui reprend la carte et les mods du dernier banc, rejoue la migration (`factorio.log`).
 
 Comme le mod de test vient de la source récente alors que `factorio-overhaul` est ancien pendant la création,
 `greffons.lua` ne charge les contrôles greffés (`checks/`) que pour le banc `content` (ou un scénario greffé de
@@ -113,15 +117,37 @@ récente dont `info.json` garde la version de création (le moteur appelle quand
 `mod_changes` vide : c'est `Levels.repair` qui migre ; le filet `on_nth_tick(30)` ne s'exerce que si la migration
 au chargement est neutralisée dans une copie jetable).
 
+Second exemple (lot V3-T2) : scénario greffé `t2-migration`, carte créée par 0.4.2
+(`<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2` = `git archive c4d37e5`, à garder), rejouée par 0.4.3 : toutes les
+familles grandissent ; force sans énergie avec un niveau 7, un niveau élevé et une paire collée de chaque famille ;
+centres 15, 10 et 6 ; usine dense de 24 machines de niveau 8 (RD_LOG E50) :
+
+```
+$env:FO_CREATE_SRC = "<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2"
+& "<racine>\fo-autotest.bat" nopause 700 t2-migration "<source 0.4.3>"
+$env:FO_CREATE_SRC = $null
+python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION "<racine>\fo-autotest"
+```
+
+Attendu sur `main` (22/10, 19:05:48,49) : « [FO-T2-MIGRATION] BILAN : 64 OK, 0 ECHEC(S) » et « JOURNAL
+FO-T2-MIGRATION : 26 OK, 0 ECHEC(S) », code 0 ; ligne du mod « mise à jour des emprises : 21 bâtiment(s)
+reposé(s), 3 déjà en place, 19 laissé(s) faute de place ». `ht3-migration` donne 30 OK depuis 0.4.3 (le centre 15
+grandit lui aussi, compté « déjà en place ») et journal 7 OK.
+
 **Critère d'un passage : le BILAN du scénario sans échec ET le contrôle du journal à 0.** Le mod de test ne lit
 pas le journal du moteur ; le scénario y écrit ce qu'il DOIT contenir (lignes « JOURNAL ATTENDU ») et
 `tools/autotest/ht3_journal.py` le compare aux lignes `[FO-LEVELS]` : une ligne « laissé en place » par
-mitrailleuse laissée et aucune autre, une seule ligne de bilan des emprises, de la voie attendue (« mise à jour
-des emprises » = `Levels.repair` ; « emprises (filet, … » = filet) et avec les mêmes nombres :
+bâtiment laissé et aucune autre, une seule ligne de bilan des emprises, de la voie attendue (« mise à jour
+des emprises » = `Levels.repair` ; « emprises (filet, … » = filet) et avec les mêmes nombres ; depuis le lot V3-T2,
+si le scénario a écrit des lignes « JOURNAL ATTENDU : message <force> <laissés> <doublons> », chaque message de
+migration aux joueurs (« [FO-LEVELS] message de migration à la force … ») est journalisé exactement une fois avec
+ces nombres, et aucun autre. L'option `--tag <BALISE>` (balise sans crochets, `FO-HT3-MIGRATION` par défaut) lit
+les lignes d'un autre scénario au même format :
 
 ```
 python -B tools/autotest/ht3_journal.py "<racine>\fo-autotest"        -> JOURNAL H-T3 : n OK, 0 ECHEC(S), code 0
-python -B tools/autotest/tests/test_ht3_journal.py                     -> BILAN : 9 OK, 0 ECHEC(S) (hors jeu)
+python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION "<racine>\fo-autotest"   -> JOURNAL FO-T2-MIGRATION : n OK, 0 ECHEC(S), code 0
+python -B tools/autotest/tests/test_ht3_journal.py                     -> BILAN : 15 OK, 0 ECHEC(S) (hors jeu)
 ```
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
@@ -250,6 +276,17 @@ Journal : `[FO-<NOM>] OK     <contrôle> : <détail>`, `[FO-<NOM>] ECHEC  ...`, 
 `[FO-<NOM>] BILAN : n OK, m ECHEC(S)` (même format que `[FO-CONTENT]`).
 Exemple qui fonctionne : `scenarios/exemple.lua` (machine témoin alimentée qui fabrique ; 5 contrôles, 2 captures).
 
+Scénarios greffés des lots de niveaux :
+- `ht3-migration` (suite H-T3) et `t2-migration` (lot V3-T2) : migration d'une sauvegarde ancienne, en double
+  source seulement (§1.1) ; le journal se contrôle avec `ht3_journal.py` (`--tag FO-T2-MIGRATION` pour le second) ;
+- `t2-machines` (lot V3-T2, 1 500 ticks) : joue les greffons `checks/levels_machines.lua` et
+  `checks/levels_points.lua` (§4.2) au tick 60, chacun dans sa zone et avec son propre état (sous-table de
+  `ctx.state()`), et rejoue les refus au tick 1440 ; vérification au tick 1400, captures à partir du tick 1450.
+  Dans le banc `content`, ces greffons n'agissent qu'aux ticks 1750 et 1760, après les captures de la galerie :
+  ce scénario sert à photographier les machines APRÈS l'agrandissement et les contours de refus
+  (`& "<racine>\fo-captures.bat" t2-machines "<source>"`). Attendu sur `main` (22/10, 19:05:44,44) : « [FO-T2-MACHINES]
+  BILAN : 80 OK, 0 ECHEC(S) ».
+
 ### 4.2 Contrôles greffés au banc `content` : `fo-autotest/checks/<nom>.lua`
 
 Ajouter le fichier et son nom dans `checks/index.lua` (une ligne par lot). Le fichier renvoie :
@@ -266,7 +303,23 @@ content**, suivi d'une ligne de détail : `[FO-CONTENT] greffons (checks/index.l
 Chaque greffon reçoit une zone libre `ctx.zone = { x0, y0, x1, y1 }` (128 × 96 tuiles à partir de (300, 240),
 une par rang dans l'index, hors de l'arène) et `ctx.prepare_zone(tuile)`.
 Exemple : `checks/exemple.lua` (tourelle laser alimentée sans poteau ; 2 contrôles, 1 capture). Avec lui, le
-banc `content` compte **182 OK = 180 du socle + 2 greffés**.
+banc `content` comptait **182 OK = 180 du socle + 2 greffés** (lot P1).
+
+Greffons de l'index au 22/10 (lot V3-T2), dans l'ordre, avec leur zone (x0 = 300 + 144 × (rang − 1), y de 240 à
+336) :
+
+| Rang | Greffon | Lot | Zone (x) | Contrôles | Ce qu'il joue |
+|---|---|---|---|---|---|
+| 1 | `exemple` | P1 | 300 à 428 | 2 | Tourelle laser alimentée sans poteau |
+| 2 | `levels_taille` | V3-T | 444 à 572 | 26 | Mitrailleuse : agrandissement sur place, refus et contour, transfert, chaîne 6 → 30 |
+| 3 | `levels_machines` | V3-T2 | 588 à 716 | 54 | Laser, foreuse, four, assembleur, centre : transfert réel du contenu, raccord et dépôt, usine dense (refus, retrait des gênes, agrandissement), chaînes 6 → 30 et 1 → 15, prototypes des 5 familles |
+| 4 | `levels_points` | V3-T2 (correcteur) | 732 à 860 | 25 | Points de jeu servis dans les 4 orientations (12 foreuses, 12 assembleurs à fluide), refus, fabrications en cours à travers le remplacement rapide, sortie pleine, F84 rejoué, barre du coffre, coût du `on_tick` de reprise (H-L1) |
+
+Avec eux, le banc `content` compte **317 OK = 210 du banc + 2 + 26 + 54 + 25** (`main`, 22/10, 19:05:39,98) ; la
+ligne du journal dit « greffons (checks/index.lua) : exemple 2 OK 0 ECHEC, levels_taille 26 OK 0 ECHEC,
+levels_machines 54 OK 0 ECHEC, levels_points 25 OK 0 ECHEC ». Les greffons V3-T2 agissent au tick 1750
+(`levels_machines`) et 1760 (`levels_points`), après les captures de la galerie : pour des images des machines
+agrandies, utiliser le scénario greffé `t2-machines` (§4.1).
 
 ### 4.3 Contexte `ctx`
 

@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (22/10, après l'intégration des suites de V3-T) : **F83, E49**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (22/10, après l'intégration du lot V3-T2) : **F96, E53**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -152,6 +152,36 @@ sont dans `docs/epoques/mesures/`. Rien n'est encore vérifié en moteur.
 | F47 | Les ombres vanilla (`draw_as_shadow`) d'objets verticaux partent **plein est** (cap de 84 à 91° sur 5 sprites) : la lumière vient de l'ouest. Leur longueur vaut environ 1,1 fois la hauteur à l'écran. Le décalage des barycentres ombre/corps (cap médian 125°) ne mesure pas le soleil. Les ombres sont en gris + alpha OU en RGBA presque noir. Les lumières sont des PNG gris teintés par le moteur, ou des PNG couleur sans teinte. **La proposition de V1 (« soleil au nord-ouest, ombres vers l'est-sud-est ») était fausse : réfutée.** | Bible §1.6 corrigée ; V0 prévenu. Toute ombre rendue se cale sur des objets verticaux. |
 | F48 | Le centre de commandement actuel ne copie du radar que son corps (`prototypes/levels.lua:254`, `:262`) ; l'ombre du radar n'est jamais ajoutée, et les têtes de balise (niveau 4 et plus) n'ont pas d'ombre propre non plus. La seule ombre du centre est celle du roboport. | Défaut D3 déduit du code (non vu en capture) : le centre sera redessiné en V3 (Q11). |
 
+### Faits vérifiés en moteur réel (lot V3-T2, emprise croissante de toutes les familles, 22/10, 17 h 21 à 19 h 05)
+Numéros DÉFINITIFS, attribués à l'intégration du lot (22/10, vers 19 h 15). Les numéros provisoires du lot se suivent
+sans trou après F82 et sont gardés : F83 à F89 de l'ingénieur, F90 à F95 du correcteur. Deux corrections du
+correcteur sur les faits de l'ingénieur : F87 est RESTREINT à l'orientation nord, et F84, vu une fois puis perdu
+(archive supprimée), est CONFIRMÉ (rejoué et archivé).
+
+Sources : `fo-autotest.bat` lancé depuis PowerShell, code 0 et `done.txt` relu à chaque passage, sur le worktree
+`wf_04ba1f63-d67-1` (ingénieur : `3e9a23e`, `f5f6a77`, `be0ee03` ; correcteur : `e84ca84`), puis sur `main` après la
+fusion `681dd5c` (19 h 05). Archives : `<racine>\fo-logs\2026-10-22_V3T2\` (notes `NOTES_V3T2.md` : §3 et §8 de
+l'ingénieur, §9 du correcteur) et `<racine>\fo-logs\2026-10-22_V3T2-integration\`. Expériences : E49 à E52.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F83 | **Observé en moteur réel** (`content-3-bilans-avant-correctif`, 17 h 33, avant le correctif). Un four neuf (`create_entity`, puis inventaires transférés) ignore l'écriture de `crafting_progress` : relue 0,000 au lieu de 0,506. Une fusion en cours a déjà pris son minerai : le four agrandi en pleine fusion perdait 1 minerai et sa progression (bilan de fer 205 → 204). | Corrigé : les ingrédients de la fabrication en cours sont rendus à la nouvelle machine, et la progression est notée puis reposée au premier tick où elle refabrique la même recette (`Levels.resume_progress`). Bilan de fer 205 constant, progression 0,506 → 0,522 à ACT + 2 (`final-content`). |
+| F84 | **CONFIRMÉ en moteur réel.** Vu une première fois par l'ingénieur (archive `content-6`, supprimée pour libérer le disque ; assembleur à l'arrêt, eau 30 < 50 : le correctif avait alors rendu 1 baril et 50 d'eau en trop). Rejoué et archivé par le correcteur (`corr-final-content`, 18 h 59), puis sur `main` (19 h 05). Écrire `crafting_progress = 0,25` sur un assembleur à l'arrêt SANS aucun ingrédient rend `is_crafting()` vrai (false → true, progression relue 0,250), et la machine FINIT la fabrication : 1 engrenage au tick 3000 (`products_finished` = 1 au passage du correcteur), sans une seule plaque. | Fabrication gratuite : ne jamais écrire la progression d'une machine qui ne fabrique pas. Le mod ne la recopie plus hors fabrication (correction du défaut 10) ; le banc ne l'écrit plus sur une machine à l'arrêt. |
+| F85 | **Observé en moteur réel, avec le seul poteau invisible du mod de test** (`t2-migration-essai1`, 17 h 43 : assembleurs de `fo-t2-libre` qui fabriquent ; `final-t2-migration`, 18 h 00, ligne de journal « lasers de la force fo-t2-libre au tick 90 : laser7 993200 J (reseau true), laser25 1570000 J (reseau true), laserA 993200 J (reseau true), laserB 993200 J (reseau true) »). Un bâtiment électrique est alimenté par le poteau d'une AUTRE force dont la zone le couvre : les lasers de la force `fo-t2-libre`, qui n'a aucun poteau, sont reliés et chargés (993 200 J) par le poteau invisible de `fo-t2` (copie de la sous-station au masque vide, F57) ; ses assembleurs ont fabriqué 3 engrenages. | Une force « sans énergie » doit être tenue hors de toute zone de poteau. Avec un poteau vanilla : non essayé. |
+| F86 | **Observé en moteur réel** (`t2-migration-amelioration-hors-grille`, 17 h 54, avant le correctif). `create_entity{fast_replace = true}` d'un assembleur 4×4 à une position HORS grille (306,5 ; 286,5) recale la position en (307 ; 287), ne remplace PAS l'ancien (il reste, avec son contenu) et pose le nouveau par-dessus. L'appel rend pourtant une entité valide du bon nom (« done », 0 secours) : deux machines superposées pour un seul coût. **Inféré, non rejoué** : que le même défaut touchait déjà 0.4.2 pour les mitrailleuses laissées hors grille par la migration 0.4.1 (même chemin de code). | Corrigé : un bâtiment hors grille ne passe jamais par le remplacement rapide moteur (`Levels.off_grid`) ; il est remis sur la grille par script, place vérifiée avant le paiement. Les doublons hérités sont relevés au chargement (`Levels.find_stacked`), jamais retirés. |
+| F87 | **Observé en moteur réel, pour l'orientation NORD seulement** (`final-content` ; restriction du correcteur, `corr-final-content`). Foreuse 3×3 → 4×4 orientée nord, au rang 1 (sud-est) : le point de dépôt reste sur la MÊME tuile (le même coffre sert). Assembleur 3×3 → 4×4 orienté nord : le raccord d'entrée vise la même tuile (604,5 ; 260,5) qu'en 3×3. Tel que l'ingénieur l'énonçait (sans condition d'orientation), le fait était trop général : tournée vers le sud ou l'ouest, la position préférée faisait changer le point de tuile (E51). Rotation du moteur vérifiée : dépôt = centre + vecteur tourné (foreuse 3×3 tournée vers l'est : (1,848 ; 0) ; foreuse 4×4 tournée vers le sud : (0,496 ; 2,348)). | Base de la règle des points servis (E51, ARCHITECTURE §7 bis). |
+| F88 | **Observé en moteur réel** (`final-t2-migration`, 18 h 00, puis `corr-final-t2-migration` et `main`). Les bâtiments laissés hors grille par la migration (chevauchement toléré) fonctionnent : en 510 ticks, 4 engrenages par assembleur laissé et 7 plaques par four laissé ; les foreuses laissées sont « working » et déposent sur le convoyeur qu'elles chevauchent (les deux du bout est attendent : convoyeur sans issue plein) ; les 24 bras visent toujours leur machine ; les lasers sont reliés et chargés. Les sprites se superposent d'une demi-tuile. | Une migration ne casse rien ; le défaut est visuel et d'usage (question Q-T2-1). |
+| F89 | **Observé en moteur réel** (`final-content`). F79 vaut aussi pour les bras ÉLECTRIQUES (`inserter`) et pour les assembleurs et les fours : après un remplacement par script, `drop_target` vaut la nouvelle machine (fo-lvl-assembler-7, fo-lvl-furnace-7) et le bras la nourrit (coffres 100 → 99 et 177 → 160). | Le remplacement par script n'a pas à recâbler les bras. Un bras par famille, en dépôt, joué. |
+| F90 | **Observé en moteur réel** (`corr-2-content-debug`, 18 h 48 ; `temoin-be0ee03-points`, 18 h 51). Un bâtiment créé par script pendant que l'ancien existe encore, l'ancien étant détruit ensuite, n'est PAS raccordé aux tuyaux que l'ancien occupait : 12 assembleurs agrandis sur 12 privés d'eau. `update_connections()` du nouveau ou du tuyau : sans effet ; `teleport(position)` sur place de l'un ou de l'autre : raccord refait. | Corrigé : téléport sur place après tout remplacement par script d'une entité à boîte à fluide (puis `update_connections()` pour une foreuse). Le défaut touchait aussi toute migration 0.4.3 d'un assembleur à fluide reposé ; en 0.4.2, seule la mitrailleuse (sans boîte à fluide) changeait de taille. Non joués : raccords du fluide de minage d'une foreuse, boîte à fluide de SORTIE. |
+| F91 | **Observé en moteur réel** (mêmes passages). Un assembleur créé SANS recette n'est pas orientable : `create_entity` ignore `direction`. Les assembleurs à fluide tournés vers l'est, le sud ou l'ouest revenaient au nord après un agrandissement par script (9 sur 9), et perdaient leur tuyau. | Corrigé : recette donnée à la création (`recipe =` de `create_entity`) ; `Levels.transfer` la repose ensuite, sans effet. |
+| F92 | **Observé en moteur réel** (`corr-2-content-debug` ; relu sur `main` à 19 h 05 : dépôt en 754,34765625). Le moteur rend les positions en virgule fixe (1/256 de tuile) : dépôt d'une foreuse 4×4 tournée vers l'est relu (2,34765625 ; −0,49609375) au lieu de (2,35 ; −0,5). | Toute égalité exacte avec une coordonnée de prototype échoue : le premier inverse de la règle des points a raté les 3 passages 4×4 → 5×5 non orientés au nord. Tolérance retenue : 1/64 (`Points.TOL`, `shared/levels/points.lua`). |
+| F93 | **Observé en moteur réel** (`corr-final-content` ; `main`). Un assembleur en « sortie pleine » (état 22, 100 engrenages) EST en fabrication : `is_crafting()` vrai, `crafting_progress` = 1,000 (fabrication finie, produit non sorti). | Le transfert le traite comme une fabrication en cours : bilan de fer (plaques + 2 × engrenages) 220 constant à travers l'agrandissement 6 → 7. L'« arrêt à 4 engrenages » observé une fois par l'ingénieur (archive `content-4-debug` supprimée) n'est pas reproduit. |
+| F94 | **Observé en moteur réel** (`corr-final-content` ; `main`). Le remplacement rapide MOTEUR à taille égale garde la fabrication en cours et sa progression : four 7 → 8 en pleine fusion, 0,896 → 0,896, bilan de fer 200 constant ; assembleur à moteurs 7 → 8, 0,254 → 0,254, bilan d'acier 101 constant ; four 6 → 7 (script, tick ACT) puis 7 → 8 (moteur, tick ACT + 1) : bilan 200 constant. | À taille égale, rien à faire. La progression notée par F83 suit la machine si le moteur la remplace avant qu'elle ait repris. |
+| F95 | **Observé en moteur réel** (`corr-1-content`, 18 h 46 ; `temoin-be0ee03-points`). La barre rouge d'un coffre limite AUSSI `LuaInventory.insert` par script : barre posée à 10 cases par le banc, coût du niveau 2 refusé (« no-resources »). Un coffre sans barre rend `get_bar()` = nombre de cases + 1 (97 pour 96 cases). | La barre n'est recopiée que si elle limitait (`get_bar()` ≤ nombre de cases) : barre 5 gardée sur le centre 3 → 4 (80 → 96 cases). Recopier `get_bar()` tel quel aurait borné le nouveau coffre à la taille de l'ancien. |
+
+Observation sans numéro (ingénieur, archive `content-4-debug` supprimée) : un assembleur 6 à engrenages sans bras de sortie
+s'est arrêté en « full_output » à 4 engrenages. Non reproduite ; voir F93.
+
 ### Faits vérifiés (suites de V3-T, 22/10, 15 h 23 à 17 h 06)
 Numéros DÉFINITIFS, attribués à l'intégration des trois suites (22/10, vers 17 h 20). Les suites avaient donné des
 numéros provisoires qui se chevauchaient. Correspondance :
@@ -226,6 +256,217 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E52 · VALIDÉ en moteur réel · Fabrications en cours à travers l'agrandissement et le remplacement rapide (lot
+V3-T2, correcteur, 22/10, 18 h 46 à 18 h 59 ; rejoué sur `main` à 19 h 05)** :
+- Protocole : greffon `checks/levels_points.lua` du banc `content` (4 000 ticks, zone 4 : x 732 à 860, y 240 à 336),
+  actions au tick ACT = 1760, bilans de matière avant, juste après et au tick 3000 :
+  - C : four 7 → 8 en pleine fusion et assembleur à moteurs 7 → 8 en pleine fabrication, par le remplacement rapide
+    moteur (même taille) ; four 6 → 7 par script au tick ACT, puis 7 → 8 par le moteur au tick ACT + 1 ;
+  - D : assembleur en « sortie pleine » (100 engrenages) agrandi 6 → 7 ; F84 rejoué (assembleur à l'arrêt, sans
+    ingrédient, `crafting_progress` écrit à 0,25) ;
+  - barre : centre 3 d'une force à part, barre rouge à 5 cases, agrandi 4×4 → 5×5.
+- Résultats (`corr-final-content`, `done.txt` 18:59:09,74 ; identiques sur `main`, 19:05:39,98) :
+  - F94 : four 0,896 → 0,896 juste après, 0,912 à ACT + 2, bilan de fer 200 / 200 / 200 ; assembleur 0,254 → 0,254,
+    0,256 à ACT + 2, bilan d'acier 101 constant ; four 6 → 7 → 8 : bilan 200 constant, progression 0,858 à ACT + 1
+    et à ACT + 2 ;
+  - F93 : état 22, fabrication vraie, progression 1,000 ; bilan de fer 220 avant et au tick 3000 ;
+  - F84 : `is_crafting()` false → true, progression relue 0,250 ; 1 engrenage au tick 3000, sans aucune plaque ;
+  - F95 : barre 5 gardée, 80 → 96 cases ;
+  - compteurs globaux sur `main` : 69 agrandissements, 4 progressions reposées, 0 en attente, 0 objet renversé,
+    0 fluide perdu, 0 échec, 0 placement forcé.
+- Limites (non prouvé) :
+  - défauts 2 et 15 des relecteurs (seconde amélioration traitée avant le `on_tick` du mod, sur une machine déjà
+    repartie) : plausibles, NON reproductibles sans joueur (le banc agit dans le `on_tick` de fo-autotest, après
+    celui du mod). Corrigés dans les deux chemins et tenus en moteur simulé seulement (`migration_test`, mutations
+    m10 et m11 tuées) ; en moteur réel, seul le chemin normal est joué (script au tick ACT, moteur à ACT + 1) ;
+  - fluide rendu à sa température et compteur `fluid_lost` : aucune recette à fluide chaud jouée ;
+  - migration 0.4.2 → 0.4.3 d'une machine EN fabrication : NON jouable avec ce banc (`--create` sauvegarde la carte
+    au tick 0, aucune machine n'y fabrique) ; moteur simulé seulement (`migration_test` : ingrédients rendus,
+    progression reposée au premier tick) ;
+  - bonus de productivité (`bonus_progress`) et modules d'une machine en pleine fabrication : non joués.
+
+**E51 · VALIDÉ en moteur réel après correction ; défaut majeur CONFIRMÉ par un témoin · Points de jeu servis selon
+l'orientation (lot V3-T2, défauts 1 et 6 de la revue ; correcteur, 22/10, 18 h 40 à 18 h 59 ; rejoué sur `main` à
+19 h 05)** :
+- Origine : deux relecteurs sur trois. La règle de position (`shared/levels/footprint.lua`) ignore l'orientation ;
+  les points de jeu sont écrits pour le nord et tournés par le moteur. Sur un côté pair, un point « au milieu »
+  d'un bord est décalé d'une demi-tuile ; tourné de 180°, le décalage change de sens. Une foreuse tournée vers le
+  sud ou l'ouest pouvait donc déposer à côté de son coffre après l'agrandissement, sans refus ni message, et un
+  assembleur à fluide tourné de 180° perdre son tuyau. Démontré par calcul, jamais joué par l'ingénieur (F87 trop
+  général).
+- Correction : règle des points servis (`shared/levels/points.lua`, pur ; `Levels.served_points`) : une position
+  qui ferait sortir un point servi de l'entité qui le sert n'est pas libre (ARCHITECTURE §7 bis).
+- Protocole : greffon `checks/levels_points.lua` (banc `content`, 4 000 ticks), section A : 12 foreuses
+  (4 orientations × passages 6 → 7, 12 → 13, 18 → 19, soit 3×3 → 4×4, 4×4 → 5×5, 5×5 → 6×6) qui déposent dans un
+  coffre, et 12 assembleurs à fluide (mêmes orientations et passages) raccordés à un tuyau infini ; section B :
+  foreuse tournée vers le sud dont la seule position qui garde le dépôt est murée, et assembleur cerné (voisins et
+  bras) ; section X : expérience des remèdes au raccord (rien, `update_connections()` du nouveau ou du tuyau,
+  téléport sur place de l'un ou de l'autre). **Témoin** : le même banc sur `git archive be0ee03` (code de
+  l'ingénieur) plus le nouveau greffon.
+- Résultats du témoin `be0ee03` (`temoin-be0ee03-points`, `done.txt` 18:51:25) : **308 OK, 9 ÉCHEC**. Sept échecs portent sur les défauts ci-dessous ; un est un artefact du témoin (« erreur Lua
+  dans tick : No such function: factorio-overhaul.levels_bench_resume » : interface absente de `be0ee03`) ; le
+  dernier est le contrôle des compteurs globaux (« aucun objet renverse, aucun fluide perdu, aucun echec, aucun
+  placement force »), dont le journal ne détaille pas la cause :
+  - 6 foreuses sur 12, toutes celles tournées vers le sud ou l'ouest, aux 3 passages, déposent à côté du coffre
+    (+0 minerai) ;
+  - 9 assembleurs tournés sur 9 reviennent au nord (F91) ;
+  - 12 assembleurs sur 12 sont privés de leur tuyau (F90 ; 2 barils seulement, avec l'eau transférée) ;
+  - la barre du coffre du centre est relue à 97, soit aucune limite (F95) ;
+  - le refus attendu passe en « done ».
+- Résultats après la correction (`e84ca84`, `corr-final-content` 18:59:09,74 : **317 OK, 0 ÉCHEC** ; `main`
+  19:05:39,98 : 317 OK) :
+  - même coffre pour les 12 foreuses (cible du moteur), minerai en hausse : +17 au passage 6, +23 au 12, +29 au 18 ;
+  - même tuyau pour les 12 assembleurs (10 barils remplis chacun), orientation gardée ;
+  - rangs retenus aux passages 6, 12 et 18 : nord 1, 3, 1 ; est 2, 1, 2 ; sud 4, 2, 4 ; ouest 3, 4, 3 ;
+  - refus de la foreuse sud : « no-room », contour au rang 3 (nord-est), gêne « point:iron-chest », rien payé ;
+    assembleur cerné : « no-room », gênes fo-lvl-assembler-6 et inserter ;
+  - raccords : avant la correction, seul un téléport sur place les refaisait ; après, « rien » suffit, puisque le
+    mod téléporte lui-même.
+- Hors jeu : `levels_test` (24 cas purs : 12 déplacés avec l'ancienne règle, 0 avec la nouvelle ; règle inversible,
+  virgule fixe comprise (F92) ; deux raccords opposés : refus ; équivalence des convoyeurs ; foreuse tournée vers le
+  sud en moteur simulé ; refus « point:iron-chest » et ligne du panneau ; clés FR et EN). Mutations tuées hors jeu :
+  m14 (points servis ignorés), m18 (tolérance de virgule fixe), m19 (équivalence des convoyeurs). Survivent hors jeu,
+  faute de barre, de boîte à fluide et d'orientation dans le moteur simulé : m15 (barre), m16 (téléport des
+  raccords), m17 (recette à la création) ; elles sont tenues en moteur réel par `levels_points`, sur lequel le
+  témoin, qui n'a aucune des trois, échoue exactement.
+- Captures (`corr-captures-t2-machines`, `fo-captures.bat t2-machines`, code 0, 12/12 images, BILAN 79 OK, arbre entre
+  `be0ee03` et `e84ca84`) : `005-points-orientations.png`, `006-points-refus.png` (contour orange, gênes rouges,
+  coffre servi en jaune), `011-gros-plan-points-foreuses.png`, `012-gros-plan-points-assembleurs.png`.
+- Limites (non prouvé) : raccords du fluide de minage d'une foreuse et boîte à fluide de SORTIE d'un assembleur (même
+  code, non joués) ; le téléport d'une foreuse (F90) n'est vérifié que par son dépôt et son extraction ;
+  équivalence des convoyeurs jouée hors jeu et sur les bouts de rangée de l'usine dense seulement (aucun dépôt sur
+  un convoyeur d'une autre ligne) ; ligne « points-moved » du panneau en moteur simulé seulement ; la source du
+  témoin (bloc-notes du correcteur : `git archive be0ee03` plus 2 fichiers) n'est pas gardée dans `fo-logs`, elle se
+  reconstruit à l'identique.
+
+**E50 · VALIDÉ en moteur réel, sur une carte de banc ; constat de design remonté (Q-T2-1) · Migration réelle 0.4.2 →
+0.4.3 quand toutes les familles grandissent (lot V3-T2 ; ingénieur 17 h 43 à 18 h 00, correcteur 18 h 52 à 18 h 59,
+`main` 19 h 05)** :
+- Protocole : double source (`FO_CREATE_SRC` = `<racine>\fo-logs\2026-10-22_V3T2\src-0.4.2`, identique octet pour
+  octet à `git archive c4d37e5`, version 0.4.2, où seule la mitrailleuse grandit ; vérifié par le relecteur 3),
+  scénario greffé `t2-migration`, 700 ticks, contrôles aux ticks 90 et 600 ; journal contrôlé hors jeu par
+  `ht3_journal.py --tag FO-T2-MIGRATION`. La carte, posée par 0.4.2 aux anciennes tailles :
+  - force `fo-t2-libre`, sans poteau (contenu comparé exactement) : pour chaque famille un niveau 7 libre, un niveau
+    élevé libre (laser et four 25, foreuse et assembleur 19, tous 6×6 en 0.4.3), une paire de niveau 7 collée ; une
+    mitrailleuse 7 témoin (déjà 3×3 en 0.4.2) ;
+  - centres 15 (force `fo-t2`, 4×4 → 8×8), 10 (`fo-t2-c7`, 4×4 → 7×7, coffre garni) et 6 (`fo-t2-c5`, 4×4 → 5×5, un
+    bras sur chaque côté) ;
+  - **usine dense typique** de 24 machines de niveau 8 (force `fo-t2`, alimentée) : 6 assembleurs collés (bras
+    d'entrée au nord, de sortie au sud vers un convoyeur), une colonne de 6 fours (bras à l'ouest et à l'est,
+    convoyeur), 6 foreuses en deux rangées face à face autour d'un convoyeur, 6 lasers collés derrière un mur.
+- Voie : `on_configuration_changed` au tick 0 (`mod_changes` factorio-overhaul 0.4.2 -> 0.4.3), puis `Levels.repair` :
+  « 21 bâtiment(s) reposé(s), 3 déjà en place, 19 laissé(s) faute de place (chevauchement toléré) » ; compteurs
+  migrated 21, overlap_kept 19 ; spilled, resize_failed et forced à 0 ; aucun objet au sol. Messages aux joueurs
+  (correction du défaut 9) : force fo-t2, 18 laissés ; fo-t2-c5, 1 ; 0 doublon. Filet sans effet jusqu'au tick 600.
+- Résultats :
+  - libres : laser 7, four 7, foreuse 7 et 19, assembleur 7 et 19, centre 10 REPOSÉS sur la grille, sans
+    chevauchement, contenu et PV identiques ; laser 25, four 25 et centre 15 DÉJÀ EN PLACE (même entité) ;
+    mitrailleuse 7 inchangée ; les 4 paires collées reposées toutes les deux, sans se chevaucher ; centres 15, 10 et
+    6 toujours suivis par leur force ; relevé des emprises égal à la table (7 familles, tous niveaux) ;
+  - **usine dense : 18 machines sur 24 restent HORS GRILLE (75 %)** : assembleurs 6/6, fours 6/6, foreuses 2/6 (le
+    milieu de chaque rangée), lasers 4/6 ; reposées : les 4 foreuses et les 2 lasers des bouts (dépôt toujours sur le
+    convoyeur). Le centre 6, entouré de bras, est laissé lui aussi. Toutes en service (F88) ;
+  - amélioration ultérieure d'un assembleur laissé (8 → 9) : avant le correctif F86, « done » avec deux machines
+    superposées ; après, refus « no-room » (son propre bras sud gêne la remise sur la grille), coût non payé ; une
+    fois le bras retiré, remise sur la grille au niveau 9 en (306 ; 287), sans chevauchement, ancienne disparue.
+- Passages : `final-t2-migration` (`be0ee03`, 18:00:44,83) 62 OK, journal 23 OK ; `corr-final-t2-migration` (`e84ca84`,
+  18:59:20,03) **64 OK**, journal **26 OK** ; `main` (19:05:48,49) **64 OK**, journal **26 OK**, code 0 (rejoué sur
+  l'archive par l'intégrateur des documents : même résultat).
+- Migration 0.4.1 → 0.4.3 (`ht3-migration`, création `<racine>\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1`) : **30 OK**
+  (29 d'avant, plus le centre 15 qui grandit désormais lui aussi, compté « déjà en place »), journal **7 OK** ; sur
+  `main` (19:05:52,39) : « 6 bâtiment(s) reposé(s), 3 déjà en place, 3 laissé(s) », messages fo-ht3 2 et player 1.
+- Captures avec images en double source (`fo-captures.bat t2-migration`, `FO_CREATE_SRC` = `src-0.4.2`, code 0) :
+  `captures-t2-migration` (17 h 53, 2 images) et `corr-captures-t2-migration` (18 h 53, 3/3 :
+  `001-migration-libres.png`, `002-migration-dense-assembleurs-fours.png`, `003-migration-dense-foreuses-lasers.png`) ;
+  la superposition d'une demi-tuile se voit. **Premier usage de `FO_CREATE_SRC` avec `fo-captures.bat`** : la carte
+  du banc est créée par la source de création (`banc-create-source.txt`) et la session avec images rejoue la
+  migration (`factorio.log` : « 21 bâtiment(s) reposé(s), 3 déjà en place, 19 laissé(s) »).
+- Limites (non prouvé) : variante sans montée de version (filet seul) pour 0.4.3 ; vrai second chargement d'une carte
+  migrée ; doublons hérités relevés hors jeu seulement (aucune carte 0.4.2 avec doublons rejouée) ; message de
+  migration à l'écran (journal seulement, pas de joueur en mode benchmark) ; l'usine dense est UNE disposition
+  synthétique (insertion directe entre machines, balises : non jouées) ; F85 vu avec le seul poteau invisible du mod
+  de test ; les sauvegardes du Directeur Créatif n'ont été ni touchées ni testées.
+
+**E49 · VALIDÉ en moteur réel pour la mécanique des 5 familles ; visuel PROVISOIRE, laid aux grandes tailles, sans
+verdict du DC · Emprise croissante de toutes les familles (lot V3-T2, Q-S1 : oui ; ingénieur 17 h 18 à 18 h 00,
+revue adverse, correcteur 18 h 40 à 19 h 05 ; intégré dans `main` le 22/10 à 19 h 05, fusion `--no-ff` `681dd5c`,
+version 0.4.3)** :
+- Demandes : Q-S1 (22/10, 16 h 45 : oui), Q23 (« 6 par six »), Q24 (agrandissement sur place, sinon refus et contour).
+- Table livrée (`L.footprints`, `shared/levels/config.lua`) : command {4,5,6,7,8}, gun {2,3,4,5,6} (inchangée),
+  laser {2,3,4,5,6}, drill {3,4,5,6,6}, furnace {2,3,4,5,6}, assembler {3,4,5,6,6} ; le mur n'a pas de ligne.
+  108 niveaux changent d'emprise depuis 0.4.2 (4 familles × 24 niveaux, plus 12 niveaux du centre). Chiffres :
+  BALANCE_SHEET §12.
+- Protocole : banc `content` (4 000 ticks) avec le greffon `checks/levels_machines.lua` (zone 3 : x 588 à 716, y 240
+  à 336 ; 54 contrôles) : A, place libre et transfert réel du contenu ; B, usine dense (refus, retrait des gênes
+  annoncées, agrandissement) ; C, chaînes 6 → 30 et centre 1 → 15 ; prototypes des 5 familles, tous niveaux. Scénario
+  greffé `t2-machines` (1 500 ticks : les greffons `levels_machines` et `levels_points` joués au tick 60, pour les
+  captures).
+- Résultats (`final-content`, `be0ee03`, `done.txt` 18:00:40,38 : 292 OK, 0 ÉCHEC) :
+  - assembleur 6 → 7 : 4×4 en (605 ; 263), position préférée ; recette fill-water-barrel, barils vides 10/10, pleins
+    3/3, modules 2/2, eau 30/30, PV 0,60 ; tuyau infini posé au raccord lu sur l'entité, visée (604,5 ; 260,5) : 7
+    barils remplis ensuite ; bras ouest nourrit la nouvelle machine (F89). Assembleur EN fabrication de moteurs :
+    bilan d'acier 101 avant, juste après et au tick 3000 ; progression 0,061 → 0,063 à ACT + 2 ;
+  - foreuse 6 → 7 : 4×4 en (621 ; 263) ; fil rouge vers le combinateur et réglages transférés (lecture du gisement,
+    mode 1, condition A > 0) ; progression 0,850 ; dépôt en (620,5 ; 260,652) dans le MÊME coffre, +17 minerais ;
+    une foreuse sans minerai sous son ancienne zone mine la bande nouvelle (643,5 ; 265,5), 16 minerais ; rayon
+    2,49 → 2,99 ;
+  - four 6 → 7 : un bras au nord bloque les positions nord, 3e position (sud-ouest) en (659,5 ; 262,5) ; charbon 9/9,
+    minerai 1 + 1 rendu (F83), plaques 25 → 44 (25 → 43 dans une version précédente des notes, lu sur le passage
+    d'avant le correctif : corrigé), combustible en train de brûler (reste 587 370 J), PV 0,80 ; bilan de fer 205
+    constant ; le bras nourrit le nouveau four (177 → 160) ;
+  - laser 6 → 7 : 3×3 en (679,5 ; 261,5) ; énergie 961 200 J, victimes 7/7, dégâts 1 234,5, PV 0,50 ; portée 26,00
+    (statistique 25,5 + 0,5) ; relié au réseau ;
+  - centre : chaîne 1 → 15 (force à part), 4 agrandissements (5×5, 6×6, 7×7, 8×8), coffres 9/9, charbon 50/50 ;
+  - usine dense : 5 refus « no-room » (assembleur et four entre leurs voisins et leurs bras ; foreuse et laser entre
+    leurs voisins ; centre 3 entouré de bras), coût non payé, contour ; les gênes annoncées retirées (exactement
+    elles), agrandissement à la position du contour ;
+  - chaînes 6 → 30 : 4, 3, 4 et 3 agrandissements par script (laser, foreuse, four, assembleur), le reste en
+    remplacement rapide moteur, 0 secours ; contenu et recette conservés ;
+  - prototypes : emprise de la table, collision au style vanilla (niveaux au côté de base : boîtes vanilla
+    intactes), même groupe, rayon d'extraction r + (côté − 3)/2, portée + (côté − 2)/2, raccords hors de la boîte et
+    sur un centre de tuile ; 0 renversé, 0 échec, 0 forcé, 0 secours.
+- Passages de mise au point gardés : `content-0-table-seule` (17:21:11,22 : table activée, rien d'autre, 238 OK) ;
+  `content-3-bilans-avant-correctif` (288 OK, 3 ÉCHEC : F83).
+- Après le correcteur (`e84ca84`) : `content` **317 OK** (exemple 2, `levels_taille` 26, `levels_machines` 54,
+  `levels_points` 25) et `t2-machines` **80 OK** (18:59:15,13) ; sur `main` (19:05:39,98 et 19:05:44,44) : 317 OK et
+  80 OK. 317 = 210 du banc + 107 greffés, recompté par l'intégrateur des documents dans `create.log` (63 OK) et
+  `benchmark.log` (254 OK).
+- Revue adverse : 3 relecteurs, 19 défauts. Suivi du correcteur :
+  - 1 et 6 (points servis selon l'orientation, majeur) : confirmés en moteur réel, corrigés (E51) ; F90 et F91, plus
+    graves, trouvés en le prouvant, corrigés ;
+  - 3 (barre du coffre) : confirmé (témoin : 97), corrigé ; 9 (message de migration), 10 (progression recopiée hors
+    fabrication), 11 (panneau), 16 (couverture hors jeu), 17 (classement « laissé » tautologique) : corrigés ;
+    4 (fluide rendu) : corrigé, non joué ;
+  - 2 et 15 (seconde amélioration avant le `on_tick`) : plausibles, corrigés, non reproductibles sans joueur ;
+    5 : joué (F94) ;
+  - 7 (usine réelle) et 8 (production par tuile) : confirmés, non corrigeables dans le lot : questions Q-T2-1 et
+    Q-T2-2 (OBJECTIFS §4) ;
+  - 12 (captures) : en partie (refus et usine dense capturés ; aucun verdict du DC) ; 13 (preuves) : F84 rejoué, F93
+    relevé, doublons détectés, coût du `on_tick` mesuré (H-L1) ; 14 (migration d'une machine en fabrication) : non
+    jouable ; 18 (notes) : corrigé ; 19 (disque) : 2,5 Go libres à 19 h 00, rien supprimé.
+- Hors jeu sur `main` (19 h 05 à 19 h 10) : run 114, war 92, td 270, pteam 15, migration **79** (60 avant le lot),
+  levels **1 575** (+ 11 écarts connus ; 1 564 avant), epochs 16 665, org 362, pvp 596 ; harness 0 erreur nouvelle,
+  0 violation, points de jeu mod 61 entités / 182 points, auto-contrôle 11/11, 0 clé manquante ; api_lint **519**
+  usages, 0 erreur (447 avant) ; d4m 5/5 ; mut_atlas 40 OK ; test_ht3_journal **15 OK** (9 avant) ;
+  bat_double_source 4 OK. Mutations du correcteur (sur une copie, témoin 79 / 1 575) : m4a, m4c, m7, m9, m10, m11,
+  m12, m13, m14, m18, m19 tuées hors jeu ; m15, m16, m17 tenues en moteur réel seulement (E51).
+- Captures (`fo-captures.bat`, code 0 ; images regardées par l'ingénieur et le correcteur, deux d'entre elles par
+  l'intégrateur des documents) : `captures-t2-machines` (17 h 47 : `005-gros-plan-assembleur-foreuse.png`,
+  `006-gros-plan-four-laser.png`, `007-gros-plan-chaines-30.png`, `008-gros-plan-centre-15.png`),
+  `corr-captures-t2-machines` (18 h 53, 12 images), `captures-content` (17 h 48 : `052-niveaux-command-01-15.png`,
+  `070-niveaux-laser-haut.png`, `086-niveaux-drill-haut.png`, `094-niveaux-furnace-haut.png`,
+  `102-niveaux-assembler-haut.png`, planches 1 à 3), tous dans `<racine>\fo-logs\2026-10-22_V3T2\`. **Verdict franc :
+  visuel PROVISOIRE et laid aux grandes tailles** : bitmaps agrandis ×2 à ×3, flous et pixelisés (four et laser
+  6×6 surtout) ; aucune pièce nouvelle ; la tête du laser et le haut de la foreuse débordent de leur socle vers le
+  haut ; le centre 8×8 déborde de son socle en bas et la tête du radar sort en haut à gauche, décalée ; après
+  migration, les machines hors grille se superposent d'une demi-tuile. Les sprites V3 (lot V3-E) restent
+  indispensables. Aucun verdict du DC.
+- Non prouvé (en plus des limites d'E50 à E52) : panneau, aperçu au sol, ligne « hors grille » et ligne
+  « points-moved » (pas de joueur en mode benchmark ; moteur simulé seulement) ; fils de circuit d'un assembleur ou
+  d'un four (sans objet en 1.1 selon le relecteur 1 : ces machines n'ont pas de circuit) ; tir du laser agrandi à sa
+  nouvelle portée (seule la portée du prototype est contrôlée) ; zone d'extraction agrandie : un seul coin (sud-est)
+  de la bande nouvelle ; remboursement F40 : moteur simulé seulement.
+
 **E48 · VALIDÉ (hors jeu) · Banc d4m corrigé : atlas attendus selon les réglages de chaque journal (suite d4m de
 V3-T, 22/10 ; bancs du correcteur rejoués de 15 h 36 à 15 h 50 ; intégrée dans `main` le 22/10 par la fusion
 `18a00d4`, tête `c023664`)** :
@@ -890,7 +1131,9 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
     qu'en expérience de contrôle (migration au chargement neutralisée dans une copie jetable) : 29 OK.
   - **Constat** : une mitrailleuse collée à une ligne de murs et nourrie par un bras placé derrière reste hors
     grille, en service, chevauchement toléré (rempart7). Question au Directeur Créatif (Q-T3, OBJECTIFS §4) : est-ce
-    acceptable, ou faut-il une autre règle (par exemple déplacer aussi le bras) ?
+    acceptable, ou faut-il une autre règle (par exemple déplacer aussi le bras) ? Depuis le lot V3-T2 (22/10,
+    19 h 05), Q-T3 est rattachée à Q-T2-1 : même nature, pour toutes les familles (18 machines sur 24 d'une usine
+    dense restent hors grille, E50).
   - Non prouvé : rechargement d'une carte déjà migrée ; défense dense ; amélioration ultérieure d'une tourelle
     laissée hors grille ; crochets `on_replaced` et chantiers 0.4.0 en moteur réel (liste complète : E46).
   Énoncé et protocole d'origine (22/10, 14 h 56, alors OUVERTE ; lot V3-T, E44 ; nom repris du lot V3-T, H-T2
@@ -1018,6 +1261,20 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
   cache par force : au plus un par 600 ticks pendant qu'un panneau du centre est ouvert, plus un par décision
   sur le centre et par retrait de bâtiment à niveaux suivi d'un rafraîchissement. Protocole proposé : carte
   d4-geant, panneau du centre ouvert, banc épinglé, `[FO-PROF]` sur 3 600 ticks.
+  **Mesure PARTIELLE (lot V3-T2, 22/10, 18 h 46 à 19 h 05 ; défaut 13 de la revue)** : le lot ajoute un abonnement
+  `on_tick` permanent, `Levels.resume_progress` (reprise des fabrications en cours après un agrandissement). Son coût
+  à liste VIDE, le cas courant, est mesuré par l'interface `levels_bench_resume` (100 000 appels de suite sous un
+  `LuaProfiler`, au journal ; banc épinglé `/AFFINITY FFF`) :
+  - banc `content` : 9,98 à 12,99 ms pour 100 000 appels, sur 6 passages (`corr-1` à `corr-4`, `corr-final-content`,
+    `main` à 19 h 05), soit 0,10 à 0,13 µs par appel ;
+  - scénario `t2-machines` : 25,4 à 37,8 ms, sur 4 passages (`corr-5`, `corr-6`, `corr-final`, `main`), soit 0,25 à
+    0,38 µs par appel. Cause de l'écart avec `content` non établie (le correcteur l'attribue à une machine chargée par
+    d'autres agents ; non vérifié).
+  Au pire 0,38 µs par appel du corps de la fonction, soit moins de 0,03 % du budget A1 (1,5 ms par tick) pour un
+  appel par tick. Le coût de l'appel de l'abonnement `on_tick` par le moteur à chaque tick n'est PAS mesuré (la
+  boucle appelle la fonction directement). Rien ne dépend de cette mesure.
+  **Toujours NON mesurés** : le coût avec des progressions en attente, un recensement Q16 sur une grande carte, le
+  calcul de place du panneau (V3-T) et celui des points servis (V3-T2). H-L1 reste OUVERTE.
 - **H-T1 · OUVERTE** : rendre les captures entièrement automatiques, sans session interactive à
   fermer à la main.
   - Piste 1 : vérifier si `factorio.exe --help` (1.1.91) propose un benchmark avec rendu.

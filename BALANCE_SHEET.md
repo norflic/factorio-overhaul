@@ -2,7 +2,8 @@
 
 > Source unique : `shared/balance_model.lua`. Les tables ci-dessous sont générées par
 > `lua5.2 tools/print_balance.lua` : ne pas les éditer à la main, modifier le modèle.
-> Dernière mise à jour : 2026-10-21, session 4 (économie réelle des équipes, arsenal spécial, défense de
+> Dernière mise à jour : 2026-10-22, 19 h 20, session 6 (§12 : emprise de toutes les familles et production par
+> tuile, lot V3-T2). Avant : 2026-10-21, session 4 (économie réelle des équipes, arsenal spécial, défense de
 > tours, résistances de famille par palier ; mesures en moteur réel).
 > Tables générées : `lua5.2 tools/print_balance.lua`, `lua5.2 tools/print_content.lua` ; mesures de
 > partie : `tools/autotest/` (scénarios `default`, `waves`, `pteam`, `content`).
@@ -536,7 +537,7 @@ famille ; runtime : `script/levels/` ; recherche vanilla : `data-final-fixes.lua
 > connus** au contrat comptés à part, migration_test 29 OK, étape data 0 erreur, api_lint 0 erreur). **Non
 > prouvé en moteur réel** : le diff du banc `content` (`content_test.lua`, 63 contrôles de niveaux, bilan
 > attendu 212 OK) est livré à l'orchestrateur, qui seul passe le moteur (mise à jour : passé en moteur réel le
-> 22/10 à 2 h 43, 212 OK, E38 ; 238 OK depuis le lot V3-T, 22/10 à 14 h 51, E44). Le modèle de durée de jeu repose sur
+> 22/10 à 2 h 43, 212 OK, E38 ; 238 OK depuis le lot V3-T, 22/10 à 14 h 51, E44 ; 317 OK depuis le lot V3-T2, 22/10 à 19 h 05, E49). Le modèle de durée de jeu repose sur
 > des **hypothèses ❔** à valider en partie réelle. **QX10 n'est PAS tenu** (passage du centre sous 5 % du
 > budget aux époques 5 à 14) et le calendrier de 52 h n'est tenu que par la base de référence complète (chemin
 > le plus court : 3 h 27) : à trancher par le Directeur Créatif. Visuel : provisoire (E25), inchangé par V2c.
@@ -968,13 +969,35 @@ En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : c
 | 29 | 15 Légende (silhouette) | 2 080 | 2,1 | 25 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
 | 30 | 15 Légende (+ pièce) | 2 140 | 2,12 | 25,25 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
 
-#### Emprise au sol par niveau (lot V3-T, Q23 et Q24 ; intégré le 22/10 à 14 h 50, version 0.4.2)
+#### Emprise au sol par niveau (lot V3-T, Q23 et Q24, intégré le 22/10 à 14 h 50, version 0.4.2 ; toutes les familles depuis le lot V3-T2, Q-S1, intégré le 22/10 à 19 h 05, version 0.4.3)
 
-Table `L.footprints` de `shared/levels/config.lua`, relue avec `L.footprint` et `L.range_bonus` (lua5.2, 22/10). Ce
-tableau est écrit à la main : `levels_test --tables` ne le produit pas. La colonne « portée » du tableau de la
-mitrailleuse ci-dessus est la STATISTIQUE ; le prototype reçoit en plus le bonus de portée ci-dessous.
+Table `L.footprints` de `shared/levels/config.lua`, relue avec `L.footprint` et `L.range_bonus` (lua5.2, 22/10,
+19 h 15, sur `main` `aec3baf`). Ces tableaux sont écrits à la main : `levels_test --tables` ne les produit pas. La
+colonne « portée » des tableaux de la mitrailleuse et du laser est la STATISTIQUE ; le prototype reçoit en plus le
+bonus de portée ci-dessous.
 
-**Mitrailleuse (seule famille activée)** : une taille de plus par ère de 3 époques.
+**Les 7 familles (lot V3-T2)** : une taille de plus par ère de 3 époques, plafond 6×6 pour les machines de
+production (Q23 : « 6 par six »), centre 4×4 → 8×8, mur inchangé.
+
+| Famille | Ligne `L.footprints` | Ère I | Ère II | Ère III | Ère IV | Ère V |
+|---|---|---|---|---|---|---|
+| Mitrailleuse (30 niveaux) | `gun {2,3,4,5,6}` (lot V3-T) | niveaux 1 à 6 : 2×2 (vanilla) | 7 à 12 : 3×3 | 13 à 18 : 4×4 | 19 à 24 : 5×5 | 25 à 30 : 6×6 |
+| Tourelle laser (30) | `laser {2,3,4,5,6}` | 1 à 6 : 2×2 (vanilla) | 7 à 12 : 3×3 | 13 à 18 : 4×4 | 19 à 24 : 5×5 | 25 à 30 : 6×6 |
+| Four en acier (30) | `furnace {2,3,4,5,6}` | 1 à 6 : 2×2 (vanilla) | 7 à 12 : 3×3 | 13 à 18 : 4×4 | 19 à 24 : 5×5 | 25 à 30 : 6×6 |
+| Foreuse électrique (30) | `drill {3,4,5,6,6}` | 1 à 6 : 3×3 (vanilla) | 7 à 12 : 4×4 | 13 à 18 : 5×5 | 19 à 24 : 6×6 | 25 à 30 : 6×6 |
+| Machine d'assemblage 2 (30) | `assembler {3,4,5,6,6}` | 1 à 6 : 3×3 (vanilla) | 7 à 12 : 4×4 | 13 à 18 : 5×5 | 19 à 24 : 6×6 | 25 à 30 : 6×6 |
+| Centre de commandement (15 niveaux, niveau = époque) | `command {4,5,6,7,8}` | 1 à 3 : 4×4 | 4 à 6 : 5×5 | 7 à 9 : 6×6 | 10 à 12 : 7×7 | 13 à 15 : 8×8 |
+| Mur (30) | aucune ligne | 1×1 à tous les niveaux | | | | |
+
+108 niveaux changent d'emprise entre 0.4.2 et 0.4.3 (laser, four, foreuse, assembleur : 24 chacun ; centre : 12).
+Boîtes des niveaux agrandis au style vanilla : sélection = le carré exact, collision = le carré réduit de 0,3 tuile
+de chaque côté (± 1,2 en 3×3, ± 1,7 en 4×4, ± 2,2 en 5×5, ± 2,7 en 6×6, ± 3,2 en 7×7, ± 3,7 en 8×8) ; les niveaux au
+côté de base gardent les boîtes vanilla intactes (four : sélection 1,6 × 2). Contrôlé en moteur réel sur les
+prototypes des 5 familles, tous niveaux (`content`, greffon `levels_machines`, 22/10). Tourelle laser : même bonus
+de portée que la mitrailleuse ; portée du prototype (statistique + bonus), premier et dernier niveau de chaque ère :
+24 et 25,25 ; 26 et 27,25 ; 28 et 29,25 ; 30 et 31,25 ; 32 et 33,25. Laser 7 mesuré à 26,00 en moteur réel (E49).
+
+**Mitrailleuse** : une taille de plus par ère de 3 époques.
 
 | Ère | Époques | Niveaux | Emprise | Collision | Sélection | Bonus de portée | Portée du prototype (statistique + bonus), premier et dernier niveau de l'ère |
 |---|---|---|---|---|---|---|---|
@@ -997,24 +1020,42 @@ mitrailleuse ci-dessus est la STATISTIQUE ; le prototype reçoit en plus le bonu
 - **Contour de refus** : 300 ticks (5 s).
 
 **Rayon d'extraction d'une foreuse agrandie : r + (b − a) / 2** (même débord au-delà du bord). Foreuse
-électrique vanilla 3×3 : 2,49 (5×5 tuiles) ; 4×4 : 2,99 ; 5×5 : 3,49 ; 6×6 : 3,99 (8×8 tuiles). Prévu par le code
-et vérifié à l'étape data réelle sur une copie jetable (foreuse 25 : rayon 3,99, dépôt en (−0,5 ; −3,35)), **NON
-activé** dans le jeu livré.
+électrique vanilla 3×3 : 2,49 (5×5 tuiles) ; 4×4 : 2,99 ; 5×5 : 3,49 ; 6×6 : 3,99 (8×8 tuiles). Vérifié à l'étape
+data réelle (foreuse 25 : rayon 3,99, dépôt en (−0,5 ; −3,35)) et, **depuis le lot V3-T2, en moteur réel** : foreuse
+6 → 7, rayon 2,49 → 2,99 ; une foreuse sans minerai sous son ancienne zone mine la bande nouvelle (16 minerais ; un
+seul coin, sud-est, contrôlé). Activé dans le jeu livré (0.4.3).
 
-**Échelle PROPOSÉE pour les autres familles, NON VALIDÉE (Q-S1 ouverte ; aucune ligne dans `L.footprints`)** :
+Avant le lot V3-T2, deux échelles étaient proposées pour les machines 3×3 (6×6 ou 7×7 à l'ère V). Q-S1 (oui, 22/10,
+16 h 45), tranchée par l'orchestrateur avec Q23 (« 6 par six »), a retenu 6×6. La garde `L.footprint_errors` impose
+un niveau 1 égal à la taille vanilla et une emprise qui ne rétrécit jamais (« four 3 → 6 » serait refusé).
 
-| Famille | Niveau 1 (vanilla) | Proposition du commentaire de `config.lua` (ères I à V) | Proposition de la charte (`docs/DA_FACTORIO.md`, Q-S1) |
-|---|---|---|---|
-| Tourelle laser | 2×2 | 2, 3, 4, 5, 6 | non citée (la règle « une taille de plus par ère » donnerait 2×2 → 6×6) |
-| Foreuse électrique | 3×3 | 3, 4, 5, 6, 6 | non citée (la même règle donnerait 3×3 → 7×7) |
-| Machine d'assemblage 2 | 3×3 | 3, 4, 5, 6, 6 | 3×3 → 7×7 |
-| Four en acier | 2×2 | 2, 3, 4, 5, 6 ou 2, 4, 5, 6, 6 | 2×2 → 6×6 |
-| Centre de commandement (15 niveaux) | 4×4 | 4, 5, 6, 7, 8 | 4×4 → 8×8 |
-| Mur | 1×1 | inchangé (pas de ligne) | ? |
+**Production par tuile (lot V3-T2, défaut 8 de la revue ; question Q-T2-2, OBJECTIFS §4)** : vitesse du niveau
+divisée par la surface (côté²). La vitesse croît de niveau en niveau, mais l'emprise croît plus vite : un 6×6 de
+niveau 30 produit MOINS par tuile qu'un niveau 6 de base, dans toutes les familles chiffrées, tourelles comprises.
+Chiffres du correcteur (notes du lot, §9.5), recalculés depuis `L.apply_stat` et `L.footprint` (lua5.2, 22/10, 19 h 15) : identiques. Vitesses :
+assembleur 0,75 × (1 + 0,08 (n − 1)) ; four 2 × (1 + 0,08 (n − 1)) ; foreuse 0,5 × (1 + 0,1 (n − 1)) ; tourelles
+laser et mitrailleuse (mêmes règles de dégâts et mêmes tailles dans `shared/levels/config.lua`, donc mêmes
+chiffres) : multiplicateur de dégâts RELATIF au niveau 1 (1 + 0,08 (n − 1) jusqu'au niveau 10, puis + 0,02 par
+niveau ; pour la laser, le modificateur du prototype vaut le double, 2 au niveau 1). Exemple de la revue : sur la
+surface d'une mitrailleuse 6×6 de niveau 30 (× 2,12), neuf mitrailleuses 2×2 de niveau 6 font 9 × 1,4 = 12,6.
 
-Les deux propositions divergent pour les machines 3×3 (6×6 ou 7×7 à l'ère V) ; OBJECTIFS D1-4 propose « machines
-3×3 → 6×6 ». La garde `L.footprint_errors` impose un niveau 1
-égal à la taille vanilla et une emprise qui ne rétrécit jamais : « four 3 → 6 » est donc refusé.
+| Famille | n6 | n7 | n12 | n13 | n18 | n19 | n24 | n25 | n30 | n30 / n6 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Assembleur | 1,05 / 3×3 = 0,117 | 1,11 / 4×4 = 0,069 | 0,088 | 1,47 / 5×5 = 0,059 | 0,071 | 1,83 / 6×6 = 0,051 | 0,059 | 0,061 | 2,49 / 6×6 = 0,069 | 0,59 |
+| Four | 2,80 / 2×2 = 0,700 | 2,96 / 3×3 = 0,329 | 0,418 | 0,245 | 0,295 | 0,195 | 0,227 | 0,162 | 6,64 / 6×6 = 0,184 | 0,26 |
+| Foreuse | 0,75 / 3×3 = 0,083 | 0,80 / 4×4 = 0,050 | 0,066 | 0,044 | 0,054 | 1,40 / 6×6 = 0,039 | 0,046 | 0,047 | 1,95 / 6×6 = 0,054 | 0,65 |
+| Tourelles laser et mitrailleuse (dégâts) | × 1,40 / 2×2 = 0,350 | 0,164 | 0,196 | 0,111 | 0,117 | 0,076 | 0,080 | 0,056 | × 2,12 / 6×6 = 0,059 | 0,17 |
+
+Lecture : à chaque changement de taille, la production par tuile chute (assembleur 0,117 → 0,069 entre les niveaux
+6 et 7 ; four 0,700 → 0,329), puis remonte un peu dans l'ère, sans jamais revenir au niveau 6. Creux : assembleur
+0,051 et foreuse 0,039 au niveau 19, four 0,162 et tourelles 0,056 au niveau 25. Le joueur a donc intérêt à ne faire
+que le minimum d'améliorations exigé par Q16 (relecteur du défaut 8). **Question ouverte au Directeur Créatif
+(Q-T2-2)** : faire suivre la surface (vitesse, emplacements de modules ; au moins la production par tuile du niveau
+6), assumer la taille comme un prestige, ou autre chose. Recommandation de l'orchestrateur : la production par tuile
+ne doit pas baisser. **Avis de l'orchestrateur, pas un constat** : la baisse irait à rebours de la Compaction ×4 ;
+mais §3 et B1 portent sur le débit par tapis des paliers T1 à T5 (machines distinctes, 32 machines par tapis), pas
+sur la production par tuile d'une même machine à travers ses 30 niveaux. Aucune règle n'est retenue avant
+la réponse : les chiffres ci-dessus sont ceux du jeu livré (0.4.3).
 
 #### Tourelle laser (30 niveaux)
 

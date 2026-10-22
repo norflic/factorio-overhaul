@@ -21,9 +21,10 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits moteur F1 à F82, expériences E1 à E48 (E3 jamais attribué), hypothèses ouvertes
-   (H-V2, H-X1, H-L1, H-B1, H-E1 ; H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse
-   réfutée par F77, filet prouvé seulement en expérience de contrôle). Prochains identifiants : **F83, E49**.
+4. `RD_LOG.md` : faits moteur F1 à F95, expériences E1 à E52 (E3 jamais attribué), hypothèses ouvertes
+   (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1 ; H-T1 et H-V1 validées ; H-T3 : (1) prouvée en
+   moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en expérience de contrôle). Prochains
+   identifiants : **F96, E53**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -70,22 +71,22 @@ lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 92 OK
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
-lua5.2 tests/migration_test.lua  -> 60 OK
-lua5.2 tests/levels_test.lua     -> 1564 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
-lua5.2 tests/pvp_test.lua        -> 596 OK   (environ 4 min 30 ; "pure" en argument : 502 OK, partie pure seule)
+lua5.2 tests/migration_test.lua  -> 79 OK
+lua5.2 tests/levels_test.lua     -> 1575 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 4 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe)
+lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 5 min : 180 s le 22/10 à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 447 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 519 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; unitaires de vram.py 57 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 40 OK (7 témoins acceptés, 21 mutants refusés, 11 cas du garde-fou, 1 contrôle final)
-python -B tools/autotest/tests/test_ht3_journal.py   -> 9 OK (contrôle du journal du banc de migration, hors jeu)
+python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
 python -B tools/autotest/tests/bat_double_source/run.py   -> 4 OK (fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
 l'arborescence du jeu.
-Chiffres mesurés sur `main` le 22/10, de 17 h 06 à 17 h 13, après l'intégration des suites de V3-T (version 0.4.2 ;
-pvp en 301 s).
+Chiffres mesurés sur `main` le 22/10, de 19 h 05 à 19 h 10, après l'intégration du lot V3-T2 (version 0.4.3 ;
+pvp en 180 s).
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
 1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
@@ -98,11 +99,12 @@ pvp en 301 s).
    **Code de sortie 2 = verrou pris, rien n'a tourné** : `fo-autotest\` contient alors les journaux du
    banc PRÉCÉDENT. Toujours vérifier le code de sortie et l'heure de `done.txt`.
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
-   attend `BILAN : 238 OK, 0 ECHEC(S)` (lot V3-T, observé en moteur réel le 22/10 à 14 h 51 : 210
-   contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du greffon
-   `checks/levels_taille.lua` ; la ligne « greffons » du journal dit « exemple 2 OK 0 ECHEC, levels_taille
-   26 OK 0 ECHEC » ; 212 avant V3-T, 209 avant V2c). Rejoué sur `main` après les suites de V3-T : 238 OK
-   (`done.txt` du 22/10 à 17:06:23,34).
+   attend `BILAN : 317 OK, 0 ECHEC(S)` (lot V3-T2, observé en moteur réel sur `main` le 22/10, `done.txt` à
+   19:05:39,98) : 210 contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du
+   greffon `checks/levels_taille.lua` + 54 de `checks/levels_machines.lua` + 25 de `checks/levels_points.lua` ; la
+   ligne « greffons » du journal dit « exemple 2 OK 0 ECHEC, levels_taille 26 OK 0 ECHEC, levels_machines 54 OK
+   0 ECHEC, levels_points 25 OK 0 ECHEC » (63 OK dans `create.log`, 254 dans `benchmark.log`). 238 avant V3-T2,
+   212 avant V3-T, 209 avant V2c.
 4. Archiver les journaux qui servent de preuve dans `<racine>\fo-logs\<date>_<lot>_<scénario>\` (hors du
    dépôt), car le banc suivant efface `fo-autotest\`.
 
@@ -117,19 +119,44 @@ python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1
 ```
 - `src-0.4.1` est identique à `git archive 91097e6` (version 0.4.1) ; `fo-autotest\create-source.txt` dit quelle
   source a créé la carte.
-- Attendu : « [FO-HT3-MIGRATION] BILAN : 29 OK, 0 ECHEC(S) » dans `benchmark.log`, ET « JOURNAL H-T3 : 7 OK,
-  0 ECHEC(S) », code 0. Observé sur `main` le 22/10 (`done.txt` 17:06:44,67).
+- Attendu : « [FO-HT3-MIGRATION] BILAN : 30 OK, 0 ECHEC(S) » dans `benchmark.log` (29 avant le lot V3-T2 : le
+  centre 15 grandit désormais lui aussi), ET « JOURNAL H-T3 : 7 OK, 0 ECHEC(S) », code 0. Observé sur `main` le
+  22/10 (`done.txt` 19:05:52,39).
+
+Migration 0.4.2 → 0.4.3 quand toutes les familles grandissent (lot V3-T2, RD_LOG E50 ; usine dense de 24 machines) :
+```
+$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
+& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 t2-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = $null
+python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+```
+- `src-0.4.2` est identique à `git archive c4d37e5` (version 0.4.2) : à GARDER, c'est la source de création de ce
+  banc.
+- Attendu : « [FO-T2-MIGRATION] BILAN : 64 OK, 0 ECHEC(S) » dans `benchmark.log`, ET « JOURNAL FO-T2-MIGRATION :
+  26 OK, 0 ECHEC(S) », code 0 ; journal du mod : « mise à jour des emprises : 21 bâtiment(s) reposé(s), 3 déjà en
+  place, 19 laissé(s) ». Observé sur `main` le 22/10 (`done.txt` 19:05:48,49).
+
 - Le banc s'arrête avec le code 1, sans `done.txt`, si la copie de création n'est pas remplacée en entier.
 - Toujours vider la variable après usage : elle reste définie pour les bancs suivants de la même session
-  PowerShell. Son effet sur `fo-captures.bat` n'a pas été essayé.
+  PowerShell, `fo-captures.bat` compris. Avec `fo-captures.bat`, elle a été essayée deux fois (lot V3-T2,
+  `fo-captures.bat t2-migration`, code 0) : la carte du banc est créée par la source de création et la session
+  avec images rejoue la migration.
 - Préférer `$env:FO_CREATE_SRC = $null` : sous Claude Code, `Remove-Item Env:FO_CREATE_SRC` peut être refusé
-  par la protection de chemin de l'outil (non consigné : ni date ni message relevés).
+  par la protection de chemin de l'outil (REPRISE.md §6).
+
+**Machines agrandies, pour les captures** (lot V3-T2, sans double source) :
+`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1500 t2-machines 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+→ « [FO-T2-MACHINES] BILAN : 80 OK, 0 ECHEC(S) » (observé sur `main` le 22/10, `done.txt` 19:05:44,44). Pour les
+images : `& "<racine>\fo-captures.bat" t2-machines "<source>"` depuis PowerShell.
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 238 contrôles avec les greffons (les contrôles greffés ne se chargent que pour
+- `content` : banc de contenu, 317 contrôles avec les greffons (les contrôles greffés ne se chargent que pour
   `content` et les scénarios greffés de base `content`) ;
 - `ht3-migration` (scénario greffé) : migration d'une sauvegarde 0.4.1, en double source seulement (ci-dessus) ;
+- `t2-migration` (scénario greffé, lot V3-T2) : migration d'une sauvegarde 0.4.2, en double source seulement
+  (ci-dessus) ; `t2-machines` (scénario greffé, lot V3-T2) : greffons `levels_machines` et `levels_points` joués
+  au tick 60, pour les captures ;
 - scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
   (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
   tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;
@@ -223,6 +250,16 @@ inutile dans Claude Code : lancez le `.bat` directement.
   quand les données de prototypes existants changent sans montée de version (attribution aux données :
   déduite, non prouvée) ; un bras a retrouvé seul une cible remplacée par script (un seul cas joué : bras à
   combustible).
+- **F83 à F95** (lot V3-T2, remplacement par script d'une machine) :
+  - un four neuf ignore l'écriture de `crafting_progress` (F83) ; l'écrire sur un assembleur À L'ARRÊT (seul cas
+    joué) rend `is_crafting()` vrai et donne une fabrication gratuite (F84) ;
+  - `create_entity{fast_replace = true}` à une position hors grille ne remplace rien et pose le nouveau bâtiment
+    PAR-DESSUS l'ancien, en rendant une entité valide (F86) ;
+  - le bâtiment créé pendant que l'ancien existe n'est pas raccordé aux tuyaux de l'ancien : un téléport sur place
+    les refait, `update_connections()` non (F90) ; un assembleur créé sans recette ignore `direction` (F91) ;
+  - les positions du moteur sont en virgule fixe (1/256) : jamais d'égalité exacte (F92) ;
+  - la barre rouge d'un coffre limite aussi `insert` par script, et un coffre sans barre rend `get_bar()` = cases
+    + 1 (F95).
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :
