@@ -1,9 +1,10 @@
 --[[
   Scénario GREFFÉ « bord-a-bord » (suite « défense dense », 22/10) : le contact EXACT entre une zone de recherche et
-  la boîte de collision d'une entité, en moteur réel. Le moteur simulé (tests/mock_engine.lua, touches_area) EXCLUT
-  le contact bord à bord dans find_entities_filtered{area} : choix non observé jusqu'ici (RD_LOG E47). Ce banc
-  l'observe, et compare chaque cas à la règle que le moteur simulé applique (RÈGLE ci-dessous) : un écart est un
-  ECHEC, à corriger en alignant le moteur simulé (puis rejouer tous les bancs hors jeu).
+  la boîte de collision d'une entité, en moteur réel. Le moteur simulé (tests/mock_engine.lua, touches_area)
+  EXCLUAIT le contact bord à bord dans find_entities_filtered{area}, choix jamais observé (RD_LOG E47), jusqu'au
+  22/10 : le premier passage de ce banc l'a contredit (21 écarts), et touches_area a été aligné (intervalles fermés,
+  RD_LOG E53). Ce banc compare chaque cas à la règle que le moteur simulé applique (RÈGLE ci-dessous) : un écart est
+  un ECHEC, à corriger en alignant le moteur simulé (puis rejouer tous les bancs hors jeu).
 
   Entités (force neutre, zone vidée) : un mur de pierre (boîte ± 0,29), une mitrailleuse vanilla (± 0,7) et une
   tourelle laser de niveau 7 du mod (3×3, ± 1,2). Les zones sont bâties sur la boîte RENDUE par le moteur

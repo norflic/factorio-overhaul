@@ -697,7 +697,9 @@ end
 -- Correction de la suite : conventions du moteur simulé pour la recherche par zone, tenues par des contrôles (une
 -- mutation de tests/mock_engine.lua doit casser ce banc). Le CONTACT BORD À BORD et par un coin COMPTE : observé en
 -- moteur réel le 22/10 (RD_LOG E53, scénario greffé bord-a-bord ; avant, le moteur simulé l'excluait sans
--- observation). Le mod n'en dépend pas : il refiltre toujours par chevauchement strict (Foot.overlap).
+-- observation). Le mod n'en dépend pas : après chaque recherche par zone des niveaux, il refiltre (Foot.overlap strict,
+-- Points.inside, écart explicite des doublons) ; move_ground_items ne le faisait pas et poussait un objet au sol qui
+-- touchait seulement le bord du bâtiment : corrigé le 22/10 (tests/levels_test.lua, cas « bord ou coin »).
 -- Boîtes de ± 0,75 (exactes en binaire) posées loin du reste, en (−500 ; −500) et (−498,5 ; −500) : elles se
 -- touchent en x = −499,25.
 rawset(W().prototypes, "test-edge-box", { type = "container", max_health = 10,
