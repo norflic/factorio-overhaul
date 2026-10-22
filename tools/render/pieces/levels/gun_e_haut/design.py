@@ -332,7 +332,7 @@ def tank_e(g, e, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
             g.box(V((x, y, 0.04)) + d * rs * 0.72, (0.16, 0.16, 0.08), M["steel_dk"], "hard", what="semelle")
         g.cyl((x, y, 0.06), "z", r * 0.8, 0.12, M["steel_dk"], n=24, style="soft", what="socle")
         g.sphere((x, y, zc), rs, M["jacket"], n=32, m=16)
-        for zz_, nn in ((0.18, 14), (0.62, 10), (-0.2, 12)):
+        for zz_, nn in ((0.18, 14), (0.62, 10)):
             rr_ = rs * math.sqrt(1 - zz_ * zz_)
             for k in range(nn):
                 a = TAU * (k + 0.5) / nn
@@ -736,7 +736,7 @@ def _socle_v(g, e, piece):
     14 : 3 tourelles (corps du niveau 29) ; 15 : témoin, réservoirs plus hauts (catalogue §A.5)."""
     M = g.M
     E = M["emit"]
-    cf = {13: 0.95, 14: 0.7, 15: 0.5}[e]
+    cf = {13: 1.3, 14: 0.7, 15: 0.5}[e]
     apron(g, 6, cf, cf * 0.8, inset=0.16, front=2.78)
     column(g, e, -math.pi * 0.68)
     P2.grating(g, 1.65, 1.95, Y(-1.3), Y(1.45), 0.07, M)

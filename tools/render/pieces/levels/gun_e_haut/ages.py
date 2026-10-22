@@ -156,6 +156,11 @@ def rocket_tank(g, x, y, r, h):
         d = V((math.cos(a), math.sin(a), 0))
         g.box(V((x, y, 0.105)) + d * (r + 0.07), (0.07, 0.07, 0.014), M["steel_hi"], "hard", R=Matrix.Rotation(a, 3, "Z"),
               what="trappe")
+    for k in range(8):
+        a = TAU * (k + 0.5) / 8
+        d = V((math.cos(a), math.sin(a), 0))
+        hatches(g, V((x, y, h + r * 0.35)) + d * (r * 0.78), V((x, y, h + r * 0.45)) + d * (r * 0.72), 1,
+                (d.x * 0.8, d.y * 0.8, 0.6), M["steel_dk"], size=(0.05, 0.05))
     for k, a in enumerate((-1.3, -1.75)):
         d = V((math.cos(a), math.sin(a), 0))
         g.box(V((x, y, h * 0.45 + 0.08 * k)) + d * (r + 0.01), (0.09, 0.02, 0.03), E, "flat",
@@ -204,7 +209,7 @@ def east(g, e, tank_fn):
     """Réservoirs de l'est, par époque (même emplacement que la lignée)."""
     M = g.M
     if e == 10:
-        faired_box(g, 1.64, 2.42, Y(-0.67), Y(1.22), 0.78, louvers=1)
+        faired_box(g, 1.74, 2.36, Y(-0.6), Y(1.15), 0.74, louvers=0)
     elif e == 11:
         rocket_tank(g, 2.02, Y(0.95), 0.37, 0.92)
         rocket_tank(g, 2.02, Y(-0.4), 0.37, 0.92)
@@ -230,6 +235,13 @@ def east(g, e, tank_fn):
             g.cyl((0, 0, 0.16 + 0.3), "z", 0.06, 0.05, M["ring"], n=14, what="emetteur_tete")
             g.cyl((0, 0, 0.16 + 0.33), "z", 0.03, 0.006, M["emit2"], n=10, style="flat", what="lentille")
             g.pop()
+            for s_ in (-1, 1):
+                hatches(g, (x + s_ * 0.405, y - 0.3, 0.15), (x + s_ * 0.405, y + 0.3, 0.15), 5, (s_, 0, 0),
+                        M["ring"], size=(0.07, 0.06), frame=M["steel_dk"])
+            hatches(g, (x - 0.3, y - 0.3, 0.305), (x + 0.3, y - 0.3, 0.305), 5, (0, 0, 1), M["steel_hi"],
+                    size=(0.05, 0.05))
+            P3.lamp_group(g, (x - 0.3, y - 0.42, 0.24), (1, 0, 0), (0, -1, 0), M["emit"], M, n=2,
+                          shapes=("rond", "fente"))
             g.cyl((x + 0.33, y - 0.33, 0.33), "z", 0.024, 0.06, M["steel_dk"], n=10, what="balise_pied")
             g.cyl((x + 0.33, y - 0.33, 0.37), "z", 0.018, 0.014, M["emit"], n=10, style="flat", what="balise")
         x, y = 2.74, Y(0.22)
@@ -245,6 +257,8 @@ def east(g, e, tank_fn):
                 d = V((math.cos(a), math.sin(a), 0))
                 hatches(g, V((cx_, cy_, 0.25)) + d * 0.43, V((cx_, cy_, 0.29)) + d * 0.43, 1, d, M["trim"],
                         size=(0.07, 0.05))
+                hatches(g, V((cx_, cy_, 0.86)) + d * 0.43, V((cx_, cy_, 0.9)) + d * 0.43, 1, d, M["ring"],
+                        size=(0.06, 0.05))
             for (bx_, by_) in ((cx_ - 0.6, cy_ - 0.2), (cx_ + 0.3, cy_ - 0.5)):
                 g.sphere((bx_, by_, 0.1), 0.02, M["emit"], n=10, m=6, what="pierre")
                 g.cyl((bx_, by_, 0.05), "z", 0.035, 0.07, M["ring"], n=10, what="pierre_pied")
@@ -315,6 +329,10 @@ def west(g, e):
                     size=(0.07, 0.1), frame=M["steel_dk"])
         hatches(g, (x0 + 0.06, y0 + 0.25, 0.1), (x0 + 0.06, y1 - 0.25, 0.1), 6, (0, 0, 1), M["steel_hi"],
                 size=(0.06, 0.06))
+        for s in (-1, 1):
+            d = V((s * 0.9, 0, 0.44)).normalized()
+            hatches(g, V((cx, ya + 0.15, zc)) + d * r * 0.93, V((cx, yb - 0.15, zc)) + d * r * 0.93, 8, d, M["steel_dk"],
+                    size=(0.06, 0.08), frame=M["ring"])
     elif e == 12:
         # COMPRESSEURS CRYOGÉNIQUES : 3 dewars noirs à cols chromés, givre, tuyaux de mousse
         plinth(g, x0, x1, y0, y1, 0.18)
@@ -394,6 +412,12 @@ def west(g, e):
             g.cyl((cx - (x1 - x0) * 0.18, yy, zc + r + 0.07), "z", 0.018, 0.016, E, n=10, style="flat", what="balise")
     else:
         P2.engine(g, x0, x1, y0, y1, 0.0, h, 6, M, emat=E)
+        hatches(g, (x0 - 0.005, y0 + 0.2, h * 0.25), (x0 - 0.005, y1 - 0.2, h * 0.25), 10, (-1, 0, 0), M["trim"],
+                size=(0.07, 0.05), frame=M["ring"])
+        hatches(g, (x1 + 0.005, y0 + 0.2, h * 0.3), (x1 + 0.005, y1 - 0.2, h * 0.3), 10, (1, 0, 0), M["trim"],
+                size=(0.07, 0.05), frame=M["ring"])
+        for yy in (y0 + 0.3, y1 - 0.3):
+            g.sphere((x0 + 0.08, yy, h + 0.03), 0.022, E, n=10, m=6, what="pierre")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -607,7 +631,7 @@ def torus_bank(g, x0, x1, y0, y1, h):
             d = V((math.cos(a), math.sin(a), 0))
             g.torus(V((cx, cy, 0.14 + 0.1 + R * 0.32)) + d * R, d.cross(V((0, 0, 1))), R * 0.34, 0.018, M["copper"],
                     n=16, m=4, what="cerclage")
-            if d.y < 0.3:
+            if d.y < -2:
                 g.box(V((cx, cy, 0.14 + 0.1 + R * 0.62)) + d * R, (0.07, 0.025, 0.012), E, "flat",
                       R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="segment_lum")
     g.box(((x0 + x1) / 2, y1 - 0.08, 0.2), (x1 - x0 - 0.1, 0.06, 0.08), M["copper"], "hard", what="barre")
@@ -634,6 +658,7 @@ def solar_array(g, x0, x1, y0, y1, h):
                   "flat", R=Rr, what="cellules")
         g.box(((xa + xb) / 2, (y0 + y1) / 2 + 0.08, 0.2), (0.06, 0.06, 0.2), M["steel_dk"], "hard", what="pied")
         g.cyl((xb - 0.04, y0 + 0.06, 0.16), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
+        g.cyl((xa + 0.04, y1 - 0.06, 0.16), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
 
 
 def nw_iv(g, e):

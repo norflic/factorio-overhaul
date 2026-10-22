@@ -1,22 +1,21 @@
 """Armes d'époque (lot V3-E, époques 10 à 15), sur la lignée de l'industriel (design.py:gun_side : bras de
 tourillon, culasse, moteur arrière, masque de canon, caisse d'alimentation). S'exécute DANS Blender.
 
-Reprise du 22/10 (17 h 35), retour de l'orchestrateur sur les premiers aperçus : les 6 têtes gardaient le MÊME
-faisceau de gatling et la même culasse, seules la jaquette et la bouche changeaient ; au zoom 1, on ne voyait pas
-6 âges. Chaque époque a donc maintenant SA silhouette d'arme (nombre, calibre et longueur des tubes, culasse,
-alimentation), lisible de dessus en pose E comme de face en pose N :
+Troisième passe (22/10, 19 h 05), exigences de FORME de l'orchestrateur : l'ARME change de TYPE à chaque époque
+(archétypes imposés), et ce qui porte l'âge fait au moins une demi-tuile au zoom 1. Une architecture par époque,
+lisible de dessus en pose E comme de face en pose N (mêmes fonctions pour la coupole et les tourelles secondaires) :
 
-  10 Haute technologie : CARÉNAGE à pans coupés (3 panneaux gris clair patinés, fentes longitudinales), capteur
-     optique sur le dos, bouts de tubes nus, frein à 3 déflecteurs ; chargeurs à cassettes et nappes de câbles.
-  11 Titane : MANCHON CONIQUE effilé, 4 rangées d'AILERONS triangulaires en alliage blanc patiné (profil en
-     flèche de dessus), conduits fins jumelés sur le dos, frein en pointe de flèche à évents obliques.
-  12 Supraconducteurs : CANON À BOBINES : âme noire enfilée de 5 ANNEAUX chromés larges (tenus par des
-     mâchoires boulonnées, segments cyan, givre), 2 conduits cryogéniques le long de l'âme, anneau-bouche chromé.
-  13 Fusion : CANON À PLASMA à un seul gros tube : CHAMBRE DE CONFINEMENT sphérique en céramique au pied (tore
-     magenta segmenté, cerclages de cuivre, 3 injecteurs à cœur orange), tube à AILETTES de céramique, BUSE
-     évasée à cœur orange.
-  14 Orbite : CANON ÉLECTROMAGNÉTIQUE à 2 RAILS parallèles, arrière enveloppé de FEUILLE D'OR froissée ceinturée,
-     colliers isolants blanc cassé, cadre de bouche à capteur annulaire et balise rouge, petite PARABOLE.
+  10 Haute technologie : NACELLE CARÉNÉE FERMÉE gris clair (0,65 t de large, nez effilé, fentes longitudinales,
+     goulotte de câbles rouge et bleu, petit radôme, antenne), seules les 6 bouches sortent ; 3 déflecteurs.
+  11 Titane : canon LONG (1,25 × la longueur de l'époque) et FIN, manchon à PANS ANGULEUX en titane, grand
+     EMPENNAGE en flèche (aileron extérieur de 0,5 t et dérive dorsale), frein en pointe de flèche.
+  12 Supraconducteurs : CANON À RAILS (2 rails noirs à arête chromée et conducteur de cuivre) dans 4 GRANDS
+     ANNEAUX magnétiques chromés (0,84 t de diamètre), entretoises et pinces (aucune pièce qui flotte), culasse
+     cryogénique givrée, bouche en cadre chromé à fente cyan.
+  13 Fusion : CHAMBRE SPHÉRIQUE de céramique (0,72 t) au pied, puis 7 ANNEAUX TORIQUES empilés (céramique et cuivre),
+     tirants de cuivre, BUSE évasée à cœur orange.
+  14 Orbite : canon-ÉMETTEUR : corps en feuille d'or sanglé, PANNEAU doré replié, fût sombre à colliers isolants,
+     grande COUPELLE d'émission dorée tournée vers l'avant et le haut (0,8 t), pointe d'émission, balises rouges.
   15 Légende : faisceau rotatif LOURD à 6 tubes (le canon que le Directeur Créatif a aimé, au sommet de sa
      puissance), jaquette ciselée or blanc et nacre, frein EN COURONNE de 5 grandes flèches à pierres lumineuses.
 
