@@ -8,13 +8,18 @@
   3. unit_vram.py : vram.py et memory_summary (arithmétique, formats supposés) ;
   4. driver_it.py : visual_session.main() sur une racine factice avec un faux jeu (options, config.ini de test,
      codes 0 et 9, preuves recopiées, session.txt) ;
-  5. (--logs) vram.py sur chaque visual.log des archives : 15 atlas attendus, aucune erreur.
+  5. (--logs) vram.py sur chaque visual.log des archives : aucune erreur, et les atlas attendus POUR LES REGLAGES
+     QUE LE JOURNAL DECLARE (table ATLAS_ATTENDUS ci-dessous : nombre en tout, nombre d'atlas « [none] », chacun des
+     13 autres une fois, atlas virtuel, taille des « [none] » au plancher ; des reglages non etalonnes = echec).
 Dossier de travail : --work, sinon un dossier temporaire neuf. Code de sortie 0 si toutes les étapes passent.
 Ce que ces bancs NE prouvent PAS : tout ce qui dépend du moteur réel (README §5.3, « Non prouvé »).
+La table de l'étape 5 se vérifie elle-même par mutations : tests/mut_atlas.py (README §5.1).
 """
 import argparse
 import glob
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +28,158 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 AUTOTEST = os.path.dirname(HERE)
 ROOT = os.path.dirname(os.path.dirname(AUTOTEST))
+
+# Atlas de sprites attendus dans un journal de session avec images, selon les réglages que CE journal déclare
+# (ligne « Graphics options: [Graphics quality: …] [Video memory usage: …] [DXT: …] »). Clé : (qualité, usage de la
+# mémoire vidéo, compression DXT), en minuscules. Valeur : atlas en tout, atlas « [none] », pages d'atlas virtuel
+# présentes ou non, atlas « [none] » réduits par le plancher ou non (SEUIL_NONE_PX). Étalonnage : les 13 journaux de
+# fo-logs au 22/10 (README §5.1), mod 0.4.1 et versions antérieures.
+#   - Les 13 autres atlas (AUTRES_ATLAS : decal, low-object, terrain, ombres, icônes...) sont présents une fois PAR
+#     CATÉGORIE dans chacun des 13 journaux, avec les mêmes drapeaux, à une exception près : l'atlas [low-object]
+#     porte « linear-minification » en haute qualité et au plancher, pas en qualité normale avec mémoire « all »
+#     (observé, non expliqué ; seule variation tolérée). Seuls les atlas « [none] » (sprites principaux) changent de
+#     nombre.
+#   - Haute qualité : le premier atlas « [none] » est plein (16384×16364 ou 16384×16380, pour un bord maximal de 16384 :
+#     « Initial atlas bitmap size is 16384 ») et un second s'ouvre (16384×12676 ou 16384×12660). La qualité haute
+#     charge les « hr_version » (prototype-api : « If this property exists and high resolution sprites are turned
+#     on ») : 475,8 Mpx d'atlas « [none] » contre 141,0 en normale.
+#   - Normale : un seul atlas « [none] » (16384×8604), rempli à moins de 53 %.
+#   - Plancher (« Video memory usage: low », « Tex.Stream.: 1 ») : l'atlas « [none] » tombe à 2048×1316 (2,7 Mpx) et
+#     le journal crée un atlas VIRTUEL (« Created virtual atlas pages 4096x4096x9 »), absent des 12 autres journaux.
+# Une combinaison absente de la table est un ÉCHEC (« non étalonnée ») : on ajoute une entrée après lecture d'un
+# journal réel, on n'élargit jamais une entrée existante. Si les sprites du mod grossissent au point d'ouvrir un
+# troisième atlas « [none] » en haute qualité, ce banc échoue : c'est voulu (budget D4-1 à revoir, puis réétalonnage).
+ATLAS_ATTENDUS = {
+    # (qualité, mémoire, DXT) : {total, [none], atlas virtuel, [none] réduits par le plancher}
+    ("high", "all", "high-quality"): {"total": 15, "none": 2, "virtuel": False, "plancher": False},  # P1 (8), D4m 1 et 2
+    ("normal", "all", "high-quality"): {"total": 14, "none": 1, "virtuel": False, "plancher": False},  # D4m 3 et 4
+    ("normal", "low", "low-quality"): {"total": 14, "none": 1, "virtuel": True, "plancher": True},  # D4m 5
+}
+# Pixels « [none] » en tout : au plancher, au plus SEUIL_NONE_PX ; ailleurs, plus. C'est une LIGNE DE PARTAGE entre les
+# valeurs observées (2,7 Mpx au plancher ; 141,0 et 475,8 ailleurs), choisie égale à une page d'atlas virtuel
+# (4096×4096, 16,8 Mpx) : pas une limite du moteur. Elle refuse un plancher qui ne s'est pas appliqué, et l'inverse.
+SEUIL_NONE_PX = 4096 * 4096
+# Les 13 atlas hors « [none] », un par signature de drapeaux (ensembles, ordre du journal ignoré).
+AUTRES_ATLAS = sorted([
+    ("decal",),
+    ("low-object",),  # « linear-minification » toléré en plus : voir VARIANTES
+    ("mipmap", "linear-minification", "linear-magnification", "linear-mip-level"),
+    ("terrain", "mipmap", "linear-minification", "linear-mip-level"),
+    ("terrain-effect-map", "mipmap", "linear-minification", "linear-mip-level"),
+    ("smoke", "mipmap", "linear-minification", "linear-magnification"),
+    ("low-object", "mipmap", "linear-minification", "linear-magnification", "linear-mip-level"),
+    ("mipmap",),
+    ("icon", "not-compressed", "mipmap", "linear-minification", "linear-magnification", "linear-mip-level"),
+    ("alpha-mask",),
+    ("shadow", "linear-magnification", "alpha-mask"),
+    ("shadow", "mipmap", "linear-magnification", "alpha-mask"),
+    ("icon-background", "not-compressed", "mipmap", "linear-minification", "linear-magnification", "linear-mip-level"),
+])
+# Seule variation tolérée : l'atlas [low-object] avec ou sans « linear-minification » (voir plus haut).
+VARIANTES = {frozenset(["low-object", "linear-minification"]): frozenset(["low-object"])}
+RE_ATLAS_LIGNE = re.compile(r"^-- Atlas de sprites \((\d+)\)")
+VIRTUEL = "Created virtual atlas pages"
+
+
+def signature(flags):
+    """Signature d'un atlas : ensemble de ses drapeaux en minuscules (« none » et vides ôtés), variante tolérée ramenée."""
+    s = frozenset(f.strip().lower() for f in flags or [] if f.strip() and f.strip().lower() != "none")
+    return VARIANTES.get(s, s)
+
+
+def atlas_attendus(r):
+    """Écarts entre un journal (r : JSON de vram.py) et ATLAS_ATTENDUS ; liste vide = conforme."""
+    cle = tuple((r.get(k) or "").strip().lower() for k in ("quality", "video_memory_usage", "dxt"))
+    if not all(cle):
+        return ["reglages absents du journal (ligne Graphics options) : qualite %r, memoire %r, DXT %r" % cle]
+    nom = "/".join(cle)
+    if cle not in ATLAS_ATTENDUS:
+        return ["reglages non etalonnes %s : aucune attente connue (ajouter une entree a ATLAS_ATTENDUS)" % nom]
+    att = ATLAS_ATTENDUS[cle]
+    atlases = r.get("atlases") or []
+    # Atlas « [none] » : aucun drapeau, écrit « [none] » par le jeu.
+    nones = [a for a in atlases if not signature(a.get("flags"))]
+    px_none = sum(a["w"] * a["h"] for a in nones)
+    # Atlas virtuel : relevé par vram.parse_log sur la ligne horodatée du MOTEUR seulement (une impression de script
+    # qui contient ces mots ne compte pas).
+    vu_virtuel = bool(r.get("virtual_atlases"))
+    ecarts = []
+    if len(atlases) != att["total"]:
+        ecarts.append("%d atlas, %d attendus pour %s" % (len(atlases), att["total"], nom))
+    if len(nones) != att["none"]:
+        ecarts.append("%d atlas [none], %d attendus pour %s" % (len(nones), att["none"], nom))
+    # Composition : chaque signature de AUTRES_ATLAS exactement une fois, aucune autre.
+    vues = {}
+    for a in atlases:
+        s = signature(a.get("flags"))
+        if s:
+            vues[s] = vues.get(s, 0) + 1
+    attendues = set(frozenset(t) for t in AUTRES_ATLAS)
+    for t in AUTRES_ATLAS:
+        n = vues.get(frozenset(t), 0)
+        if n != 1:
+            ecarts.append("atlas [%s] vu %d fois, 1 attendu" % (", ".join(t), n))
+    for s in sorted(vues, key=sorted):
+        if s not in attendues:
+            ecarts.append("atlas [%s] inattendu (%d)" % (", ".join(sorted(s)), vues[s]))
+    if vu_virtuel != att["virtuel"]:
+        ecarts.append("atlas virtuel %s, %s attendu pour %s" % ("present" if vu_virtuel else "absent",
+                                                               "present" if att["virtuel"] else "absent", nom))
+    if att["plancher"] and px_none > SEUIL_NONE_PX:
+        ecarts.append("atlas [none] : %.1f Mpx, au plus %.1f attendus au plancher %s (plancher non applique ?)"
+                      % (px_none / 1e6, SEUIL_NONE_PX / 1e6, nom))
+    if not att["plancher"] and px_none <= SEUIL_NONE_PX:
+        ecarts.append("atlas [none] : %.1f Mpx, plus de %.1f attendus pour %s (plancher applique a tort ?)"
+                      % (px_none / 1e6, SEUIL_NONE_PX / 1e6, nom))
+    return ecarts
+
+
+def verifie_journal(lg, py, dossier_json):
+    """vram.py, en ligne de commande, sur un journal archivé ; renvoie (conforme, résumé, écarts)."""
+    os.makedirs(dossier_json, exist_ok=True)
+    fd, js = tempfile.mkstemp(suffix=".json", dir=dossier_json)
+    os.close(fd)
+    out = subprocess.run(py + [os.path.join(AUTOTEST, "vram.py"), lg, "--json", js], capture_output=True, text=True,
+                         encoding="utf-8", errors="replace")
+    lines = out.stdout.splitlines()
+    line = next((ln.strip() for ln in lines if RE_ATLAS_LIGNE.match(ln)), "")
+    tot = next((ln.strip() for ln in lines if ln.strip().startswith("TOTAL")), "")
+    load = next((ln.strip() for ln in lines if ln.startswith("atlas ")), "")
+    resume = "%s | %s | %s" % (line, tot, load)
+    if out.returncode != 0:
+        return False, resume, ["vram.py : code %d" % out.returncode]
+    try:
+        with open(js, encoding="utf-8") as fh:
+            r = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return False, resume, ["JSON de vram.py illisible : %s" % exc]
+    ecarts = []
+    # Le rapport texte et le JSON viennent de la même analyse : un désaccord serait un défaut de vram.py.
+    m = RE_ATLAS_LIGNE.match(line)
+    if not m or int(m.group(1)) != len(r.get("atlases") or []):
+        ecarts.append("rapport et JSON de vram.py en desaccord sur le nombre d'atlas (%r)" % line)
+    ecarts += atlas_attendus(r)
+    return not ecarts, resume, ecarts
+
+
+def journaux_archives(logs_dir):
+    """Les journaux que lit l'étape 5 : <logs_dir>/*/visual.log, un seul niveau (mut_atlas.py s'en sert pour vérifier
+    qu'il n'y dépose rien)."""
+    return sorted(glob.glob(os.path.join(logs_dir, "*", "visual.log")))
+
+
+def verifie_archives(logs_dir, py, dossier_json):
+    """Étape 5 : vram.py sur chaque <logs_dir>/*/visual.log ; renvoie (journaux, journaux en écart)."""
+    logs = journaux_archives(logs_dir)
+    bad = []
+    for lg in logs:
+        ok, resume, ecarts = verifie_journal(lg, py, dossier_json)
+        print("  %s : %s" % (os.path.basename(os.path.dirname(lg)), resume))
+        for e in ecarts:
+            print("      ECART : %s" % e)
+        if not ok:
+            bad.append(lg)
+    return logs, bad
 
 
 def step(name, cmd, results):
@@ -55,17 +212,7 @@ def main():
     step("unitaires vram.py", py + [os.path.join(HERE, "unit_vram.py"), AUTOTEST, fixture], results)
     step("integration visual_session.py", py + [os.path.join(HERE, "driver_it.py"), AUTOTEST, work], results)
     if a.logs:
-        logs = sorted(glob.glob(os.path.join(a.logs, "*", "visual.log")))
-        bad = []
-        for lg in logs:
-            out = subprocess.run(py + [os.path.join(AUTOTEST, "vram.py"), lg], capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace")
-            line = next((ln for ln in out.stdout.splitlines() if ln.startswith("-- Atlas de sprites")), "")
-            tot = next((ln.strip() for ln in out.stdout.splitlines() if ln.strip().startswith("TOTAL")), "")
-            load = next((ln.strip() for ln in out.stdout.splitlines() if ln.startswith("atlas ")), "")
-            print("  %s : %s | %s | %s" % (os.path.basename(os.path.dirname(lg)), line.strip(), tot, load))
-            if out.returncode != 0 or "(15)" not in line:
-                bad.append(lg)
+        logs, bad = verifie_archives(a.logs, py, os.path.join(work, "archives"))
         results.append(("vram.py sur %d journaux archives" % len(logs), 0 if logs and not bad else 1))
         print("=" * 8, "vram.py sur les archives :", "OK" if logs and not bad else "ECHEC %s" % bad)
     print()

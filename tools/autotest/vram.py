@@ -17,8 +17,10 @@ Rapport :
   1. réglages lus dans le journal : qualité des sprites, usage de la mémoire vidéo, compression DXT, budget
      Windows « [Local Video Memory] » (lu au démarrage du moteur graphique, AVANT tout chargement : son
      « CurrentUsage » n'est PAS l'occupation du jeu) ;
-  2. atlas de sprites : une ligne « Created atlas bitmap LxH [drapeaux] » chacun, avec les niveaux de mipmaps
-     (« Generated mipmaps (N) for atlas [i] »), et une FOURCHETTE d'octets estimés par la règle ci-dessous ;
+  2. atlas de sprites : une ligne « Created atlas bitmap LxH [drapeaux] » chacun (ligne du moteur, horodatée ; une
+     impression de script ne compte pas), avec les niveaux de mipmaps (« Generated mipmaps (N) for atlas [i] »), et
+     une FOURCHETTE d'octets estimés par la règle ci-dessous ; l'atlas VIRTUEL du plancher (« Created virtual atlas
+     pages LxHxN ») est signalé mais n'entre PAS dans l'estimation ;
      totaux par catégorie et comparaison au seuil D4-1 (6 Go en haute qualité) ;
   3. chargement (D4-3) : instants « Sprites loaded » et « Factorio initialised », cache des atlas lu ou refait ;
   4. mesure DIRECTE (vram.tsv) : mémoire vidéo dédiée du seul processus de test (compteurs Windows
@@ -73,8 +75,13 @@ GO, MO = 1e9, 1e6
 MIB = 1 << 20
 
 RE_TIME = re.compile(r"^\s*(\d+\.\d+)\s")
-RE_ATLAS = re.compile(r"Created atlas bitmap (\d+)x(\d+) \[([^\]]*)\]")
-RE_MIP = re.compile(r"Generated mipmaps \((\d+)\) for atlas \[(\d+)\] of size (\d+)x(\d+)")
+# Lignes du MOTEUR seulement : l'horodatage en tête, puis le message. Une impression de script (« 1.0 Script @…: …
+# Created atlas bitmap … ») ou tout autre texte libre qui contient ces mots n'est pas compté.
+RE_ATLAS = re.compile(r"^\s*\d+\.\d+ Created atlas bitmap (\d+)x(\d+) \[([^\]]*)\]")
+RE_MIP = re.compile(r"^\s*\d+\.\d+ Generated mipmaps \((\d+)\) for atlas \[(\d+)\] of size (\d+)x(\d+)")
+# Atlas VIRTUEL (pages de textures en flux), créé au plancher « Video memory usage: low » (F77 provisoire) : relevé
+# dans r["virtual_atlases"] mais NON compté dans l'estimation des atlas (tâche d'outillage ouverte).
+RE_VIRTUAL = re.compile(r"^\s*\d+\.\d+ Created virtual atlas pages (\d+)x(\d+)x(\d+)\s*$")
 RE_QUALITY = re.compile(r"\[Graphics quality: ([^\]]+)\]")
 RE_VMU = re.compile(r"\[Video memory usage: ([^\]]+)\]")
 RE_DXT = re.compile(r"\[DXT: ([^\]]+)\]")
@@ -133,7 +140,7 @@ def stamp(line):
 def parse_log(text):
     """Tout ce que le journal dit de la mémoire vidéo, du chargement et des phases d4-geant."""
     r = {"atlases": [], "budgets": {}, "events": {}, "phases": [], "bench": {}, "perf_summary": {}, "champs": [],
-         "displays": []}
+         "displays": [], "virtual_atlases": []}
     open_phase = {}
     for line in text.splitlines():
         t = stamp(line)
@@ -142,6 +149,10 @@ def parse_log(text):
             flags = [f.strip() for f in m.group(3).split(",") if f.strip()]
             r["atlases"].append({"index": len(r["atlases"]), "w": int(m.group(1)), "h": int(m.group(2)),
                                  "flags": flags, "mips": None})
+            continue
+        m = RE_VIRTUAL.search(line)
+        if m:
+            r["virtual_atlases"].append({"w": int(m.group(1)), "h": int(m.group(2)), "pages": int(m.group(3))})
             continue
         m = RE_MIP.search(line)
         if m:
@@ -769,6 +780,9 @@ def report_lines(r, seuil_go=6.0):
                                                         b["current_mib"]))
     L.append("")
     L.append("-- Atlas de sprites (%d) : estimation, regle par drapeau en tete de vram.py" % len(r["atlases"]))
+    for v in r.get("virtual_atlases") or []:
+        L.append("  atlas VIRTUEL : %d page(s) de %dx%d (%.1f Mpx) ; NON compte dans l'estimation ci-dessous (F77 "
+                 "provisoire)" % (v["pages"], v["w"], v["h"], v["pages"] * v["w"] * v["h"] / 1e6))
     if r["atlases"]:
         L.append("  #  taille        Mpx   mips  octets/px   estimation       categorie / drapeaux")
         for a in r["atlases"]:
