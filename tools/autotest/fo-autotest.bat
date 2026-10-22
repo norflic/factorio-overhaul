@@ -11,6 +11,10 @@ rem  Usage : fo-autotest.bat [nopause] [ticks] [scenario] [source du mod]
 rem          (defaut : fo-autotest-params.txt, sinon 36000 ticks = 10 minutes de jeu, scenario default)
 rem  Vitrine : <racine>\fo-vitrine.lua (ou le fichier nomme par la variable FO_VITRINE) est recopie
 rem          dans le mod de test (vitrine_params.lua). Format : tools\autotest\README.md.
+rem  Double source (suite H-T3, migration d'une vraie sauvegarde) : la variable FO_CREATE_SRC (chemin absolu
+rem          d'une AUTRE source de factorio-overhaul) sert a la seule CREATION de la carte ; le benchmark
+rem          rejoue cette carte avec la source habituelle (argument 4, sinon fo-autotest-params.txt). Le mod
+rem          de test vient toujours de la source du benchmark. Sans la variable : comportement inchange.
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
 rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT).
 rem ============================================================================================
@@ -36,6 +40,9 @@ rem Les arguments l'emportent sur le fichier de parametres.
 if not "%~2"=="" set TICKS=%~2
 if not "%~3"=="" set SCENARIO=%~3
 if not "%~4"=="" set MODSRC=%~4
+rem Double source (suite H-T3) : FO_CREATE_SRC = source du mod pour la creation de la carte seulement.
+set CREATESRC=
+if defined FO_CREATE_SRC set CREATESRC=%FO_CREATE_SRC%
 set VITRINE=%ROOT%\fo-vitrine.lua
 if defined FO_VITRINE set VITRINE=%FO_VITRINE%
 
@@ -60,15 +67,26 @@ if not exist "%MODSRC%\info.json" (
   set RC=1
   goto :end
 )
+if not defined CREATESRC goto :srcok
+if not exist "%CREATESRC%\info.json" (
+  echo Source de creation introuvable : %CREATESRC%
+  set RC=1
+  goto :end
+)
+:srcok
 
 echo [1/4] Preparation du dossier de test (source : %MODSRC%, scenario %SCENARIO%, %TICKS% ticks)...
 if exist "%TEST%" rmdir /s /q "%TEST%"
 mkdir "%MODS%"
 mkdir "%WRITE%"
 rem Ni le depot git ni les worktrees des agents (.claude\worktrees) ni les rendus du pipeline graphique.
-robocopy "%MODSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%MODSRC%\tools\render" __pycache__ /NFL /NDL /NJH /NJS /NP >nul
+rem Creation : la source FO_CREATE_SRC si elle est donnee, sinon la source habituelle (mod de test : toujours MODSRC).
+set COPYSRC=%MODSRC%
+if defined CREATESRC set COPYSRC=%CREATESRC%
+robocopy "%COPYSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%COPYSRC%\tools\render" __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 robocopy "%MODSRC%\tools\autotest\fo-autotest" "%MODS%\fo-autotest" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 > "%TEST%\source.txt" echo %MODSRC%
+if defined CREATESRC > "%TEST%\create-source.txt" echo %CREATESRC%
 > "%MODS%\fo-autotest\scenario.lua" echo return "%SCENARIO%"
 if exist "%VITRINE%" (
   copy /y "%VITRINE%" "%MODS%\fo-autotest\vitrine_params.lua" >nul
@@ -88,6 +106,26 @@ if not exist "%TEST%\fo-autotest-map.zip" (
   set RC=1
   goto :end
 )
+
+rem Double source : la carte creee est rejouee avec la source du benchmark (la copie de creation est remplacee).
+if not defined CREATESRC goto :benchsrc
+echo [2b/4] Source du benchmark : %MODSRC% (carte creee avec %CREATESRC%)
+rmdir /s /q "%MODS%\factorio-overhaul"
+rem Copie de creation non effacee (fichier verrouille...) : on arrete, sinon des fichiers de la source
+rem ancienne resteraient meles a la source du benchmark sans que rien ne le signale.
+if exist "%MODS%\factorio-overhaul" (
+  echo Copie de creation non effacee : %MODS%\factorio-overhaul
+  set RC=1
+  goto :end
+)
+robocopy "%MODSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%MODSRC%\tools\render" __pycache__ /NFL /NDL /NJH /NJS /NP >nul
+rem robocopy : code 8 ou plus = au moins un fichier non copie.
+if errorlevel 8 (
+  echo Copie de la source du benchmark incomplete : %MODSRC%
+  set RC=1
+  goto :end
+)
+:benchsrc
 
 rem Processeur hybride (12e gen. Intel : 12 fils P puis 4 coeurs E) : un benchmark en arriere-plan est
 rem deplace par Windows sur les coeurs E (x3 plus lent, pauses jusqu'a 170 ms, mesure par l'etalon

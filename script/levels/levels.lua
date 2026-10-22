@@ -920,9 +920,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Migration des EMPRISES (lot V3-T). Une sauvegarde d'avant V3-T (0.4.1) contient des mitrailleuses de niveau 7
 -- et plus posées à l'ancienne taille (2×2). Au chargement, le moteur leur applique le NOUVEAU prototype (3×3 à
--- 6×6) à la MÊME position (fait attendu, NON prouvé en moteur réel : hypothèse H-T3) : un côté impair centré sur
--- un coin de tuile est hors grille, et le nouveau carré peut chevaucher un voisin. Comportement choisi, sûr
--- (aucune entité détruite sans remplaçant, aucun objet perdu) :
+-- 6×6) à la MÊME position (moteur réel 1.1.91, suite H-T3 du 22/10 : position gardée telle quelle, sans
+-- recalage ni destruction) : un côté impair centré sur un coin de tuile est hors grille, et le nouveau carré peut
+-- chevaucher un voisin. Comportement choisi, sûr (aucune entité détruite sans remplaçant, aucun objet perdu) :
 --   - pour chaque (famille, niveau) dont le côté a changé depuis le relevé de la sauvegarde (global :
 --     footprints ; absent = sauvegarde d'avant V3-T, côtés de base), chaque bâtiment de ce nom est REPOSÉ par la
 --     règle d'agrandissement (ancien carré = l'ancien côté autour de sa position) : position libre trouvée,
@@ -1061,10 +1061,14 @@ function Levels.footprints_stale()
   return false
 end
 
--- Filets pour une sauvegarde rechargée SANS changement de version ni de prototypes (on_configuration_changed
--- n'est alors pas appelé ; doc 1.1.91 de LuaBootstrap.on_configuration_changed : « game version or any mod
--- version changed, mod added or removed, startup setting changed, prototypes added or removed, migration
--- applied » ; changer la collision_box d'un prototype existant n'en fait pas partie) :
+-- Filets pour une sauvegarde rechargée SANS on_configuration_changed (doc 1.1.91 de
+-- LuaBootstrap.on_configuration_changed : « game version or any mod version changed, mod added or removed, startup
+-- setting changed, prototypes added or removed, migration applied »). Moteur réel 1.1.91 (suite H-T3, 22/10) :
+-- l'événement est AUSSI appelé, mod_changes vide, quand les données de prototypes existants ont changé sans
+-- montée de version ni prototype ajouté (somme « Checksum of factorio-overhaul » du journal différente, même
+-- « Prototype list checksum ») ; un commentaire ajouté à un script de l'étape control ne change pas cette somme et
+-- ne l'appelle pas. Une sauvegarde 0.4.1 rechargée par ce mod passe donc par Levels.repair ; ce filet reste pour
+-- un cas que le moteur ne signalerait pas (coût : une comparaison) :
 --   - correction V3-T (défauts 1 et 11) : EMPRISES d'abord, si le relevé de la sauvegarde diffère de la table
 --     (sauvegarde 0.4.1 chargée par le mod V3-T sans montée de version) : migration au premier passage, puis le
 --     relevé est à jour et le filet ne coûte plus que la comparaison ;

@@ -135,8 +135,23 @@ end
 ---------------------------------------------------------------------------------------------------
 local CHECKS = {} -- { { name, mod, ctx } } dans l'ordre de l'index
 
+--- Le scénario de cette copie du mod de test prépare-t-il le banc « content » (lui-même, ou un scénario greffé
+--- dont la base est « content ») ? Lu dans scenario.lua (écrit par fo-autotest.bat), au chargement. Suite H-T3 :
+--- une carte créée avec une source du mod plus ANCIENNE (fo-autotest.bat, variable FO_CREATE_SRC) n'a pas les
+--- fichiers que les contrôles greffés récents requièrent (shared/levels/footprint.lua avant 0.4.2) ; ils ne
+--- servent qu'au banc content (Content.start), on ne les charge donc que pour lui.
+local function content_scenario()
+  local ok, name = pcall(require, "scenario")
+  if not ok or type(name) ~= "string" then return false end
+  if name == "content" then return true end
+  local mod = try_require("scenarios/" .. name)
+  return type(mod) == "table" and mod.base == "content"
+end
+
 --- Au chargement de content_test.lua : charge l'index et chaque fichier listé ; `lib` = ok/fail du banc.
+--- Scénario sans banc content : rien n'est chargé (les crochets content_* ne tournent alors jamais).
 function G.load_checks(lib)
+  if not content_scenario() then return end
   local index = try_require("checks/index")
   for k, name in ipairs(type(index) == "table" and index or {}) do
     local mod = try_require("checks/" .. name)

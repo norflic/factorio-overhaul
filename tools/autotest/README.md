@@ -14,7 +14,8 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `compare_shots.py` | Comparaison pixel à pixel de deux séries de captures |
 | `analyze.py` | Analyse des performances d'un banc (`--spikes`) |
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
-| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) |
+| `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) |
+| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
 
@@ -62,6 +63,63 @@ Codes de sortie :
 moteur à la fois. `fo-captures.bat` le tient pour toute la chaîne (variable `FO_LOCK_HELD` transmise aux deux
 autres). Verrou orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest` ou `fo-visual`) :
 `rmdir "<racine>\fo-autotest.lock"`.
+
+### 1.1 Double source : une carte créée par une version, rejouée par une autre (suite H-T3)
+
+Pour prouver la migration d'une VRAIE sauvegarde (créée par une version publiée du mod, rechargée par la
+suivante), `fo-autotest.bat` accepte une variable d'environnement facultative, **`FO_CREATE_SRC`** : le chemin
+absolu d'une autre source de `factorio-overhaul`, utilisée pour la seule étape `--create`. Déroulé :
+
+1. `[1/4]` copie de `FO_CREATE_SRC` comme `factorio-overhaul` ; le mod de test (`fo-autotest`) vient, lui,
+   TOUJOURS de la source habituelle (argument 4, sinon `fo-autotest-params.txt`) ;
+2. `[2/4]` création de la carte avec cette copie (`create.log`) ;
+3. `[2b/4]` la copie de `factorio-overhaul` est REMPLACÉE par la source habituelle ;
+4. `[3/4]` benchmark sur la même carte (`benchmark.log`) : le moteur recharge la sauvegarde avec l'autre
+   version (montée de version : `on_configuration_changed` ; version inchangée : seuls les filets du mod).
+
+Traces : `fo-autotest\source.txt` = source du benchmark (inchangé), `fo-autotest\create-source.txt` = source de
+création (écrit seulement en double source). À l'étape `[2b/4]`, si la copie de création n'a pas pu être
+effacée en entier (fichier tenu ouvert...) ou si `robocopy` de la source du benchmark rend 8 ou plus, le banc
+s'ARRÊTE avec le code 1, sans `done.txt` ni benchmark : sinon des fichiers de l'ancienne source resteraient
+mêlés à la nouvelle sans que rien ne le signale (défaut relevé par le correcteur de la suite H-T3). Banc hors jeu
+de ces cas (faux `factorio.exe` et faux `robocopy.exe` compilés par le gcc de `C:\mingw64`, racines jetables dans
+le dossier temporaire, aucun accès à la racine du jeu) :
+`python -B tools/autotest/tests/bat_double_source/run.py` → « BILAN : 4 OK, 0 ECHEC(S) » (sur le `.bat` d'avant
+la correction, `--bat <fichier>` : 2 OK, 2 ECHEC). Sans la variable, le comportement est **identique à l'ancien**
+(même copie, mêmes fichiers). Mêmes protections : dossiers d'écriture et de mods séparés, verrou, aucun accès à
+`saves\`. La variable se propage à `fo-captures.bat`, qui appelle `fo-autotest.bat` : la vider après usage.
+
+Comme le mod de test vient de la source récente alors que `factorio-overhaul` est ancien pendant la création,
+`greffons.lua` ne charge les contrôles greffés (`checks/`) que pour le banc `content` (ou un scénario greffé de
+base `content`) : un contrôle récent qui requiert un fichier absent de l'ancienne version ne bloque plus le
+chargement des autres scénarios.
+
+Exemple (PowerShell ; Git Bash coupe les chemins à l'espace, F69) : scénario greffé `ht3-migration`, carte
+créée par 0.4.1 (`git archive 91097e6`), rejouée par le worktree 0.4.2 :
+
+```
+$env:FO_CREATE_SRC = "<dossier jetable>\src-0.4.1"
+& "<racine>\fo-autotest.bat" nopause 700 ht3-migration "<worktree 0.4.2>"
+Remove-Item Env:FO_CREATE_SRC
+```
+
+Résultat : `grep "\[FO-HT3-MIGRATION\]\|\[FO-LEVELS\]" fo-autotest\create.log fo-autotest\benchmark.log`. Le
+scénario (`scenarios/ht3-migration.lua`) refuse une carte créée par une source qui connaît déjà les emprises
+(contrôle ECHEC dès la création). Pour la voie sans montée de version, rejouer avec une copie de la source
+récente dont `info.json` garde la version de création (le moteur appelle quand même `on_configuration_changed`,
+`mod_changes` vide : c'est `Levels.repair` qui migre ; le filet `on_nth_tick(30)` ne s'exerce que si la migration
+au chargement est neutralisée dans une copie jetable).
+
+**Critère d'un passage : le BILAN du scénario sans échec ET le contrôle du journal à 0.** Le mod de test ne lit
+pas le journal du moteur ; le scénario y écrit ce qu'il DOIT contenir (lignes « JOURNAL ATTENDU ») et
+`tools/autotest/ht3_journal.py` le compare aux lignes `[FO-LEVELS]` : une ligne « laissé en place » par
+mitrailleuse laissée et aucune autre, une seule ligne de bilan des emprises, de la voie attendue (« mise à jour
+des emprises » = `Levels.repair` ; « emprises (filet, … » = filet) et avec les mêmes nombres :
+
+```
+python -B tools/autotest/ht3_journal.py "<racine>\fo-autotest"        -> JOURNAL H-T3 : n OK, 0 ECHEC(S), code 0
+python -B tools/autotest/tests/test_ht3_journal.py                     -> BILAN : 9 OK, 0 ECHEC(S) (hors jeu)
+```
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 
