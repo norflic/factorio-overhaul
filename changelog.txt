@@ -1,4 +1,29 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.4
+Date: 2026-10-22
+  Features:
+    - Niveaux : nouveau bouton « Libérer la place » dans le panneau du bâtiment, quand seule la place manque pour
+      qu'il grandisse (condition du centre et coût déjà réunis). Il marque à démonter ce qui gêne (les robots de
+      construction s'en chargent, ou vous à la main) et pose des fantômes pour le reconstruire juste à côté, réglages
+      compris (filtres d'un bras, conditions de circuit, demandes d'un coffre, limite d'un coffre) : un bras recule
+      d'une tuile, le convoyeur qu'il sert fait un détour, un poteau se décale, une ligne de murs fait un détour et se
+      referme. Dès que la place est libre, le bâtiment grandit tout seul et le coût est payé à ce moment-là.
+    - Tout ou rien : si un seul gêneur ne peut pas être reposé (bâtiment voisin, véhicule, falaise, eau...), rien
+      n'est touché ; ce qui bloque est entouré de violet et listé avec sa position. Le bouton essaie aussi les autres
+      positions possibles et prend la première qui se libère entièrement.
+    - Pendant l'attente, le carré orange, les gêneurs marqués (jaune) et les places des fantômes (bleu) restent
+      affichés. La console dit quels objets fournir en plus (un détour de convoyeur en demande deux) et où sont posés
+      les murs de liaison (des murs de base, plus faibles que la ligne).
+    - « Annuler l'agrandissement » remet tout comme avant : les marques et les fantômes posés par le mod sont
+      retirés, et ce qui avait déjà été démonté ou reconstruit à côté est reconstruit à sa place d'origine. Sans
+      place libre, la demande est annulée de la même façon au bout de 30 minutes de jeu.
+    - Marche aussi pour un bâtiment resté hors grille après une mise à jour : il est remis sur la grille.
+  Info:
+    - Sans clic, rien ne change : faute de place, l'amélioration est refusée et le contour s'affiche.
+    - Dans une rangée de bâtiments collés, ceux du milieu ne peuvent pas être libérés (un voisin gêne toujours) :
+      seuls les bouts de rangée le peuvent.
+    - Les fils de circuit d'un gêneur reposé ne sont pas refaits : un message le signale.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.3
 Date: 2026-10-22
   Features:
