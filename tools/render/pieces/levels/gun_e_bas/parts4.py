@@ -172,7 +172,9 @@ def gun_e(g, st, H, x, side):
     bm = M[st.get("barrel", "gun")]
     pos = barrels(g, x, y1, zg, L, nb, rb, rr, bm, collar_mat=M[st["band"]], collars=st.get("collars", (0.8,)),
                   ends=False, arr=arr)
-    Lj = L * st.get("jacket_f", 0.46)
+    # reprise (22/10, 17 h 40) : la jaquette d'époque couvre près des 2/3 du faisceau (0,46 avant) : c'est elle qui
+    # dit l'âge au zoom 1 ; les tubes restent visibles, séparés, avec leur collier, sur le tiers avant.
+    Lj = L * st.get("jacket_f", 0.62)
     JACKETS[st["jacket"]](g, st, x, y1, zg, Lj, rs, H)
     yb = y1 + L
     BRAKES[st["brake"]](g, st, x, yb, zg, rs, pos, H)
@@ -181,8 +183,23 @@ def gun_e(g, st, H, x, side):
 
 # --- jaquettes ------------------------------------------------------------------------------------
 def jk_forge(g, st, x, y0, z, Lj, rs, H):
-    """Époque 2 : manchon d'acier plein, colliers boulonnés tous les 0,12 (pas de perforations)."""
+    """Époque 2 : canon-orgue forgé. Les 3 tubes sont côte à côte (arr « row ») sous un fourreau de fer noirci
+    PLAT (caisson rectangulaire, pas un cylindre), ceinturé de colliers de fer brut boulonnés de laiton tous les
+    0,12 ; plaque de dessus rivetée. Pas de perforations (elles appartiennent à l'ère II)."""
     M = g.M
+    if st.get("arr") == "row":
+        hz = H["rb"] + 0.03
+        g.box((x, y0 + Lj / 2, z), (2 * rs, Lj, 2 * hz), M["blackiron"], "soft", what="jaquette")
+        g.box((x, y0 + Lj / 2, z + hz + 0.006), (2 * rs - 0.05, Lj - 0.05, 0.014), M["bolted"], "hard",
+              what="plaque")
+        n = max(2, int(Lj / 0.12))
+        for i in range(n + 1):
+            yy = y0 + 0.03 + (Lj - 0.06) * i / n
+            g.box((x, yy, z), (2 * rs + 0.034, 0.036, 2 * hz + 0.034), M["rawiron"], "hard", what="collier")
+            for s in (-1, 1):
+                g.dome((x + s * (rs - 0.02), yy, z + hz + 0.018), (0, 0, 1), 0.016, M["brass"])
+                g.dome((x + s * (rs + 0.018), yy, z + hz * 0.3), (s, 0, 0), 0.015, M["brass"])
+        return
     g.cyl((x, y0 + Lj / 2, z), "y", rs, Lj, M["blackiron"], n=28, style="smooth", what="jaquette")
     n = max(2, int(Lj / 0.12))
     for i in range(n + 1):
@@ -222,11 +239,16 @@ def jk_perforated(g, st, x, y0, z, Lj, rs, H, mat=None, coils=0):
     for yy in (y0 + 0.03, y0 + Lj - 0.02):
         g.tube_shell((x, yy, z), "y", rs + 0.022, rs - 0.01, 0.05, M[st["band"]], n=28, what="bague")
         bolts_ring(g, (x, yy, z), (0, 1, 0), rs + 0.024, 6, M["rivet"], r=0.015, phase=0.2, skip_down=-0.3)
+    # époque 6 : 3 BOBINES de cuivre larges et épaisses (spires jointives), séparées par des disques isolateurs en
+    # céramique patinée : cuivre + crème, la paire de l'électricité (jamais de bague blanche, catalogue §B.6)
     for k in range(coils):
-        yc = y0 + Lj * (0.25 + 0.5 * k / max(1, coils - 1)) if coils > 1 else y0 + Lj * 0.5
-        g.tube_shell((x, yc, z), "y", rs + 0.03, rs - 0.01, 0.07, M["steel_dk"], n=28, what="bobine")
-        for t in range(4):
-            g.torus((x, yc - 0.027 + t * 0.018, z), "y", rs + 0.036, 0.0095, M["copper"], n=28, m=6, what="spire")
+        yc = y0 + Lj * (0.22 + 0.56 * k / max(1, coils - 1)) if coils > 1 else y0 + Lj * 0.5
+        g.tube_shell((x, yc, z), "y", rs + 0.032, rs - 0.01, 0.1, M["steel_dk"], n=28, what="bobine")
+        for t in range(7):
+            g.torus((x, yc - 0.042 + t * 0.014, z), "y", rs + 0.04, 0.0085, M["copper"], n=28, m=6, what="spire")
+        for s in (-1, 1):
+            g.tube_shell((x, yc + s * 0.066, z), "y", rs + 0.056, rs - 0.01, 0.018, M["accent"], n=28,
+                         what="isolateur")
 
 
 def jk_galva(g, st, x, y0, z, Lj, rs, H):
@@ -240,7 +262,7 @@ def jk_coils(g, st, x, y0, z, Lj, rs, H):
 def jk_hex(g, st, x, y0, z, Lj, rs, H):
     """Époque 5 : manchon blindé à pans (section hexagonale), tungstène sombre, rivets lourds."""
     M = g.M
-    R6 = rs * 1.08
+    R6 = rs * 1.22   # fourreau blindé ÉPAIS : la silhouette du canon est plus lourde que celle du pétrole
     g.cyl((x, y0 + Lj / 2, z), "y", R6, Lj, M["tungsten"], n=6, style="hard", phase=math.pi / 6, what="jaquette")
     nr = max(3, int((Lj - 0.08) / 0.11))
     for f in range(6):
@@ -258,11 +280,11 @@ def jk_hex(g, st, x, y0, z, Lj, rs, H):
     for f in range(6):
         a = math.pi / 6 + TAU * f / 6
         d = V((math.cos(a), 0, math.sin(a)))
-        if d.z < -0.2:
+        if d.z < 0.2:   # arêtes du dessus seulement (catalogue : 12 à 18 fentes en tout, pas une coulée)
             continue
         for i in range(2):
-            yy = y0 + Lj * (0.3 + 0.35 * i)
-            g.box(V((x, yy, z)) + d * (R6 + 0.003), (0.012, 0.07, 0.012), M["emit"], "flat",
+            yy = y0 + Lj * (0.28 + 0.4 * i)
+            g.box(V((x, yy, z)) + d * (R6 + 0.003), (0.02, 0.11, 0.012), M["emit"], "flat",
                   R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="braise")
 
 
@@ -284,10 +306,11 @@ def jk_bronze(g, st, x, y0, z, Lj, rs, H):
     for k, a in enumerate((math.pi * 0.5, math.pi * 0.5 + 1.15, math.pi * 0.5 - 1.15)):
         d = V((math.cos(a), 0, math.sin(a)))
         c = V((x, y0 + Lj * 0.3, z)) + d * (rs + 0.006)
-        g.tube_shell(c + d * 0.008, d, 0.04, 0.024, 0.02, M["bronze"], n=16, what="sertissure")
-        g.cyl(c + d * 0.016, d, 0.026, 0.04, M["emit"], n=6, r2=0.008, style="hard", what="cristal")
+        g.tube_shell(c + d * 0.01, d, 0.05, 0.03, 0.024, M["brass"], n=16, what="sertissure")
+        g.cyl(c + d * 0.03, d, 0.034, 0.05, M["emit"], n=6, style="hard", what="cristal")
+        g.cyl(c + d * 0.075, d, 0.034, 0.04, M["emit"], n=6, r2=0.006, style="hard", what="pointe")
         for s in (-1, 1):
-            g.box(c + d * 0.018 + V((0, s * 0.035, 0)), (0.016, 0.02, 0.016), M["brass"], "hard", what="griffe")
+            g.box(c + d * 0.03 + V((0, s * 0.045, 0)), (0.018, 0.024, 0.03), M["brass"], "hard", what="griffe")
     for yy in (y0 + 0.025, y0 + Lj - 0.02):
         g.tube_shell((x, yy, z), "y", rs + 0.026, rs - 0.01, 0.045, M["stone"], n=28, what="bague")
 
@@ -316,16 +339,37 @@ def jk_marsh(g, st, x, y0, z, Lj, rs, H):
 
 def jk_atom(g, st, x, y0, z, Lj, rs, H):
     """Époque 9 : jaquette octogonale chanfreinée en plomb, manchons de refroidissement annelés."""
+    """Époque 9 : fourreau OCTOGONAL en plomb gris (clair, jamais noir), chanfreins, 3 nervures octogonales,
+    2 bandes à damier jaune et noir, hublot vert sur le dessus près de la culasse, trèfle près de la bouche.
+    Aucune spire de cuivre sur le canon (motif réservé à l'électricité) : le cuivre annelé vit dans les gaines."""
     M = g.M
-    R8 = rs * 1.06
-    g.cyl((x, y0 + Lj / 2, z), "y", R8, Lj, M["lead"], n=8, style="hard", phase=math.pi / 8, what="jaquette")
-    for i in range(2):
-        yc = y0 + Lj * (0.3 + 0.42 * i)
-        for t in range(5):
-            g.torus((x, yc - 0.05 + t * 0.025, z), "y", R8 + 0.012, 0.013, M["copper"], n=28, m=6, what="annelure")
-    for yy in (y0 + 0.03, y0 + Lj - 0.02):
-        g.cyl((x, yy, z), "y", R8 + 0.024, 0.05, M["lead"], n=8, style="hard", phase=math.pi / 8, what="bague")
-        g.tube_shell((x, yy + 0.034, z), "y", R8 + 0.02, R8 - 0.01, 0.018, M["hazy"], n=8, what="liseré")
+    R8 = rs * 1.12
+    ph8 = math.pi / 8
+    g.cyl((x, y0 + Lj / 2, z), "y", R8, Lj, M["lead"], n=8, style="hard", phase=ph8, what="jaquette")
+    for f in (0.12, 0.5, 0.88):
+        g.cyl((x, y0 + Lj * f, z), "y", R8 + 0.022, 0.04, M["lead"], n=8, style="hard", phase=ph8, what="nervure")
+        for k in range(8):
+            a = ph8 + TAU * k / 8 + TAU / 16
+            d = V((math.cos(a), 0, math.sin(a)))
+            if d.z < -0.3:
+                continue
+            g.dome(V((x, y0 + Lj * f, z)) + d * ((R8 + 0.022) * math.cos(ph8) + 0.004), d, 0.014, M["rivet"])
+    # bandes à damier (8 pans alternés jaune / noir) entre les nervures
+    for f in (0.31, 0.69):
+        for k in range(8):
+            a = ph8 + TAU * k / 8 + TAU / 16
+            d = V((math.cos(a), 0, math.sin(a)))
+            if d.z < -0.45:
+                continue
+            rf = R8 * math.cos(ph8)
+            Rr = Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed()
+            g.box(V((x, y0 + Lj * f, z)) + d * (rf + 0.004), (2 * R8 * math.sin(ph8) * 0.98, 0.07, 0.008),
+                  M["hazy"] if k % 2 else M["hazk"], "flat", R=Rr, what="damier")
+    top = V((x, y0 + Lj * 0.2, z + R8 * math.cos(ph8)))
+    g.cyl(top + V((0, 0, 0.012)), "z", 0.042, 0.024, M["steel_hi"], n=18, what="cadre")
+    g.cyl(top + V((0, 0, 0.026)), "z", 0.029, 0.006, M["emit"], n=18, style="flat", what="hublot")
+    bolts_ring(g, top + V((0, 0, 0.024)), (0, 0, 1), 0.036, 6, M["rivet"], r=0.011)
+    trefoil(g, V((x, y0 + Lj * 0.88 + 0.06, z + R8 * math.cos(ph8) + 0.006)), (0, 0, 1), 0.035)
 
 
 JACKETS = {"forge": jk_forge, "steam": jk_steam, "galva": jk_galva, "hex": jk_hex, "coils": jk_coils,
@@ -337,6 +381,21 @@ def br_crown(g, st, x, yb, z, rs, pos, H):
     """Époque 2 : couronne de bouche plate en fer noirci, à 4 boulons, sans frein."""
     M = g.M
     rb = H["rb"]
+    if st.get("arr") == "row":
+        # canon-orgue : plaque de bouche rectangulaire en fer noirci, 4 boulons, oreilles pleines ; rosace en ligne
+        hz = rb + 0.05
+        g.box((x, yb - 0.02, z), (2 * rs + 0.06, 0.07, 2 * hz), M["blackiron"], "soft", what="couronne")
+        g.box((x, yb + 0.018, z), (2 * rs + 0.03, 0.008, 2 * hz - 0.03), M["bolted"], "flat", what="face")
+        for sx_ in (-1, 1):
+            for sz_ in (-1, 1):
+                g.bolt((x + sx_ * (rs + 0.005), yb + 0.02, z + sz_ * (hz - 0.025)), (0, 1, 0), 0.015,
+                       M["steel_hi"])
+            g.box((x + sx_ * (rs + 0.05), yb - 0.02, z), (0.05, 0.1, 2 * hz * 0.8), M["blackiron"], "hard",
+                  what="oreille")
+        bores(g, x, yb + 0.022, z, pos, rb, M["steel_hi"])
+        for bx, bz in pos:
+            lit_ring(g, (bx, yb + 0.024, bz), "y", rb + 0.006, M["emit"], w=0.016)
+        return
     rc = rs + 0.034
     g.cyl((x, yb - 0.025, z), "y", rc, 0.07, M["blackiron"], n=28, style="soft", what="couronne")
     g.cyl((x, yb + 0.011, z), "y", rc - 0.012, 0.008, M["bolted"], n=28, style="flat", what="face")
@@ -402,9 +461,15 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
             yy = y0 + 0.05 + k * 0.06
             xx = x + s * (w0 / 2 + (w1 - w0) / 2 * (yy - y0) / (y1 - y0)) + s * 0.002
             Rr = Matrix.Rotation(s * 0.5, 3, "Z")
-            g.box((xx, yy, z + 0.01), (0.012, 0.034, h1 * 0.7), M["emit"], "flat", R=Rr, what="braise")
-            g.box((xx + s * 0.006, yy + 0.022, z + 0.01), (0.014, 0.012, h1 * 0.8), M["tungsten"], "hard", R=Rr,
+            g.box((xx, yy, z + 0.01), (0.016, 0.044, h1 * 0.78), M["emit"], "flat", R=Rr, what="braise")
+            g.box((xx + s * 0.006, yy + 0.026, z + 0.01), (0.016, 0.012, h1 * 0.86), M["tungsten"], "hard", R=Rr,
                   what="lame")
+    # évents supérieurs rougeoyants (lisibles d'en haut, poses E et N) et oreilles : jamais un chapeau de cheminée
+    for k in range(3):
+        yy = y0 + 0.05 + k * 0.06
+        hz = h0 / 2 + (h1 - h0) / 2 * (yy - y0) / (y1 - y0)
+        g.box((x, yy, z + hz + 0.002), (w0 * 0.62, 0.02, 0.008), M["emit"], "flat", what="braise")
+    ears(g, x, yb + 0.08, z, w1 / 2 + 0.03, 0.14, h1 * 0.8, M["tungsten"])
     for k in range(4):
         g.dome((x - w1 * 0.3 + k * w1 * 0.2, y0 + 0.11, z + (h0 + h1) / 4 + 0.006), (0, 0, 1), 0.02, M["rivet"])
     g.cyl((x, y1 + 0.004, z), "y", rs * 0.95, 0.01, M["burnrust"], n=24, what="face")
@@ -466,13 +531,15 @@ def br_nozzle(g, st, x, yb, z, rs, pos, H):
     """Époque 8 : buse à collerette de caoutchouc et anneau de joint, plus large que le faisceau."""
     M = g.M
     rb = H["rb"]
-    g.cyl((x, yb + 0.05, z), "y", rs + 0.01, 0.12, M["verdigris"], n=28, r2=rs + 0.05, what="buse")
-    g.torus((x, yb + 0.115, z), "y", rs + 0.05, 0.022, M["rubber"], n=28, m=8, what="collerette")
+    # buse en CLOCHE nettement plus large que le faisceau (silhouette du marais, poses E et N)
+    g.cyl((x, yb + 0.06, z), "y", rs + 0.01, 0.14, M["verdigris"], n=28, r2=rs + 0.085, what="buse")
+    g.torus((x, yb + 0.13, z), "y", rs + 0.085, 0.026, M["rubber"], n=28, m=8, what="collerette")
+    g.cyl((x, yb + 0.128, z), "y", rs + 0.07, 0.01, M["glass_dk"], n=28, what="fond_cloche")
     g.torus((x, yb - 0.01, z), "y", rs + 0.012, 0.016, M["rubber"], n=28, m=8, what="joint")
     bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.024, 6, M["brass"], r=0.014, skip_down=-0.3)
-    g.cyl((x, yb + 0.112, z), "y", rs + 0.035, 0.012, M["glass_dk"], n=28, what="face")
-    bores(g, x, yb + 0.118, z, pos, rb, M["verdigris"])
-    lit_ring(g, (x, yb + 0.124, z), "y", rs + 0.03, M["emit"])
+    g.cyl((x, yb + 0.134, z), "y", rs + 0.035, 0.012, M["verdigris"], n=28, what="face")
+    bores(g, x, yb + 0.14, z, pos, rb, M["brass"])
+    lit_ring(g, (x, yb + 0.142, z), "y", rs + 0.03, M["emit"])
 
 
 def br_octo(g, st, x, yb, z, rs, pos, H):
@@ -620,13 +687,18 @@ def feed(g, st, H, x, sx, xo):
         bolts_ring(g, V(c) + V((sx * 0.08, 0, 0)), (sx, 0, 0), r - 0.025, 8, M["rivet"], r=0.014)
         PT.belt(g, [(xo + sx * 0.08, y0 + 0.2, zg + r * 0.9), (xo, y0 + 0.3, zg + r + 0.04),
                     (x + sx * wr * 0.3, y0 + 0.36, zg + hr + 0.02)], scale=0.85)
-    elif kind == "barrels":  # 2 bidons-chargeurs couchés le long du canon (fûts à bandes noires)
-        r = 0.115 if H["R"] < 0.8 else 0.13
-        Lb = H["L"] * 0.46
-        for k, mat in enumerate(("yellowpaint", "galva")):
-            c = V((xo + sx * (r - 0.01), y0 + 0.1 + Lb / 2, zg - 0.03))
+    elif kind == "barrels":  # 2 bidons-chargeurs couchés le long du canon (fûts JAUNES à bandes noires)
+        # reprise : les deux fûts sont jaunes (le 2e était galvanisé, invisible sur la jaquette grise) et posés
+        # un peu plus haut, pour se lire d'en haut à toutes les poses
+        r = 0.125 if H["R"] < 0.8 else 0.14
+        Lb = H["L"] * 0.44
+        for k, mat in enumerate(("yellowpaint", "yellowpaint")):
+            c = V((xo + sx * (r - 0.01), y0 + 0.1 + Lb / 2, zg + 0.01))
             if k == 1:
-                c = V((xo + sx * (r - 0.01), y1 + 0.02 + Lb / 2, zg - 0.03))
+                rs_ = H["rr"] + H["rb"] + 0.028 + 0.022   # jaquette + bagues : le fût s'y appuie
+                c = V((x + sx * (rs_ + r - 0.006), y1 + 0.02 + Lb / 2, zg + 0.01))
+                g.box(c - V((sx * r * 0.6, 0, r * 0.75)), (r * 1.3, Lb * 0.8, r * 0.5), M["steel_dk"], "hard",
+                      what="berceau")
             g.cyl(c, "y", r, Lb, M[mat], n=24, what="fut")
             for f in (-0.36, 0.0, 0.36):
                 g.tube_shell(c + V((0, f * Lb, 0)), "y", r + 0.012, r - 0.01, 0.03, M["hazk"], n=24, what="bande")
@@ -708,9 +780,18 @@ def link(g, e, ctrl, r=0.05, kind=None):
                 for sz_ in (-1, 1):
                     g.dome(S_[i] + Rr @ V((sx_ * r * 0.9, 0.016, sz_ * r * 0.9)), T[i], 0.014, M["brass"])
     elif e == 3:
+        # tuyau de cuivre coudé à brides de laiton, manomètre piqué au milieu
         g.pipe(P, r * 0.85, M["copper_pol"], fl_mat=M["brass"], bolt_mat=M["rivet"])
+        S_ = g.spline(P, 8)
+        i = len(S_) // 2
+        P2.gauge(g, S_[i] + V((0, 0, r * 0.85 + 0.03)), (0, -0.4, 1), max(0.034, r * 0.75), M)
     elif e == 4:
+        # conduite galvanisée à brides, vanne à volant rouge au milieu
         g.pipe(P, r * 0.8, M["galva"], fl_mat=M["steel_dk"], bolt_mat=M["rivet"])
+        S_ = g.spline(P, 8)
+        i = len(S_) // 2
+        g.cyl(S_[i], (S_[i + 1] - S_[i - 1]), r * 1.25, r * 1.6, M["steel_dk"], n=12, style="hard", what="vanne")
+        P2.handwheel(g, S_[i] + V((0, 0, r * 1.25 + 0.06)), (0, 0, 1), max(0.045, r * 1.1), M)
     elif e == 5:
         # conduit trapu en fonte à coudes VIFS, brides lourdes à 6 boulons, fente de braise sur le coude
         for i in range(len(P) - 1):
@@ -727,10 +808,14 @@ def link(g, e, ctrl, r=0.05, kind=None):
                        M["rivet"])
     elif e == 6:
         PT.cable_run(g, P, 3, 0.02, 0.045, [M["rubber"], M["redcable"], M["rubber"]])
-        for p in P[1:-1]:
-            zz = p.z
-            g.cyl((p.x, p.y, zz - 0.07), "z", 0.02, 0.1, M["steel_dk"], n=8, what="support")
-            PT.insulators(g, (p.x, p.y, zz - 0.02), 2, 0.032, h=0.026)
+        if kind != "arch":
+            for p in P[1:-1]:
+                zz = p.z
+                g.cyl((p.x, p.y, zz - 0.07), "z", 0.02, 0.1, M["steel_dk"], n=8, what="support")
+                PT.insulators(g, (p.x, p.y, zz - 0.02), 2, 0.032, h=0.026)
+        else:  # en l'air : isolateurs enfilés sur le faisceau, aucune pièce qui pend dans le vide
+            for p in P[1:-1]:
+                g.cyl(p, "z", 0.05, 0.03, M["accent"], n=14, style="soft", what="isolateur")
     elif e == 7:
         # guide d'onde de bronze à section carrée, joints cannelés, coudes à 45°
         for i in range(len(P) - 1):
@@ -752,12 +837,24 @@ def link(g, e, ctrl, r=0.05, kind=None):
             for q in (a, b):
                 g.cyl(q, d, r * 1.25, 0.03, M["brass"], n=14, style="hard", what="virole")
     else:
-        # gaine annelée de cuivre (réacteur vanilla) et raccords à bandes jaunes et noires
-        S_ = g.hose(P, r, M["copper"], step=0.03)
-        for q in (S_[0], S_[-1]):
-            g.tube_shell(q, (S_[1] - S_[0]) if q is S_[0] else (S_[-1] - S_[-2]), r * 1.35, r * 0.8, 0.05,
-                         M["hazy"], n=14, what="raccord")
+        # GROSSE gaine annelée de cuivre (réacteur et silo vanilla), raccords à damier jaune et noir
+        S_ = g.hose(P, r * 1.2, M["copper"], step=0.034)
+        for q, d in ((S_[0], S_[1] - S_[0]), (S_[-1], S_[-1] - S_[-2])):
+            g.cyl(q, d, r * 1.6, 0.07, M["lead"], n=8, style="hard", phase=math.pi / 8, what="raccord")
+            g.tube_shell(q + d.normalized() * 0.045, d, r * 1.55, r * 0.9, 0.025, M["hazy"], n=8, what="liseré")
     return P
+
+
+def arch_hose(g, e, p0, p1, lift, r):
+    """Liaison de la tête qui PASSE PAR-DESSUS la coupole (visible à toutes les poses), dans le style d'époque."""
+    p0, p1 = V(p0), V(p1)
+    m = (p0 + p1) / 2
+    m.z = max(p0.z, p1.z) + lift
+    q0 = p0.lerp(m, 0.5)
+    q0.z = m.z - lift * 0.25
+    q1 = m.lerp(p1, 0.5)
+    q1.z = m.z - lift * 0.25
+    return link(g, e, [p0, q0, m, q1, p1], r, kind="arch")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -867,7 +964,7 @@ def engine_e(g, e, x0, x1, y0, y1, z0, z1, ncyl, emat=None):
                 g.torus((x0 - 0.1 + t * 0.026, yy, (z0 + z1) * 0.5), "x", 0.085, 0.012, M["copper"], n=24, m=6,
                         what="spire")
     elif e == 7:  # grappe de cristaux sertie
-        crystals(g, (cx + wx * 0.2, y1 - 0.18, zt + 0.02), 0.6)
+        crystals(g, (cx + wx * 0.2, y1 - 0.18, zt + 0.02), 0.95)
     elif e == 8:  # bocaux de prélèvement
         for k in range(2):
             jar(g, (x0 - 0.05, y0 + 0.2 + k * 0.22, (z0 + z1) * 0.35), 0.045, 0.1)
@@ -921,6 +1018,9 @@ def tank_e(g, e, x, y, r, h, emat, ladder_dir=(1, 0.3), stub_dir=(-1, 0), gauges
         rail(g, [(x + r * 0.5, y - L * 0.45, zc + r * 0.82), (x + r * 0.5, y + L * 0.45, zc + r * 0.82)], 0.14)
         P2.handwheel(g, (x, y - L / 2 - 0.12, zc), (0, -1, 0), 0.07, M)
         return
+    if e == 9:
+        sphere_tank(g, x, y, r * 1.08, h, emat, ladder_dir=ladder_dir)
+        return
     paint = {2: "bolted", 3: "rawiron", 5: "tungsten", 6: "cream", 7: "bronze", 8: "verdigris", 9: "lead"}[e]
     P3.vtank(g, x, y, r, h, M, paint=M[paint], emat=(emat if e >= 3 else None), ladder_dir=ladder_dir,
              stub_dir=stub_dir, gauges=gauges, glow_gauges=(e >= 6), glow_rings=rings)
@@ -937,6 +1037,12 @@ def tank_e(g, e, x, y, r, h, emat, ladder_dir=(1, 0.3), stub_dir=(-1, 0), gauges
         bolts_ring(g, c + d * 0.012, d, 0.043, 6, M["rivet"], r=0.012)
         g.cyl((x + r * 0.3, y + r * 0.3, zt + r * 0.42 + 0.06), "z", 0.018, 0.12, M["brass"], n=10, what="sifflet")
         g.cyl((x + r * 0.3, y + r * 0.3, zt + r * 0.42 + 0.13), "z", 0.026, 0.03, M["brass"], n=10, what="cloche")
+        # dôme de vapeur en cuivre (chaudière de locomotive) sur le fond bombé, collerette de laiton
+        g.cyl((x - r * 0.12, y - r * 0.15, zt + r * 0.3), "z", r * 0.42, r * 0.34, M["copper_pol"], n=24,
+              what="dome_vapeur")
+        P2.dome_hull(g, (x - r * 0.12, y - r * 0.15, zt + r * 0.47), r * 0.42, r * 0.42, r * 0.3, M["copper_pol"], M,
+                     n=24, m=6, seams=0, band_mat=M["brass"], rivet_step=0.1)
+        g.cyl((x - r * 0.12, y - r * 0.15, zt + r * 0.8), "z", 0.035, 0.05, M["brass"], n=10, what="soupape")
     elif e == 5:  # écailles et fente de braise
         for k in range(5):
             a = -math.pi / 2 + (k - 2) * 0.45
@@ -947,17 +1053,23 @@ def tank_e(g, e, x, y, r, h, emat, ladder_dir=(1, 0.3), stub_dir=(-1, 0), gauges
         d = V((0, -1, 0))
         g.box(V((x, y, zt * 0.32)) + d * (r + 0.004), (0.12, 0.008, 0.02), emat, "flat", what="braise")
     elif e == 7:
-        crystals(g, (x - r * 0.2, y + r * 0.1, zt + r * 0.3), 0.55)
+        crystals(g, (x - r * 0.1, y + r * 0.05, zt + r * 0.3), 1.0)
         g.cyl((x, y, 0.05), "z", r + 0.1, 0.1, M["stone"], n=8, style="hard", what="plinthe")
-    elif e == 8:  # bande de verre sur la hauteur (même volume)
-        d = V((-0.5, -0.86, 0))
-        Rr = Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed()
-        g.box(V((x, y, (zb + zt) / 2)) + d * (r + 0.004), (0.07, 0.012, (zt - zb) * 0.7), M["emit_soft"], "flat",
-              R=Rr, what="verre")
-        for s in (-1, 1):
-            g.box(V((x, y, (zb + zt) / 2)) + d * (r + 0.01) + V((-d.y, d.x, 0)) * s * 0.045,
-                  (0.02, 0.02, (zt - zb) * 0.74), M["brass"], "hard", R=Rr, what="cadre")
+    elif e == 8:  # cuve à FENÊTRES de verre sur la hauteur (même volume) : liquide vert, bulles, cadres de laiton
+        for a in (-math.pi / 2 - 0.5, -math.pi / 2 + 0.25, -math.pi / 2 + 1.0, math.pi):
+            d = V((math.cos(a), math.sin(a), 0))
+            Rr = Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed()
+            g.box(V((x, y, (zb + zt) / 2)) + d * (r + 0.004), (0.075, 0.012, (zt - zb) * 0.72), M["emit_soft"], "flat",
+                  R=Rr, what="verre")
+            for s in (-1, 1):
+                g.box(V((x, y, (zb + zt) / 2)) + d * (r + 0.01) + V((-d.y, d.x, 0)) * s * 0.046,
+                      (0.02, 0.022, (zt - zb) * 0.76), M["brass"], "hard", R=Rr, what="cadre")
+            for t in range(3):
+                g.dome(V((x, y, zb + (zt - zb) * (0.3 + 0.2 * t))) + d * (r + 0.012), d, 0.012, M["emit"])
         jar(g, (x + r * 0.75, y - r * 0.75, 0.0), 0.04, 0.09)
+        # couvercle de verre : petit dôme vitré sur le fond bombé
+        sphere(g, (x, y, zt + r * 0.36), r * 0.32, M["emit_soft"], n=18, m=8, sz=0.7, what="bulbe")
+        g.torus((x, y, zt + r * 0.36), "z", r * 0.32, 0.014, M["brass"], n=20, m=6, what="cerclage")
     elif e == 9:
         for a in (-math.pi / 2 - 0.4, -math.pi / 2 + 0.6):
             d = V((math.cos(a), math.sin(a), 0))
@@ -965,6 +1077,96 @@ def tank_e(g, e, x, y, r, h, emat, ladder_dir=(1, 0.3), stub_dir=(-1, 0), gauges
             g.cyl(c, d, 0.05, 0.02, M["steel_hi"], n=18, what="cadre")
             g.cyl(c + d * 0.012, d, 0.034, 0.006, emat, n=18, style="flat", what="hublot")
         trefoil(g, V((x, y, zt * 0.32)) + V((0, -1, 0)) * (r + 0.006), (0, -1, 0), 0.05)
+
+
+def sphere_tank(g, x, y, r, h, emat, ladder_dir=(1, 0.2)):
+    """Cuve sphérique plombée à hublots verts (atome ; idée de la cuve à hublots de la haute technologie, hublots
+    du réacteur vanilla) : jupe de béton à bande jaune et noire, sphère de plomb à ceinture rivetée, 3 hublots
+    cerclés, trou d'homme, évent, échelle. Même place et même masse que le réservoir debout de la lignée."""
+    M = g.M
+    zc = max(0.12 + r * 0.95, h - r * 0.95)
+    g.cyl((x, y, 0.045), "z", r + 0.06, 0.09, M["concrete"], n=8, style="hard", phase=math.pi / 8, what="plinthe")
+    g.cyl((x, y, (0.09 + zc) / 2), "z", r * 0.72, zc - 0.09, M["concrete"], n=24, what="jupe")
+    q = [V((x - r * 0.72, y - r * 0.73, 0.1)), V((x + r * 0.72, y - r * 0.73, 0.1)),
+         V((x + r * 0.72, y - r * 0.73, 0.18)), V((x - r * 0.72, y - r * 0.73, 0.18))]
+    g.hazard(q, 6, t=0.01)
+    sphere(g, (x, y, zc), r, M["lead"], n=36, m=18, what="sphere")
+    g.tube_shell((x, y, zc), "z", r + 0.022, r - 0.03, 0.05, M["steel_dk"], n=40, what="ceinture")
+    nb = int(TAU * r / 0.11)
+    for k in range(nb):
+        a = TAU * (k + 0.5) / nb
+        d = V((math.cos(a), math.sin(a), 0))
+        g.dome(V((x, y, zc)) + d * (r + 0.024), d, 0.014, M["rivet"])
+    # méridiens soudés (lecture du volume) et hublots verts côté sud
+    for k in range(6):
+        a = TAU * (k + 0.25) / 6
+        pts = [V((x + r * 1.004 * math.cos(ph) * math.cos(a), y + r * 1.004 * math.cos(ph) * math.sin(a),
+                  zc + r * 1.004 * math.sin(ph))) for ph in [0.1 + 1.2 * i / 10 for i in range(11)]]
+        g.tube(pts, 0.011, M["steel_dk"], n=6, what="soudure")
+    for a, ph in ((-math.pi / 2 - 0.55, 0.35), (-math.pi / 2 + 0.45, 0.3), (-math.pi / 2 - 0.05, 0.85)):
+        d = V((math.cos(ph) * math.cos(a), math.cos(ph) * math.sin(a), math.sin(ph)))
+        c = V((x, y, zc)) + d * (r + 0.004)
+        g.cyl(c, d, 0.062, 0.03, M["steel_hi"], n=20, what="cadre")
+        g.cyl(c + d * 0.016, d, 0.044, 0.006, emat, n=20, style="flat", what="hublot")
+        bolts_ring(g, c + d * 0.016, d, 0.054, 8, M["rivet"], r=0.011)
+    g.cyl((x + r * 0.25, y + r * 0.2, zc + r * 0.93), "z", r * 0.24, 0.05, M["steel_dk"], n=16, what="trou_homme")
+    g.tube([V((x - r * 0.3, y + r * 0.3, zc + r * 0.85)), V((x - r * 0.3, y + r * 0.3, zc + r + 0.1)),
+            V((x - r * 0.3 + 0.06, y + r * 0.3, zc + r + 0.14))], 0.02, M["steel_hi"], n=8, what="event")
+    trefoil(g, V((x + r * 0.33, y, zc + r * 0.3)) + V((0, -1, 0)) * (r * 0.9 + 0.006), (0.33, -0.9, 0.3), 0.05)
+    ld = V((ladder_dir[0], ladder_dir[1], 0)).normalized()
+    P2.ladder(g, V((x, y, 0)) + ld * (r + 0.05), ld, 0.09, zc + r * 0.6, 0.16, M)
+
+
+def deck_mat(e):
+    """Tablier bas continu : la matière du sol de la machine dit aussi l'âge (catalogue §A.6 pour le tablier ;
+    habillage seulement) : planches (forge), tôles rivetées (vapeur), caillebotis galvanisé (pétrole), dalles de
+    fonte (volcan), caillebotis (électricité), dalles de pierre (cristal), caillebotis de bois sur caoutchouc
+    (marais), dalles de béton (atome)."""
+    return {2: "wood2", 3: "rawiron", 4: "galva", 5: "castiron", 6: "grate", 7: "stone", 8: "wood2", 9: "concrete"}[e]
+
+
+def deck_e(g, e, x0, x1, y0, y1, z=0.05):
+    """Tablier d'époque sur le rectangle (x0..x1, y0..y1) : jamais de jour au travers (fond plein)."""
+    M = g.M
+    m = M[deck_mat(e)]
+    g.box(((x0 + x1) / 2, (y0 + y1) / 2, z - 0.035), (x1 - x0, y1 - y0, 0.02), M["void"], "flat", what="fond")
+    if e in (4, 6):
+        P2.grating(g, x0, x1, y0, y1, z, M, frame=False)
+        if e == 4:  # lames galvanisées par-dessus le caillebotis de la lignée
+            n = max(1, int((y1 - y0) / 0.17))
+            for i in range(n):
+                yy = y0 + (y1 - y0) * (i + 0.5) / n
+                g.box(((x0 + x1) / 2, yy, z - 0.004), (x1 - x0 - 0.03, 0.03, 0.016), m, "flat", what="lame")
+        return
+    if e in (2, 8):  # planches (forge) ou caillebotis de bois (marais), clous, joints sombres
+        pitch = 0.085 if e == 2 else 0.07
+        n = max(1, int((y1 - y0) / pitch))
+        for i in range(n):
+            yy = y0 + (y1 - y0) * (i + 0.5) / n
+            mm = M["wood"] if (i * 7) % 3 else M["wood2"]
+            g.box(((x0 + x1) / 2, yy, z - 0.012), (x1 - x0 - 0.02, pitch * 0.78, 0.035), mm, "hard", what="planche")
+        nc = max(1, int((x1 - x0) / 0.32))
+        for i in range(1, nc):
+            xx = x0 + (x1 - x0) * i / nc
+            g.box((xx, (y0 + y1) / 2, z + 0.008), (0.03, y1 - y0 - 0.02, 0.012),
+                  M["rawiron"] if e == 2 else M["rubber"], "hard", what="traverse")
+        return
+    # dalles (tôle rivetée, fonte, pierre, béton) : plaques séparées par des joints sombres
+    size = {3: 0.3, 5: 0.26, 7: 0.34, 9: 0.42}[e]
+    nu = max(1, int(round((x1 - x0) / size)))
+    nv = max(1, int(round((y1 - y0) / (size * SQ2))))
+    q = [V((x0, y0, z - 0.03)), V((x1, y0, z - 0.03)), V((x1, y1, z - 0.03)), V((x0, y1, z - 0.03))]
+    g.panels(q, nu, nv, m, t=0.03, gap=0.022, rivet_mat=(M["rivet"] if e in (3, 5) else None), mats=[m],
+             rivet_step=0.14, jitter=0.25 if e in (7, 9) else 0.1)
+    if e == 5:
+        # quelques joints de dalle rougeoyants (braise sous la fonte), segments courts, jamais une coulée
+        for i in range(1, nu):
+            for j in range(nv):
+                if (i * 5 + j * 3) % 4:
+                    continue
+                xx = x0 + (x1 - x0) * i / nu
+                yy = y0 + (y1 - y0) * (j + 0.5) / nv
+                g.box((xx, yy, z - 0.026), (0.014, (y1 - y0) / nv * 0.7, 0.01), M["emit"], "flat", what="braise")
 
 
 def rail(g, pts, h):
@@ -1215,7 +1417,9 @@ def spark_stack(g, c, emat, s=1.0):
     g.tube_shell((x, y, z + 0.12 + 0.07 * s), "z", 0.088 * s, 0.07 * s, 0.025, M["brass"], n=18, what="cerclage")
     zt = PT.insulators(g, (x, y, z + 0.08 + 0.14 * s), 4, 0.06 * s, h=0.035)
     g.torus((x, y, zt + 0.03), "z", 0.075 * s, 0.024 * s, M["copper"], n=24, m=8, what="tore")
-    g.cyl((x, y, zt + 0.03), "z", 0.035, 0.05, M["copper"], n=10, what="borne")
+    # âme pleine du tore (sinon le sol se voit par son trou : contrôle des trous enfermés)
+    g.cyl((x, y, zt + 0.03), "z", 0.075 * s, 0.03, M["steel_dk"], n=20, what="ame_tore")
+    g.cyl((x, y, zt + 0.045), "z", 0.035, 0.05, M["copper"], n=10, what="borne")
     return zt + 0.06
 
 

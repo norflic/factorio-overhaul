@@ -102,6 +102,8 @@ def post(name, cache, out_root):
             "dir": meta.get("dir"), "side": meta["side"], "samples": info["samples"], "seconds": info["seconds"],
             "seconds_render": info.get("seconds_render"), "verts": info.get("verts"), "count": info.get("count"),
             "quick": info.get("quick"), "canvas": info["canvas"], "night_only": meta["epoch"] in NIGHT_ONLY,
+            # pièce du niveau 2 : à dessiner SOUS la mitrailleuse vanilla (plancher de planches, muret, caisse)
+            "sous_vanilla": name == "e01-piece",
             "layers": {}}
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
@@ -138,6 +140,7 @@ def main():
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--post-only", action="store_true")
+    ap.add_argument("--keep-npy", action="store_true", help="garder les passes brutes .npy après le post-traitement")
     ap.add_argument("--cache", default=os.path.join(WORK, "cache"))
     ap.add_argument("--out", default=os.path.join(WORK, "out"))
     a = ap.parse_args()
@@ -177,7 +180,16 @@ def main():
             sys.exit(rc)
     for n in names:
         if os.path.exists(os.path.join(a.cache, n, "render.json")):
+            if not any(f.endswith(".npy") for f in os.listdir(os.path.join(a.cache, n))):
+                print("[FO-POST] %s : passes déjà purgées, rien à refaire" % n, flush=True)
+                continue
             s = post(n, a.cache, a.out)
+            if not a.keep_npy:
+                # disque H: presque plein le 22/10 à 18 h (0,15 Go libres) : les passes brutes (float32) sont purgées
+                # dès que les sprites et le spec.json sont écrits ; render.json reste (durées, comptes)
+                for f in os.listdir(os.path.join(a.cache, n)):
+                    if f.endswith(".npy"):
+                        os.remove(os.path.join(a.cache, n, f))
             c = s["checks"]
             print("[FO-POST] %s %s %.0f s ; trous %d px en %d groupes, plus grand %d px %s" % (
                 n, sorted(s["layers"]), s["seconds"], c["enclosed_transparent_px"], c["enclosed_groups"],

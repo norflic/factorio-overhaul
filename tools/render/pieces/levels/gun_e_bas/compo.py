@@ -82,7 +82,8 @@ def level_layers(out, e, pose, even=False, kinds=("shadow", "main", "glow", "lig
     if e == 1:
         lays = list(vanilla_gun(pose))
         if even:
-            lays = [l for l in lays] + own(out, "e01-piece", kinds)
+            # la pièce du niveau 2 (plancher, sacs de sable, caisse) est dessinée SOUS le vanilla (spec : sous_vanilla)
+            lays = own(out, "e01-piece", kinds) + [l for l in lays]
         return lays
     lays = own(out, "e%02d-socle" % e, kinds)
     if even:

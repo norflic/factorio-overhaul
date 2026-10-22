@@ -132,6 +132,10 @@ def ladder(g, base, out, z0, z1, w, M):
     for s in (-1, 1):
         g.box(base + t * s * w / 2 + V((0, 0, (z0 + z1) / 2)), (0.03, 0.03, z1 - z0), M["steel_hi"], "hard",
               R=Rm(t), what="montant")
+    # lot V3-E : tôle de fond sombre entre les montants, contre la paroi (sans elle, le sol se voyait entre les
+    # barreaux, la paroi et les montants : trous enfermés de 9 à 22 px hr au contrôle bloquant)
+    g.box(base - out * 0.035 + V((0, 0, (z0 + z1) / 2)), (w, 0.05, z1 - z0), M["seam"], "flat", R=Rm(t),
+          what="fond_echelle")
     n = max(2, int((z1 - z0) / 0.09))
     for i in range(1, n):
         z = z0 + (z1 - z0) * i / n

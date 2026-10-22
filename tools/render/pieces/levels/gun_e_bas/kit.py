@@ -238,39 +238,42 @@ def materials(S, epoch, tone=1.0):
           sscale=5.0, wear=0.8)
     metal("rawiron", (0.1, 0.08, 0.064), rough=0.5, met=0.6, grain=0.4, rust=rust, ra=0.6, dirt=0.85, stain=0.8,
           sscale=5.0, wear=2.4, streak=0.5)
-    metal("blackiron", (0.042, 0.038, 0.034), rough=0.42, met=0.75, grain=0.3, rust=rust, ra=0.35, dirt=0.7,
+    metal("blackiron", (0.056, 0.05, 0.044), rough=0.42, met=0.75, grain=0.3, rust=rust, ra=0.35, dirt=0.7,
           stain=0.6, sscale=5.0, wear=3.4, streak=0.4)
     metal("bolted", (0.13, 0.115, 0.095), rough=0.36, met=0.8, grain=0.22, rust=rust, ra=0.45, dirt=0.85, stain=0.85,
           sscale=5.0, wear=2.8, streak=0.55)
     # 3 Vapeur
-    metal("castiron", (0.05, 0.043, 0.038), rough=0.55, met=0.6, grain=0.35, rust=rust, ra=0.3, dirt=0.8, stain=0.6,
+    metal("castiron", (0.066, 0.057, 0.05), rough=0.55, met=0.6, grain=0.35, rust=rust, ra=0.3, dirt=0.8, stain=0.6,
           sscale=5.0, wear=2.6)
     metal("copper_pol", (0.5, 0.2, 0.075), rough=0.26, met=0.95, grain=0.22, rust=(0.08, 0.13, 0.08), ra=0.18,
           dirt=0.75, stain=0.45, sscale=6.0, wear=1.8)
     # 4 Pétrole
-    metal("galva", (0.16, 0.168, 0.172), rough=0.34, met=0.85, grain=0.3, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
+    metal("galva", (0.2, 0.205, 0.21), rough=0.3, met=0.85, grain=0.3, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
           stain=0.75, sscale=5.0, wear=1.6, streak=0.45)
-    metal("yellowpaint", (0.34, 0.245, 0.04), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.35,
+    metal("yellowpaint", (0.3, 0.222, 0.052), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.35,
           dirt=0.9, stain=0.95, sscale=5.0, wear=2.8, streak=0.65)
     # 5 Volcan
-    metal("tungsten", (0.055, 0.052, 0.058), rough=0.32, met=0.9, grain=0.22, rust=(0.16, 0.06, 0.025), ra=0.3,
+    metal("tungsten", (0.078, 0.074, 0.08), rough=0.32, met=0.9, grain=0.22, rust=(0.16, 0.06, 0.025), ra=0.3,
           dirt=0.75, stain=0.7, sscale=5.0, wear=3.6, streak=0.45)
-    metal("burnrust", (0.11, 0.045, 0.024), rough=0.62, met=0.35, grain=0.3, rust=(0.05, 0.03, 0.02), ra=0.4,
+    metal("burnrust", (0.13, 0.056, 0.03), rough=0.62, met=0.35, grain=0.3, rust=(0.05, 0.03, 0.02), ra=0.4,
           dirt=0.85, stain=0.85, sscale=5.0, wear=2.0, streak=0.5)
     metal("basalt", (0.035, 0.032, 0.03), rough=0.6, met=0.1, grain=0.45, dirt=0.6, stain=0.5, wear=3.0)
     # 7 Cristal
-    metal("bronze", (0.15, 0.088, 0.04), rough=0.4, met=0.85, grain=0.26, gscale=36.0, rust=(0.06, 0.1, 0.065),
-          ra=0.4, dirt=0.85, stain=0.75, sscale=5.0, wear=2.2, streak=0.45)
+    # reprise V3-E (22/10, 17 h 40) : bronze, plomb, vert-de-gris et galvanisé ÉCLAIRCIS (valeurs moyennes) : à
+    # 0,08-0,15 ils se lisaient tous « noir » au zoom 1 et les époques 7 à 9 se confondaient (retour orchestrateur)
+    metal("bronze", (0.26, 0.15, 0.058), rough=0.34, met=0.85, grain=0.26, gscale=36.0, rust=(0.06, 0.1, 0.065),
+          ra=0.32, dirt=0.85, stain=0.6, sscale=5.0, wear=1.8, streak=0.4)
     metal("stone", (0.075, 0.056, 0.044), rough=0.85, met=0.0, grain=0.5, gscale=26.0, dirt=0.9, stain=0.8,
           sscale=5.0, wear=2.2)
     # 8 Marais
-    metal("verdigris", (0.07, 0.11, 0.08), rough=0.55, met=0.4, grain=0.3, rust=(0.1, 0.07, 0.04), ra=0.35,
+    metal("verdigris", (0.085, 0.135, 0.1), rough=0.55, met=0.4, grain=0.3, rust=(0.1, 0.07, 0.04), ra=0.35,
           dirt=0.85, stain=0.8, sscale=5.0, wear=1.6, streak=0.5)
     metal("glass_dk", (0.02, 0.035, 0.02), rough=0.08, met=0.0, grain=0.1, dirt=0.4, stain=0.2)
     metal("wicker", (0.13, 0.085, 0.04), rough=0.85, met=0.0, grain=0.6, gscale=60.0, dirt=0.9, stain=0.6, wear=1.0)
     # 9 Atome
-    metal("lead", (0.085, 0.082, 0.078), rough=0.48, met=0.65, grain=0.28, rust=(0.11, 0.1, 0.085), ra=0.3,
-          dirt=0.85, stain=0.8, sscale=5.0, wear=2.4, streak=0.5)
+    metal("lead", (0.17, 0.165, 0.155), rough=0.5, met=0.6, grain=0.28, rust=(0.12, 0.11, 0.095), ra=0.3,
+          dirt=0.85, stain=0.7, sscale=5.0, wear=1.6, streak=0.5)
+    metal("uranium", (0.09, 0.2, 0.04), rough=0.5, met=0.2, grain=0.2, dirt=0.5, stain=0.0)  # pointes de balle
     metal("concrete", (0.17, 0.155, 0.135), rough=0.92, met=0.0, grain=0.5, gscale=30.0, dirt=0.9, stain=0.85,
           sscale=5.0, wear=1.4, streak=0.6)
     # éléments lumineux : couleur d'époque (charte §6.4, catalogue §A.3) ; surface éteinte dans la couche principale
@@ -281,7 +284,9 @@ def materials(S, epoch, tone=1.0):
     base = tuple(0.42 * c for c in emit) if night else (0.01, 0.01, 0.012)
     M["emit"] = S.mat_emissive("ind_e%02d_emit" % epoch, emit, strength=1.0, base=base,
                                main_scale=0.0, crust=(18.0, 0.25, 1.0 + epoch))
-    M["emit_soft"] = S.mat_emissive("ind_e%02d_emit2" % epoch, emit, strength=0.7, base=base,
+    # verre (marais) et cristal : la surface garde une teinte sombre lisible dans la couche principale
+    base2 = (0.05, 0.085, 0.022) if epoch == 8 else ((0.07, 0.035, 0.1) if epoch == 7 else base)
+    M["emit_soft"] = S.mat_emissive("ind_e%02d_emit2" % epoch, emit, strength=0.7, base=base2,
                                     main_scale=0.0, crust=(12.0, 0.35, 2.0 + epoch))
     # voyants ambre (vocabulaire vanilla : lampes de travail), admis à toutes les époques
     M["amber"] = S.mat_emissive("ind_e%02d_amber" % epoch, (1.0, 0.45, 0.06), strength=1.0, base=(0.01, 0.006, 0.003),

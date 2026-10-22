@@ -135,9 +135,11 @@ def receiver(g, x, y0, y1, z0, z1, w, mats=None):
     return T
 
 
-def belt(g, ctrl, step=0.05, scale=1.0):
-    """Bande de cartouches (maillons sombres, étuis laiton, balles cuivre) le long d'une courbe."""
+def belt(g, ctrl, step=0.05, scale=1.0, mats=None):
+    """Bande de cartouches (maillons sombres, étuis laiton, balles cuivre) le long d'une courbe.
+    mats (lot V3-E) : (étui, balle) de l'époque ; None = laiton et cuivre (lignée)."""
     M = g.M
+    case_m, tip_m = mats or (M["brass"], M["copper"])
     P = g.resample(g.spline(ctrl, 12), step * scale)
     T, _ = g.frames(P)
     for i, p in enumerate(P):
@@ -149,8 +151,8 @@ def belt(g, ctrl, step=0.05, scale=1.0):
         up = side.cross(t).normalized()
         R = Matrix((side, t, up)).transposed()
         g.box(p, (0.1 * scale, 0.026 * scale, 0.02 * scale), M["steel"], "flat", R=R, what="maillon")
-        g.cyl(p + up * 0.022 * scale, side, 0.017 * scale, 0.085 * scale, M["brass"], n=6, what="cartouche")
-        g.cyl(p + up * 0.022 * scale + side * 0.055 * scale, side, 0.013 * scale, 0.028 * scale, M["copper"], n=6,
+        g.cyl(p + up * 0.022 * scale, side, 0.017 * scale, 0.085 * scale, case_m, n=6, what="cartouche")
+        g.cyl(p + up * 0.022 * scale + side * 0.055 * scale, side, 0.013 * scale, 0.028 * scale, tip_m, n=6,
               r2=0.005 * scale, what="balle")
 
 

@@ -13,9 +13,15 @@ Emprises (Q-S1, shared/levels/config.lua L.footprints.gun) : époques 1 à 3 en 
 
 Chaîne (depuis la racine du worktree ; Python 3.9 pour numpy ; sorties hors dépôt dans FO_IND_WORK, par défaut
 <racine>/fo-logs/2026-10-22_V3E/bas) :
-    py -3.9 tools/render/pieces/levels/gun_e_bas/rendre.py --only e02-socle,... --samples 128   # verrou de rendu
-    py -3.9 .../mesure.py <outils da> <sortie.json> --pose E|N
-    py -3.9 .../planche.py ...   py -3.9 .../prog.py ...   py -3.9 .../trous.py ...   py -3.9 .../vignettes.py ...
+    py -3.9 .../gun_e_bas/lots.py --cache C --out O --samples 128 --per 4   # paquets, verrou de rendu, purge .npy
+    py -3.9 .../gun_e_bas/rendre.py --only e02-socle,... --samples 128      # une session (lots.py l'appelle)
+    py -3.9 .../gun_e_bas/trous.py O --diag D --json J        # contrôle BLOQUANT des trous enfermés (code 1)
+    py -3.9 .../gun_e_bas/mesure_e.py O mesures.json --prev P # charte tools/da, poses E et N, pièces paires
+    py -3.9 .../gun_e_bas/prog_e.py <tools/da> <docs/da/mesures_vanilla.json> mesures.json D  # progression.py
+    py -3.9 .../gun_e_bas/planches_e.py O <planches>          # planches (a) à (d)
+    py -3.9 .../gun_e_bas/vignettes_e.py O <vignettes>        # test à l'aveugle (correspondance sur stdout)
+    py -3.9 .../gun_e_bas/voir.py O <dossier> <préfixe>       # aperçus de travail au zoom 2
+mesure.py, planche.py, prog.py et naif.py sont ceux de la lignée (niveaux 11, 21, 29, 30) : non utilisés ici.
 """
 import math
 import os

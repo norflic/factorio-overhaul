@@ -58,6 +58,9 @@ def vtank(g, x, y, r, h, M, paint=None, emat=None, z0=0.0, ladder_dir=(-1.0, 0.0
             V((x - r * 0.25 + 0.06, y + r * 0.25, zt + r * 0.3 + 0.22)), V((x - r * 0.25 + 0.12, y + r * 0.25,
                                                                            zt + r * 0.3 + 0.16))],
            0.022, M["steel_hi"], n=8, what="event")
+    # gousset plein sous le col de cygne (lot V3-E : le sol se voyait sous l'arc, trou enfermé de 9 px hr)
+    g.box((x - r * 0.25 + 0.06, y + r * 0.25, zt + r * 0.3 + 0.085), (0.12, 0.016, 0.15), M["steel_dk"], "hard",
+          what="gousset")
     ld = V((ladder_dir[0], ladder_dir[1], 0)).normalized()
     P2.ladder(g, V((x, y, 0)) + ld * (r + 0.06), ld, z0 + 0.08, zt + r * 0.2, 0.16, M)
     for k in range(gauges):
@@ -123,9 +126,9 @@ def cabinet(g, x0, x1, y0, y1, z0, z1, M, emat, rows=2):
           what="toit")
 
 
-def hopper_top(g, x0, x1, y0, y1, z0, z1, M, slope=0.35, paint=None, stencils=True):
+def hopper_top(g, x0, x1, y0, y1, z0, z1, M, slope=0.35, paint=None, stencils=True, belt_mats=None):
     """Trémie : grandes tôles peintes, trappe OUVERTE (bande de cartouches qui en sort), bande de danger,
-    nervures, marquages. Renvoie le point de sortie de la bande."""
+    nervures, marquages. Renvoie le point de sortie de la bande. belt_mats (lot V3-E) : munitions de l'époque."""
     paint = paint or M["ochre"]
     zl = z1 - slope * (y1 - y0) * 0.4
     B = [V((x0, y0, z0)), V((x1, y0, z0)), V((x1, y1, z0)), V((x0, y1, z0))]
@@ -155,7 +158,7 @@ def hopper_top(g, x0, x1, y0, y1, z0, z1, M, slope=0.35, paint=None, stencils=Tr
         t = (j + 0.5) / nrow
         a = hole[0].lerp(hole[3], t) + nrm * 0.022
         b = hole[1].lerp(hole[2], t) + nrm * 0.022
-        PT.belt(g, [a + (b - a) * 0.04, (a + b) / 2 + nrm * 0.01, b - (b - a) * 0.04], step=0.05)
+        PT.belt(g, [a + (b - a) * 0.04, (a + b) / 2 + nrm * 0.01, b - (b - a) * 0.04], step=0.05, mats=belt_mats)
     # couvercle relevé vers le nord, charnière
     hn = PT.face_quad(top, 0.2, 0.8, 0.8, 0.84)
     hinge = (hn[0] + hn[1]) / 2
