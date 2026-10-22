@@ -368,6 +368,7 @@ l'estimation haute, chargement (cache des atlas lu ou refait), mesure directe, c
 | compression « none » | 4–4 | RGBA 8 bits |
 | drapeau `alpha-mask` (ombres, masques) | 0,5–1 compressé ; 1–4 sans | **Hypothèse** : un canal utile (BC4 : le binaire contient le nuanceur `compress-bc4` ; ou A8/BC3) ; format exact absent du journal |
 | mipmaps (« Generated mipmaps (N) ») | × (1 + 1/4 + …) | Journal : N niveaux en tout (bas) ou en plus de la base (haut) |
+| pages d'atlas virtuel (plancher) | règle DXT d'un atlas « [none] » ; haut : + 1/3 de la plus grande surface pour les mipmaps | Dimensions prouvées par le journal ; résidence et compression : **hypothèses** (§5.1, « Atlas virtuel dans l'estimation ») |
 
 La mesure directe (ci-dessous) tranche : une estimation ne prouve rien.
 
@@ -460,12 +461,46 @@ porte `linear-minification` en haute qualité et au plancher, mais pas en qualit
 présente exactement une fois, et qu'aucune autre n'apparaît. Les lignes comptées sont celles du **moteur** : une ligne
 horodatée qui commence par « Created atlas bitmap » ou « Created virtual atlas pages ». Une impression de script
 (« Script @…: … ») qui contient ces mots ne compte pas (`vram.py`, `RE_ATLAS` et `RE_VIRTUAL`). `vram.py` relève
-l'atlas virtuel dans `virtual_atlases` et le signale dans son rapport, mais ne le compte toujours pas dans son
-estimation (tâche d'outillage ouverte).
+l'atlas virtuel dans `virtual_atlases` et, depuis la suite « vram » (22/10), le COMPTE dans son estimation
+(ci-dessous, « Atlas virtuel dans l'estimation »).
 
 Des réglages absents de la table, ou une ligne « Graphics options » absente, font échouer l'étape : on ajoute une
 entrée après avoir lu un journal réel, on n'en élargit jamais une. Attendu le 22/10 : **5/5 étapes, 13 journaux**
-(unitaires de `vram.py` : 57 OK, dont 6 sur les lignes du moteur et l'atlas virtuel).
+(unitaires de `vram.py` : 99 OK depuis la suite « vram », 57 avant, dont 6 sur les lignes du moteur et l'atlas
+virtuel ; la suite en ajoute 42 sur le comptage de l'atlas virtuel).
+
+**Atlas virtuel dans l'estimation** (suite « vram », 22/10 ; règle complète en tête de `vram.py`). Au plancher
+(« Video memory usage: low », « Tex.Stream.: 1 »), le journal prouve deux choses : la création de N pages de L×H pixels
+(« Created virtual atlas pages 4096x4096x9 », 151,0 Mpx) et des mipmaps pour un atlas virtuel de 16384×12288
+(201,3 Mpx, sans nombre de niveaux). Il ne dit ni où vivent les pages, ni leur format (clé `compress-virtual-atlas`
+du binaire ; assertion « virtualAtlasPage->getFormat() == BitmapFormat::RGBA_8888 »). Lecture la plus probable, NON
+prouvée : la locale (« kept in RAM until needed by the GPU ») parle des sprites SOURCES hors atlas, gardés en mémoire
+vive ; les 9 pages créées, moins que les 12 surfaces de page de l'atlas virtuel annoncé, seraient le cache PHYSIQUE
+côté carte (clé `streamed-atlas-physical-vram-size` du binaire). Cette lecture renforce le choix prudent de compter
+les pages.
+
+| Partie | Octets comptés | Statut |
+|---|---|---|
+| pages (« Created virtual atlas pages LxHxN ») | bas : pages × octets/px bas d'un atlas « [none] » sous la DXT du journal (0,5 en low-quality) ; haut : (pages + 1/3 de la plus grande surface, pages ou atlas virtuel annoncé) × octets/px haut (1) | Dimensions **prouvées** ; résidence en mémoire vidéo et compression : **hypothèses** (compter les pages est le sens prudent d'un budget) |
+| mipmaps (« Generated mipmaps for virtual atlas of size VLxVH ») | haut seulement : au plus 1/3 de la plus grande surface (la série 1/4 + 1/16 + … reste sous 1/3) | Ligne **prouvée** ; emplacement des niveaux : **hypothèse** |
+| variante non compressée (RGBA 8888) | pages × 4, sans mipmaps : NON comptée | Confrontée à la mesure directe : exclue si atlas (bas) + variante > pic dédié + pic partagé |
+| « Atlas memory size: X MB; Y MB (virtual) », « Size of sprites outside of atlas » | rapportés tels quels s'ils apparaissent | Lignes du binaire ; jamais écrites dans les 13 journaux archivés |
+
+Nouvelle estimation sur les 13 journaux archivés : 12 inchangées (aucun atlas virtuel : 1,10 à 1,25 Go en haute
+qualité, 0,40 à 0,45 Go en normale) ; plancher (`2026-10-22_D4m_5-plancher-mesure`) : **0,28 à 0,53 Go** (atlas 0,20 à
+0,31 Go, comme E40 ; pages 0,08 à 0,22 Go), contre un pic dédié mesuré de 0,42 Go. La variante non compressée
+(0,20 + 0,60 = 0,81 Go) dépasse le pic dédié + partagé (0,52 Go) : exclue par la mesure, si les pages sont allouées
+en entier. L'estimation haute (0,53 Go) dépasse la mesure : elle surestime cette session.
+
+`python -B tools/autotest/tests/mut_vram.py [--work DOSSIER]` vérifie la règle par mutation (hors jeu, environ 30 s) :
+il copie TOUS les modules `.py` de `tools/autotest` dans un dossier jetable, joue d'abord un **témoin nul** (copie
+intacte) qui doit survivre, puis 18 mutants de `vram.py` (pages hors du total, mipmaps au quart, pages non
+compressées, ancrages des lignes du moteur retirés, verdict D4-1 sur les atlas seuls, etc.) que `unit_vram.py` doit
+tous faire échouer. Il distingue un mutant refusé par un contrôle d'un mutant qui fait planter les unitaires, et
+échoue si un motif n'est plus trouvé. Attendu le 22/10 : « témoin nul survivant ; 18/18 mutants détectés (18 par un
+contrôle, 0 par un plantage) », code 0. Le premier banc de mutations du constructeur (archivé dans
+`fo-logs\2026-10-22_R1\vram\`) ne copiait pas `gallery.py` : toutes ses copies plantaient, et son « 14/14 » ne
+prouvait rien (13/14 en réalité).
 
 `python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable>` vérifie l'étape par
 mutation. Les témoins doivent passer : 4 copies intactes, plus 3 copies porteuses d'une variation sans effet (la
