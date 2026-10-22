@@ -1,4 +1,27 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.3
+Date: 2026-10-22
+  Features:
+    - Niveaux : tous les bâtiments à niveaux grandissent avec les époques, sauf le mur. Tourelle laser et four :
+      de 2×2 à 6×6 ; foreuse et assembleur : de 3×3 à 6×6 ; centre de commandement : de 4×4 à 8×8. Même règle que
+      pour la mitrailleuse : agrandissement sur place si la place est libre, sinon refus sans paiement et contour à
+      libérer.
+    - À l'agrandissement, la machine garde sa recette, son contenu, ses modules, ses fluides, sa fabrication en
+      cours, son orientation, ses fils de circuit et la limite rouge du coffre du centre. Les raccords de tuyau et le
+      point de dépôt restent servis : si une position les déplacerait, elle n'est pas retenue ; le coffre ou le tuyau
+      concerné est alors surligné en jaune.
+    - La portée de la tourelle laser augmente avec sa taille, pour garder la même portée au-delà de son bord.
+  Bugfixes:
+    - Améliorer à taille égale un bâtiment resté hors grille après une mise à jour ne pose plus un second bâtiment
+      par-dessus le premier : il est remis sur la grille, à une demi-tuile au plus, si la place est libre.
+  Info:
+    - Sauvegardes : au chargement, les bâtiments qui changent de taille (niveau 7 et plus ; centre : niveau 4 et
+      plus) sont reposés si la place est libre ; sinon ils restent en place, en léger chevauchement, et continuent de
+      fonctionner. Dans une usine dense, c'est le cas de la plupart d'entre eux. Un message indique leur nombre et
+      où les trouver.
+    - Visuel provisoire : les bâtiments agrandis montrent le dessin actuel mis à l'échelle, en attendant les
+      nouveaux dessins par époque.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.2
 Date: 2026-10-22
   Features:
