@@ -320,29 +320,61 @@ normal] »).
 les fixtures synthétiques (`make_fixtures.py`), les unitaires de `vram.py` (`unit_vram.py`), l'intégration du pilote
 sur une racine factice avec un faux jeu (`driver_it.py`, `fake_game.py`) et, avec `--logs`, `vram.py` sur chaque
 journal archivé. Attendu le 21/10 : **5/5 étapes** (essai à blanc 11 OK, BILAN du greffon 16 OK ; unitaires 51 OK ;
-intégration 17 OK ; 8 journaux). Ne lance pas Factorio et n'écrit rien dans la racine du jeu.
+intégration 17 OK ; 8 journaux ; 57 unitaires et 13 journaux depuis le 22/10, voir ci-dessous). Ne lance
+pas Factorio et n'écrit rien dans la racine du jeu.
 
 **Étape 5 : atlas attendus selon les réglages du journal** (corrigée le 22/10 ; avant, elle exigeait 15 atlas
 partout et refusait les journaux D4m 3 à 5). Le nombre d'atlas dépend de ce que le journal déclare sur sa ligne
 « Graphics options » (qualité, usage de la mémoire vidéo, compression DXT). La table `ATLAS_ATTENDUS` de
 `run_d4m.py`, étalonnée sur les 13 journaux archivés au 22/10, donne pour chaque combinaison le nombre d'atlas en
-tout, le nombre d'atlas « [none] » (sprites principaux) et la présence d'un atlas virtuel :
+tout, le nombre d'atlas « [none] » (sprites principaux), la présence d'un atlas virtuel et la taille des atlas
+« [none] » par rapport au seuil `SEUIL_NONE_PX` (4096 × 4096, soit 16,8 Mpx) :
 
-| Réglages déclarés | Atlas | dont « [none] » | Atlas virtuel | Journaux d'étalonnage |
-|---|---|---|---|---|
-| high / all / high-quality | 15 | 2 (16384×16364 plein, puis 16384×12676) | non | P1 (8), D4m 1 et 2 |
-| normal / all / high-quality | 14 | 1 (16384×8604) | non | D4m 3 et 4 |
-| normal / low / low-quality (plancher) | 14 | 1 (2048×1316) | oui (« Created virtual atlas pages 4096x4096x9 ») | D4m 5 |
+| Réglages déclarés | Atlas | dont « [none] » | Pixels « [none] » | Atlas virtuel | Journaux d'étalonnage |
+|---|---|---|---|---|---|
+| high / all / high-quality | 15 | 2 (16384×16364 plein, puis 16384×12676) | plus de 16,8 Mpx (475,8) | non | P1 (8), D4m 1 et 2 |
+| normal / all / high-quality | 14 | 1 (16384×8604) | plus de 16,8 Mpx (141,0) | non | D4m 3 et 4 |
+| normal / low / low-quality (plancher) | 14 | 1 (2048×1316) | au plus 16,8 Mpx (2,7) | oui (« Created virtual atlas pages 4096x4096x9 ») | D4m 5 |
 
-Les 13 autres atlas (decal, low-object, terrain, ombres, icônes, etc.) figurent une fois dans chaque journal. Des
-réglages absents de la table, ou une ligne « Graphics options » absente, font échouer l'étape : on ajoute une entrée
-après avoir lu un journal réel, on n'en élargit jamais une. Attendu le 22/10 : **5/5 étapes, 13 journaux**.
-`python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable>` vérifie la table
-par mutation : 4 témoins (copies intactes) doivent passer et 15 mutants doivent être refusés, par exemple une
-haute qualité à 14 atlas, une normale à 13 ou à 15, 15 atlas avec un seul « [none] », une qualité déclarée qui
-ne correspond pas au contenu, un plancher sans atlas virtuel ou des réglages non étalonnés. Attendu : `19 OK,
-0 ECHEC(S)`. Le dossier jetable ne doit pas être un sous-dossier direct de `fo-logs`, sinon l'étape 5 lirait les
-mutants.
+Le seuil de 16,8 Mpx n'est pas une limite du moteur : c'est une ligne de partage entre les valeurs observées, égale
+à une page d'atlas virtuel. Il refuse un plancher qui ne s'est pas appliqué, et un plancher appliqué à tort.
+
+Les 13 autres atlas (liste `AUTRES_ATLAS` : decal, low-object, terrain, ombres, icônes, etc.) figurent **une fois par
+catégorie** dans chacun des 13 journaux, avec les mêmes drapeaux, à une exception près : l'atlas « [low-object] »
+porte `linear-minification` en haute qualité et au plancher, mais pas en qualité normale avec mémoire « all »
+(observé, non expliqué). C'est la seule variation tolérée ; l'étape vérifie que chacune des 13 signatures est
+présente exactement une fois, et qu'aucune autre n'apparaît. Les lignes comptées sont celles du **moteur** : une ligne
+horodatée qui commence par « Created atlas bitmap » ou « Created virtual atlas pages ». Une impression de script
+(« Script @…: … ») qui contient ces mots ne compte pas (`vram.py`, `RE_ATLAS` et `RE_VIRTUAL`). `vram.py` relève
+l'atlas virtuel dans `virtual_atlases` et le signale dans son rapport, mais ne le compte toujours pas dans son
+estimation (tâche d'outillage ouverte).
+
+Des réglages absents de la table, ou une ligne « Graphics options » absente, font échouer l'étape : on ajoute une
+entrée après avoir lu un journal réel, on n'en élargit jamais une. Attendu le 22/10 : **5/5 étapes, 13 journaux**
+(unitaires de `vram.py` : 57 OK, dont 6 sur les lignes du moteur et l'atlas virtuel).
+
+`python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable>` vérifie l'étape par
+mutation. Les témoins doivent passer : 4 copies intactes, plus 3 copies porteuses d'une variation sans effet (la
+variante tolérée de « [low-object] », et deux impressions de script qui contiennent les mots du moteur). Les mutants
+doivent être refusés, par exemple :
+- une haute qualité à 14 atlas, une normale à 13 ou à 15 ;
+- 15 atlas avec un seul « [none] », ou un atlas « [decal] » doublé à la place de l'atlas des icônes ;
+- un atlas de terrain réétiqueté « [low-object] », ou un atlas d'icônes sans `linear-minification` ;
+- un plancher dont l'atlas « [none] » a la taille de la qualité normale, et l'inverse ;
+- une qualité déclarée qui ne correspond pas au contenu ;
+- un plancher sans atlas virtuel, ou dont l'atlas virtuel n'apparaît que dans une impression de script ;
+- des réglages non étalonnés.
+
+Le script vérifie aussi son garde-fou sur un faux `fo-logs` temporaire, puis contrôle qu'aucune de ses copies n'est
+lue par l'étape 5. Attendu : `40 OK, 0 ECHEC(S)`. L'étape 5 ne lit que `<logs>/*/visual.log`, un seul niveau sous
+`fo-logs`. Le dossier jetable est donc refusé dans deux cas :
+- s'il EST `fo-logs`, même écrit avec une autre casse ou avec un `..` : ses copies `<out>/<cas>/visual.log`
+  seraient lues par l'étape 5 ;
+- s'il se trouve DANS une archive que l'étape 5 lit (`fo-logs/X/…` avec `X/visual.log`) : on y mêlerait des mutants
+  à une preuve.
+
+Un sous-dossier de `fo-logs` qui n'est pas une archive est permis, par exemple
+`fo-logs/2026-10-22_V3T-suites/d4m/mutants` : ses copies sont au moins deux niveaux plus bas.
 
 ### 5.2 Scénario greffé `d4-geant`
 

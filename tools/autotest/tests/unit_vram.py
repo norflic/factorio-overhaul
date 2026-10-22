@@ -133,5 +133,24 @@ check(r3["perf"].get("erreur", "").startswith("fichier absent"), "perf absent")
 ms3 = vs.memory_summary(r3, types.SimpleNamespace(proc=types.SimpleNamespace(pid=1), gpu=types.SimpleNamespace(error="PDH"),
                                                   peaks=None), True)
 check(any("NON MESUREE (PDH)" in ln for ln in ms3), "resume : non mesuree")
+# Lignes du moteur seulement (suite d4m, défaut 3 du correcteur) : une impression de script qui CONTIENT les mots
+# d'une ligne d'atlas ne compte pas ; l'atlas virtuel du plancher est relevé à part (F77 provisoire).
+LOG4 = r"""   1.000 Created atlas bitmap 2048x1316 [none]
+   1.500 Script @__factorio-overhaul__/x.lua:1: note : Created atlas bitmap 1x1 [none]
+   1.600 Script @__factorio-overhaul__/x.lua:2: note : Created virtual atlas pages 4096x4096x9
+   1.700 Script @__factorio-overhaul__/x.lua:3: Generated mipmaps (9) for atlas [0] of size 2048x1316
+Created atlas bitmap 4x4 [decal]
+   2.681 Created virtual atlas pages 4096x4096x9
+   3.000 Generated mipmaps (3) for atlas [0] of size 2048x1316
+"""
+r4 = vram.parse_log(LOG4)
+check(len(r4["atlases"]) == 1 and r4["atlases"][0]["h"] == 1316, "atlas : impression de script et ligne sans horodatage ignorees")
+check(r4["virtual_atlases"] == [{"w": 4096, "h": 4096, "pages": 9}], "atlas virtuel releve une fois (pas la ligne de script)")
+check(r4["atlases"][0]["mips"] == 3, "mipmaps : ligne de script ignoree")
+vram.estimate(r4)
+check(any("atlas VIRTUEL : 9 page(s) de 4096x4096 (151.0 Mpx)" in ln for ln in vram.report_lines(r4)),
+      "rapport : atlas virtuel signale, hors estimation")
+check(vram.estimate(r4)["pixels"] == 2048 * 1316, "atlas virtuel hors du total de pixels")
+check(vram.parse_log(LOG)["virtual_atlases"] == [], "pas d'atlas virtuel sans la ligne")
 print("BILAN unitaire : %d OK, %d ECHEC(S)" % (ok, fail))
 sys.exit(1 if fail else 0)
