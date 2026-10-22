@@ -10,7 +10,7 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 22/10/2026, 7 h 45** (orchestrateur, session Claude Code du 21-22/10).
+> **Dernière mise à jour : 22/10/2026, 7 h 55** (orchestrateur, session Claude Code du 21-22/10).
 > Mettez à jour ce fichier à chaque jalon.
 
 ## 1. En dix lignes
@@ -38,8 +38,8 @@
    - les bâtiments GRANDISSENT avec les époques, jusqu'à environ 6×6, avec plus de détail ;
    - test du regard naïf ;
    - agrandissement sur place si la place est libre.
-7. **En cours : V3-S** (charte de direction artistique, 3 approches sur la mitrailleuse) et le test de
-   Stable Diffusion local.
+7. **En cours : V3-S** (charte de direction artistique, 3 approches sur la mitrailleuse). Le test de
+   Stable Diffusion local est fait (E42) : outil d'inspiration seulement.
 8. Ensuite :
    - verdict du DC sur V3-S, puis reprise des 7 familles ;
    - Compaction ×4 (C) et construction d'IA1, en parallèle (Q18) ;

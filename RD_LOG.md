@@ -232,6 +232,30 @@ recalibrage sur le calendrier X0, recherche vanilla allégée (lot V2c, 22/10)**
 - Non fait : banc `content` en moteur réel (réservé à l'orchestrateur ; attendu 212 OK) ; panneau jamais vu à
   l'écran ; coût d'UN recensement Q16 sur une grande carte non mesuré (H-L1) ; QX10 non tenu (Q-V2c-1).
 
+**E42 · Résultat mitigé · Stable Diffusion local, pour des images de concept (22/10, 7 h 25 à 7 h 50)** :
+- Installation : AUTOMATIC1111 (version AMD v1.10.1) avec ZLUDA, sur la RX 6900 XT. Modèles présents :
+  DreamShaper 8 (SD 1.5), DreamShaper XL 2.1 Turbo (SDXL) et SD 1.5 de base. Ni ControlNet ni LoRA.
+- Lancement : serveur d'API seul, hors ligne, priorité basse, sorties redirigées. Rien n'a été installé
+  ni téléchargé, et aucun fichier de l'installation n'a été modifié. Seul le cache de ZLUDA a grossi de
+  3 Mo.
+- **Incident** : au premier lancement, le serveur a écouté sur toutes les interfaces du réseau local
+  pendant environ 1 min, avant d'être relancé en local seulement (127.0.0.1).
+- Mesures :
+  - SDXL Turbo en fp16 : 17 à 19 s par image en 1024×1024 ;
+  - avec le réglage fp32 de l'utilisateur : 15 à 18 s PAR PAS, car la mémoire vidéo déborde ;
+  - SD 1.5 : 7 s par image, inutilisable (aucune tourelle).
+- Jugement :
+  - utile pour l'INSPIRATION : rouille et rivets crédibles, masse, canons multiples. Les images
+    « légendaires » donnent une vraie impression de puissance ;
+  - défauts : caméra instable, ombres vers l'ouest (l'inverse de Factorio), « 6×6 » ignoré, palette
+    brune uniforme, détails illogiques de près ;
+  - échecs nets : aucune progression dans une série (copies identiques) ; une « machine 6×6 » qui n'est
+    qu'un champ de tuyaux ;
+  - piste la plus utile : img2img depuis un sprite existant, à un débruitage de 0,55. Il garde la caméra,
+    la silhouette et la palette, et ajoute du détail.
+- Jamais un sprite final : une image 2D isolée n'a ni cohérence entre directions ni calques séparés.
+- Planche et journaux : `<racine>o-logs6-10-22_SD-test\`.
+
 **E41 · VALIDÉ · Budget A1 avec le PvP, banc épinglé (22/10, 3 h 10)** :
 - `ia0-perf` : 216 000 ticks, 4 factions, 50 compagnons, difficulté Normale, conditions d'E21.
   - Script : 0,108 ms/tick en moyenne, p99 0,699, maximum 13,9 ms.
