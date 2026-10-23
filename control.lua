@@ -28,6 +28,7 @@ require("script.companion.bench")
 -- Monde : dangers et bienfaits des biomes, mécaniques des déchiqueteurs
 require("script.world.hazards")
 require("script.world.enemy_mechanics")
+require("script.world.guarantee") -- lot M0 : monnaies des époques 5, 7 et 8 garanties sur toute carte
 
 -- Factions IA (pilier 2) : état, équipes (cerveau d'équipe, tâches, ouvriers), commandant, guerre
 require("script.faction.state")

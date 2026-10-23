@@ -321,6 +321,9 @@ check(rr and rr.ok and rr.reason == "done" and s.find_entity("fo-lvl-gun-12", { 
 section("V3-T : sauvegarde 0.4.1 rechargée sans changement de version (filet), voisins déjà grossis, chantier forcé")
 M.new_game({ p_busy = 0, p_nopath = 0, p_lost = 0 })
 force_prints()
+-- Lot M0 : la garantie des monnaies (on_init) retire le décor vanilla des disques de ses sites, une zone par ligne ;
+-- ce cas ne compte que les décors retirés sous les bâtiments reposés.
+W().decoratives_cleared = nil
 local L3 = require("shared.levels.config")       -- instance chargée par le mod (M.load_mod vide le cache)
 local Foot3 = require("shared.levels.footprint")
 local Levels3 = require("script.levels.levels")

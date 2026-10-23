@@ -460,19 +460,19 @@ end
 
 --- Ressources vanilla et ressources déjà livrées par le mod (shared/content/world.lua), avec leur époque.
 --- placement : « vanilla-start » (zone de départ vanilla), « vanilla » (autoplace vanilla, non garanti
---- sur une carte réglée sans pétrole ni uranium : choix du joueur), ou garantie PROPOSÉE pour l'existant
---- (world.lua ne pose aujourd'hui ces biomes que par bruit, sans garantie).
+--- sur une carte réglée sans pétrole ni uranium : choix du joueur), ou garantie posée par script pour les
+--- monnaies d'époque déjà livrées (lot M0 : shared/content/guarantee.lua lit count et distance ci-dessous).
 X.base_resources = {
   { name = "iron-ore", epoch = 1, placement = { vanilla = "start" } }, { name = "copper-ore", epoch = 1, placement = { vanilla = "start" } },
   { name = "coal", epoch = 1, placement = { vanilla = "start" } }, { name = "stone", epoch = 1, placement = { vanilla = "start" } },
   { name = "wood", epoch = 1, placement = { vanilla = "start" } }, { name = "raw-fish", epoch = 1, placement = { vanilla = "autoplace" } },
   { name = "water", epoch = 3, placement = { vanilla = "start" } }, { name = "crude-oil", epoch = 4, placement = { vanilla = "autoplace" } },
   { name = "fo-tungsten-ore", epoch = 5, existing = true, placement = { autoplace = "fo-volcanic-ash", guaranteed = { count = 1, distance = { 200, 500 },
-      what_fr = "PROPOSÉ (lot X5) : un gisement de tungstène dans la zone de cendres garantie des fumerolles" } } },
+      what_fr = "posé par script (lot M0) : un gisement de tungstène d'environ 200 000 sur un disque de cendres, partie neuve toujours, sauvegarde existante s'il n'en est connu aucun" } } },
   { name = "fo-resonance-crystal", epoch = 7, existing = true, placement = { autoplace = "fo-crystal-flats", guaranteed = { count = 1, distance = { 250, 600 },
-      what_fr = "PROPOSÉ (lot X7) : une plaine de cristal posée par script si la graine n'en a pas à cette distance" } } },
+      what_fr = "posé par script (lot M0) : un gisement de cristal d'environ 120 000 sur une plaine de cristal, mêmes conditions" } } },
   { name = "fo-methane", epoch = 8, existing = true, placement = { autoplace = "fo-toxic-marsh", guaranteed = { count = 2, distance = { 250, 700 },
-      what_fr = "PROPOSÉ (lot X8) : 2 puits de méthane posés par script, même hors marais" } } },
+      what_fr = "posé par script (lot M0) : 2 puits de méthane à 150 % dans une flaque de marais, mêmes conditions (puits connus comptés)" } } },
   { name = "uranium-ore", epoch = 9, placement = { vanilla = "autoplace" } },
 }
 

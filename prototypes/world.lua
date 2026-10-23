@@ -272,77 +272,99 @@ local function solid_resource(spec, order)
   return res
 end
 
+--- Minerai (kind = "ore") : contrôle d'autoplacement, gisement, objet du minerai (combustible si spec.fuel),
+--- plaque et sa recette au four (si spec.plate).
+local function ore_prototypes(spec, letter)
+  out[#out + 1] = autoplace_control(spec.resource, letter)
+  out[#out + 1] = solid_resource(spec, letter)
+  local item = tinted_item(spec.item, spec.copy_icon, spec.tint)
+  if spec.fuel then
+    item.fuel_value = spec.fuel.value
+    item.fuel_category = spec.fuel.category
+    item.fuel_acceleration_multiplier = spec.fuel.acceleration
+    item.fuel_top_speed_multiplier = spec.fuel.top_speed
+    item.fuel_emissions_multiplier = spec.fuel.emissions
+  end
+  out[#out + 1] = item
+  if spec.plate then
+    out[#out + 1] = tinted_item(spec.plate.item, spec.plate.copy_icon, spec.tint)
+    out[#out + 1] = lib.recipe(spec.plate.item, { { spec.item, spec.plate.ore_per_plate } },
+      spec.plate.item, 1, spec.plate.energy, { category = "smelting" })
+  end
+end
+
+--- Fluide (kind = "fluid") : fluide, puits (sortie de fluide liée au biome), contrôle d'autoplacement, recette de
+--- craquage (si spec.cracking).
+local function fluid_prototypes(spec, key, letter)
+  local fluid = lib.copy("fluid", spec.copy_fluid)
+  fluid.name = spec.fluid
+  fluid.localised_name = { "fluid-name." .. spec.fluid }
+  fluid.base_color = spec.tint
+  fluid.flow_color = { r = math.min(1, spec.tint.r + 0.3), g = math.min(1, spec.tint.g + 0.1), b = math.min(1, spec.tint.b + 0.3) }
+  fluid.fuel_value = spec.fuel_value
+  fluid.order = "a[fluid]-z[" .. spec.fluid .. "]"
+  lib.set_icons(fluid, { { icon = fluid.icon, icon_size = fluid.icon_size, icon_mipmaps = fluid.icon_mipmaps, tint = spec.tint } })
+  out[#out + 1] = fluid
+
+  local well = lib.copy("resource", spec.copy_resource)
+  well.name = spec.resource
+  well.localised_name = { "entity-name." .. spec.resource }
+  well.order = "a-b-z-" .. letter
+  well.map_color = spec.map_color
+  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
+  lib.tint_sprites(well.stages, spec.tint)
+  lib.set_icons(well, { { icon = well.icon, icon_size = well.icon_size, icon_mipmaps = well.icon_mipmaps, tint = spec.tint } })
+  well.autoplace = biome_bound_autoplace({
+    name = spec.resource,
+    order = "d",
+    base_density = spec.autoplace.base_density,
+    base_spots_per_km2 = spec.autoplace.base_spots_per_km2,
+    random_probability = spec.autoplace.random_probability,
+    random_spot_size_minimum = 1,
+    random_spot_size_maximum = 1,
+    additional_richness = spec.autoplace.additional_richness,
+    has_starting_area_placement = false,
+    regular_rq_factor_multiplier = 1,
+  }, biome_by_name[spec.biome].region, spec.autoplace.seed1)
+  out[#out + 1] = well
+  out[#out + 1] = autoplace_control(spec.resource, letter)
+
+  local c = spec.cracking
+  if c then
+    out[#out + 1] = {
+      type = "recipe",
+      name = "fo-" .. key .. "-cracking",
+      category = "chemistry",
+      enabled = false,
+      energy_required = c.energy,
+      ingredients = { { type = "fluid", name = spec.fluid, amount = c.input } },
+      results = { { type = "fluid", name = c.product, amount = c.output } },
+      main_product = c.product,
+      subgroup = "fluid-recipes",
+      order = "z[fo]-a[" .. key .. "-cracking]",
+      icons = { { icon = fluid.icons[1].icon, icon_size = fluid.icons[1].icon_size, icon_mipmaps = fluid.icons[1].icon_mipmaps, tint = spec.tint } },
+    }
+  end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Ressources générées depuis les données (lot M0) : une entrée de W.resources par clé de W.resource_order, selon
+-- son genre. La lettre d'ordre (a, b, c...) suit l'ordre de la liste (celui des époques).
+---------------------------------------------------------------------------------------------------
+for i, key in ipairs(W.resource_order) do
+  local spec = W.resources[key]
+  local letter = string.char(string.byte("a") + i - 1)
+  if spec.kind == "ore" then
+    ore_prototypes(spec, letter)
+  elseif spec.kind == "fluid" then
+    fluid_prototypes(spec, key, letter)
+  else
+    error("factorio-overhaul : genre de ressource inconnu pour " .. key .. " : " .. tostring(spec.kind))
+  end
+end
+
 local tungsten = W.resources.tungsten
-out[#out + 1] = autoplace_control(tungsten.resource, "a")
-local tungsten_res = solid_resource(tungsten, "a")
-out[#out + 1] = tungsten_res
-out[#out + 1] = tinted_item(tungsten.item, tungsten.copy_icon, tungsten.tint)
-out[#out + 1] = tinted_item(tungsten.plate.item, tungsten.plate.copy_icon, tungsten.tint)
-out[#out + 1] = lib.recipe(tungsten.plate.item, { { tungsten.item, tungsten.plate.ore_per_plate } },
-  tungsten.plate.item, 1, tungsten.plate.energy, { category = "smelting" })
-
-local crystal = W.resources.crystal
-out[#out + 1] = autoplace_control(crystal.resource, "b")
-local crystal_res = solid_resource(crystal, "b")
-out[#out + 1] = crystal_res
-local crystal_item = tinted_item(crystal.item, crystal.copy_icon, crystal.tint)
-crystal_item.fuel_value = crystal.fuel.value
-crystal_item.fuel_category = crystal.fuel.category
-crystal_item.fuel_acceleration_multiplier = crystal.fuel.acceleration
-crystal_item.fuel_top_speed_multiplier = crystal.fuel.top_speed
-crystal_item.fuel_emissions_multiplier = crystal.fuel.emissions
-out[#out + 1] = crystal_item
-
----------------------------------------------------------------------------------------------------
--- Méthane : ressource fluide des marais, carburant de lance-flammes, craquable en gaz
----------------------------------------------------------------------------------------------------
 local methane = W.resources.methane
-local fluid = lib.copy("fluid", methane.copy_fluid)
-fluid.name = methane.fluid
-fluid.localised_name = { "fluid-name." .. methane.fluid }
-fluid.base_color = methane.tint
-fluid.flow_color = { r = math.min(1, methane.tint.r + 0.3), g = math.min(1, methane.tint.g + 0.1), b = math.min(1, methane.tint.b + 0.3) }
-fluid.fuel_value = methane.fuel_value
-fluid.order = "a[fluid]-z[fo-methane]"
-lib.set_icons(fluid, { { icon = fluid.icon, icon_size = fluid.icon_size, icon_mipmaps = fluid.icon_mipmaps, tint = methane.tint } })
-out[#out + 1] = fluid
-
-local well = lib.copy("resource", methane.copy_resource)
-well.name = methane.resource
-well.localised_name = { "entity-name." .. methane.resource }
-well.order = "a-b-z-c"
-well.map_color = methane.map_color
-well.minable.results = { { type = "fluid", name = methane.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
-lib.tint_sprites(well.stages, methane.tint)
-lib.set_icons(well, { { icon = well.icon, icon_size = well.icon_size, icon_mipmaps = well.icon_mipmaps, tint = methane.tint } })
-well.autoplace = biome_bound_autoplace({
-  name = methane.resource,
-  order = "d",
-  base_density = methane.autoplace.base_density,
-  base_spots_per_km2 = methane.autoplace.base_spots_per_km2,
-  random_probability = methane.autoplace.random_probability,
-  random_spot_size_minimum = 1,
-  random_spot_size_maximum = 1,
-  additional_richness = methane.autoplace.additional_richness,
-  has_starting_area_placement = false,
-  regular_rq_factor_multiplier = 1,
-}, biome_by_name[methane.biome].region, methane.autoplace.seed1)
-out[#out + 1] = well
-out[#out + 1] = autoplace_control(methane.resource, "c")
-
-out[#out + 1] = {
-  type = "recipe",
-  name = "fo-methane-cracking",
-  category = "chemistry",
-  enabled = false,
-  energy_required = methane.cracking.energy,
-  ingredients = { { type = "fluid", name = methane.fluid, amount = methane.cracking.methane } },
-  results = { { type = "fluid", name = "petroleum-gas", amount = methane.cracking.petroleum } },
-  main_product = "petroleum-gas",
-  subgroup = "fluid-recipes",
-  order = "z[fo]-a[methane-cracking]",
-  icons = { { icon = fluid.icons[1].icon, icon_size = fluid.icons[1].icon_size, icon_mipmaps = fluid.icons[1].icon_mipmaps, tint = methane.tint } },
-}
 
 ---------------------------------------------------------------------------------------------------
 -- Technologies
