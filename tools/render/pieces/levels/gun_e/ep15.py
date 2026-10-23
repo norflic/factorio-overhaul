@@ -44,20 +44,28 @@ FOYER = dict(rgb=(1.0, 0.902, 0.659), rgb2=(1.0, 0.639, 0.278), doux=dict(force=
 # tubes lourds (+5 % de calibre), L 3,10 (+10,7 % sur 14)
 CANON = dict(L=3.1, nb=6, rb=0.076, rr=0.185)
 PLATEFORME = dict(chanfrein=0.32)
-HABILLAGE = dict(jupe_cerclage="or_chauffe", chapeau="or_chauffe", tremie="noir_chaud", tourelleau="noir_chaud",
-                 capots=("noir_chaud", "or_chauffe"), acier=("noir_profond", "or_chauffe"), rivets="or_rivet",
+# RONDE 2 : rayon de la SPHÈRE D'HORIZON dessinée par l'époque (centre sur le plan du disque, zg + hr + 0,01 = 2,31 ;
+# sommet vers 3,31 : la plus haute pièce de la suite ; aire vue de dessus environ 8,7 % de l'emprise, le disque en
+# couvre une part : fiche §4, horizon 6 à 8 % au plus)
+RS = 1.0
+# RONDE 2 (lecteurs : « or et noir, luxe ») : l'OR quitte le CORPS (plaques ocre, dents, rivets, boulons, grilles,
+# arêtes du pont) pour ne rester qu'à la LAISSE et à la lumière (griffes, bord du disque, conduits en spirale, cerclages) ;
+# le corps est noir chaud à usure de cendre, et ses seules lignes vives sont les liserés de LUMIÈRE des gradins
+HABILLAGE = dict(jupe_cerclage="or_chauffe", chapeau="cendre", tremie="noir_chaud", tourelleau="noir_chaud",
+                 capots=("noir_chaud", "noir_chaud2"), acier=("noir_profond", "cendre"), rivets="cendre",
                  joints="noir_profond", danger=("or_chauffe", "noir_profond"), peinture="noir_chaud",
-                 grille_nacelle="or_chauffe", munitions=("or_chauffe", "noir_profond"),
+                 grille_nacelle="cendre", munitions=("cendre", "noir_profond"),
                  plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="noir_chaud", mat2="noir_chaud2",
-                                 fond="noir_profond", bord="or_chauffe", boulons=None, lisere="emit"),
-                 # PUITS DE GRAVITÉ : gradins de noir chaud à arêtes d'or, lignes de potentiel pleine lumière, AUCUN
-                 # fleuron (les fleurons royaux sont la Légende refusée)
-                 forme_plateforme=dict(forme="gradins", flanc="noir_chaud", flanc2="or_chauffe", lisere="emit",
+                                 fond="noir_profond", bord="cendre", boulons=None, lisere="emit"),
+                 # PUITS DE GRAVITÉ : gradins de noir chaud, lignes de potentiel pleine lumière, AUCUN fleuron (les
+                 # fleurons royaux sont la Légende refusée), aucune arête d'or (ronde 2)
+                 forme_plateforme=dict(forme="gradins", flanc="noir_chaud", flanc2="cendre", lisere="emit",
                                        crenaux=False),
                  # HORIZON NOIR : coque lisse en matière d'horizon (diélectrique lisse : reflet du soleil, se lit comme
                  # une SPHÈRE noire), équateur d'or
                  forme_coupole=dict(forme="coque", mat="horizon", mat2="or_chauffe"),
-                 forme_tremie=dict(forme="entonnoir", mat="noir_chaud", mat2="or_chauffe"))
+                 # ronde 2 : entonnoir de cendre (l'or de la trémie se lisait encore « luxe » à l'aperçu r2)
+                 forme_tremie=dict(forme="entonnoir", mat="noir_chaud", mat2="cendre"))
 RECV = ("noir_chaud", "noir_profond")
 
 
@@ -77,6 +85,16 @@ def matieres(metal, M):
     metal("or_rivet", (0.62, 0.36, 0.08), rough=0.45, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
     # HORIZON : diélectrique lisse presque noir (6 à 8 % de la surface vue au plus)
     metal("horizon", (0.003, 0.003, 0.004), rough=0.06, met=0.0, grain=0.02, dirt=0.05, stain=0.0)
+    # ronde 2 : OR VIF de la laisse (griffes, bord du disque) ; CENDRE : usure claire du corps (dents, rivets, boulons,
+    # grilles, arêtes du pont), à la place de l'or ; TUBES des canons en acier bruni chaud (les tubes d'acier nu clair à
+    # pointes crème se lisaient « cheminées » en pose N)
+    metal("or_vif", (0.8, 0.5, 0.1), rough=0.25, met=0.55, grain=0.1, gscale=40.0, dirt=0.3, stain=0.15, sscale=6.0,
+          wear=0.4)
+    metal("cendre", (0.11, 0.098, 0.085), rough=0.42, met=0.35, grain=0.1, gscale=34.0, dirt=0.4, stain=0.2,
+          sscale=5.0, wear=1.6)
+    metal("acier_brule", (0.17, 0.13, 0.095), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.35, stain=0.15,
+          sscale=6.0, wear=1.0)
+    M["gun"] = M["acier_brule"]
     M["copper"] = M["or_chauffe"]
     M["ring"] = M["or_chauffe"]
     M["jacket"] = M["noir_chaud"]
@@ -569,8 +587,13 @@ def _gun15(g, x, y0, z, L, nb, rb, rr):
     M = g.M
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.3, bague_mat="or_chauffe", conv=0.6,
-                       frein=(0.66, 0.8))
+    # ronde 2 : pointes ORANGE incandescent (des pointes crème se lisaient vapeur de cheminée en pose N)
+    e_, M["emit"] = M["emit"], M["emit2"]
+    try:
+        corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.3, bague_mat="or_chauffe", conv=0.6,
+                           frein=(0.66, 0.8))
+    finally:
+        M["emit"] = e_
     rs = R0 + 0.06 * k + 0.004
     cy = y0 + rs * 0.85 + 0.02
     singularite(g, (x, cy, z), rs, k=k, axe="y", griffes=True)
@@ -655,40 +678,45 @@ def tete(g, c):
     zd0 = K["z0"] + 0.02
     # JUPE D'HORIZON : la sphère noire descend jusqu'au disque (la jupe de la lignée est couverte)
     g.cyl((0, 0, (zd0 + zs) / 2 + 0.01), "z", R + 0.075, zs - zd0 + 0.02, M["horizon"], n=96, what="horizon_jupe")
-    # ronde 1 (aperçus r1a et r1b : à la base de la sphère, le disque est CACHÉ par le masque, la nacelle, les bras et
-    # les caisses de la lignée ; seul son arc avant se voyait) : le DISQUE DE LUMIÈRE est posé AUTOUR DE LA SPHÈRE, au-
-    # dessus des bras (z = zg + hr), comme l'anneau d'une planète : 3 bandes de 48 segments à joints noirs (lumière en
-    # orifices, jamais une plage), bord d'or ; l'ANNEAU DE PHOTONS épouse la coque au ras du disque ; 8 entretoises et la
-    # laisse le tiennent (rien ne flotte)
+    # RONDE 2 (test à l'aveugle de la ronde 1 : « il manque une silhouette propre au dernier niveau », 15 lu « or et noir,
+    # grand anneau, luxe » et confondu avec 13) : l'HORIZON devient une VRAIE SPHÈRE NOIRE, la plus haute pièce de toute
+    # la suite (rayon RS, centre sur le plan du disque, sommet vers 3,3), dessinée par l'époque PAR-DESSUS la coque du
+    # kit (qui reste dessous, cachée) ; le DISQUE DE LUMIÈRE passe par son équateur, comme Saturne ou Gargantua : la moitié
+    # avant du disque barre la sphère, la moitié arrière est mangée par elle. Les canons de coupole sortent de sa face
+    # avant (plus de tourelleau ni de viseur visibles : ils restent sous la sphère).
     zr = H["zg"] + H["hr"] + 0.01
-    rx = _rx_coque(c, zr)
-    rin = 1.06 * rx + 0.014
-    rout = rin + 0.26
-    # plateau continu jusque SOUS la coque (rayon 0,85 rx) : aucun jour entre la sphère et le bord intérieur du disque
-    # (aperçu r1c : deux jours de 10 et 11 px en pose N, derrière la sphère)
-    g.tube_shell((0, 0, zr), "z", rout, rx * 0.85, 0.04, M["noir_chaud"], n=128, what="disque")
-    g.tube_shell((0, 0, zr), "z", rout + 0.022, rout - 0.004, 0.05, M["or_chauffe"], n=128, what="bord_disque")
-    w3 = (rout - rin - 0.04) / 3
-    for j, (mat, ph) in enumerate(((E, 0.0), (M["emit_soft"], 0.33), (M["emit2"], 0.66))):
-        ra = rin + 0.01 + j * (w3 + 0.01)
-        rm = ra + w3 / 2
-        n = 48
-        for i in range(n):
+    g.sphere((0, 0, zr), RS, M["horizon"], n=72, m=36, what="horizon")
+    # DISQUE D'ACCRÉTION élargi (0,54 au lieu de 0,26) : plateau de noir chaud continu depuis l'intérieur de la sphère,
+    # 4 bandes de 64 segments à joints noirs, du blanc pur au bord de l'horizon jusqu'à l'orange au bord extérieur, puis
+    # une bande de poussière (un segment sur deux) ; chaque segment est VRILLÉ de 0,35 rad : le disque tourne et
+    # s'enroule (spirale) vers l'horizon ; bord d'or vif. Il reste dans le rayon libre entre les culasses (1,58).
+    rin = RS + 0.012
+    rout = 1.55
+    g.tube_shell((0, 0, zr), "z", rout, RS * 0.9, 0.04, M["noir_chaud"], n=160, what="disque")
+    g.tube_shell((0, 0, zr), "z", rout + 0.024, rout - 0.004, 0.05, M["or_vif"], n=160, what="bord_disque")
+    # joints décalés d'une bande à l'autre (0,18 de segment) : ils dessinent des BRAS EN SPIRALE, pas un damier (aperçu
+    # r2a : des phases alternées faisaient un damier blanc et noir, lu « luxe »)
+    bandes = ((E, 0.0, 1), (E, 0.18, 1), (M["emit_soft"], 0.36, 1), (M["emit2"], 0.54, 1), (M["emit2"], 0.72, 2))
+    nb_ = len(bandes)
+    wb = (rout - rin - 0.03 - 0.012 * nb_) / nb_
+    for j, (mat, ph, pas) in enumerate(bandes):
+        rm = rin + 0.012 + j * (wb + 0.012) + wb / 2
+        n = 64
+        for i in range(0, n, pas):
             a = TAU * (i + ph) / n
             dd = V((math.cos(a), math.sin(a), 0))
-            g.box(dd * rm + V((0, 0, zr + 0.022)), (TAU * rm / n * 0.72, w3, 0.006), mat, "flat",
-                  R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="segment_disque")
-    ell = [V((rx * 1.004 * math.cos(TAU * i / 96), 1.06 * rx * 1.004 * math.sin(TAU * i / 96), zr + 0.01))
-           for i in range(97)]
-    g.tube(ell, 0.02, E, n=8, caps=False, what="anneau_photons")
-    for i in range(8):
-        a = TAU * (i + 0.5) / 8
-        dd = V((math.cos(a), math.sin(a), 0))
-        pe = V((rx * math.cos(a), 1.06 * rx * math.sin(a), zr - 0.01))
-        pr = dd * (rin + 0.03) + V((0, 0, zr - 0.01))
-        dv = pr - pe
-        g.box((pe + pr) / 2, (0.05, dv.length + 0.04, 0.035), M["noir_chaud"], "hard",
-              R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="entretoise_disque")
+            tg = V((-dd.y, dd.x, 0))
+            # vrille : la longueur du segment penche vers le centre dans le sens du disque
+            tv = (tg * math.cos(0.35) - dd * math.sin(0.35)).normalized()
+            nv = V((-tv.y, tv.x, 0))
+            g.box(dd * rm + V((0, 0, zr + 0.022)), (TAU * rm / n * (0.9 if pas == 1 else 0.6), wb * (0.86 if pas == 1 else 0.5), 0.006), mat,
+                  "flat", R=Matrix((tv, nv, V((0, 0, 1)))).transposed(), what="segment_disque")
+    # ANNEAU DE PHOTONS : tube lumineux fin qui cerne l'horizon au ras du disque, et un second, plus fin, au-dessus
+    g.torus((0, 0, zr + 0.02), "z", RS + 0.006, 0.02, E, n=128, m=8, what="anneau_photons")
+    zp2 = zr + RS * 0.38
+    g.torus((0, 0, zp2), "z", math.sqrt(max(0.0, RS * RS - (zp2 - zr) ** 2)) + 0.004, 0.008, M["emit_soft"], n=128,
+            m=6, what="anneau_photons2")
+    rx = RS
     # LE DISQUE (place « couronne ») : anneau plat de noir chaud, 3 bandes de segments lumineux à joints noirs
     # (lumière en orifices, jamais une plage), bord d'or, 8 bras radiaux qui le tiennent à la jupe
     rd0, rd1 = R + 0.03, r1 + 0.02
@@ -712,14 +740,14 @@ def tete(g, c):
         g.dome(dd * (R + 0.04) + V((0, 0, zd - 0.02)), (0, 0, 1), 0.014, M["rivet"])
     # LA LAISSE : 3 GRIFFES d'or chauffé à 120° (aucune devant le masque avant), qui sortent de la sphère sous le disque,
     # l'enjambent et se referment sur son bord extérieur
-    rx2 = _rx_coque(c, zr - 0.28)
+    rx2 = math.sqrt(RS * RS - 0.28 ** 2)
     for th in (math.radians(30), math.radians(150), math.radians(270)):
         dd = V((math.cos(th), math.sin(th), 0))
-        pe = V((rx2 * 0.97 * math.cos(th), 1.06 * rx2 * 0.97 * math.sin(th), zr - 0.28))
-        pts = [pe, pe + dd * 0.1 + V((0, 0, 0.12)), dd * (rout - 0.08) + V((0, 0, zr + 0.13)),
-               dd * (rout + 0.06) + V((0, 0, zr + 0.08)), dd * (rout + 0.07) + V((0, 0, zr - 0.02)),
+        pe = V((rx2 * 0.97 * math.cos(th), rx2 * 0.97 * math.sin(th), zr - 0.28))
+        pts = [pe, pe + dd * 0.12 + V((0, 0, 0.1)), dd * (rout - 0.1) + V((0, 0, zr + 0.14)),
+               dd * (rout + 0.06) + V((0, 0, zr + 0.09)), dd * (rout + 0.07) + V((0, 0, zr - 0.02)),
                dd * (rout + 0.01) + V((0, 0, zr - 0.06))]
-        griffe(g, pts, 0.11, 0.065)
+        griffe(g, pts, 0.12, 0.07, mat=M["or_vif"])
     for sx in (-1, 1):
         xe = sx * (H["gx"] - H["wr"] * 0.5 - 0.08)
         ye = H["recv"][0] + 0.35
@@ -727,11 +755,9 @@ def tete(g, c):
         cables(g, cc)
         conduit_or(g, [(sx * 0.6, -R - 0.3, zs + 0.1), (sx * R * 0.8, -R * 0.5, zs + 0.22),
                        (xe, ye + 0.2, H["zg"] + H["hr"] * 0.55)], 0.034)
-    # DEUX canons de coupole jumelés, plantés dans l'horizon comme des lances
-    dx = 0.64
-    zc = 0.0
+    # DEUX canons de coupole jumelés qui SORTENT DE LA FACE AVANT de l'horizon, au-dessus du disque (ronde 2)
     for sx in (-1, 1):
-        zc = dome_gun(g, c, sx * dx, 2.3, 0.9)
+        lance(g, zr, sx * 0.4, 2.3, 0.9)
     # nacelle : 2 cellules d'annihilation à fenêtres blanc-or
     bx, yb0, yb1 = c.nac[:3]
     znac = zs + H["rz"] * 0.42
@@ -742,9 +768,28 @@ def tete(g, c):
             g.tube_shell(cc + V((0, 0, zz)), "z", 0.088, 0.07, 0.022, M["or_chauffe"], n=20, what="cerclage")
         fenetre(g, cc + V((0, -0.081, 0.09)), (0, -1, 0), 0.05, 0.06)
     PT.capacitors(g, (0.0, -R - 0.14, zs + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit2"])
-    xs_, ys_ = -R * 0.64, R * 0.3
-    PT.sight(g, (xs_, ys_, corps.z_coque(c, xs_, ys_) - 0.18), 0.26, 0.26, 0.15, E, lenses=2)
     _halo(g, [(0.0, -R - 0.6, zd + 0.1)], 14.0)
+
+
+def lance(g, zr, xg, L, s):
+    """Canon de coupole de la ronde 2 : sa culasse est ENFONCÉE dans la face avant de l'horizon (seule la moitié avant
+    en sort), collier de 3 griffes d'or vif au ras de la sphère, canon de l'époque à micro-singularité. Rien ne flotte :
+    la culasse traverse la surface de la sphère."""
+    M = g.M
+    zc = zr + 0.4 * s
+    rr_ = math.sqrt(max(0.0, RS * RS - (zc - zr) ** 2 - xg * xg))
+    ys = rr_                                   # point de la surface de la sphère devant le canon
+    y0, y1 = ys - 0.38 * s, ys + 0.22 * s
+    PT.receiver(g, xg, y0, y1, zc - 0.15 * s, zc + 0.13 * s, 0.3 * s, mats=[M[k] for k in RECV])
+    for sxx in (-1, 1):
+        g.box((xg + sxx * 0.155 * s, ys + 0.1 * s, zc), (0.02, 0.06, 0.2 * s), M["or_chauffe"], "hard", what="bande")
+    _gun15(g, xg, y1, zc, L, 6, 0.05 * s, 0.12 * s)
+    for i in range(3):
+        a = TAU * i / 3 + 0.5
+        d = V((math.cos(a), 0.0, math.sin(a)))
+        q = V((xg, ys - 0.02, zc)) + d * 0.2 * s
+        griffe(g, [q - V((0, 0.05, 0)), q + V((0, 0.08, 0)) + d * 0.05, q + V((0, 0.16, 0)) - d * 0.02],
+               0.05, 0.035, mat=M["or_vif"])
 
 
 def _dans_habillage(f):

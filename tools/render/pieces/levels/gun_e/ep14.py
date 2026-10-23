@@ -68,6 +68,11 @@ def matieres(metal, M):
           ra=0.06, dirt=0.55, stain=0.25, sscale=5.0, wear=0.4, mottle=0.12)
     metal("horizon_porte", (0.006, 0.008, 0.04), rough=0.3, met=0.0, grain=0.04, dirt=0.1, stain=0.0)
     metal("roche", (0.035, 0.03, 0.028), rough=0.85, met=0.05, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6, wear=2.0)
+    # ronde 2 : TUBES des canons en acier BLEUI indigo, satiné (test à l'aveugle de la ronde 1 : les tubes d'acier nu
+    # clair à pointes blanches se lisaient « cheminées » en pose N ; fiche §3 E1 : jaquette indigo)
+    metal("acier_bleui", (0.05, 0.062, 0.25), rough=0.3, met=0.45, grain=0.08, gscale=40.0, dirt=0.35, stain=0.15,
+          sscale=6.0, wear=0.9)
+    M["gun"] = M["acier_bleui"]
     M["copper"] = M["blanc_lunaire"]
     M["ring"] = M["blanc_lunaire"]
     M["jacket"] = M["indigo_nuit"]

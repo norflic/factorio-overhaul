@@ -49,7 +49,9 @@ HABILLAGE = dict(jupe_cerclage="cuivre_bobine", chapeau="cuivre_bobine", tremie=
                  forme_plateforme=dict(forme="bastions", flanc="acier_canon", flanc2="cuivre_bobine"),
                  # la tête devient une BOUTEILLE MAGNÉTIQUE géante : cloche de verre fumé violet-noir, meneaux et
                  # cerces de cuivre (bandes de bobinage), bouton d'annihilation
-                 forme_coupole=dict(forme="cloche", verre="verre_fume", mat="acier_canon", mat2="acier_noir",
+                 # ronde 2 : meneaux et cerces en VERRE VIOLET plus sombre (les meneaux radiaux noirs dessinaient un
+                 # « vortex » vu de dessus : 13 pris pour le Néant) ; la cloche se lit en bulbe de verre lisse
+                 forme_coupole=dict(forme="cloche", verre="verre_fume", mat="acier_canon", mat2="verre_meneau",
                                     lisere="emit"),
                  forme_jupe=dict(forme="conique", mat="acier_canon", mat2="acier_noir"),
                  forme_tremie=dict(forme="silo", mat="acier_canon", mat2="acier_noir"))
@@ -60,9 +62,12 @@ def matieres(metal, M):
     """Antimatière : acier canon gris froid à reflet prune (60), cuivre rouge de bobinage (30), verre fumé violet-noir,
     chrome fin, acier noir. Albédos de la fiche convertis en linéaire ; l'acier canon est remonté d'un cran (risque 1
     de la fiche : trois corps sombres de suite, éclaircir 13 d'abord)."""
-    metal("acier_canon", (0.135, 0.13, 0.175), rough=0.35, met=0.42, grain=0.1, gscale=34.0, rust=(0.1, 0.06, 0.08),
+    # ronde 2 (test à l'aveugle : 13 lu « disque violet sombre, vortex » et pris pour le Néant ; « même squelette » que
+    # 14) : acier canon ÉCLAIRCI d'un cran (risque 1 de la fiche : éclaircir 13 d'abord) ; l'ère V descend désormais
+    # nettement en valeur, 13 gris moyen, 14 indigo sombre, 15 noir
+    metal("acier_canon", (0.2, 0.19, 0.245), rough=0.35, met=0.4, grain=0.1, gscale=34.0, rust=(0.1, 0.06, 0.08),
           ra=0.08, dirt=0.55, stain=0.35, sscale=5.0, wear=1.4, streak=0.35, mottle=0.25)
-    metal("acier_canon2", (0.115, 0.11, 0.15), rough=0.36, met=0.42, grain=0.1, gscale=34.0, dirt=0.55, stain=0.35,
+    metal("acier_canon2", (0.17, 0.16, 0.21), rough=0.36, met=0.4, grain=0.1, gscale=34.0, dirt=0.55, stain=0.35,
           sscale=5.0, wear=1.2, mottle=0.25)
     metal("acier_noir", (0.02, 0.02, 0.028), rough=0.4, met=0.5, grain=0.12, dirt=0.5, stain=0.2, wear=1.6)
     # cuivre de bobinage : métallicité 0,6 au plus (un cuivre à 0,9 sort sombre de dessus, ronde 3)
@@ -74,6 +79,7 @@ def matieres(metal, M):
     # verre fumé de la cloche : violet-noir, lisse, OPAQUE (aucun sol vu au travers)
     # ronde 1 (aperçu r1a : la cloche se lisait « dôme de cuivre ») : verre plus VIOLET et un peu plus clair
     metal("verre_fume", (0.075, 0.03, 0.17), rough=0.08, met=0.0, grain=0.04, dirt=0.2, stain=0.12, sscale=4.0)
+    metal("verre_meneau", (0.055, 0.022, 0.125), rough=0.12, met=0.0, grain=0.04, dirt=0.2, stain=0.1, sscale=4.0)
     # couronne d'isolateurs de la cloche (matière « ceramique » du kit) : acier noir, pour ne pas rappeler l'Électricité
     metal("ceramique", (0.02, 0.02, 0.028), rough=0.4, met=0.5, grain=0.12, dirt=0.5, stain=0.2)
     M["copper"] = M["cuivre_bobine"]
@@ -641,10 +647,26 @@ def tete(g, c):
             sd = nm.cross(tg).normalized()
             g.box((p0 + p1) / 2, ((p1 - p0).length, 0.03, 0.006), E if ph < 0.5 else M["emit2"], "flat",
                   R=Matrix((tg, sd, nm)).transposed(), what="fente_cloche")
-    # deux bandes de bobinage de cuivre seulement (la cloche reste du verre)
-    for ph in (0.12, 0.42):
-        pts = [c.Pf(TAU * i / 64, ph, 1.012) for i in range(65)]
-        g.tube(pts, 0.022, M["cuivre_bobine"], n=8, caps=False, what="bobinage_cloche")
+    # ronde 2 : DEUX BOBINES ÉPAISSES (bouteille magnétique à MIROIRS : la lumière est enfermée entre deux bobines),
+    # chacune 4 spires de cuivre serrées entre deux joues de chrome ; la cloche reste du verre entre elles
+    # bobine basse : sur c.Pf (au bas de la cloche, Pf suit la coque) ; bobine HAUTE : anneaux horizontaux posés à la
+    # hauteur réelle de la coque (corps.z_coque : plus haut, Pf passe SOUS le verre de la cloche, constaté sur l'aperçu)
+    ph0 = 0.06
+    for kk in range(4):
+        pts = [c.Pf(TAU * i / 72, ph0 + 0.035 * kk, 1.02) for i in range(73)]
+        g.tube(pts, 0.026, M["cuivre_bobine"], n=8, caps=False, what="bobinage_cloche")
+    for ph in (ph0 - 0.022, ph0 + 0.035 * 3 + 0.022):
+        pts = [c.Pf(TAU * i / 72, ph, 1.034) for i in range(73)]
+        g.tube(pts, 0.014, M["chrome_fin"], n=8, caps=False, what="joue_bobine")
+    R_ = H["R"]
+    # aperçu r2 : 5 anneaux espacés faisaient une CIBLE (rappel du vortex) : une seule bande serrée de 3 spires
+    for kk, (fr, rt_, mt) in enumerate(((0.56, 0.026, "cuivre_bobine"), (0.592, 0.026, "cuivre_bobine"),
+                                       (0.624, 0.026, "cuivre_bobine"))):
+        rr_ = R_ * fr
+        pts = [V((rr_ * math.cos(TAU * i / 72), rr_ * math.sin(TAU * i / 72), 0.0)) for i in range(73)]
+        for p in pts:
+            p.z = corps.z_coque(c, p.x, p.y) + rt_ * 0.6
+        g.tube(pts, rt_, M[mt], n=8, caps=False, what="bobine_haute")
     dome_gun(g, c, 6, 1.6, 0.95)
     # nacelle : batterie de 2 bouteilles couchées (réserve d'antimatière de la tête)
     bx, yb0, yb1 = c.nac[:3]
