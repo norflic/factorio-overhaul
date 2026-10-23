@@ -25,6 +25,7 @@ Code de sortie : 0 si chaque tir est reconnu, de la bonne ère, au bon instant, 
 sans tir ; 1 sinon ; 2 entrée illisible.
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -136,6 +137,23 @@ def fit_times(shots, dets, tol):
     return a, b
 
 
+GAIN_S = 0.9  # s : gain mesuré avant le tir suivant (60 ticks = 0,98 s de sortie)
+
+
+def volumes_attendus(mod):
+    """Volume du prototype par ère lu dans sound/levels/gun/sons.lua (`volumes`, sinon `volume`) ; ère 0 (vanilla) : 0,4."""
+    txt = open(os.path.join(mod, "sound", "levels", "gun", "sons.lua"), encoding="utf-8").read()
+    m = re.search(r"^\s*volume\s*=\s*([\d.]+)", txt, re.M)
+    base = float(m.group(1)) if m else 0.4
+    vols = {e: base for e in range(1, 6)}
+    mv = re.search(r"volumes\s*=\s*\{([^}]*)\}", txt)
+    if mv:
+        for k, v in re.findall(r"\[(\d)\]\s*=\s*([\d.]+)", mv.group(1)):
+            vols[int(k)] = float(v)
+    vols[0] = 0.4
+    return vols
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("raw")
@@ -145,6 +163,9 @@ def main():
     ap.add_argument("--seuil", type=float, default=0.5)
     ap.add_argument("--tol-ms", type=float, default=60.0)
     ap.add_argument("--wav", default=None)
+    ap.add_argument("--tol-db", type=float, default=0.2)
+    ap.add_argument("--json", default=None, help="écrit les gains relatifs par ère (pour --avant)")
+    ap.add_argument("--avant", default=None, help="JSON d'une session précédente : contrôle différentiel des volumes")
     a = ap.parse_args()
 
     try:
@@ -184,7 +205,7 @@ def main():
         if rate != fs:
             print("[FO-TIRS-JOUES] ECHEC %s : %d Hz (sortie %d Hz)" % (path, rate, fs))
             return 2
-        tpl.append({"name": name, "era": era, "var": var, "rho": ncc(x, y), "len": len(y)})
+        tpl.append({"name": name, "era": era, "var": var, "rho": ncc(x, y), "len": len(y), "y": y})
     n = min(len(t["rho"]) for t in tpl)
     R = np.vstack([t["rho"][:n] for t in tpl])
     best = R.max(axis=0)
@@ -199,7 +220,7 @@ def main():
         other = R[eras != tpl[k]["era"], j].max()
         oarg = int(np.argmax(np.where(eras != tpl[k]["era"], R[:, j], -9)))
         dets.append({"i": j, "t": j / float(fs), "tpl": tpl[k]["name"], "era": tpl[k]["era"], "var": tpl[k]["var"],
-                     "rho": float(R[k, j]), "autre": float(other), "autre_tpl": tpl[oarg]["name"]})
+                     "rho": float(R[k, j]), "autre": float(other), "autre_tpl": tpl[oarg]["name"], "k": k})
     print("[FO-TIRS-JOUES] detections (correlation > %.2f, separees de 0,3 s) : %d" % (a.seuil, len(dets)))
 
     tol = a.tol_ms / 1000.0
@@ -273,10 +294,63 @@ def main():
             w.setframerate(fs)
             w.writeframes((st * 32768.0).round().clip(-32768, 32767).astype("<i2").tobytes())
         print("[FO-TIRS-JOUES] WAV ecrit : %s" % a.wav)
-    good = ok_rec == len(shots) and ok_era == len(shots) and not extra
+    # volume EN JEU : gain de chaque tir apparié (moindres carrés sur les GAIN_S premières secondes, avant le tir
+    # suivant) rapporté au fichier ; médiane par ère, rapportée au site vanilla. Ce rapport porte aussi un biais PAR SITE
+    # (même distance d'écoute au centre de la tourelle, mais 24/10 : de −0,6 à +0,2 dB à volumes égaux, tirs à ±0,05 dB
+    # près ; cause non établie, hypothèse : le son part de la bouche, plus loin du centre sur les grands âges) : il n'est
+    # donc PAS comparé à l'attendu tel quel. Contrôle : DIFFÉRENTIEL entre deux sessions sur les mêmes sites (--avant :
+    # JSON écrit par --json d'une session précédente) : le décalage mesuré de chaque ère doit être celui des volumes du
+    # prototype (sons.lua) à --tol-db près.
+    vols = volumes_attendus(a.mod)
+    gains = {}
+    for k in sorted(used):
+        d = dets[k]
+        y = tpl[d["k"]]["y"]
+        m = min(int(GAIN_S * fs), len(y), n - d["i"])
+        seg, ref = x[d["i"]:d["i"] + m], y[:m]
+        gains.setdefault(d["era"], []).append(float(np.dot(seg, ref) / np.dot(ref, ref)))
+    rel = {}
+    vol_ok = None
+    if 0 in gains:
+        g0 = float(np.median(gains[0]))
+        parts = []
+        for e in sorted(gains):
+            if e == 0:
+                continue
+            rel[e] = 20 * np.log10(float(np.median(gains[e])) / g0)
+            gd = 20 * np.log10(np.array(gains[e]) / g0)
+            parts.append("ere %d %+.2f dB (tirs de %+.2f a %+.2f)" % (e, rel[e], gd.min(), gd.max()))
+        print("[FO-TIRS-JOUES] volume en jeu, gain median du tir rapporte au site vanilla (biais de site compris) ; volumes "
+              "du prototype lus dans sons.lua : %s : %s" % (", ".join("%d=%.4f" % (e, vols[e]) for e in sorted(vols)),
+                                                          " ; ".join(parts)))
+        print("[FO-TIRS-JOUES] gain absolu du site vanilla (sortie / fichier) : %.4f (%.1f dB ; volume 0,4 = %.1f dB, le "
+              "reste : distance d'ecoute et mixage du jeu)" % (g0, 20 * np.log10(g0), 20 * np.log10(0.4)))
+    else:
+        print("[FO-TIRS-JOUES] volume en jeu : aucun tir vanilla apparie, rapport non mesure")
+    if a.json:
+        with open(a.json, "w", encoding="utf-8") as f:
+            json.dump({"rel_db": {str(e): v for e, v in rel.items()}, "volumes": {str(e): v for e, v in vols.items()}},
+                      f, indent=1)
+    if a.avant:
+        av_ = json.load(open(a.avant, encoding="utf-8"))
+        vol_ok = bool(rel)
+        parts = []
+        for e in sorted(rel):
+            if str(e) not in av_["rel_db"]:
+                vol_ok = False
+                continue
+            dm = rel[e] - av_["rel_db"][str(e)]
+            da = 20 * np.log10(vols[e] / av_["volumes"][str(e)])
+            ok = abs(dm - da) <= a.tol_db
+            vol_ok = vol_ok and ok
+            parts.append("ere %d mesure %+.2f dB, attendu %+.2f dB : %s" % (e, dm, da, "OK" if ok else "ECART"))
+        print("[FO-TIRS-JOUES] volume en jeu, DIFFERENTIEL contre %s (tolerance %.2f dB) : %s" % (
+            os.path.basename(a.avant), a.tol_db, " ; ".join(parts)))
+    good = ok_rec == len(shots) and ok_era == len(shots) and not extra and vol_ok is not False
     print("[FO-TIRS-JOUES] BILAN : %d tir(s) au journal ; reconnus %d, ere juste %d, instant juste (+/- %.0f ms) %d ; "
-          "detections sans tir %d : %s" % (len(shots), ok_rec, ok_era, a.tol_ms, ok_t, len(extra),
-                                           "OK" if good else "ECHEC"))
+          "detections sans tir %d ; volumes (differentiel) %s : %s" % (
+              len(shots), ok_rec, ok_era, a.tol_ms, ok_t, len(extra),
+              {None: "non controles (sans --avant)", True: "justes", False: "FAUX"}[vol_ok], "OK" if good else "ECHEC"))
     return 0 if good else 1
 
 
