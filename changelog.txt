@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.6
+Date: 2026-10-23
+  Features:
+    - La mitrailleuse des 15 âges entre en jeu avec les designs validés : les 30 niveaux portent leur socle, la pièce
+      des niveaux pairs et leur tête, en 4 directions (nord, est, sud, ouest), tête toujours levée, lueurs et halos de
+      nuit, ombres, une icône par âge, éclat de tir au bout des canons, reste et explosion à la taille de l'emprise.
+  Changes:
+    - Les images de la mitrailleuse sont générées depuis les rendus validés (outil feuilles.py) et vérifiées par un
+      manifeste.
+  Info:
+    - 4 directions pour l'instant : la tête passera à 64 positions dans une version suivante.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.5
 Date: 2026-10-23
   Features:
