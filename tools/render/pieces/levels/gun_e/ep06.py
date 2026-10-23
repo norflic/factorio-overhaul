@@ -40,12 +40,12 @@ CANON = dict(L=1.35, nb=4, rb=0.045, rr=0.1)
 # Le bâtiment devient clair : il ne se lit plus « cuivre sombre, cheminée, vapeur ».
 HABILLAGE = dict(jupe_cerclage="copper_pol", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
                  chapeau="copper_pol", capots=("porcelaine_capot", "vert_machine"),
-                 acier=("bakelite", "copper_pol"), rivets="copper_pol", joints="bakelite",
+                 acier=("fonte_verte", "copper_pol"), rivets="copper_pol", joints="bakelite",
                  tourelleau="vert_machine", grille_nacelle="copper_pol",
                  plateforme=dict(motif="dalles", pas=0.25, joint=0.012, mat="carreau", mat2="carreau2",
                                  fond="bakelite", bord="copper_pol", boulons=None))
 ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("ochre", "olive"), feed="drum",
-          skirt="copper", appl="vert_machine", gmask=("ochre", "olive"), arm=("olive", "steel_dk"), cap="copper",
+          skirt="copper", appl="porcelaine", gmask=("ochre", "olive"), arm=("olive", "steel_dk"), cap="copper",
           col=("olive", "steel_dk"), nac=("olive", "ochre"), coax=True)
 
 
@@ -54,18 +54,23 @@ def matieres(metal, M):
     C8) ; elle devient l'accent de l'époque (PT.insulators, peignes et anneaux)."""
     # gris clair chaud des cuves de transformateur (grand volume de l'ouest : se distingue en gris des bunkers noirs
     # du volcan, test de FORME)
-    metal("transfo", (0.25, 0.235, 0.205), rough=0.42, met=0.4, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
-          ra=0.18, dirt=0.9, stain=0.8, sscale=5.0, wear=2.4, streak=0.55, mottle=0.4)
-    M["accent"] = metal("porcelaine", (0.6, 0.585, 0.54), rough=0.36, met=0.0, grain=0.12, gscale=30.0, dirt=0.8,
-                        stain=0.35, sscale=5.0, wear=0.8)
+    # ronde 2 (test des écarts de la ronde 1 : l'électricité jugée MOINS évoluée que le volcan et que le pétrole,
+    # « même octogone, D clair ») : dernier âge de l'ère II, donc le plus riche et le plus clair des trois : porcelaine
+    # presque blanche, carreaux blancs, vert d'eau clair de salle des machines, transformateur gris clair.
+    metal("transfo", (0.4, 0.39, 0.36), rough=0.42, met=0.3, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
+          ra=0.12, dirt=0.8, stain=0.7, sscale=5.0, wear=2.0, streak=0.45, mottle=0.35)
+    M["accent"] = metal("porcelaine", (0.72, 0.705, 0.66), rough=0.3, met=0.0, grain=0.1, gscale=30.0, dirt=0.7,
+                        stain=0.3, sscale=5.0, wear=0.6)
     # passe 5 : matières du CORPS (grandes masses claires non métalliques)
-    metal("porcelaine_capot", (0.6, 0.59, 0.55), rough=0.3, met=0.0, grain=0.08, gscale=30.0, dirt=0.6, stain=0.3,
-          sscale=5.0, wear=0.4, mottle=0.12)
-    metal("vert_machine", (0.15, 0.24, 0.2), rough=0.38, met=0.2, grain=0.12, gscale=30.0, rust=(0.2, 0.09, 0.04),
-          ra=0.08, dirt=0.7, stain=0.45, sscale=5.0, wear=1.4)
+    metal("porcelaine_capot", (0.74, 0.73, 0.69), rough=0.28, met=0.0, grain=0.07, gscale=30.0, dirt=0.5, stain=0.25,
+          sscale=5.0, wear=0.3, mottle=0.1)
+    metal("vert_machine", (0.22, 0.36, 0.31), rough=0.36, met=0.15, grain=0.12, gscale=30.0, rust=(0.2, 0.09, 0.04),
+          ra=0.06, dirt=0.65, stain=0.4, sscale=5.0, wear=1.2)
     metal("bakelite", (0.035, 0.024, 0.018), rough=0.32, met=0.0, grain=0.1, dirt=0.5, stain=0.2, wear=0.8)
-    metal("carreau", (0.36, 0.36, 0.34), rough=0.35, met=0.0, grain=0.08, dirt=0.6, stain=0.35, sscale=5.0, wear=0.3)
-    metal("carreau2", (0.3, 0.305, 0.29), rough=0.35, met=0.0, grain=0.08, dirt=0.6, stain=0.35, sscale=5.0,
+    # acier de structure : fonte peinte vert sombre (la bakélite presque noire couvrait toute la structure)
+    metal("fonte_verte", (0.1, 0.15, 0.13), rough=0.4, met=0.3, grain=0.15, dirt=0.65, stain=0.35, wear=1.2)
+    metal("carreau", (0.55, 0.555, 0.53), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0, wear=0.3)
+    metal("carreau2", (0.47, 0.48, 0.46), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0,
           wear=0.3)
 
 
@@ -185,7 +190,8 @@ def socle_electric(g, k):
     # est : touret de câble de cuivre (flasques face au sud), sur chevalet
     xr, yr, zr = 1.2, Y(0.0), 0.48
     for s in (-1, 1):
-        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.46, 0.04, M["wood"], n=36, style="soft", what="flasque")
+        # ronde 2 : flasques vert d'eau (le grand disque de bois sombre faisait une tache noire à l'est)
+        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.46, 0.04, M["vert_machine"], n=36, style="soft", what="flasque")
         F.bolts_ring(g, (xr, yr + s * 0.14 - 0.024 * (s < 0), zr), (0, -1, 0), 0.3, 10, M["rivet"], r=0.013)
         g.box((xr, yr + s * 0.2, 0.24), (0.08, 0.04, 0.48), M["steel_dk"], "hard", what="chevalet")
     # câble gainé enroulé (noir et rouge) : plus de cuivre plein sur le socle (passe 4)
@@ -438,5 +444,21 @@ def tete(g, c):
         p = (math.cos(a) * rad_at(zc6) * 0.98, math.sin(a) * rad_at(zc6) * 0.98, zc6)
         ztp = PT.insulators(g, p, 3, 0.035, h=0.03)
         g.cyl((p[0], p[1], ztp + 0.01), "z", 0.014, 0.03, M["copper"], n=8, what="borne")
-    zt = PT.insulators(g, (R * 0.25, -R * 0.35, zs + rz * 0.9), 3, 0.05, h=0.04)
-    F.sphere(g, (R * 0.25, -R * 0.35, zt + 0.06), 0.06, M["copper"], n=16, m=10, what="boule")
+    # ronde 2 (silhouette d'âge sur la coupole) : TÊTE DE TESLA à la place libre de la coupole (corps.accroche) :
+    # pile d'isolateurs blancs, gros tore d'aluminium à âme pleine, borne, 4 décharges cyan ouvertes vers l'arrière et
+    # le haut (aucune vers les canons), halo cyan
+    a = corps.accroche(c, "coupole")
+    p = V((a["x"], a["y"], a["z"] - 0.02))
+    g.cyl(p, "z", 0.075, 0.05, M["fonte_verte"], n=16, style="soft", what="embase")
+    F.bolts_ring(g, p + V((0, 0, 0.025)), (0, 0, 1), 0.06, 6, M["rivet"], r=0.011)
+    zt = PT.insulators(g, (p.x, p.y, p.z + 0.025), 3, 0.055, h=0.04)
+    rt = max(0.1, min(0.15, a["r"] * 0.7))
+    g.torus((p.x, p.y, zt + 0.035), "z", rt, rt * 0.33, M["steel_hi"], n=36, m=12, what="tore")
+    g.cyl((p.x, p.y, zt + 0.035), "z", rt, rt * 0.45, M["steel_dk"], n=28, what="ame_tore")
+    F.sphere(g, (p.x, p.y, zt + 0.035 + rt * 0.3), 0.045, M["steel_hi"], n=14, m=8, what="borne")
+    for t in range(4):
+        aa = math.pi * 1.1 + math.pi * 0.8 * t / 3   # repère de la tête : les canons sont vers +y, l'arrière vers -y
+        d = V((math.cos(aa), math.sin(aa), 0.45))
+        streamer(g, V((p.x, p.y, zt + 0.035)) + V((math.cos(aa), math.sin(aa), 0)) * (rt * 1.3), d, 0.12, n=3,
+                 amp=0.02)
+    g.halo((p.x, p.y, zt + 0.1), M["_emit_rgb"], 10.0)

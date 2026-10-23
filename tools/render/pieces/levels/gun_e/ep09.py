@@ -46,7 +46,7 @@ HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=(
                  plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
                                  fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit_soft"))
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
-          recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="lead",
+          recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="beton_capot",
           gmask=("lead", "olive"), arm=("lead", "steel_dk"), cap="lead", col=("olive", "lead"),
           nac=("lead", "olive"), coax=True)
 
@@ -55,19 +55,22 @@ def matieres(metal, M):
     """Passe 4 : PLOMB GRIS MAT (« fûts plombés gris mat » : gris neutre plus clair que le corps, très rugueux, peu
     métallique, sans reflet) ; béton plus clair (× 1,45, test noir et blanc de la passe 3) ; jaune des plaques de
     signalisation (patiné, jamais vif : C5)."""
-    metal("lead", (0.23, 0.225, 0.215), rough=0.66, met=0.35, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.25,
-          dirt=0.85, stain=0.6, stain2=0.32, sscale=5.0, wear=1.4, streak=0.45)
-    # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4
-    metal("concrete", (0.42, 0.405, 0.375), rough=0.92, met=0.0, grain=0.3, gscale=30.0, dirt=0.9, stain=0.75,
-          stain2=0.32, sscale=5.0, wear=1.0, streak=0.5)
-    metal("beton_capot", (0.48, 0.47, 0.44), rough=0.85, met=0.0, grain=0.25, gscale=30.0, dirt=0.8, stain=0.6,
-          sscale=5.0, wear=0.8, streak=0.35)
-    metal("beton_dalle", (0.42, 0.41, 0.385), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.85, stain=0.65,
+    # ronde 2 (test des écarts de la ronde 1 : l'atome jugé MOINS évolué que le cristal et que le marais, « gris
+    # radioactif ») : dernier âge de l'ère III, le plus clair des trois : béton presque blanc, plomb gris clair, plomb
+    # de structure gris moyen (il était presque noir et assombrissait toute la machine)
+    metal("lead", (0.31, 0.305, 0.295), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
+          dirt=0.8, stain=0.55, stain2=0.32, sscale=5.0, wear=1.4, streak=0.4)
+    # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4 -> 0,56
+    metal("concrete", (0.56, 0.545, 0.51), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
+          stain2=0.3, sscale=5.0, wear=1.0, streak=0.45)
+    metal("beton_capot", (0.64, 0.63, 0.6), rough=0.85, met=0.0, grain=0.22, gscale=30.0, dirt=0.75, stain=0.55,
+          sscale=5.0, wear=0.8, streak=0.3)
+    metal("beton_dalle", (0.57, 0.56, 0.53), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
           sscale=5.0, wear=0.6, streak=0.3)
-    metal("beton_dalle2", (0.36, 0.355, 0.335), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.85, stain=0.65,
+    metal("beton_dalle2", (0.5, 0.495, 0.47), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
           sscale=5.0, wear=0.6, streak=0.3)
-    metal("joint_beton", (0.05, 0.05, 0.048), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
-    metal("plomb_sombre", (0.1, 0.102, 0.105), rough=0.6, met=0.35, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
+    metal("joint_beton", (0.07, 0.07, 0.068), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
+    metal("plomb_sombre", (0.19, 0.192, 0.198), rough=0.6, met=0.3, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
 
 
 def _halo(g, pts, power):
@@ -529,6 +532,7 @@ def tete(g, c):
     n2 = 2 + 2 * k
     for i in range(n2):
         th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
+        # ronde 2 : plaques hautes en plomb clair (les plaques de la coupole donnaient sa couleur sombre au zoom 1)
         P2.applique(g, c.Pf, c.Nf, th, 0.72, 0.2, 0.16, M["lead"], M)
     F.trefoil(g, c.Pf(math.pi / 2, 0.55, 1.03), c.Nf(math.pi / 2, 0.55), 0.06)
     # hublots verts ronds (réacteur vanilla) sur les flancs de la nacelle, bandes jaunes et noires
@@ -548,9 +552,9 @@ def tete(g, c):
     # bombé vert uranium
     a = corps.accroche(c, "coupole")
     p = V((a["x"], a["y"], a["z"]))
-    rc = max(0.13, min(0.17, a["r"] * 0.62))
+    rc = max(0.13, min(0.2, a["r"] * 0.7))   # ronde 2 : cœur un peu plus gros (0,17 -> 0,2 au plus)
     g.cyl(p, "z", rc + 0.05, 0.1, M["plomb_sombre"], n=8, style="hard", phase=math.pi / 8, what="coeur_octo")
     g.cyl(p + V((0, 0, 0.05)), "z", rc + 0.012, 0.02, M["lead"], n=28, what="coeur_cadre")
     F.sphere(g, p + V((0, 0, 0.055)), rc, M["emit"], n=24, m=12, sz=0.5, what="coeur")
     F.bolts_ring(g, p + V((0, 0, 0.052)), (0, 0, 1), rc + 0.032, 8, M["rivet"], r=0.012)
-    g.halo(tuple(p + V((0, 0, 0.12))), M["_emit_rgb"], 6.0)
+    g.halo(tuple(p + V((0, 0, 0.12))), M["_emit_rgb"], 12.0)

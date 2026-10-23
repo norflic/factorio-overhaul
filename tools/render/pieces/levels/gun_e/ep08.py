@@ -49,7 +49,7 @@ HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitio
                  plateforme=dict(motif="planches", pas=0.15, mat="bois_mouille", mat2="bois_mousse", fond="tablier",
                                  bord="rubber", boulons="cuivre_terni", relief=0.5))
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
-          band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="verdigris",
+          band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="vdg_capot",
           gmask=("olive", "verdigris"), arm=("olive", "steel_dk"), cap="cuivre_terni", col=("olive", "verdigris"),
           nac=("olive", "verdigris"), coax=True)
 
@@ -58,14 +58,17 @@ def matieres(metal, M):
     """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
     metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
     # matières du CORPS (vert-de-gris clair peu métallique, cuivre terni, bois mouillé)
-    metal("vdg_capot", (0.2, 0.36, 0.3), rough=0.6, met=0.25, grain=0.3, gscale=26.0, rust=(0.36, 0.2, 0.1), ra=0.18,
-          dirt=0.75, stain=0.55, sscale=4.0, wear=1.4, mottle=0.45)
-    metal("cuivre_terni", (0.26, 0.15, 0.08), rough=0.5, met=0.4, grain=0.25, rust=(0.15, 0.3, 0.24), ra=0.4,
+    # ronde 2 (test des écarts de la ronde 1 : le marais jugé MOINS évolué que le cristal, « G sombre ») : âge du
+    # milieu de l'ère III, il monte d'un cran en clarté : vert-de-gris clair, pont de BOIS FLOTTÉ gris argent (le bois
+    # de marais lavé et blanchi) au lieu du bois mouillé presque noir
+    metal("vdg_capot", (0.27, 0.46, 0.39), rough=0.55, met=0.2, grain=0.28, gscale=26.0, rust=(0.36, 0.2, 0.1),
+          ra=0.14, dirt=0.7, stain=0.5, sscale=4.0, wear=1.4, mottle=0.4)
+    metal("cuivre_terni", (0.3, 0.18, 0.1), rough=0.5, met=0.4, grain=0.25, rust=(0.15, 0.3, 0.24), ra=0.4,
           dirt=0.75, stain=0.5, sscale=5.0, wear=1.2)
-    metal("bois_mouille", (0.12, 0.095, 0.06), rough=0.45, met=0.0, grain=0.4, gscale=18.0, dirt=0.85, stain=0.7,
-          sscale=6.0, wear=0.6, streak=0.4)
-    metal("bois_mousse", (0.085, 0.1, 0.05), rough=0.6, met=0.0, grain=0.45, gscale=18.0, dirt=0.85, stain=0.7,
-          sscale=6.0, wear=0.6, streak=0.4)
+    metal("bois_mouille", (0.3, 0.285, 0.24), rough=0.6, met=0.0, grain=0.42, gscale=18.0, dirt=0.8, stain=0.6,
+          sscale=6.0, wear=0.6, streak=0.45)
+    metal("bois_mousse", (0.23, 0.26, 0.18), rough=0.65, met=0.0, grain=0.45, gscale=18.0, dirt=0.8, stain=0.6,
+          sscale=6.0, wear=0.6, streak=0.45)
 
 
 def _halo(g, pts, power):

@@ -50,8 +50,8 @@ HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, muni
                  plateforme=dict(motif="toles", pas=0.42, mat="tole_forge", mat2="tole_forge2", bord="fer_noir",
                                  boulons="fer_clair_f", relief=0.5))
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
-ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("bolted", "rawiron"),
-          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="bolted", gmask=("bolted", "rawiron"),
+ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("fer_martele", "rawiron"),
+          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="fer_martele", gmask=("bolted", "rawiron"),
           arm=("bolted", "blackiron"), cap="brass", mask="shield", jacket_f=0.6, col=("bolted", "blackiron"),
           nac=("bolted", "rawiron"), arr="row", barrel="blackiron")
 
@@ -63,13 +63,16 @@ def matieres(metal, M):
           ra=0.16, dirt=0.8, stain=0.6, sscale=5.0, wear=2.8, streak=0.45, mottle=0.35)
     # passe 5 : matières du CORPS de forge (grandes masses peu métalliques : un métal pur reste sombre sous ce soleil)
     rust = (0.24, 0.085, 0.03)
-    metal("fer_martele", (0.25, 0.235, 0.215), rough=0.5, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.18,
-          dirt=0.75, stain=0.5, sscale=5.0, wear=2.2, mottle=0.45)
-    metal("tole_forge", (0.2, 0.19, 0.175), rough=0.55, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.25,
-          dirt=0.8, stain=0.55, sscale=5.0, wear=1.6, mottle=0.4)
-    metal("tole_forge2", (0.16, 0.15, 0.14), rough=0.55, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.35,
-          dirt=0.8, stain=0.55, sscale=5.0, wear=1.6, mottle=0.4)
-    metal("fer_noir", (0.07, 0.064, 0.058), rough=0.5, met=0.5, grain=0.3, rust=rust, ra=0.25, dirt=0.7, stain=0.4,
+    # ronde 2 (test des écarts de la ronde 1 : la forge lue « petit poste sombre rafistolé », prise pour le pionnier) :
+    # FER GRIS clair martelé, froid et métallique, à l'opposé du bois brun du pionnier (C1 ≥ 60 des juges) ; les
+    # grandes masses montent d'environ 45 %, le fer noir de structure reste sombre mais moins noir
+    metal("fer_martele", (0.37, 0.35, 0.325), rough=0.5, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.14,
+          dirt=0.7, stain=0.45, sscale=5.0, wear=2.2, mottle=0.45)
+    metal("tole_forge", (0.3, 0.29, 0.27), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.2,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("tole_forge2", (0.25, 0.24, 0.225), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.28,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("fer_noir", (0.1, 0.095, 0.088), rough=0.5, met=0.5, grain=0.3, rust=rust, ra=0.22, dirt=0.7, stain=0.4,
           wear=2.4)
     metal("fer_clair_f", (0.36, 0.34, 0.31), rough=0.45, met=0.45, grain=0.12, dirt=0.4, stain=0.1, wear=0.8,
           reflet="fin")
@@ -362,7 +365,8 @@ def w_forge(g, st, H, x, sx):
     rs = rr + rb + 0.024
     # manchon de fer forgé (moitié arrière au plus : corps.JAQUETTE_MAX), frettes boulonnées au pas de 0,12
     Lj = L * min(0.46, corps.JAQUETTE_MAX)
-    g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["rawiron"], n=28, style="smooth", what="manchon")
+    # ronde 2 : manchon en fer martelé gris clair (fer brut sombre en ronde 1 : la forge se lisait « poste sombre »)
+    g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["fer_martele"], n=28, style="smooth", what="manchon")
     nfr = max(2, int(Lj / 0.12) + 1)
     for i in range(nfr):
         yy = y1 + 0.03 + (Lj - 0.06) * i / (nfr - 1)
@@ -383,7 +387,7 @@ def w_forge(g, st, H, x, sx):
     g.box((x, y1 + 0.4, (zr + zg) / 2 - 0.01), (0.06, 0.045, rs + 0.03), M["rawiron"], "hard", what="collier")
     # masque de canon : plaque de fer forgé rivetée
     PT.hull(g, x - wr * 0.75, x + wr * 0.75, y1 - 0.04, y1 + 0.06, zg - hr * 1.3, zg + hr * 1.4, ins=(0.02, 0.01, 0.03),
-            panel=0.2, mats=[M["bolted"], M["rawiron"]], rivet_step=0.1)
+            panel=0.2, mats=[M["fer_martele"], M["rawiron"]], rivet_step=0.1)
     xo = x + sx * (wr / 2 - 0.005)
     feed(g, st, H, x, sx, xo)
 

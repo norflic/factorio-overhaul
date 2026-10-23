@@ -58,12 +58,16 @@ def matieres(metal, M):
           stain=0.75, stain2=0.32, sscale=5.0, wear=1.6, streak=0.45, tone=1.35)
     # passe 5 : jaune délavé des GRANDS CAPOTS (clé « capots ») : matière de corps, ni vive ni réfléchissante, plus
     # claire et moins sale que le jaune des accents (« yellowpaint ») pour se lire jaune au zoom 1
-    metal("jaune_capot", (0.46, 0.335, 0.06), rough=0.46, met=0.2, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
-          dirt=0.65, stain=0.55, sscale=5.0, wear=1.8, streak=0.4)
+    # ronde 2 (lecteurs de la ronde 1 : « olive laiton », « couleur laiton ») : PEINTURE jaune de chantier délavée,
+    # mate et presque pas métallique (un jaune métallique se lit laiton), plus claire et plus pâle
+    # (essai a de la ronde 2 : (0,58 ; 0,46 ; 0,12) restait kaki au zoom 1 : la saleté et les taches l'assombrissent ;
+    # jaune franc, moins sale)
+    metal("jaune_capot", (0.72, 0.52, 0.07), rough=0.62, met=0.05, grain=0.2, gscale=30.0, rust=rust, ra=0.12,
+          dirt=0.45, stain=0.4, sscale=5.0, wear=1.8, streak=0.35)
     # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
-    # il tournait à l'olive brun au zoom 1)
-    metal("yellowpaint", (0.38, 0.28, 0.06), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.3,
-          dirt=0.75, stain=0.75, sscale=5.0, wear=2.4, streak=0.55)
+    # il tournait à l'olive brun au zoom 1) ; ronde 2 : mat, comme les capots
+    metal("yellowpaint", (0.64, 0.46, 0.07), rough=0.58, met=0.08, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
+          dirt=0.55, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
     # passe 5 : galvanisé du CORPS (peu métallique : grande masse claire, règle de reflets du kit) et tôles larmées
     metal("galva_capot", (0.32, 0.33, 0.33), rough=0.42, met=0.4, grain=0.15, gscale=30.0, rust=rust, ra=0.12,
           dirt=0.7, stain=0.55, sscale=5.0, wear=1.2, streak=0.35)
@@ -137,6 +141,10 @@ def socle_petrol(g, k):
         g.tube_shell((-1.3 + kk * 0.06, Y(1.2), 0.4), "x", 0.118, 0.09, 0.014, M["steel_hi"], n=20, what="ailette")
     for xx in (-1.36, -0.92):
         P2.handwheel(g, (xx, Y(1.0) - 0.05, 0.36), (0, -1, 0.2), 0.075, M, mat=M["redpaint"])
+    # ronde 2 (silhouette d'âge, juges : « torchère à flamme ») : TORCHÈRE haute au coin nord-ouest, posée sur le
+    # groupe de pompage : fût galvanisé à bagues de danger, passerelle ronde, brûleur noirci, grande flamme orange.
+    # Sommet sous h_max (0,76, accroches.py) : la tête qui tourne passe au-dessus.
+    torchere(g, -1.36, Y(1.34), 0.3, 0.74, M, E)
     # nord : rampe de 3 conduites galvanisées sur supports, vannes rouges
     for i in range(3):
         yy = Y(1.22) + (i - 1) * 0.1
@@ -155,6 +163,23 @@ def socle_petrol(g, k):
     F.lamp_group(g, (-0.45, Y(1.22) - 0.16, 0.14), (1, 0, 0), (0, -1, 0), E, n=2)
 
     g.halo((-1.1, Y(1.0), 0.4), M["_emit_rgb"], 10.0)
+
+
+def torchere(g, x, y, z0, z1, M, E):
+    """Torchère de plate-forme pétrolière (ronde 2) : fût galvanisé, 2 bagues de danger, passerelle ronde pleine (une
+    passerelle ajourée enfermerait du sol), brûleur noirci, flamme orange en 2 cônes et halo."""
+    h = z1 - z0
+    g.cyl((x, y, z0 + 0.02), "z", 0.07, 0.04, M["steel_dk"], n=16, what="embase")
+    F.bolts_ring(g, (x, y, z0 + 0.04), (0, 0, 1), 0.055, 6, M["rivet"], r=0.011)
+    g.cyl((x, y, z0 + h / 2), "z", 0.034, h, M["galva"], n=14, what="fut_torchere")
+    for f in (0.3, 0.62):
+        F.hazard_ring(g, (x, y, z0 + h * f), "z", 0.037, 0.05, n=10)
+    g.cyl((x, y, z0 + h * 0.8), "z", 0.075, 0.018, M["grate"], n=16, what="passerelle")
+    g.tube_shell((x, y, z0 + h * 0.8 + 0.03), "z", 0.078, 0.07, 0.05, M["galva"], n=16, what="garde_corps")
+    g.cyl((x, y, z1 - 0.02), "z", 0.05, 0.05, M["soot"], n=12, what="bruleur")
+    g.cyl((x, y, z1 + 0.07), "z", 0.065, 0.14, E, n=10, r2=0.016, what="flamme")
+    g.cyl((x + 0.015, y, z1 + 0.18), "z", 0.034, 0.1, E, n=8, r2=0.004, what="flamme")
+    g.halo((x, y, z1 + 0.1), M["_emit_rgb"], 9.0)
 
 
 # ------------------------------------------------------------------------------------------------

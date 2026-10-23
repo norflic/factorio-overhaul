@@ -44,7 +44,7 @@ HABILLAGE = dict(jupe_cerclage="bronze_clair", tremie="brass", pochoirs=False, m
                                  relief=0.3))
 ST = dict(jacket="bronze", brake="claws", drive="crystal", drive_mat="bronze", fin_mat="bronze", band="bronze",
           barrel="bronze", recv_mats=("bronze", "stone"), recv_sig="stone", feed="crystal_mag", skirt="bronze",
-          appl="bronze", gmask=("bronze", "olive"), arm=("stone", "olive"), cap="bronze", flange_mat="stone",
+          appl="bronze_capot", gmask=("bronze", "olive"), arm=("stone", "olive"), cap="bronze", flange_mat="stone",
           col=("olive", "stone"), nac=("olive", "bronze"))
 
 
@@ -53,12 +53,16 @@ def matieres(metal, M):
     metal("stone", (0.075, 0.056, 0.044), rough=0.85, met=0.0, grain=0.5 * 0.62, gscale=26.0, dirt=0.9, stain=0.8,
           stain2=0.32, sscale=5.0, wear=2.2, tone=0.85)
     # passe 5 : matières du CORPS du sanctuaire (pierre claire non métallique, bronze peu métallique)
-    metal("pierre_claire", (0.46, 0.42, 0.38), rough=0.8, met=0.0, grain=0.3, gscale=26.0, dirt=0.75, stain=0.5,
-          sscale=5.0, wear=0.8, mottle=0.3)
-    metal("pierre_claire2", (0.4, 0.365, 0.335), rough=0.8, met=0.0, grain=0.3, gscale=26.0, dirt=0.75, stain=0.5,
-          sscale=5.0, wear=0.8, mottle=0.3)
-    metal("bronze_capot", (0.48, 0.3, 0.12), rough=0.34, met=0.45, grain=0.12, gscale=30.0, rust=(0.1, 0.2, 0.14),
-          ra=0.06, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
+    # ronde 2 (test des écarts de la ronde 1 : le cristal jugé PLUS évolué que le marais et que l'atome, « cristaux et
+    # or, dalle blanche ») : premier âge de l'ère III, il descend d'un cran : pierre de grès gris-mauve plus sombre
+    # (plus de dalle blanche), bronze patiné brun au lieu du bronze doré ; les cristaux violets restent la signature
+    # (essai a : 0,33 se lisait encore « dalle blanche » au zoom 1 ; 0,22)
+    metal("pierre_claire", (0.22, 0.2, 0.21), rough=0.85, met=0.0, grain=0.32, gscale=26.0, dirt=0.8, stain=0.55,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("pierre_claire2", (0.185, 0.168, 0.176), rough=0.85, met=0.0, grain=0.32, gscale=26.0, dirt=0.8, stain=0.55,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("bronze_capot", (0.38, 0.23, 0.1), rough=0.4, met=0.45, grain=0.14, gscale=30.0, rust=(0.1, 0.2, 0.14),
+          ra=0.12, dirt=0.65, stain=0.4, sscale=5.0, wear=0.9)
     metal("bronze_sombre", (0.16, 0.095, 0.045), rough=0.4, met=0.45, grain=0.15, rust=(0.1, 0.2, 0.14), ra=0.1,
           dirt=0.7, stain=0.4, wear=1.2)
     metal("bronze_clair", (0.62, 0.44, 0.2), rough=0.32, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
