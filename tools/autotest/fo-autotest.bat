@@ -15,6 +15,9 @@ rem  Double source (suite H-T3, migration d'une vraie sauvegarde) : la variable 
 rem          d'une AUTRE source de factorio-overhaul) sert a la seule CREATION de la carte ; le benchmark
 rem          rejoue cette carte avec la source habituelle (argument 4, sinon fo-autotest-params.txt). Le mod
 rem          de test vient toujours de la source du benchmark. Sans la variable : comportement inchange.
+rem  Graine (lot INT-GRAINE) : la variable FO_MAP_SEED (entier de 0 a 4294967295, chiffres seulement, zeros de
+rem          tete retires) remplace la graine de la carte. Absente ou vide : 20261020, comme avant. Graine
+rem          invalide : code 1 avant le verrou, rien n'a tourne. Graine utilisee : fo-autotest\seed.txt.
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
 rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT).
 rem ============================================================================================
@@ -52,6 +55,43 @@ if not exist "%EXE%" (
   exit /b 1
 )
 
+rem Graine de la carte (lot INT-GRAINE) : FO_MAP_SEED si elle est donnee et non vide, sinon 20261020. La valeur
+rem n'est lue qu'en expansion retardee : aucun caractere (guillemet, &, |...) ne peut casser ni detourner le
+rem script. Chiffres seulement, zeros de tete retires, au plus 4294967295 (graine du moteur : entier 32 bits non
+rem signe). Une graine refusee arrete tout AVANT le verrou : fo-autotest\ garde les resultats du banc precedent.
+set SEED=20261020
+set SEEDFROM=defaut
+set SEEDIN=
+set SEEDBAD=
+setlocal EnableDelayedExpansion
+set "SEED_V=!FO_MAP_SEED!"
+set SEED_T=
+set SEED_BAD=
+if "!SEED_V!"=="" goto :seedend
+set "SEED_T=!SEED_V!"
+rem (if defined : une fois SEED_T videe, la substitution du chiffre 5 rend le texte "5=" et non le vide)
+for %%d in (0 1 2 3 4 5 6 7 8 9) do if defined SEED_T set "SEED_T=!SEED_T:%%d=!"
+if defined SEED_T (set SEED_BAD=1& goto :seedend)
+:seedzero
+if "!SEED_V:~0,1!"=="0" if not "!SEED_V:~1!"=="" (set "SEED_V=!SEED_V:~1!"& goto :seedzero)
+if not "!SEED_V:~10!"=="" (set SEED_BAD=1& goto :seedend)
+if not "!SEED_V:~9!"=="" if "!SEED_V!" GTR "4294967295" set SEED_BAD=1
+:seedend
+if defined SEED_BAD (
+  echo Graine invalide dans FO_MAP_SEED : [!FO_MAP_SEED!]
+  set SEED_V=
+)
+endlocal & set "SEEDIN=%SEED_V%" & set "SEEDBAD=%SEED_BAD%"
+if defined SEEDBAD (
+  echo Entier de 0 a 4294967295 attendu, en chiffres seulement. Rien n'a tourne.
+  if /i not "%~1"=="nopause" pause
+  exit /b 1
+)
+if defined SEEDIN (
+  set SEED=%SEEDIN%
+  set SEEDFROM=FO_MAP_SEED
+)
+
 rem Verrou : un seul banc moteur a la fois (fo-autotest, fo-visual, fo-captures partagent ce verrou).
 rem FO_LOCK_HELD : l'appelant (fo-captures.bat) tient deja le verrou pour toute la chaine.
 if defined FO_LOCK_HELD goto :locked
@@ -86,6 +126,7 @@ if defined CREATESRC set COPYSRC=%CREATESRC%
 robocopy "%COPYSRC%" "%MODS%\factorio-overhaul" /E /XD .git .claude "%COPYSRC%\tools\render" __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 robocopy "%MODSRC%\tools\autotest\fo-autotest" "%MODS%\fo-autotest" /E /XD __pycache__ /NFL /NDL /NJH /NJS /NP >nul
 > "%TEST%\source.txt" echo %MODSRC%
+> "%TEST%\seed.txt" echo %SEED%
 if defined CREATESRC > "%TEST%\create-source.txt" echo %CREATESRC%
 > "%MODS%\fo-autotest\scenario.lua" echo return "%SCENARIO%"
 if exist "%VITRINE%" (
@@ -98,8 +139,8 @@ set WRITE_FWD=%WRITE:\=/%
 >> "%TEST%\config.ini" echo read-data=__PATH__executable__/../../data
 >> "%TEST%\config.ini" echo write-data=%WRITE_FWD%
 
-echo [2/4] Creation de la carte (graine 20261020)...
-"%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --create "%TEST%\fo-autotest-map.zip" --map-gen-seed 20261020 --disable-audio > "%TEST%\create-stdout.txt" 2>&1
+echo [2/4] Creation de la carte (graine %SEED%, %SEEDFROM%)...
+"%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --create "%TEST%\fo-autotest-map.zip" --map-gen-seed %SEED% --disable-audio > "%TEST%\create-stdout.txt" 2>&1
 copy /y "%WRITE%\factorio-current.log" "%TEST%\create.log" >nul
 if not exist "%TEST%\fo-autotest-map.zip" (
   echo Carte NON creee : lire fo-autotest\create.log

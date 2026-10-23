@@ -10,6 +10,8 @@ rem               / un scenario greffe (scenarios\<nom>.lua) / default, waves, p
 rem    source   : chemin absolu du mod a tester ; "" ou absent : 3e champ de fo-autotest-params.txt,
 rem               sinon mods\factorio-overhaul
 rem    fenetre  : min (defaut) / small / normal
+rem  Variables FO_CREATE_SRC et FO_MAP_SEED (graine de la carte) : transmises telles quelles a fo-autotest.bat,
+rem    qui les lit (graine refusee : code 8, aucune session visuelle).
 rem  Captures : fo-visual\write\script-output\fo-shots\ (index.txt, planche-NN.png, session.txt).
 rem  Codes : ceux de fo-visual.bat (0 succes, 2 verrou pris, 3 delai, 4 captures, 5 processus,
 rem          6 vitrine, 7 erreur du jeu) ; 8 = le banc fo-autotest a echoue (pas de carte).
