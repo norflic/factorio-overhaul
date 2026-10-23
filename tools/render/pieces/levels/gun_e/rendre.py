@@ -3,6 +3,7 @@
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --out DIR [--cache DIR] [--samples 128] [--quick]
         [--only e02-socle,…] | [--epochs 2,3 --parts socle,piece,tete-E,tete-N] | [--kit 2,5]
         [--per 4] [--post-only] [--keep-npy] [--corps A|B] [--apercu] [--sessions 1|2] [--habillage NOM]
+        [--dirs rose|N,NE,…|d00,…]     (dégel D-9, lot A1 : têtes tournées eNN-tete-dKK, d00 = nord, sens horaire)
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --ronde 2,5,9 --out DIR [--corps A|B] [--sessions 2]
 
 RONDE DE LECTURE (passe 5) : --ronde EPOQUES rend, en APERÇU (32 échantillons, --apercu), exactement ce qu'il faut
@@ -192,6 +193,21 @@ def session(names, a):
     return rc
 
 
+def dirs_parts(spec):
+    """--dirs (dégel D-9, lot A1) : « rose » (8 directions), noms de boussole (N, NE, E, SE, S, SO, O, NO) ou dKK
+    (K = 00 à 63) -> parties « tete-dKK » (d00 = nord, sens horaire)."""
+    boussole = dict(piece.ROSE)
+    res = []
+    for x in [x.strip() for x in (spec or "").split(",") if x.strip()]:
+        ds = [d for _, d in piece.ROSE] if x == "rose" else [boussole.get(x, x)]
+        for d in ds:
+            if d not in piece.DIRS or not d.startswith("d"):
+                raise SystemExit("direction inconnue : %s (rose, N…NO, ou d00 à d63)" % x)
+            if "tete-" + d not in res:
+                res.append("tete-" + d)
+    return res
+
+
 def selection(a):
     V = piece.PIECE["variants"]
     if a.only:
@@ -203,7 +219,7 @@ def selection(a):
     else:
         names = []
         for e in [int(x) for x in a.epochs.split(",") if x]:
-            for p in a.parts.split(","):
+            for p in [x for x in a.parts.split(",") if x] + dirs_parts(a.dirs):
                 n = "e01-piece" if e == 1 else piece.nom(e, p)
                 if n not in names:
                     names.append(n)
@@ -221,6 +237,8 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--epochs", default="")
     ap.add_argument("--parts", default="socle,piece,tete-E,tete-N")
+    ap.add_argument("--dirs", default="", help="têtes tournées (dégel D-9) ajoutées aux --parts : rose, N,NE,…,NO ou "
+                                               "d00…d63 (d00 = nord, sens horaire) ; ex. --parts \"\" --dirs rose")
     ap.add_argument("--kit", default="", help="tailles du témoin du kit (lignée seule), ex. 2,5")
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
