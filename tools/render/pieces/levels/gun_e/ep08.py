@@ -36,7 +36,11 @@ KIN = 1   # rang dans l'ère III
 # passe 5 : un peu plus vert (teinte nominale 71° -> 79°) : loin du jaune des fûts du pétrole, encore dans la famille
 # ronde 3 (DC : « trop uniforme en terme de palette » ; 8 et 9 avaient deux verts voisins) : JAUNE TOXIQUE (57°) ;
 # liquide plus lumineux (force 0,36 -> 0,6 : le marais doit passer devant le cristal en richesse)
-FOYER = dict(rgb=(1.0, 0.95, 0.05), doux=dict(force=0.6, base=(0.075, 0.07, 0.01)))
+# ronde 5 (test à l'aveugle de la ronde 4 : 8 lu « fûts jaunes, rayures danger », pris pour le PÉTROLE, et jugé moins
+# évolué que le cristal, « jaune industriel ») : le liquide passe au VERT-JAUNE ACIDE (chartreuse, environ 84°), la
+# teinte d'un poison de marais : ni le jaune de signalisation du pétrole (environ 50°) ni le vert uranium de l'atome
+# (100 à 135°) ; un peu plus lumineux (0,6 -> 0,75) pour passer devant le cristal
+FOYER = dict(rgb=(0.6, 1.0, 0.04), doux=dict(force=0.75, base=(0.05, 0.075, 0.01)))
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.06)
@@ -75,7 +79,8 @@ def matieres(metal, M):
     """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
     metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
     # ronde 4 : verre de la CLOCHE (coupole) : liquide toxique jaune soufré vu à travers un verre épais et brillant
-    metal("verre_toxique", (0.36, 0.34, 0.02), rough=0.08, met=0.0, grain=0.06, dirt=0.3, stain=0.25, sscale=4.0)
+    # ronde 5 : verre VERT ACIDE plus clair (l'olive (0,36 ; 0,34 ; 0,02) tirait au kaki et au jaune du pétrole)
+    metal("verre_toxique", (0.3, 0.46, 0.04), rough=0.06, met=0.0, grain=0.06, dirt=0.25, stain=0.2, sscale=4.0)
     # matières du CORPS (vert-de-gris clair peu métallique, cuivre terni, bois mouillé)
     # ronde 2 (test des écarts de la ronde 1 : le marais jugé MOINS évolué que le cristal, « G sombre ») : âge du
     # milieu de l'ère III, il monte d'un cran en clarté : vert-de-gris clair, pont de BOIS FLOTTÉ gris argent (le bois

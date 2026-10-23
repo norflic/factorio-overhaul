@@ -45,8 +45,13 @@ HABILLAGE = dict(jupe_cerclage="laiton_capot", tremie="castiron", pochoirs=False
                  # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : CUIVRE ROSE dominant (capots,
                  # plaques de la coupole), LAITON poli en secondaire (pont de plaques de laiton rivetées, au lieu des
                  # planches rouge sombre qui se lisaient « bois » comme le pionnier), vert locomotive en accent seulement
-                 plateforme=dict(motif="toles", pas=0.34, mat="laiton_pont", mat2="laiton_pont2", fond="bois_joint",
-                                 bord="cuivre_capot", boulons="laiton_rivet", relief=0.3),
+                 # ronde 5 (test à l'aveugle de la ronde 4 : 3 lu « petite tourelle bricolée en bois » ; 1-3 et 2-3
+                 # notés 2 et 3, « même petit socle ») : le pont de laiton mat se lisait comme des planches beiges,
+                 # proches du sol et du pionnier : TÔLES PEINTES EN VERT LOCOMOTIVE vernies, rivets de laiton (la
+                 # livrée d'une locomotive à vapeur) ; le cuivre rose des capots reste dominant, le vert devient la
+                 # secondaire et le laiton l'accent
+                 plateforme=dict(motif="toles", pas=0.34, mat="vert_pont", mat2="vert_pont2", fond="bois_joint",
+                                 bord="laiton_capot", boulons="laiton_rivet", relief=0.3),
                  # ronde 4 (test des écarts de la ronde 3 : 2-3 noté 3 et 2, « base quasi identique ») : la VAPEUR change
                  # de FORME (consigne de 9 h 36 : « Vapeur sur une plateforme ronde rivetée ») : PLATEFORME RONDE à
                  # plinthe de tôles de cuivre rivetées et collerette de laiton, coupole en DÔME DE CHAUDIÈRE bas à côtes
@@ -72,6 +77,11 @@ def matieres(metal, M):
     metal("laiton_capot", (0.68, 0.5, 0.17), rough=0.3, met=0.45, grain=0.1, gscale=30.0, rust=(0.2, 0.12, 0.04),
           ra=0.04, dirt=0.45, stain=0.3, sscale=5.0, wear=0.7)
     metal("laiton_rivet", (0.7, 0.52, 0.22), rough=0.3, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
+    # ronde 5 : tôles du pont en vert locomotive verni, assez clair pour se lire VERT au zoom 1
+    metal("vert_pont", (0.06, 0.24, 0.12), rough=0.28, met=0.1, grain=0.12, gscale=30.0, dirt=0.5, stain=0.35,
+          sscale=5.0, wear=1.0)
+    metal("vert_pont2", (0.045, 0.19, 0.095), rough=0.28, met=0.1, grain=0.12, gscale=30.0, dirt=0.5, stain=0.35,
+          sscale=5.0, wear=1.0)
     metal("vert_loco", (0.04, 0.12, 0.065), rough=0.35, met=0.3, grain=0.12, gscale=30.0, dirt=0.65, stain=0.4,
           sscale=5.0, wear=1.4)
     metal("bois_verni", (0.24, 0.085, 0.035), rough=0.3, met=0.0, grain=0.35, gscale=18.0, dirt=0.6, stain=0.35,

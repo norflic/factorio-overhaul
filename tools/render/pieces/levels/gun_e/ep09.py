@@ -32,7 +32,8 @@ V = Vector
 EPOQUE = 9
 NOM = "Atome"
 KIN = 2   # rang dans l'ère III
-FOYER = dict(rgb=(0.361, 1.0, 0.29))
+# ronde 5 : lueur douce plus forte (défaut 0,7 -> 0,9) pour la vapeur de la tour et les anneaux
+FOYER = dict(rgb=(0.361, 1.0, 0.29), doux=dict(force=0.9))
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.36)
@@ -72,7 +73,8 @@ def matieres(metal, M):
     metal("lead", (0.25, 0.285, 0.34), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
           dirt=0.8, stain=0.55, stain2=0.32, sscale=5.0, wear=1.4, streak=0.4)
     # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4 -> 0,56
-    metal("concrete", (0.56, 0.545, 0.51), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
+    # ronde 5 : béton des tours presque blanc (0,56 -> 0,66), comme les capots
+    metal("concrete", (0.66, 0.65, 0.62), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
           stain2=0.3, sscale=5.0, wear=1.0, streak=0.45)
     metal("beton_capot", (0.64, 0.63, 0.6), rough=0.85, met=0.0, grain=0.22, gscale=30.0, dirt=0.75, stain=0.55,
           sscale=5.0, wear=0.8, streak=0.3)
@@ -113,7 +115,12 @@ def cooling_tower(g, x, y, r, h, M):
         z1_, r1 = prof[i + 1]
         g.cyl((x, y, h * (z0_ + z1_) / 2), "z", r * r0, h * (z1_ - z0_), M["concrete"], n=40, r2=r * r1,
               caps=(i == 0), what="tour")
-    g.cyl((x, y, h - 0.01), "z", r * 0.8 - 0.02, 0.02, M["void"], n=32, style="flat", what="bouche")
+    # ronde 5 (test à l'aveugle de la ronde 4 : 9 jugé MOINS évolué que 7 par les deux lecteurs, « réacteur vert
+    # industriel » contre « cristaux violets lumineux ») : la bouche de la tour n'est plus un trou noir mais une
+    # VAPEUR VERT URANIUM qui luit (lueur douce, entourée d'un anneau sombre) : la plus grande lumière de l'ère III,
+    # vue de dessus à toutes les poses
+    g.cyl((x, y, h - 0.012), "z", r * 0.8 - 0.02, 0.02, M["void"], n=32, style="flat", what="bouche")
+    g.cyl((x, y, h - 0.004), "z", r * 0.66, 0.012, M["emit_soft"], n=32, style="flat", what="vapeur")
     g.tube_shell((x, y, h), "z", r * 0.84, r * 0.74, 0.04, M["steel_dk"], n=40, what="levre")
     F.hazard_ring(g, (x, y, h * 0.14), "z", r * 0.88, 0.07, n=20)
     # passe 4 : 2e bague de danger jaune et noire sous la lèvre (signalisation lisible de haut, silhouette claire)
@@ -557,7 +564,12 @@ def tete(g, c):
     g.hazard([V((-R * 0.5, R + 0.24, H["zs"] - 0.14)), V((R * 0.5, R + 0.24, H["zs"] - 0.14)),
               V((R * 0.5, R + 0.24, H["zs"] - 0.08)), V((-R * 0.5, R + 0.24, H["zs"] - 0.08))], 8, t=0.008)
     # signature de coupole : bague de danger
-    F.hazard_ring(g, (0, 0, H["zs"] + 0.035), "z", R * 1.03, 0.07, n=max(16, int(TAU * R / 0.14)))
+    # ronde 5 (9 jugé « réacteur vert industriel », moins évolué que le cristal) : la bague de danger jaune et noire
+    # devient une CEINTURE DE PLOMB cerclée d'un filet vert uranium lumineux (lueur douce) : la coupole est entourée
+    # de lumière, le jaune et noir industriel reste sur les tours et les fûts
+    g.tube_shell((0, 0, H["zs"] + 0.035), "z", R * 1.03, R * 1.03 - 0.07, 0.012, M["plomb_sombre"], n=48,
+                 what="ceinture")
+    F.lit_ring(g, (0, 0, H["zs"] + 0.043), "z", R * 1.03 - 0.022, M["emit_soft"], w=0.022, t=0.01)
     # passe 5 (juges de la passe 4 : « UN gros hublot vert, cœur d'au moins 0,25 t, sur une tête octogonale ») : CŒUR
     # du réacteur sur la place libre de la coupole (corps.accroche) : socle octogonal de plomb boulonné, gros hublot
     # bombé vert uranium

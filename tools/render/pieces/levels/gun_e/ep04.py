@@ -78,11 +78,15 @@ def matieres(metal, M):
     # ronde 4 (test des écarts de la ronde 3 : 4 jugé PLUS évolué que 5 par les deux lecteurs, et que 6 par un
     # lecteur : « O doré à dôme ») : la peinture jaune perd son éclat d'or : jaune plus pâle et moins saturé (vraiment
     # « délavé »), écaillée sur la rouille (ra 0,1 -> 0,26), plus sale ; c'est le PREMIER âge de l'ère II, le plus brut
-    metal("jaune_capot", (0.7, 0.6, 0.13), rough=0.7, met=0.03, grain=0.26, gscale=30.0, rust=rust, ra=0.26,
+    # ronde 5 (test à l'aveugle de la ronde 4 : 4 lu « laiton, dôme, tuyaux de vapeur », pris pour la VAPEUR) : le
+    # jaune pâle (0,7 ; 0,6 ; 0,13) se lisait laiton : il garde sa clarté mais devient un JAUNE DE SIGNALISATION citron
+    # franc (bleu presque nul), toujours mat et écaillé : une peinture de chantier, jamais un métal
+    metal("jaune_capot", (0.72, 0.6, 0.025), rough=0.75, met=0.0, grain=0.26, gscale=30.0, rust=rust, ra=0.26,
           dirt=0.65, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
     # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
     # il tournait à l'olive brun au zoom 1) ; ronde 2 : mat, comme les capots
-    metal("yellowpaint", (0.64, 0.46, 0.07), rough=0.58, met=0.08, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
+    # ronde 5 : même jaune citron que les capots (l'ancien (0,64 ; 0,46 ; 0,07) tirait à l'or et au laiton)
+    metal("yellowpaint", (0.66, 0.54, 0.02), rough=0.7, met=0.0, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
           dirt=0.55, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
     # passe 5 : galvanisé du CORPS (peu métallique : grande masse claire, règle de reflets du kit) et tôles larmées
     metal("galva_capot", (0.32, 0.33, 0.33), rough=0.42, met=0.4, grain=0.15, gscale=30.0, rust=rust, ra=0.12,

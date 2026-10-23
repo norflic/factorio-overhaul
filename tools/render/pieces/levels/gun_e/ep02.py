@@ -199,20 +199,23 @@ def _hearth(g, x0, x1, yn0, yn1, h, M, E, flue=0.2, hotte=0.4):
     cbx, cby = (bx0 + bx1) / 2, (by0 + by1) / 2
     ex, ey = (bx1 - bx0) * 0.36, (by1 - by0) * 0.34
     rng = g.rng
-    for i in range(9):
-        a = TAU * i / 9 + 0.35 * rng.random()
-        rr = 0.35 + 0.6 * ((i * 5) % 9) / 9.0
+    # ronde 5 (test à l'aveugle de la ronde 4 : 1-2 noté 2 et 2, « même petit socle, C ajoute rouge et caissons » ;
+    # 2 lu « petit poste cuivre rouillé ») : le FOYER devient le point chaud unique et évident de la forge : 15 braises
+    # au lieu de 9, plus grandes, et un cœur deux fois plus large (le lit rougeoie au zoom 1, le pionnier n'a aucun feu)
+    for i in range(15):
+        a = TAU * i / 15 + 0.35 * rng.random()
+        rr = 0.3 + 0.65 * ((i * 7) % 15) / 15.0
         g.box((cbx + math.cos(a) * ex * rr, cby + math.sin(a) * ey * rr, h + 0.002),
-              (0.05 + 0.03 * rng.random(), 0.035 + 0.025 * rng.random(), 0.01), E, "flat",
+              (0.065 + 0.035 * rng.random(), 0.045 + 0.03 * rng.random(), 0.01), E, "flat",
               R=Matrix.Rotation(rng.random() * math.pi, 3, "Z"), what="braise")
-    g.box((cbx, cby, h + 0.002), (0.09, 0.07, 0.01), E, "flat", R=Matrix.Rotation(0.5, 3, "Z"), what="braise")
+    g.box((cbx, cby, h + 0.002), (0.16, 0.12, 0.01), E, "flat", R=Matrix.Rotation(0.5, 3, "Z"), what="braise")
     nx, ny = 4, max(5, int((by1 - by0) / 0.1))
     for i in range(nx + 1):
         for j in range(ny + 1):
             px = bx0 + (bx1 - bx0) * i / nx + 0.025 * ((j % 2) * 2 - 1)
             py = by0 + (by1 - by0) * j / ny
             dc = ((px - cbx) / ex) ** 2 + ((py - cby) / ey) ** 2
-            if dc < 0.45 and (i + j) % 2:
+            if dc < 0.6:   # ronde 5 : cœur dégagé (0,45 et un sur deux avant)
                 continue
             F.lump(g, (px, py, h - 0.004), 0.042 + 0.012 * rng.random(), M["basalt"], sz=0.55, n=7, m=4,
                    what="charbon")
@@ -287,7 +290,7 @@ def socle_forge(g):
     for xx in (-0.92, -0.6):
         g.box((xx, Y(-0.56) - 0.024, 0.15), (0.1, 0.01, 0.07), E, "flat", what="gueule")
         g.box((xx, Y(-0.56) - 0.03, 0.2), (0.13, 0.025, 0.022), M["rawiron"], "hard", what="linteau")
-    g.halo((-0.76, Y(-0.08), 0.5), M["_emit_rgb"], 12.0)
+    g.halo((-0.76, Y(-0.08), 0.5), M["_emit_rgb"], 20.0)   # ronde 5 : 12 -> 20 (foyer = point chaud unique)
     g.halo((0.7, Y(-0.12), 0.7), M["_emit_rgb"], 5.0)
 
 
