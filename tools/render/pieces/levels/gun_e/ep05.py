@@ -32,16 +32,55 @@ EPOQUE = 5
 NOM = "Volcan"
 KIN = 1   # rang dans l'ère II
 # passe 4 : rouge braise (famille 345 à 14° MESURÉE)
-FOYER = dict(rgb=(1.0, 0.08, 0.02))
+# ronde 3 (DC : « trop uniforme en terme de palette ») : lave ORANGE (la forge garde la braise rouge : 2 et 5 n'ont
+# plus le même accent)
+FOYER = dict(rgb=(1.0, 0.3, 0.02))
 CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.5)
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge) : le corps entier est taillé dans le
+# BASALTE et coulé en FONTE : pont de dalles de basalte inégales (relief) à joints rouge sombre de roche chaude,
+# (joints du pont noirs : rouges, ils dessinaient une grille de cadres) ; coupole et capots de basalte gris froid, plaques de fonte, acier de structure en fonte noire, rivets de fonte
+# brûlée. Aucun olive ni ocre : un bloc de roche noire veinée de braise.
 HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
-                 tourelleau="tungsten", chapeau="burnrust")
+                 tourelleau="tungsten", chapeau="burnrust", capots=("basalte_capot", "fonte_v"),
+                 acier=("fonte_noire", "fonte_v"), rivets="burnrust", joints="braise_sombre",
+                 danger=("braise_sombre", "fonte_noire"), peinture="burnrust",
+                 # ronde 3 (test des écarts de la ronde 2 : 4-5 « même forme », 5-6 « silhouette identique ») : SOCLE DE
+                 # BASALTE EN GRADINS, assises de blocs, rigoles de lave orange le long de chaque gradin (juges de la
+                 # passe 4 : « coulées irrégulières au sol et rigoles le long du socle ») ; palette : basalte noir
+                 # dominant, rouille brûlée en secondaire (plaques de fonte), lave orange en accent
+                 # ronde 4 (test des écarts de la ronde 3 : 5 jugé MOINS évolué que 4 par les deux lecteurs, « L sombre
+                 # trapu », « sombre plus brut ») : le volcan gagne de la HAUTEUR et de la LUMIÈRE : coupole en CÔNE
+                 # de basalte à pans (forme « pyramide » : un volcan), flèche et pommeau de LAVE au sommet (le
+                 # cratère), rigoles des gradins à pleine lumière (« emit » au lieu de « emit_soft »)
+                 forme_plateforme=dict(forme="gradins", flanc="basalte_capot", flanc2="fonte_v", assises=True,
+                                       lisere="emit"),
+                 # (essai a de la ronde 4 : arêtiers de fonte, le cône sombre se lisait encore comme la coupole ronde au
+                 # zoom 1 : les ARÊTIERS et le plateau du sommet deviennent des coulées de LAVE lumineuse)
+                 forme_coupole=dict(forme="pyramide", hauteur=1.4, epi="emit", mat2="emit"),
+                 plateforme=dict(motif="dalles", pas=0.34, joint=0.022, mat="basalte_dalle", mat2="basalte_dalle2",
+                                 fond="fonte_noire", bord="fonte_noire", boulons=None, relief=0.7))
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
           recv_mats=("tungsten", "burnrust"), recv_sig="scales", feed="armored", skirt="burnrust", appl="tungsten",
           gmask=("tungsten", "burnrust"), arm=("tungsten", "olive"), cap="burnrust", mask="glacis",
           col=("tungsten", "olive"), nac=("tungsten", "burnrust"), flange_mat="burnrust")
+
+
+def matieres(metal, M):
+    """Passe 5 : matières du CORPS du volcan (basalte rugueux non métallique, fonte peu métallique)."""
+    metal("basalte_capot", (0.115, 0.112, 0.11), rough=0.75, met=0.05, grain=0.45, gscale=26.0, dirt=0.7, stain=0.55,
+          sscale=4.0, wear=1.6, mottle=0.5)
+    metal("basalte_dalle", (0.1, 0.097, 0.095), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
+          sscale=4.0, wear=1.2, mottle=0.5)
+    metal("basalte_dalle2", (0.075, 0.072, 0.07), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
+          sscale=4.0, wear=1.2, mottle=0.5)
+    # ronde 3 : la fonte des plaques secondaires devient ROUILLE BRÛLÉE (couleur secondaire chaude du volcan)
+    metal("fonte_v", (0.27, 0.11, 0.05), rough=0.6, met=0.3, grain=0.3, gscale=30.0, rust=(0.22, 0.07, 0.03),
+          ra=0.2, dirt=0.75, stain=0.5, wear=1.6)
+    metal("fonte_noire", (0.05, 0.047, 0.045), rough=0.55, met=0.45, grain=0.3, rust=(0.22, 0.07, 0.03), ra=0.15,
+          dirt=0.7, stain=0.4, wear=2.0)
+    metal("braise_sombre", (0.22, 0.03, 0.008), rough=0.7, met=0.0, grain=0.3, dirt=0.3, stain=0.2)
 
 
 def _halo(g, pts, power):
@@ -57,8 +96,16 @@ def socle(g, c):
     M = g.M
     x0, x1, y0, y1, h = c.tremie_box
     F.lamp_group(g, (x0 + 0.07, y0 - 0.03, h * 0.62), (1, 0, 0), (0, -1, 0), M["emit"], n=2)
+    # ronde 3 : les organes du socle se posent sur le PREMIER gradin (ils s'enfoncent dans les gradins supérieurs)
+    g.push((0, 0, _z_gradin(c)))
     socle_volcano(g, KIN)
+    g.pop()
     corps.collecteur(g, c, lambda g_, pts, r: link(g_, EPOQUE, pts, r))
+
+
+def _z_gradin(c):
+    """Hauteur du premier gradin du socle (0 sans forme surélevée)."""
+    return c.sil["niveaux"][0][2] if c.dz else 0.0
 
 
 def lava_crust(g, cx, cy, z, w, l, M, E, step=0.085, seed=0):
@@ -109,12 +156,30 @@ def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
     # creuset ouvert sur le dessus : rebord de rouille brûlée, CROÛTE DE LAVE fissurée (plus de grille orange)
     cx_, cy_ = (T[0].x + T[2].x) / 2, (T[0].y + T[2].y) / 2
     gw, gl = (T[1].x - T[0].x) * 0.62, (T[2].y - T[1].y) * 0.5
-    lava_crust(g, cx_, cy_, h + 0.02, gw, gl, M, E)
-    for s_ in (-1, 1):
-        g.box((cx_ + s_ * (gw / 2 + 0.03), cy_, h + 0.04), (0.06, gl + 0.12, 0.08), M["burnrust"], "hard",
-              what="cadre")
-        g.box((cx_, cy_ + s_ * (gl / 2 + 0.03), h + 0.04), (gw + 0.12, 0.06, 0.08), M["burnrust"], "hard",
-              what="cadre")
+    # passe 5, ronde 1 : plus de croûte de lave ENCADRÉE (lue « runes de dragon » : un glyphe dans un cadre) : une
+    # BOUCHE DE LAVE à ciel ouvert, flaque irrégulière cernée de blocs de basalte, d'où part une COULÉE qui traverse
+    # le dessus et descend en rigole le long de la face sud (lave hors des cadres, demande des juges)
+    rm = min(gw, gl)
+    F.lump(g, (cx_, cy_, h + 0.004), rm * 0.4, E, sz=0.2, n=10, m=5, jit=0.3, what="lave")
+    for i in range(7):
+        a = TAU * i / 7 + 0.3
+        if abs(a - 1.5 * math.pi) < 0.5:
+            continue   # brèche au sud : la coulée sort par là
+        F.lump(g, (cx_ + math.cos(a) * rm * 0.56, cy_ + math.sin(a) * rm * 0.6, h), 0.055 + 0.015 * (i % 3),
+               M["basalt"], sz=0.6, n=8, m=5, jit=0.3, what="scorie")
+    rng = g.rng
+    pts = [V((cx_, cy_ - rm * 0.3, h + 0.012))]
+    ytop = min((t_.y for t_ in T[:4]), key=lambda v: abs(v - Y(yn0)))
+    for i in range(1, 4):
+        pts.append(V((cx_ + 0.035 * (rng.random() - 0.5) * 2, cy_ - rm * 0.3 + (ytop - cy_ + rm * 0.3) * i / 3,
+                      h + 0.012)))
+    yb_ = Y(yn0)
+    for i in range(1, 4):
+        t = i / 3
+        pts.append(V((cx_ + 0.04 * (rng.random() - 0.5) * 2, ytop + (yb_ - ytop) * t, h * (1 - t) + 0.012)))
+    for i, (a_, b_) in enumerate(zip(pts, pts[1:])):
+        e_ = b_ - a_
+        g.cyl((a_ + b_) / 2, e_, 0.03 - 0.003 * i, e_.length + 0.02, E, n=8, style="flat", what="coulee")
     # pointes de basalte aux coins du dessus
     for i in range(spikes):
         p = T[(2 + i) % 4]
@@ -216,6 +281,7 @@ def piece(g, c):
     cx = c.T["piece"]["x"]
     cy = -cx
     s = c.T["piece"]["s"]
+    g.push((0, 0, _z_gradin(c)))   # ronde 3 : posée sur le premier gradin
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
@@ -223,6 +289,7 @@ def piece(g, c):
         with at(g, sx * cx, cy, sx * -0.3):
             mortar(g, (0, 0, 0), 0.0, 1.5 * s)
             _ancrage(g, 0.2 * 1.5 * s, 0.062 * 1.5 * s, g.M)
+    g.pop()
     _halo(g, [(-cx, Y(cy) + 0.1, 0.4), (cx, Y(cy) + 0.1, 0.4)], 10.0)
 
 
@@ -327,7 +394,8 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
     """Époque 5 : frein de bouche en coin (bloc trapézoïdal à évents obliques), lèvres de braise dans les évents."""
     M = g.M
     rb = H["rb"]
-    w0, w1 = rs * 2.3, rs * 2.7
+    # passe 5 (règle d'or 7) : coin resserré au diamètre du faisceau (2,3 / 2,7 rs -> 1,8 / 2,1 rs), sans oreilles
+    w0, w1 = rs * 1.8, rs * 2.1
     h0, h1 = rs * 1.75, rs * 1.45
     y0, y1 = yb - 0.03, yb + 0.2
     pts = [V((x - w0 / 2, y0, z - h0 / 2)), V((x + w0 / 2, y0, z - h0 / 2)), V((x + w1 / 2, y1, z - h1 / 2)),
@@ -351,7 +419,6 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
         hz = h0 / 2 + (h1 - h0) / 2 * (yy - y0) / (y1 - y0)
         g.box((x, yy, z + hz + 0.002), (w0 * 0.62, 0.022, 0.008), M["void"], "flat", what="event")
         g.box((x, yy, z + hz + 0.004), (w0 * 0.34, 0.01, 0.006), M["emit"], "flat", what="braise")
-    F.ears(g, x, yb + 0.08, z, w1 / 2 + 0.03, 0.14, h1 * 0.8, M["tungsten"])
     for k in range(4):
         g.dome((x - w1 * 0.3 + k * w1 * 0.2, y0 + 0.11, z + (h0 + h1) / 4 + 0.006), (0, 0, 1), 0.02, M["rivet"])
     # face avant rectangulaire (le coin est plus large que haut), rosace des 4 bouches, pourtour de braise en cadre
@@ -463,7 +530,7 @@ def tete(g, c):
                   (sx * (H["gx"] - 0.03), H["recv"][0] + 0.1, H["zg"] + H["hr"] + 0.03),
                   0.1 + 0.03 * (side - 2), 0.034 + 0.008 * (side - 2))
     F.voyants_tete(g, H, 6)
-    PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
+    PT.sight(g, (R * 0.2, R * 0.45, corps.z_coque(c, R * 0.2, R * 0.45) - H["rz"] * 0.28), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
     # plaques rapportées : écailles de tungstène (une par position : passe 4, densité de détail D3 de 67 ramenée vers
     # la plage), puis 2e rangée

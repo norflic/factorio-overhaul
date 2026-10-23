@@ -31,13 +31,24 @@ V = Vector
 EPOQUE = 6
 NOM = "Électricité"
 KIN = 2   # rang dans l'ère II
-FOYER = dict(rgb=(0.376, 0.816, 1.0))
+FOYER = dict(rgb=(0.25, 0.55, 1.0))   # ronde 3 : bleu électrique (cyan clair avant ; le cyan glacé est au 12)
 CANON = dict(L=1.35, nb=4, rb=0.045, rr=0.1)
-HABILLAGE = dict(jupe_cerclage="copper", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
-                 chapeau="copper")
-ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("ochre", "olive"), feed="drum",
-          skirt="copper", appl="ochre", gmask=("ochre", "olive"), arm=("olive", "steel_dk"), cap="copper",
-          col=("olive", "steel_dk"), nac=("olive", "ochre"), coax=True)
+# passe 5 : cerclages de jupe sombres (moins de cuivre sur le corps : lu « cuivre, cheminée, vapeur » à la ronde 0)
+# passe 5, ronde 1 reprise (consigne du DC du 23/10 : TOUT le bâtiment change d'âge) : une CENTRALE de 1900 :
+# coupole et capots de PORCELAINE blanche, plaques vert d'eau de salle des machines, acier de structure en bakélite
+# noire et cuivre poli, rivets de cuivre, pont de CARREAUX de céramique gris clair à joints noirs bordé de cuivre.
+# Le bâtiment devient clair : il ne se lit plus « cuivre sombre, cheminée, vapeur ».
+HABILLAGE = dict(jupe_cerclage="copper_pol", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
+                 chapeau="copper_pol", capots=("porcelaine_capot", "bleu_machine"),
+                 acier=("fonte_bleue", "copper_pol"), rivets="copper_pol", joints="bakelite",
+                 tourelleau="bleu_machine", grille_nacelle="copper_pol",
+                 plateforme=dict(motif="dalles", pas=0.25, joint=0.012, mat="carreau", mat2="carreau2",
+                                 fond="bakelite", bord="fonte_bleue", boulons=None))
+# ronde 3 : culasses et masques d'arme en bleu machine et porcelaine (ils restaient ocre et olive de la lignée)
+ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("bleu_machine", "porcelaine_capot"),
+          feed="drum", skirt="copper", appl="porcelaine", gmask=("bleu_machine", "porcelaine_capot"),
+          arm=("bleu_machine", "fonte_bleue"), cap="copper", col=("bleu_machine", "fonte_bleue"),
+          nac=("bleu_machine", "porcelaine_capot"), coax=True)
 
 
 def matieres(metal, M):
@@ -45,10 +56,27 @@ def matieres(metal, M):
     C8) ; elle devient l'accent de l'époque (PT.insulators, peignes et anneaux)."""
     # gris clair chaud des cuves de transformateur (grand volume de l'ouest : se distingue en gris des bunkers noirs
     # du volcan, test de FORME)
-    metal("transfo", (0.25, 0.235, 0.205), rough=0.42, met=0.4, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
-          ra=0.18, dirt=0.9, stain=0.8, sscale=5.0, wear=2.4, streak=0.55, mottle=0.4)
-    M["accent"] = metal("porcelaine", (0.5, 0.485, 0.44), rough=0.36, met=0.0, grain=0.12, gscale=30.0, dirt=0.8,
-                        stain=0.35, sscale=5.0, wear=0.8)
+    # ronde 2 (test des écarts de la ronde 1 : l'électricité jugée MOINS évoluée que le volcan et que le pétrole,
+    # « même octogone, D clair ») : dernier âge de l'ère II, donc le plus riche et le plus clair des trois : porcelaine
+    # presque blanche, carreaux blancs, vert d'eau clair de salle des machines, transformateur gris clair.
+    metal("transfo", (0.4, 0.39, 0.36), rough=0.42, met=0.3, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
+          ra=0.12, dirt=0.8, stain=0.7, sscale=5.0, wear=2.0, streak=0.45, mottle=0.35)
+    M["accent"] = metal("porcelaine", (0.72, 0.705, 0.66), rough=0.3, met=0.0, grain=0.1, gscale=30.0, dirt=0.7,
+                        stain=0.3, sscale=5.0, wear=0.6)
+    # passe 5 : matières du CORPS (grandes masses claires non métalliques)
+    metal("porcelaine_capot", (0.74, 0.73, 0.69), rough=0.28, met=0.0, grain=0.07, gscale=30.0, dirt=0.5, stain=0.25,
+          sscale=5.0, wear=0.3, mottle=0.1)
+    # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : porcelaine BLANCHE dominante, BLEU
+    # ÉLECTRIQUE en secondaire (plaques, flasques, carters, tourelleau, acier de structure : l'ancien vert d'eau), arcs
+    # bleus et cuivre des bobines en accent
+    metal("bleu_machine", (0.07, 0.2, 0.55), rough=0.34, met=0.15, grain=0.12, gscale=30.0, rust=(0.2, 0.09, 0.04),
+          ra=0.04, dirt=0.5, stain=0.35, sscale=5.0, wear=1.0)
+    metal("bakelite", (0.035, 0.024, 0.018), rough=0.32, met=0.0, grain=0.1, dirt=0.5, stain=0.2, wear=0.8)
+    # acier de structure : fonte peinte BLEU NUIT (ronde 2 : vert sombre ; la bakélite presque noire couvrait tout)
+    metal("fonte_bleue", (0.035, 0.07, 0.19), rough=0.4, met=0.3, grain=0.15, dirt=0.6, stain=0.35, wear=1.2)
+    metal("carreau", (0.55, 0.555, 0.53), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0, wear=0.3)
+    metal("carreau2", (0.47, 0.48, 0.46), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0,
+          wear=0.3)
 
 
 def _halo(g, pts, power):
@@ -71,7 +99,7 @@ def socle(g, c):
 def tesla_tower(g, x, yn, h, M, E, s=1.0):
     y = Y(yn)
     PT.hull(g, x - 0.2 * s, x + 0.2 * s, y - 0.2 * s, y + 0.2 * s, 0.0, 0.18, ins=(0.03, 0.03, 0.03), panel=0.2,
-            mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
+            mats=[M["bleu_machine"], M["steel_dk"]], rivet_step=0.1)
     g.box((x, y - 0.2 * s - 0.006, 0.1), (0.14, 0.012, 0.07), M["hazy"], "flat", what="haute_tension")
     n = max(4, int((h - 0.24) / 0.05))
     zt = PT.insulators(g, (x, y, 0.18), n, 0.075 * s, h=0.05)
@@ -81,13 +109,65 @@ def tesla_tower(g, x, yn, h, M, E, s=1.0):
     return zt + 0.04
 
 
+def streamer(g, p0, d, L, n=4, amp=0.03):
+    """Décharge OUVERTE (passe 5) : ligne brisée lumineuse qui part d'une pièce et s'arrête dans l'air (un seul bout
+    attaché : aucun jour de sol enfermé)."""
+    rng = g.rng
+    d = V(d).normalized()
+    side = d.cross(V((0, 0, 1)))
+    if side.length < 1e-4:
+        side = V((1, 0, 0))
+    side.normalize()
+    pts = [V(p0)]
+    for i in range(1, n + 1):
+        t = i / n
+        pts.append(V(p0) + d * L * t + side * amp * (rng.random() - 0.5) * 2 + V((0, 0, amp * (rng.random() - 0.5))))
+    for a, b in zip(pts, pts[1:]):
+        e = b - a
+        g.cyl((a + b) / 2, e, 0.011, e.length + 0.006, g.M["emit"], n=6, style="flat", what="arc")
+
+
+def tesla_trapue(g, x, yn, M, E):
+    """Passe 5 : BOBINE DE TESLA TRAPUE (0,56 t de haut au lieu du mât à sphère de 1,3 t lu « cheminée ») : caisson
+    bas, bobine secondaire épaisse à spires de cuivre jointives, spirale primaire au pied, 3 poteaux d'isolateurs
+    blancs, gros tore d'aluminium au sommet, 5 décharges cyan ouvertes qui en partent."""
+    y = Y(yn)
+    PT.hull(g, x - 0.24, x + 0.24, y - 0.24, y + 0.24, 0.0, 0.14, ins=(0.03, 0.03, 0.03), panel=0.2,
+            mats=[M["bleu_machine"], M["steel_dk"]], rivet_step=0.1)
+    g.box((x, y - 0.24 - 0.006, 0.08), (0.14, 0.012, 0.07), M["hazy"], "flat", what="haute_tension")
+    # spirale primaire (2 spires larges) et ses poteaux de porcelaine
+    for kk, R_ in enumerate((0.19, 0.155)):
+        g.torus((x, y, 0.16 + 0.012 * kk), "z", R_, 0.012, M["copper"], n=36, m=6, what="primaire")
+    for t in range(3):
+        a = TAU * t / 3 + 0.5
+        F.post_insulator(g, (x + math.cos(a) * 0.19, y + math.sin(a) * 0.19, 0.14), 3, 0.035, h=0.03)
+    # bobine secondaire : âme sombre, spires de cuivre jointives
+    z0, z1 = 0.14, 0.5
+    g.cyl((x, y, (z0 + z1) / 2), "z", 0.1, z1 - z0, M["steel_dk"], n=24, what="ame_bobine")
+    ns = int((z1 - z0 - 0.04) / 0.022)
+    for t in range(ns):
+        g.torus((x, y, z0 + 0.03 + t * 0.022), "z", 0.105, 0.0105, M["copper"], n=28, m=6, what="spire")
+    # tore d'aluminium (âme pleine : aucun jour par son trou)
+    zt = z1 + 0.045
+    g.torus((x, y, zt), "z", 0.15, 0.05, M["steel_hi"], n=36, m=12, what="tore")
+    g.cyl((x, y, zt), "z", 0.15, 0.07, M["steel_dk"], n=28, what="ame_tore")
+    F.sphere(g, (x, y, zt + 0.045), 0.05, M["steel_hi"], n=16, m=8, what="borne")
+    for t in range(5):
+        a = TAU * t / 5 + 0.3
+        if math.cos(a) > 0.3:
+            continue   # ronde 1 : une décharge vers l'est touchait le canon nord en pose E (jour enfermé de 11 px)
+        d = V((math.cos(a), math.sin(a), 0.25))
+        streamer(g, V((x, y, zt)) + V((math.cos(a), math.sin(a), 0)) * 0.2, d, 0.17, n=4, amp=0.025)
+    return zt
+
+
 def socle_electric(g, k):
     M = g.M
     E = M["emit"]
-    t1 = tesla_tower(g, -1.12, 1.08, 1.16, M, E)
+    t1 = tesla_trapue(g, -1.12, 1.08, M, E)
     # nord-est : batterie de condensateurs BASSE (une tour à cet endroit traverse le canon nord en pose E : jour enfermé)
     PT.hull(g, 0.78, 1.46, Y(0.72), Y(1.18), 0.0, 0.06, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
+            mats=[M["bleu_machine"], M["steel_dk"]], rivet_step=0.1)
     PT.capacitors(g, (1.12, Y(0.95), 0.06), 4, 2, 0.062, 0.16, E)
     # (passe 4 : plus d'arc libre entre la tour et le sol ou la tête : chaque arc fermait un jour enfermé, 84 puis
     # 113 px hr ; les arcs vivent sur les canons et sur la pièce paire, entre pièces rapprochées)
@@ -115,7 +195,8 @@ def socle_electric(g, k):
     # est : touret de câble de cuivre (flasques face au sud), sur chevalet
     xr, yr, zr = 1.2, Y(0.0), 0.48
     for s in (-1, 1):
-        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.46, 0.04, M["wood"], n=36, style="soft", what="flasque")
+        # ronde 2 : flasques vert d'eau (le grand disque de bois sombre faisait une tache noire à l'est)
+        g.cyl((xr, yr + s * 0.14, zr), (0, 1, 0), 0.46, 0.04, M["bleu_machine"], n=36, style="soft", what="flasque")
         F.bolts_ring(g, (xr, yr + s * 0.14 - 0.024 * (s < 0), zr), (0, -1, 0), 0.3, 10, M["rivet"], r=0.013)
         g.box((xr, yr + s * 0.2, 0.24), (0.08, 0.04, 0.48), M["steel_dk"], "hard", what="chevalet")
     # câble gainé enroulé (noir et rouge) : plus de cuivre plein sur le socle (passe 4)
@@ -134,10 +215,14 @@ def socle_electric(g, k):
         g.box((0.82 + i * 0.07, Y(0.42), 0.36), (0.03, 0.4, 0.03), M["copper"], "hard", what="barre")
     for s in (0.82, 0.89):
         PT.insulators(g, (s, Y(0.52), 0.18), 3, 0.03, h=0.06)
-    g.halo((-1.12, Y(1.08), 1.0), M["_emit_rgb"], 12.0)
+    g.halo((-1.12, Y(1.08), 0.6), M["_emit_rgb"], 12.0)
     PT.hull(g, -0.7, 0.3, Y(0.92), Y(1.36), 0.0, 0.08, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
-    PT.capacitors(g, (-0.2, Y(1.14), 0.08), 5, 2, 0.062, 0.16, E)
+            mats=[M["bleu_machine"], M["steel_dk"]], rivet_step=0.1)
+    # passe 5 : flanc nord, 4 GROSSES PILES D'ISOLATEURS de porcelaine blanche (0,17 t de large) en rang, jeu de
+    # barres de cuivre posé dessus (au lieu de la batterie de condensateurs basse, illisible au zoom 1)
+    for xx in (-0.58, -0.32, -0.06, 0.2):
+        zt = PT.insulators(g, (xx, Y(1.14), 0.08), 5, 0.085, h=0.05)
+    g.box((-0.19, Y(1.14), zt + 0.01), (0.86, 0.035, 0.03), M["copper"], "hard", what="barre")
     # passe 4 : poteaux d'isolateurs de porcelaine devant le transformateur (piles blanches lisibles)
     for (xx, yn) in ((-1.42, -0.92), (-1.2, -0.95), (-0.98, -0.92), (1.42, -0.5), (1.45, 0.62),
                      (-0.82, -1.36), (0.82, -1.36)):
@@ -204,7 +289,7 @@ def spark_stack(g, c, emat, s=1.0):
     x, y, z = c
     g.cyl((x, y, z + 0.04), "z", 0.12 * s, 0.08, M["steel_dk"], n=20, style="soft", what="embase")
     F.bolts_ring(g, (x, y, z + 0.08), (0, 0, 1), 0.1 * s, 6, M["rivet"], r=0.013)
-    g.cyl((x, y, z + 0.08 + 0.07 * s), "z", 0.08 * s, 0.14 * s, M["olive"], n=18, what="condensateur")
+    g.cyl((x, y, z + 0.08 + 0.07 * s), "z", 0.08 * s, 0.14 * s, M["bleu_machine"], n=18, what="condensateur")
     g.tube_shell((x, y, z + 0.12 + 0.07 * s), "z", 0.088 * s, 0.07 * s, 0.025, M["brass"], n=18, what="cerclage")
     zt = PT.insulators(g, (x, y, z + 0.08 + 0.14 * s), 4, 0.06 * s, h=0.035)
     g.torus((x, y, zt + 0.03), "z", 0.075 * s, 0.024 * s, M["copper"], n=24, m=8, what="tore")
@@ -250,8 +335,8 @@ def w_coil(g, c, x, sx):
     y0, y1 = H["recv"]
     zg, hr, wr = H["zg"], H["hr"], H["wr"]
     L, rr, rb = H["L"], H["rr"], H["rb"]
-    corps.canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.0, frein=True, frein_mat="steel",
-                       bague_mat="steel_dk", masque_mats=("ochre", "olive"))
+    corps.canon_lignee(g, c, x, sx, recv_mats=("bleu_machine", "porcelaine_capot"), jaquette=0.0, frein=True,
+                       frein_mat="steel", bague_mat="bakelite", masque_mats=("bleu_machine", "porcelaine_capot"))
     rc = rr + rb + 0.045
     ya, yb = y1 + 0.08, y1 + L * corps.JAQUETTE_MAX
     helix(g, x, ya, yb, zg, rc, 0.075, 0.017, M["copper"])
@@ -265,15 +350,19 @@ def w_coil(g, c, x, sx):
     for yy in (ya - 0.03, yb + 0.03):   # flasques sombres de bobine (bagues sombres : pose N sans cheminée)
         g.tube_shell((x, yy, zg), "y", rc + 0.03, rr + rb * 0.4, 0.03, M["steel_dk"], n=28, what="flasque")
         F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rc + 0.03, 6, M["rivet"], r=0.014, phase=0.3, skip_down=-0.3)
-    # anneau isolateur derrière le frein, électrodes et arc à la bouche
+    # anneau isolateur derrière la bouche ; passe 5 : plus d'électrodes ni d'arc DEVANT la bouche (sans le frein en
+    # bloc du kit, ils enfermaient du sol : 57 px en tête E, 35 px en tête N). L'ARC court maintenant SUR le faisceau,
+    # de la bobine à l'anneau (environ 0,5 t), entre deux petites piles d'isolateurs : il se détache sur les tubes, pas
+    # sur le sol, et il est plus long, donc lisible par la lueur.
     ybb = y1 + L
     g.tube_shell((x, ybb - 0.07, zg), "y", rr + rb + 0.04, rr + rb * 0.3, 0.035, M["accent"], n=28, what="isolateur")
-    for s in (-1, 1):
-        p0 = V((x + s * (rr + rb + 0.05), ybb - 0.07, zg + 0.04))
-        g.cyl(p0 + V((0, 0.07, 0.03)), (0, 1, 0.4), 0.012, 0.14, M["copper"], n=8, what="electrode")
-        F.sphere(g, p0 + V((0, 0.13, 0.055)), 0.02, M["copper"], n=10, m=6, what="pointe")
-    pa, pb = V((x - (rr + rb + 0.05), ybb + 0.06, zg + 0.095)), V((x + (rr + rb + 0.05), ybb + 0.06, zg + 0.095))
-    arc(g, pa, pb, 4, 0.025)
+    za = zg + rr + rb + 0.012
+    ea, eb = yb + 0.06, ybb - 0.09
+    # (l'arc reste au ras du dessus des tubes : plus haut, il laisse voir le sol entre lui et le faisceau)
+    for yy in (ea, eb):
+        g.cyl((x, yy, za - 0.005), "z", 0.03, 0.03, M["accent"], n=14, style="soft", what="isolateur")
+        F.sphere(g, (x, yy, za + 0.025), 0.022, M["copper"], n=10, m=6, what="pointe")
+    arc(g, V((x, ea + 0.02, za + 0.02)), V((x, eb - 0.02, za + 0.02)), 7, 0.02)
     # sphère de décharge sur pile d'isolateurs, posée sur la culasse ; arc vers la bobine
     ps = (x - sx * wr * 0.15, (y0 + y1) / 2 + 0.02, zg + hr + 0.01)
     zt = PT.insulators(g, ps, 3, 0.05, h=0.04)
@@ -360,5 +449,21 @@ def tete(g, c):
         p = (math.cos(a) * rad_at(zc6) * 0.98, math.sin(a) * rad_at(zc6) * 0.98, zc6)
         ztp = PT.insulators(g, p, 3, 0.035, h=0.03)
         g.cyl((p[0], p[1], ztp + 0.01), "z", 0.014, 0.03, M["copper"], n=8, what="borne")
-    zt = PT.insulators(g, (R * 0.25, -R * 0.35, zs + rz * 0.9), 3, 0.05, h=0.04)
-    F.sphere(g, (R * 0.25, -R * 0.35, zt + 0.06), 0.06, M["copper"], n=16, m=10, what="boule")
+    # ronde 2 (silhouette d'âge sur la coupole) : TÊTE DE TESLA à la place libre de la coupole (corps.accroche) :
+    # pile d'isolateurs blancs, gros tore d'aluminium à âme pleine, borne, 4 décharges cyan ouvertes vers l'arrière et
+    # le haut (aucune vers les canons), halo cyan
+    a = corps.accroche(c, "coupole")
+    p = V((a["x"], a["y"], a["z"] - 0.02))
+    g.cyl(p, "z", 0.075, 0.05, M["fonte_bleue"], n=16, style="soft", what="embase")
+    F.bolts_ring(g, p + V((0, 0, 0.025)), (0, 0, 1), 0.06, 6, M["rivet"], r=0.011)
+    zt = PT.insulators(g, (p.x, p.y, p.z + 0.025), 3, 0.055, h=0.04)
+    rt = max(0.1, min(0.15, a["r"] * 0.7))
+    g.torus((p.x, p.y, zt + 0.035), "z", rt, rt * 0.33, M["steel_hi"], n=36, m=12, what="tore")
+    g.cyl((p.x, p.y, zt + 0.035), "z", rt, rt * 0.45, M["steel_dk"], n=28, what="ame_tore")
+    F.sphere(g, (p.x, p.y, zt + 0.035 + rt * 0.3), 0.045, M["steel_hi"], n=14, m=8, what="borne")
+    for t in range(4):
+        aa = math.pi * 1.1 + math.pi * 0.8 * t / 3   # repère de la tête : les canons sont vers +y, l'arrière vers -y
+        d = V((math.cos(aa), math.sin(aa), 0.45))
+        streamer(g, V((p.x, p.y, zt + 0.035)) + V((math.cos(aa), math.sin(aa), 0)) * (rt * 1.3), d, 0.12, n=3,
+                 amp=0.02)
+    g.halo((p.x, p.y, zt + 0.1), M["_emit_rgb"], 10.0)

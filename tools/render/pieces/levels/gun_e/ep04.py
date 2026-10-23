@@ -33,19 +33,71 @@ FOYER = dict(rgb=(1.0, 0.42, 0.1))
 CANON = dict(L=1.2, nb=4, rb=0.045, rr=0.1)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.75)
-HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("brass", "copper"),
-                 chapeau="galva")
+# passe 5 (ronde 1) : lu « cuivre, cuves, vapeur » par un lecteur de la ronde 0 : plus AUCUN laiton ni cuivre visible
+# (munitions en cartouches rouges et galvanisé, bouchons rouges) ; GRANDS CAPOTS jaune délavé (clé « capots » du kit :
+# coupole, colonne, nacelle, masque) et plaques secondaires galvanisées : la machine se lit jaune et gris, jamais
+# laiton.
+# Ronde 1 reprise après la consigne du DC du 23/10 (TOUT le bâtiment change d'âge) : pont de TÔLES larmées
+# galvanisées claires bordées de jaune de sécurité, acier de structure galvanisé sombre et galvanisé clair, rivets
+# galvanisés, joints de caoutchouc noir, peinture rouge des vannes. Lecture : plate-forme pétrolière jaune et grise.
+# Ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : JAUNE DE SIGNALISATION dominant, NOIR en
+# secondaire (acier de structure, plaques secondaires, conduites, tôles du pont, bandes de danger jaune et noir),
+# rouge des volants et flamme orange en accent ; le gris galvanisé disparaît (il rapprochait 4 de 5 et de 6). Silhouette
+# (test des écarts de la ronde 2, 4-5 et 5-6 : « même forme », « silhouette identique ») : PONT CARRÉ à garde-corps
+# jaunes (forme « carre » du kit), au lieu de l'octogone commun aux trois âges de l'ère II.
+HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("redpaint", "galva"),
+                 chapeau="noir_capot", capots=("jaune_capot", "noir_capot"), acier=("noir_capot", "galva_capot"),
+                 rivets="galva_capot", joints="rubber", tourelleau="jaune_capot", danger=("jaune_capot", "noir_capot"),
+                 forme_plateforme=dict(forme="carre", flanc="jaune_capot", flanc2="noir_capot"),
+                 plateforme=dict(motif="toles", pas=0.5, mat="tole_larmee", mat2="tole_larmee2", bord="jaune_capot",
+                                 boulons="galva_capot", relief=0.2))
 ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
           recv_mats=("yellowpaint", "yellowpaint"), recv_sig="stripes", feed="barrels", skirt="galva",
-          appl="yellowpaint", gmask=("yellowpaint", "olive"), arm=("olive", "steel_dk"), cap="galva",
-          col=("olive", "steel_dk"), nac=("olive", "yellowpaint"))
+          appl="jaune_capot", gmask=("yellowpaint", "galva"), arm=("jaune_capot", "noir_capot"), cap="galva",
+          col=("jaune_capot", "noir_capot"), nac=("jaune_capot", "yellowpaint"), flange_mat="galva")
 
 
 def matieres(metal, M):
     """Test noir et blanc de la passe 3 : le galvanisé des grands aplats est plus clair (× 1,35)."""
     rust = (0.24, 0.085, 0.03)
-    metal("galva", (0.2, 0.205, 0.21), rough=0.3, met=0.85, grain=0.3 * 0.62, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
+    # ronde 3 : la clé « galva » (conduites, frein, jaquette, bagues des cuves) devient de l'acier PEINT EN NOIR satiné
+    # (secondaire noir de la palette jaune et noir) ; le nom reste pour ne pas toucher au dessin
+    # ronde 3 : acier nu clair du canon (jaquette perforée, frein) : un métal pur vers le nord reste noir (kit, pose N)
+    metal("acier_canon", (0.4, 0.39, 0.37), rough=0.4, met=0.35, grain=0.12, gscale=30.0, dirt=0.5, stain=0.3,
+          sscale=5.0, wear=1.0)
+    metal("noir_capot", (0.045, 0.044, 0.042), rough=0.42, met=0.1, grain=0.15, gscale=30.0, rust=(0.24, 0.085, 0.03),
+          ra=0.08, dirt=0.55, stain=0.4, sscale=5.0, wear=2.2, streak=0.3)
+    metal("galva", (0.06, 0.059, 0.057), rough=0.38, met=0.3, grain=0.3 * 0.62, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
           stain=0.75, stain2=0.32, sscale=5.0, wear=1.6, streak=0.45, tone=1.35)
+    # passe 5 : jaune délavé des GRANDS CAPOTS (clé « capots ») : matière de corps, ni vive ni réfléchissante, plus
+    # claire et moins sale que le jaune des accents (« yellowpaint ») pour se lire jaune au zoom 1
+    # ronde 2 (lecteurs de la ronde 1 : « olive laiton », « couleur laiton ») : PEINTURE jaune de chantier délavée,
+    # mate et presque pas métallique (un jaune métallique se lit laiton), plus claire et plus pâle
+    # (essai a de la ronde 2 : (0,58 ; 0,46 ; 0,12) restait kaki au zoom 1 : la saleté et les taches l'assombrissent ;
+    # jaune franc, moins sale)
+    # ronde 4 (test des écarts de la ronde 3 : 4 jugé PLUS évolué que 5 par les deux lecteurs, et que 6 par un
+    # lecteur : « O doré à dôme ») : la peinture jaune perd son éclat d'or : jaune plus pâle et moins saturé (vraiment
+    # « délavé »), écaillée sur la rouille (ra 0,1 -> 0,26), plus sale ; c'est le PREMIER âge de l'ère II, le plus brut
+    # ronde 5 (test à l'aveugle de la ronde 4 : 4 lu « laiton, dôme, tuyaux de vapeur », pris pour la VAPEUR) : le
+    # jaune pâle (0,7 ; 0,6 ; 0,13) se lisait laiton : il garde sa clarté mais devient un JAUNE DE SIGNALISATION citron
+    # franc (bleu presque nul), toujours mat et écaillé : une peinture de chantier, jamais un métal
+    metal("jaune_capot", (0.72, 0.6, 0.025), rough=0.75, met=0.0, grain=0.26, gscale=30.0, rust=rust, ra=0.26,
+          dirt=0.65, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
+    # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
+    # il tournait à l'olive brun au zoom 1) ; ronde 2 : mat, comme les capots
+    # ronde 5 : même jaune citron que les capots (l'ancien (0,64 ; 0,46 ; 0,07) tirait à l'or et au laiton)
+    metal("yellowpaint", (0.66, 0.54, 0.02), rough=0.7, met=0.0, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
+          dirt=0.55, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
+    # passe 5 : galvanisé du CORPS (peu métallique : grande masse claire, règle de reflets du kit) et tôles larmées
+    metal("galva_capot", (0.32, 0.33, 0.33), rough=0.42, met=0.4, grain=0.15, gscale=30.0, rust=rust, ra=0.12,
+          dirt=0.7, stain=0.55, sscale=5.0, wear=1.2, streak=0.35)
+    metal("galva_sombre", (0.12, 0.125, 0.13), rough=0.42, met=0.45, grain=0.15, gscale=30.0, rust=rust, ra=0.2,
+          dirt=0.75, stain=0.5, wear=1.4)
+    # ronde 3 : tôles larmées gris anthracite (plus de galvanisé clair : palette jaune et noir)
+    metal("tole_larmee", (0.15, 0.148, 0.145), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.15,
+          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
+    metal("tole_larmee2", (0.12, 0.118, 0.115), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.22,
+          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
 
 
 def _halo(g, pts, power):
@@ -98,9 +150,10 @@ def socle_petrol(g, k):
     E = M["emit"]
     fuel_tank(g, -1.12, -0.7, 0.86, 0.3, M, E)
     fuel_tank(g, 1.14, -0.42, 0.36, 0.27, M, E, ladder=False)
-    # sud-est (devant la 2e cuve) : fûts debout et couchés
-    for i, (x, yn) in enumerate(((1.0, -0.66), (1.24, -0.62), (1.12, -0.86))):
-        F.drum(g, (x, Y(yn), 0.0), 0.11, 0.3, M["yellowpaint"] if i != 1 else M["galva"], M["hazk"])
+    # sud-est (devant la 2e cuve) : GROUPE DE FÛTS de 200 L (passe 5 : diamètre 0,3 t, au lieu de 0,22 ; jaune, un
+    # rouge), lisibles au zoom 1 comme des fûts et pas comme des cuves
+    for i, (x, yn) in enumerate(((0.98, -0.7), (1.3, -0.7), (1.14, -0.98), (0.82, -1.0))):
+        F.drum(g, (x, Y(yn), 0.0), 0.15, 0.4, M["redpaint"] if i == 1 else M["yellowpaint"], M["hazk"])
     # nord-ouest : groupe de pompage (moteur, 2 vannes à volant rouge)
     PT.hull(g, -1.42, -0.86, Y(1.0), Y(1.4), 0.0, 0.3, ins=(0.03, 0.03, 0.03), panel=0.24,
             mats=[M["yellowpaint"], M["steel_dk"]], rivet_step=0.12)
@@ -109,6 +162,10 @@ def socle_petrol(g, k):
         g.tube_shell((-1.3 + kk * 0.06, Y(1.2), 0.4), "x", 0.118, 0.09, 0.014, M["steel_hi"], n=20, what="ailette")
     for xx in (-1.36, -0.92):
         P2.handwheel(g, (xx, Y(1.0) - 0.05, 0.36), (0, -1, 0.2), 0.075, M, mat=M["redpaint"])
+    # ronde 2 (silhouette d'âge, juges : « torchère à flamme ») : TORCHÈRE haute au coin nord-ouest, posée sur le
+    # groupe de pompage : fût galvanisé à bagues de danger, passerelle ronde, brûleur noirci, grande flamme orange.
+    # Sommet sous h_max (0,76, accroches.py) : la tête qui tourne passe au-dessus.
+    torchere(g, -1.36, Y(1.34), 0.3, 0.74, M, E)
     # nord : rampe de 3 conduites galvanisées sur supports, vannes rouges
     for i in range(3):
         yy = Y(1.22) + (i - 1) * 0.1
@@ -127,6 +184,23 @@ def socle_petrol(g, k):
     F.lamp_group(g, (-0.45, Y(1.22) - 0.16, 0.14), (1, 0, 0), (0, -1, 0), E, n=2)
 
     g.halo((-1.1, Y(1.0), 0.4), M["_emit_rgb"], 10.0)
+
+
+def torchere(g, x, y, z0, z1, M, E):
+    """Torchère de plate-forme pétrolière (ronde 2) : fût galvanisé, 2 bagues de danger, passerelle ronde pleine (une
+    passerelle ajourée enfermerait du sol), brûleur noirci, flamme orange en 2 cônes et halo."""
+    h = z1 - z0
+    g.cyl((x, y, z0 + 0.02), "z", 0.07, 0.04, M["steel_dk"], n=16, what="embase")
+    F.bolts_ring(g, (x, y, z0 + 0.04), (0, 0, 1), 0.055, 6, M["rivet"], r=0.011)
+    g.cyl((x, y, z0 + h / 2), "z", 0.034, h, M["galva"], n=14, what="fut_torchere")
+    for f in (0.3, 0.62):
+        F.hazard_ring(g, (x, y, z0 + h * f), "z", 0.037, 0.05, n=10)
+    g.cyl((x, y, z0 + h * 0.8), "z", 0.075, 0.018, M["grate"], n=16, what="passerelle")
+    g.tube_shell((x, y, z0 + h * 0.8 + 0.03), "z", 0.078, 0.07, 0.05, M["galva"], n=16, what="garde_corps")
+    g.cyl((x, y, z1 - 0.02), "z", 0.05, 0.05, M["soot"], n=12, what="bruleur")
+    g.cyl((x, y, z1 + 0.07), "z", 0.065, 0.14, E, n=10, r2=0.016, what="flamme")
+    g.cyl((x + 0.015, y, z1 + 0.18), "z", 0.034, 0.1, E, n=8, r2=0.004, what="flamme")
+    g.halo((x, y, z1 + 0.1), M["_emit_rgb"], 9.0)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -230,7 +304,7 @@ def w_petrol(g, st, H, x, sx):
         F.hazard_ring(g, c + V((0, f * Lb, 0)), (0, 1, 0), r + 0.002, 0.07, n=12)
     for f in (-0.38, 0.0, 0.38):
         g.tube_shell(c + V((0, f * Lb, 0)), "y", r + 0.018, r + 0.002, 0.022, M["steel_dk"], n=28, what="sangle")
-    g.cyl(c + V((sx * r * 0.3, Lb / 2 + 0.03, r * 0.45)), "y", 0.026, 0.04, M["brass"], n=10, what="bouchon")
+    g.cyl(c + V((sx * r * 0.3, Lb / 2 + 0.03, r * 0.45)), "y", 0.026, 0.04, M["redpaint"], n=10, what="bouchon")
     g.box(c + V((0, 0, r + 0.025)), (0.035, Lb * 0.34, 0.025), M["steel_hi"], "hard", what="poignee")
     g.hose([c + V((-sx * r * 0.6, -Lb / 2 + 0.03, r * 0.2)), V((x + sx * wr * 0.55, y0 + 0.02, zg + 0.03)),
             V((x + sx * wr * 0.4, y0 + 0.08, zg + 0.04))], 0.03, M["rubber"], step=0.03)
@@ -246,7 +320,7 @@ def gun_e(g, st, H, x, side):
     pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
                         colliers=st.get("collars", (0.8,)), bouts=False)
     Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
-    jk_perforated(g, st, x, y1, zg, Lj, rs, H, mat="galva")
+    jk_perforated(g, st, x, y1, zg, Lj, rs, H, mat="acier_canon")
     br_slots(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
 
@@ -285,20 +359,21 @@ def br_slots(g, st, x, yb, z, rs, pos, H):
     """Époque 4 : frein de bouche à 2 fentes latérales, acier galvanisé."""
     M = g.M
     rb = H["rb"]
-    # passe 4, règle d'or 7 : bloc près de deux fois plus large que le faisceau, oreilles (pose N : un « T » plat)
-    w = rs * 3.4
-    g.box((x, yb + 0.06, z), (w, 0.17, rs * 1.6), M["galva"], "soft", what="frein")
-    F.ears(g, x, yb + 0.06, z, w / 2 + 0.03, 0.12, rs * 1.2, M["galva"], vent=True)
+    # passe 5 (règle d'or 7, pose N) : le bloc à oreilles deux fois plus large que le faisceau (« T » plat, chapeau de
+    # cheminée en pose N) est remplacé par un frein ROND au diamètre de la jaquette : 2 fentes de chaque côté, bague de
+    # danger, face avant à rosace éclairée (bouts de tubes vus en bout)
+    # ronde 3 (pose N, 4 lu « cheminée » à la ronde 2) : frein et jaquette en ACIER NU CLAIR (règle d'or 7 du kit), au
+    # lieu du galvanisé devenu noir
+    w = rs * 2.0
+    g.cyl((x, yb + 0.07, z), "y", rs, 0.15, M["acier_canon"], n=28, style="soft", what="frein")
     for s in (-1, 1):
         for k in range(2):
-            g.box((x + s * (w / 2 + 0.002), yb + 0.02 + k * 0.08, z), (0.012, 0.045, rs * 1.15), M["void"], "flat",
+            g.box((x + s * (rs - 0.004), yb + 0.03 + k * 0.08, z), (0.014, 0.045, rs * 0.9), M["void"], "flat",
                   what="fente")
-        g.box((x + s * (w / 2 + 0.008), yb + 0.06, z + rs * 0.82), (0.02, 0.16, 0.022), M["galva"], "hard",
-              what="joue")
-    g.box((x, yb + 0.06, z + rs * 0.8 + 0.012), (w * 0.6, 0.12, 0.012), M["hazk"], "flat", what="bande")
-    g.cyl((x, yb + 0.15, z), "y", rs + 0.006, 0.012, M["galva"], n=28, what="face")
+    F.hazard_ring(g, (x, yb + 0.025, z), (0, 1, 0), rs + 0.004, 0.035, n=12)
+    g.cyl((x, yb + 0.15, z), "y", rs - 0.012, 0.012, M["acier_canon"], n=28, what="face")
     F.bores(g, x, yb + 0.157, z, pos, rb, M["steel_hi"])
-    F.lit_ring(g, (x, yb + 0.158, z), "y", rs + 0.004, M["emit"])
+    F.lit_ring(g, (x, yb + 0.158, z), "y", rs - 0.014, M["emit"])
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

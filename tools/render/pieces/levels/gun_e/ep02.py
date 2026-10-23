@@ -39,11 +39,30 @@ FOYER = dict(rgb=(1.0, 0.13, 0.025))
 CANON = dict(L=0.85, nb=3, rb=0.05, rr=0.08)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.6)
-HABILLAGE = dict(jupe_cerclage="blackiron", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
-                 chapeau="brass")
+# passe 5, ronde 1 (consigne du DC du 23/10 : « une autre évolution » d'un âge à l'autre, pas des accessoires) : TOUT
+# le corps passe à la FORGE : pont de TÔLES de fer martelé gris à gros rivets, coupole et capots de fer martelé
+# (C1 ≥ 60 demandé par les juges : fer gris moyen, pas noir), plaques de BRIQUE réfractaire rouge (nacelle, masque,
+# tourelleau, bandes de la couronne), acier de structure en fer noir forgé, rivets de fer clair.
+HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
+                 chapeau="fer_clair_f", capots=("fer_martele", "brique"), acier=("fer_noir", "fer_clair_f"),
+                 rivets="fer_clair_f", joints="mortier", danger=("brique", "fer_noir"), peinture="brique",
+                 tourelleau="brique", grille_nacelle="fer_noir",
+                 # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : fer gris DOMINANT, BRIQUE rouge en
+                 # couleur SECONDAIRE bien visible (pavage de briques du pont, plaques de la nacelle), braise rouge en
+                 # accent ; le pont de tôles grises se confondait avec le fer du corps
+                 plateforme=dict(motif="dalles", pas=0.17, joint=0.02, mat="brique_pave", mat2="brique_pave2",
+                                 fond="mortier", bord="fer_noir", boulons=None, relief=0.45),
+                 # ronde 4 (test des écarts de la ronde 3 : 1-2 noté 2 et 2, « même petit châssis rouillé », « même
+                 # petite base sombre ») : la FORGE change de FORME (consigne de 9 h 36 : « Forge sur un socle de pierre
+                 # crénelé ») : SOCLE DE PIERRE surélevé à assises grises (muret seul : les merlons du bord auraient
+                 # coupé le foyer et l'enclume, posés au ras du bord) et coupole en DONJON DE BRIQUE crénelé à
+                 # mâchicoulis de fer noir (le crénelage du bouclier se prolonge sur la tête) ; les organes du socle
+                 # restent au sol et s'enfoncent dans le socle (aucun organe ne flotte au-delà du bord)
+                 forme_plateforme=dict(forme="pierre", crenaux=False),
+                 forme_coupole=dict(forme="tour", mat="brique", mat2="fer_noir"))
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
-ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("bolted", "rawiron"),
-          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="bolted", gmask=("bolted", "rawiron"),
+ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("fer_martele", "rawiron"),
+          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="brique", gmask=("bolted", "rawiron"),
           arm=("bolted", "blackiron"), cap="brass", mask="shield", jacket_f=0.6, col=("bolted", "blackiron"),
           nac=("bolted", "rawiron"), arr="row", barrel="blackiron")
 
@@ -51,8 +70,31 @@ ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_m
 def matieres(metal, M):
     """Tôle de bouclier forgée (acier martelé plus clair que le corps, arêtes usées très claires : le bouclier se lit
     au zoom 1 comme la tôle claire de la mitrailleuse vanilla) et fer chaud (bout de barre sortant du foyer)."""
-    metal("forgeplate", (0.44, 0.41, 0.36), rough=0.44, met=0.75, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
+    metal("forgeplate", (0.46, 0.43, 0.38), rough=0.46, met=0.45, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
           ra=0.16, dirt=0.8, stain=0.6, sscale=5.0, wear=2.8, streak=0.45, mottle=0.35)
+    # passe 5 : matières du CORPS de forge (grandes masses peu métalliques : un métal pur reste sombre sous ce soleil)
+    rust = (0.24, 0.085, 0.03)
+    # ronde 2 (test des écarts de la ronde 1 : la forge lue « petit poste sombre rafistolé », prise pour le pionnier) :
+    # FER GRIS clair martelé, froid et métallique, à l'opposé du bois brun du pionnier (C1 ≥ 60 des juges) ; les
+    # grandes masses montent d'environ 45 %, le fer noir de structure reste sombre mais moins noir
+    metal("fer_martele", (0.37, 0.35, 0.325), rough=0.5, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.14,
+          dirt=0.7, stain=0.45, sscale=5.0, wear=2.2, mottle=0.45)
+    metal("tole_forge", (0.3, 0.29, 0.27), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.2,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("tole_forge2", (0.25, 0.24, 0.225), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.28,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("fer_noir", (0.1, 0.095, 0.088), rough=0.5, met=0.5, grain=0.3, rust=rust, ra=0.22, dirt=0.7, stain=0.4,
+          wear=2.4)
+    metal("fer_clair_f", (0.36, 0.34, 0.31), rough=0.45, met=0.45, grain=0.12, dirt=0.4, stain=0.1, wear=0.8,
+          reflet="fin")
+    # ronde 3 : briques plus franches (rouge brique, moins sales) et pavés du pont en deux tons
+    metal("brique_pave", (0.42, 0.135, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("brique_pave2", (0.34, 0.1, 0.05), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("brique", (0.46, 0.14, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.85, stain=0.6, sscale=5.0,
+          wear=0.8, mottle=0.35)
+    metal("mortier", (0.1, 0.085, 0.07), rough=0.9, met=0.0, grain=0.2, dirt=0.4, stain=0.0)
 
 
 def _halo(g, pts, power):
@@ -157,20 +199,23 @@ def _hearth(g, x0, x1, yn0, yn1, h, M, E, flue=0.2, hotte=0.4):
     cbx, cby = (bx0 + bx1) / 2, (by0 + by1) / 2
     ex, ey = (bx1 - bx0) * 0.36, (by1 - by0) * 0.34
     rng = g.rng
-    for i in range(9):
-        a = TAU * i / 9 + 0.35 * rng.random()
-        rr = 0.35 + 0.6 * ((i * 5) % 9) / 9.0
+    # ronde 5 (test à l'aveugle de la ronde 4 : 1-2 noté 2 et 2, « même petit socle, C ajoute rouge et caissons » ;
+    # 2 lu « petit poste cuivre rouillé ») : le FOYER devient le point chaud unique et évident de la forge : 15 braises
+    # au lieu de 9, plus grandes, et un cœur deux fois plus large (le lit rougeoie au zoom 1, le pionnier n'a aucun feu)
+    for i in range(15):
+        a = TAU * i / 15 + 0.35 * rng.random()
+        rr = 0.3 + 0.65 * ((i * 7) % 15) / 15.0
         g.box((cbx + math.cos(a) * ex * rr, cby + math.sin(a) * ey * rr, h + 0.002),
-              (0.05 + 0.03 * rng.random(), 0.035 + 0.025 * rng.random(), 0.01), E, "flat",
+              (0.065 + 0.035 * rng.random(), 0.045 + 0.03 * rng.random(), 0.01), E, "flat",
               R=Matrix.Rotation(rng.random() * math.pi, 3, "Z"), what="braise")
-    g.box((cbx, cby, h + 0.002), (0.09, 0.07, 0.01), E, "flat", R=Matrix.Rotation(0.5, 3, "Z"), what="braise")
+    g.box((cbx, cby, h + 0.002), (0.16, 0.12, 0.01), E, "flat", R=Matrix.Rotation(0.5, 3, "Z"), what="braise")
     nx, ny = 4, max(5, int((by1 - by0) / 0.1))
     for i in range(nx + 1):
         for j in range(ny + 1):
             px = bx0 + (bx1 - bx0) * i / nx + 0.025 * ((j % 2) * 2 - 1)
             py = by0 + (by1 - by0) * j / ny
             dc = ((px - cbx) / ex) ** 2 + ((py - cby) / ey) ** 2
-            if dc < 0.45 and (i + j) % 2:
+            if dc < 0.6:   # ronde 5 : cœur dégagé (0,45 et un sur deux avant)
                 continue
             F.lump(g, (px, py, h - 0.004), 0.042 + 0.012 * rng.random(), M["basalt"], sz=0.55, n=7, m=4,
                    what="charbon")
@@ -245,7 +290,7 @@ def socle_forge(g):
     for xx in (-0.92, -0.6):
         g.box((xx, Y(-0.56) - 0.024, 0.15), (0.1, 0.01, 0.07), E, "flat", what="gueule")
         g.box((xx, Y(-0.56) - 0.03, 0.2), (0.13, 0.025, 0.022), M["rawiron"], "hard", what="linteau")
-    g.halo((-0.76, Y(-0.08), 0.5), M["_emit_rgb"], 12.0)
+    g.halo((-0.76, Y(-0.08), 0.5), M["_emit_rgb"], 20.0)   # ronde 5 : 12 -> 20 (foyer = point chaud unique)
     g.halo((0.7, Y(-0.12), 0.7), M["_emit_rgb"], 5.0)
 
 
@@ -287,6 +332,8 @@ def piece(g, c):
     side = c.side
     cx = c.T["piece"]["x"]
     cy = -cx
+    # ronde 4 : la pièce se pose SUR le socle de pierre (hauteur du socle à son coin, corps.z_pont)
+    g.push((0, 0, corps.z_pont(c, cx, cy)))
     # dalle sous chaque pièce, raccordée à la plateforme : aucun jour enfermé entre la pièce, les caisses et la trémie
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
@@ -296,6 +343,7 @@ def piece(g, c):
             PT.crate(g, (0.0, 0.2, 0.0), (0.36, 0.26, 0.18), mat=M["wood"])
             PT.crate(g, (0.01, 0.2, 0.185), (0.3, 0.22, 0.15), mat=M["wood2"])
             mantlet(g, (0.0, -0.04, 0.0), 0.0, w=0.54, h=0.4)
+    g.pop()
     _halo(g, [(-cx, Y(cy), 0.3), (cx, Y(cy), 0.3)], 6.0)
 
 
@@ -339,7 +387,8 @@ def w_forge(g, st, H, x, sx):
     rs = rr + rb + 0.024
     # manchon de fer forgé (moitié arrière au plus : corps.JAQUETTE_MAX), frettes boulonnées au pas de 0,12
     Lj = L * min(0.46, corps.JAQUETTE_MAX)
-    g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["rawiron"], n=28, style="smooth", what="manchon")
+    # ronde 2 : manchon en fer martelé gris clair (fer brut sombre en ronde 1 : la forge se lisait « poste sombre »)
+    g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["fer_martele"], n=28, style="smooth", what="manchon")
     nfr = max(2, int(Lj / 0.12) + 1)
     for i in range(nfr):
         yy = y1 + 0.03 + (Lj - 0.06) * i / (nfr - 1)
@@ -360,7 +409,7 @@ def w_forge(g, st, H, x, sx):
     g.box((x, y1 + 0.4, (zr + zg) / 2 - 0.01), (0.06, 0.045, rs + 0.03), M["rawiron"], "hard", what="collier")
     # masque de canon : plaque de fer forgé rivetée
     PT.hull(g, x - wr * 0.75, x + wr * 0.75, y1 - 0.04, y1 + 0.06, zg - hr * 1.3, zg + hr * 1.4, ins=(0.02, 0.01, 0.03),
-            panel=0.2, mats=[M["bolted"], M["rawiron"]], rivet_step=0.1)
+            panel=0.2, mats=[M["fer_martele"], M["rawiron"]], rivet_step=0.1)
     xo = x + sx * (wr / 2 - 0.005)
     feed(g, st, H, x, sx, xo)
 

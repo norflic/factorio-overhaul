@@ -32,14 +32,33 @@ V = Vector
 EPOQUE = 9
 NOM = "Atome"
 KIN = 2   # rang dans l'ère III
-FOYER = dict(rgb=(0.361, 1.0, 0.29))
+# ronde 5 : lueur douce plus forte (défaut 0,7 -> 0,9) pour la vapeur de la tour et les anneaux
+FOYER = dict(rgb=(0.361, 1.0, 0.29), doux=dict(force=0.9))
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.36)
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge ; correction des juges : « dalles de
+# béton clair ») : une CENTRALE NUCLÉAIRE : pont de grandes DALLES de béton clair à joints sombres, bordé de plomb et
+# d'un liseré lumineux vert ; coupole et capots de BÉTON clair ; plaques de plomb gris ; acier de structure en plomb
+# sombre ; bandes de danger jaune et noir gardées (signalétique radioactive).
 HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
-                 grille_nacelle="lead", tourelleau="lead", chapeau="lead")
+                 grille_nacelle="lead", tourelleau="lead", chapeau="lead", capots=("beton_capot", "lead"),
+                 acier=("plomb_sombre", "lead"), rivets="lead", joints="joint_beton",
+                 plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
+                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit"),
+                 # ronde 4 (test des écarts de la ronde 3 : 8-9 noté 2 et 2, « même socle et dôme » ; 9 jugé MOINS évolué
+                 # que 7 par les deux lecteurs) : la coupole devient un RÉACTEUR À ANNEAUX (forme « anneau » du kit) :
+                 # noyau de béton clair, deux anneaux de confinement en plomb gris-bleu à doublure VERT URANIUM
+                 # lumineuse ; le cœur vert se pose au sommet du noyau. Dernier âge de l'ère III : le plus lumineux et
+                 # le plus « technologique » des trois
+                 # (essai a de la ronde 4 : anneaux de plomb, sombres au zoom 1 : anneaux de BÉTON CLAIR)
+                 forme_coupole=dict(forme="anneau", mat2="beton_capot", lisere="emit"))
+# ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : béton blanc cassé dominant, PLOMB GRIS-BLEU en
+# secondaire (il était gris neutre, comme le béton : un seul gris), vert uranium en accent, liseré du pont à pleine
+# lumière (dernier âge de l'ère III : le plus lumineux des trois ; la ronde 2 le jugeait encore « industriel », moins
+# évolué que le cristal)
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
-          recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="lead",
+          recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="beton_capot",
           gmask=("lead", "olive"), arm=("lead", "steel_dk"), cap="lead", col=("olive", "lead"),
           nac=("lead", "olive"), coax=True)
 
@@ -48,10 +67,23 @@ def matieres(metal, M):
     """Passe 4 : PLOMB GRIS MAT (« fûts plombés gris mat » : gris neutre plus clair que le corps, très rugueux, peu
     métallique, sans reflet) ; béton plus clair (× 1,45, test noir et blanc de la passe 3) ; jaune des plaques de
     signalisation (patiné, jamais vif : C5)."""
-    metal("lead", (0.23, 0.225, 0.215), rough=0.66, met=0.35, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.25,
-          dirt=0.85, stain=0.6, stain2=0.32, sscale=5.0, wear=1.4, streak=0.45)
-    metal("concrete", (0.17, 0.155, 0.135), rough=0.92, met=0.0, grain=0.5 * 0.62, gscale=30.0, dirt=0.9, stain=0.85,
-          stain2=0.32, sscale=5.0, wear=1.4, streak=0.6, tone=1.45)
+    # ronde 2 (test des écarts de la ronde 1 : l'atome jugé MOINS évolué que le cristal et que le marais, « gris
+    # radioactif ») : dernier âge de l'ère III, le plus clair des trois : béton presque blanc, plomb gris clair, plomb
+    # de structure gris moyen (il était presque noir et assombrissait toute la machine)
+    metal("lead", (0.25, 0.285, 0.34), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
+          dirt=0.8, stain=0.55, stain2=0.32, sscale=5.0, wear=1.4, streak=0.4)
+    # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4 -> 0,56
+    # ronde 5 : béton des tours presque blanc (0,56 -> 0,66), comme les capots
+    metal("concrete", (0.66, 0.65, 0.62), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
+          stain2=0.3, sscale=5.0, wear=1.0, streak=0.45)
+    metal("beton_capot", (0.64, 0.63, 0.6), rough=0.85, met=0.0, grain=0.22, gscale=30.0, dirt=0.75, stain=0.55,
+          sscale=5.0, wear=0.8, streak=0.3)
+    metal("beton_dalle", (0.57, 0.56, 0.53), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
+          sscale=5.0, wear=0.6, streak=0.3)
+    metal("beton_dalle2", (0.5, 0.495, 0.47), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
+          sscale=5.0, wear=0.6, streak=0.3)
+    metal("joint_beton", (0.07, 0.07, 0.068), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
+    metal("plomb_sombre", (0.13, 0.155, 0.2), rough=0.6, met=0.3, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
 
 
 def _halo(g, pts, power):
@@ -71,7 +103,7 @@ def socle(g, c):
     # 3e époque de l'ère III : 1re tourelle secondaire (catalogue §A.4), au nord-ouest, sur sa dalle
     corps.dalle(g, -1.98, -1.05, Y(1.05), Y(1.98))
     with at(g, -1.56, 1.58, 0.0):
-        P2.pedestal(g, 0.36, 0.0, 0.26, 8, g.M, [g.M["olive"], g.M["steel_dk"]], gussets=False)
+        P2.pedestal(g, 0.36, 0.0, 0.26, 8, g.M, [g.M["beton_capot"], g.M["steel_dk"]], gussets=False)
         mini_turret_e(g, EPOQUE, (0, 0, 0.26), 0.82, 0.55, g.M["emit"])
     corps.collecteur(g, c, lambda g_, pts, r: link(g_, EPOQUE, pts, r))
 
@@ -83,7 +115,12 @@ def cooling_tower(g, x, y, r, h, M):
         z1_, r1 = prof[i + 1]
         g.cyl((x, y, h * (z0_ + z1_) / 2), "z", r * r0, h * (z1_ - z0_), M["concrete"], n=40, r2=r * r1,
               caps=(i == 0), what="tour")
-    g.cyl((x, y, h - 0.01), "z", r * 0.8 - 0.02, 0.02, M["void"], n=32, style="flat", what="bouche")
+    # ronde 5 (test à l'aveugle de la ronde 4 : 9 jugé MOINS évolué que 7 par les deux lecteurs, « réacteur vert
+    # industriel » contre « cristaux violets lumineux ») : la bouche de la tour n'est plus un trou noir mais une
+    # VAPEUR VERT URANIUM qui luit (lueur douce, entourée d'un anneau sombre) : la plus grande lumière de l'ère III,
+    # vue de dessus à toutes les poses
+    g.cyl((x, y, h - 0.012), "z", r * 0.8 - 0.02, 0.02, M["void"], n=32, style="flat", what="bouche")
+    g.cyl((x, y, h - 0.004), "z", r * 0.66, 0.012, M["emit_soft"], n=32, style="flat", what="vapeur")
     g.tube_shell((x, y, h), "z", r * 0.84, r * 0.74, 0.04, M["steel_dk"], n=40, what="levre")
     F.hazard_ring(g, (x, y, h * 0.14), "z", r * 0.88, 0.07, n=20)
     # passe 4 : 2e bague de danger jaune et noire sous la lèvre (signalisation lisible de haut, silhouette claire)
@@ -125,7 +162,7 @@ def socle_atom(g, k):
     for i in range(2):
         g.box((wx - 0.06 + 0.12 * i, wy, 0.422), (0.022, 0.44, 0.022), M["lead"], "hard", what="barreau")
     # grand trèfle peint sur la dalle de béton et panneau de signalisation sur poteau (signature, lisible de haut)
-    F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.15)
+    F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.27)   # passe 5 : trèfle 1,8 fois plus grand (juges)
     sign(g, (-1.61, Y(-0.76), 0.06), 0.36, 0.62)
     # balises de radiation
     for (xx, yn) in ((-1.78, -0.55), (-1.52, -0.28), (-1.78, 0.05)):
@@ -206,7 +243,7 @@ def mini_turret_e(g, e, c, s, rz, emat):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
     PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["lead"], M["olive"]])
+            mats=[M["lead"], M["beton_capot"]])
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M["lead"], M["steel_dk"]])
         barrels(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.55 * s, 4, 0.022, 0.045 * s, M["gun"], collars=(0.75,))
@@ -397,7 +434,8 @@ def br_octo(g, st, x, yb, z, rs, pos, H):
     """Époque 9 : frein de bouche octogonal à évents."""
     M = g.M
     rb = H["rb"]
-    R8 = rs * 1.12 + 0.03
+    # passe 5 (règle d'or 7) : octogone au ras du faisceau, sans oreilles (chapeau de cheminée en pose N)
+    R8 = rs + 0.012
     g.cyl((x, yb + 0.06, z), "y", R8, 0.17, M["lead"], n=8, style="hard", phase=math.pi / 8, what="frein")
     for f in range(8):
         a = math.pi / 8 + TAU * f / 8 + TAU / 16
@@ -409,7 +447,6 @@ def br_octo(g, st, x, yb, z, rs, pos, H):
             g.box(V((x, yb + 0.02 + k * 0.08, z)) + d * (rf + 0.002), (0.05, 0.035, 0.01), M["void"], "flat",
                   R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="event")
     g.cyl((x, yb + 0.15, z), "y", R8 - 0.02, 0.012, M["concrete"], n=8, phase=math.pi / 8, what="face")
-    F.ears(g, x, yb + 0.06, z, R8 + 0.025, 0.12, R8 * 0.9, M["lead"])
     F.bores(g, x, yb + 0.156, z, pos, rb, M["copper"])
     F.lit_ring(g, (x, yb + 0.158, z), "y", rs + 0.01, M["emit"])
     g.tube_shell((x, yb - 0.025, z), "y", R8 + 0.006, R8 - 0.03, 0.022, M["hazy"], n=8, what="liseré")
@@ -503,7 +540,7 @@ def tete(g, c):
     k = KIN
     F.slits(g, R, c.rt + 0.1 + 0.02 * side, 13, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
     F.voyants_tete(g, H, 18)
-    PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
+    PT.sight(g, (R * 0.2, R * 0.45, corps.z_coque(c, R * 0.2, R * 0.45) - H["rz"] * 0.28), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
     appl = M[ST["appl"]]
     n1 = {0: 3, 1: 6, 2: 8}[k] + (side - 2)
@@ -513,6 +550,7 @@ def tete(g, c):
     n2 = 2 + 2 * k
     for i in range(n2):
         th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
+        # ronde 2 : plaques hautes en plomb clair (les plaques de la coupole donnaient sa couleur sombre au zoom 1)
         P2.applique(g, c.Pf, c.Nf, th, 0.72, 0.2, 0.16, M["lead"], M)
     F.trefoil(g, c.Pf(math.pi / 2, 0.55, 1.03), c.Nf(math.pi / 2, 0.55), 0.06)
     # hublots verts ronds (réacteur vanilla) sur les flancs de la nacelle, bandes jaunes et noires
@@ -526,4 +564,24 @@ def tete(g, c):
     g.hazard([V((-R * 0.5, R + 0.24, H["zs"] - 0.14)), V((R * 0.5, R + 0.24, H["zs"] - 0.14)),
               V((R * 0.5, R + 0.24, H["zs"] - 0.08)), V((-R * 0.5, R + 0.24, H["zs"] - 0.08))], 8, t=0.008)
     # signature de coupole : bague de danger
-    F.hazard_ring(g, (0, 0, H["zs"] + 0.035), "z", R * 1.03, 0.07, n=max(16, int(TAU * R / 0.14)))
+    # ronde 5 (9 jugé « réacteur vert industriel », moins évolué que le cristal) : la bague de danger jaune et noire
+    # devient une CEINTURE DE PLOMB cerclée d'un filet vert uranium lumineux (lueur douce) : la coupole est entourée
+    # de lumière, le jaune et noir industriel reste sur les tours et les fûts
+    g.tube_shell((0, 0, H["zs"] + 0.035), "z", R * 1.03, R * 1.03 - 0.07, 0.012, M["plomb_sombre"], n=48,
+                 what="ceinture")
+    F.lit_ring(g, (0, 0, H["zs"] + 0.043), "z", R * 1.03 - 0.022, M["emit_soft"], w=0.022, t=0.01)
+    # passe 5 (juges de la passe 4 : « UN gros hublot vert, cœur d'au moins 0,25 t, sur une tête octogonale ») : CŒUR
+    # du réacteur sur la place libre de la coupole (corps.accroche) : socle octogonal de plomb boulonné, gros hublot
+    # bombé vert uranium
+    # ronde 4 : place libre calculée AVEC la coupole de forme de l'époque (corps.accroche ne lit pas l'habillage),
+    # hauteur lue sur la coupole (corps.z_coque)
+    import accroches
+    canon = {k_: H[k_] for k_ in ("L", "nb", "rb", "rr")}
+    a = accroches.calcul(side, canon, PLATEFORME["chanfrein"], HABILLAGE)["coupole"]
+    p = V((a["x"], a["y"], corps.z_coque(c, a["x"], a["y"]) - 0.02))
+    rc = max(0.13, min(0.2, a["r"] * 0.7))   # ronde 2 : cœur un peu plus gros (0,17 -> 0,2 au plus)
+    g.cyl(p, "z", rc + 0.05, 0.1, M["plomb_sombre"], n=8, style="hard", phase=math.pi / 8, what="coeur_octo")
+    g.cyl(p + V((0, 0, 0.05)), "z", rc + 0.012, 0.02, M["lead"], n=28, what="coeur_cadre")
+    F.sphere(g, p + V((0, 0, 0.055)), rc, M["emit"], n=24, m=12, sz=0.5, what="coeur")
+    F.bolts_ring(g, p + V((0, 0, 0.052)), (0, 0, 1), rc + 0.032, 8, M["rivet"], r=0.012)
+    g.halo(tuple(p + V((0, 0, 0.12))), M["_emit_rgb"], 12.0)
