@@ -22,9 +22,12 @@ canons et les tuyaux, pas par une simple couleur. »)
      (gris.py, UNE définition de FORME) au moins 25 % entre voisines de même taille.
   4. La précision ne baisse JAMAIS : taille des petites pièces constante (rivets 0,013 à 0,02 ; tôles 0,22 à 0,30 ;
      pas de rivetage 0,11 à 0,13) ; une grande époque porte PLUS de pièces, jamais de plus grosses.
-  5. UNE seule palette de corps et UNE seule règle de reflets (REFLETS ci-dessous) pour les 15 époques : aucune
-     époque ne change la rugosité, la métallicité ou l'albédo du corps de lignée (fin de SHINE, MET_K et EPOCH_TONE de
-     la plage basse, qui cassaient la grammaire entre les époques 9 et 10).
+  5. UNE seule règle de reflets (REFLETS ci-dessous) pour les 15 époques, et UNE seule palette de LIGNÉE (les matières
+     ci-dessous ne changent jamais par époque : fin de SHINE, MET_K et EPOCH_TONE de la plage basse, qui cassaient la
+     grammaire entre les époques 9 et 10). PASSE 5 (consigne du 23/10, « les designs changent vraiment beaucoup d'une
+     évolution à une autre ») : une époque change la MATIÈRE de TOUT son corps, et le motif de son pont, UNIQUEMENT par
+     ses CLÉS D'HABILLAGE (contrat dans epoques.py, corps.habille) et ses matières propres (ep.matieres), qui suivent
+     la même règle de reflets ; jamais en modifiant les matières de la lignée.
   6. Aucune pièce qui flotte, aucun trou enfermé hors sol voulu : ilots.py est BLOQUANT (code de sortie 1).
   7. Pose N : un canon dressé ne se lit jamais comme une cheminée (passe 5, juges de la passe 4 : le frein en bloc
      « T » plat de la passe 4 se lisait encore comme un CHAPEAU de cheminée) : fût en ACIER NU CLAIR (M["gun"],
