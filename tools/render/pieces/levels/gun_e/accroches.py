@@ -57,6 +57,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 import cotes  # noqa: E402
+import silhouettes as SIL  # noqa: E402
 
 SQ2 = math.sqrt(2.0)
 MARGE = 0.03
@@ -67,7 +68,11 @@ def _Y(yn):
     return yn * SQ2
 
 
-def _poly_plateforme(T, side, chanfrein=None):
+def _poly_plateforme(T, side, chanfrein=None, forme=None):
+    """Contour du pont (Blender) ; forme : réglage normalisé de forme_plateforme (silhouettes.option), None :
+    octogone de la lignée (code d'origine, mêmes valeurs)."""
+    if forme is not None:
+        return [(x, _Y(y)) for x, y in SIL.plateforme(side, T, chanfrein, forme)["contour"]]
     P_ = T["plateforme"]
     cf = P_["chanfrein"] if chanfrein is None else chanfrein
     cb = cf * 0.8
@@ -209,7 +214,7 @@ def _degagement(p, dist, ux, uy):
     return k
 
 
-def _place_socle(nom, region, dist, poly, prof):
+def _place_socle(nom, region, dist, poly, prof, geo=None):
     x, y, d = _meilleur(region, dist)
     if x is None or d <= MARGE:
         return dict(nom=nom, place=False)
@@ -220,18 +225,28 @@ def _place_socle(nom, region, dist, poly, prof):
     dym = _degagement((x, y), dist, 0, -1)
     # bord nord du pont au-dessus du centre (y Blender du dernier point du pont vers le nord)
     yn_bord = y + _degagement((x, y), lambda p: _d_poly(p, poly), 0, 1)
-    return dict(nom=nom, place=True, x=round(x, 3), yn=round(y / SQ2, 3), r=round(r, 3),
-                dx=round(min(dxp, dxm) - MARGE, 3), dy=round(min(dyp, dym) - MARGE, 3),
-                h_max=_h_max(prof, math.hypot(x, y) - r),
-                h_ajour=round(max(0.0, yn_bord - (y + r)), 3))
+    out = dict(nom=nom, place=True, x=round(x, 3), yn=round(y / SQ2, 3), r=round(r, 3),
+               dx=round(min(dxp, dxm) - MARGE, 3), dy=round(min(dyp, dym) - MARGE, 3),
+               h_max=_h_max(prof, math.hypot(x, y) - r),
+               h_ajour=round(max(0.0, yn_bord - (y + r)), 3))
+    if geo is not None:
+        # forme de pont : hauteur du sol à poser (dessus du pont, d'un gradin ou d'une tour d'angle) ; h_max et
+        # h_ajour se comptent depuis le sol de la scène (z = 0), pas depuis z_sol
+        out["z_sol"] = round(SIL.z_pont(geo, x, y / SQ2), 3)
+    return out
 
 
-def calcul(side, canon=None, chanfrein=None):
+def calcul(side, canon=None, chanfrein=None, hab=None):
     """Places libres des points d'accroche à la taille `side` (2 à 6), pour le canon `canon` (dict L, nb, rb, rr ;
-    défaut : cotes.CANON_TEMOIN) et le chanfrein avant de la plateforme (défaut : celui de la taille)."""
+    défaut : cotes.CANON_TEMOIN), le chanfrein avant de la plateforme (défaut : celui de la taille) et les FORMES de
+    l'habillage `hab` (passe 5, troisième temps : clés forme_plateforme et forme_coupole ; None : formes de la lignée,
+    valeurs d'origine). Avec une forme de pont, chaque place du socle porte aussi z_sol (hauteur où poser)."""
     T = cotes.TAILLES[side]
     canon = canon or cotes.CANON_TEMOIN[side]
-    poly = _poly_plateforme(T, side, chanfrein)
+    fo = SIL.formes(hab or {})
+    fp = fo["forme_plateforme"]
+    geo = SIL.plateforme(side, T, chanfrein, fp) if fp is not None else None
+    poly = _poly_plateforme(T, side, chanfrein, fp)
     ob, pieces = obstacles_socle(T, side)
     prof, H = profil_tete(T, canon)
 
@@ -255,10 +270,10 @@ def calcul(side, canon=None, chanfrein=None):
         if sy < 0:
             xt = T["tremie"][1] + 0.05
             x0, x1 = (max(x0, xt), x1) if sx > 0 else (x0, min(x1, -xt))
-        out[nom] = _place_socle(nom, (x0, x1, y0, y1), dist, poly, prof)
+        out[nom] = _place_socle(nom, (x0, x1, y0, y1), dist, poly, prof, geo)
         if sy < 0:
             out[nom]["hors_piece"] = _place_socle(nom + "_hors_piece", (x0, x1, y0, y1),
-                                                  lambda p: dist(p, True), poly, prof)
+                                                  lambda p: dist(p, True), poly, prof, geo)
             out[nom]["piece"] = [round(v, 3) for v in pieces[0 if sx < 0 else 1]]
     x0, x1, yn0, y1, h = T["tremie"]
     for nom, sx in (("tremie_O", -1), ("tremie_E", 1)):
@@ -267,7 +282,7 @@ def calcul(side, canon=None, chanfrein=None):
         xa, xb = (x1 + 0.02, min(hx, pc[0])) if sx > 0 else (max(-hx, pc[1]), x0 - 0.02)
         # bande de la trémie : entre la face sud du pont et la face nord de la trémie
         reg = (xa, xb, _Y(-T["plateforme"]["avant"]), y1)
-        out[nom] = _place_socle(nom, reg, lambda p: dist(p, True), poly, prof)
+        out[nom] = _place_socle(nom, reg, lambda p: dist(p, True), poly, prof, geo)
     # --- tête : sommet de la coupole
     R, zs, rz = H["R"], H["zs"], H["rz"]
     Tt = T["tourelleau"]
@@ -280,21 +295,46 @@ def calcul(side, canon=None, chanfrein=None):
            lambda p: _d_rect(p, (-mw, mw, R * 0.55, R + 0.25)),
            lambda p: _d_rect(p, (-bx, bx, yb0, yb1))]
 
+    fc = fo["forme_coupole"]
+    prc = SIL.coupole(fc, R, rz) if fc is not None else None
+    if prc is not None:
+        # bord utile d'une coupole de forme : rayon (normalisé) où la pente dépasse 1,2 en descendant du sommet
+        ryc = prc["ry"]
+        r_lim = 0.0
+        for i in range(400, 0, -1):
+            t, t2 = i / 400.0, (i - 1) / 400.0
+            dr = (prc["rho"](t2) - prc["rho"](t)) * R
+            dzz = prc["zeta"](t) - prc["zeta"](t2)
+            if dr > 1e-9 and dzz / dr > 1.2:
+                break
+            r_lim = max(r_lim, prc["rho"](t2))
+
     def dist_c(p):
+        d = min(f(p) for f in obt)
+        if prc is not None:
+            sf = SIL.facteur_pans(math.atan2(p[1] / ryc, p[0]), prc["pans"],
+                                  math.pi / prc["pans"] if prc["pans"] else 0.0)
+            rn = math.hypot(p[0] / R, p[1] / (ryc * R))
+            if rn >= r_lim * sf:
+                return -1.0
+            return min(d, (r_lim * sf - rn) * R)
         e = 1.0 - (p[0] / R) ** 2 - (p[1] / (R * 1.06)) ** 2
         if e <= 0.15:
             return -1.0
         # bord utile de la coque : là où la pente reste douce (e >= 0,15)
-        d = min(f(p) for f in obt)
         de = (math.sqrt(e) - math.sqrt(0.15)) * R
         return min(d, de)
     x, y, d = _meilleur((-R, R, -R * 1.06, R * 1.06), dist_c)
     if x is None or d <= MARGE:
         out["coupole"] = dict(nom="coupole", place=False)
     else:
-        e = max(0.0, 1.0 - (x / R) ** 2 - (y / (R * 1.06)) ** 2)
+        if prc is not None:
+            zc = zs + (SIL.haut_coupole(prc, R, x, y) or 0.0)
+        else:
+            e = max(0.0, 1.0 - (x / R) ** 2 - (y / (R * 1.06)) ** 2)
+            zc = zs + rz * math.sqrt(e)
         out["coupole"] = dict(nom="coupole", place=True, x=round(x, 3), y=round(y, 3),
-                              z=round(zs + rz * math.sqrt(e), 3), r=round(d - MARGE, 3),
+                              z=round(zc, 3), r=round(d - MARGE, 3),
                               entre_canons=round(2 * (H["gx"] - H["wr"] / 2 - 0.03), 3),
                               z_canons=round(H["zg"] - H["hr"], 3))
     # --- tête : couronne autour de la jupe
@@ -318,12 +358,24 @@ def _ligne(p):
     if "dx" not in p:
         return ""
     hm = "libre" if p["h_max"] is None else "%.2f" % p["h_max"]
-    return "(x %+.2f, yn %+.2f) r %.2f dx %.2f dy %.2f h_max %s h_ajour %.2f" % (
-        p["x"], p["yn"], p["r"], p["dx"], p["dy"], hm, p["h_ajour"])
+    return "(x %+.2f, yn %+.2f) r %.2f dx %.2f dy %.2f h_max %s h_ajour %.2f%s" % (
+        p["x"], p["yn"], p["r"], p["dx"], p["dy"], hm, p["h_ajour"],
+        (" z_sol %.2f" % p["z_sol"]) if "z_sol" in p else "")
+
+
+def _valeur(v):
+    """Littéral Python, y compris dict(clé=…) imbriqués (HABILLAGE des époques)."""
+    import ast
+    if isinstance(v, ast.Call) and getattr(v.func, "id", "") == "dict":
+        return {k.arg: _valeur(k.value) for k in v.keywords}
+    if isinstance(v, ast.Tuple):
+        return tuple(_valeur(x) for x in v.elts)
+    return ast.literal_eval(v)
 
 
 def _litteraux(e):
-    """CANON, CANON_PAR_COTE et PLATEFORME de epNN.py, lus comme littéraux (le module importe mathutils : Blender)."""
+    """CANON, CANON_PAR_COTE, PLATEFORME et HABILLAGE de epNN.py, lus comme littéraux (le module importe mathutils :
+    Blender)."""
     import ast
     with open(os.path.join(HERE, "ep%02d.py" % e), encoding="utf-8") as f:
         tree = ast.parse(f.read())
@@ -331,14 +383,11 @@ def _litteraux(e):
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             nom = node.targets[0].id
-            if nom in ("CANON", "CANON_PAR_COTE", "PLATEFORME"):
+            if nom in ("CANON", "CANON_PAR_COTE", "PLATEFORME", "HABILLAGE"):
                 try:
-                    out[nom] = ast.literal_eval(node.value)
+                    out[nom] = _valeur(node.value)
                 except ValueError:
-                    v = node.value
-                    # dict(L=…, …) : appel de dict avec des mots-clés littéraux
-                    if isinstance(v, ast.Call) and getattr(v.func, "id", "") == "dict":
-                        out[nom] = {k.arg: ast.literal_eval(k.value) for k in v.keywords}
+                    pass
     return out
 
 
@@ -346,9 +395,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--epoque", type=int, default=0, help="canon de cette époque (sinon le témoin)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--habillage", default="", help="habillage d'essai (habillages.py) : formes du pont et de la coupole")
     a = ap.parse_args()
     sides = range(2, 7)
-    canon, chf = None, None
+    canon, chf, hab = None, None, None
+    if a.habillage:
+        import habillages
+        hab = habillages.PRESETS[a.habillage]["HABILLAGE"]
     if a.epoque:
         import epoques as E
         ep = _litteraux(a.epoque)
@@ -356,13 +409,15 @@ def main():
         sides = [s]
         canon = ep.get("CANON") or ep.get("CANON_PAR_COTE", {}).get(s)
         chf = (ep.get("PLATEFORME") or {}).get("chanfrein")
-    res = {s: calcul(s, canon, chf) for s in sides}
+        hab = hab or ep.get("HABILLAGE")
+    res = {s: calcul(s, canon, chf, hab) for s in sides}
     if a.json:
         print(json.dumps(res, indent=1, ensure_ascii=False))
         return
     for s in sides:
         r = res[s]
-        print("=== taille %d×%d%s" % (s, s, (" (époque %d)" % a.epoque) if a.epoque else " (canon du témoin)"))
+        print("=== taille %d×%d%s%s" % (s, s, (" (époque %d)" % a.epoque) if a.epoque else " (canon du témoin)",
+                                        (" habillage %s" % a.habillage) if a.habillage else ""))
         for k in ("coin_NO", "coin_NE", "coin_SO", "coin_SE", "tremie_O", "tremie_E"):
             print("  %-9s %s" % (k, _ligne(r[k])))
             if "hors_piece" in r[k]:

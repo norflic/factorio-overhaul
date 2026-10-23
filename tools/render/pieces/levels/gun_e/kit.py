@@ -34,6 +34,10 @@ canons et les tuyaux, pas par une simple couleur. »)
      diffusion claire : un métal pur dirigé vers le nord reste noir à la caméra), rosette de tubes séparés dont les
      POINTES sont éclairées (corps.rosette), bouche sans chapeau plat plus large que le faisceau (corps.couronne_bouche),
      culasse et caisses au pied qui débordent sur les côtés, aucune bague claire horizontale (bagues sombres).
+     Troisième temps (passe 5) : en pose N, un tube dirigé vers le nord se projette EXACTEMENT comme un tube vertical
+     (y et z valent 0,707 à l'écran) et sa bouche ne se voit jamais ; ce qui le sépare d'une cheminée se lit donc de
+     dos : faisceau qui CONVERGE en pointe, jaquette conique, une seule bague, frein à fentes au ras du faisceau, tubes
+     qui le dépassent pointes éclairées, guidon dressé (corps.canon_effile, canon_lignee(effile=True)).
 =====================================================================================================================
 
 Conventions (tools/render/README.md, CALIBRATION.md §2) : 1 unité = largeur d'une tuile ; +X est, +Y nord, +Z haut ;
