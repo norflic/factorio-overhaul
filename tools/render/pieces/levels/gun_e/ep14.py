@@ -46,7 +46,11 @@ HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", tourelleau
                  acier=("blanc_spatial", "steel_hi"), rivets="or_rivet", danger=("blanc_spatial", "rouge_balise"),
                  peinture="rouge_balise", grille_nacelle="blanc_spatial",
                  plateforme=dict(motif="toles", mat="or_tole", mat2="panneau_bleu", fond="void",
-                                 bord="blanc_spatial", boulons="or_rivet", relief=0.2))
+                                 bord="blanc_spatial", boulons="or_rivet", relief=0.2),
+                 # passe 5, ronde 4 (13-14 noté 2 et 3 à la ronde 3 : « même plan et canons, seules les couleurs
+                 # changent ») : PAS DE TIR carré à pans courts, pont mince, GARDE-CORPS dorés à poteaux blanc spatial
+                 # (13 : citadelle à bastions ; 15 : gradins couronnés)
+                 forme_plateforme=dict(forme="carre", flanc="or_feuille", flanc2="blanc_spatial"))
 RECV = ("ring", "olive")
 
 
@@ -531,12 +535,10 @@ def _gun14(g, x, y0, z, L, nb, rb, rr):
     E, E2 = M["emit"], M["emit2"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.56, 0.65, 0.74, 0.83, 0.92), collier_mat=M["ring"],
-                        bouts=False)
-    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
-          what="ame_bout")
+    # passe 5, ronde 4 (pose N) : CANON EFFILÉ du kit à la place de la rosette à 5 colliers
+    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.0, bague_mat="ring", conv=0.62, frein=(0.62, 0.78))
     rbody = R0 + 0.05 * k
-    Lb = min(0.48, corps.JAQUETTE_MAX) * L
+    Lb = 0.42 * L
     nseg = 4
     for i in range(nseg):
         g.crumple((x, y0 + Lb * (i + 0.5) / nseg, z), "y", rbody, Lb / nseg - 0.015, M["jacket"], n=22, k=3,
@@ -594,26 +596,11 @@ def _gun14(g, x, y0, z, L, nb, rb, rr):
         for f in (0.12, 0.88):
             for s in (-1, 1):
                 balise(g, (x + s * rbody * 0.62, y0 + Lb * f, z + rbody * 0.72), r=0.022)
-        for f in (0.35, 0.7):
-            balise(g, (x, y0 + L * (0.5 + 0.5 * f), z + R0 + 0.02), r=0.02)
-    # frein à CAPTEUR ANNULAIRE : grand anneau blanc cassé, 6 capteurs sombres, balise rouge sur le dessus
-    yb_ = y0 + L
-    lb = 0.16 * k
-    Ra = R0 + 0.13 * k
-    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra, R0 - 0.005, lb, M["ring"], n=36, what="anneau_capteur")
-    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra + 0.012, Ra - 0.02, lb * 0.4, M["steel_dk"], n=36, what="jonc")
-    g.cyl((x, yb_ + lb * 0.5, z), "y", max(rr - rb * 0.55, rr * 0.55), lb, M["steel_dk"], n=14, what="ame_bout")
-    F.stub_tips(g, x, yb_ - 0.01, yb_ + lb, z, nb, rb, rr)
-    for d in F.ring_dirs(6, 0.0, -0.6):
-        g.box(V((x, yb_ + lb / 2, z)) + d * (Ra + 0.01), (0.05 * k, lb * 0.7, 0.03 * k), M["steel_dk"], "hard",
-              R=F.Rax(d), what="capteur")
-    g.cyl((x, yb_ + lb / 2, z + Ra + 0.03), "z", 0.02, 0.04, M["steel_dk"], n=8, what="balise_pied")
-    g.cyl((x, yb_ + lb / 2, z + Ra + 0.055), "z", 0.016, 0.014, E, n=8, style="flat", what="balise")
-    corps.bouche(g, x, yb_ + lb + 0.002, z, pos, rb, M["ring"], R0 + 0.05 * k, w=0.02 if k >= 0.9 else 0.01)
-    if k >= 0.9:
-        # oreilles latérales blanc cassé à évents sur le capteur annulaire : en pose N, un « T » plat
-        F.ears(g, x, yb_ + lb * 0.5, z, Ra + 0.03, lb * 1.1, 0.14 * k, M["ring"])
-    return yb_ + lb
+    # passe 5, ronde 4 : le frein à capteur annulaire (anneau plus large que le faisceau) et les 5 colliers de la
+    # moitié avant se lisaient en pose N comme le chapeau et les viroles d'une cheminée (ronde 3) : canon effilé du kit,
+    # manchon blanc spatial à fentes reculé, pointes éclairées ; l'émetteur doré (corps froissé, panneau, parabole)
+    # reste sur la moitié arrière
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):

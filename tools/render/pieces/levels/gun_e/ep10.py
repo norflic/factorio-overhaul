@@ -42,7 +42,11 @@ HABILLAGE = dict(jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_t
                  acier=("anthracite", "acier_tech"), rivets="rivet_tech", danger=("blanc_casse", "bleu_tech"),
                  peinture="bleu_tech", grille_nacelle="anthracite",
                  plateforme=dict(motif="dalles", pas=0.28, joint=0.014, mat="dalle_tech", mat2="dalle_tech2",
-                                 fond="void", bord="anthracite", boulons=None, lisere=None))
+                                 fond="void", bord="anthracite", boulons=None, lisere=None),
+                 # passe 5, ronde 4 (10-11 noté 3 et 3 à la ronde 3, « silhouette presque identique ») : pont CARRÉ
+                 # mince à pans courts et GARDE-CORPS (lisses bleu technique, poteaux et plinthe anthracite), muret au
+                 # nord (11 : pont hexagonal et coque ; 12 : plateforme ronde et anneaux)
+                 forme_plateforme=dict(forme="carre", flanc="bleu_tech", flanc2="anthracite"))
 # passe 5, ronde 2 (test des écarts de la ronde 1 : 10 contre 11 noté 2 et 2, et 10 jugé PLUS évolué que 11 « par ses
 # liserés bleus » ; 10 contre 12 noté 2 et 2, « liserés bleus devenus cyan ») : le pont n'a plus de liseré lumineux
 # (la lumière continue est la marque des âges 11 et 12) ; les CARÉNAGES (matière « jacket » : caissons, cassettes,

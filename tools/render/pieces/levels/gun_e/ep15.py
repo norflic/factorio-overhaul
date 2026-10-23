@@ -52,8 +52,33 @@ HABILLAGE = dict(jupe_cerclage="trim", chapeau="or_rivet", tremie="trim", tourel
                  rivets="or_rivet", joints="joint_or", danger=("orblanc", "nacre2"), peinture="orblanc",
                  grille_nacelle="orblanc",
                  plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="nacre_dalle", mat2="nacre2",
-                                 fond="joint_or", bord="orblanc", boulons=None, lisere="emit_soft"))
+                                 fond="joint_or", bord="orblanc", boulons=None, lisere="emit_soft"),
+                 # passe 5, ronde 4 (test des écarts de la ronde 3 : 14-15 et 13-15 notés 3 et 3, « à taille égale, la
+                 # silhouette reste presque identique », « il faut une forme nouvelle, pas seulement une autre
+                 # couleur ») : la Légende trône sur une BASE À GRADINS COURONNÉE (3 gradins de nacre à arêtes d'or,
+                 # filets de lumière blanc doré, fleurons sur le dernier gradin), exemple même du Directeur Créatif
+                 # (filets à pleine lumière « emit » : à « emit_soft », rendu r4a, les gradins ne se lisaient pas)
+                 forme_plateforme=dict(forme="gradins", flanc="trim", flanc2="orblanc", lisere="emit",
+                                       crenaux=True))
 RECV = ("trim", "orblanc")
+
+
+def _assise(g, c, x0, x1, yn0, yn1, rond=None, mat="trim"):
+    """Passe 5, ronde 4 (pont à gradins) : hauteur dont monter un organe d'époque posé au sol pour qu'il repose SUR le
+    pont (corps.z_pont au centre de son emprise, moins le tablier de la lignée, 0,045). Si l'organe monte, une ASSISE
+    pleine de nacre comble son emprise jusqu'au sol : rien ne flotte au bord d'un gradin. rond : rayon d'une assise
+    ronde (organe rond) ; sinon caisson rivé sur l'emprise (x0..x1, yn0..yn1 en tuiles de jeu)."""
+    xc, yc = (x0 + x1) / 2, (yn0 + yn1) / 2
+    dz = max(0.0, corps.z_pont(c, xc, yc) - 0.045)
+    if dz > 0.004:
+        M = g.M
+        if rond:
+            g.cyl((xc, Y(yc), (dz + 0.045) / 2), "z", rond, dz + 0.045, M[mat], n=32, what="assise")
+            g.torus((xc, Y(yc), dz + 0.045), "z", rond, 0.014, M["orblanc"], n=32, m=6, what="jonc")
+        else:
+            PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, dz + 0.045, ins=(0.012, 0.012, 0.012), panel=0.3,
+                    mats=[M[mat], M["orblanc"]], rivet_step=0.16)
+    return dz
 
 
 def matieres(metal, M):
@@ -110,48 +135,84 @@ def socle(g, c):
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, ng, M["emit"], a0=math.pi + 0.2, span=math.pi - 0.4)
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, ng - 1, M["emit"], a0=math.pi + 0.35, span=math.pi - 0.7,
                     per=(3, 2))
+    # passe 5, ronde 4 : base à GRADINS (HABILLAGE) ; chaque organe repose sur son gradin (_assise)
+    dz = _assise(g, c, 1.65, 1.95, -1.3, 1.45)
+    g.push((0, 0, dz))
     P2.grating(g, 1.65, 1.95, Y(-1.3), Y(1.45), 0.07, M)
+    g.pop()
+    dz = _assise(g, c, -1.95, -1.65, -1.1, 1.1)
+    g.push((0, 0, dz))
     P2.grating(g, -1.95, -1.65, Y(-1.1), Y(1.1), 0.07, M)
-    with at(g, -1.45, -1.95, 0.45):
-        reliquary(g, 0.84, 0.7, 0.3)
-    with at(g, 1.45, -1.95, -0.45):
-        reliquary(g, 0.84, 0.7, 0.3)
+    g.pop()
+    for sx in (-1, 1):
+        dz = _assise(g, c, sx * 1.45 - 0.45, sx * 1.45 + 0.45, -2.35, -1.55)
+        with at(g, sx * 1.45, -1.95, -sx * 0.45, z=dz):
+            reliquary(g, 0.84, 0.7, 0.3)
+    zpied = {}
     for (x, yn, rz) in [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3), (2.4, 2.45, -0.4)]:
-        with at(g, x, yn, 0.0):
+        dz = _assise(g, c, x - 0.46, x + 0.46, yn - 0.46, yn + 0.46, rond=0.47)
+        zpied[(x, yn)] = dz
+        with at(g, x, yn, 0.0, z=dz):
             P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["orblanc"], M["steel_dk"]], gussets=False)
             mini_turret(g, (0, 0, 0.32), 1.02, rz)
     tremie_crown(g, c)
     # ouest : groupe électrogène à 6 cylindres ; liaisons
+    dz = _assise(g, c, -2.88, -1.98, -1.35, 1.35)
+    g.push((0, 0, dz))
     west(g)
-    conduit(g, [(-1.98, Y(0.7), 0.45), (-1.78, Y(0.75), 0.72), (-1.52, Y(0.62), 0.86)], 0.05)
-    conduit(g, [(-1.98, Y(-0.6), 0.45), (-1.78, Y(-0.65), 0.72), (-1.52, Y(-0.55), 0.86)], 0.05)
-    cables(g, [(-1.98, Y(0.05), 0.45), (-1.75, Y(0.02), 0.7), (-1.5, Y(0.0), 0.8)])
+    g.pop()
+    conduit(g, [(-1.98, Y(0.7), 0.45 + dz), (-1.78, Y(0.75), 0.72 + dz), (-1.52, Y(0.62), 0.86 + dz)], 0.05)
+    conduit(g, [(-1.98, Y(-0.6), 0.45 + dz), (-1.78, Y(-0.65), 0.72 + dz), (-1.52, Y(-0.55), 0.86 + dz)], 0.05)
+    cables(g, [(-1.98, Y(0.05), 0.45 + dz), (-1.75, Y(0.02), 0.7 + dz), (-1.5, Y(0.0), 0.8 + dz)])
     # nord-ouest : banc de condensateurs en biais (réserve d'énergie visible)
-    with at(g, -2.05, 2.25, -0.6):
+    dz = _assise(g, c, -2.6, -1.5, 1.75, 2.75)
+    with at(g, -2.05, 2.25, -0.6, z=dz):
         PT.hull(g, -0.62, 0.62, -0.5, 0.5, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3, mats=[M["steel_dk"]],
                 rivet_step=0.13)
         PT.capacitors(g, (0.0, 0.0, 0.14), 3, 2, 0.14, 0.48, E)
         P3.lamp_group(g, (-0.5, -0.52, 0.09), (1, 0, 0), (0, -1, 0), E, M, n=3)
         P3.lamp_group(g, (0.2, -0.52, 0.09), (1, 0, 0), (0, -1, 0), M["amber"], M, n=2, shapes=("carre", "fente"))
-    conduit(g, [(-1.6, Y(1.95), 0.5), (-1.35, Y(1.6), 0.8), (-1.1, Y(1.25), 0.95)], 0.05)
-    east(g)
+    conduit(g, [(-1.6, Y(1.95), 0.5 + dz), (-1.35, Y(1.6), 0.8 + dz), (-1.1, Y(1.25), 0.95 + dz)], 0.05)
+    for yn in (1.0, -0.55):
+        dz = _assise(g, c, 1.96, 2.84, yn - 0.44, yn + 0.44, rond=0.45)
+        g.push((0, 0, dz))
+        east(g, yn)
+        g.pop()
+    dz = _assise(g, c, -2.85, -2.08, -2.85 / 1.4142, -2.2 / 1.4142)
+    g.push((0, 0, dz))
     P3.cabinet(g, -2.85, -2.08, -2.85, -2.2, 0.0, 0.55, M, E)
+    g.pop()
+    dz = _assise(g, c, 1.95, 2.85, 2.02 / 1.4142, 2.5 / 1.4142)
+    g.push((0, 0, dz))
     P3.cabinet(g, 1.95, 2.85, 2.02, 2.5, 0.0, 0.5, M, E)
+    g.pop()
     # sud-est : collecteur nacré à pierres et particules (à la place de la vanne à volants)
+    dz = _assise(g, c, 1.98, 2.85, -1.55, -1.18)
+    g.push((0, 0, dz))
     nacre_manifold(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.3)
-    hose(g, [(1.98, Y(-1.35), 0.34), (1.75, Y(-1.4), 0.4), (1.55, Y(-1.15), 0.56)], 0.055)
-    hose(g, [(2.0, Y(1.1), 0.7), (1.72, Y(1.0), 1.12), (1.4, Y(0.8), 0.95)], 0.065)
-    hose(g, [(2.0, Y(-0.45), 0.7), (1.72, Y(-0.5), 1.1), (1.42, Y(-0.4), 0.95)], 0.065)
+    g.pop()
+    hose(g, [(1.98, Y(-1.35), 0.34 + dz), (1.75, Y(-1.4), 0.4 + dz), (1.55, Y(-1.15), 0.56 + dz)], 0.055)
+    hose(g, [(2.0, Y(1.1), 0.7 + dz), (1.72, Y(1.0), 1.12 + dz), (1.4, Y(0.8), 0.95 + dz)], 0.065)
+    hose(g, [(2.0, Y(-0.45), 0.7 + dz), (1.72, Y(-0.5), 1.1 + dz), (1.42, Y(-0.4), 0.95 + dz)], 0.065)
     # nord : radiateur à trois ventilateurs ; armoires de commande
+    dz = _assise(g, c, -1.3, 1.3, 2.05, 2.78)
+    g.push((0, 0, dz))
     P2.fan_radiator(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.0, 0.42, 3, M, emat=E)
+    g.pop()
+    dzc = _assise(g, c, -1.15, 1.25, 1.6, 1.98)
+    g.push((0, 0, dzc))
     P3.cabinet(g, -1.15, -0.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
     P3.cabinet(g, 0.35, 1.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
+    g.pop()
     for x in (-2.75, -2.35, 2.05, 2.55):
         g.sphere((x, Y(-2.97) + 0.12, 0.09), 0.022, E, n=10, m=6, what="pierre")
         g.cyl((x, Y(-2.97) + 0.12, 0.04), "z", 0.035, 0.07, M["ring"], n=10, what="pierre_pied")
-    signature(g, (-0.7, Y(1.79), 0.54))
-    signature(g, (0.8, Y(1.79), 0.54), 1)
+    signature(g, (-0.7, Y(1.79), 0.54 + dzc))
+    signature(g, (0.8, Y(1.79), 0.54 + dzc), 1)
+    dz = max(0.0, corps.z_pont(c, -2.6, 0.0) - 0.045)
+    g.push((0, 0, dz))
     P2.anchor(g, -2.6, Y(0.0), 0.26, M)
+    g.pop()
     for x in (-0.8, 0.8):
         PT.lamp(g, (x, Y(-2.75) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
     P3.lamp_group(g, (-0.4, Y(-2.75) - 0.03, 0.58), (1, 0, 0), (0, -1, 0), E, M, n=3)
@@ -192,12 +253,12 @@ def west(g):
         g.sphere((x0 + 0.08, yy, h + 0.03), 0.022, E, n=10, m=6, what="pierre")
 
 
-def east(g):
-    """Est : deux réservoirs debout ciselés (habillés par l'époque), trappes de nacre et d'or blanc, pierres."""
+def east(g, yn):
+    """Est : un réservoir debout ciselé (habillé par l'époque), trappes de nacre et d'or blanc, pierres (ronde 4 : un
+    réservoir par appel, chacun sur son assise de gradin)."""
     M = g.M
-    tank(g, 2.4, Y(1.0), 0.44, 1.1, (1, 0.2), (-1, 0), gauges=3)
-    tank(g, 2.4, Y(-0.55), 0.44, 1.1, (1, -0.2), (-1, 0), gauges=3)
-    for (cx_, cy_) in ((2.4, Y(1.0)), (2.4, Y(-0.55))):
+    tank(g, 2.4, Y(yn), 0.44, 1.1, (1, 0.2 if yn > 0 else -0.2), (-1, 0), gauges=3)
+    for (cx_, cy_) in ((2.4, Y(yn)),):
         for kk in range(9):
             a = math.pi + math.pi * (kk + 0.5) / 9
             d = V((math.cos(a), math.sin(a), 0))
@@ -572,10 +633,14 @@ def _gun15(g, x, y0, z, L, nb, rb, rr):
     k = F.k_arme(rb, rr)
     rb2, rr2 = rb * 1.12, rr * 1.04
     R0 = rr2 + rb2
-    pos = corps.rosette(g, x, y0, z, L, nb, rb2, rr2, colliers=(0.57, 0.67, 0.77, 0.87, 0.95), collier_mat=M["ring"],
-                        bouts=False)
+    # passe 5, ronde 4 (pose N lue « cheminée » à la ronde 3 : 5 colliers d'or sur la moitié avant et un frein en
+    # couronne plus large que le faisceau se lisaient comme les viroles et le chapeau d'une cheminée) : CANON EFFILÉ du
+    # kit (faisceau qui converge, manchon d'or à fentes reculé, dernier cinquième nu, pointes blanc doré) ; la jaquette
+    # ciselée reste à l'arrière (0,38 L) et la COURONNE DE FLÈCHES passe au bout de la jaquette (épaulement), où elle
+    # signe la Légende sans coiffer la bouche
+    corps.canon_effile(g, x, y0, z, L, nb, rb2, rr2, jaquette=0.0, bague_mat="ring", conv=0.62, frein=(0.62, 0.78))
     rs = R0 + 0.028
-    Ls = min(0.47, corps.JAQUETTE_MAX) * L
+    Ls = 0.38 * L
     # jaquette en 7 VIROLES ciselées séparées par des joncs de nacre en retrait : le reflet
     # de l'or blanc se lit en tronçons, comme une jaquette d'orfèvre, et non en une seule barre
     g.cyl((x, y0 + Ls / 2, z), "y", rs - 0.006, Ls, M["trim"], n=32, what="ame_jaquette")
@@ -600,12 +665,13 @@ def _gun15(g, x, y0, z, L, nb, rb, rr):
                 g.box(V((x, yy, z)) + d * (rs + 0.004), (0.05, 0.05, 0.014), M["trim"], "hard", R=R, what="ciselure")
                 g.box(V((x, yy, z)) + d * (rs + 0.012), (0.024, 0.024, 0.008), M["jacket"], "hard", R=R,
                       what="ciselure")
-    # frein EN COURONNE : bague pleine d'or blanc dont la face avant porte la rosace, 5 grandes flèches évasées
-    yb = y0 + L
-    lc = 0.13 * k
-    g.cyl((x, yb + lc / 2, z), "y", rs + 0.05, lc, M["ring"], n=36, what="couronne")
-    F.stub_tips(g, x, yb - 0.01, yb + lc, z, nb, rb2, rr2)
-    g.tube_shell((x, yb + lc * 0.5, z), "y", rs + 0.062, rs + 0.03, lc * 0.4, E, n=36, what="lisere_lum")
+    # COURONNE au bout de la jaquette (épaulement, 0,38 L) : bague d'or, filet blanc doré, 5 flèches évasées vers
+    # l'avant et l'extérieur (plus courtes qu'à la bouche de la ronde 3)
+    yb = y0 + Ls
+    lc = 0.1 * k
+    g.cyl((x, yb + lc / 2, z), "y", rs + 0.04, lc, M["ring"], n=36, what="couronne")
+    g.tube_shell((x, yb + lc * 0.5, z), "y", rs + 0.052, rs + 0.03, lc * 0.4, E, n=36, what="lisere_lum")
+    k = k * 0.8
     for d in F.ring_dirs(5, math.pi / 2 + math.pi / 5, -0.95):
         R = F.Rax(d)
         t = R.col[0] * 0.034 * k
@@ -624,8 +690,7 @@ def _gun15(g, x, y0, z, L, nb, rb, rr):
             g.cyl(c_ + d * (rs + 0.33 * k) + V((0, yb + 0.4 * k, 0)), d * 0.6 + V((0, 0.8, 0)), 0.005, 0.07,
                   M["jacket"], n=6, what="tige")
             g.dome(c_ + d * (rs + 0.1 * k) + V((0, yb + 0.05, 0)) + t * 0.6, R.col[0], 0.013, M["rivet"])
-    corps.bouche(g, x, yb + lc + 0.002, z, pos, rb2, M["jacket"], rs + 0.02, w=0.022 if k >= 0.9 else 0.012)
-    return yb + 0.34 * k
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):

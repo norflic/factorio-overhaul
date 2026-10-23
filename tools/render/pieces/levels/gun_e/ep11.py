@@ -43,7 +43,30 @@ HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="titane_md", toure
                  rivets="rivet_ti", danger=("orange_aero", "titane_dk"), peinture="orange_aero",
                  grille_nacelle="titane_dk",
                  plateforme=dict(motif="toles", mat="tole_ti", mat2="tole_ti2", fond="void", bord="titane_dk",
-                                 boulons="rivet_ti", relief=0.25, lisere="emit_soft"))
+                                 boulons="rivet_ti", relief=0.25, lisere="emit_soft"),
+                 # passe 5, ronde 4 (10-11 noté 3 et 3, 11-12 noté 2 et 3 à la ronde 3 : « silhouette presque
+                 # identique », « même plan ») : coupole en COQUE profilée à visière et AILERON dorsal (triplet
+                 # « ailerons, effilé, titane ») ; 10 garde le dôme, 12 prend les anneaux. Pont hexagonal essayé
+                 # (rendu r4a) puis retiré : ses coins vides laissaient des TROUS ENFERMÉS entre les organes d'angle
+                 # et le bord du pont (e11-socle, 290 px), et son contour ne se voyait pas au zoom 1 (organes d'angle)
+                 forme_coupole=dict(forme="coque", lisere="emit"))
+
+
+def _assise(g, c, x0, x1, yn0, yn1, rond=None, mat="titane_md"):
+    """Passe 5, ronde 4 (pont surélevé) : hauteur dont monter un organe d'époque posé au sol pour qu'il repose SUR le
+    pont (corps.z_pont au centre de son emprise, moins le tablier de la lignée, 0,045). Si l'organe monte, une ASSISE
+    pleine comble son emprise jusqu'au sol (rien ne flotte au bord du pont). rond : rayon d'une assise ronde ; sinon
+    caisson rivé sur l'emprise (x0..x1, yn0..yn1 en tuiles de jeu)."""
+    xc, yc = (x0 + x1) / 2, (yn0 + yn1) / 2
+    dz = max(0.0, corps.z_pont(c, xc, yc) - 0.045)
+    if dz > 0.004:
+        M = g.M
+        if rond:
+            g.cyl((xc, Y(yc), (dz + 0.045) / 2), "z", rond, dz + 0.045, M[mat], n=32, what="assise")
+        else:
+            PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, dz + 0.045, ins=(0.012, 0.012, 0.012), panel=0.3,
+                    mats=[M[mat], M["titane_dk"]], rivet_step=0.16)
+    return dz
 RECV = ("jacket", "olive")
 
 
@@ -107,46 +130,71 @@ def socle(g, c):
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, ng, M["emit"], a0=math.pi + 0.2, span=math.pi - 0.4)
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, ng - 1, M["emit"], a0=math.pi + 0.35, span=math.pi - 0.7,
                     per=(3, 2))
-    P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
-    P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
-    with at(g, -1.5, -1.72, 0.42):
+    # passe 5, ronde 4 : pont HEXAGONAL surélevé (HABILLAGE) ; chaque organe repose sur le pont (_assise)
+    for (x0_, x1_, a_, b_) in ((1.35, 1.75, -1.15, 1.3), (-1.55, -1.3, -1.0, -0.3)):
+        dz = _assise(g, c, x0_, x1_, a_, b_)
+        g.push((0, 0, dz))
+        P2.grating(g, x0_, x1_, Y(a_), Y(b_), 0.07, M)
+        g.pop()
+    dz = _assise(g, c, -1.9, -1.1, -2.05, -1.4)
+    with at(g, -1.5, -1.72, 0.42, z=dz):
         missile_crate(g, 0.8, 0.74, 0.3, 3)
-    with at(g, -1.05, -2.35, 0.08):
+    dz = _assise(g, c, -1.35, -0.75, -2.6, -2.1)
+    with at(g, -1.05, -2.35, 0.08, z=dz):
         missile_crate(g, 0.62, 0.52, 0.24, 2)
     tremie_fins(g, c)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
-        with at(g, x, yn, 0.0):
+        dz = _assise(g, c, x - 0.42, x + 0.42, yn - 0.42, yn + 0.42, rond=0.43)
+        with at(g, x, yn, 0.0, z=dz):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             turret_legs(g, 0.42, 0.28)
             mini_turret(g, (0, 0, 0.28), 0.95, rz)
     # ouest : turbine de titane ; liaisons d'énergie vers la colonne
+    dz = _assise(g, c, -2.42, -1.62, -0.95, 1.25)
+    g.push((0, 0, dz))
     west(g)
-    conduit(g, [(-1.62, Y(0.55), 0.4), (-1.42, Y(0.6), 0.62), (-1.2, Y(0.5), 0.72)], 0.045)
-    cables(g, [(-1.62, Y(-0.25), 0.4), (-1.42, Y(-0.3), 0.6), (-1.18, Y(-0.35), 0.68)])
+    g.pop()
+    conduit(g, [(-1.62, Y(0.55), 0.4 + dz), (-1.42, Y(0.6), 0.62 + dz), (-1.2, Y(0.5), 0.72 + dz)], 0.045)
+    cables(g, [(-1.62, Y(-0.25), 0.4 + dz), (-1.42, Y(-0.3), 0.6 + dz), (-1.18, Y(-0.35), 0.68 + dz)])
     # nord-ouest : échangeur à ailettes posé en biais
-    with at(g, -1.72, 2.02, -0.55):
+    dz = _assise(g, c, -2.2, -1.25, 1.6, 2.45)
+    with at(g, -1.72, 2.02, -0.55, z=dz):
         fin_exchanger(g, -0.55, 0.55, -0.42, 0.42, 0.62)
     # est : deux réservoirs-fusées à ogive et ailerons
-    rocket_tank(g, 2.02, Y(0.95), 0.37, 0.92)
-    rocket_tank(g, 2.02, Y(-0.4), 0.37, 0.92)
+    for yn in (0.95, -0.4):
+        dz = _assise(g, c, 1.65, 2.39, yn - 0.37, yn + 0.37, rond=0.4)
+        g.push((0, 0, dz))
+        rocket_tank(g, 2.02, Y(yn), 0.37, 0.92)
+        g.pop()
+    dz = _assise(g, c, -2.45, -2.02, -2.3 / 1.4142, -1.66 / 1.4142)
+    g.push((0, 0, dz))
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=False)
+    g.pop()
     # sud-est : collecteur de tubulures fines groupées (à la place de la vanne et du volant)
+    dz = _assise(g, c, 1.68, 2.36, -1.18, -0.85)
+    g.push((0, 0, dz))
     manifold(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.26)
-    hose(g, [(1.7, Y(-1.0), 0.28), (1.45, Y(-1.05), 0.34), (1.22, Y(-0.85), 0.52)], 0.05)
-    hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
+    g.pop()
+    hose(g, [(1.7, Y(-1.0), 0.28 + dz), (1.45, Y(-1.05), 0.34 + dz), (1.22, Y(-0.85), 0.52 + dz)], 0.05)
+    dz = max(0.0, corps.z_pont(c, 2.02, 0.95) - 0.045)
+    hose(g, [(1.7, Y(1.05), 0.62 + dz), (1.45, Y(0.95), 0.98 + dz), (1.15, Y(0.75), 0.82 + dz)], 0.06)
+    dz = _assise(g, c, 1.25, 2.25, 1.95, 2.42)
+    g.push((0, 0, dz))
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
+    g.pop()
     # passe 5, ronde 1 : SILHOUETTE de l'âge, deux grandes DÉRIVES de titane en flèche (à la place des caisses du nord).
     # Ronde 2 : leur plan était nord-sud, on ne les voyait que par la TRANCHE (deux traits blancs) ; elles sont
     # tournées FACE AU SUD (plan est-ouest), bord de fuite vertical vers l'extérieur : deux grands triangles de titane
     # en V, vus de face dans les deux poses, au-dessus de la tête à l'écran.
     for sx in (-1, 1):
-        with at(g, sx * 0.62, 1.92, -sx * math.pi / 2):
+        dz = max(0.0, corps.z_pont(c, sx * 0.62, 1.92) - 0.045)
+        with at(g, sx * 0.62, 1.92, -sx * math.pi / 2, z=dz):
             derive(g, 0.0, 0.0)
-    signature(g, (-2.24, -1.98, 0.53), 2)
-    for p in ((1.75, Y(2.18), 0.6), (2.02, Y(-1.02), 0.3),
-              (-1.95, Y(-1.5), 0.45), (0.0, Y(-2.0), 0.68), (-0.95, Y(-2.35), 0.24)):
-        signature(g, p)
+    for p in ((-2.24, -1.98, 0.53, 2), (1.75, Y(2.18), 0.6, 0), (2.02, Y(-1.02), 0.3, 0),
+              (-1.95, Y(-1.5), 0.45, 0), (0.0, Y(-2.0), 0.68, 0), (-0.95, Y(-2.35), 0.24, 0)):
+        dz = max(0.0, corps.z_pont(c, p[0], p[1] / 1.4142) - 0.045)
+        signature(g, (p[0], p[1], p[2] + dz), p[3])
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
     _halo(g, [(-2.0, Y(-1.1), 0.5), (1.78, Y(-2.1), 0.6), (0.0, Y(-2.5), 0.5), (2.0, Y(0.3), 0.5),
@@ -699,7 +747,8 @@ def tete(g, c):
         mat = M["trim"] if i % 3 == 1 else (M["ochre"] if i % 2 else M["steel_dk"])
         P2.applique(g, c.Pf, c.Nf, th, ph1, w1, h1, mat, M)
     # télémètre à ailerons
-    zt = H["zs"] + H["rz"] * 0.86
+    # ronde 4 : coupole en COQUE (plus haute que le dôme) : le télémètre se pose sur sa surface (corps.z_coque)
+    zt = max(H["zs"] + H["rz"] * 0.86, corps.z_coque(c, R * 0.6, R * 0.32) + 0.06)
     g.box((0.0, R * 0.32, zt), (R * 1.25, 0.1, 0.1), M["jacket"], "hard", what="telemetre")
     for sx in (-1, 1):
         g.cyl((sx * R * 0.64, R * 0.32, zt), "x", 0.07, 0.09, M["steel_dk"], n=14, what="telemetre_bout")
