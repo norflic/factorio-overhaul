@@ -389,6 +389,12 @@ secteur (d20 à d44, âges 4 à 7 : saut visible à la frontière ?), le réglag
 non traitées (`NOTES.md` §13.7) : lueur du socle sous la tête dans la carte de lumière, `fo-captures.bat d4-geant`
 code 0 malgré un banc en échec, restes et explosions jamais vus en destruction, icônes d'âge jamais vues dans
 l'interface ; `d4-geant` à recaler sur les emprises de 0.4.3 (F128). Reste d'A0 : tri des worktrees, seuil de 1 Go.
+⏳ **Lancé vers 21 h 25 : run `wf_e1ae9f59-b47`** (session `8a9c0503`), deux chaînes en parallèle, chacune constructeur,
+vérificateur adverse, correcteur : **A3-préparation** (D-7 échantillons par passe ; D-10 bouchon posé là où la fente se
+voit ; trous enfermés sur 64 directions ; garde de 1 Go dans `with_render_lock.py` ; `produire_a3.py` reprenable ;
+pilote âge 5 complet + 8 directions de l'âge 15 ; estimation mémoire vidéo ; sorties `<racine>\fo-logs\2026-10-24_A3\`)
+et **S0** (sons : E69 avec volume 0, outil, règle du harness, tir par ère, page d'écoute ; `<racine>\fo-logs\2026-10-24_S0\`).
+Ensuite : l'orchestrateur fusionne A3-préparation et lance la production de nuit (`INTEGRATION.md` d'A3), puis A3-jeu.
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**
