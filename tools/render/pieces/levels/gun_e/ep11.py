@@ -35,7 +35,15 @@ NOM = "Titane"
 FOYER = dict(rgb=(0.749, 0.902, 1.0), rgb2=(0.749, 0.902, 1.0))
 CANON = dict(L=2.1, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.8)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "steel_hi"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge du titane est un
+# bâtiment ENTIÈREMENT EN TITANE BROSSÉ bleu-blanc (capots clairs, plaques moyennes, acier de structure bleu acier),
+# posé sur un pont de TÔLES DE TITANE rivetées : plus de pont noir, plus d'olive ni d'ocre.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="titane_md", tourelleau="titane_md",
+                 munitions=("ring", "steel_hi"), capots=("titane_cl", "titane_md"), acier=("titane_dk", "ring"),
+                 rivets="rivet_ti", danger=("titane_cl", "bleu_nuit"), peinture="titane_md",
+                 grille_nacelle="titane_dk",
+                 plateforme=dict(motif="toles", mat="tole_ti", mat2="tole_ti2", fond="void", bord="titane_dk",
+                                 boulons="rivet_ti", relief=0.25, lisere="emit_soft"))
 RECV = ("jacket", "olive")
 
 
@@ -50,6 +58,19 @@ def matieres(metal, M):
           dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
     metal("ring", (0.62, 0.64, 0.66), rough=0.4, met=0.45, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
           ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
+    # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), bleuté, semi-diffus
+    metal("titane_cl", (0.44, 0.49, 0.56), rough=0.32, met=0.45, grain=0.1, gscale=60.0, dirt=0.5, stain=0.3,
+          sscale=6.0, wear=0.5, streak=0.7)
+    metal("titane_md", (0.25, 0.28, 0.32), rough=0.34, met=0.45, grain=0.1, gscale=60.0, dirt=0.6, stain=0.35,
+          sscale=6.0, wear=0.7, streak=0.6)
+    metal("titane_dk", (0.1, 0.115, 0.135), rough=0.35, met=0.5, grain=0.1, gscale=50.0, dirt=0.6, stain=0.3,
+          wear=0.9, streak=0.4)
+    metal("tole_ti", (0.32, 0.355, 0.4), rough=0.36, met=0.45, grain=0.08, gscale=60.0, dirt=0.6, stain=0.35,
+          sscale=5.0, streak=0.6)
+    metal("tole_ti2", (0.26, 0.29, 0.33), rough=0.36, met=0.45, grain=0.08, gscale=60.0, dirt=0.6, stain=0.35,
+          sscale=5.0, streak=0.6)
+    metal("rivet_ti", (0.36, 0.4, 0.45), rough=0.35, met=0.45, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("bleu_nuit", (0.02, 0.03, 0.075), rough=0.4, met=0.2, grain=0.06, dirt=0.4, stain=0.2)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
     M["pipe2"] = M["ring"]
@@ -105,9 +126,9 @@ def socle(g, c):
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
-    PT.crate(g, (-0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["olive"])
-    PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
-    signature(g, (0.4, Y(1.95), 0.3), 1)
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, deux grandes DÉRIVES de titane en flèche (à la place des caisses du nord)
+    for x in (-0.42, 0.42):
+        derive(g, x, Y(1.92))
     signature(g, (-2.24, -1.98, 0.53), 2)
     for p in ((1.75, Y(2.18), 0.6), (-0.4, Y(1.95), 0.3), (2.02, Y(-1.02), 0.3),
               (-1.95, Y(-1.5), 0.45), (0.0, Y(-2.0), 0.68), (-0.95, Y(-2.35), 0.24)):
@@ -307,6 +328,38 @@ def rocket_tank(g, x, y, r, h):
         d = V((math.cos(a), math.sin(a), 0))
         g.box(V((x, y, h * zz)) + d * (r + 0.01), (0.09, 0.02, 0.03), E, "flat",
               R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="chenillard")
+
+
+def derive(g, x, y):
+    """Dérive de fusée (passe 5, ronde 1 : superstructure de l'âge du titane, qui change le contour) : semelle
+    boulonnée, grande lame triangulaire de titane clair en flèche (bord d'attaque au sud, bord de fuite vertical au
+    nord), bord d'attaque en alliage et LIGNE LUMINEUSE bleu-blanc, rivets en ligne. Pleine (aucun jour). Sommet à 1,15
+    (sous h_max 1,29 de la taille 5)."""
+    M = g.M
+    E = M["emit"]
+    y0, y1, ht = y - 0.42, y + 0.4, 1.15
+    g.box((x, y, 0.05), (0.16, y1 - y0 + 0.06, 0.1), M["steel_dk"], "hard", what="semelle")
+    for yy in (y0 + 0.06, y, y1 - 0.06):
+        for s in (-1, 1):
+            g.dome((x + s * 0.08, yy, 0.1), (0, 0, 1), 0.014, M["rivet"])
+    a, b, cc = V((x, y0, 0.1)), V((x, y1, 0.1)), V((x, y1 + 0.02, ht))
+    P2.wedge(g, a, b, cc, V((0.05, 0, 0)), M["olive"], what="derive")
+    # bord d'attaque : baguette d'alliage et ligne lumineuse posée dessus
+    d = cc - a
+    tg = d.normalized()
+    sd = V((1, 0, 0))
+    nn = tg.cross(sd).normalized()
+    if nn.y > 0:
+        nn = -nn
+    Rm = Matrix((tg, sd, tg.cross(sd))).transposed()
+    g.box((a + cc) / 2 + nn * 0.012, (d.length, 0.06, 0.03), M["ring"], "hard", R=Rm, what="bord_attaque")
+    g.box((a + cc) / 2 + nn * 0.03, (d.length * 0.8, 0.02, 0.008), E, "flat", R=Rm, what="ligne_lum")
+    # rivets sur les deux faces, en ligne parallèle à la semelle
+    for i in range(5):
+        yy = y0 + 0.25 + i * (y1 - y0 - 0.3) / 4
+        for s in (-1, 1):
+            g.dome((x + s * 0.026, yy, 0.22), (s, 0, 0), 0.011, M["rivet"])
+    g.box((x, y1 - 0.03, ht * 0.55), (0.06, 0.04, ht * 0.85), M["steel_dk"], "hard", what="bord_fuite")
 
 
 def fin_exchanger(g, x0, x1, y0, y1, h, nfin=7):
@@ -651,3 +704,20 @@ def tete(g, c):
     for th in (math.pi / 2 - 0.55, math.pi / 2 + 0.55):
         P2.applique(g, c.Pf, c.Nf, th, 0.42, 0.5, 0.34, M["ring"], M, bolts=4)
     PT.sight(g, (-R * 0.6, R * 0.32, H["zs"] + H["rz"] * 0.5), 0.2, 0.2, 0.12, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

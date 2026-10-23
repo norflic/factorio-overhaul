@@ -37,8 +37,15 @@ NOM = "Légende"
 FOYER = dict(rgb=(1.0, 0.949, 0.753), rgb2=(1.0, 0.949, 0.753))
 CANON = dict(L=3.1, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=0.32)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="armor2", munitions=("jacket", "trim"),
-                 capots=("orblanc", "trim"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : la Légende est sans hésitation la plus précieuse et la plus lumineuse,
+# plus claire que l'Orbite) : TOUT le bâtiment en OR BLANC et NACRE : capots d'or blanc, plaques de nacre, acier d'or
+# sombre, rivets d'or, sur un pont de DALLES DE NACRE à joints d'or et liseré BLANC DORÉ lumineux.
+HABILLAGE = dict(jupe_cerclage="trim", chapeau="or_rivet", tremie="trim", tourelleau="trim",
+                 munitions=("jacket", "trim"), capots=("orblanc", "trim"), acier=("or_sombre", "orblanc"),
+                 rivets="or_rivet", joints="joint_or", danger=("orblanc", "nacre2"), peinture="orblanc",
+                 grille_nacelle="orblanc",
+                 plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="nacre_dalle", mat2="nacre2",
+                                 fond="joint_or", bord="orblanc", boulons=None, lisere="emit_soft"))
 RECV = ("trim", "orblanc")
 
 
@@ -53,10 +60,19 @@ def matieres(metal, M):
     # bagues, flèches de couronne : or blanc PATINÉ, plus rugueux (aucun éclat blanc franc : « pas de bague blanche »)
     metal("ring", (0.6, 0.45, 0.2), rough=0.38, met=0.45, grain=0.18, gscale=36.0, rust=(0.25, 0.12, 0.05),
           ra=0.14, dirt=0.85, stain=0.5, sscale=6.0, wear=0.6)
-    metal("orblanc", (0.56, 0.46, 0.27), rough=0.45, met=0.3, grain=0.14, gscale=36.0, rust=(0.22, 0.13, 0.06),
-          ra=0.12, dirt=0.85, stain=0.6, sscale=5.0, wear=0.8, streak=0.35, mottle=0.3)           # capots or blanc
-    metal("trim", (0.66, 0.6, 0.46), rough=0.3, met=0.15, grain=0.12, gscale=30.0, dirt=0.85, stain=0.45,
-          sscale=5.0, wear=0.6, streak=0.35)                                                       # nacre
+    # passe 5, ronde 1 : corps entier plus CLAIR que l'Orbite (or blanc pâle, nacre presque blanche)
+    metal("orblanc", (0.8, 0.66, 0.38), rough=0.4, met=0.4, grain=0.08, gscale=36.0, dirt=0.4, stain=0.25,
+          sscale=5.0, wear=0.5, mottle=0.12)                                                       # capots or blanc
+    metal("trim", (0.76, 0.73, 0.66), rough=0.28, met=0.05, grain=0.06, gscale=30.0, dirt=0.35, stain=0.2,
+          sscale=5.0, wear=0.3, mottle=0.18)                                                       # nacre
+    metal("nacre_dalle", (0.7, 0.68, 0.64), rough=0.28, met=0.05, grain=0.05, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.3, mottle=0.18)
+    metal("nacre2", (0.62, 0.61, 0.6), rough=0.28, met=0.05, grain=0.05, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.3, mottle=0.18)
+    metal("or_sombre", (0.5, 0.36, 0.15), rough=0.4, met=0.45, grain=0.06, gscale=40.0, dirt=0.4, stain=0.15,
+          sscale=5.0, wear=0.6)
+    metal("or_rivet", (0.72, 0.55, 0.26), rough=0.5, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("joint_or", (0.3, 0.22, 0.1), rough=0.45, met=0.3, grain=0.06, dirt=0.3, stain=0.0)
     M["pipe"] = M["trim"]
     M["pipe2"] = M["jacket"]
     M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
@@ -778,3 +794,20 @@ def tete(g, c):
     g.sphere(q + V((0, 0, 0.48)), 0.016, E, n=8, m=5, what="particule")
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
     PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

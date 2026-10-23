@@ -35,8 +35,14 @@ NOM = "Supraconducteurs"
 FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0))
 CANON = dict(L=2.2, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.15)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "ring"),
-                 capots=("frost", "chrome_mat"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge des supraconducteurs est un bâtiment
+# GIVRÉ, blanc bleuté, à structure NOIR PROFOND et arêtes CHROME, sur un caillebotis de CHROME à liseré CYAN glacé :
+# le contraste noir, givre et chrome, et le cyan continu, le séparent du titane brossé moyen de l'âge 11.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", tourelleau="chrome_mat",
+                 munitions=("ring", "ring"), capots=("frost", "chrome_mat"), acier=("jacket", "ring"),
+                 rivets="chrome_mat", danger=("trim", "jacket"), peinture="frost", grille_nacelle="ring",
+                 plateforme=dict(motif="caillebotis", mat="grille_chrome", fond="void", bord="jacket",
+                                 boulons="chrome_mat", lisere="emit_soft"))
 RECV = ("jacket", "steel_dk")
 
 
@@ -54,8 +60,9 @@ def matieres(metal, M):
           wear=0.3)
     metal("chrome_mat", (0.48, 0.51, 0.54), rough=0.4, met=0.45, grain=0.1, gscale=50.0, dirt=0.6, stain=0.25,
           wear=0.6)
-    metal("frost", (0.42, 0.53, 0.62), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.55, stain=0.45,
+    metal("frost", (0.55, 0.69, 0.82), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.45, stain=0.4,
           sscale=5.0, wear=0.8, mottle=0.3)                                                     # capots givrés
+    metal("grille_chrome", (0.3, 0.33, 0.37), rough=0.3, met=0.45, grain=0.06, gscale=50.0, dirt=0.4, stain=0.1)
     metal("trim", (0.8, 0.88, 0.95), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.2, stain=0.2)  # givre
     metal("pipe", (0.6, 0.68, 0.74), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.33, 0.35),
           ra=0.15, dirt=0.6, stain=0.5, sscale=5.0, streak=0.4)                                   # mousse givrée
@@ -110,9 +117,10 @@ def socle(g, c):
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
-    PT.crate(g, (-0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["olive"])
-    PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
-    signature(g, (0.4, Y(1.95), 0.3), 1)
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, deux hautes TOURS CRYOGÉNIQUES givrées à anneaux de chrome et bagues
+    # cyan glacé (à la place des caisses du nord)
+    for x in (-0.42, 0.42):
+        tour_cryo(g, x, Y(1.92))
     signature(g, (-2.24, -1.98, 0.53), 2)
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
@@ -255,6 +263,28 @@ def mini_turret(g, c, s, rz):
         _gun12(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
     PT.lamp(g, (0.0, 0.12 * s, 0.38 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
     g.pop()
+
+
+def tour_cryo(g, x, y, r=0.2, h=1.0):
+    """Tour cryogénique (passe 5, ronde 1 : superstructure de l'âge des supraconducteurs, qui change le contour) :
+    embase noire boulonnée, fût GIVRÉ, quatre ANNEAUX de chrome espacés, entre deux anneaux une BAGUE CYAN GLACÉ
+    continue sur une gorge noire, calotte givrée et col chromé. Sommet à 1,16 (sous h_max 1,29 de la taille 5)."""
+    M = g.M
+    E = M["emit"]
+    g.cyl((x, y, 0.05), "z", r + 0.06, 0.1, M["jacket"], n=28, what="embase")
+    F.bolts_ring(g, (x, y, 0.1), (0, 0, 1), r + 0.035, 8, M["rivet"], r=0.012, phase=0.2)
+    g.cyl((x, y, 0.1 + h / 2), "z", r, h, M["frost"], n=28, what="fut_givre")
+    zs = [0.1 + h * f for f in (0.18, 0.42, 0.66, 0.9)]
+    for zz in zs:
+        g.torus((x, y, zz), "z", r + 0.018, 0.022, M["ring"], n=32, m=8, what="anneau_chrome")
+    for z0, z1 in zip(zs[:-1], zs[1:]):
+        zm = (z0 + z1) / 2
+        g.cyl((x, y, zm), "z", r + 0.004, 0.05, M["jacket"], n=28, what="gorge")
+        g.torus((x, y, zm), "z", r + 0.006, 0.009, E, n=32, m=6, what="bague_cyan")
+    g.sphere((x, y, 0.1 + h), r, M["frost"], n=28, m=10, scale=(1, 1, 0.35), what="calotte")
+    g.cyl((x, y, 0.1 + h + r * 0.35 + 0.02), "z", r * 0.35, 0.06, M["ring"], n=16, what="col")
+    g.tube_shell((x, y, 0.1 + h + r * 0.35 + 0.05), "z", r * 0.42, r * 0.28, 0.02, M["trim"], n=16, what="givre")
+    _halo(g, [(x, y - r - 0.05, 0.1 + h * 0.55)], 5.0)
 
 
 def dewar_rack(g, w, d, n):
@@ -658,3 +688,20 @@ def tete(g, c):
         g.tube_shell((x, y, znac + 0.445), "z", 0.075, 0.06, 0.02, M["trim"], n=16, what="givre")
         g.box((x, y - 0.135, znac + 0.25), (0.05, 0.006, 0.02), E, "flat", what="voyant")
     PT.sight(g, (-R * 0.6, R * 0.32, H["zs"] + H["rz"] * 0.5), 0.2, 0.2, 0.12, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

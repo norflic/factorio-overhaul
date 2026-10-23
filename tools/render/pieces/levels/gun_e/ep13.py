@@ -33,11 +33,31 @@ NOM = "Fusion"
 FOYER = dict(rgb=(1.0, 0.31, 0.847), rgb2=(1.0, 0.604, 0.227))
 CANON = dict(L=2.3, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=1.3)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge de la fusion est un bâtiment de
+# CÉRAMIQUE BLANCHE à plaques GRIS FROID, acier clair, sur un pont de DALLES DE CÉRAMIQUE GRISE à liseré MAGENTA ;
+# bandes de danger blanc et magenta, peinture magenta sombre. Le cuivre reste aux gaines et aux cerclages.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ceram_bl", tourelleau="ceram_gr",
+                 capots=("ceram_bl", "ceram_gr"), acier=("ceram_gr", "acier_poli"), rivets="acier_poli",
+                 joints="joint_gris", danger=("ceram_bl", "magenta_sombre"), peinture="magenta_sombre",
+                 grille_nacelle="acier_poli",
+                 plateforme=dict(motif="dalles", pas=0.3, joint=0.012, mat="ceram_dalle", mat2="ceram_dalle2",
+                                 fond="joint_gris", bord="ceram_gr", boulons=None, lisere="emit_soft"))
 RECV = ("olive", "steel_dk")
 
 
 def matieres(metal, M):
+    # corps entier (passe 5, ronde 1) : céramique blanche chaude, gris froid, acier poli, dalles grises
+    metal("ceram_bl", (0.6, 0.58, 0.54), rough=0.32, met=0.0, grain=0.08, gscale=30.0, dirt=0.45, stain=0.25,
+          sscale=5.0, wear=0.3, mottle=0.12)
+    metal("ceram_gr", (0.2, 0.2, 0.215), rough=0.34, met=0.1, grain=0.08, gscale=30.0, dirt=0.45, stain=0.2,
+          sscale=5.0, wear=0.4)
+    metal("ceram_dalle", (0.2, 0.2, 0.205), rough=0.32, met=0.0, grain=0.06, dirt=0.4, stain=0.15, sscale=5.0,
+          wear=0.3)
+    metal("ceram_dalle2", (0.16, 0.16, 0.168), rough=0.32, met=0.0, grain=0.06, dirt=0.4, stain=0.15, sscale=5.0,
+          wear=0.3)
+    metal("acier_poli", (0.42, 0.42, 0.44), rough=0.4, met=0.45, grain=0.08, dirt=0.25, stain=0.0, reflet="fin")
+    metal("joint_gris", (0.05, 0.05, 0.055), rough=0.6, met=0.1, grain=0.1, dirt=0.3, stain=0.0)
+    metal("magenta_sombre", (0.3, 0.04, 0.2), rough=0.38, met=0.1, grain=0.08, dirt=0.4, stain=0.15, wear=0.4)
     """Fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre."""
     metal("jacket", (0.48, 0.46, 0.41), rough=0.55, met=0.0, grain=0.14, gscale=34.0, rust=(0.22, 0.12, 0.06),
           ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.6, streak=0.55, mottle=0.25)
@@ -635,3 +655,20 @@ def tete(g, c):
                 tuple(C + V((s * (rs + 0.2), -0.1, -rs * 0.9 - 0.02)))], 0.045, M["copper"], step=0.04, n=10)
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
     PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

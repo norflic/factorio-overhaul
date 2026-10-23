@@ -38,12 +38,30 @@ NOM = "Orbite"
 FOYER = dict(rgb=(1.0, 0.165, 0.165), rgb2=(0.184, 0.42, 1.0))
 CANON = dict(L=2.85, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=0.2)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", munitions=("jacket", "steel_hi"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge orbital est un SATELLITE : capots en
+# FEUILLE D'OR froissée, plaques en PANNEAUX BLEUS de cellules, structure BLANC SPATIAL, bandes blanc et rouge balise,
+# sur un pont de TÔLES dépareillées or et bleu.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", tourelleau="panneau_bleu",
+                 munitions=("jacket", "steel_hi"), capots=("or_feuille", "panneau_bleu"),
+                 acier=("blanc_spatial", "steel_hi"), rivets="or_rivet", danger=("blanc_spatial", "rouge_balise"),
+                 peinture="rouge_balise", grille_nacelle="blanc_spatial",
+                 plateforme=dict(motif="toles", mat="or_tole", mat2="panneau_bleu", fond="void",
+                                 bord="blanc_spatial", boulons="or_rivet", relief=0.2))
 RECV = ("ring", "olive")
 
 
 def matieres(metal, M):
-    """Orbite : feuille d'or froissée, blanc cassé patiné, cellules bleu nuit (≤ 5 %)."""
+    """Orbite : feuille d'or froissée, blanc cassé patiné, cellules bleu nuit (≤ 5 %).
+    Passe 5, ronde 1 : matières du corps entier (feuille d'or semi-diffuse : un métal pur reste sombre vu de dessus)."""
+    metal("or_feuille", (0.62, 0.43, 0.1), rough=0.35, met=0.45, grain=0.45, gscale=22.0, dirt=0.6, stain=0.4,
+          sscale=7.0, wear=0.4)
+    metal("or_tole", (0.42, 0.29, 0.07), rough=0.38, met=0.45, grain=0.45, gscale=22.0, dirt=0.7, stain=0.45,
+          sscale=7.0, wear=0.4)
+    metal("panneau_bleu", (0.03, 0.06, 0.2), rough=0.22, met=0.3, grain=0.06, dirt=0.4, stain=0.15, wear=0.4)
+    metal("blanc_spatial", (0.46, 0.45, 0.42), rough=0.45, met=0.05, grain=0.1, gscale=30.0, dirt=0.7, stain=0.5,
+          sscale=5.0, wear=0.6, streak=0.4)
+    metal("or_rivet", (0.55, 0.4, 0.12), rough=0.4, met=0.45, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("rouge_balise", (0.42, 0.03, 0.025), rough=0.4, met=0.1, grain=0.08, dirt=0.5, stain=0.2, wear=0.5)
     metal("jacket", (0.6, 0.4, 0.08), rough=0.3, met=1.0, grain=0.45, gscale=22.0, rust=(0.25, 0.14, 0.04),
           ra=0.12, dirt=0.75, stain=0.5, sscale=7.0, wear=0.4)
     metal("ring", (0.44, 0.42, 0.37), rough=0.5, met=0.05, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
@@ -732,3 +750,20 @@ def tete(g, c):
     g.cyl((cx, cy + 0.02, ztop + 0.36), "z", 0.016, 0.018, E, n=8, style="flat", what="balise")
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
     PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

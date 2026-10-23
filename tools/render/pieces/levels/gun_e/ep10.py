@@ -34,13 +34,34 @@ NOM = "Haute technologie"
 FOYER = dict(rgb=(0.09, 0.33, 1.0), rgb2=(0.09, 0.33, 1.0))
 CANON = dict(L=2.0, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=1.15)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="matte", munitions=("steel_hi", "steel_dk"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge de l'électronique
+# est un bâtiment de CARÉNAGES BLANC CASSÉ et GRIS posé sur un pont de DALLES ANTHRACITE à liseré BLEU lumineux ;
+# acier anthracite, rivets affleurants gris, bandes de danger blanc et bleu ; câbles rouges et bleus, voyants bleus.
+HABILLAGE = dict(jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_tech", tourelleau="gris_tech",
+                 munitions=("steel_hi", "steel_dk"), capots=("blanc_casse", "gris_tech"),
+                 acier=("anthracite", "acier_tech"), rivets="rivet_tech", danger=("blanc_casse", "bleu_tech"),
+                 peinture="bleu_tech", grille_nacelle="anthracite",
+                 plateforme=dict(motif="dalles", pas=0.28, joint=0.014, mat="dalle_tech", mat2="dalle_tech2",
+                                 fond="void", bord="anthracite", boulons=None, lisere="emit_soft"))
 RECV = ("matte", "jacket")
 
 
 def matieres(metal, M):
-    """Haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus, écrans."""
+    """Haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus, écrans.
+    Passe 5, ronde 1 : matières du corps entier (clés d'habillage) ; carénage blanc cassé, peu métallique (une grande
+    masse claire reste sous 0,5 de métallicité)."""
     rust = (0.24, 0.085, 0.03)
+    metal("blanc_casse", (0.56, 0.54, 0.48), rough=0.4, met=0.15, grain=0.08, gscale=30.0, dirt=0.6, stain=0.4,
+          sscale=6.0, wear=0.6, streak=0.3, mottle=0.15)
+    metal("gris_tech", (0.15, 0.155, 0.165), rough=0.45, met=0.3, grain=0.08, gscale=30.0, dirt=0.5, stain=0.3,
+          sscale=6.0, wear=0.8)
+    metal("anthracite", (0.055, 0.058, 0.064), rough=0.45, met=0.45, grain=0.08, gscale=36.0, dirt=0.5, stain=0.3,
+          wear=1.0)
+    metal("acier_tech", (0.3, 0.31, 0.33), rough=0.35, met=0.45, grain=0.08, dirt=0.3, stain=0.1, wear=0.5)
+    metal("rivet_tech", (0.2, 0.205, 0.215), rough=0.4, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("bleu_tech", (0.025, 0.075, 0.3), rough=0.4, met=0.1, grain=0.08, dirt=0.4, stain=0.2, wear=0.6)
+    metal("dalle_tech", (0.07, 0.074, 0.082), rough=0.5, met=0.2, grain=0.06, dirt=0.4, stain=0.2, sscale=5.0)
+    metal("dalle_tech2", (0.095, 0.1, 0.11), rough=0.5, met=0.2, grain=0.06, dirt=0.4, stain=0.2, sscale=5.0)
     metal("jacket", (0.4, 0.4, 0.39), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
           dirt=0.9, stain=0.7, sscale=6.0, wear=1.2, streak=0.5, mottle=0.3)
     M["ring"] = M["matte"]
@@ -102,13 +123,41 @@ def socle(g, c):
     # nord-est : armoire de commande ; nord : caisse de réserve
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=True)
     signature(g, (1.55, Y(2.18), 0.6))
-    PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
-    signature(g, (0.4, Y(1.95), 0.3), 1)
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, un RADÔME sphérique blanc sur pylône (à la place de la caisse du nord)
+    radome(g, 0.32, Y(1.92))
     signature(g, (-2.24, -1.98, 0.53), 2)
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
     _halo(g, [(-2.0, Y(-1.1), 0.5), (1.78, Y(-2.1), 0.6), (0.0, Y(-2.5), 0.5), (2.0, Y(0.3), 0.5),
               (1.75, Y(1.8), 0.5)], 20.0)
+
+
+def radome(g, x, y):
+    """Radôme de veille (passe 5, ronde 1 : superstructure de l'âge électronique, qui change le contour) : embase
+    carénée, pylône à 4 jambes de force, sphère de carénage blanc cassé à cerclages et méridiens, feu bleu au sommet.
+    Sommet à 1,2 (sous h_max 1,29 de la taille 5 : les canons passent au-dessus)."""
+    M = g.M
+    E = M["emit"]
+    g.cyl((x, y, 0.07), "z", 0.3, 0.14, M["ochre"], n=28, what="embase")
+    g.torus((x, y, 0.14), "z", 0.29, 0.014, M["steel_dk"], n=28, m=6, what="bourrelet")
+    g.cyl((x, y, 0.36), "z", 0.075, 0.44, M["steel_dk"], n=16, what="pylone")
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        d = V((math.cos(a), math.sin(a), 0))
+        P2.wedge(g, V((x, y, 0.14)) + d * 0.26, V((x, y, 0.14)) + d * 0.07, V((x, y, 0.5)) + d * 0.07,
+                 V((-d.y, d.x, 0)) * 0.03, M["steel_dk"], what="jambe")
+    zc, r = 0.86, 0.32
+    g.sphere((x, y, zc), r, M["olive"], n=32, m=16, what="radome")
+    for zz, rr in ((zc, r), (zc + r * 0.5, r * 0.866), (zc - r * 0.5, r * 0.866)):
+        g.torus((x, y, zz), "z", rr + 0.002, 0.008, M["steel_dk"], n=32, m=6, what="cerclage")
+    for ax in ("x", "y"):
+        g.torus((x, y, zc), ax, r + 0.002, 0.007, M["steel_dk"], n=32, m=6, what="meridien")
+    g.sphere((x, y, zc + r + 0.02), 0.028, E, n=10, m=6, what="feu")
+    for k in range(3):   # voyants bleus sur la face sud de l'embase
+        dx = -0.12 + 0.12 * k
+        g.box((x + dx, y - math.sqrt(0.09 - dx * dx) + 0.002, 0.08), (0.05, 0.012, 0.025), E, "flat",
+              what="voyant")
+    _halo(g, [(x, y, zc + r + 0.05)], 6.0)
 
 
 def west(g):
@@ -578,3 +627,20 @@ def tete(g, c):
     # sommet de la tête : antenne-réseau de radar sur le tourelleau
     radar_array(g, c.tour, 1.25, 0.46, tilt=0.95)
     PT.sight(g, (-R * 0.6, R * 0.32, H["zs"] + H["rz"] * 0.5), 0.2, 0.2, 0.12, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]
