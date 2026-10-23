@@ -90,6 +90,76 @@ canon de l'époque.
 POSE N (passe 5, règle d'or 7) : les tubes par défaut sont en acier nu clair (M["gun"]) ; corps.rosette éclaire la
 pointe de chaque tube (pointes=…) ; corps.couronne_bouche remplace le frein en bloc de la passe 4 ; un frein d'époque
 ne doit pas faire de chapeau plat plus large que le faisceau.
+FORMES (passe 5, troisième temps du kit, 23/10 ; décision de l'orchestrateur après la ronde 2 : les paires qui ne sautent
+pas se lisent « même forme, même socle, même plan » ; Clash of Clans change aussi la FORME de la base). Une époque
+choisit, depuis son seul fichier, la FORME de quatre grandes pièces de la lignée, par quatre clés d'HABILLAGE ; la
+disposition (coupole au centre, canons vers l'avant, trémie au sud), les points d'accroche et la précision restent.
+Valeur : None (forme de la lignée : code d'origine, empreinte de construction IDENTIQUE, construction.py) | "nom" |
+dict(forme="nom", option=…). Une forme ou une option inconnue est une erreur au chargement. Les matières des options
+nomment une clé de kit.materials ou de ep.matieres, lue dans la palette HABILLÉE (elles suivent capots, acier, etc.).
+Contours et hauteurs : silhouettes.py (Python pur) ; dessin : corps.py ; exemples complets : habillages.py (f_forge,
+f_vapeur, f_electricite, f_legende, f_petrole, f_marais, f_titane), rendus avec rendre.py --kit S --habillage NOM.
+Chaque forme a été construite aux 5 tailles (construction.py --habillages …) et rendue en aperçu (trous, ilots).
+  forme_plateforme  CONTOUR, HAUTEUR et BORDS du pont (le motif du dessus reste la clé « plateforme » ; sans elle, motif
+             propre à la forme) :
+     "octogone"  la lignée (= None) ;
+     "carre"     carré à petits pans coupés, pont mince (0,045), cornières boulonnées, GARDE-CORPS (lisses « flanc »,
+                 défaut jaune de danger ; poteaux et plinthe « flanc2 ») au sud, à l'est et à l'ouest, MURET plein au nord
+                 (un garde-corps au nord enfermerait le vide du sprite) ;
+     "rond"      disque (en tuiles : rond à l'écran) prolongé vers la trémie, PLINTHE surélevée (0,10 à 0,16) habillée de
+                 tôles rivetées verticales (« flanc », défaut capot olive), collerette rivetée (« flanc2 ») ; dessus : tôles ;
+     "hexagone"  hexagone à pans avant et arrière plats, plinthe (0,07 à 0,11) à panneaux lisses, BISEAU sur le pourtour ;
+                 dessus : dalles ; « lisere » : filet lumineux sur le biseau ;
+     "pierre"    socle de PIERRE surélevé (0,13 à 0,23) : assises de pierre sur les faces sud (« flanc », « flanc2 »,
+                 défaut stone2, stone), chaperon, CRÉNEAUX (crenaux=False : muret seul) ; dessus : dalles de pierre ;
+     "gradins"   2 gradins (2×2, 3×3) ou 3 (4×4 à 6×6 ; « niveaux » pour forcer), chacun rentré de 0,14 à 0,26 et haut
+                 de 0,05 à 0,10 ; flancs à panneaux (assises=True : blocs, basalte) ; arête de chaque gradin (« bord » du
+                 motif) ; « lisere » : filet lumineux sur chaque arête ; crenaux=True : FLEURONS sur le dernier gradin
+                 (base couronnée) ; dessus : dalles ;
+     "bastions"  pont carré mince et deux TOURS D'ANGLE blindées et crénelées aux coins arrière (hauteur 0,16 à 0,30) :
+                 les places coin_NO et coin_NE sont sur leur toit (z_sol) ;
+     "pilotis"   plancher surélevé (0,20 à 0,36) sur PIEUX (« flanc ») à semelles, poutres de rive (« flanc2 ») ; le vide
+                 sous le plancher s'ouvre vers le bas (aucun trou enfermé : JAMAIS de lisse ni d'entretoise entre les
+                 pieux) ; garde_corps=True : garde-corps et muret nord ; dessus : planches.
+     Options : hauteur (dessus du pont), flanc, flanc2, dessus (matière du motif), lisere (matière lumineuse), crenaux,
+     garde_corps, niveaux, assises. Bords, créneaux et garde-corps s'interrompent devant la trémie et sur les carrés de la
+     pièce paire (couche posée PAR-DESSUS le socle).
+     CE QUI BOUGE POUR L'ÉPOQUE : sur un pont surélevé, la colonne et la trémie montent de c.dz (le haut de la colonne et
+     la tête ne bougent pas ; gradins : la trémie reste au sol et sort des gradins) ; corps.collecteur monte aussi ;
+     un organe d'époque posé au sol doit monter de corps.z_pont(c, x, yn) (accroches : « z_sol » de chaque place).
+  forme_coupole  la coupole (repère de la tête, centrée en (0, 0, zs), dans le rayon de la jupe) :
+     "dome"      la lignée (= None) ;
+     "dome_bas"  dôme bas (0,7 rz) à côtes serrées, trois rangs de rivets, bouton sommital ;
+     "tour"      TOUR cylindrique (0,88 R, 0,8 rz) : assises sur âme sombre, mâchicoulis, meurtrières, parapet et
+                 CRÉNEAUX, toit plat (le tourelleau et la trappe s'y posent) ;
+     "pyramide"  pyramide à pans plats (« pans », défaut 8 ; 1,25 rz) : tôles rivetées par pan, arêtiers, plateau, flèche ;
+     "bulbe"     bulbe en oignon (1,6 rz) à côtes rivetées, bandeau, flèche à pommeau (« epi ») ;
+     "cloche"    cloche de VERRE (« verre », défaut glass ; 1,35 rz) à meneaux et cerces (« mat2 »), socle riveté,
+                 couronne d'isolateurs ; « lisere » : bouton lumineux ;
+     "anneau"    noyau bas (0,6 R, 0,85 rz) ceint de DEUX ANNEAUX horizontaux (« mat2 », défaut acier clair) à doublure
+                 lumineuse (« lisere », défaut emit_soft), brides et bras ;
+     "coque"     coque lisse en super-ellipse (1,08 rz), lignes de panneaux affleurantes, VISIÈRE sombre à l'avant, AILERON
+                 dorsal ; « lisere » : filet lumineux sous la visière.
+     Options : hauteur (facteur de la hauteur), mat (défaut capot olive habillé), mat2 (défaut acier sombre habillé),
+     pans, lisere, epi (défaut matière du « chapeau »), verre.
+     CE QUI BOUGE POUR L'ÉPOQUE : c.Pf(th, ph, k) et c.Nf(th, ph) gardent leur signature (P2.applique se pose sur toute
+     forme) ; une hauteur sur la coque se lit avec corps.z_coque(c, x, y) (JAMAIS la formule de l'ellipsoïde : ep08 l'a
+     fait, elle ne vaut que pour "dome") ; le tourelleau descend jusqu'au point le plus bas de son pied ; la trappe suit
+     la pente ; accroches : place « coupole » recalculée (aucune place au sommet d'un bulbe : la flèche y est).
+  forme_jupe  la jupe sous la coupole (même hauteur, rayon extérieur <= celui de la lignée) :
+     "blindee"   la lignée (= None) ; "conique" : tronc de cône à pans rivetés (col à 0,8 R) ; "colonnade" : colonnes à
+     base et chapiteau devant une âme sombre (« mat », défaut capot ocre), stylobate, entablement ; "ecailles" :
+     écailles rivetées en rangs décalés. Options : mat, mat2, n (nombre de pans, colonnes ou écailles par rang).
+  forme_tremie  la trémie, dans la MÊME boîte (c.tremie_box ; débord de 0,03 à 0,07 au plus), sortie de bande rendue :
+     "caisson"   la lignée (= None) ; "tambour" : tambour-chargeur couché vers la colonne, FACE RONDE à rayons vers la
+     caméra, cercles boulonnés, berceaux, fenêtre de chargement ; "silo" : silo debout (1,3 h) à viroles, toit conique,
+     échelle, caisson d'alimentation ; "entonnoir" : caisson bas à bande de danger et ENTONNOIR évasé ouvert sur les
+     cartouches. Options : mat (défaut peinture de la trémie), mat2 (défaut acier sombre habillé).
+CANON EFFILÉ (passe 5, troisième temps ; proposition de lignée pour la pose N) : corps.canon_lignee(…, effile=True |
+dict(conv=…, frein=(début, fin) | None, guidon=…)) ou corps.canon_effile(g, x, y0, z, L, nb, rb, rr, …) : faisceau
+qui CONVERGE (pointe vers la bouche), jaquette CONIQUE perforée (0,35 L au plus) à une seule bague, MANCHON À FENTES
+reculé (0,64 à 0,8 L) au ras du faisceau, qui fait le collier, DERNIER CINQUIÈME des tubes nu et convergent, pointes
+éclairées, GUIDON dressé. Mode d'emploi pour un canon d'époque : docstring de corps.canon_effile.
 """
 import importlib
 
@@ -119,6 +189,11 @@ HABILLAGE_DEFAUT = dict(
     joints=None,               # joints et âmes sombres entre les plaques
     danger=None,               # bandes de danger : clé, ou (clair, sombre)
     peinture=None,             # peinture rouge de la colonne
+    # --- FORME des grandes pièces (passe 5, troisième temps ; contrat « FORMES » ci-dessus) : None = forme de la lignée
+    forme_plateforme=None,     # contour, hauteur et bords du pont
+    forme_coupole=None,        # coupole
+    forme_jupe=None,           # jupe sous la coupole
+    forme_tremie=None,         # trémie à munitions
 )
 
 # FAMILLES DE COULEUR DES FOYERS (règle d'or 3) : teinte (degrés, intervalle circulaire) et saturation MESURÉES sur la

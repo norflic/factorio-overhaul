@@ -6,8 +6,11 @@ mêmes endroits. Sert à prouver qu'un changement du kit ne change RIEN quand se
 TOUJOURS par le verrou de rendu (interdit n° 6) :
     python tools/render/with_render_lock.py -- blender -b --factory-startup -noaudio --python-exit-code 1
         -P tools/render/pieces/levels/gun_e/construction.py -- --out empreinte.json [--names a,b | --tout]
-        [--habillage pionnier|fusion|legende]
+        [--habillage pionnier|fusion|legende | --habillages f_forge,f_vapeur,…] [--tailles 2,3,4,5,6]
 --tout : les 72 variantes (e01-piece, eNN-socle|piece|tete-N|tete-E pour N = 2 à 15, kS-socle|tete-N|tete-E).
+--habillages (passe 5, troisième temps) : plusieurs habillages d'essai du témoin dans UNE session, sur les variantes
+kS-socle, kS-tete-N, kS-tete-E des tailles --tailles (défaut 2 à 6) ; clés « habillage/variante » ; une erreur de
+construction est notée (« erreur ») et la suite continue ; code de sortie 1 s'il y en a une.
 """
 import argparse
 import hashlib
@@ -53,7 +56,11 @@ def main():
     ap.add_argument("--tout", action="store_true")
     ap.add_argument("--out", required=True)
     ap.add_argument("--habillage", default="")
+    ap.add_argument("--habillages", default="")
+    ap.add_argument("--tailles", default="2,3,4,5,6")
     a = ap.parse_args(argv)
+    if a.habillages:
+        return plusieurs(a)
     if a.habillage:
         os.environ["FO_HABILLAGE_ESSAI"] = a.habillage
     spec = importlib.util.spec_from_file_location("gune_piece", os.path.join(HERE, "piece.py"))
@@ -83,6 +90,49 @@ def main():
         json.dump({"dossier": HERE, "habillage": a.habillage or None, "secondes": round(time.time() - t0, 1),
                    "variantes": res}, f, indent=1, sort_keys=True)
     print("[FO-CONSTRUCTION] %d variantes en %.0f s -> %s" % (len(names), time.time() - t0, a.out), flush=True)
+
+
+def plusieurs(a):
+    import traceback
+    spec = importlib.util.spec_from_file_location("gune_piece", os.path.join(HERE, "piece.py"))
+    piece = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(piece)
+    for k, v in piece.PIECE.get("calib", {}).items():
+        setattr(C, k, v)
+    names = ["k%s-%s" % (s, p) for s in a.tailles.split(",") if s for p in ("socle", "tete-N", "tete-E")]
+    res, err = {}, 0
+    t0 = time.time()
+    for h in [x for x in a.habillages.split(",") if x]:
+        os.environ["FO_HABILLAGE_ESSAI"] = h
+        for name in names:
+            S.reset()
+            S.HALO_LIGHTS.clear()
+            S.EXTRA_LIGHTS.clear()
+            S._BLACK = S._WHITE = S._AO = None
+            S._BOOSTED.clear()
+            cle = "%s/%s" % (h, name)
+            try:
+                info = piece.build(S, C, name)
+            except Exception:
+                err += 1
+                res[cle] = {"erreur": traceback.format_exc()}
+                print("[FO-CONSTRUCTION] %s ERREUR" % cle, flush=True)
+                print(res[cle]["erreur"], flush=True)
+                continue
+            bpy.context.view_layer.update()
+            emp = empreinte(S.piece_objects())
+            res[cle] = {"pieces": info["count"], "nb_pieces": sum(info["count"].values()), "halos": info["halos"],
+                        "sommets": sum(e["sommets"] for e in emp), "objets": len(emp)}
+            print("[FO-CONSTRUCTION] %s %d pièces %d sommets" % (cle, res[cle]["nb_pieces"], res[cle]["sommets"]),
+                  flush=True)
+    os.environ.pop("FO_HABILLAGE_ESSAI", None)
+    with open(a.out, "w", encoding="utf-8") as f:
+        json.dump({"dossier": HERE, "habillages": a.habillages, "secondes": round(time.time() - t0, 1),
+                   "erreurs": err, "variantes": res}, f, indent=1, sort_keys=True)
+    print("[FO-CONSTRUCTION] %d constructions, %d erreur(s), %.0f s -> %s" % (len(res), err, time.time() - t0, a.out),
+          flush=True)
+    if err:
+        sys.exit(1)
 
 
 main()
