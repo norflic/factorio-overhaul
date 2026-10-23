@@ -46,7 +46,13 @@ HABILLAGE = dict(jupe_cerclage="laiton_capot", tremie="castiron", pochoirs=False
                  # plaques de la coupole), LAITON poli en secondaire (pont de plaques de laiton rivetées, au lieu des
                  # planches rouge sombre qui se lisaient « bois » comme le pionnier), vert locomotive en accent seulement
                  plateforme=dict(motif="toles", pas=0.34, mat="laiton_pont", mat2="laiton_pont2", fond="bois_joint",
-                                 bord="cuivre_capot", boulons="laiton_rivet", relief=0.3))
+                                 bord="cuivre_capot", boulons="laiton_rivet", relief=0.3),
+                 # ronde 4 (test des écarts de la ronde 3 : 2-3 noté 3 et 2, « base quasi identique ») : la VAPEUR change
+                 # de FORME (consigne de 9 h 36 : « Vapeur sur une plateforme ronde rivetée ») : PLATEFORME RONDE à
+                 # plinthe de tôles de cuivre rivetées et collerette de laiton, coupole en DÔME DE CHAUDIÈRE bas à côtes
+                 # serrées, trois rangs de rivets et bouton de laiton ; les organes du socle restent au sol
+                 forme_plateforme=dict(forme="rond", flanc="cuivre_capot", flanc2="laiton_capot"),
+                 forme_coupole=dict(forme="dome_bas", epi="laiton_capot"))
 ST = dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"),
           jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="cuivre_capot", gmask=("laiton_capot", "olive"),
           arm=("olive", "castiron"), cap="brass", col=("olive", "castiron"), nac=("castiron", "olive"))
@@ -277,6 +283,8 @@ def piece(g, c):
     side = c.side
     cx = c.T["piece"]["x"]
     cy = -cx
+    # ronde 4 : la pièce se pose sur la plinthe ronde si son coin y est (corps.z_pont ; 0 hors du disque)
+    g.push((0, 0, corps.z_pont(c, cx, cy)))
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
@@ -289,6 +297,7 @@ def piece(g, c):
         P2.gauge(g, (x - sx * 0.04, y - 0.185, 0.34), (-sx * 0.3, -1, 0.3), 0.075, M)
         link(g, 3, [(x - sx * 0.13, y + 0.06, 0.14), (x - sx * 0.25, y + 0.2, 0.18),
                     (sx * 0.4, Y(-0.8), 0.18)], 0.034)
+    g.pop()
     _halo(g, [(-cx, Y(cy), 0.3), (cx, Y(cy), 0.3)], 8.0)
 
 
@@ -329,12 +338,14 @@ def gun_e(g, st, H, x, side):
     L, nb, rb, rr = H["L"], H["nb"], H["rb"], H["rr"]
     zg = H["zg"]
     rs = rr + rb + 0.028
-    pos = corps.rosette(g, x, y1, zg, L, nb, rb, rr, mat=M[st.get("barrel", "gun")], collier_mat=M[st["band"]],
-                        colliers=st.get("collars", (0.8,)), bouts=False)
-    # passe 4, règle d or 1 : la jaquette d époque couvre la moitié arrière du faisceau au plus (corps.JAQUETTE_MAX)
-    Lj = L * min(st.get("jacket_f", 0.62), corps.JAQUETTE_MAX)
+    # ronde 4 (pose N de la ronde 3 : « cheminée : OUI » pour la vapeur) : CANON EFFILÉ du kit (faisceau qui converge,
+    # manchon à fentes de laiton reculé, dernier cinquième des tubes nu à pointes éclairées) au lieu du faisceau droit
+    # coiffé du frein en bloc ; le manchon de cuivre à ailettes de l'époque reste à la culasse (0,33 L : en pose N, il
+    # fait la BASE du canon, jamais son sommet)
+    corps.canon_effile(g, x, y1, zg, L, nb, rb, rr, jaquette=0.0, bague_mat="brass", mat=M[st.get("barrel", "gun")],
+                       frein=(0.62, 0.78))
+    Lj = L * 0.33
     jk_steam(g, st, x, y1, zg, Lj, rs, H)
-    br_steam(g, st, x, y1 + L, zg, rs, pos, H)
     return rs
 
 
@@ -469,7 +480,8 @@ def tete(g, c):
         arch_hose(g, EPOQUE, (sx * 0.15, -R - 0.06, zt + 0.02),
                   (sx * (H["gx"] - 0.03), H["recv"][0] + 0.1, H["zg"] + H["hr"] + 0.03),
                   0.1 + 0.03 * (side - 2), 0.034 + 0.008 * (side - 2))
-    P2.gauge(g, (R * 0.3, R * 0.5, H["zs"] + H["rz"] * 0.55), (0, 0.6, 1), 0.04, M)
+    # ronde 4 : manomètre posé SUR le dôme de chaudière (hauteur lue sur la coupole de forme, corps.z_coque)
+    P2.gauge(g, (R * 0.3, R * 0.5, corps.z_coque(c, R * 0.3, R * 0.5) + 0.01), (0, 0.6, 1), 0.04, M)
     appl = M[ST["appl"]]
     n1 = 6
     for i in range(n1):

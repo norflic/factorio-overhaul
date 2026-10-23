@@ -44,7 +44,14 @@ HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=(
                  grille_nacelle="lead", tourelleau="lead", chapeau="lead", capots=("beton_capot", "lead"),
                  acier=("plomb_sombre", "lead"), rivets="lead", joints="joint_beton",
                  plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
-                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit"))
+                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit"),
+                 # ronde 4 (test des écarts de la ronde 3 : 8-9 noté 2 et 2, « même socle et dôme » ; 9 jugé MOINS évolué
+                 # que 7 par les deux lecteurs) : la coupole devient un RÉACTEUR À ANNEAUX (forme « anneau » du kit) :
+                 # noyau de béton clair, deux anneaux de confinement en plomb gris-bleu à doublure VERT URANIUM
+                 # lumineuse ; le cœur vert se pose au sommet du noyau. Dernier âge de l'ère III : le plus lumineux et
+                 # le plus « technologique » des trois
+                 # (essai a de la ronde 4 : anneaux de plomb, sombres au zoom 1 : anneaux de BÉTON CLAIR)
+                 forme_coupole=dict(forme="anneau", mat2="beton_capot", lisere="emit"))
 # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : béton blanc cassé dominant, PLOMB GRIS-BLEU en
 # secondaire (il était gris neutre, comme le béton : un seul gris), vert uranium en accent, liseré du pont à pleine
 # lumière (dernier âge de l'ère III : le plus lumineux des trois ; la ronde 2 le jugeait encore « industriel », moins
@@ -526,7 +533,7 @@ def tete(g, c):
     k = KIN
     F.slits(g, R, c.rt + 0.1 + 0.02 * side, 13, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
     F.voyants_tete(g, H, 18)
-    PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
+    PT.sight(g, (R * 0.2, R * 0.45, corps.z_coque(c, R * 0.2, R * 0.45) - H["rz"] * 0.28), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
     appl = M[ST["appl"]]
     n1 = {0: 3, 1: 6, 2: 8}[k] + (side - 2)
@@ -554,8 +561,12 @@ def tete(g, c):
     # passe 5 (juges de la passe 4 : « UN gros hublot vert, cœur d'au moins 0,25 t, sur une tête octogonale ») : CŒUR
     # du réacteur sur la place libre de la coupole (corps.accroche) : socle octogonal de plomb boulonné, gros hublot
     # bombé vert uranium
-    a = corps.accroche(c, "coupole")
-    p = V((a["x"], a["y"], a["z"]))
+    # ronde 4 : place libre calculée AVEC la coupole de forme de l'époque (corps.accroche ne lit pas l'habillage),
+    # hauteur lue sur la coupole (corps.z_coque)
+    import accroches
+    canon = {k_: H[k_] for k_ in ("L", "nb", "rb", "rr")}
+    a = accroches.calcul(side, canon, PLATEFORME["chanfrein"], HABILLAGE)["coupole"]
+    p = V((a["x"], a["y"], corps.z_coque(c, a["x"], a["y"]) - 0.02))
     rc = max(0.13, min(0.2, a["r"] * 0.7))   # ronde 2 : cœur un peu plus gros (0,17 -> 0,2 au plus)
     g.cyl(p, "z", rc + 0.05, 0.1, M["plomb_sombre"], n=8, style="hard", phase=math.pi / 8, what="coeur_octo")
     g.cyl(p + V((0, 0, 0.05)), "z", rc + 0.012, 0.02, M["lead"], n=28, what="coeur_cadre")

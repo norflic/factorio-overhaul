@@ -55,6 +55,14 @@ HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitio
                  # plancher. Palette (DC, 23/10 9 h 50) : vert-de-gris dominant, bois et cuivre terni en secondaire,
                  # JAUNE TOXIQUE en accent (le vert est à l'atome)
                  forme_plateforme=dict(forme="pilotis", flanc="bois_mousse", flanc2="rubber"),
+                 # ronde 4 (test des écarts de la ronde 3 : 7-8 et 8-9 notés 3 et 2 ; 8 jugé MOINS évolué que 7 par les
+                 # deux lecteurs, « B industriel jaune », « même socle et dôme » que 9) : la coupole devient une
+                 # grande CLOCHE DE VERRE PLEINE DU LIQUIDE TOXIQUE lumineux (forme « cloche » du kit, verre = liquide
+                 # jaune soufré qui luit), meneaux et cerces de vert-de-gris : « verre, bulles, toxique » sur toute la
+                 # tête, une silhouette haute en cloche et une lumière que le cristal n'a pas
+                 # (essai a de la ronde 4 : verre = lueur douce ; la cloche devenait un aplat jaune sans dessin au zoom 1 :
+                 # VERRE TOXIQUE brillant non lumineux, jaune-vert profond, dont les reflets dessinent la cloche)
+                 forme_coupole=dict(forme="cloche", verre="verre_toxique", mat2="vdg_capot", lisere="emit"),
                  plateforme=dict(motif="planches", pas=0.15, mat="bois_mouille", mat2="bois_mousse", fond="tablier",
                                  bord="rubber", boulons="cuivre_terni", relief=0.5))
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
@@ -66,6 +74,8 @@ ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", 
 def matieres(metal, M):
     """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
     metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
+    # ronde 4 : verre de la CLOCHE (coupole) : liquide toxique jaune soufré vu à travers un verre épais et brillant
+    metal("verre_toxique", (0.36, 0.34, 0.02), rough=0.08, met=0.0, grain=0.06, dirt=0.3, stain=0.25, sscale=4.0)
     # matières du CORPS (vert-de-gris clair peu métallique, cuivre terni, bois mouillé)
     # ronde 2 (test des écarts de la ronde 1 : le marais jugé MOINS évolué que le cristal, « G sombre ») : âge du
     # milieu de l'ère III, il monte d'un cran en clarté : vert-de-gris clair, pont de BOIS FLOTTÉ gris argent (le bois
@@ -517,8 +527,8 @@ def nacelle(g, c):
     R, zs, rz = H["R"], H["zs"], H["rz"]
     for sx in (-1, 1):
         mx, my = sx * H["gx"] * 0.6, -0.2
-        t = min(0.99, math.hypot(mx / R, my / (R * 1.06)))
-        mz = zs + rz * math.sqrt(1 - t * t) + 0.04
+        # ronde 4 : hauteur lue sur la coupole de forme (cloche), jamais par la formule de l'ellipsoïde
+        mz = corps.z_coque(c, mx, my) + 0.04
         g.hose([(sx * rB * 0.7, yc + 0.05, ztop + 0.08), (mx, my, mz),
                 (sx * H["gx"], H["recv"][0] + 0.2, H["zg"] + H["hr"] + 0.04)], 0.032, M["rubber"], step=0.03)
 
@@ -532,24 +542,21 @@ def tete(g, c):
     k = KIN
     F.slits(g, R, c.rt + 0.1 + 0.02 * side, 11, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
     F.voyants_tete(g, H, 16)
-    PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
+    PT.sight(g, (R * 0.2, R * 0.45, corps.z_coque(c, R * 0.2, R * 0.45) - H["rz"] * 0.28), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
     appl = M[ST["appl"]]
     n1 = {0: 3, 1: 6, 2: 8}[k] + (side - 2)
     for i in range(n1):
         th = 0.45 + (math.pi - 0.9) * (i + 0.5) / n1
         P2.applique(g, c.Pf, c.Nf, th, 0.3, 0.22 + 0.03 * (side - 2), 0.18 + 0.03 * (side - 2), appl, M)
-    n2 = 2
-    for i in range(n2):
-        th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
-        P2.applique(g, c.Pf, c.Nf, th, 0.72, 0.2, 0.16, appl, M)
-    # signature de coupole : lanterneau de verre à côtes de vert-de-gris
-    rG = R * 0.28
-    zc = zs + rz * 0.82
-    F.sphere(g, (0, -R * 0.1, zc), rG, M["emit_soft"], n=24, m=12, sz=0.75, what="lanterneau")
-    for k_ in range(10):
-        a = TAU * k_ / 10
-        g.tube([V((math.cos(a) * rG * 1.02, -R * 0.1 + math.sin(a) * rG * 1.02, zc - 0.02)),
-                V((math.cos(a) * rG * 0.7, -R * 0.1 + math.sin(a) * rG * 0.7, zc + rG * 0.55)),
-                V((0, -R * 0.1, zc + rG * 0.77))], 0.014, M["verdigris"], n=6, what="cote")
-    g.torus((0, -R * 0.1, zc), "z", rG * 1.01, 0.02, M["cuivre_terni"], n=28, m=6, what="cerclage")
+    # ronde 4 : la coupole est une CLOCHE DE VERRE pleine de liquide lumineux (HABILLAGE, forme_coupole) : plus de
+    # plaques hautes ni de lanterneau (il serait noyé dans la cloche) ; BULLES claires collées au verre, en grappes
+    # irrégulières qui montent (jamais en rangée)
+    rng = g.rng
+    for i in range(14):
+        th = TAU * ((i * 0.381966) % 1.0)
+        ph = (0.18 + 0.62 * ((i * 0.618034) % 1.0)) * math.pi / 2
+        rb_ = 0.014 + 0.016 * rng.random()
+        p = c.Pf(th, ph, 1.0)
+        nrm = c.Nf(th, ph)
+        F.sphere(g, tuple(V(p) + V(nrm) * (rb_ * 0.4)), rb_, M["reflet_verre"], n=12, m=6, sz=1.0, what="bulle")

@@ -75,8 +75,11 @@ def matieres(metal, M):
     # mate et presque pas métallique (un jaune métallique se lit laiton), plus claire et plus pâle
     # (essai a de la ronde 2 : (0,58 ; 0,46 ; 0,12) restait kaki au zoom 1 : la saleté et les taches l'assombrissent ;
     # jaune franc, moins sale)
-    metal("jaune_capot", (0.8, 0.58, 0.05), rough=0.6, met=0.05, grain=0.2, gscale=30.0, rust=rust, ra=0.1,
-          dirt=0.45, stain=0.4, sscale=5.0, wear=1.8, streak=0.35)
+    # ronde 4 (test des écarts de la ronde 3 : 4 jugé PLUS évolué que 5 par les deux lecteurs, et que 6 par un
+    # lecteur : « O doré à dôme ») : la peinture jaune perd son éclat d'or : jaune plus pâle et moins saturé (vraiment
+    # « délavé »), écaillée sur la rouille (ra 0,1 -> 0,26), plus sale ; c'est le PREMIER âge de l'ère II, le plus brut
+    metal("jaune_capot", (0.7, 0.6, 0.13), rough=0.7, met=0.03, grain=0.26, gscale=30.0, rust=rust, ra=0.26,
+          dirt=0.65, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
     # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
     # il tournait à l'olive brun au zoom 1) ; ronde 2 : mat, comme les capots
     metal("yellowpaint", (0.64, 0.46, 0.07), rough=0.58, met=0.08, grain=0.2, gscale=30.0, rust=rust, ra=0.2,

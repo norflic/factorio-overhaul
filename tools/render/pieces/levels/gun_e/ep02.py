@@ -51,7 +51,15 @@ HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, muni
                  # couleur SECONDAIRE bien visible (pavage de briques du pont, plaques de la nacelle), braise rouge en
                  # accent ; le pont de tôles grises se confondait avec le fer du corps
                  plateforme=dict(motif="dalles", pas=0.17, joint=0.02, mat="brique_pave", mat2="brique_pave2",
-                                 fond="mortier", bord="fer_noir", boulons=None, relief=0.45))
+                                 fond="mortier", bord="fer_noir", boulons=None, relief=0.45),
+                 # ronde 4 (test des écarts de la ronde 3 : 1-2 noté 2 et 2, « même petit châssis rouillé », « même
+                 # petite base sombre ») : la FORGE change de FORME (consigne de 9 h 36 : « Forge sur un socle de pierre
+                 # crénelé ») : SOCLE DE PIERRE surélevé à assises grises (muret seul : les merlons du bord auraient
+                 # coupé le foyer et l'enclume, posés au ras du bord) et coupole en DONJON DE BRIQUE crénelé à
+                 # mâchicoulis de fer noir (le crénelage du bouclier se prolonge sur la tête) ; les organes du socle
+                 # restent au sol et s'enfoncent dans le socle (aucun organe ne flotte au-delà du bord)
+                 forme_plateforme=dict(forme="pierre", crenaux=False),
+                 forme_coupole=dict(forme="tour", mat="brique", mat2="fer_noir"))
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
 ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("fer_martele", "rawiron"),
           recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="brique", gmask=("bolted", "rawiron"),
@@ -321,6 +329,8 @@ def piece(g, c):
     side = c.side
     cx = c.T["piece"]["x"]
     cy = -cx
+    # ronde 4 : la pièce se pose SUR le socle de pierre (hauteur du socle à son coin, corps.z_pont)
+    g.push((0, 0, corps.z_pont(c, cx, cy)))
     # dalle sous chaque pièce, raccordée à la plateforme : aucun jour enfermé entre la pièce, les caisses et la trémie
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
@@ -330,6 +340,7 @@ def piece(g, c):
             PT.crate(g, (0.0, 0.2, 0.0), (0.36, 0.26, 0.18), mat=M["wood"])
             PT.crate(g, (0.01, 0.2, 0.185), (0.3, 0.22, 0.15), mat=M["wood2"])
             mantlet(g, (0.0, -0.04, 0.0), 0.0, w=0.54, h=0.4)
+    g.pop()
     _halo(g, [(-cx, Y(cy), 0.3), (cx, Y(cy), 0.3)], 6.0)
 
 

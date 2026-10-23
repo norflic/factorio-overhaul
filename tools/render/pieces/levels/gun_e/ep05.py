@@ -50,8 +50,15 @@ HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, mun
                  # BASALTE EN GRADINS, assises de blocs, rigoles de lave orange le long de chaque gradin (juges de la
                  # passe 4 : « coulées irrégulières au sol et rigoles le long du socle ») ; palette : basalte noir
                  # dominant, rouille brûlée en secondaire (plaques de fonte), lave orange en accent
+                 # ronde 4 (test des écarts de la ronde 3 : 5 jugé MOINS évolué que 4 par les deux lecteurs, « L sombre
+                 # trapu », « sombre plus brut ») : le volcan gagne de la HAUTEUR et de la LUMIÈRE : coupole en CÔNE
+                 # de basalte à pans (forme « pyramide » : un volcan), flèche et pommeau de LAVE au sommet (le
+                 # cratère), rigoles des gradins à pleine lumière (« emit » au lieu de « emit_soft »)
                  forme_plateforme=dict(forme="gradins", flanc="basalte_capot", flanc2="fonte_v", assises=True,
-                                       lisere="emit_soft"),
+                                       lisere="emit"),
+                 # (essai a de la ronde 4 : arêtiers de fonte, le cône sombre se lisait encore comme la coupole ronde au
+                 # zoom 1 : les ARÊTIERS et le plateau du sommet deviennent des coulées de LAVE lumineuse)
+                 forme_coupole=dict(forme="pyramide", hauteur=1.4, epi="emit", mat2="emit"),
                  plateforme=dict(motif="dalles", pas=0.34, joint=0.022, mat="basalte_dalle", mat2="basalte_dalle2",
                                  fond="fonte_noire", bord="fonte_noire", boulons=None, relief=0.7))
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
@@ -523,7 +530,7 @@ def tete(g, c):
                   (sx * (H["gx"] - 0.03), H["recv"][0] + 0.1, H["zg"] + H["hr"] + 0.03),
                   0.1 + 0.03 * (side - 2), 0.034 + 0.008 * (side - 2))
     F.voyants_tete(g, H, 6)
-    PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
+    PT.sight(g, (R * 0.2, R * 0.45, corps.z_coque(c, R * 0.2, R * 0.45) - H["rz"] * 0.28), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
     # plaques rapportées : écailles de tungstène (une par position : passe 4, densité de détail D3 de 67 ramenée vers
     # la plage), puis 2e rangée
