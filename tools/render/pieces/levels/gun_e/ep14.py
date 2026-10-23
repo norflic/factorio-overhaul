@@ -1,15 +1,19 @@
 """Époque 14 · Orbite (ère V, 6×6, niveaux 27 et 28). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 14) : « or, paraboles, balises ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
-mot ; les aiguillages par époque sont réduits à la branche de l'époque 14) sur le kit commun gun_e : seul le CORPS a
-changé (corps.py, kit.py ; la règle commune de reflets rend la feuille d'or un peu plus satinée). Aucune correction
-de design d'époque.
-Emplacements remplis : arme (canon-ÉMETTEUR : corps en feuille d'or sanglé, panneau doré replié, fût à colliers
-isolants, grande COUPELLE d'émission, balises), canon de coupole, 3 tourelles secondaires, grands volumes du socle
-(batterie dorée et panneaux à l'ouest, 2 grandes paraboles à l'est, champ de panneaux au nord), liaisons (câbles
-gainés de feuille d'or, sangles), grande parabole au sommet, panneaux repliés sur la nacelle, balises rouges, pièce
-paire (2 paraboles de conduite de tir).
+Bien lue à l'aveugle en passe 3 : identité GARDÉE. Quatrième passe (23/10), corrections du constructeur de la plage
+haute :
+  - ARME (règle d'or 1) : l'émetteur s'AJOUTE à la rosette de la lignée : corps en feuille d'or sanglé et panneau
+    replié sur la moitié arrière seulement, PARABOLE dorée déplacée sur le DOS du corps (elle ne masque plus la
+    bouche), 6 tubes à colliers isolants sur la moitié avant, FREIN À CAPTEUR ANNULAIRE (catalogue) plus large que le
+    faisceau, rosace éclairée au centre, balise rouge ;
+  - MOITIÉ SUD propre à l'époque : trémie blanc cassé à flancs de feuille d'or sanglée et BRAS ARTICULÉ de chargement
+    à vérin, CONTENEURS SOUS COUVERTURE THERMIQUE à la place des caisses ouvertes, tourelles secondaires sous feuille
+    d'or à petite PARABOLE, BOÎTE OMBILICALE à câbles dorés au sud-est (à la place des volants).
+Inchangés de la passe 3 : canon de coupole, 3 tourelles secondaires, grands volumes du socle (batterie dorée et
+panneaux à l'ouest, 2 grandes paraboles à l'est, champ de panneaux au nord), liaisons (câbles gainés de feuille d'or,
+sangles), grande parabole au sommet, panneaux repliés sur la nacelle, balises rouges, pièce paire (2 paraboles de
+conduite de tir).
 """
 import math
 
@@ -28,9 +32,9 @@ V = Vector
 EPOQUE = 14
 NOM = "Orbite"
 FOYER = dict(rgb=(1.0, 0.165, 0.165), rgb2=(0.184, 0.42, 1.0))
-CANON = dict(L=2.4, nb=6, rb=0.072, rr=0.175)
-PLATEFORME = dict(chanfrein=0.7)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+CANON = dict(L=2.85, nb=6, rb=0.072, rr=0.175)
+PLATEFORME = dict(chanfrein=0.2)
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", munitions=("jacket", "steel_hi"))
 RECV = ("ring", "olive")
 
 
@@ -45,6 +49,10 @@ def matieres(metal, M):
     M["pipe2"] = M["ring"]
     M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
     metal("spec", (0.012, 0.02, 0.075), rough=0.14, met=0.6, grain=0.05, dirt=0.3, stain=0.0)      # cellules
+    # couverture thermique NOIRE (kapton) froissée, quatrième passe : 2e matière d'époque, sur les conteneurs, les
+    # tourelles secondaires et les flancs de trémie (l'or reste sur les canons, les paraboles et la batterie)
+    metal("kapton", (0.03, 0.026, 0.022), rough=0.42, met=0.3, grain=0.2, gscale=30.0, dirt=0.6, stain=0.4,
+          sscale=6.0, wear=1.2)
     M["accent"] = M["trim"]
 
 
@@ -69,10 +77,17 @@ def socle(g, c):
     P2.grating(g, 1.65, 1.95, Y(-1.3), Y(1.45), 0.07, M)
     P2.grating(g, -1.95, -1.65, Y(-1.1), Y(1.1), 0.07, M)
     with at(g, -1.45, -1.95, 0.45):
-        P2.open_crate(g, (0, 0, 0), 0.84, 0.78, 0.32, M)
+        foil_crate(g, 0.84, 0.78, 0.34)
     with at(g, 1.45, -1.95, -0.45):
-        P2.open_crate(g, (0, 0, 0), 0.84, 0.78, 0.32, M, paint=M["ochre"])
-    for (x, yn, rz) in [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3), (2.4, 2.45, 1.25)]:
+        foil_crate(g, 0.84, 0.78, 0.34)
+    tremie_arm(g, c)
+    # balises rouges de bordure (feux de position) sur le pourtour libre de la plateforme, espacées (chacune un foyer)
+    for x in (-1.95, -1.05, 0.95, 1.85):
+        balise(g, (x, Y(-2.66), 0.03))
+    for yn in (-1.0, 0.25, 1.5):
+        balise(g, (2.72, Y(yn), 0.03))
+        balise(g, (-2.72, Y(yn) + 0.3, 0.03))
+    for (x, yn, rz) in [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3), (2.4, 2.45, -0.7)]:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             mini_turret(g, (0, 0, 0.32), 1.02, rz)
@@ -93,12 +108,9 @@ def socle(g, c):
     east(g)
     P3.cabinet(g, -2.85, -2.08, -2.85, -2.2, 0.0, 0.55, M, E)
     P3.cabinet(g, 1.95, 2.85, 2.02, 2.5, 0.0, 0.5, M, E)
-    PT.hull(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.0, 0.34, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["redpaint"], M["steel_dk"]], rivet_step=0.12)
-    for x in (2.15, 2.65):
-        P2.handwheel(g, (x, Y(-1.55) - 0.08, 0.22), (0, -1, 0.3), 0.08, M)
-    pipe(g, [(1.98, Y(-1.35), 0.24), (1.75, Y(-1.4), 0.26), (1.55, Y(-1.15), 0.48)], 0.055,
-         valve_at=((1.77, Y(-1.39), 0.26), (0, -1, 0.5)))
+    # sud-est : boîte ombilicale à câbles gainés de feuille d'or (à la place de la vanne à volants)
+    foil_junction(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.3)
+    hose(g, [(1.98, Y(-1.35), 0.34), (1.75, Y(-1.4), 0.4), (1.55, Y(-1.15), 0.56)], 0.055)
     hose(g, [(1.95, Y(1.0), 0.95), (1.68, Y(0.95), 1.15), (1.4, Y(0.8), 0.95)], 0.06)
     hose(g, [(1.95, Y(-0.55), 0.95), (1.68, Y(-0.55), 1.12), (1.42, Y(-0.4), 0.95)], 0.06)
     # nord : champ de panneaux ; armoires de commande
@@ -139,7 +151,7 @@ def west(g):
     zc = 0.16 + r + 0.02
     for i in range(4):
         g.crumple((cx - (x1 - x0) * 0.18, y0 + 0.2 + (y1 - y0 - 0.4) * (i + 0.5) / 4, zc), "y", r,
-                  (y1 - y0 - 0.4) / 4 - 0.02, M["jacket"], n=20, k=3, amp=0.014)
+                  (y1 - y0 - 0.4) / 4 - 0.02, M["kapton"] if i % 2 == 0 else M["jacket"], n=20, k=3, amp=0.014)
     for i in range(5):
         yy = y0 + 0.2 + (y1 - y0 - 0.4) * i / 4
         g.tube_shell((cx - (x1 - x0) * 0.18, yy, zc), "y", r + 0.02, r - 0.03, 0.04, M["ring"], n=24, what="sangle")
@@ -155,6 +167,8 @@ def west(g):
     F.hatches(g, (x0 + 0.05, y0 + 0.3, 0.16), (x0 + 0.05, y1 - 0.3, 0.16), 14, (0, 0, 1), M["ring"],
               size=(0.06, 0.06), frame=M["steel_dk"])
     P3.lamp_group(g, (x0 + 0.08, y0 - 0.02, 0.1), (1, 0, 0), (0, -1, 0), E, M, n=3)
+    for f in (0.12, 0.38, 0.62, 0.88):
+        balise(g, (x0 + 0.07, y0 + (y1 - y0) * f, 0.16))
     for (bx_, by_) in ((x1 - 0.06, y0 + 0.08), (x1 - 0.06, y1 - 0.08), (x1 - 0.06, cy)):
         g.cyl((bx_, by_, 0.19), "z", 0.024, 0.06, M["steel_dk"], n=10, what="balise_pied")
         g.cyl((bx_, by_, 0.226), "z", 0.018, 0.014, E, n=10, style="flat", what="balise")
@@ -175,8 +189,8 @@ def west(g):
 
 
 def east(g):
-    """Est : deux GRANDES PARABOLES dorées sur affût blindé (à la place des réservoirs), tournées vers le haut et le
-    sud ; coffre et balise."""
+    """Est : deux GRANDES PARABOLES dorées sur affût blindé haut (à la place des réservoirs), tournées vers le sud et le
+    haut (intérieur doré visible) ; coffre et balises."""
     M = g.M
     for (x, y, rz) in ((2.4, Y(1.0), 0.35), (2.4, Y(-0.55), -0.25)):
         PT.hull(g, x - 0.4, x + 0.4, y - 0.4, y + 0.4, 0.0, 0.3, ins=(0.04, 0.04, 0.04), panel=0.26,
@@ -184,11 +198,19 @@ def east(g):
         F.hatches(g, (x - 0.32, y - 0.405, 0.15), (x + 0.32, y - 0.405, 0.15), 6, (0, -1, 0), M["ring"],
                   size=(0.08, 0.06), frame=M["steel_dk"])
         g.cyl((x, y, 0.36), "z", 0.22, 0.12, M["ring"], n=28, what="pivot")
-        g.cyl((x, y, 0.55), "z", 0.07, 0.3, M["steel_dk"], n=16, what="mat")
+        g.cyl((x, y, 0.72), "z", 0.08, 0.66, M["steel_dk"], n=16, what="mat")
         for sx in (-1, 1):
-            g.box((x + sx * 0.12, y, 0.66), (0.04, 0.12, 0.2), M["ring"], "hard", what="etrier")
-        F.dish(g, (x, y, 0.78), 0.56, 0.16, M["jacket"], M["ring"], rx=0.62, rz=rz, horn=False)
-        g.push((x, y, 0.78), rz=rz, rx=0.62)
+            g.box((x + sx * 0.12, y, 1.0), (0.04, 0.12, 0.2), M["ring"], "hard", what="etrier")
+        F.dish(g, (x, y, 1.12), 0.74, 0.18, M["jacket"], M["ring"], rx=0.62, rz=rz, horn=False)
+        g.push((x, y, 1.12), rz=rz, rx=0.62)
+        # panneaux de réflecteur : joints sombres et attaches posés dans la coupelle (le reflet doré se lit en
+        # pétales, pas en une seule plage)
+        for k_ in range(10):
+            a = TAU * (k_ + 0.5) / 10
+            for rf in (0.32, 0.58, 0.84):
+                rr_ = 0.74 * rf
+                g.box((rr_ * math.cos(a), rr_ * math.sin(a), 0.18 * rf * rf + 0.006), (0.05, 0.03, 0.01),
+                      M["steel_dk"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="attache")
         g.cyl((0, 0, 0.16 + 0.14), "z", 0.035, 0.28, M["steel_dk"], n=12, what="emetteur")
         g.cyl((0, 0, 0.16 + 0.3), "z", 0.06, 0.05, M["ring"], n=14, what="emetteur_tete")
         g.cyl((0, 0, 0.16 + 0.33), "z", 0.03, 0.006, M["emit2"], n=10, style="flat", what="lentille")
@@ -200,6 +222,8 @@ def east(g):
                   size=(0.05, 0.05))
         P3.lamp_group(g, (x - 0.3, y - 0.42, 0.24), (1, 0, 0), (0, -1, 0), M["emit"], M, n=2,
                       shapes=("rond", "fente"))
+        balise(g, (x - 0.33, y - 0.33, 0.3))
+        balise(g, (x - 0.33, y + 0.33, 0.3))
         g.cyl((x + 0.33, y - 0.33, 0.33), "z", 0.024, 0.06, M["steel_dk"], n=10, what="balise_pied")
         g.cyl((x + 0.33, y - 0.33, 0.37), "z", 0.018, 0.014, M["emit"], n=10, style="flat", what="balise")
     x, y = 2.74, Y(0.22)
@@ -219,15 +243,17 @@ def solar_array(g, x0, x1, y0, y1, h):
     for i in range(n):
         xa = x0 + 0.05 + (x1 - x0 - 0.1) * i / n
         xb = xa + (x1 - x0 - 0.1) / n - 0.06
-        Rr = Matrix.Rotation(-0.55, 3, "X")
-        c = V(((xa + xb) / 2, (y0 + y1) / 2, 0.36))
-        g.box(c, (xb - xa, (y1 - y0) * 0.86, 0.035), M["ring"], "hard", R=Rr, what="panneau_cadre")
+        # panneaux DRESSÉS sur mâts (quatrième passe : silhouette propre à l'époque au nord du socle)
+        Rr = Matrix.Rotation(-0.95, 3, "X")
+        c = V(((xa + xb) / 2, (y0 + y1) / 2 + 0.05, 1.08))
+        g.box(c, (xb - xa, (y1 - y0) * 1.1, 0.035), M["ring"], "hard", R=Rr, what="panneau_cadre")
         for j in range(4):
-            v = -0.32 + 0.21 * j
+            v = -0.4 + 0.27 * j
             q = c + Rr @ V((0, v * (y1 - y0), 0.022))
-            g.box(q, ((xb - xa) * 0.86, (y1 - y0) * 0.17, 0.006), M["spec"] if (i + j) % 3 == 0 else M["jacket"],
+            g.box(q, ((xb - xa) * 0.86, (y1 - y0) * 0.22, 0.006), M["spec"] if (i + j) % 3 == 0 else M["jacket"],
                   "flat", R=Rr, what="cellules")
-        g.box(((xa + xb) / 2, (y0 + y1) / 2 + 0.08, 0.2), (0.06, 0.06, 0.2), M["steel_dk"], "hard", what="pied")
+        g.box(((xa + xb) / 2, (y0 + y1) / 2 + 0.12, 0.58), (0.08, 0.08, 0.94), M["steel_dk"], "hard", what="pied")
+        g.cyl(((xa + xb) / 2, (y0 + y1) / 2 + 0.12, 1.04), "x", 0.045, 0.12, M["ring"], n=12, what="rotule")
         g.cyl((xb - 0.04, y0 + 0.06, 0.16), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
         g.cyl((xa + 0.04, y1 - 0.06, 0.16), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
 
@@ -245,7 +271,8 @@ def signature(g, p, kind=0):
 
 
 def mini_turret(g, c, s, rz):
-    """Tourelle secondaire : couronne et caisson de la lignée, les DEUX ARMES sont celles de l'époque."""
+    """Tourelle secondaire ORBITE : couronne rivetée de la lignée, caisson enveloppé de FEUILLE D'OR sanglée, petite
+    PARABOLE dorée sur le dos, balise rouge ; les DEUX ARMES sont celles de l'époque (petits émetteurs à rosette)."""
     M = g.M
     E = M["emit"]
     g.push(c, rz=rz)
@@ -254,14 +281,100 @@ def mini_turret(g, c, s, rz):
     for k in range(nb):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
-    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["armor"], M["khaki"]])
+    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.22 * s, ins=(0.02 * s, 0.02 * s, 0.02 * s),
+            panel=0.22, mats=[M["ring"], M["olive"]])
+    g.crumple((0.0, -0.03 * s, 0.3 * s), "y", 0.15 * s, 0.46 * s, M["kapton"], n=18, k=3, amp=0.012)
+    for yy in (-0.2 * s, -0.03 * s, 0.14 * s):
+        g.tube_shell((0.0, yy, 0.3 * s), "y", 0.165 * s, 0.12 * s, 0.03, M["ring"], n=20, what="sangle")
+    # petite parabole sur le dos (la tourelle du nord-est est tournée vers le nord-est : tournée vers l'ouest, ses
+    # petits canons fermaient un jour de 14 px hr avec le canon de flanc, poses E et N)
+    g.cyl((0.0, -0.14 * s, 0.46 * s), "z", 0.04, 0.06 * s, M["steel_dk"], n=10, what="mat")
+    F.dish(g, (0.0, -0.12 * s, 0.5 * s), 0.14 * s, 0.05 * s, M["jacket"], M["steel_dk"], rx=-0.35, horn=True)
+    g.cyl((0.18 * s, -0.25 * s, 0.24 * s), "z", 0.016, 0.016, E, n=8, style="flat", what="balise")
+    for a in (0.9, 2.3, 4.0):
+        balise(g, (0.32 * s * math.cos(a), 0.32 * s * math.sin(a), 0.1 * s))
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M[k] for k in RECV])
         _gun14(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
-    PT.lamp(g, (0.0, 0.12 * s, 0.4 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
-    PT.hatch(g, (0.0, -0.12 * s, 0.4 * s), 0.09 * s)
     g.pop()
+
+
+def balise(g, p, r=0.026):
+    """Balise rouge clignotante (catalogue : petites, <= 0,01 t²) : pied sombre boulonné, verre rouge."""
+    M = g.M
+    p = V(p)
+    g.cyl(p + V((0, 0, 0.02)), "z", r * 1.3, 0.04, M["steel_dk"], n=10, what="balise_pied")
+    g.cyl(p + V((0, 0, 0.048)), "z", r, 0.018, M["emit"], n=10, style="flat", what="balise")
+
+
+def foil_crate(g, w, d, h):
+    """CONTENEUR SOUS COUVERTURE THERMIQUE (à la place de la caisse ouverte) : caisse blanc cassé enveloppée de
+    couverture thermique NOIRE froissée, sangles blanc cassé à boucles, petit panneau de cellules bleu nuit, balise rouge."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, 0.08, ins=(0.01, 0.01, 0.01), panel=0.3, mats=[M["ring"]],
+            rivet_step=0.12)
+    g.crumple((0.0, 0.0, 0.08 + h / 2), "x", min(d, h) * 0.5, w * 0.92, M["kapton"], n=16, k=4, amp=0.018)
+    for f in (-0.32, 0.0, 0.32):
+        g.tube_shell((f * w, 0.0, 0.08 + h / 2), "x", min(d, h) * 0.5 + 0.02, min(d, h) * 0.5 - 0.03, 0.04, M["ring"],
+                     n=16, what="sangle")
+        g.box((f * w, -min(d, h) * 0.3, 0.08 + h * 0.92), (0.05, 0.04, 0.03), M["steel_hi"], "hard", what="boucle")
+    R = Matrix.Rotation(-0.4, 3, "X")
+    g.box((w * 0.28, d * 0.38, 0.08 + h + 0.05), (w * 0.34, d * 0.3, 0.02), M["ring"], "hard", R=R, what="cadre")
+    g.box((w * 0.28, d * 0.37, 0.08 + h + 0.062), (w * 0.3, d * 0.26, 0.006), M["spec"], "flat", R=R, what="cellules")
+    g.cyl((-w * 0.38, -d * 0.3, 0.1), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
+    for sxx, syy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        balise(g, (sxx * (w / 2 - 0.05), syy * (d / 2 - 0.05), 0.08))
+    F.hatches(g, (-w / 2 + 0.08, -d / 2 - 0.005, 0.04), (w / 2 - 0.08, -d / 2 - 0.005, 0.04), 5, (0, -1, 0),
+              M["ring"], size=(0.07, 0.05), frame=M["steel_dk"])
+
+
+def tremie_arm(g, c):
+    """Trémie de l'époque : flancs couverts de FEUILLE D'OR froissée sanglée, BRAS ARTICULÉ de chargement à vérin
+    (embase blanc cassé, 3 articulations, pince) qui va de la trémie à la couronne de la colonne, balises."""
+    M = g.M
+    E = M["emit"]
+    x0, x1, y0, y1, h = c.tremie_box
+    for s in (-1, 1):
+        xb = (x1 if s > 0 else x0) + s * 0.07
+        g.crumple((xb, (y0 + y1) / 2, h * 0.35), "y", 0.1, (y1 - y0) * 0.9, M["kapton"], n=14, k=4, amp=0.012)
+        for f in (0.2, 0.5, 0.8):
+            g.tube_shell((xb, y0 + (y1 - y0) * f, h * 0.35), "y", 0.115, 0.07, 0.035, M["ring"], n=14, what="sangle")
+        for f in (0.08, 0.35, 0.65, 0.92):
+            balise(g, (xb + s * 0.06, y0 + (y1 - y0) * f, 0.0))
+    xa = x1 + 0.22
+    pa = V((xa, y0 + 0.4, 0.3))
+    g.cyl((xa, y0 + 0.4, 0.15), "z", 0.12, 0.3, M["ring"], n=20, what="embase")
+    pm = V((xa - 0.05, y1 - 0.1, h + 0.55))
+    pb = V((0.25, y1 + 0.4, c.rt + 0.18))
+    for (p, q) in ((pa, pm), (pm, pb)):
+        d = q - p
+        g.cyl((p + q) / 2, d, 0.04, d.length, M["ring"], n=12, what="bras")
+        g.crumple((p + q) / 2, d, 0.05, d.length * 0.5, M["jacket"], n=12, k=2, amp=0.008)
+    for p in (pa, pm, pb):
+        g.cyl(p, (1, 0, 0), 0.06, 0.09, M["steel_dk"], n=14, what="articulation")
+    PT.piston(g, tuple(pa + V((0.0, 0.15, 0.05))), tuple(pm + V((0.0, -0.1, -0.12))), 0.024)
+    g.box(pb + V((0, 0.06, -0.06)), (0.12, 0.1, 0.08), M["steel_dk"], "hard", what="pince")
+    g.cyl((xa, y0 + 0.4, 0.31), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
+
+
+def foil_junction(g, x0, x1, y0, y1, h):
+    """Boîte ombilicale (sud-est) : caisson blanc cassé, connecteurs ombilicaux, câbles gainés de feuille d'or."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["ring"], M["olive"]],
+            rivet_step=0.12)
+    w = x1 - x0
+    yc = (y0 + y1) / 2
+    for i in range(3):
+        x = x0 + w * (0.2 + 0.3 * i)
+        g.cyl((x, yc, h + 0.03), "z", 0.06, 0.06, M["steel_dk"], n=14, what="connecteur")
+        g.crumple((x, yc + 0.08, h + 0.12), (0, 0.6, 0.8), 0.04, 0.22, M["jacket"], n=10, k=3, amp=0.008)
+    g.cyl((x0 + 0.06, y0 + 0.06, h + 0.02), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
+    for xx in (x1 - 0.06, x0 + w * 0.5):
+        balise(g, (xx, y0 + 0.06, h))
+    F.hatches(g, (x0 + 0.08, y0 - 0.005, h * 0.4), (x1 - 0.08, y0 - 0.005, h * 0.4), 5, (0, -1, 0), M["ring"],
+              size=(0.07, 0.06), frame=M["steel_dk"])
 
 
 # ------------------------------------------------------------------------------------------------
@@ -388,72 +501,96 @@ def arme(g, c, x, sx):
 
 
 def _gun14(g, x, y0, z, L, nb, rb, rr):
-    """Troisième passe : le canon est un ÉMETTEUR. Corps cylindrique enveloppé de feuille d'or froissée et sanglé,
-    flanqué d'un PANNEAU doré replié (cadre blanc cassé, cellules bleu nuit en petites bandes), fût d'émission
-    sombre à colliers isolants, et une grande COUPELLE d'émission dorée tournée vers l'avant (0,7 tuile de
-    diamètre), à pointe d'émission et balise rouge. De dessus : un long corps doré terminé en T ; de face : des
-    disques dorés."""
+    """Quatrième passe (règle d'or 1) : l'ÉMETTEUR s'AJOUTE à la rosette de la lignée. Moitié arrière : corps enveloppé
+    de FEUILLE D'OR froissée et sanglé (corps.JAQUETTE_MAX), flanqué d'un PANNEAU doré replié (cellules bleu nuit en
+    petites bandes) ; sur son dos, une PARABOLE dorée sur rotule et étrier, tournée vers l'avant et le haut (de dessus,
+    on voit son intérieur doré). Moitié avant : les 6 tubes séparés de la rosette à COLLIERS ISOLANTS blanc cassé.
+    Bouche : FREIN À CAPTEUR ANNULAIRE (grand anneau blanc cassé à capteurs sombres, plus large que le faisceau : pose N
+    sans chapeau rond), rosace éclairée au centre, balise rouge."""
     M = g.M
     E, E2 = M["emit"], M["emit2"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
+    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.56, 0.65, 0.74, 0.83, 0.92), collier_mat=M["ring"],
+                        bouts=False)
+    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
+          what="ame_bout")
     rbody = R0 + 0.05 * k
-    Lb = 0.6 * L
-    nseg = 5
+    Lb = min(0.48, corps.JAQUETTE_MAX) * L
+    nseg = 4
     for i in range(nseg):
         g.crumple((x, y0 + Lb * (i + 0.5) / nseg, z), "y", rbody, Lb / nseg - 0.015, M["jacket"], n=22, k=3,
-                  amp=0.016)
+                  amp=0.016 * max(0.5, k))
     g.cyl((x, y0 + Lb / 2, z), "y", rbody - 0.02, Lb, M["steel_dk"], n=20, what="ame")
     for i in range(nseg + 1):
         yy = y0 + Lb * i / nseg
         g.tube_shell((x, yy, z), "y", rbody + 0.022, rbody - 0.03, 0.04, M["ring"], n=30, what="sangle")
-        g.box((x + rbody * 0.5, yy, z + rbody * 0.84), (0.04, 0.055, 0.03), M["steel_hi"], "hard", what="boucle")
-    # panneau doré replié côté extérieur (et un plus petit côté intérieur), charnières sur le corps
+        if k >= 0.9:
+            g.box((x + rbody * 0.5, yy, z + rbody * 0.84), (0.04, 0.055, 0.03), M["steel_hi"], "hard", what="boucle")
     sx = 1.0 if x >= 0 else -1.0
-    for side, span in ((sx, 0.34 * k), (-sx, 0.14 * k)):
-        x_in = x + side * (rbody + 0.01)
-        x_out = x_in + side * span
-        ya, yb = y0 + 0.06, y0 + Lb - 0.06
+    if k >= 0.9:
+        # panneau doré replié côté extérieur, charnières sur le corps
+        span = 0.32 * k
+        x_in = x + sx * (rbody + 0.01)
+        x_out = x_in + sx * span
+        ya, yb = y0 + 0.06, y0 + Lb - 0.04
         zz = z + 0.02
         g.box(((x_in + x_out) / 2, (ya + yb) / 2, zz), (span, yb - ya, 0.035), M["ring"], "hard", what="panneau_cadre")
-        nc = 4
-        for j in range(nc):
-            yy0 = ya + 0.03 + (yb - ya - 0.06) * j / nc
-            yy1 = ya + 0.03 + (yb - ya - 0.06) * (j + 1) / nc - 0.025
+        for j in range(4):
+            yy0 = ya + 0.03 + (yb - ya - 0.06) * j / 4
+            yy1 = ya + 0.03 + (yb - ya - 0.06) * (j + 1) / 4 - 0.025
             g.box(((x_in + x_out) / 2, (yy0 + yy1) / 2, zz + 0.02), (span * 0.82, yy1 - yy0, 0.006),
                   M["spec"] if j % 2 == 0 else M["jacket"], "flat", what="cellules")
         for f in (0.2, 0.8):
             g.cyl((x_in, ya + (yb - ya) * f, zz), "y", 0.03, 0.08, M["steel_dk"], n=10, what="charniere")
-    # fût d'émission : tube sombre, colliers isolants blanc cassé
-    yf0, yf1 = y0 + Lb, y0 + L - 0.1 * k
-    rf = R0 * 0.55
-    g.cyl((x, (yf0 + yf1) / 2, z), "y", rf, yf1 - yf0, M["gun"], n=20, what="fut")
-    g.cyl((x, yf0 + 0.04, z), "y", rbody * 0.8, 0.1, M["steel_dk"], n=24, r2=rf, what="cone")
-    for f in (0.25, 0.5, 0.75):
-        yy = yf0 + (yf1 - yf0) * f
-        g.tube_shell((x, yy, z), "y", rf + 0.045 * k, rf - 0.01, 0.05, M["ring"], n=24, what="collier_isolant")
-    # grande coupelle d'émission tournée vers l'avant ET vers le haut (55°) : de dessus on voit son intérieur doré
-    # (ellipse), de face un disque ; rotule et étrier sur le bout du fût, pointe d'émission, balise rouge
-    rd = 0.34 * k
-    dd = 0.12 * k
-    yd = yf1 + 0.04
-    g.sphere((x, yd, z), 0.07 * k, M["steel_dk"], n=16, m=8, what="rotule")
-    for s in (-1, 1):
-        g.box((x + s * 0.075 * k, yd, z + 0.03), (0.025, 0.1 * k, 0.14 * k), M["ring"], "hard", what="etrier")
-    F.dish(g, (x, yd + 0.03, z + 0.05), rd, dd, M["jacket"], M["steel_dk"], rx=-0.96, horn=False)
-    ax = V((0, 0.82, 0.57))
-    g.cyl(V((x, yd + 0.03, z + 0.05)) + ax * (dd + 0.1 * k), ax, 0.03 * k, 0.22 * k, M["steel_dk"], n=12, what="emetteur")
-    g.cyl(V((x, yd + 0.03, z + 0.05)) + ax * (dd + 0.215 * k), ax, 0.045 * k, 0.03, M["ring"], n=14, what="emetteur_tete")
-    g.torus((x, yd + 0.03, z + 0.05), "y", 0.06 * k, 0.018, M["ring"], n=16, m=6, what="collier")
-    g.cyl((x, yd - 0.02, z + 0.07 * k + 0.12 * k), "z", 0.02, 0.05, M["steel_dk"], n=8, what="balise_pied")
-    g.cyl((x, yd - 0.02, z + 0.07 * k + 0.15 * k), "z", 0.016, 0.014, E, n=8, style="flat", what="balise")
-    for s in (-1, 1):
-        g.cyl((x + s * (rbody + 0.02), y0 + Lb * 0.5, z + rbody * 0.3), "z", 0.018, 0.016, E, n=8, style="flat",
-              what="balise")
-    g.cyl((x, yd + 0.03 + dd * 0.5, z + 0.05 + dd * 0.4), (0, 0.82, 0.57), 0.03 * k, 0.006, E2, n=12, style="flat",
+    # parabole dorée sur le dos du corps (rotule, étrier, pointe d'émission)
+    rd = 0.3 * k
+    dd = 0.1 * k
+    yd = y0 + Lb * 0.42
+    zd = z + rbody + 0.07 * k
+    g.cyl((x, yd, z + rbody + 0.02 * k), "z", 0.06 * k, 0.1 * k, M["steel_dk"], n=12, what="mat")
+    # berceau plein sous la parabole (de la rotule au corps) : aucun jour entre la coupelle et le corps
+    g.box((x, yd + 0.04 * k, z + rbody + 0.02 * k), (0.09 * k, 0.26 * k, 0.1 * k), M["steel_dk"], "hard",
+          what="berceau")
+    # coffret de pointage entre le masque et la parabole (ferme le jour au pied de la coupelle)
+    g.box((x, (y0 + yd) / 2, z + rbody + 0.08 * k), (0.18 * k, yd - y0 + 0.08, 0.22 * k), M["ring"], "hard",
+          what="coffret")
+    g.box((x, (y0 + yd) / 2, z + rbody + 0.195 * k), (0.1 * k, (yd - y0) * 0.6, 0.012), M["steel_dk"], "flat",
+          what="couvercle")
+    g.sphere((x, yd, zd), 0.05 * k, M["steel_dk"], n=14, m=8, what="rotule")
+    F.dish(g, (x, yd + 0.02, zd + 0.04 * k), rd, dd, M["jacket"], M["steel_dk"], rx=-0.75, horn=False)
+    ax = V((0, 0.68, 0.73))
+    g.cyl(V((x, yd + 0.02, zd + 0.04 * k)) + ax * (dd + 0.09 * k), ax, 0.022 * k, 0.18 * k, M["steel_dk"], n=10,
+          what="emetteur")
+    g.cyl(V((x, yd + 0.02, zd + 0.04 * k)) + ax * (dd + 0.18 * k), ax, 0.035 * k, 0.025, M["ring"], n=12,
+          what="emetteur_tete")
+    g.cyl(V((x, yd + 0.02, zd + 0.04 * k)) + ax * (dd + 0.195 * k), ax, 0.02 * k, 0.005, E2, n=10, style="flat",
           what="lentille")
-    F.muzzle_glow(g, x, yf1 - 0.02, z, rf + 0.05 * k, E2)
-    return yd + rd * 0.6
+    if k >= 0.9:
+        for s in (-1, 1):
+            g.cyl((x + s * (rbody + 0.02), y0 + Lb * 0.3, z + rbody * 0.3), "z", 0.018, 0.016, E, n=8, style="flat",
+                  what="balise")
+        # feux de position le long des sangles (espacés : chacun un foyer)
+        for f in (0.12, 0.88):
+            for s in (-1, 1):
+                balise(g, (x + s * rbody * 0.62, y0 + Lb * f, z + rbody * 0.72), r=0.022)
+        for f in (0.35, 0.7):
+            balise(g, (x, y0 + L * (0.5 + 0.5 * f), z + R0 + 0.02), r=0.02)
+    # frein à CAPTEUR ANNULAIRE : grand anneau blanc cassé, 6 capteurs sombres, balise rouge sur le dessus
+    yb_ = y0 + L
+    lb = 0.16 * k
+    Ra = R0 + 0.13 * k
+    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra, R0 - 0.005, lb, M["ring"], n=36, what="anneau_capteur")
+    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra + 0.012, Ra - 0.02, lb * 0.4, M["steel_dk"], n=36, what="jonc")
+    g.cyl((x, yb_ + lb * 0.5, z), "y", max(rr - rb * 0.55, rr * 0.55), lb, M["steel_dk"], n=14, what="ame_bout")
+    F.stub_tips(g, x, yb_ - 0.01, yb_ + lb, z, nb, rb, rr)
+    for d in F.ring_dirs(6, 0.0, -0.6):
+        g.box(V((x, yb_ + lb / 2, z)) + d * (Ra + 0.01), (0.05 * k, lb * 0.7, 0.03 * k), M["steel_dk"], "hard",
+              R=F.Rax(d), what="capteur")
+    g.cyl((x, yb_ + lb / 2, z + Ra + 0.03), "z", 0.02, 0.04, M["steel_dk"], n=8, what="balise_pied")
+    g.cyl((x, yb_ + lb / 2, z + Ra + 0.055), "z", 0.016, 0.014, E, n=8, style="flat", what="balise")
+    corps.bouche(g, x, yb_ + lb + 0.002, z, pos, rb, M["ring"], R0 + 0.05 * k, w=0.02 if k >= 0.9 else 0.01)
+    return yb_ + lb
 
 
 def feed(g, x, sx, H, xo):
@@ -538,6 +675,21 @@ def tete(g, c):
     for i, th in enumerate(row1):
         mat = M["trim"] if i % 3 == 1 else (M["ochre"] if i % 2 else M["steel_dk"])
         P2.applique(g, c.Pf, c.Nf, th, ph1, w1, h1, mat, M)
+    # 2e et 3e rangées : COUVERTURES THERMIQUES multicouches blanc cassé patiné sur la coupole, sanglées de feuille d'or
+    # (12 plaques en quinconce : la coupole olive se voit entre elles, jamais couverte en entier)
+    for th, ph in [(t, 0.72) for t in (0.55, 1.2, 1.95, 2.6, -0.6, -2.55)] + \
+                  [(t, 0.52) for t in (0.2, 0.9, 1.6, 2.3, 3.0, -1.3)]:
+        P2.applique(g, c.Pf, c.Nf, th, ph, 0.42, 0.34, M["ring"], M)
+        p = c.Pf(th, ph, 1.0)
+        n = c.Nf(th, ph)
+        g.push_frame(p + n * 0.066, n, V((-math.sin(th), math.cos(th), 0)))
+        g.box((0, 0.0, 0), (0.035, 0.3, 0.012), M["jacket"], "hard", what="sangle")
+        g.pop()
+    # balises rouges posées entre les couvertures de la coupole
+    for th in (0.85, 1.55, 2.25, 2.95, -0.3, -1.0, -1.9, -2.6):
+        g.push_frame(c.Pf(th, 0.62, 1.0), c.Nf(th, 0.62))
+        balise(g, (0, 0, 0), r=0.024)
+        g.pop()
     dome_gun(g, H, 6, 1.7, 1.0)
     # 2 panneaux dorés repliés le long de la nacelle
     bx, yb0, yb1 = c.nac[:3]
