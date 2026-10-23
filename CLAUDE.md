@@ -28,7 +28,7 @@ avant tout travail.
    passes 3 à 5 ; E66, E67, E70 : A1 ; E71, E72 : K0, en cours d'intégration ; E73 à E76 : M0 ; E68 et E69 : réservés,
    pas encore attribués), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (23/10, 18 h 30) : **F137** ; en expériences, rien hors des blocs
+   expérience de contrôle). Prochains identifiants (23/10, 19 h) : **F140** ; en expériences, rien hors des blocs
    réservés : E68 (A2 à A4), E69 (S0), E77 à E80 (M1, M2), E81 et suivants (lots F, par blocs de 4) ; F123 à F129
    (A2 à A4). Les blocs réservés sont listés en tête de RD_LOG.
 
@@ -79,7 +79,7 @@ lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 82 OK
 lua5.2 tests/monde_test.lua      -> 157 OK   (garantie des monnaies des âges 5, 7 et 8, lot M0 : candidats, décision, sites, échec et reprise par paliers)
-lua5.2 tests/levels_test.lua     -> 1642 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
+lua5.2 tests/levels_test.lua     -> 1661 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
 lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
@@ -89,7 +89,7 @@ python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 ét
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 40 OK (7 témoins acceptés, 21 mutants refusés, 11 cas du garde-fou, 1 contrôle final)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
 python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
-python -B tools/autotest/tests/bat_double_source/run.py   -> 4 OK (fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
+python -B tools/autotest/tests/bat_double_source/run.py   -> 25 OK (graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
 l'arborescence du jeu.
@@ -103,6 +103,8 @@ api_lint 609. Avant V3-T3 (lot R1, 22/10, 20 h 11) : migration 81, levels 1577, 
 de V3-T3 annonçait 615 usages dans son worktree, `main` en compte 609 (écart non expliqué, noté tel quel). Avant R1 :
 migration 79, levels 1575, api_lint 519, unitaires de vram.py 57. La branche du lot V3-T4 (NON intégrée) donne
 d'autres chiffres (levels 1 615 + 23 écarts connus, api_lint 558) : ce ne sont pas ceux de `main`.
+
+**Graine de la carte des bancs** (lot INT-GRAINE, 23/10) : `$env:FO_MAP_SEED = '123456789'` avant `fo-autotest.bat` ou `fo-captures.bat`, puis `$env:FO_MAP_SEED = $null` (jamais `''`, F139). Sans variable : graine 20261020, comme avant. Valeur filtrée (chiffres seulement, au plus 4294967295) ; graine refusée : code 1 (8 pour `fo-captures.bat`) avant le verrou. La graine utilisée est écrite dans `fo-autotest\seed.txt`. Prouvé en moteur réel le 23/10 (18:43) : `content` 317 OK et `monde` 89 OK sur la graine 123456789.
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
 1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
