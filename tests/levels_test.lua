@@ -1152,13 +1152,35 @@ local GUARD_CASES = {
   -- { famille, prototype, dress, true (accepté) | { motifs du refus }, libellé }
   { G, fake_gun, function(p) p.base_picture.layers[1].tint = { r = 1, g = 0.5, b = 0.5 }; p.base_picture.layers[2] = sprite(1) end, true, "teinte et couche ajoutée" },
   { G, fake_gun, function(p) p.working_sound = { filename = "__base__/t.ogg" }; p.attack_parameters.sound = nil end, true, "sons" },
-  { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(16) } }; p.preparing_speed = 0.16 end, true, "deux fois plus d'images, deux fois plus vite (même durée)" },
+  -- Correction INT-GARDE (E67, lot A1, moteur réel : la levée dure 1 / preparing_speed, quel que soit le nombre
+  -- d'images ou repeat_count). Les vitesses sont des clés de JEU ; le nombre d'images est libre.
+  { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(16) } }; p.preparing_speed = 0.16 end,
+    { "« preparing_speed »", "valeur modifiée" }, "deux fois plus d'images, deux fois plus vite (levée deux fois plus courte : E67)" },
+  { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(1) } }; p.folding_animation = { layers = { sprite(1) } };
+      p.attacking_animation = { layers = { sprite(1) } } end, true, "tête à 1 image à la vitesse vanilla (levée, repli, tir : E67)" },
+  { G, fake_gun, function(p) local s = sprite(1); s.repeat_count = 5; p.preparing_animation = { layers = { s } } end, true,
+    "levée 1 image × repeat_count 5 à la vitesse vanilla (E67)" },
+  { G, fake_gun, function(p) p.preparing_animation = nil end, { "durée de preparing_animation", "animation retirée" },
+    "levée sans animation (effet en jeu non mesuré : refusé par prudence)" },
+  { G, fake_gun, function(p) p.ending_attack_animation = { layers = { sprite(1) } } end, { "durée de ending_attack_animation", "animation ajoutée" },
+    "animation de fin de tir ajoutée (effet en jeu non mesuré : refusé par prudence)" },
+  { G, fake_gun, function(p) p.preparing_animation = { layers = { sprite(1) } }; p.preparing_speed = 0.01 end,
+    { "« preparing_speed »", "valeur modifiée" }, "1 image à 0,01 (même « images / vitesse » que 8 à 0,08, mais levée 8 fois plus lente : E67)" },
+  { G, fake_gun, function(p) p.attacking_speed = 0.25 end, { "« attacking_speed »", "valeur modifiée" }, "attacking_speed seul" },
+  { G, fake_gun, function(p) p.folding_speed = 0.04; p.folding_animation = { layers = { sprite(4) } } end,
+    { "« folding_speed »", "valeur modifiée" }, "folding_speed et images réduits ensemble (ancienne « même durée »)" },
+  { G, fake_gun, function(p) p.starting_attack_speed = 1 end, { "« starting_attack_speed »", "clé ajoutée" },
+    "starting_attack_speed ajouté (même à la valeur par défaut)" },
+  { G, fake_gun, function(p) p.ending_attack_speed = 0.5 end, { "« ending_attack_speed »", "clé ajoutée" }, "ending_attack_speed ajouté" },
+  { G, fake_gun, function(p) p.preparing_speed = nil end, { "« preparing_speed »", "clé retirée" }, "preparing_speed retiré (défaut 1 : levée en 1 tick)" },
+  { LZ, fake_laser, function(p) p.preparing_animation = { layers = { sprite(1) } } end, true, "laser : levée à 1 image (E67)" },
+  { LZ, fake_laser, function(p) p.folding_speed = 0.1 end, { "« folding_speed »" }, "laser : folding_speed" },
   { G, fake_gun, function(p) p.attack_parameters.projectile_center = { 0, 0.4 } end, true, "origine des balles (visuel)" },
   { G, fake_gun, function(p, ctx) ctx.color.r = 0 end, true, "ctx.color est une copie" },
   { G, fake_gun, function(p, ctx) local _ = ctx.L.CC_HEALTH + #ctx.L.families + ctx.kit.palette.glow[5].r end, true, "lecture de ctx.L et de ctx.kit" },
   { G, fake_gun, function(p, ctx) p.corpse = "gun-turret-remnants"; p.dying_explosion = "gun-turret-explosion" end, true, "reste et explosion vanilla existants (références graphiques)" },
-  { G, fake_gun, function(p) p.preparing_speed = 0.16 end, { "durée de preparing_animation" }, "preparing_speed seul (déploiement deux fois plus court)" },
-  { G, fake_gun, function(p) p.folding_animation = { layers = { sprite(4) } } end, { "durée de folding_animation" }, "repli deux fois plus court (moins d'images)" },
+  { G, fake_gun, function(p) p.preparing_speed = 0.16 end, { "« preparing_speed »", "valeur modifiée" }, "preparing_speed seul (déploiement deux fois plus court)" },
+  { G, fake_gun, function(p) p.folding_animation = { layers = { sprite(4) } } end, true, "repli à moins d'images, même vitesse (même durée : E67)" },
   { G, fake_gun, function(p) p.prepare_range = 30 end, { "« prepare_range »", "valeur modifiée" }, "prepare_range" },
   { G, fake_gun, function(p) p.healing_per_tick = 1 end, { "« healing_per_tick »" }, "healing_per_tick" },
   { G, fake_gun, function(p) p.automated_ammo_count = 50 end, { "« automated_ammo_count »" }, "automated_ammo_count" },
@@ -1277,6 +1299,127 @@ local DECLARE_CASES = {
 
 for _, gc in ipairs(GUARD_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
 for _, gc in ipairs(DECLARE_CASES) do run_case(gc[1], gc[2], gc[3], gc[4], gc[5]) end
+
+-- Correction INT-GARDE (E67) : durées = 1 / vitesse, lues sur l'instantané de jeu (images ignorées).
+do
+  local d = Common.game_snapshot(fake_gun()).durations
+  check(d.preparing_animation == "12.500000" and d.folding_animation == "12.500000" and d.attacking_animation == "2.000000"
+    and d.starting_attack_animation == "sans animation" and d.ending_attack_animation == "sans animation",
+    "durées de jeu de la tourelle simulée : levée 12,5, repli 12,5, tir 2 ticks (1 / vitesse ; 8, 8 et 2 images ignorées)")
+  local one = fake_gun()
+  local s = sprite(1); s.repeat_count = 5
+  one.preparing_animation = { layers = { s } }
+  one.folding_animation = { north = { layers = { sprite(1) } } }
+  local d1 = Common.game_snapshot(one).durations
+  check(d1.preparing_animation == d.preparing_animation and d1.folding_animation == d.folding_animation,
+    "durées : 1 image × 5 et 1 image en 4 orientations donnent la même durée que 8 images (vitesse inchangée)")
+  local slow = fake_gun()
+  slow.preparing_speed = 0.016
+  check(Common.game_snapshot(slow).durations.preparing_animation == "62.500000",
+    "durée : preparing_speed 0,016 → 62,5 ticks (E67 : levée en 63 ticks en moteur réel)")
+end
+
+-- Mutants de la garde des durées (INT-GARDE) : copies de common.lua où la règle est remise à l'ancienne, en tout
+-- ou en partie, chargées à côté du module (rien n'est écrit sur le disque). Chaque mutant rejoue TOUS les cas de
+-- garde (GUARD_CASES, DECLARE_CASES) ; il est DÉTECTÉ si au moins un cas change d'issue ou de motif. Le témoin
+-- (copie sans mutation) ne doit en changer aucun : la copie chargée à côté est bien équivalente au module.
+do
+  local saved_data_mut = _G.data
+  local fh = assert(io.open("prototypes/levels/common.lua", "rb"))
+  local SRC_COMMON = fh:read("*a")
+  fh:close()
+  local GT_NEW = "return (GRAPHIC_KEYS[k] or has_visual_word(k) or (extra ~= nil and extra[k])) and true or false"
+  local GT_OLD = "return (GRAPHIC_KEYS[k] or ({ preparing_speed = true, folding_speed = true, attacking_speed = true, "
+    .. "starting_attack_speed = true, ending_attack_speed = true })[k] or has_visual_word(k) or (extra ~= nil and extra[k])) "
+    .. "and true or false"
+  -- L'ancienne règle « images / vitesse » (main da2e16f, avant INT-GARDE : common.lua:509-532), code recopié mot
+  -- pour mot, sans ses commentaires.
+  local DUR_OLD = [=[local function frames(a)
+  if type(a) ~= "table" then return nil end
+  if type(a.layers) == "table" then
+    local m
+    for _, l in ipairs(a.layers) do
+      local f = frames(l)
+      if f and (not m or f > m) then m = f end
+    end
+    return m
+  end
+  if a.north then return frames(a.north) end
+  if a.filename or a.filenames or a.stripes then return (a.frame_count or 1) * (a.repeat_count or 1) end
+  return nil
+end
+local function durations(p)
+  local d = {}
+  for _, t in ipairs(TIMED_ANIMATIONS) do
+    local f = frames(p[t[1]])
+    if f then d[t[1]] = string.format("%.6f", f / (p[t[2]] or 1)) end
+  end
+  return d
+end
+]=]
+  --- Remplace l'unique occurrence littérale de `old` ; nil si elle n'y est pas exactement une fois.
+  local function replace_once(src, old, new)
+    local i, j = src:find(old, 1, true)
+    if not i or src:find(old, j + 1, true) then return nil end
+    return src:sub(1, i - 1) .. new .. src:sub(j + 1)
+  end
+  --- Remplace la fonction locale `durations` (de sa ligne de tête à son « end » de colonne 1).
+  local function replace_durations(src, new)
+    local i = src:find("local function durations(p)\n", 1, true)
+    if not i or src:find("local function durations(p)\n", i + 1, true) then return nil end
+    local _, j = src:find("\nend\n", i, true)
+    if not j then return nil end
+    return src:sub(1, i - 1) .. new .. src:sub(j + 1)
+  end
+  local function judge(C, fam, make, fn, expect)
+    _G.data = { raw = make_raw() }
+    local okg, err = pcall(C.dress, { dress = fn }, make(), fam, 5)
+    local good = okg == (expect == true)
+    if good and expect ~= true then
+      for _, motif in ipairs(expect) do
+        if not tostring(err):find(motif, 1, true) then good = false end
+      end
+    end
+    restore_shared()
+    return good
+  end
+  local ALL = {}
+  for _, gc in ipairs(GUARD_CASES) do ALL[#ALL + 1] = gc end
+  for _, gc in ipairs(DECLARE_CASES) do ALL[#ALL + 1] = gc end
+  local MUTANTS = {
+    { "témoin (copie sans mutation)", function(s) return s end, false },
+    { "M1 ancienne règle entière (vitesses graphiques, durée images / vitesse)",
+      function(s) s = replace_once(s, GT_NEW, GT_OLD); return s and replace_durations(s, DUR_OLD) end, true },
+    { "M2 vitesses graphiques, durée 1 / vitesse", function(s) return replace_once(s, GT_NEW, GT_OLD) end, true },
+    { "M3 vitesses de jeu, durée images / vitesse", function(s) return replace_durations(s, DUR_OLD) end, true },
+  }
+  for _, m in ipairs(MUTANTS) do
+    local src = m[2](SRC_COMMON)
+    local chunk = src and load(src, "=common.lua (" .. m[1] .. ")", "t")
+    if not chunk then
+      check(false, "mutant de la garde des durées : « " .. m[1] .. " » non construit (ancre absente de common.lua ?)")
+    else
+      local MC = chunk()
+      local changed, firsts = 0, {}
+      for _, gc in ipairs(ALL) do
+        if not judge(MC, gc[1], gc[2], gc[3], gc[4]) then
+          changed = changed + 1
+          if #firsts < 8 then firsts[#firsts + 1] = gc[5] end
+        end
+      end
+      print(string.format("  Garde des durées (INT-GARDE), %s : %d cas de garde sur %d changent d'issue ou de motif%s", m[1], changed,
+        #ALL, #firsts > 0 and (" (dont : " .. table.concat(firsts, " ; ") .. ")") or ""))
+      if m[3] then
+        check(changed >= 1, string.format("garde des durées : mutant « %s » DÉTECTÉ : %d cas sur %d changent (%s)",
+          m[1], changed, #ALL, table.concat(firsts, " ; ")))
+      else
+        check(changed == 0, string.format("garde des durées : %s : 0 cas sur %d changent (obtenu %d : %s)",
+          m[1], #ALL, changed, table.concat(firsts, " ; ")))
+      end
+    end
+  end
+  _G.data = saved_data_mut
+end
 
 -- Correction V2c (sonde probe_x de la vérification) : un dress qui modifiait le scénario X0, lu par la config,
 -- était ACCEPTÉ, et automation passait de 1 à 30 unités (X.VANILLA_UNIT_SCALE lu à l'appel en data-final-fixes).
