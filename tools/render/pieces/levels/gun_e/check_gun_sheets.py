@@ -27,6 +27,9 @@ import tempfile
 import numpy as np
 from PIL import Image
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # « ≠ » et accents : sinon plantage sur la console cp1252
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import feuilles as FE  # noqa: E402

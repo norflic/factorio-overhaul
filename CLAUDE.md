@@ -21,16 +21,15 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits F1 à F122 et F130 à F136 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
+4. `RD_LOG.md` : faits F1 à F139 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : réservés à A2 à A4, pas encore attribués),
-   expériences E1 à E67 et E70 à E76 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E71, E72 : K0, en cours d'intégration ; E73 à E76 : M0 ; E68 et E69 : réservés,
-   pas encore attribués), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE),
+   expériences E1 à E68 et E70 à E76 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E71, E72 : K0 ; E73 à E76 : M0 ; E69 : réservé à S0), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (23/10, 19 h) : **F140** ; en expériences, rien hors des blocs
-   réservés : E68 (A2 à A4), E69 (S0), E77 à E80 (M1, M2), E81 et suivants (lots F, par blocs de 4) ; F123 à F129
-   (A2 à A4). Les blocs réservés sont listés en tête de RD_LOG.
+   expérience de contrôle). Prochains identifiants (23/10, 21 h 15) : **F150** hors blocs ; F140 à F149 réservés à A3 et A4 ; en
+   expériences, rien hors des blocs réservés : E69 (S0), E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
+   de 4), E105 à E108 (A3, A4). Les blocs réservés sont listés en tête de RD_LOG.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -44,6 +43,7 @@ avant tout travail.
 | Résultats du banc | `<racine>\fo-autotest\` : `create.log`, `benchmark.log`, `benchmark-stdout.txt`, `done.txt` |
 | Captures | `<racine>\fo-visual\write\script-output\fo-shots\` : `NNN-<scène>.png`, `index.txt`, `planche-NN.png`, `session.txt` |
 | Rendu 3D (lot V0) | Blender 5.2.2 LTS : `C:\Users\evan2\tools\blender-5.2.2\blender.exe` ; pipeline : `tools\render\README.md`, `tools\render\CALIBRATION.md` |
+| Feuilles de la mitrailleuse en jeu (lot A2, décision D-6) | `<mod>\graphics\levels\gun\` : 318 PNG HORS de git, régénérés par `feuilles.py` ; `MANIFEST.json`, `sprites.lua`, `sprites.json` commités ; sources dans `<racine>\fo-logs\`, à GARDER : `2026-10-23_V3E-p5\bas\sprites`, `2026-10-23_V3E-p5\haut\sprites`, `2026-10-23_V3E-ereV\sprites`, `2026-10-24_A2\sprites` |
 
 ## 4. Interdits absolus (protègent le jeu et les parties du Directeur Créatif)
 1. **Ne jamais toucher** à `<racine>\saves\`, `<racine>\config\`, `player-data.json`,
@@ -68,6 +68,12 @@ avant tout travail.
 ## 5. Commandes
 Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 
+**Worktree ou checkout neuf : régénérer d'abord les feuilles de la mitrailleuse** (PNG hors de git, décision D-6) :
+`py -3.9 tools/render/pieces/levels/gun_e/feuilles.py` (environ 11 s ; attendu « [FO-FEUILLES] 318 fichiers PNG,
+13.04 Mo, 85 sources »), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (4 OK) et
+`git status` propre. Sans cela, le harness et `levels_test` échouent (ils impriment cette commande) et l'étape data
+du jeu refuse le mod.
+
 **Bancs hors jeu** (Lua 5.2.4, compilé le 21/10 depuis la source officielle de lua.org, sommes
 vérifiées, avec le gcc de `C:\mingw64` : `C:\Users\evan2\bin\lua5.2.exe`. Ce dossier est dans le PATH
 de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le chemin complet).
@@ -79,21 +85,26 @@ lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 82 OK
 lua5.2 tests/monde_test.lua      -> 157 OK   (garantie des monnaies des âges 5, 7 et 8, lot M0 : candidats, décision, sites, échec et reprise par paliers)
-lua5.2 tests/levels_test.lua     -> 1661 OK   (+ 11 « écarts connus » au contrat, comptés à part ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
+lua5.2 tests/levels_test.lua     -> 1662 OK   (+ 11 « écarts connus » au contrat, comptés à part ; dont le contrôle des feuilles de la mitrailleuse, lot A2 ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
 lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 669 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 318 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 676 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
-python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 40 OK (7 témoins acceptés, 21 mutants refusés, 11 cas du garde-fou, 1 contrôle final)
+python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
 python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
 python -B tools/autotest/tests/bat_double_source/run.py   -> 25 OK (graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
+py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources --mutants   -> 12 OK (feuilles de la mitrailleuse : manifeste, sha256, rectangles, poses au pixel contre les sources, 7 mutants refusés ; lot A2)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
 l'arborescence du jeu.
-Chiffres mesurés sur `main` le 23/10 vers 17 h 50, après les fusions des lots A1 (`5a95650`, outils seulement) et M0
+Chiffres mesurés sur `main` **0.4.6** le 23/10 vers 21 h, après la fusion du lot A2 (`e0088bd`) : nouveaux, levels
+1662, api_lint 676 (scénarios `gun-rose` et `a2-icones`), mut_atlas 50, harness (règle « images », feuilles),
+check_gun_sheets 12 ; pvp en 369 s. Bancs en moteur réel rejoués (`done.txt` de 20:53:22 à 20:54:56 ; archives
+`<racine>\fo-logs\2026-10-23_integration-0.4.6\`) : tous verts, chiffres ci-dessous inchangés, plus `gun-rose`.
+Avant : chiffres mesurés sur `main` le 23/10 vers 17 h 50, après les fusions des lots A1 (`5a95650`, outils seulement) et M0
 (`da2e16f`, **version 0.4.5**) : nouveaux depuis 0.4.4, `monde_test` 157 (banc nouveau) et api_lint 669 (A1 : scénario
 `a1-tourelle` ; M0 : garantie et ses scénarios) ; tous les autres inchangés. Bancs en moteur réel rejoués sur `main`
 le même jour (`done.txt` de 17:45:17 à 17:46:17 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.5\`, un
@@ -119,7 +130,7 @@ d'autres chiffres (levels 1 615 + 23 écarts connus, api_lint 558) : ce ne sont 
 3. Lire le résultat avec `grep "\[FO-CONTENT\]" fo-autotest\create.log fo-autotest\benchmark.log`. On
    attend `BILAN : 317 OK, 0 ECHEC(S)` (lot V3-T2, observé en moteur réel sur `main` le 22/10, `done.txt` à
    19:05:39,98 ; rejoué après le lot R1, 20:11:14,81, après le lot V3-T3, 22:50:45,71, et le 23/10 après les fusions
-   d'A1 et M0, 17:45:17,75) : 210 contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du
+   d'A1 et M0, 17:45:17,75, et sur 0.4.6, 20:53:22,75) : 210 contrôles du banc, dont 63 de niveaux, + 2 de l'exemple greffé `checks/exemple.lua` + 26 du
    greffon `checks/levels_taille.lua` + 54 de `checks/levels_machines.lua` + 25 de `checks/levels_points.lua` ; la
    ligne « greffons » du journal dit « exemple 2 OK 0 ECHEC, levels_taille 26 OK 0 ECHEC, levels_machines 54 OK
    0 ECHEC, levels_points 25 OK 0 ECHEC » (63 OK dans `create.log`, 254 dans `benchmark.log`). 238 avant V3-T2,
@@ -253,9 +264,19 @@ py -3.9 tools/autotest/a1/jetable.py --dest <dossier neuf, hors du dépôt>
 vérificateur, 16:48:01,51). Images : `& "<racine>\fo-captures.bat" a1-tourelle "<copie>"` (20 captures, flèches
 numérotées). Effacer la copie après usage (place sur H:).
 
+**La mitrailleuse en jeu** (lot A2, RD_LOG E68, F123 à F129 ; sans double source ; feuilles requises, voir « Worktree
+ou checkout neuf » plus haut) :
+`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 gun-rose 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+→ « [FO-GUN-ROSE] BILAN : 11 OK, 0 ECHEC(S) » (30 niveaux × 4 directions par `orientation`, tenue jusqu'au contrôle ;
+boîtes d'affichage, restes et explosions déclarés ; tir sur 60 sites, éclat à 1/32 de tuile de la règle F126 ; observé
+sur `main` 0.4.6 le 23/10, `done.txt` 20:54:32,19). Images : `& "<racine>\fo-captures.bat" gun-rose "<source>"`
+depuis PowerShell, 90 captures (zooms 1 et 2, jour et nuit, tirs à deux instants ; code 0 sur `main` 0.4.6).
+`a2-icones` (images seulement, qualité normale, mode Alt) : « [FO-A2-ICONES] BILAN : 2 OK », 4 captures (correcteur
+d'A2 ; non rejoué sur `main`).
+
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
-- `content` : banc de contenu, 317 contrôles avec les greffons, inchangé en 0.4.5 (les contrôles greffés ne se chargent que pour
+- `content` : banc de contenu, 317 contrôles avec les greffons, inchangé en 0.4.5 et 0.4.6 (les contrôles greffés ne se chargent que pour
   `content` et les scénarios greffés de base `content`) ;
 - `ht3-migration` (scénario greffé) : migration d'une sauvegarde 0.4.1, en double source seulement (ci-dessus) ;
 - `t2-migration` (scénario greffé, lot V3-T2) : migration d'une sauvegarde 0.4.2, en double source seulement
@@ -271,6 +292,8 @@ Scénarios :
   source `src-0.4.4` seulement (ci-dessus) ;
 - `a1-tourelle` (scénario greffé, lot A1, 1 000 ticks) : levée et directions d'une tourelle, sur une copie jetable
   seulement (ci-dessus) ;
+- `gun-rose` (scénario greffé, lot A2, 1 000 ticks) : la mitrailleuse en jeu, 4 directions et tir (ci-dessus) ;
+  `a2-icones` (lot A2) : icônes en mode Alt, images seulement ;
 - scénarios greffés du lot IA0 (PvP) : `ia0-normal` et `ia0-paisible` (216 000 ticks), `ia0-difficile`
   (144 000), `ia0-big` et `ia0-perf` (performance, banc épinglé). Les scénarios de guerre intégrés
   tournent en difficulté « Paisible », pour rester comparables aux mesures E17 à E22 ;
@@ -393,6 +416,11 @@ inutile dans Claude Code : lancez le `.bat` directement.
   troisième argument retire les entités recouvertes : poser l'eau AVANT les entités (F135).
 - **F136** (Blender 5.2.2) : les graines de bruit du pipeline sont INERTES (`"W" in node.inputs` rend faux sur un
   bruit 3D) ; ne pas les « réparer » sans le DC : cela changerait tous les designs validés.
+- **F123 à F129** (lot A2, la mitrailleuse en jeu) : une tête à 4 directions en feuille d'une colonne est lue N, E, S,
+  O de haut en bas (F123) ; l'ombre de la tête ne tombe que sur le sol, jamais sur le socle de la même entité (F124) ;
+  l'éclat de tir naît en projectile_center + distance × (vx, vy) / √(vx² + (vy / 0,7071)²) (F126) : une bouche par âge
+  s'ajuste sur les 4 directions (F129) ; `fo-autotest.bat` recopie aussi les fichiers ignorés par git (F127) ; l'atlas
+  [icon] de la qualité normale perd `linear-mip-level` selon le NOMBRE d'icônes (F125).
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :

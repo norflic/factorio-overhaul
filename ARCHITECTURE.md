@@ -33,8 +33,9 @@ factorio-overhaul/
 ├── docs/EQUIPES_PNJ.md             # conception des équipes de PNJ organisées (C5, lot IA1) : pôles, généralistes, production adaptative, interface, plan de lots
 ├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
 ├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
+├── graphics/levels/gun/            # feuilles de la mitrailleuse en jeu (lot A2, D-6) : 318 PNG générés HORS de git ; sprites.lua, sprites.json, MANIFEST.json commités (§7 ter)
 ├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
-│   └── pieces/levels/              # kits de rendu des familles à niveaux (§7 ter) : gun_e/ (mitrailleuse validée ; directions dKK, rose.py, e66*.py, identite.py : lot A1) ; commun/ (kit commun, registre des âges, profils de famille : lot K0, EN COURS D'INTÉGRATION)
+│   └── pieces/levels/              # kits de rendu des familles à niveaux (§7 ter) : gun_e/ (mitrailleuse validée ; directions dKK, rose.py, e66*.py, identite.py : lot A1) ; commun/ (kit commun, registre des âges, profils de famille : lot K0)
 ├── docs/DA_FACTORIO.md             # charte de direction artistique mesurable (lot V3-S, E43) ; docs/da/ : mesures vanilla et V3 phase 1, planches
 ├── tools/da/                       # mesure de la charte sur des sprites (py -3.9 : numpy, Pillow) : da_lib, seuils (23 planchers), progression (dominance entre époques)
 ├── info.json, changelog.txt, settings.lua
@@ -611,8 +612,8 @@ maximale (vérification, pire cas non borné). Non prouvé : l'accès à pied du
 
 ## 7 ter. Kits de rendu des familles à niveaux (`tools/render/pieces/levels/`)
 
-Outillage hors du mod en jeu (Blender 5.2.2 et Python 3.9, toujours par `tools/render/with_render_lock.py`). Aucune
-image produite ici n'est encore en jeu (lot A2).
+Outillage hors du mod en jeu (Blender 5.2.2 et Python 3.9, toujours par `tools/render/with_render_lock.py`). Depuis le lot A2
+(version 0.4.6), les images de la mitrailleuse sont en jeu : feuilles en fin de section.
 
 **`gun_e/` : la mitrailleuse validée par le DC** (15 âges, 23/10, 14 h 50 ; fusionné par `93e3d89`). Un fichier par
 âge (`ep01.py` à `ep15.py`), `corps.py`, `piece.py` (table des variantes), `rendre.py`, `batch_blender.py`,
@@ -624,8 +625,8 @@ l'image par `apply_projection` (F121) : garder des feuilles en rotation uniforme
 `rose.py`, `e66.py`, `e66_temps.py` et `e66_temps_blender.py` (rendu passe par passe dans une seule session).
 Limite : `batch_blender.py` ne règle pas encore les échantillons par passe (décision D-7 ; préalable du gain E66).
 
-**`commun/` : le kit commun des familles (lot K0) : EN COURS D'INTÉGRATION** (lot INT-K0, run `wf_2f1793c9-578` ;
-branche `worktree-wf_2bade7c0-0e8-2`, tête `87c4fb1` ; pas encore dans `main` au 23/10, 18 h 30). Structure livrée :
+**`commun/` : le kit commun des familles (lot K0) : intégré** (lot INT-K0, fusion `e4e8416`, 23/10 vers 18 h 40 ;
+branche `worktree-wf_2bade7c0-0e8-2`, tête `87c4fb1`). Structure :
 - déplacés de `gun_e/` (`git mv`) : `kit.py`, `parts.py`, `parts2.py`, `parts3.py`, `formes.py`, `silhouettes.py`,
   `construction.py`, et les outils de contrôle `compo.py`, `ilots.py`, `gris.py`, `mesures.py`, `dominance.py`,
   `vignettes.py`, `apercu.py` ; nouveaux : `habillage.py`, `pont.py`, `repere.py`, `places.py` (solveur
@@ -652,6 +653,21 @@ Restent dans `gun_e/` : `rendre.py`, `batch_blender.py`, `accroches.py`, `corps.
 en parallèle). **Graines de bruit inertes** dans Blender 5.2.2 (F136) : les graines ne changent aujourd'hui aucune
 image ; les activer changerait tous les designs validés (décision du DC). Non prouvé : un profil d'une autre famille
 que la mitrailleuse ; `stone-wall` n'est pas mesuré pour la charte (`dominance.py` refusera le mur).
+
+**Feuilles du jeu de la mitrailleuse (lot A2, décision D-6, version 0.4.6)** : `gun_e/feuilles.py` découpe les rendus
+validés (sources dans `<racine>\fo-logs\`, à GARDER : `2026-10-23_V3E-p5\bas\sprites` et `haut\sprites`,
+`2026-10-23_V3E-ereV\sprites`, `2026-10-24_A2\sprites`) en feuilles du jeu dans `graphics/levels/gun/` (318 PNG,
+13,04 Mo, HORS de git par `.gitignore`) et écrit `sprites.lua` (lu par `prototypes/levels/gun.lua`), `sprites.json` et
+`MANIFEST.json` (fichier, taille, sha256, dimensions), commités ; l'outil est déterministe. Par âge : socle, pièce des
+niveaux pairs (posée APRÈS le socle), tête à 4 directions (feuille en colonne N, E, S, O, F123), lueur, halo
+`draw_as_light`, ombres, icône d'âge ; bouche de tir par âge ajustée sur la règle du moteur (F126, F129 ; refus au-delà
+de 0,5 tuile). Contrôles : `gun_e/check_gun_sheets.py --sources [--mutants]` (sha256 contre le manifeste, poses au pixel
+contre les sources) ; `tests/datastage/gun_sheets.lua` (Lua pur, branché sur le harness et `levels_test` : chaque PNG du
+manifeste présent, à la bonne taille, sinon la commande de régénération est imprimée) ; règle « images » du harness
+(`tests/datastage/images.lua` : fichiers présents, rectangles dans l'image ; étalonnée sur la vanilla). **Checkout ou
+worktree neuf : lancer `feuilles.py` d'abord.** Les bancs recopient les PNG présents sur le disque (F127). Bouchon
+arrière (`corps.bouchon_arriere`) posé dans le secteur d20 à d44 seulement, âges 4 à 7 : le saut à la frontière du
+secteur est à juger en A3. Les 6 autres familles gardent `kit.provisional`.
 
 ## 8. Chaîne de vérification
 

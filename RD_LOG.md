@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -208,6 +208,18 @@
   bancs copient le dossier du mod tel quel. Le plan proposait un magasin `<racine>\fo-sprites\` hors du mod : écarté, car il
   exigeait de changer les `.bat` ET laissait la partie du DC sans images. → lot **A2** (mitrailleuse en jeu à 4 directions)
   lancé vers 19 h 05 (run `wf_0143e61e-944` ; sorties `fo-logs\2026-10-24_A2\` ; identifiants réservés F123 à F129, E68).
+- 23/10, vers 20 h 50, **fusion du lot A2 et version 0.4.6** (orchestrateur ; fusion `e0088bd` de
+  `worktree-wf_0143e61e-944-1` : constructeur `ba9edef`, correcteur `4837368` ; changelog `ef64f79`). Vérification
+  adverse (`fo-logs\2026-10-24_A2\verification.md`) : 4 défauts majeurs, tous corrigés et prouvés (ordre socle puis
+  pièce des niveaux pairs ; éclat de l'âge 12 à 1,25 tuile ; garde D4m élargie sans cause, cause trouvée : F125 ;
+  D-6 qui cassait un checkout neuf, désormais signalé par le harness et `levels_test` avec la commande de
+  régénération). Après la fusion, `feuilles.py` a régénéré dans `main` les 318 PNG (13,04 Mo), `git status` propre. Moteur réel sur `main` 0.4.6 (23/10, `done.txt` de 20:53:22,75 à 20:54:56,46 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.6\`) : `content` 317 ; `monde` 89 ; `m0-reprise` 15 ; `m0-migration` 9 ; `t2-machines` 80 ; `t3-libere` 41 ; `bord-a-bord` 12 ; `ht3-migration` 30 + journal 7 ; `t2-migration` 64 + 26 ; `t2-defense` 36 + 19 (0.4.1) et 36 + 11 (0.4.2) ; `t3-migration` 7 ; **`gun-rose` 11** (20:54:32,19) ; sur la graine 123456789 : `content` 317 et `monde` 89 ; `fo-captures.bat gun-rose` : code 0, 90 captures (`captures-gun-rose\`). Hors jeu (fin à 21:02) : run 114, war 92, td 270, pteam 15, migration 82, monde 157, **levels 1 662** + 11 écarts connus, epochs 16 665, org 362, pvp 596 (369 s) ; harness code 0 (Règles 0, Images 0, étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôles 11/11 et 17/17, **Feuilles mitrailleuse 318, 0 manquant, 0 écart**, 0 clé) ; **api_lint 676** ; d4m 5/5 ; **mut_atlas 50** ; test_ht3_journal 15 ; bat_double_source 25 ; mut_vram 18/18 ; **check_gun_sheets `--sources --mutants` 12 OK**. Mineurs non traités : `NOTES.md` §13.7 (lueur du socle sous la tête dans la carte de lumière ; bouchon
+  arrière par secteur, à trancher avant A3 ; `fo-captures.bat d4-geant` code 0 malgré un banc en échec ; restes et
+  explosions jamais vus en destruction ; icônes d'âge jamais vues dans l'interface). Écart relevé à l'intégration : le
+  correcteur annonçait 92 captures `gun-rose`, son dossier en contient 90, comme `main`. Correctif de l'orchestrateur :
+  `check_gun_sheets.py` plantait sur la console cp1252 (caractère « ≠ ») sans `PYTHONIOENCODING` ; sortie passée en
+  UTF-8 comme `ht3_journal.py`, 12 OK. Identifiants : bloc F120 à F129 épuisé ; F140 à F149 et E105 à E108 réservés à
+  A3 et A4. Page pour le DC : https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider).
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
@@ -270,6 +282,22 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot A2, la mitrailleuse en jeu à 4 directions, 23/10, 19 h 05 à 21 h 00 ; fusionné dans `main`, `e0088bd`, version 0.4.6)
+Bloc réservé à A1 à A4 : F120 à F129 ; A2 prend F123 à F129 (bloc épuisé ; A3 et A4 : F140 à F149). Run `wf_0143e61e-944`
+(constructeur `ba9edef`, vérification adverse, 4 majeurs ; correcteur `4837368`). Preuves : `fo-logs\2026-10-24_A2\`
+(`NOTES.md` §9, et §13.6 qui fait foi quand les deux diffèrent ; `verification.md` ; `correction\`). Scénarios greffés
+`gun-rose` et `a2-icones`. Expérience : E68.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F123 | **Observé en moteur réel** (`gun-rose`). Une RotatedAnimation à 4 directions, une image, `line_length = 1` (feuille en colonne) est lue de haut en bas N, E, S, O : `orientation` écrite à 0 ; 0,25 ; 0,5 ; 0,75 dessine la 1re, 2e, 3e, 4e ligne (canons en haut, à droite, en bas, à gauche), `apply_projection` laissé vrai. 150 tourelles des 30 niveaux, avec munitions et sans cible : orientation écrite tenue du tick 30 au tick 900 (F122 étendu à toutes les tailles). | Les feuilles de tête à 4 directions sont rangées N, E, S, O de haut en bas ; à 64 directions (A3), rotation uniforme (F121). |
+| F124 | **Observé sur captures** (moteur réel, zoom 2, jour). L'ombre (`draw_as_shadow`) de la tête d'une tourelle ne s'affiche que sur le sol : elle n'assombrit pas le socle (`base_picture`) de la même entité. | L'ombre de la tête tombe à l'est sur le sol, jamais sur le socle ; une ombre sur le socle devrait être peinte dans le socle (non demandé). |
+| F125 | **Observé en moteur réel** (passages D4m en qualité normale, copies jetables, `correction\d4m-icones\`). Avec les icônes d'âge de la mitrailleuse (64 px + 3 mipmaps, bande 120 × 64), l'atlas [icon] de la qualité normale (mémoire « all » et « low ») perd `linear-mip-level` selon le NOMBRE d'icônes : 14 → absent ; 13 ou 15 → présent ; 14 icônes au contenu vanilla → absent ; atlas 8192 × 2288 dans les 4 cas ; en haute qualité, à 14, présent. Mécanisme dans le moteur : inconnu (pas de source). Remplace la proposition du constructeur (cause non identifiée). | Le drapeau dépend du rangement de l'atlas, pas du contenu ni de la taille. Effet visible en mode Alt (zooms 0,45 ; 0,7 ; 1,3) : nul au pixel ; dans l'interface : non mesuré. `run_d4m.py` ne tolère l'absence qu'en qualité normale ET avec la ligne « [FO-GUN-ICONES] » du mod dans le journal. |
+| F126 | **Mesuré en moteur réel** (E68 : 60 tourelles, un niveau par âge × N, E, S, O ; contrôle final 60/60 à 1/32 de tuile, écart max 0,0089). L'éclat de tir d'une munition « instant » (`source_effects`, explosion `explosion-gunshot`) naît en projectile_center + projectile_creation_distance × (vx, vy) / √(vx² + (vy / 0,7071)²), v = cible − projectile_center ; en E et O, une cible proche le décale de distance × centre.y / portée. Une entité explosion se trouve par `find_entities_filtered{name = …}` au tick de sa création. Remplace la proposition du constructeur (modèle à décalage constant, réfuté). | Règle utilisée par `feuilles.py` (F129) et contrôlée par `gun-rose`. L'éclat se VOIT 1 tuile plus haut (hauteur par défaut d'une explosion) : supposé d'après la doc et la vanilla, non mesuré au pixel. |
+| F127 | **Observé** (banc en moteur réel, dossier `fo-autotest\mods`). `fo-autotest.bat` recopie aussi les fichiers ignorés par git présents sur le disque de la source : 321 fichiers de `graphics/levels/gun` (318 PNG et les 3 fichiers commités). | La décision D-6 (PNG hors de git) ne prive pas les bancs des images ; une source SANS PNG (checkout ou worktree neuf) donne un mod que l'étape data refuse : lancer `feuilles.py` d'abord. |
+| F128 | **Observé en moteur réel, préexistant** (banc `d4-geant` sur `main` 0.4.5). Le banc donne 10 OK, 6 ECHEC : ses seuils (5 000 bâtiments, 5 000 tapis, 4 000 bras, champ réel) datent de 0.4.1 ; avec les emprises de 0.4.3, l'usine n'en loge que 3 312. | Recaler `d4-geant` sur les emprises de 0.4.3 dans un lot D4m ; jusque-là, ses mesures de mémoire vidéo portent sur une usine plus petite que prévu. |
+| F129 | **Déduit de F126** (pas d'expérience propre). Pour une cible lointaine dans la direction u, la règle de F126 rend centre + distance × (ux ; 0,7071 × uy) : une tourelle ne peut placer l'éclat au bout de canons dessinés dans les 4 directions que si leur longueur verticale à l'écran vaut 0,7071 × leur longueur horizontale. | `feuilles.py` ajuste `projectile_center` et `projectile_creation_distance` par âge, par moindres carrés sur les 4 directions, et refuse un âge au-delà de 0,5 tuile (écart max 0,076 à 0,167 tuile ; âge 2 : 0,404). |
 
 ### Fait vérifié dans Blender 5.2.2 (vérification et correction du lot K0, 23/10, 16 h 40 à 18 h 06 ; lot en cours d'intégration)
 Trouvé par le vérificateur adverse du lot K0 (défaut 3 de `fo-logs\2026-10-23_suite\K0\verification.md`), confirmé
@@ -517,6 +545,29 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E68 · VALIDÉ en moteur réel · Où le moteur pose l'éclat de tir, et la bouche de la mitrailleuse par âge (lot A2,
+23/10, 19 h 30 à 21 h 00 ; constructeur puis correcteur, run `wf_0143e61e-944`)** :
+- Protocole : (1) sur les sprites, bouche = milieu des bouts des deux canons extrêmes, par pose (rangées de lignes dont
+  le pixel opaque le plus avancé est à 24 px hr du plus avancé ; vanilla, un canon : 4 px) ; (2) en moteur réel,
+  scénario `gun-rose` : 60 tourelles (un niveau impair par âge, niveaux 1 à 29, × N, E, S, O), chacune face à un ver
+  géant ennemi aligné sur son centre réel à 11 tuiles, cessez-le-feu de l'ennemi, ver recréé s'il meurt ; position de
+  l'entité `explosion-gunshot` relevée au tick du tir ; (3) marge vanilla au-delà du bout du canon : 0,339 tuile (N, E,
+  O ; S exclu : le point le plus bas de la tête vanilla est la couronne dentée) ; (4) ajustement par âge de
+  `projectile_center` et `projectile_creation_distance` sur les 4 directions, refus au-delà de 0,5 tuile ; (5) captures
+  zoom 2 en tir à deux instants, regardées.
+- Résultat : règle F126 (K = 0,7071 ; vanilla : 0,702 et 0,705 en N et S ; niveau 29 : 0,706 et 0,707). Contrôle final
+  en moteur : **60/60 à 1/32 de tuile, écart max 0,0089** (worktree corrigé, `done.txt` 20:41:05,23 ; `main` 0.4.6,
+  20:54:32,19). Premier passage du correcteur avec la règle simple : 40/60 (effet d'une cible proche en E et O :
+  distance × centre.y / portée, 0,168 tuile au niveau 29 à 11 tuiles) ; le scénario n'a pas été affaibli (tolérance
+  1/32). Écart prévu éclat-bouche par âge : max 0,076 (âge 7) à 0,167 (âge 9), **âge 2 : 0,404** (en S, l'éclat est à
+  peu près AU bout des canons) ; vanilla par la même règle : 0,55 en S (couronne), 0,11 ailleurs. Défaut du
+  constructeur corrigé : à l'âge 12, la médiane des lignes tombait dans un seul canon, éclat 1,25 tuile trop bas en S ;
+  après correction, environ 0,4 tuile au-delà des bouts, entre les canons.
+- Captures regardées (âges 2, 12, 13, 15 et vanilla ; `fo-logs\2026-10-24_A2\correction\planche-tir-niv*.png`) :
+  éclat au bout des canons, entre eux. Rejouées sur `main` 0.4.6 (`2026-10-23_integration-0.4.6\captures-gun-rose\`).
+- Limites : hauteur visible de 1 tuile supposée (doc et vanilla) ; position au pixel non mesurée (à l'œil ± 0,2 tuile) ;
+  âges 3 à 11 et 14 contrôlés par la règle seule (60/60 en moteur) et les planches de sprites, pas photographiés en tir.
+
 **E76 · VALIDÉ en moteur réel (sauvegarde de banc quasi vide) · Migration d'une vraie sauvegarde 0.4.4 vers la
 garantie des monnaies (lot M0, 23/10, 16 h 06 à 17 h 45 ; double source)** :
 - Protocole : scénario greffé `m0-migration` (700 ticks), carte créée par `fo-logs\2026-10-23_suite\M0\src-0.4.4`
