@@ -20,6 +20,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -35,7 +36,7 @@ NOM = "Forge"
 KIN = 1   # rang dans l'ère I (0, 1, 2) : puissance croissante dans l'ère (catalogue §A.5)
 # passe 4 : rouge-orange de forge (famille 6 à 22° MESURÉE ; les cœurs saturés tirent la teinte vers le jaune,
 # d'où une teinte nominale plus rouge que la cible)
-FOYER = dict(rgb=(1.0, 0.13, 0.025))
+FOYER = ages.FOYER[2]
 CANON = dict(L=0.85, nb=3, rb=0.05, rr=0.08)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.6)
@@ -43,15 +44,14 @@ PLATEFORME = dict(chanfrein=0.6)
 # le corps passe à la FORGE : pont de TÔLES de fer martelé gris à gros rivets, coupole et capots de fer martelé
 # (C1 ≥ 60 demandé par les juges : fer gris moyen, pas noir), plaques de BRIQUE réfractaire rouge (nacelle, masque,
 # tourelleau, bandes de la couronne), acier de structure en fer noir forgé, rivets de fer clair.
-HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
-                 chapeau="fer_clair_f", capots=("fer_martele", "brique"), acier=("fer_noir", "fer_clair_f"),
-                 rivets="fer_clair_f", joints="mortier", danger=("brique", "fer_noir"), peinture="brique",
+HABILLAGE = dict(ages.CORPS[2],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
+                 chapeau="fer_clair_f",
                  tourelleau="brique", grille_nacelle="fer_noir",
                  # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : fer gris DOMINANT, BRIQUE rouge en
                  # couleur SECONDAIRE bien visible (pavage de briques du pont, plaques de la nacelle), braise rouge en
                  # accent ; le pont de tôles grises se confondait avec le fer du corps
-                 plateforme=dict(motif="dalles", pas=0.17, joint=0.02, mat="brique_pave", mat2="brique_pave2",
-                                 fond="mortier", bord="fer_noir", boulons=None, relief=0.45),
                  # ronde 4 (test des écarts de la ronde 3 : 1-2 noté 2 et 2, « même petit châssis rouillé », « même
                  # petite base sombre ») : la FORGE change de FORME (consigne de 9 h 36 : « Forge sur un socle de pierre
                  # crénelé ») : SOCLE DE PIERRE surélevé à assises grises (muret seul : les merlons du bord auraient
@@ -70,31 +70,7 @@ ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_m
 def matieres(metal, M):
     """Tôle de bouclier forgée (acier martelé plus clair que le corps, arêtes usées très claires : le bouclier se lit
     au zoom 1 comme la tôle claire de la mitrailleuse vanilla) et fer chaud (bout de barre sortant du foyer)."""
-    metal("forgeplate", (0.46, 0.43, 0.38), rough=0.46, met=0.45, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
-          ra=0.16, dirt=0.8, stain=0.6, sscale=5.0, wear=2.8, streak=0.45, mottle=0.35)
-    # passe 5 : matières du CORPS de forge (grandes masses peu métalliques : un métal pur reste sombre sous ce soleil)
-    rust = (0.24, 0.085, 0.03)
-    # ronde 2 (test des écarts de la ronde 1 : la forge lue « petit poste sombre rafistolé », prise pour le pionnier) :
-    # FER GRIS clair martelé, froid et métallique, à l'opposé du bois brun du pionnier (C1 ≥ 60 des juges) ; les
-    # grandes masses montent d'environ 45 %, le fer noir de structure reste sombre mais moins noir
-    metal("fer_martele", (0.37, 0.35, 0.325), rough=0.5, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.14,
-          dirt=0.7, stain=0.45, sscale=5.0, wear=2.2, mottle=0.45)
-    metal("tole_forge", (0.3, 0.29, 0.27), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.2,
-          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
-    metal("tole_forge2", (0.25, 0.24, 0.225), rough=0.55, met=0.4, grain=0.3, gscale=22.0, rust=rust, ra=0.28,
-          dirt=0.75, stain=0.5, sscale=5.0, wear=1.6, mottle=0.4)
-    metal("fer_noir", (0.1, 0.095, 0.088), rough=0.5, met=0.5, grain=0.3, rust=rust, ra=0.22, dirt=0.7, stain=0.4,
-          wear=2.4)
-    metal("fer_clair_f", (0.36, 0.34, 0.31), rough=0.45, met=0.45, grain=0.12, dirt=0.4, stain=0.1, wear=0.8,
-          reflet="fin")
-    # ronde 3 : briques plus franches (rouge brique, moins sales) et pavés du pont en deux tons
-    metal("brique_pave", (0.42, 0.135, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
-          sscale=5.0, wear=0.8, mottle=0.35)
-    metal("brique_pave2", (0.34, 0.1, 0.05), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
-          sscale=5.0, wear=0.8, mottle=0.35)
-    metal("brique", (0.46, 0.14, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.85, stain=0.6, sscale=5.0,
-          wear=0.8, mottle=0.35)
-    metal("mortier", (0.1, 0.085, 0.07), rough=0.9, met=0.0, grain=0.2, dirt=0.4, stain=0.0)
+    ages.matieres(2, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
 
 
 def _halo(g, pts, power):

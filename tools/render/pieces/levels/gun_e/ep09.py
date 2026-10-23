@@ -19,6 +19,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -33,7 +34,7 @@ EPOQUE = 9
 NOM = "Atome"
 KIN = 2   # rang dans l'ère III
 # ronde 5 : lueur douce plus forte (défaut 0,7 -> 0,9) pour la vapeur de la tour et les anneaux
-FOYER = dict(rgb=(0.361, 1.0, 0.29), doux=dict(force=0.9))
+FOYER = ages.FOYER[9]
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.36)
@@ -41,11 +42,10 @@ PLATEFORME = dict(chanfrein=0.36)
 # béton clair ») : une CENTRALE NUCLÉAIRE : pont de grandes DALLES de béton clair à joints sombres, bordé de plomb et
 # d'un liseré lumineux vert ; coupole et capots de BÉTON clair ; plaques de plomb gris ; acier de structure en plomb
 # sombre ; bandes de danger jaune et noir gardées (signalétique radioactive).
-HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
-                 grille_nacelle="lead", tourelleau="lead", chapeau="lead", capots=("beton_capot", "lead"),
-                 acier=("plomb_sombre", "lead"), rivets="lead", joints="joint_beton",
-                 plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
-                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit"),
+HABILLAGE = dict(ages.CORPS[9],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
+                 grille_nacelle="lead", tourelleau="lead", chapeau="lead",
                  # ronde 4 (test des écarts de la ronde 3 : 8-9 noté 2 et 2, « même socle et dôme » ; 9 jugé MOINS évolué
                  # que 7 par les deux lecteurs) : la coupole devient un RÉACTEUR À ANNEAUX (forme « anneau » du kit) :
                  # noyau de béton clair, deux anneaux de confinement en plomb gris-bleu à doublure VERT URANIUM
@@ -67,23 +67,7 @@ def matieres(metal, M):
     """Passe 4 : PLOMB GRIS MAT (« fûts plombés gris mat » : gris neutre plus clair que le corps, très rugueux, peu
     métallique, sans reflet) ; béton plus clair (× 1,45, test noir et blanc de la passe 3) ; jaune des plaques de
     signalisation (patiné, jamais vif : C5)."""
-    # ronde 2 (test des écarts de la ronde 1 : l'atome jugé MOINS évolué que le cristal et que le marais, « gris
-    # radioactif ») : dernier âge de l'ère III, le plus clair des trois : béton presque blanc, plomb gris clair, plomb
-    # de structure gris moyen (il était presque noir et assombrissait toute la machine)
-    metal("lead", (0.25, 0.285, 0.34), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
-          dirt=0.8, stain=0.55, stain2=0.32, sscale=5.0, wear=1.4, streak=0.4)
-    # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4 -> 0,56
-    # ronde 5 : béton des tours presque blanc (0,56 -> 0,66), comme les capots
-    metal("concrete", (0.66, 0.65, 0.62), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
-          stain2=0.3, sscale=5.0, wear=1.0, streak=0.45)
-    metal("beton_capot", (0.64, 0.63, 0.6), rough=0.85, met=0.0, grain=0.22, gscale=30.0, dirt=0.75, stain=0.55,
-          sscale=5.0, wear=0.8, streak=0.3)
-    metal("beton_dalle", (0.57, 0.56, 0.53), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
-          sscale=5.0, wear=0.6, streak=0.3)
-    metal("beton_dalle2", (0.5, 0.495, 0.47), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
-          sscale=5.0, wear=0.6, streak=0.3)
-    metal("joint_beton", (0.07, 0.07, 0.068), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
-    metal("plomb_sombre", (0.13, 0.155, 0.2), rough=0.6, met=0.3, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
+    ages.matieres(9, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
 
 
 def _halo(g, pts, power):

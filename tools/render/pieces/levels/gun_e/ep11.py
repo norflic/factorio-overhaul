@@ -20,6 +20,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -32,18 +33,17 @@ V = Vector
 
 EPOQUE = 11
 NOM = "Titane"
-FOYER = dict(rgb=(0.749, 0.902, 1.0), rgb2=(0.749, 0.902, 1.0))
+FOYER = ages.FOYER[11]
 CANON = dict(L=2.1, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.8)
 # passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge du titane est un
 # bâtiment ENTIÈREMENT EN TITANE BROSSÉ bleu-blanc (capots clairs, plaques moyennes, acier de structure bleu acier),
 # posé sur un pont de TÔLES DE TITANE rivetées : plus de pont noir, plus d'olive ni d'ocre.
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="titane_md", tourelleau="titane_md",
-                 munitions=("ring", "steel_hi"), capots=("titane_cl", "titane_md"), acier=("titane_dk", "ring"),
-                 rivets="rivet_ti", danger=("orange_aero", "titane_dk"), peinture="orange_aero",
+HABILLAGE = dict(ages.CORPS[11],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="ring", chapeau="ring", tremie="titane_md", tourelleau="titane_md",
+                 munitions=("ring", "steel_hi"),
                  grille_nacelle="titane_dk",
-                 plateforme=dict(motif="toles", mat="tole_ti", mat2="tole_ti2", fond="void", bord="titane_dk",
-                                 boulons="rivet_ti", relief=0.25, lisere="emit"),
                  # passe 5, ronde 4 (10-11 noté 3 et 3, 11-12 noté 2 et 3 à la ronde 3 : « silhouette presque
                  # identique », « même plan ») : coupole en COQUE profilée à visière et AILERON dorsal (triplet
                  # « ailerons, effilé, titane ») ; 10 garde le dôme, 12 prend les anneaux. Pont hexagonal essayé
@@ -76,38 +76,8 @@ def matieres(metal, M):
     pur renvoie le ciel sombre et se lit noir vu de dessus, fait du kit en pose N), titane légèrement bleuté, alliage
     bleu-blanc clair (juges de la passe 4 : « titane brossé bleu-blanc clair ») ; ailerons radiaux 1,4 fois plus
     grands (envergure 0,6 t au lieu de 0,42)."""
-    rust = (0.24, 0.085, 0.03)
-    # passe 5, ronde 2 (test des écarts : 10 contre 11 noté 2 et 2, « même plan gris » ; 11 lu « acier nu ») : TITANE
-    # BROSSÉ nettement plus CLAIR et plus BLEU, moins sali, sur tout le bâtiment ; l'alliage des ailerons et manchons
-    # bleu-blanc. L'âge 11 devient le bâtiment CLAIR, FROID et LISSE de l'ère, entre l'électronique crème et anthracite
-    # (10) et le givre noir et cyan (12).
-    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10 et 11 encore notés 2 et 2,
-    # « même acier gris ») : règle 60/30/10 de l'âge 11 = BLEU TITANE franc dominant (titane anodisé : capots, pont,
-    # caissons), ALLIAGE blanc bleuté pâle et BLEU NUIT de structure en second, ORANGE aéronautique en accent (bandes
-    # de danger, repères des ailerons). Le bleu est saturé et moyen-clair : ni l'ivoire de 10, ni le blanc glacé et
-    # le noir de 12.
-    # passe 5, ronde 5 (test des écarts de la ronde 4 : 11 jugé MOINS évolué que 10 par un lecteur, « acier bleu
-    # massif contre dôme crème câblé » ; lu « char bleu acier ») : tout le titane monte d'environ un cran de valeur
-    # (bleu plus lumineux, même teinte) et le liseré du pont passe à pleine lumière : l'âge 11 se lit plus clair,
-    # plus net et plus « technique » que l'électronique crème de 10, sans aller au blanc glacé de 12
-    metal("jacket", (0.22, 0.38, 0.72), rough=0.32, met=0.3, grain=0.12, gscale=40.0, rust=rust, ra=0.01,
-          dirt=0.4, stain=0.2, sscale=6.0, wear=0.6, streak=0.6)
-    metal("ring", (0.62, 0.7, 0.84), rough=0.38, met=0.3, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05),
-          ra=0.02, dirt=0.45, stain=0.3, sscale=5.0, wear=0.5, streak=0.6)
-    # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), semi-diffus ; ronde 3 : BLEU
-    metal("titane_cl", (0.3, 0.5, 0.86), rough=0.32, met=0.3, grain=0.1, gscale=60.0, dirt=0.3, stain=0.18,
-          sscale=6.0, wear=0.35, streak=0.7)
-    metal("titane_md", (0.16, 0.29, 0.6), rough=0.34, met=0.3, grain=0.1, gscale=60.0, dirt=0.35, stain=0.22,
-          sscale=6.0, wear=0.5, streak=0.6)
-    metal("titane_dk", (0.035, 0.055, 0.13), rough=0.35, met=0.4, grain=0.1, gscale=50.0, dirt=0.45, stain=0.2,
-          wear=0.7, streak=0.4)
-    metal("tole_ti", (0.27, 0.44, 0.78), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.35, stain=0.2,
-          sscale=5.0, streak=0.6)
-    metal("tole_ti2", (0.2, 0.35, 0.68), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.35, stain=0.2,
-          sscale=5.0, streak=0.6)
-    metal("rivet_ti", (0.5, 0.6, 0.78), rough=0.35, met=0.35, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
-    metal("bleu_nuit", (0.02, 0.03, 0.075), rough=0.4, met=0.2, grain=0.06, dirt=0.4, stain=0.2)
-    metal("orange_aero", (0.8, 0.2, 0.02), rough=0.4, met=0.05, grain=0.06, dirt=0.3, stain=0.15, wear=0.4)
+    ages.matieres(11, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
     M["pipe2"] = M["ring"]

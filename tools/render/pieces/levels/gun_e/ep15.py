@@ -27,6 +27,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -40,7 +41,7 @@ V = Vector
 EPOQUE = 15
 NOM = "Néant"
 # incandescence blanc-or #FFE6A8 et orange #FFA347 (fiche §4 E5)
-FOYER = dict(rgb=(1.0, 0.902, 0.659), rgb2=(1.0, 0.639, 0.278), doux=dict(force=1.0))
+FOYER = ages.FOYER[15]
 # tubes lourds (+5 % de calibre), L 3,10 (+10,7 % sur 14)
 CANON = dict(L=3.1, nb=6, rb=0.076, rr=0.185)
 PLATEFORME = dict(chanfrein=0.32)
@@ -51,12 +52,10 @@ RS = 1.0
 # RONDE 2 (lecteurs : « or et noir, luxe ») : l'OR quitte le CORPS (plaques ocre, dents, rivets, boulons, grilles,
 # arêtes du pont) pour ne rester qu'à la LAISSE et à la lumière (griffes, bord du disque, conduits en spirale, cerclages) ;
 # le corps est noir chaud à usure de cendre, et ses seules lignes vives sont les liserés de LUMIÈRE des gradins
-HABILLAGE = dict(jupe_cerclage="or_chauffe", chapeau="cendre", tremie="noir_chaud", tourelleau="noir_chaud",
-                 capots=("noir_chaud", "noir_chaud2"), acier=("noir_profond", "cendre"), rivets="cendre",
-                 joints="noir_profond", danger=("or_chauffe", "noir_profond"), peinture="noir_chaud",
+HABILLAGE = dict(ages.CORPS[15],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="or_chauffe", chapeau="cendre", tremie="noir_chaud", tourelleau="noir_chaud",
                  grille_nacelle="cendre", munitions=("cendre", "noir_profond"),
-                 plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="noir_chaud", mat2="noir_chaud2",
-                                 fond="noir_profond", bord="cendre", boulons=None, lisere="emit"),
                  # PUITS DE GRAVITÉ : gradins de noir chaud, lignes de potentiel pleine lumière, AUCUN fleuron (les
                  # fleurons royaux sont la Légende refusée), aucune arête d'or (ronde 2)
                  forme_plateforme=dict(forme="gradins", flanc="noir_chaud", flanc2="cendre", lisere="emit",
@@ -73,27 +72,8 @@ def matieres(metal, M):
     """Néant : noir chaud anthracite brun satiné (patiné : arêtes usées plus claires), or chauffé (patiné, plus mat dans
     les creux), or blanc chaud au contact du disque, horizon (seul vrai noir, lisse). Le noir chaud est remonté d'un
     cran par rapport à l'albédo de la fiche (plancher C1 >= 43 : un corps noir sans arêtes se lirait comme un bloc)."""
-    metal("noir_chaud", (0.05, 0.04, 0.031), rough=0.35, met=0.4, grain=0.1, gscale=34.0, rust=(0.12, 0.07, 0.03),
-          ra=0.06, dirt=0.5, stain=0.3, sscale=5.0, wear=2.0, streak=0.35, mottle=0.25)
-    metal("noir_chaud2", (0.04, 0.032, 0.025), rough=0.36, met=0.4, grain=0.1, gscale=34.0, dirt=0.5, stain=0.3,
-          sscale=5.0, wear=1.8, mottle=0.25)
-    metal("noir_profond", (0.012, 0.01, 0.008), rough=0.4, met=0.4, grain=0.12, dirt=0.4, stain=0.15, wear=1.6)
-    metal("or_chauffe", (0.69, 0.37, 0.06), rough=0.3, met=0.5, grain=0.14, gscale=40.0, rust=(0.2, 0.1, 0.03),
-          ra=0.05, dirt=0.55, stain=0.3, sscale=6.0, wear=0.6, mottle=0.15)
-    metal("or_blanc_chaud", (0.82, 0.62, 0.3), rough=0.3, met=0.45, grain=0.1, gscale=40.0, dirt=0.35, stain=0.15,
-          sscale=6.0, wear=0.4)
-    metal("or_rivet", (0.62, 0.36, 0.08), rough=0.45, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
-    # HORIZON : diélectrique lisse presque noir (6 à 8 % de la surface vue au plus)
-    metal("horizon", (0.003, 0.003, 0.004), rough=0.06, met=0.0, grain=0.02, dirt=0.05, stain=0.0)
-    # ronde 2 : OR VIF de la laisse (griffes, bord du disque) ; CENDRE : usure claire du corps (dents, rivets, boulons,
-    # grilles, arêtes du pont), à la place de l'or ; TUBES des canons en acier bruni chaud (les tubes d'acier nu clair à
-    # pointes crème se lisaient « cheminées » en pose N)
-    metal("or_vif", (0.8, 0.5, 0.1), rough=0.25, met=0.55, grain=0.1, gscale=40.0, dirt=0.3, stain=0.15, sscale=6.0,
-          wear=0.4)
-    metal("cendre", (0.11, 0.098, 0.085), rough=0.42, met=0.35, grain=0.1, gscale=34.0, dirt=0.4, stain=0.2,
-          sscale=5.0, wear=1.6)
-    metal("acier_brule", (0.17, 0.13, 0.095), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.35, stain=0.15,
-          sscale=6.0, wear=1.0)
+    ages.matieres(15, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["gun"] = M["acier_brule"]
     M["copper"] = M["or_chauffe"]
     M["ring"] = M["or_chauffe"]

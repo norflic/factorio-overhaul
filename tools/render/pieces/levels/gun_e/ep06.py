@@ -18,6 +18,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -31,19 +32,19 @@ V = Vector
 EPOQUE = 6
 NOM = "Électricité"
 KIN = 2   # rang dans l'ère II
-FOYER = dict(rgb=(0.25, 0.55, 1.0))   # ronde 3 : bleu électrique (cyan clair avant ; le cyan glacé est au 12)
+FOYER = ages.FOYER[6]   # ronde 3 : bleu électrique (cyan clair avant ; le cyan glacé est au 12)
 CANON = dict(L=1.35, nb=4, rb=0.045, rr=0.1)
 # passe 5 : cerclages de jupe sombres (moins de cuivre sur le corps : lu « cuivre, cheminée, vapeur » à la ronde 0)
 # passe 5, ronde 1 reprise (consigne du DC du 23/10 : TOUT le bâtiment change d'âge) : une CENTRALE de 1900 :
 # coupole et capots de PORCELAINE blanche, plaques vert d'eau de salle des machines, acier de structure en bakélite
 # noire et cuivre poli, rivets de cuivre, pont de CARREAUX de céramique gris clair à joints noirs bordé de cuivre.
 # Le bâtiment devient clair : il ne se lit plus « cuivre sombre, cheminée, vapeur ».
-HABILLAGE = dict(jupe_cerclage="copper_pol", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
-                 chapeau="copper_pol", capots=("porcelaine_capot", "bleu_machine"),
-                 acier=("fonte_bleue", "copper_pol"), rivets="copper_pol", joints="bakelite",
+HABILLAGE = dict(ages.CORPS[6],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="copper_pol", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
+                 chapeau="copper_pol",
                  tourelleau="bleu_machine", grille_nacelle="copper_pol",
-                 plateforme=dict(motif="dalles", pas=0.25, joint=0.012, mat="carreau", mat2="carreau2",
-                                 fond="bakelite", bord="fonte_bleue", boulons=None))
+                 )
 # ronde 3 : culasses et masques d'arme en bleu machine et porcelaine (ils restaient ocre et olive de la lignée)
 ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("bleu_machine", "porcelaine_capot"),
           feed="drum", skirt="copper", appl="porcelaine", gmask=("bleu_machine", "porcelaine_capot"),
@@ -54,29 +55,10 @@ ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=
 def matieres(metal, M):
     """Porcelaine des isolateurs (passe 4 : « piles d'isolateurs blancs » ; patinée, arêtes claires, jamais un blanc pur :
     C8) ; elle devient l'accent de l'époque (PT.insulators, peignes et anneaux)."""
-    # gris clair chaud des cuves de transformateur (grand volume de l'ouest : se distingue en gris des bunkers noirs
-    # du volcan, test de FORME)
-    # ronde 2 (test des écarts de la ronde 1 : l'électricité jugée MOINS évoluée que le volcan et que le pétrole,
-    # « même octogone, D clair ») : dernier âge de l'ère II, donc le plus riche et le plus clair des trois : porcelaine
-    # presque blanche, carreaux blancs, vert d'eau clair de salle des machines, transformateur gris clair.
-    metal("transfo", (0.4, 0.39, 0.36), rough=0.42, met=0.3, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
-          ra=0.12, dirt=0.8, stain=0.7, sscale=5.0, wear=2.0, streak=0.45, mottle=0.35)
+    ages.matieres(6, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["accent"] = metal("porcelaine", (0.72, 0.705, 0.66), rough=0.3, met=0.0, grain=0.1, gscale=30.0, dirt=0.7,
                         stain=0.3, sscale=5.0, wear=0.6)
-    # passe 5 : matières du CORPS (grandes masses claires non métalliques)
-    metal("porcelaine_capot", (0.74, 0.73, 0.69), rough=0.28, met=0.0, grain=0.07, gscale=30.0, dirt=0.5, stain=0.25,
-          sscale=5.0, wear=0.3, mottle=0.1)
-    # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : porcelaine BLANCHE dominante, BLEU
-    # ÉLECTRIQUE en secondaire (plaques, flasques, carters, tourelleau, acier de structure : l'ancien vert d'eau), arcs
-    # bleus et cuivre des bobines en accent
-    metal("bleu_machine", (0.07, 0.2, 0.55), rough=0.34, met=0.15, grain=0.12, gscale=30.0, rust=(0.2, 0.09, 0.04),
-          ra=0.04, dirt=0.5, stain=0.35, sscale=5.0, wear=1.0)
-    metal("bakelite", (0.035, 0.024, 0.018), rough=0.32, met=0.0, grain=0.1, dirt=0.5, stain=0.2, wear=0.8)
-    # acier de structure : fonte peinte BLEU NUIT (ronde 2 : vert sombre ; la bakélite presque noire couvrait tout)
-    metal("fonte_bleue", (0.035, 0.07, 0.19), rough=0.4, met=0.3, grain=0.15, dirt=0.6, stain=0.35, wear=1.2)
-    metal("carreau", (0.55, 0.555, 0.53), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0, wear=0.3)
-    metal("carreau2", (0.47, 0.48, 0.46), rough=0.3, met=0.0, grain=0.07, dirt=0.55, stain=0.3, sscale=5.0,
-          wear=0.3)
 
 
 def _halo(g, pts, power):

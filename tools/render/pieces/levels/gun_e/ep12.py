@@ -20,6 +20,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -34,17 +35,17 @@ EPOQUE = 12
 NOM = "Supraconducteurs"
 # passe 5, ronde 2 : liserés et lueurs douces plus forts (force 1,0 au lieu de 0,7) : la lumière CONTINUE cyan glacé
 # est la marque de l'âge, et ce qui le place au-dessus du titane (11) au premier coup d'œil
-FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0), doux=dict(force=1.0))
+FOYER = ages.FOYER[12]
 CANON = dict(L=2.2, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.15)
 # passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge des supraconducteurs est un bâtiment
 # GIVRÉ, blanc bleuté, à structure NOIR PROFOND et arêtes CHROME, sur un caillebotis de CHROME à liseré CYAN glacé :
 # le contraste noir, givre et chrome, et le cyan continu, le séparent du titane brossé moyen de l'âge 11.
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", tourelleau="chrome_mat",
-                 munitions=("ring", "ring"), capots=("frost", "chrome_mat"), acier=("jacket", "ring"),
-                 rivets="chrome_mat", danger=("trim", "jacket"), peinture="frost", grille_nacelle="ring",
-                 plateforme=dict(motif="dalles", pas=0.28, joint=0.022, mat="noir_miroir", mat2="noir_miroir2",
-                                 fond="trim", bord="jacket", boulons="chrome_mat", lisere="emit_soft"),
+HABILLAGE = dict(ages.CORPS[12],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="ring", chapeau="ring", tremie="jacket", tourelleau="chrome_mat",
+                 munitions=("ring", "ring"),
+                 grille_nacelle="ring",
                  # passe 5, ronde 4 (11-12 noté 2 et 3, 10-12 noté 3 et 3 : « même plan », « même silhouette ») :
                  # coupole en ANNEAUX (noyau givré ceint de deux anneaux chromés à doublure cyan : le triplet « chrome,
                  # givre, anneaux » devient la forme même de la tête) ; 10 : dôme, 11 : coque. Plateforme ronde essayée
@@ -83,27 +84,10 @@ def matieres(metal, M):
     une bande ARGENT franche. Les grands capots du corps (coupole, jupe, colonne, nacelle, bras, masque) passent en
     GIVRE (gris bleuté pâle mat, clé « capots ») et les plaques ocre en chrome satiné : la tourelle entière se lit
     « froide », sans cuivre (le cuivre est la matière de l'Électricité)."""
-    metal("jacket", (0.04, 0.042, 0.047), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
-          wear=1.5)
-    metal("ring", (0.7, 0.73, 0.76), rough=0.22, met=0.45, grain=0.06, gscale=60.0, dirt=0.4, stain=0.1,
-          wear=0.3)
-    metal("chrome_mat", (0.48, 0.51, 0.54), rough=0.4, met=0.45, grain=0.1, gscale=50.0, dirt=0.6, stain=0.25,
-          wear=0.6)
-    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10, 11 et 12 lus « même acier
-    # gris ») : règle 60/30/10 de l'âge 12 = BLANC GLACÉ teinté CYAN dominant (capots givrés, givre, mousse des
-    # conduites), NOIR MIROIR et CHROME en second (pont, structure, anneaux), CYAN lumineux en accent. Le givre passe
-    # d'un gris bleuté à un blanc cyan franc, moins sali : l'âge 11 garde le bleu saturé, l'âge 10 l'ivoire.
-    metal("frost", (0.56, 0.84, 0.92), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.3, stain=0.3,
-          sscale=5.0, wear=0.6, mottle=0.3)                                                     # capots givrés
-    metal("noir_miroir", (0.025, 0.03, 0.04), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
-    metal("noir_miroir2", (0.04, 0.047, 0.06), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
-    metal("grille_chrome", (0.3, 0.33, 0.37), rough=0.3, met=0.45, grain=0.06, gscale=50.0, dirt=0.4, stain=0.1)
-    metal("trim", (0.78, 0.94, 0.98), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.15, stain=0.15)  # givre
-    metal("pipe", (0.56, 0.78, 0.86), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.4, 0.45),
-          ra=0.12, dirt=0.45, stain=0.4, sscale=5.0, streak=0.4)                                  # mousse givrée
+    ages.matieres(12, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["copper"] = M["ring"]   # aucune pièce de cuivre à cette époque (conducteurs, munitions)
     M["pipe2"] = M["ring"]
-    metal("cable_a", (0.018, 0.018, 0.02), rough=0.55, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
     M["cable_b"] = M["cable_a"]
     M["spec"] = M["trim"]
     M["accent"] = M["trim"]

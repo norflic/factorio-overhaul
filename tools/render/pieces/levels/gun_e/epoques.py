@@ -162,17 +162,34 @@ reculé (0,64 à 0,8 L) au ras du faisceau, qui fait le collier, DERNIER CINQUI�
 éclairées, GUIDON dressé. Mode d'emploi pour un canon d'époque : docstring de corps.canon_effile.
 """
 import importlib
+import os
+import sys
+
+# LOT K0 (23/10) : le kit commun (kit.py, parts*.py, formes.py, silhouettes.py, repere.py, habillage.py, pont.py,
+# places.py, ages.py et les outils) vit dans ../commun ; ce module, importé le premier par piece.py, le met dans
+# sys.path. Le dossier gun_e garde ce qui est propre à la mitrailleuse (corps.py, cotes.py, accroches.py, epNN.py,
+# piece.py, rendre.py, batch_blender.py, habillages.py, profil.py, corps_choix.py).
+_ICI = os.path.dirname(os.path.abspath(__file__))
+COMMUN = os.path.join(os.path.dirname(_ICI), "commun")
+for _d in (COMMUN, _ICI):
+    if _d not in sys.path:
+        sys.path.insert(0, _d)
+import ages  # noqa: E402
+import habillage as _H  # noqa: E402
 
 COTE = {0: None, 1: 2, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 7: 4, 8: 4, 9: 4, 10: 5, 11: 5, 12: 5, 13: 6, 14: 6, 15: 6}
-ERE = {e: (1 if e <= 3 else 2 if e <= 6 else 3 if e <= 9 else 4 if e <= 12 else 5) for e in range(1, 16)}
-NOMS = {0: "Lignée seule", 1: "Pionnier", 2: "Forge", 3: "Vapeur", 4: "Pétrole", 5: "Volcan", 6: "Électricité",
-        7: "Cristal", 8: "Marais", 9: "Atome", 10: "Haute technologie", 11: "Titane", 12: "Supraconducteurs",
-        13: "Fusion", 14: "Orbite", 15: "Légende"}
+# noms, ères et familles de couleur des âges : communs à toutes les familles (commun/ages.py, lot K0 ; ère V cosmique :
+# 13 Antimatière, 14 La Porte, 15 Néant)
+ERE = ages.ERE
+NOMS = ages.NOMS
 # plage de chaque constructeur (fichiers epNN.py qu'il possède)
 PLAGE_BASSE = tuple(range(1, 10))
 PLAGE_HAUTE = tuple(range(10, 16))
 
 # habillage du corps permis à une époque (accents, catalogue §A.1 « seulement l'habillage ») : nom de matière
+# Lot K0 : les clés de MATIÈRE et de MOTIF de tout le corps sont COMMUNES (commun/habillage.HABILLAGE_LIGNEE) ; celles
+# de la mitrailleuse (cerclages, trémie, munitions, nacelle, tourelleau, chapeau) et ses FORMES restent ici. Même
+# ordre et mêmes valeurs qu'avant K0.
 HABILLAGE_DEFAUT = dict(
     jupe_cerclage="brass",     # deux cerclages de la jupe
     tremie=None,               # peinture de la trémie (None : ocre de la lignée, qui suit « capots »)
@@ -181,14 +198,10 @@ HABILLAGE_DEFAUT = dict(
     grille_nacelle="steel",    # lamelles de la grille arrière de la nacelle (2×2 à 4×4)
     tourelleau="ochre",        # caisson du tourelleau
     chapeau="brass",           # chapeau boulonné du tourillon
-    # --- MATIÈRE et MOTIF de TOUT le corps (passe 5 ; contrat « HABILLAGE » ci-dessus) : None = lignée inchangée
-    capots=None,               # grands capots : clé, ou (remplace l'olive, remplace l'ocre)
-    plateforme=None,           # pont : motif (caillebotis, planches, dalles, toles), matières, liseré
-    acier=None,                # acier de structure : clé, ou (sombre, clair)
-    rivets=None,               # rivets et têtes bombées de la lignée
-    joints=None,               # joints et âmes sombres entre les plaques
-    danger=None,               # bandes de danger : clé, ou (clair, sombre)
-    peinture=None,             # peinture rouge de la colonne
+    # --- MATIÈRE et MOTIF de TOUT le corps (passe 5 ; contrat « HABILLAGE » ci-dessus) : None = lignée inchangée ;
+    # capots, plateforme, acier, rivets, joints, danger, peinture (commun/habillage.py ; valeurs d'un âge :
+    # commun/ages.CORPS)
+    **_H.HABILLAGE_LIGNEE,
     # --- FORME des grandes pièces (passe 5, troisième temps ; contrat « FORMES » ci-dessus) : None = forme de la lignée
     forme_plateforme=None,     # contour, hauteur et bords du pont
     forme_coupole=None,        # coupole
@@ -196,66 +209,19 @@ HABILLAGE_DEFAUT = dict(
     forme_tremie=None,         # trémie à munitions
 )
 
-# FAMILLES DE COULEUR DES FOYERS (règle d'or 3) : teinte (degrés, intervalle circulaire) et saturation MESURÉES sur la
-# couche glow (moyenne pondérée, protocole des juges, mesures.py). Deux époques voisines n'ont jamais de famille
-# compatible (teintes ET saturations qui se recouvrent). Saturation : « pâle » < 0,2 ; « moyenne » 0,2 à 0,5 ;
-# « forte » > 0,5 (une couleur franche mesurée tombe vers 0,35 à 0,75 : les cœurs saturent vers le blanc).
-# Couleurs du catalogue §A.3 en regard (albédos de départ) ; mesures de la passe 3 entre crochets.
-FAMILLES = {
-    1: dict(nom="lanterne (nuit seule)", teinte=(20, 50), sat=(0.0, 1.0), nuit=True, catalogue="FFB060"),
-    2: dict(nom="rouge-orange de forge", teinte=(6, 22), sat=(0.5, 1.0), catalogue="FF6A20"),        # [28°, 0,63]
-    3: dict(nom="ambre de vapeur", teinte=(36, 52), sat=(0.2, 0.5), catalogue="FFC060"),             # [40°, 0,37]
-    4: dict(nom="orange de torchère", teinte=(24, 34), sat=(0.5, 1.0), catalogue="FF8C1A"),          # [38°, 0,67]
-    5: dict(nom="rouge braise", teinte=(345, 14), sat=(0.5, 1.0), catalogue="FF4A10"),               # [25°, 0,74]
-    6: dict(nom="cyan électrique", teinte=(186, 202), sat=(0.25, 1.0), catalogue="60D0FF"),          # [195°, 0,37]
-    7: dict(nom="violet de cristal", teinte=(255, 290), sat=(0.25, 1.0), catalogue="B070FF"),        # [270°, 0,31]
-    8: dict(nom="jaune-vert acide", teinte=(60, 88), sat=(0.4, 1.0), catalogue="A8FF3A"),            # [81°, 0,51]
-    9: dict(nom="vert uranium", teinte=(100, 135), sat=(0.3, 1.0), catalogue="5CFF4A"),             # [111°, 0,44]
-    10: dict(nom="bleu électronique", teinte=(204, 228), sat=(0.3, 1.0), catalogue="3AA8FF"),       # [197°, 0,40]
-    11: dict(nom="blanc bleuté", teinte=(180, 232), sat=(0.0, 0.2), catalogue="BFE6FF"),             # [195°, 0,08]
-    12: dict(nom="cyan glacé", teinte=(170, 190), sat=(0.3, 1.0), catalogue="4AF0FF"),               # [180°, 0,39]
-    13: dict(nom="magenta de plasma", teinte=(300, 336), sat=(0.3, 1.0), catalogue="FF4FD8"),        # [328°, 0,37]
-    14: dict(nom="rouge de balise", teinte=(346, 12), sat=(0.4, 1.0), catalogue="FF2A2A"),           # [357°, 0,52]
-    15: dict(nom="blanc doré", teinte=(36, 62), sat=(0.0, 0.2), catalogue="FFF2C0"),                 # [47°, 0,13]
-}
+# FAMILLES DE COULEUR DES FOYERS (règle d'or 3) : COMMUNES à toutes les familles de bâtiments depuis le lot K0
+# (commun/ages.py : table, mesures de la mitrailleuse validée, foyers 5 et 6 tranchés, ère V cosmique).
+FAMILLES = ages.FAMILLES
+_arc = ages._arc
+_recouvre = ages._recouvre
+compatibles = ages.compatibles
+verifier_familles = ages.verifier_familles
+dans_famille = ages.dans_famille
 
 
 # trous enfermés VOULUS (sol visible à travers une arche, un anneau…), déclarés par l'intégrateur du kit à la demande
 # d'un constructeur : {(époque, partie « socle » | « tete » | « compo »): [(x, y, rayon) en tuiles depuis le centre]}
 TROUS_VOULUS = {}
-
-
-def _arc(t):
-    a, b = t
-    return [(a, b)] if a <= b else [(a, 360.0), (0.0, b)]
-
-
-def _recouvre(i1, i2):
-    return any(a1 < b2 and a2 < b1 for a1, b1 in _arc(i1) for a2, b2 in _arc(i2))
-
-
-def compatibles(e1, e2):
-    """Vrai si les familles de e1 et e2 se recouvrent (même teinte possible ET même saturation possible)."""
-    f1, f2 = FAMILLES[e1], FAMILLES[e2]
-    if f1.get("nuit") or f2.get("nuit"):
-        return False
-    s1, s2 = f1["sat"], f2["sat"]
-    return _recouvre(f1["teinte"], f2["teinte"]) and s1[0] < s2[1] and s2[0] < s1[1]
-
-
-def verifier_familles():
-    """Contrôle de la table : aucune paire de voisines compatible. Lève une erreur sinon."""
-    pb = [(e, e + 1) for e in range(1, 15) if compatibles(e, e + 1)]
-    if pb:
-        raise ValueError("familles de foyers en doublon entre voisines : %s" % pb)
-    return True
-
-
-def dans_famille(e, teinte, sat):
-    """La couleur mesurée (teinte en degrés, saturation) tombe-t-elle dans la famille de l'époque e ?"""
-    f = FAMILLES[e]
-    t_ok = any(a <= teinte % 360.0 <= b for a, b in _arc(f["teinte"]))
-    return t_ok and f["sat"][0] <= sat <= f["sat"][1]
 
 
 def module(e):
@@ -269,12 +235,8 @@ def module(e):
 
 
 def habillage(ep):
-    h = dict(HABILLAGE_DEFAUT)
-    for k, v in getattr(ep, "HABILLAGE", {}).items():
-        if k not in h:
-            raise KeyError("habillage inconnu : %s (permis : %s)" % (k, ", ".join(sorted(h))))
-        h[k] = v
-    return h
+    """Habillage complet de l'âge (HABILLAGE_DEFAUT complété par ep.HABILLAGE ; commun/habillage.habillage)."""
+    return _H.habillage(ep, HABILLAGE_DEFAUT)
 
 
 verifier_familles()

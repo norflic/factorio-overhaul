@@ -1,6 +1,11 @@
-"""KIT COMMUN de la mitrailleuse, lot V3-E, quatrième passe (23/10) : matières, teintes, règles de reflets et
+"""KIT COMMUN DES FAMILLES (né sur la mitrailleuse, lot V3-E, quatrième passe, 23/10 ; sorti de gun_e vers
+tools/render/pieces/levels/commun au lot K0, 23/10, SANS changer une valeur) : matières, teintes, règles de reflets et
 accumulateur de géométrie. S'exécute DANS Blender. FICHIER GELÉ pour les constructeurs d'époque : un changement
-commun se DÉCRIT dans le retour du constructeur, l'intégrateur du kit le fait.
+commun se DÉCRIT dans le retour du constructeur, l'intégrateur du kit le fait. Mode d'emploi pour une nouvelle
+famille : commun/LISEZMOI.md.
+Lot K0 : la règle d'or ci-dessous a été écrite pour la mitrailleuse (« canon ») ; pour une autre famille, lire
+« canon » comme l'ORGANE D'ÂGE de la famille (émetteur du laser, gueule du four, trépan de la foreuse…) et
+« corps.* » comme le corps de lignée de la famille. Les familles de couleur des foyers sont dans ages.py (commun).
 
 =====================================================================================================================
 RÈGLE D'OR (elle prime sur tout le reste ; consigne du Directeur Créatif confirmée le 22/10 à 17 h 20 : « Même style
@@ -200,21 +205,40 @@ def _insert_edgewear(mat, amount, dist=0.014):
 #   tout métal (métallicité >= 0,5) : rugosité >= REFLETS["metal"] ;
 #   « fin » (rivets, têtes de boulon, acier clair des arêtes et poignées) : rugosité >= REFLETS["fin"].
 REFLETS = {"fin": 0.45, "metal": 0.38, "plat": 0.0}
+# préfixe des noms de matière dans Blender (lot K0) : « gune » est celui de la mitrailleuse ; une famille peut le
+# changer (kit.PREFIXE = "…") avant kit.materials, sans effet sur l'image ; il entre dans l'empreinte de construction.py
+PREFIXE = "gune"
 # grain adouci des matières d'accent reprises de la plage basse (lot V3-E, catalogue §A.6 : P1 visé 4,7 à 5,0)
 GRAIN_ACCENT = 0.62
 # taches moyennes des matières d'accent reprises de la plage basse (P2 : plancher 16)
 TACHES_ACCENT = 0.32
 
 
+def _corps_choix_py():
+    """Chemin du fichier corps_choix.py de la FAMILLE (lot K0 : le kit vit dans commun/, le fichier d'une ligne reste
+    dans le dossier de la famille, par exemple gun_e/corps_choix.py) : le premier trouvé dans sys.path (le dossier de
+    la famille y est mis par piece.py, construction.py et batch_blender.py) ; None s'il n'y en a aucun."""
+    import os
+    import sys
+    for d in sys.path:
+        p = os.path.join(d or ".", "corps_choix.py")
+        if os.path.isfile(p):
+            return p
+    return None
+
+
 def corps_choisi():
     """Variante de corps : variable d'environnement FO_CORPS (« A » ou « B », posée par rendre.py --corps pour les
     comparaisons du kit), sinon corps_choix.CORPS (le fichier d'une ligne que les constructeurs ont le droit de
-    modifier). Toute autre valeur est une erreur."""
-    import os
+    modifier, dans le dossier de la famille ; une famille qui n'en a pas prend « A »). Toute autre valeur est une
+    erreur."""
     import importlib.util
+    import os
     v = os.environ.get("FO_CORPS", "").strip().upper()
     if not v:
-        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "corps_choix.py")
+        p = _corps_choix_py()
+        if p is None:
+            return "A"
         spec = importlib.util.spec_from_file_location("corps_choix", p)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -299,7 +323,7 @@ def materials(S, epoch, ep):
         if met >= 0.5:
             rough = max(rough, REFLETS["metal"])
         c = tuple(min(0.9, x * tone) for x in col)
-        m = S.mat_metal("gune_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
+        m = S.mat_metal("%s_e%02d_%s" % (PREFIXE, epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
                         rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt, seed=float(11 * kk + epoch),
                         soot=soot, dirt_distance=dd)
         if stain:
@@ -440,14 +464,14 @@ def materials(S, epoch, ep):
     night = bool(F.get("nuit", False))
     base = tuple(0.42 * c for c in emit) if night else (0.01, 0.01, 0.012)
     doux = F.get("doux", {})
-    M["emit"] = S.mat_emissive("gune_e%02d_emit" % epoch, emit, strength=1.0, base=base,
+    M["emit"] = S.mat_emissive("%s_e%02d_emit" % (PREFIXE, epoch), emit, strength=1.0, base=base,
                                main_scale=0.0, crust=(18.0, 0.25, 1.0 + epoch))
-    M["emit_soft"] = S.mat_emissive("gune_e%02d_emit_s" % epoch, emit, strength=doux.get("force", 0.7),
+    M["emit_soft"] = S.mat_emissive("%s_e%02d_emit_s" % (PREFIXE, epoch), emit, strength=doux.get("force", 0.7),
                                     base=tuple(doux.get("base", base)), main_scale=0.0, crust=(12.0, 0.35, 2.0 + epoch))
-    M["emit2"] = S.mat_emissive("gune_e%02d_emit2" % epoch, emit2, strength=1.0, base=(0.01, 0.01, 0.012),
+    M["emit2"] = S.mat_emissive("%s_e%02d_emit2" % (PREFIXE, epoch), emit2, strength=1.0, base=(0.01, 0.01, 0.012),
                                 main_scale=0.0, crust=(14.0, 0.25, 3.0 + epoch))
     # voyants ambre (vocabulaire vanilla : lampes de travail), admis à toutes les époques
-    M["amber"] = S.mat_emissive("gune_e%02d_amber" % epoch, (1.0, 0.45, 0.06), strength=1.0,
+    M["amber"] = S.mat_emissive("%s_e%02d_amber" % (PREFIXE, epoch), (1.0, 0.45, 0.06), strength=1.0,
                                 base=(0.01, 0.006, 0.003), main_scale=0.0)
     for key in ("emit", "emit_soft", "emit2", "amber"):
         p = M[key].node_tree.nodes["Principled BSDF"]
