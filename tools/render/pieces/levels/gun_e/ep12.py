@@ -35,19 +35,31 @@ NOM = "Supraconducteurs"
 FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0))
 CANON = dict(L=2.2, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.15)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "copper"))
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "ring"),
+                 capots=("frost", "chrome_mat"))
 RECV = ("jacket", "steel_dk")
 
 
 def matieres(metal, M):
-    """Supraconducteurs : noir profond, chrome (reflets francs dans la limite commune), givre (≤ 3 %)."""
-    metal("jacket", (0.034, 0.035, 0.038), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
+    """Supraconducteurs : noir profond, chrome (reflets francs dans la limite commune), givre.
+    Passe 5, ronde 1 (lu « bobines empilées, voyants cyan électriques » = Électricité, et « noir à lueurs cyan » en
+    passe 4) : le chrome à métallicité 1 renvoyait le ciel sombre et se lisait NOIR vu de dessus (même fait que les
+    tubes en pose N, kit passe 5) ; il passe en métal semi-diffus clair (métallicité 0,45, albédo 0,7) : de dessus,
+    une bande ARGENT franche. Les grands capots du corps (coupole, jupe, colonne, nacelle, bras, masque) passent en
+    GIVRE (gris bleuté pâle mat, clé « capots ») et les plaques ocre en chrome satiné : la tourelle entière se lit
+    « froide », sans cuivre (le cuivre est la matière de l'Électricité)."""
+    metal("jacket", (0.04, 0.042, 0.047), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
           wear=1.5)
-    metal("ring", (0.7, 0.71, 0.73), rough=0.16, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
+    metal("ring", (0.7, 0.73, 0.76), rough=0.22, met=0.45, grain=0.06, gscale=60.0, dirt=0.4, stain=0.1,
           wear=0.3)
-    metal("trim", (0.55, 0.6, 0.64), rough=0.85, met=0.0, grain=0.3, gscale=80.0, dirt=0.3, stain=0.3)  # givre
-    metal("pipe", (0.38, 0.37, 0.34), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.2, 0.18, 0.15),
-          ra=0.15, dirt=0.8, stain=0.6, sscale=5.0, streak=0.5)                                   # mousse givrée
+    metal("chrome_mat", (0.48, 0.51, 0.54), rough=0.4, met=0.45, grain=0.1, gscale=50.0, dirt=0.6, stain=0.25,
+          wear=0.6)
+    metal("frost", (0.42, 0.53, 0.62), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.55, stain=0.45,
+          sscale=5.0, wear=0.8, mottle=0.3)                                                     # capots givrés
+    metal("trim", (0.8, 0.88, 0.95), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.2, stain=0.2)  # givre
+    metal("pipe", (0.6, 0.68, 0.74), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.33, 0.35),
+          ra=0.15, dirt=0.6, stain=0.5, sscale=5.0, streak=0.4)                                   # mousse givrée
+    M["copper"] = M["ring"]   # aucune pièce de cuivre à cette époque (conducteurs, munitions)
     M["pipe2"] = M["ring"]
     metal("cable_a", (0.018, 0.018, 0.02), rough=0.55, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
     M["cable_b"] = M["cable_a"]
@@ -124,7 +136,7 @@ def west(g):
     ys = [y0 + (y1 - y0) * f for f in (0.18, 0.5, 0.82)]
     for i, yy in enumerate(ys):
         hh = 0.62 + 0.06 * (i % 2)
-        g.cyl((cx, yy, 0.18 + hh / 2), "z", r, hh, M["jacket"], n=28, what="dewar")
+        g.cyl((cx, yy, 0.18 + hh / 2), "z", r, hh, M["frost"], n=28, what="dewar")   # passe 5 : virole givrée
         for zz in (0.3, 0.18 + hh * 0.7):
             g.tube_shell((cx, yy, zz), "z", r + 0.02, r - 0.01, 0.05, M["ring"], n=28, what="collier")
             for k_ in range(10):   # collier à griffes : fentes sombres
@@ -257,7 +269,7 @@ def dewar_rack(g, w, d, n):
         x = -w / 2 + w * (i + 0.5) / n
         for j, y in enumerate((-d * 0.2, d * 0.22)):
             hh = 0.36 + 0.06 * ((i + j) % 2)
-            g.cyl((x, y, 0.1 + hh / 2), "z", r, hh, M["jacket"], n=20, what="dewar")
+            g.cyl((x, y, 0.1 + hh / 2), "z", r, hh, M["frost"], n=20, what="dewar")
             g.tube_shell((x, y, 0.1 + hh * 0.35), "z", r + 0.014, r - 0.01, 0.035, M["ring"], n=20, what="collier")
             F.bolts_ring(g, (x, y, 0.1 + hh * 0.35), (0, 0, 1), r + 0.016, 5, M["rivet"], r=0.012, phase=-1.2)
             F.bolts_ring(g, (x, y, 0.1 + hh * 0.8), (0, 0, 1), r + 0.002, 4, M["rivet"], r=0.012, phase=-0.9)
@@ -454,6 +466,12 @@ def _ring12(g, x, yy, z, ro, ri, w, k, struts=4):
             g.box(V((x, yy + w / 2 + 0.002, z)) + d * ((ri + ro) / 2), (0.05 * k, 0.004, 0.02), E, "flat",
                   R=F.Rax(d), what="segment_lum")
         g.box(V((x - ro * 0.55, yy, z + ro * 0.8)), (0.05, w * 1.05, 0.02), M["trim"], "flat", what="givre")
+        # passe 5 : LISERÉ DE GIVRE blanc sur le bord supérieur de l'anneau (juges de la passe 4), en 3 plaques
+        # suivant l'arrondi (de dessus : un trait blanc sur l'arête argent de chaque anneau)
+        for a in (-0.42, 0.0, 0.42):
+            d = V((math.sin(a), 0, math.cos(a)))
+            g.box(V((x, yy, z)) + d * (ro + 0.004), (ro * 0.4, w * 1.12, 0.014), M["trim"], "flat",
+                  R=Matrix.Rotation(a, 3, "Y"), what="givre")
 
 
 def _gun12(g, x, y0, z, L, nb, rb, rr):
@@ -482,8 +500,9 @@ def _gun12(g, x, y0, z, L, nb, rb, rr):
         for i in range(npl):
             g.box((xr, y0 + L * (0.52 + 0.48 * (i + 0.5) / npl), z + hhr + 0.004),
                   (2 * hwr * 0.7, L * 0.48 / npl - 0.04, 0.012), M["ring"], "hard", what="arete")
-        g.box((xr - s * (hwr + 0.004), y0 + L / 2, z), (0.008, L * 0.97, hhr * 1.1), M["copper"], "hard",
-              what="conducteur")
+        # passe 5 : conducteur en lueur CYAN GLACÉ continue (le cuivre de la passe 4 se lisait « bobine électrique »)
+        g.box((xr - s * (hwr + 0.004), y0 + L / 2, z), (0.008, L * 0.97, hhr * 1.1), E, "flat",
+              what="conducteur_lum")
         if k >= 0.9:
             for i in range(int(L * 0.9 / 0.11)):
                 g.dome((xr + s * (hwr + 0.002), y0 + 0.08 + i * 0.11, z + hhr * 0.55), (s, 0, 0), 0.013, M["rivet"])
@@ -524,9 +543,9 @@ def _gun12(g, x, y0, z, L, nb, rb, rr):
           "hard", what="culasse_dorsale")
     g.box((x, (y0 - 0.04 + yb_) / 2, z + ro * 0.99), (0.3 * k, yb_ - y0 + 0.04, 0.025), M["jacket"], "hard",
           what="arete")
-    for i in range(4):   # plots chromés entre les anneaux (sans les toucher)
-        g.box((x, y0 + L * (0.18 + 0.12 * i), z + ro * 0.99 + 0.016), (0.12 * k, 0.03, 0.01), M["ring"], "hard",
-              what="plot")
+    for i in range(3):   # passe 5 : LUEUR CYAN GLACÉ CONTINUE entre les anneaux (juges de la passe 4), sur le dos
+        g.box((x, y0 + L * (0.18 + 0.12 * i), z + ro * 0.99 + 0.014),
+              (0.08 * k, L * 0.12 - w - 0.02, 0.008), E, "flat", what="lueur_continue")
     # anneau-bouche : cadre chromé autour des rails, fente cyan, rosace éclairée au centre
     ym = y0 + L + 0.035
     ow = sep + hwr + 0.04
@@ -632,7 +651,7 @@ def tete(g, c):
     for s in (-1, 1):
         x = s * bx * 0.55
         y = (yb0 + yb1) / 2 - 0.05
-        g.cyl((x, y, znac + 0.22), "z", 0.13, 0.44, M["jacket"], n=24, what="dewar")
+        g.cyl((x, y, znac + 0.22), "z", 0.13, 0.44, M["frost"], n=24, what="dewar")
         for zz in (0.08, 0.3):
             g.tube_shell((x, y, znac + zz), "z", 0.15, 0.12, 0.04, M["ring"], n=24, what="collier")
         g.cyl((x, y, znac + 0.48), "z", 0.06, 0.08, M["ring"], n=16, what="col")

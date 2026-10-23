@@ -90,7 +90,7 @@ def socle(g, c):
     cables(g, [(-1.62, Y(-0.25), 0.4), (-1.42, Y(-0.3), 0.6), (-1.18, Y(-0.35), 0.68)])
     # nord-ouest : caisson caréné posé en biais
     with at(g, -1.72, 2.02, -0.55):
-        faired_box(g, -0.42, 0.42, -0.32, 0.32, 0.4, louvers=1, cables=False)
+        faired_box(g, -0.42, 0.42, -0.32, 0.32, 0.4, louvers=0, cables=False)
     # est : caisson caréné (à la place des réservoirs)
     faired_box(g, 1.74, 2.36, Y(-0.6), Y(1.15), 0.74, louvers=0)
     # sud-ouest : armoire de commande
@@ -116,7 +116,7 @@ def west(g):
     M = g.M
     x0, x1, y0, y1, h = -2.42, -1.62, Y(-0.95), Y(1.25), 0.52
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    faired_box(g, x0 + 0.02, x1 - 0.02, y0, y1, h + 0.08, louvers=1, cables=False)
+    faired_box(g, x0 + 0.02, x1 - 0.02, y0, y1, h + 0.08, louvers=0, cables=True)
     # antenne-fouet et boîtier sur le toit (fine, hors masse)
     g.box((cx - 0.15, y1 - 0.3, h + 0.13), (0.14, 0.12, 0.08), M["matte"], "hard", what="boitier")
     g.cyl((cx - 0.15, y1 - 0.3, h + 0.4), "z", 0.006, 0.46, M["steel_dk"], n=6, what="antenne")
@@ -146,11 +146,27 @@ def faired_box(g, x0, x1, y0, y1, h, louvers=3, cables=True):
         g.grille(q, 6, depth=0.02, slat_mat=M["steel_dk"])
         for (u, v) in ((-0.5, -0.12), (0.2, -0.12), (0.2, 0.12), (-0.5, 0.12)):
             g.dome((cx + hx * u, yy + v * 1.15, h + 0.01), (0, 0, 1), 0.012, M["rivet"])
-    # nappes de câbles rouges et bleus dans une goulotte sur le toit, côté est
+    # passe 5, ronde 1 (juges de la passe 4 : « deux grands caissons gris clair plats ») : CARÉNAGE À FENTES, fentes
+    # de ventilation longitudinales noires en 2 colonnes sur le toit (pas de trous ronds, catalogue §B époque 10), et
+    # voyants bleus PAR PAIRES aux extrémités des fentes
+    nf = max(2, int((y1 - y0 - 0.3) / 0.36))
+    for col_ in (-0.12, 0.18):
+        for i in range(nf):
+            ya_ = y0 + 0.15 + (y1 - y0 - 0.3) * i / nf
+            yb_ = y0 + 0.15 + (y1 - y0 - 0.3) * (i + 1) / nf - 0.07
+            for j in range(3):
+                g.box((cx + hx * col_ + (j - 1) * 0.045, (ya_ + yb_) / 2, h + 0.005), (0.022, yb_ - ya_, 0.006),
+                      M["void"], "flat", what="fente")
+            if i % 2 == 0:
+                for j in range(2):
+                    g.box((cx + hx * col_ + (j - 0.5) * 0.05, yb_ + 0.035, h + 0.006), (0.03, 0.022, 0.006), E,
+                          "flat", what="voyant")
+    # nappes de câbles rouges et bleus dans une goulotte sur le toit, côté est (passe 5 : nappes plus larges, lisibles
+    # au zoom 1)
     if cables:
-        g.box((cx + hx * 0.55, cy, h + 0.02), (0.14, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
-        F.ribbon(g, [(cx + hx * 0.52, y0 + 0.1, h + 0.04), (cx + hx * 0.52, y1 - 0.1, h + 0.04)], 0.05, M["cable_a"])
-        F.ribbon(g, [(cx + hx * 0.6, y0 + 0.1, h + 0.041), (cx + hx * 0.6, y1 - 0.1, h + 0.041)], 0.04, M["cable_b"])
+        g.box((cx + hx * 0.62, cy, h + 0.02), (0.2, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
+        F.ribbon(g, [(cx + hx * 0.56, y0 + 0.1, h + 0.04), (cx + hx * 0.56, y1 - 0.1, h + 0.04)], 0.075, M["cable_a"])
+        F.ribbon(g, [(cx + hx * 0.7, y0 + 0.1, h + 0.041), (cx + hx * 0.7, y1 - 0.1, h + 0.041)], 0.065, M["cable_b"])
     # voyants par groupes, petit écran, face sud
     P3.lamp_group(g, (cx - hx * 0.6, y0 - 0.005, h * 0.55), (1, 0, 0), (0, -1, 0), E, M, n=3)
     P3.screen(g, (cx + hx * 0.35, y0 - 0.005, h * 0.5), (0, -1, 0), 0.14, 0.08, M, E)

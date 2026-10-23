@@ -40,11 +40,15 @@ RECV = ("jacket", "olive")
 
 
 def matieres(metal, M):
-    """Titane : titane patiné (moyen), alliage blanc PATINÉ (accents larges : manchons, ailerons, colliers)."""
+    """Titane : titane patiné (moyen), alliage blanc PATINÉ (accents larges : manchons, ailerons, colliers).
+    Passe 5, ronde 1 : titane et alliage en métal semi-diffus (métallicité 0,45 au lieu de 0,88 et 0,55 : un métal
+    pur renvoie le ciel sombre et se lit noir vu de dessus, fait du kit en pose N), titane légèrement bleuté, alliage
+    bleu-blanc clair (juges de la passe 4 : « titane brossé bleu-blanc clair ») ; ailerons radiaux 1,4 fois plus
+    grands (envergure 0,6 t au lieu de 0,42)."""
     rust = (0.24, 0.085, 0.03)
-    metal("jacket", (0.31, 0.315, 0.32), rough=0.3, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
+    metal("jacket", (0.34, 0.36, 0.39), rough=0.32, met=0.45, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
           dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
-    metal("ring", (0.55, 0.53, 0.48), rough=0.42, met=0.55, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
+    metal("ring", (0.62, 0.64, 0.66), rough=0.4, met=0.45, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
           ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
@@ -516,7 +520,7 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
             for (u, w) in hexs[:3] + hexs[5:]:
                 g.dome((x + u * rr_ * 1.0, y0 + f * Ls + 0.04, z + w * rr_ * 1.0), (u, 0, w), 0.012, M["rivet"])
     # AILERONS RADIAUX EN X (4 diagonales ; pas d'aileron vers le sol), grand empennage puis petit empennage
-    for (yy, span, chord) in ((y0 + 0.3 * k, 0.42 * k, 0.6 * k), (y0 + Ls + 0.12 * k, 0.2 * k, 0.3 * k)):
+    for (yy, span, chord) in ((y0 + 0.3 * k, 0.6 * k, 0.75 * k), (y0 + Ls + 0.12 * k, 0.28 * k, 0.36 * k)):
         r0 = rad(yy)
         for d in F.ring_dirs(4, math.pi / 4, -0.9):
             if d.z < 0 and yy < y0 + 0.5 * k:
