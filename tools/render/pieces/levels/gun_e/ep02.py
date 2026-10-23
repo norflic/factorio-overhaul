@@ -39,8 +39,16 @@ FOYER = dict(rgb=(1.0, 0.13, 0.025))
 CANON = dict(L=0.85, nb=3, rb=0.05, rr=0.08)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.6)
-HABILLAGE = dict(jupe_cerclage="blackiron", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
-                 chapeau="brass")
+# passe 5, ronde 1 (consigne du DC du 23/10 : « une autre évolution » d'un âge à l'autre, pas des accessoires) : TOUT
+# le corps passe à la FORGE : pont de TÔLES de fer martelé gris à gros rivets, coupole et capots de fer martelé
+# (C1 ≥ 60 demandé par les juges : fer gris moyen, pas noir), plaques de BRIQUE réfractaire rouge (nacelle, masque,
+# tourelleau, bandes de la couronne), acier de structure en fer noir forgé, rivets de fer clair.
+HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
+                 chapeau="fer_clair_f", capots=("fer_martele", "brique"), acier=("fer_noir", "fer_clair_f"),
+                 rivets="fer_clair_f", joints="mortier", danger=("brique", "fer_noir"), peinture="brique",
+                 tourelleau="brique", grille_nacelle="fer_noir",
+                 plateforme=dict(motif="toles", pas=0.42, mat="tole_forge", mat2="tole_forge2", bord="fer_noir",
+                                 boulons="fer_clair_f", relief=0.5))
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
 ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("bolted", "rawiron"),
           recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="bolted", gmask=("bolted", "rawiron"),
@@ -51,8 +59,23 @@ ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_m
 def matieres(metal, M):
     """Tôle de bouclier forgée (acier martelé plus clair que le corps, arêtes usées très claires : le bouclier se lit
     au zoom 1 comme la tôle claire de la mitrailleuse vanilla) et fer chaud (bout de barre sortant du foyer)."""
-    metal("forgeplate", (0.44, 0.41, 0.36), rough=0.44, met=0.75, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
+    metal("forgeplate", (0.46, 0.43, 0.38), rough=0.46, met=0.45, grain=0.24, gscale=30.0, rust=(0.22, 0.08, 0.03),
           ra=0.16, dirt=0.8, stain=0.6, sscale=5.0, wear=2.8, streak=0.45, mottle=0.35)
+    # passe 5 : matières du CORPS de forge (grandes masses peu métalliques : un métal pur reste sombre sous ce soleil)
+    rust = (0.24, 0.085, 0.03)
+    metal("fer_martele", (0.25, 0.235, 0.215), rough=0.5, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.18,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=2.2, mottle=0.45)
+    metal("tole_forge", (0.2, 0.19, 0.175), rough=0.55, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.25,
+          dirt=0.8, stain=0.55, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("tole_forge2", (0.16, 0.15, 0.14), rough=0.55, met=0.45, grain=0.3, gscale=22.0, rust=rust, ra=0.35,
+          dirt=0.8, stain=0.55, sscale=5.0, wear=1.6, mottle=0.4)
+    metal("fer_noir", (0.07, 0.064, 0.058), rough=0.5, met=0.5, grain=0.3, rust=rust, ra=0.25, dirt=0.7, stain=0.4,
+          wear=2.4)
+    metal("fer_clair_f", (0.36, 0.34, 0.31), rough=0.45, met=0.45, grain=0.12, dirt=0.4, stain=0.1, wear=0.8,
+          reflet="fin")
+    metal("brique", (0.36, 0.11, 0.05), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.85, stain=0.6, sscale=5.0,
+          wear=0.8, mottle=0.35)
+    metal("mortier", (0.1, 0.085, 0.07), rough=0.9, met=0.0, grain=0.2, dirt=0.4, stain=0.0)
 
 
 def _halo(g, pts, power):

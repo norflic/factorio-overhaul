@@ -37,8 +37,14 @@ PLATEFORME = dict(chanfrein=0.75)
 # (munitions en cartouches rouges et galvanisé, bouchons rouges) ; GRANDS CAPOTS jaune délavé (clé « capots » du kit :
 # coupole, colonne, nacelle, masque) et plaques secondaires galvanisées : la machine se lit jaune et gris, jamais
 # laiton.
+# Ronde 1 reprise après la consigne du DC du 23/10 (TOUT le bâtiment change d'âge) : pont de TÔLES larmées
+# galvanisées claires bordées de jaune de sécurité, acier de structure galvanisé sombre et galvanisé clair, rivets
+# galvanisés, joints de caoutchouc noir, peinture rouge des vannes. Lecture : plate-forme pétrolière jaune et grise.
 HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("redpaint", "galva"),
-                 chapeau="galva", capots=("jaune_capot", "galva"))
+                 chapeau="galva_capot", capots=("jaune_capot", "galva_capot"), acier=("galva_sombre", "galva_capot"),
+                 rivets="galva_capot", joints="rubber", tourelleau="jaune_capot",
+                 plateforme=dict(motif="toles", pas=0.5, mat="tole_larmee", mat2="tole_larmee2", bord="jaune_capot",
+                                 boulons="galva_capot", relief=0.2))
 ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
           recv_mats=("yellowpaint", "yellowpaint"), recv_sig="stripes", feed="barrels", skirt="galva",
           appl="yellowpaint", gmask=("yellowpaint", "galva"), arm=("olive", "steel_dk"), cap="galva",
@@ -58,6 +64,15 @@ def matieres(metal, M):
     # il tournait à l'olive brun au zoom 1)
     metal("yellowpaint", (0.38, 0.28, 0.06), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.3,
           dirt=0.75, stain=0.75, sscale=5.0, wear=2.4, streak=0.55)
+    # passe 5 : galvanisé du CORPS (peu métallique : grande masse claire, règle de reflets du kit) et tôles larmées
+    metal("galva_capot", (0.32, 0.33, 0.33), rough=0.42, met=0.4, grain=0.15, gscale=30.0, rust=rust, ra=0.12,
+          dirt=0.7, stain=0.55, sscale=5.0, wear=1.2, streak=0.35)
+    metal("galva_sombre", (0.12, 0.125, 0.13), rough=0.42, met=0.45, grain=0.15, gscale=30.0, rust=rust, ra=0.2,
+          dirt=0.75, stain=0.5, wear=1.4)
+    metal("tole_larmee", (0.24, 0.245, 0.25), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.15,
+          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
+    metal("tole_larmee2", (0.2, 0.205, 0.21), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.22,
+          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
 
 
 def _halo(g, pts, power):

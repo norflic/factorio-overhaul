@@ -31,8 +31,17 @@ NOM = "Cristal"
 KIN = 0   # rang dans l'ère III
 FOYER = dict(rgb=(0.69, 0.44, 1.0), doux=dict(force=0.8, base=(0.07, 0.035, 0.1)))
 CANON = dict(L=1.6, nb=6, rb=0.05, rr=0.125)
-HABILLAGE = dict(jupe_cerclage="bronze", tremie="brass", pochoirs=True, munitions=("bronze", "emit_soft"),
-                 grille_nacelle="bronze", chapeau="bronze")
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge ; l'ère III monte d'un cran en clarté) :
+# un SANCTUAIRE : pont de DALLES de pierre claire (calcaire) à joints violet sombre, bordé d'un liseré LUMINEUX
+# violet ; coupole et capots de BRONZE doré clair ; plaques de pierre claire ; acier de structure en bronze sombre ;
+# rivets de bronze clair ; bandes de bronze et de pierre (aucune bande de danger jaune et noire).
+HABILLAGE = dict(jupe_cerclage="bronze_clair", tremie="brass", pochoirs=False, munitions=("bronze", "emit_soft"),
+                 grille_nacelle="bronze_capot", chapeau="bronze_clair", capots=("bronze_capot", "pierre_claire"),
+                 acier=("bronze_sombre", "bronze_clair"), rivets="bronze_clair", joints="joint_violet",
+                 danger=("pierre_claire", "bronze_sombre"), peinture="bronze_sombre", tourelleau="pierre_claire",
+                 plateforme=dict(motif="dalles", pas=0.36, joint=0.014, mat="pierre_claire", mat2="pierre_claire2",
+                                 fond="joint_violet", bord="bronze_capot", boulons=None, lisere="emit_soft",
+                                 relief=0.3))
 ST = dict(jacket="bronze", brake="claws", drive="crystal", drive_mat="bronze", fin_mat="bronze", band="bronze",
           barrel="bronze", recv_mats=("bronze", "stone"), recv_sig="stone", feed="crystal_mag", skirt="bronze",
           appl="bronze", gmask=("bronze", "olive"), arm=("stone", "olive"), cap="bronze", flange_mat="stone",
@@ -43,6 +52,17 @@ def matieres(metal, M):
     """Test noir et blanc de la passe 3 : la pierre des grands aplats est plus sombre (× 0,85)."""
     metal("stone", (0.075, 0.056, 0.044), rough=0.85, met=0.0, grain=0.5 * 0.62, gscale=26.0, dirt=0.9, stain=0.8,
           stain2=0.32, sscale=5.0, wear=2.2, tone=0.85)
+    # passe 5 : matières du CORPS du sanctuaire (pierre claire non métallique, bronze peu métallique)
+    metal("pierre_claire", (0.46, 0.42, 0.38), rough=0.8, met=0.0, grain=0.3, gscale=26.0, dirt=0.75, stain=0.5,
+          sscale=5.0, wear=0.8, mottle=0.3)
+    metal("pierre_claire2", (0.4, 0.365, 0.335), rough=0.8, met=0.0, grain=0.3, gscale=26.0, dirt=0.75, stain=0.5,
+          sscale=5.0, wear=0.8, mottle=0.3)
+    metal("bronze_capot", (0.48, 0.3, 0.12), rough=0.34, met=0.45, grain=0.12, gscale=30.0, rust=(0.1, 0.2, 0.14),
+          ra=0.06, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
+    metal("bronze_sombre", (0.16, 0.095, 0.045), rough=0.4, met=0.45, grain=0.15, rust=(0.1, 0.2, 0.14), ra=0.1,
+          dirt=0.7, stain=0.4, wear=1.2)
+    metal("bronze_clair", (0.62, 0.44, 0.2), rough=0.32, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
+    metal("joint_violet", (0.06, 0.025, 0.08), rough=0.7, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
 
 
 def _halo(g, pts, power):

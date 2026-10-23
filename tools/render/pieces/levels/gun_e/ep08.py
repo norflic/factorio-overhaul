@@ -38,17 +38,34 @@ FOYER = dict(rgb=(0.72, 1.0, 0.1), doux=dict(force=0.36, base=(0.062, 0.075, 0.0
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.06)
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge) : une STATION DE MARAIS sur pilotis :
+# pont de PLANCHES de bois mouillé moussu à clous de cuivre, bordé de caoutchouc noir ; coupole et capots de CUIVRE
+# OXYDÉ vert-de-gris clair ; plaques de cuivre brun terni ; acier de structure en caoutchouc noir et vert-de-gris ;
+# bandes vert-de-gris et noir (aucun jaune : le jaune est au pétrole).
 HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitions=("verdigris", "emit_soft"),
-                 chapeau="brass")
+                 chapeau="cuivre_terni", capots=("vdg_capot", "cuivre_terni"), acier=("rubber", "vdg_capot"),
+                 rivets="cuivre_terni", joints="rubber", danger=("vdg_capot", "rubber"), peinture="cuivre_terni",
+                 tourelleau="cuivre_terni", grille_nacelle="vdg_capot",
+                 plateforme=dict(motif="planches", pas=0.15, mat="bois_mouille", mat2="bois_mousse", fond="tablier",
+                                 bord="rubber", boulons="cuivre_terni", relief=0.5))
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
           band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="verdigris",
-          gmask=("olive", "verdigris"), arm=("olive", "steel_dk"), cap="brass", col=("olive", "verdigris"),
+          gmask=("olive", "verdigris"), arm=("olive", "steel_dk"), cap="cuivre_terni", col=("olive", "verdigris"),
           nac=("olive", "verdigris"), coax=True)
 
 
 def matieres(metal, M):
     """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
     metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
+    # matières du CORPS (vert-de-gris clair peu métallique, cuivre terni, bois mouillé)
+    metal("vdg_capot", (0.2, 0.36, 0.3), rough=0.6, met=0.25, grain=0.3, gscale=26.0, rust=(0.36, 0.2, 0.1), ra=0.18,
+          dirt=0.75, stain=0.55, sscale=4.0, wear=1.4, mottle=0.45)
+    metal("cuivre_terni", (0.26, 0.15, 0.08), rough=0.5, met=0.4, grain=0.25, rust=(0.15, 0.3, 0.24), ra=0.4,
+          dirt=0.75, stain=0.5, sscale=5.0, wear=1.2)
+    metal("bois_mouille", (0.12, 0.095, 0.06), rough=0.45, met=0.0, grain=0.4, gscale=18.0, dirt=0.85, stain=0.7,
+          sscale=6.0, wear=0.6, streak=0.4)
+    metal("bois_mousse", (0.085, 0.1, 0.05), rough=0.6, met=0.0, grain=0.45, gscale=18.0, dirt=0.85, stain=0.7,
+          sscale=6.0, wear=0.6, streak=0.4)
 
 
 def _halo(g, pts, power):
@@ -72,7 +89,7 @@ def glass_vat(g, x, y, r, h, M, E):
     """Cuve de verre debout : embase de vert-de-gris boulonnée, liquide visible entre 8 côtes, cerclages laiton,
     dôme de verre et couronne, bulles. Chaque panneau de liquide est un foyer de moins de 0,05 t²."""
     g.cyl((x, y, 0.05), "z", r + 0.06, 0.1, M["verdigris"], n=24, style="soft", what="embase")
-    F.bolts_ring(g, (x, y, 0.1), (0, 0, 1), r + 0.035, 12, M["brass"], r=0.014)
+    F.bolts_ring(g, (x, y, 0.1), (0, 0, 1), r + 0.035, 12, M["cuivre_terni"], r=0.014)
     zb, zt = 0.1, h
     # passe 5 (ronde 1) : lu « fûts jaunes » par un lecteur de la ronde 0 (cylindres lumineux pleins cerclés de laiton).
     # La cuve se lit maintenant comme du VERRE À MOITIÉ PLEIN : liquide en bas (62 %), verre vide sombre au-dessus,
@@ -111,7 +128,7 @@ def glass_vat(g, x, y, r, h, M, E):
         a = TAU * kk / 4 + 0.4
         g.box((x + math.cos(a) * r * 0.45, y + math.sin(a) * r * 0.45, zt + r * 0.3), (0.025, 0.025, r * 0.55),
               M["verdigris"], "hard", R=Matrix.Rotation(0.0, 3, "Z"), what="arceau")
-    g.cyl((x, y, zt + r * 0.5), "z", 0.05, 0.06, M["brass"], n=12, what="col")
+    g.cyl((x, y, zt + r * 0.5), "z", 0.05, 0.06, M["cuivre_terni"], n=12, what="col")
     P2.gauge(g, (x, y - r - 0.03, zb + (zt - zb) * 0.25), (0, -1, 0.3), 0.045, M)
 
 
@@ -133,7 +150,7 @@ def socle_marsh(g, k):
     # nord-ouest : grand globe de verre en cage, sur pompe
     x, y = -1.42, Y(1.28)
     PT.hull(g, x - 0.34, x + 0.34, y - 0.3, y + 0.3, 0.0, 0.16, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["verdigris"], M["olive"]], rivet_step=0.1)
+            mats=[M["verdigris"], M["cuivre_terni"]], rivet_step=0.1)
     rG = 0.29
     # globe surélevé sur 4 jambes de vert-de-gris (silhouette haute au nord-ouest, distincte de la grappe du cristal)
     zl = 0.3
@@ -152,11 +169,11 @@ def socle_marsh(g, k):
               M["verdigris"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="cage")
     for zz in (-0.45, 0.0, 0.45):
         rz_ = math.sqrt(max(0.0, 1 - zz * zz)) * rG
-        g.torus((x, y, zc + zz * rG), "z", rz_ + 0.012, 0.022, M["brass"], n=32, m=6, what="ceinture")
-    g.cyl((x, y, zc + rG + 0.03), "z", 0.07, 0.07, M["brass"], n=14, what="col")
+        g.torus((x, y, zc + zz * rG), "z", rz_ + 0.012, 0.022, M["cuivre_terni"], n=32, m=6, what="ceinture")
+    g.cyl((x, y, zc + rG + 0.03), "z", 0.07, 0.07, M["cuivre_terni"], n=14, what="col")
     # ouest : station de pompage (2 corps de pompe, bonbonnes clissées)
     PT.hull(g, -1.92, -1.3, Y(-0.7), Y(0.55), 0.0, 0.36, ins=(0.03, 0.03, 0.03), panel=0.24,
-            mats=[M["verdigris"], M["olive"]], rivet_step=0.12)
+            mats=[M["verdigris"], M["cuivre_terni"]], rivet_step=0.12)
     # passe 4 : 2 COLONNES DE DÉCANTATION en verre (liquide soufré trouble) sur la station de pompage, en cage
     for yn in (-0.35, 0.25):
         zc0, zc1 = 0.36, 0.98
@@ -173,14 +190,14 @@ def socle_marsh(g, k):
             g.box((-1.61 + math.cos(a) * 0.105, Y(yn) + math.sin(a) * 0.105, (zc0 + zc1) / 2),
                   (0.026, 0.026, zc1 - zc0), M["verdigris"], "hard", what="cage")
         for zz in (zc0 + 0.02, (zc0 + zc1) / 2, zc1 - 0.02):
-            g.tube_shell((-1.61, Y(yn), zz), "z", 0.122, 0.09, 0.03, M["brass"], n=20, what="cerclage")
+            g.tube_shell((-1.61, Y(yn), zz), "z", 0.122, 0.09, 0.03, M["cuivre_terni"], n=20, what="cerclage")
         g.cyl((-1.61, Y(yn), zc1 + 0.03), "z", 0.08, 0.06, M["verdigris"], n=16, what="chapeau")
-        g.cyl((-1.61, Y(yn), zc1 + 0.08), "z", 0.03, 0.05, M["brass"], n=10, what="col")
+        g.cyl((-1.61, Y(yn), zc1 + 0.08), "z", 0.03, 0.05, M["cuivre_terni"], n=10, what="col")
         P2.gauge(g, (-1.61, Y(yn) - 0.12, 0.42), (0, -1, 0.3), 0.04, M)
     for (xx, yn) in ((-1.25, -0.95), (-1.05, -1.0)):
         wicker(g, (xx, Y(yn), 0.0), 0.11, M)
     for yn in (-0.6, -0.05, 0.45):
-        P2.handwheel(g, (-1.36, Y(yn), 0.42), (1, 0, 0.3), 0.05, M, mat=M["brass"])
+        P2.handwheel(g, (-1.36, Y(yn), 0.42), (1, 0, 0.3), 0.05, M, mat=M["cuivre_terni"])
         P2.gauge(g, (-1.8, Y(yn), 0.38), (0, 0, 1), 0.04, M)
     # gros conduits de caoutchouc annelé (pompes -> globe, cuves -> colonne), tronçons de verre lumineux
     g.hose([(-1.61, Y(0.25), 0.62), (-1.6, Y(0.8), 0.7), (-1.45, Y(1.05), 0.4)], 0.05, M["rubber"], step=0.035)
@@ -201,8 +218,8 @@ def jar(g, c, r, h):
     M = g.M
     x, y, z = c
     g.cyl((x, y, z + h / 2), "z", r, h, M["emit_soft"], n=14, what="bocal")
-    g.cyl((x, y, z + h + 0.012), "z", r + 0.008, 0.024, M["brass"], n=14, what="couvercle")
-    g.tube_shell((x, y, z + 0.01), "z", r + 0.008, r - 0.004, 0.02, M["brass"], n=14, what="cerclage")
+    g.cyl((x, y, z + h + 0.012), "z", r + 0.008, 0.024, M["cuivre_terni"], n=14, what="couvercle")
+    g.tube_shell((x, y, z + 0.01), "z", r + 0.008, r - 0.004, 0.02, M["cuivre_terni"], n=14, what="cerclage")
     g.box((x + r, y, z + h / 2), (0.02, 0.02, h), M["steel_dk"], "hard", what="patte")
 
 
@@ -220,7 +237,7 @@ def link(g, e, ctrl, r=0.05, kind=None):
         d = b - a
         g.cyl((a + b) / 2, d, r * 0.95, d.length, M["emit_soft"], n=14, what="tube_verre")
         for q in (a, b):
-            g.cyl(q, d, r * 1.25, 0.03, M["brass"], n=14, style="hard", what="virole")
+            g.cyl(q, d, r * 1.25, 0.03, M["cuivre_terni"], n=14, style="hard", what="virole")
     return P
 
 
@@ -270,7 +287,7 @@ def demijohn(g, c, emat, s=1.0):
     g.box((x, y, z + 0.035), (0.3 * s, 0.3 * s * SQ2 * 0.8, 0.07), M["steel_dk"], "hard", what="berceau")
     zc = z + 0.07 + r * 0.95
     F.sphere(g, (x, y, zc), r, emat, n=20, m=12, what="bonbonne")
-    g.torus((x, y, zc), "z", r + 0.004, 0.012, M["brass"], n=24, m=6, what="cerclage")
+    g.torus((x, y, zc), "z", r + 0.004, 0.012, M["cuivre_terni"], n=24, m=6, what="cerclage")
     for k in range(6):
         a = TAU * k / 6
         g.box((x + math.cos(a) * (r + 0.012), y + math.sin(a) * (r + 0.012), zc), (0.016, 0.016, r * 2.0),
@@ -285,8 +302,8 @@ def demijohn(g, c, emat, s=1.0):
     for ph in (0.45, 0.95):
         g.torus((x, y, zc + math.sin(ph) * r), "z", math.cos(ph) * r * 1.02, 0.013, M["verdigris"], n=28, m=6,
                 what="parallele")
-    g.cyl((x, y, zc + r + 0.025), "z", 0.04, 0.05, M["brass"], n=12, what="col")
-    g.cyl((x + 0.12 * s, y - 0.06 * s, z + 0.13), "z", 0.035, 0.12, M["olive"], n=12, what="pompe")
+    g.cyl((x, y, zc + r + 0.025), "z", 0.04, 0.05, M["cuivre_terni"], n=12, what="col")
+    g.cyl((x + 0.12 * s, y - 0.06 * s, z + 0.13), "z", 0.035, 0.12, M["cuivre_terni"], n=12, what="pompe")
     P2.gauge(g, (x + 0.12 * s, y - 0.06 * s - 0.036, z + 0.16), (0, -1, 0.3), 0.032, M)
     g.hose([(x + 0.12 * s, y - 0.06 * s, z + 0.19), (x + 0.08 * s, y - 0.02, zc + r * 0.7), (x, y, zc + r + 0.04)],
            0.016, M["rubber"], step=0.02)
@@ -339,7 +356,7 @@ def w_marsh(g, st, H, x, sx):
     xa_, xb_ = sorted((x + sx * (rs - 0.03), c.x))
     g.box(((xa_ + xb_) / 2, c.y, zg - 0.03), (xb_ - xa_, Lv + 0.04, 0.11), M["verdigris"], "hard", what="voile")
     for k_ in range(3):
-        g.dome(((xa_ + xb_) / 2, c.y - Lv * 0.35 + k_ * Lv * 0.35, zg + 0.027), (0, 0, 1), 0.015, M["brass"])
+        g.dome(((xa_ + xb_) / 2, c.y - Lv * 0.35 + k_ * Lv * 0.35, zg + 0.027), (0, 0, 1), 0.015, M["cuivre_terni"])
     g.cyl(c, "y", r - 0.008, Lv, M["emit_soft"], n=24, what="liquide")
     for kk in range(8):
         a = TAU * (kk + 0.5) / 8
@@ -389,7 +406,7 @@ def jk_marsh(g, st, x, y0, z, Lj, rs, H):
         c = V((x, y0 + Lj * 0.52, z)) + d * (rs + 0.004)
         g.box(c, (0.07, Lj * 0.7, 0.012), M["emit_soft"], "flat", R=Rr, what="fenetre")
         for s in (-1, 1):
-            g.box(c + Rr @ V((s * 0.045, 0, 0.006)), (0.02, Lj * 0.74, 0.02), M["brass"], "hard", R=Rr,
+            g.box(c + Rr @ V((s * 0.045, 0, 0.006)), (0.02, Lj * 0.74, 0.02), M["cuivre_terni"], "hard", R=Rr,
                   what="cadre")
         for t in range(4):
             g.box(c + Rr @ V((0, (t - 1.5) * Lj * 0.17, 0.007)), (0.09, 0.016, 0.014), M["verdigris"], "hard", R=Rr,
@@ -398,7 +415,7 @@ def jk_marsh(g, st, x, y0, z, Lj, rs, H):
             g.dome(c + Rr @ V((0.015 * ((t % 2) * 2 - 1), (t - 1) * Lj * 0.2 + 0.03, 0.008)), d, 0.011, M["emit"])
     for yy in (y0 + 0.025, y0 + Lj - 0.02):
         g.tube_shell((x, yy, z), "y", rs + 0.03, rs - 0.01, 0.05, M["rubber"], n=28, what="joint")
-        F.bolts_ring(g, (x, yy, z), (0, 1, 0), rs + 0.031, 6, M["brass"], r=0.014, skip_down=-0.3)
+        F.bolts_ring(g, (x, yy, z), (0, 1, 0), rs + 0.031, 6, M["cuivre_terni"], r=0.014, skip_down=-0.3)
 
 
 def br_nozzle(g, st, x, yb, z, rs, pos, H):
@@ -412,9 +429,9 @@ def br_nozzle(g, st, x, yb, z, rs, pos, H):
     g.torus((x, yb + 0.13, z), "y", rs + 0.03, 0.018, M["rubber"], n=28, m=8, what="collerette")
     g.cyl((x, yb + 0.128, z), "y", rs + 0.02, 0.01, M["glass_dk"], n=28, what="fond_cloche")
     g.torus((x, yb - 0.01, z), "y", rs + 0.012, 0.016, M["rubber"], n=28, m=8, what="joint")
-    F.bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.024, 6, M["brass"], r=0.014, skip_down=-0.3)
+    F.bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.024, 6, M["cuivre_terni"], r=0.014, skip_down=-0.3)
     g.cyl((x, yb + 0.134, z), "y", rs + 0.035, 0.012, M["verdigris"], n=28, what="face")
-    F.bores(g, x, yb + 0.14, z, pos, rb, M["brass"])
+    F.bores(g, x, yb + 0.14, z, pos, rb, M["cuivre_terni"])
     F.lit_ring(g, (x, yb + 0.142, z), "y", rs + 0.012, M["emit"])
 
 
@@ -449,9 +466,9 @@ def feed(g, st, H, x, sx, xo):
     bw, bl, bh = 0.18, H["L"] * 0.3, 0.2
     bx0, bx1 = sorted((xo, xo + sx * bw))
     PT.hull(g, bx0, bx1, y0 - 0.05, y0 - 0.05 + bl, zg - bh * 0.6, zg + bh * 0.4, ins=(0.015, 0.015, 0.015),
-            panel=0.24, mats=[M["verdigris"], M["olive"]], rivet_step=0.11)
+            panel=0.24, mats=[M["verdigris"], M["cuivre_terni"]], rivet_step=0.11)
     bc = (bx0 + bx1) / 2
-    g.cyl((bc, y0 + bl * 0.4, zg + bh * 0.4 + 0.03), "z", 0.05, 0.06, M["brass"], n=16, what="raccord")
+    g.cyl((bc, y0 + bl * 0.4, zg + bh * 0.4 + 0.03), "z", 0.05, 0.06, M["cuivre_terni"], n=16, what="raccord")
     P2.gauge(g, (bc, y0 - 0.06, zg), (0, -1, 0.3), 0.04, M)
 
 
@@ -471,13 +488,13 @@ def nacelle(g, c):
     bx, yb0, yb1, ztop, yc = c.nac
     rB = 0.17
     F.sphere(g, (0.0, yc, ztop + rB * 0.9), rB, M["emit_soft"], n=24, m=12)
-    g.torus((0.0, yc, ztop + rB * 0.9), "z", rB + 0.005, 0.016, M["brass"], n=28, m=6, what="cerclage")
+    g.torus((0.0, yc, ztop + rB * 0.9), "z", rB + 0.005, 0.016, M["cuivre_terni"], n=28, m=6, what="cerclage")
     for k in range(6):
         a = TAU * k / 6
         g.box((math.cos(a) * (rB + 0.012), yc + math.sin(a) * (rB + 0.012), ztop + rB * 0.9), (0.02, 0.02, rB * 1.9),
               M["verdigris"], "hard", what="cage")
     g.cyl((0.0, yc, ztop + 0.03), "z", rB * 0.85, 0.06, M["verdigris"], n=20, what="embase")
-    g.cyl((0.0, yc, ztop + rB * 1.9 + 0.02), "z", 0.04, 0.05, M["brass"], n=12, what="col")
+    g.cyl((0.0, yc, ztop + rB * 1.9 + 0.02), "z", 0.04, 0.05, M["cuivre_terni"], n=12, what="col")
     # tuyaux souples bulbe -> canons, posés sur la coupole (passe 4 : l'arc en l'air enfermait un jour de 379 px)
     R, zs, rz = H["R"], H["zs"], H["rz"]
     for sx in (-1, 1):
@@ -517,4 +534,4 @@ def tete(g, c):
         g.tube([V((math.cos(a) * rG * 1.02, -R * 0.1 + math.sin(a) * rG * 1.02, zc - 0.02)),
                 V((math.cos(a) * rG * 0.7, -R * 0.1 + math.sin(a) * rG * 0.7, zc + rG * 0.55)),
                 V((0, -R * 0.1, zc + rG * 0.77))], 0.014, M["verdigris"], n=6, what="cote")
-    g.torus((0, -R * 0.1, zc), "z", rG * 1.01, 0.02, M["brass"], n=28, m=6, what="cerclage")
+    g.torus((0, -R * 0.1, zc), "z", rG * 1.01, 0.02, M["cuivre_terni"], n=28, m=6, what="cerclage")

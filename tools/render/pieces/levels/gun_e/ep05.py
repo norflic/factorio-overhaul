@@ -36,12 +36,35 @@ FOYER = dict(rgb=(1.0, 0.08, 0.02))
 CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.5)
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge) : le corps entier est taillé dans le
+# BASALTE et coulé en FONTE : pont de dalles de basalte inégales (relief) à joints rouge sombre de roche chaude,
+# (joints du pont noirs : rouges, ils dessinaient une grille de cadres) ; coupole et capots de basalte gris froid, plaques de fonte, acier de structure en fonte noire, rivets de fonte
+# brûlée. Aucun olive ni ocre : un bloc de roche noire veinée de braise.
 HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
-                 tourelleau="tungsten", chapeau="burnrust")
+                 tourelleau="tungsten", chapeau="burnrust", capots=("basalte_capot", "fonte_v"),
+                 acier=("fonte_noire", "fonte_v"), rivets="burnrust", joints="braise_sombre",
+                 danger=("braise_sombre", "fonte_noire"), peinture="burnrust",
+                 plateforme=dict(motif="dalles", pas=0.34, joint=0.022, mat="basalte_dalle", mat2="basalte_dalle2",
+                                 fond="fonte_noire", bord="fonte_noire", boulons=None, relief=0.7))
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
           recv_mats=("tungsten", "burnrust"), recv_sig="scales", feed="armored", skirt="burnrust", appl="tungsten",
           gmask=("tungsten", "burnrust"), arm=("tungsten", "olive"), cap="burnrust", mask="glacis",
           col=("tungsten", "olive"), nac=("tungsten", "burnrust"), flange_mat="burnrust")
+
+
+def matieres(metal, M):
+    """Passe 5 : matières du CORPS du volcan (basalte rugueux non métallique, fonte peu métallique)."""
+    metal("basalte_capot", (0.115, 0.112, 0.11), rough=0.75, met=0.05, grain=0.45, gscale=26.0, dirt=0.7, stain=0.55,
+          sscale=4.0, wear=1.6, mottle=0.5)
+    metal("basalte_dalle", (0.1, 0.097, 0.095), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
+          sscale=4.0, wear=1.2, mottle=0.5)
+    metal("basalte_dalle2", (0.075, 0.072, 0.07), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
+          sscale=4.0, wear=1.2, mottle=0.5)
+    metal("fonte_v", (0.16, 0.15, 0.145), rough=0.55, met=0.45, grain=0.3, gscale=30.0, rust=(0.22, 0.07, 0.03),
+          ra=0.2, dirt=0.75, stain=0.5, wear=1.6)
+    metal("fonte_noire", (0.05, 0.047, 0.045), rough=0.55, met=0.45, grain=0.3, rust=(0.22, 0.07, 0.03), ra=0.15,
+          dirt=0.7, stain=0.4, wear=2.0)
+    metal("braise_sombre", (0.22, 0.03, 0.008), rough=0.7, met=0.0, grain=0.3, dirt=0.3, stain=0.2)
 
 
 def _halo(g, pts, power):
@@ -109,12 +132,30 @@ def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
     # creuset ouvert sur le dessus : rebord de rouille brûlée, CROÛTE DE LAVE fissurée (plus de grille orange)
     cx_, cy_ = (T[0].x + T[2].x) / 2, (T[0].y + T[2].y) / 2
     gw, gl = (T[1].x - T[0].x) * 0.62, (T[2].y - T[1].y) * 0.5
-    lava_crust(g, cx_, cy_, h + 0.02, gw, gl, M, E)
-    for s_ in (-1, 1):
-        g.box((cx_ + s_ * (gw / 2 + 0.03), cy_, h + 0.04), (0.06, gl + 0.12, 0.08), M["burnrust"], "hard",
-              what="cadre")
-        g.box((cx_, cy_ + s_ * (gl / 2 + 0.03), h + 0.04), (gw + 0.12, 0.06, 0.08), M["burnrust"], "hard",
-              what="cadre")
+    # passe 5, ronde 1 : plus de croûte de lave ENCADRÉE (lue « runes de dragon » : un glyphe dans un cadre) : une
+    # BOUCHE DE LAVE à ciel ouvert, flaque irrégulière cernée de blocs de basalte, d'où part une COULÉE qui traverse
+    # le dessus et descend en rigole le long de la face sud (lave hors des cadres, demande des juges)
+    rm = min(gw, gl)
+    F.lump(g, (cx_, cy_, h + 0.004), rm * 0.4, E, sz=0.2, n=10, m=5, jit=0.3, what="lave")
+    for i in range(7):
+        a = TAU * i / 7 + 0.3
+        if abs(a - 1.5 * math.pi) < 0.5:
+            continue   # brèche au sud : la coulée sort par là
+        F.lump(g, (cx_ + math.cos(a) * rm * 0.56, cy_ + math.sin(a) * rm * 0.6, h), 0.055 + 0.015 * (i % 3),
+               M["basalt"], sz=0.6, n=8, m=5, jit=0.3, what="scorie")
+    rng = g.rng
+    pts = [V((cx_, cy_ - rm * 0.3, h + 0.012))]
+    ytop = min((t_.y for t_ in T[:4]), key=lambda v: abs(v - Y(yn0)))
+    for i in range(1, 4):
+        pts.append(V((cx_ + 0.035 * (rng.random() - 0.5) * 2, cy_ - rm * 0.3 + (ytop - cy_ + rm * 0.3) * i / 3,
+                      h + 0.012)))
+    yb_ = Y(yn0)
+    for i in range(1, 4):
+        t = i / 3
+        pts.append(V((cx_ + 0.04 * (rng.random() - 0.5) * 2, ytop + (yb_ - ytop) * t, h * (1 - t) + 0.012)))
+    for i, (a_, b_) in enumerate(zip(pts, pts[1:])):
+        e_ = b_ - a_
+        g.cyl((a_ + b_) / 2, e_, 0.03 - 0.003 * i, e_.length + 0.02, E, n=8, style="flat", what="coulee")
     # pointes de basalte aux coins du dessus
     for i in range(spikes):
         p = T[(2 + i) % 4]

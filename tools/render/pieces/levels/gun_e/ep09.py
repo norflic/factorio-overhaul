@@ -36,8 +36,15 @@ FOYER = dict(rgb=(0.361, 1.0, 0.29))
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.36)
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'âge ; correction des juges : « dalles de
+# béton clair ») : une CENTRALE NUCLÉAIRE : pont de grandes DALLES de béton clair à joints sombres, bordé de plomb et
+# d'un liseré lumineux vert ; coupole et capots de BÉTON clair ; plaques de plomb gris ; acier de structure en plomb
+# sombre ; bandes de danger jaune et noir gardées (signalétique radioactive).
 HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
-                 grille_nacelle="lead", tourelleau="lead", chapeau="lead")
+                 grille_nacelle="lead", tourelleau="lead", chapeau="lead", capots=("beton_capot", "lead"),
+                 acier=("plomb_sombre", "lead"), rivets="lead", joints="joint_beton",
+                 plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
+                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit_soft"))
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
           recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="lead",
           gmask=("lead", "olive"), arm=("lead", "steel_dk"), cap="lead", col=("olive", "lead"),
@@ -50,8 +57,17 @@ def matieres(metal, M):
     signalisation (patiné, jamais vif : C5)."""
     metal("lead", (0.23, 0.225, 0.215), rough=0.66, met=0.35, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.25,
           dirt=0.85, stain=0.6, stain2=0.32, sscale=5.0, wear=1.4, streak=0.45)
-    metal("concrete", (0.17, 0.155, 0.135), rough=0.92, met=0.0, grain=0.5 * 0.62, gscale=30.0, dirt=0.9, stain=0.85,
-          stain2=0.32, sscale=5.0, wear=1.4, streak=0.6, tone=1.45)
+    # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4
+    metal("concrete", (0.42, 0.405, 0.375), rough=0.92, met=0.0, grain=0.3, gscale=30.0, dirt=0.9, stain=0.75,
+          stain2=0.32, sscale=5.0, wear=1.0, streak=0.5)
+    metal("beton_capot", (0.48, 0.47, 0.44), rough=0.85, met=0.0, grain=0.25, gscale=30.0, dirt=0.8, stain=0.6,
+          sscale=5.0, wear=0.8, streak=0.35)
+    metal("beton_dalle", (0.42, 0.41, 0.385), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.85, stain=0.65,
+          sscale=5.0, wear=0.6, streak=0.3)
+    metal("beton_dalle2", (0.36, 0.355, 0.335), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.85, stain=0.65,
+          sscale=5.0, wear=0.6, streak=0.3)
+    metal("joint_beton", (0.05, 0.05, 0.048), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
+    metal("plomb_sombre", (0.1, 0.102, 0.105), rough=0.6, met=0.35, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
 
 
 def _halo(g, pts, power):
@@ -71,7 +87,7 @@ def socle(g, c):
     # 3e époque de l'ère III : 1re tourelle secondaire (catalogue §A.4), au nord-ouest, sur sa dalle
     corps.dalle(g, -1.98, -1.05, Y(1.05), Y(1.98))
     with at(g, -1.56, 1.58, 0.0):
-        P2.pedestal(g, 0.36, 0.0, 0.26, 8, g.M, [g.M["olive"], g.M["steel_dk"]], gussets=False)
+        P2.pedestal(g, 0.36, 0.0, 0.26, 8, g.M, [g.M["beton_capot"], g.M["steel_dk"]], gussets=False)
         mini_turret_e(g, EPOQUE, (0, 0, 0.26), 0.82, 0.55, g.M["emit"])
     corps.collecteur(g, c, lambda g_, pts, r: link(g_, EPOQUE, pts, r))
 
@@ -125,7 +141,7 @@ def socle_atom(g, k):
     for i in range(2):
         g.box((wx - 0.06 + 0.12 * i, wy, 0.422), (0.022, 0.44, 0.022), M["lead"], "hard", what="barreau")
     # grand trèfle peint sur la dalle de béton et panneau de signalisation sur poteau (signature, lisible de haut)
-    F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.15)
+    F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.27)   # passe 5 : trèfle 1,8 fois plus grand (juges)
     sign(g, (-1.61, Y(-0.76), 0.06), 0.36, 0.62)
     # balises de radiation
     for (xx, yn) in ((-1.78, -0.55), (-1.52, -0.28), (-1.78, 0.05)):
@@ -206,7 +222,7 @@ def mini_turret_e(g, e, c, s, rz, emat):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
     PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["lead"], M["olive"]])
+            mats=[M["lead"], M["beton_capot"]])
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M["lead"], M["steel_dk"]])
         barrels(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.55 * s, 4, 0.022, 0.045 * s, M["gun"], collars=(0.75,))
@@ -527,3 +543,14 @@ def tete(g, c):
               V((R * 0.5, R + 0.24, H["zs"] - 0.08)), V((-R * 0.5, R + 0.24, H["zs"] - 0.08))], 8, t=0.008)
     # signature de coupole : bague de danger
     F.hazard_ring(g, (0, 0, H["zs"] + 0.035), "z", R * 1.03, 0.07, n=max(16, int(TAU * R / 0.14)))
+    # passe 5 (juges de la passe 4 : « UN gros hublot vert, cœur d'au moins 0,25 t, sur une tête octogonale ») : CŒUR
+    # du réacteur sur la place libre de la coupole (corps.accroche) : socle octogonal de plomb boulonné, gros hublot
+    # bombé vert uranium
+    a = corps.accroche(c, "coupole")
+    p = V((a["x"], a["y"], a["z"]))
+    rc = max(0.13, min(0.17, a["r"] * 0.62))
+    g.cyl(p, "z", rc + 0.05, 0.1, M["plomb_sombre"], n=8, style="hard", phase=math.pi / 8, what="coeur_octo")
+    g.cyl(p + V((0, 0, 0.05)), "z", rc + 0.012, 0.02, M["lead"], n=28, what="coeur_cadre")
+    F.sphere(g, p + V((0, 0, 0.055)), rc, M["emit"], n=24, m=12, sz=0.5, what="coeur")
+    F.bolts_ring(g, p + V((0, 0, 0.052)), (0, 0, 1), rc + 0.032, 8, M["rivet"], r=0.012)
+    g.halo(tuple(p + V((0, 0, 0.12))), M["_emit_rgb"], 6.0)

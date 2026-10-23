@@ -33,11 +33,36 @@ FOYER = dict(rgb=(1.0, 0.753, 0.376))
 CANON = dict(L=0.95, nb=4, rb=0.04, rr=0.078)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.2)
-HABILLAGE = dict(jupe_cerclage="brass", tremie="castiron", pochoirs=False, munitions=("brass", "copper"),
-                 grille_nacelle="copper_pol", chapeau="brass")
+# passe 5, ronde 1 (consigne du DC du 23/10 : chaque âge change TOUT le bâtiment) : la VAPEUR est une machine de
+# salon de locomotive : pont de PLANCHES de bois verni rouge sombre bordé de laiton, coupole et capots de CUIVRE poli
+# (masse claire, peu métallique pour rester lumineuse), plaques de LAITON, acier de structure en fonte vert bouteille
+# (peinture de locomotive), rivets de laiton. Rien de gris : l'écart avec la forge (fer gris et brique) se voit d'un
+# coup d'œil.
+HABILLAGE = dict(jupe_cerclage="laiton_capot", tremie="castiron", pochoirs=False, munitions=("brass", "copper"),
+                 grille_nacelle="laiton_capot", chapeau="laiton_capot", capots=("cuivre_capot", "laiton_capot"),
+                 acier=("vert_loco", "laiton_capot"), rivets="laiton_rivet", joints="bois_joint",
+                 danger=("laiton_capot", "vert_loco"), peinture="vert_loco", tourelleau="laiton_capot",
+                 plateforme=dict(motif="planches", pas=0.13, mat="bois_verni", mat2="bois_verni2", fond="bois_joint",
+                                 bord="laiton_capot", boulons="laiton_rivet", relief=0.25))
 ST = dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"),
-          jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("castiron", "olive"),
+          jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("laiton_capot", "olive"),
           arm=("olive", "castiron"), cap="brass", col=("olive", "castiron"), nac=("castiron", "olive"))
+
+
+def matieres(metal, M):
+    """Passe 5 : matières du CORPS de la vapeur (grandes masses claires peu métalliques, règle de reflets du kit)."""
+    metal("cuivre_capot", (0.56, 0.24, 0.11), rough=0.32, met=0.45, grain=0.12, gscale=30.0, rust=(0.1, 0.2, 0.12),
+          ra=0.06, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
+    metal("laiton_capot", (0.6, 0.43, 0.15), rough=0.32, met=0.45, grain=0.12, gscale=30.0, rust=(0.2, 0.12, 0.04),
+          ra=0.05, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
+    metal("laiton_rivet", (0.7, 0.52, 0.22), rough=0.3, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
+    metal("vert_loco", (0.035, 0.085, 0.05), rough=0.35, met=0.3, grain=0.12, gscale=30.0, dirt=0.65, stain=0.4,
+          sscale=5.0, wear=1.4)
+    metal("bois_verni", (0.24, 0.085, 0.035), rough=0.3, met=0.0, grain=0.35, gscale=18.0, dirt=0.6, stain=0.35,
+          sscale=6.0, wear=0.6, streak=0.3)
+    metal("bois_verni2", (0.18, 0.06, 0.026), rough=0.3, met=0.0, grain=0.35, gscale=18.0, dirt=0.6, stain=0.35,
+          sscale=6.0, wear=0.6, streak=0.3)
+    metal("bois_joint", (0.03, 0.015, 0.008), rough=0.8, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
 
 
 def _halo(g, pts, power):
@@ -123,7 +148,7 @@ def vertical_engine(g, x, yn0, yn1, M):
     vilebrequin, GRAND VOLANT à rayons face au sud, régulateur à boules sur le cylindre."""
     y0, y1 = Y(yn0), Y(yn1)
     PT.hull(g, x - 0.19, x + 0.19, y0, y1, 0.0, 0.1, ins=(0.02, 0.02, 0.02), panel=0.26,
-            mats=[M["castiron"], M["olive"]], rivet_step=0.12)
+            mats=[M["castiron"], M["vert_loco"]], rivet_step=0.12)
     yc = y1 - 0.2
     zc0, zc1 = 0.44, 0.68
     for sx_ in (-1, 1):
