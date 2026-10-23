@@ -137,6 +137,18 @@
   → lot V3-T4, lancé à 21 h 15, livré sur sa branche (`worktree-wf_9d38a6df-249-1`, tête `2b18742`) et **NON intégré** :
   la densité est tenue, la rentabilité ne l'est pas (E60 à E62, F111 à F118 ; question Q-T4-1, posée dans le chat
   vers 22 h 45, ouverte).
+- 23/10, vers 7 h 50, **retour sur les canons (pages des passes 3 et 4 de V3-E)** : « un retour sur les canonds : je les trouves parfait, même si j'attendai un peu plus de design exhautique, en fait je pense que pour les canons c'est un peu normal que ce soit comme ça, pour le reste (usines, foreuses, etc... hormis les bras mécaniques je pense (qui seront "juste plus rapide" avec un léger nouveau design peut être) le reste devra avoir plus de design surprenant, mais les canons sont vraiment bien. En fait le pour qui me dérange un peu c'est que dans clash of clans, les designs, changent vraiment beaucoup d'une évolution à une autre, et du coup on remarque vraiment la différence (bon eux ils ont pas ta problématique qui est d'augmenter la taille etc et du coup t'as parfaitement faitp, le soucis c'est vraiment quand je les vois j'ai un effet wow mais j'ai encore du mal à deviner en fait quel est le grade légende par exemple, je pense pas qu'il faille mettre à la poubelle, mais simplement revoir le niveau de différence entre chaque age en fait, et du coup la DA avec, je pense qu'on va benchmark la DA de l'age avec les canons du coup ».
+  Lecture : (1) canons « parfaits », effet « wow », style et précision gardés (rien à la poubelle) ; (2) MAIS d'un âge
+  à l'autre la différence doit être aussi franche qu'entre deux évolutions d'une défense de Clash of Clans, et la
+  Légende doit se deviner ; (3) la mitrailleuse sert d'ÉTALON pour la direction artistique de chaque âge ; (4) les
+  autres familles (usines, foreuses…) auront des designs plus surprenants encore ; les bras mécaniques seront
+  « juste plus rapides », avec au plus un léger nouveau design.
+  → passe 5 de V3-E arrêtée à 7 h 55 au début de sa ronde 1 (travail gardé : commits `4027228` et `aaf827d`), puis
+  reprise vers 8 h 05 avec un principe révisé : chaque âge change la matière de TOUT le bâtiment (second temps du kit :
+  clés d'habillage du pont, de la trémie, de l'acier, des rivets), sa silhouette (superstructures d'âge), ses canons,
+  ses tuyaux et sa lumière, avec une progression de prestige jusqu'à l'or blanc lumineux de la Légende ; nouveau test
+  à l'aveugle « des écarts » (paires d'âges de même taille notées de 1 à 5, critère Clash of Clans ; objectif moyenne
+  ≥ 4, aucune sous 3, Légende désignée comme grade ultime par tous les lecteurs) ; 4 rondes au plus.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
