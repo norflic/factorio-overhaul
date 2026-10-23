@@ -26,6 +26,18 @@ Cas de la graine (lot INT-GRAINE ; le faux factorio.exe écrit dans create-stdou
      banc précédent intact (done.txt « ancien »), aucune commande injectée exécutée ;
   9. par fo-captures.bat (qui appelle fo-autotest.bat ; fo-visual.bat remplacé par un faux) : la graine de
      FO_MAP_SEED arrive à --create ; une graine refusée donne le code 8, fo-visual.bat NON appelé, verrou rendu.
+Cas du son (lot S0, E69 ; le faux factorio.exe écrit le nombre de --disable-audio reçus et les lignes de volume
+du config.ini qu'il lit AU LANCEMENT, à la création comme au benchmark) :
+ 10. sans FO_AUDIO (cas 1 et 2) ou FO_AUDIO vide : --disable-audio une fois à la création ET au benchmark, aucune
+     section [sound] (comportement inchangé), audio.txt « son coupe » ;
+ 11. FO_AUDIO=1 : aucun --disable-audio, section [sound] avec les 9 volumes à 0.000000 déjà écrits quand le jeu
+     démarre, à la création et au benchmark, audio.txt « son ACTIF » ; en double source aussi ; le jeu reçoit
+     SDL_AUDIODRIVER=disk et SDL_DISKAUDIOFILE=<fo-autotest>\\audio-disk.raw (correction du lot S0), même si
+     l'appelant avait un autre pilote ou un autre fichier (11c) ; sans son, ces variables ne sont pas posées (10) ;
+ 12. FO_AUDIO refusée (0, « yes », « 1 » suivi d'une espace, « 11 », « % », guillemet et « & » d'injection) :
+     code 1, rien n'a tourné, verrou rendu, fo-autotest\\ précédent intact, aucune commande injectée ;
+ 13. par fo-captures.bat : FO_AUDIO=1 arrive au banc (création sans --disable-audio) ; une valeur refusée donne
+     le code 8, fo-visual.bat NON appelé.
 Code de sortie : 0 si tous les contrôles passent.
 """
 import argparse
@@ -91,7 +103,8 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
             f.write("ancien\n")
     env = {k: v for k, v in os.environ.items()
            if k.upper() not in ("FO_CREATE_SRC", "FO_LOCK_HELD", "NODEFAULTCURRENTDIRECTORYINEXEPATH",
-                                "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED")}
+                                "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO",
+                                "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE")}
     if double:
         env["FO_CREATE_SRC"] = old
     for k, v in extra.items():
@@ -112,6 +125,8 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
         "bench": bench,
         "create_out": read(os.path.join(test, "create-stdout.txt")),
         "seed": seed.strip() if seed is not None else None,
+        "audio": (read(os.path.join(test, "audio.txt")) or "").strip(),
+        "test": test,
         "visual": os.path.exists(os.path.join(root, "fo-visual-appel.txt")),
         "piege": sorted(f for f in os.listdir(root) if f.lower().startswith("piege")),
         "stdout": p.stdout,
@@ -126,6 +141,36 @@ def seed_passed(res, seed):
     """La graine `seed` a été passée telle quelle, une seule fois, sans mot de trop, et écrite dans seed.txt."""
     out = res["create_out"] or ""
     return ("create : map-gen-seed [%s] x1 argc 10" % seed) in out and res["seed"] == seed
+
+
+AUDIO_KEYS = ("master-volume", "music-volume", "game-effects-volume", "gui-effects-volume", "walking-sound-volume",
+              "environment-sounds-volume", "alerts-volume", "wind-volume", "simulation-volume")
+
+
+def audio_off(res):
+    """Son coupé comme avant : --disable-audio une fois à la création et au benchmark, aucune ligne [sound]."""
+    c, b = res["create_out"] or "", res["bench"] or ""
+    return ("create : disable-audio x1" in c and "benchmark : disable-audio x1" in b
+            and "create : config [sound] x0, 0 ligne(s) de volume" in c
+            and "benchmark : config [sound] x0, 0 ligne(s) de volume" in b
+            and "create : env SDL_AUDIODRIVER ABSENTE" in c and "benchmark : env SDL_AUDIODRIVER ABSENTE" in b
+            and "create : env SDL_DISKAUDIOFILE ABSENTE" in c and "benchmark : env SDL_DISKAUDIOFILE ABSENTE" in b
+            and res["audio"].startswith("son coupe"))
+
+
+def audio_on(res):
+    """Son actif : aucun --disable-audio ; les 9 volumes à 0 sont dans le config.ini quand le jeu démarre."""
+    c, b = res["create_out"] or "", res["bench"] or ""
+    ok = ("create : disable-audio x0" in c and "benchmark : disable-audio x0" in b
+          and "create : config [sound] x1, %d ligne(s) de volume" % len(AUDIO_KEYS) in c
+          and "benchmark : config [sound] x1, %d ligne(s) de volume" % len(AUDIO_KEYS) in b
+          and "create : env SDL_AUDIODRIVER [disk]" in c and "benchmark : env SDL_AUDIODRIVER [disk]" in b
+          and ("create : env SDL_DISKAUDIOFILE [%s]" % os.path.join(res["test"], "audio-disk.raw")) in c
+          and ("benchmark : env SDL_DISKAUDIOFILE [%s]" % os.path.join(res["test"], "audio-disk.raw")) in b
+          and res["audio"].startswith("son ACTIF") and "SDL_AUDIODRIVER=disk" in res["audio"])
+    for k in AUDIO_KEYS:
+        ok = ok and ("create : config %s=0.000000" % k) in c and ("benchmark : config %s=0.000000" % k) in b
+    return ok
 
 
 def main():
@@ -206,6 +251,44 @@ def main():
     else:
         fail += 1
         print("ECHEC  9. fo-captures.bat introuvable : %s" % a.captures)
+
+    # --- son (lot S0, E69) ---
+    check(audio_off(r1), "10a. sans FO_AUDIO : --disable-audio a la creation et au benchmark (inchange)", r1)
+    check(audio_off(r2), "10b. double source sans FO_AUDIO : son coupe", r2)
+    r = run_case(base, a.bat, bins, "10c son vide", False, {"FO_AUDIO": ""})
+    check(r["rc"] == 0 and r["done"] and not r["lock"] and audio_off(r) and seed_passed(r, DEFAULT_SEED),
+          "10c. FO_AUDIO vide : son coupe, comme sans variable", r)
+    r = run_case(base, a.bat, bins, "11a son actif", False, {"FO_AUDIO": "1"})
+    check(r["rc"] == 0 and r["done"] and not r["lock"] and audio_on(r)
+          and ("create : map-gen-seed [%s] x1 argc 9" % DEFAULT_SEED) in (r["create_out"] or ""),
+          "11a. FO_AUDIO=1 : sans --disable-audio, 9 volumes a 0 avant chaque lancement", r)
+    r = run_case(base, a.bat, bins, "11b son actif double source", True, {"FO_AUDIO": "1"})
+    check(r["rc"] == 0 and r["done"] and r["create_source"] and not r["lock"] and audio_on(r)
+          and r["bench"] and '"0.4.2"' in r["bench"] and "marker-old.txt absent" in r["bench"],
+          "11b. FO_AUDIO=1 en double source : volumes a 0 aux deux lancements", r)
+    r = run_case(base, a.bat, bins, "11c son actif pilote herite", False,
+                 {"FO_AUDIO": "1", "SDL_AUDIODRIVER": "wasapi", "SDL_AUDIO_DEVICE_NAME": "Haut-parleurs",
+                  "SDL_DISKAUDIOFILE": "C:\\ailleurs.raw"})
+    check(r["rc"] == 0 and r["done"] and not r["lock"] and audio_on(r),
+          "11c. FO_AUDIO=1 avec SDL_AUDIODRIVER=wasapi herite de l'appelant : le jeu recoit disk et un fichier de sortie du dossier de test", r)
+    bad_audio = ["0", "yes", "1 ", "11", "%CD%", '1" & echo PIEGE> piege3.txt & rem "', "1&echo PIEGE>piege4.txt"]
+    for i, given in enumerate(bad_audio):
+        r = run_case(base, a.bat, bins, "12%02d son refuse" % i, False, {"FO_AUDIO": given}, previous=True)
+        check(r["rc"] == 1 and "FO_AUDIO" in r["stdout"] and r["create_out"] is None and r["seed"] is None
+              and r["done_text"] == "ancien" and not r["lock"] and not r["piege"],
+              "12.%02d FO_AUDIO=[%s] refusee : code 1, rien n'a tourne" % (i, given), r)
+    if a.captures and os.path.exists(a.captures):
+        r = run_case(base, a.bat, bins, "13a captures son", False, {"FO_AUDIO": "1"}, captures=a.captures)
+        check(r["rc"] == 0 and r["visual"] and not r["lock"] and audio_on(r),
+              "13a. fo-captures.bat avec FO_AUDIO=1 : banc sans --disable-audio, volumes a 0", r)
+        r = run_case(base, a.bat, bins, "13b captures son refuse", False, {"FO_AUDIO": "oui"},
+                     captures=a.captures, previous=True)
+        check(r["rc"] == 8 and not r["visual"] and not r["lock"] and r["done_text"] == "ancien"
+              and r["create_out"] is None,
+              "13b. fo-captures.bat avec FO_AUDIO=oui : code 8, session visuelle non lancee", r)
+    else:
+        fail += 1
+        print("ECHEC  13. fo-captures.bat introuvable : %s" % a.captures)
     print("BILAN : %d OK, %d ECHEC(S)  (bat : %s)" % (ok, fail, a.bat))
     if a.keep:
         print("racines gardees :", base)

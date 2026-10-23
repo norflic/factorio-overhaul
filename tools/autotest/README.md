@@ -38,7 +38,8 @@ fo-captures.bat [scenario] [source du mod] [fenetre]
                sinon <racine>\mods\factorio-overhaul
     fenetre  : min (défaut) | small | normal
 fo-autotest.bat [nopause] [ticks] [scenario] [source]      (défaut : fo-autotest-params.txt)
-    variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2)
+    variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2),
+                             FO_AUDIO (1 : son actif sans sortie audio, pilote SDL disk et garde de crête, §1.3)
 fo-visual.bat   [nopause] [fenetre] [delai_s]              (défaut : min, 900 s)
 ```
 
@@ -210,7 +211,56 @@ Banc hors jeu (faux `factorio.exe`, racines jetables, aucun accès à la racine 
 source, plus défaut 20261020 (sans variable et en double source), variable vide → défaut, 6 graines acceptées (dont
 4294967295, 0, zéros de tête, et en double source), 10 graines refusées (rien n'a tourné, aucune commande injectée
 exécutée), et le passage par `fo-captures.bat` (graine transmise ; graine refusée → code 8). Sur le `.bat` d'avant
-le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC.
+le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC. Depuis le lot S0 : 40 OK (cas 10 à 13 du son, §1.3).
+
+### 1.3 Son actif SANS sortie audio : `FO_AUDIO` (lot S0, E69 ; corrigé après la vérification)
+Par défaut, tous les bancs passent `--disable-audio` : aucun son n'est chargé, et un fichier son manquant ne se voit
+pas. **`FO_AUDIO=1`** lance la session SANS `--disable-audio`, pour que le jeu CHARGE les fichiers son, mais sans
+rien envoyer aux haut-parleurs du PC :
+```
+$env:FO_AUDIO = '1'
+& "<racine>\fo-captures.bat" gun-rose "<source>"
+$env:FO_AUDIO = $null
+```
+- **Pilote SDL `disk`** : le `factorio.exe` de test, et lui seul, reçoit `SDL_AUDIODRIVER=disk` et
+  `SDL_DISKAUDIOFILE=<dossier de test>\audio-disk.raw` (`visual_session.py` : environnement du seul processus lancé ;
+  `fo-autotest.bat` : variables locales au script). Ce pilote (« direct-to-disk audio », chaînes du binaire 1.1.91)
+  n'ouvre aucun périphérique : la sortie mixée du jeu est écrite dans le fichier (16 bits, 2 voies, 44 100 Hz,
+  au rythme réel), puis mesurée dans `session.txt` (« sortie du pilote disk : … crête … RMS … »). Le journal doit dire
+  « [Audio] Backend:SDL(default); Driver:disk » puis « Loading sounds... » : sinon code 10. **« dummy » n'existe pas**
+  dans le SDL du jeu : « Audio target 'dummy' not available », « SDL_AUDIODRIVER is set to "dummy". Resetting... »,
+  puis le jeu RETOMBE sur wasapi (vraie sortie).
+- **Garde de crête** (`audio_guard.py`, lecture seule) : toutes les 10 ms, les sessions audio Windows (WASAPI) de toutes
+  les sorties actives ; si le processus de test y a une session (vraie sortie ouverte) ou une crête non nulle, il est
+  TUÉ tout de suite (son PID seulement) et le pilote rend le **code 10**. Garde indisponible : code 1, rien n'est
+  lancé. Un pilote autre que `disk` lu dans le journal tue aussi la session (code 10). Rapport du garde dans
+  `session.txt` (« garde de crete : … sessions audio Windows du processus de test : 0 … crete max 0.000000 »).
+- **Les volumes à 0 ne coupent PAS le son** (F152) : les 9 clés de la section `[sound]` (`master-volume`,
+  `music-volume`, `game-effects-volume`, `gui-effects-volume`, `walking-sound-volume`, `environment-sounds-volume`,
+  `alerts-volume`, `wind-volume`, `simulation-volume`) restent écrites à 0 dans le `config.ini` DE TEST et relues avant
+  le lancement, mais avec le pilote wasapi la session a émis −34,6 dBFS de crête (vérification du lot), et la sortie
+  du pilote disk avec ces 9 clés à 0 est, de 10 à 24 s, le MÊME signal qu'avec les volumes par défaut (corrélation
+  1,000, écart 0,00 dB ; seules les 7 premières secondes diffèrent). Elles ne sont qu'une précaution de plus.
+- **Seule la session avec images charge les sons** (E69) : en `--create` et `--benchmark` (« headless »), le journal
+  est le même avec ou sans `--disable-audio`, et un son manquant passe sans erreur. En `--benchmark-graphics` avec le
+  pilote disk, un son manquant donne « Error SoundLibrary.cpp:56: Missing sound when loading sound library:
+  <fichier> » et `visual_session.py` s'arrête dès cette ligne (code 7). Donc : `fo-captures.bat` avec `FO_AUDIO=1`
+  est LE banc des fichiers son ; `fo-autotest.bat` seul ne les charge pas.
+- Valeurs : absente ou vide → son coupé, comme avant ; « 1 » → son actif ; toute autre valeur → `fo-autotest.bat`
+  rend le code 1 AVANT le verrou (`fo-captures.bat` : code 8), `visual_session.py` le code 1. Lue en expansion
+  retardée seulement, comme `FO_MAP_SEED` : aucune commande injectée ne s'exécute (cas 12 du banc hors jeu).
+- Comme les autres variables, la vider après usage : `$env:FO_AUDIO = $null`.
+- Preuve du silence (lot S0, correction, 23/10) : garde « 0 session, 0 relevé non nul » sur 2 429 tours ; relevé
+  WASAPI indépendant pendant toute la session (`fo-logs\2026-10-24_S0\correction\meter-*.txt`) : aucune session du
+  jeu, crête 0,000000 sur toutes les sorties.
+
+Bancs hors jeu : `bat_double_source/run.py` (cas 10 à 13 : défaut inchangé, sans variable SDL ; son actif aux deux
+lancements avec `SDL_AUDIODRIVER=disk` et le fichier de sortie du dossier de test, même si l'appelant avait un autre
+pilote ; valeurs refusées ; passage par `fo-captures.bat`), `python -B tools/autotest/tests/test_audio_session.py` →
+« BILAN : 21 OK » (filtre, `prepare`, mutants du `config.ini`, ligne d'erreur réelle reconnue, ligne de commande,
+environnement, pilote lu dans le journal, mesure de la sortie disk) et `python -B tools/autotest/tests/test_audio_guard.py`
+→ « BILAN : 4 OK » (garde sur la VRAIE sortie du PC : témoin négatif silencieux, témoin positif de 30 Hz à −70 dBFS,
+inaudible, vu et TUÉ en moins de 1 s).
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 

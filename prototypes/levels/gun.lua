@@ -19,11 +19,25 @@
   Bouche (E68) : projectile_creation_distance et projectile_center mesurés par âge sur les sprites (sprites.lua,
   « tir » : étalonnage sur la vanilla, feuilles.py) ; douilles : point vanilla à l'échelle de l'emprise.
   Reste et explosion : copies déclarées (ctx.declare) de celles de la vanilla, agrandies à l'emprise.
+  Son du tir (lot S0) : attack_parameters.sound de l'ÈRE de l'âge (ère = (âge − 1) // 3 + 1 : âges 1-3, 4-6, 7-9,
+  10-12, 13-15), 4 variations dérivées des 4 tirs vanilla, volume du prototype vanilla (0,4) ; fichiers et liste :
+  sound/levels/gun/ (sons.lua généré par tools/sound/sons.py ; volume jamais au-dessus de la vanilla, mesuré).
 ]]
 
 local SPR = require("__factorio-overhaul__/graphics/levels/gun/sprites")
+local SONS = require("__factorio-overhaul__/sound/levels/gun/sons")
 
 local M = {}
+
+--- Son du tir de l'âge : les variations de son ère (même forme que sounds.gun_turret_gunshot de la vanilla).
+local function son_tir(age)
+  local ere = math.floor((age - 1) / 3) + 1
+  local liste = SONS.eres[ere]
+  assert(liste and #liste > 0, "gun.lua : ère " .. ere .. " absente de sound/levels/gun/sons.lua")
+  local s = {}
+  for i, f in ipairs(liste) do s[i] = { filename = f, volume = SONS.volume } end
+  return s
+end
 
 -- Drapeaux de chaque couche (même convention que prototypes/vitrine.lua, lot V0b).
 local function flags_couche(t, kind)
@@ -87,6 +101,8 @@ local TETE = { "folded_animation", "preparing_animation", "prepared_animation", 
 
 function M.dress(p, ctx)
   local e = ctx.epoch
+  -- Son du tir (lot S0) : seul champ sonore touché ; le niveau 1 (vanilla) n'est jamais habillé.
+  p.attack_parameters.sound = son_tir(e)
   if e == 1 then
     -- Niveau 2 : la pièce e01 SOUS la mitrailleuse vanilla (couches insérées en tête du socle vanilla).
     local base = p.base_picture
