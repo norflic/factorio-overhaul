@@ -31,7 +31,9 @@ du config.ini qu'il lit AU LANCEMENT, à la création comme au benchmark) :
  10. sans FO_AUDIO (cas 1 et 2) ou FO_AUDIO vide : --disable-audio une fois à la création ET au benchmark, aucune
      section [sound] (comportement inchangé), audio.txt « son coupe » ;
  11. FO_AUDIO=1 : aucun --disable-audio, section [sound] avec les 9 volumes à 0.000000 déjà écrits quand le jeu
-     démarre, à la création et au benchmark, audio.txt « son ACTIF » ; en double source aussi ;
+     démarre, à la création et au benchmark, audio.txt « son ACTIF » ; en double source aussi ; le jeu reçoit
+     SDL_AUDIODRIVER=disk et SDL_DISKAUDIOFILE=<fo-autotest>\\audio-disk.raw (correction du lot S0), même si
+     l'appelant avait un autre pilote ou un autre fichier (11c) ; sans son, ces variables ne sont pas posées (10) ;
  12. FO_AUDIO refusée (0, « yes », « 1 » suivi d'une espace, « 11 », « % », guillemet et « & » d'injection) :
      code 1, rien n'a tourné, verrou rendu, fo-autotest\\ précédent intact, aucune commande injectée ;
  13. par fo-captures.bat : FO_AUDIO=1 arrive au banc (création sans --disable-audio) ; une valeur refusée donne
@@ -101,7 +103,8 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
             f.write("ancien\n")
     env = {k: v for k, v in os.environ.items()
            if k.upper() not in ("FO_CREATE_SRC", "FO_LOCK_HELD", "NODEFAULTCURRENTDIRECTORYINEXEPATH",
-                                "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO")}
+                                "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO",
+                                "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE")}
     if double:
         env["FO_CREATE_SRC"] = old
     for k, v in extra.items():
@@ -123,6 +126,7 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
         "create_out": read(os.path.join(test, "create-stdout.txt")),
         "seed": seed.strip() if seed is not None else None,
         "audio": (read(os.path.join(test, "audio.txt")) or "").strip(),
+        "test": test,
         "visual": os.path.exists(os.path.join(root, "fo-visual-appel.txt")),
         "piege": sorted(f for f in os.listdir(root) if f.lower().startswith("piege")),
         "stdout": p.stdout,
@@ -149,6 +153,8 @@ def audio_off(res):
     return ("create : disable-audio x1" in c and "benchmark : disable-audio x1" in b
             and "create : config [sound] x0, 0 ligne(s) de volume" in c
             and "benchmark : config [sound] x0, 0 ligne(s) de volume" in b
+            and "create : env SDL_AUDIODRIVER ABSENTE" in c and "benchmark : env SDL_AUDIODRIVER ABSENTE" in b
+            and "create : env SDL_DISKAUDIOFILE ABSENTE" in c and "benchmark : env SDL_DISKAUDIOFILE ABSENTE" in b
             and res["audio"].startswith("son coupe"))
 
 
@@ -158,7 +164,10 @@ def audio_on(res):
     ok = ("create : disable-audio x0" in c and "benchmark : disable-audio x0" in b
           and "create : config [sound] x1, %d ligne(s) de volume" % len(AUDIO_KEYS) in c
           and "benchmark : config [sound] x1, %d ligne(s) de volume" % len(AUDIO_KEYS) in b
-          and res["audio"].startswith("son ACTIF"))
+          and "create : env SDL_AUDIODRIVER [disk]" in c and "benchmark : env SDL_AUDIODRIVER [disk]" in b
+          and ("create : env SDL_DISKAUDIOFILE [%s]" % os.path.join(res["test"], "audio-disk.raw")) in c
+          and ("benchmark : env SDL_DISKAUDIOFILE [%s]" % os.path.join(res["test"], "audio-disk.raw")) in b
+          and res["audio"].startswith("son ACTIF") and "SDL_AUDIODRIVER=disk" in res["audio"])
     for k in AUDIO_KEYS:
         ok = ok and ("create : config %s=0.000000" % k) in c and ("benchmark : config %s=0.000000" % k) in b
     return ok
@@ -257,6 +266,11 @@ def main():
     check(r["rc"] == 0 and r["done"] and r["create_source"] and not r["lock"] and audio_on(r)
           and r["bench"] and '"0.4.2"' in r["bench"] and "marker-old.txt absent" in r["bench"],
           "11b. FO_AUDIO=1 en double source : volumes a 0 aux deux lancements", r)
+    r = run_case(base, a.bat, bins, "11c son actif pilote herite", False,
+                 {"FO_AUDIO": "1", "SDL_AUDIODRIVER": "wasapi", "SDL_AUDIO_DEVICE_NAME": "Haut-parleurs",
+                  "SDL_DISKAUDIOFILE": "C:\\ailleurs.raw"})
+    check(r["rc"] == 0 and r["done"] and not r["lock"] and audio_on(r),
+          "11c. FO_AUDIO=1 avec SDL_AUDIODRIVER=wasapi herite de l'appelant : le jeu recoit disk et un fichier de sortie du dossier de test", r)
     bad_audio = ["0", "yes", "1 ", "11", "%CD%", '1" & echo PIEGE> piege3.txt & rem "', "1&echo PIEGE>piege4.txt"]
     for i, given in enumerate(bad_audio):
         r = run_case(base, a.bat, bins, "12%02d son refuse" % i, False, {"FO_AUDIO": given}, previous=True)

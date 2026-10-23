@@ -44,14 +44,26 @@ Usage : python visual_session.py --root <racine du jeu> [--window min|small|hd|n
             benchmark (budget --ticks) au lieu de fermer la session au marqueur. Fenêtre conseillée : hd
             (1920×1080, sans prendre le focus) ; en fenêtre réduite, le jeu peut ne rien dessiner.
 Son (lot S0, E69) : variable d'environnement FO_AUDIO (la même que fo-autotest.bat). Absente ou vide : session
-            lancée avec --disable-audio, comme avant. « 1 » : SANS --disable-audio, avec les 9 volumes de la section
-            [sound] du config.ini de TEST (fo-visual\config.ini) à 0, relus avant le lancement (sinon code 1). Toute
-            autre valeur : code 1, rien n'est lancé. Les lignes du journal du jeu qui parlent de son sont recopiées
-            dans session.txt.
+            lancée avec --disable-audio, comme avant. « 1 » : SANS --disable-audio, pour que le jeu CHARGE les
+            fichiers son (un son manquant y bloque les mods, F151), mais SANS SORTIE AUDIO :
+              - le factorio.exe de test, et lui seul, reçoit SDL_AUDIODRIVER=disk (pilote SDL « direct-to-disk
+                audio » : aucun périphérique ouvert, la sortie mixée est écrite dans fo-visual\audio-disk.raw, puis
+                mesurée dans session.txt) ; le journal doit dire « Driver:disk » puis « Loading sounds », sinon
+                code 10 (et un autre pilote vu dans le journal tue la session). « dummy » n'existe pas dans le SDL
+                du jeu : il retombe alors sur wasapi ;
+              - un garde (audio_guard.py) relève toutes les 10 ms les sessions audio Windows de toutes les sorties
+                actives : session ouverte par le processus de test ou crête non nulle → ce processus est tué tout de
+                suite et le code est 10 ; garde indisponible → code 1, rien n'est lancé ;
+              - les 9 volumes de la section [sound] du config.ini de TEST (fo-visual\config.ini) restent écrits à 0
+                et relus avant le lancement (sinon code 1), mais ils NE suffisent PAS : avec le pilote wasapi, ils
+                ont laissé sortir −34,6 dBFS (vérification du lot S0, F152).
+            Toute autre valeur : code 1, rien n'est lancé. Les lignes du journal du jeu qui parlent de son et le
+            rapport du garde sont recopiés dans session.txt.
 Codes : 0 succès ; 1 préparation ; 3 délai dépassé ; 4 captures manquantes ou illisibles ;
         5 processus de test encore présent ; 6 vitrine : entité refusée ; 7 erreur du jeu ou session
         fermée avant la fin ; 9 qualité graphique, usage de la mémoire vidéo ou compression des textures
-        non appliqués (journal).
+        non appliqués (journal) ; 10 son : sortie audio réelle ouverte ou crête non nulle (garde), pilote SDL
+        autre que disk, ou chargement des sons absent du journal (FO_AUDIO=1 seulement).
 """
 import argparse
 import ctypes
@@ -66,6 +78,7 @@ from ctypes import wintypes
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import audio_guard  # noqa: E402
 import gallery  # noqa: E402
 import vram  # noqa: E402
 
@@ -87,6 +100,69 @@ FATAL = re.compile(r"non-recoverable error|Error while running event|Exception a
 AUDIO_KEYS = ("master-volume", "music-volume", "game-effects-volume", "gui-effects-volume", "walking-sound-volume",
               "environment-sounds-volume", "alerts-volume", "wind-volume", "simulation-volume")
 AUDIO_LOG = re.compile(r"audio|sound|\.ogg|\.wav|\.voc", re.I)
+# Correction du lot S0 : pilote SDL du seul processus de test quand le son est actif. Le pilote « dummy » n'existe pas
+# dans le SDL de Factorio 1.1.91 (« Audio target 'dummy' not available », puis le jeu RETOMBE sur wasapi : session du
+# 23/10, 22:22, tuée par le garde à 0,88 s) ; le pilote « disk » (« direct-to-disk audio », chaînes du binaire)
+# n'ouvre aucun périphérique et écrit la sortie mixée du jeu dans un fichier brut (SDL_DISKAUDIOFILE).
+AUDIO_DRIVER = "disk"
+AUDIO_DISK_FILE = "audio-disk.raw"  # dans fo-visual\ (dossier de TEST), réécrit à chaque session
+AUDIO_DRIVER_LINE = re.compile(r"\[Audio\][^\n]*?Driver:\s*([^,;\s]+)")
+AUDIO_FORMAT_LINE = re.compile(r"\[Audio\][^\n]*?Depth:\s*(\d+)[^\n]*?Channels:\s*(\d+)[^\n]*?Frequency:\s*(\d+)")
+SDL_AUDIO_VARS = ("SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE", "SDL_DISKAUDIOFILEIN",
+                  "SDL_DISKAUDIODELAY")
+
+
+def audio_env(audio, disk_file, env=None):
+    """Environnement du processus de test : None (hérité, comme avant) sans son ; avec son, une copie où
+    SDL_AUDIODRIVER vaut « disk » et SDL_DISKAUDIOFILE le fichier de sortie du dossier de test (les autres variables
+    audio de SDL héritées sont retirées), pour ce seul processus."""
+    if not audio:
+        return None
+    e = dict(os.environ if env is None else env)
+    for k in list(e):
+        if k.upper() in SDL_AUDIO_VARS:
+            del e[k]
+    e["SDL_AUDIODRIVER"] = AUDIO_DRIVER
+    e["SDL_DISKAUDIOFILE"] = disk_file
+    return e
+
+
+def audio_driver(log):
+    """Pilote audio annoncé par le journal du jeu (« [Audio] Backend:SDL(default); Driver:<pilote>, … ») ou None."""
+    m = AUDIO_DRIVER_LINE.search(log or "")
+    return m.group(1) if m else None
+
+
+def disk_output(path, log):
+    """Mesure de la sortie écrite par le pilote disk (entiers 16 bits signés, format lu dans la ligne [Audio] du
+    journal) : dict (secondes, crête, RMS, part non nulle, premier instant non nul) ou None si illisible."""
+    import array
+    import math
+    import operator
+    m = AUDIO_FORMAT_LINE.search(log or "")
+    if not m or not os.path.exists(path):
+        return None
+    depth, ch, freq = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if depth != 16 or ch < 1 or freq < 1:
+        return {"format": "%d bits, %d voies, %d Hz (non lu)" % (depth, ch, freq)}
+    a = array.array("h")
+    with open(path, "rb") as f:
+        data = f.read()
+    a.frombytes(data[:len(data) - len(data) % 2])
+    n = len(a)
+    peak = max(max(a), -min(a)) if n else 0
+    nonzero = n - a.count(0)
+    lead = len(data) - len(data.lstrip(b"\x00"))  # octets nuls en tête
+    rms = math.sqrt(sum(map(operator.mul, a, a)) / n) if n else 0.0
+    return {"format": "%d bits, %d voies, %d Hz" % (depth, ch, freq), "octets": len(data),
+            "secondes": n / float(ch * freq), "crete": peak / 32768.0, "rms": rms / 32768.0,
+            "non_nuls": nonzero / float(n) if n else 0.0,
+            "premier": (lead // 2 / float(ch * freq)) if nonzero else None}
+
+
+def db(x):
+    import math
+    return "-inf" if x <= 0 else "%.1f" % (20 * math.log10(x))
 
 
 def audio_from_env(env=None):
@@ -224,7 +300,7 @@ def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None, textu
             f.write("[sound]\n")
             for k in AUDIO_KEYS:
                 f.write("%s=0.000000\n" % k)
-    perf =os.path.join(vis, "perf-stats.csv")
+    perf = os.path.join(vis, "perf-stats.csv")
     if os.path.exists(perf):
         os.remove(perf)  # statistiques de rendu de la session précédente (sortie de test)
     return cfg, mods, os.path.join(vis, "fo-visual-map.zip"), write, shots
@@ -408,6 +484,7 @@ def main():
 
     # 0 bis. Son (lot S0, E69) : FO_AUDIO filtrée AVANT toute préparation.
     audio, audio_err = audio_from_env()
+    guard = None
     if audio_err:
         out("ECHEC " + audio_err + " : rien n'est lance")
         return finish(1)
@@ -424,7 +501,20 @@ def main():
         if not silent:
             out("ECHEC son : volumes non nuls ou absents dans %s : %s ; rien n'est lance" % (cfg, detail))
             return finish(1)
-        out("son ACTIF (FO_AUDIO=1) : %s, relus dans %s avant le lancement" % (detail, cfg))
+        disk_file = os.path.join(vis, AUDIO_DISK_FILE)
+        if os.path.exists(disk_file):
+            os.remove(disk_file)  # sortie audio de la session précédente (dossier de test)
+        out("son ACTIF (FO_AUDIO=1) : %s, relus dans %s avant le lancement ; pilote SDL du processus de test : "
+            "SDL_AUDIODRIVER=%s, sortie dans %s" % (detail, cfg, AUDIO_DRIVER, disk_file))
+        guard = audio_guard.Guard()
+        gerr = guard.start_and_wait()
+        if gerr:
+            guard.stop()
+            out("ECHEC garde de crete indisponible (%s) : sans elle, le silence n'est pas prouve ; rien n'est lance"
+                % gerr)
+            return finish(1)
+        out("garde de crete prete : %d sortie(s) audio active(s), releve toutes les %d ms" % (
+            guard.outputs, round(guard.period * 1000)))
     else:
         out("son coupe (--disable-audio)")
     source = read_text(os.path.join(test, "source.txt")).strip()
@@ -471,7 +561,10 @@ def main():
     stdout = open(stdout_path, "w", encoding="utf-8", errors="replace")
     log_path = os.path.join(write, "factorio-current.log")
     t_launch = time.time()
-    proc = subprocess.Popen(cmd, stdout=stdout, stderr=subprocess.STDOUT, startupinfo=si, creationflags=flags)
+    proc = subprocess.Popen(cmd, stdout=stdout, stderr=subprocess.STDOUT, startupinfo=si, creationflags=flags,
+                            env=audio_env(audio, os.path.join(vis, AUDIO_DISK_FILE)))
+    if guard:
+        guard.watch(proc.pid, proc.terminate)  # violation : TerminateProcess sur CE PID seulement, tout de suite
     out("processus de test lance : PID %d" % proc.pid)
     if a.pcores and os.cpu_count() == 16:
         ok = ctypes.WinDLL("kernel32").SetProcessAffinityMask(wintypes.HANDLE(int(proc._handle)), 0xFFF)
@@ -503,6 +596,14 @@ def main():
         # Journal de CETTE session seulement (l'ancien est renommé au démarrage du jeu).
         fresh = os.path.exists(log_path) and os.path.getmtime(log_path) >= t_launch - 1
         log = read_text(log_path) if fresh else ""
+        if guard and guard.violation:
+            code, reason = 10, "son : " + guard.violation
+            break
+        drv = audio_driver(log) if audio else None
+        if drv is not None and drv != AUDIO_DRIVER:
+            proc.terminate()
+            code, reason = 10, "son : pilote SDL %s au lieu de %s (journal) : session tuee" % (drv, AUDIO_DRIVER)
+            break
         fatal = [ln for ln in log.splitlines() if FATAL.search(ln)]
         if fatal:
             code, reason = 7, "erreur du jeu : " + fatal[0].strip()
@@ -558,7 +659,17 @@ def main():
             pass
     stdout.close()
     t_closed = time.time()
-    out("session %s %.1f s apres le lancement" % ("terminee seule" if natural else "fermee par le pilote", t_closed - t_launch))
+    if guard:
+        guard.stop()
+        out(guard.report())
+        if guard.violation and code != 10:
+            out("ECHEC son : " + guard.violation)
+        if guard.violation:
+            code = 10
+    how = "terminee seule" if natural else "fermee par le pilote"
+    if guard and guard.violation:
+        how = "TUEE par le garde de crete"
+    out("session %s %.1f s apres le lancement" % (how, t_closed - t_launch))
     remaining = []
     for attempt in range(3):
         remaining = test_processes(vis)
@@ -646,6 +757,30 @@ def main():
         sl = [ln.strip() for ln in read_text(log_path).splitlines() if AUDIO_LOG.search(ln)
               and "Program arguments" not in ln]
         out("journal, lignes de son : %d%s" % (len(sl), "" if not sl else " ; " + " | ".join(sl[:12])))
+    if audio and code == 0:
+        log = read_text(log_path) if fresh else ""
+        drv = audio_driver(log)
+        if drv != AUDIO_DRIVER or "Loading sounds" not in log:
+            out("ECHEC son : chargement des sons non prouve (pilote du journal : %s ; « Loading sounds » %s)" % (
+                drv, "present" if "Loading sounds" in log else "ABSENT"))
+            code = 10
+        else:
+            out("son : pilote %s et « Loading sounds » dans le journal, garde sans violation" % drv)
+    if audio:
+        # Ce que le jeu aurait envoyé aux haut-parleurs (pilote disk) : mesure seule, hors code de sortie.
+        try:
+            d = disk_output(os.path.join(vis, AUDIO_DISK_FILE), read_text(log_path) if fresh else "")
+        except (OSError, ValueError, MemoryError) as exc:
+            d = {"format": "illisible : %s" % exc}
+        if d is None:
+            out("sortie du pilote disk : AUCUN fichier ou format absent du journal (%s)" % AUDIO_DISK_FILE)
+        elif "secondes" not in d:
+            out("sortie du pilote disk : " + d["format"])
+        else:
+            out("sortie du pilote disk (ce que le jeu aurait joue, %s) : %.1f s, %d octets, crete %.6f (%s dBFS), "
+                "RMS %.6f (%s dBFS), echantillons non nuls %.1f %%, premier non nul a %s" % (
+                    d["format"], d["secondes"], d["octets"], d["crete"], db(d["crete"]), d["rms"], db(d["rms"]),
+                    100 * d["non_nuls"], "%.2f s" % d["premier"] if d["premier"] is not None else "aucun"))
     if t_done:
         summary.append("duree jusqu'au marqueur %.1f s" % (t_done - t_launch))
     return finish(code, shots)

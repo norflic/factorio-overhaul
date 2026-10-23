@@ -18,6 +18,11 @@ static void print_audio(const char *phase, int argc, char **argv) {
   int n = 0;
   for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--disable-audio") == 0) n++;
   printf("%s : disable-audio x%d\n", phase, n);
+  /* Correction du lot S0 : pilote SDL recu dans l'environnement (disk attendu avec le son actif, sortie dans fo-autotest). */
+  const char *drv = getenv("SDL_AUDIODRIVER");
+  if (drv) printf("%s : env SDL_AUDIODRIVER [%s]\n", phase, drv); else printf("%s : env SDL_AUDIODRIVER ABSENTE\n", phase);
+  const char *dsk = getenv("SDL_DISKAUDIOFILE");
+  if (dsk) printf("%s : env SDL_DISKAUDIOFILE [%s]\n", phase, dsk); else printf("%s : env SDL_DISKAUDIOFILE ABSENTE\n", phase);
   const char *cfg = arg_after(argc, argv, "--config");
   FILE *f = cfg ? fopen(cfg, "r") : NULL;
   if (!f) { printf("%s : config ABSENT\n", phase); return; }

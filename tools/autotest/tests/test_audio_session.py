@@ -9,6 +9,8 @@ Ne lance pas Factorio. Contrôle, dans une racine JETABLE (dossier temporaire) :
     [sound] absente) ;
   - base_cmd() : --disable-audio sans son, absent avec son.
   - FATAL : la ligne réelle du son manquant (E69) arrête la session ; « Loading sounds » et « [Audio] » non.
+  - (correction) audio_env() : SDL_AUDIODRIVER=disk (sortie dans un fichier) pour le seul processus de test ; audio_driver() lit le pilote
+    du journal (la ligne réelle « Driver:wasapi » de la session bruyante est reconnue comme refusée).
 Code de sortie : 0 si tous les contrôles passent.
 """
 import os
@@ -76,6 +78,44 @@ def main():
         check(c0.count("--disable-audio") == 1 and "--disable-audio" not in c1
               and c1 == [x for x in c0 if x != "--disable-audio"],
               "ligne de commande : --disable-audio sans son seulement")
+        # Correction du lot S0 : pilote SDL disk pour le seul processus de test, et contrôle du journal.
+        parent = {"PATH": "x", "SDL_AUDIODRIVER": "wasapi", "sdl_audio_device_name": "Haut-parleurs",
+                  "SDL_DISKAUDIOFILE": "ailleurs.raw", "SDL_DiskAudioDelay": "0"}
+        disk = os.path.join(vis, vs.AUDIO_DISK_FILE)
+        e1 = vs.audio_env(True, disk, parent)
+        check(vs.audio_env(False, disk, parent) is None and e1["SDL_AUDIODRIVER"] == "disk" and e1["PATH"] == "x"
+              and e1["SDL_DISKAUDIOFILE"] == disk
+              and not any(k.upper() in ("SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIODELAY") for k in e1)
+              and parent["SDL_AUDIODRIVER"] == "wasapi",
+              "environnement : sans son herite tel quel (None) ; avec son, SDL_AUDIODRIVER=disk et SDL_DISKAUDIOFILE "
+              "dans fo-visual imposes, autres variables audio de SDL retirees, environnement du pilote intact")
+        # lignes réelles : session 13 du lot (wasapi, la session a fait du bruit) ; session c01 de la correction
+        # (« dummy » refusé par le jeu, qui retombe sur wasapi : tuée par le garde à 0,88 s)
+        wasapi = ("   0.260 [Audio] Backend:SDL(default); Driver:wasapi, Device:Default device, Depth:16, "
+                  "Channels:2, Frequency:44100\n   1.678 Loading sounds...\n")
+        repli = ("   0.248 Warning SoundInterfaceSDL.cpp:105: Audio target 'dummy' not available\n"
+                 "   0.248 SDL_AUDIODRIVER is set to \"dummy\". Resetting...\n" + wasapi.replace("0.260", "0.765"))
+        check(vs.audio_driver(wasapi) == "wasapi" and vs.audio_driver(repli) == "wasapi"
+              and vs.audio_driver(wasapi.replace("wasapi", "disk")) == "disk"
+              and vs.audio_driver("   0.300 Audio is disabled\n") is None and vs.audio_driver("") is None,
+              "journal : pilote lu (wasapi refuse, repli apres dummy refuse, disk accepte, absent sans [Audio])")
+        check(vs.AUDIO_DRIVER == "disk" and hasattr(vs, "audio_guard") and hasattr(vs.audio_guard, "Guard"),
+              "pilote attendu disk ; garde de crete importee par le pilote")
+        # mesure de la sortie du pilote disk : silence, puis un signal connu (crête 0,5 à partir de 0,5 s)
+        import struct
+        with open(disk, "wb") as f:
+            f.write(b"\x00" * 4 * 44100)
+        d = vs.disk_output(disk, wasapi)
+        check(d and abs(d["secondes"] - 1.0) < 1e-9 and d["crete"] == 0 and d["non_nuls"] == 0
+              and d["premier"] is None, "sortie disk : 1 s de silence mesuree (crete 0, aucun non nul)")
+        with open(disk, "wb") as f:
+            f.write(b"\x00" * 4 * 22050 + struct.pack("<hh", 16384, -16384) * 22050)
+        d = vs.disk_output(disk, wasapi)
+        check(d and abs(d["crete"] - 0.5) < 1e-9 and abs(d["premier"] - 0.5) < 1e-9
+              and abs(d["non_nuls"] - 0.5) < 1e-9 and abs(d["rms"] - 0.5 / 2 ** 0.5) < 1e-9
+              and vs.disk_output(disk, "") is None,
+              "sortie disk : signal connu mesure (crete 0,5, premier non nul a 0,5 s, RMS 0,354) ; format absent : "
+              "None")
     finally:
         shutil.rmtree(base, ignore_errors=True)
     print("BILAN : %d OK, %d ECHEC(S)" % (ok, fail))

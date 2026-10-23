@@ -24,6 +24,7 @@ rem          jamais lu ni ecrit), relus avant le lancement. Absente ou vide : --
 rem          Toute autre valeur : code 1 avant le verrou, rien n'a tourne. Etat du son : fo-autotest\audio.txt.
 rem          ATTENTION (E69) : --create et --benchmark tournent sans affichage et ne chargent AUCUN son, meme ainsi ;
 rem          les fichiers son ne se chargent que dans la session avec images (fo-captures.bat, FO_AUDIO=1).
+rem          Les volumes a 0 ne coupent PAS la sortie (F152) : le jeu de test recoit aussi SDL_AUDIODRIVER=disk.
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
 rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT).
 rem ============================================================================================
@@ -121,9 +122,18 @@ if defined AUDIOBAD (
 set AUDIOOPT=--disable-audio
 rem Cles de volume de la section [sound] (chaines du binaire 1.1.91), toutes mises a 0 quand le son est actif.
 set AUDKEYS=master-volume music-volume game-effects-volume gui-effects-volume walking-sound-volume environment-sounds-volume alerts-volume wind-volume simulation-volume
+rem Correction du lot S0 : les volumes a 0 NE suffisent PAS (pilote wasapi : -34,6 dBFS mesures a la sortie). Le jeu
+rem de test (lui seul : variables locales a ce script) recoit SDL_AUDIODRIVER=disk, pilote SDL "direct-to-disk audio"
+rem sans peripherique, qui ecrit la sortie dans fo-autotest\audio-disk.raw ("dummy" n'existe pas dans le SDL du jeu :
+rem il retombe alors sur wasapi). Sans affichage, le jeu n'ouvre de toute facon aucune sortie (F150).
 if defined AUDIOON (
   set AUDIO=1
   set AUDIOOPT=
+  set SDL_AUDIODRIVER=disk
+  set "SDL_DISKAUDIOFILE=%TEST%\audio-disk.raw"
+  set SDL_DISKAUDIOFILEIN=
+  set SDL_DISKAUDIODELAY=
+  set SDL_AUDIO_DEVICE_NAME=
 )
 
 rem Verrou : un seul banc moteur a la fois (fo-autotest, fo-visual, fo-captures partagent ce verrou).
@@ -185,7 +195,7 @@ for %%k in (%AUDKEYS%) do findstr /x /c:"%%k=0.000000" "%TEST%\config.ini" >nul 
   set RC=1
   goto :end
 )
-> "%TEST%\audio.txt" echo son ACTIF (FO_AUDIO=1), volumes a 0 relus dans config.ini : %AUDKEYS%
+> "%TEST%\audio.txt" echo son ACTIF (FO_AUDIO=1), pilote SDL_AUDIODRIVER=%SDL_AUDIODRIVER%, volumes a 0 relus dans config.ini : %AUDKEYS%
 :audiook
 
 echo [2/4] Creation de la carte (graine %SEED%, %SEEDFROM%, son %AUDIO%)...
