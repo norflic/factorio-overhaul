@@ -161,7 +161,7 @@ def socle_marsh(g, k):
                      (0.6, 1.7), (-0.4, 1.75), (1.15, 1.55), (1.75, 1.2), (-1.85, -0.9), (0.95, 0.95),
                      (-0.6, -1.3), (-1.0, -1.7), (1.85, -0.85), (1.8, 0.15), (-0.6, -1.85), (0.25, 1.9),
                      (-1.85, 0.3), (-1.85, -0.35), (1.15, 1.85), (-1.2, 1.85), (0.6, -1.25), (-0.15, -1.9),
-                     (1.85, 0.75), (-1.85, 1.6)):
+                     (1.85, 0.75), (-1.85, 1.6), (0.85, -1.05), (-0.85, -1.45), (-0.75, -1.0)):
         jar(g, (xx, Y(yn), 0.04), 0.045, 0.11)
     g.halo((1.5, Y(0.05), 0.6), M["_emit_rgb"], 14.0)
     g.halo((-1.42, Y(1.28), 0.6), M["_emit_rgb"], 12.0)
@@ -206,13 +206,14 @@ def piece(g, c):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
     for sx in (-1, 1):
-        demijohn(g, (sx * cx, Y(cy), 0.0), M["emit_soft"], 1.5 * s)
+        demijohn(g, (sx * cx, Y(cy), 0.0), M["emit_soft"], 1.62 * s)
         with at(g, sx * cx, cy, 0.0):
             _ancrage(g, 0.24 * s, 0.07, M, n=24)
             # bocaux de prélèvement en arc devant la bonbonne (petits foyers, couvercles de laiton)
             for k in range(5):
                 a = math.pi * (0.2 + 0.6 * k / 4)
-                jar(g, (math.cos(a) * 0.36, math.sin(a) * 0.36, 0.04), 0.042, 0.1)
+                jar(g, (math.cos(a) * 0.4, math.sin(a) * 0.4, 0.04), 0.042, 0.1)
+            F.bolts_ring(g, (0, 0, 0.072), (0, 0, 1), 0.24 * s + 0.12, 18, M["steel_hi"], r=0.026)
     _halo(g, [(-cx, Y(cy), 0.4), (cx, Y(cy), 0.4)], 12.0)
 
 
@@ -243,6 +244,16 @@ def demijohn(g, c, emat, s=1.0):
         a = TAU * k / 6
         g.box((x + math.cos(a) * (r + 0.012), y + math.sin(a) * (r + 0.012), zc), (0.016, 0.016, r * 2.0),
               M["verdigris"], "hard", what="cage")
+    # passe 4 : résille de méridiens et 2 parallèles de vert-de-gris sur le dôme de la bonbonne (la plus grande plage
+    # saturée C6 et la zone lumineuse L1 du niveau pair dépassaient : le verre se lit en fuseaux, liquide trouble)
+    for k in range(10):
+        a = TAU * (k + 0.5) / 10
+        pts = [V((x + math.cos(a) * math.cos(ph) * r * 1.02, y + math.sin(a) * math.cos(ph) * r * 1.02,
+                  zc + math.sin(ph) * r * 1.02)) for ph in [-0.2 + 1.7 * i / 8 for i in range(9)]]
+        g.tube(pts, 0.013, M["verdigris"], n=6, what="meridien")
+    for ph in (0.45, 0.95):
+        g.torus((x, y, zc + math.sin(ph) * r), "z", math.cos(ph) * r * 1.02, 0.013, M["verdigris"], n=28, m=6,
+                what="parallele")
     g.cyl((x, y, zc + r + 0.025), "z", 0.04, 0.05, M["brass"], n=12, what="col")
     g.cyl((x + 0.12 * s, y - 0.06 * s, z + 0.13), "z", 0.035, 0.12, M["olive"], n=12, what="pompe")
     P2.gauge(g, (x + 0.12 * s, y - 0.06 * s - 0.036, z + 0.16), (0, -1, 0.3), 0.032, M)
@@ -455,7 +466,7 @@ def tete(g, c):
     for i in range(n1):
         th = 0.45 + (math.pi - 0.9) * (i + 0.5) / n1
         P2.applique(g, c.Pf, c.Nf, th, 0.3, 0.22 + 0.03 * (side - 2), 0.18 + 0.03 * (side - 2), appl, M)
-    n2 = 2 + 2 * k
+    n2 = 2
     for i in range(n2):
         th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2
         P2.applique(g, c.Pf, c.Nf, th, 0.72, 0.2, 0.16, appl, M)

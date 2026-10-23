@@ -115,8 +115,7 @@ def socle_crystal(g, k):
     link(g, 7, [(-1.3, Y(0.0), 0.3), (-1.2, Y(0.0), 0.6), (-1.0, Y(-0.05), 0.72)], 0.06)
     link(g, 7, [(1.3, Y(0.05), 0.3), (1.22, Y(0.05), 0.6), (1.02, Y(0.05), 0.72)], 0.06)
     for i, (xx, yn) in enumerate(((-1.0, -0.95), (1.0, -0.95), (-1.6, 0.75), (1.62, 0.95), (-0.7, 1.7),
-                                  (0.7, 1.7), (-1.75, -0.95), (1.25, -0.2), (-1.15, 0.7), (0.3, 1.75), (-0.55, -1.75),
-                                  (0.6, -1.8), (1.85, -0.3))):
+                                  (0.7, 1.7), (-1.75, -0.95), (-0.55, -1.75), (0.6, -1.8))):
         g.cyl((xx, Y(yn), 0.06), "z", 0.06, 0.04, M["bronze"], n=6, style="hard", what="sertissure")
         F.crystal(g, V((xx, Y(yn), 0.07)), (0.2 * ((i % 3) - 1), 0.15, 1), 0.035, 0.16, M["emit_soft"], tip=0.4)
         for k in range(3):
@@ -171,7 +170,7 @@ def piece(g, c):
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
     for sx in (-1, 1):
         with at(g, sx * cx, cy, sx * -0.25):
-            focaliser(g, (0, 0, 0), 0.0, 1.5 * s)
+            focaliser(g, (0, 0, 0), 0.0, 1.3 * s)
             _ancrage(g, 0.19 * 1.5 * s, 0.082 * 1.5 * s, g.M, n=22)
             # éclats de cristal sertis autour de l'affût (petits foyers violets, sertissures de bronze)
             for k in range(5):

@@ -35,7 +35,7 @@ KIN = 2   # rang dans l'ère III
 FOYER = dict(rgb=(0.361, 1.0, 0.29))
 CANON = dict(L=1.8, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
-PLATEFORME = dict(chanfrein=0.55)
+PLATEFORME = dict(chanfrein=0.36)
 HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=("lead", "uranium"),
                  grille_nacelle="lead", tourelleau="lead", chapeau="lead")
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
@@ -86,6 +86,8 @@ def cooling_tower(g, x, y, r, h, M):
     g.cyl((x, y, h - 0.01), "z", r * 0.8 - 0.02, 0.02, M["void"], n=32, style="flat", what="bouche")
     g.tube_shell((x, y, h), "z", r * 0.84, r * 0.74, 0.04, M["steel_dk"], n=40, what="levre")
     F.hazard_ring(g, (x, y, h * 0.14), "z", r * 0.88, 0.07, n=20)
+    # passe 4 : 2e bague de danger jaune et noire sous la lèvre (signalisation lisible de haut, silhouette claire)
+    F.hazard_ring(g, (x, y, h * 0.86), "z", r * 0.78, 0.08, n=24)
     for zf in (0.4, 0.62):
         g.tube_shell((x, y, h * zf), "z", r * (0.73 if zf < 0.5 else 0.69) + 0.012, r * 0.6, 0.02, M["concrete"],
                      n=40, what="ceinture")
@@ -105,7 +107,7 @@ def socle_atom(g, k):
     F.prism(g, [(-1.94, Y(-1.12)), (-1.28, Y(-1.12)), (-1.28, Y(0.62)), (-1.94, Y(0.62))], 0.0, 0.06,
              M["concrete"])
     for i, (xx, yn) in enumerate(((-1.78, -0.55), (-1.52, -0.58), (-1.78, -0.25), (-1.52, -0.28), (-1.78, 0.05),
-                                  (-1.52, 0.02))):
+                                  (-1.52, 0.02), (-1.3, -0.45), (-1.3, -0.15))):
         F.drum(g, (xx, Y(yn), 0.06), 0.11, 0.3, M["lead"], M["hazy"], trefoil=(i % 2 == 0))
     PT.hull(g, -1.94, -1.3, Y(0.18), Y(0.62), 0.06, 0.4, ins=(0.02, 0.02, 0.02), panel=0.3,
             mats=[M["concrete"], M["concrete"]], rivets=False)
@@ -124,14 +126,14 @@ def socle_atom(g, k):
         g.box((wx - 0.06 + 0.12 * i, wy, 0.422), (0.022, 0.44, 0.022), M["lead"], "hard", what="barreau")
     # grand trèfle peint sur la dalle de béton et panneau de signalisation sur poteau (signature, lisible de haut)
     F.trefoil(g, (-1.61, Y(-0.98), 0.063), (0, 0, 1), 0.15)
-    sign(g, (-1.61, Y(-0.76), 0.06), 0.3, 0.56)
+    sign(g, (-1.61, Y(-0.76), 0.06), 0.36, 0.62)
     # balises de radiation
     for (xx, yn) in ((-1.78, -0.55), (-1.52, -0.28), (-1.78, 0.05)):
         PT.lamp(g, (xx + 0.04, Y(yn) - 0.04, 0.37), (0, -0.2, 1), 0.026, E, cage=False)
     for (xx, yn) in ((-0.9, -1.3), (0.9, -1.3), (1.84, 0.6), (-0.6, -1.0), (0.6, -1.0), (1.84, -0.6),
                      (-1.84, 0.85), (0.75, 1.78), (-0.4, 1.8)):
         PT.lamp(g, (xx, Y(yn), 0.06), (0, -0.3, 1), 0.03, E, cage=True)
-    for (xx, yn) in ((-1.9, -0.95), (0.9, 1.85)):
+    for (xx, yn) in ((-1.84, -0.95), (0.9, 1.8), (-0.64, -1.6), (0.64, -1.6), (1.84, -0.85)):
         g.cyl((xx, Y(yn), 0.15), "z", 0.018, 0.3, M["steel_dk"], n=8, what="poteau")
         g.cyl((xx, Y(yn), 0.32), "z", 0.04, 0.05, E, n=12, what="feu")
         g.cyl((xx, Y(yn), 0.355), "z", 0.045, 0.015, M["steel_dk"], n=12, what="chapeau")
@@ -254,6 +256,9 @@ def piece(g, c):
     for sx in (-1, 1):
         with at(g, sx * cx, cy, sx * -0.25):
             lead_chest(g, (0, 0, 0), 0.0, E, 1.45 * s)
+            # couvercle boulonné du conteneur (la pièce paire ne fait pas baisser le nombre de petites pièces)
+            sc = 1.45 * s
+            F.bolts_ring(g, (0, 0, 0.22 * sc + 0.042), (0, 0, 1), 0.12 * sc, 14, M["steel_hi"], r=0.022)
     _halo(g, [(-cx, Y(cy), 0.4), (cx, Y(cy), 0.4)], 12.0)
 
 

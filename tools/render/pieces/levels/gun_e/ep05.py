@@ -35,7 +35,7 @@ KIN = 1   # rang dans l'ère II
 FOYER = dict(rgb=(1.0, 0.08, 0.02))
 CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
-PLATEFORME = dict(chanfrein=0.4)
+PLATEFORME = dict(chanfrein=0.5)
 HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
                  tourelleau="tungsten", chapeau="burnrust")
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
@@ -67,7 +67,7 @@ def lava_crust(g, cx, cy, z, w, l, M, E, step=0.085, seed=0):
     posés dessus, quelques braises."""
     g.box((cx, cy, z + 0.012), (w, l, 0.024), M["basalt"], "hard", what="croute")
     rng = g.rng
-    nb = max(2, int((w * l) / 0.06) + 1)
+    nb = max(3, int((w * l) / 0.04) + 1)
     for k in range(nb):
         # départ près d'un bord, marche brisée vers l'intérieur
         a = TAU * (k + 0.3 * rng.random()) / nb
@@ -91,20 +91,11 @@ def lava_crust(g, cx, cy, z, w, l, M, E, step=0.085, seed=0):
                 g.box(((px + bx_) / 2, (py + by_) / 2, z + 0.026), (0.055, 0.012, 0.006), E, "flat",
                       R=Matrix.Rotation(hb, 3, "Z"), what="fissure")
             px, py = qx, qy
-    for k in range(max(3, nb)):
-        F.lump(g, (cx + (rng.random() - 0.5) * w * 0.8, cy + (rng.random() - 0.5) * l * 0.8, z + 0.024),
-               0.035 + 0.02 * rng.random(), M["basalt"] if k % 3 else M["burnrust"], sz=0.5, n=7, m=4, what="scorie")
 
 
 def bunker(g, x0, x1, yn0, yn1, h, M, E, ins=0.12, slits=3, spikes=2):
     T = PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, h, ins=(ins, ins * 0.8, ins * 1.2), panel=0.24,
                 mats=[M["tungsten"], M["burnrust"], M["tungsten"]], rivet_step=0.1)
-    # rivets lourds sur les arêtes du dessus
-    for i in range(4):
-        a, b = T[i], T[(i + 1) % 4]
-        n = max(2, int((b - a).length / 0.14))
-        for kk in range(n):
-            g.dome(a.lerp(b, (kk + 0.5) / n) + V((0, 0, 0.032)), (0, 0, 1), 0.022, M["rivet"])
     # fentes de braise au sud (meurtrières rougeoyantes)
     y0 = Y(yn0)
     for i in range(slits):
@@ -158,6 +149,9 @@ def socle_volcano(g, k):
     bunker(g, 0.78, 1.5, -0.66, 0.8, 0.72, M, E, slits=3)
     # bouche de lave de l'est (gueule rougeoyante au sud, sur le flanc du bunker)
     g.box((1.17, Y(-0.6) + 0.1, 0.16), (0.22, 0.02, 0.08), E, "flat", what="gueule")
+    for xx in (-1.3, -0.98):
+        g.box((xx, Y(-0.8) + 0.085, 0.14), (0.13, 0.02, 0.06), E, "flat", what="gueule")
+        g.box((xx, Y(-0.8) + 0.07, 0.185), (0.16, 0.04, 0.025), M["tungsten"], "hard", what="linteau")
     PT.hull(g, 1.0, 1.34, Y(-0.6) - 0.02, Y(-0.6) + 0.1, 0.22, 0.3, ins=(0.02, 0.0, 0.02), panel=0.2,
             mats=[M["tungsten"]], rivet_step=0.1)
     # nord : tas de scories (dans le contour de la plateforme : aucun îlot au coin chanfreiné), évent de lave
@@ -376,9 +370,9 @@ def breech(g, st, x, y0, y1, z0, z1, w):
     mats = [M[k] for k in st["recv_mats"]]
     T = PT.receiver(g, x, y0, y1, z0, z1, w, mats=mats)
     zc = z1 + 0.012
-    for i in range(3):
+    for i in range(2):
         for j in range(2):
-            yy = y0 + 0.08 + (y1 - y0 - 0.16) * i / 2
+            yy = y0 + 0.1 + (y1 - y0 - 0.2) * i
             g.box((x + (j - 0.5) * w * 0.45, yy, zc + 0.02 + 0.006 * i), (w * 0.44, 0.13, 0.016), M["tungsten"],
                   "hard", R=Matrix.Rotation(-0.18, 3, "X"), what="ecaille")
     return T
@@ -463,21 +457,21 @@ def tete(g, c):
     side = c.side
     k = KIN
     F.slits(g, R, c.rt + 0.1 + 0.02 * side, 6, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
-    F.voyants_tete(g, H, 6)
     zt = H["zs"] + H["rz"] * 0.42
     for sx in (-1, 1):
         arch_hose(g, EPOQUE, (sx * 0.15, -R - 0.06, zt + 0.02),
                   (sx * (H["gx"] - 0.03), H["recv"][0] + 0.1, H["zg"] + H["hr"] + 0.03),
                   0.1 + 0.03 * (side - 2), 0.034 + 0.008 * (side - 2))
+    F.voyants_tete(g, H, 6)
     PT.sight(g, (R * 0.2, R * 0.45, H["zs"] + H["rz"] * 0.6), 0.16 + 0.04 * (side - 3), 0.18, 0.1, M["emit"],
              lenses=side - 2)
-    # plaques rapportées : écailles de tungstène qui se chevauchent (2 par position), puis 2e rangée
+    # plaques rapportées : écailles de tungstène (une par position : passe 4, densité de détail D3 de 67 ramenée vers
+    # la plage), puis 2e rangée
     appl = M[ST["appl"]]
     n1 = {0: 3, 1: 6, 2: 8}[k] + (side - 2)
     for i in range(n1):
         th = 0.45 + (math.pi - 0.9) * (i + 0.5) / n1
-        for j in range(2):
-            P2.applique(g, c.Pf, c.Nf, th + 0.12 * j, 0.25 + 0.15 * j, 0.24, 0.16, M["tungsten"], M, bolts=0)
+        P2.applique(g, c.Pf, c.Nf, th, 0.3, 0.26, 0.18, M["tungsten"], M, bolts=0)
     n2 = 2 + 2 * k
     for i in range(n2):
         th = 0.7 + (math.pi - 1.4) * (i + 0.5) / n2

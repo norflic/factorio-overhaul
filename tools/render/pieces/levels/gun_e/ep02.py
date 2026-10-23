@@ -11,7 +11,7 @@ Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage ba
   - arme : faisceau forgé de 3 tubes (règle d'or 1) au lieu d'un fût unique, manchon sur la moitié arrière, couronne
     plate carrée à 4 boulons et oreilles (pose N : un « T ») ;
   - 2×2 : moins de pièces, plus grosses (plus de râtelier, de baquet ni de lanterne ; enclume et soufflet plus
-    grands) ; foyers rouge-orange de forge (famille 6 à 22° mesurée) ; chanfrein de plateforme 0,45.
+    grands) ; foyers rouge-orange de forge (famille 6 à 22° mesurée) ; chanfrein de plateforme 0,6.
 Emplacements remplis : arme (faisceau forgé de 3 tubes par flanc, culasse à levier, manivelle, caisse cerclée et
 bande), masque (grand bouclier crénelé en arc), grands volumes du socle (foyer ouvert de briques, soufflet, enclume),
 liaisons (fer noir à brides carrées), plaques rapportées, foyers, pièce paire (2 mantelets).
@@ -38,7 +38,7 @@ KIN = 1   # rang dans l'ère I (0, 1, 2) : puissance croissante dans l'ère (cat
 FOYER = dict(rgb=(1.0, 0.13, 0.025))
 CANON = dict(L=0.85, nb=3, rb=0.05, rr=0.08)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
-PLATEFORME = dict(chanfrein=0.45)
+PLATEFORME = dict(chanfrein=0.6)
 HABILLAGE = dict(jupe_cerclage="blackiron", tremie="bolted", pochoirs=False, munitions=("brass", "rawiron"),
                  chapeau="brass")
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials

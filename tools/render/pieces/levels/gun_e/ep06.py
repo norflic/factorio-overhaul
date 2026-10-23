@@ -139,7 +139,8 @@ def socle_electric(g, k):
             mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
     PT.capacitors(g, (-0.2, Y(1.14), 0.08), 5, 2, 0.062, 0.16, E)
     # passe 4 : poteaux d'isolateurs de porcelaine devant le transformateur (piles blanches lisibles)
-    for (xx, yn) in ((-1.42, -0.92), (-1.2, -0.95), (-0.98, -0.92)):
+    for (xx, yn) in ((-1.42, -0.92), (-1.2, -0.95), (-0.98, -0.92), (1.42, -0.5), (1.45, 0.62),
+                     (-0.82, -1.36), (0.82, -1.36)):
         F.post_insulator(g, (xx, Y(yn), 0.0), 5, 0.045, h=0.045)
     for (xx, yn) in ((-1.45, -0.7), (-0.95, -0.7), (1.45, 0.45), (0.85, -0.45)):
         PT.lamp(g, (xx, Y(yn), 0.06), (0, -0.3, 1), 0.03, E, cage=True)
@@ -330,7 +331,7 @@ def tete(g, c):
     side = c.side
     k = KIN
     F.slits(g, R, c.rt + 0.1 + 0.02 * side, 7, M["emit"], a0=math.pi * 0.62, span=math.pi * 1.76)
-    F.voyants_tete(g, H, 12)
+    F.voyants_tete(g, H, 18)
     zt = H["zs"] + H["rz"] * 0.42
     for sx in (-1, 1):
         arch_hose(g, EPOQUE, (sx * 0.15, -R - 0.06, zt + 0.02),

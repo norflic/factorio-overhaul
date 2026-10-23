@@ -5,7 +5,7 @@ PORTÉ TEL QUEL de la passe 3 (gun_e_bas, commit 4c57982 : design.py, ages.py, p
 mot) sur le kit commun gun_e : seul le CORPS a changé (corps.py, kit.py).
 Corrections de design de la QUATRIÈME PASSE (23/10, constructeur de la plage basse) :
   - (époque bien lue : gardée) frein en bloc élargi à oreilles (pose N), jaquette à la moitié arrière, voyants de
-    plus ; chanfrein de plateforme 0,75.
+    plus ; foyers ramenés dans la famille « orange de torchère » ; chanfrein de plateforme 0,75.
 Emplacements remplis : arme (gatling à jaquette galvanisée perforée, frein à 2 fentes, culasse jaune à bandes
 noires, gros fût-chargeur couché sur le flanc), grands volumes du socle (2 cuves couchées jaunes à passerelle, fûts,
 groupe de pompage, rampe de conduites), liaisons (galvanisé à vanne à volant rouge), nacelle (torchère), bague de
@@ -28,7 +28,8 @@ V = Vector
 EPOQUE = 4
 NOM = "Pétrole"
 KIN = 0   # rang dans l'ère II
-FOYER = dict(rgb=(1.0, 0.549, 0.102))
+# passe 4 : teinte nominale plus rouge (mesurée à 38° en passe 3, hors famille « orange de torchère » 24 à 34°)
+FOYER = dict(rgb=(1.0, 0.42, 0.1))
 CANON = dict(L=1.2, nb=4, rb=0.045, rr=0.1)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.75)
