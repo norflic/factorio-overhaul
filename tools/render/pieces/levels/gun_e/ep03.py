@@ -300,9 +300,12 @@ def piece(g, c):
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
     for sx in (-1, 1):
         x, y = sx * cx, Y(cy)
-        P3.vtank(g, x, y, 0.17, 0.56, M, paint=M["rawiron"], emat=E, ladder_dir=(sx, -0.3), gauges=0)
+        # production de la passe 5 : bandes du réservoir (band) et cerclages en laiton SATINÉ (laiton_capot) au lieu
+        # du laiton poli M["brass"] (métal 0,95, rugosité 0,2) : points blancs de e03-piece à 16,7 par t² (> 13,2)
+        P3.vtank(g, x, y, 0.17, 0.56, M, paint=M["rawiron"], emat=E, ladder_dir=(sx, -0.3), gauges=0,
+                 band=M["laiton_capot"])
         for zz in (0.2, 0.44):
-            g.tube_shell((x, y, zz), "z", 0.194, 0.16, 0.03, M["brass"], n=32, what="cerclage")
+            g.tube_shell((x, y, zz), "z", 0.194, 0.16, 0.03, M["laiton_capot"], n=32, what="cerclage")
         g.cyl((x, y, 0.56 + 0.1), "z", 0.07, 0.08, M["copper_pol"], n=18, what="dome_vapeur")
         P2.gauge(g, (x - sx * 0.04, y - 0.185, 0.34), (-sx * 0.3, -1, 0.3), 0.075, M)
         link(g, 3, [(x - sx * 0.13, y + 0.06, 0.14), (x - sx * 0.25, y + 0.2, 0.18),
