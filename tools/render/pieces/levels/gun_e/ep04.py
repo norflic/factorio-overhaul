@@ -15,6 +15,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -29,7 +30,7 @@ EPOQUE = 4
 NOM = "Pétrole"
 KIN = 0   # rang dans l'ère II
 # passe 4 : teinte nominale plus rouge (mesurée à 38° en passe 3, hors famille « orange de torchère » 24 à 34°)
-FOYER = dict(rgb=(1.0, 0.42, 0.1))
+FOYER = ages.FOYER[4]
 CANON = dict(L=1.2, nb=4, rb=0.045, rr=0.1)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.75)
@@ -45,12 +46,13 @@ PLATEFORME = dict(chanfrein=0.75)
 # rouge des volants et flamme orange en accent ; le gris galvanisé disparaît (il rapprochait 4 de 5 et de 6). Silhouette
 # (test des écarts de la ronde 2, 4-5 et 5-6 : « même forme », « silhouette identique ») : PONT CARRÉ à garde-corps
 # jaunes (forme « carre » du kit), au lieu de l'octogone commun aux trois âges de l'ère II.
-HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("redpaint", "galva"),
-                 chapeau="noir_capot", capots=("jaune_capot", "noir_capot"), acier=("noir_capot", "galva_capot"),
-                 rivets="galva_capot", joints="rubber", tourelleau="jaune_capot", danger=("jaune_capot", "noir_capot"),
+HABILLAGE = dict(ages.CORPS[4],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("redpaint", "galva"),
+                 chapeau="noir_capot",
+                 tourelleau="jaune_capot",
                  forme_plateforme=dict(forme="carre", flanc="jaune_capot", flanc2="noir_capot"),
-                 plateforme=dict(motif="toles", pas=0.5, mat="tole_larmee", mat2="tole_larmee2", bord="jaune_capot",
-                                 boulons="galva_capot", relief=0.2))
+                 )
 ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
           recv_mats=("yellowpaint", "yellowpaint"), recv_sig="stripes", feed="barrels", skirt="galva",
           appl="jaune_capot", gmask=("yellowpaint", "galva"), arm=("jaune_capot", "noir_capot"), cap="galva",
@@ -59,45 +61,7 @@ ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", ba
 
 def matieres(metal, M):
     """Test noir et blanc de la passe 3 : le galvanisé des grands aplats est plus clair (× 1,35)."""
-    rust = (0.24, 0.085, 0.03)
-    # ronde 3 : la clé « galva » (conduites, frein, jaquette, bagues des cuves) devient de l'acier PEINT EN NOIR satiné
-    # (secondaire noir de la palette jaune et noir) ; le nom reste pour ne pas toucher au dessin
-    # ronde 3 : acier nu clair du canon (jaquette perforée, frein) : un métal pur vers le nord reste noir (kit, pose N)
-    metal("acier_canon", (0.4, 0.39, 0.37), rough=0.4, met=0.35, grain=0.12, gscale=30.0, dirt=0.5, stain=0.3,
-          sscale=5.0, wear=1.0)
-    metal("noir_capot", (0.045, 0.044, 0.042), rough=0.42, met=0.1, grain=0.15, gscale=30.0, rust=(0.24, 0.085, 0.03),
-          ra=0.08, dirt=0.55, stain=0.4, sscale=5.0, wear=2.2, streak=0.3)
-    metal("galva", (0.06, 0.059, 0.057), rough=0.38, met=0.3, grain=0.3 * 0.62, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
-          stain=0.75, stain2=0.32, sscale=5.0, wear=1.6, streak=0.45, tone=1.35)
-    # passe 5 : jaune délavé des GRANDS CAPOTS (clé « capots ») : matière de corps, ni vive ni réfléchissante, plus
-    # claire et moins sale que le jaune des accents (« yellowpaint ») pour se lire jaune au zoom 1
-    # ronde 2 (lecteurs de la ronde 1 : « olive laiton », « couleur laiton ») : PEINTURE jaune de chantier délavée,
-    # mate et presque pas métallique (un jaune métallique se lit laiton), plus claire et plus pâle
-    # (essai a de la ronde 2 : (0,58 ; 0,46 ; 0,12) restait kaki au zoom 1 : la saleté et les taches l'assombrissent ;
-    # jaune franc, moins sale)
-    # ronde 4 (test des écarts de la ronde 3 : 4 jugé PLUS évolué que 5 par les deux lecteurs, et que 6 par un
-    # lecteur : « O doré à dôme ») : la peinture jaune perd son éclat d'or : jaune plus pâle et moins saturé (vraiment
-    # « délavé »), écaillée sur la rouille (ra 0,1 -> 0,26), plus sale ; c'est le PREMIER âge de l'ère II, le plus brut
-    # ronde 5 (test à l'aveugle de la ronde 4 : 4 lu « laiton, dôme, tuyaux de vapeur », pris pour la VAPEUR) : le
-    # jaune pâle (0,7 ; 0,6 ; 0,13) se lisait laiton : il garde sa clarté mais devient un JAUNE DE SIGNALISATION citron
-    # franc (bleu presque nul), toujours mat et écaillé : une peinture de chantier, jamais un métal
-    metal("jaune_capot", (0.72, 0.6, 0.025), rough=0.75, met=0.0, grain=0.26, gscale=30.0, rust=rust, ra=0.26,
-          dirt=0.65, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
-    # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
-    # il tournait à l'olive brun au zoom 1) ; ronde 2 : mat, comme les capots
-    # ronde 5 : même jaune citron que les capots (l'ancien (0,64 ; 0,46 ; 0,07) tirait à l'or et au laiton)
-    metal("yellowpaint", (0.66, 0.54, 0.02), rough=0.7, met=0.0, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
-          dirt=0.55, stain=0.55, sscale=5.0, wear=2.4, streak=0.5)
-    # passe 5 : galvanisé du CORPS (peu métallique : grande masse claire, règle de reflets du kit) et tôles larmées
-    metal("galva_capot", (0.32, 0.33, 0.33), rough=0.42, met=0.4, grain=0.15, gscale=30.0, rust=rust, ra=0.12,
-          dirt=0.7, stain=0.55, sscale=5.0, wear=1.2, streak=0.35)
-    metal("galva_sombre", (0.12, 0.125, 0.13), rough=0.42, met=0.45, grain=0.15, gscale=30.0, rust=rust, ra=0.2,
-          dirt=0.75, stain=0.5, wear=1.4)
-    # ronde 3 : tôles larmées gris anthracite (plus de galvanisé clair : palette jaune et noir)
-    metal("tole_larmee", (0.15, 0.148, 0.145), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.15,
-          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
-    metal("tole_larmee2", (0.12, 0.118, 0.115), rough=0.45, met=0.4, grain=0.5, gscale=70.0, rust=rust, ra=0.22,
-          dirt=0.8, stain=0.6, sscale=5.0, wear=0.8)
+    ages.matieres(4, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
 
 
 def _halo(g, pts, power):

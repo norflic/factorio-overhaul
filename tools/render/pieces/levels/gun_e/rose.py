@@ -27,6 +27,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# lot K0 (fusion INT-K0) : compo.py et les outils communs sont dans ../commun ; gun_e reste devant
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))
 sys.path.insert(0, HERE)
 import compo as K  # noqa: E402
 import piece  # noqa: E402
@@ -35,8 +37,8 @@ COLS = piece.ROSE
 
 
 def nom_age(e):
-    """Nom de l'époque lu dans epNN.py (« NOM = "…" », sans importer Blender). epoques.NOMS garde encore, pour 13 à
-    15, les noms de l'ANCIENNE ère V refusée (Fusion, Orbite, Légende) : il ne sert qu'en dernier recours."""
+    """Nom de l'époque lu dans epNN.py (« NOM = "…" », sans importer Blender) ; en dernier recours compo.NAME, qui
+    suit commun/ages.NOMS (ère V cosmique : 13 Antimatière, 14 La Porte, 15 Néant, depuis le lot K0)."""
     p = os.path.join(HERE, "ep%02d.py" % e)
     if os.path.exists(p):
         for ln in open(p, encoding="utf-8"):

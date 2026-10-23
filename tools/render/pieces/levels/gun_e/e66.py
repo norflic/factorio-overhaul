@@ -25,6 +25,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# lot K0 (fusion INT-K0) : compo.py et les outils communs sont dans ../commun ; gun_e reste devant
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))
 sys.path.insert(0, HERE)
 import compo as K  # noqa: E402
 

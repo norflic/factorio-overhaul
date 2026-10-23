@@ -19,6 +19,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -31,18 +32,17 @@ V = Vector
 
 EPOQUE = 10
 NOM = "Haute technologie"
-FOYER = dict(rgb=(0.09, 0.33, 1.0), rgb2=(0.09, 0.33, 1.0))
+FOYER = ages.FOYER[10]
 CANON = dict(L=2.0, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=1.15)
 # passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge de l'électronique
 # est un bâtiment de CARÉNAGES BLANC CASSÉ et GRIS posé sur un pont de DALLES ANTHRACITE à liseré BLEU lumineux ;
 # acier anthracite, rivets affleurants gris, bandes de danger blanc et bleu ; câbles rouges et bleus, voyants bleus.
-HABILLAGE = dict(jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_tech", tourelleau="gris_tech",
-                 munitions=("steel_hi", "steel_dk"), capots=("blanc_casse", "gris_tech"),
-                 acier=("anthracite", "acier_tech"), rivets="rivet_tech", danger=("blanc_casse", "bleu_tech"),
-                 peinture="bleu_tech", grille_nacelle="anthracite",
-                 plateforme=dict(motif="dalles", pas=0.28, joint=0.014, mat="dalle_tech", mat2="dalle_tech2",
-                                 fond="void", bord="anthracite", boulons=None, lisere=None),
+HABILLAGE = dict(ages.CORPS[10],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_tech", tourelleau="gris_tech",
+                 munitions=("steel_hi", "steel_dk"),
+                 grille_nacelle="anthracite",
                  # passe 5, ronde 4 (10-11 noté 3 et 3 à la ronde 3, « silhouette presque identique ») : pont CARRÉ
                  # mince à pans courts et GARDE-CORPS (lisses bleu technique, poteaux et plinthe anthracite), muret au
                  # nord (11 : pont hexagonal et coque ; 12 : plateforme ronde et anneaux)
@@ -59,36 +59,12 @@ def matieres(metal, M):
     """Haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus, écrans.
     Passe 5, ronde 1 : matières du corps entier (clés d'habillage) ; carénage blanc cassé, peu métallique (une grande
     masse claire reste sous 0,5 de métallicité)."""
-    rust = (0.24, 0.085, 0.03)
-    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10, 11 et 12 lus « même acier
-    # gris », écart 2 et 2 entre 10 et 11) : règle 60/30/10 de l'âge 10 = IVOIRE CHAUD dominant (capots, carénages,
-    # pont), ANTHRACITE en second (plaques, acier, goulottes), câbles ROUGE et BLEU vifs et voyants bleus en accent.
-    # Ivoire nettement jaune-crème (et non gris clair) : l'âge 11 prend le BLEU, l'âge 12 le blanc glacé et le noir.
-    metal("blanc_casse", (0.78, 0.68, 0.46), rough=0.42, met=0.12, grain=0.08, gscale=30.0, dirt=0.4, stain=0.25,
-          sscale=6.0, wear=0.5, streak=0.3, mottle=0.15)
-    metal("gris_tech", (0.15, 0.155, 0.165), rough=0.45, met=0.3, grain=0.08, gscale=30.0, dirt=0.5, stain=0.3,
-          sscale=6.0, wear=0.8)
-    metal("anthracite", (0.055, 0.058, 0.064), rough=0.45, met=0.45, grain=0.08, gscale=36.0, dirt=0.5, stain=0.3,
-          wear=1.0)
-    metal("acier_tech", (0.3, 0.31, 0.33), rough=0.35, met=0.45, grain=0.08, dirt=0.3, stain=0.1, wear=0.5)
-    metal("rivet_tech", (0.2, 0.205, 0.215), rough=0.4, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
-    metal("bleu_tech", (0.015, 0.09, 0.45), rough=0.4, met=0.1, grain=0.08, dirt=0.35, stain=0.15, wear=0.5)
-    # ronde 2 : pont en DALLES DE FAUX PLANCHER gris chaud clair (salle informatique), joints noirs : le pont noir
-    # passe à l'âge 12 (noir à joints de givre). Ronde 3 : dalles BEIGE IVOIRE (dominante de l'âge), plus claires
-    metal("dalle_tech", (0.52, 0.45, 0.32), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
-    metal("dalle_tech2", (0.44, 0.38, 0.27), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
-    # passe 5, ronde 2 : carénage CRÈME chaud (plastique et tôle peinte des années 80), peu métallique, peu sali ;
-    # ronde 3 : crème plus franc (ivoire jaune), moins sali
-    metal("jacket", (0.76, 0.64, 0.42), rough=0.48, met=0.06, grain=0.08, gscale=30.0, rust=rust, ra=0.02,
-          dirt=0.4, stain=0.25, sscale=6.0, wear=0.6, streak=0.3, mottle=0.18)
+    ages.matieres(10, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["ring"] = M["matte"]
     M["trim"] = M["jacket"]
-    metal("pipe", (0.11, 0.108, 0.104), rough=0.5, met=0.2, grain=0.1, dirt=0.6, stain=0.4, wear=1.0)
     M["pipe2"] = M["steel_hi"]
-    metal("cable_b", (0.01, 0.1, 0.62), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)   # bleu vif (ronde 3)
-    metal("cable_r", (0.55, 0.03, 0.015), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)  # rouge vif (ronde 3)
     M["cable_a"] = M["cable_r"]
-    metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
     M["accent"] = M["trim"]
 
 

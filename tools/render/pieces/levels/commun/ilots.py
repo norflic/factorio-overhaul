@@ -1,7 +1,9 @@
 """OUTIL COMMUN, BLOQUANT : îlots détachés et trous enfermés (règle d'or 6). FICHIER GELÉ. Python 3.9 (numpy).
 
-    py -3.9 tools/render/pieces/levels/gun_e/ilots.py --out DIR [--epochs 2,…,15] [--kit 2,5] [--diag DIR]
-        [--json fichier.json]
+    py -3.9 tools/render/pieces/levels/commun/ilots.py --out DIR [--famille gun_e] [--epochs 2,…,15] [--kit 2,5]
+        [--diag DIR] [--json fichier.json]
+Lot K0 : outil commun ; variantes contrôlées seules, compositions et trous voulus : profil de la famille
+(profil.variantes_seules, profil.compositions, profil.TROUS_VOULUS).
 
 Définitions (celles des juges de la passe 3, juge_e.py et juge_ilots.py ; 64 px/tuile, couche main HR) :
   - TROU ENFERMÉ : composante de pixels transparents (alpha < 0,5, connexité 4) qui ne touche pas le bord de l'image ;
@@ -27,7 +29,6 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import compo as K  # noqa: E402
-import epoques as E  # noqa: E402
 
 D = K.D
 SEUIL = 8
@@ -61,7 +62,7 @@ def analyse(alpha_bool):
 
 
 def voulus(e, partie):
-    return getattr(E, "TROUS_VOULUS", {}).get((e, partie), [])
+    return getattr(K.PROFIL, "TROUS_VOULUS", {}).get((e, partie), [])
 
 
 def filtre_trous(trous, origin, e, partie):
@@ -117,25 +118,23 @@ def main():
     ap.add_argument("--kit", default="")
     ap.add_argument("--diag", default="")
     ap.add_argument("--json", default="")
+    K.option_famille(ap)
     a = ap.parse_args()
+    PR = K.utiliser(a.famille or None)
     rows = []
     eps = [int(x) for x in a.epochs.split(",") if x] + ["k%s" % s for s in a.kit.split(",") if s]
     for e in eps:
-        pre = e if isinstance(e, str) else "e%02d" % e
-        if e != 1:
-            for partie in (["socle"] + ["tete-E", "tete-N"]):
-                lays = K.own(a.out, "%s-%s" % (pre, partie), kinds=("main",))
-                if lays:
-                    rows.append(controle("%s-%s" % (pre, partie), lays, e, partie.split("-")[0], a.diag))
-        for pose in ("E", "N"):
-            for even in ((False, True) if not isinstance(e, str) else (False,)):
-                if e == 1 and not even:
-                    continue
-                lays = K.level_layers(a.out, e, pose, even, kinds=("main",))
-                if not lays:
-                    continue
-                nom = "%s-niv%s-%s" % (pre, "pair" if even else "impair", pose)
-                rows.append(controle(nom, lays, e, "compo", a.diag))
+        pre = PR.prefixe(e)
+        for variante, partie in PR.variantes_seules(e):
+            lays = K.own(a.out, variante, kinds=("main",))
+            if lays:
+                rows.append(controle(variante, lays, e, partie, a.diag))
+        for pose, even in PR.compositions(e):
+            lays = K.level_layers(a.out, e, pose, even, kinds=("main",))
+            if not lays:
+                continue
+            nom = "%s-niv%s-%s" % (pre, "pair" if even else "impair", pose)
+            rows.append(controle(nom, lays, e, "compo", a.diag))
     nb = 0
     for r in rows:
         nb += not r["ok"]

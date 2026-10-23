@@ -22,6 +22,7 @@ import random
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -35,16 +36,15 @@ V = Vector
 EPOQUE = 14
 NOM = "La Porte"
 # blanc stellaire #F4F6FF et horizon #BFD4FF (fiche §3 E5)
-FOYER = dict(rgb=(0.957, 0.965, 1.0), rgb2=(0.749, 0.831, 1.0), doux=dict(force=0.8))
+FOYER = ages.FOYER[14]
 CANON = dict(L=2.8, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=0.2)
-HABILLAGE = dict(jupe_cerclage="blanc_lunaire", chapeau="blanc_lunaire", tremie="indigo_nuit",
-                 tourelleau="blanc_lunaire", capots=("indigo_nuit", "blanc_lunaire"),
-                 acier=("noir_spatial", "blanc_lunaire"), rivets="blanc_lunaire", joints="noir_spatial",
-                 danger=("blanc_lunaire", "indigo_nuit"), peinture="indigo_nuit", grille_nacelle="blanc_lunaire",
+HABILLAGE = dict(ages.CORPS[14],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="blanc_lunaire", chapeau="blanc_lunaire", tremie="indigo_nuit",
+                 tourelleau="blanc_lunaire",
+                 grille_nacelle="blanc_lunaire",
                  munitions=("blanc_lunaire", "indigo_nuit"),
-                 plateforme=dict(motif="toles", mat="indigo_nuit", mat2="indigo_nuit2", fond="noir_spatial",
-                                 bord="blanc_lunaire", boulons="blanc_lunaire", lisere="emit_soft"),
                  forme_plateforme=dict(forme="carre", flanc="blanc_lunaire", flanc2="indigo_nuit"),
                  # OBSERVATOIRE : dôme bas à côtes serrées, aucune parabole ni panneau dessus (ronde 5 : la pyramide de
                  # l'ancien 14 était couverte par les paraboles)
@@ -59,19 +59,8 @@ def matieres(metal, M):
     """La Porte : indigo de nuit SATURÉ et mat (doit se lire BLEU au zoom 1, jamais noir : valeur remontée par rapport
     à l'albédo de la fiche, risque 2), blanc lunaire mat patiné de régolithe gris, noir spatial, horizon de la Porte
     (indigo très sombre), roche de météorite."""
-    metal("indigo_nuit", (0.034, 0.045, 0.24), rough=0.5, met=0.1, grain=0.08, gscale=30.0, rust=(0.1, 0.1, 0.11),
-          ra=0.05, dirt=0.45, stain=0.3, sscale=5.0, wear=1.2, streak=0.3, mottle=0.2)
-    metal("indigo_nuit2", (0.028, 0.037, 0.2), rough=0.52, met=0.1, grain=0.08, gscale=30.0, dirt=0.45, stain=0.3,
-          sscale=5.0, wear=1.0, mottle=0.2)
-    metal("noir_spatial", (0.008, 0.009, 0.016), rough=0.5, met=0.2, grain=0.1, dirt=0.4, stain=0.1, wear=1.2)
-    metal("blanc_lunaire", (0.55, 0.57, 0.63), rough=0.6, met=0.05, grain=0.08, gscale=30.0, rust=(0.2, 0.2, 0.2),
-          ra=0.06, dirt=0.55, stain=0.25, sscale=5.0, wear=0.4, mottle=0.12)
-    metal("horizon_porte", (0.006, 0.008, 0.04), rough=0.3, met=0.0, grain=0.04, dirt=0.1, stain=0.0)
-    metal("roche", (0.035, 0.03, 0.028), rough=0.85, met=0.05, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6, wear=2.0)
-    # ronde 2 : TUBES des canons en acier BLEUI indigo, satiné (test à l'aveugle de la ronde 1 : les tubes d'acier nu
-    # clair à pointes blanches se lisaient « cheminées » en pose N ; fiche §3 E1 : jaquette indigo)
-    metal("acier_bleui", (0.05, 0.062, 0.25), rough=0.3, met=0.45, grain=0.08, gscale=40.0, dirt=0.35, stain=0.15,
-          sscale=6.0, wear=0.9)
+    ages.matieres(14, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["gun"] = M["acier_bleui"]
     M["copper"] = M["blanc_lunaire"]
     M["ring"] = M["blanc_lunaire"]

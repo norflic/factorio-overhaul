@@ -9,6 +9,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -21,7 +22,7 @@ V = Vector
 
 EPOQUE = 1
 NOM = "Pionnier"
-FOYER = dict(rgb=(1.0, 0.69, 0.376), nuit=True)
+FOYER = ages.FOYER[1]
 
 
 def _halo(g, pts, power):

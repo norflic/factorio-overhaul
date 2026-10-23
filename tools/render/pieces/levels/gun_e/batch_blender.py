@@ -30,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 sys.path.insert(0, os.path.join(RENDER, "blender"))
 sys.path.insert(0, RENDER)
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))   # lot K0 : kit commun (kit.py, parts*.py…)
 sys.path.insert(0, HERE)
 import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402

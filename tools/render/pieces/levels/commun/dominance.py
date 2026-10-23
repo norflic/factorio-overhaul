@@ -1,6 +1,9 @@
 """OUTIL COMMUN : progression de puissance époque par époque, VANILLA EN TÊTE (charte §5, catalogue §A.5). GELÉ.
 
-    py -3.9 tools/render/pieces/levels/gun_e/dominance.py --mesures mesures.json [--prog prog.json]
+    py -3.9 tools/render/pieces/levels/commun/dominance.py --mesures mesures.json [--prog prog.json] [--famille gun_e]
+
+Lot K0 : outil commun ; bâtiment vanilla de tête, nom de la famille et poses : profil de la famille
+(profil.REF_VANILLA["mesure"], profil.FAMILLE_PROG, profil.POSES, profil.AGES).
 
 Lit le JSON de mesures.py. Suite comparée, pour chaque pose E et N : mitrailleuse VANILLA (niveau 1,
 docs/da/mesures_vanilla.json, « gun-turret ») puis les niveaux impairs des époques 2 à 15. Règle de
@@ -19,18 +22,23 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import epoques as E  # noqa: E402
+import famille as FAM  # noqa: E402
 
 MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 VANILLA = os.path.join(MOD, "docs", "da", "mesures_vanilla.json")
 PROGRESSION = os.path.join(MOD, "tools", "da", "progression.py")
 D3_BAISSE_MAX = 0.05   # passe 5 : une baisse de densité D3 de plus de 5 % entre voisines est un DÉFAUT (compté)
+PR = None   # profil de la famille (main)
 
 
 def vanilla_n1():
     V = json.load(open(VANILLA, encoding="utf-8"))
-    g = dict([v for v in V if v["nom"] == "gun-turret"][0])
-    g.update({"epoque": 1, "niveau": 1, "pose": "*", "pair": False, "famille": "mitrailleuse"})
+    ref = PR.REF_VANILLA["mesure"]
+    trouve = [v for v in V if v["nom"] == ref]
+    if not trouve:
+        raise SystemExit("%s absent de docs/da/mesures_vanilla.json : mesurer le bâtiment vanilla d'abord" % ref)
+    g = dict(trouve[0])
+    g.update({"epoque": 1, "niveau": 1, "pose": "*", "pair": False, "famille": PR.FAMILLE_PROG})
     return g
 
 
@@ -43,13 +51,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mesures", required=True)
     ap.add_argument("--prog", default="")
+    ap.add_argument("--famille", default="", help="famille (profil.py ; défaut : FO_FAMILLE, sinon gun_e)")
     a = ap.parse_args()
+    global PR
+    PR = FAM.charger(a.famille or None)
     data = json.load(open(a.mesures, encoding="utf-8"))
     rows = [r for r in data["charte"] if r.get("temoin") is None]
     van = vanilla_n1()
     nko = 0
     nd3 = 0
-    for pose in ("E", "N"):
+    for pose in PR.POSES:
         seq = [van] + sorted([r for r in rows if r["pose"] == pose and not r["pair"] and r["epoque"] >= 2],
                              key=lambda r: r["epoque"])
         nd = 0
@@ -73,9 +84,9 @@ def main():
                       "domine" if ok else "NE DOMINE PAS",
                       "" if d3_ok else " ; DÉFAUT : DENSITÉ D3 -%.0f %% (> %.0f %%)" % (-100 * dd, 100 * D3_BAISSE_MAX)))
         print("  %s : %d/%d paires dominent (vanilla en tête)" % (pose, nd, len(seq) - 1))
-    for pose in ("E", "N"):
+    for pose in PR.POSES:
         n = tot = 0
-        for e in range(2, 16):
+        for e in [x for x in PR.AGES if x >= 2]:
             x = [r for r in rows if r["epoque"] == e and r["pose"] == pose and not r["pair"]]
             y = [r for r in rows if r["epoque"] == e and r["pose"] == pose and r["pair"]]
             if not x or not y:
@@ -93,14 +104,16 @@ def main():
                     x["foyers_lumineux"], y["foyers_lumineux"]))
         print("  %s impair -> pair : %d/%d" % (pose, n, tot))
     if a.prog:
-        out = [dict(van, famille="mitrailleuse")]
+        fam = PR.FAMILLE_PROG
+        p0 = PR.POSES[0]
+        out = [dict(van, famille=fam)]
         for r in rows:
-            if r["pose"] == "E" and r["epoque"] >= 2:
-                out.append(dict(r, famille="mitrailleuse"))
+            if r["pose"] == p0 and r["epoque"] >= 2:
+                out.append(dict(r, famille=fam))
         json.dump(out, open(a.prog, "w", encoding="utf-8"), indent=1, ensure_ascii=False, default=float)
-        print("--- tools/da/progression.py (pose E, vanilla en époque 1) ---")
+        print("--- tools/da/progression.py (pose %s, vanilla en époque 1) ---" % p0)
         res = subprocess.run([sys.executable, PROGRESSION, a.prog], capture_output=True, text=True, encoding="utf-8")
-        print("\n".join(l for l in res.stdout.splitlines() if l.startswith("mitrailleuse") or l.startswith("   ")
+        print("\n".join(l for l in res.stdout.splitlines() if l.startswith(fam) or l.startswith("   ")
                         or l.startswith("     ")))
     print("[FO-DOMINANCE] %d défaut(s), dont %d baisse(s) de densité D3 de plus de %.0f %%" % (
         nko, nd3, 100 * D3_BAISSE_MAX))

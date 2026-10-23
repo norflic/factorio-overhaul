@@ -1,13 +1,18 @@
 """OUTIL COMMUN : mesures de la charte (tools/da, inchangé) sur les niveaux composés. FICHIER GELÉ. Python 3.9.
 
-    py -3.9 tools/render/pieces/levels/gun_e/mesures.py --out DIR --json mesures.json [--epochs 1,…,15] [--kit 2,5]
+    py -3.9 tools/render/pieces/levels/commun/mesures.py --out DIR --json mesures.json [--famille gun_e]
+        [--epochs 1,…,15] [--kit 2,5]
+
+Lot K0 : outil commun ; poses, compositions, sprites comptés, pièce paire, cibles, repère des points blancs et nom
+de la famille : profil de la famille (profil.compositions, profil.sprites, profil.est_piece_paire, profil.CIBLE,
+profil.LUCIOLES_MAX, profil.PIECE_MIN, profil.FAMILLE_PROG) ; familles de couleur : commun/ages.py.
 
 Pour chaque époque, poses E et N, niveau impair et niveau pair (époque 1 : niveau 2 seulement, le niveau 1 est la
 mesure vanilla de docs/da/mesures_vanilla.json) :
   1. CHARTE : da_lib.measure sur le corps composé (main + glow + light, sans ombre ; 64 px/tuile) ; planchers de
      tools/da/seuils.py + D1max 41, D3max 45, D3 >= 26, P1max 7,6 (protocole des juges de la passe 3) ; cibles du
      catalogue §A.4 (masse, pièces, O, zone lumineuse de jour) ;
-  2. FOYERS : couleur moyenne pondérée de la couche glow (socle + tête) et sa FAMILLE (epoques.FAMILLES, règle d'or
+  2. FOYERS : couleur moyenne pondérée de la couche glow (socle + tête) et sa FAMILLE (commun/ages.FAMILLES, règle d'or
      3) : « dans la famille » ou « HORS FAMILLE » ; plus grand foyer de la couche glow seule (<= 0,45 t²) ;
   3. POINTS BLANCS : pixels opaques de luminance >= 200 qui dépassent la médiane 3×3 de plus de 70, par t², sur
      chaque sprite principal HR ; repère vanilla 13,2 (feuille HR de la mitrailleuse) : au-delà, ÉCHEC ;
@@ -26,20 +31,26 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import ages as E  # noqa: E402  (lot K0 : familles de couleur communes, commun/ages.py)
 import compo as K  # noqa: E402
-import epoques as E  # noqa: E402
 
 D = K.D
 sys.path.insert(0, K.OUTILS)
 import seuils  # noqa: E402
 
-CIBLE = {1: (3.5, 156, 0.8, (0.0, 0.02)), 2: (3.6, 172, 0.8, (0.0, 0.03)), 3: (3.7, 189, 0.8, (0.02, 0.04)),
-         4: (6.8, 208, 1.2, (0.03, 0.05)), 5: (7.4, 228, 1.2, (0.03, 0.06)), 6: (8.1, 251, 1.2, (0.04, 0.06)),
-         7: (12.0, 312, 1.6, (0.05, 0.07)), 8: (13.1, 343, 1.6, (0.05, 0.08)), 9: (14.4, 378, 1.6, (0.06, 0.08)),
-         10: (18.8, 488, 2.0, (0.07, 0.09)), 11: (20.5, 536, 2.0, (0.07, 0.10)), 12: (22.5, 590, 2.0, (0.08, 0.10)),
-         13: (27.0, 702, 2.4, (0.09, 0.11)), 14: (29.5, 772, 2.4, (0.10, 0.12)), 15: (32.4, 849, 2.4, (0.10, 0.12))}
-LUCIOLES_MAX = 13.2   # feuille HR de la mitrailleuse vanilla (juge_lucioles.txt de la passe 3)
-PIECE_MIN = 0.10
+# lot K0 : cibles, repère des points blancs et seuil de la pièce paire viennent du profil de la famille (main) ;
+# valeurs de la mitrailleuse : gun_e/profil.py (inchangées)
+CIBLE = {}
+LUCIOLES_MAX = None
+PIECE_MIN = None
+PR = None
+
+
+def _profil(nom):
+    global CIBLE, LUCIOLES_MAX, PIECE_MIN, PR
+    PR = K.utiliser(nom)
+    CIBLE, LUCIOLES_MAX, PIECE_MIN = PR.CIBLE, PR.LUCIOLES_MAX, PR.PIECE_MIN
+    return PR
 
 
 def side_of(e):
@@ -86,15 +97,8 @@ def glow_stats(out, e, pose):
 
 def piece_nouvelle(out, e, pose):
     """Masque nouveau du niveau pair hors du niveau impair (même canevas : la pièce est mise à zéro pour l'impair)."""
-    pre = "e%02d" % e
-    if e == 1:
-        ev = K.level_layers(out, 1, pose, True, kinds=("main",))
-        od = [dict(l, img=np.zeros_like(l["img"])) if l.get("file", "").startswith("hr-gune-e01-piece") else l
-              for l in ev]
-    else:
-        ev = K.level_layers(out, e, pose, True, kinds=("main",))
-        od = [dict(l, img=np.zeros_like(l["img"])) if ("-%s-piece-" % pre) in ("-" + l.get("file", "")) else l
-              for l in ev]
+    ev = K.level_layers(out, e, pose, True, kinds=("main",))
+    od = [dict(l, img=np.zeros_like(l["img"])) if PR.est_piece_paire(e, l.get("file", "")) else l for l in ev]
     if not ev:
         return None
     ca = D.compose(ev)["body"][..., 3] >= 0.5
@@ -108,51 +112,50 @@ def main():
     ap.add_argument("--json", required=True)
     ap.add_argument("--epochs", default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15")
     ap.add_argument("--kit", default="")
+    K.option_famille(ap)
     a = ap.parse_args()
+    _profil(a.famille or None)
     eps = [int(x) for x in a.epochs.split(",") if x] + ["k%s" % s for s in a.kit.split(",") if s]
     rows, echecs = [], []
     print("=" * 110)
     print("1. CHARTE (corps : main + glow + light, sans ombre ; 64 px/tuile)")
     for e in eps:
         side = side_of(e)
-        for pose in ("E", "N"):
-            for even in ((False, True) if not isinstance(e, str) else (False,)):
-                if e == 1 and not even:
-                    continue
-                lays = K.level_layers(a.out, e, pose, even, kinds=("main", "glow", "light"))
-                if not lays:
-                    continue
-                comp = D.compose(lays)
-                lvl = (2 * e - 1 + int(even)) if not isinstance(e, str) else 0
-                r = D.measure(comp, side, "n%02d-%s" % (lvl, pose))
-                if r is None:
-                    continue
-                r.update({"epoque": e if not isinstance(e, str) else 0, "temoin": e if isinstance(e, str) else None,
-                          "niveau": lvl, "pose": pose, "pair": even, "famille": "mitrailleuse"})
-                F = floors(r)
-                r["echecs"] = [f[0] for f in F if not f[1]]
-                if not isinstance(e, str):
-                    m, p, O, lum = CIBLE[e]
-                    r["cible_ok"] = {"masse": r["masse_tuiles2"] >= m, "pieces": r["petites_pieces"] >= p,
-                                     "O": r["O_depassement_haut"] <= O,
-                                     "lum_bande": lum[0] - 1e-9 <= r["zone_lumineuse_part"] <= lum[1] + 1e-9}
-                rows.append(r)
-                print("%s %-4s %s %dx%d%s : %d échec(s) %s" % (
-                    r["nom"], e, pose, side, side, " (pair)" if even else "", len(r["echecs"]), ",".join(r["echecs"])))
-                print("    D1 %.1f D3 %.1f (%d pièces) P1 %.2f P2 %.1f | C1 %.0f C2 %.0f C3 %.2f C7 %.3f C8 %.3f | L1 %.3f "
-                      "L2 %.3f foyers %d | M1 %.2f M3 %.3f masse %.2f O %.2f" % (
-                          r["laplacien_moyen"], r["petites_pieces_par_tuile2"], r["petites_pieces"], r["grain_surfaces"],
-                          r["variance_basse_freq"], r["lum_p50"], r["lum_p95"], r["part_teinte_chaude_corps"],
-                          r["part_peinte_froide_hors_lumineux"], r["part_quasi_blanc"], r["zone_lumineuse_part"],
-                          r["plus_grand_foyer_lumineux_tuiles2"], r["foyers_lumineux"], r["remplissage_emprise"],
-                          r["part_massive"], r["masse_tuiles2"], r["O_depassement_haut"]))
+        for pose, even in PR.compositions(e):
+            lays = K.level_layers(a.out, e, pose, even, kinds=("main", "glow", "light"))
+            if not lays:
+                continue
+            comp = D.compose(lays)
+            lvl = (2 * e - 1 + int(even)) if not isinstance(e, str) else 0
+            r = D.measure(comp, side, "n%02d-%s" % (lvl, pose))
+            if r is None:
+                continue
+            r.update({"epoque": e if not isinstance(e, str) else 0, "temoin": e if isinstance(e, str) else None,
+                      "niveau": lvl, "pose": pose, "pair": even, "famille": PR.FAMILLE_PROG})
+            F = floors(r)
+            r["echecs"] = [f[0] for f in F if not f[1]]
+            if not isinstance(e, str) and e in CIBLE:
+                m, p, O, lum = CIBLE[e]
+                r["cible_ok"] = {"masse": r["masse_tuiles2"] >= m, "pieces": r["petites_pieces"] >= p,
+                                 "O": r["O_depassement_haut"] <= O,
+                                 "lum_bande": lum[0] - 1e-9 <= r["zone_lumineuse_part"] <= lum[1] + 1e-9}
+            rows.append(r)
+            print("%s %-4s %s %dx%d%s : %d échec(s) %s" % (
+                r["nom"], e, pose, side, side, " (pair)" if even else "", len(r["echecs"]), ",".join(r["echecs"])))
+            print("    D1 %.1f D3 %.1f (%d pièces) P1 %.2f P2 %.1f | C1 %.0f C2 %.0f C3 %.2f C7 %.3f C8 %.3f | L1 %.3f "
+                  "L2 %.3f foyers %d | M1 %.2f M3 %.3f masse %.2f O %.2f" % (
+                      r["laplacien_moyen"], r["petites_pieces_par_tuile2"], r["petites_pieces"], r["grain_surfaces"],
+                      r["variance_basse_freq"], r["lum_p50"], r["lum_p95"], r["part_teinte_chaude_corps"],
+                      r["part_peinte_froide_hors_lumineux"], r["part_quasi_blanc"], r["zone_lumineuse_part"],
+                      r["plus_grand_foyer_lumineux_tuiles2"], r["foyers_lumineux"], r["remplissage_emprise"],
+                      r["part_massive"], r["masse_tuiles2"], r["O_depassement_haut"]))
     print("=" * 110)
-    print("2. FOYERS : couleur mesurée (couche glow, moyenne pondérée) contre la FAMILLE de l'époque (epoques.FAMILLES)")
+    print("2. FOYERS : couleur mesurée (couche glow, moyenne pondérée) contre la FAMILLE de l'âge (commun/ages.FAMILLES)")
     foyers = []
     for e in eps:
         if isinstance(e, str) or e == 1:
             continue
-        for pose in ("E", "N"):
+        for pose in PR.POSES:
             gs = glow_stats(a.out, e, pose)
             if gs is None:
                 print("  ép.%2d %s : pas de couche glow" % (e, pose))
@@ -171,25 +174,24 @@ def main():
     print("3. POINTS BLANCS (luminance >= 200, > médiane 3×3 + 70 ; par t² ; repère vanilla %.1f)" % LUCIOLES_MAX)
     luc = []
     for e in eps:
-        pre = e if isinstance(e, str) else "e%02d" % e
-        for part in ("socle", "piece", "tete-E", "tete-N"):
-            s = K.spec_of(a.out, "%s-%s" % (pre, part))
+        for var in PR.sprites(e):
+            s = K.spec_of(a.out, var)
             if not s:
                 continue
-            p = os.path.join(K._dir(a.out, "%s-%s" % (pre, part)), s["layers"]["main"]["file"])
+            p = os.path.join(K._dir(a.out, var), s["layers"]["main"]["file"])
             rate, n = lucioles(p)
             ok = rate <= LUCIOLES_MAX
-            luc.append({"variante": "%s-%s" % (pre, part), "points_t2": rate, "points": n, "ok": ok})
+            luc.append({"variante": var, "points_t2": rate, "points": n, "ok": ok})
             if not ok:
-                echecs.append("points blancs %s-%s" % (pre, part))
-            print("  %-14s %6.1f points/t² (%d) %s" % ("%s-%s" % (pre, part), rate, n, "" if ok else "<-- ECHEC"))
+                echecs.append("points blancs %s" % var)
+            print("  %-14s %6.1f points/t² (%d) %s" % (var, rate, n, "" if ok else "<-- ECHEC"))
     print("=" * 110)
     print("4. PIÈCE PAIRE : masque nouveau (catalogue >= %.2f t²)" % PIECE_MIN)
     pieces = []
     for e in eps:
         if isinstance(e, str):
             continue
-        for pose in ("E", "N"):
+        for pose in PR.POSES:
             t2 = piece_nouvelle(a.out, e, pose)
             if t2 is None:
                 continue

@@ -18,6 +18,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -40,7 +41,7 @@ KIN = 1   # rang dans l'ère III
 # évolué que le cristal, « jaune industriel ») : le liquide passe au VERT-JAUNE ACIDE (chartreuse, environ 84°), la
 # teinte d'un poison de marais : ni le jaune de signalisation du pétrole (environ 50°) ni le vert uranium de l'atome
 # (100 à 135°) ; un peu plus lumineux (0,6 -> 0,75) pour passer devant le cristal
-FOYER = dict(rgb=(0.6, 1.0, 0.04), doux=dict(force=0.75, base=(0.05, 0.075, 0.01)))
+FOYER = ages.FOYER[8]
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.06)
@@ -48,9 +49,10 @@ PLATEFORME = dict(chanfrein=0.06)
 # pont de PLANCHES de bois mouillé moussu à clous de cuivre, bordé de caoutchouc noir ; coupole et capots de CUIVRE
 # OXYDÉ vert-de-gris clair ; plaques de cuivre brun terni ; acier de structure en caoutchouc noir et vert-de-gris ;
 # bandes vert-de-gris et noir (aucun jaune : le jaune est au pétrole).
-HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitions=("verdigris", "emit_soft"),
-                 chapeau="cuivre_terni", capots=("vdg_capot", "cuivre_terni"), acier=("rubber", "vdg_capot"),
-                 rivets="cuivre_terni", joints="rubber", danger=("vdg_capot", "rubber"), peinture="cuivre_terni",
+HABILLAGE = dict(ages.CORPS[8],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitions=("verdigris", "emit_soft"),
+                 chapeau="cuivre_terni",
                  tourelleau="cuivre_terni", grille_nacelle="vdg_capot",
                  # ronde 3 (test des écarts de la ronde 2 : 8-9 noté 2 et 2, « même plan carrelé », « même socle ») : PONT
                  # SUR PILOTIS (forme « pilotis » du kit) : plancher de bois flotté sur pieux moussus au-dessus du
@@ -67,8 +69,7 @@ HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitio
                  # (essai a de la ronde 4 : verre = lueur douce ; la cloche devenait un aplat jaune sans dessin au zoom 1 :
                  # VERRE TOXIQUE brillant non lumineux, jaune-vert profond, dont les reflets dessinent la cloche)
                  forme_coupole=dict(forme="cloche", verre="verre_toxique", mat2="vdg_capot", lisere="emit"),
-                 plateforme=dict(motif="planches", pas=0.15, mat="bois_mouille", mat2="bois_mousse", fond="tablier",
-                                 bord="rubber", boulons="cuivre_terni", relief=0.5))
+                 )
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
           band="verdigris", recv_mats=("verdigris", "vdg_capot"), feed="hoses", skirt="rubber", appl="vdg_capot",
           gmask=("vdg_capot", "verdigris"), arm=("vdg_capot", "steel_dk"), cap="cuivre_terni",
@@ -77,23 +78,7 @@ ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", 
 
 def matieres(metal, M):
     """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
-    metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
-    # ronde 4 : verre de la CLOCHE (coupole) : liquide toxique jaune soufré vu à travers un verre épais et brillant
-    # ronde 5 : verre VERT ACIDE plus clair (l'olive (0,36 ; 0,34 ; 0,02) tirait au kaki et au jaune du pétrole)
-    metal("verre_toxique", (0.3, 0.46, 0.04), rough=0.06, met=0.0, grain=0.06, dirt=0.25, stain=0.2, sscale=4.0)
-    # matières du CORPS (vert-de-gris clair peu métallique, cuivre terni, bois mouillé)
-    # ronde 2 (test des écarts de la ronde 1 : le marais jugé MOINS évolué que le cristal, « G sombre ») : âge du
-    # milieu de l'ère III, il monte d'un cran en clarté : vert-de-gris clair, pont de BOIS FLOTTÉ gris argent (le bois
-    # de marais lavé et blanchi) au lieu du bois mouillé presque noir
-    metal("vdg_capot", (0.27, 0.46, 0.39), rough=0.55, met=0.2, grain=0.28, gscale=26.0, rust=(0.36, 0.2, 0.1),
-          ra=0.14, dirt=0.7, stain=0.5, sscale=4.0, wear=1.4, mottle=0.4)
-    metal("cuivre_terni", (0.3, 0.18, 0.1), rough=0.5, met=0.4, grain=0.25, rust=(0.15, 0.3, 0.24), ra=0.4,
-          dirt=0.75, stain=0.5, sscale=5.0, wear=1.2)
-    # ronde 3 : bois flotté un peu plus chaud (il se lisait « carrelage gris » comme le béton de l'atome)
-    metal("bois_mouille", (0.33, 0.27, 0.19), rough=0.6, met=0.0, grain=0.42, gscale=18.0, dirt=0.8, stain=0.6,
-          sscale=6.0, wear=0.6, streak=0.45)
-    metal("bois_mousse", (0.23, 0.26, 0.18), rough=0.65, met=0.0, grain=0.45, gscale=18.0, dirt=0.8, stain=0.6,
-          sscale=6.0, wear=0.6, streak=0.45)
+    ages.matieres(8, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
 
 
 def _halo(g, pts, power):
