@@ -5,7 +5,9 @@ Format de tools/render/README.md (PIECE + build(S, C, variant)). Variantes :
   eNN-socle           base du niveau impair 2N-1 (N = 2 à 15) ;
   eNN-piece           pièce du niveau pair 2N (couche ajoutée au socle, en paire aux coins avant) ;
   eNN-tete-N|E        tête (pose « prepared »), canons au nord ou à l'est ;
-  kS-socle, kS-tete-N|E   TÉMOIN DU KIT (S = 2 à 6) : la lignée seule (ep00), sans organe d'époque.
+  kS-socle, kS-tete-N|E   TÉMOIN DU KIT (S = 2 à 6) : la lignée seule (ep00), sans organe d'époque ; avec la variable
+                      FO_HABILLAGE_ESSAI=pionnier|fusion|legende (rendre.py --habillage), le témoin porte un habillage
+                      d'essai (habillages.py).
 Emprise par époque : epoques.COTE (Q-S1, shared/levels/config.lua L.footprints.gun = { era = { 2, 3, 4, 5, 6 } }).
 Rendu : rendre.py (verrou de rendu, paquets, post-traitement) ; contrôles : ilots.py (bloquant), mesures.py,
 gris.py, dominance.py, vignettes.py, apercu.py.
@@ -70,6 +72,13 @@ def build(S, C, variant):
     v = PIECE["variants"][variant]
     e = v["epoch"]
     ep = E.module(e)
+    essai = os.environ.get("FO_HABILLAGE_ESSAI", "").strip()
+    if essai:
+        # habillage d'essai du kit (habillages.py, rendre.py --habillage) : TÉMOIN seulement
+        if e != 0:
+            raise ValueError("FO_HABILLAGE_ESSAI=%s ne s'applique qu'au témoin du kit (kS-…), pas à %s" % (essai, variant))
+        import habillages
+        ep = habillages.temoin(essai, ep)
     M = K.materials(S, e, ep)
     hab = E.habillage(ep)
     part = v["part"]

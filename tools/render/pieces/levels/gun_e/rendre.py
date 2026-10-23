@@ -2,7 +2,7 @@
 
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --out DIR [--cache DIR] [--samples 128] [--quick]
         [--only e02-socle,…] | [--epochs 2,3 --parts socle,piece,tete-E,tete-N] | [--kit 2,5]
-        [--per 4] [--post-only] [--keep-npy] [--corps A|B] [--apercu] [--sessions 1|2]
+        [--per 4] [--post-only] [--keep-npy] [--corps A|B] [--apercu] [--sessions 1|2] [--habillage NOM]
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --ronde 2,5,9 --out DIR [--corps A|B] [--sessions 2]
 
 RONDE DE LECTURE (passe 5) : --ronde EPOQUES rend, en APERÇU (32 échantillons, --apercu), exactement ce qu'il faut
@@ -10,6 +10,8 @@ pour les vignettes E et N du niveau impair (vignettes.py) : eNN-socle, eNN-tete-
 le niveau 1 est vanilla), 9 variantes par session Blender, 2 sessions en parallèle (--sessions 2 : chacune prend sa
 place au verrou de rendu ; c'est le maximum permis sur le PC). --apercu : toutes les passes de jour (ombre, liseré de
 contact, lueur), sans le halo de nuit. --corps A|B : variante de corps de ce rendu (sinon corps_choix.py).
+--habillage pionnier|fusion|legende (passe 5, deuxième temps du kit) : habillage d'essai du TÉMOIN (habillages.py),
+avec --kit seulement ; écrit dans render.json, spec.json et temps.json.
 
 1. Les variantes sont rendues par PAQUETS de --per variantes, une session Blender par paquet (batch_blender.py),
    chacune lancée par le verrou de rendu prescrit (interdit n° 6) : « python tools/render/with_render_lock.py --
@@ -115,7 +117,7 @@ def post(name, cache, out_root):
             "seconds_render": info.get("seconds_render"), "verts": info.get("verts"), "count": info.get("count"),
             "quick": info.get("quick"), "canvas": info["canvas"], "night_only": meta["nuit"],
             "sous_vanilla": meta["sous_vanilla"], "kit": "gun_e", "corps": info.get("corps"),
-            "apercu": info.get("apercu"), "layers": {}}
+            "apercu": info.get("apercu"), "habillage": info.get("habillage"), "layers": {}}
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
@@ -157,6 +159,9 @@ def session(names, a):
     env.pop("FO_CORPS", None)
     if a.corps:
         env["FO_CORPS"] = a.corps
+    env.pop("FO_HABILLAGE_ESSAI", None)
+    if a.habillage:
+        env["FO_HABILLAGE_ESSAI"] = a.habillage
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     log = []
     t_lock = None
@@ -176,6 +181,7 @@ def session(names, a):
         hist = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else []
         hist.append({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "names": names, "samples": a.samples,
                      "quick": a.quick, "apercu": a.apercu, "corps": a.corps or "corps_choix.py",
+                     "habillage": a.habillage or None,
                      "total_s": round(dt, 1), "attente_verrou_et_demarrage_s": round(t_lock or 0, 1), "code": rc})
         with open(tj, "w", encoding="utf-8") as f:
             json.dump(hist, f, indent=1)
@@ -229,6 +235,8 @@ def main():
     ap.add_argument("--ronde", default="", help="époques d'une ronde de lecture : aperçu 32 échantillons, "
                                                 "variantes des vignettes E et N du niveau impair")
     ap.add_argument("--sessions", type=int, default=1, choices=(1, 2), help="sessions Blender en parallèle")
+    ap.add_argument("--habillage", default="", help="habillage d'essai du TÉMOIN (habillages.py : pionnier, fusion, "
+                                                    "legende) ; refusé pour une époque")
     a = ap.parse_args()
     if a.ronde:
         a.apercu = True
@@ -238,6 +246,12 @@ def main():
             a.per = 9
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
     names = selection(a)
+    if a.habillage:
+        import habillages
+        if a.habillage not in habillages.PRESETS:
+            raise SystemExit("habillage d'essai inconnu : %s (%s)" % (a.habillage, ", ".join(sorted(habillages.PRESETS))))
+        if any(not n.startswith("k") for n in names):
+            raise SystemExit("--habillage ne s'applique qu'au témoin du kit (--kit)")
     os.makedirs(a.cache, exist_ok=True)
     t_debut = time.time()
     chunks = [names[i:i + a.per] for i in range(0, len(names), max(1, a.per))]
