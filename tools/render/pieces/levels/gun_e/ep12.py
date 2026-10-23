@@ -66,14 +66,18 @@ def matieres(metal, M):
           wear=0.3)
     metal("chrome_mat", (0.48, 0.51, 0.54), rough=0.4, met=0.45, grain=0.1, gscale=50.0, dirt=0.6, stain=0.25,
           wear=0.6)
-    metal("frost", (0.6, 0.74, 0.86), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.45, stain=0.4,
-          sscale=5.0, wear=0.8, mottle=0.3)                                                     # capots givrés
+    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10, 11 et 12 lus « même acier
+    # gris ») : règle 60/30/10 de l'âge 12 = BLANC GLACÉ teinté CYAN dominant (capots givrés, givre, mousse des
+    # conduites), NOIR MIROIR et CHROME en second (pont, structure, anneaux), CYAN lumineux en accent. Le givre passe
+    # d'un gris bleuté à un blanc cyan franc, moins sali : l'âge 11 garde le bleu saturé, l'âge 10 l'ivoire.
+    metal("frost", (0.56, 0.84, 0.92), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.3, stain=0.3,
+          sscale=5.0, wear=0.6, mottle=0.3)                                                     # capots givrés
     metal("noir_miroir", (0.025, 0.03, 0.04), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
     metal("noir_miroir2", (0.04, 0.047, 0.06), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
     metal("grille_chrome", (0.3, 0.33, 0.37), rough=0.3, met=0.45, grain=0.06, gscale=50.0, dirt=0.4, stain=0.1)
-    metal("trim", (0.8, 0.88, 0.95), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.2, stain=0.2)  # givre
-    metal("pipe", (0.6, 0.68, 0.74), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.33, 0.35),
-          ra=0.15, dirt=0.6, stain=0.5, sscale=5.0, streak=0.4)                                   # mousse givrée
+    metal("trim", (0.78, 0.94, 0.98), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.15, stain=0.15)  # givre
+    metal("pipe", (0.56, 0.78, 0.86), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.4, 0.45),
+          ra=0.12, dirt=0.45, stain=0.4, sscale=5.0, streak=0.4)                                  # mousse givrée
     M["copper"] = M["ring"]   # aucune pièce de cuivre à cette époque (conducteurs, munitions)
     M["pipe2"] = M["ring"]
     metal("cable_a", (0.018, 0.018, 0.02), rough=0.55, met=0.0, grain=0.1, dirt=0.3, stain=0.0)

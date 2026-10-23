@@ -42,8 +42,13 @@ PLATEFORME = dict(chanfrein=0.32)
 # passe 5, ronde 1 (consigne du DC du 23/10 : la Légende est sans hésitation la plus précieuse et la plus lumineuse,
 # plus claire que l'Orbite) : TOUT le bâtiment en OR BLANC et NACRE : capots d'or blanc, plaques de nacre, acier d'or
 # sombre, rivets d'or, sur un pont de DALLES DE NACRE à joints d'or et liseré BLANC DORÉ lumineux.
+# passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; « la Légende n'est pas toute
+# blanc-or : blanc nacré dominant, or en secondaire, accents de lumière » ; Légende désignée grade ultime par 0 lecteur
+# sur 2) : règle 60/30/10 = NACRE BLANCHE dominante (coupole, capots, pont, trémie : le bâtiment le plus clair de la
+# suite), OR CHAUD en second (plaques, cadre, couronne, jaquettes : un or plus riche que l'or blanc crème de la ronde 2),
+# LUMIÈRE blanc doré et RUBIS de la couronne en accent. La coupole passe donc de l'or blanc crème à la nacre.
 HABILLAGE = dict(jupe_cerclage="trim", chapeau="or_rivet", tremie="trim", tourelleau="trim",
-                 munitions=("jacket", "trim"), capots=("orblanc", "trim"), acier=("or_sombre", "orblanc"),
+                 munitions=("jacket", "trim"), capots=("trim", "orblanc"), acier=("or_sombre", "orblanc"),
                  rivets="or_rivet", joints="joint_or", danger=("orblanc", "nacre2"), peinture="orblanc",
                  grille_nacelle="orblanc",
                  plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="nacre_dalle", mat2="nacre2",
@@ -57,20 +62,25 @@ def matieres(metal, M):
     blanc à métallicité 0,9 renvoyait le ciel sombre et se lisait gris-chrome vu de dessus ; il passe en métal
     semi-diffus CRÈME DORÉ (métallicité 0,45), plus chaud et plus clair. Les grands capots du corps passent en OR
     BLANC patiné mat (clé « capots ») et les plaques ocre en nacre : corps visiblement plus clair que l'Orbite."""
-    metal("jacket", (0.7, 0.53, 0.24), rough=0.3, met=0.45, grain=0.14, gscale=40.0, rust=(0.25, 0.12, 0.05),
-          ra=0.1, dirt=0.75, stain=0.35, sscale=6.0, wear=0.5)
+    # ronde 3 : or des organes (jaquettes, couronne, réservoirs) PROPRE et RICHE : sali à 0,75, il se lisait beige
+    # (aperçu r3a : la Légende restait « beige doré » à côté de l'or franc de l'Orbite)
+    metal("jacket", (0.86, 0.6, 0.2), rough=0.3, met=0.45, grain=0.12, gscale=40.0, rust=(0.25, 0.12, 0.05),
+          ra=0.04, dirt=0.35, stain=0.2, sscale=6.0, wear=0.35)
     # bagues, flèches de couronne : or blanc PATINÉ, plus rugueux (aucun éclat blanc franc : « pas de bague blanche »)
-    metal("ring", (0.6, 0.45, 0.2), rough=0.38, met=0.45, grain=0.18, gscale=36.0, rust=(0.25, 0.12, 0.05),
-          ra=0.14, dirt=0.85, stain=0.5, sscale=6.0, wear=0.6)
+    metal("ring", (0.74, 0.52, 0.17), rough=0.38, met=0.45, grain=0.16, gscale=36.0, rust=(0.25, 0.12, 0.05),
+          ra=0.06, dirt=0.45, stain=0.3, sscale=6.0, wear=0.45)
     # passe 5, ronde 1 : corps entier plus CLAIR que l'Orbite (or blanc pâle, nacre presque blanche)
-    metal("orblanc", (0.8, 0.66, 0.38), rough=0.4, met=0.4, grain=0.08, gscale=36.0, dirt=0.4, stain=0.25,
-          sscale=5.0, wear=0.5, mottle=0.12)                                                       # capots or blanc
-    metal("trim", (0.76, 0.73, 0.66), rough=0.28, met=0.05, grain=0.06, gscale=30.0, dirt=0.35, stain=0.2,
-          sscale=5.0, wear=0.3, mottle=0.18)                                                       # nacre
-    metal("nacre_dalle", (0.7, 0.68, 0.64), rough=0.28, met=0.05, grain=0.05, dirt=0.3, stain=0.12, sscale=5.0,
-          wear=0.3, mottle=0.18)
-    metal("nacre2", (0.62, 0.61, 0.6), rough=0.28, met=0.05, grain=0.05, dirt=0.3, stain=0.12, sscale=5.0,
-          wear=0.3, mottle=0.18)
+    # ronde 3 : l'or des plaques passe en OR CHAUD franc (seconde couleur), la nacre devient la dominante, plus
+    # blanche et moins salie (le crème de la ronde 2 se lisait beige)
+    metal("orblanc", (0.86, 0.6, 0.22), rough=0.38, met=0.4, grain=0.08, gscale=36.0, dirt=0.35, stain=0.2,
+          sscale=5.0, wear=0.4, mottle=0.12)                                                       # or chaud
+    metal("trim", (0.84, 0.82, 0.78), rough=0.26, met=0.05, grain=0.06, gscale=30.0, dirt=0.22, stain=0.12,
+          sscale=5.0, wear=0.2, mottle=0.18)                                                       # nacre
+    metal("nacre_dalle", (0.8, 0.785, 0.75), rough=0.26, met=0.05, grain=0.05, dirt=0.22, stain=0.1, sscale=5.0,
+          wear=0.2, mottle=0.18)
+    metal("nacre2", (0.74, 0.735, 0.725), rough=0.26, met=0.05, grain=0.05, dirt=0.22, stain=0.1, sscale=5.0,
+          wear=0.2, mottle=0.18)
+    metal("rubis", (0.42, 0.006, 0.03), rough=0.12, met=0.0, grain=0.03, dirt=0.05, stain=0.0)   # accent (ronde 3)
     metal("or_sombre", (0.5, 0.36, 0.15), rough=0.4, met=0.45, grain=0.06, gscale=40.0, dirt=0.4, stain=0.15,
           sscale=5.0, wear=0.6)
     metal("or_rivet", (0.72, 0.55, 0.26), rough=0.5, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
@@ -276,7 +286,8 @@ def crown(g, c, R, n=10, h=0.26, gems_all=False, skip=None):
             g.cyl(p + V((0, 0, hk + 0.1)), "z", 0.005, 0.12, M["jacket"], n=6, what="tige")
             g.sphere(p + V((0, 0, hk + 0.17)), 0.014, E, n=8, m=5, what="particule")
             g.sphere(p + V((0, 0, hk + 0.11)) + t * 0.01, 0.01, E, n=8, m=5, what="particule")
-        g.box(c + d * (R + 0.036), (0.024, 0.024, 0.024), M["trim"], "hard", R=Matrix.Rotation(a, 3, "Z"),
+        # ronde 3 : RUBIS sertis dans le bandeau (accent de couleur de la Légende, 60/30/10)
+        g.box(c + d * (R + 0.036), (0.03, 0.03, 0.03), M["rubis"], "hard", R=Matrix.Rotation(a, 3, "Z"),
               what="sertissure")
 
 

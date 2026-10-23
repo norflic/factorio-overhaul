@@ -36,8 +36,13 @@ PLATEFORME = dict(chanfrein=1.3)
 # passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge de la fusion est un bâtiment de
 # CÉRAMIQUE BLANCHE à plaques GRIS FROID, acier clair, sur un pont de DALLES DE CÉRAMIQUE GRISE à liseré MAGENTA ;
 # bandes de danger blanc et magenta, peinture magenta sombre. Le cuivre reste aux gaines et aux cerclages.
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ceram_bl", tourelleau="ceram_gr",
-                 capots=("ceram_bl", "ceram_gr"), acier=("ceram_gr", "acier_poli"), rivets="acier_poli",
+# passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 13 lu « acier rose », « reste
+# gris » : le pont gris moyen dominait) : règle 60/30/10 de l'âge 13 = CÉRAMIQUE BLANC FROID dominante (capots,
+# pont de dalles blanches, buses), LAQUE MAGENTA en second (plaques du masque, de la nacelle et des caisses,
+# tourelleau) sur une structure GRAPHITE, PLASMA magenta et cuivre en accent. Blanc FROID et magenta : la Légende
+# garde le blanc nacré CHAUD et l'or, l'Orbite l'or et le bleu.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ceram_bl", tourelleau="magenta_laque",
+                 capots=("ceram_bl", "magenta_laque"), acier=("ceram_gr", "acier_poli"), rivets="acier_poli",
                  joints="joint_gris", danger=("ceram_bl", "magenta_sombre"), peinture="magenta_sombre",
                  grille_nacelle="acier_poli",
                  plateforme=dict(motif="dalles", pas=0.3, joint=0.012, mat="ceram_dalle", mat2="ceram_dalle2",
@@ -49,21 +54,25 @@ def matieres(metal, M):
     # corps entier (passe 5, ronde 1) : céramique blanche chaude, gris froid, acier poli, dalles grises
     # passe 5, ronde 2 (lu « gris violet », « gris-rose industriel » au test des écarts) : céramique BLANC FROID propre
     # (sans le jaunissement crème, qui reste à la nacre de la Légende), magenta plus franc
-    metal("ceram_bl", (0.64, 0.645, 0.66), rough=0.3, met=0.0, grain=0.06, gscale=30.0, dirt=0.3, stain=0.18,
-          sscale=5.0, wear=0.25, mottle=0.08)
-    metal("ceram_gr", (0.2, 0.2, 0.215), rough=0.34, met=0.1, grain=0.08, gscale=30.0, dirt=0.45, stain=0.2,
+    metal("ceram_bl", (0.7, 0.71, 0.73), rough=0.3, met=0.0, grain=0.06, gscale=30.0, dirt=0.25, stain=0.15,
+          sscale=5.0, wear=0.2, mottle=0.08)
+    # ronde 3 : structure GRAPHITE (plus sombre : elle se lit noire, pas grise), pont de DALLES BLANCHES froides,
+    # LAQUE MAGENTA des plaques (seconde couleur de l'âge)
+    metal("ceram_gr", (0.075, 0.072, 0.085), rough=0.34, met=0.15, grain=0.08, gscale=30.0, dirt=0.4, stain=0.2,
+          sscale=5.0, wear=0.5)
+    metal("ceram_dalle", (0.56, 0.565, 0.58), rough=0.3, met=0.0, grain=0.06, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.25)
+    metal("ceram_dalle2", (0.48, 0.485, 0.5), rough=0.3, met=0.0, grain=0.06, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.25)
+    metal("magenta_laque", (0.58, 0.04, 0.34), rough=0.3, met=0.1, grain=0.06, gscale=30.0, dirt=0.3, stain=0.15,
           sscale=5.0, wear=0.4)
-    metal("ceram_dalle", (0.2, 0.2, 0.205), rough=0.32, met=0.0, grain=0.06, dirt=0.4, stain=0.15, sscale=5.0,
-          wear=0.3)
-    metal("ceram_dalle2", (0.16, 0.16, 0.168), rough=0.32, met=0.0, grain=0.06, dirt=0.4, stain=0.15, sscale=5.0,
-          wear=0.3)
     metal("acier_poli", (0.42, 0.42, 0.44), rough=0.4, met=0.45, grain=0.08, dirt=0.25, stain=0.0, reflet="fin")
     metal("joint_gris", (0.05, 0.05, 0.055), rough=0.6, met=0.1, grain=0.1, dirt=0.3, stain=0.0)
     metal("magenta_sombre", (0.42, 0.035, 0.27), rough=0.38, met=0.1, grain=0.08, dirt=0.4, stain=0.15, wear=0.4)
     """Fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre."""
     # ronde 2 : céramique des buses, chambres et injecteurs BLANC FROID, peu salie (elle se lisait gris sale)
-    metal("jacket", (0.56, 0.565, 0.58), rough=0.45, met=0.0, grain=0.1, gscale=34.0, rust=(0.22, 0.12, 0.06),
-          ra=0.04, dirt=0.5, stain=0.35, sscale=5.0, wear=0.4, streak=0.3, mottle=0.12)
+    metal("jacket", (0.64, 0.645, 0.665), rough=0.45, met=0.0, grain=0.1, gscale=34.0, rust=(0.22, 0.12, 0.06),
+          ra=0.03, dirt=0.4, stain=0.28, sscale=5.0, wear=0.35, streak=0.3, mottle=0.12)
     # cuivre des gaines et cerclages : plus rugueux et plus sombre (reflets saturés comptés comme foyers sinon)
     metal("copper13", (0.46, 0.2, 0.085), rough=0.42, met=0.9, grain=0.2, rust=(0.12, 0.2, 0.12), ra=0.12,
           dirt=0.7, stain=0.35, wear=0.8)

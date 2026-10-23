@@ -40,7 +40,7 @@ PLATEFORME = dict(chanfrein=0.8)
 # posé sur un pont de TÔLES DE TITANE rivetées : plus de pont noir, plus d'olive ni d'ocre.
 HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="titane_md", tourelleau="titane_md",
                  munitions=("ring", "steel_hi"), capots=("titane_cl", "titane_md"), acier=("titane_dk", "ring"),
-                 rivets="rivet_ti", danger=("titane_cl", "bleu_nuit"), peinture="titane_md",
+                 rivets="rivet_ti", danger=("orange_aero", "titane_dk"), peinture="orange_aero",
                  grille_nacelle="titane_dk",
                  plateforme=dict(motif="toles", mat="tole_ti", mat2="tole_ti2", fond="void", bord="titane_dk",
                                  boulons="rivet_ti", relief=0.25, lisere="emit_soft"))
@@ -58,23 +58,29 @@ def matieres(metal, M):
     # BROSSÉ nettement plus CLAIR et plus BLEU, moins sali, sur tout le bâtiment ; l'alliage des ailerons et manchons
     # bleu-blanc. L'âge 11 devient le bâtiment CLAIR, FROID et LISSE de l'ère, entre l'électronique crème et anthracite
     # (10) et le givre noir et cyan (12).
-    metal("jacket", (0.42, 0.47, 0.54), rough=0.32, met=0.35, grain=0.12, gscale=40.0, rust=rust, ra=0.02,
-          dirt=0.55, stain=0.3, sscale=6.0, wear=0.7, streak=0.6)
-    metal("ring", (0.64, 0.69, 0.76), rough=0.38, met=0.35, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05),
-          ra=0.03, dirt=0.55, stain=0.35, sscale=5.0, wear=0.6, streak=0.6)
-    # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), bleuté, semi-diffus
-    metal("titane_cl", (0.55, 0.62, 0.72), rough=0.32, met=0.35, grain=0.1, gscale=60.0, dirt=0.4, stain=0.25,
-          sscale=6.0, wear=0.4, streak=0.7)
-    metal("titane_md", (0.36, 0.41, 0.49), rough=0.34, met=0.35, grain=0.1, gscale=60.0, dirt=0.45, stain=0.3,
-          sscale=6.0, wear=0.6, streak=0.6)
-    metal("titane_dk", (0.13, 0.155, 0.2), rough=0.35, met=0.45, grain=0.1, gscale=50.0, dirt=0.5, stain=0.25,
-          wear=0.8, streak=0.4)
-    metal("tole_ti", (0.44, 0.5, 0.58), rough=0.36, met=0.35, grain=0.08, gscale=60.0, dirt=0.45, stain=0.3,
+    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10 et 11 encore notés 2 et 2,
+    # « même acier gris ») : règle 60/30/10 de l'âge 11 = BLEU TITANE franc dominant (titane anodisé : capots, pont,
+    # caissons), ALLIAGE blanc bleuté pâle et BLEU NUIT de structure en second, ORANGE aéronautique en accent (bandes
+    # de danger, repères des ailerons). Le bleu est saturé et moyen-clair : ni l'ivoire de 10, ni le blanc glacé et
+    # le noir de 12.
+    metal("jacket", (0.17, 0.3, 0.6), rough=0.32, met=0.3, grain=0.12, gscale=40.0, rust=rust, ra=0.01,
+          dirt=0.45, stain=0.25, sscale=6.0, wear=0.6, streak=0.6)
+    metal("ring", (0.62, 0.7, 0.84), rough=0.38, met=0.3, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05),
+          ra=0.02, dirt=0.45, stain=0.3, sscale=5.0, wear=0.5, streak=0.6)
+    # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), semi-diffus ; ronde 3 : BLEU
+    metal("titane_cl", (0.22, 0.4, 0.78), rough=0.32, met=0.3, grain=0.1, gscale=60.0, dirt=0.35, stain=0.2,
+          sscale=6.0, wear=0.35, streak=0.7)
+    metal("titane_md", (0.12, 0.23, 0.5), rough=0.34, met=0.3, grain=0.1, gscale=60.0, dirt=0.4, stain=0.25,
+          sscale=6.0, wear=0.5, streak=0.6)
+    metal("titane_dk", (0.035, 0.055, 0.13), rough=0.35, met=0.4, grain=0.1, gscale=50.0, dirt=0.45, stain=0.2,
+          wear=0.7, streak=0.4)
+    metal("tole_ti", (0.2, 0.35, 0.68), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.4, stain=0.25,
           sscale=5.0, streak=0.6)
-    metal("tole_ti2", (0.37, 0.42, 0.5), rough=0.36, met=0.35, grain=0.08, gscale=60.0, dirt=0.45, stain=0.3,
+    metal("tole_ti2", (0.15, 0.28, 0.58), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.4, stain=0.25,
           sscale=5.0, streak=0.6)
-    metal("rivet_ti", (0.46, 0.52, 0.6), rough=0.35, met=0.35, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("rivet_ti", (0.5, 0.6, 0.78), rough=0.35, met=0.35, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
     metal("bleu_nuit", (0.02, 0.03, 0.075), rough=0.4, met=0.2, grain=0.06, dirt=0.4, stain=0.2)
+    metal("orange_aero", (0.8, 0.2, 0.02), rough=0.4, met=0.05, grain=0.06, dirt=0.3, stain=0.15, wear=0.4)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
     M["pipe2"] = M["ring"]
@@ -560,7 +566,9 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
     L2 = L * 1.25
     rb2, rr2 = rb * 0.72, rr * 0.6
     R0 = rr2 + rb2
-    pos = corps.rosette(g, x, y0, z, L2, nb, rb2, rr2, colliers=(0.62, 0.8), collier_mat=M["ring"], bouts=False,
+    # passe 5, ronde 3 (pose N de la ronde 2 : 11 encore lu « cheminée ») : un seul collier (au lieu de deux bagues
+    # claires régulières, lues comme les viroles d'un conduit), dans le bleu du titane
+    pos = corps.rosette(g, x, y0, z, L2, nb, rb2, rr2, colliers=(0.66,), collier_mat=M["jacket"], bouts=False,
                         segments=10)
     g.cyl((x, y0 + L2 * 0.99, z), "y", max(rr2 - rb2 * 0.55, rr2 * 0.55), L2 * 0.04 + 0.03, M["steel_dk"], n=12,
           what="ame_bout")
@@ -616,8 +624,10 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
     # larges que le faisceau), évents obliques, rosace éclairée en face avant
     yb0 = y0 + L2
     lb = 0.36 * k
-    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.05, rr2 * 0.4, 0.05, M["ring"], n=28, what="bague")
-    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.055, lb, M["jacket"], n=6, r2=R0 + 0.01, style="hard", phase=math.pi / 2,
+    # ronde 3 (pose N) : plus de bague plus large que le faisceau ni de corps de frein évasé (le haut d'une cheminée) :
+    # le corps hexagonal reste AU RAS du faisceau et s'effile ; seules les ailettes en flèche débordent, de côté
+    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.012, rr2 * 0.4, 0.04, M["titane_dk"], n=28, what="bague")
+    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.014, lb, M["jacket"], n=6, r2=R0 - 0.004, style="hard", phase=math.pi / 2,
           what="frein")
     for s in (-1, 1):
         c_ = V((x, 0, z))

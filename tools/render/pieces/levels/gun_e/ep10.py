@@ -56,28 +56,33 @@ def matieres(metal, M):
     Passe 5, ronde 1 : matières du corps entier (clés d'habillage) ; carénage blanc cassé, peu métallique (une grande
     masse claire reste sous 0,5 de métallicité)."""
     rust = (0.24, 0.085, 0.03)
-    metal("blanc_casse", (0.56, 0.54, 0.48), rough=0.4, met=0.15, grain=0.08, gscale=30.0, dirt=0.6, stain=0.4,
-          sscale=6.0, wear=0.6, streak=0.3, mottle=0.15)
+    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10, 11 et 12 lus « même acier
+    # gris », écart 2 et 2 entre 10 et 11) : règle 60/30/10 de l'âge 10 = IVOIRE CHAUD dominant (capots, carénages,
+    # pont), ANTHRACITE en second (plaques, acier, goulottes), câbles ROUGE et BLEU vifs et voyants bleus en accent.
+    # Ivoire nettement jaune-crème (et non gris clair) : l'âge 11 prend le BLEU, l'âge 12 le blanc glacé et le noir.
+    metal("blanc_casse", (0.78, 0.68, 0.46), rough=0.42, met=0.12, grain=0.08, gscale=30.0, dirt=0.4, stain=0.25,
+          sscale=6.0, wear=0.5, streak=0.3, mottle=0.15)
     metal("gris_tech", (0.15, 0.155, 0.165), rough=0.45, met=0.3, grain=0.08, gscale=30.0, dirt=0.5, stain=0.3,
           sscale=6.0, wear=0.8)
     metal("anthracite", (0.055, 0.058, 0.064), rough=0.45, met=0.45, grain=0.08, gscale=36.0, dirt=0.5, stain=0.3,
           wear=1.0)
     metal("acier_tech", (0.3, 0.31, 0.33), rough=0.35, met=0.45, grain=0.08, dirt=0.3, stain=0.1, wear=0.5)
     metal("rivet_tech", (0.2, 0.205, 0.215), rough=0.4, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
-    metal("bleu_tech", (0.025, 0.075, 0.3), rough=0.4, met=0.1, grain=0.08, dirt=0.4, stain=0.2, wear=0.6)
+    metal("bleu_tech", (0.015, 0.09, 0.45), rough=0.4, met=0.1, grain=0.08, dirt=0.35, stain=0.15, wear=0.5)
     # ronde 2 : pont en DALLES DE FAUX PLANCHER gris chaud clair (salle informatique), joints noirs : le pont noir
-    # passe à l'âge 12 (noir à joints de givre)
-    metal("dalle_tech", (0.3, 0.29, 0.27), rough=0.55, met=0.1, grain=0.06, dirt=0.45, stain=0.25, sscale=5.0)
-    metal("dalle_tech2", (0.25, 0.24, 0.225), rough=0.55, met=0.1, grain=0.06, dirt=0.45, stain=0.25, sscale=5.0)
-    # passe 5, ronde 2 : carénage CRÈME chaud (plastique et tôle peinte des années 80), peu métallique, peu sali
-    metal("jacket", (0.55, 0.51, 0.42), rough=0.48, met=0.08, grain=0.08, gscale=30.0, rust=rust, ra=0.03,
-          dirt=0.55, stain=0.4, sscale=6.0, wear=0.7, streak=0.3, mottle=0.18)
+    # passe à l'âge 12 (noir à joints de givre). Ronde 3 : dalles BEIGE IVOIRE (dominante de l'âge), plus claires
+    metal("dalle_tech", (0.52, 0.45, 0.32), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
+    metal("dalle_tech2", (0.44, 0.38, 0.27), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
+    # passe 5, ronde 2 : carénage CRÈME chaud (plastique et tôle peinte des années 80), peu métallique, peu sali ;
+    # ronde 3 : crème plus franc (ivoire jaune), moins sali
+    metal("jacket", (0.76, 0.64, 0.42), rough=0.48, met=0.06, grain=0.08, gscale=30.0, rust=rust, ra=0.02,
+          dirt=0.4, stain=0.25, sscale=6.0, wear=0.6, streak=0.3, mottle=0.18)
     M["ring"] = M["matte"]
     M["trim"] = M["jacket"]
     metal("pipe", (0.11, 0.108, 0.104), rough=0.5, met=0.2, grain=0.1, dirt=0.6, stain=0.4, wear=1.0)
     M["pipe2"] = M["steel_hi"]
-    metal("cable_b", (0.015, 0.08, 0.5), rough=0.5, met=0.0, grain=0.12, dirt=0.3, stain=0.0)   # bleu vif (ronde 2)
-    metal("cable_r", (0.42, 0.03, 0.02), rough=0.5, met=0.0, grain=0.12, dirt=0.3, stain=0.0)   # rouge vif (ronde 2)
+    metal("cable_b", (0.01, 0.1, 0.62), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)   # bleu vif (ronde 3)
+    metal("cable_r", (0.55, 0.03, 0.015), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)  # rouge vif (ronde 3)
     M["cable_a"] = M["cable_r"]
     metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
     M["accent"] = M["trim"]
@@ -512,9 +517,10 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
     E = M["emit"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.6, 0.82), collier_mat=M["matte"], bouts=True)
-    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
-          what="ame_bout")
+    # passe 5, ronde 3 (pose N de la ronde 2 : 10 encore lu « cheminée », colliers noirs à 0,6 et 0,82 L = viroles
+    # d'un conduit) : CANON EFFILÉ du kit (faisceau qui converge, un seul manchon à fentes reculé, dernier cinquième
+    # nu à pointes éclairées) ; le carénage à fentes de l'époque garde la moitié arrière
+    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.0, bague_mat="matte")
     # carénage partiel (moitié arrière au plus : corps.JAQUETTE_MAX)
     Lc = L * min(0.46, corps.JAQUETTE_MAX)
     hw, hh, c = R0 + 0.075 * k, R0 + 0.05 * k, 0.08 * k
@@ -552,8 +558,7 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
             g.box((x + s * hw * 0.55, y0 + Lc + 0.004, z + hh * 0.45), (0.04, 0.008, 0.025), E, "flat",
                   what="voyant")
     # passe 5, ronde 2 (pose N de la ronde 1 : 10 lu « cheminée ») : le frein à 3 DÉFLECTEURS plus larges que le
-    # faisceau est retiré ; COURONNE DE BOUCHE du kit au ras du faisceau, tubes qui dépassent, pointes éclairées
-    corps.couronne_bouche(g, x, y0 + L, z, L, rr, rb, M["matte"])
+    # faisceau est retiré. Ronde 3 : la couronne de bouche aussi (le canon effilé finit sur ses pointes éclairées)
     return y0 + L
 
 
