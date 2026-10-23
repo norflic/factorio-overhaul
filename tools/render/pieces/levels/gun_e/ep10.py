@@ -1,16 +1,19 @@
 """Époque 10 · Haute technologie (ère IV, 5×5, niveaux 19 et 20). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 10) : « caréné, câbles, voyants ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
-mot ; les aiguillages par époque sont réduits à la branche de l'époque 10) sur le kit commun gun_e : seul le CORPS a
-changé (corps.py : bras de tourillon à berceaux de la lignée, cotes communes ; kit.py : palette et règles de reflets
-communes). Aucune correction de design d'époque.
-Emplacements remplis : arme (NACELLE CARÉNÉE FERMÉE gris clair, 3 déflecteurs, radôme, capteur optique, chargeurs à
-cassettes et nappes de câbles), grands volumes du socle (caissons carénés à l'ouest, à l'est et au nord-ouest), tourelle
-secondaire, liaisons (gaines lisses à colliers et faisceaux rouges et bleus), antenne-réseau radar au sommet, écrans,
-foyers bleus, pièce paire (2 radômes de conduite de tir).
-Défauts relevés par les juges (à corriger par le constructeur) : la nacelle fermée SUPPRIME la rosette de tubes que
-le Directeur Créatif aimait (RÈGLE D'OR 1) ; foyers mesurés cyan (197°, famille « bleu électronique » 204 à 228°).
+Quatrième passe (23/10), corrections du constructeur de la plage haute sur le portage de la passe 3 :
+  - ARME (règle d'or 1) : la nacelle fermée est retirée. La ROSETTE de 6 tubes de la lignée (corps.rosette, colliers
+    noir mat) se voit sur toute la moitié avant ; le CARÉNAGE gris clair patiné (fentes de ventilation longitudinales,
+    joints noir mat, nappe de câbles rouge et bleue, radôme de visée, antenne fouet) ne couvre que la moitié arrière
+    (0,46 L < corps.JAQUETTE_MAX) ; frein à 3 DÉFLECTEURS plus larges que le faisceau (pose N : trois barres en travers,
+    jamais un chapeau de cheminée) ; rosace éclairée en face avant (corps.bouche) ;
+  - MOITIÉ SUD propre à l'époque : trémie noir mat flanquée de deux CAISSONS CARÉNÉS à nappes de câbles et antenne,
+    RACKS À CASSETTES (à la place des caisses ouvertes), tourelle secondaire CARÉNÉE à radôme, BOÎTE DE JONCTION à
+    goulottes de câbles au sud-est (à la place de la vanne et du volant : « moins de fluide, plus d'électricité ») ;
+  - foyers BLEUS (famille 204 à 228° : la passe 3 mesurait 197°, cyan).
+Inchangés de la passe 3 : grands volumes du socle (caissons carénés à l'ouest, à l'est et au nord-ouest), liaisons
+(gaines lisses à colliers, faisceaux rouges et bleus), antenne-réseau radar au sommet, écrans, pièce paire (2 radômes
+de conduite de tir).
 """
 import math
 
@@ -28,10 +31,10 @@ V = Vector
 
 EPOQUE = 10
 NOM = "Haute technologie"
-FOYER = dict(rgb=(0.227, 0.659, 1.0), rgb2=(0.227, 0.659, 1.0))
+FOYER = dict(rgb=(0.09, 0.33, 1.0), rgb2=(0.09, 0.33, 1.0))
 CANON = dict(L=2.0, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=1.15)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="matte", munitions=("steel_hi", "steel_dk"))
 RECV = ("matte", "jacket")
 
 
@@ -70,15 +73,17 @@ def socle(g, c):
                     per=(3, 2))
     P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
     P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
-    # sud : caisses ouvertes en biais, tourelle secondaire
+    # sud : racks à cassettes en biais (à la place des caisses ouvertes), tourelle secondaire carénée, trémie flanquée
+    # de caissons carénés
     with at(g, -1.5, -1.72, 0.42):
-        P2.open_crate(g, (0, 0, 0), 0.78, 0.72, 0.3, M)
+        cassette_rack(g, 0.8, 0.72, 0.42, 4)
     with at(g, -1.05, -2.35, 0.08):
-        P2.open_crate(g, (0, 0, 0), 0.6, 0.5, 0.22, M, paint=M["ochre"])
+        cassette_rack(g, 0.62, 0.5, 0.34, 3)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             mini_turret(g, (0, 0, 0.28), 0.95, rz)
+    tremie_pods(g, c)
     # ouest : groupe sous carénage ; liaisons d'énergie vers la colonne
     west(g)
     conduit(g, [(-1.62, Y(0.55), 0.4), (-1.42, Y(0.6), 0.62), (-1.2, Y(0.5), 0.72)], 0.045)
@@ -90,11 +95,9 @@ def socle(g, c):
     faired_box(g, 1.74, 2.36, Y(-0.6), Y(1.15), 0.74, louvers=0)
     # sud-ouest : armoire de commande
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=True)
-    PT.hull(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.0, 0.3, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["redpaint"], M["steel_dk"]], rivet_step=0.12)
-    P2.handwheel(g, (2.02, Y(-1.18) - 0.08, 0.2), (0, -1, 0.3), 0.08, M)
-    pipe(g, [(1.68, Y(-1.0), 0.2), (1.45, Y(-1.05), 0.22), (1.25, Y(-0.85), 0.4)], 0.05,
-         valve_at=((1.47, Y(-1.04), 0.22), (0, -1, 0.5)))
+    # sud-est : boîte de jonction à goulottes de câbles (moins de fluide, plus d'électricité)
+    junction_box(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.36)
+    cable_tray(g, [(1.68, Y(-1.0), 0.3), (1.45, Y(-1.05), 0.34), (1.22, Y(-0.85), 0.5)])
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     # nord-est : armoire de commande ; nord : caisse de réserve
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=True)
@@ -185,7 +188,8 @@ def signature(g, p, kind=0):
 
 
 def mini_turret(g, c, s, rz):
-    """Tourelle secondaire : couronne et caisson de la lignée, les DEUX ARMES sont celles de l'époque."""
+    """Tourelle secondaire HAUTE TECHNOLOGIE : couronne rivetée de la lignée, caisson CARÉNÉ gris clair à pans coupés
+    (joints noir mat, fentes), RADÔME de visée sur le dos, antenne fouet ; les DEUX ARMES sont celles de l'époque."""
     M = g.M
     E = M["emit"]
     g.push(c, rz=rz)
@@ -194,14 +198,119 @@ def mini_turret(g, c, s, rz):
     for k in range(nb):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
-    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["armor"], M["khaki"]])
+    oc = F.octz(0.25 * s, 0.29 * s, 0.09 * s)
+    F.loft_z(g, 0.0, -0.03 * s, [(0.1 * s, oc), (0.3 * s, oc), (0.42 * s, F.scale_poly(oc, 0.72))], M["jacket"],
+             "soft", "carenage")
+    for zz in (0.2 * s, 0.31 * s):
+        F.prism(g, [(u, w - 0.03 * s) for u, w in F.scale_poly(oc, 1.03)], zz - 0.008, zz + 0.008, M["matte"],
+                what="joint")
+    for sxx in (-1, 1):
+        g.box((sxx * 0.252 * s, -0.03 * s, 0.25 * s), (0.006, 0.3 * s, 0.025), M["void"], "flat", what="fente")
+    g.cyl((0.0, -0.1 * s, 0.43 * s), "z", 0.1 * s, 0.03, M["matte"], n=20, what="embase")
+    g.sphere((0.0, -0.1 * s, 0.46 * s), 0.11 * s, M["jacket"], n=24, m=12, scale=(1, 1, 0.8), what="radome")
+    g.torus((0.0, -0.1 * s, 0.46 * s), "z", 0.11 * s, 0.008, M["matte"], n=24, m=6, what="joint")
+    g.cyl((0.12 * s, -0.2 * s, 0.6 * s), "z", 0.005, 0.36 * s, M["steel_dk"], n=6, what="antenne")
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M[k] for k in RECV])
-        _gun10(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
-    PT.lamp(g, (0.0, 0.12 * s, 0.4 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
-    PT.hatch(g, (0.0, -0.12 * s, 0.4 * s), 0.09 * s)
+        _canon10(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
+    PT.lamp(g, (0.0, 0.14 * s, 0.4 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
     g.pop()
+
+
+def cassette_rack(g, w, d, h, n):
+    """RACK À CASSETTES (à la place de la caisse ouverte) : socle noir mat riveté, n cassettes gris clair enfichées,
+    poignées, étiquettes, voyants par groupes, nappe de câbles rouge et bleue sur le dos."""
+    M = g.M
+    E = M["emit"]
+    zb = h * 0.42
+    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, zb, ins=(0.02, 0.02, 0.02), panel=0.24,
+            mats=[M["matte"], M["steel_dk"]], rivet_step=0.12)
+    pitch = (w - 0.08) / n
+    for i in range(n):
+        x = -w / 2 + 0.04 + pitch * (i + 0.5)
+        hc = h * (0.95 if i % 2 else 0.82)
+        g.box((x, -d * 0.04, zb + (hc - zb) / 2 + 0.01), (pitch * 0.78, d * 0.8, hc - zb), M["jacket"], "soft",
+              what="cassette")
+        g.box((x, -d * 0.44 - 0.004, zb + (hc - zb) * 0.7), (pitch * 0.5, 0.012, 0.03), M["matte"], "hard",
+              what="poignee")
+        g.box((x, -d * 0.04, hc + 0.013), (pitch * 0.5, d * 0.5, 0.006), M["matte"], "flat", what="etiquette")
+        g.box((x + pitch * 0.22, -d * 0.3, hc + 0.014), (0.03, 0.03, 0.006), E if i % 3 else M["amber"], "flat",
+              what="voyant")
+    F.ribbon(g, [(-w / 2 + 0.05, d * 0.42, zb + 0.02), (0.0, d * 0.46, zb + 0.06), (w / 2 - 0.05, d * 0.42, zb + 0.02)],
+             0.05, M["cable_a"])
+    F.ribbon(g, [(-w / 2 + 0.05, d * 0.36, zb + 0.022), (0.0, d * 0.38, zb + 0.07), (w / 2 - 0.05, d * 0.36, zb + 0.022)],
+             0.04, M["cable_b"])
+    P3.lamp_group(g, (-w / 2 + 0.06, -d / 2 - 0.02, zb * 0.5), (1, 0, 0), (0, -1, 0), E, M, n=2,
+                  shapes=("fente", "rond"))
+
+
+def tremie_pods(g, c):
+    """Trémie de l'époque : flanquée à l'est et à l'ouest de deux CAISSONS CARÉNÉS gris clair (pans coupés, grilles
+    d'aération, joints noir mat) qui portent les nappes de câbles vers la colonne, antenne et écran."""
+    M = g.M
+    E = M["emit"]
+    x0, x1, y0, y1, h = c.tremie_box
+    for s in (-1, 1):
+        xa = x1 + 0.02 if s > 0 else x0 - 0.3
+        xb = xa + 0.28
+        cx, cy = (xa + xb) / 2, (y0 + y1) / 2 + 0.05
+        hx, hy = 0.14, (y1 - y0) * 0.44
+        oc = F.octz(hx, hy, 0.06)
+        F.plinth(g, xa - 0.02, xb + 0.02, cy - hy - 0.02, cy + hy + 0.02, 0.06)
+        F.loft_z(g, cx, cy, [(0.06, oc), (h * 0.68, oc), (h * 0.82, F.scale_poly(oc, 0.8))], M["jacket"], "soft",
+                 "carenage")
+        for f in (0.33, 0.66):
+            yy = cy - hy + 2 * hy * f
+            g.box((cx, yy, h * 0.82 + 0.004), (hx * 1.4, 0.02, 0.008), M["matte"], "flat", what="joint")
+            g.box((cx + s * (hx + 0.002), yy, h * 0.4), (0.01, 0.02, h * 0.5), M["matte"], "flat", what="joint")
+        q = [V((cx - hx * 0.55, cy - hy * 0.7, h * 0.82 + 0.006)), V((cx + hx * 0.55, cy - hy * 0.7, h * 0.82 + 0.006)),
+             V((cx + hx * 0.55, cy - hy * 0.2, h * 0.82 + 0.006)), V((cx - hx * 0.55, cy - hy * 0.2, h * 0.82 + 0.006))]
+        g.grille(q, 5, depth=0.018, slat_mat=M["steel_dk"])
+        P3.lamp_group(g, (cx - hx * 0.6, cy - hy - 0.004, h * 0.5), (1, 0, 0), (0, -1, 0), E, M, n=2,
+                      shapes=("rond", "carre"))
+        # nappe de câbles du caisson vers la couronne de la colonne
+        F.ribbon(g, [(cx, cy + hy * 0.5, h * 0.84), (cx - s * 0.1, y1 + 0.25, h * 0.95),
+                     (s * 0.35, y1 + 0.55, c.rt + 0.06)], 0.06, M["cable_a"] if s > 0 else M["cable_b"])
+    xs = x1 + 0.16
+    g.cyl((xs, y0 + 0.2, h * 0.82 + 0.25), "z", 0.006, 0.5, M["steel_dk"], n=6, what="antenne")
+    g.cyl((xs, y0 + 0.2, h * 0.82 + 0.02), "z", 0.02, 0.04, M["steel_hi"], n=8, what="embase")
+    P3.screen(g, (x0 - 0.16, y0 + 0.1, h * 0.84), (0, 0, 1), 0.12, 0.08, M, E)
+
+
+def junction_box(g, x0, x1, y0, y1, h):
+    """Boîte de jonction (sud-est) : caisson noir mat et gris clair, bornier à presse-étoupes, petit écran, voyants."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["matte"], M["jacket"]],
+            rivet_step=0.12)
+    w = x1 - x0
+    for i in range(5):
+        x = x0 + 0.08 + (w - 0.16) * i / 4
+        g.cyl((x, y0 - 0.02, h * 0.35), "y", 0.022, 0.05, M["steel_hi"], n=10, what="presse_etoupe")
+        g.cyl((x, y0 - 0.05, h * 0.35), "y", 0.014, 0.04, M["cable_a"] if i % 2 else M["cable_b"], n=8,
+              what="cable")
+    P3.screen(g, (x0 + w * 0.3, y0 - 0.01, h * 0.72), (0, -1, 0), 0.12, 0.07, M, E)
+    P3.lamp_group(g, (x0 + w * 0.62, y0 - 0.02, h * 0.74), (1, 0, 0), (0, -1, 0), E, M, n=3)
+
+
+def cable_tray(g, ctrl):
+    """Goulotte à câbles noir mat portant deux nappes plates rouge et bleue."""
+    M = g.M
+    P = g.resample(g.spline(ctrl, 12), 0.05)
+    T, _ = g.frames(P)
+    for i, p in enumerate(P):
+        side = T[i].cross(V((0, 0, 1)))
+        if side.length < 1e-3:
+            side = V((1, 0, 0))
+        side.normalize()
+        up = side.cross(T[i]).normalized()
+        g.box(p, (0.16, 0.052, 0.02), M["matte"], "flat", R=Matrix((side, T[i], up)).transposed(), what="goulotte")
+        if i % 4 == 0:
+            for s in (-1, 1):
+                g.box(p + side * s * 0.08 + up * 0.02, (0.012, 0.03, 0.04), M["steel_dk"], "hard",
+                      R=Matrix((side, T[i], up)).transposed(), what="rebord")
+    F.ribbon(g, [V(q) + V((0, 0, 0.014)) for q in ctrl], 0.06, M["cable_a"])
+    F.ribbon(g, [V(q) + V((0.0, 0.0, 0.02)) for q in ctrl], 0.04, M["cable_b"])
 
 
 # ------------------------------------------------------------------------------------------------
@@ -294,7 +403,7 @@ def arme(g, c, x, sx):
     wr, hr = H["wr"], H["hr"]
     PT.receiver(g, x, y0, y1, zg - hr, zg + hr, wr, mats=[M[k] for k in RECV])
     corps.moteur_lignee(g, (x, y0 - 0.2 - hr * 0.3, zg), hr * 0.78, 0.3 + hr * 0.6, moyeu="ring")
-    _gun10(g, x, y1, zg, H["L"], H["nb"], H["rb"], H["rr"])
+    _canon10(g, x, y1, zg, H["L"], H["nb"], H["rb"], H["rr"])
     PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
             ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M["ochre"], M["olive"]], rivet_step=0.11)
     # capteur optique sur le masque de canon
@@ -316,61 +425,68 @@ def arme(g, c, x, sx):
     P3.screen(g, (x, (y0 + y1) / 2 + 0.05, zt + 0.052), (0, 0, 1), wr * 0.4, 0.07, M, M["emit"])
 
 
-def _gun10(g, x, y0, z, L, nb, rb, rr):
-    """Troisième passe (19 h 05) : le canon n'est plus un faisceau habillé d'un manchon, c'est un CAISSON LISSE
-    FERMÉ gris clair (carénage à pans coupés, nez effilé) d'où ne sortent que les 6 bouches. De dessus : un gros
-    pavé clair à fentes sombres, sans bague ; de face : un écran plat à 6 trous et 3 déflecteurs."""
+def _canon10(g, x, y0, z, L, nb, rb, rr):
+    """Quatrième passe (règle d'or 1) : la ROSETTE de la lignée (6 tubes séparés, âme pleine, colliers noir mat) se
+    voit sur toute la moitié avant ; le CARÉNAGE gris clair à pans coupés n'enveloppe que la moitié arrière (0,46 L) :
+    fentes de ventilation longitudinales à lèvres, joints noir mat, rivets fins, nappe de câbles rouge et bleue dans une
+    goulotte, radôme de visée et antenne fouet sur le dos. Frein à 3 DÉFLECTEURS gris clair plus larges que le carénage
+    (de dessus en pose N : trois barres en travers, un « T » multiple, jamais un chapeau rond) ; rosace éclairée en
+    face avant. De dessus : un pavé clair à fentes, puis les 6 tubes et leurs colliers, puis les déflecteurs."""
     M = g.M
     E = M["emit"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    hw, hh, c = R0 + 0.13 * k, R0 + 0.06 * k, 0.12 * k
-    Lf = 0.84 * L
+    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.6, 0.82), collier_mat=M["matte"], bouts=False)
+    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
+          what="ame_bout")
+    # carénage partiel (moitié arrière au plus : corps.JAQUETTE_MAX)
+    Lc = L * min(0.46, corps.JAQUETTE_MAX)
+    hw, hh, c = R0 + 0.075 * k, R0 + 0.05 * k, 0.08 * k
     sec = F.oct8(hw, hh, c)
-    F.loft(g, x, z, [(y0 - 0.02, F.scale_poly(sec, 0.92)), (y0 + 0.08 * k, sec), (y0 + Lf - 0.3 * k, sec),
-                   (y0 + Lf, F.scale_poly(sec, 0.74))], M["jacket"], "soft", "carenage")
-    # joints de panneaux (3 panneaux), fentes de ventilation longitudinales, rivets fins
-    for f in (0.3, 0.58):
-        yy = y0 + f * Lf
-        F.prism_y(g, x, z, yy - 0.012, yy + 0.012, F.scale_poly(sec, 1.02), M["matte"], what="joint")
-    for i, (a, b) in enumerate(((0.06, 0.27), (0.33, 0.55), (0.61, 0.8))):
-        ya, yb = y0 + a * Lf, y0 + b * Lf
-        ym, ly = (ya + yb) / 2, yb - ya
-        for u in ((-hw * 0.45, hw * 0.45) if i != 1 else (-hw * 0.45, 0.0, hw * 0.45)):
-            g.box((x + u, ym, z + hh + 0.002), (0.03 * k, ly, 0.006), M["void"], "flat", what="fente")
-            g.box((x + u + 0.024 * k, ym, z + hh + 0.006), (0.01, ly, 0.01), M["steel_hi"], "hard", what="levre")
+    F.loft(g, x, z, [(y0 - 0.02, F.scale_poly(sec, 0.92)), (y0 + 0.06 * k, sec), (y0 + Lc - 0.12 * k, sec),
+                   (y0 + Lc, F.scale_poly(sec, 0.82))], M["jacket"], "soft", "carenage")
+    if k >= 0.9:
+        F.prism_y(g, x, z, y0 + Lc * 0.48 - 0.012, y0 + Lc * 0.48 + 0.012, F.scale_poly(sec, 1.02), M["matte"],
+                  what="joint")
+        for i, (a, b) in enumerate(((0.08, 0.42), (0.54, 0.86))):
+            ya, yb = y0 + a * Lc, y0 + b * Lc
+            ym, ly = (ya + yb) / 2, yb - ya
+            for u in (-hw * 0.48, hw * 0.48):
+                g.box((x + u, ym, z + hh + 0.002), (0.028 * k, ly, 0.006), M["void"], "flat", what="fente")
+                g.box((x + u + 0.022 * k, ym, z + hh + 0.006), (0.01, ly, 0.01), M["steel_hi"], "hard", what="levre")
+            for s in (-1, 1):
+                g.box((x + s * (hw + 0.002), ym, z + hh * 0.2), (0.006, ly, 0.03 * k), M["void"], "flat",
+                      what="fente")
+            for yy in (ya - 0.02, yb + 0.02):
+                for u in (-hw + c + 0.03, hw - c - 0.03):
+                    g.dome((x + u, yy, z + hh), (0, 0, 1), 0.012, M["rivet"])
+        # dos : nappe de câbles rouges et bleus dans une goulotte noire, radôme de visée, antenne fouet
+        g.box((x, y0 + Lc * 0.45, z + hh + 0.02), (0.1 * k, Lc * 0.8, 0.03), M["matte"], "hard", what="goulotte")
+        g.box((x - 0.02 * k, y0 + Lc * 0.45, z + hh + 0.038), (0.035 * k, Lc * 0.76, 0.01), M["cable_a"], "soft",
+              what="nappe")
+        g.box((x + 0.022 * k, y0 + Lc * 0.45, z + hh + 0.039), (0.03 * k, Lc * 0.76, 0.01), M["cable_b"], "soft",
+              what="nappe")
+        yr = y0 + Lc * 0.78
+        g.cyl((x - hw * 0.5, yr, z + hh + 0.03), "z", 0.07 * k, 0.05, M["matte"], n=20, what="embase")
+        g.sphere((x - hw * 0.5, yr, z + hh + 0.06), 0.08 * k, M["jacket"], n=24, m=12, scale=(1, 1, 0.8), what="radome")
+        g.torus((x - hw * 0.5, yr, z + hh + 0.06), "z", 0.08 * k, 0.008, M["matte"], n=24, m=6, what="joint")
+        g.cyl((x + hw * 0.55, y0 + Lc * 0.25, z + hh + 0.2), "z", 0.006, 0.36, M["steel_dk"], n=6, what="antenne")
+        g.cyl((x + hw * 0.55, y0 + Lc * 0.25, z + hh + 0.025), "z", 0.02, 0.04, M["steel_hi"], n=8, what="embase")
         for s in (-1, 1):
-            g.box((x + s * (hw + 0.002), ym, z), (0.006, ly, 0.03 * k), M["void"], "flat", what="fente")
-        for yy in (ya - 0.02, yb + 0.02):
-            for u in (-hw + c + 0.03, hw - c - 0.03):
-                g.dome((x + u, yy, z + hh), (0, 0, 1), 0.012, M["rivet"])
-    # dos : nappe de câbles rouges et bleus dans une goulotte noire, antenne fouet et radôme de visée
-    g.box((x, y0 + Lf * 0.4, z + hh + 0.025), (0.12 * k, Lf * 0.62, 0.035), M["matte"], "hard", what="goulotte")
-    g.box((x - 0.025 * k, y0 + Lf * 0.41, z + hh + 0.046), (0.04 * k, Lf * 0.58, 0.01), M["cable_a"], "soft",
-          what="nappe")
-    g.box((x + 0.03 * k, y0 + Lf * 0.41, z + hh + 0.047), (0.035 * k, Lf * 0.58, 0.01), M["cable_b"], "soft",
-          what="nappe")
-    yr = y0 + Lf * 0.82
-    g.cyl((x, yr, z + hh + 0.03), "z", 0.1 * k, 0.05, M["matte"], n=20, what="embase")
-    g.sphere((x, yr, z + hh + 0.07), 0.11 * k, M["jacket"], n=24, m=12, scale=(1, 1, 0.8), what="radome")
-    g.torus((x, yr, z + hh + 0.07), "z", 0.11 * k, 0.01, M["matte"], n=24, m=6, what="joint")
-    g.cyl((x + 0.12 * k, y0 + Lf * 0.2, z + hh + 0.2), "z", 0.006, 0.36, M["steel_dk"], n=6, what="antenne")
-    g.cyl((x + 0.12 * k, y0 + Lf * 0.2, z + hh + 0.025), "z", 0.02, 0.04, M["steel_hi"], n=8, what="embase")
-    # face avant plate du carénage : bouches, voyants par 2
-    yf = y0 + Lf
-    F.stub_tips(g, x, yf - 0.05, y0 + L, z, nb, rb, rr)
-    F.collar(g, x, yf + (y0 + L - yf) * 0.5, z, R0 + 0.02, rr * 0.3, 0.045, M["matte"])
-    for s in (-1, 1):
-        g.box((x + s * hw * 0.55, yf + 0.004, z + hh * 0.45), (0.04, 0.008, 0.025), E, "flat", what="voyant")
-    # frein à 3 DÉFLECTEURS plus large que la nacelle
-    yb = y0 + L + 0.14 * k
-    g.cyl((x, yb, z), "y", rr * 0.95, 0.28 * k, M["matte"], n=20, what="frein_noyau")
-    for i, dy in enumerate((-0.1, 0.0, 0.1)):
-        g.box((x, yb + dy * k, z), (2 * hw + 0.1 * k - 0.06 * i * k, 0.045 * k, 2 * hh * 0.8), M["jacket"], "hard",
+            g.box((x + s * hw * 0.55, y0 + Lc + 0.004, z + hh * 0.45), (0.04, 0.008, 0.025), E, "flat",
+                  what="voyant")
+    # frein à 3 DÉFLECTEURS plus larges que le carénage, noyau noir mat ; rosace éclairée en face avant
+    yb = y0 + L
+    Lb = 0.3 * k
+    g.cyl((x, yb + Lb / 2, z), "y", R0 + 0.012, Lb, M["matte"], n=24, what="frein_noyau")
+    for i, f in enumerate((0.18, 0.5, 0.82)):
+        g.box((x, yb + f * Lb, z), (2 * hw + 0.16 * k - 0.05 * i * k, 0.045 * k, 2 * hh * 0.85), M["jacket"], "hard",
               what="deflecteur")
-    g.box((x, yb, z + hh * 0.8), (hw * 0.7, 0.26 * k, 0.024), M["matte"], "hard", what="longeron")
-    F.muzzle_glow(g, x, yb + 0.145 * k, z, rr * 0.62)
-    return yb + 0.145 * k
+        g.box((x, yb + f * Lb, z + hh * 0.85 + 0.003), ((2 * hw + 0.16 * k) * 0.5, 0.02 * k, 0.006), M["void"], "flat",
+              what="ouie")
+    g.box((x, yb + Lb * 0.5, z + hh * 0.86), (hw * 0.5, Lb * 0.9, 0.024), M["matte"], "hard", what="longeron")
+    corps.bouche(g, x, yb + Lb + 0.002, z, pos, rb, M["matte"], R0 + 0.008, w=0.022 if k >= 0.9 else 0.012)
+    return yb + Lb
 
 
 def feed(g, x, sx, H, xo):

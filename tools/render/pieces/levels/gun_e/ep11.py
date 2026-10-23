@@ -1,16 +1,20 @@
 """Époque 11 · Titane (ère IV, 5×5, niveaux 21 et 22). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 11) : « ailerons, effilé, titane ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
-mot ; les aiguillages par époque sont réduits à la branche de l'époque 11) sur le kit commun gun_e : seul le CORPS a
-changé (corps.py, kit.py). Aucune correction de design d'époque.
-Emplacements remplis : arme (canon LONG et FIN, manchon à pans anguleux, grand EMPENNAGE en flèche, frein en pointe
-de flèche, culasse en flèche), télémètre à ailerons, grands volumes du socle (turbine de titane à l'ouest,
-réservoirs-fusées à ogive à l'est, échangeur à ailettes au nord-ouest), tourelle secondaire sur pieds en V, liaisons
-(conduits fins de titane groupés à colliers clairs), chenillard bleu-blanc, dérives au sommet, foyers bleu-blanc,
-pièce paire (2 lance-missiles à ailerons).
-Défaut relevé par les juges (à corriger par le constructeur) : lu « industrie lourde blindée » ; pose N lue comme des
-cheminées.
+Quatrième passe (23/10), corrections du constructeur de la plage haute sur le portage de la passe 3 (lu « industrie
+lourde blindée », pose N lue comme des cheminées) :
+  - ALLIAGE CLAIR PATINÉ en accents LARGES : manchon arrière des canons, ailerons, colliers, dérives (matière « ring »
+    éclaircie, toujours patinée, luminance rendue <= 200) ; le titane (« jacket ») reste moyen ;
+  - ARME : canon LONG et EFFILÉ (faisceau de 6 tubes fins, 1,25 L), manchon arrière à pans (<= moitié arrière),
+    QUATRE AILERONS RADIAUX en X (diagonales, 0,5 t d'envergure : lisibles au zoom 1 de dessus comme de face), frein
+    en POINTE DE FLÈCHE à deux grandes ailettes horizontales en flèche (pose N : une pointe de flèche plus large que le
+    faisceau, jamais un chapeau rond) ;
+  - SOCLE : la turbine lourde de l'ouest devient un BANC DE MISSILES (3 missiles effilés couchés sur berceaux, nez en
+    ogive, empennages clairs) ; moitié sud propre à l'époque : trémie en titane à deux GRANDS AILERONS en flèche,
+    CAISSES À MISSILES (à la place des caisses ouvertes), tourelle secondaire en FUSEAU à ailerons sur pieds en V,
+    COLLECTEUR DE TUBULURES FINES groupées à colliers clairs au sud-est (à la place de la vanne et du volant).
+Inchangés de la passe 3 : réservoirs-fusées à ogive à l'est, échangeur à ailettes au nord-ouest, télémètre à
+ailerons, chenillard bleu-blanc, dérives au sommet, foyers bleu-blanc, pièce paire (2 lance-missiles à ailerons).
 """
 import math
 
@@ -30,17 +34,17 @@ EPOQUE = 11
 NOM = "Titane"
 FOYER = dict(rgb=(0.749, 0.902, 1.0), rgb2=(0.749, 0.902, 1.0))
 CANON = dict(L=2.1, nb=6, rb=0.06, rr=0.145)
-PLATEFORME = dict(chanfrein=0.55)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+PLATEFORME = dict(chanfrein=0.8)
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "steel_hi"))
 RECV = ("jacket", "olive")
 
 
 def matieres(metal, M):
-    """Titane : titane patiné, alliage blanc patiné (ailerons, colliers)."""
+    """Titane : titane patiné (moyen), alliage blanc PATINÉ (accents larges : manchons, ailerons, colliers)."""
     rust = (0.24, 0.085, 0.03)
     metal("jacket", (0.31, 0.315, 0.32), rough=0.3, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
           dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
-    metal("ring", (0.42, 0.4, 0.36), rough=0.3, met=0.7, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
+    metal("ring", (0.55, 0.53, 0.48), rough=0.42, met=0.55, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
           ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
@@ -71,15 +75,15 @@ def socle(g, c):
     P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
     P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
     with at(g, -1.5, -1.72, 0.42):
-        P2.open_crate(g, (0, 0, 0), 0.78, 0.72, 0.3, M)
+        missile_crate(g, 0.8, 0.74, 0.3, 3)
     with at(g, -1.05, -2.35, 0.08):
-        P2.open_crate(g, (0, 0, 0), 0.6, 0.5, 0.22, M, paint=M["ochre"])
+        missile_crate(g, 0.62, 0.52, 0.24, 2)
+    tremie_fins(g, c)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             turret_legs(g, 0.42, 0.28)
             mini_turret(g, (0, 0, 0.28), 0.95, rz)
-            signature(g, (0.0, -0.18, 0.28 + 0.4 * 0.95))
     # ouest : turbine de titane ; liaisons d'énergie vers la colonne
     west(g)
     conduit(g, [(-1.62, Y(0.55), 0.4), (-1.42, Y(0.6), 0.62), (-1.2, Y(0.5), 0.72)], 0.045)
@@ -91,11 +95,9 @@ def socle(g, c):
     rocket_tank(g, 2.02, Y(0.95), 0.37, 0.92)
     rocket_tank(g, 2.02, Y(-0.4), 0.37, 0.92)
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=False)
-    PT.hull(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.0, 0.3, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["redpaint"], M["steel_dk"]], rivet_step=0.12)
-    P2.handwheel(g, (2.02, Y(-1.18) - 0.08, 0.2), (0, -1, 0.3), 0.08, M)
-    pipe(g, [(1.68, Y(-1.0), 0.2), (1.45, Y(-1.05), 0.22), (1.25, Y(-0.85), 0.4)], 0.05,
-         valve_at=((1.47, Y(-1.04), 0.22), (0, -1, 0.5)))
+    # sud-est : collecteur de tubulures fines groupées (à la place de la vanne et du volant)
+    manifold(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.26)
+    hose(g, [(1.7, Y(-1.0), 0.28), (1.45, Y(-1.05), 0.34), (1.22, Y(-0.85), 0.52)], 0.05)
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
@@ -140,61 +142,119 @@ def turret_legs(g, R, h):
 
 
 def west(g):
-    """Groupe de l'ouest : TURBINE de titane couchée (entrée d'air en cône au nord, tuyère au sud, aubes, berceaux)."""
+    """Groupe de l'ouest : BANC DE MISSILES (3 missiles effilés de titane couchés sur berceaux, nez en ogive d'alliage
+    clair, empennages en X d'alliage clair, tuyères), brides de maintien, chenillard bleu-blanc. Remplace la turbine
+    lourde de la passe 3 (lue « industrie lourde »)."""
     M = g.M
     E = M["emit"]
-    x0, x1, y0, y1, h = -2.42, -1.62, Y(-0.95), Y(1.25), 0.52
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    x0, x1, y0, y1 = -2.42, -1.62, Y(-0.95), Y(1.25)
+    cx = (x0 + x1) / 2
     F.plinth(g, x0, x1, y0, y1, 0.1)
-    r = (x1 - x0) * 0.46
-    zc = 0.1 + r + 0.04
-    ya, yb = y0 + 0.3, y1 - 0.35
-    g.cyl((cx, (ya + yb) / 2, zc), "y", r, yb - ya, M["jacket"], n=8, style="hard", phase=TAU / 16, what="carter")
-    for f in (0.12, 0.38, 0.64, 0.9):
-        g.tube_shell((cx, ya + (yb - ya) * f, zc), "y", r * 1.08 + 0.01, r * 0.95, 0.05, M["ring"], n=8,
-                     style="hard", what="cerclage")
-        for kk in range(8):
-            a = TAU * (kk + 0.5) / 8
-            d = V((math.cos(a), 0, math.sin(a)))
-            if d.z < -0.4:
-                continue
-            for dy in (-0.05, 0.05):
-                g.dome(V((cx, ya + (yb - ya) * f + dy, zc)) + d * (r * 0.97 + 0.004), d, 0.012, M["rivet"])
-    for kk in range(3):
-        a = math.pi / 2 + (kk - 1) * 0.8
-        d = V((math.cos(a), 0, math.sin(a)))
-        for f in range(9):
-            yy = ya + 0.08 + (yb - ya - 0.16) * f / 8
-            g.dome(V((cx, yy, zc)) + d * (r * 0.95 + 0.004), d, 0.011, M["rivet"])
-    g.cyl((cx, yb + 0.15, zc), "y", r * 1.15, 0.3, M["ring"], n=24, r2=r * 0.95, what="entree")
-    g.cyl((cx, yb + 0.302, zc), "y", r * 0.95, 0.006, M["void"], n=24, style="flat", what="entree_fond")
-    g.cyl((cx, yb + 0.31, zc), "y", r * 0.3, 0.12, M["steel_hi"], n=16, r2=0.02, what="cone")
-    g.cyl((cx, ya - 0.15, zc), "y", r * 0.7, 0.3, M["steel_dk"], n=20, r2=r * 0.95, what="tuyere")
-    g.cyl((cx, ya - 0.302, zc), "y", r * 0.68, 0.006, M["soot"], n=20, style="flat", what="tuyere_fond")
-    for a in (0.0, math.pi / 2, math.pi, -math.pi / 2):
-        d = V((math.cos(a), 0, math.sin(a)))
-        if d.z < -0.5:
-            continue
-        t = F.Rax(d).col[0] * 0.026
-        c = V((cx, 0, zc))
-        P2.wedge(g, c + d * r + V((0, ya + 0.02, 0)), c + d * r + V((0, ya + 0.42, 0)),
-                 c + d * (r + 0.2) + V((0, ya + 0.04, 0)), t, M["ring"], what="aileron")
-    for f in (0.22, 0.78):
+    r = 0.105
+    zc = 0.1 + 0.07 + r
+    ya, yb = y0 + 0.3, y1 - 0.42
+    for f in (0.18, 0.5, 0.82):
         yy = ya + (yb - ya) * f
-        g.box((cx, yy, (zc - r * 0.6 + 0.1) / 2 + 0.05), (r * 1.6, 0.12, zc - r * 0.6), M["steel_dk"], "hard",
-              what="berceau")
-    for f in (0.3, 0.6):
-        g.box((cx + r * 0.68, ya + (yb - ya) * f, zc + r * 0.7), (0.09, 0.02, 0.03), E, "flat", what="chenillard")
-    for s in (-1, 1):
-        d = V((s * 0.38, 0, 0.92)).normalized()
-        F.hatches(g, V((cx, ya + 0.12, zc)) + d * r * 0.93, V((cx, yb - 0.12, zc)) + d * r * 0.93, 7, d, M["ring"],
-                  size=(0.07, 0.1), frame=M["steel_dk"])
+        g.box((cx, yy, 0.1 + 0.05), (x1 - x0 - 0.04, 0.1, 0.1), M["steel_dk"], "hard", what="berceau")
+        for i in range(3):
+            xm = cx + (i - 1) * 0.255
+            g.tube_shell((xm, yy, zc), "y", r + 0.018, r - 0.005, 0.05, M["ring"], n=20, what="bride")
+            g.dome((xm, yy, zc + r + 0.02), (0, 0, 1), 0.012, M["rivet"])
+    for i in range(3):
+        xm = cx + (i - 1) * 0.255
+        g.cyl((xm, (ya + yb) / 2, zc), "y", r, yb - ya, M["jacket"], n=16, what="missile")
+        for f in (0.33, 0.66):
+            g.tube_shell((xm, ya + (yb - ya) * f, zc), "y", r + 0.006, r - 0.01, 0.02, M["steel_dk"], n=16,
+                         what="joint")
+        # nez en ogive (alliage clair), pointe
+        g.cyl((xm, yb + 0.16, zc), "y", r, 0.32, M["ring"], n=16, r2=0.035, what="ogive")
+        g.cyl((xm, yb + 0.35, zc), "y", 0.035, 0.06, M["steel_hi"], n=10, r2=0.006, what="pointe")
+        # tuyère et empennage en X (alliage clair)
+        g.cyl((xm, ya - 0.06, zc), "y", r * 0.7, 0.12, M["steel_dk"], n=14, r2=r * 0.9, what="tuyere")
+        g.cyl((xm, ya - 0.122, zc), "y", r * 0.6, 0.006, M["soot"], n=14, style="flat", what="tuyere_fond")
+        for d in F.ring_dirs(4, math.pi / 4, -0.9):
+            c_ = V((xm, 0, zc))
+            P2.wedge(g, c_ + d * (r - 0.01) + V((0, ya + 0.02, 0)), c_ + d * (r - 0.01) + V((0, ya + 0.34, 0)),
+                     c_ + d * (r + 0.12) + V((0, ya - 0.02, 0)), F.Rax(d).col[0] * 0.02, M["ring"], what="aileron")
+        for k in range(6):
+            g.dome((xm, ya + 0.4 + (yb - ya - 0.5) * k / 5, zc + r * 0.98), (0, 0, 1), 0.011, M["rivet"])
+        for f in (0.15, 0.45, 0.75):   # chenillard : segments courts espacés (chacun un foyer)
+            g.box((xm + r * 0.7, ya + (yb - ya) * f, zc + r * 0.7), (0.02, 0.09, 0.02), E, "flat", what="chenillard")
     F.hatches(g, (x0 + 0.06, y0 + 0.25, 0.1), (x0 + 0.06, y1 - 0.25, 0.1), 6, (0, 0, 1), M["steel_hi"],
               size=(0.06, 0.06))
+
+
+def missile_crate(g, w, d, h, n):
+    """CAISSE À MISSILES (à la place de la caisse ouverte) : caisson titane riveté, alvéoles alignées dont sortent les
+    nez en ogive d'alliage clair, couvercle rabattu, deux ailerons de manutention."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, h, ins=(0.015, 0.015, 0.015), panel=0.24,
+            mats=[M["jacket"], M["olive"]], rivet_step=0.11)
+    pitch = (w - 0.1) / n
+    for i in range(n):
+        x = -w / 2 + 0.05 + pitch * (i + 0.5)
+        for j in range(2):
+            y = -d * 0.22 + d * 0.44 * j
+            g.cyl((x, y, h + 0.006), "z", pitch * 0.36, 0.012, M["void"], n=14, style="flat", what="alveole")
+            g.cyl((x, y, h + 0.06), "z", pitch * 0.3, 0.12, M["ring"], n=14, r2=0.012, what="nez")
+    g.box((0, d / 2 + 0.03, h + 0.1), (w * 0.96, 0.03, 0.22), M["jacket"], "hard", R=Matrix.Rotation(-0.25, 3, "X"),
+          what="couvercle")
     for s in (-1, 1):
-        d = V((s * 0.9, 0, 0.44)).normalized()
-        F.hatches(g, V((cx, ya + 0.15, zc)) + d * r * 0.93, V((cx, yb - 0.15, zc)) + d * r * 0.93, 8, d,
-                  M["steel_dk"], size=(0.06, 0.08), frame=M["ring"])
+        P2.wedge(g, V((s * w / 2, -d * 0.3, h * 0.3)), V((s * w / 2, d * 0.3, h * 0.3)),
+                 V((s * (w / 2 + 0.1), -d * 0.2, h * 0.3)), V((0, 0, 0.025)), M["ring"], what="aileron")
+    P3.lamp_group(g, (-w / 2 + 0.06, -d / 2 - 0.02, h * 0.5), (1, 0, 0), (0, -1, 0), E, M, n=2,
+                  shapes=("fente", "rond"))
+    for s in (-1, 1):
+        g.box((s * w * 0.3, -d / 2 + 0.02, h + 0.004), (0.09, 0.02, 0.008), E, "flat", what="chenillard")
+
+
+def tremie_fins(g, c):
+    """Trémie de l'époque (peinte en titane, HABILLAGE) : deux GRANDS AILERONS d'alliage clair en flèche sur les
+    flancs (nervurés, rivetés), une dérive dorsale sur l'arrière, tubulures fines groupées le long des flancs."""
+    M = g.M
+    E = M["emit"]
+    x0, x1, y0, y1, h = c.tremie_box
+    for s in (-1, 1):
+        xb = x1 if s > 0 else x0
+        p0 = V((xb, y0 + 0.12, 0.08))
+        p1 = V((xb, y1 - 0.1, 0.08))
+        p2 = V((xb + s * 0.34, y0 - 0.06, 0.08))
+        P2.wedge(g, p0, p1, p2, V((0, 0, 0.05)), M["ring"], what="aileron")
+        g.box((xb + s * 0.12, (y0 + y1) / 2 - 0.2, 0.115), (0.03, (y1 - y0) * 0.55, 0.025), M["steel_dk"], "hard",
+              what="nervure")
+        for f in (0.25, 0.5, 0.75):
+            g.dome((xb + s * 0.06, y0 + (y1 - y0) * f, 0.11), (0, 0, 1), 0.012, M["rivet"])
+        # tubulures fines groupées par 3 le long du flanc, colliers clairs
+        xt = xb + s * 0.05
+        PT.cable_run(g, [(xt, y0 + 0.05, h * 0.55), (xt, (y0 + y1) / 2, h * 0.62), (xt, y1 + 0.2, h * 0.9),
+                         (s * 0.3, y1 + 0.45, c.rt + 0.04)], 3, 0.014, 0.034, [M["jacket"]])
+        for yy in (y0 + 0.3, y0 + 0.75):
+            g.box((xt + s * 0.02, yy, h * 0.45), (0.02, 0.09, 0.02), E, "flat", what="chenillard")
+    zt = h + 0.02
+    P2.wedge(g, V((0, y1 - 0.5, zt)), V((0, y1 - 0.08, zt)), V((0, y1 - 0.55, zt + 0.32)), V((0.035, 0, 0)), M["ring"],
+             what="derive")
+
+
+def manifold(g, x0, x1, y0, y1, h):
+    """Collecteur de tubulures fines (sud-est) : caisson titane bas, 6 piquages fins à colliers d'alliage clair groupés
+    par 3, aileron de signature, chenillard."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["jacket"], M["steel_dk"]],
+            rivet_step=0.12)
+    w = x1 - x0
+    for gi in range(2):
+        for i in range(3):
+            x = x0 + 0.1 + gi * w * 0.5 + i * 0.07
+            g.cyl((x, (y0 + y1) / 2, h + 0.1), "z", 0.016, 0.2, M["jacket"], n=8, what="tubulure")
+            g.cyl((x, (y0 + y1) / 2, h + 0.2), "y", 0.016, (y1 - y0) * 0.9, M["jacket"], n=8, what="tubulure")
+        xc = x0 + 0.17 + gi * w * 0.5
+        for zz in (h + 0.06, h + 0.16):
+            g.box((xc, (y0 + y1) / 2, zz), (0.22, 0.05, 0.03), M["ring"], "hard", what="collier")
+    P2.wedge(g, V((x1 - 0.05, y0 + 0.05, h)), V((x1 - 0.05, y1 - 0.05, h)), V((x1 - 0.05, y0 + 0.02, h + 0.2)),
+             V((0.025, 0, 0)), M["ring"], what="aileron")
+    g.box((x0 + w * 0.4, y0 - 0.004, h * 0.6), (0.09, 0.008, 0.025), E, "flat", what="chenillard")
 
 
 def rocket_tank(g, x, y, r, h):
@@ -239,9 +299,9 @@ def rocket_tank(g, x, y, r, h):
         d = V((math.cos(a), math.sin(a), 0))
         F.hatches(g, V((x, y, h + r * 0.35)) + d * (r * 0.78), V((x, y, h + r * 0.45)) + d * (r * 0.72), 1,
                 (d.x * 0.8, d.y * 0.8, 0.6), M["steel_dk"], size=(0.05, 0.05))
-    for k, a in enumerate((-1.3, -1.75)):
+    for k, (a, zz) in enumerate(((-1.3, 0.45), (-1.75, 0.53), (-1.0, 0.8), (-2.1, 0.25))):
         d = V((math.cos(a), math.sin(a), 0))
-        g.box(V((x, y, h * 0.45 + 0.08 * k)) + d * (r + 0.01), (0.09, 0.02, 0.03), E, "flat",
+        g.box(V((x, y, h * zz)) + d * (r + 0.01), (0.09, 0.02, 0.03), E, "flat",
               R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="chenillard")
 
 
@@ -272,7 +332,9 @@ def signature(g, p, kind=0):
 
 
 def mini_turret(g, c, s, rz):
-    """Tourelle secondaire : couronne et caisson de la lignée, les DEUX ARMES sont celles de l'époque."""
+    """Tourelle secondaire TITANE : couronne rivetée de la lignée, caisson en FUSEAU (section hexagonale effilée vers
+    l'avant, titane, joints sombres), dérive dorsale et 2 ailerons latéraux d'alliage clair en flèche ; les DEUX ARMES
+    sont celles de l'époque (canons longs et effilés à ailerons)."""
     M = g.M
     E = M["emit"]
     g.push(c, rz=rz)
@@ -281,13 +343,23 @@ def mini_turret(g, c, s, rz):
     for k in range(nb):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
-    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["armor"], M["khaki"]])
+    hexs = [(0.0, 1.0), (0.87, 0.5), (0.87, -0.5), (0.0, -1.0), (-0.87, -0.5), (-0.87, 0.5)]
+    zf = 0.27 * s
+    F.loft(g, 0.0, zf, [(-0.34 * s, F.scale_poly(hexs, 0.12 * s)), (-0.22 * s, F.scale_poly(hexs, 0.19 * s)),
+                        (0.1 * s, F.scale_poly(hexs, 0.19 * s)), (0.34 * s, F.scale_poly(hexs, 0.07 * s))],
+           M["jacket"], "hard", "fuseau")
+    g.box((0, -0.05 * s, 0.15 * s), (0.32 * s, 0.4 * s, 0.1 * s), M["steel_dk"], "hard", what="assise")
+    for yy in (-0.2 * s, 0.05 * s):
+        F.loft(g, 0.0, zf, [(yy - 0.01, F.scale_poly(hexs, 0.2 * s)), (yy + 0.01, F.scale_poly(hexs, 0.2 * s))],
+               M["ring"], "hard", "collier")
+    P2.wedge(g, V((0, -0.3 * s, zf + 0.15 * s)), V((0, 0.0, zf + 0.15 * s)), V((0, -0.36 * s, zf + 0.36 * s)),
+             V((0.02, 0, 0)), M["ring"], what="derive")
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M[k] for k in RECV])
         _gun11(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
-    PT.lamp(g, (0.0, 0.12 * s, 0.4 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
-    PT.hatch(g, (0.0, -0.12 * s, 0.4 * s), 0.09 * s)
+        P2.wedge(g, V((sx * 0.4 * s, -0.3 * s, 0.3 * s)), V((sx * 0.4 * s, -0.05 * s, 0.3 * s)),
+                 V((sx * 0.58 * s, -0.36 * s, 0.3 * s)), V((0, 0, 0.02)), M["ring"], what="aileron")
+    g.box((0.0, 0.2 * s, zf + 0.1 * s), (0.08, 0.02, 0.012), E, "flat", what="chenillard")
     g.pop()
 
 
@@ -412,76 +484,85 @@ def arme(g, c, x, sx):
 
 
 def _gun11(g, x, y0, z, L, nb, rb, rr):
-    """Troisième passe : un canon LONG (1,25 × la longueur de l'époque) et FIN (faisceau de 6 tubes serrés, 0,27 de
-    large), manchon arrière à PANS ANGULEUX en titane, et deux paires d'AILERONS en flèche en alliage clair patiné
-    (empennage horizontal de 0,5 tuile d'envergure) : de dessus, une flèche empennée ; de face, une croix."""
+    """Quatrième passe : canon LONG (1,25 L) et EFFILÉ (6 tubes fins serrés, rosette visible sur toute la moitié
+    avant), manchon arrière à pans d'ALLIAGE CLAIR patiné (<= moitié arrière, joints de titane sombres), QUATRE
+    AILERONS RADIAUX en X (diagonales) d'alliage clair, nervurés, sur le manchon, et un 2e empennage plus petit ;
+    frein en POINTE DE FLÈCHE à deux grandes ailettes horizontales en flèche, rosace éclairée devant. De dessus (pose
+    E) : une flèche empennée ; en pose N : une pointe de flèche plus large que le faisceau, jamais un chapeau rond."""
     M = g.M
     E = M["emit"]
     k = F.k_arme(rb, rr)
     L2 = L * 1.25
     rb2, rr2 = rb * 0.72, rr * 0.6
     R0 = rr2 + rb2
-    F.tubes(g, x, y0, z, L2, nb, rb2, rr2)
-    # manchon à pans anguleux (hexagone allongé, effilé vers l'avant), plaques de titane rivetées
-    Ls = 0.46 * L2
+    pos = corps.rosette(g, x, y0, z, L2, nb, rb2, rr2, colliers=(0.62, 0.8), collier_mat=M["ring"], bouts=False,
+                        segments=10)
+    g.cyl((x, y0 + L2 * 0.99, z), "y", max(rr2 - rb2 * 0.55, rr2 * 0.55), L2 * 0.04 + 0.03, M["steel_dk"], n=12,
+          what="ame_bout")
+    # manchon à pans anguleux (hexagone effilé vers l'avant), alliage clair, joints de titane, rivets
+    Ls = min(0.42, corps.JAQUETTE_MAX) * L2
     hexs = [(0.0, 1.0), (0.87, 0.5), (0.87, -0.5), (0.0, -1.0), (-0.87, -0.5), (-0.87, 0.5)]
     r_a, r_b = R0 + 0.12 * k, R0 + 0.035
     F.loft(g, x, z, [(y0 - 0.02, F.scale_poly(hexs, r_a * 0.9)), (y0 + 0.1, F.scale_poly(hexs, r_a)),
-                   (y0 + Ls, F.scale_poly(hexs, r_b))], M["jacket"], "hard", "manchon")
-    for f in (0.25, 0.5, 0.75):
-        rr_ = r_a + (r_b - r_a) * (f * Ls - 0.1) / (Ls - 0.1)
-        F.loft(g, x, z, [(y0 + f * Ls - 0.015, F.scale_poly(hexs, rr_ * 1.04)), (y0 + f * Ls + 0.015, F.scale_poly(hexs, rr_ * 1.04))],
-             M["steel_dk"], "hard", "joint")
-        for (u, w) in hexs[:3] + hexs[5:]:
-            g.dome((x + u * rr_ * 0.98, y0 + f * Ls + 0.04, z + w * rr_ * 0.98), (u, 0, w), 0.012, M["rivet"])
-    # EMPENNAGE : 2 grands ailerons horizontaux (vers l'extérieur et vers l'intérieur) et 1 dorsal, bord d'attaque
-    # en flèche ; nervure et rivets ; un 2e empennage plus petit à mi-longueur
-    sx = 1.0 if x >= 0 else -1.0
-    for (yy, span, chord, inner) in ((y0 + 0.36, 0.5 * k, 0.62 * k, 0.32 * k), (y0 + Ls + 0.1, 0.26 * k, 0.32 * k,
-                                                                                0.2 * k)):
-        r0 = (r_a + (r_b - r_a) * (yy - y0 - 0.1) / (Ls - 0.1)) if yy < y0 + 0.5 else r_b
-        # pas d'aileron côté coupole : il fermait un jour avec le socle en pose N (contrôle des trous)
-        for d, sp in (((V((sx, 0, 0)), span), (V((0, 0, 1)), span * 0.7)) if yy < y0 + 0.5 else ((V((0, 0, 1)), span),)):
-            t = F.Rax(d).col[0] * 0.026
-            c = V((x, 0, z))
-            # emplanture prolongée vers l'arrière (virure) sur le grand empennage : ferme le jour avec le socle
-            p0 = c + d * (r0 - 0.01) + V((0, yy - (0.15 * k if yy < y0 + 0.5 else 0.0), 0))
-            p1 = c + d * (r0 - 0.01) + V((0, yy + chord, 0))
-            p2 = c + d * (r0 + sp) + V((0, yy + 0.02, 0))
+                   (y0 + Ls, F.scale_poly(hexs, r_b))], M["ring"], "hard", "manchon")
+
+    def rad(yy):
+        return r_a + (r_b - r_a) * max(0.0, min(1.0, (yy - y0 - 0.1) / (Ls - 0.1)))
+    for f in (0.3, 0.62):
+        rr_ = rad(y0 + f * Ls)
+        F.loft(g, x, z, [(y0 + f * Ls - 0.016, F.scale_poly(hexs, rr_ * 1.05)),
+                         (y0 + f * Ls + 0.016, F.scale_poly(hexs, rr_ * 1.05))], M["jacket"], "hard", "joint")
+        if k >= 0.9:
+            for (u, w) in hexs[:3] + hexs[5:]:
+                g.dome((x + u * rr_ * 1.0, y0 + f * Ls + 0.04, z + w * rr_ * 1.0), (u, 0, w), 0.012, M["rivet"])
+    # AILERONS RADIAUX EN X (4 diagonales ; pas d'aileron vers le sol), grand empennage puis petit empennage
+    for (yy, span, chord) in ((y0 + 0.3 * k, 0.42 * k, 0.6 * k), (y0 + Ls + 0.12 * k, 0.2 * k, 0.3 * k)):
+        r0 = rad(yy)
+        for d in F.ring_dirs(4, math.pi / 4, -0.9):
+            if d.z < 0 and yy < y0 + 0.5 * k:
+                sp = span * 0.6
+            else:
+                sp = span
+            t = F.Rax(d).col[0] * 0.024
+            c_ = V((x, 0, z))
+            p0 = c_ + d * (r0 - 0.01) + V((0, yy - 0.12 * k, 0))
+            p1 = c_ + d * (r0 - 0.01) + V((0, yy + chord, 0))
+            p2 = c_ + d * (r0 + sp) + V((0, yy + 0.02, 0))
             P2.wedge(g, p0, p1, p2, t, M["ring"], what="aileron")
-            g.box(c + d * (r0 + sp * 0.45) + V((0, yy + 0.06, 0)), (0.026, 0.05, sp * 0.85), M["steel_dk"], "hard",
-                  R=F.Rax(d), what="nervure")
-            for f in (0.3, 0.6):
-                g.dome(c + d * (r0 + sp * f * 0.8) + V((0, yy + chord * (1 - f) * 0.7, 0)) + F.Rax(d).col[0] * 0.014,
-                       F.Rax(d).col[0], 0.012, M["rivet"])
-    # conduits fins jumelés en titane sur le dos (chenillard bleu-blanc en segments)
-    for s in (-1, 1):
-        p0 = V((x + s * 0.04 * k, y0 + Ls + 0.02, z + R0 + 0.02))
-        p1 = V((x + s * 0.04 * k, y0 + L2 * 0.88, z + R0 + 0.02))
-        g.tube([p0, p1], 0.014 * k, M["jacket"], n=8, what="conduit")
-        for f in (0.2, 0.55, 0.9):
-            g.cyl(p0.lerp(p1, f), "y", 0.022 * k, 0.025, M["ring"], n=10, style="hard", what="collier")
-        g.cyl(p0.lerp(p1, 0.38) + V((0, 0, 0.004)), "y", 0.017 * k, 0.04, E, n=8, style="flat", what="segment_lum")
-    for f in (0.62, 0.8):
-        F.collar(g, x, y0 + f * L2, z, R0 + 0.018, rr2 * 0.3, 0.04, M["ring"])
-    # frein EFFILÉ en pointe de flèche, évents obliques, 4 petits ailerons
+            if k >= 0.9:
+                g.box(c_ + d * (r0 + sp * 0.4) + V((0, yy + 0.08, 0)), (0.024, 0.05, sp * 0.75), M["jacket"], "hard",
+                      R=F.Rax(d), what="nervure")
+                for f in (0.3, 0.6):
+                    g.dome(c_ + d * (r0 + sp * f * 0.8) + V((0, yy + chord * (1 - f) * 0.6, 0)) + F.Rax(d).col[0] * 0.013,
+                           F.Rax(d).col[0], 0.011, M["rivet"])
+    # conduits fins jumelés de titane sur le dos (chenillard bleu-blanc en segments)
+    if k >= 0.9:
+        for s in (-1, 1):
+            p0 = V((x + s * 0.04 * k, y0 + Ls + 0.02, z + R0 + 0.02))
+            p1 = V((x + s * 0.04 * k, y0 + L2 * 0.88, z + R0 + 0.02))
+            g.tube([p0, p1], 0.012 * k, M["jacket"], n=8, what="conduit")
+            for f in (0.2, 0.55, 0.9):
+                g.cyl(p0.lerp(p1, f), "y", 0.02 * k, 0.025, M["ring"], n=10, style="hard", what="collier")
+            g.cyl(p0.lerp(p1, 0.38) + V((0, 0, 0.004)), "y", 0.016 * k, 0.04, E, n=8, style="flat",
+                  what="segment_lum")
+    # frein EN POINTE DE FLÈCHE : bague, corps hexagonal effilé, 2 grandes ailettes horizontales en flèche (plus
+    # larges que le faisceau), évents obliques, rosace éclairée en face avant
     yb0 = y0 + L2
-    lb = 0.4 * k
-    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.06, rr2 * 0.4, 0.05, M["ring"], n=28, what="bague")
-    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.06, lb, M["jacket"], n=6, r2=rr2 * 0.7, style="hard", phase=math.pi / 2,
+    lb = 0.36 * k
+    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.05, rr2 * 0.4, 0.05, M["ring"], n=28, what="bague")
+    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.055, lb, M["jacket"], n=6, r2=R0 + 0.01, style="hard", phase=math.pi / 2,
           what="frein")
     for s in (-1, 1):
+        c_ = V((x, 0, z))
+        P2.wedge(g, c_ + V((s * (R0 + 0.03), yb0 + 0.02, 0)), c_ + V((s * (R0 + 0.01), yb0 + lb, 0)),
+                 c_ + V((s * (R0 + 0.2 * k), yb0 - 0.04 * k, 0)), V((0, 0, 0.028 * k)), M["ring"], what="ailette")
         for i in range(3):
-            d = V((s, 0, 0))
-            g.box(V((x, yb0 + lb * (0.22 + 0.22 * i), z)) + d * (R0 + 0.04 - i * 0.045 * k),
-                  (0.016, 0.07, 0.045), M["void"], "flat", R=Matrix.Rotation(s * 0.5, 3, "Z") @ F.Rax(d), what="event")
-    for d in F.ring_dirs(4, math.pi / 4, -0.9):
-        t = F.Rax(d).col[0] * 0.02
-        c = V((x, 0, z))
-        P2.wedge(g, c + d * (R0 + 0.04) + V((0, yb0, 0)), c + d * (rr2 * 0.8) + V((0, yb0 + lb * 0.8, 0)),
-                 c + d * (R0 + 0.15 * k) + V((0, yb0 + 0.01, 0)), t, M["ring"], what="aileron")
-    g.cyl((x, yb0 + lb + 0.002, z), "y", rr2 * 0.6, 0.006, M["void"], n=16, style="flat", what="bouche")
-    F.muzzle_glow(g, x, yb0 + lb + 0.004, z, rr2 * 0.75)
+            g.box(V((x + s * (R0 + 0.045 - i * 0.01), yb0 + lb * (0.25 + 0.22 * i), z + 0.02)),
+                  (0.012, 0.06 * k, 0.03 * k), M["void"], "flat", R=Matrix.Rotation(s * 0.5, 3, "Z"), what="event")
+    if k >= 0.9:
+        P2.wedge(g, V((x, yb0 + 0.02, z + R0)), V((x, yb0 + lb * 0.8, z + R0 * 0.6)),
+                 V((x, yb0 + 0.02, z + R0 + 0.12 * k)), V((0.022, 0, 0)), M["ring"], what="ailette")
+    corps.bouche(g, x, yb0 + lb + 0.002, z, pos, rb2, M["steel_dk"], R0 + 0.008, w=0.018 if k >= 0.9 else 0.01)
     return yb0 + lb
 
 

@@ -1,15 +1,20 @@
 """Époque 12 · Supraconducteurs (ère IV, 5×5, niveaux 23 et 24). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
 
 Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 12) : « chrome, givre, anneaux ».
-PORTÉ TEL QUEL de la passe 3 (gun_e_haut, commit 4c57982 : design.py, armes.py, ages.py ; outil de portage, code d'origine mot pour
-mot ; les aiguillages par époque sont réduits à la branche de l'époque 12) sur le kit commun gun_e : seul le CORPS a
-changé (corps.py, kit.py ; la règle commune de reflets plafonne aussi le chrome : rugosité >= 0,38). Aucune
-correction de design d'époque.
-Emplacements remplis : arme (CANON À RAILS dans 4 GRANDS ANNEAUX magnétiques chromés, culasse cryogénique, bouche en
-cadre à fente cyan), canon de coupole à 4 tubes (rails), 2 tourelles secondaires, grands volumes du socle
-(compresseurs cryogéniques à l'ouest, portiques à grands anneaux à l'est et au nord-ouest), liaisons (mousse
-givrée, tuyaux chromés à soufflets), dewars sur la nacelle, foyers cyan glacé, pièce paire (2 bobines sur pylône).
-Défaut relevé par les juges (à corriger par le constructeur, RÈGLE D'OR 1) : plus de faisceau rotatif du tout.
+Quatrième passe (23/10), corrections du constructeur de la plage haute sur le portage de la passe 3 (plus de faisceau
+rotatif du tout, règle d'or 1 ; anneaux lus « pneus noirs ») :
+  - ARME : canon à RAILS PARALLÈLES autour du faisceau de la lignée : la ROSETTE de 6 tubes au centre, visible sur
+    toute la moitié avant, deux RAILS noirs à arête chromée et conducteur de cuivre de part et d'autre ; 4 ANNEAUX
+    magnétiques chromés À FACETTES (bande claire, pas un tore noir) sur la moitié arrière, avec un VIDE sombre visible
+    entre l'anneau et les rails (disque noir mince : aucune transparence, donc aucun trou enfermé), tenus par des
+    entretoises fines (rien ne flotte) ; anneau-bouche en cadre chromé à fentes cyan, rosace éclairée au centre ;
+  - MOITIÉ SUD propre à l'époque : trémie enjambée par deux ARCHES MAGNÉTIQUES chromées sur pieds, CELLULES
+    CRYOGÉNIQUES (dewars à cols chromés et givre) à la place des caisses ouvertes, tourelles secondaires ceintes d'un
+    GRAND ANNEAU chromé horizontal, VANNE CRYOGÉNIQUE à soufflets chromés et mousse givrée au sud-est ;
+  - chrome un peu moins clair (albédo 0,7) : aucune bague blanche.
+Inchangés de la passe 3 : compresseurs cryogéniques à l'ouest, portiques à grands anneaux à l'est et au nord-ouest,
+liaisons (mousse givrée, tuyaux chromés à soufflets), dewars sur la nacelle, foyers cyan glacé, pièce paire (2 bobines
+sur pylône), canon de coupole (petit canon à rails, la rosette visible devant).
 """
 import math
 
@@ -29,8 +34,8 @@ EPOQUE = 12
 NOM = "Supraconducteurs"
 FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0))
 CANON = dict(L=2.2, nb=6, rb=0.06, rr=0.145)
-PLATEFORME = dict(chanfrein=0.4)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+PLATEFORME = dict(chanfrein=0.15)
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "copper"))
 RECV = ("jacket", "steel_dk")
 
 
@@ -38,7 +43,7 @@ def matieres(metal, M):
     """Supraconducteurs : noir profond, chrome (reflets francs dans la limite commune), givre (≤ 3 %)."""
     metal("jacket", (0.034, 0.035, 0.038), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.5, stain=0.3,
           wear=1.5)
-    metal("ring", (0.8, 0.81, 0.83), rough=0.16, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
+    metal("ring", (0.7, 0.71, 0.73), rough=0.16, met=1.0, grain=0.06, gscale=60.0, dirt=0.5, stain=0.12,
           wear=0.3)
     metal("trim", (0.55, 0.6, 0.64), rough=0.85, met=0.0, grain=0.3, gscale=80.0, dirt=0.3, stain=0.3)  # givre
     metal("pipe", (0.38, 0.37, 0.34), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.2, 0.18, 0.15),
@@ -70,9 +75,10 @@ def socle(g, c):
     P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
     P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
     with at(g, -1.5, -1.72, 0.42):
-        P2.open_crate(g, (0, 0, 0), 0.78, 0.72, 0.3, M)
+        dewar_rack(g, 0.8, 0.72, 3)
     with at(g, -1.05, -2.35, 0.08):
-        P2.open_crate(g, (0, 0, 0), 0.6, 0.5, 0.22, M, paint=M["ochre"])
+        dewar_rack(g, 0.6, 0.5, 2)
+    tremie_arches(g, c)
     for (x, yn, rz) in [(1.78, -1.82, 0.0), (-2.0, -2.28, 0.25)]:
         with at(g, x, yn, 0.0):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
@@ -86,11 +92,9 @@ def socle(g, c):
     # est : portique à grands anneaux magnétiques (à la place des réservoirs)
     ring_gantry(g, 2.0, Y(-0.6), Y(1.15), 0.42, 0.56)
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=False)
-    PT.hull(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.0, 0.3, ins=(0.02, 0.02, 0.02), panel=0.22,
-            mats=[M["redpaint"], M["steel_dk"]], rivet_step=0.12)
-    P2.handwheel(g, (2.02, Y(-1.18) - 0.08, 0.2), (0, -1, 0.3), 0.08, M)
-    pipe(g, [(1.68, Y(-1.0), 0.2), (1.45, Y(-1.05), 0.22), (1.25, Y(-0.85), 0.4)], 0.05,
-         valve_at=((1.47, Y(-1.04), 0.22), (0, -1, 0.5)))
+    # sud-est : vanne cryogénique (soufflets chromés, mousse givrée) à la place de la vanne à volant
+    cryo_valve(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.3)
+    hose(g, [(1.68, Y(-1.0), 0.3), (1.45, Y(-1.05), 0.36), (1.22, Y(-0.85), 0.52)], 0.05)
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
@@ -111,6 +115,11 @@ def west(g):
     x0, x1, y0, y1, h = -2.42, -1.62, Y(-0.95), Y(1.25), 0.52
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     F.plinth(g, x0, x1, y0, y1, 0.18)
+    # trappes de visite givrées sur les faces du socle (pièces lisibles au zoom 2)
+    F.hatches(g, (x1 + 0.005, y0 + 0.15, 0.09), (x1 + 0.005, y1 - 0.15, 0.09), 9, (1, 0, 0), M["ring"],
+              size=(0.07, 0.06), frame=M["jacket"])
+    F.hatches(g, (x0 + 0.1, y0 - 0.005, 0.09), (x1 - 0.1, y0 - 0.005, 0.09), 3, (0, -1, 0), M["trim"],
+              size=(0.07, 0.06), frame=M["jacket"])
     r = (x1 - x0) * 0.32
     ys = [y0 + (y1 - y0) * f for f in (0.18, 0.5, 0.82)]
     for i, yy in enumerate(ys):
@@ -118,15 +127,34 @@ def west(g):
         g.cyl((cx, yy, 0.18 + hh / 2), "z", r, hh, M["jacket"], n=28, what="dewar")
         for zz in (0.3, 0.18 + hh * 0.7):
             g.tube_shell((cx, yy, zz), "z", r + 0.02, r - 0.01, 0.05, M["ring"], n=28, what="collier")
+            for k_ in range(10):   # collier à griffes : fentes sombres
+                a = TAU * (k_ + 0.5) / 10
+                g.box((cx + (r + 0.021) * math.cos(a), yy + (r + 0.021) * math.sin(a), zz), (0.022, 0.006, 0.054),
+                      M["void"], "flat", R=Matrix.Rotation(a + math.pi / 2, 3, "Z"), what="fente")
         g.cyl((cx, yy, 0.18 + hh + 0.06), "z", r * 0.42, 0.12, M["ring"], n=20, what="col")
         g.tube_shell((cx, yy, 0.18 + hh + 0.01), "z", r * 0.5, r * 0.4, 0.03, M["trim"], n=20, what="givre")
         g.box((cx - r * 0.7, yy - r * 0.7, 0.4), (0.06, 0.03, 0.12), M["trim"], "flat", what="givre")
+        # plaques de givre éparses sur la virole noire (taches claires isolées) et boulons chromés de cerclage
+        for k_ in range(7):
+            a = -math.pi * 0.15 - math.pi * 0.7 * k_ / 6
+            d = V((math.cos(a), math.sin(a), 0))
+            zz = 0.36 + 0.07 * (k_ % 3) + 0.12 * (k_ % 2)
+            g.box(V((cx, yy, zz)) + d * (r + 0.004), (0.05, 0.008, 0.035), M["trim"], "flat",
+                  R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="givre")
+            g.dome(V((cx, yy, 0.3)) + d * (r + 0.02), d, 0.02, M["steel_hi"], what="boulon")
         P3.lamp_group(g, (cx + r * 0.2, yy - r - 0.005, 0.45), (1, 0, 0), (0, -1, 0), E, M, n=2,
                       shapes=("fente", "rond"))
     g.tube([V((cx + r * 0.6, ys[0], 0.75)), V((cx + r * 0.9, (ys[0] + ys[1]) / 2, 0.85)),
             V((cx + r * 0.6, ys[1], 0.78))], 0.04, M["pipe"], n=10, what="mousse")
     g.tube([V((cx + r * 0.6, ys[1], 0.78)), V((cx + r * 0.9, (ys[1] + ys[2]) / 2, 0.88)),
             V((cx + r * 0.6, ys[2], 0.75))], 0.04, M["pipe"], n=10, what="mousse")
+    # colliers noirs à pinces sur la mousse (le conduit clair se lit en tronçons)
+    for j in range(2):
+        for f in (0.2, 0.5, 0.8):
+            yy = ys[j] + (ys[j + 1] - ys[j]) * f
+            zz = 0.78 + 0.07 * math.sin(math.pi * f) + (0.01 if j else 0.0)
+            g.cyl((cx + r * 0.6 + r * 0.3 * math.sin(math.pi * f), yy, zz), "y", 0.05, 0.03, M["jacket"], n=12,
+                  style="hard", what="collier")
 
 
 def ring_gantry(g, x, y0, y1, R, zc):
@@ -136,12 +164,18 @@ def ring_gantry(g, x, y0, y1, R, zc):
     E = M["emit"]
     L = y1 - y0
     F.plinth(g, x - R * 0.85, x + R * 0.85, y0 - 0.05, y1 + 0.05, 0.1)
+    for s in (-1, 1):
+        F.hatches(g, (x + s * (R * 0.85 + 0.005), y0 + 0.05, 0.05), (x + s * (R * 0.85 + 0.005), y1 - 0.05, 0.05), 6,
+                  (s, 0, 0), M["ring"], size=(0.06, 0.05), frame=M["jacket"])
     g.cyl((x, (y0 + y1) / 2, zc), "y", R * 0.34, L, M["jacket"], n=24, what="ame")
     for f in (0.0, 1.0):
         g.cyl((x, y0 + f * L, zc), "y", R * 0.4, 0.06, M["ring"], n=24, what="bride")
     for i in range(3):
         yy = y0 + L * (0.2 + 0.3 * i)
         g.tube_shell((x, yy, zc), "y", R, R * 0.74, 0.13, M["ring"], n=56, what="anneau")
+        F.bolts_ring(g, (x, yy - 0.066, zc), (0, -1, 0), R * 0.87, 8, M["rivet"], r=0.013, phase=0.2, skip_down=-0.5)
+        for d in F.ring_dirs(12, math.pi / 12, -0.7):   # bobine à secteurs
+            g.box(V((x, yy, zc)) + d * (R + 0.002), (0.024, 0.14, 0.016), M["void"], "flat", R=F.Rax(d), what="fente")
         g.torus((x, yy, zc), "y", R, 0.014, M["steel_dk"], n=56, m=6, what="jonc")
         # berceau : 2 jambes vers le socle + traverse (l'anneau y repose)
         for s in (-1, 1):
@@ -173,7 +207,9 @@ def signature(g, p, kind=0):
 
 
 def mini_turret(g, c, s, rz):
-    """Tourelle secondaire : couronne et caisson de la lignée, les DEUX ARMES sont celles de l'époque."""
+    """Tourelle secondaire SUPRACONDUCTRICE : couronne rivetée de la lignée, caisson noir profond à bandes chromées,
+    GRAND ANNEAU chromé horizontal autour du caisson (vide sombre, 4 pinces), givre ; les DEUX ARMES sont celles de
+    l'époque (petits canons à rails et anneaux)."""
     M = g.M
     E = M["emit"]
     g.push(c, rz=rz)
@@ -182,14 +218,110 @@ def mini_turret(g, c, s, rz):
     for k in range(nb):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
-    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.4 * s, ins=(0.04 * s, 0.03 * s, 0.1 * s), panel=0.22,
-            mats=[M["armor"], M["khaki"]])
+    PT.hull(g, -0.22 * s, 0.22 * s, -0.28 * s, 0.22 * s, 0.1 * s, 0.38 * s, ins=(0.03 * s, 0.03 * s, 0.06 * s),
+            panel=0.22, mats=[M["jacket"], M["steel_dk"]])
+    for yy in (-0.15 * s, 0.05 * s):
+        g.box((0, yy, 0.385 * s), (0.4 * s, 0.05, 0.02), M["ring"], "hard", what="bande")
+    # grand anneau chromé horizontal à facettes, tenu par 4 pinces, vide sombre entre anneau et caisson
+    zr_ = 0.26 * s
+    g.tube_shell((0, -0.03 * s, zr_), "z", 0.42 * s, 0.35 * s, 0.07 * s, M["ring"], n=12, style="hard", what="anneau")
+    for k in range(12):   # bobine à secteurs : fentes sombres sur le dessus de l'anneau
+        a = TAU * (k + 0.5) / 12
+        g.box((0.385 * s * math.cos(a), -0.03 * s + 0.385 * s * math.sin(a), zr_ + 0.036 * s), (0.08 * s, 0.022, 0.006),
+              M["void"], "flat", R=Matrix.Rotation(a, 3, "Z"), what="fente")
+    g.tube_shell((0, -0.03 * s, zr_ - 0.01), "z", 0.352 * s, 0.24 * s, 0.012, M["void"], n=24, what="vide")
+    for k in range(4):
+        a = TAU * (k + 0.5) / 4
+        d = V((math.cos(a), math.sin(a), 0))
+        g.box(V((0, -0.03 * s, zr_)) + d * 0.32 * s, (0.1 * s, 0.04, 0.06 * s), M["steel_dk"], "hard",
+              R=Matrix.Rotation(a, 3, "Z"), what="pince")
+        g.box(V((0, -0.03 * s, zr_ + 0.036 * s)) + d * 0.385 * s, (0.04, 0.012, 0.004), E, "flat",
+              R=Matrix.Rotation(a + math.pi / 2, 3, "Z"), what="segment_lum")
+    g.box((-0.2 * s, -0.3 * s, zr_ + 0.04 * s), (0.08, 0.03, 0.012), M["trim"], "flat", what="givre")
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M[k] for k in RECV])
         _gun12(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
-    PT.lamp(g, (0.0, 0.12 * s, 0.4 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
-    PT.hatch(g, (0.0, -0.12 * s, 0.4 * s), 0.09 * s)
+    PT.lamp(g, (0.0, 0.12 * s, 0.38 * s + 0.01), (0, 0.35, 1), 0.035, E, cage=False)
     g.pop()
+
+
+def dewar_rack(g, w, d, n):
+    """CELLULES CRYOGÉNIQUES (à la place de la caisse ouverte) : cadre bas noir, n dewars noirs debout à cols chromés,
+    colliers chromés, givre aux cols, voyants cyan."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, 0.1, ins=(0.015, 0.015, 0.015), panel=0.24,
+            mats=[M["steel_dk"], M["jacket"]], rivet_step=0.12)
+    r = min(w / n, d) * 0.36
+    for i in range(n):
+        x = -w / 2 + w * (i + 0.5) / n
+        for j, y in enumerate((-d * 0.2, d * 0.22)):
+            hh = 0.36 + 0.06 * ((i + j) % 2)
+            g.cyl((x, y, 0.1 + hh / 2), "z", r, hh, M["jacket"], n=20, what="dewar")
+            g.tube_shell((x, y, 0.1 + hh * 0.35), "z", r + 0.014, r - 0.01, 0.035, M["ring"], n=20, what="collier")
+            F.bolts_ring(g, (x, y, 0.1 + hh * 0.35), (0, 0, 1), r + 0.016, 5, M["rivet"], r=0.012, phase=-1.2)
+            F.bolts_ring(g, (x, y, 0.1 + hh * 0.8), (0, 0, 1), r + 0.002, 4, M["rivet"], r=0.012, phase=-0.9)
+            g.cyl((x, y, 0.1 + hh + 0.03), "z", r * 0.45, 0.06, M["ring"], n=14, what="col")
+            g.tube_shell((x, y, 0.1 + hh + 0.004), "z", r * 0.6, r * 0.42, 0.02, M["trim"], n=14, what="givre")
+            g.box((x, y - r - 0.003, 0.1 + hh * 0.6), (0.04, 0.006, 0.02), E, "flat", what="voyant")
+            for a in (-2.2, -0.9):
+                dv = V((math.cos(a), math.sin(a), 0))
+                g.box(V((x, y, 0.1 + hh * 0.62)) + dv * (r + 0.003), (0.04, 0.008, 0.03), M["trim"], "flat",
+                      R=Matrix((V((-dv.y, dv.x, 0)), dv, V((0, 0, 1)))).transposed(), what="givre")
+    F.hatches(g, (-w / 2 + 0.06, -d / 2 - 0.005, 0.05), (w / 2 - 0.06, -d / 2 - 0.005, 0.05), 2 * n, (0, -1, 0),
+              M["ring"], size=(0.06, 0.05), frame=M["jacket"])
+
+
+def tremie_arches(g, c):
+    """Trémie de l'époque : enjambée par deux ARCHES MAGNÉTIQUES chromées à facettes (bobines supraconductrices)
+    posées sur des pieds blocs noirs (rien ne flotte), segments cyan, givre ; conduit cryogénique gainé de mousse
+    givrée sur le flanc."""
+    M = g.M
+    E = M["emit"]
+    x0, x1, y0, y1, h = c.tremie_box
+    hw = (x1 - x0) / 2 + 0.16
+    for f in (0.3, 0.7):
+        yy = y0 + (y1 - y0) * f
+        zt = h * (0.75 + 0.3 * f) + 0.12
+        for s in (-1, 1):
+            g.box((s * hw, yy, zt * 0.5), (0.12, 0.16, zt), M["jacket"], "hard", what="pied")
+            g.box((s * hw, yy, 0.03), (0.2, 0.24, 0.06), M["steel_dk"], "hard", what="semelle")
+            g.box((s * (hw + 0.062), yy, zt * 0.55), (0.006, 0.06, 0.02), E, "flat", what="voyant")
+            F.hatches(g, (s * (hw + 0.061), yy, zt * 0.2), (s * (hw + 0.061), yy, zt * 0.85), 2, (s, 0, 0), M["ring"],
+                      size=(0.06, 0.07), frame=M["steel_dk"])
+        # arche : demi-anneau chromé à facettes sur les deux pieds
+        n = 8
+        R = hw
+        for i in range(n):
+            a0, a1 = math.pi * i / n, math.pi * (i + 1) / n
+            p0 = V((R * math.cos(a0), yy, zt + R * 0.35 * math.sin(a0)))
+            p1 = V((R * math.cos(a1), yy, zt + R * 0.35 * math.sin(a1)))
+            dd = p1 - p0
+            Rm = Matrix((dd.normalized(), V((0, 1, 0)), dd.normalized().cross(V((0, 1, 0))))).transposed()
+            g.box((p0 + p1) / 2, (dd.length + 0.01, 0.12, 0.1), M["ring"], "hard", R=Rm, what="arche")
+            nz = Rm.col[2]
+            for dy in (-0.035, 0.035):
+                g.dome((p0 + p1) / 2 + nz * 0.05 + V((0, dy, 0)), nz, 0.013, M["rivet"])
+        g.box((0, yy + 0.065, zt + R * 0.35 + 0.02), (0.2, 0.004, 0.02), E, "flat", what="segment_lum")
+        g.box((-R * 0.6, yy, zt + R * 0.25 + 0.06), (0.1, 0.13, 0.02), M["trim"], "flat", what="givre")
+
+
+def cryo_valve(g, x0, x1, y0, y1, h):
+    """Vanne cryogénique (sud-est) : caisson noir, gros conduit de mousse givrée à soufflets chromés, cols, givre."""
+    M = g.M
+    E = M["emit"]
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["jacket"], M["steel_dk"]],
+            rivet_step=0.12)
+    w = x1 - x0
+    for i, x in enumerate((x0 + w * 0.28, x0 + w * 0.72)):
+        g.cyl((x, (y0 + y1) / 2, h + 0.08), "z", 0.07, 0.16, M["ring"], n=16, what="col")
+        g.cyl((x, (y0 + y1) / 2, h + 0.01), "z", 0.11, 0.02, M["steel_dk"], n=16, what="bride")
+        F.bolts_ring(g, (x, (y0 + y1) / 2, h + 0.02), (0, 0, 1), 0.095, 6, M["rivet"], r=0.012)
+        g.hose([(x, (y0 + y1) / 2, h + 0.16), (x, (y0 + y1) / 2, h + 0.26)], 0.075, M["ring"], step=0.022)
+        g.tube_shell((x, (y0 + y1) / 2, h + 0.27), "z", 0.085, 0.06, 0.03, M["trim"], n=16, what="givre")
+    g.box((x0 + w * 0.5, y0 - 0.004, h * 0.6), (0.06, 0.008, 0.02), E, "flat", what="voyant")
+    F.hatches(g, (x0 + 0.06, y0 - 0.005, h * 0.3), (x1 - 0.06, y0 - 0.005, h * 0.3), 5, (0, -1, 0), M["ring"],
+              size=(0.06, 0.05), frame=M["steel_dk"])
 
 
 # ------------------------------------------------------------------------------------------------
@@ -262,6 +394,8 @@ def even_piece(g, x, yb, sx):
     g.cyl((x, yb, zc), "y", 0.06, 0.5, M["jacket"], n=16, what="noyau")
     for dy in (-0.14, 0.12):
         g.tube_shell((x, yb + dy, zc), "y", 0.23, 0.15, 0.07, M["ring"], n=40, what="anneau")
+        # vide sombre entre l'anneau et le noyau (disque noir mince : aucun jour enfermé dans la pièce seule)
+        g.cyl((x, yb + dy, zc), "y", 0.152, 0.01, M["void"], n=24, style="flat", what="vide")
         F.seg_ring_y(g, x, yb + dy - 0.037, zc, 0.19, 5, E)
         for s in (-1, 1):
             g.box((x + s * 0.17, yb + dy, zc - 0.13), (0.05, 0.09, 0.14), M["steel_dk"], "hard", what="pince")
@@ -299,78 +433,111 @@ def arme(g, c, x, sx):
         g.box((x - wr * 0.3, yy - 0.04, zt + 0.004), (0.08, 0.025, 0.012), M["trim"], "flat", what="givre")
 
 
+def _ring12(g, x, yy, z, ro, ri, w, k, struts=4):
+    """Anneau magnétique supraconducteur : bande CHROMÉE à facettes larges (pas un tore noir : jamais un pneu),
+    VIDE sombre entre l'anneau et ce qu'il entoure (disque mince noir, aucune transparence : aucun trou enfermé),
+    entretoises fines qui tiennent l'anneau (rien ne flotte), segments cyan sur la face avant, givre."""
+    M = g.M
+    E = M["emit"]
+    g.tube_shell((x, yy, z), "y", ro, ri, w, M["ring"], n=12, style="hard", what="anneau")
+    # bobine à SECTEURS : fentes sombres entre les secteurs chromés (de dessus, l'anneau est une suite de plots
+    # chromés, pas une barre continue)
+    for d in F.ring_dirs(12, math.pi / 12, -0.7):
+        g.box(V((x, yy, z)) + d * (ro + 0.002), (0.022, w * 1.08, 0.016), M["void"], "flat", R=F.Rax(d), what="fente")
+    g.tube_shell((x, yy, z), "y", ri + 0.004, ri - 0.012 * k, w * 1.1, M["steel_dk"], n=24, what="jonc")
+    g.cyl((x, yy, z), "y", ri - 0.01 * k, 0.012, M["void"], n=24, style="flat", what="vide")
+    for d in F.ring_dirs(struts, math.pi / 4, -2):
+        g.box(V((x, yy, z)) + d * (ri * 0.7), (0.022 * k, 0.03, ri * 0.62), M["steel_dk"], "hard", R=F.Rax(d),
+              what="entretoise")
+    if k >= 0.6:
+        for d in F.ring_dirs(5, 0.0, -0.4):
+            g.box(V((x, yy + w / 2 + 0.002, z)) + d * ((ri + ro) / 2), (0.05 * k, 0.004, 0.02), E, "flat",
+                  R=F.Rax(d), what="segment_lum")
+        g.box(V((x - ro * 0.55, yy, z + ro * 0.8)), (0.05, w * 1.05, 0.02), M["trim"], "flat", what="givre")
+
+
 def _gun12(g, x, y0, z, L, nb, rb, rr):
-    """Troisième passe : plus de faisceau rotatif. Deux RAILS noirs à arête chromée et conducteur de cuivre, sur une
-    âme noire ; 4 GRANDS ANNEAUX chromés (0,8 tuile de diamètre à l'ère IV) enfilés autour, « en lévitation » : un
-    jour étroit entre anneau et rails, FERMÉ par des entretoises à pinces (aucune pièce qui flotte). Culasse
-    cryogénique (2 cellules givrées) ; bouche en cadre chromé à fente cyan. De dessus : une tige noire barrée de
-    4 grandes barres chromées ; de face : 4 cercles concentriques autour de 2 rails."""
+    """Quatrième passe : canon à RAILS PARALLÈLES autour du faisceau de la lignée (règle d'or 1). Au centre, la
+    ROSETTE de 6 tubes (corps.rosette), visible sur toute la moitié avant ; de part et d'autre, deux RAILS noirs à arête
+    chromée et conducteur de cuivre, sur toute la longueur ; sur la moitié arrière, 4 ANNEAUX magnétiques chromés à
+    facettes enfilés autour (un VIDE sombre visible entre l'anneau et les rails, tenu par des entretoises fines) ;
+    culasse cryogénique (2 cellules givrées) ; bouche en cadre chromé (anneau-bouche) à fente cyan, rosace éclairée
+    au centre. De dessus (pose E) : rails | tubes | rails barrés de 4 bandes chromées ; de face : un cadre chromé."""
     M = g.M
     E = M["emit"]
     k = F.k_arme(rb, rr)
-    hwr, hhr, sep = 0.05 * k, 0.17 * k, 0.15 * k
+    R0 = rr + rb
+    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.66, 0.84), collier_mat=M["ring"], bouts=False)
+    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
+          what="ame_bout")
+    hwr, hhr = 0.045 * k, 0.13 * k
+    sep = R0 + 0.06 * k
     for s in (-1, 1):
         xr = x + s * sep
         g.box((xr, y0 + L / 2, z), (2 * hwr, L, 2 * hhr), M["jacket"], "hard", what="rail")
-        g.box((xr, y0 + L / 2, z + hhr + 0.004), (2 * hwr * 0.7, L * 0.99, 0.012), M["ring"], "hard", what="arete")
+        # arête chromée du rail en PLAQUES d'électrode séparées (pas une barre continue)
+        # (moitié avant seulement : sur la moitié arrière, les plaques touchaient les anneaux et tout se lisait en une
+        # seule échelle chromée)
+        npl = max(3, int(L * 0.48 / 0.16))
+        for i in range(npl):
+            g.box((xr, y0 + L * (0.52 + 0.48 * (i + 0.5) / npl), z + hhr + 0.004),
+                  (2 * hwr * 0.7, L * 0.48 / npl - 0.04, 0.012), M["ring"], "hard", what="arete")
         g.box((xr - s * (hwr + 0.004), y0 + L / 2, z), (0.008, L * 0.97, hhr * 1.1), M["copper"], "hard",
               what="conducteur")
-        for i in range(int(L * 0.9 / 0.11)):
-            g.dome((xr + s * (hwr + 0.002), y0 + 0.08 + i * 0.11, z + hhr * 0.55), (s, 0, 0), 0.013, M["rivet"])
-    g.box((x, y0 + L * 0.5, z - hhr * 0.25), (2 * (sep - hwr) + 0.02, L * 0.98, hhr * 1.4), M["jacket"], "hard",
-          what="ame")
-    g.box((x, y0 + L * 0.5, z + hhr * 0.35), (2 * (sep - hwr) - 0.01, L * 0.96, 0.01), E, "flat", what="fente_lum")
-    # culasse cryogénique : 2 cellules givrées couchées sur l'arrière des rails
+        if k >= 0.9:
+            for i in range(int(L * 0.9 / 0.11)):
+                g.dome((xr + s * (hwr + 0.002), y0 + 0.08 + i * 0.11, z + hhr * 0.55), (s, 0, 0), 0.013, M["rivet"])
+        # traverses basses qui lient les rails au faisceau (aucun jour enfermé sous les tubes)
+        for f in (0.05, 0.55, 0.9):
+            g.box(((xr + x) / 2, y0 + f * L, z - hhr * 0.6), (sep, 0.05, hhr * 0.5), M["steel_dk"], "hard",
+                  what="traverse")
+    g.box((x, y0 + L * 0.5, z - R0 * 0.75), (2 * sep, L * 0.98, R0 * 0.5), M["jacket"], "hard", what="semelle")
+    # (les cellules cryogéniques de la culasse sont dans l'alimentation, feed() : enfilées dans l'anneau 1, elles
+    # enfermaient un jour de 38 px hr en pose E)
+    # 4 anneaux magnétiques sur la moitié arrière (corps.JAQUETTE_MAX)
+    ro, ri, w = sep + hwr + 0.13 * k, sep + hwr + 0.05 * k, 0.07 * k
+    for f in (0.12, 0.24, 0.36, 0.48):
+        _ring12(g, x, y0 + f * L, z, ro, ri, w, k)
+    # culasse magnétique pleine entre le masque et le premier anneau (aucun jour enfermé au pied de l'anneau 1)
+    g.box((x, y0 + 0.07 * L - 0.03, z + (hhr + ro * 1.02) / 2 - 0.02), (2 * ri, 0.14 * L + 0.08, ro * 1.02 - hhr + 0.04),
+          M["jacket"], "hard", what="culasse")
     for s in (-1, 1):
-        c = V((x + s * (sep + hwr + 0.07 * k), y0 + 0.24 * k, z + 0.02))
-        g.cyl(c, "y", 0.07 * k, 0.36 * k, M["jacket"], n=18, what="cellule")
-        for t in (-0.15, 0.15):
-            g.cyl(c + V((0, t * k, 0)), "y", 0.076 * k, 0.03, M["ring"], n=18, what="chapeau")
-        g.tube_shell(c, "y", 0.078 * k, 0.06 * k, 0.05, M["trim"], n=18, what="givre")
-    # grands anneaux magnétiques, entretoises et pinces, segments cyan sur la face avant
-    ro, ri, w = 0.42 * k, 0.3 * k, 0.15 * k
-    for f in (0.36, 0.53, 0.7, 0.87):
-        yy = y0 + f * L
-        # anneau ÉPAIS (tore chromé de 0,15 de section sur une âme annulaire) : lisible de dessus au zoom 1
-        g.tube_shell((x, yy, z), "y", ro - 0.05 * k, ri, w * 0.8, M["jacket"], n=48, what="anneau_ame")
-        g.torus((x, yy, z), "y", ro - 0.07 * k, 0.07 * k, M["ring"], n=48, m=12, what="anneau")
-        g.tube_shell((x, yy, z), "y", ro - 0.12 * k, ri, w * 0.95, M["steel_dk"], n=36, what="jonc")
-        g.cyl((x, yy, z), "y", ri + 0.01, w * 0.45, M["jacket"], n=36, what="flasque")
-        for d in F.ring_dirs(4, math.pi / 4, -2):
-            R = F.Rax(d)
-            # entretoise : de l'anneau aux rails (ferme le jour de « lévitation »)
-            g.box(V((x, yy, z)) + d * ((ri + 0.17 * k) / 2), (0.04 * k, w * 0.7, ri - 0.15 * k), M["steel_dk"], "hard",
-                  R=R, what="entretoise")
-            g.box(V((x, yy, z)) + d * (ro + 0.01), (0.06 * k, w * 1.3, 0.04), M["steel_dk"], "hard", R=R, what="pince")
-            g.dome(V((x, yy, z)) + d * (ro + 0.032), d, 0.013, M["rivet"])
-        for d in F.ring_dirs(5, 0.0, -0.4):
-            g.box(V((x, yy + w / 2 + 0.002, z)) + d * ((ri + ro) / 2), (0.06 * k, 0.004, 0.022), E, "flat", R=F.Rax(d),
-                  what="segment_lum")
-        g.box(V((x - ro * 0.6, yy - w * 0.4, z + ro * 0.62)), (0.06, 0.03, 0.02), M["trim"], "flat", what="givre")
-    # culasse magnétique dorsale et quille : plaques fines dans l'axe, de l'anneau 1 au dernier (aucun jour enfermé
-    # entre les anneaux, vus de dessus comme de face)
-    ya_, yb_ = y0 + 0.36 * L, y0 + 0.87 * L
-    g.box((x, (ya_ + yb_) / 2, z + (hhr + ro * 0.92) / 2), (0.05 * k, yb_ - ya_, ro * 0.92 - hhr), M["jacket"], "hard",
-          what="culasse_dorsale")
-    g.box((x, (ya_ + yb_) / 2, z + ro * 0.9), (0.08 * k, yb_ - ya_, 0.025), M["ring"], "hard", what="arete")
-    g.box((x, (ya_ + yb_) / 2, z - (hhr + ro * 0.92) / 2), (0.05 * k, yb_ - ya_ + 0.1, ro * 0.92 - hhr), M["jacket"],
-          "hard", what="quille")
-    if k < 0.9:
-        # petit canon à rails (coupole, tourelles secondaires) : caisson d'accélérateur plein entre les anneaux
-        g.box((x, (ya_ + yb_) / 2 + 0.05 * L, z + ro * 0.12), (2 * ro * 0.86, yb_ - ya_ + 0.1 * L, 2 * ro), M["jacket"],
-              "hard", what="caisson")
-        for f in (0.2, 0.5, 0.8):
-            g.box((x, ya_ + (yb_ - ya_) * f, z + ro * 1.12), (ro * 1.2, 0.05, 0.012), M["ring"], "hard", what="plaque")
-    # bouche : cadre chromé à fente cyan
-    ym = y0 + L + 0.04
-    ow = sep + hwr + 0.05
-    g.box((x, ym, z + hhr + 0.035), (2 * ow + 0.05, 0.08, 0.05), M["ring"], "hard", what="cadre")
-    g.box((x, ym, z - hhr - 0.03), (2 * ow + 0.05, 0.08, 0.04), M["ring"], "hard", what="cadre")
+        g.box((x + s * ri * 0.6, y0 + 0.06 * L - 0.03, z + ro * 1.02 + 0.012), (0.04, 0.12 * L, 0.02), M["ring"], "hard",
+              what="arete")
+    # quille pleine sous les anneaux (de l'anneau 1 au dernier) : aucun jour enfermé entre deux anneaux sous le canon
+    ya_, yb_ = y0 + 0.12 * L - w / 2, y0 + 0.48 * L + w / 2
+    g.box((x, (ya_ + yb_) / 2, z - (hhr + ro * 0.96) / 2), (2 * sep, yb_ - ya_, ro * 0.96 - hhr), M["jacket"], "hard",
+          what="quille")
+    g.box((x, (ya_ + yb_) / 2, z - ro * 0.96 + 0.01), (2 * sep + 0.04, yb_ - ya_ + 0.02, 0.025), M["ring"], "hard",
+          what="arete")
+    if k >= 0.9:
+        # boulons chromés de la quille entre les anneaux, givre aux joints (pièces isolées sur le noir)
+        for i in range(3):
+            yy = ya_ + (yb_ - ya_) * (i + 0.5) / 3
+            for s in (-1, 1):
+                g.dome((x + s * (sep + 0.002), yy, z - (hhr + ro * 0.96) / 2), (s, 0, 0), 0.02, M["steel_hi"],
+                       what="boulon")
+            g.box((x - sep - 0.004, yy + 0.05, z - hhr - 0.04), (0.008, 0.05, 0.03), M["trim"], "flat", what="givre")
+    # culasse magnétique dorsale : plaque mince dans l'axe, de la culasse au dernier anneau (aucun jour enfermé entre
+    # la culasse, le masque et les anneaux, vus de dessus)
+    g.box((x, (y0 - 0.04 + yb_) / 2, z + (hhr + ro * 0.99) / 2), (0.05 * k, yb_ - y0 + 0.04, ro * 0.99 - hhr), M["jacket"],
+          "hard", what="culasse_dorsale")
+    g.box((x, (y0 - 0.04 + yb_) / 2, z + ro * 0.99), (0.3 * k, yb_ - y0 + 0.04, 0.025), M["jacket"], "hard",
+          what="arete")
+    for i in range(4):   # plots chromés entre les anneaux (sans les toucher)
+        g.box((x, y0 + L * (0.18 + 0.12 * i), z + ro * 0.99 + 0.016), (0.12 * k, 0.03, 0.01), M["ring"], "hard",
+              what="plot")
+    # anneau-bouche : cadre chromé autour des rails, fente cyan, rosace éclairée au centre
+    ym = y0 + L + 0.035
+    ow = sep + hwr + 0.04
+    g.box((x, ym, z + hhr + 0.03), (2 * ow + 0.05, 0.07, 0.05), M["ring"], "hard", what="cadre")
+    g.box((x, ym, z - hhr - 0.03), (2 * ow + 0.05, 0.07, 0.05), M["ring"], "hard", what="cadre")
     for s in (-1, 1):
-        g.box((x + s * ow, ym, z), (0.05, 0.08, 2 * hhr + 0.09), M["ring"], "hard", what="cadre")
+        g.box((x + s * ow, ym, z), (0.05, 0.07, 2 * hhr + 0.1), M["ring"], "hard", what="cadre")
+        g.box((x + s * (ow - 0.05), ym + 0.036, z), (0.012, 0.004, hhr * 1.5), E, "flat", what="fente_lum")
     g.box((x, ym - 0.02, z), (2 * ow, 0.03, 2 * hhr + 0.06), M["jacket"], "hard", what="fond_cadre")
-    g.box((x, ym + 0.042, z), (2 * (sep - hwr), 0.006, hhr * 1.4), E, "flat", what="bouche_lum")
-    return ym + 0.05
+    corps.bouche(g, x, ym + 0.002, z, pos, rb, M["ring"], R0 + 0.008, w=0.02 if k >= 0.9 else 0.01)
+    return ym + 0.04
 
 
 def feed(g, x, sx, H, xo):
@@ -389,6 +556,10 @@ def feed(g, x, sx, H, xo):
     PT.hull(g, bx0, bx1, yb0, yb1, zb0, zb1, ins=(0.015, 0.015, 0.015), panel=0.24, mats=[M["jacket"], M["steel_dk"]],
             rivet_step=0.11)
     ztop = zb1 + 0.015
+    # voile plein entre la culasse et la caisse (le jour entre le moteur et la caisse s'enfermait en pose N)
+    xa_, xb_ = sorted((x + sx * wr / 2 - sx * 0.01, xo + sx * 0.03))
+    g.box(((xa_ + xb_) / 2, y0 - 0.1 + bl * 0.4, zg + hr * 0.05), (xb_ - xa_, bl * 0.8, hr * 1.1), M["steel_dk"],
+          "hard", what="voile")
     g.hazard(PT.lift([V((bx0, yb0 + bl * 0.1, zb1)), V((bx1, yb0 + bl * 0.1, zb1)), V((bx1, yb0 + bl * 0.2, zb1)),
                       V((bx0, yb0 + bl * 0.2, zb1))], 0.012), 4, t=0.01)
     for k, yy in enumerate((yb0 + bl * 0.32, yb0 + bl * 0.68)):
@@ -406,7 +577,8 @@ def feed(g, x, sx, H, xo):
 
 
 def dome_gun(g, H, nb, L, s=1.0):
-    """Canon de coupole sur berceau blindé (lignée _tete15), arme de l'époque (petit canon à rails à caisson plein)."""
+    """Canon de coupole sur berceau blindé (lignée _tete15), arme de l'époque (petit canon à rails et anneaux, la
+    rosette visible devant)."""
     M = g.M
     zr = H["zs"] + H["rz"] * 0.92
     zc = zr + 0.3 * s
@@ -415,15 +587,8 @@ def dome_gun(g, H, nb, L, s=1.0):
     PT.receiver(g, 0.0, -0.22 * s, 0.66 * s, zc - 0.18 * s, zc + 0.16 * s, 0.36 * s, mats=[M[k] for k in RECV])
     rb, rr = 0.052 * s, 0.125 * s * (1.0 if nb == 6 else 0.85)
     _gun12(g, 0.0, 0.66 * s, zc, L, nb, rb, rr)
-    # petit canon à rails de coupole : caisson d'accélérateur plein entre les anneaux (aucun jour enfermé sous le
-    # canon de flanc, qui le recouvre en pose E)
-    kk = (rb + rr) / 0.205
-    ro = 0.42 * kk
-    ya, yb = 0.66 * s + 0.33 * L, 0.66 * s + 0.98 * L
-    g.box((0.0, (ya + yb) / 2, zc + ro * 0.12), (2 * ro * 0.86, yb - ya, 2 * ro * 1.0), M["jacket"], "hard",
-          what="caisson")
-    for f in (0.2, 0.5, 0.8):
-        g.box((0.0, ya + (yb - ya) * f, zc + ro * 0.87), (ro * 1.2, 0.05, 0.012), M["ring"], "hard", what="plaque")
+    # voile plein sous le canon de coupole, du berceau aux anneaux (aucun jour enfermé avec la coupole)
+    g.box((0.0, 0.66 * s + L * 0.25, zc - 0.14 * s), (0.3 * s, L * 0.5, 0.12 * s), M["jacket"], "hard", what="voile")
     for sx in (-1, 1):
         PT.piston(g, (sx * 0.26 * s, 0.3 * s, zr + 0.02), (sx * 0.32 * s, 0.6 * s, zr + 0.2 * s), 0.026)
     P2.feed_chute(g, [(0.45 * s, -0.38 * s, zr + 0.05), (0.4 * s, -0.06 * s, zc + 0.12 * s),
