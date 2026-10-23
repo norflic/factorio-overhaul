@@ -125,6 +125,17 @@ PIECE = {
 # le retire.
 BOUCHON_AGES = (4, 5, 6, 7)
 BOUCHON_SECTEUR = range(20, 45)
+# LOT A3 (24/10), décision D-10 : secteur MESURÉ par âge sur les masques des 64 directions (masques.py bouchon :
+# directions où le trou enfermé SANS bouchon dépasse 8 px, suite contiguë qui contient d32 ; âge 5 : deux suites,
+# d21-d25 et d27-d43, réunies) et RAMPE : la boîte d'A2 est raccourcie par l'ARRIÈRE (côté face arrière de la
+# nacelle ; elle garde son avant, côté bras) en allant de d32 vers les bords du secteur. Fraction retirée =
+# BOUCHON_RAMPE × |K − 32| / |bord − 32| ; à d32, fraction 0 : boîte d'A2 EXACTE (même code, même rendu qu'A2). Raison :
+# le bouchon entier se voit (bloc sombre de 400 à 1 200 px hr aux bords du secteur, masques) et son apparition d'une
+# direction à la suivante serait un saut franc ; raccourci, il se voit beaucoup moins aux bords
+# (fo-logs/2026-10-24_A3/bouchon). BOUCHON_SECTEUR (d20 à d44, A2) n'est plus lu par bouchon() ; d32 est dans tous
+# les secteurs, d00, d16 et d48 dans aucun.
+BOUCHON_SECTEURS = {4: (20, 44), 5: (21, 43), 6: (21, 43), 7: (19, 46)}
+BOUCHON_RAMPE = 0.8
 
 
 def bouchon(e, d):
@@ -133,7 +144,26 @@ def bouchon(e, d):
         return False
     if mode == "force":
         return True
-    return bool(re.match(r"^d\d\d$", d or "")) and int(d[1:]) in BOUCHON_SECTEUR
+    if not re.match(r"^d\d\d$", d or ""):
+        return False
+    k0, k1 = BOUCHON_SECTEURS[e]
+    return k0 <= int(d[1:]) <= k1
+
+
+def bouchon_fraction(e, d):
+    """Part de la boîte d'A2 retirée par l'arrière pour la pose d (0.0 à d32 : boîte d'A2 exacte). Hors du secteur (pose
+    forcée par FO_BOUCHON=force, mesures seulement) : la fraction du bord le plus proche. Variable FO_BOUCHON_RAMPE :
+    autre valeur de BOUCHON_RAMPE (essais seulement)."""
+    if not re.match(r"^d\d\d$", d or "") or e not in BOUCHON_SECTEURS:
+        return 0.0
+    r = float(os.environ.get("FO_BOUCHON_RAMPE", "") or BOUCHON_RAMPE)
+    k = int(d[1:])
+    k0, k1 = BOUCHON_SECTEURS[e]
+    if k == 32 or r == 0.0:
+        return 0.0
+    if k < 32:
+        return r * min(1.0, (32 - k) / float(32 - k0))
+    return r * min(1.0, (k - 32) / float(k1 - 32))
 
 
 def margin_px(name):
@@ -164,6 +194,7 @@ def build(S, C, variant):
     g = K.Geo(S, C, M, "%s%02d" % (part[0], e if e else v["side"]), rot, seed=seed)
     c = corps.Ctx(g, e, ep, v["side"], hab)
     c.bouchon = part == "tete" and bouchon(e, v["dir"])
+    c.bouchon_frac = bouchon_fraction(e, v["dir"]) if c.bouchon else 0.0
     {"socle": corps.socle, "piece": corps.piece, "tete": corps.tete}[part](g, c)
     count = dict(g.count)
     g.flush()

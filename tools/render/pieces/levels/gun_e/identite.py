@@ -37,7 +37,10 @@ def main():
     ap.add_argument("--new", required=True)
     ap.add_argument("--ref", action="append", required=True)
     ap.add_argument("--paires", default="")
+    ap.add_argument("--couches", default="", help="lot A3 (D-7) : couches comparées seulement, ex. « main,glow » "
+                                                  "(défaut : toutes) ; les couches exclues sont listées, non comparées")
     a = ap.parse_args()
+    seules = [x for x in a.couches.split(",") if x]
     R = refs(a.ref)
     if a.paires:
         paires = [p.split("=") for p in a.paires.split(",") if p]
@@ -59,6 +62,9 @@ def main():
             lignes.append("%s / %s : couches différentes %s / %s" % (nv, rf, sorted(sn["layers"]), sorted(sr["layers"])))
             continue
         for lay in sorted(sn["layers"]):
+            if seules and lay not in seules:
+                lignes.append("%-14s = %-11s %-6s NON COMPAREE (--couches %s)" % (nv, rf, lay, a.couches))
+                continue
             for res in ("hr", "lr"):
                 ln = sn["layers"][lay] if res == "hr" else sn["layers"][lay]["lr"]
                 lr_ = sr["layers"][lay] if res == "hr" else sr["layers"][lay]["lr"]
