@@ -54,22 +54,26 @@ def matieres(metal, M):
     bleu-blanc clair (juges de la passe 4 : « titane brossé bleu-blanc clair ») ; ailerons radiaux 1,4 fois plus
     grands (envergure 0,6 t au lieu de 0,42)."""
     rust = (0.24, 0.085, 0.03)
-    metal("jacket", (0.34, 0.36, 0.39), rough=0.32, met=0.45, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
-          dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
-    metal("ring", (0.62, 0.64, 0.66), rough=0.4, met=0.45, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
-          ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
+    # passe 5, ronde 2 (test des écarts : 10 contre 11 noté 2 et 2, « même plan gris » ; 11 lu « acier nu ») : TITANE
+    # BROSSÉ nettement plus CLAIR et plus BLEU, moins sali, sur tout le bâtiment ; l'alliage des ailerons et manchons
+    # bleu-blanc. L'âge 11 devient le bâtiment CLAIR, FROID et LISSE de l'ère, entre l'électronique crème et anthracite
+    # (10) et le givre noir et cyan (12).
+    metal("jacket", (0.42, 0.47, 0.54), rough=0.32, met=0.35, grain=0.12, gscale=40.0, rust=rust, ra=0.02,
+          dirt=0.55, stain=0.3, sscale=6.0, wear=0.7, streak=0.6)
+    metal("ring", (0.64, 0.69, 0.76), rough=0.38, met=0.35, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05),
+          ra=0.03, dirt=0.55, stain=0.35, sscale=5.0, wear=0.6, streak=0.6)
     # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), bleuté, semi-diffus
-    metal("titane_cl", (0.44, 0.49, 0.56), rough=0.32, met=0.45, grain=0.1, gscale=60.0, dirt=0.5, stain=0.3,
-          sscale=6.0, wear=0.5, streak=0.7)
-    metal("titane_md", (0.25, 0.28, 0.32), rough=0.34, met=0.45, grain=0.1, gscale=60.0, dirt=0.6, stain=0.35,
-          sscale=6.0, wear=0.7, streak=0.6)
-    metal("titane_dk", (0.1, 0.115, 0.135), rough=0.35, met=0.5, grain=0.1, gscale=50.0, dirt=0.6, stain=0.3,
-          wear=0.9, streak=0.4)
-    metal("tole_ti", (0.32, 0.355, 0.4), rough=0.36, met=0.45, grain=0.08, gscale=60.0, dirt=0.6, stain=0.35,
+    metal("titane_cl", (0.55, 0.62, 0.72), rough=0.32, met=0.35, grain=0.1, gscale=60.0, dirt=0.4, stain=0.25,
+          sscale=6.0, wear=0.4, streak=0.7)
+    metal("titane_md", (0.36, 0.41, 0.49), rough=0.34, met=0.35, grain=0.1, gscale=60.0, dirt=0.45, stain=0.3,
+          sscale=6.0, wear=0.6, streak=0.6)
+    metal("titane_dk", (0.13, 0.155, 0.2), rough=0.35, met=0.45, grain=0.1, gscale=50.0, dirt=0.5, stain=0.25,
+          wear=0.8, streak=0.4)
+    metal("tole_ti", (0.44, 0.5, 0.58), rough=0.36, met=0.35, grain=0.08, gscale=60.0, dirt=0.45, stain=0.3,
           sscale=5.0, streak=0.6)
-    metal("tole_ti2", (0.26, 0.29, 0.33), rough=0.36, met=0.45, grain=0.08, gscale=60.0, dirt=0.6, stain=0.35,
+    metal("tole_ti2", (0.37, 0.42, 0.5), rough=0.36, met=0.35, grain=0.08, gscale=60.0, dirt=0.45, stain=0.3,
           sscale=5.0, streak=0.6)
-    metal("rivet_ti", (0.36, 0.4, 0.45), rough=0.35, met=0.45, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("rivet_ti", (0.46, 0.52, 0.6), rough=0.35, met=0.35, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
     metal("bleu_nuit", (0.02, 0.03, 0.075), rough=0.4, met=0.2, grain=0.06, dirt=0.4, stain=0.2)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
@@ -126,11 +130,15 @@ def socle(g, c):
     hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
-    # passe 5, ronde 1 : SILHOUETTE de l'âge, deux grandes DÉRIVES de titane en flèche (à la place des caisses du nord)
-    for x in (-0.42, 0.42):
-        derive(g, x, Y(1.92))
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, deux grandes DÉRIVES de titane en flèche (à la place des caisses du nord).
+    # Ronde 2 : leur plan était nord-sud, on ne les voyait que par la TRANCHE (deux traits blancs) ; elles sont
+    # tournées FACE AU SUD (plan est-ouest), bord de fuite vertical vers l'extérieur : deux grands triangles de titane
+    # en V, vus de face dans les deux poses, au-dessus de la tête à l'écran.
+    for sx in (-1, 1):
+        with at(g, sx * 0.62, 1.92, -sx * math.pi / 2):
+            derive(g, 0.0, 0.0)
     signature(g, (-2.24, -1.98, 0.53), 2)
-    for p in ((1.75, Y(2.18), 0.6), (-0.4, Y(1.95), 0.3), (2.02, Y(-1.02), 0.3),
+    for p in ((1.75, Y(2.18), 0.6), (2.02, Y(-1.02), 0.3),
               (-1.95, Y(-1.5), 0.45), (0.0, Y(-2.0), 0.68), (-0.95, Y(-2.35), 0.24)):
         signature(g, p)
     for x in (-0.68, 0.68):
@@ -573,6 +581,8 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
             for (u, w) in hexs[:3] + hexs[5:]:
                 g.dome((x + u * rr_ * 1.0, y0 + f * Ls + 0.04, z + w * rr_ * 1.0), (u, 0, w), 0.012, M["rivet"])
     # AILERONS RADIAUX EN X (4 diagonales ; pas d'aileron vers le sol), grand empennage puis petit empennage
+    # ronde 2 : un empennage 1,2 fois plus grand a été essayé (envergure 0,72 t) : en pose E, il enfermait du sol
+    # entre les ailerons et le faisceau (trou de 119 px, ÉCHEC de rendre.py) ; retour à 0,6 t
     for (yy, span, chord) in ((y0 + 0.3 * k, 0.6 * k, 0.75 * k), (y0 + Ls + 0.12 * k, 0.28 * k, 0.36 * k)):
         r0 = rad(yy)
         for d in F.ring_dirs(4, math.pi / 4, -0.9):
@@ -612,13 +622,13 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
     for s in (-1, 1):
         c_ = V((x, 0, z))
         P2.wedge(g, c_ + V((s * (R0 + 0.03), yb0 + 0.02, 0)), c_ + V((s * (R0 + 0.01), yb0 + lb, 0)),
-                 c_ + V((s * (R0 + 0.2 * k), yb0 - 0.04 * k, 0)), V((0, 0, 0.028 * k)), M["ring"], what="ailette")
+                 c_ + V((s * (R0 + 0.09 * k), yb0 - 0.06 * k, 0)), V((0, 0, 0.028 * k)), M["ring"], what="ailette")
         for i in range(3):
             g.box(V((x + s * (R0 + 0.045 - i * 0.01), yb0 + lb * (0.25 + 0.22 * i), z + 0.02)),
                   (0.012, 0.06 * k, 0.03 * k), M["void"], "flat", R=Matrix.Rotation(s * 0.5, 3, "Z"), what="event")
     if k >= 0.9:
         P2.wedge(g, V((x, yb0 + 0.02, z + R0)), V((x, yb0 + lb * 0.8, z + R0 * 0.6)),
-                 V((x, yb0 + 0.02, z + R0 + 0.12 * k)), V((0.022, 0, 0)), M["ring"], what="ailette")
+                 V((x, yb0 + 0.02, z + R0 + 0.07 * k)), V((0.022, 0, 0)), M["ring"], what="ailette")
     corps.bouche(g, x, yb0 + lb + 0.002, z, pos, rb2, M["steel_dk"], R0 + 0.008, w=0.018 if k >= 0.9 else 0.01)
     return yb0 + lb
 

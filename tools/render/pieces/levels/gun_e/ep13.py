@@ -47,8 +47,10 @@ RECV = ("olive", "steel_dk")
 
 def matieres(metal, M):
     # corps entier (passe 5, ronde 1) : céramique blanche chaude, gris froid, acier poli, dalles grises
-    metal("ceram_bl", (0.6, 0.58, 0.54), rough=0.32, met=0.0, grain=0.08, gscale=30.0, dirt=0.45, stain=0.25,
-          sscale=5.0, wear=0.3, mottle=0.12)
+    # passe 5, ronde 2 (lu « gris violet », « gris-rose industriel » au test des écarts) : céramique BLANC FROID propre
+    # (sans le jaunissement crème, qui reste à la nacre de la Légende), magenta plus franc
+    metal("ceram_bl", (0.64, 0.645, 0.66), rough=0.3, met=0.0, grain=0.06, gscale=30.0, dirt=0.3, stain=0.18,
+          sscale=5.0, wear=0.25, mottle=0.08)
     metal("ceram_gr", (0.2, 0.2, 0.215), rough=0.34, met=0.1, grain=0.08, gscale=30.0, dirt=0.45, stain=0.2,
           sscale=5.0, wear=0.4)
     metal("ceram_dalle", (0.2, 0.2, 0.205), rough=0.32, met=0.0, grain=0.06, dirt=0.4, stain=0.15, sscale=5.0,
@@ -57,10 +59,11 @@ def matieres(metal, M):
           wear=0.3)
     metal("acier_poli", (0.42, 0.42, 0.44), rough=0.4, met=0.45, grain=0.08, dirt=0.25, stain=0.0, reflet="fin")
     metal("joint_gris", (0.05, 0.05, 0.055), rough=0.6, met=0.1, grain=0.1, dirt=0.3, stain=0.0)
-    metal("magenta_sombre", (0.3, 0.04, 0.2), rough=0.38, met=0.1, grain=0.08, dirt=0.4, stain=0.15, wear=0.4)
+    metal("magenta_sombre", (0.42, 0.035, 0.27), rough=0.38, met=0.1, grain=0.08, dirt=0.4, stain=0.15, wear=0.4)
     """Fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre."""
-    metal("jacket", (0.48, 0.46, 0.41), rough=0.55, met=0.0, grain=0.14, gscale=34.0, rust=(0.22, 0.12, 0.06),
-          ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.6, streak=0.55, mottle=0.25)
+    # ronde 2 : céramique des buses, chambres et injecteurs BLANC FROID, peu salie (elle se lisait gris sale)
+    metal("jacket", (0.56, 0.565, 0.58), rough=0.45, met=0.0, grain=0.1, gscale=34.0, rust=(0.22, 0.12, 0.06),
+          ra=0.04, dirt=0.5, stain=0.35, sscale=5.0, wear=0.4, streak=0.3, mottle=0.12)
     # cuivre des gaines et cerclages : plus rugueux et plus sombre (reflets saturés comptés comme foyers sinon)
     metal("copper13", (0.46, 0.2, 0.085), rough=0.42, met=0.9, grain=0.2, rust=(0.12, 0.2, 0.12), ra=0.12,
           dirt=0.7, stain=0.35, wear=0.8)

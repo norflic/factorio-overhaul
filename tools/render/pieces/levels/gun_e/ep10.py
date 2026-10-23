@@ -42,7 +42,12 @@ HABILLAGE = dict(jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_t
                  acier=("anthracite", "acier_tech"), rivets="rivet_tech", danger=("blanc_casse", "bleu_tech"),
                  peinture="bleu_tech", grille_nacelle="anthracite",
                  plateforme=dict(motif="dalles", pas=0.28, joint=0.014, mat="dalle_tech", mat2="dalle_tech2",
-                                 fond="void", bord="anthracite", boulons=None, lisere="emit_soft"))
+                                 fond="void", bord="anthracite", boulons=None, lisere=None))
+# passe 5, ronde 2 (test des écarts de la ronde 1 : 10 contre 11 noté 2 et 2, et 10 jugé PLUS évolué que 11 « par ses
+# liserés bleus » ; 10 contre 12 noté 2 et 2, « liserés bleus devenus cyan ») : le pont n'a plus de liseré lumineux
+# (la lumière continue est la marque des âges 11 et 12) ; les CARÉNAGES (matière « jacket » : caissons, cassettes,
+# carénage des canons, tourelle secondaire) passent en CRÈME chaud peu métallique, les nappes de câbles en rouge et
+# BLEU VIF plus larges : un bâtiment d'électronique crème et anthracite, chaud et coloré, mat, en deçà du titane.
 RECV = ("matte", "jacket")
 
 
@@ -60,16 +65,20 @@ def matieres(metal, M):
     metal("acier_tech", (0.3, 0.31, 0.33), rough=0.35, met=0.45, grain=0.08, dirt=0.3, stain=0.1, wear=0.5)
     metal("rivet_tech", (0.2, 0.205, 0.215), rough=0.4, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
     metal("bleu_tech", (0.025, 0.075, 0.3), rough=0.4, met=0.1, grain=0.08, dirt=0.4, stain=0.2, wear=0.6)
-    metal("dalle_tech", (0.07, 0.074, 0.082), rough=0.5, met=0.2, grain=0.06, dirt=0.4, stain=0.2, sscale=5.0)
-    metal("dalle_tech2", (0.095, 0.1, 0.11), rough=0.5, met=0.2, grain=0.06, dirt=0.4, stain=0.2, sscale=5.0)
-    metal("jacket", (0.4, 0.4, 0.39), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
-          dirt=0.9, stain=0.7, sscale=6.0, wear=1.2, streak=0.5, mottle=0.3)
+    # ronde 2 : pont en DALLES DE FAUX PLANCHER gris chaud clair (salle informatique), joints noirs : le pont noir
+    # passe à l'âge 12 (noir à joints de givre)
+    metal("dalle_tech", (0.3, 0.29, 0.27), rough=0.55, met=0.1, grain=0.06, dirt=0.45, stain=0.25, sscale=5.0)
+    metal("dalle_tech2", (0.25, 0.24, 0.225), rough=0.55, met=0.1, grain=0.06, dirt=0.45, stain=0.25, sscale=5.0)
+    # passe 5, ronde 2 : carénage CRÈME chaud (plastique et tôle peinte des années 80), peu métallique, peu sali
+    metal("jacket", (0.55, 0.51, 0.42), rough=0.48, met=0.08, grain=0.08, gscale=30.0, rust=rust, ra=0.03,
+          dirt=0.55, stain=0.4, sscale=6.0, wear=0.7, streak=0.3, mottle=0.18)
     M["ring"] = M["matte"]
     M["trim"] = M["jacket"]
     metal("pipe", (0.11, 0.108, 0.104), rough=0.5, met=0.2, grain=0.1, dirt=0.6, stain=0.4, wear=1.0)
     M["pipe2"] = M["steel_hi"]
-    M["cable_a"] = M["redcable"]
-    metal("cable_b", (0.02, 0.06, 0.2), rough=0.5, met=0.0, grain=0.12, dirt=0.4, stain=0.0)
+    metal("cable_b", (0.015, 0.08, 0.5), rough=0.5, met=0.0, grain=0.12, dirt=0.3, stain=0.0)   # bleu vif (ronde 2)
+    metal("cable_r", (0.42, 0.03, 0.02), rough=0.5, met=0.0, grain=0.12, dirt=0.3, stain=0.0)   # rouge vif (ronde 2)
+    M["cable_a"] = M["cable_r"]
     metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
     M["accent"] = M["trim"]
 
@@ -96,8 +105,9 @@ def socle(g, c):
     P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
     # sud : racks à cassettes en biais (à la place des caisses ouvertes), tourelle secondaire carénée, trémie flanquée
     # de caissons carénés
-    with at(g, -1.5, -1.72, 0.42):
-        cassette_rack(g, 0.8, 0.72, 0.42, 4)
+    # passe 5, ronde 2 : le RADÔME de veille passe au coin SUD-OUEST (au nord, la tête le cachait en pose E) ; la
+    # grande baie à cassettes prend sa place au nord
+    radome(g, -1.55, Y(-1.74), r=0.36)
     with at(g, -1.05, -2.35, 0.08):
         cassette_rack(g, 0.62, 0.5, 0.34, 3)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
@@ -124,7 +134,8 @@ def socle(g, c):
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=True)
     signature(g, (1.55, Y(2.18), 0.6))
     # passe 5, ronde 1 : SILHOUETTE de l'âge, un RADÔME sphérique blanc sur pylône (à la place de la caisse du nord)
-    radome(g, 0.32, Y(1.92))
+    with at(g, 0.32, 1.92, 0.0):
+        cassette_rack(g, 0.8, 0.72, 0.42, 4)
     signature(g, (-2.24, -1.98, 0.53), 2)
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
@@ -132,7 +143,7 @@ def socle(g, c):
               (1.75, Y(1.8), 0.5)], 20.0)
 
 
-def radome(g, x, y):
+def radome(g, x, y, r=0.32):
     """Radôme de veille (passe 5, ronde 1 : superstructure de l'âge électronique, qui change le contour) : embase
     carénée, pylône à 4 jambes de force, sphère de carénage blanc cassé à cerclages et méridiens, feu bleu au sommet.
     Sommet à 1,2 (sous h_max 1,29 de la taille 5 : les canons passent au-dessus)."""
@@ -140,13 +151,13 @@ def radome(g, x, y):
     E = M["emit"]
     g.cyl((x, y, 0.07), "z", 0.3, 0.14, M["ochre"], n=28, what="embase")
     g.torus((x, y, 0.14), "z", 0.29, 0.014, M["steel_dk"], n=28, m=6, what="bourrelet")
-    g.cyl((x, y, 0.36), "z", 0.075, 0.44, M["steel_dk"], n=16, what="pylone")
+    g.cyl((x, y, 0.36), "z", 0.075, 0.44 + (0.32 - r), M["steel_dk"], n=16, what="pylone")
     for k in range(4):
         a = math.pi / 4 + k * math.pi / 2
         d = V((math.cos(a), math.sin(a), 0))
         P2.wedge(g, V((x, y, 0.14)) + d * 0.26, V((x, y, 0.14)) + d * 0.07, V((x, y, 0.5)) + d * 0.07,
                  V((-d.y, d.x, 0)) * 0.03, M["steel_dk"], what="jambe")
-    zc, r = 0.86, 0.32
+    zc = 1.2 - r - 0.03
     g.sphere((x, y, zc), r, M["olive"], n=32, m=16, what="radome")
     for zz, rr in ((zc, r), (zc + r * 0.5, r * 0.866), (zc - r * 0.5, r * 0.866)):
         g.torus((x, y, zz), "z", rr + 0.002, 0.008, M["steel_dk"], n=32, m=6, what="cerclage")
@@ -213,9 +224,9 @@ def faired_box(g, x0, x1, y0, y1, h, louvers=3, cables=True):
     # nappes de câbles rouges et bleus dans une goulotte sur le toit, côté est (passe 5 : nappes plus larges, lisibles
     # au zoom 1)
     if cables:
-        g.box((cx + hx * 0.62, cy, h + 0.02), (0.2, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
-        F.ribbon(g, [(cx + hx * 0.56, y0 + 0.1, h + 0.04), (cx + hx * 0.56, y1 - 0.1, h + 0.04)], 0.075, M["cable_a"])
-        F.ribbon(g, [(cx + hx * 0.7, y0 + 0.1, h + 0.041), (cx + hx * 0.7, y1 - 0.1, h + 0.041)], 0.065, M["cable_b"])
+        g.box((cx + hx * 0.6, cy, h + 0.02), (0.26, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
+        F.ribbon(g, [(cx + hx * 0.5, y0 + 0.1, h + 0.04), (cx + hx * 0.5, y1 - 0.1, h + 0.04)], 0.1, M["cable_a"])
+        F.ribbon(g, [(cx + hx * 0.7, y0 + 0.1, h + 0.041), (cx + hx * 0.7, y1 - 0.1, h + 0.041)], 0.09, M["cable_b"])
     # voyants par groupes, petit écran, face sud
     P3.lamp_group(g, (cx - hx * 0.6, y0 - 0.005, h * 0.55), (1, 0, 0), (0, -1, 0), E, M, n=3)
     P3.screen(g, (cx + hx * 0.35, y0 - 0.005, h * 0.5), (0, -1, 0), 0.14, 0.08, M, E)
@@ -501,7 +512,7 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
     E = M["emit"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.6, 0.82), collier_mat=M["matte"], bouts=False)
+    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.6, 0.82), collier_mat=M["matte"], bouts=True)
     g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
           what="ame_bout")
     # carénage partiel (moitié arrière au plus : corps.JAQUETTE_MAX)
@@ -540,18 +551,10 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
         for s in (-1, 1):
             g.box((x + s * hw * 0.55, y0 + Lc + 0.004, z + hh * 0.45), (0.04, 0.008, 0.025), E, "flat",
                   what="voyant")
-    # frein à 3 DÉFLECTEURS plus larges que le carénage, noyau noir mat ; rosace éclairée en face avant
-    yb = y0 + L
-    Lb = 0.3 * k
-    g.cyl((x, yb + Lb / 2, z), "y", R0 + 0.012, Lb, M["matte"], n=24, what="frein_noyau")
-    for i, f in enumerate((0.18, 0.5, 0.82)):
-        g.box((x, yb + f * Lb, z), (2 * hw + 0.16 * k - 0.05 * i * k, 0.045 * k, 2 * hh * 0.85), M["jacket"], "hard",
-              what="deflecteur")
-        g.box((x, yb + f * Lb, z + hh * 0.85 + 0.003), ((2 * hw + 0.16 * k) * 0.5, 0.02 * k, 0.006), M["void"], "flat",
-              what="ouie")
-    g.box((x, yb + Lb * 0.5, z + hh * 0.86), (hw * 0.5, Lb * 0.9, 0.024), M["matte"], "hard", what="longeron")
-    corps.bouche(g, x, yb + Lb + 0.002, z, pos, rb, M["matte"], R0 + 0.008, w=0.022 if k >= 0.9 else 0.012)
-    return yb + Lb
+    # passe 5, ronde 2 (pose N de la ronde 1 : 10 lu « cheminée ») : le frein à 3 DÉFLECTEURS plus larges que le
+    # faisceau est retiré ; COURONNE DE BOUCHE du kit au ras du faisceau, tubes qui dépassent, pointes éclairées
+    corps.couronne_bouche(g, x, y0 + L, z, L, rr, rb, M["matte"])
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):

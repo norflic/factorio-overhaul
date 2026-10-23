@@ -34,7 +34,9 @@ V = Vector
 
 EPOQUE = 15
 NOM = "Légende"
-FOYER = dict(rgb=(1.0, 0.949, 0.753), rgb2=(1.0, 0.949, 0.753))
+# passe 5, ronde 2 (14 contre 15 noté 3 et 3) : liserés et lueurs douces blanc doré plus forts (force 1,0 au lieu de
+# 0,7) : la Légende est la plus lumineuse de la suite
+FOYER = dict(rgb=(1.0, 0.949, 0.753), rgb2=(1.0, 0.949, 0.753), doux=dict(force=1.0))
 CANON = dict(L=3.1, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=0.32)
 # passe 5, ronde 1 (consigne du DC du 23/10 : la Légende est sans hésitation la plus précieuse et la plus lumineuse,

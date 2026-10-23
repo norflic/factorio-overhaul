@@ -32,7 +32,9 @@ V = Vector
 
 EPOQUE = 12
 NOM = "Supraconducteurs"
-FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0))
+# passe 5, ronde 2 : liserés et lueurs douces plus forts (force 1,0 au lieu de 0,7) : la lumière CONTINUE cyan glacé
+# est la marque de l'âge, et ce qui le place au-dessus du titane (11) au premier coup d'œil
+FOYER = dict(rgb=(0.29, 0.94, 1.0), rgb2=(0.29, 0.94, 1.0), doux=dict(force=1.0))
 CANON = dict(L=2.2, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.15)
 # passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge des supraconducteurs est un bâtiment
@@ -41,8 +43,12 @@ PLATEFORME = dict(chanfrein=0.15)
 HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", tourelleau="chrome_mat",
                  munitions=("ring", "ring"), capots=("frost", "chrome_mat"), acier=("jacket", "ring"),
                  rivets="chrome_mat", danger=("trim", "jacket"), peinture="frost", grille_nacelle="ring",
-                 plateforme=dict(motif="caillebotis", mat="grille_chrome", fond="void", bord="jacket",
-                                 boulons="chrome_mat", lisere="emit_soft"))
+                 plateforme=dict(motif="dalles", pas=0.28, joint=0.022, mat="noir_miroir", mat2="noir_miroir2",
+                                 fond="trim", bord="jacket", boulons="chrome_mat", lisere="emit_soft"))
+# passe 5, ronde 2 (test des écarts : 11 contre 12 noté 2 et 3, 10 contre 12 noté 2 et 2, « même forteresse grise ») :
+# le pont devient des DALLES NOIR MIROIR à JOINTS DE GIVRE blanc (fond « trim ») et liseré cyan : un sol sombre où les
+# machines givrées et la lumière cyan ressortent, à l'opposé du titane clair uniforme de l'âge 11 et du faux plancher
+# gris chaud de l'âge 10.
 RECV = ("jacket", "steel_dk")
 
 
@@ -60,8 +66,10 @@ def matieres(metal, M):
           wear=0.3)
     metal("chrome_mat", (0.48, 0.51, 0.54), rough=0.4, met=0.45, grain=0.1, gscale=50.0, dirt=0.6, stain=0.25,
           wear=0.6)
-    metal("frost", (0.55, 0.69, 0.82), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.45, stain=0.4,
+    metal("frost", (0.6, 0.74, 0.86), rough=0.75, met=0.05, grain=0.3, gscale=60.0, dirt=0.45, stain=0.4,
           sscale=5.0, wear=0.8, mottle=0.3)                                                     # capots givrés
+    metal("noir_miroir", (0.025, 0.03, 0.04), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
+    metal("noir_miroir2", (0.04, 0.047, 0.06), rough=0.2, met=0.5, grain=0.04, gscale=50.0, dirt=0.3, stain=0.1)
     metal("grille_chrome", (0.3, 0.33, 0.37), rough=0.3, met=0.45, grain=0.06, gscale=50.0, dirt=0.4, stain=0.1)
     metal("trim", (0.8, 0.88, 0.95), rough=0.9, met=0.0, grain=0.3, gscale=80.0, dirt=0.2, stain=0.2)  # givre
     metal("pipe", (0.6, 0.68, 0.74), rough=0.9, met=0.0, grain=0.35, gscale=50.0, rust=(0.3, 0.33, 0.35),
