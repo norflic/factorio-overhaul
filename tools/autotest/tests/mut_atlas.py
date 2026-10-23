@@ -26,6 +26,15 @@ HAUTE = "2026-10-22_D4m_2-haute-mesure"
 HAUTE_P1 = "2026-10-21_P1_vitrine-exemple-final"
 NORMALE = "2026-10-22_D4m_4-normale-mesure"
 PLANCHER = "2026-10-22_D4m_5-plancher-mesure"
+# Lot A2 (correction, 24/10) : journaux AVEC les icônes d'âge de la mitrailleuse et le marqueur « [FO-GUN-ICONES] »
+# (trois niveaux sous fo-logs : hors de l'étape 5 de run_d4m, lus ici seulement) ; l'atlas [icon] y perd
+# « linear-mip-level » en qualité normale (rangement de l'atlas, F125).
+A2_HAUTE = os.path.join("2026-10-24_A2", "correction", "d4m", "1-haute-galerie")
+A2_NORMALE = os.path.join("2026-10-24_A2", "correction", "d4m", "3-normale-galerie")
+A2_PLANCHER = os.path.join("2026-10-24_A2", "correction", "d4m", "5-plancher-galerie")
+MARQUEUR = "[FO-GUN-ICONES]"
+ICONE_LML = "[icon, not-compressed, mipmap, linear-minification, linear-magnification, linear-mip-level]"
+ICONE_SANS_LML = "[icon, not-compressed, mipmap, linear-minification, linear-magnification]"
 # Impressions de script (format du journal : horodatage, « Script @… : », message) qui CONTIENNENT les mots d'une ligne
 # du moteur : elles ne doivent compter ni comme atlas, ni comme atlas virtuel.
 SCRIPT_VIRTUEL = "   1.900 Script @__factorio-overhaul__/x.lua:1: note : Created virtual atlas pages 4096x4096x9"
@@ -137,6 +146,19 @@ CAS = [
     ("normale-memoire-medium", NORMALE, remplace("[Video memory usage: all]", "[Video memory usage: medium]"), False),
     ("haute-dxt-none", HAUTE, remplace("[DXT: high-quality]", "[DXT: none]"), False),
     ("sans-ligne-graphics-options", HAUTE, sans_ligne("Graphics options:"), False),
+    # lot A2 : icônes d'âge de la mitrailleuse ; « linear-mip-level » de l'atlas [icon] toléré absent en normale SEULEMENT
+    ("temoin-a2-haute", A2_HAUTE, None, True),
+    ("temoin-a2-normale-icone-sans-lml", A2_NORMALE, None, True),
+    ("temoin-a2-plancher-icone-sans-lml", A2_PLANCHER, None, True),
+    # sans le marqueur du mod, l'absence du drapeau n'est plus tolérée (correction A2 : la garde la voit de nouveau)
+    ("normale-icone-sans-lml-sans-marqueur", NORMALE, remplace(ICONE_LML, ICONE_SANS_LML), False),
+    ("a2-normale-sans-marqueur", A2_NORMALE, sans_ligne(MARQUEUR), False),
+    ("a2-plancher-sans-marqueur", A2_PLANCHER, sans_ligne(MARQUEUR), False),
+    ("haute-icone-sans-lml", HAUTE, remplace(ICONE_LML, ICONE_SANS_LML), False),
+    ("a2-haute-icone-sans-lml", A2_HAUTE, remplace(ICONE_LML, ICONE_SANS_LML), False),
+    ("a2-normale-icone-sans-mipmap", A2_NORMALE, remplace(ICONE_SANS_LML, "[icon, not-compressed, linear-minification, "
+                                                                          "linear-magnification]"), False),
+    ("a2-normale-sans-icone", A2_NORMALE, sans_ligne(ICONE_SANS_LML), False),
 ]
 
 

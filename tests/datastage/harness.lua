@@ -388,6 +388,93 @@ end
 table.sort(own_paths)
 
 ---------------------------------------------------------------------------------------------------
+-- Images (lot A2) : tout fichier cité existe et chaque rectangle tient dans son image (tests/datastage/images.lua).
+-- Étalonnage sur TOUTE la vanilla d'abord (une violation vanilla = la règle lit mal le format : le banc échoue),
+-- puis les prototypes ajoutés ou modifiés par le mod, comptés par famille à niveaux ; auto-contrôle par mutants.
+---------------------------------------------------------------------------------------------------
+local Images = dofile(HERE .. "/images.lua")
+local img = Images.new(roots)
+local img_vanilla, img_vc = img.check(vanilla, nil)
+local img_errors, img_mc = img.check(modded, changed)
+local img_fam = {}
+for key in pairs(changed) do
+  local ty, name = key:match("^(.-)/(.*)$")
+  local fam = name:match("^fo%-lvl%-(%a+)%-")
+  if fam then
+    local _, c = img.check({ [ty] = { [name] = modded[ty][name] } }, nil)
+    local f = img_fam[fam] or { protos = 0, defs = 0 }
+    f.protos, f.defs = f.protos + 1, f.defs + c.defs
+    img_fam[fam] = f
+  end
+end
+-- Auto-contrôle : prototypes FABRIQUÉS (fichier vanilla réel, puis mutants), et mutants d'un VRAI niveau du mod.
+local img_self_fail, img_self_total = {}, 0
+do
+  local BASE = "__base__/graphics/entity/gun-turret/hr-gun-turret-base.png"          -- 150 × 118
+  local RAISE = "__base__/graphics/entity/gun-turret/hr-gun-turret-raising.png"      -- 650 × 504
+  local SHOOT = "__base__/graphics/entity/gun-turret/hr-gun-turret-shooting-1.png"   -- 264 × 2080
+  local cases = {
+    { "sprite juste", { filename = BASE, width = 150, height = 118 }, {} },
+    { "fichier absent", { filename = "__base__/graphics/entity/gun-turret/absent.png", width = 10, height = 10 }, { manquant = 1 } },
+    { "fichier du mod absent", { filename = "__" .. MOD_NAME .. "__/graphics/levels/gun/absent.png", width = 10, height = 10 }, { manquant = 1 } },
+    { "rectangle décalé hors image (x = 10)", { filename = BASE, x = 10, width = 150, height = 118 }, { ["hors image"] = 1 } },
+    { "rectangle trop haut (119)", { filename = BASE, width = 150, height = 119 }, { ["hors image"] = 1 } },
+    { "levée vanilla 4 directions × 5 images", { filename = RAISE, width = 130, height = 126, direction_count = 4, frame_count = 5 }, {} },
+    { "levée : 5 directions (une ligne de trop)", { filename = RAISE, width = 130, height = 126, direction_count = 5, frame_count = 5 }, { ["hors image"] = 1 } },
+    { "colonne de 4 directions sur une image d'une ligne", { filename = BASE, width = 150, height = 118, direction_count = 4, line_length = 1 }, { ["hors image"] = 1 } },
+    { "bandes vanilla (2 × 16)", { width = 132, height = 130, direction_count = 64, frame_count = 2,
+      stripes = { { filename = SHOOT, width_in_frames = 2, height_in_frames = 16 } } }, {} },
+    { "bande trop longue (17 lignes)", { width = 132, height = 130, direction_count = 64, frame_count = 2,
+      stripes = { { filename = SHOOT, width_in_frames = 2, height_in_frames = 17 } } }, { ["hors image"] = 1 } },
+    { "icône 64 px, 4 mipmaps, sur une image de 150 × 118", { icon = BASE, icon_size = 64, icon_mipmaps = 4 }, {} },
+    { "icône 100 px, 4 mipmaps (188 px de large), sur une image de 150 × 118", { icon = BASE, icon_size = 100, icon_mipmaps = 4 },
+      { ["hors image"] = 1 } },
+    { "Sprite avec frame_count ignoré (coffre lié vanilla : 7 images déclarées, une seule dans le fichier)",
+      { filename = BASE, width = 150, height = 118, frame_count = 7 }, {} },
+  }
+  -- mutants d'un vrai niveau de la mitrailleuse (tête du niveau le plus haut), s'il existe
+  local real
+  for n = 30, 2, -1 do
+    local p = modded["ammo-turret"] and modded["ammo-turret"]["fo-lvl-gun-" .. n]
+    if p and p.prepared_animation and p.prepared_animation.layers then real = p break end
+  end
+  if real then
+    local l = deepcopy(real.prepared_animation.layers[1])
+    cases[#cases + 1] = { "niveau réel " .. real.name .. " : tête telle quelle", { prepared_animation = { layers = { deepcopy(l) } } }, {} }
+    local m1 = deepcopy(l)
+    local tm = m1.filename and m1 or m1.stripes[1]
+    tm.filename = tm.filename:gsub("%.png$", "-absent.png")
+    cases[#cases + 1] = { "niveau réel : fichier de tête renommé (mutant)", { prepared_animation = { layers = { m1 } } }, { manquant = 1 } }
+    local m2 = deepcopy(l)
+    if m2.stripes then
+      m2.stripes[1].height_in_frames = m2.stripes[1].height_in_frames + 1
+    else
+      m2.direction_count = (m2.direction_count or 1) + 1
+    end
+    cases[#cases + 1] = { "niveau réel : une direction de plus que la feuille (mutant)", { prepared_animation = { layers = { m2 } } }, { ["hors image"] = 1 } }
+    local m3 = deepcopy(l)
+    m3.hr_version.height = m3.hr_version.height + 2
+    cases[#cases + 1] = { "niveau réel : cadre hr plus haut de 2 px (mutant)", { prepared_animation = { layers = { m3 } } }, { ["hors image"] = 1 } }
+  end
+  for i, c in ipairs(cases) do
+    local raw = { ["fo-cas"] = { ["cas-" .. i] = c[2] } }
+    local got = {}
+    for _, e in ipairs(img.check(raw, nil)) do got[e.what] = (got[e.what] or 0) + 1 end
+    -- nombre exact attendu ; pour un mutant d'un vrai niveau (feuille à bandes : une violation par bande), « au moins 1 »
+    local function same(k)
+      local want, have = c[3][k] or 0, got[k] or 0
+      if c[1]:find("niveau réel", 1, true) and want > 0 then return have >= 1 end
+      return have == want
+    end
+    local ok = same("manquant") and same("hors image")
+    if not ok then
+      img_self_fail[#img_self_fail + 1] = c[1] .. " (manquant=" .. (got.manquant or 0) .. ", hors image=" .. (got["hors image"] or 0) .. ")"
+    end
+  end
+  img_self_total = #cases
+end
+
+---------------------------------------------------------------------------------------------------
 -- Localisation : chaque nom affiché doit exister dans les fichiers de langue (vanilla ou mod).
 ---------------------------------------------------------------------------------------------------
 local function parse_cfg(path, keys)
@@ -530,6 +617,35 @@ print(string.format("  Auto-contrôle de la règle des points de jeu : %d/%d cas
 for _, f in ipairs(selftest_fail) do print("  AUTO-CONTROLE FAUX " .. f) end
 for _, p in ipairs(unknown_paths) do print("  CHEMIN A VERIFIER " .. p) end
 for _, p in ipairs(own_paths) do print("  FICHIER MANQUANT " .. p) end
+do
+  local fl = {}
+  local fams = {}
+  for k in pairs(img_fam) do fams[#fams + 1] = k end
+  table.sort(fams)
+  for _, k in ipairs(fams) do fl[#fl + 1] = k .. " " .. img_fam[k].protos .. "/" .. img_fam[k].defs end
+  local nfiles = 0
+  for _ in pairs(img.files_seen) do nfiles = nfiles + 1 end
+  print(string.format("Images : %d violation(s) (fichier manquant ou rectangle hors image) ; étalonnage vanilla : %d "
+    .. "violation(s) sur %d prototypes, %d définitions, %d icônes ; mod : %d prototypes, %d définitions, %d icônes "
+    .. "(familles, prototypes/définitions : %s) ; %d fichiers lus ; auto-contrôle %d/%d",
+    #img_errors, #img_vanilla, img_vc.protos, img_vc.defs, img_vc.icons, img_mc.protos, img_mc.defs, img_mc.icons,
+    table.concat(fl, ", "), nfiles, img_self_total - #img_self_fail, img_self_total))
+  for i = 1, math.min(#img_vanilla, 30) do
+    local e = img_vanilla[i]
+    print("  IMAGE (ETALONNAGE VANILLA) " .. e.what .. " " .. e.where .. " : " .. e.msg)
+  end
+  for i = 1, math.min(#img_errors, 60) do
+    local e = img_errors[i]
+    print("  IMAGE " .. e.what .. " " .. e.where .. " : " .. e.msg)
+  end
+  for _, f in ipairs(img_self_fail) do print("  IMAGE AUTO-CONTROLE FAUX " .. f) end
+end
+-- Feuilles de la mitrailleuse hors de git (D-6, correction A2) : manifeste contrôlé (présence, taille, dimensions) ;
+-- un checkout ou un worktree neuf reçoit ici la commande qui régénère les PNG.
+local GunSheets = dofile(HERE .. "/gun_sheets.lua")
+local gun_sheets = GunSheets.check(MOD_ROOT)
+for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
 print(string.format("Localisation : %d clé(s) manquante(s)", #missing_locale))
 for i = 1, math.min(#missing_locale, 60) do print("  LOCALE " .. missing_locale[i]) end
-os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0) and 0 or 1)
+os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
+  and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)) and 0 or 1)

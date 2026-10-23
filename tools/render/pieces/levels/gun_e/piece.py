@@ -116,6 +116,26 @@ PIECE = {
 }
 
 
+# BOUCHON ARRIÈRE (lot A2, 24/10 ; corps.bouchon_arriere) : âges où la rose d'A1 montre une fente enfermée vue de dos
+# (SE d24, S d32, SO d40 ; E d16 et O d48 passaient). Posé seulement dans le SECTEUR arrière d20 à d44 : hors de lui,
+# il se voit (en O : bloc sombre au coin arrière, rendu rapide du lot A2) sans rien boucher. Jamais dans les poses
+# VALIDÉES N et E (d00, d16), hors du secteur : elles restent identiques octet à octet. Les bornes d20 et d44 sont
+# CHOISIES (milieux entre poses rendues), non vérifiées pose par pose : à revoir avec les 64 directions (lot A3).
+# Variable FO_BOUCHON : « force » le pose dans toute direction (mesure de sa visibilité, jamais en production), « non »
+# le retire.
+BOUCHON_AGES = (4, 5, 6, 7)
+BOUCHON_SECTEUR = range(20, 45)
+
+
+def bouchon(e, d):
+    mode = os.environ.get("FO_BOUCHON", "").strip()
+    if e not in BOUCHON_AGES or mode == "non":
+        return False
+    if mode == "force":
+        return True
+    return bool(re.match(r"^d\d\d$", d or "")) and int(d[1:]) in BOUCHON_SECTEUR
+
+
 def margin_px(name):
     v = PIECE["variants"][name]
     if v["part"] != "tete":
@@ -143,6 +163,7 @@ def build(S, C, variant):
     rot = DIRS[v["dir"]] if part == "tete" else 0.0
     g = K.Geo(S, C, M, "%s%02d" % (part[0], e if e else v["side"]), rot, seed=seed)
     c = corps.Ctx(g, e, ep, v["side"], hab)
+    c.bouchon = part == "tete" and bouchon(e, v["dir"])
     {"socle": corps.socle, "piece": corps.piece, "tete": corps.tete}[part](g, c)
     count = dict(g.count)
     g.flush()

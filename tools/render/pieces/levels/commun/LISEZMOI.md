@@ -54,7 +54,16 @@ Restent dans `gun_e`, car propres à la mitrailleuse :
 - `epNN.py` ;
 - `epoques.py` (contrat, emprise `COTE`, clés propres de `HABILLAGE_DEFAUT`) ;
 - `piece.py`, `rendre.py`, `batch_blender.py`, `habillages.py`, `corps_choix.py` ;
-- `profil.py`.
+- `profil.py` ;
+- (lot A2) `feuilles.py` (feuilles de jeu, icônes, `graphics/levels/gun/sprites.lua`, manifeste), `check_gun_sheets.py`
+  (contrôle des feuilles, `--sources`, `--mutants`), `bouchon_visibilite.py` (mesure du bouchon arrière en N et E).
+  Bouche et éclat de tir (correction A2, E68) : `feuilles.py` mesure la bouche comme MILIEU des bouts des canons
+  extrêmes, applique la règle du moteur mesurée par `gun-rose` (`K_PROJ`, hauteur de l'explosion, marge vanilla),
+  ajuste centre et distance sur les 4 directions et REFUSE un âge dont l'éclat tombe à plus de 0,5 tuile de sa cible
+  (`--seuil` pour essayer le refus). Un worktree neuf n'a pas les PNG (hors de git) : `feuilles.py` d'abord ; le
+  harness et `levels_test` contrôlent le manifeste (`tests/datastage/gun_sheets.lua`) et impriment la commande.
+  Gabarit pour les autres familles : sources de production → feuilles en colonne de directions (cadre commun aux
+  bords pairs) → `sprites.lua` généré → `prototypes/levels/<famille>.lua` qui le lit ; PNG hors de git (D-6).
 
 ## Faire une nouvelle famille (exemple : `four_e`)
 

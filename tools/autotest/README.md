@@ -395,6 +395,30 @@ Scénarios greffés des lots de niveaux :
   Attendu sur `main` (22/10, 22:51:53,59) : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) ». À 700 ticks, le banc
   s'arrête avant le contrôle, sans BILAN (passage du 22/10 à 22:51:02,43). Pas de contrôle de journal.
 
+Scénario greffé du lot A2 (mitrailleuse V3-E en jeu, 24/10) :
+- `gun-rose` (1 000 ticks ; contrôle au tick 900) : en (3000, −2400), une rangée par niveau (âge e : niveau impair,
+  puis niveau pair 10 tuiles plus bas ; âge 1 : niveaux 1 et 2), chacune avec la mitrailleuse VANILLA puis le niveau
+  orienté N, E, S, O par `orientation` écrite au tick 30 (E70, F122) ; en (3200, −2400), 60 sites de TIR en grille de 8
+  colonnes à 80 tuiles (un niveau par âge, niveaux impairs 1 à 29, face à un ver géant ennemi au N, à l'E, au S et à
+  l'O, aligné sur le centre RÉEL de la tourelle, cessez-le-feu de l'ennemi, ver recréé s'il meurt).
+  Contrôles : prototypes, 150 + 60 tourelles posées, orientation écrite, tenue 30 ticks après et au tick 900,
+  `drawing_box` plus haute que la sélection (niveaux 3 à 30 ; niveau 2 vanilla sans), reste agrandi (copie déclarée
+  « -restes ») dès 3×3, chaque tourelle de tir a consommé des chargeurs et vise sa cible, et (correction A2, E68)
+  l'ÉCLAT (entité `explosion-gunshot`, relevée par `find_entities_filtered`) naît en projectile_center + distance ×
+  (vx, vy) / |(vx, vy / 0,7071)| (v = cible − projectile_center, valeurs du prototype) à 1/32 de tuile près, 60/60.
+  Sans double source : `& "<racine>\fo-autotest.bat" nopause 1000 gun-rose "<source>"`. Attendu (correction A2) :
+  « [FO-GUN-ROSE] BILAN : 11 OK, 0 ECHEC(S) » (10 avant la correction). Images :
+  `& "<racine>\fo-captures.bat" gun-rose "<source>"` : 92 captures (par âge, zoom 1, jour et nuit ; âges 3, 9, 15 au
+  zoom 2 ; niveaux PAIRS 10, 18, 30 au zoom 2, jour et nuit ; tir des niveaux 1, 3, 23, 25 et 29 en 4 directions,
+  zoom 2, deux instants). Les feuilles d'images de la mitrailleuse (`graphics/levels/gun/*.png`) sont HORS de git
+  (D-6) : un worktree neuf doit d'abord les régénérer (`py -3.9 tools/render/pieces/levels/gun_e/feuilles.py`) ; le
+  harness et `levels_test` le disent (« Feuilles mitrailleuse : … manquant(s) » suivi de la commande) et échouent.
+- `a2-icones` (correction A2 ; 120 ticks ; pour les images) : tourelles chargées, coffres garnis, assembleurs, en mode
+  Alt, captures aux zooms 0,3 ; 0,45 ; 0,7 ; 1,3 (entre deux niveaux de mipmap) : effet visible de `linear-mip-level`
+  sur l'atlas [icon] (F125), à comparer entre deux copies du mod. `$env:FO_VISUAL_ARGS = '--quality normal'`, puis
+  `& "<racine>\fo-captures.bat" a2-icones "<source>"`, puis `$env:FO_VISUAL_ARGS = $null`. Attendu :
+  « [FO-A2-ICONES] BILAN : 2 OK, 0 ECHEC(S) », 4 captures.
+
 Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époques 5, 7 et 8, `script/world/guarantee.lua`) :
 - `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine
   20261020 par défaut ; depuis le lot INT-GRAINE, `FO_MAP_SEED` change celle de nauvis, §1.2) : chaque graine est jouée sur une surface créée par le scénario (`game.create_surface`, réglages de nauvis,
@@ -659,7 +683,18 @@ doivent être refusés, par exemple :
 - un plancher dont l'atlas « [none] » a la taille de la qualité normale, et l'inverse ;
 - une qualité déclarée qui ne correspond pas au contenu ;
 - un plancher sans atlas virtuel, ou dont l'atlas virtuel n'apparaît que dans une impression de script ;
-- des réglages non étalonnés.
+- des réglages non étalonnés ;
+- (lot A2) un atlas d'icônes sans `linear-mip-level` en HAUTE qualité, ou sans `mipmap`, ou absent.
+
+Lot A2 (24/10, correction) : avec les icônes d'âge de la mitrailleuse, l'atlas [icon] peut perdre `linear-mip-level`
+en qualité NORMALE (mémoire « all » et plancher), pas en haute. Cause mesurée (F125,
+`fo-logs\2026-10-24_A2\correction\d4m-icones`) : le RANGEMENT de l'atlas, ni le contenu ni la taille (14 icônes
+d'âge : absent ; 13 ou 15 : présent ; 14 icônes au contenu vanilla : absent ; atlas 8192 × 2288 dans les 4 cas) ;
+effet visible en mode Alt aux zooms 0,45, 0,7 et 1,3 : aucun pixel différent (scénario `a2-icones`). `run_d4m.py` ne
+le tolère qu'en qualité normale ET si le journal porte le marqueur du mod « [FO-GUN-ICONES] » (écrit par
+`prototypes/levels/gun.lua`), et l'imprime (« TOLERE ») ; `mut_atlas.py` lit les journaux de la correction
+(`fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, trois niveaux sous `fo-logs`, hors de l'étape 5) et refuse le même
+journal SANS marqueur : attendu `50 OK, 0 ECHEC(S)` (48 au lot A2 avant correction, 40 avant A2).
 
 Le script vérifie aussi son garde-fou sur un faux `fo-logs` temporaire, puis contrôle qu'aucune de ses copies n'est
 lue par l'étape 5. Attendu : `40 OK, 0 ECHEC(S)`. L'étape 5 ne lit que `<logs>/*/visual.log`, un seul niveau sous

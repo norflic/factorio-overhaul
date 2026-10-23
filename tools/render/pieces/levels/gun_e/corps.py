@@ -1233,6 +1233,35 @@ def tete(g, c):
         x = bras(g, c, sx)
         c.ep.arme(g, c, x, sx)
     c.ep.tete(g, c)
+    if getattr(c, "bouchon", False):
+        bouchon_arriere(g, c)
+
+
+def bouchon_arriere(g, c):
+    """BOUCHON ARRIÈRE (lot A2, 24/10) : vue de dos (poses S, SE, SO), une fente entre la coupole, la nacelle, le bras de
+    tourillon et l'arceau laissait voir le sol aux âges 4 à 7 (rose d'A1 : trous enfermés de 42 à 249 px hr). Deux
+    caissons sombres (matière « seam », sans rivet ni hasard) ferment le coin arrière de chaque côté, entre la nacelle et
+    le bras, sous le haut de la nacelle. Posé EN DERNIER (aucun tirage ni aucune pièce d'avant ne change) et SEULEMENT
+    quand piece.bouchon() le demande (secteur arrière d20 à d44) : jamais dans les poses validées N et E (d00, d16), qui
+    restent identiques octet à octet (preuve : identite.py et construction.py --forte, lot A2).
+    LIMITE MESURÉE (lot A2, bouchon_visibilite.py, rendus rapides à 16 échantillons) : ce bouchon N'EST PAS caché en N
+    et en E. Posé de force (FO_BOUCHON=force), il change de 1 073 à 3 583 px de la couche principale hr (coin arrière,
+    vu de dos par la caméra). Une forme plus mince (tôle au dos du bras, jusqu'à 0,10 au-dessus de la nacelle) changeait
+    encore 720 à 1 954 px et laissait des trous de 38 à 39 px à l'âge 7 : refusée. Aucune pièce qui ferme la fente vue
+    de dos ne peut être cachée vue de face (même région de l'espace, vue des deux côtés). Pour les 64 directions (A3) :
+    choisir le secteur où le poser, et juger le saut à sa frontière."""
+    M = g.M
+    H = c.H
+    zs = H["zs"]
+    bx, yb0, yb1, ztop, yc = c.nac
+    y_bras = H["recv"][0] - 0.34          # arrière du caisson de bras (bras(), deuxième hull)
+    x_in = bx * 0.8                        # rentré sous le flanc de la nacelle
+    x_out = H["gx"] - H["wr"] * 0.5        # face intérieure de la culasse
+    z0, z1 = zs - 0.2, ztop - 0.02
+    y0, y1 = yb0 + 0.02, y_bras + 0.04
+    for sx in (-1, 1):
+        g.box((sx * (x_in + x_out) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (x_out - x_in, y1 - y0, z1 - z0), M["seam"],
+              "flat", what="bouchon_arriere")
 
 
 # ------------------------------------------------------------------------------------------------
