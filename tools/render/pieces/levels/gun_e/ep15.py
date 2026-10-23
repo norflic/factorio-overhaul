@@ -59,7 +59,14 @@ HABILLAGE = dict(jupe_cerclage="trim", chapeau="or_rivet", tremie="trim", tourel
                  # filets de lumière blanc doré, fleurons sur le dernier gradin), exemple même du Directeur Créatif
                  # (filets à pleine lumière « emit » : à « emit_soft », rendu r4a, les gradins ne se lisaient pas)
                  forme_plateforme=dict(forme="gradins", flanc="trim", flanc2="orblanc", lisere="emit",
-                                       crenaux=True))
+                                       crenaux=True),
+                 # passe 5, ronde 5 (test des écarts de la ronde 4 : 14-15 et 13-15 notés 3 et 3, « même plan », « même
+                 # trame ») : la coupole devient un BULBE de nacre à côtes d'or, COURONNÉ (la grande couronne royale
+                 # quitte sa colonne arrière et se pose sur la pointe du bulbe) : silhouette de palais, propre à
+                 # l'âge ultime (13 garde le dôme, 14 prend la pyramide dorée)
+                 # (r5a : bulbe de nacre sous une grande couronne, invisible de dessus ; r5b : BULBE D'OR à côtes de
+                 # nacre, l'or en seconde couleur à la place du dôme de nacre, signe de palais)
+                 forme_coupole=dict(forme="bulbe", mat="orblanc", mat2="trim", epi="jacket"))
 RECV = ("trim", "orblanc")
 
 
@@ -801,27 +808,16 @@ def tete(g, c):
     # s'enferme entre eux : à 0,42 et 0,33 t d'écart, les flèches des freins fermaient un jour de 300 à 570 px hr)
     g.box((0.0, 0.25, zc - 0.12), (2 * dx - 0.5, 0.3, 0.08), M["jacket"], "hard", what="entretoise")
 
-    def zsurf(x, y):
-        return H["zs"] + H["rz"] * math.sqrt(max(0.0, 1 - (x / R) ** 2 - (y / (R * 1.06)) ** 2))
-    # sommet de la tête : GRANDE COURONNE ROYALE d'or blanc dressée au-dessus de la tourelle, sur une colonne de nacre
-    # cerclée d'or blanc posée sur la coupole, derrière les canons de coupole (rien ne flotte) : bandeau, 12 fleurons
-    # en flèche alternés, CALOTTE de nacre pleine (aucun jour enfermé dans la couronne), globe, flèche sommitale,
-    # pierres et particules
-    yc = -0.78
-    zb = zsurf(0.0, yc)
-    zr = zb + 0.95
-    g.cyl((0.0, yc, (zb + zr) / 2 - 0.05), "z", 0.13, zr - zb, M["trim"], n=20, what="colonne")
-    for f in (0.12, 0.45, 0.8):
-        g.tube_shell((0.0, yc, zb + (zr - zb) * f), "z", 0.155, 0.12, 0.05, M["jacket"], n=20, what="bague_or")
-        F.bolts_ring(g, (0.0, yc, zb + (zr - zb) * f + 0.026), (0, 0, 1), 0.14, 8, M["rivet"], r=0.012)
-    g.cyl((0.0, yc, zb + 0.03), "z", 0.24, 0.06, M["jacket"], n=24, what="embase")
-    for k in range(6):
-        a = TAU * k / 6
-        d = V((math.cos(a), math.sin(a), 0))
-        P2.wedge(g, V((0, yc, zb + 0.05)) + d * 0.13, V((0, yc, zb + 0.05)) + d * 0.24, V((0, yc, zb + 0.35)) + d * 0.13,
-                 V((-d.y, d.x, 0)) * 0.03, M["jacket"], what="gousset")
-    rc = 0.84
-    crown(g, (0, yc, zr), rc, n=14, h=0.72, gems_all=True)
+    # sommet de la tête : GRANDE COURONNE ROYALE d'or blanc. Passe 5, ronde 5 : elle quitte la colonne arrière et se
+    # POSE SUR LA POINTE DU BULBE (forme_coupole, HABILLAGE) : la calotte de nacre coiffe la pointe (la flèche du bulbe
+    # s'y noie), rien ne flotte ; bandeau, 14 fleurons en flèche alternés, globe, flèche sommitale, pierres, particules
+    # (premier jet r5a : couronne de rayon 0,84 ; vue de dessus, sa calotte couvrait tout le bulbe, qu'on ne voyait plus,
+    # et ses fleurons enfermaient du sol en pose N : trou de 42 px, ÉCHEC de rendre.py) : couronne ramenée à 0,48, posée
+    # sur la pointe : le bulbe d'or se voit en entier, la couronne le coiffe comme un joyau
+    yc = 0.0
+    zr = corps.z_coque(c, 0.0, 0.0) + 0.1
+    rc = 0.48
+    crown(g, (0, yc, zr), rc, n=10, h=0.44, gems_all=True)
     # passe 5, ronde 1 : la calotte de VELOURS ROUGE (lue « dôme rouge » par les juges et les lecteurs) devient une
     # COURONNE AJOURÉE d'or blanc et de nacre : calotte de nacre claire, 8 ARCHES d'or blanc de la base au globe, et
     # entre deux arches une JOUR DE LUMIÈRE blanc doré (fente lumineuse fine sur la moitié basse : la couronne paraît
@@ -871,7 +867,9 @@ def tete(g, c):
     g.cyl(q + V((0, 0, 0.41)), "z", 0.005, 0.12, M["jacket"], n=6, what="tige")
     g.sphere(q + V((0, 0, 0.48)), 0.016, E, n=8, m=5, what="particule")
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
-    PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+    # ronde 5 : le viseur suit la coupole de forme (même enfoncement de 0,18 qu'au dôme de la lignée)
+    xs_, ys_ = -R * 0.64, R * 0.3
+    PT.sight(g, (xs_, ys_, corps.z_coque(c, xs_, ys_) - 0.18), 0.26, 0.26, 0.15, M["emit"], lenses=2)
 
 # ------------------------------------------------------------------------------------------------
 # Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux

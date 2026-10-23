@@ -50,7 +50,12 @@ HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", tourelleau
                  # passe 5, ronde 4 (13-14 noté 2 et 3 à la ronde 3 : « même plan et canons, seules les couleurs
                  # changent ») : PAS DE TIR carré à pans courts, pont mince, GARDE-CORPS dorés à poteaux blanc spatial
                  # (13 : citadelle à bastions ; 15 : gradins couronnés)
-                 forme_plateforme=dict(forme="carre", flanc="or_feuille", flanc2="blanc_spatial"))
+                 forme_plateforme=dict(forme="carre", flanc="or_feuille", flanc2="blanc_spatial"),
+                 # passe 5, ronde 5 (13-14 noté 3 et 3, et 13 jugé PLUS évolué que 14 par un lecteur : « or-bleu chargé
+                 # contre blanc-rose épuré » ; 14-15 noté 3 et 3 : « même plan ») : la coupole devient une PYRAMIDE
+                 # TRONQUÉE à 6 pans de FEUILLE D'OR à arêtiers blanc spatial, comme l'étage de descente d'un module
+                 # lunaire ; la grande parabole reste au sommet. 13 garde le dôme, 15 prend le bulbe couronné.
+                 forme_coupole=dict(forme="pyramide", pans=6, hauteur=0.85, mat="or_pyr"))
 RECV = ("ring", "olive")
 
 
@@ -59,6 +64,10 @@ def matieres(metal, M):
     Passe 5, ronde 1 : matières du corps entier (feuille d'or semi-diffuse : un métal pur reste sombre vu de dessus)."""
     metal("or_feuille", (0.62, 0.43, 0.1), rough=0.35, met=0.45, grain=0.45, gscale=22.0, dirt=0.6, stain=0.4,
           sscale=7.0, wear=0.4)
+    # ronde 5 : feuille d'or VIVE de la pyramide (r5a : avec la feuille d'or du corps, les pans plats tournés au nord
+    # se lisaient bruns, plus ternes que l'ancien dôme ; un pan plat ne renvoie le soleil que s'il est peu rugueux)
+    metal("or_pyr", (0.8, 0.58, 0.15), rough=0.26, met=0.5, grain=0.4, gscale=22.0, dirt=0.35, stain=0.25,
+          sscale=7.0, wear=0.3)
     metal("or_tole", (0.42, 0.29, 0.07), rough=0.38, met=0.45, grain=0.45, gscale=22.0, dirt=0.7, stain=0.45,
           sscale=7.0, wear=0.4)
     metal("panneau_bleu", (0.03, 0.06, 0.2), rough=0.22, met=0.3, grain=0.06, dirt=0.4, stain=0.15, wear=0.4)
@@ -736,7 +745,9 @@ def tete(g, c):
     g.pop()
     g.cyl((cx, cy + 0.02, ztop + 0.36), "z", 0.016, 0.018, E, n=8, style="flat", what="balise")
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
-    PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+    # ronde 5 : le viseur suit la coupole de forme (même enfoncement de 0,18 qu'au dôme de la lignée)
+    xs_, ys_ = -R * 0.64, R * 0.3
+    PT.sight(g, (xs_, ys_, corps.z_coque(c, xs_, ys_) - 0.18), 0.26, 0.26, 0.15, M["emit"], lenses=2)
 
 # ------------------------------------------------------------------------------------------------
 # Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
