@@ -4,15 +4,14 @@ Sert à voir le corps commun et le canon de lignée corrigé pour la pose N (cor
 aucun organe d'époque : c'est la base sur laquelle chaque époque AJOUTE son organe (règle d'or 1).
 """
 import corps
+import cotes
 
 EPOQUE = 0
 NOM = "Lignée seule"
 # orange des foyers de la lignée V3-S (industriel) ; l'époque 0 n'a pas de famille (elle n'est pas une époque du jeu)
 FOYER = dict(rgb=(1.0, 0.6, 0.2))
-# canons de la lignée par taille (interpolés entre les témoins n11, n21 et n29 de la première passe)
-CANON_PAR_COTE = {2: dict(L=0.9, nb=4, rb=0.04, rr=0.075), 3: dict(L=1.35, nb=4, rb=0.045, rr=0.1),
-                  4: dict(L=1.7, nb=6, rb=0.05, rr=0.125), 5: dict(L=2.1, nb=6, rb=0.06, rr=0.145),
-                  6: dict(L=2.5, nb=6, rb=0.072, rr=0.175)}
+# canons de la lignée par taille (interpolés entre les témoins n11, n21 et n29 de la première passe ; cotes.py)
+CANON_PAR_COTE = cotes.CANON_TEMOIN
 
 
 def socle(g, c):

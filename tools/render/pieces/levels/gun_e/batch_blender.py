@@ -10,7 +10,8 @@ conversion en .npy repris de V3 phase 1, render_batch.py, puis des plages de la 
 --quick : passes main, glow et shadow seulement (essais de forme et de mesure).
 --apercu (passe 5, rondes de lecture) : toutes les passes de JOUR (socle et pièce : main, ao, shadow, glow ; tête :
 main, shadow, glow), sans la passe light (halo de nuit) : l'image de jour est celle d'un rendu complet.
-render.json dit la variante de corps utilisée (« corps » : A ou B, kit.corps_choisi).
+render.json dit la variante de corps utilisée (« corps » : A ou B, kit.corps_choisi) et l'habillage d'essai du
+témoin (« habillage », variable FO_HABILLAGE_ESSAI posée par rendre.py --habillage ; None sinon).
 Sortie : <out>/<variante>/<variante>-<passe>.npy et render.json (canevas, origine, durées, comptes de pièces).
 """
 import argparse
@@ -127,7 +128,7 @@ def main():
                 "seconds": round(time.time() - t0, 2), "seconds_build": round(t_build, 2),
                 "seconds_render": round(t_render, 2), "verts": nverts, "objects": len(objs),
                 "count": info_build["count"], "halos": info_build["halos"], "quick": a.quick, "apercu": a.apercu,
-                "corps": kit_mod.corps_choisi(),
+                "corps": kit_mod.corps_choisi(), "habillage": os.environ.get("FO_HABILLAGE_ESSAI", "") or None,
                 "light_holdout": bool(getattr(C, "LIGHT_HOLDOUT", False))}
         with open(os.path.join(d, "render.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=1, sort_keys=True)

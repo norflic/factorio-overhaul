@@ -18,8 +18,13 @@ Ce que le corps dessine (identique aux 15 époques, à la taille près) :
            rosette() et bouche() ; couronne_bouche() ferme le faisceau sans chapeau plus large que lui ; canon_lignee()
            est le canon de lignée complet corrigé pour la pose N (règle d'or 7, passe 5 : plus de frein en bloc) : c'est
            la base sur laquelle une époque AJOUTE son organe (règle d'or 1).
-  capots : MATIÈRE des grands capots (coupole, jupe, colonne, nacelle, bras, masque) par la clé d'habillage « capots »
-           de l'époque (capot(), contrat dans epoques.py) ; la géométrie ne change pas.
+  habillage (passe 5) : MATIÈRE de TOUT le corps de lignée (capots, acier, rivets, joints, bandes de danger, peinture)
+           et MATIÈRE ET MOTIF du pont (plateforme : caillebotis, planches, dalles, tôles ; liseré lumineux) par les
+           clés d'habillage de l'époque (contrat dans epoques.py) : mats_habilles() fait la palette habillée c.Mh,
+           habille() et @_lignee la posent sur g.M le temps des pièces de la lignée ; la géométrie ne change pas (sauf
+           le motif du pont) ; toutes les clés à None : empreinte de construction identique (construction.py).
+  accroches (passe 5) : accroche(c, nom) rend la place libre des points d'accroche des SUPERSTRUCTURES d'époque
+           (coins du pont, côtés de la trémie, sommet de la coupole, couronne de la jupe ; accroches.py).
 Variante de corps A (passe 4) ou B (valeurs groupées) : corps_choix.py, matières seulement (kit.corps_b).
 Ce que l'époque dessine (epNN.py, emplacements du catalogue §A.2, contrat dans epoques.py) : arme, tuyaux et grands
 volumes annexes, accents, foyers, pièce du niveau pair.
@@ -63,64 +68,8 @@ class at:
 # ------------------------------------------------------------------------------------------------
 # Cotes de la lignée par taille d'emprise (côté en tuiles)
 # ------------------------------------------------------------------------------------------------
-# colonne : R rayon, h hauteur, rh hauteur de la couronne dentée, n pans, echelle angle de l'échelle
-# tete    : R rayon de jupe, zs haut de jupe, rz hauteur de coupole, gx demi-écart des canons, zg hauteur des canons,
-#           recv (y0, y1) de la culasse, wr largeur et hr demi-hauteur de la culasse
-# tremie  : (x0, x1, y de jeu de la face sud, y Blender de la face nord, hauteur), goulotte (2 points) et largeur
-# plateforme : retrait sous le contour, avant (y de jeu de la face sud), chanfrein avant par défaut (l'époque peut le
-#           régler : remplissage de l'emprise, catalogue §A.5), rapport du chanfrein arrière
-# piece   : coin avant de la pièce du niveau pair (x, y de jeu) et échelle des pièces de la plage basse
-# nacelle : recul arrière, bas de coque ; echap : rayon et hauteur des échappements par défaut
-# tourelleau : hauteur, rayon, périscopes, écart angulaire, dimensions ; trappe : rayon
-TAILLES = {
-    2: dict(colonne=dict(R=0.5, h=0.4, rh=0.07, n=10, echelle=-math.pi * 0.72),
-            tete=dict(R=0.38, zs=0.7, rz=0.27, gx=0.56, zg=0.82, recv=(-0.22, 0.28), wr=0.19, hr=0.115),
-            tremie=(-0.3, 0.3, -0.97, -0.74, 0.32), goulotte=None, goulotte_w=0.11,
-            plateforme=dict(retrait=0.12, avant=0.99, chanfrein=0.36),
-            piece=dict(x=0.74, yn=-0.74, s=1.0),
-            nacelle=dict(recul=0.26, bas=0.2), echap=(0.045, 0.18),
-            tourelleau=dict(h=0.12, r=0.14, n=2, pas=0.6, peri=(0.06, 0.045, 0.055), lentille=(0.045, 0.008, 0.026),
-                            av=0.025),
-            trappe=0.1, jupe_bandes=12, coupole_coutures=10, rangs=(0.62,)),
-    3: dict(colonne=dict(R=0.8, h=0.6, rh=0.08, n=12, echelle=-math.pi * 0.72),
-            tete=dict(R=0.68, zs=1.0, rz=0.42, gx=0.94, zg=1.15, recv=(-0.36, 0.5), wr=0.28, hr=0.16),
-            tremie=(-0.38, 0.38, -1.42, -1.0, 0.46), goulotte=None, goulotte_w=0.14,
-            plateforme=dict(retrait=0.12, avant=1.46, chanfrein=0.5),
-            piece=dict(x=1.16, yn=-1.16, s=1.25),
-            nacelle=dict(recul=0.26, bas=0.2), echap=(0.05, 0.21),
-            tourelleau=dict(h=0.14, r=0.17, n=3, pas=0.6, peri=(0.06, 0.045, 0.055), lentille=(0.045, 0.008, 0.026),
-                            av=0.025),
-            trappe=0.12, jupe_bandes=12, coupole_coutures=10, rangs=(0.62,)),
-    4: dict(colonne=dict(R=1.05, h=0.8, rh=0.1, n=14, echelle=-math.pi * 0.72),
-            tete=dict(R=0.92, zs=1.3, rz=0.52, gx=1.24, zg=1.47, recv=(-0.5, 0.66), wr=0.37, hr=0.21),
-            tremie=(-0.44, 0.44, -1.93, -1.3, 0.58), goulotte=None, goulotte_w=0.17,
-            plateforme=dict(retrait=0.12, avant=1.97, chanfrein=0.7),
-            piece=dict(x=1.55, yn=-1.55, s=1.65),
-            nacelle=dict(recul=0.26, bas=0.2), echap=(0.055, 0.24),
-            tourelleau=dict(h=0.16, r=0.2, n=4, pas=0.6, peri=(0.06, 0.045, 0.055), lentille=(0.045, 0.008, 0.026),
-                            av=0.025),
-            trappe=0.14, jupe_bandes=12, coupole_coutures=10, rangs=(0.5, 0.95)),
-    5: dict(colonne=dict(R=1.3, h=0.98, rh=0.12, n=16, echelle=-math.pi * 0.7),
-            tete=dict(R=1.12, zs=1.55, rz=0.62, gx=1.5, zg=1.74, recv=(-0.6, 0.8), wr=0.44, hr=0.25),
-            tremie=(-0.46, 0.46, -2.4, -1.62, 0.66), goulotte=((0.0, -1.42, 0.92), (0.0, -1.1, 1.08)),
-            goulotte_w=0.18,
-            plateforme=dict(retrait=0.14, avant=2.44, chanfrein=0.55),
-            piece=dict(x=1.5, yn=-2.64, s=1.0),
-            nacelle=dict(recul=0.4, bas=0.22), echap=(0.065, 0.28),
-            tourelleau=dict(h=0.18, r=0.22, n=4, pas=0.55, peri=(0.07, 0.05, 0.06), lentille=(0.05, 0.008, 0.03),
-                            av=0.028),
-            trappe=0.16, jupe_bandes=14, coupole_coutures=12, rangs=(0.5, 0.95)),
-    6: dict(colonne=dict(R=1.6, h=1.16, rh=0.14, n=16, echelle=-math.pi * 0.68),
-            tete=dict(R=1.38, zs=1.8, rz=0.74, gx=1.84, zg=2.0, recv=(-0.74, 0.95), wr=0.52, hr=0.3),
-            tremie=(-0.54, 0.54, -2.75, -1.95, 0.78), goulotte=((0.0, -1.75, 1.08), (0.0, -1.38, 1.28)),
-            goulotte_w=0.2,
-            plateforme=dict(retrait=0.16, avant=2.78, chanfrein=0.7),
-            piece=dict(x=1.22, yn=-2.97, s=1.0),
-            nacelle=dict(recul=0.4, bas=0.22), echap=(0.065, 0.28),
-            tourelleau=dict(h=0.18, r=0.22, n=5, pas=0.55, peri=(0.07, 0.05, 0.06), lentille=(0.05, 0.008, 0.03),
-                            av=0.028),
-            trappe=0.16, jupe_bandes=14, coupole_coutures=12, rangs=(0.5, 0.95)),
-}
+# Cotes par taille (colonne, tête, trémie, plateforme, pièce, nacelle, tourelleau…) : cotes.py (Python pur, passe 5)
+from cotes import TAILLES  # noqa: E402
 
 
 # ------------------------------------------------------------------------------------------------
@@ -131,7 +80,8 @@ class Ctx:
     (cotes de la taille + paramètres de canon de l'époque : L, nb, rb, rr) ; T : toutes les cotes de la taille ;
     rt : haut de la couronne dentée ; hab : habillage de l'époque (epoques.HABILLAGE_DEFAUT complété).
     Remplis par tete() avant l'appel de ep.tete : Pf, Nf (paramétrage de la coupole), nac (bx, yb0, yb1, ztop, yc),
-    tour (cx, cy, z du dessus du tourelleau)."""
+    tour (cx, cy, z du dessus du tourelleau). Mh : matières HABILLÉES de la lignée (clés d'habillage de matière,
+    mats_habilles) ; c.M reste la palette d'origine."""
 
     def __init__(self, g, e, ep, side, hab):
         self.g, self.M, self.e, self.ep, self.side = g, g.M, e, ep, side
@@ -142,38 +92,284 @@ class Ctx:
         self.rt = self.B["h"] + self.B["rh"]
         self.hab = hab
         self.Pf = self.Nf = self.nac = self.tour = None
+        self.Mh = mats_habilles(g.M, hab)
+        self.pont = pont_cfg(hab)
+        # dalle() (appelée par ep.piece sans contexte) retrouve l'habillage par g.ctx
+        g.ctx = self
 
 
 # ------------------------------------------------------------------------------------------------
-# Matière des grands capots (clé d'habillage « capots », passe 5)
+# HABILLAGE DE MATIÈRE de la lignée (passe 5, consigne du 23/10 : chaque âge change TOUT le bâtiment)
 # ------------------------------------------------------------------------------------------------
+# clé d'habillage -> matières de la LIGNÉE qu'elle remplace (contrat complet en tête de epoques.py). Une valeur simple
+# remplace tout le groupe ; un couple remplace (premier, second) groupe.
+REMPLACE = {
+    "capots": (("olive",), ("ochre",)),                       # grands capots ; défaut du second : le premier
+    "acier": (("steel_dk", "armor2", "armor"), ("steel", "steel_hi")),   # défaut du second : inchangé
+    "rivets": (("rivet",),),
+    "joints": (("seam",),),
+    "danger": (("hazy",), ("hazk",)),                          # défaut du second : le premier
+    "peinture": (("redpaint",),),
+}
+_SECOND_SUIT = ("capots", "danger")
+
+
+def mats_habilles(M, hab):
+    """Palette HABILLÉE de la lignée : une copie de M où les matières des groupes de REMPLACE sont remplacées par
+    celles que l'époque donne (clés d'habillage). Aucune clé donnée : rend M lui-même (aucun changement possible).
+    Les cibles se lisent dans M (palette d'origine) : jamais de remplacement en chaîne."""
+    rep = {}
+    for cle, groupes in REMPLACE.items():
+        v = hab.get(cle)
+        if not v:
+            continue
+        vals = (v,) if isinstance(v, str) else tuple(v)
+        if len(vals) > len(groupes):
+            raise ValueError("habillage %s : %d valeurs pour %d groupe(s)" % (cle, len(vals), len(groupes)))
+        for i, grp in enumerate(groupes):
+            if i < len(vals):
+                cible = vals[i]
+            elif cle in _SECOND_SUIT:
+                cible = vals[0]
+            else:
+                continue
+            if cible is None:
+                continue
+            for src in grp:
+                rep[src] = cible
+    if not rep:
+        return M
+    manque = sorted({t for t in rep.values() if t not in M})
+    if manque:
+        raise KeyError("habillage : matière(s) inconnue(s) %s (kit.materials ou ep.matieres)" % ", ".join(manque))
+    Mh = dict(M)
+    for src, cible in rep.items():
+        Mh[src] = M[cible]
+    return Mh
+
+
+class habille:
+    """Zone de la LIGNÉE : `with habille(g, c): …` met g.M sur la palette habillée (c.Mh) le temps de dessiner une
+    pièce de la lignée (plateforme, dalle, colonne, trémie, collier, jupe, coupole, masque, nacelle, échappements,
+    tourelleau, bras). Le canon (canon_lignee, rosette, bouche, moteur) et tout ce que l'époque dessine restent hors
+    zone (palette d'origine) ; une époque qui veut la matière habillée la lit avec mat(c, clé). Réentrant."""
+
+    def __init__(self, g, c=None):
+        c = c if c is not None else getattr(g, "ctx", None)
+        self.g, self.Mh = g, (c.Mh if c is not None else None)
+
+    def __enter__(self):
+        self.old = self.g.M
+        if self.Mh is not None:
+            self.g.M = self.Mh
+        return self.g.M
+
+    def __exit__(self, *exc):
+        self.g.M = self.old
+
+
+def _lignee(f):
+    """Décorateur : la fonction de lignée f(g, c, …) dessine dans la zone habillée."""
+    def w(g, c, *a, **k):
+        with habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+def mat(c, cle):
+    """Matière HABILLÉE de la lignée pour la clé `cle` (« steel_dk », « rivet », « olive »…) : pour une époque qui
+    veut poser ses organes dans la matière de son corps."""
+    return c.Mh[cle]
+
+
 def capot(c, cle):
     """Matière d'un GRAND CAPOT du corps de lignée. cle : « olive » (capots principaux : coupole, bandes olive de la
     jupe, fût de la colonne, coque de la nacelle, bras de tourillon, masque) ou « ochre » (capots secondaires : plaques
     ocre de la nacelle et du masque). Habillage « capots » de l'époque (epoques.HABILLAGE_DEFAUT) : None = olive et
     ocre de la lignée ; « clé » = cette matière pour les deux ; (clé1, clé2) = clé1 pour l'olive, clé2 pour l'ocre.
     Seule la MATIÈRE change : géométrie, nombre de plaques et de rivets identiques."""
-    v = c.hab.get("capots")
-    if not v:
-        return c.M[cle]
-    if isinstance(v, str):
-        return c.M[v]
-    return c.M[v[0] if cle == "olive" else v[1]]
+    return c.Mh[cle]
 
 
 def capots_mats(c, keys):
-    """Liste de matières pour des noms de clés : « olive » et « ochre » passent par capot(), les autres tels quels."""
-    return [capot(c, k) if k in ("olive", "ochre") else c.M[k] for k in keys]
+    """Liste de matières HABILLÉES pour des noms de clés (« olive » et « ochre » suivent la clé capots)."""
+    return [c.Mh[k] for k in keys]
+
+
+# ------------------------------------------------------------------------------------------------
+# PONT : matière ET motif de la plateforme (clé d'habillage « plateforme », passe 5)
+# ------------------------------------------------------------------------------------------------
+MOTIFS = ("caillebotis", "planches", "dalles", "toles")
+PONT_DEFAUT = dict(motif="caillebotis", mat="grate", mat2=None, fond="tablier", bord="steel_dk", boulons="steel_hi",
+                   lisere=None, pas=None, joint=None, relief=0.0)
+# pas (tuiles de jeu) et joint (unités Blender) par défaut de chaque motif ; précision (règle d'or 4) : planches de
+# 0,16 t, dalles de 0,28 t (tôles 0,22 à 0,30), tôles rivetées de 0,5 t (rivets de 0,016)
+PAS_DEFAUT = {"planches": 0.16, "dalles": 0.28, "toles": 0.5}
+JOINT_DEFAUT = {"planches": 0.014, "dalles": 0.016, "toles": 0.02}
+
+
+def pont_cfg(hab):
+    """Réglage du pont depuis la clé « plateforme » (None : caillebotis de la lignée, code d'origine)."""
+    v = hab.get("plateforme")
+    if not v:
+        return None
+    if isinstance(v, str):
+        v = dict(motif=v)
+    inconnues = sorted(set(v) - set(PONT_DEFAUT))
+    if inconnues:
+        raise KeyError("habillage plateforme : clé(s) inconnue(s) %s (permises : %s)"
+                       % (", ".join(inconnues), ", ".join(sorted(PONT_DEFAUT))))
+    cfg = dict(PONT_DEFAUT)
+    cfg.update(v)
+    if cfg["motif"] not in MOTIFS:
+        raise ValueError("habillage plateforme : motif %r inconnu (%s)" % (cfg["motif"], ", ".join(MOTIFS)))
+    return cfg
+
+
+def _demi_plan(pts, a, b, d):
+    """Garde la partie de pts à GAUCHE de a->b (intérieur d'un polygone direct), rentrée de d."""
+    ex, ey = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(ex, ey)
+    if L < 1e-9:
+        return pts
+    nx, ny = -ey / L, ex / L
+
+    def s(p):
+        return (p[0] - a[0]) * nx + (p[1] - a[1]) * ny - d
+    out = []
+    for i in range(len(pts)):
+        p, q = pts[i], pts[(i + 1) % len(pts)]
+        sp, sq = s(p), s(q)
+        if sp >= 0:
+            out.append(p)
+        if (sp >= 0) != (sq >= 0):
+            t = sp / (sp - sq)
+            out.append((p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])))
+    return out
+
+
+def _decoupe(pts, poly, d=0.0):
+    """Polygone convexe pts découpé par le polygone convexe direct poly rentré de d."""
+    for i in range(len(poly)):
+        pts = _demi_plan(pts, poly[i], poly[(i + 1) % len(poly)], d)
+        if len(pts) < 3:
+            return []
+    return pts
+
+
+def _aire(pts):
+    return 0.5 * sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1]
+                     for i in range(len(pts)))
+
+
+def _dedans(p, poly, d=0.0):
+    return all((p[0] - poly[i][0]) * -(poly[(i + 1) % len(poly)][1] - poly[i][1])
+               + (p[1] - poly[i][1]) * (poly[(i + 1) % len(poly)][0] - poly[i][0])
+               >= d * math.hypot(poly[(i + 1) % len(poly)][0] - poly[i][0], poly[(i + 1) % len(poly)][1] - poly[i][1])
+               for i in range(len(poly)))
+
+
+def _prisme(g, pts, z0, z1, m, style, what):
+    n = len(pts)
+    vs = [(x, y, z0) for x, y in pts] + [(x, y, z1) for x, y in pts]
+    fs = [tuple(range(n))[::-1], tuple(range(n, 2 * n))]
+    for i in range(n):
+        j = (i + 1) % n
+        fs.append((i, j, n + j, n + i))
+    g._add(m, style, vs, fs, what)
+
+
+def _motif(g, M, cfg, P, zb, ins, graine):
+    """Motif du pont sur le polygone convexe direct P (Blender), rentré de ins sous les cornières ; zb : dessus du
+    tablier. Hasard LOCAL (graine) : le tirage du reste du bâtiment ne change pas."""
+    import random
+    rng = random.Random(graine)
+    mats = [M[cfg["mat"]]] + ([M[cfg["mat2"]]] if cfg["mat2"] else [])
+    motif = cfg["motif"]
+    xs = [p[0] for p in P]
+    ys = [p[1] for p in P]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    if motif == "caillebotis":
+        hx = (x1 - x0) / 2.0
+        xc = (x0 + x1) / 2.0
+        nb = int((2 * hx - 0.1) / 0.09)
+        for i in range(nb):
+            x = xc - hx + 0.05 + (i + 0.5) * (2 * hx - 0.1) / nb
+            band = _decoupe([(x - 0.015, y0 - 1), (x + 0.015, y0 - 1), (x + 0.015, y1 + 1), (x - 0.015, y1 + 1)], P, ins)
+            if band:
+                _prisme(g, band, zb, zb + 0.024, mats[i % len(mats)], "flat", "lame")
+        return
+    pas = cfg["pas"] or PAS_DEFAUT[motif]
+    jt = cfg["joint"] if cfg["joint"] is not None else JOINT_DEFAUT[motif]
+    ep_ = 0.022
+    if motif == "planches":
+        wy = pas * SQ2
+        nrow = int(math.ceil((y1 - y0) / wy)) + 1
+        for j in range(nrow):
+            ya = y0 + j * wy
+            yb = ya + wy
+            xa = x0 - rng.random() * 0.5
+            while xa < x1:
+                L = 0.5 + 0.5 * rng.random()
+                xb = xa + L
+                q = _decoupe([(xa + jt / 2, ya + jt / 2), (xb - jt / 2, ya + jt / 2), (xb - jt / 2, yb - jt / 2),
+                              (xa + jt / 2, yb - jt / 2)], P, ins)
+                if q and _aire(q) > 0.004:
+                    th = ep_ * (1.0 + cfg["relief"] * (rng.random() - 0.5))
+                    _prisme(g, q, zb, zb + th, mats[rng.randrange(len(mats))], "hard", "planche")
+                    if cfg["boulons"]:
+                        for xx in (xa + 0.045, xb - 0.045):
+                            for f in (0.3, 0.7):
+                                p = (xx, ya + wy * f)
+                                if _dedans(p, q, 0.012):
+                                    g.dome((p[0], p[1], zb + th), (0, 0, 1), 0.014, M[cfg["boulons"]], what="clou")
+                xa = xb
+        return
+    # dalles et tôles : grille alignée sur le centre (symétrique), cases de pas × pas tuiles de jeu
+    px, py = pas, pas * SQ2
+    i0, i1 = int(math.floor(x0 / px)) - 1, int(math.ceil(x1 / px)) + 1
+    j0, j1 = int(math.floor(y0 / py)) - 1, int(math.ceil(y1 / py)) + 1
+    for i in range(i0, i1):
+        for j in range(j0, j1):
+            xa, xb = i * px + jt / 2, (i + 1) * px - jt / 2
+            ya, yb = j * py + jt / 2, (j + 1) * py - jt / 2
+            q = _decoupe([(xa, ya), (xb, ya), (xb, yb), (xa, yb)], P, ins)
+            if not q or _aire(q) < 0.004:
+                continue
+            th = ep_ * (1.0 + cfg["relief"] * (rng.random() - 0.5))
+            m = mats[rng.randrange(len(mats))] if len(mats) > 1 else mats[0]
+            _prisme(g, q, zb, zb + th, m, "hard", "dalle_pont" if motif == "dalles" else "tole_pont")
+            if motif == "toles" and cfg["boulons"]:
+                for p in ((xa + 0.035, ya + 0.035), (xb - 0.035, ya + 0.035), (xb - 0.035, yb - 0.035),
+                          (xa + 0.035, yb - 0.035), ((xa + xb) / 2, ya + 0.035), ((xa + xb) / 2, yb - 0.035)):
+                    if _dedans(p, q, 0.012):
+                        g.dome((p[0], p[1], zb + th), (0, 0, 1), 0.016, M[cfg["boulons"]], what="rivet_pont")
+
+
+def _lisere(g, M, cfg, p0, p1, nrm, z):
+    """Liseré lumineux (clé plateforme.lisere) sur le dessus de la cornière, côté intérieur."""
+    d = p1 - p0
+    L = d.length
+    d = d.normalized()
+    R = Matrix((d, V((-d.y, d.x, 0)), V((0, 0, 1)))).transposed()
+    g.box((p0 + p1) / 2 - nrm * 0.07 + V((0, 0, z + 0.003)), (L * 0.96, 0.012, 0.006), M[cfg["lisere"]], "flat", R=R,
+          what="lisere")
 
 
 # ------------------------------------------------------------------------------------------------
 # Socle
 # ------------------------------------------------------------------------------------------------
+@_lignee
 def plateforme(g, c, chanfrein=None, z=0.045):
     """Tablier bas continu de caillebotis (4,5 cm) qui relie TOUS les volumes du socle : aucun jour entre les machines,
     aucune pièce isolée. Octogone chanfreiné (avant : chanfrein ; arrière : 0,8 × chanfrein), rentré sous le contour :
     le contour du bâtiment reste fait des volumes qui le débordent. Lames sur chant au pas de 0,09, cornières
-    boulonnées. Reprise de la plage haute de la passe 3 (apron), étendue aux 5 tailles."""
+    boulonnées. Reprise de la plage haute de la passe 3 (apron), étendue aux 5 tailles.
+    Clé d'habillage « plateforme » (passe 5) : matière ET motif du pont (pont_cfg, contrat dans epoques.py) ; le tablier
+    continu et les cornières restent (aucun trou possible) ; None : code d'origine, géométrie identique."""
+    if c.pont is not None:
+        return _plateforme_habillee(g, c, chanfrein, z)
     M = g.M
     P_ = c.T["plateforme"]
     cf = P_["chanfrein"] if chanfrein is None else chanfrein
@@ -223,9 +419,68 @@ def plateforme(g, c, chanfrein=None, z=0.045):
     return poly
 
 
+def _plateforme_habillee(g, c, chanfrein, z):
+    """Plateforme de la clé « plateforme » : même octogone, même tablier continu, mêmes cornières (matière « bord »,
+    boulons « boulons » ou aucun), motif et matière du pont de l'époque, liseré lumineux facultatif."""
+    M = g.M
+    cfg = c.pont
+    P_ = c.T["plateforme"]
+    cf = P_["chanfrein"] if chanfrein is None else chanfrein
+    cb = cf * 0.8
+    side = c.side
+    hx = side / 2.0 - P_["retrait"]
+    hy = side / 2.0 - P_["retrait"]
+    fy = P_["avant"]
+    poly = [(-hx + cf, -fy), (hx - cf, -fy), (hx, -fy + cf), (hx, hy - cb), (hx - cb, hy), (-hx + cb, hy),
+            (-hx, hy - cb), (-hx, -fy + cf)]
+    P = [(x, Y(y)) for x, y in poly]
+    n = len(P)
+    _prisme(g, P, 0.0, z * 0.45, M[cfg["fond"]], "flat", "tablier")
+    _motif(g, M, cfg, P, z * 0.45, 0.07, 7000 + side)
+    for i in range(n):
+        p0, p1 = V((P[i][0], P[i][1], 0)), V((P[(i + 1) % n][0], P[(i + 1) % n][1], 0))
+        d = p1 - p0
+        L = d.length
+        if L < 0.05:
+            continue
+        d.normalize()
+        nrm = V((d.y, -d.x, 0))
+        R = Matrix((d, V((-d.y, d.x, 0)), V((0, 0, 1)))).transposed()
+        g.box((p0 + p1) / 2 - nrm * 0.04 + V((0, 0, z * 0.5)), (L, 0.08, z), M[cfg["bord"]], "hard", R=R,
+              what="corniere")
+        if cfg["lisere"]:
+            _lisere(g, M, cfg, p0, p1, nrm, z)
+        if cfg["boulons"]:
+            k = max(2, int(L / 0.3))
+            for j in range(k):
+                q = p0 + d * (L * (j + 0.5) / k) - nrm * 0.04 + V((0, 0, z))
+                g.bolt(q, (0, 0, 1), 0.016, M[cfg["boulons"]])
+    return poly
+
+
 def dalle(g, x0, x1, y0, y1, z=0.045):
     """Dalle de caillebotis rectangulaire (même facture que la plateforme) : sous une pièce du niveau pair ou une
-    machine posée hors de la plateforme, pour qu'aucun jour ne s'enferme entre elle et le socle."""
+    machine posée hors de la plateforme, pour qu'aucun jour ne s'enferme entre elle et le socle. Suit la clé
+    « plateforme » de l'époque (contexte g.ctx) : même motif, même matière que le pont."""
+    with habille(g):
+        c = getattr(g, "ctx", None)
+        if c is not None and c.pont is not None:
+            M = g.M
+            cfg = c.pont
+            x0, x1 = sorted((x0, x1))
+            y0, y1 = sorted((y0, y1))
+            P = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+            _prisme(g, P, 0.0, z * 0.45, M[cfg["fond"]], "flat", "dalle")
+            _motif(g, M, cfg, P, z * 0.45, 0.05, int(7100 + 37 * abs(x0) + 53 * abs(y0)))
+            for (a, b, cc, d_) in ((x0, x1, y0, y0 + 0.06), (x0, x1, y1 - 0.06, y1), (x0, x0 + 0.06, y0, y1),
+                                   (x1 - 0.06, x1, y0, y1)):
+                g.box(((a + b) / 2, (cc + d_) / 2, z * 0.5), (b - a, d_ - cc, z), M[cfg["bord"]], "hard",
+                      what="corniere")
+            return
+        _dalle_lignee(g, x0, x1, y0, y1, z)
+
+
+def _dalle_lignee(g, x0, x1, y0, y1, z):
     M = g.M
     g.box(((x0 + x1) / 2, (y0 + y1) / 2, z * 0.225), (x1 - x0, y1 - y0, z * 0.45), M["tablier"], "flat", what="dalle")
     nb = max(1, int((x1 - x0 - 0.1) / 0.09))
@@ -237,6 +492,7 @@ def dalle(g, x0, x1, y0, y1, z=0.045):
         g.box(((a + b) / 2, (cc + d_) / 2, z * 0.5), (b - a, d_ - cc, z), M["steel_dk"], "hard", what="corniere")
 
 
+@_lignee
 def colonne(g, c):
     """Colonne à goussets et couronne d'orientation dentée à bandes de danger (lignée)."""
     M = g.M
@@ -246,6 +502,7 @@ def colonne(g, c):
     PT.slewing_ring(g, B["R"] - 0.02, B["h"], B["rh"])
 
 
+@_lignee
 def tremie(g, c):
     """Trémie à trappe ouverte au sud (lignée), goulotte vers la couronne. Peinture, pochoirs et munitions visibles :
     habillage de l'époque (c.hab). Renvoie (point de sortie de la bande, boîte de la trémie)."""
@@ -272,6 +529,18 @@ def collecteur(g, c, liaison, r=None, z=None, angs=(-0.2, -0.85, -1.57, -2.29, -
     rr = B["R"] + 0.12 + 0.02 * (c.side - 2)
     zz = 0.15 + 0.03 * (c.side - 2) if z is None else z
     liaison(g, [(rr * math.cos(a), rr * math.sin(a), zz) for a in angs], 0.044 + 0.01 * (c.side - 2) if r is None else r)
+
+
+def accroche(c, nom=None):
+    """Places libres des POINTS D'ACCROCHE des superstructures d'époque (accroches.py) à la taille de c et pour le
+    CANON et le chanfrein de l'époque : dict par nom (coin_NO, coin_NE, coin_SO, coin_SE, tremie_O, tremie_E, coupole,
+    couronne) ; avec nom, la place de ce point seul. Socle : x, yn (tuiles de jeu, « with at(g, x, yn) »), r, dx, dy,
+    h_max, h_ajour ; coupole : x, y, z (repère de la tête), r, entre_canons, z_canons ; couronne : r0, r1, z0, z1."""
+    import accroches
+    if getattr(c, "_accroches", None) is None:
+        canon = {k: c.H[k] for k in ("L", "nb", "rb", "rr") if k in c.H}
+        c._accroches = accroches.calcul(c.side, canon or None, getattr(c.ep, "PLATEFORME", {}).get("chanfrein"))
+    return c._accroches[nom] if nom else c._accroches
 
 
 def socle(g, c):
@@ -311,6 +580,7 @@ def jupe(g, R, z0, z1, mats, nstrips, band_mat):
         g.tube_shell((0, 0, zz), "z", R + 0.05, R - 0.02, 0.06, band_mat, n=64, what="cerclage")
 
 
+@_lignee
 def masque_lignee(g, c, mats=("ochre", "olive"), fentes=((0.0, 1.1),), visiere=("steel_hi", 0.03), coax=None):
     """Masque avant de la lignée entre les deux canons. fentes : (décalage x en part de mw, largeur en part de mw) ;
     visiere : (matière, profondeur) ; coax : None, ou dict(fut=matière, manchon=matière, manchon_y=0.3,
@@ -333,6 +603,7 @@ def masque_lignee(g, c, mats=("ochre", "olive"), fentes=((0.0, 1.1),), visiere=(
             F.lit_ring(g, (mw * 0.45, R + 0.2 + 0.365, zs - 0.06), "y", 0.04, M["emit"], w=0.01)
 
 
+@_lignee
 def nacelle_coque(g, c):
     """Nacelle arrière de la lignée : coque rivetée (olive et ocre), face arrière à grille (2×2 à 4×4) ou à deux
     grilles lumineuses (5×5 et 6×6). Renvoie le cadre (bx, yb0, yb1, ztop, yc) et le quadrilatère de la face arrière."""
@@ -355,6 +626,7 @@ def nacelle_coque(g, c):
     return (bx, yb0, yb1, ztop, (yb0 + yb1) / 2), back
 
 
+@_lignee
 def echappements(g, c):
     """Organe dorsal par défaut de la nacelle : deux échappements (lignée)."""
     bx, yb0, yb1, ztop, yc = c.nac
@@ -363,6 +635,7 @@ def echappements(g, c):
         PT.exhaust(g, (sx * bx * 0.7, yc - 0.05, ztop), re, he)
 
 
+@_lignee
 def tourelleau(g, c):
     """Tourelleau à périscopes et trappe (lignée). Renvoie (cx, cy, z du dessus)."""
     M = g.M
@@ -388,6 +661,7 @@ def tourelleau(g, c):
     return (cx, cy, zc + hc)
 
 
+@_lignee
 def bras(g, c, sx):
     """Bras de tourillon de la lignée (et ses deux berceaux, qui ferment les jours entre l'arme, la nacelle et la
     coupole), tourillon, chapeau boulonné. L'arme de l'époque se pose dessus (ep.arme)."""
@@ -417,21 +691,23 @@ def bras(g, c, sx):
 
 
 def tete(g, c):
-    """Tête de la lignée, puis l'arme et les accents de l'époque."""
-    M = g.M
-    H = c.H
-    R, zs, rz = H["R"], H["zs"], H["rz"]
-    z0 = c.rt
-    g.cyl((0, 0, z0 + 0.035), "z", R + 0.07, 0.07, M["steel_dk"], n=56, style="soft", what="collier")
-    nb = int(TAU * (R + 0.04) / 0.16)
-    for k in range(nb):
-        a = TAU * k / nb
-        g.dome(((R + 0.04) * math.cos(a), (R + 0.04) * math.sin(a), z0 + 0.07), (0, 0, 1), 0.016, M["rivet"])
-    jupe(g, R, z0 + 0.07, zs, [capot(c, "olive"), capot(c, "olive"), M["steel_dk"]],
-         max(c.T["jupe_bandes"], int(TAU * R / 0.26)), M[c.hab["jupe_cerclage"]])
-    c.Pf, c.Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, capot(c, "olive"), M,
-                              seams=max(c.T["coupole_coutures"], int(TAU * R / 0.3)), band_mat=M["steel_dk"],
-                              ring_seams=c.T["rangs"])
+    """Tête de la lignée, puis l'arme et les accents de l'époque. Les pièces de la lignée se dessinent dans la zone
+    habillée (habille) ; l'arme (ep.arme), le masque, la nacelle et les accents de l'époque hors zone."""
+    with habille(g, c):
+        M = g.M
+        H = c.H
+        R, zs, rz = H["R"], H["zs"], H["rz"]
+        z0 = c.rt
+        g.cyl((0, 0, z0 + 0.035), "z", R + 0.07, 0.07, M["steel_dk"], n=56, style="soft", what="collier")
+        nb = int(TAU * (R + 0.04) / 0.16)
+        for k in range(nb):
+            a = TAU * k / nb
+            g.dome(((R + 0.04) * math.cos(a), (R + 0.04) * math.sin(a), z0 + 0.07), (0, 0, 1), 0.016, M["rivet"])
+        jupe(g, R, z0 + 0.07, zs, [capot(c, "olive"), capot(c, "olive"), M["steel_dk"]],
+             max(c.T["jupe_bandes"], int(TAU * R / 0.26)), M[c.hab["jupe_cerclage"]])
+        c.Pf, c.Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, capot(c, "olive"), M,
+                                  seams=max(c.T["coupole_coutures"], int(TAU * R / 0.3)), band_mat=M["steel_dk"],
+                                  ring_seams=c.T["rangs"])
     if hasattr(c.ep, "masque"):
         c.ep.masque(g, c)
     else:
@@ -529,7 +805,8 @@ def couronne_bouche(g, x, yb, z, L, rr, rb, mat, retrait=None):
 
 
 def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein=True, frein_mat="steel",
-                 bague_mat="steel_dk", masque_mats=("ochre", "olive"), alim=True):
+                 bague_mat="steel_dk", masque_mats=("ochre", "olive"), alim=True,
+                 alim_mats=("olive", "ochre")):
     """Canon de lignée COMPLET, corrigé pour la pose N (règle d'or 7, passe 5) : culasse blindée, moteur arrière
     bobiné, rosette de tubes séparés en ACIER NU CLAIR, jaquette perforée sur la moitié arrière au plus, puis la
     COURONNE DE BOUCHE (couronne_bouche) : collerette sombre au ras du faisceau, JAMAIS plus large que lui, devant
@@ -537,7 +814,8 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
     passe 4 (« T » plat) est SUPPRIMÉ : les juges de la passe 4 l'ont lu comme le chapeau d'une cheminée (pose N).
     frein : True (défaut) = couronne de bouche ; False = tubes nus, pointes éclairées. frein_mat : ignoré (gardé pour
     les appels de la passe 4). Bagues sombres (aucune bague claire horizontale), caisse d'alimentation au pied qui
-    déborde sur le côté extérieur, masque de canon. Une époque peut l'appeler tel quel et y AJOUTER son organe."""
+    déborde sur le côté extérieur (alim_mats : ses matières, passe 5), masque de canon. Une époque peut l'appeler tel
+    quel et y AJOUTER son organe."""
     M = g.M
     H = c.H
     zg = H["zg"]
@@ -575,7 +853,7 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
         bw, bl, bh = 0.32 * wr / 0.4, 0.75 * L / 1.95, 0.5 * hr / 0.23
         bx0, bx1 = sorted((xo + sx * 0.02, xo + sx * (0.02 + bw)))
         PT.hull(g, bx0, bx1, y0 - 0.1, y0 - 0.1 + bl, zg - bh * 0.62, zg + bh * 0.42, ins=(0.015, 0.015, 0.015),
-                panel=0.24, mats=[M["olive"], M["ochre"]], rivet_step=0.11)
+                panel=0.24, mats=[M[k] for k in alim_mats], rivet_step=0.11)
         bc = (bx0 + bx1) / 2
         # voile plein entre la culasse et la caisse, sous la goulotte (l'arche enfermait un jour : 9 px hr, témoin k4)
         xa_, xb_ = sorted((x + sx * wr / 2 - sx * 0.01, xo + sx * 0.03))
