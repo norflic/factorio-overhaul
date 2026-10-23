@@ -34,6 +34,7 @@ factorio-overhaul/
 ├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
 ├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
 ├── graphics/levels/gun/            # feuilles de la mitrailleuse en jeu (lot A2, D-6) : 318 PNG générés HORS de git ; sprites.lua, sprites.json, MANIFEST.json commités (§7 ter)
+├── sound/levels/gun/               # sons de la mitrailleuse (lot S0) : 20 OGG COMMITÉS (tir par ère), sons.lua généré, MANIFEST.json ; outil : tools/sound/
 ├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
 │   └── pieces/levels/              # kits de rendu des familles à niveaux (§7 ter) : gun_e/ (mitrailleuse validée ; directions dKK, rose.py, e66*.py, identite.py : lot A1) ; commun/ (kit commun, registre des âges, profils de famille : lot K0)
 ├── docs/DA_FACTORIO.md             # charte de direction artistique mesurable (lot V3-S, E43) ; docs/da/ : mesures vanilla et V3 phase 1, planches
@@ -668,6 +669,15 @@ manifeste présent, à la bonne taille, sinon la commande de régénération est
 worktree neuf : lancer `feuilles.py` d'abord.** Les bancs recopient les PNG présents sur le disque (F127). Bouchon
 arrière (`corps.bouchon_arriere`) posé dans le secteur d20 à d44 seulement, âges 4 à 7 : le saut à la frontière du
 secteur est à juger en A3. Les 6 autres familles gardent `kit.provisional`.
+
+**Sons des familles (lot S0, version 0.4.7)** : `tools/sound/sons.py` (numpy, scipy ; `blender_audio.py` pour le
+module `aud` de Blender, toujours par `with_render_lock.py`) dérive des sons vanilla (`<racine>\data\base\sound\`,
+lecture seule) les sons du mod dans `sound/levels/<famille>/` : OGG COMMITÉS (petits), `sons.lua` généré (lu par
+`prototypes/levels/gun.lua` pour `attack_parameters.sound`, niveau par niveau selon l'ère), `MANIFEST.json` ; volume
+mesuré sur l'OGG livré, jamais au-dessus de la vanilla ; timbre plus grave à chaque ère (contrôlé) ; octets
+reproductibles (F154) ; `sons.py --check`. Règle « sons » du harness (`tests/datastage/sounds.lua`) : tout son cité
+existe, au bon format et au bon en-tête (un son manquant bloque le jeu au menu, F151). Sessions de test avec son :
+`FO_AUDIO=1`, pilote SDL `disk` pour le seul jeu de test, garde de crête `tools/autotest/audio_guard.py` (CLAUDE.md §4).
 
 ## 8. Chaîne de vérification
 

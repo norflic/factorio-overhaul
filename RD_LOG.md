@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -220,6 +220,27 @@
   `check_gun_sheets.py` plantait sur la console cp1252 (caractère « ≠ ») sans `PYTHONIOENCODING` ; sortie passée en
   UTF-8 comme `ht3_journal.py`, 12 OK. Identifiants : bloc F120 à F129 épuisé ; F140 à F149 et E105 à E108 réservés à
   A3 et A4. Page pour le DC : https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider).
+- 23/10, vers 21 h 25, **run `wf_e1ae9f59-b47`** (orchestrateur ; deux chaînes en parallèle, A3-préparation et S0,
+  chacune constructeur, vérificateur adverse, correcteur). **Décisions de l'orchestrateur pour A3** (délégation Q25) :
+  D-7 appliquée (ombre à 32 échantillons, autres passes à 128, sous réserve d'identité octet à octet des autres passes) ;
+  **D-10** : le bouchon arrière des âges 4 à 7 n'est posé que dans les directions où la fente se verrait sans lui
+  (trou > 8 px hr), saut aux bords mesuré et regardé ; trous enfermés traités avant la production ; garde de 1 Go dans
+  `with_render_lock.py` ; production de nuit lancée par l'orchestrateur après la vérification.
+- 23/10, vers 22 h 55, **fusion du lot S0 et version 0.4.7** (fusion `4593893` de `worktree-wf_e1ae9f59-b47-2` :
+  constructeur `cdf8d32`, correcteur `e3a50dc` ; changelog `e4d9e03` ; `fo-autotest.bat` recopié à la racine après
+  contrôle que la racine était l'ancienne source). Sons COMMITÉS (20 OGG, 0,5 Mo, `sound/levels/gun/`, avec `sons.lua`
+  généré et un manifeste ; contrairement aux PNG de D-6, ils sont petits). **Défaut bloquant de la vérification,
+  confirmé** : les sessions de test « son actif, volumes à 0 » émettaient du son sur la sortie du PC (crête −34,6 dBFS,
+  relevé WASAPI) ; sessions 05, 06, 08, 09 et 13 du constructeur et v04 du vérificateur, entre 21 h 30 et 22 h 15
+  environ : probablement audibles chez le DC. **Faute de l'orchestrateur** : la consigne exigeait « volume 0 prouvé avant
+  tout lancement », pas une MESURE de la sortie. Règle depuis : toute session avec son passe par `FO_AUDIO=1`, le pilote
+  SDL `disk` et le garde de crête (`audio_guard.py`, code 10) ; jamais de vraie sortie audio (CLAUDE.md §4). Correction
+  prouvée : 0 session audio Windows du jeu, relevé indépendant 0,000000 sur 41 550 relevés. Moteur réel sur `main` 0.4.7 (23/10, `done.txt` de 22:57:15,32 à 22:59:00,81 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.7\`) : `content` 317 ; `monde` 89 ; `m0-reprise` 15 ; `m0-migration` 9 ; `t2-machines` 80 ; `t3-libere` 41 ; `bord-a-bord` 12 ; `ht3-migration` 30 + journal 7 ; `t2-migration` 64 + 26 ; `t2-defense` 36 + 19 (0.4.1) et 36 + 11 (0.4.2) ; `t3-migration` 7 ; `gun-rose` 11, et 11 avec `FO_AUDIO=1` ; sur la graine 123456789 : `content` 317 et `monde` 89 ; **`fo-captures.bat gun-rose` avec `FO_AUDIO=1`** : code 0, 90 captures, « Driver:disk » et « Loading sounds... » au journal, garde : 0 session audio Windows du jeu en 2 416 relevés, crête 0 (`captures-gun-rose-audio\session.txt`). Hors jeu : run 114, war 92, td 270, pteam 15, migration 82, monde 157, levels 1 662 + 11 écarts connus, epochs 16 665, org 362, pvp 596 (387 s) ; harness code 0 (**Sons 0 violation**, auto-contrôle 13/13 ; images 17/17, feuilles 318) ; api_lint 676 ; d4m 5/5 ; mut_atlas 50 ; test_ht3_journal 15 ; **bat_double_source 40** ; mut_vram 18/18 ; **test_audio_session 21** ; **`sons.py --check` 20** ; check_gun_sheets 12 ; `test_audio_guard` (4 OK au lot) NON rejoué par l'orchestrateur : il joue 3 s d'un son de 30 Hz à −70 dBFS sur la vraie sortie du PC. Page
+  d'écoute : https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG (sons PROVISOIRES, Q-S0-1). Écarts : le constructeur puis le correcteur ont recopié
+  temporairement leur `.bat` à la racine sous un AUTRE nom (`fo-autotest-s0.bat`, `fo-autotest-s0c.bat`, effacés
+  ensuite) : les `.bat` de la racine n'ont pas été touchés, mais la consigne ne le prévoyait pas. Non prouvé : le tir
+  joué en jeu (l'auditeur des sessions avec images n'est pas aux sites de tir) ; la source du fond sonore insensible
+  aux volumes (F152).
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
@@ -282,6 +303,19 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot S0, la chaîne des sons, 23/10, 21 h 25 à 22 h 45 ; fusionné dans `main`, `4593893`, version 0.4.7)
+Bloc réservé à S0 : F150 à F153 ; F154 pris hors du bloc (le « F152 bis » du correcteur devient F153, son F153 devient
+F154). Preuves : `fo-logs\2026-10-24_S0\` (`NOTES.md` §2, §3 et §7 qui fait foi ; `verification.md` ; `moteur\`,
+`correction\`). Expérience : E69.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F150 | **Observé en moteur réel** (E69, sessions 03 et 04). En `--create` et `--benchmark` (« Running in headless mode »), aucun son n'est chargé, avec ou sans `--disable-audio` : journaux identiques hors horodatages ; un fichier son manquant passe sans erreur. | `fo-autotest.bat` ne voit pas un son manquant : le banc des fichiers son est `FO_AUDIO=1` + `fo-captures.bat`, et la règle « sons » du harness hors jeu. |
+| F151 | **Observé en moteur réel** (E69, sessions 05 à 08, 13). En `--benchmark-graphics` sans `--disable-audio`, le jeu ouvre l'audio (SDL, 44 100 Hz) et charge TOUS les sons des prototypes au démarrage (« Loading sounds... », 1,7 s après le lancement) ; un fichier manquant donne « Error SoundLibrary.cpp:56: Missing sound when loading sound library: <fichier> », le jeu revient au menu SANS les mods (« Resetting config ») et y reste jusqu'à l'arrêt automatique (122 s observées) ; avec `--disable-audio`, le même mutant passe. | Un son manquant bloque la partie du DC au menu : règle « sons » du harness (fichier présent, extension .ogg, .wav ou .voc, en-tête juste). |
+| F152 | **Mesuré** (vérification : relevé WASAPI à la sortie du PC ; correction : sortie du pilote SDL `disk`). Les 9 clés `[sound]` à 0 du `config.ini` de test (`master-volume`, `music-volume`, `game-effects-volume`, `gui-effects-volume`, `walking-sound-volume`, `environment-sounds-volume`, `alerts-volume`, `wind-volume`, `simulation-volume` ; noms lus dans le binaire 1.1.91) NE rendent PAS la session silencieuse : crête −34,6 dBFS, continue dès 3,6 s ; aux volumes par défaut, crête −21,6 dBFS ; de 10 à 24 s, les deux sorties sont le même signal (corrélation 1,000). Source de ce fond : non identifiée. | Une session de test avec son ne doit JAMAIS ouvrir la vraie sortie : pilote `disk` (F153) et garde de crête. |
+| F153 | **Observé en moteur réel** (correction de S0, sessions c01 à c03). Le SDL de Factorio 1.1.91 n'a PAS le pilote audio `dummy` (« Audio target 'dummy' not available », « Resetting... », puis « Driver:wasapi » : retour à la vraie sortie) ; il a le pilote `disk` (`SDL_AUDIODRIVER=disk`, `SDL_DISKAUDIOFILE`) : « Driver:disk », aucune session audio Windows, la sortie mixée est écrite dans le fichier au rythme réel, les sons sont chargés et un son manquant fait toujours échouer le chargement. | `FO_AUDIO=1` passe `SDL_AUDIODRIVER=disk` au seul jeu de test ; le pilote de session exige « Driver:disk » et « Loading sounds » au journal, sinon code 10. |
+| F154 | **Observé** (Blender 5.2.2, module `aud`). Il décode l'OGG et le MP3 et écrit WAV, OGG Vorbis et MP3 ; l'encodeur Ogg tire au hasard le numéro de série du flux : deux encodages du même WAV diffèrent de 32 octets (série et CRC de chaque page), l'audio décodé est identique. | `tools/sound/sons.py` fixe la série et recalcule les CRC : sorties identiques au sha256 d'un passage à l'autre. |
 
 ### Faits vérifiés en moteur réel (lot A2, la mitrailleuse en jeu à 4 directions, 23/10, 19 h 05 à 21 h 00 ; fusionné dans `main`, `e0088bd`, version 0.4.6)
 Bloc réservé à A1 à A4 : F120 à F129 ; A2 prend F123 à F129 (bloc épuisé ; A3 et A4 : F140 à F149). Run `wf_0143e61e-944`
@@ -545,6 +579,24 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E69 · VALIDÉ en moteur réel · Une session de test avec le son charge nos fichiers son, sans aucune sortie audio (lot
+S0, 23/10, 21 h 30 à 22 h 45 ; constructeur, vérificateur, correcteur, run `wf_e1ae9f59-b47`)** :
+- Protocole : `gun-rose` sur la source du lot et sur une copie « mutante » sans `tir-ere3-2.ogg` ; sessions sans
+  images (`--create`, `--benchmark`) et avec images (`--benchmark-graphics`), son coupé ou actif ; relevé indépendant
+  de la sortie du PC (WASAPI, outil du vérificateur) pendant chaque session avec images ; après la correction, pilote
+  SDL `disk` et garde de crête.
+- Résultats : sans images, aucun son chargé (F150) ; avec images et son actif, tous les sons chargés au démarrage, le
+  mutant bloque les mods au menu (F151) ; les volumes à 0 ne coupent pas la sortie (F152, défaut bloquant de la
+  vérification) ; pilote `disk` : « Driver:disk », « Loading sounds... », 0 session audio Windows du jeu, relevé
+  indépendant 0,000000 sur 41 550 relevés, mutant toujours refusé (code 7 en 3,3 s) (F153). Sur `main` 0.4.7 :
+  `fo-captures gun-rose` avec `FO_AUDIO=1`, code 0, garde 0 session en 2 416 relevés.
+- Sons du lot : 20 OGG (5 ères × 4 variations dérivées des tirs vanilla), volume jamais au-dessus de la vanilla
+  (écart maximal : tirs −0,32 dB, rafales −0,10 dB), plus grave à chaque ère (centroïde 646 Hz vanilla, puis 552, 478,
+  353, 304, 178 Hz) ; octets reproductibles (F154).
+- Limites : le tir n'est pas prouvé JOUÉ en jeu (aucun tir reconnu dans la sortie `disk` : l'auditeur n'est pas aux
+  sites de tir) ; le garde n'a jamais tué un vrai Factorio en train de jouer du son (prouvé sur un témoin Python à
+  −70 dBFS, tué en 0,62 s) ; écoute du DC : en attente (Q-S0-1).
+
 **E68 · VALIDÉ en moteur réel · Où le moteur pose l'éclat de tir, et la bouche de la mitrailleuse par âge (lot A2,
 23/10, 19 h 30 à 21 h 00 ; constructeur puis correcteur, run `wf_0143e61e-944`)** :
 - Protocole : (1) sur les sprites, bouche = milieu des bouts des deux canons extrêmes, par pose (rangées de lignes dont

@@ -10,7 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 23/10/2026, vers 21 h 15** (orchestrateur, session `8a9c0503` ; jalon : **lot A2 fusionné,
+> **Dernière mise à jour : 23/10/2026, vers 23 h 10** (orchestrateur, session `8a9c0503` ; jalon : **lot S0 fusionné,
+> version 0.4.7** : tir de la mitrailleuse par ère, provisoire (page d'écoute https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG) ; tous
+> les bancs verts sur `main` 0.4.7 (moteur réel de 22:57:15 à 22:59:00) ; A3-préparation encore en cours dans le run
+> `wf_e1ae9f59-b47`). Avant : vers 21 h 15 (jalon : **lot A2 fusionné,
 > version 0.4.6** : la mitrailleuse validée est EN JEU, 30 niveaux à 4 directions (fusion `e0088bd`, changelog `ef64f79`) ;
 > tous les bancs verts sur `main` 0.4.6 (moteur réel de 20:53:22 à 20:54:56, hors jeu jusqu'à 21:02) ; page pour le DC
 > https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B). Avant : vers 18 h 30 (agent des documents du run `wf_2f1793c9-578`,
@@ -30,10 +33,15 @@
 > 17 h 25, lot V3-T intégré à 14 h 50). Mettez à jour ce fichier à chaque jalon.
 
 ## 1. En dix lignes
-1. Mod Factorio 1.1.91, version **0.4.6** (depuis la fusion du lot A2, le 23/10 vers 20 h 50 ; 0.4.5 depuis M0, le
+1. Mod Factorio 1.1.91, version **0.4.7** (depuis la fusion du lot S0, le 23/10 vers 22 h 55 ; 0.4.6 depuis A2, le
+   23/10 vers 20 h 50 ; 0.4.5 depuis M0, le
    23/10 à 17 h 44 ; 0.4.4 depuis V3-T3, le
    22/10 à 22 h 50 ; 0.4.3 depuis V3-T2), dépôt git `main` dans ce dossier.
-2. Bancs sur `main` **0.4.6** (rejoués le 23/10 après la fusion d'A2 : moteur réel de 20:53:22 à 20:54:56, archives
+2. Bancs sur `main` **0.4.7** (rejoués le 23/10 après la fusion de S0 : moteur réel de 22:57:15 à 22:59:00, archives
+   `<racine>\fo-logs\2026-10-23_integration-0.4.7\`), tous verts ; changent : harness (règle « sons », 13/13),
+   bat_double_source **40**, test_audio_session **21** et `sons.py --check` **20** (nouveaux), `gun-rose` aussi avec
+   `FO_AUDIO=1`, et `fo-captures gun-rose` avec `FO_AUDIO=1` silencieux (garde : 0 session audio du jeu). Avant, sur
+   0.4.6 (rejoués le 23/10 après la fusion d'A2 : moteur réel de 20:53:22 à 20:54:56, archives
    `<racine>\fo-logs\2026-10-23_integration-0.4.6\` ; hors jeu jusqu'à 21:02), tous verts ; changent : levels **1662**,
    api_lint **676**, mut_atlas **50**, harness (règle « images », feuilles de la mitrailleuse 318, 0 manquant),
    **`gun-rose` 11 OK** (nouveau) + 90 captures, check_gun_sheets 12 ; le reste comme ci-dessous. État précédent
@@ -201,9 +209,12 @@
 | **K0** kit commun des familles | ✅ intégré par INT-K0 (fusion `e4e8416`) ; branche `worktree-wf_2bade7c0-0e8-2`, constructeur `0cee947`, tête `87c4fb1`. Aucun design validé changé (empreinte FORTE, 72 variantes et 165 habillages, graines comprises). Vérification : 4 majeurs du lot corrigés ; 1 majeur antérieur NON corrigé (F136, graines inertes : décision du DC) ; 5 mineurs dits (dont `stone-wall` non mesuré et la séparation des âges 4 et 5 par la seule saturation) | E71, E72, F136 ; `<racine>\fo-logs\2026-10-23_suite\K0\` (`NOTES.md` section « Correction », `INTEGRATION.md`, `verification.md`, `correction\`, `D3_ere_V.md`) |
 | **INT-K0, INT-GARDE, INT-GRAINE** | ✅ fusionnés vers 18 h 40 (`e4e8416`, `b80f2bb`, `0db5493`), version 0.4.5 inchangée ; kit commun sur `main` sans design changé ; garde des durées selon E67 (levels 1 661) ; `FO_MAP_SEED` (défaut 20261020 ; `$env:FO_MAP_SEED = $null` après usage, F139) ; bancs verts (`content` et `monde` aussi sur la graine 123456789) | `<racine>\fo-logs\2026-10-23_suite\INT-*\` ; `<racine>\fo-logs\2026-10-23_integration-0.4.5-b\` ; F137 à F139 |
 | **A2** la mitrailleuse en jeu à 4 directions (plan, étape 3) | ✅ fusionné le 23/10 vers 20 h 50 (run `wf_0143e61e-944` ; constructeur `ba9edef`, correcteur `4837368` ; fusion `e0088bd`), **version 0.4.6** (`ef64f79`). Les 30 niveaux portent les designs validés : socle, pièce des niveaux pairs, tête à 4 directions, lueurs, halos, ombres, icône par âge, éclat de tir au bout des canons (E68), reste et explosion à la taille de l'emprise. Feuilles : décision D-6 (`graphics/levels/gun/`, 318 PNG hors de git, à régénérer par `feuilles.py` dans tout checkout ou worktree neuf, CLAUDE.md §5). Vérification : 4 majeurs, tous corrigés. Moteur réel sur `main` 0.4.6 : tous les bancs verts, `gun-rose` 11 OK, 90 captures ; hors jeu : levels 1662, api_lint 676, mut_atlas 50. Page DC https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider). Non prouvé et mineurs : `NOTES.md` §13.7 (bouchon par secteur à trancher avant A3 ; restes et explosions jamais vus en destruction ; icônes d'âge jamais vues dans l'interface) | E68, F123 à F129 ; `<racine>\fo-logs\2026-10-24_A2\` (`NOTES.md` §13, `INTEGRATION.md`, `verification.md`, `correction\`, `sprites\` à GARDER) ; `<racine>\fo-logs\2026-10-23_integration-0.4.6\` |
+| **S0** la chaîne des sons (plan, étape 5) | ✅ fusionné le 23/10 vers 22 h 55 (run `wf_e1ae9f59-b47` ; constructeur `cdf8d32`, correcteur `e3a50dc` ; fusion `4593893`), **version 0.4.7** (`e4d9e03`). Tir de la mitrailleuse par ère (20 OGG commités dans `sound/levels/gun/`), règle « sons » du harness, `FO_AUDIO=1` (pilote SDL `disk`, garde de crête `audio_guard.py`, code 10). **Défaut bloquant corrigé** : des sessions de test « volumes à 0 » ont émis du son chez le DC (21 h 30 à 22 h 15) ; faute de consigne de l'orchestrateur (aucune mesure du silence exigée). Sons PROVISOIRES : Q-S0-1, page https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG. Non prouvé : tir joué en jeu ; source du fond sonore (F152) | E69, F150 à F154 ; `<racine>\fo-logs\2026-10-24_S0\` (`NOTES.md` §7, `INTEGRATION.md`, `verification.md`, `correction\`, `ecoute\`) ; `<racine>\fo-logs\2026-10-23_integration-0.4.7\` |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
+- **Page d'écoute S0 (23/10, 23 h)** : https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG ; question **Q-S0-1** (OBJECTIFS §4) : pour
+  chaque ère, garder, changer ou refaire le tir. Les sons sont en jeu depuis 0.4.7, provisoires.
 - **Page A2 (23/10, 21 h)** : la mitrailleuse dans le vrai jeu, version 0.4.6
   https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider ; vu : 4 directions seulement, pose N « cheminée », pose S
   canons vus de face, nuits très sombres, ombre de la tête sur le sol seulement).
@@ -395,6 +406,8 @@ voit ; trous enfermés sur 64 directions ; garde de 1 Go dans `with_render_lock.
 pilote âge 5 complet + 8 directions de l'âge 15 ; estimation mémoire vidéo ; sorties `<racine>\fo-logs\2026-10-24_A3\`)
 et **S0** (sons : E69 avec volume 0, outil, règle du harness, tir par ère, page d'écoute ; `<racine>\fo-logs\2026-10-24_S0\`).
 Ensuite : l'orchestrateur fusionne A3-préparation et lance la production de nuit (`INTEGRATION.md` d'A3), puis A3-jeu.
+**S0 : FAIT** (fusion `4593893` vers 22 h 55, version 0.4.7 ; ligne du §2). A3-préparation : en cours (pilote de
+l'âge 5 en rendu à 22 h 55, 44 s de Blender par tête).
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**
