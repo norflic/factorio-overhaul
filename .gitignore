@@ -13,3 +13,7 @@ tools/render/out/
 
 # Worktrees des sous-agents (Claude Code)
 .claude/worktrees/
+
+# Feuilles de jeu de la mitrailleuse (lot A2, décision D-6) : PNG HORS de git, régénérés par
+# tools/render/pieces/levels/gun_e/feuilles.py ; MANIFEST.json, sprites.lua et sprites.json sont commités.
+graphics/levels/gun/*.png

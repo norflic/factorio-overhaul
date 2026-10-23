@@ -395,6 +395,20 @@ Scénarios greffés des lots de niveaux :
   Attendu sur `main` (22/10, 22:51:53,59) : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) ». À 700 ticks, le banc
   s'arrête avant le contrôle, sans BILAN (passage du 22/10 à 22:51:02,43). Pas de contrôle de journal.
 
+Scénario greffé du lot A2 (mitrailleuse V3-E en jeu, 24/10) :
+- `gun-rose` (1 000 ticks ; contrôle au tick 900) : en (3000, −2400), une rangée par niveau (âge e : niveau impair,
+  puis niveau pair 10 tuiles plus bas ; âge 1 : niveaux 1 et 2), chacune avec la mitrailleuse VANILLA puis le niveau
+  orienté N, E, S, O par `orientation` écrite au tick 30 (E70, F122) ; en (3200, −2400), 12 sites de TIR (niveaux 1, 13
+  et 29 face à un ver géant ennemi au N, à l'E, au S et à l'O, cessez-le-feu de l'ennemi, ver recréé s'il meurt).
+  Contrôles : prototypes, 150 + 12 tourelles posées, orientation écrite, tenue 30 ticks après et au tick 900,
+  `drawing_box` plus haute que la sélection (niveaux 3 à 30 ; niveau 2 vanilla sans), reste agrandi (copie déclarée
+  « -restes ») dès 3×3, chaque tourelle de tir a consommé des chargeurs et vise sa cible. Sans double source :
+  `& "<racine>\fo-autotest.bat" nopause 1000 gun-rose "<source>"`. Attendu (lot A2) : « [FO-GUN-ROSE] BILAN : 10 OK,
+  0 ECHEC(S) ». Images : `& "<racine>\fo-captures.bat" gun-rose "<source>"` : 54 captures (par âge, zoom 1, jour et
+  nuit ; âges 3, 9, 15 au zoom 2 ; tir des niveaux 1 et 29 en 4 directions, zoom 2, deux instants). Les feuilles
+  d'images de la mitrailleuse (`graphics/levels/gun/*.png`) sont HORS de git (D-6) : un worktree neuf doit d'abord les
+  régénérer (`py -3.9 tools/render/pieces/levels/gun_e/feuilles.py`), sinon l'étape data refuse les fichiers absents.
+
 Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époques 5, 7 et 8, `script/world/guarantee.lua`) :
 - `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine
   20261020 par défaut ; depuis le lot INT-GRAINE, `FO_MAP_SEED` change celle de nauvis, §1.2) : chaque graine est jouée sur une surface créée par le scénario (`game.create_surface`, réglages de nauvis,
@@ -659,7 +673,14 @@ doivent être refusés, par exemple :
 - un plancher dont l'atlas « [none] » a la taille de la qualité normale, et l'inverse ;
 - une qualité déclarée qui ne correspond pas au contenu ;
 - un plancher sans atlas virtuel, ou dont l'atlas virtuel n'apparaît que dans une impression de script ;
-- des réglages non étalonnés.
+- des réglages non étalonnés ;
+- (lot A2) un atlas d'icônes sans `linear-mip-level` en HAUTE qualité, ou sans `mipmap`, ou absent.
+
+Lot A2 (24/10) : avec les icônes d'âge de la mitrailleuse, l'atlas [icon] perd `linear-mip-level` en qualité NORMALE
+(mémoire « all » et plancher ; 3 journaux), pas en haute ; la même session sans ces icônes le garde (expérience de
+contrôle, `fo-logs\2026-10-24_A2\d4m-experience`). Cause non identifiée. `run_d4m.py` le tolère en normale seulement
+(`VARIANTES_QUALITE`) ; `mut_atlas.py` lit aussi les journaux A2 (`fo-logs\2026-10-24_A2\d4m\apres_*`, deux niveaux sous
+`fo-logs`, hors de l'étape 5) : attendu depuis A2 : `48 OK, 0 ECHEC(S)` (40 avant).
 
 Le script vérifie aussi son garde-fou sur un faux `fo-logs` temporaire, puis contrôle qu'aucune de ses copies n'est
 lue par l'étape 5. Attendu : `40 OK, 0 ECHEC(S)`. L'étape 5 ne lit que `<logs>/*/visual.log`, un seul niveau sous

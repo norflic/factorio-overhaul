@@ -54,7 +54,11 @@ Restent dans `gun_e`, car propres à la mitrailleuse :
 - `epNN.py` ;
 - `epoques.py` (contrat, emprise `COTE`, clés propres de `HABILLAGE_DEFAUT`) ;
 - `piece.py`, `rendre.py`, `batch_blender.py`, `habillages.py`, `corps_choix.py` ;
-- `profil.py`.
+- `profil.py` ;
+- (lot A2) `feuilles.py` (feuilles de jeu, icônes, `graphics/levels/gun/sprites.lua`, manifeste), `check_gun_sheets.py`
+  (contrôle des feuilles, `--sources`, `--mutants`), `bouchon_visibilite.py` (mesure du bouchon arrière en N et E).
+  Gabarit pour les autres familles : sources de production → feuilles en colonne de directions (cadre commun aux
+  bords pairs) → `sprites.lua` généré → `prototypes/levels/<famille>.lua` qui le lit ; PNG hors de git (D-6).
 
 ## Faire une nouvelle famille (exemple : `four_e`)
 

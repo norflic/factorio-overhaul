@@ -77,14 +77,23 @@ AUTRES_ATLAS = sorted([
 ])
 # Seule variation tolérée : l'atlas [low-object] avec ou sans « linear-minification » (voir plus haut).
 VARIANTES = {frozenset(["low-object", "linear-minification"]): frozenset(["low-object"])}
+# Variation tolérée SELON LA QUALITÉ déclarée (lot A2, 24/10, étalonnée sur 3 journaux réels) : en qualité NORMALE
+# (mémoire « all » ou « low »), l'atlas [icon] perd « linear-mip-level » depuis que le mod livre les icônes d'âge de la
+# mitrailleuse (graphics/levels/gun/gun-eNN-icone.png, 64 px + 3 mipmaps : bande 120 × 64, comme la vanilla). Contrôle :
+# la même session sans ces icônes (copie jetable, M.icons neutralisé) garde le drapeau (fo-logs 2026-10-24_A2,
+# d4m-experience). Cause dans le moteur : NON identifiée. En haute qualité, le drapeau reste : il y est exigé.
+ICONE = ("icon", "not-compressed", "mipmap", "linear-minification", "linear-magnification", "linear-mip-level")
+VARIANTES_QUALITE = {"normal": {frozenset(ICONE) - {"linear-mip-level"}: frozenset(ICONE)}}
 RE_ATLAS_LIGNE = re.compile(r"^-- Atlas de sprites \((\d+)\)")
 VIRTUEL = "Created virtual atlas pages"
 
 
-def signature(flags):
-    """Signature d'un atlas : ensemble de ses drapeaux en minuscules (« none » et vides ôtés), variante tolérée ramenée."""
+def signature(flags, qualite=None):
+    """Signature d'un atlas : ensemble de ses drapeaux en minuscules (« none » et vides ôtés), variante tolérée ramenée
+    (VARIANTES, puis VARIANTES_QUALITE de la qualité déclarée par le journal)."""
     s = frozenset(f.strip().lower() for f in flags or [] if f.strip() and f.strip().lower() != "none")
-    return VARIANTES.get(s, s)
+    s = VARIANTES.get(s, s)
+    return VARIANTES_QUALITE.get(qualite, {}).get(s, s)
 
 
 def atlas_attendus(r):
@@ -98,7 +107,7 @@ def atlas_attendus(r):
     att = ATLAS_ATTENDUS[cle]
     atlases = r.get("atlases") or []
     # Atlas « [none] » : aucun drapeau, écrit « [none] » par le jeu.
-    nones = [a for a in atlases if not signature(a.get("flags"))]
+    nones = [a for a in atlases if not signature(a.get("flags"), cle[0])]
     px_none = sum(a["w"] * a["h"] for a in nones)
     # Atlas virtuel : relevé par vram.parse_log sur la ligne horodatée du MOTEUR seulement (une impression de script
     # qui contient ces mots ne compte pas).
@@ -111,7 +120,7 @@ def atlas_attendus(r):
     # Composition : chaque signature de AUTRES_ATLAS exactement une fois, aucune autre.
     vues = {}
     for a in atlases:
-        s = signature(a.get("flags"))
+        s = signature(a.get("flags"), cle[0])
         if s:
             vues[s] = vues.get(s, 0) + 1
     attendues = set(frozenset(t) for t in AUTRES_ATLAS)

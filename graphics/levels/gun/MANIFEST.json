@@ -1,0 +1,3797 @@
+{
+ "commande": "py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par d\u00e9faut : en t\u00eate de feuilles.py)",
+ "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
+ "fichiers": {
+  "gun-e02-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "1d3a7dd092c044e47dc3ea2a1da1464639c4155980f57be1579c691e850db04f",
+   "taille": 11419
+  },
+  "gun-e02-tete-glow.png": {
+   "hauteur": 232,
+   "largeur": 74,
+   "sha256": "579d345c9fb98b67f60daab43bd6f4a3a54746d0f4bd54fe576dd102f2f8a0e5",
+   "taille": 1250
+  },
+  "gun-e02-tete-main.png": {
+   "hauteur": 256,
+   "largeur": 76,
+   "sha256": "48368788af3fb079657efe4ba6e69ab9f15bacc250f99df2ac5e3dd17f164056",
+   "taille": 29630
+  },
+  "gun-e02-tete-shadow.png": {
+   "hauteur": 216,
+   "largeur": 87,
+   "sha256": "744a72f64549131cee32964c7ac2756b1b614019d635b61e29a5a0573e1b7db8",
+   "taille": 6256
+  },
+  "gun-e03-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "cb6df4c52c194a9ec5c128f77fc66e874dad435175c487214f03701fedbceca2",
+   "taille": 12237
+  },
+  "gun-e03-tete-glow.png": {
+   "hauteur": 244,
+   "largeur": 80,
+   "sha256": "0d1bab17d327fb566e66cd96095b8e60c49f1b0933f3920c65e61de8e100168b",
+   "taille": 3779
+  },
+  "gun-e03-tete-main.png": {
+   "hauteur": 244,
+   "largeur": 82,
+   "sha256": "67a4e2b8a3797c47e0aaade1d774ec1d0c3b31087fd0d115786d16fc94fab4d4",
+   "taille": 24575
+  },
+  "gun-e03-tete-shadow.png": {
+   "hauteur": 232,
+   "largeur": 85,
+   "sha256": "d9c38c7c9999795bb66d6d6f4c33beadfbc60c47f51f133166247372b252eb1e",
+   "taille": 6954
+  },
+  "gun-e04-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "bd83b996eecc6f36dae1ba9849b4b1a8348d35ea9ebd776ac902235029397a8e",
+   "taille": 12727
+  },
+  "gun-e04-tete-glow.png": {
+   "hauteur": 376,
+   "largeur": 122,
+   "sha256": "5a66c1a719660ac8afa1009904a53286e98c3b455892ab3bdc6ec8f75863e3e5",
+   "taille": 5108
+  },
+  "gun-e04-tete-main.png": {
+   "hauteur": 376,
+   "largeur": 122,
+   "sha256": "b6f01a66ab9625855c6b7308b9bee86b171f889edf1a8b10db6b02fe49185ccd",
+   "taille": 54666
+  },
+  "gun-e04-tete-shadow.png": {
+   "hauteur": 344,
+   "largeur": 130,
+   "sha256": "71966ec68f996b0381137401dcfa088b4be7b2215c6f029e153992914fcbfe2b",
+   "taille": 11441
+  },
+  "gun-e05-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "a639546d86686b71f7b0bee84e80c90baf33c96caddb1dfac86642a26d39ad24",
+   "taille": 11883
+  },
+  "gun-e05-tete-glow.png": {
+   "hauteur": 368,
+   "largeur": 122,
+   "sha256": "ba77cfaae3e4c451483d7acd95adb42efd559dbf39790baad1a801699f781e6e",
+   "taille": 14582
+  },
+  "gun-e05-tete-main.png": {
+   "hauteur": 372,
+   "largeur": 122,
+   "sha256": "e63303b54db920f89c8a0b6180ae65b8746b229ea36ecb3aa0d1b73807847b01",
+   "taille": 50498
+  },
+  "gun-e05-tete-shadow.png": {
+   "hauteur": 344,
+   "largeur": 130,
+   "sha256": "080bb52f06aa960b6b81dd1a0274b82bb9d216c009736190d4f140c3b5316e11",
+   "taille": 10857
+  },
+  "gun-e06-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "0d80106b0e1c62185c86cdb7d8472bcbaf519ef4642d3aaffe6eae4cdff4ae47",
+   "taille": 13060
+  },
+  "gun-e06-tete-glow.png": {
+   "hauteur": 368,
+   "largeur": 120,
+   "sha256": "a4f2f20eccc5dff9bc828df7e5b365ae140703904d362ad1144c8f0f19fb5a0b",
+   "taille": 13236
+  },
+  "gun-e06-tete-main.png": {
+   "hauteur": 368,
+   "largeur": 120,
+   "sha256": "0a7ebb8c0de647b84fbb0f24429a8fe2d051a3f574b33414540c4a960589fb82",
+   "taille": 57688
+  },
+  "gun-e06-tete-shadow.png": {
+   "hauteur": 344,
+   "largeur": 129,
+   "sha256": "61912b7363eadc6a5e6311c889baa98654e2a739bc03e6e4cfdeb6bc09c2decb",
+   "taille": 13267
+  },
+  "gun-e07-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "1c739552c7b2f25492db6f4676210927211bb505b7ce32e9c99922a732974341",
+   "taille": 11166
+  },
+  "gun-e07-tete-glow.png": {
+   "hauteur": 540,
+   "largeur": 190,
+   "sha256": "28420b32464072e43bf1168a71059d65f4dd9900e766f1cfde811f1583320954",
+   "taille": 16379
+  },
+  "gun-e07-tete-main.png": {
+   "hauteur": 540,
+   "largeur": 190,
+   "sha256": "69ac0b38521b630e5bb4fa07fa7dad83983a3f4cfe725c70abe8b01e3ebb55cf",
+   "taille": 77901
+  },
+  "gun-e07-tete-shadow.png": {
+   "hauteur": 536,
+   "largeur": 190,
+   "sha256": "952c98b757afec1796ea151cd2e992ae224339a2525156fc5210b3bbb26e9e5c",
+   "taille": 19880
+  },
+  "gun-e08-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "b41e0732fa1adb2ba697066f70bfb40fcac15e044512037193e4c1990f169f70",
+   "taille": 12380
+  },
+  "gun-e08-tete-glow.png": {
+   "hauteur": 496,
+   "largeur": 162,
+   "sha256": "809300ed815b4d2bd9583cefd44ecab5b64b61322186ed2cd35b7c641d231a5b",
+   "taille": 17455
+  },
+  "gun-e08-tete-main.png": {
+   "hauteur": 496,
+   "largeur": 162,
+   "sha256": "c9d6192777513136260374905a0fbfbf6a0b66df89d1f4b995fd3e207536738e",
+   "taille": 78352
+  },
+  "gun-e08-tete-shadow.png": {
+   "hauteur": 464,
+   "largeur": 173,
+   "sha256": "ccef9c94c0cb5d8a26840dd6058f6337ea92d3dd6529fc2ce0e10a9266dc4895",
+   "taille": 19753
+  },
+  "gun-e09-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "cbaeb137bd9550f85b79cf542f75e158d8a750a32d6cfcc2dfbdf312e71ee2fd",
+   "taille": 13020
+  },
+  "gun-e09-tete-glow.png": {
+   "hauteur": 520,
+   "largeur": 170,
+   "sha256": "33db7244951029293ca9367e405e654bdcec67e7aa5f5d4a6fc18a9133373182",
+   "taille": 18281
+  },
+  "gun-e09-tete-main.png": {
+   "hauteur": 520,
+   "largeur": 170,
+   "sha256": "208bc3c51b7d243815ac3c6ff10d37f72883fa69edf44bb0dec1732744359d95",
+   "taille": 80281
+  },
+  "gun-e09-tete-shadow.png": {
+   "hauteur": 480,
+   "largeur": 182,
+   "sha256": "4f5b0fdb73362ea213779e2ce28107717f996e496a37ddb877059077c8570b6e",
+   "taille": 18353
+  },
+  "gun-e10-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "6a61abfd1f9def9b0fade9532598bd2d81867fa2e326b32d3823b1627f351188",
+   "taille": 13298
+  },
+  "gun-e10-tete-glow.png": {
+   "hauteur": 540,
+   "largeur": 182,
+   "sha256": "cdbefd0a586afea1e43821022aeb805b22863f5a64add8ff46c6608e314da300",
+   "taille": 9678
+  },
+  "gun-e10-tete-main.png": {
+   "hauteur": 540,
+   "largeur": 182,
+   "sha256": "53dc1e3cdf7cd559d81f48d53c8a7ee20c857f2c66a0566d22316301ec0d04c5",
+   "taille": 106988
+  },
+  "gun-e10-tete-shadow.png": {
+   "hauteur": 512,
+   "largeur": 189,
+   "sha256": "f0b8060d0886aa2c99aef262c8d0e5593c906f9ac45bf42e6a9f96a58cd6d230",
+   "taille": 23502
+  },
+  "gun-e11-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "35358b5cd0f69fdcf6f930f09bc61b643ca113ba8262568730b97661826d7f66",
+   "taille": 11671
+  },
+  "gun-e11-tete-glow.png": {
+   "hauteur": 720,
+   "largeur": 244,
+   "sha256": "a350de8294ad21a1b8d420a75677efc359034f923eb76a70ad5063c59848a768",
+   "taille": 11215
+  },
+  "gun-e11-tete-main.png": {
+   "hauteur": 720,
+   "largeur": 244,
+   "sha256": "e1c632db11654da218a71959bfb86ee7c28ff1fc5aca0f965bfcbed6454142b1",
+   "taille": 128458
+  },
+  "gun-e11-tete-shadow.png": {
+   "hauteur": 696,
+   "largeur": 252,
+   "sha256": "903f8cacda3436c5451a6a31d700d36483a894559794fc3c12b7bf26691b4ab8",
+   "taille": 33731
+  },
+  "gun-e12-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "9970a43c4ead399cba0d42e4692e7a0bfd00810777df7ffb3dc30312b9908e4a",
+   "taille": 14104
+  },
+  "gun-e12-tete-glow.png": {
+   "hauteur": 580,
+   "largeur": 194,
+   "sha256": "a2c977c22c344a5ca44996b71d60d4f7d7ac9ca05120d3251119e8417d405651",
+   "taille": 25270
+  },
+  "gun-e12-tete-main.png": {
+   "hauteur": 580,
+   "largeur": 194,
+   "sha256": "65f82d84103a31dedbf6ea9deb3cbb552a205f3c4b5dea7b9b993b7fc380d2d3",
+   "taille": 120284
+  },
+  "gun-e12-tete-shadow.png": {
+   "hauteur": 552,
+   "largeur": 202,
+   "sha256": "edca2505f544e2a69e62102260b8075efc44ccf876a3f6189fbd7b852eb0d807",
+   "taille": 30471
+  },
+  "gun-e13-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "301f4ff61ff086f9a4ce961a133cefb30d122ee2689a6d3342453e54cef86538",
+   "taille": 12895
+  },
+  "gun-e13-tete-glow.png": {
+   "hauteur": 680,
+   "largeur": 230,
+   "sha256": "71714bf19939d863d8d10f7b23d4892cd5dc445c8840c06b059c0e5205a7d719",
+   "taille": 36678
+  },
+  "gun-e13-tete-main.png": {
+   "hauteur": 680,
+   "largeur": 230,
+   "sha256": "c1b46cdbbcb09b325c0303e4d82df0e8be8ed7c645260e95b033f50589e21c32",
+   "taille": 141020
+  },
+  "gun-e13-tete-shadow.png": {
+   "hauteur": 648,
+   "largeur": 239,
+   "sha256": "76acae2e7fa22c146e391bbd2a19bafd7c5532ce9ed0c773557ee593234eb517",
+   "taille": 32515
+  },
+  "gun-e14-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "ca9d5470b0bbaace2cc45175be6ab48abcbb7989f6e0420790db0e79c6ca18e4",
+   "taille": 13356
+  },
+  "gun-e14-tete-glow.png": {
+   "hauteur": 716,
+   "largeur": 242,
+   "sha256": "23d15584ed5607e940c4d68999cdf92c57402af7239e01195eb8fe551757fa96",
+   "taille": 20137
+  },
+  "gun-e14-tete-main.png": {
+   "hauteur": 716,
+   "largeur": 242,
+   "sha256": "7e400d7e95dd787f1e1e1e705730a591e27235c65bb64c77d29fdff1ca454cfc",
+   "taille": 154164
+  },
+  "gun-e14-tete-shadow.png": {
+   "hauteur": 688,
+   "largeur": 252,
+   "sha256": "e393aa629cc9c1370bada02e18a9be7375e20664a92e64c06728d0ef32cf1213",
+   "taille": 36835
+  },
+  "gun-e15-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "5698f7607eafca54803f1f4808ec1c0cbefd33210087f1f13f78879df481f706",
+   "taille": 11534
+  },
+  "gun-e15-tete-glow.png": {
+   "hauteur": 772,
+   "largeur": 262,
+   "sha256": "e96b90599ea54e49c7933c11cc5ec591f7d038e35df472dc3c1b476d7c03d547",
+   "taille": 93097
+  },
+  "gun-e15-tete-main.png": {
+   "hauteur": 772,
+   "largeur": 262,
+   "sha256": "e9bacc0a2675eb05f0923fdc9ec7b9ff1788f78086b42f51393a9ab26014f48c",
+   "taille": 141886
+  },
+  "gun-e15-tete-shadow.png": {
+   "hauteur": 744,
+   "largeur": 271,
+   "sha256": "d24474db27393aee9a25852b8237427eae580e133189754455623e9bfd05a834",
+   "taille": 42735
+  },
+  "gune-e01-piece-light.png": {
+   "hauteur": 84,
+   "largeur": 95,
+   "sha256": "abdeb8962fe08e4214b4a72677a9698bf80c37e1c507c6c31d37ede5ca5c1b5f",
+   "taille": 1954
+  },
+  "gune-e01-piece-main.png": {
+   "hauteur": 65,
+   "largeur": 89,
+   "sha256": "fa57a250955d1afd075a338e1dc4a9ef8ff4db1cca7a1266b43b212e129648ea",
+   "taille": 10739
+  },
+  "gune-e01-piece-shadow.png": {
+   "hauteur": 61,
+   "largeur": 78,
+   "sha256": "908990b1fbfa0721ac79af7ce3298e1d2db28a2956f665290910ff6367e7238c",
+   "taille": 1023
+  },
+  "gune-e02-piece-main.png": {
+   "hauteur": 35,
+   "largeur": 86,
+   "sha256": "ec3928859823971de541dee637ea7a143f7bcff1ac648aebf4356fbe5e61635a",
+   "taille": 4987
+  },
+  "gune-e02-piece-shadow.png": {
+   "hauteur": 26,
+   "largeur": 81,
+   "sha256": "6b9b3f321ca1617d3274daea00135373e11561ed2f1f97b3eb851b148fad4aeb",
+   "taille": 920
+  },
+  "gune-e02-socle-glow.png": {
+   "hauteur": 60,
+   "largeur": 59,
+   "sha256": "76a97b4582c75f807277e819722971a756eefae4ca1dcce624b3b96aed65890e",
+   "taille": 1195
+  },
+  "gune-e02-socle-light.png": {
+   "hauteur": 124,
+   "largeur": 130,
+   "sha256": "1cbbf2cb9cb2f324f85616804f3a74bb34340c312ef969092c8916e24e8ebfdb",
+   "taille": 3570
+  },
+  "gune-e02-socle-main.png": {
+   "hauteur": 81,
+   "largeur": 84,
+   "sha256": "51c994da45396e71a6c143727aa10eb8bfee2ac306974df9ec584613f46f96b4",
+   "taille": 12352
+  },
+  "gune-e02-socle-shadow.png": {
+   "hauteur": 67,
+   "largeur": 87,
+   "sha256": "271d2d66482aedaf4e0eac07edba63abef905be527910f4c12f69e1af5e830c0",
+   "taille": 964
+  },
+  "gune-e03-piece-glow.png": {
+   "hauteur": 24,
+   "largeur": 54,
+   "sha256": "1ba08949ffdc92ff825fd1e706013421b2bddec71f432c5a374baa79f3de5c56",
+   "taille": 294
+  },
+  "gune-e03-piece-main.png": {
+   "hauteur": 33,
+   "largeur": 80,
+   "sha256": "d0102bde88fea5b26e0ff818a1149c280277731dd03d8d54da4079d4637e1d8f",
+   "taille": 4560
+  },
+  "gune-e03-piece-shadow.png": {
+   "hauteur": 25,
+   "largeur": 83,
+   "sha256": "79831fc252bae027a4c4df946d6866c4e64041928c6792a62a8451d6b59e963d",
+   "taille": 716
+  },
+  "gune-e03-socle-glow.png": {
+   "hauteur": 37,
+   "largeur": 44,
+   "sha256": "e6f2c411aa5fb29dfd07104c3cda33a40ec450ee87a54d6fdac8d0219e37b6c7",
+   "taille": 527
+  },
+  "gune-e03-socle-light.png": {
+   "hauteur": 52,
+   "largeur": 50,
+   "sha256": "52a803a1cb262db5755f8f86fec555d492bb2212bc3f188f45575ea2e8f1cf8d",
+   "taille": 1103
+  },
+  "gune-e03-socle-main.png": {
+   "hauteur": 76,
+   "largeur": 84,
+   "sha256": "b9a2f472e1ac52e571a32caf36139244a92baf66bf4844fc9364b248eb0be7a1",
+   "taille": 13087
+  },
+  "gune-e03-socle-shadow.png": {
+   "hauteur": 65,
+   "largeur": 98,
+   "sha256": "ee0486432dbee5097e47c7855c978d3750bf2aa9dc2835343c38ca19c144e015",
+   "taille": 1801
+  },
+  "gune-e04-piece-glow.png": {
+   "hauteur": 4,
+   "largeur": 80,
+   "sha256": "e11a148810a1a31e1cc64796642d43f781adc520e8cec7eb7c5f6679d023ef2f",
+   "taille": 183
+  },
+  "gune-e04-piece-main.png": {
+   "hauteur": 33,
+   "largeur": 112,
+   "sha256": "2990bef48c97e88f8da727f1d4d696cb45e30c770892a5c2c0eb0a75288a4b75",
+   "taille": 5079
+  },
+  "gune-e04-piece-shadow.png": {
+   "hauteur": 28,
+   "largeur": 108,
+   "sha256": "cd699e326674615cac118ff54ff9e5f35c1279e21800b6788366d4910eb91c34",
+   "taille": 685
+  },
+  "gune-e04-socle-glow.png": {
+   "hauteur": 110,
+   "largeur": 80,
+   "sha256": "73b721d3ad55730c08e498120faefbc80d4fcb93bb6f67ad86bf278dd788faa8",
+   "taille": 623
+  },
+  "gune-e04-socle-light.png": {
+   "hauteur": 116,
+   "largeur": 148,
+   "sha256": "cc85299a4c63ba85e9ea2cc6a5aca013be2b5f89e7808b288dcd9e68b867f2ef",
+   "taille": 4980
+  },
+  "gune-e04-socle-main.png": {
+   "hauteur": 120,
+   "largeur": 111,
+   "sha256": "c95d860853881b3417658d200fbd34f1ce769d5e9ed53fbd679c6c32a4915ed6",
+   "taille": 23944
+  },
+  "gune-e04-socle-shadow.png": {
+   "hauteur": 95,
+   "largeur": 109,
+   "sha256": "7c859a05df4397edec158b1644ba0fd09c593cc2731ab271d17d452dad10bb7c",
+   "taille": 1720
+  },
+  "gune-e05-piece-glow.png": {
+   "hauteur": 17,
+   "largeur": 82,
+   "sha256": "3c53eff7412d0e8956297095a6a255259148ce8782e90d7355f5e488b679b4df",
+   "taille": 693
+  },
+  "gune-e05-piece-light.png": {
+   "hauteur": 111,
+   "largeur": 164,
+   "sha256": "77ca17a2981f1566c3e35544f7600aebd202a5b77897f15c094537682230b5d5",
+   "taille": 9462
+  },
+  "gune-e05-piece-main.png": {
+   "hauteur": 36,
+   "largeur": 116,
+   "sha256": "9bb7e811af0f06a6fdbee856fcef7f745c9274bf071bfba743379269eef7d289",
+   "taille": 5608
+  },
+  "gune-e05-piece-shadow.png": {
+   "hauteur": 30,
+   "largeur": 116,
+   "sha256": "db9add01d57ab2cc2665273ffe222cc2440b5aebbcbef53f5640d1f11347927e",
+   "taille": 886
+  },
+  "gune-e05-socle-glow.png": {
+   "hauteur": 95,
+   "largeur": 97,
+   "sha256": "e86677671713fc2bb9540670406812d77f0be83f76ecba304e696f45f3bd4736",
+   "taille": 5095
+  },
+  "gune-e05-socle-light.png": {
+   "hauteur": 142,
+   "largeur": 150,
+   "sha256": "b9a5e63305f2a74c805374c8fccc5fe8c73da680f455fcb64b881f3e9cbe110d",
+   "taille": 4931
+  },
+  "gune-e05-socle-main.png": {
+   "hauteur": 106,
+   "largeur": 116,
+   "sha256": "3f8332ea0137838f23f876a7dd6a628e2545ef1fd8e56e7f18b3c832fe979237",
+   "taille": 24081
+  },
+  "gune-e05-socle-shadow.png": {
+   "hauteur": 94,
+   "largeur": 121,
+   "sha256": "8a2bf96960099993b001d147c0440bd58f88c7bfc6eab6aedd85e64a06db006d",
+   "taille": 1597
+  },
+  "gune-e06-piece-glow.png": {
+   "hauteur": 22,
+   "largeur": 78,
+   "sha256": "3dfc70c9987a5aa4fc0b460706b58d482869e8663283c64c1e30c53826a6cf3b",
+   "taille": 287
+  },
+  "gune-e06-piece-light.png": {
+   "hauteur": 121,
+   "largeur": 163,
+   "sha256": "d200132b40130fa077bd594ebbb22a4c23c769d8ea450f1614063204fdb14437",
+   "taille": 10848
+  },
+  "gune-e06-piece-main.png": {
+   "hauteur": 31,
+   "largeur": 102,
+   "sha256": "5ed98e577a5284350a7a09f08b178f07ae144026dda03a0d942a37cce652566c",
+   "taille": 4204
+  },
+  "gune-e06-piece-shadow.png": {
+   "hauteur": 29,
+   "largeur": 104,
+   "sha256": "9b561b2b70d67c7106624e86680b5c4c2c425ee1fd8c0ed358c93ccdd42abe64",
+   "taille": 578
+  },
+  "gune-e06-socle-glow.png": {
+   "hauteur": 103,
+   "largeur": 99,
+   "sha256": "222fb9102e5646ea62fe2f5efb21f382246a402637fc498edac2003b78a53289",
+   "taille": 1356
+  },
+  "gune-e06-socle-light.png": {
+   "hauteur": 135,
+   "largeur": 118,
+   "sha256": "fc1faaa290533c1cdf5a331282c01897863c89dcb7d84a97ab9b4359654dea64",
+   "taille": 2823
+  },
+  "gune-e06-socle-main.png": {
+   "hauteur": 111,
+   "largeur": 116,
+   "sha256": "b2c3f93842482a7f002f49b5da5c94842e7986a178b51c7e8992108897a7e87a",
+   "taille": 24988
+  },
+  "gune-e06-socle-shadow.png": {
+   "hauteur": 93,
+   "largeur": 122,
+   "sha256": "a59199e8b926d7b560bc7bcd0c2d48cda4f5384b884e1d0d5a3b08755fd6cd7e",
+   "taille": 1932
+  },
+  "gune-e07-piece-glow.png": {
+   "hauteur": 32,
+   "largeur": 132,
+   "sha256": "34522fe9e61dbacbcfbfdb0b1c46403c9a31e394523ee9b59974f1b6cd4ec127",
+   "taille": 2476
+  },
+  "gune-e07-piece-light.png": {
+   "hauteur": 84,
+   "largeur": 188,
+   "sha256": "121373b4444a220e8763e417c66819b70d7d4ffa79616f4270414918d90a11bd",
+   "taille": 5429
+  },
+  "gune-e07-piece-main.png": {
+   "hauteur": 36,
+   "largeur": 144,
+   "sha256": "4cc8a73b6089386bd6bba1d13796b7fd1fdc37a89cc11d5a5b119bcd824f36c7",
+   "taille": 6648
+  },
+  "gune-e07-piece-shadow.png": {
+   "hauteur": 32,
+   "largeur": 142,
+   "sha256": "6170e508d4e8f2c8ec4546c6066a01123bc43f2d3fc3757a7470aa37a714c560",
+   "taille": 1139
+  },
+  "gune-e07-socle-glow.png": {
+   "hauteur": 130,
+   "largeur": 123,
+   "sha256": "cba5b57da1f0110584fd143829fba08dc67329b095856de50cf1a68f667e7582",
+   "taille": 11239
+  },
+  "gune-e07-socle-light.png": {
+   "hauteur": 146,
+   "largeur": 157,
+   "sha256": "1e97f6abf68edbd91e13e3f69e3ec767bf95567daa477cafb39870daed68a24c",
+   "taille": 3141
+  },
+  "gune-e07-socle-main.png": {
+   "hauteur": 138,
+   "largeur": 141,
+   "sha256": "6c652feb8cb14fe40ea184fee0ff31fb97f7ff8b3c9cdd4762e15153fc6638cb",
+   "taille": 34083
+  },
+  "gune-e07-socle-shadow.png": {
+   "hauteur": 125,
+   "largeur": 139,
+   "sha256": "c207538e0c8b73dcd25062419ca4e939ea779d0beba5023f354be05f11ec6de0",
+   "taille": 1743
+  },
+  "gune-e08-piece-glow.png": {
+   "hauteur": 35,
+   "largeur": 134,
+   "sha256": "eb7b13f1ea14ead862fbfabb412ac690978d3a82c7f38db1f97658c3e3f32cea",
+   "taille": 3819
+  },
+  "gune-e08-piece-light.png": {
+   "hauteur": 34,
+   "largeur": 146,
+   "sha256": "df39d20f6428973af39ead1fab16c1cc5e19467859e3f72607946d72fdc57d08",
+   "taille": 254
+  },
+  "gune-e08-piece-main.png": {
+   "hauteur": 46,
+   "largeur": 138,
+   "sha256": "fd5a132b213f8042ff53fdda900620a08368dae9bdec47c18af67e1264293ed0",
+   "taille": 7459
+  },
+  "gune-e08-piece-shadow.png": {
+   "hauteur": 33,
+   "largeur": 149,
+   "sha256": "1ccb1c0555112f34dfb194231ff6dfc88a8ef439d103d806a9fffb96c9b0baae",
+   "taille": 1835
+  },
+  "gune-e08-socle-glow.png": {
+   "hauteur": 134,
+   "largeur": 128,
+   "sha256": "4226e8edea0a86f93a30d7234d758d4754c877ff86ae35c9c7c4e28019e882b4",
+   "taille": 9372
+  },
+  "gune-e08-socle-light.png": {
+   "hauteur": 71,
+   "largeur": 32,
+   "sha256": "16ca78e73da115636604de5787f3a5eb398ab8575ba9174d7448a4dd07ca74d7",
+   "taille": 1142
+  },
+  "gune-e08-socle-main.png": {
+   "hauteur": 141,
+   "largeur": 145,
+   "sha256": "f7710baf0cff53f4bb8c14eef87cf3ab481270ad2eac683850ac2ea80ce58597",
+   "taille": 38152
+  },
+  "gune-e08-socle-shadow.png": {
+   "hauteur": 127,
+   "largeur": 157,
+   "sha256": "fff26f772e2601ac0d1a16e7564159de6eb18770abf3b23bbd0dcdd890ee85f1",
+   "taille": 9708
+  },
+  "gune-e09-piece-glow.png": {
+   "hauteur": 16,
+   "largeur": 98,
+   "sha256": "025e3ba35b88f92e9cd741b982aa3bfa482d64e82129db3f5cb96cb992d76308",
+   "taille": 193
+  },
+  "gune-e09-piece-main.png": {
+   "hauteur": 37,
+   "largeur": 146,
+   "sha256": "9c3b3ef14d8585a6df58133d3c93f9dfa39df0a1e7b52ee218844b953894f367",
+   "taille": 6578
+  },
+  "gune-e09-piece-shadow.png": {
+   "hauteur": 31,
+   "largeur": 143,
+   "sha256": "c947265ce46269cbd78074d6708a3bcede54ac324b6af0c99a501da59d0f5faa",
+   "taille": 975
+  },
+  "gune-e09-socle-glow.png": {
+   "hauteur": 142,
+   "largeur": 135,
+   "sha256": "1f70f4bb779f4fdff4301b2b4a4a2b40f58802325b66bbb78a143a0285e9ea5e",
+   "taille": 6293
+  },
+  "gune-e09-socle-light.png": {
+   "hauteur": 103,
+   "largeur": 89,
+   "sha256": "f15784288748b46ac056b3d90f39321f98978ae9c0261e8bec4038216150a717",
+   "taille": 1548
+  },
+  "gune-e09-socle-main.png": {
+   "hauteur": 150,
+   "largeur": 146,
+   "sha256": "8aca959bcbcb88533154aa0c77b3fdb9486e71c45472734bc7c5170fcfa1d122",
+   "taille": 40355
+  },
+  "gune-e09-socle-shadow.png": {
+   "hauteur": 132,
+   "largeur": 161,
+   "sha256": "7e5206a53b5e8f5c529178aea899514b7c15283effe3d36177898166e514dab7",
+   "taille": 2568
+  },
+  "gune-e10-piece-glow.png": {
+   "hauteur": 21,
+   "largeur": 110,
+   "sha256": "acff103139c00d8716637d7a3bcd22e4f8ad1d488e547da06227eef50c292568",
+   "taille": 477
+  },
+  "gune-e10-piece-light.png": {
+   "hauteur": 51,
+   "largeur": 156,
+   "sha256": "2c70a4c9a0b0e6d475ee32612a25d0fab1bc1127d8bc1f5573babbdb71473d44",
+   "taille": 2818
+  },
+  "gune-e10-piece-main.png": {
+   "hauteur": 35,
+   "largeur": 134,
+   "sha256": "9db36f2e8c5ec3717c0816e0c4f1553d2fbd867f6b1d95f1f2e61b9d1d93b71c",
+   "taille": 4255
+  },
+  "gune-e10-piece-shadow.png": {
+   "hauteur": 17,
+   "largeur": 135,
+   "sha256": "09c7b491e00610c3f565b1cfa8e576b53da7de8ff1dda5f0333e374f8a1fc09e",
+   "taille": 833
+  },
+  "gune-e10-socle-glow.png": {
+   "hauteur": 169,
+   "largeur": 153,
+   "sha256": "2b5b05b05be00fdfaae8da501c0f0d07e2795313fab74b0b54a8b37c763e7d70",
+   "taille": 6057
+  },
+  "gune-e10-socle-light.png": {
+   "hauteur": 176,
+   "largeur": 204,
+   "sha256": "3f466900ad5733fa6085c065c9628f03dd2953d5d3e584410749e30cd6b49fcb",
+   "taille": 3343
+  },
+  "gune-e10-socle-main.png": {
+   "hauteur": 180,
+   "largeur": 176,
+   "sha256": "fa8672a4534696ddba80f9c2039fe69d36035382c2d8b7702be35b0822f24942",
+   "taille": 56088
+  },
+  "gune-e10-socle-shadow.png": {
+   "hauteur": 162,
+   "largeur": 179,
+   "sha256": "865c1fe50c0a17965083ee4ff289c50c3ba139acc0b5d6b99883f5893e292ae0",
+   "taille": 3425
+  },
+  "gune-e11-piece-glow.png": {
+   "hauteur": 12,
+   "largeur": 112,
+   "sha256": "12764950e126dbbb1b44f75a0b58ac4931ef459af49d44e541585a78c822d310",
+   "taille": 478
+  },
+  "gune-e11-piece-light.png": {
+   "hauteur": 40,
+   "largeur": 149,
+   "sha256": "78e963b6809930011f5908076c4d5e555b499ac7dea6464c1f2cfcad9593108b",
+   "taille": 2351
+  },
+  "gune-e11-piece-main.png": {
+   "hauteur": 33,
+   "largeur": 134,
+   "sha256": "7619a9a03b181cd0b5642b61b633246329d1bbe5eb56181bb1ea3dab7faf8e99",
+   "taille": 4805
+  },
+  "gune-e11-piece-shadow.png": {
+   "hauteur": 17,
+   "largeur": 134,
+   "sha256": "98ec7363e93eeff25c36a03200f0df78025df211312bbfa65533d88c2d50990f",
+   "taille": 893
+  },
+  "gune-e11-socle-glow.png": {
+   "hauteur": 168,
+   "largeur": 156,
+   "sha256": "ad7b1450886bdcc1d2c5d437ff5f705c4e7ffbe362757a0eb13dfa2ef5271496",
+   "taille": 10184
+  },
+  "gune-e11-socle-light.png": {
+   "hauteur": 176,
+   "largeur": 214,
+   "sha256": "d4b4e215d875de35c58d79867a60dd9068d8b01504a0d939861db27a40f334fd",
+   "taille": 4353
+  },
+  "gune-e11-socle-main.png": {
+   "hauteur": 181,
+   "largeur": 175,
+   "sha256": "ba7a8317781ad1094f9d1f8952ecdfbb5e4548849d1675bca8e6f2b01bf28e77",
+   "taille": 64048
+  },
+  "gune-e11-socle-shadow.png": {
+   "hauteur": 163,
+   "largeur": 187,
+   "sha256": "683c01e8838bc03ec86969e9adc3557da53630a9ce5deeb1446d9f63d910f0cb",
+   "taille": 4127
+  },
+  "gune-e12-piece-glow.png": {
+   "hauteur": 27,
+   "largeur": 116,
+   "sha256": "8b05e5d7902720a3ad435e7f6c6099dff7abb2f936f50a7375a319791f5d3f39",
+   "taille": 846
+  },
+  "gune-e12-piece-light.png": {
+   "hauteur": 66,
+   "largeur": 170,
+   "sha256": "609dd828d0e95b9df7bc74d6e06c240b19d2c4d84cc560e2098b20cc3d529e84",
+   "taille": 3368
+  },
+  "gune-e12-piece-main.png": {
+   "hauteur": 37,
+   "largeur": 134,
+   "sha256": "10fc7c4d69321b563ef2b4fddb0f7d8de6b3ce255b9261749c40e66992d5a6c2",
+   "taille": 4741
+  },
+  "gune-e12-piece-shadow.png": {
+   "hauteur": 17,
+   "largeur": 134,
+   "sha256": "75555b4bf564cdb8b7517c0c263045baa974470bbd27eaf115d92e910136eb33",
+   "taille": 914
+  },
+  "gune-e12-socle-glow.png": {
+   "hauteur": 168,
+   "largeur": 159,
+   "sha256": "41d92094254623e6a94c055f082da34474f2388eea86cdd81512c33ee4520a7b",
+   "taille": 12095
+  },
+  "gune-e12-socle-light.png": {
+   "hauteur": 176,
+   "largeur": 205,
+   "sha256": "b764b73d935cf69f51929ef6116931ebf8c792331d5889b4732275ab0476ce1c",
+   "taille": 3419
+  },
+  "gune-e12-socle-main.png": {
+   "hauteur": 183,
+   "largeur": 176,
+   "sha256": "4455dc43d34bce35b72bd427f4dccfce77487ba7922ffada68a13b1b73d3dec1",
+   "taille": 64159
+  },
+  "gune-e12-socle-shadow.png": {
+   "hauteur": 166,
+   "largeur": 183,
+   "sha256": "2ea5de2480a36e2d10d7d16b21ae41968f0282a5832606aaf63669b2ac8de25c",
+   "taille": 3618
+  },
+  "gune-e13-piece-glow.png": {
+   "hauteur": 20,
+   "largeur": 94,
+   "sha256": "8019879530a767ced91184af3d2682e3de8ab725990479a40176fc5d51f19560",
+   "taille": 489
+  },
+  "gune-e13-piece-light.png": {
+   "hauteur": 56,
+   "largeur": 164,
+   "sha256": "9e3f23dd43eb719e26afd82dab0d425b289abcfeea1f34f2cd842ed71b218025",
+   "taille": 3212
+  },
+  "gune-e13-piece-main.png": {
+   "hauteur": 30,
+   "largeur": 118,
+   "sha256": "ec5866b8900526aed4e6d715cc01b9a58c699430a6c8379a8be7ce6409406a7c",
+   "taille": 4777
+  },
+  "gune-e13-piece-shadow.png": {
+   "hauteur": 23,
+   "largeur": 115,
+   "sha256": "09666b0b7e005a26659e1b53c8a09f9c425c30c30dcec189445fff4d2579ca0d",
+   "taille": 941
+  },
+  "gune-e13-socle-glow.png": {
+   "hauteur": 186,
+   "largeur": 190,
+   "sha256": "601817d0c2b7d6a62a4c549aba994c8efa9c0c2955e8034f9a2853c87d393073",
+   "taille": 10679
+  },
+  "gune-e13-socle-light.png": {
+   "hauteur": 239,
+   "largeur": 226,
+   "sha256": "e7f91694531dae4aba17f83fe7ea8047efb92d61bdb9469056a652e15df8c2e2",
+   "taille": 4158
+  },
+  "gune-e13-socle-main.png": {
+   "hauteur": 199,
+   "largeur": 206,
+   "sha256": "74ddac3490fcc7411084ce5169e2d722dd4e0b34e40cda54b884e3cfd6656b8c",
+   "taille": 81030
+  },
+  "gune-e13-socle-shadow.png": {
+   "hauteur": 187,
+   "largeur": 217,
+   "sha256": "78b910491eb84ea9ced9cef8cc2df595bda4be37fb8c9a2174abe58bb6d82617",
+   "taille": 3931
+  },
+  "gune-e14-piece-glow.png": {
+   "hauteur": 22,
+   "largeur": 96,
+   "sha256": "693f4b63b87939746e58ae70dbe79d23137c0ec042e5fca35e6f857db58bb815",
+   "taille": 707
+  },
+  "gune-e14-piece-light.png": {
+   "hauteur": 63,
+   "largeur": 166,
+   "sha256": "9b14c0e321cd24ed67542a47af156fb9aa88e214d2a5a71df84ab22823a394bb",
+   "taille": 3107
+  },
+  "gune-e14-piece-main.png": {
+   "hauteur": 32,
+   "largeur": 116,
+   "sha256": "eb4047553b382cd7590dee44849a87402b1e293fdd270d715d3778e3724a116e",
+   "taille": 4733
+  },
+  "gune-e14-piece-shadow.png": {
+   "hauteur": 24,
+   "largeur": 110,
+   "sha256": "95311da4c207114141e3b33558d207c346a2f92c9b80d703d2d2e95c8704801e",
+   "taille": 931
+  },
+  "gune-e14-socle-glow.png": {
+   "hauteur": 201,
+   "largeur": 201,
+   "sha256": "b5e0610f1755fa30fb34c676492a00de3f6bbb4e4571a63826b4db8bb2ecc827",
+   "taille": 11327
+  },
+  "gune-e14-socle-light.png": {
+   "hauteur": 237,
+   "largeur": 234,
+   "sha256": "4d9e138292733463903745e4ea1695c953b513e6b229a17206ec71b25aef3fbb",
+   "taille": 5420
+  },
+  "gune-e14-socle-main.png": {
+   "hauteur": 211,
+   "largeur": 207,
+   "sha256": "80a2dc65c96f584eb211cdf37994580f87d9b0e83bacea657d5d4b7f8f29d665",
+   "taille": 87105
+  },
+  "gune-e14-socle-shadow.png": {
+   "hauteur": 195,
+   "largeur": 219,
+   "sha256": "264ec6e10b1ca006facf00da1729fffa0cca649ea0958231e5b179c7a7232bbc",
+   "taille": 5132
+  },
+  "gune-e15-piece-glow.png": {
+   "hauteur": 27,
+   "largeur": 99,
+   "sha256": "80f17724bdc5128aaac73f037fb806b5ed49b6a1c493069a1937ff34c816b7b1",
+   "taille": 2020
+  },
+  "gune-e15-piece-light.png": {
+   "hauteur": 69,
+   "largeur": 172,
+   "sha256": "75f72b853bb99d3a1004f273de13979c6844cc4505abafcfae7750e7eafed1a8",
+   "taille": 3471
+  },
+  "gune-e15-piece-main.png": {
+   "hauteur": 33,
+   "largeur": 116,
+   "sha256": "fe3756c109f1157d8773419a9c6ec6d567906eb4bd320959f0a3c143c0d7bb50",
+   "taille": 4309
+  },
+  "gune-e15-piece-shadow.png": {
+   "hauteur": 18,
+   "largeur": 116,
+   "sha256": "1dafcaca2094fc1416d16c3b12c766308c9f2e4137df3d959bf25393c78f48b4",
+   "taille": 867
+  },
+  "gune-e15-socle-glow.png": {
+   "hauteur": 191,
+   "largeur": 192,
+   "sha256": "8bda521649cb47d7d0e97db9655d734c3aef12f2d7de1f36c527f4cca9db756a",
+   "taille": 21319
+  },
+  "gune-e15-socle-light.png": {
+   "hauteur": 171,
+   "largeur": 196,
+   "sha256": "d8f0ba077f39d50f8e0ce58fb46fa7ce2ed825e8b1a78a7b26c0e0ddb56d9e31",
+   "taille": 3273
+  },
+  "gune-e15-socle-main.png": {
+   "hauteur": 204,
+   "largeur": 210,
+   "sha256": "e3d33e932fc83290b5e42bd5ff285526472cccdd6f92c28831eef498704c51d5",
+   "taille": 75346
+  },
+  "gune-e15-socle-shadow.png": {
+   "hauteur": 187,
+   "largeur": 224,
+   "sha256": "8494fb658b401d0c3e5b22bb7a901c9c538f945643189fea77f8d66a0e2c643a",
+   "taille": 4515
+  },
+  "hr-gun-e02-tete-glow.png": {
+   "hauteur": 464,
+   "largeur": 148,
+   "sha256": "6756d42c58fa031ceeb49fc05481435ee7659c6535b0a91ad2281b7aa6473f39",
+   "taille": 3956
+  },
+  "hr-gun-e02-tete-main.png": {
+   "hauteur": 512,
+   "largeur": 152,
+   "sha256": "0bced71b0ee5373b5c4f4326c0f1c807d73dbece480f2df52c78a684192817f3",
+   "taille": 101229
+  },
+  "hr-gun-e02-tete-shadow.png": {
+   "hauteur": 432,
+   "largeur": 174,
+   "sha256": "44b5da837251833afdf56ac6090af735d75a546f7b5a4b0f75d6803165a3d4a0",
+   "taille": 23692
+  },
+  "hr-gun-e03-tete-glow.png": {
+   "hauteur": 488,
+   "largeur": 160,
+   "sha256": "aa3ea4ed3e9eec0a2b52fccbf7be4539f549b9e922694e5d8028edbcf3483148",
+   "taille": 14093
+  },
+  "hr-gun-e03-tete-main.png": {
+   "hauteur": 488,
+   "largeur": 164,
+   "sha256": "b7c21373534dff56b3055604ccc7ff0ca1f1ec32f17ecb1904269b61349b6a8d",
+   "taille": 84699
+  },
+  "hr-gun-e03-tete-shadow.png": {
+   "hauteur": 464,
+   "largeur": 170,
+   "sha256": "41cff9b8416d076e385d62318ecef10d645232c0194530b4dbe46c0f76b81e3c",
+   "taille": 25937
+  },
+  "hr-gun-e04-tete-glow.png": {
+   "hauteur": 752,
+   "largeur": 244,
+   "sha256": "da67d7028927e3aa4c9905311ca8079133049ffdfec7f5c618d11e9a2be9d2b5",
+   "taille": 20870
+  },
+  "hr-gun-e04-tete-main.png": {
+   "hauteur": 752,
+   "largeur": 244,
+   "sha256": "dd507e51b73d8df88e8eb97fb06658b82cd33b3eb3dac055610a17ab7093dce8",
+   "taille": 188207
+  },
+  "hr-gun-e04-tete-shadow.png": {
+   "hauteur": 688,
+   "largeur": 260,
+   "sha256": "d5916c23139999bc0766516dfc613fbbb5e08effa95f5161b9e3340837f35532",
+   "taille": 45689
+  },
+  "hr-gun-e05-tete-glow.png": {
+   "hauteur": 736,
+   "largeur": 244,
+   "sha256": "60146754091207e4b2de414cf0199624581ae7fe2a97e8c70d791bc9eb5c6c89",
+   "taille": 51091
+  },
+  "hr-gun-e05-tete-main.png": {
+   "hauteur": 744,
+   "largeur": 244,
+   "sha256": "349688151aeeefae63b77a320f547fc0779eeaa7ccd2c578fca5c2e00d23ef3a",
+   "taille": 170887
+  },
+  "hr-gun-e05-tete-shadow.png": {
+   "hauteur": 688,
+   "largeur": 260,
+   "sha256": "f2fd116298be66172982741cbb7ad0f4c70c56da7d8f01d29434b61a907be55e",
+   "taille": 43169
+  },
+  "hr-gun-e06-tete-glow.png": {
+   "hauteur": 736,
+   "largeur": 240,
+   "sha256": "d9f7de2e1afe93a9ff004107d706066c0ea4d7908840bf43308f5110cc4550d4",
+   "taille": 49834
+  },
+  "hr-gun-e06-tete-main.png": {
+   "hauteur": 736,
+   "largeur": 240,
+   "sha256": "c1f49cf1c16f6009489da5d44f86a9e99fd8e421145aaef0412206b448565d53",
+   "taille": 200493
+  },
+  "hr-gun-e06-tete-shadow.png": {
+   "hauteur": 688,
+   "largeur": 258,
+   "sha256": "2a948c41937baea6f3d01aa10f316e647c3335de558b6770597044465b18a78e",
+   "taille": 51550
+  },
+  "hr-gun-e07-tete-glow.png": {
+   "hauteur": 1080,
+   "largeur": 380,
+   "sha256": "880aa6516c24a722416f356f531c53f13c154704c25c573d4ebdaa107f31d442",
+   "taille": 63150
+  },
+  "hr-gun-e07-tete-main.png": {
+   "hauteur": 1080,
+   "largeur": 380,
+   "sha256": "dcdc1a77d2bc94f35d989818454e658d8a95e2f80f0ddc8f93f95d8b427f1fa3",
+   "taille": 266517
+  },
+  "hr-gun-e07-tete-shadow.png": {
+   "hauteur": 1072,
+   "largeur": 380,
+   "sha256": "1f7385dd3bbc34ae0f14b7d19bdb7e68555dd261a6870618dc9be3263430cdae",
+   "taille": 82210
+  },
+  "hr-gun-e08-tete-glow.png": {
+   "hauteur": 992,
+   "largeur": 324,
+   "sha256": "c90a388c198ecdb58a6a251b1a96651ba51fca46d32f0da8bed8673ac4eb7224",
+   "taille": 66072
+  },
+  "hr-gun-e08-tete-main.png": {
+   "hauteur": 992,
+   "largeur": 324,
+   "sha256": "b62b868802f9a484a5587f209ca07f48bf3d053b63a404c0ad4e4feae0fe071c",
+   "taille": 267187
+  },
+  "hr-gun-e08-tete-shadow.png": {
+   "hauteur": 928,
+   "largeur": 346,
+   "sha256": "b70fddba70b6cad77966bfef0f62c85131f803932511d087afa1b4f4f058ccd3",
+   "taille": 83913
+  },
+  "hr-gun-e09-tete-glow.png": {
+   "hauteur": 1040,
+   "largeur": 340,
+   "sha256": "1cbb8f3af0cf65f75b95521d0b29b1f25526b710c105b9e397f0d211dc63b1e9",
+   "taille": 67502
+  },
+  "hr-gun-e09-tete-main.png": {
+   "hauteur": 1040,
+   "largeur": 340,
+   "sha256": "7d8314cdc920c207436684c106326924341b3b84cbbdee3fcdc2b21000a56fc5",
+   "taille": 271973
+  },
+  "hr-gun-e09-tete-shadow.png": {
+   "hauteur": 960,
+   "largeur": 364,
+   "sha256": "6ee4f86baacdefccc3d11959541bd25ccac264300cea534fc9350cfcbe570d39",
+   "taille": 78420
+  },
+  "hr-gun-e10-tete-glow.png": {
+   "hauteur": 1080,
+   "largeur": 364,
+   "sha256": "0474ed089df099db4d8b5e30b115badbe03c333abda4aebfb034b6bef4f8b3ff",
+   "taille": 37417
+  },
+  "hr-gun-e10-tete-main.png": {
+   "hauteur": 1080,
+   "largeur": 364,
+   "sha256": "5120cf6482e06f54ad1797c40dee15629708f2b0005855d47d2191351120697f",
+   "taille": 361047
+  },
+  "hr-gun-e10-tete-shadow.png": {
+   "hauteur": 1024,
+   "largeur": 378,
+   "sha256": "070923fdc42d01ea304148b12fdd8ab573591fa23ebcc2269b098cfd5593b997",
+   "taille": 101554
+  },
+  "hr-gun-e11-tete-glow.png": {
+   "hauteur": 1440,
+   "largeur": 488,
+   "sha256": "dfb12df97d0dd898db5e7f5886c809109d70587078242d7dc5dfa6720faf6c3d",
+   "taille": 49113
+  },
+  "hr-gun-e11-tete-main.png": {
+   "hauteur": 1440,
+   "largeur": 488,
+   "sha256": "f3f89fa23b5559c9d0374ec7625912a4ebf35fcf3139e57cd3e36b1ee45cf6ad",
+   "taille": 440856
+  },
+  "hr-gun-e11-tete-shadow.png": {
+   "hauteur": 1392,
+   "largeur": 504,
+   "sha256": "867b55b36f599042d4212d2385b5bf21b157353b7dee1d3ea4251c43fa65ea23",
+   "taille": 138985
+  },
+  "hr-gun-e12-tete-glow.png": {
+   "hauteur": 1160,
+   "largeur": 388,
+   "sha256": "df84c06e87b05c1ad66216ad7bfbdcfe5e1a972a54af0eb36df9028e2501ee5c",
+   "taille": 97138
+  },
+  "hr-gun-e12-tete-main.png": {
+   "hauteur": 1160,
+   "largeur": 388,
+   "sha256": "24be53854a9991e860f9513403ab787eb83f0c4865a45e2b5bc8cb05e0f91118",
+   "taille": 401638
+  },
+  "hr-gun-e12-tete-shadow.png": {
+   "hauteur": 1104,
+   "largeur": 404,
+   "sha256": "81bd27870df0174109b8220b5ab0d80336bca16043402ecb6c46e98876260910",
+   "taille": 130108
+  },
+  "hr-gun-e13-tete-glow.png": {
+   "hauteur": 1360,
+   "largeur": 460,
+   "sha256": "3f93f119c55a145dfe766e57f05b28c7b1773eb633b381f57ff6f5a4fba4be36",
+   "taille": 128824
+  },
+  "hr-gun-e13-tete-main.png": {
+   "hauteur": 1360,
+   "largeur": 460,
+   "sha256": "359e51ae1dc146cfee54b88ba5ee8ed73dbd43c159918df68af8d0c81ca60343",
+   "taille": 485044
+  },
+  "hr-gun-e13-tete-shadow.png": {
+   "hauteur": 1296,
+   "largeur": 478,
+   "sha256": "39ba58c1590cb88c1f1f78c121e3550a3a060706c222f73d414814285813345d",
+   "taille": 136886
+  },
+  "hr-gun-e14-tete-glow.png": {
+   "hauteur": 1432,
+   "largeur": 484,
+   "sha256": "fb1298ec1ea53975287fecaac1600a5b4644397c2aaf160cf77e1647bd6318ac",
+   "taille": 82270
+  },
+  "hr-gun-e14-tete-main.png": {
+   "hauteur": 1432,
+   "largeur": 484,
+   "sha256": "fe5ec377c9b97849007791a0f05ed3b8ef8d159e7bc284796a7cdcb6dc74840f",
+   "taille": 524708
+  },
+  "hr-gun-e14-tete-shadow.png": {
+   "hauteur": 1376,
+   "largeur": 504,
+   "sha256": "4aa3a40d58f15fe22997ac7c4fadad543c1ed4ad09b9874e8001e1537d8dcfbf",
+   "taille": 147725
+  },
+  "hr-gun-e15-tete-glow.png": {
+   "hauteur": 1544,
+   "largeur": 524,
+   "sha256": "344a9d3a12318d5188b0ecfeb9d084c9d1083b44b53e561554bb2823a0e39d5e",
+   "taille": 342881
+  },
+  "hr-gun-e15-tete-main.png": {
+   "hauteur": 1544,
+   "largeur": 524,
+   "sha256": "d47592e774b29c0f1384d03b9967f8e7027d09fc2360e74c9a6c00291af718d4",
+   "taille": 478261
+  },
+  "hr-gun-e15-tete-shadow.png": {
+   "hauteur": 1488,
+   "largeur": 542,
+   "sha256": "654483d64916ca23f893035a4dd219ecec4694403642acf7ac5fd80d41cb5e9b",
+   "taille": 182111
+  },
+  "hr-gune-e01-piece-light.png": {
+   "hauteur": 168,
+   "largeur": 190,
+   "sha256": "43104dc74db581cbe70f1ff73709e3de92ac8c3266cec2f5f5ea0c6df590f930",
+   "taille": 5929
+  },
+  "hr-gune-e01-piece-main.png": {
+   "hauteur": 130,
+   "largeur": 178,
+   "sha256": "abf03d86aa6614776e8ddebe0e2e0c5c3a13bf02c910ada3a71b0ccaa24b93a3",
+   "taille": 33569
+  },
+  "hr-gune-e01-piece-shadow.png": {
+   "hauteur": 122,
+   "largeur": 156,
+   "sha256": "c4278a0e6e8b86b581204a07e50be05d4016259cd875d5f8399f14ae7ddb8165",
+   "taille": 2766
+  },
+  "hr-gune-e02-piece-main.png": {
+   "hauteur": 70,
+   "largeur": 172,
+   "sha256": "72818c38634fa9c25303859ac8dd746a78c6a89ce9107c395a405dad5c1a46cf",
+   "taille": 16069
+  },
+  "hr-gune-e02-piece-shadow.png": {
+   "hauteur": 52,
+   "largeur": 162,
+   "sha256": "1a653e18de7ac2fed324c5c46814d69107f721f03bd728e68f0658681bf1d62c",
+   "taille": 3216
+  },
+  "hr-gune-e02-socle-glow.png": {
+   "hauteur": 120,
+   "largeur": 118,
+   "sha256": "7eb9c68269f34f9a9dc8828e5dee1d25ae154da7741eb305b74790c2c0b38995",
+   "taille": 3794
+  },
+  "hr-gune-e02-socle-light.png": {
+   "hauteur": 248,
+   "largeur": 260,
+   "sha256": "b5baa837e839a4696552cccefaca513b92998d9049d7c98481e0c51ddd1c5479",
+   "taille": 11555
+  },
+  "hr-gune-e02-socle-main.png": {
+   "hauteur": 162,
+   "largeur": 168,
+   "sha256": "759af651279e2469e30f4e6993b91ab22dcb5ec268a24f11718c2ca20f4a7c55",
+   "taille": 41949
+  },
+  "hr-gune-e02-socle-shadow.png": {
+   "hauteur": 134,
+   "largeur": 174,
+   "sha256": "8af74ba41376039af56a8a26219b19cec5e6deb60cb746549daaa4c5163d15ec",
+   "taille": 2826
+  },
+  "hr-gune-e03-piece-glow.png": {
+   "hauteur": 48,
+   "largeur": 108,
+   "sha256": "9cfa60ef76b541d9c0ee9614e27972306decb440158b02192ddb6d52b9499113",
+   "taille": 829
+  },
+  "hr-gune-e03-piece-main.png": {
+   "hauteur": 66,
+   "largeur": 160,
+   "sha256": "eb3a04a25096a522b83d9981d409347b5e95fed3090377fdd9659e61de2a1ef5",
+   "taille": 14854
+  },
+  "hr-gune-e03-piece-shadow.png": {
+   "hauteur": 50,
+   "largeur": 166,
+   "sha256": "244441b9fb4e220138db2b8bf6fc3bfe9c54af87fb94d5e2d6568991f858a85e",
+   "taille": 1952
+  },
+  "hr-gune-e03-socle-glow.png": {
+   "hauteur": 74,
+   "largeur": 88,
+   "sha256": "9800ab365139972656945cb1a2d99e593d4f8ed405a852df7522e6b341b4b789",
+   "taille": 1745
+  },
+  "hr-gune-e03-socle-light.png": {
+   "hauteur": 104,
+   "largeur": 100,
+   "sha256": "ed452e6514e25b81f53ff914c2a70386210f837d41fc97e99f4f51f219d41f36",
+   "taille": 2819
+  },
+  "hr-gune-e03-socle-main.png": {
+   "hauteur": 152,
+   "largeur": 168,
+   "sha256": "47919f24d54999a3c11c95a0ab346cfce9de7995343982ca9be4943bdc872390",
+   "taille": 44253
+  },
+  "hr-gune-e03-socle-shadow.png": {
+   "hauteur": 130,
+   "largeur": 196,
+   "sha256": "320f52e854ccbbd2c00bc9ed906f84f603c9981214d4569c9f818f2713b2ec9f",
+   "taille": 5502
+  },
+  "hr-gune-e04-piece-glow.png": {
+   "hauteur": 8,
+   "largeur": 160,
+   "sha256": "64c3872adcb32483340ff345235bb934e1174356615c84e6814979b20a2d3f8a",
+   "taille": 411
+  },
+  "hr-gune-e04-piece-main.png": {
+   "hauteur": 66,
+   "largeur": 224,
+   "sha256": "196eee20eaf80bbdf8ed5dece75d362528fa2249a9b9ba236ef53382902e8d19",
+   "taille": 16674
+  },
+  "hr-gune-e04-piece-shadow.png": {
+   "hauteur": 56,
+   "largeur": 216,
+   "sha256": "be0f5cf73f5e03da4c317849d28990ba6a9cd5d41fa2239e28b31cbbd59771d3",
+   "taille": 1967
+  },
+  "hr-gune-e04-socle-glow.png": {
+   "hauteur": 220,
+   "largeur": 160,
+   "sha256": "9e9f2b9a9113b577d6498137ed6108e14d15ed7f609da0bc0f09a9f3e0593f47",
+   "taille": 2479
+  },
+  "hr-gune-e04-socle-light.png": {
+   "hauteur": 232,
+   "largeur": 296,
+   "sha256": "3aea815f0829c4e8c23ede5710e42e9750f816571650645ec8b2a849ffeb5a79",
+   "taille": 19635
+  },
+  "hr-gune-e04-socle-main.png": {
+   "hauteur": 240,
+   "largeur": 222,
+   "sha256": "7833b360d71762987ac4bb35cfe348b8b226e197afcc878c8c8b8715be360435",
+   "taille": 82559
+  },
+  "hr-gune-e04-socle-shadow.png": {
+   "hauteur": 190,
+   "largeur": 218,
+   "sha256": "ad3991fdfb7b52507c69b4c0e905f20e35f4a32400823141f7ec396d85450b7e",
+   "taille": 5438
+  },
+  "hr-gune-e05-piece-glow.png": {
+   "hauteur": 34,
+   "largeur": 164,
+   "sha256": "00861334dca0ab6fefb0f8c5efe83c7995c07d9cd8ac4a9b30f85e0503a2b91c",
+   "taille": 1893
+  },
+  "hr-gune-e05-piece-light.png": {
+   "hauteur": 222,
+   "largeur": 328,
+   "sha256": "d797ce022a18c748f9af0718ef738f064b35e3a74c35be1dc08d24533b053cdb",
+   "taille": 43761
+  },
+  "hr-gune-e05-piece-main.png": {
+   "hauteur": 72,
+   "largeur": 232,
+   "sha256": "88912a594fea88dcd36d4a98ec611cb7aabd7dd88e37b94963a23cb3a8c02c35",
+   "taille": 17592
+  },
+  "hr-gune-e05-piece-shadow.png": {
+   "hauteur": 60,
+   "largeur": 232,
+   "sha256": "6b9936b4138525490d584ef2901f0c171090a70824ed41f8c19c0688ece63615",
+   "taille": 3028
+  },
+  "hr-gune-e05-socle-glow.png": {
+   "hauteur": 190,
+   "largeur": 194,
+   "sha256": "1edab32403bd88a76ef17051b5fce4013619f86604847a0fb6b6fcdbb4c56f22",
+   "taille": 17380
+  },
+  "hr-gune-e05-socle-light.png": {
+   "hauteur": 284,
+   "largeur": 300,
+   "sha256": "4b5bd850bdb94866d10eadab04a7ddf568b17e287d217af5c0292d509adcebe9",
+   "taille": 16296
+  },
+  "hr-gune-e05-socle-main.png": {
+   "hauteur": 212,
+   "largeur": 232,
+   "sha256": "5c7a62a3175b4b675ba4218d3396eff4cec7f47cdc8a945a87791cdebf0c4826",
+   "taille": 82031
+  },
+  "hr-gune-e05-socle-shadow.png": {
+   "hauteur": 188,
+   "largeur": 242,
+   "sha256": "d3dc8d6ab032fc94189074c148166f614d8339b58cafd5aaffb1cada286d76d0",
+   "taille": 5152
+  },
+  "hr-gune-e06-piece-glow.png": {
+   "hauteur": 44,
+   "largeur": 156,
+   "sha256": "a5f599e54d9bcdf5a1dadab9ab0b052f5eb9ec5f29f20c7465e99c69954fee14",
+   "taille": 752
+  },
+  "hr-gune-e06-piece-light.png": {
+   "hauteur": 242,
+   "largeur": 326,
+   "sha256": "bd8d805a60f877d318499d95113db6d177e7bebbaf659ddd69ebd23cfc794a0d",
+   "taille": 50199
+  },
+  "hr-gune-e06-piece-main.png": {
+   "hauteur": 62,
+   "largeur": 204,
+   "sha256": "7a4d4fe729fbfdda9e2c559091bcd5437ca840391f61a1b0a220bcb4041396ee",
+   "taille": 14077
+  },
+  "hr-gune-e06-piece-shadow.png": {
+   "hauteur": 58,
+   "largeur": 208,
+   "sha256": "1822558e3508d9add2875e5339fd7a619148bfed7de0f60cd744466405415039",
+   "taille": 1658
+  },
+  "hr-gune-e06-socle-glow.png": {
+   "hauteur": 206,
+   "largeur": 198,
+   "sha256": "661e7afdd8c59e3d7c297d9423e7f11e8d52a2708d68f82224cab23f521c41fa",
+   "taille": 5049
+  },
+  "hr-gune-e06-socle-light.png": {
+   "hauteur": 270,
+   "largeur": 236,
+   "sha256": "5f26e6067698d2794ea185475deb592d7a5d2512043528706b5b433e4d2e129b",
+   "taille": 9211
+  },
+  "hr-gune-e06-socle-main.png": {
+   "hauteur": 222,
+   "largeur": 232,
+   "sha256": "24f8b730770a79bb24580e21c50e4f2f093fdd4405146d546e0f82ea610a6dc8",
+   "taille": 85013
+  },
+  "hr-gune-e06-socle-shadow.png": {
+   "hauteur": 186,
+   "largeur": 244,
+   "sha256": "9b213afa32d8cbb99a4f21c0e0a1bab3b0a5fab33e4b3c4c608bd36b21fe7fcc",
+   "taille": 5579
+  },
+  "hr-gune-e07-piece-glow.png": {
+   "hauteur": 64,
+   "largeur": 264,
+   "sha256": "853a85bd162a00d35c91af65f1886a3ef5dc65b794d7968375fd36f298c0a899",
+   "taille": 9157
+  },
+  "hr-gune-e07-piece-light.png": {
+   "hauteur": 168,
+   "largeur": 376,
+   "sha256": "3735ef51deac586590c842ca6816eebcb7c095d22e88eda8a07e69b09d444352",
+   "taille": 23996
+  },
+  "hr-gune-e07-piece-main.png": {
+   "hauteur": 72,
+   "largeur": 288,
+   "sha256": "f0ccd9de4c291c71131ed3eb0c86d8ac13891b324c2ec8d370c81f94fe382e74",
+   "taille": 20996
+  },
+  "hr-gune-e07-piece-shadow.png": {
+   "hauteur": 64,
+   "largeur": 284,
+   "sha256": "e7dc68f932d84c20277e147bb7a654861d6afd37b6b3ef89d1f329aa15fce88b",
+   "taille": 3239
+  },
+  "hr-gune-e07-socle-glow.png": {
+   "hauteur": 260,
+   "largeur": 246,
+   "sha256": "f581958d98f8b5bf7480e9b83b01d7c450c2e87b503c7e4e97f92f8a65f6a897",
+   "taille": 45313
+  },
+  "hr-gune-e07-socle-light.png": {
+   "hauteur": 292,
+   "largeur": 314,
+   "sha256": "3febe84466c4bd9a655c659c2047de602defcff2b9a7a4e5fcb160cdbeaa8463",
+   "taille": 10036
+  },
+  "hr-gune-e07-socle-main.png": {
+   "hauteur": 276,
+   "largeur": 282,
+   "sha256": "7e8f02564e69c100abdb2d7505c6d400ab38294ac14d1051988339ca86149a00",
+   "taille": 115847
+  },
+  "hr-gune-e07-socle-shadow.png": {
+   "hauteur": 250,
+   "largeur": 278,
+   "sha256": "59a3047b38299c91af4f2e38c1dfdf4c603130da91377db2f2ab413500f5c923",
+   "taille": 5365
+  },
+  "hr-gune-e08-piece-glow.png": {
+   "hauteur": 70,
+   "largeur": 268,
+   "sha256": "a003654b68ff2ca365469ef51411acb8f99597e97c3197ec7f2389d0e09f1a7b",
+   "taille": 13643
+  },
+  "hr-gune-e08-piece-light.png": {
+   "hauteur": 68,
+   "largeur": 292,
+   "sha256": "0664d7052fa2b3131445ef39f19b3c7af9cda8fddae8a3161a9303e988aa2ab3",
+   "taille": 352
+  },
+  "hr-gune-e08-piece-main.png": {
+   "hauteur": 92,
+   "largeur": 276,
+   "sha256": "234c5c4c91cc557d4ffe76539b7349f0412ce3326cd58a408913e139795bd3a1",
+   "taille": 24365
+  },
+  "hr-gune-e08-piece-shadow.png": {
+   "hauteur": 66,
+   "largeur": 298,
+   "sha256": "daa6af66c6eae1ed68f38299c338c59f07f298f32c241e0967babb2cf85a90f5",
+   "taille": 6949
+  },
+  "hr-gune-e08-socle-glow.png": {
+   "hauteur": 268,
+   "largeur": 256,
+   "sha256": "275d2eb23700af49ae3a5147e00d59d8a63eb4a375bff93f3d112fbef299e583",
+   "taille": 42134
+  },
+  "hr-gune-e08-socle-light.png": {
+   "hauteur": 142,
+   "largeur": 64,
+   "sha256": "9ea36ed3429945ffd504c8759d54327bb67fb3ac38f8a9f62b5a27f664f8eeb7",
+   "taille": 3131
+  },
+  "hr-gune-e08-socle-main.png": {
+   "hauteur": 282,
+   "largeur": 290,
+   "sha256": "75bcddb08e716c88584c4006b2bda06320e45023f7ea112a585d099b8b089cca",
+   "taille": 127500
+  },
+  "hr-gune-e08-socle-shadow.png": {
+   "hauteur": 254,
+   "largeur": 314,
+   "sha256": "366bf0d82c757b7ae5894b23424d182edd1b42bc45a8065b5a77c0b90632a282",
+   "taille": 42322
+  },
+  "hr-gune-e09-piece-glow.png": {
+   "hauteur": 32,
+   "largeur": 196,
+   "sha256": "118262d48dd9c2078bda3232a4b15c97de64e01b572d52a24ed0255c4483c060",
+   "taille": 483
+  },
+  "hr-gune-e09-piece-main.png": {
+   "hauteur": 74,
+   "largeur": 292,
+   "sha256": "161ab6ca0a51c6fa27f13b98c7428e1c4d4f3a1ca51046c2ce2c6af20488c6d3",
+   "taille": 21167
+  },
+  "hr-gune-e09-piece-shadow.png": {
+   "hauteur": 62,
+   "largeur": 286,
+   "sha256": "b86ade4944997cf294ce72e8b84b75f7e6fefd2ea0ac294b003ff05c07f5c71b",
+   "taille": 2745
+  },
+  "hr-gune-e09-socle-glow.png": {
+   "hauteur": 284,
+   "largeur": 270,
+   "sha256": "3fbe7a80c0731391e0641e8e8b6a7ce73c2843e6426c539813d09412ce4bffc8",
+   "taille": 25936
+  },
+  "hr-gune-e09-socle-light.png": {
+   "hauteur": 206,
+   "largeur": 178,
+   "sha256": "df4f3d0785a9d299743410547e6c4d123430f190ef848b804116e067157b915e",
+   "taille": 4391
+  },
+  "hr-gune-e09-socle-main.png": {
+   "hauteur": 300,
+   "largeur": 292,
+   "sha256": "61db97291201450ab90d8d9309fc272a27d5dad041061cf269272df5f99ab0b8",
+   "taille": 135866
+  },
+  "hr-gune-e09-socle-shadow.png": {
+   "hauteur": 264,
+   "largeur": 322,
+   "sha256": "e4596c8a1e03c6c78451557264c61fd042bf360b45792f3c37f34046afd7b24e",
+   "taille": 8302
+  },
+  "hr-gune-e10-piece-glow.png": {
+   "hauteur": 42,
+   "largeur": 220,
+   "sha256": "dcb5080521e25a0e2718cfd9ae3eaa9109869e67dc998a8dcf686ce735c8e4fe",
+   "taille": 1409
+  },
+  "hr-gune-e10-piece-light.png": {
+   "hauteur": 102,
+   "largeur": 312,
+   "sha256": "3745804e34661b3ca85addd24b9e60e22e75e892e6585f8d5c340e08f8a2fcda",
+   "taille": 7652
+  },
+  "hr-gune-e10-piece-main.png": {
+   "hauteur": 70,
+   "largeur": 268,
+   "sha256": "ab7a8f20441d7f9202f965f49db2dae4cce090c2df317cda68cfb030fd62ae1f",
+   "taille": 13199
+  },
+  "hr-gune-e10-piece-shadow.png": {
+   "hauteur": 34,
+   "largeur": 270,
+   "sha256": "df1994358e96f44e53e4eb8ad9778cc2bcf83031477180404045d4a4a642da6b",
+   "taille": 2104
+  },
+  "hr-gune-e10-socle-glow.png": {
+   "hauteur": 338,
+   "largeur": 306,
+   "sha256": "49bd6c80402f84a32eb18950892d3da194ccb354925a6316b838bf0676ad762d",
+   "taille": 25920
+  },
+  "hr-gune-e10-socle-light.png": {
+   "hauteur": 352,
+   "largeur": 408,
+   "sha256": "e5125d3b103af87d2d60cff8076ce8743b5fe48200d54a87f762fce7e2ddfa42",
+   "taille": 10305
+  },
+  "hr-gune-e10-socle-main.png": {
+   "hauteur": 360,
+   "largeur": 352,
+   "sha256": "f9612262cee70e9cc7f3c34d1cc969e858483bca5bd571204ab02170765921cb",
+   "taille": 194028
+  },
+  "hr-gune-e10-socle-shadow.png": {
+   "hauteur": 324,
+   "largeur": 358,
+   "sha256": "42bcf0b6b9e35314104acec5f7b72cdcc4be9eede796c9a8ab17d617637a007b",
+   "taille": 11604
+  },
+  "hr-gune-e11-piece-glow.png": {
+   "hauteur": 24,
+   "largeur": 224,
+   "sha256": "b15f70984ff5bfb5a6c5ace007e466d772c2d0b2ed542afeda43fc6b1d6bc338",
+   "taille": 1250
+  },
+  "hr-gune-e11-piece-light.png": {
+   "hauteur": 80,
+   "largeur": 298,
+   "sha256": "b6def35a7cb9c74aceede1f3d1baa60eb8ecc93ab69404f22d9acaaff98955a3",
+   "taille": 6579
+  },
+  "hr-gune-e11-piece-main.png": {
+   "hauteur": 66,
+   "largeur": 268,
+   "sha256": "c4a85459fbb027a2ea0bcc5af0237051f191af6c5fd5eca2bc72099bee737f5a",
+   "taille": 15639
+  },
+  "hr-gune-e11-piece-shadow.png": {
+   "hauteur": 34,
+   "largeur": 268,
+   "sha256": "b4d78a05e4e1ce84d8ac47099b3cef83219795cbcfb0816d14864f459f81d627",
+   "taille": 2480
+  },
+  "hr-gune-e11-socle-glow.png": {
+   "hauteur": 336,
+   "largeur": 312,
+   "sha256": "d762c72c9124a4f80e79e62c0e35cc241377a440c48c8258bbc0818ebf97f4eb",
+   "taille": 41042
+  },
+  "hr-gune-e11-socle-light.png": {
+   "hauteur": 352,
+   "largeur": 428,
+   "sha256": "d1b8d6d08be4aee2e219f53e4da838b4a5eb52015dcf49defdfc3dbab69b159a",
+   "taille": 13256
+  },
+  "hr-gune-e11-socle-main.png": {
+   "hauteur": 362,
+   "largeur": 350,
+   "sha256": "39bf718428524157147603153e3f74d0dbd39ad3a071327ca960275695fc5279",
+   "taille": 222605
+  },
+  "hr-gune-e11-socle-shadow.png": {
+   "hauteur": 326,
+   "largeur": 374,
+   "sha256": "5823bd08b2a176d8cdb43686a5065fc2902501fd4ea99a402421318daac63dc0",
+   "taille": 13299
+  },
+  "hr-gune-e12-piece-glow.png": {
+   "hauteur": 54,
+   "largeur": 232,
+   "sha256": "eb1daf9efa8e1401f11c642e1ac9a3dd9a23df9a6b10ba33cbee627b70455780",
+   "taille": 2415
+  },
+  "hr-gune-e12-piece-light.png": {
+   "hauteur": 132,
+   "largeur": 340,
+   "sha256": "51e5a81e5e3962039939c9689f54a16df3b6fadc4184a465bbdef7711d1bb3de",
+   "taille": 9350
+  },
+  "hr-gune-e12-piece-main.png": {
+   "hauteur": 74,
+   "largeur": 268,
+   "sha256": "33ab14673f154b8de9ee4c26a817be72e2814cfc2a709316eb8a4db72bb88f92",
+   "taille": 14373
+  },
+  "hr-gune-e12-piece-shadow.png": {
+   "hauteur": 34,
+   "largeur": 268,
+   "sha256": "d8680d90a120f0cfc8d39c8a4992a7886d860257f7d9b8befdd5a82a88f76557",
+   "taille": 2415
+  },
+  "hr-gune-e12-socle-glow.png": {
+   "hauteur": 336,
+   "largeur": 318,
+   "sha256": "85ad22ff0d683a6aaa519d9234545ae1f45dd9019082eec9ef79372477484873",
+   "taille": 49882
+  },
+  "hr-gune-e12-socle-light.png": {
+   "hauteur": 352,
+   "largeur": 410,
+   "sha256": "cf809abda905f888bab0e0effa1bd45d28326052a2379c978f96c4d74fcf9105",
+   "taille": 11196
+  },
+  "hr-gune-e12-socle-main.png": {
+   "hauteur": 366,
+   "largeur": 352,
+   "sha256": "a944631c1401095f6db964476a5a44edbd7ada42c476a84c453ddf38346575fe",
+   "taille": 220257
+  },
+  "hr-gune-e12-socle-shadow.png": {
+   "hauteur": 332,
+   "largeur": 366,
+   "sha256": "9276fd1a7f62615b7a1b879f7850085bb0ea6b845632c9d084414afa8969a343",
+   "taille": 11589
+  },
+  "hr-gune-e13-piece-glow.png": {
+   "hauteur": 40,
+   "largeur": 188,
+   "sha256": "1a57313e90a59c42608d72ba8aae974a6e8c7e4ea7da5fdb99f258c90fbce256",
+   "taille": 1193
+  },
+  "hr-gune-e13-piece-light.png": {
+   "hauteur": 112,
+   "largeur": 328,
+   "sha256": "87b39b677b92971979ec5622ef78f462326f949e9640c53f531b5d5f848e4e17",
+   "taille": 8049
+  },
+  "hr-gune-e13-piece-main.png": {
+   "hauteur": 60,
+   "largeur": 236,
+   "sha256": "e6edbb54353314652ba880f39ac158afb54b865b0acb09660c7a3715ecf2116f",
+   "taille": 15229
+  },
+  "hr-gune-e13-piece-shadow.png": {
+   "hauteur": 46,
+   "largeur": 230,
+   "sha256": "b93fe0cea324f99b4de52b6537130ebff24e4cc5f5edf355fabb23bcaa5b396f",
+   "taille": 2750
+  },
+  "hr-gune-e13-socle-glow.png": {
+   "hauteur": 372,
+   "largeur": 380,
+   "sha256": "0d70e9b7057c7d7d329653ff6f7e5638a7aaf4dd90df9bdcc21c826dab978e3a",
+   "taille": 41123
+  },
+  "hr-gune-e13-socle-light.png": {
+   "hauteur": 478,
+   "largeur": 452,
+   "sha256": "e941990ab8b432d0e2e0b55dac9b0a6056b7faee9e070e769238f1bd407f2ef3",
+   "taille": 13824
+  },
+  "hr-gune-e13-socle-main.png": {
+   "hauteur": 398,
+   "largeur": 412,
+   "sha256": "5b8a5bd42376df1dbf29f76c7cb66a4df37e4b7b3bb075b37ed86896d0500e93",
+   "taille": 278413
+  },
+  "hr-gune-e13-socle-shadow.png": {
+   "hauteur": 374,
+   "largeur": 434,
+   "sha256": "81b6141af2e777186bcc58a3c93b878d5d0f4febbe3c8596ed1f9be0486bcb97",
+   "taille": 11832
+  },
+  "hr-gune-e14-piece-glow.png": {
+   "hauteur": 44,
+   "largeur": 192,
+   "sha256": "3492133c1cfb7f60703a614d1a3f6604bab306181152314825ff5801172a12d6",
+   "taille": 2239
+  },
+  "hr-gune-e14-piece-light.png": {
+   "hauteur": 126,
+   "largeur": 332,
+   "sha256": "79e1c5036a0645f018a9edda66328536c886416c26a57fdb3e0ca8a22fcbd8fe",
+   "taille": 7846
+  },
+  "hr-gune-e14-piece-main.png": {
+   "hauteur": 64,
+   "largeur": 232,
+   "sha256": "a00d809eef7ce100ebb323ac303b7ea9daca466c6c681844b0d3f9634b24c4fe",
+   "taille": 14556
+  },
+  "hr-gune-e14-piece-shadow.png": {
+   "hauteur": 48,
+   "largeur": 220,
+   "sha256": "138d6a544f0caee676f5eee055f50719c69b4cfb667f40898d3b8cc98eb56353",
+   "taille": 2665
+  },
+  "hr-gune-e14-socle-glow.png": {
+   "hauteur": 402,
+   "largeur": 402,
+   "sha256": "dcdfeada4ad5fa9f46a7b7f783a5997b1519bb127b4a3eb925d204d487a11730",
+   "taille": 45040
+  },
+  "hr-gune-e14-socle-light.png": {
+   "hauteur": 474,
+   "largeur": 468,
+   "sha256": "80bff2374fcb8d543f7e7fff2eb5a70de870bfe0a0d5b26ba59dce65edbda27e",
+   "taille": 17714
+  },
+  "hr-gune-e14-socle-main.png": {
+   "hauteur": 422,
+   "largeur": 414,
+   "sha256": "fbe6936b3f3bd8c7d969858412bb0bb79b9e8b7892057362d7c58e203cb4c39d",
+   "taille": 295077
+  },
+  "hr-gune-e14-socle-shadow.png": {
+   "hauteur": 390,
+   "largeur": 438,
+   "sha256": "adc5b6bd092bc2f6bc845ad0fd7277ec6f57898b51d7c14a2841d112a70b86c1",
+   "taille": 16645
+  },
+  "hr-gune-e15-piece-glow.png": {
+   "hauteur": 54,
+   "largeur": 198,
+   "sha256": "35780be77bda109a23e33d3bcf8a156c9ea71ee963bb2785b5a6db0873078450",
+   "taille": 6432
+  },
+  "hr-gune-e15-piece-light.png": {
+   "hauteur": 138,
+   "largeur": 344,
+   "sha256": "5ddb7ce9aaa4957ac64af5ba1e366736d72f108ce534b54c54e094029fb9a02b",
+   "taille": 8893
+  },
+  "hr-gune-e15-piece-main.png": {
+   "hauteur": 66,
+   "largeur": 232,
+   "sha256": "82e1a4062b4fe667334ab0bfea30abc7f06ca1eb7a9a40335da3125948a05f30",
+   "taille": 13659
+  },
+  "hr-gune-e15-piece-shadow.png": {
+   "hauteur": 36,
+   "largeur": 232,
+   "sha256": "ddb7480fd5a1ee07d2084702dbb4d4f51beeeedc8e3f5dbef532c47b9d6577f7",
+   "taille": 2587
+  },
+  "hr-gune-e15-socle-glow.png": {
+   "hauteur": 382,
+   "largeur": 384,
+   "sha256": "b627c310f5a18c71f77eed08d28e421b98d08eaf076756d65d73bbd280d80dfb",
+   "taille": 74785
+  },
+  "hr-gune-e15-socle-light.png": {
+   "hauteur": 342,
+   "largeur": 392,
+   "sha256": "4ffa0d7221fa8f28bee92112ab7abc33d8f24d8f236f342b2439859615c12187",
+   "taille": 10717
+  },
+  "hr-gune-e15-socle-main.png": {
+   "hauteur": 408,
+   "largeur": 420,
+   "sha256": "c0a400f96762b63cb98634bd4194e5604a1de5a706d3af319bed17ae51c98a6f",
+   "taille": 256756
+  },
+  "hr-gune-e15-socle-shadow.png": {
+   "hauteur": 374,
+   "largeur": 448,
+   "sha256": "33906ddd5700703ea817d5af08be0810f8f174bac700fb6ebc911d7f10a0939c",
+   "taille": 14824
+  }
+ },
+ "git": "PNG hors de git (.gitignore : graphics/levels/gun/*.png, d\u00e9cision D-6) ; ce manifeste, sprites.lua et sprites.json sont commit\u00e9s",
+ "outil": "tools/render/pieces/levels/gun_e/feuilles.py",
+ "sources": {
+  "e01-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "light": {
+     "hr": "43104dc74db581cbe70f1ff73709e3de92ac8c3266cec2f5f5ea0c6df590f930",
+     "lr": "abdeb8962fe08e4214b4a72677a9698bf80c37e1c507c6c31d37ede5ca5c1b5f"
+    },
+    "main": {
+     "hr": "abf03d86aa6614776e8ddebe0e2e0c5c3a13bf02c910ada3a71b0ccaa24b93a3",
+     "lr": "fa57a250955d1afd075a338e1dc4a9ef8ff4db1cca7a1266b43b212e129648ea"
+    },
+    "shadow": {
+     "hr": "c4278a0e6e8b86b581204a07e50be05d4016259cd875d5f8399f14ae7ddb8165",
+     "lr": "908990b1fbfa0721ac79af7ce3298e1d2db28a2956f665290910ff6367e7238c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e01-piece",
+   "echantillons": 128,
+   "spec_sha256": "7f7faafe05e77578862e2c881b902211ae170d44a57d05b0b42ed26a54c88ded",
+   "trous_px": 0
+  },
+  "e02-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "main": {
+     "hr": "72818c38634fa9c25303859ac8dd746a78c6a89ce9107c395a405dad5c1a46cf",
+     "lr": "ec3928859823971de541dee637ea7a143f7bcff1ac648aebf4356fbe5e61635a"
+    },
+    "shadow": {
+     "hr": "1a653e18de7ac2fed324c5c46814d69107f721f03bd728e68f0658681bf1d62c",
+     "lr": "6b9b3f321ca1617d3274daea00135373e11561ed2f1f97b3eb851b148fad4aeb"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e02-piece",
+   "echantillons": 128,
+   "spec_sha256": "79f87ff21e9f068b67ae8396ca0cff11c28c61e6be2e642919a311dcbda4a93c",
+   "trous_px": 0
+  },
+  "e02-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7eb9c68269f34f9a9dc8828e5dee1d25ae154da7741eb305b74790c2c0b38995",
+     "lr": "76a97b4582c75f807277e819722971a756eefae4ca1dcce624b3b96aed65890e"
+    },
+    "light": {
+     "hr": "b5baa837e839a4696552cccefaca513b92998d9049d7c98481e0c51ddd1c5479",
+     "lr": "1cbbf2cb9cb2f324f85616804f3a74bb34340c312ef969092c8916e24e8ebfdb"
+    },
+    "main": {
+     "hr": "759af651279e2469e30f4e6993b91ab22dcb5ec268a24f11718c2ca20f4a7c55",
+     "lr": "51c994da45396e71a6c143727aa10eb8bfee2ac306974df9ec584613f46f96b4"
+    },
+    "shadow": {
+     "hr": "8af74ba41376039af56a8a26219b19cec5e6deb60cb746549daaa4c5163d15ec",
+     "lr": "271d2d66482aedaf4e0eac07edba63abef905be527910f4c12f69e1af5e830c0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e02-socle",
+   "echantillons": 128,
+   "spec_sha256": "cebd2d720d6b5a7dfb06b2c955aa4fa4619019f9c0e3926187e56119e3f98c6a",
+   "trous_px": 0
+  },
+  "e02-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c9a9a8e5b125deda086b5d44aa195a4eb4efe2d438b2aea6383408fa6b9cd5f8",
+     "lr": "a43344e252402d566023fce90ee5e44e7578dd42506fe6628e40602f557270cd"
+    },
+    "main": {
+     "hr": "75489bd62f2e2a32bf30bfa82f1d001f329dad11b766a3d4d0cb71196babbf45",
+     "lr": "bf644053763ab7e71402f60131157bf32826b91d173d7f29dcff0f4f12b109fb"
+    },
+    "shadow": {
+     "hr": "38effa9c0b6c5208cbc80984e920d63dbfb055447e7234f060bc709049c632be",
+     "lr": "09273963768de04ff9f9e726ade5e21c3e283212add95555d6f94697c454677a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e02-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "37269ce6d00caa8c1dbfe7800f0b9276d125e82503e3baa285d54805199f7f68",
+   "trous_px": 0
+  },
+  "e02-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "06d708254bf5ccb807bad291d8908a76484333f4c56dec74a24e58aef5f0d67a",
+     "lr": "e12638485c39ace357eedd9528267dbd5bdb19ab0f8aac116e03f1503736c4c5"
+    },
+    "main": {
+     "hr": "1a85d80abd898c1aba477b3c25e31cf60fd5d98b61b878c92e4f983683946783",
+     "lr": "6936881fc31e3b039d5230054dd122401cb8c9a57ce9b04de891333d9da72b7d"
+    },
+    "shadow": {
+     "hr": "bbe5ac66639538862747fb075cf6427eee474787caed9fc8257d8c7780d95f97",
+     "lr": "63420bdefb6c553003b0f0495aa904dfa64c5e2d2bda70c1e78bd000234a410b"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e02-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "d965d0f0282c48d805e160fac73f55c744739604ef5a2ba463d6831dfa7f167a",
+   "trous_px": 0
+  },
+  "e02-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "ea7e073af5ef16a28818130704984c75ddcb93a62b202d99d68bcd00bba38a4e",
+     "lr": "7542700ad20cccd79189adf696e7ce5a00b4f61696eb36c264c34910db0afbe8"
+    },
+    "main": {
+     "hr": "3efc260fb3dc66b8584ff30940fe03e66431d364ad936b0bde1d02919ba8dfec",
+     "lr": "b12ef709bd27cfad271b8fa7a62b9544ce19cf52b100ee67a17e9b9df7171399"
+    },
+    "shadow": {
+     "hr": "c7be91191bb8860f3b06fd4b5d819d983b8f92729f59e5fb49d93bfb4718fa7a",
+     "lr": "71c30f46c4cee76b9093d1f28b4f5c1747de34eb40bf4d3b5fe3b73bedf82685"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e02-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "52b5e26f736c02a256165782ff5d73a05edeaf6c40d150a12346fe00dd9c8529",
+   "trous_px": 6
+  },
+  "e02-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8edbbb254680eaa10fcd26705cb328839a3313cd31cd7986507113917db436a8",
+     "lr": "279e7e1f105960342ee8479240fdba6fa3080390fb0ffccd7c59408819debf41"
+    },
+    "main": {
+     "hr": "30b675f437c9f1a9b8000a8616f98be234ed370a93d93de93c13600ffbb3c30e",
+     "lr": "5e990a45243377da72a675d61355c98f569a22c6d1873f1923c47b3aa8f19dd4"
+    },
+    "shadow": {
+     "hr": "6e6d345f2ec5ce5549d569d0b6944379f2bd98e68cbc810abde51111c9eb7b8e",
+     "lr": "8f03fd569a7e4332eb14c798979fba07c296c0cd80dd6de077522ba81ea14e87"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e02-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "ffc8d6e8bb1fd011052a473eb8de00c9e0777b617b8c5d3b747ce0d706148341",
+   "trous_px": 0
+  },
+  "e03-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9cfa60ef76b541d9c0ee9614e27972306decb440158b02192ddb6d52b9499113",
+     "lr": "1ba08949ffdc92ff825fd1e706013421b2bddec71f432c5a374baa79f3de5c56"
+    },
+    "main": {
+     "hr": "eb3a04a25096a522b83d9981d409347b5e95fed3090377fdd9659e61de2a1ef5",
+     "lr": "d0102bde88fea5b26e0ff818a1149c280277731dd03d8d54da4079d4637e1d8f"
+    },
+    "shadow": {
+     "hr": "244441b9fb4e220138db2b8bf6fc3bfe9c54af87fb94d5e2d6568991f858a85e",
+     "lr": "79831fc252bae027a4c4df946d6866c4e64041928c6792a62a8451d6b59e963d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e03-piece",
+   "echantillons": 128,
+   "spec_sha256": "feb794524c80e12ae895f81898b29c6498ade7367adfda219927892b94d0c133",
+   "trous_px": 0
+  },
+  "e03-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9800ab365139972656945cb1a2d99e593d4f8ed405a852df7522e6b341b4b789",
+     "lr": "e6f2c411aa5fb29dfd07104c3cda33a40ec450ee87a54d6fdac8d0219e37b6c7"
+    },
+    "light": {
+     "hr": "ed452e6514e25b81f53ff914c2a70386210f837d41fc97e99f4f51f219d41f36",
+     "lr": "52a803a1cb262db5755f8f86fec555d492bb2212bc3f188f45575ea2e8f1cf8d"
+    },
+    "main": {
+     "hr": "47919f24d54999a3c11c95a0ab346cfce9de7995343982ca9be4943bdc872390",
+     "lr": "b9a2f472e1ac52e571a32caf36139244a92baf66bf4844fc9364b248eb0be7a1"
+    },
+    "shadow": {
+     "hr": "320f52e854ccbbd2c00bc9ed906f84f603c9981214d4569c9f818f2713b2ec9f",
+     "lr": "ee0486432dbee5097e47c7855c978d3750bf2aa9dc2835343c38ca19c144e015"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e03-socle",
+   "echantillons": 128,
+   "spec_sha256": "77a77e411755002271449f414c47fcbd55f63a11b25ff7a9d8247803b7082a5d",
+   "trous_px": 1
+  },
+  "e03-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "2046ecb9ecb213403b2f71069036167425e31862e474458dab99d2bd4c75d014",
+     "lr": "87796e55579fdd1196e6eb94b1903a93c1e93884942b9a79f34c683eb13c9fc9"
+    },
+    "main": {
+     "hr": "23afd398af97e8f652660936ff24972f44882d762484266337bd3a3b9dd2ee48",
+     "lr": "d09fe108eec42c8a3c6dc3805a72841f53361134e46752b49543578aab084024"
+    },
+    "shadow": {
+     "hr": "d1f86da08ef25ada1f68dee0664909ecb32fed722eeb7a1808e2eec042a26ab5",
+     "lr": "3a8eda45b0eccfd62adbfa6ff2f55f7650e6cd9397dde9affd5e17b081f1f771"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e03-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "5d5259137d202bbe71ea32b95cbcea52586504f63c3bc67bbca2310da6f4cef2",
+   "trous_px": 1
+  },
+  "e03-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f2a9e60e6cda18462964910ad09e86567ee81177fee3f209f8b85d5c073321ad",
+     "lr": "40bb06260e4652db72e1f143621ca82ebfbb1743fe92989971a08dccce7862d7"
+    },
+    "main": {
+     "hr": "783a2e78bed3b48a7e31441adca43ef6397681d1d96f401ee07fec7e6047363f",
+     "lr": "4a295ba231cab15fb484bb225224d8ad940ec3e09fbfb140579485600e13d45c"
+    },
+    "shadow": {
+     "hr": "529293d4947a7eb908858348942d3137d61f1dc799cc8beb088dea5ae1b2cc7c",
+     "lr": "b72a6c5f15fc45b590f3aef8ff0fb3c90c0496d21d65129e0c0e5ee28f4351e1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e03-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "69eeefaa3927397c798b00f5be66839283583d21e171422495a90a90dd28ca11",
+   "trous_px": 1
+  },
+  "e03-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "daa63b0c2824079c8b9c5f2480e6d4523d348a6e281e3e27392d6651929c1a5c",
+     "lr": "7d95b87f833b14f5aab0549fc1cd070ffc7872d71c0866631e311a87a861c87a"
+    },
+    "main": {
+     "hr": "caad6daa2de3a0cad42313e5c840a2fe8092d3f373ef3e03dc7e9edab19ecc85",
+     "lr": "5629c8f6f5050deb8247f2abd09f4ea8f5ceb4e2a94c464448a540ad6188b48f"
+    },
+    "shadow": {
+     "hr": "496ec766908249e779988734627c20812cc6a44e37a891444687dd0bfc842b23",
+     "lr": "4c3ed2ba8acd61d4844c20ffb6ac5489a372863a969ab08664a1c00c3c0ff19f"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e03-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "95a4767adab2d222359e1776d2aa005042ed8a3066a5050596dacf7f6ddee467",
+   "trous_px": 7
+  },
+  "e03-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "18225ab9cc1174e9605936416d88d03bf5633c1cf18786397a667b8e4c64080f",
+     "lr": "5f7fb49445bb2c0d02c110a9967d17ba4d2703c06b67a488431754fcb2cee426"
+    },
+    "main": {
+     "hr": "cc2be92f2a6e98d93810dea8946deb5f6c9266cafa545f1c061247683dd76a75",
+     "lr": "f7352a8e4bfa26b2c072b95c7472db69859a9494ea44bebb2a1de094387e36a0"
+    },
+    "shadow": {
+     "hr": "c6193c6523b6fbc50e5933e9f137e2aa6bd3b2587fc87389c73fb2bdc36317bb",
+     "lr": "b7a16f417b909166435eff17c82f1579f1a4da69963e054d5df54b46f7b57f7c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e03-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "915e1fd5fbfe70b451759db76dd575b5491b31ad7e744eb0c309aaef12382804",
+   "trous_px": 1
+  },
+  "e04-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "64c3872adcb32483340ff345235bb934e1174356615c84e6814979b20a2d3f8a",
+     "lr": "e11a148810a1a31e1cc64796642d43f781adc520e8cec7eb7c5f6679d023ef2f"
+    },
+    "main": {
+     "hr": "196eee20eaf80bbdf8ed5dece75d362528fa2249a9b9ba236ef53382902e8d19",
+     "lr": "2990bef48c97e88f8da727f1d4d696cb45e30c770892a5c2c0eb0a75288a4b75"
+    },
+    "shadow": {
+     "hr": "be0f5cf73f5e03da4c317849d28990ba6a9cd5d41fa2239e28b31cbbd59771d3",
+     "lr": "cd699e326674615cac118ff54ff9e5f35c1279e21800b6788366d4910eb91c34"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e04-piece",
+   "echantillons": 128,
+   "spec_sha256": "3d91bbe4bf056d5ae0868fa999e5e30bd7a36e5832e83b62b71760709c693f95",
+   "trous_px": 0
+  },
+  "e04-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9e9f2b9a9113b577d6498137ed6108e14d15ed7f609da0bc0f09a9f3e0593f47",
+     "lr": "73b721d3ad55730c08e498120faefbc80d4fcb93bb6f67ad86bf278dd788faa8"
+    },
+    "light": {
+     "hr": "3aea815f0829c4e8c23ede5710e42e9750f816571650645ec8b2a849ffeb5a79",
+     "lr": "cc85299a4c63ba85e9ea2cc6a5aca013be2b5f89e7808b288dcd9e68b867f2ef"
+    },
+    "main": {
+     "hr": "7833b360d71762987ac4bb35cfe348b8b226e197afcc878c8c8b8715be360435",
+     "lr": "c95d860853881b3417658d200fbd34f1ce769d5e9ed53fbd679c6c32a4915ed6"
+    },
+    "shadow": {
+     "hr": "ad3991fdfb7b52507c69b4c0e905f20e35f4a32400823141f7ec396d85450b7e",
+     "lr": "7c859a05df4397edec158b1644ba0fd09c593cc2731ab271d17d452dad10bb7c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e04-socle",
+   "echantillons": 128,
+   "spec_sha256": "48895a0ada0d99930f10622c11b506abf8837d0c38424deb21f0d64cbecb3e0e",
+   "trous_px": 0
+  },
+  "e04-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7fe6b1a0029e608f6f2c384bab43e2c5fd3ec90ae21f1ecb410459ced4384be6",
+     "lr": "cdc075d67f87dde12af76768c0862ff1d7a8bcc73a30ab9ed21df0d34eb5e87c"
+    },
+    "main": {
+     "hr": "6939dbf27e3eb4df200929a0a771b9a9f8dcb9707179582d59a008ec88572c32",
+     "lr": "c7a1acc04c3423c3267265f6835c551bae29c0839d80947cff106d955bb479af"
+    },
+    "shadow": {
+     "hr": "b343f064adbdf8de0f75e03d71e0c2ea7e03a55d8ef6da87cdf9c5b007137824",
+     "lr": "ba5abfb5dde66e2f337fd6b4dfb15da05ee4eac6c776001e949012e5f7b1e976"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e04-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "f6ee6846a454c4776a212034eadec7ede8fbde837e1792ad3acb5dd3f4bbe7a6",
+   "trous_px": 0
+  },
+  "e04-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "ab040d13a453a6280020aa6b5661591b3d90d5f0e6a5d6bec90f58951425f619",
+     "lr": "9bb99dead5c0bc6b9141645a44ad7d77c5a6ff9f3f5ee2238e2786ea5a57cdf3"
+    },
+    "main": {
+     "hr": "0c4bd8effb1cab6426428eeae6e224011f9c4d4c6ae8c6b6090380ca0bbcc609",
+     "lr": "7147b48bbe766c3d2eaef3db569388b62088f5b195cd0bc471e2a447869fe3a2"
+    },
+    "shadow": {
+     "hr": "3d32607e898c3d0f26303f8aad136cc29e87970cc1c580306a3c82a41b0ff6de",
+     "lr": "d99daa09791e9b3cbeaa218a67a5b74fe8679f3c941e8866bca34a09dad92ed8"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e04-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "3a02414ce7e03aacb13750f8091e120b7530c6b75032f8b56400dc140d7ec771",
+   "trous_px": 0
+  },
+  "e04-tete-d32": {
+   "bouchon_arriere": 2,
+   "couches": {
+    "glow": {
+     "hr": "6fed6bf37c6017543931a0dbffa2a2e435b05f968de8617cef987110b6bd1683",
+     "lr": "30d762ddfc53fdccece531aeb5cd1dc500eb23be0fe91c6dae2122e33e98878e"
+    },
+    "main": {
+     "hr": "48052332bada1f0425ef1749780fea85de11280694d242f19a9589c190bd5439",
+     "lr": "ec5db7b7401ee0205b1c84f9a235d9e625fe0222d038bacc153d190b833a5e5f"
+    },
+    "shadow": {
+     "hr": "5ec2e62983f842c4bccd7cc2f2cbf4160faa8ff908439c0554d870afabd02e5d",
+     "lr": "db4e24c791cce3269813cba510e12d13afdaa6559a288574d6adb878cd92c90a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e04-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "bb5b0697b2c43c8bddf2883e79a1b1030162bf804e7749aa922f4510b013a0a0",
+   "trous_px": 8
+  },
+  "e04-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a23e7f8152f1afb430e67c778388a0cf5948c8b1095f04c551650ab2eb62f30f",
+     "lr": "6beff4e7bc5ab3e3d33642931a9c11d8a7bf91452748125c9958845c6332d509"
+    },
+    "main": {
+     "hr": "53f45ac62f0471059a28d47ef45ad891c6bcbc1c8c47fb46d7a6c9a9e0cb3dc2",
+     "lr": "8222c7fe79ba866af15a244707bcda727e0d6d5a38b5cd77ad5967449a9d168a"
+    },
+    "shadow": {
+     "hr": "1a58a6ba7b1d75621b3f9a16091f8659776d79e02b4cdddf869f4afe5f3adac7",
+     "lr": "bd48a9aa1abd420e6218ab62c7767709af7de9a8230fa72f4b8a5ae4fed33465"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e04-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "9186e3a6ea202855139ce857c638ef6d6ce46496b582156b2015d56146d8b0ff",
+   "trous_px": 0
+  },
+  "e05-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "00861334dca0ab6fefb0f8c5efe83c7995c07d9cd8ac4a9b30f85e0503a2b91c",
+     "lr": "3c53eff7412d0e8956297095a6a255259148ce8782e90d7355f5e488b679b4df"
+    },
+    "light": {
+     "hr": "d797ce022a18c748f9af0718ef738f064b35e3a74c35be1dc08d24533b053cdb",
+     "lr": "77ca17a2981f1566c3e35544f7600aebd202a5b77897f15c094537682230b5d5"
+    },
+    "main": {
+     "hr": "88912a594fea88dcd36d4a98ec611cb7aabd7dd88e37b94963a23cb3a8c02c35",
+     "lr": "9bb7e811af0f06a6fdbee856fcef7f745c9274bf071bfba743379269eef7d289"
+    },
+    "shadow": {
+     "hr": "6b9936b4138525490d584ef2901f0c171090a70824ed41f8c19c0688ece63615",
+     "lr": "db9add01d57ab2cc2665273ffe222cc2440b5aebbcbef53f5640d1f11347927e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e05-piece",
+   "echantillons": 128,
+   "spec_sha256": "c5620be3a37c5febf5677d16f2512067190245e9e3b32e38ab75124a18eb8613",
+   "trous_px": 0
+  },
+  "e05-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "1edab32403bd88a76ef17051b5fce4013619f86604847a0fb6b6fcdbb4c56f22",
+     "lr": "e86677671713fc2bb9540670406812d77f0be83f76ecba304e696f45f3bd4736"
+    },
+    "light": {
+     "hr": "4b5bd850bdb94866d10eadab04a7ddf568b17e287d217af5c0292d509adcebe9",
+     "lr": "b9a5e63305f2a74c805374c8fccc5fe8c73da680f455fcb64b881f3e9cbe110d"
+    },
+    "main": {
+     "hr": "5c7a62a3175b4b675ba4218d3396eff4cec7f47cdc8a945a87791cdebf0c4826",
+     "lr": "3f8332ea0137838f23f876a7dd6a628e2545ef1fd8e56e7f18b3c832fe979237"
+    },
+    "shadow": {
+     "hr": "d3dc8d6ab032fc94189074c148166f614d8339b58cafd5aaffb1cada286d76d0",
+     "lr": "8a2bf96960099993b001d147c0440bd58f88c7bfc6eab6aedd85e64a06db006d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e05-socle",
+   "echantillons": 128,
+   "spec_sha256": "dd8f16cea93a0f8338c2e0b372669fee2aa4fb29e2382a818884f791ee03edec",
+   "trous_px": 0
+  },
+  "e05-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "31ad630b076d0ab896478305ee5c4124325f9f1a3d251d3fea8748d8a5ae2a9b",
+     "lr": "21634aa23611af12877cdfad63c5b8b0e791bb2e41b75a8cce995e96c1738deb"
+    },
+    "main": {
+     "hr": "e87bc2245d844c4307678d6774c42cae665f6bf1fb1f219ac209ee63e291c7aa",
+     "lr": "8da23870b20bc59a84067c071f1a58386c25725a74c356d6a65fbbbbad5e2ec8"
+    },
+    "shadow": {
+     "hr": "74b69ff0a7592310e638f4885e11349be56ee5890f9f3a33783373a2ca8eb64e",
+     "lr": "d8211ce10f3cc65f1b5016a842e2dd7a84493e89b8b1723e48d2f86bdfedacf6"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e05-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "6d30d3208b8d70fd4e072657525c4847520ce411ead30da322a71f4c49012df0",
+   "trous_px": 0
+  },
+  "e05-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "616f9522b43b86ed7a9aba2d73a20309bddeda2292dd37a6898c9ebf4332547b",
+     "lr": "5d0a72f57d11c116eba43b3c76b7ee2e92f0a5e37adc60fdf98fe15f89128d55"
+    },
+    "main": {
+     "hr": "7f14d9951734217aee84536ea0e28d2296bc0ee1d5f67824386e9a57434d2654",
+     "lr": "12db307f5beace201f30621714352abf22ebb999235115e8229b435aadbf038a"
+    },
+    "shadow": {
+     "hr": "1aac969ba995a5085e6ccb917e89bed33c89a2b1f3e2361fabcf967b6d7e13a5",
+     "lr": "16fe019cef0c1830afcedc1a942feef567bed10044a66489c77c2f0083ec7350"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e05-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "0a6661667f6522cf9376f80ff887388f98959a64c06b9304e9e8dbafd8f396c4",
+   "trous_px": 0
+  },
+  "e05-tete-d32": {
+   "bouchon_arriere": 2,
+   "couches": {
+    "glow": {
+     "hr": "900aa146ae793024a295bf32a0d5adf4b5e1f9283cd457e615705408319ca041",
+     "lr": "77f8724307091995547bdc38da47a02cfe7f85d2717030f8d002c154ad7b2aa7"
+    },
+    "main": {
+     "hr": "116894c52d31dcd913d9a86d997df389557c9534661164cc8cdbbb82eaa4df44",
+     "lr": "2ea819c6d7b8c7dcdc798fef6dcd5e7e9da8302fb29f874b7e90a5c3ceffc765"
+    },
+    "shadow": {
+     "hr": "752e2f62b6eba36cadc0e31b613fe63a97d41b1fb21612a49d620ff332aaefd3",
+     "lr": "8a253fbc932e62b4daa2c8bd5fdf356699fa44672f68b34b70325a59a1f32cc0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e05-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "9dba57a564ef2fcc52a53ad0260cdc9d4aa30bada1b07ea1a8847fac2c250738",
+   "trous_px": 0
+  },
+  "e05-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c46f7abf8bd9635817dc46c486d49cb528db5b17394a6e09895f0d2efda42634",
+     "lr": "c4e855fbc4e77d2478caa5d0eba65a5111f830a129cec75f1b58dd6c941a7f40"
+    },
+    "main": {
+     "hr": "e60737a6c257cd5b1ffdcc4a1140c8b0b02cb92041f98b0adc9bec121dbb17ec",
+     "lr": "f94e611775766771eec13e23b7b4bb3615e9208612885044c88ec36ff0b193aa"
+    },
+    "shadow": {
+     "hr": "48756c456aa68c2fd71aa5098fa7d48d32e69f2d8439fa32d8636e68057c7ae1",
+     "lr": "2662934604f7c48a68d7cc380a2f0197adf7e3d9473064ad864005ffd617102a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e05-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "67fc8d67c259b5c3825fdaadc6f9e6b9426c0cab7ba3172b41427bf11da78da6",
+   "trous_px": 0
+  },
+  "e06-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a5f599e54d9bcdf5a1dadab9ab0b052f5eb9ec5f29f20c7465e99c69954fee14",
+     "lr": "3dfc70c9987a5aa4fc0b460706b58d482869e8663283c64c1e30c53826a6cf3b"
+    },
+    "light": {
+     "hr": "bd8d805a60f877d318499d95113db6d177e7bebbaf659ddd69ebd23cfc794a0d",
+     "lr": "d200132b40130fa077bd594ebbb22a4c23c769d8ea450f1614063204fdb14437"
+    },
+    "main": {
+     "hr": "7a4d4fe729fbfdda9e2c559091bcd5437ca840391f61a1b0a220bcb4041396ee",
+     "lr": "5ed98e577a5284350a7a09f08b178f07ae144026dda03a0d942a37cce652566c"
+    },
+    "shadow": {
+     "hr": "1822558e3508d9add2875e5339fd7a619148bfed7de0f60cd744466405415039",
+     "lr": "9b561b2b70d67c7106624e86680b5c4c2c425ee1fd8c0ed358c93ccdd42abe64"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e06-piece",
+   "echantillons": 128,
+   "spec_sha256": "61c40128fb2e2a131fda40b7b6a01ee9a2069945853505fd45ccc12c57150899",
+   "trous_px": 0
+  },
+  "e06-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "661e7afdd8c59e3d7c297d9423e7f11e8d52a2708d68f82224cab23f521c41fa",
+     "lr": "222fb9102e5646ea62fe2f5efb21f382246a402637fc498edac2003b78a53289"
+    },
+    "light": {
+     "hr": "5f26e6067698d2794ea185475deb592d7a5d2512043528706b5b433e4d2e129b",
+     "lr": "fc1faaa290533c1cdf5a331282c01897863c89dcb7d84a97ab9b4359654dea64"
+    },
+    "main": {
+     "hr": "24f8b730770a79bb24580e21c50e4f2f093fdd4405146d546e0f82ea610a6dc8",
+     "lr": "b2c3f93842482a7f002f49b5da5c94842e7986a178b51c7e8992108897a7e87a"
+    },
+    "shadow": {
+     "hr": "9b213afa32d8cbb99a4f21c0e0a1bab3b0a5fab33e4b3c4c608bd36b21fe7fcc",
+     "lr": "a59199e8b926d7b560bc7bcd0c2d48cda4f5384b884e1d0d5a3b08755fd6cd7e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e06-socle",
+   "echantillons": 128,
+   "spec_sha256": "f43127909dcb58323dc41405a6386913f47084d6f5c8950daf8898a440e23b7d",
+   "trous_px": 2
+  },
+  "e06-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "baa8996ce8515dc7c9e94bf9b141085681b0c83625ecfc6dcf8ef23524fa1155",
+     "lr": "fe49a6cb1f6b47fa4706735d40e6402ce2b115414031c53623b630b1cadac711"
+    },
+    "main": {
+     "hr": "2e9ac25746adf36d0ee09ba9c7d197372acabfa5bf7ab4178d93232f8a37d275",
+     "lr": "fc18c8e2070c0c7143c463894f6dba5d4d8791a3f301afe407144fff6221f42f"
+    },
+    "shadow": {
+     "hr": "6a1cc616a0cf0b9b91de8008f81fe9ae8398dec69d80fbd339ad7018df887ad1",
+     "lr": "0ae056b73815f5c27a14a446b32df29353041722fcf02fcbcb486879767adc0b"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e06-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "3655ef4a891158d660e4d218dae96485faab1d43aa455f343cda79dbd8b7f2e7",
+   "trous_px": 8
+  },
+  "e06-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8b3bddd17c57daddedc4a75b6ac1be259652f15e6b011665c0ea73e3bb9ed2d2",
+     "lr": "1f9b6193989ffc9cf992c1720b7f4f597b7d4d7f1c954fc9f6114ba164a8fb62"
+    },
+    "main": {
+     "hr": "f2b84a47aca12c5f97b0d087ab36cef1a3bfd6eaa848c5a24686f36469fae6a5",
+     "lr": "4a3ab5b923b21f6404b7414dcd9bb016ffb45b33b5d6b20620bc417b0de4c68c"
+    },
+    "shadow": {
+     "hr": "4b8263fdb93d466e062c5c137623a9784a879fb9cec9974df3924f07d072444b",
+     "lr": "1a85308a9a21b122e30e5447777c0b55920b027102b92d766f8cdc4c3783651b"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e06-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "3a6fdc2986b0a80c35e33fb5f43ef377eb5d6b458d96f6b11a6751760fd2732f",
+   "trous_px": 5
+  },
+  "e06-tete-d32": {
+   "bouchon_arriere": 2,
+   "couches": {
+    "glow": {
+     "hr": "6f7829ff51925756ac648028613bae183527c113043eea0985cad4f27e9c3601",
+     "lr": "33adf2eecca4bc2656005023ce4fb8df05ed5629f19aa844416c09a00cc58f99"
+    },
+    "main": {
+     "hr": "aafd467466148d83f022f0ee21dc8a8e565b1ef08f5259857b92e58c0519e1dd",
+     "lr": "ddfba24b729380facdd104ef45947223267222dcae7a29ff478e7a03a7062059"
+    },
+    "shadow": {
+     "hr": "f4ca0b2da37f1aff8fccf58f7b7c3eee1ae8d14aa02c30bb2d73687b8433498f",
+     "lr": "8442822e288e36ea764185005a428d78023b94b82b0594078dd1326e4b087329"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e06-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "c52a3edfcec3936d975e998b2d67e28be5c01f495fe7d29a747d02be679f6747",
+   "trous_px": 1
+  },
+  "e06-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "eec44223044aec4cbe1a462112125faaf2c4f275ecf48358f9904ae75f2ab6eb",
+     "lr": "a19a4a5bd87b70742dfe8fb36beec98abea39542b6347d2842894062ac2d3dd8"
+    },
+    "main": {
+     "hr": "fde0a6f511e253c8b472f6e25394d35543eb24efd74a5ecfffea148836d5b113",
+     "lr": "ced1d635cf59d2a10edaf30a49592dba3789786527056956118a22cbec4175e6"
+    },
+    "shadow": {
+     "hr": "92325ce05ac39fc7e4d520f4e1c4e6361d250fe92b9ba6f45aff02d1fdd9a378",
+     "lr": "e0608bba37e458be23f29cf27257fb14e43283a9d1196009bb7526f9febc7a48"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e06-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "cd2ac7760060070a4db3e03ca731902ad41b689f3d9519ed80b95a854ec264ed",
+   "trous_px": 7
+  },
+  "e07-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "853a85bd162a00d35c91af65f1886a3ef5dc65b794d7968375fd36f298c0a899",
+     "lr": "34522fe9e61dbacbcfbfdb0b1c46403c9a31e394523ee9b59974f1b6cd4ec127"
+    },
+    "light": {
+     "hr": "3735ef51deac586590c842ca6816eebcb7c095d22e88eda8a07e69b09d444352",
+     "lr": "121373b4444a220e8763e417c66819b70d7d4ffa79616f4270414918d90a11bd"
+    },
+    "main": {
+     "hr": "f0ccd9de4c291c71131ed3eb0c86d8ac13891b324c2ec8d370c81f94fe382e74",
+     "lr": "4cc8a73b6089386bd6bba1d13796b7fd1fdc37a89cc11d5a5b119bcd824f36c7"
+    },
+    "shadow": {
+     "hr": "e7dc68f932d84c20277e147bb7a654861d6afd37b6b3ef89d1f329aa15fce88b",
+     "lr": "6170e508d4e8f2c8ec4546c6066a01123bc43f2d3fc3757a7470aa37a714c560"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e07-piece",
+   "echantillons": 128,
+   "spec_sha256": "d6d1288b6254f560bc4a8b2643483258ac3474ef73442bce8a1980fe7f998d09",
+   "trous_px": 0
+  },
+  "e07-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f581958d98f8b5bf7480e9b83b01d7c450c2e87b503c7e4e97f92f8a65f6a897",
+     "lr": "cba5b57da1f0110584fd143829fba08dc67329b095856de50cf1a68f667e7582"
+    },
+    "light": {
+     "hr": "3febe84466c4bd9a655c659c2047de602defcff2b9a7a4e5fcb160cdbeaa8463",
+     "lr": "1e97f6abf68edbd91e13e3f69e3ec767bf95567daa477cafb39870daed68a24c"
+    },
+    "main": {
+     "hr": "7e8f02564e69c100abdb2d7505c6d400ab38294ac14d1051988339ca86149a00",
+     "lr": "6c652feb8cb14fe40ea184fee0ff31fb97f7ff8b3c9cdd4762e15153fc6638cb"
+    },
+    "shadow": {
+     "hr": "59a3047b38299c91af4f2e38c1dfdf4c603130da91377db2f2ab413500f5c923",
+     "lr": "c207538e0c8b73dcd25062419ca4e939ea779d0beba5023f354be05f11ec6de0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e07-socle",
+   "echantillons": 128,
+   "spec_sha256": "fb4adf041ccb218af85161a587284db22587702fe892ac54851f0d6d6dd38b30",
+   "trous_px": 0
+  },
+  "e07-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "286026ad7e5d783bea567511e7535282d912eb56348753db312ae2ca86952eb7",
+     "lr": "e0068c5e7b26a46973c4b9257229168cce14f41976a1ed27d1f4467840464efc"
+    },
+    "main": {
+     "hr": "49a326eca1143ab94a61048c236f3455ca4ad49ab1708413937b7123c1218b8c",
+     "lr": "eb59e0dddbeb3c0026b1e76163df2103ad22bbc17c0f17e917e9ad07a0fae541"
+    },
+    "shadow": {
+     "hr": "b5542cb858a4e09255b281b989d646420a016e9fe4de6987b5895f59fafcfed1",
+     "lr": "4f75687f8eaefcb72051af6117aefca72096eb3e76a1998a820bfc683055a733"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e07-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "1e391bceb1052eda90e3f65c865253ee660df156bd04cec4812d0105f44d1359",
+   "trous_px": 1
+  },
+  "e07-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "4ae9d18ad10a56c79aba2768c3665e5f1ab9e2ed2b09305637f944c01ad47d1f",
+     "lr": "5146e4ba08aacd1629b02d8f27eea98a5694ec5f870aefdb3b999dbfb025bc19"
+    },
+    "main": {
+     "hr": "54e49bd71016783e98eb9d0f42f75451729650e826bbb286a11768a77a690b6b",
+     "lr": "e2f4bc21627fb36e4f94b6299babaf3193e430c5812a839600f93d6ce89f456e"
+    },
+    "shadow": {
+     "hr": "7c03c93679490d7d0d73a54ce8a27b049d6426af1e15a155a9cb4af95e4ee36d",
+     "lr": "d83733f41d364587b6f84a8cf45d5a594dc3411ec02f55e1f04d455cf9ca0310"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e07-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "c854c17c4af8d7ae9f9f63118150aa3255a4d3fa6fed7e6ae0a94ecff3ac20fb",
+   "trous_px": 0
+  },
+  "e07-tete-d32": {
+   "bouchon_arriere": 2,
+   "couches": {
+    "glow": {
+     "hr": "da63ffffa9b4a43df300543acff0c976cf5c1675fba64e8af76d8d0b30d567a5",
+     "lr": "d1bd90fab15e379bb7cecacb5c16964cf043143231bdb572117a9d23926ebcad"
+    },
+    "main": {
+     "hr": "894cfa4e87a867ef0fe72ff7ab419b9fae14712d684564ba4feea723e8d94356",
+     "lr": "d21057b0ac5f1c4aaee4f0af88003c4f53726493b1cf246b21df989ce8f11efe"
+    },
+    "shadow": {
+     "hr": "59a77a0c35de210cca62d5b2c315f4c06c38d18516c651dd256c7a3301333faa",
+     "lr": "db3a4b16f8f3ea61deec916d466329753871347c558f6db440c28414281c8c74"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e07-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "8dbe15178100d2ba9116bac4450b0317f8c162159ef3737aff2db0937d4cd46f",
+   "trous_px": 0
+  },
+  "e07-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "00fa79bece1ff41a27aa4cf81406717994b25c78a1d45bbf30ecfbc1397fdb37",
+     "lr": "9b4b7308be5687088085ff2c2cace808d0fb4d531777a8b7895e7cc23aadb54f"
+    },
+    "main": {
+     "hr": "fee864d730f300dbc41253b8c91e554966c2ce4a66ec059027f8f5e23e5c8a97",
+     "lr": "2d5e6e488e779974bc134e7b7d806c6ef31e67425fb60a0e27e7540866229799"
+    },
+    "shadow": {
+     "hr": "32c2ea29315a1d097b22ab234cf364cb9df06cf73582a10fc396cfca21d9cd6b",
+     "lr": "054dfe0718ea2250919a1ade8298de55facc5213ec38252e080dd0873b0e3a75"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e07-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "c3f557b9157fb5175fe5d7c602780f8f6f60aeaa7f6cb5a602fe69a15de416b8",
+   "trous_px": 1
+  },
+  "e08-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a003654b68ff2ca365469ef51411acb8f99597e97c3197ec7f2389d0e09f1a7b",
+     "lr": "eb7b13f1ea14ead862fbfabb412ac690978d3a82c7f38db1f97658c3e3f32cea"
+    },
+    "light": {
+     "hr": "0664d7052fa2b3131445ef39f19b3c7af9cda8fddae8a3161a9303e988aa2ab3",
+     "lr": "df39d20f6428973af39ead1fab16c1cc5e19467859e3f72607946d72fdc57d08"
+    },
+    "main": {
+     "hr": "234c5c4c91cc557d4ffe76539b7349f0412ce3326cd58a408913e139795bd3a1",
+     "lr": "fd5a132b213f8042ff53fdda900620a08368dae9bdec47c18af67e1264293ed0"
+    },
+    "shadow": {
+     "hr": "daa6af66c6eae1ed68f38299c338c59f07f298f32c241e0967babb2cf85a90f5",
+     "lr": "1ccb1c0555112f34dfb194231ff6dfc88a8ef439d103d806a9fffb96c9b0baae"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e08-piece",
+   "echantillons": 128,
+   "spec_sha256": "2769f3a44e36928d02adce7c036fbbeec0a23f147af3aa57d01e0d8f49249573",
+   "trous_px": 0
+  },
+  "e08-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "275d2eb23700af49ae3a5147e00d59d8a63eb4a375bff93f3d112fbef299e583",
+     "lr": "4226e8edea0a86f93a30d7234d758d4754c877ff86ae35c9c7c4e28019e882b4"
+    },
+    "light": {
+     "hr": "9ea36ed3429945ffd504c8759d54327bb67fb3ac38f8a9f62b5a27f664f8eeb7",
+     "lr": "16ca78e73da115636604de5787f3a5eb398ab8575ba9174d7448a4dd07ca74d7"
+    },
+    "main": {
+     "hr": "75bcddb08e716c88584c4006b2bda06320e45023f7ea112a585d099b8b089cca",
+     "lr": "f7710baf0cff53f4bb8c14eef87cf3ab481270ad2eac683850ac2ea80ce58597"
+    },
+    "shadow": {
+     "hr": "366bf0d82c757b7ae5894b23424d182edd1b42bc45a8065b5a77c0b90632a282",
+     "lr": "fff26f772e2601ac0d1a16e7564159de6eb18770abf3b23bbd0dcdd890ee85f1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e08-socle",
+   "echantillons": 128,
+   "spec_sha256": "101d9a8b6a1ab8527d2a2e62f9f3812522c81ee5b5874ab7a28c0005a7650000",
+   "trous_px": 0
+  },
+  "e08-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "cdda156fd2e7a7d4d1fd3e115516b8c6fda8e4f26f01cc2a0632e45e0715110e",
+     "lr": "22ea3fafa8eee281e58632f2dc8545effe8d72182e9cd8e8ee86605e44d20446"
+    },
+    "main": {
+     "hr": "bfe8feac3ef770f60470ca9278228323f91350d3c76879aa1c404a886dcbb454",
+     "lr": "4ad252a2b684e56397fccc2dd05421f35f237857ea1ea8f709a9d5efd84038c8"
+    },
+    "shadow": {
+     "hr": "66f83971d34d1db6d06f16c5e5bcaa429326c8c6f6d3b08c7dd338df4079c577",
+     "lr": "bcc4de60f03e6d0e57cc0c9222f0cd4246c4546de9d62219eb7deec57aaec8c1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e08-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "4420b970e957394a74d373272da9fe22d67cedc96aecf2d7a7b3c0b47671150e",
+   "trous_px": 0
+  },
+  "e08-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "40c1042381c90f9373e45ab7ed1c1ec704478bd0a1a16b571efc41d839ae8bbb",
+     "lr": "6b4070e5eb94c2cbd7f1de354277c672f8853e07863b43457b5f7dfa283817b9"
+    },
+    "main": {
+     "hr": "df5c842d9a8094250525cde0509e5093a553712adf753bf1a7732ac16f77e097",
+     "lr": "2986e38a4e1db84b8d4f3fe52030d41fd962883bcdb47fe5ade0bd8c149f35a8"
+    },
+    "shadow": {
+     "hr": "dbcd38960b11b5cabaec7d965cbfa15a2917142cdd4a1faf7569105ee3bd2e82",
+     "lr": "ebf1b22289bba44a86bf072e68ef1acdccda0b7b5d8a39267a8c98a8cb1c7aa2"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e08-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "a5751daa26132199a269112b9dc3a9db6fd898fb591e1c2f96b2171535e59a02",
+   "trous_px": 0
+  },
+  "e08-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "dcb59280956bdaaf00f822611bd0d166ac491d8fc6bc9b5eeb9d7764b6ac98a8",
+     "lr": "c88d10d6ae858d6e21b6c8ad8e80501511e6f930156b967d72bc28a84c530845"
+    },
+    "main": {
+     "hr": "590ba6cfdc198528735ee1620899c9136b5573fdb139d49a1ae2d0ea298108e3",
+     "lr": "28e85f73152d3af34e3750c4f6049a1a45381bb8a64ee7774f03695a3f5d18d0"
+    },
+    "shadow": {
+     "hr": "c67cb420167036fe07e85699a83f28a29f7169e34b132a4dd251840306c5d2a4",
+     "lr": "c12d5d4d8bb1dd2cda73a5b57f74d010f93c7e5caee2c5800a2df9117d94f445"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e08-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "4a381575c747b5b01f4518534225fec88b60650b1ae08619da3277a25403ad11",
+   "trous_px": 0
+  },
+  "e08-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7a8f6db4bcb9e00d282771cc2956033dbcb183efbf36a1930056125e91339ca5",
+     "lr": "e47b6cdee357dd3032a3b6cd66e7de773a5b2b7d5ccc431e32c1169c1442aa6f"
+    },
+    "main": {
+     "hr": "7aa9d04ca49ada5a4024f20d8487a0adac2f0780604113b78a1b1bc96e712b2d",
+     "lr": "34e635cbe9aeecabf4678fbee2a42c2cf0850b75bc417094219d9f08391cac6c"
+    },
+    "shadow": {
+     "hr": "cefd3b3f33b086203ff660590760adbf400c680f28438ab09a18bdd010f75bce",
+     "lr": "bb00a18975d8e944bdb4b1444ba43079da659c22f7bb0656e92079eeec629a74"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e08-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "982c7ed360b72719dd5a09cc368762f2c5d19181d3ac312d96804177d00033c1",
+   "trous_px": 0
+  },
+  "e09-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "118262d48dd9c2078bda3232a4b15c97de64e01b572d52a24ed0255c4483c060",
+     "lr": "025e3ba35b88f92e9cd741b982aa3bfa482d64e82129db3f5cb96cb992d76308"
+    },
+    "main": {
+     "hr": "161ab6ca0a51c6fa27f13b98c7428e1c4d4f3a1ca51046c2ce2c6af20488c6d3",
+     "lr": "9c3b3ef14d8585a6df58133d3c93f9dfa39df0a1e7b52ee218844b953894f367"
+    },
+    "shadow": {
+     "hr": "b86ade4944997cf294ce72e8b84b75f7e6fefd2ea0ac294b003ff05c07f5c71b",
+     "lr": "c947265ce46269cbd78074d6708a3bcede54ac324b6af0c99a501da59d0f5faa"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e09-piece",
+   "echantillons": 128,
+   "spec_sha256": "a92917bd3c5b24d42aa5ef9b93533f3b00068a6c82ac4dd76a39f2d0d5ad9fe9",
+   "trous_px": 0
+  },
+  "e09-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3fbe7a80c0731391e0641e8e8b6a7ce73c2843e6426c539813d09412ce4bffc8",
+     "lr": "1f70f4bb779f4fdff4301b2b4a4a2b40f58802325b66bbb78a143a0285e9ea5e"
+    },
+    "light": {
+     "hr": "df4f3d0785a9d299743410547e6c4d123430f190ef848b804116e067157b915e",
+     "lr": "f15784288748b46ac056b3d90f39321f98978ae9c0261e8bec4038216150a717"
+    },
+    "main": {
+     "hr": "61db97291201450ab90d8d9309fc272a27d5dad041061cf269272df5f99ab0b8",
+     "lr": "8aca959bcbcb88533154aa0c77b3fdb9486e71c45472734bc7c5170fcfa1d122"
+    },
+    "shadow": {
+     "hr": "e4596c8a1e03c6c78451557264c61fd042bf360b45792f3c37f34046afd7b24e",
+     "lr": "7e5206a53b5e8f5c529178aea899514b7c15283effe3d36177898166e514dab7"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e09-socle",
+   "echantillons": 128,
+   "spec_sha256": "2028dfb187714d97a492dea7bf6415d2876b06d2b71920c3ab300038d677f522",
+   "trous_px": 3
+  },
+  "e09-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "343c07aab3314ed67c7a5e4b7a8abb92a8448274d760e839a569e48de1611b2d",
+     "lr": "6fb421d67505131c07ed3ba5d84dbb3aadf86999b9352f09c903c1756093a188"
+    },
+    "main": {
+     "hr": "23f7d9eae37ec1a31d71fddb171110b62921f7464a8f7241d07f9c5cedba63dc",
+     "lr": "ad48f7805f303d2144e6ce62a994dfa739b6989f87f585fc3bfab011e725f251"
+    },
+    "shadow": {
+     "hr": "62119fae001febc1007af77f3d38af3616ead9f6949e8aa7fb2e54297651d3c8",
+     "lr": "abf950d495af5795c3b6531cede82b13f9da53547c909bcacec46f81b1236e69"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e09-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "db309879572cce8fbccacfe85f70e3dc528117934d461f78fd1d911ac76e711c",
+   "trous_px": 5
+  },
+  "e09-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "79b8908d001af3e7645cff3c2d171ecdfa4499fddda5cb5ea2cee6099b00f988",
+     "lr": "88783981ffca3c25dfa66700444b69c83dbf625c1a3a9da797137b60ed07c358"
+    },
+    "main": {
+     "hr": "a2e263cca545cafde21fb43e5034887332bc9ce664334e8e2139640882f3e499",
+     "lr": "15f3d4510c8325fe1dd5f50cad4edf7bee8043f30c73e74a778ceaa65ae97f0c"
+    },
+    "shadow": {
+     "hr": "d5cf50f1edb88e1ec0391f01b1f930730f8bbd0111a6525d09e9cb5e390c3ed9",
+     "lr": "eea7e813c6e18c6c6ee618a822e05b8517db49030eb318fa71ea0465dc786993"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\bas\\sprites\\e09-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "d6b2c9ea1af1bdd9672a8b6875b96bc6784c7bdc4d3b4247f883232051eaf829",
+   "trous_px": 0
+  },
+  "e09-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c078305f7da7c9f36328c55e8282a4edbad5b76803020e9a1c394ec2be8aff23",
+     "lr": "05d641a4363754987d81831124986ca100892f11b3342222ac082319d3b9c84a"
+    },
+    "main": {
+     "hr": "1b5075952f5e727106e34206f533a66b1cd57ebdbfa0721cfcc2421b6ee63d84",
+     "lr": "df13833f41e8e7c704fdd0561c20314f50e52d81284d9762218093333f6c9451"
+    },
+    "shadow": {
+     "hr": "9fb9a8034d8c25a2d036cb50780dbac2a5405d907d8c663894bbead2dc54b853",
+     "lr": "3b9d584fb79ea54e48ece66a78d6d1bdb7da2c656408022dfa42069440fcf927"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e09-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "e9d108b9deed0ea1e46308fa5737806879960400d29b6180374d3c086d141c54",
+   "trous_px": 0
+  },
+  "e09-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7166e2cf53bc7e1c72c0ed71d43f16eee293228f12f8ff7455ac8fefa4406796",
+     "lr": "52e3697b2bc606dc28478dd81381435a8a2cbc690ed287c434cda032e99239f1"
+    },
+    "main": {
+     "hr": "99c6088ccdc56a24bf52ced38076b6d66b78fa6a1c172e55b9175eef6b0ebdd1",
+     "lr": "2611c8fa32965163e77af2968dff4fc217830d9f973f6d1e89d4e30c0627817d"
+    },
+    "shadow": {
+     "hr": "7da40f2ad51f8ec6ed97eec5ce54a8a029f227d4711c4dbd5868bcdedac7c546",
+     "lr": "2fe0a1c21d98083b41a415257e846e044ad20cf67d2435d2053275f33325f6b3"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e09-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "7c32cc126b39c0b7848c45dfb36582398e717a9438192cda4f61f6b334ff8675",
+   "trous_px": 5
+  },
+  "e10-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "dcb5080521e25a0e2718cfd9ae3eaa9109869e67dc998a8dcf686ce735c8e4fe",
+     "lr": "acff103139c00d8716637d7a3bcd22e4f8ad1d488e547da06227eef50c292568"
+    },
+    "light": {
+     "hr": "3745804e34661b3ca85addd24b9e60e22e75e892e6585f8d5c340e08f8a2fcda",
+     "lr": "2c70a4c9a0b0e6d475ee32612a25d0fab1bc1127d8bc1f5573babbdb71473d44"
+    },
+    "main": {
+     "hr": "ab7a8f20441d7f9202f965f49db2dae4cce090c2df317cda68cfb030fd62ae1f",
+     "lr": "9db36f2e8c5ec3717c0816e0c4f1553d2fbd867f6b1d95f1f2e61b9d1d93b71c"
+    },
+    "shadow": {
+     "hr": "df1994358e96f44e53e4eb8ad9778cc2bcf83031477180404045d4a4a642da6b",
+     "lr": "09c7b491e00610c3f565b1cfa8e576b53da7de8ff1dda5f0333e374f8a1fc09e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e10-piece",
+   "echantillons": 128,
+   "spec_sha256": "b9720ac632bf0ba2c3c4cea456365336a85a555bea3ee540fe1d17aad9f01be5",
+   "trous_px": 0
+  },
+  "e10-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "49bd6c80402f84a32eb18950892d3da194ccb354925a6316b838bf0676ad762d",
+     "lr": "2b5b05b05be00fdfaae8da501c0f0d07e2795313fab74b0b54a8b37c763e7d70"
+    },
+    "light": {
+     "hr": "e5125d3b103af87d2d60cff8076ce8743b5fe48200d54a87f762fce7e2ddfa42",
+     "lr": "3f466900ad5733fa6085c065c9628f03dd2953d5d3e584410749e30cd6b49fcb"
+    },
+    "main": {
+     "hr": "f9612262cee70e9cc7f3c34d1cc969e858483bca5bd571204ab02170765921cb",
+     "lr": "fa8672a4534696ddba80f9c2039fe69d36035382c2d8b7702be35b0822f24942"
+    },
+    "shadow": {
+     "hr": "42bcf0b6b9e35314104acec5f7b72cdcc4be9eede796c9a8ab17d617637a007b",
+     "lr": "865c1fe50c0a17965083ee4ff289c50c3ba139acc0b5d6b99883f5893e292ae0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e10-socle",
+   "echantillons": 128,
+   "spec_sha256": "11e1897e656274b2c2ad3611d0ef56fd2d74eea6c08ed16bcf04db29ff87d605",
+   "trous_px": 0
+  },
+  "e10-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f25c598435e90d3e282dbc4d57a9e83cb453fc024c7f43c1876b35b8f8df479f",
+     "lr": "d3d40ecf82612912a2b31e58c96d790c87a3db99d809118230b742ab003b5fb3"
+    },
+    "main": {
+     "hr": "211619ecd3e440a79ae52f411eb105fdd5c499a069970487a2b3be34a2549b8b",
+     "lr": "fd2c9ffb068fd302dddce2f0c426c5527617c4dfdf02defe14d034e9106ca4ba"
+    },
+    "shadow": {
+     "hr": "1fe8a08212a0d4e14c2d49a52c48e26598997df0677baa1dac72d332a6e105e4",
+     "lr": "e9fd8c0170917bf129c868e34481a0e5082f9094ce058b21f1181d33ee204317"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e10-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "ddff40622f32cd11a5bdfc095f14ec1125522a9ebbbbfe7c2ef4badc7c5f5178",
+   "trous_px": 4
+  },
+  "e10-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7d375d3ff1101c85340d79d0f29201377cd77de10ebe75e2de994af51f35c496",
+     "lr": "46d05e3b1e97fbf4a50c1f32034af23046cfffbacebd2dd313bde331f9daedee"
+    },
+    "main": {
+     "hr": "2bad3d50a9e48d87b7205c90da87b9d33d88b4843564d69e6a658887b2bd2f26",
+     "lr": "197c1d743c24a12cd9ed9211fa70a6b2ff2c124708d1c01ccd5115622b76d735"
+    },
+    "shadow": {
+     "hr": "2a36b40f9c461955018d6299b3daeb1b119fd4450e51fe2f261912383f193ddd",
+     "lr": "95cf23cc75fe5979b8de06ba2eef70a59fe2c4d677c0d7dcc95b188ac7b1cac7"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e10-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "eb10769f81e6a07d632ccbbe55570ab137344e73c0859e237eb7ca59f68342c0",
+   "trous_px": 4
+  },
+  "e10-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "aeb57d2761dc8e5bcce02d3930a35f577e3e1ca60f201045c47bd396405fe92c",
+     "lr": "860e3cf31594d4840da7734346a565314634be9aa091ddd8df9d6faac17e7635"
+    },
+    "main": {
+     "hr": "e74546793134085a0e8162b2379b2aa3e78c26edb1a368919f21c88f784231af",
+     "lr": "f6bec828ea9a3bd24f406b02feee7e2b2324bb429bd83aee444d05d5376586ba"
+    },
+    "shadow": {
+     "hr": "5b706c85c44d41d7e1fdcfbdacac46da14d103915ea7315a25130d98aee8eeb9",
+     "lr": "dc7f0e9e513d5d3e94d914aa952e08b9d68702fb22bbcce7808e7d624823a2bd"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e10-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "22ec21d8c87b50f11024a922c50d0f60d7499d2b02c51dda1e1a657cae9a6c6c",
+   "trous_px": 2
+  },
+  "e10-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "97a7018c6726f0b8eb12a80c67426b38edbab3d9d75f0211af6408245903ad66",
+     "lr": "2c7182e0c19919d061683f4b34f340ccbe090e547ff7ef1bd25fe59a593d0957"
+    },
+    "main": {
+     "hr": "27c407aaf76d92271cecbb9c4769edfcfa46bdaca2e284228d460560316df893",
+     "lr": "79b47c75aaefd5dba89a2507bf55692b4838f4792d2cef14a237200b9014b8c2"
+    },
+    "shadow": {
+     "hr": "833f87e216d1b07db265ff9c0c24c9f3109a79eb558ad711b902f380430c6c89",
+     "lr": "85126a94c21ec7409187f4ba4e3f61d0a9b64bed14a904e14b6872d174ee8f09"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e10-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "4306ea813b87d5b990e7069c00cc24a18c53e97b113debd498c5a75fea3ffc11",
+   "trous_px": 7
+  },
+  "e11-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b15f70984ff5bfb5a6c5ace007e466d772c2d0b2ed542afeda43fc6b1d6bc338",
+     "lr": "12764950e126dbbb1b44f75a0b58ac4931ef459af49d44e541585a78c822d310"
+    },
+    "light": {
+     "hr": "b6def35a7cb9c74aceede1f3d1baa60eb8ecc93ab69404f22d9acaaff98955a3",
+     "lr": "78e963b6809930011f5908076c4d5e555b499ac7dea6464c1f2cfcad9593108b"
+    },
+    "main": {
+     "hr": "c4a85459fbb027a2ea0bcc5af0237051f191af6c5fd5eca2bc72099bee737f5a",
+     "lr": "7619a9a03b181cd0b5642b61b633246329d1bbe5eb56181bb1ea3dab7faf8e99"
+    },
+    "shadow": {
+     "hr": "b4d78a05e4e1ce84d8ac47099b3cef83219795cbcfb0816d14864f459f81d627",
+     "lr": "98ec7363e93eeff25c36a03200f0df78025df211312bbfa65533d88c2d50990f"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e11-piece",
+   "echantillons": 128,
+   "spec_sha256": "67a0b5eb47face93bcd2c9fdb4e3268d30a1d8ab3ab308501adc78ce9a190f36",
+   "trous_px": 0
+  },
+  "e11-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "d762c72c9124a4f80e79e62c0e35cc241377a440c48c8258bbc0818ebf97f4eb",
+     "lr": "ad7b1450886bdcc1d2c5d437ff5f705c4e7ffbe362757a0eb13dfa2ef5271496"
+    },
+    "light": {
+     "hr": "d1b8d6d08be4aee2e219f53e4da838b4a5eb52015dcf49defdfc3dbab69b159a",
+     "lr": "d4b4e215d875de35c58d79867a60dd9068d8b01504a0d939861db27a40f334fd"
+    },
+    "main": {
+     "hr": "39bf718428524157147603153e3f74d0dbd39ad3a071327ca960275695fc5279",
+     "lr": "ba7a8317781ad1094f9d1f8952ecdfbb5e4548849d1675bca8e6f2b01bf28e77"
+    },
+    "shadow": {
+     "hr": "5823bd08b2a176d8cdb43686a5065fc2902501fd4ea99a402421318daac63dc0",
+     "lr": "683c01e8838bc03ec86969e9adc3557da53630a9ce5deeb1446d9f63d910f0cb"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e11-socle",
+   "echantillons": 128,
+   "spec_sha256": "7370417adaf25ff21fdf7ccf3803b1496a52b59631c9f9a7b025dbea205f96db",
+   "trous_px": 0
+  },
+  "e11-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "04c3237b89367eebe5d3746f1fc2546d4b80552cf65832108a07202a7f3dd923",
+     "lr": "7cca2df5cc3b7635bfda4673ea4594ccf9b6ed7cd38e9b88a7da3eab3ceb60b4"
+    },
+    "main": {
+     "hr": "1eba598b9b9ed9d061bf78e0b19b12950b9195917b17750a5239a894de438b09",
+     "lr": "61dfb88e7186d3ea9a8a1379fcb1f477c695ac09839667b89b6fcab86eba3a09"
+    },
+    "shadow": {
+     "hr": "9fc52f9ccd5c6735d89a8b46a3864e9b7fff51c9aa092f4a340239d55971b372",
+     "lr": "59c82a5d231cb7f99f3e752b717b13c8c6c1ea1b5cb3a9d68905aecb6f20abcf"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e11-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "d630bfb3665b88459cb3b8547043e46a1418d098874eda56313c895d3cdf2d8c",
+   "trous_px": 3
+  },
+  "e11-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c3e57134030c4f94fdce630d6b994e7040d7354c16af0d6eca168f96b8e68bd6",
+     "lr": "d8ad3afd4ddfd27985a36b02b11ac030c2bccbb9777bc361c6d6d33710bd001b"
+    },
+    "main": {
+     "hr": "e84e2f4ac1608ff172e94e6d67cca1b290c2d834bb8f4eeb0b6f190b11e0cec5",
+     "lr": "b2563f17e5ae043ac8340dc46d86f5ee8d8b2a38e9a191d463dcda0bd29975ad"
+    },
+    "shadow": {
+     "hr": "29e83c8068b70a39880549fb8f63227a16e7f544d50797874d20b8cab937d998",
+     "lr": "4df428edf29bd98ed69c5eb340afb5fa295955d0707b3391dc7e23e38bb7829a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e11-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "991efc8b4ad85b4c5e7a8890730f04d5958c44ffea407b22dabd6f68191ff7aa",
+   "trous_px": 3
+  },
+  "e11-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "33929c1fd35b093aee19f1f6333c88fddc33bb3b63916da4959dcb1b96b02a1c",
+     "lr": "9b5318cc00ab6cd50803fa525e52491b788e8f2adec649a2dce81821006749b3"
+    },
+    "main": {
+     "hr": "0a24ff6ebe744b53af93459def4ee57c0929d25a5c5062b855731a6630228807",
+     "lr": "5b0de39e73dde135466c1e4cce91ff98c4baaee9749b462aa6276971d7e02aee"
+    },
+    "shadow": {
+     "hr": "1386f47e0012d8ce41b4346f729aa8d9e643227e03a9d95d6e2828fe93769a53",
+     "lr": "f3c5a84e0e14d1d8a61d6969ba046c7ca24de1d746c76573d1d91567a7cadde5"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e11-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "a954362e696c6d3e222308dc28be73672e0fc2ab18699b9587c86b825a838f0c",
+   "trous_px": 3
+  },
+  "e11-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "0c164fcdd57c98db7bb536e789329e717f372d66e6a880af485e6af97fd37905",
+     "lr": "6d3c15919243f413d81f2b01d75216f8160f789e3a618b0fa76b196bfc6412e8"
+    },
+    "main": {
+     "hr": "2257554e36a18b9caa4ab36c979c909e808ea1f5cd15f01f4acae296ab395745",
+     "lr": "bca73d5605d7311c97ee01b7f3db1f04640483aabcf2e3df8c0d5dd19fa0adc3"
+    },
+    "shadow": {
+     "hr": "a1572c69c4d80aa363e461cc198a0172812f81e4a71358db0cd4053d2cbabbf0",
+     "lr": "c63a927ff4c359314d0bca78f16dbb8098f99ec4a5601c0cf93daab589ae5810"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e11-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "28d780ed5621b9fdf576661d16bd63d90d1b6a8dded7c1cbf68bee30214efee5",
+   "trous_px": 8
+  },
+  "e12-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "eb1daf9efa8e1401f11c642e1ac9a3dd9a23df9a6b10ba33cbee627b70455780",
+     "lr": "8b05e5d7902720a3ad435e7f6c6099dff7abb2f936f50a7375a319791f5d3f39"
+    },
+    "light": {
+     "hr": "51e5a81e5e3962039939c9689f54a16df3b6fadc4184a465bbdef7711d1bb3de",
+     "lr": "609dd828d0e95b9df7bc74d6e06c240b19d2c4d84cc560e2098b20cc3d529e84"
+    },
+    "main": {
+     "hr": "33ab14673f154b8de9ee4c26a817be72e2814cfc2a709316eb8a4db72bb88f92",
+     "lr": "10fc7c4d69321b563ef2b4fddb0f7d8de6b3ce255b9261749c40e66992d5a6c2"
+    },
+    "shadow": {
+     "hr": "d8680d90a120f0cfc8d39c8a4992a7886d860257f7d9b8befdd5a82a88f76557",
+     "lr": "75555b4bf564cdb8b7517c0c263045baa974470bbd27eaf115d92e910136eb33"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e12-piece",
+   "echantillons": 128,
+   "spec_sha256": "deea6730226013ada96a7b6e2e2bba8cda9c8c1ac0e9bc177e879af8a04ba978",
+   "trous_px": 0
+  },
+  "e12-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "85ad22ff0d683a6aaa519d9234545ae1f45dd9019082eec9ef79372477484873",
+     "lr": "41d92094254623e6a94c055f082da34474f2388eea86cdd81512c33ee4520a7b"
+    },
+    "light": {
+     "hr": "cf809abda905f888bab0e0effa1bd45d28326052a2379c978f96c4d74fcf9105",
+     "lr": "b764b73d935cf69f51929ef6116931ebf8c792331d5889b4732275ab0476ce1c"
+    },
+    "main": {
+     "hr": "a944631c1401095f6db964476a5a44edbd7ada42c476a84c453ddf38346575fe",
+     "lr": "4455dc43d34bce35b72bd427f4dccfce77487ba7922ffada68a13b1b73d3dec1"
+    },
+    "shadow": {
+     "hr": "9276fd1a7f62615b7a1b879f7850085bb0ea6b845632c9d084414afa8969a343",
+     "lr": "2ea5de2480a36e2d10d7d16b21ae41968f0282a5832606aaf63669b2ac8de25c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e12-socle",
+   "echantillons": 128,
+   "spec_sha256": "9f017721056d6013b610bf2c44b0396c2130a543431bdd34067a84308623816b",
+   "trous_px": 3
+  },
+  "e12-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "4ff1ae68bdbb7e868a0ed428074b2f91621bb6d2e1d8e0a817f89b3e1449bea9",
+     "lr": "a7b1546727d9decd0d568159e0f9d5b13eeec60b9a3de98c4625fef03244c121"
+    },
+    "main": {
+     "hr": "3bcdfef776ecbf271f813b5ea1bb9dd185ed02a1461d1cd7503584417e51daef",
+     "lr": "1fddcccd0710a133c55073494d2ac6745aee3465e86eec291efbb3c169ad9190"
+    },
+    "shadow": {
+     "hr": "f8fe74e8f5a257ea95aa6bfa1705f5d6e04b1b0619a05ee062b4f661bf71e649",
+     "lr": "089d1f3b4d19f2aa37d405dec1dc0227d9335b9b2ca775fc88e5f2ceb73fd782"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e12-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "0ace9cf4143ebc85348f691bfa4f7882467fb36884b1882525ca91c4980a93f1",
+   "trous_px": 5
+  },
+  "e12-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "0d60fe98f3b5f6791bd73be92e5ab007f75be7b50f1dcb18ed00d2dfa98595a0",
+     "lr": "6cfaf9e8deff7af64751188461957e6d0216f2dccdc683a9e1746a8c6d329da9"
+    },
+    "main": {
+     "hr": "f674e893f641f5e0d20e3533f75bf512d48bca25a8f3d913a1d0b417eeebafe0",
+     "lr": "b99e8bead63ceefe66dc3439a888eaf2411d5ee66d90953c24ba9f49290d441b"
+    },
+    "shadow": {
+     "hr": "26888e6c6eeb67c500de32e50d450e4e147ac5c6a52dac00e42735df786ce68b",
+     "lr": "a2394abfaf3386a3410ebcf8a94506d1c6db65e94d161ab91940ab309550d48d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-p5\\haut\\sprites\\e12-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "f3060754ed17542e191fc00075af8f56ac659102ae84c6e4a06102ae95659aeb",
+   "trous_px": 3
+  },
+  "e12-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "177f0933a9dcbefa5c3e16c9e4217292d9e8c5d11f6b5fb79805c6b1e4162be4",
+     "lr": "84ee4254088f28aa5d334d9c5d0952db98e077febe0771f8cae2515a1a6e8406"
+    },
+    "main": {
+     "hr": "7d751bd859f0d848d9dd51baf3ebb0fa8d0ee395897d55628d4378c39fe88fde",
+     "lr": "5dcd2b368d57101ac79bae510a2fd506b3600970cc59e0fcb58c0414cd48d470"
+    },
+    "shadow": {
+     "hr": "ad7c7722d8a744d1e8af8d67ce5d96a46cdb3d0f8fc92a32b7584714e96b6f27",
+     "lr": "f9982d0acb4687e2d8efb57af145602088adbee7b3f1d2ff4033babf6a294986"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e12-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "76617ac8ab3208b4b8c0a68461089c5e6148db36893f064773b664b854f298ba",
+   "trous_px": 0
+  },
+  "e12-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "490812e2373552e12b75a4d09859b3aeef8e2b59eba05f789ff3c35f0c55fc66",
+     "lr": "8c80a183879d757b1ba0e9db6c46722d57e06fb8f5c45d8b70c829d418d63380"
+    },
+    "main": {
+     "hr": "2c5d7549e60dcfc150a6cebe85861d154c35f9a04ca80016062fe53a36572b2c",
+     "lr": "01eee942752eaef3e4e4f962b93a9a5226b40088cff32bbc79dcd552328f5a90"
+    },
+    "shadow": {
+     "hr": "c021daf714c064496d459e3afc5766be79dc38c3770d74de03927a50df52bd3d",
+     "lr": "9d5e957f848cc43c57796fbe7203dd23d32a37d5ec5701fb6afe29d3fa30294c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e12-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "4607cdcba72982e60a187bf6b3ef1508ba2850a35c08b702f75655ebc18f01d7",
+   "trous_px": 7
+  },
+  "e13-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "1a57313e90a59c42608d72ba8aae974a6e8c7e4ea7da5fdb99f258c90fbce256",
+     "lr": "8019879530a767ced91184af3d2682e3de8ab725990479a40176fc5d51f19560"
+    },
+    "light": {
+     "hr": "87b39b677b92971979ec5622ef78f462326f949e9640c53f531b5d5f848e4e17",
+     "lr": "9e3f23dd43eb719e26afd82dab0d425b289abcfeea1f34f2cd842ed71b218025"
+    },
+    "main": {
+     "hr": "e6edbb54353314652ba880f39ac158afb54b865b0acb09660c7a3715ecf2116f",
+     "lr": "ec5866b8900526aed4e6d715cc01b9a58c699430a6c8379a8be7ce6409406a7c"
+    },
+    "shadow": {
+     "hr": "b93fe0cea324f99b4de52b6537130ebff24e4cc5f5edf355fabb23bcaa5b396f",
+     "lr": "09666b0b7e005a26659e1b53c8a09f9c425c30c30dcec189445fff4d2579ca0d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e13-piece",
+   "echantillons": 128,
+   "spec_sha256": "eadf509c38d44f591276df3aeff8f76b9c619e5028f6f7274ec4027d95715bf6",
+   "trous_px": 0
+  },
+  "e13-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "0d70e9b7057c7d7d329653ff6f7e5638a7aaf4dd90df9bdcc21c826dab978e3a",
+     "lr": "601817d0c2b7d6a62a4c549aba994c8efa9c0c2955e8034f9a2853c87d393073"
+    },
+    "light": {
+     "hr": "e941990ab8b432d0e2e0b55dac9b0a6056b7faee9e070e769238f1bd407f2ef3",
+     "lr": "e7f91694531dae4aba17f83fe7ea8047efb92d61bdb9469056a652e15df8c2e2"
+    },
+    "main": {
+     "hr": "5b8a5bd42376df1dbf29f76c7cb66a4df37e4b7b3bb075b37ed86896d0500e93",
+     "lr": "74ddac3490fcc7411084ce5169e2d722dd4e0b34e40cda54b884e3cfd6656b8c"
+    },
+    "shadow": {
+     "hr": "81b6141af2e777186bcc58a3c93b878d5d0f4febbe3c8596ed1f9be0486bcb97",
+     "lr": "78b910491eb84ea9ced9cef8cc2df595bda4be37fb8c9a2174abe58bb6d82617"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e13-socle",
+   "echantillons": 128,
+   "spec_sha256": "3b8b9dac85bb55b68012ccc4e6f4011a901d19db419bc8775412104b75ee8d8c",
+   "trous_px": 0
+  },
+  "e13-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7b58d018f7cd79057b5ef646d9f92c6fc090e75a9d4e22501b1362b1922c4921",
+     "lr": "9d7694ae468b31286ddd689a097beeb714a64a71ec2ae086863a7bc61a5e7b0f"
+    },
+    "main": {
+     "hr": "f6fbddf4ca73d74b15ea3183d957f8371e0b5a2a1bd117b27b9067ee4a6ca6f2",
+     "lr": "5bd76d3a76c6834f4cd43155bff8b133c462e15342232398f5a097ea9eebd4f2"
+    },
+    "shadow": {
+     "hr": "c20ed495b69770933a57f6ec733ed655ef151c4b7c679c3ae20dbcc1eae1b4a9",
+     "lr": "5577c39494c18e76a43eff13b979202e81f276239897b4ee804d0e1ed0b8ce5d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e13-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "40df7d26529e4f3024723adfdf3e2edb0ef4fc2f01b28000b95ef93d4d4e5ec2",
+   "trous_px": 6
+  },
+  "e13-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7a68678d942f0e14f53793c56b01624efd1ec2b9f73c1d30878ffaabcef81650",
+     "lr": "840ece86fe34ff9ffc773f11f4ac4068f15043dac3475f146b53cf1b04785236"
+    },
+    "main": {
+     "hr": "9c26c1adde17d1b8c377768402dcf6deab1f9773a867ecdf2b66867da00f090f",
+     "lr": "8c7608df054d478b54d610704ac1631d6af6e1ffb736854d01de0373021c2efc"
+    },
+    "shadow": {
+     "hr": "910715b0bb637be00886c33cc01c24102801cddc6757a82c3361bc7a68fa39f1",
+     "lr": "65ad184cbac931a62b97ab58c9d1278820989ebcf3b3f4db93a1c378b828ef32"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e13-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "5e29a6e1b5bfa7bd628790dfe23dc0c5a182cf6d8e01a46eefc2f6f560d0d0e2",
+   "trous_px": 0
+  },
+  "e13-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a3d2d0d2d852b95560bde9ec9e27d0eae8fa8d2d1cd4f095acde5135c2c6eff6",
+     "lr": "2c07744a4fb66ca597294a99212d5dab980562f624160165d8368689fc465557"
+    },
+    "main": {
+     "hr": "c3b9ef22a0af53ca65e112b6c2b6e1b6ed492d33fb71d10b58a912fb0260854a",
+     "lr": "4973d094dd74cfa15a0f8f3fffec02ab683c7420cd304690dbc6edd737a81b76"
+    },
+    "shadow": {
+     "hr": "42bd82db581f179199d178e0d4ea4fe947279cf1ea2544d1a7cd4b9e4942fc49",
+     "lr": "f155c26e77d5dcd2c02f43e63d84553bc512b5cc7fe96591421861db6ac9429f"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e13-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "8a3a55f2a0035ba51509c8b09e616f278b20fe6db24c1dca7b3c97571300167f",
+   "trous_px": 3
+  },
+  "e13-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b36b2e88c5005f8d7a378643edc04a21a8ea80ac1df7043d954f6736726f34b9",
+     "lr": "008805b645d69d2ef8008a1e413e490bb7bb4ee5aec341061f13cfacc525c788"
+    },
+    "main": {
+     "hr": "961190c0e160936c40fc73de473bd15f80ef9558dd008a2dd90f472a133c089d",
+     "lr": "1af6a8e5e2f05e5fd4f44ebf394c417b3c4d282ec106677890d7edbf30daa627"
+    },
+    "shadow": {
+     "hr": "2b483a8e50b8b2c14278187eee1b05cce870582ec6ee657cc389b671b65f87eb",
+     "lr": "0b17ad6ce03cd98435e4db1bc145173bd244600208e80f6236fe21e49d2870c1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e13-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "33972f2fdbd4522cae60d37e4d340b081a6c8173127fa7443985e9a753f81a43",
+   "trous_px": 6
+  },
+  "e14-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3492133c1cfb7f60703a614d1a3f6604bab306181152314825ff5801172a12d6",
+     "lr": "693f4b63b87939746e58ae70dbe79d23137c0ec042e5fca35e6f857db58bb815"
+    },
+    "light": {
+     "hr": "79e1c5036a0645f018a9edda66328536c886416c26a57fdb3e0ca8a22fcbd8fe",
+     "lr": "9b14c0e321cd24ed67542a47af156fb9aa88e214d2a5a71df84ab22823a394bb"
+    },
+    "main": {
+     "hr": "a00d809eef7ce100ebb323ac303b7ea9daca466c6c681844b0d3f9634b24c4fe",
+     "lr": "eb4047553b382cd7590dee44849a87402b1e293fdd270d715d3778e3724a116e"
+    },
+    "shadow": {
+     "hr": "138d6a544f0caee676f5eee055f50719c69b4cfb667f40898d3b8cc98eb56353",
+     "lr": "95311da4c207114141e3b33558d207c346a2f92c9b80d703d2d2e95c8704801e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e14-piece",
+   "echantillons": 128,
+   "spec_sha256": "fc7eaa225c39d4563b0c2f977a3b63a8b37b46f0696fdbfa8fbe2995c2ab90e1",
+   "trous_px": 0
+  },
+  "e14-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "dcdfeada4ad5fa9f46a7b7f783a5997b1519bb127b4a3eb925d204d487a11730",
+     "lr": "b5e0610f1755fa30fb34c676492a00de3f6bbb4e4571a63826b4db8bb2ecc827"
+    },
+    "light": {
+     "hr": "80bff2374fcb8d543f7e7fff2eb5a70de870bfe0a0d5b26ba59dce65edbda27e",
+     "lr": "4d9e138292733463903745e4ea1695c953b513e6b229a17206ec71b25aef3fbb"
+    },
+    "main": {
+     "hr": "fbe6936b3f3bd8c7d969858412bb0bb79b9e8b7892057362d7c58e203cb4c39d",
+     "lr": "80a2dc65c96f584eb211cdf37994580f87d9b0e83bacea657d5d4b7f8f29d665"
+    },
+    "shadow": {
+     "hr": "adc5b6bd092bc2f6bc845ad0fd7277ec6f57898b51d7c14a2841d112a70b86c1",
+     "lr": "264ec6e10b1ca006facf00da1729fffa0cca649ea0958231e5b179c7a7232bbc"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e14-socle",
+   "echantillons": 128,
+   "spec_sha256": "4f733223d7b725285d54e2a94fb026c7906606d21e77cdc28091324c461bef0c",
+   "trous_px": 0
+  },
+  "e14-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f59bcd76cf3ca09bdf6d8f23dc8bf67b923d546ed94f45425f801331dde0c83b",
+     "lr": "72c335ed5d02abcfbb9824344573b6d270ecbc94965ebd5392a6520cfc498565"
+    },
+    "main": {
+     "hr": "bf1b6e9905e555ec7f648a8911682fa3d157c04e0cafe6548c744727f2475dfb",
+     "lr": "a148594ecda105d0474df6f1aeee5b7bc56501f32df27e0c72c1d50fb4714617"
+    },
+    "shadow": {
+     "hr": "48b82cb1bd204fa796eb598c5507fbf12125a110ae9d44bdd31c86cb57eb0182",
+     "lr": "4467b9af7016c00c085f766564656784a8393c2d15fb9173d9421729c89240b6"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e14-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "f6753e5239a9fed60c1912a7842cf451b916f32fb9ddcbba8eab1892d6172aa2",
+   "trous_px": 4
+  },
+  "e14-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8b7af8425044ffbea10cda1e35e32e19977da21dca697f9f22b3d83bae9a1d3d",
+     "lr": "84325cd72e6294e48f00aa118b8054d21fe3561ba230e730b63db29d5cba6fbe"
+    },
+    "main": {
+     "hr": "9154d535c5950732c262dd72285c8d5c29eb03f347f3cc90fc7f0324278bd7c3",
+     "lr": "8f5307c53b819e81f59e99dfd1e6a22cf65200c81e1d78d6051afb1134dd2611"
+    },
+    "shadow": {
+     "hr": "7b25036bed0a1c0931e1792f8dc0ff212d20c721081d5035a3f4e06f8661e21e",
+     "lr": "2159b8ebf19e7f6f383b51c5b435ca0fb647d053cc0a671f35f9a82fc79d519c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e14-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "c517f46edbac30803bca266c9c1e15dfa3260b57e266734d8514452f5ae9569b",
+   "trous_px": 4
+  },
+  "e14-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "e054028cd68555824f64f83100bbaf0342423e005219a6861e6d54fd377670c1",
+     "lr": "ee4e763ca784378880df04791f4caa30240da3132ce1ff58d7dcd74bd86358ff"
+    },
+    "main": {
+     "hr": "d1bf61f934ae19cf08632423d5d9f3037eeb92e599801b06c3d747d8f21b223f",
+     "lr": "b81c3c5ffa9957de861482972b8d21c7af86924266bfd727f2b3d5a98bab7c6f"
+    },
+    "shadow": {
+     "hr": "b05d7af13d164b56b56f7474dd6b88c832b36ee4a6ffcb3b160c56c6f6ef1675",
+     "lr": "b92bb0642793f5a75525c129e8967a9509e4e73df95843efd6129b2c16f403e3"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e14-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "31edffd7508ab7117a77a8e922f23fd82d256300cea82fa5ce0bc2a219ec01e1",
+   "trous_px": 1
+  },
+  "e14-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9f3d79d9d60ab69992b0d7d7eec4e9d8a3fdd16a4adade4409ae126c78e505ea",
+     "lr": "26921a21c716ba1898857b905c265768c778e3f7bcbf5442a1ad43b0b03636eb"
+    },
+    "main": {
+     "hr": "8939709fa04b646044af43ad62685c62b5ab374f344bc9979460ceb80ebdafc9",
+     "lr": "758819323fd39a9101e5fdbe1325a901dde8869ba3dd314edfb73604de797748"
+    },
+    "shadow": {
+     "hr": "8c44b3554ead627c56f5f53949c1d094b23ff1850dd6d6aac287c00592a56b61",
+     "lr": "fe1566a86868b27730701495f2a5421c69e1263c7f6aaba495459a372bdfca88"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e14-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "6e27049306f265e8a26b1753d073e5141e698f4adc02d4033a83c36d307981f5",
+   "trous_px": 3
+  },
+  "e15-piece": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "35780be77bda109a23e33d3bcf8a156c9ea71ee963bb2785b5a6db0873078450",
+     "lr": "80f17724bdc5128aaac73f037fb806b5ed49b6a1c493069a1937ff34c816b7b1"
+    },
+    "light": {
+     "hr": "5ddb7ce9aaa4957ac64af5ba1e366736d72f108ce534b54c54e094029fb9a02b",
+     "lr": "75f72b853bb99d3a1004f273de13979c6844cc4505abafcfae7750e7eafed1a8"
+    },
+    "main": {
+     "hr": "82e1a4062b4fe667334ab0bfea30abc7f06ca1eb7a9a40335da3125948a05f30",
+     "lr": "fe3756c109f1157d8773419a9c6ec6d567906eb4bd320959f0a3c143c0d7bb50"
+    },
+    "shadow": {
+     "hr": "ddb7480fd5a1ee07d2084702dbb4d4f51beeeedc8e3f5dbef532c47b9d6577f7",
+     "lr": "1dafcaca2094fc1416d16c3b12c766308c9f2e4137df3d959bf25393c78f48b4"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e15-piece",
+   "echantillons": 128,
+   "spec_sha256": "e0ac3550d1afe49ecdfcc3a1d59a6c247baba805463a42c84a83647468d5248e",
+   "trous_px": 0
+  },
+  "e15-socle": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b627c310f5a18c71f77eed08d28e421b98d08eaf076756d65d73bbd280d80dfb",
+     "lr": "8bda521649cb47d7d0e97db9655d734c3aef12f2d7de1f36c527f4cca9db756a"
+    },
+    "light": {
+     "hr": "4ffa0d7221fa8f28bee92112ab7abc33d8f24d8f236f342b2439859615c12187",
+     "lr": "d8f0ba077f39d50f8e0ce58fb46fa7ce2ed825e8b1a78a7b26c0e0ddb56d9e31"
+    },
+    "main": {
+     "hr": "c0a400f96762b63cb98634bd4194e5604a1de5a706d3af319bed17ae51c98a6f",
+     "lr": "e3d33e932fc83290b5e42bd5ff285526472cccdd6f92c28831eef498704c51d5"
+    },
+    "shadow": {
+     "hr": "33906ddd5700703ea817d5af08be0810f8f174bac700fb6ebc911d7f10a0939c",
+     "lr": "8494fb658b401d0c3e5b22bb7a901c9c538f945643189fea77f8d66a0e2c643a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e15-socle",
+   "echantillons": 128,
+   "spec_sha256": "0b754fd178cafe96dd7b9d79ed796fd9b160d3d8a20adbb81ee2c4037312f7aa",
+   "trous_px": 0
+  },
+  "e15-tete-E": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c79e74d9b3037d45e44f878f305be4073d2561d0a9db58ca2714d9763da2ba56",
+     "lr": "c8be2f08bde2f4fd22a2a0146691070788080f9705cd4f90a3142a77cf8f4b9a"
+    },
+    "main": {
+     "hr": "8113220987a622c2f3751c3b511dabc76f5fabbb693c6d0b45f8e7e42a602baf",
+     "lr": "0e0d71731cb64c998385f61bc85c2e5e3d39c830d118912c10adfa880c64c430"
+    },
+    "shadow": {
+     "hr": "f6b7e57f3650459c02b4e638cbc6475cd62f2f86bd084d9dd54f400fd2e8f35f",
+     "lr": "588eb7c755a6f31b00ad1fb09144d8878cc5dcd0f6189bd523437fcad9fa9759"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e15-tete-E",
+   "echantillons": 128,
+   "spec_sha256": "085245d4cd50c1acb5ee67b9e214affe33a52c987801fce3bc8ce97e10fa3f7b",
+   "trous_px": 1
+  },
+  "e15-tete-N": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "57b5a7d6c63bd544e032033b6e4e18521ee5824b8a6a039103857a423dc7b118",
+     "lr": "95fd5bd1973a8591e0419fa8d5f373d93d4bf4270b90fa8a60bb0aa15f684d6c"
+    },
+    "main": {
+     "hr": "37e4532ac075c10103f16a8a4042f6e391f8d3b9c90f929c2269a4952da9b23e",
+     "lr": "1bd60f5c4ce3853bceabc63f86cff591aa9c1ce2df5ff5373de63bdf79f0df24"
+    },
+    "shadow": {
+     "hr": "99892f9eee070e1d859fa9c8cfd5840f22d4366886d819acbb5c183480d5c7cb",
+     "lr": "d72d176c2647e8036ed7388cc8a8d1f8202605fae8b89bb9c66804d960b0e897"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-23_V3E-ereV\\sprites\\e15-tete-N",
+   "echantillons": 128,
+   "spec_sha256": "1f1b1ae5a22e5cf7808eb78458f66cf2f60bf4bb1151d1fc500fed8fd2e20a58",
+   "trous_px": 7
+  },
+  "e15-tete-d32": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b85b798378d6885866117210e990bce912308a2c9e9c326c037e80061d0875d7",
+     "lr": "82fa3ba126202a982ebf185139ce57ef037dd16ce2d43cd7aecad5bb66396799"
+    },
+    "main": {
+     "hr": "6af9df658536f4e759631b87bf9e785887b697d2949153ba7f59787b137a7a4e",
+     "lr": "c24af660459e270ca385f716da7c3418b48d183be5c004309005276d56a61eca"
+    },
+    "shadow": {
+     "hr": "3b676b1d7994acf91d5cd091daeb423829d7a4ed087e651d030ac1fbc0b63c34",
+     "lr": "ba8406f45c765092123d346954292dbb9d45d31e9865e5bf21da2ead73514b24"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e15-tete-d32",
+   "echantillons": 128,
+   "spec_sha256": "ae8599f30c909a42d8b4bfc76e0d5d278144e6a2f47e846fecc1e2f2484394c9",
+   "trous_px": 2
+  },
+  "e15-tete-d48": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8a0e1956260cb69e4ca4350daf411c8a9d1d9830d01eaeb73d47b3a6a963e289",
+     "lr": "fecfd80d50c0a84d96df466556e24229e8687298876fb31878041b07d09a23fb"
+    },
+    "main": {
+     "hr": "c6fe75fa572bd9c2116e5edf72cea13d01334afdb697339d215fca67a3986ff1",
+     "lr": "1574b96474b74e639f91e03fd19c0f89514616e5be2b1ce6ebeb97ffba1bb126"
+    },
+    "shadow": {
+     "hr": "488d759d2082cdee1008c562ef9529758eed04af18274759387e89a55d66bdab",
+     "lr": "46f7c7e97b66fb1440110cd37ad7915445b2cbc908955b8bd3ebeed3f51af0bb"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e15-tete-d48",
+   "echantillons": 128,
+   "spec_sha256": "3853172664b766e8b56446c782efecccf1f929022916d39ec3bc2982adfb6206",
+   "trous_px": 1
+  }
+ },
+ "sprites_json_sha256": "5908e89444f6d88214a40f1cff7154f3362247363e80bd1cf08eeac923b16ee6",
+ "sprites_lua_sha256": "5d879fceea9bf09d8a873d9d2f6b6b6e8bf3b33e856d339c5987e398001c911c"
+}
