@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.7
+Date: 2026-10-23
+  Sounds:
+    - La mitrailleuse a un tir propre à chaque ère (âges 1 à 3, 4 à 6, 7 à 9, 10 à 12, 13 à 15), plus grave d'ère en
+      ère, dérivé des tirs du jeu de base et jamais plus fort qu'eux. Sons provisoires, en attente de votre écoute.
+  Changes:
+    - Le banc de l'étape data vérifie que chaque son cité par le mod existe (un son manquant bloque le jeu au menu).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.6
 Date: 2026-10-23
   Features:
