@@ -159,6 +159,14 @@
   clés de forme du troisième temps du kit (lancé à 9 h 48, avant cette remarque) deviennent facultatives, à n'utiliser
   que là où un âge se confond encore avec son voisin.
   Lecture confirmée par le DC dans le chat : « oui c est parfaitement ca ».
+- 23/10, vers 12 h 40, **aperçus de la ronde 5 de la passe 5 (page de suivi)** : « je viens tout juste de voir la xerniere ronde et je trouve que tous les batiments sont pratiquement parfait sauf les 3 derniers, la couleur ne mne va pas, pareil pour le theme legende, je prefererai un truc genre bigbang ou maitrise cosmique du nean, je penze que le defaut est suttout lie au senario pour le coup ».
+  Lecture : âges 1 à 12 « pratiquement parfaits » (ils partent en rendus définitifs, lancés à 12 h 33) ; âges 13 à 15
+  (Fusion, Orbite, Légende) : couleurs refusées, thème « Légende » refusé, sommet voulu « Big Bang » ou « maîtrise
+  cosmique du néant » ; le défaut vient du SCÉNARIO de ces âges, pas de l'exécution.
+  → question posée dans le chat (A : ère V entièrement cosmique, 13 Étoile, 14 Nébuleuse, 15 Néant / Big Bang,
+  recommandation ; B : Fusion et Orbite gardées avec de nouvelles couleurs, seule la Légende devient Big Bang / Néant ;
+  C : autre). Sans réponse à la fin des rendus définitifs (vers 14 h), l'orchestrateur part sur A. Les noms des âges
+  dans le jeu changeront à l'intégration.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
