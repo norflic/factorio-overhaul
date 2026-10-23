@@ -18,6 +18,12 @@ rem          de test vient toujours de la source du benchmark. Sans la variable 
 rem  Graine (lot INT-GRAINE) : la variable FO_MAP_SEED (entier de 0 a 4294967295, chiffres seulement, zeros de
 rem          tete retires) remplace la graine de la carte. Absente ou vide : 20261020, comme avant. Graine
 rem          invalide : code 1 avant le verrou, rien n'a tourne. Graine utilisee : fo-autotest\seed.txt.
+rem  Son (lot S0, E69) : la variable FO_AUDIO=1 lance la creation et le benchmark SANS --disable-audio, avec
+rem          TOUS les volumes a 0 dans le config.ini DE TEST (fo-autotest\config.ini ; celui du joueur n'est
+rem          jamais lu ni ecrit), relus avant le lancement. Absente ou vide : --disable-audio, comme avant.
+rem          Toute autre valeur : code 1 avant le verrou, rien n'a tourne. Etat du son : fo-autotest\audio.txt.
+rem          ATTENTION (E69) : --create et --benchmark tournent sans affichage et ne chargent AUCUN son, meme ainsi ;
+rem          les fichiers son ne se chargent que dans la session avec images (fo-captures.bat, FO_AUDIO=1).
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
 rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT).
 rem ============================================================================================
@@ -92,6 +98,34 @@ if defined SEEDIN (
   set SEEDFROM=FO_MAP_SEED
 )
 
+rem Son (lot S0, E69) : FO_AUDIO absente ou vide = son coupe (--disable-audio, comme avant) ; "1" = son actif,
+rem volumes a 0 ; toute autre valeur est refusee AVANT le verrou. Lue en expansion retardee seulement (comme la
+rem graine) : aucun caractere de la valeur ne peut casser ni detourner le script.
+set AUDIO=0
+set AUDIOBAD=
+setlocal EnableDelayedExpansion
+set "AUD_V=!FO_AUDIO!"
+set AUD_ON=
+set AUD_BAD=
+if "!AUD_V!"=="" goto :audend
+if "!AUD_V!"=="1" (set AUD_ON=1& goto :audend)
+set AUD_BAD=1
+echo Valeur invalide dans FO_AUDIO : [!AUD_V!]
+:audend
+endlocal & set "AUDIOON=%AUD_ON%" & set "AUDIOBAD=%AUD_BAD%"
+if defined AUDIOBAD (
+  echo FO_AUDIO : 1 ^(son actif, volumes a 0^) ou absente. Rien n'a tourne.
+  if /i not "%~1"=="nopause" pause
+  exit /b 1
+)
+set AUDIOOPT=--disable-audio
+rem Cles de volume de la section [sound] (chaines du binaire 1.1.91), toutes mises a 0 quand le son est actif.
+set AUDKEYS=master-volume music-volume game-effects-volume gui-effects-volume walking-sound-volume environment-sounds-volume alerts-volume wind-volume simulation-volume
+if defined AUDIOON (
+  set AUDIO=1
+  set AUDIOOPT=
+)
+
 rem Verrou : un seul banc moteur a la fois (fo-autotest, fo-visual, fo-captures partagent ce verrou).
 rem FO_LOCK_HELD : l'appelant (fo-captures.bat) tient deja le verrou pour toute la chaine.
 if defined FO_LOCK_HELD goto :locked
@@ -138,9 +172,24 @@ set WRITE_FWD=%WRITE:\=/%
 > "%TEST%\config.ini" echo [path]
 >> "%TEST%\config.ini" echo read-data=__PATH__executable__/../../data
 >> "%TEST%\config.ini" echo write-data=%WRITE_FWD%
+if "%AUDIO%"=="1" goto :audiocfg
+> "%TEST%\audio.txt" echo son coupe (--disable-audio)
+goto :audiook
+:audiocfg
+rem Section [sound] du config.ini DE TEST : noms des cles lus dans le binaire 1.1.91 (section "sound" apres
+rem "Config path", puis le melangeur SoundMixerManager). Toutes a 0, relues ci-dessous avant tout lancement.
+>> "%TEST%\config.ini" echo [sound]
+for %%k in (%AUDKEYS%) do >> "%TEST%\config.ini" echo %%k=0.000000
+for %%k in (%AUDKEYS%) do findstr /x /c:"%%k=0.000000" "%TEST%\config.ini" >nul || (
+  echo Volume %%k non ecrit a 0 dans %TEST%\config.ini : rien n'est lance.
+  set RC=1
+  goto :end
+)
+> "%TEST%\audio.txt" echo son ACTIF (FO_AUDIO=1), volumes a 0 relus dans config.ini : %AUDKEYS%
+:audiook
 
-echo [2/4] Creation de la carte (graine %SEED%, %SEEDFROM%)...
-"%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --create "%TEST%\fo-autotest-map.zip" --map-gen-seed %SEED% --disable-audio > "%TEST%\create-stdout.txt" 2>&1
+echo [2/4] Creation de la carte (graine %SEED%, %SEEDFROM%, son %AUDIO%)...
+"%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --create "%TEST%\fo-autotest-map.zip" --map-gen-seed %SEED% %AUDIOOPT% > "%TEST%\create-stdout.txt" 2>&1
 copy /y "%WRITE%\factorio-current.log" "%TEST%\create.log" >nul
 if not exist "%TEST%\fo-autotest-map.zip" (
   echo Carte NON creee : lire fo-autotest\create.log
@@ -174,7 +223,7 @@ rem [FO-CALIB]). On le garde sur les coeurs P, priorite au-dessus de la normale.
 set RUNOPT=/ABOVENORMAL
 if "%NUMBER_OF_PROCESSORS%"=="16" set RUNOPT=/ABOVENORMAL /AFFINITY FFF
 echo [3/4] Benchmark : %TICKS% ticks, scenario %SCENARIO%...
-start "" /B /WAIT %RUNOPT% "%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --benchmark "%TEST%\fo-autotest-map.zip" --benchmark-ticks %TICKS% --benchmark-runs 1 --benchmark-verbose all --disable-audio > "%TEST%\benchmark-stdout.txt" 2>&1
+start "" /B /WAIT %RUNOPT% "%EXE%" --config "%TEST%\config.ini" --mod-directory "%MODS%" --benchmark "%TEST%\fo-autotest-map.zip" --benchmark-ticks %TICKS% --benchmark-runs 1 --benchmark-verbose all %AUDIOOPT% > "%TEST%\benchmark-stdout.txt" 2>&1
 copy /y "%WRITE%\factorio-current.log" "%TEST%\benchmark.log" >nul
 
 > "%TEST%\done.txt" echo termine %date% %time%

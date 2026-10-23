@@ -43,6 +43,11 @@ Usage : python visual_session.py --root <racine du jeu> [--window min|small|hd|n
             fo-visual\perf-stats.csv, recopié dans fo-shots) et le pilote attend la FIN NATURELLE du mode
             benchmark (budget --ticks) au lieu de fermer la session au marqueur. Fenêtre conseillée : hd
             (1920×1080, sans prendre le focus) ; en fenêtre réduite, le jeu peut ne rien dessiner.
+Son (lot S0, E69) : variable d'environnement FO_AUDIO (la même que fo-autotest.bat). Absente ou vide : session
+            lancée avec --disable-audio, comme avant. « 1 » : SANS --disable-audio, avec les 9 volumes de la section
+            [sound] du config.ini de TEST (fo-visual\config.ini) à 0, relus avant le lancement (sinon code 1). Toute
+            autre valeur : code 1, rien n'est lancé. Les lignes du journal du jeu qui parlent de son sont recopiées
+            dans session.txt.
 Codes : 0 succès ; 1 préparation ; 3 délai dépassé ; 4 captures manquantes ou illisibles ;
         5 processus de test encore présent ; 6 vitrine : entité refusée ; 7 erreur du jeu ou session
         fermée avant la fin ; 9 qualité graphique, usage de la mémoire vidéo ou compression des textures
@@ -71,8 +76,60 @@ HD_SIZE = "1920x1080"
 SAMPLE_PERIOD = 0.5  # s entre deux relevés de mémoire (compteurs Windows : moins de 1 ms par relevé)
 
 # Erreurs qui arrêtent la partie (un script qui plante renvoie au menu : le marqueur ne viendrait jamais).
+# Lot S0 (E69) : un son manquant, son actif, laisse le jeu au menu sans les mods (« Error SoundLibrary.cpp:56:
+# Missing sound when loading sound library: <fichier> », puis « Resetting config ») jusqu'à la fin du budget du mode
+# benchmark (122 s observées) : on s'arrête dès la ligne.
 FATAL = re.compile(r"non-recoverable error|Error while running event|Exception at tick|Failed to load|"
-                   r"Error ScriptRaised|Unexpected error", re.I)
+                   r"Error ScriptRaised|Unexpected error|Missing sound when loading|Error SoundLibrary", re.I)
+
+# Lot S0 (E69) : clés de volume de la section [sound] (chaînes du binaire 1.1.91 : « sound », « master-volume »,
+# « music-volume » après « Config path », puis le mélangeur SoundMixerManager) ; mêmes clés que fo-autotest.bat.
+AUDIO_KEYS = ("master-volume", "music-volume", "game-effects-volume", "gui-effects-volume", "walking-sound-volume",
+              "environment-sounds-volume", "alerts-volume", "wind-volume", "simulation-volume")
+AUDIO_LOG = re.compile(r"audio|sound|\.ogg|\.wav|\.voc", re.I)
+
+
+def audio_from_env(env=None):
+    """FO_AUDIO : (actif, erreur). Absente ou vide : (False, None) ; « 1 » : (True, None) ; sinon (False, motif)."""
+    v = (os.environ if env is None else env).get("FO_AUDIO")
+    if v is None or v == "":
+        return False, None
+    if v == "1":
+        return True, None
+    return False, "valeur invalide dans FO_AUDIO : [%s] (attendu : 1, ou variable absente)" % v
+
+
+def audio_volumes(cfg):
+    """Volumes lus dans la section [sound] d'un config.ini : {clé: texte}."""
+    vols, section = {}, ""
+    for line in read_text(cfg).splitlines():
+        line = line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+        elif section == "sound" and "=" in line and not line.startswith(";"):
+            k, v = line.split("=", 1)
+            vols[k.strip()] = v.strip()
+    return vols
+
+
+def audio_silent(cfg):
+    """Toutes les clés de AUDIO_KEYS présentes et nulles dans le config.ini de test : (vrai, détail)."""
+    vols = audio_volumes(cfg)
+    bad = []
+    for k in AUDIO_KEYS:
+        try:
+            if float(vols.get(k, "x")) != 0.0:
+                bad.append("%s=%s" % (k, vols[k]))
+        except ValueError:
+            bad.append("%s absente ou illisible" % k)
+    return not bad, (", ".join(bad) if bad else "%d volumes a 0 (%s)" % (len(AUDIO_KEYS), ", ".join(AUDIO_KEYS)))
+
+
+def base_cmd(exe, cfg, mods, audio):
+    """Début de la ligne de commande du jeu : --disable-audio sauf si le son est demandé (FO_AUDIO=1)."""
+    return [exe, "--config", cfg, "--mod-directory", mods] + ([] if audio else ["--disable-audio"]) + [
+        "--disable-migration-window"]
+
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 ENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -128,7 +185,7 @@ def test_processes(vis_dir, procs=None):
     return [(p, c) for p, c in (factorio_processes() if procs is None else procs) if key in os.path.normcase(c)]
 
 
-def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None, texture_compression=None):
+def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None, texture_compression=None, audio=False):
     mods_src = os.path.join(test, "mods")
     map_src = os.path.join(test, "fo-autotest-map.zip")
     if not os.path.exists(map_src) or not os.path.isdir(mods_src):
@@ -162,7 +219,12 @@ def prepare(root, vis, test, atlas_cache, quality=None, video_memory=None, textu
         if texture_compression:
             # Clé du même bloc de réglages graphiques que full-screen et compress-sprite-atlas-cache (binaire).
             f.write("texture-compression-level=%s\n" % texture_compression)
-    perf = os.path.join(vis, "perf-stats.csv")
+        if audio:
+            # Lot S0 (E69) : son actif pour charger les fichiers son, mais TOUS les volumes à 0 (config de TEST).
+            f.write("[sound]\n")
+            for k in AUDIO_KEYS:
+                f.write("%s=0.000000\n" % k)
+    perf =os.path.join(vis, "perf-stats.csv")
     if os.path.exists(perf):
         os.remove(perf)  # statistiques de rendu de la session précédente (sortie de test)
     return cfg, mods, os.path.join(vis, "fo-visual-map.zip"), write, shots
@@ -344,13 +406,27 @@ def main():
         out("ATTENTION mesure en fenetre reduite : le jeu peut ne rien dessiner (images/s non representatives) ; "
             "fenetre conseillee : hd")
 
+    # 0 bis. Son (lot S0, E69) : FO_AUDIO filtrée AVANT toute préparation.
+    audio, audio_err = audio_from_env()
+    if audio_err:
+        out("ECHEC " + audio_err + " : rien n'est lance")
+        return finish(1)
+
     # 1. Préparation des dossiers séparés.
     try:
         cfg, mods, game_map, write, shots = prepare(root, vis, test, a.atlas_cache, a.quality, a.video_memory,
-                                                    a.texture_compression)
+                                                    a.texture_compression, audio)
     except (RuntimeError, OSError) as exc:
         out("ECHEC preparation : %s" % exc)
         return finish(1)
+    if audio:
+        silent, detail = audio_silent(cfg)
+        if not silent:
+            out("ECHEC son : volumes non nuls ou absents dans %s : %s ; rien n'est lance" % (cfg, detail))
+            return finish(1)
+        out("son ACTIF (FO_AUDIO=1) : %s, relus dans %s avant le lancement" % (detail, cfg))
+    else:
+        out("son coupe (--disable-audio)")
     source = read_text(os.path.join(test, "source.txt")).strip()
     scenario = read_text(os.path.join(mods, "fo-autotest", "scenario.lua")).strip()
     out("source du mod : %s ; %s" % (source or "?", scenario or "scenario ?"))
@@ -358,7 +434,7 @@ def main():
     name = scenario.replace("return", "").strip().strip('"')
     quick = name in ("content", "vitrine") or os.path.exists(os.path.join(mods, "fo-autotest", "scenarios", name + ".lua"))
     ticks = a.ticks or (7200 if quick else 40000)
-    cmd = [exe, "--config", cfg, "--mod-directory", mods, "--disable-audio", "--disable-migration-window"]
+    cmd = base_cmd(exe, cfg, mods, audio)
     if a.mode == "benchmark":
         cmd += ["--benchmark-graphics", game_map, "--benchmark-ticks", str(ticks)]
     else:
@@ -565,6 +641,11 @@ def main():
             out("mesure : AUCUN fichier de statistiques de rendu ecrit par le jeu (--output-perf-stats)")
     except (OSError, ValueError, KeyError) as exc:
         out("ECHEC rapport memoire : %s" % exc)
+    # 7. Son (lot S0, E69) : lignes du journal de CETTE session qui parlent de son (chargement, erreurs).
+    if fresh:
+        sl = [ln.strip() for ln in read_text(log_path).splitlines() if AUDIO_LOG.search(ln)
+              and "Program arguments" not in ln]
+        out("journal, lignes de son : %d%s" % (len(sl), "" if not sl else " ; " + " | ".join(sl[:12])))
     if t_done:
         summary.append("duree jusqu'au marqueur %.1f s" % (t_done - t_launch))
     return finish(code, shots)

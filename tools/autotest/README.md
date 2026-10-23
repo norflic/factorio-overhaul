@@ -38,7 +38,8 @@ fo-captures.bat [scenario] [source du mod] [fenetre]
                sinon <racine>\mods\factorio-overhaul
     fenetre  : min (défaut) | small | normal
 fo-autotest.bat [nopause] [ticks] [scenario] [source]      (défaut : fo-autotest-params.txt)
-    variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2)
+    variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2),
+                             FO_AUDIO (1 : son actif, volumes à 0, §1.3)
 fo-visual.bat   [nopause] [fenetre] [delai_s]              (défaut : min, 900 s)
 ```
 
@@ -210,7 +211,38 @@ Banc hors jeu (faux `factorio.exe`, racines jetables, aucun accès à la racine 
 source, plus défaut 20261020 (sans variable et en double source), variable vide → défaut, 6 graines acceptées (dont
 4294967295, 0, zéros de tête, et en double source), 10 graines refusées (rien n'a tourné, aucune commande injectée
 exécutée), et le passage par `fo-captures.bat` (graine transmise ; graine refusée → code 8). Sur le `.bat` d'avant
-le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC.
+le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC. Depuis le lot S0 : 39 OK (cas 10 à 13 du son, §1.3).
+
+### 1.3 Son actif, volumes à 0 : `FO_AUDIO` (lot S0, E69)
+Par défaut, tous les bancs passent `--disable-audio` : aucun son n'est chargé, et un fichier son manquant ne se voit
+pas. **`FO_AUDIO=1`** lance la session SANS `--disable-audio`, avec les 9 volumes de la section `[sound]` du
+`config.ini` DE TEST à 0 (celui du joueur n'est jamais lu ni écrit) :
+```
+$env:FO_AUDIO = '1'
+& "<racine>\fo-captures.bat" gun-rose "<source>"
+$env:FO_AUDIO = $null
+```
+- Clés (chaînes du binaire 1.1.91, section `sound` lue après « Config path », puis le mélangeur `SoundMixerManager`) :
+  `master-volume`, `music-volume`, `game-effects-volume`, `gui-effects-volume`, `walking-sound-volume`,
+  `environment-sounds-volume`, `alerts-volume`, `wind-volume`, `simulation-volume`, toutes à `0.000000`.
+  `fo-autotest.bat` les relit (`findstr /x`) et `visual_session.py` aussi (`audio_silent`) AVANT tout lancement ;
+  sinon, rien n'est lancé. État : `fo-autotest\audio.txt` ; ligne « son ACTIF » ou « son coupe » de `session.txt`.
+- **Seule la session avec images charge les sons** (E69) : en `--create` et `--benchmark` (« headless »), le journal
+  est le même avec ou sans `--disable-audio`, et un son manquant passe sans erreur. En `--benchmark-graphics`, le
+  journal dit « [Audio] Backend:SDL… » puis « Loading sounds... » ; un son manquant donne « Error
+  SoundLibrary.cpp:56: Missing sound when loading sound library: <fichier> », le jeu reste au menu SANS les mods
+  (« Resetting config ») jusqu'à la fin du budget : `visual_session.py` s'arrête dès cette ligne (code 7). Donc :
+  `fo-captures.bat` avec `FO_AUDIO=1` est LE banc des fichiers son ; `fo-autotest.bat` seul ne les charge pas.
+- Valeurs : absente ou vide → son coupé, comme avant ; « 1 » → son actif ; toute autre valeur → `fo-autotest.bat`
+  rend le code 1 AVANT le verrou (`fo-captures.bat` : code 8), `visual_session.py` le code 1. Lue en expansion
+  retardée seulement, comme `FO_MAP_SEED` : aucune commande injectée ne s'exécute (cas 12 du banc hors jeu).
+- Comme les autres variables, la vider après usage : `$env:FO_AUDIO = $null`.
+- Le silence effectif (rien n'est entendu pendant la session) n'est PAS mesuré à la sortie audio : il repose sur
+  les volumes à 0 du `config.ini` de test, relus avant le lancement, et non réécrits par le jeu (relu après).
+
+Bancs hors jeu : `bat_double_source/run.py` (cas 10 à 13 : défaut inchangé, son actif aux deux lancements, valeurs
+refusées, passage par `fo-captures.bat`) et `python -B tools/autotest/tests/test_audio_session.py` → « BILAN : 16 OK »
+(filtre, `prepare`, mutants du `config.ini`, ligne d'erreur réelle reconnue, ligne de commande).
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 

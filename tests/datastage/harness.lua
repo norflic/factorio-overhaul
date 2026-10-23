@@ -475,6 +475,89 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Sons (lot S0) : tout fichier son cité existe, a un format lu par le moteur (.ogg, .wav, .voc) et l'en-tête de
+-- ce format (tests/datastage/sounds.lua). Étalonnage sur TOUTE la vanilla d'abord, puis les prototypes ajoutés ou
+-- modifiés par le mod ; auto-contrôle par mutants (dont un vrai niveau de la mitrailleuse).
+---------------------------------------------------------------------------------------------------
+local Sounds = dofile(HERE .. "/sounds.lua")
+local snd = Sounds.new(roots)
+local snd_vanilla, snd_vc = snd.check(vanilla, nil)
+local snd_vfiles = snd.nfiles()
+local snd_errors, snd_mc = snd.check(modded, changed)
+local snd_mod_files = {}
+for name in pairs(snd.files_seen) do
+  if name:match("^__" .. MOD_NAME:gsub("%-", "%%-") .. "__/") then snd_mod_files[#snd_mod_files + 1] = name end
+end
+table.sort(snd_mod_files)
+local snd_self_fail, snd_self_total = {}, 0
+do
+  -- fichiers jetables pour les en-têtes (effacés aussitôt) : un faux .ogg (octets PNG), un vrai en-tête WAV et VOC
+  local tmp = {
+    { HERE .. "/_s0_mutant_png.ogg", "\137PNG\r\n\26\n0000000000000" },
+    { HERE .. "/_s0_entete.wav", "RIFF\0\0\0\0WAVEfmt 00000000" },
+    { HERE .. "/_s0_entete.voc", "Creative Voice File\26\0" },
+    { HERE .. "/_s0_mutant_riff.wav", "RIFF\0\0\0\0AVI LIST0000000" },
+  }
+  for _, t in ipairs(tmp) do
+    local f = assert(io.open(t[1], "wb"))
+    f:write(t[2])
+    f:close()
+  end
+  local tsnd = Sounds.new({ base = roots.base, core = roots.core, [MOD_NAME] = roots[MOD_NAME], ["fo-s0-jetable"] = HERE })
+  local OK = "__base__/sound/fight/gun-turret-gunshot-01.ogg"
+  local cases = {
+    { "son vanilla présent", { sound = { { filename = OK, volume = 0.4 } } }, {} },
+    { "son vanilla absent", { sound = { { filename = "__base__/sound/fight/absent-01.ogg" } } }, { manquant = 1 } },
+    { "son du mod absent", { working_sound = { sound = { filename = "__" .. MOD_NAME .. "__/sound/levels/gun/absent.ogg" } } },
+      { manquant = 1 } },
+    { "clé sans « sound » (utility-sounds) : reconnu par l'extension, absent", { gui_click = { filename = "__core__/sound/absent-clic.ogg" } },
+      { manquant = 1 } },
+    { "mp3 sous une clé sound (format non lu par le moteur)", { attack_parameters = { sound = { { filename = "__base__/sound/fight/gun-turret-gunshot-01.mp3" } } } },
+      { format = 1 } },
+    { "image sous une clé sound : ignorée", { sound = { filename = "__base__/graphics/entity/gun-turret/hr-gun-turret-base.png" } }, {} },
+    { "faux .ogg (octets PNG)", { sound = { filename = "__fo-s0-jetable__/_s0_mutant_png.ogg" } }, { ["pas un son"] = 1 } },
+    { "en-tête WAV juste", { sound = { filename = "__fo-s0-jetable__/_s0_entete.wav" } }, {} },
+    { "en-tête VOC juste", { sound = { filename = "__fo-s0-jetable__/_s0_entete.voc" } }, {} },
+    { "faux .wav (RIFF sans WAVE)", { sound = { filename = "__fo-s0-jetable__/_s0_mutant_riff.wav" } }, { ["pas un son"] = 1 } },
+  }
+  -- mutants d'un vrai niveau de la mitrailleuse (le plus haut qui a un son du mod)
+  local real
+  for n = 30, 2, -1 do
+    local p = modded["ammo-turret"] and modded["ammo-turret"]["fo-lvl-gun-" .. n]
+    local s = p and p.attack_parameters and p.attack_parameters.sound
+    if s and s[1] and type(s[1].filename) == "string" and s[1].filename:find("__" .. MOD_NAME .. "__", 1, true) then
+      real = p break
+    end
+  end
+  if real then
+    local s = deepcopy(real.attack_parameters.sound)
+    cases[#cases + 1] = { "niveau réel " .. real.name .. " : son du tir tel quel", { attack_parameters = { sound = s } }, {} }
+    local m1 = deepcopy(s)
+    m1[1].filename = m1[1].filename:gsub("%.ogg$", "-absent.ogg")
+    cases[#cases + 1] = { "niveau réel : fichier du tir renommé (mutant)", { attack_parameters = { sound = m1 } }, { manquant = 1 } }
+    local m2 = deepcopy(s)
+    m2[2].filename = m2[2].filename:gsub("%.ogg$", ".mp3")
+    cases[#cases + 1] = { "niveau réel : tir en .mp3 (mutant)", { attack_parameters = { sound = m2 } }, { format = 1 } }
+  else
+    snd_self_fail[#snd_self_fail + 1] = "aucun niveau de la mitrailleuse n'a de son du mod (lot S0) : mutants réels non joués"
+  end
+  for i, c in ipairs(cases) do
+    local got = {}
+    for _, e in ipairs(tsnd.check({ ["fo-cas"] = { ["cas-" .. i] = c[2] } }, nil)) do got[e.what] = (got[e.what] or 0) + 1 end
+    local ok = true
+    for _, k in ipairs({ "manquant", "format", "pas un son" }) do
+      if (got[k] or 0) ~= (c[3][k] or 0) then ok = false end
+    end
+    if not ok then
+      snd_self_fail[#snd_self_fail + 1] = c[1] .. " (manquant=" .. (got.manquant or 0) .. ", format=" .. (got.format or 0)
+        .. ", pas un son=" .. (got["pas un son"] or 0) .. ")"
+    end
+  end
+  snd_self_total = #cases
+  for _, t in ipairs(tmp) do os.remove(t[1]) end
+end
+
+---------------------------------------------------------------------------------------------------
 -- Localisation : chaque nom affiché doit exister dans les fichiers de langue (vanilla ou mod).
 ---------------------------------------------------------------------------------------------------
 local function parse_cfg(path, keys)
@@ -645,7 +728,24 @@ end
 local GunSheets = dofile(HERE .. "/gun_sheets.lua")
 local gun_sheets = GunSheets.check(MOD_ROOT)
 for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
+-- Sons (lot S0)
+print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux) ; étalonnage "
+  .. "vanilla : %d violation(s) sur %d prototypes (%d avec un son), %d définitions, %d fichiers ; mod : %d prototypes "
+  .. "(%d avec un son), %d définitions, %d fichier(s) du mod ; auto-contrôle %d/%d",
+  #snd_errors, #snd_vanilla, snd_vc.protos, snd_vc.with_sound, snd_vc.defs, snd_vfiles, snd_mc.protos, snd_mc.with_sound,
+  snd_mc.defs, #snd_mod_files, snd_self_total - #snd_self_fail, snd_self_total))
+for i = 1, math.min(#snd_vanilla, 30) do
+  local e = snd_vanilla[i]
+  print("  SON (ETALONNAGE VANILLA) " .. e.what .. " " .. e.where .. " : " .. e.msg)
+end
+for i = 1, math.min(#snd_errors, 60) do
+  local e = snd_errors[i]
+  print("  SON " .. e.what .. " " .. e.where .. " : " .. e.msg)
+end
+for _, f in ipairs(snd_self_fail) do print("  SON AUTO-CONTROLE FAUX " .. f) end
+if VERBOSE then for _, n in ipairs(snd_mod_files) do print("  SON DU MOD " .. n) end end
 print(string.format("Localisation : %d clé(s) manquante(s)", #missing_locale))
 for i = 1, math.min(#missing_locale, 60) do print("  LOCALE " .. missing_locale[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
-  and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)) and 0 or 1)
+  and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
+  and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

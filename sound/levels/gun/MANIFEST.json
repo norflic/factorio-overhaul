@@ -1,0 +1,581 @@
+{
+ "debit_ogg": 112000,
+ "fichiers": {
+  "tir-ere1-1.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -2.4,
+    "momentanee_max": -0.75,
+    "rms_dbfs": -0.38,
+    "sonie_k": -0.59
+   },
+   "ere": 1,
+   "mesures": {
+    "centroide_hz": 488.0,
+    "crete_dbfs": -2.702,
+    "duree_s": 1.478,
+    "momentanee_max": -10.455,
+    "part_sous_200hz": 0.5605,
+    "rms_dbfs": -17.809,
+    "sonie_k": -15.814
+   },
+   "octets": 21271,
+   "sha256": "4c38687495ab3b560e7b08f4d499208910fac8de02b60385c73da59ee35d83fa",
+   "variation": 1
+  },
+  "tir-ere1-2.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -2.338,
+    "momentanee_max": -0.73,
+    "rms_dbfs": -0.426,
+    "sonie_k": -0.582
+   },
+   "ere": 1,
+   "mesures": {
+    "centroide_hz": 529.0,
+    "crete_dbfs": -2.974,
+    "duree_s": 1.536,
+    "momentanee_max": -11.255,
+    "part_sous_200hz": 0.5398,
+    "rms_dbfs": -19.034,
+    "sonie_k": -16.829
+   },
+   "octets": 22038,
+   "sha256": "ee1583a017afc7c7a2e2af79546e897c9bf347e95fec29250ee6f5a1fc9ca65e",
+   "variation": 2
+  },
+  "tir-ere1-3.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.002,
+    "momentanee_max": -0.641,
+    "rms_dbfs": -0.416,
+    "sonie_k": -0.483
+   },
+   "ere": 1,
+   "mesures": {
+    "centroide_hz": 570.4,
+    "crete_dbfs": -3.418,
+    "duree_s": 1.952,
+    "momentanee_max": -10.791,
+    "part_sous_200hz": 0.5701,
+    "rms_dbfs": -19.619,
+    "sonie_k": -17.369
+   },
+   "octets": 26530,
+   "sha256": "e5e0afccf545baa1460183dfe81572231cfbf9fd8b84b85ad35e7a9833674ef5",
+   "variation": 3
+  },
+  "tir-ere1-4.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.437,
+    "momentanee_max": -0.806,
+    "rms_dbfs": -0.432,
+    "sonie_k": -0.657
+   },
+   "ere": 1,
+   "mesures": {
+    "centroide_hz": 619.4,
+    "crete_dbfs": -3.716,
+    "duree_s": 2.009,
+    "momentanee_max": -10.969,
+    "part_sous_200hz": 0.4747,
+    "rms_dbfs": -19.97,
+    "sonie_k": -17.704
+   },
+   "octets": 27426,
+   "sha256": "8d08a3679432f7556df4c915d25755e6dedb9b1c1181bb90741f01e0dd6ec56e",
+   "variation": 4
+  },
+  "tir-ere2-1.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.482,
+    "momentanee_max": -1.454,
+    "rms_dbfs": -0.887,
+    "sonie_k": -1.181
+   },
+   "ere": 2,
+   "mesures": {
+    "centroide_hz": 468.3,
+    "crete_dbfs": -3.784,
+    "duree_s": 1.478,
+    "momentanee_max": -11.159,
+    "part_sous_200hz": 0.5571,
+    "rms_dbfs": -18.316,
+    "sonie_k": -16.405
+   },
+   "octets": 21470,
+   "sha256": "1e71cec9b8b98081d46fc8b9b39c3be71ffb7be5456d094c59bbb0c68aa6e801",
+   "variation": 1
+  },
+  "tir-ere2-2.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -2.997,
+    "momentanee_max": -1.587,
+    "rms_dbfs": -0.872,
+    "sonie_k": -1.417
+   },
+   "ere": 2,
+   "mesures": {
+    "centroide_hz": 407.2,
+    "crete_dbfs": -3.633,
+    "duree_s": 1.536,
+    "momentanee_max": -12.112,
+    "part_sous_200hz": 0.6202,
+    "rms_dbfs": -19.48,
+    "sonie_k": -17.664
+   },
+   "octets": 21916,
+   "sha256": "d948d77028391ef9d294a3613786bfb6658027e316a2598be44015a40220fc1d",
+   "variation": 2
+  },
+  "tir-ere2-3.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -2.782,
+    "momentanee_max": -1.481,
+    "rms_dbfs": -0.926,
+    "sonie_k": -1.241
+   },
+   "ere": 2,
+   "mesures": {
+    "centroide_hz": 508.6,
+    "crete_dbfs": -3.198,
+    "duree_s": 1.952,
+    "momentanee_max": -11.631,
+    "part_sous_200hz": 0.5705,
+    "rms_dbfs": -20.129,
+    "sonie_k": -18.127
+   },
+   "octets": 26704,
+   "sha256": "51c5a98634192e2f1ef4c6ccefef48ba04c3d38f6eb653f24519dfb311b96b76",
+   "variation": 3
+  },
+  "tir-ere2-4.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.391,
+    "momentanee_max": -1.606,
+    "rms_dbfs": -0.941,
+    "sonie_k": -1.377
+   },
+   "ere": 2,
+   "mesures": {
+    "centroide_hz": 527.7,
+    "crete_dbfs": -3.67,
+    "duree_s": 2.009,
+    "momentanee_max": -11.769,
+    "part_sous_200hz": 0.516,
+    "rms_dbfs": -20.479,
+    "sonie_k": -18.424
+   },
+   "octets": 27601,
+   "sha256": "e16773d15a125777ea34ac8840f95305cf2e5c51525a274af0a92b28fc0bad76",
+   "variation": 4
+  },
+  "tir-ere3-1.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.507,
+    "momentanee_max": -2.033,
+    "rms_dbfs": -0.743,
+    "sonie_k": -1.688
+   },
+   "ere": 3,
+   "mesures": {
+    "centroide_hz": 326.2,
+    "crete_dbfs": -4.809,
+    "duree_s": 1.478,
+    "momentanee_max": -11.738,
+    "part_sous_200hz": 0.7132,
+    "rms_dbfs": -18.172,
+    "sonie_k": -16.912
+   },
+   "octets": 21631,
+   "sha256": "8676d4eafec48d00a2df84cabc94c3808bd8be428f59af4de40838ae6872aaa9",
+   "variation": 1
+  },
+  "tir-ere3-2.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.403,
+    "momentanee_max": -1.94,
+    "rms_dbfs": -0.704,
+    "sonie_k": -1.669
+   },
+   "ere": 3,
+   "mesures": {
+    "centroide_hz": 335.8,
+    "crete_dbfs": -5.039,
+    "duree_s": 1.536,
+    "momentanee_max": -12.465,
+    "part_sous_200hz": 0.6961,
+    "rms_dbfs": -19.312,
+    "sonie_k": -17.916
+   },
+   "octets": 22055,
+   "sha256": "d1a2cd2c358650b8a8da3326bb3273e47dc95ba0ba0be099fe49244c3a9adce9",
+   "variation": 2
+  },
+  "tir-ere3-3.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.023,
+    "momentanee_max": -1.829,
+    "rms_dbfs": -0.721,
+    "sonie_k": -1.532
+   },
+   "ere": 3,
+   "mesures": {
+    "centroide_hz": 374.1,
+    "crete_dbfs": -4.439,
+    "duree_s": 1.952,
+    "momentanee_max": -11.979,
+    "part_sous_200hz": 0.6897,
+    "rms_dbfs": -19.924,
+    "sonie_k": -18.418
+   },
+   "octets": 26899,
+   "sha256": "34f47e01a0f32059007f347a898ea17c21deee4ec89945b1b2cc5a046b49834f",
+   "variation": 3
+  },
+  "tir-ere3-4.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -5.1,
+    "momentanee_max": -2.284,
+    "rms_dbfs": -0.731,
+    "sonie_k": -1.939
+   },
+   "ere": 3,
+   "mesures": {
+    "centroide_hz": 377.6,
+    "crete_dbfs": -5.379,
+    "duree_s": 2.009,
+    "momentanee_max": -12.447,
+    "part_sous_200hz": 0.6688,
+    "rms_dbfs": -20.269,
+    "sonie_k": -18.986
+   },
+   "octets": 27551,
+   "sha256": "5fc0b3a13d26da64d28c8cb06caea4bbf957656d7c5573f0eca02493240f62f1",
+   "variation": 4
+  },
+  "tir-ere4-1.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.701,
+    "momentanee_max": -2.185,
+    "rms_dbfs": -0.397,
+    "sonie_k": -1.668
+   },
+   "ere": 4,
+   "mesures": {
+    "centroide_hz": 302.5,
+    "crete_dbfs": -4.003,
+    "duree_s": 1.478,
+    "momentanee_max": -11.89,
+    "part_sous_200hz": 0.6914,
+    "rms_dbfs": -17.826,
+    "sonie_k": -16.892
+   },
+   "octets": 21820,
+   "sha256": "582ba452646f4bc12443887816e5039752ae4f3d2fa93a4c479736ca3d18dbed",
+   "variation": 1
+  },
+  "tir-ere4-2.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.63,
+    "momentanee_max": -2.104,
+    "rms_dbfs": -0.318,
+    "sonie_k": -1.739
+   },
+   "ere": 4,
+   "mesures": {
+    "centroide_hz": 279.6,
+    "crete_dbfs": -4.266,
+    "duree_s": 1.536,
+    "momentanee_max": -12.629,
+    "part_sous_200hz": 0.7258,
+    "rms_dbfs": -18.926,
+    "sonie_k": -17.986
+   },
+   "octets": 22452,
+   "sha256": "b1949b4a4856c4c8186021befb41245247f4bdc589ec17929afd5094faccf33e",
+   "variation": 2
+  },
+  "tir-ere4-3.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -3.353,
+    "momentanee_max": -2.189,
+    "rms_dbfs": -0.391,
+    "sonie_k": -1.756
+   },
+   "ere": 4,
+   "mesures": {
+    "centroide_hz": 315.7,
+    "crete_dbfs": -3.769,
+    "duree_s": 1.952,
+    "momentanee_max": -12.339,
+    "part_sous_200hz": 0.6992,
+    "rms_dbfs": -19.594,
+    "sonie_k": -18.642
+   },
+   "octets": 26417,
+   "sha256": "2230e6ce232c461ca24b992eefb992863b37a2ab7c5279fda661b8fdc6939cd4",
+   "variation": 3
+  },
+  "tir-ere4-4.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.284,
+    "momentanee_max": -2.375,
+    "rms_dbfs": -0.321,
+    "sonie_k": -1.919
+   },
+   "ere": 4,
+   "mesures": {
+    "centroide_hz": 319.2,
+    "crete_dbfs": -4.563,
+    "duree_s": 2.009,
+    "momentanee_max": -12.538,
+    "part_sous_200hz": 0.6757,
+    "rms_dbfs": -19.859,
+    "sonie_k": -18.966
+   },
+   "octets": 27932,
+   "sha256": "70d3aaef0d2ff27c9baa41281c24382a39b986933a4bf3c54ee6fc7fd41f5696",
+   "variation": 4
+  },
+  "tir-ere5-1.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.271,
+    "momentanee_max": -3.715,
+    "rms_dbfs": -0.345,
+    "sonie_k": -2.935
+   },
+   "ere": 5,
+   "mesures": {
+    "centroide_hz": 165.2,
+    "crete_dbfs": -4.573,
+    "duree_s": 1.478,
+    "momentanee_max": -13.42,
+    "part_sous_200hz": 0.8385,
+    "rms_dbfs": -17.774,
+    "sonie_k": -18.159
+   },
+   "octets": 21238,
+   "sha256": "0f08efa759829cbb1adcbfddbaaf12fcd4d5a22a615ce41f1a8b6d88963c5998",
+   "variation": 1
+  },
+  "tir-ere5-2.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -5.122,
+    "momentanee_max": -3.508,
+    "rms_dbfs": -0.329,
+    "sonie_k": -2.973
+   },
+   "ere": 5,
+   "mesures": {
+    "centroide_hz": 173.8,
+    "crete_dbfs": -5.758,
+    "duree_s": 1.536,
+    "momentanee_max": -14.033,
+    "part_sous_200hz": 0.8339,
+    "rms_dbfs": -18.937,
+    "sonie_k": -19.22
+   },
+   "octets": 22433,
+   "sha256": "7ba3112ac063968a5511df0f2c312c069c2d181c52ffec27a6e72852e88209f5",
+   "variation": 2
+  },
+  "tir-ere5-3.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -4.933,
+    "momentanee_max": -3.566,
+    "rms_dbfs": -0.319,
+    "sonie_k": -2.985
+   },
+   "ere": 5,
+   "mesures": {
+    "centroide_hz": 178.0,
+    "crete_dbfs": -5.349,
+    "duree_s": 1.952,
+    "momentanee_max": -13.716,
+    "part_sous_200hz": 0.8331,
+    "rms_dbfs": -19.522,
+    "sonie_k": -19.871
+   },
+   "octets": 26281,
+   "sha256": "f94219179bcf7bbfa91dc0c1ac0744f3eb9b8d9b6eb1aa54c2edae2da7e09bbd",
+   "variation": 3
+  },
+  "tir-ere5-4.ogg": {
+   "ecart_vanilla_db": {
+    "crete_dbfs": -5.401,
+    "momentanee_max": -3.615,
+    "rms_dbfs": -0.329,
+    "sonie_k": -2.926
+   },
+   "ere": 5,
+   "mesures": {
+    "centroide_hz": 193.1,
+    "crete_dbfs": -5.68,
+    "duree_s": 2.009,
+    "momentanee_max": -13.778,
+    "part_sous_200hz": 0.8103,
+    "rms_dbfs": -19.867,
+    "sonie_k": -19.973
+   },
+   "octets": 28071,
+   "sha256": "9916ea24613ed244d859e574db9d3294d99c7442e0e1b11366f97c542e489398",
+   "variation": 4
+  }
+ },
+ "genere_par": "tools/sound/sons.py (lot S0)",
+ "rafales": {
+  "ere-1": {
+   "centroide_hz": 556.0,
+   "crete_dbfs": -4.323,
+   "duree_s": 4.0,
+   "ecart_vanilla_db": {
+    "crete_dbfs": -0.955,
+    "momentanee_max": -0.662,
+    "rms_dbfs": -0.207,
+    "sonie_k": -0.503
+   },
+   "momentanee_max": -12.382,
+   "part_sous_200hz": 0.5426,
+   "rms_dbfs": -16.956,
+   "sonie_k": -14.808
+  },
+  "ere-2": {
+   "centroide_hz": 454.9,
+   "crete_dbfs": -4.104,
+   "duree_s": 4.0,
+   "ecart_vanilla_db": {
+    "crete_dbfs": -0.736,
+    "momentanee_max": -0.995,
+    "rms_dbfs": -0.272,
+    "sonie_k": -0.877
+   },
+   "momentanee_max": -12.715,
+   "part_sous_200hz": 0.571,
+   "rms_dbfs": -17.021,
+   "sonie_k": -15.182
+  },
+  "ere-3": {
+   "centroide_hz": 336.2,
+   "crete_dbfs": -4.051,
+   "duree_s": 4.0,
+   "ecart_vanilla_db": {
+    "crete_dbfs": -0.683,
+    "momentanee_max": -1.808,
+    "rms_dbfs": -0.271,
+    "sonie_k": -1.62
+   },
+   "momentanee_max": -13.528,
+   "part_sous_200hz": 0.6954,
+   "rms_dbfs": -17.02,
+   "sonie_k": -15.925
+  },
+  "ere-4": {
+   "centroide_hz": 330.7,
+   "crete_dbfs": -3.469,
+   "duree_s": 4.0,
+   "ecart_vanilla_db": {
+    "crete_dbfs": -0.101,
+    "momentanee_max": -1.834,
+    "rms_dbfs": -0.451,
+    "sonie_k": -1.785
+   },
+   "momentanee_max": -13.554,
+   "part_sous_200hz": 0.6592,
+   "rms_dbfs": -17.2,
+   "sonie_k": -16.09
+  },
+  "ere-5": {
+   "centroide_hz": 226.7,
+   "crete_dbfs": -4.834,
+   "duree_s": 4.0,
+   "ecart_vanilla_db": {
+    "crete_dbfs": -1.466,
+    "momentanee_max": -2.994,
+    "rms_dbfs": -1.148,
+    "sonie_k": -2.953
+   },
+   "momentanee_max": -14.714,
+   "part_sous_200hz": 0.7622,
+   "rms_dbfs": -17.897,
+   "sonie_k": -17.258
+  }
+ },
+ "reference": {
+  "rafale-vanilla": {
+   "centroide_hz": 691.5,
+   "crete_dbfs": -3.368,
+   "duree_s": 4.0,
+   "momentanee_max": -11.72,
+   "part_sous_200hz": 0.4838,
+   "rms_dbfs": -16.749,
+   "sonie_k": -14.305
+  },
+  "vanilla-1": {
+   "centroide_hz": 583.3,
+   "crete_dbfs": -0.302,
+   "duree_s": 1.47,
+   "momentanee_max": -9.705,
+   "part_sous_200hz": 0.5263,
+   "rms_dbfs": -17.429,
+   "sonie_k": -15.224,
+   "source": "__base__/sound/fight/gun-turret-gunshot-01.ogg"
+  },
+  "vanilla-2": {
+   "centroide_hz": 629.4,
+   "crete_dbfs": -0.636,
+   "duree_s": 1.534,
+   "momentanee_max": -10.525,
+   "part_sous_200hz": 0.5374,
+   "rms_dbfs": -18.608,
+   "sonie_k": -16.247,
+   "source": "__base__/sound/fight/gun-turret-gunshot-02.ogg"
+  },
+  "vanilla-3": {
+   "centroide_hz": 613.9,
+   "crete_dbfs": -0.416,
+   "duree_s": 1.939,
+   "momentanee_max": -10.15,
+   "part_sous_200hz": 0.5974,
+   "rms_dbfs": -19.203,
+   "sonie_k": -16.886,
+   "source": "__base__/sound/fight/gun-turret-gunshot-03.ogg"
+  },
+  "vanilla-4": {
+   "centroide_hz": 757.7,
+   "crete_dbfs": -0.279,
+   "duree_s": 2.003,
+   "momentanee_max": -10.163,
+   "part_sous_200hz": 0.4345,
+   "rms_dbfs": -19.538,
+   "sonie_k": -17.047,
+   "source": "__base__/sound/fight/gun-turret-gunshot-04.ogg"
+  }
+ },
+ "timbre_moyen": {
+  "vanilla": {
+   "centroide_hz": 646.1,
+   "part_sous_200hz": 0.5239
+  },
+  "ère 1": {
+   "centroide_hz": 551.7,
+   "part_sous_200hz": 0.5363
+  },
+  "ère 2": {
+   "centroide_hz": 477.9,
+   "part_sous_200hz": 0.5659
+  },
+  "ère 3": {
+   "centroide_hz": 353.4,
+   "part_sous_200hz": 0.692
+  },
+  "ère 4": {
+   "centroide_hz": 304.2,
+   "part_sous_200hz": 0.698
+  },
+  "ère 5": {
+   "centroide_hz": 177.5,
+   "part_sous_200hz": 0.829
+  }
+ },
+ "volume_prototype": 0.4
+}

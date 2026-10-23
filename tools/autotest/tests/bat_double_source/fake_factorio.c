@@ -12,6 +12,26 @@ static const char *arg_after(int argc, char **argv, const char *k) {
   return NULL;
 }
 
+/* Lot S0 (E69) : nombre de --disable-audio recus et lignes de volume du config.ini passe par --config (le faux
+   jeu lit le fichier AU MOMENT du lancement : preuve que les volumes a 0 y sont avant le lancement). */
+static void print_audio(const char *phase, int argc, char **argv) {
+  int n = 0;
+  for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--disable-audio") == 0) n++;
+  printf("%s : disable-audio x%d\n", phase, n);
+  const char *cfg = arg_after(argc, argv, "--config");
+  FILE *f = cfg ? fopen(cfg, "r") : NULL;
+  if (!f) { printf("%s : config ABSENT\n", phase); return; }
+  char line[512];
+  int sound = 0, vols = 0;
+  while (fgets(line, sizeof line, f)) {
+    line[strcspn(line, "\r\n")] = 0;
+    if (strcmp(line, "[sound]") == 0) sound++;
+    if (strstr(line, "volume")) { vols++; printf("%s : config %s\n", phase, line); }
+  }
+  fclose(f);
+  printf("%s : config [sound] x%d, %d ligne(s) de volume\n", phase, sound, vols);
+}
+
 int main(int argc, char **argv) {
   if (argc >= 4 && strcmp(argv[1], "--hold") == 0) {
     HANDLE h = CreateFileA(argv[2], GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
@@ -34,6 +54,7 @@ int main(int argc, char **argv) {
     printf("create : map-gen-seed [%s] x%d argc %d\n", seed ? seed : "ABSENT", nseed, argc);
     const char *env = getenv("FO_MAP_SEED");
     if (env) printf("create : env FO_MAP_SEED [%s]\n", env); else printf("create : env FO_MAP_SEED ABSENTE\n");
+    print_audio("create", argc, argv);
     FILE *z = fopen(create, "w");
     if (z) { fputs("faux zip\n", z); fclose(z); }
     const char *hold = getenv("FAKE_HOLD");
@@ -63,6 +84,7 @@ int main(int argc, char **argv) {
     else printf("ABSENT\n");
     snprintf(p, sizeof p, "%s\\factorio-overhaul\\marker-old.txt", mods);
     printf("benchmark : marker-old.txt %s\n", GetFileAttributesA(p) != INVALID_FILE_ATTRIBUTES ? "PRESENT" : "absent");
+    print_audio("benchmark", argc, argv);
     return 0;
   }
   printf("arguments inconnus\n");
