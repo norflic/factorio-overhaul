@@ -184,6 +184,11 @@
   nouvelles ressources et des moyens de les exploiter (lots B6, B7 et X1 à X15). « Passez à la suite » : déploiement
   de la méthode aux 6 autres familles (lots V3), avec des designs plus surprenants (consigne du 23/10, 7 h 50), et
   intégration en jeu de la mitrailleuse.
+- 23/10, vers 15 h 05, **portée de la suite** : « en fait la liste serait beaucoup plus exhaustive que les simples quelques elements listes precedemment, comme les cçnvoyeurs par exemple, ou des balles, ou des nukes, ou des robots de defense, ou des bras mecanique, ou encore des ressources, des mineraux, des animations etc etc etc ».
+  Lecture : la refonte porte sur TOUT ce qui se voit et s'entend dans le jeu (logistique, munitions, robots, ressources,
+  minerais, animations, sons…), pas seulement les 7 familles de niveaux. → étude de la suite relancée en ce sens (run
+  `wf_632b4009-57a` : inventaire exhaustif de data.raw, intégration en jeu de la mitrailleuse, déploiement de la
+  méthode, contenu ; critique ; synthèse `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`).
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
