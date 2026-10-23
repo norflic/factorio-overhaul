@@ -6,7 +6,7 @@
   par bruit. Sur une graine sans cendres proches, le centre de commandement ne passe pas l'époque 5. Et dans une
   sauvegarde existante, l'autoplacement ne touche que les chunks NEUFS.
 
-  Règle (une fois par ressource et par partie, sur nauvis) :
+  Règle (une réussite par ressource et par partie, sur nauvis) :
   - nombre et distance au départ : X.base_resources (shared/content/epochs.lua, placement.guaranteed) ;
   - partie neuve (on_init au tick 0) : le site garanti est TOUJOURS posé. Au démarrage, les chunks à plus de
     200 tuiles ne sont pas générés : le jeu ne sait pas encore si la graine a un gisement à cette distance, et le
@@ -17,7 +17,12 @@
   - le site : des candidats tirés de la graine de la carte (Park-Miller, aucun ordre de pairs, aucune
     trigonométrie), dans l'anneau [distance min + rayon du cœur, distance max - rayon du cœur] ; le premier
     candidat valable est retenu (pas de bâtiment d'une force autre qu'« enemy » ou « neutral », pas de gisement
-    sous le cœur, que des tuiles naturelles de terre ferme sous le cœur, loin des autres sites garantis).
+    sous le cœur, que des tuiles naturelles de terre ferme sous le cœur, loin des autres sites garantis) ;
+  - échec (aucun des MAX_TRIES candidats valable) : la ressource n'est PAS marquée traitée ; elle est reprise par
+    le filet après un délai croissant (G.retry_delay), avec une AUTRE suite de candidats (essai k : graine décalée)
+    et des critères assouplis par paliers (G.rules) : niveau 1, nouveaux candidats ; niveau 2, eau tolérée sous le
+    cœur (au plus WATER_SHARE) et comblée par le sol du biome ; niveau 3 et suivants, distance maximale allongée
+    de RING_STRETCH. Un bâtiment, un gisement existant ou une dalle posée par un joueur ne sont jamais tolérés.
 ]]
 
 local W = require("shared.content.world")
@@ -30,6 +35,13 @@ G.SPACING = 8          -- tuiles libres au moins entre les disques de deux sites
 G.BUILD_MARGIN = 2     -- marge autour du disque où aucun bâtiment d'une force joueur ou IA n'est toléré
 G.RESOURCE_MARGIN = 3  -- marge autour du cœur où aucun gisement ne doit déjà exister
 G.EDGE_JITTER = 1.5    -- irrégularité du bord du disque de tuiles (en tuiles, ±)
+-- Reprise après échec (correction M-1 de la vérification du lot M0) :
+G.MAX_LEVEL = 3        -- dernier palier d'assouplissement (les essais suivants changent seulement de candidats)
+G.WATER_SHARE = 0.5    -- niveau >= 2 : part d'eau tolérée sous le cœur (comblée par le sol du biome)
+G.RING_STRETCH = 0.5   -- niveau >= 3 : distance maximale × 1,5
+G.RETRY_BASE = 600     -- délai avant la reprise après le 1er échec (ticks) ; doublé à chaque échec suivant
+G.RETRY_MAX = 36000    -- délai maximal (10 min de jeu)
+G.SALT_STEP = 1000     -- décalage de la graine des candidats par essai (essai 0 : suite d'origine)
 
 local MOD = 2147483647
 local MUL = 48271
@@ -161,14 +173,54 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Candidats : positions (tuiles entières, relatives au départ) dans l'anneau, tirées de la graine.
 ---------------------------------------------------------------------------------------------------
-function G.ring(spec)
-  return spec.dmin + spec.core_radius + 1, spec.dmax - spec.core_radius - 1
+--- Règles de l'essai `attempt` (0 : premier essai, critères stricts ; k : après k échecs).
+function G.rules(attempt)
+  attempt = attempt or 0
+  local level = math.min(attempt, G.MAX_LEVEL)
+  return {
+    attempt = attempt,
+    level = level,
+    fill_water = level >= 2,
+    water_share = level >= 2 and G.WATER_SHARE or 0,
+    dmax_scale = level >= 3 and 1 + G.RING_STRETCH or 1,
+  }
 end
 
-function G.candidates(map_seed, spec, n)
-  local rng = G.rng(G.mix(map_seed, spec.seed))
+--- Distance maximale effective à l'essai `attempt`.
+function G.dmax(spec, attempt)
+  return math.floor(spec.dmax * G.rules(attempt).dmax_scale)
+end
+
+--- Délai (ticks) avant la reprise après `fails` échecs (1, 2, ...) : RETRY_BASE × 2^(fails - 1), au plus RETRY_MAX.
+function G.retry_delay(fails)
+  local d = G.RETRY_BASE
+  for _ = 2, fails or 1 do
+    d = d * 2
+    if d >= G.RETRY_MAX then return G.RETRY_MAX end
+  end
+  return math.min(d, G.RETRY_MAX)
+end
+
+--- Le sol sous le cœur est-il acceptable ? land, water, other : nombres de tuiles naturelles de terre ferme, d'eau
+--- naturelle et d'autres tuiles (dalles d'un joueur...). Renvoie nil (valable) ou le motif de refus.
+function G.ground_verdict(rules, land, water, other)
+  if other > 0 then return "sol" end
+  if water == 0 then return nil end
+  if not rules.fill_water then return "sol" end
+  if water > rules.water_share * (land + water) then return "eau" end
+  return nil
+end
+
+function G.ring(spec, attempt)
+  return spec.dmin + spec.core_radius + 1, G.dmax(spec, attempt) - spec.core_radius - 1
+end
+
+--- n candidats de l'essai `attempt` (0 ou nil : suite d'origine, inchangée depuis le lot M0).
+function G.candidates(map_seed, spec, n, attempt)
+  attempt = attempt or 0
+  local rng = G.rng(G.mix(map_seed, spec.seed + G.SALT_STEP * attempt))
   for _ = 1, 3 do rng.next() end
-  local rmin, rmax = G.ring(spec)
+  local rmin, rmax = G.ring(spec, attempt)
   local out = {}
   for i = 1, n do
     local vx, vy, q

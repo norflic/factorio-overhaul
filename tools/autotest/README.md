@@ -375,6 +375,12 @@ Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époqu
   ```
   `src-0.4.4` = `git archive 93e3d89` (version 0.4.4) : à GARDER. Attendu (23/10, 16:14:03) : « [FO-M0-MIGRATION]
   BILAN : 9 OK, 0 ECHEC(S) ».
+- `m0-reprise` (2 600 ticks ; contrôle final au tick 2 460 ; correction M-1) : sur nauvis, la garantie du tungstène
+  ÉCHOUE deux fois (coffres du joueur sur les 24 candidats des essais 0 et 1, gisements de tungstène retirés à moins de
+  dmax), n'est PAS marquée traitée, puis réussit au filet du tick 2 400 (essai 2, niveau 2 : eau posée sous la moitié
+  des candidats, tolérée et comblée par les cendres). Sans double source :
+  `& "<racine>\fo-autotest.bat" nopause 2600 m0-reprise "<source>"`. Attendu (23/10, `done.txt` 16:45:02,98) :
+  « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) ».
 
 Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
 « LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul

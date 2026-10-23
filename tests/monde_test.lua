@@ -6,9 +6,10 @@
      world.lua), lien avec les monnaies des niveaux, candidats dans l'anneau sur 2 000 graines, forme des sites
      (quantités, tuiles), déterminisme.
   2. Exécution (script/world/guarantee.lua) dans le moteur simulé (tests/mock_engine.lua) : partie neuve,
-     refus (eau, bâtiment, gisement, voisin), sauvegarde existante (gisements connus comptés), filet périodique,
-     étiquettes de carte, sérialisabilité de l'état.
-  Le moteur réel est prouvé à part : scénarios greffés « monde » et « m0-migration » (tools/autotest).
+     refus (eau, bâtiment, gisement, voisin), échec puis reprise (correction M-1 : paliers, délais, eau comblée,
+     joueurs prévenus), sauvegarde existante (gisements connus comptés), filet périodique, étiquettes de carte,
+     sérialisabilité de l'état.
+  Le moteur réel est prouvé à part : scénarios greffés « monde », « m0-migration » et « m0-reprise » (tools/autotest).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -128,6 +129,47 @@ end
 -- Deux ressources sur la même carte : tirages différents (graines propres, autoplace.seed1).
 local t1, c1 = G.candidates(42, G.spec("tungsten"), 1)[1], G.candidates(42, G.spec("crystal"), 1)[1]
 check(t1.x ~= c1.x or t1.y ~= c1.y, "tungstène et cristal : premiers candidats différents")
+
+---------------------------------------------------------------------------------------------------
+section("Reprise après échec : paliers, délais, autres candidats")
+---------------------------------------------------------------------------------------------------
+do
+  local r0, r1, r2, r3, r9 = G.rules(0), G.rules(1), G.rules(2), G.rules(3), G.rules(9)
+  check(r0.level == 0 and not r0.fill_water and r0.dmax_scale == 1 and r1.level == 1 and not r1.fill_water,
+    "niveaux 0 et 1 : critères stricts (eau refusée, anneau des données)")
+  check(r2.level == 2 and r2.fill_water and r2.water_share == G.WATER_SHARE and r2.dmax_scale == 1, "niveau 2 : eau du bord tolérée et comblée")
+  check(r3.level == 3 and r3.fill_water and r3.dmax_scale == 1 + G.RING_STRETCH and r9.level == G.MAX_LEVEL, "niveau 3 et suivants : anneau allongé")
+  check(G.retry_delay(1) == 600 and G.retry_delay(2) == 1200 and G.retry_delay(3) == 2400 and G.retry_delay(6) == 19200
+    and G.retry_delay(7) == G.RETRY_MAX and G.retry_delay(1000) == G.RETRY_MAX, "délais de reprise : 600, 1200, 2400... au plus " .. G.RETRY_MAX)
+  check(G.ground_verdict(r0, 10, 0, 0) == nil and G.ground_verdict(r0, 9, 1, 0) == "sol" and G.ground_verdict(r2, 6, 4, 0) == nil
+    and G.ground_verdict(r2, 4, 6, 0) == "eau" and G.ground_verdict(r9, 10, 0, 1) == "sol",
+    "sol : eau refusée aux niveaux 0-1, tolérée jusqu'à " .. G.WATER_SHARE .. " ensuite ; dalle jamais tolérée")
+  local s = G.spec("tungsten")
+  local base, a0, a1, a2 = G.candidates(42, s, 24), G.candidates(42, s, 24, 0), G.candidates(42, s, 24, 1), G.candidates(42, s, 24, 2)
+  local same0, same1, same12 = true, 0, 0
+  for i = 1, 24 do
+    if base[i].x ~= a0[i].x or base[i].y ~= a0[i].y then same0 = false end
+    for j = 1, 24 do
+      if a1[i].x == base[j].x and a1[i].y == base[j].y then same1 = same1 + 1 end
+      if a1[i].x == a2[j].x and a1[i].y == a2[j].y then same12 = same12 + 1 end
+    end
+  end
+  check(same0, "essai 0 : suite d'origine inchangée (parties et bancs existants)")
+  check(same1 == 0 and same12 == 0, "essais 1 et 2 : autres candidats (" .. same1 .. ", " .. same12 .. " en commun)")
+  for _, sp in ipairs(G.specs()) do
+    local bad, far = 0, 0
+    local dmax3 = G.dmax(sp, 3)
+    for seed = 1, 200 do
+      for _, c in ipairs(G.candidates(seed * 7919, sp, G.MAX_TRIES, 3)) do
+        local d = math.sqrt(c.x * c.x + c.y * c.y)
+        if d - sp.core_radius < sp.dmin or d + sp.core_radius > dmax3 then bad = bad + 1 end
+        if d + sp.core_radius > sp.dmax then far = far + 1 end
+      end
+    end
+    check(bad == 0 and far > 0 and dmax3 == math.floor(sp.dmax * 1.5),
+      string.format("%s : essai 3, candidats dans l'anneau allongé %d-%d (%d au-delà de %d)", sp.key, sp.dmin, dmax3, far, sp.dmax))
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Forme des sites")
@@ -278,14 +320,91 @@ do
   local res = rep.results[1]
   check(#rep.results == 1 and res.key == "crystal" and res.rejected[1] == "1:voisin" and res.sites[1].try == 2, "cristal : candidat 1 refusé (voisin), candidat 2 retenu")
 end
+section("Échec puis reprise (correction M-1 : un échec n'est jamais définitif)")
 do
-  -- Aucun candidat valable : ECHEC signalé, rien posé.
+  -- Carte tout en eau : les 24 candidats sont refusés pour les 3 ressources.
   ME.new_world({ seed = 11, tile_at = function() return "water" end })
   ME.load_mod()
   ME.dispatch(world().on_init)
-  local d = global.fo.world.done.methane
-  check(d and d.ok == false and #d.sites == 0 and #d.rejected == G.MAX_TRIES, "tout en eau : échec signalé, " .. G.MAX_TRIES .. " candidats refusés")
-  check(#logs_with("ECHEC : aucun candidat valable") == 1, "échec écrit au journal")
+  local w = global.fo.world
+  local all_sol = true
+  for _, k in ipairs({ "tungsten", "crystal", "methane" }) do
+    local f = w.fails[k]
+    check(w.done[k] == nil, k .. " : échec à on_init, la ressource n'est PAS marquée traitée")
+    check(f and f.count == 1 and f.next_tick == G.RETRY_BASE and #f.history == 1 and f.history[1].attempt == 0,
+      k .. " : 1 échec compté, reprise au tick " .. G.RETRY_BASE .. " (" .. tostring(f and f.next_tick) .. ")")
+    for _, r in ipairs(f and f.history[1].rejected or {}) do if not r:find(":sol$") then all_sol = false end end
+    check(f and #f.history[1].rejected == G.MAX_TRIES, k .. " : " .. G.MAX_TRIES .. " candidats refusés")
+  end
+  check(all_sol, "niveau 0 : tous refusés pour le sol (eau)")
+  local prints = 0
+  for _, p in ipairs(world().game_prints) do if p:find("fo-monde.site-echec", 1, true) then prints = prints + 1 end end
+  check(prints == 3, "joueurs prévenus : un message par ressource échouée (" .. prints .. ")")
+  check(#logs_with("ECHEC : aucun candidat valable, joueurs prevenus") == 1, "échec écrit au journal (une ligne par passe)")
+  -- Niveau 2 sur l'eau pure : refus « eau » (plus de WATER_SHARE d'eau sous le cœur), rien posé.
+  local Guarantee = require("script.world.guarantee")
+  local rep = Guarantee.apply(game.surfaces[1], { x = 0, y = 0 }, { keys = { "tungsten" }, attempts = { tungsten = 2 } })
+  check(rep.results[1].ok == false and rep.results[1].rejected[1] == "1:eau" and rep.results[1].level == 2,
+    "niveau 2, carte tout en eau : refus « eau » (" .. tostring(rep.results[1].rejected[1]) .. ")")
+  -- Filet au tick 600 : essai 1 (autres candidats), encore de l'eau : 2e échec, délai doublé.
+  game.tick = 600
+  ME.dispatch(world().nth[600], { tick = 600 })
+  local f = global.fo.world.fails.tungsten
+  check(global.fo.world.runs == 2 and f.count == 2 and f.next_tick == 600 + 2 * G.RETRY_BASE and f.history[2].attempt == 1 and f.history[2].level == 1,
+    "filet (tick 600) : essai 1, niveau 1 ; 2e échec, reprise au tick " .. (600 + 2 * G.RETRY_BASE) .. " (" .. tostring(f.next_tick) .. ")")
+  -- Tick 1200 : délai non écoulé, rien n'est rejoué (coût : la boucle sur 3 clés).
+  game.tick = 1200
+  ME.dispatch(world().nth[600], { tick = 1200 })
+  check(global.fo.world.runs == 2, "filet (tick 1200) : délai non écoulé, aucune passe")
+  -- La côte : un tiers d'eau sous chaque candidat (aucun n'est valable aux niveaux 0 et 1, tous au niveau 2).
+  local function coast(x, y) return (x + y) % 3 == 0 and "water" or "grass-1" end
+  world().tile_at = coast
+  game.tick = 1800
+  ME.dispatch(world().nth[600], { tick = 1800 })
+  w = global.fo.world
+  check(w.runs == 3, "filet (tick 1800) : reprise")
+  for _, k in ipairs({ "tungsten", "crystal", "methane" }) do
+    local d = w.done[k]
+    local s = G.spec(k)
+    local site = d and d.sites[1]
+    check(d and d.ok and d.phase == "filet" and d.attempt == 2 and d.level == 2 and #d.failures == 2 and w.fails[k] == nil,
+      k .. " : réussie à l'essai 2 (niveau 2, eau du bord comblée), 2 échecs gardés dans l'historique")
+    check(site and site.filled > 0, k .. " : eau comblée sous le site (" .. tostring(site and site.filled) .. " tuiles)")
+    local wet = 0
+    if site then
+      for _, t in ipairs(G.layout(s, site.x, site.y, 11, 1).tiles) do
+        local name = world().tile_override[t.x .. "," .. t.y] or coast(t.x, t.y)
+        if name == "water" then wet = wet + 1 end
+      end
+    end
+    check(site and wet == 0, k .. " : plus aucune tuile d'eau dans le disque du site (" .. wet .. ")")
+    local _, amount = patches_named(s.resource)
+    check(site and amount == site.total and amount > 0, k .. " : gisement posé (" .. tostring(amount) .. ")")
+  end
+  local poses = 0
+  for _, p in ipairs(world().game_prints) do if p:find("fo-monde.site-pose", 1, true) then poses = poses + 1 end end
+  check(poses == 3, "joueurs prévenus des 3 sites posés à la reprise (" .. poses .. ")")
+  game.tick = 2400
+  ME.dispatch(world().nth[600], { tick = 2400 })
+  check(global.fo.world.runs == 3, "après la réussite : plus rien n'est rejoué")
+end
+do
+  -- on_configuration_changed reprend un échec sans attendre son délai.
+  ME.new_world({ seed = 12, tile_at = function() return "water" end })
+  ME.load_mod()
+  ME.dispatch(world().on_init)
+  game.tick = 100
+  ME.dispatch(world().on_config, { mod_changes = {} })
+  local f = global.fo.world.fails.crystal
+  check(f and f.count == 2 and f.history[2].phase == "config" and f.history[2].attempt == 1, "configuration changée : échec repris tout de suite (essai 1)")
+  -- État d'avant la correction (développement du lot : « ok = faux » marqué traité, pas de fails) : repris.
+  global.fo.world.fails = nil
+  global.fo.world.done.crystal = { ok = false, sites = {}, rejected = {} }
+  world().tile_at = function() return "grass-1" end
+  game.tick = 600
+  ME.dispatch(world().nth[600], { tick = 600 })
+  local d = global.fo.world.done.crystal
+  check(d and d.ok and d.phase == "filet" and #d.sites == 1, "ancien état « ok = faux » : repris par le filet")
 end
 
 section("Sauvegarde existante (on_configuration_changed) et filet")
