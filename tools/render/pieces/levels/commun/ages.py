@@ -5,9 +5,22 @@ un même âge porte la même matière et la même famille de couleur, quelle que
 
 ORIGINE : les données ci-dessous sont COPIÉES MOT POUR MOT des fichiers gun_e/epNN.py de la mitrailleuse validée par
 le Directeur Créatif le 23/10 à 14 h 50 (âges 1 à 12 de la passe 5, ère V cosmique 6d0e961) : FOYER, clés de matière
-du HABILLAGE, appels metal() de def matieres, dans le MÊME ORDRE (l'ordre des appels fixe les graines de bruit). Preuve :
-construction.py --tout donne des empreintes identiques avant et après l'extraction (journal du lot K0,
-fo-logs/2026-10-23_suite/K0/). NE PAS RETOUCHER une valeur : ce serait changer un design validé.
+du HABILLAGE, appels metal() de def matieres, dans le MÊME ORDRE d'appel (l'ordre des appels fixe les graines de bruit :
+graine 11 × rang + âge). Preuve : construction.py --tout --forte donne des empreintes identiques avant et après
+l'extraction, graines de chaque matière comprises (journal du lot K0, fo-logs/2026-10-23_suite/K0/correction/). NE PAS
+RETOUCHER une valeur : ce serait changer un design validé.
+Ce qui n'est PAS identique, sans effet constaté (dit franchement) :
+  - l'ORDRE D'INSERTION des clés du dictionnaire M aux âges 10 et 12 : les alias de rôle de la mitrailleuse (ring,
+    trim, pipe2, cable_a…) sont posés APRÈS toutes les matières de l'âge ; les appels metal() et leurs graines, eux,
+    sont dans l'ordre d'origine, et aucun code ne parcourt M dans l'ordre ;
+  - l'ORDRE DES CLÉS de HABILLAGE dans les 14 fichiers d'âge (dict(ages.CORPS[N], …) met les clés communes en tête) :
+    l'habillage fusionné et chaque valeur sont identiques.
+GRAINES INERTES (fait découvert à la vérification de K0, antérieur au lot) : dans Blender 5.2.2, aucune graine de bruit
+n'atteint un nœud. fo_scene.mat_metal, mat_emissive et kit._insert_stain / _insert_streaks testent « "W" in inputs »
+avant de passer le bruit en 4D ; sur un bruit 3D la prise W est inactive et ce test rend FAUX : tout le bruit reste 3D
+avec W = 0, et les matières de même échelle de grain ont le même motif. L'ordre des appels garde quand même les graines
+d'origine, pour le jour où elles seront actives. NE PAS « corriger » sans le Directeur Créatif : rendre les graines
+actives changerait TOUS les designs validés.
 
 Usage dans un fichier d'âge d'une famille (exemple : gun_e/ep05.py) :
     import ages
@@ -16,9 +29,12 @@ Usage dans un fichier d'âge d'une famille (exemple : gun_e/ep05.py) :
     def matieres(metal, M):
         ages.matieres(5, metal, M)      # toutes les matières de l'âge, dans l'ordre d'origine
         M["<rôle de la famille>"] = M["<matière de l'âge>"]     # alias de rôle (facultatif)
-La PALETTE 60/30/10 d'un âge (dominante 60 %, secondaire 30 %, accent 10 %) se lit avec palette(N) : la dominante est
-la matière des grands capots (CORPS[N]["capots"][0]), la secondaire celle des capots secondaires (["capots"][1]), le
-pont et l'acier suivent CORPS ; l'accent est le FOYER (lumière) de l'âge, dans sa famille de couleur (FAMILLES[N]).
+La PALETTE 60/30/10 d'un âge (dominante 60 %, secondaire 30 %, accent 10 %) est la table EXPLICITE PALETTE[N],
+recopiée des sources du design validé et relue âge par âge (correction K0, défaut 5 de la vérification : l'ancienne
+palette() prenait la secondaire dans CORPS[N]["capots"][1], ce qui était FAUX aux âges 3 (laiton au lieu du vert), 11
+(un second bleu titane au lieu de l'alliage clair et du bleu nuit) et 15 (un second noir au lieu de l'or chauffé)).
+palette(N) la rend, avec à part les « capots » de CORPS (matières des grands et des petits capots du corps de lignée,
+qui ne sont PAS toujours la dominante et la secondaire), l'acier, le pont et le foyer.
 
 Âge 0 : la LIGNÉE SEULE (témoin du kit), sans palette d'âge. Âge 1 (Pionnier) : le niveau 1 est le bâtiment vanilla ;
 la mitrailleuse n'a qu'une pièce de niveau 2 et aucune matière propre (palette vide, foyer de NUIT).
@@ -129,16 +145,19 @@ def compatibilites_lointaines():
 
 
 def matieres(e, metal, M):
-    """Crée les matières propres de l'âge e (appels metal() d'origine, même ordre : mêmes graines). Âges 0 et 1 :
-    aucune."""
+    """Crée les matières propres de l'âge e (appels metal() d'origine, même ordre d'appel : mêmes graines, voir l'en-tête
+    pour les graines inertes de Blender 5.2.2). Âges 0 et 1 : aucune."""
     f = MATIERES.get(e)
     if f is not None:
         f(metal, M)
 
 
 def palette(e):
-    """Palette 60/30/10 de l'âge e, lue dans CORPS et FOYER : dominante (grands capots), secondaire (capots
-    secondaires), acier (sombre, clair), pont (motif et matières), accent (foyer : rgb, rgb2, famille)."""
+    """Palette de l'âge e. 60/30/10 : PALETTE[e] (dominante, secondaire, accent : matières, la première est la
+    principale ; « lumiere » : l'accent lumineux, c'est-à-dire le foyer). À part : « capots » (CORPS[e]["capots"], les
+    matières des grands et des petits capots du corps de lignée), acier (sombre, clair), pont (motif et matières),
+    foyer (rgb, rgb2, nuit, famille de couleur)."""
+    p = PALETTE.get(e) or dict(dominante=(), secondaire=(), accent=(), lumiere=None, source=None)
     c = CORPS.get(e, {})
     cap = c.get("capots")
     cap = (cap, cap) if isinstance(cap, str) else (cap or (None, None))
@@ -147,13 +166,108 @@ def palette(e):
     pt = c.get("plateforme") or {}
     pt = dict(motif=pt) if isinstance(pt, str) else pt
     f = FOYER.get(e, {})
-    return dict(age=e, nom=NOMS[e], dominante=cap[0], secondaire=cap[1], acier=ac[0], acier_clair=ac[1],
+    premier = lambda t: t[0] if t else None   # noqa: E731
+    return dict(age=e, nom=NOMS[e],
+                dominante=premier(p["dominante"]), secondaire=premier(p["secondaire"]),
+                dominantes=tuple(p["dominante"]), secondaires=tuple(p["secondaire"]), accents=tuple(p["accent"]),
+                lumiere=p["lumiere"], source=p["source"],
+                capots=cap, acier=ac[0], acier_clair=ac[1],
                 rivets=c.get("rivets"), joints=c.get("joints"), danger=c.get("danger"), peinture=c.get("peinture"),
                 pont=dict(motif=pt.get("motif"), mat=pt.get("mat"), mat2=pt.get("mat2"), bord=pt.get("bord"),
                           lisere=pt.get("lisere")),
-                accent=dict(rgb=f.get("rgb"), rgb2=f.get("rgb2"), nuit=bool(f.get("nuit")),
-                            famille=FAMILLES.get(e, {}).get("nom")),
+                foyer=dict(rgb=f.get("rgb"), rgb2=f.get("rgb2"), nuit=bool(f.get("nuit")),
+                           famille=FAMILLES.get(e, {}).get("nom")),
                 matieres=CLES_MATIERES.get(e, ()))
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# PALETTE 60/30/10 DE CHAQUE ÂGE (correction K0, défaut 5 de la vérification, 23/10). Table EXPLICITE, recopiée des
+# sources du design validé et relue âge par âge. Matières : la première de chaque tuple est la principale ; une matière
+# de la dominante ou de la secondaire est TOUJOURS une matière de l'âge (contrôle verifier_palettes()) ; un accent peut
+# être une matière de la lignée (redpaint). « lumiere » : l'accent lumineux (le foyer, FOYER[N] et FAMILLES[N]).
+# Sources : P5B = fo-logs/2026-10-23_V3E-p5/bas/journal.md, tableau de la ronde 3 (« Dominante / Secondaire / Accent ») ;
+# commentaires « ronde 3 » et « ronde 5 » des fichiers gun_e/epNN.py et des fonctions _mNN ci-dessous ;
+# FEV = fo-logs/2026-10-23_V3E-ereV/FICHES_ERE_V.md, « Palette d'ensemble 60/30/10 » des âges 13 à 15.
+# --------------------------------------------------------------------------------------------------------------------
+PALETTE = {
+    1: dict(dominante=(), secondaire=(), accent=(), lumiere="lanterne à huile #FFB060, la nuit seulement",
+            source="catalogue §B époque 1 : le niveau 1 est la mitrailleuse vanilla ; la pièce du niveau 2 n'a aucune "
+                   "matière propre"),
+    2: dict(dominante=("fer_martele",), secondaire=("brique", "brique_pave", "brique_pave2"), accent=(),
+            lumiere="braise rouge",
+            source="P5B (fer gris martelé / BRIQUE rouge : pavage du pont, plaques de la coupole / braise rouge) ; "
+                   "ep02.py, ronde 3"),
+    3: dict(dominante=("cuivre_capot",), secondaire=("vert_pont", "vert_pont2", "vert_loco"),
+            accent=("laiton_capot", "laiton_rivet"), lumiere="ambre #FFC060",
+            source="ep03.py, ronde 5 : « le cuivre rose des capots reste dominant, le vert devient la secondaire et le "
+                   "laiton l'accent » (tôles du pont peintes en vert locomotive, rivets de laiton) ; remplace le "
+                   "tableau P5B de la ronde 3 (laiton secondaire, vert accent)"),
+    4: dict(dominante=("jaune_capot",), secondaire=("noir_capot", "tole_larmee", "tole_larmee2"), accent=("redpaint",),
+            lumiere="flamme orange",
+            source="P5B et ep04.py, ronde 3 : JAUNE de signalisation / NOIR (structure, plaques secondaires, conduites, "
+                   "tôles larmées anthracite) / rouge des volants (redpaint, lignée) et flamme orange"),
+    5: dict(dominante=("basalte_capot", "basalte_dalle", "basalte_dalle2"), secondaire=("fonte_v",), accent=(),
+            lumiere="lave orange",
+            source="P5B et ep05.py, ronde 3 : basalte noir / ROUILLE BRÛLÉE (plaques de fonte, fonte_v) / lave orange"),
+    6: dict(dominante=("porcelaine_capot",), secondaire=("bleu_machine", "fonte_bleue"), accent=("porcelaine",),
+            lumiere="arcs bleu électrique",
+            source="P5B et _m06, ronde 3 : porcelaine BLANCHE / BLEU ÉLECTRIQUE (plaques, carters, tourelleau) et "
+                   "structure bleu nuit (fonte_bleue) / arcs bleus et cuivre des bobines ; porcelaine des isolateurs "
+                   "= accent (docstring de ep06.matieres)"),
+    7: dict(dominante=("bronze_capot",), secondaire=("pierre_claire", "pierre_claire2"), accent=(),
+            lumiere="violet (cristaux)",
+            source="ep07.py, ronde 1 : coupole et capots de BRONZE doré clair, pont et plaques de pierre claire ; "
+                   "foyers violets. Le tableau P5B de la ronde 3 ne nomme PAS de secondaire (« — ») : la pierre claire "
+                   "est DÉDUITE de la ronde 1, non dite par le DC"),
+    8: dict(dominante=("vdg_capot",), secondaire=("bois_mouille", "cuivre_terni"), accent=("verre_toxique",),
+            lumiere="jaune toxique",
+            source="ep08.py (DC, 23/10 9 h 50) et P5B : vert-de-gris / bois et cuivre terni / JAUNE TOXIQUE"),
+    9: dict(dominante=("beton_capot", "beton_dalle", "beton_dalle2"), secondaire=("lead", "plomb_sombre"), accent=(),
+            lumiere="vert uranium ; liseré du pont à pleine lumière",
+            source="ep09.py, ronde 3, et P5B : béton blanc cassé / PLOMB GRIS-BLEU / vert uranium"),
+    10: dict(dominante=("blanc_casse", "dalle_tech", "dalle_tech2"), secondaire=("gris_tech", "anthracite"),
+             accent=("cable_r", "cable_b"), lumiere="voyants bleus",
+             source="_m10, ronde 3 : IVOIRE CHAUD (capots, carénages, pont) / ANTHRACITE (plaques, acier, goulottes) "
+                    "/ câbles ROUGE et BLEU vifs et voyants bleus"),
+    11: dict(dominante=("titane_cl", "titane_md", "tole_ti", "tole_ti2"), secondaire=("ring", "bleu_nuit", "titane_dk"),
+             accent=("orange_aero",), lumiere="bleu-blanc",
+             source="_m11, ronde 3 : BLEU TITANE franc (capots, pont, caissons) / ALLIAGE blanc bleuté pâle (ring) et "
+                    "BLEU NUIT de structure / ORANGE aéronautique"),
+    12: dict(dominante=("frost", "trim", "pipe"), secondaire=("noir_miroir", "noir_miroir2", "chrome_mat"), accent=(),
+             lumiere="cyan lumineux",
+             source="_m12, ronde 3 : BLANC GLACÉ teinté CYAN (capots givrés, givre, mousse des conduites) / NOIR MIROIR "
+                    "et CHROME (pont, structure, anneaux) / CYAN lumineux"),
+    13: dict(dominante=("acier_canon", "acier_canon2"), secondaire=("cuivre_bobine", "cuivre_plaque"), accent=(),
+             lumiere="lueur d'annihilation violette (2/3) et bleue (1/3), en points",
+             source="FEV §2 et ep13.py : ACIER CANON gris froid à reflet prune / CUIVRE ROUGE des bobinages / lueur "
+                    "d'annihilation"),
+    14: dict(dominante=("indigo_nuit", "indigo_nuit2"), secondaire=("blanc_lunaire",), accent=(),
+             lumiere="blanc d'étoile semé en points ; horizon de la Porte",
+             source="FEV §3 et ep14.py : INDIGO DE NUIT / BLANC LUNAIRE mat / BLANC D'ÉTOILE ; ni or ni orange"),
+    15: dict(dominante=("noir_chaud", "noir_chaud2"), secondaire=("or_chauffe", "or_blanc_chaud"), accent=(),
+             lumiere="lumière incandescente blanc-or vers orange",
+             source="FEV §4 et ep15.py : NOIR CHAUD anthracite brun / OR CHAUFFÉ / LUMIÈRE INCANDESCENTE"),
+}
+
+
+def verifier_palettes():
+    """Contrôle de la table PALETTE : 15 âges ; dominante et secondaire non vides (âges 2 à 15) et faites de matières DE
+    L'ÂGE (CLES_MATIERES) ; aucune matière à la fois dominante et secondaire."""
+    pb = []
+    if sorted(PALETTE) != list(range(1, 16)):
+        pb.append("âges de PALETTE : %s" % sorted(PALETTE))
+    for e in range(2, 16):
+        p = PALETTE.get(e, {})
+        for role in ("dominante", "secondaire"):
+            if not p.get(role):
+                pb.append("âge %d : %s vide" % (e, role))
+            for m in p.get(role, ()):
+                if m not in CLES_MATIERES.get(e, ()):
+                    pb.append("âge %d : %s %s n'est pas une matière de l'âge" % (e, role, m))
+        if set(p.get("dominante", ())) & set(p.get("secondaire", ())):
+            pb.append("âge %d : matière à la fois dominante et secondaire" % e)
+    if pb:
+        raise ValueError("PALETTE : " + " ; ".join(pb))
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -429,6 +543,11 @@ def _m06(metal, M):
     # presque blanche, carreaux blancs, vert d'eau clair de salle des machines, transformateur gris clair.
     metal("transfo", (0.4, 0.39, 0.36), rough=0.42, met=0.3, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
           ra=0.12, dirt=0.8, stain=0.7, sscale=5.0, wear=2.0, streak=0.45, mottle=0.35)
+    # porcelaine des isolateurs : matière de l'âge (accent des isolateurs, peignes et anneaux), créée en 2e position
+    # comme dans gun_e/ep06.py d'origine (93e3d89) : sa place fixe sa graine et celle des suivantes (correction K0,
+    # défaut 2 de la vérification : elle avait glissé en dernière position, graines 622 -> 688)
+    metal("porcelaine", (0.72, 0.705, 0.66), rough=0.3, met=0.0, grain=0.1, gscale=30.0, dirt=0.7, stain=0.3,
+          sscale=5.0, wear=0.6)
     # passe 5 : matières du CORPS (grandes masses claires non métalliques)
     metal("porcelaine_capot", (0.74, 0.73, 0.69), rough=0.28, met=0.0, grain=0.07, gscale=30.0, dirt=0.5, stain=0.25,
           sscale=5.0, wear=0.3, mottle=0.1)
@@ -711,7 +830,7 @@ CLES_MATIERES = {
     4: ('acier_canon', 'noir_capot', 'galva', 'jaune_capot', 'yellowpaint', 'galva_capot', 'galva_sombre',
         'tole_larmee', 'tole_larmee2'),
     5: ('basalte_capot', 'basalte_dalle', 'basalte_dalle2', 'fonte_v', 'fonte_noire', 'braise_sombre'),
-    6: ('transfo', 'porcelaine_capot', 'bleu_machine', 'bakelite', 'fonte_bleue', 'carreau', 'carreau2'),
+    6: ('transfo', 'porcelaine', 'porcelaine_capot', 'bleu_machine', 'bakelite', 'fonte_bleue', 'carreau', 'carreau2'),
     7: ('stone', 'pierre_claire', 'pierre_claire2', 'bronze_capot', 'bronze_sombre', 'bronze_clair', 'joint_violet'),
     8: ('reflet_verre', 'verre_toxique', 'vdg_capot', 'cuivre_terni', 'bois_mouille', 'bois_mousse'),
     9: ('lead', 'concrete', 'beton_capot', 'beton_dalle', 'beton_dalle2', 'joint_beton', 'plomb_sombre'),
@@ -731,3 +850,4 @@ CLES_MATIERES = {
 
 verifier_familles()
 verifier_mesures()
+verifier_palettes()

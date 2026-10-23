@@ -55,10 +55,9 @@ ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=
 def matieres(metal, M):
     """Porcelaine des isolateurs (passe 4 : « piles d'isolateurs blancs » ; patinée, arêtes claires, jamais un blanc pur :
     C8) ; elle devient l'accent de l'époque (PT.insulators, peignes et anneaux)."""
-    ages.matieres(6, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
-    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
-    M["accent"] = metal("porcelaine", (0.72, 0.705, 0.66), rough=0.3, met=0.0, grain=0.1, gscale=30.0, dirt=0.7,
-                        stain=0.3, sscale=5.0, wear=0.6)
+    ages.matieres(6, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (ordre d'origine, porcelaine 2e)
+    # rôle de la mitrailleuse (alias) : la porcelaine des isolateurs est l'accent
+    M["accent"] = M["porcelaine"]
 
 
 def _halo(g, pts, power):

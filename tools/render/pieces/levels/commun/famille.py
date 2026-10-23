@@ -51,17 +51,53 @@ def nom_choisi(nom=None):
     return nom or os.environ.get("FO_FAMILLE", "").strip() or DEFAUT
 
 
+def _norm(p):
+    return os.path.normcase(os.path.normpath(os.path.abspath(p)))
+
+
+def _est_famille(d):
+    """Vrai si le dossier d est un dossier de FAMILLE (il a un profil.py), autre que commun/."""
+    return d != _norm(COMMUN) and os.path.isfile(os.path.join(d, "profil.py"))
+
+
+def _oublier_autres_familles(garder):
+    """Retire de sys.modules les modules chargés depuis le dossier d'une AUTRE famille (epoques, corps, piece…), et ces
+    dossiers de sys.path. Correction du lot K0 (défaut 1 de la vérification, 23/10) : compo.py charge gun_e à l'import ;
+    sans ce ménage, le profil.py d'une autre famille qui fait « import epoques » recevait EN SILENCE l'epoques de la
+    mitrailleuse (emprise et trous voulus faux), alors que FO_FAMILLE donnait le bon. Rend les noms retirés."""
+    retires = []
+    for nom, mod in sorted(list(sys.modules.items()), key=lambda kv: kv[0]):
+        f = getattr(mod, "__file__", None)
+        if not f:
+            continue
+        d = os.path.dirname(_norm(f))
+        if d != garder and _est_famille(d):
+            del sys.modules[nom]
+            retires.append(nom)
+    sys.path[:] = [p for p in sys.path if not (p and _norm(p) != garder and _est_famille(_norm(p)))]
+    return retires
+
+
 def charger(nom=None):
-    """Module profil.py de la famille `nom` (voir nom_choisi), contrôlé contre le CONTRAT."""
+    """Module profil.py de la famille `nom` (voir nom_choisi), contrôlé contre le CONTRAT. Le choix par argument
+    (--famille) et par FO_FAMILLE donnent le MÊME résultat : les modules d'une autre famille déjà importés (gun_e, chargé
+    par défaut à l'import de compo.py) sont oubliés avant de charger celle-ci (test : commun/tests/test_famille.py)."""
     nom = nom_choisi(nom)
-    if nom in _CACHE:
-        return _CACHE[nom]
     d = dossier(nom)
+    cle = _norm(d)
+    if cle in _CACHE:
+        _oublier_autres_familles(cle)
+        if d not in sys.path:
+            sys.path.insert(0, d)
+        return _CACHE[cle]
     p = os.path.join(d, "profil.py")
     if not os.path.isfile(p):
         raise SystemExit("famille %s : pas de profil.py dans %s (contrat : commun/famille.py)" % (nom, d))
-    if d not in sys.path:
-        sys.path.insert(0, d)
+    _oublier_autres_familles(cle)
+    _CACHE.clear()   # un seul profil vivant : ses modules (epoques…) sont ceux de sys.modules
+    if d in sys.path:
+        sys.path.remove(d)
+    sys.path.insert(0, d)
     if COMMUN not in sys.path:
         sys.path.insert(1, COMMUN)
     spec = importlib.util.spec_from_file_location("profil_%s" % os.path.basename(d), p)
@@ -70,5 +106,10 @@ def charger(nom=None):
     manque = [c for c in CHAMPS if not hasattr(m, c)]
     if manque:
         raise SystemExit("famille %s : profil.py incomplet, il manque %s" % (nom, ", ".join(manque)))
-    _CACHE[nom] = m
+    # garde-fou : aucun module d'une autre famille ne doit rester chargé après le profil
+    for n, mod in sorted(list(sys.modules.items()), key=lambda kv: kv[0]):
+        f = getattr(mod, "__file__", None)
+        if f and os.path.dirname(_norm(f)) != cle and _est_famille(os.path.dirname(_norm(f))):
+            raise SystemExit("famille %s : le module %s vient d'une autre famille (%s)" % (nom, n, f))
+    _CACHE[cle] = m
     return m

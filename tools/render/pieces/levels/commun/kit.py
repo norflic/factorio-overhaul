@@ -100,6 +100,10 @@ def _insert_stain(mat, amount, scale, seed, contraste=1.0):
     nz.inputs["Scale"].default_value = scale
     nz.inputs["Detail"].default_value = 3.0
     nz.inputs["Roughness"].default_value = 0.55
+    # GRAINE INERTE (vérification de K0, 23/10, fait à consigner) : dans Blender 5.2.2, la prise W d'un bruit 3D est
+    # inactive et « "W" in nz.inputs » rend FAUX : ce bloc ne s'exécute jamais, le bruit reste 3D avec W = 0 et la
+    # graine n'est pas appliquée (de même dans fo_scene.mat_metal et mat_emissive). NE PAS CORRIGER sans le DC : rendre
+    # les graines actives changerait TOUS les designs validés de la mitrailleuse.
     if "W" in nz.inputs:
         nz.noise_dimensions = "4D"
         nz.inputs["W"].default_value = seed + 3.1
@@ -136,7 +140,7 @@ def _insert_streaks(mat, amount, scale, seed):
     nz.inputs["Scale"].default_value = 1.0
     nz.inputs["Detail"].default_value = 4.0
     nz.inputs["Roughness"].default_value = 0.6
-    if "W" in nz.inputs:
+    if "W" in nz.inputs:   # jamais vrai dans Blender 5.2.2 : graine inerte (voir _insert_stain), NE PAS CORRIGER
         nz.noise_dimensions = "4D"
         nz.inputs["W"].default_value = seed + 5.7
     L.new(sc.outputs["Vector"], nz.inputs["Vector"])

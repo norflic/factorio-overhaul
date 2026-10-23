@@ -20,6 +20,23 @@ nom, propriétés propres, nœuds, réglages des nœuds, valeurs des entrées ET
 au 1/1 000 000, liens) : prouve qu'une
 matière n'a changé ni de couleur, ni de rugosité, ni de graine de bruit, ce que l'empreinte de géométrie ne voit pas
 (elle ne lit que les NOMS des matières).
+--forte (correction K0, défaut 4 de la vérification, 23/10) : EMPREINTE FORTE, celle à rejouer après toute retouche du
+kit. Sans elle, l'empreinte ne lit que les sommets LOCAUX des objets maillés de la pièce, les NOMS des matières et le
+NOMBRE de halos : un mutant « puissance des halos × 1,5 » passait inaperçu, comme un objet déplacé ou tourné, un
+biseau changé ou un réglage de nœud hors de _REGLAGES. Avec --forte, pour chaque variante :
+  - TOUS les objets de bpy.data, lumières de halo comprises (fo_scene.halo_light les lie à la scène, hors de la
+    collection de la pièce) : propriétés RNA scalaires (matrix_world, location, rotation…), collections, parent ;
+  - les MODIFICATEURS de chaque objet et tous leurs réglages (largeur du biseau, angle de lissage…) ;
+  - les données des lumières (couleur, énergie, rayon) ;
+  - le maillage ÉVALUÉ (modificateurs appliqués) en coordonnées MONDE au 1/10 000, indices de matière, lissage,
+    normales de coin ;
+  - chaque matière : propriétés RNA, TOUS les nœuds (propriétés RNA, entrées ET sorties avec leur état actif, rampes,
+    groupes), liens ; le monde ;
+  - les APPELS de fo_scene.mat_metal, mat_emissive et mat_flat faits pendant la construction, avec tous leurs
+    arguments, GRAINES comprises (« graines » : graine de chaque matière). Les graines sont aujourd'hui INERTES dans
+    Blender 5.2.2 (commun/ages.py, en-tête) : seul ce relevé voit un glissement d'ordre des metal().
+Reprise de l'empreinte forte du vérificateur adverse de K0 (fo-logs/2026-10-23_suite/K0/verification/empreinte_forte.py).
+Comparer : empreintes.py AVANT.json APRES.json --forte (dit les objets, matières et graines qui diffèrent).
 --habillages (passe 5, troisième temps) : plusieurs habillages d'essai du témoin dans UNE session, sur les variantes
 kS-socle, kS-tete-N, kS-tete-E des tailles --tailles (défaut 2 à 6) ; clés « habillage/variante » ; une erreur de
 construction est notée (« erreur ») et la suite continue ; code de sortie 1 s'il y en a une.
@@ -135,6 +152,230 @@ def empreinte(objs):
     return out
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# EMPREINTE FORTE (--forte)
+# ---------------------------------------------------------------------------------------------------------------------
+_SKIP = {"rna_type", "name_full", "session_uid", "is_evaluated", "original", "users", "use_fake_user", "use_extra_user",
+         "is_embedded_data", "is_missing", "is_runtime_data", "tag", "is_library_indirect", "library",
+         "library_weak_reference", "asset_data", "override_library", "preview", "id_type", "select", "is_editmode",
+         "mode", "bound_box", "dimensions", "width", "height", "location_absolute", "is_active_output",
+         "warning_propagation", "internal_links", "is_registered_node_type", "type", "parent"}
+
+
+def _plat(v):
+    try:
+        out = []
+        for x in v:
+            out.extend(_plat(x))
+        return out
+    except TypeError:
+        return [v]
+
+
+def _f5(x):
+    if isinstance(x, float):
+        r = round(x, 5)
+        return repr(0.0 if r == 0 else r)
+    return repr(x)
+
+
+def _scal(obj, pre):
+    """Propriétés RNA scalaires (nombres, tableaux, énumérations, chaînes, pointeurs vers un ID) et propriétés propres."""
+    out = []
+    for p in obj.bl_rna.properties:
+        k = p.identifier
+        if k in _SKIP or k.startswith("bl_") or k.startswith("show_"):
+            continue
+        try:
+            v = getattr(obj, k)
+        except Exception:
+            continue
+        t = p.type
+        if t in ("BOOLEAN", "INT", "FLOAT"):
+            if isinstance(v, (bool, int, float)):
+                txt = _f5(v)
+            else:
+                try:
+                    txt = "(" + ",".join(_f5(x) for x in _plat(v)) + ")"
+                except Exception:
+                    continue
+        elif t == "ENUM":
+            txt = repr(sorted(v)) if isinstance(v, set) else repr(v)
+        elif t == "STRING":
+            txt = repr(v)
+        elif t == "POINTER":
+            if v is None:
+                txt = "None"
+            elif isinstance(v, bpy.types.ID):
+                txt = "ID:" + v.name
+            else:
+                continue
+        else:
+            continue
+        out.append("%s.%s=%s" % (pre, k, txt))
+    try:
+        for k in sorted(obj.keys()):
+            vv = obj[k]
+            try:
+                vv = _plat(vv)
+            except Exception:
+                pass
+            out.append("%s[%s]=%s" % (pre, k, ",".join(_f5(x) for x in vv) if isinstance(vv, list) else _f5(vv)))
+    except Exception:
+        pass
+    return out
+
+
+def _prise(sk):
+    if not hasattr(sk, "default_value"):
+        return "-"
+    v = sk.default_value
+    try:
+        return "(" + ",".join(_f5(float(x)) for x in v) + ")"
+    except TypeError:
+        return _f5(v) if isinstance(v, (int, float, bool, str)) else repr(getattr(v, "name", type(v).__name__))
+
+
+def _arbre(nt, pre, prof=0):
+    L = []
+    for n in sorted(nt.nodes, key=lambda n: n.name):
+        q = "%s/N:%s" % (pre, n.name)
+        L.append("%s:%s" % (q, n.bl_idname))
+        L += _scal(n, q)
+        for i, sk in enumerate(n.inputs):
+            L.append("%s.in%d:%s:%s=%s" % (q, i, sk.identifier, getattr(sk, "enabled", True), _prise(sk)))
+        for i, sk in enumerate(n.outputs):
+            L.append("%s.out%d:%s=%s" % (q, i, sk.identifier, _prise(sk)))
+        if getattr(n, "color_ramp", None) is not None:
+            cr = n.color_ramp
+            L.append("%s.ramp=%s/%s:%s" % (q, cr.interpolation, cr.color_mode, ";".join(
+                "%s@%s" % (_f5(el.position), ",".join(_f5(x) for x in el.color)) for el in cr.elements)))
+        if getattr(n, "node_tree", None) is not None and prof < 3:
+            L += _arbre(n.node_tree, q + "/G", prof + 1)
+    for ln in sorted(nt.links, key=lambda l: (l.from_node.name, l.from_socket.identifier, l.to_node.name,
+                                               l.to_socket.identifier)):
+        L.append("%s/L:%s.%s(%d)>%s.%s(%d)" % (pre, ln.from_node.name, ln.from_socket.identifier,
+                                             list(ln.from_node.outputs).index(ln.from_socket), ln.to_node.name,
+                                             ln.to_socket.identifier, list(ln.to_node.inputs).index(ln.to_socket)))
+    return L
+
+
+def _lignes_matiere(m):
+    L = _scal(m, "M:" + m.name)
+    if getattr(m, "use_nodes", False) and m.node_tree is not None:
+        L += _arbre(m.node_tree, "M:" + m.name)
+    return L
+
+
+def _h(lignes):
+    return hashlib.sha1(chr(10).join(lignes).encode("utf-8")).hexdigest()
+
+
+def empreinte_forte():
+    """Empreinte forte de la scène entière (voir --forte dans l'en-tête) : objets, matières, monde."""
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    objs, mats = {}, {}
+    for o in sorted(bpy.data.objects, key=lambda o: o.name):
+        L = ["O:%s:%s" % (o.name, o.type)]
+        L += _scal(o, "O")
+        L.append("colls=%s" % sorted(c.name for c in o.users_collection))
+        L.append("parent=%s" % (o.parent.name if o.parent else None))
+        for md in o.modifiers:
+            L += _scal(md, "MOD:" + md.name)
+        if o.type == "MESH":
+            L.append("mats=%s" % [m.name if m else None for m in o.data.materials])
+            for m in o.data.materials:
+                if m is not None and m.name not in mats:
+                    mats[m.name] = _h(_lignes_matiere(m))
+            oe = o.evaluated_get(dg)
+            me = oe.to_mesh()
+            mw = oe.matrix_world
+            gh = hashlib.sha1()
+            for v in me.vertices:
+                w = mw @ v.co
+                gh.update(("%d,%d,%d;" % tuple(int(round(c * 10000)) for c in w)).encode())
+            for p in me.polygons:
+                gh.update(("%s|%d|%d;" % (",".join(map(str, p.vertices)), p.material_index, int(p.use_smooth))).encode())
+            try:
+                for cn in me.corner_normals:
+                    gh.update(("%d,%d,%d;" % tuple(int(round(c * 1000)) for c in cn.vector)).encode())
+            except Exception:
+                pass
+            L.append("eval_v=%d eval_f=%d geo=%s" % (len(me.vertices), len(me.polygons), gh.hexdigest()))
+            oe.to_mesh_clear()
+        elif o.data is not None:
+            L += _scal(o.data, "D")
+        objs[o.name] = _h(L)
+    w = bpy.context.scene.world
+    wh = _h(_lignes_matiere(w) if w is not None else [])
+    return objs, mats, wh
+
+
+def _rep(v):
+    if isinstance(v, dict):
+        return "{" + ", ".join("%r: %s" % (k, _rep(x)) for k, x in v.items()) + "}"
+    if isinstance(v, (list, tuple)):
+        return ("[%s]" if isinstance(v, list) else "(%s)") % ", ".join(_rep(x) for x in v)
+    return repr(v)
+
+
+class Releve:
+    """Relève les appels de S.mat_metal / mat_emissive / mat_flat pendant une construction (arguments complets, graines
+    comprises). Les fonctions d'origine sont appelées telles quelles : la construction ne change pas."""
+    FONCTIONS = ("mat_metal", "mat_emissive", "mat_flat")
+
+    def __init__(self):
+        self.appels, self.graines, self._orig = [], {}, {}
+
+    def __enter__(self):
+        for fn in self.FONCTIONS:
+            if hasattr(S, fn):
+                self._orig[fn] = getattr(S, fn)
+
+                def emballe(*args, _fn=fn, **kw):
+                    self.appels.append("%s %s %s" % (_fn, _rep(list(args)), _rep(dict(sorted(kw.items())))))
+                    if "seed" in kw and args:
+                        self.graines[str(args[0])] = kw["seed"]
+                    return self._orig[_fn](*args, **kw)
+                setattr(S, fn, emballe)
+        return self
+
+    def __exit__(self, *exc):
+        for fn, f in self._orig.items():
+            setattr(S, fn, f)
+        return False
+
+
+def forte(res, cle, rel):
+    """Ajoute à res[cle] l'empreinte forte de la scène et le relevé des appels de matières ; rend la somme totale."""
+    objs, mats, wh = empreinte_forte()
+    ah = _h(rel.appels)
+    tot = _h(["%s:%s" % (k, objs[k]) for k in sorted(objs)] + ["%s:%s" % (k, mats[k]) for k in sorted(mats)]
+             + [wh, ah])
+    res[cle]["sha1_forte"] = tot
+    res[cle]["forte"] = {"objets": objs, "matieres": mats, "monde": wh, "appels": ah, "nb_appels": len(rel.appels),
+                         "graines": dict(sorted(rel.graines.items()))}
+    return tot
+
+
+def _construire(piece, name, a):
+    """Remet la scène à zéro et construit la variante ; avec --forte, sous relevé des appels de matières."""
+    S.reset()
+    S.HALO_LIGHTS.clear()
+    S.EXTRA_LIGHTS.clear()
+    S._BLACK = S._WHITE = S._AO = None
+    S._BOOSTED.clear()
+    rel = Releve()
+    if a.forte:
+        with rel:
+            info = piece.build(S, C, name)
+    else:
+        info = piece.build(S, C, name)
+    bpy.context.view_layer.update()
+    return info, rel
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
@@ -147,6 +388,7 @@ def main():
     ap.add_argument("--famille", default="gun_e")
     ap.add_argument("--dossier", default="")
     ap.add_argument("--matieres", action="store_true")
+    ap.add_argument("--forte", action="store_true")
     a = ap.parse_args(argv)
     if a.habillages:
         return plusieurs(a)
@@ -157,13 +399,7 @@ def main():
     res = {}
     t0 = time.time()
     for name in names:
-        S.reset()
-        S.HALO_LIGHTS.clear()
-        S.EXTRA_LIGHTS.clear()
-        S._BLACK = S._WHITE = S._AO = None
-        S._BOOSTED.clear()
-        info = piece.build(S, C, name)
-        bpy.context.view_layer.update()
+        info, rel = _construire(piece, name, a)
         objs = S.piece_objects()
         emp = empreinte(objs)
         h = hashlib.sha1("".join(e["sha1"] for e in emp).encode("ascii")).hexdigest()
@@ -175,10 +411,13 @@ def main():
             res[name]["sha1_matieres"] = tot
             res[name]["matieres"] = det
             hm = " matières %s (%d)" % (tot[:12], len(det))
+        if a.forte:
+            hm += " forte %s (%d objets, %d appels)" % (forte(res, name, rel)[:12], len(res[name]["forte"]["objets"]),
+                                                        res[name]["forte"]["nb_appels"])
         print("[FO-CONSTRUCTION] %s %d pièces %d sommets %d objets %s%s" % (
             name, res[name]["nb_pieces"], res[name]["sommets"], len(emp), h[:12], hm), flush=True)
     with open(a.out, "w", encoding="utf-8") as f:
-        json.dump({"dossier": dossier, "kit": HERE, "habillage": a.habillage or None,
+        json.dump({"dossier": dossier, "kit": HERE, "habillage": a.habillage or None, "forte": a.forte,
                    "secondes": round(time.time() - t0, 1), "variantes": res}, f, indent=1, sort_keys=True)
     print("[FO-CONSTRUCTION] %d variantes en %.0f s -> %s" % (len(names), time.time() - t0, a.out), flush=True)
 
@@ -192,21 +431,15 @@ def plusieurs(a):
     for h in [x for x in a.habillages.split(",") if x]:
         os.environ["FO_HABILLAGE_ESSAI"] = h
         for name in names:
-            S.reset()
-            S.HALO_LIGHTS.clear()
-            S.EXTRA_LIGHTS.clear()
-            S._BLACK = S._WHITE = S._AO = None
-            S._BOOSTED.clear()
             cle = "%s/%s" % (h, name)
             try:
-                info = piece.build(S, C, name)
+                info, rel = _construire(piece, name, a)
             except Exception:
                 err += 1
                 res[cle] = {"erreur": traceback.format_exc()}
                 print("[FO-CONSTRUCTION] %s ERREUR" % cle, flush=True)
                 print(res[cle]["erreur"], flush=True)
                 continue
-            bpy.context.view_layer.update()
             objs = S.piece_objects()
             emp = empreinte(objs)
             # lot K0 : somme SHA-1 aussi pour les habillages d'essai (comparables avec empreintes.py)
@@ -215,6 +448,8 @@ def plusieurs(a):
                         "sommets": sum(e["sommets"] for e in emp), "objets": len(emp), "sha1": sha}
             if a.matieres:
                 res[cle]["sha1_matieres"] = empreinte_matieres(objs)[0]
+            if a.forte:
+                forte(res, cle, rel)
             print("[FO-CONSTRUCTION] %s %d pièces %d sommets %s" % (cle, res[cle]["nb_pieces"], res[cle]["sommets"],
                                                                    sha[:12]), flush=True)
     os.environ.pop("FO_HABILLAGE_ESSAI", None)

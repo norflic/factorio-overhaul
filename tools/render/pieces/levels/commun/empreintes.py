@@ -1,11 +1,14 @@
 """COMPARAISON DE DEUX EMPREINTES de construction.py (lot K0, 23/10). Python pur (3.9).
 
-    py -3.9 tools/render/pieces/levels/commun/empreintes.py AVANT.json APRES.json [--matieres]
+    py -3.9 tools/render/pieces/levels/commun/empreintes.py AVANT.json APRES.json [--matieres] [--forte]
 
 Compare, variante par variante : la somme SHA-1 de la géométrie (« sha1 » : objets, NOMS des matières, sommets, faces),
 le nombre de pièces, de sommets, d'objets et de halos ; avec --matieres, aussi l'empreinte des matières
-(« sha1_matieres », écrite par construction.py --matieres : valeurs des nœuds, graines de bruit, liens). Pour une
-variante qui diffère, dit le premier objet (ou la première matière) qui change.
+(« sha1_matieres », écrite par construction.py --matieres : valeurs des nœuds, liens) ; avec --forte (correction K0,
+défaut 4), l'empreinte FORTE (« sha1_forte », construction.py --forte : tous les objets de la scène dont les lumières de
+halo, matrices monde, modificateurs, maillage évalué, matières complètes, appels de matières et GRAINES). Pour une
+variante qui diffère, dit le premier objet (ou la première matière) qui change, et avec --forte la liste des objets,
+matières et graines qui changent.
 Sortie : une ligne par variante différente, puis « [FO-EMPREINTES] N variantes comparées, D différente(s), A absente(s) ».
 Code de sortie 0 si tout est IDENTIQUE (mêmes variantes des deux côtés), 1 sinon.
 """
@@ -36,12 +39,22 @@ def main():
     ap.add_argument("avant")
     ap.add_argument("apres")
     ap.add_argument("--matieres", action="store_true")
+    ap.add_argument("--forte", action="store_true",
+                    help="compare aussi l'empreinte FORTE (construction.py --forte) : objets de la scène, lumières, "
+                         "transformations, modificateurs, maillage évalué, matières, appels et graines")
     a = ap.parse_args()
     A = json.load(open(a.avant, encoding="utf-8"))["variantes"]
     B = json.load(open(a.apres, encoding="utf-8"))["variantes"]
     noms = sorted(set(A) | set(B))
     diff = absent = 0
-    champs = ["sha1", "nb_pieces", "sommets", "objets", "halos"] + (["sha1_matieres"] if a.matieres else [])
+    champs = (["sha1", "nb_pieces", "sommets", "objets", "halos"] + (["sha1_matieres"] if a.matieres else [])
+              + (["sha1_forte"] if a.forte else []))
+    if a.forte:
+        for n in noms:
+            x, y = A.get(n) or {}, B.get(n) or {}
+            if n in A and n in B and "erreur" not in x and "erreur" not in y and (
+                    "sha1_forte" not in x or "sha1_forte" not in y):
+                raise SystemExit("%s : pas d'empreinte forte (construction.py --forte) des deux côtés" % n)
     for n in noms:
         if n not in A or n not in B:
             absent += 1
@@ -64,9 +77,16 @@ def main():
                 det = premier_ecart(x["detail"], y["detail"], "objet")
             if det is None and a.matieres and "matieres" in x and "matieres" in y:
                 det = premier_ecart(x["matieres"], y["matieres"], "matière")
+            if a.forte and "forte" in x and "forte" in y:
+                fx, fy = x["forte"], y["forte"]
+                liste = ["%s:%s" % (cat, k) for cat in ("objets", "matieres", "graines")
+                         for k in sorted(set(fx.get(cat, {})) | set(fy.get(cat, {})))
+                         if fx.get(cat, {}).get(k) != fy.get(cat, {}).get(k)]
+                liste += [c for c in ("monde", "appels") if fx.get(c) != fy.get(c)]
+                det = ((det + " ; ") if det else "") + "forte : %d écart(s) %s" % (len(liste), liste[:6])
             print("%-26s DIFFÉRENTE (%s)%s" % (n, ", ".join(ecarts), (" ; " + det) if det else ""))
     print("[FO-EMPREINTES] %d variantes comparées, %d différente(s), %d absente(s)%s" % (
-        len(noms), diff, absent, " (géométrie et matières)" if a.matieres else " (géométrie)"))
+        len(noms), diff, absent, " (forte)" if a.forte else " (géométrie et matières)" if a.matieres else " (géométrie)"))
     sys.exit(1 if (diff or absent) else 0)
 
 
