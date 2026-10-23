@@ -159,10 +159,10 @@ def session(names, a):
            "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache, "--samples", str(a.samples)]
     if a.quick:
         cmd.append("--quick")
-    if a.samples_passes:
-        cmd += ["--samples-passes", a.samples_passes]
     elif a.apercu:
         cmd.append("--apercu")
+    if a.samples_passes:     # D-7 (lot A3) : indépendant de quick et d'aperçu (m-4 de la vérification d'A3)
+        cmd += ["--samples-passes", a.samples_passes]
     t0 = time.time()
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     env.pop("FO_CORPS", None)
