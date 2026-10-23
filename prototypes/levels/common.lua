@@ -60,7 +60,10 @@
       par dress ne permet de le changer ni plus tard dans la famille, ni depuis une autre famille (le refus
       nomme le niveau modifié et les familles générées après lui).
     - Animations à durée de jeu (preparing, folding, attacking, starting_attack, ending_attack des
-      tourelles) : on peut changer images et vitesse, pas la DURÉE (nombre d'images / vitesse).
+      tourelles) : le nombre d'images est LIBRE, la vitesse (preparing_speed…) est une clé de JEU, inchangée.
+      La durée vaut 1 / vitesse ticks, quel que soit le nombre d'images ou repeat_count (doc 1.1.91 ; mesuré en
+      moteur réel pour la levée au lot A1, E67 : 5 images, 1 image, 1 image × 5 lèvent toutes en 13 ticks
+      à 0,08, en 63 ticks à 0,016). La règle « images / vitesse » d'avant était fausse (correction INT-GARDE).
     - État partagé en lecture seule, comparé EN ENTIER après le chargement du fichier, après CHAQUE dress et
       après CHAQUE icons (le refus nomme la fonction et le niveau fautifs) : la config L (toutes ses clés :
       tables, nombres, chaînes, et ses FONCTIONS, comparées par identité), ctx.kit (avec kit.lib et kit.Evo)
@@ -304,8 +307,10 @@ end
 -- Garde de l'interface (INVERSÉE depuis la correction du lot V2 ; STRUCTURELLE et complète depuis le lot
 -- V2b). TOUT le prototype est capturé avant dress, SAUF une liste blanche de clés graphiques ou sonores :
 -- une clé de jeu nouvelle ou oubliée est protégée par défaut. En plus :
---   - les vitesses d'animation des tourelles (preparing_speed…) sont libres, mais la DURÉE de l'animation
---     (nombre d'images / vitesse) ne doit pas changer : c'est un délai de jeu (déploiement, repli) ;
+--   - les vitesses d'animation des tourelles (preparing_speed…) sont des clés de JEU : la durée de
+--     l'animation vaut 1 / vitesse (délai de déploiement, de repli…), le nombre d'images n'y entre pas (E67,
+--     lot A1 ; correction INT-GARDE : l'ancienne règle « images / vitesse » refusait 1 image à la vitesse
+--     vanilla et acceptait une levée 5 fois plus lente si les images suivaient) ;
 --   - l'état partagé ENTIER (config L, boîte à outils, style commun) ne doit pas bouger ; le scénario X0 non
 --     plus (comparé à la fermeture de chaque famille, lot V2c) ;
 --   - data.raw ne doit pas bouger (types surveillés et référencés par famille, puis tout data.raw) ;
@@ -363,14 +368,13 @@ local VISUAL_WORDS = { "picture", "cover", "smoke", "light", "animation", "sprit
 -- Sous-clés graphiques exactes dans les champs de jeu : origine du faisceau, de la douille, du canon.
 local VISUAL_SUBKEYS = set({ "source_offset", "projectile_center", "projectile_creation_distance",
   "projectile_orientation_offset", "gun_center_shift", "gun_barrel_length", "shell_particle" })
--- Animation → sa vitesse : la durée images / vitesse est un délai de jeu (règle de durée).
+-- Animation → sa vitesse : la durée 1 / vitesse est un délai de jeu (E67). Les vitesses ne sont dans AUCUNE
+-- liste graphique : ce sont des clés de jeu, comparées comme les autres ; les animations, elles, sont libres.
 local TIMED_ANIMATIONS = {
   { "preparing_animation", "preparing_speed" }, { "folding_animation", "folding_speed" },
   { "attacking_animation", "attacking_speed" }, { "starting_attack_animation", "starting_attack_speed" },
   { "ending_attack_animation", "ending_attack_speed" },
 }
-local SPEED_KEYS = {}
-for _, t in ipairs(TIMED_ANIMATIONS) do SPEED_KEYS[t[2]] = true end
 
 local function has_visual_word(k)
   if type(k) ~= "string" then return false end
@@ -387,7 +391,7 @@ end
 --- Clé de premier niveau graphique ? extra : clés graphiques propres à un type (DECLARABLE), ou nil.
 local function graphic_top(k, extra)
   if type(k) ~= "string" then return false end
-  return (GRAPHIC_KEYS[k] or SPEED_KEYS[k] or has_visual_word(k) or (extra ~= nil and extra[k])) and true or false
+  return (GRAPHIC_KEYS[k] or has_visual_word(k) or (extra ~= nil and extra[k])) and true or false
 end
 
 --- Ordre total des clés : par type, puis valeur (nombres et chaînes : ordre natif).
@@ -505,34 +509,28 @@ local function path_text(root, path)
   return table.concat(parts)
 end
 
---- Nombre d'images d'une animation (couches : la plus longue ; 4 orientations : le nord).
-local function frames(a)
-  if type(a) ~= "table" then return nil end
-  if type(a.layers) == "table" then
-    local m
-    for _, l in ipairs(a.layers) do
-      local f = frames(l)
-      if f and (not m or f > m) then m = f end
-    end
-    return m
-  end
-  if a.north then return frames(a.north) end
-  if a.filename or a.filenames or a.stripes then return (a.frame_count or 1) * (a.repeat_count or 1) end
-  return nil
-end
-
---- Durées de jeu des animations des tourelles (images / vitesse), en texte (6 décimales).
+--- Durées de jeu des animations des tourelles, en ticks (texte, 6 décimales) : 1 / vitesse (défaut 1 dans
+--- prototype-api.json 1.1.91), QUEL QUE SOIT le nombre d'images, repeat_count compris (doc 1.1.91 : « 1 ÷
+--- preparing_speed = duration of the preparing_animation » ; E67, lot A1, mesuré pour la levée). Les vitesses
+--- étant des clés de jeu comparées par la garde, ce contrôle double la comparaison et donne un motif lisible
+--- (« durée de … ») ; il ne regarde JAMAIS les images. Prudence : la PRÉSENCE de l'animation compte (« sans
+--- animation ») : l'effet en jeu d'une animation retirée ou ajoutée n'a pas été mesuré, donc refusé.
 local function durations(p)
   local d = {}
   for _, t in ipairs(TIMED_ANIMATIONS) do
-    local f = frames(p[t[1]])
-    if f then d[t[1]] = string.format("%.6f", f / (p[t[2]] or 1)) end
+    local v = p[t[2]]
+    if v == nil then v = 1 end
+    if p[t[1]] == nil then
+      d[t[1]] = "sans animation"
+    else
+      d[t[1]] = type(v) == "number" and string.format("%.6f", 1 / v) or tostring(v)
+    end
   end
   return d
 end
 
---- Partie JEU d'un prototype : copie de tout sauf les clés graphiques (premier niveau : GRAPHIC_KEYS,
---- vitesses des tourelles, mots visuels, `extra` ; plus bas : VISUAL_SUBKEYS et mots visuels), et durées.
+--- Partie JEU d'un prototype : copie de tout sauf les clés graphiques (premier niveau : GRAPHIC_KEYS, mots
+--- visuels, `extra` ; plus bas : VISUAL_SUBKEYS et mots visuels), et durées (1 / vitesse).
 local function game_snapshot(p, extra)
   local memo, part = {}, {}
   for k, v in pairs(p) do
@@ -550,7 +548,13 @@ local function game_diff(snap, p, alias, ignore)
   if path then return path_text("", path), why end
   local now = durations(p)
   for _, t in ipairs(TIMED_ANIMATIONS) do
-    if now[t[1]] ~= snap.durations[t[1]] then return "durée de " .. t[1], "images / vitesse modifiée" end
+    local a, b = snap.durations[t[1]], now[t[1]]
+    if a ~= b then
+      if a == "sans animation" or b == "sans animation" then
+        return "durée de " .. t[1], "animation " .. (b == "sans animation" and "retirée" or "ajoutée") .. " (effet en jeu non mesuré)"
+      end
+      return "durée de " .. t[1], "1 / " .. t[2] .. " modifiée"
+    end
   end
   return nil
 end
