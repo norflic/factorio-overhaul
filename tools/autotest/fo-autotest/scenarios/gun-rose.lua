@@ -1,33 +1,46 @@
--- Scénario greffé du lot A2 (24/10) : la mitrailleuse V3-E EN JEU, 30 niveaux, chacun orienté N, E, S, O.
+-- Scénario greffé du lot A2 (24/10), étendu au lot A3-jeu (64 directions) : la mitrailleuse V3-E EN JEU, 30 niveaux.
 --   & "<racine>\fo-autotest.bat" nopause 1000 gun-rose "<source>"      (contrôles, sans images)
---   & "<racine>\fo-captures.bat" gun-rose "<source>"                    (captures)
+--   & "<racine>\fo-captures.bat" gun-rose "<source>"                    (captures ; avec FO_AUDIO=1, interdit n° 7)
+--   py -3.9 tools/autotest/gun_rose_images.py "<fo-shots>" --feuilles "<source>/graphics/levels/gun"
+--                                                                       (image montrée contre image attendue)
 --
--- ROSE : une rangée par niveau (âge e : niveau impair 2e-1 puis niveau pair 2e, 10 tuiles plus bas ; âge 1 : niveau 1 =
--- mitrailleuse vanilla, niveau 2) ; dans chaque rangée, la mitrailleuse VANILLA (orientée N) puis le niveau orienté
--- N, E, S, O. Orientation écrite (`turret.orientation`, E70 / F122 : tient sans cible), munitions chargées, aucun ennemi
--- à portée. Contrôles : prototypes, poses, orientation relue au tick 60 et au tick de contrôle, boîte d'affichage
--- (drawing_box) plus grande que la boîte de sélection, reste et explosion agrandis (copies déclarées « -restes »,
--- « -explosion ») à partir du niveau 7.
--- TIR (E68) : un niveau par âge (niveau impair 2e-1 ; âge 1 : niveau 1, vanilla), chacun face à un ver géant ENNEMI au
--- N, à l'E, au S et à l'O (60 sites à 80 tuiles d'écart ; ver aligné sur le centre RÉEL de la tourelle ; cessez-le-feu
--- de l'ennemi ; ver recréé s'il meurt). Contrôles : chaque tourelle a tiré (munitions consommées), son orientation au
--- contrôle est celle de sa cible (à 1/64 près) ; ÉCLAT : position de l'entité explosion-gunshot (source_effects de la
--- munition) relevée par le moteur = projectile_center + projectile_creation_distance × (ux, K × uy) du prototype, à
--- 1/32 de tuile près, K = 0,7071 (règle mesurée, feuilles.py) : la même règle place, dans feuilles.py, l'éclat visible
--- (1 tuile plus haut) à moins de 0,5 tuile du milieu des bouts de canon dessinés.
--- Captures : par âge, zoom 1, jour et nuit (rangées impaire et paire) ; zoom 2 des âges 3, 9 et 15 (jour ; nuit pour 15) ;
--- tir : niveaux 1, 3, 23 (âge 12), 25 (âge 13) et 29, 4 directions, zoom 2, deux instants ; niveaux pairs à zoom 2
--- (jour et nuit) : 10, 18, 30.
+-- ROSE (lot A3-jeu) : par niveau, une grille de 5 × 4 tourelles orientées dans 20 DIRECTIONS : les 16 multiples de 4
+-- (d00, d04, …, d60) et les 4 diagonales VUES en jeu (d06, d26, d38, d58 : F121, E70). L'orientation écrite pour la
+-- direction k est orientation_image(k) (même formule que feuilles.py) : le centre de la plage d'orientations pour
+-- laquelle le moteur montre l'image k d'une tête à 64 directions avec apply_projection (tan 2πo = tan θk / 0,7071 ;
+-- E70 : 1/8 -> 6, 3/8 -> 26, 5/8 -> 38, 7/8 -> 58). Un âge resté à 4 directions montre l'image la plus proche (N, E, S,
+-- O ; à 45° pile, d08, d24, d40, d56 : l'une des deux, non contrôlé). Âge e : niveau impair 2e-1 à gauche, niveau
+-- pair 2e à droite (54 tuiles plus loin) ; âge 1 : niveau 1 = mitrailleuse vanilla, niveau 2 ; une mitrailleuse
+-- VANILLA orientée N à gauche de chaque âge. Orientation écrite au tick 30 (`turret.orientation`, E70 / F122 : tient
+-- sans cible), munitions chargées, aucun ennemi à portée. Contrôles : prototypes, 20 directions par niveau dont les 4
+-- diagonales, orientation relue au tick 60 et au tick de contrôle, boîte d'affichage (drawing_box) plus grande que la
+-- boîte de sélection, reste et explosion agrandis (copies déclarées « -restes », « -explosion ») à partir du niveau 7.
+-- L'IMAGE montrée ne se lit pas par script : gun_rose_images.py la compare, sur les captures zoom 2 de jour (sans mode
+-- Alt ni anticrénelage), à chaque cellule de la feuille (pose de la table fo-shots/gun-rose-poses.tsv écrite ici).
+-- TIR (E68, inchangé) : un niveau par âge (niveau impair 2e-1 ; âge 1 : niveau 1, vanilla), chacun face à un ver géant
+-- ENNEMI au N, à l'E, au S et à l'O (60 sites à 80 tuiles d'écart ; ver aligné sur le centre RÉEL de la tourelle ;
+-- cessez-le-feu de l'ennemi ; ver recréé s'il meurt). Contrôles : chaque tourelle a tiré (munitions consommées), son
+-- orientation au contrôle est celle de sa cible (à 1/64 près) ; ÉCLAT : position de l'entité explosion-gunshot
+-- (source_effects de la munition) relevée par le moteur = projectile_center + projectile_creation_distance × (ux, K × uy)
+-- du prototype, à 1/32 de tuile près, K = 0,7071 (règle mesurée, feuilles.py).
+-- Captures : par âge, grille du niveau impair à zoom 1 (jour, nuit) et à zoom 2 (jour sans mode Alt ni anticrénelage :
+-- contrôle des images ; nuit) ; niveaux PAIRS 10, 18, 30 à zoom 2 (jour, nuit) ; tir : niveaux 1, 3, 23 (âge 12),
+-- 25 (âge 13) et 29, 4 directions, zoom 2, deux instants.
 
 local X0, Y0 = 3000, -2400
-local DX, DROW, DAGE = 9, 10, 22
+local DX, DAGE, DPAIR, NCOL = 9, 40, 54, 5
+local KS = { 0, 4, 6, 8, 12, 16, 20, 24, 26, 28, 32, 36, 38, 40, 44, 48, 52, 56, 58, 60 }
+local DIAG = { 6, 26, 38, 58 }
+local PROJ = math.sqrt(0.5)
+-- tir (E68) : un niveau par âge (niveau impair 2e-1 ; âge 1 : niveau 1, vanilla) ; 60 sites en grille de 8 colonnes
 local DIRS = { { "N", 0 }, { "E", 0.25 }, { "S", 0.5 }, { "O", 0.75 } }
--- un niveau par âge (niveau impair 2e-1 ; âge 1 : niveau 1, vanilla) ; 60 sites en grille de 8 colonnes
 local TIR_NIV = { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29 }
 local TX0, TY0, TPAS, TDIST, TCOL = 3200, -2400, 80, 11, 8
 local MES_MAX = 4
 local K_PROJ = 0.7071 -- même valeur que tools/render/pieces/levels/gun_e/feuilles.py (E68)
 local T_ECRIT, CHECK = 30, 900
+local RES_Z1 = { 1600, 1280 }
+local RES_Z2 = { 3072, 2560 }
 
 local function nom(LV, n)
   if n == 1 then return "gun-turret" end
@@ -44,14 +57,27 @@ local function ori(e)
   return ok and v or nil
 end
 
-local function pos_rose(n)
+--- Orientation pour laquelle le moteur montre l'image k (64 directions, apply_projection) : feuilles.orientation_image.
+local function orientation_image(k)
+  if k % 16 == 0 then return k / 64 end
+  local th = 2 * math.pi * k / 64
+  return (math.atan2(math.sin(th), PROJ * math.cos(th)) / (2 * math.pi)) % 1
+end
+
+--- Coin haut-gauche (position de la 1re tourelle) de la grille du niveau n.
+local function grille(n)
   local e = math.floor((n + 1) / 2)
-  local y = Y0 + (e - 1) * DAGE + ((n % 2 == 0) and DROW or 0)
-  return y, e
+  local x = X0 + ((n % 2 == 0) and DPAIR or 0)
+  return x, Y0 + (e - 1) * DAGE, e
+end
+
+local function centre_grille(n)
+  local x, y = grille(n)
+  return x + (NCOL - 1) * DX / 2, y + (#KS / NCOL - 1) * DX / 2 - 1
 end
 
 return {
-  description = "A2 : mitrailleuse V3-E en jeu, 30 niveaux x 4 directions (rose), tir N/E/S/O (E68)",
+  description = "A2/A3-jeu : mitrailleuse V3-E en jeu, 30 niveaux x 20 directions (rose, 64 directions), tir N/E/S/O (E68)",
   base = nil,
   check_tick = CHECK,
   shots_delay = 300,
@@ -68,7 +94,7 @@ return {
     game.map_settings.enemy_expansion.enabled = false
     game.forces.player.set_cease_fire("enemy", false)
     game.forces.enemy.set_cease_fire("player", true)
-    ctx.prepare_area(X0 - 8, Y0 - 8, X0 + 5 * DX + 8, Y0 + 15 * DAGE + 4, "concrete")
+    ctx.prepare_area(X0 - 20, Y0 - 10, X0 + DPAIR + NCOL * DX + 6, Y0 + 15 * DAGE + 4, "concrete")
     local nsites = #TIR_NIV * #DIRS
     local nrows = math.ceil(nsites / TCOL)
     for k = 0, nsites - 1 do
@@ -82,32 +108,55 @@ return {
     -- ROSE
     st.rose = {}
     local poses, voulues = 0, 0
-    for n = 1, 30 do
-      local y = pos_rose(n)
-      local van = s.create_entity({ name = "gun-turret", position = { X0, y }, force = "player" })
+    for e = 1, 15 do
+      local _, y = grille(2 * e - 1)
+      local van = s.create_entity({ name = "gun-turret", position = { X0 - 12, y }, force = "player" })
       voulues = voulues + 1
       if van then
         poses = poses + 1
         van.insert({ name = "firearm-magazine", count = 10 })
-        st.rose[#st.rose + 1] = { n = 1, dir = "N", o = 0, t = van, x = X0, y = y, vanille = true }
+        st.rose[#st.rose + 1] = { n = 1, k = 0, o = 0, t = van, vanille = true }
       end
-      for k, d in ipairs(DIRS) do
-        local x = X0 + k * DX
+    end
+    for n = 1, 30 do
+      local gx, gy = grille(n)
+      for i, k in ipairs(KS) do
+        local x = gx + ((i - 1) % NCOL) * DX
+        local y = gy + math.floor((i - 1) / NCOL) * DX
         voulues = voulues + 1
         local t = s.create_entity({ name = nom(nil, n), position = { x, y }, force = "player" })
         if t then
           poses = poses + 1
           t.insert({ name = "firearm-magazine", count = 10 })
-          st.rose[#st.rose + 1] = { n = n, dir = d[1], o = d[2], t = t, x = x, y = y }
+          st.rose[#st.rose + 1] = { n = n, k = k, o = orientation_image(k), t = t }
         end
       end
     end
     ctx.check(poses == voulues, "rose : tourelles posees", poses .. " / " .. voulues)
+    -- 20 directions par niveau, dont les 4 diagonales vues en jeu (F121)
+    local par, diag_ok = {}, 0
+    for _, c in ipairs(st.rose) do
+      if not c.vanille then
+        par[c.n] = par[c.n] or {}
+        par[c.n][c.k] = true
+      end
+    end
+    local niv_ok = 0
+    for n = 1, 30 do
+      local nb = 0
+      for _ in pairs(par[n] or {}) do nb = nb + 1 end
+      local d = 0
+      for _, k in ipairs(DIAG) do if par[n] and par[n][k] then d = d + 1 end end
+      if nb >= 16 and d == #DIAG then niv_ok = niv_ok + 1 end
+      if d == #DIAG then diag_ok = diag_ok + 1 end
+    end
+    ctx.check(niv_ok == 30, "rose : au moins 16 directions par niveau (" .. #KS .. ") dont d06, d26, d38, d58",
+      niv_ok .. " / 30 niveaux ; diagonales " .. diag_ok .. " / 30")
     -- TIR
     st.tir = {}
     local i = 0
     for _, n in ipairs(TIR_NIV) do
-      for k, d in ipairs(DIRS) do
+      for _, d in ipairs(DIRS) do
         local x, y = TX0 + i % TCOL * TPAS, TY0 + math.floor(i / TCOL) * TPAS
         i = i + 1
         local t = s.create_entity({ name = nom(nil, n), position = { x, y }, force = "player" })
@@ -191,16 +240,18 @@ return {
     if not st.pret then return end
     ctx.check(st.ecrites == #st.rose, "rose : orientation ecrite (E70)", tostring(st.ecrites) .. " / " .. #st.rose)
     ctx.check(st.tient_60 == #st.rose, "rose : orientation tenue 30 ticks apres l'ecriture", tostring(st.tient_60) .. " / " .. #st.rose)
-    local tient, faux = 0, {}
+    local tient, faux, pire = 0, {}, 0
     for _, c in ipairs(st.rose) do
       local o = c.t and c.t.valid and ori(c.t)
+      if o then pire = math.max(pire, ecart(o, c.o)) end
       if o and ecart(o, c.o) < 1 / 256 then
         tient = tient + 1
       elseif #faux < 8 then
-        faux[#faux + 1] = c.n .. c.dir .. "=" .. tostring(o)
+        faux[#faux + 1] = c.n .. "d" .. c.k .. "=" .. tostring(o)
       end
     end
-    ctx.check(tient == #st.rose, "rose : orientation tenue au tick " .. CHECK .. " (sans cible)", tient .. " / " .. #st.rose ..
+    ctx.check(tient == #st.rose, "rose : orientation relue au tick " .. CHECK .. " = orientation ecrite (sans cible)",
+      tient .. " / " .. #st.rose .. string.format(" ; ecart max %.2e tour", pire) ..
       (#faux > 0 and (" ; " .. table.concat(faux, " ")) or ""))
     -- prototypes : boîte d'affichage, reste et explosion
     local box_ok, restes_ok, lignes = 0, 0, {}
@@ -251,7 +302,7 @@ return {
       ctx.log(string.format("ECLAT niveau %d %s : %d releve(s) %s", c.n, c.dir, #c.mes, table.concat(m, " ")))
     end
     -- éclat : règle du moteur (E68) contre le relevé, à partir des valeurs du PROTOTYPE (sprites.lua, « tir »)
-    local eclat_ok, pire, l3 = 0, 0, {}
+    local eclat_ok, pire_e, l3 = 0, 0, {}
     for _, c in ipairs(st.tir) do
       local p = game.entity_prototypes[nom(nil, c.n)]
       local ap = p and p.attack_parameters
@@ -266,7 +317,7 @@ return {
         local n = math.sqrt(vx * vx + (vy / K_PROJ) ^ 2)
         local ex, ey = cx0 + d * vx / n, cy + d * vy / n
         local err = math.max(math.abs(m.dx - ex), math.abs(m.dy - ey))
-        if err > pire then pire = err end
+        if err > pire_e then pire_e = err end
         ok = err <= 1 / 32
         l3[#l3 + 1] = string.format("%d%s:%.3f", c.n, c.dir, err)
       else
@@ -276,7 +327,7 @@ return {
     end
     ctx.log("eclat (niveau direction : ecart max |releve - regle| en tuiles) : " .. table.concat(l3, " "))
     ctx.check(eclat_ok == #st.tir, string.format("eclat : position relevee = projectile_center + distance x (vx, vy) / |(vx, vy / %.4f)|, v = "
-      .. "cible - projectile_center, valeurs du prototype, a 1/32 pres (E68)", K_PROJ), eclat_ok .. " / " .. #st.tir .. string.format(" ; ecart max %.4f", pire))
+      .. "cible - projectile_center, valeurs du prototype, a 1/32 pres (E68)", K_PROJ), eclat_ok .. " / " .. #st.tir .. string.format(" ; ecart max %.4f", pire_e))
     ctx.check(tire == #st.tir, "tir : chaque tourelle a tire (chargeurs consommes)", tire .. " / " .. #st.tir)
     ctx.check(vise == #st.tir, "tir : orientation = direction de la cible (a 1/64 pres)", vise .. " / " .. #st.tir)
   end,
@@ -284,29 +335,29 @@ return {
   shots = function(ctx, add)
     local st = ctx.state()
     if not st.pret then return end
-    local cx = X0 + 2.5 * DX
-    for e = 1, 15 do
-      local y = Y0 + (e - 1) * DAGE + DROW / 2
-      add(string.format("rose-age%02d-z1-jour", e), cx, y, 1, 0)
-      add(string.format("rose-age%02d-z1-nuit", e), cx, y, 1, 0.5)
-    end
-    for _, e in ipairs({ 3, 9, 15 }) do
-      local y = Y0 + (e - 1) * DAGE - 1
-      add(string.format("rose-age%02d-z2-van-N-E", e), X0 + DX, y, 2, 0)
-      add(string.format("rose-age%02d-z2-S-O", e), X0 + 3.5 * DX, y, 2, 0)
-      if e == 15 then
-        add(string.format("rose-age%02d-z2-van-N-E-nuit", e), X0 + DX, y, 2, 0.5)
-        add(string.format("rose-age%02d-z2-S-O-nuit", e), X0 + 3.5 * DX, y, 2, 0.5)
+    -- table des poses de la rose, pour gun_rose_images.py (positions RÉELLES des entités)
+    local L = { "niveau\tage\tk\torientation_ecrite\torientation_lue\tx\ty\tnom" }
+    for _, c in ipairs(st.rose) do
+      if c.t and c.t.valid and not c.vanille then
+        L[#L + 1] = string.format("%d\t%d\t%d\t%.6f\t%.6f\t%.5f\t%.5f\t%s", c.n, math.floor((c.n + 1) / 2), c.k, c.o,
+          ori(c.t) or -1, c.t.position.x, c.t.position.y, c.t.name)
       end
+    end
+    game.write_file("fo-shots/gun-rose-poses.tsv", table.concat(L, "\n") .. "\n", false)
+    for e = 1, 15 do
+      local n = 2 * e - 1
+      local cx, cy = centre_grille(n)
+      add(string.format("rose-age%02d-z1-jour", e), cx, cy, 1, 0, { res = RES_Z1, info = false })
+      add(string.format("rose-age%02d-z1-nuit", e), cx, cy, 1, 0.5, { res = RES_Z1, info = false })
+      add(string.format("rose64-age%02d-z2-jour", e), cx, cy, 2, 0, { res = RES_Z2, info = false, aa = false })
+      add(string.format("rose64-age%02d-z2-nuit", e), cx, cy, 2, 0.5, { res = RES_Z2, info = false })
     end
     -- niveaux PAIRS (socle + pièce paire) à zoom 2, jour et nuit : 10 (âge 5), 18 (âge 9), 30 (âge 15)
     for _, e in ipairs({ 5, 9, 15 }) do
-      local y = Y0 + (e - 1) * DAGE + DROW - 1
       local n = 2 * e
-      add(string.format("pair-niv%02d-z2-N-E-jour", n), X0 + 1.5 * DX, y, 2, 0)
-      add(string.format("pair-niv%02d-z2-S-O-jour", n), X0 + 3.5 * DX, y, 2, 0)
-      add(string.format("pair-niv%02d-z2-N-E-nuit", n), X0 + 1.5 * DX, y, 2, 0.5)
-      add(string.format("pair-niv%02d-z2-S-O-nuit", n), X0 + 3.5 * DX, y, 2, 0.5)
+      local cx, cy = centre_grille(n)
+      add(string.format("pair-niv%02d-z2-jour", n), cx, cy, 2, 0, { res = RES_Z2, info = false })
+      add(string.format("pair-niv%02d-z2-nuit", n), cx, cy, 2, 0.5, { res = RES_Z2, info = false })
     end
     for _, c in ipairs(st.tir) do
       if c.n == 1 or c.n == 3 or c.n == 23 or c.n == 25 or c.n == 29 then

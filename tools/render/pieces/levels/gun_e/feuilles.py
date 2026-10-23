@@ -1,15 +1,24 @@
-"""FEUILLES DE JEU de la mitrailleuse V3-E (lot A2, 24/10) : des sprites de production aux fichiers du mod. Python 3.9.
+"""FEUILLES DE JEU de la mitrailleuse V3-E (lot A2, 24/10 ; 64 directions : lot A3-jeu) : des sprites de production
+aux fichiers du mod. Python 3.9.
 
     py -3.9 tools/render/pieces/levels/gun_e/feuilles.py [--dest graphics/levels/gun] [--valide 1-9=DIR …]
-        [--so DIR] [--data <racine>/data] [--sans-images]
+        [--so DIR] [--a3 DIR] [--ages-64 auto|aucun|LISTE] [--hors-regle-ok NOM,…] [--data <racine>/data]
 
 Ce que l'outil écrit dans --dest (dossier du mod ; les PNG y sont HORS de git, décision D-6 de l'orchestrateur) :
   - socle et pièce de chaque âge : COPIES octet à octet des sprites validés (mêmes noms : hr-gune-eNN-socle-main.png…) ;
-  - tête de chaque âge (2 à 15), par couche (main, shadow, glow) et par résolution : UNE feuille en COLONNE de 4 images
-    dans l'ordre des directions d'une RotatedAnimation à 4 directions de Factorio (N, E, S, O : doc 1.1.91,
-    « 4 : North (1), East (2), South (3), West (4) ») ; cadre commun = union des 4 poses, bords PAIRS relatifs à
-    l'origine (la version normale tombe au pixel) ; chaque pose collée à sa place exacte : les pixels des poses
-    validées (N = tete-N, E = tete-E) sont recopiés SANS changement (contrôle : check_gun_sheets.py --sources) ;
+  - tête de chaque âge (2 à 15), par couche (main, shadow, glow ; la tête n'a pas de couche « light ») et par
+    résolution, UNE feuille par couche (8 192 px au plus par côté, F144 : contrôlé, sinon refus) :
+      * 64 DIRECTIONS (lot A3-jeu) si les 64 poses de l'âge existent et sont contrôlées : d00 = tete-N et d16 = tete-E
+        (sources validées V3-E), d32 et d48 (lot A2, --so), les 60 autres de la production A3 (--a3 : controle.json
+        « ok », sha256 du spec.json et des PNG égaux à ceux du contrôle, aucun trou « HORS REGLE » sauf --hors-regle-ok) ;
+        feuille de 8 × 8 images dans l'ordre d00 à d63 d'une RotatedAnimation (rangée par rangée, line_length 8 ;
+        rotation uniforme −2π·K/64 depuis le nord, sens horaire ; apply_projection laissé vrai : le moteur montre
+        l'image K pour l'orientation orientation_image(K), F121, E70) ;
+      * sinon REPLI à 4 directions, exactement comme au lot A2 : feuille en COLONNE de 4 images N, E, S, O (doc 1.1.91,
+        « 4 : North (1), East (2), South (3), West (4) » ; F123) ;
+    cadre commun = union des poses de l'âge, bords PAIRS relatifs à l'origine (la version normale tombe au pixel) ;
+    chaque pose collée à sa place exacte : les pixels de chaque pose, donc des poses validées (N = d00, E = d16), sont
+    recopiés SANS changement (contrôle : check_gun_sheets.py --sources) ;
   - icône de chaque âge 2 à 15 (64 px + mipmaps, bande 120 × 64) : socle + tête E composés hors Blender, réduits par
     fo_post.icon_strip (même code que l'icône de render.py) ;
   - sprites.lua (définitions lues par prototypes/levels/gun.lua) et sprites.json (mêmes données, pour les outils) ;
@@ -25,20 +34,27 @@ Bouche du canon et éclat de tir (E68, correction A2) :
     VOIT H_ECLAT tuile plus haut (hauteur de l'explosion) ; une cible proche dévie l'éclat en E et en O d'au plus
     distance × |centre.y| / portée (0,07 tuile à l'âge 15 pour une cible à 25 tuiles) ;
   - marge = où l'éclat visible de la VANILLA tombe au-delà de sa bouche, moyenne de N, E et O (MARGE_DIRS) ;
-  - pour chaque âge, centre.y et distance au sens des moindres carrés sur les 4 directions (cible = bouche + marge le
-    long du tir) ; un âge dont l'éclat visible tombe à plus de SEUIL_ECLAT tuile de sa cible dans UNE direction est
-    REFUSÉ (code non nul, rien n'est écrit au-delà des PNG) ; écarts dans sprites.json (« ecarts_bouche »,
-    « ecart_max »), éclat visible prévu (« eclat_visible »).
+  - pour chaque âge, centre.y et distance au sens des moindres carrés sur TOUTES les directions de l'âge (4, ou 64 :
+    lot A3-jeu ; cible = bouche + marge le long du tir) ; un âge dont l'éclat visible tombe à plus de SEUIL_ECLAT tuile
+    de sa cible dans UNE direction est REFUSÉ (code non nul, rien n'est écrit au-delà des PNG) ; écarts dans
+    sprites.json (« ecarts_bouche », « ecart_max »), éclat visible prévu (« eclat_visible ») ; à 64 directions, l'écart
+    du réglage « avant » (ajusté sur d00, d16, d32, d48 seulement, comme au lot A2) sur les 64 directions est gardé
+    dans « outils.eclat_avant » ;
+  - direction quelconque (lot A3-jeu) : le tir de l'image K va, à l'écran, dans la direction de orientation_image(K) ;
+    la bouche se mesure dans le repère (le long du tir, en travers) de cette direction : bouche_u(), qui rend
+    EXACTEMENT bouche() aux 4 directions cardinales (même découpe en rangées).
 
 Sources par défaut (designs VALIDÉS par le Directeur Créatif ; production à 128 échantillons) :
   âges 1 à 9    fo-logs/2026-10-23_V3E-p5/bas/sprites
   âges 10 à 12  fo-logs/2026-10-23_V3E-p5/haut/sprites   (e13 à e15 de ce dossier : REFUSÉS, REFUSES.txt)
   âges 13 à 15  fo-logs/2026-10-23_V3E-ereV/sprites
   poses S et O  fo-logs/2026-10-24_A2/sprites (eNN-tete-d32, eNN-tete-d48 ; lot A2)
+  60 autres     fo-logs/2026-10-24_A3/sprites (eNN-tete-dKK ; production A3, 128 échantillons, ombre à 32 : D-7)
 """
 import argparse
 import hashlib
 import json
+import math
 import os
 import shutil
 import sys
@@ -59,6 +75,7 @@ VALIDES_DEFAUT = ["1-9=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "bas", "sprit
                   "10-12=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "haut", "sprites"),
                   "13-15=" + os.path.join(LOGS, "2026-10-23_V3E-ereV", "sprites")]
 SO_DEFAUT = os.path.join(LOGS, "2026-10-24_A2", "sprites")
+A3_DEFAUT = os.path.join(LOGS, "2026-10-24_A3", "sprites")
 DATA_DEFAUT = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 DEST_DEFAUT = os.path.join(MOD, "graphics", "levels", "gun")
 GRAPHICS_PREFIX = "__%s__/graphics/levels/gun/" % MOD_NAME
@@ -84,6 +101,13 @@ MARGE_DIRS = ("N", "E", "O")
 SEUIL_ECLAT = 0.5       # tuile : écart maximal toléré entre l'éclat visible prévu et sa cible (bouche + marge)
 COMMANDE = ("py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par défaut : "
             "en tête de feuilles.py)")
+# 64 directions (lot A3-jeu)
+NDIR64 = 64
+LIGNE64 = 8             # feuille de 8 × 8 images, rangée par rangée (line_length 8)
+LIMITE_PX = 8192        # F144 : largeur et hauteur d'un fichier d'image d'entrée (doc 1.1.91, prototype-api.json)
+PROJ_IMAGE = math.sqrt(0.5)   # apply_projection : compression verticale de la vue (E70 : NE -> image 6, SE -> 26…)
+CARDINAUX = {"N": 0, "E": 16, "S": 32, "O": 48}   # pose du lot A2 -> numéro de direction sur 64
+SAMPLES_PASSES_A3 = {"shadow": 32}               # D-7 : ombre à 32 échantillons (spec.json des têtes A3)
 
 
 def sha_file(p):
@@ -239,6 +263,224 @@ def ajuste_tir(bouches, marge):
     return float(sol[0]), float(sol[1])
 
 
+# ------------------------------------------------------------------ directions quelconques (lot A3-jeu, 64 directions)
+def orientation_image(k, n=NDIR64):
+    """Orientation (0 = nord, sens horaire, tour entier = 1) pour laquelle le moteur montre l'image k d'une tête à n
+    directions rendue en rotation UNIFORME (angle θk = 2π·k/n autour de la verticale) avec apply_projection : à
+    l'écran, la direction θk se voit comprimée en hauteur (PROJ_IMAGE), donc tan(2π·o) = tan(θk) / PROJ_IMAGE. Le centre
+    de la plage de l'image k. Vérifié en moteur aux 8 directions (E70 : o = 1/8 -> image 6 ; 3/8 -> 26 ; 5/8 -> 38 ;
+    7/8 -> 58, soit l'arrondi de l'angle déprojeté)."""
+    if (k * 4) % n == 0:
+        return (k * 4 // n) / 4.0
+    th = 2.0 * math.pi * k / n
+    return (math.atan2(math.sin(th), PROJ_IMAGE * math.cos(th)) / (2.0 * math.pi)) % 1.0
+
+
+def image_orientation(o, n=NDIR64):
+    """Image montrée par le moteur pour l'orientation o (règle déduite d'E70 : arrondi de l'angle déprojeté)."""
+    a = 2.0 * math.pi * o
+    th = math.atan2(math.sin(a) * PROJ_IMAGE, math.cos(a)) % (2.0 * math.pi)
+    return int(math.floor(th / (2.0 * math.pi) * n + 0.5)) % n
+
+
+def unite_orientation(o):
+    """Vecteur unitaire de la direction d'orientation o, en coordonnées d'écran (x à droite, y vers le bas)."""
+    a = 2.0 * math.pi * o
+    ux, uy = math.sin(a), -math.cos(a)
+    return (0.0 if abs(ux) < 1e-12 else ux), (0.0 if abs(uy) < 1e-12 else uy)
+
+
+def unite_pose(nom):
+    """Direction du tir d'une pose : « N », « E », « S », « O » (UNITE, exact) ou « dKK » (64 directions)."""
+    if nom in UNITE:
+        return UNITE[nom]
+    k = int(nom[1:])
+    for c, kk in CARDINAUX.items():
+        if kk == k:
+            return UNITE[c]
+    return unite_orientation(orientation_image(k))
+
+
+def direction_sol(nom):
+    """Direction du tir d'une pose dans le plan du SOL déprojeté (y écran / PROJ_IMAGE) : (sin θ, −cos θ), θ = 2π·K/64
+    (rotation uniforme du rendu) ; exacte aux 4 directions cardinales."""
+    if nom in UNITE:
+        return UNITE[nom]
+    k = int(nom[1:])
+    for c, kk in CARDINAUX.items():
+        if kk == k:
+            return UNITE[c]
+    th = 2.0 * math.pi * k / NDIR64
+    return math.sin(th), -math.cos(th)
+
+
+def bouche_u(alpha, gauche, haut, nom, tol=None):
+    """Bouche dessinée de la pose `nom` (« N »… ou « dKK ») : même règle que bouche() (milieu des bouts des deux canons
+    extrêmes), mais mesurée dans le plan du SOL DÉPROJETÉ (x, y / PROJ_IMAGE), où le tir va dans direction_sol(nom) :
+    deux canons parallèles et de même longueur y ont leurs bouts sur une même perpendiculaire au tir ; à l'écran, hors
+    des 4 directions cardinales, la projection les décale le long du tir (jusqu'à 0,8 tuile à l'âge 5 en d04 : un seul
+    canon restait dans la tolérance, bouche sur un canon ; premier essai de ce lot, planche eclat64-e05, refusé).
+    Chaque pixel opaque (alpha ≥ 0,5) porte s = projection de son centre + demi-largeur le long du tir (bord avant) ;
+    les « lignes » sont des bandes de la largeur d'un pixel en travers ; rangées = bandes contiguës dont le s maximal
+    est à TOL_CANON px d'écran au plus du plus avancé. Aux 4 directions cardinales, les bandes sont les lignes ou les
+    colonnes de pixels : résultat IDENTIQUE à bouche() (contrôlé à chaque passage par main())."""
+    P = PROJ_IMAGE
+    wx, wy = direction_sol(nom)
+    vx, vy = -wy, wx
+    ys, xs = np.nonzero(alpha >= 128)
+    px, py = xs + 0.5, (ys + 0.5) / P
+    s = px * wx + py * wy + 0.5 * (abs(wx) + abs(wy) / P)
+    t = px * vx + py * vy
+    bw = abs(vx) + abs(vy) / P            # largeur d'un pixel d'écran en travers (1 en N/S, 1/P en E/O)
+    b = np.floor(t / bw + 1e-9).astype(np.int64)
+    b0 = int(b.min())
+    r = np.full(int(b.max()) - b0 + 1, -np.inf)
+    np.maximum.at(r, b - b0, s)
+    sm = r.max()
+    cand = r >= sm - (TOL_CANON if tol is None else tol) * math.sqrt(wx * wx + (wy / P) ** 2)
+    rr = []
+    i = 0
+    while i < len(r):
+        if cand[i]:
+            j = i
+            while j + 1 < len(r) and cand[j + 1]:
+                j += 1
+            rr.append((i + b0, j + b0, float(r[i:j + 1].max())))
+            i = j + 1
+        else:
+            i += 1
+    a, z = rr[0], rr[-1]
+    trans = ((a[0] + a[1] + 1) / 2.0 + (z[0] + z[1] + 1) / 2.0) / 2.0
+    bout = (a[2] + z[2]) / 2.0
+    trans *= bw
+    x, y = bout * wx + trans * vx, (bout * wy + trans * vy) * P
+    return float((gauche + x) / 64.0), float((haut + y) / 64.0)
+
+
+def point_moteur_u(centre_y, dist, u):
+    """Règle du moteur (F126) pour une cible lointaine dans la direction d'écran u : projectile_center + distance ×
+    u / |(ux, uy / K)|."""
+    ux, uy = u
+    n = math.sqrt(ux * ux + (uy / K_PROJ) ** 2)
+    return dist * ux / n, centre_y + dist * uy / n
+
+
+def eclat_visible_u(centre_y, dist, u):
+    x, y = point_moteur_u(centre_y, dist, u)
+    return x, y - H_ECLAT
+
+
+def marges_u(bouches, unites, centre_y, dist):
+    """Pour chaque pose : (marge le long du tir = éclat visible − bouche dessinée, écart transverse)."""
+    res = {}
+    for d, (bx, by) in sorted(bouches.items()):
+        ux, uy = unites[d]
+        vx, vy = eclat_visible_u(centre_y, dist, (ux, uy))
+        res[d] = ((vx - bx) * ux + (vy - by) * uy, (vx - bx) * uy - (vy - by) * ux)
+    return res
+
+
+def ajuste_tir_u(bouches, unites, marge):
+    """projectile_center.y et projectile_creation_distance au sens des moindres carrés sur TOUTES les poses données
+    (même système qu'ajuste_tir() aux 4 directions cardinales)."""
+    A, b = [], []
+    for d, (bx, by) in sorted(bouches.items()):
+        ux, uy = unites[d]
+        n = math.sqrt(ux * ux + (uy / K_PROJ) ** 2)
+        tx, ty = bx + marge * ux, by + marge * uy
+        if ux:
+            A.append([0.0, ux / n]); b.append(tx)
+        A.append([1.0, uy / n]); b.append(ty + H_ECLAT)
+    sol = np.linalg.lstsq(np.array(A), np.array(b), rcond=None)[0]
+    return float(sol[0]), float(sol[1])
+
+
+def ecarts_de(mm, marge):
+    return {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mm.items())}
+
+
+def pire_de(ecarts):
+    return max((v[0] ** 2 + v[1] ** 2) ** 0.5 for v in ecarts.values())
+
+
+REJET_MIN = 0.25        # tuile : une direction n'est écartée du réglage que si son écart dépasse ce seuil…
+REJET_MED = 3.0         # … ET REJET_MED fois l'écart médian des directions gardées
+GARDE_MIN = 0.75        # part minimale des directions gardées, sinon refus de l'âge
+
+
+def ajuste_robuste(bouches, unites, marge):
+    """Réglage à 64 directions, robuste aux bouches MAL MESURÉES (lot A3-jeu). Fait : avec apply_projection et
+    K = PROJ_IMAGE, la règle du moteur (F126) donne, pour une cible lointaine, exactement le mouvement d'un point qui
+    TOURNE avec la tête (centre + distance × (sin θ, −0,7071·cos θ)) : une seule bouche par âge convient à toutes les
+    directions. Une direction dont l'écart sort de la tendance vient donc d'une mesure fausse (un organe ou un coin
+    de la coque plus avancé que les canons dans cette vue : âge 2, d07 à d10, planche eclat64-e02), pas du moteur.
+    Itération : moindres carrés sur les directions gardées ; on écarte celles dont l'écart dépasse REJET_MIN tuile ET
+    REJET_MED × la médiane des gardées ; jusqu'à stabilité. Rend (centre_y, distance, écarts de TOUTES les directions,
+    liste triée des directions écartées)."""
+    garde = sorted(bouches)
+    for _ in range(10):
+        cy, dist = ajuste_tir_u({d: bouches[d] for d in garde}, unites, marge)
+        ec = ecarts_de(marges_u(bouches, unites, cy, dist), marge)
+        norme = {d: (v[0] ** 2 + v[1] ** 2) ** 0.5 for d, v in ec.items()}
+        med = float(np.median([norme[d] for d in garde]))
+        seuil = max(REJET_MIN, REJET_MED * med)
+        nouveau = sorted(d for d in bouches if norme[d] <= seuil)
+        if nouveau == garde:
+            break
+        garde = nouveau
+    return cy, dist, ec, sorted(set(bouches) - set(garde))
+
+
+# ------------------------------------------------------------------ têtes de la production A3 (lot A3-jeu)
+def etat_a3(a3, nom, hors_regle_ok=()):
+    """« faite » si la tête de production A3 est complète et contrôlée : même règle que produire_a3.etat (controle.json
+    « ok », chaque fichier au sha256 du contrôle), plus : aucun trou « HORS REGLE » (sauf nom dans hors_regle_ok)."""
+    d = os.path.join(a3, nom)
+    if not os.path.exists(os.path.join(d, "spec.json")):
+        return "absente"
+    c = os.path.join(d, "controle.json")
+    if not os.path.exists(c):
+        return "pas de controle.json"
+    try:
+        cj = json.load(open(c, encoding="utf-8"))
+    except ValueError:
+        return "controle.json illisible"
+    if not cj.get("ok") or cj.get("variant") != nom:
+        return "contrôle en échec"
+    if not cj.get("fichiers"):
+        return "contrôle sans fichiers"
+    for f, h in sorted(cj["fichiers"].items()):
+        p = os.path.join(d, f)
+        if not os.path.exists(p):
+            return "%s absent" % f
+        if sha_file(p) != h:
+            return "%s modifié depuis le contrôle" % f
+    if (cj.get("trous") or {}).get("verdict") not in ("OK", "ACCEPTE") and nom not in hors_regle_ok:
+        return "trous %s" % (cj.get("trous") or {}).get("verdict")
+    return "faite"
+
+
+def poses_64(e, dv, so, a3, hors_regle_ok=()):
+    """Les 64 poses de l'âge e : liste de (« dKK », nom de la source, dossier, origine) ; ou (None, motif)."""
+    poses, manque = [], []
+    for k in range(NDIR64):
+        if k == 0:
+            poses.append(("d00", "e%02d-tete-N" % e, dv, "V"))
+        elif k == 16:
+            poses.append(("d16", "e%02d-tete-E" % e, dv, "V"))
+        elif k in (32, 48):
+            poses.append(("d%02d" % k, "e%02d-tete-d%02d" % (e, k), so, "A2"))
+        else:
+            nom = "e%02d-tete-d%02d" % (e, k)
+            et = etat_a3(a3, nom, hors_regle_ok)
+            if et != "faite":
+                manque.append("%s (%s)" % (nom, et))
+            poses.append(("d%02d" % k, nom, a3, "A3"))
+    if manque:
+        return None, "%d tête(s) A3 sur 60 manquent ou ne sont pas contrôlées, dont %s" % (len(manque), manque[0])
+    return poses, None
+
+
 def bouches_vanille(data_dir):
     V = VANILLE["tete_hr"]
     res = {}
@@ -276,11 +518,25 @@ def lua_value(v, ind=""):
 
 
 def texte_lua(donnees):
-    return ("-- FICHIER GÉNÉRÉ par tools/render/pieces/levels/gun_e/feuilles.py (lot A2) : ne pas modifier à la main.\n"
-            "-- Tailles en pixels, shift en tuiles. hr = 64 px/tuile (scale 0,5), normale = 32 px/tuile.\n"
-            "-- Têtes : feuille en COLONNE de 4 images, directions N, E, S, O (RotatedAnimation, direction_count 4,\n"
-            "-- line_length 1). Images : MANIFEST.json (hors de git, D-6) ; régénérer : voir MANIFEST.json, « commande ».\n"
+    return ("-- FICHIER GÉNÉRÉ par tools/render/pieces/levels/gun_e/feuilles.py (lots A2 et A3-jeu) : ne pas modifier à\n"
+            "-- la main. Tailles en pixels, shift en tuiles. hr = 64 px/tuile (scale 0,5), normale = 32 px/tuile.\n"
+            "-- Têtes (RotatedAnimation), selon l'âge : direction_count 64, feuille de 8 × 8 images d00 à d63 rangée par\n"
+            "-- rangée (line_length 8, rotation uniforme, apply_projection vrai : F121) ; ou, en repli, direction_count 4,\n"
+            "-- feuille en COLONNE N, E, S, O (line_length 1, F123). Images : MANIFEST.json (hors de git, D-6) ;\n"
+            "-- régénérer : voir MANIFEST.json, « commande ».\n"
             "return ") + lua_value(donnees) + "\n"
+
+
+def pour_lua(donnees):
+    """Données de sprites.lua (jeu) tirées de sprites.json : sans les sous-tables des outils (« poses » de chaque
+    couche de tête, « outils » de chaque âge), clés d'âge entières."""
+    pl = json.loads(json.dumps(donnees))
+    for e, A in pl["ages"].items():
+        A.pop("outils", None)
+        for lay, cd in A.get("tete", {}).items():
+            cd.pop("poses", None)
+    pl["ages"] = {int(k): v for k, v in pl["ages"].items()}
+    return pl
 
 
 def couche_def(fichier_hr, fichier_lr, w, h, shift):
@@ -294,10 +550,20 @@ def main():
     ap.add_argument("--dest", default=DEST_DEFAUT)
     ap.add_argument("--valide", action="append", default=None)
     ap.add_argument("--so", default=SO_DEFAUT)
+    ap.add_argument("--a3", default=A3_DEFAUT, help="têtes de la production A3 (64 directions)")
+    ap.add_argument("--ages-64", default="auto",
+                    help="auto : tout âge dont les 64 poses sont là et contrôlées ; aucun : repli à 4 partout ; "
+                         "LISTE (ex. 2,5) : ces âges seulement (refus si l'un est incomplet)")
+    ap.add_argument("--hors-regle-ok", default="", help="têtes A3 « HORS REGLE » acceptées après regard (noms, virgules)")
     ap.add_argument("--data", default=DATA_DEFAUT)
     ap.add_argument("--seuil", type=float, default=SEUIL_ECLAT, help="seuil de refus de l'éclat (essai du refus)")
     a = ap.parse_args()
     valides = plages(a.valide or VALIDES_DEFAUT)
+    hors_regle_ok = tuple(x for x in a.hors_regle_ok.split(",") if x)
+    if a.ages_64 not in ("auto", "aucun"):
+        voulus64 = set(int(x) for x in a.ages_64.split(",") if x)
+    else:
+        voulus64 = None
     dest = os.path.abspath(a.dest)
     os.makedirs(dest, exist_ok=True)
     for f in os.listdir(dest):
@@ -318,6 +584,9 @@ def main():
                         "couches": {lay: {"hr": L["sha256"], "lr": L["lr"]["sha256"]} for lay, L in s["layers"].items()},
                         "echantillons": s["samples"], "trous_px": s["checks"]["largest_hole_px"],
                         "bouchon_arriere": (s.get("count") or {}).get("bouchon_arriere", 0)}
+        if s.get("samples_passes"):
+            # D-7 (lot A3) : échantillons de certaines passes (ombre à 32) ; m-9 de la vérification d'A3
+            sources[nom]["samples_passes"] = s["samples_passes"]
 
     # âge 1 : pièce posée sous la mitrailleuse vanilla
     s, d = lire_spec(valides[1], "e01-piece")
@@ -329,6 +598,7 @@ def main():
     marge = sum(mv[d][0] for d in MARGE_DIRS) / len(MARGE_DIRS)
     ecarts_vanille = {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mv.items())}
     refus = []
+    bilan_dirs = []
 
     for e in range(2, 16):
         dv = valides[e]
@@ -338,11 +608,29 @@ def main():
             s, d = lire_spec(dv, nom)
             note_source(nom, s, d)
             A[part] = {lay: copie(d, s["layers"][lay]) for lay in FIXE_COUCHES if lay in s["layers"]}
+        # poses de la tête : 64 directions si l'âge est complet et contrôlé, sinon repli à 4 (lot A2)
+        repli = None
+        liste = None
+        if a.ages_64 == "aucun":
+            repli = "repli demandé (--ages-64 aucun)"
+        elif voulus64 is not None and e not in voulus64:
+            repli = "âge hors de --ages-64"
+        else:
+            liste, repli = poses_64(e, dv, a.so, a.a3, hors_regle_ok)
+            if liste is None and voulus64 is not None:
+                raise SystemExit("[FO-FEUILLES] âge %d demandé à 64 directions mais incomplet : %s" % (e, repli))
+        if liste is None:
+            liste = [(dname, "e%02d-%s" % (e, part), dv if part in ("tete-N", "tete-E") else a.so,
+                      "V" if part in ("tete-N", "tete-E") else "A2") for dname, part in DIRECTIONS]
+        n_dirs = len(liste)
+        cols = 1 if n_dirs == 4 else LIGNE64
+        rows = n_dirs // cols
         poses = []
-        for dname, part in DIRECTIONS:
-            nom = "e%02d-%s" % (e, part)
-            dsrc = dv if part in ("tete-N", "tete-E") else a.so
+        for dname, nom, dsrc, origine in liste:
             s, d = lire_spec(dsrc, nom)
+            if origine == "A3" and s.get("samples_passes") != SAMPLES_PASSES_A3:
+                raise SystemExit("%s : samples_passes %s, attendu %s (D-7)" % (nom, s.get("samples_passes"),
+                                                                                SAMPLES_PASSES_A3))
             note_source(nom, s, d)
             poses.append((dname, nom, s, d))
         tete = {}
@@ -357,8 +645,12 @@ def main():
             R0 = max(b[2] for b in boites.values())
             B0 = max(b[3] for b in boites.values())
             W, H = R0 - L0, B0 - T0
-            hr = np.zeros((4 * H, W, 4), np.uint8)
-            lr = np.zeros((4 * H // 2, W // 2, 4), np.uint8)
+            if cols * W > LIMITE_PX or rows * H > LIMITE_PX:
+                raise SystemExit("[FO-FEUILLES] âge %d tête %s : feuille %d × %d px, au-delà de %d (F144)" % (
+                    e, lay, cols * W, rows * H, LIMITE_PX))
+            hr = np.zeros((rows * H, cols * W, 4), np.uint8)
+            lr = np.zeros((rows * H // 2, cols * W // 2, 4), np.uint8)
+            cellules = {}
             for k, (dname, nom, s, d) in enumerate(poses):
                 if lay not in s["layers"]:
                     continue
@@ -368,12 +660,19 @@ def main():
                 il = rgba(os.path.join(d, L["lr"]["file"]))
                 assert ih.shape[:2] == (L["height"], L["width"]), nom
                 assert il.shape[:2] == (L["height"] // 2, L["width"] // 2), nom
-                y0, x0 = k * H + gy - T0, gx - L0
+                cx, cy = (k % cols) * W, (k // cols) * H
+                y0, x0 = cy + gy - T0, cx + gx - L0
                 hr[y0:y0 + ih.shape[0], x0:x0 + ih.shape[1]] = ih
-                y0l, x0l = (k * H + gy - T0) // 2, (gx - L0) // 2
+                y0l, x0l = y0 // 2, x0 // 2
                 lr[y0l:y0l + il.shape[0], x0l:x0l + il.shape[1]] = il
+                cellules[dname] = {"source": nom, "x": gx - L0, "y": gy - T0}
+                if n_dirs != 4:
+                    cellules[dname]["k"] = k
                 if lay == "main":
-                    bouches[dname] = bouche(ih[..., 3], gx, gy, dname)
+                    if n_dirs == 4:
+                        bouches[dname] = bouche(ih[..., 3], gx, gy, dname)
+                    else:
+                        bouches[dname] = bouche_u(ih[..., 3], gx, gy, dname)
                 for kind in ("main", "glow"):
                     if lay == kind:
                         u = union.setdefault(e, [1e9, 1e9, -1e9, -1e9])
@@ -385,14 +684,13 @@ def main():
             shift = ((L0 + R0) / 2.0 / 64.0, (T0 + B0) / 2.0 / 64.0)
             cd = couche_def(fh, fl, W, H, shift)
             for r in ("hr", "lr"):
-                cd[r]["direction_count"] = 4
-                cd[r]["line_length"] = 1
+                cd[r]["direction_count"] = n_dirs
+                cd[r]["line_length"] = cols
             tete[lay] = cd
             # placement de chaque pose dans sa cellule (outil de contrôle : check_gun_sheets.py --sources)
-            tete[lay]["poses"] = {dname: {"source": nom, "x": boites[nom][0] - L0, "y": boites[nom][1] - T0}
-                                  for dname, nom, s, d in poses if nom in boites}
+            tete[lay]["poses"] = cellules
         A["tete"] = tete
-        # boîte d'affichage : socle, pièce et 4 poses de tête (couches principale et lueur)
+        # boîte d'affichage : socle, pièce et toutes les poses de tête (couches principale et lueur)
         u = union.setdefault(e, [1e9, 1e9, -1e9, -1e9])
         for part in ("socle", "piece"):
             for lay in ("main", "glow"):
@@ -403,23 +701,77 @@ def main():
                     u[2] = max(u[2], h["shift"][0] + h["width"] / 128.0)
                     u[3] = max(u[3], h["shift"][1] + h["height"] / 128.0)
         A["boite"] = [[u[0], u[1]], [u[2], u[3]]]
-        # bouche (E68) : centre et distance ajustés sur les 4 directions (règle du moteur mesurée, marge vanilla)
-        cy, dist = ajuste_tir(bouches, marge)
-        cy, dist = round(cy, 5), round(dist, 5)
-        mm = marges(bouches, cy, dist)
-        ecarts = {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mm.items())}
-        pire = max((v[0] ** 2 + v[1] ** 2) ** 0.5 for v in ecarts.values())
+        outils = {"directions": n_dirs, "noms": [p[0] for p in poses],
+                  "origines": {o: sum(1 for x in liste if x[3] == o) for o in ("V", "A2", "A3")},
+                  "repli": repli}
+        if n_dirs == 4:
+            # bouche (E68) : centre et distance ajustés sur les 4 directions (règle du moteur mesurée, marge vanilla)
+            cy, dist = ajuste_tir(bouches, marge)
+            cy, dist = round(cy, 5), round(dist, 5)
+            mm = marges(bouches, cy, dist)
+            ecarts = ecarts_de(mm, marge)
+            vis = {d: [round(v, 5) for v in eclat_visible(cy, dist, d)] for d in sorted(bouches)}
+            ecarts_ecrits = ecarts
+        else:
+            unites = {d: unite_pose(d) for d in bouches}
+            # contrôle : aux 4 directions cardinales, bouche_u() = bouche() du lot A2
+            card = {}
+            for c, kk in sorted(CARDINAUX.items()):
+                dn = "d%02d" % kk
+                p = [x for x in poses if x[0] == dn][0]
+                Lm = p[2]["layers"]["main"]
+                gx, gy, _, _ = boite_px(Lm)
+                al = rgba(os.path.join(p[3], Lm["file"]))[..., 3]
+                b_old = bouche(al, gx, gy, c)
+                if max(abs(b_old[0] - bouches[dn][0]), abs(b_old[1] - bouches[dn][1])) > 1e-9:
+                    raise SystemExit("[FO-FEUILLES] âge %d : bouche_u(%s) %s ≠ bouche(%s) %s" % (
+                        e, dn, bouches[dn], c, b_old))
+                card[c] = b_old
+            # AVANT : réglage du lot A2 (4 directions), évalué sur les 64
+            cy4, dist4 = ajuste_tir(card, marge)
+            cy4, dist4 = round(cy4, 5), round(dist4, 5)
+            ec_av = ecarts_de(marges_u(bouches, unites, cy4, dist4), marge)
+            # APRÈS : moindres carrés sur les 64 directions, bouches mal mesurées écartées (ajuste_robuste)
+            cy, dist, _, rejet = ajuste_robuste(bouches, unites, marge)
+            cy, dist = round(cy, 5), round(dist, 5)
+            ecarts_tous = ecarts_de(marges_u(bouches, unites, cy, dist), marge)
+            ecarts = {d: v for d, v in ecarts_tous.items() if d not in rejet}
+            if len(ecarts) < GARDE_MIN * n_dirs:
+                refus.append("âge %d : %d direction(s) sur %d écartées du réglage (bouche non mesurable) : %s" % (
+                    e, len(rejet), n_dirs, rejet))
+            vis = {d: [round(v, 5) for v in eclat_visible_u(cy, dist, unites[d])] for d in sorted(bouches)}
+            ecarts_ecrits = ecarts_tous
+            outils["eclat_avant"] = {"tir": {"projectile_creation_distance": dist4, "projectile_center": [0.0, cy4]},
+                                     "ecart_max_4": round(pire_de({c: ec_av["d%02d" % CARDINAUX[c]]
+                                                                   for c in CARDINAUX}), 4),
+                                     "ecart_max_64": round(pire_de(ec_av), 4),
+                                     "pire_direction": max(ec_av, key=lambda d: ec_av[d][0] ** 2 + ec_av[d][1] ** 2)}
+            outils["eclat_apres"] = {"ecart_max_64": round(pire_de(ecarts), 4),
+                                     "ecart_max_toutes": round(pire_de(ecarts_tous), 4),
+                                     "ecart_max_4": round(pire_de({c: ecarts_tous["d%02d" % CARDINAUX[c]]
+                                                                   for c in CARDINAUX}), 4),
+                                     "pire_direction": max(ecarts, key=lambda d: ecarts[d][0] ** 2 + ecarts[d][1] ** 2),
+                                     "ecartees": rejet,
+                                     "ecarts_ecartees": {d: ecarts_tous[d] for d in rejet}}
+        pire = pire_de(ecarts)
         if pire > a.seuil:
-            refus.append("âge %d : éclat à %.3f tuile de sa cible (seuil %.2f) ; écarts %s" % (e, pire, a.seuil, ecarts))
+            refus.append("âge %d : éclat à %.3f tuile de sa cible (seuil %.2f) ; pire direction %s %s" % (
+                e, pire, a.seuil, max(ecarts, key=lambda d: ecarts[d][0] ** 2 + ecarts[d][1] ** 2),
+                ecarts[max(ecarts, key=lambda d: ecarts[d][0] ** 2 + ecarts[d][1] ** 2)]))
         A["tir"] = {"projectile_creation_distance": dist, "projectile_center": [0.0, cy]}
         A["bouches"] = {k: [round(v[0], 5), round(v[1], 5)] for k, v in sorted(bouches.items())}
-        A["eclat_visible"] = {d: [round(v, 5) for v in eclat_visible(cy, dist, d)] for d in sorted(bouches)}
-        A["ecarts_bouche"] = ecarts
+        A["eclat_visible"] = vis
+        A["ecarts_bouche"] = ecarts_ecrits
         A["ecart_max"] = round(pire, 4)
-        # icône : socle + tête E (couches principales hr), composées en lumière linéaire, réduites
-        A["icone"] = icone(dest, e, A, poses)
+        # icône : socle + tête E (pose validée tete-E = d16), composées en lumière linéaire, réduites
+        A["icone"] = icone(dest, e, A, [p for p in poses if p[1] == "e%02d-tete-E" % e][0])
+        A["outils"] = outils
         ages[e] = A
+        bilan_dirs.append((e, n_dirs, outils["origines"], repli))
     imprime_tir(ages, vb, marge, ecarts_vanille)
+    for e, n, org, repli in bilan_dirs:
+        print("[FO-FEUILLES] âge %2d : %d directions (poses V %d, A2 %d, A3 %d)%s" % (
+            e, n, org["V"], org["A2"], org["A3"], (" ; REPLI à 4 : " + repli) if n == 4 and repli else ""))
     if refus:
         for r in refus:
             print("[FO-FEUILLES] REFUS " + r)
@@ -431,14 +783,9 @@ def main():
                            "ecarts_bouche": ecarts_vanille,
                            "projectile_creation_distance": VANILLE["projectile_creation_distance"],
                            "projectile_center": list(VANILLE["projectile_center"])}}
-    # les sous-tables « poses » restent dans sprites.json (outils), pas dans sprites.lua (jeu)
-    pour_lua = json.loads(json.dumps(donnees))
-    for e, A in pour_lua["ages"].items():
-        for lay, cd in A.get("tete", {}).items():
-            cd.pop("poses", None)
-    pour_lua["ages"] = {int(k): v for k, v in pour_lua["ages"].items()}
+    # les sous-tables « poses » et « outils » restent dans sprites.json (outils), pas dans sprites.lua (jeu)
     with open(os.path.join(dest, "sprites.lua"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(texte_lua(pour_lua))
+        f.write(texte_lua(pour_lua(donnees)))
     with open(os.path.join(dest, "sprites.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(donnees, f, indent=1, sort_keys=True)
     fichiers = {}
@@ -452,13 +799,16 @@ def main():
                  "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
                  "git": "PNG hors de git (.gitignore : graphics/levels/gun/*.png, décision D-6) ; ce manifeste, "
                         "sprites.lua et sprites.json sont commités",
+                 "directions": {str(e): n for e, n, _, _ in bilan_dirs},
                  "sources": sources, "fichiers": fichiers,
                  "sprites_lua_sha256": sha_file(os.path.join(dest, "sprites.lua")),
                  "sprites_json_sha256": sha_file(os.path.join(dest, "sprites.json"))}
     with open(os.path.join(dest, "MANIFEST.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(manifeste, f, indent=1, sort_keys=True)
     tot = sum(v["taille"] for v in fichiers.values())
-    print("[FO-FEUILLES] %d fichiers PNG, %.2f Mo, %d sources ; dest %s" % (len(fichiers), tot / 1e6, len(sources), dest))
+    n64 = sum(1 for _, n, _, _ in bilan_dirs if n == NDIR64)
+    print("[FO-FEUILLES] %d fichiers PNG, %.2f Mo, %d sources ; têtes : %d âge(s) à 64 directions, %d à 4 ; dest %s" % (
+        len(fichiers), tot / 1e6, len(sources), n64, len(bilan_dirs) - n64, dest))
     print("[FO-FEUILLES] boîtes : " + " ; ".join("âge %d %s" % (e, [[round(x, 3) for x in c] for c in ages[e]["boite"]])
                                                   for e in range(2, 16)))
     return 0
@@ -473,19 +823,27 @@ def imprime_tir(ages, vb, marge, ecarts_vanille):
         A = ages[e]
         if "tir" not in A:
             continue
-        print("[FO-FEUILLES] âge %2d tir %s ; écarts (le long, transverse) E %s N %s S %s O %s ; max %.3f" % (
-            e, A["tir"], A["ecarts_bouche"]["E"], A["ecarts_bouche"]["N"], A["ecarts_bouche"]["S"],
-            A["ecarts_bouche"]["O"], A["ecart_max"]))
+        eb = A["ecarts_bouche"]
+        if "E" in eb:
+            print("[FO-FEUILLES] âge %2d tir %s ; écarts (le long, transverse) E %s N %s S %s O %s ; max %.3f" % (
+                e, A["tir"], eb["E"], eb["N"], eb["S"], eb["O"], A["ecart_max"]))
+        else:
+            o = A["outils"]
+            av, ap = o["eclat_avant"], o["eclat_apres"]
+            print("[FO-FEUILLES] âge %2d tir %s (64 directions) ; écart max sur 64 : AVANT (réglage A2 %s) %.3f "
+                  "(pire %s ; sur les 4 cardinales %.3f) -> APRÈS %.3f (pire %s %s ; sur les 4 cardinales %.3f)" % (
+                      e, A["tir"], av["tir"], av["ecart_max_64"], av["pire_direction"], av["ecart_max_4"],
+                      ap["ecart_max_64"], ap["pire_direction"], eb[ap["pire_direction"]], ap["ecart_max_4"]))
 
 
-def icone(dest, e, A, poses):
+def icone(dest, e, A, pose_e):
     def charge(d, L):
         return rgba(os.path.join(d, L["file"])).astype(np.float64) / 255.0, boite_px(L)
     # socle : depuis la copie dans dest (mêmes octets que la source)
     sm = A["socle"]["main"]["hr"]
     socle = rgba(os.path.join(dest, os.path.basename(sm["filename"]))).astype(np.float64) / 255.0
     sb = boite_px({"width": sm["width"], "height": sm["height"], "shift": sm["shift"], "file": sm["filename"]})
-    dname, nom, s, d = poses[1]          # tête E
+    dname, nom, s, d = pose_e            # tête E (pose validée tete-E, d16)
     tete, tb = charge(d, s["layers"]["main"])
     L0, T0 = min(sb[0], tb[0]), min(sb[1], tb[1])
     R0, B0 = max(sb[2], tb[2]), max(sb[3], tb[3])

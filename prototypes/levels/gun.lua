@@ -10,14 +10,17 @@
     - n = 2 (âge 1) : mitrailleuse vanilla inchangée, avec la pièce e01 posée SOUS son socle (couches insérées en tête) ;
     - n impair 3 à 29 : socle de l'âge (base_picture) + tête de l'âge ;
     - n pair 4 à 30 : socle + pièce paire de l'âge (couche ajoutée au socle) + tête.
-  Tête : 4 directions (N, E, S, O ; RotatedAnimation, direction_count 4 ; apply_projection laissé VRAI, F121 : les
-  têtes sont rendues en rotation uniforme dKK), une image ; TOUJOURS LEVÉE (réponse du DC : folded = preparing =
+  Tête : RotatedAnimation à 64 directions (lot A3-jeu : feuille 8 × 8, d00 à d63, line_length 8) quand les 64 poses
+  de l'âge sont produites et contrôlées, sinon 4 directions (N, E, S, O en colonne, line_length 1 : lot A2) ; le
+  nombre de directions et line_length viennent de sprites.lua, âge par âge (feuilles.py) ; apply_projection laissé
+  VRAI (F121 : les têtes sont rendues en rotation uniforme dKK), une image ; TOUJOURS LEVÉE (réponse du DC : folded = preparing =
   prepared = attacking = folding = la même image) ; les vitesses (clés de JEU) restent celles de la vanilla : seul le
   nombre d'images change (E67, garde corrigée par INT-GARDE). Éclat de tir : celui de la munition (vanilla).
   Couches : principale (filtrage linéaire), lueur (draw_as_glow, additive), halo (draw_as_light, additive, socle et
   pièce), ombre (draw_as_shadow). Pas de masque de couleur d'équipe (D-4 non tranchée).
   Bouche (E68) : projectile_creation_distance et projectile_center mesurés par âge sur les sprites (sprites.lua,
-  « tir » : étalonnage sur la vanilla, feuilles.py) ; douilles : point vanilla à l'échelle de l'emprise.
+  « tir » : étalonnage sur la vanilla, feuilles.py ; moindres carrés sur toutes les directions de l'âge, 4 ou 64) ;
+  douilles : point vanilla à l'échelle de l'emprise.
   Reste et explosion : copies déclarées (ctx.declare) de celles de la vanilla, agrandies à l'emprise.
   Son du tir (lot S0) : attack_parameters.sound de l'ÈRE de l'âge (ère = (âge − 1) // 3 + 1 : âges 1-3, 4-6, 7-9,
   10-12, 13-15), 4 variations dérivées des 4 tirs vanilla, volume du prototype vanilla (0,4) ; fichiers et liste :
@@ -66,7 +69,8 @@ local function couche_fixe(def, kind)
   return s
 end
 
---- Couche de tête : RotatedAnimation à 4 directions (colonne N, E, S, O), une image.
+--- Couche de tête : RotatedAnimation à 64 directions (8 × 8) ou 4 (colonne N, E, S, O), une image ; direction_count
+--- et line_length lus dans sprites.lua.
 local function couche_tete(def, kind)
   local function une(r, hr)
     local t = flags_couche({ filename = r.filename, width = r.width, height = r.height,
@@ -122,7 +126,8 @@ function M.dress(p, ctx)
   p.base_picture = { layers = base }
   -- Tête : la même image pour les 5 animations (tête toujours levée).
   for _, k in ipairs(TETE) do p[k] = tete(age) end
-  -- Boîte d'affichage : socle, pièce et 4 poses de tête (couches principale et lueur), mesurée par feuilles.py.
+  -- Boîte d'affichage : socle, pièce et toutes les poses de tête (4 ou 64 ; couches principale et lueur), mesurée par
+  -- feuilles.py.
   p.drawing_box = { { age.boite[1][1], age.boite[1][2] }, { age.boite[2][1], age.boite[2][2] } }
   -- Points de tir (sous-clés graphiques) : douilles à l'échelle de l'emprise (kit), puis bouche mesurée (E68).
   local f = ctx.footprint / ctx.family.size
