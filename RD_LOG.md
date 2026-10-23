@@ -174,6 +174,16 @@
   `68ec5a1`) : fiches de direction artistique, rondes jugées à l'aveugle (descriptions des âges 13 à 15 remplacées),
   production, validation, planches. Les âges 1 à 12 ne sont pas touchés ; leurs aperçus de la ronde 5 sont copiés
   dans `fo-logs\2026-10-23_V3E-ereV\ref\`.
+- 23/10, vers 14 h 50, **ère V cosmique, aperçus de la ronde 2 (page de suivi)** : « c est valide, les styles sont parfait, j aime beaucoup, il reste evidemment les animation et les bruits mais si non c est parfait, je valide les designs de l ere V, il manque encore les biomes, des styles de mineraux, de nouvelles ressources et des moyens pour les e ploiter mais si non cest bien, passez a le suite ».
+  → **Designs de la mitrailleuse VALIDÉS par le DC pour les 15 âges** : âges 1 à 12 de la ronde 5 de la passe 5 (E65),
+  ère V de la ronde 2 du run `wf_5f1609fb-473` (commit `6d0e961`). Ronde 3 de l'ère V arrêtée à 14 h 55 (travail gardé
+  sur la branche `v3e-ereV-r3-wip`) ; branche de référence `v3e-final` (`40cad92`, worktree `v3e-p5-kit`) = âges 1 à 12
+  de `v3e-p5` + ère V de `6d0e961`. Rendus définitifs de l'ère V, test à l'aveugle final des 15 âges et planches
+  finales : run `wf_c46edecb-f29`, lancé vers 15 h.
+  Restent dits par le DC : les animations et les bruits de la mitrailleuse ; les biomes, des styles de minerais, de
+  nouvelles ressources et des moyens de les exploiter (lots B6, B7 et X1 à X15). « Passez à la suite » : déploiement
+  de la méthode aux 6 autres familles (lots V3), avec des designs plus surprenants (consigne du 23/10, 7 h 50), et
+  intégration en jeu de la mitrailleuse.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
