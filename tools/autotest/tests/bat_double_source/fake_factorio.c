@@ -1,5 +1,5 @@
 /* Faux factorio.exe pour tester fo-autotest.bat hors jeu (racines jetables du scratchpad).
-   --create <zip> : ecrit le zip ; si FAKE_HOLD=<fichier relatif>, lance un enfant detache qui garde
+   --create <zip> : affiche la graine recue (--map-gen-seed) et FO_MAP_SEED (lot INT-GRAINE), ecrit le zip ; si FAKE_HOLD=<fichier relatif>, lance un enfant detache qui garde
    <mods>\factorio-overhaul\<fichier> ouvert sans partage pendant 8 s (rmdir echoue en partie).
    --benchmark <zip> : affiche la version d'info.json de la copie et la presence de marker-old.txt.
    --hold <chemin> <drapeau> : (enfant) ouvre le fichier sans partage, cree le drapeau, dort 8 s. */
@@ -25,6 +25,15 @@ int main(int argc, char **argv) {
   const char *create = arg_after(argc, argv, "--create");
   const char *bench = arg_after(argc, argv, "--benchmark");
   if (create) {
+    /* Lot INT-GRAINE : la graine recue (valeur qui suit --map-gen-seed), le nombre d'occurrences de l'option
+       et le nombre d'arguments (une graine coupee en deux mots changerait argc) ; lu par run.py dans
+       create-stdout.txt. */
+    const char *seed = arg_after(argc, argv, "--map-gen-seed");
+    int nseed = 0;
+    for (int i = 1; i < argc; i++) if (strcmp(argv[i], "--map-gen-seed") == 0) nseed++;
+    printf("create : map-gen-seed [%s] x%d argc %d\n", seed ? seed : "ABSENT", nseed, argc);
+    const char *env = getenv("FO_MAP_SEED");
+    if (env) printf("create : env FO_MAP_SEED [%s]\n", env); else printf("create : env FO_MAP_SEED ABSENTE\n");
     FILE *z = fopen(create, "w");
     if (z) { fputs("faux zip\n", z); fclose(z); }
     const char *hold = getenv("FAKE_HOLD");

@@ -15,7 +15,7 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `analyze.py` | Analyse des performances d'un banc (`--spikes`) |
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
 | `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs ; (lot R1) `--tag FO-T2-DEFENSE` pour le banc `t2-defense` |
-| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1) ; (lot R1) `mut_vram.py`, banc de mutations de la règle de l'atlas virtuel de `vram.py` (§5.1) |
+| `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1 ; graine `FO_MAP_SEED` : §1.2) ; (lot R1) `mut_vram.py`, banc de mutations de la règle de l'atlas virtuel de `vram.py` (§5.1) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
 
@@ -38,6 +38,7 @@ fo-captures.bat [scenario] [source du mod] [fenetre]
                sinon <racine>\mods\factorio-overhaul
     fenetre  : min (défaut) | small | normal
 fo-autotest.bat [nopause] [ticks] [scenario] [source]      (défaut : fo-autotest-params.txt)
+    variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2)
 fo-visual.bat   [nopause] [fenetre] [delai_s]              (défaut : min, 900 s)
 ```
 
@@ -172,6 +173,44 @@ python -B tools/autotest/ht3_journal.py "<racine>\fo-autotest"        -> JOURNAL
 python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION "<racine>\fo-autotest"   -> JOURNAL FO-T2-MIGRATION : n OK, 0 ECHEC(S), code 0
 python -B tools/autotest/tests/test_ht3_journal.py                     -> BILAN : 15 OK, 0 ECHEC(S) (hors jeu)
 ```
+
+### 1.2 Graine de la carte : `FO_MAP_SEED` (lot INT-GRAINE)
+
+`fo-autotest.bat` crée la carte avec `--map-gen-seed 20261020` par défaut. La variable d'environnement facultative
+**`FO_MAP_SEED`** donne une autre graine, sans autre changement (même copie, mêmes fichiers, même benchmark) :
+
+```
+$env:FO_MAP_SEED = '987654321'
+& "<racine>\fo-autotest.bat" nopause 4000 content "<source>"
+$env:FO_MAP_SEED = $null
+Get-Content "<racine>\fo-autotest\seed.txt"        # -> 987654321
+```
+
+- **Absente ou vide** : graine 20261020, comme avant (sous PowerShell, `$env:FO_MAP_SEED = ''` retire la variable ;
+  une valeur vide transmise par un autre programme est aussi ramenée au défaut).
+- **Valeur acceptée** : chiffres seulement, zéros de tête retirés (`0042` → 42), de 0 à 4 294 967 295 (graine du
+  moteur : entier 32 bits non signé). La graine passée au moteur est la forme sans zéros de tête.
+- **Valeur refusée** (lettres, signe, espace, nombre trop grand, caractères spéciaux) : message « Graine invalide
+  dans FO_MAP_SEED : [...] », **code 1 AVANT la prise du verrou** : rien n'a tourné, `fo-autotest\` contient encore
+  les résultats du banc PRÉCÉDENT (comme pour le code 2). La valeur n'est lue qu'en expansion retardée : un
+  guillemet, `&`, `|`, `%` ou `!` ne peut ni casser le script ni exécuter une commande (la forme simple
+  `set SEED=%FO_MAP_SEED%` exécutait `1&echo PIEGE>piege2.txt` : constaté hors jeu, mutant `m1` du lot INT-GRAINE).
+- **Trace** : `fo-autotest\seed.txt` contient la graine utilisée (une ligne, écrite à l'étape `[1/4]`, aussi quand la
+  création échoue) ; la ligne `[2/4]` de la console dit « (graine N, defaut) » ou « (graine N, FO_MAP_SEED) ».
+- `fo-captures.bat` appelle `fo-autotest.bat` : la variable s'y applique de la même façon (graine refusée : code 8,
+  session visuelle non lancée). `fo-visual.bat` reprend la carte du dernier banc, donc sa graine.
+- Compatible avec `FO_CREATE_SRC` (double source) : la graine s'applique à l'étape `--create`, la seule qui génère
+  la carte.
+- Comme `FO_CREATE_SRC`, la variable reste définie pour les bancs suivants de la même session PowerShell : la
+  vider après usage (`$env:FO_MAP_SEED = $null`). **Les bancs dont les contrôles supposent la graine 20261020**
+  (`m0-migration`, `m0-reprise`, et toute mesure de référence de performance) se jouent SANS la variable.
+
+Banc hors jeu (faux `factorio.exe`, racines jetables, aucun accès à la racine du jeu) :
+`python -B tools/autotest/tests/bat_double_source/run.py` → « BILAN : 25 OK, 0 ECHEC(S) » : les 4 cas de la double
+source, plus défaut 20261020 (sans variable et en double source), variable vide → défaut, 6 graines acceptées (dont
+4294967295, 0, zéros de tête, et en double source), 10 graines refusées (rien n'a tourné, aucune commande injectée
+exécutée), et le passage par `fo-captures.bat` (graine transmise ; graine refusée → code 8). Sur le `.bat` d'avant
+le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC.
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 
@@ -357,8 +396,8 @@ Scénarios greffés des lots de niveaux :
   s'arrête avant le contrôle, sans BILAN (passage du 22/10 à 22:51:02,43). Pas de contrôle de journal.
 
 Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époques 5, 7 et 8, `script/world/guarantee.lua`) :
-- `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine fixe
-  20261020) : chaque graine est jouée sur une surface créée par le scénario (`game.create_surface`, réglages de nauvis,
+- `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine
+  20261020 par défaut ; depuis le lot INT-GRAINE, `FO_MAP_SEED` change celle de nauvis, §1.2) : chaque graine est jouée sur une surface créée par le scénario (`game.create_surface`, réglages de nauvis,
   autre graine). Nauvis (garantie posée à on_init), 5 graines (1, 42, 123456, 987654321, 3141592653) en surface neuve
   (A) et explorée sur 23 chunks (B : relevé des gisements NATURELS, puis garantie comme dans une sauvegarde), une carte
   sans les 3 ressources (C), des obstacles (D : coffre du joueur, eau), le filet périodique (F, tick 600). Sans double
