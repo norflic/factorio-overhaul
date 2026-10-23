@@ -16,7 +16,9 @@
 > fusionnés dans `main` à 17 h 44 ; bancs en moteur réel rejoués sur `main` de 17:45:17 à 17:46:17, hors jeu vers
 > 17 h 50 ; lot **K0** (kit commun des familles) livré et corrigé ; **lots INT-K0, INT-GARDE et INT-GRAINE fusionnés vers
 > 18 h 40** (`e4e8416`, `b80f2bb`, `0db5493`), tous les bancs rejoués verts sur `main` de 18:42 à 18:50, dont `content` et
-> `monde` sur la graine 123456789 ; `.bat` de la racine recopiés). Prochain lot : **A2, la mitrailleuse en jeu à 4 directions**. Mise à jour précédente : 22/10/2026, 23 h 08 (heure du PC ; orchestrateur, session Claude Code `8a9c0503`, qui
+> `monde` sur la graine 123456789 ; `.bat` de la racine recopiés). ⏳ **Lot A2 lancé vers 19 h 05** (run `wf_0143e61e-944`, session
+> `8a9c0503` ; la mitrailleuse en jeu à 4 directions ; décision D-6 : feuilles dans `graphics/levels/gun/`, hors de git, manifeste
+> commité ; sorties `<racine>\fo-logs\2026-10-24_A2\`). Mise à jour précédente : 22/10/2026, 23 h 08 (heure du PC ; orchestrateur, session Claude Code `8a9c0503`, qui
 > reprend la session `6b481308` du 21-22/10, coupée à 8 h 55 par la limite d'usage hebdomadaire de son compte ;
 > jalon : lot V3-T3 (« Libérer la place », réponse B à Q-T2-1) intégré dans `main` (fusion `8a28804`, changelog
 > `4a7a365` ; **version 0.4.4**), bancs en moteur réel rejoués sur `main` de 22:50:45 à 22:51:53, hors jeu jusqu'à 22:55:17 ; lot V3-T4 (réponse A à Q-T2-2)

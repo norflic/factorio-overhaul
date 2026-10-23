@@ -202,6 +202,12 @@
   mesurée en moteur, les autres animations suivent la doc), **INT-GRAINE** (fusion `0db5493` : `FO_MAP_SEED` dans
   `fo-autotest.bat` et `fo-captures.bat`, défaut 20261020 inchangé, valeurs filtrées ; F137 à F139 ; `.bat` recopiés à la
   racine par l'orchestrateur après vérification que la racine était identique à l'ancienne source). Moteur réel sur `main` après les fusions (23/10, `done.txt` de 18:42:28,16 à 18:43:51,14 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.5-b\`) : `content` 317 ; `monde` 89 ; `m0-reprise` 15 ; `m0-migration` 9 ; `t2-machines` 80 ; `t3-libere` 41 ; `bord-a-bord` 12 ; `ht3-migration` 30 + journal 7 ; `t2-migration` 64 + 26 ; `t2-defense` 36 + 19 (0.4.1) et 36 + 11 (0.4.2) ; `t3-migration` 7 ; **sur une autre graine (`FO_MAP_SEED` = 123456789, `seed.txt` relu)** : `content` 317 et `monde` 89. Hors jeu (vers 18 h 50) : run 114, war 92, td 270, pteam 15, migration 82, monde 157, **levels 1 661** + 11 écarts connus, epochs 16 665, org 362, pvp 596 ; harness 0 erreur ; api_lint 669 ; d4m 5/5 ; mut_atlas 40 ; test_ht3_journal 15 ; **bat_double_source 25** ; mut_vram 18/18.
+- 23/10, vers 19 h 05, **décision D-6 de l'orchestrateur (lot A2)** : les feuilles d'images du jeu vivent DANS le dossier du mod
+  (`graphics/levels/<famille>/`), sinon la partie du DC ne les voit pas, mais HORS de git (`.gitignore`) ; un manifeste commité
+  (fichier, taille, sha256, dimensions) et la commande de régénération depuis les sprites de production les décrivent ; les
+  bancs copient le dossier du mod tel quel. Le plan proposait un magasin `<racine>\fo-sprites\` hors du mod : écarté, car il
+  exigeait de changer les `.bat` ET laissait la partie du DC sans images. → lot **A2** (mitrailleuse en jeu à 4 directions)
+  lancé vers 19 h 05 (run `wf_0143e61e-944` ; sorties `fo-logs\2026-10-24_A2\` ; identifiants réservés F123 à F129, E68).
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
