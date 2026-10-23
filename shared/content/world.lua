@@ -130,9 +130,26 @@ W.decor = {
   },
 }
 
+--[[
+  Garantie de placement (lot M0, 23/10) : les trois ressources sont les monnaies des époques 5, 7 et 8
+  (shared/levels/config.lua, L.epoch_materials). Nombre et distance au départ : X.base_resources de
+  shared/content/epochs.lua (placement.guaranteed) ; forme du site posé par script : `guarantee` ci-dessous.
+  Règles : shared/content/guarantee.lua (pur) ; exécution : script/world/guarantee.lua.
+    site_radius : rayon du disque de tuiles du biome posé autour du site (bord irrégulier) ;
+    ore_radius  : rayon du gisement (minerai) ; amount : quantité par tuile au centre (décroît vers le bord) ;
+    min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
+    wells       : puits (fluide) : quantité par puits, écart entre puits.
+]]
+W.resource_order = { "tungsten", "crystal", "methane" }
+
 W.resources = {
   tungsten = {
     resource = "fo-tungsten-ore",
+    kind = "ore",
+    epoch = 5,
+    -- Site garanti : environ 200 000 minerais (100 000 plaques ; un bâtiment de chaque famille à son niveau
+    -- maximal en demande 2 164 plaques en tout, calculé sur L.cost).
+    guarantee = { site_radius = 13, ore_radius = 8, amount = 1500, min_total = 100000 },
     item = "fo-tungsten-ore",
     -- Session 4 : forme de gisement différente (blocs de la pierre, pas les grains du fer), métal sombre
     -- et reflets acier bleutés qui scintillent (aperçus calculés sur les textures du jeu : la teinte
@@ -150,6 +167,10 @@ W.resources = {
   },
   crystal = {
     resource = "fo-resonance-crystal",
+    kind = "ore",
+    epoch = 7,
+    -- Site garanti : environ 115 000 cristaux (un bâtiment de chaque famille au niveau maximal : 5 265).
+    guarantee = { site_radius = 15, ore_radius = 7, amount = 1200, min_total = 60000 },
     item = "fo-resonance-crystal",
     -- La texture de l'uranium est verte (moyenne 0,22 ; 0,31 ; 0,07 : presque sans bleu) : teintée en
     -- violet elle donnait un minerai brun-olive (F38). Forme du fer (texture neutre), violet vif, éclats
@@ -167,6 +188,11 @@ W.resources = {
   },
   methane = {
     resource = "fo-methane",
+    kind = "fluid",
+    epoch = 8,
+    -- Puits garantis : 150 % de rendement chacun (300 000 = 100 % pour un puits copié du pétrole), dans une
+    -- flaque de marais (le poison du biome s'y applique).
+    guarantee = { site_radius = 7, wells = { amount = 450000, spacing = 6 } },
     fluid = "fo-methane",
     copy_resource = "crude-oil",
     copy_fluid = "petroleum-gas",
@@ -177,7 +203,8 @@ W.resources = {
     -- Moteur réel : le bonus ne touche que le jet direct (pas les brûlures) ; à 1,25 l'écart avec le
     -- pétrole léger (1,1) restait dans le bruit du banc de contenu.
     flamethrower_damage_modifier = 1.5,
-    cracking = { methane = 100, petroleum = 60, energy = 3 },
+    -- Craquage (usine chimique) : `input` du fluide -> `output` de `product`, en `energy` secondes.
+    cracking = { input = 100, product = "petroleum-gas", output = 60, energy = 3 },
     autoplace = { base_density = 6, base_spots_per_km2 = 2, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7103 },
   },
 }

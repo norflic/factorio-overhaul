@@ -356,6 +356,26 @@ Scénarios greffés des lots de niveaux :
   Attendu sur `main` (22/10, 22:51:53,59) : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) ». À 700 ticks, le banc
   s'arrête avant le contrôle, sans BILAN (passage du 22/10 à 22:51:02,43). Pas de contrôle de journal.
 
+Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époques 5, 7 et 8, `script/world/guarantee.lua`) :
+- `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine fixe
+  20261020) : chaque graine est jouée sur une surface créée par le scénario (`game.create_surface`, réglages de nauvis,
+  autre graine). Nauvis (garantie posée à on_init), 5 graines (1, 42, 123456, 987654321, 3141592653) en surface neuve
+  (A) et explorée sur 23 chunks (B : relevé des gisements NATURELS, puis garantie comme dans une sauvegarde), une carte
+  sans les 3 ressources (C), des obstacles (D : coffre du joueur, eau), le filet périodique (F, tick 600). Sans double
+  source : `& "<racine>\fo-autotest.bat" nopause 700 monde "<source>"`. Attendu (lot M0, 23/10, 16:13:17) :
+  « [FO-MONDE] BILAN : 89 OK, 0 ECHEC(S) ». En `--create`/`--benchmark`, rien n'est cartographié : les étiquettes de
+  carte restent en attente (contrôlé). Avec images : `& "<racine>\fo-captures.bat" monde "<source>"` (9 captures des 3
+  sites de nauvis, jour, nuit, de près ; la cartographie y tourne : 91 OK, étiquettes posées) ;
+- `m0-migration` (700 ticks), double source SEULEMENT : une sauvegarde 0.4.4 rechargée par la source M0
+  (`on_configuration_changed`), gisements déjà connus comptés, coffre du joueur évité :
+  ```
+  $env:FO_CREATE_SRC = "<racine>\fo-logs\2026-10-23_suite\M0\src-0.4.4"
+  & "<racine>\fo-autotest.bat" nopause 700 m0-migration "<source M0>"
+  $env:FO_CREATE_SRC = $null
+  ```
+  `src-0.4.4` = `git archive 93e3d89` (version 0.4.4) : à GARDER. Attendu (23/10, 16:14:03) : « [FO-M0-MIGRATION]
+  BILAN : 9 OK, 0 ECHEC(S) ».
+
 Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
 « LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul
 (`{ dry = true }`, rien n'est posé) pour chaque bâtiment laissé par la migration. Cette ligne est HORS bilan : le

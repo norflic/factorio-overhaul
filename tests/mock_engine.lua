@@ -751,6 +751,7 @@ function M.new_world(opts)
     on_built_entity = 8, on_robot_built_entity = 9, script_raised_built = 10,
     script_raised_revive = 11, script_raised_destroy = 12, on_player_mined_entity = 13, on_robot_mined_entity = 14,
     on_selected_entity_changed = 15, on_player_left_game = 16,
+    on_chunk_charted = 17, -- lot M0 : étiquettes des sites garantis (script/world/guarantee.lua)
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
@@ -774,21 +775,32 @@ function M.new_world(opts)
     return nil
   end })
 
-  local surface = { _lua_object = true, index = 1, valid = true, name = "nauvis" }
+  -- Lot M0 : graine de la carte (garantie des monnaies, script/world/guarantee.lua) et tuiles posées par script
+  -- (set_tiles : relevées dans W.tile_override, lues avant W.tile_at par get_tile et find_tiles_filtered).
+  local surface = { _lua_object = true, index = 1, valid = true, name = "nauvis", map_gen_settings = { seed = W.seed } }
+  W.tile_override = {}
+  local function tile_name_at(x, y)
+    return W.tile_override[x .. "," .. y] or W.tile_at(x, y)
+  end
   surface.find_non_colliding_position = function(name, center, radius, precision)
     assert(type(name) == "string" and center and radius and precision, "find_non_colliding_position : arguments")
     return { x = center.x, y = center.y }
   end
-  local RESOURCES = { ["iron-ore"] = true, ["copper-ore"] = true, ["coal"] = true, ["stone"] = true }
+  -- Lot M0 : les trois ressources du mod (sites garantis) suivent le même modèle de gisements ponctuels.
+  local RESOURCES = { ["iron-ore"] = true, ["copper-ore"] = true, ["coal"] = true, ["stone"] = true,
+    ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true }
   surface.create_entity = function(t)
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
     if RESOURCES[t.name] then
       -- Ressource posée par script : regroupée en gisements ponctuels (modèle de W.patches).
       for _, p in ipairs(W.patches) do
         local dx, dy = p.x - t.position.x, p.y - t.position.y
-        if (p.name or "iron-ore") == t.name and dx * dx + dy * dy < 100 then return { valid = true, name = t.name } end
+        if (p.name or "iron-ore") == t.name and dx * dx + dy * dy < 100 then
+          p.amount = (p.amount or 0) + (t.amount or 0)
+          return { valid = true, name = t.name }
+        end
       end
-      W.patches[#W.patches + 1] = { x = t.position.x, y = t.position.y, name = t.name }
+      W.patches[#W.patches + 1] = { x = t.position.x, y = t.position.y, name = t.name, amount = t.amount }
       return { valid = true, name = t.name }
     end
     if t.name == "flying-text" then
@@ -852,7 +864,7 @@ function M.new_world(opts)
   surface.is_chunk_generated = function(cpos) assert(cpos and cpos.x and cpos.y, "is_chunk_generated : ChunkPosition") return true end
   surface.get_tile = function(x, y)
     assert(type(x) == "number" and type(y) == "number", "get_tile(x, y) : entiers attendus")
-    local name = W.tile_at(x, y)
+    local name = tile_name_at(x, y)
     return {
       name = name, valid = true,
       collides_with = function(layer)
@@ -874,10 +886,12 @@ function M.new_world(opts)
     local out = {}
     if t.invert then
       -- Filtre inversé (seul usage du mod : « tout sauf les ressources » dans une zone).
-      local ex = {}
+      -- Lot M0 : « toute force sauf celles-ci » (bâtiments d'un joueur ou d'une IA sous un site garanti).
+      local ex, exf = {}, {}
       for _, ty in ipairs(type(t.type) == "table" and t.type or { t.type }) do ex[ty] = true end
+      for _, f in ipairs(type(t.force) == "table" and t.force or { t.force }) do exf[type(f) == "string" and f or f.name] = true end
       for _, e in ipairs(W.entities) do
-        if e.valid and not ex[e.type] then
+        if e.valid and not ex[e.type] and not (t.force and exf[e.force.name]) then
           local ok = true
           if t.area then ok = touches_area(e, t.area) end
           if ok and t.position and t.radius then
@@ -906,7 +920,9 @@ function M.new_world(opts)
         if dx * dx + dy * dy <= (rad + 4) ^ 2 and (t.name == nil or t.name == (p.name or "iron-ore")) then
           for ix = -2, 2 do
             for iy = -2, 2 do
+              -- amount (lot M0) : la quantité du gisement répartie sur ses 25 entités simulées.
               out[#out + 1] = { valid = true, name = p.name or "iron-ore", type = "resource",
+                amount = math.floor((p.amount or 25000) / 25),
                 position = { x = p.x + ix * 2, y = p.y + iy * 2 },
                 prototype = { resource_category = p.category or "basic-solid" }, destroy = function() end }
               if t.limit and #out >= t.limit then return out end
@@ -950,6 +966,32 @@ function M.new_world(opts)
   surface.count_tiles_filtered = function(t)
     assert(t.area or (t.position and t.radius), "count_tiles_filtered : zone attendue")
     return 0
+  end
+  -- Lot M0 : tuiles d'une zone { {x0, y0}, {x1, y1} } (bornes du moteur : x0 <= x < x1), sans autre filtre.
+  surface.find_tiles_filtered = function(t)
+    assert(t.area and not t.name and not t.position, "find_tiles_filtered (moteur simulé) : zone seule attendue")
+    local lt, rb = t.area[1], t.area[2]
+    local out = {}
+    for y = math.floor(lt[2]), math.ceil(rb[2]) - 1 do
+      for x = math.floor(lt[1]), math.ceil(rb[1]) - 1 do
+        out[#out + 1] = { name = tile_name_at(x, y), position = { x = x, y = y }, valid = true }
+      end
+    end
+    return out
+  end
+  surface.set_tiles = function(tiles, correct_tiles, remove_colliding_entities)
+    assert(type(tiles) == "table", "set_tiles : liste attendue")
+    for _, t in ipairs(tiles) do
+      local p = t.position
+      local x, y = p.x or p[1], p.y or p[2]
+      assert(type(t.name) == "string" and x and y, "set_tiles : { name, position } attendu")
+      W.tile_override[x .. "," .. y] = t.name
+    end
+    W.tiles_set = (W.tiles_set or 0) + #tiles
+  end
+  surface.regenerate_decorative = function(names, chunks)
+    assert(type(names) == "table" and type(chunks) == "table", "regenerate_decorative : listes attendues")
+    W.decor_regenerated = (W.decor_regenerated or 0) + #chunks
   end
   surface.count_entities_filtered = function(t)
     -- Compteur d'appels (lot V2c : coût du recensement Q16 en cache, tests/levels_test.lua).
@@ -1086,6 +1128,15 @@ function M.new_world(opts)
   _G.game = {
     tick = 0,
     surfaces = { [1] = surface, nauvis = surface },
+    -- Lot M0 : tuiles naturelles (autoplace) et eau, pour la garantie des monnaies (script/world/guarantee.lua).
+    tile_prototypes = setmetatable({}, { __index = function(_, name)
+      local natural = { ["grass-1"] = true, ["grass-2"] = true, ["dirt-1"] = true, ["sand-1"] = true, ["water"] = true,
+        ["deepwater"] = true, ["fo-volcanic-ash"] = true, ["fo-crystal-flats"] = true, ["fo-toxic-marsh"] = true }
+      local water = name == "water" or name == "deepwater"
+      if not natural[name] and not (type(name) == "string" and (name:match("concrete") or name == "stone-path" or name == "landfill")) then return nil end
+      return { name = name, autoplace_specification = natural[name] and {} or nil,
+        collision_mask = water and { ["water-tile"] = true } or { ["ground-tile"] = true } }
+    end }),
     forces = W.forces,
     connected_players = { W.player },
     entity_prototypes = W.prototypes,

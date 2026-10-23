@@ -480,9 +480,9 @@ bloque plus la partie : le script pose ce qui manque, à distance fixée.
 | Remontée profonde : tungstène [A-III] | 14 | Concentré de tungstène ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
 | Remontée profonde : ilménite [A-III] | 14 | Concentré d'ilménite ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
 | Remontée profonde : monazite [A-III] | 14 | Concentré de monazite ρ8 | créée par le script sous un puits gravitique (minerai choisi par le joueur) | créée sous chaque puits posé : jamais absente |
-| Minerai de tungstène (existant) | 5 | Minerai de tungstène | fo-volcanic-ash | PROPOSÉ (lot X5) : un gisement de tungstène dans la zone de cendres garantie des fumerolles |
-| Cristal de résonance (existant) | 7 | Cristal de résonance | fo-crystal-flats | PROPOSÉ (lot X7) : une plaine de cristal posée par script si la graine n'en a pas à cette distance |
-| Méthane (existant) | 8 | Méthane | fo-toxic-marsh | PROPOSÉ (lot X8) : 2 puits de méthane posés par script, même hors marais |
+| Minerai de tungstène (existant) | 5 | Minerai de tungstène | fo-volcanic-ash | posé par script (lot M0) : un gisement de tungstène d'environ 200 000 sur un disque de cendres, partie neuve toujours, sauvegarde existante s'il n'en est connu aucun |
+| Cristal de résonance (existant) | 7 | Cristal de résonance | fo-crystal-flats | posé par script (lot M0) : un gisement de cristal d'environ 120 000 sur une plaine de cristal, mêmes conditions |
+| Méthane (existant) | 8 | Méthane | fo-toxic-marsh | posé par script (lot M0) : 2 puits de méthane à 150 % dans une flaque de marais, mêmes conditions (puits connus comptés) |
 <!-- /GEN:resources -->
 
 Ressources vanilla : fer, cuivre, charbon, pierre, bois et eau dans la zone de départ vanilla ; pétrole et
