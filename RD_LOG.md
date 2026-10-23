@@ -158,6 +158,7 @@
   `haut\journal.md`), que les constructeurs lisent au début de chaque ronde : palette en priorité dès la ronde 3 ; les
   clés de forme du troisième temps du kit (lancé à 9 h 48, avant cette remarque) deviennent facultatives, à n'utiliser
   que là où un âge se confond encore avec son voisin.
+  Lecture confirmée par le DC dans le chat : « oui c est parfaitement ca ».
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
