@@ -8,6 +8,9 @@ conversion en .npy repris de V3 phase 1, render_batch.py, puis des plages de la 
   socle et pièce : main, ao, shadow, glow, light (halo V0b : LIGHT_HOLDOUT vrai, pièce découpée) ;
   tête           : main, shadow, glow (ni liseré de contact ni halo : la flaque est portée par le socle).
 --quick : passes main, glow et shadow seulement (essais de forme et de mesure).
+--apercu (passe 5, rondes de lecture) : toutes les passes de JOUR (socle et pièce : main, ao, shadow, glow ; tête :
+main, shadow, glow), sans la passe light (halo de nuit) : l'image de jour est celle d'un rendu complet.
+render.json dit la variante de corps utilisée (« corps » : A ou B, kit.corps_choisi).
 Sortie : <out>/<variante>/<variante>-<passe>.npy et render.json (canevas, origine, durées, comptes de pièces).
 """
 import argparse
@@ -29,6 +32,7 @@ sys.path.insert(0, RENDER)
 sys.path.insert(0, HERE)
 import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402
+import kit as kit_mod  # noqa: E402
 
 
 def projected_bounds(objs):
@@ -67,6 +71,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--apercu", action="store_true")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
     spec = importlib.util.spec_from_file_location("gune_piece", os.path.join(HERE, "piece.py"))
@@ -80,6 +85,8 @@ def main():
         head = meta["part"] == "tete"
         if a.quick:
             layers = ["main", "glow", "shadow"]
+        elif a.apercu:
+            layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow"]
         else:
             layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow", "light"]
         S.reset()
@@ -119,7 +126,8 @@ def main():
                 "samples": scene.cycles.samples, "seed": scene.cycles.seed, "blender": bpy.app.version_string,
                 "seconds": round(time.time() - t0, 2), "seconds_build": round(t_build, 2),
                 "seconds_render": round(t_render, 2), "verts": nverts, "objects": len(objs),
-                "count": info_build["count"], "halos": info_build["halos"], "quick": a.quick,
+                "count": info_build["count"], "halos": info_build["halos"], "quick": a.quick, "apercu": a.apercu,
+                "corps": kit_mod.corps_choisi(),
                 "light_holdout": bool(getattr(C, "LIGHT_HOLDOUT", False))}
         with open(os.path.join(d, "render.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=1, sort_keys=True)

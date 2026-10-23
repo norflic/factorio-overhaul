@@ -1,6 +1,9 @@
 """OUTIL COMMUN : test en gris, UNE SEULE définition de la FORME (règle d'or 3). FICHIER GELÉ. Python 3.9.
 
-    py -3.9 tools/render/pieces/levels/gun_e/gris.py --out DIR [--json f.json] [--planche gris.png] [--pose E]
+    py -3.9 tools/render/pieces/levels/gun_e/gris.py --out DIR [--json f.json] [--planche gris.png] [--pose E|N|E,N]
+
+Passe 5 : --pose N contrôle la pose N (canons au nord) avec les MÊMES paires et le MÊME seuil ; --pose E,N contrôle
+les deux poses en un passage (code 1 si une paire échoue dans l'une ou l'autre ; planches gris-E.png et gris-N.png).
 
 FORME (protocole des juges de la passe 3, « FORME_32 », la seule qui compte désormais) : niveau impair de chaque
 époque (époque 1 : niveau 2), corps seul (main + lueur de jour), réduit au zoom 1 (32 px/tuile), en gris (luma
@@ -71,14 +74,33 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--json", default="")
     ap.add_argument("--planche", default="")
-    ap.add_argument("--pose", default="E")
+    ap.add_argument("--pose", default="E", help="E, N ou E,N (les deux poses, mêmes paires, même seuil)")
     ap.add_argument("--epochs", default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15")
     a = ap.parse_args()
     eps = [int(x) for x in a.epochs.split(",") if x]
-    G = {e: zoom1_gris(a.out, e, a.pose) for e in eps}
+    poses = [p.strip().upper() for p in a.pose.split(",") if p.strip()]
+    if not poses or any(p not in ("E", "N") for p in poses):
+        raise SystemExit("--pose : E, N ou E,N")
+    res, nko = [], 0
+    for pose in poses:
+        planche = a.planche
+        if planche and len(poses) > 1:
+            base, ext = os.path.splitext(planche)
+            planche = "%s-%s%s" % (base, pose, ext or ".png")
+        r, n = une_pose(a.out, eps, pose, planche)
+        res += r
+        nko += n
+    if a.json:
+        json.dump(res, open(a.json, "w", encoding="utf-8"), indent=1)
+    print("[FO-GRIS] %d paire(s) de même taille sous le seuil (pose(s) %s)" % (nko, ",".join(poses)))
+    sys.exit(1 if nko else 0)
+
+
+def une_pose(out, eps, pose, planche):
+    G = {e: zoom1_gris(out, e, pose) for e in eps}
     res, nko = [], 0
     print("FORME en gris, pose %s, zoom 1 (une seule définition ; seuil %.0f %% entre voisines de même taille)" % (
-        a.pose, 100 * SEUIL))
+        pose, 100 * SEUIL))
     for e1, e2 in zip(eps, eps[1:]):
         if G[e1][0] is None or G[e2][0] is None or e2 != e1 + 1:
             continue
@@ -86,19 +108,17 @@ def main():
         meme = K.SIDE[e1] == K.SIDE[e2]
         ok = (f >= SEUIL) if meme else True
         nko += not ok
-        res.append({"de": e1, "a": e2, "meme_taille": meme, "FORME": f, "IoU": iou, "ok": ok})
-        print("  ép.%2d -> %2d %s : FORME %5.1f %%  (IoU %.3f)  %s" % (
-            e1, e2, "même taille   " if meme else "taille change ", 100 * f, iou,
+        res.append({"pose": pose, "de": e1, "a": e2, "meme_taille": meme, "FORME": f, "IoU": iou, "ok": ok})
+        print("  %s ép.%2d -> %2d %s : FORME %5.1f %%  (IoU %.3f)  %s" % (
+            pose, e1, e2, "même taille   " if meme else "taille change ", 100 * f, iou,
             ("ok" if ok else "<-- SOUS LE SEUIL") if meme else "(pour mémoire)"))
-    if a.json:
-        json.dump(res, open(a.json, "w", encoding="utf-8"), indent=1)
-    if a.planche:
+    if planche:
         cw = int(T * 32)
         cols = 5
         rows_ = (len(eps) + cols - 1) // cols
         sheet = Image.new("L", (cols * (cw + 6) + 6, rows_ * (cw + 30) + 40), 24)
         dr = ImageDraw.Draw(sheet)
-        dr.text((8, 8), "Test en gris · pose %s · zoom 1 · niveau impair (époque 1 : niveau 2)" % a.pose, fill=230,
+        dr.text((8, 8), "Test en gris · pose %s · zoom 1 · niveau impair (époque 1 : niveau 2)" % pose, fill=230,
                 font=K.font(18))
         for i, e in enumerate(eps):
             g, m = G[e]
@@ -110,10 +130,10 @@ def main():
             y = 40 + (i // cols) * (cw + 30)
             sheet.paste(Image.fromarray(img, "L"), (x, y + 24))
             dr.text((x + 4, y + 4), "%d · %s" % (e, K.NAME[e]), fill=230, font=K.font(14))
-        sheet.save(a.planche)
-        print(a.planche)
-    print("[FO-GRIS] %d paire(s) de même taille sous le seuil" % nko)
-    sys.exit(1 if nko else 0)
+        sheet.save(planche)
+        print(planche)
+    print("  pose %s : %d paire(s) de même taille sous le seuil" % (pose, nko))
+    return res, nko
 
 
 if __name__ == "__main__":

@@ -13,10 +13,14 @@ Ce que le corps dessine (identique aux 15 époques, à la taille près) :
            dentée à bandes de danger, trémie à trappe ouverte et goulotte vers la couronne ;
   tête   : collier riveté, jupe blindée à bandes, coupole rivetée à nervures, masque avant (par défaut), nacelle
            arrière (coque, face arrière), tourelleau à périscopes, trappe, 2 bras de tourillon avec berceaux ;
-  canon  : la ROSETTE (faisceau de tubes séparés à âme pleine, plaque de culasse, colliers de maintien) et la BOUCHE
-           (rosace sombre cerclée, pourtour éclairé) sont fournies par rosette() et bouche() ; canon_lignee() est le
-           canon de lignée complet corrigé pour la pose N (règle d'or 7) : c'est la base sur laquelle une époque
-           AJOUTE son organe (règle d'or 1).
+  canon  : la ROSETTE (faisceau de tubes séparés à âme pleine, plaque de culasse, colliers de maintien, POINTES
+           ÉCLAIRÉES ; tubes en acier nu clair) et la BOUCHE (rosace sombre cerclée, pourtour éclairé) sont fournies par
+           rosette() et bouche() ; couronne_bouche() ferme le faisceau sans chapeau plus large que lui ; canon_lignee()
+           est le canon de lignée complet corrigé pour la pose N (règle d'or 7, passe 5 : plus de frein en bloc) : c'est
+           la base sur laquelle une époque AJOUTE son organe (règle d'or 1).
+  capots : MATIÈRE des grands capots (coupole, jupe, colonne, nacelle, bras, masque) par la clé d'habillage « capots »
+           de l'époque (capot(), contrat dans epoques.py) ; la géométrie ne change pas.
+Variante de corps A (passe 4) ou B (valeurs groupées) : corps_choix.py, matières seulement (kit.corps_b).
 Ce que l'époque dessine (epNN.py, emplacements du catalogue §A.2, contrat dans epoques.py) : arme, tuyaux et grands
 volumes annexes, accents, foyers, pièce du niveau pair.
 """
@@ -141,6 +145,28 @@ class Ctx:
 
 
 # ------------------------------------------------------------------------------------------------
+# Matière des grands capots (clé d'habillage « capots », passe 5)
+# ------------------------------------------------------------------------------------------------
+def capot(c, cle):
+    """Matière d'un GRAND CAPOT du corps de lignée. cle : « olive » (capots principaux : coupole, bandes olive de la
+    jupe, fût de la colonne, coque de la nacelle, bras de tourillon, masque) ou « ochre » (capots secondaires : plaques
+    ocre de la nacelle et du masque). Habillage « capots » de l'époque (epoques.HABILLAGE_DEFAUT) : None = olive et
+    ocre de la lignée ; « clé » = cette matière pour les deux ; (clé1, clé2) = clé1 pour l'olive, clé2 pour l'ocre.
+    Seule la MATIÈRE change : géométrie, nombre de plaques et de rivets identiques."""
+    v = c.hab.get("capots")
+    if not v:
+        return c.M[cle]
+    if isinstance(v, str):
+        return c.M[v]
+    return c.M[v[0] if cle == "olive" else v[1]]
+
+
+def capots_mats(c, keys):
+    """Liste de matières pour des noms de clés : « olive » et « ochre » passent par capot(), les autres tels quels."""
+    return [capot(c, k) if k in ("olive", "ochre") else c.M[k] for k in keys]
+
+
+# ------------------------------------------------------------------------------------------------
 # Socle
 # ------------------------------------------------------------------------------------------------
 def plateforme(g, c, chanfrein=None, z=0.045):
@@ -165,7 +191,7 @@ def plateforme(g, c, chanfrein=None, z=0.045):
     for i in range(n):
         j = (i + 1) % n
         fs.append((i, j, n + j, n + i))
-    g._add(M["void"], "flat", vs, fs, "tablier")
+    g._add(M["tablier"], "flat", vs, fs, "tablier")
     nb = int((2 * hx - 0.1) / 0.09)
     for i in range(nb):
         x = -hx + 0.05 + (i + 0.5) * (2 * hx - 0.1) / nb
@@ -201,7 +227,7 @@ def dalle(g, x0, x1, y0, y1, z=0.045):
     """Dalle de caillebotis rectangulaire (même facture que la plateforme) : sous une pièce du niveau pair ou une
     machine posée hors de la plateforme, pour qu'aucun jour ne s'enferme entre elle et le socle."""
     M = g.M
-    g.box(((x0 + x1) / 2, (y0 + y1) / 2, z * 0.225), (x1 - x0, y1 - y0, z * 0.45), M["void"], "flat", what="dalle")
+    g.box(((x0 + x1) / 2, (y0 + y1) / 2, z * 0.225), (x1 - x0, y1 - y0, z * 0.45), M["tablier"], "flat", what="dalle")
     nb = max(1, int((x1 - x0 - 0.1) / 0.09))
     for i in range(nb):
         x = x0 + 0.05 + (i + 0.5) * (x1 - x0 - 0.1) / nb
@@ -215,7 +241,7 @@ def colonne(g, c):
     """Colonne à goussets et couronne d'orientation dentée à bandes de danger (lignée)."""
     M = g.M
     B = c.B
-    P2.pedestal(g, B["R"], 0.0, B["h"], B["n"], M, [M["olive"], M["steel_dk"], M["olive"], M["redpaint"]],
+    P2.pedestal(g, B["R"], 0.0, B["h"], B["n"], M, [capot(c, "olive"), M["steel_dk"], capot(c, "olive"), M["redpaint"]],
                 ladder_at=B["echelle"])
     PT.slewing_ring(g, B["R"] - 0.02, B["h"], B["rh"])
 
@@ -294,7 +320,7 @@ def masque_lignee(g, c, mats=("ochre", "olive"), fentes=((0.0, 1.1),), visiere=(
     R, zs, rz = H["R"], H["zs"], H["rz"]
     mw = R * 0.5
     PT.hull(g, -mw, mw, R * 0.55, R + 0.22, zs - 0.18, zs + rz * 0.5, ins=(0.04, 0.02, R * 0.26), panel=0.22,
-            mats=[M[k] for k in mats], rivet_step=0.11)
+            mats=capots_mats(c, mats), rivet_step=0.11)
     for dx, w in fentes:
         g.box((dx * mw, R + 0.235, zs + 0.02), (mw * w, 0.02, 0.04), M["emit"], "flat", what="fente")
     vm, vd = visiere
@@ -318,8 +344,8 @@ def nacelle_coque(g, c):
     yb0, yb1 = -R - N_["recul"], -R * 0.5
     zb = zs - N_["bas"]
     T = PT.hull(g, -bx, bx, yb0, yb1, zb, zs + rz * 0.42, ins=(0.03, 0.04, 0.0), panel=0.24,
-                mats=[M["olive"], M["ochre"]], rivet_step=0.11)
-    back = [V((-bx, yb0, zb)), V((bx, yb0, zb)), T[1], T[0]]
+                mats=[capot(c, "olive"), capot(c, "ochre")], rivet_step=0.11)
+    back =[V((-bx, yb0, zb)), V((bx, yb0, zb)), T[1], T[0]]
     if c.side >= 5:
         for (s0, s1) in ((0.08, 0.46), (0.54, 0.92)):
             PT.glow_grille(g, PT.lift(PT.face_quad(back, s0, s1, 0.2, 0.8), 0.03), 4, M["emit_soft"])
@@ -374,13 +400,13 @@ def bras(g, c, sx):
     R = H["R"]
     xa, xb = sorted((sx * R * 0.8, x - sx * wr / 2))
     PT.hull(g, xa, xb, y0 + 0.1, y1 - 0.14, zg - hr * 0.7, zg + hr * 0.55, ins=(0.0, 0.02, 0.02), panel=0.22,
-            mats=[M["olive"], M["steel_dk"]], faces="tsn", rivet_step=0.12)
+            mats=[capot(c, "olive"), M["steel_dk"]], faces="tsn", rivet_step=0.12)
     xc, xd = sorted((sx * R * 0.45, x))
     PT.hull(g, xc, xd, y0 - 0.34, y0 + 0.14, H["zs"] - 0.2, zg - hr * 0.55, ins=(0.02, 0.03, 0.0), panel=0.22,
-            mats=[M["steel_dk"], M["olive"]], faces="tsn", rivet_step=0.12)
+            mats=[M["steel_dk"], capot(c, "olive")], faces="tsn", rivet_step=0.12)
     xe, xf = sorted((sx * R * 0.55, x))
     PT.hull(g, xe, xf, y1 - 0.2, y1 + 0.2, H["zs"] - 0.12, zg - hr * 0.35, ins=(0.02, 0.0, 0.04), panel=0.22,
-            mats=[M["steel_dk"], M["olive"]], faces="tsn", rivet_step=0.12)
+            mats=[M["steel_dk"], capot(c, "olive")], faces="tsn", rivet_step=0.12)
     g.cyl(((xa + xb) / 2, (y0 + y1) / 2 - 0.04, zg - hr * 0.1), "x", hr * 0.62, abs(xb - xa) + 0.12, M["steel_dk"],
           n=20, what="tourillon")
     g.cyl((x + sx * (wr / 2 + 0.03), (y0 + y1) / 2 - 0.04, zg - hr * 0.1), "x", hr * 0.5, 0.06, M[c.hab["chapeau"]],
@@ -401,9 +427,9 @@ def tete(g, c):
     for k in range(nb):
         a = TAU * k / nb
         g.dome(((R + 0.04) * math.cos(a), (R + 0.04) * math.sin(a), z0 + 0.07), (0, 0, 1), 0.016, M["rivet"])
-    jupe(g, R, z0 + 0.07, zs, [M["olive"], M["olive"], M["steel_dk"]],
+    jupe(g, R, z0 + 0.07, zs, [capot(c, "olive"), capot(c, "olive"), M["steel_dk"]],
          max(c.T["jupe_bandes"], int(TAU * R / 0.26)), M[c.hab["jupe_cerclage"]])
-    c.Pf, c.Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, M["olive"], M,
+    c.Pf, c.Nf = P2.dome_hull(g, (0, 0, zs), R, R * 1.06, rz, capot(c, "olive"), M,
                               seams=max(c.T["coupole_coutures"], int(TAU * R / 0.3)), band_mat=M["steel_dk"],
                               ring_seams=c.T["rangs"])
     if hasattr(c.ep, "masque"):
@@ -426,13 +452,18 @@ def tete(g, c):
 # Canon de lignée : rosette, bouche, canon complet corrigé pour la pose N (base des organes d'époque)
 # ------------------------------------------------------------------------------------------------
 def rosette(g, x, y0, z, L, nb, rb, rr, mat=None, phase=0.3, colliers=(0.8,), collier_mat=None, bouts=True,
-            arr="ring", plaque=True, segments=12):
+            arr="ring", plaque=True, segments=12, pointes=None):
     """Faisceau de tubes de la lignée : tubes séparés, âme centrale pleine (aucun jour au travers), plaque de culasse,
     colliers de maintien boulonnés (on voit les tubes séparés entre l'organe d'époque et la bouche). arr : « ring »
     (faisceau rotatif), « row » (tubes côte à côte à plat), « square » (2 × 2 gros calibre). Renvoie les positions
-    (x, z) des tubes. bouts : rosace sombre au bout de chaque tube (False si un frein la porte)."""
+    (x, z) des tubes. bouts : rosace sombre au bout de chaque tube (False si un frein la porte). pointes (défaut :
+    comme bouts ; passe 5, pose N) : POINTE ÉCLAIRÉE de chaque tube, bague lumineuse de la couleur d'époque au bout
+    du tube, visible de dessus : en pose N, la bouche se lit comme une rosette de tubes éclairés, jamais comme le
+    chapeau d'une cheminée. Tubes par défaut en acier nu clair (M["gun"])."""
     M = g.M
     mat = mat or M["gun"]
+    pointes = bouts if pointes is None else pointes
+    tl = 0.05 + 0.02 * L
     pos = []
     if arr == "row":
         pitch = rb * 2.25
@@ -450,6 +481,9 @@ def rosette(g, x, y0, z, L, nb, rb, rr, mat=None, phase=0.3, colliers=(0.8,), co
         g.cyl((bx, y0 + L / 2, bz), "y", rb, L, mat, n=segments, what="canon")
         if bouts:
             g.cyl((bx, y0 + L + 0.002, bz), "y", rb * 0.62, 0.008, M["void"], n=10, style="flat", what="bouche")
+        if pointes:
+            g.tube_shell((bx, y0 + L - tl / 2, bz), "y", rb + 0.012, rb - 0.006, tl, M["emit"], n=segments,
+                         what="pointe_lum")
     cm = collier_mat or M["steel_dk"]
     if arr == "row":
         w = (nb - 1) * rb * 2.25
@@ -481,14 +515,29 @@ def bouche(g, x, y, z, pos, rb, rim_mat, r_lum, w=0.026):
     F.lit_ring(g, (x, y + 0.002, z), "y", r_lum, g.M["emit"], w=w)
 
 
+def couronne_bouche(g, x, yb, z, L, rr, rb, mat, retrait=None):
+    """COURONNE DE BOUCHE de la lignée (passe 5, pose N, règle d'or 7) : collerette sombre boulonnée AU RAS du
+    faisceau (rayon rr + rb + 0,012 : jamais un chapeau plus large que le faisceau), posée en retrait de la bouche
+    (retrait, défaut 0,06 + 0,03 L) : les tubes dépassent devant elle, séparés, leurs pointes éclairées (rosette()) ;
+    vu de dessus en pose N, le bout du canon est une ROSETTE de tubes éclairés, pas le couvercle d'une cheminée. À
+    utiliser par toute époque qui veut un bout de canon sans frein d'époque."""
+    M = g.M
+    rt = rr + rb + 0.012
+    yc = yb - (0.06 + 0.03 * L if retrait is None else retrait)
+    g.tube_shell((x, yc, z), "y", rt, max(rr - rb * 0.55, rr * 0.55) * 0.8, 0.045, mat, n=28, what="couronne_bouche")
+    F.bolts_ring(g, (x, yc, z), (0, 1, 0), rt, 6, M["rivet"], r=0.013, phase=0.5, skip_down=-0.3)
+
+
 def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein=True, frein_mat="steel",
                  bague_mat="steel_dk", masque_mats=("ochre", "olive"), alim=True):
-    """Canon de lignée COMPLET, corrigé pour la pose N (règle d'or 7) : culasse blindée, moteur arrière bobiné,
-    rosette, jaquette perforée sur la moitié arrière au plus, frein de bouche EN BLOC près de deux fois plus large que
-    le faisceau, à évents latéraux et ouïes éclairées sur le dessus (en pose N, le bout du canon fait un « T » plat,
-    jamais un chapeau de cheminée : vérifié sur le témoin k3 et k5 le 23/10), rosace éclairée en face avant,
-    bagues sombres (aucune bague claire horizontale), caisse d'alimentation au pied qui déborde sur le côté extérieur,
-    masque de canon. Une époque peut l'appeler tel quel et y AJOUTER son organe, ou s'en inspirer."""
+    """Canon de lignée COMPLET, corrigé pour la pose N (règle d'or 7, passe 5) : culasse blindée, moteur arrière
+    bobiné, rosette de tubes séparés en ACIER NU CLAIR, jaquette perforée sur la moitié arrière au plus, puis la
+    COURONNE DE BOUCHE (couronne_bouche) : collerette sombre au ras du faisceau, JAMAIS plus large que lui, devant
+    laquelle les tubes dépassent, pointes éclairées (rosette vue en bout). Le frein EN BLOC deux fois plus large de la
+    passe 4 (« T » plat) est SUPPRIMÉ : les juges de la passe 4 l'ont lu comme le chapeau d'une cheminée (pose N).
+    frein : True (défaut) = couronne de bouche ; False = tubes nus, pointes éclairées. frein_mat : ignoré (gardé pour
+    les appels de la passe 4). Bagues sombres (aucune bague claire horizontale), caisse d'alimentation au pied qui
+    déborde sur le côté extérieur, masque de canon. Une époque peut l'appeler tel quel et y AJOUTER son organe."""
     M = g.M
     H = c.H
     zg = H["zg"]
@@ -497,15 +546,11 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
     L, nb, rb, rr = H["L"], H["nb"], H["rb"], H["rr"]
     PT.receiver(g, x, y0, y1, zg - hr, zg + hr, wr, mats=[M[k] for k in recv_mats])
     moteur_lignee(g, (x, y0 - 0.2 - hr * 0.3, zg), hr * 0.78, 0.3 + hr * 0.6)
-    pos = rosette(g, x, y1, zg, L, nb, rb, rr, colliers=(0.62, 0.86), collier_mat=M[bague_mat], bouts=not frein)
-    # âme prolongée jusque dans le frein : sinon le sol se voit entre les tubes juste derrière la collerette (trou
-    # enfermé de 9 à 10 px hr en pose N, témoins k4 et k6 du 23/10)
-    g.cyl((x, y1 + L * 0.99, zg), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
-          what="ame_bout")
+    pos = rosette(g, x, y1, zg, L, nb, rb, rr, colliers=(0.62, 0.86), collier_mat=M[bague_mat], bouts=True)
     rs = rr + rb + 0.028
     Lj = L * min(jaquette, JAQUETTE_MAX)
     if Lj > 0.05:
-        g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["steel"], n=28, style="smooth", what="jaquette")
+        g.cyl((x, y1 + Lj / 2, zg), "y", rs, Lj, M["gun"], n=28, style="smooth", what="jaquette")
         nh_ax = max(2, int((Lj - 0.1) / 0.06))
         nh_ang = max(8, int(TAU * rs / 0.07))
         for i in range(nh_ax):
@@ -521,27 +566,7 @@ def canon_lignee(g, c, x, sx, recv_mats=("ochre", "olive"), jaquette=0.42, frein
             F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rs + 0.024, 6, M["rivet"], r=0.015, phase=0.2, skip_down=-0.3)
     yb = y1 + L
     if frein:
-        # frein de bouche en BLOC rectangulaire, près de deux fois plus large que le faisceau : vu de dessus (pose N),
-        # le bout du canon fait un « T » plat, jamais le chapeau rond d'une cheminée ; évents latéraux sombres, ouïes
-        # sur le dessus avec une lueur de bouche (petit foyer, < 0,03 t²), collerette sombre, rosace éclairée devant
-        Lb = 0.1 + 0.05 * L
-        wb = 2 * rs * 1.9
-        hb = 2 * (rr + rb) + 0.06   # plus haut que le faisceau : ni bout de tube ni anneau ne dépasse (aucune boucle)
-        g.box((x, yb + Lb / 2, zg), (wb, Lb, hb), M[frein_mat], "hard", what="frein")
-        for s in (-1, 1):
-            for k in range(2):
-                g.box((x + s * (wb / 2 + 0.002), yb + Lb * (0.3 + 0.4 * k), zg), (0.006, Lb * 0.22, hb * 0.6),
-                      M["void"], "flat", what="event")
-        for k in range(2):
-            yy = yb + Lb * (0.3 + 0.4 * k)
-            g.box((x, yy, zg + hb / 2 + 0.002), (wb * 0.7, Lb * 0.14, 0.006), M["void"], "flat", what="ouie")
-            g.box((x, yy, zg + hb / 2 + 0.005), (wb * 0.45, Lb * 0.06, 0.004), M["emit"], "flat", what="ouie_lum")
-        g.box((x, yb - 0.01, zg), (wb * 0.9, 0.025, hb * 0.9), M[bague_mat], "hard", what="collerette")
-        for s in (-1, 1):
-            g.dome((x + s * wb * 0.38, yb + Lb * 0.5, zg + hb / 2 + 0.002), (0, 0, 1), 0.016, M["rivet"])
-        bouche(g, x, yb + Lb + 0.002, zg, pos, rb, M[bague_mat], min(rs, hb / 2 - 0.02))
-    else:
-        F.lit_ring(g, (x, yb + 0.004, zg), "y", rr + rb + 0.004, M["emit"], w=0.02)
+        couronne_bouche(g, x, yb, zg, L, rr, rb, M[bague_mat])
     PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
             ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M[k] for k in masque_mats], rivet_step=0.11)
     if alim:

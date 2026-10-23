@@ -2,7 +2,14 @@
 
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --out DIR [--cache DIR] [--samples 128] [--quick]
         [--only e02-socle,…] | [--epochs 2,3 --parts socle,piece,tete-E,tete-N] | [--kit 2,5]
-        [--per 4] [--post-only] [--keep-npy]
+        [--per 4] [--post-only] [--keep-npy] [--corps A|B] [--apercu] [--sessions 1|2]
+    py -3.9 tools/render/pieces/levels/gun_e/rendre.py --ronde 2,5,9 --out DIR [--corps A|B] [--sessions 2]
+
+RONDE DE LECTURE (passe 5) : --ronde EPOQUES rend, en APERÇU (32 échantillons, --apercu), exactement ce qu'il faut
+pour les vignettes E et N du niveau impair (vignettes.py) : eNN-socle, eNN-tete-E, eNN-tete-N (époque 1 : e01-piece,
+le niveau 1 est vanilla), 9 variantes par session Blender, 2 sessions en parallèle (--sessions 2 : chacune prend sa
+place au verrou de rendu ; c'est le maximum permis sur le PC). --apercu : toutes les passes de jour (ombre, liseré de
+contact, lueur), sans le halo de nuit. --corps A|B : variante de corps de ce rendu (sinon corps_choix.py).
 
 1. Les variantes sont rendues par PAQUETS de --per variantes, une session Blender par paquet (batch_blender.py),
    chacune lancée par le verrou de rendu prescrit (interdit n° 6) : « python tools/render/with_render_lock.py --
@@ -22,7 +29,9 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -40,6 +49,7 @@ BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blen
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
 HALO_PEAK = 0.45
+_VERROU_JOURNAL = threading.Lock()
 
 
 def largest_hole(alpha):
@@ -104,7 +114,8 @@ def post(name, cache, out_root):
             "dir": meta.get("dir"), "side": meta["side"], "samples": info["samples"], "seconds": info["seconds"],
             "seconds_render": info.get("seconds_render"), "verts": info.get("verts"), "count": info.get("count"),
             "quick": info.get("quick"), "canvas": info["canvas"], "night_only": meta["nuit"],
-            "sous_vanilla": meta["sous_vanilla"], "kit": "gun_e", "layers": {}}
+            "sous_vanilla": meta["sous_vanilla"], "kit": "gun_e", "corps": info.get("corps"),
+            "apercu": info.get("apercu"), "layers": {}}
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
@@ -139,8 +150,13 @@ def session(names, a):
            "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache, "--samples", str(a.samples)]
     if a.quick:
         cmd.append("--quick")
+    elif a.apercu:
+        cmd.append("--apercu")
     t0 = time.time()
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    env.pop("FO_CORPS", None)
+    if a.corps:
+        env["FO_CORPS"] = a.corps
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     log = []
     t_lock = None
@@ -153,14 +169,16 @@ def session(names, a):
             print(line, flush=True)
     rc = p.wait()
     dt = time.time() - t0
-    with open(os.path.join(a.cache, "rendre.log"), "a", encoding="utf-8") as f:
-        f.write("\n".join(log[-400:]) + "\n")
-    tj = os.path.join(a.cache, "temps.json")
-    hist = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else []
-    hist.append({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "names": names, "samples": a.samples, "quick": a.quick,
-                 "total_s": round(dt, 1), "attente_verrou_et_demarrage_s": round(t_lock or 0, 1), "code": rc})
-    with open(tj, "w", encoding="utf-8") as f:
-        json.dump(hist, f, indent=1)
+    with _VERROU_JOURNAL:
+        with open(os.path.join(a.cache, "rendre.log"), "a", encoding="utf-8") as f:
+            f.write("\n".join(log[-400:]) + "\n")
+        tj = os.path.join(a.cache, "temps.json")
+        hist = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else []
+        hist.append({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "names": names, "samples": a.samples,
+                     "quick": a.quick, "apercu": a.apercu, "corps": a.corps or "corps_choix.py",
+                     "total_s": round(dt, 1), "attente_verrou_et_demarrage_s": round(t_lock or 0, 1), "code": rc})
+        with open(tj, "w", encoding="utf-8") as f:
+            json.dump(hist, f, indent=1)
     print("[FO-BATCH] %d variantes, %.0f s en tout (dont %.0f s avant la 1re sortie de Blender), code %d"
           % (len(names), dt, t_lock or 0, rc), flush=True)
     if rc != 0:
@@ -172,6 +190,10 @@ def selection(a):
     V = piece.PIECE["variants"]
     if a.only:
         names = [n for n in a.only.split(",") if n]
+    elif a.ronde:
+        names = []
+        for e in [int(x) for x in a.ronde.split(",") if x]:
+            names += ["e01-piece"] if e == 1 else [piece.nom(e, p) for p in ("socle", "tete-E", "tete-N")]
     else:
         names = []
         for e in [int(x) for x in a.epochs.split(",") if x]:
@@ -201,36 +223,68 @@ def main():
     ap.add_argument("--per", type=int, default=4, help="variantes par session Blender")
     ap.add_argument("--out", required=True)
     ap.add_argument("--cache", default="")
+    ap.add_argument("--corps", default="", choices=("", "A", "B"),
+                    help="variante de corps de ce rendu (sinon corps_choix.py)")
+    ap.add_argument("--apercu", action="store_true", help="passes de jour seulement (sans halo de nuit)")
+    ap.add_argument("--ronde", default="", help="époques d'une ronde de lecture : aperçu 32 échantillons, "
+                                                "variantes des vignettes E et N du niveau impair")
+    ap.add_argument("--sessions", type=int, default=1, choices=(1, 2), help="sessions Blender en parallèle")
     a = ap.parse_args()
+    if a.ronde:
+        a.apercu = True
+        if a.samples == 128:
+            a.samples = 32
+        if a.per == 4:
+            a.per = 9
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
     names = selection(a)
     os.makedirs(a.cache, exist_ok=True)
-    rc_all = 0
-    for i in range(0, len(names), max(1, a.per)):
-        chunk = names[i:i + a.per]
+    t_debut = time.time()
+    chunks = [names[i:i + a.per] for i in range(0, len(names), max(1, a.per))]
+    if a.sessions > 1 and len(chunks) > 1:
+        # paquets équilibrés : une variante sur deux à chaque session (les grandes tailles en fin de liste)
+        chunks = [names[k::a.sessions] for k in range(a.sessions)]
+        chunks = [c[i:i + a.per] for c in chunks for i in range(0, len(c), max(1, a.per))]
+
+    def un_paquet(i_chunk):
+        i, chunk = i_chunk
         if not a.post_only:
-            print("[FO-LOTS] paquet %d/%d : %s" % (i // a.per + 1, (len(names) + a.per - 1) // a.per, ",".join(chunk)),
-                  flush=True)
+            print("[FO-LOTS] paquet %d/%d : %s" % (i + 1, len(chunks), ",".join(chunk)), flush=True)
             rc = session(chunk, a)
-            rc_all = rc_all or rc
             if rc:
-                continue
-        for n in chunk:
-            if not os.path.exists(os.path.join(a.cache, n, "render.json")):
-                continue
-            if not any(f.endswith(".npy") for f in os.listdir(os.path.join(a.cache, n))):
-                print("[FO-POST] %s : passes déjà purgées, rien à refaire" % n, flush=True)
-                continue
-            s = post(n, a.cache, a.out)
-            if not a.keep_npy:
-                for f in os.listdir(os.path.join(a.cache, n)):
-                    if f.endswith(".npy"):
-                        os.remove(os.path.join(a.cache, n, f))
-            c = s["checks"]
-            print("[FO-POST] %s %s %.0f s ; trous %d px en %d groupes, plus grand %d px %s" % (
-                n, sorted(s["layers"]), s["seconds"], c["enclosed_transparent_px"], c["enclosed_groups"],
-                c["largest_hole_px"], "OK" if c["holes_ok"] else "ECHEC"), flush=True)
+                return rc
+        post_paquet(chunk, a)
+        return 0
+
+    if a.sessions > 1 and not a.post_only:
+        with ThreadPoolExecutor(max_workers=a.sessions) as ex:
+            rcs = list(ex.map(un_paquet, enumerate(chunks)))
+    else:
+        rcs = [un_paquet(ic) for ic in enumerate(chunks)]
+    rc_all = next((r for r in rcs if r), 0)
+    print("[FO-RENDRE] %d variantes en %.0f s (%s, %d échantillons, corps %s, %d session(s))" % (
+        len(names), time.time() - t_debut, "aperçu" if a.apercu else ("rapide" if a.quick else "complet"),
+        a.samples, a.corps or "de corps_choix.py", a.sessions), flush=True)
     sys.exit(rc_all)
+
+
+def post_paquet(chunk, a):
+    """Post-traitement des variantes d'un paquet rendu (passes brutes purgées ensuite, sauf --keep-npy)."""
+    for n in chunk:
+        if not os.path.exists(os.path.join(a.cache, n, "render.json")):
+            continue
+        if not any(f.endswith(".npy") for f in os.listdir(os.path.join(a.cache, n))):
+            print("[FO-POST] %s : passes déjà purgées, rien à refaire" % n, flush=True)
+            continue
+        s = post(n, a.cache, a.out)
+        if not a.keep_npy:
+            for f in os.listdir(os.path.join(a.cache, n)):
+                if f.endswith(".npy"):
+                    os.remove(os.path.join(a.cache, n, f))
+        c = s["checks"]
+        print("[FO-POST] %s %s %.0f s ; trous %d px en %d groupes, plus grand %d px %s ; corps %s" % (
+            n, sorted(s["layers"]), s["seconds"], c["enclosed_transparent_px"], c["enclosed_groups"],
+            c["largest_hole_px"], "OK" if c["holes_ok"] else "ECHEC", s.get("corps")), flush=True)
 
 
 if __name__ == "__main__":

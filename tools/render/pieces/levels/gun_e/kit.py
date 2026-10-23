@@ -26,9 +26,11 @@ canons et les tuyaux, pas par une simple couleur. »)
      époque ne change la rugosité, la métallicité ou l'albédo du corps de lignée (fin de SHINE, MET_K et EPOCH_TONE de
      la plage basse, qui cassaient la grammaire entre les époques 9 et 10).
   6. Aucune pièce qui flotte, aucun trou enfermé hors sol voulu : ilots.py est BLOQUANT (code de sortie 1).
-  7. Pose N : un canon dressé ne se lit jamais comme une cheminée (frein plus large que le faisceau à évents
-     latéraux, culasse et caisses au pied qui débordent sur les côtés, bouche éclairée, aucune bague claire
-     horizontale : les bagues sont dans une matière d'accent de luminance rendue <= 200).
+  7. Pose N : un canon dressé ne se lit jamais comme une cheminée (passe 5, juges de la passe 4 : le frein en bloc
+     « T » plat de la passe 4 se lisait encore comme un CHAPEAU de cheminée) : fût en ACIER NU CLAIR (M["gun"],
+     diffusion claire : un métal pur dirigé vers le nord reste noir à la caméra), rosette de tubes séparés dont les
+     POINTES sont éclairées (corps.rosette), bouche sans chapeau plat plus large que le faisceau (corps.couronne_bouche),
+     culasse et caisses au pied qui débordent sur les côtés, aucune bague claire horizontale (bagues sombres).
 =====================================================================================================================
 
 Conventions (tools/render/README.md, CALIBRATION.md §2) : 1 unité = largeur d'une tuile ; +X est, +Y nord, +Z haut ;
@@ -70,9 +72,10 @@ def axv(axis):
 # ------------------------------------------------------------------------------------------------
 # Textures de surface (nœuds insérés dans les matériaux de fo_scene.mat_metal)
 # ------------------------------------------------------------------------------------------------
-def _insert_stain(mat, amount, scale, seed):
+def _insert_stain(mat, amount, scale, seed, contraste=1.0):
     """Taches basse fréquence (P2 de la charte : coulures, plaques) : la couleur de base est multipliée par
-    1 ± amount selon un bruit d'échelle `scale` (coordonnées Object)."""
+    1 ± amount selon un bruit d'échelle `scale` (coordonnées Object). contraste (variante de corps B) : resserre la
+    plage du bruit lue (0,3 à 0,7 divisée par contraste autour de 0,5) : taches plus franches, même dessin."""
     nt = mat.node_tree
     N, L = nt.nodes, nt.links
     p = N["Principled BSDF"]
@@ -90,8 +93,8 @@ def _insert_stain(mat, amount, scale, seed):
         nz.inputs["W"].default_value = seed + 3.1
     L.new(tc.outputs["Object"], nz.inputs["Vector"])
     mr = N.new("ShaderNodeMapRange")
-    mr.inputs["From Min"].default_value = 0.3
-    mr.inputs["From Max"].default_value = 0.7
+    mr.inputs["From Min"].default_value = 0.5 - 0.2 / contraste
+    mr.inputs["From Max"].default_value = 0.5 + 0.2 / contraste
     mr.inputs["To Min"].default_value = 1.0 - amount * 0.85
     mr.inputs["To Max"].default_value = 1.0 + amount * 0.45
     L.new(nz.outputs["Fac"], mr.inputs["Value"])
@@ -196,34 +199,110 @@ GRAIN_ACCENT = 0.62
 TACHES_ACCENT = 0.32
 
 
+def corps_choisi():
+    """Variante de corps : variable d'environnement FO_CORPS (« A » ou « B », posée par rendre.py --corps pour les
+    comparaisons du kit), sinon corps_choix.CORPS (le fichier d'une ligne que les constructeurs ont le droit de
+    modifier). Toute autre valeur est une erreur."""
+    import os
+    import importlib.util
+    v = os.environ.get("FO_CORPS", "").strip().upper()
+    if not v:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "corps_choix.py")
+        spec = importlib.util.spec_from_file_location("corps_choix", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        v = str(mod.CORPS).strip().upper()
+    if v not in ("A", "B"):
+        raise ValueError("variante de corps inconnue : %r (A ou B)" % v)
+    return v
+
+
+def corps_b(metal, M):
+    """VARIANTE DE CORPS « B, valeurs groupées » (passe 5) : MÊME géométrie, même nombre de pièces, mêmes graines de
+    bruit (grain, taches, coulures aux mêmes endroits : la précision au zoom 2 ne change pas) ; ce qui change :
+      - grandes masses (olive, ocre, acier sombre, couronne, peinture rouge, blindages) plus CLAIRES (+20 à +50 %) ;
+      - micro-contrastes RESSERRÉS vers la valeur de la masse qui les porte : rivets et têtes de boulon, acier clair
+        des arêtes, bandes de danger, usure des arêtes (wear) moitié moins forte, grain des peintures plus doux
+        (chaque petit éclat clair ou noir compte comme une « petite pièce » D3 de la charte) ;
+      - caillebotis UNIFORME (lames sans grain ni taches) : ses lames deviennent des lignes continues ; joints et fond
+        du caillebotis restent noirs (creux sombres P3, précision du dessin).
+    But (témoin du kit) : D3 <= 45 et P2 >= 16, et laisser respirer canons et tuyaux d'époque (qui ne changent pas).
+    Mesuré le 23/10 (passe 5) : D3 atteint, P2 NON (10 environ, comme A) : voir le rapport du kit."""
+    rust = (0.24, 0.085, 0.03)
+    G = 0.09
+    SB = 5.0   # échelle des taches des grandes masses (comme A ; 3,5 et 2,6 essayés : P2 inchangé, D3 plus haut)
+    KB = 1.0   # contraste des taches (comme A ; 1,5 à 2,5 essayés : P2 +1 au plus, D3 +4 à +8)
+    metal("armor", (0.2, 0.168, 0.128), rough=0.36, met=0.7, grain=0.24, rust=rust, ra=0.12, dd=0.35, wear=0.8,
+          mottle=0.5)
+    metal("armor2", (0.11, 0.1, 0.086), rough=0.38, met=0.75, grain=0.24, rust=(0.18, 0.07, 0.03), ra=0.1, dirt=0.6,
+          wear=1.0, mottle=0.45)
+    metal("khaki", (0.22, 0.18, 0.105), rough=0.48, met=0.4, grain=0.24, rust=rust, ra=0.12, wear=0.7, mottle=0.5)
+    metal("seam", (0.012, 0.011, 0.01), rough=0.8, met=0.2, grain=0.15, dirt=0.4, stain=0.0)
+    metal("rivet", (0.28, 0.24, 0.18), rough=0.3, met=0.85, grain=0.08, dirt=0.25, stain=0.0, reflet="fin")
+    metal("steel_hi", (0.34, 0.33, 0.3), rough=0.2, met=0.92, grain=0.16, gscale=44.0, rust=rust, ra=0.06,
+          dirt=0.6, stain=0.25, sscale=16.0, wear=0.3, streak=0.25, reflet="fin")
+    metal("hazy", (0.34, 0.225, 0.032), rough=0.5, met=0.1, grain=0.2, rust=rust, ra=0.22, dirt=0.7, stain=0.35,
+          wear=0.3)
+    metal("hazk", (0.085, 0.074, 0.062), rough=0.55, met=0.2, grain=0.2, dirt=0.3, stain=0.0, wear=1.2)
+    metal("redpaint", (0.32, 0.09, 0.036), rough=0.4, met=0.35, grain=G, gscale=30.0, rust=(0.1, 0.05, 0.025),
+          ra=0.2, dirt=0.75, stain=1.0, sscale=SB, skon=KB, wear=1.2, streak=0.6, mottle=0.6)
+    masses = [
+        ("ochre", (0.4, 0.245, 0.068), dict(rough=0.4, met=0.35, grain=G, gscale=30.0, rust=rust, ra=0.2, dirt=0.75,
+                                            stain=1.0, sscale=SB, skon=KB, dd=0.3, wear=1.2, streak=0.7, mottle=0.6)),
+        ("olive", (0.23, 0.192, 0.098), dict(rough=0.38, met=0.45, grain=G, gscale=30.0, rust=rust, ra=0.3, dirt=0.75,
+                                             stain=1.0, sscale=SB, skon=KB, wear=1.4, streak=0.7, mottle=0.6)),
+        ("steel_dk", (0.15, 0.142, 0.13), dict(rough=0.3, met=0.9, grain=G, gscale=36.0, rust=rust, ra=0.3, dirt=0.7,
+                                               stain=0.9, sscale=SB, skon=KB, wear=1.3, streak=0.6, mottle=0.55)),
+    ]
+    for key, col, kw in masses:
+        metal(key, col, **kw)
+    # caillebotis : lames et fond UNIFORMES, sans grain, taches ni usure (même contraste lame/fond qu'en A) : chaque
+    # lame reste UNE ligne continue (plus de 256 px) au lieu d'un pointillé de petites pièces (D3 : c'était la première
+    # source de petites pièces du témoin, carte du 23/10)
+    # Essais du 23/10 sur le témoin k3 (32 échantillons) : des taches sur le caillebotis (lames et fond, même graine)
+    # montent P2 de 10 à 12 au plus, mais remontent D3 (48 à 52) et font un camouflage ; des plaques dépareillées en
+    # 3 valeurs n'y changent rien (P2 10,4) ; des lames plus claires (0,2) remontent D3 (50). Retenu : caillebotis
+    # uniforme, lames de la valeur de A.
+    metal("grate", (0.13, 0.122, 0.11), rough=0.4, met=0.8, grain=0.05, gscale=40.0, dirt=0.35, stain=0.0)
+    metal("tablier", (0.01, 0.009, 0.008), rough=0.9, met=0.0, grain=0.05, dirt=0.0, stain=0.0)
+
+
 def materials(S, epoch, ep):
     """Palette de l'époque `epoch` : corps de lignée COMMUN (identique aux 15 époques), bibliothèque de matières
     d'accent (communes, chaque époque y puise), puis matières propres de l'époque (ep.matieres), et foyers
     (ep.FOYER). Couleurs LINÉAIRES ; albédos de départ, seule compte la mesure sur le rendu (F36, F38)."""
     M = {}
     k = [0]
+    first = {}   # clé -> indice de sa première création (graine des bruits)
 
     def metal(key, col, rough=0.4, met=0.75, grain=0.38, gscale=24.0, rust=None, ra=0.0, dirt=0.85, stain=0.5,
-              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0, mottle=0.0, stain2=0.0, reflet="plat", tone=1.0):
+              sscale=7.0, dd=0.3, soot=None, wear=0.0, streak=0.0, mottle=0.0, stain2=0.0, reflet="plat", tone=1.0,
+              _seed_k=None, skon=1.0):
         """Crée la matière `key` (remplace une matière de même nom). reflet : « fin » pour les petites pièces
         convexes, sinon « plat » ; le plancher des métaux s'applique toujours (REFLETS) ; tone : facteur d'albédo
-        (matières d'accent seulement)."""
-        k[0] += 1
+        (matières d'accent seulement) ; _seed_k : indice de graine imposé (variante de corps B : mêmes bruits) ; skon :
+        contraste des taches (_insert_stain), 1 partout sauf dans la variante de corps B."""
+        if _seed_k is None:
+            k[0] += 1
+            first.setdefault(key, k[0])
+            kk = k[0]
+        else:
+            kk = _seed_k
         rough = max(rough, REFLETS[reflet])
         if met >= 0.5:
             rough = max(rough, REFLETS["metal"])
         c = tuple(min(0.9, x * tone) for x in col)
         m = S.mat_metal("gune_e%02d_%s" % (epoch, key), c, rough=rough, metallic=met, grain=grain, grain_scale=gscale,
-                        rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt, seed=float(11 * k[0] + epoch),
+                        rust=rust, rust_amount=ra, rust_scale=6.0, dirt=dirt, seed=float(11 * kk + epoch),
                         soot=soot, dirt_distance=dd)
         if stain:
-            _insert_stain(m, stain, sscale, float(11 * k[0] + epoch))
+            _insert_stain(m, stain, sscale, float(11 * kk + epoch), contraste=skon)
         if stain2:
-            _insert_stain(m, stain2, 13.0, float(17 * k[0] + epoch + 0.5))
+            _insert_stain(m, stain2, 13.0, float(17 * kk + epoch + 0.5))
         if mottle:
-            _insert_stain(m, mottle, 1.6, float(17 * k[0] + epoch + 0.5))
+            _insert_stain(m, mottle, 1.6, float(17 * kk + epoch + 0.5))
         if streak:
-            _insert_streaks(m, streak, 14.0, float(13 * k[0] + epoch))
+            _insert_streaks(m, streak, 14.0, float(13 * kk + epoch))
         if wear:
             _insert_edgewear(m, wear)
         m["fo_reflet"] = reflet
@@ -245,7 +324,11 @@ def materials(S, epoch, ep):
     metal("seam", (0.01, 0.009, 0.008), rough=0.8, met=0.2, grain=0.2, dirt=0.4, stain=0.0)
     metal("steel", (0.2, 0.19, 0.175), rough=0.22, met=0.92, grain=0.2, gscale=40.0, rust=rust, ra=0.07, dirt=0.6,
           stain=0.25, wear=1.2)
-    metal("gun", (0.13, 0.125, 0.118), rough=0.22, met=0.92, grain=0.2, gscale=60.0, dirt=0.5, stain=0.15, wear=1.5)
+    # PASSE 5, POSE N (règle d'or 7, deux variantes) : fût des tubes en ACIER NU CLAIR (un canon dressé sombre se
+    # lisait comme une cheminée : juges de la passe 4 ; passe 4 : (0,13, 0,125, 0,118), métallicité 0,92). Métallicité
+    # BASSE (0,35) : un tube dirigé vers le nord n'a aucun reflet du soleil (ouest) vers la caméra (sud) ; un métal pur
+    # y reste noir, quelle que soit sa couleur (essai du 23/10, témoin k3) ; il faut une diffusion claire.
+    metal("gun", (0.3, 0.29, 0.27), rough=0.42, met=0.35, grain=0.14, gscale=60.0, dirt=0.55, stain=0.18, wear=0.7)
     metal("brass", (0.8, 0.56, 0.22), rough=0.2, met=0.95, grain=0.16, gscale=50.0, rust=(0.3, 0.12, 0.05),
           ra=0.14, dirt=0.5, stain=0.15, wear=0.5)
     metal("copper", (0.62, 0.26, 0.1), rough=0.26, met=0.95, grain=0.16, rust=(0.12, 0.2, 0.12), ra=0.08, dirt=0.55,
@@ -274,6 +357,15 @@ def materials(S, epoch, ep):
           stain=0.5, wear=1.5)
     metal("dial", (0.4, 0.37, 0.3), rough=0.4, met=0.0, grain=0.15, dirt=0.4, stain=0.2)
     metal("matte", (0.022, 0.021, 0.022), rough=0.62, met=0.1, grain=0.12, dirt=0.4, stain=0.2, wear=2.0)
+    # tablier de la plateforme (fond sous les lames du caillebotis) : le noir « void » en variante A
+    M["tablier"] = M["void"]
+    if corps_choisi() == "B":
+        # mêmes graines de bruit que la variante A (seules les valeurs changent)
+        def metal_b(key, *a_, **kw):
+            if kw.get("_seed_k") is None:
+                kw["_seed_k"] = first.get(key, 900 + len(first))
+            return metal(key, *a_, **kw)
+        corps_b(metal_b, M)
     # --- BIBLIOTHÈQUE D'ACCENTS (≤ 15 % du corps, patinés, toujours posés sur du métal sombre ; reprise de la plage
     # basse, valeurs linéaires d'origine). Toute époque peut y puiser ; une époque qui veut une variante la crée dans
     # ep.matieres (même clé ou clé nouvelle), jamais en changeant celles-ci.

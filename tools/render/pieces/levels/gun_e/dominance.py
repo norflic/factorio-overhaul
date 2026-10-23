@@ -5,8 +5,9 @@
 Lit le JSON de mesures.py. Suite comparée, pour chaque pose E et N : mitrailleuse VANILLA (niveau 1,
 docs/da/mesures_vanilla.json, « gun-turret ») puis les niveaux impairs des époques 2 à 15. Règle de
 tools/da/progression.py : une époque DOMINE la précédente si emprise, masse, petites pièces et foyers sont tous >=, et
-au moins 2 strictement > ; la densité de détail (D3) ne baisse pas de plus de 5 %. Contrôle impair -> pair de chaque
-époque : masse, pièces et foyers tous >=, au moins un >.
+au moins 2 strictement > ; la densité de détail (D3) ne baisse pas de plus de 5 % (passe 5 : une baisse plus forte est
+un DÉFAUT COMPTÉ, elle n'était qu'imprimée jusqu'à la passe 4). Contrôle impair -> pair de chaque époque : masse,
+pièces et foyers tous >=, au moins un >.
 Écrit aussi --prog (format d'entrée de tools/da/progression.py, famille « mitrailleuse », vanilla en époque 1) et
 lance tools/da/progression.py dessus (sortie recopiée). Code de sortie 1 si une paire ne domine pas.
 """
@@ -23,6 +24,7 @@ import epoques as E  # noqa: E402
 MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 VANILLA = os.path.join(MOD, "docs", "da", "mesures_vanilla.json")
 PROGRESSION = os.path.join(MOD, "tools", "da", "progression.py")
+D3_BAISSE_MAX = 0.05   # passe 5 : une baisse de densité D3 de plus de 5 % entre voisines est un DÉFAUT (compté)
 
 
 def vanilla_n1():
@@ -46,6 +48,7 @@ def main():
     rows = [r for r in data["charte"] if r.get("temoin") is None]
     van = vanilla_n1()
     nko = 0
+    nd3 = 0
     for pose in ("E", "N"):
         seq = [van] + sorted([r for r in rows if r["pose"] == pose and not r["pair"] and r["epoque"] >= 2],
                              key=lambda r: r["epoque"])
@@ -57,14 +60,18 @@ def main():
             gt = sum(1 for u, v in q if u > v)
             ok = ge and gt >= 2
             dd = y["petites_pieces_par_tuile2"] / x["petites_pieces_par_tuile2"] - 1
+            d3_ok = dd >= -D3_BAISSE_MAX
             nd += ok
             nko += not ok
+            nko += not d3_ok
+            nd3 += not d3_ok
             print("  %s %-7s -> ép.%2d : masse %6.2f -> %6.2f, pièces %5d -> %5d, foyers %3d -> %3d, D3 %5.1f -> %5.1f "
                   "(%+5.1f %%) : %s%s" % (
                       pose, "vanilla" if x is van else "ép.%2d" % x["epoque"], y["epoque"], x["masse_tuiles2"],
                       y["masse_tuiles2"], x["petites_pieces"], y["petites_pieces"], x["foyers_lumineux"],
                       y["foyers_lumineux"], x["petites_pieces_par_tuile2"], y["petites_pieces_par_tuile2"], 100 * dd,
-                      "domine" if ok else "NE DOMINE PAS", "" if dd >= -0.05 else " ; DENSITÉ -%.0f %%" % (-100 * dd)))
+                      "domine" if ok else "NE DOMINE PAS",
+                      "" if d3_ok else " ; DÉFAUT : DENSITÉ D3 -%.0f %% (> %.0f %%)" % (-100 * dd, 100 * D3_BAISSE_MAX)))
         print("  %s : %d/%d paires dominent (vanilla en tête)" % (pose, nd, len(seq) - 1))
     for pose in ("E", "N"):
         n = tot = 0
@@ -95,7 +102,8 @@ def main():
         res = subprocess.run([sys.executable, PROGRESSION, a.prog], capture_output=True, text=True, encoding="utf-8")
         print("\n".join(l for l in res.stdout.splitlines() if l.startswith("mitrailleuse") or l.startswith("   ")
                         or l.startswith("     ")))
-    print("[FO-DOMINANCE] %d défaut(s)" % nko)
+    print("[FO-DOMINANCE] %d défaut(s), dont %d baisse(s) de densité D3 de plus de %.0f %%" % (
+        nko, nd3, 100 * D3_BAISSE_MAX))
     sys.exit(1 if nko else 0)
 
 

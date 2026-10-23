@@ -11,6 +11,18 @@ communes (formes.py) et les outils sont communs et gelés. Contrat :
           la couleur doit tomber, MESURÉE sur la couche glow (mesures.py), dans la famille FAMILLES[N] ;
   CANON = dict(L=…, nb=…, rb=…, rr=…)      longueur et nombre de tubes, rayon d'un tube, rayon du faisceau ;
   HABILLAGE = dict(…)                      facultatif : clés de HABILLAGE_DEFAUT (accents permis sur le corps) ;
+      clé « capots » (passe 5) : MATIÈRE des GRANDS CAPOTS PLATS du corps de lignée, SANS changer leur forme
+      (géométrie, nombre de plaques, de joints et de rivets identiques ; corps.capot) :
+        capots=None              olive et ocre de la lignée (défaut) ;
+        capots="concrete"        une matière pour tous les capots ;
+        capots=("cle1", "cle2")  cle1 remplace l'OLIVE (coupole, bandes olive de la jupe, fût de la colonne, coque de
+                                 la nacelle, bras de tourillon, masque), cle2 remplace l'OCRE (plaques ocre de la
+                                 nacelle et du masque).
+      Les clés sont des matières de kit.materials (bibliothèque d'accents) ou de ep.matieres (ex. béton clair pour
+      l'Atome, or blanc pour la Légende). Ne touchent PAS aux capots : rivets, joints, acier sombre, couronne dentée,
+      trémie (clé « tremie »), tourelleau (« tourelleau »), canons (fonction arme de l'époque). Une matière de capot
+      reste une matière de CORPS : pas de reflet franc (plancher REFLETS), pas de couleur vive (la couleur d'accent ne
+      porte jamais seule l'identité, règle d'or 3) ;
   PLATEFORME = dict(chanfrein=…)           facultatif : chanfrein avant de la plateforme (remplissage, §A.5) ;
   def matieres(metal, M)                   facultatif : matières propres (metal(clé, couleur, …) de kit.materials) ;
   def socle(g, c)        après plateforme, colonne et trémie : grands volumes, liaisons, accents, foyers, halos ;
@@ -25,6 +37,13 @@ c (corps.Ctx) porte : g, M, e, ep, side, B (colonne), H (tête + CANON), T (cote
 tête Pf, Nf (coupole), nac (bx, yb0, yb1, ztop, yc), tour (cx, cy, z du dessus du tourelleau).
 Époque 1 (Pionnier) : le niveau 1 est la mitrailleuse vanilla ; ep01 ne fournit que piece() (niveau 2).
 Époque 0 (ep00) : la LIGNÉE SEULE (témoin du kit, variantes kS-…), sans organe d'époque.
+VARIANTE DE CORPS (passe 5) : corps_choix.py, UN fichier d'UNE ligne, CORPS = "A" (corps de la passe 4, défaut) ou
+"B" (valeurs groupées : grandes masses plus claires, micro-contrastes resserrés ; kit.corps_b). C'est le SEUL fichier
+commun que les constructeurs ont le droit de modifier ; rendre.py --corps A|B l'emporte sur lui pour un rendu (essais
+du kit), et la variante utilisée est écrite dans render.json et spec.json de chaque sprite.
+POSE N (passe 5, règle d'or 7) : les tubes par défaut sont en acier nu clair (M["gun"]) ; corps.rosette éclaire la
+pointe de chaque tube (pointes=…) ; corps.couronne_bouche remplace le frein en bloc de la passe 4 ; un frein d'époque
+ne doit pas faire de chapeau plat plus large que le faisceau.
 """
 import importlib
 
@@ -46,6 +65,7 @@ HABILLAGE_DEFAUT = dict(
     grille_nacelle="steel",    # lamelles de la grille arrière de la nacelle (2×2 à 4×4)
     tourelleau="ochre",        # caisson du tourelleau
     chapeau="brass",           # chapeau boulonné du tourillon
+    capots=None,               # MATIÈRE des grands capots du corps (passe 5) : voir le contrat ci-dessus
 )
 
 # FAMILLES DE COULEUR DES FOYERS (règle d'or 3) : teinte (degrés, intervalle circulaire) et saturation MESURÉES sur la
