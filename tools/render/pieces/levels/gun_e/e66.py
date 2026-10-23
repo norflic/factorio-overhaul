@@ -10,6 +10,8 @@ eNN-tete-E validées à 128 (--a128). D00 = N et d16 = E au bit près (preuve d'
    99, part des pixels à plus de 4 et de 16 niveaux ; plus l'écart de l'alpha moyen (biais).
 2. Temps : par passe (main, shadow, glow), lu dans les journaux Blender des deux rendus (horodatage « Saved: » de
    chaque passe ; la passe principale = rendu total − ombre − lueur, car son horodatage comprend la construction).
+   ATTENTION (correcteur A1) : ces temps viennent de deux rendus FAITS SOUS DES CHARGES DIFFÉRENTES ; leur rapport
+   n'est PAS le gain des échantillons (51 % annoncé, faux). Le gain se mesure dos à dos avec e66_temps.py (44,7 %).
 3. Image de contrôle zoom 2 : ombre 128 | ombre 32 | écart ×8, par pose.
 """
 import argparse
