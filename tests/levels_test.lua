@@ -2396,6 +2396,20 @@ end
 end)()
 
 ---------------------------------------------------------------------------------------------------
+section("Feuilles de la mitrailleuse hors de git (D-6, correction A2) : manifeste")
+---------------------------------------------------------------------------------------------------
+-- Les contrôles du harness rejoué ci-dessus (--dump-final) s'arrêtent AVANT la règle « images » : sans ce contrôle,
+-- un worktree neuf sans PNG restait vert ici alors que le jeu refuse le mod.
+;(function()
+local GunSheets = dofile("tests/datastage/gun_sheets.lua")
+local r = GunSheets.check(".")
+local ok = GunSheets.ok(r)
+if not ok then for _, l in ipairs(GunSheets.lines(r)) do print(l) end end
+check(ok and r.n > 0, string.format("graphics/levels/gun : %d PNG du manifeste présents, à la taille et aux dimensions "
+  .. "du manifeste (%d manquant(s), %d écart(s)%s)", r.n, #r.manquants, #r.ecarts, r.erreur and (", " .. r.erreur) or ""))
+end)()
+
+---------------------------------------------------------------------------------------------------
 section("Emprise croissante (lot V3-T) : table, règle de position, place, agrandissement, contour")
 ---------------------------------------------------------------------------------------------------
 -- Q23 (22/10, 7 h 20) et Q24 (22/10, 7 h 40 : « agrandissement sur place si la place autour est libre ;

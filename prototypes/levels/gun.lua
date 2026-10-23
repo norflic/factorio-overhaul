@@ -97,13 +97,12 @@ function M.dress(p, ctx)
   end
   local age = SPR.ages[e]
   assert(age, "gun.lua : âge " .. e .. " absent de graphics/levels/gun/sprites.lua")
-  -- Socle (et pièce paire au second niveau de l'âge) : une seule image, couches dans l'ordre principal, lueur, halo,
-  -- ombre ; la pièce vient APRÈS le socle (dessinée par-dessus).
+  -- Socle ENTIER (principale, lueur, halo, ombre), PUIS la pièce paire au second niveau de l'âge : même ordre que la
+  -- composition validée (profil.level_layers = socle puis pièce, compo.compose dans cet ordre) ; la pièce couvre donc
+  -- la lueur additive du socle (correction A2 : l'ordre couche par couche posait la lueur du socle sur la pièce).
   local base = {}
-  for _, kind in ipairs(ORDRE) do
-    if age.socle[kind] then base[#base + 1] = couche_fixe(age.socle[kind], kind) end
-    if ctx.step == 2 and age.piece[kind] then base[#base + 1] = couche_fixe(age.piece[kind], kind) end
-  end
+  couches_fixes(base, age.socle)
+  if ctx.step == 2 then couches_fixes(base, age.piece) end
   p.base_picture = { layers = base }
   -- Tête : la même image pour les 5 animations (tête toujours levée).
   for _, k in ipairs(TETE) do p[k] = tete(age) end
@@ -124,10 +123,20 @@ end
 
 --- Icônes : l'icône de l'âge (socle + tête E, feuilles.py) à la place de l'icône vanilla teintée ; le numéro du
 --- niveau (couches suivantes) reste celui du kit. Âge 1 : icône vanilla.
+local annonce = false
+
 function M.icons(icons, ctx)
   local age = SPR.ages[ctx.epoch]
   if ctx.epoch == 1 or not age or not age.icone then return icons end
   icons[1] = { icon = age.icone.filename, icon_size = age.icone.icon_size, icon_mipmaps = age.icone.icon_mipmaps }
+  if not annonce then
+    -- Marqueur du journal lu par tools/autotest/tests/run_d4m.py (F125 : avec ces icônes, l'atlas [icon] peut perdre
+    -- « linear-mip-level » en qualité normale, selon le rangement de l'atlas ; toléré seulement si ce marqueur est là).
+    annonce = true
+    local n = 0
+    for e = 2, 15 do if SPR.ages[e] and SPR.ages[e].icone then n = n + 1 end end
+    log("[FO-GUN-ICONES] icones d'age de la mitrailleuse chargees : " .. n .. " (graphics/levels/gun, lot A2)")
+  end
   return icons
 end
 

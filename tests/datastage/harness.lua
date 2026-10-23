@@ -640,7 +640,12 @@ do
   end
   for _, f in ipairs(img_self_fail) do print("  IMAGE AUTO-CONTROLE FAUX " .. f) end
 end
+-- Feuilles de la mitrailleuse hors de git (D-6, correction A2) : manifeste contrôlé (présence, taille, dimensions) ;
+-- un checkout ou un worktree neuf reçoit ici la commande qui régénère les PNG.
+local GunSheets = dofile(HERE .. "/gun_sheets.lua")
+local gun_sheets = GunSheets.check(MOD_ROOT)
+for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
 print(string.format("Localisation : %d clé(s) manquante(s)", #missing_locale))
 for i = 1, math.min(#missing_locale, 60) do print("  LOCALE " .. missing_locale[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
-  and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0) and 0 or 1)
+  and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)) and 0 or 1)

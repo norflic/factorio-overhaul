@@ -16,17 +16,19 @@ Ce que l'outil écrit dans --dest (dossier du mod ; les PNG y sont HORS de git, 
   - MANIFEST.json : chaque fichier (taille, sha256, dimensions), les sources (spec.json et sha256 de chaque PNG
     source) et la commande exacte qui régénère le dossier. sprites.lua, sprites.json et MANIFEST.json sont COMMITÉS.
 
-Bouche du canon (E68, mesurée ici sur les sprites) : pour chaque pose de tête, le point opaque (alpha ≥ 0,5) le plus
-loin dans la direction du tir (E : colonne la plus à droite ; N : ligne la plus haute ; S : la plus basse ; O : la
-plus à gauche), et sa coordonnée transverse (médiane des pixels opaques des 6 dernières colonnes ou lignes), en
-tuiles depuis le centre de l'entité. Étalonnage sur la VANILLA (mêmes mesures sur hr-gun-turret-shooting-*.png,
-images 0, 16, 32, 48) : décalage s = bouche dessinée en E − point du moteur en E (projectile_center +
-projectile_creation_distance). Pour chaque âge : distance = bouche_E.x − s.x, centre.y = bouche_E.y − s.y (centre.x =
-0). Modèle des écarts : bouche prévue = centre + (0, s.y) + (distance + s.x) × direction du tir (s.x le long du tir,
-s.y vers le haut de l'écran). Les écarts aux poses N, S et O sont écrits dans sprites.json (« ecarts_bouche ») : NON
-corrigés (un seul centre et une seule distance pour toutes les directions, règle du moteur). La « bouche » est le
-point opaque le plus avancé : sur certaines poses, ce n'est pas le canon (organe d'époque plus avancé) : mesure
-grossière, à confronter aux captures du tir en moteur (scénario gun-rose).
+Bouche du canon et éclat de tir (E68, correction A2) :
+  - bouche DESSINÉE de chaque pose = milieu des bouts des deux canons extrêmes (rangées de lignes dont le pixel opaque
+    le plus avancé est à TOL_CANON px au plus du plus avancé de la pose ; vanilla, un seul canon : TOL_VANILLE) ;
+  - règle du MOTEUR, mesurée par gun-rose sur 60 tourelles (15 âges × 4 directions, écart ≤ 0,009 tuile) : l'éclat
+    (entité explosion-gunshot) naît en projectile_center + distance × (vx, vy) / |(vx, vy / K_PROJ)|, v = cible −
+    projectile_center ; pour une cible lointaine dans la direction u : centre + distance × (ux, K_PROJ × uy) ; il se
+    VOIT H_ECLAT tuile plus haut (hauteur de l'explosion) ; une cible proche dévie l'éclat en E et en O d'au plus
+    distance × |centre.y| / portée (0,07 tuile à l'âge 15 pour une cible à 25 tuiles) ;
+  - marge = où l'éclat visible de la VANILLA tombe au-delà de sa bouche, moyenne de N, E et O (MARGE_DIRS) ;
+  - pour chaque âge, centre.y et distance au sens des moindres carrés sur les 4 directions (cible = bouche + marge le
+    long du tir) ; un âge dont l'éclat visible tombe à plus de SEUIL_ECLAT tuile de sa cible dans UNE direction est
+    REFUSÉ (code non nul, rien n'est écrit au-delà des PNG) ; écarts dans sprites.json (« ecarts_bouche »,
+    « ecart_max »), éclat visible prévu (« eclat_visible »).
 
 Sources par défaut (designs VALIDÉS par le Directeur Créatif ; production à 128 échantillons) :
   âges 1 à 9    fo-logs/2026-10-23_V3E-p5/bas/sprites
@@ -66,6 +68,20 @@ FIXE_COUCHES = ("main", "shadow", "glow", "light")
 # Vanilla (data/base/prototypes/entity/turrets.lua, mitrailleuse) : point du moteur et tête hr
 VANILLE = {"projectile_creation_distance": 1.39375, "projectile_center": (0.0, -0.0875),
            "tete_hr": {"w": 132, "h": 130, "shift_px": (0.0, -27.5), "bandes": 4, "par_bande": 16, "images": 2}}
+# Éclat de tir (E68, mesuré en moteur par le scénario gun-rose : position de l'entité explosion-gunshot) :
+#   point du moteur = projectile_center + distance × (ux, K_PROJ × uy) ; vanilla : N −1,0664 et S +0,8945 pour
+#   centre −0,0875 et distance 1,39375 (K = 0,702 et 0,705) ; âge 15 : N −3,6094, S +2,6875 (0,706, 0,707) ;
+#   l'éclat se VOIT H_ECLAT tuile plus haut (hauteur d'une explosion, défaut 1 de ExplosionPrototype ; vanilla en E :
+#   bout des canons à 0,05 tuile de cette hauteur).
+K_PROJ = 0.7071
+H_ECLAT = 1.0
+TOL_CANON = 24          # px hr : bouts de canon à 0,375 tuile au plus du plus avancé
+TOL_VANILLE = 4         # px hr : la vanilla n'a qu'un canon (gatling) ; une tolérance large prend le corps
+# Marge étalonnée sur la vanilla en N, E et O seulement : en S, le point opaque le plus bas de la tête vanilla est la
+# couronne dentée, pas la bouche (planche fo-logs/2026-10-24_A2/correction/vanille-bouches.png ; à l'œil, l'éclat
+# vanilla en S tombe environ 0,34 tuile au-delà de la bouche, comme en N et en E).
+MARGE_DIRS = ("N", "E", "O")
+SEUIL_ECLAT = 0.5       # tuile : écart maximal toléré entre l'éclat visible prévu et sa cible (bouche + marge)
 COMMANDE = ("py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par défaut : "
             "en tête de feuilles.py)")
 
@@ -126,30 +142,101 @@ def boite_px(L):
     return gx, gy, gx + w, gy + h
 
 
-def bouche(alpha, gauche, haut, d):
-    """Bouche dessinée d'une pose (tuiles depuis l'origine) : point opaque le plus loin dans la direction d."""
-    x, y = _bouche(alpha, gauche, haut, d)
-    return float(x), float(y)
-
-
-def _bouche(alpha, gauche, haut, d):
-    op = alpha >= 128
-    ys, xs = np.nonzero(op)
+def _vers_E(a, d):
+    """Tourne la couche alpha pour que la direction du tir d devienne +x (colonnes croissantes)."""
     if d == "E":
-        x = xs.max()
-        sel = op[:, max(0, x - 5):x + 1].any(1)
-        return ((gauche + x + 1) / 64.0, (haut + float(np.median(np.nonzero(sel)[0])) + 0.5) / 64.0)
+        return a
     if d == "O":
-        x = xs.min()
-        sel = op[:, x:x + 6].any(1)
-        return ((gauche + x) / 64.0, (haut + float(np.median(np.nonzero(sel)[0])) + 0.5) / 64.0)
-    if d == "N":
-        y = ys.min()
-        sel = op[y:y + 6, :].any(0)
-        return ((gauche + float(np.median(np.nonzero(sel)[0])) + 0.5) / 64.0, (haut + y) / 64.0)
-    y = ys.max()
-    sel = op[max(0, y - 5):y + 1, :].any(0)
-    return ((gauche + float(np.median(np.nonzero(sel)[0])) + 0.5) / 64.0, (haut + y + 1) / 64.0)
+        return a[:, ::-1]
+    if d == "S":
+        return a.T
+    return a[::-1, :].T
+
+
+def canons(alpha, d, tol=None):
+    """Bouts de canon d'une pose, dans le repère tourné vers +x : liste de (première rangée, dernière rangée, bout),
+    bout = bord avant (px) ; une « rangée » est une suite de lignes dont le pixel opaque (alpha ≥ 0,5) le plus avancé est
+    à TOL_CANON px au plus du plus avancé de la pose."""
+    op = _vers_E(alpha, d) >= 128
+    lignes = np.nonzero(op.any(1))[0]
+    r = np.full(op.shape[0], -1)
+    for i in lignes:
+        r[i] = int(np.nonzero(op[i])[0].max()) + 1
+    xm = int(r.max())
+    cand = r >= xm - (TOL_CANON if tol is None else tol)
+    res = []
+    i = 0
+    while i < len(r):
+        if cand[i]:
+            j = i
+            while j + 1 < len(r) and cand[j + 1]:
+                j += 1
+            res.append((i, j, int(r[i:j + 1].max())))
+            i = j + 1
+        else:
+            i += 1
+    return res
+
+
+def bouche(alpha, gauche, haut, d, tol=None):
+    """Bouche dessinée d'une pose (tuiles depuis l'origine de l'entité) : MILIEU des bouts des deux canons extrêmes
+    (correction A2 : la médiane des lignes des 6 dernières colonnes tombait dans un seul canon dès que les deux
+    canons arrivent au même bout, âge 12). En transverse : milieu des centres des deux rangées extrêmes ; le long du
+    tir : moyenne de leurs bouts. Une seule rangée (canons jumeaux collés, vanilla, âges 2 et 3) : son centre."""
+    h, w = alpha.shape
+    rr = canons(alpha, d, tol)
+    a, b = rr[0], rr[-1]
+    trans = ((a[0] + a[1] + 1) / 2.0 + (b[0] + b[1] + 1) / 2.0) / 2.0
+    bout = (a[2] + b[2]) / 2.0
+    if d == "E":
+        x, y = bout, trans
+    elif d == "O":
+        x, y = w - bout, trans
+    elif d == "S":
+        x, y = trans, bout
+    else:
+        x, y = trans, h - bout
+    return float((gauche + x) / 64.0), float((haut + y) / 64.0)
+
+
+UNITE = {"N": (0.0, -1.0), "E": (1.0, 0.0), "S": (0.0, 1.0), "O": (-1.0, 0.0)}
+
+
+def point_moteur(centre_y, dist, d):
+    """Point de création de l'éclat (entité explosion-gunshot) mesuré en moteur (E68, gun-rose) : projectile_center +
+    distance × (ux, K_PROJ × uy), en tuiles depuis le centre de l'entité."""
+    ux, uy = UNITE[d]
+    return dist * ux, centre_y + K_PROJ * dist * uy
+
+
+def eclat_visible(centre_y, dist, d):
+    """Où l'éclat se VOIT : point du moteur relevé de la hauteur de l'explosion (H_ECLAT tuile)."""
+    x, y = point_moteur(centre_y, dist, d)
+    return x, y - H_ECLAT
+
+
+def marges(bouches, centre_y, dist):
+    """Pour chaque direction : (marge le long du tir = éclat visible − bouche dessinée, écart transverse)."""
+    res = {}
+    for d, (bx, by) in sorted(bouches.items()):
+        vx, vy = eclat_visible(centre_y, dist, d)
+        ux, uy = UNITE[d]
+        res[d] = ((vx - bx) * ux + (vy - by) * uy, (vx - bx) * uy - (vy - by) * ux)
+    return res
+
+
+def ajuste_tir(bouches, marge):
+    """projectile_center.y et projectile_creation_distance au sens des moindres carrés sur les 4 directions : l'éclat
+    visible doit tomber à `marge` tuile au-delà de la bouche dessinée (marge étalonnée sur la vanilla)."""
+    A, b = [], []
+    for d, (bx, by) in sorted(bouches.items()):
+        ux, uy = UNITE[d]
+        tx, ty = bx + marge * ux, by + marge * uy
+        if ux:
+            A.append([0.0, ux]); b.append(tx)
+        A.append([1.0, K_PROJ * uy]); b.append(ty + H_ECLAT)
+    sol = np.linalg.lstsq(np.array(A), np.array(b), rcond=None)[0]
+    return float(sol[0]), float(sol[1])
 
 
 def bouches_vanille(data_dir):
@@ -163,7 +250,7 @@ def bouches_vanille(data_dir):
         # by_pixel(x, y) = x/32 tuile ; en px hr (64/tuile) : 2x. Shift hr vanilla = by_pixel(0, -27.5) -> -55 px hr.
         gauche = V["shift_px"][0] * 2 - V["w"] / 2
         haut = V["shift_px"][1] * 2 - V["h"] / 2
-        res[d] = bouche(cad[..., 3], gauche, haut, d)
+        res[d] = bouche(cad[..., 3], gauche, haut, d, TOL_VANILLE)
     return res
 
 
@@ -208,6 +295,7 @@ def main():
     ap.add_argument("--valide", action="append", default=None)
     ap.add_argument("--so", default=SO_DEFAUT)
     ap.add_argument("--data", default=DATA_DEFAUT)
+    ap.add_argument("--seuil", type=float, default=SEUIL_ECLAT, help="seuil de refus de l'éclat (essai du refus)")
     a = ap.parse_args()
     valides = plages(a.valide or VALIDES_DEFAUT)
     dest = os.path.abspath(a.dest)
@@ -236,16 +324,11 @@ def main():
     note_source("e01-piece", s, d)
     ages[1] = {"piece": {lay: copie(d, s["layers"][lay]) for lay in FIXE_COUCHES if lay in s["layers"]}}
     vb = bouches_vanille(a.data)
-    sE = (vb["E"][0] - (VANILLE["projectile_center"][0] + VANILLE["projectile_creation_distance"]),
-          vb["E"][1] - VANILLE["projectile_center"][1])
-    ecarts_vanille = {}
-    for dd, (vx, vy) in sorted(vb.items()):
-        ux, uy = {"N": (0, -1), "E": (1, 0), "S": (0, 1), "O": (-1, 0)}[dd]
-        # modèle : bouche dessinée = centre + (0, s.y) + (distance + s.x) × direction du tir (s.x : la bouche est en
-        # deçà du point du moteur, LE LONG du tir ; s.y : à l'écran, vers le haut, quelle que soit la direction)
-        mx = VANILLE["projectile_center"][0] + ux * (VANILLE["projectile_creation_distance"] + sE[0])
-        my = VANILLE["projectile_center"][1] + sE[1] + uy * (VANILLE["projectile_creation_distance"] + sE[0])
-        ecarts_vanille[dd] = [round(vx - mx, 4), round(vy - my, 4)]
+    # marge étalonnée sur la vanilla : où son éclat visible tombe, le long du tir, par rapport au bout de ses canons
+    mv = marges(vb, VANILLE["projectile_center"][1], VANILLE["projectile_creation_distance"])
+    marge = sum(mv[d][0] for d in MARGE_DIRS) / len(MARGE_DIRS)
+    ecarts_vanille = {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mv.items())}
+    refus = []
 
     for e in range(2, 16):
         dv = valides[e]
@@ -320,23 +403,32 @@ def main():
                     u[2] = max(u[2], h["shift"][0] + h["width"] / 128.0)
                     u[3] = max(u[3], h["shift"][1] + h["height"] / 128.0)
         A["boite"] = [[u[0], u[1]], [u[2], u[3]]]
-        # bouche (E68) : point du moteur déduit de la pose E et du décalage étalonné sur la vanilla
-        bE = bouches["E"]
-        dist = bE[0] - sE[0]
-        cy = bE[1] - sE[1]
-        ecarts = {}
-        for dd, (vx, vy) in sorted(bouches.items()):
-            ux, uy = {"N": (0, -1), "E": (1, 0), "S": (0, 1), "O": (-1, 0)}[dd]
-            ecarts[dd] = [round(vx - ux * (dist + sE[0]), 4), round(vy - (cy + sE[1] + uy * (dist + sE[0])), 4)]
-        A["tir"] = {"projectile_creation_distance": round(dist, 5), "projectile_center": [0.0, round(cy, 5)]}
+        # bouche (E68) : centre et distance ajustés sur les 4 directions (règle du moteur mesurée, marge vanilla)
+        cy, dist = ajuste_tir(bouches, marge)
+        cy, dist = round(cy, 5), round(dist, 5)
+        mm = marges(bouches, cy, dist)
+        ecarts = {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mm.items())}
+        pire = max((v[0] ** 2 + v[1] ** 2) ** 0.5 for v in ecarts.values())
+        if pire > a.seuil:
+            refus.append("âge %d : éclat à %.3f tuile de sa cible (seuil %.2f) ; écarts %s" % (e, pire, a.seuil, ecarts))
+        A["tir"] = {"projectile_creation_distance": dist, "projectile_center": [0.0, cy]}
         A["bouches"] = {k: [round(v[0], 5), round(v[1], 5)] for k, v in sorted(bouches.items())}
+        A["eclat_visible"] = {d: [round(v, 5) for v in eclat_visible(cy, dist, d)] for d in sorted(bouches)}
         A["ecarts_bouche"] = ecarts
+        A["ecart_max"] = round(pire, 4)
         # icône : socle + tête E (couches principales hr), composées en lumière linéaire, réduites
         A["icone"] = icone(dest, e, A, poses)
         ages[e] = A
+    imprime_tir(ages, vb, marge, ecarts_vanille)
+    if refus:
+        for r in refus:
+            print("[FO-FEUILLES] REFUS " + r)
+        raise SystemExit("[FO-FEUILLES] éclat de tir hors des canons : %d âge(s) refusé(s) (E68)" % len(refus))
     donnees = {"directions": ["N", "E", "S", "O"], "ages": ages,
+               "eclat": {"k_proj": K_PROJ, "hauteur": H_ECLAT, "marge": round(marge, 5), "seuil": SEUIL_ECLAT,
+                         "tol_canon_px": TOL_CANON},
                "vanille": {"bouches": {k: [round(v[0], 5), round(v[1], 5)] for k, v in sorted(vb.items())},
-                           "decalage_eclat": [round(sE[0], 5), round(sE[1], 5)], "ecarts_bouche": ecarts_vanille,
+                           "ecarts_bouche": ecarts_vanille,
                            "projectile_creation_distance": VANILLE["projectile_creation_distance"],
                            "projectile_center": list(VANILLE["projectile_center"])}}
     # les sous-tables « poses » restent dans sprites.json (outils), pas dans sprites.lua (jeu)
@@ -367,14 +459,23 @@ def main():
         json.dump(manifeste, f, indent=1, sort_keys=True)
     tot = sum(v["taille"] for v in fichiers.values())
     print("[FO-FEUILLES] %d fichiers PNG, %.2f Mo, %d sources ; dest %s" % (len(fichiers), tot / 1e6, len(sources), dest))
-    print("[FO-FEUILLES] vanilla : bouches %s ; décalage éclat %s ; écarts %s" % (
-        donnees["vanille"]["bouches"], donnees["vanille"]["decalage_eclat"], ecarts_vanille))
-    for e in range(2, 16):
-        A = ages[e]
-        print("[FO-FEUILLES] âge %2d tir %s ; écarts N %s S %s O %s ; boîte %s" % (
-            e, A["tir"], A["ecarts_bouche"]["N"], A["ecarts_bouche"]["S"], A["ecarts_bouche"]["O"],
-            [[round(x, 3) for x in c] for c in A["boite"]]))
+    print("[FO-FEUILLES] boîtes : " + " ; ".join("âge %d %s" % (e, [[round(x, 3) for x in c] for c in ages[e]["boite"]])
+                                                  for e in range(2, 16)))
     return 0
+
+
+def imprime_tir(ages, vb, marge, ecarts_vanille):
+    print("[FO-FEUILLES] éclat (E68) : K_PROJ %.4f, hauteur %.2f, marge vanilla %.4f tuile, seuil %.2f ; vanilla : "
+          "bouches %s, écarts (le long, transverse) %s" % (K_PROJ, H_ECLAT, marge, SEUIL_ECLAT,
+                                                           {k: [round(v[0], 4), round(v[1], 4)] for k, v in sorted(vb.items())},
+                                                           ecarts_vanille))
+    for e in sorted(ages):
+        A = ages[e]
+        if "tir" not in A:
+            continue
+        print("[FO-FEUILLES] âge %2d tir %s ; écarts (le long, transverse) E %s N %s S %s O %s ; max %.3f" % (
+            e, A["tir"], A["ecarts_bouche"]["E"], A["ecarts_bouche"]["N"], A["ecarts_bouche"]["S"],
+            A["ecarts_bouche"]["O"], A["ecart_max"]))
 
 
 def icone(dest, e, A, poses):

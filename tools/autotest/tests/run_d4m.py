@@ -77,27 +77,33 @@ AUTRES_ATLAS = sorted([
 ])
 # Seule variation tolérée : l'atlas [low-object] avec ou sans « linear-minification » (voir plus haut).
 VARIANTES = {frozenset(["low-object", "linear-minification"]): frozenset(["low-object"])}
-# Variation tolérée SELON LA QUALITÉ déclarée (lot A2, 24/10, étalonnée sur 3 journaux réels) : en qualité NORMALE
-# (mémoire « all » ou « low »), l'atlas [icon] perd « linear-mip-level » depuis que le mod livre les icônes d'âge de la
-# mitrailleuse (graphics/levels/gun/gun-eNN-icone.png, 64 px + 3 mipmaps : bande 120 × 64, comme la vanilla). Contrôle :
-# la même session sans ces icônes (copie jetable, M.icons neutralisé) garde le drapeau (fo-logs 2026-10-24_A2,
-# d4m-experience). Cause dans le moteur : NON identifiée. En haute qualité, le drapeau reste : il y est exigé.
+# Variation tolérée SELON LA QUALITÉ déclarée ET LE CONTENU déclaré (lot A2, correction, 24/10) : en qualité NORMALE
+# (mémoire « all » ou « low »), l'atlas [icon] peut perdre « linear-mip-level » avec les icônes d'âge de la mitrailleuse
+# (graphics/levels/gun/gun-eNN-icone.png). Cause mesurée (F125, fo-logs 2026-10-24_A2/correction/d4m-icones) : le
+# RANGEMENT de l'atlas, pas le contenu ni la taille : 14 icônes d'âge -> drapeau absent ; 13 ou 15 -> présent ; 14
+# icônes au contenu vanilla -> absent ; atlas 8192 x 2288 dans les 4 cas. Tolérée SEULEMENT si le journal porte le
+# marqueur du mod « [FO-GUN-ICONES] » (prototypes/levels/gun.lua) ; signalée à chaque journal (« TOLERE »). En haute
+# qualité, le drapeau est exigé.
 ICONE = ("icon", "not-compressed", "mipmap", "linear-minification", "linear-magnification", "linear-mip-level")
 VARIANTES_QUALITE = {"normal": {frozenset(ICONE) - {"linear-mip-level"}: frozenset(ICONE)}}
+MARQUEUR_ICONES = "[FO-GUN-ICONES]"
 RE_ATLAS_LIGNE = re.compile(r"^-- Atlas de sprites \((\d+)\)")
 VIRTUEL = "Created virtual atlas pages"
 
 
-def signature(flags, qualite=None):
+def signature(flags, qualite=None, icones_age=False):
     """Signature d'un atlas : ensemble de ses drapeaux en minuscules (« none » et vides ôtés), variante tolérée ramenée
     (VARIANTES, puis VARIANTES_QUALITE de la qualité déclarée par le journal)."""
     s = frozenset(f.strip().lower() for f in flags or [] if f.strip() and f.strip().lower() != "none")
     s = VARIANTES.get(s, s)
+    if not icones_age:
+        return s
     return VARIANTES_QUALITE.get(qualite, {}).get(s, s)
 
 
-def atlas_attendus(r):
-    """Écarts entre un journal (r : JSON de vram.py) et ATLAS_ATTENDUS ; liste vide = conforme."""
+def atlas_attendus(r, icones_age=False, toleres=None):
+    """Écarts entre un journal (r : JSON de vram.py) et ATLAS_ATTENDUS ; liste vide = conforme. icones_age : le journal
+    porte MARQUEUR_ICONES ; toleres (liste) reçoit les variations tolérées rencontrées."""
     cle = tuple((r.get(k) or "").strip().lower() for k in ("quality", "video_memory_usage", "dxt"))
     if not all(cle):
         return ["reglages absents du journal (ligne Graphics options) : qualite %r, memoire %r, DXT %r" % cle]
@@ -107,7 +113,7 @@ def atlas_attendus(r):
     att = ATLAS_ATTENDUS[cle]
     atlases = r.get("atlases") or []
     # Atlas « [none] » : aucun drapeau, écrit « [none] » par le jeu.
-    nones = [a for a in atlases if not signature(a.get("flags"), cle[0])]
+    nones = [a for a in atlases if not signature(a.get("flags"), cle[0], icones_age)]
     px_none = sum(a["w"] * a["h"] for a in nones)
     # Atlas virtuel : relevé par vram.parse_log sur la ligne horodatée du MOTEUR seulement (une impression de script
     # qui contient ces mots ne compte pas).
@@ -120,7 +126,11 @@ def atlas_attendus(r):
     # Composition : chaque signature de AUTRES_ATLAS exactement une fois, aucune autre.
     vues = {}
     for a in atlases:
-        s = signature(a.get("flags"), cle[0])
+        s = signature(a.get("flags"), cle[0], icones_age)
+        brut = signature(a.get("flags"))
+        if s and s != brut and toleres is not None:
+            toleres.append("atlas [%s] %dx%d ramene a [%s] (qualite %s, marqueur %s : F125)"
+                           % (", ".join(sorted(brut)), a["w"], a["h"], ", ".join(sorted(s)), cle[0], MARQUEUR_ICONES))
         if s:
             vues[s] = vues.get(s, 0) + 1
     attendues = set(frozenset(t) for t in AUTRES_ATLAS)
@@ -167,7 +177,15 @@ def verifie_journal(lg, py, dossier_json):
     m = RE_ATLAS_LIGNE.match(line)
     if not m or int(m.group(1)) != len(r.get("atlases") or []):
         ecarts.append("rapport et JSON de vram.py en desaccord sur le nombre d'atlas (%r)" % line)
-    ecarts += atlas_attendus(r)
+    try:
+        with open(lg, encoding="utf-8", errors="replace") as fh:
+            icones_age = any(MARQUEUR_ICONES in ln and "Script @__factorio-overhaul__" in ln for ln in fh)
+    except OSError:
+        icones_age = False
+    toleres = []
+    ecarts += atlas_attendus(r, icones_age, toleres)
+    for t in toleres:
+        print("      TOLERE : %s" % t)
     return not ecarts, resume, ecarts
 
 

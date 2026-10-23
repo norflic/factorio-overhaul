@@ -53,16 +53,23 @@ return {
     [2] = {
       boite = { { -1.34375, -1.625 }, { 1.34375, 1.21875 } },
       bouches = {
-        E = { 1.15625, -0.57812 },
+        E = { 0.96875, -0.94141 },
         N = { 0, -1.59375 },
-        O = { -1.15625, -0.57812 },
+        O = { -0.96875, -0.94141 },
         S = { 0, 0.32812 }
       },
+      ecart_max = 0.4044,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.1406 },
-        O = { 0, 0 },
-        S = { 0, -0.25 }
+        E = { 0.1769, -0.1543 },
+        N = { -0.0958, 0 },
+        O = { 0.1769, 0.1543 },
+        S = { -0.4044, 0 }
+      },
+      eclat_visible = {
+        E = { 1.48455, -0.78711 },
+        N = { 0, -1.83684 },
+        O = { -1.48455, -0.78711 },
+        S = { 0, 0.26262 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e02-icone.png",
@@ -214,8 +221,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.37344 },
-        projectile_creation_distance = 1.55
+        projectile_center = { 0, 0.21289 },
+        projectile_creation_distance = 1.48455
       }
     },
     [3] = {
@@ -226,11 +233,18 @@ return {
         O = { -1.23438, -0.57812 },
         S = { 0, 0.35938 }
       },
+      ecart_max = 0.1093,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.2969 },
-        O = { 0, 0 },
-        S = { 0, -0.2969 }
+        E = { 0.0773, 0 },
+        N = { -0.1093, 0 },
+        O = { 0.0773, 0 },
+        S = { -0.1093, 0 }
+      },
+      eclat_visible = {
+        E = { 1.65058, -0.57813 },
+        N = { 0, -1.74526 },
+        O = { -1.65058, -0.57813 },
+        S = { 0, 0.589 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e03-icone.png",
@@ -396,8 +410,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.37344 },
-        projectile_creation_distance = 1.62813
+        projectile_center = { 0, 0.42187 },
+        projectile_creation_distance = 1.65058
       }
     },
     [4] = {
@@ -408,11 +422,18 @@ return {
         O = { -1.85938, -0.8125 },
         S = { 0, 0.60938 }
       },
+      ecart_max = 0.1467,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.4219 },
-        O = { 0, 0 },
-        S = { 0, -0.4375 }
+        E = { 0.101, 0.0039 },
+        N = { -0.1467, 0 },
+        O = { 0.101, -0.0039 },
+        S = { -0.1389, 0 }
+      },
+      eclat_visible = {
+        E = { 2.29927, -0.81641 },
+        N = { 0, -2.44222 },
+        O = { -2.29927, -0.81641 },
+        S = { 0, 0.8094 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e04-icone.png",
@@ -578,8 +599,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.13906 },
-        projectile_creation_distance = 2.25312
+        projectile_center = { 0, 0.18359 },
+        projectile_creation_distance = 2.29927
       }
     },
     [5] = {
@@ -590,11 +611,18 @@ return {
         O = { -1.875, -0.8125 },
         S = { 0, 0.60938 }
       },
+      ecart_max = 0.1302,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.4531 },
-        O = { 0, 0 },
-        S = { 0, -0.4531 }
+        E = { 0.0921, 0 },
+        N = { -0.1302, 0 },
+        O = { 0.0921, 0 },
+        S = { -0.1302, 0 }
+      },
+      eclat_visible = {
+        E = { 2.306, -0.8125 },
+        N = { 0, -2.44307 },
+        O = { -2.306, -0.8125 },
+        S = { 0, 0.81807 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e05-icone.png",
@@ -774,8 +802,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.13906 },
-        projectile_creation_distance = 2.26875
+        projectile_center = { 0, 0.1875 },
+        projectile_creation_distance = 2.306
       }
     },
     [6] = {
@@ -784,13 +812,20 @@ return {
         E = { 1.85938, -0.8125 },
         N = { 0, -2.23438 },
         O = { -1.85938, -0.8125 },
-        S = { 0, 0.60938 }
+        S = { 0, 0.60156 }
       },
+      ecart_max = 0.1369,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.4375 },
-        O = { 0, 0 },
-        S = { 0, -0.4375 }
+        E = { 0.0955, 0.002 },
+        N = { -0.1369, 0 },
+        O = { 0.0955, -0.002 },
+        S = { -0.133, 0 }
+      },
+      eclat_visible = {
+        E = { 2.29375, -0.81445 },
+        N = { 0, -2.43636 },
+        O = { -2.29375, -0.81445 },
+        S = { 0, 0.80746 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e06-icone.png",
@@ -970,23 +1005,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.13906 },
-        projectile_creation_distance = 2.25312
+        projectile_center = { 0, 0.18555 },
+        projectile_creation_distance = 2.29375
       }
     },
     [7] = {
       boite = { { -2.96875, -3.15625 }, { 2.96875, 2.1875 } },
       bouches = {
-        E = { 2.9375, -1.03906 },
+        E = { 2.9375, -1.03125 },
         N = { 0, -3.125 },
-        O = { -2.9375, -1.03906 },
+        O = { -2.9375, -1.03125 },
         S = { 0, 1.04688 }
       },
+      ecart_max = 0.076,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.8516 },
-        O = { 0, 0 },
-        S = { 0, -0.8516 }
+        E = { 0.051, 0.0039 },
+        N = { -0.076, 0 },
+        O = { 0.051, -0.0039 },
+        S = { -0.0682, 0 }
+      },
+      eclat_visible = {
+        E = { 3.32738, -1.03516 },
+        N = { 0, -3.38795 },
+        O = { -3.32738, -1.03516 },
+        S = { 0, 1.31763 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e07-icone.png",
@@ -1166,8 +1208,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.0875 },
-        projectile_creation_distance = 3.33125
+        projectile_center = { 0, -0.03516 },
+        projectile_creation_distance = 3.32738
       }
     },
     [8] = {
@@ -1178,11 +1220,18 @@ return {
         O = { -2.51562, -1.03906 },
         S = { 0, 0.875 }
       },
+      ecart_max = 0.1564,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.6016 },
-        O = { 0, 0 },
-        S = { 0, -0.6016 }
+        E = { 0.1106, 0 },
+        N = { -0.1564, 0 },
+        O = { 0.1106, 0 },
+        S = { -0.1564, 0 }
+      },
+      eclat_visible = {
+        E = { 2.96511, -1.03906 },
+        N = { 0, -3.13569 },
+        O = { -2.96511, -1.03906 },
+        S = { 0, 1.05757 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e08-icone.png",
@@ -1362,8 +1411,8 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.0875 },
-        projectile_creation_distance = 2.90937
+        projectile_center = { 0, -0.03906 },
+        projectile_creation_distance = 2.96511
       }
     },
     [9] = {
@@ -1374,11 +1423,18 @@ return {
         O = { -2.625, -1.03906 },
         S = { 0, 0.96875 }
       },
+      ecart_max = 0.1673,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 0.6172 },
-        O = { 0, 0 },
-        S = { 0, -0.6172 }
+        E = { 0.1183, 0 },
+        N = { -0.1673, 0 },
+        O = { 0.1183, 0 },
+        S = { -0.1673, 0 }
+      },
+      eclat_visible = {
+        E = { 3.08222, -1.03906 },
+        N = { 0, -3.2185 },
+        O = { -3.08222, -1.03906 },
+        S = { 0, 1.14038 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e09-icone.png",
@@ -1544,23 +1600,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.0875 },
-        projectile_creation_distance = 3.01875
+        projectile_center = { 0, -0.03906 },
+        projectile_creation_distance = 3.08222
       }
     },
     [10] = {
       boite = { { -2.84375, -3.34375 }, { 2.84375, 3.0625 } },
       bouches = {
         E = { 2.8125, -1.22656 },
-        N = { 0.00781, -3.3125 },
+        N = { 0, -3.3125 },
         O = { -2.8125, -1.23438 },
-        S = { 0.00781, 0.85938 }
+        S = { 0, 0.85938 }
       },
+      ecart_max = 0.133,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0.0078, 0.7266 },
-        O = { 0, -0.0078 },
-        S = { 0.0078, -0.7266 }
+        E = { 0.0926, 0.002 },
+        N = { -0.129, 0 },
+        O = { 0.0926, 0.0059 },
+        S = { -0.133, 0 }
+      },
+      eclat_visible = {
+        E = { 3.24405, -1.22852 },
+        N = { 0, -3.52239 },
+        O = { -3.24405, -1.22852 },
+        S = { 0, 1.06535 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e10-icone.png",
@@ -1740,23 +1803,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.275 },
-        projectile_creation_distance = 3.20625
+        projectile_center = { 0, -0.22852 },
+        projectile_creation_distance = 3.24405
       }
     },
     [11] = {
       boite = { { -3.8125, -4.03125 }, { 3.8125, 3.0625 } },
       bouches = {
-        E = { 3.79688, -1.22656 },
+        E = { 3.79688, -1.23438 },
         N = { 0, -4.01562 },
-        O = { -3.79688, -1.22656 },
+        O = { -3.79688, -1.23438 },
         S = { 0, 1.54688 }
       },
+      ecart_max = 0.1305,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0, 1.0078 },
-        O = { 0, 0 },
-        S = { 0, -1.0234 }
+        E = { 0.0923, 0 },
+        N = { -0.1305, 0 },
+        O = { 0.0923, 0 },
+        S = { -0.1305, 0 }
+      },
+      eclat_visible = {
+        E = { 4.22808, -1.23438 },
+        N = { 0, -4.22406 },
+        O = { -4.22808, -1.23438 },
+        S = { 0, 1.7553 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e11-icone.png",
@@ -1936,23 +2006,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.275 },
-        projectile_creation_distance = 4.19062
+        projectile_center = { 0, -0.23438 },
+        projectile_creation_distance = 4.22808
       }
     },
     [12] = {
       boite = { { -3.03125, -3.5 }, { 3.03125, 3.0625 } },
       bouches = {
-        E = { 3, -0.32031 },
-        N = { 0.01562, -3.45312 },
+        E = { 3, -1.23047 },
+        N = { 0, -3.09375 },
         O = { -3, -1.23438 },
-        S = { 0.00781, 1 }
+        S = { 0, 1 }
       },
+      ecart_max = 0.1093,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0.0156, -0.1328 },
-        O = { 0, -0.9141 },
-        S = { 0.0078, -1.6797 }
+        E = { 0.0117, -0.0908 },
+        N = { 0.0762, 0 },
+        O = { 0.0117, 0.0947 },
+        S = { -0.1093, 0 }
+      },
+      eclat_visible = {
+        E = { 3.35064, -1.13965 },
+        N = { 0, -3.50889 },
+        O = { -3.35064, -1.13965 },
+        S = { 0, 1.22959 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e12-icone.png",
@@ -2132,23 +2209,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, 0.63125 },
-        projectile_creation_distance = 3.39375
+        projectile_center = { 0, -0.13965 },
+        projectile_creation_distance = 3.35064
       }
     },
     [13] = {
       boite = { { -3.59375, -4.0625 }, { 3.59375, 3.40625 } },
       bouches = {
         E = { 3.5625, -1.41406 },
-        N = { 1.69531, -4.04688 },
+        N = { 0, -4.04688 },
         O = { -3.5625, -1.41406 },
-        S = { 1.69531, 1.21875 }
+        S = { 0, 1.21875 }
       },
+      ecart_max = 0.142,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 1.6953, 0.9297 },
-        O = { 0, 0 },
-        S = { 1.6953, -0.9297 }
+        E = { 0.1004, 0 },
+        N = { -0.142, 0 },
+        O = { 0.1004, 0 },
+        S = { -0.142, 0 }
+      },
+      eclat_visible = {
+        E = { 4.00185, -1.41406 },
+        N = { 0, -4.24377 },
+        O = { -4.00185, -1.41406 },
+        S = { 0, 1.41565 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e13-icone.png",
@@ -2328,23 +2412,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.4625 },
-        projectile_creation_distance = 3.95625
+        projectile_center = { 0, -0.41406 },
+        projectile_creation_distance = 4.00185
       }
     },
     [14] = {
       boite = { { -3.78125, -4.21875 }, { 3.78125, 3.375 } },
       bouches = {
         E = { 3.75, -1.41406 },
-        N = { 0.00781, -4.1875 },
+        N = { 0, -4.1875 },
         O = { -3.75, -1.41406 },
-        S = { 0.00781, 1.35938 }
+        S = { 0, 1.35938 }
       },
+      ecart_max = 0.1474,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { 0.0078, 0.9766 },
-        O = { 0, 0 },
-        S = { 0.0078, -0.9766 }
+        E = { 0.1042, 0 },
+        N = { -0.1474, 0 },
+        O = { 0.1042, 0 },
+        S = { -0.1474, 0 }
+      },
+      eclat_visible = {
+        E = { 4.19314, -1.41406 },
+        N = { 0, -4.37903 },
+        O = { -4.19314, -1.41406 },
+        S = { 0, 1.55091 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e14-icone.png",
@@ -2524,23 +2615,30 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.4625 },
-        projectile_creation_distance = 4.14375
+        projectile_center = { 0, -0.41406 },
+        projectile_creation_distance = 4.19314
       }
     },
     [15] = {
       boite = { { -4.09375, -4.4375 }, { 4.09375, 3.40625 } },
       bouches = {
         E = { 4.0625, -1.41406 },
-        N = { -0.35156, -4.40625 },
+        N = { 0, -4.40625 },
         O = { -4.0625, -1.41406 },
-        S = { -1.66406, 1.57812 }
+        S = { 0, 1.57812 }
       },
+      ecart_max = 0.1459,
       ecarts_bouche = {
-        E = { 0, 0 },
-        N = { -0.3516, 1.0703 },
-        O = { 0, 0 },
-        S = { -1.6641, -1.0703 }
+        E = { 0.1032, 0 },
+        N = { -0.1459, 0 },
+        O = { 0.1032, 0 },
+        S = { -0.1459, 0 }
+      },
+      eclat_visible = {
+        E = { 4.5046, -1.41406 },
+        N = { 0, -4.59926 },
+        O = { -4.5046, -1.41406 },
+        S = { 0, 1.77114 }
       },
       icone = {
         filename = "__factorio-overhaul__/graphics/levels/gun/gun-e15-icone.png",
@@ -2720,12 +2818,19 @@ return {
         }
       },
       tir = {
-        projectile_center = { 0, -0.4625 },
-        projectile_creation_distance = 4.45625
+        projectile_center = { 0, -0.41406 },
+        projectile_creation_distance = 4.5046
       }
     }
   },
   directions = { "N", "E", "S", "O" },
+  eclat = {
+    hauteur = 1,
+    k_proj = 0.7071,
+    marge = 0.33892,
+    seuil = 0.5,
+    tol_canon_px = 24
+  },
   vanille = {
     bouches = {
       E = { 1, -1.03906 },
@@ -2733,12 +2838,11 @@ return {
       O = { -1, -1.03906 },
       S = { 0, 0.10938 }
     },
-    decalage_eclat = { -0.39375, -0.95156 },
     ecarts_bouche = {
-      E = { 0, 0 },
-      N = { 0, 0.1953 },
-      O = { 0, 0 },
-      S = { 0, 0.1484 }
+      E = { 0.0548, 0.0484 },
+      N = { -0.1097, 0 },
+      O = { 0.0548, -0.0484 },
+      S = { -0.5503, 0 }
     },
     projectile_center = { 0, -0.0875 },
     projectile_creation_distance = 1.39375
