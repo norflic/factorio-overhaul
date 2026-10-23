@@ -33,14 +33,52 @@ NOM = "Fusion"
 FOYER = dict(rgb=(1.0, 0.31, 0.847), rgb2=(1.0, 0.604, 0.227))
 CANON = dict(L=2.3, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=1.3)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring")
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge de la fusion est un bâtiment de
+# CÉRAMIQUE BLANCHE à plaques GRIS FROID, acier clair, sur un pont de DALLES DE CÉRAMIQUE GRISE à liseré MAGENTA ;
+# bandes de danger blanc et magenta, peinture magenta sombre. Le cuivre reste aux gaines et aux cerclages.
+# passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 13 lu « acier rose », « reste
+# gris » : le pont gris moyen dominait) : règle 60/30/10 de l'âge 13 = CÉRAMIQUE BLANC FROID dominante (capots,
+# pont de dalles blanches, buses), LAQUE MAGENTA en second (plaques du masque, de la nacelle et des caisses,
+# tourelleau) sur une structure GRAPHITE, PLASMA magenta et cuivre en accent. Blanc FROID et magenta : la Légende
+# garde le blanc nacré CHAUD et l'or, l'Orbite l'or et le bleu.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ceram_bl", tourelleau="magenta_laque",
+                 capots=("ceram_bl", "magenta_laque"), acier=("ceram_gr", "acier_poli"), rivets="acier_poli",
+                 joints="joint_gris", danger=("ceram_bl", "magenta_sombre"), peinture="magenta_sombre",
+                 grille_nacelle="acier_poli",
+                 plateforme=dict(motif="dalles", pas=0.3, joint=0.012, mat="ceram_dalle", mat2="ceram_dalle2",
+                                 fond="joint_gris", bord="ceram_gr", boulons=None, lisere="emit_soft"),
+                 # passe 5, ronde 4 (13-14 noté 2 et 3, 13-15 noté 3 et 3 : « même plan », « il faut une forme
+                 # nouvelle ») : la Fusion devient la CITADELLE que les lecteurs y voyaient déjà (« citadelle blanche
+                 # à plasma rose ») : pont carré mince et deux BASTIONS de céramique crénelés aux coins arrière,
+                 # banc de condensateurs et sphère de confinement sur leur toit (14 : pas de tir à garde-corps ;
+                 # 15 : gradins couronnés)
+                 forme_plateforme=dict(forme="bastions", flanc="ceram_bl", flanc2="magenta_laque"))
 RECV = ("olive", "steel_dk")
 
 
 def matieres(metal, M):
+    # corps entier (passe 5, ronde 1) : céramique blanche chaude, gris froid, acier poli, dalles grises
+    # passe 5, ronde 2 (lu « gris violet », « gris-rose industriel » au test des écarts) : céramique BLANC FROID propre
+    # (sans le jaunissement crème, qui reste à la nacre de la Légende), magenta plus franc
+    metal("ceram_bl", (0.7, 0.71, 0.73), rough=0.3, met=0.0, grain=0.06, gscale=30.0, dirt=0.25, stain=0.15,
+          sscale=5.0, wear=0.2, mottle=0.08)
+    # ronde 3 : structure GRAPHITE (plus sombre : elle se lit noire, pas grise), pont de DALLES BLANCHES froides,
+    # LAQUE MAGENTA des plaques (seconde couleur de l'âge)
+    metal("ceram_gr", (0.075, 0.072, 0.085), rough=0.34, met=0.15, grain=0.08, gscale=30.0, dirt=0.4, stain=0.2,
+          sscale=5.0, wear=0.5)
+    metal("ceram_dalle", (0.56, 0.565, 0.58), rough=0.3, met=0.0, grain=0.06, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.25)
+    metal("ceram_dalle2", (0.48, 0.485, 0.5), rough=0.3, met=0.0, grain=0.06, dirt=0.3, stain=0.12, sscale=5.0,
+          wear=0.25)
+    metal("magenta_laque", (0.58, 0.04, 0.34), rough=0.3, met=0.1, grain=0.06, gscale=30.0, dirt=0.3, stain=0.15,
+          sscale=5.0, wear=0.4)
+    metal("acier_poli", (0.42, 0.42, 0.44), rough=0.4, met=0.45, grain=0.08, dirt=0.25, stain=0.0, reflet="fin")
+    metal("joint_gris", (0.05, 0.05, 0.055), rough=0.6, met=0.1, grain=0.1, dirt=0.3, stain=0.0)
+    metal("magenta_sombre", (0.42, 0.035, 0.27), rough=0.38, met=0.1, grain=0.08, dirt=0.4, stain=0.15, wear=0.4)
     """Fusion : céramique blanche patinée (buses, chambres, injecteurs), cuivre."""
-    metal("jacket", (0.48, 0.46, 0.41), rough=0.55, met=0.0, grain=0.14, gscale=34.0, rust=(0.22, 0.12, 0.06),
-          ra=0.12, dirt=0.95, stain=0.7, sscale=5.0, wear=0.6, streak=0.55, mottle=0.25)
+    # ronde 2 : céramique des buses, chambres et injecteurs BLANC FROID, peu salie (elle se lisait gris sale)
+    metal("jacket", (0.64, 0.645, 0.665), rough=0.45, met=0.0, grain=0.1, gscale=34.0, rust=(0.22, 0.12, 0.06),
+          ra=0.03, dirt=0.4, stain=0.28, sscale=5.0, wear=0.35, streak=0.3, mottle=0.12)
     # cuivre des gaines et cerclages : plus rugueux et plus sombre (reflets saturés comptés comme foyers sinon)
     metal("copper13", (0.46, 0.2, 0.085), rough=0.42, met=0.9, grain=0.2, rust=(0.12, 0.2, 0.12), ra=0.12,
           dirt=0.7, stain=0.35, wear=0.8)
@@ -100,13 +138,19 @@ def socle(g, c):
     cables(g, [(-1.98, Y(0.05), 0.45), (-1.75, Y(0.02), 0.7), (-1.5, Y(0.0), 0.8)])
     signature(g, (-2.43, Y(0.35), 0.6))
     # nord-ouest : banc de condensateurs en biais (réserve d'énergie visible)
-    with at(g, -2.05, 2.25, -0.6):
-        PT.hull(g, -0.62, 0.62, -0.5, 0.5, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3, mats=[M["steel_dk"]],
+    # ronde 4 : sur le TOIT du bastion nord-ouest (corps.z_pont), banc ramené dans l'emprise de la tour
+    zb = max(0.0, corps.z_pont(c, -2.4, 2.4) - 0.045)
+    with at(g, -2.4, 2.4, 0.0, z=zb):
+        PT.hull(g, -0.3, 0.3, -0.27, 0.27, 0.0, 0.12, ins=(0.02, 0.02, 0.02), panel=0.3, mats=[M["steel_dk"]],
                 rivet_step=0.13)
-        PT.capacitors(g, (0.0, 0.0, 0.14), 3, 2, 0.14, 0.48, E)
-        P3.lamp_group(g, (-0.5, -0.52, 0.09), (1, 0, 0), (0, -1, 0), E, M, n=3)
-        P3.lamp_group(g, (0.2, -0.52, 0.09), (1, 0, 0), (0, -1, 0), M["amber"], M, n=2, shapes=("carre", "fente"))
-    conduit(g, [(-1.6, Y(1.95), 0.5), (-1.35, Y(1.6), 0.8), (-1.1, Y(1.25), 0.95)], 0.05)
+        PT.capacitors(g, (0.0, 0.0, 0.12), 2, 2, 0.12, 0.44, E)
+        P3.lamp_group(g, (-0.2, -0.28, 0.07), (1, 0, 0), (0, -1, 0), E, M, n=3)
+    conduit(g, [(-2.0, Y(2.05), 0.3), (-1.55, Y(1.6), 0.8), (-1.1, Y(1.25), 0.95)], 0.05)
+    # ronde 4 : SPHÈRE DE CONFINEMENT sur le toit du bastion nord-est
+    zb = max(0.0, corps.z_pont(c, 2.4, 2.4) - 0.045)
+    g.push((0, 0, zb))
+    tank(g, 2.4, Y(2.4), 0.3, 0.66, (1, 0.2), (-1, 0), gauges=2)
+    g.pop()
     # est : deux sphères de confinement sur trépied
     tank(g, 2.4, Y(1.0), 0.44, 0.98, (1, 0.2), (-1, 0), gauges=3)
     tank(g, 2.4, Y(-0.55), 0.44, 0.98, (1, -0.2), (-1, 0), gauges=3)
@@ -463,7 +507,10 @@ def _gun13(g, x, y0, z, L, nb, rb, rr):
     R0 = rr + rb
     rs = 0.3 * k
     cy = y0 + rs * 0.6
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.62, 0.8), collier_mat=M["copper"], bouts=False)
+    # passe 5, ronde 4 (pose N lue « cheminée » : colliers de cuivre et BUSE ÉVASÉE à lèvre plus large que le
+    # faisceau = viroles et chapeau) : CANON EFFILÉ du kit, manchon de cuivre à fentes reculé, pointes magenta ;
+    # la chambre de confinement et les anneaux toriques restent à l'arrière (0,4 L)
+    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.0, bague_mat="copper", conv=0.62, frein=(0.62, 0.78))
     C = V((x, cy, z))
     g.sphere(C, rs, M["jacket"], n=32, m=16, what="chambre")
     for f in (-0.55, 0.0, 0.55):
@@ -482,7 +529,7 @@ def _gun13(g, x, y0, z, L, nb, rb, rr):
         g.cyl(p - d * 0.03 * k, d, 0.052 * k, 0.02, M["copper"], n=14, style="hard", what="bague")
         g.cyl(p + d * 0.085 * k, d, 0.018 * k, 0.005, E2, n=10, style="flat", what="coeur")
     # anneaux toriques sur la moitié arrière, autour de la rosette
-    ys, ye = cy + rs * 0.85, y0 + min(0.5, corps.JAQUETTE_MAX) * L
+    ys, ye = cy + rs * 0.85, y0 + 0.4 * L
     rt = 0.07 * k
     Rt = R0 + rt * 0.7
     nt = max(3, int((ye - ys) / (2.3 * rt)))
@@ -502,23 +549,7 @@ def _gun13(g, x, y0, z, L, nb, rb, rr):
         p0 = V((x, ys, z)) + d * (Rt + rt * 0.2)
         p1 = V((x, ye, z)) + d * (Rt + rt * 0.2)
         g.tube([p0, p1], 0.02 * k, M["copper"], n=8, what="tirant")
-    # buse évasée en céramique AUTOUR de la bouche : ailettes, rosace au fond, cœur orange, pourtour magenta
-    yb = y0 + L
-    lb = 0.26 * k
-    g.tube_shell((x, yb - 0.02, z), "y", R0 + 0.05, R0 - 0.01, 0.05, M["copper"], n=30, what="bague")
-    g.tube_shell((x, yb + lb / 2, z), "y", R0 + 0.06, R0 + 0.01, lb, M["jacket"], n=30, what="buse")
-    g.tube_shell((x, yb + lb + 0.02, z), "y", R0 + 0.14 * k, R0 + 0.012, 0.02, M["jacket"], n=30, what="levre")
-    for d in F.ring_dirs(6, 0.0, -0.6):
-        g.box(V((x, yb + lb / 2, z)) + d * (R0 + 0.09 * k), (0.022, lb * 0.85, 0.07 * k), M["jacket"], "hard",
-              R=F.Rax(d), what="ailette")
-    g.cyl((x, yb + lb * 0.5, z), "y", max(rr - rb * 0.55, rr * 0.55), lb, M["steel_dk"], n=14, what="ame_bout")
-    F.stub_tips(g, x, yb - 0.01, yb + lb, z, nb, rb, rr)
-    corps.bouche(g, x, yb + lb + 0.004, z, pos, rb, M["copper"], R0 + 0.1 * k, w=0.02 if k >= 0.9 else 0.01)
-    if k >= 0.9:
-        # oreilles latérales de céramique à évents sur la buse : en pose N, un « T » plat, jamais une cheminée
-        F.ears(g, x, yb + lb * 0.5, z, R0 + 0.1 * k, lb * 0.9, 0.16 * k, M["jacket"])
-    g.cyl((x, yb + lb + 0.008, z), "y", max(rr - rb * 0.9, rr * 0.35), 0.006, E2, n=16, style="flat", what="coeur")
-    return yb + lb + 0.03
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):
@@ -635,3 +666,20 @@ def tete(g, c):
                 tuple(C + V((s * (rs + 0.2), -0.1, -rs * 0.9 - 0.02)))], 0.045, M["copper"], step=0.04, n=10)
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
     PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

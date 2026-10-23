@@ -34,21 +34,60 @@ NOM = "Haute technologie"
 FOYER = dict(rgb=(0.09, 0.33, 1.0), rgb2=(0.09, 0.33, 1.0))
 CANON = dict(L=2.0, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=1.15)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="matte", munitions=("steel_hi", "steel_dk"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge de l'électronique
+# est un bâtiment de CARÉNAGES BLANC CASSÉ et GRIS posé sur un pont de DALLES ANTHRACITE à liseré BLEU lumineux ;
+# acier anthracite, rivets affleurants gris, bandes de danger blanc et bleu ; câbles rouges et bleus, voyants bleus.
+HABILLAGE = dict(jupe_cerclage="bleu_tech", chapeau="acier_tech", tremie="gris_tech", tourelleau="gris_tech",
+                 munitions=("steel_hi", "steel_dk"), capots=("blanc_casse", "gris_tech"),
+                 acier=("anthracite", "acier_tech"), rivets="rivet_tech", danger=("blanc_casse", "bleu_tech"),
+                 peinture="bleu_tech", grille_nacelle="anthracite",
+                 plateforme=dict(motif="dalles", pas=0.28, joint=0.014, mat="dalle_tech", mat2="dalle_tech2",
+                                 fond="void", bord="anthracite", boulons=None, lisere=None),
+                 # passe 5, ronde 4 (10-11 noté 3 et 3 à la ronde 3, « silhouette presque identique ») : pont CARRÉ
+                 # mince à pans courts et GARDE-CORPS (lisses bleu technique, poteaux et plinthe anthracite), muret au
+                 # nord (11 : pont hexagonal et coque ; 12 : plateforme ronde et anneaux)
+                 forme_plateforme=dict(forme="carre", flanc="bleu_tech", flanc2="anthracite"))
+# passe 5, ronde 2 (test des écarts de la ronde 1 : 10 contre 11 noté 2 et 2, et 10 jugé PLUS évolué que 11 « par ses
+# liserés bleus » ; 10 contre 12 noté 2 et 2, « liserés bleus devenus cyan ») : le pont n'a plus de liseré lumineux
+# (la lumière continue est la marque des âges 11 et 12) ; les CARÉNAGES (matière « jacket » : caissons, cassettes,
+# carénage des canons, tourelle secondaire) passent en CRÈME chaud peu métallique, les nappes de câbles en rouge et
+# BLEU VIF plus larges : un bâtiment d'électronique crème et anthracite, chaud et coloré, mat, en deçà du titane.
 RECV = ("matte", "jacket")
 
 
 def matieres(metal, M):
-    """Haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus, écrans."""
+    """Haute technologie : carénage gris clair patiné, noir mat, câbles rouges et bleus, écrans.
+    Passe 5, ronde 1 : matières du corps entier (clés d'habillage) ; carénage blanc cassé, peu métallique (une grande
+    masse claire reste sous 0,5 de métallicité)."""
     rust = (0.24, 0.085, 0.03)
-    metal("jacket", (0.4, 0.4, 0.39), rough=0.42, met=0.3, grain=0.1, gscale=30.0, rust=rust, ra=0.08,
-          dirt=0.9, stain=0.7, sscale=6.0, wear=1.2, streak=0.5, mottle=0.3)
+    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10, 11 et 12 lus « même acier
+    # gris », écart 2 et 2 entre 10 et 11) : règle 60/30/10 de l'âge 10 = IVOIRE CHAUD dominant (capots, carénages,
+    # pont), ANTHRACITE en second (plaques, acier, goulottes), câbles ROUGE et BLEU vifs et voyants bleus en accent.
+    # Ivoire nettement jaune-crème (et non gris clair) : l'âge 11 prend le BLEU, l'âge 12 le blanc glacé et le noir.
+    metal("blanc_casse", (0.78, 0.68, 0.46), rough=0.42, met=0.12, grain=0.08, gscale=30.0, dirt=0.4, stain=0.25,
+          sscale=6.0, wear=0.5, streak=0.3, mottle=0.15)
+    metal("gris_tech", (0.15, 0.155, 0.165), rough=0.45, met=0.3, grain=0.08, gscale=30.0, dirt=0.5, stain=0.3,
+          sscale=6.0, wear=0.8)
+    metal("anthracite", (0.055, 0.058, 0.064), rough=0.45, met=0.45, grain=0.08, gscale=36.0, dirt=0.5, stain=0.3,
+          wear=1.0)
+    metal("acier_tech", (0.3, 0.31, 0.33), rough=0.35, met=0.45, grain=0.08, dirt=0.3, stain=0.1, wear=0.5)
+    metal("rivet_tech", (0.2, 0.205, 0.215), rough=0.4, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("bleu_tech", (0.015, 0.09, 0.45), rough=0.4, met=0.1, grain=0.08, dirt=0.35, stain=0.15, wear=0.5)
+    # ronde 2 : pont en DALLES DE FAUX PLANCHER gris chaud clair (salle informatique), joints noirs : le pont noir
+    # passe à l'âge 12 (noir à joints de givre). Ronde 3 : dalles BEIGE IVOIRE (dominante de l'âge), plus claires
+    metal("dalle_tech", (0.52, 0.45, 0.32), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
+    metal("dalle_tech2", (0.44, 0.38, 0.27), rough=0.55, met=0.08, grain=0.06, dirt=0.35, stain=0.2, sscale=5.0)
+    # passe 5, ronde 2 : carénage CRÈME chaud (plastique et tôle peinte des années 80), peu métallique, peu sali ;
+    # ronde 3 : crème plus franc (ivoire jaune), moins sali
+    metal("jacket", (0.76, 0.64, 0.42), rough=0.48, met=0.06, grain=0.08, gscale=30.0, rust=rust, ra=0.02,
+          dirt=0.4, stain=0.25, sscale=6.0, wear=0.6, streak=0.3, mottle=0.18)
     M["ring"] = M["matte"]
     M["trim"] = M["jacket"]
     metal("pipe", (0.11, 0.108, 0.104), rough=0.5, met=0.2, grain=0.1, dirt=0.6, stain=0.4, wear=1.0)
     M["pipe2"] = M["steel_hi"]
-    M["cable_a"] = M["redcable"]
-    metal("cable_b", (0.02, 0.06, 0.2), rough=0.5, met=0.0, grain=0.12, dirt=0.4, stain=0.0)
+    metal("cable_b", (0.01, 0.1, 0.62), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)   # bleu vif (ronde 3)
+    metal("cable_r", (0.55, 0.03, 0.015), rough=0.5, met=0.0, grain=0.12, dirt=0.25, stain=0.0)  # rouge vif (ronde 3)
+    M["cable_a"] = M["cable_r"]
     metal("spec", (0.012, 0.03, 0.05), rough=0.15, met=0.3, grain=0.05, dirt=0.2, stain=0.0)       # écrans
     M["accent"] = M["trim"]
 
@@ -75,8 +114,9 @@ def socle(g, c):
     P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
     # sud : racks à cassettes en biais (à la place des caisses ouvertes), tourelle secondaire carénée, trémie flanquée
     # de caissons carénés
-    with at(g, -1.5, -1.72, 0.42):
-        cassette_rack(g, 0.8, 0.72, 0.42, 4)
+    # passe 5, ronde 2 : le RADÔME de veille passe au coin SUD-OUEST (au nord, la tête le cachait en pose E) ; la
+    # grande baie à cassettes prend sa place au nord
+    radome(g, -1.55, Y(-1.74), r=0.36)
     with at(g, -1.05, -2.35, 0.08):
         cassette_rack(g, 0.62, 0.5, 0.34, 3)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
@@ -90,7 +130,7 @@ def socle(g, c):
     cables(g, [(-1.62, Y(-0.25), 0.4), (-1.42, Y(-0.3), 0.6), (-1.18, Y(-0.35), 0.68)])
     # nord-ouest : caisson caréné posé en biais
     with at(g, -1.72, 2.02, -0.55):
-        faired_box(g, -0.42, 0.42, -0.32, 0.32, 0.4, louvers=1, cables=False)
+        faired_box(g, -0.42, 0.42, -0.32, 0.32, 0.4, louvers=0, cables=False)
     # est : caisson caréné (à la place des réservoirs)
     faired_box(g, 1.74, 2.36, Y(-0.6), Y(1.15), 0.74, louvers=0)
     # sud-ouest : armoire de commande
@@ -102,8 +142,9 @@ def socle(g, c):
     # nord-est : armoire de commande ; nord : caisse de réserve
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=True)
     signature(g, (1.55, Y(2.18), 0.6))
-    PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
-    signature(g, (0.4, Y(1.95), 0.3), 1)
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, un RADÔME sphérique blanc sur pylône (à la place de la caisse du nord)
+    with at(g, 0.32, 1.92, 0.0):
+        cassette_rack(g, 0.8, 0.72, 0.42, 4)
     signature(g, (-2.24, -1.98, 0.53), 2)
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
@@ -111,12 +152,40 @@ def socle(g, c):
               (1.75, Y(1.8), 0.5)], 20.0)
 
 
+def radome(g, x, y, r=0.32):
+    """Radôme de veille (passe 5, ronde 1 : superstructure de l'âge électronique, qui change le contour) : embase
+    carénée, pylône à 4 jambes de force, sphère de carénage blanc cassé à cerclages et méridiens, feu bleu au sommet.
+    Sommet à 1,2 (sous h_max 1,29 de la taille 5 : les canons passent au-dessus)."""
+    M = g.M
+    E = M["emit"]
+    g.cyl((x, y, 0.07), "z", 0.3, 0.14, M["ochre"], n=28, what="embase")
+    g.torus((x, y, 0.14), "z", 0.29, 0.014, M["steel_dk"], n=28, m=6, what="bourrelet")
+    g.cyl((x, y, 0.36), "z", 0.075, 0.44 + (0.32 - r), M["steel_dk"], n=16, what="pylone")
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        d = V((math.cos(a), math.sin(a), 0))
+        P2.wedge(g, V((x, y, 0.14)) + d * 0.26, V((x, y, 0.14)) + d * 0.07, V((x, y, 0.5)) + d * 0.07,
+                 V((-d.y, d.x, 0)) * 0.03, M["steel_dk"], what="jambe")
+    zc = 1.2 - r - 0.03
+    g.sphere((x, y, zc), r, M["olive"], n=32, m=16, what="radome")
+    for zz, rr in ((zc, r), (zc + r * 0.5, r * 0.866), (zc - r * 0.5, r * 0.866)):
+        g.torus((x, y, zz), "z", rr + 0.002, 0.008, M["steel_dk"], n=32, m=6, what="cerclage")
+    for ax in ("x", "y"):
+        g.torus((x, y, zc), ax, r + 0.002, 0.007, M["steel_dk"], n=32, m=6, what="meridien")
+    g.sphere((x, y, zc + r + 0.02), 0.028, E, n=10, m=6, what="feu")
+    for k in range(3):   # voyants bleus sur la face sud de l'embase
+        dx = -0.12 + 0.12 * k
+        g.box((x + dx, y - math.sqrt(0.09 - dx * dx) + 0.002, 0.08), (0.05, 0.012, 0.025), E, "flat",
+              what="voyant")
+    _halo(g, [(x, y, zc + r + 0.05)], 6.0)
+
+
 def west(g):
     """Groupe de l'ouest : caisson caréné (même emprise que le groupe électrogène de la lignée), antenne-fouet."""
     M = g.M
     x0, x1, y0, y1, h = -2.42, -1.62, Y(-0.95), Y(1.25), 0.52
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    faired_box(g, x0 + 0.02, x1 - 0.02, y0, y1, h + 0.08, louvers=1, cables=False)
+    faired_box(g, x0 + 0.02, x1 - 0.02, y0, y1, h + 0.08, louvers=0, cables=True)
     # antenne-fouet et boîtier sur le toit (fine, hors masse)
     g.box((cx - 0.15, y1 - 0.3, h + 0.13), (0.14, 0.12, 0.08), M["matte"], "hard", what="boitier")
     g.cyl((cx - 0.15, y1 - 0.3, h + 0.4), "z", 0.006, 0.46, M["steel_dk"], n=6, what="antenne")
@@ -146,11 +215,27 @@ def faired_box(g, x0, x1, y0, y1, h, louvers=3, cables=True):
         g.grille(q, 6, depth=0.02, slat_mat=M["steel_dk"])
         for (u, v) in ((-0.5, -0.12), (0.2, -0.12), (0.2, 0.12), (-0.5, 0.12)):
             g.dome((cx + hx * u, yy + v * 1.15, h + 0.01), (0, 0, 1), 0.012, M["rivet"])
-    # nappes de câbles rouges et bleus dans une goulotte sur le toit, côté est
+    # passe 5, ronde 1 (juges de la passe 4 : « deux grands caissons gris clair plats ») : CARÉNAGE À FENTES, fentes
+    # de ventilation longitudinales noires en 2 colonnes sur le toit (pas de trous ronds, catalogue §B époque 10), et
+    # voyants bleus PAR PAIRES aux extrémités des fentes
+    nf = max(2, int((y1 - y0 - 0.3) / 0.36))
+    for col_ in (-0.12, 0.18):
+        for i in range(nf):
+            ya_ = y0 + 0.15 + (y1 - y0 - 0.3) * i / nf
+            yb_ = y0 + 0.15 + (y1 - y0 - 0.3) * (i + 1) / nf - 0.07
+            for j in range(3):
+                g.box((cx + hx * col_ + (j - 1) * 0.045, (ya_ + yb_) / 2, h + 0.005), (0.022, yb_ - ya_, 0.006),
+                      M["void"], "flat", what="fente")
+            if i % 2 == 0:
+                for j in range(2):
+                    g.box((cx + hx * col_ + (j - 0.5) * 0.05, yb_ + 0.035, h + 0.006), (0.03, 0.022, 0.006), E,
+                          "flat", what="voyant")
+    # nappes de câbles rouges et bleus dans une goulotte sur le toit, côté est (passe 5 : nappes plus larges, lisibles
+    # au zoom 1)
     if cables:
-        g.box((cx + hx * 0.55, cy, h + 0.02), (0.14, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
-        F.ribbon(g, [(cx + hx * 0.52, y0 + 0.1, h + 0.04), (cx + hx * 0.52, y1 - 0.1, h + 0.04)], 0.05, M["cable_a"])
-        F.ribbon(g, [(cx + hx * 0.6, y0 + 0.1, h + 0.041), (cx + hx * 0.6, y1 - 0.1, h + 0.041)], 0.04, M["cable_b"])
+        g.box((cx + hx * 0.6, cy, h + 0.02), (0.26, 2 * hy * 0.92, 0.03), M["matte"], "hard", what="goulotte")
+        F.ribbon(g, [(cx + hx * 0.5, y0 + 0.1, h + 0.04), (cx + hx * 0.5, y1 - 0.1, h + 0.04)], 0.1, M["cable_a"])
+        F.ribbon(g, [(cx + hx * 0.7, y0 + 0.1, h + 0.041), (cx + hx * 0.7, y1 - 0.1, h + 0.041)], 0.09, M["cable_b"])
     # voyants par groupes, petit écran, face sud
     P3.lamp_group(g, (cx - hx * 0.6, y0 - 0.005, h * 0.55), (1, 0, 0), (0, -1, 0), E, M, n=3)
     P3.screen(g, (cx + hx * 0.35, y0 - 0.005, h * 0.5), (0, -1, 0), 0.14, 0.08, M, E)
@@ -436,9 +521,10 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
     E = M["emit"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.6, 0.82), collier_mat=M["matte"], bouts=False)
-    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
-          what="ame_bout")
+    # passe 5, ronde 3 (pose N de la ronde 2 : 10 encore lu « cheminée », colliers noirs à 0,6 et 0,82 L = viroles
+    # d'un conduit) : CANON EFFILÉ du kit (faisceau qui converge, un seul manchon à fentes reculé, dernier cinquième
+    # nu à pointes éclairées) ; le carénage à fentes de l'époque garde la moitié arrière
+    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.0, bague_mat="matte")
     # carénage partiel (moitié arrière au plus : corps.JAQUETTE_MAX)
     Lc = L * min(0.46, corps.JAQUETTE_MAX)
     hw, hh, c = R0 + 0.075 * k, R0 + 0.05 * k, 0.08 * k
@@ -475,18 +561,9 @@ def _canon10(g, x, y0, z, L, nb, rb, rr):
         for s in (-1, 1):
             g.box((x + s * hw * 0.55, y0 + Lc + 0.004, z + hh * 0.45), (0.04, 0.008, 0.025), E, "flat",
                   what="voyant")
-    # frein à 3 DÉFLECTEURS plus larges que le carénage, noyau noir mat ; rosace éclairée en face avant
-    yb = y0 + L
-    Lb = 0.3 * k
-    g.cyl((x, yb + Lb / 2, z), "y", R0 + 0.012, Lb, M["matte"], n=24, what="frein_noyau")
-    for i, f in enumerate((0.18, 0.5, 0.82)):
-        g.box((x, yb + f * Lb, z), (2 * hw + 0.16 * k - 0.05 * i * k, 0.045 * k, 2 * hh * 0.85), M["jacket"], "hard",
-              what="deflecteur")
-        g.box((x, yb + f * Lb, z + hh * 0.85 + 0.003), ((2 * hw + 0.16 * k) * 0.5, 0.02 * k, 0.006), M["void"], "flat",
-              what="ouie")
-    g.box((x, yb + Lb * 0.5, z + hh * 0.86), (hw * 0.5, Lb * 0.9, 0.024), M["matte"], "hard", what="longeron")
-    corps.bouche(g, x, yb + Lb + 0.002, z, pos, rb, M["matte"], R0 + 0.008, w=0.022 if k >= 0.9 else 0.012)
-    return yb + Lb
+    # passe 5, ronde 2 (pose N de la ronde 1 : 10 lu « cheminée ») : le frein à 3 DÉFLECTEURS plus larges que le
+    # faisceau est retiré. Ronde 3 : la couronne de bouche aussi (le canon effilé finit sur ses pointes éclairées)
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):
@@ -562,3 +639,20 @@ def tete(g, c):
     # sommet de la tête : antenne-réseau de radar sur le tourelleau
     radar_array(g, c.tour, 1.25, 0.46, tilt=0.95)
     PT.sight(g, (-R * 0.6, R * 0.32, H["zs"] + H["rz"] * 0.5), 0.2, 0.2, 0.12, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

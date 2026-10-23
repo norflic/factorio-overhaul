@@ -38,12 +38,43 @@ NOM = "Orbite"
 FOYER = dict(rgb=(1.0, 0.165, 0.165), rgb2=(0.184, 0.42, 1.0))
 CANON = dict(L=2.85, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=0.2)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", munitions=("jacket", "steel_hi"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change) : l'âge orbital est un SATELLITE : capots en
+# FEUILLE D'OR froissée, plaques en PANNEAUX BLEUS de cellules, structure BLANC SPATIAL, bandes blanc et rouge balise,
+# sur un pont de TÔLES dépareillées or et bleu.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="ring", tourelleau="panneau_bleu",
+                 munitions=("jacket", "steel_hi"), capots=("or_feuille", "panneau_bleu"),
+                 acier=("blanc_spatial", "steel_hi"), rivets="or_rivet", danger=("blanc_spatial", "rouge_balise"),
+                 peinture="rouge_balise", grille_nacelle="blanc_spatial",
+                 plateforme=dict(motif="toles", mat="or_tole", mat2="panneau_bleu", fond="void",
+                                 bord="blanc_spatial", boulons="or_rivet", relief=0.2),
+                 # passe 5, ronde 4 (13-14 noté 2 et 3 à la ronde 3 : « même plan et canons, seules les couleurs
+                 # changent ») : PAS DE TIR carré à pans courts, pont mince, GARDE-CORPS dorés à poteaux blanc spatial
+                 # (13 : citadelle à bastions ; 15 : gradins couronnés)
+                 forme_plateforme=dict(forme="carre", flanc="or_feuille", flanc2="blanc_spatial"),
+                 # passe 5, ronde 5 (13-14 noté 3 et 3, et 13 jugé PLUS évolué que 14 par un lecteur : « or-bleu chargé
+                 # contre blanc-rose épuré » ; 14-15 noté 3 et 3 : « même plan ») : la coupole devient une PYRAMIDE
+                 # TRONQUÉE à 6 pans de FEUILLE D'OR à arêtiers blanc spatial, comme l'étage de descente d'un module
+                 # lunaire ; la grande parabole reste au sommet. 13 garde le dôme, 15 prend le bulbe couronné.
+                 forme_coupole=dict(forme="pyramide", pans=6, hauteur=0.85, mat="or_pyr"))
 RECV = ("ring", "olive")
 
 
 def matieres(metal, M):
-    """Orbite : feuille d'or froissée, blanc cassé patiné, cellules bleu nuit (≤ 5 %)."""
+    """Orbite : feuille d'or froissée, blanc cassé patiné, cellules bleu nuit (≤ 5 %).
+    Passe 5, ronde 1 : matières du corps entier (feuille d'or semi-diffuse : un métal pur reste sombre vu de dessus)."""
+    metal("or_feuille", (0.62, 0.43, 0.1), rough=0.35, met=0.45, grain=0.45, gscale=22.0, dirt=0.6, stain=0.4,
+          sscale=7.0, wear=0.4)
+    # ronde 5 : feuille d'or VIVE de la pyramide (r5a : avec la feuille d'or du corps, les pans plats tournés au nord
+    # se lisaient bruns, plus ternes que l'ancien dôme ; un pan plat ne renvoie le soleil que s'il est peu rugueux)
+    metal("or_pyr", (0.8, 0.58, 0.15), rough=0.26, met=0.5, grain=0.4, gscale=22.0, dirt=0.35, stain=0.25,
+          sscale=7.0, wear=0.3)
+    metal("or_tole", (0.42, 0.29, 0.07), rough=0.38, met=0.45, grain=0.45, gscale=22.0, dirt=0.7, stain=0.45,
+          sscale=7.0, wear=0.4)
+    metal("panneau_bleu", (0.03, 0.06, 0.2), rough=0.22, met=0.3, grain=0.06, dirt=0.4, stain=0.15, wear=0.4)
+    metal("blanc_spatial", (0.46, 0.45, 0.42), rough=0.45, met=0.05, grain=0.1, gscale=30.0, dirt=0.7, stain=0.5,
+          sscale=5.0, wear=0.6, streak=0.4)
+    metal("or_rivet", (0.55, 0.4, 0.12), rough=0.4, met=0.45, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("rouge_balise", (0.42, 0.03, 0.025), rough=0.4, met=0.1, grain=0.08, dirt=0.5, stain=0.2, wear=0.5)
     metal("jacket", (0.6, 0.4, 0.08), rough=0.3, met=1.0, grain=0.45, gscale=22.0, rust=(0.25, 0.14, 0.04),
           ra=0.12, dirt=0.75, stain=0.5, sscale=7.0, wear=0.4)
     metal("ring", (0.44, 0.42, 0.37), rough=0.5, met=0.05, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
@@ -513,12 +544,10 @@ def _gun14(g, x, y0, z, L, nb, rb, rr):
     E, E2 = M["emit"], M["emit2"]
     k = F.k_arme(rb, rr)
     R0 = rr + rb
-    pos = corps.rosette(g, x, y0, z, L, nb, rb, rr, colliers=(0.56, 0.65, 0.74, 0.83, 0.92), collier_mat=M["ring"],
-                        bouts=False)
-    g.cyl((x, y0 + L * 0.99, z), "y", max(rr - rb * 0.55, rr * 0.55), L * 0.04 + 0.03, M["steel_dk"], n=14,
-          what="ame_bout")
+    # passe 5, ronde 4 (pose N) : CANON EFFILÉ du kit à la place de la rosette à 5 colliers
+    corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.0, bague_mat="ring", conv=0.62, frein=(0.62, 0.78))
     rbody = R0 + 0.05 * k
-    Lb = min(0.48, corps.JAQUETTE_MAX) * L
+    Lb = 0.42 * L
     nseg = 4
     for i in range(nseg):
         g.crumple((x, y0 + Lb * (i + 0.5) / nseg, z), "y", rbody, Lb / nseg - 0.015, M["jacket"], n=22, k=3,
@@ -576,26 +605,11 @@ def _gun14(g, x, y0, z, L, nb, rb, rr):
         for f in (0.12, 0.88):
             for s in (-1, 1):
                 balise(g, (x + s * rbody * 0.62, y0 + Lb * f, z + rbody * 0.72), r=0.022)
-        for f in (0.35, 0.7):
-            balise(g, (x, y0 + L * (0.5 + 0.5 * f), z + R0 + 0.02), r=0.02)
-    # frein à CAPTEUR ANNULAIRE : grand anneau blanc cassé, 6 capteurs sombres, balise rouge sur le dessus
-    yb_ = y0 + L
-    lb = 0.16 * k
-    Ra = R0 + 0.13 * k
-    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra, R0 - 0.005, lb, M["ring"], n=36, what="anneau_capteur")
-    g.tube_shell((x, yb_ + lb / 2, z), "y", Ra + 0.012, Ra - 0.02, lb * 0.4, M["steel_dk"], n=36, what="jonc")
-    g.cyl((x, yb_ + lb * 0.5, z), "y", max(rr - rb * 0.55, rr * 0.55), lb, M["steel_dk"], n=14, what="ame_bout")
-    F.stub_tips(g, x, yb_ - 0.01, yb_ + lb, z, nb, rb, rr)
-    for d in F.ring_dirs(6, 0.0, -0.6):
-        g.box(V((x, yb_ + lb / 2, z)) + d * (Ra + 0.01), (0.05 * k, lb * 0.7, 0.03 * k), M["steel_dk"], "hard",
-              R=F.Rax(d), what="capteur")
-    g.cyl((x, yb_ + lb / 2, z + Ra + 0.03), "z", 0.02, 0.04, M["steel_dk"], n=8, what="balise_pied")
-    g.cyl((x, yb_ + lb / 2, z + Ra + 0.055), "z", 0.016, 0.014, E, n=8, style="flat", what="balise")
-    corps.bouche(g, x, yb_ + lb + 0.002, z, pos, rb, M["ring"], R0 + 0.05 * k, w=0.02 if k >= 0.9 else 0.01)
-    if k >= 0.9:
-        # oreilles latérales blanc cassé à évents sur le capteur annulaire : en pose N, un « T » plat
-        F.ears(g, x, yb_ + lb * 0.5, z, Ra + 0.03, lb * 1.1, 0.14 * k, M["ring"])
-    return yb_ + lb
+    # passe 5, ronde 4 : le frein à capteur annulaire (anneau plus large que le faisceau) et les 5 colliers de la
+    # moitié avant se lisaient en pose N comme le chapeau et les viroles d'une cheminée (ronde 3) : canon effilé du kit,
+    # manchon blanc spatial à fentes reculé, pointes éclairées ; l'émetteur doré (corps froissé, panneau, parabole)
+    # reste sur la moitié arrière
+    return y0 + L
 
 
 def feed(g, x, sx, H, xo):
@@ -731,4 +745,23 @@ def tete(g, c):
     g.pop()
     g.cyl((cx, cy + 0.02, ztop + 0.36), "z", 0.016, 0.018, E, n=8, style="flat", what="balise")
     PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
-    PT.sight(g, (-R * 0.64, R * 0.3, H["zs"] + H["rz"] * 0.5), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+    # ronde 5 : le viseur suit la coupole de forme (même enfoncement de 0,18 qu'au dôme de la lignée)
+    xs_, ys_ = -R * 0.64, R * 0.3
+    PT.sight(g, (xs_, ys_, corps.z_coque(c, xs_, ys_) - 0.18), 0.26, 0.26, 0.15, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]

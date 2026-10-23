@@ -35,17 +35,79 @@ NOM = "Titane"
 FOYER = dict(rgb=(0.749, 0.902, 1.0), rgb2=(0.749, 0.902, 1.0))
 CANON = dict(L=2.1, nb=6, rb=0.06, rr=0.145)
 PLATEFORME = dict(chanfrein=0.8)
-HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="jacket", munitions=("ring", "steel_hi"))
+# passe 5, ronde 1 (consigne du DC du 23/10 : TOUT le bâtiment change d'un âge à l'autre) : l'âge du titane est un
+# bâtiment ENTIÈREMENT EN TITANE BROSSÉ bleu-blanc (capots clairs, plaques moyennes, acier de structure bleu acier),
+# posé sur un pont de TÔLES DE TITANE rivetées : plus de pont noir, plus d'olive ni d'ocre.
+HABILLAGE = dict(jupe_cerclage="ring", chapeau="ring", tremie="titane_md", tourelleau="titane_md",
+                 munitions=("ring", "steel_hi"), capots=("titane_cl", "titane_md"), acier=("titane_dk", "ring"),
+                 rivets="rivet_ti", danger=("orange_aero", "titane_dk"), peinture="orange_aero",
+                 grille_nacelle="titane_dk",
+                 plateforme=dict(motif="toles", mat="tole_ti", mat2="tole_ti2", fond="void", bord="titane_dk",
+                                 boulons="rivet_ti", relief=0.25, lisere="emit"),
+                 # passe 5, ronde 4 (10-11 noté 3 et 3, 11-12 noté 2 et 3 à la ronde 3 : « silhouette presque
+                 # identique », « même plan ») : coupole en COQUE profilée à visière et AILERON dorsal (triplet
+                 # « ailerons, effilé, titane ») ; 10 garde le dôme, 12 prend les anneaux. Pont hexagonal essayé
+                 # (rendu r4a) puis retiré : ses coins vides laissaient des TROUS ENFERMÉS entre les organes d'angle
+                 # et le bord du pont (e11-socle, 290 px), et son contour ne se voyait pas au zoom 1 (organes d'angle)
+                 forme_coupole=dict(forme="coque", lisere="emit"))
+
+
+def _assise(g, c, x0, x1, yn0, yn1, rond=None, mat="titane_md"):
+    """Passe 5, ronde 4 (pont surélevé) : hauteur dont monter un organe d'époque posé au sol pour qu'il repose SUR le
+    pont (corps.z_pont au centre de son emprise, moins le tablier de la lignée, 0,045). Si l'organe monte, une ASSISE
+    pleine comble son emprise jusqu'au sol (rien ne flotte au bord du pont). rond : rayon d'une assise ronde ; sinon
+    caisson rivé sur l'emprise (x0..x1, yn0..yn1 en tuiles de jeu)."""
+    xc, yc = (x0 + x1) / 2, (yn0 + yn1) / 2
+    dz = max(0.0, corps.z_pont(c, xc, yc) - 0.045)
+    if dz > 0.004:
+        M = g.M
+        if rond:
+            g.cyl((xc, Y(yc), (dz + 0.045) / 2), "z", rond, dz + 0.045, M[mat], n=32, what="assise")
+        else:
+            PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, dz + 0.045, ins=(0.012, 0.012, 0.012), panel=0.3,
+                    mats=[M[mat], M["titane_dk"]], rivet_step=0.16)
+    return dz
 RECV = ("jacket", "olive")
 
 
 def matieres(metal, M):
-    """Titane : titane patiné (moyen), alliage blanc PATINÉ (accents larges : manchons, ailerons, colliers)."""
+    """Titane : titane patiné (moyen), alliage blanc PATINÉ (accents larges : manchons, ailerons, colliers).
+    Passe 5, ronde 1 : titane et alliage en métal semi-diffus (métallicité 0,45 au lieu de 0,88 et 0,55 : un métal
+    pur renvoie le ciel sombre et se lit noir vu de dessus, fait du kit en pose N), titane légèrement bleuté, alliage
+    bleu-blanc clair (juges de la passe 4 : « titane brossé bleu-blanc clair ») ; ailerons radiaux 1,4 fois plus
+    grands (envergure 0,6 t au lieu de 0,42)."""
     rust = (0.24, 0.085, 0.03)
-    metal("jacket", (0.31, 0.315, 0.32), rough=0.3, met=0.88, grain=0.14, gscale=40.0, rust=rust, ra=0.06,
-          dirt=0.8, stain=0.45, sscale=6.0, wear=1.0, streak=0.4)
-    metal("ring", (0.55, 0.53, 0.48), rough=0.42, met=0.55, grain=0.14, gscale=30.0, rust=(0.2, 0.1, 0.05),
-          ra=0.1, dirt=0.9, stain=0.6, sscale=5.0, wear=0.8, streak=0.5)
+    # passe 5, ronde 2 (test des écarts : 10 contre 11 noté 2 et 2, « même plan gris » ; 11 lu « acier nu ») : TITANE
+    # BROSSÉ nettement plus CLAIR et plus BLEU, moins sali, sur tout le bâtiment ; l'alliage des ailerons et manchons
+    # bleu-blanc. L'âge 11 devient le bâtiment CLAIR, FROID et LISSE de l'ère, entre l'électronique crème et anthracite
+    # (10) et le givre noir et cyan (12).
+    # passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; 10 et 11 encore notés 2 et 2,
+    # « même acier gris ») : règle 60/30/10 de l'âge 11 = BLEU TITANE franc dominant (titane anodisé : capots, pont,
+    # caissons), ALLIAGE blanc bleuté pâle et BLEU NUIT de structure en second, ORANGE aéronautique en accent (bandes
+    # de danger, repères des ailerons). Le bleu est saturé et moyen-clair : ni l'ivoire de 10, ni le blanc glacé et
+    # le noir de 12.
+    # passe 5, ronde 5 (test des écarts de la ronde 4 : 11 jugé MOINS évolué que 10 par un lecteur, « acier bleu
+    # massif contre dôme crème câblé » ; lu « char bleu acier ») : tout le titane monte d'environ un cran de valeur
+    # (bleu plus lumineux, même teinte) et le liseré du pont passe à pleine lumière : l'âge 11 se lit plus clair,
+    # plus net et plus « technique » que l'électronique crème de 10, sans aller au blanc glacé de 12
+    metal("jacket", (0.22, 0.38, 0.72), rough=0.32, met=0.3, grain=0.12, gscale=40.0, rust=rust, ra=0.01,
+          dirt=0.4, stain=0.2, sscale=6.0, wear=0.6, streak=0.6)
+    metal("ring", (0.62, 0.7, 0.84), rough=0.38, met=0.3, grain=0.12, gscale=30.0, rust=(0.2, 0.1, 0.05),
+          ra=0.02, dirt=0.45, stain=0.3, sscale=5.0, wear=0.5, streak=0.6)
+    # corps entier en titane (passe 5, ronde 1) : brossé = traînées longues (streak), semi-diffus ; ronde 3 : BLEU
+    metal("titane_cl", (0.3, 0.5, 0.86), rough=0.32, met=0.3, grain=0.1, gscale=60.0, dirt=0.3, stain=0.18,
+          sscale=6.0, wear=0.35, streak=0.7)
+    metal("titane_md", (0.16, 0.29, 0.6), rough=0.34, met=0.3, grain=0.1, gscale=60.0, dirt=0.35, stain=0.22,
+          sscale=6.0, wear=0.5, streak=0.6)
+    metal("titane_dk", (0.035, 0.055, 0.13), rough=0.35, met=0.4, grain=0.1, gscale=50.0, dirt=0.45, stain=0.2,
+          wear=0.7, streak=0.4)
+    metal("tole_ti", (0.27, 0.44, 0.78), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.35, stain=0.2,
+          sscale=5.0, streak=0.6)
+    metal("tole_ti2", (0.2, 0.35, 0.68), rough=0.36, met=0.3, grain=0.08, gscale=60.0, dirt=0.35, stain=0.2,
+          sscale=5.0, streak=0.6)
+    metal("rivet_ti", (0.5, 0.6, 0.78), rough=0.35, met=0.35, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
+    metal("bleu_nuit", (0.02, 0.03, 0.075), rough=0.4, met=0.2, grain=0.06, dirt=0.4, stain=0.2)
+    metal("orange_aero", (0.8, 0.2, 0.02), rough=0.4, met=0.05, grain=0.06, dirt=0.3, stain=0.15, wear=0.4)
     M["trim"] = M["ring"]
     M["pipe"] = M["jacket"]
     M["pipe2"] = M["ring"]
@@ -72,42 +134,71 @@ def socle(g, c):
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, ng, M["emit"], a0=math.pi + 0.2, span=math.pi - 0.4)
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, ng - 1, M["emit"], a0=math.pi + 0.35, span=math.pi - 0.7,
                     per=(3, 2))
-    P2.grating(g, 1.35, 1.75, Y(-1.15), Y(1.3), 0.07, M)
-    P2.grating(g, -1.55, -1.3, Y(-1.0), Y(-0.3), 0.07, M)
-    with at(g, -1.5, -1.72, 0.42):
+    # passe 5, ronde 4 : pont HEXAGONAL surélevé (HABILLAGE) ; chaque organe repose sur le pont (_assise)
+    for (x0_, x1_, a_, b_) in ((1.35, 1.75, -1.15, 1.3), (-1.55, -1.3, -1.0, -0.3)):
+        dz = _assise(g, c, x0_, x1_, a_, b_)
+        g.push((0, 0, dz))
+        P2.grating(g, x0_, x1_, Y(a_), Y(b_), 0.07, M)
+        g.pop()
+    dz = _assise(g, c, -1.9, -1.1, -2.05, -1.4)
+    with at(g, -1.5, -1.72, 0.42, z=dz):
         missile_crate(g, 0.8, 0.74, 0.3, 3)
-    with at(g, -1.05, -2.35, 0.08):
+    dz = _assise(g, c, -1.35, -0.75, -2.6, -2.1)
+    with at(g, -1.05, -2.35, 0.08, z=dz):
         missile_crate(g, 0.62, 0.52, 0.24, 2)
     tremie_fins(g, c)
     for (x, yn, rz) in [(1.78, -1.82, 0.0)]:
-        with at(g, x, yn, 0.0):
+        dz = _assise(g, c, x - 0.42, x + 0.42, yn - 0.42, yn + 0.42, rond=0.43)
+        with at(g, x, yn, 0.0, z=dz):
             P2.pedestal(g, 0.42, 0.0, 0.28, 8, M, [M["olive"], M["steel_dk"]], gussets=False)
             turret_legs(g, 0.42, 0.28)
             mini_turret(g, (0, 0, 0.28), 0.95, rz)
     # ouest : turbine de titane ; liaisons d'énergie vers la colonne
+    dz = _assise(g, c, -2.42, -1.62, -0.95, 1.25)
+    g.push((0, 0, dz))
     west(g)
-    conduit(g, [(-1.62, Y(0.55), 0.4), (-1.42, Y(0.6), 0.62), (-1.2, Y(0.5), 0.72)], 0.045)
-    cables(g, [(-1.62, Y(-0.25), 0.4), (-1.42, Y(-0.3), 0.6), (-1.18, Y(-0.35), 0.68)])
+    g.pop()
+    conduit(g, [(-1.62, Y(0.55), 0.4 + dz), (-1.42, Y(0.6), 0.62 + dz), (-1.2, Y(0.5), 0.72 + dz)], 0.045)
+    cables(g, [(-1.62, Y(-0.25), 0.4 + dz), (-1.42, Y(-0.3), 0.6 + dz), (-1.18, Y(-0.35), 0.68 + dz)])
     # nord-ouest : échangeur à ailettes posé en biais
-    with at(g, -1.72, 2.02, -0.55):
+    dz = _assise(g, c, -2.2, -1.25, 1.6, 2.45)
+    with at(g, -1.72, 2.02, -0.55, z=dz):
         fin_exchanger(g, -0.55, 0.55, -0.42, 0.42, 0.62)
     # est : deux réservoirs-fusées à ogive et ailerons
-    rocket_tank(g, 2.02, Y(0.95), 0.37, 0.92)
-    rocket_tank(g, 2.02, Y(-0.4), 0.37, 0.92)
+    for yn in (0.95, -0.4):
+        dz = _assise(g, c, 1.65, 2.39, yn - 0.37, yn + 0.37, rond=0.4)
+        g.push((0, 0, dz))
+        rocket_tank(g, 2.02, Y(yn), 0.37, 0.92)
+        g.pop()
+    dz = _assise(g, c, -2.45, -2.02, -2.3 / 1.4142, -1.66 / 1.4142)
+    g.push((0, 0, dz))
     P3.cabinet(g, -2.45, -2.02, -2.3, -1.66, 0.0, 0.5, M, E, screen_=False)
+    g.pop()
     # sud-est : collecteur de tubulures fines groupées (à la place de la vanne et du volant)
+    dz = _assise(g, c, 1.68, 2.36, -1.18, -0.85)
+    g.push((0, 0, dz))
     manifold(g, 1.68, 2.36, Y(-1.18), Y(-0.85), 0.26)
-    hose(g, [(1.7, Y(-1.0), 0.28), (1.45, Y(-1.05), 0.34), (1.22, Y(-0.85), 0.52)], 0.05)
-    hose(g, [(1.7, Y(1.05), 0.62), (1.45, Y(0.95), 0.98), (1.15, Y(0.75), 0.82)], 0.06)
+    g.pop()
+    hose(g, [(1.7, Y(-1.0), 0.28 + dz), (1.45, Y(-1.05), 0.34 + dz), (1.22, Y(-0.85), 0.52 + dz)], 0.05)
+    dz = max(0.0, corps.z_pont(c, 2.02, 0.95) - 0.045)
+    hose(g, [(1.7, Y(1.05), 0.62 + dz), (1.45, Y(0.95), 0.98 + dz), (1.15, Y(0.75), 0.82 + dz)], 0.06)
+    dz = _assise(g, c, 1.25, 2.25, 1.95, 2.42)
+    g.push((0, 0, dz))
     P3.cabinet(g, 1.25, 2.25, Y(1.95), Y(2.42), 0.0, 0.56, M, E, screen_=False)
     signature(g, (1.55, Y(2.18), 0.6))
-    PT.crate(g, (-0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["olive"])
-    PT.crate(g, (0.4, Y(1.95), 0.0), (0.66, 0.6, 0.28), mat=M["ochre"])
-    signature(g, (0.4, Y(1.95), 0.3), 1)
-    signature(g, (-2.24, -1.98, 0.53), 2)
-    for p in ((1.75, Y(2.18), 0.6), (-0.4, Y(1.95), 0.3), (2.02, Y(-1.02), 0.3),
-              (-1.95, Y(-1.5), 0.45), (0.0, Y(-2.0), 0.68), (-0.95, Y(-2.35), 0.24)):
-        signature(g, p)
+    g.pop()
+    # passe 5, ronde 1 : SILHOUETTE de l'âge, deux grandes DÉRIVES de titane en flèche (à la place des caisses du nord).
+    # Ronde 2 : leur plan était nord-sud, on ne les voyait que par la TRANCHE (deux traits blancs) ; elles sont
+    # tournées FACE AU SUD (plan est-ouest), bord de fuite vertical vers l'extérieur : deux grands triangles de titane
+    # en V, vus de face dans les deux poses, au-dessus de la tête à l'écran.
+    for sx in (-1, 1):
+        dz = max(0.0, corps.z_pont(c, sx * 0.62, 1.92) - 0.045)
+        with at(g, sx * 0.62, 1.92, -sx * math.pi / 2, z=dz):
+            derive(g, 0.0, 0.0)
+    for p in ((-2.24, -1.98, 0.53, 2), (1.75, Y(2.18), 0.6, 0), (2.02, Y(-1.02), 0.3, 0),
+              (-1.95, Y(-1.5), 0.45, 0), (0.0, Y(-2.0), 0.68, 0), (-0.95, Y(-2.35), 0.24, 0)):
+        dz = max(0.0, corps.z_pont(c, p[0], p[1] / 1.4142) - 0.045)
+        signature(g, (p[0], p[1], p[2] + dz), p[3])
     for x in (-0.68, 0.68):
         PT.lamp(g, (x, Y(-2.4) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
     _halo(g, [(-2.0, Y(-1.1), 0.5), (1.78, Y(-2.1), 0.6), (0.0, Y(-2.5), 0.5), (2.0, Y(0.3), 0.5),
@@ -305,6 +396,38 @@ def rocket_tank(g, x, y, r, h):
               R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="chenillard")
 
 
+def derive(g, x, y):
+    """Dérive de fusée (passe 5, ronde 1 : superstructure de l'âge du titane, qui change le contour) : semelle
+    boulonnée, grande lame triangulaire de titane clair en flèche (bord d'attaque au sud, bord de fuite vertical au
+    nord), bord d'attaque en alliage et LIGNE LUMINEUSE bleu-blanc, rivets en ligne. Pleine (aucun jour). Sommet à 1,15
+    (sous h_max 1,29 de la taille 5)."""
+    M = g.M
+    E = M["emit"]
+    y0, y1, ht = y - 0.42, y + 0.4, 1.15
+    g.box((x, y, 0.05), (0.16, y1 - y0 + 0.06, 0.1), M["steel_dk"], "hard", what="semelle")
+    for yy in (y0 + 0.06, y, y1 - 0.06):
+        for s in (-1, 1):
+            g.dome((x + s * 0.08, yy, 0.1), (0, 0, 1), 0.014, M["rivet"])
+    a, b, cc = V((x, y0, 0.1)), V((x, y1, 0.1)), V((x, y1 + 0.02, ht))
+    P2.wedge(g, a, b, cc, V((0.05, 0, 0)), M["olive"], what="derive")
+    # bord d'attaque : baguette d'alliage et ligne lumineuse posée dessus
+    d = cc - a
+    tg = d.normalized()
+    sd = V((1, 0, 0))
+    nn = tg.cross(sd).normalized()
+    if nn.y > 0:
+        nn = -nn
+    Rm = Matrix((tg, sd, tg.cross(sd))).transposed()
+    g.box((a + cc) / 2 + nn * 0.012, (d.length, 0.06, 0.03), M["ring"], "hard", R=Rm, what="bord_attaque")
+    g.box((a + cc) / 2 + nn * 0.03, (d.length * 0.8, 0.02, 0.008), E, "flat", R=Rm, what="ligne_lum")
+    # rivets sur les deux faces, en ligne parallèle à la semelle
+    for i in range(5):
+        yy = y0 + 0.25 + i * (y1 - y0 - 0.3) / 4
+        for s in (-1, 1):
+            g.dome((x + s * 0.026, yy, 0.22), (s, 0, 0), 0.011, M["rivet"])
+    g.box((x, y1 - 0.03, ht * 0.55), (0.06, 0.04, ht * 0.85), M["steel_dk"], "hard", what="bord_fuite")
+
+
 def fin_exchanger(g, x0, x1, y0, y1, h, nfin=7):
     """Échangeur de titane : socle, rangée d'AILETTES verticales anguleuses en alliage clair, collecteurs."""
     M = g.M
@@ -495,7 +618,9 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
     L2 = L * 1.25
     rb2, rr2 = rb * 0.72, rr * 0.6
     R0 = rr2 + rb2
-    pos = corps.rosette(g, x, y0, z, L2, nb, rb2, rr2, colliers=(0.62, 0.8), collier_mat=M["ring"], bouts=False,
+    # passe 5, ronde 3 (pose N de la ronde 2 : 11 encore lu « cheminée ») : un seul collier (au lieu de deux bagues
+    # claires régulières, lues comme les viroles d'un conduit), dans le bleu du titane
+    pos = corps.rosette(g, x, y0, z, L2, nb, rb2, rr2, colliers=(0.66,), collier_mat=M["jacket"], bouts=False,
                         segments=10)
     g.cyl((x, y0 + L2 * 0.99, z), "y", max(rr2 - rb2 * 0.55, rr2 * 0.55), L2 * 0.04 + 0.03, M["steel_dk"], n=12,
           what="ame_bout")
@@ -516,7 +641,9 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
             for (u, w) in hexs[:3] + hexs[5:]:
                 g.dome((x + u * rr_ * 1.0, y0 + f * Ls + 0.04, z + w * rr_ * 1.0), (u, 0, w), 0.012, M["rivet"])
     # AILERONS RADIAUX EN X (4 diagonales ; pas d'aileron vers le sol), grand empennage puis petit empennage
-    for (yy, span, chord) in ((y0 + 0.3 * k, 0.42 * k, 0.6 * k), (y0 + Ls + 0.12 * k, 0.2 * k, 0.3 * k)):
+    # ronde 2 : un empennage 1,2 fois plus grand a été essayé (envergure 0,72 t) : en pose E, il enfermait du sol
+    # entre les ailerons et le faisceau (trou de 119 px, ÉCHEC de rendre.py) ; retour à 0,6 t
+    for (yy, span, chord) in ((y0 + 0.3 * k, 0.6 * k, 0.75 * k), (y0 + Ls + 0.12 * k, 0.28 * k, 0.36 * k)):
         r0 = rad(yy)
         for d in F.ring_dirs(4, math.pi / 4, -0.9):
             if d.z < 0 and yy < y0 + 0.5 * k:
@@ -549,19 +676,21 @@ def _gun11(g, x, y0, z, L, nb, rb, rr):
     # larges que le faisceau), évents obliques, rosace éclairée en face avant
     yb0 = y0 + L2
     lb = 0.36 * k
-    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.05, rr2 * 0.4, 0.05, M["ring"], n=28, what="bague")
-    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.055, lb, M["jacket"], n=6, r2=R0 + 0.01, style="hard", phase=math.pi / 2,
+    # ronde 3 (pose N) : plus de bague plus large que le faisceau ni de corps de frein évasé (le haut d'une cheminée) :
+    # le corps hexagonal reste AU RAS du faisceau et s'effile ; seules les ailettes en flèche débordent, de côté
+    g.tube_shell((x, yb0 + 0.02, z), "y", R0 + 0.012, rr2 * 0.4, 0.04, M["titane_dk"], n=28, what="bague")
+    g.cyl((x, yb0 + lb / 2, z), "y", R0 + 0.014, lb, M["jacket"], n=6, r2=R0 - 0.004, style="hard", phase=math.pi / 2,
           what="frein")
     for s in (-1, 1):
         c_ = V((x, 0, z))
         P2.wedge(g, c_ + V((s * (R0 + 0.03), yb0 + 0.02, 0)), c_ + V((s * (R0 + 0.01), yb0 + lb, 0)),
-                 c_ + V((s * (R0 + 0.2 * k), yb0 - 0.04 * k, 0)), V((0, 0, 0.028 * k)), M["ring"], what="ailette")
+                 c_ + V((s * (R0 + 0.09 * k), yb0 - 0.06 * k, 0)), V((0, 0, 0.028 * k)), M["ring"], what="ailette")
         for i in range(3):
             g.box(V((x + s * (R0 + 0.045 - i * 0.01), yb0 + lb * (0.25 + 0.22 * i), z + 0.02)),
                   (0.012, 0.06 * k, 0.03 * k), M["void"], "flat", R=Matrix.Rotation(s * 0.5, 3, "Z"), what="event")
     if k >= 0.9:
         P2.wedge(g, V((x, yb0 + 0.02, z + R0)), V((x, yb0 + lb * 0.8, z + R0 * 0.6)),
-                 V((x, yb0 + 0.02, z + R0 + 0.12 * k)), V((0.022, 0, 0)), M["ring"], what="ailette")
+                 V((x, yb0 + 0.02, z + R0 + 0.07 * k)), V((0.022, 0, 0)), M["ring"], what="ailette")
     corps.bouche(g, x, yb0 + lb + 0.002, z, pos, rb2, M["steel_dk"], R0 + 0.008, w=0.018 if k >= 0.9 else 0.01)
     return yb0 + lb
 
@@ -622,7 +751,8 @@ def tete(g, c):
         mat = M["trim"] if i % 3 == 1 else (M["ochre"] if i % 2 else M["steel_dk"])
         P2.applique(g, c.Pf, c.Nf, th, ph1, w1, h1, mat, M)
     # télémètre à ailerons
-    zt = H["zs"] + H["rz"] * 0.86
+    # ronde 4 : coupole en COQUE (plus haute que le dôme) : le télémètre se pose sur sa surface (corps.z_coque)
+    zt = max(H["zs"] + H["rz"] * 0.86, corps.z_coque(c, R * 0.6, R * 0.32) + 0.06)
     g.box((0.0, R * 0.32, zt), (R * 1.25, 0.1, 0.1), M["jacket"], "hard", what="telemetre")
     for sx in (-1, 1):
         g.cyl((sx * R * 0.64, R * 0.32, zt), "x", 0.07, 0.09, M["steel_dk"], n=14, what="telemetre_bout")
@@ -647,3 +777,20 @@ def tete(g, c):
     for th in (math.pi / 2 - 0.55, math.pi / 2 + 0.55):
         P2.applique(g, c.Pf, c.Nf, th, 0.42, 0.5, 0.34, M["ring"], M, bolts=4)
     PT.sight(g, (-R * 0.6, R * 0.32, H["zs"] + H["rz"] * 0.5), 0.2, 0.2, 0.12, M["emit"], lenses=2)
+
+# ------------------------------------------------------------------------------------------------
+# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
+# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
+# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
+# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
+# matières propres de l'époque ne changent pas.
+# ------------------------------------------------------------------------------------------------
+def _dans_habillage(f):
+    def w(g, c, *a, **k):
+        with corps.habille(g, c):
+            return f(g, c, *a, **k)
+    w.__name__, w.__doc__ = f.__name__, f.__doc__
+    return w
+
+
+socle, piece, arme, tete, masque = [_dans_habillage(_f) for _f in (socle, piece, arme, tete, masque)]
