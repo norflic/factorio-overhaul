@@ -11,8 +11,10 @@ tourelle se dresse l'ANNEAU DE LA PORTE, dont l'horizon PLEIN montre un champ d'
 Palette 60/30/10 : INDIGO DE NUIT saturé et mat (capots, coupole, pont) ; BLANC LUNAIRE mat (anneau, cerclages,
 arêtes, colonnade, conduits) ; BLANC D'ÉTOILE semé en points (étoiles, chevrons, horizon, pointes). Ni or ni orange.
 Silhouette : anneau de la Porte au nord (à la place du radiateur), coupole basse en OBSERVATOIRE à fente étoilée d'où
-sort le canon de coupole comme un télescope, jupe en COLONNADE (piliers de la Porte, la nuit entre eux), pont carré
-(repli de la fiche : le pont sur pilotis n'a jamais été essayé, ronde 1 prudente), trémie en TAMBOUR à cadran d'adresse.
+sort le canon de coupole comme un télescope, jupe en COLONNADE (piliers de la Porte, la nuit entre eux), trémie en
+TAMBOUR à cadran d'adresse. RONDE 3 : pont ROND cerné par l'ANNEAU DE LA PORTE (couronne blanche à 9 claveaux et
+chevrons de lumière, bord d'horizon lumineux), pont semé d'étoiles : la tourelle est posée DANS la Porte ; coins vides
+(13 garde le carré à tours, 15 le carré à gradins). Pilotis de la fiche : jamais essayés.
 Canons : L 2,80 ; culasse = ANNEAU-PORTE à chevrons et horizon étoilé (pose N : un cercle vu de face au pied du
 faisceau) ; cassettes orbitales à l'alimentation.
 Tuyaux : OMBILICAUX blancs à rotules indigo, conduits de fibre à points d'étoile, brides à chevrons, cartes stellaires.
@@ -28,7 +30,7 @@ import parts as PT
 import parts2 as P2
 import parts3 as P3
 from corps import Y, at
-from kit import TAU, basis
+from kit import SQ2, TAU, basis
 
 V = Vector
 
@@ -45,7 +47,9 @@ HABILLAGE = dict(jupe_cerclage="blanc_lunaire", chapeau="blanc_lunaire", tremie=
                  munitions=("blanc_lunaire", "indigo_nuit"),
                  plateforme=dict(motif="toles", mat="indigo_nuit", mat2="indigo_nuit2", fond="noir_spatial",
                                  bord="blanc_lunaire", boulons="blanc_lunaire", lisere="emit_soft"),
-                 forme_plateforme=dict(forme="carre", flanc="blanc_lunaire", flanc2="indigo_nuit"),
+                 # RONDE 3 : pont ROND (disque à plinthe) cerné par l'anneau de la Porte (anneau_pont) : silhouette
+                 # propre à 14 (13 et 15 gardent le carré, à tours d'angle et à gradins)
+                 forme_plateforme=dict(forme="rond", flanc="blanc_lunaire", flanc2="indigo_nuit", hauteur=0.11),
                  # OBSERVATOIRE : dôme bas à côtes serrées, aucune parabole ni panneau dessus (ronde 5 : la pyramide de
                  # l'ancien 14 était couverte par les paraboles)
                  forme_coupole=dict(forme="dome_bas", mat="indigo_nuit", mat2="blanc_lunaire"),
@@ -186,75 +190,140 @@ def anneau_porte(g, centre, Ro, prof, nchev=9, graine=1, k=1.0, axe="y"):
 # Socle (corps du niveau 27)
 # ------------------------------------------------------------------------------------------------
 def socle(g, c):
+    """RONDE 3 (test à l'aveugle de la ronde 2 : 13, 14 et 15 « même carcasse, seule la couleur change », écarts 2 sur 5) :
+    le pont devient un DISQUE (forme « rond » du kit) cerné par L'ANNEAU DE LA PORTE : vu de dessus, toute la tourelle
+    est posée DANS la Porte, son horizon est le pont étoilé. Aucun organe ne déborde du disque : les coins restent
+    vides (le carré à pieds d'angle reste à 13 et à 15). Les organes sont ramenés dans le rayon libre (2,55 t)."""
     M = g.M
     E = M["emit"]
     B = c.B
-    # étoiles semées sur le fût de la colonne (face sud) et cerclages blancs
+    # étoiles semées sur le fût de la colonne (face sud) et cerclages blancs (la colonne monte déjà de c.dz)
     rng = random.Random(1401)
     for i in range(26):
         a = math.pi + 0.15 + (math.pi - 0.3) * rng.random()
-        z = 0.12 + (B["h"] - 0.24) * rng.random()
+        z = c.dz + 0.12 + (B["h"] - c.dz - 0.24) * rng.random()
         d = V((math.cos(a), math.sin(a), 0))
         etoile(g, d * (B["R"] + 0.004) + V((0, 0, z)), d, 0.017 + 0.006 * rng.random(), croix=(i % 8 == 3))
     for zz in (B["h"] * 0.3, B["h"] * 0.75):
         g.tube_shell((0, 0, zz), "z", B["R"] + 0.025, B["R"] - 0.02, 0.05, M["blanc_lunaire"], n=64, what="cerclage")
     F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.52, 4, M["emit2"], a0=math.pi + 0.3, span=math.pi - 0.6)
-    P2.grating(g, 1.65, 1.95, Y(-1.3), Y(1.45), 0.07, M)
-    P2.grating(g, -1.95, -1.65, Y(-1.1), Y(1.1), 0.07, M)
-    # sud : CONTENEURS DE FRET blanc lunaire à chevrons (à la place des caisses ouvertes)
-    with at(g, -1.45, -1.95, 0.45):
-        conteneur(g, 0.84, 0.74, 0.36, 1411)
-    with at(g, 1.45, -1.95, -0.45):
-        conteneur(g, 0.84, 0.74, 0.36, 1412)
     tremie_cadran(g, c)
-    meteorite(g, 0.92, Y(-2.41), c)
     corps.collecteur(g, c, ombilical, r=0.06)
-    fibre(g, [(-1.8, Y(-1.15), 0.18), (-1.8, Y(0.0), 0.22), (-1.8, Y(1.2), 0.18)], 0.045)
-    fibre(g, [(1.8, Y(-1.25), 0.18), (1.8, Y(0.1), 0.22), (1.8, Y(1.35), 0.18)], 0.045)
-    for s in (-1, 1):
-        ombilical(g, [(s * 0.72, Y(-2.55), 0.14), (s * 1.3, Y(-2.6), 0.16), (s * 1.95, Y(-2.45), 0.14)], 0.055)
-    # tourelles secondaires (3), l'une portant une antenne-relais blanche (rappel de l'orbite)
-    for i, (x, yn, rz) in enumerate([(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3), (2.4, 2.45, -0.7)]):
+    # L'ANNEAU DE LA PORTE en bord de pont, puis le CHAMP D'ÉTOILES du pont (l'horizon)
+    anneau_pont(g, c)
+    # tout ce qui suit est posé SUR le pont (plinthe du disque : c.dz)
+    g.push((0, 0, c.dz))
+    P2.grating(g, 1.6, 1.9, Y(-0.9), Y(1.1), 0.07, M)
+    P2.grating(g, -1.65, -1.45, Y(-1.1), Y(1.1), 0.07, M)
+    fibre(g, [(-1.55, Y(-1.05), 0.18), (-1.55, Y(0.0), 0.22), (-1.55, Y(1.05), 0.18)], 0.045)
+    # tourelles secondaires (3), DANS le disque : deux au sud, l'une portant une antenne-relais blanche au nord-est
+    for i, (x, yn, rz) in enumerate([(-1.32, -1.78, -0.3), (1.32, -1.78, 0.3), (1.55, 1.62, -0.7)]):
         with at(g, x, yn, 0.0):
-            P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["indigo_nuit"], M["noir_spatial"]], gussets=False)
-            mini_turret(g, (0, 0, 0.32), 1.02, rz, antenne=(i == 2))
-    # ouest : CENTRALE D'ANCRAGE (caissons blancs, cartes stellaires)
+            P2.pedestal(g, 0.38, 0.0, 0.3, 8, M, [M["indigo_nuit"], M["noir_spatial"]], gussets=False)
+            mini_turret(g, (0, 0, 0.3), 0.9, rz, antenne=(i == 2))
+    # ouest : CENTRALE D'ANCRAGE (caissons blancs, cartes stellaires), ramenée dans le disque
     centrale(g)
-    fibre(g, [(-1.98, Y(0.7), 0.45), (-1.78, Y(0.75), 0.72), (-1.52, Y(0.62), 0.86)], 0.04)
-    fibre(g, [(-1.98, Y(-0.6), 0.45), (-1.78, Y(-0.65), 0.72), (-1.52, Y(-0.55), 0.86)], 0.04)
-    cables(g, [(-1.98, Y(0.05), 0.45), (-1.75, Y(0.02), 0.7), (-1.5, Y(0.0), 0.8)])
-    # nord-ouest : batterie de relais (réserve d'énergie de la Porte)
-    with at(g, -2.05, 2.25, -0.6):
-        PT.hull(g, -0.62, 0.62, -0.5, 0.5, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3,
-                mats=[M["indigo_nuit"], M["blanc_lunaire"]], rivet_step=0.13)
-        etoiles_rect(g, -0.6, 0.6, -0.48, 0.48, 0.145, 6.0, 1421)
-        PT.capacitors(g, (0.0, 0.05, 0.14), 3, 2, 0.13, 0.42, M["emit2"])
-        P3.lamp_group(g, (-0.5, -0.52, 0.09), (1, 0, 0), (0, -1, 0), E, M, n=3)
-    ombilical(g, [(-1.6, Y(1.95), 0.5), (-1.35, Y(1.6), 0.8), (-1.1, Y(1.25), 0.95)], 0.045)
-    # est : deux SPHÈRES INDIGO CONSTELLÉES à cerclages blancs
-    sphere_constellee(g, 2.4, Y(1.0), 0.44, 1431)
-    sphere_constellee(g, 2.4, Y(-0.55), 0.44, 1432)
-    P3.cabinet(g, -2.85, -2.08, -2.85, -2.2, 0.0, 0.55, M, E)
-    # sud-est : boîte ombilicale (à la place de la vanne à volants)
-    boite_ombilicale(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.3)
-    ombilical(g, [(1.98, Y(-1.35), 0.34), (1.75, Y(-1.4), 0.4), (1.55, Y(-1.15), 0.56)], 0.05)
-    ombilical(g, [(1.98, Y(1.0), 0.7), (1.68, Y(0.95), 1.05), (1.4, Y(0.8), 0.95)], 0.05)
-    ombilical(g, [(1.98, Y(-0.55), 0.7), (1.68, Y(-0.55), 1.02), (1.42, Y(-0.4), 0.95)], 0.05)
-    # NORD : L'ANNEAU DE LA PORTE (à la place du radiateur), sur son berceau à deux pieds massifs
+    fibre(g, [(-1.75, Y(0.55), 0.5), (-1.62, Y(0.55), 0.74), (-1.48, Y(0.5), 0.86)], 0.04)
+    fibre(g, [(-1.75, Y(-0.5), 0.5), (-1.62, Y(-0.5), 0.74), (-1.48, Y(-0.45), 0.86)], 0.04)
+    cables(g, [(-1.75, Y(0.02), 0.5), (-1.62, Y(0.0), 0.72), (-1.48, Y(0.0), 0.8)])
+    # nord-ouest : FRAGMENT DE MÉTÉORITE dans son berceau (rappel des pluies de météorites)
+    meteorite(g, -1.5, Y(1.62), c)
+    # est : SPHÈRE INDIGO CONSTELLÉE à cerclages blancs, boîte ombilicale
+    sphere_constellee(g, 2.08, Y(0.62), 0.38, 1431)
+    boite_ombilicale(g, 1.78, 2.38, Y(-0.72), Y(-0.4), 0.28)
+    ombilical(g, [(1.78, Y(-0.56), 0.32), (1.62, Y(-0.56), 0.6), (1.42, Y(-0.4), 0.9)], 0.05)
+    # NORD : L'ANNEAU DE LA PORTE debout (à la place du radiateur), sur son berceau à deux pieds massifs
     porte_nord(g, c)
     # consoles basses à cartes stellaires de part et d'autre (les armoires hautes cachaient le pied de l'anneau)
-    for (x0, x1) in ((-1.25, -0.78), (0.78, 1.25)):
+    for (x0, x1) in ((-1.12, -0.8), (0.8, 1.12)):
         PT.hull(g, x0, x1, Y(1.62), Y(1.95), 0.0, 0.26, ins=(0.015, 0.015, 0.015), panel=0.24,
                 mats=[M["indigo_nuit"], M["blanc_lunaire"]], rivet_step=0.11)
-        for f in (0.25, 0.5, 0.8):
+        for f in (0.3, 0.75):
             carte_stellaire(g, (x0 + (x1 - x0) * f, Y(1.62) - 0.005, 0.15), (0, -1, 0), 0.045, int(1440 + 10 * f + x0))
-    P2.anchor(g, -2.6, Y(0.0), 0.26, M)
-    for x in (-0.8, 0.8):
-        PT.lamp(g, (x, Y(-2.75) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
+    for x in (-0.64, 0.64):
+        PT.lamp(g, (x, Y(-2.62), 0.1), (0, -0.4, 1), 0.034, M["amber"])
+    g.pop()
     P3.lamp_group(g, (-0.4, Y(-2.75) - 0.03, 0.58), (1, 0, 0), (0, -1, 0), E, M, n=3)
-    _halo(g, [(-2.4, Y(-1.2), 0.6), (2.4, Y(-2.7), 0.7), (-2.4, Y(-2.7), 0.7), (0.0, Y(-2.85), 0.5),
-              (-2.05, Y(2.25), 0.8), (2.4, Y(0.2), 0.6)], 18.0)
+    _halo(g, [(-2.0, Y(0.0), 0.7), (1.32, Y(-1.78), 0.7), (-1.32, Y(-1.78), 0.7), (0.0, Y(-2.85), 0.5),
+              (-1.5, Y(1.62), 0.7), (2.08, Y(0.62), 0.7)], 18.0)
     _halo(g, [(0.0, Y(2.42) - 0.3, 0.8)], 24.0, g.M["_emit2_rgb"])
+    # le bord lumineux de l'anneau du pont : halos blanc bleuté répartis sur le cercle
+    _halo(g, [(2.72 * math.cos(a), Y(2.72 * math.sin(a)), c.sil["H"] + 0.15)
+              for a in (0.0, 0.7, 2.44, math.pi, -0.55, -2.6)], 10.0, g.M["_emit2_rgb"])
+
+
+# rayon de l'anneau du pont (tuiles de jeu) : bord extérieur, bord intérieur ; trouées au sud (trémie) et au nord
+# (pieds de la Porte debout)
+ANNEAU_PONT = (2.82, 2.6)
+
+
+def _dans_trouee(x, yn):
+    return abs(x) < 0.8
+
+
+def anneau_pont(g, c):
+    """L'ANNEAU DE LA PORTE en bord de pont (vu de dessus : un cercle blanc à 9 chevrons allumés qui cerne toute la
+    tourelle) : couronne plate blanc lunaire en 96 voussoirs (joints noirs), gorge noire et BORD D'HORIZON lumineux
+    côté intérieur, 9 chevrons en relief à lampe, nervures ; puis le CHAMP D'ÉTOILES du pont (étoiles semées dans le
+    disque, l'horizon). Trouées devant la trémie et sous les pieds de la Porte debout. Tout est en tuiles de jeu (Y)."""
+    M = g.M
+    H = c.sil["H"]
+    ro, ri = ANNEAU_PONT
+    n = 96
+    hz = 0.075
+
+    def P(r, a, z):
+        return V((r * math.cos(a), Y(r * math.sin(a)), z))
+
+    for i in range(n):
+        a0 = TAU * i / n + 0.004
+        a1 = TAU * (i + 1) / n - 0.004
+        am = (a0 + a1) / 2
+        x, yn = ro * math.cos(am), ro * math.sin(am)
+        if _dans_trouee(x, yn):
+            continue
+        z0, z1 = H - 0.01, H + hz
+        g.hexa([P(ri, a0, z0), P(ro, a0, z0), P(ro, a1, z0), P(ri, a1, z0),
+                P(ri, a0, z1), P(ro, a0, z1), P(ro, a1, z1), P(ri, a1, z1)], M["blanc_lunaire"], what="anneau_pont")
+        # gorge noire et bord d'horizon (lumière) côté intérieur
+        g.hexa([P(ri - 0.05, a0, z0), P(ri, a0, z0), P(ri, a1, z0), P(ri - 0.05, a1, z0),
+                P(ri - 0.05, a0, H + 0.03), P(ri, a0, H + 0.03), P(ri, a1, H + 0.03), P(ri - 0.05, a1, H + 0.03)],
+               M["noir_spatial"], what="gorge")
+        # (aperçu r3a : un filet au ras du pont ne se voyait pas : il est monté contre la gorge et élargi)
+        g.hexa([P(ri - 0.1, a0, z0), P(ri - 0.05, a0, z0), P(ri - 0.05, a1, z0), P(ri - 0.1, a1, z0),
+                P(ri - 0.1, a0, H + 0.022), P(ri - 0.05, a0, H + 0.022), P(ri - 0.05, a1, H + 0.022),
+                P(ri - 0.1, a1, H + 0.022)], M["emit2"], what="bord_horizon")
+        if i % 4 == 2:
+            g.box(P((ro + ri) / 2, am, z1 + 0.008), (0.022, 0.022, 0.016), M["noir_spatial"], "hard", what="nervure")
+    # 9 CHEVRONS (pointe vers l'extérieur), lampes allumées : « la Porte compose son adresse »
+    for k in range(9):
+        a = math.pi / 2 + TAU * (k + 0.5) / 9
+        x, yn = (ro + ri) / 2 * math.cos(a), (ro + ri) / 2 * math.sin(a)
+        if _dans_trouee(x, yn):
+            a += 0.42
+            x, yn = (ro + ri) / 2 * math.cos(a), (ro + ri) / 2 * math.sin(a)
+        p = P((ro + ri) / 2, a, H + hz)
+        d = V((math.cos(a), SQ2 * math.sin(a), 0.0)).normalized()
+        t = V((-d.y, d.x, 0.0))
+        # (aperçu r3a : un chevron blanc sur la couronne blanche ne se voyait pas) CLAVEAU indigo enchâssé dans la
+        # couronne, et sur lui un CHEVRON DE LUMIÈRE (deux barres blanc d'étoile en V, pointe vers l'extérieur)
+        Rm = Matrix((t, d, V((0, 0, 1)))).transposed()
+        g.box(p + V((0, 0, 0.012)), (0.34, 0.24, 0.03), M["indigo_nuit"], "hard", R=Rm, what="claveau")
+        for sg in (-1, 1):
+            Rb = Rm @ Matrix.Rotation(sg * 0.85, 3, "Z")
+            g.box(p + t * sg * 0.055 + V((0, 0, 0.03)), (0.035, 0.16, 0.008), M["emit"], "flat", R=Rb,
+                  what="chevron_lumiere")
+        for sg in (-1, 1):
+            g.dome(p + t * sg * 0.14 + V((0, 0, 0.027)), (0, 0, 1), 0.016, M["rivet"])
+    # CHAMP D'ÉTOILES du pont : l'horizon de la Porte (étoiles cachées sous les organes : sans effet)
+    rng = random.Random(1405)
+    for i in range(150):
+        r = 0.95 + (ri - 0.14 - 0.95) * math.sqrt(rng.random())
+        a = TAU * rng.random()
+        x, yn = r * math.cos(a), r * math.sin(a)
+        if abs(x) < 0.62 and yn < -1.8:
+            continue
+        etoile(g, (x, Y(yn), H + 0.004), (0, 0, 1), 0.017 + 0.008 * rng.random(), croix=(i % 8 == 3))
 
 
 def porte_nord(g, c):
@@ -300,7 +369,7 @@ def centrale(g):
     """Groupe de l'ouest : CENTRALE D'ANCRAGE (deux caissons blancs à bandes indigo étoilées, cartes stellaires, brides
     à chevrons, conduits de fibre)."""
     M = g.M
-    x0, x1, y0, y1 = -2.88, -1.98, Y(-1.35), Y(1.35)
+    x0, x1, y0, y1 = -2.36, -1.72, Y(-0.85), Y(0.85)
     cy = (y0 + y1) / 2
     for (ya, yb_, h) in ((y0, cy - 0.06, 0.55), (cy + 0.06, y1, 0.48)):
         PT.hull(g, x0, x1, ya, yb_, 0.0, h, ins=(0.02, 0.02, 0.03), panel=0.28,

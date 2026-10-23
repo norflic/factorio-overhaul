@@ -22,8 +22,12 @@ Canons : L 3,10, tubes lourds ; culasse = MICRO-SINGULARITÉ (boule noire plus l
 de photons, tenue par 3 griffes d'or : pose N, une boule noire cerclée de lumière au pied de chaque faisceau) ;
 2 canons de coupole jumelés ; cellules d'annihilation à l'alimentation.
 Tuyaux : conduits d'or en arcs de SPIRALE vers le centre (chenillard vers l'intérieur), câbles d'horizon, jauges de marée.
+RONDE 3 : le disque d'accrétion se prolonge en un GRAND DISQUE sombre à 6 bras de lumière en spirale et poussière
+d'étoiles (grand_disque, rayon RD_EXT) qui couvre les culasses : la silhouette propre au sommet (13 carré à tours,
+14 disque posé au sol, 15 galaxie suspendue au-dessus des gradins). Les micro-singularités des culasses sont dessous.
 """
 import math
+import random
 
 from mathutils import Matrix, Vector
 
@@ -716,6 +720,7 @@ def tete(g, c):
     zp2 = zr + RS * 0.38
     g.torus((0, 0, zp2), "z", math.sqrt(max(0.0, RS * RS - (zp2 - zr) ** 2)) + 0.004, 0.008, M["emit_soft"], n=128,
             m=6, what="anneau_photons2")
+    grand_disque(g, zr, rout)
     rx = RS
     # LE DISQUE (place « couronne ») : anneau plat de noir chaud, 3 bandes de segments lumineux à joints noirs
     # (lumière en orifices, jamais une plage), bord d'or, 8 bras radiaux qui le tiennent à la jupe
@@ -769,6 +774,59 @@ def tete(g, c):
         fenetre(g, cc + V((0, -0.081, 0.09)), (0, -1, 0), 0.05, 0.06)
     PT.capacitors(g, (0.0, -R - 0.14, zs + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit2"])
     _halo(g, [(0.0, -R - 0.6, zd + 0.1)], 14.0)
+
+
+# RONDE 3 : rayon extérieur du GRAND DISQUE (tête)
+RD_EXT = 2.42
+
+
+def grand_disque(g, zr, rout):
+    """RONDE 3 (test à l'aveugle de la ronde 2 : « O, F et C ont exactement la même silhouette », « le sommet aurait
+    besoin d'une silhouette ou d'un accessoire qui lui soit propre ») : le disque d'accrétion se PROLONGE en un GRAND
+    DISQUE sombre (rayon RD_EXT, presque tout le pont vu de dessus) qui couvre les culasses ; seuls les tubes en
+    sortent. Il est continu depuis le disque lumineux (aucun jour : pas de trou dans la tête). Noir chaud, bord d'or ;
+    6 BRAS EN SPIRALE de lumière (blanc près de l'horizon, puis blanc-or doux, puis orange) enroulés dans le sens de la
+    vrille du disque intérieur, et une POUSSIÈRE D'ÉTOILES orange et blanc-or : la galaxie qui tombe dans le trou noir.
+    La lumière y reste en filets (zone lumineuse de jour : fiche §4, 0,11 à 0,15)."""
+    M = g.M
+    E = M["emit"]
+    ro2 = RD_EXT
+    g.tube_shell((0, 0, zr), "z", ro2, rout - 0.01, 0.036, M["noir_chaud"], n=192, what="disque_ext")
+    g.tube_shell((0, 0, zr), "z", ro2 + 0.022, ro2 - 0.004, 0.05, M["or_chauffe"], n=192, what="bord_disque_ext")
+    zt = zr + 0.02
+    nbras, npas = 6, 26
+    for k in range(nbras):
+        a0 = TAU * k / nbras + 0.2
+        pts = []
+        for i in range(npas + 1):
+            t = i / npas
+            r = rout + 0.05 + t * (ro2 - 0.1 - rout - 0.05)
+            # enroulement : l'angle croît vers l'extérieur (sens de la vrille du disque intérieur)
+            # (aperçu r3a : 1,5 rad d'enroulement se lisait en arcs concentriques ; 2,6 rad dessine la spirale)
+            a = a0 + 2.6 * t
+            pts.append((V((r * math.cos(a), r * math.sin(a), zt)), t))
+        for i in range(npas):
+            (p0, t0), (p1, _) = pts[i], pts[i + 1]
+            d = p1 - p0
+            tv = d.normalized()
+            nv = V((-tv.y, tv.x, 0))
+            mat = E if t0 < 0.3 else (M["emit_soft"] if t0 < 0.62 else M["emit2"])
+            w = 0.05 * (1.0 - 0.55 * t0)
+            g.box((p0 + p1) / 2, (d.length * 0.88, w, 0.006), mat, "flat", R=Matrix((tv, nv, V((0, 0, 1)))).transposed(),
+                  what="bras_spirale")
+    rng = random.Random(1581)
+    for i in range(170):
+        r = rout + 0.06 + (ro2 - 0.1 - rout - 0.06) * rng.random()
+        a = TAU * rng.random()
+        mat = M["emit2"] if rng.random() < 0.55 else M["emit_soft"]
+        g.cyl((r * math.cos(a), r * math.sin(a), zt), "z", 0.01 + 0.012 * rng.random(), 0.006, mat, n=6, style="flat",
+              what="poussiere")
+    # entretoises d'or sous le grand disque (rien ne flotte : il repose sur les griffes et sur ces 8 bras courbes)
+    for i in range(8):
+        a = TAU * (i + 0.25) / 8
+        dd = V((math.cos(a), math.sin(a), 0))
+        g.box(dd * (ro2 - 0.16) + V((0, 0, zr + 0.026)), (0.03, 0.2, 0.012), M["or_chauffe"], "hard",
+              R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="entretoise")
 
 
 def lance(g, zr, xg, L, s):
