@@ -21,11 +21,11 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits F1 à F118 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot V3-T3, intégré ;
-   F111 à F118 : lot V3-T4, livré NON intégré), expériences E1 à E64 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à
-   E62 : V3-T4 ; E63 et E64 : V3-E, passes 3 et 4, jugées « pas prêt »), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ; H-T1 et
+4. `RD_LOG.md` : faits F1 à F119 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot V3-T3, intégré ;
+   F111 à F118 : lot V3-T4, livré NON intégré), expériences E1 à E65 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à
+   E62 : V3-T4 ; E63 à E65 : V3-E, passes 3 à 5), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ; H-T1 et
    H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants : **F119, E65**.
+   expérience de contrôle). Prochains identifiants : **F120, E66**.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |

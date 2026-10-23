@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (23/10, vers 6 h 15, après la consignation de la passe 4 de V3-E, E64) : **F119, E65**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) : **F120, E66**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -231,6 +231,7 @@ par E62, sans nouveau numéro. Hypothèse ouverte : H-T4-1. Expériences : E60 �
 | F115 | **Observé en moteur réel** (E62, passages `12_` à `14_`, 22:26:30,56 à 22:30:17,34). Avec `ammo_consumption_modifier` > 1, un tir de mitrailleuse ne prend QUE sur le chargeur entamé : il consomme min(modificateur, cartouches restantes du chargeur), sans entamer le suivant. Chargeurs de 10, 10 tirs/s : modificateur 2,25 → 2,0 cartouches par tir ; 4 → 3,33 ; 6,25 → 5 ; 9 → 5. Avec 2,50025 / 3,33367 / 5,0005 / 10,001 : 2,5 / 3,333 / 5 / 10, exactement. La doc 1.1.91 dit seulement « Must be greater than or equal to 0 ». | La 6×6 ne prenait que 5 cartouches par tir au lieu de 9 (munitions 1,8 fois trop rentables avec le modificateur 9 ; R fois sans modificateur, version de l'ingénieur). Correctif de la branche : modificateur arrondi au chargeur (`L.magazine_quantize`), soit 1 ; 2,5 ; 3,33 ; 5 ; 10 cartouches par tir, et par dégât × 1,11 ; 0,83 ; 0,80 ; 1,11 de la courbe d'avant. La marge de 0,01 % n'est pas prouvée nécessaire (le mutant sans marge survit hors jeu). |
 | F116 | **Observé en moteur réel** (E62). Une foreuse n'a PAS de plafond d'un résultat par tick : foreuse 30 avec 3 modules de vitesse de palier 10, sortie dans un coffre vidé à chaque tick : 63,96 minerais/s mesurés, égal à la théorie. | Contraste avec F3 (assembleur). Le débit réel d'une foreuse est borné par sa sortie (F117). |
 | F117 | **Observé en moteur réel** (E62). La même foreuse, qui dépose sur un tapis express, ne remplit qu'UNE voie : 22,22 minerais/s mesurés, pour une voie de 22,5/s (`belt_speed` × 60 × 4). Un seul point de dépôt par foreuse. | Une foreuse 6×6 de haut niveau avec modules vaut moins sur un tapis que les foreuses plus petites posées à sa place : la règle « la grande vaut au moins les petites » (Q-T2-2, A) ne tient pas avec des modules aux niveaux 13 et 19 (écart connu de la branche). |
+| F119 | (Pipeline de rendu, mesuré par le kit de la passe 5 de V3-E, 23/10.) Avec la caméra des sprites (inclinaison de 45°), un tube horizontal dirigé vers le nord se projette EXACTEMENT comme un tube vertical : à l'écran, y et z valent chacun 0,707, et sa bouche ne fait jamais face à la caméra. Une bague autour du fût se lit comme le haut d'une cheminée. | Un canon dressé en pose N ne se distingue d'une cheminée que par sa silhouette : faisceau qui converge en pointe, une seule bague à la culasse, aucun chapeau plus large que le faisceau (« canon effilé », `corps.canon_effile`). Un détail ajouté au bout ne suffit pas. |
 | F118 | **Observé en moteur réel** (E62). La formule de résistance du moteur 1.1 est vérifiée au dixième près à 6 tourelles, contre `fo-armored-colossal-biter` (physique 26 fixe, 78 % ; aucune résistance au laser) : si les dégâts dépassent la part fixe, (dégâts − fixe) × (1 − %). DPS mesurés : mitrailleuse 1 au tungstène 30,8/s (7,70 par tuile) ; mitrailleuse 30 1 621,8/s (45,05 par tuile) ; tourelle lourde 112,2/s (12,47) ; lasers 1, 30 et lourd 30,0, 572,4 et 60,0/s (7,50 ; 15,90 ; 6,67 par tuile). | Des dégâts par tir multipliés par R traversent une résistance FIXE : au niveau 1, laser et tungstène font jeu égal ; au niveau 30, la mitrailleuse au tungstène fait 2,8 fois le laser par tuile. Le laser perd son rôle de contre des blindés (question du correcteur, Q-T4-3 proposée). Branche « 1/(2 − x) » (dégâts sous la part fixe) non mesurée : la régénération de l'unité, 0,1 PV par tick, la masquerait. |
 
 ### Faits vérifiés en moteur réel (lot V3-T3, « Libérer la place », 22/10, 21 h 41 à 22 h 51)
@@ -394,6 +395,61 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E65 · ÂGES 1 À 12 RETENUS PAR LE DC (« pratiquement parfaits ») ; ère V refusée, refaite (run `wf_5f1609fb-473`) ;
+juges 6,5 à 7,5 sur 10, « pas prêt » pour les 6 autres familles · V3-E, cinquième passe : le test des âges pendant la
+construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :
+- Protocole :
+  - kit en trois temps sur la branche `v3e-p5-kit` : `000a0a4` (vignettes lettrées et mélangées, clé sur la sortie
+    standard seulement ; rendu de ronde à 32 échantillons ; règle D3 comptée dans la dominance ; gris en poses E et N ;
+    pose N de la lignée ; clé d'habillage « capots » ; variante de corps B), `ca12d04` (habillage de TOUT le bâtiment :
+    pont, trémie, acier, rivets ; points d'accroche des superstructures ; empreinte de construction identique quand
+    les clés valent None, 72 variantes), `7587e76` (formes de pont, de coupole, de trémie et de jupe ; canon effilé) ;
+  - test du catalogue §C appliqué PENDANT la construction : 2 lecteurs sans contexte, 15 vignettes mélangées et
+    lettrées, liste des 15 triplets ; test des écarts (critère Clash of Clans du DC : paires d'âges de même taille
+    notées de 1 à 5, plus évoluée, grade ultime) ; un lecteur de la pose N (« cheminée ? ») ;
+  - 5 rondes de deux constructeurs (worktrees persistants `v3e-p5-bas` et `v3e-p5-haut`) ; production à 128
+    échantillons (57 sprites) ; assemblage sur la branche `v3e-p5` (`3bb02b3`) ; deux juges ; planches.
+- Interventions de l'orchestrateur, toutes par arrêt et reprise du run : variante de corps B écartée (7 h 35 : elle
+  n'éclaircit pas, C1 inchangé, et réduit les petits contrastes de 29 à 47 % ; au test de la ronde 0 elle fait aussi
+  moins bien que A : 10,0 bonnes réponses en moyenne contre 12,5, 8 confusions entre ères contre 5) ; consigne Clash of
+  Clans du DC (7 h 55) ; arbitrage de charte (8 h 57 : plafonds C1, C2, L1, L2 et règle D3 rapportés, non bloquants
+  pour les âges clairs voulus par le DC) ; troisième temps du kit (9 h 36, écarts plafonnés vers 3) ; remarque du DC
+  sur la palette (9 h 50, transmise par le journal des plages, sans arrêt). Défaut d'outil : à la troisième reprise,
+  le cache n'a pas rejoué les constructeurs de la ronde 2 (prompts identiques mot pour mot, clés de cache
+  différentes, cause non trouvée) ; contourné en injectant dans le script le texte des résultats de la ronde 2.
+- Résultats des rondes (aperçus à 32 échantillons ; « bons » = âges reconnus avec la liste des triplets, 2 lecteurs) :
+
+  | Ronde | Bons sur 15 | Confusions entre ères | Écarts voisins (sur 5) | Légende grade ultime | Cheminées (pose N) |
+  |---|---|---|---|---|---|
+  | 0 (passe 4) | 13 et 12 | 5 | 2,2 et 2,0 | 1 sur 2 | — |
+  | 1 | 13 et 15 | 0 | 2,9 et 2,6 | 2 sur 2 | 9 sur 15 |
+  | 2 | 15 et 15 | 0 | 3,0 et 2,8 | 0 sur 2 | 8 sur 15 |
+  | 3 (palette) | 15 et 15 | 0 | 2,7 et 2,7 | 2 sur 2 | 5 sur 15 |
+  | 4 | 13 et 12 | 2 | 3,0 et 3,3 | 2 sur 2 | 12 sur 15 |
+  | 5 | 10 et 15 | 3 | 3,5 et 3,2 | 2 sur 2 | 4 sur 15 |
+
+  Le lecteur de la pose N est seul : ses chiffres varient beaucoup d'une ronde à l'autre (9, 8, 5, 12, 4).
+- Production (contrôles refaits par le juge des mesures) : îlots et trous 0 échec sur 100 ; gris FORME 0 paire sous
+  25 % en poses E et N ; points blancs au plus 12,3 par t² (vanilla 13,2) ; 57 spec.json conformes ; dominance 34
+  défauts dont 13 baisses de D3 (5 paires sur 14 dominent en pose E).
+- **Test à l'aveugle final NON FAIT** : défaut du script de l'orchestrateur, qui cherchait les jeux de vignettes sous
+  les noms « E », « G », « N », alors que l'assembleur les a nommés « E (couleur, pose E) », etc. Les juges ont jugé
+  sans lecture de la production. Le test final de l'ère V refaite couvrira les 15 âges en production.
+- Juges : direction artistique 7 (âges 1 à 9), 6,5 (10 à 15), 6,5 (ensemble) ; mesures 6,5 (1 à 9), 7,5 (10 à 15) ;
+  « pas prêt » pour les 6 autres familles. Progrès reconnu : chaque âge a sa matière d'ensemble, la Légende domine en
+  mesure (luminance médiane 139 contre 106 au mieux ailleurs), précision intacte au zoom 2. Bloquants : RÉGRESSION des
+  canons 13 à 15 (le canon effilé les a raccourcis et uniformisés ; le 15 a perdu ses bouches en couronne) ; saut
+  porté par la couleur plus que par la forme (recouvrement des contours de 0,89 à 0,94 entre voisines) ; prestige non
+  monotone en clarté (4→5, 6→7, 11→12, 13→14) et « plus évoluée » juste 15 fois sur 30 à la ronde 5 ; pose N 4 sur 15 ;
+  accents de 4 et 5 identiques (orange 30° et 31°) ; pièce paire du 8 trop petite (0,070 t² pour 0,10) ; clé des
+  vignettes présente dans les transcriptions de l'orchestrateur (hors de portée des lecteurs, à noter).
+- Verdicts du DC pendant la passe : 9 h 48 « les designs sont vrm bien », palette trop uniforme (corrigée à la ronde
+  3) ; 12 h 40 « tous les bâtiments sont pratiquement parfaits sauf les 3 derniers » ; ère V refaite (option A, run
+  `wf_5f1609fb-473`). Ce verdict prime sur celui des juges pour les âges 1 à 12 ; leurs défauts mesurés restent notés
+  pour une passe de finition.
+- Sorties : `<racine>\fo-logs\2026-10-23_V3E-p5\` (kit, kit2, kit3, r0 à r5, bas, haut, final, juges, presentation) ;
+  page de suivi https://claude.ai/artifact/SWLGoaBpAHcsax5z6zzhfw .
+
 **E64 · NON VALIDÉ (juges : pas prêt) · V3-E, quatrième passe : un kit d'époque unifié, puis correction ciblée des
 époques ratées (23/10, 0 h 25 à 5 h 40 ; run `wf_b0a51b34-fe1`)** :
 - Protocole : un responsable du kit (worktree `wf_b0a51b34-fe1-1`, `c7f4f8f`) réunit les deux plages de la passe 3
