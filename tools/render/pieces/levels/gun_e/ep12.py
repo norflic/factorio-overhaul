@@ -148,6 +148,13 @@ def west(g):
             V((cx + r * 0.6, ys[1], 0.78))], 0.04, M["pipe"], n=10, what="mousse")
     g.tube([V((cx + r * 0.6, ys[1], 0.78)), V((cx + r * 0.9, (ys[1] + ys[2]) / 2, 0.88)),
             V((cx + r * 0.6, ys[2], 0.75))], 0.04, M["pipe"], n=10, what="mousse")
+    # colliers noirs à pinces sur la mousse (le conduit clair se lit en tronçons)
+    for j in range(2):
+        for f in (0.2, 0.5, 0.8):
+            yy = ys[j] + (ys[j + 1] - ys[j]) * f
+            zz = 0.78 + 0.07 * math.sin(math.pi * f) + (0.01 if j else 0.0)
+            g.cyl((cx + r * 0.6 + r * 0.3 * math.sin(math.pi * f), yy, zz), "y", 0.05, 0.03, M["jacket"], n=12,
+                  style="hard", what="collier")
 
 
 def ring_gantry(g, x, y0, y1, R, zc):
@@ -387,6 +394,8 @@ def even_piece(g, x, yb, sx):
     g.cyl((x, yb, zc), "y", 0.06, 0.5, M["jacket"], n=16, what="noyau")
     for dy in (-0.14, 0.12):
         g.tube_shell((x, yb + dy, zc), "y", 0.23, 0.15, 0.07, M["ring"], n=40, what="anneau")
+        # vide sombre entre l'anneau et le noyau (disque noir mince : aucun jour enfermé dans la pièce seule)
+        g.cyl((x, yb + dy, zc), "y", 0.152, 0.01, M["void"], n=24, style="flat", what="vide")
         F.seg_ring_y(g, x, yb + dy - 0.037, zc, 0.19, 5, E)
         for s in (-1, 1):
             g.box((x + s * 0.17, yb + dy, zc - 0.13), (0.05, 0.09, 0.14), M["steel_dk"], "hard", what="pince")
@@ -467,10 +476,12 @@ def _gun12(g, x, y0, z, L, nb, rb, rr):
         xr = x + s * sep
         g.box((xr, y0 + L / 2, z), (2 * hwr, L, 2 * hhr), M["jacket"], "hard", what="rail")
         # arête chromée du rail en PLAQUES d'électrode séparées (pas une barre continue)
-        npl = max(3, int(L / 0.2))
+        # (moitié avant seulement : sur la moitié arrière, les plaques touchaient les anneaux et tout se lisait en une
+        # seule échelle chromée)
+        npl = max(3, int(L * 0.48 / 0.16))
         for i in range(npl):
-            g.box((xr, y0 + L * (i + 0.5) / npl, z + hhr + 0.004), (2 * hwr * 0.7, L / npl - 0.04, 0.012), M["ring"],
-                  "hard", what="arete")
+            g.box((xr, y0 + L * (0.52 + 0.48 * (i + 0.5) / npl), z + hhr + 0.004),
+                  (2 * hwr * 0.7, L * 0.48 / npl - 0.04, 0.012), M["ring"], "hard", what="arete")
         g.box((xr - s * (hwr + 0.004), y0 + L / 2, z), (0.008, L * 0.97, hhr * 1.1), M["copper"], "hard",
               what="conducteur")
         if k >= 0.9:
@@ -513,10 +524,9 @@ def _gun12(g, x, y0, z, L, nb, rb, rr):
           "hard", what="culasse_dorsale")
     g.box((x, (y0 - 0.04 + yb_) / 2, z + ro * 0.99), (0.3 * k, yb_ - y0 + 0.04, 0.025), M["jacket"], "hard",
           what="arete")
-    npl = max(3, int((yb_ - y0) / 0.16))
-    for i in range(npl):
-        g.box((x, y0 + (yb_ - y0) * (i + 0.5) / npl, z + ro * 0.99 + 0.016), (0.22 * k, (yb_ - y0) / npl - 0.05, 0.01),
-              M["ring"], "hard", what="plaque")
+    for i in range(4):   # plots chromés entre les anneaux (sans les toucher)
+        g.box((x, y0 + L * (0.18 + 0.12 * i), z + ro * 0.99 + 0.016), (0.12 * k, 0.03, 0.01), M["ring"], "hard",
+              what="plot")
     # anneau-bouche : cadre chromé autour des rails, fente cyan, rosace éclairée au centre
     ym = y0 + L + 0.035
     ow = sep + hwr + 0.04

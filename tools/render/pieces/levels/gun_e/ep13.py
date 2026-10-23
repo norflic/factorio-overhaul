@@ -514,6 +514,9 @@ def _gun13(g, x, y0, z, L, nb, rb, rr):
     g.cyl((x, yb + lb * 0.5, z), "y", max(rr - rb * 0.55, rr * 0.55), lb, M["steel_dk"], n=14, what="ame_bout")
     F.stub_tips(g, x, yb - 0.01, yb + lb, z, nb, rb, rr)
     corps.bouche(g, x, yb + lb + 0.004, z, pos, rb, M["copper"], R0 + 0.1 * k, w=0.02 if k >= 0.9 else 0.01)
+    if k >= 0.9:
+        # oreilles latérales de céramique à évents sur la buse : en pose N, un « T » plat, jamais une cheminée
+        F.ears(g, x, yb + lb * 0.5, z, R0 + 0.1 * k, lb * 0.9, 0.16 * k, M["jacket"])
     g.cyl((x, yb + lb + 0.008, z), "y", max(rr - rb * 0.9, rr * 0.35), 0.006, E2, n=16, style="flat", what="coeur")
     return yb + lb + 0.03
 

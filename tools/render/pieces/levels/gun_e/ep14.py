@@ -167,8 +167,6 @@ def west(g):
     F.hatches(g, (x0 + 0.05, y0 + 0.3, 0.16), (x0 + 0.05, y1 - 0.3, 0.16), 14, (0, 0, 1), M["ring"],
               size=(0.06, 0.06), frame=M["steel_dk"])
     P3.lamp_group(g, (x0 + 0.08, y0 - 0.02, 0.1), (1, 0, 0), (0, -1, 0), E, M, n=3)
-    for f in (0.12, 0.38, 0.62, 0.88):
-        balise(g, (x0 + 0.07, y0 + (y1 - y0) * f, 0.16))
     for (bx_, by_) in ((x1 - 0.06, y0 + 0.08), (x1 - 0.06, y1 - 0.08), (x1 - 0.06, cy)):
         g.cyl((bx_, by_, 0.19), "z", 0.024, 0.06, M["steel_dk"], n=10, what="balise_pied")
         g.cyl((bx_, by_, 0.226), "z", 0.018, 0.014, E, n=10, style="flat", what="balise")
@@ -203,14 +201,6 @@ def east(g):
             g.box((x + sx * 0.12, y, 1.0), (0.04, 0.12, 0.2), M["ring"], "hard", what="etrier")
         F.dish(g, (x, y, 1.12), 0.74, 0.18, M["jacket"], M["ring"], rx=0.62, rz=rz, horn=False)
         g.push((x, y, 1.12), rz=rz, rx=0.62)
-        # panneaux de réflecteur : joints sombres et attaches posés dans la coupelle (le reflet doré se lit en
-        # pétales, pas en une seule plage)
-        for k_ in range(10):
-            a = TAU * (k_ + 0.5) / 10
-            for rf in (0.32, 0.58, 0.84):
-                rr_ = 0.74 * rf
-                g.box((rr_ * math.cos(a), rr_ * math.sin(a), 0.18 * rf * rf + 0.006), (0.05, 0.03, 0.01),
-                      M["steel_dk"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="attache")
         g.cyl((0, 0, 0.16 + 0.14), "z", 0.035, 0.28, M["steel_dk"], n=12, what="emetteur")
         g.cyl((0, 0, 0.16 + 0.3), "z", 0.06, 0.05, M["ring"], n=14, what="emetteur_tete")
         g.cyl((0, 0, 0.16 + 0.33), "z", 0.03, 0.006, M["emit2"], n=10, style="flat", what="lentille")
@@ -325,8 +315,6 @@ def foil_crate(g, w, d, h):
     g.cyl((-w * 0.38, -d * 0.3, 0.1), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
     for sxx, syy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
         balise(g, (sxx * (w / 2 - 0.05), syy * (d / 2 - 0.05), 0.08))
-    F.hatches(g, (-w / 2 + 0.08, -d / 2 - 0.005, 0.04), (w / 2 - 0.08, -d / 2 - 0.005, 0.04), 5, (0, -1, 0),
-              M["ring"], size=(0.07, 0.05), frame=M["steel_dk"])
 
 
 def tremie_arm(g, c):
@@ -373,8 +361,6 @@ def foil_junction(g, x0, x1, y0, y1, h):
     g.cyl((x0 + 0.06, y0 + 0.06, h + 0.02), "z", 0.018, 0.014, E, n=8, style="flat", what="balise")
     for xx in (x1 - 0.06, x0 + w * 0.5):
         balise(g, (xx, y0 + 0.06, h))
-    F.hatches(g, (x0 + 0.08, y0 - 0.005, h * 0.4), (x1 - 0.08, y0 - 0.005, h * 0.4), 5, (0, -1, 0), M["ring"],
-              size=(0.07, 0.06), frame=M["steel_dk"])
 
 
 # ------------------------------------------------------------------------------------------------
@@ -590,6 +576,9 @@ def _gun14(g, x, y0, z, L, nb, rb, rr):
     g.cyl((x, yb_ + lb / 2, z + Ra + 0.03), "z", 0.02, 0.04, M["steel_dk"], n=8, what="balise_pied")
     g.cyl((x, yb_ + lb / 2, z + Ra + 0.055), "z", 0.016, 0.014, E, n=8, style="flat", what="balise")
     corps.bouche(g, x, yb_ + lb + 0.002, z, pos, rb, M["ring"], R0 + 0.05 * k, w=0.02 if k >= 0.9 else 0.01)
+    if k >= 0.9:
+        # oreilles latérales blanc cassé à évents sur le capteur annulaire : en pose N, un « T » plat
+        F.ears(g, x, yb_ + lb * 0.5, z, Ra + 0.03, lb * 1.1, 0.14 * k, M["ring"])
     return yb_ + lb
 
 
