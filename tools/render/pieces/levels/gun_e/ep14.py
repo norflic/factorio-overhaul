@@ -7,12 +7,16 @@ haute :
     replié sur la moitié arrière seulement, PARABOLE dorée déplacée sur le DOS du corps (elle ne masque plus la
     bouche), 6 tubes à colliers isolants sur la moitié avant, FREIN À CAPTEUR ANNULAIRE (catalogue) plus large que le
     faisceau, rosace éclairée au centre, balise rouge ;
-  - MOITIÉ SUD propre à l'époque : trémie blanc cassé à flancs de feuille d'or sanglée et BRAS ARTICULÉ de chargement
-    à vérin, CONTENEURS SOUS COUVERTURE THERMIQUE à la place des caisses ouvertes, tourelles secondaires sous feuille
-    d'or à petite PARABOLE, BOÎTE OMBILICALE à câbles dorés au sud-est (à la place des volants).
-Inchangés de la passe 3 : canon de coupole, 3 tourelles secondaires, grands volumes du socle (batterie dorée et
-panneaux à l'ouest, 2 grandes paraboles à l'est, champ de panneaux au nord), liaisons (câbles gainés de feuille d'or,
-sangles), grande parabole au sommet, panneaux repliés sur la nacelle, balises rouges, pièce paire (2 paraboles de
+  - MOITIÉ SUD propre à l'époque : trémie blanc cassé à flancs de COUVERTURE THERMIQUE NOIRE sanglée et BRAS ARTICULÉ
+    de chargement à vérin, CONTENEURS SOUS COUVERTURE THERMIQUE noire à la place des caisses ouvertes, tourelles
+    secondaires sous couverture noire à petite PARABOLE, BOÎTE OMBILICALE à câbles dorés au sud-est (à la place des
+    volants), balises rouges de bordure ;
+  - 2e matière d'époque : couverture thermique (kapton) NOIRE ; couvertures multicouches blanc cassé sur la coupole
+    (12 plaques) ; canons longue portée (L 2,85) ; paraboles de l'est relevées sur mât et paraboles en PÉTALES
+    (nervures, moyeu, raidisseurs : jamais une grande plage d'or lisse, C6 de la charte) ; champ de panneaux du nord
+    dressé sur mâts ; batterie de l'ouest alternée or et noir.
+Inchangés de la passe 3 : canon de coupole, 3 tourelles secondaires, liaisons (câbles gainés de feuille d'or,
+sangles), grande parabole au sommet (en pétales), panneaux repliés sur la nacelle, pièce paire (2 paraboles de
 conduite de tir).
 """
 import math
@@ -199,8 +203,20 @@ def east(g):
         g.cyl((x, y, 0.72), "z", 0.08, 0.66, M["steel_dk"], n=16, what="mat")
         for sx in (-1, 1):
             g.box((x + sx * 0.12, y, 1.0), (0.04, 0.12, 0.2), M["ring"], "hard", what="etrier")
-        F.dish(g, (x, y, 1.12), 0.74, 0.18, M["jacket"], M["ring"], rx=0.62, rz=rz, horn=False)
+        F.dish(g, (x, y, 1.12), 0.62, 0.16, M["jacket"], M["ring"], rx=0.62, rz=rz, horn=False)
         g.push((x, y, 1.12), rz=rz, rx=0.62)
+        # 8 nervures radiales sombres : la coupelle se lit en PÉTALES de feuille d'or (pas de grande plage d'or lisse,
+        # catalogue §B époque 14 ; C6 et L2 de la charte)
+        for k_ in range(8):
+            a = TAU * (k_ + 0.5) / 8
+            for i_ in range(6):
+                rf = 0.18 + 0.78 * (i_ + 0.5) / 6
+                g.box((0.62 * rf * math.cos(a), 0.62 * rf * math.sin(a), 0.16 * rf * rf + 0.008),
+                      (0.62 * 0.78 / 6 + 0.004, 0.04, 0.014), M["steel_dk"], "hard",
+                      R=Matrix.Rotation(a, 3, "Z") @ Matrix.Rotation(-math.atan(0.32 * rf), 3, "Y"), what="nervure")
+        g.cyl((0, 0, 0.012), "z", 0.62 * 0.22, 0.03, M["steel_dk"], n=20, what="moyeu")
+        for rf in (0.5, 0.78):
+            g.torus((0, 0, 0.16 * rf * rf + 0.01), "z", 0.62 * rf, 0.022, M["steel_dk"], n=48, m=6, what="raidisseur")
         g.cyl((0, 0, 0.16 + 0.14), "z", 0.035, 0.28, M["steel_dk"], n=12, what="emetteur")
         g.cyl((0, 0, 0.16 + 0.3), "z", 0.06, 0.05, M["ring"], n=14, what="emetteur_tete")
         g.cyl((0, 0, 0.16 + 0.33), "z", 0.03, 0.006, M["emit2"], n=10, style="flat", what="lentille")
@@ -698,6 +714,18 @@ def tete(g, c):
     g.cyl((cx, cy, ztop + 0.03), "z", 0.13, 0.06, M["steel_dk"], n=24, what="pivot")
     F.dish(g, (cx, cy, ztop + 0.36), 0.62, 0.16, M["jacket"], M["ring"], rx=-0.75, horn=False)
     g.push((cx, cy, ztop + 0.36), rx=-0.75)
+    # 8 nervures radiales sombres : la grande parabole se lit en PÉTALES de feuille d'or (en pose N, sa face dorée
+    # faisait une plage lumineuse de 0,40 t², au-delà du plafond C6 de 0,35)
+    for k_ in range(8):
+        a = TAU * (k_ + 0.5) / 8
+        for i_ in range(6):
+            rf = 0.18 + 0.78 * (i_ + 0.5) / 6
+            g.box((0.62 * rf * math.cos(a), 0.62 * rf * math.sin(a), 0.16 * rf * rf + 0.008),
+                  (0.62 * 0.78 / 6 + 0.004, 0.04, 0.014), M["steel_dk"], "hard",
+                  R=Matrix.Rotation(a, 3, "Z") @ Matrix.Rotation(-math.atan(0.32 * rf), 3, "Y"), what="nervure")
+    g.cyl((0, 0, 0.012), "z", 0.62 * 0.22, 0.03, M["steel_dk"], n=20, what="moyeu")
+    for rf in (0.5, 0.78):
+        g.torus((0, 0, 0.16 * rf * rf + 0.01), "z", 0.62 * rf, 0.022, M["steel_dk"], n=48, m=6, what="raidisseur")
     g.cyl((0, 0, 0.16 + 0.12), "z", 0.04, 0.24, M["steel_dk"], n=12, what="emetteur")
     g.cyl((0, 0, 0.16 + 0.25), "z", 0.06, 0.04, M["ring"], n=14, what="emetteur_tete")
     g.pop()
