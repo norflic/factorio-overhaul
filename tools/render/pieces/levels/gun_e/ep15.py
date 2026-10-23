@@ -1,22 +1,27 @@
-"""Époque 15 · Légende (ère V, 6×6, niveaux 29 et 30). Constructeur : PLAGE HAUTE. S'exécute DANS Blender.
+"""Époque 15 · Néant (ère V cosmique, 6×6, niveaux 29 et 30) : le SOMMET de la suite. Constructeur de l'ère V.
+S'exécute DANS Blender.
 
-Catalogue (fo-logs/2026-10-22_V3E/catalogue/DA_PAR_EPOQUE.md, §B époque 15) : « couronnes, or blanc, lumière ».
-Quatrième passe (23/10), corrections du constructeur de la plage haute sur le portage de la passe 3 (lue « railgun »,
-rangée SOUS 13 et 14) :
-  - PLUS IMPRESSIONNANTE QUE 14 : canons de flanc plus longs (L 3,1 contre 2,85 à l'époque 14), DEUX canons de
-    coupole jumelés et plus longs (2,3 contre 1,7 ; 14 n'en a qu'un), GRANDE COURONNE ROYALE d'or blanc dressée
-    au-dessus de la tourelle sur une colonne de nacre cerclée d'or (rayon 0,84 t, 14 fleurons en flèche alternés de
-    0,72 et 0,43 t, calotte de velours cloutée d'or, globe et flèche sommitale, pierres, PARTICULES lumineuses sur
-    tiges : rien ne flotte) ;
-  - ARME (règle d'or 1) : faisceau lourd de la lignée (rosette visible sur la moitié avant), jaquette ciselée sur la
-    moitié arrière au plus, frein EN COURONNE dont la face avant porte la ROSACE éclairée (la bague de la passe 3
-    masquait les bouches), 5 flèches évasées à pierres et particules ;
-  - OR BLANC dominant en accents ; MOITIÉ SUD propre à l'époque : trémie de nacre dans un CADRE D'OR BLANC à 4 grandes
-    flèches et arche à fleuron, RELIQUAIRES D'ÉNERGIE à la place des caisses ouvertes, tourelles secondaires de nacre
-    COURONNÉES, COLLECTEUR NACRÉ à pierres et particules au sud-est (à la place des volants).
-Inchangés de la passe 3 : grands volumes du socle (groupe électrogène ciselé, réservoirs ciselés à flèches,
-radiateur à 3 ventilateurs), liaisons (conduits nacrés à bagues d'or blanc), particules sur la couronne
-d'orientation, foyers blanc doré, pièce paire (2 cellules d'énergie couronnées).
+Consigne du Directeur Créatif (23/10, 12 h 40 : « je préférerais un truc genre big bang ou maîtrise cosmique du néant » ;
+vers 13 h 10, option A) : 15 NÉANT (ou « Singularité ») : la maîtrise du trou noir du Cœur ; horizon noir absolu, disque
+de lumière qui tourne, lumière déviée, poussière d'étoiles : « un Big Bang tenu en laisse ». Histoire du jeu : « Le Cœur
+s'éveille : failles, primordiaux, Marée du Cœur » (matière exotique, annihilation 2 GW, stabilisateur de Casimir).
+Fiche : FICHES_ERE_V.md §4 (fait foi). L'ancien thème Légende (nacre, or blanc, couronne royale, rubis) a été REFUSÉ :
+réécrit au nouveau thème (ronde 1 de l'ère V, 23/10).
+
+Image : au centre de la tourelle, un HORIZON NOIR ABSOLU (sphère lisse qui renvoie le soleil) ; autour de sa base, un
+DISQUE DE LUMIÈRE segmenté blanc-or-orange, tenu par 3 GRIFFES d'or (la laisse) ; la base en gradins se creuse comme
+un puits de gravité, des conduits d'or en SPIRALE y font tomber la lumière vers le centre ; des stabilisateurs de
+Casimir gardent les angles nord.
+Palette 60/30/10 : NOIR CHAUD anthracite brun (capots, gradins, caissons) ; OR CHAUFFÉ (griffes, arêtes des gradins,
+cerclages, conduits, plaques) ; LUMIÈRE INCANDESCENTE blanc-or vers orange. L'horizon est le seul vrai noir, lisse.
+Silhouette : coupole en COQUE lisse d'horizon noir (forme « coque » du kit en matière d'horizon : la forme « dome » à
+options n'existe pas dans corps._coupole_forme), prolongée jusqu'au disque par une jupe d'horizon ; disque sur la place
+« couronne » ; pont à GRADINS (sans fleurons) à liserés pleine lumière ; trémie en ENTONNOIR ; 2 stabilisateurs de
+Casimir ; 2 cellules de matière exotique de part et d'autre de la trémie.
+Canons : L 3,10, tubes lourds ; culasse = MICRO-SINGULARITÉ (boule noire plus large que le faisceau, cernée d'un anneau
+de photons, tenue par 3 griffes d'or : pose N, une boule noire cerclée de lumière au pied de chaque faisceau) ;
+2 canons de coupole jumelés ; cellules d'annihilation à l'alimentation.
+Tuyaux : conduits d'or en arcs de SPIRALE vers le centre (chenillard vers l'intérieur), câbles d'horizon, jauges de marée.
 """
 import math
 
@@ -28,100 +33,77 @@ import parts as PT
 import parts2 as P2
 import parts3 as P3
 from corps import Y, at
-from kit import SQ2, TAU, axv, basis
+from kit import SQ2, TAU, basis
 
 V = Vector
 
 EPOQUE = 15
-NOM = "Légende"
-# passe 5, ronde 2 (14 contre 15 noté 3 et 3) : liserés et lueurs douces blanc doré plus forts (force 1,0 au lieu de
-# 0,7) : la Légende est la plus lumineuse de la suite
-FOYER = dict(rgb=(1.0, 0.949, 0.753), rgb2=(1.0, 0.949, 0.753), doux=dict(force=1.0))
-CANON = dict(L=3.1, nb=6, rb=0.072, rr=0.175)
+NOM = "Néant"
+# incandescence blanc-or #FFE6A8 et orange #FFA347 (fiche §4 E5)
+FOYER = dict(rgb=(1.0, 0.902, 0.659), rgb2=(1.0, 0.639, 0.278), doux=dict(force=1.0))
+# tubes lourds (+5 % de calibre), L 3,10 (+10,7 % sur 14)
+CANON = dict(L=3.1, nb=6, rb=0.076, rr=0.185)
 PLATEFORME = dict(chanfrein=0.32)
-# passe 5, ronde 1 (consigne du DC du 23/10 : la Légende est sans hésitation la plus précieuse et la plus lumineuse,
-# plus claire que l'Orbite) : TOUT le bâtiment en OR BLANC et NACRE : capots d'or blanc, plaques de nacre, acier d'or
-# sombre, rivets d'or, sur un pont de DALLES DE NACRE à joints d'or et liseré BLANC DORÉ lumineux.
-# passe 5, ronde 3 (DC, 23/10 : « trop uniforme en terme de palette de couleur » ; « la Légende n'est pas toute
-# blanc-or : blanc nacré dominant, or en secondaire, accents de lumière » ; Légende désignée grade ultime par 0 lecteur
-# sur 2) : règle 60/30/10 = NACRE BLANCHE dominante (coupole, capots, pont, trémie : le bâtiment le plus clair de la
-# suite), OR CHAUD en second (plaques, cadre, couronne, jaquettes : un or plus riche que l'or blanc crème de la ronde 2),
-# LUMIÈRE blanc doré et RUBIS de la couronne en accent. La coupole passe donc de l'or blanc crème à la nacre.
-HABILLAGE = dict(jupe_cerclage="trim", chapeau="or_rivet", tremie="trim", tourelleau="trim",
-                 munitions=("jacket", "trim"), capots=("trim", "orblanc"), acier=("or_sombre", "orblanc"),
-                 rivets="or_rivet", joints="joint_or", danger=("orblanc", "nacre2"), peinture="orblanc",
-                 grille_nacelle="orblanc",
-                 plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="nacre_dalle", mat2="nacre2",
-                                 fond="joint_or", bord="orblanc", boulons=None, lisere="emit_soft"),
-                 # passe 5, ronde 4 (test des écarts de la ronde 3 : 14-15 et 13-15 notés 3 et 3, « à taille égale, la
-                 # silhouette reste presque identique », « il faut une forme nouvelle, pas seulement une autre
-                 # couleur ») : la Légende trône sur une BASE À GRADINS COURONNÉE (3 gradins de nacre à arêtes d'or,
-                 # filets de lumière blanc doré, fleurons sur le dernier gradin), exemple même du Directeur Créatif
-                 # (filets à pleine lumière « emit » : à « emit_soft », rendu r4a, les gradins ne se lisaient pas)
-                 forme_plateforme=dict(forme="gradins", flanc="trim", flanc2="orblanc", lisere="emit",
-                                       crenaux=True),
-                 # passe 5, ronde 5 (test des écarts de la ronde 4 : 14-15 et 13-15 notés 3 et 3, « même plan », « même
-                 # trame ») : la coupole devient un BULBE de nacre à côtes d'or, COURONNÉ (la grande couronne royale
-                 # quitte sa colonne arrière et se pose sur la pointe du bulbe) : silhouette de palais, propre à
-                 # l'âge ultime (13 garde le dôme, 14 prend la pyramide dorée)
-                 # (r5a : bulbe de nacre sous une grande couronne, invisible de dessus ; r5b : BULBE D'OR à côtes de
-                 # nacre, l'or en seconde couleur à la place du dôme de nacre, signe de palais)
-                 forme_coupole=dict(forme="bulbe", mat="orblanc", mat2="trim", epi="jacket"))
-RECV = ("trim", "orblanc")
-
-
-def _assise(g, c, x0, x1, yn0, yn1, rond=None, mat="trim"):
-    """Passe 5, ronde 4 (pont à gradins) : hauteur dont monter un organe d'époque posé au sol pour qu'il repose SUR le
-    pont (corps.z_pont au centre de son emprise, moins le tablier de la lignée, 0,045). Si l'organe monte, une ASSISE
-    pleine de nacre comble son emprise jusqu'au sol : rien ne flotte au bord d'un gradin. rond : rayon d'une assise
-    ronde (organe rond) ; sinon caisson rivé sur l'emprise (x0..x1, yn0..yn1 en tuiles de jeu)."""
-    xc, yc = (x0 + x1) / 2, (yn0 + yn1) / 2
-    dz = max(0.0, corps.z_pont(c, xc, yc) - 0.045)
-    if dz > 0.004:
-        M = g.M
-        if rond:
-            g.cyl((xc, Y(yc), (dz + 0.045) / 2), "z", rond, dz + 0.045, M[mat], n=32, what="assise")
-            g.torus((xc, Y(yc), dz + 0.045), "z", rond, 0.014, M["orblanc"], n=32, m=6, what="jonc")
-        else:
-            PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, dz + 0.045, ins=(0.012, 0.012, 0.012), panel=0.3,
-                    mats=[M[mat], M["orblanc"]], rivet_step=0.16)
-    return dz
+# RONDE 2 : rayon de la SPHÈRE D'HORIZON dessinée par l'époque (centre sur le plan du disque, zg + hr + 0,01 = 2,31 ;
+# sommet vers 3,31 : la plus haute pièce de la suite ; aire vue de dessus environ 8,7 % de l'emprise, le disque en
+# couvre une part : fiche §4, horizon 6 à 8 % au plus)
+RS = 1.0
+# RONDE 2 (lecteurs : « or et noir, luxe ») : l'OR quitte le CORPS (plaques ocre, dents, rivets, boulons, grilles,
+# arêtes du pont) pour ne rester qu'à la LAISSE et à la lumière (griffes, bord du disque, conduits en spirale, cerclages) ;
+# le corps est noir chaud à usure de cendre, et ses seules lignes vives sont les liserés de LUMIÈRE des gradins
+HABILLAGE = dict(jupe_cerclage="or_chauffe", chapeau="cendre", tremie="noir_chaud", tourelleau="noir_chaud",
+                 capots=("noir_chaud", "noir_chaud2"), acier=("noir_profond", "cendre"), rivets="cendre",
+                 joints="noir_profond", danger=("or_chauffe", "noir_profond"), peinture="noir_chaud",
+                 grille_nacelle="cendre", munitions=("cendre", "noir_profond"),
+                 plateforme=dict(motif="dalles", pas=0.28, joint=0.012, mat="noir_chaud", mat2="noir_chaud2",
+                                 fond="noir_profond", bord="cendre", boulons=None, lisere="emit"),
+                 # PUITS DE GRAVITÉ : gradins de noir chaud, lignes de potentiel pleine lumière, AUCUN fleuron (les
+                 # fleurons royaux sont la Légende refusée), aucune arête d'or (ronde 2)
+                 forme_plateforme=dict(forme="gradins", flanc="noir_chaud", flanc2="cendre", lisere="emit",
+                                       crenaux=False),
+                 # HORIZON NOIR : coque lisse en matière d'horizon (diélectrique lisse : reflet du soleil, se lit comme
+                 # une SPHÈRE noire), équateur d'or
+                 forme_coupole=dict(forme="coque", mat="horizon", mat2="or_chauffe"),
+                 # ronde 2 : entonnoir de cendre (l'or de la trémie se lisait encore « luxe » à l'aperçu r2)
+                 forme_tremie=dict(forme="entonnoir", mat="noir_chaud", mat2="cendre"))
+RECV = ("noir_chaud", "noir_profond")
 
 
 def matieres(metal, M):
-    """Légende : or blanc patiné, nacre.
-    Passe 5, ronde 1 (lue « dôme rouge » et « quatre canons chromés » : confondue avec les Supraconducteurs) : l'or
-    blanc à métallicité 0,9 renvoyait le ciel sombre et se lisait gris-chrome vu de dessus ; il passe en métal
-    semi-diffus CRÈME DORÉ (métallicité 0,45), plus chaud et plus clair. Les grands capots du corps passent en OR
-    BLANC patiné mat (clé « capots ») et les plaques ocre en nacre : corps visiblement plus clair que l'Orbite."""
-    # ronde 3 : or des organes (jaquettes, couronne, réservoirs) PROPRE et RICHE : sali à 0,75, il se lisait beige
-    # (aperçu r3a : la Légende restait « beige doré » à côté de l'or franc de l'Orbite)
-    metal("jacket", (0.86, 0.6, 0.2), rough=0.3, met=0.45, grain=0.12, gscale=40.0, rust=(0.25, 0.12, 0.05),
-          ra=0.04, dirt=0.35, stain=0.2, sscale=6.0, wear=0.35)
-    # bagues, flèches de couronne : or blanc PATINÉ, plus rugueux (aucun éclat blanc franc : « pas de bague blanche »)
-    metal("ring", (0.74, 0.52, 0.17), rough=0.38, met=0.45, grain=0.16, gscale=36.0, rust=(0.25, 0.12, 0.05),
-          ra=0.06, dirt=0.45, stain=0.3, sscale=6.0, wear=0.45)
-    # passe 5, ronde 1 : corps entier plus CLAIR que l'Orbite (or blanc pâle, nacre presque blanche)
-    # ronde 3 : l'or des plaques passe en OR CHAUD franc (seconde couleur), la nacre devient la dominante, plus
-    # blanche et moins salie (le crème de la ronde 2 se lisait beige)
-    metal("orblanc", (0.86, 0.6, 0.22), rough=0.38, met=0.4, grain=0.08, gscale=36.0, dirt=0.35, stain=0.2,
-          sscale=5.0, wear=0.4, mottle=0.12)                                                       # or chaud
-    metal("trim", (0.84, 0.82, 0.78), rough=0.26, met=0.05, grain=0.06, gscale=30.0, dirt=0.22, stain=0.12,
-          sscale=5.0, wear=0.2, mottle=0.18)                                                       # nacre
-    metal("nacre_dalle", (0.8, 0.785, 0.75), rough=0.26, met=0.05, grain=0.05, dirt=0.22, stain=0.1, sscale=5.0,
-          wear=0.2, mottle=0.18)
-    metal("nacre2", (0.74, 0.735, 0.725), rough=0.26, met=0.05, grain=0.05, dirt=0.22, stain=0.1, sscale=5.0,
-          wear=0.2, mottle=0.18)
-    metal("rubis", (0.42, 0.006, 0.03), rough=0.12, met=0.0, grain=0.03, dirt=0.05, stain=0.0)   # accent (ronde 3)
-    metal("or_sombre", (0.5, 0.36, 0.15), rough=0.4, met=0.45, grain=0.06, gscale=40.0, dirt=0.4, stain=0.15,
-          sscale=5.0, wear=0.6)
-    metal("or_rivet", (0.72, 0.55, 0.26), rough=0.5, met=0.4, grain=0.05, dirt=0.2, stain=0.0, reflet="fin")
-    metal("joint_or", (0.3, 0.22, 0.1), rough=0.45, met=0.3, grain=0.06, dirt=0.3, stain=0.0)
-    M["pipe"] = M["trim"]
-    M["pipe2"] = M["jacket"]
-    M["cable_a"], M["cable_b"] = M["rubber"], M["redcable"]
-    M["spec"] = M["trim"]
-    M["accent"] = M["trim"]
+    """Néant : noir chaud anthracite brun satiné (patiné : arêtes usées plus claires), or chauffé (patiné, plus mat dans
+    les creux), or blanc chaud au contact du disque, horizon (seul vrai noir, lisse). Le noir chaud est remonté d'un
+    cran par rapport à l'albédo de la fiche (plancher C1 >= 43 : un corps noir sans arêtes se lirait comme un bloc)."""
+    metal("noir_chaud", (0.05, 0.04, 0.031), rough=0.35, met=0.4, grain=0.1, gscale=34.0, rust=(0.12, 0.07, 0.03),
+          ra=0.06, dirt=0.5, stain=0.3, sscale=5.0, wear=2.0, streak=0.35, mottle=0.25)
+    metal("noir_chaud2", (0.04, 0.032, 0.025), rough=0.36, met=0.4, grain=0.1, gscale=34.0, dirt=0.5, stain=0.3,
+          sscale=5.0, wear=1.8, mottle=0.25)
+    metal("noir_profond", (0.012, 0.01, 0.008), rough=0.4, met=0.4, grain=0.12, dirt=0.4, stain=0.15, wear=1.6)
+    metal("or_chauffe", (0.69, 0.37, 0.06), rough=0.3, met=0.5, grain=0.14, gscale=40.0, rust=(0.2, 0.1, 0.03),
+          ra=0.05, dirt=0.55, stain=0.3, sscale=6.0, wear=0.6, mottle=0.15)
+    metal("or_blanc_chaud", (0.82, 0.62, 0.3), rough=0.3, met=0.45, grain=0.1, gscale=40.0, dirt=0.35, stain=0.15,
+          sscale=6.0, wear=0.4)
+    metal("or_rivet", (0.62, 0.36, 0.08), rough=0.45, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
+    # HORIZON : diélectrique lisse presque noir (6 à 8 % de la surface vue au plus)
+    metal("horizon", (0.003, 0.003, 0.004), rough=0.06, met=0.0, grain=0.02, dirt=0.05, stain=0.0)
+    # ronde 2 : OR VIF de la laisse (griffes, bord du disque) ; CENDRE : usure claire du corps (dents, rivets, boulons,
+    # grilles, arêtes du pont), à la place de l'or ; TUBES des canons en acier bruni chaud (les tubes d'acier nu clair à
+    # pointes crème se lisaient « cheminées » en pose N)
+    metal("or_vif", (0.8, 0.5, 0.1), rough=0.25, met=0.55, grain=0.1, gscale=40.0, dirt=0.3, stain=0.15, sscale=6.0,
+          wear=0.4)
+    metal("cendre", (0.11, 0.098, 0.085), rough=0.42, met=0.35, grain=0.1, gscale=34.0, dirt=0.4, stain=0.2,
+          sscale=5.0, wear=1.6)
+    metal("acier_brule", (0.17, 0.13, 0.095), rough=0.3, met=0.6, grain=0.1, gscale=40.0, dirt=0.35, stain=0.15,
+          sscale=6.0, wear=1.0)
+    M["gun"] = M["acier_brule"]
+    M["copper"] = M["or_chauffe"]
+    M["ring"] = M["or_chauffe"]
+    M["jacket"] = M["noir_chaud"]
+    M["trim"] = M["or_chauffe"]
+    M["pipe"] = M["or_chauffe"]
+    M["pipe2"] = M["noir_chaud"]
+    M["cable_a"], M["cable_b"] = M["rubber"], M["noir_profond"]
+    M["spec"] = M["or_chauffe"]
+    M["accent"] = M["or_chauffe"]
 
 
 def _halo(g, pts, power, rgb=None):
@@ -130,19 +112,105 @@ def _halo(g, pts, power, rgb=None):
         g.halo(p, col, power)
 
 
+def _rx_coque(c, z):
+    """Rayon (axe x du repère de la tête) de la coupole de forme à la hauteur z (corps.z_coque, par dichotomie)."""
+    lo, hi = 0.0, c.H["R"]
+    for _ in range(30):
+        m = (lo + hi) / 2
+        if corps.z_coque(c, m, 0.0) > z:
+            lo = m
+        else:
+            hi = m
+    return lo
+
+
+def _assise(g, c, x0, x1, yn0, yn1, rond=None):
+    """Pont à gradins : hauteur dont monter un organe posé au sol pour qu'il repose SUR le pont (corps.z_pont au
+    centre de son emprise, moins le tablier, 0,045) ; si l'organe monte, une ASSISE pleine de noir chaud à jonc d'or
+    comble son emprise jusqu'au sol (rien ne flotte au bord d'un gradin)."""
+    xc, yc = (x0 + x1) / 2, (yn0 + yn1) / 2
+    dz = max(0.0, corps.z_pont(c, xc, yc) - 0.045)
+    if dz > 0.004:
+        M = g.M
+        if rond:
+            g.cyl((xc, Y(yc), (dz + 0.045) / 2), "z", rond, dz + 0.045, M["noir_chaud"], n=32, what="assise")
+            g.torus((xc, Y(yc), dz + 0.045), "z", rond, 0.014, M["or_chauffe"], n=32, m=6, what="jonc")
+        else:
+            PT.hull(g, x0, x1, Y(yn0), Y(yn1), 0.0, dz + 0.045, ins=(0.012, 0.012, 0.012), panel=0.3,
+                    mats=[M["noir_chaud"], M["or_chauffe"]], rivet_step=0.16)
+    return dz
+
+
 # ------------------------------------------------------------------------------------------------
-# Socle (corps du niveau 29 de l'industriel, témoin ; 15 : réservoirs plus hauts)
+# Organes signature : griffe, micro-singularité, fenêtre blanc-or
+# ------------------------------------------------------------------------------------------------
+def griffe(g, pts, w, t, mat=None):
+    """GRIFFE d'or chauffé : chaîne de blocs pleins le long d'une courbe (points), section w × t qui s'amincit vers la
+    pointe ; dernier point = pointe recourbée."""
+    M = g.M
+    mat = mat or M["or_chauffe"]
+    P = [V(p) for p in pts]
+    n = len(P) - 1
+    for i in range(n):
+        a, b = P[i], P[i + 1]
+        d = b - a
+        if d.length < 1e-5:
+            continue
+        f = 1.0 - 0.55 * i / max(1, n)
+        dn = d.normalized()
+        up = V((0, 0, 1)) if abs(dn.z) < 0.95 else V((1, 0, 0))
+        sd = dn.cross(up).normalized()
+        nm = sd.cross(dn).normalized()
+        Rm = Matrix((sd, dn, nm)).transposed()
+        g.box((a + b) / 2, (w * f, d.length + t * 0.6, t * f), mat, "hard", R=Rm, what="griffe")
+
+
+def singularite(g, C, r, k=1.0, axe="y", griffes=True):
+    """MICRO-SINGULARITÉ : sphère d'horizon noir lisse, ANNEAU DE PHOTONS fin (lumière blanc-or) qui la cerne, liseré
+    orange au bord, 3 griffes d'or qui la tiennent sans la cacher."""
+    M = g.M
+    C = V(C)
+    g.sphere(C, r, M["horizon"], n=32, m=16, what="horizon")
+    g.torus(C, axe, r + 0.012 * k + 0.004, 0.009 * k + 0.004, M["emit"], n=48, m=6, what="anneau_photons")
+    g.torus(C, axe, r + 0.03 * k + 0.008, 0.006 * k + 0.003, M["emit2"], n=48, m=6, what="anneau_photons2")
+    if griffes:
+        ax = {"x": V((1, 0, 0)), "y": V((0, 1, 0)), "z": V((0, 0, 1))}[axe]
+        _, u, w = basis(ax)
+        for i in range(3):
+            a = TAU * i / 3 + 0.5
+            d = u * math.cos(a) + w * math.sin(a)
+            pts = [C - ax * r * 0.97 + d * r * 0.3, C - ax * r * 0.62 + d * (r * 0.8),
+                   C + d * (r * 1.0 + 0.004), C + ax * r * 0.6 + d * (r * 0.8), C + ax * r * 0.86 + d * (r * 0.5)]
+            griffe(g, pts, 0.07 * k + 0.02, 0.05 * k + 0.014)
+
+
+def fenetre(g, p, nrm, w, h, mat=None):
+    """Fenêtre blanc-or : cadre d'or chauffé, fond lumineux (≤ 0,03 t²)."""
+    M = g.M
+    p = V(p)
+    n = V(nrm).normalized()
+    _, u, v = basis(n)
+    up = V((0, 0, 1))
+    if abs(n.z) < 0.9:
+        u = up.cross(n).normalized()
+        v = n.cross(u).normalized()
+    Rm = Matrix((u, v, n)).transposed()
+    g.box(p + n * 0.008, (w + 0.04, h + 0.04, 0.016), M["or_chauffe"], "hard", R=Rm, what="cadre")
+    g.box(p + n * 0.017, (w, h, 0.004), mat or M["emit"], "flat", R=Rm, what="fenetre_lum")
+
+
+# ------------------------------------------------------------------------------------------------
+# Socle (corps du niveau 29)
 # ------------------------------------------------------------------------------------------------
 def socle(g, c):
     M = g.M
     E = M["emit"]
     B = c.B
-    ring_lights(g, B["R"] - 0.08, B["h"] + B["rh"] + 0.02)
-    ng = 11
-    F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, ng, M["emit"], a0=math.pi + 0.2, span=math.pi - 0.4)
-    F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, ng - 1, M["emit"], a0=math.pi + 0.35, span=math.pi - 0.7,
+    F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.62, 6, E, a0=math.pi + 0.2, span=math.pi - 0.4)
+    F.slits_grouped(g, B["R"] + 0.02, B["h"] * 0.36, 5, M["emit2"], a0=math.pi + 0.35, span=math.pi - 0.7,
                     per=(3, 2))
-    # passe 5, ronde 4 : base à GRADINS (HABILLAGE) ; chaque organe repose sur son gradin (_assise)
+    for zz in (B["h"] * 0.22, B["h"] * 0.86):
+        g.tube_shell((0, 0, zz), "z", B["R"] + 0.03, B["R"] - 0.02, 0.05, M["or_chauffe"], n=64, what="cerclage")
     dz = _assise(g, c, 1.65, 1.95, -1.3, 1.45)
     g.push((0, 0, dz))
     P2.grating(g, 1.65, 1.95, Y(-1.3), Y(1.45), 0.07, M)
@@ -151,57 +219,58 @@ def socle(g, c):
     g.push((0, 0, dz))
     P2.grating(g, -1.95, -1.65, Y(-1.1), Y(1.1), 0.07, M)
     g.pop()
+    # sud : CELLULES D'ANNIHILATION (à la place des caisses ouvertes)
     for sx in (-1, 1):
         dz = _assise(g, c, sx * 1.45 - 0.45, sx * 1.45 + 0.45, -2.35, -1.55)
         with at(g, sx * 1.45, -1.95, -sx * 0.45, z=dz):
-            reliquary(g, 0.84, 0.7, 0.3)
-    zpied = {}
-    for (x, yn, rz) in [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3), (2.4, 2.45, -0.4)]:
+            cellule_annihilation(g, 0.84, 0.7, 0.32)
+    # tourelles secondaires (sud) à micro-singularité ; le coin nord-est passe au stabilisateur de Casimir
+    for (x, yn, rz) in [(-2.4, -2.5, -0.3), (2.4, -2.5, 0.3)]:
         dz = _assise(g, c, x - 0.46, x + 0.46, yn - 0.46, yn + 0.46, rond=0.47)
-        zpied[(x, yn)] = dz
         with at(g, x, yn, 0.0, z=dz):
-            P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["orblanc"], M["steel_dk"]], gussets=False)
+            P2.pedestal(g, 0.46, 0.0, 0.32, 8, M, [M["noir_chaud"], M["or_chauffe"]], gussets=False)
             mini_turret(g, (0, 0, 0.32), 1.02, rz)
-    tremie_crown(g, c)
-    # ouest : groupe électrogène à 6 cylindres ; liaisons
+    tremie_puits(g, c)
+    # 2 CELLULES DE MATIÈRE EXOTIQUE de part et d'autre de la trémie (accroches tremie_O, tremie_E)
+    for sx in (-1, 1):
+        x, yn = sx * 0.92, -2.41
+        dz = _assise(g, c, x - 0.22, x + 0.22, yn - 0.16, yn + 0.16)
+        cellule_exotique(g, (x, Y(yn), dz + 0.045), 0.34)
+    corps.collecteur(g, c, conduit_or, r=0.05)
+    # CONDUITS EN SPIRALE sur les gradins : arcs qui tombent vers la colonne, tous dans le sens du disque
+    spirale(g, c, (1.05, -2.35), 0.55, 0.045)
+    spirale(g, c, (-1.05, -2.35), 0.5, 0.045)
+    spirale(g, c, (2.5, 0.35), 0.45, 0.04)
+    spirale(g, c, (-2.45, -0.55), 0.45, 0.04)
+    # ouest : ANNIHILATEUR 2 GW
     dz = _assise(g, c, -2.88, -1.98, -1.35, 1.35)
     g.push((0, 0, dz))
-    west(g)
+    annihilateur(g)
     g.pop()
-    conduit(g, [(-1.98, Y(0.7), 0.45 + dz), (-1.78, Y(0.75), 0.72 + dz), (-1.52, Y(0.62), 0.86 + dz)], 0.05)
-    conduit(g, [(-1.98, Y(-0.6), 0.45 + dz), (-1.78, Y(-0.65), 0.72 + dz), (-1.52, Y(-0.55), 0.86 + dz)], 0.05)
-    cables(g, [(-1.98, Y(0.05), 0.45 + dz), (-1.75, Y(0.02), 0.7 + dz), (-1.5, Y(0.0), 0.8 + dz)])
-    # nord-ouest : banc de condensateurs en biais (réserve d'énergie visible)
-    dz = _assise(g, c, -2.6, -1.5, 1.75, 2.75)
-    with at(g, -2.05, 2.25, -0.6, z=dz):
-        PT.hull(g, -0.62, 0.62, -0.5, 0.5, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3, mats=[M["steel_dk"]],
-                rivet_step=0.13)
-        PT.capacitors(g, (0.0, 0.0, 0.14), 3, 2, 0.14, 0.48, E)
-        P3.lamp_group(g, (-0.5, -0.52, 0.09), (1, 0, 0), (0, -1, 0), E, M, n=3)
-        P3.lamp_group(g, (0.2, -0.52, 0.09), (1, 0, 0), (0, -1, 0), M["amber"], M, n=2, shapes=("carre", "fente"))
-    conduit(g, [(-1.6, Y(1.95), 0.5 + dz), (-1.35, Y(1.6), 0.8 + dz), (-1.1, Y(1.25), 0.95 + dz)], 0.05)
+    cables(g, [(-1.98, Y(0.05), 0.5 + dz), (-1.75, Y(0.02), 0.72 + dz), (-1.5, Y(0.0), 0.82 + dz)])
+    # nord : 2 STABILISATEURS DE CASIMIR (plaques à interstices lumineux fermés)
+    for sx in (-1, 1):
+        x, yn = sx * 2.1, 2.3
+        dz = _assise(g, c, x - 0.38, x + 0.38, yn - 0.24, yn + 0.24)
+        casimir(g, (x, Y(yn), dz + 0.045), 0.62, 0.5, 6)
+    # est : RÉSERVOIRS DE MATIÈRE EXOTIQUE
     for yn in (1.0, -0.55):
         dz = _assise(g, c, 1.96, 2.84, yn - 0.44, yn + 0.44, rond=0.45)
         g.push((0, 0, dz))
-        east(g, yn)
+        reservoir_exotique(g, 2.4, Y(yn), 0.44, 1.0)
         g.pop()
-    dz = _assise(g, c, -2.85, -2.08, -2.85 / 1.4142, -2.2 / 1.4142)
+    dz = _assise(g, c, -2.85, -2.08, -2.85 / SQ2, -2.2 / SQ2)
     g.push((0, 0, dz))
     P3.cabinet(g, -2.85, -2.08, -2.85, -2.2, 0.0, 0.55, M, E)
     g.pop()
-    dz = _assise(g, c, 1.95, 2.85, 2.02 / 1.4142, 2.5 / 1.4142)
-    g.push((0, 0, dz))
-    P3.cabinet(g, 1.95, 2.85, 2.02, 2.5, 0.0, 0.5, M, E)
-    g.pop()
-    # sud-est : collecteur nacré à pierres et particules (à la place de la vanne à volants)
+    # sud-est : banc de JAUGES DE MARÉE (à la place de la vanne à volants)
     dz = _assise(g, c, 1.98, 2.85, -1.55, -1.18)
     g.push((0, 0, dz))
-    nacre_manifold(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.3)
+    jauges_maree(g, 1.98, 2.85, Y(-1.55), Y(-1.18), 0.3)
     g.pop()
-    hose(g, [(1.98, Y(-1.35), 0.34 + dz), (1.75, Y(-1.4), 0.4 + dz), (1.55, Y(-1.15), 0.56 + dz)], 0.055)
-    hose(g, [(2.0, Y(1.1), 0.7 + dz), (1.72, Y(1.0), 1.12 + dz), (1.4, Y(0.8), 0.95 + dz)], 0.065)
-    hose(g, [(2.0, Y(-0.45), 0.7 + dz), (1.72, Y(-0.5), 1.1 + dz), (1.42, Y(-0.4), 0.95 + dz)], 0.065)
-    # nord : radiateur à trois ventilateurs ; armoires de commande
+    conduit_or(g, [(2.0, Y(1.1), 0.75 + dz), (1.72, Y(1.0), 1.12 + dz), (1.4, Y(0.8), 0.95 + dz)], 0.055)
+    conduit_or(g, [(2.0, Y(-0.45), 0.75 + dz), (1.72, Y(-0.5), 1.1 + dz), (1.42, Y(-0.4), 0.95 + dz)], 0.055)
+    # nord : radiateur noir et or flanqué des stabilisateurs ; armoires
     dz = _assise(g, c, -1.3, 1.3, 2.05, 2.78)
     g.push((0, 0, dz))
     P2.fan_radiator(g, -1.3, 1.3, Y(2.05), Y(2.78), 0.0, 0.42, 3, M, emat=E)
@@ -211,395 +280,284 @@ def socle(g, c):
     P3.cabinet(g, -1.15, -0.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
     P3.cabinet(g, 0.35, 1.25, Y(1.6), Y(1.98), 0.0, 0.5, M, E)
     g.pop()
-    for x in (-2.75, -2.35, 2.05, 2.55):
-        g.sphere((x, Y(-2.97) + 0.12, 0.09), 0.022, E, n=10, m=6, what="pierre")
-        g.cyl((x, Y(-2.97) + 0.12, 0.04), "z", 0.035, 0.07, M["ring"], n=10, what="pierre_pied")
-    signature(g, (-0.7, Y(1.79), 0.54 + dzc))
-    signature(g, (0.8, Y(1.79), 0.54 + dzc), 1)
     dz = max(0.0, corps.z_pont(c, -2.6, 0.0) - 0.045)
     g.push((0, 0, dz))
     P2.anchor(g, -2.6, Y(0.0), 0.26, M)
     g.pop()
     for x in (-0.8, 0.8):
         PT.lamp(g, (x, Y(-2.75) - 0.05, 0.12), (0, -0.4, 1), 0.034, M["amber"])
-    P3.lamp_group(g, (-0.4, Y(-2.75) - 0.03, 0.58), (1, 0, 0), (0, -1, 0), E, M, n=3)
-    P3.lamp_group(g, (0.2, Y(-2.75) - 0.03, 0.47), (1, 0, 0), (0, -1, 0), E, M, n=2, shapes=("fente", "rond"))
     _halo(g, [(-2.4, Y(-1.2), 0.6), (2.4, Y(-2.7), 0.7), (-2.4, Y(-2.7), 0.7), (0.0, Y(-2.85), 0.5),
-              (-2.05, Y(2.25), 0.8), (2.4, Y(0.2), 0.6)], 22.0)
+              (-2.1, Y(2.3), 0.8), (2.1, Y(2.3), 0.8), (2.4, Y(0.2), 0.6)], 22.0)
 
 
-def ring_lights(g, R, z):
-    """Feux de couronne (face sud de la couronne d'orientation) : « particules » or blanc sur poteaux de nacre, chaque
-    feu un foyer séparé."""
-    n = 22
+def cellule_annihilation(g, w, d, h):
+    """CELLULE D'ANNIHILATION (2 GW) : caisson noir chaud riveté, couvercle bombé, 2 fenêtres blanc-or, griffes d'or
+    aux angles."""
     M = g.M
-    for k in range(n):
-        a = math.pi + math.pi * (k + 0.5) / n
-        d = V((math.cos(a), math.sin(a), 0))
-        p = V((0, 0, z)) + d * R
-        g.cyl(p + V((0, 0, 0.035)), "z", 0.016, 0.07, M["trim"], n=8, what="poteau")
-        g.sphere(p + V((0, 0, 0.085)), 0.02, M["emit"], n=10, m=6, what="particule")
-
-
-def west(g):
-    """Groupe de l'ouest : groupe électrogène à 6 cylindres du témoin n29, trappes de nacre cerclées d'or blanc,
-    pierres lumineuses."""
-    M = g.M
-    E = M["emit"]
-    x0, x1, y0, y1, h = -2.88, -1.98, Y(-1.35), Y(1.35), 0.6
-    # passe 5 : culasses du groupe en or blanc (les 6 culasses rouges de la passe 4 renforçaient la lecture « rouge »)
-    rouge = M["redpaint"]
-    M["redpaint"] = M["ring"]
-    P2.engine(g, x0, x1, y0, y1, 0.0, h, 6, M, emat=E)
-    M["redpaint"] = rouge
-    F.hatches(g, (x0 - 0.005, y0 + 0.2, h * 0.25), (x0 - 0.005, y1 - 0.2, h * 0.25), 10, (-1, 0, 0), M["trim"],
-              size=(0.07, 0.05), frame=M["ring"])
-    F.hatches(g, (x1 + 0.005, y0 + 0.2, h * 0.3), (x1 + 0.005, y1 - 0.2, h * 0.3), 10, (1, 0, 0), M["trim"],
-              size=(0.07, 0.05), frame=M["ring"])
-    for yy in (y0 + 0.3, y1 - 0.3):
-        g.sphere((x0 + 0.08, yy, h + 0.03), 0.022, E, n=10, m=6, what="pierre")
-
-
-def east(g, yn):
-    """Est : un réservoir debout ciselé (habillé par l'époque), trappes de nacre et d'or blanc, pierres (ronde 4 : un
-    réservoir par appel, chacun sur son assise de gradin)."""
-    M = g.M
-    tank(g, 2.4, Y(yn), 0.44, 1.1, (1, 0.2 if yn > 0 else -0.2), (-1, 0), gauges=3)
-    for (cx_, cy_) in ((2.4, Y(yn)),):
-        for kk in range(9):
-            a = math.pi + math.pi * (kk + 0.5) / 9
-            d = V((math.cos(a), math.sin(a), 0))
-            F.hatches(g, V((cx_, cy_, 0.25)) + d * 0.43, V((cx_, cy_, 0.29)) + d * 0.43, 1, d, M["trim"],
-                      size=(0.07, 0.05))
-            F.hatches(g, V((cx_, cy_, 0.86)) + d * 0.43, V((cx_, cy_, 0.9)) + d * 0.43, 1, d, M["ring"],
-                      size=(0.06, 0.05))
-        for (bx_, by_) in ((cx_ - 0.6, cy_ - 0.2), (cx_ + 0.3, cy_ - 0.5)):
-            g.sphere((bx_, by_, 0.1), 0.02, M["emit"], n=10, m=6, what="pierre")
-            g.cyl((bx_, by_, 0.05), "z", 0.035, 0.07, M["ring"], n=10, what="pierre_pied")
-
-
-def tank(g, x, y, r, h, ladder_dir, stub_dir, gauges=2, rings=1):
-    """Réservoir debout de la lignée (P3.vtank) crème cerclé d'or blanc, hublots ; bande ciselée de losanges d'or
-    blanc sertis de nacre, 5 flèches sur le fond bombé."""
-    M = g.M
-    E = M["emit"]
-    P3.vtank(g, x, y, r, h, M, paint=M["cream"], emat=E, ladder_dir=ladder_dir, stub_dir=stub_dir, gauges=gauges,
-             glow_gauges=True, glow_rings=0, band=M["jacket"])
-    F.tank_lights(g, x, y, r, h, EPOQUE)
-    # trappes de nacre cerclées d'or blanc sur la virole crème (pièces isolées)
-    for k in range(6):
-        a = -math.pi * 0.1 - math.pi * 0.8 * k / 5
-        d = V((math.cos(a), math.sin(a), 0))
-        for zf in (0.2, 0.44, 0.86):
-            F.hatches(g, V((x, y, h * zf)) + d * (r + 0.005), V((x, y, h * (zf + 0.06))) + d * (r + 0.005), 1, d,
-                      M["trim"] if zf != 0.44 else M["steel_dk"], size=(0.06, 0.05), frame=M["jacket"])
-    # bande ciselée : losanges d'or blanc sertis de nacre sur la virole (face visible)
-    for k in range(14):
-        a = -math.pi * 0.05 - math.pi * 0.9 * k / 13
-        d = V((math.cos(a), math.sin(a), 0))
-        Rr = Matrix((V((-d.y, d.x, 0)), V((0, 0, 1)), d)).transposed() @ Matrix.Rotation(math.pi / 4, 3, "Z")
-        for zz in (h * 0.56, h * 0.7):
-            g.box(V((x, y, zz)) + d * (r + 0.012), (0.045, 0.045, 0.014), M["jacket"], "hard", R=Rr,
-                  what="ciselure")
-            g.box(V((x, y, zz)) + d * (r + 0.02), (0.02, 0.02, 0.008), M["trim"], "hard", R=Rr,
-                  what="ciselure")
-    for k in range(5):
-        a = TAU * k / 5 + 0.3
-        d = V((math.cos(a), math.sin(a), 0))
-        c = V((x, y, h + r * 0.2)) + d * r * 0.55
-        P2.wedge(g, c, c + d * 0.05, c + d * 0.02 + V((0, 0, 0.13)), V((-d.y, d.x, 0)) * 0.02, M["jacket"],
-                 what="fleche")
-
-
-def crown(g, c, R, n=10, h=0.26, gems_all=False, skip=None):
-    """GRANDE couronne d'or blanc au-dessus de la tête : bandeau à deux joncs, fleurons en flèche (alternés grands et
-    petits), pierres lumineuses, PARTICULES (petites sphères lumineuses sur tiges d'or blanc au-dessus des grands
-    fleurons : rien ne flotte), nacre et sertissures. skip = (angle, demi-largeur) : secteur sans fleuron."""
-    M = g.M
-    E = M["emit"]
-    c = V(c)
-    g.tube_shell(c, "z", R + 0.06, R - 0.04, 0.14, M["ring"], n=72, what="bandeau")
-    for k in range(2 * n):   # boulons sombres du bandeau (pièces isolées sur l'or)
-        a = TAU * (k + 0.25) / (2 * n)
-        d = V((math.cos(a), math.sin(a), 0))
-        g.bolt(c + d * (R + 0.062), d, 0.018, M["steel_dk"], what="boulon")
-    g.torus(c + V((0, 0, 0.06)), "z", R + 0.04, 0.016, M["jacket"], n=72, m=6, what="jonc")
-    g.torus(c - V((0, 0, 0.06)), "z", R + 0.04, 0.016, M["jacket"], n=72, m=6, what="jonc")
-    for k in range(n):
-        a = TAU * k / n
-        d = V((math.cos(a), math.sin(a), 0))
-        t = V((-d.y, d.x, 0))
-        a3 = a + TAU / n * 0.5
-        d3 = V((math.cos(a3), math.sin(a3), 0))
-        g.box(c + d3 * (R + 0.038), (0.08, 0.016, 0.06), M["trim"], "hard", R=Matrix.Rotation(a3 + math.pi / 2, 3, "Z"),
-              what="nacre")
-        for j in range(3):
-            a2 = a + TAU / n * (j + 0.5) / 3
-            d2 = V((math.cos(a2), math.sin(a2), 0))
-            g.dome(c + d2 * (R + 0.042), d2, 0.012, M["rivet"])
-        if skip is not None:
-            da = (a - skip[0] + math.pi) % TAU - math.pi
-            if abs(da) < skip[1]:
-                continue
-        p = c + d * (R + 0.01) + V((0, 0, 0.06))
-        big = k % 2 == 0
-        hk = h * (1.0 if big else 0.6)
-        wk = 0.1 if big else 0.07
-        P2.wedge(g, p - t * wk, p + t * wk, p + V((0, 0, hk)), d * 0.035, M["jacket"], what="fleuron")
-        P2.wedge(g, p - t * wk * 0.5 + V((0, 0, 0.01)), p + t * wk * 0.5 + V((0, 0, 0.01)), p + V((0, 0, hk * 0.62)),
-                 d * 0.045, M["trim"], what="fleuron")
-        if big or gems_all:
-            g.sphere(p + V((0, 0, hk + 0.024)) + d * 0.004, 0.026 if big else 0.02, E, n=10, m=6, what="pierre")
-        if big:
-            g.cyl(p + V((0, 0, hk + 0.1)), "z", 0.005, 0.12, M["jacket"], n=6, what="tige")
-            g.sphere(p + V((0, 0, hk + 0.17)), 0.014, E, n=8, m=5, what="particule")
-            g.sphere(p + V((0, 0, hk + 0.11)) + t * 0.01, 0.01, E, n=8, m=5, what="particule")
-        # ronde 3 : RUBIS sertis dans le bandeau (accent de couleur de la Légende, 60/30/10)
-        g.box(c + d * (R + 0.036), (0.03, 0.03, 0.03), M["rubis"], "hard", R=Matrix.Rotation(a, 3, "Z"),
-              what="sertissure")
-
-
-def signature(g, p, kind=0):
-    """Petite pièce de signature : petite couronne de flèches d'or blanc sur socle de nacre."""
-    M = g.M
-    p = V(p)
-    g.cyl(p + V((0, 0, 0.02)), "z", 0.07, 0.04, M["trim"], n=16, what="socle_couronne")
-    for k in range(5):
-        a = TAU * k / 5
-        d = V((math.cos(a), math.sin(a), 0))
-        c = p + d * 0.055 + V((0, 0, 0.04))
-        P2.wedge(g, c - V((-d.y, d.x, 0)) * 0.02, c + V((-d.y, d.x, 0)) * 0.02, c + d * 0.01 + V((0, 0, 0.1)),
-                 d * 0.016, M["jacket"], what="fleche")
+    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.26,
+            mats=[M["noir_chaud"], M["noir_chaud2"], M["or_chauffe"]], rivet_step=0.12)
+    g.cyl((0, 0, h), "x", d * 0.38, w * 0.86, M["noir_chaud"], n=20, what="couvercle")
+    for f in (-0.36, 0.0, 0.36):
+        g.tube_shell((f * w, 0, h), "x", d * 0.4, d * 0.33, 0.04, M["or_chauffe"], n=20, what="cerclage")
+    for f in (-0.2, 0.2):
+        fenetre(g, (f * w, -d / 2, h * 0.5), (0, -1, 0), 0.12, 0.1)
+    for sxx in (-1, 1):
+        for syy in (-1, 1):
+            q = V((sxx * (w / 2 - 0.01), syy * (d / 2 - 0.01), h * 0.4))
+            griffe(g, [q, q + V((0, 0, h * 0.62)), q + V((-sxx * 0.08, -syy * 0.06, h * 0.75))], 0.05, 0.035)
 
 
 def mini_turret(g, c, s, rz):
-    """Tourelle secondaire LÉGENDE : couronne rivetée de la lignée, caisson de nacre à bandes d'or blanc ciselées,
-    PETITE COURONNE de 6 flèches d'or blanc à pierres sur le dos ; les DEUX ARMES sont celles de l'époque (petits
-    faisceaux lourds à frein en couronne)."""
+    """Tourelle secondaire NÉANT : couronne rivetée de la lignée, caisson noir chaud à bandes d'or, MICRO-SINGULARITÉ
+    sur le dos (sphère d'horizon, anneau de photons, griffes) ; deux petits canons de l'époque."""
     M = g.M
-    E = M["emit"]
     g.push(c, rz=rz)
     g.cyl((0, 0, 0.05 * s), "z", 0.36 * s, 0.1 * s, M["armor2"], n=32, style="soft", what="couronne")
     nb = int(TAU * 0.32 * s / 0.1)
     for k in range(nb):
         a = TAU * k / nb
         g.dome((0.31 * s * math.cos(a), 0.31 * s * math.sin(a), 0.1 * s), (0, 0, 1), 0.016, M["rivet"])
-    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.38 * s, ins=(0.04 * s, 0.03 * s, 0.08 * s),
-            panel=0.22, mats=[M["trim"], M["steel_dk"]])
+    PT.hull(g, -0.24 * s, 0.24 * s, -0.3 * s, 0.24 * s, 0.1 * s, 0.32 * s, ins=(0.04 * s, 0.03 * s, 0.06 * s),
+            panel=0.22, mats=[M["noir_chaud"], M["noir_chaud2"]])
     for yy in (-0.2 * s, 0.08 * s):
-        g.box((0, yy, 0.385 * s), (0.36 * s, 0.04, 0.02), M["jacket"], "hard", what="bande")
-        for k in range(5):
-            g.dome(((k - 2) * 0.075 * s, yy, 0.385 * s + 0.01), (0, 0, 1), 0.012, M["rivet"])
-    for sxx, syy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        g.bolt((sxx * 0.17 * s, -0.04 * s + syy * 0.2 * s, 0.38 * s), (0, 0, 1), 0.02, M["steel_dk"], what="boulon")
-    cc = V((0.0, -0.06 * s, 0.39 * s))
-    g.cyl(cc + V((0, 0, 0.015)), "z", 0.12 * s, 0.03, M["jacket"], n=24, what="socle_couronne")
-    for k in range(6):
-        a = TAU * k / 6
-        d = V((math.cos(a), math.sin(a), 0))
-        t = V((-d.y, d.x, 0))
-        q = cc + d * 0.11 * s + V((0, 0, 0.03))
-        P2.wedge(g, q - t * 0.03, q + t * 0.03, q + d * 0.012 + V((0, 0, 0.16 * s)), d * 0.02, M["jacket"],
-                 what="fleche")
-        g.sphere(q + V((0, 0, 0.17 * s)), 0.016, E, n=8, m=5, what="pierre")
+        g.box((0, yy, 0.325 * s), (0.4 * s, 0.04, 0.02), M["or_chauffe"], "hard", what="bande")
+    g.cyl((0.0, -0.06 * s, 0.34 * s), "z", 0.07 * s, 0.05, M["noir_profond"], n=20, what="socle_singularite")
+    singularite(g, (0.0, -0.06 * s, 0.34 * s + 0.12 * s), 0.1 * s, k=0.6, axe="z")
     for sx in (-1, 1):
         PT.receiver(g, sx * 0.31 * s, -0.16 * s, 0.22 * s, 0.16 * s, 0.36 * s, 0.13 * s, mats=[M[k] for k in RECV])
-        _gun15(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.022 * s, 0.05 * s)
+        _gun15(g, sx * 0.31 * s, 0.22 * s, 0.26 * s, 0.62 * s, 6, 0.023 * s, 0.052 * s)
     g.pop()
 
 
-def reliquary(g, w, d, h):
-    """RELIQUAIRE D'ÉNERGIE (à la place de la caisse ouverte) : coffre de nacre cerclé d'or blanc ciselé, couvercle
-    bombé, 4 flèches d'or blanc aux angles, hublots blanc doré, pierres."""
+def tremie_puits(g, c):
+    """Trémie de l'époque (ENTONNOIR du kit, or à l'intérieur, noir dehors) : liseré d'or au bord de l'entonnoir, deux
+    conduits d'or qui tombent vers la colonne."""
     M = g.M
-    E = M["emit"]
-    PT.hull(g, -w / 2, w / 2, -d / 2, d / 2, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.26, mats=[M["trim"], M["orblanc"]],
-            rivet_step=0.12)
-    g.cyl((0, 0, h), "x", d * 0.42, w * 0.9, M["trim"], n=20, what="couvercle")
-    for f in (-0.36, 0.0, 0.36):
-        g.tube_shell((f * w, 0, h), "x", d * 0.44, d * 0.36, 0.04, M["jacket"], n=20, what="cerclage")
-        F.bolts_ring(g, (f * w + 0.021, 0, h), (1, 0, 0), d * 0.4, 9, M["rivet"], r=0.012, skip_down=0.05)
-    # ciselure : losanges d'or blanc sertis de nacre sur la face sud
-    for i in range(5):
-        x = -w * 0.4 + w * 0.2 * i
-        Rr = Matrix.Rotation(math.pi / 4, 3, "Y")
-        g.box((x, -d / 2 - 0.006, h * 0.82), (0.04, 0.012, 0.04), M["jacket"], "hard", R=Rr, what="ciselure")
-        g.box((x, -d / 2 - 0.012, h * 0.82), (0.018, 0.008, 0.018), M["trim"], "hard", R=Rr, what="ciselure")
-    for sxx in (-1, 1):
-        for syy in (-1, 1):
-            q = V((sxx * (w / 2 - 0.04), syy * (d / 2 - 0.04), h))
-            P2.wedge(g, q - V((0.03, 0, 0)), q + V((0.03, 0, 0)), q + V((0, 0, 0.18)), V((0, 0.03, 0)), M["jacket"],
-                     what="fleche")
-            g.sphere(q + V((0, 0, 0.19)), 0.014, E, n=8, m=5, what="pierre")
-    for sxx in (-1, 1):
-        F.hatches(g, (sxx * (w / 2 + 0.005), -d / 2 + 0.08, h * 0.45), (sxx * (w / 2 + 0.005), d / 2 - 0.08, h * 0.45),
-                  4, (sxx, 0, 0), M["jacket"], size=(0.06, 0.06), frame=M["trim"])
-    for i in range(3):
-        x = -w * 0.3 + w * 0.3 * i
-        g.cyl((x, -d / 2 - 0.01, h * 0.5), "y", 0.04, 0.02, M["jacket"], n=14, what="hublot")
-        g.cyl((x, -d / 2 - 0.022, h * 0.5), "y", 0.026, 0.005, E, n=12, style="flat", what="hublot_lum")
-
-
-def tremie_crown(g, c):
-    """Trémie de l'époque (peinte d'acier sombre, HABILLAGE) : CADRE D'OR BLANC ciselé à 4 grandes FLÈCHES aux angles,
-    pierres et particules à leur pointe, arche d'or blanc à fleurons en travers de l'arrière, conduits nacrés à bagues
-    d'or blanc vers la colonne."""
-    M = g.M
-    E = M["emit"]
     x0, x1, y0, y1, h = c.tremie_box
-    zl = h - 0.35 * (y1 - y0) * 0.4
-    for (xx, yy, zz) in ((x0 - 0.05, y0 + 0.05, zl), (x1 + 0.05, y0 + 0.05, zl), (x0 - 0.05, y1 - 0.05, h),
-                         (x1 + 0.05, y1 - 0.05, h)):
-        g.box((xx, yy, zz * 0.5), (0.1, 0.1, zz), M["jacket"], "hard", what="montant")
-        q = V((xx, yy, zz))
-        P2.wedge(g, q - V((0.05, 0, 0)), q + V((0.05, 0, 0)), q + V((0, 0, 0.32)), V((0, 0.05, 0)), M["jacket"],
-                 what="fleche")
-        P2.wedge(g, q - V((0, 0.05, 0)), q + V((0, 0.05, 0)), q + V((0, 0, 0.26)), V((0.05, 0, 0)), M["trim"],
-                 what="fleche")
-        g.sphere(q + V((0, 0, 0.34)), 0.022, E, n=10, m=6, what="pierre")
-        g.cyl(q + V((0, 0, 0.42)), "z", 0.005, 0.12, M["jacket"], n=6, what="tige")
-        g.sphere(q + V((0, 0, 0.49)), 0.012, E, n=8, m=5, what="particule")
-    for xx in (x0 - 0.05, x1 + 0.05):
-        g.box((xx, (y0 + y1) / 2, (zl + h) / 2 + 0.02), (0.06, y1 - y0, 0.05), M["jacket"], "hard", what="lisse")
-        for k in range(7):
-            f = (k + 0.5) / 7
-            g.dome((xx, y0 + (y1 - y0) * f, zl + (h - zl) * f + 0.047), (0, 0, 1), 0.013, M["rivet"])
-            if k % 2 == 0:
-                g.box((xx, y0 + (y1 - y0) * f, (zl + (h - zl) * f) * 0.5), (0.11, 0.03, 0.03), M["trim"], "hard",
-                      what="ciselure")
-    # arche d'or blanc à fleurons en travers de l'arrière de la trémie
-    ya = y1 - 0.3
-    n = 8
-    Ra = (x1 - x0) / 2 + 0.05
-    for i in range(n):
-        a0, a1 = math.pi * i / n, math.pi * (i + 1) / n
-        p0 = V((Ra * math.cos(a0), ya, h + Ra * 0.5 * math.sin(a0)))
-        p1 = V((Ra * math.cos(a1), ya, h + Ra * 0.5 * math.sin(a1)))
-        dd = p1 - p0
-        Rm = Matrix((dd.normalized(), V((0, 1, 0)), dd.normalized().cross(V((0, 1, 0))))).transposed()
-        g.box((p0 + p1) / 2, (dd.length + 0.01, 0.08, 0.07), M["jacket"], "hard", R=Rm, what="arche")
-    for xx in (-Ra, Ra):
-        g.box((xx, ya, h * 0.5), (0.07, 0.08, h), M["jacket"], "hard", what="pied")
-    q = V((0, ya, h + Ra * 0.5 + 0.03))
-    P2.wedge(g, q - V((0.06, 0, 0)), q + V((0.06, 0, 0)), q + V((0, 0, 0.26)), V((0, 0.04, 0)), M["jacket"],
-             what="fleuron")
-    g.sphere(q + V((0, 0, 0.28)), 0.024, E, n=10, m=6, what="pierre")
+    W = x1 - x0
     for s in (-1, 1):
-        hose(g, [(s * (Ra + 0.04), ya + 0.05, h * 0.6), (s * (Ra + 0.12), y1 + 0.25, h + 0.2),
-                 (s * 0.4, y1 + 0.5, c.rt + 0.04)], 0.05)
-    # clous d'or blanc sur les flancs d'acier sombre de la trémie (pièces isolées)
-    for xx, nx in ((x0 - 0.03, -1), (x1 + 0.03, 1)):
-        for i in range(5):
-            for j in range(2):
-                yy = y0 + 0.15 + (y1 - y0 - 0.3) * i / 4
-                g.bolt((xx, yy, 0.1 + 0.16 * j), (nx, 0, 0), 0.02, M["jacket"], what="clou")
+        conduit_or(g, [(s * (W / 2 + 0.05), y1 - 0.25, h * 0.55), (s * (W / 2 + 0.15), y1 + 0.2, h + 0.2),
+                       (s * 0.4, y1 + 0.5, c.rt + 0.04)], 0.045)
 
 
-def nacre_manifold(g, x0, x1, y0, y1, h):
-    """Collecteur nacré (sud-est) : caisson de nacre à liseré d'or blanc, 3 conduits nacrés debout à bagues d'or
-    blanc coiffés de pierres et de particules."""
+def cellule_exotique(g, p, a):
+    """CELLULE DE MATIÈRE EXOTIQUE : cube noir chaud à arêtes d'or (12 arêtes), fenêtre blanc-or sur les faces vues."""
     M = g.M
-    E = M["emit"]
-    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["trim"], M["steel_dk"]],
+    p = V(p)
+    C = p + V((0, 0, a / 2))
+    g.box(C, (a, a, a), M["noir_chaud"], "hard", what="cellule")
+    e = 0.03
+    for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        g.box(C + V((dx * a / 2, dy * a / 2, 0)), (e, e, a + e), M["or_chauffe"], "hard", what="arete")
+    for dz in (-1, 1):
+        for dy in (-1, 1):
+            g.box(C + V((0, dy * a / 2, dz * a / 2)), (a + e, e, e), M["or_chauffe"], "hard", what="arete")
+        for dx in (-1, 1):
+            g.box(C + V((dx * a / 2, 0, dz * a / 2)), (e, a + e, e), M["or_chauffe"], "hard", what="arete")
+    fenetre(g, C - V((0, a / 2, 0)), (0, -1, 0), a * 0.42, a * 0.42)
+    fenetre(g, C + V((0, 0, a / 2)), (0, 0, 1), a * 0.36, a * 0.36, M["emit2"])
+
+
+def spirale(g, c, depart, tour, r):
+    """CONDUIT EN SPIRALE : tube d'or chauffé qui suit un arc de spirale depuis `depart` (x, yn) jusqu'au pied de la
+    colonne, tourné de `tour` radians dans le sens du disque (trigonométrique vu de dessus) ; il ne fait que descendre
+    vers le centre (hauteur monotone, au-dessus du gradin le plus haut traversé) ; manchons noirs tous les 0,3 t et
+    CHENILLARD de points blanc-or vers l'intérieur ; supports à griffe jusqu'au pont (rien ne flotte)."""
+    M = g.M
+    x0, y0 = depart[0], Y(depart[1])
+    r0 = math.hypot(x0, y0)
+    a0 = math.atan2(y0, x0)
+    r1 = c.B["R"] - 0.02
+    n = 40
+    pts = []
+    for i in range(n + 1):
+        t = i / n
+        rr = r0 + (r1 - r0) * (t ** 0.8)
+        a = a0 + tour * t
+        pts.append([rr * math.cos(a), rr * math.sin(a), 0.0])
+    zb = [corps.z_pont(c, p[0], p[1] / SQ2) for p in pts]
+    zmax = 0.0
+    for i in range(n + 1):
+        zmax = max(zmax, zb[i])
+        pts[i][2] = zmax + r + 0.03
+    # le bout entre dans la colonne à une hauteur raisonnable
+    pts[-1][2] = max(pts[-1][2], 0.3)
+    P = [V(p) for p in pts]
+    P, T = g.tube(P, r, M["or_chauffe"], n=12, what="spirale")
+    R = g.resample(P, 0.1)
+    T2, _ = g.frames(R)
+    for i in range(1, len(R) - 1):
+        if i % 3 == 0:
+            g.tube_shell(R[i], T2[i], r + 0.014, r * 0.5, 0.04, M["noir_chaud"], n=12, what="manchon")
+        elif i % 3 == 1:
+            g.sphere(R[i] + V((0, 0, r * 0.9)), 0.012, M["emit"], n=8, m=5, what="chenillard")
+    for i in range(0, len(R) - 1, 3):
+        zp = corps.z_pont(c, R[i].x, R[i].y / SQ2)
+        hh = R[i].z - r - zp
+        if hh > 0.02:
+            g.box(V((R[i].x, R[i].y, zp + hh / 2)), (0.04, 0.04, hh), M["noir_profond"], "hard", what="support")
+            g.box(V((R[i].x, R[i].y, R[i].z - r * 0.8)), (0.07, 0.03, 0.03), M["or_chauffe"], "hard", what="griffe")
+
+
+def annihilateur(g):
+    """Groupe de l'ouest : ANNIHILATEUR 2 GW (caisson noir chaud à ailettes, 3 fenêtres blanc-or sur le toit, griffes
+    d'or aux angles, bande d'or)."""
+    M = g.M
+    x0, x1, y0, y1, h = -2.88, -1.98, Y(-1.35), Y(1.35), 0.55
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.03), panel=0.28,
+            mats=[M["noir_chaud"], M["noir_chaud2"], M["noir_profond"]], rivet_step=0.12)
+    for xx in (x0 - 0.02, x1 + 0.02):
+        for i in range(12):
+            yy = y0 + 0.15 + (y1 - y0 - 0.3) * i / 11
+            g.box((xx, yy, h * 0.5), (0.04, 0.016, h * 0.66), M["noir_profond"], "hard", what="ailette")
+    g.box((x1 + 0.045, cy, h * 0.9), (0.012, y1 - y0 - 0.2, 0.035), M["or_chauffe"], "hard", what="bande")
+    for f in (-0.55, 0.0, 0.55):
+        fenetre(g, (cx, cy + f * (y1 - y0) * 0.5, h), (0, 0, 1), 0.3, 0.12)
+    for (xx, yy) in ((x0, y0), (x1, y0), (x0, y1), (x1, y1)):
+        q = V((xx, yy, h * 0.3))
+        dx = 1 if xx == x0 else -1
+        dy = 1 if yy == y0 else -1
+        griffe(g, [q, q + V((0, 0, h * 0.7)), q + V((dx * 0.12, dy * 0.12, h * 0.8))], 0.06, 0.04)
+
+
+def casimir(g, p, w, d, n):
+    """STABILISATEUR DE CASIMIR : empilement de n plaques de noir chaud parallèles, très rapprochées, à arêtes d'or,
+    séparées par des INTERSTICES LUMINEUX blanc-or FERMÉS par des entretoises d'angle (aucun jour) ; chapeau d'or.
+    Un bloc large et plat : jamais un cylindre debout."""
+    M = g.M
+    p = V(p)
+    tp, gap = 0.045, 0.03
+    for i in range(n):
+        z = p.z + i * (tp + gap)
+        g.box(p + V((0, 0, z - p.z + tp / 2)), (w, d, tp), M["noir_chaud"], "hard", what="plaque_casimir")
+        g.box(p + V((0, -d / 2 - 0.004, z - p.z + tp * 0.75)), (w + 0.01, 0.012, tp * 0.35), M["or_chauffe"], "hard",
+              what="arete_or")
+        if i < n - 1:
+            g.box(p + V((0, 0, z - p.z + tp + gap / 2)), (w - 0.1, d - 0.1, gap * 0.98), M["emit"], "flat",
+                  what="interstice")
+    ht = n * (tp + gap) - gap
+    for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        g.box(p + V((dx * (w / 2 - 0.035), dy * (d / 2 - 0.035), ht / 2)), (0.07, 0.07, ht), M["or_chauffe"], "hard",
+              what="entretoise")
+    g.box(p + V((0, 0, ht + 0.02)), (w * 0.7, d * 0.7, 0.04), M["or_chauffe"], "hard", what="chapeau")
+    for dx in (-1, 1):
+        g.dome(p + V((dx * w * 0.25, 0, ht + 0.04)), (0, 0, 1), 0.02, M["rivet"])
+
+
+def reservoir_exotique(g, x, y, r, h):
+    """RÉSERVOIR DE MATIÈRE EXOTIQUE (même place et même masse que le réservoir debout) : virole noir chaud cerclée
+    d'or, FENTE blanc-or verticale sur la face vue, griffes d'or sur le fond bombé."""
+    M = g.M
+    P3.vtank(g, x, y, r, h, M, paint=M["noir_chaud"], emat=M["emit"], ladder_dir=(1, 0.2), stub_dir=(-1, 0),
+             gauges=2, glow_gauges=True, glow_rings=0, band=M["or_chauffe"])
+    for zz in (0.3, 0.55, 0.8):
+        g.tube_shell((x, y, h * zz), "z", r + 0.02, r - 0.01, 0.045, M["or_chauffe"], n=40, what="cerclage")
+    a = -1.6
+    d = V((math.cos(a), math.sin(a), 0))
+    g.box(V((x, y, h * 0.55)) + d * (r + 0.012), (0.07, 0.024, h * 0.42), M["or_chauffe"], "hard", R=Matrix((
+        V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="cadre_fente")
+    g.box(V((x, y, h * 0.55)) + d * (r + 0.026), (0.03, 0.006, h * 0.36), M["emit"], "flat", R=Matrix((
+        V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="fente_lum")
+    for k in range(3):
+        a = TAU * k / 3 + 0.3
+        dd = V((math.cos(a), math.sin(a), 0))
+        q = V((x, y, h)) + dd * r * 0.75
+        griffe(g, [q, q + dd * 0.06 + V((0, 0, 0.08)), q - dd * 0.06 + V((0, 0, 0.16))], 0.05, 0.035)
+
+
+def jauges_maree(g, x0, x1, y0, y1, h):
+    """Banc de JAUGES DE MARÉE (sud-est) : caisson noir chaud, 3 cadrans noirs à aiguille d'or et point blanc-or,
+    espacements inégaux ; 2 conduits d'or debout."""
+    M = g.M
+    PT.hull(g, x0, x1, y0, y1, 0.0, h, ins=(0.02, 0.02, 0.02), panel=0.22, mats=[M["noir_chaud"], M["or_chauffe"]],
             rivet_step=0.12)
     w = x1 - x0
+    for f in (0.17, 0.42, 0.8):
+        p = V((x0 + w * f, y0 - 0.005, h * 0.55))
+        n = V((0, -1, 0))
+        g.cyl(p + n * 0.012, n, 0.055, 0.024, M["or_chauffe"], n=16, style="hard", what="jauge")
+        g.cyl(p + n * 0.026, n, 0.044, 0.004, M["noir_profond"], n=16, style="flat", what="cadran")
+        g.box(p + n * 0.03 + V((0.012, 0, 0.012)), (0.05, 0.004, 0.008), M["or_blanc_chaud"], "flat",
+              R=Matrix.Rotation(0.7, 3, "Y"), what="aiguille")
+        g.cyl(p + n * 0.031 + V((-0.02, 0, -0.02)), n, 0.008, 0.003, M["emit"], n=8, style="flat", what="point")
     yc = (y0 + y1) / 2
-    g.box(((x0 + x1) / 2, y0 - 0.006, h * 0.85), (w * 0.9, 0.012, 0.025), M["jacket"], "hard", what="lisere")
-    F.hatches(g, (x0 + 0.08, y0 - 0.005, h * 0.4), (x1 - 0.08, y0 - 0.005, h * 0.4), 5, (0, -1, 0), M["jacket"],
-              size=(0.07, 0.06), frame=M["trim"])
-    for i in range(3):
-        x = x0 + w * (0.2 + 0.3 * i)
-        hh = 0.22 + 0.06 * (i % 2)
-        g.cyl((x, yc, h + hh / 2), "z", 0.045, hh, M["trim"], n=14, what="conduit_nacre")
-        for zz in (h + 0.04, h + hh * 0.6):
-            g.tube_shell((x, yc, zz), "z", 0.06, 0.035, 0.03, M["jacket"], n=14, what="bague_or")
-        g.sphere((x, yc, h + hh + 0.02), 0.024, E, n=10, m=6, what="pierre")
-        g.cyl((x, yc, h + hh + 0.09), "z", 0.005, 0.1, M["jacket"], n=6, what="tige")
-        g.sphere((x, yc, h + hh + 0.15), 0.012, E, n=8, m=5, what="particule")
+    for f in (0.3, 0.7):
+        x = x0 + w * f
+        conduit_or(g, [(x, yc, h), (x, yc, h + 0.18), (x - 0.06, yc + 0.2, h + 0.26)], 0.04)
 
 
 # ------------------------------------------------------------------------------------------------
-# Liaisons (E2) : conduits nacrés à bagues d'or blanc, conduits lumineux
+# Liaisons (E2) : conduits d'or (chenillard vers le centre), câbles d'horizon
 # ------------------------------------------------------------------------------------------------
-def hose(g, ctrl, r):
-    """Conduit nacré à bagues d'or blanc rapprochées et gorges sombres (le reflet du conduit se lit en tronçons)."""
+def conduit_or(g, ctrl, r):
+    """Conduit d'OR CHAUFFÉ : manchons noirs tous les 0,3 t, chenillard de points blanc-or, berceaux sur le pont."""
     M = g.M
-    P, T = g.tube(g.spline(ctrl, 10), r, M["trim"], n=12, what="conduit_nacre")
-    for i in range(1, len(P) - 1, 3):
-        g.tube_shell(P[i], T[i], r + 0.016, r - 0.01, 0.035, M["jacket"], n=14, what="bague_or")
-        if i + 1 < len(P) - 1:
-            g.tube_shell(P[i + 1], T[i + 1], r + 0.004, r - 0.01, 0.012, M["steel_dk"], n=14, what="gorge")
+    P = g.spline(ctrl, 10)
+    P, T = g.tube(P, r, M["or_chauffe"], n=12, what="conduit_or")
+    R = g.resample(P, 0.1)
+    T2, _ = g.frames(R)
+    for i in range(1, len(R) - 1):
+        if i % 3 == 0:
+            g.tube_shell(R[i], T2[i], r + 0.014, r * 0.5, 0.04, M["noir_chaud"], n=12, what="manchon")
+        elif i % 3 == 1:
+            _, u, w = basis(T2[i])
+            g.sphere(R[i] + V((0, 0, r * 0.9)), 0.011, M["emit"], n=8, m=5, what="chenillard")
 
 
 def cables(g, ctrl, n=3):
+    """Câbles d'HORIZON : câbles noirs épais à bagues d'or."""
     M = g.M
-    PT.cable_run(g, ctrl, n, 0.02, 0.045, [M["rubber"], M["redcable"], M["rubber"]])
-
-
-def conduit(g, ctrl, r):
-    """Conduit d'énergie : bagues lumineuses PAR GROUPES (chenillard), colliers d'or blanc."""
-    M = g.M
-    P = g.spline(ctrl, 10)
-    P, T = g.tube(P, r, M["steel_dk"], n=10, what="conduit")
-    R = g.resample(P, 0.075)
-    T2, _ = g.frames(R)
-    for i in range(1, len(R) - 1):
-        if i % 4 in (1, 2):
-            g.tube_shell(R[i], T2[i], r + 0.008, r * 0.5, 0.03, M["emit"], n=12, what="bague_lum")
-        elif i % 4 == 3:
-            g.tube_shell(R[i], T2[i], r + 0.016, r * 0.5, 0.03, M["pipe2"], n=12, what="collier")
-
-
-def pipe(g, ctrl, r, valve_at=None):
-    M = g.M
-    g.pipe(ctrl, r, M["trim"], fl_mat=M["pipe2"], bolt_mat=M["rivet"])
-    if valve_at is not None:
-        p, ax = valve_at
-        g.box(p, (r * 3.2, r * 3.2, r * 3.2), M["steel_dk"], "hard", what="corps_vanne")
-        P2.handwheel(g, V(p) + V(ax).normalized() * (r * 1.6 + 0.06), ax, 0.07, M)
+    PT.cable_run(g, ctrl, n, 0.022, 0.05, [M["noir_profond"], M["or_chauffe"], M["noir_profond"]])
 
 
 # ------------------------------------------------------------------------------------------------
-# Pièce du niveau 30 : 2 cellules d'énergie couronnées (témoin n30, agrandies)
+# Pièce du niveau 30 : 2 SINGULARITÉS EN CAGE
 # ------------------------------------------------------------------------------------------------
 def piece(g, c):
     for sx in (-1, 1):
         even_piece(g, sx * 1.22, Y(-2.97), sx)
-    # halo DEVANT la cellule d'énergie (rayon 0,27 t) : placé en Y(-3,1), il tombait dans la cellule, la lumière était
-    # masquée et la couche « lumière » de la pièce sortait vide (production du 23/10)
-    _halo(g, [(-1.22, Y(-3.3), 0.3), (1.22, Y(-3.3), 0.3)], 18.0)
+    _halo(g, [(-1.22, Y(-3.3), 0.4), (1.22, Y(-3.3), 0.4)], 18.0)
 
 
 def even_piece(g, x, yb, sx):
-    """CELLULE D'ÉNERGIE COURONNÉE (niveau 30 témoin, agrandie à 0,10 t²) et couronne de flèches, sur la plinthe
-    commune (caisson blindé bas à bande de danger)."""
+    """SINGULARITÉ EN CAGE : sphère d'horizon (diamètre 0,24) cernée d'un petit DISQUE segmenté blanc-or, tenue par
+    3 griffes d'or sur un socle blindé noir chaud à caisson de cellules ; plinthe commune à bande de danger."""
     M = g.M
     E = M["emit"]
     w, d = 0.62, 0.6
     PT.hull(g, x - w / 2, x + w / 2, yb - d / 2, yb + d / 2, 0.0, 0.14, ins=(0.02, 0.02, 0.02), panel=0.3,
-            mats=[M["steel_dk"]], rivet_step=0.12)
+            mats=[M["noir_chaud"], M["noir_profond"]], rivet_step=0.12)
     g.hazard([V((x - w / 2, yb - d / 2 - 0.02, 0.02)), V((x + w / 2, yb - d / 2 - 0.02, 0.02)),
               V((x + w / 2, yb - d / 2 - 0.02, 0.12)), V((x - w / 2, yb - d / 2 - 0.02, 0.12))], 6, t=0.012, skew=0.6)
-    z0 = 0.14
     P3.lamp_group(g, (x - w / 2 + 0.06, yb - d / 2 - 0.025, 0.07), (1, 0, 0), (0, -1, 0), E, M, n=2,
                   shapes=("rond", "fente"))
-    P2.power_cell(g, (x, yb, z0), 0.27, 0.66, E, M)
-    c = V((x, yb, z0 + 0.66 + 0.12))
-    for k in range(5):
-        a = TAU * k / 5 + 0.3
-        d_ = V((math.cos(a), math.sin(a), 0))
-        q = c + d_ * 0.18
-        P2.wedge(g, q - V((-d_.y, d_.x, 0)) * 0.035, q + V((-d_.y, d_.x, 0)) * 0.035, q + d_ * 0.02 + V((0, 0, 0.17)),
-                 d_ * 0.025, M["jacket"], what="fleche")
-    g.torus(c, "z", 0.2, 0.025, M["jacket"], n=36, m=8, what="couronne")
+    PT.hull(g, x - 0.22, x + 0.22, yb - 0.22, yb + 0.22, 0.14, 0.3, ins=(0.015, 0.015, 0.015), panel=0.22,
+            mats=[M["noir_chaud"], M["or_chauffe"]], rivet_step=0.1)
+    fenetre(g, (x, yb - 0.22, 0.22), (0, -1, 0), 0.14, 0.06)
+    C = V((x, yb, 0.3 + 0.24))
+    g.cyl((x, yb, 0.34), "z", 0.07, 0.08, M["noir_profond"], n=20, what="pied")
+    # petit disque segmenté (anneau noir et 16 segments blanc-or)
+    g.tube_shell(C, "z", 0.26, 0.16, 0.024, M["noir_chaud"], n=48, what="disque")
+    for i in range(16):
+        a = TAU * (i + 0.5) / 16
+        dd = V((math.cos(a), math.sin(a), 0))
+        g.box(C + dd * 0.21 + V((0, 0, 0.014)), (TAU * 0.21 / 16 * 0.75, 0.06, 0.006), E if i % 2 else M["emit2"],
+              "flat", R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="segment")
+    singularite(g, C, 0.12, k=0.8, axe="z", griffes=False)
+    for i in range(3):
+        a = TAU * i / 3 + 0.4
+        dd = V((math.cos(a), math.sin(a), 0))
+        griffe(g, [V((x, yb, 0.3)) + dd * 0.18, C + dd * 0.27 + V((0, 0, -0.08)), C + dd * 0.28 + V((0, 0, 0.06)),
+                   C + dd * 0.16 + V((0, 0, 0.13))], 0.06, 0.04)
 
 
 # ------------------------------------------------------------------------------------------------
-# Arme (E1) : faisceau lourd ciselé, frein en couronne
+# Arme (E1) : canon effilé lourd à MICRO-SINGULARITÉ
 # ------------------------------------------------------------------------------------------------
 def arme(g, c, x, sx):
-    """Canon de flanc (après le bras de tourillon du kit) : culasse, moteur arrière, arme d'époque, masque de canon,
-    alimentation, voyants d'état, chapeau de nacre et petite couronne sur la culasse."""
+    """Canon de flanc (après le bras de tourillon du kit) : culasse noir chaud à griffes d'or, moteur arrière, canon de
+    l'époque, masque de canon, CELLULES D'ANNIHILATION à l'alimentation, voyants."""
     M = g.M
     H = c.H
     zg = H["zg"]
@@ -609,100 +567,42 @@ def arme(g, c, x, sx):
     corps.moteur_lignee(g, (x, y0 - 0.2 - hr * 0.3, zg), hr * 0.78, 0.3 + hr * 0.6, moyeu="ring")
     _gun15(g, x, y1, zg, H["L"], H["nb"], H["rb"], H["rr"])
     PT.hull(g, x - wr * 0.72, x + wr * 0.72, y1 - 0.04, y1 + 0.07, zg - hr * 1.3, zg + hr * 1.35,
-            ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M["trim"], M["orblanc"]], rivet_step=0.11)
+            ins=(0.02, 0.01, 0.03), panel=0.2, mats=[M["noir_chaud"], M["or_chauffe"]], rivet_step=0.11)
     PT.lamp(g, (x, y0 + 0.12, zg + hr + 0.03), (0, 0.4, 1), 0.03, M["emit"])
     xo = x + sx * (wr / 2 + 0.05)
     feed(g, x, sx, H, xo)
-    for f in (0.28, 0.5):
-        g.box((x - sx * wr * 0.22, y0 + (y1 - y0) * f, zg + hr + 0.012), (0.03, (y1 - y0) * 0.12, 0.012), M["emit"],
-              "flat", what="etat")
-    # chapeau de nacre, liseré d'or blanc et petite couronne de 5 flèches sur la culasse
     zt = zg + hr + 0.012
-    g.box((x, (y0 + y1) / 2, zt + 0.018), (wr * 0.7, (y1 - y0) * 0.5, 0.025), M["trim"], "hard", what="nacre")
-    g.box((x, (y0 + y1) / 2, zt + 0.034), (wr * 0.74, 0.02, 0.012), M["jacket"], "hard", what="liseré")
-    cc = V((x, (y0 + y1) / 2 + 0.12, zt + 0.03))
-    for kk in range(5):
-        a = TAU * kk / 5
-        d = V((math.cos(a), math.sin(a), 0))
-        P2.wedge(g, cc + d * 0.07, cc + d * 0.08 + V((-d.y, d.x, 0)) * 0.03, cc + d * 0.075 + V((0, 0, 0.11)),
-                 V((-d.y, d.x, 0)) * 0.02, M["jacket"], what="fleche")
-    g.cyl(cc + V((0, 0, 0.01)), "z", 0.07, 0.02, M["jacket"], n=20, what="socle_couronne")
+    g.box((x, (y0 + y1) / 2, zt + 0.012), (wr * 0.76, (y1 - y0) * 0.5, 0.024), M["noir_profond"], "hard", what="plaque")
+    for f in (0.3, 0.7):
+        g.box((x, y0 + (y1 - y0) * f, zt + 0.028), (wr * 0.8, 0.03, 0.012), M["or_chauffe"], "hard", what="liseré")
+    for s in (-1, 1):
+        q = V((x + s * wr * 0.5, y1 - 0.12, zg + hr * 0.2))
+        griffe(g, [q, q + V((s * 0.04, 0.0, hr * 0.85)), q + V((-s * 0.06, 0.02, hr * 1.05))], 0.06, 0.04)
 
 
 def _gun15(g, x, y0, z, L, nb, rb, rr):
-    """Quatrième passe : faisceau LOURD de la lignée (rosette de 6 gros tubes, visible sur toute la moitié avant),
-    JAQUETTE CISELÉE d'or blanc patiné et de nacre sur la moitié arrière au plus (corps.JAQUETTE_MAX), colliers d'or
-    blanc ; frein EN COURONNE : bague d'or blanc dont la face avant porte la ROSACE éclairée, 5 grandes flèches évasées
-    vers l'avant et vers l'extérieur (pose N : une couronne de pointes plus large que le faisceau, jamais un chapeau
-    rond), pierres lumineuses et PARTICULES à la pointe des flèches."""
+    """Canon effilé LOURD du kit (bague et manchon d'or chauffé, pointes presque blanches) + MICRO-SINGULARITÉ à la
+    culasse : sphère d'horizon noir PLUS LARGE que le faisceau, anneau de photons qui la cerne, 3 griffes d'or ; elle
+    s'AJOUTE à la rosette (règle d'or 1). En pose N : une boule noire cerclée de lumière au pied de chaque faisceau."""
     M = g.M
-    E = M["emit"]
     k = F.k_arme(rb, rr)
-    rb2, rr2 = rb * 1.12, rr * 1.04
-    R0 = rr2 + rb2
-    # passe 5, ronde 4 (pose N lue « cheminée » à la ronde 3 : 5 colliers d'or sur la moitié avant et un frein en
-    # couronne plus large que le faisceau se lisaient comme les viroles et le chapeau d'une cheminée) : CANON EFFILÉ du
-    # kit (faisceau qui converge, manchon d'or à fentes reculé, dernier cinquième nu, pointes blanc doré) ; la jaquette
-    # ciselée reste à l'arrière (0,38 L) et la COURONNE DE FLÈCHES passe au bout de la jaquette (épaulement), où elle
-    # signe la Légende sans coiffer la bouche
-    corps.canon_effile(g, x, y0, z, L, nb, rb2, rr2, jaquette=0.0, bague_mat="ring", conv=0.62, frein=(0.62, 0.78))
-    rs = R0 + 0.028
-    Ls = 0.38 * L
-    # jaquette en 7 VIROLES ciselées séparées par des joncs de nacre en retrait : le reflet
-    # de l'or blanc se lit en tronçons, comme une jaquette d'orfèvre, et non en une seule barre
-    g.cyl((x, y0 + Ls / 2, z), "y", rs - 0.006, Ls, M["trim"], n=32, what="ame_jaquette")
-    nv = 7
-    for i in range(nv):
-        ya_, yb_ = y0 + Ls * i / nv + 0.014, y0 + Ls * (i + 1) / nv - 0.014
-        g.cyl((x, (ya_ + yb_) / 2, z), "y", rs, yb_ - ya_, M["jacket"], n=32, style="smooth", what="virole")
-    for f in (0.03, 0.97):
-        g.tube_shell((x, y0 + f * Ls, z), "y", rs + 0.028, rs - 0.01, 0.065, M["ring"], n=32, what="bague")
-    if k >= 0.9:
-        for f in (0.32, 0.66):
-            g.tube_shell((x, y0 + f * Ls, z), "y", rs + 0.03, rs - 0.01, 0.1, M["trim"], n=32, what="bande_nacre")
-            for d in F.ring_dirs(10, 0.0, -0.5):
-                R = F.Rax(d) @ Matrix.Rotation(math.pi / 4, 3, "Z")
-                for dy in (-0.035, 0.035):
-                    g.box(V((x, y0 + f * Ls + dy, z)) + d * (rs + 0.03), (0.04, 0.036, 0.012), M["jacket"], "hard",
-                          R=R, what="ciselure")
-        for i in range(3):
-            yy = y0 + Ls * (0.15 + 0.34 * i) + 0.02
-            for d in F.ring_dirs(9, 0.35 * (i % 2), -0.45):
-                R = F.Rax(d) @ Matrix.Rotation(math.pi / 4, 3, "Z")
-                g.box(V((x, yy, z)) + d * (rs + 0.004), (0.05, 0.05, 0.014), M["trim"], "hard", R=R, what="ciselure")
-                g.box(V((x, yy, z)) + d * (rs + 0.012), (0.024, 0.024, 0.008), M["jacket"], "hard", R=R,
-                      what="ciselure")
-    # COURONNE au bout de la jaquette (épaulement, 0,38 L) : bague d'or, filet blanc doré, 5 flèches évasées vers
-    # l'avant et l'extérieur (plus courtes qu'à la bouche de la ronde 3)
-    yb = y0 + Ls
-    lc = 0.1 * k
-    g.cyl((x, yb + lc / 2, z), "y", rs + 0.04, lc, M["ring"], n=36, what="couronne")
-    g.tube_shell((x, yb + lc * 0.5, z), "y", rs + 0.052, rs + 0.03, lc * 0.4, E, n=36, what="lisere_lum")
-    k = k * 0.8
-    for d in F.ring_dirs(5, math.pi / 2 + math.pi / 5, -0.95):
-        R = F.Rax(d)
-        t = R.col[0] * 0.034 * k
-        c_ = V((x, 0, z))
-        pa = c_ + d * (rs - 0.01) + V((0, yb - 0.06, 0))
-        pb = c_ + d * (rs + 0.13 * k) + V((0, yb + 0.02, 0))
-        pt = c_ + d * (rs + 0.3 * k) + V((0, yb + 0.34 * k, 0))
-        pi_ = c_ + d * (rs + 0.04) + V((0, yb + 0.16 * k, 0))
-        P2.wedge(g, pa, pb, pt, t * 2.2, M["ring"], what="fleche")
-        P2.wedge(g, pa, pt, pi_, t * 2.2, M["ring"], what="fleche")
-        P2.wedge(g, c_ + d * (rs - 0.02) + V((0, yb, 0)), c_ + d * (rs + 0.05 * k) + V((0, yb, 0)),
-                 c_ + d * (rs + 0.07 * k) + V((0, yb + 0.22 * k, 0)), t * 1.3, M["trim"], what="fleche")
-        g.sphere(c_ + d * (rs + 0.3 * k) + V((0, yb + 0.36 * k, 0)), 0.02 * k, E, n=10, m=6, what="pierre")
-        if k >= 0.9:
-            g.sphere(c_ + d * (rs + 0.36 * k) + V((0, yb + 0.44 * k, 0)), 0.012, E, n=8, m=5, what="particule")
-            g.cyl(c_ + d * (rs + 0.33 * k) + V((0, yb + 0.4 * k, 0)), d * 0.6 + V((0, 0.8, 0)), 0.005, 0.07,
-                  M["jacket"], n=6, what="tige")
-            g.dome(c_ + d * (rs + 0.1 * k) + V((0, yb + 0.05, 0)) + t * 0.6, R.col[0], 0.013, M["rivet"])
+    R0 = rr + rb
+    # ronde 2 : pointes ORANGE incandescent (des pointes crème se lisaient vapeur de cheminée en pose N)
+    e_, M["emit"] = M["emit"], M["emit2"]
+    try:
+        corps.canon_effile(g, x, y0, z, L, nb, rb, rr, jaquette=0.3, bague_mat="or_chauffe", conv=0.6,
+                           frein=(0.66, 0.8))
+    finally:
+        M["emit"] = e_
+    rs = R0 + 0.06 * k + 0.004
+    cy = y0 + rs * 0.85 + 0.02
+    singularite(g, (x, cy, z), rs, k=k, axe="y", griffes=True)
     return y0 + L
 
 
 def feed(g, x, sx, H, xo):
-    """Alimentation latérale : caisse (volume de la lignée) kaki et ocre, CELLULE D'ÉNERGIE à couronne lumineuse,
-    goulotte, voyants."""
+    """Alimentation latérale : caisson noir chaud (volume de la lignée), 2 CELLULES D'ANNIHILATION à fenêtres blanc-or
+    et cerclages d'or, goulotte, voyants."""
     M = g.M
     E = M["emit"]
     zg, hr, wr = H["zg"], H["hr"], H["wr"]
@@ -713,50 +613,47 @@ def feed(g, x, sx, H, xo):
     bc = (bx0 + bx1) / 2
     yb0, yb1 = y0 - 0.1, y0 - 0.1 + bl
     zb0, zb1 = zg - bh * 0.62, zg + bh * 0.42
-    PT.hull(g, bx0, bx1, yb0, yb1, zb0, zb1, ins=(0.015, 0.015, 0.015), panel=0.24, mats=[M["orblanc"], M["trim"]],
-            rivet_step=0.11)
+    PT.hull(g, bx0, bx1, yb0, yb1, zb0, zb1, ins=(0.015, 0.015, 0.015), panel=0.24,
+            mats=[M["noir_chaud"], M["or_chauffe"]], rivet_step=0.11)
     ztop = zb1 + 0.015
-    g.hazard(PT.lift([V((bx0, yb0 + bl * 0.1, zb1)), V((bx1, yb0 + bl * 0.1, zb1)), V((bx1, yb0 + bl * 0.2, zb1)),
-                      V((bx0, yb0 + bl * 0.2, zb1))], 0.012), 4, t=0.01)
-    cw = 0.12 * wr / 0.4 + 0.04
-    c = V((bc, yb0 + bl * 0.3, ztop))
-    g.cyl(c + V((0, 0, 0.08)), "z", 0.07, 0.16, M["steel_dk"], n=20, what="cellule")
-    for zz in (0.03, 0.13):
-        g.tube_shell(c + V((0, 0, zz)), "z", 0.078, 0.06, 0.02, M["jacket"], n=20, what="cerclage")
-    g.tube_shell(c + V((0, 0, 0.165)), "z", 0.055, 0.042, 0.016, E, n=20, what="couronne_lum")
-    for k in range(5):
-        a = TAU * k / 5
-        d = V((math.cos(a), math.sin(a), 0))
-        P2.wedge(g, c + d * 0.06 + V((0, 0, 0.16)), c + d * 0.07 + V((0, 0, 0.16)),
-                 c + d * 0.065 + V((0, 0, 0.23)), V((-d.y, d.x, 0)) * 0.018, M["jacket"], what="fleche")
-    P2.feed_chute(g, [(bc, yb0 + bl * 0.7, ztop + 0.005), (bc - sx * 0.05, y0 + bl * 0.65, zg + bh * 0.62),
-                      (x + sx * wr * 0.25, y0 + bl * 0.55, zg + hr + 0.06)], cw, M)
-    P3.lamp_group(g, (bc + sx * bw * 0.3, yb0 + bl * 0.08, ztop - 0.005), (0, 1, 0), (0, 0, 1),
+    for kk in range(2):
+        cc = V((bc, yb0 + bl * (0.25 + 0.3 * kk), ztop))
+        g.cyl(cc + V((0, 0, 0.08)), "z", 0.075, 0.16, M["noir_profond"], n=20, what="cellule")
+        for zz in (0.03, 0.13):
+            g.tube_shell(cc + V((0, 0, zz)), "z", 0.083, 0.065, 0.02, M["or_chauffe"], n=20, what="cerclage")
+        fenetre(g, cc + V((0, -0.076, 0.08)), (0, -1, 0), 0.05, 0.05)
+        g.tube_shell(cc + V((0, 0, 0.165)), "z", 0.058, 0.044, 0.012, E, n=20, what="couronne_lum")
+    P2.feed_chute(g, [(bc, yb0 + bl * 0.88, ztop + 0.01), (bc - sx * 0.05, y0 + bl * 0.75, zg + bh * 0.55),
+                      (x + sx * wr * 0.25, y0 + bl * 0.6, zg + hr + 0.06)], 0.12 * wr / 0.4 + 0.04, M)
+    P3.lamp_group(g, (bc + sx * bw * 0.3, yb0 + bl * 0.06, ztop - 0.005), (0, 1, 0), (0, 0, 1),
                   E, M, n=3, shapes=("rond", "carre", "fente"))
     return bc
 
 
-def dome_gun(g, H, nb, L, s=1.0):
-    """Canon de coupole sur berceau blindé (lignée _tete15), arme de l'époque, petite couronne de flèches."""
+def dome_gun(g, c, xg, L, s=1.0):
+    """Canon de coupole JUMELÉ planté dans l'horizon (corps.z_coque) : fût-pivot noir à griffes d'or, berceau blindé,
+    canon de l'époque à micro-singularité."""
     M = g.M
-    zr = H["zs"] + H["rz"] * 0.92
+    yb = -0.3 * s
+    zr = max(corps.z_coque(c, xg + xx, yy) for xx in (-0.32 * s, 0.0, 0.32 * s)
+             for yy in (yb - 0.2 * s, yb, yb + 0.3 * s, yb + 0.62 * s)) + 0.02
     zc = zr + 0.3 * s
-    PT.hull(g, -0.38 * s, 0.38 * s, -0.22 * s, 0.66 * s, zr - 0.04, zr + 0.2 * s, ins=(0.04, 0.04, 0.1),
-            panel=0.22, mats=[M["orblanc"], M["trim"]], rivet_step=0.11)
-    PT.receiver(g, 0.0, -0.22 * s, 0.66 * s, zc - 0.18 * s, zc + 0.16 * s, 0.36 * s, mats=[M[k] for k in RECV])
-    rb, rr = 0.052 * s, 0.125 * s * (1.0 if nb == 6 else 0.85)
-    _gun15(g, 0.0, 0.66 * s, zc, L, nb, rb, rr)
+    zs_ = corps.z_coque(c, xg, yb + 0.22 * s) - 0.05
+    g.cyl((xg, yb + 0.22 * s, (zs_ + zr) / 2), "z", 0.17 * s, zr - zs_, M["noir_chaud"], n=24, what="pivot")
+    for i in range(3):
+        a = TAU * i / 3 + 0.3
+        d = V((math.cos(a), math.sin(a), 0))
+        q = V((xg, yb + 0.22 * s, zs_ + 0.04)) + d * 0.17 * s
+        griffe(g, [q + d * 0.04, q + d * 0.09 + V((0, 0, (zr - zs_) * 0.6)), q + d * 0.02 + V((0, 0, zr - zs_))],
+               0.05, 0.035)
+    g.push((xg, 0.0, 0.0))
+    PT.hull(g, -0.34 * s, 0.34 * s, yb - 0.2 * s, yb + 0.62 * s, zr - 0.04, zr + 0.18 * s, ins=(0.04, 0.04, 0.08),
+            panel=0.22, mats=[M["noir_chaud"], M["or_chauffe"]], rivet_step=0.11)
+    PT.receiver(g, 0.0, yb - 0.2 * s, yb + 0.62 * s, zc - 0.16 * s, zc + 0.14 * s, 0.34 * s, mats=[M[k] for k in RECV])
+    _gun15(g, 0.0, yb + 0.62 * s, zc, L, 6, 0.052 * s, 0.125 * s)
     for sx in (-1, 1):
-        PT.piston(g, (sx * 0.26 * s, 0.3 * s, zr + 0.02), (sx * 0.32 * s, 0.6 * s, zr + 0.2 * s), 0.026)
-    P2.feed_chute(g, [(0.45 * s, -0.38 * s, zr + 0.05), (0.4 * s, -0.06 * s, zc + 0.12 * s),
-                      (0.15 * s, 0.1 * s, zc + 0.17 * s)], 0.12 * s, M)
-    # petite couronne de flèches sur le berceau
-    for k in range(5):
-        a = -0.9 + 0.45 * k
-        d = V((math.sin(a), -math.cos(a), 0))
-        c = V((0, 0.05 * s, zc + 0.16 * s)) + d * 0.2 * s
-        P2.wedge(g, c - V((-d.y, d.x, 0)) * 0.025, c + V((-d.y, d.x, 0)) * 0.025, c + V((0, 0, 0.12)),
-                 d * 0.018, M["jacket"], what="fleche")
+        PT.piston(g, (sx * 0.24 * s, yb + 0.25 * s, zr + 0.02), (sx * 0.3 * s, yb + 0.55 * s, zr + 0.18 * s), 0.024)
+    g.pop()
     return zc
 
 
@@ -764,8 +661,10 @@ def dome_gun(g, H, nb, L, s=1.0):
 # Masque et tête
 # ------------------------------------------------------------------------------------------------
 def masque(g, c):
-    corps.masque_lignee(g, c, mats=("trim", "orblanc"), fentes=((-0.42, 0.34), (0.42, 0.22)), visiere=("steel_hi", 0.13),
-                        coax=dict(fut="steel_dk", manchon="ring", manchon_y=0.28, manchon_r=0.045, manchon_L=0.16))
+    corps.masque_lignee(g, c, mats=("or_chauffe", "noir_chaud"), fentes=((-0.42, 0.34), (0.42, 0.22)),
+                        visiere=("or_chauffe", 0.13),
+                        coax=dict(fut="noir_profond", manchon="or_chauffe", manchon_y=0.28, manchon_r=0.045,
+                                  manchon_L=0.16))
 
 
 def tete(g, c):
@@ -773,111 +672,126 @@ def tete(g, c):
     E = M["emit"]
     H = c.H
     R = H["R"]
-    z0 = c.rt
-    F.slits_grouped(g, R, z0 + 0.2, 12, M["emit"])
-    F.slits_grouped(g, R, z0 + 0.36, 12, M["emit"], a0=0.3, per=(3, 2))
+    zs = H["zs"]
+    K = corps.accroche(c, "couronne")
+    r0, r1 = K["r0"], K["r1"]
+    zd0 = K["z0"] + 0.02
+    # JUPE D'HORIZON : la sphère noire descend jusqu'au disque (la jupe de la lignée est couverte)
+    g.cyl((0, 0, (zd0 + zs) / 2 + 0.01), "z", R + 0.075, zs - zd0 + 0.02, M["horizon"], n=96, what="horizon_jupe")
+    # RONDE 2 (test à l'aveugle de la ronde 1 : « il manque une silhouette propre au dernier niveau », 15 lu « or et noir,
+    # grand anneau, luxe » et confondu avec 13) : l'HORIZON devient une VRAIE SPHÈRE NOIRE, la plus haute pièce de toute
+    # la suite (rayon RS, centre sur le plan du disque, sommet vers 3,3), dessinée par l'époque PAR-DESSUS la coque du
+    # kit (qui reste dessous, cachée) ; le DISQUE DE LUMIÈRE passe par son équateur, comme Saturne ou Gargantua : la moitié
+    # avant du disque barre la sphère, la moitié arrière est mangée par elle. Les canons de coupole sortent de sa face
+    # avant (plus de tourelleau ni de viseur visibles : ils restent sous la sphère).
+    zr = H["zg"] + H["hr"] + 0.01
+    g.sphere((0, 0, zr), RS, M["horizon"], n=72, m=36, what="horizon")
+    # DISQUE D'ACCRÉTION élargi (0,54 au lieu de 0,26) : plateau de noir chaud continu depuis l'intérieur de la sphère,
+    # 4 bandes de 64 segments à joints noirs, du blanc pur au bord de l'horizon jusqu'à l'orange au bord extérieur, puis
+    # une bande de poussière (un segment sur deux) ; chaque segment est VRILLÉ de 0,35 rad : le disque tourne et
+    # s'enroule (spirale) vers l'horizon ; bord d'or vif. Il reste dans le rayon libre entre les culasses (1,58).
+    rin = RS + 0.012
+    rout = 1.55
+    g.tube_shell((0, 0, zr), "z", rout, RS * 0.9, 0.04, M["noir_chaud"], n=160, what="disque")
+    g.tube_shell((0, 0, zr), "z", rout + 0.024, rout - 0.004, 0.05, M["or_vif"], n=160, what="bord_disque")
+    # joints décalés d'une bande à l'autre (0,18 de segment) : ils dessinent des BRAS EN SPIRALE, pas un damier (aperçu
+    # r2a : des phases alternées faisaient un damier blanc et noir, lu « luxe »)
+    bandes = ((E, 0.0, 1), (E, 0.18, 1), (M["emit_soft"], 0.36, 1), (M["emit2"], 0.54, 1), (M["emit2"], 0.72, 2))
+    nb_ = len(bandes)
+    wb = (rout - rin - 0.03 - 0.012 * nb_) / nb_
+    for j, (mat, ph, pas) in enumerate(bandes):
+        rm = rin + 0.012 + j * (wb + 0.012) + wb / 2
+        n = 64
+        for i in range(0, n, pas):
+            a = TAU * (i + ph) / n
+            dd = V((math.cos(a), math.sin(a), 0))
+            tg = V((-dd.y, dd.x, 0))
+            # vrille : la longueur du segment penche vers le centre dans le sens du disque
+            tv = (tg * math.cos(0.35) - dd * math.sin(0.35)).normalized()
+            nv = V((-tv.y, tv.x, 0))
+            g.box(dd * rm + V((0, 0, zr + 0.022)), (TAU * rm / n * (0.9 if pas == 1 else 0.6), wb * (0.86 if pas == 1 else 0.5), 0.006), mat,
+                  "flat", R=Matrix((tv, nv, V((0, 0, 1)))).transposed(), what="segment_disque")
+    # ANNEAU DE PHOTONS : tube lumineux fin qui cerne l'horizon au ras du disque, et un second, plus fin, au-dessus
+    g.torus((0, 0, zr + 0.02), "z", RS + 0.006, 0.02, E, n=128, m=8, what="anneau_photons")
+    zp2 = zr + RS * 0.38
+    g.torus((0, 0, zp2), "z", math.sqrt(max(0.0, RS * RS - (zp2 - zr) ** 2)) + 0.004, 0.008, M["emit_soft"], n=128,
+            m=6, what="anneau_photons2")
+    rx = RS
+    # LE DISQUE (place « couronne ») : anneau plat de noir chaud, 3 bandes de segments lumineux à joints noirs
+    # (lumière en orifices, jamais une plage), bord d'or, 8 bras radiaux qui le tiennent à la jupe
+    rd0, rd1 = R + 0.03, r1 + 0.02
+    zd = zd0 + 0.03
+    g.tube_shell((0, 0, zd), "z", rd1, rd0, 0.05, M["noir_chaud"], n=96, what="disque")
+    g.tube_shell((0, 0, zd), "z", rd1 + 0.022, rd1 - 0.004, 0.06, M["or_chauffe"], n=96, what="bord_disque")
+    bandes = ((R + 0.09, R + 0.16, E, 24, 0.0), (R + 0.185, R + 0.255, M["emit_soft"], 24, 0.35),
+              (R + 0.28, rd1 - 0.03, M["emit2"], 24, 0.7))
+    for (ra, rb_, mat, n, ph) in bandes:
+        rm = (ra + rb_) / 2
+        for i in range(n):
+            a = TAU * (i + ph) / n
+            dd = V((math.cos(a), math.sin(a), 0))
+            g.box(dd * rm + V((0, 0, zd + 0.027)), (TAU * rm / n * 0.72, rb_ - ra, 0.006), mat, "flat",
+                  R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="segment_disque")
+    for i in range(8):
+        a = TAU * (i + 0.5) / 8
+        dd = V((math.cos(a), math.sin(a), 0))
+        g.box(dd * (R + 0.01) + V((0, 0, zd - 0.045)), (0.06, 0.12, 0.05), M["noir_chaud"], "hard",
+              R=Matrix((V((-dd.y, dd.x, 0)), dd, V((0, 0, 1)))).transposed(), what="bras_disque")
+        g.dome(dd * (R + 0.04) + V((0, 0, zd - 0.02)), (0, 0, 1), 0.014, M["rivet"])
+    # LA LAISSE : 3 GRIFFES d'or chauffé à 120° (aucune devant le masque avant), qui sortent de la sphère sous le disque,
+    # l'enjambent et se referment sur son bord extérieur
+    rx2 = math.sqrt(RS * RS - 0.28 ** 2)
+    for th in (math.radians(30), math.radians(150), math.radians(270)):
+        dd = V((math.cos(th), math.sin(th), 0))
+        pe = V((rx2 * 0.97 * math.cos(th), rx2 * 0.97 * math.sin(th), zr - 0.28))
+        pts = [pe, pe + dd * 0.12 + V((0, 0, 0.1)), dd * (rout - 0.1) + V((0, 0, zr + 0.14)),
+               dd * (rout + 0.06) + V((0, 0, zr + 0.09)), dd * (rout + 0.07) + V((0, 0, zr - 0.02)),
+               dd * (rout + 0.01) + V((0, 0, zr - 0.06))]
+        griffe(g, pts, 0.12, 0.07, mat=M["or_vif"])
     for sx in (-1, 1):
         xe = sx * (H["gx"] - H["wr"] * 0.5 - 0.08)
         ye = H["recv"][0] + 0.35
-        cc = [(sx * 0.3, -R - 0.3, H["zs"] + 0.25), (sx * R * 0.62, -R * 0.42, H["zs"] + H["rz"] * 0.55),
-              (xe, ye, H["zg"] + H["hr"] * 0.6)]
+        cc = [(sx * 0.3, -R - 0.3, zs + 0.15), (sx * R * 0.62, -R * 0.42, zs + 0.32), (xe, ye, H["zg"] + H["hr"] * 0.6)]
         cables(g, cc)
-        conduit(g, [(sx * 0.6, -R - 0.3, H["zs"] + 0.2), (sx * R * 0.72, -R * 0.5, H["zs"] + H["rz"] * 0.4),
-                    (xe, ye + 0.2, H["zg"] + H["hr"] * 0.55)], 0.04)
-    # blindage à plaques multiples : deux rangées de plaques rapportées, liserés d'or blanc
-    row1 = (0.35, 0.75, 1.15, 1.6, 2.0, 2.4, 2.8, -0.35, -0.75, -2.4, -2.8)
-    ph1, w1, h1 = (0.3, 0.32, 0.26)
-    for i, th in enumerate(row1):
-        mat = M["trim"] if i % 3 == 1 else (M["trim"] if i % 2 else M["steel_dk"])
-        P2.applique(g, c.Pf, c.Nf, th, ph1, w1, h1, mat, M)
-    for th in (0.6, 1.25, 1.9, 2.55):
-        P2.applique(g, c.Pf, c.Nf, th, 0.75, 0.26, 0.22, M["trim"], M)
-        p = c.Pf(th, 0.75, 1.0)
-        n = c.Nf(th, 0.75)
-        g.push_frame(p + n * 0.066, n, V((-math.sin(th), math.cos(th), 0)))
-        g.box((0, 0, 0), (0.27, 0.012, 0.01), M["jacket"], "hard", what="lisere")
-        g.box((0, 0.105, 0), (0.27, 0.012, 0.01), M["jacket"], "hard", what="lisere")
-        g.pop()
-    # DEUX canons de coupole jumelés (14 n'en a qu'un) : plus de canons, plus longs
-    dx = 0.64
+        conduit_or(g, [(sx * 0.6, -R - 0.3, zs + 0.1), (sx * R * 0.8, -R * 0.5, zs + 0.22),
+                       (xe, ye + 0.2, H["zg"] + H["hr"] * 0.55)], 0.034)
+    # DEUX canons de coupole jumelés qui SORTENT DE LA FACE AVANT de l'horizon, au-dessus du disque (ronde 2)
     for sx in (-1, 1):
-        g.push((sx * dx, 0.0, 0.0))
-        zc = dome_gun(g, H, 6, 2.3, 0.9)
-        g.pop()
-    # affût jumelé : entretoise d'or blanc entre les deux berceaux (les canons sont assez écartés pour qu'aucun jour ne
-    # s'enferme entre eux : à 0,42 et 0,33 t d'écart, les flèches des freins fermaient un jour de 300 à 570 px hr)
-    g.box((0.0, 0.25, zc - 0.12), (2 * dx - 0.5, 0.3, 0.08), M["jacket"], "hard", what="entretoise")
+        lance(g, zr, sx * 0.4, 2.3, 0.9)
+    # nacelle : 2 cellules d'annihilation à fenêtres blanc-or
+    bx, yb0, yb1 = c.nac[:3]
+    znac = zs + H["rz"] * 0.42
+    for xx in (-0.2, 0.2):
+        cc = V((xx, yb0 + 0.25, znac))
+        g.cyl(cc + V((0, 0, 0.09)), "z", 0.08, 0.18, M["noir_profond"], n=20, what="cellule")
+        for zz in (0.03, 0.15):
+            g.tube_shell(cc + V((0, 0, zz)), "z", 0.088, 0.07, 0.022, M["or_chauffe"], n=20, what="cerclage")
+        fenetre(g, cc + V((0, -0.081, 0.09)), (0, -1, 0), 0.05, 0.06)
+    PT.capacitors(g, (0.0, -R - 0.14, zs + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit2"])
+    _halo(g, [(0.0, -R - 0.6, zd + 0.1)], 14.0)
 
-    # sommet de la tête : GRANDE COURONNE ROYALE d'or blanc. Passe 5, ronde 5 : elle quitte la colonne arrière et se
-    # POSE SUR LA POINTE DU BULBE (forme_coupole, HABILLAGE) : la calotte de nacre coiffe la pointe (la flèche du bulbe
-    # s'y noie), rien ne flotte ; bandeau, 14 fleurons en flèche alternés, globe, flèche sommitale, pierres, particules
-    # (premier jet r5a : couronne de rayon 0,84 ; vue de dessus, sa calotte couvrait tout le bulbe, qu'on ne voyait plus,
-    # et ses fleurons enfermaient du sol en pose N : trou de 42 px, ÉCHEC de rendre.py) : couronne ramenée à 0,48, posée
-    # sur la pointe : le bulbe d'or se voit en entier, la couronne le coiffe comme un joyau
-    yc = 0.0
-    zr = corps.z_coque(c, 0.0, 0.0) + 0.1
-    rc = 0.48
-    crown(g, (0, yc, zr), rc, n=10, h=0.44, gems_all=True)
-    # passe 5, ronde 1 : la calotte de VELOURS ROUGE (lue « dôme rouge » par les juges et les lecteurs) devient une
-    # COURONNE AJOURÉE d'or blanc et de nacre : calotte de nacre claire, 8 ARCHES d'or blanc de la base au globe, et
-    # entre deux arches une JOUR DE LUMIÈRE blanc doré (fente lumineuse fine sur la moitié basse : la couronne paraît
-    # ajourée et éclairée de l'intérieur, sans trou réel, donc sans jour enfermé)
-    cz = zr + 0.02
-    g.sphere((0.0, yc, cz), rc * 1.0, M["trim"], n=32, m=12, scale=(1, 1, 0.36), what="calotte")
-    g.torus((0.0, yc, zr + 0.17), "z", rc * 0.74, 0.024, M["jacket"], n=40, m=6, what="cerclage")
 
-    def _ell(t, a, off):
-        p = V((rc * math.cos(t) * math.cos(a), yc + rc * math.cos(t) * math.sin(a), cz + 0.36 * rc * math.sin(t)))
-        n_ = V((math.cos(t) * math.cos(a), math.cos(t) * math.sin(a), math.sin(t) / 0.36)).normalized()
-        return p + n_ * off, n_
+def lance(g, zr, xg, L, s):
+    """Canon de coupole de la ronde 2 : sa culasse est ENFONCÉE dans la face avant de l'horizon (seule la moitié avant
+    en sort), collier de 3 griffes d'or vif au ras de la sphère, canon de l'époque à micro-singularité. Rien ne flotte :
+    la culasse traverse la surface de la sphère."""
+    M = g.M
+    zc = zr + 0.4 * s
+    rr_ = math.sqrt(max(0.0, RS * RS - (zc - zr) ** 2 - xg * xg))
+    ys = rr_                                   # point de la surface de la sphère devant le canon
+    y0, y1 = ys - 0.38 * s, ys + 0.22 * s
+    PT.receiver(g, xg, y0, y1, zc - 0.15 * s, zc + 0.13 * s, 0.3 * s, mats=[M[k] for k in RECV])
+    for sxx in (-1, 1):
+        g.box((xg + sxx * 0.155 * s, ys + 0.1 * s, zc), (0.02, 0.06, 0.2 * s), M["or_chauffe"], "hard", what="bande")
+    _gun15(g, xg, y1, zc, L, 6, 0.05 * s, 0.12 * s)
+    for i in range(3):
+        a = TAU * i / 3 + 0.5
+        d = V((math.cos(a), 0.0, math.sin(a)))
+        q = V((xg, ys - 0.02, zc)) + d * 0.2 * s
+        griffe(g, [q - V((0, 0.05, 0)), q + V((0, 0.08, 0)) + d * 0.05, q + V((0, 0.16, 0)) - d * 0.02],
+               0.05, 0.035, mat=M["or_vif"])
 
-    na, ns = 8, 6
-    for kk in range(na):
-        a = TAU * (kk + 0.5) / na
-        for i in range(ns):
-            t0, t1 = 0.06 + 1.3 * i / ns, 0.06 + 1.3 * (i + 1) / ns
-            p0, _ = _ell(t0, a, 0.014)
-            p1, _ = _ell(t1, a, 0.014)
-            pm, nm = _ell((t0 + t1) / 2, a, 0.014)
-            tg = (p1 - p0).normalized()
-            sd = nm.cross(tg).normalized()
-            Rm = Matrix((tg, sd, tg.cross(sd))).transposed()
-            g.box(pm, ((p1 - p0).length + 0.012, 0.075, 0.03), M["jacket"], "hard", R=Rm, what="arche_or")
-        # jour de lumière entre deux arches (moitié basse de la calotte)
-        a2 = a + TAU / (2 * na)
-        for i in range(3):
-            t0, t1 = 0.12 + 0.2 * i, 0.12 + 0.2 * (i + 1) - 0.05
-            p0, _ = _ell(t0, a2, 0.006)
-            p1, _ = _ell(t1, a2, 0.006)
-            pm, nm = _ell((t0 + t1) / 2, a2, 0.006)
-            tg = (p1 - p0).normalized()
-            sd = nm.cross(tg).normalized()
-            Rm = Matrix((tg, sd, tg.cross(sd))).transposed()
-            g.box(pm, ((p1 - p0).length, 0.03, 0.008), E, "flat", R=Rm, what="jour_lum")
-        pg, ng_ = _ell(0.95, a2, 0.02)
-        g.sphere(pg, 0.022, E, n=10, m=6, what="pierre")
-    g.sphere((0.0, yc, zr + rc * 0.36 + 0.1), 0.1, M["jacket"], n=20, m=10, what="globe")
-    g.torus((0.0, yc, zr + rc * 0.36 + 0.1), "z", 0.1, 0.014, M["ring"], n=24, m=6, what="cerclage")
-    q = V((0.0, yc, zr + rc * 0.36 + 0.18))
-    P2.wedge(g, q - V((0.05, 0, 0)), q + V((0.05, 0, 0)), q + V((0, 0, 0.3)), V((0, 0.04, 0)), M["jacket"],
-             what="fleche")
-    P2.wedge(g, q - V((0, 0.05, 0)), q + V((0, 0.05, 0)), q + V((0, 0, 0.24)), V((0.04, 0, 0)), M["jacket"],
-             what="fleche")
-    g.sphere(q + V((0, 0, 0.32)), 0.028, E, n=10, m=6, what="pierre")
-    g.cyl(q + V((0, 0, 0.41)), "z", 0.005, 0.12, M["jacket"], n=6, what="tige")
-    g.sphere(q + V((0, 0, 0.48)), 0.016, E, n=8, m=5, what="particule")
-    PT.capacitors(g, (0.0, -R - 0.14, H["zs"] + H["rz"] * 0.42), 4, 1, 0.1, 0.22, M["emit"])
-    # ronde 5 : le viseur suit la coupole de forme (même enfoncement de 0,18 qu'au dôme de la lignée)
-    xs_, ys_ = -R * 0.64, R * 0.3
-    PT.sight(g, (xs_, ys_, corps.z_coque(c, xs_, ys_) - 0.18), 0.26, 0.26, 0.15, M["emit"], lenses=2)
 
-# ------------------------------------------------------------------------------------------------
-# Passe 5, ronde 1 (consigne du Directeur Créatif du 23/10 : d'un âge à l'autre, TOUT le bâtiment change, comme deux
-# évolutions d'une défense de Clash of Clans) : ce que l'époque dessine (socle, pièce paire, arme, tête, masque) est
-# posé dans la palette HABILLÉE de la lignée (corps.habille, réentrant) ; les organes d'époque qui lisent l'olive,
-# l'ocre, l'acier sombre ou les rivets prennent ainsi la matière de l'âge, comme le corps. Les tubes (M["gun"]) et les
-# matières propres de l'époque ne changent pas.
-# ------------------------------------------------------------------------------------------------
 def _dans_habillage(f):
     def w(g, c, *a, **k):
         with corps.habille(g, c):
