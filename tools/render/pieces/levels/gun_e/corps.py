@@ -1259,9 +1259,56 @@ def bouchon_arriere(g, c):
     x_out = H["gx"] - H["wr"] * 0.5        # face intérieure de la culasse
     z0, z1 = zs - 0.2, ztop - 0.02
     y0, y1 = yb0 + 0.02, y_bras + 0.04
+    frac = getattr(c, "bouchon_frac", 0.0)
+    if frac:
+        # LOT A3 (D-10) : rampe hors de d32 (piece.bouchon_fraction) : la boîte garde son avant (côté bras) et perd la
+        # part frac de sa profondeur côté arrière de la nacelle. frac = 0 (d32) : boîte d'A2 inchangée (code ci-dessous).
+        y0 = y0 + frac * (y1 - y0)
     for sx in (-1, 1):
         g.box((sx * (x_in + x_out) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (x_out - x_in, y1 - y0, z1 - z0), M["seam"],
               "flat", what="bouchon_arriere")
+
+
+def bouchon_cadre(c):
+    """Boîte du bouchon arrière d'A2 (x_in, x_out, y0, y1, z0, z1), mêmes formules que bouchon_arriere."""
+    H = c.H
+    zs = H["zs"]
+    bx, yb0, yb1, ztop, yc = c.nac
+    y_bras = H["recv"][0] - 0.34
+    x_in = bx * 0.8
+    x_out = H["gx"] - H["wr"] * 0.5
+    return x_in, x_out, yb0 + 0.02, y_bras + 0.04, zs - 0.2, ztop - 0.02
+
+
+def bouchon_forme(g, c, forme):
+    """ESSAIS de la décision D-10 (lot A3, masques seulement : masques_blender.py, variable FO_BOUCHON_FORME) : une
+    sous-boîte de la boîte d'A2 donnée en fractions « xf0,xf1,yf0,yf1,zf0,zf1 » (0 = x_in, y0 = arrière de la nacelle,
+    z0 = bas ; 1 = x_out, y1 = arrière du bras, z1 = haut). Jamais appelée par la production."""
+    M = g.M
+    x_in, x_out, y0, y1, z0, z1 = bouchon_cadre(c)
+    if forme.startswith("diag"):
+        # « diag,t[,zh] » : plaque d'épaisseur t (tuiles) dans le plan qui joint l'arête arrière-haute (y0, z0 + zh ×
+        # (z1 − z0)) à l'arête avant-basse (y1, z0) de la boîte : tout rayon qui entre par le dessus ou l'avant et
+        # ressort par l'arrière ou le dessous la traverse.
+        p = forme.split(",")
+        t = float(p[1])
+        zt = z0 + (float(p[2]) if len(p) > 2 else 1.0) * (z1 - z0)
+        dy, dz = y1 - y0, z0 - zt
+        n = math.hypot(dy, dz)
+        ny, nz = -dz / n * t, dy / n * t
+        for sx in (-1, 1):
+            xa, xb = sx * x_in, sx * x_out
+            bas = [(xa, y0 - ny, zt - nz), (xb, y0 - ny, zt - nz), (xb, y1 - ny, z0 - nz), (xa, y1 - ny, z0 - nz)]
+            haut = [(xa, y0, zt), (xb, y0, zt), (xb, y1, z0), (xa, y1, z0)]
+            g.hexa(bas + haut, M["seam"], "flat", what="bouchon_arriere")
+        return
+    f = [float(v) for v in forme.split(",")]
+    xa, xb = x_in + f[0] * (x_out - x_in), x_in + f[1] * (x_out - x_in)
+    ya, yb = y0 + f[2] * (y1 - y0), y0 + f[3] * (y1 - y0)
+    za, zb = z0 + f[4] * (z1 - z0), z0 + f[5] * (z1 - z0)
+    for sx in (-1, 1):
+        g.box((sx * (xa + xb) / 2, (ya + yb) / 2, (za + zb) / 2), (xb - xa, yb - ya, zb - za), M["seam"], "flat",
+              what="bouchon_arriere")
 
 
 # ------------------------------------------------------------------------------------------------

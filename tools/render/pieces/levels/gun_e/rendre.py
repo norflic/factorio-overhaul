@@ -4,6 +4,7 @@
         [--only e02-socle,…] | [--epochs 2,3 --parts socle,piece,tete-E,tete-N] | [--kit 2,5]
         [--per 4] [--post-only] [--keep-npy] [--corps A|B] [--apercu] [--sessions 1|2] [--habillage NOM]
         [--dirs rose|N,NE,…|d00,…]     (dégel D-9, lot A1 : têtes tournées eNN-tete-dKK, d00 = nord, sens horaire)
+        [--samples-passes shadow=32]   (décision D-7, lot A3 : échantillons propres à une passe ; spec.json le dit)
     py -3.9 tools/render/pieces/levels/gun_e/rendre.py --ronde 2,5,9 --out DIR [--corps A|B] [--sessions 2]
 
 RONDE DE LECTURE (passe 5) : --ronde EPOQUES rend, en APERÇU (32 échantillons, --apercu), exactement ce qu'il faut
@@ -119,6 +120,8 @@ def post(name, cache, out_root):
             "quick": info.get("quick"), "canvas": info["canvas"], "night_only": meta["nuit"],
             "sous_vanilla": meta["sous_vanilla"], "kit": "gun_e", "corps": info.get("corps"),
             "apercu": info.get("apercu"), "habillage": info.get("habillage"), "layers": {}}
+    if info.get("samples_passes"):
+        spec["samples_passes"] = info["samples_passes"]     # D-7 (lot A3) : échantillons propres à une passe
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue
@@ -149,10 +152,15 @@ def post(name, cache, out_root):
 
 
 def session(names, a):
-    cmd = [sys.executable, LOCK, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1",
+    # garde de disque du verrou (lot A3) : refus (code 4) s'il reste moins de 1 Go libre sur le disque du cache ou de la
+    # sortie (FO_RENDER_MIN_LIBRE_GO pour un autre seuil)
+    cmd = [sys.executable, LOCK, "--disque", a.cache, "--disque", a.out, "--", BLENDER, "-b", "--factory-startup",
+           "-noaudio", "--python-exit-code", "1",
            "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache, "--samples", str(a.samples)]
     if a.quick:
         cmd.append("--quick")
+    if a.samples_passes:
+        cmd += ["--samples-passes", a.samples_passes]
     elif a.apercu:
         cmd.append("--apercu")
     t0 = time.time()
@@ -182,6 +190,7 @@ def session(names, a):
         hist = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else []
         hist.append({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "names": names, "samples": a.samples,
                      "quick": a.quick, "apercu": a.apercu, "corps": a.corps or "corps_choix.py",
+                     "samples_passes": a.samples_passes or None,
                      "habillage": a.habillage or None,
                      "total_s": round(dt, 1), "attente_verrou_et_demarrage_s": round(t_lock or 0, 1), "code": rc})
         with open(tj, "w", encoding="utf-8") as f:
@@ -242,6 +251,9 @@ def main():
                                                "d00…d63 (d00 = nord, sens horaire) ; ex. --parts \"\" --dirs rose")
     ap.add_argument("--kit", default="", help="tailles du témoin du kit (lignée seule), ex. 2,5")
     ap.add_argument("--samples", type=int, default=128)
+    ap.add_argument("--samples-passes", default="",
+                    help="décision D-7 (lot A3) : échantillons propres à une passe, ex. « shadow=32 » (E66) ; les autres "
+                         "passes gardent --samples ; vide (défaut) : rendu inchangé")
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--post-only", action="store_true")
     ap.add_argument("--keep-npy", action="store_true", help="garder les passes brutes .npy après le post-traitement")

@@ -8,6 +8,8 @@ conversion en .npy repris de V3 phase 1, render_batch.py, puis des plages de la 
   socle et pièce : main, ao, shadow, glow, light (halo V0b : LIGHT_HOLDOUT vrai, pièce découpée) ;
   tête           : main, shadow, glow (ni liseré de contact ni halo : la flaque est portée par le socle).
 --quick : passes main, glow et shadow seulement (essais de forme et de mesure).
+--samples-passes shadow=32 (décision D-7, lot A3) : échantillons propres à une passe (les autres gardent --samples) ;
+render.json le dit (« samples_passes »). Sans l'option, rien ne change (preuve d'identité : fo-logs/2026-10-24_A3/d7).
 --apercu (passe 5, rondes de lecture) : toutes les passes de JOUR (socle et pièce : main, ao, shadow, glow ; tête :
 main, shadow, glow), sans la passe light (halo de nuit) : l'image de jour est celle d'un rendu complet.
 render.json dit la variante de corps utilisée (« corps » : A ou B, kit.corps_choisi) et l'habillage d'essai du
@@ -74,8 +76,33 @@ def main():
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--apercu", action="store_true")
+    ap.add_argument("--samples-passes", default="",
+                    help="décision D-7 (lot A3) : échantillons PAR PASSE, ex. « shadow=32 » ; les autres passes gardent "
+                         "--samples. Vide (défaut) : comportement d'avant, inchangé")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
+    par_passe = {}
+    for x in [x for x in a.samples_passes.split(",") if x]:
+        k, v = x.split("=")
+        par_passe[k.strip()] = int(v)
+    if par_passe:
+        # D-7 : render_passes (fo_scene.py, partagé, NON modifié) rend chaque passe par render_to(scene, chemin) ; le
+        # chemin finit par « -<passe>.png ». On pose scene.cycles.samples avant ce rendu et on le remet après : les
+        # autres passes sont rendues EXACTEMENT comme avant (même scène, même graine, mêmes échantillons).
+        _render_to = S.render_to
+
+        def render_to_par_passe(scene, path):
+            passe = os.path.basename(path)[:-4].rsplit("-", 1)[-1]
+            if passe not in par_passe:
+                return _render_to(scene, path)
+            avant = scene.cycles.samples
+            scene.cycles.samples = par_passe[passe]
+            try:
+                return _render_to(scene, path)
+            finally:
+                scene.cycles.samples = avant
+
+        S.render_to = render_to_par_passe
     spec = importlib.util.spec_from_file_location("gune_piece", os.path.join(HERE, "piece.py"))
     piece = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(piece)
@@ -131,6 +158,8 @@ def main():
                 "count": info_build["count"], "halos": info_build["halos"], "quick": a.quick, "apercu": a.apercu,
                 "corps": kit_mod.corps_choisi(), "habillage": os.environ.get("FO_HABILLAGE_ESSAI", "") or None,
                 "light_holdout": bool(getattr(C, "LIGHT_HOLDOUT", False))}
+        if par_passe:
+            info["samples_passes"] = dict(par_passe)
         with open(os.path.join(d, "render.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=1, sort_keys=True)
         print("[FO-RENDER] %s %dx%d %d sommets build %.1fs rendu %.1fs" % (name, W, H, nverts, t_build, t_render),
