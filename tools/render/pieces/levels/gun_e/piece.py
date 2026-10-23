@@ -11,9 +11,20 @@ Format de tools/render/README.md (PIECE + build(S, C, variant)). Variantes :
 Emprise par époque : epoques.COTE (Q-S1, shared/levels/config.lua L.footprints.gun = { era = { 2, 3, 4, 5, 6 } }).
 Rendu : rendre.py (verrou de rendu, paquets, post-traitement) ; contrôles : ilots.py (bloquant), mesures.py,
 gris.py, dominance.py, vignettes.py, apercu.py.
+
+DÉGEL CONTRÔLÉ D-9 (lot A1, 23/10) : directions de la tête « dKK » (K = 00 à 63), pour la rose et les 64 positions du
+jeu. Variantes eNN-tete-dKK (N = 2 à 15) et kS-tete-dKK, générées À LA DEMANDE (classe _Variantes) : la table
+explicite reste celle des 72 variantes validées (sorted(PIECE["variants"]) inchangé, construction.py --tout aussi).
+Convention de Factorio (RotatedAnimation, prototype-api.json 1.1.91 : « 8 : North (1), Northeast (2), East (3)… »,
+counterclockwise = false par défaut ; RealOrientation : « starting at the top and going clockwise ») : l'indice 0
+est le NORD et les indices tournent dans le SENS HORAIRE vu d'en haut. Angle de pose = −2π·K/64 (même signe que
+DIRS["E"] = −π/2) : d00 = N et d16 = E EXACTEMENT (mêmes flottants : multiplication et division par des puissances de
+2), d32 = S, d48 = O. La géométrie ne change pas : la pose n'est qu'une rotation d'objet (kit.Geo.rotz).
+Preuve d'identité (lot A1) : d00 et d16 rendus de nouveau == tete-N et tete-E validés (fo-logs\\2026-10-23_suite\\A1).
 """
 import math
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,8 +32,16 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 import epoques as E  # noqa: E402
 
+NDIRS = 64
 DIRS = {"N": 0.0, "E": -math.pi / 2}
+# d00 = 0.0 (et non −0.0), puis −2π·K/64 : d16 == DIRS["E"] au bit près (vérifié ci-dessous)
+DIRS.update({"d%02d" % k: (0.0 if k == 0 else -2.0 * math.pi * k / NDIRS) for k in range(NDIRS)})
+assert DIRS["d00"] == DIRS["N"] and DIRS["d16"] == DIRS["E"], "convention des directions rompue"
+# rose des 8 directions (lot A1) : nom de boussole -> dKK
+ROSE = (("N", "d00"), ("NE", "d08"), ("E", "d16"), ("SE", "d24"), ("S", "d32"), ("SO", "d40"), ("O", "d48"),
+        ("NO", "d56"))
 PARTIES = ("socle", "piece", "tete-N", "tete-E")
+_RE_TETE_D = re.compile(r"^(?:e(\d\d)|k(\d))-tete-(d\d\d)$")
 
 
 def nom(e, partie):
@@ -35,20 +54,58 @@ def _variants():
         for p in PARTIES:
             meta = {"epoch": e, "part": p.split("-")[0], "level": 2 * e - 1 + (p == "piece"), "side": E.COTE[e]}
             if p.startswith("tete"):
-                meta["dir"] = p[-1]
+                meta["dir"] = p.split("-", 1)[1]
             v[nom(e, p)] = meta
     for s in range(2, 7):
         for p in ("socle", "tete-N", "tete-E"):
             meta = {"epoch": 0, "part": p.split("-")[0], "level": 0, "side": s}
             if p.startswith("tete"):
-                meta["dir"] = p[-1]
+                meta["dir"] = p.split("-", 1)[1]
             v["k%d-%s" % (s, p)] = meta
     for name, meta in v.items():
-        meta["dest"] = "levels/gun_e/" + name
-        meta["anchor_tiles"] = (0.0, 0.0)
-        meta["nuit"] = bool(E.FAMILLES.get(meta["epoch"], {}).get("nuit", False))
-        meta["sous_vanilla"] = name == "e01-piece"
-    return v
+        _finir(name, meta)
+    return _Variantes(v)
+
+
+def _finir(name, meta):
+    meta["dest"] = "levels/gun_e/" + name
+    meta["anchor_tiles"] = (0.0, 0.0)
+    meta["nuit"] = bool(E.FAMILLES.get(meta["epoch"], {}).get("nuit", False))
+    meta["sous_vanilla"] = name == "e01-piece"
+    return meta
+
+
+def tete_d(name):
+    """Méta d'une variante tournée eNN-tete-dKK | kS-tete-dKK (copie de celle de tete-N, direction dKK), ou None."""
+    m = _RE_TETE_D.match(name)
+    if not m or m.group(3) not in DIRS:
+        return None
+    if m.group(1) is not None:
+        e = int(m.group(1))
+        if not 2 <= e <= 15:
+            return None
+        meta = {"epoch": e, "part": "tete", "level": 2 * e - 1, "side": E.COTE[e]}
+    else:
+        s = int(m.group(2))
+        if not 2 <= s <= 6:
+            return None
+        meta = {"epoch": 0, "part": "tete", "level": 0, "side": s}
+    meta["dir"] = m.group(3)
+    return _finir(name, meta)
+
+
+class _Variantes(dict):
+    """Table des variantes : les 72 explicites, plus les têtes tournées dKK construites à la demande (jamais stockées :
+    l'itération et sorted() ne voient que les 72)."""
+
+    def __missing__(self, key):
+        meta = tete_d(key)
+        if meta is None:
+            raise KeyError(key)
+        return meta
+
+    def __contains__(self, key):
+        return dict.__contains__(self, key) or tete_d(key) is not None
 
 
 PIECE = {
