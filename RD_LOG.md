@@ -167,6 +167,13 @@
   recommandation ; B : Fusion et Orbite gardées avec de nouvelles couleurs, seule la Légende devient Big Bang / Néant ;
   C : autre). Sans réponse à la fin des rendus définitifs (vers 14 h), l'orchestrateur part sur A. Les noms des âges
   dans le jeu changeront à l'intégration.
+  Option A précisée ensuite dans le chat pour suivre l'histoire du jeu (`shared/content/epochs.lua` : antimatière et
+  strangelets à l'âge 13, la Porte sur le trou noir du Cœur à l'âge 14, le Cœur qui s'éveille à l'âge 15) : 13
+  Antimatière, 14 La Porte, 15 Néant (ou Singularité). Réponse du DC vers 13 h 10 : « l option A est bien ».
+  → run `wf_5f1609fb-473` (ère V cosmique), lancé vers 13 h 15 dans le worktree `v3e-ereV` (depuis `v3e-p5-haut`,
+  `68ec5a1`) : fiches de direction artistique, rondes jugées à l'aveugle (descriptions des âges 13 à 15 remplacées),
+  production, validation, planches. Les âges 1 à 12 ne sont pas touchés ; leurs aperçus de la ronde 5 sont copiés
+  dans `fo-logs\2026-10-23_V3E-ereV\ref\`.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
