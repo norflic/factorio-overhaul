@@ -65,7 +65,9 @@ def matieres(metal, M):
           ra=0.12, dirt=0.65, stain=0.4, sscale=5.0, wear=0.9)
     metal("bronze_sombre", (0.16, 0.095, 0.045), rough=0.4, met=0.45, grain=0.15, rust=(0.1, 0.2, 0.14), ra=0.1,
           dirt=0.7, stain=0.4, wear=1.2)
-    metal("bronze_clair", (0.62, 0.44, 0.2), rough=0.32, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
+    # ronde 3 (test des écarts de la ronde 2 : le cristal encore jugé plus évolué que le marais et l'atome, « dôme doré »)
+    # : bronze clair moins doré, plus patiné ; les cristaux violets restent la signature
+    metal("bronze_clair", (0.5, 0.33, 0.15), rough=0.36, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
     metal("joint_violet", (0.06, 0.025, 0.08), rough=0.7, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
 
 

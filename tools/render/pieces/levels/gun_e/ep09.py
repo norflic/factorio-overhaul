@@ -44,7 +44,11 @@ HABILLAGE = dict(jupe_cerclage="hazy", tremie="lead", pochoirs=True, munitions=(
                  grille_nacelle="lead", tourelleau="lead", chapeau="lead", capots=("beton_capot", "lead"),
                  acier=("plomb_sombre", "lead"), rivets="lead", joints="joint_beton",
                  plateforme=dict(motif="dalles", pas=0.5, joint=0.018, mat="beton_dalle", mat2="beton_dalle2",
-                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit_soft"))
+                                 fond="joint_beton", bord="plomb_sombre", boulons=None, lisere="emit"))
+# ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : béton blanc cassé dominant, PLOMB GRIS-BLEU en
+# secondaire (il était gris neutre, comme le béton : un seul gris), vert uranium en accent, liseré du pont à pleine
+# lumière (dernier âge de l'ère III : le plus lumineux des trois ; la ronde 2 le jugeait encore « industriel », moins
+# évolué que le cristal)
 ST = dict(jacket="atom", brake="octo", drive="lead", drive_mat="lead", drive_n=8, band="lead",
           recv_mats=("lead", "steel_dk"), recv_sig="porthole", feed="lead_mag", skirt="hazy", appl="beton_capot",
           gmask=("lead", "olive"), arm=("lead", "steel_dk"), cap="lead", col=("olive", "lead"),
@@ -58,7 +62,7 @@ def matieres(metal, M):
     # ronde 2 (test des écarts de la ronde 1 : l'atome jugé MOINS évolué que le cristal et que le marais, « gris
     # radioactif ») : dernier âge de l'ère III, le plus clair des trois : béton presque blanc, plomb gris clair, plomb
     # de structure gris moyen (il était presque noir et assombrissait toute la machine)
-    metal("lead", (0.31, 0.305, 0.295), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
+    metal("lead", (0.25, 0.285, 0.34), rough=0.66, met=0.3, grain=0.28 * 0.62, rust=(0.13, 0.12, 0.105), ra=0.2,
           dirt=0.8, stain=0.55, stain2=0.32, sscale=5.0, wear=1.4, streak=0.4)
     # passe 5 : béton CLAIR (juges de la passe 4 : tours de refroidissement « en béton CLAIR ») : 0,25 -> 0,4 -> 0,56
     metal("concrete", (0.56, 0.545, 0.51), rough=0.92, met=0.0, grain=0.28, gscale=30.0, dirt=0.85, stain=0.7,
@@ -70,7 +74,7 @@ def matieres(metal, M):
     metal("beton_dalle2", (0.5, 0.495, 0.47), rough=0.9, met=0.0, grain=0.28, gscale=30.0, dirt=0.8, stain=0.6,
           sscale=5.0, wear=0.6, streak=0.3)
     metal("joint_beton", (0.07, 0.07, 0.068), rough=0.9, met=0.0, grain=0.1, dirt=0.3, stain=0.0)
-    metal("plomb_sombre", (0.19, 0.192, 0.198), rough=0.6, met=0.3, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
+    metal("plomb_sombre", (0.13, 0.155, 0.2), rough=0.6, met=0.3, grain=0.15, dirt=0.7, stain=0.4, wear=1.0)
 
 
 def _halo(g, pts, power):

@@ -47,11 +47,14 @@ HABILLAGE = dict(jupe_cerclage="fer_noir", tremie="bolted", pochoirs=False, muni
                  chapeau="fer_clair_f", capots=("fer_martele", "brique"), acier=("fer_noir", "fer_clair_f"),
                  rivets="fer_clair_f", joints="mortier", danger=("brique", "fer_noir"), peinture="brique",
                  tourelleau="brique", grille_nacelle="fer_noir",
-                 plateforme=dict(motif="toles", pas=0.42, mat="tole_forge", mat2="tole_forge2", bord="fer_noir",
-                                 boulons="fer_clair_f", relief=0.5))
+                 # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : fer gris DOMINANT, BRIQUE rouge en
+                 # couleur SECONDAIRE bien visible (pavage de briques du pont, plaques de la nacelle), braise rouge en
+                 # accent ; le pont de tôles grises se confondait avec le fer du corps
+                 plateforme=dict(motif="dalles", pas=0.17, joint=0.02, mat="brique_pave", mat2="brique_pave2",
+                                 fond="mortier", bord="fer_noir", boulons=None, relief=0.45))
 # style d'époque de la passe 3 (emplacements E1 à E5) : noms de matières de kit.materials
 ST = dict(jacket="forge", brake="crown", drive="crank", band="blackiron", recv_mats=("fer_martele", "rawiron"),
-          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="fer_martele", gmask=("bolted", "rawiron"),
+          recv_sig="lever", feed="crate_belt", skirt="blackiron", appl="brique", gmask=("bolted", "rawiron"),
           arm=("bolted", "blackiron"), cap="brass", mask="shield", jacket_f=0.6, col=("bolted", "blackiron"),
           nac=("bolted", "rawiron"), arr="row", barrel="blackiron")
 
@@ -76,7 +79,12 @@ def matieres(metal, M):
           wear=2.4)
     metal("fer_clair_f", (0.36, 0.34, 0.31), rough=0.45, met=0.45, grain=0.12, dirt=0.4, stain=0.1, wear=0.8,
           reflet="fin")
-    metal("brique", (0.36, 0.11, 0.05), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.85, stain=0.6, sscale=5.0,
+    # ronde 3 : briques plus franches (rouge brique, moins sales) et pavés du pont en deux tons
+    metal("brique_pave", (0.42, 0.135, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("brique_pave2", (0.34, 0.1, 0.05), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.6, stain=0.45,
+          sscale=5.0, wear=0.8, mottle=0.35)
+    metal("brique", (0.46, 0.14, 0.065), rough=0.85, met=0.0, grain=0.4, gscale=26.0, dirt=0.85, stain=0.6, sscale=5.0,
           wear=0.8, mottle=0.35)
     metal("mortier", (0.1, 0.085, 0.07), rough=0.9, met=0.0, grain=0.2, dirt=0.4, stain=0.0)
 

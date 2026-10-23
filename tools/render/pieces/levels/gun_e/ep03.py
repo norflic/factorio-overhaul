@@ -40,23 +40,33 @@ PLATEFORME = dict(chanfrein=0.2)
 # coup d'œil.
 HABILLAGE = dict(jupe_cerclage="laiton_capot", tremie="castiron", pochoirs=False, munitions=("brass", "copper"),
                  grille_nacelle="laiton_capot", chapeau="laiton_capot", capots=("cuivre_capot", "laiton_capot"),
-                 acier=("vert_loco", "laiton_capot"), rivets="laiton_rivet", joints="bois_joint",
+                 acier=("cuivre_sombre", "laiton_capot"), rivets="laiton_rivet", joints="bois_joint",
                  danger=("laiton_capot", "vert_loco"), peinture="vert_loco", tourelleau="laiton_capot",
-                 plateforme=dict(motif="planches", pas=0.13, mat="bois_verni", mat2="bois_verni2", fond="bois_joint",
-                                 bord="laiton_capot", boulons="laiton_rivet", relief=0.25))
+                 # ronde 3 (DC, 23/10 9 h 50 : « trop uniforme en terme de palette ») : CUIVRE ROSE dominant (capots,
+                 # plaques de la coupole), LAITON poli en secondaire (pont de plaques de laiton rivetées, au lieu des
+                 # planches rouge sombre qui se lisaient « bois » comme le pionnier), vert locomotive en accent seulement
+                 plateforme=dict(motif="toles", pas=0.34, mat="laiton_pont", mat2="laiton_pont2", fond="bois_joint",
+                                 bord="cuivre_capot", boulons="laiton_rivet", relief=0.3))
 ST = dict(jacket="steam", brake="steam", drive="steam", band="brass", recv_mats=("castiron", "castiron"),
-          jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="copper_pol", gmask=("laiton_capot", "olive"),
+          jacket_f=0.5, feed="drum", drum_mat="brass", skirt="brass", appl="cuivre_capot", gmask=("laiton_capot", "olive"),
           arm=("olive", "castiron"), cap="brass", col=("olive", "castiron"), nac=("castiron", "olive"))
 
 
 def matieres(metal, M):
     """Passe 5 : matières du CORPS de la vapeur (grandes masses claires peu métalliques, règle de reflets du kit)."""
-    metal("cuivre_capot", (0.56, 0.24, 0.11), rough=0.32, met=0.45, grain=0.12, gscale=30.0, rust=(0.1, 0.2, 0.12),
-          ra=0.06, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
-    metal("laiton_capot", (0.6, 0.43, 0.15), rough=0.32, met=0.45, grain=0.12, gscale=30.0, rust=(0.2, 0.12, 0.04),
-          ra=0.05, dirt=0.6, stain=0.35, sscale=5.0, wear=0.8)
+    # ronde 3 : cuivre ROSE poli, plus clair et plus propre (0,56 ; 0,24 ; 0,11 se lisait brun au zoom 1)
+    metal("cuivre_capot", (0.7, 0.33, 0.21), rough=0.3, met=0.4, grain=0.1, gscale=30.0, rust=(0.1, 0.2, 0.12),
+          ra=0.04, dirt=0.45, stain=0.3, sscale=5.0, wear=0.6)
+    metal("cuivre_sombre", (0.26, 0.11, 0.065), rough=0.35, met=0.4, grain=0.12, gscale=30.0, dirt=0.6, stain=0.35,
+          sscale=5.0, wear=1.0)
+    metal("laiton_pont", (0.6, 0.45, 0.17), rough=0.34, met=0.4, grain=0.14, gscale=30.0, rust=(0.2, 0.12, 0.04),
+          ra=0.05, dirt=0.55, stain=0.4, sscale=5.0, wear=0.7)
+    metal("laiton_pont2", (0.5, 0.36, 0.13), rough=0.34, met=0.4, grain=0.14, gscale=30.0, rust=(0.2, 0.12, 0.04),
+          ra=0.08, dirt=0.55, stain=0.4, sscale=5.0, wear=0.7)
+    metal("laiton_capot", (0.68, 0.5, 0.17), rough=0.3, met=0.45, grain=0.1, gscale=30.0, rust=(0.2, 0.12, 0.04),
+          ra=0.04, dirt=0.45, stain=0.3, sscale=5.0, wear=0.7)
     metal("laiton_rivet", (0.7, 0.52, 0.22), rough=0.3, met=0.45, grain=0.05, dirt=0.25, stain=0.0, reflet="fin")
-    metal("vert_loco", (0.035, 0.085, 0.05), rough=0.35, met=0.3, grain=0.12, gscale=30.0, dirt=0.65, stain=0.4,
+    metal("vert_loco", (0.04, 0.12, 0.065), rough=0.35, met=0.3, grain=0.12, gscale=30.0, dirt=0.65, stain=0.4,
           sscale=5.0, wear=1.4)
     metal("bois_verni", (0.24, 0.085, 0.035), rough=0.3, met=0.0, grain=0.35, gscale=18.0, dirt=0.6, stain=0.35,
           sscale=6.0, wear=0.6, streak=0.3)

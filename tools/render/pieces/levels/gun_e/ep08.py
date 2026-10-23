@@ -34,7 +34,9 @@ KIN = 1   # rang dans l'ère III
 # passe 4 : liquide JAUNE SOUFRÉ trouble (famille « jaune-vert acide » 60 à 88° mesurée, loin du vert uranium de
 # l'atome, 100 à 135°) ; verre teinté opaque, lueur douce plus faible (liquide trouble, pas un néon)
 # passe 5 : un peu plus vert (teinte nominale 71° -> 79°) : loin du jaune des fûts du pétrole, encore dans la famille
-FOYER = dict(rgb=(0.72, 1.0, 0.1), doux=dict(force=0.36, base=(0.062, 0.075, 0.02)))
+# ronde 3 (DC : « trop uniforme en terme de palette » ; 8 et 9 avaient deux verts voisins) : JAUNE TOXIQUE (57°) ;
+# liquide plus lumineux (force 0,36 -> 0,6 : le marais doit passer devant le cristal en richesse)
+FOYER = dict(rgb=(1.0, 0.95, 0.05), doux=dict(force=0.6, base=(0.075, 0.07, 0.01)))
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.06)
@@ -46,12 +48,19 @@ HABILLAGE = dict(jupe_cerclage="rubber", tremie="rubber", pochoirs=True, munitio
                  chapeau="cuivre_terni", capots=("vdg_capot", "cuivre_terni"), acier=("rubber", "vdg_capot"),
                  rivets="cuivre_terni", joints="rubber", danger=("vdg_capot", "rubber"), peinture="cuivre_terni",
                  tourelleau="cuivre_terni", grille_nacelle="vdg_capot",
+                 # ronde 3 (test des écarts de la ronde 2 : 8-9 noté 2 et 2, « même plan carrelé », « même socle ») : PONT
+                 # SUR PILOTIS (forme « pilotis » du kit) : plancher de bois flotté sur pieux moussus au-dessus du
+                 # marais ; les grandes cuves, le globe et la station de pompage traversent le plancher (ils restent
+                 # posés au fond : leur sommet ne monte pas sous la tête qui tourne), les bocaux et paniers sont sous le
+                 # plancher. Palette (DC, 23/10 9 h 50) : vert-de-gris dominant, bois et cuivre terni en secondaire,
+                 # JAUNE TOXIQUE en accent (le vert est à l'atome)
+                 forme_plateforme=dict(forme="pilotis", flanc="bois_mousse", flanc2="rubber"),
                  plateforme=dict(motif="planches", pas=0.15, mat="bois_mouille", mat2="bois_mousse", fond="tablier",
                                  bord="rubber", boulons="cuivre_terni", relief=0.5))
 ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", fin_mat="steel_dk",
-          band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="vdg_capot",
-          gmask=("olive", "verdigris"), arm=("olive", "steel_dk"), cap="cuivre_terni", col=("olive", "verdigris"),
-          nac=("olive", "verdigris"), coax=True)
+          band="verdigris", recv_mats=("verdigris", "vdg_capot"), feed="hoses", skirt="rubber", appl="vdg_capot",
+          gmask=("vdg_capot", "verdigris"), arm=("vdg_capot", "steel_dk"), cap="cuivre_terni",
+          col=("vdg_capot", "verdigris"), nac=("vdg_capot", "verdigris"), coax=True)
 
 
 def matieres(metal, M):
@@ -65,7 +74,8 @@ def matieres(metal, M):
           ra=0.14, dirt=0.7, stain=0.5, sscale=4.0, wear=1.4, mottle=0.4)
     metal("cuivre_terni", (0.3, 0.18, 0.1), rough=0.5, met=0.4, grain=0.25, rust=(0.15, 0.3, 0.24), ra=0.4,
           dirt=0.75, stain=0.5, sscale=5.0, wear=1.2)
-    metal("bois_mouille", (0.3, 0.285, 0.24), rough=0.6, met=0.0, grain=0.42, gscale=18.0, dirt=0.8, stain=0.6,
+    # ronde 3 : bois flotté un peu plus chaud (il se lisait « carrelage gris » comme le béton de l'atome)
+    metal("bois_mouille", (0.33, 0.27, 0.19), rough=0.6, met=0.0, grain=0.42, gscale=18.0, dirt=0.8, stain=0.6,
           sscale=6.0, wear=0.6, streak=0.45)
     metal("bois_mousse", (0.23, 0.26, 0.18), rough=0.65, met=0.0, grain=0.45, gscale=18.0, dirt=0.8, stain=0.6,
           sscale=6.0, wear=0.6, streak=0.45)
@@ -253,6 +263,8 @@ def piece(g, c):
     cx = c.T["piece"]["x"]
     cy = -cx
     s = c.T["piece"]["s"]
+    # ronde 3 : la pièce paire se pose SUR le plancher du pilotis
+    g.push((0, 0, c.sil["H"] if c.dz else 0.0))
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
@@ -265,6 +277,7 @@ def piece(g, c):
                 a = math.pi * (0.2 + 0.6 * k / 4)
                 jar(g, (math.cos(a) * 0.4, math.sin(a) * 0.4, 0.04), 0.042, 0.1)
             F.bolts_ring(g, (0, 0, 0.072), (0, 0, 1), 0.24 * s + 0.12, 18, M["steel_hi"], r=0.026)
+    g.pop()
     _halo(g, [(-cx, Y(cy), 0.4), (cx, Y(cy), 0.4)], 12.0)
 
 
@@ -402,7 +415,7 @@ def gun_e(g, st, H, x, side):
 def jk_marsh(g, st, x, y0, z, Lj, rs, H):
     """Époque 8 : manchon de vert-de-gris à 2 fenêtres de verre longues (liquide vert-jaune, bulles)."""
     M = g.M
-    g.cyl((x, y0 + Lj / 2, z), "y", rs, Lj, M["verdigris"], n=28, what="jaquette")
+    g.cyl((x, y0 + Lj / 2, z), "y", rs, Lj, M["vdg_capot"], n=28, what="jaquette")   # ronde 3 : clair (pose N)
     for a in (math.pi * 0.5 + 0.55, math.pi * 0.5 - 0.55):
         d = V((math.cos(a), 0, math.sin(a)))
         Rr = Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed()
@@ -428,14 +441,16 @@ def br_nozzle(g, st, x, yb, z, rs, pos, H):
     # buse en CLOCHE nettement plus large que le faisceau (silhouette du marais, poses E et N)
     # passe 5 (règle d'or 7) : cloche resserrée (évasement 0,085 -> 0,03) : en pose N, elle faisait le chapeau sombre
     # d'une cheminée
-    g.cyl((x, yb + 0.06, z), "y", rs, 0.14, M["verdigris"], n=28, r2=rs + 0.03, what="buse")
-    g.torus((x, yb + 0.13, z), "y", rs + 0.03, 0.018, M["rubber"], n=28, m=8, what="collerette")
-    g.cyl((x, yb + 0.128, z), "y", rs + 0.02, 0.01, M["glass_dk"], n=28, what="fond_cloche")
-    g.torus((x, yb - 0.01, z), "y", rs + 0.012, 0.016, M["rubber"], n=28, m=8, what="joint")
-    F.bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.024, 6, M["cuivre_terni"], r=0.014, skip_down=-0.3)
-    g.cyl((x, yb + 0.134, z), "y", rs + 0.035, 0.012, M["verdigris"], n=28, what="face")
+    # ronde 3 (pose N : 8 encore lu « cheminée » à la ronde 2) : plus de collerette de caoutchouc noir ni de face plus
+    # large que le faisceau au bout (règle d'or 7 du kit : aucun anneau plus large que le faisceau dans le dernier
+    # cinquième) ; buse droite en vert-de-gris CLAIR du corps (le vert-de-gris métallique restait sombre vers le nord)
+    g.cyl((x, yb + 0.06, z), "y", rs, 0.14, M["vdg_capot"], n=28, what="buse")
+    g.cyl((x, yb + 0.128, z), "y", rs - 0.01, 0.01, M["glass_dk"], n=28, what="fond_cloche")
+    g.torus((x, yb - 0.01, z), "y", rs + 0.006, 0.012, M["cuivre_terni"], n=28, m=8, what="joint")
+    F.bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.008, 6, M["cuivre_terni"], r=0.012, skip_down=-0.3)
+    g.cyl((x, yb + 0.134, z), "y", rs - 0.004, 0.012, M["vdg_capot"], n=28, what="face")
     F.bores(g, x, yb + 0.14, z, pos, rb, M["cuivre_terni"])
-    F.lit_ring(g, (x, yb + 0.142, z), "y", rs + 0.012, M["emit"])
+    F.lit_ring(g, (x, yb + 0.142, z), "y", rs - 0.006, M["emit"])
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

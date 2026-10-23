@@ -32,7 +32,9 @@ EPOQUE = 5
 NOM = "Volcan"
 KIN = 1   # rang dans l'ère II
 # passe 4 : rouge braise (famille 345 à 14° MESURÉE)
-FOYER = dict(rgb=(1.0, 0.08, 0.02))
+# ronde 3 (DC : « trop uniforme en terme de palette ») : lave ORANGE (la forge garde la braise rouge : 2 et 5 n'ont
+# plus le même accent)
+FOYER = dict(rgb=(1.0, 0.3, 0.02))
 CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.5)
@@ -44,6 +46,12 @@ HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, mun
                  tourelleau="tungsten", chapeau="burnrust", capots=("basalte_capot", "fonte_v"),
                  acier=("fonte_noire", "fonte_v"), rivets="burnrust", joints="braise_sombre",
                  danger=("braise_sombre", "fonte_noire"), peinture="burnrust",
+                 # ronde 3 (test des écarts de la ronde 2 : 4-5 « même forme », 5-6 « silhouette identique ») : SOCLE DE
+                 # BASALTE EN GRADINS, assises de blocs, rigoles de lave orange le long de chaque gradin (juges de la
+                 # passe 4 : « coulées irrégulières au sol et rigoles le long du socle ») ; palette : basalte noir
+                 # dominant, rouille brûlée en secondaire (plaques de fonte), lave orange en accent
+                 forme_plateforme=dict(forme="gradins", flanc="basalte_capot", flanc2="fonte_v", assises=True,
+                                       lisere="emit_soft"),
                  plateforme=dict(motif="dalles", pas=0.34, joint=0.022, mat="basalte_dalle", mat2="basalte_dalle2",
                                  fond="fonte_noire", bord="fonte_noire", boulons=None, relief=0.7))
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
@@ -60,7 +68,8 @@ def matieres(metal, M):
           sscale=4.0, wear=1.2, mottle=0.5)
     metal("basalte_dalle2", (0.075, 0.072, 0.07), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
           sscale=4.0, wear=1.2, mottle=0.5)
-    metal("fonte_v", (0.16, 0.15, 0.145), rough=0.55, met=0.45, grain=0.3, gscale=30.0, rust=(0.22, 0.07, 0.03),
+    # ronde 3 : la fonte des plaques secondaires devient ROUILLE BRÛLÉE (couleur secondaire chaude du volcan)
+    metal("fonte_v", (0.27, 0.11, 0.05), rough=0.6, met=0.3, grain=0.3, gscale=30.0, rust=(0.22, 0.07, 0.03),
           ra=0.2, dirt=0.75, stain=0.5, wear=1.6)
     metal("fonte_noire", (0.05, 0.047, 0.045), rough=0.55, met=0.45, grain=0.3, rust=(0.22, 0.07, 0.03), ra=0.15,
           dirt=0.7, stain=0.4, wear=2.0)
@@ -80,8 +89,16 @@ def socle(g, c):
     M = g.M
     x0, x1, y0, y1, h = c.tremie_box
     F.lamp_group(g, (x0 + 0.07, y0 - 0.03, h * 0.62), (1, 0, 0), (0, -1, 0), M["emit"], n=2)
+    # ronde 3 : les organes du socle se posent sur le PREMIER gradin (ils s'enfoncent dans les gradins supérieurs)
+    g.push((0, 0, _z_gradin(c)))
     socle_volcano(g, KIN)
+    g.pop()
     corps.collecteur(g, c, lambda g_, pts, r: link(g_, EPOQUE, pts, r))
+
+
+def _z_gradin(c):
+    """Hauteur du premier gradin du socle (0 sans forme surélevée)."""
+    return c.sil["niveaux"][0][2] if c.dz else 0.0
 
 
 def lava_crust(g, cx, cy, z, w, l, M, E, step=0.085, seed=0):
@@ -257,6 +274,7 @@ def piece(g, c):
     cx = c.T["piece"]["x"]
     cy = -cx
     s = c.T["piece"]["s"]
+    g.push((0, 0, _z_gradin(c)))   # ronde 3 : posée sur le premier gradin
     for sx in (-1, 1):
         xa, xb = sorted((sx * (cx - 0.3 - 0.07 * side), sx * (cx + 0.2 + 0.03 * side)))
         corps.dalle(g, xa, xb, Y(cy - 0.24 - 0.02 * side), Y(cy + 0.34 + 0.06 * side))
@@ -264,6 +282,7 @@ def piece(g, c):
         with at(g, sx * cx, cy, sx * -0.3):
             mortar(g, (0, 0, 0), 0.0, 1.5 * s)
             _ancrage(g, 0.2 * 1.5 * s, 0.062 * 1.5 * s, g.M)
+    g.pop()
     _halo(g, [(-cx, Y(cy) + 0.1, 0.4), (cx, Y(cy) + 0.1, 0.4)], 10.0)
 
 
