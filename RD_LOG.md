@@ -189,6 +189,10 @@
   minerais, animations, sons…), pas seulement les 7 familles de niveaux. → étude de la suite relancée en ce sens (run
   `wf_632b4009-57a` : inventaire exhaustif de data.raw, intégration en jeu de la mitrailleuse, déploiement de la
   méthode, contenu ; critique ; synthèse `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`).
+- 23/10, vers 16 h 20, **questions du plan** (Q-P1 à Q-P3) : « pour le disque c tout bon, pour les dessins des canons c est la A,  pour la question 3 on fait la C, long mais tant pis ».
+  → Q-P1 = A : 1 776,5 Mo déplacés vers `C:\Users\evan2\fo-archives\fo-logs\` (journaux laissés en place) ; H: affiche
+  ensuite 16,3 Go libres, bien plus que ce déplacement (cause extérieure au projet). Q-P2 = A : 64 positions. Q-P3 : C
+  annoncée, mais « long » désigne B (un design par âge) : confirmation demandée.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
