@@ -10,7 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 22/10/2026, 23 h 08** (heure du PC ; orchestrateur, session Claude Code `8a9c0503`, qui
+> **Dernière mise à jour : 23/10/2026, vers 18 h 30** (agent des documents du run `wf_2f1793c9-578`, session
+> `8a9c0503` ; jalon : plan de la suite lancé ; lots **A1** (outils de la mitrailleuse : rose des 8 directions, E66,
+> E67, E70 ; fusion `5a95650`) et **M0** (monnaies des âges 5, 7 et 8 garanties ; fusion `da2e16f`, **version 0.4.5**)
+> fusionnés dans `main` à 17 h 44 ; bancs en moteur réel rejoués sur `main` de 17:45:17 à 17:46:17, hors jeu vers
+> 17 h 50 ; lot **K0** (kit commun des familles) livré et corrigé, EN COURS d'intégration ; lots INT-K0, INT-GARDE et
+> INT-GRAINE en cours). Mise à jour précédente : 22/10/2026, 23 h 08 (heure du PC ; orchestrateur, session Claude Code `8a9c0503`, qui
 > reprend la session `6b481308` du 21-22/10, coupée à 8 h 55 par la limite d'usage hebdomadaire de son compte ;
 > jalon : lot V3-T3 (« Libérer la place », réponse B à Q-T2-1) intégré dans `main` (fusion `8a28804`, changelog
 > `4a7a365` ; **version 0.4.4**), bancs en moteur réel rejoués sur `main` de 22:50:45 à 22:51:53, hors jeu jusqu'à 22:55:17 ; lot V3-T4 (réponse A à Q-T2-2)
@@ -19,14 +24,21 @@
 > 17 h 25, lot V3-T intégré à 14 h 50). Mettez à jour ce fichier à chaque jalon.
 
 ## 1. En dix lignes
-1. Mod Factorio 1.1.91, version **0.4.4** (depuis l'intégration de V3-T3, le 22/10 à 22 h 50 ; 0.4.3 depuis V3-T2),
-   dépôt git `main` dans ce dossier.
-2. Bancs sur `main` (rejoués le 22/10 après l'intégration du lot V3-T3 : moteur réel de 22:50:45 à 22:51:53, hors
-   jeu de 22 h 50 environ à 22 h 55, fin de la sortie à 22:55:17), tous verts :
-   - hors jeu : run 114, war 92, td 270, pteam 15, migration 82, levels 1642 (+11 écarts connus),
-     epochs 16665, org 362, pvp 596 (195 s) ;
+1. Mod Factorio 1.1.91, version **0.4.5** (depuis la fusion du lot M0, le 23/10 à 17 h 44 ; 0.4.4 depuis V3-T3, le
+   22/10 à 22 h 50 ; 0.4.3 depuis V3-T2), dépôt git `main` dans ce dossier.
+2. Bancs sur `main` (rejoués le 23/10 après les fusions d'A1 et M0 : moteur réel de 17:45:17 à 17:46:17, archives
+   `<racine>\fo-logs\2026-10-23_integration-0.4.5\` ; hors jeu vers 17 h 50), tous verts :
+   - hors jeu : run 114, war 92, td 270, pteam 15, migration 82, **monde_test 157** (nouveau, lot M0), levels 1642
+     (+11 écarts connus), epochs 16665, org 362, pvp 596 ;
    - étape data : 0 erreur nouvelle, 0 violation (règle des points de jeu comprise), 0 clé manquante, 11/11 ;
-   - api_lint : 609 usages, 0 erreur (le correcteur de V3-T3 annonçait 615 dans son worktree : écart non expliqué) ;
+   - api_lint : **669** usages, 0 erreur (609 avant A1 et M0) ;
+   - **moteur réel, garantie des monnaies (lot M0)** : `monde` 89 OK, `m0-reprise` 15 OK, `m0-migration` 9 OK
+     (double source `<racine>\fo-logs\2026-10-23_suite\M0\src-0.4.4` = `git archive 93e3d89`, à GARDER) ; tous les
+     bancs ci-dessous rejoués verts avec les 3 sites garantis sur la carte de banc (les `ia0-*` NON rejoués) ;
+   - les chiffres ci-dessous, du 22/10, sont inchangés le 23/10 (`content` 317, `t2-machines` 80, `bord-a-bord` 12,
+     `t3-libere` 41, `t2-migration` 64 + 26, `ht3-migration` 30 + 7, `t2-defense` 36 + 19 et 36 + 11, `t3-migration` 7) ;
+   - (état du 22/10 après V3-T3 : moteur réel de 22:50:45 à 22:51:53, hors jeu de 22 h 50 environ à 22 h 55 ; pvp en
+     195 s ; api_lint 609, le correcteur de V3-T3 annonçait 615 dans son worktree : écart non expliqué) ;
    - d4m : **5/5** (depuis Git Bash ; 2/5 sous PowerShell, `lua5.2` hors du PATH) ; mut_atlas 40 OK ; mut_vram
      « témoin nul survivant ; 18/18 mutants détectés » ; test_ht3_journal 15 OK ; bat_double_source 4 OK ;
    - **moteur réel `content` : 317 OK** (210 du banc, 2 de l'exemple, 26 de `levels_taille`, 54 de
@@ -63,6 +75,16 @@
      l'usine comme avant ; prouvé avec de vrais robots. Limites : au milieu d'une rangée collée, rien ne se libère
      (5 sur 19 dans l'usine dense de test, 2 sur 13 dans la défense dense) ; fils de circuit non refaits ; panneau
      jamais joué par un vrai joueur. RD_LOG E56 à E59, F103 à F110 ;
+   - **M0** (23/10, 17 h 44, version 0.4.5) : tungstène, cristal et méthane (monnaies des âges 5, 7 et 8) garantis
+     sur toute carte, à `on_init`, à `on_configuration_changed` et par un filet ; un échec est annoncé et repris par
+     paliers. Avant, 3 graines sur 5 pouvaient bloquer la partie (E73). Limites : accès à pied non garanti (7 sites
+     sur 15 non reliés au départ sur des cartes à eau maximale) ; générateur depuis `X.resources` et `X.tiles`
+     REPORTÉ aux lots X (34 prototypes sur 35 absents) ; Q-M0-1 et Q-M0-2 (§3). RD_LOG E73 à E76, F130 à F135 ;
+   - **A1** (23/10, 17 h 44, outils seulement) : directions `d00` à `d63` de la tête (identité octet à octet de N et
+     E prouvée), rose des 8 directions (page DC https://claude.ai/artifact/9zVUA65YE4wVfaaxobjZ6W , pas encore jugée),
+     E66 (ombre à 32 échantillons : grain sans biais, **gain 44,7 %** mesuré dos à dos), E67 (levée = 1 / vitesse : la
+     garde du kit a tort), E70 (origine nord, sens horaire, `orientation` s'écrit et tient). RD_LOG E66, E67, E70,
+     F120 à F122 ;
    - IA0 et IA0b (les factions attaquent le joueur, 5 difficultés, bases défendues, assaut coordonné) ;
    - budget A1 (0,108 ms/tick) ;
    - D4m (mémoire vidéo 1,7 Go en haute qualité, 60 UPS avec l'usine géante).
@@ -73,6 +95,9 @@
      (`worktree-wf_9d38a6df-249-1`, tête `2b18742`), prouvé en moteur réel SUR LA BRANCHE, **NON intégré** : la densité
      est tenue, la rentabilité ne l'est pas (Q-T4-1, §3). RD_LOG E60 à E62, F111 à F118.
 5. Visuel :
+   - **mitrailleuse V3-E : designs des 15 âges VALIDÉS par le DC** (23/10, 14 h 50) ; pas encore en jeu (lot A2) ;
+   - **kit commun des familles (K0)** : livré et corrigé (aucun design validé changé, empreinte forte), EN COURS
+     d'intégration (INT-K0) ; F136 : les graines de bruit du pipeline sont inertes (non corrigé, décision du DC) ;
    - pipeline 3D (V0, V0b) étalonné ; style de la cheminée V0 validé par le DC ;
    - **aperçus V3 phase 1 REJETÉS** (22/10, 7 h 15) : manque de détail, direction artistique de Factorio
      non respectée, niveaux hauts pas plus « badass ».
@@ -119,7 +144,9 @@
    prouvant (F90 : tuyau perdu ; F91 : orientation perdue), corrigés. Non prouvé, entre autres : migration d'une
    machine EN fabrication (non jouable avec `--create`), seconde amélioration avant le `on_tick` du mod, panneau et
    message à l'écran, raccords du fluide de minage, dispositions d'usine réelles.
-8. Ensuite :
+8. Ensuite : **le plan de la suite** (`<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` ; étapes dans OBJECTIFS
+   §6 ; détail au §7 ci-dessous) : finir les intégrations en cours (INT-K0, INT-GARDE, INT-GRAINE), puis **A2 : la
+   mitrailleuse EN JEU à 4 directions**, puis **A3 : 64 directions, rendu de nuit** (Q-P2 : A). Historique :
    - lot V3-E : direction artistique PAR ÉPOQUE de la mitrailleuse (style V3-S retenu par le DC le 22/10 à
      16 h 45 ; canons, tuyaux et accents changés selon chaque âge), puis les 6 autres familles ; les sprites V3
      remplaceront le visuel agrandi de V3-T2, laid aux grandes tailles ;
@@ -151,14 +178,37 @@
 | **V3-S** direction artistique | Charte ✅ intégrée. Première passe ✅ jugée (E45) : industriel gagnant de peu (6/10), aucune approche au niveau du vanilla ; page pour le DC https://claude.ai/artifact/EjdBUNfU1BLdkTU7cqWWMB . ✅ Style retenu par le DC le 22/10 à 16 h 45 (E45). Passe de synthèse (run `wf_eaa96606-5f1`, lancée à 16 h 25, session `8a9c0503` ; variantes « affût » et « resserre ») arrêtée à 16 h 47, sans livrable | `<racine>\fo-logs\2026-10-22_V3S\` (première passe : `industriel\`, `hightech\`, `hybride\`, `juges\`, `presentation\`) ; `<racine>\fo-logs\2026-10-22_V3S-synthese\` |
 | **V3-T** emprise croissante et agrandissement sur place (Q23, Q24) | ✅ intégré le 22/10 à 14 h 50 (`13b4134`, version 0.4.2) ; moteur réel `content` 238 OK ; activé pour la mitrailleuse seule ; aucun visuel nouveau ; non prouvé en moteur réel : panneau et aperçu au sol, transfert autre que munitions et PV, remboursement F40, machines agrandies (la migration d'une vraie sauvegarde est prouvée depuis : ligne suivante) | E44, F70 à F75 ; `<racine>\fo-logs\2026-10-22_V3T\` (notes `NOTES_V3T.md`, `content-final`, captures de la phase initiale), `<racine>\fo-logs\2026-10-22_V3T-integration_content\` |
 | **Suites de V3-T** : H-T3, bancs hors jeu, d4m | ✅ intégrées le 22/10 (fusions `e1a6a6f`, `1f2ff79`, `18a00d4`, puis `c4d37e5`) ; version inchangée (0.4.2). Moteur réel sur `main` : `content` 238 OK (17:06:23) ; migration réelle 0.4.1 → 0.4.2 : 29 OK, journal 7 OK (17:06:44). H-T3 : (1) prouvée en moteur réel ; (2) prémisse réfutée (F77) ; filet prouvé seulement en expérience de contrôle. Hors jeu : migration 60, harness avec la règle des points de jeu (0 violation), api_lint 447, d4m 5/5. Non prouvé, entre autres (liste complète : RD_LOG E46 à E48) : rechargement d'une carte déjà migrée, défense dense, amélioration d'une mitrailleuse laissée hors grille, contact bord à bord de `find_entities_filtered` en moteur réel, machines agrandies en moteur réel | E46 à E48, F76 à F82 ; `<racine>\fo-logs\2026-10-22_V3T-suites\` (`ht3\`, `harness-mock-levels\`, `d4m\`, chacun avec ses `NOTES.md`), `<racine>\fo-logs\2026-10-22_V3T-suites-integration\` (`content\`, `ht3-migration\`) |
-| **V3-E** direction artistique par époque de la mitrailleuse | ✅ **Designs des 15 âges validés par le DC** (23/10, 14 h 50) : âges 1 à 12 de la passe 5 (E65), ère V cosmique (13 Antimatière, 14 La Porte, 15 Néant ; `6d0e961`). Branche `v3e-final` fusionnée dans `main` (`93e3d89`, outils de rendu seulement). Rendus définitifs : âges 1 à 12 dans `<racine>\fo-logs\2026-10-23_V3E-p5\bas|haut\sprites\`, âges 13 à 15 dans `<racine>\fo-logs\2026-10-23_V3E-ereV\sprites\` (les e13 à e15 de `V3E-p5\haut` et `final` sont l'ANCIENNE ère V refusée : `REFUSES.txt`). Test final (run `wf_c46edecb-f29`) : couleur 13 et 15 sur 15, gris 5 et 5, pose N 7 cheminées sur 15, écarts 2,6. Pages : https://claude.ai/artifact/73XHitUsLE1G49yPPWKtFG (finale), https://claude.ai/artifact/SWLGoaBpAHcsax5z6zzhfw (suivi). **Pas encore en jeu.** Suite : plan `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` (page DC https://claude.ai/artifact/5L4V5zFDiHP1kL7fTt8CgW ; questions Q-P1 à Q-P3) ; ⏳ run `wf_2bade7c0-0e8` lancé vers 15 h 55 : A1 (rose des 8 directions, E66, E67, E70), K0 (kit commun), M0 (garantie des monnaies des âges 5, 7, 8), chacun dans son worktree avec vérification adverse et correction ; sorties `<racine>\fo-logs\2026-10-23_suite\` | `<racine>\fo-logs\2026-10-23_V3E-p5\` ; `<racine>\fo-logs\2026-10-23_V3E-ereV\` ; `<racine>\fo-logs\2026-10-23_plan-suite\` |
+| **V3-E** direction artistique par époque de la mitrailleuse | ✅ **Designs des 15 âges validés par le DC** (23/10, 14 h 50) : âges 1 à 12 de la passe 5 (E65), ère V cosmique (13 Antimatière, 14 La Porte, 15 Néant ; `6d0e961`). Branche `v3e-final` fusionnée dans `main` (`93e3d89`, outils de rendu seulement). Rendus définitifs : âges 1 à 12 dans `<racine>\fo-logs\2026-10-23_V3E-p5\bas|haut\sprites\`, âges 13 à 15 dans `<racine>\fo-logs\2026-10-23_V3E-ereV\sprites\` (les e13 à e15 de `V3E-p5\haut` et `final` sont l'ANCIENNE ère V refusée : `REFUSES.txt`). Test final (run `wf_c46edecb-f29`) : couleur 13 et 15 sur 15, gris 5 et 5, pose N 7 cheminées sur 15, écarts 2,6. Pages : https://claude.ai/artifact/73XHitUsLE1G49yPPWKtFG (finale), https://claude.ai/artifact/SWLGoaBpAHcsax5z6zzhfw (suivi). **Pas encore en jeu.** Suite : plan `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` (page DC https://claude.ai/artifact/5L4V5zFDiHP1kL7fTt8CgW ; questions Q-P1 à Q-P3) ; run `wf_2bade7c0-0e8` (lancé vers 15 h 55, terminé) : A1, K0 et M0, chacun dans son worktree avec vérification adverse et correction ; sorties `<racine>\fo-logs\2026-10-23_suite\` ; A1 et M0 fusionnés à 17 h 44, K0 en cours d'intégration (lignes ci-dessous) | `<racine>\fo-logs\2026-10-23_V3E-p5\` ; `<racine>\fo-logs\2026-10-23_V3E-ereV\` ; `<racine>\fo-logs\2026-10-23_plan-suite\` |
 | **V3-T2** emprise croissante des 5 autres familles (Q-S1 : oui) | ✅ intégré le 22/10 à 19 h 05 (fusion `--no-ff` `681dd5c` de `worktree-wf_04ba1f63-d67-1` : ingénieur `3e9a23e`, `f5f6a77`, `be0ee03` ; correcteur `e84ca84`), **version 0.4.3** ; changelog `aec3baf`. Moteur réel sur `main` : `content` 317 OK, `t2-machines` 80 OK, `t2-migration` 64 OK + journal 26 OK, `ht3-migration` 30 OK + journal 7 OK (`done.txt` 19:05:39 à 19:05:52). Hors jeu : migration 79, levels 1575, api_lint 519, test_ht3_journal 15, le reste inchangé. Revue : 19 défauts, le majeur confirmé par témoin (`be0ee03` : 308 OK, 9 échecs dont 1 artefact du témoin) et corrigé. Visuel provisoire, laid aux grandes tailles, sans verdict du DC. Questions Q-T2-1 et Q-T2-2 posées au DC. Non prouvé : liste dans RD_LOG E49 à E52 | E49 à E52, F83 à F95 ; `<racine>\fo-logs\2026-10-22_V3T2\` (`NOTES_V3T2.md`, passages de l'ingénieur et du correcteur, captures, `src-0.4.2` à GARDER), `<racine>\fo-logs\2026-10-22_V3T2-integration\` |
 | **R1** robustesse : défense dense, contact bord à bord, atlas virtuel | ✅ intégré le 22/10 (run `wf_c34819e9-18a`, lancé à 19 h 38, session `8a9c0503` ; deux suites, chacune constructeur, revue adverse, correcteur ; fusions `dcc97b3` de `worktree-wf_c34819e9-18a-1`, tête `f41753d`, et `58db82c` de `-2`, tête `75863a5` ; changelog 0.4.3 complété, `870f045`) ; version inchangée (0.4.3). Moteur réel sur `main` (`done.txt` 20:11:14,81 à 20:11:40,52) : `content` 317, `t2-machines` 80, `bord-a-bord` 12, `t2-migration` 64 + 26, `ht3-migration` 30 + 7, `t2-defense` 36 + 19 (création 0.4.1) et 36 + 11 (0.4.2). Hors jeu : migration 81, levels 1577, api_lint 535, mut_vram 18/18, le reste inchangé. Défense dense : elle marche, 13 tourelles sur 21 laissées depuis 0.4.1, visuel laid NON jugé (E54). Contact bord à bord RENDU par le moteur réel (F96), moteur simulé aligné (21 écarts sur 45, puis 0 ; E53) ; `move_ground_items` corrigé (défaut du mod trouvé par la revue). `vram.py` compte l'atlas virtuel (E55) ; le « 14/14 » du constructeur vram était FAUX (13/14). Revues : 2 majeurs et 6 mineurs, tous confirmés et corrigés. Non prouvé : liste dans RD_LOG E53 à E55 | E53 à E55, F96 à F102 ; `<racine>\fo-logs\2026-10-22_R1\` (`defense\NOTES.md`, `defense\correcteur\`, `defense\captures-t2-defense-0.4.1\` ; `vram\NOTES.md`, `vram\correcteur\`), `<racine>\fo-logs\2026-10-22_R1-integration\` |
 | **V3-T3** bouton « Libérer la place » (Q-T2-1 : « QT21 option B ») | ✅ intégré le 22/10 à 22 h 50 (run lancé à 21 h 10, session `8a9c0503` ; ingénieur, revue adverse à 3 regards, correcteur ; fusion `8a28804` de `worktree-wf_49a2ed53-111-1` : ingénieur `f26e9c3`, correcteur `d0b40da` ; changelog 0.4.4, `4a7a365`), **version 0.4.4**. Moteur réel sur `main` (`done.txt` 22:50:45,71 à 22:51:53,59) : `content` 317, `t2-machines` 80, `bord-a-bord` 12, **`t3-libere` 41**, `t2-migration` 64 + 26, `ht3-migration` 30 + 7, `t2-defense` 36 + 19 et 36 + 11, **`t3-migration` 7** (1 000 ticks ; le premier passage à 700 ticks, trop court, n'a pas de BILAN). Hors jeu : migration 82, levels 1642, api_lint 609 (615 annoncés par le correcteur dans son worktree : écart non expliqué), le reste inchangé. Revue : 24 défauts, dont 2 bloquants (plan partiel exécuté, Annuler pas sûr), 23 traités, 1 réfuté. **Limites** : rangées collées (5 libérables sur 19 dans l'usine dense, 2 sur 13 dans la défense dense) ; fils de circuit non refaits ; joueur réel non joué ; noms de prototypes en chaînes dans `global.fo.levels_free.names` (écart à « nombres seulement », ARCHITECTURE §7 bis, signalé par le correcteur comme écart à faire valider, pas encore soumis au DC). Non prouvé : liste dans RD_LOG E59 | E56 à E59, F103 à F110 ; `<racine>\fo-logs\2026-10-22_V3T3\` (`NOTES_V3T3.md`, §5 du correcteur qui fait foi ; `correcteur\captures-t3-libere\`, 4 images), `<racine>\fo-logs\2026-10-22_V3T3-integration\` |
 | **V3-T4** la production suit la surface (Q-T2-2 : réponse A) | 🟨 **livré, NON intégré** (run lancé à 21 h 15, session `8a9c0503` ; ingénieur, revue adverse à 3 regards, 23 défauts, correcteur ; branche `worktree-wf_9d38a6df-249-1`, partie de `e27bda9`, tête `2b18742`, version non changée). Raison : **Q-T4-1** (§3) : densité tenue (production par tuile croissante, mesurée), rentabilité non tenue (foreuse 29 → 30 remboursée en 510 h, contre 342 h en 0.4.3 ; four et assembleur à valeur ajoutée nulle). Sur la branche : `content` 331, `t4-production` 21 (5 300 ticks), autres bancs verts ; levels 1 615 + 23 écarts connus, api_lint 558. Pour l'intégrer après la réponse : fusion sur 0.4.4 (conflit attendu avec V3-T3 dans `tests/levels_test.lua`, seul fichier modifié des deux côtés, vérifié par `git merge-tree`), `levels_test.lua --calibrate`, renumérotation des identifiants cités dans le code (F111 à F118, E60 à E62), tous les bancs | E60 à E62, F111 à F118, H-T4-1 ; `<racine>\fo-logs\2026-10-22_V3T4\` (`NOTES_V3T4.md`, §9 du correcteur qui fait foi ; `tables_BALANCE_SHEET_12_corrige.md` ; passages `01_` à `23_`) |
+| **A0** ménage et garde-fous (plan, étapes 1 et 2) | 🟨 en partie : fusion de `v3e-final` (`93e3d89`), `REFUSES.txt`, identifiants réservés, phrases du DC inscrites, déplacement Q-P1 fait (1 776,5 Mo vers `C:\Users\evan2\fo-archives\fo-logs\`). **Non fait** : tri des worktrees (59 dossiers relevés à 18 h 14), seuil de 1 Go libre avant chaque paquet de rendu, magasin des feuilles hors de git (D-6 B, préalable d'A2) | RD_LOG, décisions du 23/10 ; OBJECTIFS §7 |
+| **A1** rose des 8 directions, E66, E67, E70 | ✅ fusionné le 23/10 à 17 h 44 (`5a95650` ; constructeur `44e0a4b`, correcteur `741917a`), outils seulement, version inchangée. Dégel D-9 de `piece.py` prouvé (36 fichiers sur 36 identiques octet à octet) ; rose : 112 têtes en aperçu, **19 trous enfermés sur 112** (à trancher avant A3), pose N toujours « cheminée » à 8 âges, page https://claude.ai/artifact/9zVUA65YE4wVfaaxobjZ6W (pas de verdict du DC) ; E66 : gain 44,7 % (le 51 % de la première mesure était faux, défaut majeur de la vérification, corrigé) ; E67 : garde du kit fausse (INT-GARDE) ; E70 : `orientation` pour orienter une tête à l'arrêt ; `a1-tourelle` 5 OK sur copie jetable | E66, E67, E70, F120 à F122 ; `<racine>\fo-logs\2026-10-23_suite\A1\` (`NOTES.md`, `INTEGRATION.md`, `verification.md`, `rose\`, `e66\`, `moteur\`) |
+| **M0** socle du monde : monnaies des âges 5, 7, 8 garanties | ✅ fusionné le 23/10 à 17 h 44 (`da2e16f` ; constructeur `28fe15b`, correcteur `d6766d7`), **version 0.4.5**. Moteur réel sur `main` : `monde` 89, `m0-reprise` 15, `m0-migration` 9, tous les bancs existants verts ; hors jeu : `monde_test` 157, api_lint 669. Vérification : M-1 (échec définitif et muet) corrigé ; M-2 (générateur depuis `X.resources` et `X.tiles`) REPORTÉ aux lots X par l'orchestrateur ; 9 mineurs non traités (accès à pied, pire cas 767 ms, message perdu à `on_init`, décor, factions, sauvegarde de migration quasi vide, garantie non générique, anomalie des graines 1 et 42). Questions Q-M0-1 et Q-M0-2 (§3) | E73 à E76, F130 à F135 ; `<racine>\fo-logs\2026-10-23_suite\M0\` (`NOTES.md` §6 du correcteur, `INTEGRATION.md`, `verification.md`, `correction\`, `captures-2\`), `<racine>\fo-logs\2026-10-23_integration-0.4.5\` |
+| **K0** kit commun des familles | 🟨 livré et corrigé, **en cours d'intégration** (INT-K0) ; branche `worktree-wf_2bade7c0-0e8-2`, constructeur `0cee947`, tête `87c4fb1`. Aucun design validé changé (empreinte FORTE, 72 variantes et 165 habillages, graines comprises). Vérification : 4 majeurs du lot corrigés ; 1 majeur antérieur NON corrigé (F136, graines inertes : décision du DC) ; 5 mineurs dits (dont `stone-wall` non mesuré et la séparation des âges 4 et 5 par la seule saturation) | E71, E72, F136 ; `<racine>\fo-logs\2026-10-23_suite\K0\` (`NOTES.md` section « Correction », `INTEGRATION.md`, `verification.md`, `correction\`, `D3_ere_V.md`) |
+| **INT-K0, INT-GARDE, INT-GRAINE** | ⏳ en cours à 18 h 30 (run `wf_2f1793c9-578`, chacun dans son worktree, vérification adverse et correction) : fusion du kit commun sur `main` (réparer `rose.py` et `e66.py` d'A1, rejouer l'empreinte forte) ; garde des durées d'animation des tourelles corrigée selon E67 ; graine des bancs paramétrable (`FO_MAP_SEED`, défaut 20261020 inchangé ; la recopie du `.bat` à la racine reste à faire par l'orchestrateur) | `<racine>\fo-logs\2026-10-23_suite\INT-K0\`, `INT-GARDE\`, `INT-GRAINE\` (créés par les lots) |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
+- **Pages pour le DC (23/10)** : finale de la mitrailleuse https://claude.ai/artifact/73XHitUsLE1G49yPPWKtFG ; plan de
+  la suite https://claude.ai/artifact/5L4V5zFDiHP1kL7fTt8CgW ; rose des 8 directions (lot A1)
+  https://claude.ai/artifact/9zVUA65YE4wVfaaxobjZ6W (aucun verdict ; à regarder surtout : pose N « cheminée », pose S
+  où l'arme se perd au zoom 1, trous enfermés en S).
+- **Q-P3 À CONFIRMER** (OBJECTIFS §4) : réponse du 23/10 vers 16 h 20 « pour la question 3 on fait la C, long mais
+  tant pis » ; or C était l'option la PLUS COURTE (un seul design par machine, 28) et « long mais tant pis » désigne
+  plutôt B (un design par âge, environ 190). Confirmation demandée dans le chat vers 16 h 25, sans réponse à 18 h 30.
+  Sans incidence avant les lots X. Q-P1 (A, appliquée) et Q-P2 (A : 64 positions) sont répondues.
+- **Q-M0-1 et Q-M0-2, PAS encore posées dans le chat** (OBJECTIFS §4, lot M0) : Q-M0-1, site garanti TOUJOURS posé
+  dans une partie neuve (A, actuel, recommandé) ou seulement si la graine n'en a pas (B, environ 2 s de plus à la
+  création et une sauvegarde plus grosse) ; Q-M0-2, disque net de cendres (A) ou adouci avec le kit sol de M2 (B,
+  recommandé quand ce kit existera). Captures : `<racine>\fo-logs\2026-10-23_suite\M0\captures-2\`.
+- **À soumettre au DC, pas encore posé** : (1) F136, les graines de bruit du pipeline sont inertes : les activer
+  changerait tous les designs validés (recommandation : ne rien changer pour la mitrailleuse ; décider pour les
+  familles suivantes) ; (2) foyers des âges 4 (Pétrole) et 5 (Volcan) de même teinte orange, séparés par la seule
+  saturation (question proposée par le correcteur de K0 : A garder, B Volcan vers le rouge avec nouveau rendu des
+  âges 5, C Pétrole vers le jaune) ; (3) trous enfermés de la rose (19 sur 112) : combler par une pièce de fond, ou
+  accepter en S, avant A3.
 - **V3-S : verdict rendu** le 22/10 à 16 h 45 (style retenu, « parfaits », « époustouflants surtout pour les
   canons » ; il manque une direction artistique par époque : lot V3-E). Prochain regard : les planches V3-E.
 - **Q-T4-1, posée dans le chat le 22/10 vers 22 h 45, OUVERTE** (OBJECTIFS §4 ; lot V3-T4, RD_LOG E62) : rentabilité
@@ -211,6 +261,10 @@
 
 ## 4. Branches et worktrees (`.claude/worktrees/`)
 - **Fusionnées** : tout ce qui est marqué ✅ au §2.
+- **Fusionnées le 23/10** : `worktree-wf_2bade7c0-0e8-1` (lot A1, tête `741917a`, fusion `5a95650`) et
+  `worktree-wf_2bade7c0-0e8-3` (lot M0, tête `d6766d7`, fusion `da2e16f`).
+- **En cours d'intégration** : `worktree-wf_2bade7c0-0e8-2` (lot K0, tête `87c4fb1`) : fusion par le lot INT-K0 (run
+  `wf_2f1793c9-578`) ; ne pas la fusionner à la main pendant ce run.
 - **Non fusionnées, à GARDER** :
   - `worktree-wf_9d38a6df-249-1` (lot V3-T4, tête `2b18742`, partie de `e27bda9`) : livrée, NON intégrée, en attente
     de la réponse du DC à Q-T4-1. Ne pas la fusionner telle quelle : elle précède V3-T3 (conflit attendu dans
@@ -288,6 +342,12 @@
   (passe arrêtée, sans livrable) et `fo-logs\2026-10-21_session5_fo-shots_anciennes`. Libre ensuite :
   2,67 Go. Ne JAMAIS déplacer les archives `fo-logs\*` qui contiennent un `visual.log` (le banc d4m les lit)
   ni les preuves citées par RD_LOG. Surveiller la place avant un grand lot de rendus ou de captures.
+  **Fichiers H: : 16,3 Go libres depuis le 23/10 vers 16 h 25** (17 Go relevés à 18 h 14). Ce jour-là, le plan
+  relevait 1,9 Go libres à 15 h 34 ; sur la réponse A du DC à Q-P1, l'orchestrateur a déplacé 1 776,5 Mo vers
+  `C:\Users\evan2\fo-archives\fo-logs\` (104 `.npy` de `2026-10-22_V3E`, les PNG des 5 galeries P1 ; journaux laissés
+  en place, un `DEPLACE_VERS_C.txt` par dossier). La place gagnée dépasse de loin ce déplacement : la différence ne
+  vient pas du projet (cause inconnue). C: : 9,1 Go libres après le déplacement : ne plus y déplacer sans regarder. Le
+  seuil de 1 Go libre avant chaque paquet de rendu (lot A0) n'est PAS encore écrit.
 - Les agents déposent parfois des diffs pour l'intégrateur dans le dossier temporaire de la session,
   qui peut disparaître. Appliquez-les vite, ou copiez-les dans `fo-logs`.
 - Le DC peut jouer pendant les bancs : jamais d'arrêt global de factorio.exe, fermeture ciblée seulement
@@ -295,7 +355,9 @@
 - **Identifiants provisoires des lots parallèles** : V3-T3 et V3-T4 ont tourné en même temps et ont tous deux proposé
   F103 et suivants, E56 et suivants. Règle appliquée le 22/10 vers 23 h : le lot intégré garde ses numéros (son code
   les cite), l'autre prend le bloc suivant (correspondance dans RD_LOG, en tête des faits de V3-T4). À l'avenir,
-  donner à chaque lot parallèle un bloc réservé dans sa tâche.
+  donner à chaque lot parallèle un bloc réservé dans sa tâche. Fait depuis le plan de la suite (blocs en tête de
+  RD_LOG) ; même ainsi, un correcteur a débordé (M0 proposait E77, réservé à M1 et M2 : consigné dans E74 ; F135, hors
+  du bloc F130 à F134, gardé car libre) : vérifier chaque identifiant proposé contre la liste des blocs.
 - **`t3-migration` demande 1 000 ticks** : à 700 ticks (le nombre de `ht3-migration` et `t2-migration`), il s'arrête avant
   son contrôle, sans BILAN (payé le 22/10 à 22:51:02).
 - **Python** : le `python` par défaut (3.14) a Pillow, mais PAS numpy. Les outils de mesure de la charte
@@ -303,6 +365,35 @@
   intégré à Blender (3.13).
 
 ## 7. Prochaines étapes, dans l'ordre
+
+**Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
+OBJECTIFS §6) :**
+1. Finir le run `wf_2f1793c9-578` : **INT-K0** (fusion du kit commun ; réparer `rose.py` et `e66.py` d'A1 qui
+   importent `compo` ; rejouer l'empreinte forte contre `K0\correction\avant.json`, attendu « 0 différente(s) ») ;
+   **INT-GARDE** (garde des durées d'animation des tourelles, E67) ; **INT-GRAINE** (`FO_MAP_SEED` ; recopier le
+   `.bat` à la racine, puis rejouer `content` sur la graine par défaut et sur une autre graine, et `monde`) ; puis
+   tous les bancs, et la mise à jour des documents (K0 fusionné ; chiffres de CLAUDE.md §5).
+2. Reste d'A0 : magasin des feuilles hors de git (D-6 B, préalable d'A2) ; seuil de 1 Go libre avant chaque paquet
+   de rendu ; tri des worktrees périmés (59 dossiers ; jamais un worktree en cours).
+3. **A2 : la mitrailleuse EN JEU à 4 directions** (étape 3) : poses S et O en production, feuilles et manifeste,
+   `prototypes/levels/gun.lua` sans visuel provisoire (bouche et douilles par âge : E68), règle du harness sur les
+   fichiers d'images, scénario `gun-rose` (orienter par `orientation`, F122), D4m en haute, normale et plancher,
+   captures zooms 1 et 2 jour et nuit ; à vérifier sur la première capture : F121 (la tête vise le nord-est en
+   diagonale), l'ombre de la tête en moteur (E66), la tête qui mange le socle ; verdict du DC.
+4. **A3 : 64 directions, rendu de nuit** (étape 4 ; Q-P2 : A) : environ 868 rendus ; avec l'ombre à 32 (E66, gain
+   44,7 %) une fois le réglage d'échantillons par passe ajouté au kit (D-7) ; trancher avant les trous enfermés de
+   la rose (19 sur 112).
+5. Ensuite : A4 (éclats de tir, socle animé, ruines) et S0 (sons, E69) ; F1 à F6 (les 6 autres familles, avec le
+   kit commun) ; M1 à M3 (monde), en parallèle ; puis Compaction et contenu des époques (OBJECTIFS §6).
+6. Suites de M0 non traitées : accès à pied (m-1), pire cas de coût (m-2, rejet à bas coût par
+   `calculate_tile_properties`, F132), message perdu à `on_init` (m-3), décor (m-5), sauvegarde de migration avec
+   base et guerre (m-6), factions IA (m-7, à noter pour IA1), garantie générique (m-8, avec les lots X), anomalie des
+   graines 1 et 42 (m-9) ; rejouer les `ia0-*` avant de citer leurs chiffres.
+7. Suites d'A1 non traitées : rendre d06, d26, d38, d58 (les diagonales vues en jeu) avant de montrer la rose comme
+   définitive ; `variants.get()` et `--kit --dirs` (D7) ; commiter `e66_compo.py` et `planches.py` (hors dépôt, D8) ;
+   jouer `folding` et les autres animations, et une cible ennemie imposée.
+
+**Historique de cette liste (avant le 23/10) :**
 1. ~~V3-S~~ : fait. Charte intégrée (13 h 25), première passe jugée (E45), verdict du DC le 22/10 à 16 h 45 :
    style retenu ; il manque une direction artistique par époque.
 2. Ensuite, sans attendre :

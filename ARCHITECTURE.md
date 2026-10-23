@@ -3,7 +3,9 @@
 > Document vivant. Toute décision structurante y est consignée avec sa justification.
 > **Cahier des charges et état réel : OBJECTIFS.md** (référence pour comparer attentes et livraisons).
 > **Mode d'emploi pour reprendre le travail (Claude Code, multi-agent) : CLAUDE.md.**
-> Dernière mise à jour : 2026-10-22, 19 h 20, session 6 (lot V3-T2 : emprise croissante de toutes les familles,
+> Dernière mise à jour : 2026-10-23, vers 18 h 30 (lot M0 : garantie des monnaies des âges 5, 7 et 8, §7.1 ; lot K0 :
+> kit de rendu commun des familles, en cours d'intégration, §7 ter ; lot A1 : directions de la tête et scénario
+> `a1-tourelle`, §7 ter et §8 ; bancs `monde`, `m0-reprise`, `m0-migration`, §8). Avant : 2026-10-22, 19 h 20, session 6 (lot V3-T2 : emprise croissante de toutes les familles,
 > points servis, progression notée, bâtiment hors grille, §7 bis ; bancs, §8). Avant : 2026-10-21, session 5 (niveaux de bâtiments façon Clash of Clans : centre de
 > commandement, chantiers, panneau « Évolution »). Session 4 : économie réelle et cerveau d'équipe,
 > équipe du joueur, défense de tours, arsenal spécial, biomes et évolution visuelle.
@@ -32,6 +34,7 @@ factorio-overhaul/
 ├── settings/faction.lua            # réglages par lot, requis par settings.lua (lot IA0)
 ├── graphics/vitrine/               # sprites rendus par le pipeline 3D (lot V0) ; prototypes/vitrine.lua les déclare
 ├── tools/render/                   # pipeline de rendu 3D (Blender) étalonné sur le vanilla : README, CALIBRATION
+│   └── pieces/levels/              # kits de rendu des familles à niveaux (§7 ter) : gun_e/ (mitrailleuse validée ; directions dKK, rose.py, e66*.py, identite.py : lot A1) ; commun/ (kit commun, registre des âges, profils de famille : lot K0, EN COURS D'INTÉGRATION)
 ├── docs/DA_FACTORIO.md             # charte de direction artistique mesurable (lot V3-S, E43) ; docs/da/ : mesures vanilla et V3 phase 1, planches
 ├── tools/da/                       # mesure de la charte sur des sprites (py -3.9 : numpy, Pillow) : da_lib, seuils (23 planchers), progression (dominance entre époques)
 ├── info.json, changelog.txt, settings.lua
@@ -41,6 +44,7 @@ factorio-overhaul/
 │   ├── balance_model.lua           # paliers Compaction ×4 (logistique)
 │   ├── content/{modules,enemies,arsenal,world}.lua      # données d'équilibrage du contenu
 │   ├── content/epochs.lua          # contenu des 15 époques et des branches (lot X0) : ressources, objets, recettes, bâtiments, technologies (données pures, pas encore en jeu)
+│   ├── content/guarantee.lua       # garantie des monnaies des âges 5, 7 et 8 (lot M0, §7.1) : spécifications, candidats (Park-Miller), paliers de reprise, verdict du sol, disposition du site (pur)
 │   ├── faction/{config,strategy}.lua                    # paramètres + décision d'attaque des factions
 │   ├── team/{config,book,planner}.lua                   # économie réelle, livre de recettes, CERVEAU D'ÉQUIPE
 │   ├── team/org.lua                # modèle pur des rôles (C5, lot IA1) : pôles, affectation différée, jetons de travail, résurrection, rangs
@@ -64,7 +68,7 @@ factorio-overhaul/
 │   ├── faction/                    # état, sites, avant-postes, militaire, commandant, guerre
 │   ├── td/director.lua             # défense de tours : force fo-horde, vagues, panneau, commandes
 │   ├── levels/                     # chantiers d'amélioration, centre de commandement, panneau « Évolution » ; free.lua (lot V3-T3) : bouton « Libérer la place », marques, fantômes, demandes en attente, Annuler (chargé par panel.lua et remote.lua, pas par control.lua)
-│   ├── world/                      # dangers des biomes, couvée des déchiqueteurs
+│   ├── world/                      # dangers des biomes, couvée des déchiqueteurs ; guarantee.lua (lot M0, §7.1) : pose des sites garantis, interface « fo-monde »
 │   └── remote.lua                  # interface "factorio-overhaul" (pilotage sans joueur)
 ├── tests/
 │   ├── mock_engine.lua             # moteur simulé partagé (inventaires, brûleurs, fabrication, tir…) ; boîtes vanilla, recherche par boîte (suite V3-T) en intervalles fermés, contact bord à bord compris (lot R1, E53) ; marques de démontage, fantômes (création, revive), mine, points d'un bras, fils d'un poteau (lot V3-T3)
@@ -72,6 +76,7 @@ factorio-overhaul/
 │   ├── war_test.lua                # guerre à économie réelle + monde (92)
 │   ├── td_test.lua                 # défense de tours (270)
 │   ├── pteam_test.lua              # équipe du joueur (15)
+│   ├── monde_test.lua              # garantie des monnaies (lot M0) : candidats, décision, sites, échec et reprise par paliers, en moteur simulé (157)
 │   ├── migration_test.lua          # sauvegardes 0.2 → 0.4.4 (et sans changement de version) : chantiers, PV, emprises V3-T et V3-T2, reprise de progression, hors grille, doublons, message, filet, contact bord à bord, namespace levels_free créé vide (82)
 │   ├── levels_test.lua             # niveaux : règles, amélioration, emprise croissante, points servis, objet au sol bord à bord, « libérer la place » en moteur simulé (1 642 + 11 écarts connus) ; attentes tirées de L.footprints
 │   ├── levels_clear_cases.lua      # cas purs de la règle de décalage (lot V3-T3, shared/levels/clear.lua), joués par levels_test (détail : FO_VERBOSE_CLEAR=1)
@@ -93,6 +98,10 @@ factorio-overhaul/
                                     # fo-autotest/scenarios/bord-a-bord.lua : scénario greffé, contact exact zone/boîte de find_entities_filtered et count_entities_filtered (lot R1, E53 ; 45 cas, 12 contrôles)
                                     # fo-autotest/scenarios/t3-libere.lua : scénario greffé, bouton « libérer la place » en moteur réel, zones A à V et L, vrais robots en R (lot V3-T3, E59 ; 1 900 ticks, 41 contrôles)
                                     # fo-autotest/scenarios/t3-migration.lua : scénario greffé, « libérer la place » pour un bâtiment laissé hors grille par une vraie migration (double source src-0.4.2 seulement, lot V3-T3, E59 ; 1 000 ticks, 7 contrôles)
+                                    # fo-autotest/scenarios/monde.lua : scénario greffé, garantie des monnaies sur nauvis et 5 graines (surfaces créées), cas A à F (lot M0, E73, E74 ; 700 ticks, 89 contrôles)
+                                    # fo-autotest/scenarios/m0-reprise.lua : scénario greffé, échec puis reprise de la garantie (lot M0, E74 ; 2 600 ticks, 15 contrôles)
+                                    # fo-autotest/scenarios/m0-migration.lua : scénario greffé, migration d'une sauvegarde 0.4.4 (double source src-0.4.4 seulement, lot M0, E76 ; 700 ticks, 9 contrôles)
+                                    # fo-autotest/scenarios/a1-tourelle.lua + a1/jetable.py, a1/a1_jetable_data.lua : levée et directions d'une tourelle (lot A1, E67, E70 ; sur une COPIE JETABLE du mod seulement, 1 000 ticks, 5 contrôles ; sur le mod livré, refus propre à l'init)
                                     # ht3_journal.py : contrôle du journal d'un passage ht3-migration (7 contrôles) ; --tag FO-T2-MIGRATION : passage t2-migration (26) ; --tag FO-T2-DEFENSE : passage t2-defense (19 ou 11)
                                     # vram.py : atlas relevés dans visual.log ; atlas virtuel du plancher COMPTÉ dans l'estimation depuis le lot R1 (E55)
                                     # tests/ : run_d4m.py (banc D4m, 5 étapes), unit_vram.py (99), mut_atlas.py (40 cas),
@@ -257,7 +266,7 @@ record conservé.
 | Déchiqueteurs | paliers 5-8, 4 familles × 8 paliers × 2 types, 4 nids de famille, vers 5-8 | `shared/content/enemies.lua` |
 | Arsenal | 4 munitions, mitrailleuse lourde, 2 tourelles lourdes, 2 murs | `shared/content/arsenal.lua` |
 | **Arsenal spécial** (session 4) | tourelle-canon, mortier, tour à arc, pulvérisateur d'acide ; obus de mortier, obus en tungstène, grenade de lanceur, balle de rail, cellule d'arc ; lance-grenades, fusil à rail, arc portatif ; 3 technologies | `shared/content/arsenal.lua` (A.special_*) |
-| Monde | 3 biomes, 3 ressources à effets | `shared/content/world.lua` |
+| Monde | 3 biomes, 3 ressources à effets (générées depuis `W.resource_order` depuis le lot M0) ; sites garantis des 3 monnaies, posés par script (§7.1) | `shared/content/world.lua`, `shared/content/guarantee.lua` |
 | Factions | QG (stock), 12 soldats, coffre d'équipe du joueur | `shared/faction/config.lua`, `shared/team/config.lua` |
 
 Total : **347 prototypes** ajoutés ou modifiés, validés hors-jeu contre le schéma 1.1.91 et en moteur réel.
@@ -277,6 +286,60 @@ socle de mitrailleuse agrandi + tourelle de char (canon), socle et fût d'artill
 pile d'accumulateurs + antenne de balise + arcs de charge lumineux et halo de nuit (tour à arc), lance-flammes adossé à un
 petit réacteur chimique (acide) ; icônes composées (icône de base teintée + pastille de la munition).
 
+### 7.1 Garantie des monnaies des âges 5, 7 et 8 (lot M0, 23/10, version 0.4.5)
+
+**Problème** : le tungstène (âge 5), le cristal de résonance (âge 7) et le méthane (âge 8) ne viennent que des biomes
+du mod, placés par bruit. Sur une graine sans cendres proches, le centre ne passe pas l'âge 5 (3 graines sur 5
+essayées : RD_LOG E73) ; et dans une sauvegarde existante, l'autoplacement ne touche que les chunks neufs.
+
+**Découpage** (règle 7 du §2) :
+- `shared/content/guarantee.lua` (PUR, testé hors jeu par `tests/monde_test.lua`) : `G.specs()` lit le nombre et
+  les distances dans `X.base_resources` (`shared/content/epochs.lua`, `placement.guaranteed`) et la forme du site dans
+  le champ `guarantee` de `W.resources` (`shared/content/world.lua`) ; candidats `G.candidates(graine, spec, n, essai)`
+  par un Park-Miller à état local (graine de la carte mêlée au `seed1` de la ressource ; essai k = graine décalée de
+  1 000 k ; direction par rejet dans le disque unité, AUCUNE trigonométrie ; rayon uniforme en aire dans l'anneau
+  [dmin + cœur + 1, dmax − cœur − 1]) ; 24 candidats au plus par essai (`G.MAX_TRIES`) ; refus « voisin » (autre site
+  garanti), « batiment » (entité d'une force autre qu'`enemy` ou `neutral` dans le disque + 2), « gisement »
+  (ressource sous le cœur + 3), « sol » (tuile non naturelle ou eau sous le cœur + 1) ; paliers de reprise
+  `G.rules(essai)` : niveau 1, autres candidats ; niveau 2, eau naturelle tolérée sous le cœur jusqu'à 50 %
+  (`G.WATER_SHARE`) et comblée par le sol du biome ; niveau 3 et suivants, distance maximale × 1,5
+  (`G.RING_STRETCH`) ; jamais tolérés : un bâtiment d'une force joueur ou IA, un gisement existant sous le cœur, une
+  dalle posée par un joueur ; délais `G.retry_delay(échecs)` : 600, 1 200, 2 400… ticks, au plus 36 000.
+- `script/world/guarantee.lua` (exécution) : état `global.fo.world` déclaré par `Storage.declare("world")`
+  (`done`, `fails`, `sites`, `tags`, `runs` ; nombres, chaînes de clés et positions seulement) ; abonnements
+  statiques par le bus `Events` ; chargé par `control.lua` (une ligne `require`).
+- `prototypes/world.lua` : les ressources du monde sont générées depuis les données (boucle sur `W.resource_order`,
+  `ore_prototypes` ou `fluid_prototypes` selon `kind` ; sortie identique à 0.4.4 : E75). Le générateur depuis
+  `X.resources` et `X.tiles` est REPORTÉ aux lots X (34 prototypes sur 35 n'existent pas encore ; RD_LOG, décisions du
+  23/10).
+
+**Trois moments** :
+1. `on_init` : partie neuve (tick 0) : le site est TOUJOURS posé (savoir si la graine a déjà un gisement à 200-700
+   tuiles coûterait environ 2 s de génération : F133 ; Q-M0-1) ; mod ajouté à une partie en cours (tick > 0) : comme
+   une sauvegarde.
+2. `on_configuration_changed` : sauvegarde existante : posé seulement s'il manque des unités dans les chunks DÉJÀ
+   générés à moins de dmax (minerai : quantité / `min_total` ; fluide : nombre de puits) ; reprend aussi tout échec
+   sans attendre le délai.
+3. Filet `on_nth_tick(600)` : rejoue ce qui n'a pas été traité (mod mis à jour sans que la configuration soit
+   rejouée : F130 montre que l'appel n'est pas garanti par la version) et reprend un échec quand
+   `game.tick >= next_tick`. Coût hors travail : une boucle sur 3 clés.
+
+**Réussite et échec** : une ressource n'est marquée traitée (`done[clé]`) que RÉUSSIE ; un échec écrit
+`fails[clé] = { count, next_tick, history }`, est annoncé aux joueurs (`game.print`, clé `fo-monde.site-echec`, FR et
+EN) et repris au palier suivant (correction M-1 de la vérification). **Le site** : disque de tuiles du biome (cendres
+r 13, plaine de cristal r 15, marais r 7 ; bord irrégulier haché), posé seulement sur un sol naturel de terre ferme ;
+gisement (tungstène 197 tuiles, environ 198 000 ; cristal 149 tuiles, environ 120 000) ou puits (2 puits de méthane à
+450 000) ; falaises du cœur retirées ; décor vanilla du disque retiré, décoratifs du biome régénérés ; zone
+cartographiée pour « player » et étiquette de carte posée à `on_chunk_charted` (F131 : `add_chart_tag` juste après
+`chart` échoue) ; message aux joueurs (`locale/*/m0.cfg`, lien `[gps]`).
+
+**Interface distante `fo-monde`** (bancs en moteur réel ; données simples) : `status()` (runs, done, fails, étiquettes
+en attente), `specs()`, `candidates(surface, clé, n, essai)`, `apply(surface, opts)` (surface de banc : rien n'est
+gardé ni cartographié), `forget(clé)` (banc seulement : la ressource redevient « à traiter »).
+
+**Coût mesuré** (moteur réel, LuaProfiler ; E74) : une fois par ressource et par partie, 105 à 196 ms quand des chunks
+doivent être générés, 11 à 21 ms sinon, 1,4 ms pour un filet sans travail ; jusqu'à 767 ms sur une carte à eau
+maximale (vérification, pire cas non borné). Non prouvé : l'accès à pied du site depuis le départ (île possible).
 
 ## 7 bis. Niveaux de bâtiments « façon Clash of Clans » (session 5)
 
@@ -546,12 +609,56 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   Concernés : raccords de toutes les boîtes à fluide, `vector_to_place_result`, `resource_searching_radius`.
   Non déplacés : fils de connexion, connecteurs de circuit, image de la zone d'extraction.
 
+## 7 ter. Kits de rendu des familles à niveaux (`tools/render/pieces/levels/`)
+
+Outillage hors du mod en jeu (Blender 5.2.2 et Python 3.9, toujours par `tools/render/with_render_lock.py`). Aucune
+image produite ici n'est encore en jeu (lot A2).
+
+**`gun_e/` : la mitrailleuse validée par le DC** (15 âges, 23/10, 14 h 50 ; fusionné par `93e3d89`). Un fichier par
+âge (`ep01.py` à `ep15.py`), `corps.py`, `piece.py` (table des variantes), `rendre.py`, `batch_blender.py`,
+`accroches.py`. **Directions de la tête (lot A1, dégel D-9, fusionné par `5a95650`)** : `piece.DIRS["dKK"]` =
+−2π·K/64, K = 00 à 63, 0 = nord, sens horaire (convention du moteur, E70) ; `d00` = `N` et `d16` = `E` à l'égalité exacte
+des flottants (identité des sprites validés prouvée octet à octet) ; variantes `eNN-tete-dKK` et `kS-tete-dKK`
+construites à la demande (la table explicite reste de 72) ; `rendre.py --dirs rose|N,NE,…|d00,…`. Le moteur choisit
+l'image par `apply_projection` (F121) : garder des feuilles en rotation uniforme. Outils d'expérience : `identite.py`,
+`rose.py`, `e66.py`, `e66_temps.py` et `e66_temps_blender.py` (rendu passe par passe dans une seule session).
+Limite : `batch_blender.py` ne règle pas encore les échantillons par passe (décision D-7 ; préalable du gain E66).
+
+**`commun/` : le kit commun des familles (lot K0) : EN COURS D'INTÉGRATION** (lot INT-K0, run `wf_2f1793c9-578` ;
+branche `worktree-wf_2bade7c0-0e8-2`, tête `87c4fb1` ; pas encore dans `main` au 23/10, 18 h 30). Structure livrée :
+- déplacés de `gun_e/` (`git mv`) : `kit.py`, `parts.py`, `parts2.py`, `parts3.py`, `formes.py`, `silhouettes.py`,
+  `construction.py`, et les outils de contrôle `compo.py`, `ilots.py`, `gris.py`, `mesures.py`, `dominance.py`,
+  `vignettes.py`, `apercu.py` ; nouveaux : `habillage.py`, `pont.py`, `repere.py`, `places.py` (solveur
+  d'accroches ; les obstacles propres à la mitrailleuse restent dans `gun_e/accroches.py`) ;
+- **registre des âges `ages.py`** : noms (ère V cosmique : 13 Antimatière, 14 La Porte, 15 Néant), ères, FAMILLES de
+  couleur des foyers (E72), palettes d'âge copiées des `epNN.py` (`FOYER`, `CORPS`, `matieres(N, …)` dans l'ordre
+  d'origine des appels `metal()`, pour garder les graines), table explicite `PALETTE[N]` (dominante, secondaire,
+  accent, lumière, source) contrôlée à l'import ; `gun_e/epoques.py` et les `epNN.py` le lisent ;
+- **profils de famille** : `commun/famille.py` (contrat d'un `profil.py` : nom, âges, emprise par âge, poses,
+  référence vanilla, cibles de la charte, trous voulus, composition d'un niveau, variantes d'une ronde…, contrôlé au
+  chargement) ; un profil par famille, `<famille>/profil.py` (exemple : `gun_e/profil.py`) ; choix par `--famille NOM`,
+  sinon `FO_FAMILLE`, sinon `gun_e` ; `famille.charger` oublie les modules d'une AUTRE famille avant de charger un
+  profil (défaut 1 de la vérification ; test `commun/tests/test_famille.py`, famille factice `fam_essai`) ;
+- **contrôle d'empreinte FORTE** : `construction.py --tout --forte --matieres` (construction SANS rendu : tous les
+  objets de `bpy.data` dont les lumières de halo, propriétés RNA dont `matrix_world`, modificateurs, données des
+  lumières, maillage évalué en monde, matières complètes, monde, et relevé des appels `mat_metal`, `mat_emissive`,
+  `mat_flat` avec leurs graines) ; `empreintes.py --forte` compare deux empreintes et nomme les objets, matières et
+  graines qui diffèrent. **Règle : toute retouche du kit commun rejoue ce contrôle contre l'empreinte de référence**
+  (`fo-logs\2026-10-23_suite\K0\correction\avant.json` pour les 72 variantes d'avant A1 ; `avant_hab.json` pour les
+  habillages d'essai) ; attendu : « 0 différente(s), 0 absente(s) (forte) ». L'empreinte sans `--forte` ne voit ni
+  les halos ni les positions : ne plus s'y fier ;
+- mode d'emploi : `commun/LISEZMOI.md`.
+Restent dans `gun_e/` : `rendre.py`, `batch_blender.py`, `accroches.py`, `corps.plateforme` (le lot A1 les modifiait
+en parallèle). **Graines de bruit inertes** dans Blender 5.2.2 (F136) : les graines ne changent aujourd'hui aucune
+image ; les activer changerait tous les designs validés (décision du DC). Non prouvé : un profil d'une autre famille
+que la mitrailleuse ; `stone-wall` n'est pas mesuré pour la charte (`dominance.py` refusera le mur).
+
 ## 8. Chaîne de vérification
 
 | Banc | Ce qu'il prouve | Ce qu'il ne prouve pas |
 |---|---|---|
 | `tests/datastage/harness.lua` | L'étape data s'exécute (core + base + mod, dans l'ordre moteur) ; schéma, références, localisation FR/EN ; règles moteur connues (ex. `slice` des animations tournantes, F23). **Règle des points de jeu** (suite V3-T, E47, `tests/datastage/engine_rules.lua`) : raccords hors de la boîte de collision et sur un centre de tuile, dépôt de foreuse hors de la boîte et des tuiles, pour toute entité ; exception vanilla : le chevalet de pompage (F82) ; auto-contrôle de 11 cas, compté dans les violations. Résultat attendu au 22/10 (17 h 06 à 17 h 13, `main` ; inchangé après le lot V3-T2, 19 h 09) : 911 prototypes ajoutés ou modifiés, 0 erreur nouvelle, « Règles moteur : 0 violation(s) », points de jeu vanilla 18 entités / 51 points et mod 61 / 182, auto-contrôle 11/11, 0 clé manquante | Rendu, génération de carte réelle ; ce que fait le moteur réel d'un raccord ou d'un dépôt mal placé (déduit de la géométrie, non observé) |
-| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel (609 usages, 0 erreur au 22/10, vers 22 h 55 (bancs hors jeu de 22 h 50 environ à 22 h 55, fin de la sortie à 22:55:17), `main` après le lot V3-T3 : marques, fantômes, `copy_settings`, `revive`, scénarios `t3-libere` et `t3-migration` ; le correcteur du lot annonçait 615 dans son worktree, écart non expliqué ; 535 après le lot R1, 519 après le lot V3-T2, 447 avant ce lot, 434 avant les suites de V3-T) | Comportement à l'exécution |
+| `tools/api_lint.py` | Chaque appel runtime existe en 1.1.91, avec la bonne forme d'appel (**669 usages**, 0 erreur sur `main` le 23/10 vers 17 h 50, après les fusions des lots A1 (scénario `a1-tourelle`) et M0 (garantie, scénarios `monde`, `m0-reprise`, `m0-migration`) ; avant : 609 usages, 0 erreur au 22/10, vers 22 h 55 (bancs hors jeu de 22 h 50 environ à 22 h 55, fin de la sortie à 22:55:17), `main` après le lot V3-T3 : marques, fantômes, `copy_settings`, `revive`, scénarios `t3-libere` et `t3-migration` ; le correcteur du lot annonçait 615 dans son worktree, écart non expliqué ; 535 après le lot R1, 519 après le lot V3-T2, 447 avant ce lot, 434 avant les suites de V3-T) | Comportement à l'exécution |
 | `tests/*.lua` (moteur simulé) | Logique runtime, cerveau d'équipe sur les vraies recettes, sérialisabilité, déterminisme, rechargement, migration ; résultats attendus au 22/10 : CLAUDE.md §5 (dont migration 82 et levels 1 642 depuis le lot V3-T3 : 41 cas purs de la règle de décalage (`tests/levels_clear_cases.lua`) et 23 contrôles de `free.lua` en moteur simulé (voiture, annulation après démontage et après reconstruction, demandes voisines, refus du moteur, plan seul, crochet, coût absent ; liste des demandes en nombres), namespace `levels_free` créé vide au chargement ; migration 81 et levels 1 577 depuis le lot R1 : contact bord à bord, objet au sol qui touche seulement le bord ; migration 79 et levels 1 575 depuis le lot V3-T2 : points servis, reprise de progression, hors grille, doublons, message de migration). **Moteur simulé** (suite V3-T, E47) : boîtes de collision et masques vanilla des prototypes intégrés (relevés par `harness --dump-final`), `bounding_box` et recherche par zone sur la boîte, en **intervalles fermés** depuis le lot R1 (contact par un bord ou un coin compris, comme le moteur réel : F96, E53 ; exclu jusqu'au 22/10, par choix non observé), filtre `collision_mask`, `get_control_behavior`, `get_recipe` et `set_recipe`, `destroy_decoratives` relevé ; option `legacy_boxes` = ancien modèle, pour comparaison seulement. Attentes de `levels_test` et `migration_test` tirées de `L.footprints` ; `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de l'arborescence du jeu | Fidélité du moteur (exemple : le moteur simulé ne retirait pas les fantômes recouverts, le vrai moteur le fait, F74) ; filtre `position` seule (ignoré), `limit` de la recherche non inversée, `count_entities_filtered` ; les prototypes que les bancs déclarent sans boîte restent en 1×1 ; ni barre de coffre, ni boîte à fluide, ni orientation : les mutations m15, m16 et m17 du lot V3-T2 y survivent (tenues en moteur réel par `levels_points`, E51) |
 | `fo-autotest.bat` scénario `content` | **Le vrai jeu** : chaque recette dans sa machine, chaque module, chaque munition, tourelle et arme portative en duel, les contres voulus, ennemis, nids, biomes, niveaux. **317 contrôles** depuis le lot V3-T2 (22/10, `main`, `done.txt` 19:05:39,98) : 210 du banc, dont 63 de niveaux ; 2 de l'exemple greffé ; 26 du greffon `levels_taille` (mitrailleuse : agrandissement sur place, refus et contour, transfert, chaîne 6 → 30) ; 54 de `levels_machines` (laser, foreuse, four, assembleur, centre : transfert réel, raccord et dépôt, usine dense, chaînes 6 → 30 et 1 → 15, prototypes) ; 25 de `levels_points` (points servis dans les 4 orientations, refus, fabrications en cours, F84, barre, coût du `on_tick`). La ligne du journal dit « exemple 2 OK 0 ECHEC, levels_taille 26 OK 0 ECHEC, levels_machines 54 OK 0 ECHEC, levels_points 25 OK 0 ECHEC ». 238 avant ce lot | Rendu ; panneau et aperçu au sol (pas de joueur en mode benchmark) ; seconde amélioration avant le `on_tick` du mod (défauts 2 et 15) ; raccords du fluide de minage et boîte à fluide de sortie |
 | `fo-autotest.bat` scénario greffé `t2-machines` (1 500 ticks) | Les greffons `levels_machines` et `levels_points` joués au tick 60 (états séparés ; refus rejoués au tick 1440), pour qu'une session avec images (`fo-captures.bat t2-machines`) photographie les machines APRÈS l'agrandissement et les contours de refus. **80 contrôles** (22/10, `main`, 19:05:44,44) | Comme `content` |
@@ -559,6 +666,8 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 | `fo-autotest.bat` scénario greffé `t3-libere` (1 900 ticks, lot V3-T3) | **Le bouton « Libérer la place » en moteur réel** (E59), par l'interface distante `levels_free_room` comme le bouton du panneau : zones A (usine dense, bras FILTRANT), B1 (mitrailleuse collée au mur, Q-T3), B2 (mur épais et eau), C1 et C2 (Annuler, avant et après un démontage : usine remise comme avant), D (sans clic : rien ne change), E (coût absent, puis présent, retiré, revenu), F (refus « blocked » entre deux voisins), G (deux voisins libérés l'un après l'autre), R (VRAIS robots de construction : démontage, agrandissement, reconstruction par le moteur), V (voiture dans la candidate), L (clic après le bilan, pour les captures) ; forces `fo-t3`, `fo-t3p`, `fo-t3r`. Ailleurs qu'en R, le banc joue les robots (il mine les marques, puis construit les fantômes). Attendu au 22/10 (`main`, 22:50:58,19) : « [FO-T3-LIBERE] BILAN : 41 OK, 0 ECHEC(S) ». `fo-captures.bat t3-libere` : 4 images prises après le bilan (`shots_delay` = 1 840) | Le panneau et les boutons avec un vrai joueur, le jeu à la main ; l'expiration et le bâtiment disparu (moteur simulé) ; foreuses, fours, lasers et centre ; les fils de circuit des gêneurs (non refaits) ; les rangées collées (non libérables : voir `t2-migration` et `t2-defense`, plan seul) |
 | `fo-autotest.bat` en double source, scénario greffé `t3-migration` (1 000 ticks, lot V3-T3) | **« Libérer la place » pour un bâtiment laissé HORS GRILLE par une vraie migration** (E59 ; un script ne sait pas fabriquer un bâtiment hors grille : F104). Création par `src-0.4.2` (deux assembleurs 8 collés, en 3×3), benchmark par 0.4.4 : l'assembleur laissé hors grille est refusé (« no-room ») ; au clic, bras sud et deux tuiles marqués, fantômes posés ; une fois les marques minées, il est remis sur la grille au niveau 9 de lui-même ; l'usine remarche. Attendu au 22/10 (`main`, 22:51:53,59) : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) ». Un passage à 700 ticks est trop court (aucun BILAN) | Comme `t3-libere` ; un seul bâtiment hors grille joué |
 | `fo-autotest.bat` scénario greffé `bord-a-bord` (60 ticks, lot R1) | **Le contact exact entre une zone de recherche et une boîte de collision, en moteur réel** (E53, F96 à F98) : 45 cas (mur de pierre, mitrailleuse vanilla, laser 7 du mod ; 4 bords, 2 coins, zones nulles, chevauchement et écart de 1/256, rayons), `find_entities_filtered` et `count_entities_filtered`, chacun comparé à la règle du moteur simulé (`STRICT = false` : intervalles fermés) ; un écart est un ECHEC, à corriger en alignant le moteur simulé. Attendu au 22/10 (`main`, 20:11:23,82) : « [FO-BORD-A-BORD] BILAN : 12 OK, 0 ECHEC(S) » | La `position` seule est journalisée, pas comparée (le moteur simulé l'ignore) ; troncature ou arrondi des boîtes (F98) ; les recherches du mod hors des niveaux (balayages par secteurs de `pvp.lua`, `sites.lua`, `war.lua`) |
+| `fo-autotest.bat` scénarios greffés `monde` (700 ticks), `m0-reprise` (2 600 ticks) et, en double source `src-0.4.4` seulement, `m0-migration` (700 ticks) (lot M0) | **La garantie des monnaies en moteur réel** (§7.1) : `monde` joue nauvis (garantie à `on_init`, graine 20261020) et 5 autres graines sur des surfaces créées par le scénario (la graine de `fo-autotest.bat` est fixe) : surfaces neuves, explorées, sans les 3 ressources, avec obstacles, filet (E73, E74) ; `m0-reprise` : deux échecs provoqués puis la reprise au niveau 2 (eau comblée) ; `m0-migration` : une sauvegarde 0.4.4 (`<racine>\fo-logs\2026-10-23_suite\M0\src-0.4.4` = `git archive 93e3d89`, à GARDER) chargée par 0.4.5 (E76). Attendu sur `main` (23/10, `done.txt` 17:45:34,86, 17:45:39,32, 17:45:43,44) : « [FO-MONDE] BILAN : 89 OK », « [FO-M0-REPRISE] BILAN : 15 OK », « [FO-M0-MIGRATION] BILAN : 9 OK », 0 échec. `fo-captures.bat monde` : 9 captures, 91 OK (étiquettes de carte posées : la cartographie ne tourne qu'avec images, F131). Hors jeu : `tests/monde_test.lua` (157) | La voie `on_init` sur une autre graine de nauvis (graine paramétrable : lot INT-GRAINE, en cours) ; un échec naturel ; le niveau 3 de reprise (hors jeu seulement) ; l'accès à pied ; une sauvegarde avec base et guerre ; le visuel (verdict du DC) |
+| `fo-autotest.bat` scénario greffé `a1-tourelle` (1 000 ticks, lot A1), sur une COPIE JETABLE | **Levée et directions d'une tourelle en moteur réel** (E67, E70) : `py -3.9 tools/autotest/a1/jetable.py --dest <dossier neuf, hors du dépôt>` recopie le mod et ajoute en fin de `data-final-fixes` des prototypes de test (têtes « flèches » numérotées, variantes de levée) ; puis `fo-autotest.bat nopause 1000 a1-tourelle "<copie>"` (et `fo-captures.bat a1-tourelle "<copie>"`). Attendu : « [FO-A1-TOURELLE] BILAN : 5 OK, 0 ECHEC(S) » (23/10, 15:56:07,00 ; 16:48:01,51 au vérificateur). Sur le mod livré, le scénario se refuse à l'init (« prototypes de test absents ») | `folding`, `attacking`, `starting_attack`, `ending_attack` ; une cible ennemie imposée ; une vraie feuille `dKK` en jeu |
 | `fo-autotest.bat` scénarios `default`, `waves`, `pteam`… | **Le vrai jeu** sans affichage, dossiers isolés : guerre à économie réelle, défense de tours, équipe du joueur ; temps par tick et par poste ; étalon machine | Rendu |
 | `fo-captures.bat` (= `fo-autotest.bat` + `fo-visual.bat`) + `shots.lua`, `vitrine.lua` | **Le vrai jeu avec images** (`--benchmark-graphics`, arrêt seul), captures automatiques, session fermée sans intervention, index et planche-contact ; vitrine d'entités à côté des références vanilla ; greffons de scénarios et de contrôles (`tools/autotest/README.md`) | Le jugement esthétique (verdict du Directeur Créatif) |
 | `tools/autotest/tests/run_d4m.py` (banc D4m hors jeu) + `mut_atlas.py` + `mut_vram.py` | Hors jeu, en 5 étapes : essai à blanc du greffon `d4-geant`, fixtures synthétiques, unitaires de `vram.py` (99 depuis le lot R1, 57 avant), intégration de `visual_session.py`, et les 13 journaux archivés relus avec les atlas ATTENDUS selon les réglages que déclare chaque journal (qualité, mémoire vidéo, DXT ; table `ATLAS_ATTENDUS`) : nombre d'atlas, atlas [none], les 13 autres une fois par catégorie, atlas virtuel, seuil des [none] au plancher ; lignes horodatées du moteur seulement (E48, F80). `mut_atlas.py` : 40 cas (7 témoins, 21 mutants, 11 cas du garde-fou de `--out`, 1 contrôle final). Depuis le lot R1 (E55), `vram.py` COMPTE l'atlas virtuel du plancher (pages, mipmaps en borne haute ; plancher 0,28 à 0,53 Go) ; `mut_vram.py` : un témoin nul qui doit survivre, puis 18 mutants de `vram.py` que `unit_vram.py` doit tous refuser par un contrôle (copie de TOUS les modules de `tools/autotest`). Attendu au 22/10 : 5/5, 40 OK, « témoin nul survivant ; 18/18 mutants détectés » | La mémoire vidéo réelle (seulement en moteur réel, E40) ; les réglages jamais observés (refusés tant qu'aucun journal ne les étalonne) ; la résidence et le format des pages de l'atlas virtuel (hypothèses, F102) ; d'autres fautes de `vram.py` que les 18 mutants écrits |
@@ -586,7 +695,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
   `content` ou un scénario greffé dont la base est `content`. Sinon, un mod de test récent ne se chargerait pas
   avec une source ancienne qui n'a pas les fichiers que les contrôles requièrent.
 - `analyze.py <dossier> --spikes` : pics de script attribués aux traces `[FO-TRACE]` du même tick.
-- Scénarios : `default`, `content` (banc de contenu : 317 contrôles avec les greffons depuis le lot V3-T2, 238 depuis le lot V3-T ; 180 à la session 5), scénarios greffés `t2-machines`, `t2-migration` et `ht3-migration` (lots V3-T2 et H-T3), `t2-defense` et `bord-a-bord` (lot R1), `t3-libere` et `t3-migration` (lot V3-T3), `waves` (défense de tours + guerre),
+- Scénarios : `default`, `content` (banc de contenu : 317 contrôles avec les greffons depuis le lot V3-T2, 238 depuis le lot V3-T ; 180 à la session 5), scénarios greffés `t2-machines`, `t2-migration` et `ht3-migration` (lots V3-T2 et H-T3), `t2-defense` et `bord-a-bord` (lot R1), `t3-libere` et `t3-migration` (lot V3-T3), `monde`, `m0-reprise` et `m0-migration` (lot M0), `a1-tourelle` (lot A1, copie jetable seulement), `waves` (défense de tours + guerre),
   `pteam` (équipe du joueur + guerre), `baseline`, `stress`, `noexp`, `peace`, `parked`, `worker`.
 - `shots.lua` : en session graphique (`fo-visual.bat`), captures automatiques des points d'intérêt dans
   `fo-visual\write\script-output\fo-shots\`, de jour et de nuit. Le mod de test coupe l'introduction
@@ -596,7 +705,7 @@ petit réacteur chimique (acide) ; icônes composées (icône de base teintée +
 - Étape data : `harness.lua --dump-proto type/nom` (prototype vanilla) et `--dump-final type/nom`
   (prototype tel que le mod le livre : vérifier une couche ajoutée sans lancer le jeu).
 - Hors-jeu : `tests/run.lua`, `tests/war_test.lua`, `tests/td_test.lua`, `tests/pteam_test.lua`,
-  `tests/migration_test.lua` (moteur simulé) ; `tests/datastage/harness.lua` (étape data + règles moteur) ;
+  `tests/migration_test.lua`, `tests/monde_test.lua` (moteur simulé) ; `tests/datastage/harness.lua` (étape data + règles moteur) ;
   `tools/api_lint.py` (appels d'API contre la doc 1.1.91) ; outillage du banc : `tools/autotest/tests/run_d4m.py`,
   `mut_atlas.py`, `mut_vram.py`, `test_ht3_journal.py`, `bat_double_source/run.py` (attendus : CLAUDE.md §5).
 

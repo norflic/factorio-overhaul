@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) : **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -194,6 +194,53 @@
   ensuite 16,3 Go libres, bien plus que ce déplacement (cause extérieure au projet). Q-P2 = A : 64 positions. Q-P3 : C
   annoncée, mais « long » désigne B (un design par âge) : confirmation demandée.
 
+### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
+- **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
+  visuelle et sonore de tout ce qui se voit et s'entend, en 9 étapes ; ordre et suivi des lots : OBJECTIFS §6 et §7.
+  Run `wf_2bade7c0-0e8` (lancé vers 15 h 55) : lots A1, K0 et M0, chacun dans son worktree, avec un constructeur, une
+  vérification adverse et un correcteur ; sorties `fo-logs\2026-10-23_suite\`.
+- **Lot A0 (orchestrateur), fait en partie** : fusion de `v3e-final` dans `main` (`93e3d89`) ; `REFUSES.txt` posé dans
+  `fo-logs\2026-10-23_V3E-p5\final\sprites\` ; identifiants réservés (en-tête de ce fichier) ; phrases du DC de 14 h 50
+  et 15 h 05 inscrites ; déplacement Q-P1 (A) fait vers 16 h 25. **Non fait au 23/10, 18 h 30** : tri des worktrees
+  périmés (relevé à 18 h 14 : 59 dossiers dans `.claude\worktrees`, 60 lignes de `git worktree list`) ; seuil de 1 Go
+  libre sur H: avant chaque paquet de rendu (absent de `tools/render/with_render_lock.py`) ; magasin des feuilles hors
+  de git (décision D-6 B).
+- **Dégel D-9 de `piece.py`** (lot A1) : directions `dKK` = −2π·K/64 (K = 00 à 63 ; 0 = nord, sens horaire, comme le
+  moteur : E70), `d00` égal à `N` et `d16` égal à `E` à l'égalité exacte des flottants ; variantes `eNN-tete-dKK` et
+  `kS-tete-dKK` construites à la demande, table explicite inchangée (72 variantes) ; `rendre.py --dirs rose|N,NE,…|d00,…`.
+  Preuve, en moteur de RENDU : `rendre.py --epochs 2,9,15 --parts "" --dirs N,E --samples 128` (329 s, code 0), puis
+  `identite.py` : **36 fichiers sur 36 identiques octet à octet** aux sprites validés (âges 2, 9, 15 ; poses N et E ;
+  couches main, shadow, glow ; hr et normale ; sha256 = ceux des spec.json). Rejouée par le vérificateur depuis le code
+  commité (âges 2 et 9, 24 fichiers : identiques). Pièges latents relevés par la vérification (mineur D7, non corrigé,
+  aucun appelant touché) : `PIECE["variants"].get("e02-tete-d08")` rend `None` (`dict.get` n'appelle pas
+  `__missing__`) ; `rendre.py --kit … --dirs …` ignore `--dirs` sans rien dire.
+- **Orienter une tête de tourelle à l'arrêt** (pour le scénario `gun-rose` du lot A2) : écrire `LuaEntity.orientation`
+  (F122). Ne PAS mettre `apply_projection = false` et ne pas « corriger » les angles du rendu (F121, déduit).
+- **Garde des durées d'animation du kit des niveaux** (`prototypes/levels/common.lua`) : fausse (E67, F120) ; correction
+  confiée au lot INT-GARDE (run `wf_2f1793c9-578`, en cours à 18 h 30) : les vitesses deviennent des clés de JEU
+  inchangées, le nombre d'images devient libre, la durée vaut 1 / vitesse.
+- **Ombre de la tête à 32 échantillons** (E66) : retenue pour l'estimation d'A3, avec le gain MESURÉ dos à dos de
+  44,7 % sur la tête entière (le 51 % de la première mesure est faux). Le réglage des échantillons par passe
+  (décision D-7) n'existe pas encore dans le kit (`batch_blender.py`) : à ajouter avant A3.
+- **Générateur de ressources et de sols depuis `X.resources` et `X.tiles` : REPORTÉ AUX LOTS X** (décision de
+  l'orchestrateur, 23/10, sur le défaut M-2 de la vérification du lot M0). Raison : sur 35 prototypes interrogés par
+  le correcteur (15 ressources de `X.resources`, leurs 15 produits, 5 tuiles de `X.tiles` ; `harness --dump-final`,
+  `fo-logs\2026-10-23_suite\M0\correction\m2-prototypes-interroges.txt`), **34 n'existent pas encore** ; seul
+  `item/stone` existe, produit de `fo-impact-breccia`, dont le biome `fo-crater-fields` est lui-même absent. Le
+  générateur n'aurait aucune entrée à traiter. Chaque lot X l'étendra avec ses images (X-II fumerolle, X-III galène,
+  X-IV cratères et sables noirs, X-V évents, sol étrange, abysse), et étendra `G.specs()` aux `placement.guaranteed` de
+  `X.resources` (mineur m-8). Ce que M0 livre : les 3 ressources existantes générées depuis `W.resource_order`, sortie
+  identique (E75).
+- **Garantie des monnaies (lot M0)** : dans une partie neuve, le site est TOUJOURS posé (choix du lot ; Q-M0-1 posée
+  au DC) ; un échec n'est plus définitif (correction M-1 : reprise par paliers). La graine paramétrable des bancs
+  (`FO_MAP_SEED`, proposée par M0, fichier du lot P1) est confiée au lot INT-GRAINE (en cours à 18 h 30).
+- **Kit commun des familles (lot K0)** : `tools/render/pieces/levels/commun/` (ARCHITECTURE §7 ter), en cours
+  d'intégration par le lot INT-K0 (branche `worktree-wf_2bade7c0-0e8-2`, tête `87c4fb1`). Graines de bruit inertes
+  (F136) : **NON corrigées**, décision du DC requise (les activer changerait tous les designs validés).
+- Écart de méthode déclaré par le lot A1 : un correctif de `rose.py` passé par un heredoc Bash qui contenait des sauts
+  de ligne échappés, contre la consigne (REPRISE §6) ; diff vérifié ligne à ligne, rien d'abîmé (relu par le
+  vérificateur, mineur D9).
+
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
   aurait converti les fins de ligne dans les worktrees. Worktrees des agents dans `.claude/worktrees/`
@@ -208,6 +255,44 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Fait vérifié dans Blender 5.2.2 (vérification et correction du lot K0, 23/10, 16 h 40 à 18 h 06 ; lot en cours d'intégration)
+Trouvé par le vérificateur adverse du lot K0 (défaut 3 de `fo-logs\2026-10-23_suite\K0\verification.md`), confirmé
+par son correcteur. Il est ANTÉRIEUR à K0 : il touche le pipeline de rendu depuis le lot V0 (`fo_scene.py`), donc
+tous les designs validés de la mitrailleuse. Prochain numéro libre après le bloc de M0 : F136.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F136 | **Observé dans Blender 5.2.2** (scripts `verification\debug_w.py`, sorties `w_avant.txt` et `w_apres.txt` ; construction sans rendu de `e06-socle`). Sur un `ShaderNodeTexNoise` en 3D, la prise W est inactive : `"W" in node.inputs` rend FAUX et `node.inputs["W"]` lève `KeyError`, alors que W figure dans la liste des prises. Le test `if "W" in n.inputs: n.noise_dimensions = "4D"` de `fo_scene.mat_metal`, `mat_emissive` et de `kit._insert_stain` / `_insert_streaks` n'est donc JAMAIS vrai : le bruit reste en 3D, W vaut 0, **aucune graine de bruit n'est appliquée** (210 nœuds de bruit sur 210 en 3D avec W = 0 sur `e06-socle`). Contre-épreuve du correcteur : le lot K0 non corrigé (`0cee947`) décalait 7 graines de l'âge 6, sans aucune différence d'objet ni de matière à l'empreinte forte. | Toutes les matières de même échelle de grain ont le MÊME motif de bruit ; l'ordre des appels `metal()` et les graines n'ont aujourd'hui aucun effet sur l'image. **Non corrigé** : activer les graines changerait TOUS les designs validés : décision du DC requise. Dit dans `commun/ages.py`, `commun/LISEZMOI.md` et en commentaire de `commun/kit.py` (branche K0). Le contrôle d'empreinte forte relève quand même les graines, pour le jour où elles agiront. |
+
+### Faits vérifiés en moteur réel (lot M0, socle du monde, 23/10, 15 h 50 à 16 h 46 ; fusionné dans `main`, `da2e16f`, version 0.4.5)
+Bloc réservé à M0 : F130 à F134 ; F135 vient du correcteur (hors du bloc, attribué ici, aucun autre lot ne l'a pris).
+Sources : `fo-autotest.bat` sur le worktree `wf_2bade7c0-0e8-3` (constructeur `28fe15b`, correcteur `d6766d7`), code 0
+et `done.txt` relu ; journaux `fo-logs\2026-10-23_suite\M0\` (notes `NOTES.md`, §6 du correcteur ; vérification
+`verification.md`). Expériences : E73 à E76.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F130 | **Observé en moteur réel** (16:08:26, `m0-migration-v044-meme-version-bis`). Une sauvegarde 0.4.4 rechargée par la source M0 LAISSÉE en version 0.4.4 appelle `on_configuration_changed`, avec `mod_changes` VIDE, `mod_startup_settings_changed` faux et `migration_applied` faux, alors que les prototypes sont identiques à ceux de 0.4.4 à l'étape data (E75). Témoin : la même carte rechargée par une copie de 0.4.4 (seul ajout : un fichier du mod de test sous `tools/`) ne l'appelle PAS (16:08:10, `temoin-v044-v044`). | Le déclencheur est un changement du contenu du mod (scripts, traductions ou données internes), pas seulement des prototypes : cela AFFAIBLIT l'attribution « aux données » de F77 (déjà dite « déduite, non prouvée »). Ce qui change exactement : NON PROUVÉ (une somme de contrôle des fichiers du mod est supposée). La garantie ne compte pas sur cet appel : version montée à 0.4.5 et filet `on_nth_tick(600)`. |
+| F131 | **Observé en moteur réel** (sonde du 16:01:46, `sonde-cartographie`). En `--create` puis `--benchmark` (`fo-autotest.bat`), RIEN n'est cartographié : `force.chart` posé à `on_init` ou au tick 2 ne produit rien en 400 ticks ; `is_chunk_charted` reste faux, même pour le chunk (0, 0) ; aucun `on_chunk_charted` ; `add_chart_tag` rend `nil` juste après `chart` comme 118 ticks plus tard. En `--benchmark-graphics` (`fo-captures.bat`), la cartographie tourne : les 3 étiquettes en attente sont posées par `on_chunk_charted` (sessions de 16 h 10 et 16 h 12, `captures-1`, `captures-2`). | `add_chart_tag` juste après `chart` échoue (chunk pas encore cartographié) : il faut attendre `on_chunk_charted` (fait par `script/world/guarantee.lua`). Un banc sans images ne peut pas contrôler une étiquette de carte posée ; il contrôle qu'elle reste en attente. |
+| F132 | **Observé en moteur réel** (sonde du 15:50:20). `LuaSurface.calculate_tile_properties` accepte en 1.1.91 `elevation`, `moisture`, `aux`, `tile:<tuile>:probability`, `entity:<ressource>:probability` et `entity:<ressource>:richness` ; les valeurs sont rendues sur une surface sans aucun chunk généré, et identiques après génération. Un nom de couche de bruit du mod (`fo-biome-volcanic`) est absent du résultat, sans erreur. | Moyen de rejeter un candidat à bas coût AVANT de générer ses chunks (mineur m-2 de la vérification de M0 : non utilisé par M0). |
+| F133 | **Mesuré en moteur réel** (LuaProfiler, journaux du banc `monde`). Génération forcée (`request_to_generate_chunks` + `force_generate_chunk_requests`) : 3 × 3 chunks à `on_init` en 19,8 ms ; sur une surface neuve, rayon 4 (225 chunks) en 108 ms, jusqu'au rayon 16 (1 540 chunks) en 1,0 s en tout ; rayon 23 (environ 2 850 chunks) en 1,89 à 1,97 s (5 graines). À l'`on_init` de la carte de banc, `get_chunks` voit déjà 418 chunks (statut non relevé). `delete_surface` : la demande prend 0,01 ms. | Savoir dans une partie neuve si la graine a déjà un gisement à 200-700 tuiles coûterait environ 2 s et une sauvegarde bien plus grosse : d'où le choix « site toujours posé » d'une partie neuve (Q-M0-1). |
+| F134 | **Observé en moteur réel** (banc `monde`, cas D, 16:09:25 et 16:13:17). `count_entities_filtered{area, force = {"enemy", "neutral"}, invert = true, limit = 1}` compte bien une entité d'une autre force (coffre de « player ») dans la zone. | Le refus « batiment » de la garantie marche : le candidat 1 est refusé, le coffre reste intact. Seul un coffre a été joué (mineur m-6 : ni base, ni forces `fo-*`). |
+| F135 | **Observé en moteur réel, un seul cas** (correcteur, `correction\m0-reprise-1\benchmark.log`, `done.txt` 16:44:35,08). `LuaSurface.set_tiles(tiles)` sans troisième argument (défaut `remove_colliding_entities = true`) RETIRE un coffre en bois du joueur recouvert par une tuile d'eau : 47 coffres sur 48 au contrôle final, et le candidat 8 de l'essai 0 refusé « sol » au lieu de « batiment ». | Dans un script, poser l'eau AVANT les entités (le banc `m0-reprise` corrigé le fait : 48 coffres intacts). La garantie elle-même ne pose de l'eau nulle part ; elle en retire (niveau 2 : eau comblée par le sol du biome). |
+
+### Faits vérifiés en moteur réel (lot A1, directions et levée de la tourelle, 23/10, 15 h 52 à 16 h 48 ; fusionné dans `main`, `5a95650`)
+Bloc réservé à A1 à A4 : F120 à F129 ; A1 prend F120 à F122. Sources : copie JETABLE du mod (`tools/autotest/a1/jetable.py` :
+mod du worktree + prototypes de test en fin de `data-final-fixes`, têtes « flèches » numérotées), scénario greffé
+`a1-tourelle` ; passage de référence `fo-logs\2026-10-23_suite\A1\moteur\banc3_1000ticks_final\` (`done.txt` 15:56:07,00,
+« [FO-A1-TOURELLE] BILAN : 5 OK, 0 ECHEC(S) ») ; rejoué par le vérificateur sur une copie neuve (16:48:01,51, mêmes
+chiffres) ; captures `moteur\captures\` (20 sur 20). Libellés corrigés selon les mineurs D4, D5 et D6 de la
+vérification (`A1\verification.md`). Expériences : E67, E70.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F120 | **Observé en moteur réel** (E67 : 5 variantes, 20 tourelles, les 4 répliques identiques au tick près). La levée d'une tourelle (`preparing_animation`) dure **1 / `preparing_speed` ticks, à un tick près** (latence de détection de la cible comprise : 13 ticks pour 1/v = 12,5 ; 63 pour 62,5), **quels que soient le nombre d'images et `repeat_count`** (5 images, 1 image, 1 image × 5). Seule la DIFFÉRENCE est prouvée exactement : 63 − 13 = 50 = 62,5 − 12,5 ; arrondi au tick supérieur ou tick de détection : non séparés. La doc 1.1.91 le dit ; la garde du kit des niveaux (« images × repeat_count / vitesse », `prototypes/levels/common.lua`) le contredit. | La garde du kit laisse passer un changement de JEU (une tête à 1 image avec `preparing_speed` = 0,016 « garde » 62,5 ticks pour le kit, mais lève 5 fois plus lentement que la vanilla) et refuserait un changement purement visuel : correction en cours (lot INT-GARDE). Une seule image et `repeat_count = 1` suffisent pour la levée. NON JOUÉS : `folding`, `attacking`, `starting_attack`, `ending_attack`. |
+| F121 | **Observé en moteur réel** (E70, captures 005 à 020), conséquence pour le pipeline **DÉDUITE**. Avec `apply_projection` (vrai par défaut), le moteur choisit l'image k d'une RotatedAnimation de 64 directions par la projection de l'orientation sur une rotation UNIFORME vue à 45° : N, E, S, O → images 0, 16, 32, 48 ; orientation 0,125 (cible au nord-est du monde) → image **6** (35,26° = atan(tan 45° × cos 45°)), 0,375 → 26, 0,625 → 38, 0,875 → 58. La tête repliée (`folded_animation` à 64 directions) suit la même règle. | Les feuilles `dKK` du pipeline (rotation uniforme −2π·K/64, caméra à 45°) seraient donc dans la convention du moteur : ne pas mettre `apply_projection = false`, ne pas corriger les angles du rendu. DÉDUIT par le calcul (vérifié en 4 points, chacun à ±½ image près) : seules des flèches 2D ont été vues en jeu, aucune feuille `dKK`. À prouver sur la première capture d'A2 (à 64 directions, la tête doit viser la cible au nord-est). Règle vue aux 8 directions seulement. La rose des planches (colonnes d08, d24, d40, d56) montre donc une cible à 54,7° du nord, pas le nord-est exact (mineur D2). |
+| F122 | **Observé en moteur réel** (E70). `LuaEntity.shooting_target` écrit **vers une entité NEUTRE** (coffre indestructible) est accepté sans erreur, puis effacé dès le tick suivant ; la tête ne bouge pas (orientation 0 jusqu'au tick 900, avec ou sans munitions, flèche ou mitrailleuse vanilla). `LuaEntity.orientation` d'une tourelle se LIT (40 sur 40) et s'ÉCRIT (8 sur 8, sans erreur) ; l'orientation écrite TIENT sans cible du tick 60 au tick 900, et la tête est dessinée dans cette direction, levée ou repliée selon l'état. | Moyen retenu pour orienter une tête à l'arrêt (scénario `gun-rose` d'A2) : écrire `orientation`. Rien de plus général sur `shooting_target` : une cible ENNEMIE imposée (autre que celle que la tourelle choisirait) n'a pas été jouée (mineur D6). |
 
 ### Faits vérifiés (sources du jeu 1.1.91, vérification adverse indépendante du 21/10, 19 h)
 Ils ont été proposés par le lot V1, puis refaits par trois vérificateurs qui n'avaient pas vu la
@@ -414,6 +499,281 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E76 · VALIDÉ en moteur réel (sauvegarde de banc quasi vide) · Migration d'une vraie sauvegarde 0.4.4 vers la
+garantie des monnaies (lot M0, 23/10, 16 h 06 à 17 h 45 ; double source)** :
+- Protocole : scénario greffé `m0-migration` (700 ticks), carte créée par `fo-logs\2026-10-23_suite\M0\src-0.4.4`
+  (= `git archive 93e3d89`, version 0.4.4, **à GARDER**) avec un coffre du joueur, puis rechargée par la source M0 ;
+  contrôles : voie `on_configuration_changed`, gisements DÉJÀ connus comptés, site posé seulement pour ce qui manque,
+  entités du joueur intactes.
+- Résultat : « [FO-M0-MIGRATION] BILAN : 9 OK, 0 ECHEC(S) » (constructeur 16:06:53 puis 16:14:03 ; vérificateur
+  16:27:35,97 ; correcteur 16:45:50,13 ; sur `main` après la fusion, `done.txt` 17:45:43,44). Version 0.4.4 → 0.4.5,
+  configuration au tick 0 ; cristal (9 unités) et méthane (8 puits) déjà présents dans la zone générée : rien posé ;
+  tungstène posé en (94, −228), à 246,6 tuiles, essai 4 (« 1:sol,2:batiment,3:sol » : le coffre posé à la création sur
+  le candidat 2 est évité), en 105,6 à 113,2 ms (112,5 ms au passage du vérificateur). Même résultat quand la source M0
+  reste en version 0.4.4 (F130).
+- NON PROUVÉ : une sauvegarde avec une base, la guerre lancée (forces `fo-*`) et une zone explorée au-delà du départ
+  (mineur m-6 : « entités du joueur 1 », le coffre seul) ; les sauvegardes du DC (ni touchées ni testées).
+
+**E75 · VALIDÉ hors jeu (étape data réelle) · Les ressources du monde générées depuis les données, sortie identique
+(lot M0, 23/10)** :
+- Protocole : `prototypes/world.lua` ne code plus le tungstène, le cristal et le méthane à la main : une boucle sur
+  `W.resource_order` appelle `ore_prototypes` ou `fluid_prototypes` selon `kind`. Vidage trié (`pp` du harness) des
+  3 236 prototypes de `data.raw` (mod compris), 0.4.4 (`src-0.4.4`) contre M0 (outils `dumpall.lua` et `protodiff.py`,
+  dans le dossier temporaire de la session du lot, NON versionnés).
+- Résultat : 6 prototypes diffèrent (`optimized-decorative/brown-asterisk`, `brown-asterisk-mini`, `green-asterisk`,
+  `green-asterisk-mini`, `red-asterisk`, `technology/fluid-handling`), exactement les 6 qui diffèrent aussi entre DEUX
+  passages de 0.4.4 (ordre de `pairs` dans le Lua vanilla rejoué par le harness) ; les 829 prototypes `fo-*`, couches
+  de bruit, expressions et contrôles sont identiques à l'octet. Vérificateur : `harness --dump-final` en 0.4.4 puis
+  en M0, identique pour les 13 prototypes concernés (3 ressources, `fluid/fo-methane`, 3 contrôles d'autoplacement,
+  recettes et objets) ; vidage complet NON refait par lui.
+- Portée : seules les 3 ressources EN JEU passent par ce générateur. `X.resources` et `X.tiles` : reportés aux lots X
+  (décision de l'orchestrateur, ci-dessus ; 34 prototypes sur 35 absents).
+
+**E74 · VALIDÉ en moteur réel · La garantie des monnaies sur 6 cartes et 4 situations, puis l'échec et la reprise
+(lot M0, 23/10, 16 h 09 à 16 h 46 ; correction M-1 comprise)** :
+- Protocole : scénario greffé `monde` (700 ticks, contrôle final au tick 660) : nauvis (graine 20261020, garantie à
+  `on_init`) et 5 graines (1, 42, 123456, 987654321, 3141592653) sur des surfaces créées par le scénario (réglages de
+  nauvis, autre graine) : A surfaces neuves ; B surfaces explorées sur 23 chunks (gisements NATURELS relevés, puis
+  garantie comme dans une sauvegarde) ; C autoplacement des 3 ressources à 0 ; D coffre du joueur sur le candidat 1 et
+  eau sous le candidat 2 ; F filet (ressource « oubliée » au tick 300).
+- Résultats (« [FO-MONDE] BILAN : 89 OK, 0 ECHEC(S) », 16:09:25 puis 16:13:17 ; 16:27:07,21 au vérificateur ;
+  16:45:32,64 au correcteur ; 17:45:34,86 sur `main` ; session avec images 91 OK, étiquettes posées) :
+  - nauvis : tungstène en (−34, −361), à 362,6 tuiles, essai 2 (candidat 1 sur l'eau) ; cristal en (33, 273), 275,0,
+    essai 1 ; méthane en (−247, −286), 377,9, essai 1 ; 197 / 149 / 2 entités, gisement complet, biome dessous, tout
+    dans l'anneau. Ces 3 sites sont désormais sur TOUTE carte de banc créée par `fo-autotest.bat` (loin des zones des
+    greffons : x ≥ 300, y de 240 à 336) ;
+  - A : 15 sites posés, tous complets (4 refus « sol ») ; B : posé seulement ce qui manque (graine 1 : méthane ;
+    987654321 : tungstène ; 3141592653 : tungstène et méthane ; 42 et 123456 : rien), puis au moins `count` unités à
+    moins de dmax pour les 3 ressources sur les 5 graines ; C : 0 gisement avant, 3 sites après ; D : « 1:batiment,2:sol »,
+    candidat 3 retenu, coffre et eau intacts (F134) ; F : cristal oublié au tick 300, repris au tick 600 par le filet,
+    son site compté, rien reposé.
+  - Coût (LuaProfiler) : `on_init` d'une partie neuve, 3 sites, 136,4 ms (génération forcée comprise) ; configuration
+    d'une sauvegarde 0.4.4, 105,6 à 113,2 ms ; filet sans rien à poser, 1,4 ms ; surface neuve de banc, 119 à 196 ms ;
+    surface explorée, 11 à 21 ms. Une fois par ressource et par partie. Par tick : le filet (une boucle sur 3 clés) et
+    `on_chunk_charted` : NON mesurés séparément (bornés par construction).
+- Essais adverses du vérificateur (scénario `m0-verif`, copié dans `M0\verif\`) : 45 sites posés sur 15 cartes (W : eau
+  au maximum ; R : minerais vanilla au maximum ; N : nauvis). Les 30 sites de R et N sont reliés au départ à pied et
+  exploitables (fantôme forcé : 90 OK) ; **sur W, 7 sites sur 15 ne sont pas reliés au départ** dans la boîte explorée
+  (« non relié » PLAUSIBLE, pas certain) ; le tungstène de W42 n'est trouvé qu'à l'**essai 14 sur 24** ; `apply` coûte
+  121 à 283 ms sur N et R, **jusqu'à 767 ms** sur W42. D'où le défaut majeur M-1 : un échec était définitif et muet.
+- **Suite : l'échec puis la reprise** (correction M-1 ; le correcteur proposait le numéro E77, réservé aux lots M1 et
+  M2 : l'expérience est consignée ici). Scénario greffé `m0-reprise` (2 600 ticks, contrôle final au tick 2 460, graine
+  20261020) : tungstène oublié ; gisements de tungstène retirés à moins de 500 tuiles avant chaque passage du filet ;
+  coffres du joueur sur les 48 candidats des essais 0 et 1 ; eau sous la moitié ouest du cœur des 24 candidats de
+  l'essai 2. Résultat : « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) » (`correction\m0-reprise`, `done.txt` 16:45:02,98 ;
+  sur `main`, 17:45:39,32). Tick 600 : essai 0, 24 refus (23 « batiment », 1 « voisin »), ressource NON marquée
+  traitée, reprise prévue au tick 1 200 (2,8 ms). Tick 1 200 : essai 1, 24 refus, reprise au tick 2 400 (2,4 ms).
+  Tick 1 800 : aucune passe. Tick 2 400 : essai 2, niveau 2, candidat 2 (le 1 refusé « gisement »), site en (96, −304)
+  à 318,8 tuiles, 170 tuiles d'eau comblées par les cendres, 197 entités, 197 717 minerais, 0 tuile d'eau restante dans
+  le disque, 48 coffres intacts (4,7 ms). Un premier passage (`m0-reprise-1`, 16:44:35,08) a révélé F135.
+- NON PROUVÉ : un échec NATUREL (sans mise en scène) suivi d'une reprise ; le niveau 3 (anneau × 1,5), joué hors jeu
+  seulement ; le coût d'un essai échoué qui doit générer les chunks de ses 24 candidats (ordre de grandeur : 767 ms
+  pour 14 candidats sur W42 ; au pire répété à chaque reprise : 10 s, 20 s, 40 s… puis toutes les 10 min) ; l'accès à
+  pied (m-1) ; le message d'échec à `on_init`, envoyé avant la création du joueur (m-3) ; la voie `on_init` réelle de
+  nauvis sur une autre graine que 20261020 (attend `FO_MAP_SEED`, lot INT-GRAINE) ; les factions IA (m-7 : un QG peut
+  se poser sur un site, probabilité estimée à 1 %, non jouée) ; décor (m-5 : entités d'un autre biome gardées dans le
+  disque, braises qui débordent peut-être) ; le visuel (captures `captures-2`, à juger par le DC : Q-M0-2).
+
+**E73 · VALIDÉ (le risque est réel) ; représentativité NON établie · Les monnaies manquent-elles sur une graine
+quelconque ? (lot M0, banc `monde`, cas B, 23/10)** :
+- Protocole : 5 graines, carte explorée sur 23 chunks (environ 736 tuiles), réglages de nauvis du banc ; compte
+  NATUREL avant garantie, à moins de dmax (500 tuiles pour le tungstène, 600 pour le cristal, 700 pour le méthane) ;
+  unités : 100 000 de minerai pour le tungstène, 60 000 pour le cristal, 1 puits pour le méthane.
+- Résultats (entre parenthèses : distance du plus proche) :
+
+  | Graine | Tungstène | Cristal | Méthane (puits) | Cendres à 200 / 500 / 700 tuiles |
+  |---|---|---|---|---|
+  | 1 | 35 (405) | 47 (354) | **0** | 29 629 / 137 766 / 225 327 |
+  | 42 | 90 (426) | 81 (449) | 9 (667) | identiques à la graine 1 (voir ci-dessous) |
+  | 123456 | 91 (288) | 86 (233) | 34 (444) | 794 / 44 528 / 61 506 |
+  | 987654321 | **0** | 47 (184) | 50 (451) | **0 / 0 / 0** |
+  | 3141592653 | **0** | 55 (397) | **0** | 0 / 70 289 / 270 873 |
+
+  **3 graines sur 5 n'ont pas, à la distance prévue, au moins une des trois monnaies** : le blocage à l'âge 5 (ou 8)
+  est réel. Graine 20261020 (nauvis du banc) : dans la seule zone générée de la sauvegarde 0.4.4, 9 unités de cristal
+  (222 entités, le chiffre d'E13) et 8 puits de méthane, aucun tungstène. Relevé reproduit à l'identique par le
+  vérificateur.
+- Anomalie NON expliquée (mineur m-9) : les comptes de TUILES de biome des graines 1 et 42 sont identiques au chiffre
+  près (29 629 / 137 766 / 225 327 de cendres, et 13 294 / 99 555 / 168 281), alors que les gisements diffèrent ; piste :
+  le bruit des biomes (`factorio-multioctave-noise`, `seed0` = graine de la carte) varierait peu pour de petites
+  graines. Tant qu'elle n'est pas expliquée, « 3 sur 5 » ne vaut pas statistique.
+
+**E72 · VALIDÉ (table des familles) ; séparation des âges 4 et 5 FAIBLE, à soumettre au DC ; lot en cours
+d'intégration · Familles de couleur des foyers des âges 5, 6 et 13 à 15 contre les mesures de la mitrailleuse
+validée (lot K0, 23/10)** :
+- Protocole : mesures des foyers de la mitrailleuse validée (âges 2 à 12 :
+  `fo-logs\2026-10-23_V3E-p5\juges\mesures\mesures.txt` §2 ; 13 à 15 : `fo-logs\2026-10-23_V3E-ereV\controles\mesures.txt` §2), 14 âges × 2 poses ; contrôle
+  `ages.verifier_mesures()` au chargement du registre ; `mesures.py` (nouvel outil) rejoué sur les sprites. Seule la
+  TABLE change ; aucun rendu.
+- Résultat : âge 5 « braise vive (rouge à orange, très saturé) », 345 à 36°, saturation 0,77 à 1,0 (mesuré : 31°,
+  0,87 ; avant : « rouge braise », 345 à 14°) ; âge 6 « bleu électrique », 186 à 214°, 0,25 à 1,0 (mesuré : 210°, 0,48 ;
+  avant : 186 à 202°) ; âge 4 resserré à 24 à 34°, saturation 0,50 à 0,77 (mesuré : 30°, 0,67) ; ère V inscrite :
+  13 violet d'annihilation, 14 blanc stellaire, 15 incandescence blanc-or. Les 28 mesures tombent dans leur famille ;
+  aucune paire de voisins n'est compatible ; sur les sprites de production de l'ère V, 13, 14 et 15 « dans la
+  famille » (poses E et N) ; sur `V3E-p5\final\sprites`, 5 et 6 passent de « HORS FAMILLE » à « dans la famille », et
+  les ANCIENS 13 à 15 refusés (Fusion, Orbite, Légende) passent « HORS FAMILLE », comme attendu. Rejoué par le
+  vérificateur : les 28 mesures sont exactement celles des fichiers sources.
+- Limites : les âges 4 et 5 ne sont séparés que par la SATURATION (0,67 contre 0,87, frontière à 0,77, marge de 0,10 de
+  chaque côté), seul couple de voisins dans ce cas ; la famille 15 (24 à 50°, 0,2 à 0,7) recouvre désormais la
+  famille 4 ; compatibilités entre âges non voisins : avant K0 2-5, 2-14, 5-14, 6-12 ; après K0 2-5, 3-15, 4-15, 6-10,
+  6-12, 6-14, 7-13, 11-14. Question proposée par le correcteur, PAS encore posée au DC : A garder (la forme sépare 4 et
+  5) ; B décaler le foyer du Volcan (5) vers le rouge (nouveau rendu des âges 5 de la mitrailleuse) ; C décaler le
+  Pétrole (4) vers le jaune. Le §D.3 du catalogue réécrit pour l'ère V (`K0\D3_ere_V.md`, hors dépôt) est une
+  PROPOSITION non jugée par le DC.
+
+**E71 · VALIDÉ (aucun design validé changé, empreinte FORTE) ; lot en cours d'intégration (INT-K0) · Refonte du kit
+commun des familles sans toucher un design validé (lot K0, 23/10, 15 h 45 à 18 h 06)** :
+- Protocole du constructeur : empreinte AVANT par l'outil d'origine (`gun_e/construction.py --tout`, `93e3d89`, 72
+  variantes en 94 s, 15:45:54 à 15:47:30) ; empreinte AVANT géométrie + matières par le nouvel outil sur une archive
+  (`git archive 93e3d89 tools/render/pieces/levels/gun_e`, `--tout --matieres --dossier`, 185 s) ; empreinte APRÈS
+  sur le worktree refondu (`--famille gun_e --tout --matieres`, 119 s) ; 11 habillages d'essai × 5 tailles × 3
+  variantes = 165 constructions de chaque côté ; comparaison par `commun/empreintes.py`. Toutes les constructions SANS
+  rendu, par le verrou de rendu.
+- Défaut trouvé en chemin par le constructeur lui-même : la première empreinte des matières ne lisait que les ENTRÉES
+  des nœuds, alors que `fo_scene.mat_metal` pose couleur et rouille sur la SORTIE d'un nœud RGB ; un mutant
+  (`basalte_capot` 0,115 → 0,116) passait inaperçu (`e05-socle` restait `cfcd614b6220`). Corrigé (sorties hachées :
+  `bdda7b086e4b`), empreintes refaites ; les premières sont gardées pour mémoire (`v1_hash_sans_sorties\`).
+- Résultat du lot : « 72 variantes comparées, 0 différente(s), 0 absente(s) (géométrie et matières) » ; même
+  géométrie que l'outil d'origine (72 sur 72) ; habillages 165 sur 165 identiques ; outils de contrôle (îlots, gris,
+  mesures, dominance, aperçu) identiques avant et après sur `V3E-p5\final\sprites`, hors des changements voulus (noms
+  de l'ère V, familles 4, 5, 6, 13 à 15) ; `[K0-VIGNETTES] 7 OK, 0 ECHEC(S)`.
+- Vérification adverse (16 h 40 à 17 h 30) : empreinte FORTE indépendante (tous les objets de `bpy.data` dont les
+  lumières de halo, matrice monde, modificateurs, maillage évalué, entrées et sorties de tous les nœuds, monde, données
+  Python des 16 modules d'âge) sur 237 constructions : **0 différence** ; mais 4 défauts MAJEURS du lot : (1) `--famille`
+  chargeait en silence l'`epoques` de la mitrailleuse (une famille d'essai 1×1 lisait `COTE[5] = 3`) ; (2) l'ordre des
+  `metal()` de l'âge 6 avait changé, donc ses graines (`porcelaine` 622 → 688…) ; (4) l'outil livré ne voyait ni les
+  halos ni les transformations (mutant « halos × 1,5 » passé inaperçu : « 0 différente(s) ») ; (5) `palette(N)` donnait
+  une mauvaise secondaire aux âges 3 et 15 (et 11, trouvé par le correcteur) ; plus le défaut 3, antérieur à K0 (F136).
+- Correction (17 h 30 à 18 h 15, `K0\correction\`) : (1) `famille.charger` oublie les modules d'une autre famille
+  (test `commun/tests/test_famille.py` : « [K0-FAMILLE] 12 OK, 0 ECHEC(S) » ; 3 OK et 9 ECHEC sur le code non corrigé
+  `0cee947`) ; (2) `porcelaine` remise en 2e position de `ages._m06` (graines d'origine : 622, 633, 644… 688) ; (4)
+  `construction.py --forte` et `empreintes.py --forte` (empreinte du vérificateur + relevé des appels `mat_metal`,
+  `mat_emissive`, `mat_flat` avec leurs graines) ; (5) table explicite `ages.PALETTE[N]` et `verifier_palettes()`
+  (âge 7 : secondaire DÉDUITE de la ronde 1, non dite par le DC). Preuve : empreinte forte de `93e3d89` (17:37:50 à
+  17:41:22) contre le worktree corrigé (17:41:22 à 17:44:56) : **« 72 variantes comparées, 0 différente(s),
+  0 absente(s) (forte) », graines comprises (4 360 graines relevées)** ; habillages : 165 sur 165 identiques (forte) ;
+  l'empreinte forte voit le défaut 2 (`0cee947` contre `93e3d89` : 4 variantes e06 différentes, 8 écarts, objets et
+  matières identiques) et le mutant halo (3 écarts nommés, `s05_halo_0` à `_2` ; « 0 différente(s) » sans `--forte`) ;
+  l'outil du vérificateur sur le worktree corrigé : « 237 variantes, 0 differente(s) ; modules : 19 ecart(s) » (14
+  ordres de clés de `HABILLAGE`, ordre d'insertion de `M` aux âges 10 et 12, et un artefact du faux `metal()` du
+  script d'essai ; aucun appel réel de matière ne diffère).
+- NON PROUVÉ : le paramétrage par famille n'est éprouvé que sur la mitrailleuse (seul profil existant) ; un réglage de
+  nœud hors de la liste relevée ; `stone-wall` non mesuré pour la charte (`dominance.py` refusera le mur) ; `rendre.py`,
+  `batch_blender.py`, `accroches.py` et `corps.plateforme` restent dans `gun_e` ; aucun rendu. À la fusion avec A1
+  (INT-K0) : `rose.py` et `e66.py` d'A1 importent `compo` depuis `gun_e` (cassés par le déplacement : ajouter `commun`
+  au `sys.path`), puis rejouer l'empreinte forte contre `K0\correction\avant.json`.
+
+**E70 · VALIDÉ en moteur réel · Origine et sens des directions d'une tourelle ; `shooting_target` imposé ; image
+choisie par le moteur (lot A1, 23/10, 15 h 52 à 16 h 48 ; copie jetable)** :
+- Protocole : 5 groupes de 8 tourelles (N, NE, E, SE, S, SO, O, NO ; cible à 4 tuiles, diagonales à (4, 4)). G1 :
+  « flèche » + munitions + coffre NEUTRE indestructible imposé par `shooting_target` ; G2 : idem sans munitions ;
+  G3 : mitrailleuse vanilla + munitions + coffre neutre imposé ; G4 : flèche + munitions, gros ver ENNEMI (visée
+  automatique, cessez-le-feu de l'ennemi) ; G5 : flèche + munitions, aucune cible, `orientation` écrite. « Flèche » :
+  tête de test dont l'image k (64 directions) est une flèche tournée de k × 360/64° dans le sens horaire depuis le haut,
+  numérotée, rouge levée, bleue repliée. Banc `fo-autotest.bat nopause 1000 a1-tourelle "<copie jetable>"`, captures
+  `fo-captures.bat a1-tourelle "<copie>"`.
+- Résultats (`A1\moteur\banc3_1000ticks_final\a1-tourelle.txt`, BILAN 5 OK, 15:56:07,00 ; captures 15 h 55, 20 sur 20) :
+  - `orientation` d'une tourelle se lit (40 sur 40) et s'écrit (G5, 8 sur 8, sans erreur) ;
+  - G4 : orientation finale = j/8 pour la direction j, 8 sur 8 : **origine au nord, sens horaire**, comme la doc ;
+    rotation par le plus court chemin (au tick 80 : 0,12 vers l'E et le SE, 0,88 vers le S, le SO, l'O et le NO) ;
+  - G1, G2, G3 : l'écriture de `shooting_target` vers l'entité neutre ne lève pas d'erreur, la cible est effacée au
+    tick 61, la tête ne bouge pas jusqu'au tick 900 (« 1 / 8 » au bilan = la direction N, déjà au nord) ;
+  - G5 : l'orientation écrite tient du tick 60 au tick 900 (8 sur 8) ;
+  - captures : images 0, 6, 16, 26, 32, 38, 48, 58 pour N, NE, E, SE, S, SO, O, NO, en rouge (G4) comme en bleu (G5) :
+    les diagonales ne sont PAS 8, 24, 40, 56 (`apply_projection`, F121).
+  Rejoué par le vérificateur sur une copie neuve (16:48:01,51) : mêmes chiffres ; sur le mod LIVRÉ, le scénario se
+  refuse proprement à l'init (« prototypes de test absents », 16:48:18,87) ; `content` 317 OK sur le worktree.
+- NON PROUVÉ : une cible ENNEMIE imposée autre que celle que la tourelle choisirait ; la règle `apply_projection` aux
+  64 directions (vue aux 8) ; une vraie feuille `dKK` en jeu (F121 déduit).
+
+**E67 · VALIDÉ en moteur réel (levée seulement) · Durée réelle de la levée (`preparing`) d'une tourelle (lot A1,
+23/10 ; copie jetable, même banc qu'E70)** :
+- Protocole : 5 copies de la mitrailleuse vanilla, 4 répliques chacune, seules (64 tuiles d'écart), 20 chargeurs ; au
+  tick 60, une mitrailleuse ennemie sans munitions apparaît à 8 tuiles à l'est. Mesures : tick où l'orientation quitte
+  0 (la tête ne tourne qu'une fois levée), tick où la cible perd des PV (premier tir). Le vérificateur a relu
+  `--dump-final` : la variante à 5 images a bien `frame_count = 5` sur toutes ses couches.
+- Résultats (les 4 répliques identiques au tick près) :
+
+  | Variante | images × repeat | vitesse | doc (1/v) | garde du kit (images/v) | tête tourne après | premier tir après |
+  |---|---|---|---|---|---|---|
+  | a1-e67-v5 | 5 × 1 | 0,08 | 12,5 | 62,5 | 13 ticks | 30 ticks |
+  | a1-e67-i1 | 1 × 1 | 0,08 | 12,5 | 12,5 | 13 | 30 |
+  | a1-e67-r5 | 1 × 5 | 0,08 | 12,5 | 62,5 | 13 | 30 |
+  | a1-e67-i1-lent | 1 × 1 | 0,016 | 62,5 | 62,5 | 63 | 80 |
+  | a1-e67-v5-lent | 5 × 1 | 0,016 | 62,5 | 312,5 | 63 | 80 |
+
+  **La doc a raison, la garde du kit a tort** (F120). Premier tir 30 ticks après l'apparition de la cible : levée 13,
+  rotation de 0 à 0,25 à 0,015 tour par tick, puis tir.
+- NON PROUVÉ : `folding`, `attacking`, `starting_attack`, `ending_attack` (non joués ; la doc 1.1.91 dit la même phrase
+  pour toutes) ; l'arrondi exact (F120 : à un tick près).
+
+**E66 · VALIDÉ hors moteur (qualité) ; gain de temps MESURÉ dos à dos : 44,7 % ; ombre en moteur NON prouvée · L'ombre
+de la tête de la mitrailleuse à 32 échantillons contre 128 (lot A1, 23/10, 15 h 48 à 17 h 27)** :
+- Qualité, protocole : les têtes d00 et d16 de la rose (aperçu, toutes les passes à 32 échantillons ; la passe d'ombre
+  est un rendu à part) contre les têtes N et E validées à 128, âges 2, 9 et 15 (6 poses) ; couche d'ombre recalée sur
+  un canevas commun ; écart d'alpha (0 à 255) sur l'union des pixels d'ombre (`gun_e/e66.py`, `A1\e66\e66.txt`).
+- Qualité, résultats :
+
+  | Âge, pose | écart moyen (hr) | max | centile 99 | > 4 niveaux | > 16 niveaux | biais | normale : moyen / max |
+  |---|---|---|---|---|---|---|---|
+  | 2 N | 1,34 | 22 | 11 | 6,7 % | 0,22 % | +0,03 | 0,76 / 9 |
+  | 2 E | 1,37 | 33 | 11 | 6,5 % | 0,18 % | +0,03 | 0,81 / 9 |
+  | 9 N | 1,84 | 29 | 12 | 9,2 % | 0,19 % | −0,02 | 1,03 / 13 |
+  | 9 E | 2,25 | 35 | 12 | 12,4 % | 0,29 % | −0,01 | 1,29 / 12 |
+  | 15 N | 2,14 | 43 | 15 | 12,9 % | 0,57 % | −0,04 | 1,39 / 14 |
+  | 15 E | 3,23 | 42 | 17 | 23,4 % | 1,11 % | −0,01 | 1,87 / 13 |
+
+  L'écart est du GRAIN (bruit de Monte-Carlo, sans biais : moyenne d'alpha identique à 0,04 niveau près, contours
+  identiques). Dans l'image composée hors moteur (socle + tête, ombre à 50 % comme `compo.py`) : au plus 7,5 à 11,2
+  niveaux RVB au zoom 2, sur 0 à 11 pixels au-dessus de 8 niveaux par image ; au plus 3,7 niveaux au zoom 1
+  (`e66-composition.txt`, script `e66_compo.py` HORS dépôt, non rejoué par le vérificateur). Sortie de `e66.py`
+  rejouée par le vérificateur : identique.
+- Temps, PREMIÈRE MESURE : **REFUSÉE** (défaut majeur D1 de la vérification) : « gain 51 % » tiré de deux rendus pris
+  sous des charges différentes (128 : rendu d'identité pendant un banc ; 32 : la rose, avec d'autres lots qui
+  rendaient) ; rapports 128/32 de 4,8 à 7,1, impossibles sans échantillonnage adaptatif ni débruitage
+  (`fo_scene.py:51-52`). Ce 51 % est FAUX et ne doit être repris nulle part ; les « 36 % » du vérificateur mêlaient
+  aussi deux charges.
+- Temps, MESURE CORRIGÉE (correcteur, 17 h 07 à 17 h 27 ; `A1\e66\temps_dos_a_dos\`, outils
+  `gun_e/e66_temps.py` et `e66_temps_blender.py`) : UNE session Blender, scène construite une fois par pose, chaque
+  passe rendue SEULE (rendu par passe de la décision D-7) : ombre 32, ombre 128, main 128, lueur 128, ombre 1 ;
+  3 répétitions en ordre alterné, chauffe non comptée ; les DEUX places du verrou de rendu tenues (aucun autre
+  Blender pendant les 90 rendus), charge surveillée toutes les 2 s (0 rendu chevauché par un banc ou un factorio.exe ;
+  autres processus : médiane 3,0 % de la machine) ; ombres de la répétition 1 identiques (sha256) aux sprites validés
+  (128) et à la rose (32), 12 sur 12 ; pixels identiques d'une répétition à l'autre, 5 sur 5. Médianes (secondes) :
+
+  | Pose | ombre 1 | ombre 32 | ombre 128 | 128/32 (3 rép.) | main 128 | lueur 128 | gain tête (3 rép.) |
+  |---|---|---|---|---|---|---|---|
+  | 2 N | 0,15 | 2,9 | 11,7 | 3,99 3,94 3,98 | 8,6 | 1,2 | 41,0 / 40,3 / 41,1 % |
+  | 2 E | 0,18 | 2,9 | 11,6 | 3,91 3,97 3,96 | 7,0 | 1,0 | 43,6 / 44,2 / 44,2 % |
+  | 9 N | 0,29 | 6,8 | 26,1 | 3,82 3,92 3,81 | 17,2 | 2,5 | 42,2 / 42,5 / 42,0 % |
+  | 9 E | 0,30 | 6,6 | 26,6 | 3,87 4,00 4,03 | 17,6 | 2,6 | 42,0 / 42,6 / 42,7 % |
+  | 15 N | 0,60 | 15,3 | 60,7 | 3,99 3,98 3,96 | 32,0 | 5,6 | 46,4 / 46,2 / 45,7 % |
+  | 15 E | 0,63 | 15,1 | 60,3 | 3,94 4,01 4,00 | 31,2 | 5,6 | 46,4 / 46,7 / 46,4 % |
+
+  L'ombre suit le modèle proportionnel (coût fixe 0,05 à 0,18 s ; 0,09 à 0,47 s par échantillon ; rapport 128/32 de
+  3,81 à 4,03, 4,34 une fois au passage de contrôle ; attendu 3,92 à 3,97). **Tête entière (main 128 + lueur 128 +
+  ombre), 6 poses : 328 à 330 s → 182 s, gain 44,7 %** (44,6 à 44,8 % sur les 3 répétitions ; 40 à 47 % selon la pose,
+  plus fort sur les grandes têtes) : le plan supposait −45 % (« × 0,565 ») : confirmé. Temps absolus sur machine libre
+  environ deux fois plus courts que sous charge (ombre 128 de l'âge 2 N : 11,7 s contre 22,6 s) : seul le RAPPORT
+  mesuré dos à dos vaut.
+- NON PROUVÉ : l'ombre rendue EN MOTEUR (passe d'ombre du jeu, compression DXT : à regarder sur la première capture
+  d'A2) ; le gain sur l'horloge d'un paquet complet (construction de scène, démarrage de Blender, conversion et
+  post-traitement non comptés : un peu plus faible) ; le kit (`batch_blender.py`, gelé) ne sait pas encore régler les
+  échantillons par passe (D-7) : la rose a tout rendu à 32.
+- **La rose des 8 directions** (même lot, rendue pour E66 et pour le DC ; aperçus à 32 échantillons, 112 têtes, 2 334 s
+  d'horloge sur 2 sessions ; planches composées hors moteur `A1\rose\`, page https://claude.ai/artifact/9zVUA65YE4wVfaaxobjZ6W ;
+  PAS vue en moteur, aucun verdict du DC) ; regard de l'agent, pas un verdict : pose N : le piège F119 reste visible
+  (canons dressés lus comme des tubes verticaux aux âges 3, 4, 7, 8, 9, 13, 14 et 15) ; d08 et d56 : les canons se
+  lisent comme des armes à tous les âges (mais d08 = cible à 54,7° du nord ; d01 à d07 non rendues : limite du secteur
+  « cheminée » NON vérifiée) ; pose S : canons raccourcis (environ 0,7 × leur longueur), l'arme se perd presque au zoom
+  1 aux âges 10, 12, 13, 14 et 15 ; la tête cache de 0,32 à 0,46 du socle (0,21 pour la tête vanilla de l'âge 1),
+  maximum en S aux âges 2 à 15 (+3,5 à +9,9 points par rapport à E aux âges 2 à 9 ; +0,8 à +3,1 aux âges 10 à 15) ;
+  **trous enfermés : 19 échecs sur 112** à la règle ≤ 8 px (`rose\trous.txt`), dont les gros en SE, S et SO aux âges 4
+  (99 à 108 px), 5 (50 à 76), 6 (42 à 62) et 7 (199 à 249) : fente entre coupole et cadre arrière, géométrique ; ils
+  bloqueraient une production à 64 directions avec la règle actuelle : à trancher avant A3 (combler par une pièce de
+  fond dans le kit, ou accepter en S). Défaut d'outillage trouvé : `epoques.NOMS` de `main` donnait encore pour 13 à 15
+  les noms de l'ancienne ère V refusée (corrigé dans `rose.py`, et par `ages.py` du lot K0 à son intégration).
+
 **E65 · ÂGES 1 À 12 RETENUS PAR LE DC (« pratiquement parfaits ») ; ère V refusée, refaite (run `wf_5f1609fb-473`) ;
 juges 6,5 à 7,5 sur 10, « pas prêt » pour les 6 autres familles · V3-E, cinquième passe : le test des âges pendant la
 construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :

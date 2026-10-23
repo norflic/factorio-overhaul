@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.5
+Date: 2026-10-23
+  Features:
+    - Monde : le tungstène, le cristal de résonance et le méthane (monnaies des époques 5, 7 et 8) sont garantis sur
+      toute carte : un site est posé par script à 200-700 tuiles du départ, sur la terre ferme, et marqué sur la
+      carte. Une sauvegarde existante reçoit seulement ce qui lui manque, au chargement.
+    - Si aucun emplacement libre n'est trouvé pour un gisement garanti, les joueurs sont prévenus et la garantie est
+      retentée (10 s, 20 s, 40 s... au plus 10 min), avec d'autres emplacements et des critères plus larges (bord
+      d'un lac comblé, puis distance allongée). Un bâtiment, un gisement existant ou un sol posé par un joueur ne
+      sont jamais recouverts.
+  Changes:
+    - Ressources du monde générées depuis les données (même résultat qu'en 0.4.4).
+  Info:
+    - Dans une nouvelle partie, le site garanti est toujours posé, même si la carte avait déjà un gisement à cette
+      distance.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.4
 Date: 2026-10-22
   Features:
