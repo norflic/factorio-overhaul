@@ -327,7 +327,8 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
     """Époque 5 : frein de bouche en coin (bloc trapézoïdal à évents obliques), lèvres de braise dans les évents."""
     M = g.M
     rb = H["rb"]
-    w0, w1 = rs * 2.3, rs * 2.7
+    # passe 5 (règle d'or 7) : coin resserré au diamètre du faisceau (2,3 / 2,7 rs -> 1,8 / 2,1 rs), sans oreilles
+    w0, w1 = rs * 1.8, rs * 2.1
     h0, h1 = rs * 1.75, rs * 1.45
     y0, y1 = yb - 0.03, yb + 0.2
     pts = [V((x - w0 / 2, y0, z - h0 / 2)), V((x + w0 / 2, y0, z - h0 / 2)), V((x + w1 / 2, y1, z - h1 / 2)),
@@ -351,7 +352,6 @@ def br_wedge(g, st, x, yb, z, rs, pos, H):
         hz = h0 / 2 + (h1 - h0) / 2 * (yy - y0) / (y1 - y0)
         g.box((x, yy, z + hz + 0.002), (w0 * 0.62, 0.022, 0.008), M["void"], "flat", what="event")
         g.box((x, yy, z + hz + 0.004), (w0 * 0.34, 0.01, 0.006), M["emit"], "flat", what="braise")
-    F.ears(g, x, yb + 0.08, z, w1 / 2 + 0.03, 0.14, h1 * 0.8, M["tungsten"])
     for k in range(4):
         g.dome((x - w1 * 0.3 + k * w1 * 0.2, y0 + 0.11, z + (h0 + h1) / 4 + 0.006), (0, 0, 1), 0.02, M["rivet"])
     # face avant rectangulaire (le coin est plus large que haut), rosace des 4 bouches, pourtour de braise en cadre

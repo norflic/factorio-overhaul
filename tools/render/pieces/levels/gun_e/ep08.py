@@ -33,7 +33,8 @@ NOM = "Marais"
 KIN = 1   # rang dans l'ère III
 # passe 4 : liquide JAUNE SOUFRÉ trouble (famille « jaune-vert acide » 60 à 88° mesurée, loin du vert uranium de
 # l'atome, 100 à 135°) ; verre teinté opaque, lueur douce plus faible (liquide trouble, pas un néon)
-FOYER = dict(rgb=(0.83, 1.0, 0.1), doux=dict(force=0.36, base=(0.075, 0.068, 0.02)))
+# passe 5 : un peu plus vert (teinte nominale 71° -> 79°) : loin du jaune des fûts du pétrole, encore dans la famille
+FOYER = dict(rgb=(0.72, 1.0, 0.1), doux=dict(force=0.36, base=(0.062, 0.075, 0.02)))
 CANON = dict(L=1.7, nb=6, rb=0.052, rr=0.128)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.06)
@@ -43,6 +44,11 @@ ST = dict(jacket="marsh", brake="nozzle", drive="motor", drive_mat="verdigris", 
           band="verdigris", recv_mats=("verdigris", "olive"), feed="hoses", skirt="rubber", appl="verdigris",
           gmask=("olive", "verdigris"), arm=("olive", "steel_dk"), cap="brass", col=("olive", "verdigris"),
           nac=("olive", "verdigris"), coax=True)
+
+
+def matieres(metal, M):
+    """Passe 5 : reflet clair du verre (bande verticale fine sur les cuves : le cylindre se lit verre, pas fût peint)."""
+    metal("reflet_verre", (0.5, 0.56, 0.5), rough=0.12, met=0.0, grain=0.05, dirt=0.25, stain=0.1)
 
 
 def _halo(g, pts, power):
@@ -68,19 +74,37 @@ def glass_vat(g, x, y, r, h, M, E):
     g.cyl((x, y, 0.05), "z", r + 0.06, 0.1, M["verdigris"], n=24, style="soft", what="embase")
     F.bolts_ring(g, (x, y, 0.1), (0, 0, 1), r + 0.035, 12, M["brass"], r=0.014)
     zb, zt = 0.1, h
-    g.cyl((x, y, (zb + zt) / 2), "z", r - 0.012, zt - zb, M["emit_soft"], n=32, what="liquide")
-    nrib = 10
+    # passe 5 (ronde 1) : lu « fûts jaunes » par un lecteur de la ronde 0 (cylindres lumineux pleins cerclés de laiton).
+    # La cuve se lit maintenant comme du VERRE À MOITIÉ PLEIN : liquide en bas (62 %), verre vide sombre au-dessus,
+    # mousse de bulles au niveau du liquide, bulles claires qui montent dans le verre vide, reflet vertical,
+    # 6 montants fins de vert-de-gris et cerclages de vert-de-gris en haut et en bas seulement (plus de bague de fût).
+    zl = zb + (zt - zb) * 0.62
+    g.cyl((x, y, (zb + zl) / 2), "z", r - 0.012, zl - zb, M["emit_soft"], n=32, what="liquide")
+    g.cyl((x, y, (zl + zt) / 2), "z", r - 0.012, zt - zl, M["glass"], n=32, what="verre_vide")
+    nrib = 6
     for kk in range(nrib):
-        a = TAU * (kk + 0.5) / nrib
+        a = TAU * (kk + 0.5) / nrib + 0.26
         d = V((math.cos(a), math.sin(a), 0))
-        g.box(V((x, y, (zb + zt) / 2)) + d * (r - 0.004), (0.035, 0.03, zt - zb), M["verdigris"], "hard",
+        g.box(V((x, y, (zb + zt) / 2)) + d * (r - 0.004), (0.022, 0.026, zt - zb), M["verdigris"], "hard",
               R=Matrix((V((-d.y, d.x, 0)), d, V((0, 0, 1)))).transposed(), what="cote")
-    for f in (0.04, 0.5, 0.96):
-        g.tube_shell((x, y, zb + (zt - zb) * f), "z", r + 0.02, r - 0.02, 0.04, M["brass"], n=32, what="cerclage")
-    for i in range(14):
-        a = -math.pi / 2 + 1.6 * ((i * 7) % 14 / 13.0 - 0.5)
-        g.dome((x + math.cos(a) * r * 0.99, y + math.sin(a) * r * 0.99, zb + (zt - zb) * (0.12 + 0.055 * i)),
-               (math.cos(a), math.sin(a), 0), 0.018, E, what="bulle")
+    for f in (0.04, 0.96):
+        g.tube_shell((x, y, zb + (zt - zb) * f), "z", r + 0.02, r - 0.02, 0.04, M["verdigris"], n=32,
+                     what="cerclage")
+    # mousse au niveau du liquide (anneau de bulles sur la face visible)
+    for i in range(11):
+        a = -math.pi / 2 + 2.4 * (i / 10.0 - 0.5)
+        g.dome((x + math.cos(a) * r * 0.99, y + math.sin(a) * r * 0.99, zl + 0.012 * (i % 2)),
+               (math.cos(a), math.sin(a), 0), 0.026, E, what="mousse")
+    # bulles qui montent dans le verre vide (claires sur fond sombre) et dans le liquide
+    for i in range(9):
+        a = -math.pi / 2 + 1.7 * ((i * 4) % 9 / 8.0 - 0.5)
+        zz = zl + 0.04 + (zt - zl - 0.08) * ((i * 5) % 9) / 8.0
+        g.dome((x + math.cos(a) * r * 0.99, y + math.sin(a) * r * 0.99, zz), (math.cos(a), math.sin(a), 0),
+               0.016 + 0.006 * (i % 3), E, what="bulle")
+    # reflet vertical du verre (face sud-ouest, côté lumière)
+    a = -math.pi / 2 - 0.55
+    g.box((x + math.cos(a) * (r - 0.004), y + math.sin(a) * (r - 0.004), (zb + zt) / 2), (0.018, 0.01, (zt - zb) * 0.86),
+          M["reflet_verre"], "flat", R=Matrix.Rotation(a + math.pi / 2, 3, "Z"), what="reflet")
     F.sphere(g, (x, y, zt), r * 0.86, M["glass"], n=24, m=12, sz=0.55, what="dome_verre")
     g.tube_shell((x, y, zt + 0.005), "z", r + 0.01, r * 0.8, 0.03, M["verdigris"], n=28, what="couronne")
     for kk in range(4):
@@ -136,7 +160,14 @@ def socle_marsh(g, k):
     # passe 4 : 2 COLONNES DE DÉCANTATION en verre (liquide soufré trouble) sur la station de pompage, en cage
     for yn in (-0.35, 0.25):
         zc0, zc1 = 0.36, 0.98
-        g.cyl((-1.61, Y(yn), (zc0 + zc1) / 2), "z", 0.1, zc1 - zc0, M["emit_soft"], n=20, what="colonne_verre")
+        # passe 5 : liquide en bas (55 %), verre vide sombre au-dessus, mousse au niveau
+        zl = zc0 + (zc1 - zc0) * 0.55
+        g.cyl((-1.61, Y(yn), (zc0 + zl) / 2), "z", 0.1, zl - zc0, M["emit_soft"], n=20, what="colonne_verre")
+        g.cyl((-1.61, Y(yn), (zl + zc1) / 2), "z", 0.1, zc1 - zl, M["glass"], n=20, what="verre_vide")
+        for i in range(5):
+            a = -math.pi / 2 + 1.8 * (i / 4.0 - 0.5)
+            g.dome((-1.61 + math.cos(a) * 0.1, Y(yn) + math.sin(a) * 0.1, zl), (math.cos(a), math.sin(a), 0), 0.02,
+                   M["emit"], what="mousse")
         for kk in range(6):
             a = TAU * kk / 6
             g.box((-1.61 + math.cos(a) * 0.105, Y(yn) + math.sin(a) * 0.105, (zc0 + zc1) / 2),
@@ -315,13 +346,18 @@ def w_marsh(g, st, H, x, sx):
         d = V((math.cos(a), 0, math.sin(a)))
         g.box(c + d * (r - 0.004), (0.026, Lv, 0.024), M["verdigris"], "hard",
               R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="cote")
-    for f in (-0.5, -0.17, 0.17, 0.5):
-        g.tube_shell(c + V((0, f * Lv, 0)), "y", r + 0.018, r - 0.02, 0.032, M["brass"], n=24, what="cerclage")
+    # passe 5 : plus de cerclages de laiton au milieu (ils faisaient un fût couché) : 2 bagues de vert-de-gris aux
+    # bouts, fonds de vert-de-gris, reflet clair le long du dessus, bulles plus grosses
+    for f in (-0.5, 0.5):
+        g.tube_shell(c + V((0, f * Lv, 0)), "y", r + 0.018, r - 0.02, 0.032, M["verdigris"], n=24, what="cerclage")
     for f in (-1, 1):
-        g.cyl(c + V((0, f * (Lv / 2 + 0.03), 0)), "y", r * 0.85, 0.05, M["brass"], n=24, r2=r * 0.5, what="fond")
-    for i in range(5):
-        g.dome(c + V((sx * 0.03 * ((i % 2) * 2 - 1), -Lv * 0.36 + i * Lv * 0.18, r - 0.01)), (0, 0, 1), 0.015,
-               M["emit"], what="bulle")
+        g.cyl(c + V((0, f * (Lv / 2 + 0.03), 0)), "y", r * 0.85, 0.05, M["verdigris"], n=24, r2=r * 0.5,
+              what="fond")
+    g.box(c + V((-sx * r * 0.35, 0, r * 0.93)), (0.016, Lv * 0.84, 0.01), M["reflet_verre"], "flat",
+          R=Matrix.Rotation(sx * 0.36, 3, "Y"), what="reflet")
+    for i in range(7):
+        g.dome(c + V((sx * 0.035 * ((i % 2) * 2 - 1), -Lv * 0.4 + i * Lv * 0.13, r - 0.01)), (0, 0, 1),
+               0.016 + 0.006 * (i % 3), M["emit"], what="bulle")
     # raccord de caoutchouc court entre le fond arrière de la cuve et le masque de canon (un tuyau long vers la culasse
     # enfermait un jour de 10 à 29 px en pose N)
     g.hose([c + V((0, -Lv / 2 - 0.04, 0)), c + V((-sx * r * 0.6, -Lv / 2 - 0.1, -0.02)),
@@ -370,14 +406,16 @@ def br_nozzle(g, st, x, yb, z, rs, pos, H):
     M = g.M
     rb = H["rb"]
     # buse en CLOCHE nettement plus large que le faisceau (silhouette du marais, poses E et N)
-    g.cyl((x, yb + 0.06, z), "y", rs + 0.01, 0.14, M["verdigris"], n=28, r2=rs + 0.085, what="buse")
-    g.torus((x, yb + 0.13, z), "y", rs + 0.085, 0.026, M["rubber"], n=28, m=8, what="collerette")
-    g.cyl((x, yb + 0.128, z), "y", rs + 0.07, 0.01, M["glass_dk"], n=28, what="fond_cloche")
+    # passe 5 (règle d'or 7) : cloche resserrée (évasement 0,085 -> 0,03) : en pose N, elle faisait le chapeau sombre
+    # d'une cheminée
+    g.cyl((x, yb + 0.06, z), "y", rs, 0.14, M["verdigris"], n=28, r2=rs + 0.03, what="buse")
+    g.torus((x, yb + 0.13, z), "y", rs + 0.03, 0.018, M["rubber"], n=28, m=8, what="collerette")
+    g.cyl((x, yb + 0.128, z), "y", rs + 0.02, 0.01, M["glass_dk"], n=28, what="fond_cloche")
     g.torus((x, yb - 0.01, z), "y", rs + 0.012, 0.016, M["rubber"], n=28, m=8, what="joint")
     F.bolts_ring(g, (x, yb + 0.03, z), (0, 1, 0), rs + 0.024, 6, M["brass"], r=0.014, skip_down=-0.3)
     g.cyl((x, yb + 0.134, z), "y", rs + 0.035, 0.012, M["verdigris"], n=28, what="face")
     F.bores(g, x, yb + 0.14, z, pos, rb, M["brass"])
-    F.lit_ring(g, (x, yb + 0.142, z), "y", rs + 0.03, M["emit"])
+    F.lit_ring(g, (x, yb + 0.142, z), "y", rs + 0.012, M["emit"])
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

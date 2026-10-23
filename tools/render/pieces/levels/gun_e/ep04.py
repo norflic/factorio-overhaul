@@ -33,12 +33,16 @@ FOYER = dict(rgb=(1.0, 0.42, 0.1))
 CANON = dict(L=1.2, nb=4, rb=0.045, rr=0.1)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.75)
-HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("brass", "copper"),
-                 chapeau="galva")
+# passe 5 (ronde 1) : lu « cuivre, cuves, vapeur » par un lecteur de la ronde 0 : plus AUCUN laiton ni cuivre visible
+# (munitions en cartouches rouges et galvanisé, bouchons rouges) ; GRANDS CAPOTS jaune délavé (clé « capots » du kit :
+# coupole, colonne, nacelle, masque) et plaques secondaires galvanisées : la machine se lit jaune et gris, jamais
+# laiton.
+HABILLAGE = dict(jupe_cerclage="galva", tremie="yellowpaint", pochoirs=True, munitions=("redpaint", "galva"),
+                 chapeau="galva", capots=("jaune_capot", "galva"))
 ST = dict(jacket="galva", brake="slots", drive="motor", drive_mat="steel_dk", band="galva",
           recv_mats=("yellowpaint", "yellowpaint"), recv_sig="stripes", feed="barrels", skirt="galva",
-          appl="yellowpaint", gmask=("yellowpaint", "olive"), arm=("olive", "steel_dk"), cap="galva",
-          col=("olive", "steel_dk"), nac=("olive", "yellowpaint"))
+          appl="yellowpaint", gmask=("yellowpaint", "galva"), arm=("olive", "steel_dk"), cap="galva",
+          col=("olive", "steel_dk"), nac=("olive", "yellowpaint"), flange_mat="galva")
 
 
 def matieres(metal, M):
@@ -46,6 +50,14 @@ def matieres(metal, M):
     rust = (0.24, 0.085, 0.03)
     metal("galva", (0.2, 0.205, 0.21), rough=0.3, met=0.85, grain=0.3 * 0.62, gscale=30.0, rust=rust, ra=0.2, dirt=0.8,
           stain=0.75, stain2=0.32, sscale=5.0, wear=1.6, streak=0.45, tone=1.35)
+    # passe 5 : jaune délavé des GRANDS CAPOTS (clé « capots ») : matière de corps, ni vive ni réfléchissante, plus
+    # claire et moins sale que le jaune des accents (« yellowpaint ») pour se lire jaune au zoom 1
+    metal("jaune_capot", (0.46, 0.335, 0.06), rough=0.46, met=0.2, grain=0.2, gscale=30.0, rust=rust, ra=0.2,
+          dirt=0.65, stain=0.55, sscale=5.0, wear=1.8, streak=0.4)
+    # jaune des cuves et des fûts : même teinte que la bibliothèque, un peu plus clair et moins sale (aperçu de ronde 1 :
+    # il tournait à l'olive brun au zoom 1)
+    metal("yellowpaint", (0.38, 0.28, 0.06), rough=0.42, met=0.3, grain=0.2, gscale=30.0, rust=rust, ra=0.3,
+          dirt=0.75, stain=0.75, sscale=5.0, wear=2.4, streak=0.55)
 
 
 def _halo(g, pts, power):
@@ -98,9 +110,10 @@ def socle_petrol(g, k):
     E = M["emit"]
     fuel_tank(g, -1.12, -0.7, 0.86, 0.3, M, E)
     fuel_tank(g, 1.14, -0.42, 0.36, 0.27, M, E, ladder=False)
-    # sud-est (devant la 2e cuve) : fûts debout et couchés
-    for i, (x, yn) in enumerate(((1.0, -0.66), (1.24, -0.62), (1.12, -0.86))):
-        F.drum(g, (x, Y(yn), 0.0), 0.11, 0.3, M["yellowpaint"] if i != 1 else M["galva"], M["hazk"])
+    # sud-est (devant la 2e cuve) : GROUPE DE FÛTS de 200 L (passe 5 : diamètre 0,3 t, au lieu de 0,22 ; jaune, un
+    # rouge), lisibles au zoom 1 comme des fûts et pas comme des cuves
+    for i, (x, yn) in enumerate(((0.98, -0.7), (1.3, -0.7), (1.14, -0.98), (0.82, -1.0))):
+        F.drum(g, (x, Y(yn), 0.0), 0.15, 0.4, M["redpaint"] if i == 1 else M["yellowpaint"], M["hazk"])
     # nord-ouest : groupe de pompage (moteur, 2 vannes à volant rouge)
     PT.hull(g, -1.42, -0.86, Y(1.0), Y(1.4), 0.0, 0.3, ins=(0.03, 0.03, 0.03), panel=0.24,
             mats=[M["yellowpaint"], M["steel_dk"]], rivet_step=0.12)
@@ -230,7 +243,7 @@ def w_petrol(g, st, H, x, sx):
         F.hazard_ring(g, c + V((0, f * Lb, 0)), (0, 1, 0), r + 0.002, 0.07, n=12)
     for f in (-0.38, 0.0, 0.38):
         g.tube_shell(c + V((0, f * Lb, 0)), "y", r + 0.018, r + 0.002, 0.022, M["steel_dk"], n=28, what="sangle")
-    g.cyl(c + V((sx * r * 0.3, Lb / 2 + 0.03, r * 0.45)), "y", 0.026, 0.04, M["brass"], n=10, what="bouchon")
+    g.cyl(c + V((sx * r * 0.3, Lb / 2 + 0.03, r * 0.45)), "y", 0.026, 0.04, M["redpaint"], n=10, what="bouchon")
     g.box(c + V((0, 0, r + 0.025)), (0.035, Lb * 0.34, 0.025), M["steel_hi"], "hard", what="poignee")
     g.hose([c + V((-sx * r * 0.6, -Lb / 2 + 0.03, r * 0.2)), V((x + sx * wr * 0.55, y0 + 0.02, zg + 0.03)),
             V((x + sx * wr * 0.4, y0 + 0.08, zg + 0.04))], 0.03, M["rubber"], step=0.03)
@@ -285,20 +298,19 @@ def br_slots(g, st, x, yb, z, rs, pos, H):
     """Époque 4 : frein de bouche à 2 fentes latérales, acier galvanisé."""
     M = g.M
     rb = H["rb"]
-    # passe 4, règle d'or 7 : bloc près de deux fois plus large que le faisceau, oreilles (pose N : un « T » plat)
-    w = rs * 3.4
-    g.box((x, yb + 0.06, z), (w, 0.17, rs * 1.6), M["galva"], "soft", what="frein")
-    F.ears(g, x, yb + 0.06, z, w / 2 + 0.03, 0.12, rs * 1.2, M["galva"], vent=True)
+    # passe 5 (règle d'or 7, pose N) : le bloc à oreilles deux fois plus large que le faisceau (« T » plat, chapeau de
+    # cheminée en pose N) est remplacé par un frein ROND au diamètre de la jaquette : 2 fentes de chaque côté, bague de
+    # danger, face avant à rosace éclairée (bouts de tubes vus en bout)
+    w = rs * 2.0
+    g.cyl((x, yb + 0.07, z), "y", rs, 0.15, M["galva"], n=28, style="soft", what="frein")
     for s in (-1, 1):
         for k in range(2):
-            g.box((x + s * (w / 2 + 0.002), yb + 0.02 + k * 0.08, z), (0.012, 0.045, rs * 1.15), M["void"], "flat",
+            g.box((x + s * (rs - 0.004), yb + 0.03 + k * 0.08, z), (0.014, 0.045, rs * 0.9), M["void"], "flat",
                   what="fente")
-        g.box((x + s * (w / 2 + 0.008), yb + 0.06, z + rs * 0.82), (0.02, 0.16, 0.022), M["galva"], "hard",
-              what="joue")
-    g.box((x, yb + 0.06, z + rs * 0.8 + 0.012), (w * 0.6, 0.12, 0.012), M["hazk"], "flat", what="bande")
-    g.cyl((x, yb + 0.15, z), "y", rs + 0.006, 0.012, M["galva"], n=28, what="face")
+    F.hazard_ring(g, (x, yb + 0.025, z), (0, 1, 0), rs + 0.004, 0.035, n=12)
+    g.cyl((x, yb + 0.15, z), "y", rs - 0.012, 0.012, M["galva"], n=28, what="face")
     F.bores(g, x, yb + 0.157, z, pos, rb, M["steel_hi"])
-    F.lit_ring(g, (x, yb + 0.158, z), "y", rs + 0.004, M["emit"])
+    F.lit_ring(g, (x, yb + 0.158, z), "y", rs - 0.014, M["emit"])
 
 
 def breech(g, st, x, y0, y1, z0, z1, w):

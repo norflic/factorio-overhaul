@@ -397,7 +397,8 @@ def br_octo(g, st, x, yb, z, rs, pos, H):
     """Époque 9 : frein de bouche octogonal à évents."""
     M = g.M
     rb = H["rb"]
-    R8 = rs * 1.12 + 0.03
+    # passe 5 (règle d'or 7) : octogone au ras du faisceau, sans oreilles (chapeau de cheminée en pose N)
+    R8 = rs + 0.012
     g.cyl((x, yb + 0.06, z), "y", R8, 0.17, M["lead"], n=8, style="hard", phase=math.pi / 8, what="frein")
     for f in range(8):
         a = math.pi / 8 + TAU * f / 8 + TAU / 16
@@ -409,7 +410,6 @@ def br_octo(g, st, x, yb, z, rs, pos, H):
             g.box(V((x, yb + 0.02 + k * 0.08, z)) + d * (rf + 0.002), (0.05, 0.035, 0.01), M["void"], "flat",
                   R=Matrix((d.cross(V((0, 1, 0))), V((0, 1, 0)), d)).transposed(), what="event")
     g.cyl((x, yb + 0.15, z), "y", R8 - 0.02, 0.012, M["concrete"], n=8, phase=math.pi / 8, what="face")
-    F.ears(g, x, yb + 0.06, z, R8 + 0.025, 0.12, R8 * 0.9, M["lead"])
     F.bores(g, x, yb + 0.156, z, pos, rb, M["copper"])
     F.lit_ring(g, (x, yb + 0.158, z), "y", rs + 0.01, M["emit"])
     g.tube_shell((x, yb - 0.025, z), "y", R8 + 0.006, R8 - 0.03, 0.022, M["hazy"], n=8, what="liseré")

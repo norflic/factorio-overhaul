@@ -324,7 +324,9 @@ def br_steam(g, st, x, yb, z, rs, pos, H):
     M = g.M
     rb = H["rb"]
     ro = rs + 0.03
-    wb, lb, hb = ro * 3.4, 0.15, ro * 2.0
+    # passe 5 (règle d'or 7 réécrite par le kit) : bloc au diamètre du faisceau (2 ro au lieu de 3,4 ro) : plus aucun
+    # chapeau plat plus large que le faisceau en pose N
+    wb, lb, hb = ro * 2.0, 0.15, ro * 2.0
     g.box((x, yb + lb / 2 - 0.01, z), (wb, lb, hb), M["brass"], "soft", what="frein")
     g.box((x, yb - 0.012, z), (wb * 0.86, 0.026, hb * 0.86), M["copper_pol"], "hard", what="collerette")
     for s in (-1, 1):

@@ -33,7 +33,8 @@ NOM = "Électricité"
 KIN = 2   # rang dans l'ère II
 FOYER = dict(rgb=(0.376, 0.816, 1.0))
 CANON = dict(L=1.35, nb=4, rb=0.045, rr=0.1)
-HABILLAGE = dict(jupe_cerclage="copper", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
+# passe 5 : cerclages de jupe sombres (moins de cuivre sur le corps : lu « cuivre, cheminée, vapeur » à la ronde 0)
+HABILLAGE = dict(jupe_cerclage="steel_dk", tremie="cream", pochoirs=True, munitions=("copper", "steel_hi"),
                  chapeau="copper")
 ST = dict(jacket="coils", brake="insul", drive="coil", band="copper", recv_mats=("ochre", "olive"), feed="drum",
           skirt="copper", appl="ochre", gmask=("ochre", "olive"), arm=("olive", "steel_dk"), cap="copper",
@@ -47,7 +48,7 @@ def matieres(metal, M):
     # du volcan, test de FORME)
     metal("transfo", (0.25, 0.235, 0.205), rough=0.42, met=0.4, grain=0.11, gscale=30.0, rust=(0.2, 0.09, 0.04),
           ra=0.18, dirt=0.9, stain=0.8, sscale=5.0, wear=2.4, streak=0.55, mottle=0.4)
-    M["accent"] = metal("porcelaine", (0.5, 0.485, 0.44), rough=0.36, met=0.0, grain=0.12, gscale=30.0, dirt=0.8,
+    M["accent"] = metal("porcelaine", (0.6, 0.585, 0.54), rough=0.36, met=0.0, grain=0.12, gscale=30.0, dirt=0.8,
                         stain=0.35, sscale=5.0, wear=0.8)
 
 
@@ -81,10 +82,60 @@ def tesla_tower(g, x, yn, h, M, E, s=1.0):
     return zt + 0.04
 
 
+def streamer(g, p0, d, L, n=4, amp=0.03):
+    """Décharge OUVERTE (passe 5) : ligne brisée lumineuse qui part d'une pièce et s'arrête dans l'air (un seul bout
+    attaché : aucun jour de sol enfermé)."""
+    rng = g.rng
+    d = V(d).normalized()
+    side = d.cross(V((0, 0, 1)))
+    if side.length < 1e-4:
+        side = V((1, 0, 0))
+    side.normalize()
+    pts = [V(p0)]
+    for i in range(1, n + 1):
+        t = i / n
+        pts.append(V(p0) + d * L * t + side * amp * (rng.random() - 0.5) * 2 + V((0, 0, amp * (rng.random() - 0.5))))
+    for a, b in zip(pts, pts[1:]):
+        e = b - a
+        g.cyl((a + b) / 2, e, 0.011, e.length + 0.006, g.M["emit"], n=6, style="flat", what="arc")
+
+
+def tesla_trapue(g, x, yn, M, E):
+    """Passe 5 : BOBINE DE TESLA TRAPUE (0,56 t de haut au lieu du mât à sphère de 1,3 t lu « cheminée ») : caisson
+    bas, bobine secondaire épaisse à spires de cuivre jointives, spirale primaire au pied, 3 poteaux d'isolateurs
+    blancs, gros tore d'aluminium au sommet, 5 décharges cyan ouvertes qui en partent."""
+    y = Y(yn)
+    PT.hull(g, x - 0.24, x + 0.24, y - 0.24, y + 0.24, 0.0, 0.14, ins=(0.03, 0.03, 0.03), panel=0.2,
+            mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
+    g.box((x, y - 0.24 - 0.006, 0.08), (0.14, 0.012, 0.07), M["hazy"], "flat", what="haute_tension")
+    # spirale primaire (2 spires larges) et ses poteaux de porcelaine
+    for kk, R_ in enumerate((0.19, 0.155)):
+        g.torus((x, y, 0.16 + 0.012 * kk), "z", R_, 0.012, M["copper"], n=36, m=6, what="primaire")
+    for t in range(3):
+        a = TAU * t / 3 + 0.5
+        F.post_insulator(g, (x + math.cos(a) * 0.19, y + math.sin(a) * 0.19, 0.14), 3, 0.035, h=0.03)
+    # bobine secondaire : âme sombre, spires de cuivre jointives
+    z0, z1 = 0.14, 0.5
+    g.cyl((x, y, (z0 + z1) / 2), "z", 0.1, z1 - z0, M["steel_dk"], n=24, what="ame_bobine")
+    ns = int((z1 - z0 - 0.04) / 0.022)
+    for t in range(ns):
+        g.torus((x, y, z0 + 0.03 + t * 0.022), "z", 0.105, 0.0105, M["copper"], n=28, m=6, what="spire")
+    # tore d'aluminium (âme pleine : aucun jour par son trou)
+    zt = z1 + 0.045
+    g.torus((x, y, zt), "z", 0.15, 0.05, M["steel_hi"], n=36, m=12, what="tore")
+    g.cyl((x, y, zt), "z", 0.15, 0.07, M["steel_dk"], n=28, what="ame_tore")
+    F.sphere(g, (x, y, zt + 0.045), 0.05, M["steel_hi"], n=16, m=8, what="borne")
+    for t in range(5):
+        a = TAU * t / 5 + 0.3
+        d = V((math.cos(a), math.sin(a), 0.25))
+        streamer(g, V((x, y, zt)) + V((math.cos(a), math.sin(a), 0)) * 0.2, d, 0.17, n=4, amp=0.025)
+    return zt
+
+
 def socle_electric(g, k):
     M = g.M
     E = M["emit"]
-    t1 = tesla_tower(g, -1.12, 1.08, 1.16, M, E)
+    t1 = tesla_trapue(g, -1.12, 1.08, M, E)
     # nord-est : batterie de condensateurs BASSE (une tour à cet endroit traverse le canon nord en pose E : jour enfermé)
     PT.hull(g, 0.78, 1.46, Y(0.72), Y(1.18), 0.0, 0.06, ins=(0.02, 0.02, 0.02), panel=0.22,
             mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
@@ -134,10 +185,14 @@ def socle_electric(g, k):
         g.box((0.82 + i * 0.07, Y(0.42), 0.36), (0.03, 0.4, 0.03), M["copper"], "hard", what="barre")
     for s in (0.82, 0.89):
         PT.insulators(g, (s, Y(0.52), 0.18), 3, 0.03, h=0.06)
-    g.halo((-1.12, Y(1.08), 1.0), M["_emit_rgb"], 12.0)
+    g.halo((-1.12, Y(1.08), 0.6), M["_emit_rgb"], 12.0)
     PT.hull(g, -0.7, 0.3, Y(0.92), Y(1.36), 0.0, 0.08, ins=(0.02, 0.02, 0.02), panel=0.22,
             mats=[M["olive"], M["steel_dk"]], rivet_step=0.1)
-    PT.capacitors(g, (-0.2, Y(1.14), 0.08), 5, 2, 0.062, 0.16, E)
+    # passe 5 : flanc nord, 4 GROSSES PILES D'ISOLATEURS de porcelaine blanche (0,17 t de large) en rang, jeu de
+    # barres de cuivre posé dessus (au lieu de la batterie de condensateurs basse, illisible au zoom 1)
+    for xx in (-0.58, -0.32, -0.06, 0.2):
+        zt = PT.insulators(g, (xx, Y(1.14), 0.08), 5, 0.085, h=0.05)
+    g.box((-0.19, Y(1.14), zt + 0.01), (0.86, 0.035, 0.03), M["copper"], "hard", what="barre")
     # passe 4 : poteaux d'isolateurs de porcelaine devant le transformateur (piles blanches lisibles)
     for (xx, yn) in ((-1.42, -0.92), (-1.2, -0.95), (-0.98, -0.92), (1.42, -0.5), (1.45, 0.62),
                      (-0.82, -1.36), (0.82, -1.36)):
@@ -265,15 +320,19 @@ def w_coil(g, c, x, sx):
     for yy in (ya - 0.03, yb + 0.03):   # flasques sombres de bobine (bagues sombres : pose N sans cheminée)
         g.tube_shell((x, yy, zg), "y", rc + 0.03, rr + rb * 0.4, 0.03, M["steel_dk"], n=28, what="flasque")
         F.bolts_ring(g, (x, yy, zg), (0, 1, 0), rc + 0.03, 6, M["rivet"], r=0.014, phase=0.3, skip_down=-0.3)
-    # anneau isolateur derrière le frein, électrodes et arc à la bouche
+    # anneau isolateur derrière la bouche ; passe 5 : plus d'électrodes ni d'arc DEVANT la bouche (sans le frein en
+    # bloc du kit, ils enfermaient du sol : 57 px en tête E, 35 px en tête N). L'ARC court maintenant SUR le faisceau,
+    # de la bobine à l'anneau (environ 0,5 t), entre deux petites piles d'isolateurs : il se détache sur les tubes, pas
+    # sur le sol, et il est plus long, donc lisible par la lueur.
     ybb = y1 + L
     g.tube_shell((x, ybb - 0.07, zg), "y", rr + rb + 0.04, rr + rb * 0.3, 0.035, M["accent"], n=28, what="isolateur")
-    for s in (-1, 1):
-        p0 = V((x + s * (rr + rb + 0.05), ybb - 0.07, zg + 0.04))
-        g.cyl(p0 + V((0, 0.07, 0.03)), (0, 1, 0.4), 0.012, 0.14, M["copper"], n=8, what="electrode")
-        F.sphere(g, p0 + V((0, 0.13, 0.055)), 0.02, M["copper"], n=10, m=6, what="pointe")
-    pa, pb = V((x - (rr + rb + 0.05), ybb + 0.06, zg + 0.095)), V((x + (rr + rb + 0.05), ybb + 0.06, zg + 0.095))
-    arc(g, pa, pb, 4, 0.025)
+    za = zg + rr + rb + 0.012
+    ea, eb = yb + 0.06, ybb - 0.09
+    # (l'arc reste au ras du dessus des tubes : plus haut, il laisse voir le sol entre lui et le faisceau)
+    for yy in (ea, eb):
+        g.cyl((x, yy, za - 0.005), "z", 0.03, 0.03, M["accent"], n=14, style="soft", what="isolateur")
+        F.sphere(g, (x, yy, za + 0.025), 0.022, M["copper"], n=10, m=6, what="pointe")
+    arc(g, V((x, ea + 0.02, za + 0.02)), V((x, eb - 0.02, za + 0.02)), 7, 0.02)
     # sphère de décharge sur pile d'isolateurs, posée sur la culasse ; arc vers la bobine
     ps = (x - sx * wr * 0.15, (y0 + y1) / 2 + 0.02, zg + hr + 0.01)
     zt = PT.insulators(g, ps, 3, 0.05, h=0.04)
