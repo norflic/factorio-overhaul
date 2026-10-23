@@ -149,6 +149,15 @@
   ses tuyaux et sa lumière, avec une progression de prestige jusqu'à l'or blanc lumineux de la Légende ; nouveau test
   à l'aveugle « des écarts » (paires d'âges de même taille notées de 1 à 5, critère Clash of Clans ; objectif moyenne
   ≥ 4, aucune sous 3, Légende désignée comme grade ultime par tous les lecteurs) ; 4 rondes au plus.
+- 23/10, vers 9 h 48, **aperçus de la ronde 2 de la passe 5 (page de suivi)** : « alors, je viens de voir et c est parfait, les designs sont vrm bien, seul siucis c est que c ezt trop uniforme en therme de palette de cçuleur; mais si non les designs sont vraiment top ».
+  Lecture : les designs (formes, canons, précision) de la ronde 2 sont validés par le DC ; le seul défaut est la
+  PALETTE, trop uniforme. Les deux sens sont appliqués : (1) d'un âge à l'autre, une couleur dominante propre à chaque
+  âge, différente de ses voisins (plus de trois âges gris 10 à 12, ni deux âges sombres à touches rouges 2 et 5, ni deux
+  laitons 3 et 4) ; (2) dans chaque bâtiment, une dominante, une secondaire qui contraste et un accent vif (60/30/10).
+  → consigne écrite à 9 h 50 dans les journaux des deux plages (`fo-logs\2026-10-23_V3E-p5\bas\journal.md` et
+  `haut\journal.md`), que les constructeurs lisent au début de chaque ronde : palette en priorité dès la ronde 3 ; les
+  clés de forme du troisième temps du kit (lancé à 9 h 48, avant cette remarque) deviennent facultatives, à n'utiliser
+  que là où un âge se confond encore avec son voisin.
 
 ### Décisions d'architecture et d'outillage (lot P0)
 - Dépôt git `main` dans le dossier du mod. `.gitattributes` `* -text` : `core.autocrlf=true` sur ce PC
