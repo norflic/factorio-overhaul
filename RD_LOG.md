@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (22/10, vers 23 h, après l'intégration du lot V3-T3 et la consignation du lot V3-T4, livré NON intégré) : **F119, E64**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (23/10, vers 6 h 15, après la consignation de la passe 4 de V3-E, E64) : **F119, E65**. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -357,6 +357,47 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E64 · NON VALIDÉ (juges : pas prêt) · V3-E, quatrième passe : un kit d'époque unifié, puis correction ciblée des
+époques ratées (23/10, 0 h 25 à 5 h 40 ; run `wf_b0a51b34-fe1`)** :
+- Protocole : un responsable du kit (worktree `wf_b0a51b34-fe1-1`, `c7f4f8f`) réunit les deux plages de la passe 3
+  dans un seul dossier `tools/render/pieces/levels/gun_e/` (kit commun gelé, un fichier par époque `ep01.py` à
+  `ep15.py`, outils communs : rendu par paquets, îlots et trous bloquants, mesures, gris FORME, dominance, vignettes
+  mélangées) ; deux constructeurs en parallèle (époques 1 à 9 : `7300ead` ; 10 à 15 : `db7678b`) ; rendus de production
+  à 128 échantillons (57 variantes, HR et 32 px) ; regard naïf à l'aveugle en couleur et en gris, en description libre ;
+  deux juges (direction artistique, mesures) ; planches recomposées hors moteur. Branche de réunion `v3e-p4`
+  (`200d5d5`, fusion faite par l'orchestrateur : `ep02` à `ep09` de la plage basse, `ep10` à `ep15` de la plage haute,
+  kit identique à `c7f4f8f`, vérifié par `git diff`). Sorties : `<racine>\fo-logs\2026-10-23_V3E-p4\`.
+- Progrès de construction (vérifiés par le juge des mesures) : un seul kit, la rupture de grammaire entre 9 et 10 a
+  disparu (sauf les deux caissons gris clair de 10) ; l'organe d'époque s'ajoute à l'arme ; îlots et trous : 0 échec sur
+  100 contrôles ; points blancs 11,2 par t² au plus (passe 3 : 17 à 44 ; vanilla 13,2) ; 28 foyers sur 28 dans leur
+  famille ; FORME en gris ≥ 25 % pour les 10 paires de même taille en pose E (7 à moins de 3 points du seuil) ; précision
+  intacte au zoom 2.
+- Résultats d'identité : regard naïf en couleur, Spearman 0,979 et 4 inversions, ordre porté par la taille en trois
+  paliers ; âges reconnus en description libre : 5 à 6 nets, 4 à 6 partiels, 4 à 5 faux, soit environ 7 à 8 sur 15 comme
+  en passe 3 (seuil du catalogue : 12). Lus faux : 4 Pétrole « vapeur, laiton » (régression), 5 Volcan « runes de
+  dragon », 6 Électricité « cheminée », 9 Atome « électrique », 11 Titane « militaire générique ». Regard naïf en GRIS
+  invalide : le lecteur a mélangé deux identifiants de fichier (Forge et Cristal), Spearman 0,736 non significatif.
+  Pose N : canons dressés toujours lus comme des cheminées, pire en plage haute. FORME en gris en pose N sous 25 % pour
+  4 paires (4-5 21,2 %, 5-6 23,1 %, 8-9 22,3 %, 10-11 23,2 %), non mesurée par les constructeurs. Dominance : 4 défauts
+  (4→5, 5→6 en E et N, 14→15), plus 4 si la règle « D3 ne baisse pas de plus de 5 % » était comptée (elle n'était
+  qu'imprimée). Charte : 57 compositions sur 58 en échec bloquant (D3max de 47,6 à 67,5 pour un plafond de 45, P2).
+  Juges : 6 et 6 sur 10 (direction artistique), 6 et 6,5 (mesures) ; « pas prêt » pour les 6 autres familles.
+- Cause commune selon les juges : le corps de lignée est trop sombre et trop dense en petits contrastes ; il écrase tout
+  ce qui n'est pas une couleur vive, et les époques bien lues (Cristal, Marais, Fusion, Orbite) sont celles qui ont une
+  couleur franche. Le défaut « identité par la couleur » de la passe 3 n'est donc pas résolu, seulement déplacé.
+- **Écart de protocole (faute de l'orchestrateur)** : le catalogue §C prévoit un regard naïf AVEC la liste des 15
+  triplets « en 3 mots » (seuil : 12 sur 15, aucune confusion entre ères). Les passes 3 et 4 ont demandé une description
+  libre, plus dure et non comparable au seuil. Et le test n'avait lieu qu'à la fin : les constructeurs corrigeaient sans
+  mesure de lecture.
+- Montré au DC : page privée https://claude.ai/artifact/6oWtaBeDK7gR5ALMySwjWb (23/10, vers 6 h 10), sans demande de
+  validation ; il peut refuser qu'on touche au corps (« corps : non »).
+- Suite : passe 5 (run `wf_5b157c7b-fa0`, lancée le 23/10 vers 6 h 05 ; worktrees persistants `v3e-p5-kit`,
+  `v3e-p5-bas`, `v3e-p5-haut` depuis `v3e-p4` ; sorties `<racine>\fo-logs\2026-10-23_V3E-p5\`) : protocole du
+  catalogue (liste des triplets, lettre dans l'image, contrôle des renvois par la taille citée) appliqué PENDANT la
+  construction, en rondes (3 au plus) ; corps « valeurs groupées » essayé en ronde 0 contre le corps actuel, retenu
+  seulement s'il gagne au moins une bonne réponse en moyenne ; pose N de la lignée, clé d'habillage « capots », règle D3
+  comptée, gris en pose N ; production seulement après 12 sur 15 ou la 3e ronde.
+
 **E63 · NON VALIDÉ (juges : pas prêt) · V3-E, troisième passe : la mitrailleuse sur les 15 époques, une direction
 artistique par âge (22/10, 19 h 03 à 23 h 59 ; run `wf_0608aa1f-b85`)** :
 - Protocole : catalogue `fo-logs\2026-10-22_V3E\catalogue\DA_PAR_EPOQUE.md` (15 fiches) ; deux constructeurs en
