@@ -16,6 +16,7 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
 | `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs ; (lot R1) `--tag FO-T2-DEFENSE` pour le banc `t2-defense` |
 | `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1 ; graine `FO_MAP_SEED` : §1.2) ; (lot R1) `mut_vram.py`, banc de mutations de la règle de l'atlas virtuel de `vram.py` (§5.1) |
+| `gun_rose_images.py` | (lot A3-jeu) Image de tête MONTRÉE par le moteur contre l'image attendue, sur les captures `rose64-ageNN-z2-jour` de `fo-captures.bat gun-rose` : `py -3.9 tools/autotest/gun_rose_images.py "<fo-shots>" --feuilles "<source>/graphics/levels/gun"` (BILAN « N OK, 0 FAUX », code 0) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
 
