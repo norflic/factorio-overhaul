@@ -1,7 +1,17 @@
 """OUTIL COMMUN : vignettes LETTRÉES d'une ronde de lecture (regard naïf, catalogue §C ; passe 5). Python 3.9.
 
-    py -3.9 tools/render/pieces/levels/gun_e/vignettes.py --dest DOSSIER --src DOSSIER_SPRITES
-        [--src 1-9=DOSSIER_1 --src 10-15=DOSSIER_2 …] [--epochs 1,…,15] [--pose E|N] [--gris]
+    py -3.9 tools/render/pieces/levels/commun/vignettes.py --dest DOSSIER --src DOSSIER_SPRITES
+        [--src 1-9=DOSSIER_1 --src 10-15=DOSSIER_2 …] [--epochs 1,…,15] [--famille gun_e]
+        [--jeu E|G|N] | [--pose E|N] [--gris]
+
+LOT K0 (23/10) : outil commun (variantes d'une vignette, niveau montré, poses : profil de la famille) et NOMMAGE DES
+JEUX corrigé. Le test à l'aveugle final de la passe 5 n'a pas été fait parce que le script de l'orchestrateur
+cherchait les jeux nommés « E », « G » et « N » et que le compositeur leur avait donné d'autres noms. Désormais le nom
+EXACT du jeu est fixé par l'outil et écrit dans la clé JSON (champ « nom ») :
+    « E » = couleur, pose E ; « G » = gris, pose E ; « N » = couleur, pose N ; (« NG » = gris, pose N, hors du test
+    final). --jeu E|G|N règle d'un coup la pose et le gris (il refuse un --pose ou un --gris contraire) ; un dossier de
+    destination nommé « vignettes-X » doit porter le nom de son jeu (vignettes-E, vignettes-G, vignettes-N), sinon
+    l'outil refuse. Le compositeur recopie le champ « nom » de la sortie tel quel.
 
 Une image par époque : le bâtiment seul au niveau impair (époque 1 : niveau 2, pièce SOUS la mitrailleuse vanilla),
 zoom 1, jour, sol vanilla, cadre carré 384 × 384 (12 tuiles) centré sur l'emprise, pose E (canons à l'est) ou N
@@ -33,6 +43,29 @@ sys.path.insert(0, HERE)
 import compo as K  # noqa: E402
 
 LETTRES = "ABCDEFGHIJKLMNO"
+# nom EXACT d'un jeu de vignettes (lot K0) : (pose, gris) -> nom
+JEUX = {("E", False): "E", ("E", True): "G", ("N", False): "N", ("N", True): "NG"}
+JEU_REGLAGE = {v: k for k, v in JEUX.items()}
+
+
+def nom_jeu(pose, gris):
+    return JEUX.get((pose, bool(gris)), "%s%s" % (pose, "G" if gris else ""))
+
+
+def regler_jeu(a):
+    """--jeu fixe la pose et le gris ; refuse un réglage contraire ; contrôle le nom du dossier « vignettes-X »."""
+    if a.jeu:
+        pose, gris = JEU_REGLAGE[a.jeu]
+        if a.pose not in ("", pose) or (a.gris and not gris):
+            raise SystemExit("--jeu %s veut dire pose %s%s : --pose %s --gris %s contredisent" % (
+                a.jeu, pose, ", gris" if gris else ", couleur", a.pose or "-", a.gris))
+        a.pose, a.gris = pose, gris
+    a.pose = a.pose or "E"
+    nom = nom_jeu(a.pose, a.gris)
+    base = os.path.basename(os.path.normpath(a.dest))
+    if base.lower().startswith("vignettes-") and base[len("vignettes-"):] != nom:
+        raise SystemExit("le dossier %s ne porte pas le nom de son jeu (« %s » : vignettes-%s)" % (base, nom, nom))
+    return nom
 T = 12.0          # 12 tuiles à 64 px = 768 px, réduits à 384 (zoom 1)
 CART = 76         # côté du cartouche (px de la vignette)
 MARGE = 6
@@ -68,7 +101,7 @@ def sources(specs, eps):
 
 
 def rendu(out, e, pose):
-    besoin = ["e01-piece"] if e == 1 else ["e%02d-socle" % e, "e%02d-tete-%s" % (e, pose)]
+    besoin = K.PROFIL.besoin_vignette(e, pose)
     manque = [n for n in besoin if not K.spec_of(out, n)]
     if manque:
         raise SystemExit("époque %d : sprites absents dans %s : %s" % (e, out, ", ".join(manque)))
@@ -110,9 +143,16 @@ def main():
     ap.add_argument("--dest", required=True)
     ap.add_argument("--src", action="append", required=True)
     ap.add_argument("--epochs", default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15")
-    ap.add_argument("--pose", default="E", choices=("E", "N"))
+    ap.add_argument("--pose", default="")
     ap.add_argument("--gris", action="store_true")
+    ap.add_argument("--jeu", default="", choices=("", "E", "G", "N"),
+                    help="jeu du test final : E (couleur, pose E), G (gris, pose E), N (couleur, pose N)")
+    K.option_famille(ap)
     a = ap.parse_args()
+    PR = K.utiliser(a.famille or None)
+    nom_du_jeu = regler_jeu(a)
+    if a.pose not in PR.POSES:
+        raise SystemExit("--pose : %s" % ", ".join(PR.POSES))
     eps = [int(x) for x in a.epochs.split(",") if x]
     if len(eps) > len(LETTRES):
         raise SystemExit("au plus %d vignettes par jeu" % len(LETTRES))
@@ -147,12 +187,12 @@ def main():
                 break
         img.save(p, optimize=False)
         os.utime(p, (t_fixe, t_fixe))
-        cle.append({"lettre": lt, "epoque": e, "niveau": 2 if e == 1 else 2 * e - 1, "fichier": os.path.abspath(p)})
+        cle.append({"lettre": lt, "epoque": e, "niveau": PR.niveau_vignette(e), "fichier": os.path.abspath(p)})
     cle.sort(key=lambda r: r["lettre"])
-    print("%d vignettes (pose %s, %s) dans %s" % (len(cle), a.pose, "gris" if a.gris else "couleur", a.dest),
-          file=sys.stderr)
-    print(json.dumps({"pose": a.pose, "gris": a.gris, "dossier": os.path.abspath(a.dest), "cle": cle},
-                     ensure_ascii=False, indent=1))
+    print("jeu « %s » : %d vignettes (pose %s, %s) dans %s" % (nom_du_jeu, len(cle), a.pose, "gris" if a.gris else "couleur",
+                                                              a.dest), file=sys.stderr)
+    print(json.dumps({"nom": nom_du_jeu, "famille": PR.NOM, "pose": a.pose, "gris": a.gris,
+                      "dossier": os.path.abspath(a.dest), "cle": cle}, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -33,17 +34,16 @@ V = Vector
 EPOQUE = 13
 NOM = "Antimatière"
 # violet d'annihilation #8F4BFF (2/3 au moins de la lumière) et bleu #4A7BFF (fiche §2 E5)
-FOYER = dict(rgb=(0.561, 0.294, 1.0), rgb2=(0.29, 0.482, 1.0))
+FOYER = ages.FOYER[13]
 # fiche §2 E1 : 2,30 -> 2,60 (marge de +6 à 8 % laissée à 14 et 15)
 CANON = dict(L=2.6, nb=6, rb=0.072, rr=0.175)
 PLATEFORME = dict(chanfrein=1.3)
-HABILLAGE = dict(jupe_cerclage="cuivre_bobine", chapeau="cuivre_bobine", tremie="acier_canon",
-                 tourelleau="acier_canon", capots=("acier_canon", "cuivre_plaque"),
-                 acier=("acier_noir", "chrome_fin"), rivets="chrome_fin", joints="acier_noir",
-                 danger=("cuivre_bobine", "acier_noir"), peinture="cuivre_bobine", grille_nacelle="chrome_fin",
+HABILLAGE = dict(ages.CORPS[13],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="cuivre_bobine", chapeau="cuivre_bobine", tremie="acier_canon",
+                 tourelleau="acier_canon",
+                 grille_nacelle="chrome_fin",
                  munitions=("chrome_fin", "verre_fume"),
-                 plateforme=dict(motif="toles", mat="acier_canon", mat2="acier_canon2", fond="acier_noir",
-                                 bord="acier_noir", boulons="chrome_fin", lisere="emit_soft"),
                  # pont à deux TOURS DE CONFINEMENT (bastions de la ronde 4, gardés : seule forme de pont qui se lit au
                  # zoom 1), cerclées de cuivre
                  forme_plateforme=dict(forme="bastions", flanc="acier_canon", flanc2="cuivre_bobine"),
@@ -62,26 +62,8 @@ def matieres(metal, M):
     """Antimatière : acier canon gris froid à reflet prune (60), cuivre rouge de bobinage (30), verre fumé violet-noir,
     chrome fin, acier noir. Albédos de la fiche convertis en linéaire ; l'acier canon est remonté d'un cran (risque 1
     de la fiche : trois corps sombres de suite, éclaircir 13 d'abord)."""
-    # ronde 2 (test à l'aveugle : 13 lu « disque violet sombre, vortex » et pris pour le Néant ; « même squelette » que
-    # 14) : acier canon ÉCLAIRCI d'un cran (risque 1 de la fiche : éclaircir 13 d'abord) ; l'ère V descend désormais
-    # nettement en valeur, 13 gris moyen, 14 indigo sombre, 15 noir
-    metal("acier_canon", (0.2, 0.19, 0.245), rough=0.35, met=0.4, grain=0.1, gscale=34.0, rust=(0.1, 0.06, 0.08),
-          ra=0.08, dirt=0.55, stain=0.35, sscale=5.0, wear=1.4, streak=0.35, mottle=0.25)
-    metal("acier_canon2", (0.17, 0.16, 0.21), rough=0.36, met=0.4, grain=0.1, gscale=34.0, dirt=0.55, stain=0.35,
-          sscale=5.0, wear=1.2, mottle=0.25)
-    metal("acier_noir", (0.02, 0.02, 0.028), rough=0.4, met=0.5, grain=0.12, dirt=0.5, stain=0.2, wear=1.6)
-    # cuivre de bobinage : métallicité 0,6 au plus (un cuivre à 0,9 sort sombre de dessus, ronde 3)
-    metal("cuivre_bobine", (0.46, 0.14, 0.05), rough=0.35, met=0.6, grain=0.16, gscale=60.0, rust=(0.06, 0.12, 0.08),
-          ra=0.06, dirt=0.55, stain=0.25, sscale=6.0, wear=0.9)
-    metal("cuivre_plaque", (0.36, 0.115, 0.045), rough=0.4, met=0.5, grain=0.12, gscale=36.0, rust=(0.06, 0.12, 0.08),
-          ra=0.1, dirt=0.7, stain=0.4, sscale=5.0, wear=1.4, streak=0.4)
-    metal("chrome_fin", (0.33, 0.35, 0.4), rough=0.22, met=0.7, grain=0.08, dirt=0.35, stain=0.0, reflet="fin")
-    # verre fumé de la cloche : violet-noir, lisse, OPAQUE (aucun sol vu au travers)
-    # ronde 1 (aperçu r1a : la cloche se lisait « dôme de cuivre ») : verre plus VIOLET et un peu plus clair
-    metal("verre_fume", (0.075, 0.03, 0.17), rough=0.08, met=0.0, grain=0.04, dirt=0.2, stain=0.12, sscale=4.0)
-    metal("verre_meneau", (0.055, 0.022, 0.125), rough=0.12, met=0.0, grain=0.04, dirt=0.2, stain=0.1, sscale=4.0)
-    # couronne d'isolateurs de la cloche (matière « ceramique » du kit) : acier noir, pour ne pas rappeler l'Électricité
-    metal("ceramique", (0.02, 0.02, 0.028), rough=0.4, met=0.5, grain=0.12, dirt=0.5, stain=0.2)
+    ages.matieres(13, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
+    # rôles de la mitrailleuse (alias), dans l'ordre d'origine
     M["copper"] = M["cuivre_bobine"]
     M["ring"] = M["cuivre_bobine"]
     M["jacket"] = M["acier_canon"]

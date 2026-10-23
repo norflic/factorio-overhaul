@@ -1,7 +1,9 @@
 """OUTIL COMMUN : planche d'aperçu (jour, sol vanilla, composé hors moteur). FICHIER GELÉ.
 
-    py -3.9 tools/render/pieces/levels/gun_e/apercu.py --out DIR --dest planche.png [--epochs 2,3,k5]
-        [--poses E,N] [--zoom 1|2] [--pair] [--ref passe3|DIR] [--gris] [--nuit] [--titre "…"]
+    py -3.9 tools/render/pieces/levels/commun/apercu.py --out DIR --dest planche.png [--famille gun_e]
+        [--epochs 2,3,k5] [--poses E,N] [--zoom 1|2] [--pair] [--ref passe3|DIR] [--gris] [--nuit] [--titre "…"]
+Lot K0 : outil commun ; composition d'un niveau et emprise : profil de la famille (« passe3 » : sprites de la
+mitrailleuse, passe 3).
 
 Une ligne par époque (ou témoin du kit « k2 » … « k6 »), une colonne par pose ; avec --ref, chaque pose est montrée
 deux fois : à gauche la référence (passe 3 par défaut), à droite les sprites de --out (« avant | après »). Fenêtre
@@ -53,7 +55,9 @@ def main():
     ap.add_argument("--gris", action="store_true")
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--titre", default="")
+    K.option_famille(ap)
     a = ap.parse_args()
+    PR = K.utiliser(a.famille or None)
     eps = [parse_e(x) for x in a.epochs.split(",") if x]
     poses = [p for p in a.poses.split(",") if p]
     ref = K.PASSE3 if a.ref == "passe3" else (a.ref or None)
@@ -66,7 +70,7 @@ def main():
     H = 40 + len(eps) * (cw + lab + 6) + 6
     sheet = Image.new("RGB", (W, H), (24, 24, 28))
     dr = ImageDraw.Draw(sheet)
-    dr.text((8, 8), a.titre or ("Aperçu kit gun_e · zoom %d · %s" % (a.zoom, "nuit" if a.nuit else "jour")),
+    dr.text((8, 8), a.titre or ("Aperçu kit %s · zoom %d · %s" % (PR.NOM, a.zoom, "nuit" if a.nuit else "jour")),
             fill=(255, 200, 110), font=K.font(20))
     y = 40
     for e in eps:

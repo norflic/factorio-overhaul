@@ -1,6 +1,9 @@
 """OUTIL COMMUN : test en gris, UNE SEULE définition de la FORME (règle d'or 3). FICHIER GELÉ. Python 3.9.
 
-    py -3.9 tools/render/pieces/levels/gun_e/gris.py --out DIR [--json f.json] [--planche gris.png] [--pose E|N|E,N]
+    py -3.9 tools/render/pieces/levels/commun/gris.py --out DIR [--famille gun_e] [--json f.json] [--planche gris.png]
+        [--pose E|N|E,N]
+Lot K0 : outil commun ; poses permises, fenêtre (en tuiles) et composition d'un niveau : profil de la famille
+(profil.POSES, profil.FENETRE_GRIS, profil.level_layers) ; « même taille » : profil.COTE.
 
 Passe 5 : --pose N contrôle la pose N (canons au nord) avec les MÊMES paires et le MÊME seuil ; --pose E,N contrôle
 les deux poses en un passage (code 1 si une paire échoue dans l'une ou l'autre ; planches gris-E.png et gris-N.png).
@@ -29,7 +32,7 @@ import compo as K  # noqa: E402
 
 D = K.D
 SEUIL = 0.25
-T = 14.0   # fenêtre en tuiles (la plus grande emprise, 6×6, avec ses canons, y tient)
+T = 14.0   # fenêtre en tuiles (mitrailleuse : la plus grande emprise, 6×6, avec ses canons, y tient) ; profil.FENETRE_GRIS
 
 
 def zoom1_gris(out, e, pose):
@@ -76,11 +79,15 @@ def main():
     ap.add_argument("--planche", default="")
     ap.add_argument("--pose", default="E", help="E, N ou E,N (les deux poses, mêmes paires, même seuil)")
     ap.add_argument("--epochs", default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15")
+    K.option_famille(ap)
     a = ap.parse_args()
+    global T
+    PR = K.utiliser(a.famille or None)
+    T = float(PR.FENETRE_GRIS)
     eps = [int(x) for x in a.epochs.split(",") if x]
     poses = [p.strip().upper() for p in a.pose.split(",") if p.strip()]
-    if not poses or any(p not in ("E", "N") for p in poses):
-        raise SystemExit("--pose : E, N ou E,N")
+    if not poses or any(p not in PR.POSES for p in poses):
+        raise SystemExit("--pose : une ou plusieurs de %s, séparées par des virgules" % ", ".join(PR.POSES))
     res, nko = [], 0
     for pose in poses:
         planche = a.planche

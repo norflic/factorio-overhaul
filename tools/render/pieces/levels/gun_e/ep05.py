@@ -18,6 +18,7 @@ import math
 
 from mathutils import Matrix, Vector
 
+import ages
 import corps
 import formes as F
 import parts as PT
@@ -34,7 +35,7 @@ KIN = 1   # rang dans l'ère II
 # passe 4 : rouge braise (famille 345 à 14° MESURÉE)
 # ronde 3 (DC : « trop uniforme en terme de palette ») : lave ORANGE (la forge garde la braise rouge : 2 et 5 n'ont
 # plus le même accent)
-FOYER = dict(rgb=(1.0, 0.3, 0.02))
+FOYER = ages.FOYER[5]
 CANON = dict(L=1.15, nb=4, rb=0.068, rr=0.11)
 # passe 4 : chanfrein de plateforme d'époque (remplissage, catalogue §A.5 ; silhouette distincte des voisines)
 PLATEFORME = dict(chanfrein=0.5)
@@ -42,10 +43,10 @@ PLATEFORME = dict(chanfrein=0.5)
 # BASALTE et coulé en FONTE : pont de dalles de basalte inégales (relief) à joints rouge sombre de roche chaude,
 # (joints du pont noirs : rouges, ils dessinaient une grille de cadres) ; coupole et capots de basalte gris froid, plaques de fonte, acier de structure en fonte noire, rivets de fonte
 # brûlée. Aucun olive ni ocre : un bloc de roche noire veinée de braise.
-HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
-                 tourelleau="tungsten", chapeau="burnrust", capots=("basalte_capot", "fonte_v"),
-                 acier=("fonte_noire", "fonte_v"), rivets="burnrust", joints="braise_sombre",
-                 danger=("braise_sombre", "fonte_noire"), peinture="burnrust",
+HABILLAGE = dict(ages.CORPS[5],   # lot K0 : MATIÈRE du corps et du pont (capots, acier, rivets, joints,
+                 # danger, peinture, plateforme) : commun/ages.py ; ici, les clés propres à la mitrailleuse
+                 jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, munitions=("tungsten", "burnrust"),
+                 tourelleau="tungsten", chapeau="burnrust",
                  # ronde 3 (test des écarts de la ronde 2 : 4-5 « même forme », 5-6 « silhouette identique ») : SOCLE DE
                  # BASALTE EN GRADINS, assises de blocs, rigoles de lave orange le long de chaque gradin (juges de la
                  # passe 4 : « coulées irrégulières au sol et rigoles le long du socle ») ; palette : basalte noir
@@ -59,8 +60,7 @@ HABILLAGE = dict(jupe_cerclage="burnrust", tremie="tungsten", pochoirs=True, mun
                  # (essai a de la ronde 4 : arêtiers de fonte, le cône sombre se lisait encore comme la coupole ronde au
                  # zoom 1 : les ARÊTIERS et le plateau du sommet deviennent des coulées de LAVE lumineuse)
                  forme_coupole=dict(forme="pyramide", hauteur=1.4, epi="emit", mat2="emit"),
-                 plateforme=dict(motif="dalles", pas=0.34, joint=0.022, mat="basalte_dalle", mat2="basalte_dalle2",
-                                 fond="fonte_noire", bord="fonte_noire", boulons=None, relief=0.7))
+                 )
 ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_mat="burnrust", band="burnrust",
           recv_mats=("tungsten", "burnrust"), recv_sig="scales", feed="armored", skirt="burnrust", appl="tungsten",
           gmask=("tungsten", "burnrust"), arm=("tungsten", "olive"), cap="burnrust", mask="glacis",
@@ -69,18 +69,7 @@ ST = dict(jacket="hex", brake="wedge", drive="scale", drive_mat="tungsten", fin_
 
 def matieres(metal, M):
     """Passe 5 : matières du CORPS du volcan (basalte rugueux non métallique, fonte peu métallique)."""
-    metal("basalte_capot", (0.115, 0.112, 0.11), rough=0.75, met=0.05, grain=0.45, gscale=26.0, dirt=0.7, stain=0.55,
-          sscale=4.0, wear=1.6, mottle=0.5)
-    metal("basalte_dalle", (0.1, 0.097, 0.095), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
-          sscale=4.0, wear=1.2, mottle=0.5)
-    metal("basalte_dalle2", (0.075, 0.072, 0.07), rough=0.8, met=0.0, grain=0.5, gscale=26.0, dirt=0.7, stain=0.6,
-          sscale=4.0, wear=1.2, mottle=0.5)
-    # ronde 3 : la fonte des plaques secondaires devient ROUILLE BRÛLÉE (couleur secondaire chaude du volcan)
-    metal("fonte_v", (0.27, 0.11, 0.05), rough=0.6, met=0.3, grain=0.3, gscale=30.0, rust=(0.22, 0.07, 0.03),
-          ra=0.2, dirt=0.75, stain=0.5, wear=1.6)
-    metal("fonte_noire", (0.05, 0.047, 0.045), rough=0.55, met=0.45, grain=0.3, rust=(0.22, 0.07, 0.03), ra=0.15,
-          dirt=0.7, stain=0.4, wear=2.0)
-    metal("braise_sombre", (0.22, 0.03, 0.008), rough=0.7, met=0.0, grain=0.3, dirt=0.3, stain=0.2)
+    ages.matieres(5, metal, M)   # lot K0 : matières de l'âge, commun/ages.py (même ordre)
 
 
 def _halo(g, pts, power):

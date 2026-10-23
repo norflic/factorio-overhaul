@@ -214,8 +214,9 @@ def selection(a):
         names = [n for n in a.only.split(",") if n]
     elif a.ronde:
         names = []
+        import profil   # lot K0 : variantes d'une ronde de lecture, profil de la famille (gun_e/profil.py)
         for e in [int(x) for x in a.ronde.split(",") if x]:
-            names += ["e01-piece"] if e == 1 else [piece.nom(e, p) for p in ("socle", "tete-E", "tete-N")]
+            names += profil.ronde(e)
     else:
         names = []
         for e in [int(x) for x in a.epochs.split(",") if x]:
