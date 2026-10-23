@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -241,6 +241,15 @@
   ensuite) : les `.bat` de la racine n'ont pas été touchés, mais la consigne ne le prévoyait pas. Non prouvé : le tir
   joué en jeu (l'auditeur des sessions avec images n'est pas aux sites de tir) ; la source du fond sonore insensible
   aux volumes (F152).
+- 24/10, vers 0 h, **fusion du lot A3-préparation** (orchestrateur ; fusion `a7f1166` de `worktree-wf_e1ae9f59-b47-1` :
+  constructeur `16121ec`, correcteur `9c16e3d` ; outils de rendu seulement, version inchangée). Vérification adverse
+  (`fo-logs\2026-10-24_A3\verification.md`) : 1 défaut majeur (M-1 : une exception tuait un fil de `produire_a3.py`
+  sans bruit et le code de sortie pouvait valoir 0 avec des têtes manquantes), corrigé et prouvé (`test_produire_a3`,
+  43 OK) ; 8 mineurs, dont m-4 corrigé ; m-2, m-3, m-6 à m-9 laissés (`NOTES.md` §14). Après fusion, sur `main` : `test_garde_disque` 11 OK, `test_produire_a3` 43 OK, `test_famille` 12 OK, `check_gun_sheets --sources --mutants` 12 OK, `produire_a3.py --dry-run` « 72 faites, 768 à faire ».
+  **Décision de l'orchestrateur : production sur UNE place de rendu** (m-2, F145 : deux sessions n'apportent pas plus
+  de débit et chargent deux fois le PC du DC ; une place reste libre pour les autres lots). **Production de nuit
+  lancée le 24/10 à 0 h 00** : `cd <mod> && PYTHONUTF8=1 py -3.9 tools/render/pieces/levels/gun_e/produire_a3.py --places 1` (Git Bash, en arrière-plan ; sortie `<racine>\fo-logs\2026-10-24_A3\production-nuit.out`) ; 768 têtes (14 âges × 60 directions, moins les 72 du pilote), durée
+  prévue 8 à 10,5 h ; journal `production.log` ; arrêt propre par le fichier `STOP` ; reprenable par la même commande.
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
@@ -303,6 +312,20 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés (lot A3-préparation, têtes à 64 directions, 23/10, 21 h 25 au 24/10, 0 h ; fusionné dans `main`, `a7f1166`)
+Bloc réservé à A3 et A4 : F140 à F149 ; A3-préparation prend F140 à F145. Preuves : `fo-logs\2026-10-24_A3\` (`NOTES.md`
+§10, §11 et §14 ; `verification.md` ; `d7\`, `masques\`, `bouchon\`, `trous\`, `pilote\`, `reprise\`, `estimation\`).
+Expériences : E105 à E108.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F140 | **Observé** (Blender 5.2.2, Cycles, pipeline ; E105). Dans une session, rendre UNE passe avec un autre nombre d'échantillons laisse les autres passes identiques octet à octet au rendu d'origine (8 poses, 32 fichiers), et la passe modifiée est octet à octet celle d'un rendu entier à ce nombre (ombre à 32 = rose d'A1). | D-7 sans risque pour les designs validés : `--samples-passes shadow=32` ; gain mesuré dos à dos 42,8 % sur la tête entière. |
+| F141 | **Observé** (pipeline ; E106). L'alpha de la couche principale d'une tête ne dépend pas des matières : un rendu à émission noire, sans rebond ni sol, à 16 échantillons, au cadrage de production, donne 99,75 à 99,91 % de pixels binaires identiques à la production à 128 (56 poses) ; plus grand trou enfermé à 3 px près. | Masques rapides (0,2 s par pose) pour la règle des trous et le cadre, validés contre la production. |
+| F142 | **Observé** (pipeline ; E107). Les rayons qui traversent la fente arrière des âges 4 à 7 passent par l'avant-haut puis l'arrière-bas de la boîte du bouchon d'A2 : aucune plaque mince ne les arrête tous (9 formes) ; la boîte réduite à 20 % de sa profondeur côté bras les arrête aux bords du secteur, réduite à 10 % non (âge 7 : 14 px). | D-10 : secteur mesuré par âge (4 : d20 à d44 ; 5 et 6 : d21 à d43 ; 7 : d19 à d46) et rampe de profondeur jusqu'à 80 % ; saut au bord 123 à 241 px hr au lieu de 482 à 1 222 ; d16 et d32 identiques octet à octet. |
+| F143 | **Mesuré** (masques ; E106). Sur les 60 directions nouvelles des 14 âges (840 poses), 72 (8,6 %) ont un trou enfermé de plus de 8 px hors bouchon : surtout l'âge 11 (28 poses, jusqu'à 382 px, ailettes détachées vues à plat) ; ailleurs au plus 44 px. | Aucun comblé : acceptés avec classe et raison (`trous_a3.py`) ; à montrer au DC (jour bras/coque de l'âge 9, ailettes de l'âge 11). |
+| F144 | **Lu dans la doc 1.1.91** (`prototype-api.json`), NON essayé en moteur. Un fichier d'image est limité à 8 192 px de large et de haut ; une feuille de tête à 64 directions (8 × 8 images) tient dans un seul fichier à tous les âges (au plus 4 896 × 3 424 px hr). | A3-jeu : une feuille par couche, âge et résolution, sans `slice` (F23). |
+| F145 | **Observé sur le PC du DC, NON isolé** (vérificateur : e05-tete-d21 en 23,3 s seule contre 45,4 s à deux ; e15 : 77 s contre 143,5 s). Deux sessions Blender de rendu de tête en parallèle (8 fils chacune, priorité basse) ne donnent qu'environ 1,0 à 1,1 fois le débit d'une seule ; un banc d'un autre lot tournait pendant une partie des mesures. Le plan supposait 1,59. | Production sur une place (`--places 1`) : même durée, une place libre, moitié moins de charge. |
 
 ### Faits vérifiés en moteur réel (lot S0, la chaîne des sons, 23/10, 21 h 25 à 22 h 45 ; fusionné dans `main`, `4593893`, version 0.4.7)
 Bloc réservé à S0 : F150 à F153 ; F154 pris hors du bloc (le « F152 bis » du correcteur devient F153, son F153 devient
@@ -579,6 +602,23 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E105 à E108 · Lot A3-préparation (23/10, 21 h 25 au 24/10, 0 h ; run `wf_e1ae9f59-b47`)** : détail dans
+`fo-logs\2026-10-24_A3\NOTES.md` §2 à §8 et §14.
+- **E105 · VALIDÉ hors moteur · D-7, échantillons par passe** : identité octet à octet des passes principale et lueur
+  (8 poses, 32 fichiers ; rejouée par le vérificateur avec ses propres sha256) ; ombre à 32 : grain sans biais (somme
+  d'alpha 0,9998 à 1,0004 de celle à 128) ; gain 42,8 % dos à dos (ABBA, 3 têtes). L'ombre à 32 EN MOTEUR (DXT) reste
+  à regarder sur les captures d'A3-jeu.
+- **E106 · VALIDÉ hors moteur · Masques rapides et trous enfermés des 64 directions** (F141, F143) : 56/56 verdicts de
+  trou identiques à la production ; 72 poses acceptées, aucune comblée.
+- **E107 · MESURÉ · Bouchon arrière** (F142) : secteurs par âge, 9 formes, rampes 60, 80 et 90 % ; rampe 80 % retenue ;
+  regardé en production à l'âge 5 et en essai rapide aux âges 4, 6, 7 ; verdict du DC non rendu.
+- **E108 · VALIDÉ · Pilote de production** : âge 5 complet (60 têtes en 1 456 s, 0 erreur), 8 directions de l'âge 15
+  (585 s), reprise (rien de refait ; une passe supprimée : seule cette tête refaite, PNG identiques), STOP avant et
+  pendant (code 2) ; planche des 64 directions et animation de l'âge 5 regardées : rotation continue. Durée de la
+  production complète : 8 à 10,5 h (vérificateur ; la borne de 6,5 h de `--dry-run` est trop optimiste, m-3).
+  Estimation pour A3-jeu : +331 Mpx hr (173 si le moteur rogne le transparent, non prouvé), mémoire vidéo haute 1,44 à
+  1,64 Go, normale 0,51 à 0,55 Go (sans passage D4m).
+
 **E69 · VALIDÉ en moteur réel · Une session de test avec le son charge nos fichiers son, sans aucune sortie audio (lot
 S0, 23/10, 21 h 30 à 22 h 45 ; constructeur, vérificateur, correcteur, run `wf_e1ae9f59-b47`)** :
 - Protocole : `gun-rose` sur la source du lot et sur une copie « mutante » sans `tir-ere3-2.ogg` ; sessions sans

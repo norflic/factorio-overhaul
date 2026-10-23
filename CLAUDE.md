@@ -21,15 +21,15 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits F1 à F139 et F150 à F154 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
+4. `RD_LOG.md` : faits F1 à F145 et F150 à F154 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F150 à F154 : lot S0),
-   expériences E1 à E76 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F150 à F154 : lot S0),
+   expériences E1 à E76 et E105 à E108 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (23/10, 23 h 10) : **F155** hors blocs ; F140 à F149 réservés à A3 et A4 ; en
+   expérience de contrôle). Prochains identifiants (24/10, 0 h 10) : **F155** hors blocs ; F146 à F149 réservés à A3-jeu et A4 ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
-   de 4), E105 à E108 (A3, A4). Les blocs réservés sont listés en tête de RD_LOG.
+   de 4), E109 à E112 (A3-jeu, A4). Les blocs réservés sont listés en tête de RD_LOG.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
@@ -64,6 +64,7 @@ avant tout travail.
 6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
    Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
    en cours. Le verrou est `<racine>\fo-render.lock.<k>` ; un verrou orphelin est repris tout seul.
+   Il refuse de lancer (code 4) s'il reste moins de 1 Go libre sur le disque de sortie (`--min-libre-go` ; lot A3).
 7. **Jamais de son sur la vraie sortie du PC** (lot S0, F152) : une session de test avec son passe UNIQUEMENT par
    `FO_AUDIO=1` (pilote SDL `disk` pour le seul jeu de test, garde de crête qui tue la session, code 10). Les
    volumes à 0 du `config.ini` de test NE suffisent PAS : des sessions de test ont été audibles chez le DC le 23/10.
@@ -76,6 +77,12 @@ Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 13.04 Mo, 85 sources »), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (4 OK) et
 `git status` propre. Sans cela, le harness et `levels_test` échouent (ils impriment cette commande) et l'étape data
 du jeu refuse le mod.
+
+**Production des têtes de la mitrailleuse à 64 directions** (lot A3 ; `<racine>\fo-logs\2026-10-24_A3\INTEGRATION.md`) :
+`PYTHONUTF8=1 py -3.9 tools/render/pieces/levels/gun_e/produire_a3.py --dry-run` (ce qui reste), puis la même commande
+sans `--dry-run`, avec `--places 1` (F145), EN ARRIÈRE-PLAN (8 à 10,5 h pour 768 têtes). Reprenable ; arrêt propre par
+le fichier `<racine>\fo-logs\2026-10-24_A3\STOP` ; **jamais deux lancements à la fois** ; codes : 0 fini, 1 erreur
+(relancer), 2 STOP, 3 trous hors règle (regarder), 4 disque. Journal : `production.log` du même dossier.
 
 **Bancs hors jeu** (Lua 5.2.4, compilé le 21/10 depuis la source officielle de lua.org, sommes
 vérifiées, avec le gcc de `C:\mingw64` : `C:\Users\evan2\bin\lua5.2.exe`. Ce dossier est dans le PATH
@@ -103,6 +110,8 @@ py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources --mutants
 python -B tools/autotest/tests/test_audio_session.py   -> 21 OK (pilote de session avec son : environnement disk, pilote lu au journal, mesure de la sortie disk ; lot S0)
 py -3.9 tools/sound/sons.py --check   -> 20 fichier(s) conformes (sons de la mitrailleuse : manifeste, volume, timbre ; lot S0)
 python -B tools/autotest/tests/test_audio_guard.py   -> 4 OK (garde de crête ; ATTENTION : joue 3 s d'un son de 30 Hz à −70 dBFS, inaudible, sur la VRAIE sortie du PC ; ne pas lancer sans raison)
+py -3.9 tools/render/tests/test_garde_disque.py   -> 11 OK (garde de disque du verrou de rendu : refus sous 1 Go libre, code 4 ; lot A3)
+PYTHONUTF8=1 py -3.9 tools/render/tests/test_produire_a3.py   -> 43 OK (production des têtes à 64 directions : pannes de lecture, exceptions, code de sortie, reprise ; faux rendre.py, sans Blender, environ 50 s ; lit A3\sprites et A3\masques\m16, à GARDER ; lot A3)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
 l'arborescence du jeu.
@@ -442,6 +451,10 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F150 à F153** (lot S0, sons) : sans images (`--create`, `--benchmark`), aucun son n'est chargé (F150) ; avec images,
   tous les sons sont chargés au démarrage et un son manquant renvoie le jeu au menu SANS les mods (F151) ; les volumes
   à 0 du `config.ini` ne coupent PAS la sortie (F152) ; le SDL du jeu n'a pas le pilote `dummy`, il a `disk` (F153).
+- **F140 à F145** (lot A3, rendu) : une passe rendue à un autre nombre d'échantillons laisse les autres identiques
+  octet à octet (F140) ; l'alpha d'une tête ne dépend pas des matières, d'où des masques rapides à 16 échantillons
+  (F141) ; aucune plaque mince ne ferme la fente arrière des âges 4 à 7 (F142) ; 8 192 px au plus par fichier
+  d'image (F144, doc) ; deux rendus Blender en parallèle ne vont pas plus vite qu'un seul sur ce PC (F145).
 
 ## 8. Discipline documentaire (exigence R6 : « notez bien tout »)
 Après chaque lot, et avant de déclarer quoi que ce soit terminé :

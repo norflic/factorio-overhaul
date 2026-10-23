@@ -10,7 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 23/10/2026, vers 23 h 10** (orchestrateur, session `8a9c0503` ; jalon : **lot S0 fusionné,
+> **Dernière mise à jour : 24/10/2026, vers 0 h 10** (orchestrateur, session `8a9c0503` ; jalon : **A3-préparation
+> fusionné** (`a7f1166`) et **production des têtes à 64 directions LANCÉE à 0 h 00** (768 têtes, une place de rendu,
+> 8 à 10,5 h ; tâche de fond de la session `8a9c0503` ; §7). Avant : 23/10, vers 23 h 10 (jalon : **lot S0 fusionné,
 > version 0.4.7** : tir de la mitrailleuse par ère, provisoire (page d'écoute https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG) ; tous
 > les bancs verts sur `main` 0.4.7 (moteur réel de 22:57:15 à 22:59:00) ; A3-préparation encore en cours dans le run
 > `wf_e1ae9f59-b47`). Avant : vers 21 h 15 (jalon : **lot A2 fusionné,
@@ -210,6 +212,7 @@
 | **INT-K0, INT-GARDE, INT-GRAINE** | ✅ fusionnés vers 18 h 40 (`e4e8416`, `b80f2bb`, `0db5493`), version 0.4.5 inchangée ; kit commun sur `main` sans design changé ; garde des durées selon E67 (levels 1 661) ; `FO_MAP_SEED` (défaut 20261020 ; `$env:FO_MAP_SEED = $null` après usage, F139) ; bancs verts (`content` et `monde` aussi sur la graine 123456789) | `<racine>\fo-logs\2026-10-23_suite\INT-*\` ; `<racine>\fo-logs\2026-10-23_integration-0.4.5-b\` ; F137 à F139 |
 | **A2** la mitrailleuse en jeu à 4 directions (plan, étape 3) | ✅ fusionné le 23/10 vers 20 h 50 (run `wf_0143e61e-944` ; constructeur `ba9edef`, correcteur `4837368` ; fusion `e0088bd`), **version 0.4.6** (`ef64f79`). Les 30 niveaux portent les designs validés : socle, pièce des niveaux pairs, tête à 4 directions, lueurs, halos, ombres, icône par âge, éclat de tir au bout des canons (E68), reste et explosion à la taille de l'emprise. Feuilles : décision D-6 (`graphics/levels/gun/`, 318 PNG hors de git, à régénérer par `feuilles.py` dans tout checkout ou worktree neuf, CLAUDE.md §5). Vérification : 4 majeurs, tous corrigés. Moteur réel sur `main` 0.4.6 : tous les bancs verts, `gun-rose` 11 OK, 90 captures ; hors jeu : levels 1662, api_lint 676, mut_atlas 50. Page DC https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider). Non prouvé et mineurs : `NOTES.md` §13.7 (bouchon par secteur à trancher avant A3 ; restes et explosions jamais vus en destruction ; icônes d'âge jamais vues dans l'interface) | E68, F123 à F129 ; `<racine>\fo-logs\2026-10-24_A2\` (`NOTES.md` §13, `INTEGRATION.md`, `verification.md`, `correction\`, `sprites\` à GARDER) ; `<racine>\fo-logs\2026-10-23_integration-0.4.6\` |
 | **S0** la chaîne des sons (plan, étape 5) | ✅ fusionné le 23/10 vers 22 h 55 (run `wf_e1ae9f59-b47` ; constructeur `cdf8d32`, correcteur `e3a50dc` ; fusion `4593893`), **version 0.4.7** (`e4d9e03`). Tir de la mitrailleuse par ère (20 OGG commités dans `sound/levels/gun/`), règle « sons » du harness, `FO_AUDIO=1` (pilote SDL `disk`, garde de crête `audio_guard.py`, code 10). **Défaut bloquant corrigé** : des sessions de test « volumes à 0 » ont émis du son chez le DC (21 h 30 à 22 h 15) ; faute de consigne de l'orchestrateur (aucune mesure du silence exigée). Sons PROVISOIRES : Q-S0-1, page https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG. Non prouvé : tir joué en jeu ; source du fond sonore (F152) | E69, F150 à F154 ; `<racine>\fo-logs\2026-10-24_S0\` (`NOTES.md` §7, `INTEGRATION.md`, `verification.md`, `correction\`, `ecoute\`) ; `<racine>\fo-logs\2026-10-23_integration-0.4.7\` |
+| **A3-préparation** têtes à 64 directions (plan, étape 4) | ✅ fusionné le 24/10 vers 0 h (run `wf_e1ae9f59-b47` ; constructeur `16121ec`, correcteur `9c16e3d` ; fusion `a7f1166`), outils seulement, version inchangée. D-7 (ombre à 32, identité prouvée, 42,8 %), D-10 (bouchon par secteur mesuré et rampe 80 %), masques rapides, 72 trous acceptés, garde de 1 Go dans `with_render_lock.py`, `produire_a3.py` reprenable (défaut majeur M-1 corrigé). ⏳ **Production lancée à 0 h 00 sur une place** (768 têtes, 8 à 10,5 h). Non prouvé : verdict du DC (rotation, rampe, trous), mémoire vidéo réelle, limite de 8 192 px en moteur | E105 à E108, F140 à F145 ; `<racine>\fo-logs\2026-10-24_A3\` (`NOTES.md` §14, `INTEGRATION.md`, `verification.md` ; `sprites\`, `masques\m16\`, `bouchon\rampe80\` à GARDER) |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
@@ -406,8 +409,14 @@ voit ; trous enfermés sur 64 directions ; garde de 1 Go dans `with_render_lock.
 pilote âge 5 complet + 8 directions de l'âge 15 ; estimation mémoire vidéo ; sorties `<racine>\fo-logs\2026-10-24_A3\`)
 et **S0** (sons : E69 avec volume 0, outil, règle du harness, tir par ère, page d'écoute ; `<racine>\fo-logs\2026-10-24_S0\`).
 Ensuite : l'orchestrateur fusionne A3-préparation et lance la production de nuit (`INTEGRATION.md` d'A3), puis A3-jeu.
-**S0 : FAIT** (fusion `4593893` vers 22 h 55, version 0.4.7 ; ligne du §2). A3-préparation : en cours (pilote de
-l'âge 5 en rendu à 22 h 55, 44 s de Blender par tête).
+**S0 : FAIT** (fusion `4593893` vers 22 h 55, version 0.4.7 ; ligne du §2). **A3-préparation : FAIT** (fusion `a7f1166` le 24/10 vers 0 h ; ligne du §2).
+⏳ **PRODUCTION DES TÊTES EN COURS depuis le 24/10 à 0 h 00** : `cd <mod> && PYTHONUTF8=1 py -3.9 tools/render/pieces/levels/gun_e/produire_a3.py --places 1` (Git Bash, en arrière-plan ; sortie `<racine>\fo-logs\2026-10-24_A3\production-nuit.out`) ; 768 têtes ; fin prévue entre 8 h et
+10 h 30. Surveiller : `grep "PROGRESSION\|ECHEC\|HORS REGLE\|FIN" <racine>/fo-logs/2026-10-24_A3/production.log | tail -5`.
+**Si la session qui l'a lancée meurt** : vérifier qu'aucun `py -3.9 … produire_a3.py` ne tourne (jamais deux à la fois :
+m-7), puis relancer la MÊME commande (reprenable : une tête faite et contrôlée n'est jamais refaite). Arrêt propre :
+créer le fichier `<racine>\fo-logs\2026-10-24_A3\STOP`. Fin : code 0 ET « FIN … reste 0 ; … manquent 0 sur 768 ;
+erreurs 0 » ; puis `--dry-run` (« reste : 0 ») et `--controle-seul`. Ensuite : planches et animations par âge
+(`INTEGRATION.md` d'A3 §4) pour le DC, puis le lot **A3-jeu** (§6 du même fichier).
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**

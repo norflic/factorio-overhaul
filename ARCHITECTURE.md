@@ -624,7 +624,13 @@ des flottants (identité des sprites validés prouvée octet à octet) ; variant
 construites à la demande (la table explicite reste de 72) ; `rendre.py --dirs rose|N,NE,…|d00,…`. Le moteur choisit
 l'image par `apply_projection` (F121) : garder des feuilles en rotation uniforme. Outils d'expérience : `identite.py`,
 `rose.py`, `e66.py`, `e66_temps.py` et `e66_temps_blender.py` (rendu passe par passe dans une seule session).
-Limite : `batch_blender.py` ne règle pas encore les échantillons par passe (décision D-7 ; préalable du gain E66).
+**Production à 64 directions (lot A3, préparation fusionnée le 24/10)** : `produire_a3.py` (paquets de 4 têtes sous le
+verrou de rendu, reprenable, contrôle par tête contre les masques rapides `masques.py` (F141), trous acceptés
+`trous_a3.py` (F143), arrêt par le fichier `STOP`, codes 0 à 4, `--places`, `--dry-run`, `--controle-seul` ; jamais deux
+lancements à la fois) ; D-7 : `--samples-passes shadow=32` de `rendre.py` et `batch_blender.py` (F140) ; D-10 : bouchon
+des âges 4 à 7 par secteur mesuré et rampe (`piece.BOUCHON_SECTEURS`, `BOUCHON_RAMPE`, F142), d16 et d32 inchangés ;
+outils de regard `planche64.py`, `continuite.py`, `estime_feuilles.py`. Le verrou de rendu refuse de lancer (code 4)
+s'il reste moins de 1 Go libre (`with_render_lock.py --min-libre-go`).
 
 **`commun/` : le kit commun des familles (lot K0) : intégré** (lot INT-K0, fusion `e4e8416`, 23/10 vers 18 h 40 ;
 branche `worktree-wf_2bade7c0-0e8-2`, tête `87c4fb1`). Structure :
