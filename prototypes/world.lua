@@ -36,6 +36,30 @@ local function region_mask(region)
   return mask * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Grain fin des frontières (lot B0, verdict du DC « B3 B ») : le MÊME bruit que celui que vanilla ajoute à chaque sol
+-- naturel (base/prototypes/tile/tiles.lua, noise_layer_expression : échelle 1/6, influence 2/3, persistance 0,7,
+-- 4 octaves). Seulement dans la probabilité de la TUILE : le masque des régions, qui place les gisements liés au biome
+-- (bind_spots_to_region), reste celui d'avant.
+-- Graine NUMÉRIQUE (W.grain.seed1), PAS de nouveau prototype noise-layer : moteur réel (lot B0, 24/10), trois
+-- noise-layer de plus (« fo-grain-* ») ont changé la forêt vanilla partout (arbres +15 % à 400 tuiles du départ, sur
+-- toutes les tuiles) : les numéros des couches de bruit existantes se décalent (F198 proposé).
+---------------------------------------------------------------------------------------------------
+local function tile_grain(b)
+  local seed1 = W.grain.seed1[b.name]
+  assert(seed1, "factorio-overhaul : graine du grain fin absente pour " .. b.name)
+  return noise.function_application("factorio-multioctave-noise", {
+    x = noise.var("x"),
+    y = noise.var("y"),
+    persistence = W.grain.persistence,
+    seed0 = noise.var("map_seed"),
+    seed1 = noise.to_noise_expression(seed1),
+    input_scale = noise.fraction(1, W.grain.period),
+    output_scale = W.grain.influence,
+    octaves = W.grain.octaves,
+  })
+end
+
 local biome_by_name = {}
 for _, b in ipairs(W.biomes) do biome_by_name[b.name] = b end
 
@@ -53,7 +77,26 @@ for _, b in ipairs(W.biomes) do
   tile.vehicle_friction_modifier = b.vehicle_friction_modifier
   tile.pollution_absorption_per_second = b.pollution_absorption_per_second
   tile.localised_name = { "tile-name." .. b.name }
-  tile.autoplace = { probability_expression = region_mask(b.region) * 4 - 2 }
+  local p = region_mask(b.region) * 4 - 2
+  if W.grain then p = p + tile_grain(b) end
+  tile.autoplace = { probability_expression = p }
+  if b.texture then
+    -- Image recolorée (lot B0) : on ne remplace que les fichiers de la texture ; découpe, variantes, masques et
+    -- transitions restent ceux de la tuile vanilla copiée (bords irréguliers comme les sols vanilla).
+    local swapped = 0
+    local seen = {}
+    local function swap(t)
+      if type(t) ~= "table" or seen[t] then return end
+      seen[t] = true
+      if type(t.picture) == "string" and b.texture[t.picture] then
+        t.picture = b.texture[t.picture]
+        swapped = swapped + 1
+      end
+      for _, v in pairs(t) do swap(v) end
+    end
+    swap(tile.variants)
+    assert(swapped > 0, "factorio-overhaul : texture de " .. b.name .. " introuvable dans " .. b.copy_from)
+  end
   if b.effect_color then tile.effect_color = b.effect_color end
   if b.effect_color_secondary then tile.effect_color_secondary = b.effect_color_secondary end
   if b.no_splash then tile.trigger_effect = nil end
@@ -65,6 +108,42 @@ for _, b in ipairs(W.biomes) do
     tile.collision_mask = { "ground-tile" }
   end
   out[#out + 1] = tile
+end
+
+---------------------------------------------------------------------------------------------------
+-- Aucun décor VANILLA sur certains biomes (lot B0, verdict du DC « B4 B » : touffes vertes et plaques brunes retirées
+-- de la plaine de cristal). Les décoratifs vanilla placés à la génération sans restriction de tuile reçoivent la liste
+-- des tuiles naturelles SAUF ces biomes ; ceux qui ont déjà une liste en perdent ces biomes. Les décors du mod
+-- (« fo-* », W.decor) ne sont pas touchés.
+---------------------------------------------------------------------------------------------------
+if W.no_vanilla_decor and #W.no_vanilla_decor > 0 then
+  local banned = {}
+  for _, n in ipairs(W.no_vanilla_decor) do banned[n] = true end
+  local allowed = {}
+  for name, t in pairs(data.raw.tile) do
+    if t.autoplace and not banned[name] then allowed[#allowed + 1] = name end
+  end
+  for _, b in ipairs(W.biomes) do
+    if not banned[b.name] then allowed[#allowed + 1] = b.name end
+  end
+  table.sort(allowed)
+  local names = {}
+  for name, d in pairs(data.raw["optimized-decorative"]) do
+    if d.autoplace and not name:find("^fo%-") then names[#names + 1] = name end
+  end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local ap = data.raw["optimized-decorative"][name].autoplace
+    if ap.tile_restriction then
+      local kept = {}
+      for _, t in ipairs(ap.tile_restriction) do
+        if type(t) ~= "string" or not banned[t] then kept[#kept + 1] = t end
+      end
+      ap.tile_restriction = kept
+    else
+      ap.tile_restriction = table.deepcopy(allowed)
+    end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
