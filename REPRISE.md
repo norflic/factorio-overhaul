@@ -10,7 +10,17 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 24/10/2026, vers 13 h 05** (orchestrateur, session `8a9c0503`) : la production des têtes est
+> **Point de 13 h 55** : le nouveau profil a lui aussi atteint sa limite de la semaine (remise à zéro le 27/10 à 1 h) ;
+> le DC a ouvert l'usage payant (plafond 100 $/mois) et dit « reprenez ». **Règle tant que l'usage est payant : un
+> seul agent à la fois, sans workflow à vérificateur ni correcteur systématiques ; l'orchestrateur relit lui-même.**
+> Résultats de la reprise : F1-A corrigé (`7aea3b4`, 4e jet du kit laser) et M1 corrigé (`7ee2bab`, le tungstène luit de
+> nuit) ; IA1-0 corrigé (`d86efb1`) ; correcteurs d'IA1-a et IA1-c de nouveau coupés (IA1-c a 2 commits de correction,
+> `a7d2dc6`, `838054d`) ; A3-final de nouveau coupé (changements non commités dans `wf_a2163957-669-1`) ; vérificateur de
+> PNJ-VÉRIF fini : correction des attaques fantômes confirmée, mais 6 défauts majeurs (tourelles des factions jamais
+> débloquées, livre de recettes de l'équipe du joueur figé, soldats laissés au loin, garnison mal comptée, régression de
+> 0.4.5, guide sans mises en garde sur les sauvegardes) ; **correcteur PNJ lancé seul vers 13 h 55** (agent unique,
+> worktree `wf_dbbe3818-700-1`). Ensuite : A3-final, puis intégrations M1, F1-A, IA1-0.
+> **Mise à jour précédente : 24/10/2026, vers 13 h 05** (orchestrateur, session `8a9c0503`) : la production des têtes est
 > **finie** (11:59:25 : 840 / 840, 0 erreur ; 8 têtes HORS REGLE, dont 3 nouvelles à regarder : e11-d07, d22, d33). Vers
 > 12 h, **limite hebdomadaire du compte claude.ai atteinte** : 7 agents coupés net (A3-final au bout de 2 min ; les
 > correcteurs de F1-A, M1, IA1-0, IA1-a, IA1-c ; le vérificateur de PNJ-VÉRIF), un banc moteur tué (verrou orphelin retiré
