@@ -11,16 +11,16 @@
 --     machines (energy_generated_last_tick) ;
 --   - combustible des avant-postes (porteurs) : charbon remis par le script toutes les 60 ticks ; bras à combustion
 --     de la centrale : 2 charbons à la pose (comme une pose par un joueur), puis ils se servent sur le tapis.
--- Mesure : débit de chaque sortie entre le tick WARM (30 s, régime établi) et le tick CHECK (5 min plus tard), à ±10 %
--- du nominal du modèle. Recoupements du modèle avec le moteur : positions, prise et dépôt des bras, dépôt des
--- foreuses, systèmes de fluides (même réseau dans le modèle ⇔ même get_fluid_system_id), réseau électrique, voies des
+-- Mesure : débit de chaque sortie ET de chaque entrée entre le tick WARM (25 min, régime établi, tapis de jonction
+-- des packs saturés) et le tick CHECK (10 min plus tard), à ±10 % du nominal du modèle (g.nominal, g.inputs).
+-- Recoupements du modèle avec le moteur : positions, prise et dépôt des bras, dépôt des foreuses, systèmes de fluides (même réseau dans le modèle ⇔ même get_fluid_system_id), réseau électrique, voies des
 -- tapis de sortie. R8 : débit de conduites droites de 1 à 400 tuyaux.
 -- Correction IA1-c (vérification adverse) : l'arène pose aussi les gabarits AGRANDIS à leur maximum déclaré
 -- (extensions : centrale de 7 chaudières, etc.), TOUTES les variantes d'ère (M.era_variants : bâtiments aux niveaux
 -- 7, 13 et 19, « remplacer le module » au changement d'emprise) et une CONTRE-ÉPREUVE refusée par le contrôle
 -- (plastique à 6 usines : 12/s sur une voie de 7,5/s) dont la sortie doit plafonner au flot maximal du modèle. La
 -- charge de chaque centrale est faite de radars (300 kW) : 25 % au-dessus de sa puissance nominale.
--- Lancement : `fo-autotest.bat nopause 20000 ia1-modules <source>` ; images : `fo-captures.bat ia1-modules <source>`.
+-- Lancement : `fo-autotest.bat nopause 128000 ia1-modules <source>` (environ 2 min) ; images : `fo-captures.bat ia1-modules <source>`.
 
 local M = require("__factorio-overhaul__/shared/team/modules")
 
@@ -28,8 +28,13 @@ local FORCE = "fo-ia1m"
 local X0, Y0 = -3200, 1600
 local SLOT = 64
 local COLS = 6
-local WARM = 1800
-local WINDOW = 18000
+-- Correction IA1-c (mineur 3) : 30 s ne suffisaient pas aux blocs à deux étages (packs), dont l'étage A remplit le
+-- tapis de jonction pendant des minutes (bras et convoyeurs à 133 % du modèle, entrées à 138 %). Passage de
+-- diagnostic de 30 min (journal SUIVI, minute par minute, correction\ia1-modules-suivi) : dernière minute d'une
+-- entrée hors de ±10 % = minute 17 (packs-verts-3-n13), 13 (packs-rouges-2-n19), 9 (packs-verts) ; ensuite tout
+-- reste à ±10 % (hors grain du charbon, minute par minute). D'où un échauffement de 25 min et une fenêtre de 10 min.
+local WARM = 90000
+local WINDOW = 36000
 local CHECK = WARM + WINDOW
 local BUF = 1e8
 local R8_LENGTHS = { 1, 2, 5, 10, 12, 17, 20, 30, 50, 100, 200, 400 }
@@ -525,7 +530,7 @@ local function snapshot(st)
 end
 
 return {
-  description = "ia1-modules : chaque gabarit de module (shared/team/modules.lua) pose dans une arene, debit mesure sur 5 min",
+  description = "ia1-modules : chaque gabarit de module (shared/team/modules.lua) pose dans une arene, debit mesure sur 10 min apres 25 min de chauffe",
   base = nil,
   check_tick = CHECK,
   shots_delay = 2400,
@@ -617,6 +622,22 @@ return {
     if not st.P then return end
     tick_all(st, e.tick)
     if e.tick == WARM then snapshot(st) end
+    if e.tick % 3600 == 0 then
+      -- SUIVI : entrées de chaque placement, minute par minute (rapport au nominal du modèle)
+      for _, P in ipairs(st.P) do
+        if P.inputs and not P.contre then
+          P.prev_min = P.prev_min or {}
+          local parts = {}
+          for _, it in ipairs(sorted_keys(P.inputs)) do
+            local c = P.counts["in:" .. it] or 0
+            local r = (c - (P.prev_min[it] or 0)) / 60
+            P.prev_min[it] = c
+            if P.inputs[it] > 0 then parts[#parts + 1] = string.format("%s=%.3f", it, r / P.inputs[it]) end
+          end
+          ctx.log(string.format("SUIVI\t%d\t%s\tr%d\t%s", math.floor(e.tick / 3600), P.key, P.k, table.concat(parts, " ")))
+        end
+      end
+    end
     if e.tick == 600 then
       -- réseau électrique : chaque bâtiment électrique du gabarit raccordé, un seul réseau par gabarit
       local bad, n = {}, 0
@@ -677,7 +698,10 @@ return {
         for _, it in ipairs(sorted_keys(P.inputs or {})) do
           local nom = P.inputs[it]
           local got = ((P.counts["in:" .. it] or 0) - (P.snap["in:" .. it] or 0)) / secs
-          ins[#ins + 1] = string.format("%s %.4g/%.4g", it, got, nom)
+          -- correction IA1-c (mineur 3) : entrées contrôlées à ±10 % (sauf la contre-épreuve, nourrie sous le nominal)
+          local rin = nom > 0 and got / nom or 0
+          if not P.contre and nom > 0 and (rin < 0.9 or rin > 1.1) then okall = false end
+          ins[#ins + 1] = string.format("%s %.4g/%.4g (%.1f %%)", it, got, nom, 100 * rin)
           ctx.log(string.format("MESURE\t%s\tr%d\tentree\t%s\t%.6g\t%.6g\t%.4f", P.key, P.k, it, nom, got, nom > 0 and got / nom or 0))
         end
         if P.labs then
@@ -691,7 +715,7 @@ return {
           end
         end
         local what = P.contre and ("contre-épreuve " .. P.key .. " r" .. P.k .. " (refusée par le contrôle) : sortie plafonnée au flot maximal du modèle, pas au nominal")
-          or ("débit " .. P.key .. " r" .. P.k .. " à ±10 % du nominal")
+          or ("débit " .. P.key .. " r" .. P.k .. " à ±10 % du nominal (sorties et entrées)")
         ctx.check(okall and #res > 0, what, table.concat(res, " ; ") .. " | entrées " .. table.concat(ins, " ; "))
         if P.eei then
           local kw = (P.energy - P.snap_energy) / (CHECK - WARM) * 60 / 1000
