@@ -323,12 +323,14 @@ function War.status_lines(tick)
     end
     local ks = {}
     for _, k in ipairs(State.sorted_keys(kinds)) do ks[#ks + 1] = k .. " " .. kinds[k] end
+    -- Lot PNJ-VÉRIF : « dont N loin » = soldats de garnison à plus de 160 tuiles du QG (à rappeler).
+    local _, far = Military.garrison_split(f)
     lines[#lines + 1] = {
       "", "  ", faction_name(f), string.format(
-        " [%s]%s tech %d+%d | avant-postes %d (%s) | fonderie %d | soldats %d (garnison %d, groupes %d) | ouvriers %d | attaques %d | pertes %d",
+        " [%s]%s tech %d+%d | avant-postes %d (%s) | fonderie %d | soldats %d (garnison %d dont %d loin, groupes %d, rappels %d) | ouvriers %d | attaques %d | pertes %d",
         f.personality, f.eliminated and " ANEANTIE |" or "", f.tech, f.upgrades,
-        f.outposts_count, table.concat(ks, ", "), f.smelters and #f.smelters or 0, f.soldiers_count, f.garrison_count,
-        #State.sorted_keys(f.groups), f.engineers_count, f.stats.attacks, f.stats.soldiers_lost),
+        f.outposts_count, table.concat(ks, ", "), f.smelters and #f.smelters or 0, f.soldiers_count, f.garrison_count, far,
+        #State.sorted_keys(f.groups), f.stats.recalls or 0, f.engineers_count, f.stats.attacks, f.stats.soldiers_lost),
     }
     if f.team and f.hq and f.hq.valid then lines[#lines + 1] = Team.status_line(f) end
     local st = f.stats
@@ -354,10 +356,28 @@ Commander.on_player_hostility = function(f, tick)
   PvP.on_provoked(f, tick)
 end
 
--- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s.
+--- Lancement sans console (lot PNJ-JOUABLE, 24/10) : réglage de carte « fo-war-autostart » coché, la guerre part
+--- seule autour du point de départ du joueur, une fois par partie (`war.autostarted` garde le tick : un
+--- `/fo-war stop` ne la relance pas). Cocher le réglage en cours de partie la lance au passage suivant.
+local function autostart(war)
+  if war.autostarted or not settings.global["fo-war-autostart"].value then return end
+  local surface = game.surfaces[1]
+  if not surface then return end
+  war.autostarted = game.tick
+  local g = settings.global
+  local ok, err = War.start_at(surface, game.forces.player.get_spawn_position(surface), g["fo-war-factions"].value,
+    g["fo-war-soldiers"].value, g["fo-war-workers"].value, F.defaults.distance)
+  log(string.format("[FO-WAR] lancement automatique au tick %d : %s", game.tick, ok and "ok" or tostring(err)))
+end
+
+-- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s ; lance la guerre si le
+-- réglage de carte le demande.
 Events.on_nth_tick(600, function()
   local war = State.war()
-  if not war.active then return end
+  if not war.active then
+    autostart(war)
+    return
+  end
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
     update_label(f)

@@ -10,6 +10,7 @@
   Tout ce qui est consommé sort du coffre du QG : aucune monnaie abstraite.
 ]]
 
+local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
@@ -30,6 +31,33 @@ local Team = {}
 
 -- Livres de recettes par (force, niveau) : reconstruits à la demande (jamais dans global).
 local books = {}
+
+-- Lot PNJ-VÉRIF (défaut M2) : pour l'équipe du JOUEUR, la clé reste « player:0 » (le joueur recherche lui-même) :
+-- un livre construit avant la recherche « Tourelles » ne voyait jamais la recette (moteur réel : 0 tourelle en
+-- 29 min avec 4 500 fer au coffre). Le livre est oublié dès que les recherches d'une force changent ; il est
+-- refait depuis l'état du jeu, comme après un chargement : tous les pairs ont donc le même livre (avant, une
+-- partie rechargée pouvait en avoir un autre que le serveur).
+-- Seuls les livres de la force concernée sont oubliés : oublier tous les livres à chaque technologie débloquée
+-- faisait reconstruire ceux de toutes les forces (banc `default`, machine chargée : 98 pics « team » de plus de
+-- 2 ms avec l'oubli total, 65 avec l'oubli par force ; décisions identiques au tick près).
+local function forget_books() books = {} end
+local function forget_force(force)
+  if not (force and force.valid) then
+    forget_books()
+    return
+  end
+  local prefix = force.name .. ":"
+  local keys = {}
+  for k in pairs(books) do
+    if k:sub(1, #prefix) == prefix then keys[#keys + 1] = k end
+  end
+  table.sort(keys)
+  for _, k in ipairs(keys) do books[k] = nil end
+end
+Events.on(defines.events.on_research_finished, function(e) forget_force(e.research and e.research.force) end)
+Events.on(defines.events.on_research_reversed, function(e) forget_force(e.research and e.research.force) end)
+Events.on(defines.events.on_technology_effects_reset, function(e) forget_force(e.force) end)
+Events.on(defines.events.on_force_reset, function(e) forget_force(e.force) end)
 
 local function book_for(f)
   local key = f.force .. ":" .. f.tech
@@ -54,6 +82,21 @@ local function unlock(f, level)
     if tech then tech.researched = true end
   end
 end
+
+-- Lot PNJ-VÉRIF (défaut M1) : une partie d'avant la correction n'a jamais reçu « gun-turret » (T.unlocks[0] nommait
+-- « turrets », absent en 1.1.91). À la mise à jour du mod, chaque faction vivante reçoit de nouveau les technologies
+-- de ses niveaux 0 à f.tech (une technologie déjà recherchée ne change pas). Le livre de recettes est aussi oublié.
+Events.on_configuration_changed(function()
+  forget_books()
+  local war = State.war()
+  if not (war and war.active and war.factions) then return end
+  for _, id in ipairs(State.sorted_keys(war.factions)) do
+    local f = war.factions[id]
+    if f.team and not f.is_player and not f.eliminated and game.forces[f.force] then
+      for level = 0, f.tech or 0 do unlock(f, level) end
+    end
+  end
+end)
 
 local function stock_of(f)
   return f.hq.get_inventory(defines.inventory.chest).get_contents()

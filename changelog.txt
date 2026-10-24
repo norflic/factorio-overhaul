@@ -1,4 +1,36 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.15
+Date: 2026-10-24
+  Features:
+    - Réglages de carte « Factions : lancer la guerre au début de la partie », « nombre », « soldats au plus » et
+      « ouvriers au plus » : la guerre des factions IA démarre seule, sans console (une fois par partie).
+---------------------------------------------------------------------------------------------------
+Version: 0.4.14
+Date: 2026-10-24
+  Graphics:
+    - Le gisement de tungstène a son propre aspect : druses de wolframite noire et d'acier froid sur les cendres
+      volcaniques, lueur turquoise froide la nuit ; nouvelle icône du minerai ; bleu acier froid sur la carte.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.13
+Date: 2026-10-24
+  Graphics:
+    - La mitrailleuse tourne en douceur à tous les âges : ses 15 têtes ont désormais 64 orientations (au lieu de 4
+      pour les âges 9 à 15), éclats de tir compris.
+  Info:
+    - Les images de la mitrailleuse pèsent 155 Mo (55 Mo avant).
+---------------------------------------------------------------------------------------------------
+Version: 0.4.12
+Date: 2026-10-24
+  Bugfixes:
+    - Armées des factions : les soldats rentrent au QG après une attaque lointaine ; plus d'« attaques » vides
+      relancées en boucle.
+    - Les soldats égarés loin de leur QG sont rappelés et rentrent par un itinéraire.
+    - Une faction n'attaque plus avec des soldats restés au loin : elle ne compte que ceux qui sont chez elle.
+    - Les factions savent fabriquer des tourelles et défendent leurs avant-postes (la technologie était mal nommée).
+    - Votre équipe de PNJ fabrique des tourelles dès que vous avez fait la recherche, même après la pose du coffre.
+  Changes:
+    - /fo-war status : soldats loin du QG et nombre de rappels.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.11
 Date: 2026-10-24
   Graphics:

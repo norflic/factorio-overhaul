@@ -23,11 +23,11 @@ avant tout travail.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
 4. `RD_LOG.md` : faits F1 à F162 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant),
-   expériences E1 à E76 et E105 à E117 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF ; F186, F187 : A3-final ; F163 à F165 : F1-A ; F167 à F170, F188, F189 : M1 ; F175 à F179 : IA1-0 ; F183 à F185 : IA1-c),
+   expériences E1 à E84, E105 à E123 et E128 à E132 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E126, E127 : IA1-c), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 7 h 35) : **F163** et **E118** hors blocs ; en
+   expérience de contrôle). Prochains identifiants (24/10, 15 h 35) : **F190** et **E133** hors blocs (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4). Les blocs réservés sont listés en tête de RD_LOG.
 
@@ -43,7 +43,7 @@ avant tout travail.
 | Résultats du banc | `<racine>\fo-autotest\` : `create.log`, `benchmark.log`, `benchmark-stdout.txt`, `done.txt` |
 | Captures | `<racine>\fo-visual\write\script-output\fo-shots\` : `NNN-<scène>.png`, `index.txt`, `planche-NN.png`, `session.txt` |
 | Rendu 3D (lot V0) | Blender 5.2.2 LTS : `C:\Users\evan2\tools\blender-5.2.2\blender.exe` ; pipeline : `tools\render\README.md`, `tools\render\CALIBRATION.md` |
-| Feuilles de la mitrailleuse en jeu (lot A2, décision D-6) | `<mod>\graphics\levels\gun\` : 318 PNG HORS de git, régénérés par `feuilles.py` ; `MANIFEST.json`, `sprites.lua`, `sprites.json` commités ; sources dans `<racine>\fo-logs\`, à GARDER : `2026-10-23_V3E-p5\bas\sprites`, `2026-10-23_V3E-p5\haut\sprites`, `2026-10-23_V3E-ereV\sprites`, `2026-10-24_A2\sprites`, `2026-10-24_A3\sprites` (têtes à 64 directions), `2026-10-24_A4\socle-anime\sprites` (socle animé, essai de l'âge 6) |
+| Feuilles de la mitrailleuse en jeu (lot A2, décision D-6) | `<mod>\graphics\levels\gun\` : 336 PNG (155 Mo depuis 0.4.13) HORS de git, régénérés par `feuilles.py` ; `MANIFEST.json`, `sprites.lua`, `sprites.json` commités ; sources dans `<racine>\fo-logs\`, à GARDER : `2026-10-23_V3E-p5\bas\sprites`, `2026-10-23_V3E-p5\haut\sprites`, `2026-10-23_V3E-ereV\sprites`, `2026-10-24_A2\sprites`, `2026-10-24_A3\sprites` (têtes à 64 directions), `2026-10-24_A4\socle-anime\sprites` (socle animé, essai de l'âge 6) |
 
 ## 4. Interdits absolus (protègent le jeu et les parties du Directeur Créatif)
 1. **Ne jamais toucher** à `<racine>\saves\`, `<racine>\config\`, `player-data.json`,
@@ -74,12 +74,14 @@ Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 
 **Worktree ou checkout neuf : régénérer d'abord les feuilles de la mitrailleuse** (PNG hors de git, décision D-6) :
 `py -3.9 tools/render/pieces/levels/gun_e/feuilles.py` + les arguments écrits dans `graphics/levels/gun/MANIFEST.json`
-(champ `arguments` ; au 24/10, 4 h : `--ages-64 2,3,4,5,6,7,8` ; environ 60 s ; attendu « [FO-FEUILLES] 318 fichiers PNG,
-54.75 Mo, 506 sources ; têtes : 7 âge(s) à 64 directions, 7 à 4 » depuis A4 : éclats et socle animé compris), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
+(champ `arguments` ; depuis 0.4.13 (24/10), **vide** : tous les âges à 64 directions ; 4 à 7 min ; attendu « [FO-FEUILLES]
+336 fichiers PNG, 155.14 Mo, 926 sources ; têtes : 14 âge(s) à 64 directions, 0 à 4 » ; 155 Mo écrits sur H:), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
 `git status` propre. Sans cela, le harness et `levels_test` échouent (ils impriment cette commande) et l'étape data
 du jeu refuse le mod.
 
 **Production des têtes de la mitrailleuse à 64 directions** (lot A3 ; `<racine>\fo-logs\2026-10-24_A3\INTEGRATION.md`) :
+**TERMINÉE** le 24/10 à 11:59:25 (840 / 840, 0 erreur ; 8 têtes HORS REGLE regardées et acceptées) : ne plus la lancer.
+Pour mémoire :
 `PYTHONUTF8=1 py -3.9 tools/render/pieces/levels/gun_e/produire_a3.py --dry-run` (ce qui reste), puis la même commande
 sans `--dry-run`, avec `--places 1` (F145), EN ARRIÈRE-PLAN (8 à 10,5 h pour 768 têtes). Reprenable ; arrêt propre par
 le fichier `<racine>\fo-logs\2026-10-24_A3\STOP` ; **jamais deux lancements à la fois** ; codes : 0 fini, 1 erreur
@@ -91,7 +93,7 @@ de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le ch
 Résultats attendus aujourd'hui :
 ```
 lua5.2 tests/run.lua             -> 114 OK
-lua5.2 tests/war_test.lua        -> 92 OK
+lua5.2 tests/war_test.lua        -> 105 OK   (13 contrôles des soldats égarés depuis 0.4.12, lot PNJ-VÉRIF)
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 82 OK
@@ -100,8 +102,10 @@ lua5.2 tests/levels_test.lua     -> 1662 OK   (+ 11 « écarts connus » au cont
 lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 336 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Tetes mitrailleuse (A3-jeu) : 7 age(s) a 64 directions, 7 a 4, 0 erreur(s), auto-contrôle 4/4 (14 à 64 quand la production sera intégrée) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 707 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/ia1_modules_test.lua -> BILAN : 1018 OK   (gabarits de modules des équipes organisées, lot IA1-c ; 25 mutants)
+python -B tools/team/test_bp2lua.py   -> 12 OK (conversion de plans en gabarits, lot IA1-c)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 336 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 788 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
@@ -113,6 +117,8 @@ python -B tools/autotest/tests/test_audio_session.py   -> 21 OK (pilote de sessi
 py -3.9 tools/sound/sons.py --check   -> 20 fichier(s) conformes (sons de la mitrailleuse : manifeste, volume, timbre ; lot S0)
 python -B tools/autotest/tests/test_audio_guard.py   -> 4 OK (garde de crête ; ATTENTION : joue 3 s d'un son de 30 Hz à −70 dBFS, inaudible, sur la VRAIE sortie du PC ; ne pas lancer sans raison)
 py -3.9 tools/render/tests/test_garde_disque.py   -> 11 OK (garde de disque du verrou de rendu : refus sous 1 Go libre, code 4 ; lot A3)
+py -3.9 tools/render/pieces/ressources/check_gisement.py --mutants   -> BILAN : 7 OK, 0 ECHEC(S) ; mutants 10/10 refusés (feuilles de gisement du kit minerai, lot M1)
+py -3.9 tools/render/pieces/levels/laser_e/tests/test_laser.py   -> [F1-LASER] 127 OK (kit de la tourelle laser, lot F1-A, 4e jet)
 PYTHONUTF8=1 py -3.9 tools/render/tests/test_produire_a3.py   -> 43 OK (production des têtes à 64 directions : pannes de lecture, exceptions, code de sortie, reprise ; faux rendre.py, sans Blender, environ 50 s ; lit A3\sprites et A3\masques\m16, à GARDER ; lot A3)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
@@ -291,7 +297,11 @@ environ 50 chunks générés de plus) ; à rejouer avant de citer leurs chiffres
 `& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 600 d4-geant 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-D4-GEANT] BILAN : 18 OK, 0 ECHEC(S) » (observé sur `main` le 24/10, `done.txt` 5:46:15,72 ; 10 OK, 6 ECHEC de 0.4.3
 à 0.4.9, F128) : usine de 5 343 bâtiments, galerie de 960 mitrailleuses (64 images relues par âge). Mesure de la
-mémoire vidéo : `tools/autotest/README.md` §5.3 (passages `--measure` avec `--ticks 3900`).
+mémoire vidéo : `tools/autotest/README.md` §5.3 (passages `--measure` avec `--ticks 3900`). Aux 15 âges à 64 directions (lot A3-final, 24/10, RD_LOG E130) : haute, 17 atlas,
+1,273 Gpx, règle de vram.py 1,28 à 1,45 Go (compteur 1,81 Go dans les vues) ; normale, 0,396 Gpx, 0,46 à 0,51 Go (compteur
+0,71 Go) ; plancher, compteur 0,42 Go, **atlas virtuel PLEIN : 12 pages sur 12** (F186) : toute addition graphique (socle
+animé des 10 autres âges, par exemple) se mesure au plancher AVANT d'être intégrée. Temps de chargement mesurés pendant un
+jeu du DC : à remesurer PC au repos.
 
 **La mitrailleuse vivante** (lot A4-préparation, RD_LOG E112 à E116) : `fo-autotest.bat nopause 1000 a4-eclat <source>` →
 « [FO-A4-ECLAT] BILAN : 3 OK » ; `nopause 1300 a4-ruines` → « 5 OK » (destruction réelle 2×2 à 6×6) ; `nopause 300
@@ -314,7 +324,7 @@ ou checkout neuf » plus haut) :
 → « [FO-GUN-ROSE] BILAN : 13 OK, 0 ECHEC(S) » depuis A3-jeu (30 niveaux × 20 directions dont d06, d26, d38, d58, par `orientation`, tenue jusqu'au contrôle ; tir dans les 11 directions écartées de l'âge 2 ;
 boîtes d'affichage, restes et explosions déclarés ; tir sur 60 sites, éclat à 1/32 de tuile de la règle F126 ; observé
 sur `main` 0.4.6 le 23/10, `done.txt` 20:54:32,19). Images : `& "<racine>\fo-captures.bat" gun-rose "<source>"`
-depuis PowerShell, 150 captures depuis A3-jeu (90 avant), puis `py -3.9 tools/autotest/gun_rose_images.py "<dossier des captures>" --feuilles "<source>\graphics\levels\gun"` → « BILAN : 252 OK, 0 FAUX, 28 ambigu(s) » à 7 âges à 64 directions (280 OK, 0 ambigu aux 15 âges ; observé sur `main` 0.4.9 le 24/10 vers 4 h).
+depuis PowerShell, 150 captures depuis A3-jeu (90 avant), puis `py -3.9 tools/autotest/gun_rose_images.py "<dossier des captures>" --feuilles "<source>\graphics\levels\gun"` → « BILAN : 280 OK, 0 FAUX, 0 ambigu(s) » aux 15 âges à 64 directions (lot A3-final, 24/10 ; 252 OK et 28 ambigus à 7 âges sur 0.4.9).
 `a2-icones` (images seulement, qualité normale, mode Alt) : « [FO-A2-ICONES] BILAN : 2 OK », 4 captures (correcteur
 d'A2 ; non rejoué sur `main`).
 
@@ -345,6 +355,20 @@ Scénarios :
 - `waves` : défense de tours et guerre ;
 - `pteam` : équipe du joueur ;
 - `stress` : 402 agents ;
+- `pnj-auto` (lot PNJ-JOUABLE, 2 600 ticks) : la guerre lancée par les réglages de carte `fo-war-*` (version 0.4.15),
+  une fois par partie → « [FO-PNJ-AUTO] BILAN : 7 OK » (`main`, 24/10, `done.txt` 15:48:58) ;
+- `ia1-modules` (lot IA1-c, 128 000 ticks, environ 2 min) : 65 placements de gabarits, débits à ± 10 % après 25 min
+  d'échauffement → « [FO-IA1-MODULES] BILAN : 136 OK » (`main`, 24/10, `done.txt` 19:12:43) ;
+- `m1-minerai` (lot M1, 600 ticks) : gisements de 9 × 9 aux 8 stades, tungstène sur ses cendres → « [FO-M1-MINERAI] BILAN :
+  7 OK » (observé sur `main` 0.4.14 le 24/10, `done.txt` 15:09:25) ; images : `fo-captures.bat m1-minerai`, 16 captures ;
+- `ia1-risques` (lot IA1-0, 1 800 ticks) : risques moteur R1 à R5, R7 des équipes organisées → « [FO-IA1-RISQUES] BILAN :
+  65 OK » (`main` 0.4.14, 15:09:36), puis `py -3.9 -B tools/autotest/ia1/risques.py <passes>` ; `ia1-carte` (images
+  seulement) : R6 (`tools/autotest/README.md` §4.1) ;
+- `pnj-reduit` (lot PNJ-VÉRIF, 216 000 ticks) : la partie test du guide du DC (Facile, 2 factions, 30 soldats, 4 ouvriers,
+  coffre d'équipe) → « [FO-PNJ-REDUIT] BILAN : 12 OK » ; `verif-tourelles` (108 000 ticks) → « [FO-VERIF-TOURELLES] BILAN :
+  7 OK » (tourelles des factions et de l'équipe du joueur ; observés sur `main` 0.4.12 le 24/10, `done.txt` 14:20:38 et
+  14:21:34) ; `verif-tourelles-avant` (témoin), `pnj-diag`, `pnj-diag-normal`, `pnj-vue`, `pnj-vue-attaque` (diagnostic et
+  captures) ;
 - `baseline`, `noexp`, `peace`, `parked`, `worker`.
 
 Performance :
@@ -482,6 +506,14 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F155, F156** (lot S0-suite) : l'écouteur des sons d'une session avec images est le joueur (le téléporter près de la
   source) ; un Ogg Opus passe le chargement puis lève une exception au premier tir, un Ogg Vorbis coupé passe sans
   erreur et reste muet : seule la règle « sons » du harness les voit.
+- **F171 à F174** (lot PNJ-VÉRIF, groupes d'unités) : la fin d'un combat de distraction lève `on_ai_command_completed` avec
+  `was_distracted = true`, le groupe reprend ensuite sa commande (ne pas la prendre pour la fin, F171) ; un long
+  `go_to_location` d'un groupe arrêté dans une base ennemie échoue en 1 tick, un groupe NEUF posé sur une case libre
+  rentre par étapes (F172) ; des unités ajoutées à un groupe lointain le quittent en moins de 5 ticks (F173) ; le moteur
+  retire parfois des membres d'un groupe à sa création, sans événement (F174, cause inconnue).
+- **F186, F187** (lot A3-final, mémoire vidéo) : au plancher, les pages de l'atlas virtuel croissent avec le contenu (9, 10, puis
+  12) sous une taille adressée fixe de 12 pages : il est plein aux 15 âges à 64 directions (F186) ; le coût de rangement des
+  têtes rognées dépend de la qualité (1,19 en haute, 1,44 en normale, F187).
 - **F140 à F145** (lot A3, rendu) : une passe rendue à un autre nombre d'échantillons laisse les autres identiques
   octet à octet (F140) ; l'alpha d'une tête ne dépend pas des matières, d'où des masques rapides à 16 échantillons
   (F141) ; aucune plaque mince ne ferme la fente arrière des âges 4 à 7 (F142) ; 8 192 px au plus par fichier

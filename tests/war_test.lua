@@ -134,6 +134,85 @@ local ok_run, err_run = pcall(M.run_ticks, 5 * 3600)
 check(ok_run, "la guerre continue après rechargement (" .. tostring(err_run) .. ")")
 
 ---------------------------------------------------------------------------------------------------
+-- Lot PNJ-VÉRIF (défauts M3, M4). Le moteur simulé ne déplace pas les unités et ne retire jamais un membre d'un
+-- groupe : on le fait à la main (téléport, membre retiré), puis on vérifie la logique du mod. Le trajet réel du
+-- groupe de rappel n'est prouvé qu'en moteur réel.
+section("Soldats égarés : garnison utile, soldat retiré de son groupe, rappel")
+do
+  local Military = require("script.faction.military")
+  local Commander = require("script.faction.commander")
+  local St = require("script.faction.state")
+  local w = W()
+  w.p_busy, w.p_nopath, w.p_lost = 0, 0, 0 -- itinéraires sûrs pour ce cas
+  local f
+  for _, ff in ipairs(global.fo.war.factions) do
+    local idle = 0
+    for _, id in ipairs(St.sorted_keys(ff.soldiers)) do
+      if not ff.soldiers[id].group and ff.soldiers[id].entity.valid then idle = idle + 1 end
+    end
+    if not ff.eliminated and idle >= 6 and not ff.recall_pending then f = ff break end
+  end
+  check(f ~= nil, "une faction avec au moins 6 soldats en garnison")
+  if f then
+    local idle = {}
+    for _, id in ipairs(St.sorted_keys(f.soldiers)) do
+      if not f.soldiers[id].group and f.soldiers[id].entity.valid then idle[#idle + 1] = id end
+    end
+    local near0, far0 = Military.garrison_split(f)
+    check(far0 == 0, "au départ, aucun soldat loin du QG (" .. far0 .. ")")
+    -- 3 soldats téléportés à 600 tuiles, à moins de 32 tuiles l'un de l'autre.
+    for k = 1, 3 do
+      f.soldiers[idle[k]].entity.teleport({ x = f.hq_pos.x + 600 + 4 * k, y = f.hq_pos.y + 14 })
+    end
+    local near1, far1 = Military.garrison_split(f)
+    check(far1 == 3 and near1 == near0 - 3, string.format("garnison : %d proches, %d loin (attendu %d, 3)", near1, far1, near0 - 3))
+    local view = Commander.view(f, game.tick)
+    check(view.garrison == near1, string.format("la décision d'attaque ne compte que la garnison proche (%d, garnison totale %d)",
+      view.garrison, f.garrison_count))
+    -- Un groupe de 2 soldats dont le moteur a retiré un membre en route.
+    local surface = game.surfaces[global.fo.war.surface]
+    local g = surface.create_unit_group({ position = f.hq_pos, force = f.force })
+    for k = 4, 5 do
+      g.add_member(f.soldiers[idle[k]].entity)
+      f.soldiers[idle[k]].group = g.group_number
+    end
+    f.garrison_count = f.garrison_count - 2
+    g.set_command({ type = defines.command.go_to_location, destination = f.hq_pos, radius = 16 })
+    f.groups[g.group_number] = { group = g, state = "attack", target = f.hq_pos, started = game.tick, size = 2, route = {} }
+    f.soldiers[idle[5]].entity._group = false -- retiré par le moteur (false : le mock refuse une clé effacée)
+    local gc = f.garrison_count
+    f.recall_block_until, f.recall_pending = nil, nil
+    Military.maintain(f, game.tick)
+    check(f.soldiers[idle[5]].group == nil and f.soldiers[idle[4]].group == g.group_number,
+      "le soldat retiré de son groupe revient à la garnison, l'autre reste membre")
+    check(f.garrison_count == gc + 1, "garnison + 1 pour le soldat retiré")
+    local rc = f.recall_pending
+    check(rc ~= nil and #rc.ids == 3, "rappel demandé pour le paquet des 3 soldats lointains (" .. (rc and #rc.ids or 0) .. ")")
+    M.run_ticks(30) -- l'itinéraire arrive (latence simulée : 3 ticks)
+    local rg
+    for _, gid in ipairs(St.sorted_keys(f.groups)) do
+      if f.groups[gid].recall then rg = f.groups[gid] end
+    end
+    check(rg ~= nil and rg.state == "return" and #rg.group.members == 3 and #rg.route > 0,
+      "un groupe de rappel de 3 soldats rentre par un itinéraire (" .. (rg and (#rg.group.members .. " membres, " .. #rg.route .. " étapes") or "aucun") .. ")")
+    local ok_ids = rg ~= nil
+    for k = 1, 3 do ok_ids = ok_ids and f.soldiers[idle[k]].group == rg.group.group_number and (f.soldiers[idle[k]].recalls or 0) == 1 end
+    check(ok_ids, "les 3 soldats sont membres du groupe de rappel, rappel compté une fois chacun")
+    local near2, far2 = Military.garrison_split(f)
+    check(far2 == 0, "plus aucun soldat de garnison loin du QG pendant le rappel (" .. far2 .. ")")
+    check((f.stats.recalls or 0) >= 1, "rappel compté dans les statistiques")
+    for k = 1, 3 do
+      local s = f.soldiers[idle[k]]
+      if s and s.entity.valid then s.entity.teleport({ x = f.hq_pos.x, y = f.hq_pos.y + 14 }) end
+    end
+    local ok_r, err_r = pcall(M.run_ticks, 2 * 3600)
+    check(ok_r, "deux minutes après le rappel sans erreur (" .. tostring(err_r) .. ")")
+    check(f.garrison_count >= 0 and f.garrison_count <= f.soldiers_count, "garnison cohérente après le rappel")
+  end
+  w.p_busy, w.p_nopath, w.p_lost = 0.02, 0.02, 0.005
+end
+
+---------------------------------------------------------------------------------------------------
 section("Équipe sans ouvrier ni pistolet : embauche de secours")
 do
   local f = global.fo.war.factions[2]

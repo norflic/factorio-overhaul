@@ -240,6 +240,29 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 15 h 45, **réponses du DC sur les images de 0.4.13 et 0.4.14** : « pour répondre à vos questions : 1) A,
+  2) A, 3) A » → tungstène : lueur turquoise froide de nuit gardée ; laser : direction des essais F1-A gardée (tour ronde
+  sans canons, émetteur lumineux), à enrichir aux rondes F1-B ; mitrailleuse : les 3 fentes de l'âge 11 (d07, d22, d33)
+  acceptées.
+- 24/10, vers 15 h 40, **le DC veut jouer** : « faite en sorte que la version du jeu soit jouable (avec les pnj etc),
+  voudrai vérifier le gameplay ». → **Version 0.4.15** (`39048d5`) : réglages de carte `fo-war-autostart`,
+  `fo-war-factions` (2), `fo-war-soldiers` (30), `fo-war-workers` (4) ; coché, la guerre part seule au passage de
+  600 ticks, une fois par partie (un `/fo-war stop` ne la relance pas) ; décoché par défaut, rien ne change pour les
+  parties et les bancs existants. Preuve en moteur réel sur `main` : `pnj-auto` 7 OK (`done.txt` 15:48:58,73 :
+  réglages écrits par le relais `war_setting`, 3 factions lancées seules avant le tick 1 200, pas de relance après
+  l'arrêt), `content` 317 OK (15:48:49,62), `pnj-reduit` 12 OK (15:49:32,57) ; hors jeu run 114, war 105, td 270,
+  pteam 15, migration 82, monde 157, org 362, harness code 0 (0 clé manquante), api_lint 775. Guide de partie mis à
+  jour (§2 : lancement par les réglages, plus de console).
+- 24/10, vers 12 h, **limite hebdomadaire du compte claude.ai atteinte** (« You've hit your weekly limit · resets Oct 29,
+  11am ») : 7 agents coupés net en plein travail (A3-final après 2 min ; correcteurs de F1-A, M1, IA1-0, IA1-a, IA1-c ;
+  vérificateur de PNJ-VÉRIF) ; un banc moteur lancé à 12:07 par le correcteur d'IA1-a tué, verrou orphelin retiré à 13 h
+  (aucun `factorio.exe` ni Blender en marche). Vers 13 h, le DC change de profil : « Session changée, remettez les
+  maquette sur ce profil et reprenez ». → Les 11 pages (planches V3-S, V3-E, passes 4 et 5, finale, plan, rose, A2 en
+  jeu, rotation âge 5, écoute des sons, page du matin) republiées sur le nouveau profil, à l'identique ; toutes les
+  adresses des documents remplacées par les nouvelles. Les 4 runs repris par `resumeFromRunId` (agents finis rejoués
+  depuis le cache), avec une note de reprise dans la consigne de chaque agent coupé (lire le travail partiel laissé dans
+  le worktree, tout rejouer). Leçon : un run long dépend du quota du compte ; un agent coupé laisse des changements non
+  commités et parfois un verrou de banc orphelin.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
@@ -266,7 +289,7 @@
   correcteur annonçait 92 captures `gun-rose`, son dossier en contient 90, comme `main`. Correctif de l'orchestrateur :
   `check_gun_sheets.py` plantait sur la console cp1252 (caractère « ≠ ») sans `PYTHONIOENCODING` ; sortie passée en
   UTF-8 comme `ht3_journal.py`, 12 OK. Identifiants : bloc F120 à F129 épuisé ; F140 à F149 et E105 à E108 réservés à
-  A3 et A4. Page pour le DC : https://claude.ai/artifact/THuwtt63j4DN8TNSSgzz9B (rien à valider).
+  A3 et A4. Page pour le DC : https://claude.ai/artifact/DcVt6j6PVctVQteegWJamt (rien à valider).
 - 23/10, vers 21 h 25, **run `wf_e1ae9f59-b47`** (orchestrateur ; deux chaînes en parallèle, A3-préparation et S0,
   chacune constructeur, vérificateur adverse, correcteur). **Décisions de l'orchestrateur pour A3** (délégation Q25) :
   D-7 appliquée (ombre à 32 échantillons, autres passes à 128, sous réserve d'identité octet à octet des autres passes) ;
@@ -283,7 +306,7 @@
   tout lancement », pas une MESURE de la sortie. Règle depuis : toute session avec son passe par `FO_AUDIO=1`, le pilote
   SDL `disk` et le garde de crête (`audio_guard.py`, code 10) ; jamais de vraie sortie audio (CLAUDE.md §4). Correction
   prouvée : 0 session audio Windows du jeu, relevé indépendant 0,000000 sur 41 550 relevés. Moteur réel sur `main` 0.4.7 (23/10, `done.txt` de 22:57:15,32 à 22:59:00,81 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.7\`) : `content` 317 ; `monde` 89 ; `m0-reprise` 15 ; `m0-migration` 9 ; `t2-machines` 80 ; `t3-libere` 41 ; `bord-a-bord` 12 ; `ht3-migration` 30 + journal 7 ; `t2-migration` 64 + 26 ; `t2-defense` 36 + 19 (0.4.1) et 36 + 11 (0.4.2) ; `t3-migration` 7 ; `gun-rose` 11, et 11 avec `FO_AUDIO=1` ; sur la graine 123456789 : `content` 317 et `monde` 89 ; **`fo-captures.bat gun-rose` avec `FO_AUDIO=1`** : code 0, 90 captures, « Driver:disk » et « Loading sounds... » au journal, garde : 0 session audio Windows du jeu en 2 416 relevés, crête 0 (`captures-gun-rose-audio\session.txt`). Hors jeu : run 114, war 92, td 270, pteam 15, migration 82, monde 157, levels 1 662 + 11 écarts connus, epochs 16 665, org 362, pvp 596 (387 s) ; harness code 0 (**Sons 0 violation**, auto-contrôle 13/13 ; images 17/17, feuilles 318) ; api_lint 676 ; d4m 5/5 ; mut_atlas 50 ; test_ht3_journal 15 ; **bat_double_source 40** ; mut_vram 18/18 ; **test_audio_session 21** ; **`sons.py --check` 20** ; check_gun_sheets 12 ; `test_audio_guard` (4 OK au lot) NON rejoué par l'orchestrateur : il joue 3 s d'un son de 30 Hz à −70 dBFS sur la vraie sortie du PC. Page
-  d'écoute : https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG (sons PROVISOIRES, Q-S0-1). Écarts : le constructeur puis le correcteur ont recopié
+  d'écoute : https://claude.ai/artifact/Ap4JoXCgvxJJR29b5QceU3 (sons PROVISOIRES, Q-S0-1). Écarts : le constructeur puis le correcteur ont recopié
   temporairement leur `.bat` à la racine sous un AUTRE nom (`fo-autotest-s0.bat`, `fo-autotest-s0c.bat`, effacés
   ensuite) : les `.bat` de la racine n'ont pas été touchés, mais la consigne ne le prévoyait pas. Non prouvé : le tir
   joué en jeu (l'auditeur des sessions avec images n'est pas aux sites de tir) ; la source du fond sonore insensible
@@ -408,6 +431,81 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot IA1-c, gabarits de modules des équipes organisées, 24/10 ; fusionné dans `main`, `e074595`, outils et Lua pur seulement)
+Preuves : `fo-logs\2026-10-24_IA1\IA1-c\` (`NOTES.md` §3 à §5 et §8 « Correction », `verification.md`). Expériences : E126, E127.
+- **F183** : une machine de fabrication AVEC recette n'expose dans `LuaFluidBox` que ses boîtes à fluide actives (raffinerie
+  en traitement de base : 2 sur 5 ; usine chimique en plastique : 1 sur 4) : l'indice d'une boîte n'est pas celui du
+  prototype ; l'apparier par `get_pipe_connections(i)[k].target_position`.
+- **F184** : convention des bras vérifiée sur 287 bras : un bras de direction d prend en `centre + rot(d, (0, -r))` et dépose
+  en `centre + rot(d, (0, r + 0,2))` (r = 1, long r = 2) ; sur un tapis, voie la plus éloignée du bras ; une foreuse dépose
+  sur la voie la plus proche (68 foreuses, 0 écart) ; `get_transport_line(1)` = voie gauche dans le sens de la marche.
+- **F185** : débit d'une conduite droite d'eau en 1.1.91 mesuré (source et puits par script) ; différent du wiki pour les
+  conduites courtes (2 250/s pour 1 tuyau, 1 286/s pour 10), car la source et le puits sont eux-mêmes des tuyaux.
+
+### Faits vérifiés (lots M1, IA1-0 et F1-A ; fusionnés dans `main` le 24/10 vers 15 h 10, `45966bf`, `7c51cdd`, `5cb936c`, version 0.4.14)
+Preuves : `fo-logs\2026-10-24_M1\NOTES.md` §4 et C.4 ; `fo-logs\2026-10-24_IA1\IA1-0\NOTES.md` §3 et « Correction » ;
+`fo-logs\2026-10-24_F1\NOTES.md` §1. Texte complet de chaque fait dans ces fichiers ; ici, le résumé.
+- **F163** (outil) : `famille.charger` retire de `sys.path` les familles non choisies ; un outil de famille qui importe un
+  module frère après `import compo` ne le trouve plus : le charger par son chemin.
+- **F164** (mesure vanilla) : le laser vanilla n'a que 2,99 points blancs par t² (la mitrailleuse vanilla 13,20) ; le
+  profil du laser garde provisoirement le repère 13,2 (question Q-F1-1).
+- **F165** (sprite vanilla) : la tête du laser vanilla en pose E enferme un trou de 900 px hr (boucle de câble) ; le
+  niveau 1 vanilla l'a aussi, sans contrôle ; à déclarer ou à accepter pour le niveau 2 du laser.
+- **F167** (fichiers et moteur) : la feuille d'un minerai vanilla range les variantes en colonnes et les stades en
+  lignes, la ligne 0 étant le stade le plus riche (couverture 0,31 à 0,06).
+- **F168** (observé, cause inconnue) : avec la feuille M1, l'atlas « objets bas » porte le drapeau
+  `linear-minification`, absent de la session témoin (3 sessions avec, 1 sans).
+- **F169** (déduit) : le tungstène garde les seuils de stades de la pierre ; le site garanti par M0 (1 500 par tuile au
+  centre) ne montre que les stades clairsemés (question Q-M1-3).
+- **F170** (moteur) : des cendres volcaniques posées en carré par `set_tiles` dans l'herbe ont une bordure de
+  transition déchiquetée.
+- **F175** (IA1-0, R1) : `create_entity{fast_replace, spill = false, raise_built}` SANS `character` sur un bâtiment de
+  niveau en marche garde contenu, recette et progression, sans objet en trop ; AVEC `character` = PNJ, l'objet de
+  l'ancien niveau est rendu au PNJ (interdiction justifiée) ; `products_finished` repart de 0.
+- **F176** (R2, R3) : les robots d'une force sans joueur bâtissent les fantômes de LEUR force avec leur stockage et
+  ignorent ceux d'une autre ; la logistique de cette force livre ; pour `player`, le risque R2 SE RÉALISE (vos robots
+  bâtissent avec vos objets les fantômes posés pour vous) : repli « pose juste à temps » mesuré (ravivés à 1, 30, 120 et
+  480 ticks ; à 900 ticks, bâti par vos robots).
+- **F177** (R5) : les modificateurs `character_*` agissent sur un personnage sans joueur ; ceux de la force et du
+  personnage se MULTIPLIENT (fabrication, minage, course), les cases s'additionnent ; le moteur compte en ticks entiers
+  (engrenage de 0,5 s : 31, 16, 11 et 5 ticks à × 1, 2, 3, 6 : rapport 2,82 au lieu de 3 au rang 5).
+- **F178** (R6) : l'élément `minimap` ne dessine pas les traits `rendering`, il montre les étiquettes de carte ;
+  `take_screenshot` ignore `open_map` (vue carte non capturable) ; avec `show_gui`, les fantômes d'une autre force ne sont
+  pas dessinés.
+- **F179** (R7) : des coffres liés de même `link_id` partagent l'inventaire par force.
+- **F188** (M1, correction ; fait C-a) : la couche `stages_effect` d'une ressource se voit de JOUR à son alpha, sans effet
+  de `effect_darkness_multiplier` ; de NUIT, sa contribution croît avec ce multiplicateur, moins que proportionnellement :
+  alphas minuscules (0,008 à 0,012) et multiplicateur grand (120) donnent une lueur de nuit sans rien de jour. Formule
+  non établie (7 sessions).
+- **F189** (M1, correction ; fait C-b, une session) : après remplacement de PNG d'effet de même nom, une session avec le
+  cache d'atlas écrit « atlas REFAITS » et montre la nouvelle couche (l'inverse rapporté plus tôt n'est pas reproduit) ;
+  par prudence, les captures M1 passent `--no-atlas-cache`.
+
+### Faits vérifiés en moteur réel (lot A3-final, les 15 âges à 64 directions, 24/10, 13 h 05 à 14 h 55 ; fusionné dans `main`, `0f8e10d`, version 0.4.13)
+Preuves : `fo-logs\2026-10-24_A3-final\` (`NOTES.md` §7, `INTEGRATION.md`). Expériences : E128 à E130.
+- **F186** : au plancher, les pages de l'atlas virtuel croissent avec le contenu (9 pages à 7 âges à 64 directions, puis
+  10, puis 12) sous une taille adressée FIXE de 12 pages (201,3 Mpx) : aux 15 âges à 64 directions, il est plein. La
+  galerie de 960 têtes s'y dessine encore ; toute addition graphique doit être mesurée au plancher avant intégration.
+- **F187** : le coût de rangement dans l'atlas des têtes rognées (F147) dépend de la qualité : 1,19 fois les pixels
+  rognés en haute qualité, 1,44 en qualité normale (attendu 1,05 à 1,2) ; le rognage tient (0,73 fois les images
+  entières).
+
+### Faits vérifiés en moteur réel (lot PNJ-VÉRIF, les armées des factions, 24/10, 10 h 10 à 14 h 40 ; fusionné dans `main`, `655ef62`, version 0.4.12)
+Preuves : `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §4 et §7.3). Expériences : E118 à E120.
+- **F171** : `on_ai_command_completed` est levé pour un GROUPE avec `was_distracted = true` quand un combat de distraction
+  se termine ; le groupe reprend ensuite sa commande (g2751 : « success, distraction true » au tick 95 122, état
+  `attacking_target` au tick 95 220). Un script qui prend cet événement pour la fin de sa commande interrompt l'attaque.
+- **F172** : un `go_to_location` d'environ 1 000 tuiles donné à un groupe arrêté au milieu d'une base ennemie échoue en
+  1 tick (trois cas) ; des étapes de 64 tuiles données au MÊME groupe échouent aussi ; un groupe NEUF posé 1,4 tuile plus
+  loin sur une case libre, avec les mêmes étapes en commande composée, rentre (16 sur 16, 1 030 tuiles). Attribution au
+  centre du groupe tombé dans un obstacle : DÉDUITE (un cas au centre exact, vidé ; un cas décalé, rentré).
+- **F173** : des unités ajoutées (`add_member`) à un groupe créé à environ 960 tuiles d'elles quittent le groupe en moins
+  de 5 ticks (27 membres au tick +1, 0 au tick +5), sans `on_ai_command_completed` (4 cas).
+- **F174** : le moteur retire aussi des membres d'un groupe À SA CRÉATION, près du QG, sans mort ni événement : dans
+  `default` corrigé, 10 lancements sur 17 en perdent dans les 300 ticks (Ambre : 13 sur 23 ; tous choisis à moins de
+  160 tuiles du rassemblement) ; `ia0-normal` 1 sur 17 ; `pnj-reduit` 0 sur 10. Cause NON établie ; non corrigé
+  (l'attaque part plus petite que décidé ; les soldats retirés reviennent à la garnison).
 
 ### Faits vérifiés en moteur réel (lot A4-préparation, la mitrailleuse vivante, 24/10, 4 h 15 à 7 h 25 ; fusionné dans `main`, `ab4f1b6`, version 0.4.10)
 Preuves : `fo-logs\2026-10-24_A4\` (`NOTES.md` §1 à §4, §8 et §12 ; `verification.md` ; `correction\`). Expériences : E112, E114 à E116.
@@ -735,6 +833,94 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E126, E127 · Lot IA1-c, gabarits de modules (24/10 ; run `wf_7e687e38-811`, correction finie par un agent seul après
+deux coupures ; fusion `e074595`, rien d'actif en jeu)** : détail dans `fo-logs\2026-10-24_IA1\IA1-c\`. **E126** : banc
+`ia1-modules` (arène de 65 placements : catalogue, 7 tournés, 6 extensions au maximum, 27 variantes d'ère) ; correction
+des 2 majeurs de la vérification (maxima d'extension faux sur 8 gabarits, désormais vérifiés n par n ; générateurs qui
+levaient une erreur aux grandes emprises, désormais une raison rendue, et une règle d'amélioration `M.upgrade_plan` :
+sur place tant que l'emprise ne change pas, remplacement du module au palier suivant) ; échauffement 25 min, fenêtre
+10 min, chaque entrée à ± 10 % (mesuré 99,1 à 103,7 %). Sur `main` : `ia1-modules` 136 OK (`done.txt` 19:12:43,22),
+`content` 317 OK (19:12:50,07) ; hors jeu `ia1_modules_test` 1 018 OK (666 avant), `test_bp2lua` 12 OK, api_lint 788.
+**E127** : R8, débit des conduites des gabarits pétrole (F185). NON prouvé : la règle `M.upgrade_plan` est un choix du
+correcteur, à valider (coût non chiffré, lot IA1-f) ; placements ajoutés non regardés en image ; une conduite ramifiée
+valide peut encore être refusée à tort (m5, déclaré).
+
+**E77 à E80, E131, E132 · Lot M1, le tungstène dans sa direction artistique (24/10 ; run `wf_e12c2f9b-9c8`, correction
+reprise après la limite du compte ; fusion `45966bf`, version 0.4.14)** : détail dans `fo-logs\2026-10-24_M1\`
+(`NOTES.md` §3 et C, `verification.md`). E77 ronde 1 (trois directions) ; E78 rondes 2 et 3 (palette 60/30/10) ; E79 en
+moteur réel (`m1-minerai` 7 OK) ; E80 mémoire vidéo de la feuille ; **E131** (C-1) réponse jour et nuit de la couche
+d'effet (F188) ; **E132** (C-2) couches d'effet contre le critère en moteur : W2 aux alphas 0,008 à 0,012 et au
+multiplicateur 120 donne 7 OK sur 7 (deux sessions), nuit ΔE au fer 4,4 → 11,7. Sur `main` après fusion :
+`m1-minerai` 7 OK (`done.txt` 15:09:25,00), `monde` 89 OK (15:09:17,22), `content` 317 OK (15:08:35,52). NON prouvé :
+verdict du DC (teinte de nuit, galets qui luisent, palette acier dominante 72 % au lieu de 60/30/10) ; qualité normale,
+icône et couleur de carte jamais vues en moteur ; mineurs 4, 7, 8, 9 de la vérification.
+**E121 à E123 · Lot IA1-0, risques moteur des équipes organisées (24/10 ; fusion `7c51cdd`, outils seulement)** : détail
+dans `fo-logs\2026-10-24_IA1\IA1-0\NOTES.md`. E121 R1, R2, R3, R5, R7 (`ia1-risques`, 3 passes déterministes) ; E122 R4,
+coûts BRUTS sur 6 passes calmes : le ravivage d'un POTEAU électrique coûte 200 à 420 µs, au-dessus de l'estimation de
+50 unités (VERDICT R4 : NON pour ce cas) ; E123 R6 (`ia1-carte`, images). Sur `main` : `ia1-risques` 65 OK (15:09:36,45).
+NON prouvé : R8 et R9 (protocoles écrits seulement), vue carte plein écran, verdict du DC sur la bordure de zone.
+**E81 à E84 · Lot F1-A, kit de famille de la tourelle laser (24/10 ; fusion `5cb936c`, outils seulement)** : détail dans
+`fo-logs\2026-10-24_F1\` (`NOTES.md` §2, `verification.md`, `correction\`). E81 à E83 : témoin, puis trois jets du
+kit ; la vérification a relevé 6 défauts majeurs (pose E sans direction de tir lisible, mots des triplets invisibles,
+âge 15 copiant le disque de la mitrailleuse 15, caisson qui cache l'émetteur en pose N, options manquantes, affûts trop
+semblables) ; corrigés au 4e jet (`7aea3b4` : proue lumineuse, triplets relus, etc.). E84 : vignettes mêlées « laser ou
+mitrailleuse ? ». NON prouvé : test à l'aveugle jamais fait ; 11 âges sans fichier d'âge ; aucun design déclaré
+réussi ; rien en jeu.
+
+**E128 à E130 · Lot A3-final, les 15 âges de la mitrailleuse à 64 directions (24/10, 13 h 05 à 14 h 55 ; agent seul,
+après deux essais coupés par la limite du compte ; fusion `0f8e10d`, version 0.4.13)** : détail dans
+`fo-logs\2026-10-24_A3-final\` (`NOTES.md`, `INTEGRATION.md`).
+- **E128 · VALIDÉ en moteur réel · Feuilles et bancs** : production finie (11:59:25, 840 / 840, 0 erreur, `--dry-run`
+  « reste : 0 » ; `--controle-seul` NON lancé, car il réécrit des fichiers dans `A3\sprites`) ; 3 nouvelles têtes HORS
+  REGLE de l'âge 11 regardées en gros plan et acceptées dans `HORS_REGLE_OK_DEFAUT` (d07 27 px et d22 9 px : fente entre
+  la base d'une ailette et les canons, la même que chez les voisines ; d33 13 px : fente de 1 à 2 px entre l'ailette de
+  bouche et le manchon) ; feuilles sans option : 336 PNG, 155 Mo, plus grand côté 4 752 px, régénérées à l'identique à
+  l'octet ; harness « 14 age(s) a 64 directions, 0 a 4 » ; check_gun_sheets 19 OK ; levels 1 662 ; worktree :
+  `content` 317, `gun-rose` 13, `d4-geant` 18 (« ages 1,…,15 »), `a4-eclat` 3, `a4-ruines` 5, `a4-socle` 2, `s0-tir` 5 ;
+  captures `gun-rose` 150 / 150, `gun_rose_images.py` « 280 OK, 0 FAUX, 0 ambigu(s) » ; roses zoom 2 des âges 9 à 15 et
+  diagonales de jour et de nuit REGARDÉES (agent, puis orchestrateur : diagonales et éclats des âges 9 à 15).
+- **E129 · VALIDÉ en moteur réel · Éclats des âges 9 à 15** : AUCUNE direction écartée aux âges 3 à 15 (le d39 de l'âge 12
+  prévu venait des masques ; sur les vraies têtes, pire écart 0,237 tuile, d60, sous le seuil de 0,5) ; 4 sessions
+  `a4-eclat` (pair, impair, avec et sans la couche) : « 112 sites de jour sur 112 vus », « 118 éclats au bout des canons,
+  0 ECHEC ».
+- **E130 · MESURÉ · Mémoire vidéo aux 15 âges** (`d4-geant`, 5 passages, chacun 18 OK) : haute 17 atlas, 1,273 Gpx, règle
+  1,28 à 1,45 Go (prévu 1,30 à 1,47), compteur 1,81 Go (1,64 à 7 âges) ; normale 0,396 Gpx, 0,46 à 0,51 Go (prévu
+  idem), compteur 0,71 Go (0,65) ; plancher compteur 0,42 Go, atlas virtuel 12 pages sur 12 (F186). Temps de chargement
+  NON comparables (un jeu 3D du DC tournait depuis 14 h 01, 64 % de charge processeur sans banc : sprites en haute 13,9 s
+  contre moins de 9,5 s attendus) : à remesurer PC au repos. Écart de méthode de l'agent : 4 sections de son `NOTES.md`
+  écrites par un heredoc à antislashs (interdit) ; relues, intactes.
+
+**E118 à E120 · Lot PNJ-VÉRIF, le gameplay des PNJ (24/10, 10 h 10 à 14 h 40 ; run `wf_dbbe3818-700`, puis correcteur seul ;
+fusion `655ef62`, version 0.4.12)** : détail dans `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §2, §3, §7 ; `verification.md` ;
+`GRILLE.md` ; `GUIDE_PARTIE.md` ; archives `moteur\`, `verification\`, `correction\moteur\`).
+- **E118 · MESURÉ · Bancs PNJ sur `main` 0.4.11** (`default` 216 000, `pteam` 54 000, `waves` 108 000, `ia0-paisible` et
+  `ia0-normal` 216 000, `ia0-difficile` 144 000, `stress` 36 000 ; premiers rejeux des `ia0-*` depuis 0.4.5) : économie,
+  ouvriers, recherche, défense de tours et équipe du joueur comme dans E19 à E21 et E33 ; MAIS dans `default`, 52
+  « attaques » lancées pour 5 réelles (32 attaques fantômes de suite ; 46 dans `ia0-paisible`, 47 dans `ia0-normal`), 27
+  soldats d'Écarlate laissés à 960 tuiles du QG. Le vérificateur établit que la régression apparaît exactement avec
+  0.4.5 (carte changée par les sites garantis) et que depuis, 3 factions sur 4 n'attaquent plus jamais dans `default`
+  (cause NON établie).
+- **E119 · Diagnostic des attaques fantômes** (scénarios `pnj-diag`, `pnj-diag-normal`) : fin d'un combat de distraction
+  prise pour la fin de l'attaque (F171) ; retour direct de 1 000 tuiles en échec en 1 tick, groupe dissous sur place
+  (F172) ; soldats lointains enrôlés puis retirés par le moteur en moins de 5 ticks (F173).
+- **E120 · VALIDÉ en moteur réel · Correction** (`script/faction/military.lua`, `commander.lua`, `war.lua`,
+  `script/team/team.lua`, `shared/team/config.lua`) en deux temps. Testeur : distractions ignorées, soldats à plus de
+  160 tuiles non enrôlés, retour par l'itinéraire de l'aller à l'envers par un groupe neuf. Correcteur, après 6 défauts
+  majeurs du vérificateur : M1 technologie « gun-turret » (et non « turrets ») dans `T.unlocks[0]`, nouvelle règle du
+  harness qui refuse un nom absent de `data.raw.technology` ; M2 livre de recettes oublié par force à chaque recherche ;
+  M3 soldat retiré de son groupe rendu à la garnison, rappel des soldats à plus de 160 tuiles par un itinéraire ; M4
+  décision d'attaque sur la garnison proche. Résultats (avant → après) : `default` 5 attaques (Écarlate seule), 18
+  soldats loin, « fortify » jamais atteint → 17 attaques (Écarlate 9, Ambre 8), 0 fantôme, 0 loin à 59 min, 17 rappels et
+  17 arrivées (jusqu'à 954 tuiles), « fortify » atteint (35,1 et 56,3 min) ; `verif-tourelles` 5 OK, 2 ECHEC → 7 OK ;
+  équipe du joueur : 0 tourelle en 29 min → 3 à 19 min, 5 à 21 min ; attaques sous le seuil 1 → 0 ; `ia0-normal` 14 OK
+  (1re attaque contre le joueur au tick 93 901) ; `pnj-reduit` (partie du guide : Facile, 2 factions, 30 soldats, 4
+  ouvriers) 12 OK. Rejoué sur `main` 0.4.12 (`fo-logs\2026-10-24_integration-0.4.12\`) : `content` 317 OK
+  (`done.txt` 14:20:08,95), `verif-tourelles` 7 OK (14:20:38,94), `pnj-reduit` 12 OK (14:21:34,85). Hors jeu : war 105
+  (13 contrôles des soldats égarés), api_lint 728. NON prouvé : groupes amputés à la création (F174, non corrigé) ;
+  pics de script de plus de 2 ms 58 → 117 sur machine chargée (non attribués) ; partie existante rechargée ; `waves`,
+  `stress`, `ia0-paisible`, `ia0-difficile` non rejoués après correction ; aucune capture de la partie réduite ni d'un
+  combat ; partie jouée à la main.
+
 **E112, E114 à E116 · Lot A4-préparation (24/10, 4 h 15 à 7 h 25 ; run `wf_0e7edcdd-4f2`)** : détail dans
 `fo-logs\2026-10-24_A4\NOTES.md` §1 à §4 et §12.
 - **E112 · VALIDÉ en moteur réel · Éclat de tir 2D par âge**, positions mesurées sur chaque cellule des feuilles de tête,
@@ -1105,7 +1291,7 @@ de la tête de la mitrailleuse à 32 échantillons contre 128 (lot A1, 23/10, 15
   post-traitement non comptés : un peu plus faible) ; le kit (`batch_blender.py`, gelé) ne sait pas encore régler les
   échantillons par passe (D-7) : la rose a tout rendu à 32.
 - **La rose des 8 directions** (même lot, rendue pour E66 et pour le DC ; aperçus à 32 échantillons, 112 têtes, 2 334 s
-  d'horloge sur 2 sessions ; planches composées hors moteur `A1\rose\`, page https://claude.ai/artifact/9zVUA65YE4wVfaaxobjZ6W ;
+  d'horloge sur 2 sessions ; planches composées hors moteur `A1\rose\`, page https://claude.ai/artifact/3wt4uyQfxBLigQEXfZ14Vv ;
   PAS vue en moteur, aucun verdict du DC) ; regard de l'agent, pas un verdict : pose N : le piège F119 reste visible
   (canons dressés lus comme des tubes verticaux aux âges 3, 4, 7, 8, 9, 13, 14 et 15) ; d08 et d56 : les canons se
   lisent comme des armes à tous les âges (mais d08 = cible à 54,7° du nord ; d01 à d07 non rendues : limite du secteur
@@ -1171,7 +1357,7 @@ construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :
   `wf_5f1609fb-473`). Ce verdict prime sur celui des juges pour les âges 1 à 12 ; leurs défauts mesurés restent notés
   pour une passe de finition.
 - Sorties : `<racine>\fo-logs\2026-10-23_V3E-p5\` (kit, kit2, kit3, r0 à r5, bas, haut, final, juges, presentation) ;
-  page de suivi https://claude.ai/artifact/SWLGoaBpAHcsax5z6zzhfw .
+  page de suivi https://claude.ai/artifact/XgfoS5rkCyUbbPYRgLvnyg .
 
 **E64 · NON VALIDÉ (juges : pas prêt) · V3-E, quatrième passe : un kit d'époque unifié, puis correction ciblée des
 époques ratées (23/10, 0 h 25 à 5 h 40 ; run `wf_b0a51b34-fe1`)** :
@@ -1205,7 +1391,7 @@ construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :
   triplets « en 3 mots » (seuil : 12 sur 15, aucune confusion entre ères). Les passes 3 et 4 ont demandé une description
   libre, plus dure et non comparable au seuil. Et le test n'avait lieu qu'à la fin : les constructeurs corrigeaient sans
   mesure de lecture.
-- Montré au DC : page privée https://claude.ai/artifact/6oWtaBeDK7gR5ALMySwjWb (23/10, vers 6 h 10), sans demande de
+- Montré au DC : page privée https://claude.ai/artifact/1JLASdszGV6fHUSUHPKoVx (23/10, vers 6 h 10), sans demande de
   validation ; il peut refuser qu'on touche au corps (« corps : non »).
 - Suite : passe 5 (run `wf_5b157c7b-fa0`, lancée le 23/10 vers 6 h 05 ; worktrees persistants `v3e-p5-kit`,
   `v3e-p5-bas`, `v3e-p5-haut` depuis `v3e-p4` ; sorties `<racine>\fo-logs\2026-10-23_V3E-p5\`) : protocole du
@@ -1228,7 +1414,7 @@ artistique par âge (22/10, 19 h 03 à 23 h 59 ; run `wf_0608aa1f-b85`)** :
   « pas prêt » ; deux kits divergents (rupture entre 9 et 10), organe d'époque qui recouvre l'arme au lieu de s'y
   ajouter, identités par la couleur seule, ère I plus faible que la vanilla, tuyaux de la plage haute identiques,
   pose N lue comme des cheminées, 8 îlots détachés, points blancs de scintillement, vignettes écrites dans l'ordre.
-- Montré au DC : page privée https://claude.ai/artifact/N47FzmN1QtKUbDMNAuHJA7 (23/10, 0 h 20).
+- Montré au DC : page privée https://claude.ai/artifact/22JwLxHGqYTfe9vqPYCNoe (23/10, 0 h 20).
 - Suite : passe 4 (run `wf_b0a51b34-fe1`, lancée le 23/10 vers 0 h 25) : kit d'époque unifié, puis correction des
   époques 2, 5, 6, 8, 9, 10, 11, 12 et 15, tuyaux par époque, pose N, îlots et scintillements.
 
@@ -2079,7 +2265,7 @@ intégrée dans `main` le 22/10 par la fusion `e1a6a6f`, tête `d6ba888` ; rejou
 - Décision (orchestrateur, délégation Q25) : ne pas étendre une direction à 6/10 aux 7 familles ; passe de synthèse
   sur la mitrailleuse (run `wf_eaa96606-5f1`, 2 variantes partant de l'industriel : « affût rond » et « industrielle
   resserrée », avec les greffes des juges). Page privée pour le DC :
-  https://claude.ai/artifact/EjdBUNfU1BLdkTU7cqWWMB .
+  https://claude.ai/artifact/2jA1RqTTiF7GDWwPkSjXKJ .
 - Preuves : `<racine>\fo-logs\2026-10-22_V3S\` (`industriel\`, `hightech\`, `hybride\`, `juges\`, `presentation\`) ;
   branches `worktree-wf_483106c7-c7f-2` (industriel, `265574d`), `-3` (haute technologie), `-4` (hybride, `e0571df`).
 - Limites : tout est composé hors moteur ; rien n'a été vu en jeu.

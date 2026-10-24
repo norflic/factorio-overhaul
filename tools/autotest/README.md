@@ -547,6 +547,54 @@ Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époqu
   `& "<racine>\fo-autotest.bat" nopause 2600 m0-reprise "<source>"`. Attendu (23/10, `done.txt` 16:45:02,98) :
   « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) ».
 
+Scénarios greffés du lot IA1-0 (levée des risques moteur des équipes de PNJ, docs/EQUIPES_PNJ.md §14 ; sorties
+`<racine>\fo-logs\2026-10-24_IA1\IA1-0\`, NOTES.md ; mod livré tel quel, aucun prototype de test) :
+- `ia1-risques` (1 800 ticks ; contrôle final au tick 1 700) : R1 (tick 250, amélioration d'un four et d'un assembleur
+  de niveau en marche par un PNJ porteur du coût : sans `character`, avec `character` (appel interdit, danger mesuré),
+  et par `levels_upgrade` ; objets de niveau comptés sur toute la carte ; progression relue aux 3 ticks suivants), R2 et
+  R3 (roboports de `player` et d'une force IA `ia1-fac` : fantômes de leur force et de l'autre, coffre demandeur ; R2 :
+  second réseau de `player`, zone R2J, où un PNJ ravive 5 fantômes 1, 30, 120, 480 et 900 ticks après leur pose, stock
+  relu chaque tick : repli « pose juste à temps » du §14), R4 (ticks 400 à 830, 5 répétitions : coût BRUT au
+  LuaProfiler des appels d'évaluation d'un lot de 24 × 24, lot naturel et forêt dense de 144 arbres, de
+  `can_place_entity`, de la pose d'un fantôme, du ravivage avec et sans les gestionnaires du mod, du ravivage RACCORDÉ
+  d'un poteau moyen et d'un tuyau, de poteaux isolés), R5 (ticks 60 à 1 260 : modificateurs `character_*` d'un
+  personnage sans joueur et de la force, 5 variantes), R7 (tick 10 : coffres liés de deux forces). Le BILAN ne compte
+  que les contrôles de PROTOCOLE et les témoins ; les réponses sont des lignes « VERDICT Rk : … » hors bilan (R2 :
+  « SE REALISE » ou « NE SE REALISE PAS », car le danger du §14 est la réponse oui).
+  `& "<racine>\fo-autotest.bat" nopause 1800 ia1-risques "<source>"` (au moins 2 passes sur machine calme pour R4),
+  puis `py -3.9 tools/autotest/ia1/risques.py "<passe 1>" "<passe 2>" …` (coûts unitaires BRUTS, étalon seulement pour
+  dire si la passe est CALME, VERDICT R4 et proposition `O.OP_UNITS` = maximum brut des passes calmes × 1,5 ; exige les 6
+  verdicts ET leur valeur, `--attendu`, défaut R1=OUI, R2=SE REALISE, R3=OUI, R4=MESURE, R5=OUI, R7=OUI ;
+  `--selftest` : 10 OK). Attendu (24/10, correction, `done.txt` 13:23:35,40, 13:23:42,36 et 13:23:49,16) :
+  « [FO-IA1-RISQUES] BILAN : 65 OK, 0 ECHEC(S) » par passe et « RESULTAT : OK », code 0 ; le VERDICT R4 de
+  `risques.py` est « NON » (ravivage d'un poteau électrique de 200 à 420 µs, au-dessus des 50 unités).
+- `ia1-carte` (images seulement ; contrôle au tick 230) : R6, une bordure pointillée `draw_line` en mode Alt seulement
+  (zone A) et toujours visible (zone B), textes, étiquettes de carte posées dès la cartographie, fantômes d'assembleur de
+  `player` et de `ia1-fac` côte à côte. `& "<racine>\fo-captures.bat" ia1-carte "<source>"` : 7 captures de la liste
+  et 9 captures HORS liste écrites par le scénario (`fo-shots\x-ia1-*.png`, non indexées : 4 variantes de
+  `take_screenshot` sur les fantômes, élément `minimap` avec `show_gui` (2), et `open_map` aux échelles 0,5, 2 et 6
+  suivi de `take_screenshot` (3)). Attendu (24/10, correction, 13:24:26) : code 0, « [FO-IA1-CARTE] BILAN : 3 OK » au
+  banc, « 4 OK » dans la session (étiquettes posées au tick 25) ; les 14 captures communes avec la passe de 11:10:09
+  sont identiques au md5.
+  Observé (images regardées, F178 proposé) : bordure A en mode Alt seulement, B toujours ; élément `minimap` :
+  étiquettes oui, traits `rendering` NON ; `take_screenshot` rend la vue du MONDE même après `open_map` (`render_mode`
+  reste 2, `chart`, aux échelles 0,5, 2 et 6 : la carte rapprochée n'est pas obtenue) : **la vue carte du joueur n'est
+  pas capturable par ce banc et n'a PAS été observée** (à regarder une fois par le DC ou dans une session
+  `fo-visual.bat` regardée) ; `take_screenshot` SANS `show_gui` dessine les fantômes de toutes les forces et aucune
+  alerte, AVEC `show_gui` seulement ceux de la force du joueur (que ce soit sa vue en partie est déduit, pas observé) :
+  une capture qui doit montrer ce que voit le joueur passe `show_gui = true`.
+
+Scénario greffé du lot M1 (kit minerai, témoin tungstène, 24/10) :
+- `m1-minerai` (600 ticks ; contrôle au tick 540) : en (3600, 3600), deux planches de 6 gisements de 9 × 9 tuiles
+  (quantité décroissante du centre au bord : les 8 stades) ; planche « natif » : fer, TUNGSTÈNE sur ses cendres
+  volcaniques, charbon (rangée du haut), cuivre, pierre, uranium (bas), sur herbe ; planche « cendres » 40 tuiles plus bas :
+  les mêmes, tous sur `fo-volcanic-ash`. Une foreuse électrique alimentée mine le tungstène. Contrôles : prototype
+  `fo-tungsten-ore` (nom gardé, catégorie `fo-hard-solid`), 12 gisements posés, cendres sous le tungstène, foreuse posée,
+  tungstène extrait, gisements en place. `& "<racine>\fo-autotest.bat" nopause 600 m1-minerai "<source>"` →
+  « [FO-M1-MINERAI] BILAN : 7 OK, 0 ECHEC(S) ». Images : `& "<racine>\fo-captures.bat" m1-minerai "<source>"` :
+  16 captures (planches au zoom 1, jour et nuit ; tungstène à côté du fer et du charbon au zoom 2, jour et nuit ;
+  tungstène seul aux zooms 2 et 4 ; vue d'ensemble au zoom 0,5), sans anticrénelage.
+
 Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
 « LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul
 (`{ dry = true }`, rien n'est posé) pour chaque bâtiment laissé par la migration. Cette ligne est HORS bilan : le
