@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 23 h 15 (nuit)** : fusionnés et prouvés sur `main` : IA1-a (0.4.17), MOD-1 et A4-SOCLE (0.4.18), IA2-0
+> (0.4.19) ; bancs en moteur réel et hors jeu verts à chaque version (archives `fo-logs6-10-24_integration-*` et
+> `2026-10-25_integration-0.4.19`). En cours : X1 (titane de l'âge 11, worktree), IA2-a (chef d'équipe adaptatif v0,
+> worktree). Ensuite : MOD-2 (recettes par lots), IA2-b (expansion par la carte), styles de minerais, modules au design
+> distinct, F1-B. Le worktree d'IA2-0 n'a pas pu être effacé (fichier tenu) : `git worktree prune` plus tard.
 > **NUIT DU 24 AU 25/10** : le DC dort (« passez la nuit a faire de votre mieux pour l'avancée du projet »). D-16 (RD_LOG) :
 > choix provisoires pour M4, IA1 à IA5, E1 à E3. Ordre : intégrer MOD-1, A4-SOCLE, IA1-a ; puis MOD-2 ; IA2-0, IA2-a,
 > IA2-b ; styles de minerais ; modules au design distinct ; F1-B. Deux agents à la fois, une place de rendu ; disque H:
