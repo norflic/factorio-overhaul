@@ -668,6 +668,9 @@ function M.new_world(opts)
       ["fo-companion-brain-period"] = opts.brain or 60, ["fo-path-max-inflight"] = 6,
       ["fo-level-time-factor"] = 1,
       ["fo-pvp-difficulty"] = opts.difficulty or "normal", -- lot IA0 : défaut du jeu
+      -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
+      ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
+      ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

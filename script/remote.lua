@@ -68,6 +68,16 @@ remote.add_interface("factorio-overhaul", {
   war_fund = function(amount)
     return War.fund(amount or 1000)
   end,
+  -- Réglages de carte de la guerre (« fo-war-* » seulement) : un mod n'écrit que SES réglages, d'où ce relais pour
+  -- les bancs (lot PNJ-JOUABLE) ; rend la valeur relue.
+  war_setting = function(name, value)
+    if type(name) ~= "string" or name:sub(1, 7) ~= "fo-war-" or not settings.global[name] then return nil end
+    settings.global[name] = { value = value }
+    return settings.global[name].value
+  end,
+  war_stop = function()
+    return War.stop()
+  end,
   war_option = function(key, value)
     local s = State.war().settings
     if s then s[key] = value end

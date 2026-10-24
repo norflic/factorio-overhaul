@@ -352,10 +352,28 @@ Commander.on_player_hostility = function(f, tick)
   PvP.on_provoked(f, tick)
 end
 
--- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s.
+--- Lancement sans console (lot PNJ-JOUABLE, 24/10) : réglage de carte « fo-war-autostart » coché, la guerre part
+--- seule autour du point de départ du joueur, une fois par partie (`war.autostarted` garde le tick : un
+--- `/fo-war stop` ne la relance pas). Cocher le réglage en cours de partie la lance au passage suivant.
+local function autostart(war)
+  if war.autostarted or not settings.global["fo-war-autostart"].value then return end
+  local surface = game.surfaces[1]
+  if not surface then return end
+  war.autostarted = game.tick
+  local g = settings.global
+  local ok, err = War.start_at(surface, game.forces.player.get_spawn_position(surface), g["fo-war-factions"].value,
+    g["fo-war-soldiers"].value, g["fo-war-workers"].value, F.defaults.distance)
+  log(string.format("[FO-WAR] lancement automatique au tick %d : %s", game.tick, ok and "ok" or tostring(err)))
+end
+
+-- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s ; lance la guerre si le
+-- réglage de carte le demande.
 Events.on_nth_tick(600, function()
   local war = State.war()
-  if not war.active then return end
+  if not war.active then
+    autostart(war)
+    return
+  end
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
     update_label(f)
