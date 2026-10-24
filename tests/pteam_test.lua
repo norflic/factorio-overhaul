@@ -44,9 +44,11 @@ local ok, err = pcall(M.run_ticks, 10 * 3600)
 check(ok, "simulation sans erreur (" .. tostring(err) .. ")")
 f = global.fo.pteam.team
 print("  " .. require("script.team.team").status_line(f))
--- Lot IA1-a : 8 PNJ offerts à la pose (fo-npc-start) ; les suivants sont PAYÉS avec le contenu du coffre.
-check(f.engineers_count >= 2 and (f.stats.recruited or 0) >= 1,
-  "ouvriers recrutés avec les équipements du coffre (" .. f.engineers_count .. ", dont " .. tostring(f.stats.recruited) .. " payés)")
+-- Lot IA1-a : 8 PNJ offerts à la pose (fo-npc-start) ; les suivants sont PAYÉS avec le contenu du coffre, et
+-- (correction IA1-a) seulement quand aucun PNJ n'est inactif (fo-recruit-idle-max = 0 par défaut).
+check(f.engineers_count >= 2 and (f.stats.recruit_held or 0) > 0,
+  "ouvriers au travail ; frein par le travail actif (" .. f.engineers_count .. " PNJ, dont " .. tostring(f.stats.recruited or 0)
+  .. " payés ; frein " .. tostring(f.stats.recruit_held) .. ")")
 check(f.outposts_count >= 2, "avant-postes construits (" .. f.outposts_count .. ")")
 check(f.team.done.coal and f.team.done.iron, "objectifs Charbon et Fer atteints")
 check((f.team.task_stats.service and f.team.task_stats.service.ok or 0) > 0, "tournées d'entretien")
@@ -56,6 +58,13 @@ local ok_ser = pcall(M.serialize, global)
 check(ok_ser, "global sérialisable")
 M.command("fo-team", "status")
 check(W().prints[#W().prints]:find("objectif") ~= nil, "statut affiché")
+
+section("Sans frein (fo-recruit-idle-max = 60) : recrues payées au coffre")
+check(remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 60) == 60, "frein levé par l'interface fo-ia1")
+local paid0 = f.stats.recruited or 0
+check(pcall(M.run_ticks, 3 * 3600), "simulation sans erreur, sans frein")
+check((f.stats.recruited or 0) > paid0, "recrues payées avec le contenu du coffre (" .. paid0 .. " -> "
+  .. tostring(f.stats.recruited) .. ")")
 
 section("Renvoi et destruction du coffre")
 local pistols = chest.get_item_count("pistol")

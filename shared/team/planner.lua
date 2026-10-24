@@ -476,6 +476,10 @@ function P.plan(view, book)
         out.recruit_workers = 1
         out.recruit_unarmed = true
       end
+    elseif view.recruit_held and view.workers > 0 then
+      -- Correction IA1-a (frein par le travail, réglage fo-recruit-idle-max) : trop de PNJ sans tâche, aucune
+      -- recrue ; le stock n'est ni pris ni demandé (pas de pistolet fabriqué pour une recrue inutile).
+      out.recruit_held = true
     elseif take(recruit_cost) then
       out.recruit_workers = 1
     elseif view.workers == 0 then

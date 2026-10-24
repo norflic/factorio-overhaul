@@ -1,6 +1,6 @@
 --[[
-  Interface distante « fo-ia1 » (lot IA1-a, docs/EQUIPES_PNJ.md §16) : mesures des équipes de PNJ en LECTURE
-  SEULE, pour les bancs (le mod de test n'a pas accès à `global` de ce mod) et pour l'interface du lot IA1-b.
+  Interface distante « fo-ia1 » (lot IA1-a, docs/EQUIPES_PNJ.md §16) : mesures des équipes de PNJ (lecture ; une
+  seule écriture, set_setting, pour les bancs), pour les bancs (le mod de test n'a pas accès à `global` de ce mod) et pour l'interface du lot IA1-b.
 
     remote.call("fo-ia1", "teams") -> { { key, force, n, max, wanted, recruited, guard, thinks, n_sum,
                                           idle_sum, surplus_sum, backlog_sum, last = { n, idle, idle_pct,
@@ -10,7 +10,10 @@
                                           votre équipe (clé « player ») si elle existe ;
     remote.call("fo-ia1", "path")  -> statistiques du service de chemins (demandes, émissions, réussites,
                                        échecs par cause, au plus haut : demandes en vol, file) + agents riches.
-  Aucune écriture, aucune fonction ni objet du moteur dans les résultats.
+    remote.call("fo-ia1", "set_setting", name, value) -> valeur lue (correction IA1-a : bancs seulement ; un
+                                       réglage des équipes, S.SETTINGS ; nil sinon).
+  Une seule écriture (set_setting) ; aucune fonction ni objet du moteur dans les résultats. `held` : pensées où
+  le frein par le travail (fo-recruit-idle-max) a retenu une recrue.
 ]]
 
 local Storage = require("script.core.storage")
@@ -18,6 +21,7 @@ local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Scale = require("shared.team.scale")
 local Team = require("script.team.team")
+local Config = require("script.core.config")
 
 local PRODUCED = { "iron-plate", "copper-plate", "coal", "stone", "iron-ore", "copper-ore" }
 
@@ -33,7 +37,7 @@ local function team_row(f)
   local st = f.stats or {}
   local row = {
     key = f.key or "player", force = f.force, n = f.engineers_count or 0, max = Team.npc_max(f),
-    recruited = st.recruited or 0, guard = st.recruit_guard or 0,
+    recruited = st.recruited or 0, guard = st.recruit_guard or 0, held = st.recruit_held or 0,
     thinks = acc.thinks or 0, n_sum = acc.n_sum or 0, idle_sum = acc.idle_sum or 0,
     surplus_sum = acc.surplus_sum or 0, backlog_sum = acc.backlog_sum or 0,
     last = acc.last and copy_fields(acc.last, { "n", "idle", "idle_pct", "backlog_s", "surplus" }) or nil,
@@ -89,6 +93,18 @@ remote.add_interface("fo-ia1", {
     out.inflight = P.inflight_count
     out.agents = Registry.count()
     return out
+  end,
+  -- Correction IA1-a : SEULE écriture de l'interface, pour les bancs (un mod ne peut écrire que SES réglages :
+  -- le mod de test passe par ici). Réglages des équipes seulement (S.SETTINGS) ; valeur bornée par Scale.read.
+  -- Rend la valeur lue ensuite, ou nil si le réglage n'est pas un réglage des équipes.
+  set_setting = function(name, value)
+    local known = false
+    for _, s in ipairs(Scale.SETTINGS) do if s.name == name then known = true end end
+    if not known or type(value) ~= "number" then return nil end
+    local v = Scale.read(name, function() return value end)
+    settings.global[name] = { value = v }
+    Config.invalidate()
+    return Scale.read(name, function(n) return settings.global[n].value end)
   end,
 })
 

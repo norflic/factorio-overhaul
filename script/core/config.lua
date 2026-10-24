@@ -26,6 +26,7 @@ local TEAM_KEYS = {
   npc_start = "fo-npc-start",
   agents_max = "fo-agents-max",
   path_issue_per_tick = "fo-path-issue-per-tick",
+  recruit_idle_max = "fo-recruit-idle-max", -- correction IA1-a : frein par le travail
 }
 
 local cache = nil
@@ -47,6 +48,9 @@ function Config.get(key)
   if not cache then refresh() end
   return cache[key]
 end
+
+--- Vide le cache (réglage écrit par script : interface « fo-ia1 », set_setting).
+function Config.invalidate() cache = nil end
 
 Events.on(defines.events.on_runtime_mod_setting_changed, function()
   cache = nil

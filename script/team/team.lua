@@ -197,6 +197,10 @@ function Team.view(f, tick)
   local workers_wanted = Scale.workers_wanted(epoch_of(f), workers_max)
   local recruit_cost = Scale.recruit_cost(f.engineers_count)
   local recruit_blocked = Registry.count() >= Config.get("agents_max")
+  -- Correction IA1-a (défauts M1, M2) : frein par le travail. Plus de fo-recruit-idle-max PNJ sans tâche :
+  -- aucune recrue (ni équipement de recrue fabriqué) ; le stock reste aux objectifs et à l'armée.
+  local workers_idle = Worker.idle_count(f)
+  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"))
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
@@ -224,8 +228,9 @@ function Team.view(f, tick)
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
-    workers = f.engineers_count, workers_max = workers_max, workers_idle = Worker.idle_count(f),
+    workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
+    recruit_held = recruit_held,
     ladder = f.is_player and T.player_ladder or nil, no_research = f.is_player or false,
     threatened = tick < (f.threatened_until or 0),
     open = Board.open(f),
@@ -303,6 +308,7 @@ function Team.think(f, surface, tick)
   Team.measure(f, view, tick)
   Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
   if plan.recruit_blocked then f.stats.recruit_guard = (f.stats.recruit_guard or 0) + 1 end
+  if plan.recruit_held then f.stats.recruit_held = (f.stats.recruit_held or 0) + 1 end
   Profiler.stop("team:scale")
 
   -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris).
@@ -392,11 +398,11 @@ function Team.status_line(f)
   -- Lot IA1-a : effectif / plafond, recrues payées, garde d'agents, mesures de la dernière pensée.
   local m = t.scale and t.scale.last
   local st = f.stats or {}
-  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d | effectif %d/%d (recrues %d, garde %d) | inactifs %s | au-dela du carnet %s",
+  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d | effectif %d/%d (recrues %d, garde %d, frein %d) | inactifs %s | au-dela du carnet %s",
     t.goal or "aucun (echelle gravie)", table.concat(missing, " "), table.concat(parts, " "), open, taken,
     table.concat(ws, " "), table.concat(ts, ", "), table.concat(fr, " "), t.collected or 0, t.trained or 0,
     d["iron-plate"] or 0, d["copper-plate"] or 0, d["coal"] or 0, d["iron-ore"] or 0,
-    f.engineers_count or 0, Team.npc_max(f), st.recruited or 0, st.recruit_guard or 0,
+    f.engineers_count or 0, Team.npc_max(f), st.recruited or 0, st.recruit_guard or 0, st.recruit_held or 0,
     m and (m.idle .. "/" .. m.n) or "?", m and tostring(m.surplus) or "?")
 end
 

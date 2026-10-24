@@ -30,6 +30,7 @@ section("Réglages : défauts et bornes (docs §11, commande du lot)")
 local want = {
   ["fo-factions"] = { 4, 2, 4 }, ["fo-team-npc-max"] = { 30, 6, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
   ["fo-npc-start"] = { 8, 2, 30 }, ["fo-agents-max"] = { 300, 50, 600 }, ["fo-path-issue-per-tick"] = { 2, 1, 6 },
+  ["fo-recruit-idle-max"] = { 0, 0, 60 }, -- correction IA1-a : frein par le travail
 }
 local seen = 0
 for _, s in ipairs(S.SETTINGS) do
@@ -41,7 +42,7 @@ for _, s in ipairs(S.SETTINGS) do
       string.format("%s : %d (%d à %d)", s.name, s.default, s.min, s.max))
   end
 end
-check(seen == 6, "6 réglages déclarés (" .. seen .. ")")
+check(seen == 7, "7 réglages déclarés (" .. seen .. ")")
 check(S.read("fo-team-npc-max", function() error("absent") end) == 30, "réglage absent : défaut")
 check(S.read("fo-team-npc-max", function() return nil end) == 30, "réglage nil : défaut")
 check(S.read("fo-team-npc-max", function() return 100 end) == 60, "valeur bornée au maximum")
@@ -204,6 +205,25 @@ check(not poor.recruit_workers, "stock insuffisant : pas de recrue (le stock fre
 local legacy = Planner.plan(base_view({ stock = rich, workers = 1, workers_max = 10 }), book)
 check(legacy.recruit_workers == 1, "vue sans champs IA1-a : règle d'avant (2 + avant-postes)")
 
+section("Cerveau : frein par le travail (correction IA1-a, fo-recruit-idle-max)")
+check(S.recruit_held(1, 0) and not S.recruit_held(0, 0), "limite 0 : un seul PNJ inactif retient la recrue")
+check(not S.recruit_held(30, 60) and not S.recruit_held(60, 60), "limite 60 : jamais de frein (seul le stock freine)")
+check(S.recruit_held(3, 2) and not S.recruit_held(2, 2), "limite 2 : frein au-delà de 2 inactifs")
+check(S.recruit_held(1, nil), "limite absente : défaut du réglage (0)")
+local ph = Planner.plan(base_view({ stock = rich, workers_wanted = 30, recruit_cost = cost, recruit_held = true }), book)
+check(not ph.recruit_workers and ph.recruit_held, "frein : aucune recrue malgré le stock")
+local craft_recruit = false
+local poor_h = Planner.plan(base_view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = 100 }, workers_wanted = 30,
+  recruit_cost = cost, recruit_held = true }), book)
+for _, t in ipairs(poor_h.tasks) do if t.tag == "ouvrier" then craft_recruit = true end end
+local poor_f = Planner.plan(base_view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = 100 }, workers_wanted = 30,
+  recruit_cost = cost }), book)
+local craft_free = false
+for _, t in ipairs(poor_f.tasks) do if t.tag == "ouvrier" then craft_free = true end end
+check(craft_free and not craft_recruit, "frein : l'équipement d'une recrue n'est plus fabriqué (sans frein : fabriqué)")
+local p0h = Planner.plan(base_view({ workers = 0, workers_wanted = 30, recruit_cost = cost, recruit_held = true }), book)
+check(p0h.recruit_workers == 1 and p0h.recruit_unarmed, "frein, équipe vide : embauche de secours conservée")
+
 ---------------------------------------------------------------------------------------------------
 section("Mesures publiées : inactivité réelle et au-delà du carnet, séparées")
 local m0 = S.metrics({}, 30, 30, "equilibre", false, 0)
@@ -235,8 +255,10 @@ local function patches() -- même carte que tests/war_test.lua (gisements autour
   end
   return out
 end
-local function run_war(minutes)
+local function run_war(minutes, brake)
   M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  -- Banc d'échelle : frein par le travail levé (60 = seul le stock freine), comme le scénario ia1-scale.
+  M.world().settings["fo-recruit-idle-max"] = brake or 60
   local ok = remote.call("factorio-overhaul", "war_start", 4, 100, nil, 320)
   check(ok == true, "war_start sans nombre d'ouvriers")
   local w = global.fo.war
@@ -272,6 +294,26 @@ check(#rows == 4 and rows[1].thinks > 0 and rows[1].last ~= nil, "interface fo-i
 local path = remote.call("fo-ia1", "path")
 check(path.inflight_max <= 6, "au plus 6 demandes de chemin en vol (" .. path.inflight_max .. ")")
 check(pcall(M.serialize, global), "global sérialisable")
+
+section("Moteur simulé : frein par le travail par défaut (correction IA1-a)")
+do
+  local wb = run_war(12, 0)
+  local held, paid_b, max_n = 0, 0, 0
+  for _, f in ipairs(wb.factions) do
+    held = held + (f.stats.recruit_held or 0)
+    paid_b = paid_b + (f.stats.recruited or 0)
+    max_n = math.max(max_n, f.engineers_count)
+    print(string.format("  %s : %d PNJ, %d recrues payées, frein %d, fer au QG %d", f.key, f.engineers_count,
+      f.stats.recruited or 0, f.stats.recruit_held or 0, f.hq.get_item_count("iron-plate")))
+  end
+  check(held > 0, "le frein retient des recrues (" .. held .. " pensées)")
+  check(paid_b < 4 * 22, "le frein limite la montée : " .. paid_b .. " recrues payées sur 88 possibles")
+  local rows_b = remote.call("fo-ia1", "teams")
+  check(rows_b[1].held ~= nil and rows_b[1].held >= 0, "interface fo-ia1 : champ « held » publié")
+  local v = remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 99)
+  check(v == 60, "set_setting borne la valeur (99 -> " .. tostring(v) .. ")")
+  check(remote.call("fo-ia1", "set_setting", "fo-pvp-difficulty", 1) == nil, "set_setting refuse un réglage hors équipes")
+end
 
 section("Moteur simulé : au plus 2 demandes émises par tick")
 do

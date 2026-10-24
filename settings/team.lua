@@ -11,7 +11,9 @@
     fo-agents-max           garde de performance comptée en agents riches (300 ; 50 à 600) : au-delà, le
                             recrutement est suspendu ;
     fo-path-issue-per-tick  demandes de chemin émises par tick pour tout le mod (2 ; 1 à 6), en plus de la
-                            limite des demandes en vol (fo-path-max-inflight, 6).
+                            limite des demandes en vol (fo-path-max-inflight, 6) ;
+    fo-recruit-idle-max     frein par le travail (correction IA1-a ; 0 ; 0 à 60) : une équipe ne recrute que si
+                            au plus ce nombre de ses PNJ sont sans tâche ; 60 = seul le stock freine.
   Défauts et bornes : shared/team/scale.lua (S.SETTINGS), une seule source avec la lecture runtime.
   Traductions : locale/*/ia1.cfg.
 ]]

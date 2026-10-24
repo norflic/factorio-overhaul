@@ -47,6 +47,10 @@ return {
   check_tick = 215000,
 
   init = function(ctx)
+    -- Correction IA1-a : banc d'ÉCHELLE (150 PNJ) ; le frein par le travail (fo-recruit-idle-max, défaut 0)
+    -- garderait les équipes vers 8 PNJ : il est levé ici (60 = seul le stock freine).
+    local held = ctx.remote("fo-ia1", "set_setting", "fo-recruit-idle-max", 60)
+    ctx.check(held == 60, "frein par le travail leve (fo-recruit-idle-max = 60)", held)
     local ok = ctx.remote("fo-pvp", "set_difficulty", "peaceful")
     ctx.check(ok == true, "difficulte Paisible imposee avant la guerre")
     local started = ctx.call("war_start", 4, 100) -- sans nombre d'ouvriers : fo-team-npc-max
@@ -81,8 +85,9 @@ return {
       st.prev[r.key] = { thinks = r.thinks, n_sum = r.n_sum, idle_sum = r.idle_sum, surplus_sum = r.surplus_sum, mu = r.produced_mu }
       st.max_n[r.key] = math.max(st.max_n[r.key] or 0, r.n)
       if r.n >= TARGET and not st.reach[r.key] then st.reach[r.key] = minute end
-      parts[#parts + 1] = string.format("%s n=%d/%d recrues=%d garde=%d inactifs=%.0f%% au-dela=%.1f mu=%d tech=%d ap=%d soldats=%d chemins_ko=%d buts_deplaces=%d",
-        r.key, r.n, r.max, r.recruited, r.guard, idle_pct, surplus, dmu, r.tech, r.outposts, r.soldiers, r.nav_fail, r.goal_moved)
+      if minute == 30 or minute == 59 then st.series[r.key .. ":" .. minute] = r.soldiers end
+      parts[#parts + 1] = string.format("%s n=%d/%d recrues=%d garde=%d frein=%d inactifs=%.0f%% au-dela=%.1f mu=%d tech=%d ap=%d soldats=%d chemins_ko=%d buts_deplaces=%d",
+        r.key, r.n, r.max, r.recruited, r.guard, r.held or 0, idle_pct, surplus, dmu, r.tech, r.outposts, r.soldiers, r.nav_fail, r.goal_moved)
     end
     local fail, total = sum_path(p)
     ctx.log(string.format("minute %d | agents %d | chemins demandes %d emis %d ok %d echecs %d (%.1f %%) but_occupe %d depart %d eau %d autre %d | en vol max %d file max %d emis/tick max %d",
@@ -103,6 +108,10 @@ return {
       local surplus = r.thinks > 0 and r.surplus_sum / r.thinks or 0
       ctx.log(string.format("%s : sur toute la partie, inactivite reelle %.1f %% ; au-dela du carnet %.1f PNJ en moyenne (publies, non bornes dans ce lot) ; production %d MU ; cases bloquees %d, prises %d",
         r.key, idle, surplus, r.produced_mu, r.slots_bad, r.slots_owned))
+      -- Correction IA1-a (défaut M2) : armée publiée à 30 min et en fin de partie (relevé de la minute 59 ; la
+      -- minute 60 tombe après le contrôle du tick 215 000), et au contrôle.
+      ctx.log(string.format("%s : armee soldats min30 %s min59 %s fin %d ; tech %d",
+        r.key, tostring(st.series[r.key .. ":30"]), tostring(st.series[r.key .. ":59"]), r.soldiers, r.tech))
     end
     local fail, total = sum_path(p)
     local rate = total > 0 and fail / total or 0

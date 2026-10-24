@@ -26,8 +26,10 @@ TAG = "[FO-IA1-SCALE]"
 # Débit moyen nominal X0 de l'époque 1 (shared/content/epochs.lua : X.rate_avg(1)).
 RATE1 = (3 - 3 / (14000 / 3) ** (1 / 14)) / math.log((14000 / 3) ** (1 / 14))
 
-TEAM_RE = re.compile(r"minute (\d+) \| (\w+) n=(\d+)/(\d+) recrues=(\d+) garde=(\d+) inactifs=([0-9.]+)% "
+# « frein=N » (correction IA1-a) est facultatif : les journaux d'avant la correction restent lisibles.
+TEAM_RE = re.compile(r"minute (\d+) \| (\w+) n=(\d+)/(\d+) recrues=(\d+) garde=(\d+)(?: frein=\d+)? inactifs=([0-9.]+)% "
                      r"au-dela=([0-9.]+) mu=(-?\d+)")
+SOLD_RE = re.compile(r" soldats=(\d+)")
 PATH_RE = re.compile(r"minute (\d+) \| agents (\d+) \| chemins demandes (\d+) emis (\d+) ok (\d+) echecs (\d+) "
                      r"\(([0-9.]+) %\) but_occupe (\d+)")
 
@@ -94,6 +96,7 @@ def main():
                 "minute": minute, "n": int(m.group(3)), "max": int(m.group(4)), "recruited": int(m.group(5)),
                 "guard": int(m.group(6)), "idle": float(m.group(7)), "surplus": float(m.group(8)),
                 "mu": int(m.group(9)),
+                "soldiers": int(SOLD_RE.search(line).group(1)) if SOLD_RE.search(line) else -1,
             })
             continue
         m = PATH_RE.search(line)
@@ -111,13 +114,25 @@ def main():
         mu_s = sum(r["mu"] for r in mid) / len(mid) / 60 if mid else float("nan")
         print(f"{key:10s} {series[-1]['n']:>4d}/{series[-1]['max']:<4d}       {str(reach):>6s}        "
               f"{idle:8.1f} %               {surplus:6.1f}            {mu_s:7.2f}   {mu_s / RATE1:5.2f}")
+    # Correction IA1-a (défaut M2) : armée des factions à 30 min et en fin de partie (minute 59, dernier relevé).
+    print("armee (soldats)   min 30   min 59")
+    tot30, tot59 = 0, 0
+    for key in sorted(teams):
+        if key == "player":
+            continue
+        by_min = {r["minute"]: r["soldiers"] for r in teams[key]}
+        s30, s59 = by_min.get(30, -1), by_min.get(59, -1)
+        tot30 += max(s30, 0)
+        tot59 += max(s59, 0)
+        print(f"{key:16s} {s30:6d}   {s59:6d}")
+    print(f"{'total':16s} {tot30:6d}   {tot59:6d}")
     if a.csv:
         with open(a.csv, "w", encoding="utf-8") as f:
-            f.write("equipe;minute;effectif;max;recrues;garde;inactivite_pct;au_dela_du_carnet;production_mu_minute\n")
+            f.write("equipe;minute;effectif;max;recrues;garde;inactivite_pct;au_dela_du_carnet;production_mu_minute;soldats\n")
             for key in sorted(teams):
                 for r in teams[key]:
                     f.write(f"{key};{r['minute']};{r['n']};{r['max']};{r['recruited']};{r['guard']};"
-                            f"{r['idle']:.1f};{r['surplus']:.1f};{r['mu']}\n")
+                            f"{r['idle']:.1f};{r['surplus']:.1f};{r['mu']};{r['soldiers']}\n")
         print(f"== tableau par minute : {a.csv}")
     if paths:
         last = paths[-1]

@@ -38,6 +38,13 @@ S.SETTINGS = {
   { name = "fo-agents-max", default = 300, min = 50, max = 600, order = "f-e" },
   -- Demandes de chemin ÉMISES par tick pour tout le mod (lissage ; la vraie limite reste fo-path-max-inflight).
   { name = "fo-path-issue-per-tick", default = 2, min = 1, max = 6, order = "f-f" },
+  -- Correction du lot IA1-a (défauts M1 et M2 de la vérification, 24/10) : FREIN PAR LE TRAVAIL. Une équipe ne
+  -- recrute (et ne fabrique l'équipement d'une recrue) que si AU PLUS ce nombre de ses PNJ sont sans tâche à la
+  -- pensée. 0 (défaut provisoire, à confirmer par le DC) : on recrute quand tout le monde travaille ; 60 : aucun
+  -- frein, seul le stock freine (Q-IA1-2 (2) à la lettre). Le plafond (30 dès l'époque 1) n'est pas touché.
+  -- Raison, mesurée en moteur réel : sans travail (IA1-b), les recrues restent inactives et vident le stock
+  -- (votre coffre de 1 540 à 148 fer à 20 min, 29 PNJ inactifs sur 30 ; NOTES.md du lot, « Correction »).
+  { name = "fo-recruit-idle-max", default = 0, min = 0, max = 60, order = "f-g" },
 }
 S.DEFAULTS = {}
 for _, s in ipairs(S.SETTINGS) do S.DEFAULTS[s.name] = s.default end
@@ -76,6 +83,12 @@ end
 --- Ouvriers voulus par le cerveau : le plafond de l'époque (le stock seul freine : la recrue se paie).
 function S.workers_wanted(epoch, max)
   return S.cap(epoch, max)
+end
+
+--- Frein par le travail (réglage fo-recruit-idle-max) : vrai si l'équipe a PLUS de `limit` PNJ sans tâche ;
+--- elle ne recrute alors pas. `limit` ≥ 60 (le maximum d'une équipe) : jamais de frein.
+function S.recruit_held(idle, limit)
+  return (idle or 0) > (limit or S.DEFAULTS["fo-recruit-idle-max"])
 end
 
 --- Coût d'une recrue (rang 1) : kit + (10 + effectif actuel) plaques de fer (O.recruit_cost, docs §9).
