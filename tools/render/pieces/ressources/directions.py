@@ -127,7 +127,12 @@ DIRECTIONS["A3"] = dict(DIRECTIONS["A"], nom="druses de wolframite miroir (60/30
 # (le reflet froid qui manque au charbon) ; accent brun-rouge sombre réduit aux GRAINS du tapis (aucune roche cuivrée).
 MAT["acier_froid"] = dict(color=(0.42, 0.48, 0.62), rough=0.28, met=0.60, grain=0.12, gscale=55.0, dirt=0.5)
 MAT["hubnerite_sombre"] = dict(color=(0.07, 0.028, 0.016), rough=0.5, met=0.25, grain=0.3, gscale=40.0, dirt=0.4)
-DIRECTIONS["A4"] = dict(DIRECTIONS["A"], nom="druses de wolframite et d'acier froid (60/30/10)",
+# Correction M1 (24/10, MAJEUR 2 de la vérification) : « 60/30/10 » ci-dessus est une répartition de MATIÈRES dans la
+# scène, PAS ce qu'on voit : le reflet du ciel (SKY_GLOSSY_FACTOR) éclaircit la wolframite en gris. Couleurs VUES de la
+# feuille A4 livrée (mesure.repartition, aussi dans son MANIFEST.json) : environ 25 % sombres, 72 % acier (42 % bleutés),
+# 3 % chauds. Ni le 60/30/10 de matières, ni la palette de l'âge 5 (basalte noir 60 / rouille brûlée 30 / lave orange
+# 10) ne sont ce qu'on voit : question au DC (NOTES.md du lot, section « Correction »).
+DIRECTIONS["A4"] = dict(DIRECTIONS["A"], nom="druses de wolframite et d'acier froid (acier dominant, mesuré)",
                         touffes=(7, 6, 5, 4, 3, 3, 2, 1),
                         lame_mats=("wolframite", "wolframite", "wolframite", "acier_froid", "acier_froid", "acier_w"),
                         roche_mats=("basalte_min", "basalte_min", "wolframite"),
@@ -157,6 +162,18 @@ DIRECTIONS["A4"]["roche_mats"] = ("basalte_brut", "basalte_brut", "wolframite")
 # (rondes 1 à 3).
 ICONE = {"A4": dict(lames=(5, 7), echelle=2.2, roche_mats=("wolframite", "basalte_brut"),
                     lame_mats=("acier_froid", "acier_froid", "wolframite", "acier_w"))}
+
+# Couche d'effet « eclats » (feuille.couleur_effet) : direction -> réglages. Sans entrée : éclats seuls (reflets de
+# luminance 0,52 à 0,85, teinte (0,55 ; 0,78 ; 1)), comme le commit a9038a9.
+EFFET = {
+    # Correction M1 (MAJEUR 1 : de nuit, en moteur, le tungstène ne se distinguait pas du fer) : variante « W2 » de
+    # fo-logs/2026-10-24_M1/correction : lueur turquoise froide sur les faces des cristaux ET des galets de basalte, éclats
+    # plus larges ; avec les alphas de shared/content/world.lua (0,008 à 0,012, multiplicateur d'obscurité 120) : presque
+    # rien de jour, lueur franche de nuit (lisibilite_moteur.py : 7 OK sur les captures en moteur). Les cristaux seuls
+    # (variante W6, galets éteints) ne passent pas la nuit : ΔE76 au fer 8,7.
+    "A4": dict(teinte=(0.15, 1.0, 0.90), seuil=(0.25, 0.50),
+               lueur=dict(lum=(0.03, 0.15), froid=(-0.08, -0.02), gain=1.0)),
+}
 
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.

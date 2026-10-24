@@ -12,6 +12,10 @@ Mesures (couche hr, pixels d'alpha > 0,9 sauf mention) :
     moins médiane du sol nu), au zoom 2 (hr, 64 px/tuile) et au zoom 1 (normale, 32 px/tuile), de jour et de nuit.
     La NUIT est une APPROXIMATION hors moteur (image × 0,2, plus la couche d'effet additive × alpha maximal ×
     multiplicateur d'obscurité, comme l'uranium vanilla) : seules les captures en jeu font foi.
+    ATTENTION (correction M1, 24/10) : cette approximation s'est trompée de SIGNE sur le commit a9038a9 (tungstène
+    16,1 contre fer 13,5 hors moteur ; 7,5 contre 11,2 sur les captures en moteur). Le critère de nuit est celui de
+    lisibilite_moteur.py, sur les captures du scénario m1-minerai ; les chiffres de nuit d'ici ne décident de rien ;
+  - couleurs VUES (repartition) : sombres, acier (dont bleutés), chauds, et histogramme de luminance.
 La planche montre, pour chaque minerai, un gisement de 9 × 7 tuiles (stade selon la distance au centre, variante au
 hasard fixe) sur le sol de cendres volcaniques (nuclear-ground × teinte du biome) et sur le sol vanilla donné.
 """
@@ -44,6 +48,27 @@ def lab(rgb):
     return np.array([116 * f[1] - 16, 500 * (f[0] - f[1]), 200 * (f[1] - f[2])])
 
 
+def repartition(sheet):
+    """Répartition des couleurs VUES (correction M1, 24/10, MAJEUR 2 de la vérification) : pixels d'alpha > 0,9 de la
+    couche hr, valeurs sRGB codées (0 à 255). Classes (définitions du vérificateur, v_palette.py) :
+      - chauds : r − b > 12 et r ≥ g (brun-rouge, rouille, lave) ;
+      - sombres : luminance < 40 et non chauds (wolframite noire, basalte) ;
+      - acier : luminance ≥ 40 et non chauds ; dont « bleutés » : b − r > 4.
+    La répartition des MATIÈRES dans la scène n'est pas celle qu'on voit (le reflet du ciel éclaircit la wolframite) :
+    c'est celle-ci qu'on annonce, et le MANIFEST.json de la feuille la porte (check_gisement.py la recalcule)."""
+    m = sheet[..., 3] > 0.9
+    px = sheet[..., :3][m] * 255.0
+    if len(px) == 0:
+        return {"sombres": 0.0, "acier": 0.0, "acier_bleutes": 0.0, "chauds": 0.0, "L": [0.0] * 4}
+    lum = px @ np.array([0.2126, 0.7152, 0.0722])
+    chaud = (px[:, 0] - px[:, 2] > 12) & (px[:, 0] >= px[:, 1])
+    bleu = (px[:, 2] - px[:, 0] > 4) & ~chaud
+    r = lambda x: round(float(x), 3)  # noqa: E731
+    return {"sombres": r(((lum < 40) & ~chaud).mean()), "acier": r(((lum >= 40) & ~chaud).mean()),
+            "acier_bleutes": r((bleu & (lum >= 40)).mean()), "chauds": r(chaud.mean()),
+            "L": [r(((lum >= s) & (lum < e)).mean()) for s, e in ((0, 40), (40, 80), (80, 120), (120, 256))]}
+
+
 def stats(sheet):
     a = sheet[..., 3]
     fs = sheet.shape[1] // 8
@@ -66,6 +91,7 @@ def stats(sheet):
         "L_p95": round(float(np.percentile(L, 95) * 255), 1), "sat": round(float(sat.mean()), 3),
         "couleur": [round(float(x * 255), 1) for x in moy], "reflets": [round(float(x * 255), 1) for x in refl],
         "reflets_teinte": round(h * 360, 1), "reflets_sat": round(s, 3),
+        "repartition": repartition(sheet),
         "_lab": lab(moy).tolist(), "_lab_refl": lab(refl).tolist(),
     }
 
@@ -210,7 +236,7 @@ def main():
         etiquettes = []
         for zoom in (2, 1):
             for nom_sol in ("cendres", a.sol_vanilla):
-                for moment in ("jour", "nuit (approx.)"):
+                for moment in ("jour", "nuit (approx. hors moteur, NON fiable)"):
                     etiquettes.append("zoom %d, %s, %s" % (zoom, nom_sol, moment))
         y = 0
         for l, t in zip(lignes, etiquettes):
@@ -223,6 +249,11 @@ def main():
         print("[FO-MESURE] %-12s couv %s | L méd %5.1f moy %5.1f p95 %5.1f sat %.2f | reflets %s %5.1f° sat %.2f" % (
             k, r["couverture"], r["L_med"], r["L_moy"], r["L_p95"], r["sat"], r["reflets"], r["reflets_teinte"],
             r["reflets_sat"]))
+        rp = r["repartition"]
+        print("[FO-MESURE] %-12s   couleurs vues : sombres %.1f %% | acier %.1f %% (bleutés %.1f %%) | chauds %.1f %% | "
+              "L < 40 / 40-80 / 80-120 / > 120 : %s %%" % ("", 100 * rp["sombres"], 100 * rp["acier"],
+                                                          100 * rp["acier_bleutes"], 100 * rp["chauds"],
+                                                          " / ".join("%.1f" % (100 * x) for x in rp["L"])))
         if "ecarts" in r:
             print("[FO-MESURE] %-12s   écarts : %s" % ("", "; ".join(
                 "%s ΔE %.0f / reflets %.0f / ΔL %+.0f" % (v, e["dE_couleur"], e["dE_reflets"], e["dL_med"])

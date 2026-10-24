@@ -165,7 +165,10 @@ W.resources = {
       dir = "__factorio-overhaul__/graphics/ressources/tungstene",
       name = "tungstene",
       mining_visualisation_tint = { r = 0.62, g = 0.68, b = 0.82, a = 1 },
-      effet = { period = 6, deviation = 1, darkness_multiplier = 3.6, min = 0.15, max = 0.45 },
+      -- Correction M1 : de JOUR la couche d'effet se voit à min..max ; de NUIT le moteur la multiplie (mesuré en
+      -- moteur, croissance moins que proportionnelle). Alphas minuscules et multiplicateur grand : presque rien de jour,
+      -- lueur turquoise franche de nuit (fo-logs/2026-10-24_M1/NOTES.md, « Correction »).
+      effet = { period = 6, deviation = 1, darkness_multiplier = 120, min = 0.008, max = 0.012 },
     },
     -- Lot M1 : (0,30 ; 0,36 ; 0,52) était à ΔE 20 de l'eau et 24 du fer sur la carte ; bleu acier froid, ΔE ≥ 48 de
     -- l'eau, du fer, du cristal, du pétrole, des cendres et du marais (mesure.py, CIE76).

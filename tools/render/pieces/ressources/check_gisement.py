@@ -11,9 +11,15 @@ Contrôles (bloquants, code 1 au moindre échec) :
      (fer, cuivre, pierre, charbon, directions.COUVERTURE_VANILLA) ; aucun cadre vide ;
   4. aucun pixel dans la bordure de 2 px de chaque cadre hr (un débord serait coupé par le moteur, ou mordrait sur le
      cadre voisin au filtrage) ;
-  5. la normale est la réduction 2× de la hr (écart moyen d'alpha < 0,01).
+  5. la normale est la réduction 2× de la hr (écart moyen d'alpha < 0,01 ; correction M1 : et de COULEUR prémultipliée
+     < 0,02) ;
+  6. (correction M1, MINEUR 5 de la vérification) couche d'effet, si elle existe : rien dans la bordure de 2 px, et
+     aucun pixel d'effet (alpha > 0,02) hors du minerai (alpha de la hr < 0,05 au même endroit) ;
+  7. (correction M1, MAJEUR 2) la répartition des couleurs VUES annoncée par MANIFEST.json (« repartition »,
+     mesure.repartition) est celle du fichier hr (à 0,002 près) : aucune palette annoncée sans mesure.
 --mutants : chaque contrôle doit REFUSER une copie abîmée (somme fausse, cadre décalé, stade vide, débord, normale
-d'une autre feuille) ; « BILAN mutants : n/n refusés ».
+d'une autre feuille, effet décalé, effet dans la bordure, normale toute rouge aux bonnes alphas, répartition annoncée
+fausse) ; « BILAN mutants : n/n refusés ».
 """
 import argparse
 import hashlib
@@ -29,6 +35,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import directions as D  # noqa: E402
+import mesure as MS  # noqa: E402
 
 DEFAUT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", "graphics", "ressources", "tungstene"))
 
@@ -108,7 +115,37 @@ def controler(dossier, nom, dire=print):
         nr = lire(nrp)[..., 3]
         red = a.reshape(512, 2, 512, 2).mean((1, 3))
         e = float(np.abs(red - nr).mean())
-        check(e < 0.01, "la normale est la réduction 2x de la hr", "(écart moyen d'alpha %.4f)" % e)
+        nrc = lire(nrp)
+        prem = (hr[..., :3] * hr[..., 3:4]).reshape(512, 2, 512, 2, 3).mean((1, 3))
+        ec = float(np.abs(prem - nrc[..., :3] * nrc[..., 3:4]).mean())
+        check(e < 0.01 and ec < 0.02, "la normale est la réduction 2x de la hr (alpha et couleur)",
+              "(écart moyen d'alpha %.4f, de couleur prémultipliée %.4f)" % (e, ec))
+    efp = os.path.join(dossier, "hr-%s-effet.png" % nom)
+    if os.path.exists(efp) and Image.open(efp).size == (1024, 1024):
+        ea = lire(efp)[..., 3]
+        bord_e = 0
+        for r in range(8):
+            for c in range(8):
+                t = ea[r * 128:(r + 1) * 128, c * 128:(c + 1) * 128]
+                m = np.ones_like(t, bool)
+                m[2:-2, 2:-2] = False
+                bord_e += int((t[m] > 0.02).sum())
+        allume = ea > 0.02
+        # « hors du minerai » : là où la hr est (presque) transparente ; le fondu de bordure du cadre réduit l'alpha de
+        # la hr et celui de l'effet du même facteur : quelques pixels d'effet sur une hr d'alpha 0,1 à 0,3 sont normaux
+        hors = int((allume & (a < 0.05)).sum())
+        check(bord_e == 0 and hors == 0, "couche d'effet : rien dans la bordure, rien hors du minerai",
+              "(%d pixels allumés, %.2f %% du minerai ; bordure %d ; hors minerai %d)" % (
+                  int(allume.sum()), 100.0 * allume.sum() / max(1, int((a > 0.5).sum())), bord_e, hors))
+    rp_man = man.get("repartition")
+    rp = MS.repartition(hr)
+    if rp_man is None:
+        check(False, "répartition des couleurs vues annoncée au manifeste", "(champ « repartition » absent)")
+    else:
+        dif = max(abs(rp[k] - rp_man.get(k, -1)) for k in ("sombres", "acier", "acier_bleutes", "chauds"))
+        check(dif <= 0.002, "répartition des couleurs vues : annoncée = mesurée",
+              "(sombres %.1f %%, acier %.1f %% dont bleutés %.1f %%, chauds %.1f %% ; écart max %.4f)" % (
+                  100 * rp["sombres"], 100 * rp["acier"], 100 * rp["acier_bleutes"], 100 * rp["chauds"], dif))
     return ok, ko
 
 
@@ -151,9 +188,50 @@ def mutants(dossier, nom):
         p = os.path.join(d, "icone.png")
         Image.open(p).crop((0, 0, 64, 64)).save(p)
 
+    def resommer(d, fn):
+        """Remet la somme du fichier muté dans le manifeste : seul le contrôle propre au défaut doit le refuser."""
+        mp = os.path.join(d, "MANIFEST.json")
+        with open(mp, encoding="utf-8") as f:
+            man = json.load(f)
+        with open(os.path.join(d, fn), "rb") as f:
+            man["sha256"][fn] = hashlib.sha256(f.read()).hexdigest()
+        with open(mp, "w", encoding="utf-8") as f:
+            json.dump(man, f)
+
+    def effet_decale(d):
+        p = os.path.join(d, "hr-%s-effet.png" % nom)
+        im = lire(p)
+        im = np.roll(im, 300, axis=1)
+        Image.fromarray((im * 255).round().astype(np.uint8), "RGBA").save(p)
+        resommer(d, "hr-%s-effet.png" % nom)
+
+    def effet_bordure(d):
+        p = os.path.join(d, "hr-%s-effet.png" % nom)
+        im = lire(p)
+        im[128:130, 200:210] = (0.5, 0.8, 1.0, 0.5)
+        Image.fromarray((im * 255).round().astype(np.uint8), "RGBA").save(p)
+        resommer(d, "hr-%s-effet.png" % nom)
+
+    def normale_rouge(d):
+        p = os.path.join(d, "%s.png" % nom)
+        im = lire(p)
+        im[..., 0], im[..., 1], im[..., 2] = 1.0, 0.0, 0.0
+        Image.fromarray((im * 255).round().astype(np.uint8), "RGBA").save(p)
+        resommer(d, "%s.png" % nom)
+
+    def repartition_fausse(d):
+        mp = os.path.join(d, "MANIFEST.json")
+        with open(mp, encoding="utf-8") as f:
+            man = json.load(f)
+        man["repartition"] = dict(man.get("repartition", {}), sombres=0.60, acier=0.30, chauds=0.10)
+        with open(mp, "w", encoding="utf-8") as f:
+            json.dump(man, f)
+
     for nomm, fn in (("somme fausse", somme), ("cadres décalés de 64 px", decale), ("stade 5 vide", stade_vide),
                      ("débord dans la bordure", deborde), ("normale d'une autre image", normale_autre),
-                     ("icône sans mipmaps", icone_taille)):
+                     ("icône sans mipmaps", icone_taille), ("effet décalé de 300 px", effet_decale),
+                     ("effet dans la bordure", effet_bordure), ("normale toute rouge", normale_rouge),
+                     ("répartition annoncée 60/30/10", repartition_fausse)):
         tmp = tempfile.mkdtemp(prefix="m1-mutant-")
         try:
             for f in os.listdir(dossier):

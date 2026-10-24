@@ -15,7 +15,14 @@ champ `sheet`, et `prototypes/world.lua`). Le kit ne touche à AUCUN fichier du 
 | `gisement.py` | pièce de rendu : toute la grille (64 cellules + 4 icônes) en UN rendu par `blender/render_piece.py` | oui |
 | `feuille.py` | rendu (par le verrou) et post-traitement : cadres, ombre et liseré intégrés, fondu de bordure, réduction 2×, effet, icônes, `MANIFEST.json` | non (appelle Blender) |
 | `mesure.py` | mesures contre la vanilla (couverture, luminance, reflets, ΔE CIE76) et planche hors moteur jour / nuit, zooms 1 et 2 | non |
-| `check_gisement.py` | contrôle de la feuille livrée (manifeste, format, stades, bordure, normale) ; `--mutants` | non |
+| `check_gisement.py` | contrôle de la feuille livrée (manifeste, format, stades, bordure, normale en alpha et en couleur, couche d'effet dans le minerai, répartition des couleurs annoncée = mesurée) ; `--mutants` | non |
+| `lisibilite_moteur.py` | critère de lisibilité JOUR et NUIT mesuré sur les CAPTURES EN MOTEUR du scénario `m1-minerai` (ΔE76, contraste au sol, pixels clairs, contre le fer, le charbon et la pierre sur le même sol) ; la nuit hors moteur de `mesure.py` n'en décide pas (elle s'est trompée de signe) | non |
+
+**Nuit en moteur (correction M1, 24/10, mesuré).** La couche d'effet (`stages_effect`, additive, `flags = {"light"}`) se
+voit de jour à `min_effect_alpha`..`max_effect_alpha` et de nuit multipliée par `effect_darkness_multiplier`, avec
+saturation : voir `fo-logs/2026-10-24_M1/NOTES.md`, section « Correction ». Pour une lueur de nuit forte et presque rien
+de jour : alphas petits, multiplicateur grand (réglage du tungstène dans `shared/content/world.lua`). La couche elle-même
+se règle par `directions.EFFET` (`feuille.couleur_effet` : teinte, seuils des éclats, lueur des faces).
 
 ## Commandes (depuis la racine du mod)
 
@@ -39,7 +46,8 @@ py -3.9 tools/render/pieces/ressources/check_gisement.py --mutants   -> « BILAN
    `fins` ; matières `MAT`, valeurs linéaires ; `effet` : `"eclats"` (reflets les plus clairs, en additif), `"lave"`
    (passe de lueur), ou rien ; `CALIB` ; `ICONE` pour l'icône en gros plan ; `GRAINE`).
 2. Régler les comptes par stade pour suivre `COUVERTURE_VANILLA` (lire la couverture dans la sortie de `feuille.py`).
-3. `mesure.py` contre la vanilla (et contre les minerais du mod déjà faits) ; captures en jeu (scénario greffé
-   `m1-minerai` comme modèle) ; verdict du Directeur Créatif.
+3. `mesure.py` contre la vanilla (et contre les minerais du mod déjà faits ; lire la ligne « couleurs vues » : c'est
+   elle qu'on annonce, pas la répartition des matières) ; captures en jeu (scénario greffé `m1-minerai` comme modèle)
+   et `lisibilite_moteur.py` sur ces captures ; verdict du Directeur Créatif.
 4. Brancher : `sheet = { dir, name, mining_visualisation_tint, effet = {...} }` dans la ressource de
    `shared/content/world.lua` (garder le NOM du prototype : sinon migration).

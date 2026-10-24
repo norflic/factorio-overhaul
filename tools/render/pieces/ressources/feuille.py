@@ -37,6 +37,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, RENDER)
 import directions as D  # noqa: E402
 import fo_calib as C  # noqa: E402
+import mesure as MS  # noqa: E402
 import fo_post as P  # noqa: E402
 
 PIECE = os.path.join(HERE, "gisement.py")
@@ -107,10 +108,24 @@ def bordure(f, nul=2, plein=10):
     return out
 
 
-def couleur_effet(main, alpha, teinte=(0.55, 0.78, 1.0), seuil=(0.52, 0.85)):
-    """Éclats froids : reflets les plus clairs de la couche principale (luminance sRGB codée), en additif."""
+def rampe(x, a, b):
+    return np.clip((x - a) / float(b - a), 0, 1)
+
+
+def couleur_effet(main, alpha, teinte=(0.55, 0.78, 1.0), seuil=(0.52, 0.85), lueur=None):
+    """Éclats froids : reflets les plus clairs de la couche principale (luminance sRGB codée), en additif.
+
+    lueur (correction M1, 24/10 ; facultatif) : dict(lum=(a, b), froid=(a, b), gain=g) : lueur froide en plus des
+    éclats, sur les faces qui renvoient le ciel (luminance entre a et b ET bleutées : b - r entre a et b), au gain g.
+    Les éclats seuls n'allumaient que 0,78 % des pixels de la feuille (uranium vanilla : 38 %) : de nuit, en moteur,
+    le tungstène ne se distinguait pas du fer (vérification du lot, MAJEUR 1)."""
     lum = 0.2126 * main[..., 0] + 0.7152 * main[..., 1] + 0.0722 * main[..., 2]
-    k = np.clip((lum - seuil[0]) / (seuil[1] - seuil[0]), 0, 1) * (alpha > 0.5)
+    k = rampe(lum, seuil[0], seuil[1])
+    if lueur:
+        froid = main[..., 2] - main[..., 0]
+        kl = rampe(lum, *lueur["lum"]) * rampe(froid, *lueur["froid"]) * lueur["gain"]
+        k = np.maximum(k, kl)
+    k = k * (alpha > 0.5)
     img = np.zeros(main.shape[:2] + (4,))
     img[..., :3] = teinte
     img[..., 3] = k
@@ -132,7 +147,7 @@ def post(cle, travail, sortie, nom, lignes=D.STADES + 1):
     if d.get("effet") == "lave" and "glow" in L:
         effet_src = P.additive_layer(L["glow"])
     elif d.get("effet") == "eclats":
-        effet_src = couleur_effet(L["main"], L["main"][..., 3])
+        effet_src = couleur_effet(L["main"], L["main"][..., 3], **D.EFFET.get(cle, {}))
 
     hr = np.zeros((D.STADES * FRAME, D.COLONNES * FRAME, 4))
     hre = np.zeros_like(hr) if effet_src is not None else None
@@ -170,8 +185,11 @@ def post(cle, travail, sortie, nom, lignes=D.STADES + 1):
         "echantillons": info.get("samples"), "blender": info.get("blender"),
         "secondes_blender": info.get("seconds"),
         "couverture_par_stade": couv, "couverture_vanilla": list(D.COUVERTURE_VANILLA),
-        "effet": d.get("effet"), "format": {"frame": FRAME, "frame_count": D.COLONNES, "variation_count": D.STADES,
-                                            "scale_hr": 0.5, "icon_size": 64, "icon_mipmaps": 4},
+        # couleurs VUES, mesurées sur le fichier écrit (mesure.repartition ; check_gisement.py les recalcule)
+        "repartition": MS.repartition(MS.lire(os.path.join(sortie, "hr-%s.png" % nom))),
+        "effet": d.get("effet"), "effet_reglages": D.EFFET.get(cle, {}),
+        "format": {"frame": FRAME, "frame_count": D.COLONNES, "variation_count": D.STADES,
+                   "scale_hr": 0.5, "icon_size": 64, "icon_mipmaps": 4},
         "sha256": dict(sorted(sums.items())),
     }
     with open(os.path.join(sortie, "MANIFEST.json"), "w", encoding="utf-8", newline=LF) as f:

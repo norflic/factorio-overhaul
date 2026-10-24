@@ -23,6 +23,28 @@
  "direction": "A4",
  "echantillons": 128,
  "effet": "eclats",
+ "effet_reglages": {
+  "lueur": {
+   "froid": [
+    -0.08,
+    -0.02
+   ],
+   "gain": 1.0,
+   "lum": [
+    0.03,
+    0.15
+   ]
+  },
+  "seuil": [
+   0.25,
+   0.5
+  ],
+  "teinte": [
+   0.15,
+   1.0,
+   0.9
+  ]
+ },
  "format": {
   "frame": 128,
   "frame_count": 8,
@@ -37,17 +59,29 @@
   "secondes_blender": 17.27
  },
  "nom": "tungstene",
- "nom_direction": "druses de wolframite et d'acier froid (60/30/10)",
+ "nom_direction": "druses de wolframite et d'acier froid (acier dominant, mesuré)",
  "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.258,
+   0.485,
+   0.163,
+   0.094
+  ],
+  "acier": 0.717,
+  "acier_bleutes": 0.417,
+  "chauds": 0.03,
+  "sombres": 0.254
+ },
  "secondes_blender": 1462.93,
  "sha256": {
-  "hr-tungstene-effet.png": "8725a9fe1f089ab199866f54260f8a47e1c07802a07a52df3dbf47febf58154a",
+  "hr-tungstene-effet.png": "cf4073ee5aeabbd41d2ae92fc447e9487c35828671a488f578e279da62e241a6",
   "hr-tungstene.png": "2913e8ef3f58832acdea0f6cb9e8f33a8b3f662c8dc3807e37a4c073adcf0b33",
   "icone-1.png": "c962b7a2f49fa0e47d51db4ce36897491003876f8ade689f3b6f1abc87f63fc1",
   "icone-2.png": "30f2a5dc0b8089e1fdef411c2c479974ebdf1c876a20e77b90a89d5099604548",
   "icone-3.png": "c5460694347d2c3303bd9da730bda3fff5a9aa95b9b557edbf7badbc25837598",
   "icone.png": "490c4f08bc665cba039d50eec373e6ab32d68a442dc0ce0efa74055a0d7da9cb",
-  "tungstene-effet.png": "f4e35f4617dc4ec4bb1f67b09096e303bbf2613a5853b86b0195d757f4d0af0d",
+  "tungstene-effet.png": "5f7de76529d7cbafd45e2bc315a0d931c296f53d18ff4480191abb6c4764249b",
   "tungstene.png": "9887f4aa5a86f0fd3ae3b4bdf58144cc4a001f766364c8e889ea0b3f5299cf4b"
  }
 }
