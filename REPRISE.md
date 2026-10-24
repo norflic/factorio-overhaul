@@ -10,12 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 24/10/2026, vers 13 h 15** (orchestrateur, session `8a9c0503`) : la production des têtes est
+> **Dernière mise à jour : 24/10/2026, vers 13 h 05** (orchestrateur, session `8a9c0503`) : la production des têtes est
 > **finie** (11:59:25 : 840 / 840, 0 erreur ; 8 têtes HORS REGLE, dont 3 nouvelles à regarder : e11-d07, d22, d33). Vers
 > 12 h, **limite hebdomadaire du compte claude.ai atteinte** : 7 agents coupés net (A3-final au bout de 2 min ; les
 > correcteurs de F1-A, M1, IA1-0, IA1-a, IA1-c ; le vérificateur de PNJ-VÉRIF), un banc moteur tué (verrou orphelin retiré
 > à 13 h). Le DC a changé de profil ; **les 11 pages ont été republiées sur le nouveau profil** (nouvelles adresses
-> partout dans les documents) et les 4 runs relancés par `resumeFromRunId` vers 13 h 10, avec une note de reprise pour
+> partout dans les documents) et les 4 runs relancés par `resumeFromRunId` vers 13 h, avec une note de reprise pour
 > chaque agent coupé : `wf_a2163957-669` (A3-final, version proposée 0.4.12), `wf_dbbe3818-700`, `wf_7e687e38-811`,
 > `wf_e12c2f9b-9c8`. Disque H: 5,9 Go libres (alerte sous 3 Go). Avant :
 > **24/10/2026, vers 10 h 30** (orchestrateur, session `8a9c0503`) : version **0.4.11** (éclat
