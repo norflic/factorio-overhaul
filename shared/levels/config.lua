@@ -256,7 +256,7 @@ L.families = {
     base_growth = 0.15, epoch_value = 2, main_share = 1,
   },
   {
-    key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30,
+    key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30, modules = true,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
       { path = { "mining_speed" }, op = "mul", k = 0.10 },
@@ -276,7 +276,7 @@ L.families = {
     base_growth = 0.15, epoch_value = 6,
   },
   {
-    key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30,
+    key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30, modules = true,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
       { path = { "crafting_speed" }, op = "mul", k = 0.08 },
@@ -291,6 +291,21 @@ L.by_key = {}
 for i, f in ipairs(L.families) do
   f.index = i
   L.by_key[f.key] = f
+end
+
+---------------------------------------------------------------------------------------------------
+-- EMPLACEMENTS DE MODULES (lot MOD-1). Q-B2 du Directeur Créatif (24/10, vers 20 h 30) : « QB2 B, on commence à 5 et
+-- ensuite +1 par niveau ». Familles qui ont des modules (family.modules) : foreuse et assembleur (le four en acier,
+-- à combustible, n'en a aucun en vanilla et n'en reçoit pas). Niveau 1 = le prototype vanilla, dont SEUL module_slots
+-- est réécrit (prototypes/modules.lua) ; niveaux 2 à 30 : prototypes/levels/common.lua. 34 au niveau 30.
+---------------------------------------------------------------------------------------------------
+L.MODULE_SLOTS_FIRST = 5
+L.MODULE_SLOTS_STEP = 1
+
+--- Emplacements de modules du niveau n d'une famille (nil : la famille n'a pas de modules).
+function L.module_slots(family, n)
+  if not family.modules then return nil end
+  return L.MODULE_SLOTS_FIRST + L.MODULE_SLOTS_STEP * (n - 1)
 end
 
 ---------------------------------------------------------------------------------------------------
