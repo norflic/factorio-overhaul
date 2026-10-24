@@ -10,6 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 21 h 05** : analyses finies (SCENARIO.md, IA_ADAPTATIVE.md, dans fo-logs 2026-10-24_ANALYSE) ; page de
+> synthèse pour le DC https://claude.ai/artifact/1XgayKG82dW3LaFjngxdJp (questions S1 à S5, IA1 à IA5, E1 à E3, en
+> attente). MOD-0 et B0 en cours (worktrees), production du socle animé en cours.
 > **Point de 20 h 45** : correcteur d'IA1-a FINI dans sa branche (`153c696` ; main 0.4.15 fusionnée dedans ; réglages
 > unifiés sur `fo-war-*` ; M1 corrigé, M2 mesuré sans conclure, défaut nouveau : faction décimée bloquée à 1 PNJ ;
 > 23 attaques fantômes sur une graine ; 3 questions au DC dans `fo-logs\2026-10-24_IA1\IA1-a\INTEGRATION.md` §0.2) :
