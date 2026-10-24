@@ -348,6 +348,13 @@ do
   vr.workers, vr.floor, vr.army_done, vr.soldiers = 8, 8, true, 16
   check(dl.survive and not C.survival(vl) and not C.survival(vr, ss),
     "survie tenue (8 ouvriers, 2 soldats sur 60, aucune perte récente), levée à 16 soldats sur 60")
+  -- Périphérie d'abord : l'avant-poste de la zone de départ (45 tuiles du QG rival) n'est visé qu'en dernier.
+  local hq, me = { x = 0, y = 0 }, { x = 600, y = 0 }
+  local start_zone, frontier = { x = 45, y = 0 }, { x = -200, y = 50 }
+  local tp1 = C.target_point({ start_zone, frontier }, hq, me)
+  local tp2 = C.target_point({ start_zone }, hq, me)
+  check(tp1 == frontier and tp2 == start_zone and C.target_point({}, hq, me) == hq,
+    "périphérie d'abord : avant-poste à 206 tuiles du QG rival plutôt qu'à 45 (plus proche de nous) ; sinon la zone de départ ; sinon le QG")
   -- Trêve et décision d'attaque (shared/faction/strategy.lua) : en Paisible, aucune attaque ni raid contre la rivale ;
   -- à un niveau agressif, règle inchangée (ordre strict de la campagne de pvp_test).
   local S = require("shared.faction.strategy")

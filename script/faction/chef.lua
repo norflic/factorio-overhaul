@@ -316,7 +316,13 @@ function Chef.attack_opts(f, target, attack, tick)
     local mem = st.seen and st.seen[target.id]
     tp = mem and mem.weak and { x = mem.weak.x, y = mem.weak.y } or nil
   end
-  tp = tp or Military.target_of(target, f.hq_pos)
+  if not tp then
+    -- Lot IA2-a2 : périphérie d'abord (C.target_point) ; avant : l'avant-poste le plus proche de notre QG
+    -- (Military.target_of), souvent dans la zone de départ de la rivale, à 45 tuiles de son QG.
+    local list = {}
+    for _, oid in ipairs(State.sorted_keys(target.outposts or {})) do list[#list + 1] = target.outposts[oid].pos end
+    tp = C.target_point(list, target.hq_pos, f.hq_pos) or Military.target_of(target, f.hq_pos)
+  end
   local ch = Character.of(f)
   local o = C.pick_side(st, target.id, f.hq_pos.x - tp.x, f.hq_pos.y - tp.y, ch.traits and ch.traits.ruse or 1000, draw_of(st))
   local dir = C.DIRS[o]
@@ -374,14 +380,18 @@ end
 -- Rancune : qui détruit nos bâtiments et nos soldats
 ---------------------------------------------------------------------------------------------------
 Events.on(defines.events.on_entity_died, function(e)
-  local killer = e.force
-  if not killer then return end
   local war = State.war()
   if not war.active then return end
   local ent = e.entity
   if not (ent and ent.valid) then return end
   local f = State.by_force(ent.force.name)
   if not f then return end
+  -- Lot IA2-a2 : qui détruit le QG d'une faction (anéantissement) : force du tueur, ou « aucune ».
+  if ent.unit_number and f.hq and f.hq.valid and ent.unit_number == f.hq.unit_number then
+    log(string.format("[FO-STRAT] qg detruit tick %d %s par %s", e.tick, f.key, e.force and e.force.name or "aucune"))
+  end
+  local killer = e.force
+  if not killer then return end
   local k = State.by_force(killer.name)
   -- Lot IA2-a2 : un soldat ou un ouvrier de f tué par la faction k (satiété du vainqueur, C.record_kill).
   if k and k.id ~= f.id and k.chef and (ent.type == "unit" or ent.type == "character") then C.record_kill(k.chef, f.id, 1) end

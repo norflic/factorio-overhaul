@@ -54,6 +54,7 @@ C.SATIETY = 15 * 3600      -- SATIÉTÉ du vainqueur : une rivale battue n'est p
 C.BEATEN_KILLS = 10        -- battue : 10 de ses soldats ou ouvriers tués par nous depuis la pensée précédente
 C.KILL_DECAY = 800         -- (compte des tués : × 0,8 par pensée ; une bataille étalée sur 3 min compte aussi)
 C.SATIETY_PER_KILL = 1800  -- + 30 s de satiété par tué au-delà du seuil (victoire écrasante), 30 min au plus
+C.DEF_FLOOR = 25           -- choix de la rivale : valeur ÷ (défense estimée + 25) ; 10 avant IA2-a2
 C.GRUDGE_OVERRIDE = 600    -- la rancune (rancune × trait) au-delà de 600 passe outre la satiété
 C.OPPORTUNIST = 1200       -- un opportuniste (trait ≥ 1 200) frappe une rivale battue dont l'armée est sortie
 C.SURVIVAL_LOST = 5        -- SURVIE : au moins 5 soldats perdus en 10 min et moins du quart de l'armée visée, ou
@@ -212,7 +213,9 @@ function C.rank_targets(v, st)
       local value = 2 + (r.outposts_seen or 0)
       if (r.outposts_seen or 0) > math.max(2, (v.outposts or 0) * 1.3) then value = value * 3 / 2 end -- leader vu : coalition tacite
       local def = (r.defense or 0) + (st.extra_defense[r.id] or 0)
-      local s = math.floor(value * 100000 / (def + 10))
+      -- Lot IA2-a2 : plancher de défense 25 (10 avant) : une rivale sans défense vue n'est plus 4 fois plus
+      -- attirante qu'une rivale défendue (curée : 2 ou 3 factions sur la même victime, moteur réel, 3 graines sur 4).
+      local s = math.floor(value * 100000 / (def + C.DEF_FLOOR))
       s = math.floor(s * (1000 + math.floor((st.grudge[r.id] or 0) * tr.rancune / 1000)) / 1000)
       if r.army_out then s = math.floor(s * (1000 + math.floor(tr.opportunisme / 2)) / 1000) end
       if st.avoid[r.id] and v.tick < st.avoid[r.id] then s = math.floor(s / 2) end
@@ -638,6 +641,24 @@ function C.pick_side(st, target_id, dx, dy, ruse, draw)
     if x <= 0 then return it.key end
   end
   return top[3].key
+end
+
+--- Lot IA2-a2 : point visé par une attaque contre une rivale : la PÉRIPHÉRIE d'abord. Parmi ses avant-postes
+--- (`list` de positions, ordre fixe), le plus proche de `from` (notre QG) parmi ceux à C.CAPITAL_RADIUS tuiles ou plus
+--- de son QG ; sinon le plus proche de `from` ; sinon son QG. Moteur réel (3e essai, graine 777) : toutes les attaques
+--- visaient un avant-poste de la zone de départ, à 45 tuiles du QG rival, qui tombait avec lui (Ambre, 85 min).
+C.CAPITAL_RADIUS = 80
+function C.target_point(list, hq, from)
+  local best, best_d, near, near_d = nil, nil, nil, nil
+  local r2 = C.CAPITAL_RADIUS * C.CAPITAL_RADIUS
+  for _, p in ipairs(list) do
+    local dx, dy = p.x - from.x, p.y - from.y
+    local d = dx * dx + dy * dy
+    if not near_d or d < near_d then near, near_d = p, d end
+    local hx, hy = hq and (p.x - hq.x) or 0, hq and (p.y - hq.y) or 0
+    if hq and hx * hx + hy * hy >= r2 and (not best_d or d < best_d) then best, best_d = p, d end
+  end
+  return best or near or hq
 end
 
 ---------------------------------------------------------------------------------------------------
