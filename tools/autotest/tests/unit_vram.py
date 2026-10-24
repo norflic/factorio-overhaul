@@ -93,16 +93,16 @@ check("HYPOTHESE" in vram.ips_text(mm, 144), "texte : cpu-frame HYPOTHESE")
 # Fichiers synthétiques : journal du greffon (essai à blanc), relevés, statistiques de rendu.
 fx = sys.argv[2]
 r2 = vram.analyse(os.path.join(fx, "factorio.log"), os.path.join(fx, "vram.tsv"), os.path.join(fx, "perf-stats.csv"), None)
-check(len(r2["phases"]) == 8 and sum(1 for p in r2["phases"] if not p["name"].startswith("repere")) == 4,
-      "8 phases dans le journal de l'essai a blanc, dont 4 vues mesurees")
+check(len(r2["phases"]) == 10 and sum(1 for p in r2["phases"] if not p["name"].startswith("repere")) == 5,
+      "10 phases dans le journal de l'essai a blanc, dont 5 vues mesurees (galerie des tetes comprise)")
 kinds = {}
 for c in r2["champs"]:
     kinds[c["genre"]] = kinds.get(c["genre"], 0) + 1
-check(kinds.get("reference") == 8 and kinds.get("vue") == 4 and kinds.get("capture") == 8,
-      "lignes CHAMP : 8 references, 4 vues, 8 captures (obtenu %s)" % kinds)
+check(kinds.get("reference") == 10 and kinds.get("vue") == 5 and kinds.get("capture") == 10,
+      "lignes CHAMP : 10 references, 5 vues, 10 captures (obtenu %s)" % kinds)
 pf = r2["perf"]
 check(not pf.get("erreur") and len(pf["colonnes"]) == 24, "24 colonnes du PerformanceLogger lues")
-check(len(pf.get("par_phase") or []) == 4, "segmentation appariee aux 4 phases")
+check(len(pf.get("par_phase") or []) == 5, "segmentation appariee aux 5 phases")
 ph = {p["name"]: p["ips"] for p in pf.get("par_phase") or []}
 z = ph.get("z030-jour", {})
 check(near(z.get("fps_phase"), 60.0) and near(z.get("fps_max"), 1000 / 16.6) and near(z.get("fps_cpu"), 1000 / 12.0),

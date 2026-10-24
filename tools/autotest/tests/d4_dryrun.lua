@@ -258,7 +258,7 @@ global.greffons.finished = nil
 global.greffons.results = copy(after_init)
 global.greffons.state["scenario:d4-geant"].cam = nil
 connected[1] = player
-for t = 0, 3000 do tick_now = t; G.scenario_tick({ tick = t }) end
+for t = 0, 3500 do tick_now = t; G.scenario_tick({ tick = t }) end -- vues jusqu'au tick 3 420 (galerie des tetes)
 local shots = {}
 G.scenario_shots(function(name, x, y, zoom, daytime, opt) shots[#shots + 1] = string.format("%s (%.1f, %.1f) zoom %.2f jour %.2f%s",
   name, x, y, zoom, daytime, opt and opt.res and (" " .. opt.res[1] .. "x" .. opt.res[2]) or "") end)
@@ -288,9 +288,10 @@ end
 expect(bilan_bench and bilan_bench:find("BILAN : %d+ OK, 0 ECHEC") ~= nil, "BILAN du banc sans images sans echec : " .. tostring(bilan_bench))
 expect(after_init.fail == 0, "aucun echec a la pose")
 expect(global.greffons.results.fail == 0, "aucun echec au tick 120 de la session avec images")
-expect(n_phase == 8, "8 phases chronometrees : 4 vues et 4 reperes (obtenu " .. n_phase .. ")")
-expect(n_champ.reference == 8, "4 champs de reference x 2 (banc, session) (obtenu " .. n_champ.reference .. ")")
-expect(n_champ.vue == 4, "un champ par vue mesuree (obtenu " .. n_champ.vue .. ")")
+expect(n_phase == 10, "10 phases chronometrees : 5 vues (dont z030-tetes) et 5 reperes (obtenu " .. n_phase .. ")")
+expect(n_champ.reference == 10, "5 champs de reference (4 de l'usine, 1 de la galerie) x 2 (banc, session) (obtenu "
+  .. n_champ.reference .. ")")
+expect(n_champ.vue == 5, "un champ par vue mesuree (obtenu " .. n_champ.vue .. ")")
 expect(n_champ.capture == #shots, "un champ par capture (obtenu " .. n_champ.capture .. " pour " .. #shots .. ")")
 local hd = champ["reference:z030-hd"]
 -- Seuils du greffon depuis le lot D4m-GÉANT (emprises de 0.4.3) : 900 bâtiments dont 550 machines, 58 % couverts.
@@ -301,9 +302,25 @@ for _, l in ipairs(lines) do
   if c then cover = tonumber(c) end
 end
 expect(cover and cover >= 58, "champ z0,3 1920x1080 : emprises sur 58 % du champ au moins (obtenu " .. tostring(cover) .. ")")
-expect(bilan_bench and bilan_bench:find("BILAN : 17 OK, 0 ECHEC") ~= nil, "BILAN du banc : 17 OK (16 avant le lot D4m-GEANT)")
+expect(bilan_bench and bilan_bench:find("BILAN : 18 OK, 0 ECHEC") ~= nil,
+  "BILAN du banc : 18 OK (17 avant la galerie des tetes, 16 avant le lot D4m-GEANT)")
+-- Galerie des têtes : la vue mesurée z030-tetes (fenêtre 1920 × 1080) dessine 64 poses de chacun des 15 âges ; le
+-- champ z0,3 hd de l'usine n'en montre que 5 à 8 par âge (correction du lot D4m-GÉANT : le contrôle de 0a13534
+-- comptait 64 valeurs de k sur l'usine entière, tous âges confondus).
+local tv, tu
+for _, l in ipairs(lines) do
+  local n, a, lo, hi = l:match("TETES vue z030%-tetes 1920x1080 zoom 0%.30 : (%d+) tourelles entieres dans le champ, (%d+) ages, images par age (%d+) a (%d+)")
+  if n then tv = { n = tonumber(n), a = tonumber(a), lo = tonumber(lo), hi = tonumber(hi) } end
+  local un, ua, ulo, uhi = l:match("TETES reference usine%-z030%-hd 1920x1080 zoom 0%.30 : (%d+) tourelles entieres dans le champ, (%d+) ages, images par age (%d+) a (%d+)")
+  if un then tu = { n = tonumber(un), a = tonumber(ua), lo = tonumber(ulo), hi = tonumber(uhi) } end
+end
+expect(tv and tv.n == 960 and tv.a == 15 and tv.lo == 64 and tv.hi == 64,
+  "vue z030-tetes : 960 tourelles entieres, 15 ages, 64 images par age (obtenu " .. (tv and (tv.n .. ", " .. tv.a .. ", "
+  .. tv.lo .. " a " .. tv.hi) or "rien") .. ")")
+expect(tu and tu.lo < 64 and tu.hi < 64, "usine, champ z0,3 hd : moins de 64 images par age (obtenu "
+  .. (tu and (tu.lo .. " a " .. tu.hi) or "rien") .. ")")
 local vue = champ["vue:z030-jour"]
 expect(vue and hd and vue.n == hd.n, "la vue mesuree z030-jour (fenetre 1920x1080) voit le champ de reference")
-expect(#shots == 8, "8 captures")
+expect(#shots == 10, "10 captures (8 de l'usine, 2 de la galerie des tetes)")
 print(string.format("BILAN essai a blanc : %d OK, %d ECHEC(S)", ok, fail))
 os.exit(fail == 0 and 0 or 1)
