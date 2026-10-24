@@ -84,6 +84,18 @@ W.biomes = {
   },
 }
 
+-- Grain fin des frontières des biomes (lot B0, verdict du DC du 24/10 : « B3 B ») : bruit ajouté à la probabilité de
+-- chaque tuile de biome, aux réglages du bruit que vanilla ajoute à ses sols (tiles.lua : 1/6, 2/3, 0,7, 4 octaves).
+-- nil : frontières lisses (avant le verdict).
+-- seed1 : graines numériques propres (comme les gisements, 7101 à 7103) ; surtout pas de nouveau prototype noise-layer
+-- (il décale les couches de bruit existantes et change la forêt vanilla, F198 proposé).
+W.grain = { period = 6, influence = 2 / 3, persistence = 0.7, octaves = 4,
+  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203 } }
+
+-- Biomes sans AUCUN décor vanilla à la génération (lot B0, verdict « B4 B » : touffes d'herbe et plaques brunes
+-- retirées de la plaine de cristal) ; leur propre décor (W.decor) reste.
+W.no_vanilla_decor = { "fo-crystal-flats" }
+
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
 -- sur la tuile du biome (tile_restriction). density = probabilité par tuile.

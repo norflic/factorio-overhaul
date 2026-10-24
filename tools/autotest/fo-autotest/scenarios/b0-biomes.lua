@@ -242,6 +242,60 @@ return {
       dec[#dec + 1] = string.format("%s %d/%d,%d", f.type, n, sx, sy)
     end
     ctx.log("decor (nombre/somme x,y) : " .. table.concat(dec, " ; "))
+    -- Décoratifs (verdict « B4 B ») : vanilla posés SUR la plaine de cristal (attendu 0), et empreinte de ceux posés
+    -- AILLEURS (hors des tuiles de cristal), pour voir que la restriction ne change rien hors de la plaine.
+    local sur, n_ail, sx_ail, sy_ail, n_fo = 0, 0, 0, 0, 0
+    local n_loin, sx_loin, sy_loin, nid = 0, 0, 0, 0
+    local n_tres, sx_tres, sy_tres = 0, 0, 0 -- hors des chunks qui ont du cristal et de leurs 8 voisins (32 tuiles et plus)
+    local Z = 400 -- contient la frontière du cristal (−330, −120) et son site garanti (33, 273)
+    local MARGE = 4 -- « loin » du cristal : aucune tuile de cristal à moins de MARGE tuiles (carré)
+    local pres, chunks = {}, {}
+    for _, t in ipairs(s.find_tiles_filtered({ area = { { -Z - 64, -Z - 64 }, { Z + 64, Z + 64 } }, name = "fo-crystal-flats" })) do
+      local tx, ty = t.position.x, t.position.y
+      local cx, cy = math.floor(tx / 32), math.floor(ty / 32)
+      for dx = -1, 1 do
+        for dy = -1, 1 do chunks[(cx + dx) * 65536 + (cy + dy)] = true end
+      end
+      for dx = -MARGE, MARGE do
+        for dy = -MARGE, MARGE do pres[(tx + dx) * 65536 + (ty + dy)] = true end
+      end
+    end
+    local noms, hist, exemples = {}, {}, {}
+    for _, d in ipairs(s.find_decoratives_filtered({ area = { { -Z, -Z }, { Z, Z } } })) do
+      local p = d.position
+      local nom = d.decorative.name
+      local cristal = s.get_tile(p.x, p.y).name == "fo-crystal-flats"
+      if nom:find("^fo%-") then
+        n_fo = n_fo + 1
+      elseif cristal then
+        -- Les nids et vers vanilla posent leur propre décor à la génération (spawn_decoration : enemy-decal,
+        -- shroom-decal, red-pita...) : il n'est pas autoplacé, il reste (compté à part).
+        if s.count_entities_filtered({ position = { p.x + 0.5, p.y + 0.5 }, radius = 10, force = "enemy" }) > 0 then
+          nid = nid + 1
+          nom = nom .. "[nid]"
+        else
+          sur = sur + 1
+        end
+        if not hist[nom] then hist[nom] = 0; noms[#noms + 1] = nom end
+        hist[nom] = hist[nom] + 1
+        if #exemples < 8 then exemples[#exemples + 1] = string.format("%s(%d,%d)", nom, p.x, p.y) end
+      else
+        n_ail, sx_ail, sy_ail = n_ail + 1, sx_ail + p.x, sy_ail + p.y
+        if not pres[p.x * 65536 + p.y] then n_loin, sx_loin, sy_loin = n_loin + 1, sx_loin + p.x, sy_loin + p.y end
+        if not chunks[math.floor(p.x / 32) * 65536 + math.floor(p.y / 32)] then
+          n_tres, sx_tres, sy_tres = n_tres + 1, sx_tres + p.x, sy_tres + p.y
+        end
+      end
+    end
+    table.sort(noms)
+    local parts = {}
+    for _, n in ipairs(noms) do parts[#parts + 1] = n .. " " .. hist[n] end
+    st.decor_vanilla_sur_cristal = sur
+    ctx.log(string.format("decoratifs a moins de %d tuiles : vanilla SUR le cristal %d hors nids, %d pres d'un nid (%s ; %s) ;"
+      .. " vanilla ailleurs %d/%d,%d, dont a plus de %d tuiles du cristal %d/%d,%d, dont hors des chunks du cristal %d/%d,%d ;"
+      .. " du mod %d",
+      Z, sur, nid, table.concat(parts, ", "), table.concat(exemples, " "), n_ail, sx_ail, sy_ail, MARGE, n_loin, sx_loin, sy_loin,
+      n_tres, sx_tres, sy_tres, n_fo))
     local layers = {}
     for _, n in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "grass-1", "grass-2", "sand-1",
       "red-desert-0", "dirt-1", "water-shallow", "water-mud", "nuclear-ground" }) do
@@ -267,6 +321,8 @@ return {
         tostring(st.comptes[b.key]) .. " tuile(s)")
     end
     ctx.check(par.vanilla ~= nil, "frontiere vanilla herbe / desert trouvee")
+    ctx.check(st.decor_vanilla_sur_cristal == 0, "aucun decoratif vanilla autoplace sur la plaine de cristal (400 tuiles autour du depart ; decor des nids compte a part)",
+      tostring(st.decor_vanilla_sur_cristal))
     ctx.check(st.site ~= nil, "site garanti du cristal connu")
     ctx.check(st.disques and st.disques_poses == #st.disques, "nuancier : un disque de chaque sol sur chaque fond",
       tostring(st.disques_poses) .. " / " .. tostring(st.disques and #st.disques))

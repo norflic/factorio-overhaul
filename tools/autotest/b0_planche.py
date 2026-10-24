@@ -38,6 +38,8 @@ def planche(dossier, cases, colonnes, sortie, entete):
     d = ImageDraw.Draw(out)
     d.text((10, 10), entete, font=police(24), fill=(255, 255, 255))
     for i, (chemin, titre) in enumerate(cases):
+        if chemin is None:
+            continue
         x = (i % colonnes) * (W + 8)
         y = haut + (i // colonnes) * (H + 8)
         out.paste(case(dossier, chemin, titre), (x, y))
@@ -66,6 +68,20 @@ def main():
         ("apres-pale/shots/002-frontiere-cristal-z1.png", "C : sol lilas pale"),
         (p + "002-frontiere-cristal-z1.png", "D : sol mauve bruyere (livre)"),
     ], 2, "planche-B0-options.png", "Lot B0 - plaine de cristal : variantes au meme endroit (zoom 1, midi)")
+    v = "apres-verdict2/shots/"  # apres-verdict/ : premier essai, couches de bruit nommées (F198), forêt changée
+    if os.path.isdir(os.path.join(dossier, v)):
+        # Après le verdict du DC (« B1 D, B2 A, B3 B, B4 B ») : grain fin des frontières, plus de décor vanilla sur le cristal.
+        planche(dossier, [
+            (a + "002-frontiere-cristal-z1.png", "AVANT : frontiere du cristal, zoom 1"),
+            (p + "002-frontiere-cristal-z1.png", "APRES B0 : sol mauve, bords fondus"),
+            (v + "002-frontiere-cristal-z1.png", "APRES VERDICT : grain fin, sans decor vanilla"),
+            (a + "003-frontiere-cristal-z2.png", "AVANT : zoom 2"),
+            (p + "003-frontiere-cristal-z2.png", "APRES B0 : zoom 2"),
+            (v + "003-frontiere-cristal-z2.png", "APRES VERDICT : zoom 2"),
+            (v + "006-frontiere-marais-z1.png", "APRES VERDICT : marais, zoom 1"),
+            (v + "004-large-cristal-z025.png", "APRES VERDICT : vue large, zoom 0,25"),
+            (None, ""),
+        ], 3, "planche-B0-verdict.png", "Lot B0 - avant / apres B0 / apres verdict du DC (graine 20261020, memes endroits, midi)")
 
 
 if __name__ == "__main__":
