@@ -596,7 +596,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e02-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 124,
      "line_length": 8,
      "shift": [
@@ -1378,6 +1378,7 @@
        0.025
       ]
      },
+     "dessin": "A",
      "deux_canons": 0,
      "ecartees_au_reglage": [
       "d07",
@@ -1394,7 +1395,7 @@
      ],
      "feuille_px": [
       1184,
-      1984
+      992
      ],
      "longueur_base_tuiles": 0.5312,
      "modes": {
@@ -3433,7 +3434,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e03-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 130,
      "line_length": 8,
      "shift": [
@@ -4402,11 +4403,12 @@
        0.376
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       1240,
-      2080
+      1040
      ],
      "longueur_base_tuiles": 0.5312,
      "modes": {
@@ -6465,7 +6467,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e04-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 218,
      "line_length": 8,
      "shift": [
@@ -7434,11 +7436,12 @@
        0.1
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       2064,
-      3488
+      1744
      ],
      "longueur_base_tuiles": 0.7969,
      "modes": {
@@ -9497,7 +9500,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e05-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 189,
      "line_length": 8,
      "shift": [
@@ -10466,11 +10469,12 @@
        0.02
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       1832,
-      3024
+      1512
      ],
      "longueur_base_tuiles": 0.7969,
      "modes": {
@@ -12549,7 +12553,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e06-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 191,
      "line_length": 8,
      "shift": [
@@ -13518,11 +13522,12 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       1848,
-      3056
+      1528
      ],
      "longueur_base_tuiles": 0.7969,
      "modes": {
@@ -15655,7 +15660,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e07-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 232,
      "line_length": 8,
      "shift": [
@@ -16624,11 +16629,12 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       2360,
-      3712
+      1856
      ],
      "longueur_base_tuiles": 1.0625,
      "modes": {
@@ -18707,7 +18713,7 @@
     "lr": {
      "direction_count": 64,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e08-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 233,
      "line_length": 8,
      "shift": [
@@ -19676,11 +19682,12 @@
        0.04
       ]
      },
+     "dessin": "A",
      "deux_canons": 64,
      "ecartees_au_reglage": [],
      "feuille_px": [
       2288,
-      3728
+      1864
      ],
      "longueur_base_tuiles": 1.0625,
      "modes": {
@@ -21279,9 +21286,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e09-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 238,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.0,
       -1.03125
@@ -21378,10 +21385,11 @@
        0.29
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      564,
+      282,
       952
      ],
      "longueur_base_tuiles": 1.0625,
@@ -21749,9 +21757,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e10-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 340,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.0,
       -1.21875
@@ -21848,10 +21856,11 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      784,
+      392,
       1360
      ],
      "longueur_base_tuiles": 1.3281,
@@ -22239,9 +22248,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e11-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 409,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.015625,
       -1.234375
@@ -22338,10 +22347,11 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      958,
+      479,
       1636
      ],
      "longueur_base_tuiles": 1.3281,
@@ -22729,9 +22739,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e12-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 320,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.0,
       -1.03125
@@ -22828,10 +22838,11 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      772,
+      386,
       1280
      ],
      "longueur_base_tuiles": 1.3281,
@@ -23219,9 +23230,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e13-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 306,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.0,
       -1.40625
@@ -23318,10 +23329,11 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      744,
+      372,
       1224
      ],
      "longueur_base_tuiles": 1.5938,
@@ -23709,9 +23721,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e14-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 320,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.015625,
       -1.40625
@@ -23808,10 +23820,11 @@
        1.0
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      778,
+      389,
       1280
      ],
      "longueur_base_tuiles": 1.5938,
@@ -24199,9 +24212,9 @@
     "lr": {
      "direction_count": 4,
      "filename": "__factorio-overhaul__/graphics/levels/gun/gun-e15-eclat.png",
-     "frame_count": 2,
+     "frame_count": 1,
      "height": 388,
-     "line_length": 2,
+     "line_length": 1,
      "shift": [
       0.0,
       -1.40625
@@ -24298,10 +24311,11 @@
        0.659
       ]
      },
+     "dessin": "A",
      "deux_canons": 4,
      "ecartees_au_reglage": [],
      "feuille_px": [
-      924,
+      462,
       1552
      ],
      "longueur_base_tuiles": 1.5938,

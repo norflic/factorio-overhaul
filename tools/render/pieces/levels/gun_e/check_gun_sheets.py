@@ -14,7 +14,7 @@ Contrôles (code 0 seulement si tout passe) :
   4. --sources : chaque pose de tête recollée dans sa cellule a EXACTEMENT les pixels de son PNG source (hr et
      normale), le reste de la cellule est vide ; les copies de socle et de pièce ont le sha256 de leur source
      (spec.json) ; les poses VALIDÉES N (d00) et E (d16) sont donc inchangées au pixel ;
-  4 bis. (lot A4) éclat de tir de chaque âge : mêmes directions que la tête, 2 images, feuille aux dimensions de sa
+  4 bis. (lot A4) éclat de tir de chaque âge : mêmes directions que la tête, 1 image (F149), feuille aux dimensions de sa
      définition (8 192 px au plus) ; avec --sources, chaque feuille d'éclat est RÉGÉNÉRÉE depuis la feuille de tête
      (eclat_tir.controle : bouts des canons mesurés) et doit avoir les mêmes octets et la même définition ;
   5. --mutants : sur une copie jetable du dossier, 8 mutants (dont l'éclat de l'âge 9 décalé d'une image, lot A4) (fichier supprimé, octet changé, taille du manifeste,
@@ -196,7 +196,8 @@ def controler(dest, sources=False):
                                        % (e, lay, dname, r, pose["source"], same, vide))
                         elif sha(os.path.join(src["dossier"], LL["file"])) != src["couches"][lay][r]:
                             err.append("âge %d tête %s %s %s : source modifiée depuis la génération" % (e, lay, dname, r))
-        # éclat de tir (lot A4) : normale seule, mêmes directions que la tête, 2 images, rangées de line_length images
+        # éclat de tir (lot A4) : normale seule, mêmes directions que la tête, UNE image par direction (F149 : le moteur
+        # n'en montre qu'une par coup ; correction M-1), rangées de line_length images
         ec = (A.get("eclat") or {}).get("lr")
         if not ec:
             err.append("âge %d : éclat de tir absent (lot A4)" % e)
@@ -204,8 +205,8 @@ def controler(dest, sources=False):
             f = fichier(ec)
             n_img = ec["direction_count"] * ec["frame_count"]
             need = (ec["width"] * ec["line_length"], ec["height"] * -(-n_img // ec["line_length"]))
-            if ec["direction_count"] != ndir or ec["frame_count"] != 2:
-                err.append("âge %d éclat : direction_count %s, frame_count %s (attendu %d et 2)" % (
+            if ec["direction_count"] != ndir or ec["frame_count"] != 1:
+                err.append("âge %d éclat : direction_count %s, frame_count %s (attendu %d et 1)" % (
                     e, ec["direction_count"], ec["frame_count"], ndir))
             if f is not None and f not in dims:
                 err.append("âge %d éclat : fichier absent %s" % (e, f))
@@ -406,13 +407,14 @@ def mutants(dest):
             jdump(mp, m)
 
         def m_eclat(d):
-            # éclat de tir (lot A4) : feuille de l'âge 9 décalée d'une image (manifeste recalculé) : refusée par --sources
+            # éclat de tir (lot A4) : feuille de l'âge 9 décalée d'une rangée d'images (manifeste recalculé) : refusée par
+            # --sources (en hauteur : à 4 directions, la feuille n'a qu'une colonne depuis la correction M-1)
             f = "gun-e09-eclat.png"
             p = os.path.join(d, f)
             j = json.load(open(os.path.join(d, "sprites.json"), encoding="utf-8"))
-            w = j["ages"]["9"]["eclat"]["lr"]["width"]
+            h = j["ages"]["9"]["eclat"]["lr"]["height"]
             a = np.asarray(Image.open(p).convert("RGBA")).copy()
-            a[:, w:] = a[:, :-w].copy()
+            a[h:] = a[:-h].copy()
             Image.fromarray(a, "RGBA").save(p)
             remanifeste_(d, f)
 

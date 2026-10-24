@@ -117,7 +117,8 @@ local function couches_fixes(liste, partie, anime, cycle)
 end
 
 --- Éclat de tir (lot A4) : couche lumineuse (draw_as_glow, additive) d'attacking_animation, mêmes directions que la
---- tête, 2 images (A pleine, B réduite) ; normale seulement (32 px/tuile, pas de hr_version : lueur douce ; le jeu en
+--- tête, UNE image par direction (le moteur ne dessine cette couche qu'un tick par coup et n'en montrait que l'image
+--- d'indice 1 sur 2 : F149, correction M-1 du lot A4) ; normale seulement (32 px/tuile, pas de hr_version : lueur douce ; le jeu en
 --- haute qualité prend la même définition). Feuille générée par tools/render/pieces/levels/gun_e/eclat_tir.py (appelé
 --- par feuilles.py) : bouts des canons MESURÉS sur la feuille de tête, direction par direction.
 local function couche_eclat(def)
@@ -128,19 +129,17 @@ local function couche_eclat(def)
     priority = "medium" }
 end
 
---- Tête ; `eclat` (attacking_animation seulement) : la couche d'éclat est ajoutée au-dessus et les couches de la tête
---- (une image) sont répétées frame_count fois (repeat_count : même cycle que l'éclat, doc 1.1.91).
+--- Tête ; `eclat` (attacking_animation seulement) : la couche d'éclat (une image par direction, comme la tête) est
+--- ajoutée au-dessus ; une feuille d'éclat de plus d'une image est refusée (F149 : l'image d'indice 0 ne paraîtrait
+--- jamais).
 local function tete(age, eclat)
   local layers = {}
+  if eclat and eclat.lr.frame_count ~= 1 then
+    error("[factorio-overhaul] eclat de tir de la mitrailleuse : frame_count " .. tostring(eclat.lr.frame_count)
+      .. ", attendu 1 (F149 ; regenerer avec tools/render/pieces/levels/gun_e/feuilles.py)")
+  end
   for _, kind in ipairs({ "main", "glow", "shadow" }) do
-    if age.tete[kind] then
-      local c = couche_tete(age.tete[kind], kind)
-      if eclat and eclat.lr.frame_count > 1 then
-        c.repeat_count = eclat.lr.frame_count
-        c.hr_version.repeat_count = eclat.lr.frame_count
-      end
-      layers[#layers + 1] = c
-    end
+    if age.tete[kind] then layers[#layers + 1] = couche_tete(age.tete[kind], kind) end
   end
   if eclat then layers[#layers + 1] = couche_eclat(eclat) end
   return { layers = layers }

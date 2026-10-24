@@ -191,7 +191,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e02-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 124,
           line_length = 8,
           shift = { 0, -0.625 },
@@ -557,7 +557,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e03-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 130,
           line_length = 8,
           shift = { 0.015625, -0.5625 },
@@ -937,7 +937,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e04-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 218,
           line_length = 8,
           shift = { 0, -0.8125 },
@@ -1317,7 +1317,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e05-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 189,
           line_length = 8,
           shift = { 0.015625, -0.796875 },
@@ -1711,7 +1711,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e06-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 191,
           line_length = 8,
           shift = { 0.015625, -0.796875 },
@@ -2147,7 +2147,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e07-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 232,
           line_length = 8,
           shift = { 0.015625, -1.03125 },
@@ -2541,7 +2541,7 @@ return {
         lr = {
           direction_count = 64,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e08-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 233,
           line_length = 8,
           shift = { 0, -1.046875 },
@@ -2815,9 +2815,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e09-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 238,
-          line_length = 2,
+          line_length = 1,
           shift = { 0, -1.03125 },
           width = 282
         }
@@ -3015,9 +3015,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e10-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 340,
-          line_length = 2,
+          line_length = 1,
           shift = { 0, -1.21875 },
           width = 392
         }
@@ -3229,9 +3229,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e11-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 409,
-          line_length = 2,
+          line_length = 1,
           shift = { 0.015625, -1.234375 },
           width = 479
         }
@@ -3443,9 +3443,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e12-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 320,
-          line_length = 2,
+          line_length = 1,
           shift = { 0, -1.03125 },
           width = 386
         }
@@ -3657,9 +3657,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e13-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 306,
-          line_length = 2,
+          line_length = 1,
           shift = { 0, -1.40625 },
           width = 372
         }
@@ -3871,9 +3871,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e14-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 320,
-          line_length = 2,
+          line_length = 1,
           shift = { 0.015625, -1.40625 },
           width = 389
         }
@@ -4085,9 +4085,9 @@ return {
         lr = {
           direction_count = 4,
           filename = "__factorio-overhaul__/graphics/levels/gun/gun-e15-eclat.png",
-          frame_count = 2,
+          frame_count = 1,
           height = 388,
-          line_length = 2,
+          line_length = 1,
           shift = { 0, -1.40625 },
           width = 462
         }

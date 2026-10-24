@@ -481,10 +481,13 @@ Scénario greffé du lot A2 (mitrailleuse V3-E en jeu, 24/10) :
 Scénarios greffés du lot A4 (la mitrailleuse vivante, 24/10 ; sorties `<racine>\fo-logs\2026-10-24_A4\`, NOTES.md) :
 - `a4-eclat` et `a4-eclat-impair` (1 000 ticks sans images ; 3 contrôles) : 14 âges × 8 directions en tir (éclat de
   tir de l'âge, couche d'`attacking_animation`) ; avec images, 3 instants par site, puis tir coupé et sites recapturés
-  à l'arrêt ; `-impair` décale les captures d'un tick. La couche n'est dessinée qu'un court instant à chaque coup :
+  à l'arrêt ; `-impair` décale les captures d'un tick. La couche n'est dessinée qu'UN tick par coup (F149) :
   comparer à un TÉMOIN (copie jetable sans couche d'éclat) par
   `py -3.9 tools/autotest/a4_eclat_images.py --paire <avec> <sans> --paire <avec-impair> <sans-impair>`
-  → « BILAN : N éclat(s) au bout des canons, 0 ECHEC(S) » (112 sites de jour vus).
+  → « BILAN : 118 éclat(s) au bout des canons, 0 ECHEC(S) » et « vues par site de jour … : 1 : 112 » (chaque site vu
+  exactement une fois : 1 tick par coup ; correction M-1, 24/10). Critère : barycentre en jeu au barycentre PRÉVU par la
+  feuille pour l'image montrée (0,25 tuile) et image la plus proche de toute la feuille ; feuilles décalées d'une rangée :
+  118 ECHEC(S) sur 118.
 - `a4-ruines` (1 300 ticks ; 5 contrôles) : mitrailleuses 2 × 2 à 6 × 6 (niveaux 1, 3, 7, 13, 19, 25) détruites par
   `die()` sur sol blanc et sur herbe ; explosion et reste au nom attendu (apparus 13 ticks après `die()`) ; captures de
   l'explosion et des restes ; `py -3.9 tools/autotest/a4_ruines_images.py "<fo-shots>"` (taille des restes, ± 15 %).

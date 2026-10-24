@@ -4,8 +4,9 @@ Python 3.9, sans Blender.
 
 Appelé par feuilles.py (fin de chaque âge) : l'éclat se RÉGÉNÈRE avec les feuilles, donc passe tout seul à 64 directions
 quand un âge y passe (production A3). Seul :
-    py -3.9 tools/render/pieces/levels/gun_e/eclat_tir.py --planche DOSSIER [--ages 2,5,15] [--zoom 2]
-        (planche de contrôle : chaque direction, pose en couleur + éclat des deux images, depuis graphics/levels/gun)
+    py -3.9 tools/render/pieces/levels/gun_e/eclat_tir.py --planche DOSSIER [--ages 2,5,15] [--zoom 2] [--image A|B]
+        (planche de contrôle : chaque direction, pose en couleur + l'éclat montré en jeu, depuis graphics/levels/gun ;
+        --image : l'autre dessin, pour comparer)
     py -3.9 tools/render/pieces/levels/gun_e/eclat_tir.py --controle
         (régénère chaque feuille d'éclat dans un dossier jetable et la compare octet à octet à celle du mod)
 
@@ -24,15 +25,18 @@ la couleur de catalogue de la famille FAMILLES[e], pour l'accent du bord ; cœur
 (FORMES : cône, pointes, anneau, arcs), à la taille de l'âge (emprise / 2). L'éclat tourne avec la tête : son axe suit le
 tir de la direction (feuilles.unite_pose) et sa longueur est raccourcie par la vue à 45° (plan du sol, PROJ_IMAGE).
 
-DEUX IMAGES (FRAMES) : A (pleine) et B (plus petite, pointes décalées). La durée de l'animation de tir vaut
-1 / attacking_speed ticks quel que soit le nombre d'images (doc 1.1.91, F120 pour la levée) : la vanilla (0,5) joue
-donc A et B une image sur deux, un scintillement ; la tête garde une image (repeat_count = 2 dans gun.lua).
+UNE SEULE IMAGE PAR DIRECTION (correction M-1 du lot A4, F149) : le moteur ne dessine la couche d'attacking_animation
+d'une mitrailleuse qu'UN tick par coup (cadence 6 ticks) ; avec deux images (A pleine, B réduite), seule l'image
+d'indice 1 (B) paraissait, jamais A (copie jetable A rouge / B vert, 56 captures sur 56 en vert) : pas de scintillement,
+et A ne servait qu'à occuper la mémoire vidéo. Le dessin gardé est IMAGE_JEU (« A » : la pleine, choix PROVISOIRE de
+l'agent, sans verdict du Directeur Créatif ; « B » : la réduite, celle qu'on voyait en jeu avant la correction). La tête
+garde une image, sans repeat_count (gun.lua refuse un éclat de plus d'une image).
 
 FEUILLE : normale seulement (32 px/tuile, pas de hr_version : une lueur douce n'a pas besoin de 64 px/tuile et la
 feuille hr des âges 13 à 15 dépasserait 8 192 px) ; dessinée à 64 px/tuile puis réduite 2 × 2 en additif
 (fo_post.downsample2_additive), codée comme les autres lueurs (RGB = c / max, A = max). Images dans l'ordre d'une
-RotatedAnimation : image i = direction × 2 + frame (comme la feuille de tir vanilla, une direction par rangée en
-largeur 2), rangées de line_length images (2 à 4 directions, 8 à 32 à 64 directions, au plus 8 192 px de côté, F144).
+RotatedAnimation : image i = direction (une image par direction), rangées de line_length images (1 à 4 directions :
+une colonne N, E, S, O, F123 ; 8 à 64 à 64 directions, au plus 8 192 px de côté, F144).
 Cellule commune = union des éclats de toutes les directions ; le moteur range les images ROGNÉES (F147) : le vide de
 la cellule ne coûte pas de mémoire vidéo.
 """
@@ -60,7 +64,8 @@ import feuilles as FE  # noqa: E402
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-FRAMES = 2
+FRAMES = 1              # une image par direction : le moteur n'en montre qu'une par coup (F149, correction M-1)
+IMAGE_JEU = "A"         # dessin de cette image : "A" (pleine) ou "B" (réduite) ; choix provisoire, verdict du DC attendu
 L0_PX = 34.0            # px hr : longueur de base de l'éclat d'un âge 2 × 2 (0,53 tuile), × emprise / 2
 AVANCE = 0.18           # centre de l'éclat : AVANCE × longueur au-delà du bout du canon, le long du tir
 FRAME_B = dict(force=0.62, longueur=0.72, tour=14.0)   # image B : plus faible, plus courte, pointes tournées (degrés)
@@ -286,7 +291,7 @@ def noms_dirs(n_dirs):
 
 
 def line_length(n_dirs, w, h):
-    """Images par rangée : 2 (une direction par rangée) à 4 directions ; à 64, la valeur (8, 16, 32 ou 64) qui tient dans
+    """Images par rangée : FRAMES (une direction par rangée : une colonne N, E, S, O, F123) à 4 directions ; à 64, la valeur (8, 16, 32 ou 64) qui tient dans
     8 192 px et donne la feuille la plus carrée."""
     n = n_dirs * FRAMES
     if n_dirs == 4:
@@ -345,9 +350,11 @@ def mesure(dest, e, A):
 mesure.marge = None
 
 
-def feuille_eclat(dest, e, A, marge):
+def feuille_eclat(dest, e, A, marge, image=None):
     """Écrit gun-eNN-eclat.png dans dest (depuis la feuille de tête déjà écrite) ; rend (définition pour sprites.lua,
-    outils pour sprites.json)."""
+    outils pour sprites.json). `image` : dessin « A » ou « B » (défaut IMAGE_JEU ; autre valeur : planche de
+    comparaison seulement)."""
+    dessin = {"A": 0, "B": 1}[image or IMAGE_JEU]
     # marge arrondie comme dans sprites.json (« eclat.marge ») : le contrôle régénère avec la valeur écrite
     mesure.marge = round(marge, 5)
     pos, n_dirs = mesure(dest, e, A)
@@ -381,7 +388,7 @@ def feuille_eclat(dest, e, A, marge):
         for fr in range(FRAMES):
             c = np.zeros((Hc, Wc, 3))
             for (px, py) in centres[nom]:
-                w_, x0, y0 = dessine(e, (px - L, py - T), nom, fr)
+                w_, x0, y0 = dessine(e, (px - L, py - T), nom, dessin + fr)
                 ya, xa = max(0, y0), max(0, x0)
                 yb, xb = min(Hc, y0 + w_.shape[0]), min(Wc, x0 + w_.shape[1])
                 if yb > ya and xb > xa:
@@ -403,6 +410,7 @@ def feuille_eclat(dest, e, A, marge):
     outils = {"modes": {nom: pos[nom][0] for nom in noms},
               "bouts": {nom: [[round(x, 5), round(y, 5)] for x, y in pos[nom][1]] for nom in noms},
               "deux_canons": sum(1 for nom in noms if len(pos[nom][1]) == 2),
+              "dessin": image or IMAGE_JEU,
               "ecartees_au_reglage": sorted(nom for nom in noms if pos[nom][0] != "mesuré"),
               "couleurs": {"coeur": [round(x, 4) for x in coeur_c], "corps": [round(x, 4) for x in corps_c],
                            "accent": [round(x, 4) for x in acc_c]},
@@ -455,9 +463,11 @@ def controle(dest):
     return err, n
 
 
-def planche(dest, ages_, out, zoom):
-    """Une planche par âge : chaque direction, la pose en couleur (feuille de tête hr) et l'éclat (images A puis B)
-    composé en additif, sur fond sombre ; croix rouge : bouts mesurés."""
+def planche(dest, ages_, out, zoom, image=None):
+    """Une planche par âge : chaque direction, la pose en couleur (feuille de tête hr) et l'éclat (une image)
+    composé en additif, sur fond sombre ; croix rouge : bouts mesurés. `image` : dessin montré (défaut IMAGE_JEU, celui du
+    jeu ; l'autre pour comparer)."""
+    image = image or IMAGE_JEU
     from PIL import ImageDraw
     donnees = json.load(open(os.path.join(dest, "sprites.json"), encoding="utf-8"))
     marge = donnees["eclat"]["marge"]
@@ -470,7 +480,7 @@ def planche(dest, ages_, out, zoom):
             td = A["tete"]["main"]["hr"]
             shutil.copyfile(os.path.join(dest, os.path.basename(td["filename"])),
                             os.path.join(tmp, os.path.basename(td["filename"])))
-            defn, outils, pics, (L, T) = feuille_eclat(tmp, e, A, marge)
+            defn, outils, pics, (L, T) = feuille_eclat(tmp, e, A, marge, image)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         feuille = np.asarray(Image.open(os.path.join(dest, os.path.basename(td["filename"]))).convert("RGBA")) / 255.0
@@ -485,13 +495,13 @@ def planche(dest, ages_, out, zoom):
         y1 = max(gy0 + H, T + Hc)
         cw, ch = x1 - x0, y1 - y0
         ncol = 8 if len(noms) == 64 else 4
-        img = np.zeros((((len(noms) + ncol - 1) // ncol) * ch * 2, ncol * cw, 3))
+        img = np.zeros((((len(noms) + ncol - 1) // ncol) * ch * FRAMES, ncol * cw, 3))
         img[...] = (0.10, 0.11, 0.10)
         marques = []
         for k, nom in enumerate(noms):
             cell = feuille[(k // ll) * H:(k // ll + 1) * H, (k % ll) * W:(k % ll + 1) * W]
             for fr in range(FRAMES):
-                oy = ((k // ncol) * 2 + fr) * ch
+                oy = ((k // ncol) * FRAMES + fr) * ch
                 ox = (k % ncol) * cw
                 zone = img[oy:oy + ch, ox:ox + cw]
                 ya, xa = gy0 - y0, gx0 - x0
@@ -514,9 +524,9 @@ def planche(dest, ages_, out, zoom):
             dr.line([(x, y - 3), (x, y + 3)], fill=c)
         for k, nom in enumerate(noms):
             for fr in range(FRAMES):
-                dr.text((((k % ncol) * cw) * f + 3, (((k // ncol) * 2 + fr) * ch) * f + 2),
-                        "%s %s" % (nom, "AB"[fr]), fill=(230, 230, 230))
-        p = os.path.join(out, "eclat-tir-e%02d-z%d.png" % (e, zoom))
+                dr.text((((k % ncol) * cw) * f + 3, (((k // ncol) * FRAMES + fr) * ch) * f + 2),
+                        "%s %s" % (nom, image), fill=(230, 230, 230))
+        p = os.path.join(out, "eclat-tir-e%02d-%s-z%d.png" % (e, image, zoom))
         im.save(p)
         chemins.append(p)
         print("[FO-ECLAT-TIR] âge %2d : %d directions, deux canons %d, au réglage %s ; feuille %s ; planche %s" % (
@@ -530,6 +540,8 @@ def main():
     ap.add_argument("--planche", default=None)
     ap.add_argument("--ages", default="2-15")
     ap.add_argument("--zoom", type=int, default=2)
+    ap.add_argument("--image", choices=("A", "B"), default=None,
+                    help="planche : dessin montré (défaut IMAGE_JEU, celui du jeu)")
     ap.add_argument("--controle", action="store_true")
     a = ap.parse_args()
     if a.controle:
@@ -543,7 +555,7 @@ def main():
         for x in a.ages.split(","):
             u, v = (x.split("-") + [x])[:2] if "-" in x else (x, x)
             sel += list(range(int(u), int(v) + 1))
-        planche(a.dest, sel, a.planche, a.zoom)
+        planche(a.dest, sel, a.planche, a.zoom, a.image)
     return 0
 
 
