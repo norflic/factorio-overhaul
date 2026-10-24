@@ -633,9 +633,28 @@ local function inventory_settings(oi, ni, phase)
   end
 end
 
+--- Fonctions appelées quand les MODULES ont été versés dans le nouveau bâtiment, avant ses autres inventaires :
+--- f(new). Enregistrées au chargement des modules (lot MOD-1 : la balise de complément est posée tout de suite, la
+--- machine a déjà sa vitesse multipliée quand ses ingrédients arrivent).
+Levels.on_modules_moved = {}
+
 local function transfer_inventories(old, new)
   local spilled = 0
+  -- Lot MOD-1 (moteur réel, banc content du 24/10, 21:53) : l'entrée d'une machine RAPIDE est remplie par ses bras
+  -- au-delà d'une pile (15 barils vides pour une pile de 10, machine à deux modules multipliés) ; versée par script
+  -- dans une machine encore sans modules, elle n'en reprenait que 10 (5 renversés). Les modules passent donc les
+  -- premiers, puis les crochets on_modules_moved, puis les autres inventaires dans l'ordre des index.
+  local mi = old.get_module_inventory and old.get_module_inventory()
+  local first = mi and mi.index or nil
+  local order = {}
+  if first then order[#order + 1] = first end
   for i = 1, 10 do
+    if i ~= first then order[#order + 1] = i end
+  end
+  for n, i in ipairs(order) do
+    if n == 2 and first then
+      for _, f in ipairs(Levels.on_modules_moved) do f(new) end
+    end
     local oi = old.get_inventory(i)
     inventory_settings(oi, new.get_inventory(i), "filters")
     if oi and not oi.is_empty() then

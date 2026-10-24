@@ -354,6 +354,12 @@ Events.on(defines.events.on_robot_mined_entity, on_removed)
 Events.on(defines.events.on_entity_died, on_removed)
 Events.on(defines.events.script_raised_destroy, on_removed)
 
+-- Agrandissement par script : modules versés AVANT les ingrédients (Levels.transfer) ; la balise de complément est
+-- posée aussitôt, pour que la machine ait déjà sa vitesse multipliée quand son entrée est remplie.
+table.insert(Levels.on_modules_moved, function(new)
+  if new and new.valid and TYPE_SET[new.type] then Mult.track(new) end
+end)
+
 -- Amélioration de niveau (remplacement par le moteur ou par script) : la nouvelle machine reprend les modules.
 table.insert(Levels.on_replaced, function(old_unit, new)
   Mult.untrack(old_unit)
