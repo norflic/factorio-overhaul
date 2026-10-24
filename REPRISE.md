@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 15 h 35 : M1, IA1-0 et F1-A fusionnés, version 0.4.14** (`45966bf`, `7c51cdd`, `5cb936c`, `dba020c` ; conflit
+> du README des bancs résolu en gardant les deux paragraphes). Moteur réel sur `main` (`fo-logs\2026-10-24_integration-0.4.14\`,
+> `done.txt` 15:08:35 à 15:09:36) : content 317, gun-rose 13, monde 89, m1-minerai 7, ia1-risques 65. Hors jeu : tous verts
+> (api_lint 771, check_gisement 7 + 10/10 mutants, test_laser 127, pvp 596 en 518 s). À montrer au DC : le tungstène de jour
+> et de nuit (`fo-logs\2026-10-24_M1\correction\planche-dc-tungstene-nuit.png`) et les planches du laser
+> (`fo-logs\2026-10-24_F1\correction\planches_final\`). Reste : correcteurs d'IA1-a et IA1-c (coupés deux fois ; IA1-c a
+> `a7d2dc6` et `838054d`), puis IA1 vague 2 ; F1-B (rondes du laser) ; socle animé des 10 autres âges (mesurer l'atlas
+> du plancher, F186) ; couleur d'équipe (essai sur 2 ou 3 âges). Usage payant : un agent à la fois.
 > **Point de 15 h 10 : A3-final fusionné, version 0.4.13** (`0f8e10d`, `7ee9c03`) : les 15 âges de la mitrailleuse à
 > 64 directions (agent seul, `c8534df`). Feuilles régénérées dans `main` sans option (336 PNG, 155,14 Mo, 357 s ;
 > check_gun_sheets 6 OK ; `git status` propre). Bancs en moteur réel sur `main` 0.4.13 (`done.txt` 15:04:20 à 15:06:45 ;

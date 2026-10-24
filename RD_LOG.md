@@ -419,6 +419,45 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés (lots M1, IA1-0 et F1-A ; fusionnés dans `main` le 24/10 vers 15 h 10, `45966bf`, `7c51cdd`, `5cb936c`, version 0.4.14)
+Preuves : `fo-logs\2026-10-24_M1\NOTES.md` §4 et C.4 ; `fo-logs\2026-10-24_IA1\IA1-0\NOTES.md` §3 et « Correction » ;
+`fo-logs\2026-10-24_F1\NOTES.md` §1. Texte complet de chaque fait dans ces fichiers ; ici, le résumé.
+- **F163** (outil) : `famille.charger` retire de `sys.path` les familles non choisies ; un outil de famille qui importe un
+  module frère après `import compo` ne le trouve plus : le charger par son chemin.
+- **F164** (mesure vanilla) : le laser vanilla n'a que 2,99 points blancs par t² (la mitrailleuse vanilla 13,20) ; le
+  profil du laser garde provisoirement le repère 13,2 (question Q-F1-1).
+- **F165** (sprite vanilla) : la tête du laser vanilla en pose E enferme un trou de 900 px hr (boucle de câble) ; le
+  niveau 1 vanilla l'a aussi, sans contrôle ; à déclarer ou à accepter pour le niveau 2 du laser.
+- **F167** (fichiers et moteur) : la feuille d'un minerai vanilla range les variantes en colonnes et les stades en
+  lignes, la ligne 0 étant le stade le plus riche (couverture 0,31 à 0,06).
+- **F168** (observé, cause inconnue) : avec la feuille M1, l'atlas « objets bas » porte le drapeau
+  `linear-minification`, absent de la session témoin (3 sessions avec, 1 sans).
+- **F169** (déduit) : le tungstène garde les seuils de stades de la pierre ; le site garanti par M0 (1 500 par tuile au
+  centre) ne montre que les stades clairsemés (question Q-M1-3).
+- **F170** (moteur) : des cendres volcaniques posées en carré par `set_tiles` dans l'herbe ont une bordure de
+  transition déchiquetée.
+- **F175** (IA1-0, R1) : `create_entity{fast_replace, spill = false, raise_built}` SANS `character` sur un bâtiment de
+  niveau en marche garde contenu, recette et progression, sans objet en trop ; AVEC `character` = PNJ, l'objet de
+  l'ancien niveau est rendu au PNJ (interdiction justifiée) ; `products_finished` repart de 0.
+- **F176** (R2, R3) : les robots d'une force sans joueur bâtissent les fantômes de LEUR force avec leur stockage et
+  ignorent ceux d'une autre ; la logistique de cette force livre ; pour `player`, le risque R2 SE RÉALISE (vos robots
+  bâtissent avec vos objets les fantômes posés pour vous) : repli « pose juste à temps » mesuré (ravivés à 1, 30, 120 et
+  480 ticks ; à 900 ticks, bâti par vos robots).
+- **F177** (R5) : les modificateurs `character_*` agissent sur un personnage sans joueur ; ceux de la force et du
+  personnage se MULTIPLIENT (fabrication, minage, course), les cases s'additionnent ; le moteur compte en ticks entiers
+  (engrenage de 0,5 s : 31, 16, 11 et 5 ticks à × 1, 2, 3, 6 : rapport 2,82 au lieu de 3 au rang 5).
+- **F178** (R6) : l'élément `minimap` ne dessine pas les traits `rendering`, il montre les étiquettes de carte ;
+  `take_screenshot` ignore `open_map` (vue carte non capturable) ; avec `show_gui`, les fantômes d'une autre force ne sont
+  pas dessinés.
+- **F179** (R7) : des coffres liés de même `link_id` partagent l'inventaire par force.
+- **F188** (M1, correction ; fait C-a) : la couche `stages_effect` d'une ressource se voit de JOUR à son alpha, sans effet
+  de `effect_darkness_multiplier` ; de NUIT, sa contribution croît avec ce multiplicateur, moins que proportionnellement :
+  alphas minuscules (0,008 à 0,012) et multiplicateur grand (120) donnent une lueur de nuit sans rien de jour. Formule
+  non établie (7 sessions).
+- **F189** (M1, correction ; fait C-b, une session) : après remplacement de PNG d'effet de même nom, une session avec le
+  cache d'atlas écrit « atlas REFAITS » et montre la nouvelle couche (l'inverse rapporté plus tôt n'est pas reproduit) ;
+  par prudence, les captures M1 passent `--no-atlas-cache`.
+
 ### Faits vérifiés en moteur réel (lot A3-final, les 15 âges à 64 directions, 24/10, 13 h 05 à 14 h 55 ; fusionné dans `main`, `0f8e10d`, version 0.4.13)
 Preuves : `fo-logs\2026-10-24_A3-final\` (`NOTES.md` §7, `INTEGRATION.md`). Expériences : E128 à E130.
 - **F186** : au plancher, les pages de l'atlas virtuel croissent avec le contenu (9 pages à 7 âges à 64 directions, puis
@@ -770,6 +809,28 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E77 à E80, E131, E132 · Lot M1, le tungstène dans sa direction artistique (24/10 ; run `wf_e12c2f9b-9c8`, correction
+reprise après la limite du compte ; fusion `45966bf`, version 0.4.14)** : détail dans `fo-logs\2026-10-24_M1\`
+(`NOTES.md` §3 et C, `verification.md`). E77 ronde 1 (trois directions) ; E78 rondes 2 et 3 (palette 60/30/10) ; E79 en
+moteur réel (`m1-minerai` 7 OK) ; E80 mémoire vidéo de la feuille ; **E131** (C-1) réponse jour et nuit de la couche
+d'effet (F188) ; **E132** (C-2) couches d'effet contre le critère en moteur : W2 aux alphas 0,008 à 0,012 et au
+multiplicateur 120 donne 7 OK sur 7 (deux sessions), nuit ΔE au fer 4,4 → 11,7. Sur `main` après fusion :
+`m1-minerai` 7 OK (`done.txt` 15:09:25,00), `monde` 89 OK (15:09:17,22), `content` 317 OK (15:08:35,52). NON prouvé :
+verdict du DC (teinte de nuit, galets qui luisent, palette acier dominante 72 % au lieu de 60/30/10) ; qualité normale,
+icône et couleur de carte jamais vues en moteur ; mineurs 4, 7, 8, 9 de la vérification.
+**E121 à E123 · Lot IA1-0, risques moteur des équipes organisées (24/10 ; fusion `7c51cdd`, outils seulement)** : détail
+dans `fo-logs\2026-10-24_IA1\IA1-0\NOTES.md`. E121 R1, R2, R3, R5, R7 (`ia1-risques`, 3 passes déterministes) ; E122 R4,
+coûts BRUTS sur 6 passes calmes : le ravivage d'un POTEAU électrique coûte 200 à 420 µs, au-dessus de l'estimation de
+50 unités (VERDICT R4 : NON pour ce cas) ; E123 R6 (`ia1-carte`, images). Sur `main` : `ia1-risques` 65 OK (15:09:36,45).
+NON prouvé : R8 et R9 (protocoles écrits seulement), vue carte plein écran, verdict du DC sur la bordure de zone.
+**E81 à E84 · Lot F1-A, kit de famille de la tourelle laser (24/10 ; fusion `5cb936c`, outils seulement)** : détail dans
+`fo-logs\2026-10-24_F1\` (`NOTES.md` §2, `verification.md`, `correction\`). E81 à E83 : témoin, puis trois jets du
+kit ; la vérification a relevé 6 défauts majeurs (pose E sans direction de tir lisible, mots des triplets invisibles,
+âge 15 copiant le disque de la mitrailleuse 15, caisson qui cache l'émetteur en pose N, options manquantes, affûts trop
+semblables) ; corrigés au 4e jet (`7aea3b4` : proue lumineuse, triplets relus, etc.). E84 : vignettes mêlées « laser ou
+mitrailleuse ? ». NON prouvé : test à l'aveugle jamais fait ; 11 âges sans fichier d'âge ; aucun design déclaré
+réussi ; rien en jeu.
+
 **E128 à E130 · Lot A3-final, les 15 âges de la mitrailleuse à 64 directions (24/10, 13 h 05 à 14 h 55 ; agent seul,
 après deux essais coupés par la limite du compte ; fusion `0f8e10d`, version 0.4.13)** : détail dans
 `fo-logs\2026-10-24_A3-final\` (`NOTES.md`, `INTEGRATION.md`).
