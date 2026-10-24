@@ -389,6 +389,18 @@ function P.plan(view, book)
       end
     end
   end
+  -- Fonderie du QG détruite (4e essai, graine 3141592653 : Écarlate, fonderie 0 et fer 9 de 55 à 100 min, ouvriers
+  -- inactifs : l'objectif « fonderie », atteint, n'est jamais rouvert) : reposée en priorité 92 (pierre du stock).
+  if em and view.smelters + (view.smelters_pending or 0) == 0 and not open["smelters"] then
+    local n = T.start_smelters
+    local items = { { T.SMELTER, n }, { T.fuel, T.fuel_per_burner * n } }
+    if take(items) then
+      add({ key = "smelters", kind = "smelters", prio = 92, count = n, items = items })
+    else
+      want(items, 92, "survie")
+    end
+    out.emergency_smelters = true
+  end
   if em and not view.recruit_blocked and view.workers < (em.floor or 0) then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
@@ -515,7 +527,7 @@ function P.plan(view, book)
           end
           if sites == 0 then add_missing({ ["site:" .. kind] = 1 }) end
         end
-      elseif part.smelters then
+      elseif part.smelters and not out.emergency_smelters then -- lot IA2-a2 : fonderie déjà reposée (survie)
         local items = { { T.SMELTER, part.smelters }, { T.fuel, T.fuel_per_burner * part.smelters } }
         if take(items) then
           add({ key = "smelters", kind = "smelters", prio = 80, count = part.smelters, items = items })

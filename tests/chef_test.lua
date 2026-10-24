@@ -348,6 +348,15 @@ do
   vr.workers, vr.floor, vr.army_done, vr.soldiers = 8, 8, true, 16
   check(dl.survive and not C.survival(vl) and not C.survival(vr, ss),
     "survie tenue (8 ouvriers, 2 soldats sur 60, aucune perte récente), levée à 16 soldats sur 60")
+  -- QG nu (aucun avant-poste) : épargné, sauf rancune.
+  local sb = C.new(stream(36), 0)
+  local rb = { { id = 2, outposts_seen = 0, defense = 0, weak = false, dist = 600, bare = true },
+    { id = 3, outposts_seen = 2, defense = 30, weak = false, dist = 900 } }
+  local db = C.think(sb, view(10 * 3600, { garrison = 40, rivals = rb }), drawer(sb.stream))
+  local sb2 = C.new(stream(36), 0)
+  for _ = 1, 3 do C.record_loss(sb2, 10 * 3600, 2) end
+  local db2 = C.think(sb2, view(10 * 3600, { garrison = 40, rivals = rb, traits = traits({ rancune = 1300 }) }), drawer(sb2.stream))
+  check(db.target == 3 and db2.target == 2, "QG nu épargné (cible 3) ; avec rancune, visé (cible " .. tostring(db2.target) .. ")")
   -- Périphérie d'abord : l'avant-poste de la zone de départ (45 tuiles du QG rival) n'est visé qu'en dernier.
   local hq, me = { x = 0, y = 0 }, { x = 600, y = 0 }
   local start_zone, frontier = { x = 45, y = 0 }, { x = -200, y = 50 }

@@ -152,6 +152,7 @@ function Chef.observe(f, tick)
         weak = mem.weak ~= nil, weak_turrets = mem.weak and mem.weak.turrets or nil,
         dist = (aim and f.hq_pos) and math.floor(math.sqrt(d2(aim, f.hq_pos))) or 600,
         reachable = not Military.target_unreachable(f, rid, tick),
+        bare = (r.outposts_count or 0) == 0, -- lot IA2-a2 : QG nu (même donnée que Military.target_of)
       }
     end
   end
@@ -302,7 +303,8 @@ function Chef.decision_fields(f, target, tick)
   -- Écarlate relançait 32 soldats contre Azur au tick même de l'issue « réussie » de la vague précédente.
   local tr = Character.of(f).traits or {}
   local hold = (st.hold and target and st.target == target.id)
-    or (target and (Chef.engaged(f, target.id) or C.sated(st, { id = target.id }, tr, tick or 0))) or nil
+    or (target and (Chef.engaged(f, target.id)
+      or C.sated(st, { id = target.id, bare = (target.outposts_count or 0) == 0 }, tr, tick or 0))) or nil
   return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant, hold = hold }
 end
 

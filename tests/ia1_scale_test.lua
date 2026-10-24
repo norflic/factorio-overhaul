@@ -227,6 +227,14 @@ for _, t in ipairs(pm.tasks) do if t.key == "mine:iron-ore" and t.prio == 90 the
 check(pm.recruit_workers == 1 and pm.recruit_unarmed and mine90, "sans plaques : 2e ouvrier sans arme et minage du fer à la main (priorité 90)")
 local pg = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = em }), book)
 check(pg.train and pg.train.count == 5 and pg.train.uses ~= nil, "reconstruction, 0 soldat : un lot de 5 soldats équipés au QG (" .. tostring(pg.train and pg.train.unit) .. ")")
+local stone = { stone = 100, coal = 100 }
+local ps = Planner.plan(base_view({ workers = 8, smelters = 0, stock = stone, emergency = { floor = 8, rebuild = true } }), book)
+local smelt_task, furnace_craft = false, false
+for _, t in ipairs(ps.tasks) do
+  if t.key == "smelters" and t.prio == 92 then smelt_task = true end
+  if t.kind == "craft" and t.item == "stone-furnace" and t.prio == 92 then furnace_craft = true end
+end
+check(ps.emergency_smelters and (smelt_task or furnace_craft), "fonderie du QG détruite : reposée en priorité 92 (fours fabriqués avec la pierre du stock)")
 local pq = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = { floor = 8, rebuild = false } }), book)
 check(not (pq.train and pq.train.uses), "hors reconstruction et sans menace : pas de garde équipée au QG")
 

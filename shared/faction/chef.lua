@@ -164,11 +164,15 @@ end
 
 --- Lot IA2-a2 : la rivale `r` (entrée de v.rivals) est-elle épargnée par satiété ? Battue récemment (C.SATIETY),
 --- sauf rancune forte (rancune × trait ≥ C.GRUDGE_OVERRIDE) ou armée sortie face à un opportuniste.
+--- 4e essai : une rivale réduite à son QG (`r.bare` : aucun avant-poste) est épargnée de même : rien à prendre, seule
+--- la rancune y mène (moteur réel, graine 3141592653 : Écarlate, sans avant-poste ni fonderie depuis 80 min,
+--- anéantie à 100 min par deux attaques sur son QG nu).
 local function sated(st, r, tr, tick)
   local until_t = st.beaten and st.beaten[r.id]
-  if not until_t or tick >= until_t then return false end
+  local beaten = until_t ~= nil and tick < until_t
+  if not beaten and not r.bare then return false end
   if math.floor((st.grudge[r.id] or 0) * (tr.rancune or 1000) / 1000) >= C.GRUDGE_OVERRIDE then return false end
-  if r.army_out and (tr.opportunisme or 1000) >= C.OPPORTUNIST then return false end
+  if not r.bare and r.army_out and (tr.opportunisme or 1000) >= C.OPPORTUNIST then return false end
   return true
 end
 C.sated = sated
