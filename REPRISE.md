@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 21 h 15** : B0 fini (branche worktree-agent-aeda9289b3fc0fb7d, 0b1a1a3) : cause des carrés prouvée
+> (cristal et marais étaient des copies d'eau dans une couche au-dessus des sols, la frontière tombait sur la grille) ;
+> cristal devenu un sol mauve bruyère, marais passé sous les sols ; b0-biomes 9, monde 89, m0-reprise 15, content 317 ;
+> planches envoyées au DC, questions B-Q1 à B-Q4 (cristal, marais et méthane décalé, grain fin, végétation) ; fusion
+> après son verdict. PIÈGE : feuilles.py sans argument ramasse les socles animés en cours de production (356 fichiers
+> au lieu de 336) : ne pas régénérer les feuilles de main avant la fin de la production, ou passer --socle-anime.
 > **Point de 21 h 05** : analyses finies (SCENARIO.md, IA_ADAPTATIVE.md, dans fo-logs 2026-10-24_ANALYSE) ; page de
 > synthèse pour le DC https://claude.ai/artifact/1XgayKG82dW3LaFjngxdJp (questions S1 à S5, IA1 à IA5, E1 à E3, en
 > attente). MOD-0 et B0 en cours (worktrees), production du socle animé en cours.
