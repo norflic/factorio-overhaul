@@ -213,6 +213,8 @@ source, plus défaut 20261020 (sans variable et en double source), variable vide
 4294967295, 0, zéros de tête, et en double source), 10 graines refusées (rien n'a tourné, aucune commande injectée
 exécutée), et le passage par `fo-captures.bat` (graine transmise ; graine refusée → code 8). Sur le `.bat` d'avant
 le lot (`--bat <fichier> --captures <fichier>`) : 4 OK, 21 ECHEC. Depuis le lot S0 : 40 OK (cas 10 à 13 du son, §1.3).
+Depuis le lot D4m-GÉANT : **47 OK** (cas 14 : BILAN en échec dans `benchmark.log` → code 8, §5.2) ; sur le
+`fo-captures.bat` d'avant ce lot : 44 OK, 3 ECHEC (14a, 14c, 14d : code 0 malgré le BILAN en échec).
 
 ### 1.3 Son actif SANS sortie audio : `FO_AUDIO` (lot S0, E69 ; corrigé après la vérification)
 Par défaut, tous les bancs passent `--disable-audio` : aucun son n'est chargé, et un fichier son manquant ne se voit
@@ -682,7 +684,9 @@ normal] »).
 les fixtures synthétiques (`make_fixtures.py`), les unitaires de `vram.py` (`unit_vram.py`), l'intégration du pilote
 sur une racine factice avec un faux jeu (`driver_it.py`, `fake_game.py`) et, avec `--logs`, `vram.py` sur chaque
 journal archivé. Attendu le 21/10 : **5/5 étapes** (essai à blanc 11 OK, BILAN du greffon 16 OK ; unitaires 51 OK ;
-intégration 17 OK ; 8 journaux ; 57 unitaires et 13 journaux depuis le 22/10, voir ci-dessous). Ne lance
+intégration 17 OK ; 8 journaux ; 57 unitaires et 13 journaux depuis le 22/10, voir ci-dessous). Depuis la galerie des
+têtes (correction du lot D4m-GÉANT, 24/10) : essai à blanc **15 OK**, BILAN du greffon **18 OK**, unitaires 99 (10
+phases dont 5 vues, 10 champs de référence, 10 captures dans le journal de l'essai à blanc et les fixtures). Ne lance
 pas Factorio et n'écrit rien dans la racine du jeu. **À lancer depuis Git Bash** : l'essai à blanc appelle `lua5.2`,
 qui n'est pas dans le PATH de PowerShell ; sous PowerShell, le banc donne 2/5 (code 127 de l'appel ; constaté le 22/10
 par la suite « défense dense » du lot R1).
@@ -790,56 +794,125 @@ Un sous-dossier de `fo-logs` qui n'est pas une archive est permis, par exemple
 
 ### 5.2 Scénario greffé `d4-geant`
 
-`fo-autotest/scenarios/d4-geant.lua` : usine de **288 × 188 tuiles** de béton en (64, −96), 2 fois la suite des
-familles à niveaux lues dans `shared/levels/config.lua` (noms par `LV.name`, nombre de niveaux par `f.max`, taille par
-le prototype chargé : le banc reste valable quand les sprites V3 arrivent), tournée pour que le mur ferme chaque cycle
-(le centre de l'usine, entre deux cycles, montre les 7 familles même au zoom 0,5). Un bloc par famille, en
-**sandwich** sans rangée vide : 4 rangées de machines jointives, 2 tapis en boucle fermée chargés d'objets (normal,
-rapide, express), chaque tapis servant les deux rangées qui le bordent, bras d'une case (normal, rapide, empileur)
-entre tapis et machines ; murs : 2 rangées pleines. Tout travaille : assembleurs (paquets rouges, un bras d'entrée et
-un de sortie), fours (acier, charbon), foreuses (minerai sous chacune, dépôt DIRECT sur le tapis), tourelles chargées
-et ravitaillées, alimentation invisible (6 zones de 128 × 128).
+`fo-autotest/scenarios/d4-geant.lua` : usine de **288 × 392 tuiles** de béton en (64, −96), **4 fois** la suite des
+familles à niveaux lues dans `shared/levels/config.lua` (noms par `LV.name`, nombre de niveaux par `f.max`, côté de
+CHAQUE niveau lu sur le prototype chargé, repli `LV.footprint`), tournée pour que le mur ferme chaque cycle : le
+centre de l'usine (208, 100), entre le 2e et le 3e cycle, montre les 7 familles et tous leurs niveaux au zoom 0,3. Un
+bloc par famille : machines M1 collées au SUD de leur rangée | bras | tapis R1 (est) | tapis R2 (ouest) | bras |
+machines M2 collées au NORD. R1 et R2 forment une boucle fermée chargée d'objets (normal, rapide, express). Chaque
+machine a SA taille, touche sa rangée de bras (une foreuse : son tapis) et suit la précédente sans intervalle, tous
+les niveaux à la suite (1, 2, … max). Bras d'une case (normal, rapide, empileur) sur TOUT le bord de la machine qui
+longe le tapis : entrée et sortie en alternance (centre, four, assembleur), entrée seulement (mitrailleuse). Murs : 2
+rangées pleines. Tout travaille : assembleurs (paquets rouges), fours (acier, charbon), foreuses (minerai sous
+chacune, dépôt DIRECT sur le tapis), tourelles chargées et ravitaillées, alimentation invisible (12 zones de
+128 × 128). **Têtes de mitrailleuse** : au tick 30, chaque tourelle reçoit l'orientation de l'image
+k = (23 c + 11 n) mod 64 (c : rang de la tourelle dans son niveau n ; formule `orientation_image` de `gun-rose.lua`) :
+les 572 tourelles montrent des poses variées, et non la seule pose de repos. **Mais** les 64 valeurs de k ne sont
+atteintes que sur l'usine ENTIÈRE, tous âges confondus : un âge n'a que 35 à 42 tourelles, soit **35 à 40 images par
+âge**, et le champ z0,3 hd n'en montre que **4 à 8 par âge** (tourelles entières dans le champ ; 3 à 4 à z0,5 hd).
+L'usine ne suffit donc PAS à dessiner toutes les poses (défaut relevé par la vérification du lot, corrigé ci-dessous).
 
-Essai à blanc (moteur simulé, 21/10) : **6 672 bâtiments à niveaux dans l'usine** (centre 568, mitrailleuse 1 144,
-laser 1 144, mur 1 152, foreuse 760, four 1 144, assembleur 760 ; tous les niveaux de chaque famille), 7 072 tapis,
-6 088 bras, 23 584 objets sur les tapis, 6 840 minerais, 26 684 entités, aucun chevauchement. **Champ réel** (ce que
-la caméra dessine : rectangle de demi-côtés résolution / (64 × zoom) autour du centre (208, −2), entités dont la boîte
-le touche) :
+**Galerie des têtes (correction du lot D4m-GÉANT, 24/10).** Au plancher, l'atlas virtuel n'est rempli qu'à la demande
+(F148) : seule une vue qui DESSINE une pose la charge. Le greffon pose donc, loin de l'usine, une galerie de **64
+mitrailleuses par âge** (15 âges, **960 tourelles**, les deux niveaux de l'âge en alternance, chargées de munitions,
+aucun ennemi), en bandes collées de 192 tuiles (un âge commence une rangée) : **192 × 105 tuiles autour de (208, −262)**,
+17 280 tuiles d'emprise ; la c-ième tourelle de l'âge reçoit l'image k = c au tick 30. Une vue mesurée de plus,
+`z030-tetes` (zoom 0,3, midi, 600 ticks, après `repere-4`), est centrée sur elle : en 1920 × 1080, son champ
+(200 × 113 tuiles) contient les 960 tourelles ENTIÈRES. Contrôle (tick 120) : pour chaque âge, 64 tourelles dont
+l'emprise entière est dans ce champ (position et emprise lues sur le moteur), orientation relue et tenue (1/1024), et
+**64 images distinctes relues** (image déduite de l'orientation RENDUE par le moteur, inverse de `orientation_image`).
+Aux âges restés à 4 directions (9 à 15 au 24/10, lus dans `graphics/levels/gun/sprites.lua`), le moteur ne montre que
+l'image la plus proche : la galerie y dessine 4 images ; elle dessinera les 64 sans changement quand la production
+d'A3 sera intégrée. Chaque vue écrit aussi une ligne `TETES vue <nom>` (tourelles entières dans la fenêtre RÉELLE, par
+âge) ; les références du tick 120 : `TETES reference usine-z030-hd`, `usine-entiere` et `tetes-z030-hd`.
 
-| Champ | Tuiles | Bâtiments à niveaux | dont machines | murs | Tapis | Bras | Familles |
-|---|---|---|---|---|---|---|---|
-| zoom 0,3, 1920 × 1080 (vues mesurées en `hd`, capture `-hd`) | 200 × 112 | **2 588** | 2 188 | 400 | 2 800 | 2 598 | 7/7, tous les niveaux |
-| zoom 0,3, 1600 × 900 (captures) | 167 × 94 | **2 027** | 1 691 | 336 | 2 016 | 1 776 | 7/7 |
-| zoom 0,5, 1920 × 1080 | 120 × 68 | **1 239** | 999 | 240 | 1 200 | 1 000 | 7/7 |
-| zoom 0,5, 1600 × 900 (captures) | 100 × 56 | **974** | 774 | 200 | 800 | 600 | 6/7 |
+**Recalage (lot D4m-GÉANT, 24/10).** Depuis 0.4.3 (emprises par niveau, lot V3-T2), l'ancienne disposition (4 rangées
+par famille, cases de la taille du PLUS GRAND niveau) donnait en moteur réel **10 OK, 6 ECHEC** (F128) : 3 312
+bâtiments (5 000 visés), 2 440 bras (4 000 visés), usine de 364 tuiles de haut dont le champ central ne voyait que
+5 familles sur 7 (944 bâtiments dont 544 machines), et un niveau plus petit que sa case, centré dedans, ne touchait
+plus ses bras (731 bras reliés sur 2 440) ni son tapis (193 foreuses sur 376). L'essai à blanc restait vert : son
+moteur simulé donnait à tous les niveaux le côté de base de la famille ; il lit désormais la table des emprises et la
+règle des points de dépôt (`shared/levels/points.lua`), et rejoue les 6 échecs sur l'ancien greffon (3 312, 944, 5/7).
 
-Version précédente (commit c5b1015), pour mémoire : 4 240 bâtiments **dans l'usine**, dont 2 304 murs ; **dans le
-champ** ≈ 1 224 (z0,3, 1600 × 900, dont 560 machines), ≈ 1 575 (z0,3 hd, 775 machines), ≈ 628 à 841 (z0,5, 228 à 361
-machines) ; et un bras sur quatre (bras long, qui prend et dépose à deux cases) ne touchait pas le tapis : en
-entrée il ne prenait rien, en sortie il aurait déposé au sol. Annoncer « 4 240 bâtiments » aurait surestimé d'un
-facteur 3 à 7 la charge réellement dessinée. Aujourd'hui : 2,8 à 3,4 fois plus de
-machines dans chaque champ. Limite physique : au zoom 0,5 (100 × 56 tuiles en 1600 × 900), des milliers de bâtiments de
-2 × 2 à 4 × 4 avec leurs tapis sont impossibles ; « des milliers dans le champ » ne vaut qu'au zoom 0,3.
+Mesuré en moteur réel (`fo-autotest.bat nopause 600 d4-geant`, 24/10, `done.txt` 4:19:03 ; identique à l'essai à
+blanc) : **5 343 bâtiments à niveaux** (centre 379, mitrailleuse 572, laser 572, mur 2 304, foreuse 472, four 572,
+assembleur 472 ; tous les niveaux), 13 824 tapis, 9 091 bras, 46 020 objets sur les tapis, 39 772 entités dans
+l'usine, aucun chevauchement ; 1,31 ms par tick en moyenne au banc (0,51 avant). **Champ réel** (ce que la caméra
+dessine : rectangle de demi-côtés résolution / (64 × zoom) autour du centre, entités dont la boîte le touche ;
+couverture : tuiles de l'emprise des bâtiments à niveaux DANS le rectangle) :
+
+| Champ | Tuiles | Bâtiments à niveaux | dont machines | murs | Tapis | Bras | Familles | Couverture |
+|---|---|---|---|---|---|---|---|---|
+| zoom 0,3, 1920 × 1080 (vues mesurées en `hd`, capture `-hd`) | 200 × 113 | **1 019** | 619 | 400 | 2 800 | 1 800 | 7/7, tous les niveaux | 63,8 % |
+| zoom 0,3, 1600 × 900 (captures) | 167 × 94 | **799** | 463 | 336 | 2 016 | 1 328 | 7/7, tous les niveaux | 62,6 % |
+| zoom 0,5, 1920 × 1080 | 120 × 68 | **512** | 272 | 240 | 960 | 480 | 7/7 (centre 6/15 niv.) | 62,8 % |
+| zoom 0,5, 1600 × 900 (captures) | 100 × 56 | **397** | 197 | 200 | 800 | 400 | 5/7 | 64,0 % |
+
+Justification des seuils (pas d'affaiblissement de l'intention, chiffres à l'appui) :
+- **5 000 bâtiments, 5 000 tapis, 4 000 bras dans l'usine** : seuils de 0.4.1 GARDÉS (5 343, 13 824 et 9 091 mesurés) ;
+  4 cycles au lieu de 2, et des bras sur tout le bord des machines (l'ancienne usine de 2 × 2 avait déjà 2 bras par
+  machine de 2 de large).
+- **Champ z0,3 en 1920 × 1080 : 900 bâtiments dont 550 machines, 58 % du champ couverts** : 0,88 × 1 019, 0,89 × 619 et
+  0,91 × 63,8 %, arrondis. Le NOMBRE baisse (2 588 dont 2 188 machines sur la géométrie de 0.4.1) parce que les
+  bâtiments grandissent : machine moyenne du champ ≈ 22,5 tuiles (13 956 / 619), contre 7 en 0.4.1 ((15 700 − 400) /
+  2 188) ; la COUVERTURE reste à 91 % de celle de 0.4.1 (63,8 % contre 69,8 %, même mesure sur l'essai à blanc de
+  l'ancien greffon). Borne physique : 200 × 113 = 22 600 tuiles ; toutes les familles et tous les niveaux du champ
+  exigent un cycle de 98 tuiles de haut au plus (1 cycle = centre 20 + mitrailleuse 16 + laser 14 + mur 2 + foreuse
+  14 + four 16 + assembleur 16), d'où 2 rangées de machines par famille (4 rangées : 182 tuiles, 5 familles vues).
+- **Têtes de l'usine** : 572 tourelles, orientation écrite au tick 30 et relue au tick 120 (toutes ; tolérance 1/1024) ;
+  64 images relues dans l'usine ENTIÈRE (tous âges confondus ; 35 à 40 par âge : ce chiffre est écrit, il n'est pas un
+  seuil).
+- **Galerie des têtes** : 64 tourelles × 15 âges, toutes entières dans le champ z0,3 hd de `z030-tetes`, 64 images
+  distinctes relues par âge : seuil = le compte exact (64 poses, la définition de « toutes les poses d'un âge » ; une
+  galerie de 192 × 105 tient dans 200 × 113, marge 4 tuiles en largeur et 3,75 en hauteur).
+
+Mesures du 24/10 avant la galerie (commit 0a13534, 5 passages de §5.3, archives
+`fo-logs\2026-10-24_D4m-geant\1-haute-galerie` à `5-plancher-mesure`) : BILAN 17 OK au banc et en session dans les 5 ;
+UPS 59,9 à 60,1 ; mémoire dédiée haute 1,65 Go de pic (1,53 à 1,54 de moyenne), normale 0,66 Go (0,62 à 0,63),
+plancher 0,42 Go dans toutes les vues mesurées mais 0,58 Go de pic APRÈS elles ; atlas 15, 1,132 Gpx en haute ; 14,
+0,351 Gpx en normale ; 14, 0,203 Gpx + 151 Mpx de pages au plancher.
+Avec la galerie (correction, 24/10 vers 5 h, archives `fo-logs\2026-10-24_D4m-geant\correction\1-haute-galerie` à
+`5-plancher-mesure`) : **BILAN 18 OK** au banc et en session dans les 5 ; UPS 59,9 à 60,1 dans toutes les vues (dont
+`z030-tetes` : 60,0 à 60,1) et tous les repères ; vue `z030-tetes` : `TETES vue` 960 tourelles entières, 15 âges, 64
+images par âge (fenêtre 1920 × 1080 dans les 5 passages) ; mémoire dédiée par phase (passages `hd`) : haute 1,64 Go
+dans les vues de l'usine, **1,65 dans `z030-tetes`** ; normale 0,65 partout ; plancher 0,42 partout, `z030-tetes`
+comprise (pages de taille fixe, F148 : la mémoire dédiée ne dit PAS si les poses ont été chargées) ; pics hors des
+vues (captures) : haute 1,81 Go, normale 0,66 (0,77 en galerie, cache refait), plancher 0,43 ; atlas inchangés.
+
+Version de 0.4.1 (commit f34c710), pour mémoire : 288 × 188 tuiles, 6 672 bâtiments, 7 072 tapis, 6 088 bras ;
+champ z0,3 hd 2 588 bâtiments dont 2 188 machines, z0,3 1 600 × 900 2 027, z0,5 hd 1 239, z0,5 974. Version encore
+avant (commit c5b1015) : 4 240 bâtiments dans l'usine, dont 2 304 murs, ≈ 1 575 dans le champ z0,3 hd, et un bras
+sur quatre (bras long) qui ne touchait pas le tapis.
 
 Session avec images : la caméra du joueur (spectateur) tient des vues fixes, chacune chronométrée par un LuaProfiler
 (UPS) : `repere-debut` (zone vide, 180 ticks ; contient les contrôles du tick 120), `z030-jour` (zoom 0,3, midi, 600),
-`repere-1` (60), `z050-jour`, `repere-2`, `z030-nuit` (minuit), `repere-3`, `z050-nuit`, puis `repere-fin` jusqu'à la
-fin. Les repères (zone vide de 160 × 100 tuiles, presque aucun sprite) découpent `perf-stats.csv` en phases et donnent
+`repere-1` (60), `z050-jour`, `repere-2`, `z030-nuit` (minuit), `repere-3`, `z050-nuit`, `repere-4` (60), `z030-tetes`
+(galerie des têtes, zoom 0,3, midi, 600 ; depuis la correction du lot D4m-GÉANT), puis `repere-fin` jusqu'à la
+fin. Les vues de l'usine gardent leurs ticks (180 à 2 760) : leurs mesures restent comparables à celles d'avant. Les repères (zone vide de 160 × 100 tuiles, presque aucun sprite) découpent `perf-stats.csv` en phases et donnent
 l'UPS de la simulation seule. Chaque vue écrit son champ réel AVANT le chronomètre, avec la résolution réelle de la
 fenêtre (`LuaPlayer.display_resolution` : en fenêtre réduite, quelques pixels, et `vram.py` le signale). Captures
-APRÈS les mesures (ticks 2 790 à 2 860) : `usine-z030-jour`, `-z050-jour`, `-z030-nuit`, `-z050-nuit`,
-`usine-z030-hd-jour` (1920 × 1080), `usine-detail-z1-jour`, `-z1-nuit`, `-z2-jour` (premier bloc d'assembleurs), chacune
-avec sa ligne `CHAMP capture`. Marqueur de fin vers le tick 2 931.
+APRÈS les mesures (ticks 3 450 à 3 540) : `usine-z030-jour`, `-z050-jour`, `-z030-nuit`, `-z050-nuit`,
+`usine-z030-hd-jour` (1920 × 1080), `usine-detail-z1-jour`, `-z1-nuit`, `-z2-jour` (premier bloc d'assembleurs), puis
+`tetes-z030-hd-jour` (galerie entière, 1920 × 1080) et `tetes-detail-z1-jour` (âges 1 à 8 au zoom 1), chacune avec sa
+ligne `CHAMP capture` : 10 captures. Marqueur de fin au tick 3 611 (mesuré le 24/10 ; 2 931 avant la galerie).
 
-Contrôles (`[FO-D4-GEANT]`, BILAN attendu **16 OK** dans `fo-autotest\benchmark.log` et dans le journal de la session ;
-les 8 premiers aussi dans `create.log`) :
+Contrôles (`[FO-D4-GEANT]`, BILAN attendu **18 OK, 0 ECHEC(S)** dans `fo-autotest\benchmark.log` et dans le journal de
+la session depuis la correction du lot D4m-GÉANT (17 au commit 0a13534 ; 16 avant ; 10 OK, 6 ECHEC sur `main` de 0.4.3
+à 0.4.9, F128) ; les 8 premiers aussi dans `create.log`) :
 - à la création : prototypes de tous les niveaux présents ; tous les niveaux posés ; au moins 5 000 bâtiments à
   niveaux dans l'usine ; 5 000 tapis et 4 000 bras ; objets sur les tapis ; aucune pose refusée ; alimentation ;
   l'usine dépasse le champ z0,3 hd ;
-- au tick 120 : **champ réel z0,3 en 1920 × 1080 : au moins 2 000 bâtiments à niveaux dont 1 500 machines** (seuil
-  explicite ; à blanc : 2 588 et 2 188) ; toutes les familles et tous leurs niveaux dans ce champ ; **bras reliés**
-  (prise et dépôt du moteur, `pickup_position` et `drop_position`, entre un tapis et un bâtiment à niveaux : tous) ;
-  **foreuses** (dépôt sur un tapis : toutes) ; assembleurs, fours et foreuses au travail (80 %) ; aucun ennemi.
+- au tick 120 : **champ réel z0,3 en 1920 × 1080 : au moins 900 bâtiments à niveaux dont 550 machines, emprises sur
+  58 % du champ au moins** (mesuré : 1 019, 619, 63,8 % ; justification ci-dessus) ; toutes les familles et tous leurs
+  niveaux dans ce champ ; **bras reliés** (prise et dépôt du moteur, `pickup_position` et `drop_position`, entre un
+  tapis et un bâtiment à niveaux : tous) ; **foreuses** (dépôt sur un tapis : toutes) ; assembleurs, fours et foreuses
+  au travail (80 %) ; **têtes de mitrailleuse de l'usine orientées** (tick 30) et tenues au tick 120, 64 images relues
+  dans l'usine entière (PAS par âge : 35 à 40 par âge) ; **galerie des têtes : 64 poses par âge dans le champ z0,3 hd de
+  la vue `z030-tetes`** (15 âges × 64 tourelles entières, tenues, 64 images distinctes relues) ; aucun ennemi.
+
+`fo-captures.bat d4-geant` (comme tout scénario) rend le **code 8** si une ligne « BILAN : n OK, m ECHEC(S) » de
+`fo-autotest\benchmark.log` a m > 0 (session visuelle lancée quand même ; son propre code si elle échoue) ; avant le
+lot D4m-GÉANT, il rendait 0 malgré le BILAN 10 OK, 6 ECHEC. Contrôlé hors jeu par `bat_double_source/run.py` (cas 14).
 
 ### 5.3 Procédure pour l'orchestrateur (moteur réel)
 
@@ -856,41 +929,42 @@ python "<source>/tools/autotest/vram.py" --sonde                     # compteurs
 # 1. Haute qualité, galerie (fenêtre réduite, aucune gêne)
 FO_VISUAL_ARGS="--quality high" ./fo-captures.bat d4-geant "<source>"
 #    -> archiver fo-visual\write\script-output\fo-shots\ et fo-autotest\*.log dans fo-logs\<date>_D4m_1-haute-galerie\
-# 2. Haute qualité, mesure (fenêtre 1920x1080 sans focus, cœurs P, fin naturelle au tick 3 200)
-FO_VISUAL_ARGS="--quality high --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+# 2. Haute qualité, mesure (fenêtre 1920x1080 sans focus, cœurs P, fin naturelle au tick 3 900 ; 3 200 avant la galerie des têtes)
+FO_VISUAL_ARGS="--quality high --measure --ticks 3900 --pcores" ./fo-captures.bat d4-geant "<source>" hd
 #    -> fo-logs\<date>_D4m_2-haute-mesure\
 # 3. Qualité normale, galerie (refait sans doute le cache : chargement à part)
 FO_VISUAL_ARGS="--quality normal" ./fo-captures.bat d4-geant "<source>"
 #    -> fo-logs\<date>_D4m_3-normale-galerie\
 # 4. Qualité normale, mesure
-FO_VISUAL_ARGS="--quality normal --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+FO_VISUAL_ARGS="--quality normal --measure --ticks 3900 --pcores" ./fo-captures.bat d4-geant "<source>" hd
 #    -> fo-logs\<date>_D4m_4-normale-mesure\
 # 5. PLANCHER (bas de la plage, Q21) : qualité normale, mémoire vidéo « low », compression « low-quality », mesure
-FO_VISUAL_ARGS="--quality normal --video-memory low --texture-compression low-quality --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+FO_VISUAL_ARGS="--quality normal --video-memory low --texture-compression low-quality --measure --ticks 3900 --pcores" ./fo-captures.bat d4-geant "<source>" hd
 #    -> fo-logs\<date>_D4m_5-plancher-mesure\
 # 6. (facultatif) intermédiaire : qualité normale, mémoire vidéo « medium », mesure
-FO_VISUAL_ARGS="--quality normal --video-memory medium --measure --ticks 3200 --pcores" ./fo-captures.bat d4-geant "<source>" hd
+FO_VISUAL_ARGS="--quality normal --video-memory medium --measure --ticks 3900 --pcores" ./fo-captures.bat d4-geant "<source>" hd
 python "<source>/tools/autotest/vram.py" "<racine>/fo-logs/<date>_D4m_2-haute-mesure"   # relire une archive
 ```
 
 Depuis PowerShell : `$env:FO_VISUAL_ARGS = "--quality normal"; & "<racine>\fo-captures.bat" d4-geant "<source>";
-$env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : non mesurée à ce jour (création de l'usine, 26 684 entités ;
-puis 2 760 ticks de vues chronométrées, 46 s à 60 UPS, les captures, et pour `--measure` l'attente du tick 3 200).
+$env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : **74 à 80 s** mesurées le 24/10 avec la galerie des têtes
+(création de l'usine, 39 772 entités, et de la galerie, 960 tourelles ; puis 3 420 ticks de vues chronométrées, 57 s à
+60 UPS, les captures, et pour `--measure` l'attente du tick 3 900) ; 63 à 68 s avant la galerie.
 
 À relever pour chaque passage (code de sortie attendu : 0 ; 9 = réglage non appliqué, mesure à jeter) :
 
 | Quoi | Où | Passages qui comptent |
 |---|---|---|
-| BILAN `[FO-D4-GEANT]` 16 OK | `fo-autotest\benchmark.log`, journal de session | tous |
+| BILAN `[FO-D4-GEANT]` 18 OK, 0 ECHEC(S) (code 8 sinon) | `fo-autotest\benchmark.log`, journal de session | tous |
 | qualité, usage de la mémoire vidéo, DXT réellement appliqués | `session.txt` (« reglages appliques ») | tous |
 | cache des atlas lu ou REFAIT ; « sprites charges a », « jeu initialise a » (D4-3) | `session.txt`, `memoire.txt` | comparer 2 et 4 (même état du cache) ; un passage qui refait le cache se compare à un autre qui le refait |
 | mémoire vidéo DÉDIÉE du jeu : pic, moyenne, par phase (D4-1, D4-5) ; mémoire vive privée (Q21 : 16 Go) | `session.txt`, `memoire.txt` | **2, 4, 5 (et 6) seulement** ; en fenêtre réduite (1, 3), borne BASSE (tampons de rendu et de lumières à la taille de la fenêtre) |
 | atlas : nombre, pixels, estimation (à confronter au pic mesuré) | `memoire.txt` | tous |
-| champ réel de chaque vue (« champ reel de la vue … ») | `session.txt` | 2, 4, 5 : la vue doit compter ≈ 2 588 bâtiments à z0,3 ; en fenêtre réduite, presque rien |
+| champ réel de chaque vue (« champ reel de la vue … ») | `session.txt` | 2, 4, 5 : la vue doit compter 1 019 bâtiments à z0,3 (619 machines, depuis le lot D4m-GÉANT ; 944 dont 544 de 0.4.3 à 0.4.9, 2 588 en 0.4.1) ; en fenêtre réduite, presque rien |
 | UPS par vue et par repère (simulation seule) | `session.txt`, `memoire.txt` | 2, 4, 5 |
 | VSync et fréquence de l'écran (« VSync ACTIF, ecran 144 Hz ») | `session.txt` | 2, 4, 5 : avec VSync, plafond à la fréquence de l'écran |
 | images/s par vue, par voie (phase, max(cpu,gpu), cpu-frame HYPOTHÈSE, compteurs) ; somme cpu-frame / durée ; contrôle du zoom (tuiles z030/z050 ≈ 2,78) | `session.txt`, `memoire.txt` | 2, 4, 5 |
-| captures : lisibilité de loin, gigantisme, nuit ; haute, normale et plancher côte à côte (D4-2, verdict du Directeur Créatif) | `planche-01.png` et les 8 PNG | 1, 3, 5 |
+| captures : lisibilité de loin, gigantisme, nuit ; haute, normale et plancher côte à côte (D4-2, verdict du Directeur Créatif) | `planche-01.png` et les 10 PNG (dont la galerie des têtes : 009, 010) | 1, 3, 5 |
 
 **Non prouvé à ce jour (à confirmer au premier passage, puis à consigner dans RD_LOG) :**
 1. `--output-perf-stats` écrit-il un fichier en fin naturelle de `--benchmark-graphics`, une ligne par image, en
@@ -909,15 +983,20 @@ puis 2 760 ticks de vues chronométrées, 46 s à 60 UPS, les captures, et pour 
 5. L'instance `pid_<PID>_…` du compteur « GPU Process Memory » apparaît-elle pour le jeu (`--sonde` l'a vue pour
    d'autres programmes le 21/10 : 30 instances) ?
 6. `LuaPlayer.zoom = 0,3` est-il appliqué tel quel (contrôle des tuiles z030/z050) ?
-7. Le budget `--ticks 3200` suffit-il pour atteindre le marqueur (tick 2 931) avant la fin naturelle (sinon code 7) ?
+7. Le budget `--ticks 3900` suffit pour atteindre le marqueur (tick 3 611) avant la fin naturelle : prouvé le 24/10
+   dans 3 passages `--measure` (code 0) ; avant la galerie des têtes, `--ticks 3200` et le tick 2 931.
 8. Clés du `config.ini` de test : `graphics-quality=high` (le défaut de ce PC, preset « very-high », est déjà la haute
    qualité) et `texture-compression-level` : nom lu dans le binaire, VALEURS (`none`, `high-quality`,
    `low-quality`) supposées d'après le journal « [DXT: high-quality] » et la locale. Une valeur refusée donne le code 9
    (journal) ou une erreur du jeu au démarrage (code 7).
-9. Greffon en moteur : BILAN 16 OK, champ réel (boîtes du moteur ; l'essai à blanc les approche à ±0,3 tuile) et
-   géométrie des bras et des foreuses (prouvée à blanc avec les vecteurs de base seulement ; les prototypes à niveaux
-   peuvent différer). **Contrôles « au travail » : non testés** (le moteur simulé déclare tout au travail et `insert`
-   réussit toujours).
-10. Coût de la simulation : 26 684 entités, dont 6 088 bras et 760 assembleurs. Si l'UPS des repères tombe sous 60, les
-    images/s mesurent la simulation autant que le rendu (que le jeu borne les images/s par l'UPS n'est pas prouvé ici).
+9. Greffon en moteur : **prouvé le 24/10** (lot D4m-GÉANT) : BILAN 17 OK au banc et dans 5 sessions, puis 18 OK avec
+   la galerie des têtes (banc 4:56:06 et 5 sessions, 960 / 960 tourelles, 64 images par âge) ; champ réel,
+   bras (9 091 / 9 091) et foreuses (472 / 472) identiques à l'essai à blanc ; contrôles « au travail » joués en moteur
+   réel (assembleurs 472 / 472, fours 572 / 572, foreuses 472 / 472 au tick 120). Reste non expliqué : sur l'ANCIENNE
+   disposition, le moteur simulé compte 629 bras et 151 foreuses reliés, le moteur réel 731 et 193 (même usine, mêmes
+   3 312 bâtiments) ; la disposition actuelle n'a aucun cas limite (tout touche), l'écart n'y joue pas.
+10. Coût de la simulation : 39 772 entités, dont 9 091 bras, 472 assembleurs et 13 824 tapis : 1,31 ms par tick au banc
+    (0,51 avant le recalage), UPS 59,9 à 60,1 aux repères dans les 5 passages du 24/10. Si l'UPS des repères tombe sous
+    60, les images/s mesurent la simulation autant que le rendu (que le jeu borne les images/s par l'UPS n'est pas
+    prouvé ici).
 11. Règles d'octets « alpha-mask » et « low-quality » : hypothèses (tableau ci-dessus) ; la mesure directe tranche.
