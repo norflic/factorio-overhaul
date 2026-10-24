@@ -1294,8 +1294,8 @@ section("Déterminisme")
 local function scenario()
   new_world("hard", { seed = 7 })
   war("start 2 60 6 320")
-  -- Lot IA2-0 : personnalités tirées de la graine (graine 7 : technocrate et bâtisseur, au lieu de conquérant et
-  -- technocrate) ; la 1re déclaration en Difficile tombe à 25,75 min : 36 min de partie (25 avant IA2-0).
+  -- Lot IA2-0 : personnalités tirées de la graine (graine 7 : technocrate et équilibré, au lieu de conquérant et
+  -- technocrate ; grâces en Difficile 21,9 et 20,4 min selon les traits) : 36 min de partie (25 avant IA2-0).
   M.run_ticks(36 * MIN)
   return M.serialize(global), fac(1).pvp.attacks + fac(2).pvp.attacks
 end

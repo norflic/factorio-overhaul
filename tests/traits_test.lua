@@ -54,6 +54,27 @@ do
   local same = true
   for _, k in ipairs(Tr.ORDER) do if t2[k] ~= t2b[k] then same = false end end
   check(same, "flux indépendants : 50 tirages chez la faction 1 ne changent pas la faction 2")
+  -- Flux NON corrélés d'une faction à l'autre (le 1er mélange, linéaire, donnait des tirages décalés d'une
+  -- constante : |j1 − j2| moyen 58,9 au lieu de 134 attendu pour deux tirages indépendants sur 401 valeurs).
+  local sd, n, sx, sy, sxx, syy, sxy = 0, 0, 0, 0, 0, 0, 0
+  for k = 1, 2000 do
+    local ms = 20261020 + k * 7919
+    local _, _, j1 = Tr.found(ms, 1, "balanced")
+    local _, _, j2 = Tr.found(ms, 2, "balanced")
+    sd, n = sd + math.abs(j1 - j2), n + 1
+    sx, sy, sxx, syy, sxy = sx + j1, sy + j2, sxx + j1 * j1, syy + j2 * j2, sxy + j1 * j2
+  end
+  local r = (sxy / n - sx / n * sy / n) / math.sqrt((sxx / n - (sx / n) ^ 2) * (syy / n - (sy / n) ^ 2))
+  check(sd / n > 120 and sd / n < 148 and math.abs(r) < 0.05,
+    string.format("factions d'une même partie non corrélées (2 000 graines : |j1 − j2| moyen %.1f, attendu 134 ; corrélation %.3f)", sd / n, r))
+  local prev, close = nil, 0
+  for ms = 1, 2000 do
+    local _, _, j = Tr.found(ms, 1, "balanced")
+    if prev and math.abs(j - prev) < 20 then close = close + 1 end
+    prev = j
+  end
+  check(close < 300, string.format("graines voisines non corrélées (%d paires sur 1 999 à moins de 20 d'écart, attendu environ 195)", close))
+  check(Tr.mulmod(2147483646, 2147483646) == 1 and Tr.mulmod(65537, 65536) == (65537 * 65536) % Tr.MOD, "produit modulaire exact")
   -- Traits dans ±25 % de l'archétype, multiplicateur dans ±20 %, sur 400 graines × 4 archétypes.
   local in_range, jit_ok, jit_lo, jit_hi, draws_ok = true, true, 2000, 0, true
   for ms = 1, 400 do

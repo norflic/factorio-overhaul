@@ -68,13 +68,26 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Flux
 ---------------------------------------------------------------------------------------------------
+--- (a × b) mod MOD exact en double (a, b < MOD < 2^31) : b coupé en deux moitiés de 16 bits.
+local function mulmod(a, b)
+  local M = Tr.MOD
+  local hi, lo = math.floor(b / 65536), b % 65536
+  return ((a * hi % M) * 65536 % M + a * lo) % M
+end
+Tr.mulmod = mulmod
+
 --- Graine d'un flux : graine de la carte (entier ≥ 0 quelconque) mélangée au sel. Arithmétique exacte en double.
+--- Mélange NON LINÉAIRE (carré modulo MOD, 3 tours) : un mélange linéaire (graine × 31 + sel × 7919, puis des
+--- multiplications) donnait des flux décalés d'une constante d'une faction à l'autre, d'où des tirages presque égaux
+--- entre factions d'une même partie (mesuré : seuils 955, 978, 927, 950 pour la graine 20261020).
 function Tr.seed(map_seed, salt)
   local M = Tr.MOD
-  local a = (math.floor(map_seed or 0) % M) * 31 % M
-  local b = (math.floor(salt or 0) % M) * 7919 % M
-  local s = (a + b + 104729) % (M - 1) + 1
-  for _ = 1, 4 do s = (s * Tr.MUL) % M end
+  local s = math.floor(map_seed or 0) % (M - 1) + 1
+  local k = math.floor(salt or 0) % (M - 1) + 1
+  for round = 1, 3 do
+    s = (mulmod(s, s) + mulmod(k, 7919 + round) + round * 104729) % (M - 1) + 1
+    s = (s * Tr.MUL) % M
+  end
   return s
 end
 
