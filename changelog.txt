@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.16
+Date: 2026-10-24
+  Graphics:
+    - Biomes : la plaine de cristal devient un sol mauve aux bords fondus dans l'herbe et le désert, au lieu d'une
+      eau violette découpée en carrés, et ne porte plus d'herbes ni de plaques de boue ; le marais toxique a de
+      vraies rives ; les frontières des trois biomes sont découpées finement comme celles des sols du jeu de base.
+  Info:
+    - Nouvelles cartes : quelques gisements naturels de méthane et de pétrole sont placés autrement ; les gisements
+      garantis ne changent pas.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.15
 Date: 2026-10-24
   Features:
