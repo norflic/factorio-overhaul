@@ -874,6 +874,19 @@
       "d57",
       "d60"
      ],
+     "ecartees_regardees": [
+      "d07",
+      "d08",
+      "d09",
+      "d10",
+      "d16",
+      "d48",
+      "d54",
+      "d55",
+      "d56",
+      "d57",
+      "d60"
+     ],
      "ecarts_ecartees": {
       "d07": [
        0.2941,
@@ -920,7 +933,16 @@
        0.4417
       ]
      },
-     "pire_direction": "d63"
+     "pire_direction": "d63",
+     "sans_exclusion": {
+      "ecart_max": 0.5679,
+      "pire_direction": "d54",
+      "refuse_par_le_seuil": true,
+      "tir": [
+       0.34733,
+       1.57692
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.4044,
@@ -3169,8 +3191,18 @@
      "ecart_max_64": 0.1044,
      "ecart_max_toutes": 0.1044,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d16"
+     "pire_direction": "d16",
+     "sans_exclusion": {
+      "ecart_max": 0.1043,
+      "pire_direction": "d16",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       0.42044,
+       1.67765
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.1093,
@@ -5439,8 +5471,18 @@
      "ecart_max_64": 0.1517,
      "ecart_max_toutes": 0.1517,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d16"
+     "pire_direction": "d16",
+     "sans_exclusion": {
+      "ecart_max": 0.1517,
+      "pire_direction": "d16",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       0.18644,
+       2.35002
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.1467,
@@ -7709,8 +7751,18 @@
      "ecart_max_64": 0.1323,
      "ecart_max_toutes": 0.1323,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d16"
+     "pire_direction": "d16",
+     "sans_exclusion": {
+      "ecart_max": 0.1323,
+      "pire_direction": "d16",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       0.18659,
+       2.34618
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.1302,
@@ -9999,8 +10051,18 @@
      "ecart_max_64": 0.1324,
      "ecart_max_toutes": 0.1324,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d16"
+     "pire_direction": "d16",
+     "sans_exclusion": {
+      "ecart_max": 0.1324,
+      "pire_direction": "d16",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       0.18608,
+       2.3307
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.1369,
@@ -12289,8 +12351,18 @@
      "ecart_max_64": 0.0748,
      "ecart_max_toutes": 0.0748,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d01"
+     "pire_direction": "d01",
+     "sans_exclusion": {
+      "ecart_max": 0.0748,
+      "pire_direction": "d01",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       -0.03422,
+       3.33268
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.076,
@@ -14579,8 +14651,18 @@
      "ecart_max_64": 0.1638,
      "ecart_max_toutes": 0.1638,
      "ecartees": [],
+     "ecartees_regardees": [],
      "ecarts_ecartees": {},
-     "pire_direction": "d16"
+     "pire_direction": "d16",
+     "sans_exclusion": {
+      "ecart_max": 0.1638,
+      "pire_direction": "d16",
+      "refuse_par_le_seuil": false,
+      "tir": [
+       -0.03954,
+       3.01835
+      ]
+     }
     },
     "eclat_avant": {
      "ecart_max_4": 0.1564,
@@ -16155,7 +16237,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e09-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -16533,7 +16615,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e10-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -16931,7 +17013,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e11-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -17329,7 +17411,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e12-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -17727,7 +17809,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e13-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -18125,7 +18207,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "60 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e14-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {
@@ -18523,7 +18605,7 @@
      "A3": 0,
      "V": 2
     },
-    "repli": "52 t\u00eate(s) A3 sur 60 manquent ou ne sont pas contr\u00f4l\u00e9es, dont e15-tete-d01 (absente)"
+    "repli": "\u00e2ge hors de --ages-64"
    },
    "piece": {
     "glow": {

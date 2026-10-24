@@ -9,14 +9,16 @@ Contrôles (code 0 seulement si tout passe) :
   3. RECTANGLES : chaque couche citée existe ; socle, pièce : une image = le fichier entier ; tête : 4 directions
      (colonne, line_length 1) ou 64 (8 × 8, line_length 8, noms d00 à d63 dans l'ordre ; lot A3-jeu) de
      width × height, hr ET normale (normale = hr / 2), 8 192 px au plus (F144) ; icônes 120 × 64 ; points de tir
-     présents et écart de l'éclat sous le seuil (E68) pour chaque âge 2 à 15 ;
+     présents et écart de l'éclat sous le seuil (E68) pour chaque âge 2 à 15 ; à 64 directions, chaque direction
+     ÉCARTÉE du réglage de l'éclat figure dans « eclat_ecartees_ok » du manifeste (regardée ; correction M-1) ;
   4. --sources : chaque pose de tête recollée dans sa cellule a EXACTEMENT les pixels de son PNG source (hr et
      normale), le reste de la cellule est vide ; les copies de socle et de pièce ont le sha256 de leur source
      (spec.json) ; les poses VALIDÉES N (d00) et E (d16) sont donc inchangées au pixel ;
   5. --mutants : sur une copie jetable du dossier, 7 mutants (fichier supprimé, octet changé, taille du manifeste,
      PNG en trop, hauteur d'une tête dans sprites.json et sprites.lua, sprites.lua retouché, pose décalée), plus 3 si un
-     âge est à 64 directions (cellules d06 et d07 échangées, feuille en miroir, line_length 1) doivent tous être
-     REFUSÉS, et la copie intacte acceptée.
+     âge est à 64 directions (cellules d06 et d07 échangées, feuille en miroir, line_length 1), plus 1 si une
+     direction est écartée du réglage de l'éclat (retirée de la liste regardée) doivent tous être REFUSÉS, et la copie
+     intacte acceptée.
 """
 import argparse
 import hashlib
@@ -190,6 +192,28 @@ def controler(dest, sources=False):
             err.append("âge %d : écart de l'éclat %s au-delà du seuil %s (E68)" % (e, em, donnees["eclat"]["seuil"]))
     ok.append("rectangles : %d définitions (hr et normale) ; têtes : %d âge(s) à 64 directions, %d à 4" % (
         nrect, n64, len(donnees["ages"]) - 1 - n64))
+    # éclat à 64 directions (correction M-1, 24/10) : toute direction ÉCARTÉE du réglage doit être dans la liste des
+    # directions REGARDÉES du manifeste (feuilles.ECLAT_ECARTEES_OK_DEFAUT, --ecartees-ok) ; règle stricte rappelée
+    vues = FE.ecartees_ok_de(man.get("eclat_ecartees_ok") or [])
+    n_ec, strict, err_ec = 0, [], []
+    for k, A in sorted(donnees["ages"].items(), key=lambda kv: int(kv[0])):
+        ap = (A.get("outils") or {}).get("eclat_apres")
+        if len((A.get("outils") or {}).get("noms") or []) != FE.NDIR64:
+            continue
+        if ap is None or "sans_exclusion" not in ap or "ecartees" not in ap:
+            err_ec.append("âge %s : réglage de l'éclat à 64 directions sans « ecartees » ni « sans_exclusion »" % k)
+            continue
+        n_ec += len(ap["ecartees"])
+        non_vues = [d for d in ap["ecartees"] if d not in vues.get(int(k), set())]
+        if non_vues:
+            err_ec.append("âge %s : direction(s) écartée(s) du réglage de l'éclat NON REGARDÉE(S) %s (absentes de "
+                          "MANIFEST « eclat_ecartees_ok »)" % (k, non_vues))
+        if ap["sans_exclusion"].get("ecart_max", 0) > donnees["eclat"]["seuil"]:
+            strict.append("%s (%.3f %s)" % (k, ap["sans_exclusion"]["ecart_max"], ap["sans_exclusion"]["pire_direction"]))
+    err += err_ec
+    if not err_ec:
+        ok.append("éclat : %d direction(s) écartée(s) du réglage, toutes regardées ; âge(s) refusé(s) SANS exclusion : %s"
+                  % (n_ec, ", ".join(strict) or "aucun"))
     if sources:
         nsrc = 0
         for nom, src in sorted(man["sources"].items()):
@@ -330,6 +354,18 @@ def mutants(dest):
             m["sprites_lua_sha256"] = sha(os.path.join(d, "sprites.lua"))
             jdump(mp, m)
 
+        ec_age = sorted((int(k), A["outils"]["eclat_apres"]["ecartees"]) for k, A in json.load(
+            open(os.path.join(dest, "sprites.json"), encoding="utf-8"))["ages"].items()
+            if ((A.get("outils") or {}).get("eclat_apres") or {}).get("ecartees"))
+
+        def m_ecartee(d):
+            # une direction écartée du réglage retirée de la liste des directions regardées du manifeste
+            mp = os.path.join(d, "MANIFEST.json")
+            m = json.load(open(mp, encoding="utf-8"))
+            e, ecs = ec_age[0]
+            m["eclat_ecartees_ok"] = [x for x in m.get("eclat_ecartees_ok", []) if x != "e%02d-%s" % (e, ecs[-1])]
+            jdump(mp, m)
+
         cas = [("fichier supprimé", m_supprime, False), ("octet changé", m_octet, False),
                ("taille du manifeste", m_taille, False), ("PNG en trop", m_en_trop, False),
                ("hauteur de tête (json et lua, manifeste recalculé)", m_hauteur, False),
@@ -341,6 +377,11 @@ def mutants(dest):
                     ("64 directions, âge %d : line_length 1 au lieu de 8 (json et lua)" % a64[0], m_ligne, False)]
         else:
             print("[FO-GUN-SHEETS] mutants à 64 directions NON JOUÉS : aucun âge à 64 directions")
+        if ec_age:
+            cas.append(("éclat, âge %d : direction écartée %s retirée des directions regardées (MANIFEST)" % (
+                ec_age[0][0], ec_age[0][1][-1]), m_ecartee, False))
+        else:
+            print("[FO-GUN-SHEETS] mutant de l'éclat NON JOUÉ : aucune direction écartée")
         for nom, fn, src in cas:
             d = copie(nom.split(" ")[0] + "-" + str(abs(hash(nom)) % 1000))
             fn(d)

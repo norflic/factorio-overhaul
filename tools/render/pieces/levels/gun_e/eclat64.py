@@ -11,6 +11,12 @@ Mêmes fonctions que feuilles.py (bouche_u, ajuste_tir_u, marges_u) ; réglage A
 APRÈS (moindres carrés sur 64) ; écart de chaque direction (le long, en travers), pire direction.
 --planche : une image par âge, 64 cases dans l'ordre d00 à d63 (8 × 8), silhouette en gris, bouche dessinée (rouge),
 cible (bouche + marge, jaune), éclat visible prévu par le réglage APRÈS (vert) et AVANT (bleu).
+--couleur (correction M-1, 24/10) : la pose en COULEUR (couche principale de la production) au lieu de la silhouette,
+pour juger à l'œil si l'éclat prévu (vert) naît au bout des canons ; --seules-ecartees : seulement les directions
+ÉCARTÉES du réglage (une rangée), à regarder avant d'inscrire une direction dans ECLAT_ECARTEES_OK_DEFAUT de
+feuilles.py (sinon l'âge reste à 4 directions). La ligne de chaque âge dit les écartées NON REGARDÉES (hors liste).
+Règle du moteur prouvée hors des axes (vérification du lot, V2 : 60 tirs en diagonale, écart ≤ 0,008 tuile) : le
+point vert est l'endroit où le moteur fait naître l'éclat (à la hauteur H_ECLAT près).
 """
 import argparse
 import json
@@ -49,7 +55,9 @@ def silhouettes(e, a):
             s, dd = FE.lire_spec(d, nom)
             L = s["layers"]["main"]
             gx, gy, _, _ = FE.boite_px(L)
-            out.append((dname, FE.rgba(os.path.join(dd, L["file"]))[..., 3], gx, gy, "production"))
+            im = FE.rgba(os.path.join(dd, L["file"]))
+            silhouettes.couleur[(e, dname)] = im
+            out.append((dname, im[..., 3], gx, gy, "production"))
         return out, "production"
     import masques as MQ  # noqa: E402  (scipy, piece : seulement pour la prévision)
     if e in (4, 5, 6, 7):
@@ -61,6 +69,9 @@ def silhouettes(e, a):
         ox, oy = (int(v) for v in z["origin"])
         out.append((dn, al, -ox, -oy, "masque"))
     return out, "masques (prévision ; %s)" % motif
+
+
+silhouettes.couleur = {}
 
 
 def analyse(e, a, marge):
@@ -85,7 +96,7 @@ def analyse(e, a, marge):
             "ecarts_avant": ec4, "bouches": bouches, "unites": unites, "sil": sil}
 
 
-def planche(R, marge, dest, zoom):
+def planche(R, marge, dest, zoom, couleur=False, seules=None):
     sil = R["sil"]
     L0 = min(gx for _, al, gx, gy, _ in sil)
     T0 = min(gy for _, al, gx, gy, _ in sil)
@@ -96,15 +107,23 @@ def planche(R, marge, dest, zoom):
     W, H = (R0 - L0), (B0 - T0)
     f = zoom / 2.0       # px hr (64/tuile) -> px de la planche (32 × zoom / tuile)
     cw, ch = int(W * f), int(H * f) + 14
-    im = Image.new("RGB", (8 * cw, 8 * ch), (40, 44, 40))
+    cases = [x for x in sil if seules is None or x[0] in seules]
+    ncol = 8 if seules is None else max(1, min(6, len(cases)))
+    nlig = max(1, (len(cases) + ncol - 1) // ncol)
+    im = Image.new("RGB", (ncol * cw, nlig * ch), (40, 44, 40))
     dr = ImageDraw.Draw(im)
     cy, d = R["apres"]["tir"]
     cy4, d4 = R["avant"]["tir"]
-    for k, (dn, al, gx, gy, _) in enumerate(sil):
-        ox, oy = (k % 8) * cw, (k // 8) * ch
-        a = Image.fromarray(al).resize((max(1, int(al.shape[1] * f)), max(1, int(al.shape[0] * f))), Image.BILINEAR)
-        grey = Image.new("RGB", a.size, (150, 150, 150))
-        im.paste(grey, (ox + int((gx - L0) * f), oy + int((gy - T0) * f)), a)
+    for k, (dn, al, gx, gy, _) in enumerate(cases):
+        ox, oy = (k % ncol) * cw, (k // ncol) * ch
+        taille = (max(1, int(al.shape[1] * f)), max(1, int(al.shape[0] * f)))
+        a = Image.fromarray(al).resize(taille, Image.BILINEAR)
+        c = silhouettes.couleur.get((R["age"], dn)) if couleur else None
+        if c is not None:
+            src = Image.fromarray(c[..., :3]).resize(taille, Image.LANCZOS)
+        else:
+            src = Image.new("RGB", a.size, (150, 150, 150))
+        im.paste(src, (ox + int((gx - L0) * f), oy + int((gy - T0) * f)), a)
 
         def pt(x, y):  # tuiles -> px de la planche
             return ox + (x * 64 - L0) * f, oy + (y * 64 - T0) * f
@@ -128,7 +147,8 @@ def planche(R, marge, dest, zoom):
         rej = dn in R["apres"]["ecartees"]
         dr.text((ox + 3, oy + ch - 13), "%s %.2f/%.2f%s" % (dn, e[0], e[1], " ECARTEE" if rej else ""),
                 fill=(255, 120, 120) if rej else (230, 230, 230))
-    p = os.path.join(dest, "eclat64-e%02d-z%d.png" % (R["age"], zoom))
+    p = os.path.join(dest, "eclat64-e%02d%s%s-z%d.png" % (R["age"], "-ecartees" if seules is not None else "",
+                                                         "-couleur" if couleur else "", zoom))
     im.save(p)
     return p
 
@@ -143,7 +163,10 @@ def main():
     ap.add_argument("--planche", default=None)
     ap.add_argument("--zoom", type=int, default=2)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--couleur", action="store_true", help="poses en couleur (âges complets seulement)")
+    ap.add_argument("--seules-ecartees", action="store_true", help="planche des seules directions écartées")
     a = ap.parse_args()
+    ok_par_age = FE.ecartees_ok_de(FE.ECLAT_ECARTEES_OK_DEFAUT)
     vb = FE.bouches_vanille(a.data)
     mv = FE.marges(vb, FE.VANILLE["projectile_center"][1], FE.VANILLE["projectile_creation_distance"])
     marge = sum(mv[d][0] for d in FE.MARGE_DIRS) / len(FE.MARGE_DIRS)
@@ -151,6 +174,7 @@ def main():
     for e in plage(a.ages):
         R = analyse(e, a, marge)
         av, apr = R["avant"], R["apres"]
+        nv = [dn for dn in apr["ecartees"] if dn not in ok_par_age.get(e, set())]
         print("[FO-ECLAT64] âge %2d (%s) : AVANT (réglage A2 centre %.5f, distance %.5f) pire %.3f en %s %s ; APRÈS "
               "(centre %.5f, distance %.5f) pire %.3f en %s %s ; %s" % (
                   e, R["origine"], av["tir"][0], av["tir"][1], av["max64"], av["pire"], R["ecarts_avant"][av["pire"]],
@@ -158,10 +182,17 @@ def main():
                   ("REFUSÉ (> %.2f)" % FE.SEUIL_ECLAT if apr["max64"] > FE.SEUIL_ECLAT
                    or len(apr["ecartees"]) > (1 - FE.GARDE_MIN) * 64 else "accepté")
                   + " ; écartées (bouche mal mesurée) %d : %s (pire de toutes %.3f)" % (
-                      len(apr["ecartees"]), ",".join(apr["ecartees"]), apr["max_toutes"])))
+                      len(apr["ecartees"]), ",".join(apr["ecartees"]), apr["max_toutes"])
+                  + " ; NON REGARDÉES (hors ECLAT_ECARTEES_OK_DEFAUT : l'âge resterait à 4) : %s" % (
+                      ",".join(nv) if nv else "aucune")))
+        R["non_regardees"] = nv
         if a.planche:
             os.makedirs(a.planche, exist_ok=True)
-            print("[FO-ECLAT64]   planche : %s" % planche(R, marge, a.planche, a.zoom))
+            if a.seules_ecartees and not apr["ecartees"]:
+                print("[FO-ECLAT64]   planche : aucune direction écartée, rien à regarder")
+            else:
+                print("[FO-ECLAT64]   planche : %s" % planche(R, marge, a.planche, a.zoom, a.couleur,
+                                                            apr["ecartees"] if a.seules_ecartees else None))
         res.append({k: v for k, v in R.items() if k not in ("sil", "unites")})
     if a.json:
         with open(a.json, "w", encoding="utf-8") as f:

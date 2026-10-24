@@ -1,5 +1,8 @@
 {
- "arguments": [],
+ "arguments": [
+  "--ages-64",
+  "2,3,4,5,6,7,8"
+ ],
  "commande": "py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par d\u00e9faut : en t\u00eate de feuilles.py)",
  "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
  "directions": {
@@ -18,6 +21,19 @@
   "8": 64,
   "9": 4
  },
+ "eclat_ecartees_ok": [
+  "e02-d07",
+  "e02-d08",
+  "e02-d09",
+  "e02-d10",
+  "e02-d16",
+  "e02-d48",
+  "e02-d54",
+  "e02-d55",
+  "e02-d56",
+  "e02-d57",
+  "e02-d60"
+ ],
  "fichiers": {
   "gun-e02-icone.png": {
    "hauteur": 64,
@@ -13896,6 +13912,6 @@
    "trous_px": 1
   }
  },
- "sprites_json_sha256": "73bbc23a7766577e871c7c167eebe2ac77823c70aa201db89ee2ae90a7aea025",
+ "sprites_json_sha256": "78945d8a8f9b8999d7cd4755f6fa6aea745b868c12400aa839eb6c8ec7d213fc",
  "sprites_lua_sha256": "7e6b19fcb566bcbc1bf6413331457c17915b977f287703fc1274250c9dc3dd9b"
 }

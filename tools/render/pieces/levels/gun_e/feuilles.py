@@ -2,7 +2,8 @@
 aux fichiers du mod. Python 3.9.
 
     py -3.9 tools/render/pieces/levels/gun_e/feuilles.py [--dest graphics/levels/gun] [--valide 1-9=DIR …]
-        [--so DIR] [--a3 DIR] [--ages-64 auto|aucun|LISTE] [--hors-regle-ok NOM,…] [--data <racine>/data]
+        [--so DIR] [--a3 DIR] [--ages-64 auto|aucun|LISTE] [--hors-regle-ok NOM,…] [--ecartees-ok eNN-dKK,…]
+        [--data <racine>/data]
 
 Ce que l'outil écrit dans --dest (dossier du mod ; les PNG y sont HORS de git, décision D-6 de l'orchestrateur) :
   - socle et pièce de chaque âge : COPIES octet à octet des sprites validés (mêmes noms : hr-gune-eNN-socle-main.png…) ;
@@ -36,7 +37,11 @@ Bouche du canon et éclat de tir (E68, correction A2) :
   - marge = où l'éclat visible de la VANILLA tombe au-delà de sa bouche, moyenne de N, E et O (MARGE_DIRS) ;
   - pour chaque âge, centre.y et distance au sens des moindres carrés sur TOUTES les directions de l'âge (4, ou 64 :
     lot A3-jeu ; cible = bouche + marge le long du tir) ; un âge dont l'éclat visible tombe à plus de SEUIL_ECLAT tuile
-    de sa cible dans UNE direction est REFUSÉ (code non nul, rien n'est écrit au-delà des PNG) ; écarts dans
+    de sa cible dans UNE direction est REFUSÉ (code non nul, rien n'est écrit au-delà des PNG) ; à 64 directions, le
+    réglage écarte les bouches mal mesurées (ajuste_robuste) et le seuil ne porte que sur les directions gardées :
+    chaque direction écartée doit donc avoir été REGARDÉE (ECLAT_ECARTEES_OK_DEFAUT, --ecartees-ok), sinon l'âge
+    reste à 4 directions (correction M-1, 24/10) ; le réglage SANS exclusion est rappelé dans
+    « outils.eclat_apres.sans_exclusion » ; écarts dans
     sprites.json (« ecarts_bouche », « ecart_max »), éclat visible prévu (« eclat_visible ») ; à 64 directions, l'écart
     du réglage « avant » (ajusté sur d00, d16, d32, d48 seulement, comme au lot A2) sur les 64 directions est gardé
     dans « outils.eclat_avant » ;
@@ -106,6 +111,18 @@ COMMANDE = ("py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la r
 # bobine, ou entre bobine et coque ; verdict du DC NON rendu). Liste par DÉFAUT, pour que la commande sans option du
 # MANIFEST régénère exactement les feuilles commitées ; --hors-regle-ok en AJOUTE, --hors-regle-ok aucun la vide.
 HORS_REGLE_OK_DEFAUT = ("e03-tete-d06", "e03-tete-d51", "e03-tete-d58", "e03-tete-d59", "e06-tete-d54")
+# Éclat à 64 directions (correction M-1 de la vérification du lot A3-jeu, 24/10) : une direction ÉCARTÉE du réglage par
+# ajuste_robuste() (bouche jugée mal mesurée) sort du contrôle chiffré ; elle n'est donc admise que si quelqu'un a
+# REGARDÉ l'éclat prévu dans cette direction (planche eclat64.py --couleur, et tir en jeu quand il est joué) et l'a
+# inscrite ici, « eNN-dKK », avec la planche. Toute direction écartée HORS de cette liste renvoie son âge en REPLI à
+# 4 directions (rien n'est refusé en silence, rien ne passe sans regard). --ecartees-ok en AJOUTE, « aucun » la vide.
+# Fait à ne pas perdre : SANS exclusion, l'âge 2 serait REFUSÉ par le seuil de 0,5 tuile (0,568 en d54) ; la liste
+# ci-dessous est donc un écart à la lettre de la consigne (« refus au-delà de 0,5 tuile »), à trancher par
+# l'orchestrateur (fo-logs/2026-10-24_A3-jeu/NOTES.md, « Correction »). Verdict du DC NON rendu.
+# Âge 2 : regardé le 24/10 (correcteur) : fo-logs/2026-10-24_A3-jeu/correction/eclat64-e02-ecartees-z4.png (bouche
+# mesurée sur le corps, éclat prévu au bout des canons) et tirs en jeu correction/captures-tir/ (11 directions).
+ECLAT_ECARTEES_OK_DEFAUT = ("e02-d07", "e02-d08", "e02-d09", "e02-d10", "e02-d16", "e02-d48", "e02-d54", "e02-d55",
+                            "e02-d56", "e02-d57", "e02-d60")
 # 64 directions (lot A3-jeu)
 NDIR64 = 64
 LIGNE64 = 8             # feuille de 8 × 8 images, rangée par rangée (line_length 8)
@@ -436,6 +453,43 @@ def ajuste_robuste(bouches, unites, marge):
     return cy, dist, ec, sorted(set(bouches) - set(garde))
 
 
+def ecartees_ok_de(spec):
+    """« eNN-dKK,… » -> {âge: ensemble de « dKK »} (directions écartées admises après regard)."""
+    res = {}
+    for x in sorted(spec):
+        e, dn = x.split("-")
+        res.setdefault(int(e[1:]), set()).add(dn)
+    return res
+
+
+def eclat_64_precontrole(e, liste, ok_e, seuil, marge):
+    """Avant de bâtir les feuilles d'un âge à 64 directions (correction M-1 du lot A3-jeu) : bouches des 64 poses (même
+    calcul que dans la boucle des couches : bouche_u sur l'alpha de la couche principale), réglage robuste, écartées.
+    Rend (motif de repli ou None, résumé). Motifs : direction écartée non regardée (absente de ok_e), ou plus de
+    (1 − GARDE_MIN) × 64 directions écartées. Le résumé donne aussi le réglage SANS exclusion (règle stricte)."""
+    bouches, unites = {}, {}
+    for dname, nom, dsrc, _ in liste:
+        s, d = lire_spec(dsrc, nom)
+        L = s["layers"]["main"]
+        gx, gy, _, _ = boite_px(L)
+        bouches[dname] = bouche_u(rgba(os.path.join(d, L["file"]))[..., 3], gx, gy, dname)
+        unites[dname] = unite_pose(dname)
+    _, _, _, rejet = ajuste_robuste(bouches, unites, marge)
+    cy0, d0 = ajuste_tir_u(bouches, unites, marge)
+    ec0 = ecarts_de(marges_u(bouches, unites, cy0, d0), marge)
+    pire0 = max(ec0, key=lambda k: ec0[k][0] ** 2 + ec0[k][1] ** 2)
+    resume = {"ecartees": rejet, "sans_exclusion": {"tir": [round(cy0, 5), round(d0, 5)],
+                                                    "ecart_max": round(pire_de(ec0), 4), "pire_direction": pire0,
+                                                    "refuse_par_le_seuil": pire_de(ec0) > seuil}}
+    non_vues = [dn for dn in rejet if dn not in ok_e]
+    if len(rejet) > (1 - GARDE_MIN) * NDIR64:
+        return "éclat : %d directions écartées du réglage (plus de %d)" % (len(rejet), (1 - GARDE_MIN) * NDIR64), resume
+    if non_vues:
+        return "éclat : direction(s) écartée(s) NON REGARDÉE(S) %s (ECLAT_ECARTEES_OK_DEFAUT)" % ",".join(
+            non_vues), dict(resume, non_vues=non_vues)
+    return None, resume
+
+
 # ------------------------------------------------------------------ têtes de la production A3 (lot A3-jeu)
 def etat_a3(a3, nom, hors_regle_ok=()):
     """« faite » si la tête de production A3 est complète et contrôlée : même règle que produire_a3.etat (controle.json
@@ -562,6 +616,9 @@ def main():
     ap.add_argument("--hors-regle-ok", default="",
                     help="têtes A3 « HORS REGLE » acceptées après regard (noms, virgules), EN PLUS de "
                          "HORS_REGLE_OK_DEFAUT ; « aucun » : aucune, pas même celles de la liste par défaut")
+    ap.add_argument("--ecartees-ok", default="",
+                    help="directions d'éclat écartées admises après regard (« eNN-dKK », virgules), EN PLUS de "
+                         "ECLAT_ECARTEES_OK_DEFAUT ; « aucun » : aucune (un âge qui en écarte reste à 4 directions)")
     ap.add_argument("--data", default=DATA_DEFAUT)
     ap.add_argument("--seuil", type=float, default=SEUIL_ECLAT, help="seuil de refus de l'éclat (essai du refus)")
     a = ap.parse_args()
@@ -570,6 +627,11 @@ def main():
         hors_regle_ok = ()
     else:
         hors_regle_ok = tuple(sorted(set(HORS_REGLE_OK_DEFAUT) | set(x for x in a.hors_regle_ok.split(",") if x)))
+    if a.ecartees_ok.strip() == "aucun":
+        ecartees_ok = ()
+    else:
+        ecartees_ok = tuple(sorted(set(ECLAT_ECARTEES_OK_DEFAUT) | set(x for x in a.ecartees_ok.split(",") if x)))
+    ok_par_age = ecartees_ok_de(ecartees_ok)
     if a.ages_64 not in ("auto", "aucun"):
         voulus64 = set(int(x) for x in a.ages_64.split(",") if x)
     else:
@@ -609,6 +671,7 @@ def main():
     ecarts_vanille = {d: [round(m[0] - marge, 4), round(m[1], 4)] for d, m in sorted(mv.items())}
     refus = []
     bilan_dirs = []
+    pre_eclat = {}
 
     for e in range(2, 16):
         dv = valides[e]
@@ -629,6 +692,18 @@ def main():
             liste, repli = poses_64(e, dv, a.so, a.a3, hors_regle_ok)
             if liste is None and voulus64 is not None:
                 raise SystemExit("[FO-FEUILLES] âge %d demandé à 64 directions mais incomplet : %s" % (e, repli))
+            if liste is not None:
+                # correction M-1 : toute direction écartée du réglage de l'éclat doit avoir été REGARDÉE, sinon repli
+                motif, pre = eclat_64_precontrole(e, liste, ok_par_age.get(e, set()), a.seuil, marge)
+                pre_eclat[e] = pre
+                if motif:
+                    print("[FO-FEUILLES] âge %d : %s ; sans exclusion : écart max %.3f (%s)%s ; regarder "
+                          "eclat64.py --ages %d --couleur --planche <dossier>, puis inscrire les directions vues" % (
+                              e, motif, pre["sans_exclusion"]["ecart_max"], pre["sans_exclusion"]["pire_direction"],
+                              " > seuil" if pre["sans_exclusion"]["refuse_par_le_seuil"] else "", e))
+                    if voulus64 is not None:
+                        raise SystemExit("[FO-FEUILLES] âge %d demandé à 64 directions : %s" % (e, motif))
+                    liste, repli = None, motif
         if liste is None:
             liste = [(dname, "e%02d-%s" % (e, part), dv if part in ("tete-N", "tete-E") else a.so,
                       "V" if part in ("tete-N", "tete-E") else "A2") for dname, part in DIRECTIONS]
@@ -746,6 +821,10 @@ def main():
             cy, dist = round(cy, 5), round(dist, 5)
             ecarts_tous = ecarts_de(marges_u(bouches, unites, cy, dist), marge)
             ecarts = {d: v for d, v in ecarts_tous.items() if d not in rejet}
+            non_vues = [dn for dn in rejet if dn not in ok_par_age.get(e, set())]
+            if non_vues or rejet != pre_eclat[e]["ecartees"]:
+                refus.append("âge %d : écartées %s, précontrôle %s, non regardées %s (incohérence interne)" % (
+                    e, rejet, pre_eclat[e]["ecartees"], non_vues))
             if len(ecarts) < GARDE_MIN * n_dirs:
                 refus.append("âge %d : %d direction(s) sur %d écartées du réglage (bouche non mesurable) : %s" % (
                     e, len(rejet), n_dirs, rejet))
@@ -762,7 +841,10 @@ def main():
                                                                    for c in CARDINAUX}), 4),
                                      "pire_direction": max(ecarts, key=lambda d: ecarts[d][0] ** 2 + ecarts[d][1] ** 2),
                                      "ecartees": rejet,
-                                     "ecarts_ecartees": {d: ecarts_tous[d] for d in rejet}}
+                                     "ecartees_regardees": sorted(d for d in rejet if d in ok_par_age.get(e, set())),
+                                     "ecarts_ecartees": {d: ecarts_tous[d] for d in rejet},
+                                     # règle stricte de la consigne (aucune exclusion) : rappel chiffré, hors décision
+                                     "sans_exclusion": pre_eclat[e]["sans_exclusion"]}
         pire = pire_de(ecarts)
         if pire > a.seuil:
             refus.append("âge %d : éclat à %.3f tuile de sa cible (seuil %.2f) ; pire direction %s %s" % (
@@ -807,6 +889,7 @@ def main():
             fichiers[f] = {"taille": os.path.getsize(p), "sha256": sha_file(p), "largeur": w, "hauteur": h}
     manifeste = {"commande": COMMANDE, "outil": "tools/render/pieces/levels/gun_e/feuilles.py",
                  "arguments": sys.argv[1:], "hors_regle_ok": list(hors_regle_ok),
+                 "eclat_ecartees_ok": list(ecartees_ok),
                  "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
                  "git": "PNG hors de git (.gitignore : graphics/levels/gun/*.png, décision D-6) ; ce manifeste, "
                         "sprites.lua et sprites.json sont commités",
@@ -845,6 +928,13 @@ def imprime_tir(ages, vb, marge, ecarts_vanille):
                   "(pire %s ; sur les 4 cardinales %.3f) -> APRÈS %.3f (pire %s %s ; sur les 4 cardinales %.3f)" % (
                       e, A["tir"], av["tir"], av["ecart_max_64"], av["pire_direction"], av["ecart_max_4"],
                       ap["ecart_max_64"], ap["pire_direction"], eb[ap["pire_direction"]], ap["ecart_max_4"]))
+            se = ap["sans_exclusion"]
+            print("[FO-FEUILLES] âge %2d éclat : %d direction(s) écartée(s) du réglage %s, toutes regardées %s ; écart "
+                  "max des écartées %.3f ; SANS exclusion (règle stricte) : %.3f (%s)%s" % (
+                      e, len(ap["ecartees"]), ap["ecartees"], ap["ecartees_regardees"] == ap["ecartees"],
+                      pire_de(ap["ecarts_ecartees"]) if ap["ecartees"] else 0.0, se["ecart_max"],
+                      se["pire_direction"], " : AU-DELÀ DU SEUIL, l'âge ne passe que par la liste regardée"
+                      if se["refuse_par_le_seuil"] else ""))
 
 
 def icone(dest, e, A, pose_e):

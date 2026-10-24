@@ -25,7 +25,9 @@
 -- du prototype, à 1/32 de tuile près, K = 0,7071 (règle mesurée, feuilles.py).
 -- Captures : par âge, grille du niveau impair à zoom 1 (jour, nuit) et à zoom 2 (jour sans mode Alt ni anticrénelage :
 -- contrôle des images ; nuit) ; niveaux PAIRS 10, 18, 30 à zoom 2 (jour, nuit) ; tir : niveaux 1, 3, 23 (âge 12),
--- 25 (âge 13) et 29, 4 directions, zoom 2, deux instants.
+-- 25 (âge 13) et 29, 4 directions, zoom 2, deux instants ; tir HORS DES AXES (TIR_ECARTEES : directions écartées du
+-- réglage de l'éclat, correction M-1 du lot A3-jeu) : 4 instants par direction, et un contrôle de plus (image montrée
+-- au premier éclat = image voulue).
 
 local X0, Y0 = 3000, -2400
 local DX, DAGE, DPAIR, NCOL = 9, 40, 54, 5
@@ -35,6 +37,14 @@ local PROJ = math.sqrt(0.5)
 -- tir (E68) : un niveau par âge (niveau impair 2e-1 ; âge 1 : niveau 1, vanilla) ; 60 sites en grille de 8 colonnes
 local DIRS = { { "N", 0 }, { "E", 0.25 }, { "S", 0.5 }, { "O", 0.75 } }
 local TIR_NIV = { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29 }
+-- TIR HORS DES AXES (correction M-1 du lot A3-jeu, 24/10) : directions ÉCARTÉES du réglage de l'éclat par feuilles.py
+-- (ajuste_robuste, bouche mal mesurée), à REGARDER en jeu avant de les inscrire dans ECLAT_ECARTEES_OK_DEFAUT.
+-- Niveau (impair 2e-1) -> images k. Âge 2 (niveau 3) : les 11 écartées, d16 et d48 comprises (déjà tirées en E et O
+-- à 2 instants : le 24/10, aucun éclat visible en O sur ces 2 instants, d'où 4 instants ici aussi). Après la
+-- production : ajouter ici les écartées des âges 9 à 15 (eclat64.py le dit).
+local TIR_ECARTEES = { [3] = { 7, 8, 9, 10, 16, 48, 54, 55, 56, 57, 60 } }
+local TIR_ECARTEES_NIV = { 3 }
+local INSTANTS_ECARTEES = 4
 local TX0, TY0, TPAS, TDIST, TCOL = 3200, -2400, 80, 11, 8
 local MES_MAX = 4
 local K_PROJ = 0.7071 -- même valeur que tools/render/pieces/levels/gun_e/feuilles.py (E68)
@@ -62,6 +72,18 @@ local function orientation_image(k)
   if k % 16 == 0 then return k / 64 end
   local th = 2 * math.pi * k / 64
   return (math.atan2(math.sin(th), PROJ * math.cos(th)) / (2 * math.pi)) % 1
+end
+
+--- Image k montrée pour l'orientation o (inverse d'orientation_image, arrondi : vérification V1 du lot).
+local function image_de(o)
+  local th = math.atan2(math.sin(2 * math.pi * o), math.cos(2 * math.pi * o) / PROJ)
+  return math.floor(64 * th / (2 * math.pi) + 0.5) % 64
+end
+
+local function n_ecartees()
+  local n = 0
+  for _, niv in ipairs(TIR_ECARTEES_NIV) do n = n + #TIR_ECARTEES[niv] end
+  return n
 end
 
 --- Coin haut-gauche (position de la 1re tourelle) de la grille du niveau n.
@@ -95,7 +117,7 @@ return {
     game.forces.player.set_cease_fire("enemy", false)
     game.forces.enemy.set_cease_fire("player", true)
     ctx.prepare_area(X0 - 20, Y0 - 10, X0 + DPAIR + NCOL * DX + 6, Y0 + 15 * DAGE + 4, "concrete")
-    local nsites = #TIR_NIV * #DIRS
+    local nsites = #TIR_NIV * #DIRS + n_ecartees()
     local nrows = math.ceil(nsites / TCOL)
     for k = 0, nsites - 1 do
       local x, y = TX0 + k % TCOL * TPAS, TY0 + math.floor(k / TCOL) * TPAS
@@ -170,6 +192,20 @@ return {
           recrees = 0, mes = {} }
       end
     end
+    -- tir hors des axes (directions écartées du réglage) : cible dans la direction d'orientation_image(k)
+    for _, n in ipairs(TIR_ECARTEES_NIV) do
+      for _, k in ipairs(TIR_ECARTEES[n]) do
+        local x, y = TX0 + i % TCOL * TPAS, TY0 + math.floor(i / TCOL) * TPAS
+        i = i + 1
+        local t = s.create_entity({ name = nom(nil, n), position = { x, y }, force = "player" })
+        if t then t.insert({ name = "firearm-magazine", count = 200 }) end
+        local o = orientation_image(k)
+        local px, py = x, y
+        if t then px, py = t.position.x, t.position.y end
+        st.tir[#st.tir + 1] = { n = n, dir = string.format("k%02d", k), k = k, o = o, t = t, x = x, y = y,
+          cx = px + TDIST * math.sin(2 * math.pi * o), cy = py - TDIST * math.cos(2 * math.pi * o), recrees = 0, mes = {} }
+      end
+    end
     local ok_tir = 0
     for _, c in ipairs(st.tir) do if c.t then ok_tir = ok_tir + 1 end end
     ctx.check(ok_tir == #st.tir, "tir : tourelles posees", ok_tir .. " / " .. #st.tir)
@@ -221,6 +257,11 @@ return {
       for _, c in ipairs(st.tir) do
         if not (c.cible and c.cible.valid) then
           c.cible = s.create_entity({ name = "behemoth-worm-turret", position = { c.cx, c.cy }, force = "enemy" })
+          if c.k and c.cible and c.t and c.t.valid then
+            -- position RÉELLE du ver (calée par le moteur) : orientation attendue de la tourelle
+            local vx, vy = c.cible.position.x - c.t.position.x, c.cible.position.y - c.t.position.y
+            c.o = (math.atan2(vx, -vy) / (2 * math.pi)) % 1
+          end
           if t > T_ECRIT then c.recrees = c.recrees + 1 end
         end
       end
@@ -330,6 +371,20 @@ return {
       .. "cible - projectile_center, valeurs du prototype, a 1/32 pres (E68)", K_PROJ), eclat_ok .. " / " .. #st.tir .. string.format(" ; ecart max %.4f", pire_e))
     ctx.check(tire == #st.tir, "tir : chaque tourelle a tire (chargeurs consommes)", tire .. " / " .. #st.tir)
     ctx.check(vise == #st.tir, "tir : orientation = direction de la cible (a 1/64 pres)", vise .. " / " .. #st.tir)
+    -- tir hors des axes : la tête montre bien l'image écartée voulue (orientation relevée au premier éclat)
+    local img_ok, img_n, l4 = 0, 0, {}
+    for _, c in ipairs(st.tir) do
+      if c.k then
+        img_n = img_n + 1
+        local m = c.mes[1]
+        local kk = m and m.o and image_de(m.o)
+        if kk == c.k then img_ok = img_ok + 1 end
+        l4[#l4 + 1] = string.format("%d k%02d:%s", c.n, c.k, kk and string.format("k%02d", kk) or "sans-releve")
+      end
+    end
+    ctx.log("tir hors axes (niveau image voulue : image montree au premier eclat) : " .. table.concat(l4, " "))
+    ctx.check(img_ok == img_n, "tir hors axes (directions ecartees du reglage, correction M-1) : image montree = image voulue",
+      img_ok .. " / " .. img_n)
   end,
 
   shots = function(ctx, add)
@@ -360,7 +415,11 @@ return {
       add(string.format("pair-niv%02d-z2-nuit", n), cx, cy, 2, 0.5, { res = RES_Z2, info = false })
     end
     for _, c in ipairs(st.tir) do
-      if c.n == 1 or c.n == 3 or c.n == 23 or c.n == 25 or c.n == 29 then
+      if c.k then
+        for k = 1, INSTANTS_ECARTEES do
+          add(string.format("tir-niv%02d-%s-%d", c.n, c.dir, k), c.x, c.y - 1, 2, 0, { res = { 640, 640 } })
+        end
+      elseif c.n == 1 or c.n == 3 or c.n == 23 or c.n == 25 or c.n == 29 then
         for k = 1, 2 do
           add(string.format("tir-niv%02d-%s-%d", c.n, c.dir, k), c.x, c.y - 1, 2, 0, { res = { 640, 640 } })
         end
