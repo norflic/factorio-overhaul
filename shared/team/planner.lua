@@ -375,6 +375,20 @@ function P.plan(view, book)
   local function consume(uses)
     for k, n in pairs(uses) do avail[k] = (avail[k] or 0) - n end
   end
+  -- Sans les plaques : minage À LA MAIN du minerai qui manque, priorité 90 (devant les tournées). 2e essai du lot
+  -- (moteur réel, graine 20261020) : Azur, 2 ouvriers toujours en tournée, fer 1 pendant 55 min, jamais reconstruite
+  -- (le minage à la main n'était proposé qu'aux ouvriers SANS tâche quand un avant-poste existe).
+  local emerg_mine = {}
+  local function emergency_mine(raw)
+    for _, it in ipairs({ { "iron-plate", "iron-ore" }, { "copper-plate", "copper-ore" } }) do
+      local ore = it[2]
+      if (raw[it[1]] or 0) > 0 and view.smelters > 0 and not open["mine:" .. ore] and not emerg_mine[ore]
+        and (view.stock[ore] or 0) < MINE_BATCH then
+        emerg_mine[ore] = true
+        add({ key = "mine:" .. ore, kind = "mine", prio = 90, resource = ore, count = MINE_BATCH })
+      end
+    end
+  end
   if em and not view.recruit_blocked and view.workers < (em.floor or 0) then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
@@ -385,12 +399,14 @@ function P.plan(view, book)
         out.recruit_workers = 1
         out.recruit_uses = sorted_uses(p.uses)
         consume(p.uses)
-      elseif view.workers < 2 then
-        out.recruit_workers = 1
-        out.recruit_unarmed = true
-        out.emergency_unarmed = true
       else
+        if view.workers < 2 then
+          out.recruit_workers = 1
+          out.recruit_unarmed = true
+          out.emergency_unarmed = true
+        end
         want(cost0, 96, "ouvrier")
+        emergency_mine(p.raw)
       end
     end
     out.emergency_recruit = true
@@ -401,6 +417,7 @@ function P.plan(view, book)
       local n = math.min(T.kit_batch, guard - view.soldiers)
       local units = { P.best_unit(view.tech) }
       if units[1] ~= "rifleman" then units[2] = "rifleman" end
+      local last_raw_kits
       for _, unit in ipairs(units) do
         local kits = kit_list(unit, n)
         if take(kits) then
@@ -413,7 +430,9 @@ function P.plan(view, book)
           consume(p.uses)
           break
         end
+        last_raw_kits = p.raw
       end
+      if not out.train and last_raw_kits then emergency_mine(last_raw_kits) end
       out.emergency_guard = guard
     end
   end
@@ -624,11 +643,11 @@ function P.plan(view, book)
         local ore = T.smelter_inputs[src.smelt][1]
         local minable = src.mine and src.mine ~= item
         if minable and view.smelters > 0 and (view.stock[ore] or 0) < n and (not has_outpost or idle > mines)
-          and not open["mine:" .. ore] then
+          and not open["mine:" .. ore] and not emerg_mine[ore] then
           add({ key = "mine:" .. ore, kind = "mine", prio = has_outpost and 25 or 45, resource = ore, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
           mines = mines + 1
         end
-      elseif src.mine == item and (not has_outpost or idle > mines) and not open["mine:" .. item] then
+      elseif src.mine == item and (not has_outpost or idle > mines) and not open["mine:" .. item] and not emerg_mine[item] then
         add({ key = "mine:" .. item, kind = "mine", prio = has_outpost and 25 or 45, resource = item, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
         mines = mines + 1
       end

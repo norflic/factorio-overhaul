@@ -91,7 +91,7 @@ function Commander.view(f, tick)
     garrison = Military.garrison_near(f), soldiers_max = State.war().settings.soldiers_max,
     can_attack = tick >= (f.attack_block_until or 0) and not f.route_pending,
     enemy_defense = target and defense or math.huge,
-    chef = Chef.decision_fields(f, target), -- lot IA2-a : multiplicateur du seuil, raid (nil sans chef)
+    chef = Chef.decision_fields(f, target, tick), -- lot IA2-a : multiplicateur du seuil, raid (nil sans chef)
   }, target
 end
 

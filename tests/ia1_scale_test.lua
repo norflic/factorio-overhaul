@@ -212,6 +212,24 @@ check(not poor.recruit_workers, "stock insuffisant : pas de recrue (le stock fre
 local legacy = Planner.plan(base_view({ stock = rich, workers = 1, workers_max = 10 }), book)
 check(legacy.recruit_workers == 1, "vue sans champs IA1-a : règle d'avant (2 + avant-postes)")
 
+section("Cerveau : survie d'une faction décimée (lot IA2-a2, view.emergency)")
+local em = { floor = 8, rebuild = true }
+local plates2 = { ["iron-plate"] = 400, ["copper-plate"] = 50, coal = 100 }
+local pe = Planner.plan(base_view({ workers = 1, stock = plates2, workers_wanted = 30, recruit_cost = cost, emergency = em }), book)
+local uses_ok = false
+for _, it in ipairs(pe.recruit_uses or {}) do if it[1] == "iron-plate" and it[2] > 0 then uses_ok = true end end
+check(pe.recruit_workers == 1 and not pe.recruit_unarmed and uses_ok, "1 ouvrier sur 8, plaques au stock : recrue équipée au QG avec les plaques")
+local pn = Planner.plan(base_view({ workers = 1, stock = plates2, workers_wanted = 30, recruit_cost = cost }), book)
+check(not pn.recruit_workers, "même vue sans view.emergency (équipe du joueur, tests d'avant) : règle d'avant, pas de recrue")
+local pm = Planner.plan(base_view({ workers = 1, smelters = 2, stock = { coal = 100 }, workers_wanted = 30, recruit_cost = cost, emergency = em }), book)
+local mine90 = false
+for _, t in ipairs(pm.tasks) do if t.key == "mine:iron-ore" and t.prio == 90 then mine90 = true end end
+check(pm.recruit_workers == 1 and pm.recruit_unarmed and mine90, "sans plaques : 2e ouvrier sans arme et minage du fer à la main (priorité 90)")
+local pg = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = em }), book)
+check(pg.train and pg.train.count == 5 and pg.train.uses ~= nil, "reconstruction, 0 soldat : un lot de 5 soldats équipés au QG (" .. tostring(pg.train and pg.train.unit) .. ")")
+local pq = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = { floor = 8, rebuild = false } }), book)
+check(not (pq.train and pq.train.uses), "hors reconstruction et sans menace : pas de garde équipée au QG")
+
 section("Cerveau : frein par le travail (correction IA1-a, fo-recruit-idle-max)")
 check(S.recruit_held(1, 0) and not S.recruit_held(0, 0), "limite 0 : un seul PNJ inactif retient la recrue")
 check(not S.recruit_held(30, 60) and not S.recruit_held(60, 60), "limite 60 : jamais de frein (seul le stock freine)")

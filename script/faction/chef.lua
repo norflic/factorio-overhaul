@@ -283,7 +283,7 @@ function Chef.engaged(f, tid)
 end
 
 --- Champs de la vue de décision (S.decide) : multiplicateur, raid.
-function Chef.decision_fields(f, target)
+function Chef.decision_fields(f, target, tick)
   local st = f.chef
   if not st then return nil end
   local raid, raid_defense = nil, nil
@@ -298,7 +298,11 @@ function Chef.decision_fields(f, target)
   -- VAGUE À LA FOIS : pas de nouvelle attaque ni de raid contre une rivale tant qu'un de nos groupes l'attaque encore
   -- (le chef attend l'issue). 1er essai du lot (moteur réel, graine 3141592653) : Azur lançait 32, puis 19, puis 17
   -- soldats contre Ambre en 5 min, avant l'issue de la première vague.
-  local hold = (st.hold and target and st.target == target.id) or (target and Chef.engaged(f, target.id)) or nil
+  -- Satiété lue À L'INSTANT (pas seulement à la pensée du chef) : 2e essai du lot (moteur réel, graine 20261020),
+  -- Écarlate relançait 32 soldats contre Azur au tick même de l'issue « réussie » de la vague précédente.
+  local tr = Character.of(f).traits or {}
+  local hold = (st.hold and target and st.target == target.id)
+    or (target and (Chef.engaged(f, target.id) or C.sated(st, { id = target.id }, tr, tick or 0))) or nil
   return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant, hold = hold }
 end
 
