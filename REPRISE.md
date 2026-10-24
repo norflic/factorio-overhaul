@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 0 h 45 (nuit)** : IA2-a (chef adaptatif v0) livré sur sa branche (`06e75c5`, worktree agent-a4454e244020a1012) ;
+> variété nettement meilleure (côtés 0 → 1,31 bit, tailles 0,21 → 0,38, le bâtisseur attaque), garde-fous tenus (pvp 1 037,
+> 0 échec), MAIS 3 factions anéanties sur 16 en 2 h (1 avant), une dès 25 min : NON fusionné. Correction IA2-a2 lancée
+> sur la même branche (objectif : au plus 1 sur 16, aucune avant 60 min, variété gardée). X1 (titane) en cours.
 > **Point de 23 h 15 (nuit)** : fusionnés et prouvés sur `main` : IA1-a (0.4.17), MOD-1 et A4-SOCLE (0.4.18), IA2-0
 > (0.4.19) ; bancs en moteur réel et hors jeu verts à chaque version (archives `fo-logs6-10-24_integration-*` et
 > `2026-10-25_integration-0.4.19`). En cours : X1 (titane de l'âge 11, worktree), IA2-a (chef d'équipe adaptatif v0,
