@@ -10,6 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 21 h 35** : production du socle animé FINIE (19:51 à 21:29, code 0, 11 âges : 5 à 15) ; lot A4-SOCLE lancé
+> (worktree : feuilles, banc a4-socle étendu, MESURE au plancher, images de nuit ; faits F204 à F206, E141, E142 ;
+> version proposée 0.4.17). MOD-1 en cours. F1-B (rondes du laser) : à lancer quand un des deux agents aura fini.
 > **Point de 21 h 25 : B0 fusionné, version 0.4.16** (`848b64c`, `3ff9751`) après le verdict du DC ; 8 bancs en moteur
 > réel verts sur `main` (`fo-logs\2026-10-24_integration-0.4.16\`). Réponses du DC sur les modules : M1 a, M2 a, M3 a
 > avec énergie = 60 % du bonus (D-15) ; Q-M4 en attente ; lot MOD-1 (mécanisme) en cours dans un worktree (faits F199 à

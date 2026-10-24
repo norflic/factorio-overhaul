@@ -27,7 +27,7 @@ avant tout travail.
    expériences E1 à E84, E105 à E123 et E128 à E132 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
    passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E126, E127 : IA1-c ; E136, E137 : B0), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 21 h 25) : **F204** et **E141** hors blocs (réservés : MOD-0 F190 à F194, E133 à E135 ; MOD-1 F199 à F203, E138 à E140) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
+   expérience de contrôle). Prochains identifiants (24/10, 21 h 35) : **F207** et **E143** hors blocs (réservés : MOD-0 F190 à F194, E133 à E135 ; MOD-1 F199 à F203, E138 à E140 ; A4-SOCLE F204 à F206, E141, E142) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4). Les blocs réservés sont listés en tête de RD_LOG.
 
