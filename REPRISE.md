@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 20 h 45** : correcteur d'IA1-a FINI dans sa branche (`153c696` ; main 0.4.15 fusionnée dedans ; réglages
+> unifiés sur `fo-war-*` ; M1 corrigé, M2 mesuré sans conclure, défaut nouveau : faction décimée bloquée à 1 PNJ ;
+> 23 attaques fantômes sur une graine ; 3 questions au DC dans `fo-logs6-10-24_IA1\IA1-a\INTEGRATION.md` §0.2) :
+> fusion APRÈS le test du DC. Demandes du DC de 20 h et 20 h 30 (OBJECTIFS §4 R-20H, Q-B1, Q-B2) : agents en cours :
+> analyse du scénario (ressources, machines) et analyse de l'IA adaptative (lecture seule, `fo-logs6-10-24_ANALYSE\`),
+> MOD-0 (faisabilité des modules multiplicatifs, worktree, `fo-logs6-10-24_MOD0\`), B0 (biome violet et
+> transitions en carrés, worktree, `fo-logs6-10-24_B0\`). Production du socle animé en cours.
 > **Point de 19 h 50** : le DC donne son feu vert (« oui feu vert ») pour les travaux qui chargent le PC. Production du
 > socle animé des âges 5, 7 à 15 LANCÉE vers 19 h 48 (`anime_socle.py`, une place de rendu, Blender en priorité basse ;
 > journal `fo-logs/2026-10-24_A4/socle-anime/production-10-ages.log` ; environ 6,4 h estimées). Ensuite : `feuilles.py`,
