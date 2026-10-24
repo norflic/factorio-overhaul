@@ -233,6 +233,13 @@
   ce soit de petits éléments qui soient changé de couleur et aussi pas autant saturé, c'est très désagréable ». → Le
   masque d'équipe ne couvrira que de PETITS éléments (bande, liserés, voyants) et la couleur sera désaturée (masque gris
   et alpha partiel, à régler) ; un essai sur 2 ou 3 âges sera montré au DC avant toute production.
+- 24/10, vers 10 h 25, **équipes de PNJ organisées (IA1) : quand ?** Question posée (A : maintenant, en parallèle du visuel ;
+  B : après la Compaction), le DC : « quel choix ? », puis « A ». → **Décision D-14** : IA1 se construit maintenant (Q18
+  le plaçait après le visuel, en parallèle de la Compaction). Propositions par défaut de `docs/EQUIPES_PNJ.md` §17
+  appliquées, réversibles : Q-IA1-1 (a), Q-IA1-2 (2), Q-IA1-3 profil léger, Q-IA1-4 oui, Q-IA1-5 Assisté, Q-IA1-6 (2),
+  Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
+  (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
+  E125 ; IA1-c F183 à F185, E126, E127.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
