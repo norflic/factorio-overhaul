@@ -36,9 +36,11 @@ local C = {}
 C.PERIOD = 3600            -- une pensée par minute
 C.MIN_HOLD = 5 * 3600      -- durée minimale d'une dominante
 C.CRISIS = 800             -- menace au-delà de laquelle la dominante peut changer avant MIN_HOLD
+C.CRISIS_HOLD = 2 * 3600   -- même en crise, une dominante tient au moins 2 min
 C.NEAR = 900               -- hasard entre les options à 90 % ou plus de la meilleure (pour mille)
 C.INERTIA = 150            -- + 15 % pour la dominante en cours, × discipline / 1 000
-C.WEARY = 40               -- lassitude : − 4 % par minute au-delà de MIN_HOLD (÷ discipline), jusqu'à − 50 %
+C.WEARY = 25               -- lassitude : − 2,5 % par minute au-delà de MIN_HOLD (÷ discipline), jusqu'à − 50 %
+                           -- (moteur réel, 1er essai à 4 % : 6,5 à 9,5 changements de dominante par heure, seuil ≤ 6)
 C.EPISODE_CHECK = 10 * 3600 -- bilan intermédiaire d'un épisode long (confiance − 50 si rien n'avance)
 C.MIX = { 600, 250, 150 }  -- dominante, 2e, 3e (pour mille)
 C.MULT_LO, C.MULT_HI = 700, 1400 -- bornes du multiplicateur du seuil d'attaque entre factions
@@ -391,7 +393,10 @@ function C.think(st, v, draw)
   local best = targets[1]
   if #targets > 1 then best = C.pick(targets, draw) end
   local scores = C.scores(v, st, best)
-  local hold = st.dominant ~= nil and st.since ~= nil and v.tick - st.since < C.MIN_HOLD and v.threat < C.CRISIS
+  -- Dominante tenue MIN_HOLD ; en crise, elle peut changer plus tôt, mais pas avant CRISIS_HOLD (pas de girouette).
+  local held_for = st.since and (v.tick - st.since) or 0
+  local hold = st.dominant ~= nil and st.since ~= nil and held_for < C.MIN_HOLD
+    and (v.threat < C.CRISIS or held_for < C.CRISIS_HOLD)
   local chosen
   if hold then
     for _, s in ipairs(scores) do if s.key == st.dominant then chosen = s end end
