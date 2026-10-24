@@ -3,6 +3,9 @@
 -- des 4 tirs vanilla (gun-turret-gunshot-01 à 04), volume du prototype vanilla (0,4).
 return {
   volume = 0.4,
+  -- Volume du prototype PAR ÈRE (lot S0-suite, tools/sound/rafales.py) : 0,4 × marge des rafales tirées au
+  -- hasard (pire écart à la vanilla <= -0,5 dB) ; les fichiers OGG ne changent pas.
+  volumes = { [1] = 0.388, [2] = 0.3904, [3] = 0.3832, [4] = 0.3816, [5] = 0.4 },
   eres = {
     [1] = { -- I Industrielle, âges 1, 2, 3
       "__factorio-overhaul__/sound/levels/gun/tir-ere1-1.ogg",

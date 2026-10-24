@@ -498,6 +498,32 @@ do
     { HERE .. "/_s0_entete.voc", "Creative Voice File\26\0" },
     { HERE .. "/_s0_mutant_riff.wav", "RIFF\0\0\0\0AVI LIST0000000" },
   }
+  -- lot S0-suite : mutants d'un VRAI tir vanilla (Ogg Vorbis), découpés page par page
+  local vf = assert(io.open(roots.base .. "/sound/fight/gun-turret-gunshot-01.ogg", "rb"))
+  local vdata = vf:read("*a")
+  vf:close()
+  local vpages = {} -- début (1-based) de chaque page
+  do
+    local p = 1
+    while p + 26 <= #vdata and vdata:sub(p, p + 3) == "OggS" do
+      vpages[#vpages + 1] = p
+      local nseg, body = vdata:byte(p + 26), 0
+      for k = 1, nseg do body = body + vdata:byte(p + 26 + k) end
+      p = p + 27 + nseg + body
+    end
+  end
+  assert(#vpages >= 4, "gun-turret-gunshot-01.ogg : moins de 4 pages Ogg")
+  local mid = vpages[math.floor(#vpages / 2) + 1]
+  local after_mid = vpages[math.floor(#vpages / 2) + 2]
+  local ident = vpages[1] + 27 + vdata:byte(vpages[1] + 26) -- début du paquet d'identification
+  local function poke(s, i, c) return s:sub(1, i - 1) .. c .. s:sub(i + #c) end
+  tmp[#tmp + 1] = { HERE .. "/_s0_coupe_milieu.ogg", vdata:sub(1, math.floor(#vdata * 0.6)) }
+  tmp[#tmp + 1] = { HERE .. "/_s0_coupe_page.ogg", vdata:sub(1, vpages[#vpages] - 1) }
+  tmp[#tmp + 1] = { HERE .. "/_s0_page_otee.ogg", vdata:sub(1, mid - 1) .. vdata:sub(after_mid) }
+  tmp[#tmp + 1] = { HERE .. "/_s0_vorbiz.ogg", poke(vdata, ident + 1, "vorbiz") }
+  tmp[#tmp + 1] = { HERE .. "/_s0_zero_voie.ogg", poke(vdata, ident + 11, "\0") }
+  tmp[#tmp + 1] = { HERE .. "/_s0_premiere_page.ogg", vdata:sub(1, vpages[2] - 1) }
+  tmp[#tmp + 1] = { HERE .. "/_s0_oggs_seul.ogg", "OggS" }
   for _, t in ipairs(tmp) do
     local f = assert(io.open(t[1], "wb"))
     f:write(t[2])
@@ -519,6 +545,17 @@ do
     { "en-tête WAV juste", { sound = { filename = "__fo-s0-jetable__/_s0_entete.wav" } }, {} },
     { "en-tête VOC juste", { sound = { filename = "__fo-s0-jetable__/_s0_entete.voc" } }, {} },
     { "faux .wav (RIFF sans WAVE)", { sound = { filename = "__fo-s0-jetable__/_s0_mutant_riff.wav" } }, { ["pas un son"] = 1 } },
+    -- lot S0-suite : codec et fichier entier (tests/datastage/fixtures : vrais flux encodés par PyAV)
+    { "Ogg Vorbis d'un autre encodeur (PyAV) : accepté", { sound = { filename = "__fo-s0-jetable__/fixtures/s0-vorbis-pyav.ogg" } }, {} },
+    { "Ogg OPUS sous .ogg (mutant)", { sound = { filename = "__fo-s0-jetable__/fixtures/s0-opus.ogg" } }, { codec = 1 } },
+    { "FLAC dans Ogg sous .ogg (mutant)", { sound = { filename = "__fo-s0-jetable__/fixtures/s0-flac.ogg" } }, { codec = 1 } },
+    { "tir vanilla coupé au milieu d'une page (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_coupe_milieu.ogg" } }, { ["tronqué"] = 1 } },
+    { "tir vanilla coupé entre deux pages, sans fin de flux (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_coupe_page.ogg" } }, { ["tronqué"] = 1 } },
+    { "tir vanilla privé d'une page du milieu (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_page_otee.ogg" } }, { ["tronqué"] = 1 } },
+    { "identification « vorbiz » (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_vorbiz.ogg" } }, { codec = 1 } },
+    { "identification à 0 voie (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_zero_voie.ogg" } }, { ["Vorbis invalide"] = 1 } },
+    { "réduit à sa première page (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_premiere_page.ogg" } }, { ["Vorbis invalide"] = 1 } },
+    { "« OggS » seul (mutant)", { sound = { filename = "__fo-s0-jetable__/_s0_oggs_seul.ogg" } }, { ["tronqué"] = 1 } },
   }
   -- mutants d'un vrai niveau de la mitrailleuse (le plus haut qui a un son du mod)
   local real
@@ -538,6 +575,9 @@ do
     local m2 = deepcopy(s)
     m2[2].filename = m2[2].filename:gsub("%.ogg$", ".mp3")
     cases[#cases + 1] = { "niveau réel : tir en .mp3 (mutant)", { attack_parameters = { sound = m2 } }, { format = 1 } }
+    local m3 = deepcopy(s)
+    m3[#m3].filename = "__fo-s0-jetable__/fixtures/s0-opus.ogg"
+    cases[#cases + 1] = { "niveau réel : un tir remplacé par un Ogg Opus (mutant)", { attack_parameters = { sound = m3 } }, { codec = 1 } }
   else
     snd_self_fail[#snd_self_fail + 1] = "aucun niveau de la mitrailleuse n'a de son du mod (lot S0) : mutants réels non joués"
   end
@@ -545,12 +585,19 @@ do
     local got = {}
     for _, e in ipairs(tsnd.check({ ["fo-cas"] = { ["cas-" .. i] = c[2] } }, nil)) do got[e.what] = (got[e.what] or 0) + 1 end
     local ok = true
-    for _, k in ipairs({ "manquant", "format", "pas un son" }) do
+    local KINDS = { "manquant", "format", "pas un son", "codec", "Vorbis invalide", "tronqué" }
+    for _, k in ipairs(KINDS) do
       if (got[k] or 0) ~= (c[3][k] or 0) then ok = false end
     end
+    for k in pairs(got) do
+      local known = false
+      for _, kk in ipairs(KINDS) do if k == kk then known = true end end
+      if not known then ok = false end
+    end
     if not ok then
-      snd_self_fail[#snd_self_fail + 1] = c[1] .. " (manquant=" .. (got.manquant or 0) .. ", format=" .. (got.format or 0)
-        .. ", pas un son=" .. (got["pas un son"] or 0) .. ")"
+      local parts = {}
+      for _, k in ipairs(KINDS) do parts[#parts + 1] = k .. "=" .. (got[k] or 0) end
+      snd_self_fail[#snd_self_fail + 1] = c[1] .. " (" .. table.concat(parts, ", ") .. ")"
     end
   end
   snd_self_total = #cases
@@ -729,7 +776,8 @@ local GunSheets = dofile(HERE .. "/gun_sheets.lua")
 local gun_sheets = GunSheets.check(MOD_ROOT)
 for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
 -- Sons (lot S0)
-print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux) ; étalonnage "
+print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
+  .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
   .. "vanilla : %d violation(s) sur %d prototypes (%d avec un son), %d définitions, %d fichiers ; mod : %d prototypes "
   .. "(%d avec un son), %d définitions, %d fichier(s) du mod ; auto-contrôle %d/%d",
   #snd_errors, #snd_vanilla, snd_vc.protos, snd_vc.with_sound, snd_vc.defs, snd_vfiles, snd_mc.protos, snd_mc.with_sound,

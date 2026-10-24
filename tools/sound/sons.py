@@ -406,10 +406,18 @@ def sha256(path):
 
 
 def write_lua(path, files):
+    # Lot S0-suite : le champ `volumes` (volume du prototype par ère, écrit par tools/sound/rafales.py --appliquer) est
+    # GARDÉ tel quel ; si les fichiers changent, relancer rafales.py --appliquer (marge des rafales tirées au hasard).
+    keep = ""
+    if os.path.exists(path):
+        import re
+        m = re.search(r"  -- Volume du prototype PAR ÈRE.*?\n  volumes = \{[^}]*\},\n",
+                      open(path, encoding="utf-8").read(), re.S)
+        keep = m.group(0) if m else ""
     lines = ["-- GÉNÉRÉ par tools/sound/sons.py (lot S0) : ne pas modifier à la main.",
              "-- Tir de la mitrailleuse par ère (âges 1-3, 4-6, 7-9, 10-12, 13-15) : 4 variations par ère, dérivées",
              "-- des 4 tirs vanilla (gun-turret-gunshot-01 à 04), volume du prototype vanilla (0,4).",
-             "return {", "  volume = %s," % repr(VOLUME), "  eres = {"]
+             "return {", "  volume = %s," % repr(VOLUME)] + ([keep.rstrip("\n")] if keep else []) + ["  eres = {"]
     for era in ERES:
         lines.append("    [%d] = { -- %s, âges %s" % (era["n"], era["nom"], ", ".join(str(a) for a in era["ages"])))
         for name in files[era["n"]]:
@@ -440,6 +448,25 @@ def check_mod(mod):
     for e in extra:
         fail += 1
         print("[FO-SONS] ECHEC fichier hors manifeste : %s" % e)
+    # Lot S0-suite : volumes par ère de sons.lua = ceux du manifeste (rafales.py --appliquer écrit les deux)
+    raf = m.get("rafales_hasard")
+    if raf:
+        import re
+        txt = open(os.path.join(d, "sons.lua"), encoding="utf-8").read()
+        mv = re.search(r"volumes\s*=\s*\{([^}]*)\}", txt)
+        lua = {k: float(v) for k, v in re.findall(r"\[(\d)\]\s*=\s*([\d.]+)", mv.group(1))} if mv else {}
+        want = {k: float(v) for k, v in raf["volume_prototype_par_ere"].items()}
+        if lua != want:
+            fail += 1
+            print("[FO-SONS] ECHEC volumes par ère : sons.lua %s, manifeste %s" % (lua, want))
+        else:
+            worst = max(v[0] for v in raf["distribution_pire_ecart_db"].values())
+            print("[FO-SONS] volumes par ère (sons.lua = manifeste) : %s ; rafales au hasard : pire écart %+.3f dB "
+                  "(marge demandée %.2f)" % (", ".join("%s : %s" % kv for kv in sorted(lua.items())), worst,
+                                            raf["marge_db"]))
+            if worst > -raf["marge_db"] + 1e-9:
+                fail += 1
+                print("[FO-SONS] ECHEC marge des rafales non tenue au manifeste")
     print("[FO-SONS] contrôle : %d fichier(s) conformes au manifeste, %d ECHEC(S)" % (ok, fail))
     return 0 if fail == 0 else 1
 

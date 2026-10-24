@@ -500,6 +500,98 @@
    "sonie_k": -17.258
   }
  },
+ "rafales_hasard": {
+  "apparie_part_suites_au_dessus": {
+   "1": 0.0119,
+   "2": 0.0297,
+   "3": 0.0277,
+   "4": 0.0416,
+   "5": 0.0238
+  },
+  "apparie_pire_ecart_db": {
+   "1": [
+    0.329,
+    "5 tirs, rms50, hasard-68"
+   ],
+   "2": [
+    1.283,
+    "5 tirs, rms50, hasard-68"
+   ],
+   "3": [
+    0.893,
+    "5 tirs, rms50, hasard-59"
+   ],
+   "4": [
+    1.035,
+    "5 tirs, rms50, hasard-68"
+   ],
+   "5": [
+    0.739,
+    "5 tirs, rms50, hasard-68"
+   ]
+  },
+  "distribution_pire_ecart_db": {
+   "1": [
+    -0.509,
+    "5 tirs, rms, q50"
+   ],
+   "2": [
+    -0.507,
+    "24 tirs, rms, q50"
+   ],
+   "3": [
+    -0.502,
+    "30 tirs, rms400, max"
+   ],
+   "4": [
+    -0.507,
+    "30 tirs, crete, max"
+   ],
+   "5": [
+    -0.704,
+    "60 tirs, rms50, max"
+   ]
+  },
+  "distribution_pire_ecart_db_avant": {
+   "1": -0.244,
+   "2": -0.296,
+   "3": -0.129,
+   "4": -0.098,
+   "5": -0.704
+  },
+  "longueurs_tirs": [
+   5,
+   10,
+   24,
+   30,
+   60
+  ],
+  "marge_db": 0.5,
+  "mesures": [
+   "crete",
+   "rms",
+   "rms50",
+   "rms400",
+   "sonie_k",
+   "momentanee"
+  ],
+  "outil": "tools/sound/rafales.py (lot S0-suite)",
+  "quantiles": [
+   50,
+   90,
+   99,
+   100
+  ],
+  "suites_au_hasard_par_longueur": 100,
+  "traine_s": 2.5,
+  "volume_prototype_par_ere": {
+   "1": 0.388,
+   "2": 0.3904,
+   "3": 0.3832,
+   "4": 0.3816,
+   "5": 0.4
+  }
+ },
  "reference": {
   "rafale-vanilla": {
    "centroide_hz": 691.5,

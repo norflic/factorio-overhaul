@@ -417,6 +417,13 @@ m-7), puis relancer la MÊME commande (reprenable : une tête faite et contrôl�
 créer le fichier `<racine>\fo-logs\2026-10-24_A3\STOP`. Fin : code 0 ET « FIN … reste 0 ; … manquent 0 sur 768 ;
 erreurs 0 » ; puis `--dry-run` (« reste : 0 ») et `--controle-seul`. Ensuite : planches et animations par âge
 (`INTEGRATION.md` d'A3 §4) pour le DC, puis le lot **A3-jeu** (§6 du même fichier).
+⏳ **Lancé le 24/10 vers 0 h 25 : run `wf_93b960d8-a9c`** (session `8a9c0503` ; le premier essai `wf_232ab1e0-846` a échoué
+sans rien faire : session placée hors du dépôt git, aucun worktree possible), deux chaînes en parallèle, SANS Blender :
+**A3-jeu** (intégration progressive : chaque âge passe à 64 directions dès que ses 64 têtes sont produites, sinon reste
+à 4 ; feuilles, `gun.lua`, éclat sur 64 directions, contrôles, `gun-rose` à 16 directions, D4m, captures ;
+`<racine>\fo-logs\2026-10-24_A3-jeu\`, dont `FINALISATION.md` à jouer après la production) et **S0-suite** (tir joué en
+jeu prouvé par le pilote audio `disk`, règle Vorbis du harness, marge des rafales ; `<racine>\fo-logs\2026-10-24_S0-suite\`).
+Page pour le DC (24/10, 0 h 15) : rotation de l'âge 5 en 64 positions https://claude.ai/artifact/WQ4g1V8LrGEEfaymhq1Ley .
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**
