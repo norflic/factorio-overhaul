@@ -240,6 +240,15 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 21 h 45, **le DC part dormir** : « Je vais dormir, passez la nuit a faire de votre mieux pour l'avancée du projet (si vous pouvez même tout terminer cette nuit c'est parfait) »
+  → **Décision D-16 (choix provisoires de l'orchestrateur pour avancer la nuit, réversibles, à confirmer au réveil)** :
+  Q-M4 : le catalogue actuel (3 types × 10 paliers) est gardé, la productivité reste additionnée ; IA1 à IA5 : les
+  propositions de la page de synthèse (personnalité tirée à chaque partie ; brouillard partout ; alliances tacites ;
+  1re attaque entre 20 et 32 min en Normal, 15 à 40 au-dessus ; une IA peut dépasser le joueur) ; E1 A (4 ouvriers par
+  défaut), E2 A (pas de recrue sans travail), E3 A (minimum 6) ; S1 à S5 : rien de neuf n'est ajouté au scénario sans le
+  DC, mais le prévu validé peut avancer. Ordre de la nuit : intégrer MOD-1 et A4-SOCLE, puis IA1-a ; MOD-2 (recettes par
+  lots) ; IA2-0, IA2-a, IA2-b (chef adaptatif, expansion par la carte) ; nouveaux styles de minerais (kit M1) ; modules au
+  design distinct ; F1-B (rondes du laser). Deux agents à la fois au plus, une place de rendu.
 - 24/10, vers 21 h 50, **réponses Q-M1 à Q-M3 (modules)** : « M1 A, M2 A, M3 A mais en fait on va réduire, il faut que l'énergie consomé soit légèrement inférieur à la productivité gagnée, par exemple : +50% vitesse / +30% consomations d'énergie, je dirait que la consomation d'énergie en plus doit être 60% du bonus apporté à la productivité »
   → **Décision D-15** : facteur de vitesse d'une machine = produit des (1 + b) de ses modules, borné à × 328,67 (F à
   inscrire avec MOD-0) ; facteur d'énergie = produit des (1 + 0,6 × b) ; recettes par lots automatiques au-delà de

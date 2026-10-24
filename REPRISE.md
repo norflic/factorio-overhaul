@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **NUIT DU 24 AU 25/10** : le DC dort (« passez la nuit a faire de votre mieux pour l'avancée du projet »). D-16 (RD_LOG) :
+> choix provisoires pour M4, IA1 à IA5, E1 à E3. Ordre : intégrer MOD-1, A4-SOCLE, IA1-a ; puis MOD-2 ; IA2-0, IA2-a,
+> IA2-b ; styles de minerais ; modules au design distinct ; F1-B. Deux agents à la fois, une place de rendu ; disque H:
+> surveillé (14 worktrees fusionnés retirés à 21 h 40, 4,9 Go libres). Au réveil : une page de la nuit pour le DC.
 > **Point de 21 h 35** : production du socle animé FINIE (19:51 à 21:29, code 0, 11 âges : 5 à 15) ; lot A4-SOCLE lancé
 > (worktree : feuilles, banc a4-socle étendu, MESURE au plancher, images de nuit ; faits F204 à F206, E141, E142 ;
 > version proposée 0.4.17). MOD-1 en cours. F1-B (rondes du laser) : à lancer quand un des deux agents aura fini.
