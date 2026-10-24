@@ -240,6 +240,10 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 21 h 50, **réponses Q-M1 à Q-M3 (modules)** : « M1 A, M2 A, M3 A mais en fait on va réduire, il faut que l'énergie consomé soit légèrement inférieur à la productivité gagnée, par exemple : +50% vitesse / +30% consomations d'énergie, je dirait que la consomation d'énergie en plus doit être 60% du bonus apporté à la productivité »
+  → **Décision D-15** : facteur de vitesse d'une machine = produit des (1 + b) de ses modules, borné à × 328,67 (F à
+  inscrire avec MOD-0) ; facteur d'énergie = produit des (1 + 0,6 × b) ; recettes par lots automatiques au-delà de
+  60 fabrications par seconde (lot MOD-2) ; aucune limite d'énergie par machine. Q-M4 en attente. Lot MOD-1 lancé.
 - 24/10, vers 21 h 40, **verdict du DC sur les biomes (lot B0)** : « B1 D, B2 A, B3 B, B4 B » → plaine de cristal en sol
   mauve bruyère ; marais corrigé (passé sous les sols), décalage du méthane naturel accepté ; grain fin aux frontières
   à ajouter ; végétation vanilla retirée de la plaine. Suite confiée à l'agent de B0 ; fusion ensuite.
