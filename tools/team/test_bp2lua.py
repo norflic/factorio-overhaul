@@ -60,6 +60,27 @@ try:
 except ValueError:
     check(True, "plan vide refusé")
 
+# Correction IA1-c (mineur 6) : un bâtiment à niveaux prend son emprise ACTUELLE (assembleur de niveau 7 : 4 × 4),
+# lue dans le modèle Lua ; un nom de niveau inconnu refuse le plan. Assembleur de niveau 7 centré en (10, 10), bras au
+# nord : coin nord-ouest en (8, 7) si le côté est 4 (en (9,5 ; 7) s'il était compté 1 × 1).
+plan7 = {"blueprint": {"entities": [
+    {"entity_number": 1, "name": "fo-lvl-assembler-7", "position": {"x": 10, "y": 10}, "recipe": "iron-gear-wheel"},
+    {"entity_number": 2, "name": "fast-inserter", "position": {"x": 9.5, "y": 7.5}},
+]}}
+try:
+    g7 = bp2lua.to_gabarit(plan7, "n7")
+    a7 = [e for e in g7["entities"] if e["name"] == "fo-lvl-assembler-7"][0]
+    check(a7["x"] == 2 and a7["y"] == 3 and "fo-lvl-assembler-7" not in g7["unknown"],
+          "assembleur de niveau 7 : emprise 4 × 4 lue dans le modèle, centre en (2, 3) (" + repr(a7) + ")")
+except ValueError as ex:
+    check(False, "assembleur de niveau 7 : " + str(ex))
+try:
+    bp2lua.to_gabarit({"blueprint": {"entities": [
+        {"entity_number": 1, "name": "fo-lvl-assembler-99", "position": {"x": 0.5, "y": 0.5}}]}}, "x")
+    check(False, "bâtiment à niveaux inconnu refusé")
+except ValueError:
+    check(True, "bâtiment à niveaux inconnu refusé")
+
 # Contrôle par le modèle Lua : le gabarit converti, complété de ses ports, passe M.check.
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 import shutil  # noqa: E402

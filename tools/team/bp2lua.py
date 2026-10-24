@@ -17,6 +17,9 @@ import argparse
 import base64
 import json
 import math
+import os
+import shutil
+import subprocess
 import sys
 import zlib
 
@@ -46,28 +49,79 @@ def encode(obj):
     return "0" + base64.b64encode(zlib.compress(raw, 9)).decode("ascii")
 
 
-def size_of(name, direction):
-    w, h = SIZES.get(name, (1, 1))
+LEVEL_PREFIX = "fo-lvl-"
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+
+def _lua_exe():
+    exe = os.environ.get("FO_LUA") or shutil.which("lua5.2") or shutil.which("lua5.2.exe")
+    home_lua = os.path.join(os.path.expanduser("~"), "bin", "lua5.2.exe")   # emplacement de CLAUDE.md §5
+    if not exe and os.path.exists(home_lua):
+        exe = home_lua
+    return exe
+
+
+def level_sizes(names, lua_exe=None):
+    """Côtés ACTUELS des bâtiments à niveaux (fo-lvl-<famille>-<n>) : lus dans le modèle Lua (M.spec, qui suit
+    L.footprint de shared/levels/config.lua). Correction IA1-c (mineur 6 de la vérification adverse) : avant, un
+    bâtiment à niveaux était compté 1 × 1, ce qui décalait l'origine et l'emprise du gabarit. Sans lua5.2, ou pour
+    un nom inconnu du modèle : ValueError (plan refusé plutôt que faux)."""
+    names = sorted(set(names))
+    if not names:
+        return {}
+    exe = lua_exe or _lua_exe()
+    if not exe:
+        raise ValueError("bâtiments à niveaux dans le plan (%s) : lua5.2 introuvable pour lire leurs emprises "
+                         "(lancer depuis Git Bash, ou FO_LUA=<chemin de lua5.2.exe>)" % ", ".join(names))
+    # séparateur « | » (aucun nom d'entité n'en contient) ; lignes jointes par chr(10)
+    script = chr(10).join([
+        'package.path = "./?.lua;" .. package.path',
+        'local M = require("shared.team.modules")',
+        'for _, n in ipairs({' + ",".join(json.dumps(n) for n in names) + '}) do',
+        '  local s = M.spec(n)',
+        '  print(n .. "|" .. (s and (s.w .. "|" .. s.h) or "?|?"))',
+        'end',
+    ])
+    r = subprocess.run([exe, "-e", script], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=60)
+    if r.returncode != 0:
+        raise ValueError("lecture des emprises des bâtiments à niveaux impossible : " + (r.stderr or r.stdout).strip()[:300])
+    out = {}
+    for line in r.stdout.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) == 3:
+            if parts[1] == "?":
+                raise ValueError("bâtiment à niveaux inconnu du modèle : " + parts[0])
+            out[parts[0]] = (int(parts[1]), int(parts[2]))
+    missing = [n for n in names if n not in out]
+    if missing:
+        raise ValueError("emprises non lues : " + ", ".join(missing))
+    return out
+
+
+def size_of(name, direction, extra=None):
+    w, h = (extra or {}).get(name) or SIZES.get(name, (1, 1))
     if direction in (2, 6):
         w, h = h, w
     return w, h
 
 
-def to_gabarit(bp, key):
-    """Plan (dictionnaire 'blueprint') → gabarit (dictionnaire Python) ; entités triées par (y, x, nom)."""
+def to_gabarit(bp, key, lua_exe=None):
+    """Plan (dictionnaire 'blueprint') → gabarit (dictionnaire Python) ; entités triées par (y, x, nom). Les
+    bâtiments à niveaux prennent leur emprise ACTUELLE (level_sizes)."""
     if "blueprint" in bp:
         bp = bp["blueprint"]
     ents = bp.get("entities", [])
     if not ents:
         raise ValueError("plan sans entité")
+    extra = level_sizes([e["name"] for e in ents if e["name"].startswith(LEVEL_PREFIX)], lua_exe)
     x0 = y0 = math.inf
     for e in ents:
-        w, h = size_of(e["name"], e.get("direction", 0))
+        w, h = size_of(e["name"], e.get("direction", 0), extra)
         x0 = min(x0, e["position"]["x"] - w / 2)
         y0 = min(y0, e["position"]["y"] - h / 2)
     x0, y0 = math.floor(x0 + 1e-9), math.floor(y0 + 1e-9)
     out = []
-    unknown = sorted({e["name"] for e in ents if e["name"] not in SIZES and not _one_by_one(e["name"])})
+    unknown = sorted({e["name"] for e in ents if e["name"] not in SIZES and e["name"] not in extra and not _one_by_one(e["name"])})
     for e in ents:
         d = {"name": e["name"], "x": e["position"]["x"] - x0, "y": e["position"]["y"] - y0, "dir": e.get("direction", 0)}
         if e.get("recipe"):

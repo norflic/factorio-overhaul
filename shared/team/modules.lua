@@ -457,8 +457,35 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 5. Générateurs paramétriques
 ---------------------------------------------------------------------------------------------------
+-- Correction IA1-c (vérification adverse, défauts majeurs 1 et 2) :
+--   - un générateur rend le gabarit, ou (nil, raison) : il ne lève plus d'erreur sur des paramètres refusés
+--     (bras introuvables, liaison impossible…) ; les fonctions publiques de M.GEN sont en plus enveloppées par
+--     pcall (filet : une erreur interne devient (nil, raison), elle n'arrête pas le jeu pendant un événement) ;
+--   - chaque gabarit garde `gen` (nom du générateur), `args` (liste COMPLÈTE de ses paramètres) et, s'il pose des
+--     bâtiments à niveaux, `level_arg` (indice du paramètre qui les nomme) : M.regenerate le refait avec d'autres
+--     paramètres (agrandir, autre niveau) ;
+--   - extensions = { { param, arg (indice dans args), step = 1, max } } : `max` est le plus grand n tel que TOUS
+--     les n de 1 à max passent M.check (borne calculée ici sur l'emprise et sur les débits des voies et des tapis ;
+--     son exactitude est vérifiée hors jeu, tests/ia1_modules_test.lua, n par n, pour le catalogue, ses variantes
+--     d'ère et un balayage des niveaux). max = 0 : aucune taille valide.
 local G = {}
-M.GEN = G
+local unpack_ = table.unpack or unpack
+
+local function fail(...) return nil, string.format(...) end
+local function floor_eps(x) return math.floor(x + 1e-9) end
+local function count_ok(n, what)
+  if type(n) ~= "number" or n < 1 or n ~= math.floor(n) or n > 64 then return nil, what .. " : nombre invalide (" .. tostring(n) .. ")" end
+  return true
+end
+local function machine_spec(name, kind, what)
+  local s = M.spec(name)
+  if not s then return nil, what .. " : entité inconnue « " .. tostring(name) .. " »" end
+  if kind and s.kind ~= kind then return nil, what .. " : « " .. tostring(name) .. " » n'est pas de la sorte « " .. kind .. " »" end
+  return s
+end
+local function lvl_tag(sp) return sp.level and ("-n" .. sp.level) or "" end
+local function set_ext(g, param, arg, max) g.extensions = { { param = param, arg = arg, step = 1, max = math.max(0, max) } } end
+local function minimum(t) local m = math.huge; for _, v in ipairs(t) do if v < m then m = v end end; return m end
 
 local function ore_label(ore) return (ore == "iron-ore" and "fer") or (ore == "copper-ore" and "cuivre") or (ore == "coal" and "charbon") or "pierre" end
 local function ore_label_en(ore) return (ore == "iron-ore" and "iron") or (ore == "copper-ore" and "copper") or (ore == "coal" and "coal") or "stone" end
@@ -466,9 +493,11 @@ local function ore_label_en(ore) return (ore == "iron-ore" and "iron") or (ore =
 --- Avant-poste à combustion (époque 1) : n paires foreuse à combustion → four en pierre (la foreuse dépose dans le
 --- four). Pas de bras, pas d'électricité : les porteurs ravitaillent en charbon et collectent les plaques.
 function G.outpost_burner(ore, n)
+  local plate = M.PLATE_OF[ore]
+  if not plate then return fail("avant-poste : minerai « %s » sans plaque", tostring(ore)) end
+  local ok, why = count_ok(n, "avant-poste"); if not ok then return nil, why end
   local b = new_builder("avant-poste-" .. ore_label(ore), "Avant-poste à combustion (" .. ore_label(ore) .. ")",
     "Burner outpost (" .. ore_label_en(ore) .. ")")
-  local plate = M.PLATE_OF[ore]
   local drill = BASE["burner-mining-drill"]
   for i = 0, n - 1 do
     local f = b:put("stone-furnace", 2 * i, 0, N, { recipe = plate, rate = drill.speed, role = "four" })
@@ -479,26 +508,31 @@ function G.outpost_burner(ore, n)
   end
   b.g.resource = ore
   b.g.params = { ore = ore, n = n }
-  b.g.extensions = { { param = "n", step = 1, max = 12 } }
+  b.g.gen, b.g.args = "outpost_burner", { ore, n }
+  -- emprise : 2n de large
+  set_ext(b.g, "n", 2, floor_eps(M.MAX_SIDE / 2))
   return b:finish()
 end
 
 --- Colonne de fours électrique (époque ≥ 3) : tapis central d'entrée (voie gauche : minerai, voie droite : charbon),
 --- deux rangées de fours, deux tapis de sortie vers le sud. `furnace` : stone-furnace, steel-furnace ou un niveau.
 function G.smelter(furnace, ore, n)
+  local sp, why = machine_spec(furnace, "furnace", "fonderie"); if not sp then return nil, why end
   local plate = M.PLATE_OF[ore]
-  local sp = M.spec(furnace)
+  if not plate then return fail("fonderie : minerai « %s » sans plaque", tostring(ore)) end
+  local ok, why2 = count_ok(n, "fonderie"); if not ok then return nil, why2 end
   local s = sp.w
-  local lvl = sp.level and ("-n" .. sp.level) or ""
   local tag = (sp.base or furnace) == "stone-furnace" and "pierre" or "acier"
-  local b = new_builder("fonderie-" .. ore_label(ore) .. "-" .. tag .. lvl,
+  local b = new_builder("fonderie-" .. ore_label(ore) .. "-" .. tag .. lvl_tag(sp),
     "Fonderie électrique (" .. ore_label(ore) .. ", " .. furnace .. ", " .. 2 * n .. " fours)",
     "Electric smelter (" .. ore_label_en(ore) .. ", " .. furnace .. ", " .. 2 * n .. " furnaces)")
   local rate = sp.speed / R[plate].time
   local fuel = (sp.burner_kw or 0) / M.COAL_J
-  local in_k, in_n = M.choose_inserters(rate + fuel, true, 1)
-  local out_k, out_n = M.choose_inserters(rate, false, 1)
-  assert(in_k and out_k, "fonderie : bras introuvables")
+  local in_k = M.choose_inserters(rate + fuel, true, 1)
+  local out_k = M.choose_inserters(rate, false, 1)
+  if not (in_k and out_k) then
+    return fail("fonderie (%s) : aucun bras seul ne suffit (%.2f/s par four depuis le tapis, %.2f/s en sortie)", furnace, rate + fuel, rate)
+  end
   local x_out_w, x_ins_w, x_f_w = 0, 1, 2
   local x_in_w, x_belt, x_in_e = 2 + s, 3 + s, 4 + s
   local x_f_e, x_ins_e, x_out_e = 5 + s, 5 + 2 * s, 6 + 2 * s
@@ -524,17 +558,24 @@ function G.smelter(furnace, ore, n)
   end
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { furnace = furnace, ore = ore, n = n }
-  b.g.extensions = { { param = "n", step = 1, max = math.floor(M.MAX_SIDE / s) } }
+  b.g.gen, b.g.args, b.g.level_arg = "smelter", { furnace, ore, n }, 1
+  -- bornes : hauteur n·s ; voie de minerai (2n fours) ; voie de charbon ; une voie de sortie par rangée (n fours) ;
+  -- largeur 7 + 2s
+  local bounds = { floor_eps(M.MAX_SIDE / s), floor_eps(M.LANE_RATE / (2 * rate)), floor_eps(M.LANE_RATE / rate) }
+  if fuel > 0 then bounds[#bounds + 1] = floor_eps(M.LANE_RATE / (2 * fuel)) end
+  if 7 + 2 * s > M.MAX_SIDE then bounds[#bounds + 1] = 0 end
+  set_ext(b.g, "n", 3, minimum(bounds))
   return b:finish()
 end
 
 --- Ligne de foreuses électriques de part et d'autre d'un tapis qui sort au sud ; poteaux sur les deux bords.
 function G.drills(ore, n, drill)
   drill = drill or "electric-mining-drill"
-  local sp = M.spec(drill)
+  local sp, why = machine_spec(drill, "drill", "foreuses"); if not sp then return nil, why end
+  if not M.ORES[ore] then return fail("foreuses : minerai « %s » inconnu", tostring(ore)) end
+  local ok, why2 = count_ok(n, "foreuses"); if not ok then return nil, why2 end
   local s = sp.w
-  local lvl = sp.level and ("-n" .. sp.level) or ""
-  local b = new_builder("foreuses-" .. ore_label(ore) .. lvl, "Ligne de " .. 2 * n .. " foreuses (" .. ore_label(ore) .. ", " .. drill .. ")",
+  local b = new_builder("foreuses-" .. ore_label(ore) .. lvl_tag(sp), "Ligne de " .. 2 * n .. " foreuses (" .. ore_label(ore) .. ", " .. drill .. ")",
     "Line of " .. 2 * n .. " drills (" .. ore_label_en(ore) .. ", " .. drill .. ")")
   -- rangée 0 : tête du tapis et poteaux de liaison (les deux bords sont à 2s + 2 tuiles l'un de l'autre)
   local H = n * s + 1
@@ -551,17 +592,22 @@ function G.drills(ore, n, drill)
   b.g.power_pole = b:auto_poles(cands)
   b.g.resource = ore
   b.g.params = { ore = ore, n = n, drill = drill }
-  b.g.extensions = { { param = "n", step = 1, max = math.floor(M.MAX_SIDE / s) } }
+  b.g.gen, b.g.args, b.g.level_arg = "drills", { ore, n, drill }, 3
+  -- bornes : hauteur n·s + 1 ; chaque rangée de n foreuses dépose sur SA voie (7,5/s)
+  set_ext(b.g, "n", 2, math.min(floor_eps((M.MAX_SIDE - 1) / s), floor_eps(M.LANE_RATE / sp.speed)))
   return b:finish()
 end
 
 --- Centrale à vapeur (époque 3) : pompe de rive à l'ouest, nb chaudières en rangée (l'eau traverse les chaudières),
 --- 2 machines à vapeur au-dessus de chacune, deux bras à combustion par chaudière sur un tapis de charbon qui entre
---- à l'est. Poteaux sur les bords ouest et est (machines) et dans la rangée des bras.
+--- à l'est. Poteaux : rangée du haut (machines du haut), rangée des bras (machines du bas), bords ouest et est
+--- (liaison). Correction IA1-c : sans la rangée du haut, les machines du haut des colonnes du milieu restaient hors
+--- de l'aire des poteaux dès 3 chaudières (seul nb ≤ 2 passait le contrôle).
 function G.steam(nb)
+  local ok, why = count_ok(nb, "centrale"); if not ok then return nil, why end
   local b = new_builder("centrale-vapeur-" .. nb, "Centrale à vapeur (" .. nb .. " chaudières, " .. 2 * nb .. " machines)",
     "Steam power plant (" .. nb .. " boilers, " .. 2 * nb .. " engines)")
-  local yb = 11
+  local yb = 12
   local W_ = 3 * nb + 2
   b:put("offshore-pump", 0, yb, W, { role = "pompe" })
   for k = 0, nb - 1 do
@@ -577,16 +623,20 @@ function G.steam(nb)
   b:port({ kind = "rive", io = "in", ent = 1, fluid = "water" })
   for dx = -6, -1 do for dy = -2, 2 do b.g.water[#b.g.water + 1] = { dx, yb + dy } end end
   local cands = {}
-  for y = 0, yb - 2 do cands[#cands + 1] = { 0, y }; cands[#cands + 1] = { W_ - 1, y } end
+  for x = 0, W_ - 1 do cands[#cands + 1] = { x, 0 } end
+  for y = 1, yb - 2 do cands[#cands + 1] = { 0, y }; cands[#cands + 1] = { W_ - 1, y } end
   for x = 1, W_ - 1 do cands[#cands + 1] = { x, yb + 1 } end
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { nb = nb }
-  b.g.extensions = { { param = "nb", step = 1, max = 7 } }
+  b.g.gen, b.g.args = "steam", { nb }
+  -- bornes : largeur 3nb + 2 ; eau (1 pompe : 1 200/s, 60/s par chaudière) ; charbon (deux voies)
+  set_ext(b.g, "nb", 1, math.min(floor_eps((M.MAX_SIDE - 2) / 3), floor_eps(BASE["offshore-pump"].rate / BASE.boiler.water),
+    floor_eps(M.BELT_RATE / (BASE.boiler.burner_kw / M.COAL_J))))
   return b:finish(W_, yb + 3)
 end
 
 --- Rangée d'assembleurs (ou de labos) : tapis d'entrée au nord (voies), bras, machines espacées d'une colonne de
---- liaison, bras de sortie, tapis de sortie au sud vers l'est. spec :
+--- liaison, bras de sortie, tapis de sortie au sud vers l'est. Rend (b, info) ou (nil, raison). spec :
 ---   machines = { { name, recipe, rate, top = { objets pris au tapis du haut }, top2 = { objets pris au 2e tapis par
 ---     un bras long }, out = true (sortie au tapis du bas) } } ;
 ---   links = { { from = i, to = j (voisins), item, flow } } ;
@@ -596,7 +646,9 @@ function G.row(key, fr, en, spec, ox, oy, b)
   ox, oy = ox or 0, oy or 0
   local s = M.spec(spec.machines[1].name).w
   local nm = #spec.machines
-  local Wd = nm * s + (nm - 1)
+  -- machine seule (hors étage A d'un bloc à deux étages) : une colonne de plus à l'est, pour un poteau (correction
+  -- IA1-c : sans colonne de liaison, une rangée de bras pleine n'avait aucun poteau possible)
+  local Wd = nm * s + (nm - 1) + ((nm == 1 and not spec.no_out_port) and 1 or 0)
   local has2 = spec.lanes2 ~= nil
   local y_top2 = oy
   local y_top = oy + (has2 and 1 or 0)
@@ -620,7 +672,6 @@ function G.row(key, fr, en, spec, ox, oy, b)
     local r = R[m.recipe]
     local rate = m.rate
     -- bras du haut
-    local col = 0
     local function need_of(items)
       local t = 0
       for _, it in ipairs(items or {}) do
@@ -631,37 +682,48 @@ function G.row(key, fr, en, spec, ox, oy, b)
       end
       return t
     end
+    local k1, n1, k2, n2 = nil, 0, nil, 0
     if m.top and #m.top > 0 then
-      local k, n = M.choose_inserters(need_of(m.top), true, s - (m.top2 and 1 or 0))
-      assert(k, key .. " : bras du haut introuvables pour la machine " .. i)
-      for _ = 1, n do b:put(k, x + col, y_ins, N); col = col + 1 end
+      k1, n1 = M.choose_inserters(need_of(m.top), true, s - (m.top2 and 1 or 0))
+      if not k1 then return fail("%s : bras du haut introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top)) end
     end
     if m.top2 and #m.top2 > 0 then
-      local k, n = M.choose_inserters(need_of(m.top2), true, s - col, { "long-handed-inserter" })
-      assert(k, key .. " : bras longs introuvables pour la machine " .. i)
-      for _ = 1, n do b:put(k, x + col, y_ins, N); col = col + 1 end
+      k2, n2 = M.choose_inserters(need_of(m.top2), true, s - n1, { "long-handed-inserter" })
+      if not k2 then return fail("%s : bras longs introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top2)) end
     end
+    -- Rangée des bras du haut pleine sur une machine du bord, machines de 4 × 4 ou plus : aucun poteau ne couvre
+    -- les premiers bras (correction IA1-c, balayage des niveaux) : refus explicite plutôt qu'un module invalide.
+    if n1 + n2 >= s and s >= 4 and (i == 1 or i == nm) then
+      return fail("%s : rangée des bras du haut pleine sur la machine %d du bord (%d bras, côté %d) : poteaux impossibles", key, i, n1 + n2, s)
+    end
+    -- emplacements : de gauche à droite ; à partir de 5 × 5, la tuile du milieu reste libre (poteau) si elle peut
+    local slots = {}
+    local mid = (s >= 5 and n1 + n2 < s) and math.floor(s / 2) or -1
+    for c = 0, s - 1 do if c ~= mid then slots[#slots + 1] = c end end
+    local col = 0
+    for _ = 1, n1 do col = col + 1; b:put(k1, x + slots[col], y_ins, N) end
+    for _ = 1, n2 do col = col + 1; b:put(k2, x + slots[col], y_ins, N) end
     if m.out then
       any_out = true
       local outn = 0
       for _, p in ipairs(r.products) do outn = outn + p.amount * rate end
       local k, n = M.choose_inserters(outn, false, s)
-      assert(k, key .. " : bras de sortie introuvables pour la machine " .. i)
+      if not k then return fail("%s : bras de sortie introuvables pour la machine %d (%.2f/s)", key, i, outn) end
       for c = 0, n - 1 do b:put(k, x + c, y_out, N) end
     end
   end
   -- liaisons par la colonne entre deux voisins
   local used = {}
   for _, l in ipairs(spec.links or {}) do
-    assert(math.abs(l.from - l.to) == 1, key .. " : liaison entre machines non voisines")
+    if math.abs(l.from - l.to) ~= 1 then return fail("%s : liaison entre machines non voisines (%d → %d)", key, l.from, l.to) end
     local gap = math.min(l.from, l.to)
     local gx = xs[gap] + s
     local dir = l.from < l.to and W or E     -- prend du côté de la source
     local k, n = M.choose_inserters(l.flow, false, s)
-    assert(k, key .. " : liaison " .. l.from .. " → " .. l.to .. " impossible")
+    if not k then return fail("%s : liaison %d → %d impossible (%.2f/s)", key, l.from, l.to, l.flow) end
     used[gap] = used[gap] or 0
     for _ = 1, n do
-      assert(used[gap] < s, key .. " : colonne de liaison pleine")
+      if used[gap] >= s then return fail("%s : colonne de liaison %d pleine", key, gap) end
       b:put(k, gx, y_m + used[gap], dir)
       used[gap] = used[gap] + 1
     end
@@ -685,126 +747,193 @@ local function row_poles(b, info, ox, oy, extra)
     local gx = info.xs[i] + info.s
     for y = info.y_m, info.y_m + info.s - 1 do cands[#cands + 1] = { gx, y } end
   end
+  if #info.xs == 1 then
+    -- machine seule : pas de colonne de liaison ; colonne à l'est de la machine (le module s'élargit d'une tuile si
+    -- elle sert ; correction IA1-c : rangée de bras pleine sans aucun poteau possible)
+    local gx = info.xs[1] + info.s
+    for y = info.y_ins, info.y_out do cands[#cands + 1] = { gx, y } end
+  end
   for _, c in ipairs(extra or {}) do cands[#cands + 1] = c end
   return b:auto_poles(cands)
 end
 
+--- Bornes d'une rangée de k machines de côté s : largeur k·s + k − 1 ≤ M.MAX_SIDE.
+local function row_width_bound(s) return floor_eps((M.MAX_SIDE + 1) / (s + 1)) end
+
 function G.gears(n, machine)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  local sp, why = machine_spec(machine, "assembler", "engrenages"); if not sp then return nil, why end
+  local ok, why2 = count_ok(n, "engrenages"); if not ok then return nil, why2 end
   local rate = sp.speed / R["iron-gear-wheel"].time
   local ms = {}
   for i = 1, n do ms[i] = { name = machine, recipe = "iron-gear-wheel", rate = rate, top = { "iron-plate" }, out = true } end
-  local lvl = sp.level and ("-n" .. sp.level) or ""
-  local b, info = G.row("engrenages" .. lvl, "Engrenages (" .. n .. " " .. machine .. ")", "Gears (" .. n .. " " .. machine .. ")",
+  local b, info = G.row("engrenages" .. lvl_tag(sp), "Engrenages (" .. n .. " " .. machine .. ")", "Gears (" .. n .. " " .. machine .. ")",
     { machines = ms, lanes = { "iron-plate", "iron-plate" } })
+  if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
   b.g.params = { n = n, machine = machine }
-  b.g.extensions = { { param = "n", step = 1, max = 6 } }
+  b.g.gen, b.g.args, b.g.level_arg = "gears", { n, machine }, 2
+  -- bornes : largeur ; plaques sur deux voies (15/s) ; engrenages sur UNE voie du tapis de sortie
+  set_ext(b.g, "n", 1, math.min(row_width_bound(sp.w), floor_eps(M.BELT_RATE / (2 * rate)), floor_eps(M.LANE_RATE / rate)))
   return b:finish()
 end
 
---- Îlot de circuits verts « C K C K C » : 3 assembleurs de câbles (cuivre) et 2 de circuits ; chaque circuit reçoit
---- ses câbles de ses deux voisins (rapport 3:2, EQUIPES_PNJ §6.4), le fer au tapis du haut.
-function G.circuits(machine)
+--- Îlot de circuits verts « C K C K C » (pairs = 2, défaut) : assembleurs de câbles (C, cuivre au tapis du haut) et de
+--- circuits (K, fer au tapis du haut), chaque K reçoit ses câbles de ses deux voisins (rapport 3:2, EQUIPES_PNJ §6.4).
+--- pairs = 1 : « C K C » (le second C ne tourne qu'à moitié). pairs ≥ 3 : câbles insuffisants (refusé par le contrôle).
+function G.circuits(machine, pairs)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  pairs = pairs or 2
+  local sp, why = machine_spec(machine, "assembler", "circuits"); if not sp then return nil, why end
+  local ok, why2 = count_ok(pairs, "circuits"); if not ok then return nil, why2 end
   local kc = sp.speed / R["copper-cable"].time            -- fabrications de câbles par seconde (2 câbles chacune)
   local kk = sp.speed / R["electronic-circuit"].time      -- circuits par seconde
   local cab = 2 * kc
-  local ms = {
-    { name = machine, recipe = "copper-cable", rate = kc, top = { "copper-plate" } },
-    { name = machine, recipe = "electronic-circuit", rate = kk, top = { "iron-plate" }, out = true },
-    { name = machine, recipe = "copper-cable", rate = kc, top = { "copper-plate" } },
-    { name = machine, recipe = "electronic-circuit", rate = kk, top = { "iron-plate" }, out = true },
-    { name = machine, recipe = "copper-cable", rate = kc, top = { "copper-plate" } },
-  }
   local need = 3 * kk
-  local links = {
-    { from = 1, to = 2, item = "copper-cable", flow = cab },
-    { from = 3, to = 2, item = "copper-cable", flow = need - cab },
-    { from = 3, to = 4, item = "copper-cable", flow = cab - (need - cab) },
-    { from = 5, to = 4, item = "copper-cable", flow = cab },
-  }
-  local lvl = sp.level and ("-n" .. sp.level) or ""
-  local b, info = G.row("circuits-verts" .. lvl, "Îlot de circuits verts (C K C K C, " .. machine .. ")",
-    "Green circuit island (C K C K C, " .. machine .. ")", { machines = ms, links = links, lanes = { "iron-plate", "copper-plate" } })
+  local nm = 2 * pairs + 1
+  -- câbles : chaque K prend d'abord à son voisin de gauche, puis le reste à droite
+  local rem, links = {}, {}
+  for j = 1, nm, 2 do rem[j] = cab end
+  for j = 2, nm, 2 do
+    local a = math.min(rem[j - 1], need)
+    rem[j - 1] = rem[j - 1] - a
+    local bb = need - a
+    if a > 1e-12 then links[#links + 1] = { from = j - 1, to = j, item = "copper-cable", flow = a } end
+    if bb > 1e-12 then
+      if bb > rem[j + 1] + 1e-9 then
+        -- câbles insuffisants : la machine ne peut pas tourner à pleine cadence ; le contrôle le dira
+        bb = rem[j + 1]
+      end
+      rem[j + 1] = rem[j + 1] - bb
+      links[#links + 1] = { from = j + 1, to = j, item = "copper-cable", flow = bb }
+    end
+  end
+  local ms = {}
+  for j = 1, nm do
+    if j % 2 == 1 then
+      ms[j] = { name = machine, recipe = "copper-cable", rate = (cab - rem[j]) / 2, top = { "copper-plate" } }
+    else
+      ms[j] = { name = machine, recipe = "electronic-circuit", rate = kk, top = { "iron-plate" }, out = true }
+    end
+  end
+  local pattern = {}
+  for j = 1, nm do pattern[j] = (j % 2 == 1) and "C" or "K" end
+  local pat = table.concat(pattern, " ")
+  local key = "circuits-verts" .. (pairs ~= 2 and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
+  local b, info = G.row(key, "Îlot de circuits verts (" .. pat .. ", " .. machine .. ")",
+    "Green circuit island (" .. pat .. ", " .. machine .. ")", { machines = ms, links = links, lanes = { "iron-plate", "copper-plate" } })
+  if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
-  b.g.params = { machine = machine }
+  b.g.params = { machine = machine, pairs = pairs }
+  b.g.gen, b.g.args, b.g.level_arg = "circuits", { machine, pairs }, 1
+  -- bornes : câbles ((pairs + 1)·cab ≥ pairs·need) ; largeur (2p + 1)·s + 2p ; voie de fer, voie de cuivre, voie
+  -- de sortie
+  set_ext(b.g, "pairs", 2, math.min(floor_eps(cab / (need - cab)), floor_eps((M.MAX_SIDE - sp.w) / (2 * sp.w + 2)),
+    floor_eps(M.LANE_RATE / kk), floor_eps(M.LANE_RATE / (need / 2))))
   return b:finish()
 end
 
---- Moteurs « P M G M P » : assembleurs de tuyaux et d'engrenages au contact des assembleurs de moteurs ; acier et fer
---- au tapis du haut.
-function G.engines(machine)
+--- Moteurs « P M G M P » (pairs = 2, défaut ; pairs = 1 : « P M G ») : assembleurs de tuyaux (P) et d'engrenages (G)
+--- au contact des assembleurs de moteurs (M) ; acier et fer au tapis du haut.
+function G.engines(machine, pairs)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  pairs = pairs or 2
+  local sp, why = machine_spec(machine, "assembler", "moteurs"); if not sp then return nil, why end
+  local ok, why2 = count_ok(pairs, "moteurs"); if not ok then return nil, why2 end
   local ke = sp.speed / R["engine-unit"].time
-  local ms = {
-    { name = machine, recipe = "pipe", rate = 2 * ke, top = { "iron-plate" } },
-    { name = machine, recipe = "engine-unit", rate = ke, top = { "steel-plate" }, out = true },
-    { name = machine, recipe = "iron-gear-wheel", rate = 2 * ke, top = { "iron-plate" } },
-    { name = machine, recipe = "engine-unit", rate = ke, top = { "steel-plate" }, out = true },
-    { name = machine, recipe = "pipe", rate = 2 * ke, top = { "iron-plate" } },
-  }
-  local links = {
-    { from = 1, to = 2, item = "pipe", flow = 2 * ke },
-    { from = 3, to = 2, item = "iron-gear-wheel", flow = ke },
-    { from = 3, to = 4, item = "iron-gear-wheel", flow = ke },
-    { from = 5, to = 4, item = "pipe", flow = 2 * ke },
-  }
-  local b, info = G.row("moteurs", "Moteurs (P M G M P, " .. machine .. ")", "Engines (P E G E P, " .. machine .. ")",
+  local nm = 2 * pairs + 1
+  local function feeder(j) return (j % 4 == 1) and "pipe" or "iron-gear-wheel" end
+  local ms, links, pattern = {}, {}, {}
+  for j = 1, nm do
+    if j % 2 == 1 then
+      local nbm = (j > 1 and 1 or 0) + (j < nm and 1 or 0)
+      local per = feeder(j) == "pipe" and 2 * ke or ke
+      ms[j] = { name = machine, recipe = feeder(j), rate = nbm * per, top = { "iron-plate" } }
+      pattern[j] = feeder(j) == "pipe" and "P" or "G"
+    else
+      ms[j] = { name = machine, recipe = "engine-unit", rate = ke, top = { "steel-plate" }, out = true }
+      pattern[j] = "M"
+      for _, f in ipairs({ j - 1, j + 1 }) do
+        links[#links + 1] = { from = f, to = j, item = feeder(f), flow = feeder(f) == "pipe" and 2 * ke or ke }
+      end
+    end
+  end
+  local pat = table.concat(pattern, " ")
+  local key = "moteurs" .. (pairs ~= 2 and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
+  local b, info = G.row(key, "Moteurs (" .. pat .. ", " .. machine .. ")", "Engines (" .. pat:gsub("M", "E") .. ", " .. machine .. ")",
     { machines = ms, links = links, lanes = { "iron-plate", "steel-plate" } })
+  if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
-  b.g.params = { machine = machine }
+  b.g.params = { machine = machine, pairs = pairs }
+  b.g.gen, b.g.args, b.g.level_arg = "engines", { machine, pairs }, 1
+  -- bornes : largeur (2p + 1)·s + 2p ; acier et moteurs : une voie chacun ; fer (tuyaux et engrenages : 4 par
+  -- moteur) : une voie
+  set_ext(b.g, "pairs", 2, math.min(floor_eps((M.MAX_SIDE - sp.w) / (2 * sp.w + 2)), floor_eps(M.LANE_RATE / ke),
+    floor_eps(M.LANE_RATE / (4 * ke))))
   return b:finish()
 end
 
 --- Labos (n) nourris par un tapis de packs (voies : packs rouges et verts). `unit_time` : durée d'une unité de
 --- recherche (s) ; nominal = packs consommés par seconde de chaque sorte.
 function G.labs(n, unit_time)
+  local ok, why = count_ok(n, "labos"); if not ok then return nil, why end
+  if type(unit_time) ~= "number" or unit_time <= 0 then return fail("labos : durée d'unité invalide (%s)", tostring(unit_time)) end
   local rate = BASE.lab.speed / unit_time
   local ms = {}
   for i = 1, n do ms[i] = { name = "lab", kind = "lab", recipe = nil, rate = rate, top = { "automation-science-pack", "logistic-science-pack" } } end
   local b, info = G.row("labos-" .. n, "Labos (" .. n .. ", packs rouges et verts)", "Labs (" .. n .. ", red and green packs)",
     { machines = ms, lanes = { "automation-science-pack", "logistic-science-pack" } })
+  if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
   b.g.params = { n = n, unit_time = unit_time }
   b.g.labs = { packs = { "automation-science-pack", "logistic-science-pack" }, unit_time = unit_time }
-  b.g.extensions = { { param = "n", step = 1, max = 6 } }
+  b.g.gen, b.g.args = "labs", { n, unit_time }
+  set_ext(b.g, "n", 1, math.min(row_width_bound(BASE.lab.w), floor_eps(M.LANE_RATE / rate)))
   return b:finish()
 end
 
---- Circuits rouges « A C A A C A » : deux tapis au nord (cuivre par bras longs pour les câbles ; circuits verts et
---- plastique pour les assembleurs de circuits rouges), câbles par contact.
-function G.advanced_circuits(machine)
+--- Circuits rouges « A C A » × groups (groups = 2, défaut : « A C A A C A ») : deux tapis au nord (cuivre par bras
+--- longs pour les câbles ; circuits verts et plastique pour les assembleurs de circuits rouges), câbles par contact.
+function G.advanced_circuits(machine, groups)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  groups = groups or 2
+  local sp, why = machine_spec(machine, "assembler", "circuits rouges"); if not sp then return nil, why end
+  local ok, why2 = count_ok(groups, "circuits rouges"); if not ok then return nil, why2 end
   local ka = sp.speed / R["advanced-circuit"].time
   local kc = 4 * ka * 2 / 2                          -- 2 voisins × 4 câbles × ka, 2 câbles par fabrication
   local A = function() return { name = machine, recipe = "advanced-circuit", rate = ka, top = { "electronic-circuit", "plastic-bar" }, out = true } end
   local C = function() return { name = machine, recipe = "copper-cable", rate = kc, top2 = { "copper-plate" } } end
-  local ms = { A(), C(), A(), A(), C(), A() }
-  local links = {
-    { from = 2, to = 1, item = "copper-cable", flow = 4 * ka }, { from = 2, to = 3, item = "copper-cable", flow = 4 * ka },
-    { from = 5, to = 4, item = "copper-cable", flow = 4 * ka }, { from = 5, to = 6, item = "copper-cable", flow = 4 * ka },
-  }
-  local b, info = G.row("circuits-rouges", "Circuits rouges (A C A A C A, " .. machine .. ")", "Red circuits (A C A A C A, " .. machine .. ")",
+  local ms, links = {}, {}
+  for g_ = 1, groups do
+    local base = 3 * (g_ - 1)
+    ms[base + 1], ms[base + 2], ms[base + 3] = A(), C(), A()
+    links[#links + 1] = { from = base + 2, to = base + 1, item = "copper-cable", flow = 4 * ka }
+    links[#links + 1] = { from = base + 2, to = base + 3, item = "copper-cable", flow = 4 * ka }
+  end
+  local pat = string.rep("A C A", groups, " ")
+  local key = "circuits-rouges" .. (groups ~= 2 and ("-" .. (3 * groups) .. "m") or "") .. lvl_tag(sp)
+  local b, info = G.row(key, "Circuits rouges (" .. pat .. ", " .. machine .. ")", "Red circuits (" .. pat .. ", " .. machine .. ")",
     { machines = ms, links = links, lanes = { "electronic-circuit", "plastic-bar" }, lanes2 = { "copper-plate", "copper-plate" } })
+  if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
-  b.g.params = { machine = machine }
+  b.g.params = { machine = machine, groups = groups }
+  b.g.gen, b.g.args, b.g.level_arg = "advanced_circuits", { machine, groups }, 1
+  -- bornes : largeur 3g·s + 3g − 1 ; circuits verts et plastique (2 par fabrication, 2g assembleurs) : une voie
+  -- chacun ; sortie : une voie
+  set_ext(b.g, "groups", 2, math.min(floor_eps((M.MAX_SIDE + 1) / (3 * sp.w + 3)), floor_eps(M.LANE_RATE / (4 * ka))))
   return b:finish()
 end
 
 --- Bloc à deux étages : l'étage A (rangée) dépose sur un tapis de jonction (deux tronçons qui se rejoignent par les
---- côtés sur une tuile qui descend : une voie chacun), qui devient le tapis d'entrée de l'étage B.
----   specA : rangée A (sorties au tapis du bas ; `merge_x` = colonne de jonction ; `west_out`/`east_out` : machines
----           dont la sortie va à l'ouest ou à l'est de la jonction) ; side_port : objet amené par un port latéral
----           à l'est (au lieu de l'est de l'étage A).
+--- côtés sur une tuile qui descend : une voie chacun), qui devient le tapis d'entrée de l'étage B. Rend
+--- (b, ia, iB, jn, offset) ou (nil, raison).
+---   specA : rangée A (sorties au tapis du bas ; `merge_x` = colonne de jonction) ; side_port : objet amené par un
+---           port latéral à l'est (au lieu de l'est de l'étage A).
 local function two_stage(key, fr, en, specA, specB, merge_x, side_port)
   local b = new_builder(key, fr, en)
   specA.no_out_port = true
-  local _, ia = G.row(key, fr, en, specA, 0, 0, b)
+  local okA, ia = G.row(key, fr, en, specA, 0, 0, b)
+  if not okA then return nil, ia end
   -- remplacer le tapis du bas de A par deux tronçons orientés vers la jonction
   local yj = ia.y_ob
   local keep = {}
@@ -818,21 +947,29 @@ local function two_stage(key, fr, en, specA, specB, merge_x, side_port)
   if merge_x > 0 then b:belt_line(0, yj, merge_x - 1, yj, E) end
   local jn = b:put("transport-belt", merge_x, yj, S)
   b:put("transport-belt", merge_x, yj + 1, S)
-  local ib
   -- étage B : tapis d'entrée à partir de la jonction, vers l'est
   local yB = yj + 2
   specB.no_in_port = true
   local bB = new_builder(key .. "-B", fr, en)
-  local _, iB = G.row(key .. "-B", fr, en, specB, merge_x, yB, bB)
+  local okB, iB = G.row(key .. "-B", fr, en, specB, merge_x, yB, bB)
+  if not okB then return nil, iB end
   -- recopier B (sans son port d'entrée : alimenté par la jonction)
   local offset = #b.g.entities
   for _, e in ipairs(bB.g.entities) do b.g.entities[#b.g.entities + 1] = e end
+  local wtot = merge_x + iB.w
   for _, p in ipairs(bB.g.ports) do
     if p.io == "out" then
-      local q = copy(p); q.ent = p.ent + offset; b:port(q)
+      local q = copy(p); q.ent = p.ent + offset
+      -- étage B plus étroit que l'étage A : le tapis de sortie de B va jusqu'au bord est du module (sinon le port
+      -- serait à l'intérieur de l'emprise ; correction IA1-c, packs verts à moins de 5 assembleurs)
+      local last = b.g.entities[q.ent]
+      if not side_port and wa > wtot and last and last.name == "transport-belt" then
+        local ext = b:belt_line(wtot, math.floor(last.y), wa - 1, math.floor(last.y), E)
+        q.ent = ext[#ext]
+      end
+      b:port(q)
     end
   end
-  local wtot = merge_x + iB.w
   if side_port then
     local sb = b:belt_line(wtot - 1, yj, merge_x + 1, yj, W)
     b:port({ kind = "tapis", io = "in", ent = sb[1], lanes = { side_port, side_port } })
@@ -843,35 +980,45 @@ local function two_stage(key, fr, en, specA, specB, merge_x, side_port)
 end
 
 --- Packs rouges complets : un assembleur d'engrenages (fer) dépose à l'ouest de la jonction, le cuivre arrive par
---- un port à l'est ; 5 assembleurs de packs rouges.
-function G.red_packs(machine)
+--- un port à l'est ; nB assembleurs de packs rouges (5 par défaut).
+function G.red_packs(machine, nB)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  nB = nB or 5
+  local sp, why = machine_spec(machine, "assembler", "packs rouges"); if not sp then return nil, why end
+  local ok, why2 = count_ok(nB, "packs rouges"); if not ok then return nil, why2 end
+  local s = sp.w
   local kr = sp.speed / R["automation-science-pack"].time
-  local nB = 5
   local kg = nB * kr
   local specA = { machines = { { name = machine, recipe = "iron-gear-wheel", rate = kg, top = { "iron-plate" }, out = true } },
     lanes = { "iron-plate", "iron-plate" } }
   local ms = {}
   for i = 1, nB do ms[i] = { name = machine, recipe = "automation-science-pack", rate = kr, top = { "copper-plate", "iron-gear-wheel" }, out = true } end
   local specB = { machines = ms, lanes = nil }
-  local b, ia, iB = two_stage("packs-rouges", "Packs rouges (engrenages, puis " .. nB .. " assembleurs)",
-    "Red science (gears, then " .. nB .. " assemblers)", specA, specB, 3, "copper-plate")
+  local key = "packs-rouges" .. (nB ~= 5 and ("-" .. nB) or "") .. lvl_tag(sp)
+  local b, ia, iB = two_stage(key, "Packs rouges (engrenages, puis " .. nB .. " assembleurs, " .. machine .. ")",
+    "Red science (gears, then " .. nB .. " assemblers, " .. machine .. ")", specA, specB, s, "copper-plate")
+  if not b then return nil, ia end
   local cands = {}
-  for x = 0, 2 do cands[#cands + 1] = { x, ia.y_ins }; cands[#cands + 1] = { x, ia.y_out } end
-  for y = ia.y_m, ia.y_m + ia.s - 1 do cands[#cands + 1] = { 3, y }; cands[#cands + 1] = { 4, y } end
-  b.g.power_pole = row_poles(b, iB, 3, 0, cands)
+  for x = 0, s - 1 do cands[#cands + 1] = { x, ia.y_ins }; cands[#cands + 1] = { x, ia.y_out } end
+  for y = ia.y_m, ia.y_m + ia.s - 1 do cands[#cands + 1] = { s, y }; cands[#cands + 1] = { s + 1, y } end
+  b.g.power_pole = row_poles(b, iB, s, 0, cands)
   b.g.params = { machine = machine, n = nB }
+  b.g.gen, b.g.args, b.g.level_arg = "red_packs", { machine, nB }, 1
+  -- bornes : largeur s + nB·(s + 1) − 1 ; un seul assembleur d'engrenages (cadence maximale) ; cuivre : une voie
+  set_ext(b.g, "n", 2, math.min(floor_eps((M.MAX_SIDE + 1 - s) / (s + 1)), floor_eps((sp.speed / R["iron-gear-wheel"].time) / kr),
+    floor_eps(M.LANE_RATE / kr)))
   return b:finish()
 end
 
 --- Packs verts complets : étage A « bras, engrenages, convoyeurs » (I G B, engrenages par contact) ; les bras sortent
---- à l'ouest de la jonction, les convoyeurs à l'est (une voie chacun) ; étage B : 5 assembleurs de packs verts.
-function G.green_packs(machine)
+--- à l'ouest de la jonction, les convoyeurs à l'est (une voie chacun) ; étage B : nB assembleurs de packs verts (5).
+function G.green_packs(machine, nB)
   machine = machine or "assembling-machine-2"
-  local sp = M.spec(machine)
+  nB = nB or 5
+  local sp, why = machine_spec(machine, "assembler", "packs verts"); if not sp then return nil, why end
+  local ok, why2 = count_ok(nB, "packs verts"); if not ok then return nil, why2 end
+  local s = sp.w
   local kp = sp.speed / R["logistic-science-pack"].time
-  local nB = 5
   local ki = nB * kp                       -- bras par seconde
   local kb = nB * kp / 2                   -- fabrications de convoyeurs (2 par fabrication)
   local kg = ki + kb                       -- engrenages
@@ -884,19 +1031,28 @@ function G.green_packs(machine)
     lanes = { "iron-plate", "electronic-circuit" } }
   local ms = {}
   for i = 1, nB do ms[i] = { name = machine, recipe = "logistic-science-pack", rate = kp, top = { "inserter", "transport-belt" }, out = true } end
-  local b, ia, iB = two_stage("packs-verts", "Packs verts (bras, engrenages, convoyeurs, puis " .. nB .. " assembleurs)",
-    "Green science (inserters, gears, belts, then " .. nB .. " assemblers)", specA, { machines = ms }, 5, nil)
+  local key = "packs-verts" .. (nB ~= 5 and ("-" .. nB) or "") .. lvl_tag(sp)
+  -- jonction sous l'assembleur d'engrenages (colonne s + 2 : 5 pour des machines 3 × 3)
+  local b, ia, iB = two_stage(key, "Packs verts (bras, engrenages, convoyeurs, puis " .. nB .. " assembleurs, " .. machine .. ")",
+    "Green science (inserters, gears, belts, then " .. nB .. " assemblers, " .. machine .. ")", specA, { machines = ms }, s + 2, nil)
+  if not b then return nil, ia end
   local cands = {}
   for x = 0, ia.w - 1 do cands[#cands + 1] = { x, ia.y_ins }; cands[#cands + 1] = { x, ia.y_out } end
   for i = 1, 2 do for y = ia.y_m, ia.y_m + ia.s - 1 do cands[#cands + 1] = { ia.xs[i] + ia.s, y } end end
-  b.g.power_pole = row_poles(b, iB, 5, 0, cands)
+  b.g.power_pole = row_poles(b, iB, s + 2, 0, cands)
   b.g.params = { machine = machine, n = nB }
+  b.g.gen, b.g.args, b.g.level_arg = "green_packs", { machine, nB }, 1
+  -- bornes : largeur s + 2 + nB·(s + 1) − 1 (et 3s + 2 pour l'étage A) ; engrenages d'un seul assembleur
+  local wb = floor_eps((M.MAX_SIDE - 1 - s) / (s + 1))
+  if 3 * s + 2 > M.MAX_SIDE then wb = 0 end
+  set_ext(b.g, "n", 2, math.min(wb, floor_eps((sp.speed / R["iron-gear-wheel"].time) / (1.5 * kp))))
   return b:finish()
 end
 
 --- Chevalets (époque 4) : n chevalets côte à côte, sortie au nord sur un collecteur qui sort à l'est. Ne se tourne
 --- pas (sorties explicites du prototype, voir BASE.pumpjack).
 function G.pumpjacks(n)
+  local ok, why = count_ok(n, "chevalets"); if not ok then return nil, why end
   local b = new_builder("chevalets-" .. n, "Chevalets (" .. n .. ")", "Pumpjacks (" .. n .. ")")
   for i = 0, n - 1 do b:put("pumpjack", 3 * i, 1, N, { role = "chevalet" }) end
   local pipes = b:pipe_line(0, 0, 3 * n - 1, 0)
@@ -907,13 +1063,15 @@ function G.pumpjacks(n)
   b.g.resource = "crude-oil"
   b.g.no_rotate = true
   b.g.params = { n = n }
-  b.g.extensions = { { param = "n", step = 1, max = 8 } }
+  b.g.gen, b.g.args = "pumpjacks", { n }
+  set_ext(b.g, "n", 1, floor_eps(M.MAX_SIDE / 3))
   return b:finish()
 end
 
 --- Raffinerie (traitement de base) : n raffineries ; brut au sud par un collecteur (entrée à l'ouest), gaz au nord
 --- par un collecteur (sortie à l'est). Les raccords inutilisés des raffineries restent libres.
 function G.refinery(n)
+  local ok, why = count_ok(n, "raffinerie"); if not ok then return nil, why end
   local b = new_builder("raffinerie-" .. n, "Raffinerie (" .. n .. ", traitement de base)", "Oil refinery (" .. n .. ", basic processing)")
   local k = 1 / R["basic-oil-processing"].time
   for i = 0, n - 1 do
@@ -930,17 +1088,20 @@ function G.refinery(n)
   -- un poteau ne touche pas un raccord inutilisé : il n'est pas une entité à fluide (aucun risque de mélange)
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { n = n }
-  b.g.extensions = { { param = "n", step = 1, max = 4 } }
+  b.g.gen, b.g.args = "refinery", { n }
+  set_ext(b.g, "n", 1, floor_eps(M.MAX_SIDE / 5))
   return b:finish()
 end
 
 --- Plastique : n usines chimiques ; gaz au nord (collecteur, entrée à l'ouest), charbon au sud par un tapis (entrée
 --- à l'ouest), plastique par des bras longs sur un second tapis (sortie à l'est).
 function G.plastic(n)
+  local ok, why = count_ok(n, "plastique"); if not ok then return nil, why end
   local b = new_builder("plastique-" .. n, "Plastique (" .. n .. " usines chimiques)", "Plastic (" .. n .. " chemical plants)")
   local k = 1 / R["plastic-bar"].time
-  local ck, cn = M.choose_inserters(k, true, 1)
+  local ck = M.choose_inserters(k, true, 1)
   local ok_, on = M.choose_inserters(2 * k, false, 2, { "long-handed-inserter" })
+  if not (ck and ok_) then return fail("plastique : bras introuvables") end
   for i = 0, n - 1 do
     local x = 3 * i
     b:put("chemical-plant", x, 2, N, { recipe = "plastic-bar", rate = k })
@@ -958,16 +1119,21 @@ function G.plastic(n)
   for x = 0, 3 * n - 1 do cands[#cands + 1] = { x, 1 }; cands[#cands + 1] = { x, 8 } end
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { n = n }
-  b.g.extensions = { { param = "n", step = 1, max = 8 } }
+  b.g.gen, b.g.args = "plastic", { n }
+  -- bornes : largeur 3n ; plastique (2 par fabrication) sur UNE voie du tapis de sortie (correction IA1-c : 8
+  -- annoncé avant, 3 en vrai) ; charbon sur deux voies
+  set_ext(b.g, "n", 1, math.min(floor_eps(M.MAX_SIDE / 3), floor_eps(M.LANE_RATE / (2 * k)), floor_eps(M.BELT_RATE / k)))
   return b:finish()
 end
 
 --- Soufre : n usines chimiques au pas de 4 ; l'eau (rangée 0) et le gaz (rangée 1) arrivent au nord sans se
 --- toucher : chaque collecteur passe SOUS les piquages de l'autre par des paires de tuyaux souterrains.
 function G.sulfur(n)
+  local ok, why = count_ok(n, "soufre"); if not ok then return nil, why end
   local b = new_builder("soufre-" .. n, "Soufre (" .. n .. " usines chimiques)", "Sulfur (" .. n .. " chemical plants)")
   local k = 1 / R["sulfur"].time
   local ok_, on = M.choose_inserters(2 * k, false, 3)
+  if not ok_ then return fail("soufre : bras de sortie introuvables") end
   for i = 0, n - 1 do
     local x = 4 * i
     b:put("chemical-plant", x, 2, N, { recipe = "sulfur", rate = k })
@@ -992,7 +1158,10 @@ function G.sulfur(n)
   for i = 0, n - 1 do for y = 2, 4 do cands[#cands + 1] = { 4 * i + 3, y } end end
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { n = n }
-  b.g.extensions = { { param = "n", step = 1, max = 6 } }
+  b.g.gen, b.g.args = "sulfur", { n }
+  -- bornes : largeur 4n ; soufre (2 par fabrication) sur UNE voie du tapis de sortie (correction IA1-c : 6 annoncé
+  -- avant, 3 en vrai)
+  set_ext(b.g, "n", 1, math.min(floor_eps(M.MAX_SIDE / 4), floor_eps(M.LANE_RATE / (2 * k))))
   return b:finish()
 end
 
@@ -1012,6 +1181,7 @@ function G.oil_plastic()
   b:put("chemical-plant", 6, 2, N, { recipe = "plastic-bar", rate = kp })
   local ck = M.choose_inserters(kp, true, 1)
   local lk, ln = M.choose_inserters(2 * kp, false, 2, { "long-handed-inserter" })
+  if not (ck and lk) then return fail("pétrole sur place : bras introuvables") end
   b:put(ck, 6, 5, S)
   for c = 1, ln do b:put(lk, 6 + c, 5, N) end
   local coal = b:belt_line(8, 6, 6, 6, W)
@@ -1023,7 +1193,44 @@ function G.oil_plastic()
   for x = 0, 8 do cands[#cands + 1] = { x, 1 }; cands[#cands + 1] = { x, 7 }; cands[#cands + 1] = { x, 8 } end
   for y = 2, 6 do cands[#cands + 1] = { 5, y } end
   b.g.power_pole = b:auto_poles(cands)
+  b.g.gen, b.g.args = "oil_plastic", {}
   return b:finish()
+end
+
+-- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
+M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "circuits", "engines", "labs",
+  "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic" }
+local GEN = { row = G.row }
+for _, k in ipairs(M.GENERATORS) do
+  local raw = G[k]
+  GEN[k] = function(...)
+    local ok, g, why = pcall(raw, ...)
+    if not ok then return nil, "erreur interne du générateur " .. k .. " : " .. tostring(g) end
+    if g == nil then return nil, why or ("générateur " .. k .. " : refus sans raison") end
+    return g
+  end
+end
+M.GEN = GEN
+
+--- Refait un gabarit par son générateur, avec des paramètres changés : `changes` = { [indice dans args] = valeur }.
+--- Rend (gabarit) ou (nil, raison).
+function M.regenerate(g, changes)
+  local fn = g and g.gen and GEN[g.gen]
+  if not fn then return nil, "gabarit sans générateur (" .. tostring(g and g.key) .. ")" end
+  local args = {}
+  for i = 1, #g.args do args[i] = g.args[i] end
+  if changes then for i = 1, #g.args do if changes[i] ~= nil then args[i] = changes[i] end end end
+  return fn(unpack_(args, 1, #g.args))
+end
+
+--- Gabarit agrandi (ou réduit) : paramètre d'extension à la valeur n. Refusé au-delà de `max`.
+function M.extend(g, n)
+  local ex = g.extensions and g.extensions[1]
+  if not ex then return nil, "gabarit " .. tostring(g.key) .. " sans extension" end
+  if type(n) ~= "number" or n < 1 or n > ex.max then
+    return nil, string.format("%s : %s = %s hors de 1..%d", g.key, ex.param, tostring(n), ex.max)
+  end
+  return M.regenerate(g, { [ex.arg] = n })
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1032,41 +1239,107 @@ end
 local function lv(fam, n) return L.name(L.by_key[fam], n) end
 M.LAB_UNIT_TIME = 30
 
-local CATALOGUE
-function M.catalogue()
-  if CATALOGUE then return CATALOGUE end
-  local list = {
-    G.outpost_burner("iron-ore", 6),
-    G.outpost_burner("copper-ore", 6),
-    G.smelter("stone-furnace", "iron-ore", 8),
-    G.smelter("stone-furnace", "copper-ore", 8),
-    G.smelter("steel-furnace", "iron-ore", 5),
-    G.smelter(lv("furnace", 7), "iron-ore", 3),
-    G.drills("iron-ore", 6),
-    G.drills("copper-ore", 6),
-    G.drills("coal", 6),
-    G.drills("iron-ore", 5, lv("drill", 7)),
-    G.steam(2),
-    G.gears(4),
-    G.circuits(),
-    G.circuits(lv("assembler", 7)),
-    G.red_packs(),
-    G.green_packs(),
-    G.labs(4, M.LAB_UNIT_TIME),
-    G.engines(),
-    G.pumpjacks(4),
-    G.refinery(2),
-    G.plastic(2),
-    G.sulfur(2),
-    G.oil_plastic(),
-    G.advanced_circuits(),
-  }
-  CATALOGUE = list
-  return list
+-- Paliers d'emprise des familles à niveaux (début de chaque ère où le côté change), triés.
+function M.footprint_steps(fam)
+  local out, prev = {}, L.footprint(fam, 1)
+  for n = 2, fam.max do
+    local s = L.footprint(fam, n)
+    if s ~= prev then out[#out + 1] = n; prev = s end
+  end
+  return out
 end
 
+local CATALOGUE, CATALOGUE_ERRORS
+local function build_catalogue()
+  local calls = {
+    { "outpost_burner", "iron-ore", 6 },
+    { "outpost_burner", "copper-ore", 6 },
+    { "smelter", "stone-furnace", "iron-ore", 8 },
+    { "smelter", "stone-furnace", "copper-ore", 8 },
+    { "smelter", "steel-furnace", "iron-ore", 5 },
+    { "smelter", lv("furnace", 7), "iron-ore", 3 },
+    { "drills", "iron-ore", 6 },
+    { "drills", "copper-ore", 6 },
+    { "drills", "coal", 6 },
+    { "drills", "iron-ore", 5, lv("drill", 7) },
+    { "steam", 2 },
+    { "gears", 4 },
+    { "circuits" },
+    { "circuits", lv("assembler", 7) },
+    { "red_packs" },
+    { "green_packs" },
+    { "labs", 4, M.LAB_UNIT_TIME },
+    { "engines" },
+    { "pumpjacks", 4 },
+    { "refinery", 2 },
+    { "plastic", 2 },
+    { "sulfur", 2 },
+    { "oil_plastic" },
+    { "advanced_circuits" },
+  }
+  local list, errs = {}, {}
+  for _, c in ipairs(calls) do
+    local g, why = GEN[c[1]](unpack_(c, 2, #c))
+    if g then list[#list + 1] = g else errs[#errs + 1] = c[1] .. " : " .. tostring(why) end
+  end
+  return list, errs
+end
+
+--- Catalogue : liste de gabarits (COPIES : un appelant peut modifier ce qu'il reçoit sans toucher au catalogue).
+function M.catalogue()
+  if not CATALOGUE then CATALOGUE, CATALOGUE_ERRORS = build_catalogue() end
+  local out = {}
+  for i, g in ipairs(CATALOGUE) do out[i] = copy(g) end
+  return out
+end
+
+--- Erreurs de construction du catalogue (générateur refusé) : liste vide attendue.
+function M.catalogue_errors()
+  if not CATALOGUE then CATALOGUE, CATALOGUE_ERRORS = build_catalogue() end
+  return copy(CATALOGUE_ERRORS)
+end
+
+--- Gabarit du catalogue par clé (copie), ou nil.
 function M.get(key)
-  for _, g in ipairs(M.catalogue()) do if g.key == key then return g end end
+  if not CATALOGUE then CATALOGUE, CATALOGUE_ERRORS = build_catalogue() end
+  for _, g in ipairs(CATALOGUE) do if g.key == key then return copy(g) end end
+  return nil
+end
+
+--- Variantes d'ère du catalogue (correction IA1-c) : pour chaque gabarit à bâtiments à niveaux et chaque palier
+--- d'emprise de sa famille au-dessus de son niveau, la variante de M.at_level (dédoublonnée par clé, ordre du
+--- catalogue puis des paliers). Rend { { key, from, level, g } } et la liste des refus { { from, level, reason } }.
+local ERAS, ERA_REFUS
+function M.era_variants()
+  if not ERAS then
+    ERAS, ERA_REFUS = {}, {}
+    local seen = {}
+    for _, g in ipairs(M.catalogue()) do seen[g.key] = true end
+    for _, g in ipairs(M.catalogue()) do
+      for _, lvd in ipairs(M.leveled(g)) do
+        for _, n in ipairs(M.footprint_steps(lvd.family)) do
+          if n > lvd.level then
+            local v, why = M.at_level(g, n)
+            if v then
+              if not seen[v.key] then seen[v.key] = true; ERAS[#ERAS + 1] = { key = v.key, from = g.key, level = n, g = v } end
+            else
+              ERA_REFUS[#ERA_REFUS + 1] = { from = g.key, level = n, reason = why }
+            end
+          end
+        end
+      end
+    end
+  end
+  local out = {}
+  for i, r in ipairs(ERAS) do out[i] = { key = r.key, from = r.from, level = r.level, g = copy(r.g) } end
+  return out, copy(ERA_REFUS)
+end
+
+--- Gabarit du catalogue OU variante d'ère, par clé (copie), ou nil.
+function M.get_any(key)
+  local g = M.get(key)
+  if g then return g end
+  for _, r in ipairs(M.era_variants()) do if r.key == key then return r.g end end
   return nil
 end
 
@@ -1076,7 +1349,7 @@ end
 --- Gabarit tourné de k quarts de tour (sens horaire), en coordonnées locales. Refusé (nil, raison) si no_rotate.
 function M.rotate(g, k)
   k = k % 4
-  if k == 0 then return g end
+  if k == 0 then return copy(g) end
   if g.no_rotate then return nil, "gabarit non orientable (sorties de chevalet explicites par direction)" end
   local o = copy(g)
   local w, h = g.w, g.h
@@ -1226,6 +1499,9 @@ end
 --- Analyse complète d'un gabarit : { errors = {…}, outputs = {objet = /s}, inputs, power_kw, epoch, unlocks,
 --- lanes (voies des ports), fluid_nets, … }. Ne lève jamais d'erreur sur un gabarit faux : tout va dans errors.
 function M.analyze(g)
+  if type(g) ~= "table" or type(g.entities) ~= "table" or type(g.ports) ~= "table" then
+    return { errors = { "gabarit absent ou incomplet (" .. type(g) .. ")" }, outputs = {}, inputs = {} }
+  end
   local errors = {}
   local function err(msg) errors[#errors + 1] = msg end
   local ents = g.entities
@@ -1294,6 +1570,13 @@ function M.analyze(g)
     end
     rate[i] = e.rate or mr
     if rate[i] > mr + 1e-9 and s.kind ~= "lab" then err(label(i) .. string.format(" : cadence prévue %.4f > maximale %.4f", rate[i], mr)) end
+  end
+  -- gisement : une foreuse exige un minerai connu, un chevalet du pétrole brut (correction IA1-c, mineur 4 : un
+  -- gabarit de chevalets sans gisement passait le contrôle)
+  for i = 1, n do
+    local k = specs[i].kind
+    if k == "drill" and not M.ORES[g.resource or ""] then err(label(i) .. " : gisement absent ou inconnu (" .. tostring(g.resource) .. ")") end
+    if k == "pumpjack" and g.resource ~= "crude-oil" then err(label(i) .. " : chevalet sans gisement de pétrole brut (" .. tostring(g.resource) .. ")") end
   end
 
   -- 8.3 tapis : liaisons, virages, chargements latéraux, voies
@@ -1398,7 +1681,10 @@ function M.analyze(g)
           local lx, ly = left_of(f.dir)
           local side = ox_ * lx + oy_ * ly
           if math.abs(side) < 0.05 then err(label(i) .. " : dépôt dans l'axe du tapis " .. label(b) .. " (voie indéterminée)")
-          else drops[#drops + 1] = { from = a, belt = b, lane = side > 0 and 1 or 2 } end
+          else
+            drops[#drops + 1] = { from = a, belt = b, lane = side > 0 and 1 or 2 }
+            links[#links].lane = side > 0 and 1 or 2
+          end
           if math.abs(ox_ * vx + oy_ * vy) > 0.5 then err(label(i) .. " : dépôt hors du tapis") end
         end
       end
@@ -1414,7 +1700,11 @@ function M.analyze(g)
           local f = ents[b]
           local lx, ly = left_of(f.dir)
           local side = (e.x + dx - f.x) * lx + (e.y + dy - f.y) * ly
-          if math.abs(side) < 0.05 then err(label(i) .. " : dépôt dans l'axe du tapis") else drops[#drops + 1] = { from = i, belt = b, lane = side > 0 and 1 or 2, ore = g.resource } end
+          if math.abs(side) < 0.05 then err(label(i) .. " : dépôt dans l'axe du tapis")
+          else
+            drops[#drops + 1] = { from = i, belt = b, lane = side > 0 and 1 or 2, ore = g.resource }
+            links[#links].lane = side > 0 and 1 or 2
+          end
         end
       end
     end
@@ -1550,11 +1840,13 @@ function M.analyze(g)
       end
     end
   end
-  -- tuyaux souterrains : paire dans l'axe, direction opposée, à 10 tuiles au plus
+  -- tuyaux souterrains : paire dans l'axe, direction opposée, positions à `max` (10) tuiles d'écart au plus
+  -- (correction IA1-c : la boucle allait à max + 1 ; le moteur ne relie pas deux souterrains à 11 tuiles d'écart,
+  -- sonde du vérificateur, create.log « VERIFPTG ecart 11 connexions 0 »)
   for i, e in ipairs(ents) do
     if specs[i].kind == "ptg" then
       local v = DV[e.dir]
-      for k = 1, specs[i].max + 1 do
+      for k = 1, specs[i].max do
         local j = at(e.x - v[1] * k, e.y - v[2] * k)
         if j and specs[j].kind == "ptg" then
           if ents[j].dir == opposite(e.dir) then union(box_of_ent[i][1], box_of_ent[j][1]) end
@@ -1651,7 +1943,9 @@ function M.analyze(g)
     if nt.port_out and #fl == 1 and fl[1] ~= nt.port_out then err("port de sortie " .. nt.port_out .. " sur un réseau de " .. fl[1]) end
     if nt.port_out and #fl == 0 then err("port de sortie " .. nt.port_out .. " sans producteur raccordé") end
     if nt.supply + 1e-6 < nt.demand then err(string.format("réseau de %s : offre %.2f/s < demande %.2f/s", fl[1] or "?", nt.supply, nt.demand)) end
-    -- R8 : plus long trajet en tuyaux entre deux boîtes non tuyaux du réseau
+    -- R8 : la longueur comptée est le NOMBRE TOTAL de tuyaux (et de souterrains) du réseau, pas le plus long trajet
+    -- (prudent : sur un collecteur ramifié, cela peut refuser une conduite valide ; correction IA1-c, mineur 5 :
+    -- le commentaire annonçait le plus long trajet)
     local pipes_in = 0
     for _, bi in ipairs(nt.boxes) do local k = specs[boxes[bi].ent].kind; if k == "pipe" or k == "ptg" then pipes_in = pipes_in + 1 end end
     local flow = math.max(nt.demand, 0)
@@ -1843,10 +2137,19 @@ function M.analyze(g)
     if g.resource == it then any = true end
     if not any then err("besoin sans port d'entrée : " .. it .. string.format(" (%.3f/s)", inputs[it])) end
   end
-  -- flot maximal objet par objet
+  -- flot maximal objet par objet. Chaque VOIE de chaque tapis est un couple de nœuds (entrée → sortie) de capacité
+  -- M.LANE_RATE (correction IA1-c : avant, un tapis entier valait 15/s, si bien qu'une voie chargée par des bras
+  -- au-delà de 7,5/s passait le contrôle). Un bras qui prend sur un tapis est un nœud (son indice d'entité), nourri
+  -- par les deux voies et borné par sa capacité ; un dépôt vise la voie de son point de dépôt.
+  local lane_in, lane_out = {}, {}
+  local nn = n
+  for _, i in ipairs(belts) do
+    lane_in[i], lane_out[i] = {}, {}
+    for l = 1, 2 do nn = nn + 1; lane_in[i][l] = nn; nn = nn + 1; lane_out[i][l] = nn end
+  end
   local flow_report = {}
   for _, it in ipairs(items) do
-    local S_, T_ = n + 1, n + 2
+    local S_, T_ = nn + 1, nn + 2
     local edges, demand = {}, 0
     for i = 1, n do
       local p = prod_of(i, it)
@@ -1862,9 +2165,7 @@ function M.analyze(g)
     end
     for _, p in ipairs(g.ports) do
       if p.io == "in" and p.kind == "tapis" and is_belt[p.ent] and p.lanes then
-        local c = 0
-        for l = 1, 2 do if p.lanes[l] == it then c = c + M.LANE_RATE end end
-        if c > 0 then edges[#edges + 1] = { S_, p.ent, c } end
+        for l = 1, 2 do if p.lanes[l] == it then edges[#edges + 1] = { S_, lane_in[p.ent][l], M.LANE_RATE } end end
       elseif p.io == "in" and p.kind == "quai" and p.item == it then
         edges[#edges + 1] = { S_, p.ent, 1e9 }
       end
@@ -1873,26 +2174,46 @@ function M.analyze(g)
     if outputs[it] then
       local cand = {}
       for _, op in ipairs(out_ports) do if has(op.items, it) then cand[#cand + 1] = op end end
-      for _, op in ipairs(cand) do edges[#edges + 1] = { op.ent, T_, 1e9 } end
+      for _, op in ipairs(cand) do
+        if is_belt[op.ent] then
+          for l = 1, 2 do edges[#edges + 1] = { lane_out[op.ent][l], T_, 1e9 } end
+        else
+          edges[#edges + 1] = { op.ent, T_, 1e9 }
+        end
+      end
       demand = demand + outputs[it]
+    end
+    -- voies : capacité de chaque voie qui porte l'objet
+    for _, i in ipairs(belts) do
+      for l = 1, 2 do if lanes[i][l][it] then edges[#edges + 1] = { lane_in[i][l], lane_out[i][l], M.LANE_RATE } end end
     end
     for _, l in ipairs(links) do
       local kb = specs[l.to].kind
       local can_take = false
       for _, x in ipairs(supply_items(l.from)) do if x == it then can_take = true end end
       if can_take and (kb == "belt" or kb == "chest" or has(accepts[l.to], it)) then
-        edges[#edges + 1] = { l.from, l.to, l.cap }
+        local src = l.from
+        if is_belt[l.from] then
+          for v = 1, 2 do if lanes[l.from][v][it] then edges[#edges + 1] = { lane_out[l.from][v], l.via, 1e9 } end end
+          src = l.via
+        end
+        local dst = l.to
+        if is_belt[l.to] then dst = l.lane and lane_in[l.to][l.lane] end
+        if dst then edges[#edges + 1] = { src, dst, l.cap } end
       end
     end
     for _, j in ipairs(belts) do
       for _, f in ipairs(feeders[j]) do
-        local carries = false
-        for l = 1, 2 do if lanes[f.from][l][it] then carries = true end end
-        if carries then edges[#edges + 1] = { f.from, j, f.kind == "side" and M.LANE_RATE or M.BELT_RATE } end
+        for l = 1, 2 do
+          if lanes[f.from][l][it] then
+            local tl = (f.kind == "side") and f.side or l
+            edges[#edges + 1] = { lane_out[f.from][l], lane_in[j][tl], M.LANE_RATE }
+          end
+        end
       end
     end
     if demand > 1e-9 then
-      local f = maxflow(n + 2, edges, S_, T_)
+      local f = maxflow(nn + 2, edges, S_, T_)
       flow_report[#flow_report + 1] = { item = it, demand = demand, flow = f }
       if f + 1e-6 < demand then err(string.format("débit de %s : %.3f/s acheminés sur %.3f/s demandés (bras, tapis ou liaisons trop faibles)", it, f, demand)) end
     end
@@ -1964,6 +2285,8 @@ end
 function M.check(g)
   local rep = M.analyze(g)
   local errs = rep.errors
+  -- gabarit absent (générateur refusé : nil, raison) : une erreur, pas d'exception (reprise de la correction IA1-c)
+  if type(g) ~= "table" then return errs, rep end
   local function cmp(a, b, what)
     local ka = {}
     for k in pairs(a or {}) do ka[#ka + 1] = k end
@@ -2034,5 +2357,163 @@ function M.serialize(v)
   end
   return tostring(v)
 end
+
+---------------------------------------------------------------------------------------------------
+-- 9. Amélioration des bâtiments à niveaux d'un module (correction IA1-c, défaut majeur 2)
+---------------------------------------------------------------------------------------------------
+-- Constat (vérification adverse, sonde probe_upgrade) : aucun gabarit ne laisse de place autour de ses bâtiments à
+-- niveaux ; à chaque changement d'emprise (niveaux 7, 13, 19 et, pour le four, 25 : L.footprints), la règle Q24
+-- (agrandissement sur place si la place est libre, sinon refus) refuserait 94 améliorations sur 101. Choix retenu
+-- (solution (a) du vérificateur, à confirmer dans EQUIPES_PNJ §6.3) :
+--   - à emprise CONSTANTE, l'amélioration se fait SUR PLACE, bâtiment par bâtiment (la règle des niveaux) ; rien
+--     d'autre ne bouge ; les cadences montent d'un même facteur, autant que les bras, les voies et les liaisons le
+--     permettent (le gain est rendu) ;
+--   - au CHANGEMENT d'emprise, on REMPLACE LE MODULE par sa variante de l'ère (même générateur, mêmes paramètres,
+--     bâtiments au niveau visé, nombre de machines réduit si les voies ou l'emprise de 24 × 24 l'exigent) : elle
+--     tient dans le même lot (24 × 24 au plus, EQUIPES_PNJ §6.5), mais ses ports peuvent bouger ;
+--   - s'il n'existe aucune variante valide, l'amélioration est refusée (plafond du module).
+
+--- Familles et niveaux des bâtiments à niveaux d'un gabarit (triés) : { { family, level } }.
+function M.leveled(g)
+  local seen, out = {}, {}
+  for _, e in ipairs(g.entities) do
+    local fam, n = L.parse(e.name)
+    if fam and L.footprints[fam.key] and not seen[fam.key .. ":" .. n] then
+      seen[fam.key .. ":" .. n] = true
+      out[#out + 1] = { family = fam, level = n }
+    end
+  end
+  table.sort(out, function(a, b) if a.family.key ~= b.family.key then return a.family.key < b.family.key end return a.level < b.level end)
+  return out
+end
+
+local function level_ok(fam, level)
+  return type(level) == "number" and level >= 1 and level <= fam.max and level == math.floor(level)
+end
+
+--- Variante RÉGÉNÉRÉE d'un gabarit au niveau `level` de ses bâtiments à niveaux : même générateur, paramètre
+--- d'extension réduit jusqu'à une taille valide (au plus la taille d'origine). Rend (gabarit) ou (nil, raison).
+function M.at_level(g, level)
+  if not g.level_arg or not g.gen then return nil, "gabarit " .. tostring(g.key) .. " sans bâtiment à niveaux régénérable" end
+  local fam = L.parse(g.args[g.level_arg])
+  if not fam then return nil, "gabarit " .. tostring(g.key) .. " : bâtiment « " .. tostring(g.args[g.level_arg]) .. " » sans famille" end
+  if not level_ok(fam, level) then return nil, string.format("niveau %s hors de 1..%d", tostring(level), fam.max) end
+  local name = L.name(fam, level)
+  local v, why = M.regenerate(g, { [g.level_arg] = name })
+  if not v then return nil, why end
+  local ex = v.extensions and v.extensions[1]
+  if ex then
+    local want = g.args[ex.arg]
+    local n = math.min(want, ex.max)
+    if n < 1 then return nil, string.format("%s au niveau %d : aucune taille valide (%s)", g.key, level, ex.param) end
+    if n ~= want then
+      v, why = M.regenerate(g, { [g.level_arg] = name, [ex.arg] = n })
+      if not v then return nil, why end
+    end
+  end
+  local errs = M.check(v)
+  if #errs > 0 then return nil, string.format("%s au niveau %d : %s", g.key, level, errs[1]) end
+  return v
+end
+
+--- Amélioration SUR PLACE (emprises inchangées) : mêmes entités, bâtiments à niveaux renommés au niveau `level`,
+--- cadences multipliées par le plus grand facteur f (1 ≤ f ≤ gain de vitesse) qui passe M.check. Rend (gabarit, f)
+--- ou (nil, raison). f = 1 : rien ne va plus vite (voies ou bras déjà pleins), seule la puissance change.
+function M.in_place(g, level)
+  local rep0 = M.analyze(g)
+  if #rep0.errors > 0 then return nil, "gabarit de départ invalide : " .. rep0.errors[1] end
+  local v = copy(g)
+  local any = false
+  for _, e in ipairs(v.entities) do
+    local fam, n = L.parse(e.name)
+    if fam and L.footprints[fam.key] then
+      if not level_ok(fam, level) then return nil, string.format("niveau %s hors de 1..%d", tostring(level), fam.max) end
+      if L.footprint(fam, level) ~= L.footprint(fam, n) then
+        return nil, string.format("%s : emprise %d → %d (pas d'amélioration sur place)", e.name, L.footprint(fam, n), L.footprint(fam, level))
+      end
+      e.name = L.name(fam, level)
+      any = true
+    end
+  end
+  if not any then return nil, "aucun bâtiment à niveaux" end
+  -- cadences d'origine (celles de l'analyse) fixées sur chaque machine ; gain maximal de vitesse
+  local base, base_idx, fmax = {}, {}, math.huge
+  for i, e in ipairs(v.entities) do
+    local k = M.spec(e.name).kind
+    local r0 = rep0.rates[i]
+    if (k == "assembler" or k == "furnace" or k == "drill" or k == "lab" or k == "pumpjack") and r0 and r0 > 0 then
+      base[i] = r0
+      base_idx[#base_idx + 1] = i
+      if k ~= "lab" then fmax = math.min(fmax, max_rate(e) / r0) end
+    end
+  end
+  if fmax == math.huge then fmax = 1 end
+  local function at(f)
+    for _, i in ipairs(base_idx) do v.entities[i].rate = base[i] * f end
+    v.nominal, v.inputs, v.power_kw, v.epoch = nil, nil, nil, nil
+    return #M.check(v) == 0
+  end
+  local f = 1
+  if fmax > 1 + 1e-9 then
+    if at(fmax) then f = fmax
+    else
+      local lo, hi = 1, fmax
+      for _ = 1, 8 do
+        local mid = (lo + hi) / 2
+        if at(mid) then lo = mid else hi = mid end
+      end
+      f = lo
+    end
+  end
+  if not at(f) then return nil, "amélioration sur place invalide : " .. (M.check(v)[1] or "?") end
+  local rep = M.analyze(v)
+  v.nominal, v.inputs, v.power_kw, v.epoch, v.unlocks = rep.outputs, rep.inputs, rep.power_kw, rep.epoch, rep.unlocks
+  v.electric_out_kw = rep.electric_out_kw
+  -- paramètres : le bâtiment à niveaux nommé au niveau visé (M.at_level et M.extend régénèrent à ce niveau)
+  if v.level_arg and v.args then
+    local fam = L.parse(v.args[v.level_arg])
+    if fam then v.args[v.level_arg] = L.name(fam, level) end
+    local ref = M.regenerate(v)
+    v.extensions = ref and copy(ref.extensions) or {}
+  end
+  v.in_place = { from = g.key, level = level, factor = f }
+  return v, f
+end
+
+--- Plan d'amélioration d'un module vers le niveau `level` (EQUIPES_PNJ §6.3, règle proposée par la correction IA1-c) :
+--- { mode = "sur-place" | "remplacer" | "refus" | "sans-niveaux", g = gabarit visé, gain (sur place), reason }.
+--- Rapport des débits nominaux (le plus petit rapport nouveau / ancien sur les sorties communes ; 1 sans sortie).
+local function nominal_ratio(old, new)
+  local ks = {}
+  for k in pairs(old.nominal or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  local r
+  for _, k in ipairs(ks) do
+    local a, b = old.nominal[k], (new.nominal or {})[k]
+    if a and a > 0 and b then r = math.min(r or math.huge, b / a) end
+  end
+  return r or 1
+end
+
+--- `ratio` : débit nominal du gabarit visé rapporté à l'actuel (le plus petit sur les sorties) ; un remplacement
+--- peut produire MOINS (moins de machines pour tenir dans les voies ou dans 24 × 24) : à l'appelant de juger.
+function M.upgrade_plan(g, level)
+  local lv = M.leveled(g)
+  if #lv == 0 then return { mode = "sans-niveaux", reason = "aucun bâtiment à niveaux" } end
+  local same = true
+  for _, x in ipairs(lv) do
+    if not level_ok(x.family, level) then return { mode = "refus", reason = string.format("niveau %s hors de 1..%d", tostring(level), x.family.max) } end
+    if L.footprint(x.family, level) ~= L.footprint(x.family, x.level) then same = false end
+  end
+  if same then
+    local v, f = M.in_place(g, level)
+    if v then return { mode = "sur-place", g = v, gain = f, ratio = nominal_ratio(g, v) } end
+    return { mode = "refus", reason = f }
+  end
+  local v, why = M.at_level(g, level)
+  if v then return { mode = "remplacer", g = v, ratio = nominal_ratio(g, v) } end
+  return { mode = "refus", reason = why }
+end
+
 
 return M

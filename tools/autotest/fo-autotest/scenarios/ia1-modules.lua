@@ -15,6 +15,11 @@
 -- du nominal du modèle. Recoupements du modèle avec le moteur : positions, prise et dépôt des bras, dépôt des
 -- foreuses, systèmes de fluides (même réseau dans le modèle ⇔ même get_fluid_system_id), réseau électrique, voies des
 -- tapis de sortie. R8 : débit de conduites droites de 1 à 400 tuyaux.
+-- Correction IA1-c (vérification adverse) : l'arène pose aussi les gabarits AGRANDIS à leur maximum déclaré
+-- (extensions : centrale de 7 chaudières, etc.), TOUTES les variantes d'ère (M.era_variants : bâtiments aux niveaux
+-- 7, 13 et 19, « remplacer le module » au changement d'emprise) et une CONTRE-ÉPREUVE refusée par le contrôle
+-- (plastique à 6 usines : 12/s sur une voie de 7,5/s) dont la sortie doit plafonner au flot maximal du modèle. La
+-- charge de chaque centrale est faite de radars (300 kW) : 25 % au-dessus de sa puissance nominale.
 -- Lancement : `fo-autotest.bat nopause 20000 ia1-modules <source>` ; images : `fo-captures.bat ia1-modules <source>`.
 
 local M = require("__factorio-overhaul__/shared/team/modules")
@@ -36,11 +41,35 @@ local EXTRA = {
   { "centrale-vapeur-2", 2 }, { "packs-verts", 1 }, { "foreuses-fer-n7", 3 },
 }
 
+-- Gabarits agrandis au maximum déclaré de leur extension (correction IA1-c, défaut majeur 1).
+local EXT = {
+  { "centrale-vapeur-2", 7 }, { "fonderie-fer-acier", 6 }, { "engrenages", 5 }, { "plastique-2", 3 }, { "soufre-2", 3 },
+  { "foreuses-fer", 7 },
+}
+-- Contre-épreuve : refusée par le contrôle ; la sortie mesurée doit être le flot maximal du modèle (une voie).
+local CONTRE = { { "plastique-2", 6 } }
+
 local function placements()
   local out = {}
   for _, g in ipairs(M.catalogue()) do out[#out + 1] = { key = g.key, k = 0 } end
   for _, e in ipairs(EXTRA) do out[#out + 1] = { key = e[1], k = e[2] } end
+  for _, e in ipairs(EXT) do out[#out + 1] = { key = e[1], k = 0, ext = e[2] } end
+  for _, r in ipairs(M.era_variants()) do out[#out + 1] = { key = r.key, k = 0 } end
+  for _, e in ipairs(CONTRE) do out[#out + 1] = { key = e[1], k = 0, ext = e[2], contre = true } end
   return out
+end
+
+--- Gabarit d'un placement (catalogue, variante d'ère, extension ou contre-épreuve) ; calcul pur et déterministe,
+--- refait au besoin (aucune fonction ni gabarit gardé dans global).
+local function resolve(pl)
+  local base = pl.base or pl.key
+  local g = M.get_any(base)
+  if not g then return nil, "gabarit inconnu : " .. tostring(base) end
+  if pl.ext then
+    if pl.contre then return M.regenerate(g, { [g.extensions[1].arg] = pl.ext }) end
+    return M.extend(g, pl.ext)
+  end
+  return g
 end
 
 local function slot_origin(i)
@@ -136,13 +165,15 @@ end
 
 local function build(ctx, st, i, pl)
   local s = ctx.surface()
-  local g0 = M.get(pl.key)
+  local g0, why0 = resolve(pl)
   local sx, sy = slot_origin(i)
   local ox, oy = sx + 8, sy + 8
-  local inst, why = M.instantiate(g0, pl.k, ox, oy)
-  local P = { key = pl.key, k = pl.k, ox = ox, oy = oy, ok = true, fails = {}, src = {}, sink = {}, fsrc = {}, fsink = {},
-    furn = {}, fuel = {}, engines = {}, counts = {}, lane_seen = {}, energy = 0, gen = 0 }
+  local P = { key = pl.key .. (pl.ext and ("@" .. pl.ext) or ""), base = pl.key, ext = pl.ext, contre = pl.contre, k = pl.k, ox = ox, oy = oy,
+    ok = true, fails = {}, src = {}, sink = {}, fsrc = {}, fsink = {}, furn = {}, fuel = {}, engines = {}, counts = {}, lane_seen = {},
+    energy = 0, gen = 0 }
   st.P[i] = P
+  if not g0 then P.ok = false; P.fails[#P.fails + 1] = "gabarit : " .. tostring(why0); return end
+  local inst, why = M.instantiate(g0, pl.k, ox, oy)
   if not inst then P.ok = false; P.fails[#P.fails + 1] = "instanciation : " .. tostring(why); return end
   local g = inst.gabarit
   P.w, P.h = g.w, g.h
@@ -152,6 +183,12 @@ local function build(ctx, st, i, pl)
   P.inputs = g.inputs
   P.power_kw = g.power_kw
   P.lanes_model = {}
+  if P.contre then
+    -- contre-épreuve : le contrôle refuse ; la sortie attendue est le flot maximal du modèle, objet par objet
+    P.model_errors = #rep.errors
+    P.expected = {}
+    for _, fl in ipairs(rep.flows or {}) do if g.nominal[fl.item] then P.expected[fl.item] = fl.flow end end
+  end
   -- 1. eau d'abord (F135), puis ressources
   if #inst.water > 0 then
     local tiles = {}
@@ -180,7 +217,7 @@ local function build(ctx, st, i, pl)
     else
       st.n_pos = st.n_pos + 1
       if math.abs(ent.position.x - e.position.x) > TOL or math.abs(ent.position.y - e.position.y) > TOL then
-        st.pos_bad[#st.pos_bad + 1] = pl.key .. " " .. e.name .. " modèle " .. serpent.line(e.position) .. " moteur " .. serpent.line(ent.position)
+        st.pos_bad[#st.pos_bad + 1] = P.key .. " " .. e.name .. " modèle " .. serpent.line(e.position) .. " moteur " .. serpent.line(ent.position)
       end
       if sp.kind == "lab" then P.labs = true end
       if sp.kind == "generator" then P.engines[#P.engines + 1] = ent end
@@ -199,7 +236,7 @@ local function build(ctx, st, i, pl)
       local want_p = { x = ox + e.x + px, y = oy + e.y + py }
       local want_d = { x = ox + e.x + dx, y = oy + e.y + dy }
       if dist(pp, want_p) > TOL or dist(dp, want_d) > TOL then
-        st.ins_bad[#st.ins_bad + 1] = pl.key .. " " .. e.name .. " n°" .. j .. " prise " .. serpent.line(pp) .. " (modèle " .. serpent.line(want_p)
+        st.ins_bad[#st.ins_bad + 1] = P.key .. " " .. e.name .. " n°" .. j .. " prise " .. serpent.line(pp) .. " (modèle " .. serpent.line(want_p)
           .. "), dépôt " .. serpent.line(dp) .. " (modèle " .. serpent.line(want_d) .. ")"
       end
     elseif ent and sp.kind == "drill" then
@@ -207,7 +244,7 @@ local function build(ctx, st, i, pl)
       local dx, dy = M.rot(e.dir, sp.drop[1], sp.drop[2])
       local want = { x = ox + e.x + dx, y = oy + e.y + dy }
       if math.floor(ent.drop_position.x) ~= math.floor(want.x) or math.floor(ent.drop_position.y) ~= math.floor(want.y) then
-        st.ins_bad[#st.ins_bad + 1] = pl.key .. " foreuse n°" .. j .. " dépôt " .. serpent.line(ent.drop_position) .. " (modèle " .. serpent.line(want) .. ")"
+        st.ins_bad[#st.ins_bad + 1] = P.key .. " foreuse n°" .. j .. " dépôt " .. serpent.line(ent.drop_position) .. " (modèle " .. serpent.line(want) .. ")"
       end
     end
   end
@@ -243,19 +280,19 @@ local function build(ctx, st, i, pl)
       local id = ent.fluidbox.get_fluid_system_id(fi)
       st.n_box = st.n_box + 1
       if id == nil then
-        st.fluid_bad[#st.fluid_bad + 1] = pl.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : aucun système (modèle : raccordée)"
+        st.fluid_bad[#st.fluid_bad + 1] = P.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : aucun système (modèle : raccordée)"
       else
         if by_net[bx.net] and by_net[bx.net] ~= id then
-          st.fluid_bad[#st.fluid_bad + 1] = pl.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : système " .. id .. " ≠ " .. by_net[bx.net] .. " (même réseau au modèle)"
+          st.fluid_bad[#st.fluid_bad + 1] = P.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : système " .. id .. " ≠ " .. by_net[bx.net] .. " (même réseau au modèle)"
         end
         by_net[bx.net] = by_net[bx.net] or id
         if ids[id] and ids[id] ~= bx.net then
-          st.fluid_bad[#st.fluid_bad + 1] = pl.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : système " .. id .. " partagé par deux réseaux du modèle"
+          st.fluid_bad[#st.fluid_bad + 1] = P.key .. " " .. ent.name .. " boîte " .. bx.idx .. " : système " .. id .. " partagé par deux réseaux du modèle"
         end
         ids[id] = ids[id] or bx.net
       end
     elseif ent then
-      st.fluid_bad[#st.fluid_bad + 1] = pl.key .. " " .. ent.name .. " : boîte " .. bx.idx .. " absente au moteur"
+      st.fluid_bad[#st.fluid_bad + 1] = P.key .. " " .. ent.name .. " : boîte " .. bx.idx .. " absente au moteur"
     end
   end
   -- 6. ports
@@ -306,16 +343,22 @@ local function build(ctx, st, i, pl)
     else
       ap.connect_neighbour(pole)
       if #P.engines > 0 then
-        -- charge : 15 radars (300 kW chacun) à l'est de la case
-        local rx, ry = sx + 40, sy + 8
+        -- charge : radars (300 kW chacun), 25 % au-dessus de la puissance nominale (15 pour 3,6 MW, 53 pour 12,6 MW),
+        -- au sud de la case
+        local nr = math.ceil((P.nominal["electricity-kw"] or 0) * 1.25 / 300)
+        local cols = math.ceil(nr / 5)
+        local rx, ry = sx + 8, sy + 36
         local last = chain(s, ap, { x = rx - 1, y = ry + 1 })
         local poles = { last }
-        for c = 0, 2 do
+        local placed = 0
+        for c = 0, cols - 1 do
           for r = 0, 4 do
-            s.create_entity({ name = "radar", position = { rx + 4 * c + 1.5, ry + 4 * r + 1.5 }, force = FORCE })
+            if placed < nr and s.create_entity({ name = "radar", position = { rx + 4 * c + 1.5, ry + 4 * r + 1.5 }, force = FORCE }) then placed = placed + 1 end
           end
         end
-        for c = 0, 2 do
+        P.radars = placed
+        ctx.log(string.format("centrale %s r%d : %d radars en charge (%.0f kW)", P.key, P.k, placed, placed * 300))
+        for c = 0, cols - 1 do
           for r = 0, 4 do
             local pp = s.create_entity({ name = "medium-electric-pole", position = { rx + 4 * c + 3.5, ry + 4 * r + 3.5 }, force = FORCE })
             if pp then poles[#poles + 1] = pp end
@@ -488,17 +531,34 @@ return {
     local rows = math.ceil(#pls / COLS)
     local maxlen = R8_LENGTHS[#R8_LENGTHS] + 2
     ctx.prepare_area(X0 - 16, Y0 - 16, X0 + math.max(COLS * SLOT, maxlen) + 16, Y0 + rows * SLOT + 3 * #R8_LENGTHS + 32, "grass-1")
-    -- catalogue contrôlé hors jeu, rejoué ici sur la version chargée par le jeu
+    -- catalogue contrôlé hors jeu, rejoué ici sur la version chargée par le jeu ; puis chaque placement (variantes
+    -- d'ère, extensions) ; la contre-épreuve doit être REFUSÉE
     local bad = {}
     for _, g in ipairs(M.catalogue()) do
       local errs = M.check(g)
       if #errs > 0 then bad[#bad + 1] = g.key .. " : " .. errs[1] end
     end
     ctx.check(#bad == 0, "catalogue sans erreur au contrôle du modèle (" .. #M.catalogue() .. " gabarits)", table.concat(bad, " | "))
-    -- prototypes : emprise des bâtiments à niveaux et vitesses du modèle contre le jeu
+    local pbad, n_era, n_ext, contre_refus = {}, 0, 0, {}
+    local all_g = {}
+    for _, pl in ipairs(pls) do
+      local g, why = resolve(pl)
+      if not g then pbad[#pbad + 1] = pl.key .. " : " .. tostring(why)
+      else
+        all_g[#all_g + 1] = g
+        local errs = M.check(g)
+        if pl.contre then contre_refus[#contre_refus + 1] = pl.key .. "@" .. pl.ext .. " : " .. (errs[1] or "ACCEPTÉ")
+          if #errs == 0 then pbad[#pbad + 1] = pl.key .. "@" .. pl.ext .. " : contre-épreuve acceptée par le contrôle" end
+        elseif #errs > 0 then pbad[#pbad + 1] = pl.key .. " : " .. errs[1] end
+        if pl.ext and not pl.contre then n_ext = n_ext + 1 elseif not M.get(pl.key) and not pl.contre then n_era = n_era + 1 end
+      end
+    end
+    ctx.check(#pbad == 0, "placements contrôlés : " .. n_era .. " variantes d'ère et " .. n_ext .. " extensions au maximum sans erreur, contre-épreuve refusée ("
+      .. table.concat(contre_refus, " ; ") .. ")", table.concat(pbad, " | "))
+    -- prototypes : emprise des bâtiments à niveaux et vitesses du modèle contre le jeu (tous les placements)
     local proto_bad = {}
     local seen = {}
-    for _, g in ipairs(M.catalogue()) do
+    for _, g in ipairs(all_g) do
       for _, e in ipairs(g.entities) do
         if not seen[e.name] then
           seen[e.name] = true
@@ -547,7 +607,7 @@ return {
       local bad, n = {}, 0
       for _, P in ipairs(st.P) do
         local ids = {}
-        for j, e2 in ipairs(M.instantiate(M.get(P.key), P.k, P.ox, P.oy).gabarit.entities) do
+        for j, e2 in ipairs(M.instantiate(resolve(P), P.k, P.ox, P.oy).gabarit.entities) do
           local ent = P.ents and P.ents[j]
           local sp = M.spec(e2.name)
           if ent and ent.valid and (M.power_kw(e2.name) > 0 or sp.kind == "generator" or sp.kind == "pole") then
@@ -586,8 +646,16 @@ return {
           if it == "electricity-kw" then got = (P.gen - P.snap_gen) / (CHECK - WARM) * 60 / 1000
           else got = ((P.counts["out:" .. it] or 0) - (P.snap["out:" .. it] or 0)) / secs end
           local ratio = nom > 0 and got / nom or 0
-          if ratio < 0.9 or ratio > 1.1 then okall = false end
-          res[#res + 1] = string.format("%s %.4g/%.4g (%.1f %%)", it, got, nom, 100 * ratio)
+          if P.contre then
+            -- contre-épreuve : la sortie doit plafonner au flot maximal du modèle (une voie), bien sous le nominal
+            local ex = P.expected[it] or nom
+            local re = ex > 0 and got / ex or 0
+            if re < 0.85 or re > 1.05 or got >= 0.9 * nom then okall = false end
+            res[#res + 1] = string.format("%s %.4g mesuré, flot maximal du modèle %.4g (%.1f %%), nominal %.4g", it, got, ex, 100 * re, nom)
+          else
+            if ratio < 0.9 or ratio > 1.1 then okall = false end
+            res[#res + 1] = string.format("%s %.4g/%.4g (%.1f %%)", it, got, nom, 100 * ratio)
+          end
           ctx.log(string.format("MESURE\t%s\tr%d\tsortie\t%s\t%.6g\t%.6g\t%.4f", P.key, P.k, it, nom, got, ratio))
         end
         local ins = {}
@@ -607,7 +675,9 @@ return {
             res[#res + 1] = string.format("consommé %s %.4g/%.4g (%.1f %%)", it, got, nom, 100 * ratio)
           end
         end
-        ctx.check(okall and #res > 0, "débit " .. P.key .. " r" .. P.k .. " à ±10 % du nominal", table.concat(res, " ; ") .. " | entrées " .. table.concat(ins, " ; "))
+        local what = P.contre and ("contre-épreuve " .. P.key .. " r" .. P.k .. " (refusée par le contrôle) : sortie plafonnée au flot maximal du modèle, pas au nominal")
+          or ("débit " .. P.key .. " r" .. P.k .. " à ±10 % du nominal")
+        ctx.check(okall and #res > 0, what, table.concat(res, " ; ") .. " | entrées " .. table.concat(ins, " ; "))
         if P.eei then
           local kw = (P.energy - P.snap_energy) / (CHECK - WARM) * 60 / 1000
           ctx.log(string.format("MESURE\t%s\tr%d\tpuissance\tkW\t%.6g\t%.6g\t%.4f", P.key, P.k, P.power_kw, kw, kw / P.power_kw))
@@ -662,7 +732,7 @@ return {
       end
     end
     -- gros plans
-    for _, key in ipairs({ "circuits-verts", "packs-verts", "soufre-2", "centrale-vapeur-2" }) do
+    for _, key in ipairs({ "circuits-verts", "packs-verts", "soufre-2", "centrale-vapeur-2", "centrale-vapeur-2@7", "plastique-2@6" }) do
       for _, P in ipairs(st.P or {}) do
         if P.key == key and P.k == 0 then add(key .. "-gros-plan", P.cx, P.cy, 2, 0) end
       end

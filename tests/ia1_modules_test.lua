@@ -279,7 +279,7 @@ end, "chevauchement")
 mutant("bras retourné", "circuits-verts", function(g)
   local _, e = find(g, function(x) return x.name == "fast-inserter" and x.dir == M.N and x.y == 1.5 end)
   e.dir = M.S
-end)
+end, "mêlée")
 mutant("piquage de brut retiré", "raffinerie-2", function(g)
   local i = find(g, function(e) return e.name == "pipe" and e.y == 7.5 end)
   table.remove(g.entities, i)
@@ -299,19 +299,21 @@ end, "poteaux")
 mutant("tapis de sortie retourné", "engrenages", function(g)
   local _, p = idx_of_port(g, "out", "tapis")
   g.entities[p.ent].dir = M.W
-end)
+end, "face à face")
 mutant("liaison affaiblie (bras rapide → bras simple)", "circuits-verts", function(g)
   for _, e in ipairs(g.entities) do if e.name == "fast-inserter" and (e.dir == M.W or e.dir == M.E) then e.name = "inserter" end end
 end, "débit de copper-cable")
-mutant("bras de sortie trop lent", "engrenages", function(g)
-  for _, e in ipairs(g.entities) do if e.name == "fast-inserter" and e.y == 5.5 then e.name = "burner-inserter" end end
-end)
+-- correction IA1-c (mineur 2) : un VRAI mutant de débit (l'ancien « bras de sortie trop lent » posait des bras à
+-- combustion, refusés pour une autre raison : voir « bras à combustion sur un convoyeur de sortie »)
+mutant("bras de sortie trop lent (bras rapides → bras simples)", "engrenages", function(g)
+  for _, e in ipairs(g.entities) do if e.name == "fast-inserter" and e.y == 5.5 then e.name = "inserter" end end
+end, "débit de iron-gear-wheel")
 mutant("voies mêlées (jonction remplacée par un tapis droit)", "packs-verts", function(g)
   for _, e in ipairs(g.entities) do
     if e.name == "transport-belt" and e.y == 6.5 and e.x > 5.5 and e.x < 11 then e.dir = M.E end
   end
   for _, e in ipairs(g.entities) do if e.name == "transport-belt" and e.y == 6.5 and e.x == 5.5 then e.dir = M.E end end
-end)
+end, "mêlée")
 mutant("emprise trop grande", "engrenages", function(g) g.w = 30 end, "emprise")
 mutant("points d'appui retirés", "circuits-verts-n7", function(g) g.anchors = { { x = -2, y = -2 } } end, "point d'appui")
 mutant("catégorie impossible", "engrenages", function(g)
@@ -322,11 +324,11 @@ mutant("nominal falsifié", "circuits-verts", function(g) g.nominal["electronic-
 mutant("foreuse retournée", "foreuses-fer", function(g)
   local _, e = find(g, function(x) return x.name == "electric-mining-drill" end)
   e.dir = M.W
-end)
+end, "dans le vide")
 mutant("pompe de rive retirée", "centrale-vapeur-2", function(g)
   local _, e = find(g, function(x) return x.name == "offshore-pump" end)
   e.name = "wooden-chest"
-end)
+end, "pas une pompe de rive")
 mutant("eau non déclarée devant la pompe", "centrale-vapeur-2", function(g) g.water = {} end, "rive")
 mutant("bras à combustion sur un convoyeur de sortie", "engrenages", function(g)
   local _, e = find(g, function(x) return x.name == "fast-inserter" and x.y == 5.5 end)
@@ -342,7 +344,7 @@ end, "non raccordée")
 mutant("usine chimique tournée (raccords au sud)", "plastique-2", function(g)
   local _, e = find(g, function(x) return x.name == "chemical-plant" end)
   e.dir = M.S
-end)
+end, "non raccordée")
 mutant("labo sans bras", "labos-4", function(g)
   for _, e in ipairs(g.entities) do if e.name == "inserter" then e.name = "wooden-chest" end end
 end, "débit")
@@ -350,7 +352,7 @@ mutant("port d'entrée à l'intérieur", "plastique-2", function(g)
   local _, p = idx_of_port(g, "in", "tapis")
   local e = g.entities[p.ent]
   e.dir = M.W
-end)
+end, "l'amont n'est pas hors de l'emprise")
 mutant("centrale sans charbon", "centrale-vapeur-2", function(g)
   for _, p in ipairs(g.ports) do if p.kind == "tapis" then p.lanes = { nil, nil } end end
 end, "coal")
@@ -381,6 +383,220 @@ do
     end
   end
   check(worst < 0.2, string.format("R8 : conduite la plus chargée des gabarits à %.1f %% de sa capacité (table %s)", 100 * worst, M.PIPE_FLOW_SOURCE))
+end
+
+---------------------------------------------------------------------------------------------------
+-- Correction IA1-c (vérification adverse du 24/10) : défauts majeurs 1 et 2, mineurs 1, 4, 5, 7
+---------------------------------------------------------------------------------------------------
+section("Voies : capacité d'UNE voie (7,5/s) dans le flot maximal")
+do
+  -- plastique : les bras longs déposent tout le plastique sur une seule voie du tapis de sortie
+  local g4 = M.GEN.plastic(4)
+  local e4, r4 = M.check(g4)
+  check(any_match(e4, "débit de plastic-bar : 7.500/s acheminés sur 8.000/s"), "4 usines de plastique : 8/s sur une voie de 7,5/s refusés (" .. first(e4) .. ")")
+  check(#M.check(M.GEN.plastic(3)) == 0, "3 usines de plastique : 6/s sur une voie, accepté")
+  local e4s = M.check(M.GEN.sulfur(4))
+  check(any_match(e4s, "débit de sulfur : 7.500/s"), "4 usines de soufre : 8/s sur une voie refusés (" .. first(e4s) .. ")")
+  -- foreuses : chaque rangée dépose sur SA voie
+  local d8 = M.GEN.drills("iron-ore", 8, L.name(L.by_key.drill, 13))
+  local ed8 = d8 and M.check(d8) or { "nil" }
+  check(any_match(ed8, "débit de iron-ore") or any_match(ed8, "emprise"), "16 foreuses de niveau 13 : voie ou emprise dépassée (" .. first(ed8) .. ")")
+end
+
+section("Générateurs : jamais d'erreur Lua, (nil, raison) sur des paramètres refusés")
+do
+  local cases = {
+    { "smelter", { L.name(L.by_key.furnace, 25), "iron-ore", 3 }, "bras" },
+    { "smelter", { L.name(L.by_key.furnace, 30), "iron-ore", 3 }, "bras" },
+    { "smelter", { "pas-un-four", "iron-ore", 3 }, "inconnue" },
+    { "smelter", { "steel-furnace", "uranium-ore", 3 }, "plaque" },
+    { "smelter", { "steel-furnace", "iron-ore", 0 }, "nombre" },
+    { "drills", { "iron-ore", 1.5 }, "nombre" },
+    { "drills", { "iron-ore", 3, "assembling-machine-2" }, "sorte" },
+    { "steam", { nil }, "nombre" },
+    { "gears", { 1, L.name(L.by_key.assembler, 30) }, "poteaux impossibles" },
+    { "labs", { 2, 0 }, "durée" },
+    { "circuits", { "lab" }, "sorte" },
+    { "red_packs", { "assembling-machine-2", -1 }, "nombre" },
+    { "outpost_burner", { "coal", 3 }, "plaque" },
+  }
+  for _, c in ipairs(cases) do
+    local ok, g, why = pcall(M.GEN[c[1]], table.unpack(c[2], 1, 3))
+    check(ok and g == nil and type(why) == "string" and why:find(c[3], 1, true) ~= nil,
+      "GEN." .. c[1] .. "(" .. tostring(c[2][1]) .. ", …) : refus sans erreur Lua (" .. tostring(ok and why or g) .. ")")
+  end
+  -- filet : une erreur interne devient (nil, raison)
+  local ok, g, why = pcall(M.GEN.row, "x", "x", "x", { machines = { { name = "assembling-machine-2", recipe = "iron-gear-wheel", rate = 1, top = { "iron-plate" }, out = true } } })
+  check(ok and g ~= nil, "GEN.row : rangée simple construite")
+  check(#M.catalogue_errors() == 0, "catalogue construit sans refus de générateur (" .. table.concat(M.catalogue_errors(), " | ") .. ")")
+end
+
+section("Extensions : chaque n de 1 à max passe M.check, max + 1 non (catalogue et variantes d'ère)")
+local function ext_exact(g, label)
+  local ex = g.extensions and g.extensions[1]
+  if not ex then return end
+  local bad = {}
+  for n = 1, ex.max do
+    local h, why = M.extend(g, n)
+    local errs = h and M.check(h) or { tostring(why) }
+    if #errs > 0 then bad[#bad + 1] = n .. " : " .. errs[1] end
+  end
+  local over = M.regenerate(g, { [ex.arg] = ex.max + 1 })
+  local over_errs = over and M.check(over) or { "refusé par le générateur" }
+  check(#bad == 0, label .. " : " .. ex.param .. " de 1 à " .. ex.max .. " valides (" .. (bad[1] or "") .. ")")
+  check(#over_errs > 0, label .. " : " .. ex.param .. " = " .. (ex.max + 1) .. " refusé (" .. first(over_errs) .. ")")
+  check(M.extend(g, ex.max + 1) == nil, label .. " : M.extend refuse " .. ex.param .. " = " .. (ex.max + 1))
+end
+for _, g in ipairs(cat) do ext_exact(g, g.key) end
+local eras, era_refus = M.era_variants()
+for _, r in ipairs(eras) do ext_exact(r.g, r.key) end
+-- chiffres de la vérification adverse, corrigés
+local function ext_max(key) local g = by[key]; return g and g.extensions[1] and g.extensions[1].max end
+check(ext_max("centrale-vapeur-2") == 7, "centrale : 7 chaudières au plus (seul 2 passait avant la correction), max " .. tostring(ext_max("centrale-vapeur-2")))
+check(ext_max("fonderie-fer-acier") == 6 and ext_max("fonderie-fer-acier-n7") == 4, "fonderies en acier : 6 et 4 (12 et 8 annoncés avant)")
+check(ext_max("foreuses-fer") == 7 and ext_max("foreuses-fer-n7") == 5, "foreuses : 7 et 5 (8 et 6 annoncés avant)")
+check(ext_max("engrenages") == 5, "engrenages : 5 (6 annoncé avant)")
+check(ext_max("plastique-2") == 3 and ext_max("soufre-2") == 3, "plastique et soufre : 3 (8 et 6 annoncés avant : une voie de sortie)")
+do
+  local s7 = M.extend(by["centrale-vapeur-2"], 7)
+  check(s7 ~= nil and #M.check(s7) == 0 and near(s7.nominal["electricity-kw"], 7 * 1800), "centrale de 7 chaudières, 14 machines : 12,6 MW, contrôle vert")
+end
+
+section("Balayage des niveaux : max déclaré = max exact (boucle de M.check), générateurs × niveaux 1 à 30")
+do
+  local function lvn(f, n) return L.name(L.by_key[f], n) end
+  local cases = {}
+  for n = 1, 30 do
+    cases[#cases + 1] = { "smelter", { lvn("furnace", n), "iron-ore", 1 }, 3 }
+    cases[#cases + 1] = { "drills", { "iron-ore", 1, lvn("drill", n) }, 2 }
+    cases[#cases + 1] = { "gears", { 1, lvn("assembler", n) }, 1 }
+    cases[#cases + 1] = { "circuits", { lvn("assembler", n), 1 }, 2 }
+    cases[#cases + 1] = { "engines", { lvn("assembler", n), 1 }, 2 }
+    cases[#cases + 1] = { "advanced_circuits", { lvn("assembler", n), 1 }, 2 }
+    cases[#cases + 1] = { "red_packs", { lvn("assembler", n), 1 }, 2 }
+    cases[#cases + 1] = { "green_packs", { lvn("assembler", n), 1 }, 2 }
+  end
+  for _, c in ipairs({ { "outpost_burner", { "iron-ore", 1 }, 2 }, { "smelter", { "stone-furnace", "iron-ore", 1 }, 3 },
+    { "steam", { 1 }, 1 }, { "labs", { 1, 30 }, 1 }, { "labs", { 1, 5 }, 1 }, { "pumpjacks", { 1 }, 1 }, { "refinery", { 1 }, 1 },
+    { "plastic", { 1 }, 1 }, { "sulfur", { 1 }, 1 }, { "drills", { "coal", 1 }, 2 }, { "drills", { "copper-ore", 1 }, 2 } }) do
+    cases[#cases + 1] = c
+  end
+  local bad, total, none = {}, 0, 0
+  for _, c in ipairs(cases) do
+    local gen, args, arg = c[1], c[2], c[3]
+    local g = M.GEN[gen](table.unpack(args, 1, #args))
+    local declared = g and g.extensions[1].max or 0
+    local exact, first_bad = 0, nil
+    for n = 1, declared + 1 do
+      local a = {}
+      for i = 1, #args do a[i] = args[i] end
+      a[arg] = n
+      local h = M.GEN[gen](table.unpack(a, 1, #args))
+      local ok = h ~= nil and #M.check(h) == 0
+      if ok and not first_bad then exact = n elseif not ok and not first_bad then first_bad = n end
+    end
+    total = total + 1
+    if declared == 0 then none = none + 1 end
+    if declared ~= exact then bad[#bad + 1] = gen .. "(" .. tostring(args[1]) .. ", " .. tostring(args[#args]) .. ") déclaré " .. declared .. ", exact " .. exact end
+  end
+  print(string.format("   balayage : %d cas, %d sans taille valide (générateur refusé)", total, none))
+  check(#bad == 0, string.format("balayage : %d cas, max déclaré = max exact (%s)", total, table.concat(bad, " | ")))
+end
+
+section("Variantes d'ère (niveaux 7, 13, 19, 25) : « remplacer le module » au changement d'emprise")
+do
+  check(#eras >= 20, "au moins 20 variantes d'ère (" .. #eras .. ")")
+  local keys = {}
+  for _, r in ipairs(eras) do
+    check(keys[r.key] == nil and by[r.key] == nil, r.key .. " : clé unique (catalogue compris)")
+    keys[r.key] = true
+    local errs = M.check(r.g)
+    check(#errs == 0, r.key .. " sans erreur : " .. first(errs))
+    check(r.g.w <= 24 and r.g.h <= 24, r.key .. " : emprise " .. r.g.w .. "×" .. r.g.h .. " ≤ 24×24 (même lot)")
+    local lv = M.leveled(r.g)
+    check(#lv == 1 and lv[1].level == r.level, r.key .. " : bâtiments au niveau " .. r.level)
+    check(L.footprint(lv[1].family, r.level) == M.spec(L.name(lv[1].family, r.level)).w, r.key .. " : emprise ACTUELLE du niveau " .. r.level)
+  end
+  -- refus déclarés : le four de niveau 25 (6 × 6, 1,88 plaque/s) dépasse un bras rapide seul depuis un tapis
+  check(#era_refus == 2, "2 refus d'ère (fours de niveau 25), " .. #era_refus .. " trouvés")
+  for _, r in ipairs(era_refus) do check(r.level == 25 and r.from:find("^fonderie") ~= nil and r.reason:find("bras", 1, true) ~= nil, "refus : " .. r.from .. " au niveau " .. r.level .. " (" .. r.reason .. ")") end
+  check(M.get_any("engrenages-n13") ~= nil and M.get_any("circuits-verts") ~= nil and M.get_any("pas-un-gabarit") == nil, "M.get_any : catalogue et variantes d'ère")
+end
+
+section("Amélioration niveau par niveau : sur place à emprise constante, remplacement au changement d'emprise")
+do
+  local caps = { ["fonderie-fer-acier"] = 25, ["fonderie-fer-acier-n7"] = 25 }
+  for _, g0 in ipairs(cat) do
+    local lv = M.leveled(g0)
+    if #lv > 0 then
+      local fam = lv[1].family
+      local g = g0
+      local steps = {}
+      for _, n in ipairs(M.footprint_steps(fam)) do steps[n] = true end
+      local bad, stop, nS, nR = {}, nil, 0, 0
+      for n = lv[1].level + 1, fam.max do
+        local p = M.upgrade_plan(g, n)
+        if p.mode == "sur-place" then
+          nS = nS + 1
+          if steps[n] then bad[#bad + 1] = n .. " : sur place à un changement d'emprise" end
+          if #p.g.entities ~= #g.entities then bad[#bad + 1] = n .. " : sur place, nombre d'entités changé" end
+          for i, e in ipairs(p.g.entities) do
+            local o = g.entities[i]
+            if o and (o.x ~= e.x or o.y ~= e.y or o.dir ~= e.dir) then bad[#bad + 1] = n .. " : sur place, entité " .. i .. " déplacée"; break end
+          end
+          if not (p.gain >= 1 - 1e-9) then bad[#bad + 1] = n .. " : gain < 1" end
+          g = p.g
+        elseif p.mode == "remplacer" then
+          nR = nR + 1
+          if not steps[n] then bad[#bad + 1] = n .. " : remplacement sans changement d'emprise" end
+          g = p.g
+        else
+          stop = n
+          break
+        end
+        local errs = M.check(g)
+        if #errs > 0 then bad[#bad + 1] = n .. " : " .. errs[1] end
+        local l2 = M.leveled(g)
+        if #l2 ~= 1 or l2[1].level ~= n then bad[#bad + 1] = n .. " : niveau des bâtiments " .. tostring(l2[1] and l2[1].level) end
+      end
+      check(#bad == 0, g0.key .. " : chaîne d'améliorations valide (" .. (bad[1] or (nS .. " sur place, " .. nR .. " remplacements")) .. ")")
+      check(stop == caps[g0.key], g0.key .. " : " .. (caps[g0.key] and ("refus au niveau " .. caps[g0.key] .. " (four 6 × 6)") or ("jusqu'au niveau " .. fam.max)) .. ", arrêt : " .. tostring(stop))
+    end
+  end
+  -- sur place : un niveau de plus va plus vite (gain > 1) tant que les voies le permettent
+  local p = M.upgrade_plan(by["circuits-verts"], 2)
+  check(p.mode == "sur-place" and p.gain > 1.05 and p.g.nominal["electronic-circuit"] > by["circuits-verts"].nominal["electronic-circuit"], string.format("circuits niveau 1 → 2 : sur place, gain %.3f", p.gain or 0))
+  local p7 = M.upgrade_plan(by["circuits-verts"], 7)
+  check(p7.mode == "remplacer" and p7.g.key == "circuits-verts-n7" and p7.ratio > 1, string.format("circuits niveau 1 → 7 : remplacer par circuits-verts-n7 (rapport %.3f)", p7.ratio or 0))
+  local pn = M.upgrade_plan(by["centrale-vapeur-2"], 5)
+  check(pn.mode == "sans-niveaux", "centrale : aucun bâtiment à niveaux")
+end
+
+section("Corrections mineures (souterrains, gisement, copies)")
+do
+  -- souterrain : positions à 10 tuiles d'écart reliées, à 11 non (moteur réel, sonde du vérificateur)
+  local function ptg_pair(d)
+    local g = { key = "ptg", w = d + 4, h = 1, ports = {}, anchors = { { x = -2, y = -2 } }, entities = {
+      { name = "pipe", x = 0.5, y = 0.5, dir = M.N }, { name = "pipe-to-ground", x = 1.5, y = 0.5, dir = M.W },
+      { name = "pipe-to-ground", x = 1.5 + d, y = 0.5, dir = M.E }, { name = "pipe", x = 2.5 + d, y = 0.5, dir = M.N } } }
+    local rep = M.analyze(g)
+    local big = 0
+    for _, n in ipairs(rep.fluid_nets) do big = math.max(big, n.boxes) end
+    return big
+  end
+  check(ptg_pair(10) == 4, "souterrains à 10 tuiles d'écart : un seul réseau")
+  check(ptg_pair(11) == 2, "souterrains à 11 tuiles d'écart : deux réseaux (le moteur ne les relie pas)")
+  mutant("chevalets sans gisement", "chevalets-4", function(g) g.resource = nil end, "sans gisement")
+  mutant("foreuses sans gisement", "foreuses-fer", function(g) g.resource = nil end, "gisement absent")
+  local a = M.get("engrenages")
+  a.entities[1].x = 999
+  a.nominal["iron-gear-wheel"] = 0
+  local b2 = M.get("engrenages")
+  check(b2.entities[1].x ~= 999 and b2.nominal["iron-gear-wheel"] > 0, "M.get rend une copie : le catalogue n'est pas modifié")
+  local c1 = M.catalogue()
+  c1[1].w = 99
+  check(M.catalogue()[1].w ~= 99, "M.catalogue rend des copies")
+  check(M.rotate(b2, 0) ~= b2, "M.rotate(g, 0) rend une copie")
 end
 
 print(string.format("\nBILAN : %d OK, %d ECHEC(S)", passes, failures))
