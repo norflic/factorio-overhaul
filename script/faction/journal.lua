@@ -7,7 +7,8 @@
     [FO-STRAT] fondation : une par faction au lancement de la guerre (ou à la migration d'une partie existante) :
                personnalité, origine du caractère, traits (pour mille), graine du flux de la faction ;
     [FO-STRAT] attaque   : une par groupe lancé : cible, effectif, rassemblement, point visé, distance, OCTANT
-               d'arrivée vu du QG de la cible (0 = est, puis sens horaire à l'écran : 2 = sud, 4 = ouest, 6 = nord) ;
+               d'arrivée vu du QG de la cible (0 = est, puis sens horaire à l'écran : 2 = sud, 4 = ouest, 6 = nord),
+               multiplicateur du seuil (pour mille, « - » sans caractère tiré) ;
     [FO-STRAT] site      : un par site puisé dans la réserve de prospection : rang du site choisi par distance au QG
                parmi les sites valides de la même ressource en réserve (1 = le plus proche) ;
     [FO-SHAPE]           : toutes les 10 min (SHAPE_PERIOD) et par faction vivante, étalées (une faction par
@@ -75,7 +76,7 @@ function Journal.attack(f, target_faction, n, rp, tick)
   local dx, dy = tx - rp.gather.x, ty - rp.gather.y
   log(string.format("[FO-STRAT] attaque tick %d %s -> %s : %d soldats, depart (%d, %d), vise (%d, %d), %d tuiles, octant %d, seuil %s",
     tick, f.key, target_faction.key, n, math.floor(rp.gather.x), math.floor(rp.gather.y), math.floor(tx), math.floor(ty),
-    math.floor(math.sqrt(dx * dx + dy * dy)), Journal.octant(ox, oy), rp.threshold and tostring(rp.threshold) or "-"))
+    math.floor(math.sqrt(dx * dx + dy * dy)), Journal.octant(ox, oy), f.attack_jitter and tostring(f.attack_jitter) or "-"))
 end
 
 --- Ligne d'un site puisé dans la réserve : `site` choisi, `list` = réserve AVANT le retrait (sites valides de la

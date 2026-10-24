@@ -27,6 +27,20 @@ F.personalities = {
   balanced   = { greed = 1.0, aggression = 1.0, research = 1.0, keep = 0.30, caution = 0.90 },
 }
 
+--- Pondérations d'un caractère (lot IA2-0) : `pers` est soit la CLÉ d'une personnalité (archétype, comme avant
+--- IA2-0 : tests et équipe du joueur), soit un caractère EFFECTIF déjà calculé (table au même format, tirée de la
+--- graine par shared/faction/traits.lua, Tr.character). Clé inconnue : équilibré.
+function F.persona(pers)
+  if type(pers) == "table" then return pers end
+  return F.personalities[pers] or F.personalities.balanced
+end
+
+--- Clé de l'archétype d'un caractère (clé ou caractère effectif).
+function F.archetype_of(pers)
+  if type(pers) == "table" then return pers.archetype or "balanced" end
+  return pers
+end
+
 -- Soldats (débloqués par niveau technologique de la faction).
 F.soldier_order = { "rifleman", "gunner", "rocketeer" }
 F.soldiers = {
@@ -192,8 +206,7 @@ end
 
 --- Part du revenu réservée à la recherche pour une personnalité.
 function F.research_share(personality)
-  local P = F.personalities[personality] or F.personalities.balanced
-  return F.economy.research_share * P.research
+  return F.economy.research_share * F.persona(personality).research
 end
 
 function F.hq_income(minutes)

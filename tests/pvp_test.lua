@@ -39,6 +39,7 @@ local function W() return M.world() end
 
 local F = require("shared.faction.config")
 local S = require("shared.faction.strategy")
+local Tr = require("shared.faction.traits") -- lot IA2-0
 local LEVELS = F.pvp_order
 
 -- Copie FIGÉE de S.attack au lot IA0 (commit 4240248), constantes comprises : la guerre ENTRE factions (et donc
@@ -525,11 +526,15 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
   for i, pers in ipairs(pers_list) do
     fs[i] = {
       pers = pers, garrison = 0, total = 0, acc = 0, back = {}, offset = (i - 1) * 75,
-      cap = opts.cap == false and 100 or math.floor(100 * (T.army_share[pers] or 0.6)),
+      cap = opts.cap == false and 100 or math.floor(100 * (T.army_share[F.archetype_of(pers)] or 0.6)),
       fp = { declared = false, provoked = false, warned = false, sent_player = 0, sent_total = 0 },
+      -- Lot IA2-0 : opts.jitter = graine : seuil des attaques entre factions tiré à ±20 % (flux de la faction),
+      -- retiré après chaque attaque contre la rivale, comme en jeu (script/faction/character.lua).
+      stream = opts.jitter and Tr.new_stream(opts.jitter, i) or nil,
       r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0,
         joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {} },
     }
+    if fs[i].stream then fs[i].jitter = Tr.jitter(fs[i].stream) end
   end
   for tick = 75, minutes * MIN, 75 do
     for _, f in ipairs(fs) do
@@ -552,6 +557,7 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
         local fp, r = f.fp, f.r
         local v = {
           personality = f.pers, tech = cfg.tech, upgrades = 0, garrison = f.garrison, soldiers_max = 100, can_attack = true,
+          attack_jitter = f.jitter,
           enemy_defense = cfg.rdef or 10, rival = { id = 2, outposts = cfg.own }, own_outposts = cfg.own, leader_outposts = cfg.own,
           pvp = { difficulty = level, tick = tick, anchor = 0, declared = fp.declared, provoked = false, warned = fp.warned,
             last_attack = fp.last_attack, last_rival = fp.last_rival, sent_player = fp.sent_player, sent_total = fp.sent_total,
@@ -587,6 +593,7 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
             fp.last_rival = tick
             r.rival = r.rival + 1
             if fp.declared then r.rival_war = r.rival_war + 1 end
+            if f.stream then f.jitter = Tr.jitter(f.stream) end
           end
         end
       end
@@ -706,6 +713,71 @@ do
 end
 local c1, c2 = campaign("hard", "balanced", 120), campaign("hard", "balanced", 120)
 check(c1.attacks == c2.attacks and c1.soldiers == c2.soldiers and c1.first == c2.first, "campagne pure déterministe")
+
+---------------------------------------------------------------------------------------------------
+section("Campagne pure : caractères tirés de la graine (lot IA2-0)")
+-- Lot IA2-0 : chaque faction a un caractère tiré de la graine (shared/faction/traits.lua), agressivité, garnison
+-- gardée et prudence bornées à l'enveloppe des archétypes. Mêmes exigences que ci-dessus (une attaque après la
+-- grâce là où elle est exigée, ordre STRICT des niveaux, guerres entre factions après la déclaration) pour 16
+-- caractères : les 2 extrêmes de chaque archétype (traits d'agressivité et de prudence à −25 % et +25 %) et les
+-- 8 caractères tirés des graines 20261020 et 123456789 (carte des bancs, et la 2e graine des mesures).
+local CHARS = {}
+for _, p in ipairs(PERS) do
+  for _, sgn in ipairs({ -1, 1 }) do
+    local t = {}
+    for _, k in ipairs(Tr.ORDER) do t[k] = Tr.ARCHETYPES[p][k] end
+    t.agressivite = math.floor(t.agressivite * (1000 + sgn * Tr.SPREAD) / 1000 + 0.5)
+    t.prudence = math.floor(t.prudence * (1000 - sgn * Tr.SPREAD) / 1000 + 0.5)
+    CHARS[#CHARS + 1] = { name = p .. (sgn < 0 and " timide" or " hardi"), pers = Tr.character(p, t) }
+  end
+end
+for _, ms in ipairs({ 20261020, 123456789 }) do
+  local ps = Tr.personalities(ms, 4)
+  for i = 1, 4 do
+    local _, t = Tr.found(ms, i, ps[i])
+    CHARS[#CHARS + 1] = { name = string.format("%d/%d %s", ms, i, ps[i]), pers = Tr.character(ps[i], t) }
+  end
+end
+local ia2_gaps = 0
+for ci, cfg in ipairs(CONFIGS) do
+  for _, ch in ipairs(CHARS) do
+    local c = {}
+    for _, lv in ipairs(LEVELS) do c[lv] = campaign(lv, ch.pers, 180, cfg, { jitter = 1000 + ci }) end
+    local t = string.format("[IA2-0, config %d] %s (agressivité %.3f, garnison gardée %.3f, prudence %.3f)", ci, ch.name,
+      ch.pers.aggression, ch.pers.keep, ch.pers.caution)
+    local ok = c.peaceful.attacks == 0 and c.peaceful.declare == nil
+    for _, lv in ipairs(AGGRO) do
+      if cfg.must[lv] and not (c[lv].first ~= nil and c[lv].first >= S.grace_ticks(lv, ch.pers)) then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " n'attaque pas") end
+      if cfg.must[lv] and cfg.repeat_min and c[lv].attacks < cfg.repeat_min then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " moins de " .. cfg.repeat_min .. " attaques") end
+    end
+    local orders = {
+      { "first", function(a, b) return a > b end, "1re attaque de plus en plus tôt" },
+      { "attacks", function(a, b) return a < b end, "attaques de plus en plus fréquentes" },
+      { "mean", function(a, b) return a < b end, "taille moyenne croissante" },
+    }
+    -- À un niveau agressif, la guerre entre factions suit la règle d'IA0 (archétype, sans tirage) : la part des forces
+    -- et les guerres après la déclaration s'exigent quand l'ARCHÉTYPE attaque sa rivale (campagne ci-dessus).
+    local arch_rival = MEASURES[ci][ch.pers.archetype].peaceful.rival > 0
+    if arch_rival then orders[#orders + 1] = { "share", function(a, b) return a < b end, "part des forces croissante" } end
+    for _, o in ipairs(orders) do
+      if not order_ok(c, o[1], o[2]) then
+        if cfg.no_order then
+          ia2_gaps = ia2_gaps + 1
+        else
+          ok = false
+          print("  ECHEC : " .. t .. " : " .. o[3])
+        end
+      end
+    end
+    if arch_rival and not cfg.rdef and not (c.normal.rival_war >= RIVAL_MIN and c.hard.rival_war >= RIVAL_MIN and c.merciless.rival_war >= 1) then
+      ok = false
+      print(string.format("  ECHEC : %s : guerres entre factions après la déclaration (Normal %d, Difficile %d, Impitoyable %d)", t,
+        c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
+    end
+    check(ok, t .. " : exigences de la configuration")
+  end
+end
+print(string.format("  16 caractères × 11 configurations ; écarts d'ordre avec une rivale de défense 30 (non exigés) : %d", ia2_gaps))
 
 ---------------------------------------------------------------------------------------------------
 section("Campagne pure : partie à 4 factions, assaut coordonné (Difficile, Impitoyable)")
@@ -1222,7 +1294,9 @@ section("Déterminisme")
 local function scenario()
   new_world("hard", { seed = 7 })
   war("start 2 60 6 320")
-  M.run_ticks(25 * MIN)
+  -- Lot IA2-0 : personnalités tirées de la graine (graine 7 : technocrate et bâtisseur, au lieu de conquérant et
+  -- technocrate) ; la 1re déclaration en Difficile tombe à 25,75 min : 36 min de partie (25 avant IA2-0).
+  M.run_ticks(36 * MIN)
   return M.serialize(global), fac(1).pvp.attacks + fac(2).pvp.attacks
 end
 local s1, n1 = scenario()
