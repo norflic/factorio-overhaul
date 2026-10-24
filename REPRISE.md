@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 21 h 35** : MOD-0 fini (branche worktree-agent-a62a9ed9477475af6, 2a1085b et 7a0a82c, outils de test
+> seulement) : le moteur ADDITIONNE ; une balise cachée par machine rétablit le produit (0 voisine touchée sur 1 100) ;
+> plafonds : × 328,67 par type d'effet (entier 16 bits en centièmes) et 60 fabrications par seconde (assembleurs, fours ;
+> pas les foreuses) ; énergie 1 TW acceptée ; aucun événement quand un robot pose un module (balayage obligatoire).
+> Page « Modules et biomes » envoyée au DC : https://claude.ai/artifact/AD8WJTepXqSqVD3xVEKXRQ (questions B1 à B4,
+> M1 à M4). Faits proposés : MOD-0 F190 à F194, E133 à E135 ; B0 F195 à F197, E136, E137 (à inscrire à la fusion).
 > **Point de 21 h 15** : B0 fini (branche worktree-agent-aeda9289b3fc0fb7d, 0b1a1a3) : cause des carrés prouvée
 > (cristal et marais étaient des copies d'eau dans une couche au-dessus des sols, la frontière tombait sur la grille) ;
 > cristal devenu un sol mauve bruyère, marais passé sous les sols ; b0-biomes 9, monde 89, m0-reprise 15, content 317 ;
