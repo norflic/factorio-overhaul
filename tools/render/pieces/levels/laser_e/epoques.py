@@ -32,7 +32,10 @@ Contrat :
   def condensateur(g, c, x, y, z, r, h)   facultatif : remplace le condensateur de la lignée (bocal de Leyde,
                          bouteille magnétique…), MÊME place et même encombrement (r, h ± 25 %) ;
   def arriere(g, c)      facultatif : remplace le caisson arrière de la lignée (refroidisseur) ;
-  def liaison(g, pts, r) facultatif : organe de liaison de l'âge (défaut : gaine de caoutchouc).
+  def liaison(g, pts, r) facultatif : organe de liaison de l'âge (défaut : gaine de caoutchouc) ; la lignée s'en sert
+                         aussi pour les liaisons radiales des condensateurs au pivot ;
+  AXE = False            facultatif : la lignée ne trace pas l'axe des tourillons à travers l'émetteur (âge 15 : il
+                         couperait le disque) ; l'âge porte alors lui-même son émetteur jusqu'à la platine.
 c (corps.Ctx) porte : g, M, Mh (palette habillée), e, ep, side, T (cotes de la taille, cotes.TAILLES), hab, formes,
 gradins [(rayon pied, rayon haut, z0, z1)], env (enveloppe de l'émetteur), et pour la tête : zh, xc (joues).
 
