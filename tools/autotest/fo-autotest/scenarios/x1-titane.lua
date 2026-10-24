@@ -276,8 +276,10 @@ return {
       if ch.valid then st.moved.ore = st.moved.ore + give(ch.get_inventory(defines.inventory.chest), m.conc, "fo-ilmenite-ore", 16) end
     end
     st.moved.brine = st.moved.brine + pour(st.pump, m.ela, "fo-brine", 400)
-    give(out_inv(m.coke), m.arc1, "fo-coke", 4)
-    give(out_inv(m.coke), m.chl, "fo-coke", 2)
+    -- Coke : la chloration d'abord (au plus 3 en attente), le four à arc ensuite (au plus 4) ; passage 1 : le four à
+    -- arc gardait tout le coke et la chloration n'en recevait pas.
+    give(out_inv(m.coke), m.chl, "fo-coke", math.max(0, 3 - in_inv(m.chl).get_item_count("fo-coke")))
+    give(out_inv(m.coke), m.arc1, "fo-coke", math.max(0, 4 - in_inv(m.arc1).get_item_count("fo-coke")))
     give(out_inv(m.conc), m.arc1, "fo-ilmenite-concentrate")
     give(out_inv(m.arc1), m.chl, "fo-titanium-slag")
     st.moved.chlorine = st.moved.chlorine + pour(m.ela, m.chl, "fo-chlorine") + pour(m.elb, m.chl, "fo-chlorine")
@@ -288,6 +290,19 @@ return {
     st.moved.mg = st.moved.mg + give(out_inv(m.elb), m.kroll, "fo-magnesium")
     st.moved.ticl4 = st.moved.ticl4 + pour(m.chl, m.kroll, "fo-titanium-tetrachloride")
     give(out_inv(m.kroll), m.arc2, "fo-titanium-sponge")
+    -- Pas de torchère en jeu (âge 4, hors lot) : l'excès d'hydrogène et de chlore que les machines suivantes n'acceptent
+    -- plus (une machine à recette n'accepte que 2 fois le besoin d'une fabrication, vu au passage 2) est RETIRÉ par
+    -- script, compté à part, pour que l'électrolyseur ne s'arrête pas sur sortie pleine.
+    st.vented = st.vented or { h2 = 0, cl = 0 }
+    for _, k in ipairs({ "ela", "elb" }) do
+      local e = m[k]
+      if e and e.valid then
+        local h = e.get_fluid_count("fo-hydrogen")
+        if h > 100 then st.vented.h2 = st.vented.h2 + e.remove_fluid({ name = "fo-hydrogen", amount = h - 100 }) end
+        local c = e.get_fluid_count("fo-chlorine")
+        if c > 200 then st.vented.cl = st.vented.cl + e.remove_fluid({ name = "fo-chlorine", amount = c - 200 }) end
+      end
+    end
   end,
 
   finish = function(ctx)
@@ -315,8 +330,33 @@ return {
     end
     local fe = m.arc1 and m.arc1.valid and out_inv(m.arc1).get_item_count("iron-plate") or 0
     ctx.check(fe >= 6, "sous-produit du four a arc : plaques de fer", fe)
-    ctx.log(string.format("transferts : minerai %d, saumure %.0f, chlore %.0f, hydrogene %.0f, tetrachlorure %.0f, magnesium %d",
-      st.moved.ore, st.moved.brine, st.moved.chlorine, st.moved.h2, st.moved.ticl4, st.moved.mg))
+    ctx.log(string.format("transferts : minerai %d, saumure %.0f, chlore %.0f, hydrogene %.0f, tetrachlorure %.0f, magnesium %d ; retires (sans torchere) : hydrogene %.0f, chlore %.0f",
+      st.moved.ore, st.moved.brine, st.moved.chlorine, st.moved.h2, st.moved.ticl4, st.moved.mg,
+      st.vented and st.vented.h2 or 0, st.vented and st.vented.cl or 0))
+    -- État de chaque machine (diagnostic : statut, entrées, sorties, boîtes de fluide).
+    local status_name = {}
+    for k, v in pairs(defines.entity_status) do status_name[v] = k end
+    for _, k in ipairs({ "coke", "conc", "arc1", "ela", "elb", "chl", "kroll", "arc2", "wet" }) do
+      local e = m[k]
+      if e and e.valid then
+        local function inv(i)
+          local parts = {}
+          local c = i and i.get_contents() or {}
+          local names = {}
+          for n in pairs(c) do names[#names + 1] = n end
+          table.sort(names)
+          for _, n in ipairs(names) do parts[#parts + 1] = n .. " " .. c[n] end
+          return table.concat(parts, ", ")
+        end
+        local fb = {}
+        for i = 1, #e.fluidbox do
+          local f = e.fluidbox[i]
+          fb[#fb + 1] = i .. ":" .. (f and (f.name .. " " .. string.format("%.0f", f.amount)) or "-")
+        end
+        ctx.log(string.format("machine %s (%s) : statut %s ; entree [%s] ; sortie [%s] ; fluides [%s]", k, e.name,
+          tostring(status_name[e.status]), inv(in_inv(e)), inv(out_inv(e)), table.concat(fb, " ")))
+      end
+    end
     ctx.check((st.plates_made or 0) >= 1, "plaques de titane sorties de la chaine (avant le paiement du niveau)", st.plates_made or 0)
     -- 4. Niveau de l'âge 11 (fait au tick T_LEVEL, résultat relu ici).
     local L = st.level or {}
