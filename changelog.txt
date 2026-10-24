@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.10
+Date: 2026-10-24
+  Graphics:
+    - Mitrailleuse : à chaque coup, un éclat de tir aux couleurs de l'âge jaillit au bout des canons, dans toutes les
+      directions de la tête.
+    - Mitrailleuse de l'âge 6 : le socle s'anime (lueurs et halo), essai avant les autres âges.
+    - Mitrailleuse détruite : le reste au sol et l'explosion sont à la taille de la tourelle.
+  Info:
+    - Les images de la mitrailleuse pèsent 55 Mo (52 Mo avant).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.9
 Date: 2026-10-24
   Graphics:

@@ -683,6 +683,13 @@ direction écartée du réglage n'est admise que si elle est regardée et inscri
 les têtes « HORS REGLE » regardées sont dans `HORS_REGLE_OK_DEFAUT`. Contrôles : `check_gun_sheets.py` (17 avec les
 mutants), ligne « Tetes mitrailleuse » du harness, `tools/autotest/gun_rose_images.py` (image montrée contre feuille).
 Outils : `eclat64.py`, `hors_regle.py`, `vram64.py`, `compare_feuilles.py`.
+**Mitrailleuse vivante (lot A4-préparation, version 0.4.10)** : `eclat_tir.py`, appelé par `feuilles.py`, dessine
+l'éclat de tir 2D par âge (couleurs du registre `ages.py`) au point mesuré de chaque cellule de tête : couche
+`draw_as_glow` d'`attacking_animation`, UNE image par direction (F149 ; `gun.lua` refuse plus d'une image) ; socle
+émissif animé : `commun/anim_emission.py`, `gun_e/anime_socle.py` et `anime_socle_blender.py`, branché par
+`feuilles.py --socle-anime` (essai : âge 6 ; sources `fo-logs\2026-10-24_A4\socle-anime\sprites\`, F158) ; bancs
+`a4-eclat`, `a4-ruines`, `a4-socle` et leurs outils d'images (`tools/autotest/a4_*_images.py`) ; masque d'équipe :
+copie jetable seulement (`tools/autotest/a4/`).
 
 **Sons des familles (lot S0, version 0.4.7)** : `tools/sound/sons.py` (numpy, scipy ; `blender_audio.py` pour le
 module `aud` de Blender, toujours par `with_render_lock.py`) dérive des sons vanilla (`<racine>\data\base\sound\`,
