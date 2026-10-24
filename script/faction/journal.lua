@@ -11,14 +11,15 @@
                multiplicateur du seuil (pour mille, « - » sans caractère tiré) ;
     [FO-STRAT] site      : un par site puisé dans la réserve de prospection : rang du site choisi par distance au QG
                parmi les sites valides de la même ressource en réserve (1 = le plus proche) ;
-    [FO-SHAPE]           : toutes les 10 min (SHAPE_PERIOD) et par faction vivante, étalées (une faction par
-               seconde) : bâtiments de la faction à moins de SHAPE_RADIUS tuiles du QG (types d'unités et de
-               personnages exclus), chunks occupés, centre et covariance des positions RELATIVES au QG, rayon
-               maximal, avant-postes (numéro d'ordre de construction, type, position relative) et nombre de
-               bâtiments par nom.
+    [FO-SHAPE]           : à la 1re seconde puis toutes les 10 min (SHAPE_PERIOD), par faction vivante, étalées
+               (une faction par seconde) : bâtiments de la faction (QG, tourelles, foreuses et réceptacles des
+               avant-postes, fonderie : ses propres listes, Journal.buildings), chunks occupés, centre et covariance
+               des positions RELATIVES au QG, rayon maximal, avant-postes (numéro d'ordre de construction, type,
+               position relative) et nombre de bâtiments par nom.
 
   Rien ici ne décide : lectures seules (aucun tirage, aucune écriture dans `global`), le comportement des factions
-  ne change pas. Coût : une recherche de zone par faction toutes les 10 min (voie mesurée « faction:shape »).
+  ne change pas. Coût mesuré sur la voie « faction:shape ». La 1re version (recherche de zone de 1 408 tuiles de
+  côté, gardée en option : Journal.shape(..., true)) coûtait environ 7 ms par appel en moteur réel (E143).
 ]]
 
 local Events = require("script.core.events")
@@ -99,11 +100,32 @@ function Journal.site(f, site, list, valid, tick)
     math.max(n, 1), math.floor(math.sqrt(nearest))))
 end
 
---- Ligne de forme d'une faction (lectures seules).
-function Journal.shape(f, surface, tick)
+--- Bâtiments d'une faction, lus dans ses propres listes (QG, tourelles, foreuses et réceptacles des avant-postes,
+--- fonderie) : aucune recherche moteur. Mesuré (E143) : la recherche de zone de 1 408 × 1 408 tuiles coûtait environ
+--- 7 ms par faction et par appel, en un seul tick.
+function Journal.buildings(f)
+  local list = {}
+  if f.hq and f.hq.valid then list[#list + 1] = f.hq end
+  for _, id in ipairs(State.sorted_keys(f.turrets or {})) do list[#list + 1] = f.turrets[id] end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    for _, e in ipairs(o.drill_list or {}) do list[#list + 1] = e end
+    for _, e in ipairs(o.sinks or {}) do list[#list + 1] = e end
+  end
+  for _, e in ipairs(f.smelters or {}) do list[#list + 1] = e end
+  return list
+end
+
+--- Ligne de forme d'une faction (lectures seules). `area` vrai : recherche de zone (contrôle de l'énumération).
+function Journal.shape(f, surface, tick, area)
   local hq = f.hq_pos
   local r = Journal.SHAPE_RADIUS
-  local list = surface.find_entities_filtered({ area = { { hq.x - r, hq.y - r }, { hq.x + r, hq.y + r } }, force = f.force })
+  local list
+  if area then
+    list = surface.find_entities_filtered({ area = { { hq.x - r, hq.y - r }, { hq.x + r, hq.y + r } }, force = f.force })
+  else
+    list = Journal.buildings(f)
+  end
   local n, sx, sy, sxx, syy, sxy, rmax = 0, 0, 0, 0, 0, 0, 0
   local chunks, nchunks, names = {}, 0, {}
   for _, e in ipairs(list) do

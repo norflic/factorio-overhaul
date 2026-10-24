@@ -337,6 +337,21 @@ do
   check(#shapes == 8, "8 lignes « [FO-SHAPE] » en 12 min (une par faction à la 1re seconde, puis à 10 min) : " .. #shapes)
   check(shapes[1] and shapes[1]:find("batiments", 1, true) and shapes[1]:find("cov", 1, true) and shapes[1]:find("avant-postes", 1, true),
     "ligne de forme : bâtiments, covariance, avant-postes")
+  -- Énumération par les listes de la faction = recherche de zone (même lignes de forme, sauf le coût).
+  local J = require("script.faction.journal")
+  local same = true
+  for _, f in ipairs(war.factions) do
+    local before = #W().logs
+    J.shape(f, W().surface, game.tick)
+    J.shape(f, W().surface, game.tick, true)
+    local a, b = W().logs[before + 1], W().logs[before + 2]
+    if not (a and b and a:gsub("^.-%[FO%-SHAPE%]", "") == b:gsub("^.-%[FO%-SHAPE%]", "")) then
+      same = false
+      print("  listes : " .. tostring(a))
+      print("  zone   : " .. tostring(b))
+    end
+  end
+  check(same, "forme : listes de la faction = recherche de zone (4 factions, 12 min)")
   local attacks = 0
   for _, f in ipairs(war.factions) do attacks = attacks + f.stats.attacks end
   check(#logs("[FO-STRAT] attaque") == attacks, string.format("une ligne « [FO-STRAT] attaque » par groupe lancé (%d)", attacks))
