@@ -1243,3 +1243,10 @@ lot est intégré, après la fusion et un nouveau `--calibrate`.
 | 28 | 14 Orbite (+ pièce) | 1767,5 | 2,37 | 393 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 140 rocket-control-unit, 320 uranium-235 | 35 498 | 21 / 256 |
 | 29 | 15 Légende (silhouette) | 1 820 | 2,43 | 402 | 30 iron-plate, 15 iron-gear-wheel, 15 electronic-circuit, 120 space-science-pack, 130 rocket-control-unit | 49 598 | 17 / 272 |
 | 30 | 15 Légende (+ pièce) | 1872,5 | 2,49 | 411 | 30 iron-plate, 16 iron-gear-wheel, 16 electronic-circuit, 150 space-science-pack, 160 rocket-control-unit | 61 602 | 20 / 272 |
+
+## 13. Sons (lot S0, S0-suite ; version 0.4.8)
+
+Volume du tir de la mitrailleuse (`SoundDefinition.volume`, `sound/levels/gun/sons.lua`) : vanilla 0,4 ; ère I (âges 1 à
+3) 0,388 ; ère II (4 à 6) 0,3904 ; ère III (7 à 9) 0,3832 ; ère IV (10 à 12) 0,3816 ; ère V (13 à 15) 0,4. Contrat D-11 :
+chaque quantile du volume des rafales d'une ère au moins 0,5 dB sous la vanilla (pire écart −0,502 dB) ; tir seul jamais
+au-dessus de la vanilla (écart maximal −0,32 dB). Timbre : centroïde vanilla 646 Hz, puis 552, 478, 353, 304, 178 Hz.

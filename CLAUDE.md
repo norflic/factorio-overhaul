@@ -21,13 +21,13 @@ avant tout travail.
    route, lots multi-agents (§7).
 2. `ARCHITECTURE.md` : §2 règles non négociables, §7 bis niveaux, §8 bancs de vérification.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
-4. `RD_LOG.md` : faits F1 à F145 et F150 à F154 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
+4. `RD_LOG.md` : faits F1 à F145 et F150 à F156 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F150 à F154 : lot S0),
-   expériences E1 à E76 et E105 à E108 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite),
+   expériences E1 à E76, E105 à E108 et E113 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E113 : S0-suite), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 0 h 10) : **F155** hors blocs ; F146 à F149 réservés à A3-jeu et A4 ; en
+   expérience de contrôle). Prochains identifiants (24/10, 2 h 45) : **F157** et **E114** hors blocs ; F146 à F149 réservés à A3-jeu et A4 ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4), E109 à E112 (A3-jeu, A4). Les blocs réservés sont listés en tête de RD_LOG.
 
@@ -99,14 +99,15 @@ lua5.2 tests/levels_test.lua     -> 1662 OK   (+ 11 « écarts connus » au cont
 lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 318 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s), étalonnage vanilla 0 sur 2 505 prototypes, mod 20 fichier(s), auto-contrôle 13/13 (lot S0) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 676 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 318 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 682 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
 python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
 python -B tools/autotest/tests/bat_double_source/run.py   -> 40 OK (FO_AUDIO et pilote disk depuis S0 ; graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources --mutants   -> 12 OK (feuilles de la mitrailleuse : manifeste, sha256, rectangles, poses au pixel contre les sources, 7 mutants refusés ; lot A2)
+py -3.9 -B tests/datastage/mut_sons.py --work <dossier jetable hors du dépôt>   -> BILAN : 6 OK (règle « sons » : Opus, FLAC dans Ogg, fichier coupé… refusés ; environ 3 min ; lot S0-suite)
 python -B tools/autotest/tests/test_audio_session.py   -> 21 OK (pilote de session avec son : environnement disk, pilote lu au journal, mesure de la sortie disk ; lot S0)
 py -3.9 tools/sound/sons.py --check   -> 20 fichier(s) conformes (sons de la mitrailleuse : manifeste, volume, timbre ; lot S0)
 python -B tools/autotest/tests/test_audio_guard.py   -> 4 OK (garde de crête ; ATTENTION : joue 3 s d'un son de 30 Hz à −70 dBFS, inaudible, sur la VRAIE sortie du PC ; ne pas lancer sans raison)
@@ -142,6 +143,11 @@ session au moindre son vers le PC (code 10 : ne pas relancer sans comprendre). S
 les sons (F150, F151) : `& "<racine>\fo-captures.bat" gun-rose "<racine>\mods\factorio-overhaul"` → code 0 et,
 dans `session.txt`, « Driver:disk », « Loading sounds » et « sessions audio Windows du processus de test : 0 »
 (observé sur `main` 0.4.7 le 23/10 vers 23 h). Un son manquant donne le code 7 (« Missing sound »).
+**Tir joué en jeu** (lot S0-suite, E113) : même session avec le scénario `s0-tir`, puis
+`py -3.9 tools/sound/tirs_joues.py "<racine>\fo-visual\audio-disk.raw" "<racine>\fo-visual\write\script-output\fo-shots\factorio.log" --avant "<racine>\fo-logs\2026-10-24_S0-suite\moteur\02-s0tir-son-disk\gains.json"`
+→ « BILAN : 36 tir(s) au journal ; reconnus 36, ere juste 36 … volumes (differentiel) justes : OK », code 0. Instable à
+la marge : 1 échec sur 5 passages (35/36) ; rejouer une fois avant de conclure. Sans images : `fo-autotest.bat nopause
+3000 s0-tir` → « [FO-S0-TIR] BILAN : 5 OK ».
 
 **Banc en moteur réel** (sans affichage ; `content` à 4 000 ticks : environ 5 s en tout, mesuré le 21/10) :
 1. Écrire `<ticks> <scenario> [source du mod]` dans `<racine>\fo-autotest-params.txt`, par exemple
@@ -316,6 +322,7 @@ Scénarios :
 - `monde` (scénario greffé, lot M0, 700 ticks) : garantie des monnaies sur nauvis et 5 graines ; `m0-reprise` (lot M0,
   2 600 ticks) : échec puis reprise ; `m0-migration` (lot M0, 700 ticks) : migration d'une sauvegarde 0.4.4, en double
   source `src-0.4.4` seulement (ci-dessus) ;
+- `s0-tir` (scénario greffé, lot S0-suite, 3 000 ticks) : tirs de 6 ères écoutés par le joueur téléporté (ci-dessus) ;
 - `a1-tourelle` (scénario greffé, lot A1, 1 000 ticks) : levée et directions d'une tourelle, sur une copie jetable
   seulement (ci-dessus) ;
 - `gun-rose` (scénario greffé, lot A2, 1 000 ticks) : la mitrailleuse en jeu, 4 directions et tir (ci-dessus) ;
@@ -451,6 +458,9 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F150 à F153** (lot S0, sons) : sans images (`--create`, `--benchmark`), aucun son n'est chargé (F150) ; avec images,
   tous les sons sont chargés au démarrage et un son manquant renvoie le jeu au menu SANS les mods (F151) ; les volumes
   à 0 du `config.ini` ne coupent PAS la sortie (F152) ; le SDL du jeu n'a pas le pilote `dummy`, il a `disk` (F153).
+- **F155, F156** (lot S0-suite) : l'écouteur des sons d'une session avec images est le joueur (le téléporter près de la
+  source) ; un Ogg Opus passe le chargement puis lève une exception au premier tir, un Ogg Vorbis coupé passe sans
+  erreur et reste muet : seule la règle « sons » du harness les voit.
 - **F140 à F145** (lot A3, rendu) : une passe rendue à un autre nombre d'échantillons laisse les autres identiques
   octet à octet (F140) ; l'alpha d'une tête ne dépend pas des matières, d'où des masques rapides à 16 échantillons
   (F141) ; aucune plaque mince ne ferme la fente arrière des âges 4 à 7 (F142) ; 8 192 px au plus par fichier
