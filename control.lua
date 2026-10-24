@@ -47,6 +47,9 @@ require("script.td.director")
 require("script.levels.levels")
 require("script.levels.panel")
 
+-- Modules multiplicatifs (lot MOD-1, D-15) : balise cachée de complément par machine, balayage tournant
+require("script.modules.mult")
+
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
 

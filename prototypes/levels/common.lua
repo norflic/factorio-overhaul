@@ -202,6 +202,22 @@ local function apply_stats(p, family, n)
   end
 end
 
+--- Emplacements de modules du niveau n (lot MOD-1, Q-B2 du DC : 5 au niveau 1, puis +1 par niveau ; familles qui en
+--- ont : L.module_slots). Icônes du mode Alt rangées sur la largeur de l'emprise (MOD-0, capture E135 : 34 icônes en
+--- 6 par ligne débordaient sous un 3×3) : au plus 2 × côté − 1 par ligne (icône d'une demi-tuile), autant de lignes
+--- qu'il faut.
+local function apply_module_slots(p, family, n)
+  local slots = L.module_slots(family, n)
+  if not slots then return end
+  local side = L.footprint(family, n)
+  local per_row = math.max(1, 2 * side - 1)
+  p.module_specification = p.module_specification or {}
+  local ms = p.module_specification
+  ms.module_slots = slots
+  ms.module_info_max_icons_per_row = per_row
+  ms.module_info_max_icon_rows = math.ceil(slots / per_row)
+end
+
 --- Emprise au sol du niveau n (lot V3-T ; table L.footprints, géométrie shared/levels/footprint.lua). Si le côté
 --- diffère du côté du prototype source (niveau 1), boîtes de collision et de sélection au style vanilla (sélection
 --- = le carré exact, collision = le carré réduit de 0,3 tuile de chaque côté), drawing_box mise à l'échelle si
@@ -1235,6 +1251,7 @@ function Common.generate()
         p.fast_replaceable_group = BASE_GROUP[family.key] or p.fast_replaceable_group
         apply_stats(p, family, n)
         apply_footprint(p, family, n)
+        apply_module_slots(p, family, n)
       end
       -- Correction V3-T (défaut 9) : points de jeu d'un niveau agrandi hors de sa boîte de collision.
       if p and L.footprint(family, n) ~= family.size then
