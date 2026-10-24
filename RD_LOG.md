@@ -228,6 +228,11 @@
   recherche 3, armées de 24 à 30) ; les équipes organisées voulues (C5, IA1) ne sont PAS construites. Lot **PNJ-VÉRIF**
   lancé (run `wf_dbbe3818-700`) : grille voulu contre en jeu, preuves en moteur réel sur 0.4.11 (default, pteam, waves,
   ia0-*, stress), captures, guide de partie test pour le DC.
+- 24/10, vers 10 h 15, **couleur d'équipe (Q-A4-3), sur l'image de l'essai D (toute la couleur dominante, page du matin)** :
+  « remarque pour la couleur de l'équipe, je viens tout juste de voir les premiers rendus, c'est atroce à vior, il faut que
+  ce soit de petits éléments qui soient changé de couleur et aussi pas autant saturé, c'est très désagréable ». → Le
+  masque d'équipe ne couvrira que de PETITS éléments (bande, liserés, voyants) et la couleur sera désaturée (masque gris
+  et alpha partiel, à régler) ; un essai sur 2 ou 3 âges sera montré au DC avant toute production.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
