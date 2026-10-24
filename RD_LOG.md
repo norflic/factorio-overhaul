@@ -457,6 +457,20 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot B0, biomes, 24/10, 20 h 10 à 21 h 15 ; fusionné dans `main`, `848b64c`, version 0.4.16)
+Preuves : `fo-logs\2026-10-24_B0\` (`NOTES.md` §6 à §10, planches). Expériences : E136, E137.
+- **F195** : une tuile copiée d'une eau (`draw_in_water_layer = true`) et posée AU-DESSUS des sols (layer plus haut)
+  n'a aucune transition visible vers eux : bord franc en escalier sur la grille ; sous les sols (layer < 8), les sols y
+  dessinent leur rive (`transition_merges_with_tile = "water"`). C'était la cause des « gros carrés » vus par le DC.
+- **F196** : changer le `layer` d'une tuile naturelle, ou lui ajouter un grain de bordure, change la GÉNÉRATION : nombre de
+  ses tuiles (+0,1 à +0,4 % pour le marais) et position des entités placées ensuite (arbres, roches, quelques puits de
+  méthane et de pétrole) ; les sites garantis (M0) ne bougent pas. Mécanisme non prouvé (arbres de bord placés avant les
+  gisements, lu dans les données).
+- **F197** : une tuile vanilla copiée dont on ne remplace que l'image (`picture`) garde ses masques et ses transitions :
+  la frange est dessinée avec la nouvelle image.
+- **F198** : AJOUTER des prototypes `noise-layer` change la génération VANILLA ailleurs (forêt : +15 % d'arbres, autres
+  positions), même s'ils ne servent qu'à nos tuiles ; parade : graine numérique (`seed1`) sans nouvelle couche nommée.
+
 ### Faits vérifiés en moteur réel (lot IA1-c, gabarits de modules des équipes organisées, 24/10 ; fusionné dans `main`, `e074595`, outils et Lua pur seulement)
 Preuves : `fo-logs\2026-10-24_IA1\IA1-c\` (`NOTES.md` §3 à §5 et §8 « Correction », `verification.md`). Expériences : E126, E127.
 - **F183** : une machine de fabrication AVEC recette n'expose dans `LuaFluidBox` que ses boîtes à fluide actives (raffinerie
@@ -858,6 +872,16 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E136, E137 · Lot B0, biomes (24/10 ; deux passes, la seconde après le verdict du DC « B1 D, B2 A, B3 B, B4 B » ;
+fusion `848b64c`, version 0.4.16)** : **E136**, causalité des carrés : même graine, mêmes points, seule la couche change
+(cristal 41 → 4, marais 42 → 5) ; part des bords forts sur la grille 1,77 → 0,63 (zoom 1) et 2,28 → 0,66 (zoom 2) ;
+après le grain fin, 0,60 et 0,66, contre 1,07 et 1,06 pour une frontière herbe et désert du jeu de base. **E137**, palette
+du cristal : sol mauve bruyère livré, Lab (43 ; 11 ; −7), écart 40 à l'herbe et 38 au désert (bleu-violet d'avant : 61 à
+63). Plaine sans décor vanilla (30 796 décorations retirées). Sur `main` 0.4.16 : `b0-biomes` 10 OK (`done.txt`
+21:19:56,20), `monde` 89, `m0-reprise` 15, `content` 317, `gun-rose` 13, `verif-tourelles` 7, `pnj-auto` 7, `pnj-reduit`
+12 ; hors jeu run 114, monde 157, levels 1 662, harness code 0, api_lint 794. NON prouvé : nuit ; arbres vanilla encore
+sur la plaine ; herbes en bordure ; bancs de durée `ia0-*` non rejoués (génération changée).
+
 **E126, E127 · Lot IA1-c, gabarits de modules (24/10 ; run `wf_7e687e38-811`, correction finie par un agent seul après
 deux coupures ; fusion `e074595`, rien d'actif en jeu)** : détail dans `fo-logs\2026-10-24_IA1\IA1-c\`. **E126** : banc
 `ia1-modules` (arène de 65 placements : catalogue, 7 tournés, 6 extensions au maximum, 27 variantes d'ère) ; correction

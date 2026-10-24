@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 21 h 25 : B0 fusionné, version 0.4.16** (`848b64c`, `3ff9751`) après le verdict du DC ; 8 bancs en moteur
+> réel verts sur `main` (`fo-logs\2026-10-24_integration-0.4.16\`). Réponses du DC sur les modules : M1 a, M2 a, M3 a
+> avec énergie = 60 % du bonus (D-15) ; Q-M4 en attente ; lot MOD-1 (mécanisme) en cours dans un worktree (faits F199 à
+> F203, E138 à E140). En attente du DC : M4, S1 à S5, IA1 à IA5, E1 à E3, et son test de la partie.
 > **Point de 21 h 35** : MOD-0 fini (branche worktree-agent-a62a9ed9477475af6, 2a1085b et 7a0a82c, outils de test
 > seulement) : le moteur ADDITIONNE ; une balise cachée par machine rétablit le produit (0 voisine touchée sur 1 100) ;
 > plafonds : × 328,67 par type d'effet (entier 16 bits en centièmes) et 60 fabrications par seconde (assembleurs, fours ;
