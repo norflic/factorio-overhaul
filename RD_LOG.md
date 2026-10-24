@@ -432,6 +432,17 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-c, gabarits de modules des équipes organisées, 24/10 ; fusionné dans `main`, `e074595`, outils et Lua pur seulement)
+Preuves : `fo-logs\2026-10-24_IA1\IA1-c\` (`NOTES.md` §3 à §5 et §8 « Correction », `verification.md`). Expériences : E126, E127.
+- **F183** : une machine de fabrication AVEC recette n'expose dans `LuaFluidBox` que ses boîtes à fluide actives (raffinerie
+  en traitement de base : 2 sur 5 ; usine chimique en plastique : 1 sur 4) : l'indice d'une boîte n'est pas celui du
+  prototype ; l'apparier par `get_pipe_connections(i)[k].target_position`.
+- **F184** : convention des bras vérifiée sur 287 bras : un bras de direction d prend en `centre + rot(d, (0, -r))` et dépose
+  en `centre + rot(d, (0, r + 0,2))` (r = 1, long r = 2) ; sur un tapis, voie la plus éloignée du bras ; une foreuse dépose
+  sur la voie la plus proche (68 foreuses, 0 écart) ; `get_transport_line(1)` = voie gauche dans le sens de la marche.
+- **F185** : débit d'une conduite droite d'eau en 1.1.91 mesuré (source et puits par script) ; différent du wiki pour les
+  conduites courtes (2 250/s pour 1 tuyau, 1 286/s pour 10), car la source et le puits sont eux-mêmes des tuyaux.
+
 ### Faits vérifiés (lots M1, IA1-0 et F1-A ; fusionnés dans `main` le 24/10 vers 15 h 10, `45966bf`, `7c51cdd`, `5cb936c`, version 0.4.14)
 Preuves : `fo-logs\2026-10-24_M1\NOTES.md` §4 et C.4 ; `fo-logs\2026-10-24_IA1\IA1-0\NOTES.md` §3 et « Correction » ;
 `fo-logs\2026-10-24_F1\NOTES.md` §1. Texte complet de chaque fait dans ces fichiers ; ici, le résumé.
@@ -822,6 +833,18 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E126, E127 · Lot IA1-c, gabarits de modules (24/10 ; run `wf_7e687e38-811`, correction finie par un agent seul après
+deux coupures ; fusion `e074595`, rien d'actif en jeu)** : détail dans `fo-logs\2026-10-24_IA1\IA1-c\`. **E126** : banc
+`ia1-modules` (arène de 65 placements : catalogue, 7 tournés, 6 extensions au maximum, 27 variantes d'ère) ; correction
+des 2 majeurs de la vérification (maxima d'extension faux sur 8 gabarits, désormais vérifiés n par n ; générateurs qui
+levaient une erreur aux grandes emprises, désormais une raison rendue, et une règle d'amélioration `M.upgrade_plan` :
+sur place tant que l'emprise ne change pas, remplacement du module au palier suivant) ; échauffement 25 min, fenêtre
+10 min, chaque entrée à ± 10 % (mesuré 99,1 à 103,7 %). Sur `main` : `ia1-modules` 136 OK (`done.txt` 19:12:43,22),
+`content` 317 OK (19:12:50,07) ; hors jeu `ia1_modules_test` 1 018 OK (666 avant), `test_bp2lua` 12 OK, api_lint 788.
+**E127** : R8, débit des conduites des gabarits pétrole (F185). NON prouvé : la règle `M.upgrade_plan` est un choix du
+correcteur, à valider (coût non chiffré, lot IA1-f) ; placements ajoutés non regardés en image ; une conduite ramifiée
+valide peut encore être refusée à tort (m5, déclaré).
+
 **E77 à E80, E131, E132 · Lot M1, le tungstène dans sa direction artistique (24/10 ; run `wf_e12c2f9b-9c8`, correction
 reprise après la limite du compte ; fusion `45966bf`, version 0.4.14)** : détail dans `fo-logs\2026-10-24_M1\`
 (`NOTES.md` §3 et C, `verification.md`). E77 ronde 1 (trois directions) ; E78 rondes 2 et 3 (palette 60/30/10) ; E79 en

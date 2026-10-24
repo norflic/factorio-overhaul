@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 19 h 15 : IA1-c fusionné** (`e074595` ; correcteur repris par message après la coupure, `314069d`) :
+> `ia1-modules` 136, `content` 317 sur `main` ; ia1_modules_test 1 018, api_lint 788. Le DC a changé de profil une
+> troisième fois : 11 pages republiées (adresses mises à jour dans les documents) ; session avec images et sons
+> `pnj-vue` sur 0.4.15 : code 0, pilote disk, sons chargés, 16 captures (`fo-logs\2026-10-24_integration-0.4.15\pnj-vue-son\`)
+> ; guide et planche envoyés au DC. Reste : correcteur d'IA1-a (coupé deux fois ; `82dd19c` sur sa branche), puis IA1
+> vague 2 ; F1-B ; socle animé des 10 autres âges (mesurer l'atlas du plancher, F186) ; couleur d'équipe.
 > **Point de 15 h 55 : version 0.4.15, le jeu se lance avec les PNJ sans console** (`39048d5`) : à la demande du DC
 > (« faite en sorte que la version du jeu soit jouable (avec les pnj etc) »), réglages de carte `fo-war-*` ;
 > `pnj-auto` 7 OK, `content` 317, `pnj-reduit` 12 sur `main`. Réponses du DC : tungstène A, laser A, fentes de l'âge 11
