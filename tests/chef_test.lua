@@ -108,7 +108,8 @@ do
   local o = C.ladder_order({ { key = "technologie", w = 1000 } })
   local pos = {}
   for k, key in ipairs(o) do pos[key] = k end
-  check(pos.tech1 < index.tech1 and pos.tech2 < index.tech2, "technologie : les recherches avancent (tech1 " .. index.tech1 .. " -> " .. pos.tech1 .. ")")
+  check(pos.tech2 < index.tech2 and pos.tech3 < index.tech3 and pos.tech1 > pos.iron2,
+    "technologie : les recherches avancent (tech2 " .. index.tech2 .. " -> " .. pos.tech2 .. "), jamais avant le fer II")
   local e = C.ladder_entries({ ladder = o })
   check(e and #e == #T.ladder and e[pos.tech1] == T.ladder[index.tech1], "marches rendues = tables de T.ladder (identité, lue par le planificateur)")
   check(C.ladder_entries(nil) == nil and C.ladder_entries({ ladder = { "coal" } }) == nil, "sans chef ou ordre incomplet : T.ladder (nil)")

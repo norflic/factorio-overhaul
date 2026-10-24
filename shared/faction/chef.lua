@@ -79,8 +79,12 @@ C.CAT_TRAIT = { ext = "ambition", cap = "discipline", tech = "curiosite", fort =
 -- Place au plus tard d'une marche (l'armée : 7e, la 1re attaque contre le joueur dépend de la garnison).
 C.LATEST = { { "army", 7 } }
 -- Prérequis : une marche ne passe jamais devant celles-ci.
-C.AFTER = { iron3 = { "iron2" }, iron4 = { "iron3" }, expand = { "iron4" }, tech2 = { "tech1" }, tech3 = { "tech2" },
-  army2 = { "army" }, oil = { "tech3", "expand" } }
+-- Lot IA2-a, 3e essai en moteur réel : avec la recherche avant le 2e avant-poste de fer, une faction a payé deux
+-- recherches avant son fer II (la recherche suivante continue en fond dès « tech1 » atteint, shared/team/planner.lua)
+-- et s'est effondrée (graine 777, Écarlate : tech 2 à 18 min, plus jamais de fer II, 0 soldat à 60 min). La recherche
+-- et la grande armée suivent l'économie du fer.
+C.AFTER = { iron3 = { "iron2" }, iron4 = { "iron3" }, expand = { "iron4" }, tech1 = { "iron2" }, tech2 = { "tech1" },
+  tech3 = { "tech2", "iron3" }, army2 = { "army", "iron2" }, oil = { "tech3", "expand" } }
 
 ---------------------------------------------------------------------------------------------------
 -- Courbes entières
