@@ -65,7 +65,8 @@ for _, key in ipairs({ "scarlet", "azure", "emerald", "amber" }) do
 end
 check(count_entities("fo-faction-hq") == 4, "4 QG posés")
 check(count_entities("gun-turret") == 16, "16 tourelles de QG")
-check(count_entities("fo-companion") == 8, "2 ouvriers par faction")
+-- Lot IA1-a : effectif de départ fo-npc-start (8, défaut de shared/team/scale.lua ; 2 avant IA1-a).
+check(count_entities("fo-companion") == 32, "8 ouvriers par faction (fo-npc-start)")
 for _, f in ipairs(global.fo.war.factions) do
   check(f.hq.get_item_count("burner-mining-drill") > 0 and f.hq.get_item_count("coal") > 0, f.key .. " : stock de depart dans le QG")
 end

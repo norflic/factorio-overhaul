@@ -12,6 +12,7 @@
 
 local FSM = require("script.core.fsm")
 local T = require("shared.team.config")
+local Scale = require("shared.team.scale")
 local Registry = require("script.companion.registry")
 local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
@@ -43,17 +44,61 @@ local function main_inv(agent) return agent.entity.get_main_inventory() end
 
 -- Place de chacun au QG. Moteur réel (session 4) : tous les ouvriers rentraient au MÊME point ; empilés,
 -- leurs départs suivants se chevauchaient et 150 demandes de chemin échouaient « départ bloqué » (tournées
--- perdues, plaques de fer bloquées dans les fours). Chaque ouvrier a désormais sa case, sur deux anneaux.
-local SLOTS = {}
-for i = 0, 15 do
-  local r = i < 8 and 2.5 or 4.5
-  local a = (i % 8) * math.pi / 4 + (i < 8 and 0 or math.pi / 8)
-  SLOTS[#SLOTS + 1] = { math.cos(a) * r, math.sin(a) * r }
+-- perdues, plaques de fer bloquées dans les fours). Chaque ouvrier a sa case.
+-- Lot IA1-a : 64 cases en TABLE CONSTANTE (Scale.HOME_SLOTS ; 16 cases calculées par cos/sin avant), et une
+-- case ATTRIBUÉE à chaque PNJ (la première libre, rendue à sa disparition) au lieu de « id modulo 16 » : à
+-- 30 PNJ, deux PNJ ne partagent plus une case (F27). Une case couverte par un bâtiment, un arbre ou de l'eau
+-- est marquée « bloquée » (contrôle à la fondation, puis 2 cases par pensée d'équipe, à tour de rôle) : un
+-- PNJ dont la case se bloque en reçoit une autre au prochain retour. Au-delà de 64 PNJ vivants (ou de cases
+-- libres), les cases se partagent (id modulo 64) : réglage maximal 60.
+local SLOTS = Scale.HOME_SLOTS
+
+local function slot_tables(f)
+  f.slot_owner = f.slot_owner or {}
+  f.slot_bad = f.slot_bad or {}
+  return f.slot_owner, f.slot_bad
+end
+
+local function release_slot(f, agent)
+  local i = agent.slot
+  if not i then return end
+  local owner = slot_tables(f)
+  if owner[i] == agent.id then owner[i] = nil end
+  agent.slot = nil
 end
 
 local function home_slot(agent, f)
-  local o = SLOTS[(agent.id - 1) % #SLOTS + 1]
+  local owner, bad = slot_tables(f)
+  local i = agent.slot
+  if not i or bad[i] or (owner[i] ~= nil and owner[i] ~= agent.id) then
+    if i and owner[i] == agent.id then owner[i] = nil end
+    i = Scale.free_slot(bad, owner)
+    if i then owner[i] = agent.id end
+    agent.slot = i
+  end
+  local o = SLOTS[i or ((agent.id - 1) % #SLOTS + 1)]
   return { x = f.home_spot.x + o[1], y = f.home_spot.y + o[2] }
+end
+
+--- Une case est-elle praticable ? Ni eau, ni entité de la couche des objets (bâtiments, arbres, rochers) sous
+--- la boîte d'un corps (0,4 × 0,4, marge 0,1) ; les personnages ne comptent pas (couche des joueurs seule).
+local function slot_ok(surface, p)
+  local area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }
+  if surface.count_tiles_filtered({ area = area, collision_mask = "water-tile", limit = 1 }) > 0 then return false end
+  return surface.count_entities_filtered({ area = area, collision_mask = "object-layer", limit = 1 }) == 0
+end
+
+--- Revalide `count` cases du QG à tour de rôle (toutes si count = nil : fondation). O(count).
+function Worker.check_slots(f, surface, count)
+  local _, bad = slot_tables(f)
+  local n = #SLOTS
+  local k = count or n
+  for _ = 1, k do
+    local i = (f.slot_cursor or 0) % n + 1
+    f.slot_cursor = i
+    local o = SLOTS[i]
+    bad[i] = not slot_ok(surface, { x = f.home_spot.x + o[1], y = f.home_spot.y + o[2] }) or nil
+  end
 end
 
 local function dist2(a, b)
@@ -297,8 +342,22 @@ local function abort(agent, f, tick, reason)
 end
 
 local function goto_step(agent, pos, radius, tick)
-  local p = agent.entity.position
+  local e = agent.entity
+  local p = e.position
   if dist2(p, pos) <= (radius + 1) * (radius + 1) then return true end
+  -- Lot IA1-a : but OCCUPÉ (F28 : 128 échecs « but occupé » en 60 min dans ia0-normal, journal archivé du
+  -- 21/10) : un point d'accès couvert depuis par une foreuse, une case du QG sous un four, un autre PNJ.
+  -- Le but devient le point libre le plus proche (test seulement, aucune entité posée : F26).
+  local surface = e.surface
+  if not surface.can_place_entity({ name = e.name, position = pos }) then
+    local free = surface.find_non_colliding_position(e.name, pos, radius + 6, 0.5)
+    if free then
+      pos = free
+      local f = faction_of(agent)
+      if f and f.stats then f.stats.goal_moved = (f.stats.goal_moved or 0) + 1 end
+      if dist2(p, pos) <= (radius + 1) * (radius + 1) then return true end
+    end
+  end
   agent.walk_radius = radius
   Nav.go(agent, pos, tick, { radius = radius })
   set(agent, "walk", tick)
@@ -505,20 +564,32 @@ FSM.define(MACHINE, {
 
 FSM.observe(MACHINE, function(agent) Render.state_changed(agent) end)
 
---- Recrute un ouvrier au QG, équipé de son arme (l'équipement a déjà été retiré du stock).
 --- Recrute un ouvrier équipé de son kit (déjà retiré du stock), ou SANS arme (secours : unarmed).
-function Worker.recruit(f, surface, tick, unarmed)
-  local agent = Registry.spawn(surface, f.home_spot, f.force, nil, {
+--- free = kit OFFERT (effectif de départ, lot IA1-a) : jamais rendu au coffre quand on renvoie l'équipe.
+function Worker.recruit(f, surface, tick, unarmed, free)
+  -- Lot IA1-a : la recrue naît sur SA case (la première libre), pas au point de rassemblement : 8 recrues
+  -- posées au même point se gênaient au départ (essai court du banc ia1-scale : 15 % d'échecs « départ bloqué »).
+  local owner, bad = slot_tables(f)
+  local i = Scale.free_slot(bad, owner)
+  local o = i and SLOTS[i]
+  local at = o and { x = f.home_spot.x + o[1], y = f.home_spot.y + o[2] } or f.home_spot
+  local agent = Registry.spawn(surface, at, f.force, nil, {
     machine = MACHINE, faction = f.id, behavior = "worker", color = f.color,
   })
   if not agent then return nil end
+  if i then
+    owner[i] = agent.id
+    agent.slot = i
+  end
   local e = agent.entity
   if not unarmed then
     e.get_inventory(defines.inventory.character_guns).insert({ name = T.worker_gun, count = 1 })
     e.get_inventory(defines.inventory.character_ammo).insert({ name = T.worker_ammo, count = T.worker_ammo_keep })
   end
+  if free or unarmed then agent.free_kit = true end
   f.engineers[agent.id] = true
   f.engineers_count = f.engineers_count + 1
+  home_slot(agent, f) -- case attribuée dès le recrutement (lot IA1-a)
   Brain.attach(agent, tick, "idle")
   return agent
 end
@@ -548,6 +619,7 @@ Registry.on_removed(function(agent)
   if not agent.faction then return end
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
+  release_slot(f, agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end

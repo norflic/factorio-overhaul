@@ -13,6 +13,10 @@
 local T = require("shared.team.config")
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
+local Scale = require("shared.team.scale")
+local O = require("shared.team.org")
+local Config = require("script.core.config")
+local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local Military = require("script.faction.military")
@@ -78,9 +82,10 @@ end
 --- que ~1 gisement de chaque minerai par faction (F15) ; certaines équipes n'avaient ni fer ni charbon
 --- accessibles et restaient bloquées dès le 2e objectif.
 local SEED_RADIUS_MAX = 11 -- le plus grand rayon de T.seed_radius (contrôle de l'eau)
-local SEED_DIST = 46
 local SEED_AMOUNT = 3000
-local SEED_ANGLES = { 0.35, 1.9, 3.45, 5.0, 2.7, 4.2, 5.8, 1.1 } -- radians, essayés dans l'ordre
+-- Directions essayées dans l'ordre, à Scale.SEED_DIST (46) tuiles : table CONSTANTE (lot IA1-a ; cos/sin des
+-- angles 0,35 ; 1,9 ; 3,45 ; 5,0 ; 2,7 ; 4,2 ; 5,8 ; 1,1 rad avant, mêmes valeurs à 17 chiffres).
+local SEED_OFFSETS = Scale.SEED_OFFSETS
 
 local function seed_resources(f, surface)
   f.prospects = {}
@@ -88,9 +93,9 @@ local function seed_resources(f, surface)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
     local radius = T.seed_radius[kind] or 8
-    for i, a in ipairs(SEED_ANGLES) do
+    for i, d in ipairs(SEED_OFFSETS) do
       if not used[i] then
-        local c = { x = math.floor(f.hq_pos.x + math.cos(a) * SEED_DIST) + 0.5, y = math.floor(f.hq_pos.y + math.sin(a) * SEED_DIST) + 0.5 }
+        local c = { x = math.floor(f.hq_pos.x + d[1]) + 0.5, y = math.floor(f.hq_pos.y + d[2]) + 0.5 }
         local water = surface.count_tiles_filtered({ position = c, radius = SEED_RADIUS_MAX + 2, collision_mask = "water-tile" })
         if water == 0 then
           used[i] = true
@@ -110,11 +115,39 @@ local function seed_resources(f, surface)
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Taille de l'équipe (lot IA1-a : settings/team.lua, shared/team/scale.lua)
+---------------------------------------------------------------------------------------------------
+--- Maximum de PNJ de l'équipe : votre équipe, fo-player-team-npc-max ; une faction, le nombre donné au
+--- lancement de la guerre, ou fo-team-npc-max (lu à chaque pensée) si la guerre a été lancée sans nombre.
+function Team.npc_max(f)
+  if f.is_player then return Config.get("player_npc_max") end
+  local s = State.war().settings or {}
+  if s.npc_from_setting or not s.engineers_max then return Config.get("npc_max") end
+  return s.engineers_max
+end
+
+--- Époque de l'équipe pour le plafond d'effectif : niveau de recherche + 1 (sans effet sous Q-IA1-2 (2), où le
+--- plafond vaut le maximum dès l'époque 1 ; l'époque réelle des factions arrive au lot IA1-f).
+local function epoch_of(f) return (f.tech or 0) + 1 end
+
+--- Premiers PNJ d'une équipe (kits offerts) : fo-npc-start, borné par le plafond de l'époque 1. Les cases du QG
+--- sont contrôlées avant (fondation ou refondation).
+local function first_workers(f, surface)
+  f.slot_owner, f.slot_bad, f.slot_cursor = {}, {}, 0
+  Worker.check_slots(f, surface)
+  local n = Scale.start_headcount(Config.get("npc_start"), Team.npc_max(f))
+  for _ = 1, n do Worker.recruit(f, surface, game.tick, false, true) end
+  return n
+end
+
 --- Prépare l'équipe d'un QG fraîchement posé : stock de départ, technologies de base, premiers ouvriers.
 function Team.init(f, surface)
   if f.is_player then
     -- Équipe du joueur : aucun stock offert, aucune technologie débloquée (le joueur recherche lui-même),
     -- les gisements sont ceux de la carte ; les ouvriers sont recrutés avec des équipements du coffre.
+    -- Lot IA1-a (Q-IA1-2 (2), « même règle pour votre équipe ») : fo-npc-start PNJ offerts à la pose du coffre
+    -- (kits jamais rendus par « /fo-team dismiss »), puis les recrues se paient au coffre.
     f.team = {
       done = {}, goal = nil, missing = {}, board = { tasks = {}, cooldown = {} },
       delivered = {}, consumed = {}, task_stats = {}, fail_reasons = {}, collected = 0,
@@ -125,6 +158,7 @@ function Team.init(f, surface)
     f.prospects = f.prospects or {}
     f.home_spot = surface.find_non_colliding_position("fo-companion", { x = f.hq_pos.x, y = f.hq_pos.y + 3 }, 20, 0.5)
       or { x = f.hq_pos.x, y = f.hq_pos.y + 3 }
+    first_workers(f, surface)
     return
   end
   f.team = {
@@ -148,7 +182,7 @@ function Team.init(f, surface)
   Outposts.place_smelters(f, surface, T.start_smelters, tmp)
   for name, n in pairs(tmp.get_contents()) do inv2.insert({ name = name, count = n }) end
   tmp.destroy()
-  for _ = 1, T.start_workers do Worker.recruit(f, surface, game.tick) end
+  first_workers(f, surface) -- lot IA1-a : fo-npc-start (8) au lieu de T.start_workers (2)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -157,7 +191,12 @@ end
 function Team.view(f, tick)
   local war = State.war()
   local soldiers_max = f.is_player and 0 or war.settings.soldiers_max
-  local workers_max = f.is_player and T.player_workers_max or war.settings.engineers_max
+  -- Lot IA1-a : plafond d'effectif de l'époque (Q-IA1-2 (2) : le maximum dès l'époque 1), recrue au prix
+  -- O.recruit_cost, recrutement suspendu au-delà de fo-agents-max agents riches (garde comptée en agents).
+  local workers_max = Team.npc_max(f)
+  local workers_wanted = Scale.workers_wanted(epoch_of(f), workers_max)
+  local recruit_cost = Scale.recruit_cost(f.engineers_count)
+  local recruit_blocked = Registry.count() >= Config.get("agents_max")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
@@ -186,10 +225,31 @@ function Team.view(f, tick)
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = Worker.idle_count(f),
+    workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     ladder = f.is_player and T.player_ladder or nil, no_research = f.is_player or false,
     threatened = tick < (f.threatened_until or 0),
     open = Board.open(f),
   }
+end
+
+---------------------------------------------------------------------------------------------------
+-- Mesures publiées (lot IA1-a, docs/EQUIPES_PNJ.md §16) : inactivité RÉELLE (PNJ sans tâche à la pensée) et
+-- exécutants AU-DELÀ DU CARNET (O.pole_targets : travail ouvert + restant à l'horizon de 5 min), séparément.
+-- Cumulées par pensée dans f.team.scale (lues par l'interface « fo-ia1 » ; moyennes = sommes / pensées).
+---------------------------------------------------------------------------------------------------
+function Team.measure(f, view, tick)
+  local b = Board.get(f)
+  local orientation = f.is_player and "equilibre" or (O.PERSONALITY[f.personality] or "equilibre")
+  local m = Scale.metrics(b.list, f.engineers_count, view.workers_idle or 0, orientation, view.threatened, tick)
+  local acc = f.team.scale or { thinks = 0, n_sum = 0, idle_sum = 0, surplus_sum = 0, backlog_sum = 0 }
+  f.team.scale = acc
+  acc.thinks = acc.thinks + 1
+  acc.n_sum = acc.n_sum + m.n
+  acc.idle_sum = acc.idle_sum + m.idle
+  acc.surplus_sum = acc.surplus_sum + m.surplus
+  acc.backlog_sum = acc.backlog_sum + m.backlog_s
+  acc.last = m
+  return m
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -237,12 +297,23 @@ function Team.think(f, surface, tick)
   Board.sync(f, plan.tasks, tick)
   Profiler.stop("team:board")
 
+  -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
+  -- à tour de rôle.
+  Profiler.start("team:scale")
+  Team.measure(f, view, tick)
+  Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
+  if plan.recruit_blocked then f.stats.recruit_guard = (f.stats.recruit_guard or 0) + 1 end
+  Profiler.stop("team:scale")
+
   -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris).
   local stock = stock_of(f)
-  if plan.recruit_workers and has_list(stock, T.kits.worker) then
-    remove_list(f, T.kits.worker)
-    if not Worker.recruit(f, surface, tick) then
-      for _, it in ipairs(T.kits.worker) do f.hq.insert({ name = it[1], count = it[2] }) end
+  local cost = view.recruit_cost
+  if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, cost) then
+    remove_list(f, cost)
+    if Worker.recruit(f, surface, tick) then
+      f.stats.recruited = (f.stats.recruited or 0) + 1
+    else
+      for _, it in ipairs(cost) do f.hq.insert({ name = it[1], count = it[2] }) end
     end
     stock = stock_of(f)
   elseif plan.recruit_unarmed and f.engineers_count == 0 then
@@ -318,10 +389,15 @@ function Team.status_line(f)
   local fr = {}
   for _, k in ipairs(State.sorted_keys(t.fail_reasons)) do fr[#fr + 1] = k .. ":" .. t.fail_reasons[k] end
   local d = t.delivered or {}
-  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d",
+  -- Lot IA1-a : effectif / plafond, recrues payées, garde d'agents, mesures de la dernière pensée.
+  local m = t.scale and t.scale.last
+  local st = f.stats or {}
+  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d | effectif %d/%d (recrues %d, garde %d) | inactifs %s | au-dela du carnet %s",
     t.goal or "aucun (echelle gravie)", table.concat(missing, " "), table.concat(parts, " "), open, taken,
     table.concat(ws, " "), table.concat(ts, ", "), table.concat(fr, " "), t.collected or 0, t.trained or 0,
-    d["iron-plate"] or 0, d["copper-plate"] or 0, d["coal"] or 0, d["iron-ore"] or 0)
+    d["iron-plate"] or 0, d["copper-plate"] or 0, d["coal"] or 0, d["iron-ore"] or 0,
+    f.engineers_count or 0, Team.npc_max(f), st.recruited or 0, st.recruit_guard or 0,
+    m and (m.idle .. "/" .. m.n) or "?", m and tostring(m.surplus) or "?")
 end
 
 return Team

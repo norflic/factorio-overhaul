@@ -7,6 +7,7 @@
 ]]
 
 local Events = require("script.core.events")
+local Scale = require("shared.team.scale")
 
 local Config = {}
 
@@ -16,6 +17,16 @@ local KEYS = {
   brain_period = "fo-companion-brain-period",
   path_max_inflight = "fo-path-max-inflight",
 }
+-- Lot IA1-a (settings/team.lua) : lus par Scale.read, qui rend le défaut (shared/team/scale.lua) d'un réglage
+-- absent (moteur simulé des tests hors jeu) et borne la valeur.
+local TEAM_KEYS = {
+  factions = "fo-factions",
+  npc_max = "fo-team-npc-max",
+  player_npc_max = "fo-player-team-npc-max",
+  npc_start = "fo-npc-start",
+  agents_max = "fo-agents-max",
+  path_issue_per_tick = "fo-path-issue-per-tick",
+}
 
 local cache = nil
 
@@ -24,6 +35,10 @@ local function refresh()
   local c = {}
   for key, setting_name in pairs(KEYS) do
     c[key] = g[setting_name].value
+  end
+  local function get(name) return g[name].value end
+  for key, setting_name in pairs(TEAM_KEYS) do
+    c[key] = Scale.read(setting_name, get)
   end
   cache = c
 end

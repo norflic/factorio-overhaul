@@ -20,6 +20,9 @@ T.start_kit = {
 }
 T.start_smelters = 2       -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
 T.hq_inventory = 200
+-- Avant IA1-a : 2 ouvriers de départ et « 2 + 1 par avant-poste » (T.workers_wanted). Depuis IA1-a, le départ
+-- est le réglage fo-npc-start (8) et le plafond fo-team-npc-max (shared/team/scale.lua) ; ces valeurs ne servent
+-- plus qu'aux vues construites sans les champs IA1-a (tests d'avant IA1-a).
 T.start_workers = 2
 
 ---------------------------------------------------------------------------------------------------
@@ -132,7 +135,7 @@ T.player_ladder = {
   { key = "iron3",    need = { outposts = { iron = 3, copper = 2, coal = 3, stone = 2 } } },
   { key = "expand",   need = { outposts = { iron = 4, copper = 3, coal = 4 } } },
 }
-T.player_workers_max = 8
+T.player_workers_max = 8 -- avant IA1-a ; remplacé par le réglage fo-player-team-npc-max (30)
 
 -- Patience : un objectif sans progrès pendant 12 min est mis de côté 15 min (gisement introuvable, chemin
 -- impossible...) ; l'équipe passe au suivant au lieu de rester bloquée.

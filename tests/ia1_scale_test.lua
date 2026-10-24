@@ -1,0 +1,307 @@
+--[[
+  Tests hors jeu du lot IA1-a « Échelle 30 » (docs/EQUIPES_PNJ.md §16 ; shared/team/scale.lua).
+  Usage, depuis la racine du mod :   lua5.2 tests/ia1_scale_test.lua
+
+  Vérifie : réglages (défauts, bornes, lecture d'un réglage absent), plafond « 30 dès l'époque 1 » (Q-IA1-2 (2)),
+  effectif de départ, coût d'une recrue, cases du QG (au moins 36, distinctes, espacées, exactes en virgule fixe),
+  directions des gisements identiques à l'ancien calcul trigonométrique, aucune trigonométrie restante dans
+  worker.lua et team.lua, prise de tâche en un passage identique à l'ancien Board.claim (tableaux tirés au
+  hasard), correctif `pairs` du cerveau (besoins de stock dans l'ordre des noms), règle de recrutement du
+  cerveau (stock, garde d'agents, secours), mesures publiées (inactivité réelle et au-delà du carnet,
+  séparées), puis, moteur simulé : guerre lancée sans nombre d'ouvriers (réglage 30), montée à 30 payée par le
+  stock, cases uniques, plafond d'émission des demandes de chemin (2 par tick, 6 en vol), déterminisme.
+]]
+
+package.path = "./?.lua;" .. package.path
+local S = require("shared.team.scale")
+local O = require("shared.team.org")
+local T = require("shared.team.config")
+local Planner = require("shared.team.planner")
+local Book = require("shared.team.book")
+
+local passes, failures = 0, 0
+local function check(cond, msg)
+  if cond then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. msg) end
+end
+local function section(name) print("== " .. name) end
+
+---------------------------------------------------------------------------------------------------
+section("Réglages : défauts et bornes (docs §11, commande du lot)")
+local want = {
+  ["fo-factions"] = { 4, 2, 4 }, ["fo-team-npc-max"] = { 30, 6, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
+  ["fo-npc-start"] = { 8, 2, 30 }, ["fo-agents-max"] = { 300, 50, 600 }, ["fo-path-issue-per-tick"] = { 2, 1, 6 },
+}
+local seen = 0
+for _, s in ipairs(S.SETTINGS) do
+  local w = want[s.name]
+  check(w ~= nil, "réglage attendu : " .. s.name)
+  if w then
+    seen = seen + 1
+    check(s.default == w[1] and s.min == w[2] and s.max == w[3],
+      string.format("%s : %d (%d à %d)", s.name, s.default, s.min, s.max))
+  end
+end
+check(seen == 6, "6 réglages déclarés (" .. seen .. ")")
+check(S.read("fo-team-npc-max", function() error("absent") end) == 30, "réglage absent : défaut")
+check(S.read("fo-team-npc-max", function() return nil end) == 30, "réglage nil : défaut")
+check(S.read("fo-team-npc-max", function() return 100 end) == 60, "valeur bornée au maximum")
+check(S.read("fo-npc-start", function() return 1 end) == 2, "valeur bornée au minimum")
+check(S.read("fo-npc-start", function() return 12.7 end) == 12, "valeur entière")
+
+---------------------------------------------------------------------------------------------------
+section("Effectifs : « 30 dès l'époque 1 », départ, coût d'une recrue")
+for epoch = 1, 15 do
+  check(S.cap(epoch, 30) == 30, "plafond 30 à l'époque " .. epoch)
+end
+check(S.cap(1, 60) == 60 and S.cap(1, 6) == 6, "plafond = maximum réglé (6 et 60)")
+check(S.start_headcount(8, 30) == 8, "départ 8 pour 30")
+check(S.start_headcount(8, 6) == 6, "départ borné par le maximum (6)")
+check(S.start_headcount(30, 30) == 30, "départ 30 (option 3 de Q-IA1-2, par réglage)")
+local c29 = S.recruit_cost(29)
+local iron29
+for _, it in ipairs(c29) do if it[1] == "iron-plate" then iron29 = it[2] end end
+check(iron29 == 39, "recrue à 29 PNJ : 39 plaques de fer en plus du kit (docs §9)")
+-- Montée 8 -> 30 : 22 recrues, 627 fer hors kits (docs §1, Q-IA1-2).
+local iron = 0
+for n = 8, 29 do iron = iron + 10 + n end
+check(iron == 627, "montée 8 -> 30 : 627 plaques de fer hors kits (" .. iron .. ")")
+
+---------------------------------------------------------------------------------------------------
+section("Cases du QG : table constante")
+local slots = S.HOME_SLOTS
+check(#slots >= S.SLOTS_REQUIRED and S.SLOTS_REQUIRED == 36, "au moins 36 cases (" .. #slots .. ")")
+local min_d, dup, exact = 99, 0, true
+for i = 1, #slots do
+  local a = slots[i]
+  if a[1] * 8 ~= math.floor(a[1] * 8) or a[2] * 8 ~= math.floor(a[2] * 8) then exact = false end
+  for j = i + 1, #slots do
+    local b = slots[j]
+    local dx, dy = a[1] - b[1], a[2] - b[2]
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d < min_d then min_d = d end
+    if d == 0 then dup = dup + 1 end
+  end
+end
+check(dup == 0, "cases distinctes")
+check(min_d >= 1.5, string.format("écart minimal entre cases >= 1,5 tuile (%.2f)", min_d))
+check(exact, "coordonnées multiples de 1/8 (exactes en virgule fixe 1/256, F92)")
+local owner, bad = {}, {}
+bad[1], bad[3] = true, true
+owner[2] = 7
+check(S.free_slot(bad, owner) == 4, "première case libre : ni bloquée ni prise")
+
+---------------------------------------------------------------------------------------------------
+section("Gisements de départ : directions constantes = ancien calcul")
+local ANGLES = { 0.35, 1.9, 3.45, 5.0, 2.7, 4.2, 5.8, 1.1 }
+local same = true
+for i, a in ipairs(ANGLES) do
+  local d = S.SEED_OFFSETS[i]
+  if d[1] ~= math.cos(a) * 46 or d[2] ~= math.sin(a) * 46 then same = false end
+end
+check(same and #S.SEED_OFFSETS == 8, "8 directions identiques au bit près à cos/sin × 46")
+
+section("Aucune trigonométrie restante (worker.lua, team.lua)")
+for _, path in ipairs({ "script/team/worker.lua", "script/team/team.lua" }) do
+  local fh = io.open(path, "r")
+  local src = fh:read("*a")
+  fh:close()
+  local code = src:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+  check(not code:find("math%.cos") and not code:find("math%.sin") and not code:find("math%.pi"), path .. " sans cos/sin/pi")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Prise de tâche en un passage = ancien Board.claim")
+-- Ancien Board.claim (avant IA1-a) : clés triées, la plus haute priorité, à égalité la plus petite clé.
+local function old_claim(tasks)
+  local ks = {}
+  for k in pairs(tasks) do ks[#ks + 1] = k end
+  table.sort(ks)
+  local best
+  for _, k in ipairs(ks) do
+    local t = tasks[k]
+    if not t.worker and (not best or t.prio > best.prio) then best = t end
+  end
+  return best
+end
+local KINDS = { "craft", "build", "extend", "service", "refill", "fortify", "smelters", "smelt", "mine" }
+local PRIOS = { 25, 30, 35, 40, 45, 50, 52, 55, 60, 65, 70, 75, 78, 80, 85, 90, 95 }
+local seed = 12345
+local function rnd(n)
+  seed = (seed * 1103515245 + 12345) % 2147483648
+  return seed % n + 1
+end
+local agree, draws = 0, 2000
+for _ = 1, draws do
+  local tasks, list = {}, {}
+  for i = 1, rnd(40) - 1 do
+    local key = KINDS[rnd(#KINDS)] .. ":" .. rnd(30)
+    if not tasks[key] then
+      local t = { key = key, kind = key:match("^[^:]+"), prio = PRIOS[rnd(#PRIOS)] }
+      if rnd(4) == 1 then t.worker = 1 end
+      tasks[key] = t
+    end
+  end
+  local ks = {}
+  for k in pairs(tasks) do ks[#ks + 1] = k end
+  table.sort(ks)
+  for _, k in ipairs(ks) do list[#list + 1] = tasks[k] end
+  O.sort_tasks(list)
+  local i = O.pick_task({ role = "generalist" }, list)
+  local new = i and list[i] or nil
+  if new == old_claim(tasks) then agree = agree + 1 end
+end
+check(agree == draws, string.format("même tâche que l'ancien Board.claim sur %d tableaux tirés (%d)", draws, agree))
+
+---------------------------------------------------------------------------------------------------
+section("Cerveau : besoins de stock dans l'ordre des noms (correctif pairs)")
+local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+local function base_view(over)
+  local v = {
+    tech = 0, personality = "balanced", done = {}, deferred = {}, stock = {}, incoming = {},
+    outposts = {}, pending = {}, sites = {}, smelters = 0, smelters_pending = 0, smelter_task = false,
+    smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0, turret_groups = {},
+    soldiers = 0, soldiers_max = 100, workers = 8, workers_max = 30, workers_idle = 0, threatened = false, open = {},
+  }
+  for k, x in pairs(over or {}) do v[k] = x end
+  return v
+end
+-- Deux tables de besoins identiques construites dans des ordres différents (et perturbées par des clés
+-- ajoutées puis retirées) : l'ordre de `pairs` peut différer, le plan ne doit pas.
+local stockA = {}
+stockA["stone-brick"] = 10; stockA["firearm-magazine"] = 5; stockA["iron-gear-wheel"] = 7
+local stockB = {}
+for i = 1, 40 do stockB["x" .. i] = i end
+stockB["iron-gear-wheel"] = 7; stockB["firearm-magazine"] = 5; stockB["stone-brick"] = 10
+for i = 1, 40 do stockB["x" .. i] = nil end
+local plates = { ["iron-plate"] = 400, ["copper-plate"] = 100, coal = 100, stone = 100 }
+local p1 = Planner.plan(base_view({ ladder = { { key = "multi", need = { stock = stockA } } }, no_research = true, stock = plates }), book)
+local p2 = Planner.plan(base_view({ ladder = { { key = "multi", need = { stock = stockB } } }, no_research = true, stock = plates }), book)
+local function keys_of(plan)
+  local out = {}
+  for _, t in ipairs(plan.tasks) do out[#out + 1] = t.key end
+  local m = {}
+  for _, x in ipairs(plan.missing) do m[#m + 1] = x[1] .. "x" .. x[2] end
+  return table.concat(out, ",") .. "|" .. table.concat(m, ",")
+end
+check(keys_of(p1) == keys_of(p2), "deux pensées identiques : mêmes tâches et mêmes manques")
+local crafts = {}
+for _, t in ipairs(p1.tasks) do if t.kind == "craft" and t.tag == "objectif" then crafts[#crafts + 1] = t.item end end
+check(#crafts >= 2, "plusieurs objets de stock servis (" .. table.concat(crafts, ",") .. ")")
+
+section("Cerveau : recrutement (stock, garde d'agents, secours)")
+local cost = S.recruit_cost(8)
+local rich = { ["iron-plate"] = 500, pistol = 3, ["firearm-magazine"] = 50, coal = 100 }
+local pr = Planner.plan(base_view({ stock = rich, workers_wanted = 30, recruit_cost = cost }), book)
+check(pr.recruit_workers == 1 and not pr.recruit_unarmed, "stock suffisant : une recrue payée")
+local pb = Planner.plan(base_view({ stock = rich, workers_wanted = 30, recruit_cost = cost, recruit_blocked = true }), book)
+check(not pb.recruit_workers and pb.recruit_blocked, "garde d'agents : aucune recrue")
+local p0 = Planner.plan(base_view({ workers = 0, workers_wanted = 30, recruit_cost = cost, recruit_blocked = true }), book)
+check(p0.recruit_workers == 1 and p0.recruit_unarmed, "garde d'agents, équipe vide : embauche de secours sans arme")
+local pf = Planner.plan(base_view({ workers = 30, stock = rich, workers_wanted = 30, recruit_cost = S.recruit_cost(30) }), book)
+check(not pf.recruit_workers, "plafond atteint : aucune recrue")
+local poor = Planner.plan(base_view({ stock = { ["iron-plate"] = 20 }, workers_wanted = 30, recruit_cost = cost }), book)
+check(not poor.recruit_workers, "stock insuffisant : pas de recrue (le stock freine)")
+local legacy = Planner.plan(base_view({ stock = rich, workers = 1, workers_max = 10 }), book)
+check(legacy.recruit_workers == 1, "vue sans champs IA1-a : règle d'avant (2 + avant-postes)")
+
+---------------------------------------------------------------------------------------------------
+section("Mesures publiées : inactivité réelle et au-delà du carnet, séparées")
+local m0 = S.metrics({}, 30, 30, "equilibre", false, 0)
+check(m0.surplus == 30 and m0.idle == 30 and m0.idle_pct == 100, "aucun travail : 30 au-delà du carnet, 30 inactifs")
+local busy = {}
+for i = 1, 30 do busy[i] = { kind = "garrison", worker = i, claimed = 0 } end -- 300 s chacune, en cours
+local m1 = S.metrics(busy, 30, 0, "equilibre", false, 0)
+check(m1.idle == 0 and m1.surplus == 0, "30 tâches longues en cours : 0 inactif, 0 au-delà du carnet")
+local m2 = S.metrics(busy, 30, 0, "equilibre", false, 290 * 60)
+check(m2.idle == 0 and m2.surplus > 0, "mêmes tâches presque finies : 0 inactif mais " .. m2.surplus .. " au-delà du carnet")
+
+---------------------------------------------------------------------------------------------------
+section("Moteur simulé : guerre lancée sans nombre d'ouvriers (réglage 30)")
+local M = require("tests.mock_engine")
+local function patches() -- même carte que tests/war_test.lua (gisements autour des 4 QG à 320 tuiles)
+  local out = {}
+  local d = 0.7071
+  local corners = { { d, -d }, { d, d }, { -d, d }, { -d, -d } }
+  local dirs = { { 1, 0 }, { 0.866, 0.5 }, { 0.5, 0.866 }, { 0, 1 }, { -0.5, 0.866 }, { -0.866, 0.5 },
+    { -1, 0 }, { -0.866, -0.5 }, { -0.5, -0.866 }, { 0, -1 }, { 0.5, -0.866 }, { 0.866, -0.5 } }
+  local names = { "coal", "iron-ore", "copper-ore", "stone" }
+  for _, c in ipairs(corners) do
+    local hx, hy = c[1] * 320, c[2] * 320
+    for ri, r in ipairs({ 40, 64, 88 }) do
+      for di, v in ipairs(dirs) do
+        out[#out + 1] = { x = hx + v[1] * r, y = hy + v[2] * r, name = names[(ri + di) % 4 + 1] }
+      end
+    end
+  end
+  return out
+end
+local function run_war(minutes)
+  M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  local ok = remote.call("factorio-overhaul", "war_start", 4, 100, nil, 320)
+  check(ok == true, "war_start sans nombre d'ouvriers")
+  local w = global.fo.war
+  check(w.settings.npc_from_setting == true and w.settings.engineers_max == 30, "taille suivie du réglage (30)")
+  local start = 0
+  for _, f in ipairs(w.factions) do start = start + f.engineers_count end
+  check(start == 32, "8 PNJ par faction au départ (" .. start .. ")")
+  remote.call("factorio-overhaul", "war_fund", 3000)
+  local okr, err = pcall(M.run_ticks, minutes * 3600)
+  check(okr, "simulation sans erreur (" .. tostring(err) .. ")")
+  return w
+end
+local w = run_war(12)
+local all30, uniq, paid = true, true, true
+for _, f in ipairs(w.factions) do
+  if f.engineers_count < 27 then all30 = false end
+  print(string.format("  %s : %d PNJ, %d recrues payées, garde %d", f.key, f.engineers_count, f.stats.recruited or 0, f.stats.recruit_guard or 0))
+  local used = {}
+  for _, id in ipairs(require("script.faction.state").sorted_keys(f.engineers)) do
+    local a = require("script.companion.registry").get(id)
+    if a then
+      if not a.slot or used[a.slot] then uniq = false end
+      if a.slot then used[a.slot] = true end
+    end
+  end
+  if (f.stats.recruited or 0) < f.engineers_count - 8 then paid = false end
+end
+check(all30, "chaque faction atteint au moins 27 PNJ (90 % de 30) en 12 min, stock financé")
+check(uniq, "une case du QG par PNJ vivant (aucun partage)")
+check(paid, "toute recrue au-delà des 8 de départ est payée")
+local rows = remote.call("fo-ia1", "teams")
+check(#rows == 4 and rows[1].thinks > 0 and rows[1].last ~= nil, "interface fo-ia1 : 4 équipes mesurées")
+local path = remote.call("fo-ia1", "path")
+check(path.inflight_max <= 6, "au plus 6 demandes de chemin en vol (" .. path.inflight_max .. ")")
+check(pcall(M.serialize, global), "global sérialisable")
+
+section("Moteur simulé : au plus 2 demandes émises par tick")
+do
+  local PathService = require("script.core.path_service")
+  local got = 0
+  PathService.register_handler("ia1-test", function() got = got + 1 end)
+  local before = global.fo.path.stats.issued
+  -- 20 demandes d'un coup : un tick n'en émet que 2.
+  for i = 1, 20 do
+    PathService.request("ia1-test", i, { surface = 1, proto = "fo-companion", start = { x = 0, y = 0 },
+      goal = { x = 50 + i, y = 0 }, force = "player", radius = 1, flags = {}, res = 0 })
+  end
+  M.run_ticks(1)
+  local issued1 = global.fo.path.stats.issued - before
+  check(issued1 <= 2, "1 tick : au plus 2 émissions (" .. issued1 .. ")")
+  M.run_ticks(60)
+  check(global.fo.path.stats.inflight_max <= 6, "en vol : jamais plus de 6")
+end
+
+section("Déterminisme : deux guerres identiques")
+local function snapshot()
+  local w2 = run_war(3)
+  local parts = {}
+  for _, f in ipairs(w2.factions) do
+    parts[#parts + 1] = f.key .. ":" .. f.engineers_count .. ":" .. (f.stats.recruited or 0) .. ":" .. f.hq.get_item_count("iron-plate")
+  end
+  return table.concat(parts, ";")
+end
+local s1, s2 = snapshot(), snapshot()
+check(s1 == s2, "même état après 3 min (" .. s1 .. ")")
+
+print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
+os.exit(failures == 0 and 0 or 1)

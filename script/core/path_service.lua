@@ -2,9 +2,12 @@
   Service de pathfinding partagé (compagnons aujourd'hui, faction IA demain).
 
   Pourquoi un service plutôt que des appels directs à LuaSurface.request_path :
-  - Le pathfinder moteur est UNE ressource partagée avec les biters : par défaut il n'accepte que
-    10 nouvelles requêtes par tick (map_settings.path_finder.max_clients_to_accept_any_new_request) et
-    1 000 nœuds développés par tick. Sans plafond côté script, une armée IA affame les biters et inversement.
+  - Le pathfinder moteur est UNE ressource partagée avec les biters : il sert sans condition tant que
+    10 CLIENTS au plus sont en cours de service (map_settings.path_finder.max_clients_to_accept_any_new_request ;
+    ce n'est pas un nombre de requêtes par tick : lot IA1-a, docs/EQUIPES_PNJ.md §12), puis seulement les
+    requêtes courtes jusqu'à 100 clients, et développe 1 000 nœuds par tick pour tous. Sans plafond côté script,
+    une armée IA affame les biters et inversement : au plus fo-path-max-inflight demandes du mod en vol (6) et
+    fo-path-issue-per-tick émises par tick (2).
   - Les résultats arrivent de façon asynchrone (on_script_path_request_finished) : il faut une table
     "en vol" persistante, un ticket anti-résultat-périmé, des relances sur "try_again_later" et un timeout.
 
@@ -193,7 +196,16 @@ local function pump(tick)
   local P = Storage.ns("path")
   if P.head > P.tail then return end
   local max_inflight = Config.get("path_max_inflight")
-  while P.inflight_count < max_inflight and P.head <= P.tail do
+  -- Lot IA1-a : au plus fo-path-issue-per-tick demandes ÉMISES par tick (lissage des pointes : une armée qui
+  -- part, des PNJ qui se débloquent ensemble), en plus de la limite des demandes en vol. Suivi : taille de la
+  -- file et demandes en vol au plus haut (docs/EQUIPES_PNJ.md §12), émissions par tick au plus haut.
+  local per_tick = Config.get("path_issue_per_tick")
+  local st0 = P.stats
+  local waiting = P.tail - P.head + 1
+  if waiting > (st0.queue_max or 0) then st0.queue_max = waiting end
+  local issued_now = 0
+  while P.inflight_count < max_inflight and P.head <= P.tail and issued_now < per_tick do
+    issued_now = issued_now + 1
     local req = P.queue[P.head]
     P.queue[P.head] = nil
     P.head = P.head + 1
@@ -224,11 +236,13 @@ local function pump(tick)
       P.inflight[id] = { req = req, t0 = tick }
       P.inflight_count = P.inflight_count + 1
       P.stats.issued = P.stats.issued + 1
+      if P.inflight_count > (P.stats.inflight_max or 0) then P.stats.inflight_max = P.inflight_count end
     else
       P.stats.dropped = P.stats.dropped + 1
       deliver(req, nil, "dropped", tick)
     end
   end
+  if issued_now > (st0.issued_tick_max or 0) then st0.issued_tick_max = issued_now end
   if P.head > P.tail then
     P.head = 1
     P.tail = 0

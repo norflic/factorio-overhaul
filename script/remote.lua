@@ -62,7 +62,8 @@ end
 remote.add_interface("factorio-overhaul", {
   war_start = function(n, soldiers, engineers, distance)
     local s = surface()
-    local ok = War.start_at(s, game.forces.player.get_spawn_position(s), n or 4, soldiers or 100, engineers or 10, distance or F.defaults.distance)
+    -- Lot IA1-a : sans nombre d'ouvriers (nil), la taille suit le réglage fo-team-npc-max (30 par défaut).
+    local ok = War.start_at(s, game.forces.player.get_spawn_position(s), n or 4, soldiers or 100, engineers, distance or F.defaults.distance)
     return ok and true or false
   end,
   war_fund = function(amount)

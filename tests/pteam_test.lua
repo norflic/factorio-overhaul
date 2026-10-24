@@ -44,7 +44,9 @@ local ok, err = pcall(M.run_ticks, 10 * 3600)
 check(ok, "simulation sans erreur (" .. tostring(err) .. ")")
 f = global.fo.pteam.team
 print("  " .. require("script.team.team").status_line(f))
-check(f.engineers_count >= 2, "ouvriers recrutés avec les équipements du coffre (" .. f.engineers_count .. ")")
+-- Lot IA1-a : 8 PNJ offerts à la pose (fo-npc-start) ; les suivants sont PAYÉS avec le contenu du coffre.
+check(f.engineers_count >= 2 and (f.stats.recruited or 0) >= 1,
+  "ouvriers recrutés avec les équipements du coffre (" .. f.engineers_count .. ", dont " .. tostring(f.stats.recruited) .. " payés)")
 check(f.outposts_count >= 2, "avant-postes construits (" .. f.outposts_count .. ")")
 check(f.team.done.coal and f.team.done.iron, "objectifs Charbon et Fer atteints")
 check((f.team.task_stats.service and f.team.task_stats.service.ok or 0) > 0, "tournées d'entretien")
