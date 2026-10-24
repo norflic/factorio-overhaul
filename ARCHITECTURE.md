@@ -684,6 +684,10 @@ mesuré sur l'OGG livré, jamais au-dessus de la vanilla ; timbre plus grave à 
 reproductibles (F154) ; `sons.py --check`. Règle « sons » du harness (`tests/datastage/sounds.lua`) : tout son cité
 existe, au bon format et au bon en-tête (un son manquant bloque le jeu au menu, F151). Sessions de test avec son :
 `FO_AUDIO=1`, pilote SDL `disk` pour le seul jeu de test, garde de crête `tools/autotest/audio_guard.py` (CLAUDE.md §4).
+Depuis S0-suite (0.4.8) : la règle « sons » relit tout le flux Ogg (codec Vorbis, en-têtes, pages, fin de flux ;
+`tests/datastage/mut_sons.py`, témoins dans `tests/datastage/fixtures/`) ; volume du prototype par ère dans `sons.lua`
+(`tools/sound/rafales.py`, contrat « distribution », D-11) ; banc du tir JOUÉ : scénario `s0-tir` + `tools/sound/tirs_joues.py`
+(analyse de la sortie du pilote `disk`, F155).
 
 ## 8. Chaîne de vérification
 

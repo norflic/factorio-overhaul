@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.8
+Date: 2026-10-24
+  Sounds:
+    - Tir de la mitrailleuse : volume réglé par ère (0,2 à 0,4 dB plus bas aux ères I à IV), pour que les rafales
+      restent nettement sous celles du jeu de base.
+  Changes:
+    - Le banc de l'étape data relit chaque fichier son en entier (format Vorbis, fichier complet) ; un banc prouve
+      que le tir de chaque ère est bien joué en jeu.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.7
 Date: 2026-10-23
   Sounds:
