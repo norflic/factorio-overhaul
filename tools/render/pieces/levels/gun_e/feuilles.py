@@ -116,7 +116,14 @@ COMMANDE = ("py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la r
 # fo-logs/2026-10-24_A3-jeu/hors-regle-1.png, hors-regle-2.png, e03-d06-trou-x3.png ; jour mécanique entre culasse et
 # bobine, ou entre bobine et coque ; verdict du DC NON rendu). Liste par DÉFAUT, pour que la commande sans option du
 # MANIFEST régénère exactement les feuilles commitées ; --hors-regle-ok en AJOUTE, --hors-regle-ok aucun la vide.
-HORS_REGLE_OK_DEFAUT = ("e03-tete-d06", "e03-tete-d51", "e03-tete-d58", "e03-tete-d59", "e06-tete-d54")
+# Lot A3-final (24/10, après la fin de la production à 11:59) : e11-tete-d07 (27 px), d22 (9 px), d33 (13 px) REGARDÉES
+# (fo-logs/2026-10-24_A3-final/trous-e11-d07.png, trous-e11-d22.png, trous-e11-d33.png, trous-e11-d33-x10.png, avec
+# leurs voisines) : d07 et d22, fente fine entre la base d'une ailette et le faisceau de canons, la même que chez les
+# voisines d06, d08, d23 (sous leur plafond) ; d33, fente de 1 à 2 px sur 11 px entre la petite ailette droite de la
+# bouche et le manchon (trous-e11-d33-marque-x10.png, trou en vert). Jours mécaniques plausibles, aucun manque de
+# matière ; verdict du DC NON rendu.
+HORS_REGLE_OK_DEFAUT = ("e03-tete-d06", "e03-tete-d51", "e03-tete-d58", "e03-tete-d59", "e06-tete-d54",
+                        "e11-tete-d07", "e11-tete-d22", "e11-tete-d33")
 # Éclat à 64 directions (correction M-1 de la vérification du lot A3-jeu, 24/10) : une direction ÉCARTÉE du réglage par
 # ajuste_robuste() (bouche jugée mal mesurée) sort du contrôle chiffré ; elle n'est donc admise que si quelqu'un a
 # REGARDÉ l'éclat prévu dans cette direction (planche eclat64.py --couleur, et tir en jeu quand il est joué) et l'a
