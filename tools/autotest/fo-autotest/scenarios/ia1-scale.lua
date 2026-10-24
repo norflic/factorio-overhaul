@@ -5,7 +5,8 @@
 
   Préparation (au tick 0, dans la carte créée) :
     - PvP « Paisible » (comme les scénarios de guerre intégrés : comparable à ia0-normal et à E17-E22) ;
-    - guerre lancée SANS nombre d'ouvriers : la taille suit fo-team-npc-max (30) ; 8 PNJ offerts par faction ;
+    - guerre lancée SANS nombre d'ouvriers : la taille suit fo-war-workers, réglé à 30 par le banc (défaut 4,
+      réglage de 0.4.15) ; 8 PNJ offerts par faction ;
     - chaque faction reçoit 2 500 plaques de fer (et 625 cuivre, 1 250 charbon, 1 250 pierre, War.fund) : de
       quoi payer les 22 recrues (1 617 fer et 110 cuivre, kits compris) ; SANS ce financement, la montée
       dépend de l'économie de départ (non mesurée ici) ;
@@ -51,9 +52,12 @@ return {
     -- garderait les équipes vers 8 PNJ : il est levé ici (60 = seul le stock freine).
     local held = ctx.remote("fo-ia1", "set_setting", "fo-recruit-idle-max", 60)
     ctx.check(held == 60, "frein par le travail leve (fo-recruit-idle-max = 60)", held)
+    -- Fusion avec 0.4.15 : la taille des factions est le réglage de la guerre fo-war-workers (défaut 4).
+    local workers = ctx.remote("factorio-overhaul", "war_setting", "fo-war-workers", 30)
+    ctx.check(workers == 30, "fo-war-workers regle a 30", workers)
     local ok = ctx.remote("fo-pvp", "set_difficulty", "peaceful")
     ctx.check(ok == true, "difficulte Paisible imposee avant la guerre")
-    local started = ctx.call("war_start", 4, 100) -- sans nombre d'ouvriers : fo-team-npc-max
+    local started = ctx.call("war_start", 4, 100) -- sans nombre d'ouvriers : fo-war-workers
     ctx.check(started == true, "guerre lancee (4 factions, taille par le reglage)")
     local funded = ctx.call("war_fund", 2500)
     ctx.check(funded == 4, "4 factions financees (2 500 fer)", funded)
@@ -113,7 +117,16 @@ return {
       ctx.log(string.format("%s : armee soldats min30 %s min59 %s fin %d ; tech %d",
         r.key, tostring(st.series[r.key .. ":30"]), tostring(st.series[r.key .. ":59"]), r.soldiers, r.tech))
     end
+    -- Correction IA1-a (mineur 3) : échecs de DÉPLACEMENT des PNJ (blocage, délai, sans chemin ; nav_fail), publiés
+    -- à côté des seules réponses du pathfinder (le contrôle des 5 % ne porte que sur ces dernières).
+    local nav, nav_parts = 0, {}
+    for _, r in ipairs(rows) do
+      nav = nav + (r.nav_fail or 0)
+      nav_parts[#nav_parts + 1] = r.key .. " " .. (r.nav_fail or 0)
+    end
     local fail, total = sum_path(p)
+    ctx.log(string.format("deplacements des PNJ en echec (nav_fail, hors bilan) : %d (%s) ; reponses du pathfinder en echec : %d sur %d",
+      nav, table.concat(nav_parts, ", "), fail, total))
     local rate = total > 0 and fail / total or 0
     ctx.check(rate <= 0.05, "echecs de chemin <= 5 %", string.format("%.2f %% (%d sur %d)", 100 * rate, fail, total))
     ctx.check((p.fail_blocked or 0) <= 20, "but occupe <= 20", p.fail_blocked)

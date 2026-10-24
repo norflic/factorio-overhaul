@@ -20,8 +20,9 @@ local KEYS = {
 -- Lot IA1-a (settings/team.lua) : lus par Scale.read, qui rend le défaut (shared/team/scale.lua) d'un réglage
 -- absent (moteur simulé des tests hors jeu) et borne la valeur.
 local TEAM_KEYS = {
-  factions = "fo-factions",
-  npc_max = "fo-team-npc-max",
+  -- Fusion avec 0.4.15 : réglages de la guerre (settings/faction.lua), valeurs dans S.SETTINGS.
+  factions = "fo-war-factions",
+  npc_max = "fo-war-workers",
   player_npc_max = "fo-player-team-npc-max",
   npc_start = "fo-npc-start",
   agents_max = "fo-agents-max",

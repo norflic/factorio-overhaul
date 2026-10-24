@@ -11,7 +11,8 @@
   s'il a des plaques.
 
     /fo-team status    objectif, ce qui manque, stock, tâches
-    /fo-team dismiss   renvoie tous les ouvriers (leur équipement revient au coffre)
+    /fo-team dismiss   renvoie tous les ouvriers (l'équipement des recrues PAYÉES revient au coffre ; pas celui des
+                       PNJ offerts à la fondation ni de l'embauche de secours, lot IA1-a)
 ]]
 
 local Events = require("script.core.events")

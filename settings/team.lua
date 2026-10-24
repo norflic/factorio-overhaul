@@ -3,9 +3,10 @@
   Étape settings uniquement. Fichier possédé par le lot IA1 (docs §20).
 
   Tous « runtime-global » (réglages de partie, synchronisés en multijoueur, modifiables en cours de partie) :
-    fo-factions             factions lancées par « /fo-war start » sans argument (2 à 4) ;
-    fo-team-npc-max         PNJ par faction (30 ; 6 à 60) : plafond dès l'époque 1 (Q-IA1-2 (2)), seul le
-                            stock freine ; s'applique aussi à une guerre en cours lancée sans nombre explicite ;
+    (fusion avec 0.4.15 : le nombre de factions et les PNJ par faction sont les réglages de la guerre
+    « fo-war-factions » et « fo-war-workers », déclarés par settings/faction.lua avec les valeurs de
+    S.SETTINGS ; plafond des PNJ dès l'époque 1 (Q-IA1-2 (2)), suivi en cours de partie par une guerre lancée
+    sans nombre) ;
     fo-player-team-npc-max  PNJ de votre équipe (30 ; 6 à 60) ;
     fo-npc-start            effectif de départ d'une équipe (8 ; 2 à 30), offert à la fondation ;
     fo-agents-max           garde de performance comptée en agents riches (300 ; 50 à 600) : au-delà, le
@@ -22,14 +23,16 @@ local S = require("shared.team.scale")
 
 local list = {}
 for _, s in ipairs(S.SETTINGS) do
-  list[#list + 1] = {
-    type = "int-setting",
-    name = s.name,
-    setting_type = "runtime-global",
-    default_value = s.default,
-    minimum_value = s.min,
-    maximum_value = s.max,
-    order = s.order,
-  }
+  if not s.declared_in then -- fo-war-factions, fo-war-workers : settings/faction.lua
+    list[#list + 1] = {
+      type = "int-setting",
+      name = s.name,
+      setting_type = "runtime-global",
+      default_value = s.default,
+      minimum_value = s.min,
+      maximum_value = s.max,
+      order = s.order,
+    }
+  end
 end
 data:extend(list)

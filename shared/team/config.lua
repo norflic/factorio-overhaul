@@ -21,7 +21,7 @@ T.start_kit = {
 T.start_smelters = 2       -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
 T.hq_inventory = 200
 -- Avant IA1-a : 2 ouvriers de départ et « 2 + 1 par avant-poste » (T.workers_wanted). Depuis IA1-a, le départ
--- est le réglage fo-npc-start (8) et le plafond fo-team-npc-max (shared/team/scale.lua) ; ces valeurs ne servent
+-- est le réglage fo-npc-start (8) et le plafond fo-war-workers (shared/team/scale.lua) ; ces valeurs ne servent
 -- plus qu'aux vues construites sans les champs IA1-a (tests d'avant IA1-a).
 T.start_workers = 2
 

@@ -37,6 +37,13 @@ function C.init(ctx, idle_max)
     local v = ctx.remote("fo-ia1", "set_setting", "fo-recruit-idle-max", idle_max)
     ctx.check(v == idle_max, "fo-recruit-idle-max impose a " .. idle_max, v)
   end
+  -- Fusion avec 0.4.15 (correction IA1-a) : sur le lot, la taille des factions est fo-war-workers (défaut 4) :
+  -- réglé à 30 pour mesurer l'armée à 30 PNJ. Sur une source sans l'interface fo-ia1 (main, 0.4.11), rien n'est
+  -- réglé : la guerre lancée sans nombre y garde 10 ouvriers au plus (comportement de ces versions).
+  if has_ia1 then
+    local w = ctx.remote("factorio-overhaul", "war_setting", "fo-war-workers", 30)
+    ctx.check(w == 30, "fo-war-workers regle a 30 (lot)", w)
+  end
   ctx.check(ctx.remote("fo-pvp", "set_difficulty", "peaceful") == true, "difficulte Paisible")
   ctx.check(ctx.call("war_start", 4, 100) == true, "guerre lancee sans nombre d'ouvriers, sans financement")
   ctx.check(place_team_chest(ctx), "coffre d'equipe pose (garni comme pteam)")

@@ -23,6 +23,7 @@ local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
+local Foot = require("shared.levels.footprint")
 
 local Worker = {}
 
@@ -85,7 +86,16 @@ end
 local function slot_ok(surface, p)
   local area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }
   if surface.count_tiles_filtered({ area = area, collision_mask = "water-tile", limit = 1 }) > 0 then return false end
-  return surface.count_entities_filtered({ area = area, collision_mask = "object-layer", limit = 1 }) == 0
+  -- Correction IA1-a (mineur 9 de la vérification) : la recherche par zone rend aussi une entité qui TOUCHE
+  -- seulement la case (F96, intervalles fermés) ; seul un chevauchement strict la bloque (Foot.overlap).
+  local r = { x0 = area[1][1], y0 = area[1][2], x1 = area[2][1], y1 = area[2][2] }
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
+    local b = e.bounding_box
+    if Foot.overlap(r, { x0 = b.left_top.x, y0 = b.left_top.y, x1 = b.right_bottom.x, y1 = b.right_bottom.y }) then
+      return false
+    end
+  end
+  return true
 end
 
 --- Revalide `count` cases du QG à tour de rôle (toutes si count = nil : fondation). O(count).

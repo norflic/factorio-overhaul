@@ -162,7 +162,7 @@ end
 -- Taille de l'équipe (lot IA1-a : settings/team.lua, shared/team/scale.lua)
 ---------------------------------------------------------------------------------------------------
 --- Maximum de PNJ de l'équipe : votre équipe, fo-player-team-npc-max ; une faction, le nombre donné au
---- lancement de la guerre, ou fo-team-npc-max (lu à chaque pensée) si la guerre a été lancée sans nombre.
+--- lancement de la guerre, ou fo-war-workers (lu à chaque pensée) si la guerre a été lancée sans nombre.
 function Team.npc_max(f)
   if f.is_player then return Config.get("player_npc_max") end
   local s = State.war().settings or {}

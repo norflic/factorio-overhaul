@@ -28,7 +28,8 @@ local function section(name) print("== " .. name) end
 ---------------------------------------------------------------------------------------------------
 section("Réglages : défauts et bornes (docs §11, commande du lot)")
 local want = {
-  ["fo-factions"] = { 4, 2, 4 }, ["fo-team-npc-max"] = { 30, 6, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
+  -- Fusion avec 0.4.15 : réglages de la guerre (déclarés par settings/faction.lua), défauts de 0.4.15 gardés.
+  ["fo-war-factions"] = { 2, 2, 4 }, ["fo-war-workers"] = { 4, 1, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
   ["fo-npc-start"] = { 8, 2, 30 }, ["fo-agents-max"] = { 300, 50, 600 }, ["fo-path-issue-per-tick"] = { 2, 1, 6 },
   ["fo-recruit-idle-max"] = { 0, 0, 60 }, -- correction IA1-a : frein par le travail
 }
@@ -43,9 +44,15 @@ for _, s in ipairs(S.SETTINGS) do
   end
 end
 check(seen == 7, "7 réglages déclarés (" .. seen .. ")")
-check(S.read("fo-team-npc-max", function() error("absent") end) == 30, "réglage absent : défaut")
-check(S.read("fo-team-npc-max", function() return nil end) == 30, "réglage nil : défaut")
-check(S.read("fo-team-npc-max", function() return 100 end) == 60, "valeur bornée au maximum")
+check(S.read("fo-war-workers", function() error("absent") end) == 4, "réglage absent : défaut")
+check(S.read("fo-war-workers", function() return nil end) == 4, "réglage nil : défaut")
+check(S.read("fo-war-workers", function() return 100 end) == 60, "valeur bornée au maximum")
+-- Un seul réglage par sens : aucun doublon d'IA1-a, les deux réglages de la guerre déclarés par faction.lua.
+local declared = {}
+for _, s in ipairs(S.SETTINGS) do if s.declared_in then declared[#declared + 1] = s.name end end
+check(table.concat(declared, ",") == "fo-war-factions,fo-war-workers", "réglages déclarés par settings/faction.lua")
+check(S.spec("fo-war-factions").max == require("shared.faction.config").MAX_FACTIONS, "factions au plus = F.MAX_FACTIONS")
+check(not pcall(S.spec, "fo-team-npc-max") and not pcall(S.spec, "fo-factions"), "anciens réglages d'IA1-a retirés")
 check(S.read("fo-npc-start", function() return 1 end) == 2, "valeur bornée au minimum")
 check(S.read("fo-npc-start", function() return 12.7 end) == 12, "valeur entière")
 
@@ -259,6 +266,7 @@ local function run_war(minutes, brake)
   M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
   -- Banc d'échelle : frein par le travail levé (60 = seul le stock freine), comme le scénario ia1-scale.
   M.world().settings["fo-recruit-idle-max"] = brake or 60
+  M.world().settings["fo-war-workers"] = 30 -- défaut 4 (0.4.15) : le banc d'échelle règle 30
   local ok = remote.call("factorio-overhaul", "war_start", 4, 100, nil, 320)
   check(ok == true, "war_start sans nombre d'ouvriers")
   local w = global.fo.war
@@ -344,6 +352,25 @@ local function snapshot()
 end
 local s1, s2 = snapshot(), snapshot()
 check(s1 == s2, "même état après 3 min (" .. s1 .. ")")
+
+---------------------------------------------------------------------------------------------------
+section("Cases du QG : une entité qui TOUCHE seulement la case ne la bloque pas (F96, mineur 9)")
+do
+  M.new_game({})
+  local surface = game.surfaces[1]
+  local Worker = require("script.team.worker")
+  -- Case 1 (2,5 ; 0) : zone x de 2 à 3. Coffre (boîte ±0,35) en x = 3,35 : bord gauche en x = 3 exactement.
+  surface.create_entity({ name = "iron-chest", position = { x = 3.35, y = 0 }, force = "player" })
+  -- Case 5 (−2,5 ; 0) : zone x de −3 à −2. Coffre en x = −2,4 : boîte de −2,75 à −2,05, chevauchement réel.
+  surface.create_entity({ name = "iron-chest", position = { x = -2.4, y = 0 }, force = "player" })
+  local touch = surface.count_entities_filtered({ area = { { 2, -0.5 }, { 3, 0.5 } }, collision_mask = "object-layer" })
+  check(touch == 1, "la recherche par zone rend le coffre qui touche la case 1 (F96 : " .. touch .. ")")
+  local f = { home_spot = { x = 0, y = 0 } }
+  f.slot_owner, f.slot_bad, f.slot_cursor = {}, {}, 0
+  Worker.check_slots(f, surface)
+  check(not f.slot_bad[1], "case 1 libre : le coffre ne fait que la toucher")
+  check(f.slot_bad[5] == true, "case 5 bloquée : chevauchement réel")
+end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

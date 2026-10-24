@@ -25,11 +25,18 @@ local S = {}
 ---------------------------------------------------------------------------------------------------
 -- Ordre FIXE (déclaration et affichage). `min`/`max` : bornes du réglage. Défauts : docs/EQUIPES_PNJ.md §11.
 S.SETTINGS = {
-  -- Nombre de factions lancées par « /fo-war start » sans argument (le §11 prévoit 0 à 4 ; la guerre en exige
-  -- au moins 2, War.start_at : bornes 2 à 4).
-  { name = "fo-factions", default = 4, min = 2, max = 4, order = "f-a" },
-  -- PNJ par faction (remplace F.defaults.engineers_max = 10).
-  { name = "fo-team-npc-max", default = 30, min = 6, max = 60, order = "f-b" },
+  -- Fusion avec 0.4.15 (correction IA1-a) : la guerre avait déjà ses réglages de carte « fo-war-factions » et
+  -- « fo-war-workers » (lot PNJ-JOUABLE, lancement automatique). IA1-a en avait des doublons (« fo-factions »,
+  -- « fo-team-npc-max ») : retirés. UN réglage par sens, DÉCLARÉ par settings/faction.lua (`declared_in` : nom
+  -- et ordre de 0.4.15 gardés, valeurs prises ici), lu par Config comme les autres. Défauts de 0.4.15 gardés
+  -- (2 factions, 4 ouvriers) : une partie lancée en 0.4.15, ou une nouvelle partie aux réglages par défaut, ne
+  -- change pas de taille ; 30 PNJ par faction se règlent au menu (jusqu'à 60). Ils servent au lancement
+  -- automatique ET à « /fo-war start » sans nombre (avant : 4 factions, 10 ouvriers).
+  -- Factions : la guerre en exige au moins 2 (War.start_at), au plus F.MAX_FACTIONS (4, contrôlé par les tests).
+  { name = "fo-war-factions", default = 2, min = 2, max = 4, order = "e-war-b", declared_in = "settings/faction.lua" },
+  -- PNJ (ouvriers) par faction : plafond dès l'époque 1 (Q-IA1-2 (2)), suivi en cours de partie par une guerre
+  -- lancée sans nombre (lancement automatique, « /fo-war start » sans nombre). 0.4.15 : 1 à 10.
+  { name = "fo-war-workers", default = 4, min = 1, max = 60, order = "e-war-d", declared_in = "settings/faction.lua" },
   -- PNJ de votre équipe (remplace T.player_workers_max = 8). Commande du lot : 6 à 60 (le §11 écrivait 0 à 60).
   { name = "fo-player-team-npc-max", default = 30, min = 6, max = 60, order = "f-c" },
   -- Effectif de départ (2 avant IA1), borné par le plafond de l'époque 1.
@@ -48,6 +55,12 @@ S.SETTINGS = {
 }
 S.DEFAULTS = {}
 for _, s in ipairs(S.SETTINGS) do S.DEFAULTS[s.name] = s.default end
+
+--- Description d'un réglage (nom, défaut, bornes, ordre) ; erreur si le réglage n'est pas un réglage des équipes.
+function S.spec(name)
+  for _, s in ipairs(S.SETTINGS) do if s.name == name then return s end end
+  error("reglage inconnu : " .. tostring(name))
+end
 
 --- Valeur d'un réglage : `get(name)` rend la valeur brute (ou nil, ou lève une erreur si le réglage est
 --- inconnu) ; on rend le défaut si elle manque, bornée sinon. Sans effet de bord.

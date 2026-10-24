@@ -138,7 +138,11 @@ def main():
         last = paths[-1]
         print(f"== chemins (cumul fin) : demandes {last[2]}, emises {last[3]}, ok {last[4]}, echecs {last[5]} "
               f"({last[6]} %), but occupe {last[7]}")
-    ok = bilan is not None and "0 ECHEC" in bilan and mean <= a.seuil_script
+    # Correction IA1-a (mineur 3) : échecs de déplacement des PNJ (nav_fail), publiés à côté du pathfinder.
+    for line in (log or "").splitlines():
+        if "deplacements des PNJ en echec" in line:
+            print("== " + line[line.index("deplacements"):])
+    ok =bilan is not None and "0 ECHEC" in bilan and mean <= a.seuil_script
     print("VERDICT : " + ("OK" if ok else "ECHEC") + (f" ({bilan})" if bilan else " (aucun BILAN)"))
     return 0 if ok else 1
 

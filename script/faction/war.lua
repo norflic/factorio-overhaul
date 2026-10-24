@@ -1,7 +1,7 @@
 --[[
   Guerre des factions : lancement, arrêt, état, diplomatie, affichage.
 
-    /fo-war start [factions=fo-factions] [soldats=100] [ouvriers=fo-team-npc-max] [distance=480]
+    /fo-war start [factions=fo-war-factions] [soldats=100] [ouvriers=fo-war-workers] [distance=480]
     /fo-war status        tableau de bord (aussi dans factorio-current.log et script-output/fo-war/status.txt)
     /fo-war stop          supprime tout ce qui appartient aux factions
     /fo-war fund <n>      ajoute n plaques de fer (et cuivre, charbon, pierre) au stock de chaque faction
@@ -193,7 +193,7 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
   war.started = game.tick
   war.surface = surface.index
   war.center = { x = center.x, y = center.y }
-  -- Lot IA1-a : sans nombre d'ouvriers, la taille des équipes suit le réglage fo-team-npc-max, relu à chaque
+  -- Lot IA1-a : sans nombre d'ouvriers, la taille des équipes suit le réglage fo-war-workers, relu à chaque
   -- pensée (modifiable en cours de partie) ; un nombre donné (commande, interface distante, bancs) est fixe.
   local npc_from_setting = engineers_max == nil
   war.settings = {
@@ -365,8 +365,10 @@ local function autostart(war)
   if not surface then return end
   war.autostarted = game.tick
   local g = settings.global
+  -- Ouvriers : nil (lot IA1-a, fusion avec 0.4.15) : la taille suit fo-war-workers EN COURS de partie. Une guerre
+  -- lancée seule par 0.4.15 garde le nombre écrit à son lancement (war.settings, aucune migration).
   local ok, err = War.start_at(surface, game.forces.player.get_spawn_position(surface), g["fo-war-factions"].value,
-    g["fo-war-soldiers"].value, g["fo-war-workers"].value, F.defaults.distance)
+    g["fo-war-soldiers"].value, nil, F.defaults.distance)
   log(string.format("[FO-WAR] lancement automatique au tick %d : %s", game.tick, ok and "ok" or tostring(err)))
 end
 
@@ -388,7 +390,7 @@ end)
 ---------------------------------------------------------------------------------------------------
 -- Commande
 ---------------------------------------------------------------------------------------------------
-local USAGE = "Usage : /fo-war start [factions=fo-factions] [soldats=100] [ouvriers=fo-team-npc-max] [distance=480] | status | stop | fund <plaques>"
+local USAGE = "Usage : /fo-war start [factions=fo-war-factions] [soldats=100] [ouvriers=fo-war-workers] [distance=480] | status | stop | fund <plaques>"
 
 local function split(s)
   local out = {}
@@ -406,7 +408,7 @@ commands.add_command("fo-war", USAGE, function(cmd)
   local args = split(cmd.parameter)
   local sub = args[1]
   if sub == "start" then
-    -- Lot IA1-a : sans argument, factions = fo-factions, ouvriers = fo-team-npc-max (suivi en cours de partie).
+    -- Lot IA1-a : sans argument, factions = fo-war-factions, ouvriers = fo-war-workers (suivi en cours de partie).
     local npc = tonumber(args[4])
     local ok, err = War.start(player,
       math.floor(tonumber(args[2]) or Config.get("factions")),
