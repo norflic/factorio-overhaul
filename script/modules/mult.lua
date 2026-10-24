@@ -391,8 +391,13 @@ function Mult.migrate()
   NAMES = nil
   build_cache()
   local st = S()
-  local surfaces = {}
-  for _, s in pairs(game.surfaces) do surfaces[#surfaces + 1] = s end
+  local surfaces, seen = {}, {}
+  for _, s in pairs(game.surfaces) do
+    if not seen[s.index] then
+      seen[s.index] = true
+      surfaces[#surfaces + 1] = s
+    end
+  end
   table.sort(surfaces, function(a, b) return a.index < b.index end)
   local tracked, beacons = 0, 0
   for _, s in ipairs(surfaces) do

@@ -349,6 +349,7 @@ local EntityMT = {
     end
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
+    if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     if k == "get_output_inventory" then
       return function()
         if t.type == "container" then return inv_of(t, defines.inventory.chest) end
@@ -757,6 +758,9 @@ function M.new_world(opts)
     on_chunk_charted = 17, -- lot M0 : étiquettes des sites garantis (script/world/guarantee.lua)
     -- lot PNJ-VÉRIF : le livre de recettes des équipes est oublié quand les recherches d'une force changent
     on_research_finished = 18, on_research_reversed = 19, on_technology_effects_reset = 20, on_force_reset = 21,
+    -- lot MOD-1 : modules multiplicatifs (script/modules/mult.lua) ; le mock ne modélise PAS les modules
+    -- (get_module_inventory rend nil : aucune machine suivie), le moteur réel est prouvé par « mod1-modules »
+    on_gui_opened = 22, on_gui_closed = 23, on_player_fast_transferred = 24, on_entity_settings_pasted = 25,
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
@@ -1149,6 +1153,8 @@ function M.new_world(opts)
     item_prototypes = setmetatable({}, { __index = function(_, name)
       return { name = name, localised_name = { "item-name." .. name } }
     end }),
+    -- Lot MOD-1 : aucun prototype de module au mock (la règle est testée à part, tests/module_mult_test.lua).
+    get_filtered_item_prototypes = function(filters) return {} end,
     get_player = function(i) if i == 1 then return W.player end end,
     is_multiplayer = function() return false end,
     create_profiler = function() return profiler() end,
