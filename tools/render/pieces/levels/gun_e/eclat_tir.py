@@ -65,7 +65,11 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 FRAMES = 1              # une image par direction : le moteur n'en montre qu'une par coup (F149, correction M-1)
-IMAGE_JEU = "A"         # dessin de cette image : "A" (pleine) ou "B" (réduite) ; choix provisoire, verdict du DC attendu
+# dessin de cette image : "A" (pleine), "B" (réduite) ou "ERE" (de B à l'ère I jusqu'à A à l'ère V, par paliers égaux :
+# réponse du DC à Q-A4-1, 24/10 : « B mais A sur les dernières aires » puis « je voudrai qu'il grossisse au fur et à
+# mesure des aires, docn en gros, le dernier il est gros »)
+IMAGE_JEU = "ERE"
+DESSINS = {"A": 0, "B": 1, "ERE": 2}
 L0_PX = 34.0            # px hr : longueur de base de l'éclat d'un âge 2 × 2 (0,53 tuile), × emprise / 2
 AVANCE = 0.18           # centre de l'éclat : AVANCE × longueur au-delà du bout du canon, le long du tir
 FRAME_B = dict(force=0.62, longueur=0.72, tour=14.0)   # image B : plus faible, plus courte, pointes tournées (degrés)
@@ -216,16 +220,21 @@ def rayon(e, forme=None):
     return int(math.ceil(m * Lf * (1.0 + AVANCE) + 6))
 
 
+def part_ere(e):
+    """Place de l'ère de l'âge e entre B et A : 0 à l'ère I (âges 1 à 3), 1 à l'ère V (âges 13 à 15), quarts entre."""
+    return ((e - 1) // 3) / 4.0
+
+
 def dessine(e, centre_px, nom, frame):
-    """Éclat de l'âge e, direction nom, image frame (0 = A, 1 = B), centré en centre_px (px hr, repère de la fenêtre
-    rendue) : rend (fenêtre carrée prémultipliée H × W × 3, x0, y0 de la fenêtre)."""
+    """Éclat de l'âge e, direction nom, image frame (0 = A, 1 = B, 2 = progression par ère), centré en centre_px (px hr,
+    repère de la fenêtre rendue) : rend (fenêtre carrée prémultipliée H × W × 3, x0, y0 de la fenêtre)."""
     f = FORMES[e]
     coeur_c, corps_c, acc_c = couleurs(e)
     ds = FE.direction_sol(nom)
-    B = frame == 1
-    k_len = FRAME_B["longueur"] if B else 1.0
-    k_for = FRAME_B["force"] if B else 1.0
-    tour = FRAME_B["tour"] if B else 0.0
+    t = {0: 1.0, 1: 0.0}.get(frame, part_ere(e))
+    k_len = FRAME_B["longueur"] + (1.0 - FRAME_B["longueur"]) * t
+    k_for = FRAME_B["force"] + (1.0 - FRAME_B["force"]) * t
+    tour = FRAME_B["tour"] * (1.0 - t)
     Lf = L0_PX * taille_age(e) * k_len
     R = rayon(e)
     cx, cy = centre_px
@@ -255,7 +264,7 @@ def dessine(e, centre_px, nom, frame):
     I_arc = np.zeros_like(X)
     if f["arcs"]:
         n, lg, graine = f["arcs"]
-        rng = np.random.RandomState(graine * 10 + frame)
+        rng = np.random.RandomState(graine * 10 + (1 if frame == 1 else 0))   # progression par ère : les arcs de A
         for i in range(n):
             ang = (-70 + 140 * (i + 0.5) / n) + rng.uniform(-12, 12)
             (sx, sy), fs = _sol_vers_ecran(ds, ang)
@@ -354,7 +363,7 @@ def feuille_eclat(dest, e, A, marge, image=None):
     """Écrit gun-eNN-eclat.png dans dest (depuis la feuille de tête déjà écrite) ; rend (définition pour sprites.lua,
     outils pour sprites.json). `image` : dessin « A » ou « B » (défaut IMAGE_JEU ; autre valeur : planche de
     comparaison seulement)."""
-    dessin = {"A": 0, "B": 1}[image or IMAGE_JEU]
+    dessin = DESSINS[image or IMAGE_JEU]
     # marge arrondie comme dans sprites.json (« eclat.marge ») : le contrôle régénère avec la valeur écrite
     mesure.marge = round(marge, 5)
     pos, n_dirs = mesure(dest, e, A)
@@ -540,7 +549,7 @@ def main():
     ap.add_argument("--planche", default=None)
     ap.add_argument("--ages", default="2-15")
     ap.add_argument("--zoom", type=int, default=2)
-    ap.add_argument("--image", choices=("A", "B"), default=None,
+    ap.add_argument("--image", choices=tuple(DESSINS), default=None,
                     help="planche : dessin montré (défaut IMAGE_JEU, celui du jeu)")
     ap.add_argument("--controle", action="store_true")
     a = ap.parse_args()

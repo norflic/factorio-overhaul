@@ -38,8 +38,8 @@
   "gun-e02-eclat.png": {
    "hauteur": 992,
    "largeur": 1184,
-   "sha256": "fa67be3f06cb74c10cc21b6d79c90ef9875b76f2ee0317d17db4d8a181f5a874",
-   "taille": 93101
+   "sha256": "2f757ed68f5013088f6a9fc03e59a88525dcf3e70adcff1c44fe8370d8471cd6",
+   "taille": 56688
   },
   "gun-e02-icone.png": {
    "hauteur": 64,
@@ -68,8 +68,8 @@
   "gun-e03-eclat.png": {
    "hauteur": 1040,
    "largeur": 1240,
-   "sha256": "b2176aa477c1417b4fdeba2048037fe55a759d9e420fdacfc3a9340a67b8b8de",
-   "taille": 149260
+   "sha256": "5d900409cfb8220d34b4beb02189761e6dbd56d95e5f03be93a86014d900123c",
+   "taille": 90483
   },
   "gun-e03-icone.png": {
    "hauteur": 64,
@@ -98,8 +98,8 @@
   "gun-e04-eclat.png": {
    "hauteur": 1744,
    "largeur": 2064,
-   "sha256": "a5764b71a199e8123fc86065a6312d304c8dee4de243e67157a94489e45ddb88",
-   "taille": 328475
+   "sha256": "44cf7e4c4a8d820f2f348071fe199fbe9637f6b6c64de7e4bbaab09a8e337f4b",
+   "taille": 231189
   },
   "gun-e04-icone.png": {
    "hauteur": 64,
@@ -128,8 +128,8 @@
   "gun-e05-eclat.png": {
    "hauteur": 1512,
    "largeur": 1832,
-   "sha256": "e1fb3aa97aa2ed4721575cfb0fad1e22fed993c62c1ab780e3fd033d4bd05c9c",
-   "taille": 376494
+   "sha256": "2e8af9ba0de4e5f6e0ec9d49c6bdf5a9a70f2bbcd36937b0015b0f27c027ef2d",
+   "taille": 265132
   },
   "gun-e05-icone.png": {
    "hauteur": 64,
@@ -158,8 +158,8 @@
   "gun-e06-eclat.png": {
    "hauteur": 1528,
    "largeur": 1848,
-   "sha256": "4610c42e92a2b2f02779e1d0876911f77794b3fbff0b157d2cf80571dba35cf8",
-   "taille": 228678
+   "sha256": "edacd99891d4b40f7d55906f7d629b5bb81b3aafbdcde9e67aa6252d1a74c42b",
+   "taille": 159499
   },
   "gun-e06-icone.png": {
    "hauteur": 64,
@@ -188,8 +188,8 @@
   "gun-e07-eclat.png": {
    "hauteur": 1856,
    "largeur": 2360,
-   "sha256": "d8c44474840e9e6bcbe7784e5b854c31727f9d400bdec55312cbca93237b8ea3",
-   "taille": 299261
+   "sha256": "9ae450666bd44bb28232d5db24ead77ee5877f8b2c5301ef3bd240a4561ec4a8",
+   "taille": 246176
   },
   "gun-e07-icone.png": {
    "hauteur": 64,
@@ -218,8 +218,8 @@
   "gun-e08-eclat.png": {
    "hauteur": 1864,
    "largeur": 2288,
-   "sha256": "f61f80103453745ea0d56f2eb4a8a97f0ba1c5c0aa824c2c323a4f8d66f2abc3",
-   "taille": 705537
+   "sha256": "1698f15a663aa3a9826e94815a913d7674e6c854e34c3ce46fc879a7aae77444",
+   "taille": 576365
   },
   "gun-e08-icone.png": {
    "hauteur": 64,
@@ -248,8 +248,8 @@
   "gun-e09-eclat.png": {
    "hauteur": 952,
    "largeur": 282,
-   "sha256": "cfc000255439e33f2e4818568340bb49743ac61cb4fb1a81b68e02d6e27ae8a2",
-   "taille": 26903
+   "sha256": "a8d285d185b76d0c630fe7da604a5c9fdf84363f18bba3d1bf49ce729efa4293",
+   "taille": 21333
   },
   "gun-e09-icone.png": {
    "hauteur": 64,
@@ -278,8 +278,8 @@
   "gun-e10-eclat.png": {
    "hauteur": 1360,
    "largeur": 392,
-   "sha256": "d41aff80b5fbe8f880f5b60e1999d53374dbfd01253d6f723ce54827d7f47e7d",
-   "taille": 19291
+   "sha256": "421990ec33dc3250cd5b8bf19904e9cd29b5804f4d958858837f3059536e266b",
+   "taille": 17183
   },
   "gun-e10-icone.png": {
    "hauteur": 64,
@@ -308,8 +308,8 @@
   "gun-e11-eclat.png": {
    "hauteur": 1636,
    "largeur": 479,
-   "sha256": "c80a28bbf87c751b2775c583a6a61a347142969c4c7b0ab37eb60c92ae2fb6e4",
-   "taille": 20449
+   "sha256": "05ddb23db522e3a6fd2ebd8cb070796d5237af56d0c810abbaff79e5c898a9a4",
+   "taille": 18604
   },
   "gun-e11-icone.png": {
    "hauteur": 64,
@@ -338,8 +338,8 @@
   "gun-e12-eclat.png": {
    "hauteur": 1280,
    "largeur": 386,
-   "sha256": "d37fd08ede15728a2cecc63b38015afcf8418c28453c2a18a16198098bd1d22b",
-   "taille": 24457
+   "sha256": "0b04cbec73a0d1ca14ede550d4ac04d1ec864beb2cd84b433a491aef83b10101",
+   "taille": 21801
   },
   "gun-e12-icone.png": {
    "hauteur": 64,
@@ -14037,6 +14037,6 @@
    "trous_px": 1
   }
  },
- "sprites_json_sha256": "2b7c81b8bf2aef32f668c9af466bf017b4dec5e4c9c07475da1a693979945a1b",
+ "sprites_json_sha256": "74ff3f223d1d708985bab659c52c030e107f9b5117abe70e26114b7994a5fee1",
  "sprites_lua_sha256": "8e873a52b37638dfc125af429ee620619eb7d3770fd2bae40eb29d6ab8a2a83c"
 }
