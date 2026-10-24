@@ -21,6 +21,7 @@ local Military = require("script.faction.military")
 local Outposts = require("script.faction.outposts")
 local Team = require("script.team.team")
 local PvP = require("script.faction.pvp")
+local Character = require("script.faction.character")
 
 local Commander = {}
 
@@ -71,8 +72,12 @@ end
 
 function Commander.view(f, tick)
   local target = pick_target(f, tick)
+  -- Lot IA2-0 : caractère tiré de la graine (traits bornés à l'enveloppe des archétypes) et seuil de la prochaine
+  -- attaque entre factions (±20 %). Partie existante : traits tirés ici à la première pensée (Character.of).
+  local character = Character.of(f)
   return {
     tech = f.tech, personality = f.personality, upgrades = f.upgrades,
+    character = character, attack_jitter = f.attack_jitter,
     -- Lot PNJ-VÉRIF (M4) : seuls les soldats proches du rassemblement (ceux qu'une attaque peut emmener).
     garrison = Military.garrison_near(f), soldiers_max = State.war().settings.soldiers_max,
     can_attack = tick >= (f.attack_block_until or 0) and not f.route_pending,

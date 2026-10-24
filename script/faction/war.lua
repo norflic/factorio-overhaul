@@ -27,6 +27,7 @@ local Team = require("script.team.team")
 local Storage = require("script.core.storage")
 local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
+local Character = require("script.faction.character")
 
 local War = {}
 
@@ -215,12 +216,16 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     surface.request_to_generate_chunks(candidates[i][1], 13)
   end
 
+  -- Lot IA2-0 (D-16 : personnalité tirée à chaque partie) : archétypes répartis par la graine de la carte, puis
+  -- caractère propre à chaque faction (script/faction/character.lua).
+  local map_seed = Character.map_seed(surface)
+  local drawn = Character.personalities(surface, n)
   for i = 1, n do
     local def = F.factions[i]
     local force_name = "fo-" .. def.key
     if not game.forces[force_name] then game.create_force(force_name) end
     local f = {
-      id = i, key = def.key, force = force_name, personality = def.personality, color = def.color,
+      id = i, key = def.key, force = force_name, personality = drawn[i] or def.personality, color = def.color,
       hq = nil, hq_pos = nil, eliminated = false,
       tech = 0, upgrades = 0, last_think = game.tick,
       threatened_until = 0, sites_blocked_until = 0,
@@ -233,6 +238,7 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     war.factions[i] = f
     war.by_force[force_name] = i
     found_hq(f, surface, candidates[i][1])
+    Character.found(f, map_seed, "graine", game.tick) -- lot IA2-0 : traits tirés et publiés ([FO-STRAT] fondation)
     Scheduler.add(Commander.LANE, i)
     Sites.track(f)
     request_site_check(f, surface)

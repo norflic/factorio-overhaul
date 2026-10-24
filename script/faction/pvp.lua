@@ -47,6 +47,7 @@ local F = require("shared.faction.config")
 local S = require("shared.faction.strategy")
 local State = require("script.faction.state")
 local Military = require("script.faction.military")
+local Character = require("script.faction.character")
 
 local PvP = {}
 
@@ -151,14 +152,14 @@ end
 
 --- Fin de la grâce d'une faction (tick), nil en « Paisible ».
 local function grace_end(p, fp, level, f)
-  return S.grace_end(p.anchor, fp.grace_floor, level, f.personality)
+  return S.grace_end(p.anchor, fp.grace_floor, level, Character.of(f)) -- lot IA2-0 : caractère tiré
 end
 
 --- Plus court délai de grâce parmi les factions vivantes (ticks), nil en « Paisible ».
 local function earliest_grace(war, level)
   local best
   for _, id in ipairs(State.alive()) do
-    local g = S.grace_ticks(level, war.factions[id].personality)
+    local g = S.grace_ticks(level, Character.of(war.factions[id]))
     if g and (not best or g < best) then best = g end
   end
   return best
@@ -502,6 +503,7 @@ Military.on_launched = function(f, target_faction, n, rp, tick)
   fp.sent_total = fp.sent_total + n
   if target_faction.id ~= "player" then
     fp.last_rival = tick -- lot IA0b : fin de l'impasse de la règle du déficit (S.rival_stalled)
+    Character.redraw(f) -- lot IA2-0 : seuil de la prochaine attaque entre factions, tiré à ±20 %
     return
   end
   fp.sent_player = fp.sent_player + n
@@ -571,7 +573,7 @@ function PvP.status(tick)
       key = f.key, personality = f.personality, eliminated = f.eliminated,
       declared = fp.declared or false, provoked = fp.provoked or false, inherited = fp.inherited or false,
       declared_at = fp.declared_at,
-      grace_end = p and S.grace_end(p.anchor, fp.grace_floor, level, f.personality) or nil,
+      grace_end = p and S.grace_end(p.anchor, fp.grace_floor, level, Character.of(f)) or nil,
       attacks = fp.attacks or 0, soldiers = fp.soldiers or 0,
       sent_player = fp.sent_player or 0, sent_total = fp.sent_total or 0, last_attack = fp.last_attack,
       kills = fp.kills or 0,

@@ -23,6 +23,8 @@
 
   view = {
     personality, tech, upgrades, garrison, soldiers_max, can_attack,
+    character,              -- lot IA2-0 : caractère effectif tiré de la graine (shared/faction/traits.lua), ou nil
+    attack_jitter,          -- lot IA2-0 : multiplicateur (pour mille) du seuil de la prochaine attaque ENTRE factions, ou nil
     enemy_defense,          -- défense estimée de la faction rivale visée (math.huge si aucune)
     rival = { id, outposts } | nil,          -- cible faction (coalition contre le leader, sinon voisin)
     own_outposts, leader_outposts,           -- territoire de la faction, plus grand territoire rival
@@ -73,8 +75,28 @@ function S.soldier_strength(key, tech, upgrades)
     * (1 + F.economy.upgrade_damage * (upgrades or 0))
 end
 
+--- Caractère d'une vue (lot IA2-0) : le caractère effectif tiré de la graine (v.character), sinon la clé de la
+--- personnalité (archétype, comportement d'avant IA2-0 : tests purs, sauvegardes sans traits).
+local function pers_of(v)
+  return v.character or v.personality
+end
+
+--- Seuil d'attaque entre factions multiplié par un tirage pour mille (lot IA2-0), arrondi, jamais sous 1.
+function S.jittered_size(min_size, jitter)
+  local n = math.floor(min_size * jitter / 1000 + 0.5)
+  if n < 1 then n = 1 end
+  return n
+end
+
 local function personality(v)
-  return F.personalities[v.personality] or F.personalities.balanced
+  return F.persona(pers_of(v))
+end
+
+--- La guerre ENTRE factions suit-elle le caractère tiré (lot IA2-0) ? Oui sans état PvP (tests purs d'avant IA0b
+--- qui donnent un caractère) et en « Paisible » ; non à un niveau agressif (règle d'IA0, bornes de pvp_test).
+function S.faction_war_varied(v)
+  if v.pvp == nil then return true end
+  return not F.pvp_params(v.pvp.difficulty).aggressive
 end
 
 --- Décision d'attaque : renvoie l'effectif à envoyer, ou nil.
@@ -82,7 +104,12 @@ function S.attack(v)
   local P = personality(v)
   local unit = F.best_soldier(v.tech)
   local strength = S.soldier_strength(unit, v.tech, v.upgrades)
-  local count = math.floor(v.garrison * (1 - P.keep))
+  -- Lot IA2-0 : en « Paisible » (aucune attaque contre le joueur), caractère tiré (war_keep, war_aggression) et
+  -- seuil tiré à ±20 % ; à un niveau AGRESSIF, règle d'IA0 (archétype, sans tirage). Mesuré : la campagne pure de
+  -- tests/pvp_test.lua perd l'ordre strict des niveaux pour 1 à 3 caractères sur 16 quand la guerre entre factions
+  -- varie à un niveau agressif (elle prend des soldats à la part visée contre le joueur).
+  local varied = S.faction_war_varied(v)
+  local count = math.floor(v.garrison * (1 - (varied and P.war_keep or P.keep)))
   -- Session 4 (économie réelle) : l'armée se paie en objets et grossit moins vite qu'avec l'ancien
   -- registre. Moteur réel (E16 it. 8) : un seuil lié à l'armée maximale (35 % de 100) retardait la
   -- première attaque à 30 min. Seuil = taille d'attaque de la personnalité : conquérant 13, équilibré 20,
@@ -90,7 +117,10 @@ function S.attack(v)
   -- Lot IA0b : règle INCHANGÉE depuis IA0 (guerre entre factions, « Paisible » compris). Le bâtisseur
   -- (28 > 24 envoyables avec son armée visée) n'attaque jamais sa rivale : défaut antérieur (E21), hors du
   -- contrat IA0b ; son impasse contre le joueur est traitée dans S.decide (S.rival_stalled).
-  local min_size = math.floor(F.military.attack_base / P.aggression)
+  local min_size = math.floor(F.military.attack_base / (varied and P.war_aggression or P.aggression))
+  -- Lot IA2-0 : seuil tiré à ±20 % à chaque attaque (v.attack_jitter, pour mille, flux de la faction) : le
+  -- moment et la taille des attaques entre factions ne sont plus un métronome. Sans tirage : règle d'IA0.
+  if varied and v.attack_jitter then min_size = S.jittered_size(min_size, v.attack_jitter) end
   local needed = (v.enemy_defense or 0) * 1.3
   if v.can_attack ~= false and count >= min_size and count * strength >= needed then return count end
   return nil
@@ -107,8 +137,9 @@ end
 function S.grace_ticks(level, pers)
   local d = F.pvp_params(level)
   if not d.aggressive then return nil end
-  local P = F.personalities[pers] or F.personalities.balanced
-  return math.floor(d.grace_min * 3600 / P.aggression)
+  local P = F.persona(pers)
+  -- Lot IA2-0 : agressivité tirée du caractère (grace_aggression, bornée à l'enveloppe des archétypes).
+  return math.floor(d.grace_min * 3600 / (P.grace_aggression or P.aggression))
 end
 
 --- Fin de la grâce (tick) : ancre + grâce, mais jamais avant `grace_floor` (préavis garanti après un
@@ -127,14 +158,14 @@ end
 
 --- Garnison gardée quand l'attaque vise le joueur.
 function S.player_keep(level, pers)
-  local P = F.personalities[pers] or F.personalities.balanced
+  local P = F.persona(pers)
   local k = P.keep * F.pvp_params(level).keep_mult
   if k > F.pvp_rules.max_keep then k = F.pvp_rules.max_keep end
   return k
 end
 
 local function base_size(pers)
-  local P = F.personalities[pers] or F.personalities.balanced
+  local P = F.persona(pers)
   return math.floor(F.military.attack_base / P.aggression)
 end
 
@@ -146,7 +177,7 @@ end
 --- Armée visée d'une personnalité : même règle que le planificateur (shared/team/planner.lua,
 --- P.army_target : T.army_share × soldiers_max).
 function S.army_target(pers, soldiers_max)
-  return math.floor((soldiers_max or F.defaults.soldiers_max) * (T.army_share[pers] or 0.6))
+  return math.floor((soldiers_max or F.defaults.soldiers_max) * (T.army_share[F.archetype_of(pers)] or 0.6))
 end
 
 --- Taille minimale d'une attaque contre le joueur (en dessous, aucune attaque). Avec `soldiers_max` (lot
@@ -172,7 +203,7 @@ end
 
 --- Rapport de force exigé contre le joueur (lot IA0b) : celui du niveau × la prudence de la personnalité.
 function S.player_ratio(level, pers)
-  local P = F.personalities[pers] or F.personalities.balanced
+  local P = F.persona(pers)
   return F.pvp_params(level).force_ratio * (P.caution or 1)
 end
 
@@ -188,8 +219,8 @@ end
 --- (S.player_ratio) × défense estimée (celle de la cible de la faction, ou `defense`). Avant IA0b : 1,3 à
 --- tous les niveaux (règle entre factions).
 function S.player_need(v, level, defense)
-  local need = S.player_min_size(level, v.personality, v.soldiers_max)
-  local by_defense = defense_units(v, S.player_ratio(level, v.personality), defense)
+  local need = S.player_min_size(level, pers_of(v), v.soldiers_max)
+  local by_defense = defense_units(v, S.player_ratio(level, pers_of(v)), defense)
   if by_defense > need then need = by_defense end
   return need
 end
@@ -198,8 +229,8 @@ end
 --- face à une défense, size_mult × prudence × défense (lot IA0b : des attaques plus grandes aux niveaux
 --- élevés, même quand la défense fixe la taille).
 function S.player_target_size(v, level)
-  local P = F.personalities[v.personality] or F.personalities.balanced
-  local g = S.player_goal(level, v.personality, v.soldiers_max)
+  local P = F.persona(pers_of(v))
+  local g = S.player_goal(level, pers_of(v), v.soldiers_max)
   local by_defense = defense_units(v, F.pvp_params(level).size_mult * (P.caution or 1))
   if by_defense > g then g = by_defense end
   return g
@@ -211,7 +242,7 @@ end
 --- (plus téméraires, besoin plus petit) frappaient alors avec MOINS de soldats que Normal.
 function S.player_floor(v, level, need, goal)
   local fl = math.ceil(goal * F.pvp_rules.goal_floor - 1e-9)
-  local cap = math.floor(F.pvp_rules.floor_cap * S.player_count(level, v.personality, S.army_target(v.personality, v.soldiers_max)) + 1e-9)
+  local cap = math.floor(F.pvp_rules.floor_cap * S.player_count(level, pers_of(v), S.army_target(pers_of(v), v.soldiers_max)) + 1e-9)
   if fl > cap then fl = cap end
   if fl < need then fl = need end
   return fl
@@ -243,7 +274,7 @@ end
 --- la même cible : un groupe plus petit que le besoin est accepté, seulement quand la défense fixe le besoin.
 function S.join_need(v, level, need)
   local j = math.ceil(need * F.pvp_params(level).join_frac - 1e-9)
-  local m = S.player_min_size(level, v.personality, v.soldiers_max)
+  local m = S.player_min_size(level, pers_of(v), v.soldiers_max)
   if j < m then j = m end
   return j
 end
@@ -271,7 +302,7 @@ function S.player_plan(v, level, due_since)
   local pv = v.pvp
   local d = F.pvp_params(level)
   if due_since == nil then due_since = pv.due_since end
-  local count = S.player_count(level, v.personality, v.garrison)
+  local count = S.player_count(level, pers_of(v), v.garrison)
   local need = S.player_need(v, level)
   local goal = need
   if (pv.sent_player or 0) > 0 then
@@ -294,7 +325,7 @@ function S.player_plan(v, level, due_since)
   end
   if count >= need then return "save", count, need end
   if (d.siege_min or 0) <= 0 then return "fallback", count, need end -- Facile : jamais de siège
-  if S.player_garrison_for(level, v.personality, need) > S.siege_cap(level, v.personality, v.soldiers_max) then
+  if S.player_garrison_for(level, pers_of(v), need) > S.siege_cap(level, pers_of(v), v.soldiers_max) then
     return "deterred", count, need
   end
   if waited < math.floor(d.siege_min * 3600) then return "siege", count, need end
@@ -361,7 +392,7 @@ function S.decide(v)
       end
       if (pv.player_groups or 0) > 0 then out.recall = true end
     elseif not declared then
-      local grace_end = S.grace_end(pv.anchor, pv.grace_floor, level, v.personality)
+      local grace_end = S.grace_end(pv.anchor, pv.grace_floor, level, pers_of(v))
       if pv.provoked then
         out.declare, declared = "provoked", true
       elseif pv.tick >= grace_end then
