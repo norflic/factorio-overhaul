@@ -193,6 +193,11 @@
   → Q-P1 = A : 1 776,5 Mo déplacés vers `C:\Users\evan2\fo-archives\fo-logs\` (journaux laissés en place) ; H: affiche
   ensuite 16,3 Go libres, bien plus que ce déplacement (cause extérieure au projet). Q-P2 = A : 64 positions. Q-P3 : C
   annoncée, mais « long » désigne B (un design par âge) : confirmation demandée.
+- 24/10, vers 8 h 30, **la mitrailleuse en jeu (page du matin, version 0.4.10)** : « Ok pour les mitrailleuses j'aime bien ».
+  → Lecture de l'orchestrateur : verdict POSITIF sur la mitrailleuse telle qu'elle est en jeu (64 positions aux âges 2 à
+  8, sons par ère, éclat de tir A, socle animé en essai à l'âge 6, restes à la taille) ; les choix provisoires D-11 à D-13
+  sont gardés. Ce message ne tranche PAS les questions précises (Q-S0-1 sons ère par ère, Q-A4-1 éclat A ou B, Q-A4-2
+  socle animé, Q-A4-3 couleur d'équipe, confirmation de Q-P3) : elles restent ouvertes, sans bloquer la suite.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
