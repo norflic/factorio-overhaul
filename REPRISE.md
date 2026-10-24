@@ -10,7 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
-> **Dernière mise à jour : 24/10/2026, vers 2 h 45** (orchestrateur, session `8a9c0503` ; jalon : **S0-suite fusionné,
+> **Dernière mise à jour : 24/10/2026, vers 4 h 15** (orchestrateur, session `8a9c0503` ; jalon : **A3-jeu fusionné,
+> version 0.4.9** (`3fe1da6`) : âges 2 à 8 à 64 directions en jeu ; production des têtes en cours (fin estimée entre
+> 10 h et 13 h), puis `FINALISATION.md` d'A3-jeu). Avant : 24/10, vers 2 h 45 (jalon : **S0-suite fusionné,
 > version 0.4.8** (`4ffd852`) ; A3-jeu coupé par une panne des serveurs (529) vers 2 h 20, reprise `wf_bcc3f79d-bc7`
 > lancée à 2 h 33 dans le même worktree ; production des têtes toujours en cours). Avant : 24/10, vers 0 h 10 (jalon :
 > **A3-préparation
@@ -217,6 +219,7 @@
 | **S0** la chaîne des sons (plan, étape 5) | ✅ fusionné le 23/10 vers 22 h 55 (run `wf_e1ae9f59-b47` ; constructeur `cdf8d32`, correcteur `e3a50dc` ; fusion `4593893`), **version 0.4.7** (`e4d9e03`). Tir de la mitrailleuse par ère (20 OGG commités dans `sound/levels/gun/`), règle « sons » du harness, `FO_AUDIO=1` (pilote SDL `disk`, garde de crête `audio_guard.py`, code 10). **Défaut bloquant corrigé** : des sessions de test « volumes à 0 » ont émis du son chez le DC (21 h 30 à 22 h 15) ; faute de consigne de l'orchestrateur (aucune mesure du silence exigée). Sons PROVISOIRES : Q-S0-1, page https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG. Non prouvé : tir joué en jeu ; source du fond sonore (F152) | E69, F150 à F154 ; `<racine>\fo-logs\2026-10-24_S0\` (`NOTES.md` §7, `INTEGRATION.md`, `verification.md`, `correction\`, `ecoute\`) ; `<racine>\fo-logs\2026-10-23_integration-0.4.7\` |
 | **S0-suite** suites des sons | ✅ fusionné le 24/10 vers 2 h 30 (`4ffd852`), **version 0.4.8** : tir joué en jeu prouvé (`s0-tir` + `tools/sound/tirs_joues.py`, E113), règle Vorbis du harness (`mut_sons.py` 6 OK), volume par ère (D-11). Banc des tirs entendus instable à la marge (1 échec sur 5) | E113, F155, F156 ; `<racine>\fo-logs\2026-10-24_S0-suite\` ; `<racine>\fo-logs\2026-10-24_integration-S0-suite\` |
 | **A3-préparation** têtes à 64 directions (plan, étape 4) | ✅ fusionné le 24/10 vers 0 h (run `wf_e1ae9f59-b47` ; constructeur `16121ec`, correcteur `9c16e3d` ; fusion `a7f1166`), outils seulement, version inchangée. D-7 (ombre à 32, identité prouvée, 42,8 %), D-10 (bouchon par secteur mesuré et rampe 80 %), masques rapides, 72 trous acceptés, garde de 1 Go dans `with_render_lock.py`, `produire_a3.py` reprenable (défaut majeur M-1 corrigé). ⏳ **Production lancée à 0 h 00 sur une place** (768 têtes, 8 à 10,5 h). Non prouvé : verdict du DC (rotation, rampe, trous), mémoire vidéo réelle, limite de 8 192 px en moteur | E105 à E108, F140 à F145 ; `<racine>\fo-logs\2026-10-24_A3\` (`NOTES.md` §14, `INTEGRATION.md`, `verification.md` ; `sprites\`, `masques\m16\`, `bouchon\rampe80\` à GARDER) |
+| **A3-jeu** têtes à 64 directions en jeu | 🟨 fusionné le 24/10 vers 3 h 55 (`3fe1da6`), **version 0.4.9** : âges 2 à 8 à 64 directions, 9 à 15 à 4 en attendant la production ; constructeur coupé par une panne des serveurs (529), repris (`6bd7a46`), vérifié, corrigé (`1e09519`, majeur : éclat de l'âge 2) ; D-12 (directions écartées et têtes « HORS REGLE » regardées, listées dans `feuilles.py`). **Reste** : après la production, suivre `FINALISATION.md` (régénérer les feuilles SANS option : tous les âges finis passent à 64 ; regarder les directions écartées prévues, dont d39 de l'âge 12 ; bancs, captures, D4m ; version 0.4.10) | E109 à E111, F146 à F148 ; `<racine>\fo-logs\2026-10-24_A3-jeu\` (`NOTES.md`, `INTEGRATION.md`, `FINALISATION.md`, `verification.md`, `outils\`) ; `<racine>\fo-logs\2026-10-24_integration-A3-jeu\` |
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
@@ -432,6 +435,9 @@ Page pour le DC (24/10, 0 h 15) : rotation de l'âge 5 en 64 positions https://c
 2 h 20 après 3 commits ; reprise `wf_bcc3f79d-bc7` lancée à 2 h 33 (même worktree `wf_93b960d8-a9c-1`, elle lit le
 journal du constructeur coupé : `subagents\workflows\wf_93b960d8-a9c\agent-a074dd25b02e28754.jsonl`). Si elle échoue
 encore : relancer le script `workflows\scripts\a3-jeu-reprise-wf_17da36fe-9d2.js` de la session `8a9c0503`.
+**A3-jeu : FAIT pour les âges 2 à 8** (reprise, vérification et correction ; fusion `3fe1da6`, version 0.4.9). **À faire
+après la production** : `<racine>\fo-logs\2026-10-24_A3-jeu\FINALISATION.md` (dans `main`, plus dans le worktree), puis
+page pour le DC (rotation des 15 âges en jeu), version 0.4.10, documents.
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**

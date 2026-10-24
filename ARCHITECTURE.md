@@ -675,6 +675,14 @@ manifeste présent, à la bonne taille, sinon la commande de régénération est
 worktree neuf : lancer `feuilles.py` d'abord.** Les bancs recopient les PNG présents sur le disque (F127). Bouchon
 arrière (`corps.bouchon_arriere`) posé dans le secteur d20 à d44 seulement, âges 4 à 7 : le saut à la frontière du
 secteur est à juger en A3. Les 6 autres familles gardent `kit.provisional`.
+**Têtes à 64 directions (lot A3-jeu, version 0.4.9)** : `feuilles.py` passe un âge à 64 directions (feuille 8 × 8 par
+couche, `line_length` 8, un fichier sans `slice`, F146) dès que ses 64 têtes sont produites et contrôlées
+(`fo-logs\2026-10-24_A3\sprites`, plus les poses validées), sinon il reste à 4 ; `--ages-64` impose une liste (les
+arguments sont écrits au manifeste) ; l'éclat est ajusté sur toutes les directions de l'âge (refus à 0,5 tuile) et une
+direction écartée du réglage n'est admise que si elle est regardée et inscrite dans `ECLAT_ECARTEES_OK_DEFAUT` (D-12) ;
+les têtes « HORS REGLE » regardées sont dans `HORS_REGLE_OK_DEFAUT`. Contrôles : `check_gun_sheets.py` (17 avec les
+mutants), ligne « Tetes mitrailleuse » du harness, `tools/autotest/gun_rose_images.py` (image montrée contre feuille).
+Outils : `eclat64.py`, `hors_regle.py`, `vram64.py`, `compare_feuilles.py`.
 
 **Sons des familles (lot S0, version 0.4.7)** : `tools/sound/sons.py` (numpy, scipy ; `blender_audio.py` pour le
 module `aud` de Blender, toujours par `with_render_lock.py`) dérive des sons vanilla (`<racine>\data\base\sound\`,

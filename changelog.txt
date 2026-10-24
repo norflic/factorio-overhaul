@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.9
+Date: 2026-10-24
+  Graphics:
+    - La tête de la mitrailleuse des âges 2 à 8 tourne sur 64 positions au lieu de 4 : elle suit sa cible sans
+      à-coups ; les âges 9 à 15 suivront dans une prochaine version.
+  Info:
+    - Les images de la mitrailleuse pèsent 52 Mo (13 Mo avant).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.8
 Date: 2026-10-24
   Sounds:

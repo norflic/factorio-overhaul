@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -262,6 +262,22 @@
   vanilla, sur 5 longueurs × 101 suites de variations ; vérifié sur les 1 024 suites possibles de 5 tirs) ; le contrat
   « apparié » (même suite pour la vanilla et l'ère) n'est pas tenu (+0,33 à +1,28 dB sur 50 ms) et coûterait 1,1 à
   2,0 dB de volume : pas soumis au DC, qui jugera à l'oreille (Q-S0-1). Sur `main` après la fusion (24/10, `done.txt` de 2:28:28,32 à 2:30:22,15 ; archives `<racine>\fo-logs\2026-10-24_integration-S0-suite\`) : les 17 bancs en moteur réel verts (`content` 317, `monde` 89, `m0-reprise` 15, `m0-migration` 9, `t2-machines` 80, `t3-libere` 41, `bord-a-bord` 12, `ht3-migration` 30, `t2-migration` 64, `t2-defense` 36 et 36, `t3-migration` 7, `gun-rose` 11 et 11 avec `FO_AUDIO=1`, **`s0-tir` 5**, `content` 317 et `monde` 89 sur la graine 123456789) ; session avec son `fo-captures s0-tir` (`FO_AUDIO=1`), deux passages, garde : 0 session audio Windows du jeu : `tirs_joues.py` **35/36 au 1er passage** (un tir de l'ère II non reconnu au site 6, corrélations du site 0,54 à 0,57 contre 0,65 à 0,98 ailleurs ; BILAN ECHEC) puis **36/36 au 2e** (site 6 : 0,67 à 0,98) : banc un peu instable, 1 échec sur 5 passages en tout (lot, vérificateur, intégration) ; hors jeu : run 114, war 92, td 270, pteam 15, migration 82, monde 157, levels 1 662 + 11, epochs 16 665, org 362, pvp 596 (381 s), harness code 0 (Sons auto-contrôle 24/24), api_lint 682, d4m 5/5, mut_atlas 50, ht3_journal 15, bat_double_source 40, mut_vram 18/18, test_audio_session 21, `sons.py --check` 20, check_gun_sheets 12, **mut_sons 6**.
+- 24/10, vers 3 h 50, **reprise d'A3-jeu achevée** (run `wf_bcc3f79d-bc7` : reprise `6bd7a46` après le constructeur
+  coupé ; le vérificateur n'avait pas pu démarrer au premier passage, la session de l'orchestrateur étant sortie du dépôt
+  git, relancé par `resumeFromRunId` ; vérification : 0 bloquant, 1 majeur, 8 mineurs ; correcteur `1e09519`). Défaut
+  majeur confirmé et corrigé : pour l'âge 2, l'ajustement de l'éclat écartait 11 directions sur 64 (dont E et O validées)
+  au lieu d'appliquer le refus à 0,5 tuile (sans exclusion, 0,568 tuile en d54). **Décision D-12 de l'orchestrateur**
+  (délégation Q25, provisoire) : option A du correcteur : une direction écartée du réglage n'est admise que si elle a été
+  tirée en jeu, REGARDÉE et inscrite dans `feuilles.ECLAT_ECARTEES_OK_DEFAUT` (sinon l'âge reste à 4 directions) ; les 11
+  directions de l'âge 2 sont inscrites ; de même, les 5 têtes « HORS REGLE » (jours mécaniques de 10 à 17 px, âges 3 et
+  6) regardées sont acceptées par `HORS_REGLE_OK_DEFAUT`. Les deux listes sont au manifeste et seront montrées au DC.
+- 24/10, vers 3 h 55, **fusion d'A3-jeu** (`3fe1da6`) puis **version 0.4.9** : la tête des âges 2 à 8 tourne sur 64
+  positions dans la partie du DC ; les âges 9 à 15 passeront à 64 après la production, par `FINALISATION.md`
+  (`<racine>\fo-logs\2026-10-24_A3-jeu\`). Sur `main` après la fusion (`3fe1da6`) et la régénération des feuilles (`feuilles.py --ages-64 2,3,4,5,6,7,8` : 318 PNG, 52,06 Mo, 505 sources, 7 âges à 64 directions, 7 à 4 ; `git status` propre ; `check_gun_sheets --sources --mutants` 17 OK) : moteur réel, 24/10, `done.txt` de 3:53:12,64 à 3:55:17,74 (archives `<racine>\fo-logs\2026-10-24_integration-A3-jeu\`) : les 17 bancs verts, dont **`gun-rose` 13 OK** (et 13 avec `FO_AUDIO=1`), `content` 317, `t2-defense` 36 et 36, `s0-tir` 5 ; `fo-captures gun-rose` : code 0, **150 captures**, `gun_rose_images.py` « 252 OK, 0 FAUX, 28 ambigu(s) » (les ambiguës : directions à 45° pile des âges encore à 4) ; rose de l'âge 8 à zoom 2 regardée par l'orchestrateur ; hors jeu : run 114, war 92, td 270, pteam 15, migration 82, monde 157, levels 1 662 + 11, epochs 16 665, org 362, pvp 596 (366 s), harness code 0 (ligne « Tetes mitrailleuse (A3-jeu) : 7 age(s) a 64 directions, 7 a 4 », auto-contrôle 4/4), api_lint 683, d4m 5/5, mut_atlas 50, ht3_journal 15, bat_double_source 40, mut_vram 18/18, test_audio_session 21, `sons.py --check` 20, mut_sons 6. Mineurs non traités (m-1 à m-8 de `verification.md`) :
+  `git status` sali par `feuilles.py` sans option pendant la production (le nombre de têtes manquantes est écrit), PNG
+  effacés avant les refus (pas d'écriture atomique), permutation cohérente non vue par `check_gun_sheets`, centre de plage
+  seul contrôlé dans `gun-rose`, forme diagonale de F126 non mesurée, comparaison D4m d'une heure à l'autre, README de
+  `gun_e` absent.
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
@@ -324,6 +340,16 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot A3-jeu, têtes à 64 directions en jeu, 24/10, 0 h 25 à 4 h ; fusionné dans `main`, `3fe1da6`, version 0.4.9)
+Bloc A3 et A4 : F146 à F149 ; A3-jeu prend F146 à F148. Preuves : `fo-logs\2026-10-24_A3-jeu\` (`NOTES.md` §4 à §10 et
+§13 ; `verification.md` ; `captures-reprise\`, `correction\`, `d4m-reprise\`). Expériences : E109 à E111.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F146 | **Observé en moteur réel** (E109). Une tête `RotatedAnimation` à `direction_count = 64`, `line_length = 8`, en UN fichier par couche (côté jusqu'à 3 296 px essayé), sans `slice`, se charge, et le moteur montre l'image K pour l'orientation `orientation_image(K)` (`apply_projection` vrai) : 140 tourelles sur 140 reconnues au pixel (marge minimale 8,4) ; seul le centre de la plage de chaque image est contrôlé. | Feuilles 8 × 8 par couche, âge et résolution ; `gun_rose_images.py` compare chaque capture aux feuilles. |
+| F147 | **Mesuré, indirect** (E111, lignes « Created atlas bitmap »). Le moteur range dans l'atlas les images ROGNÉES de leurs marges transparentes : l'atlas grandit de 1,10 à 1,18 × les pixels de la boîte d'alpha de chaque image, soit 0,53 à 0,58 × les cellules entières. | Estimer la mémoire vidéo sur les boîtes d'alpha, pas sur les cellules : 15 âges à 64 directions ≈ 1,30 à 1,47 Go en haute, 0,46 à 0,51 Go en normale (extrapolé). |
+| F148 | **Observé en moteur réel** (E111). En `--video-memory low` (plancher), les sprites d'objets vont dans l'atlas virtuel, de taille FIXE (9 pages de 4 096², 151 Mpx) : ajouter 7 âges de têtes à 64 directions ne change ni ces pages ni le compteur de mémoire dédiée (0,42 Go) ; seul l'atlas d'ombres grandit. | Au plancher, le coût des 64 directions est surtout dans l'atlas d'ombres. |
 
 ### Faits vérifiés en moteur réel (lot S0-suite, le tir joué en jeu, 24/10, 0 h 25 à 2 h 15 ; fusionné dans `main`, `4ffd852`, version 0.4.8)
 Preuves : `fo-logs\2026-10-24_S0-suite\` (`NOTES.md` §1 à §4, `verification.md`, `moteur\`, `rafales\`). Expérience : E113.
@@ -622,6 +648,19 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E109 à E111 · Lot A3-jeu (24/10, 0 h 25 à 4 h ; runs `wf_93b960d8-a9c` puis `wf_bcc3f79d-bc7`)** : détail dans
+`fo-logs\2026-10-24_A3-jeu\NOTES.md` §4 à §6 et §13.
+- **E109 · VALIDÉ en moteur réel pour les âges 2 à 8 · 64 directions en jeu, intégration progressive** : un âge passe à
+  64 dès que ses 64 têtes sont produites et contrôlées, sinon il reste à 4 ; `gun-rose` à 20 directions par niveau
+  (dont d06, d26, d38, d58) : 13 OK ; captures comparées aux feuilles : 252 OK, 0 FAUX. Verdict du DC : non rendu.
+- **E110 · VALIDÉ hors moteur, 4 directions et 11 directions écartées de l'âge 2 en moteur · Éclat de tir sur toutes les
+  directions** : ajustement par âge sur toutes les directions disponibles, refus à 0,5 tuile ; âge 2 : 11 directions
+  écartées, tirées en jeu et regardées (D-12). Limite : la forme diagonale de la règle F126 n'est pas mesurée hors de
+  N, E, S, O.
+- **E111 · MESURÉ · Mémoire vidéo à 64 directions** (F147, F148) : 10 passages `d4-geant`, haute 1,0875 → 1,1323 Gpx
+  avec 7 âges, extrapolé à 15 âges 1,260 Gpx (1,30 à 1,47 Go) ; normale 0,3393 → 0,3509 Gpx (0,46 à 0,51 Go) ;
+  chargement +0,25 s ; pic de 1,80 Go d'un passage non expliqué. Taille des PNG : 52 Mo à 7 âges, environ 160 Mo aux 15.
+
 **E113 · VALIDÉ en moteur réel · Le tir de la mitrailleuse est joué en jeu, avec le son de son ère (lot S0-suite, 24/10,
 0 h 25 à 2 h 30)** :
 - Protocole : scénario greffé `s0-tir` (6 sites dans un ordre mêlé : ère III, vanilla, V, I, IV, II ; 6 cartouches
