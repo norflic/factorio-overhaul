@@ -438,6 +438,12 @@ encore : relancer le script `workflows\scripts\a3-jeu-reprise-wf_17da36fe-9d2.js
 **A3-jeu : FAIT pour les âges 2 à 8** (reprise, vérification et correction ; fusion `3fe1da6`, version 0.4.9). **À faire
 après la production** : `<racine>\fo-logs\2026-10-24_A3-jeu\FINALISATION.md` (dans `main`, plus dans le worktree), puis
 page pour le DC (rotation des 15 âges en jeu), version 0.4.10, documents.
+⏳ **Lancé le 24/10 vers 4 h 15 : run `wf_0e7edcdd-4f2`** (session `8a9c0503`), deux chaînes en parallèle : **A4-préparation**
+(éclat de tir 2D par âge et par direction, restes et explosions vus en destruction, socle animé préparé avec un pilote
+de 15 min de Blender au plus, essai du masque d'équipe ; `<racine>\fo-logs\2026-10-24_A4\` ; F149, F157 à F160, E112,
+E114 à E116) et **D4m-géant** (banc `d4-geant` recalé sur les emprises de 0.4.3, F128 ; `<racine>\fo-logs\2026-10-24_D4m-geant\` ;
+F161, F162, E117). Pendant un run, la session de l'orchestrateur reste DANS le dépôt du mod (sinon les worktrees des
+agents ne se créent pas).
 
 **Au 23/10, 18 h 30 (plan de la suite, `<racine>\fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §3 ; étapes dans
 OBJECTIFS §6) :**
