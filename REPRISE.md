@@ -227,6 +227,9 @@
 | Test de Stable Diffusion local | ✅ fait (E42) : utile pour l'inspiration et l'img2img depuis un sprite existant, jamais pour des sprites finaux ; planche envoyée au DC | `<racine>\fo-logs\2026-10-22_SD-test\` |
 
 ## 3. Ce qui reste ouvert chez le Directeur Créatif
+- **Page du matin (24/10, 7 h 45)** : https://claude.ai/artifact/YGW8hmv1MH9hy4V43RJ2EV : ce que la nuit a donné (0.4.10)
+  et les questions en attente : Q-S0-1 (sons), Q-A4-1 (éclat A ou B), Q-A4-2 (socle animé), Q-A4-3 (couleur d'équipe),
+  confirmation de Q-P3 (B ou C). À mettre à jour quand les 15 âges sont à 64 directions (A3-final).
 - **Page d'écoute S0 (23/10, 23 h)** : https://claude.ai/artifact/3pqTNcBVakEah1qB2gF5dG ; question **Q-S0-1** (OBJECTIFS §4) : pour
   chaque ère, garder, changer ou refaire le tir. Les sons sont en jeu depuis 0.4.7, provisoires.
 - **Page A2 (23/10, 21 h)** : la mitrailleuse dans le vrai jeu, version 0.4.6
