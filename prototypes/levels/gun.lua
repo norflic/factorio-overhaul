@@ -15,7 +15,8 @@
   nombre de directions et line_length viennent de sprites.lua, âge par âge (feuilles.py) ; apply_projection laissé
   VRAI (F121 : les têtes sont rendues en rotation uniforme dKK), une image ; TOUJOURS LEVÉE (réponse du DC : folded = preparing =
   prepared = attacking = folding = la même image) ; les vitesses (clés de JEU) restent celles de la vanilla : seul le
-  nombre d'images change (E67, garde corrigée par INT-GARDE). Éclat de tir : celui de la munition (vanilla).
+  nombre d'images change (E67, garde corrigée par INT-GARDE). Éclat de tir : celui de la munition (vanilla,
+  explosion-gunshot) ET, depuis le lot A4, une couche d'éclat de l'âge dans attacking_animation (couche_eclat).
   Couches : principale (filtrage linéaire), lueur (draw_as_glow, additive), halo (draw_as_light, additive, socle et
   pièce), ombre (draw_as_shadow). Pas de masque de couleur d'équipe (D-4 non tranchée).
   Bouche (E68) : projectile_creation_distance et projectile_center mesurés par âge sur les sprites (sprites.lua,
@@ -87,17 +88,60 @@ end
 
 local ORDRE = { "main", "glow", "light", "shadow" }
 
-local function couches_fixes(liste, partie)
+--- Couche ANIMÉE du socle (lot A4 : lueur et halo en feuille de frame_count images, line_length par rangée,
+--- tools/render/pieces/levels/gun_e/anime_socle.py), même cadre et même shift d'une image à l'autre.
+local function couche_anime(def, kind)
+  local s = couche_fixe(def, kind)
+  for _, t in ipairs({ s, s.hr_version }) do
+    local r = t == s and def.lr or def.hr
+    t.frame_count, t.line_length, t.animation_speed = r.frame_count, r.line_length, r.animation_speed
+  end
+  return s
+end
+
+--- `anime` (socle animé de l'âge, ou nil) : ses couches remplacent la lueur et le halo de la partie ; `cycle`
+--- ({ n, speed } du socle animé, ou nil) : les couches fixes sont répétées n fois (repeat_count, doc 1.1.91 : une
+--- couche d'une image avec repeat_count = n suit une couche de n images) à la même vitesse.
+local function couches_fixes(liste, partie, anime, cycle)
   for _, kind in ipairs(ORDRE) do
-    if partie[kind] then liste[#liste + 1] = couche_fixe(partie[kind], kind) end
+    if anime and anime[kind] then
+      liste[#liste + 1] = couche_anime(anime[kind], kind)
+    elseif partie[kind] then
+      local c = couche_fixe(partie[kind], kind)
+      if cycle then
+        for _, t in ipairs({ c, c.hr_version }) do t.repeat_count, t.animation_speed = cycle.n, cycle.speed end
+      end
+      liste[#liste + 1] = c
+    end
   end
 end
 
-local function tete(age)
+--- Éclat de tir (lot A4) : couche lumineuse (draw_as_glow, additive) d'attacking_animation, mêmes directions que la
+--- tête, UNE image par direction (le moteur ne dessine cette couche qu'un tick par coup et n'en montrait que l'image
+--- d'indice 1 sur 2 : F149, correction M-1 du lot A4) ; normale seulement (32 px/tuile, pas de hr_version : lueur douce ; le jeu en
+--- haute qualité prend la même définition). Feuille générée par tools/render/pieces/levels/gun_e/eclat_tir.py (appelé
+--- par feuilles.py) : bouts des canons MESURÉS sur la feuille de tête, direction par direction.
+local function couche_eclat(def)
+  local r = def.lr
+  return { filename = r.filename, width = r.width, height = r.height, shift = { r.shift[1], r.shift[2] },
+    direction_count = r.direction_count, frame_count = r.frame_count, line_length = r.line_length,
+    axially_symmetrical = false, draw_as_glow = true, blend_mode = "additive", flags = { "linear-minification" },
+    priority = "medium" }
+end
+
+--- Tête ; `eclat` (attacking_animation seulement) : la couche d'éclat (une image par direction, comme la tête) est
+--- ajoutée au-dessus ; une feuille d'éclat de plus d'une image est refusée (F149 : l'image d'indice 0 ne paraîtrait
+--- jamais).
+local function tete(age, eclat)
   local layers = {}
+  if eclat and eclat.lr.frame_count ~= 1 then
+    error("[factorio-overhaul] eclat de tir de la mitrailleuse : frame_count " .. tostring(eclat.lr.frame_count)
+      .. ", attendu 1 (F149 ; regenerer avec tools/render/pieces/levels/gun_e/feuilles.py)")
+  end
   for _, kind in ipairs({ "main", "glow", "shadow" }) do
     if age.tete[kind] then layers[#layers + 1] = couche_tete(age.tete[kind], kind) end
   end
+  if eclat then layers[#layers + 1] = couche_eclat(eclat) end
   return { layers = layers }
 end
 
@@ -122,11 +166,17 @@ function M.dress(p, ctx)
   -- composition validée (profil.level_layers = socle puis pièce, compo.compose dans cet ordre) ; la pièce couvre donc
   -- la lueur additive du socle (correction A2 : l'ordre couche par couche posait la lueur du socle sur la pièce).
   local base = {}
-  couches_fixes(base, age.socle)
-  if ctx.step == 2 then couches_fixes(base, age.piece) end
+  local cycle = nil
+  if age.socle_anime then
+    local ref = (age.socle_anime.glow or age.socle_anime.light).lr
+    cycle = { n = ref.frame_count, speed = ref.animation_speed }
+  end
+  couches_fixes(base, age.socle, age.socle_anime, cycle)
+  -- la pièce n'est pas animée ; si le socle l'est, elle suit son cycle (repeat_count)
+  if ctx.step == 2 then couches_fixes(base, age.piece, nil, cycle) end
   p.base_picture = { layers = base }
-  -- Tête : la même image pour les 5 animations (tête toujours levée).
-  for _, k in ipairs(TETE) do p[k] = tete(age) end
+  -- Tête : la même image pour les 5 animations (tête toujours levée) ; en tir, l'éclat de l'âge par-dessus (lot A4).
+  for _, k in ipairs(TETE) do p[k] = tete(age, k == "attacking_animation" and age.eclat or nil) end
   -- Boîte d'affichage : socle, pièce et toutes les poses de tête (4 ou 64 ; couches principale et lueur), mesurée par
   -- feuilles.py.
   p.drawing_box = { { age.boite[1][1], age.boite[1][2] }, { age.boite[2][1], age.boite[2][2] } }
