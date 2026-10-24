@@ -33,11 +33,27 @@ local books = {}
 -- 29 min avec 4 500 fer au coffre). Le livre est oublié dès que les recherches d'une force changent ; il est
 -- refait depuis l'état du jeu, comme après un chargement : tous les pairs ont donc le même livre (avant, une
 -- partie rechargée pouvait en avoir un autre que le serveur).
+-- Seuls les livres de la force concernée sont oubliés : oublier tous les livres à chaque technologie débloquée
+-- faisait reconstruire ceux de toutes les forces (banc `default`, machine chargée : 98 pics « team » de plus de
+-- 2 ms avec l'oubli total, 65 avec l'oubli par force ; décisions identiques au tick près).
 local function forget_books() books = {} end
-Events.on(defines.events.on_research_finished, forget_books)
-Events.on(defines.events.on_research_reversed, forget_books)
-Events.on(defines.events.on_technology_effects_reset, forget_books)
-Events.on(defines.events.on_force_reset, forget_books)
+local function forget_force(force)
+  if not (force and force.valid) then
+    forget_books()
+    return
+  end
+  local prefix = force.name .. ":"
+  local keys = {}
+  for k in pairs(books) do
+    if k:sub(1, #prefix) == prefix then keys[#keys + 1] = k end
+  end
+  table.sort(keys)
+  for _, k in ipairs(keys) do books[k] = nil end
+end
+Events.on(defines.events.on_research_finished, function(e) forget_force(e.research and e.research.force) end)
+Events.on(defines.events.on_research_reversed, function(e) forget_force(e.research and e.research.force) end)
+Events.on(defines.events.on_technology_effects_reset, function(e) forget_force(e.force) end)
+Events.on(defines.events.on_force_reset, function(e) forget_force(e.force) end)
 
 local function book_for(f)
   local key = f.force .. ":" .. f.tech
