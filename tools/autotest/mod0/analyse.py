@@ -12,6 +12,7 @@ import re
 import statistics
 import sys
 import zipfile
+import zlib
 
 AVANT = (700, 1000)
 APRES = (1300, 1600)
@@ -74,6 +75,19 @@ def main():
                         xs = [v[i] / 1e6 for v in sel]
                         parts.append("%s %.4f / %.4f" % (c, statistics.mean(xs), statistics.median(xs)))
                 print("  %-24s %d ticks : %s" % (nom, len(sel), " ; ".join(parts)))
+    carte = os.path.join(d, "fo-autotest-map.zip")
+    if os.path.exists(carte):
+        with zipfile.ZipFile(carte) as z:
+            lvl = [i for i in z.infolist() if "level.dat" in i.filename]
+            brut = 0
+            for i in lvl:
+                data = z.read(i.filename)
+                try:
+                    brut += len(zlib.decompress(data))
+                except zlib.error:
+                    brut += len(data)
+            print("--- carte créée : zip %d o ; level.dat* : %d entrée(s), %d o, %d o une fois décompressés (zlib)"
+                  % (os.path.getsize(carte), len(lvl), sum(i.file_size for i in lvl), brut))
     saves = os.path.join(d, "write", "saves")
     for n in ("_autosave-mod0-995.zip", "_autosave-mod0-1295.zip"):
         p = os.path.join(saves, n)

@@ -32,7 +32,10 @@
 local NOM = "mod0-risques"
 local X0, Y0, PAS, COLS = 3000.5, 3000.5, 24, 10
 local WA, WB = 300, 900
-local UNLIM = 1e13               -- J par tick
+local UNLIM = 1e13               -- J par tick (cellules de 1 GW et 1 TW seulement)
+-- Passe 1 (24/10, 20 h 50) : sur une source de 1e13 J, une prise de 5 166 J par tick (310 kW) n'était PAS décomptée
+-- (0 W lu, la machine tournait) ; 14 333 J (860 kW) l'était. Source par défaut ramenée à 1e8 J par tick (6 GW).
+local CAP_DEF = 1e8
 local function W(p) return p / 60 end
 local BX0, BY0, BCOLS, BN = 3100.5, 3300.5, 34, 1100
 local RX, RY = 3400.5, 3000.5
@@ -127,9 +130,16 @@ C({ id = "R4-p10000", r = "R4", ms = { A("mod0-asm-1", nil, { "mod0-p10000" }) }
 C({ id = "R4-p100000", r = "R4", ms = { A("mod0-asm-1", nil, { "mod0-p100000" }) } })
 C({ id = "R4-prodvanilla-balise", r = "R4", ms = { A("mod0-asm-1", nil, nil, { "productivity-module-3" }) } })
 C({ id = "R4-prodvanilla-machine", r = "R4", ms = { A("mod0-asm-1", nil, { "productivity-module-3" }) } })
+-- Passe 2 : la balise qui portait le module de productivité vanilla (limité) n'a RIEN transmis (ni +10 % de
+-- productivité, ni −15 % de vitesse). Productivité SANS limitation en balise ; module limité + module de vitesse.
+C({ id = "R4-p10-balise", r = "R4", ms = { A("mod0-asm-1", nil, nil, { "mod0-p10" }) } })
+C({ id = "R4-p1000-balise", r = "R4", ms = { A("mod0-asm-1", nil, nil, { "mod0-p1000" }) } })
+C({ id = "R4-prodvanilla+v100-balise", r = "R4",
+  ms = { A("mod0-asm-1", nil, nil, { "productivity-module-3", "mod0-cplt-v100" }) } })
+C({ id = "R0-temoin-source-1e13", r = "R0", cap = UNLIM, ms = { A("mod0-asm-1", nil, { V3, V3, V3 }) } })
 -- R5
-C({ id = "R5-1gw-illimite", r = "R5", ms = { A("mod0-asm-1gw") } })
-C({ id = "R5-1tw-illimite", r = "R5", ms = { A("mod0-asm-1tw") } })
+C({ id = "R5-1gw-illimite", r = "R5", cap = UNLIM, ms = { A("mod0-asm-1gw") } })
+C({ id = "R5-1tw-illimite", r = "R5", cap = UNLIM, ms = { A("mod0-asm-1tw") } })
 C({ id = "R5-1gw-sur-1mw", r = "R5", cap = W(1e6), ms = { A("mod0-asm-1gw") } })
 C({ id = "R5-1tw-sur-1mw", r = "R5", cap = W(1e6), ms = { A("mod0-asm-1tw") } })
 C({ id = "R5-1gw-temoin-sur-10mw", r = "R5", cap = W(1e7),
@@ -190,7 +200,7 @@ local function profil(ctx, label, n, fn)
 end
 
 local function poser_cellule(ctx, s, spec, x, y)
-  local c = { id = spec.id, r = spec.r, cap = spec.cap or UNLIM, ms = {}, x = x, y = y, e = 0,
+  local c = { id = spec.id, r = spec.r, cap = spec.cap or CAP_DEF, ms = {}, x = x, y = y, e = 0,
     principale = spec.principale or 1 }
   s.create_entity({ name = "mod0-poteau", position = { x, y }, force = "player" })
   local src = s.create_entity({ name = "mod0-source", position = { x + 0.5, y + 0.5 }, force = "player" })
@@ -440,6 +450,18 @@ return {
     st.balises = {}
 
     poser_robots(ctx, s, st)
+
+    -- R3 mémoire (passe 2) : auto_save ne fait rien en mode benchmark (passe 1). Mesure indirecte : 5 000 balises
+    -- cachées SEULES (un module chacune), posées à la création ; la carte créée (fo-autotest-map.zip) est comparée à
+    -- celle de la passe 1, identique hormis ces balises et les cellules ajoutées.
+    ctx.prepare_area(3295, 3445, 3376, 3526, "grass-1")
+    local nmem = 0
+    for i = 1, 5000 do
+      local b = s.create_entity({ name = "mod0-balise-cachee", position = { 3300.5 + (i - 1) % 71, 3450.5 + math.floor((i - 1) / 71) },
+        force = "player" })
+      if b and b.get_module_inventory().insert({ name = "mod0-cplt-v100", count = 1 }) == 1 then nmem = nmem + 1 end
+    end
+    ctx.check(nmem == 5000, "R3 memoire : 5 000 balises cachees seules posees a la creation", nmem)
     st.pret = true
   end,
 
@@ -633,10 +655,11 @@ return {
           R[c.id .. "#" .. j] = r
           ctx.log(string.format("MESURE %s [%s] %s : speed_bonus=%s consumption_bonus=%s productivity_bonus=%s "
             .. "crafting_speed=%s beacons=%s | fabrications=%d (%s/s) produits=%d (%s/s) vitesse_effective=%s "
-            .. "| puissance_cellule=%s W | effects{%s} modules{%s} statut=%s",
+            .. "| puissance_cellule=%s W | effects{%s} modules{%s} statut=%s tampon=%s J energie=%s J flux_entree=%s J/tick",
             c.id, rec.role, m.name, f6(r.sb), f6(r.cb), f6(r.pb), f6(r.cs), f6(r.bc), crafts, f6(r.crate), rec.items,
             f6(r.rate), f6(r.speff), f6(P), effets(m), modules_txt(m.get_module_inventory()),
-            tostring(m.status)))
+            tostring(m.status), f6(lit(m, "electric_buffer_size")), f6(lit(m, "energy")),
+            f6(lit(m, "electric_input_flow_limit"))))
           if rec.balise then
             local b = rec.balise
             ctx.log(string.format("MESURE %s balise cachee : valide=%s statut=%s effects{%s} recepteurs=%d modules{%s}",
@@ -696,9 +719,9 @@ return {
       f6(centre and centre.sb), f6(centre and centre.crate), voisines_nulles, table.concat(voisines_rate, " "), BN,
       tostring(vb.bons), BN, tostring(vb.bc1), tostring(vb.rec1), tostring(ve.bons)))
     -- R4
-    ctx.log(string.format("VERDICT R4 (vitesse) : +10 sb %s (%s fab/s, attendu 0,2) ; +100 sb %s (%s fab/s, attendu 0,101) ; "
-      .. "+1 000 sb %s (%s fab/s, attendu 1,001) ; +1 000 en balise sb %s (%s fab/s) ; 327,67 sb %s (%s fab/s, attendu 0,0329)"
-      .. " ; 327,68 sb %s (%s fab/s) ; 2 x 200 sb %s (%s fab/s, attendu 0,0401)",
+    ctx.log(string.format("VERDICT R4 (vitesse) : +10 sb %s (%s fab/s, recette 10 s : 1,1 attendu) ; +100 sb %s (%s fab/s, "
+      .. "recette 100 s : 1,01) ; +1 000 sb %s (%s fab/s, 10,01) ; +1 000 en balise sb %s (%s fab/s) ; 327,67 sb %s "
+      .. "(%s fab/s, 3,2867) ; 327,68 sb %s (%s fab/s) ; 2 x 200 sb %s (%s fab/s, 4,01 sans plafond de la somme)",
       f6(R["R4-v1000"].sb), f6(R["R4-v1000"].crate), f6(R["R4-v10000"].sb), f6(R["R4-v10000"].crate),
       f6(R["R4-v100000"].sb), f6(R["R4-v100000"].crate), f6(R["R4-v100000-balise"].sb), f6(R["R4-v100000-balise"].crate),
       f6(R["R4-v32767"].sb), f6(R["R4-v32767"].crate), f6(R["R4-v32768"].sb), f6(R["R4-v32768"].crate),
@@ -713,6 +736,12 @@ return {
         for _, c in ipairs(st.cells) do if c.id == "R4-prodvanilla-machine" then return c.ms[1].mis end end
         return -1
       end)(), f6(R["R4-prodvanilla-machine"].pb)))
+    ctx.log(string.format("VERDICT R4 (balise et productivite) : prod +10 %% sans limitation en balise pb %s (%s/s, 2,2 "
+      .. "attendu) ; prod +1 000 %% en balise pb %s (%s/s, 22) ; prod vanilla (limitee) + vitesse +100 %% dans la MEME balise : "
+      .. "sb %s pb %s (%s fab/s) ; temoin 3 x vit3 sur source de 1e13 J : P %s W (310 kW attendu ; source 1e8 J : %s W)",
+      f6(R["R4-p10-balise"].pb), f6(R["R4-p10-balise"].rate), f6(R["R4-p1000-balise"].pb), f6(R["R4-p1000-balise"].rate),
+      f6(R["R4-prodvanilla+v100-balise"].sb), f6(R["R4-prodvanilla+v100-balise"].pb),
+      f6(R["R4-prodvanilla+v100-balise"].crate), f6(R["R0-temoin-source-1e13"].P), f6(R["R1-3xvit3"].P)))
     -- R5
     local tem = R["R5-1gw-temoin-sur-10mw#2"]
     local tem2 = R["R5-1tw-flux1mw-temoin-sur-10mw#2"]
