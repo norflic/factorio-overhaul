@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Dernière mise à jour : 24/10/2026, vers 10 h 30** (orchestrateur, session `8a9c0503`) : version **0.4.11** (éclat
+> qui grossit d'ère en ère) ; le DC a validé la mitrailleuse (« Ok pour les mitrailleuses j'aime bien ») et répondu aux
+> questions (OBJECTIFS §4 : Q-A4-1 progression par ère, Q-A4-2 A, Q-A4-3 B en petits éléments désaturés, Q-P3 B) ; **D-14 :
+> IA1 se construit maintenant**. EN COURS : production des têtes (816/840 à 10 h 15) puis A3-final (script prêt :
+> scratchpad `wf_finalisation.js`) ; runs `wf_e12c2f9b-9c8` (F1-A kit laser, M1 minerai), `wf_dbbe3818-700` (PNJ-VÉRIF :
+> gameplay des PNJ v0, guide de partie), `wf_7e687e38-811` (IA1 vague 1 : IA1-0, IA1-a, IA1-c). À FAIRE : socle animé
+> des 10 autres âges (6,4 h de Blender, de nuit), essai de la couleur d'équipe (petits éléments, désaturée), rondes du
+> laser (F1-B). Avant :
 > **Dernière mise à jour : 24/10/2026, vers 7 h 35** (orchestrateur, session `8a9c0503` ; jalon : **A4-préparation et
 > D4m-géant fusionnés, version 0.4.10** (`ab4f1b6`, `d7efe80`) ; production des têtes en cours (fin vers 9 h), puis
 > `FINALISATION.md` d'A3-jeu). Avant : 24/10, vers 4 h 15 (jalon : **A3-jeu fusionné,
