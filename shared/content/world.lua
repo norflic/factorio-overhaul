@@ -158,7 +158,18 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 0.50, g = 0.58, b = 0.90 },
     glint = { tint = { r = 0.40, g = 0.60, b = 1.00 }, min = 0.25, max = 0.60, period = 6 },
-    map_color = { r = 0.30, g = 0.36, b = 0.52 },
+    -- Lot M1 (24/10) : feuille PROPRE du kit minerai (tools/render/pieces/ressources ; direction et mesures :
+    -- fo-logs/2026-10-24_M1/NOTES.md). Remplace la pierre teintée ci-dessus pour le gisement, son icône et l'objet
+    -- du minerai ; `tint` reste la couleur de la plaque, de la technologie et des munitions.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/tungstene",
+      name = "tungstene",
+      mining_visualisation_tint = { r = 0.62, g = 0.68, b = 0.82, a = 1 },
+      effet = { period = 6, deviation = 1, darkness_multiplier = 3.6, min = 0.15, max = 0.45 },
+    },
+    -- Lot M1 : (0,30 ; 0,36 ; 0,52) était à ΔE 20 de l'eau et 24 du fer sur la carte ; bleu acier froid, ΔE ≥ 48 de
+    -- l'eau, du fer, du cristal, du pétrole, des cendres et du marais (mesure.py, CIE76).
+    map_color = { r = 0.40, g = 0.42, b = 0.78 },
     mining_time = 2,
     category = "fo-hard-solid",
     biome = "fo-volcanic-ash",
