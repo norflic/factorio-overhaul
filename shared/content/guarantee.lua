@@ -137,6 +137,7 @@ function G.specs()
         spec.amount = gu.amount
         spec.min_total = gu.min_total
         spec.core_radius = gu.ore_radius
+        spec.clear_trees = gu.clear_trees or nil
         if gu.ore_offset or gu.field_wells then
           -- Champ (lot X1-TITANE, champ de cratères) : gisement décalé de ore_offset et puits d'une AUTRE ressource
           -- (fluide) sur le même disque. Le cœur couvre le gisement et les chevalets 3×3 des puits.

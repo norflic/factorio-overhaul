@@ -294,7 +294,9 @@ W.resources = {
     -- plaques, comme le site de tungstène ; un bâtiment de chaque famille au niveau maximal en demande 7 865, calculé sur
     -- L.cost), décalé à l'ouest du centre ; 3 puits de saumure à l'est (« 3 lacs », X.base_resources), 150 % chacun.
     -- 9 400 par tuile au centre : stades 1 et 2 de la feuille (seuils du fer), gisement dense (cf. F169 pour le tungstène).
-    guarantee = { site_radius = 22, ore_radius = 9, ore_offset = { -7, 0 }, amount = 9400, min_total = 800000,
+    -- clear_trees : arbres et rochers retirés du disque (régolithe stérile ; capture du 25/10 : la forêt restait debout sur
+    -- le champ et sur le minerai).
+    guarantee = { site_radius = 22, ore_radius = 9, ore_offset = { -7, 0 }, amount = 9400, min_total = 800000, clear_trees = true,
       field_wells = { key = "brine", resource = "fo-brine", amount = 450000,
         offsets = { { 9, -7 }, { 9, 0 }, { 9, 7 } } } },
     item = "fo-ilmenite-ore",

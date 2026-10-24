@@ -215,6 +215,8 @@ return {
         and site.dist >= spec.dmin and site.dist <= spec.dmax,
         "champ complet : ilmenite (>= min_total) et 3 puits de saumure sur le sol des crateres, a 400-900 tuiles",
         string.format("%d entites, %d ; puits %d ; hors sol %d ; distance %.1f", #ore, total, #wells, wrong, site.dist))
+      local trees = s.count_entities_filtered({ position = c, radius = spec.site_radius - 2, type = { "tree", "simple-entity" } })
+      ctx.check(trees == 0, "champ : aucun arbre ni rocher sur le disque de regolithe", trees)
       -- 2. Foreuses sur l'ilménite (centre du gisement : décalage du champ), chevalet sur le premier puits.
       local ox, oy = site.x + spec.ore_offset[1], site.y + spec.ore_offset[2]
       ctx.power(ox, oy)

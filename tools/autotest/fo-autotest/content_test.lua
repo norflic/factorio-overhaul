@@ -143,6 +143,20 @@ local MACHINE = {
   ["chemistry"] = "chemical-plant", ["oil-processing"] = "oil-refinery",
 }
 
+--- Lot X1-TITANE : catégorie du mod sans machine vanilla (four à coke, concentrateur, four à arc, électrolyseur,
+--- réacteur de Kroll) : la première machine à recette (ordre des noms) qui la sait faire.
+local function machine_for(category)
+  if MACHINE[category] then return MACHINE[category] end
+  local names = {}
+  for name, p in pairs(game.entity_prototypes) do
+    if (p.type == "assembling-machine" or p.type == "furnace") and p.crafting_categories and p.crafting_categories[category] then
+      names[#names + 1] = name
+    end
+  end
+  table.sort(names)
+  return names[1]
+end
+
 local function setup_recipes(s, S)
   local names = {}
   for name in pairs(game.recipe_prototypes) do
@@ -153,7 +167,7 @@ local function setup_recipes(s, S)
   local i = 0
   for _, name in ipairs(names) do
     local r = game.recipe_prototypes[name]
-    local mname = MACHINE[r.category]
+    local mname = machine_for(r.category)
     if not mname then
       fail("recette " .. name, "categorie sans machine de test : " .. r.category)
     else
@@ -165,6 +179,8 @@ local function setup_recipes(s, S)
         fail("recette " .. name, "machine non posee")
       else
         if m.type ~= "furnace" then m.set_recipe(name) end
+        -- machine à combustible (four à coke du lot X1-TITANE) : du charbon dans le foyer
+        if m.burner then m.get_fuel_inventory().insert({ name = "coal", count = 10 }) end
         for _, ing in ipairs(r.ingredients) do
           if ing.type == "fluid" then
             m.insert_fluid({ name = ing.name, amount = math.min(ing.amount * 4, 200) })

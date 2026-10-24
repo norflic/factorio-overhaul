@@ -248,6 +248,8 @@ do
     string.format("champ : %d minerais d'ilménite sur %d tuiles ; total sans les puits", L.total, #L.ore))
   check(G.units_found(s, 2000000, 300, 3) == 2 and G.units_found(s, 2000000, 300, 2) == 0 and G.units_found(s, 2000000, 300, nil) == 0,
     "champ : compté seulement avec ses 3 puits de saumure connus")
+  check(s.clear_trees == true and G.spec("tungsten").clear_trees == nil and G.spec("methane").clear_trees == nil,
+    "champ : arbres et rochers retirés du disque (régolithe) ; les sites d'avant gardent les leurs")
   -- Les sites existants (tungstène, cristal, méthane) n'ont pas de champ : rien ne change pour eux.
   check(G.spec("tungsten").field_wells == nil and G.spec("tungsten").ore_offset == nil and G.units_found(G.spec("tungsten"), 100000, 1) == 1,
     "tungstène : sans champ, règle d'avant")

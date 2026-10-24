@@ -173,6 +173,16 @@ local function place_site(surface, spec, c, map_seed, units, decor, fill_water)
       surface.destroy_decoratives({ area = { { r.x0, y }, { r.x1 + 1, y + 1 } } })
     end
   end
+  -- Champ de cratères (X1-TITANE, spec.clear_trees) : arbres et rochers retirés du disque, ligne par ligne (régolithe
+  -- stérile ; neutres, ils n'empêchent pas le site). Les sites d'avant (cendres, cristal, marais) gardent les leurs.
+  if spec.clear_trees then
+    for _, y in ipairs(row_order) do
+      local r = rows[y]
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { r.x0, y }, { r.x1 + 1, y + 1 } }, type = { "tree", "simple-entity" } })) do
+        if e.valid then e.destroy() end
+      end
+    end
+  end
   -- Eau comblée (niveau >= 2) : les entités qui ne vivent que sur l'eau (poissons) sont retirées.
   surface.set_tiles(tiles, true, filled > 0)
   local made, total = 0, 0
