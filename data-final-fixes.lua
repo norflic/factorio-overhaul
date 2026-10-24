@@ -5,6 +5,14 @@ local M = require("shared.content.modules")
 -- Recettes intermédiaires du mod éligibles à la productivité.
 -- RÈGLE : jamais une recette réversible (compaction/décompaction...) : productivité + boucle = matière infinie.
 local FO_PRODUCTIVITY_RECIPES = { "fo-tungsten-plate" }
+-- Lot X1-TITANE : les recettes de la chaîne du titane que le scénario X0 marque « prod » (refusion de la plaque,
+-- cokéfaction) ; aucune n'est réversible.
+do
+  local T = require("shared.content.titanium")
+  for _, rr in ipairs(T.RECIPES) do
+    if T.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
 
 local base = data.raw.module["productivity-module-3"]
 local limitation = table.deepcopy(base and base.limitation or {})

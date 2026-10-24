@@ -82,6 +82,32 @@ W.biomes = {
     region = { seed = "fo-biome-marsh", threshold = 0.55, scale = 1 / 200, moisture_min = 0.5 },
     hazard = { kind = "damage", type = "poison", amount = 2 },
   },
+  {
+    -- Lot X1-TITANE (25/10) : CHAMPS DE CRATÈRES, biome de l'âge 11 (X.tiles, docs/SCENARIO_EPOQUES.md : « texture
+    -- choisie d'après sa couleur mesurée, F36 et F38 »). Régolithe d'impact gris : la terre à mottes vanilla (dirt-4)
+    -- RECOLORÉE (tools/biomes/sol_crateres.py, méthode du lot B0 : couleur moyenne mesurée (127 ; 126 ; 127) en hr), un
+    -- SOL comme la plaine de cristal (découpe, variantes et masques de transition de dirt-4), au-dessus des sols vanilla
+    -- et de la plaine (layer 42) : c'est lui qui dessine sa frange. Ni teinte, ni danger : un sol stérile, plus lent pour
+    -- les véhicules (poussière). Les cratères EN RELIEF ne sont pas faisables en tuiles 1.1 : non faits (dit).
+    -- Région : graine NUMÉRIQUE (seed1), sans nouveau prototype noise-layer (F198 : une noise-layer de plus change la
+    -- forêt vanilla partout).
+    name = "fo-crater-fields",
+    copy_from = "dirt-4",
+    texture = {
+      ["__base__/graphics/terrain/dirt-4.png"] = "__factorio-overhaul__/graphics/terrain/crateres/sol-crateres.png",
+      ["__base__/graphics/terrain/hr-dirt-4.png"] = "__factorio-overhaul__/graphics/terrain/crateres/hr-sol-crateres.png",
+    },
+    ground = true,
+    layer = 42,
+    no_splash = true,
+    sound_from = "stone-path",
+    map_color = { r = 122, g = 122, b = 128 },
+    walking_speed_modifier = 1.0,
+    vehicle_friction_modifier = 1.3,
+    pollution_absorption_per_second = 0.0000005,
+    region = { seed1 = 7211, threshold = 0.56, scale = 1 / 240, moisture_max = 0.55 },
+    hazard = nil,
+  },
 }
 
 -- Grain fin des frontières des biomes (lot B0, verdict du DC du 24/10 : « B3 B ») : bruit ajouté à la probabilité de
@@ -90,11 +116,11 @@ W.biomes = {
 -- seed1 : graines numériques propres (comme les gisements, 7101 à 7103) ; surtout pas de nouveau prototype noise-layer
 -- (il décale les couches de bruit existantes et change la forêt vanilla, F198 proposé).
 W.grain = { period = 6, influence = 2 / 3, persistence = 0.7, octaves = 4,
-  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203 } }
+  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203, ["fo-crater-fields"] = 7204 } }
 
 -- Biomes sans AUCUN décor vanilla à la génération (lot B0, verdict « B4 B » : touffes d'herbe et plaques brunes
 -- retirées de la plaine de cristal) ; leur propre décor (W.decor) reste.
-W.no_vanilla_decor = { "fo-crystal-flats" }
+W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields" } -- X1-TITANE : ni herbe ni plante sur le régolithe
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
@@ -151,6 +177,16 @@ W.decor = {
       { name = "fo-marsh-stump", copy = "muddy-stump", density = 0.01, tint = { r = 0.60, g = 0.65, b = 0.40 } },
     },
   },
+  -- X1-TITANE : éjectas d'impact, cailloux gris clair (copies vanilla teintées froid) ; aucune entité (la brèche des
+  -- remparts est une ressource de la branche D, hors de ce lot).
+  ["fo-crater-fields"] = {
+    decoratives = {
+      { name = "fo-crater-pebbles", copy = "rock-tiny", density = 0.06, tint = { r = 0.86, g = 0.87, b = 0.92 } },
+      { name = "fo-crater-ejecta", copy = "rock-small", density = 0.02, tint = { r = 0.80, g = 0.81, b = 0.86 } },
+      -- verre d'impact : éclats sombres vert-noir
+      { name = "fo-crater-glass", copy = "sand-rock-small", density = 0.01, tint = { r = 0.42, g = 0.48, b = 0.45 } },
+    },
+  },
 }
 
 --[[
@@ -163,7 +199,11 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine" }
+-- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
+-- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
+-- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite" }
 
 W.resources = {
   tungsten = {
@@ -243,6 +283,54 @@ W.resources = {
     -- Craquage (usine chimique) : `input` du fluide -> `output` de `product`, en `energy` secondes.
     cracking = { input = 100, product = "petroleum-gas", output = 60, energy = 3 },
     autoplace = { base_density = 6, base_spots_per_km2 = 2, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7103 },
+  },
+  -- Lot X1-TITANE (25/10) : ILMÉNITE, minerai du titane (âge 11), dans les champs de cratères (X.base_resources :
+  -- fo-ilmenite, catégorie fo-hard-solid, produit fo-ilmenite-ore). Chaîne de transformation : shared/content/titanium.lua.
+  ilmenite = {
+    resource = "fo-ilmenite",
+    kind = "ore",
+    epoch = 11,
+    -- Site garanti (un champ de cratères complet) : environ 1,6 million de minerais (16 minerais par plaque : 100 000
+    -- plaques, comme le site de tungstène ; un bâtiment de chaque famille au niveau maximal en demande 7 865, calculé sur
+    -- L.cost), décalé à l'ouest du centre ; 3 puits de saumure à l'est (« 3 lacs », X.base_resources), 150 % chacun.
+    -- 9 400 par tuile au centre : stades 1 et 2 de la feuille (seuils du fer), gisement dense (cf. F169 pour le tungstène).
+    guarantee = { site_radius = 22, ore_radius = 9, ore_offset = { -7, 0 }, amount = 9400, min_total = 800000,
+      field_wells = { key = "brine", resource = "fo-brine", amount = 450000,
+        offsets = { { 9, -7 }, { 9, 0 }, { 9, 7 } } } },
+    item = "fo-ilmenite-ore",
+    copy_resource = "iron-ore",
+    copy_icon = "iron-ore",
+    -- Titane de l'âge 11 (#8E9AA6, docs/DESIGN_EPOQUES.md §1.5) : teinte de la technologie et des objets dérivés.
+    tint = { r = 0.56, g = 0.60, b = 0.65 },
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction I1, tools/render/pieces/ressources/directions.py).
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/ilmenite",
+      name = "ilmenite",
+      mining_visualisation_tint = { r = 0.70, g = 0.66, b = 0.60, a = 1 },
+      -- Comme le tungstène corrigé (M1) : presque rien de jour, lueur bleu-blanc de nuit.
+      effet = { period = 8, deviation = 1, darkness_multiplier = 120, min = 0.008, max = 0.012 },
+    },
+    -- Bleu-blanc pâle (lumière de l'âge 11) : ΔE76 mesuré contre l'eau, le fer, la pierre, le tungstène, le cristal,
+    -- le méthane, la saumure et les sols (fo-logs/2026-10-25_X1/NOTES.md).
+    map_color = { r = 0.84, g = 0.88, b = 0.96 },
+    mining_time = 2,
+    category = "fo-hard-solid",
+    biome = "fo-crater-fields",
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 3, seed1 = 7104 },
+  },
+  -- Lot X1-TITANE : SAUMURE (lac de saumure, fond des cratères ; X : fluide, infinie, part minimale 0,2 : celle du
+  -- pétrole copié). Chevalet de pompage vanilla (X : « Pompage : saumure », machines { "pumpjack" }).
+  brine = {
+    resource = "fo-brine",
+    kind = "fluid",
+    epoch = 11,
+    fluid = "fo-brine",
+    copy_resource = "crude-oil",
+    copy_fluid = "water",
+    tint = { r = 0.55, g = 0.82, b = 0.80 },
+    map_color = { r = 0.36, g = 0.78, b = 0.70 },
+    biome = "fo-crater-fields",
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.5, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7105 },
   },
 }
 

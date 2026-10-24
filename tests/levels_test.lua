@@ -726,6 +726,7 @@ local VERIFIED = {
   ["space-science-pack"] = true,
   [W.resources.tungsten.plate.item] = true, [W.resources.crystal.item] = true,
   [W.resources.methane.fluid .. "-barrel"] = true, -- baril généré par le jeu de base pour chaque fluide
+  ["fo-titanium-plate"] = true, -- lot X1-TITANE (prototypes/titanium.lua)
 }
 for _, item in ipairs(L.cost_items()) do
   check(VERIFIED[item], "objet de coût existant en jeu : " .. item)
@@ -766,8 +767,10 @@ local prov = L.provisional_materials()
 for _, m in ipairs(prov) do
   print(string.format("    époque %2d %-15s %-35s → %s (voulu : %s)", m.epoch, m.key, m.want, m.item, m.want_item))
 end
-check(#prov == 5, "5 remplaçants provisoires (époques 11 à 15 : " .. #prov .. ")")
-for _, m in ipairs(prov) do check(m.epoch >= 11, "remplaçant provisoire seulement aux époques 11-15 (" .. m.key .. ")") end
+check(#prov == 4, "4 remplaçants provisoires (époques 12 à 15 depuis le lot X1-TITANE : " .. #prov .. ")")
+for _, m in ipairs(prov) do check(m.epoch >= 12, "remplaçant provisoire seulement aux époques 12-15 (" .. m.key .. ")") end
+check(L.epoch_materials[11].item == "fo-titanium-plate" and not L.epoch_materials[11].provisional and L.epoch_materials[11].value == 20,
+  "époque 11 : la vraie plaque de titane (valeur 20 du scénario X0), plus de remplaçant")
 
 ---------------------------------------------------------------------------------------------------
 section("Statistiques sur 30 niveaux")

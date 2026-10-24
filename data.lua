@@ -2,6 +2,7 @@
 
 require("prototypes.companion.body")
 require("prototypes.world")
+require("prototypes.titanium")
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")

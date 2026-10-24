@@ -29,18 +29,19 @@ local LV = require("shared.levels.config")
 section("Spécifications tirées des données")
 ---------------------------------------------------------------------------------------------------
 local specs = G.specs()
-check(#specs == 3, "3 ressources garanties (" .. #specs .. ")")
+check(#specs == 4, "4 ressources garanties (" .. #specs .. ")")
 local expect = { { "tungsten", "fo-tungsten-ore", 5, "ore" }, { "crystal", "fo-resonance-crystal", 7, "ore" },
-  { "methane", "fo-methane", 8, "fluid" } }
+  { "methane", "fo-methane", 8, "fluid" }, { "ilmenite", "fo-ilmenite", 11, "ore" } }
 for i, e in ipairs(expect) do
   local s = specs[i]
   check(s and s.key == e[1] and s.resource == e[2] and s.epoch == e[3] and s.kind == e[4],
     string.format("spécification %d : %s, %s, époque %d, %s", i, e[1], e[2], e[3], e[4]))
   local base
   for _, r in ipairs(X.base_resources) do if r.name == e[2] then base = r end end
+  for _, r in ipairs(X.resources) do if r.name == e[2] then base = r end end -- X1-TITANE : ressources neuves
   local g = base and base.placement.guaranteed
   check(g and s.count == g.count and s.dmin == g.distance[1] and s.dmax == g.distance[2],
-    e[1] .. " : nombre et distances = X.base_resources (" .. tostring(s.count) .. ", " .. tostring(s.dmin) .. "-" .. tostring(s.dmax) .. ")")
+    e[1] .. " : nombre et distances = X (" .. tostring(s.count) .. ", " .. tostring(s.dmin) .. "-" .. tostring(s.dmax) .. ")")
   check(W.resources[e[1]].epoch == base.epoch and W.resources[e[1]].kind == s.kind,
     e[1] .. " : époque et genre de world.lua cohérents avec X.base_resources")
   check(s.tile == W.resources[e[1]].biome, e[1] .. " : tuile du site = biome de la ressource (" .. tostring(s.tile) .. ")")
@@ -62,8 +63,10 @@ local currency = {
   [5] = { item = W.resources.tungsten.plate.item, from = "fo-tungsten-ore" },
   [7] = { item = W.resources.crystal.item, from = "fo-resonance-crystal" },
   [8] = { item = W.resources.methane.fluid .. "-barrel", from = "fo-methane" },
+  -- Lot X1-TITANE : la plaque de titane, tirée de l'ilménite du champ de cratères garanti.
+  [11] = { item = "fo-titanium-plate", from = "fo-ilmenite" },
 }
-for _, ep in ipairs({ 5, 7, 8 }) do
+for _, ep in ipairs({ 5, 7, 8, 11 }) do
   local m = LV.epoch_materials[ep]
   local c = currency[ep]
   check(m and m.item == c.item, string.format("époque %d : monnaie %s (config : %s)", ep, c.item, tostring(m and m.item)))
@@ -212,6 +215,48 @@ for _, s in ipairs(G.specs()) do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("Champ de cratères (lot X1-TITANE) : ilménite ET saumure sur le même disque")
+---------------------------------------------------------------------------------------------------
+do
+  local s = G.spec("ilmenite")
+  local base
+  for _, r in ipairs(X.resources) do if r.name == "fo-brine" then base = r end end
+  check(s.field_wells and s.field_wells.resource == "fo-brine" and #s.field_wells.offsets == 3,
+    "ilménite : champ avec 3 puits de saumure (« 3 lacs », X.base_resources)")
+  check(base and base.placement.guaranteed.field == "crater" and s.dmin == base.placement.guaranteed.distance[1]
+    and s.dmax == base.placement.guaranteed.distance[2], "saumure : même champ et mêmes distances que l'ilménite dans X")
+  check(s.tile == "fo-crater-fields" and s.icon == "fo-ilmenite-ore", "ilménite : sol des champs de cratères, icône de l'objet du minerai")
+  local L = G.layout(s, 500, 300, 20261020, 1)
+  local in_disc = {}
+  for _, t in ipairs(L.tiles) do in_disc[t.x .. "," .. t.y] = true end
+  local wells_ok, apart, in_core = true, true, true
+  for i, w in ipairs(L.wells) do
+    if w.name ~= "fo-brine" or w.amount ~= s.field_wells.amount or not in_disc[w.x .. "," .. w.y] then wells_ok = false end
+    if math.sqrt((w.x - 500) ^ 2 + (w.y - 300) ^ 2) + 2 > s.core_radius then in_core = false end
+    for j = i + 1, #L.wells do
+      if math.max(math.abs(w.x - L.wells[j].x), math.abs(w.y - L.wells[j].y)) < 4 then apart = false end
+    end
+    for _, o in ipairs(L.ore) do
+      if math.max(math.abs(w.x - o.x), math.abs(w.y - o.y)) <= 1 then apart = false end
+    end
+  end
+  check(#L.wells == 3 and wells_ok and L.well_total == 3 * s.field_wells.amount, "champ : 3 puits de saumure sur le disque (" .. tostring(L.well_total) .. ")")
+  check(apart and in_core, "champ : chevalets 3×3 sans chevauchement entre eux ni avec le minerai, dans le cœur (" .. s.core_radius .. ")")
+  local ore_ok = true
+  for _, o in ipairs(L.ore) do if o.name ~= "fo-ilmenite" then ore_ok = false end end
+  check(ore_ok and L.total >= 1.5 * s.min_total and L.total < 2.2 * s.min_total,
+    string.format("champ : %d minerais d'ilménite sur %d tuiles ; total sans les puits", L.total, #L.ore))
+  check(G.units_found(s, 2000000, 300, 3) == 2 and G.units_found(s, 2000000, 300, 2) == 0 and G.units_found(s, 2000000, 300, nil) == 0,
+    "champ : compté seulement avec ses 3 puits de saumure connus")
+  -- Les sites existants (tungstène, cristal, méthane) n'ont pas de champ : rien ne change pour eux.
+  check(G.spec("tungsten").field_wells == nil and G.spec("tungsten").ore_offset == nil and G.units_found(G.spec("tungsten"), 100000, 1) == 1,
+    "tungstène : sans champ, règle d'avant")
+  local cp = G.specs()
+  cp[4].field_wells.offsets[1][1] = 999
+  check(G.spec("ilmenite").field_wells.offsets[1][1] == 9, "G.specs rend une copie profonde du champ")
+end
+
+---------------------------------------------------------------------------------------------------
 section("Décision : unités trouvées, à poser")
 ---------------------------------------------------------------------------------------------------
 local T, M2 = G.spec("tungsten"), G.spec("methane")
@@ -296,7 +341,7 @@ do
   check(wet == nil, "l'eau du candidat 1 n'est pas touchée")
   -- Voisin : le cristal ne se pose pas sur le site du tungstène.
   local placed = {}
-  for _, k in ipairs({ "tungsten", "crystal", "methane" }) do
+  for _, k in ipairs({ "tungsten", "crystal", "methane", "ilmenite" }) do
     local site = global.fo.world.done[k].sites[1]
     placed[#placed + 1] = { x = site.x, y = site.y, r = G.spec(k).site_radius }
   end
@@ -328,7 +373,7 @@ do
   ME.dispatch(world().on_init)
   local w = global.fo.world
   local all_sol = true
-  for _, k in ipairs({ "tungsten", "crystal", "methane" }) do
+  for _, k in ipairs({ "tungsten", "crystal", "methane", "ilmenite" }) do
     local f = w.fails[k]
     check(w.done[k] == nil, k .. " : échec à on_init, la ressource n'est PAS marquée traitée")
     check(f and f.count == 1 and f.next_tick == G.RETRY_BASE and #f.history == 1 and f.history[1].attempt == 0,
@@ -339,7 +384,7 @@ do
   check(all_sol, "niveau 0 : tous refusés pour le sol (eau)")
   local prints = 0
   for _, p in ipairs(world().game_prints) do if p:find("fo-monde.site-echec", 1, true) then prints = prints + 1 end end
-  check(prints == 3, "joueurs prévenus : un message par ressource échouée (" .. prints .. ")")
+  check(prints == #G.specs(), "joueurs prévenus : un message par ressource échouée (" .. prints .. ")")
   check(#logs_with("ECHEC : aucun candidat valable, joueurs prevenus") == 1, "échec écrit au journal (une ligne par passe)")
   -- Niveau 2 sur l'eau pure : refus « eau » (plus de WATER_SHARE d'eau sous le cœur), rien posé.
   local Guarantee = require("script.world.guarantee")
@@ -363,7 +408,7 @@ do
   ME.dispatch(world().nth[600], { tick = 1800 })
   w = global.fo.world
   check(w.runs == 3, "filet (tick 1800) : reprise")
-  for _, k in ipairs({ "tungsten", "crystal", "methane" }) do
+  for _, k in ipairs({ "tungsten", "crystal", "methane", "ilmenite" }) do
     local d = w.done[k]
     local s = G.spec(k)
     local site = d and d.sites[1]
@@ -383,7 +428,7 @@ do
   end
   local poses = 0
   for _, p in ipairs(world().game_prints) do if p:find("fo-monde.site-pose", 1, true) then poses = poses + 1 end end
-  check(poses == 3, "joueurs prévenus des 3 sites posés à la reprise (" .. poses .. ")")
+  check(poses == #G.specs(), "joueurs prévenus des " .. #G.specs() .. " sites posés à la reprise (" .. poses .. ")")
   game.tick = 2400
   ME.dispatch(world().nth[600], { tick = 2400 })
   check(global.fo.world.runs == 3, "après la réussite : plus rien n'est rejoué")
@@ -426,6 +471,12 @@ do
   check(dc and dc.found == 0 and dc.to_place == 1 and #dc.sites == 1, "cristal absent : un site posé")
   -- Moteur simulé : 25 entités par gisement ponctuel ; le vrai moteur a un puits par entité.
   check(dm and dm.found == 25 and dm.to_place == 0, "méthane : unités = entités trouvées (moteur simulé : 25 par gisement)")
+  -- Lot X1-TITANE : une sauvegarde d'avant le titane n'a ni ilménite ni saumure : le champ de cratères est posé.
+  local di = w.done.ilmenite
+  check(di and di.check_natural and di.found == 0 and di.to_place == 1 and #di.sites == 1 and di.sites[1].wells == 3,
+    "ilménite absente : un champ de cratères posé (gisement et 3 puits de saumure)")
+  local nb, ab = patches_named("fo-brine")
+  check(nb >= 1 and ab == 3 * G.spec("ilmenite").field_wells.amount, "saumure posée avec le champ (" .. ab .. ")")
   check(w.runs == 1, "une seule passe")
   check(#world().game_prints >= 1 and world().game_prints[#world().game_prints]:find("fo-monde.site-pose", 1, true),
     "message aux joueurs pour chaque site posé")
@@ -454,27 +505,27 @@ do
   f.add_chart_tag = function() return nil end -- chunk pas encore cartographié
   ME.dispatch(world().on_init)
   local w = global.fo.world
-  check(#w.tags == 3, "3 étiquettes en attente (une par site) : " .. #w.tags)
+  check(#w.tags == #G.specs(), #G.specs() .. " étiquettes en attente (une par site) : " .. #w.tags)
   f.add_chart_tag = real_tag
   local t = w.tags[1]
   local ev = defines.events.on_chunk_charted
   ME.dispatch(world().events[ev], { surface_index = 1, force = game.forces.enemy, position = { x = t.cx, y = t.cy } })
-  check(#global.fo.world.tags == 3, "force ennemie : rien")
+  check(#global.fo.world.tags == #G.specs(), "force ennemie : rien")
   ME.dispatch(world().events[ev], { surface_index = 1, force = f, position = { x = t.cx + 50, y = t.cy } })
-  check(#global.fo.world.tags == 3, "autre chunk : rien")
+  check(#global.fo.world.tags == #G.specs(), "autre chunk : rien")
   ME.dispatch(world().events[ev], { surface_index = 1, force = f, position = { x = t.cx, y = t.cy } })
-  check(#global.fo.world.tags == 2, "chunk du site cartographié : étiquette posée et retirée de l'attente")
+  check(#global.fo.world.tags == #G.specs() - 1, "chunk du site cartographié : étiquette posée et retirée de l'attente")
 end
 
 section("Interface distante fo-monde")
 do
   ME.new_game({ seed = 20261020 })
   local st2 = remote.call("fo-monde", "status")
-  check(st2.runs == 1 and #st2.done == 3 and st2.done[1].key == "tungsten" and st2.tags_pending == 0, "status : 3 garanties, ordre des époques")
+  check(st2.runs == 1 and #st2.done == 4 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite" and st2.tags_pending == 0, "status : 4 garanties, ordre des époques")
   local c = remote.call("fo-monde", "candidates", "nauvis", "crystal", 3)
   local g = G.candidates(20261020, G.spec("crystal"), 3)
   check(#c == 3 and c[2].x == g[2].x and c[2].y == g[2].y, "candidates : ceux de la règle pure")
-  check(#remote.call("fo-monde", "specs") == 3, "specs")
+  check(#remote.call("fo-monde", "specs") == 4, "specs")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

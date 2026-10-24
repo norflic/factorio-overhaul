@@ -7,7 +7,7 @@
     connus comptés) ;
   - on_configuration_changed : sauvegarde d'une version sans garantie (ressources qui manquent seulement) ;
   - filet on_nth_tick(600) : si la configuration n'a pas été rejouée (mod mis à jour sans changement de version
-    ni de prototypes), la garantie est posée au premier passage. Coût hors travail : une boucle sur 3 clés.
+    ni de prototypes), la garantie est posée au premier passage. Coût hors travail : une boucle sur 4 clés (3 avant le lot X1-TITANE).
   Une ressource RÉUSSIE n'est traitée qu'une fois par partie (global.fo.world.done[clé], ok vrai). Une ressource
   ÉCHOUÉE (aucun candidat valable) n'est PAS marquée traitée (correction M-1 de la vérification) :
   global.fo.world.fails[clé] compte les échecs, le filet la reprend après G.retry_delay (10 s, 20 s, 40 s... au
@@ -100,14 +100,19 @@ local function ensure_generated(surface, sq)
   return missing
 end
 
---- Gisements déjà présents dans les chunks générés à moins de dmax du départ : quantité totale, nombre.
+--- Gisements déjà présents dans les chunks générés à moins de dmax du départ : quantité totale, nombre ; pour un champ
+--- (X1-TITANE), aussi le nombre de puits de sa ressource fluide.
 local function existing(surface, spec, spawn)
   local total, n = 0, 0
   for _, e in ipairs(surface.find_entities_filtered({ name = spec.resource, position = spawn, radius = spec.dmax })) do
     total = total + e.amount
     n = n + 1
   end
-  return total, n
+  local wells = nil
+  if spec.field_wells then
+    wells = surface.count_entities_filtered({ name = spec.field_wells.resource, position = spawn, radius = spec.dmax })
+  end
+  return total, n, wells
 end
 
 --- Motif de refus d'un candidat (nil : valable). rules : G.rules(essai).
@@ -173,17 +178,28 @@ local function place_site(surface, spec, c, map_seed, units, decor, fill_water)
   local made, total = 0, 0
   local list = spec.kind == "fluid" and L.wells or L.ore
   for _, o in ipairs(list) do
-    local e = surface.create_entity({ name = spec.resource, position = { o.x + 0.5, o.y + 0.5 }, amount = o.amount })
+    local e = surface.create_entity({ name = o.name or spec.resource, position = { o.x + 0.5, o.y + 0.5 }, amount = o.amount })
     if e then
       made = made + 1
       total = total + o.amount
+    end
+  end
+  -- Champ (X1-TITANE) : puits de la ressource fluide du champ, sur le même disque.
+  local wells, well_total = 0, 0
+  if spec.field_wells then
+    for _, o in ipairs(L.wells) do
+      local e = surface.create_entity({ name = o.name, position = { o.x + 0.5, o.y + 0.5 }, amount = o.amount })
+      if e then
+        wells = wells + 1
+        well_total = well_total + o.amount
+      end
     end
   end
   if decor and #spec.decoratives > 0 then
     local sq = G.square(c.x, c.y, spec.site_radius + math.ceil(G.EDGE_JITTER))
     surface.regenerate_decorative(spec.decoratives, chunks_of(sq))
   end
-  return { tiles = #tiles, entities = made, total = total, filled = filled }
+  return { tiles = #tiles, entities = made, total = total, filled = filled, wells = wells, well_total = well_total }
 end
 
 --- Garantie sur une surface. opts : keys (liste de clés, défaut toutes), check_natural (bool), decor (bool),
@@ -208,8 +224,8 @@ function M.apply(surface, spawn, opts)
         found_total = 0, found_entities = 0, found = 0, to_place = spec.count, sites = {}, rejected = {}, ok = true,
         attempt = attempt, level = rules.level, dmax_used = G.dmax(spec, attempt) }
       if opts.check_natural then
-        res.found_total, res.found_entities = existing(surface, spec, spawn)
-        res.found = G.units_found(spec, res.found_total, res.found_entities)
+        res.found_total, res.found_entities, res.found_wells = existing(surface, spec, spawn)
+        res.found = G.units_found(spec, res.found_total, res.found_entities, res.found_wells)
         res.to_place = G.units_to_place(spec, res.found)
       end
       local n_sites = G.sites_for(spec, res.to_place)
@@ -233,7 +249,8 @@ function M.apply(surface, spawn, opts)
           placed[#placed + 1] = { x = chosen.x, y = chosen.y, radius = spec.site_radius }
           res.sites[#res.sites + 1] = { x = chosen.x, y = chosen.y, try = chosen.try,
             dist = math.floor(G.dist(chosen.x, chosen.y, spawn.x, spawn.y) * 10 + 0.5) / 10,
-            tiles = p.tiles, entities = p.entities, total = p.total, units = units_per_site, filled = p.filled }
+            tiles = p.tiles, entities = p.entities, total = p.total, units = units_per_site, filled = p.filled,
+            wells = spec.field_wells and p.wells or nil, well_total = spec.field_wells and p.well_total or nil }
         else
           res.ok = false
         end
@@ -256,8 +273,8 @@ local function try_tag(t)
 end
 
 local function icon_of(spec)
-  if spec.kind == "fluid" then return "fluid", spec.resource end
-  return "item", spec.resource
+  if spec.kind == "fluid" then return "fluid", spec.icon or spec.resource end
+  return "item", spec.icon or spec.resource
 end
 
 --- La ressource est-elle réussie ? (un état « ok = faux » d'avant la correction M-1 compte comme non traité)
@@ -308,7 +325,7 @@ local function run(phase)
     if res.ok then
       -- Réussite : marquée traitée ; l'historique des échecs éventuels est gardé (failures).
       st.done[res.key] = { phase = phase, tick = game.tick, ok = true, found = res.found, found_total = res.found_total,
-        found_entities = res.found_entities, to_place = res.to_place, sites = res.sites, rejected = res.rejected,
+        found_entities = res.found_entities, found_wells = res.found_wells, to_place = res.to_place, sites = res.sites, rejected = res.rejected,
         check_natural = check_natural, attempt = res.attempt, level = res.level, failures = prev and prev.history or nil }
       st.fails[res.key] = nil
     else
@@ -333,8 +350,8 @@ local function run(phase)
     end
     local where = {}
     for _, s in ipairs(res.sites) do
-      where[#where + 1] = string.format("(%d, %d) a %.1f tuiles, candidat %d, %d entites, %d, eau comblee %d", s.x, s.y, s.dist, s.try,
-        s.entities, s.total, s.filled or 0)
+      where[#where + 1] = string.format("(%d, %d) a %.1f tuiles, candidat %d, %d entites, %d, eau comblee %d%s", s.x, s.y, s.dist, s.try,
+        s.entities, s.total, s.filled or 0, s.wells and string.format(", puits du champ %d (%d)", s.wells, s.well_total or 0) or "")
     end
     parts[#parts + 1] = string.format("%s (essai %d, niveau %d) : trouve %d (%d entites, %d), a poser %d, %s%s%s%s", res.key, res.attempt,
       res.level, res.found, res.found_entities, res.found_total, res.to_place, #where > 0 and table.concat(where, " ; ") or "rien pose",
@@ -352,7 +369,7 @@ Events.on_nth_tick(NET_PERIOD, function(e)
   local fo = Storage.raw()
   local st = fo and fo.world
   if st then
-    -- Coût hors travail : une boucle sur 3 clés ; une ressource échouée n'est reprise qu'après son délai.
+    -- Coût hors travail : une boucle sur 4 clés ; une ressource échouée n'est reprise qu'après son délai.
     local fails = st.fails or {}
     for _, spec in ipairs(G.specs()) do
       if not succeeded(st, spec.key) then
@@ -399,7 +416,7 @@ remote.add_interface("fo-monde", {
       local d = st.done[spec.key]
       if d then
         done[#done + 1] = { key = spec.key, phase = d.phase, tick = d.tick, ok = d.ok, found = d.found, found_total = d.found_total,
-          found_entities = d.found_entities, to_place = d.to_place, sites = d.sites, rejected = d.rejected, check_natural = d.check_natural,
+          found_entities = d.found_entities, found_wells = d.found_wells, to_place = d.to_place, sites = d.sites, rejected = d.rejected, check_natural = d.check_natural,
           attempt = d.attempt, level = d.level, failures = d.failures }
       end
     end

@@ -1,0 +1,82 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.278,
+  0.259,
+  0.2238,
+  0.1962,
+  0.1624,
+  0.1428,
+  0.0952,
+  0.0689
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "I1",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "lueur": {
+   "froid": [
+    -1.0,
+    -0.95
+   ],
+   "gain": 0.55,
+   "lum": [
+    0.02,
+    0.1
+   ]
+  },
+  "seuil": [
+   0.22,
+   0.45
+  ],
+  "teinte": [
+   0.75,
+   0.9,
+   1.0
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "ilmenite",
+ "nom_direction": "nodules et plaquettes d'ilménite à croûte de leucoxène",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.122,
+   0.448,
+   0.233,
+   0.197
+  ],
+  "acier": 0.66,
+  "acier_bleutes": 0.0,
+  "chauds": 0.218,
+  "sombres": 0.122
+ },
+ "secondes_blender": 763.38,
+ "sha256": {
+  "hr-ilmenite-effet.png": "12938e45e8b2b30fb505da2e8452ed88527150ca0a24cf23de534c97d61f246c",
+  "hr-ilmenite.png": "c6be90327f538b03f43bb2d9d6e9174404e53ff0438b771b1a7e2e225f13b372",
+  "icone-1.png": "a38ef3b210dd76361d9bb039fa48ac2dc3fec47232938efed6bc1e050cf551fc",
+  "icone-2.png": "52a192bcbfbb960bc8f3c84c731720c528c3f6e8012c9fd62af634eeb8b080b4",
+  "icone-3.png": "d25076efc536b6542df1e4205e550ec54f7e01f3a9e66062f37658022685385b",
+  "icone.png": "1807b6be4f57922efaf7e3c29907e0c13d4b4adafaafc284c4054e226499a8e0",
+  "ilmenite-effet.png": "27f02dedd257182dfce86ee14f5ce56368c4e64462886cb231e51db4ef0b7fce",
+  "ilmenite.png": "150b1300a0885f4be8987f3b8039eac285e797086019b7a52a9db6735e8e4672"
+ }
+}

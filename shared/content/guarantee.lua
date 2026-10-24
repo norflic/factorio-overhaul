@@ -81,8 +81,13 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Spécifications : une par ressource garantie, dans l'ordre des époques (W.resource_order).
 ---------------------------------------------------------------------------------------------------
+--- Ressource de X : d'abord X.base_resources (déjà en jeu avant X0 : tungstène, cristal, méthane), puis X.resources
+--- (ressources neuves du scénario : ilménite, lot X1-TITANE).
 local function base_resource(name)
   for _, r in ipairs(X.base_resources) do
+    if r.name == name then return r end
+  end
+  for _, r in ipairs(X.resources) do
     if r.name == name then return r end
   end
   return nil
@@ -101,7 +106,7 @@ local SPECS = nil
 function G.specs()
   if not SPECS then
     SPECS = {}
-    for _, key in ipairs(W.resource_order) do
+    for _, key in ipairs(W.guarantee_order or W.resource_order) do
       local r = W.resources[key]
       local base = assert(base_resource(r.resource), "garantie : " .. r.resource .. " absent de X.base_resources")
       local g = assert(base.placement and base.placement.guaranteed, "garantie : " .. r.resource .. " sans placement.guaranteed")
@@ -118,6 +123,9 @@ function G.specs()
         site_radius = gu.site_radius,
         seed = r.autoplace.seed1,
         decoratives = biome_decoratives(r.biome),
+        -- icône de l'étiquette de carte et des messages : l'objet du minerai (X1-TITANE : la ressource fo-ilmenite
+        -- donne l'objet fo-ilmenite-ore ; pour le tungstène et le cristal, même nom), ou le fluide
+        icon = r.kind == "fluid" and (r.fluid or r.resource) or (r.item or r.resource),
       }
       if r.kind == "fluid" then
         spec.well_amount = gu.wells.amount
@@ -129,6 +137,24 @@ function G.specs()
         spec.amount = gu.amount
         spec.min_total = gu.min_total
         spec.core_radius = gu.ore_radius
+        if gu.ore_offset or gu.field_wells then
+          -- Champ (lot X1-TITANE, champ de cratères) : gisement décalé de ore_offset et puits d'une AUTRE ressource
+          -- (fluide) sur le même disque. Le cœur couvre le gisement et les chevalets 3×3 des puits.
+          local ox, oy = (gu.ore_offset or { 0, 0 })[1], (gu.ore_offset or { 0, 0 })[2]
+          spec.ore_offset = { ox, oy }
+          local core = math.sqrt(ox * ox + oy * oy) + gu.ore_radius
+          if gu.field_wells then
+            local offs = {}
+            for i, o in ipairs(gu.field_wells.offsets) do
+              offs[i] = { o[1], o[2] }
+              local d = math.sqrt(o[1] * o[1] + o[2] * o[2]) + 2
+              if d > core then core = d end
+            end
+            spec.field_wells = { key = gu.field_wells.key, resource = gu.field_wells.resource, amount = gu.field_wells.amount,
+              offsets = offs }
+          end
+          spec.core_radius = math.ceil(core)
+        end
       end
       SPECS[#SPECS + 1] = spec
     end
@@ -137,6 +163,13 @@ function G.specs()
   for i, s in ipairs(SPECS) do
     local c = {}
     for k, v in pairs(s) do c[k] = v end
+    if s.field_wells then
+      -- copie profonde du champ (l'appelant peut modifier sa copie)
+      local fw = { key = s.field_wells.key, resource = s.field_wells.resource, amount = s.field_wells.amount, offsets = {} }
+      for j, o in ipairs(s.field_wells.offsets) do fw.offsets[j] = { o[1], o[2] } end
+      c.field_wells = fw
+    end
+    if s.ore_offset then c.ore_offset = { s.ore_offset[1], s.ore_offset[2] } end
     copy[i] = c
   end
   return copy
@@ -153,8 +186,11 @@ end
 -- Décision
 ---------------------------------------------------------------------------------------------------
 --- Unités déjà présentes : minerai = quantité totale / min_total (arrondi bas) ; fluide = nombre de puits.
-function G.units_found(spec, total_amount, entity_count)
+--- Champ (field_wells) : sans au moins autant de puits de sa ressource fluide que le champ en pose (well_count), aucun
+--- champ n'est compté (0) : le champ de cratères garanti est ilménite ET saumure.
+function G.units_found(spec, total_amount, entity_count, well_count)
   if spec.kind == "fluid" then return entity_count or 0 end
+  if spec.field_wells and (well_count or 0) < #spec.field_wells.offsets then return 0 end
   return math.floor((total_amount or 0) / spec.min_total)
 end
 
@@ -274,21 +310,32 @@ function G.layout(spec, cx, cy, map_seed, units)
     local n = units or spec.count
     for i = 1, n do
       local off = math.floor((i - (n + 1) / 2) * spec.well_spacing)
-      out.wells[#out.wells + 1] = { x = cx + off, y = cy, amount = spec.well_amount }
+      out.wells[#out.wells + 1] = { x = cx + off, y = cy, amount = spec.well_amount, name = spec.resource }
       out.total = out.total + spec.well_amount
     end
   else
     local Ro = spec.ore_radius
+    -- Champ (X1-TITANE) : gisement décalé ; quantités tirées des positions ABSOLUES (même hachage qu'avant).
+    local ox, oy = 0, 0
+    if spec.ore_offset then ox, oy = spec.ore_offset[1], spec.ore_offset[2] end
     for dy = -Ro, Ro do
       for dx = -Ro, Ro do
         local d2 = dx * dx + dy * dy
         if d2 <= Ro * Ro then
-          local x, y = cx + dx, cy + dy
+          local x, y = cx + ox + dx, cy + oy + dy
           local f = (1 - 0.5 * math.sqrt(d2) / Ro) * (0.9 + 0.2 * G.hash(x, y, seed + 7))
           local a = math.max(1, math.floor(spec.amount * f))
-          out.ore[#out.ore + 1] = { x = x, y = y, amount = a }
+          out.ore[#out.ore + 1] = { x = x, y = y, amount = a, name = spec.resource }
           out.total = out.total + a
         end
+      end
+    end
+    if spec.field_wells then
+      -- puits du champ : comptés à part (well_total) ; `total` reste la quantité de MINERAI
+      out.well_total = 0
+      for _, o in ipairs(spec.field_wells.offsets) do
+        out.wells[#out.wells + 1] = { x = cx + o[1], y = cy + o[2], amount = spec.field_wells.amount, name = spec.field_wells.resource }
+        out.well_total = out.well_total + spec.field_wells.amount
       end
     end
   end

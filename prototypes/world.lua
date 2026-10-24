@@ -15,16 +15,25 @@ local out = {}
 local region_layers = {}
 
 local function region_mask(region)
-  if not region_layers[region.seed] then
-    region_layers[region.seed] = true
-    out[#out + 1] = { type = "noise-layer", name = region.seed }
+  -- Lot X1-TITANE : une région NEUVE prend une graine NUMÉRIQUE (region.seed1) : une noise-layer de plus décalerait les
+  -- couches de bruit existantes et changerait la forêt vanilla partout (F198). Les trois régions d'avant gardent leur
+  -- noise-layer nommée (sinon leurs biomes changeraient de place).
+  local seed1
+  if region.seed1 then
+    seed1 = noise.to_noise_expression(region.seed1)
+  else
+    if not region_layers[region.seed] then
+      region_layers[region.seed] = true
+      out[#out + 1] = { type = "noise-layer", name = region.seed }
+    end
+    seed1 = noise.noise_layer_name_to_id(region.seed)
   end
   local n = noise.function_application("factorio-multioctave-noise", {
     x = noise.var("x"),
     y = noise.var("y"),
     persistence = 0.6,
     seed0 = noise.var("map_seed"),
-    seed1 = noise.noise_layer_name_to_id(region.seed),
+    seed1 = seed1,
     input_scale = region.scale,
     output_scale = 1,
     octaves = 3,

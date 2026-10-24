@@ -793,7 +793,8 @@ function M.new_world(opts)
   end
   -- Lot M0 : les trois ressources du mod (sites garantis) suivent le même modèle de gisements ponctuels.
   local RESOURCES = { ["iron-ore"] = true, ["copper-ore"] = true, ["coal"] = true, ["stone"] = true,
-    ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true }
+    ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true,
+    ["fo-ilmenite"] = true, ["fo-brine"] = true } -- lot X1-TITANE
   surface.create_entity = function(t)
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
     if RESOURCES[t.name] then
