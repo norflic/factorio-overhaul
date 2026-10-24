@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.12
+Date: 2026-10-24
+  Bugfixes:
+    - Armées des factions : les soldats rentrent au QG après une attaque lointaine ; plus d'« attaques » vides
+      relancées en boucle.
+    - Les soldats égarés loin de leur QG sont rappelés et rentrent par un itinéraire.
+    - Une faction n'attaque plus avec des soldats restés au loin : elle ne compte que ceux qui sont chez elle.
+    - Les factions savent fabriquer des tourelles et défendent leurs avant-postes (la technologie était mal nommée).
+    - Votre équipe de PNJ fabrique des tourelles dès que vous avez fait la recherche, même après la pose du coffre.
+  Changes:
+    - /fo-war status : soldats loin du QG et nombre de rappels.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.11
 Date: 2026-10-24
   Graphics:
