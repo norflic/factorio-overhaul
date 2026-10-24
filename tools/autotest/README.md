@@ -254,6 +254,13 @@ $env:FO_AUDIO = $null
   WASAPI indépendant pendant toute la session (`fo-logs\2026-10-24_S0\correction\meter-*.txt`) : aucune session du
   jeu, crête 0,000000 sur toutes les sorties.
 
+- **Le tir JOUÉ, entendu dans la sortie disk** (lot S0-suite, 24/10) : le scénario greffé `s0-tir` (§4.1) place
+  l'écouteur (le joueur connecté de la session avec images, téléporté) sur six tourelles qui tirent des cartouches
+  isolées ; `py -3.9 tools/sound/tirs_joues.py <racine>\fo-visual\audio-disk.raw <fo-shots>\factorio.log` retrouve
+  chaque tir dans la sortie (filtre adapté contre les 20 tirs du mod et les 4 tirs vanilla), avec son ère et son
+  instant. Observé : 36 tirs sur 36 reconnus, ère juste, résidu ≤ 16,7 ms ; la clé `game-effects-volume=0` ne les
+  coupe pas (F152). Sans écouteur sur le site (session `gun-rose`), aucun tir ne s'entend.
+
 Bancs hors jeu : `bat_double_source/run.py` (cas 10 à 13 : défaut inchangé, sans variable SDL ; son actif aux deux
 lancements avec `SDL_AUDIODRIVER=disk` et le fichier de sortie du dossier de test, même si l'appelant avait un autre
 pilote ; valeurs refusées ; passage par `fo-captures.bat`), `python -B tools/autotest/tests/test_audio_session.py` →
@@ -468,6 +475,29 @@ Scénario greffé du lot A2 (mitrailleuse V3-E en jeu, 24/10) :
   sur l'atlas [icon] (F125), à comparer entre deux copies du mod. `$env:FO_VISUAL_ARGS = '--quality normal'`, puis
   `& "<racine>\fo-captures.bat" a2-icones "<source>"`, puis `$env:FO_VISUAL_ARGS = $null`. Attendu :
   « [FO-A2-ICONES] BILAN : 2 OK, 0 ECHEC(S) », 4 captures.
+
+Scénario greffé du lot S0-suite (le son du tir JOUÉ en jeu, 24/10) :
+- `s0-tir` (3 000 ticks sans images ; contrôle au tick 2 640) : six sites à 240 tuiles d'écart, en (2600 + 240 k,
+  −3200), joués l'un après l'autre dans un ordre mêlé (ère III, vanilla, ère V, ère I, ère IV, ère II ; niveaux 13, 1,
+  25, 3, 19, 9), chacun une fenêtre de 420 ticks ; une tourelle face à un ver géant ennemi 11 tuiles au nord
+  (cessez-le-feu de l'ennemi) ; la tourelle ne reçoit qu'UNE cartouche à la fois (chargeur réduit à 1, champ `ammo`),
+  toutes les 60 ticks, 6 par site : chaque tir est un son isolé. Le tick où la cartouche disparaît est écrit au journal
+  (« [FO-S0-TIR] TIR<TAB>site=…<TAB>niveau=…<TAB>ere=…<TAB>tick=… » ; le tir et son son ont lieu au tick PRÉCÉDENT,
+  `on_tick` venant avant la mise à jour des entités : vu en moteur, exception du mutant Opus au tick 161 pour un tir
+  journalisé au tick 162). Session avec images : au début de chaque fenêtre, le joueur est téléporté 8 tuiles au sud de
+  la tourelle (écouteur). Contrôles : 6 tirs par site, dans la fenêtre, séparés d'au moins 50 ticks, et (avec images)
+  écouteur placé sur chaque site. Sans images : `& "<racine>\fo-autotest.bat" nopause 3000 s0-tir "<source>"` →
+  « [FO-S0-TIR] BILAN : 5 OK, 0 ECHEC(S) » (24/10, 00:13:05). Avec images ET son (seule voie : §1.3) :
+  ```
+  $env:FO_AUDIO = '1'
+  & "<racine>\fo-captures.bat" s0-tir "<source>"
+  $env:FO_AUDIO = $null
+  py -3.9 tools/sound/tirs_joues.py "<racine>\fo-visual\audio-disk.raw" "<racine>\fo-visual\write\script-output\fo-shots\factorio.log"
+  ```
+  → code 0, 6 captures, « [FO-S0-TIR] BILAN : 6 OK » dans `fo-shots\factorio.log`, garde « sessions audio Windows du
+  processus de test : 0 … crete max 0.000000 », puis « [FO-TIRS-JOUES] BILAN : 36 tir(s) au journal ; reconnus 36, ere
+  juste 36, instant juste (+/- 60 ms) 36 ; detections sans tir 0 : OK » (24/10 vers 00 h 15). Mutant : ères III et V
+  échangées dans une copie du mod → 12 tirs « ERE FAUSSE », code 1.
 
 Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époques 5, 7 et 8, `script/world/guarantee.lua`) :
 - `monde` (700 ticks ; contrôle final au tick 660) : PLUSIEURS GRAINES sans toucher à `fo-autotest.bat` (graine

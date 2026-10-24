@@ -35,7 +35,8 @@ local function son_tir(age)
   local liste = SONS.eres[ere]
   assert(liste and #liste > 0, "gun.lua : ère " .. ere .. " absente de sound/levels/gun/sons.lua")
   local s = {}
-  for i, f in ipairs(liste) do s[i] = { filename = f, volume = SONS.volume } end
+  local vol = SONS.volumes and SONS.volumes[ere] or SONS.volume -- par ère depuis S0-suite (marge des rafales)
+  for i, f in ipairs(liste) do s[i] = { filename = f, volume = vol } end
   return s
 end
 
