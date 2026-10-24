@@ -43,6 +43,7 @@ local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local Profiler = require("script.core.profiler")
 local PathService = require("script.core.path_service")
+local Journal = require("script.faction.journal")
 
 local Military = {}
 
@@ -191,6 +192,7 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen,
     route = route }
   f.stats.attacks = f.stats.attacks + 1
+  Journal.attack(f, target_faction, #chosen, rp, tick) -- lot IA2-0 : ligne publiée (métriques M2)
   if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
   if Profiler.enabled() then -- journal de diagnostic (bancs de test uniquement)
     local dx, dy = rp.target.x - rp.gather.x, rp.target.y - rp.gather.y

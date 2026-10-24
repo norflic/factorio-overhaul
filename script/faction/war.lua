@@ -27,6 +27,7 @@ local Team = require("script.team.team")
 local Storage = require("script.core.storage")
 local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
+local Journal = require("script.faction.journal")
 
 local War = {}
 
@@ -233,6 +234,7 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     war.factions[i] = f
     war.by_force[force_name] = i
     found_hq(f, surface, candidates[i][1])
+    Journal.foundation(f, game.tick, "couleur") -- lot IA2-0 : ligne publiée (caractère de la faction)
     Scheduler.add(Commander.LANE, i)
     Sites.track(f)
     request_site_check(f, surface)

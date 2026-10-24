@@ -18,6 +18,7 @@ local State = require("script.faction.state")
 local Scheduler = require("script.core.scheduler")
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
+local Journal = require("script.faction.journal")
 
 local Sites = {}
 
@@ -238,11 +239,15 @@ function Sites.find(f, surface, tick, resource)
   tick = tick or game.tick
   local list = f.prospects or {}
   local i = 1
+  local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
   while i <= #list do
     local site = list[i]
     if resource == nil or site.resource == resource then
+      -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
+      local ok = valid(site)
+      if ok then Journal.site(f, site, list, valid, tick) end
       table.remove(list, i)
-      if not claimed(war, site) and not unreachable(war, site, tick) then return site end
+      if ok then return site end
     else
       i = i + 1
     end
