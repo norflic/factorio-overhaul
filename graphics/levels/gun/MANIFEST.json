@@ -35,6 +35,12 @@
   "e02-d60"
  ],
  "fichiers": {
+  "gun-e02-eclat.png": {
+   "hauteur": 1984,
+   "largeur": 1184,
+   "sha256": "8b7c75e5727c0a28633159e334199f8c052599a7c0027647c6b52ca6be009130",
+   "taille": 148738
+  },
   "gun-e02-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -58,6 +64,12 @@
    "largeur": 768,
    "sha256": "dcd1744c4dba9149bce38c2698ece7ada0c93a849e60ae4270a7b8e6f67515d7",
    "taille": 108890
+  },
+  "gun-e03-eclat.png": {
+   "hauteur": 2080,
+   "largeur": 1240,
+   "sha256": "2d107712ad6834016d46790f741684961148c6da38c791521b7a25299b14bafd",
+   "taille": 239103
   },
   "gun-e03-icone.png": {
    "hauteur": 64,
@@ -83,6 +95,12 @@
    "sha256": "e6ded07c72edeb0f4fa56230891eabf311d1f2c92c921773a91cc9fc41863f30",
    "taille": 113746
   },
+  "gun-e04-eclat.png": {
+   "hauteur": 3488,
+   "largeur": 2064,
+   "sha256": "282321c2e9a42515d73c8b903e823176499e6b8453db679582b1443adf64ff8d",
+   "taille": 523317
+  },
   "gun-e04-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -106,6 +124,12 @@
    "largeur": 1168,
    "sha256": "12d1baabef04fa3079302a0183b086bee4284694f7f461ec9b73c74912e0ec96",
    "taille": 198201
+  },
+  "gun-e05-eclat.png": {
+   "hauteur": 3024,
+   "largeur": 1832,
+   "sha256": "93f5b96b665c02953ca4de112246c9b011e8a1e5e9df49b5ed1a5923e361abd7",
+   "taille": 602185
   },
   "gun-e05-icone.png": {
    "hauteur": 64,
@@ -131,6 +155,12 @@
    "sha256": "89a5785206035ddf91411e89d188023e0af1606476e3448c3d2b09e7b6a534dc",
    "taille": 191777
   },
+  "gun-e06-eclat.png": {
+   "hauteur": 3056,
+   "largeur": 1848,
+   "sha256": "f5097fb81bdef656de37a3355123bba12b2d72f20bd650d7e9aad18f0bb78c0c",
+   "taille": 369145
+  },
   "gun-e06-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -154,6 +184,12 @@
    "largeur": 1152,
    "sha256": "2fba33889f501f23e787665f41f6a250e1e0c5f07e813dbbf15b75f9d7e9332b",
    "taille": 224454
+  },
+  "gun-e07-eclat.png": {
+   "hauteur": 3712,
+   "largeur": 2360,
+   "sha256": "295df19b2a5c0d46b6893761e34d5212a74cf44f1d23f8322746af61014c6a0e",
+   "taille": 490900
   },
   "gun-e07-icone.png": {
    "hauteur": 64,
@@ -179,6 +215,12 @@
    "sha256": "5052c7f1e2023db3101f565cd09abc35ac14e54c73e6227f89053bd9a8b867e6",
    "taille": 357278
   },
+  "gun-e08-eclat.png": {
+   "hauteur": 3728,
+   "largeur": 2288,
+   "sha256": "4d4c9859bb0617d26a32698730c1b3befc687b15c43a9447959f03deebb842e4",
+   "taille": 1132591
+  },
   "gun-e08-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -202,6 +244,12 @@
    "largeur": 1552,
    "sha256": "c8b3932b963be1852cab626b8722a2e20afc83c35158cc928bbf10f20d73fb45",
    "taille": 377607
+  },
+  "gun-e09-eclat.png": {
+   "hauteur": 952,
+   "largeur": 564,
+   "sha256": "f226076ee5c5e97bff3ad9e6cd924a649e0dfd8afcf108cc2ad5969c6c6b06ce",
+   "taille": 42255
   },
   "gun-e09-icone.png": {
    "hauteur": 64,
@@ -227,6 +275,12 @@
    "sha256": "4f5b0fdb73362ea213779e2ce28107717f996e496a37ddb877059077c8570b6e",
    "taille": 18353
   },
+  "gun-e10-eclat.png": {
+   "hauteur": 1360,
+   "largeur": 784,
+   "sha256": "0fe7ea7a7e9dd65fd6035baaf9f81c11ef5a014f5af7973ab062ee94aa977889",
+   "taille": 30890
+  },
   "gun-e10-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -250,6 +304,12 @@
    "largeur": 189,
    "sha256": "f0b8060d0886aa2c99aef262c8d0e5593c906f9ac45bf42e6a9f96a58cd6d230",
    "taille": 23502
+  },
+  "gun-e11-eclat.png": {
+   "hauteur": 1636,
+   "largeur": 958,
+   "sha256": "df1df081c5a01b5400e9210b17ffa1ad93806535086cd8c45ce151c59cb688a0",
+   "taille": 33430
   },
   "gun-e11-icone.png": {
    "hauteur": 64,
@@ -275,6 +335,12 @@
    "sha256": "903f8cacda3436c5451a6a31d700d36483a894559794fc3c12b7bf26691b4ab8",
    "taille": 33731
   },
+  "gun-e12-eclat.png": {
+   "hauteur": 1280,
+   "largeur": 772,
+   "sha256": "1dac8610fbed6a79788743edfe47339d6640304e72f96dd714741cf156ac00cc",
+   "taille": 39315
+  },
   "gun-e12-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -298,6 +364,12 @@
    "largeur": 202,
    "sha256": "edca2505f544e2a69e62102260b8075efc44ccf876a3f6189fbd7b852eb0d807",
    "taille": 30471
+  },
+  "gun-e13-eclat.png": {
+   "hauteur": 1224,
+   "largeur": 744,
+   "sha256": "84d591c0b83a089b46fbae75bd37c04e51e110402ffecd5f809d7a415219a144",
+   "taille": 101786
   },
   "gun-e13-icone.png": {
    "hauteur": 64,
@@ -323,6 +395,12 @@
    "sha256": "76acae2e7fa22c146e391bbd2a19bafd7c5532ce9ed0c773557ee593234eb517",
    "taille": 32515
   },
+  "gun-e14-eclat.png": {
+   "hauteur": 1280,
+   "largeur": 778,
+   "sha256": "9fe646f38404e78844c60773f5137b2b3329432ee254204fed9751c7bb00f067",
+   "taille": 42536
+  },
   "gun-e14-icone.png": {
    "hauteur": 64,
    "largeur": 120,
@@ -346,6 +424,12 @@
    "largeur": 252,
    "sha256": "e393aa629cc9c1370bada02e18a9be7375e20664a92e64c06728d0ef32cf1213",
    "taille": 36835
+  },
+  "gun-e15-eclat.png": {
+   "hauteur": 1552,
+   "largeur": 924,
+   "sha256": "d711df02e28dce5d541afa711f9bde8f2874035baefd0cbe32a32911827cbe03",
+   "taille": 125621
   },
   "gun-e15-icone.png": {
    "hauteur": 64,
@@ -13912,6 +13996,6 @@
    "trous_px": 1
   }
  },
- "sprites_json_sha256": "78945d8a8f9b8999d7cd4755f6fa6aea745b868c12400aa839eb6c8ec7d213fc",
- "sprites_lua_sha256": "7e6b19fcb566bcbc1bf6413331457c17915b977f287703fc1274250c9dc3dd9b"
+ "sprites_json_sha256": "dfcfd2205b7d873037611af1f7df9d3b523a5e4d76bf728ef60da7fd79be53f4",
+ "sprites_lua_sha256": "d93b88118ef1ba5890c5d49ece78749d28136a60ca8e3305dc6d1fc2467cf65b"
 }

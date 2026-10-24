@@ -858,6 +858,10 @@ def main():
         # icône : socle + tête E (pose validée tete-E = d16), composées en lumière linéaire, réduites
         A["icone"] = icone(dest, e, A, [p for p in poses if p[1] == "e%02d-tete-E" % e][0])
         A["outils"] = outils
+        # éclat de tir 2D (lot A4) : couche draw_as_glow d'attacking_animation, bouts des canons MESURÉS sur la feuille
+        # de tête qui vient d'être écrite, mêmes directions que la tête (64 ou repli à 4) : se régénère avec elle
+        import eclat_tir  # noqa: E402  (import tardif : eclat_tir importe ce module)
+        A["eclat"], outils["eclat_tir"], _, _ = eclat_tir.feuille_eclat(dest, e, A, marge)
         ages[e] = A
         bilan_dirs.append((e, n_dirs, outils["origines"], repli))
     imprime_tir(ages, vb, marge, ecarts_vanille)

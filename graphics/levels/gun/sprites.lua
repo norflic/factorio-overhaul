@@ -187,6 +187,17 @@ return {
         d62 = { -0.1455, 0.0513 },
         d63 = { -0.1557, 0.0393 }
       },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e02-eclat.png",
+          frame_count = 2,
+          height = 124,
+          line_length = 8,
+          shift = { 0, -0.625 },
+          width = 148
+        }
+      },
       eclat_visible = {
         d00 = { 0, -1.77955 },
         d01 = { 0.16123, -1.77394 },
@@ -541,6 +552,17 @@ return {
         d61 = { -0.0791, 0.001 },
         d62 = { -0.0868, 0.0045 },
         d63 = { -0.0865, 0.0009 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e03-eclat.png",
+          frame_count = 2,
+          height = 130,
+          line_length = 8,
+          shift = { 0.015625, -0.5625 },
+          width = 155
+        }
       },
       eclat_visible = {
         d00 = { 0, -1.76583 },
@@ -911,6 +933,17 @@ return {
         d62 = { -0.1046, 0.0028 },
         d63 = { -0.1064, -0.0008 }
       },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e04-eclat.png",
+          frame_count = 2,
+          height = 218,
+          line_length = 8,
+          shift = { 0, -0.8125 },
+          width = 258
+        }
+      },
       eclat_visible = {
         d00 = { 0, -2.47526 },
         d01 = { 0.23034, -2.46726 },
@@ -1279,6 +1312,17 @@ return {
         d61 = { -0.096, 0.0026 },
         d62 = { -0.1036, 0.0016 },
         d63 = { -0.1086, 0.0041 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e05-eclat.png",
+          frame_count = 2,
+          height = 189,
+          line_length = 8,
+          shift = { 0.015625, -0.796875 },
+          width = 229
+        }
       },
       eclat_visible = {
         d00 = { 0, -2.47239 },
@@ -1663,6 +1707,17 @@ return {
         d62 = { -0.0992, 0.0026 },
         d63 = { -0.1047, -0.0005 }
       },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e06-eclat.png",
+          frame_count = 2,
+          height = 191,
+          line_length = 8,
+          shift = { 0.015625, -0.796875 },
+          width = 231
+        }
+      },
       eclat_visible = {
         d00 = { 0, -2.46196 },
         d01 = { 0.22845, -2.45402 },
@@ -2045,6 +2100,17 @@ return {
         d61 = { -0.0617, 0.0247 },
         d62 = { -0.0618, 0.0153 },
         d63 = { -0.074, 0.0095 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e07-eclat.png",
+          frame_count = 2,
+          height = 232,
+          line_length = 8,
+          shift = { 0.015625, -1.03125 },
+          width = 295
+        }
       },
       eclat_visible = {
         d00 = { 0, -3.39076 },
@@ -2429,6 +2495,17 @@ return {
         d62 = { -0.1182, 0.0054 },
         d63 = { -0.1208, -0.0002 }
       },
+      eclat = {
+        lr = {
+          direction_count = 64,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e08-eclat.png",
+          frame_count = 2,
+          height = 233,
+          line_length = 8,
+          shift = { 0, -1.046875 },
+          width = 286
+        }
+      },
       eclat_visible = {
         d00 = { 0, -3.17382 },
         d01 = { 0.29585, -3.16354 },
@@ -2692,6 +2769,17 @@ return {
         O = { 0.1183, 0 },
         S = { -0.1673, 0 }
       },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e09-eclat.png",
+          frame_count = 2,
+          height = 238,
+          line_length = 2,
+          shift = { 0, -1.03125 },
+          width = 282
+        }
+      },
       eclat_visible = {
         E = { 3.08222, -1.03906 },
         N = { 0, -3.2185 },
@@ -2880,6 +2968,17 @@ return {
         N = { -0.129, 0 },
         O = { 0.0926, 0.0059 },
         S = { -0.133, 0 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e10-eclat.png",
+          frame_count = 2,
+          height = 340,
+          line_length = 2,
+          shift = { 0, -1.21875 },
+          width = 392
+        }
       },
       eclat_visible = {
         E = { 3.24405, -1.22852 },
@@ -3084,6 +3183,17 @@ return {
         O = { 0.0923, 0 },
         S = { -0.1305, 0 }
       },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e11-eclat.png",
+          frame_count = 2,
+          height = 409,
+          line_length = 2,
+          shift = { 0.015625, -1.234375 },
+          width = 479
+        }
+      },
       eclat_visible = {
         E = { 4.22808, -1.23438 },
         N = { 0, -4.22406 },
@@ -3286,6 +3396,17 @@ return {
         N = { 0.0762, 0 },
         O = { 0.0117, 0.0947 },
         S = { -0.1093, 0 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e12-eclat.png",
+          frame_count = 2,
+          height = 320,
+          line_length = 2,
+          shift = { 0, -1.03125 },
+          width = 386
+        }
       },
       eclat_visible = {
         E = { 3.35064, -1.13965 },
@@ -3490,6 +3611,17 @@ return {
         O = { 0.1004, 0 },
         S = { -0.142, 0 }
       },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e13-eclat.png",
+          frame_count = 2,
+          height = 306,
+          line_length = 2,
+          shift = { 0, -1.40625 },
+          width = 372
+        }
+      },
       eclat_visible = {
         E = { 4.00185, -1.41406 },
         N = { 0, -4.24377 },
@@ -3693,6 +3825,17 @@ return {
         O = { 0.1042, 0 },
         S = { -0.1474, 0 }
       },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e14-eclat.png",
+          frame_count = 2,
+          height = 320,
+          line_length = 2,
+          shift = { 0.015625, -1.40625 },
+          width = 389
+        }
+      },
       eclat_visible = {
         E = { 4.19314, -1.41406 },
         N = { 0, -4.37903 },
@@ -3895,6 +4038,17 @@ return {
         N = { -0.1459, 0 },
         O = { 0.1032, 0 },
         S = { -0.1459, 0 }
+      },
+      eclat = {
+        lr = {
+          direction_count = 4,
+          filename = "__factorio-overhaul__/graphics/levels/gun/gun-e15-eclat.png",
+          frame_count = 2,
+          height = 388,
+          line_length = 2,
+          shift = { 0, -1.40625 },
+          width = 462
+        }
       },
       eclat_visible = {
         E = { 4.5046, -1.41406 },
