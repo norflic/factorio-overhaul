@@ -240,6 +240,14 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 20 h, **demande du DC : ressources, machines, IA adaptative, bonus +30 %** : « aussi, je trouve qu'il n'y a pas assez de nouvelles ressources, pas assez de nouvelles machines (alors ok c'est pas fini mais j'aimerai que vous analysiez attentivement le sénario du gameplay prévu). Aussi, améliorez autant que possible les choix avec une certaine intelligence des PNJ, on doit vraimetn avoir du mal à prédire que ce soit un PNJ/une IA, dans l'idée elle devrait pouvoir s'adapter (le chef d'équipe) et du coup on ne pourrai pas retrouver les mêmes paterns contarirement aux jeux de stratégies classique comme command and conquer ou Supreme commander 2 qui font des bases très circulaire et en fait ne s'étendent pas vraiment, et du coup ça impose une sorte de limite, là où un joueur voudrai scale un max et capitaliser, un pnj ne verra pas vraiment ce choix. Aussi, j'ai remarqué que les bonus de vitesse ou de produxtion sont médiocre, on veut du +30% par niveau (cumulatif, donc par exempel vitesse de 1 * 1.3 * 1.3 * 1.3) et ne pas avoir de limite dans le nombre de module qu'on peut importer (les coûts d'énergie aussi se multiplient, mais doivent croitre au même niveau). »
+  → Deux analyses en lecture seule lancées (scénario : ressources et machines par âge ; IA des PNJ adaptative :
+  chef qui s'adapte, expansion organique, capitalisation, métriques « pas de pattern ») ; bonus : état actuel relevé
+  (`shared/levels/config.lua` : vitesse LINÉAIRE, assembleur et four +8 % par niveau soit × 3,3 au niveau 30, foreuse
+  +10 % soit × 3,9, énergie +6 à +7 %) ; +30 % cumulés donneraient × 1,3^29 ≈ 2 000 au niveau 30 (énergie de même :
+  150 kW → environ 300 MW pour l'assembleur) ; questions de précision Q-B1 (portée du +30 %) et Q-B2 (« pas de limite
+  de modules ») posées avant tout changement ; limite moteur à vérifier : en 1.1, une machine ne termine sans doute
+  qu'une fabrication par tick (60 par seconde).
 - 24/10, vers 19 h 45, **feu vert du DC pour les travaux qui chargent le PC** : « oui feu vert » (réponse à la
   proposition de lancer le socle animé des 10 autres âges, environ 6 h 30 de rendu, et les rondes du laser). → Production
   du socle animé lancée vers 19 h 48 ; F1-B après le correcteur d'IA1-a (un agent à la fois).
