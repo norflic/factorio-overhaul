@@ -95,6 +95,7 @@ def controler(dest, sources=False):
 
     nrect = 0
     n64 = 0
+    cache_feuilles = {}
     for e, A in sorted(donnees["ages"].items(), key=lambda kv: int(kv[0])):
         e = int(e)
         for part in ("socle", "piece"):
@@ -157,7 +158,11 @@ def controler(dest, sources=False):
                     for r, LL, fac in (("hr", L, 1), ("lr", L["lr"], 2)):
                         s_im = np.asarray(Image.open(os.path.join(src["dossier"], LL["file"])).convert("RGBA"))
                         f = fichier(cd[r])
-                        feuille = np.asarray(Image.open(os.path.join(dest, f)).convert("RGBA"))
+                        if f not in cache_feuilles:     # une lecture par feuille (64 poses par feuille, lot A3-jeu)
+                            if len(cache_feuilles) >= 2:
+                                cache_feuilles.clear()
+                            cache_feuilles[f] = np.asarray(Image.open(os.path.join(dest, f)).convert("RGBA"))
+                        feuille = cache_feuilles[f]
                         cw, chh = cd[r]["width"], cd[r]["height"]
                         cx0, cy0 = (k % ll) * cw, (k // ll) * chh
                         cell = feuille[cy0:cy0 + chh, cx0:cx0 + cw]
