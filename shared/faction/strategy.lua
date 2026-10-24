@@ -25,6 +25,9 @@
     personality, tech, upgrades, garrison, soldiers_max, can_attack,
     character,              -- lot IA2-0 : caractère effectif tiré de la graine (shared/faction/traits.lua), ou nil
     attack_jitter,          -- lot IA2-0 : multiplicateur (pour mille) du seuil de la prochaine attaque ENTRE factions, ou nil
+    chef = { war_mult, raid, raid_defense } | nil, -- lot IA2-a (shared/faction/chef.lua) : multiplicateur du seuil (tirage
+                            -- refait à chaque pensée × posture), raid demandé (5 à 10) et défense de sa cible ; avec un chef,
+                            -- la guerre entre factions varie à tous les niveaux, la réserve du joueur passant avant
     enemy_defense,          -- défense estimée de la faction rivale visée (math.huge si aucune)
     rival = { id, outposts } | nil,          -- cible faction (coalition contre le leader, sinon voisin)
     own_outposts, leader_outposts,           -- territoire de la faction, plus grand territoire rival
@@ -44,7 +47,8 @@
   }
   actions = {
     warn = minutes | nil, declare = "grace" | "provoked" | nil, truce = bool | nil, recall = bool | nil,
-    attack = { target = "player" | id_faction, count = n, join = true | nil } | nil,
+    attack = { target = "player" | id_faction, count = n, join = true | nil, rule = "variee" | "ia0" | nil,
+               raid = true | nil } | nil,  -- lot IA2-a : règle appliquée (journal), raid du chef
     due_since = tick | false | nil,          -- début (tick) ou fin (false) de l'attente pour le joueur
     plan = "attack" | "save" | "join" | "siege" | "deterred" | "fallback" | nil, need = n, count = n,
     rally = true | nil,                      -- l'attaque ouvre une fenêtre d'assaut coordonné (IA0b)
