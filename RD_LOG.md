@@ -466,6 +466,15 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA2-0, caractère des factions et mesure de référence, 24/10 au soir ; fusionné dans `main`, `ffa2a57`, version 0.4.19)
+Preuves : `fo-logs\2026-10-25_IA2-0\` (`NOTES.md` §1 à §4, `moteur\mesures.md`). Expériences : E143, E144.
+- **F207** : en `--create` comme en `--benchmark`, `surface.map_gen_settings.seed` lu par script vaut la graine du banc
+  (`FO_MAP_SEED`, ou 20261020) : les 16 caractères tirés en jeu sont identiques au tirage hors jeu.
+- **F208** : `find_entities_filtered` sur une zone de 1 408 × 1 408 tuiles coûte environ 7 ms par appel en moteur réel ;
+  la lecture des listes du script, 0,2 ms : pas de recherche de zone large dans un journal périodique.
+- **F209** (règle du mod) : un avant-poste perdu laisse ses coffres et fours sur la carte, hors de toute liste : jamais
+  réutilisés ni démontés (à traiter en IA2-b).
+
 ### Faits vérifiés en moteur réel (lots MOD-0, MOD-1 et A4-SOCLE, 24/10 au soir ; MOD-1 et A4-SOCLE fusionnés dans `main`, `7cffdba`, `a1fa1fc`, version 0.4.18)
 Preuves : `fo-logs\2026-10-24_MOD0\NOTES.md`, `fo-logs\2026-10-24_MOD1\NOTES.md` §4, `fo-logs\2026-10-24_A4-socle\NOTES.md` §9.
 - **F190 à F194** (MOD-0, faisabilité) : le moteur ADDITIONNE les effets des modules ; plafond de 60 fabrications par
@@ -913,6 +922,19 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E143, E144 · Lot IA2-0, caractère des factions (24/10 ; choix D-16 : personnalité tirée à chaque partie ; fusion
+`ffa2a57`, version 0.4.19)** : 8 traits par faction tirés de la graine (tirage propre à chaque faction, corrélation 0,01
+entre factions d'une partie) ; les 4 personnalités ne sont plus collées à la couleur (24 répartitions sur 2 400 graines).
+Effet limité VOLONTAIREMENT : contre le joueur, seul le délai de grâce suit l'agressivité tirée (Normal : 20 à 42,9 min) ;
+la guerre entre factions ne varie qu'en Paisible ; tirer plus casserait l'ordre strict des niveaux (2 à 8 caractères sur
+16 dans la campagne de `pvp_test`). Mesure de référence `default` 2 h × 4 graines, avant → après : personnalités par
+couleur 1 → 2 à 3, variation des tailles d'attaque 0,13 → 0,21, côtés d'attaque 0 bit (inchangé), radialité 0,63 → 0,46,
+site le plus proche choisi d'abord 0,93 → 0,97, stock immobile 0,80 → 0,78 (écarts de forme et d'économie NON
+attribuables au lot, 4 graines). Le bâtisseur n'attaque aucune faction dans les 8 bancs (seuil tiré trop haut, re-tiré
+seulement après une attaque : confié à IA2-a). Sur `main` 0.4.19 : content 317 (`done.txt` 23:06:58), verif-tourelles 7,
+ia1-scale 17, pnj-auto 7, pnj-reduit 12 ; hors jeu traits 65, pvp 772 (596 avant : campagne des caractères), levels 1 665,
+test_ia2_mesures 35 (avec PYTHONUTF8=1), api_lint 867.
+
 **E133 à E135 · Lot MOD-0** : faisabilité des modules multiplicatifs (`mod0-risques`, copie jetable ; passes 7 et 8 OK) :
 F190 à F194. **E138 à E140 · Lot MOD-1** (décision D-15 ; fusion `7cffdba`) : mécanisme livré (balise cachée de
 complément, 120 modules cachés en puissances de deux, calcul en centièmes entiers, balayage tournant, migration) ;

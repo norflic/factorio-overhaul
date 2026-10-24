@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.19
+Date: 2026-10-24
+  Changes:
+    - Chaque partie tire le caractère des factions à partir de la graine de la carte : la personnalité (conquérant,
+      technocrate, bâtisseur, équilibré) n'est plus liée à la couleur, et chaque faction reçoit 8 traits (ambition,
+      prudence, agressivité, curiosité, rancune, opportunisme, discipline, ruse). Une partie déjà commencée garde ses
+      personnalités ; ses traits sont tirés une fois, au chargement.
+    - Le délai avant la déclaration de guerre au joueur suit l'agressivité tirée, dans les limites de chaque niveau de
+      difficulté (Normal : de 20 à 43 min selon la faction).
+    - En « Paisible », les guerres entre factions suivent leur caractère : seuil d'attaque variable d'une attaque à
+      l'autre (± 20 %).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.18
 Date: 2026-10-24
   Features:
