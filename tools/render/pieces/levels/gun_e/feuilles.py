@@ -101,6 +101,11 @@ MARGE_DIRS = ("N", "E", "O")
 SEUIL_ECLAT = 0.5       # tuile : écart maximal toléré entre l'éclat visible prévu et sa cible (bouche + marge)
 COMMANDE = ("py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par défaut : "
             "en tête de feuilles.py)")
+# Têtes A3 « HORS REGLE » (trou enfermé > 8 px hors bouchon) ACCEPTÉES après regard sur gros plan (lot A3-jeu, 24/10 :
+# fo-logs/2026-10-24_A3-jeu/hors-regle-1.png, hors-regle-2.png, e03-d06-trou-x3.png ; jour mécanique entre culasse et
+# bobine, ou entre bobine et coque ; verdict du DC NON rendu). Liste par DÉFAUT, pour que la commande sans option du
+# MANIFEST régénère exactement les feuilles commitées ; --hors-regle-ok en AJOUTE, --hors-regle-ok aucun la vide.
+HORS_REGLE_OK_DEFAUT = ("e03-tete-d06", "e03-tete-d51", "e03-tete-d58", "e03-tete-d59", "e06-tete-d54")
 # 64 directions (lot A3-jeu)
 NDIR64 = 64
 LIGNE64 = 8             # feuille de 8 × 8 images, rangée par rangée (line_length 8)
@@ -554,12 +559,17 @@ def main():
     ap.add_argument("--ages-64", default="auto",
                     help="auto : tout âge dont les 64 poses sont là et contrôlées ; aucun : repli à 4 partout ; "
                          "LISTE (ex. 2,5) : ces âges seulement (refus si l'un est incomplet)")
-    ap.add_argument("--hors-regle-ok", default="", help="têtes A3 « HORS REGLE » acceptées après regard (noms, virgules)")
+    ap.add_argument("--hors-regle-ok", default="",
+                    help="têtes A3 « HORS REGLE » acceptées après regard (noms, virgules), EN PLUS de "
+                         "HORS_REGLE_OK_DEFAUT ; « aucun » : aucune, pas même celles de la liste par défaut")
     ap.add_argument("--data", default=DATA_DEFAUT)
     ap.add_argument("--seuil", type=float, default=SEUIL_ECLAT, help="seuil de refus de l'éclat (essai du refus)")
     a = ap.parse_args()
     valides = plages(a.valide or VALIDES_DEFAUT)
-    hors_regle_ok = tuple(x for x in a.hors_regle_ok.split(",") if x)
+    if a.hors_regle_ok.strip() == "aucun":
+        hors_regle_ok = ()
+    else:
+        hors_regle_ok = tuple(sorted(set(HORS_REGLE_OK_DEFAUT) | set(x for x in a.hors_regle_ok.split(",") if x)))
     if a.ages_64 not in ("auto", "aucun"):
         voulus64 = set(int(x) for x in a.ages_64.split(",") if x)
     else:
@@ -796,6 +806,7 @@ def main():
                 w, h = im.size
             fichiers[f] = {"taille": os.path.getsize(p), "sha256": sha_file(p), "largeur": w, "hauteur": h}
     manifeste = {"commande": COMMANDE, "outil": "tools/render/pieces/levels/gun_e/feuilles.py",
+                 "arguments": sys.argv[1:], "hors_regle_ok": list(hors_regle_ok),
                  "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
                  "git": "PNG hors de git (.gitignore : graphics/levels/gun/*.png, décision D-6) ; ce manifeste, "
                         "sprites.lua et sprites.json sont commités",

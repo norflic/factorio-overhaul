@@ -4,7 +4,8 @@
     py -3.9 tools/render/pieces/levels/gun_e/hors_regle.py [--a3 DIR] [--planche FICHIER.png] [--zoom 3]
 
 feuilles.py garde à 4 directions tout âge dont une tête est « HORS REGLE » (produire_a3.py : code 3, « à regarder »),
-sauf si on la nomme dans --hors-regle-ok après l'avoir REGARDÉE. Cet outil liste ces têtes (âge, direction, trou,
+sauf si on la nomme après l'avoir REGARDÉE : dans feuilles.HORS_REGLE_OK_DEFAUT (pour que la commande sans option du
+MANIFEST reproduise les feuilles commitées) ou, pour un essai, dans --hors-regle-ok. Cet outil liste ces têtes (âge, direction, trou,
 plafond de l'acceptation), dessine une planche (rendu sur fond vert, plus grand trou enfermé en ROUGE, agrandi) et
 imprime l'argument --hors-regle-ok tout prêt. Il ne décide rien.
 """

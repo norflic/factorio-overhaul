@@ -1,4 +1,5 @@
 {
+ "arguments": [],
  "commande": "py -3.9 tools/render/pieces/levels/gun_e/feuilles.py   (depuis la racine du mod ; sources par d\u00e9faut : en t\u00eate de feuilles.py)",
  "controle": "py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py [--sources]",
  "directions": {
@@ -14,7 +15,7 @@
   "5": 64,
   "6": 64,
   "7": 64,
-  "8": 4,
+  "8": 64,
   "9": 4
  },
  "fichiers": {
@@ -169,22 +170,22 @@
    "taille": 12380
   },
   "gun-e08-tete-glow.png": {
-   "hauteur": 496,
-   "largeur": 162,
-   "sha256": "809300ed815b4d2bd9583cefd44ecab5b64b61322186ed2cd35b7c641d231a5b",
-   "taille": 17455
+   "hauteur": 1104,
+   "largeur": 1488,
+   "sha256": "e98284eebbe9ec2135a76c873897877d2cd73e5c0166025753c8c86e6d901ce0",
+   "taille": 328889
   },
   "gun-e08-tete-main.png": {
-   "hauteur": 496,
-   "largeur": 162,
-   "sha256": "c9d6192777513136260374905a0fbfbf6a0b66df89d1f4b995fd3e207536738e",
-   "taille": 78352
+   "hauteur": 1104,
+   "largeur": 1488,
+   "sha256": "4f4ddcd92bb3e635fc06bc786fad813408647de1e3b4113285e1d368d19c39da",
+   "taille": 1368388
   },
   "gun-e08-tete-shadow.png": {
-   "hauteur": 464,
-   "largeur": 173,
-   "sha256": "ccef9c94c0cb5d8a26840dd6058f6337ea92d3dd6529fc2ce0e10a9266dc4895",
-   "taille": 19753
+   "hauteur": 1056,
+   "largeur": 1552,
+   "sha256": "c8b3932b963be1852cab626b8722a2e20afc83c35158cc928bbf10f20d73fb45",
+   "taille": 377607
   },
   "gun-e09-icone.png": {
    "hauteur": 64,
@@ -1123,22 +1124,22 @@
    "taille": 1289239
   },
   "hr-gun-e08-tete-glow.png": {
-   "hauteur": 992,
-   "largeur": 324,
-   "sha256": "c90a388c198ecdb58a6a251b1a96651ba51fca46d32f0da8bed8673ac4eb7224",
-   "taille": 66072
+   "hauteur": 2208,
+   "largeur": 2976,
+   "sha256": "df56109613f2994a9c9353a1c2f058d5c9c54283b106c8cbfd9f62983b3587bc",
+   "taille": 1221175
   },
   "hr-gun-e08-tete-main.png": {
-   "hauteur": 992,
-   "largeur": 324,
-   "sha256": "b62b868802f9a484a5587f209ca07f48bf3d053b63a404c0ad4e4feae0fe071c",
-   "taille": 267187
+   "hauteur": 2208,
+   "largeur": 2976,
+   "sha256": "4e98a3695f45ea47ba69df2586adcae2c4733f740a57da5a43b085b6da585b0a",
+   "taille": 4703904
   },
   "hr-gun-e08-tete-shadow.png": {
-   "hauteur": 928,
-   "largeur": 346,
-   "sha256": "b70fddba70b6cad77966bfef0f62c85131f803932511d087afa1b4f4f058ccd3",
-   "taille": 83913
+   "hauteur": 2112,
+   "largeur": 3104,
+   "sha256": "869bc377bc4e43b2e51c47ccb741f2a7c94a51dc8e68d7ca1e80d6f8a87e1836",
+   "taille": 1353216
   },
   "hr-gun-e09-tete-glow.png": {
    "hauteur": 1040,
@@ -1928,6 +1929,13 @@
   }
  },
  "git": "PNG hors de git (.gitignore : graphics/levels/gun/*.png, d\u00e9cision D-6) ; ce manifeste, sprites.lua et sprites.json sont commit\u00e9s",
+ "hors_regle_ok": [
+  "e03-tete-d06",
+  "e03-tete-d51",
+  "e03-tete-d58",
+  "e03-tete-d59",
+  "e06-tete-d54"
+ ],
  "outil": "tools/render/pieces/levels/gun_e/feuilles.py",
  "sources": {
   "e01-piece": {
@@ -11471,6 +11479,726 @@
    "spec_sha256": "a5751daa26132199a269112b9dc3a9db6fd898fb591e1c2f96b2171535e59a02",
    "trous_px": 0
   },
+  "e08-tete-d01": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "785c12b6fa8430d6a6fba25097afa02b92a32c439dc169c699ae52fbd063e2b6",
+     "lr": "9795eb3694adec59e73bb3b460d2dd00eec4ecbf54576d848e3c1f4adb801d5c"
+    },
+    "main": {
+     "hr": "d922799e6de6cb58beea4b509c5bbf5e2fb75f37f9027155cdc58d320f1bf9d9",
+     "lr": "37e1a68037bf8b58fa89920b7234472cc344e1bf7103ff806126facd6677068b"
+    },
+    "shadow": {
+     "hr": "a94ff4893b5b00f7523433395ec79e20e6edb8541e22827c1d51df4897586400",
+     "lr": "5577fb1510f43a679af8875f20d51a9839e7b486b1beaf6074107972a90d2ded"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d01",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "95159e0a513a2c99e8db24c9bc633fec385ec6bb18c4baead99fb7f8513ad29f",
+   "trous_px": 0
+  },
+  "e08-tete-d02": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8e49edd26b90d6036985ee85e17f2206af3a19d055b54cbc0bc5856bc14772db",
+     "lr": "42628a16c75a5384b4f1747a47db26418aefb9e44b084c20609010d16ed48bcf"
+    },
+    "main": {
+     "hr": "27b496992ebbe1788b325574e33b5daff4b337cad91a1ca3d2c5dbfe21b3efb7",
+     "lr": "789afecaadb6fb28f6d6779746d616d0eb25e3284cbea54ef3b54dcf28899f6f"
+    },
+    "shadow": {
+     "hr": "85641db66f28a036a7c6c11f910ebfbb1b44c1524bb90e015e05c7a3642573bb",
+     "lr": "a98ea8b28f614b9e325269370f61a5c6ef2ddd84f1448a77619fc80d45f05081"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d02",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "2117f9e101d84028dc882aca1ec2e47ffd0c3d6d05593086566383255c262366",
+   "trous_px": 0
+  },
+  "e08-tete-d03": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f0183b934251a81b281dd3498c96bfb8d22f3b23d8b68a85b4d16fc05bd88534",
+     "lr": "b70c84155db5d824bcad4816b5db99783708e2a48b27b926a60c22834ef6c5c0"
+    },
+    "main": {
+     "hr": "3787111dab046e24cd8856978178394ae7a7ee1f0da9ec3f49a15ea1e5741ff4",
+     "lr": "19812c2f0e167a5f874cbdb746d3322b1b3cef650e5e817e0b098b0e89c5371d"
+    },
+    "shadow": {
+     "hr": "75496b8af94639aa03153f5f29c34fb548f0bb59f1884f52d6d3ea3d3102f5da",
+     "lr": "114a9eeba51d6d8d6197ca520f0584d81544dcce95c62abc79732b013f60aa08"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d03",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "1d6ea48a475289650d226d7c7fd704448acc65d07e37de008335134b7bf7f249",
+   "trous_px": 0
+  },
+  "e08-tete-d04": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "ecfa5061859fe22773131a19b825d77bbf0be042783837d72c8fe2eebd419fa8",
+     "lr": "c1cbfb9ac2258726db25e0071302362f72c4db688669fac45555d0fb12581d68"
+    },
+    "main": {
+     "hr": "5b6f33942ddc15e07fad12c8f99d822fc74b3e119c90ef52ace6748a39e5ffce",
+     "lr": "5a86db8b85b1669b38b5a19504e1ca916d14f8d4ad0b8326d245f14dd877d676"
+    },
+    "shadow": {
+     "hr": "f6b90fc9f299fb68dde95e8ac8d27ec07cc5bdce93c2f574bc5935402ef397a0",
+     "lr": "7ba57f385e147f2a7f9e87c063be7d6c9f4044a9ba90b8ca3c2927ac422784a1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d04",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "928daac41f0b22edbf98f1b3dd933bc2dba7d223d051f8a483ff7c2a851de04d",
+   "trous_px": 0
+  },
+  "e08-tete-d05": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "e25cac340b807a16f0772fc18a7074e7f25df0a8d6fdba17cba036690ca63510",
+     "lr": "ecc48fc24a766c6613ce35369c12bc37ec84acf70cd09d49ca3f05bdc552d2ff"
+    },
+    "main": {
+     "hr": "4f3c57c9267d3ff234dfe39b99580cfc3785dafdf456b31cf490900977cd81b2",
+     "lr": "5b4fb080b44e2d6bdd74ec5d2ef2c06302ecb47070ef992df2077a398db2f16e"
+    },
+    "shadow": {
+     "hr": "127354023458d13d9ba352d9d8482fc864898ab3290f36cde28faa38a0f96031",
+     "lr": "3d33e359cd7fbf0bd70d0802f1cec112233219dda3c649ee01cbb8ac143b5739"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d05",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "f7adbff9e3b9f6f069bcdd9f864417f33b8463b1822b4e4f8b1b4d70fed056d1",
+   "trous_px": 0
+  },
+  "e08-tete-d06": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "97c3cbf65fa08c942bac2502c8e5c61a38b076951a69abad0a051d3853b08780",
+     "lr": "7ca07845ed42012b59a3827d0dc23c69c30a4c26bdbfc01857352e9187ce5208"
+    },
+    "main": {
+     "hr": "1fc04151fd02169f8444a60f349bc873d9f6c8cb60c8545a4eaf1d7fcc1ef9ee",
+     "lr": "f4c7a9b272172d12494a0681eb58443b1256139bd17ee81c898a83c0fc320abb"
+    },
+    "shadow": {
+     "hr": "766ac2ae3a2c9d10b5dd70e4f7c31fdfd5f69147a1feeadcb62957abceedde44",
+     "lr": "3027f6a043bc67a395f62fbcca06aab0f012697465da81a13d9620fdc8eda034"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d06",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "3c17b1cb9276162170b18897fc6eb9ef5bd28204f7b6293a3cb00821f6234b46",
+   "trous_px": 0
+  },
+  "e08-tete-d07": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "053de54955e12a5a0b223ede0d6c3addc6bdfec6d11fca024e7b9fc5868d917e",
+     "lr": "1cebd54279c8f179d07d9fd117b5341ce2471d27243ecc8c4cb603b47ce84860"
+    },
+    "main": {
+     "hr": "31a3d84a7d5d9ada091cb7c6726601056293686e6257438f0ed5a41145dd972b",
+     "lr": "9d0c14d6cd31d3eac3574c761a634c30864cf22ef3333e6abdbf972de0697508"
+    },
+    "shadow": {
+     "hr": "7e0dd6fcd924d35f3332cdbe291dd0de4d9e5cc91c7bdb595e557453bbb342c6",
+     "lr": "9f06ccbf5fab38b8e8953a4ec818604a309be3e3bbd7b370675f0c4817c96d28"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d07",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "203d603801b50065765d4ded021767a2633bdbbf0b5ded0cd56c312b6df477fe",
+   "trous_px": 0
+  },
+  "e08-tete-d08": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "4d2604f303cb5b5c99ced8a01739b96ae8c143efd0d7850fba83fcd00a1c89fd",
+     "lr": "af3fc522069fc17bf930a2fbcd0e18b4577bd42be95c3e242df637ea19636678"
+    },
+    "main": {
+     "hr": "8f0a4340e15a26f4731259e1226bfb80c639f475a80ac9f73a54e87b7caa18d0",
+     "lr": "814af41ea7d2c03624a45252b28c2ae1826b32c88975ee9e81ffb6bc104fc1b0"
+    },
+    "shadow": {
+     "hr": "8ad46d5738ff915b4f395c1911ad68594d3d1453a9be56c69a448a0ec3485d60",
+     "lr": "225c3797fe040544476dab404401f2cc5e1681a31f5ac6320a0fb42c62766cce"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d08",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "c403f6d730a605a43e3930a6ae915d5be34d4c0b136611f938745618075b3765",
+   "trous_px": 13
+  },
+  "e08-tete-d09": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3b3f71ecbb55a28c86890e3b0d675bdc9a9c021391e360f27ff91ea41457f584",
+     "lr": "8cf1644976ba5ea8c03b393be3e4dd108978e1b2ff4107f64cd69964a5571ae0"
+    },
+    "main": {
+     "hr": "2e12f329ef627f04750f51cdcdeb5effe12468bac9179c3fdc6db193abd271b0",
+     "lr": "27251c1d8c14068813cdc939655dc844990ea06a50da360867eecfefcdb705be"
+    },
+    "shadow": {
+     "hr": "e024037052e82264bf2105c2fad29966a089d061775869fadcd767e23359797d",
+     "lr": "d450df21b328fd1ca5d0fcfba1e87eb9ad383c80f5b19adc5c70f52cace035c1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d09",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "9a5549cd945286beb5e58f43ac24065798f376ceb249cd5b3f9fa2b31fac4d88",
+   "trous_px": 41
+  },
+  "e08-tete-d10": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9622d732fe20148cba47f0717fad1395b58d5960d6501da198bffbf84cb31446",
+     "lr": "de4673ee2691d63a01280e893a4746d27167a1d5b948b81109bd0e1c2cd1d7d4"
+    },
+    "main": {
+     "hr": "4169fd6286456532d84dda399ea12b0374beec230cdaf661ebd489a26fef3e50",
+     "lr": "172a5239c238de97a0b6beb286ee1703d78fed11f59c1315fcf1682cb6011000"
+    },
+    "shadow": {
+     "hr": "e3e64ff518a91cfc21880fffafc6077dec5ec9e8d315a91834e40f90a24b30aa",
+     "lr": "b91baf0b4e7bf83dbd13ad95ca59af3b14c226182fa83e9fdb00ca21efcf64f0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d10",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "acc11b2d614b9f004782b989f2acebc795ddcad0fd522d2d52bed3fa54ddeae3",
+   "trous_px": 0
+  },
+  "e08-tete-d11": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "20ac08df3bdb8395828e54a7c9de05102662793b1088e42eff26aba2c15e9e27",
+     "lr": "f3b707285278c102562744b3a90b83c50181710343175057062f6f1938f35de7"
+    },
+    "main": {
+     "hr": "c2aadb813f19174bb1aa25f270d3d0613e83c1a25da23b773db433a257780897",
+     "lr": "d9cb6134a748cdcd1acfe2dcbc6ed1f89657c2bed5d4d76e0f8c9127056732c6"
+    },
+    "shadow": {
+     "hr": "25fce1e9bd4813a1262987ad2d34ce7d45aaff2f6f4eb384ceeb0af735810329",
+     "lr": "c692daf0de67d8c8f6224243ced107fc8e5feb8e2c0ade8927da8aa9e25aed5d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d11",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "452d6d60a4fa4a93ab18e4a529290d715078bc288331f0d38e7ee1bd5a15b061",
+   "trous_px": 0
+  },
+  "e08-tete-d12": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b00b9d8e4329e12d0cf138795589d2cdeee4db0f6de550ed77791cd983d24105",
+     "lr": "fcab3aeb13d79adfa60adb9560c14b975658a8224ea83ec8da1cc1f13c8d6164"
+    },
+    "main": {
+     "hr": "50f66bc4a2703b42df23eca709cb93b0a41ff83bf2b97a1b6d0399293d700593",
+     "lr": "11ce7c5428d763581b21e79b0125a28eacaa9740cdb6e54f1f59e1887cbeaa84"
+    },
+    "shadow": {
+     "hr": "80df08f98b62e86928b33d5a252971d3d3850b118e567cb294e451d465d2f5a7",
+     "lr": "f9c3211a6b3efce47f281475125151a1b5aadc6dd0123ed83681c2a004e3ea7e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d12",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "7da7ed5797aab42e20a0ca1b7765011032ab9288faf16f2789dd1aee606b25eb",
+   "trous_px": 0
+  },
+  "e08-tete-d13": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "6603e8142d716ed9d545ef75332d69c81fa18e3788f779885f2ee6b7483062ca",
+     "lr": "af58edecb8f7c1086037005144edb7d7cd950130cd0c0c600b0c1c420c4a1df9"
+    },
+    "main": {
+     "hr": "75762ff6a6747036b40267dd4d09059d7dc7d11a458932e870d14c9a78141d25",
+     "lr": "007abc4cb8a4054ffc400b09fe3a18fc690fd54cce72d85600865af10822796e"
+    },
+    "shadow": {
+     "hr": "2d0a077a9a7bc68ee116677135012f96845acb588f7a9de5baf263527dd1cce8",
+     "lr": "f2674a02967f5cf5d6a0576136f784efc6e1c8674f933b8263fefb96ed0dd911"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d13",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "f70c6f3142e4b2929aab155210877e459fb3246dea9e37448ecdd2266ea7e3a0",
+   "trous_px": 0
+  },
+  "e08-tete-d14": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3a01ffccddc4f54020ecb7635da26fdaed796a917415a7c4958495332f4d127e",
+     "lr": "5361c1a80495cbaea406093d003ce332dca3f74ca02cd04171ee48d274b2e88e"
+    },
+    "main": {
+     "hr": "2d606c04b8e98598e89d69d88838b516e27c470de83c9a2642e9ca11df1d8b45",
+     "lr": "8dd7c48f632833b0dd3b8bdd4a25d2020b81bd1b094f41771cc3f4e980f0cc2e"
+    },
+    "shadow": {
+     "hr": "a82dbb0ad1007473fa57a6eaeb69aa1ffd405771d209736a5c00e591a28ab7ae",
+     "lr": "61780cb474d77f02d76091d107c552169dc4f1ecd5aa337b57f5ac82426594b6"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d14",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "69a544efaf9fb51b3be1c30b3fed22828590f575447b49180b52117409c93192",
+   "trous_px": 8
+  },
+  "e08-tete-d15": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "fe8babed480849402bf9b8b14044d89a5253f113058ed2435191843926159a93",
+     "lr": "b6f19f1f0a88ecfe5d2b3b2883e1ae90cf67da5756b10b753d9b03816fcfa39a"
+    },
+    "main": {
+     "hr": "56170ceb19927bd4fcabe2bbdb480ee659ab2b15a59ce25d845ead83e7cb9d10",
+     "lr": "b3065ec069a784515d66ecf174fd14da15aa128b3cce43f2978180ff8ab0d131"
+    },
+    "shadow": {
+     "hr": "de1e55957b8e18822cbc8d13632b0ca25c1686442542810691ab388fd7e57e65",
+     "lr": "e8d1ad4131c6d8863f81d3d89bc235c0d3692743e5f96e2c45f83884e0c88f6e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d15",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "dbd21d2b019c483adda7acc51b939756c9e15d0c80154e1a3fe49d1afeb78d0e",
+   "trous_px": 0
+  },
+  "e08-tete-d17": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "bd0d92ef95618a3ac6a2887aaa8604da806d175cb806506ec1a873e9f907abab",
+     "lr": "3b21aa6e90eade6c3e838d081e421991cfaa859e013edf2413f67a8df0f6c592"
+    },
+    "main": {
+     "hr": "afcef1aa6f94e5d2dce8b4fd7e5d6a18a31b129b2be45bfabfa9d0c538edabdb",
+     "lr": "331e15d7e9a634ff9bc83177241e33c3868a54ae730d2e3a75ab7408d70c5c76"
+    },
+    "shadow": {
+     "hr": "202d08a0e3e517bc0e8f2c1513a475ced4801e6389265ac9f3de551e0d786c9b",
+     "lr": "465da80ed64ee166d70fb5348d50b844c9a739199d62e04c8a9a7ebf7e4f5793"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d17",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "1387bba1d1b18db1051613c4d503a98e7a08755d8a79c9055f9ae066787e48b2",
+   "trous_px": 0
+  },
+  "e08-tete-d18": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8c8b030748006b2db430240017db7682943844d88ff98c96c318d69175ef632f",
+     "lr": "23a430cc7be66f35f02ee090f412daa1140a5348546b4495dac7bb6ca113cf38"
+    },
+    "main": {
+     "hr": "c83462cd469ea3d7e4f23a86a9360ea11bb7247a25ab9b5e737ded86f236c181",
+     "lr": "9e4fed498c041739cf0fe55bbdd0b534a3e0f57a5a3719034a3f18bddfa79148"
+    },
+    "shadow": {
+     "hr": "985785a18f7b89b8cee65082c2278ad1cead3da8e0c2d1052c869472edfd3ba3",
+     "lr": "9c98665b70aaf611a0c419e32e1435b9a2f5fd248f80aa3531170e2fab5512c1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d18",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "6cc0336effff8abaef1567190d1fe1dcd034194f69c47ce25c3a6c9c668a77f7",
+   "trous_px": 0
+  },
+  "e08-tete-d19": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "eb3e23c2fe6f916062d68fd1a10cea90b7dab74a701f9803390cc74556db9d37",
+     "lr": "a0b55e54bd2d2ce6fdd8d97825e1cdf585061238f7dd54dff2483fb675daada7"
+    },
+    "main": {
+     "hr": "8fea5a2e65fb80c7f8b8915522601ae1f6e7d68f47514579a6258f62a39ded92",
+     "lr": "fce90d042cbf65b68ca30b8f366835b055570dbd58eb7135d7da988e142ba268"
+    },
+    "shadow": {
+     "hr": "b282f30d18c67e9b1ac9f95153102a50fba04c835f3cb25efe0f250bf792485c",
+     "lr": "685ba89f157b33097f278821bfb8d3bb4976ef383398bdc1fc76901baa9189f0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d19",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "018f2feecf5dfbc714ac09dc20ce079d2abeba65c17ce11b7c1084eaa6c7da46",
+   "trous_px": 0
+  },
+  "e08-tete-d20": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "f6fc56142541c13d0ab86bc0b116d933f6fcbac266a633e031588451afefc1c5",
+     "lr": "a5e1781eba146b4f72d95db03823a516cea40a454a1494a1253cbdc64a7fbe3f"
+    },
+    "main": {
+     "hr": "a536b2e5c7853573a0b7bd563a6adb2cff9fc0f2649503dafd6ab0afecb31984",
+     "lr": "8cba2892a397c3063cd7559c7e8958bcac150ae9d91873caa27e2eacb2bcc4c0"
+    },
+    "shadow": {
+     "hr": "b61d0ac9ac675f1e416863a7b8d81da4fe0685ef73cacba9389892a785f30e39",
+     "lr": "c6fae16a759613dd92833ba026bbe7412ff54622fbf4a3c3fc8fb4c50f2828ed"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d20",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "1a528f5590e5ddb9cc503b9c88b44eab9a816c1e5a42bbf3a9a2795ad0a8e1e5",
+   "trous_px": 0
+  },
+  "e08-tete-d21": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c6c66e7f3f638a2da93640c978969183e78729538913c3daf95f09c611d4df9b",
+     "lr": "b4dea22413a5a95061677bac7c1589557d241682f8866e4e77cd7a8457b594e3"
+    },
+    "main": {
+     "hr": "393d215d90537ce9b44454210184d7c6c5589dc4ae6c7fa4d124abcfad05ccfd",
+     "lr": "51fa3bf39d370f97ef062c5ec67d4f19d1d7a7a507070816dbba3b8d22b3cfc5"
+    },
+    "shadow": {
+     "hr": "52b311fa094bc99608c404c36c9a36ec3502c5d42609ef5bcfbac3f450d44281",
+     "lr": "d58768c56de8d95087ff72bad7afa05fcd604c5f650467d7c9adc7295faa73b3"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d21",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "2d650e6aee9a134346d3237c4e9d554808807f2167bd0d119b4d39c4a09a1439",
+   "trous_px": 0
+  },
+  "e08-tete-d22": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3de331a6d56caaa0b58934c254e3a817983515d3b85e20f94fbf489afd4e2d9b",
+     "lr": "dbd1edac7ff892d0128f6927c54598c183935d6918c0c53a8e9f60d726d9925c"
+    },
+    "main": {
+     "hr": "3c4ff3a450f4082126451770838c89884dc6246e37a0d6b4422a2911dc832fe0",
+     "lr": "ccb9f76a96bb7500f33a863e7358f12d81b2502a6b5acaf2109a2c43f3476358"
+    },
+    "shadow": {
+     "hr": "0901a1387ab2f3bc02e5a3b10fd87586373684129b8deef8100cdfa14a50a248",
+     "lr": "5b2c068b4bd451f36724c34e0dc364aed183848aa9844d0d4c2bbc9a5c8adddf"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d22",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "4020341b4908fe78d49f8e50802ef034e308e218f5da630db92017881957c03e",
+   "trous_px": 0
+  },
+  "e08-tete-d23": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "5fcc756ba19ec47567ceb8e4aa92edf24651a472d31627bf2c6f2cef20fdd395",
+     "lr": "60bdaf7477eaff0f8068411f0f3d663f9e21ccf4485349bf4855db6040ce99f6"
+    },
+    "main": {
+     "hr": "c9be69700d73d0567b13f75a8992838d4ba3841c34a5824c44e50a2ca9522e70",
+     "lr": "c1e7dbd125282b2ae466ae6435ad624974e63536ae58335cd8487ce79ba6c903"
+    },
+    "shadow": {
+     "hr": "7ca603184eca6e3bd84f0caad7fb73cb72f94ee39e7d8cf821cde63494270e32",
+     "lr": "c3fed02d184f49876029e99ef812c86fc2774170b29d955085e3f5586b9eb327"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d23",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "3b5ef88ba172fcd6e3541a140717587b6ff9c8ce8b9d345f578b616df14f44ad",
+   "trous_px": 0
+  },
+  "e08-tete-d24": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "05fd1b4926496f5323b2b4e819b2f3ceb7393e0727bdd397d895d97ac6c562c9",
+     "lr": "3759d2954c7619ca870430d69251edd7cc3c1fd50ccebd53e674a5c799bb2111"
+    },
+    "main": {
+     "hr": "656080be0f5538d76c618b33b27f1a88b1a68176b4cd3e8aee7eb65bbfd2a113",
+     "lr": "aad367834c33d9a76b2fbb0be245ac9d5dd60de5f46d132b42e3dd99e92ab829"
+    },
+    "shadow": {
+     "hr": "96ee76e791ea7d2fb64cb7fe0fc9bd43a5f11ca38fd3b032170114bee88d2df5",
+     "lr": "0e0f49eb058db75b614deca36ff347106312ca456624f3b37fbef8c39715a6a7"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d24",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "8a0343b87f32df9285ef3c2a82e47667cb1098e0ab337043764fce80b2aacf79",
+   "trous_px": 0
+  },
+  "e08-tete-d25": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "2ffc40ced742411c4e999c8f91b67915fbd5c375cee9022f578b724e2687476e",
+     "lr": "42bc16503c3d749a1dd47e0d82cf80ecc0e7635fbd7af4b499a888cfdf9e9935"
+    },
+    "main": {
+     "hr": "b4c265031189f653cfbc7cdd195585ed929bdb88700e93e6e699e1af2abf3d23",
+     "lr": "855f7a5341905b3af37c4047baa8119b57c0edafa0bf3061f064ce9e3f97ad77"
+    },
+    "shadow": {
+     "hr": "8ee7899d361dafe16cb33aa75273d93582578a88d72ee615fdea8f62a87a4f7d",
+     "lr": "ac90578c26335e4a4d4ed6141064def3814fd56a19101006674d473ff9c885e8"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d25",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "8d323bb0345739a1c93c9d91cc7320517b72e249d17e1c1de28d864e26f4fd24",
+   "trous_px": 0
+  },
+  "e08-tete-d26": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "08b8c47aed09a66cc5b07cf223b497bfcf2c4a8e54b4c0d0086f87af8f756b1a",
+     "lr": "7d781c0175dd010b4fababc64024f121c4a7bc92310bb3a3f8f79bf83385ecd8"
+    },
+    "main": {
+     "hr": "aa6d701acb5d00ee3b612bdbcc641618c27f0bc42b9c06ee6ad58c1facb065ff",
+     "lr": "43b0e23a618baebbbd1c07e1c85b8866a234baf71633cd2229def49854754d83"
+    },
+    "shadow": {
+     "hr": "0962cbd0395c4e74ad81ae7a1cc030ce8840fcd4ca4ed7930d5983b69989430a",
+     "lr": "97b7b5e6919107c9c6a32bba9f2f04b0e8a66e339695d17b8f7702d3353944ca"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d26",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "7016a854d284e33486c5dd32d36998aacea644444b25b555063eb2a919ab46e6",
+   "trous_px": 1
+  },
+  "e08-tete-d27": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3f42f84da03216b2094b032ca81f445d01aca53b7308463be83d5bcdad3df9d3",
+     "lr": "17e915f6d3179527fcf1acdd0c2d1dae0be2e226f8ab1faaa71c4c9014b27a74"
+    },
+    "main": {
+     "hr": "0c7843d87e07c8c3245f5a55b5c1b0418f10f5e1d8588b7b424f71df04aba9ff",
+     "lr": "13cc93e87ea0287955be62796e2420e0e88fdca112104231794f41641335c73b"
+    },
+    "shadow": {
+     "hr": "4d9abd3c1cf2ce3129d9a41feb4cb37f9b75ce6c1a6f44876618bea87bbe9a62",
+     "lr": "a01ba1872e6b8c82469471869e4178d0c8b84b9efdeda633c23e72a9b213ff79"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d27",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "645e01ad670d36617276e5a760731e24543d931dbeabfac1a58db6730fa9de74",
+   "trous_px": 0
+  },
+  "e08-tete-d28": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "283db4980f729c2e0b933d3362c5dcd58e1f1cc9f8aad2717001e0d1f887ab68",
+     "lr": "ad73c0cd364b1c9635b5a5bb394081bc91c6a89f9e266c8a87ff64078beb30de"
+    },
+    "main": {
+     "hr": "52a40d9ee91b4c0c00182c9f8b72207af44f60a6111e3137175e289328d64a23",
+     "lr": "80832dee0a8fde4ff192c6315ecb065c434225322cbfab8ddc292d6dea8a562a"
+    },
+    "shadow": {
+     "hr": "3d1d7767ed6ac07aebc38d1c3fb40d2629c00f4a223aff0efe3cf587998ec750",
+     "lr": "f5f18aace26dbc02c4beac5031a8b35402e8fc830fb130368fc97b4664b48641"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d28",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "1d78d209109615b99d82ad5f1726d8bce1f961f83c156638586774128e2ac45a",
+   "trous_px": 0
+  },
+  "e08-tete-d29": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a80083a0b3b09a62f4fcacdc1c2bb5da6c0870a588bd479303bd5d3acbaf7631",
+     "lr": "ad62ed4ca39c58c4d136c324280592236921a750c2c33c4d27fae204bddb80e6"
+    },
+    "main": {
+     "hr": "1556c374b39b8fafb5f53a0acf0448fccdc615173a6cc76ae6c141dd65c794f1",
+     "lr": "a43610615aa69ccb0428e59669a3e97ad9da0b9d8321ed8e668432e6f3a1c1cf"
+    },
+    "shadow": {
+     "hr": "49a7ed64d02d8693c097a4bdfed5a1bbf753b016d2c0081a147fa72ad6509448",
+     "lr": "5d34e261267e6fb80181dfe25ddad33568d1d57ff5e52ab683c046ec2573b42e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d29",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "fba5b6f4edc1b2ab970f0eb4a03ee58fa27fca9c9bf06f2c95bdb6ea6ea119c1",
+   "trous_px": 0
+  },
+  "e08-tete-d30": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a2bb2204c2269c91980868df7b028bd6d99d419fb8979ae123cfa8337d105f34",
+     "lr": "a17e05250c55ffc2019062d7d8ff06db49f0b98c867df71baa161c11ab64192f"
+    },
+    "main": {
+     "hr": "6f610cafce2c94fb81d7f12aa6a5969b0ca4a8e109448ce16df52ffa1795f886",
+     "lr": "494cf50db88c8fe6c1b460b0bc20c7ae90c3974160c4c499b5a999f86c2bfc35"
+    },
+    "shadow": {
+     "hr": "975821e7ea3d5353691d36c0cbb5c9aecc45dcf7ba46d39674936a56c2a7c358",
+     "lr": "85c1c2e745725d1195cab4e8c27bc1d59982628ee5ebf8a9cd3a533a503a03b3"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d30",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "851f064f9433c29095ba9dbda018fcc210faf1b2ea375f15b186193769209642",
+   "trous_px": 0
+  },
+  "e08-tete-d31": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a7910751cdc06f966d61098ddd9f616cdaae230ca776071ec057583932b799d4",
+     "lr": "88c0a036d3aecdc561ec410ed2f852550f1e500c7cf59293e15a0f864a47ecee"
+    },
+    "main": {
+     "hr": "12e6cc8c5d474c5bfd8de7eeafe25e47438806d81adc94b1c9a99f4eb2ab0a76",
+     "lr": "52d5305ca3d91cc8df6520cf47ef6e2c5f792f77a1afaad095e9b88f5afc9197"
+    },
+    "shadow": {
+     "hr": "1a691a987177059bb4fc6ea31540b2bafad0ebebdc7f2e4670080939cbcea3ca",
+     "lr": "906c70329fd532f6b3e9df1377c29febc046428f526af10f77317ee52b3b59e8"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d31",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "197039116c0d039f029ef9d7e0b104c51c7085aa4ad65d4f98afd68a6881107c",
+   "trous_px": 0
+  },
   "e08-tete-d32": {
    "bouchon_arriere": 0,
    "couches": {
@@ -11492,6 +12220,366 @@
    "spec_sha256": "4a381575c747b5b01f4518534225fec88b60650b1ae08619da3277a25403ad11",
    "trous_px": 0
   },
+  "e08-tete-d33": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b384de798fad75f3ab2602084682ad51f8e9f79e8b73bc575b5e54f3b381d456",
+     "lr": "cead661d5a5be6ca5f442a9c4c0d6573b4679a8a139c6cfe154c26f06faf6b9c"
+    },
+    "main": {
+     "hr": "cce075418d4919c78357fbb1e7c3f78048fcb47afb8924c9447019c8f4846f5d",
+     "lr": "29b56367cda5e5498b5c5ecde1315b62793e5c4ed79014fc4115bce1dc8a9503"
+    },
+    "shadow": {
+     "hr": "110aa6acd1755132db7618ffc991bf879db71a055dd9a057d6707caa8229088c",
+     "lr": "1c77b67568720592c0a6e7c55b0daef6d5a84f6e181e0d3720fdfc48f520fe27"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d33",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "ef707e72dd667ca7cde3905dab131ad7ce5d7fcd84e43c978aceffc3e6859c64",
+   "trous_px": 0
+  },
+  "e08-tete-d34": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "2c8857d3b39edcabe1ec8370c8654f45c296406a6fd84994b9dd68f7e5abfbfe",
+     "lr": "c91f9ede5256cf6b8b6c3f6d4c8e221d794552b79f5dbdad10a7c4f4357615a1"
+    },
+    "main": {
+     "hr": "4da6b3fa17f3b140987ff4c7577e5602f2adc27fa971d6966af104319e9cee9a",
+     "lr": "1c23eae246f290b227d221c2153a7a07b1ab68ab09821bd5ca24ebe4b749ca0c"
+    },
+    "shadow": {
+     "hr": "f8d8fd1fd45e27e1fb3fd1d4ff5a9c29f18ecbe4dc4ead8e1556db0161dc1f4b",
+     "lr": "c0a3e02648dba60ce59ec792369a77a1f70f5111feec2e74f974ebd3aee78be8"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d34",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "ce82075e142d3a5e31e8699f1968d8f44702b016de08fa367c7e82ceab5a3ab2",
+   "trous_px": 0
+  },
+  "e08-tete-d35": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "0b024c56bedde6db3198e51fba6dea01eee696fd5f94f7ea59a70ea528384373",
+     "lr": "d99a8253002b718ba3871b5981f252aad9ce0250913e2a1ac713724c5cbd89f9"
+    },
+    "main": {
+     "hr": "ab717c7bc46b7a29ce5b6fa66bb1bb167161e87193e5c9be647007c817132d79",
+     "lr": "1c12c6be4ef9add8c6b8ac29100a3c9982af85883f4ed81072557ae8c2b7b1c9"
+    },
+    "shadow": {
+     "hr": "ea324b9a46e5238dca037f9c18967f817a9d138dfd20ed200610984dc9c848df",
+     "lr": "46f42d5e99d9ce4c9ae27dd6fd36e4e9ec432faf795dba2bec0aad41a159d865"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d35",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "86a110038a4ad76f8b349356693202bccc285e9542d150f20912160f4ba9f94e",
+   "trous_px": 0
+  },
+  "e08-tete-d36": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "8b9700ae125242b40f339884026832676ed094852decd6a7e23b49d7e59c8525",
+     "lr": "10ab065572b9f13c7b33be55dd9152340b2577468482e48442907ce515db66ae"
+    },
+    "main": {
+     "hr": "dd471efe96aecebec8af9bb983836a5af5797ef3a5d3224794664f817a8d77d4",
+     "lr": "17e6739641a49c0202fae6268a0441344794365d0a3da6a515684d1af3342a84"
+    },
+    "shadow": {
+     "hr": "89c181e32743cabb9bc5a86ab3329b893edc5d332884856681d64d396bc23f43",
+     "lr": "eee376c0ba893fa3d3bcc09183cee639f02e32961ab19d76090a002025e0b1bd"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d36",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "d0c6b017293e7499cc86f91eec9f420f8a868a4f86b8c9c3814eb1ea2ef3d006",
+   "trous_px": 0
+  },
+  "e08-tete-d37": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "d7b2aefac5aab2d5c6adbfe98b6f3387b7e6e3302597a2eb82a6eaedce02099e",
+     "lr": "69ce26ba4d197d19669d185940b279762421216f47125b240e99473a0da36441"
+    },
+    "main": {
+     "hr": "7c7b7452cf996d143d61d25dfbdd8bfde249df8bb8790a4ea6563ddc8ffa71c5",
+     "lr": "e3ab2cc2c694212f21293aa544a5ed94f880b9467525117afd11abfaa4b589c6"
+    },
+    "shadow": {
+     "hr": "379c9f5dae6242781ee3ec8ae56bd082600294e123286c72d046da959c7830bb",
+     "lr": "fad2c30a3a7dc8bb8b2eaf11cac53c5a67a81d4a5926285b3543babc08fb295a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d37",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "6648d48a555f6d23a39fdec2986331239c9b5d76b9a9059fc3cc843d0c7a7d7d",
+   "trous_px": 0
+  },
+  "e08-tete-d38": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "9d6a558d709ad1c81162a0efbd059211178c12ed5009c6ff22382ed5ae9267f1",
+     "lr": "b24daeb665b14ed787d9b3ecb13b1bbf2f6a1f7c4879e072196f2d4ee295788c"
+    },
+    "main": {
+     "hr": "b705aa7a8f637431e328062c6071336d1286dfd59efc61e32bdebd10bfaf4428",
+     "lr": "368ce8b72b8c585198420dbee9a8445d46f17ce96605bb85544cf1a831c047f2"
+    },
+    "shadow": {
+     "hr": "3d14e1489419bf77f9f889102d0580ae9b466bfa32a112c4166f5f1610e946fc",
+     "lr": "3ffca6db9622ee01d1238cbc4851b2d8546269b0bbfb23a13eb5ff26930e5888"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d38",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "436ef8e223331c02e198f990584742e962fcd454dabc872318dccf092964ec95",
+   "trous_px": 1
+  },
+  "e08-tete-d39": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7e6097bf17a4f2bdc591cac6b02b1e9ee6c3148c5bff00028e4d01e4abe3b591",
+     "lr": "003e144547b98e515d1e8decb301ce7867d669af126042512a97583e7b9cb01d"
+    },
+    "main": {
+     "hr": "57ce50e03965692f6ef5a334f288fd76ee3053b1bff8c2dc5e14ff11d4e921d7",
+     "lr": "c99b543ae5f1173f1a500f0314f51a4d5e4e87dfff9c63a5efb5dd0ec533515b"
+    },
+    "shadow": {
+     "hr": "80eff6c95280072910bfbb77818f6005651a1c577d1c012dfa5d0f5ff66a7795",
+     "lr": "a7fe8d27398f7b6754588e395513a9cbac90b908a42d5f0a39db9a10ecf05c22"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d39",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "baa0e678ad01d7883869f71315be13a89d0b5b5afa9ca98416c2e05fbdf35faa",
+   "trous_px": 0
+  },
+  "e08-tete-d40": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "3125fe0c1034bc55c53899c4012ef2d0534b09a9cb0e308ba2ff945fdb001429",
+     "lr": "d8578f1baa04035125c98b6822cbda685e465b786cf5cc94b10387ffd227447c"
+    },
+    "main": {
+     "hr": "cb7dc62cc691c95d4a3898a047309007f4ec23913bc615f6388d78cda1bc1481",
+     "lr": "e0960db2895ff0d5a5565f3d7822e05afda847c39ea4bb4fa340facb68ecc2b7"
+    },
+    "shadow": {
+     "hr": "cf518d29da808ce0f1a6727515dbcde64ff58b94dabb8c4a3d532d56d9f59a57",
+     "lr": "f456d99ecfac9c2b7387e8a8dd61a8802d761df0cd23c4db96a5027c052f29f0"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d40",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "df17959c676fc0507b0df6b1c8d1f491c0d15feab279c14ab0f601d04a213837",
+   "trous_px": 0
+  },
+  "e08-tete-d41": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "89aac8bd609265e8feb1823fe96c32700c129b7246c0e442f3a7a66009d7fca4",
+     "lr": "4113c7231a822f5cc2329f2fd5532ab6c546d475295248886abe289dc16f0e7c"
+    },
+    "main": {
+     "hr": "ae375cf004c9730c0715eab3d2aa224f09ec9af0344f5baefb067354f1789d13",
+     "lr": "a7090dfd95da4e8b619b92976c8e6aec0dbd2e2ac298b9623339529c940718c2"
+    },
+    "shadow": {
+     "hr": "1ef5e23d252d049ca14c408201cd26c7639ddd62edf0cd392a3bcbf18599534b",
+     "lr": "1da7995708417849e862cbb90c9abf3d1fa781fc56001f6254c870017e531c80"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d41",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "a563b146567acbc8e3eda2398fa94ce189a7abb31fb5f566ddca4f089492e484",
+   "trous_px": 0
+  },
+  "e08-tete-d42": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "d68e012dbab5cffc85687cf05e8abd5c7e7e08b2b5e862ccae55d060f467d41e",
+     "lr": "e29024cc22423f039890f686b20e3cd042e9d994e909dd1858168f3f2725ece3"
+    },
+    "main": {
+     "hr": "7bc0a8ebb96ca47b0fa4a06ee02d44977d939afec34eeddc0366cbc35cf7d46e",
+     "lr": "e1bc3b28f3a2579d44e906cef73df76825867478f4836e6c9dc5a901f00b1f25"
+    },
+    "shadow": {
+     "hr": "c4301f21533af74e98304e28d31724230e6f5c012b9e3330068903865bd9b047",
+     "lr": "8bb1cb7a6b677619a5ba144ec87dae63cb18cdef54d763273cc55a8c1a6eff5e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d42",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "2dd33b092610b78ff8aa4a7d9a051caae6cd9353a1ab7faf8c0af20cd0e3199b",
+   "trous_px": 0
+  },
+  "e08-tete-d43": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "88952d4a43d48520943844740b14c6cb059a11447f82c87544c707927b535fd3",
+     "lr": "b2db4c1fb902eb56858525b10813744cf96553d4bdbbb0bb5d5159b115348b40"
+    },
+    "main": {
+     "hr": "5c6bb2a49ce5a313cf50caa81bb79d91bb178e0111f0c60d4858f7d6047dee46",
+     "lr": "975835b0aeb89912e9f4c46a954a1783e00a8189fc08c65f671b0da7e13d71ed"
+    },
+    "shadow": {
+     "hr": "ace19257972b8d960ef046e5cd2a83cc590e9e335a6c92e07931494eecef19a0",
+     "lr": "2b6eae7915b9b40b25a02f66e03bc1d8304fc4afc89d7ba4df0c884d57c92cfa"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d43",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "5c3c94aa434fa6ac447633b2374117eb8dbeba2e06e0bee86ac5d8bfb721ad38",
+   "trous_px": 0
+  },
+  "e08-tete-d44": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "184ff301e33e574f77ea446df3e834f082635df0da060f146b0a99fe36258379",
+     "lr": "448d8e12ac662a996db8fc0ce8ee79f235374eb0479cde7ee0a86b5d10c4ba85"
+    },
+    "main": {
+     "hr": "5ce74a4b97645f479c86a195845f30583221f6e0f1ec18a046247716ef2ecfb4",
+     "lr": "e48dba94196cb5ddf67d5cb58fb28b5c75af06fe3843d78627531191e44dcab1"
+    },
+    "shadow": {
+     "hr": "0c76bcade39fcacc7676309494ba95c388e6eebca9ea3c8cded068cc7da71276",
+     "lr": "6b6a4ca2df4ea4349f343880480f96ac68ed77bfdca3f7338de5dee0c036ab61"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d44",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "acf655c35368ee24cb493453a6a688f444e1e019ae5cc5d457e7da13dd7b51f0",
+   "trous_px": 0
+  },
+  "e08-tete-d45": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b4de1bc47be7eb5a1c2da4136a48eb0ac12885deb474574a4316e442e0a2f2e3",
+     "lr": "fdd5382ef5c2e07b798fa8c7acfb0d98fec8bb9a63a8052632b00cd94ea476ac"
+    },
+    "main": {
+     "hr": "27b696e41f7721204b44d7cb875b90867903523f8418fbbf70184878b76e8215",
+     "lr": "3e63953e703747d3e9c039d2562435945324ad2ab6c45fd941f691ce2487e3a0"
+    },
+    "shadow": {
+     "hr": "b2168a00601cb74cb4f8839a5bb60b585db4546c9a6253f796ad0cf9fc3986f8",
+     "lr": "e98a12b76028414bf68558f63229d3a1f39d51938f6a4abdfbe3d90de4435db1"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d45",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "3ff1855b32fce2ae210ddca92e3143e48708da99249d14c3e65c923d21c9b726",
+   "trous_px": 0
+  },
+  "e08-tete-d46": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a1fa7327029d3f57dd9ea2ea0fbf3666ed7254310411b0171bc16f5f73426acc",
+     "lr": "227e7afa03211ab72a98ddf6f906d44d7e55b1bfe8eb35438dce4ce4ee4a13c3"
+    },
+    "main": {
+     "hr": "3d39ddf64e4cefeec04d81a98277722c32e95a31b6bb7a4740af9120b62f8d28",
+     "lr": "3b8018baa1dafe4cc200db983340ec552c06d9843081d3a84a7f70d9b2805065"
+    },
+    "shadow": {
+     "hr": "6422f036884017368dd412c83824a01026ab1197365d3e013e1622cb81dcd889",
+     "lr": "b0b331cda2260ef6a466976fc9a5b1a0a40762b741b50f3743089252a711e954"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d46",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "d83bfd74d5e48ff2953a37052961fd84f522af7b6522eb7ea3c49ba979d126cb",
+   "trous_px": 0
+  },
+  "e08-tete-d47": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "28ca3948122ed50d644126acd2f83344f58dc588865835f99e65de3d72b03a79",
+     "lr": "909e5dd29fdd8302e1d87b2a11201335f817025810a63ac858bcf4ead4cbec30"
+    },
+    "main": {
+     "hr": "39e6d17c7161312b8e9a6e3bc65f683b3541563200084d62e5fcf68eb6685d73",
+     "lr": "88fefd53efa15f45bb7596d36c36306c0ce4a82a11f4eed96bc67401822a393b"
+    },
+    "shadow": {
+     "hr": "f023014f3789a68dca6efb5b5ef84df2547bbe38723250283094693daefd57b2",
+     "lr": "fe175609745b23f55a68b0567c7f8a195921c87fa13107fc067191ff79e8a6f6"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d47",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "47bd1aa5f47d20206ec40680254134dbde01a63967870de53a5ee8595a006c4e",
+   "trous_px": 0
+  },
   "e08-tete-d48": {
    "bouchon_arriere": 0,
    "couches": {
@@ -11511,6 +12599,366 @@
    "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A2\\sprites\\e08-tete-d48",
    "echantillons": 128,
    "spec_sha256": "982c7ed360b72719dd5a09cc368762f2c5d19181d3ac312d96804177d00033c1",
+   "trous_px": 0
+  },
+  "e08-tete-d49": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "a10740647333bd9bd853c66e8c1622f05ee1766e3dfb469a237b4db1136362d6",
+     "lr": "1f566a6c7ed81bee703d4531170f988aab522a772510b7ac7836365678161327"
+    },
+    "main": {
+     "hr": "81c18f78f1a5a5121f4578b21c8a5337bee51c15edade0c17f1e3c8a2680e901",
+     "lr": "82ed8a5f2908e46c6e9024226210b1cd3e05821e83fcc9e690fcb445fda47466"
+    },
+    "shadow": {
+     "hr": "41fab175528946ac263e662ad56afd7af893043b3f86deb7b22c28d89029f63d",
+     "lr": "7db9fce649d4f3bfc1820216332a5280b749e8cce477a2e5990191a1b079785d"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d49",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "ad448e323cdd468d3a3e1835318d2c1c32c392b709745e273e1658b3df7505e9",
+   "trous_px": 0
+  },
+  "e08-tete-d50": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "77019f84ca4902993e6d3ebcf87974e86ff51e9f66417d6f33dc1c4d981b2d29",
+     "lr": "78907aa09f47e01f1d7c4900ef22d5b0f1d60ee3052c62b69d44d871dc9eab7b"
+    },
+    "main": {
+     "hr": "940c0755c0ac36c584f4efde1001b95b1bbde00bec647b50921af16a1db948b0",
+     "lr": "25ffbf8ffca62e82e694804bcdcb2fbbbd0f6746e8405d7100aa7b62645d2390"
+    },
+    "shadow": {
+     "hr": "4258f4d3f66e3cf8795cf139a584275db91dee1a87df09a73afd75afc5f64ae4",
+     "lr": "e113583052f28de44a6cbcb66f2c2b7f7fa98a3d3c713f2337610c474d805a4c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d50",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "87158149de79f41feb788598091395c0b0614345d014f1f2f00d0a96b4585257",
+   "trous_px": 2
+  },
+  "e08-tete-d51": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b7a75dacad7872e686c483329d2034ada7f4bfc29e0b37ac03a10c150c215a14",
+     "lr": "2afffcde4bb0a7b7b35226eff289270b725f4abd4af50ac47626d2c161ab52d0"
+    },
+    "main": {
+     "hr": "e99bcb54ca482defb405f53176ad41911ebd9fac91368fd4d6fdf50f38892355",
+     "lr": "bbb0902f5a861a055c70a740c13628fe62d828c4b3e77a6f12b05daf8cc26bd6"
+    },
+    "shadow": {
+     "hr": "fb5fb699fcb431b1718dcfa48539b3276d8bd097a8704cde6a7da20e7ce12926",
+     "lr": "6111076fadf75e88f532387a39414ad297655acfa2e0123f067a6fde77482409"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d51",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "7f577aa6c402dd9b405e34c813a5343d8a76ebb3468392057ff07300a6678a8e",
+   "trous_px": 0
+  },
+  "e08-tete-d52": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "80ad8da7a56f2704d36085c331bc675b786a916f81cf442f6dbc570f4b059dc4",
+     "lr": "abcc251b575ca10ae4ced802d88b958dd522be23ecac548a8a1ba890f3324183"
+    },
+    "main": {
+     "hr": "ecd86bf283d6c860c83a7b031f0d38e142348a6ce4ba87f074e910988b1cd979",
+     "lr": "e8e1c093182bb0c679e99bf53141cfe8c23d0c4851f06ad4702cdc4dee1a053e"
+    },
+    "shadow": {
+     "hr": "bc5406341bb435c010c43fd27c042b48182c7e40255e8aaeacf6ea1ab0d20d70",
+     "lr": "724d704b4f5df4a21731ff78bd3115095080299a4658ad5600a837eddb91d35e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d52",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "4b0d25a018114ce81f525f756099df492cf170139f4f4255842583b6e942a704",
+   "trous_px": 0
+  },
+  "e08-tete-d53": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "5e8f9dba4ef6d570492274c6e74c0bacaf115b66fc3a9f0534130ca05730355f",
+     "lr": "a186677871089b8dad7efad2f409ad96759b48e4ced04461bcfe5247a882e03f"
+    },
+    "main": {
+     "hr": "b8fc0d3b5f7a0e0bcf1362b58c8537667ac6403e99af8337c2a07d8ba2c912b9",
+     "lr": "dd6179dabc5896ecb8062daabe1fc2b50ea62ac643c639269c41c5b566687ca4"
+    },
+    "shadow": {
+     "hr": "9110358907be862cdfdf3b1e533c17b8c035b5162b25c2b5ce4e52592ecb5821",
+     "lr": "e707b4e3ab22f64789b571a1b08bee96a3f90281f84f5bf098c07cc1e2782033"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d53",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "8ba2e1c61befc0e4429c7d5d34e52023aaa837a842ee2467c453d8ff515f7114",
+   "trous_px": 0
+  },
+  "e08-tete-d54": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "85a8f2f749b922dcfa682fedc92a22142c19faeec52b9e573711fed21a459058",
+     "lr": "facc7585788866a192f0f71e0c98482f1b4247f291aa9d6a9822323f023c3607"
+    },
+    "main": {
+     "hr": "693211fa70e62c000b193c348b992682ca4e0b8966a51489b39ab41062851f2d",
+     "lr": "66576b14e5f488144cdb84053d4f13e975b8e91dd0b5b28d8bf8bf8c1936ca57"
+    },
+    "shadow": {
+     "hr": "4af73eaf5b4860214d425d3381313615078ec5ac8e773b1802f46a6acb9f7999",
+     "lr": "c97778e179d669df97f9478e6fb9a8079e2585feefc4e029aae54d00fac9633f"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d54",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "a7b900427517454bab26e86688c0f0c67e3ac94f16bebe6ebcb53240effabb66",
+   "trous_px": 0
+  },
+  "e08-tete-d55": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "19640aaf9700861fe9a827c7ae6e04d489bfe8013c98ac95d39867721b993556",
+     "lr": "bc783980d7d568203a22dd5d12c155ca3400451a6b937a81380a7c3eab621452"
+    },
+    "main": {
+     "hr": "1b5cebba5a0d850ad4d7e5141c47f678374d37d3b4c7a73112ab90a2ed3b8ce1",
+     "lr": "16b67faecc43b0ad7b1a034bfb006fab8b1604cb3fa2f3e2a1eb8a1ca6684231"
+    },
+    "shadow": {
+     "hr": "1a5af73d293bafb0fcff3b78a49c87be5c5344116556cd5ac7241cc661e773c2",
+     "lr": "6e2ca00322a39fbd874e48dee26e9ec99be93b550bd796d93266d21f4006161a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d55",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "5d363e5cd9fa30865125eaa9e67f99fcafcbd8dbbf0181adc80c1728723b14ce",
+   "trous_px": 0
+  },
+  "e08-tete-d56": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "c9fa29879e7ad0747c8a9df065b97a93ed186f37b5ebb5613f4746a1961810e8",
+     "lr": "56c80c7d79e5891b6a140fc9268d1eb12ae793874142b96d4302a4fb4ab23c2c"
+    },
+    "main": {
+     "hr": "560084cd55781cf8a3e5497a631e471f2ee1b73474914f21a4052b5b0192d9f3",
+     "lr": "f312ac7a61fa709682b6abb97c6d75eb1c78608288ef19ab5452a48c5bc5eca0"
+    },
+    "shadow": {
+     "hr": "df3b9e999883b4c43f686e14a6fdf9d73c7b2661642bddb0e5ef5660cdcadc75",
+     "lr": "8548e186af84c3d6bf9242236b30c713be793bcd5991f46c1c2bcb7c91517ab9"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d56",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "face32523d587e55d8525fb1ea25af29777fea860f9088db4082c6a9952ec75b",
+   "trous_px": 4
+  },
+  "e08-tete-d57": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "fbf4104848011fc316466014d1eb52b84149f8c27bfe95658cfb9a5f35306355",
+     "lr": "44d7bfd08f8629b47e397f8d1ec4455421ffa1d1ee42a1b809ba4df133cf7345"
+    },
+    "main": {
+     "hr": "0ff44bfbee57c1a8f55e5425c169ca0b89b6f662c880f31024571017d7a65afb",
+     "lr": "9d9c3b32074433306490941872fb35b457f9dab034250d3a1c862c94dfb6f64a"
+    },
+    "shadow": {
+     "hr": "beb06d40351545c6260b7dea3e657a8aad8d4be35eb866a75aeac1db7b335dfd",
+     "lr": "767d8896f190dc6db27d5ce5d426bf56ae4c8b01c8b3a36e2e8750da71d1b790"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d57",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "c35c69d09bdd2d9860ba28314c1cdf4d912708ca5569b9b28f838a250064a1c3",
+   "trous_px": 0
+  },
+  "e08-tete-d58": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "cd018012bc31f87a1caa260c66108a775139d0ad24b865716347235da5e4eaa3",
+     "lr": "922280744147fffed39f3489cabaa807ff81426dd4f08349dee86f34a542f1a9"
+    },
+    "main": {
+     "hr": "64b8f958031d4976451502676d089f7d93aa537fe5dec9bfca945e0e33f8052a",
+     "lr": "d4214434553110f286113df151c093157722bff5c6de284b90167b02d5be532d"
+    },
+    "shadow": {
+     "hr": "6f4f0197e8d3ab65a6ed08e757a96eb7ecf36fdb24c06ebe015482c3a74e3dfe",
+     "lr": "c5239b089b5aafbd38edb7d045f38ec7f262fce8d0602aca61f69d1fb0b0d4a8"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d58",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "ab8121c0501ed10e294f134cab5e9e3b7a637c7c5cf59e426001b5f2a95b869c",
+   "trous_px": 0
+  },
+  "e08-tete-d59": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "0f207ad7ea1ef7cc677f969ac83fa415c7bf059058e96ce8f864ddaa278ac640",
+     "lr": "d995999148412a3d2b6ff0d7e5340d2396a95a167e4bd6404b2235df85531a6b"
+    },
+    "main": {
+     "hr": "80cfdd8f033095270b8d3e52b9ddc964f1865982f35877588ffac06581b44272",
+     "lr": "1f5421d4eea79458f1cf074a094829e59595df57c2f43dcc23842afac2b35dbc"
+    },
+    "shadow": {
+     "hr": "4bf078f7e704e4b1d75b04394626fe414c1dbd66df91fdc3f747a43cba01a45f",
+     "lr": "99838de17c128857ef8cdd6e50d87a814493bd87424696fff8bc82c9cbb19496"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d59",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "790972a5b96ef5d78d2d4b45b3ec548f0746c655b93b84afe7d0bc66aa992efb",
+   "trous_px": 0
+  },
+  "e08-tete-d60": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "602b8fa9868ab4214a6e98c20c8c118a3eccdba216fe8e407ec065d0a741171d",
+     "lr": "3baaa65e68b44b527bdc60b547816a6f8728e5259fb6b8324085054382dc9a8b"
+    },
+    "main": {
+     "hr": "58a5dfb8ae0e123f710f2b6aa93052b1ca6927146244f742c4114acbb8f6dcfd",
+     "lr": "73f196cef216dfd4ade90820c5469bf56506986a22715197af3eef6d6d52470a"
+    },
+    "shadow": {
+     "hr": "8fda2fe526cdc55b17532633ef8ee1c63396a720053adb54177564aa76f6c163",
+     "lr": "8e52780d38c8efb6740585e73f72a7c32091f82c34f2fcc2a935e863bd97d7e6"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d60",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "9fdfb2fbff7bbf9230d257346f1b594455b05549aeacb80b489fa3d043e8c2e3",
+   "trous_px": 0
+  },
+  "e08-tete-d61": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "4830595e9c08bd31b0600ac935afd7a5b77d6a071196f4826c9a83aa55ec155f",
+     "lr": "11f4230670915ff858e62fc795b1fbb4af30b0b407f91ed9a7fd10a36a2c9fa8"
+    },
+    "main": {
+     "hr": "a88bfd71bd12bf4eca754e8c885c6322f06d2cddabc354d9fac8260bad7d5b81",
+     "lr": "cd9ea83ae9cb1469c3d828eb108997d0e5839cab7b8d88d140e5fde46cc6adc9"
+    },
+    "shadow": {
+     "hr": "39cdd378e1ad73bd8bc5b498e9b65b50ca476381da35a267f37df83591533eeb",
+     "lr": "192cb6d655970e92154ecea150168bc898a0b1bb405c22a23cdfc3e6a5f7ab0e"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d61",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "453b9e1327ed0f88506cafa1c56ee9bf310049cb07a5785f7600a1823e80ae64",
+   "trous_px": 0
+  },
+  "e08-tete-d62": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "7ecbfeb86e163f81012a206bf18e876b40ac09bb9153ab9a6d3be265ac18f422",
+     "lr": "1279c9adfdf16b3ce470a5a67d89c48d58a35ef470799da796cc1db0f0c13d32"
+    },
+    "main": {
+     "hr": "a883f90ba5cfed1364850180c853fa7e2aec13e47b6e1a5271023d7a8ce80266",
+     "lr": "69ccc2178869d642879635bcc2654226186be837f8ac204676930890acf2af5d"
+    },
+    "shadow": {
+     "hr": "69c4b24c018ec705967117b9b46f52969105970194ba74f04edc836425fa83d4",
+     "lr": "11cf1ad53925fef69079c60b38c14ffe80cbeb454a975b5addc1b824c63153b3"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d62",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "7498adf3152afcbcf1d14ecc0686b6233deb6612fafc30f43c6f3ec7197bff4f",
+   "trous_px": 0
+  },
+  "e08-tete-d63": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "b8175a46c1f1c32a854621e58a473c5f3ecaf80332d28717c7e3b1696a9fe698",
+     "lr": "f28623e36045b1459d2b3ae58b0db83d854341655a43d89651530fd99da597ba"
+    },
+    "main": {
+     "hr": "2028a4f5e59d2f02a9642e348b8a6e1f6e7477dbb81d5279ecaa40650c4784b4",
+     "lr": "451f92e0b9822792a48de747eb9257ba510a57cbbda0b892b2597dacab5d6f17"
+    },
+    "shadow": {
+     "hr": "5f4bb31cd1456d4478cca7f211443ad6f7f62f1686e4e5bdd22d097dd164cbaa",
+     "lr": "f9497b491e6ecb6e9942dd87f381bf64f9ffeb7e70549a1d54ead6748a8ec50c"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A3\\sprites\\e08-tete-d63",
+   "echantillons": 128,
+   "samples_passes": {
+    "shadow": 32
+   },
+   "spec_sha256": "3e1b66b81914294ce1e5813a7dd8f639b75cd21299509458f60e1e1977d2e77d",
    "trous_px": 0
   },
   "e09-piece": {
@@ -12448,6 +13896,6 @@
    "trous_px": 1
   }
  },
- "sprites_json_sha256": "c4fb8c5587c913a4435e26ae652ba90530d5ce7af84b2b4f574b4043721c5f51",
- "sprites_lua_sha256": "9ad83f761f56e3667daadfc8171477fdcd56af4a47bc2475ed835033ca7ab6a5"
+ "sprites_json_sha256": "73bbc23a7766577e871c7c167eebe2ac77823c70aa201db89ee2ae90a7aea025",
+ "sprites_lua_sha256": "7e6b19fcb566bcbc1bf6413331457c17915b977f287703fc1274250c9dc3dd9b"
 }

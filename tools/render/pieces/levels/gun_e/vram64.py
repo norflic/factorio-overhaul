@@ -30,11 +30,18 @@ if hasattr(sys.stdout, "reconfigure"):
 
 PREFIX = "__factorio-overhaul__/graphics/levels/gun/"
 RE_ATLAS = re.compile(r"Created atlas bitmap (\d+)x(\d+) \[([^\]]*)\]")
+RE_VIRTUEL = re.compile(r"Created virtual atlas pages (\d+)x(\d+)x(\d+)")
 
 
 def atlas(p):
-    fam = {"none": 0, "shadow": 0, "autres": 0}
+    """Pixels par famille d'atlas. « virtuel » : pages de l'atlas virtuel (plancher, --video-memory low : les objets y
+    sont servis à la demande, taille FIXE ; leurs pixels n'apparaissent alors dans aucun atlas « none »)."""
+    fam = {"none": 0, "shadow": 0, "autres": 0, "virtuel": 0}
     for ln in open(p, encoding="utf-8", errors="replace"):
+        mv = RE_VIRTUEL.search(ln)
+        if mv:
+            fam["virtuel"] += int(mv.group(1)) * int(mv.group(2)) * int(mv.group(3))
+            continue
         m = RE_ATLAS.search(ln)
         if not m:
             continue
@@ -66,13 +73,15 @@ def pixels(dossier, res):
     return out
 
 
-def estimation_a3(p, res):
+def estimation_a3(p, res, couches=("main", "glow", "shadow")):
     """estimation.txt d'A3 : par âge, Mpx (entier, rogné) des 3 couches à 64 directions, et Mpx à 4 directions."""
     out = {}
     for ln in open(p, encoding="utf-8"):
         m = re.match(r"\s*(\d+)\s+(main|glow|shadow)\s+\d+\s+\S+ x \S+\s+\S+ x \S+\s+\d+\s+([\d.]+) /\s+([\d.]+)\s+"
                      r"([\d.]+)\s+\|\s+([\d.]+) /\s+([\d.]+)", ln)
         if not m:
+            continue
+        if m.group(2) not in couches:
             continue
         e = int(m.group(1))
         o = out.setdefault(e, [0.0, 0.0, 0.0])
@@ -113,6 +122,11 @@ def main():
                   mes / max(rog, 1)))
     print("[FO-VRAM64] autres atlas : %+.2f Mpx (rangement) ; total %.4f -> %.4f Gpx" % (
         (apr["autres"] - av["autres"]) / 1e6, sum(av.values()) / 1e9, sum(apr.values()) / 1e9))
+    if av["virtuel"] or apr["virtuel"]:
+        print("[FO-VRAM64] ATLAS VIRTUEL : AVANT %.1f Mpx, APRÈS %.1f Mpx (pages de taille fixe : les objets, têtes "
+              "comprises, y sont servis à la demande ; le rapport « none » et l'extrapolation ci-dessous ne valent que "
+              "pour les ombres ; la mémoire réelle se lit sur le compteur du passage)" % (
+                  av["virtuel"] / 1e6, apr["virtuel"] / 1e6))
     ent = sum(P[e][f][0] - R[e][f][0] for e in ages64 for f in ("none", "shadow"))
     rog = sum(P[e][f][1] - R[e][f][1] for e in ages64 for f in ("none", "shadow"))
     mes_tot = sum(apr.values()) - sum(av.values())
@@ -127,6 +141,17 @@ def main():
     fin_rog = sum(apr.values()) / 1e9 + k_rog * aj_rog / 1e3
     print("[FO-VRAM64] extrapolation aux 15 âges (âges restants %s ; estimation A3 rognée +%.1f Mpx, entière +%.1f Mpx) :"
           " %.3f Gpx (rogné × %.2f)" % (reste, aj_rog, aj_ent, fin_rog, k_rog))
+    if av["virtuel"] or apr["virtuel"]:
+        # plancher : seules les ombres grandissent dans un atlas mesurable
+        mes_s = apr["shadow"] - av["shadow"]
+        rog_s = sum(P[e]["shadow"][1] - R[e]["shadow"][1] for e in ages64)
+        k_s = mes_s / max(rog_s, 1)
+        est_s = estimation_a3(a.estimation, a.qualite, ("shadow",))
+        aj_s = sum(est_s[e][1] - est_s[e][2] for e in reste)
+        print("[FO-VRAM64] PLANCHER, ombres seules : mesuré %+.2f Mpx (rapport mesuré / rogné %.2f) ; ajout prévu aux "
+              "15 âges %+.1f Mpx ; atlas d'ombres %.1f -> %.1f Mpx ; objets : atlas virtuel FIXE %.1f Mpx" % (
+                  mes_s / 1e6, k_s, k_s * aj_s, apr["shadow"] / 1e6, apr["shadow"] / 1e6 + k_s * aj_s,
+                  apr["virtuel"] / 1e6))
     if a.go_par_gpx:
         lo, hi = (float(x) for x in a.go_par_gpx.split(","))
         print("[FO-VRAM64] mémoire estimée (octets/px de vram.py, %.3f à %.3f Go/Gpx) : %.2f à %.2f Go" % (

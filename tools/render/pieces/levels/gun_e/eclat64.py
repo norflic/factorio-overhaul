@@ -42,7 +42,7 @@ def plage(spec):
 def silhouettes(e, a):
     """64 entrées (« dKK », alpha uint8, gauche, haut, origine) : production si l'âge est complet, sinon masques."""
     valides = FE.plages(FE.VALIDES_DEFAUT)
-    poses, motif = FE.poses_64(e, valides[e], a.so, a.a3)
+    poses, motif = FE.poses_64(e, valides[e], a.so, a.a3, FE.HORS_REGLE_OK_DEFAUT)  # mêmes têtes que feuilles.py
     out = []
     if poses is not None:
         for dname, nom, d, org in poses:
