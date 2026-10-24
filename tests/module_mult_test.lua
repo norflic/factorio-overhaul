@@ -171,6 +171,13 @@ local function rule_suite(R, chk)
   chk(R.engine_cents(1.15) == 114 and R.engine_cents(0.5 + 1e-6) == 50 and R.engine_cents(-0.15) == -15
     and R.engine_cents(-0.55) == -55 and R.engine_cents(nil) == 0,
     "lecture comme le moteur : 1,15 → 114 (F190), 0,5 + ε → 50, −0,15 → −15, −0,55 → −55 (troncature vers zéro)")
+  -- Valeurs RENDUES par le moteur à l'exécution (module_effects, mod1-modules passe 1, 24/10) : centièmes / 100 en
+  -- flottant 32 bits ; la troncature y perdait un centième (0,48 → 47).
+  chk(R.runtime_cents(0.47999998927116394) == 48 and R.runtime_cents(1.3999999761581421) == 140
+    and R.runtime_cents(0.8399999737739563) == 84 and R.runtime_cents(1.0199999809265137) == 102
+    and R.runtime_cents(-0.15000000596046448) == -15 and R.runtime_cents(0.039999999105930328) == 4
+    and R.runtime_cents(-0.30000001192092896) == -30 and R.runtime_cents(nil) == 0,
+    "lecture des valeurs rendues par le moteur (flottants 32 bits) : 0,4799999893 → 48, 1,3999999762 → 140, −0,1500000060 → −15")
   chk(R.factor_text(29193) == "291,93" and R.factor_text(105) == "1,05" and R.bonus_text(29193) == "+29093 %"
     and R.bonus_text(91) == "-9 %", "textes affichés (entiers seulement)")
 end
@@ -244,6 +251,7 @@ local MUTANTS = {
   { "lecture du moteur par plancher", "return -math.floor(-x)", "return math.floor(x)" },
   { "facteur décalé", "big_mul(big, f)", "big_mul(big, f + 1)" },
   { "signe perdu", "local sign = c > 0 and 1 or -1", "local sign = 1" },
+  { "valeur rendue tronquée (défaut de la passe 1)", "if x >= 0 then return math.floor(x + 0.5) end", "if x >= 0 then return math.floor(x) end" },
 }
 local killed = 0
 for _, mu in ipairs(MUTANTS) do

@@ -80,7 +80,7 @@ local function build_cache()
     for _, effect in ipairs(MM.EFFECTS) do
       local v = eff[effect] and eff[effect].bonus
       if v then
-        local x = MM.engine_cents(v)
+        local x = MM.runtime_cents(v)
         if x ~= 0 then c[effect] = x end
       end
     end

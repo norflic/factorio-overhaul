@@ -89,6 +89,16 @@ function MM.engine_cents(v)
   return -math.floor(-x)
 end
 
+--- Lecture d'un effet RENDU PAR LE MOTEUR à l'exécution (LuaItemPrototype.module_effects) : le moteur rend la valeur
+--- qu'il a RANGÉE, centièmes / 100 en flottant 32 bits (moteur réel, lot MOD-1 : 0,48 + ε rendu 0,4799999893,
+--- 1,4 + ε rendu 1,3999999762) ; la tronquer perdrait un centième. Arrondi au plus proche.
+function MM.runtime_cents(v)
+  if v == nil then return 0 end
+  local x = v * 100
+  if x >= 0 then return math.floor(x + 0.5) end
+  return -math.floor(-x + 0.5)
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Grand entier en base 100 (chiffres de poids faible d'abord) : produit EXACT de facteurs entiers.
 ---------------------------------------------------------------------------------------------------

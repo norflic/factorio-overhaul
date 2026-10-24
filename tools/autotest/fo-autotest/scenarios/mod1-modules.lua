@@ -240,10 +240,12 @@ local function make_force(name)
   return f
 end
 
-local LV
+local LV, MD
 do
   local ok, res = pcall(require, "__factorio-overhaul__/shared/levels/config")
   if ok then LV = res end
+  local ok2, res2 = pcall(require, "__factorio-overhaul__/shared/content/modules")
+  if ok2 then MD = res2 end
 end
 
 local function poser_k(ctx, s, st)
@@ -386,6 +388,28 @@ return {
     table.sort(bad)
     ctx.check(#bad == 0, "effets des modules : paliers du DC (vitesse +50, +80, +110 % ..., energie 60 %), autres gardes",
       table.concat(bad, " ; "))
+    -- Les 30 modules : valeur RANGÉE par le moteur (module_effects rend centièmes / 100 en flottant 32 bits, passe 1)
+    -- contre la valeur voulue des données (shared/content/modules.lua), négatifs compris (−0,55 : sens de la lecture).
+    if MD then
+      local bad3, n3 = {}, 0
+      for _, fam in ipairs(MD.ORDER) do
+        for k = 1, MD.TIERS do
+          local name = MD.name(fam, k)
+          local p = game.item_prototypes[name]
+          local me = p and p.module_effects or {}
+          local want = MD.cents(fam, k)
+          for _, key in ipairs({ "speed", "consumption", "productivity", "pollution" }) do
+            local got = me[key] and me[key].bonus or 0
+            local gc = got >= 0 and math.floor(got * 100 + 0.5) or -math.floor(-got * 100 + 0.5)
+            n3 = n3 + 1
+            if gc ~= (want[key] or 0) then bad3[#bad3 + 1] = name .. "." .. key .. " " .. gc .. "≠" .. tostring(want[key] or 0) end
+          end
+          ctx.log("PROTO30 " .. name .. " " .. serpent.line(me))
+        end
+      end
+      ctx.check(#bad3 == 0, "les 30 modules : valeur rangee par le moteur = valeur voulue (centiemes, negatifs compris)",
+        n3 .. " effets ; " .. table.concat(bad3, " ; "))
+    end
     local hidden = 0
     for _, effect in ipairs({ "speed", "consumption", "productivity" }) do
       for _, sg in ipairs({ "p", "n" }) do
@@ -465,16 +489,13 @@ return {
         end
       end
     end
-    if t == WA then
+    if t == WA or t == WB then
       for _, c in ipairs(st.cells) do
-        if c.m and c.m.valid then c.a = { pf = lit(c.m, "products_finished") or 0, prog = lit(c.m, "crafting_progress") or 0,
-          mp = lit(c.m, "mining_progress") or 0, rp = lit(c.m, "research_progress") } end
-      end
-    end
-    if t == WB then
-      for _, c in ipairs(st.cells) do
-        if c.m and c.m.valid then c.b = { pf = lit(c.m, "products_finished") or 0, prog = lit(c.m, "crafting_progress") or 0,
-          mp = lit(c.m, "mining_progress") or 0 } end
+        if c.m and c.m.valid then
+          local snap = { pf = lit(c.m, "products_finished") or 0, prog = lit(c.m, "crafting_progress") or 0,
+            mp = lit(c.m, "mining_progress") or 0, bmp = lit(c.m, "bonus_mining_progress") or 0 }
+          if t == WA then c.a = snap else c.b = snap end
+        end
       end
     end
 
@@ -633,11 +654,15 @@ return {
           local want_w = (eu * fc + drain) * 60 + bal_w
           local fab, want_fab
           if spec.foreuse then
-            fab = c.items / secs
-            want_fab = proto.mining_speed * fs * (1 + pb)
+            -- Minerai de base par seconde : objets sortis moins la part de productivité, plus la progression (passe 1 :
+            -- 14 objets en 10 s, compte trop grossier seul).
+            fab = ((c.items + (c.b.bmp - c.a.bmp)) / (1 + pb) + (c.b.mp - c.a.mp)) / secs
+            want_fab = proto.mining_speed * fs
           else
+            -- products_finished compte AUSSI les produits de la productivité (passe 1, cellule G) : ramené aux
+            -- fabrications.
             local r = spec.four and game.recipe_prototypes["iron-plate"] or m.get_recipe()
-            fab = (c.b.pf - c.a.pf + (c.b.prog - c.a.prog)) / secs
+            fab = ((c.b.pf - c.a.pf) / (1 + pb) + (c.b.prog - c.a.prog)) / secs
             want_fab = proto.crafting_speed * fs / r.energy
           end
           local plafond = want_fab > 60 and not spec.foreuse
