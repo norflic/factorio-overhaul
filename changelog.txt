@@ -1,4 +1,25 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.18
+Date: 2026-10-24
+  Features:
+    - Les modules d'une même machine se MULTIPLIENT (vitesse et énergie) au lieu de s'additionner, jusqu'au plafond
+      du jeu (× 328,67) ; les balises posées autour ajoutent leurs effets en plus.
+    - Modules de vitesse : +50 %, +80 %, +110 %, puis +30 points par palier (+320 % au palier 10) ; chaque module
+      ajoute en énergie 60 % de son bonus (+50 % de vitesse : +30 % d'énergie).
+    - Machine d'assemblage 2 et foreuse électrique : 5 emplacements de modules ; leurs niveaux : +1 par niveau
+      (34 au niveau 30).
+    - Panneau « Modules (multipliés) » à droite de l'interface d'une machine : facteurs de vitesse et d'énergie.
+  Graphics:
+    - Mitrailleuse : le socle lumineux s'anime désormais à tous les âges lumineux (5 à 15), chacun avec son motif
+      (lave qui s'écoule, arcs qui tournent, cristaux qui scintillent, bouillonnement toxique, pouls de l'uranium,
+      chenillard, balayage, courant supraconducteur, ondes d'annihilation, scintillement d'étoile, incandescence
+      blanc-or). Effet discret, surtout visible de nuit.
+  Changes:
+    - Productivité et efficacité : valeurs inchangées ; la productivité s'additionne toujours (règle en attente).
+    - Parties existantes : les modules déjà posés sont recalculés au chargement.
+  Bugfixes:
+    - Agrandissement d'une machine rapide : son entrée remplie au-delà d'une pile n'est plus renversée au sol.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.17
 Date: 2026-10-24
   Features:

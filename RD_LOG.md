@@ -466,6 +466,28 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lots MOD-0, MOD-1 et A4-SOCLE, 24/10 au soir ; MOD-1 et A4-SOCLE fusionnés dans `main`, `7cffdba`, `a1fa1fc`, version 0.4.18)
+Preuves : `fo-logs\2026-10-24_MOD0\NOTES.md`, `fo-logs\2026-10-24_MOD1\NOTES.md` §4, `fo-logs\2026-10-24_A4-socle\NOTES.md` §9.
+- **F190 à F194** (MOD-0, faisabilité) : le moteur ADDITIONNE les effets des modules ; plafond de 60 fabrications par
+  seconde pour assembleurs et fours (pas pour les foreuses) ; une balise cachée (énergie void, boîte 0,2, zone 0,3) au centre
+  n'agit que sur sa machine ; chaque effet est rangé en centièmes sur 16 bits signés (+327,67 au plus, au-delà le plancher
+  −80 %), d'où × 328,67 au plus par type d'effet ; 1 GW et 1 TW acceptés, un réseau trop faible ralentit tout le réseau ;
+  aucun événement quand un robot pose un module (balayage obligatoire). Détail : NOTES de MOD-0.
+- **F199** : `module_effects` rend la valeur RANGÉE (centièmes / 100 en flottant 32 bits) : la lire par arrondi au
+  centième, jamais par troncature (sinon un centième perdu).
+- **F200** : une valeur négative inexacte (−0,55) est rangée −55 : la lecture « plancher » est exclue.
+- **F201** : la balise de complément donne EXACTEMENT le produit voulu au centième (12 cellules de 1 à 34 modules, 9 machines
+  collées, 1 000 machines ; vitesse à 0,6 % et énergie à 0,2 %) ; une balise du joueur s'ajoute ; plafond × 328,67 tenu.
+- **F202** : puissance au travail = energy_usage × (1 + consumption_bonus) + drain ; le drain n'est pas multiplié.
+- **F203** : l'entrée d'une machine rapide est remplie au-delà d'une pile ; versée par script dans une machine neuve sans
+  modules, une pile seulement est reprise : poser modules et balise AVANT de transférer les ingrédients (déduit, 2 cas).
+- **F204** : au plancher, une partie des couches animées va dans un atlas ordinaire, l'autre entre dans l'atlas virtuel sans
+  page de plus (12 pages avant et après) ; que 12 soit un plafond : non prouvé.
+- **F205** : au plancher, une image paraît d'abord floue puis nette ; avec 11 socles animés à l'écran, jusqu'à 5 pas de
+  130 ticks (environ 11 s) aux âges 14 et 15, contre 1 pas pour un socle fixe ; cause non prouvée.
+- **F206** : `--output-perf-stats` perd l'espace du chemin (« Factorio.v1.1.91Modding ») : aucun fichier d'images par
+  seconde écrit sur ce PC ; passer par un dossier sans espace.
+
 ### Faits vérifiés en moteur réel (lot IA1-a, échelle 30 des équipes de PNJ, 24/10 ; fusionné dans `main`, `f625f17`, version 0.4.17)
 Preuves : `fo-logs\2026-10-24_IA1\IA1-a\` (`NOTES.md` §3 et §6, `INTEGRATION.md` §0, `verification.md`). Expériences : E124, E125.
 - **F180** : des PNJ recrutés au même point de rassemblement se gênent au départ (24 échecs « départ bloqué » sur 158
@@ -891,6 +913,21 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E133 à E135 · Lot MOD-0** : faisabilité des modules multiplicatifs (`mod0-risques`, copie jetable ; passes 7 et 8 OK) :
+F190 à F194. **E138 à E140 · Lot MOD-1** (décision D-15 ; fusion `7cffdba`) : mécanisme livré (balise cachée de
+complément, 120 modules cachés en puissances de deux, calcul en centièmes entiers, balayage tournant, migration) ;
+`mod1-modules` 67 OK (14 × palier 1 : × 291,93 en vitesse, × 39,37 en énergie, mesurés 36,30 contre 36,35 fabrications
+par seconde ; 34 × palier 10 : plafond × 328,67, 135,097 MW mesurés pour 135,097 attendus) ; coûts 3,7 à 4,5 µs par
+machine relue (+0,014 ms par tick pour 1 024 machines) ; régression de `content` (312) trouvée et corrigée (F203).
+**E141, E142 · Lot A4-SOCLE** (fusion `a1fa1fc`) : socles animés des âges 5 à 15 en jeu (376 PNG, 164 Mo) ; `a4-socle`
+2 OK (12 tourelles : 11 animées et un témoin fixe) ; mémoire vidéo haute 1,274 → 1,317 Gpx, normale 0,396 → 0,406,
+plancher 12 pages inchangées (F204, F205). Sur `main` 0.4.18 (`fo-logs\2026-10-24_integration-0.4.18\`, `done.txt`
+22:15:47 à 22:17:39) : content 317, gun-rose 13, d4-geant 18, a4-socle 2, a4-eclat 3, mod1-modules 67, t2-machines 80,
+monde 89, mod1-migration 11, t2-migration 64 et journal 26, pnj-reduit 12 ; hors jeu tous verts (levels 1 665,
+module_mult 67, api_lint 863, mut_sons 6). NON prouvé : gestes d'un joueur sur les modules ; 10 000 machines ;
+productivité multipliée (réglage à faux, Q-M4) ; verdict du DC sur les socles animés ; four en acier laissé sans
+emplacement de module (à confirmer).
+
 **E124, E125 · Lot IA1-a, échelle 30 (24/10 ; constructeur, vérificateur, trois correcteurs dont deux coupés par la
 limite du compte ; fusion `f625f17`, version 0.4.17 ; choix provisoires D-16 : E1 A, E2 A, E3 A)** : **E124**,
 `ia1-scale` (150 PNJ) : script 0,066 à 0,078 ms par tick, chemins en échec 0,6 %, buts occupés 0. **E125**,
