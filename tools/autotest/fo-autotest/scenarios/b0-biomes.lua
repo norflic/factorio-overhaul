@@ -32,7 +32,9 @@ local DESERT = { "sand-1", "sand-2", "sand-3", "red-desert-0", "red-desert-1", "
 
 -- Points figés pour la graine 20261020 (relevés au premier passage, AVANT correction) ; nil : recherche.
 local POINTS = {
-  [20261020] = { cristal = { -330.5, -120.5 }, cendres = { 494.5, -427.5 }, vanilla = { -475.5, -379.5 } },
+  -- marais : point du 2e passage AVANT (le 1er tombait en pleine forêt) ; la recherche dépend des arbres, qui bougent
+  -- quand la couche (layer) d'une tuile change (E136) : sans point figé, l'APRÈS ne serait pas au même endroit.
+  [20261020] = { cristal = { -330.5, -120.5 }, marais = { -485.5, 44.5 }, cendres = { 494.5, -427.5 }, vanilla = { -475.5, -379.5 } },
 }
 
 -- Nuancier (zone préparée, sans décor) : disques de RN tuiles de chaque sol sur deux fonds vanilla (les deux voisins les
@@ -211,6 +213,35 @@ return {
       if s.get_tile(math.floor(d.x), math.floor(d.y)).name == d.tuile then poses = poses + 1 end
     end
     st.disques_poses = poses
+    -- Empreinte des gisements (le lot ne doit PAS changer les ressources) : nombre, quantité totale et somme des
+    -- positions de chaque ressource à moins de CHERCHE tuiles du départ, avant la pose du nuancier.
+    local emp = {}
+    for _, r in ipairs({ "iron-ore", "copper-ore", "coal", "stone", "uranium-ore", "crude-oil",
+      "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane" }) do
+      local n, q, sx, sy = 0, 0, 0, 0
+      for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = r })) do
+        n, q = n + 1, q + e.amount
+        sx, sy = sx + math.floor(e.position.x), sy + math.floor(e.position.y)
+      end
+      emp[#emp + 1] = string.format("%s %d/%d/%d,%d", r, n, q, sx, sy)
+    end
+    ctx.log("ressources (nombre/quantite/somme x,y) : " .. table.concat(emp, " ; "))
+    local puits = {}
+    for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = "fo-methane" })) do
+      puits[#puits + 1] = string.format("(%d,%d)%d", math.floor(e.position.x), math.floor(e.position.y), e.amount)
+    end
+    table.sort(puits)
+    ctx.log("puits de methane : " .. table.concat(puits, " "))
+    -- Empreinte du décor généré (arbres, roches) : sert à voir si un changement de tuile déplace les entités du décor.
+    local dec = {}
+    for _, f in ipairs({ { type = "tree" }, { type = "simple-entity" } }) do
+      local n, sx, sy = 0, 0, 0
+      for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, type = f.type })) do
+        n, sx, sy = n + 1, sx + math.floor(e.position.x), sy + math.floor(e.position.y)
+      end
+      dec[#dec + 1] = string.format("%s %d/%d,%d", f.type, n, sx, sy)
+    end
+    ctx.log("decor (nombre/somme x,y) : " .. table.concat(dec, " ; "))
     local layers = {}
     for _, n in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "grass-1", "grass-2", "sand-1",
       "red-desert-0", "dirt-1", "water-shallow", "water-mud", "nuclear-ground" }) do

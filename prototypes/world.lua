@@ -54,6 +54,23 @@ for _, b in ipairs(W.biomes) do
   tile.pollution_absorption_per_second = b.pollution_absorption_per_second
   tile.localised_name = { "tile-name." .. b.name }
   tile.autoplace = { probability_expression = region_mask(b.region) * 4 - 2 }
+  if b.texture then
+    -- Image recolorée (lot B0) : on ne remplace que les fichiers de la texture ; découpe, variantes, masques et
+    -- transitions restent ceux de la tuile vanilla copiée (bords irréguliers comme les sols vanilla).
+    local swapped = 0
+    local seen = {}
+    local function swap(t)
+      if type(t) ~= "table" or seen[t] then return end
+      seen[t] = true
+      if type(t.picture) == "string" and b.texture[t.picture] then
+        t.picture = b.texture[t.picture]
+        swapped = swapped + 1
+      end
+      for _, v in pairs(t) do swap(v) end
+    end
+    swap(tile.variants)
+    assert(swapped > 0, "factorio-overhaul : texture de " .. b.name .. " introuvable dans " .. b.copy_from)
+  end
   if b.effect_color then tile.effect_color = b.effect_color end
   if b.effect_color_secondary then tile.effect_color_secondary = b.effect_color_secondary end
   if b.no_splash then tile.trigger_effect = nil end

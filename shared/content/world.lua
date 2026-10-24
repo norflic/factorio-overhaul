@@ -36,18 +36,23 @@ W.biomes = {
   },
   {
     name = "fo-crystal-flats",
-    -- Moteur réel : du sable teinté restait du sable (brun clair, aucune texture tierce ne vire au lilas :
-    -- une teinte ne fait que multiplier). Plaine VITRIFIÉE : surface miroitante (shader d'eau peu profonde)
-    -- ardoise-lilas, reflets violets, terrain ferme ; les amas de cristal lumineux en émergent.
-    copy_from = "water-shallow",
+    -- Lot B0 (24/10, retour du DC : « un biome violet […] bizare », « transitions […] ultra pixélisé ») : l'ancienne
+    -- copie de l'eau peu profonde (teinte 0,92 ; 0,76 ; 1) se dessinait dans la couche de l'eau, au-dessus de tous les
+    -- sols (layer 41) et sans transition vers eux : bords en escalier de tuiles, bleu-violet (Lab 37 ; 17 ; −28) à ΔE 61
+    -- de l'herbe et du désert voisins (fo-logs/2026-10-24_B0/NOTES.md). Désormais un SOL comme ceux de vanilla : la
+    -- découpe, les variantes et les masques de transition du sable ridé (sand-3), avec une image RECOLORÉE en mauve
+    -- bruyère (tools/biomes/sol_cristal.py : une teinte ne fait que multiplier, F36, F38). Au-dessus des sols vanilla
+    -- (layer 41) : c'est lui qui dessine sa frange irrégulière sur l'herbe et le désert, comme le désert rouge sur l'herbe.
+    copy_from = "sand-3",
+    texture = {
+      ["__base__/graphics/terrain/sand-3.png"] = "__factorio-overhaul__/graphics/terrain/cristal/sol-cristal.png",
+      ["__base__/graphics/terrain/hr-sand-3.png"] = "__factorio-overhaul__/graphics/terrain/cristal/hr-sol-cristal.png",
+    },
     ground = true,
     layer = 41,
-    tint = { r = 0.92, g = 0.76, b = 1.00 },
-    effect_color = { 40, 20, 70, 32 },
-    -- Pas de gerbes d'eau ni de clapotis : on marche sur du verre (bruit de pas du pavé).
+    -- Pas de poussière de sable brune sous les pas ni les roues (bruit de pas du pavé : on marche sur une croûte dure).
     no_splash = true,
     sound_from = "stone-path",
-    effect_color_secondary = { r = 0.10, g = 0.04, b = 0.16, a = 0.36 },
     map_color = { r = 150, g = 120, b = 185 },
     walking_speed_modifier = 1.1,
     vehicle_friction_modifier = 1.0,
@@ -60,7 +65,11 @@ W.biomes = {
     -- Eau boueuse peu profonde (shader d'eau animé) mais terrain FERME : on y marche et on y construit.
     copy_from = "water-mud",
     ground = true,
-    layer = 42,
+    -- Lot B0 : SOUS les sols vanilla (layer 5, entre l'eau, 3, et l'eau peu profonde, 6 ; 42 avant). Copie de l'eau
+    -- boueuse, la tuile se dessine dans la couche de l'eau et n'a de transition que vers le vide : à 42, personne ne
+    -- dessinait la limite (bords en escalier de tuiles). En dessous, l'herbe, le sable ou les cendres y dessinent leur
+    -- rive, comme au bord d'une mare vanilla (E136).
+    layer = 5,
     -- Moteur réel (retour du Directeur Créatif : « ultra vert ») : la texture de base est bleu-vert, la
     -- teinte verte la saturait. Eau croupie OLIVE et brune, reflets vaseux (couleur du shader : eau verte).
     tint = { r = 0.95, g = 0.74, b = 0.50 },
@@ -107,7 +116,9 @@ W.decor = {
         mined = { { "stone", 8 }, { "fo-resonance-crystal", 2 } } },
     },
     decoratives = {
-      { name = "fo-crystal-dust", copy = "sand-decal", density = 0.04, tint = { r = 0.85, g = 0.80, b = 1.00 } },
+      -- Lot B0 : densité 0 (0,04 avant). Le décalque de sable copié est brun (83 ; 58 ; 33 mesuré) et le reste teinté
+      -- (F38) : il couvrait la plaine de plaques de boue craquelée. Prototype gardé (sauvegardes, garantie M0).
+      { name = "fo-crystal-dust", copy = "sand-decal", density = 0, tint = { r = 0.85, g = 0.80, b = 1.00 } },
       { name = "fo-crystal-bush", copy = "white-desert-bush", density = 0.02, tint = { r = 0.80, g = 0.65, b = 1.00 } },
       { name = "fo-crystal-pebbles", copy = "rock-tiny", density = 0.05, tint = { r = 0.70, g = 0.55, b = 1.00 } },
     },
