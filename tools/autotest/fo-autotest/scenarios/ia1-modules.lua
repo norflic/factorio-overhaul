@@ -302,7 +302,22 @@ local function build(ctx, st, i, pl)
       if p.kind == "tapis" and p.io == "in" then
         P.src[#P.src + 1] = { ent = ent, lanes = { p.lanes[1], p.lanes[2] } }
       elseif p.kind == "tapis" and p.io == "out" then
-        P.sink[#P.sink + 1] = { ent = ent, pi = pi }
+        local sink_ent = ent
+        if P.contre then
+          -- contre-épreuve : 4 tuiles de tapis EN AVAL du port, comptage au bout (reprise de la correction IA1-c). Le
+          -- 1er passage comptait sur la tuile du port elle-même, vidée à chaque tick : 8,7/s mesurés pour 7,5/s, car
+          -- les bras qui déposent SUR cette tuile ne traversent aucune limite de voie. En jeu, la sortie continue en
+          -- aval : c'est la limite d'une voie qui compte.
+          local dv = { [defines.direction.north] = { 0, -1 }, [defines.direction.east] = { 1, 0 },
+            [defines.direction.south] = { 0, 1 }, [defines.direction.west] = { -1, 0 } }
+          local v = dv[ent.direction]
+          for k = 1, 4 do
+            local b = v and s.create_entity({ name = ent.name, position = { ent.position.x + v[1] * k, ent.position.y + v[2] * k },
+              direction = ent.direction, force = FORCE })
+            if b then sink_ent = b else P.fails[#P.fails + 1] = "tapis d'aval impossible au port " .. pi; break end
+          end
+        end
+        P.sink[#P.sink + 1] = { ent = sink_ent, pi = pi }
         P.lanes_model[pi] = rep.lanes[pi]
       elseif p.kind == "tuyau" then
         -- raccord vers l'extérieur de l'emprise
