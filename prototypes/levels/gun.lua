@@ -88,9 +88,31 @@ end
 
 local ORDRE = { "main", "glow", "light", "shadow" }
 
-local function couches_fixes(liste, partie)
+--- Couche ANIMÉE du socle (lot A4 : lueur et halo en feuille de frame_count images, line_length par rangée,
+--- tools/render/pieces/levels/gun_e/anime_socle.py), même cadre et même shift d'une image à l'autre.
+local function couche_anime(def, kind)
+  local s = couche_fixe(def, kind)
+  for _, t in ipairs({ s, s.hr_version }) do
+    local r = t == s and def.lr or def.hr
+    t.frame_count, t.line_length, t.animation_speed = r.frame_count, r.line_length, r.animation_speed
+  end
+  return s
+end
+
+--- `anime` (socle animé de l'âge, ou nil) : ses couches remplacent la lueur et le halo de la partie ; `cycle`
+--- ({ n, speed } du socle animé, ou nil) : les couches fixes sont répétées n fois (repeat_count, doc 1.1.91 : une
+--- couche d'une image avec repeat_count = n suit une couche de n images) à la même vitesse.
+local function couches_fixes(liste, partie, anime, cycle)
   for _, kind in ipairs(ORDRE) do
-    if partie[kind] then liste[#liste + 1] = couche_fixe(partie[kind], kind) end
+    if anime and anime[kind] then
+      liste[#liste + 1] = couche_anime(anime[kind], kind)
+    elseif partie[kind] then
+      local c = couche_fixe(partie[kind], kind)
+      if cycle then
+        for _, t in ipairs({ c, c.hr_version }) do t.repeat_count, t.animation_speed = cycle.n, cycle.speed end
+      end
+      liste[#liste + 1] = c
+    end
   end
 end
 
@@ -145,8 +167,14 @@ function M.dress(p, ctx)
   -- composition validée (profil.level_layers = socle puis pièce, compo.compose dans cet ordre) ; la pièce couvre donc
   -- la lueur additive du socle (correction A2 : l'ordre couche par couche posait la lueur du socle sur la pièce).
   local base = {}
-  couches_fixes(base, age.socle)
-  if ctx.step == 2 then couches_fixes(base, age.piece) end
+  local cycle = nil
+  if age.socle_anime then
+    local ref = (age.socle_anime.glow or age.socle_anime.light).lr
+    cycle = { n = ref.frame_count, speed = ref.animation_speed }
+  end
+  couches_fixes(base, age.socle, age.socle_anime, cycle)
+  -- la pièce n'est pas animée ; si le socle l'est, elle suit son cycle (repeat_count)
+  if ctx.step == 2 then couches_fixes(base, age.piece, nil, cycle) end
   p.base_picture = { layers = base }
   -- Tête : la même image pour les 5 animations (tête toujours levée) ; en tir, l'éclat de l'âge par-dessus (lot A4).
   for _, k in ipairs(TETE) do p[k] = tete(age, k == "attacking_animation" and age.eclat or nil) end

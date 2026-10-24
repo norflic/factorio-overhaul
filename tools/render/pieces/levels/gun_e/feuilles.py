@@ -55,6 +55,11 @@ Sources par défaut (designs VALIDÉS par le Directeur Créatif ; production à 
   âges 13 à 15  fo-logs/2026-10-23_V3E-ereV/sprites
   poses S et O  fo-logs/2026-10-24_A2/sprites (eNN-tete-d32, eNN-tete-d48 ; lot A2)
   60 autres     fo-logs/2026-10-24_A3/sprites (eNN-tete-dKK ; production A3, 128 échantillons, ombre à 32 : D-7)
+  socle animé   fo-logs/2026-10-24_A4/socle-anime/sprites (eNN-socle-anime : lueur et halo en N images, anime_socle.py,
+                lot A4 ; un âge sans dossier garde son socle fixe ; --socle-anime aucun : tous fixes)
+
+Éclat de tir 2D (lot A4) : eclat_tir.py, appelé à la fin de chaque âge (gun-eNN-eclat.png, couche d'attacking_animation,
+bouts des canons mesurés sur la feuille de tête qui vient d'être écrite).
 """
 import argparse
 import hashlib
@@ -81,6 +86,7 @@ VALIDES_DEFAUT = ["1-9=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "bas", "sprit
                   "13-15=" + os.path.join(LOGS, "2026-10-23_V3E-ereV", "sprites")]
 SO_DEFAUT = os.path.join(LOGS, "2026-10-24_A2", "sprites")
 A3_DEFAUT = os.path.join(LOGS, "2026-10-24_A3", "sprites")
+SOCLE_ANIME_DEFAUT = os.path.join(LOGS, "2026-10-24_A4", "socle-anime", "sprites")   # lot A4 (à GARDER)
 DATA_DEFAUT = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 DEST_DEFAUT = os.path.join(MOD, "graphics", "levels", "gun")
 GRAPHICS_PREFIX = "__%s__/graphics/levels/gun/" % MOD_NAME
@@ -620,6 +626,9 @@ def main():
                     help="directions d'éclat écartées admises après regard (« eNN-dKK », virgules), EN PLUS de "
                          "ECLAT_ECARTEES_OK_DEFAUT ; « aucun » : aucune (un âge qui en écarte reste à 4 directions)")
     ap.add_argument("--data", default=DATA_DEFAUT)
+    ap.add_argument("--socle-anime", default=SOCLE_ANIME_DEFAUT,
+                    help="socles émissifs animés (lot A4, anime_socle.py : <dossier>/eNN-socle-anime) ; « aucun » : "
+                         "socles fixes partout")
     ap.add_argument("--seuil", type=float, default=SEUIL_ECLAT, help="seuil de refus de l'éclat (essai du refus)")
     a = ap.parse_args()
     valides = plages(a.valide or VALIDES_DEFAUT)
@@ -681,6 +690,21 @@ def main():
             s, d = lire_spec(dv, nom)
             note_source(nom, s, d)
             A[part] = {lay: copie(d, s["layers"][lay]) for lay in FIXE_COUCHES if lay in s["layers"]}
+        # socle émissif ANIMÉ (lot A4) : lueur et halo en feuilles de N images (anime_socle.py), si l'âge en a un dans
+        # --socle-anime ; les autres âges gardent le socle fixe
+        nom_a = "e%02d-socle-anime" % e
+        if a.socle_anime != "aucun" and os.path.exists(os.path.join(a.socle_anime, nom_a, "spec.json")):
+            s, d = lire_spec(a.socle_anime, nom_a)
+            note_source(nom_a, dict(s, checks={"largest_hole_px": 0}), d)
+            A["socle_anime"] = {}
+            for lay in ("glow", "light"):
+                L = s["layers"][lay]
+                cd = copie(d, L)
+                for r in ("hr", "lr"):
+                    cd[r]["frame_count"] = L["frame_count"]
+                    cd[r]["line_length"] = L["line_length"]
+                    cd[r]["animation_speed"] = s["animation_speed"]
+                A["socle_anime"][lay] = cd
         # poses de la tête : 64 directions si l'âge est complet et contrôlé, sinon repli à 4 (lot A2)
         repli = None
         liste = None

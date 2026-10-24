@@ -117,6 +117,19 @@ def controler(dest, sources=False):
                                                                                    cd[r]["height"], dims[f]))
                 if (cd["lr"]["width"], cd["lr"]["height"]) != (cd["hr"]["width"] // 2, cd["hr"]["height"] // 2):
                     err.append("âge %d %s %s : normale ≠ hr / 2" % (e, part, lay))
+        # socle émissif animé (lot A4) : feuilles de frame_count images, rangées de line_length
+        for lay, cd in sorted((A.get("socle_anime") or {}).items()):
+            for r in ("hr", "lr"):
+                f = fichier(cd[r])
+                if f is None:
+                    continue
+                nrect += 1
+                n_img, ll = cd[r]["frame_count"], cd[r]["line_length"]
+                need = (cd[r]["width"] * ll, cd[r]["height"] * -(-n_img // ll))
+                if f not in dims:
+                    err.append("âge %d socle animé %s %s : fichier absent %s" % (e, lay, r, f))
+                elif dims[f] != need or max(dims[f]) > FE.LIMITE_PX:
+                    err.append("âge %d socle animé %s %s : feuille %s, attendu %s" % (e, lay, r, dims[f], need))
         if e == 1:
             continue
         noms = (A.get("outils") or {}).get("noms") or donnees["directions"]

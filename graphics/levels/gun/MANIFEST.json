@@ -665,6 +665,18 @@
    "sha256": "9b561b2b70d67c7106624e86680b5c4c2c425ee1fd8c0ed358c93ccdd42abe64",
    "taille": 578
   },
+  "gune-e06-socle-anime-glow.png": {
+   "hauteur": 412,
+   "largeur": 408,
+   "sha256": "09266d4d762f3e892e25063de3053780ef3b77eec9df0a6565ecc741071c8ad9",
+   "taille": 16398
+  },
+  "gune-e06-socle-anime-light.png": {
+   "hauteur": 560,
+   "largeur": 492,
+   "sha256": "79c96f64df265aed51a202c93f4e24e0c718af07bc22fca41c890d8f7d753a7a",
+   "taille": 35392
+  },
   "gune-e06-socle-glow.png": {
    "hauteur": 103,
    "largeur": 99,
@@ -1576,6 +1588,18 @@
    "largeur": 208,
    "sha256": "1822558e3508d9add2875e5339fd7a619148bfed7de0f60cd744466405415039",
    "taille": 1658
+  },
+  "hr-gune-e06-socle-anime-glow.png": {
+   "hauteur": 824,
+   "largeur": 816,
+   "sha256": "65339133b6740280479150ce99a1b1fb5166b0389a86ff6e52211d039d0eaba6",
+   "taille": 67421
+  },
+  "hr-gune-e06-socle-anime-light.png": {
+   "hauteur": 1120,
+   "largeur": 984,
+   "sha256": "6ebada8b01f217e06b4bf9ce1c4940c84b54b65be180e47abe72b7eb55756107",
+   "taille": 126906
   },
   "hr-gune-e06-socle-glow.png": {
    "hauteur": 206,
@@ -8389,6 +8413,23 @@
    "spec_sha256": "f43127909dcb58323dc41405a6386913f47084d6f5c8950daf8898a440e23b7d",
    "trous_px": 2
   },
+  "e06-socle-anime": {
+   "bouchon_arriere": 0,
+   "couches": {
+    "glow": {
+     "hr": "65339133b6740280479150ce99a1b1fb5166b0389a86ff6e52211d039d0eaba6",
+     "lr": "09266d4d762f3e892e25063de3053780ef3b77eec9df0a6565ecc741071c8ad9"
+    },
+    "light": {
+     "hr": "6ebada8b01f217e06b4bf9ce1c4940c84b54b65be180e47abe72b7eb55756107",
+     "lr": "79c96f64df265aed51a202c93f4e24e0c718af07bc22fca41c890d8f7d753a7a"
+    }
+   },
+   "dossier": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-24_A4\\socle-anime\\sprites\\e06-socle-anime",
+   "echantillons": 128,
+   "spec_sha256": "b8e2812e73b9ed6480a6d4d6361514f07552035eecff049cd872bb60acdd719c",
+   "trous_px": 0
+  },
   "e06-tete-E": {
    "bouchon_arriere": 0,
    "couches": {
@@ -13996,6 +14037,6 @@
    "trous_px": 1
   }
  },
- "sprites_json_sha256": "dfcfd2205b7d873037611af1f7df9d3b523a5e4d76bf728ef60da7fd79be53f4",
- "sprites_lua_sha256": "d93b88118ef1ba5890c5d49ece78749d28136a60ca8e3305dc6d1fc2467cf65b"
+ "sprites_json_sha256": "8033756e7b74ad77e57c97393201feaaa40392721634cdef50e80e2223c15bcd",
+ "sprites_lua_sha256": "975286fc76647482a2d3aaaf6b46eb341a342b93744bd4f4c319d190c774502e"
 }

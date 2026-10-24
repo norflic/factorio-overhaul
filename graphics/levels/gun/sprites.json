@@ -13829,6 +13829,60 @@
      }
     }
    },
+   "socle_anime": {
+    "glow": {
+     "hr": {
+      "animation_speed": 0.166667,
+      "filename": "__factorio-overhaul__/graphics/levels/gun/hr-gune-e06-socle-anime-glow.png",
+      "frame_count": 16,
+      "height": 206,
+      "line_length": 4,
+      "shift": [
+       -0.03125,
+       -0.171875
+      ],
+      "width": 204
+     },
+     "lr": {
+      "animation_speed": 0.166667,
+      "filename": "__factorio-overhaul__/graphics/levels/gun/gune-e06-socle-anime-glow.png",
+      "frame_count": 16,
+      "height": 103,
+      "line_length": 4,
+      "shift": [
+       -0.03125,
+       -0.171875
+      ],
+      "width": 102
+     }
+    },
+    "light": {
+     "hr": {
+      "animation_speed": 0.166667,
+      "filename": "__factorio-overhaul__/graphics/levels/gun/hr-gune-e06-socle-anime-light.png",
+      "frame_count": 16,
+      "height": 280,
+      "line_length": 4,
+      "shift": [
+       0.453125,
+       -0.125
+      ],
+      "width": 246
+     },
+     "lr": {
+      "animation_speed": 0.166667,
+      "filename": "__factorio-overhaul__/graphics/levels/gun/gune-e06-socle-anime-light.png",
+      "frame_count": 16,
+      "height": 140,
+      "line_length": 4,
+      "shift": [
+       0.453125,
+       -0.125
+      ],
+      "width": 123
+     }
+    }
+   },
    "tete": {
     "glow": {
      "hr": {

@@ -16,6 +16,7 @@ Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`
 | `vram.py` | (lot D4m) Mémoire vidéo d'une session avec images : atlas estimés, mesure directe, chargement, champ réel, images/s (§5) |
 | `ht3_journal.py` | (suite H-T3) Contrôle du journal d'un passage du banc de migration `ht3-migration` (§1.1) ; (lot V3-T2) option `--tag FO-T2-MIGRATION` pour le banc `t2-migration`, et contrôle des messages de migration aux joueurs ; (lot R1) `--tag FO-T2-DEFENSE` pour le banc `t2-defense` |
 | `tests/` | (lot D4m) Bancs HORS JEU de `vram.py`, du pilote et du greffon `d4-geant` : `run_d4m.py` (§5.1) ; (suite H-T3) `test_ht3_journal.py` et `bat_double_source/run.py` (§1.1 ; graine `FO_MAP_SEED` : §1.2) ; (lot R1) `mut_vram.py`, banc de mutations de la règle de l'atlas virtuel de `vram.py` (§5.1) |
+| `a4_eclat_images.py`, `a4_ruines_images.py`, `a4_socle_images.py`, `a4/` | (lot A4) Éclat de tir, restes, socle animé, essai du masque d'équipe : voir §4.1, scénarios `a4-*` |
 | `gun_rose_images.py` | (lot A3-jeu) Image de tête MONTRÉE par le moteur contre l'image attendue, sur les captures `rose64-ageNN-z2-jour` de `fo-captures.bat gun-rose` : `py -3.9 tools/autotest/gun_rose_images.py "<fo-shots>" --feuilles "<source>/graphics/levels/gun"` (BILAN « N OK, 0 FAUX », code 0) |
 | `fo-autotest-watch.bat` | Ancienne surveillance pour les sessions cloud (inutile dans Claude Code) |
 | `fo-autotest/` | Mod de test : `control.lua`, `content_test.lua`, `shots.lua`, `vitrine.lua`, `greffons.lua`, `terrain.lua`, `data.lua`, `scenarios/`, `checks/` |
@@ -476,6 +477,21 @@ Scénario greffé du lot A2 (mitrailleuse V3-E en jeu, 24/10) :
   sur l'atlas [icon] (F125), à comparer entre deux copies du mod. `$env:FO_VISUAL_ARGS = '--quality normal'`, puis
   `& "<racine>\fo-captures.bat" a2-icones "<source>"`, puis `$env:FO_VISUAL_ARGS = $null`. Attendu :
   « [FO-A2-ICONES] BILAN : 2 OK, 0 ECHEC(S) », 4 captures.
+
+Scénarios greffés du lot A4 (la mitrailleuse vivante, 24/10 ; sorties `<racine>\fo-logs\2026-10-24_A4\`, NOTES.md) :
+- `a4-eclat` et `a4-eclat-impair` (1 000 ticks sans images ; 3 contrôles) : 14 âges × 8 directions en tir (éclat de
+  tir de l'âge, couche d'`attacking_animation`) ; avec images, 3 instants par site, puis tir coupé et sites recapturés
+  à l'arrêt ; `-impair` décale les captures d'un tick. La couche n'est dessinée qu'un court instant à chaque coup :
+  comparer à un TÉMOIN (copie jetable sans couche d'éclat) par
+  `py -3.9 tools/autotest/a4_eclat_images.py --paire <avec> <sans> --paire <avec-impair> <sans-impair>`
+  → « BILAN : N éclat(s) au bout des canons, 0 ECHEC(S) » (112 sites de jour vus).
+- `a4-ruines` (1 300 ticks ; 5 contrôles) : mitrailleuses 2 × 2 à 6 × 6 (niveaux 1, 3, 7, 13, 19, 25) détruites par
+  `die()` sur sol blanc et sur herbe ; explosion et reste au nom attendu (apparus 13 ticks après `die()`) ; captures de
+  l'explosion et des restes ; `py -3.9 tools/autotest/a4_ruines_images.py "<fo-shots>"` (taille des restes, ± 15 %).
+- `a4-socle` (300 ticks ; 2 contrôles) : socle émissif animé (pilote âge 6, niveaux 11 et 12 ; témoin fixe niveau 9) de
+  nuit à 8 instants ; `py -3.9 tools/autotest/a4_socle_images.py "<fo-shots>"`.
+- `a4-masque` (copie jetable de `tools/autotest/a4/masque_jetable.py` ; 120 ticks) : masque d'équipe de l'âge 4, trois
+  forces ; `py -3.9 tools/autotest/a4/masque_images.py <avec> <sans>`. Rien n'est branché dans le mod livré.
 
 Scénario greffé du lot S0-suite (le son du tir JOUÉ en jeu, 24/10) :
 - `s0-tir` (3 000 ticks sans images ; contrôle au tick 2 640) : six sites à 240 tuiles d'écart, en (2600 + 240 k,
