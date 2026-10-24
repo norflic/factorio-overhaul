@@ -90,6 +90,22 @@ int main(int argc, char **argv) {
     snprintf(p, sizeof p, "%s\\factorio-overhaul\\marker-old.txt", mods);
     printf("benchmark : marker-old.txt %s\n", GetFileAttributesA(p) != INVALID_FILE_ATTRIBUTES ? "PRESENT" : "absent");
     print_audio("benchmark", argc, argv);
+    /* Lot D4m-GEANT : FAKE_BILAN=<ligne> ecrit cette ligne dans <dossier du --config>\write\factorio-current.log,
+       que fo-autotest.bat recopie en benchmark.log (fo-captures.bat y cherche un BILAN en echec). */
+    const char *bilan = getenv("FAKE_BILAN");
+    const char *cfgp = arg_after(argc, argv, "--config");
+    if (bilan && cfgp) {
+      char dir[1024], wdir[1100], logp[1200];
+      snprintf(dir, sizeof dir, "%s", cfgp);
+      char *slash = strrchr(dir, '\\');
+      if (slash) *slash = 0;
+      snprintf(wdir, sizeof wdir, "%s\\write", dir);
+      CreateDirectoryA(wdir, NULL);
+      snprintf(logp, sizeof logp, "%s\\factorio-current.log", wdir);
+      FILE *lg = fopen(logp, "w");
+      if (lg) { fprintf(lg, "   1.000 Script @__fo-autotest__/greffons.lua:117: %s\n", bilan); fclose(lg); }
+      printf("benchmark : bilan ecrit [%s]\n", bilan);
+    }
     return 0;
   }
   printf("arguments inconnus\n");

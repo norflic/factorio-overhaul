@@ -38,6 +38,11 @@ du config.ini qu'il lit AU LANCEMENT, à la création comme au benchmark) :
      code 1, rien n'a tourné, verrou rendu, fo-autotest\\ précédent intact, aucune commande injectée ;
  13. par fo-captures.bat : FO_AUDIO=1 arrive au banc (création sans --disable-audio) ; une valeur refusée donne
      le code 8, fo-visual.bat NON appelé.
+Cas du BILAN (lot D4m-GÉANT ; le faux factorio.exe écrit FAKE_BILAN dans le journal que fo-autotest.bat recopie en
+benchmark.log ; le faux fo-visual.bat rend FAKE_VISUAL_RC, 0 par défaut) :
+ 14. par fo-captures.bat : un BILAN avec au moins un ECHEC (6, 12, 10) donne le code 8, session visuelle lancée quand
+     même ; un BILAN sans échec (0 ECHEC, y compris « 10 OK » et « 310 OK ») donne 0 ; une session visuelle en échec
+     (7, 4) garde son propre code. Sans benchmark.log (cas 9a, 13a) : 0, comme avant.
 Code de sortie : 0 si tous les contrôles passent.
 """
 import argparse
@@ -52,8 +57,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_BAT = os.path.normpath(os.path.join(HERE, "..", "..", "fo-autotest.bat"))
 REPO_CAPTURES = os.path.normpath(os.path.join(HERE, "..", "..", "fo-captures.bat"))
 DEFAULT_SEED = "20261020"
-# Faux fo-visual.bat (cas 9) : note son appel et rend 0.
-FAKE_VISUAL = '@echo off\r\n> "%~dp0fo-visual-appel.txt" echo appel\r\nexit /b 0\r\n'
+# Faux fo-visual.bat (cas 9) : note son appel et rend 0 (ou FAKE_VISUAL_RC, cas 14).
+FAKE_VISUAL = ('@echo off\r\n> "%~dp0fo-visual-appel.txt" echo appel\r\n'
+               'if defined FAKE_VISUAL_RC exit /b %FAKE_VISUAL_RC%\r\nexit /b 0\r\n')
 
 
 def compile_fakes(gcc, out):
@@ -104,7 +110,8 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
     env = {k: v for k, v in os.environ.items()
            if k.upper() not in ("FO_CREATE_SRC", "FO_LOCK_HELD", "NODEFAULTCURRENTDIRECTORYINEXEPATH",
                                 "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO",
-                                "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE")}
+                                "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE",
+                                "FAKE_BILAN", "FAKE_VISUAL_RC")}
     if double:
         env["FO_CREATE_SRC"] = old
     for k, v in extra.items():
@@ -289,6 +296,31 @@ def main():
     else:
         fail += 1
         print("ECHEC  13. fo-captures.bat introuvable : %s" % a.captures)
+
+    # --- BILAN du banc en échec (lot D4m-GÉANT : avant, fo-captures.bat d4-geant rendait 0 malgré 6 ECHEC) ---
+    if a.captures and os.path.exists(a.captures):
+        bilans = [
+            ("14a", "[FO-D4-GEANT] BILAN : 10 OK, 6 ECHEC(S) : usine geante", None, 8),
+            ("14b", "[FO-D4-GEANT] BILAN : 17 OK, 0 ECHEC(S)", None, 0),
+            ("14c", "[FO-CONTENT] BILAN : 0 OK, 12 ECHEC(S) : a | b", None, 8),
+            ("14d", "[FO-D4-GEANT] BILAN : 3 OK, 10 ECHEC(S) : a", None, 8),
+            ("14e", "[FO-CONTENT] BILAN : 310 OK, 0 ECHEC(S)", None, 0),
+            ("14f", "[FO-D4-GEANT] BILAN : 10 OK, 6 ECHEC(S) : a", "7", 7),
+            ("14g", "[FO-D4-GEANT] BILAN : 17 OK, 0 ECHEC(S)", "4", 4),
+        ]
+        for tag, line, vrc, want in bilans:
+            extra = {"FAKE_BILAN": line}
+            if vrc:
+                extra["FAKE_VISUAL_RC"] = vrc
+            r = run_case(base, a.bat, bins, tag + " captures bilan", False, extra, captures=a.captures)
+            written = ("benchmark : bilan ecrit [%s]" % line) in (r["bench"] or "")
+            log = read(os.path.join(r["test"], "benchmark.log")) or ""
+            check(written and line in log and r["rc"] == want and r["visual"] and not r["lock"],
+                  "%s. fo-captures.bat, benchmark.log [%s], session visuelle %s : code %d, session lancee" % (
+                      tag, line, "code " + vrc if vrc else "reussie", want), r)
+    else:
+        fail += 1
+        print("ECHEC  14. fo-captures.bat introuvable : %s" % a.captures)
     print("BILAN : %d OK, %d ECHEC(S)  (bat : %s)" % (ok, fail, a.bat))
     if a.keep:
         print("racines gardees :", base)

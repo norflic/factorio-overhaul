@@ -6,11 +6,17 @@
     - recherche par zone : une entité est trouvée si sa BOÎTE touche la zone (boîtes proches des vanilla :
       tapis ±0,4, bras ±0,15, bâtiment n×n : ±(n/2 − 0,3)) ; filtres name et type (chaîne ou liste), force ;
     - pickup_position et drop_position des bras (vecteurs de base : prise {0, −1}, dépôt {0, 1,2} vers le nord ;
-      bras long {0, −2} et {0, 2,2}) et des foreuses (dépôt {0, −1,85}), tournés selon la direction ;
+      bras long {0, −2} et {0, 2,2}) et des foreuses (dépôt {0, −1,85} du 3×3 vanilla, porté au côté du niveau par
+      la VRAIE règle des points, shared/levels/points.lua : {−0,5, −(côté/2 + 0,35)} sur un côté pair), tournés
+      selon la direction ;
+    - emprise de chaque niveau : la VRAIE table de la config (L.footprint, lot D4m-GÉANT ; avant, le côté de base de
+      la famille pour tous les niveaux, d'où un essai à blanc vert sur un banc rouge en moteur réel, F128) ;
+    - orientation des tourelles : un simple champ (écrite et relue telle quelle ; la tenue sans cible est un fait du
+      moteur réel, F123) ;
     - un joueur connecté (fenêtre 1920 × 1080), le LuaProfiler (600 ticks = 10 000 ms simulées) et log().
   LIMITES (dites, pas cachées) : le statut des machines vaut toujours « au travail » et insert() réussit
   toujours : les contrôles « au travail » ne sont PAS exercés ici. Les tailles des niveaux sont celles de la
-  config (pas celles des prototypes chargés). Ne prouve RIEN du moteur réel : la logique, la disposition, la
+  table de la config (pas celles des prototypes chargés, qui la suivent : prototypes/levels/common.lua). Ne prouve RIEN du moteur réel : la logique, la disposition, la
   géométrie des bras et des foreuses, le champ réel et le format du journal seulement.
 
   Usage : lua5.2 tools/autotest/tests/d4_dryrun.lua <racine du mod> <journal de sortie>
@@ -30,6 +36,7 @@ table.insert(package.searchers or package.loaders, 2, function(name)
 end)
 
 local LV = dofile(ROOT .. "/shared/levels/config.lua")
+local Points = dofile(ROOT .. "/shared/levels/points.lua")
 local lines = {}
 local tick_now = 0
 local function ls(v)
@@ -57,7 +64,7 @@ local function proto(name, type_, w, collide, half)
     half = half or (w / 2 - 0.3) }
 end
 for _, f in ipairs(LV.families) do
-  for n = 1, f.max do proto(LV.name(f, n), f.type, f.size) end
+  for n = 1, f.max do proto(LV.name(f, n), f.type, LV.footprint(f, n)) end
 end
 for _, b in ipairs({ "transport-belt", "fast-transport-belt", "express-transport-belt" }) do proto(b, "transport-belt", 1, true, 0.4) end
 local VECTORS = { -- base/prototypes/entity/entities.lua (1.1.91)
@@ -68,7 +75,16 @@ for name in pairs(VECTORS) do proto(name, "inserter", 1, true, 0.15) end
 proto("iron-ore", "resource", 1, false, 0.4)
 proto("fo-autotest-power-pole", "electric-pole", 1, false, 0.4)
 proto("fo-autotest-power-source", "electric-energy-interface", 1, false, 0.4)
-local DRILL_VECTOR = -1.85 -- base/prototypes/entity/mining-drill.lua : vector_to_place_result = {0, -1.85}
+local DRILL_VECTOR = { 0, -1.85 } -- base/prototypes/entity/mining-drill.lua : vector_to_place_result = {0, -1.85}
+
+--- Vecteur (x, y) écrit pour le nord, tourné selon la direction (sens horaire, y vers le bas).
+local function rot2(x, y, dir)
+  dir = dir or 0
+  if dir == 0 then return x, y end
+  if dir == 2 then return -y, x end
+  if dir == 4 then return -x, -y end
+  return y, -x
+end
 
 --- Vecteur (0, dy) vers le nord, tourné selon la direction (sens horaire, y vers le bas).
 local function rot(dy, dir)
@@ -169,7 +185,8 @@ function surface.create_entity(spec)
     e.pickup_position = { x = pos[1] + px, y = pos[2] + py }
     e.drop_position = { x = pos[1] + dx, y = pos[2] + dy }
   elseif p.type == "mining-drill" then
-    local dx, dy = rot(DRILL_VECTOR, e.direction)
+    local v = Points.move_point(DRILL_VECTOR, 3, p.tile_width)
+    local dx, dy = rot2(v[1], v[2], e.direction)
     e.drop_position = { x = pos[1] + dx, y = pos[2] + dy }
   end
   for x = math.floor(e.box[1]), math.floor(e.box[3]) do
@@ -236,7 +253,7 @@ for _, k in ipairs(types) do print(string.format("  %-28s %6d", k, stats.by_type
 for t = 0, 600 do tick_now = t; G.scenario_tick({ tick = t }) end
 local bilan_bench = lines[#lines]
 -- Session avec images : nouvelle partie au tick 0 avec un joueur connecté (état du greffon remis comme au
--- chargement de la carte sauvegardée après --create : les résultats de init y sont déjà comptés, BILAN 16).
+-- chargement de la carte sauvegardée après --create : les résultats de init y sont déjà comptés, BILAN 17).
 global.greffons.finished = nil
 global.greffons.results = copy(after_init)
 global.greffons.state["scenario:d4-geant"].cam = nil
@@ -276,7 +293,15 @@ expect(n_champ.reference == 8, "4 champs de reference x 2 (banc, session) (obten
 expect(n_champ.vue == 4, "un champ par vue mesuree (obtenu " .. n_champ.vue .. ")")
 expect(n_champ.capture == #shots, "un champ par capture (obtenu " .. n_champ.capture .. " pour " .. #shots .. ")")
 local hd = champ["reference:z030-hd"]
-expect(hd and hd.n >= 2000 and hd.m >= 1500, "champ z0,3 1920x1080 : au moins 2 000 batiments dont 1 500 machines")
+-- Seuils du greffon depuis le lot D4m-GÉANT (emprises de 0.4.3) : 900 bâtiments dont 550 machines, 58 % couverts.
+expect(hd and hd.n >= 900 and hd.m >= 550, "champ z0,3 1920x1080 : au moins 900 batiments dont 550 machines")
+local cover = nil
+for _, l in ipairs(lines) do
+  local c = l:match("CHAMP reference z030%-hd .- couverture %d+ tuiles %(([0-9.]+) %% du champ%)")
+  if c then cover = tonumber(c) end
+end
+expect(cover and cover >= 58, "champ z0,3 1920x1080 : emprises sur 58 % du champ au moins (obtenu " .. tostring(cover) .. ")")
+expect(bilan_bench and bilan_bench:find("BILAN : 17 OK, 0 ECHEC") ~= nil, "BILAN du banc : 17 OK (16 avant le lot D4m-GEANT)")
 local vue = champ["vue:z030-jour"]
 expect(vue and hd and vue.n == hd.n, "la vue mesuree z030-jour (fenetre 1920x1080) voit le champ de reference")
 expect(#shots == 8, "8 captures")

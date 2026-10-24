@@ -5,18 +5,21 @@
 
   Usine : 288 tuiles de large, CYCLES fois la suite des familles à niveaux de shared/levels/config.lua
   (aujourd'hui 7 : centre, mitrailleuse, laser, mur, foreuse, four, assembleur), tournée pour que le mur ferme
-  chaque cycle (le centre de l'usine montre alors les 7 familles même au zoom 0,5). Un BLOC par famille, en
-  « sandwich » (aucune rangée vide), rangées du nord au sud :
-      machines M1 | [bras] | tapis R1 | [bras] | machines M2
-      machines M3 | [bras] | tapis R2 | [bras] | machines M4
-  R1 et R2 forment une boucle fermée (vanilla : normal, rapide, express) : rien ne bouchonne. Chaque tapis
-  sert les DEUX rangées de machines qui le bordent ; les machines se touchent (pas d'intervalle). Murs : deux
-  rangées pleines. Tous les niveaux à la suite dans chaque rangée (1, 2, … max, puis on recommence, décalé
-  d'une rangée à l'autre). Bras vanilla d'UNE case (normal, rapide, empileur) : le bras long prend à deux
-  cases et ne servirait à rien collé au tapis (défaut de la version c5b1015, corrigé).
+  chaque cycle (le centre de l'usine, entre le 2e et le 3e cycle, montre alors les 7 familles et tous leurs
+  niveaux au zoom 0,3). Un BLOC par famille, rangées du nord au sud (lot D4m-GÉANT, 24/10) :
+      machines M1 (collées au sud) | [bras] | tapis R1 (est) | tapis R2 (ouest) | [bras] | machines M2 (collées au nord)
+  R1 et R2 forment une boucle fermée (vanilla : normal, rapide, express) : rien ne bouchonne. Chaque machine a
+  la taille de SON niveau (depuis 0.4.3 : 2×2 à 6×6, centre 4×4 à 8×8) et touche sa rangée de bras (une foreuse :
+  son tapis) ; les machines se suivent sans intervalle. Murs : deux rangées pleines. Tous les niveaux à la suite
+  dans chaque rangée (1, 2, … max, puis on recommence, décalé d'une rangée à l'autre). Bras vanilla d'UNE case
+  (normal, rapide, empileur) sur tout le bord qui longe le tapis : le bras long prend à deux cases et ne servirait
+  à rien collé au tapis (défaut de la version c5b1015, corrigé). Avant ce lot : 4 rangées par famille dans des
+  cases de la taille du PLUS GRAND niveau ; un niveau plus petit, centré dans sa case, ne touchait plus ni ses
+  bras ni son tapis, et le champ central ne voyait que 5 familles (BILAN 10 OK, 6 ECHEC de 0.4.3 à 0.4.9, F128).
   Tout ce qui travaille travaille : assembleurs (paquets de science rouges, entrée et sortie par bras), fours
   (acier, charbon), foreuses (minerai sous chacune, sortie DIRECTE sur le tapis), tourelles chargées et
-  ravitaillées, alimentation invisible (ctx.power : aucun poteau dans le champ).
+  ravitaillées (têtes orientées sur les 64 images au tick 30), alimentation invisible (ctx.power : aucun poteau
+  dans le champ).
   Les NOMS et le NOMBRE de niveaux viennent de la config (LV.name, f.max), la taille des bâtiments du prototype
   chargé (tile_width, tile_height) : le banc tourne tel quel quand les sprites V3 arrivent.
 
@@ -26,6 +29,7 @@
   chaque capture :
     [FO-D4-GEANT] CHAMP <reference|vue|capture> <nom> <L>x<H> zoom <z> : <l> x <h> tuiles, batiments a niveaux
       <n> (machines <m>, murs <w>), tapis <t>, bras <b> ; familles <k>/<K> : <clé> <n> (<niveaux vus>/<max> niv.), …
+      ; couverture <c> tuiles (<p> % du champ)      (tuiles d'emprise des bâtiments à niveaux DANS le rectangle)
 
   Session avec images (fo-captures.bat d4-geant) : la caméra du joueur (contrôleur spectateur) suit une suite
   de VUES fixes, chacune mesurée par un LuaProfiler (images de JEU par seconde : UPS ; aux repères, l'UPS de la
@@ -41,20 +45,23 @@
     [FO-D4-GEANT] PHASE debut <vue> tick <t> zoom <z> daytime <d>
     [FO-D4-GEANT] PHASE fin <vue> tick <t> ticks <n> Durée : <ms>ms
   Captures : vues 0,3 et 0,5 de jour et de nuit, 0,3 en 1920 × 1080, détail au zoom 1 (jour, nuit) et 2.
-  Contrôles : à la création (pose) et au tick 120 (champ réel, bras et foreuses reliés, machines au travail),
+  Contrôles : à la création (pose) et au tick 120 (champ réel, bras et foreuses reliés, machines au travail, têtes),
   puis le BILAN [FO-D4-GEANT]. Banc sans images (fo-autotest.bat, 600 ticks) : pose et contrôles seulement.
   Essai à blanc (moteur simulé, sans le jeu) : tools/autotest/tests/d4_dryrun.lua.
 ]]
 local LV = require("__factorio-overhaul__/shared/levels/config")
 
 local FW = 288              -- largeur (tuiles) ; zoom 0,3 en 1920 × 1080 : 200 × 113 tuiles visibles
-local CYCLES = 2            -- répétitions de la suite des familles (hauteur ≈ 188 tuiles aujourd'hui)
+local CYCLES = 4            -- répétitions de la suite des familles (pair : le centre tombe entre deux cycles ; 4 × 98
+                            -- tuiles de haut aujourd'hui)
 local X0, Y0 = 64, -96      -- coin nord-ouest : hors du départ (0, 0)
 local FLOOR = "concrete"
 local MARK = { x0 = -360, y0 = -60, x1 = -200, y1 = 40 } -- zone vide des vues repère (160 × 100 tuiles)
 local BELTS = { "transport-belt", "fast-transport-belt", "express-transport-belt" }
 local INSERTERS = { "inserter", "fast-inserter", "stack-inserter" } -- bras d'une case (prise et dépôt adjacents)
 local SHIFT = 7             -- décalage des niveaux d'une rangée à la suivante
+local ORIENT_TICK = 30      -- têtes de mitrailleuse orientées à ce tick (E70, F122, F123 : tient sans cible)
+local PROJ = math.sqrt(0.5) -- projection des têtes à 64 directions (gun-rose.lua, feuilles.py)
 
 --- Champs de référence (centre de l'usine) : le premier porte le contrôle du BILAN.
 local FIELDS = {
@@ -63,9 +70,10 @@ local FIELDS = {
   { name = "z050-hd", zoom = 0.5, res = { 1920, 1080 } },
   { name = "z050", zoom = 0.5, res = { 1600, 900 } },
 }
---- Seuils du champ z0,3 en 1920 × 1080 (contrôle du BILAN ; à blanc le 21/10 : voir README §5.2).
-local FIELD_MIN_BUILDINGS = 2000 -- bâtiments à niveaux dessinés (murs compris)
-local FIELD_MIN_MACHINES = 1500  -- dont machines (murs exclus)
+--- Seuils du champ z0,3 en 1920 × 1080 (contrôle du BILAN ; justification chiffrée : README §5.2).
+local FIELD_MIN_BUILDINGS = 900  -- bâtiments à niveaux dessinés (murs compris)
+local FIELD_MIN_MACHINES = 550   -- dont machines (murs exclus)
+local FIELD_MIN_COVER = 0.58     -- part du champ couverte par l'emprise des bâtiments à niveaux
 
 --- Suite des vues (la dernière dure jusqu'à la fin de la session).
 local TIMELINE = {
@@ -107,6 +115,28 @@ local POLICY = {
   ["furnace"] = { io = true, furnace = true, lanes = { "iron-plate", "coal" } },
   ["assembling-machine"] = { io = true, assembler = true, lanes = { "copper-plate", "iron-gear-wheel" } },
 }
+
+--- Orientation pour laquelle le moteur montre l'image k d'une tête à 64 directions (apply_projection ; même formule
+--- que gun-rose.lua et feuilles.py, E70). Un âge resté à 4 directions montre l'image la plus proche.
+local function orientation_image(k)
+  if k % 16 == 0 then return k / 64 end
+  local th = 2 * math.pi * k / 64
+  return (math.atan2(math.sin(th), PROJ * math.cos(th)) / (2 * math.pi)) % 1
+end
+
+--- Têtes de mitrailleuse : chaque tourelle reçoit l'image k = (23 c + 11 n) mod 64 (c : rang de la tourelle parmi
+--- celles de son niveau n) : les tourelles d'un même niveau montrent des images différentes, les 64 images sont
+--- toutes demandées dans l'usine (et non la seule pose de repos). Écrit au tick ORIENT_TICK (banc et session).
+local function orient_turrets(ctx)
+  local st = ctx.state()
+  local written = 0
+  for _, t in ipairs(st.turrets or {}) do
+    if t.e.valid and pcall(function() t.e.orientation = t.o end) then written = written + 1 end
+  end
+  st.oriented = written
+  ctx.log(string.format("tetes de mitrailleuse : orientation ecrite sur %d/%d tourelles au tick %d", written,
+    #(st.turrets or {}), ORIENT_TICK))
+end
 
 local PROF -- LuaProfiler de la vue mesurée en cours (jamais dans global : objet de la session seulement)
 
@@ -154,23 +184,36 @@ local function belt_loop(s, acc, name, xa, xb, yT, yB, lanes)
   for y = yB, yT + 1, -1 do b(xa, y, N) end
 end
 
---- Taille d'une famille : la plus grande emprise de ses niveaux CHARGÉS (repli : la config).
-local function family_size(f)
-  local size = f.size
+--- Côté de chaque niveau d'une famille, lu sur le prototype CHARGÉ (repli : la table de la config, L.footprint),
+--- et le plus grand côté de la famille (hauteur de ses rangées). Depuis 0.4.3 (lot V3-T2), les niveaux d'une même
+--- famille n'ont plus la même emprise (mitrailleuse 2×2 à 6×6, centre 4×4 à 8×8 : shared/levels/config.lua).
+local function family_sides(f)
+  local sides, max = {}, 0
   for n = 1, f.max do
     local p = game.entity_prototypes[LV.name(f, n)]
-    if p then size = math.max(size, p.tile_width, p.tile_height) end
+    local side = p and math.max(p.tile_width, p.tile_height) or LV.footprint(f, n)
+    sides[n] = side
+    max = math.max(max, side)
   end
-  return size
+  return sides, max
 end
 
---- Hauteur d'un bloc : 4 rangées de machines, 2 tapis, [4 rangées de bras] ; murs : 2 rangées.
+--- Hauteur d'un bloc : 2 rangées de machines de la hauteur du plus grand niveau, 2 tapis jointifs (boucle),
+--- [2 rangées de bras] ; murs : 2 rangées.
 local function block_height(pol, size)
   if pol.wall then return 2 end
-  return 4 * size + 2 + ((pol.io or pol.feed) and 4 or 0)
+  return 2 * size + 2 + ((pol.io or pol.feed) and 2 or 0)
 end
 
 --- Un bloc de la famille f à partir de la rangée y ; renvoie la première rangée libre après lui.
+--- Disposition (lot D4m-GÉANT, 24/10 ; avant : 4 rangées et des cases de la taille du PLUS GRAND niveau, où un
+--- niveau plus petit, centré dans sa case, ne touchait plus ses bras ni son tapis, F161) :
+---     machines M1 (collées au SUD de leur rangée) | [bras] | tapis R1 (est) | tapis R2 (ouest) | [bras] | machines M2
+---     (collées au NORD)
+--- Chaque machine a SA taille et touche sa rangée de bras (ou, pour une foreuse, son tapis) : les machines d'une
+--- rangée se suivent sans intervalle, tous les niveaux à la suite (1, 2, … max, puis on recommence). Bras sur TOUT
+--- le bord de la machine qui longe le tapis (un par tuile ; entrée et sortie en alternance pour « io », entrée
+--- seulement pour « feed »), comme l'ancienne usine de 2×2 (deux bras par machine de 2 de large).
 local function block(s, acc, f, rep, y)
   local pol = POLICY[f.type] or {}
   local placed = acc.levels[f.key]
@@ -190,36 +233,35 @@ local function block(s, acc, f, rep, y)
     end
     return y + block_height(pol, 1)
   end
-  local size = acc.sizes[f.key]
+  local sides, size = acc.sides[f.key], acc.sizes[f.key]
   local i = (pol.io or pol.feed) and 1 or 0
   local yR1 = y + size + i
-  local yM2 = yR1 + 1 + i
-  local yM3 = yM2 + size
-  local yR2 = yM3 + size + i
-  local yM4 = yR2 + 1 + i
+  local yR2 = yR1 + 1
   local xa, xb = X0, X0 + FW - 1
   belt_loop(s, acc, BELTS[(rep + f.index) % #BELTS + 1], xa, xb, yR1, yR2, pol.lanes)
   -- above : la rangée est au nord de son tapis. Un bras tourné vers D prend du côté D et dépose à l'opposé
   -- (base : pickup_position {0, -1}, insert_position {0, 1.2} vers le nord) ; une foreuse dépose du côté D.
-  local rows = {
-    { y = y, above = true }, { y = yM2, above = false }, { y = yM3, above = true }, { y = yM4, above = false },
-  }
+  -- edge : rangée qui touche la machine (bras, ou tapis pour une foreuse) ; une machine « above » a son bord SUD
+  -- en edge, une machine « below » son bord NORD en edge + 1.
+  local rows = { { above = true, edge = yR1 - i }, { above = false, edge = yR2 + i } }
   for r, row in ipairs(rows) do
-    local y_ins = row.above and (row.y + size) or (row.y - 1)
     local dir_in = row.above and S or N   -- prise sur le tapis, dépôt dans la machine
     local dir_out = row.above and N or S  -- prise dans la machine, dépôt sur le tapis
     local inserter = INSERTERS[(rep + f.index + r) % #INSERTERS + 1]
-    local k = 0
-    for left = xa + 1, xb - size, size do
-      local n = (k + ((rep * 4) + r - 1) * SHIFT) % f.max + 1
+    local k, left = 0, xa + 1
+    while true do
+      local n = (k + ((rep * 2) + r - 1) * SHIFT) % f.max + 1
+      local side = sides[n]
+      if left + side - 1 > xb - 1 then break end -- la colonne xb porte le retour de la boucle de tapis
+      local top = row.above and (row.edge - side) or (row.edge + 1)
       if pol.drill then
-        for dx = 0, size - 1 do
-          for dy = 0, size - 1 do
-            put(s, acc, "iron-ore", left + dx + 0.5, row.y + dy + 0.5, nil, 100000)
+        for dx = 0, side - 1 do
+          for dy = 0, side - 1 do
+            put(s, acc, "iron-ore", left + dx + 0.5, top + dy + 0.5, nil, 100000)
           end
         end
       end
-      local e = building(n, left + size / 2, row.y + size / 2, pol.drill and (row.above and S or N) or nil)
+      local e = building(n, left + side / 2, top + side / 2, pol.drill and (row.above and S or N) or nil)
       if e then
         if pol.assembler then
           e.set_recipe("automation-science-pack")
@@ -230,19 +272,21 @@ local function block(s, acc, f, rep, y)
           e.insert({ name = "iron-plate", count = 100 })
         elseif pol.ammo then
           e.insert({ name = "firearm-magazine", count = 20 })
+          acc.turrets[#acc.turrets + 1] = { e = e, n = n }
         end
       end
-      if pol.io or pol.feed then
-        if put(s, acc, inserter, left + 0.5, y_ins + 0.5, dir_in) then acc.inserters = acc.inserters + 1 end
+      if i == 1 then
+        for dx = 0, side - 1 do
+          local dir = (pol.io and dx % 2 == 1) and dir_out or dir_in
+          if put(s, acc, inserter, left + dx + 0.5, row.edge + 0.5, dir) then acc.inserters = acc.inserters + 1 end
+        end
       end
-      if pol.io then
-        if put(s, acc, inserter, left + 1.5, y_ins + 0.5, dir_out) then acc.inserters = acc.inserters + 1 end
-      end
+      left = left + side
       k = k + 1
     end
   end
   acc.blocks[#acc.blocks + 1] = { key = f.key, y = y, h = block_height(pol, size) }
-  return y + block_height(pol, size) -- = yM4 + size
+  return y + block_height(pol, size) -- = bas de la rangée M2
 end
 
 --- Toutes les vues sont à l'intérieur de l'usine : elle remplit le champ.
@@ -281,11 +325,25 @@ local function field(s, c, w, h, zoom)
   local hw, hh = w / (64 * zoom), h / (64 * zoom)
   local area = { { c.x - hw, c.y - hh }, { c.x + hw, c.y + hh } }
   local names = level_names()
-  local r = { w = w, h = h, zoom = zoom, tw = 2 * hw, th = 2 * hh, n = 0, walls = 0, kinds = 0, all_levels = true, per = {} }
+  local r = { w = w, h = h, zoom = zoom, tw = 2 * hw, th = 2 * hh, n = 0, walls = 0, kinds = 0, all_levels = true, per = {},
+    cover = 0 }
+  local sides = {}
   for _, f in ipairs(LV.families) do
     local found = #names[f.key] > 0 and s.find_entities_filtered({ area = area, name = names[f.key], force = "player" }) or {}
     local seen, distinct = {}, 0
     for _, e in ipairs(found) do
+      -- Couverture : tuiles de l'emprise (tile_width × tile_height) DANS le rectangle vu (densité indépendante de la
+      -- taille des bâtiments, qui a changé en 0.4.3).
+      local sd = sides[e.name]
+      if not sd then
+        local p = game.entity_prototypes[e.name]
+        sd = { p.tile_width, p.tile_height }
+        sides[e.name] = sd
+      end
+      local p0 = e.position
+      local ox = math.min(p0.x + sd[1] / 2, area[2][1]) - math.max(p0.x - sd[1] / 2, area[1][1])
+      local oy = math.min(p0.y + sd[2] / 2, area[2][2]) - math.max(p0.y - sd[2] / 2, area[1][2])
+      if ox > 0 and oy > 0 then r.cover = r.cover + ox * oy end
       local _, lv = LV.parse(e.name)
       if lv and not seen[lv] then
         seen[lv] = true
@@ -308,8 +366,9 @@ local function field_line(kind, name, r)
   local per = {}
   for _, p in ipairs(r.per) do per[#per + 1] = string.format("%s %d (%d/%d niv.)", p.key, p.n, p.levels, p.max) end
   return string.format("CHAMP %s %s %dx%d zoom %.2f : %.0f x %.0f tuiles, batiments a niveaux %d (machines %d, murs %d), "
-    .. "tapis %d, bras %d ; familles %d/%d : %s", kind, name, r.w, r.h, r.zoom, r.tw, r.th, r.n, r.machines, r.walls,
-    r.belts, r.inserters, r.kinds, #LV.families, table.concat(per, ", "))
+    .. "tapis %d, bras %d ; familles %d/%d : %s ; couverture %.0f tuiles (%.1f %% du champ)", kind, name, r.w, r.h, r.zoom,
+    r.tw, r.th, r.n, r.machines, r.walls, r.belts, r.inserters, r.kinds, #LV.families, table.concat(per, ", "), r.cover,
+    100 * r.cover / (r.tw * r.th))
 end
 
 --- Caméra du joueur (session avec images seulement) : une vue fixe par phase, mesurée par un LuaProfiler.
@@ -422,13 +481,13 @@ return {
     local steel = game.forces.player.recipes["steel-plate"]
     if steel then steel.enabled = true end
 
-    local acc = { protos = {}, refused = {}, levels = {}, sizes = {}, blocks = {}, buildings = 0, belts = 0, inserters = 0,
-      items = 0 }
+    local acc = { protos = {}, refused = {}, levels = {}, sides = {}, sizes = {}, blocks = {}, turrets = {}, buildings = 0,
+      belts = 0, inserters = 0, items = 0 }
     -- Prototypes de tous les niveaux de toutes les familles (noms : config).
     local missing, expected = {}, 0
     for _, f in ipairs(LV.families) do
       acc.levels[f.key] = {}
-      acc.sizes[f.key] = family_size(f)
+      acc.sides[f.key], acc.sizes[f.key] = family_sides(f)
       for n = 1, f.max do
         expected = expected + 1
         if not game.entity_prototypes[LV.name(f, n)] then missing[#missing + 1] = LV.name(f, n) end
@@ -475,6 +534,14 @@ return {
       end
     end
 
+    local count = {}
+    st.turrets = {}
+    for _, t in ipairs(acc.turrets) do
+      local c = count[t.n] or 0
+      count[t.n] = c + 1
+      local k = (23 * c + 11 * t.n) % 64
+      st.turrets[#st.turrets + 1] = { e = t.e, n = t.n, k = k, o = orientation_image(k) }
+    end
     st.center = center(st)
     st.mark = { x = (MARK.x0 + MARK.x1) / 2, y = (MARK.y0 + MARK.y1) / 2 }
     -- Détail (zoom 1 et 2) : premier bloc d'assembleurs (bras, tapis, machines), sinon le haut de l'usine.
@@ -515,6 +582,7 @@ return {
   end,
 
   tick = function(ctx, e)
+    if e.tick == ORIENT_TICK then orient_turrets(ctx) end
     camera(ctx, e)
   end,
 
@@ -528,11 +596,12 @@ return {
       ctx.log(field_line("reference", v.name, r))
       ref = ref or r
     end
-    ctx.check(ref.n >= FIELD_MIN_BUILDINGS and ref.machines >= FIELD_MIN_MACHINES,
-      string.format("champ reel z0,3 en 1920x1080 : au moins %d batiments a niveaux dont %d machines (hors murs)",
-        FIELD_MIN_BUILDINGS, FIELD_MIN_MACHINES),
-      string.format("%d batiments (machines %d, murs %d), %d tapis, %d bras", ref.n, ref.machines, ref.walls, ref.belts,
-        ref.inserters))
+    local cover = ref.cover / (ref.tw * ref.th)
+    ctx.check(ref.n >= FIELD_MIN_BUILDINGS and ref.machines >= FIELD_MIN_MACHINES and cover >= FIELD_MIN_COVER,
+      string.format("champ reel z0,3 en 1920x1080 : au moins %d batiments a niveaux dont %d machines (hors murs), "
+        .. "emprises sur %.0f %% du champ au moins", FIELD_MIN_BUILDINGS, FIELD_MIN_MACHINES, 100 * FIELD_MIN_COVER),
+      string.format("%d batiments (machines %d, murs %d), %d tapis, %d bras, couverture %.1f %%", ref.n, ref.machines,
+        ref.walls, ref.belts, ref.inserters, 100 * cover))
     ctx.check(ref.kinds == #LV.families and ref.all_levels,
       "champ reel z0,3 en 1920x1080 : toutes les familles et tous leurs niveaux",
       string.format("familles %d/%d, tous les niveaux %s", ref.kinds, #LV.families, ref.all_levels and "oui" or "NON"))
@@ -549,6 +618,24 @@ return {
     ctx.check(na > 0 and wa >= 0.8 * na, "assembleurs au travail (80 % au moins)", wa .. "/" .. na)
     ctx.check(nf > 0 and wf >= 0.8 * nf, "fours au travail (80 % au moins)", wf .. "/" .. nf)
     ctx.check(nd > 0 and wd >= 0.8 * nd, "foreuses au travail (80 % au moins : sortie directe sur un tapis)", wd .. "/" .. nd)
+    -- Têtes de mitrailleuse : orientation écrite au tick ORIENT_TICK, relue ici (sans cible, elle doit tenir : F123).
+    local held, images = 0, {}
+    local nimg = 0
+    for _, t in ipairs(st.turrets or {}) do
+      local ok, o = pcall(function() return t.e.valid and t.e.orientation end)
+      if ok and type(o) == "number" then
+        local d = math.abs(o - t.o) % 1
+        if math.min(d, 1 - d) < 1 / 1024 then held = held + 1 end
+      end
+      if not images[t.k] then
+        images[t.k] = true
+        nimg = nimg + 1
+      end
+    end
+    local nt = #(st.turrets or {})
+    ctx.check(nt > 0 and st.oriented == nt and held == nt and nimg == 64,
+      "tetes de mitrailleuse orientees (tick " .. ORIENT_TICK .. ") et tenues au tick 120 : toutes, les 64 images demandees",
+      string.format("%d tourelles, ecrites %d, tenues %d, images demandees %d/64", nt, st.oriented or 0, held, nimg))
     local enemies = s.count_entities_filtered({ area = { { X0, Y0 }, { X0 + FW, Y0 + st.height } }, force = "enemy" })
     ctx.check(enemies == 0, "aucun ennemi dans l'usine", enemies)
     ctx.log(string.format("entites dans l'usine : %d", s.count_entities_filtered({ area = { { X0, Y0 }, { X0 + FW, Y0 + st.height } } })))

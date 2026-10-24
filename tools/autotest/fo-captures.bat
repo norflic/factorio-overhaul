@@ -14,7 +14,10 @@ rem  Variables FO_CREATE_SRC et FO_MAP_SEED (graine de la carte) : transmises te
 rem    qui les lit (graine refusee : code 8, aucune session visuelle).
 rem  Captures : fo-visual\write\script-output\fo-shots\ (index.txt, planche-NN.png, session.txt).
 rem  Codes : ceux de fo-visual.bat (0 succes, 2 verrou pris, 3 delai, 4 captures, 5 processus,
-rem          6 vitrine, 7 erreur du jeu) ; 8 = le banc fo-autotest a echoue (pas de carte).
+rem          6 vitrine, 7 erreur du jeu) ; 8 = le banc fo-autotest a echoue : pas de carte (session visuelle
+rem          NON lancee), ou (lot D4m-GEANT) une ligne "BILAN : n OK, m ECHEC(S)" avec m > 0 dans
+rem          fo-autotest\benchmark.log (session lancee quand meme, ses captures aident a comprendre ; code 8 si
+rem          elle a reussi, sinon son propre code). Avant ce lot : code 0 malgre un BILAN en echec.
 rem ============================================================================================
 setlocal
 cd /d "%~dp0"
@@ -41,8 +44,16 @@ if not "%RC%"=="0" (
   goto :unlock
 )
 findstr /c:"BILAN" "%ROOT%\fo-autotest\create.log" "%ROOT%\fo-autotest\benchmark.log" 2>nul
+rem Lot D4m-GEANT : un BILAN avec au moins un ECHEC dans benchmark.log donne le code 8 (avant : code 0).
+set BANC_ECHEC=
+findstr /r /c:"BILAN : [0-9]* OK, [1-9][0-9]* ECHEC" "%ROOT%\fo-autotest\benchmark.log" >nul 2>nul && set BANC_ECHEC=1
+if defined BANC_ECHEC echo BILAN du banc en ECHEC dans fo-autotest\benchmark.log : session visuelle lancee pour les captures, code 8 attendu.
 call "%ROOT%\fo-visual.bat" nopause %WIN%
 set RC=%errorlevel%
+if defined BANC_ECHEC if "%RC%"=="0" (
+  echo Banc fo-autotest en echec : BILAN avec ECHEC dans fo-autotest\benchmark.log, code 8.
+  set RC=8
+)
 
 :unlock
 rmdir "%ROOT%\fo-autotest.lock" 2>nul
