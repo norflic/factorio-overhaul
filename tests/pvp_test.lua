@@ -905,6 +905,10 @@ local function printed(key)
 end
 local function pvp() return global.fo.war.pvp end
 local function fac(i) return global.fo.war.factions[i] end
+-- Lot IA2-0 : caractère tiré de la graine (personnalité répartie par la graine, agressivité de la grâce tirée) :
+-- les délais attendus se calculent sur ce caractère, plus sur la seule couleur (graine 42 du moteur simulé :
+-- Écarlate équilibrée, grâce 27,8 min en Normal ; Azur bâtisseur, 42,9 min).
+local function char(i) return Tr.character(fac(i).personality, fac(i).traits) end
 local function ceasefire(i) return game.forces[fac(i).force].get_cease_fire(game.forces.player) end
 local function player_groups(i)
   local n = 0
@@ -961,15 +965,17 @@ do
   check(ceasefire(1) and ceasefire(2), "cessez-le-feu au lancement")
   M.run_ticks(2400)
   check(pvp().score >= 2, "repérage : base de départ et avant-poste du joueur trouvés en 40 s (" .. pvp().score .. " secteurs)")
-  local g1 = S.grace_ticks("normal", fac(1).personality)
+  local g1 = S.grace_ticks("normal", char(1))
   M.run_ticks(g1 - 2 * MIN - game.tick + 300)
   check(printed("fo-pvp.warn:") >= 1, "préavis affiché avant la fin de la grâce")
   M.run_ticks(g1 - game.tick - 1)
-  check(ceasefire(1) and not fac(1).pvp.declared and player_groups(1) == 0, "rien pendant la grâce (Écarlate, 20 min)")
+  check(ceasefire(1) and not fac(1).pvp.declared and player_groups(1) == 0,
+    string.format("rien pendant la grâce (Écarlate, %.1f min)", g1 / MIN))
   M.run_ticks(301)
   check(fac(1).pvp.declared and not ceasefire(1), "Écarlate déclare la guerre à la fin de sa grâce")
   check(printed("fo-pvp.declare:") >= 1, "déclaration annoncée au joueur")
-  check(ceasefire(2), "Azur (technocrate, 37,5 min) toujours en cessez-le-feu")
+  check(ceasefire(2) and S.grace_ticks("normal", char(2)) > g1 + 301,
+    string.format("Azur (grâce %.1f min) toujours en cessez-le-feu", S.grace_ticks("normal", char(2)) / MIN))
   local before = player_buildings()
   M.run_ticks(20 * MIN)
   local fp = fac(1).pvp
@@ -1036,11 +1042,11 @@ do
   local t_switch = game.tick
   check(remote.call("fo-pvp", "set_difficulty", "hard") == true and pvp().difficulty == "hard", "interface distante : passage à Difficile")
   check(pvp().anchor == t_switch, "la grâce repart du passage de Paisible à Difficile")
-  local gh = S.grace_ticks("hard", fac(1).personality)
+  local gh = S.grace_ticks("hard", char(1))
   M.run_ticks(gh - 301)
-  check(not fac(1).pvp.declared and ceasefire(1), "Difficile : rien avant 12 min (grâce du conquérant), malgré les soldats abattus avant la trêve")
+  check(not fac(1).pvp.declared and ceasefire(1), string.format("Difficile : rien avant %.1f min (grâce d'Écarlate), malgré les soldats abattus avant la trêve", gh / MIN))
   M.run_ticks(602)
-  check(fac(1).pvp.declared and not ceasefire(1), "Difficile : déclaration après 12 min")
+  check(fac(1).pvp.declared and not ceasefire(1), string.format("Difficile : déclaration après %.1f min", gh / MIN))
   check(printed("fo-pvp.declare-provoked:") == 0, "aucun message « représailles » de toute la partie (le joueur n'a fait que se défendre)")
   check(remote.call("fo-pvp", "set_difficulty", "bogus") == false, "niveau inconnu refusé")
 end
@@ -1211,11 +1217,12 @@ do
   check(printed("fo-pvp.inherited:") == 1 and printed("fo-pvp.declare:") == 0 and printed("fo-pvp.declare-provoked:") == 0,
     "hostilité héritée annoncée une fois, sans fausse « déclaration de guerre »")
   check(ceasefire(1) and not fac(1).pvp.provoked and not fac(1).pvp.declared, "Écarlate, en cessez-le-feu : grâce normale")
-  M.run_ticks(19 * MIN)
-  check(not fac(1).pvp.declared and ceasefire(1), "Écarlate : grâce de 20 min comptée depuis le chargement")
+  local gn = S.grace_ticks("normal", char(1))
+  M.run_ticks(gn - MIN)
+  check(not fac(1).pvp.declared and ceasefire(1), string.format("Écarlate : grâce de %.1f min comptée depuis le chargement", gn / MIN))
   check(fac(1).pvp.attacks == 0, "aucune attaque d'Écarlate contre le joueur pendant la grâce reprise")
   M.run_ticks(2 * MIN)
-  check(fac(1).pvp.declared, "Écarlate déclare la guerre 20 min après le chargement")
+  check(fac(1).pvp.declared, string.format("Écarlate déclare la guerre %.1f min après le chargement", gn / MIN))
   check(printed("fo-pvp.declare:") == 1, "une seule déclaration annoncée (Écarlate), aucune pour Azur")
   check(remote.call("fo-pvp", "set_difficulty", "peaceful") == true, "passage en Paisible")
   check(ceasefire(1) and not ceasefire(2), "Paisible : trêve d'Écarlate, Azur (hostilité héritée) reste hostile comme avant IA0")
