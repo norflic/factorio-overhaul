@@ -206,6 +206,14 @@
   3. Le budget A1 est tenu.
 - **État** : 🟨 Économie réelle et guerres réelles : 34 attaques, une élimination à environ 50 min.
   Mais les armées plafonnent à 24 à 30 soldats en 30 à 60 min.
+  - **24/10, lot PNJ-VÉRIF (version 0.4.12, RD_LOG E118 à E120, F171 à F174)** : défaut grave trouvé et corrigé, présent
+    depuis 0.4.5 : les soldats ne rentraient pas après une attaque lointaine et la faction relançait des attaques vides
+    (52 « attaques » pour 5 réelles dans `default`). Après correction : 0 attaque fantôme, 0 soldat loin du QG à 59 min
+    (17 rappels, 17 arrivées), 23 à 48 soldats par faction à 59 min ; les factions fabriquent enfin des tourelles (la
+    technologie était mal nommée, « fortify » jamais atteint avant) ; décision d'attaque sur la garnison proche (0 attaque
+    sous le seuil). Reste : depuis 0.4.5, 2 factions sur 4 n'attaquent toujours pas dans `default` (3 sur 4 avant la
+    correction ; cause non établie) ; groupes amputés à leur création (F174, non corrigé) ; plafond à la recherche 3.
+    Guide de partie test pour le DC : `fo-logs\2026-10-24_PNJ\GUIDE_PARTIE.md` (partie réduite `pnj-reduit` 12 OK).
 
 ### C2 · Des PNJ qui jouent
 - **Demande** (r) : « Les PNJ doivent pouvoir jouer : s'armer, se défendre, participer à l'économie de
@@ -835,6 +843,7 @@ Factorio charge tous les `.cfg` du dossier, ce qui évite les conflits de fusion
 | IA0b Base défendue attaquée selon la difficulté | ✅ intégré et prouvé en moteur réel | Hors jeu : pvp_test 596 OK. **Moteur réel** (22/10, 0 h 53 à 0 h 55) : ia0-defendue 11 OK (base de 3 tourelles attaquée au tick 96 601) ; ia0-defendue-forte 13 OK (12 tourelles, défense 96 : Écarlate revient à 16, 29, 40 puis 46 soldats) ; ia0-defendue-impitoyable 14 OK (assaut coordonné : Écarlate ouvre au tick 50 700, Ambre et Émeraude le rejoignent) ; journaux fo-logs\2026-10-22_integration_IA0b-V2b_* | 22/10, 0 h 55 |
 | V2b Garde de dress complète (config entière et data.raw) + mineurs | ✅ intégré | levels_test 1 325 OK (81 cas de garde, motifs vérifiés ; 4 mutants détectés) ; **moteur réel `content` 209 OK** avec la garde (le vrai chargeur accepte les fichiers de famille chargés sous garde) | 22/10, 0 h 52 |
 | V2c Amélioration instantanée (Q19), condition du centre (Q16), recalibrage par les coûts (QX7, QX9, QX10) | ✅ intégré et prouvé en moteur réel ; 2 écarts connus soumis à vous (Q-V2c-1 : part du centre aux époques 5 à 14 ; Q-V2c-2 : centre 15 atteignable en 3 h 27 par le chemin le plus court) | Hors jeu : levels 1 459 OK + 11 écarts connus, migration 29. **Moteur réel** : `content` **212 OK, 0 échec** (22/10, 2 h 43 ; fluid-handling 50 → 2, oil-processing 100 → 4, 170 technologies allégées) | 22/10, 2 h 45 |
+| PNJ-VÉRIF Gameplay des PNJ v0 vérifié en moteur réel, guide de partie test | ✅ fusionné le 24/10 vers 14 h 25 (`655ef62`, **version 0.4.12**) | testeur, vérificateur adverse (6 majeurs), correcteur ; `content` 317, `verif-tourelles` 7, `pnj-reduit` 12 sur `main` ; war 105, api_lint 728 ; RD_LOG E118 à E120, F171 à F174 ; non prouvé : partie jouée à la main, combat capturé, F174 |
 | IA1 Conception des équipes de PNJ organisées (C5) | ✅ conception intégrée ; 👁 7 questions à vous poser | 3 concepteurs, 2 juges, 2 critiques (10 majeurs et 14 mineurs corrigés) ; org_test 362 OK ; aucun comportement en jeu | 22/10, 1 h 15 |
 | D4m Banc mémoire vidéo et usine géante (D4) | ✅ banc intégré et passé en moteur réel (5 passages, code 0, BILAN 16 OK chacun) | Mémoire vidéo dédiée mesurée : 1,59 à 1,70 Go (haute), 0,67 Go (normale), 0,42 Go (plancher) ; 60 UPS avec 2 588 bâtiments à niveaux à l'écran ; images/s non mesurées ; journaux fo-logs\2026-10-22_D4m_* ; à refaire avec les sprites V3 | 22/10, 3 h |
 

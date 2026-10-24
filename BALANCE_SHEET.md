@@ -269,6 +269,23 @@ fer livrées). Le fer reste le goulot de toute l'échelle. Coût : script 0,14 m
 partie précédente avait vu la Ligue Azur anéantie vers 50 min).
 
 
+### Mesure du 24/10 (lot PNJ-VÉRIF, version 0.4.12 ; RD_LOG E118 à E120)
+`default`, 216 000 ticks (60 min), 4 factions, moteur réel :
+
+| | 0.4.11 (avant) | 0.4.12 (après correction) |
+|---|---|---|
+| Attaques lancées | 52, dont 5 réelles (32 fantômes de suite) | 17, toutes réelles (Écarlate 9, Ambre 8) |
+| Soldats à 59 min (Écarlate, Azur, Émeraude, Ambre) | 27 / 18 / 29 / 8, dont 18 loin du QG | 34 / 23 / 29 / 48, 0 loin |
+| Rappels de soldats égarés | (aucun mécanisme) | 17, 17 arrivées (jusqu'à 954 tuiles) |
+| Attaques sous le seuil | 1 (9 soldats pour 13) | 0 |
+| Objectif « fortify » | jamais atteint | Écarlate 35,1 min, Émeraude 56,3 min |
+| Recherche maximale | 3, 3, 2, 3 | 3, 3, 2, 2 |
+
+Partie réduite du guide (`pnj-reduit` : Facile, 2 factions, 30 soldats, 4 ouvriers) : Écarlate attaque Azur 8 fois (16 à
+20 soldats) et le joueur à 30,0 et 48,0 min (17 et 16 soldats). Équipe du joueur (`pteam`) : objectifs à 0,5 ; 1,8 ;
+4,1 ; 7,0 ; 7,7 min ; tourelles à 19 min (3) et 21 min (5) quand la recherche est faite après la pose du coffre.
+Depuis 0.4.5, Azur et Émeraude n'attaquent pas dans `default` (cause non établie).
+
 ### Historique : économie à registre (sessions 2-3, abandonnée en session 4)
 Revenu en MU (QG 1 MU/s, foreuses électriques inactives à 0,5 MU/s), soldats payés en MU, recherche à
 1 200 × 2^tech MU. En moteur réel (session 3, 30 min) : technologie 3-4, 3-7 avant-postes, 33-100 soldats.

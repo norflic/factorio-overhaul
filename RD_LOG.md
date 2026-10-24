@@ -419,6 +419,22 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot PNJ-VÉRIF, les armées des factions, 24/10, 10 h 10 à 14 h 40 ; fusionné dans `main`, `655ef62`, version 0.4.12)
+Preuves : `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §4 et §7.3). Expériences : E118 à E120.
+- **F171** : `on_ai_command_completed` est levé pour un GROUPE avec `was_distracted = true` quand un combat de distraction
+  se termine ; le groupe reprend ensuite sa commande (g2751 : « success, distraction true » au tick 95 122, état
+  `attacking_target` au tick 95 220). Un script qui prend cet événement pour la fin de sa commande interrompt l'attaque.
+- **F172** : un `go_to_location` d'environ 1 000 tuiles donné à un groupe arrêté au milieu d'une base ennemie échoue en
+  1 tick (trois cas) ; des étapes de 64 tuiles données au MÊME groupe échouent aussi ; un groupe NEUF posé 1,4 tuile plus
+  loin sur une case libre, avec les mêmes étapes en commande composée, rentre (16 sur 16, 1 030 tuiles). Attribution au
+  centre du groupe tombé dans un obstacle : DÉDUITE (un cas au centre exact, vidé ; un cas décalé, rentré).
+- **F173** : des unités ajoutées (`add_member`) à un groupe créé à environ 960 tuiles d'elles quittent le groupe en moins
+  de 5 ticks (27 membres au tick +1, 0 au tick +5), sans `on_ai_command_completed` (4 cas).
+- **F174** : le moteur retire aussi des membres d'un groupe À SA CRÉATION, près du QG, sans mort ni événement : dans
+  `default` corrigé, 10 lancements sur 17 en perdent dans les 300 ticks (Ambre : 13 sur 23 ; tous choisis à moins de
+  160 tuiles du rassemblement) ; `ia0-normal` 1 sur 17 ; `pnj-reduit` 0 sur 10. Cause NON établie ; non corrigé
+  (l'attaque part plus petite que décidé ; les soldats retirés reviennent à la garnison).
+
 ### Faits vérifiés en moteur réel (lot A4-préparation, la mitrailleuse vivante, 24/10, 4 h 15 à 7 h 25 ; fusionné dans `main`, `ab4f1b6`, version 0.4.10)
 Preuves : `fo-logs\2026-10-24_A4\` (`NOTES.md` §1 à §4, §8 et §12 ; `verification.md` ; `correction\`). Expériences : E112, E114 à E116.
 
@@ -745,6 +761,37 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E118 à E120 · Lot PNJ-VÉRIF, le gameplay des PNJ (24/10, 10 h 10 à 14 h 40 ; run `wf_dbbe3818-700`, puis correcteur seul ;
+fusion `655ef62`, version 0.4.12)** : détail dans `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §2, §3, §7 ; `verification.md` ;
+`GRILLE.md` ; `GUIDE_PARTIE.md` ; archives `moteur\`, `verification\`, `correction\moteur\`).
+- **E118 · MESURÉ · Bancs PNJ sur `main` 0.4.11** (`default` 216 000, `pteam` 54 000, `waves` 108 000, `ia0-paisible` et
+  `ia0-normal` 216 000, `ia0-difficile` 144 000, `stress` 36 000 ; premiers rejeux des `ia0-*` depuis 0.4.5) : économie,
+  ouvriers, recherche, défense de tours et équipe du joueur comme dans E19 à E21 et E33 ; MAIS dans `default`, 52
+  « attaques » lancées pour 5 réelles (32 attaques fantômes de suite ; 46 dans `ia0-paisible`, 47 dans `ia0-normal`), 27
+  soldats d'Écarlate laissés à 960 tuiles du QG. Le vérificateur établit que la régression apparaît exactement avec
+  0.4.5 (carte changée par les sites garantis) et que depuis, 3 factions sur 4 n'attaquent plus jamais dans `default`
+  (cause NON établie).
+- **E119 · Diagnostic des attaques fantômes** (scénarios `pnj-diag`, `pnj-diag-normal`) : fin d'un combat de distraction
+  prise pour la fin de l'attaque (F171) ; retour direct de 1 000 tuiles en échec en 1 tick, groupe dissous sur place
+  (F172) ; soldats lointains enrôlés puis retirés par le moteur en moins de 5 ticks (F173).
+- **E120 · VALIDÉ en moteur réel · Correction** (`script/faction/military.lua`, `commander.lua`, `war.lua`,
+  `script/team/team.lua`, `shared/team/config.lua`) en deux temps. Testeur : distractions ignorées, soldats à plus de
+  160 tuiles non enrôlés, retour par l'itinéraire de l'aller à l'envers par un groupe neuf. Correcteur, après 6 défauts
+  majeurs du vérificateur : M1 technologie « gun-turret » (et non « turrets ») dans `T.unlocks[0]`, nouvelle règle du
+  harness qui refuse un nom absent de `data.raw.technology` ; M2 livre de recettes oublié par force à chaque recherche ;
+  M3 soldat retiré de son groupe rendu à la garnison, rappel des soldats à plus de 160 tuiles par un itinéraire ; M4
+  décision d'attaque sur la garnison proche. Résultats (avant → après) : `default` 5 attaques (Écarlate seule), 18
+  soldats loin, « fortify » jamais atteint → 17 attaques (Écarlate 9, Ambre 8), 0 fantôme, 0 loin à 59 min, 17 rappels et
+  17 arrivées (jusqu'à 954 tuiles), « fortify » atteint (35,1 et 56,3 min) ; `verif-tourelles` 5 OK, 2 ECHEC → 7 OK ;
+  équipe du joueur : 0 tourelle en 29 min → 3 à 19 min, 5 à 21 min ; attaques sous le seuil 1 → 0 ; `ia0-normal` 14 OK
+  (1re attaque contre le joueur au tick 93 901) ; `pnj-reduit` (partie du guide : Facile, 2 factions, 30 soldats, 4
+  ouvriers) 12 OK. Rejoué sur `main` 0.4.12 (`fo-logs\2026-10-24_integration-0.4.12\`) : `content` 317 OK
+  (`done.txt` 14:20:08,95), `verif-tourelles` 7 OK (14:20:38,94), `pnj-reduit` 12 OK (14:21:34,85). Hors jeu : war 105
+  (13 contrôles des soldats égarés), api_lint 728. NON prouvé : groupes amputés à la création (F174, non corrigé) ;
+  pics de script de plus de 2 ms 58 → 117 sur machine chargée (non attribués) ; partie existante rechargée ; `waves`,
+  `stress`, `ia0-paisible`, `ia0-difficile` non rejoués après correction ; aucune capture de la partie réduite ni d'un
+  combat ; partie jouée à la main.
+
 **E112, E114 à E116 · Lot A4-préparation (24/10, 4 h 15 à 7 h 25 ; run `wf_0e7edcdd-4f2`)** : détail dans
 `fo-logs\2026-10-24_A4\NOTES.md` §1 à §4 et §12.
 - **E112 · VALIDÉ en moteur réel · Éclat de tir 2D par âge**, positions mesurées sur chaque cellule des feuilles de tête,

@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 14 h 30 : PNJ-VÉRIF fusionné, version 0.4.12** (`655ef62`, `862eb60`). Correcteur seul (`f91a014`,
+> `9355ced`) : M1 à M4 corrigés et prouvés (tourelles des factions et de l'équipe du joueur, soldats rappelés, garnison
+> proche), M5 décrit, M6 et m1 à m3 dans le guide, m4 (captures de la partie réduite) non fait. Code testé = code de
+> `main` (seuls les documents diffèrent). Sur `main` : `content` 317, `verif-tourelles` 7, `pnj-reduit` 12
+> (`fo-logs\2026-10-24_integration-0.4.12\`). Guide envoyé au DC : `fo-logs\2026-10-24_PNJ\GUIDE_PARTIE.md`. Reste
+> ouvert : F174 (groupes amputés à leur création), 2 factions sur 4 sans attaque dans `default` depuis 0.4.5, pics de
+> script à remesurer sur machine calme. Ensuite : A3-final (version 0.4.13), puis intégrations M1, F1-A, IA1-0.
 > **Point de 13 h 55** : le nouveau profil a lui aussi atteint sa limite de la semaine (remise à zéro le 27/10 à 1 h) ;
 > le DC a ouvert l'usage payant (plafond 100 $/mois) et dit « reprenez ». **Règle tant que l'usage est payant : un
 > seul agent à la fois, sans workflow à vérificateur ni correcteur systématiques ; l'orchestrateur relit lui-même.**

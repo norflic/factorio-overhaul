@@ -23,11 +23,11 @@ avant tout travail.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
 4. `RD_LOG.md` : faits F1 à F162 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant),
-   expériences E1 à E76 et E105 à E117 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF),
+   expériences E1 à E76 et E105 à E120 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 7 h 35) : **F163** et **E118** hors blocs ; en
+   expérience de contrôle). Prochains identifiants (24/10, 14 h 30) : **F186** et **E128** hors blocs (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4). Les blocs réservés sont listés en tête de RD_LOG.
 
@@ -91,7 +91,7 @@ de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le ch
 Résultats attendus aujourd'hui :
 ```
 lua5.2 tests/run.lua             -> 114 OK
-lua5.2 tests/war_test.lua        -> 92 OK
+lua5.2 tests/war_test.lua        -> 105 OK   (13 contrôles des soldats égarés depuis 0.4.12, lot PNJ-VÉRIF)
 lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 15 OK
 lua5.2 tests/migration_test.lua  -> 82 OK
@@ -100,8 +100,8 @@ lua5.2 tests/levels_test.lua     -> 1662 OK   (+ 11 « écarts connus » au cont
 lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 336 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Tetes mitrailleuse (A3-jeu) : 7 age(s) a 64 directions, 7 a 4, 0 erreur(s), auto-contrôle 4/4 (14 à 64 quand la production sera intégrée) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 707 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 336 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 7 age(s) a 64 directions, 7 a 4, 0 erreur(s), auto-contrôle 4/4 (14 à 64 quand la production sera intégrée) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 728 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
@@ -345,6 +345,11 @@ Scénarios :
 - `waves` : défense de tours et guerre ;
 - `pteam` : équipe du joueur ;
 - `stress` : 402 agents ;
+- `pnj-reduit` (lot PNJ-VÉRIF, 216 000 ticks) : la partie test du guide du DC (Facile, 2 factions, 30 soldats, 4 ouvriers,
+  coffre d'équipe) → « [FO-PNJ-REDUIT] BILAN : 12 OK » ; `verif-tourelles` (108 000 ticks) → « [FO-VERIF-TOURELLES] BILAN :
+  7 OK » (tourelles des factions et de l'équipe du joueur ; observés sur `main` 0.4.12 le 24/10, `done.txt` 14:20:38 et
+  14:21:34) ; `verif-tourelles-avant` (témoin), `pnj-diag`, `pnj-diag-normal`, `pnj-vue`, `pnj-vue-attaque` (diagnostic et
+  captures) ;
 - `baseline`, `noexp`, `peace`, `parked`, `worker`.
 
 Performance :
@@ -482,6 +487,11 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F155, F156** (lot S0-suite) : l'écouteur des sons d'une session avec images est le joueur (le téléporter près de la
   source) ; un Ogg Opus passe le chargement puis lève une exception au premier tir, un Ogg Vorbis coupé passe sans
   erreur et reste muet : seule la règle « sons » du harness les voit.
+- **F171 à F174** (lot PNJ-VÉRIF, groupes d'unités) : la fin d'un combat de distraction lève `on_ai_command_completed` avec
+  `was_distracted = true`, le groupe reprend ensuite sa commande (ne pas la prendre pour la fin, F171) ; un long
+  `go_to_location` d'un groupe arrêté dans une base ennemie échoue en 1 tick, un groupe NEUF posé sur une case libre
+  rentre par étapes (F172) ; des unités ajoutées à un groupe lointain le quittent en moins de 5 ticks (F173) ; le moteur
+  retire parfois des membres d'un groupe à sa création, sans événement (F174, cause inconnue).
 - **F140 à F145** (lot A3, rendu) : une passe rendue à un autre nombre d'échantillons laisse les autres identiques
   octet à octet (F140) ; l'alpha d'une tête ne dépend pas des matières, d'où des masques rapides à 16 échantillons
   (F141) ; aucune plaque mince ne ferme la fente arrière des âges 4 à 7 (F142) ; 8 192 px au plus par fichier

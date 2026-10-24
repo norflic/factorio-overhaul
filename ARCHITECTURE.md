@@ -243,6 +243,18 @@ du coffre. `/fo-team status | dismiss`.
   (paramètre) rompu dès que le joueur tue une de leurs entités.
 - **Élimination** : QG détruit → faction anéantie ; dernière faction en vie → victoire annoncée.
 - **Commandes** : `/fo-war start|status|stop|fund` ; interface distante `factorio-overhaul`.
+- **Retour et rappel des soldats** (lot PNJ-VÉRIF, 24/10, version 0.4.12 ; RD_LOG E120, F171 à F174) : une fin de
+  combat de distraction (`was_distracted`) n'est pas la fin de l'attaque ; un retour direct en échec est repris par un
+  groupe NEUF posé sur une case libre, qui suit l'itinéraire de l'aller à l'envers (3 reprises au plus) ; un soldat
+  retiré de son groupe par le moteur revient à la garnison ; les soldats de garnison à plus de 160 tuiles du point de
+  rassemblement sont rappelés par paquets (itinéraire du pathfinder, 1 demande par faction toutes les 600 ticks,
+  gestionnaire `fo-war-recall`). Seule la garnison PROCHE (`Military.garrison_near`) entre dans la décision d'attaque
+  et dans la défense estimée d'une cible. Champs de `global` nouveaux et facultatifs (nombres seulement) :
+  `recall_pending`, `recall_block_until`, `stats.recalls`, par soldat `recalls` et `recall_after`, par groupe `recall` ;
+  une sauvegarde d'avant n'en a aucun (valeurs par défaut, sans migration).
+- **Livre de recettes des équipes** (même lot) : hors de `global`, reconstruit depuis l'état du jeu ; oublié pour la
+  force concernée à `on_research_finished`, `on_research_reversed`, `on_technology_effects_reset`, `on_force_reset`, et
+  pour toutes à `on_configuration_changed`. Le harness refuse tout nom de `T.unlocks` absent de `data.raw.technology`.
 
 ## 6. Mode défense de tours (session 4)
 
