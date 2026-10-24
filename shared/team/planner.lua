@@ -353,6 +353,72 @@ function P.plan(view, book)
   end
 
   ---------------------------------------------------------------------------------------------------
+  -- 1 bis. Survie (lot IA2-a2, factions seulement : view.emergency) : AVANT l'objectif, qui pouvait vider le stock
+  -- virtuel. Moteur réel (IA2-a, graine 777) : Écarlate, réduite à 1 ouvrier, garda 1 ouvrier et 0 soldat de 23 à
+  -- 120 min avec jusqu'à 3 785 plaques de fer au stock : le pistolet de la recrue (fabrication, priorité 55) n'était
+  -- jamais fait, son seul ouvrier enchaînant les tournées (priorité 70 à 95). Défaut connu depuis IA1-a (§6.8).
+  --  - sous l'effectif de départ (emergency.floor), la recrue est équipée AU QG avec les plaques du stock
+  --    (out.recruit_uses : objets prélevés, une recrue par pensée) ; sans les plaques, un 2e ouvrier sans arme est
+  --    embauché (secours, comme pour une équipe vide) ; sinon l'équipement est demandé en priorité 96 ;
+  --  - en reconstruction (chef) ou menacée, l'objectif « armée » atteint, la GARDE (un tiers de l'armée visée, 5 au
+  --    moins) est équipée au QG de même (out.train.uses), un lot de T.kit_batch soldats par pensée.
+  ---------------------------------------------------------------------------------------------------
+  local em = view.emergency
+  local function real_avail()
+    local r = {}
+    for k, n in pairs(avail) do
+      local s = view.stock[k] or 0
+      r[k] = n < s and n or s
+    end
+    return r
+  end
+  local function consume(uses)
+    for k, n in pairs(uses) do avail[k] = (avail[k] or 0) - n end
+  end
+  if em and not view.recruit_blocked and view.workers < (em.floor or 0) then
+    local cost0 = view.recruit_cost or kit_list("worker", 1)
+    if take(cost0) then
+      out.recruit_workers = 1
+    else
+      local p = book:plan(cost0, real_avail())
+      if next(p.raw) == nil then
+        out.recruit_workers = 1
+        out.recruit_uses = sorted_uses(p.uses)
+        consume(p.uses)
+      elseif view.workers < 2 then
+        out.recruit_workers = 1
+        out.recruit_unarmed = true
+        out.emergency_unarmed = true
+      else
+        want(cost0, 96, "ouvrier")
+      end
+    end
+    out.emergency_recruit = true
+  end
+  if em and (em.rebuild or view.threatened) and (view.done or {})["army"] then
+    local guard = math.min(math.max(5, math.floor(P.army_target(view) / 3)), view.soldiers_max)
+    if view.soldiers < guard then
+      local n = math.min(T.kit_batch, guard - view.soldiers)
+      local units = { P.best_unit(view.tech) }
+      if units[1] ~= "rifleman" then units[2] = "rifleman" end
+      for _, unit in ipairs(units) do
+        local kits = kit_list(unit, n)
+        if take(kits) then
+          out.train = { unit = unit, count = n }
+          break
+        end
+        local p = book:plan(kits, real_avail())
+        if next(p.raw) == nil then
+          out.train = { unit = unit, count = n, uses = sorted_uses(p.uses) }
+          consume(p.uses)
+          break
+        end
+      end
+      out.emergency_guard = guard
+    end
+  end
+
+  ---------------------------------------------------------------------------------------------------
   -- 2. Objectif : premier palier non atteint
   ---------------------------------------------------------------------------------------------------
   local done = view.done or {}
@@ -468,7 +534,7 @@ function P.plan(view, book)
   -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
   local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
   local recruit_cost = view.recruit_cost or kit_list("worker", 1)
-  if view.workers < workers_wanted then
+  if view.workers < workers_wanted and not out.emergency_recruit then -- lot IA2-a2 : la survie a déjà décidé
     if view.recruit_blocked then
       out.recruit_blocked = true
       if view.workers == 0 then
@@ -497,7 +563,7 @@ function P.plan(view, book)
     local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
     if army_now and goal and goal.need.soldiers then target = math.max(target, goal.need.soldiers) end
     target = math.min(target, view.soldiers_max)
-    if view.soldiers < target then
+    if view.soldiers < target and not out.train then -- lot IA2-a2 : garde déjà équipée au QG à cette pensée
       local unit = P.best_unit(view.tech)
       local n = math.min(T.kit_batch, target - view.soldiers)
       local kits = kit_list(unit, n)

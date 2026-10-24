@@ -207,6 +207,9 @@ function Chef.view(f, tick)
     reserve = 0, unprotected = unprotected(f),
     threatened = tick < (f.threatened_until or 0), soldiers_lost = lost_now - hist[1], enemy_near = enemy_near,
     rivals = rivals,
+    -- Lot IA2-a2 (survie) : effectif de départ des ouvriers (plancher, publié par le cerveau d'équipe) et objectif
+    -- « armée » atteint.
+    floor = f.team and f.team.floor or nil, army_done = (f.team and f.team.done and f.team.done["army"]) and true or false,
   }
 end
 
@@ -239,6 +242,16 @@ function Chef.think(f, tick)
     tick, f.key, mix_text(d), (d.reason:gsub(" ", "_")), d.threat, d.war_mult,
     d.target and (State.faction(d.target) and State.faction(d.target).key or tostring(d.target)) or "-",
     d.raid and tostring(d.raid) or "-", d.changed and ", changement" or ""))
+  -- Lot IA2-a2 : rivales battues à cette pensée (satiété) et trêve (toutes les rivales atteignables épargnées).
+  for _, s in ipairs(d.sated_new or {}) do
+    local t = State.faction(s.id)
+    log(string.format("[FO-STRAT] satiete tick %d %s -> %s : battue (%d tues), epargnee %d min", tick, f.key,
+      t and t.key or tostring(s.id), s.kills, math.floor(C.SATIETY / 3600)))
+  end
+  if d.hold ~= (st.hold_logged or false) then
+    st.hold_logged = d.hold
+    log(string.format("[FO-STRAT] treve tick %d %s : %s", tick, f.key, d.hold and "debut (rivales epargnees)" or "fin"))
+  end
   Profiler.stop("faction:chef")
   return d
 end
@@ -265,7 +278,7 @@ function Chef.decision_fields(f, target)
   local st = f.chef
   if not st then return nil end
   local raid, raid_defense = nil, nil
-  if st.raid and target and st.raid_target == target.id then
+  if st.raid and not st.hold and target and st.raid_target == target.id then
     local mem = st.seen and st.seen[target.id]
     if mem and mem.weak then
       raid = st.raid
@@ -333,6 +346,10 @@ Military.on_attack_ended = function(f, g, survivors, tick, alive)
   log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s, vivants %s",
     tick, f.key, t and t.key or tostring(g.target_faction), outcome, g.size or 0, survivors,
     a and tostring(a.octant) or "-", a and a.raid and ", raid" or "", alive and tostring(alive) or "-"))
+  if a and outcome == "reussie" then
+    log(string.format("[FO-STRAT] satiete tick %d %s -> %s : battue (attaque reussie), epargnee %d min", tick, f.key,
+      t and t.key or tostring(g.target_faction), math.floor(C.SATIETY / 3600)))
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -346,8 +363,11 @@ Events.on(defines.events.on_entity_died, function(e)
   local ent = e.entity
   if not (ent and ent.valid) then return end
   local f = State.by_force(ent.force.name)
-  if not (f and f.chef) then return end
+  if not f then return end
   local k = State.by_force(killer.name)
+  -- Lot IA2-a2 : un soldat ou un ouvrier de f tué par la faction k (satiété du vainqueur, C.record_kill).
+  if k and k.id ~= f.id and k.chef and (ent.type == "unit" or ent.type == "character") then C.record_kill(k.chef, f.id, 1) end
+  if not f.chef then return end
   local by = k and k.id or (killer.name == "player" and "player" or nil)
   if not by or by == f.id then return end
   C.record_hit(f.chef, by)

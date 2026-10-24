@@ -326,8 +326,8 @@ do
   check(v == 60, "set_setting borne la valeur (99 -> " .. tostring(v) .. ")")
   check(remote.call("fo-ia1", "set_setting", "fo-pvp-difficulty", 1) == nil, "set_setting refuse un réglage hors équipes")
   -- Plancher (correction 3) : une faction décimée à 1 PNJ, frein à 0 : le frein ne la retient plus (sous son
-  -- départ, 8). La reconstruction elle-même n'est PAS contrôlée : ici, avec ou sans frein (60), la faction reste
-  -- à 1 PNJ en 6 min, pistolet de la recrue jamais fabriqué (défaut d'avant IA1-a, NOTES.md du lot, § 6.8).
+  -- départ, 8). Avant IA2-a2, avec ou sans frein (60), la faction restait à 1 PNJ en 6 min, pistolet de la recrue
+  -- jamais fabriqué (défaut d'avant IA1-a, NOTES.md du lot, § 6.8) ; corrigé au lot IA2-a2 (survie).
   remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 0)
   local f = wb.factions[1]
   local ids = require("script.faction.state").sorted_keys(f.engineers)
@@ -342,9 +342,12 @@ do
   check(pcall(M.run_ticks, 6 * 3600), "simulation sans erreur après les pertes")
   print(string.format("  faction décimée : %d PNJ après les pertes, %d après 6 min ; recrues %d -> %d ; pistolets %d",
     after_kill, f.engineers_count, rec0, f.stats.recruited or 0, f.hq.get_item_count("pistol")))
-  check(after_kill == 1 and (f.stats.recruit_held or 0) == held0,
-    "plancher : sous son départ (8), la faction décimée n'est jamais freinée (frein " .. held0 .. " -> "
-    .. tostring(f.stats.recruit_held) .. ")")
+  -- Lot IA2-a2 (survie) : sous son départ, la recrue est équipée au QG avec les plaques du stock ; la faction
+  -- décimée se reconstruit (avant : 1 PNJ après 6 min, pistolet jamais fabriqué). Le frein reprend au-dessus du
+  -- départ : on contrôle la reconstruction et les recrues d'urgence, plus l'immobilité du frein.
+  check(after_kill == 1 and f.engineers_count >= 8 and (f.stats.emergency_recruits or 0) >= 7,
+    "plancher et survie : la faction décimée se reconstruit au-delà de son départ (1 -> " .. f.engineers_count
+    .. " PNJ en 6 min, " .. tostring(f.stats.emergency_recruits or 0) .. " recrues équipées au QG)")
 end
 
 section("Moteur simulé : au plus 2 demandes émises par tick")

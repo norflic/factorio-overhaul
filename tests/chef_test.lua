@@ -290,6 +290,59 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("Règles pures : satiété du vainqueur, trêve, survie (lot IA2-a2)")
+do
+  -- Rivale 2 (la plus attirante) battue : 12 des siens tués par nous depuis la pensée précédente.
+  local st = C.new(stream(31), 0)
+  local d0 = C.think(st, view(10 * 3600, { garrison = 40 }), drawer(st.stream))
+  check(d0.target == 2 and not d0.hold, "avant la bataille : la rivale 2 est visée")
+  C.record_kill(st, 2, 12)
+  local d1 = C.think(st, view(11 * 3600, { garrison = 40 }), drawer(st.stream))
+  check(st.beaten[2] == 11 * 3600 + C.SATIETY and #d1.sated_new == 1 and d1.target == 3 and not d1.hold,
+    "12 tués : rivale 2 battue (épargnée 15 min), le chef vise la 3 (" .. tostring(d1.target) .. ")")
+  -- Toutes les rivales battues : trêve (la première reste désignée, ni attaque ni raid).
+  C.record_kill(st, 3, 10)
+  local d2 = C.think(st, view(12 * 3600, { garrison = 40 }), drawer(st.stream))
+  check(d2.hold and d2.target ~= nil and d2.raid == nil, "toutes battues : trêve (cible " .. tostring(d2.target) .. ", raid nul)")
+  local d3 = C.think(st, view(11 * 3600 + C.SATIETY, { garrison = 40 }), drawer(st.stream))
+  check(not d3.hold and d3.target == 2, "fin de la satiété (15 min) : la rivale 2 redevient la cible")
+  -- Tués étalés : 5 par minute pendant 3 min (compte amorti × 0,8) : battue à la 3e pensée.
+  local se = C.new(stream(32), 0)
+  local beaten_at
+  for k = 1, 4 do
+    C.record_kill(se, 2, 5)
+    C.think(se, view((10 + k) * 3600, { garrison = 40 }), drawer(se.stream))
+    if se.beaten[2] and not beaten_at then beaten_at = k end
+  end
+  check(beaten_at == 3, "5 tués par minute : rivale battue à la 3e pensée (" .. tostring(beaten_at) .. ")")
+  -- Rancune forte : passe outre la satiété.
+  local sg = C.new(stream(33), 0)
+  C.record_kill(sg, 2, 12)
+  for _ = 1, 3 do C.record_loss(sg, 10 * 3600, 2) end
+  local dg = C.think(sg, view(10 * 3600, { garrison = 40, traits = traits({ rancune = 1300 }) }), drawer(sg.stream))
+  check(sg.beaten[2] ~= nil and dg.target == 2, "rancune (3 sites détruits par la 2) : la rivale battue reste visée")
+  -- Attaque réussie : satiété aussi.
+  local sr = C.new(stream(34), 0)
+  C.record_attack(sr, { target = 3, octant = 1, n = 20, tick = 0, gid = 4 })
+  C.record_outcome(sr, 4, "reussie", 20, 18, 600)
+  check(sr.beaten[3] == 600 + C.SATIETY, "attaque réussie : rivale épargnée 15 min")
+  -- SURVIE : 3 ouvriers sur 8 au départ, dominante quelconque : reconstruction imposée, seuil au plus haut.
+  local ss = C.new(stream(35), 0)
+  C.think(ss, view(10 * 3600, { garrison = 40 }), drawer(ss.stream))
+  local vs = view(11 * 3600, { garrison = 40 })
+  vs.workers, vs.floor = 3, 8
+  local ds = C.think(ss, vs, drawer(ss.stream))
+  check(ds.survive and ds.dominant == "reconstruction" and ds.reason == "survie" and ds.war_mult == C.MULT_HI and ss.rebuild
+    and ds.raid == nil, "survie (3 ouvriers sur 8) : reconstruction imposée, seuil " .. ds.war_mult .. ", équipe en reconstruction")
+  local va = view(12 * 3600, { garrison = 2, lost = 12 })
+  va.army_done, va.floor, va.soldiers = true, 8, 2
+  check(C.survival(va), "survie : armée détruite (12 soldats perdus, 2 sur 60 visés)")
+  local vb = view(12 * 3600, { garrison = 40, lost = 12 })
+  vb.army_done, vb.floor = true, 8
+  check(not C.survival(vb), "pas de survie : 12 soldats perdus mais 40 sur 60 visés")
+end
+
+---------------------------------------------------------------------------------------------------
 -- Moteur simulé
 ---------------------------------------------------------------------------------------------------
 local function patches()

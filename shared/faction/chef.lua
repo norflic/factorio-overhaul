@@ -49,6 +49,14 @@ C.AVOID_TICKS = 10 * 3600  -- une cible qui a repoussé une attaque est moins at
 C.RAID_GAP = 5 * 3600      -- un raid au plus toutes les 5 min
 C.LOST_WINDOW = 15 * 3600  -- sites perdus « récents »
 C.SIDE_RADIUS = 56         -- rassemblement avancé : à 56 tuiles de la cible (hors de portée des tourelles)
+-- Lot IA2-a2 (guerres trop meurtrières : 3 factions anéanties sur 16 en 2 h, une écrasée en 23 min, moteur réel) :
+C.SATIETY = 15 * 3600      -- SATIÉTÉ du vainqueur : une rivale battue n'est plus visée pendant 15 min (il consolide)
+C.BEATEN_KILLS = 10        -- battue : 10 de ses soldats ou ouvriers tués par nous depuis la pensée précédente
+C.KILL_DECAY = 800         -- (compte des tués : × 0,8 par pensée ; une bataille étalée sur 3 min compte aussi)
+C.GRUDGE_OVERRIDE = 600    -- la rancune (rancune × trait) au-delà de 600 passe outre la satiété
+C.OPPORTUNIST = 1200       -- un opportuniste (trait ≥ 1 200) frappe une rivale battue dont l'armée est sortie
+C.SURVIVAL_LOST = 5        -- SURVIE : au moins 5 soldats perdus en 10 min et moins du quart de l'armée visée, ou
+                           -- moins de la moitié de l'effectif de départ en ouvriers : « reconstruction » imposée
 
 C.POSTURES = { "expansion", "capitalisation", "technologie", "fortification", "armee", "assaut", "raids", "reconstruction" }
 
@@ -121,8 +129,38 @@ function C.new(stream, tick)
     confidence = conf, attacks = {}, grudge = {}, lost = {}, avoid = {}, extra_defense = {},
     war_mult = 1000, raid = nil, last_raid = nil, target = nil, ladder = nil, ladder_for = nil,
     episode = nil,
+    beaten = {}, kills = {}, hold = false, rebuild = false, -- lot IA2-a2 : satiété, trêve, survie
   }
 end
+
+--- Lot IA2-a2 : SURVIE. Une faction décimée (ouvriers sous la moitié de l'effectif de départ `v.floor`, ou armée
+--- détruite : au moins C.SURVIVAL_LOST soldats perdus en 10 min et moins du quart de l'armée visée, après l'objectif
+--- « armée ») bascule en reconstruction sans attendre la fin de sa dominante. Moteur réel (IA2-a, graine 777) :
+--- Écarlate, 0 soldat et 1 ouvrier de 23 à 120 min, gardait « technologie » (retard technologique) comme dominante.
+function C.survival(v)
+  if v.floor and v.floor > 0 and (v.workers or 0) * 2 < v.floor then return true end
+  if v.army_done and (v.soldiers_lost or 0) >= C.SURVIVAL_LOST and (v.soldiers or 0) * 4 < (v.army_target or 0) then
+    return true
+  end
+  return false
+end
+
+--- Lot IA2-a2 : n soldats ou ouvriers de la rivale `rid` tués par nous (bataille gagnée, défense comprise).
+function C.record_kill(st, rid, n)
+  st.kills = st.kills or {}
+  st.kills[rid] = (st.kills[rid] or 0) + (n or 1)
+end
+
+--- Lot IA2-a2 : la rivale `r` (entrée de v.rivals) est-elle épargnée par satiété ? Battue récemment (C.SATIETY),
+--- sauf rancune forte (rancune × trait ≥ C.GRUDGE_OVERRIDE) ou armée sortie face à un opportuniste.
+local function sated(st, r, tr, tick)
+  local until_t = st.beaten and st.beaten[r.id]
+  if not until_t or tick >= until_t then return false end
+  if math.floor((st.grudge[r.id] or 0) * (tr.rancune or 1000) / 1000) >= C.GRUDGE_OVERRIDE then return false end
+  if r.army_out and (tr.opportunisme or 1000) >= C.OPPORTUNIST then return false end
+  return true
+end
+C.sated = sated
 
 ---------------------------------------------------------------------------------------------------
 -- Menace et considérations
@@ -172,10 +210,12 @@ function C.rank_targets(v, st)
       if r.id == st.target then s = math.floor(s * (1000 + math.floor(C.INERTIA * tr.discipline / 1000)) / 1000) end
       local d = r.dist or 600
       s = math.floor(s * 600 / math.max(600, d))
-      out[#out + 1] = { id = r.id, score = math.max(1, s), defense = def, rival = r }
+      out[#out + 1] = { id = r.id, score = math.max(1, s), defense = def, rival = r, sated = sated(st, r, tr, v.tick) }
     end
   end
+  -- Lot IA2-a2 : les rivales épargnées par satiété passent après toutes les autres (trêve si elles seules restent).
   table.sort(out, function(a, b)
+    if a.sated ~= b.sated then return not a.sated end
     if a.score ~= b.score then return a.score > b.score end
     return a.id < b.id
   end)
@@ -201,7 +241,10 @@ function C.considerations(v, st, best)
   local room = (v.army_target or 0) - (v.garrison or 0)
   c.armee = { mean({ lin(room, 0, math.max(1, v.army_target or 1)), 500 + math.floor(v.threat / 2),
     lin(v.minutes or 0, 3, 15) }), "armee a lever" }
-  if best then
+  if best and best.sated then
+    c.assaut = { 0, "cible battue" }
+    c.raids = { 0, "cible battue" }
+  elseif best then
     local force = (v.garrison or 0) * (v.strength or 1)
     local ratio = math.floor(force * 1000 / (best.defense + 10))
     c.assaut = { mean({ lin(ratio, 1000, 3000), lin(2 + (best.rival.outposts_seen or 0), 2, 8),
@@ -214,7 +257,9 @@ function C.considerations(v, st, best)
     c.raids = { 0, "aucune cible" }
   end
   local lost_soldiers = v.soldiers_lost or 0
-  if lostn > 0 or lost_soldiers > 5 then
+  if C.survival(v) then
+    c.reconstruction = { 1000, "survie" }
+  elseif lostn > 0 or lost_soldiers > 5 then
     c.reconstruction = { mean({ lin(lostn, 0, 2), lin(lost_soldiers, 0, 15), lin((v.desired or 0) - (v.outposts or 0), 0, 4) }),
       "pertes a reparer" }
   else
@@ -416,6 +461,24 @@ function C.think(st, v, draw)
       st.grudge[r.id] = g > 0 and g or nil
     end
   end
+  -- Lot IA2-a2 : SATIÉTÉ. Une rivale dont nous avons tué C.BEATEN_KILLS soldats ou ouvriers (compte amorti de 20 %
+  -- par pensée) est « battue » : elle n'est plus visée pendant C.SATIETY (le vainqueur consolide ; rancune et
+  -- opportunisme passent outre, C.sated). `st.sated_new` : rivales battues à cette pensée (journal).
+  st.beaten, st.kills = st.beaten or {}, st.kills or {}
+  st.sated_new = {}
+  for _, r in ipairs(v.rivals) do
+    local k = st.kills[r.id]
+    if k then
+      if k >= C.BEATEN_KILLS then
+        st.beaten[r.id] = v.tick + C.SATIETY
+        st.sated_new[#st.sated_new + 1] = { id = r.id, kills = k }
+        k = 0
+      else
+        k = math.floor(k * C.KILL_DECAY / 1000)
+      end
+      st.kills[r.id] = k > 0 and k or nil
+    end
+  end
   v.threat = C.threat(v, st)
   -- Bilan intermédiaire d'un épisode long : une dominante qui n'obtient rien en EPISODE_CHECK perd confiance.
   local ep = st.episode
@@ -426,15 +489,24 @@ function C.think(st, v, draw)
     ep.checked = v.tick
   end
   local targets = C.rank_targets(v, st)
+  -- Lot IA2-a2 : hasard borné entre les seules rivales NON épargnées ; si toutes sont épargnées par satiété, la
+  -- première reste désignée (vue PvP inchangée) mais aucune attaque ni raid ne part contre elle (trêve, st.hold).
+  local open = {}
+  for _, t in ipairs(targets) do if not t.sated then open[#open + 1] = t end end
   local best = targets[1]
-  if #targets > 1 then best = C.pick(targets, draw) end
+  if #open > 1 then best = C.pick(open, draw) end
+  st.hold = best ~= nil and best.sated or false
   local scores = C.scores(v, st, best)
   -- Dominante tenue MIN_HOLD ; en crise, elle peut changer plus tôt, mais pas avant CRISIS_HOLD (pas de girouette).
   local held_for = st.since and (v.tick - st.since) or 0
   local hold = st.dominant ~= nil and st.since ~= nil and held_for < C.MIN_HOLD
     and (v.threat < C.CRISIS or held_for < C.CRISIS_HOLD)
   local chosen
-  if hold then
+  -- Lot IA2-a2 : SURVIE (C.survival) : reconstruction imposée, sans attendre la fin de la dominante.
+  local survive = C.survival(v)
+  if survive then
+    for _, s in ipairs(scores) do if s.key == "reconstruction" then chosen = s end end
+  elseif hold then
     for _, s in ipairs(scores) do if s.key == st.dominant then chosen = s end end
   end
   if not chosen then chosen = C.pick(scores, draw) end
@@ -480,16 +552,22 @@ function C.think(st, v, draw)
     end
   end
   st.war_mult = clamp(mult, C.MULT_LO, C.MULT_HI)
+  -- Lot IA2-a2 : en survie, seuil au plus haut (la faction garde ses soldats chez elle) ; l'équipe reconstruit en
+  -- priorité (st.rebuild, lu par script/team/team.lua : recrues et garde équipées au QG).
+  if survive then st.war_mult = C.MULT_HI end
+  st.rebuild = survive or chosen.key == "reconstruction"
   -- Raid : posture « raids » dans le mélange (poids ≥ 25 %), un avant-poste faible vu, au plus un toutes les RAID_GAP.
   st.raid = nil
   local raid_w = 0
   for _, m in ipairs(mix) do if m.key == "raids" then raid_w = m.w end end
-  if best and best.rival.weak and raid_w >= 250 and (not st.last_raid or v.tick - st.last_raid >= C.RAID_GAP) then
+  if best and not st.hold and not survive and best.rival.weak and raid_w >= 250
+    and (not st.last_raid or v.tick - st.last_raid >= C.RAID_GAP) then
     st.raid = 4 + draw(6)
     st.raid_target = best.id
   end
   return { dominant = chosen.key, mix = mix, scores = scores, reason = chosen.reason, war_mult = st.war_mult,
-    raid = st.raid, target = st.target, changed = changed, threat = v.threat }
+    raid = st.raid, target = st.target, changed = changed, threat = v.threat, hold = st.hold, survive = survive,
+    sated_new = st.sated_new }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -585,6 +663,9 @@ function C.record_outcome(st, gid, outcome, sent, survivors, tick)
         st.extra_defense[a.target] = math.max(st.extra_defense[a.target] or 0, lost)
       else
         st.extra_defense[a.target] = nil
+        -- Lot IA2-a2 : SATIÉTÉ après une attaque réussie (site rival détruit) : le vainqueur consolide C.SATIETY.
+        st.beaten = st.beaten or {}
+        st.beaten[a.target] = tick + C.SATIETY
       end
       return a
     end
