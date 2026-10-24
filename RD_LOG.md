@@ -419,6 +419,15 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot A3-final, les 15 âges à 64 directions, 24/10, 13 h 05 à 14 h 55 ; fusionné dans `main`, `0f8e10d`, version 0.4.13)
+Preuves : `fo-logs\2026-10-24_A3-final\` (`NOTES.md` §7, `INTEGRATION.md`). Expériences : E128 à E130.
+- **F186** : au plancher, les pages de l'atlas virtuel croissent avec le contenu (9 pages à 7 âges à 64 directions, puis
+  10, puis 12) sous une taille adressée FIXE de 12 pages (201,3 Mpx) : aux 15 âges à 64 directions, il est plein. La
+  galerie de 960 têtes s'y dessine encore ; toute addition graphique doit être mesurée au plancher avant intégration.
+- **F187** : le coût de rangement dans l'atlas des têtes rognées (F147) dépend de la qualité : 1,19 fois les pixels
+  rognés en haute qualité, 1,44 en qualité normale (attendu 1,05 à 1,2) ; le rognage tient (0,73 fois les images
+  entières).
+
 ### Faits vérifiés en moteur réel (lot PNJ-VÉRIF, les armées des factions, 24/10, 10 h 10 à 14 h 40 ; fusionné dans `main`, `655ef62`, version 0.4.12)
 Preuves : `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §4 et §7.3). Expériences : E118 à E120.
 - **F171** : `on_ai_command_completed` est levé pour un GROUPE avec `was_distracted = true` quand un combat de distraction
@@ -761,6 +770,29 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E128 à E130 · Lot A3-final, les 15 âges de la mitrailleuse à 64 directions (24/10, 13 h 05 à 14 h 55 ; agent seul,
+après deux essais coupés par la limite du compte ; fusion `0f8e10d`, version 0.4.13)** : détail dans
+`fo-logs\2026-10-24_A3-final\` (`NOTES.md`, `INTEGRATION.md`).
+- **E128 · VALIDÉ en moteur réel · Feuilles et bancs** : production finie (11:59:25, 840 / 840, 0 erreur, `--dry-run`
+  « reste : 0 » ; `--controle-seul` NON lancé, car il réécrit des fichiers dans `A3\sprites`) ; 3 nouvelles têtes HORS
+  REGLE de l'âge 11 regardées en gros plan et acceptées dans `HORS_REGLE_OK_DEFAUT` (d07 27 px et d22 9 px : fente entre
+  la base d'une ailette et les canons, la même que chez les voisines ; d33 13 px : fente de 1 à 2 px entre l'ailette de
+  bouche et le manchon) ; feuilles sans option : 336 PNG, 155 Mo, plus grand côté 4 752 px, régénérées à l'identique à
+  l'octet ; harness « 14 age(s) a 64 directions, 0 a 4 » ; check_gun_sheets 19 OK ; levels 1 662 ; worktree :
+  `content` 317, `gun-rose` 13, `d4-geant` 18 (« ages 1,…,15 »), `a4-eclat` 3, `a4-ruines` 5, `a4-socle` 2, `s0-tir` 5 ;
+  captures `gun-rose` 150 / 150, `gun_rose_images.py` « 280 OK, 0 FAUX, 0 ambigu(s) » ; roses zoom 2 des âges 9 à 15 et
+  diagonales de jour et de nuit REGARDÉES (agent, puis orchestrateur : diagonales et éclats des âges 9 à 15).
+- **E129 · VALIDÉ en moteur réel · Éclats des âges 9 à 15** : AUCUNE direction écartée aux âges 3 à 15 (le d39 de l'âge 12
+  prévu venait des masques ; sur les vraies têtes, pire écart 0,237 tuile, d60, sous le seuil de 0,5) ; 4 sessions
+  `a4-eclat` (pair, impair, avec et sans la couche) : « 112 sites de jour sur 112 vus », « 118 éclats au bout des canons,
+  0 ECHEC ».
+- **E130 · MESURÉ · Mémoire vidéo aux 15 âges** (`d4-geant`, 5 passages, chacun 18 OK) : haute 17 atlas, 1,273 Gpx, règle
+  1,28 à 1,45 Go (prévu 1,30 à 1,47), compteur 1,81 Go (1,64 à 7 âges) ; normale 0,396 Gpx, 0,46 à 0,51 Go (prévu
+  idem), compteur 0,71 Go (0,65) ; plancher compteur 0,42 Go, atlas virtuel 12 pages sur 12 (F186). Temps de chargement
+  NON comparables (un jeu 3D du DC tournait depuis 14 h 01, 64 % de charge processeur sans banc : sprites en haute 13,9 s
+  contre moins de 9,5 s attendus) : à remesurer PC au repos. Écart de méthode de l'agent : 4 sections de son `NOTES.md`
+  écrites par un heredoc à antislashs (interdit) ; relues, intactes.
+
 **E118 à E120 · Lot PNJ-VÉRIF, le gameplay des PNJ (24/10, 10 h 10 à 14 h 40 ; run `wf_dbbe3818-700`, puis correcteur seul ;
 fusion `655ef62`, version 0.4.12)** : détail dans `fo-logs\2026-10-24_PNJ\` (`NOTES.md` §2, §3, §7 ; `verification.md` ;
 `GRILLE.md` ; `GUIDE_PARTIE.md` ; archives `moteur\`, `verification\`, `correction\moteur\`).

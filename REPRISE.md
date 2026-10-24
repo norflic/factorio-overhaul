@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 15 h 10 : A3-final fusionné, version 0.4.13** (`0f8e10d`, `7ee9c03`) : les 15 âges de la mitrailleuse à
+> 64 directions (agent seul, `c8534df`). Feuilles régénérées dans `main` sans option (336 PNG, 155,14 Mo, 357 s ;
+> check_gun_sheets 6 OK ; `git status` propre). Bancs en moteur réel sur `main` 0.4.13 (`done.txt` 15:04:20 à 15:06:45 ;
+> `fo-logs\2026-10-24_integration-0.4.13\`) : content 317, gun-rose 13, d4-geant 18, a4-eclat 3, a4-ruines 5, a4-socle 2,
+> s0-tir 5, verif-tourelles 7, pnj-reduit 12. Images envoyées au DC (diagonales jour et nuit, éclats 9 à 15, roses 9, 12,
+> 15, fente de l'âge 11) ; questions : 3 fentes de l'âge 11 acceptables ? taille des éclats des grands âges ? **Atlas
+> virtuel du plancher PLEIN (F186)** : le socle animé des 10 autres âges doit être mesuré au plancher avant intégration.
+> Temps de chargement à remesurer PC au repos. Ensuite : intégrations M1 (tungstène), F1-A (kit laser, outils), IA1-0.
 > **Point de 14 h 30 : PNJ-VÉRIF fusionné, version 0.4.12** (`655ef62`, `862eb60`). Correcteur seul (`f91a014`,
 > `9355ced`) : M1 à M4 corrigés et prouvés (tourelles des factions et de l'équipe du joueur, soldats rappelés, garnison
 > proche), M5 décrit, M6 et m1 à m3 dans le guide, m4 (captures de la partie réduite) non fait. Code testé = code de
