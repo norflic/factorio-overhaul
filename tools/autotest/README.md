@@ -584,6 +584,17 @@ Scénarios greffés du lot IA1-0 (levée des risques moteur des équipes de PNJ,
   alerte, AVEC `show_gui` seulement ceux de la force du joueur (que ce soit sa vue en partie est déduit, pas observé) :
   une capture qui doit montrer ce que voit le joueur passe `show_gui = true`.
 
+Scénario greffé du lot M1 (kit minerai, témoin tungstène, 24/10) :
+- `m1-minerai` (600 ticks ; contrôle au tick 540) : en (3600, 3600), deux planches de 6 gisements de 9 × 9 tuiles
+  (quantité décroissante du centre au bord : les 8 stades) ; planche « natif » : fer, TUNGSTÈNE sur ses cendres
+  volcaniques, charbon (rangée du haut), cuivre, pierre, uranium (bas), sur herbe ; planche « cendres » 40 tuiles plus bas :
+  les mêmes, tous sur `fo-volcanic-ash`. Une foreuse électrique alimentée mine le tungstène. Contrôles : prototype
+  `fo-tungsten-ore` (nom gardé, catégorie `fo-hard-solid`), 12 gisements posés, cendres sous le tungstène, foreuse posée,
+  tungstène extrait, gisements en place. `& "<racine>\fo-autotest.bat" nopause 600 m1-minerai "<source>"` →
+  « [FO-M1-MINERAI] BILAN : 7 OK, 0 ECHEC(S) ». Images : `& "<racine>\fo-captures.bat" m1-minerai "<source>"` :
+  16 captures (planches au zoom 1, jour et nuit ; tungstène à côté du fer et du charbon au zoom 2, jour et nuit ;
+  tungstène seul aux zooms 2 et 4 ; vue d'ensemble au zoom 0,5), sans anticrénelage.
+
 Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
 « LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul
 (`{ dry = true }`, rien n'est posé) pour chaque bâtiment laissé par la migration. Cette ligne est HORS bilan : le

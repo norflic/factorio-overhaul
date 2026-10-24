@@ -233,31 +233,67 @@ local function solid_resource(spec, order)
     result = spec.item,
   }
   local raw_stages = table.deepcopy(res.stages)
-  lib.tint_sprites(res.stages, spec.tint)
-  if spec.glint then
-    -- Éclats : la texture du gisement LUI-MÊME, en additif, teintée et pulsée (même découpe, mêmes
-    -- variantes). Mesuré sur les fichiers du jeu : la texture d'éclat de l'uranium est vert pur
-    -- (0,45 ; 1 ; 0), aucune teinte n'en tire du bleu ou du violet (F38).
-    local u = data.raw.resource["uranium-ore"]
-    res.stages_effect = raw_stages
-    lib.tint_sprites(res.stages_effect, spec.glint.tint)
-    local function additive(t, seen)
-      seen = seen or {}
-      if type(t) ~= "table" or seen[t] then return end
-      seen[t] = true
-      if t.filename or t.filenames then t.blend_mode = "additive" end
-      for _, v in pairs(t) do additive(v, seen) end
+  if spec.sheet then
+    -- Feuille de gisement PROPRE (lot M1, kit tools/render/pieces/ressources) : format exact des minerais vanilla
+    -- (8 variantes × 8 stades, cadre 64 px et hr 128 px), sans teinte ; couche d'effet additive facultative.
+    local sh = spec.sheet
+    local function feuille(suffixe, additif)
+      local function def(prefix, size, scale)
+        local t = { filename = sh.dir .. "/" .. prefix .. sh.name .. suffixe .. ".png", priority = "extra-high", size = size,
+                    frame_count = 8, variation_count = 8, scale = scale }
+        if additif then
+          -- comme hr-uranium-ore-glow.png (data/base/prototypes/entity/resources.lua)
+          t.blend_mode = "additive"
+          t.flags = { "light" }
+        end
+        return t
+      end
+      local t = def("", 64, nil)
+      t.hr_version = def("hr-", 128, 0.5)
+      return { sheet = t }
     end
-    additive(res.stages_effect)
-    res.effect_animation_period = spec.glint.period
-    res.effect_animation_period_deviation = 1
-    res.effect_darkness_multiplier = u.effect_darkness_multiplier
-    res.min_effect_alpha = spec.glint.min
-    res.max_effect_alpha = spec.glint.max
-  elseif res.stages_effect then
-    lib.tint_sprites(res.stages_effect, spec.tint)
+    res.stages = feuille("", false)
+    res.stage_counts = sh.stage_counts or res.stage_counts
+    res.mining_visualisation_tint = sh.mining_visualisation_tint or res.mining_visualisation_tint
+    if sh.effet then
+      res.stages_effect = feuille("-effet", true)
+      res.effect_animation_period = sh.effet.period
+      res.effect_animation_period_deviation = sh.effet.deviation or 1
+      res.effect_darkness_multiplier = sh.effet.darkness_multiplier
+      res.min_effect_alpha = sh.effet.min
+      res.max_effect_alpha = sh.effet.max
+    else
+      res.stages_effect = nil
+    end
+    res.icon, res.icon_size, res.icon_mipmaps, res.icons = sh.dir .. "/icone.png", 64, 4, nil
+  else
+    -- Visuel d'avant M1 (teinte d'une copie vanilla) : cristal (M3 le remplacera par une feuille propre).
+    lib.tint_sprites(res.stages, spec.tint)
+    if spec.glint then
+      -- Éclats : la texture du gisement LUI-MÊME, en additif, teintée et pulsée (même découpe, mêmes
+      -- variantes). Mesuré sur les fichiers du jeu : la texture d'éclat de l'uranium est vert pur
+      -- (0,45 ; 1 ; 0), aucune teinte n'en tire du bleu ou du violet (F38).
+      local u = data.raw.resource["uranium-ore"]
+      res.stages_effect = raw_stages
+      lib.tint_sprites(res.stages_effect, spec.glint.tint)
+      local function additive(t, seen)
+        seen = seen or {}
+        if type(t) ~= "table" or seen[t] then return end
+        seen[t] = true
+        if t.filename or t.filenames then t.blend_mode = "additive" end
+        for _, v in pairs(t) do additive(v, seen) end
+      end
+      additive(res.stages_effect)
+      res.effect_animation_period = spec.glint.period
+      res.effect_animation_period_deviation = 1
+      res.effect_darkness_multiplier = u.effect_darkness_multiplier
+      res.min_effect_alpha = spec.glint.min
+      res.max_effect_alpha = spec.glint.max
+    elseif res.stages_effect then
+      lib.tint_sprites(res.stages_effect, spec.tint)
+    end
+    lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
   end
-  lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
 
   res.autoplace = biome_bound_autoplace({
     name = spec.resource,
@@ -278,6 +314,18 @@ local function ore_prototypes(spec, letter)
   out[#out + 1] = autoplace_control(spec.resource, letter)
   out[#out + 1] = solid_resource(spec, letter)
   local item = tinted_item(spec.item, spec.copy_icon, spec.tint)
+  if spec.sheet then
+    -- Icône et images au sol de la feuille M1 (format des minerais vanilla : 64 px + 3 mipmaps, 4 images).
+    local dir = spec.sheet.dir
+    item.icons = nil
+    item.icon, item.icon_size, item.icon_mipmaps = dir .. "/icone.png", 64, 4
+    item.pictures = {
+      { size = 64, filename = dir .. "/icone.png", scale = 0.25, mipmap_count = 4 },
+      { size = 64, filename = dir .. "/icone-1.png", scale = 0.25, mipmap_count = 4 },
+      { size = 64, filename = dir .. "/icone-2.png", scale = 0.25, mipmap_count = 4 },
+      { size = 64, filename = dir .. "/icone-3.png", scale = 0.25, mipmap_count = 4 },
+    }
+  end
   if spec.fuel then
     item.fuel_value = spec.fuel.value
     item.fuel_category = spec.fuel.category
