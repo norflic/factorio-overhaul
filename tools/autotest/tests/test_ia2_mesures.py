@@ -71,6 +71,18 @@ lines += [
     P + "[FO-STRAT] attaque tick 36000 azure -> scarlet : 10 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 5, seuil 1100",
     P + "[FO-STRAT] attaque tick 72000 azure -> scarlet : 20 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 6, seuil 900",
     P + "[FO-STRAT] attaque tick 79200 azure -> scarlet : 30 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 6, seuil -",
+    # Lot IA2-a : champs en fin de ligne (rassemblement, règle, raid), postures du chef, issues.
+    P + "[FO-STRAT] attaque tick 90000 scarlet -> azure : 6 soldats, depart (100, 114), vise (0, 0), 140 tuiles, octant 3, seuil 1012, rassemblement (-40, 40), regle -, raid",
+    P + "[FO-STRAT] attaque tick 95000 scarlet -> azure : 21 soldats, depart (100, 114), vise (0, 0), 140 tuiles, octant 1, seuil 987, rassemblement (40, 40), regle variee",
+    P + "[FO-STRAT] attaque tick 99000 scarlet -> azure : 22 soldats, depart (100, 114), vise (0, 0), 140 tuiles, octant 1, seuil 987, rassemblement -, regle ia0",
+    P + "[FO-STRAT] issue tick 92000 scarlet -> azure : repoussee, 6 envoyes, 3 survivants, octant 3, raid",
+    P + "[FO-STRAT] issue tick 97000 scarlet -> azure : aneantie, 21 envoyes, 0 survivants, octant 1",
+]
+DOMS = ["expansion"] * 10 + ["technologie"] * 6 + ["assaut"] * 8 + ["expansion"] * 6 + ["raids"] * 30
+for k, d in enumerate(DOMS):
+    lines.append(P + f"[FO-STRAT] posture tick {k * 3600 + 1} scarlet : dominante {d} (900, 60 %), 2e armee (500, 25 %), 3e raids (300, 15 %), raison territoire_a_prendre, menace 0, mult 1050, cible azure, raid -"
+                 + (", changement" if k == 0 or DOMS[k - 1] != d else ""))
+lines += [
     P + "[FO-STRAT] site tick 1000 scarlet iron-ore : (120, 110), 22 tuiles du QG, rang 1 sur 2 en reserve, plus proche 22 tuiles",
     P + "[FO-STRAT] site tick 2000 scarlet coal : (150, 100), 50 tuiles du QG, rang 2 sur 2 en reserve, plus proche 30 tuiles",
     "  1.0 Script @__factorio-overhaul__/script/team/team.lua:322: [FO-TEAM] scarlet : objectif atteint 'coal' a 0.5 min",
@@ -99,8 +111,19 @@ check(a["growth"] is None and near(a["rate_late"], (24 * 24 - 14 * 14) / 10), "c
 check(s["decisions"][:3] == ["site:iron-ore", "obj:coal", "site:coal"], "décisions dans l'ordre des ticks (1 000, 1 800, 2 000)")
 check(near(s["reinvest_med"], (I.capital({"burner-mining-drill": 8, "stone-furnace": 2}) - I.capital({"burner-mining-drill": 4, "stone-furnace": 2})) / 100),
       "r proxy : capital gagné entre deux formes ÷ objets livrés entre les mêmes minutes")
+# Lot IA2-a : chef
+pe = I.entropy(DOMS)
+check(s["thinks"] == 60 and s["posture_changes"] == 4 and near(s["posture_entropy"], pe), f"postures : 60 pensées, 4 changements, entropie {pe:.3f} bit")
+check(near(s["changes_per_hour"], 4.0) and near(s["dominant_minutes_med"], 6.0), "stabilité : 4 changements par heure, durée médiane 6 min (séquences coupées exclues)")
+check(s["raids"] == 1 and s["rule_varied"] == 1 and s["rule_ia0"] == 1 and s["with_approach"] == 2,
+      "attaques : 1 raid, règle variée 1, règle d'IA0 1, 2 avec rassemblement avancé")
+check(a["attacks"] == 3 and run["factions"]["azure"]["attacks"][0]["jitter"] == "1100" and run["factions"]["scarlet"]["attacks"][1]["jitter"] == "987",
+      "seuil lu sans la virgule des champs ajoutés")
+check(s["learn_cases"] == 2 and s["learned"] == 1, "apprentissage : 2 échecs suivis d'une attaque, 1 seul change de côté, de cible ou de taille")
+check(s["issues"] == {"repoussee": 1, "aneantie": 1}, "issues lues")
 per, summ = I.group_metrics([run])
-check(summ["fighting120"] == [1] and summ["eliminated"] == ["azure 25 min"], "résumé : factions qui attaquent, anéanties")
+check(summ["fighting120"] == [2] and summ["eliminated"] == ["azure 25 min"], "résumé : factions qui attaquent, anéanties")
+check(summ["raids_total"] == [1] and summ["rule_varied_ia0"] == ["1/1"] and near(summ["learn_share"], 0.5), "résumé : raids, règles, apprentissage")
 check(summ["distinct_personalities"]["scarlet"] == 1, "résumé : personnalités distinctes par couleur")
 rc = I.main([tmp, "--json", os.path.join(tmp, "m.json")])
 check(rc == 0 and os.path.exists(os.path.join(tmp, "m.json")), "ligne de commande : code 0, JSON écrit")

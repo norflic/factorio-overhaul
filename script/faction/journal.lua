@@ -69,15 +69,21 @@ function Journal.foundation(f, tick, origin, order)
 end
 
 --- Ligne d'un groupe lancé (appelée par script/faction/military.lua au départ du groupe).
+--- Lot IA2-a : l'octant est celui du point d'ARRIVÉE, vu du QG de la cible : le rassemblement avancé choisi par le
+--- chef quand il y en a un, sinon le départ (chemin direct, comme avant IA2-a). Champs ajoutés en fin de ligne
+--- (la regex de tools/autotest/ia2_mesures.py lit le début inchangé) : rassemblement, règle, raid.
 function Journal.attack(f, target_faction, n, rp, tick)
   local hq = target_faction.hq_pos or rp.target
   local tx, ty = rp.target.x, rp.target.y
-  local ox = rp.gather.x - hq.x
-  local oy = rp.gather.y - hq.y
+  local from = rp.approach or rp.gather
+  local ox = from.x - hq.x
+  local oy = from.y - hq.y
   local dx, dy = tx - rp.gather.x, ty - rp.gather.y
-  log(string.format("[FO-STRAT] attaque tick %d %s -> %s : %d soldats, depart (%d, %d), vise (%d, %d), %d tuiles, octant %d, seuil %s",
+  log(string.format("[FO-STRAT] attaque tick %d %s -> %s : %d soldats, depart (%d, %d), vise (%d, %d), %d tuiles, octant %d, seuil %s, rassemblement %s, regle %s%s",
     tick, f.key, target_faction.key, n, math.floor(rp.gather.x), math.floor(rp.gather.y), math.floor(tx), math.floor(ty),
-    math.floor(math.sqrt(dx * dx + dy * dy)), Journal.octant(ox, oy), f.attack_jitter and tostring(f.attack_jitter) or "-"))
+    math.floor(math.sqrt(dx * dx + dy * dy)), Journal.octant(ox, oy), f.attack_jitter and tostring(f.attack_jitter) or "-",
+    rp.approach and string.format("(%d, %d)", math.floor(rp.approach.x), math.floor(rp.approach.y)) or "-",
+    rp.rule or (target_faction.id == "player" and "joueur" or "-"), rp.raid and ", raid" or ""))
 end
 
 --- Ligne d'un site puisé dans la réserve : `site` choisi, `list` = réserve AVANT le retrait (sites valides de la

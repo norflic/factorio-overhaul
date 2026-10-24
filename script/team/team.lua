@@ -16,6 +16,7 @@ local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
+local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
 local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
@@ -276,7 +277,9 @@ function Team.view(f, tick)
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held,
-    ladder = f.is_player and T.player_ladder or nil, no_research = f.is_player or false,
+    -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
+    -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
+    ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = tick < (f.threatened_until or 0),
     open = Board.open(f),
   }

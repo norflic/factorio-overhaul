@@ -49,7 +49,11 @@ COST = {
 
 RX = {
     "found": re.compile(r"\[FO-STRAT\] fondation tick (\d+) (\w+) : personnalite (\w+), origine (\w+), flux (\S+), traits (.*)$"),
-    "attack": re.compile(r"\[FO-STRAT\] attaque tick (\d+) (\w+) -> (\w+) : (\d+) soldats, depart \((-?\d+), (-?\d+)\), vise \((-?\d+), (-?\d+)\), (\d+) tuiles, octant (-?\d+), seuil (\S+)"),
+    # Lot IA2-a : champs ajoutés en fin de ligne (rassemblement avancé, règle, raid) ; seuil sans la virgule qui suit.
+    "attack": re.compile(r"\[FO-STRAT\] attaque tick (\d+) (\w+) -> (\w+) : (\d+) soldats, depart \((-?\d+), (-?\d+)\), vise \((-?\d+), (-?\d+)\), (\d+) tuiles, octant (-?\d+), seuil ([^,\s]+)"
+                        r"(?:, rassemblement (?:\((-?\d+), (-?\d+)\)|-), regle ([\w-]+)(, raid)?)?"),
+    "posture": re.compile(r"\[FO-STRAT\] posture tick (\d+) (\w+) : dominante (\w+) \((-?\d+), \d+ %\).*?, raison (\S+), menace (\d+), mult (\d+), cible (\S+), raid (\S+?)(, changement)?\s*$"),
+    "issue": re.compile(r"\[FO-STRAT\] issue tick (\d+) (\w+) -> (\w+) : (\w+), (\d+) envoyes, (\d+) survivants, octant (-?\d+|-)(, raid)?"),
     "site": re.compile(r"\[FO-STRAT\] site tick (\d+) (\w+) (\S+) : \((-?\d+), (-?\d+)\), (\d+) tuiles du QG, rang (\d+) sur (\d+)"),
     "shape": re.compile(r"\[FO-SHAPE\] tick (\d+) (\w+) : hq \((-?\d+), (-?\d+)\) \| batiments (\d+) \| chunks (\d+) \| centre \((-?[\d.]+), (-?[\d.]+)\) \| cov (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) \| rayon (\d+) \| avant-postes (\S+) \| noms (\S+)"),
     "goal": re.compile(r"\[FO-TEAM\] (\w+) : objectif atteint '([^']+)' a ([\d.]+) min"),
@@ -179,7 +183,7 @@ def read_run(folder):
 
 def new_faction():
     return {"personality": None, "origin": None, "traits": {}, "attacks": [], "sites": [], "shapes": [], "events": [],
-            "stock": [], "delivered": []}
+            "stock": [], "delivered": [], "postures": [], "issues": []}
 
 
 def parse_log(lines, run, name):
@@ -222,9 +226,22 @@ def parse_log(lines, run, name):
         m = RX["attack"].search(line)
         if m and m.group(2) in F:
             a = {"tick": int(m.group(1)), "target": m.group(3), "n": int(m.group(4)), "octant": int(m.group(10)),
-                 "dist": int(m.group(9)), "jitter": m.group(11)}
+                 "dist": int(m.group(9)), "jitter": m.group(11), "approach": m.group(12) is not None,
+                 "rule": m.group(14), "raid": m.group(15) is not None}
             F[m.group(2)]["attacks"].append(a)
             F[m.group(2)]["events"].append((a["tick"], "att:" + a["target"]))
+            continue
+        m = RX["posture"].search(line)
+        if m and m.group(2) in F:
+            F[m.group(2)]["postures"].append({"tick": int(m.group(1)), "dominant": m.group(3), "score": int(m.group(4)),
+                                             "reason": m.group(5), "threat": int(m.group(6)), "mult": int(m.group(7)),
+                                             "target": m.group(8), "raid": m.group(9)})
+            continue
+        m = RX["issue"].search(line)
+        if m and m.group(2) in F:
+            F[m.group(2)]["issues"].append({"tick": int(m.group(1)), "target": m.group(3), "outcome": m.group(4),
+                                           "n": int(m.group(5)), "survivors": int(m.group(6)),
+                                           "octant": None if m.group(7) == "-" else int(m.group(7)), "raid": m.group(8) is not None})
             continue
         m = RX["site"].search(line)
         if m and m.group(2) in F:
@@ -301,6 +318,43 @@ def faction_metrics(f):
     out["sides_entropy"] = max(ents) if ents else None
     ev = sorted(f["events"])
     out["decisions"] = [e[1] for e in ev[:20]]
+    # Lot IA2-a : chef (postures minute par minute), raids, règle des attaques, apprentissage (M4).
+    post = f["postures"]
+    doms = [p["dominant"] for p in post]
+    out["thinks"] = len(post)
+    out["posture_entropy"] = entropy(doms) if doms else None
+    runs = []
+    for d in doms:
+        if runs and runs[-1][0] == d:
+            runs[-1][1] += 1
+        else:
+            runs.append([d, 1])
+    out["posture_changes"] = max(0, len(runs) - 1)
+    out["changes_per_hour"] = (out["posture_changes"] / (len(doms) / 60)) if len(doms) >= 30 else None
+    # Durée médiane d'une dominante : séquences complètes seulement (ni la première ni la dernière, coupées).
+    inner = [r[1] for r in runs[1:-1]]
+    out["dominant_minutes_med"] = median(inner) if inner else None
+    out["postures_seen"] = sorted(set(doms))
+    out["raids"] = sum(1 for x in att if x.get("raid"))
+    out["rule_varied"] = sum(1 for x in att if x.get("rule") == "variee")
+    out["rule_ia0"] = sum(1 for x in att if x.get("rule") == "ia0")
+    out["with_approach"] = sum(1 for x in att if x.get("approach"))
+    out["issues"] = {}
+    for i in f["issues"]:
+        out["issues"][i["outcome"]] = out["issues"].get(i["outcome"], 0) + 1
+    # M4 apprentissage : après une attaque repoussée ou anéantie, l'attaque SUIVANTE de la faction vise une autre
+    # cible, OU arrive par un autre octant, OU est au moins 1,3 × plus grosse.
+    learned, cases = 0, 0
+    for i in f["issues"]:
+        if i["outcome"] not in ("repoussee", "aneantie"):
+            continue
+        nxt = next((x for x in att if x["tick"] > i["tick"] and x["target"] != "player"), None)
+        if nxt is None:
+            continue
+        cases += 1
+        if nxt["target"] != i["target"] or (i["octant"] is not None and nxt["octant"] != i["octant"]) or nxt["n"] >= 1.3 * i["n"]:
+            learned += 1
+    out["learn_cases"], out["learned"] = cases, learned
     # M3
     d = dormant_share(f["stock"])
     out["dormant_med"] = median([x for m, x in d if 30 <= m])
@@ -373,6 +427,15 @@ def group_metrics(runs):
     aggr = [per[s][k]["traits"].get("agressivite") for s in seeds for k in KEYS]
     aggr = [a for a in aggr if a is not None]
     summ["aggr_cv"] = cv(aggr) if aggr else None
+    # Lot IA2-a : chef
+    summ["posture_entropy_med"] = median([b["posture_entropy"] for b in bases])
+    summ["changes_per_hour_med"] = median([b["changes_per_hour"] for b in bases])
+    summ["dominant_minutes_med"] = median([b["dominant_minutes_med"] for b in bases])
+    summ["raids_total"] = [sum(per[s][k]["raids"] for k in KEYS) for s in seeds]
+    summ["rule_varied_ia0"] = [f"{sum(per[s][k]['rule_varied'] for k in KEYS)}/{sum(per[s][k]['rule_ia0'] for k in KEYS)}" for s in seeds]
+    lc = sum(b["learn_cases"] for b in bases)
+    summ["learn_share"] = (sum(b["learned"] for b in bases) / lc) if lc else None
+    summ["learn_cases"] = lc
     summ["dormant_med"] = median([b["dormant_med"] for b in bases])
     summ["growth"] = [b["growth"] for b in bases]
     summ["growth_ge3"] = sum(1 for g in summ["growth"] if g is not None and g >= 3)
@@ -418,6 +481,13 @@ ROWS = [
     ("M2 cadence, CV des intervalles (médiane ; ≥ 0,5)", "cadence_cv_med"),
     ("M2 tailles, CV (médiane ; ≥ 0,3)", "size_cv_med"),
     ("M2 côtés, entropie des octants (médiane ; ≥ 1 bit)", "sides_entropy_med"),
+    ("M2 entropie des postures dominantes, par faction (médiane ; ≥ 1,5 bit)", "posture_entropy_med"),
+    ("M4 changements de dominante par heure (médiane ; ≤ 6)", "changes_per_hour_med"),
+    ("M4 durée d'une dominante, min (médiane ; ≥ 5)", "dominant_minutes_med"),
+    ("M4 apprentissage : attaque suivante autre cible, autre côté ou ≥ 1,3 × (≥ 90 %)", "learn_share"),
+    ("M4 apprentissage : cas (attaques repoussées suivies d'une attaque)", "learn_cases"),
+    ("raids, par graine", "raids_total"),
+    ("attaques entre factions : règle variée / règle d'IA0, par graine", "rule_varied_ia0"),
     ("M2 factions qui attaquent en 60 min, par graine (4 sur 4)", "fighting60"),
     ("M2 factions qui attaquent en 120 min, par graine", "fighting120"),
     ("M2 attaques en 120 min, par graine", "attacks_total"),
