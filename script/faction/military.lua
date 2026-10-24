@@ -11,6 +11,30 @@
   par le pathfinder (grille grossière, coût unique par attaque) ; une cible sans itinéraire est écartée
   10 minutes et la faction choisit une autre cible.
   Filet de sécurité : un groupe sans nouvelles depuis GROUP_TIMEOUT est rappelé puis dissous.
+
+  Lot PNJ-VÉRIF (24/10, moteur réel, banc `default`) : trois corrections du retour des groupes.
+  - Une fin de commande NÉE D'UNE DISTRACTION (`was_distracted`) n'est plus prise pour la fin de l'attaque :
+    le groupe reprend seul sa commande après le combat. Avant, le premier accrochage renvoyait le groupe.
+  - Le retour au QG est une seule commande `go_to_location` ; d'un groupe arrêté vers 1 000 tuiles, au milieu
+    d'une base ennemie, le moteur l'abandonne en 1 tick (résultat « fail » ; de 560 à 620 tuiles, il a réussi). Avant, le groupe était alors dissous SUR PLACE : 27 soldats d'Écarlate sont restés à
+    960 tuiles de leur QG. Désormais, les survivants forment un groupe NEUF qui rentre par l'itinéraire de
+    l'aller, à l'envers, en une commande composée (donner les étapes une à une au même groupe échouait aussi,
+    en 1 tick chacune) ; un retour direct qui dépasse GROUP_TIMEOUT est traité de même.
+  - Un soldat « en garnison » loin du QG (plus de GATHER_RADIUS tuiles du point de rassemblement) n'est plus
+    pris dans une attaque : le moteur le retire du groupe en quelques ticks et l'attaque partait VIDE, relancée
+    à chaque pensée (32 « attaques » fantômes de suite, toutes les 300 ticks). Sans soldat proche, l'attaque
+    est remise de ATTACK_RETRY_TICKS.
+
+  Lot PNJ-VÉRIF, correction après vérification adverse (défauts M3, M4) :
+  - Des soldats restaient pour toujours au loin : un groupe dissous loin du QG (attaque en échec sur un groupe
+    devenu invalide, groupe vidé) les laissait sur place, et les membres que le moteur retire d'un groupe EN ROUTE
+    n'étaient jamais regroupés. Désormais, à chaque entretien : (1) un soldat qui n'est plus membre de son groupe
+    revient à la garnison, là où il est ; (2) RAPPEL : les soldats de garnison à plus de GATHER_RADIUS tuiles du
+    rassemblement sont regroupés par paquets proches (RECALL_CLUSTER), un itinéraire est demandé au pathfinder
+    jusqu'au QG, et un groupe NEUF rentre par ses étapes (comme l'aller) ; un paquet par faction toutes les
+    RECALL_PERIOD ticks, et un soldat rappelé sans succès attend de plus en plus longtemps avant le suivant.
+  - La garnison qui décide une attaque (et celle qu'estime un adversaire) ne compte plus que les soldats proches du
+    rassemblement (Military.garrison_near) : 18 soldats bloqués au loin faisaient partir 9 soldats au lieu de 21.
 ]]
 
 local Events = require("script.core.events")
@@ -28,6 +52,15 @@ local ATTACK_RETRY_TICKS = 3600 -- après un échec de commande de groupe (moteu
 local UNREACHABLE_TARGET_TICKS = 36000
 local ROUTE_HANDLER = "fo-war-route"
 local WAYPOINT_SPACING = 64
+local GATHER_RADIUS = 160 -- lot PNJ-VÉRIF : au-delà, un soldat sans groupe n'est pas rassemblé (le moteur l'écarte)
+local MAX_REROUTES = 3    -- lot PNJ-VÉRIF : retours par l'itinéraire tentés au plus, par groupe
+local RECALL_HANDLER = "fo-war-recall"
+local RECALL_CLUSTER = 32   -- rappel : soldats lointains à moins de 32 tuiles du premier forment un paquet
+local RECALL_PERIOD = 600   -- rappel : une demande d'itinéraire au plus par faction toutes les 600 ticks
+local RECALL_BACKOFF = 3600 -- rappel : attente d'un soldat déjà rappelé, × le nombre de rappels (5 au plus)
+
+--- Point de rassemblement du QG (destination des retours).
+local function home(f) return { x = f.hq_pos.x, y = f.hq_pos.y + 14 } end
 
 --- Comportement de garnison : "wander" (errance, vivant) ou "stop" (au repos, réagit aux ennemis).
 --- Réglable par l'interface distante (option "garrison_mode") pour les mesures de coût moteur.
@@ -113,13 +146,25 @@ end
 --- Lance le groupe le long de l'itinéraire calculé.
 local function launch_group(f, surface, target_faction, rp, path, tick)
   local ids = State.sorted_keys(f.soldiers)
-  local chosen = {}
+  local chosen, far = {}, 0
+  local r2 = GATHER_RADIUS * GATHER_RADIUS
   for _, id in ipairs(ids) do
     if #chosen >= rp.count then break end
     local s = f.soldiers[id]
-    if not s.group and s.entity.valid then chosen[#chosen + 1] = id end
+    if not s.group and s.entity.valid then
+      local p = s.entity.position
+      local dx, dy = p.x - rp.gather.x, p.y - rp.gather.y
+      if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id else far = far + 1 end
+    end
   end
-  if #chosen == 0 then return false end
+  if #chosen == 0 then
+    f.attack_block_until = tick + ATTACK_RETRY_TICKS
+    if Profiler.enabled() then
+      log(string.format("[FO-ATTACK] tick %d %s -> %s : aucun soldat pres du QG (%d loin), attaque remise", tick, f.key,
+        target_faction.key, far))
+    end
+    return false
+  end
   local group = surface.create_unit_group({ position = rp.gather, force = f.force })
   for _, id in ipairs(chosen) do
     group.add_member(f.soldiers[id].entity)
@@ -127,7 +172,8 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   end
   f.garrison_count = f.garrison_count - #chosen
   local cmds = {}
-  for _, p in ipairs(waypoints_along(path)) do
+  local route = waypoints_along(path)
+  for _, p in ipairs(route) do
     cmds[#cmds + 1] = {
       type = defines.command.go_to_location, destination = p, radius = 12,
       distraction = defines.distraction.by_enemy,
@@ -141,13 +187,16 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   }
   group.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
   group.start_moving()
-  f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen }
+  -- route : étapes de l'aller (nombres seulement), reprises à l'envers si le retour direct échoue.
+  f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen,
+    route = route }
   f.stats.attacks = f.stats.attacks + 1
   if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
   if Profiler.enabled() then -- journal de diagnostic (bancs de test uniquement)
     local dx, dy = rp.target.x - rp.gather.x, rp.target.y - rp.gather.y
-    log(string.format("[FO-ATTACK] tick %d %s -> %s : %d soldats, %d tuiles a vol d'oiseau, chemin %d noeuds, %d etapes",
-      tick, f.key, target_faction.key, #chosen, math.floor(math.sqrt(dx * dx + dy * dy)), #path, #cmds - 1))
+    log(string.format("[FO-ATTACK] tick %d %s -> %s : %d soldats, %d tuiles a vol d'oiseau, chemin %d noeuds, %d etapes%s",
+      tick, f.key, target_faction.key, #chosen, math.floor(math.sqrt(dx * dx + dy * dy)), #path, #cmds - 1,
+      far > 0 and string.format(" (%d soldats loin du QG laisses)", far) or ""))
   end
   return true
 end
@@ -225,6 +274,73 @@ local function order_return(f, gid, tick)
     radius = 16,
     distraction = defines.distraction.by_enemy,
   })
+  if Profiler.enabled() then
+    local p = g.group.position
+    local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
+    log(string.format("[FO-ATTACK] tick %d %s : retour direct au QG, %d soldats a %d tuiles", tick, f.key, #g.group.members,
+      math.floor(math.sqrt(dx * dx + dy * dy))))
+  end
+end
+
+--- Lot PNJ-VÉRIF : le retour direct a échoué (moteur réel : un go_to_location d'environ 1 000 tuiles est
+--- abandonné, et donner ensuite des étapes une à une au MÊME groupe échoue aussi, en 1 tick chacune). Les
+--- survivants forment un groupe NEUF, qui rentre par l'itinéraire de l'aller à l'envers, en une commande
+--- composée (comme l'aller, qui, lui, arrive). Au plus MAX_REROUTES fois par groupe (chaque reprise repart de
+--- l'étape la plus proche de l'endroit où le groupe s'est arrêté). Renvoie true si le nouveau groupe
+--- est parti, false sinon (l'appelant dissout alors le groupe, comme avant).
+local function return_by_route(f, gid, result, tick)
+  local g = f.groups[gid]
+  if not (g and g.group.valid) or (g.rerouted or 0) >= MAX_REROUTES or result ~= defines.behavior_result.fail then return false end
+  local route = g.route
+  if not route or #route == 0 then return false end
+  local members = g.group.members
+  if #members == 0 then return false end
+  local surface, p = g.group.surface, g.group.position
+  local best, bd
+  for k, q in ipairs(route) do
+    local dx, dy = q.x - p.x, q.y - p.y
+    local d = dx * dx + dy * dy
+    if not bd or d < bd then best, bd = k, d end
+  end
+  local cmds = {}
+  for k = best, 1, -1 do
+    cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = { x = route[k].x, y = route[k].y }, radius = 12,
+      distraction = defines.distraction.by_enemy }
+  end
+  cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = { x = f.hq_pos.x, y = f.hq_pos.y + 14 }, radius = 16,
+    distraction = defines.distraction.by_enemy }
+  local in_group = {}
+  for _, m in ipairs(members) do in_group[m.unit_number] = true end
+  g.group.destroy()
+  -- Le centre du groupe peut tomber dans un obstacle (bâtiment, eau) : le moteur abandonne alors tout trajet
+  -- en 1 tick. Le groupe neuf part d'une case libre proche.
+  local start = surface.find_non_colliding_position(members[1].name, p, 32, 1) or p
+  local ng = surface.create_unit_group({ position = start, force = f.force })
+  for _, m in ipairs(members) do
+    if m.valid then ng.add_member(m) end
+  end
+  f.groups[gid] = nil
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    local s = f.soldiers[id]
+    if s.group == gid then
+      if in_group[id] then
+        s.group = ng.group_number
+      else
+        -- Soldat déjà écarté du groupe par le moteur : rendu à la garnison là où il est (comme avant).
+        s.group = nil
+        f.garrison_count = f.garrison_count + 1
+      end
+    end
+  end
+  ng.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
+  ng.start_moving()
+  f.groups[ng.group_number] = { group = ng, state = "return", started = tick, target = g.target, target_faction = g.target_faction,
+    size = g.size, route = route, rerouted = (g.rerouted or 0) + 1 }
+  if Profiler.enabled() then
+    log(string.format("[FO-ATTACK] tick %d %s : retour direct echoue, retour par l'itineraire de l'aller (%d etapes, %d soldats, depart decale de %.1f tuiles)",
+      tick, f.key, best, #ng.members, math.sqrt((start.x - p.x) ^ 2 + (start.y - p.y) ^ 2)))
+  end
+  return true
 end
 
 --- Rappelle les groupes en route contre le joueur et annule une route en attente vers lui (passage en
@@ -242,16 +358,166 @@ function Military.recall_player_groups(f, tick)
   return n
 end
 
---- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués.
+--- Lot PNJ-VÉRIF (M3) : les soldats d'un groupe que le moteur a retirés du groupe (en route, à la création)
+--- reviennent à la garnison là où ils sont ; le rappel les ramène s'ils sont loin. Renvoie leur nombre.
+local function release_strays(f, gid, g)
+  local in_group = {}
+  for _, m in ipairs(g.group.members) do in_group[m.unit_number] = true end
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    local s = f.soldiers[id]
+    if s.group == gid and not in_group[id] then
+      s.group = nil
+      f.garrison_count = f.garrison_count + 1
+      if s.entity.valid then wander(s.entity) end
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- Soldats de garnison (sans groupe) proches du rassemblement, et lointains (Lot PNJ-VÉRIF, M4).
+function Military.garrison_split(f)
+  local h = home(f)
+  local r2 = GATHER_RADIUS * GATHER_RADIUS
+  local near, far = 0, 0
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    local s = f.soldiers[id]
+    if not s.group and s.entity.valid then
+      local p = s.entity.position
+      local dx, dy = p.x - h.x, p.y - h.y
+      if dx * dx + dy * dy <= r2 then near = near + 1 else far = far + 1 end
+    end
+  end
+  return near, far
+end
+
+--- Garnison utile : soldats sans groupe à moins de GATHER_RADIUS tuiles du rassemblement.
+function Military.garrison_near(f)
+  return (Military.garrison_split(f))
+end
+
+--- Lot PNJ-VÉRIF (M3) : RAPPEL d'un paquet de soldats de garnison lointains. Demande un itinéraire (asynchrone) ;
+--- le groupe part quand il arrive (gestionnaire RECALL_HANDLER).
+local function recall_far(f, tick)
+  if f.recall_pending or tick < (f.recall_block_until or 0) then return end
+  local h = home(f)
+  local r2 = GATHER_RADIUS * GATHER_RADIUS
+  local far = {}
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    local s = f.soldiers[id]
+    if not s.group and s.entity.valid then
+      local p = s.entity.position
+      local dx, dy = p.x - h.x, p.y - h.y
+      if dx * dx + dy * dy > r2 then
+        if tick >= (s.recall_after or 0) then far[#far + 1] = { id = id, x = p.x, y = p.y } end
+      elseif s.recalls then
+        s.recalls, s.recall_after = nil, nil -- rentré : les attentes repartent de zéro
+      end
+    end
+  end
+  if #far == 0 then return end
+  local a = far[1]
+  local ids, c2 = {}, RECALL_CLUSTER * RECALL_CLUSTER
+  for _, it in ipairs(far) do
+    local dx, dy = it.x - a.x, it.y - a.y
+    if dx * dx + dy * dy <= c2 then ids[#ids + 1] = it.id end
+  end
+  local war = State.war()
+  local surface = game.surfaces[war.surface]
+  local name = f.soldiers[a.id].entity.name
+  local start = surface.find_non_colliding_position(name, { x = a.x, y = a.y }, 32, 1) or { x = a.x, y = a.y }
+  f.recall_block_until = tick + RECALL_PERIOD
+  f.recall_pending = { ids = ids, start = { x = start.x, y = start.y }, tick = tick }
+  f.recall_pending.ticket = PathService.request(RECALL_HANDLER, f.id, {
+    surface = surface.index, proto = name, pad = 0, start = f.recall_pending.start, goal = h, force = f.force,
+    radius = 16, flags = { cache = false, low_priority = false }, res = -2,
+  })
+end
+
+PathService.register_handler(RECALL_HANDLER, function(fid, path, ticket, reason, tick)
+  local war = State.war()
+  local f = war.factions and war.factions[fid]
+  if not f or not f.recall_pending or f.recall_pending.ticket ~= ticket then return end -- périmé
+  local rc = f.recall_pending
+  f.recall_pending = nil
+  if not war.active or f.eliminated or not (f.hq and f.hq.valid) then return end
+  local chosen = {}
+  local r2 = (RECALL_CLUSTER + 16) * (RECALL_CLUSTER + 16)
+  for _, id in ipairs(rc.ids) do
+    local s = f.soldiers[id]
+    if s then
+      s.recalls = (s.recalls or 0) + 1
+      s.recall_after = tick + RECALL_BACKOFF * math.min(s.recalls, 5)
+      if not s.group and s.entity.valid then
+        local p = s.entity.position
+        local dx, dy = p.x - rc.start.x, p.y - rc.start.y
+        if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id end
+      end
+    end
+  end
+  local h = home(f)
+  local dx0, dy0 = rc.start.x - h.x, rc.start.y - h.y
+  local dist = math.floor(math.sqrt(dx0 * dx0 + dy0 * dy0))
+  if not path or #path == 0 then
+    if Profiler.enabled() then
+      log(string.format("[FO-ATTACK] tick %d %s : rappel impossible, aucun itineraire (%s) pour %d soldats a %d tuiles du QG",
+        tick, f.key, tostring(reason), #rc.ids, dist))
+    end
+    return
+  end
+  if #chosen == 0 then return end
+  local surface = game.surfaces[war.surface]
+  local group = surface.create_unit_group({ position = rc.start, force = f.force })
+  for _, id in ipairs(chosen) do
+    group.add_member(f.soldiers[id].entity)
+    f.soldiers[id].group = group.group_number
+  end
+  f.garrison_count = f.garrison_count - #chosen
+  local pts = waypoints_along(path)
+  local cmds = {}
+  for _, p in ipairs(pts) do
+    cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = p, radius = 12, distraction = defines.distraction.by_enemy }
+  end
+  cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = h, radius = 16, distraction = defines.distraction.by_enemy }
+  group.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
+  group.start_moving()
+  -- route : du QG vers le paquet (ordre de l'aller d'une attaque), pour que return_by_route la prenne à l'envers.
+  local route = {}
+  for k = #pts, 1, -1 do route[#route + 1] = pts[k] end
+  f.groups[group.group_number] = { group = group, state = "return", started = tick, size = #chosen, route = route,
+    rerouted = 0, recall = true }
+  f.stats.recalls = (f.stats.recalls or 0) + 1
+  if Profiler.enabled() then
+    log(string.format("[FO-ATTACK] tick %d %s : rappel de %d soldats a %d tuiles du QG (%d etapes)", tick, f.key, #chosen, dist, #pts))
+  end
+end)
+
+--- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués, soldats égarés, rappel.
 function Military.maintain(f, tick)
+  local strays = 0
+  for _, gid in ipairs(State.sorted_keys(f.groups)) do
+    local g = f.groups[gid]
+    if g.group.valid and #g.group.members > 0 then strays = strays + release_strays(f, gid, g) end
+  end
+  if strays > 0 and Profiler.enabled() then
+    log(string.format("[FO-ATTACK] tick %d %s : %d soldat(s) retire(s) de leur groupe par le moteur, rendus a la garnison", tick, f.key, strays))
+  end
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
       disband(f, gid)
-    elseif tick - g.started > GROUP_TIMEOUT then
-      if g.state == "attack" then order_return(f, gid, tick) else disband(f, gid) end
+    elseif tick - g.started > (g.rerouted and 2 * GROUP_TIMEOUT or GROUP_TIMEOUT) then
+      -- Lot PNJ-VÉRIF : un retour direct trop long est traité comme un échec (retour par l'itinéraire) ; un
+      -- retour par l'itinéraire a deux fois plus de temps (l'aller de 1 000 tuiles a pris 4 min en moteur réel).
+      if g.state == "attack" then
+        order_return(f, gid, tick)
+      elseif not return_by_route(f, gid, defines.behavior_result.fail, tick) then
+        disband(f, gid)
+      end
     end
   end
+  if f.hq and f.hq.valid then recall_far(f, tick) end
 end
 
 function Military.on_soldier_lost(f, unit_number)
@@ -264,13 +530,17 @@ function Military.on_soldier_lost(f, unit_number)
 end
 
 --- Force de la garnison en équivalents fusiliers (pour l'estimation adverse).
+--- Lot PNJ-VÉRIF (M4) : seuls les soldats proches du QG le défendent.
 function Military.garrison_strength(f, strength_fn)
-  return f.garrison_count * strength_fn(F.best_soldier(f.tech), f.tech, f.upgrades)
+  return Military.garrison_near(f) * strength_fn(F.best_soldier(f.tech), f.tech, f.upgrades)
 end
 
 Events.on(defines.events.on_ai_command_completed, function(e)
   local war = State.war()
   if not war.active then return end
+  -- Lot PNJ-VÉRIF : fin d'une commande née d'une distraction (combat en route) ; le groupe reprend seul la
+  -- sienne. Moteur réel (24/10) : « success, was_distracted = true » pendant l'attaque, puis la vraie fin.
+  if e.was_distracted then return end
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
     local g = f.groups[e.unit_number]
@@ -282,7 +552,14 @@ Events.on(defines.events.on_ai_command_completed, function(e)
           f.attack_block_until = e.tick + ATTACK_RETRY_TICKS
         end
         order_return(f, e.unit_number, e.tick)
-      else
+      elseif not return_by_route(f, e.unit_number, e.result, e.tick) then
+        if g.rerouted and Profiler.enabled() then
+          local p = g.group.valid and g.group.position
+          local dx, dy = p and (p.x - f.hq_pos.x) or 0, p and (p.y - f.hq_pos.y) or 0
+          log(string.format("[FO-ATTACK] tick %d %s : fin du retour par l'itineraire (%s), %d soldats a %d tuiles du QG", e.tick, f.key,
+            e.result == defines.behavior_result.success and "arrive" or "echec", g.group.valid and #g.group.members or 0,
+            math.floor(math.sqrt(dx * dx + dy * dy))))
+        end
         disband(f, e.unit_number)
       end
       return

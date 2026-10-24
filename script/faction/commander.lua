@@ -73,7 +73,8 @@ function Commander.view(f, tick)
   local target = pick_target(f, tick)
   return {
     tech = f.tech, personality = f.personality, upgrades = f.upgrades,
-    garrison = f.garrison_count, soldiers_max = State.war().settings.soldiers_max,
+    -- Lot PNJ-VÉRIF (M4) : seuls les soldats proches du rassemblement (ceux qu'une attaque peut emmener).
+    garrison = Military.garrison_near(f), soldiers_max = State.war().settings.soldiers_max,
     can_attack = tick >= (f.attack_block_until or 0) and not f.route_pending,
     enemy_defense = target and enemy_defense(target) or math.huge,
   }, target

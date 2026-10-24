@@ -141,7 +141,9 @@ T.goal_defer = 15 * 3600
 
 -- Technologies vanilla débloquées pour la force de l'équipe à chaque niveau (recettes fabricables).
 T.unlocks = {
-  [0] = { "military", "turrets", "stone-wall" },
+  -- Lot PNJ-VÉRIF : la technologie des tourelles s'appelle « gun-turret » en 1.1.91 (« turrets » n'existe pas :
+  -- unlock() l'ignorait et aucune faction ne pouvait fabriquer de tourelle). Contrôle : harness, « T.unlocks ».
+  [0] = { "military", "gun-turret", "stone-wall" },
   [1] = { "logistic-science-pack", "steel-processing", "military-2", "heavy-armor", "physical-projectile-damage-1", "weapon-shooting-speed-1" },
   [2] = { "military-science-pack", "rocketry", "physical-projectile-damage-2", "weapon-shooting-speed-2", "gate" },
   [3] = { "military-3", "physical-projectile-damage-3", "weapon-shooting-speed-3", "stronger-explosives-1" },
