@@ -10,6 +10,7 @@
   Tout ce qui est consommé sort du coffre du QG : aucune monnaie abstraite.
 ]]
 
+local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
@@ -26,6 +27,17 @@ local Team = {}
 
 -- Livres de recettes par (force, niveau) : reconstruits à la demande (jamais dans global).
 local books = {}
+
+-- Lot PNJ-VÉRIF (défaut M2) : pour l'équipe du JOUEUR, la clé reste « player:0 » (le joueur recherche lui-même) :
+-- un livre construit avant la recherche « Tourelles » ne voyait jamais la recette (moteur réel : 0 tourelle en
+-- 29 min avec 4 500 fer au coffre). Le livre est oublié dès que les recherches d'une force changent ; il est
+-- refait depuis l'état du jeu, comme après un chargement : tous les pairs ont donc le même livre (avant, une
+-- partie rechargée pouvait en avoir un autre que le serveur).
+local function forget_books() books = {} end
+Events.on(defines.events.on_research_finished, forget_books)
+Events.on(defines.events.on_research_reversed, forget_books)
+Events.on(defines.events.on_technology_effects_reset, forget_books)
+Events.on(defines.events.on_force_reset, forget_books)
 
 local function book_for(f)
   local key = f.force .. ":" .. f.tech
@@ -50,6 +62,21 @@ local function unlock(f, level)
     if tech then tech.researched = true end
   end
 end
+
+-- Lot PNJ-VÉRIF (défaut M1) : une partie d'avant la correction n'a jamais reçu « gun-turret » (T.unlocks[0] nommait
+-- « turrets », absent en 1.1.91). À la mise à jour du mod, chaque faction vivante reçoit de nouveau les technologies
+-- de ses niveaux 0 à f.tech (une technologie déjà recherchée ne change pas). Le livre de recettes est aussi oublié.
+Events.on_configuration_changed(function()
+  forget_books()
+  local war = State.war()
+  if not (war and war.active and war.factions) then return end
+  for _, id in ipairs(State.sorted_keys(war.factions)) do
+    local f = war.factions[id]
+    if f.team and not f.is_player and not f.eliminated and game.forces[f.force] then
+      for level = 0, f.tech or 0 do unlock(f, level) end
+    end
+  end
+end)
 
 local function stock_of(f)
   return f.hq.get_inventory(defines.inventory.chest).get_contents()

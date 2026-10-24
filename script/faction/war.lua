@@ -319,12 +319,14 @@ function War.status_lines(tick)
     end
     local ks = {}
     for _, k in ipairs(State.sorted_keys(kinds)) do ks[#ks + 1] = k .. " " .. kinds[k] end
+    -- Lot PNJ-VÉRIF : « dont N loin » = soldats de garnison à plus de 160 tuiles du QG (à rappeler).
+    local _, far = Military.garrison_split(f)
     lines[#lines + 1] = {
       "", "  ", faction_name(f), string.format(
-        " [%s]%s tech %d+%d | avant-postes %d (%s) | fonderie %d | soldats %d (garnison %d, groupes %d) | ouvriers %d | attaques %d | pertes %d",
+        " [%s]%s tech %d+%d | avant-postes %d (%s) | fonderie %d | soldats %d (garnison %d dont %d loin, groupes %d, rappels %d) | ouvriers %d | attaques %d | pertes %d",
         f.personality, f.eliminated and " ANEANTIE |" or "", f.tech, f.upgrades,
-        f.outposts_count, table.concat(ks, ", "), f.smelters and #f.smelters or 0, f.soldiers_count, f.garrison_count,
-        #State.sorted_keys(f.groups), f.engineers_count, f.stats.attacks, f.stats.soldiers_lost),
+        f.outposts_count, table.concat(ks, ", "), f.smelters and #f.smelters or 0, f.soldiers_count, f.garrison_count, far,
+        #State.sorted_keys(f.groups), f.stats.recalls or 0, f.engineers_count, f.stats.attacks, f.stats.soldiers_lost),
     }
     if f.team and f.hq and f.hq.valid then lines[#lines + 1] = Team.status_line(f) end
     local st = f.stats

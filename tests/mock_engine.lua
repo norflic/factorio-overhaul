@@ -752,6 +752,8 @@ function M.new_world(opts)
     script_raised_revive = 11, script_raised_destroy = 12, on_player_mined_entity = 13, on_robot_mined_entity = 14,
     on_selected_entity_changed = 15, on_player_left_game = 16,
     on_chunk_charted = 17, -- lot M0 : étiquettes des sites garantis (script/world/guarantee.lua)
+    -- lot PNJ-VÉRIF : le livre de recettes des équipes est oublié quand les recherches d'une force changent
+    on_research_finished = 18, on_research_reversed = 19, on_technology_effects_reset = 20, on_force_reset = 21,
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),

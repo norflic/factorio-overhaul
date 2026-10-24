@@ -794,6 +794,33 @@ for _, f in ipairs(snd_self_fail) do print("  SON AUTO-CONTROLE FAUX " .. f) end
 if VERBOSE then for _, n in ipairs(snd_mod_files) do print("  SON DU MOD " .. n) end end
 print(string.format("Localisation : %d clé(s) manquante(s)", #missing_locale))
 for i = 1, math.min(#missing_locale, 60) do print("  LOCALE " .. missing_locale[i]) end
+-- Lot PNJ-VÉRIF (défaut M1) : chaque technologie que le cerveau d'équipe débloque (shared/team/config.lua,
+-- T.unlocks) doit exister dans les données finales ; un nom absent est ignoré EN SILENCE par team.lua unlock()
+-- (« turrets » au lieu de « gun-turret » : aucune faction ne fabriquait de tourelle). Auto-contrôle : un nom
+-- inventé doit être refusé, un nom vanilla accepté.
+local unlock_errors, unlock_count, unlock_self = {}, 0, 0
+do
+  local TC = dofile(MOD_ROOT .. "/shared/team/config.lua")
+  local techs = modded.technology or {}
+  local function known(name) return techs[name] ~= nil end
+  if not known("turrets") then unlock_self = unlock_self + 1 end
+  if known("gun-turret") then unlock_self = unlock_self + 1 end
+  local levels = {}
+  for level in pairs(TC.unlocks) do levels[#levels + 1] = level end
+  table.sort(levels)
+  for _, level in ipairs(levels) do
+    for _, name in ipairs(TC.unlocks[level]) do
+      unlock_count = unlock_count + 1
+      if not known(name) then
+        unlock_errors[#unlock_errors + 1] = string.format("niveau %d : technologie « %s » absente des données", level, name)
+      end
+    end
+  end
+end
+print(string.format("Technologies des équipes (T.unlocks) : %d nom(s), %d absent(s) ; auto-contrôle %d/2",
+  unlock_count, #unlock_errors, unlock_self))
+for _, e in ipairs(unlock_errors) do print("  T.UNLOCKS " .. e) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
+  and #unlock_errors == 0 and unlock_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)
