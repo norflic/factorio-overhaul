@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.14
+Date: 2026-10-24
+  Graphics:
+    - Le gisement de tungstène a son propre aspect : druses de wolframite noire et d'acier froid sur les cendres
+      volcaniques, lueur turquoise froide la nuit ; nouvelle icône du minerai ; bleu acier froid sur la carte.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.13
 Date: 2026-10-24
   Graphics:
