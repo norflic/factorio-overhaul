@@ -23,6 +23,12 @@ import sys
 WAR_RE = re.compile(r"\[FO-WAR\] ([0-9.]+) min \| factions vivantes (\d+)")
 FAC_RE = re.compile(r"(Scarlet|Azure|Emerald|Amber) [A-Za-z]+ \[\w+\] tech (\d+)\+\d+ \| avant-postes (\d+) .*?"
                     r"\| soldats (\d+) .*?\| ouvriers (\d+) \| attaques (\d+) \| pertes (\d+)")
+# Fusion avec 0.4.15 (lot PNJ-VÉRIF, 0.4.12) : « garnison g dont N loin » (soldats à plus de 160 tuiles du QG) ;
+# lancements d'attaque « [FO-ATTACK] tick t f -> cible : n soldats » ; une relance de la même faction à 310 ticks
+# au plus est une attaque FANTÔME (règle du correcteur de PNJ-VÉRIF, fo-logs/2026-10-24_PNJ/correction/pnj_analyse.py).
+FAR_RE = re.compile(r"garnison \d+ dont (\d+) loin")
+ATTACK_RE = re.compile(r"\[FO-ATTACK\] tick (\d+) (\w+) -> (\w+) : (\d+) soldats")
+PHANTOM_TICKS = 310
 TEAM_RE = re.compile(r"equipe : objectif (\S+(?: \([^)]*\))?).*?\| stock iron=(\d+)")
 OUV_RE = re.compile(r"\| ouvriers \{([^}]*)\}")
 LIVRE_RE = re.compile(r"\| ramasse (\d+) \| entraines \d+ \| livre fer (\d+)")
@@ -87,9 +93,11 @@ def parse(log):
         m = FAC_RE.search(line)
         if m:
             key = m.group(1).lower()
+            far = FAR_RE.search(line)
             snaps[cur]["factions"][key] = {
                 "tech": int(m.group(2)), "outposts": int(m.group(3)), "soldiers": int(m.group(4)),
                 "workers": int(m.group(5)), "attacks": int(m.group(6)), "losses": int(m.group(7)),
+                "far": int(far.group(1)) if far else None,
             }
             last_fac = key
             continue
@@ -97,6 +105,22 @@ def parse(log):
             snaps[cur]["factions"][last_fac].update({k: v for k, v in team_fields(line).items() if k != "workers"})
             last_fac = None
     return snaps
+
+
+def attacks(log):
+    """Lancements d'attaque : (total, fantômes, par faction {key: n})."""
+    last, total, phantom, per = {}, 0, 0, {}
+    for line in log.splitlines():
+        m = ATTACK_RE.search(line)
+        if not m:
+            continue
+        t, f = int(m.group(1)), m.group(2).lower()
+        if f in last and t - last[f] <= PHANTOM_TICKS:
+            phantom += 1
+        last[f] = t
+        total += 1
+        per[f] = per.get(f, 0) + 1
+    return total, phantom, per
 
 
 def at(snaps, minute):
@@ -123,6 +147,9 @@ def main():
         snaps = parse(log)
         label = os.path.basename(os.path.normpath(d))
         print(f"== {label} | graine {seed} | source {src}")
+        n_att, n_ph, per = attacks(log)
+        print(f"   lancements d'attaque {n_att} (fantomes, relance <= {PHANTOM_TICKS} ticks : {n_ph}) ; "
+              + ", ".join(f"{k} {per[k]}" for k in sorted(per)))
         for mn in minutes:
             real, s = at(snaps, mn)
             if s is None or real < mn - 1.01:
@@ -140,7 +167,9 @@ def main():
                 rows.append([label, seed, mn, real, k, f["soldiers"], f["workers"], f["tech"], f["outposts"],
                              f.get("iron", ""), f.get("iron_delivered", ""), f["attacks"], f["losses"]])
             p = s["player"] or {}
-            print(f"   min {mn} (rapport {real:g}) : soldats total {total} | " + " ; ".join(parts))
+            fars = [s["factions"][k]["far"] for k in KEYS if k in s["factions"] and s["factions"][k]["far"] is not None]
+            far_txt = f" | loin du QG {sum(fars)}" if fars else ""
+            print(f"   min {mn} (rapport {real:g}) : soldats total {total}{far_txt} | " + " ; ".join(parts))
             if p:
                 print(f"      votre equipe : ouvriers {p.get('workers')} (inactifs {p.get('idle')}) "
                       f"fer au coffre {p.get('iron')} ramasse {p.get('collected')} fer livre {p.get('iron_delivered')} "
