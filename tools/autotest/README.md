@@ -547,6 +547,31 @@ Scénarios greffés du lot M0 (socle du monde : garantie des monnaies des époqu
   `& "<racine>\fo-autotest.bat" nopause 2600 m0-reprise "<source>"`. Attendu (23/10, `done.txt` 16:45:02,98) :
   « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) ».
 
+Scénarios greffés du lot IA1-0 (levée des risques moteur des équipes de PNJ, docs/EQUIPES_PNJ.md §14 ; sorties
+`<racine>\fo-logs\2026-10-24_IA1\IA1-0\`, NOTES.md ; mod livré tel quel, aucun prototype de test) :
+- `ia1-risques` (1 800 ticks ; contrôle final au tick 1 700) : R1 (tick 250, amélioration d'un four et d'un assembleur
+  de niveau en marche par un PNJ porteur du coût : sans `character`, avec `character` (appel interdit, danger mesuré),
+  et par `levels_upgrade` ; objets de niveau comptés sur toute la carte), R2 et R3 (roboports de `player` et d'une force
+  IA `ia1-fac` : fantômes de leur force et de l'autre, coffre demandeur), R4 (ticks 400 à 830, 5 répétitions : coût
+  au LuaProfiler des appels d'évaluation d'un lot de 24 × 24, de `can_place_entity`, de la pose d'un fantôme, du
+  ravivage avec et sans les gestionnaires du mod), R5 (ticks 60 à 1 260 : modificateurs `character_*` d'un personnage
+  sans joueur et de la force, 5 variantes), R7 (tick 10 : coffres liés de deux forces). Le BILAN ne compte que les
+  contrôles de PROTOCOLE et les témoins ; les réponses sont des lignes « VERDICT Rk : OUI|NON … » hors bilan.
+  `& "<racine>\fo-autotest.bat" nopause 1800 ia1-risques "<source>"`, puis
+  `py -3.9 tools/autotest/ia1/risques.py "<racine>\fo-autotest"` (coûts unitaires, VERDICT R4, exige les 6 verdicts ;
+  `--selftest` : 6 OK). Attendu (24/10, `done.txt` 10:51:54,22) : « [FO-IA1-RISQUES] BILAN : 42 OK, 0 ECHEC(S) » et
+  « RESULTAT : OK », code 0.
+- `ia1-carte` (images seulement ; contrôle au tick 230) : R6, une bordure pointillée `draw_line` en mode Alt seulement
+  (zone A) et toujours visible (zone B), textes, étiquettes de carte posées dès la cartographie, fantômes d'assembleur de
+  `player` et de `ia1-fac` côte à côte. `& "<racine>\fo-captures.bat" ia1-carte "<source>"` : 7 captures de la liste
+  et 5 captures HORS liste écrites par le scénario (`fo-shots\x-ia1-*.png`, non indexées : élément `minimap` avec
+  `show_gui`, et `open_map` suivi de `take_screenshot`), car `take_screenshot` ne rend pas la vue carte. Attendu (24/10,
+  11:10:09) : code 0, « [FO-IA1-CARTE] BILAN : 3 OK » au banc, « 4 OK » dans la session (étiquettes posées au tick 25).
+  Observé (images regardées, F178 proposé) : bordure A en mode Alt seulement, B toujours ; minimap : étiquettes oui,
+  traits `rendering` NON ; `take_screenshot` SANS `show_gui` dessine les fantômes de toutes les forces et aucune
+  alerte, AVEC `show_gui` seulement ceux de la force du joueur (sa vraie vue) : une capture qui doit montrer ce que voit
+  le joueur passe `show_gui = true`.
+
 Depuis le lot V3-T3, `t2-migration` et `t2-defense` journalisent aussi, après leurs contrôles, une ligne
 « LIBERER LA PLACE (plan seul, hors bilan) : n liberable(s) sur m laisse(s) : … » : `levels_free_room` en plan seul
 (`{ dry = true }`, rien n'est posé) pour chaque bâtiment laissé par la migration. Cette ligne est HORS bilan : le
