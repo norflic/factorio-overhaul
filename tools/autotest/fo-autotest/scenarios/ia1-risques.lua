@@ -18,12 +18,18 @@
 -- R2 : un roboport de « player » (votre équipe : les PNJ de votre équipe sont dans votre force) et ses robots
 --   bâtissent-ils les fantômes posés par script pour « player », avec les objets du réseau ? Et ceux d'une force IA
 --   posés dans sa zone ? (La visibilité des fantômes d'une autre force se juge sur les captures d'ia1-carte.)
+--   Le DANGER est la réponse oui (vos robots vident votre stock pour les modules de votre équipe) : verdict
+--   « SE REALISE » ou « NE SE REALISE PAS ». Repli du §14 joué (correction du 24/10) : « pose juste à temps » ; dans un
+--   second réseau de « player » (zone R2J), 5 fantômes posés au tick 600 et ravivés par un PNJ porteur 1, 30, 120, 480
+--   et 900 ticks plus tard ; objets pris au stock du réseau relevés tous les 10 ticks (stock, cargaison des robots).
 -- R3 : le roboport d'une force IA (sans joueur) bâtit-il ses fantômes, et ses robots logistiques livrent-ils un
 --   coffre demandeur ? Et les fantômes de « player » posés dans sa zone ?
--- R4 (ticks 400, 500, 600 : 3 répétitions ; banc épinglé sur les cœurs P par fo-autotest.bat, F30) : coût unitaire,
---   au LuaProfiler, des appels d'évaluation d'un lot de 24 × 24, de can_place_entity (script_ghost), de la pose
---   d'un fantôme, du ravivage AVEC les gestionnaires du mod (raise_revive : niveaux) et SANS, du retrait de l'objet
---   porté. Le journal donne des durées totales ; risques.py les divise.
+-- R4 (ticks 400 à 800 : 5 répétitions ; banc épinglé sur les cœurs P par fo-autotest.bat, F30) : coût unitaire,
+--   au LuaProfiler, des appels d'évaluation d'un lot de 24 × 24 (lot naturel ET forêt dense de 144 arbres plantés),
+--   de can_place_entity (script_ghost), de la pose d'un fantôme, du ravivage AVEC les gestionnaires du mod
+--   (raise_revive : niveaux, presque vides pour cette force) et SANS, du ravivage RACCORDÉ (poteau moyen dans un réseau
+--   électrique, tuyau dans un réseau d'eau), du retrait de l'objet porté. Le journal donne des durées totales ;
+--   risques.py les divise (valeurs BRUTES ; l'étalon ne sert qu'à juger si la machine était calme).
 -- R5 (ticks 60 à 1260) : modificateurs character_* sur un personnage SANS joueur, et addition à ceux de la force :
 --   5 variantes (témoin « character » vanilla, témoin corps des PNJ, modificateurs du rang 5 « léger »,
 --   modificateurs de force seuls, les deux) ; fabrication de 20 engrenages, 120 ticks de course, minage du fer.
@@ -48,8 +54,8 @@ local R4_G = 200 -- fantômes par série (grille 20 × 10, pas de 4 tuiles)
 -- introuvable depuis le mod de test) : fabrication +2,0 (× 3), minage +1,5 (× 2,5), course +0,15, +40 cases.
 local PERSO = { craft = 2.0, mine = 1.5, run = 0.15, inv = 40 }
 -- Modificateurs de force de la variante « force » (LuaForce, valeurs rondes, distinctes des personnels). Course +0,5 :
--- la vitesse est arrondie au 1/256 de tuile par tick (essai 1 : 0,15 → 38/256) ; avec +0,15 de part et d'autre, addition
--- (49,9/256) et produit (50,8/256) tombaient sur la même valeur arrondie ; avec +0,5 : 63,4/256 contre 66,2/256.
+-- la vitesse est tronquée au 1/256 de tuile par tick (essai 1 : 0,15 → 38/256) ; avec +0,15 de part et d'autre, addition
+-- (49,9/256) et produit (50,8/256) tombaient sur la même valeur tronquée ; avec +0,5 : 63,4/256 contre 66,2/256.
 local FORCE_MOD = { craft = 1.0, mine = 1.0, run = 0.5, inv = 10 }
 
 local FORCES = { "ia1-r1", "ia1-r1m", "ia1-fac", "ia1-r5", "ia1-r5f" }
@@ -63,6 +69,17 @@ local R5 = { x0 = 1290, y0 = 1286, x1 = 1380, y1 = 1336 }
 local R4 = { x0 = 1600, y0 = 1296, x1 = 1690, y1 = 1394 }
 local R4_EMPTY = { x0 = 1720, y0 = 1300, x1 = 1744, y1 = 1324 }
 local NATURE_Y = 1700
+-- R4, correction du 24/10 : forêt dense plantée (un arbre toutes les 2 tuiles : 144 arbres) et ravivages raccordés
+-- (grille de 20 × 10 poteaux moyens au pas de 4 depuis un poteau racine ; bloc de 20 × 10 tuyaux depuis un tuyau d'eau).
+local FOREST = { x0 = 1860, y0 = 1300, x1 = 1884, y1 = 1324 }
+local R4C = { x0 = 1756, y0 = 1296, x1 = 1846, y1 = 1366, pole0 = { 1758.5, 1302.5 }, pipe0 = { 1761.5, 1350.5 } }
+-- Poteaux ISOLÉS (pas de 10 tuiles, au-delà de la portée de fil de 9) : coût du ravivage d'un poteau sans raccord.
+local R4I = { x0 = 1696, y0 = 1398, x1 = 1896, y1 = 1530 } -- rangées 0 à 9 : fantômes ; 10 à 12 : create_entity
+local POLE_Q = 4 -- les 200 poteaux raccordés sont mesurés en 4 quarts : le coût grandit-il avec le réseau ?
+-- R2, repli « pose juste à temps » : second réseau de player, loin de la zone de construction de R2 (rayon 55).
+local R2J = { x0 = 1290, y0 = 1420, x1 = 1390, y1 = 1500, rp = { 1340, 1460 } }
+local T_R2J = 600
+local R2J_LIFE = { 1, 30, 120, 480, 900 }
 
 local function force(name) return game.forces[name] or game.create_force(name) end
 
@@ -275,6 +292,119 @@ local function setup_robots(ctx, st, s, Z, own, other, logistics)
   return z
 end
 
+--- R2, repli « pose juste à temps » (correction du 24/10) : second réseau de player (même roboport, 10 robots de
+--- construction, 10 fours en pierre en stock), un PNJ de player porteur de 4 fours ; les fantômes sont posés au tick
+--- T_R2J (réseau au repos) et ravivés par le PNJ R2J_LIFE[k] ticks plus tard.
+local function setup_r2j(ctx, st, s)
+  local Z = R2J
+  ctx.prepare_area(Z.x0, Z.y0, Z.x1, Z.y1, "grass-1")
+  ctx.power(Z.rp[1], Z.rp[2], "player")
+  local rp = s.create_entity({ name = "roboport", position = Z.rp, force = "player" })
+  if rp then rp.insert({ name = "construction-robot", count = 10 }) end
+  local store = s.create_entity({ name = "logistic-chest-storage", position = { Z.rp[1] - 3.5, Z.rp[2] - 3.5 },
+    force = "player" })
+  if store then store.insert({ name = "stone-furnace", count = 10 }) end
+  local porter = npc(s, Z.rp[1] + 6.5, Z.rp[2] - 14.5, "player", { { "stone-furnace", #R2J_LIFE } })
+  local z = { rp = rp, store = store, porter = porter, ghosts = {}, min_store = 10, first_take = nil }
+  for k, life in ipairs(R2J_LIFE) do
+    z.ghosts[k] = { pos = { Z.rp[1] + 10 + 4 * (k - 1), Z.rp[2] - 10 }, life = life }
+  end
+  st.r2j = z
+  ctx.check(rp ~= nil and store ~= nil and porter ~= nil and porter.get_item_count("stone-furnace") == #R2J_LIFE,
+    "R2 repli : second reseau de player (roboport, 10 robots, 10 fours en stock) et PNJ porteur de " .. #R2J_LIFE .. " fours",
+    "roboport " .. tostring(rp ~= nil) .. ", stockage " .. tostring(store ~= nil) .. ", porteur "
+      .. tostring(porter and porter.get_item_count("stone-furnace")))
+end
+
+--- Fours en pierre portés par les robots de construction d'un réseau (cargaison).
+local function robot_cargo(net, item)
+  local n = 0
+  if not net then return 0 end
+  for _, r in ipairs(net.construction_robots) do
+    local inv = r.get_inventory(defines.inventory.robot_cargo)
+    if inv then n = n + inv.get_item_count(item) end
+  end
+  return n
+end
+
+local function tick_r2j(ctx, st, t)
+  local z = st.r2j
+  if not z then return end
+  local s = ctx.surface()
+  if t == T_R2J then
+    for _, g in ipairs(z.ghosts) do
+      g.g = s.create_entity({ name = "entity-ghost", inner_name = "stone-furnace", position = g.pos, force = "player",
+        expires = false })
+    end
+  end
+  for _, g in ipairs(z.ghosts) do
+    if t == T_R2J + g.life and not g.by then
+      if g.g and g.g.valid then
+        local inv = z.porter.get_main_inventory()
+        if inv.remove({ name = "stone-furnace", count = 1 }) == 1 then
+          local _, e = g.g.revive({ raise_revive = true })
+          g.by = e and "PNJ" or "echec du ravivage"
+          g.t = t
+        end
+      elseif s.find_entity("stone-furnace", g.pos) then
+        g.by = "ROBOT"
+      else
+        g.by = "fantome disparu"
+      end
+    end
+    if not g.robot_t and t >= T_R2J and g.g and not g.g.valid and not g.t and s.find_entity("stone-furnace", g.pos) then
+      g.robot_t = t
+    end
+  end
+  -- Stock relu CHAQUE tick (correction du 24/10, 13 h) : on_tick passe avant la mise à jour des entités, donc la
+  -- valeur lue au tick t est celle de la fin du tick t − 1 ; un ravivage au tick r précède toute prise si r < first_take.
+  if t >= T_R2J and z.store and z.store.valid then
+    local n = z.store.get_item_count("stone-furnace")
+    if n < z.min_store then z.min_store = n end
+    if n < 10 and not z.first_take then z.first_take = t end
+  end
+end
+
+local function finish_r2j(ctx, st)
+  local z = st.r2j
+  if not z then return nil end
+  local net = z.rp and z.rp.valid and z.rp.logistic_network
+  local stock = z.store and z.store.valid and z.store.get_item_count("stone-furnace") or -1
+  local cargo = robot_cargo(net, "stone-furnace")
+  local parts, by_robot, by_npc, safe_life, robot_after = {}, 0, 0, 0, nil
+  for _, g in ipairs(z.ghosts) do
+    local who = g.by or "rien (jamais ravive)"
+    if who == "ROBOT" or (g.robot_t and who ~= "PNJ") then
+      by_robot = by_robot + 1
+      if g.robot_t and not robot_after then robot_after = g.robot_t - T_R2J end
+    end
+    if who == "PNJ" then
+      by_npc = by_npc + 1
+      if by_robot == 0 then safe_life = g.life end
+    end
+    parts[#parts + 1] = string.format("vie %d ticks : %s%s", g.life, who,
+      g.robot_t and (" (bati par un robot au tick " .. g.robot_t .. ", " .. (g.robot_t - T_R2J) .. " ticks apres la pose)") or "")
+  end
+  local taken = 10 - stock - cargo
+  -- Fenêtre « stock intact » : plus longue vie d'un fantôme ravivé par le PNJ AVANT la première prise du réseau.
+  local intact = -1
+  for _, g in ipairs(z.ghosts) do
+    if g.by == "PNJ" and (not z.first_take or T_R2J + g.life < z.first_take) and g.life > intact then intact = g.life end
+  end
+  local porter = z.porter and z.porter.valid and z.porter.get_item_count("stone-furnace") or -1
+  local line = string.format("repli pose juste a temps (fantomes poses au tick %d, ravives par un PNJ de player) : %s ; "
+    .. "stock du reseau 10 -> %d (+ %d en cargaison au tick du controle), objets pris au reseau %d, stock minimal %d "
+    .. "(premiere prise au tick %s) ; PNJ porteur %d -> %d", T_R2J, table.concat(parts, ", "), stock, cargo, taken,
+    z.min_store, tostring(z.first_take or "jamais"), #R2J_LIFE, porter)
+  ctx.log("MESURE R2 " .. line)
+  ctx.check(by_npc + by_robot == #R2J_LIFE and stock >= 0,
+    "R2 repli : les " .. #R2J_LIFE .. " fantomes du second reseau sont batis (par le PNJ ou par un robot)",
+    by_npc .. " par le PNJ, " .. by_robot .. " par un robot")
+  return { line = line, taken = taken, by_robot = by_robot, by_npc = by_npc, safe_life = safe_life,
+    robot_after = robot_after, min_store = z.min_store, intact = intact,
+    first_after = z.first_take and (z.first_take - T_R2J) or nil }
+end
+
 local function setup_r7(ctx, st, s)
   ctx.prepare_area(R7.x0, R7.y0, R7.x1, R7.y1, "grass-1")
   if not game.entity_prototypes["linked-chest"] then
@@ -353,16 +483,40 @@ local function setup_r4(ctx, st, s)
     local n = s.count_entities_filtered({ area = a, type = "tree" })
     if not best_n or n > best_n then best, best_n = a, n end
   end
-  st.r4 = { nature = best, porter = npc(s, 1645.5, 1347.5, "ia1-r1", { { "assembling-machine-2", #R4_TICKS * R4_G } }),
+  local nrev = #R4_TICKS * R4_G
+  st.r4 = { nature = best, porter = npc(s, 1645.5, 1347.5, "ia1-r1", { { "assembling-machine-2", nrev },
+      { "medium-electric-pole", 2 * nrev + 50 * #R4_TICKS }, { "pipe", nrev } }),
     stock = npc(s, 1655.5, 1347.5, "ia1-r1", { { "iron-plate", 1000 } }), reps = {} }
   local a = best
   ctx.log(string.format("R4 lot naturel [%d,%d]-[%d,%d] : %d arbre(s), %d tuile(s) d'eau, %d falaise(s), %d ressource(s), "
     .. "%d entite(s) en tout", a[1][1], a[1][2], a[2][1], a[2][2], best_n,
     s.count_tiles_filtered({ area = a, collision_mask = "water-tile" }), s.count_entities_filtered({ area = a, type = "cliff" }),
     s.count_entities_filtered({ area = a, type = "resource" }), s.count_entities_filtered({ area = a })))
-  local carried = st.r4.porter and st.r4.porter.get_item_count("assembling-machine-2") or 0
-  ctx.check(carried == #R4_TICKS * R4_G and st.r4.stock ~= nil, "R4 : PNJ porteur pose, un assembleur 2 par ravivage mesure",
-    carried .. " assembleurs pour " .. #R4_TICKS .. " x " .. R4_G .. " ravivages")
+  -- Forêt dense (correction du 24/10) : un arbre toutes les 2 tuiles sur 24 × 24 (144 arbres).
+  ctx.prepare_area(FOREST.x0 - 6, FOREST.y0 - 6, FOREST.x1 + 6, FOREST.y1 + 6, "grass-1")
+  local tree = game.entity_prototypes["tree-02"] and "tree-02" or "tree-01"
+  for x = FOREST.x0 + 1, FOREST.x1 - 1, 2 do
+    for y = FOREST.y0 + 1, FOREST.y1 - 1, 2 do s.create_entity({ name = tree, position = { x, y } }) end
+  end
+  st.r4.forest = { { FOREST.x0, FOREST.y0 }, { FOREST.x1, FOREST.y1 } }
+  local nf = s.count_entities_filtered({ area = st.r4.forest, type = "tree" })
+  -- Ravivages raccordés : poteau racine et tuyau d'eau racine (force du porteur).
+  ctx.prepare_area(R4C.x0, R4C.y0, R4C.x1, R4C.y1, "grass-1")
+  ctx.prepare_area(R4I.x0, R4I.y0, R4I.x1, R4I.y1, "grass-1")
+  st.r4.pole0 = s.create_entity({ name = "medium-electric-pole", position = R4C.pole0, force = "ia1-r1" })
+  st.r4.pipe0 = s.create_entity({ name = "pipe", position = R4C.pipe0, force = "ia1-r1" })
+  if st.r4.pipe0 then st.r4.pipe0.fluidbox[1] = { name = "water", amount = 100 } end
+  ctx.log(string.format("R4 foret dense [%d,%d]-[%d,%d] : %d arbre(s) (%s) ; poteau racine %s, tuyau d'eau racine %s",
+    FOREST.x0, FOREST.y0, FOREST.x1, FOREST.y1, nf, tree, tostring(st.r4.pole0 ~= nil), tostring(st.r4.pipe0 ~= nil)))
+  local p = st.r4.porter
+  local carried = p and p.get_item_count("assembling-machine-2") or 0
+  local poles = p and p.get_item_count("medium-electric-pole") or 0
+  local pipes = p and p.get_item_count("pipe") or 0
+  ctx.check(carried == nrev and poles == 2 * nrev + 50 * #R4_TICKS and pipes == nrev and st.r4.stock ~= nil,
+    "R4 : PNJ porteur pose, un objet par ravivage mesure (assembleur 2, poteau moyen, tuyau)",
+    carried .. " assembleurs, " .. poles .. " poteaux, " .. pipes .. " tuyaux pour " .. #R4_TICKS .. " x " .. R4_G .. " ravivages")
+  ctx.check(nf == 144 and st.r4.pole0 ~= nil and st.r4.pipe0 ~= nil,
+    "R4 : foret dense de 144 arbres plantee, poteau et tuyau d'eau racines poses", nf .. " arbres")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -460,6 +614,17 @@ local function play_r1(ctx, st)
       or "reinsertion manuelle comptee (fallback, exige a 0)"))
 end
 
+--- Reprise de la fabrication après le remplacement (vérification du 24/10, m2) : progression lue aux 3 ticks suivants.
+local function trace_r1(ctx, st, t)
+  local parts = {}
+  for _, c in ipairs(st.r1.cases) do
+    if c.variant ~= "B" and c.new and c.new.valid then
+      parts[#parts + 1] = string.format("%s %.4f (produits %d)", c.id, c.new.crafting_progress, c.new.products_finished)
+    end
+  end
+  ctx.log("MESURE R1 reprise au tick " .. t .. " : " .. table.concat(parts, ", "))
+end
+
 ---------------------------------------------------------------------------------------------------
 -- R2, R3 : robots
 ---------------------------------------------------------------------------------------------------
@@ -511,12 +676,33 @@ local function finish_robots(ctx, st, key, own, other)
     .. "batis dans la zone de %s (ticks %s, %d encore fantomes)", own_built, own, table.concat(own_t, ", "), stock,
     other_built, other, own, table.concat(other_t, ", "), other_ghost)
   if key == "r2" then
+    -- Correction du 24/10 : le DANGER du §14 est la réponse oui (vos robots prennent VOS objets pour les fantômes de
+    -- votre équipe). Verdict : « SE REALISE » ou « NE SE REALISE PAS » ; le repli « pose juste à temps » est mesuré.
+    local real = own_built > 0 or stock < 10
+    local j = st.r2j_res
+    local repli
+    if not real then
+      repli = "aucun"
+    elseif j and j.by_npc > 0 and j.taken == j.by_robot then
+      -- Trois régimes, mesurés : stock intact (ravivage avant la première prise), stock entamé puis rendu (robot en
+      -- route quand le PNJ ravive), objet consommé (robot arrivé le premier).
+      repli = string.format("pose juste a temps (A APPLIQUER par IA1-d, pas par ce lot) : stock INTACT si le PNJ ravive dans "
+        .. "les %s ticks (premiere prise du reseau %s ticks apres la pose) ; ravive jusqu'a %d ticks : 0 objet perdu mais "
+        .. "objets SORTIS du stock en attendant (stock minimal %d sur 10, rendus par les robots) ; laisse plus longtemps : bati "
+        .. "par vos robots %s ticks apres la pose, avec vos objets (%d pris) ; un module a la fois ; ou decision du DC "
+        .. "(Q-IA1-R2)", j.intact >= 0 and tostring(j.intact) or "AUCUNE vie jouee", tostring(j.first_after or "jamais"),
+        j.safe_life, j.min_store, tostring(j.robot_after or "jamais"), j.taken)
+    elseif j then
+      repli = string.format("pose juste a temps INSUFFISANT (%d objet(s) pris au reseau, %d fantome(s) batis par un robot) ; "
+        .. "decision du DC (Q-IA1-R2)", j.taken, j.by_robot)
+    else
+      repli = "pose juste a temps NON MESURE ; decision du DC (Q-IA1-R2)"
+    end
     ctx.log(string.format("VERDICT R2 : %s : %s ; vos robots (force player) batissent les fantomes poses par script pour "
-      .. "player avec les objets du reseau : %s ; fantomes d'une force IA dans votre zone : %s ; visibilite des fantomes "
-      .. "d'une autre force : captures ia1-carte ; repli : %s", own_built == 3 and stock == 7 and "OUI" or "NON", line,
-      own_built == 3 and stock == 7 and "oui" or "non", other_built == 0 and "ignores" or "BATIS",
-      own_built == 3 and "aucun pour la construction (equipe du joueur = force player)"
-        or "votre equipe : pose juste a temps, un module a la fois"))
+      .. "player avec les objets de VOTRE reseau : %s (%d objet(s) pris) ; fantomes d'une force IA dans votre zone : %s ; "
+      .. "%s ; visibilite des fantomes d'une autre force : deduite des captures ia1-carte (show_gui) ; repli : %s",
+      real and "SE REALISE" or "NE SE REALISE PAS", line, own_built > 0 and "oui" or "non", 10 - stock,
+      other_built == 0 and "ignores" or "BATIS", j and j.line or "repli non joue", repli))
   else
     local req = z.req and z.req.valid and z.req.get_item_count("iron-plate") or -1
     local prov = z.prov and z.prov.valid and z.prov.get_item_count("iron-plate") or -1
@@ -604,6 +790,39 @@ local function r4_eval(ctx, st, rep)
     for _ = 1, n do x = s.count_entities_filtered(f_tree) end
     return x
   end)
+  -- Forêt dense (correction du 24/10) : mêmes 5 appels d'évaluation sur 144 arbres plantés.
+  local fo = st.r4.forest
+  local fo_water = { area = fo, collision_mask = "water-tile", limit = 1 }
+  measure(ctx, "count_tiles_eau_lot_foret", R4_N, rep, function(n)
+    local x = 0
+    for _ = 1, n do x = x + s.count_tiles_filtered(fo_water) end
+    return x
+  end)
+  local fo_cliff = { area = fo, type = "cliff", limit = 1 }
+  measure(ctx, "count_falaises_lot_foret", R4_N, rep, function(n)
+    local x = 0
+    for _ = 1, n do x = x + s.count_entities_filtered(fo_cliff) end
+    return x
+  end)
+  local fo_res = { area = fo, type = "resource", limit = 1 }
+  measure(ctx, "count_ressources_lot_foret", R4_N, rep, function(n)
+    local x = 0
+    for _ = 1, n do x = x + s.count_entities_filtered(fo_res) end
+    return x
+  end)
+  local fo_force = { area = fo, force = { "enemy", "neutral" }, invert = true, limit = 1 }
+  measure(ctx, "count_autre_force_lot_foret", R4_N, rep, function(n)
+    local x = 0
+    for _ = 1, n do x = x + s.count_entities_filtered(fo_force) end
+    return x
+  end)
+  local fo_tree = { area = fo, type = { "tree", "simple-entity" } }
+  local ftrees = measure(ctx, "count_arbres_rochers_sans_limite_lot_foret", R4_N, rep, function(n)
+    local x = 0
+    for _ = 1, n do x = s.count_entities_filtered(fo_tree) end
+    return x
+  end)
+  ctx.check(ftrees == 144, "R4 rep " .. rep .. " : la foret dense compte 144 arbres a chaque appel", tostring(ftrees))
   local cpos = { R4_EMPTY.x0 + 12.5, R4_EMPTY.y0 + 12.5 }
   local ghost_check = defines.build_check_type.script_ghost
   local can = measure(ctx, "can_place_script_ghost", R4_N, rep, function(n)
@@ -681,6 +900,96 @@ local function r4_revive(ctx, st, rep)
   ctx.check(rev1 == R4_G and rev2 == R4_G and item0 - inv.get_item_count("assembling-machine-2") == R4_G,
     "R4 rep " .. rep .. " : 2 x " .. R4_G .. " fantomes ravives, " .. R4_G .. " objets retires au porteur",
     rev1 .. " + " .. rev2 .. " ; objets retires " .. (item0 - inv.get_item_count("assembling-machine-2")))
+  -- Ravivages RACCORDÉS (correction du 24/10) : poteau moyen qui rejoint un réseau électrique, tuyau qui rejoint un
+  -- réseau d'eau ; même geste qu'un PNJ (retrait de l'objet porté, revive{raise_revive = true}).
+  local function revive_list(label, list, item, i0, i1, quiet)
+    i0, i1 = i0 or 1, i1 or R4_G
+    return measure(ctx, label, i1 - i0 + 1, rep, function()
+      local m = 0
+      for i = i0, i1 do
+        local g = list[i]
+        if g and g.valid and inv.remove({ name = item, count = 1 }) == 1 then
+          local _, e = g.revive({ raise_revive = not quiet })
+          if e then m = m + 1; list[i] = e end
+        end
+      end
+      return m
+    end)
+  end
+  local rp = 0
+  local q = R4_G / POLE_Q
+  for k = 1, POLE_Q do
+    rp = rp + revive_list("ravivage_poteau_raccorde_q" .. k, R.poles, "medium-electric-pole", (k - 1) * q + 1, k * q)
+  end
+  -- Poteaux isolés : 100 de la force du porteur (gestionnaires), 50 sans gestionnaires, 50 d'une force sans aucun
+  -- autre poteau (ia1-r5) : à qui attribuer le coût ?
+  local ri = revive_list("ravivage_poteau_isole", R.iso, "medium-electric-pole", 1, 100)
+    + revive_list("ravivage_poteau_isole_sans_gestionnaires", R.iso, "medium-electric-pole", 101, 150, true)
+    + revive_list("ravivage_poteau_isole_force_sans_poteau", R.iso, "medium-electric-pole", 151, 200)
+  local iso_wired = 0
+  for i = 1, R4_G do
+    local e = R.iso[i]
+    if e and e.valid and e.type == "electric-pole" then
+      local nb = e.neighbours
+      if nb and nb.copper and #nb.copper > 0 then iso_wired = iso_wired + 1 end
+    end
+  end
+  ctx.check(ri == R4_G and iso_wired == 0, "R4 rep " .. rep .. " : " .. R4_G .. " poteaux isoles ravives, aucun fil",
+    ri .. " ravives, " .. iso_wired .. " relies")
+  -- Même poteau isolé posé par create_entity, sans fantôme (raise_built = true) : le coût vient-il du ravivage ?
+  local s = ctx.surface()
+  R.made = {}
+  local nm = measure(ctx, "pose_poteau_create_entity", 50, rep, function(n)
+    local m = 0
+    for i = 1, n do
+      local col, row = (i - 1) % 20, 10 + math.floor((i - 1) / 20)
+      if inv.remove({ name = "medium-electric-pole", count = 1 }) == 1 then
+        local e = s.create_entity({ name = "medium-electric-pole", force = "ia1-r1", raise_built = true,
+          position = { R4I.x0 + 4.5 + 10 * col, R4I.y0 + 4.5 + 10 * row } })
+        if e then m = m + 1; R.made[m] = e end
+      end
+    end
+    return m
+  end)
+  ctx.check(nm == 50, "R4 rep " .. rep .. " : 50 poteaux isoles poses par create_entity", tostring(nm))
+  local rq = revive_list("ravivage_tuyau_raccorde", R.pipes, "pipe")
+  local net0 = st.r4.pole0 and st.r4.pole0.valid and st.r4.pole0.electric_network_id
+  local sys0 = st.r4.pipe0 and st.r4.pipe0.valid and st.r4.pipe0.fluidbox.get_fluid_system_id(1)
+  local wired, same_net, same_sys = 0, 0, 0
+  for _, e in ipairs(R.poles) do
+    if e.valid and e.type == "electric-pole" then
+      local nb = e.neighbours
+      if nb and nb.copper and #nb.copper > 0 then wired = wired + 1 end
+      if net0 and e.electric_network_id == net0 then same_net = same_net + 1 end
+    end
+  end
+  for _, e in ipairs(R.pipes) do
+    if e.valid and e.type == "pipe" and sys0 and e.fluidbox.get_fluid_system_id(1) == sys0 then same_sys = same_sys + 1 end
+  end
+  ctx.log(string.format("MESURE R4 rep %d raccords : %d/%d poteaux ravives, %d relies par fil, %d dans le reseau du poteau "
+    .. "racine ; %d/%d tuyaux ravives, %d dans le systeme de fluide du tuyau racine", rep, rp, #R.poles, wired, same_net, rq,
+    #R.pipes, same_sys))
+  ctx.check(rp == R4_G and rq == R4_G and same_net == R4_G and same_sys == R4_G,
+    "R4 rep " .. rep .. " : " .. R4_G .. " poteaux et " .. R4_G .. " tuyaux ravives ET raccordes au reseau racine",
+    "poteaux " .. rp .. " (reseau racine " .. same_net .. ", fils " .. wired .. "), tuyaux " .. rq .. " (systeme racine "
+      .. same_sys .. ")")
+end
+
+--- Pose (non mesurée) des fantômes de poteaux et de tuyaux d'une répétition, 10 ticks avant leur ravivage.
+local function r4_place_connected(ctx, st, rep)
+  local s = ctx.surface()
+  local R = st.r4.reps[rep]
+  R.poles, R.pipes, R.iso = {}, {}, {}
+  for i = 1, R4_G do
+    local col, row = (i - 1) % 20, math.floor((i - 1) / 20)
+    R.iso[i] = s.create_entity({ name = "entity-ghost", inner_name = "medium-electric-pole",
+      position = { R4I.x0 + 4.5 + 10 * col, R4I.y0 + 4.5 + 10 * row }, force = i > 150 and "ia1-r5" or "ia1-r1",
+      expires = false })
+    R.poles[i] = s.create_entity({ name = "entity-ghost", inner_name = "medium-electric-pole",
+      position = { R4C.pole0[1] + 4 + 4 * col, R4C.pole0[2] + 4 * row }, force = "ia1-r1", expires = false })
+    R.pipes[i] = s.create_entity({ name = "entity-ghost", inner_name = "pipe",
+      position = { R4C.pipe0[1] + 1 + col, R4C.pipe0[2] + row }, force = "ia1-r1", expires = false })
+  end
 end
 
 local function r4_busy_and_clear(ctx, st, rep)
@@ -693,8 +1002,11 @@ local function r4_busy_and_clear(ctx, st, rep)
   end)
   ctx.check(n == R4_N, "R4 rep " .. rep .. " : le lot occupe compte une entite a chaque appel", n .. "/" .. R4_N)
   local R = st.r4.reps[rep]
-  for _, list in ipairs({ R.s1, R.s2 }) do
-    for _, e in ipairs(list) do if e and e.valid then e.destroy() end end
+  for _, list in ipairs({ R.s1, R.s2, R.poles or {}, R.pipes or {}, R.iso or {}, R.made or {} }) do
+    for i = 1, R4_G do
+      local e = list[i]
+      if e and e.valid then e.destroy() end
+    end
   end
   st.r4.reps[rep] = { done = true }
 end
@@ -743,10 +1055,11 @@ end
 -- Modèle de mesure (essai 1, 24/10 10 h 36) : le moteur compte en ticks entiers et arrondit.
 --   fabrication et minage : une unité prend la durée nominale (énergie × 60 ÷ multiplicateur) ou UN tick de plus
 --     (engrenage à × 1 : 31 ticks au lieu de 30 ; à × 6 : 5 ticks) : on accepte [E − 0,05 ; E + 1,05] ;
---   course : la vitesse par tick est arrondie au 1/256 de tuile (0,15 → 38/256) : on accepte |v − E| ≤ 1/256 ;
+--   course : la vitesse par tick est TRONQUÉE au 1/256 de tuile (0,15 → 38/256) : on accepte E − 1/256 < v ≤ E ;
 --   inventaire : égalité exacte.
 local function fits(kind, measured, expected)
-  if kind == "run" then return math.abs(measured - expected) <= 1.0 end
+  -- Course : vitesse TRONQUÉE vers le bas au 1/256 (vérification du 24/10 : 57,6 -> 57, 44,16 -> 44), jamais au-dessus.
+  if kind == "run" then return measured <= expected + 0.01 and measured > expected - 1.0 end
   if kind == "inv" then return measured == expected end
   return measured >= expected - 0.05 and measured <= expected + 1.05
 end
@@ -850,6 +1163,7 @@ return {
     setup_r1(ctx, st, s)
     st.r2 = setup_robots(ctx, st, s, R2, "player", "ia1-fac", false)
     st.r3 = setup_robots(ctx, st, s, R3, "ia1-fac", "player", true)
+    setup_r2j(ctx, st, s)
     setup_r7(ctx, st, s)
     setup_r5(ctx, st, s)
     setup_r4(ctx, st, s)
@@ -865,8 +1179,11 @@ return {
     if t == T_R7 then play_r7(ctx, st) end
     tick_r5(st, t)
     if t == T_R1 then play_r1(ctx, st) end
+    if t > T_R1 and t <= T_R1 + 3 then trace_r1(ctx, st, t) end
+    tick_r2j(ctx, st, t)
     for rep, t4 in ipairs(R4_TICKS) do
       if t == t4 then r4_eval(ctx, st, rep) end
+      if t == t4 + 10 then r4_place_connected(ctx, st, rep) end
       if t == t4 + 20 then r4_revive(ctx, st, rep) end
       if t == t4 + 30 then r4_busy_and_clear(ctx, st, rep) end
     end
@@ -876,6 +1193,7 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     if not st.pret then return end
+    st.r2j_res = finish_r2j(ctx, st)
     finish_robots(ctx, st, "r2", "player", "ia1-fac")
     finish_robots(ctx, st, "r3", "ia1-fac", "player")
     finish_r5(ctx, st)

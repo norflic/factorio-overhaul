@@ -14,7 +14,10 @@
 -- zoom 2. Captures HORS liste, écrites par ce scénario (fo-shots\x-*.png, non indexées) :
 --   x-ia1-fantomes-g1 à g4 : variantes de take_screenshot (player seul ; by_player ; show_gui ; sans player) ;
 --   x-ia1-minimap-*.png : élément d'interface « minimap » (carte de la force) + show_gui, 5 ticks après sa création ;
---   x-ia1-open-map.png : LuaPlayer.open_map, puis take_screenshot (essai 1 : la capture ignore le mode carte).
+--   x-ia1-open-map.png : LuaPlayer.open_map(centre, 0,5), puis take_screenshot (essai 1 : la capture ignore le mode
+--   carte) ; x-ia1-open-map-e2.png et -e6.png : échelles 2 et 6, pour essayer la carte rapprochée (chart_zoomed_in).
+-- La vue carte du joueur n'est PAS observée par ces captures (take_screenshot rend la vue du monde) : l'élément
+-- « minimap » n'en est qu'un relais ; la vraie vue carte reste à regarder une fois (DC ou session fo-visual.bat).
 
 local ZA = { 552, 576, 616, 640 }
 local ZB = { 632, 576, 696, 640 }
@@ -161,6 +164,15 @@ return {
         .. tostring(defines.render_mode.chart_zoomed_in) .. ")")
       shot_gui("x-ia1-open-map.png", player, nil, nil, true)
     elseif e.tick == T_MAP + 10 then
+      player.close_map()
+    elseif e.tick == T_MAP + 12 or e.tick == T_MAP + 22 then
+      -- Correction du 24/10 (vérification M2) : carte RAPPROCHÉE (chart_zoomed_in) essayée par une échelle plus grande.
+      player.open_map(CENTER, e.tick == T_MAP + 12 and 2 or 6)
+    elseif e.tick == T_MAP + 17 or e.tick == T_MAP + 27 then
+      local sc = e.tick == T_MAP + 17 and 2 or 6
+      ctx.log("open_map echelle " .. sc .. " : mode de rendu " .. tostring(player.render_mode))
+      shot_gui("x-ia1-open-map-e" .. sc .. ".png", player, nil, nil, true)
+    elseif e.tick == T_MAP + 20 or e.tick == T_MAP + 30 then
       player.close_map()
     end
   end,
