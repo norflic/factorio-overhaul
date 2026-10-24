@@ -240,6 +240,9 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 21 h 40, **verdict du DC sur les biomes (lot B0)** : « B1 D, B2 A, B3 B, B4 B » → plaine de cristal en sol
+  mauve bruyère ; marais corrigé (passé sous les sols), décalage du méthane naturel accepté ; grain fin aux frontières
+  à ajouter ; végétation vanilla retirée de la plaine. Suite confiée à l'agent de B0 ; fusion ensuite.
 - 24/10, vers 20 h 30, **réponses Q-B1 et Q-B2, nouvelles demandes** : « aussi, créer de nouveau minerais, designs tous différents, nouveaux modules (car en fait ils ont tous le même aspet / couleur en plus). En fait j'ai ouvert le jeu et cheaté pouvoir voir ce que je pouvais faire mais je pense que tout n'était pas du tout fini et du coup j'ai vu des défauts qui de toute façon aurai été corrigé, comme aussi el fait qu'il y a un biome violet et il est bizare et les transitions entre biomes sont ultra pixélisé (ça fait de gros carés et donc je pense que c'est ça qui fait en sorte qeu ce soit bizare car y coupe entre un fond jaune ou vert avec du bleu/violet). QB1 en fait c'est aps ça, l'idée et que par exemple, au palier 1 on A +50% de vitesse, au palier 2 on a +80%, au palier 3 +110%, mais que quand on les mets sur une machine, le calcul de la vitesse finale soit V = v_base * bonus_module1 * bonus_module2 *bonus_module3 ... QB2 B, on commence à 5 et ensuite +1 par niveau »
   → Lecture retenue : modules par paliers (+50, +80, +110 % de vitesse…), cumul MULTIPLICATIF des modules d'une
   machine, énergie au même taux, emplacements 5 + (niveau − 1). Le moteur 1.1 ADDITIONNE les effets des modules :
