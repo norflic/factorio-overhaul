@@ -3,7 +3,7 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
+> Prochains identifiants libres (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
 
@@ -278,6 +278,15 @@
   effacés avant les refus (pas d'écriture atomique), permutation cohérente non vue par `check_gun_sheets`, centre de plage
   seul contrôlé dans `gun-rose`, forme diagonale de F126 non mesurée, comparaison D4m d'une heure à l'autre, README de
   `gun_e` absent.
+- 24/10, vers 4 h 15, **run `wf_0e7edcdd-4f2`** (A4-préparation et D4m-géant, presque sans Blender pendant la
+  production). Vers 5 h 45, **fusion de D4m-géant** (`d7efe80` de `worktree-wf_0e7edcdd-4f2-2` : constructeur
+  `0a13534`, correcteur `4dbea8d`) : le banc `d4-geant` est recalé (F128 résolu : chaque niveau à sa taille, F161) ;
+  vérification : 1 majeur (le contrôle « 64 images demandées » était une tautologie de la formule, rien n'était lu du
+  moteur), corrigé par une galerie de 960 mitrailleuses (64 par âge) dont les images sont relues dans le moteur ;
+  `fo-captures.bat` rend 8 quand un BILAN du banc est en échec (mineurs non traités : un banc arrêté avant son BILAN
+  rend toujours 0 ; le code 8 a deux sens). Sur `main` après la fusion (`d7efe80`), 24/10 : `d4-geant` **18 OK** (`done.txt` 5:46:15,72), `content` 317 (5:46:22,71), `gun-rose` 13 (5:46:29,24) ; archives `<racine>\fo-logs\2026-10-24_integration-D4m-geant\` ; hors jeu : bat_double_source **47**, run_d4m 5/5, api_lint **685** ; `fo-captures.bat` recopié à la racine à 5:45:53, verrou des bancs libre, après contrôle que la racine était l'ancienne source. Ménage du disque (orchestrateur) : copies du mod retirées
+  de 6 archives d'intégration (2,16 Go) et 35 worktrees fusionnés et propres retirés (branches gardées) ; le dossier
+  d'A4 a dépassé la consigne de 1 Go (1,8 Go à 5 h 10) : alerte posée sous 4 Go libres.
 
 ### Décisions d'architecture et d'outillage (plan de la suite ; lots A0, A1, K0, M0 ; 23/10, après 15 h)
 - **Plan de la suite** (`fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md`, synthèse de 15 h 35 à 16 h 15) : refonte
@@ -340,6 +349,14 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot D4m-géant, banc d4-geant recalé, 24/10, 4 h 05 à 5 h 15 ; fusionné dans `main`, `d7efe80`)
+Preuves : `fo-logs\2026-10-24_D4m-geant\` (`NOTES.md` §1 à §7 et « Correction », `verification.md`). Expérience : E117.
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F161 | **Observé en moteur réel**. Un greffon qui dimensionne une famille à niveaux par son PLUS GRAND côté et centre les niveaux plus petits dans la case perd le contact bras/tapis de ces niveaux (731 bras reliés sur 2 440, 193 foreuses sur 376) ; depuis 0.4.3, un niveau se pose à SA taille, collé à ce qu'il sert. Un moteur simulé qui pose tous les niveaux au côté de base laisse un essai à blanc vert sur un banc rouge. | `d4-geant.lua` pose chaque niveau à sa taille ; `d4_dryrun.lua` lit `L.footprint` et la règle des points. |
+| F162 | **Observé en moteur réel** (572 tourelles de l'usine, puis 960 de la galerie, 2×2 à 6×6). L'orientation écrite au tick 30 sur des mitrailleuses à niveaux, chargées, sans cible, avec ou sans bras, est relue identique (à 1/1024) au tick 120 ; l'image relue par l'inverse d'`orientation_image` donne les 64 valeurs par âge. Au-delà du tick 120 : vu à l'œil seulement. | F122 et F123 tiennent dans une usine dense ; la galerie de `d4-geant` charge les 64 images de chaque âge pour la mesure de mémoire vidéo. |
 
 ### Faits vérifiés en moteur réel (lot A3-jeu, têtes à 64 directions en jeu, 24/10, 0 h 25 à 4 h ; fusionné dans `main`, `3fe1da6`, version 0.4.9)
 Bloc A3 et A4 : F146 à F149 ; A3-jeu prend F146 à F148. Preuves : `fo-logs\2026-10-24_A3-jeu\` (`NOTES.md` §4 à §10 et
@@ -648,6 +665,14 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E117 · VALIDÉ en moteur réel · Banc `d4-geant` recalé sur les emprises de 0.4.3 (lot D4m-géant, 24/10)** : usine
+288 × 392 tuiles (5 343 bâtiments, 13 824 tapis, 9 091 bras ; seuils d'origine gardés), champ z0,3 en 1920 × 1080 :
+1 019 bâtiments dont 619 machines, 63,8 % couverts (91 % de la couverture de 0.4.1), 7/7 familles ; galerie des têtes
+(960 mitrailleuses, 64 images relues par âge) ; 18 OK au banc et dans 5 sessions (haute, normale, plancher), 60 UPS ;
+mémoire dédiée à 7 âges à 64 directions : haute 1,64 à 1,65 Go par vue (pic 1,81), normale 0,65, plancher 0,42.
+Limites : usine moins dense dans le champ qu'en 0.4.1 (1 019 bâtiments dessinés contre 2 588 ; machines plus grandes) ;
+images par seconde non mesurées.
+
 **E109 à E111 · Lot A3-jeu (24/10, 0 h 25 à 4 h ; runs `wf_93b960d8-a9c` puis `wf_bcc3f79d-bc7`)** : détail dans
 `fo-logs\2026-10-24_A3-jeu\NOTES.md` §4 à §6 et §13.
 - **E109 · VALIDÉ en moteur réel pour les âges 2 à 8 · 64 directions en jeu, intégration progressive** : un âge passe à
