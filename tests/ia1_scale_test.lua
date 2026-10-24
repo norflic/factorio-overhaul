@@ -217,6 +217,10 @@ check(S.recruit_held(1, 0) and not S.recruit_held(0, 0), "limite 0 : un seul PNJ
 check(not S.recruit_held(30, 60) and not S.recruit_held(60, 60), "limite 60 : jamais de frein (seul le stock freine)")
 check(S.recruit_held(3, 2) and not S.recruit_held(2, 2), "limite 2 : frein au-delà de 2 inactifs")
 check(S.recruit_held(1, nil), "limite absente : défaut du réglage (0)")
+-- Plancher (correction 3) : sous l'effectif de départ, jamais de frein (reconstruction après des pertes).
+check(not S.recruit_held(1, 0, 1, 8) and not S.recruit_held(7, 0, 7, 8), "plancher : 1 ou 7 PNJ sur 8, pas de frein")
+check(S.recruit_held(1, 0, 8, 8) and S.recruit_held(2, 0, 12, 8), "plancher atteint (8, 12 PNJ) : frein")
+check(S.recruit_held(1, 0, 1, nil), "plancher absent : règle d'avant")
 local ph = Planner.plan(base_view({ stock = rich, workers_wanted = 30, recruit_cost = cost, recruit_held = true }), book)
 check(not ph.recruit_workers and ph.recruit_held, "frein : aucune recrue malgré le stock")
 local craft_recruit = false
@@ -321,6 +325,26 @@ do
   local v = remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 99)
   check(v == 60, "set_setting borne la valeur (99 -> " .. tostring(v) .. ")")
   check(remote.call("fo-ia1", "set_setting", "fo-pvp-difficulty", 1) == nil, "set_setting refuse un réglage hors équipes")
+  -- Plancher (correction 3) : une faction décimée à 1 PNJ, frein à 0 : le frein ne la retient plus (sous son
+  -- départ, 8). La reconstruction elle-même n'est PAS contrôlée : ici, avec ou sans frein (60), la faction reste
+  -- à 1 PNJ en 6 min, pistolet de la recrue jamais fabriqué (défaut d'avant IA1-a, NOTES.md du lot, § 6.8).
+  remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 0)
+  local f = wb.factions[1]
+  local ids = require("script.faction.state").sorted_keys(f.engineers)
+  for i = 2, #ids do
+    local a = global.fo.companion.agents[ids[i]]
+    if a and a.entity.valid then a.entity.die() end
+  end
+  M.run_ticks(2)
+  local after_kill = f.engineers_count
+  remote.call("factorio-overhaul", "war_fund", 3000)
+  local held0, rec0 = f.stats.recruit_held or 0, f.stats.recruited or 0
+  check(pcall(M.run_ticks, 6 * 3600), "simulation sans erreur après les pertes")
+  print(string.format("  faction décimée : %d PNJ après les pertes, %d après 6 min ; recrues %d -> %d ; pistolets %d",
+    after_kill, f.engineers_count, rec0, f.stats.recruited or 0, f.hq.get_item_count("pistol")))
+  check(after_kill == 1 and (f.stats.recruit_held or 0) == held0,
+    "plancher : sous son départ (8), la faction décimée n'est jamais freinée (frein " .. held0 .. " -> "
+    .. tostring(f.stats.recruit_held) .. ")")
 end
 
 section("Moteur simulé : au plus 2 demandes émises par tick")

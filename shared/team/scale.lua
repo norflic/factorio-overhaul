@@ -100,7 +100,13 @@ end
 
 --- Frein par le travail (réglage fo-recruit-idle-max) : vrai si l'équipe a PLUS de `limit` PNJ sans tâche ;
 --- elle ne recrute alors pas. `limit` ≥ 60 (le maximum d'une équipe) : jamais de frein.
-function S.recruit_held(idle, limit)
+--- PLANCHER (correction 3 d'IA1-a, fusion avec 0.4.15) : une équipe sous `floor` PNJ (son effectif de départ,
+--- S.start_headcount) n'est jamais freinée : elle se reconstruit après des pertes. Mesuré en moteur réel sans
+--- plancher (`default` et `ia1-sansfonds`, graine 20261020) : une faction décimée resta à 1 PNJ pendant plus de
+--- 15 min avec 3 489 fer au stock (frein 265 pensées : son seul PNJ, inactif entre deux tâches à la pensée, retenait
+--- même la fabrication du pistolet de la recrue). `n` ou `floor` absents : pas de plancher (règle d'avant).
+function S.recruit_held(idle, limit, n, floor)
+  if n and floor and n < floor then return false end
   return (idle or 0) > (limit or S.DEFAULTS["fo-recruit-idle-max"])
 end
 

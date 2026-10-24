@@ -243,7 +243,9 @@ function Team.view(f, tick)
   -- Correction IA1-a (défauts M1, M2) : frein par le travail. Plus de fo-recruit-idle-max PNJ sans tâche :
   -- aucune recrue (ni équipement de recrue fabriqué) ; le stock reste aux objectifs et à l'armée.
   local workers_idle = Worker.idle_count(f)
-  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"))
+  -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
+  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"), f.engineers_count or 0,
+    Scale.start_headcount(Config.get("npc_start"), workers_max))
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
