@@ -38,6 +38,8 @@ C.MIN_HOLD = 5 * 3600      -- durée minimale d'une dominante
 C.CRISIS = 800             -- menace au-delà de laquelle la dominante peut changer avant MIN_HOLD
 C.NEAR = 900               -- hasard entre les options à 90 % ou plus de la meilleure (pour mille)
 C.INERTIA = 150            -- + 15 % pour la dominante en cours, × discipline / 1 000
+C.WEARY = 40               -- lassitude : − 4 % par minute au-delà de MIN_HOLD (÷ discipline), jusqu'à − 50 %
+C.EPISODE_CHECK = 10 * 3600 -- bilan intermédiaire d'un épisode long (confiance − 50 si rien n'avance)
 C.MIX = { 600, 250, 150 }  -- dominante, 2e, 3e (pour mille)
 C.MULT_LO, C.MULT_HI = 700, 1400 -- bornes du multiplicateur du seuil d'attaque entre factions
 C.MEMORY = 8               -- attaques retenues
@@ -228,7 +230,16 @@ function C.scores(v, st, best)
     local s = cons[p][1]
     s = math.floor(s * C.weight(p, v.traits) / 1000)
     s = math.floor(s * (st.confidence[p] or 1000) / 1000)
-    if p == st.dominant then s = math.floor(s * (1000 + math.floor(C.INERTIA * v.traits.discipline / 1000)) / 1000) end
+    if p == st.dominant then
+      s = math.floor(s * (1000 + math.floor(C.INERTIA * v.traits.discipline / 1000)) / 1000)
+      -- Lassitude : au-delà de MIN_HOLD, la dominante perd WEARY pour mille par minute (÷ discipline), jusqu'à
+      -- la moitié : une autre posture finit par passer devant, sans retour au hasard pur.
+      local held = math.floor((v.tick - (st.since or v.tick) - C.MIN_HOLD) / 3600)
+      if held > 0 then
+        local w = math.floor(held * C.WEARY * 1000 / math.max(500, v.traits.discipline))
+        s = math.floor(s * (1000 - math.min(500, w)) / 1000)
+      end
+    end
     list[#list + 1] = { key = p, score = s, i = i, reason = cons[p][2] }
   end
   table.sort(list, function(a, b)
@@ -368,6 +379,14 @@ function C.think(st, v, draw)
     end
   end
   v.threat = C.threat(v, st)
+  -- Bilan intermédiaire d'un épisode long : une dominante qui n'obtient rien en EPISODE_CHECK perd confiance.
+  local ep = st.episode
+  if ep and v.tick - (ep.checked or ep.tick) >= C.EPISODE_CHECK then
+    if C.episode_result(ep, v, st) < 0 then
+      st.confidence[ep.posture] = clamp((st.confidence[ep.posture] or 1000) - 50, 500, 1500)
+    end
+    ep.checked = v.tick
+  end
   local targets = C.rank_targets(v, st)
   local best = targets[1]
   if #targets > 1 then best = C.pick(targets, draw) end
