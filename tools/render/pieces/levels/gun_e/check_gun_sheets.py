@@ -326,8 +326,16 @@ def mutants(dest):
             jdump(mp, m)
 
         def m_lua(d):
+            # premier « line_length = N » du texte, quel que soit N, mis à 2 (ou 3 s'il valait 2) : depuis que les
+            # 14 âges sont à 64 directions (lot A3-final), il n'y a plus de « line_length = 1 » (têtes en colonne) et
+            # l'ancien remplacement ne changeait rien (mutant inerte, « ACCEPTÉ À TORT »).
+            import re
             p = os.path.join(d, "sprites.lua")
-            s = open(p, encoding="utf-8").read().replace("line_length = 1", "line_length = 2", 1)
+            s0 = open(p, encoding="utf-8").read()
+            s = re.sub(r"line_length = (\d+)", lambda m: "line_length = %d" % (3 if m.group(1) == "2" else 2), s0,
+                       count=1)
+            if s == s0:
+                raise RuntimeError("mutant sprites.lua inerte : aucun « line_length = » dans sprites.lua")
             open(p, "w", encoding="utf-8", newline="\n").write(s)
             mp = os.path.join(d, "MANIFEST.json")
             m = json.load(open(mp, encoding="utf-8"))
