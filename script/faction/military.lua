@@ -209,7 +209,7 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   group.start_moving()
   -- route : étapes de l'aller (nombres seulement), reprises à l'envers si le retour direct échoue.
   f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen,
-    route = route, gid = group.group_number, raid = rp.raid }
+    route = route, gid = group.group_number, raid = rp.raid, ids = chosen }
   f.stats.attacks = f.stats.attacks + 1
   Journal.attack(f, target_faction, #chosen, rp, tick) -- lot IA2-0 : ligne publiée (métriques M2)
   if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
@@ -282,7 +282,11 @@ local function attack_ended(f, g, tick)
   g.ended = true
   if Military.on_attack_ended then
     local survivors = (g.group and g.group.valid) and #g.group.members or 0
-    Military.on_attack_ended(f, g, survivors, tick)
+    -- Soldats partis encore vivants (dans le groupe ou rendus à la garnison) : un groupe vidé sans morts est un
+    -- groupe défait par le moteur (F174), pas une attaque repoussée.
+    local alive = 0
+    for _, id in ipairs(g.ids or {}) do if f.soldiers[id] then alive = alive + 1 end end
+    Military.on_attack_ended(f, g, survivors, tick, g.ids and alive or nil)
   end
 end
 

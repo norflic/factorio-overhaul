@@ -303,8 +303,10 @@ Military.on_chef_launch = function(f, target_faction, n, rp, tick, gid)
   if rp.raid then f.chef.raid = nil end
 end
 
---- Fin de la phase d'attaque d'un groupe (retour ordonné, ou groupe vidé) : issue de l'attaque.
-Military.on_attack_ended = function(f, g, survivors, tick)
+--- Fin de la phase d'attaque d'un groupe (retour ordonné, ou groupe vidé) : issue de l'attaque. `alive` : soldats
+--- partis encore vivants (groupe ou garnison) ; un groupe vidé dont la moitié au moins vit encore a été DÉFAIT par
+--- le moteur (F174), issue « dissous », sans leçon pour la mémoire.
+Military.on_attack_ended = function(f, g, survivors, tick, alive)
   if not f.chef or g.target_faction == "player" or not g.target then return end
   local t = State.faction(g.target_faction)
   local standing = false
@@ -317,11 +319,20 @@ Military.on_attack_ended = function(f, g, survivors, tick)
       end
     end
   end
-  local outcome = not standing and "reussie" or (survivors > 0 and "repoussee" or "aneantie")
+  local outcome
+  if not standing then
+    outcome = "reussie"
+  elseif survivors > 0 then
+    outcome = "repoussee"
+  elseif alive and alive * 2 >= (g.size or 0) and (g.size or 0) > 0 then
+    outcome = "dissous"
+  else
+    outcome = "aneantie"
+  end
   local a = C.record_outcome(f.chef, g.gid, outcome, g.size, survivors, tick)
-  log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s",
+  log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s, vivants %s",
     tick, f.key, t and t.key or tostring(g.target_faction), outcome, g.size or 0, survivors,
-    a and tostring(a.octant) or "-", a and a.raid and ", raid" or ""))
+    a and tostring(a.octant) or "-", a and a.raid and ", raid" or "", alive and tostring(alive) or "-"))
 end
 
 ---------------------------------------------------------------------------------------------------

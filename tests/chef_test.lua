@@ -218,6 +218,11 @@ do
   local a = C.record_outcome(st, 77, "repoussee", 20, 8, 11 * 3600)
   check(a and a.outcome == "repoussee" and st.extra_defense[target] == 12 and st.avoid[target] == 11 * 3600 + C.AVOID_TICKS,
     "issue repoussée : défense apprise (12 pertes), cible évitée 10 min")
+  -- Groupe défait par le moteur (F174) : aucune leçon.
+  local sd = C.new(stream(25), 0)
+  C.record_attack(sd, { target = 3, octant = 2, n = 20, tick = 0, gid = 9 })
+  local ad = C.record_outcome(sd, 9, "dissous", 20, 0, 300)
+  check(ad and ad.outcome == "dissous" and sd.avoid[3] == nil and sd.extra_defense[3] == nil, "issue « dissous » (F174) : ni cible évitée ni défense apprise")
   -- Le côté suivant change (l'octant repoussé est pénalisé).
   local again = 0
   for _ = 1, 500 do

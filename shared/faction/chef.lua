@@ -347,7 +347,7 @@ function C.episode_result(ep, v, st)
   if p == "assaut" or p == "raids" then
     local w, l = 0, 0
     for _, a in ipairs(st.attacks) do
-      if a.tick >= ep.tick and a.outcome then
+      if a.tick >= ep.tick and a.outcome and a.outcome ~= "dissous" then
         if a.outcome == "reussie" then w = w + 1 else l = l + 1 end
       end
     end
@@ -519,15 +519,19 @@ function C.record_attack(st, rec)
   if rec.raid then st.last_raid = rec.tick end
 end
 
---- Fin d'une attaque : issue « reussie » (cible détruite), « repoussee » (survivants, cible debout) ou « aneantie »
---- (aucun survivant, cible debout). Une attaque repoussée rend la cible moins attirante et lui ajoute de la défense
---- estimée (les pertes subies, en équivalents fusiliers).
+--- Fin d'une attaque : issue « reussie » (cible détruite), « repoussee » (survivants, cible debout), « aneantie »
+--- (aucun survivant, cible debout) ou « dissous » (groupe défait par le moteur, soldats vivants : F174, sans leçon).
+--- Une attaque repoussée rend la cible moins attirante et lui ajoute de la défense estimée (les pertes subies, en
+--- équivalents fusiliers).
 function C.record_outcome(st, gid, outcome, sent, survivors, tick)
   for k = #st.attacks, 1, -1 do
     local a = st.attacks[k]
     if a.gid == gid and not a.outcome then
       a.outcome, a.survivors = outcome, survivors
-      if outcome ~= "reussie" then
+      if outcome == "dissous" then
+        -- Groupe défait par le moteur (F174) : aucune leçon.
+        return a
+      elseif outcome ~= "reussie" then
         st.avoid[a.target] = tick + C.AVOID_TICKS
         local lost = math.max(0, (sent or 0) - (survivors or 0))
         st.extra_defense[a.target] = math.max(st.extra_defense[a.target] or 0, lost)
