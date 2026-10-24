@@ -216,6 +216,10 @@
   problème ? ». → Règle de l'orchestrateur pendant ses parties : aucune régénération d'images ni fusion qui change les
   images dans le dossier du mod (`main`) ; les lots travaillent dans leurs worktrees ; les intégrations attendent la fin
   de sa partie ; les sessions de test restent silencieuses, en fenêtre réduite, dans leurs dossiers à part.
+  **Corrigé vers 10 h 05** : « nan mais quand je disai jouer, je voulai dire : je lance un autre jeu, pendant que vous
+  continuez l'avancée ». → Le DC joue à un AUTRE jeu sur ce PC : la retenue sur le dossier du mod est levée, les
+  intégrations reprennent normalement ; seule la charge du PC compte (Blender en priorité basse, bancs courts, fenêtres
+  réduites, aucun son) ; à sa demande, les rendus passeront sur une seule place.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
