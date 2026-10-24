@@ -534,8 +534,8 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
       -- Lot IA2-a : opts.chef = graine : chef modélisé par un multiplicateur du seuil tiré CHAQUE MINUTE dans toute sa
       -- plage (700 à 1 400 pour mille) et, une minute sur trois, un raid de 5 à 10 soldats (défense de la cible 0).
       chef = opts.chef and Tr.new_stream(opts.chef, 200 + i) or nil,
-      -- Lot IA2-a2 : TRÊVE du chef (rivales épargnées par satiété : ni attaque ni raid contre la rivale, défense
-      -- infinie, script/faction/commander.lua), une minute sur quatre, flux à part (les tirages d'IA2-a sont inchangés).
+      -- Lot IA2-a2 : TRÊVE du chef (rivales épargnées par satiété : aucun raid ; en Paisible, aucune attaque contre la
+      -- rivale ; seuil 1 400), une minute sur quatre, flux à part (les tirages d'IA2-a sont inchangés).
       hold_stream = opts.chef and Tr.new_stream(opts.chef, 300 + i) or nil,
       r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0,
         joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {}, raids = 0, varied = 0 },
@@ -577,8 +577,7 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
           player = { score = cfg.score, defense = cfg.defense, reachable = true },
         }
         if f.chef then
-          v.chef = { war_mult = f.war_mult or 1000, raid = (not f.hold) and f.raid or nil, raid_defense = 0 }
-          if f.hold then v.enemy_defense = math.huge end
+          v.chef = { war_mult = f.hold and 1400 or (f.war_mult or 1000), raid = f.raid, raid_defense = 0, hold = f.hold or nil }
         end
         local a = S.decide(v)
         if a.warn then fp.warned = true; r.warn = r.warn or tick end

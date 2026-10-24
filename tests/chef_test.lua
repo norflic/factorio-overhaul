@@ -298,14 +298,14 @@ do
   check(d0.target == 2 and not d0.hold, "avant la bataille : la rivale 2 est visée")
   C.record_kill(st, 2, 12)
   local d1 = C.think(st, view(11 * 3600, { garrison = 40 }), drawer(st.stream))
-  check(st.beaten[2] == 11 * 3600 + C.SATIETY and #d1.sated_new == 1 and d1.target == 3 and not d1.hold,
-    "12 tués : rivale 2 battue (épargnée 15 min), le chef vise la 3 (" .. tostring(d1.target) .. ")")
+  check(st.beaten[2] == 11 * 3600 + C.SATIETY + 2 * C.SATIETY_PER_KILL and #d1.sated_new == 1 and d1.target == 3 and not d1.hold,
+    "12 tués : rivale 2 battue (épargnée 15 min + 2 × 30 s), le chef vise la 3 (" .. tostring(d1.target) .. ")")
   -- Toutes les rivales battues : trêve (la première reste désignée, ni attaque ni raid).
   C.record_kill(st, 3, 10)
   local d2 = C.think(st, view(12 * 3600, { garrison = 40 }), drawer(st.stream))
   check(d2.hold and d2.target ~= nil and d2.raid == nil, "toutes battues : trêve (cible " .. tostring(d2.target) .. ", raid nul)")
-  local d3 = C.think(st, view(11 * 3600 + C.SATIETY, { garrison = 40 }), drawer(st.stream))
-  check(not d3.hold and d3.target == 2, "fin de la satiété (15 min) : la rivale 2 redevient la cible")
+  local d3 = C.think(st, view(11 * 3600 + C.SATIETY + 2 * C.SATIETY_PER_KILL, { garrison = 40 }), drawer(st.stream))
+  check(not d3.hold and d3.target == 2, "fin de la satiété (16 min) : la rivale 2 redevient la cible")
   -- Tués étalés : 5 par minute pendant 3 min (compte amorti × 0,8) : battue à la 3e pensée.
   local se = C.new(stream(32), 0)
   local beaten_at
@@ -340,6 +340,27 @@ do
   local vb = view(12 * 3600, { garrison = 40, lost = 12 })
   vb.army_done, vb.floor = true, 8
   check(not C.survival(vb), "pas de survie : 12 soldats perdus mais 40 sur 60 visés")
+  -- La survie tient jusqu'au rétablissement (ouvriers au départ ET armée au quart de sa cible), pertes anciennes ou non.
+  local vl = view(13 * 3600, { garrison = 2, lost = 0 })
+  vl.workers, vl.floor, vl.army_done, vl.soldiers = 8, 8, true, 2
+  local dl = C.think(ss, vl, drawer(ss.stream))
+  local vr = view(14 * 3600, { garrison = 16, lost = 0 })
+  vr.workers, vr.floor, vr.army_done, vr.soldiers = 8, 8, true, 16
+  check(dl.survive and not C.survival(vl) and not C.survival(vr, ss),
+    "survie tenue (8 ouvriers, 2 soldats sur 60, aucune perte récente), levée à 16 soldats sur 60")
+  -- Trêve et décision d'attaque (shared/faction/strategy.lua) : en Paisible, aucune attaque ni raid contre la rivale ;
+  -- à un niveau agressif, règle inchangée (ordre strict de la campagne de pvp_test).
+  local S = require("shared.faction.strategy")
+  local function sv(level, hold)
+    return { personality = "conqueror", tech = 1, upgrades = 0, garrison = 60, soldiers_max = 100, can_attack = true,
+      enemy_defense = 5, rival = { id = 2, outposts = 4 }, pvp = { difficulty = level, tick = 0, sent_player = 0, sent_total = 0 },
+      chef = { war_mult = 1400, raid = 8, raid_defense = 0, hold = hold } }
+  end
+  local p0, p1 = S.attack(sv("peaceful", nil)), S.attack(sv("peaceful", true))
+  local n0, n1 = S.attack(sv("normal", nil)), S.attack(sv("normal", true))
+  check(p0 ~= nil and p1 == nil and S.raid(sv("peaceful", true)) == nil and S.raid(sv("peaceful", nil)) ~= nil,
+    "trêve en Paisible : ni attaque (" .. tostring(p0) .. " -> nil) ni raid contre la rivale")
+  check(n0 ~= nil and n0 == n1, "trêve à un niveau agressif : attaque inchangée (" .. tostring(n0) .. ", " .. tostring(n1) .. ")")
 end
 
 ---------------------------------------------------------------------------------------------------

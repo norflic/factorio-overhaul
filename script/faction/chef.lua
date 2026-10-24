@@ -246,7 +246,7 @@ function Chef.think(f, tick)
   for _, s in ipairs(d.sated_new or {}) do
     local t = State.faction(s.id)
     log(string.format("[FO-STRAT] satiete tick %d %s -> %s : battue (%d tues), epargnee %d min", tick, f.key,
-      t and t.key or tostring(s.id), s.kills, math.floor(C.SATIETY / 3600)))
+      t and t.key or tostring(s.id), s.kills, math.floor((s.until_t - tick) / 3600)))
   end
   if d.hold ~= (st.hold_logged or false) then
     st.hold_logged = d.hold
@@ -273,6 +273,15 @@ function Chef.defense(f, tid)
   return mem.defense + (st.extra_defense[tid] or 0)
 end
 
+--- Lot IA2-a2 : un de nos groupes (hors raid) est-il encore en phase d'attaque contre la faction `tid` ?
+function Chef.engaged(f, tid)
+  for _, gid in ipairs(State.sorted_keys(f.groups or {})) do
+    local g = f.groups[gid]
+    if g.state == "attack" and g.target_faction == tid and not g.raid and g.group and g.group.valid then return true end
+  end
+  return false
+end
+
 --- Champs de la vue de décision (S.decide) : multiplicateur, raid.
 function Chef.decision_fields(f, target)
   local st = f.chef
@@ -285,7 +294,12 @@ function Chef.decision_fields(f, target)
       raid_defense = 8 * (mem.weak.turrets or 0)
     end
   end
-  return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant }
+  -- Lot IA2-a2 : trêve (rivales épargnées par satiété) seulement si la rivale désignée est bien celle du chef ; et UNE
+  -- VAGUE À LA FOIS : pas de nouvelle attaque ni de raid contre une rivale tant qu'un de nos groupes l'attaque encore
+  -- (le chef attend l'issue). 1er essai du lot (moteur réel, graine 3141592653) : Azur lançait 32, puis 19, puis 17
+  -- soldats contre Ambre en 5 min, avant l'issue de la première vague.
+  local hold = (st.hold and target and st.target == target.id) or (target and Chef.engaged(f, target.id)) or nil
+  return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant, hold = hold }
 end
 
 --- Options d'une attaque contre une rivale : point visé (raid : l'avant-poste vu le plus faible), rassemblement

@@ -78,11 +78,9 @@ function Commander.view(f, tick)
   local target = Chef.target(f, tick)
   local defense = target and Chef.defense(f, target.id)
   -- Lot IA2-a2 : TRÊVE du chef (toutes les rivales atteignables épargnées par satiété) : la rivale reste désignée
-  -- (vue PvP inchangée) mais aucune attaque ne part contre elle (défense infinie : S.attack ne part pas, raid nul).
-  local held = target ~= nil and f.chef ~= nil and f.chef.hold
+  -- (vue PvP inchangée) ; S.attack et S.raid lisent `chef.hold` (Chef.decision_fields).
   if not target then target = pick_target(f, tick) end
   if target and not defense then defense = enemy_defense(target) end
-  if held then defense = math.huge end
   -- Lot IA2-0 : caractère tiré de la graine (traits bornés à l'enveloppe des archétypes) et seuil de la prochaine
   -- attaque entre factions (±20 %). Partie existante : traits tirés ici à la première pensée (Character.of).
   local character = Character.of(f)

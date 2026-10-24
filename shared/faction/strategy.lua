@@ -167,6 +167,11 @@ end
 --- Second résultat : la règle appliquée, "variee" ou "ia0" (journal).
 function S.attack(v)
   local aggressive = v.pvp ~= nil and F.pvp_params(v.pvp.difficulty).aggressive
+  -- Lot IA2-a2 : TRÊVE du chef (toutes les rivales atteignables épargnées par satiété, shared/faction/chef.lua) : aucune
+  -- attaque entre factions en « Paisible » ; à un niveau agressif, la règle ne change pas (seuil du chef au plus haut,
+  -- règle d'IA0 ensuite) : une trêve qui bloquait la rivale y cassait l'ordre strict des tailles contre le joueur
+  -- (campagne pure, 6 conquérants sur 24 en configuration 7, 1er essai du lot).
+  if v.chef and v.chef.hold and not aggressive then return nil end
   if v.chef and aggressive then
     local n = attack_rule(v, true, v.garrison - S.player_reserve(v))
     if n then return n, "variee" end
@@ -185,7 +190,7 @@ end
 --- défense estimée de la cible du raid (v.chef.raid_defense). Renvoie l'effectif, ou nil.
 function S.raid(v)
   local c = v.chef
-  if not (c and c.raid and c.raid > 0) or v.can_attack == false then return nil end
+  if not (c and c.raid and c.raid > 0) or c.hold or v.can_attack == false then return nil end
   local P = personality(v)
   local n = c.raid
   local keep = math.ceil(v.garrison * (P.war_keep or P.keep) - 1e-9)

@@ -53,6 +53,7 @@ C.SIDE_RADIUS = 56         -- rassemblement avancé : à 56 tuiles de la cible (
 C.SATIETY = 15 * 3600      -- SATIÉTÉ du vainqueur : une rivale battue n'est plus visée pendant 15 min (il consolide)
 C.BEATEN_KILLS = 10        -- battue : 10 de ses soldats ou ouvriers tués par nous depuis la pensée précédente
 C.KILL_DECAY = 800         -- (compte des tués : × 0,8 par pensée ; une bataille étalée sur 3 min compte aussi)
+C.SATIETY_PER_KILL = 1800  -- + 30 s de satiété par tué au-delà du seuil (victoire écrasante), 30 min au plus
 C.GRUDGE_OVERRIDE = 600    -- la rancune (rancune × trait) au-delà de 600 passe outre la satiété
 C.OPPORTUNIST = 1200       -- un opportuniste (trait ≥ 1 200) frappe une rivale battue dont l'armée est sortie
 C.SURVIVAL_LOST = 5        -- SURVIE : au moins 5 soldats perdus en 10 min et moins du quart de l'armée visée, ou
@@ -137,10 +138,19 @@ end
 --- détruite : au moins C.SURVIVAL_LOST soldats perdus en 10 min et moins du quart de l'armée visée, après l'objectif
 --- « armée ») bascule en reconstruction sans attendre la fin de sa dominante. Moteur réel (IA2-a, graine 777) :
 --- Écarlate, 0 soldat et 1 ouvrier de 23 à 120 min, gardait « technologie » (retard technologique) comme dominante.
-function C.survival(v)
+--- Avec `st` (état du chef) : la survie TIENT (st.survival) jusqu'au rétablissement, ouvriers revenus à l'effectif de
+--- départ ET armée au quart de sa cible (1er essai du lot, moteur réel, graine 20261020 : Azur, ouvriers revenus en
+--- 10 min, sortait de la survie avec 0 soldat dès que ses pertes dataient de plus de 10 min, et repassait à
+--- « technologie » jusqu'à sa chute).
+function C.survival(v, st)
   if v.floor and v.floor > 0 and (v.workers or 0) * 2 < v.floor then return true end
   if v.army_done and (v.soldiers_lost or 0) >= C.SURVIVAL_LOST and (v.soldiers or 0) * 4 < (v.army_target or 0) then
     return true
+  end
+  if st and st.survival then
+    local workers_ok = not (v.floor and v.floor > 0) or (v.workers or 0) >= v.floor
+    local army_ok = not v.army_done or (v.soldiers or 0) * 4 >= (v.army_target or 0)
+    return not (workers_ok and army_ok)
   end
   return false
 end
@@ -257,7 +267,7 @@ function C.considerations(v, st, best)
     c.raids = { 0, "aucune cible" }
   end
   local lost_soldiers = v.soldiers_lost or 0
-  if C.survival(v) then
+  if C.survival(v, st) then
     c.reconstruction = { 1000, "survie" }
   elseif lostn > 0 or lost_soldiers > 5 then
     c.reconstruction = { mean({ lin(lostn, 0, 2), lin(lost_soldiers, 0, 15), lin((v.desired or 0) - (v.outposts or 0), 0, 4) }),
@@ -470,8 +480,10 @@ function C.think(st, v, draw)
     local k = st.kills[r.id]
     if k then
       if k >= C.BEATEN_KILLS then
-        st.beaten[r.id] = v.tick + C.SATIETY
-        st.sated_new[#st.sated_new + 1] = { id = r.id, kills = k }
+        -- Victoire écrasante, digestion plus longue : + 30 s par tué au-delà du seuil, 2 × C.SATIETY au plus.
+        st.beaten[r.id] = math.max(st.beaten[r.id] or 0,
+          v.tick + C.SATIETY + math.min(C.SATIETY, (k - C.BEATEN_KILLS) * C.SATIETY_PER_KILL))
+        st.sated_new[#st.sated_new + 1] = { id = r.id, kills = k, until_t = st.beaten[r.id] }
         k = 0
       else
         k = math.floor(k * C.KILL_DECAY / 1000)
@@ -503,7 +515,8 @@ function C.think(st, v, draw)
     and (v.threat < C.CRISIS or held_for < C.CRISIS_HOLD)
   local chosen
   -- Lot IA2-a2 : SURVIE (C.survival) : reconstruction imposée, sans attendre la fin de la dominante.
-  local survive = C.survival(v)
+  local survive = C.survival(v, st)
+  st.survival = survive
   if survive then
     for _, s in ipairs(scores) do if s.key == "reconstruction" then chosen = s end end
   elseif hold then
@@ -554,7 +567,7 @@ function C.think(st, v, draw)
   st.war_mult = clamp(mult, C.MULT_LO, C.MULT_HI)
   -- Lot IA2-a2 : en survie, seuil au plus haut (la faction garde ses soldats chez elle) ; l'équipe reconstruit en
   -- priorité (st.rebuild, lu par script/team/team.lua : recrues et garde équipées au QG).
-  if survive then st.war_mult = C.MULT_HI end
+  if survive or st.hold then st.war_mult = C.MULT_HI end -- trêve : seuil au plus haut aussi (niveaux agressifs)
   st.rebuild = survive or chosen.key == "reconstruction"
   -- Raid : posture « raids » dans le mélange (poids ≥ 25 %), un avant-poste faible vu, au plus un toutes les RAID_GAP.
   st.raid = nil
@@ -665,7 +678,7 @@ function C.record_outcome(st, gid, outcome, sent, survivors, tick)
         st.extra_defense[a.target] = nil
         -- Lot IA2-a2 : SATIÉTÉ après une attaque réussie (site rival détruit) : le vainqueur consolide C.SATIETY.
         st.beaten = st.beaten or {}
-        st.beaten[a.target] = tick + C.SATIETY
+        st.beaten[a.target] = math.max(st.beaten[a.target] or 0, tick + C.SATIETY)
       end
       return a
     end
