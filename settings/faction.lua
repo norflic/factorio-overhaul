@@ -9,6 +9,7 @@
 ]]
 
 local F = require("shared.faction.config")
+local S = require("shared.team.scale")
 
 local values = {}
 for i, v in ipairs(F.pvp_order) do values[i] = v end
@@ -31,14 +32,16 @@ data:extend({
     default_value = false,
     order = "e-war-a",
   },
+  -- Nombre de factions et ouvriers (PNJ) par faction : valeurs dans shared/team/scale.lua (S.SETTINGS, lot IA1-a,
+  -- fusion avec 0.4.15 : un seul réglage par sens, aussi lu par « /fo-war start » sans nombre).
   {
     type = "int-setting",
     name = "fo-war-factions",
     setting_type = "runtime-global",
-    default_value = 2,
-    minimum_value = 2,
-    maximum_value = F.MAX_FACTIONS,
-    order = "e-war-b",
+    default_value = S.spec("fo-war-factions").default,
+    minimum_value = S.spec("fo-war-factions").min,
+    maximum_value = S.spec("fo-war-factions").max,
+    order = S.spec("fo-war-factions").order,
   },
   {
     type = "int-setting",
@@ -53,9 +56,9 @@ data:extend({
     type = "int-setting",
     name = "fo-war-workers",
     setting_type = "runtime-global",
-    default_value = 4,
-    minimum_value = 1,
-    maximum_value = F.defaults.engineers_max,
-    order = "e-war-d",
+    default_value = S.spec("fo-war-workers").default,
+    minimum_value = S.spec("fo-war-workers").min,
+    maximum_value = S.spec("fo-war-workers").max,
+    order = S.spec("fo-war-workers").order,
   },
 })

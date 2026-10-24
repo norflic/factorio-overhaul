@@ -5,11 +5,14 @@
 
   Le joueur pose un COFFRE D'ÉQUIPE (objet fo-team-chest) : c'est le stock de l'équipe. Les ouvriers ne
   consomment que ce qu'il contient ; ils y rapportent la production des avant-postes qu'ils construisent.
-  Un ouvrier est recruté dès qu'un équipement (pistolet + 10 chargeurs) est dans le coffre, jusqu'à
-  T.player_workers_max. Le cerveau fabrique ces équipements lui-même s'il a des plaques.
+  Lot IA1-a : fo-npc-start PNJ (8) sont offerts à la pose du coffre ; ensuite, un ouvrier est recruté dès que
+  son prix (pistolet + 10 chargeurs + (10 + effectif) plaques de fer) est dans le coffre, jusqu'à
+  fo-player-team-npc-max (30 ; T.player_workers_max = 8 avant). Le cerveau fabrique ces équipements lui-même
+  s'il a des plaques.
 
     /fo-team status    objectif, ce qui manque, stock, tâches
-    /fo-team dismiss   renvoie tous les ouvriers (leur équipement revient au coffre)
+    /fo-team dismiss   renvoie tous les ouvriers (l'équipement des recrues PAYÉES revient au coffre ; pas celui des
+                       PNJ offerts à la fondation ni de l'embauche de secours, lot IA1-a)
 ]]
 
 local Events = require("script.core.events")
@@ -57,7 +60,8 @@ end
 local function dismiss(f, refund)
   for _, id in ipairs(State.sorted_keys(f.engineers)) do
     local a = Registry.get(id)
-    if refund and f.hq and f.hq.valid then
+    -- Lot IA1-a : un kit OFFERT (PNJ de départ, embauche de secours sans arme) n'est jamais rendu.
+    if refund and f.hq and f.hq.valid and not (a and a.free_kit) then
       for _, it in ipairs(T.kits.worker) do f.hq.insert({ name = it[1], count = it[2] }) end
     end
     Registry.remove(id, true)

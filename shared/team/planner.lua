@@ -128,7 +128,13 @@ local function goal_status(goal, view)
     parts[#parts + 1] = { soldiers = need.soldiers - view.soldiers }
   end
   if need.stock then
-    for item, n in pairs(need.stock) do
+    -- Lot IA1-a : objets parcourus dans l'ordre de leurs noms (l'ordre de `pairs` décidait l'ordre des besoins,
+    -- règle 5 ; sans effet tant que l'échelle n'a qu'un objet de stock, faux dès le deuxième).
+    local items = {}
+    for item in pairs(need.stock) do items[#items + 1] = item end
+    table.sort(items)
+    for _, item in ipairs(items) do
+      local n = need.stock[item]
       if (view.stock[item] or 0) < n then
         reached = false
         parts[#parts + 1] = { item = item, n = n - (view.stock[item] or 0) }
@@ -374,8 +380,9 @@ function P.plan(view, book)
       if g == goal then seen = true end
       if seen and g ~= goal and g.need.outposts and ahead < 2 then
         ahead = ahead + 1
-        for kind, n in pairs(g.need.outposts) do
-          local missing_n = n - capacity(view, kind) - (view.pending[kind] or 0)
+        for _, kind in ipairs(T.OUTPOST_ORDER) do -- ordre fixe (lot IA1-a ; résultat inchangé : un maximum)
+          local n = g.need.outposts[kind]
+          local missing_n = n and (n - capacity(view, kind) - (view.pending[kind] or 0)) or 0
           if missing_n > 0 then out.site_needs[kind] = math.max(out.site_needs[kind] or 0, 1) end
         end
       end
@@ -455,9 +462,25 @@ function P.plan(view, book)
   ---------------------------------------------------------------------------------------------------
   -- 4. Ouvriers, armée, recherche (fond permanent, par ordre de priorité)
   ---------------------------------------------------------------------------------------------------
-  local workers_wanted = T.workers_wanted(#view.outposts, view.workers_max)
+  -- Lot IA1-a (Q-IA1-2 (2), « 30 dès l'époque 1 ») : le runtime donne `workers_wanted` (le plafond de l'époque,
+  -- shared/team/scale.lua) et le coût d'une recrue `recruit_cost` (kit + (10 + effectif) fer) : seul le stock
+  -- freine. Sans ces champs (vues construites par les tests d'avant IA1-a) : règle d'avant, 2 + 1 par
+  -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
+  local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
+  local recruit_cost = view.recruit_cost or kit_list("worker", 1)
   if view.workers < workers_wanted then
-    if take(kit_list("worker", 1)) then
+    if view.recruit_blocked then
+      out.recruit_blocked = true
+      if view.workers == 0 then
+        -- Secours conservé sous la garde d'agents : un seul PNJ, sans arme, pour une équipe vide.
+        out.recruit_workers = 1
+        out.recruit_unarmed = true
+      end
+    elseif view.recruit_held and view.workers > 0 then
+      -- Correction IA1-a (frein par le travail, réglage fo-recruit-idle-max) : trop de PNJ sans tâche, aucune
+      -- recrue ; le stock n'est ni pris ni demandé (pas de pistolet fabriqué pour une recrue inutile).
+      out.recruit_held = true
+    elseif take(recruit_cost) then
       out.recruit_workers = 1
     elseif view.workers == 0 then
       -- Secours (moteur réel, E16 it. 9) : une équipe dont tous les ouvriers sont morts ne pouvait plus
@@ -465,7 +488,7 @@ function P.plan(view, book)
       out.recruit_workers = 1
       out.recruit_unarmed = true
     else
-      want(kit_list("worker", 1), 55, "ouvrier")
+      want(recruit_cost, 55, "ouvrier")
     end
   end
 

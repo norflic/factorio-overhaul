@@ -20,6 +20,7 @@ local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
 local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
+local Config = require("script.core.config")
 
 local function surface() return game.surfaces[1] end
 
@@ -62,7 +63,8 @@ end
 remote.add_interface("factorio-overhaul", {
   war_start = function(n, soldiers, engineers, distance)
     local s = surface()
-    local ok = War.start_at(s, game.forces.player.get_spawn_position(s), n or 4, soldiers or 100, engineers or 10, distance or F.defaults.distance)
+    -- Lot IA1-a : sans nombre d'ouvriers (nil), la taille suit le réglage fo-war-workers (4 par défaut, 1 à 60).
+    local ok = War.start_at(s, game.forces.player.get_spawn_position(s), n or 4, soldiers or 100, engineers, distance or F.defaults.distance)
     return ok and true or false
   end,
   war_fund = function(amount)
@@ -73,6 +75,7 @@ remote.add_interface("factorio-overhaul", {
   war_setting = function(name, value)
     if type(name) ~= "string" or name:sub(1, 7) ~= "fo-war-" or not settings.global[name] then return nil end
     settings.global[name] = { value = value }
+    Config.invalidate() -- fo-war-factions et fo-war-workers sont lus par Config (lot IA1-a)
     return settings.global[name].value
   end,
   war_stop = function()

@@ -31,7 +31,10 @@ data:extend({
   },
   {
     -- Requêtes de pathfinding scriptées en vol simultanément.
-    -- Le moteur n'accepte que 10 nouvelles requêtes/tick (partagées avec les biters) : rester en dessous.
+    -- Le moteur sert 10 CLIENTS au plus à la fois pour toute requête (max_clients_to_accept_any_new_request,
+    -- partagés avec les biters ; ce n'est pas un nombre par tick, lot IA1-a), puis seulement les requêtes
+    -- courtes : rester en dessous. Émissions par tick : fo-path-issue-per-tick (settings/team.lua). Maximum de 50
+    -- gardé tel quel (une partie qui l'aurait réglé au-delà de 10 ne change pas) : à décider par l'intégrateur.
     type = "int-setting",
     name = "fo-path-max-inflight",
     setting_type = "runtime-global",
@@ -50,3 +53,4 @@ data:extend({
 
 -- Réglages par lot (un fichier par lot, requis ici par l'intégrateur).
 require("settings.faction")
+require("settings.team") -- lot IA1-a : taille des équipes de PNJ (shared/team/scale.lua)
