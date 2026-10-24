@@ -466,6 +466,16 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-a, échelle 30 des équipes de PNJ, 24/10 ; fusionné dans `main`, `f625f17`, version 0.4.17)
+Preuves : `fo-logs\2026-10-24_IA1\IA1-a\` (`NOTES.md` §3 et §6, `INTEGRATION.md` §0, `verification.md`). Expériences : E124, E125.
+- **F180** : des PNJ recrutés au même point de rassemblement se gênent au départ (24 échecs « départ bloqué » sur 158
+  demandes en 2 min, 15,2 %) malgré `push_out` ; nés sur leur case attribuée (cases espacées de 1,9 tuile au moins) :
+  0 sur 100. Une seule carte.
+- **F181** : remplacer un but où le corps ne tient pas (`can_place_entity` faux) par `find_non_colliding_position` avant
+  la demande supprime les échecs « but occupé » (128 en 60 min le 21/10, 0 le 24/10) ; attribution DÉDUITE.
+- **F182** : avec le cerveau actuel, 30 PNJ par faction ne livrent pas plus que 10 (fer livré à 60 min du même ordre ;
+  77 à 87 % des PNJ sans tâche entre 30 et 60 min) : le manque de travail (EQUIPES_PNJ §1) est confirmé à 30 PNJ.
+
 ### Faits vérifiés en moteur réel (lot B0, biomes, 24/10, 20 h 10 à 21 h 15 ; fusionné dans `main`, `848b64c`, version 0.4.16)
 Preuves : `fo-logs\2026-10-24_B0\` (`NOTES.md` §6 à §10, planches). Expériences : E136, E137.
 - **F195** : une tuile copiée d'une eau (`draw_in_water_layer = true`) et posée AU-DESSUS des sols (layer plus haut)
@@ -881,6 +891,18 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E124, E125 · Lot IA1-a, échelle 30 (24/10 ; constructeur, vérificateur, trois correcteurs dont deux coupés par la
+limite du compte ; fusion `f625f17`, version 0.4.17 ; choix provisoires D-16 : E1 A, E2 A, E3 A)** : **E124**,
+`ia1-scale` (150 PNJ) : script 0,066 à 0,078 ms par tick, chemins en échec 0,6 %, buts occupés 0. **E125**,
+non-régression et armée : frein par le travail (`fo-recruit-idle-max` 0, plancher à l'effectif de départ) : votre équipe
+ne vide plus le coffre pour des recrues inactives (`pteam` à 19 min : 1 805 fer contre 1 540) ; armée des factions sans
+financement sur 3 graines : 407 soldats à 59 min contre 391 sur main (+4 %), mais 23 attaques fantômes sur une graine
+(F174, cause non établie) et une faction décimée bloquée à 1 PNJ (défaut antérieur, à confier à IA1-b) ; réglages
+unifiés sur `fo-war-*` (`/fo-war start` sans nombre : 2 factions de 4 ouvriers). Sur `main` après fusion :
+`content` 317 (`done.txt` 21:56:38,31), `monde` 89, `verif-tourelles` 7, `ia1-scale` 16 OK (Azur ANÉANTIE en cours de
+partie, son contrôle d'effectif est sauté : 17 sur la branche), `pnj-auto` 7, `pnj-reduit` 12 ; hors jeu run 114, war 105,
+td 270, pteam 18, migration 82, monde 157, levels 1 662, org 362, pvp 596, harness code 0, api_lint 811.
+
 **E136, E137 · Lot B0, biomes (24/10 ; deux passes, la seconde après le verdict du DC « B1 D, B2 A, B3 B, B4 B » ;
 fusion `848b64c`, version 0.4.16)** : **E136**, causalité des carrés : même graine, mêmes points, seule la couche change
 (cristal 41 → 4, marais 42 → 5) ; part des bords forts sur la grille 1,77 → 0,63 (zoom 1) et 2,28 → 0,66 (zoom 2) ;

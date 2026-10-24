@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.17
+Date: 2026-10-24
+  Features:
+    - Équipes de PNJ : le nombre d'ouvriers par faction (« Factions : ouvriers au plus ») va désormais jusqu'à 60 et
+      se change en cours de partie ; il est atteignable dès le début, chaque recrue se payant au stock du QG.
+    - Votre équipe : 8 PNJ offerts à la pose du coffre d'équipe ; jusqu'à 30 ensuite (« PNJ de votre équipe »),
+      payés avec le contenu du coffre.
+    - Nouveaux réglages de carte : PNJ au départ d'une équipe, garde de performance (agents au plus), chemins
+      demandés par tick, « Recruter si au plus N PNJ inactifs » (une équipe sans travail n'achète plus de recrues
+      inutiles ; sous son effectif de départ, elle remplace toujours ses pertes).
+  Changes:
+    - « /fo-war start » sans nombre suit les réglages de carte (2 factions, 4 ouvriers par défaut).
+    - Les PNJ rentrent chacun à leur place autour du QG (64 places).
+  Bugfixes:
+    - « /fo-team dismiss » : le message ne promet plus le retour au coffre de l'équipement des PNJ offerts.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.16
 Date: 2026-10-24
   Graphics:
