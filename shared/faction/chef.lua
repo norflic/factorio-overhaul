@@ -565,10 +565,17 @@ function C.record_outcome(st, gid, outcome, sent, survivors, tick)
     local a = st.attacks[k]
     if a.gid == gid and not a.outcome then
       a.outcome, a.survivors = outcome, survivors
+      st.dissolved = st.dissolved or {}
       if outcome == "dissous" then
-        -- Groupe défait par le moteur (F174) : aucune leçon.
+        -- Groupe défait par le moteur (F174) : aucune leçon sur la défense ; mais 2 de suite contre la même cible
+        -- (moteur réel, graine 777 : 328 groupes défaits au départ contre la même cible) la font éviter 10 min.
+        local n = (st.dissolved[a.target] or 0) + 1
+        st.dissolved[a.target] = n
+        if n >= 2 then st.avoid[a.target] = tick + C.AVOID_TICKS end
         return a
-      elseif outcome ~= "reussie" then
+      end
+      st.dissolved[a.target] = nil
+      if outcome ~= "reussie" then
         st.avoid[a.target] = tick + C.AVOID_TICKS
         local lost = math.max(0, (sent or 0) - (survivors or 0))
         st.extra_defense[a.target] = math.max(st.extra_defense[a.target] or 0, lost)

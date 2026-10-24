@@ -59,6 +59,7 @@ local RECALL_HANDLER = "fo-war-recall"
 local RECALL_CLUSTER = 32   -- rappel : soldats lointains à moins de 32 tuiles du premier forment un paquet
 local RECALL_PERIOD = 600   -- rappel : une demande d'itinéraire au plus par faction toutes les 600 ticks
 local RECALL_BACKOFF = 3600 -- rappel : attente d'un soldat déjà rappelé, × le nombre de rappels (5 au plus)
+local DISSOLVE_TICKS = 600  -- lot IA2-a : un groupe d'attaque vidé avant 600 ticks a été défait au départ (F174)
 
 --- Point de rassemblement du QG (destination des retours).
 local function home(f) return { x = f.hq_pos.x, y = f.hq_pos.y + 14 } end
@@ -312,6 +313,7 @@ local function order_return(f, gid, tick)
     return
   end
   attack_ended(f, g, tick)
+  if g.state == "attack" and #g.group.members > 0 then f.dissolved_streak = nil end -- lot IA2-a : attaque arrivée au bout
   g.state = "return"
   g.started = tick
   g.group.set_command({
@@ -552,6 +554,15 @@ function Military.maintain(f, tick)
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
+      if g.state == "attack" and tick - g.started < DISSOLVE_TICKS then
+        -- Lot IA2-a : groupe vidé juste après son départ (F174 : membres retirés par le moteur, sans mort). Moteur
+        -- réel (graine 777) : relancé à chaque pensée, 328 fois en 2 h. Attente croissante avant la suivante
+        -- (1, 2, 4, puis 8 min au plus), remise à zéro par une attaque qui arrive au bout.
+        f.dissolved_streak = (f.dissolved_streak or 0) + 1
+        local wait = ATTACK_RETRY_TICKS * ({ 1, 2, 4, 8 })[math.min(4, f.dissolved_streak)]
+        f.attack_block_until = math.max(f.attack_block_until or 0, tick + wait)
+        f.stats.dissolved = (f.stats.dissolved or 0) + 1
+      end
       disband(f, gid)
     elseif tick - g.started > (g.rerouted and 2 * GROUP_TIMEOUT or GROUP_TIMEOUT) then
       -- Lot PNJ-VÉRIF : un retour direct trop long est traité comme un échec (retour par l'itinéraire) ; un

@@ -244,6 +244,9 @@ do
   C.record_attack(sd, { target = 3, octant = 2, n = 20, tick = 0, gid = 9 })
   local ad = C.record_outcome(sd, 9, "dissous", 20, 0, 300)
   check(ad and ad.outcome == "dissous" and sd.avoid[3] == nil and sd.extra_defense[3] == nil, "issue « dissous » (F174) : ni cible évitée ni défense apprise")
+  C.record_attack(sd, { target = 3, octant = 2, n = 20, tick = 600, gid = 10 })
+  C.record_outcome(sd, 10, "dissous", 20, 0, 900)
+  check(sd.avoid[3] == 900 + C.AVOID_TICKS and sd.extra_defense[3] == nil, "2 groupes défaits de suite contre la même cible : cible évitée 10 min (sans défense apprise)")
   -- Le côté suivant change (l'octant repoussé est pénalisé).
   local again = 0
   for _ = 1, 500 do
