@@ -240,6 +240,19 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 15 h 45, **réponses du DC sur les images de 0.4.13 et 0.4.14** : « pour répondre à vos questions : 1) A,
+  2) A, 3) A » → tungstène : lueur turquoise froide de nuit gardée ; laser : direction des essais F1-A gardée (tour ronde
+  sans canons, émetteur lumineux), à enrichir aux rondes F1-B ; mitrailleuse : les 3 fentes de l'âge 11 (d07, d22, d33)
+  acceptées.
+- 24/10, vers 15 h 40, **le DC veut jouer** : « faite en sorte que la version du jeu soit jouable (avec les pnj etc),
+  voudrai vérifier le gameplay ». → **Version 0.4.15** (`39048d5`) : réglages de carte `fo-war-autostart`,
+  `fo-war-factions` (2), `fo-war-soldiers` (30), `fo-war-workers` (4) ; coché, la guerre part seule au passage de
+  600 ticks, une fois par partie (un `/fo-war stop` ne la relance pas) ; décoché par défaut, rien ne change pour les
+  parties et les bancs existants. Preuve en moteur réel sur `main` : `pnj-auto` 7 OK (`done.txt` 15:48:58,73 :
+  réglages écrits par le relais `war_setting`, 3 factions lancées seules avant le tick 1 200, pas de relance après
+  l'arrêt), `content` 317 OK (15:48:49,62), `pnj-reduit` 12 OK (15:49:32,57) ; hors jeu run 114, war 105, td 270,
+  pteam 15, migration 82, monde 157, org 362, harness code 0 (0 clé manquante), api_lint 775. Guide de partie mis à
+  jour (§2 : lancement par les réglages, plus de console).
 - 24/10, vers 12 h, **limite hebdomadaire du compte claude.ai atteinte** (« You've hit your weekly limit · resets Oct 29,
   11am ») : 7 agents coupés net en plein travail (A3-final après 2 min ; correcteurs de F1-A, M1, IA1-0, IA1-a, IA1-c ;
   vérificateur de PNJ-VÉRIF) ; un banc moteur lancé à 12:07 par le correcteur d'IA1-a tué, verrou orphelin retiré à 13 h

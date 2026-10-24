@@ -103,7 +103,7 @@ lua5.2 tests/pvp_test.lua        -> 596 OK   (de 3 à 6 min selon la charge : 19
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/org_test.lua        -> 362 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 336 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 771 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 775 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
@@ -353,6 +353,8 @@ Scénarios :
 - `waves` : défense de tours et guerre ;
 - `pteam` : équipe du joueur ;
 - `stress` : 402 agents ;
+- `pnj-auto` (lot PNJ-JOUABLE, 2 600 ticks) : la guerre lancée par les réglages de carte `fo-war-*` (version 0.4.15),
+  une fois par partie → « [FO-PNJ-AUTO] BILAN : 7 OK » (`main`, 24/10, `done.txt` 15:48:58) ;
 - `m1-minerai` (lot M1, 600 ticks) : gisements de 9 × 9 aux 8 stades, tungstène sur ses cendres → « [FO-M1-MINERAI] BILAN :
   7 OK » (observé sur `main` 0.4.14 le 24/10, `done.txt` 15:09:25) ; images : `fo-captures.bat m1-minerai`, 16 captures ;
 - `ia1-risques` (lot IA1-0, 1 800 ticks) : risques moteur R1 à R5, R7 des équipes organisées → « [FO-IA1-RISQUES] BILAN :

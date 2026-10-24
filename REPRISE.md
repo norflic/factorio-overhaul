@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 15 h 55 : version 0.4.15, le jeu se lance avec les PNJ sans console** (`39048d5`) : à la demande du DC
+> (« faite en sorte que la version du jeu soit jouable (avec les pnj etc) »), réglages de carte `fo-war-*` ;
+> `pnj-auto` 7 OK, `content` 317, `pnj-reduit` 12 sur `main`. Réponses du DC : tungstène A, laser A, fentes de l'âge 11
+> A. Session avec images ET sons (`FO_AUDIO=1`, `pnj-vue`) lancée pour vérifier que le mod se charge comme dans le
+> vrai jeu. Correcteur d'IA1-c en cours (agent seul).
 > **Point de 15 h 35 : M1, IA1-0 et F1-A fusionnés, version 0.4.14** (`45966bf`, `7c51cdd`, `5cb936c`, `dba020c` ; conflit
 > du README des bancs résolu en gardant les deux paragraphes). Moteur réel sur `main` (`fo-logs\2026-10-24_integration-0.4.14\`,
 > `done.txt` 15:08:35 à 15:09:36) : content 317, gun-rose 13, monde 89, m1-minerai 7, ia1-risques 65. Hors jeu : tous verts
