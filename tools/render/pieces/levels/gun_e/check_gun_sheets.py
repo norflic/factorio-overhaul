@@ -6,15 +6,19 @@ Contrôles (code 0 seulement si tout passe) :
   1. MANIFESTE : chaque fichier listé existe, avec la taille, le sha256 et les dimensions du manifeste ; aucun PNG du
      dossier hors du manifeste ; sha256 de sprites.lua et de sprites.json égaux à ceux du manifeste ;
   2. sprites.lua = texte régénéré depuis sprites.json (feuilles.texte_lua) : les deux disent la même chose ;
-  3. RECTANGLES : chaque couche citée existe ; socle, pièce : une image = le fichier entier ; tête : colonne de
-     direction_count images (line_length 1) de width × height, hr ET normale (normale = hr / 2) ; icônes 120 × 64 ;
-     points de tir présents pour chaque âge 2 à 15 ;
-  4. --sources : chaque pose de tête recollée dans sa feuille a EXACTEMENT les pixels de son PNG source (hr et
-     normale) ; les copies de socle et de pièce ont le sha256 de leur source (spec.json) ; les poses VALIDÉES N et E
-     sont donc inchangées au pixel ;
+  3. RECTANGLES : chaque couche citée existe ; socle, pièce : une image = le fichier entier ; tête : 4 directions
+     (colonne, line_length 1) ou 64 (8 × 8, line_length 8, noms d00 à d63 dans l'ordre ; lot A3-jeu) de
+     width × height, hr ET normale (normale = hr / 2), 8 192 px au plus (F144) ; icônes 120 × 64 ; points de tir
+     présents et écart de l'éclat sous le seuil (E68) pour chaque âge 2 à 15 ; à 64 directions, chaque direction
+     ÉCARTÉE du réglage de l'éclat figure dans « eclat_ecartees_ok » du manifeste (regardée ; correction M-1) ;
+  4. --sources : chaque pose de tête recollée dans sa cellule a EXACTEMENT les pixels de son PNG source (hr et
+     normale), le reste de la cellule est vide ; les copies de socle et de pièce ont le sha256 de leur source
+     (spec.json) ; les poses VALIDÉES N (d00) et E (d16) sont donc inchangées au pixel ;
   5. --mutants : sur une copie jetable du dossier, 7 mutants (fichier supprimé, octet changé, taille du manifeste,
-     PNG en trop, hauteur d'une tête dans sprites.json et sprites.lua, sprites.lua retouché, pose décalée) doivent tous
-     être REFUSÉS, et la copie intacte acceptée.
+     PNG en trop, hauteur d'une tête dans sprites.json et sprites.lua, sprites.lua retouché, pose décalée), plus 3 si un
+     âge est à 64 directions (cellules d06 et d07 échangées, feuille en miroir, line_length 1), plus 1 si une
+     direction est écartée du réglage de l'éclat (retirée de la liste regardée) doivent tous être REFUSÉS, et la copie
+     intacte acceptée.
 """
 import argparse
 import hashlib
@@ -76,11 +80,7 @@ def controler(dest, sources=False):
         donnees = json.load(open(os.path.join(dest, "sprites.json"), encoding="utf-8"))
     except Exception as ex:  # noqa: BLE001
         return err + ["sprites.json illisible : %s" % ex], ok
-    pour_lua = json.loads(json.dumps(donnees))
-    for e, A in pour_lua["ages"].items():
-        for lay, cd in A.get("tete", {}).items():
-            cd.pop("poses", None)
-    pour_lua["ages"] = {int(k): v for k, v in pour_lua["ages"].items()}
+    pour_lua = FE.pour_lua(donnees)
     lua = open(os.path.join(dest, "sprites.lua"), encoding="utf-8").read() if os.path.exists(
         os.path.join(dest, "sprites.lua")) else ""
     if lua != FE.texte_lua(pour_lua):
@@ -96,6 +96,8 @@ def controler(dest, sources=False):
         return fn[len(PREFIX):]
 
     nrect = 0
+    n64 = 0
+    cache_feuilles = {}
     for e, A in sorted(donnees["ages"].items(), key=lambda kv: int(kv[0])):
         e = int(e)
         for part in ("socle", "piece"):
@@ -114,12 +116,26 @@ def controler(dest, sources=False):
                     err.append("âge %d %s %s : normale ≠ hr / 2" % (e, part, lay))
         if e == 1:
             continue
+        noms = (A.get("outils") or {}).get("noms") or donnees["directions"]
+        ndir = len(noms)
+        if ndir not in (4, FE.NDIR64):
+            err.append("âge %d : %d directions (4 ou 64 attendues)" % (e, ndir))
+        n64 += ndir == FE.NDIR64
+        if ndir == FE.NDIR64 and noms != ["d%02d" % k for k in range(FE.NDIR64)]:
+            err.append("âge %d : directions hors de l'ordre d00 à d63" % e)
         for lay, cd in sorted(A.get("tete", {}).items()):
             for r in ("hr", "lr"):
                 f = fichier(cd[r])
                 if f is None:
                     continue
                 nrect += 1
+                ll_voulu = 1 if ndir == 4 else FE.LIGNE64
+                if cd[r]["direction_count"] != ndir or cd[r]["line_length"] != ll_voulu:
+                    err.append("âge %d tête %s %s : direction_count %s, line_length %s (attendu %d et %d)" % (
+                        e, lay, r, cd[r]["direction_count"], cd[r]["line_length"], ndir, ll_voulu))
+                if f in dims and max(dims[f]) > FE.LIMITE_PX:
+                    err.append("âge %d tête %s %s : feuille %s au-delà de %d px (F144)" % (e, lay, r, dims[f],
+                                                                                           FE.LIMITE_PX))
                 need = (cd[r]["width"] * cd[r]["line_length"],
                         cd[r]["height"] * -(-cd[r]["direction_count"] // cd[r]["line_length"]))
                 if f not in dims:
@@ -130,10 +146,11 @@ def controler(dest, sources=False):
             if (cd["lr"]["width"] * 2, cd["lr"]["height"] * 2) != (cd["hr"]["width"], cd["hr"]["height"]):
                 err.append("âge %d tête %s : normale ≠ hr / 2" % (e, lay))
             if sources:
-                for k, dname in enumerate(donnees["directions"]):
+                for k, dname in enumerate(noms):
                     pose = cd.get("poses", {}).get(dname)
                     if not pose:
                         continue
+                    ll = cd["hr"]["line_length"]
                     src = man["sources"].get(pose["source"])
                     if not src:
                         err.append("âge %d tête %s %s : source inconnue du manifeste" % (e, lay, dname))
@@ -143,15 +160,20 @@ def controler(dest, sources=False):
                     for r, LL, fac in (("hr", L, 1), ("lr", L["lr"], 2)):
                         s_im = np.asarray(Image.open(os.path.join(src["dossier"], LL["file"])).convert("RGBA"))
                         f = fichier(cd[r])
-                        feuille = np.asarray(Image.open(os.path.join(dest, f)).convert("RGBA"))
-                        y0 = k * cd[r]["height"] + pose["y"] // fac
-                        x0 = pose["x"] // fac
-                        cell = feuille[k * cd[r]["height"]:(k + 1) * cd[r]["height"]]
-                        part_ = feuille[y0:y0 + s_im.shape[0], x0:x0 + s_im.shape[1]]
+                        if f not in cache_feuilles:     # une lecture par feuille (64 poses par feuille, lot A3-jeu)
+                            if len(cache_feuilles) >= 2:
+                                cache_feuilles.clear()
+                            cache_feuilles[f] = np.asarray(Image.open(os.path.join(dest, f)).convert("RGBA"))
+                        feuille = cache_feuilles[f]
+                        cw, chh = cd[r]["width"], cd[r]["height"]
+                        cx0, cy0 = (k % ll) * cw, (k // ll) * chh
+                        cell = feuille[cy0:cy0 + chh, cx0:cx0 + cw]
+                        py_, px_ = pose["y"] // fac, pose["x"] // fac
+                        part_ = cell[py_:py_ + s_im.shape[0], px_:px_ + s_im.shape[1]]
                         same = part_.shape == s_im.shape and np.array_equal(part_, s_im)
                         # hors de la pose, la cellule est transparente
                         masque = np.ones(cell.shape[:2], bool)
-                        masque[pose["y"] // fac:pose["y"] // fac + s_im.shape[0], x0:x0 + s_im.shape[1]] = False
+                        masque[py_:py_ + s_im.shape[0], px_:px_ + s_im.shape[1]] = False
                         vide = not cell[masque][:, 3].any()
                         if not (same and vide):
                             err.append("âge %d tête %s %s %s : pixels de la feuille ≠ source %s (identiques %s, reste vide %s)"
@@ -165,7 +187,33 @@ def controler(dest, sources=False):
         t = A.get("tir") or {}
         if not isinstance(t.get("projectile_creation_distance"), (int, float)) or len(t.get("projectile_center", [])) != 2:
             err.append("âge %d : points de tir absents" % e)
-    ok.append("rectangles : %d définitions (hr et normale)" % nrect)
+        em = A.get("ecart_max")
+        if not isinstance(em, (int, float)) or em > donnees["eclat"]["seuil"]:
+            err.append("âge %d : écart de l'éclat %s au-delà du seuil %s (E68)" % (e, em, donnees["eclat"]["seuil"]))
+    ok.append("rectangles : %d définitions (hr et normale) ; têtes : %d âge(s) à 64 directions, %d à 4" % (
+        nrect, n64, len(donnees["ages"]) - 1 - n64))
+    # éclat à 64 directions (correction M-1, 24/10) : toute direction ÉCARTÉE du réglage doit être dans la liste des
+    # directions REGARDÉES du manifeste (feuilles.ECLAT_ECARTEES_OK_DEFAUT, --ecartees-ok) ; règle stricte rappelée
+    vues = FE.ecartees_ok_de(man.get("eclat_ecartees_ok") or [])
+    n_ec, strict, err_ec = 0, [], []
+    for k, A in sorted(donnees["ages"].items(), key=lambda kv: int(kv[0])):
+        ap = (A.get("outils") or {}).get("eclat_apres")
+        if len((A.get("outils") or {}).get("noms") or []) != FE.NDIR64:
+            continue
+        if ap is None or "sans_exclusion" not in ap or "ecartees" not in ap:
+            err_ec.append("âge %s : réglage de l'éclat à 64 directions sans « ecartees » ni « sans_exclusion »" % k)
+            continue
+        n_ec += len(ap["ecartees"])
+        non_vues = [d for d in ap["ecartees"] if d not in vues.get(int(k), set())]
+        if non_vues:
+            err_ec.append("âge %s : direction(s) écartée(s) du réglage de l'éclat NON REGARDÉE(S) %s (absentes de "
+                          "MANIFEST « eclat_ecartees_ok »)" % (k, non_vues))
+        if ap["sans_exclusion"].get("ecart_max", 0) > donnees["eclat"]["seuil"]:
+            strict.append("%s (%.3f %s)" % (k, ap["sans_exclusion"]["ecart_max"], ap["sans_exclusion"]["pire_direction"]))
+    err += err_ec
+    if not err_ec:
+        ok.append("éclat : %d direction(s) écartée(s) du réglage, toutes regardées ; âge(s) refusé(s) SANS exclusion : %s"
+                  % (n_ec, ", ".join(strict) or "aucun"))
     if sources:
         nsrc = 0
         for nom, src in sorted(man["sources"].items()):
@@ -259,11 +307,82 @@ def mutants(dest):
             m["fichiers"][f]["sha256"] = sha(p)
             jdump(mp, m)
 
-        for nom, fn, src in (("fichier supprimé", m_supprime, False), ("octet changé", m_octet, False),
-                             ("taille du manifeste", m_taille, False), ("PNG en trop", m_en_trop, False),
-                             ("hauteur de tête (json et lua, manifeste recalculé)", m_hauteur, False),
-                             ("sprites.lua retouché (line_length 2)", m_lua, False),
-                             ("pose N de l'âge 9 décalée d'1 px (manifeste recalculé, --sources)", m_pose, True)):
+        a64 = sorted(int(k) for k, A in json.load(open(os.path.join(dest, "sprites.json"), encoding="utf-8"))[
+            "ages"].items() if len((A.get("outils") or {}).get("noms") or []) == FE.NDIR64)
+
+        def remanifeste(d, f):
+            p = os.path.join(d, f)
+            mp = os.path.join(d, "MANIFEST.json")
+            m = json.load(open(mp, encoding="utf-8"))
+            m["fichiers"][f]["taille"] = os.path.getsize(p)
+            m["fichiers"][f]["sha256"] = sha(p)
+            jdump(mp, m)
+
+        def m_echange(d):
+            # 64 directions : cellules d06 et d07 échangées dans la feuille hr principale (décalage d'un cran)
+            e = a64[0]
+            j = json.load(open(os.path.join(d, "sprites.json"), encoding="utf-8"))
+            w, h = j["ages"][str(e)]["tete"]["main"]["hr"]["width"], j["ages"][str(e)]["tete"]["main"]["hr"]["height"]
+            f = "hr-gun-e%02d-tete-main.png" % e
+            p = os.path.join(d, f)
+            a = np.asarray(Image.open(p).convert("RGBA")).copy()
+            c6 = a[0:h, 6 * w:7 * w].copy()
+            a[0:h, 6 * w:7 * w] = a[0:h, 7 * w:8 * w]
+            a[0:h, 7 * w:8 * w] = c6
+            Image.fromarray(a, "RGBA").save(p)
+            remanifeste(d, f)
+
+        def m_miroir(d):
+            # 64 directions : feuille normale principale retournée gauche-droite
+            f = "gun-e%02d-tete-main.png" % a64[0]
+            p = os.path.join(d, f)
+            Image.open(p).convert("RGBA").transpose(Image.FLIP_LEFT_RIGHT).save(p)
+            remanifeste(d, f)
+
+        def m_ligne(d):
+            # 64 directions : line_length 1 au lieu de 8, dans sprites.json ET sprites.lua (manifeste recalculé)
+            p = os.path.join(d, "sprites.json")
+            j = json.load(open(p, encoding="utf-8"))
+            for r in ("hr", "lr"):
+                j["ages"][str(a64[0])]["tete"]["main"][r]["line_length"] = 1
+            jdump(p, j)
+            with open(os.path.join(d, "sprites.lua"), "w", encoding="utf-8", newline="") as fl:
+                fl.write(FE.texte_lua(FE.pour_lua(j)))
+            mp = os.path.join(d, "MANIFEST.json")
+            m = json.load(open(mp, encoding="utf-8"))
+            m["sprites_json_sha256"] = sha(p)
+            m["sprites_lua_sha256"] = sha(os.path.join(d, "sprites.lua"))
+            jdump(mp, m)
+
+        ec_age = sorted((int(k), A["outils"]["eclat_apres"]["ecartees"]) for k, A in json.load(
+            open(os.path.join(dest, "sprites.json"), encoding="utf-8"))["ages"].items()
+            if ((A.get("outils") or {}).get("eclat_apres") or {}).get("ecartees"))
+
+        def m_ecartee(d):
+            # une direction écartée du réglage retirée de la liste des directions regardées du manifeste
+            mp = os.path.join(d, "MANIFEST.json")
+            m = json.load(open(mp, encoding="utf-8"))
+            e, ecs = ec_age[0]
+            m["eclat_ecartees_ok"] = [x for x in m.get("eclat_ecartees_ok", []) if x != "e%02d-%s" % (e, ecs[-1])]
+            jdump(mp, m)
+
+        cas = [("fichier supprimé", m_supprime, False), ("octet changé", m_octet, False),
+               ("taille du manifeste", m_taille, False), ("PNG en trop", m_en_trop, False),
+               ("hauteur de tête (json et lua, manifeste recalculé)", m_hauteur, False),
+               ("sprites.lua retouché (line_length 2)", m_lua, False),
+               ("pose N de l'âge 9 décalée d'1 px (manifeste recalculé, --sources)", m_pose, True)]
+        if a64:
+            cas += [("64 directions, âge %d : d06 et d07 échangées (un cran, --sources)" % a64[0], m_echange, True),
+                    ("64 directions, âge %d : feuille normale en miroir (--sources)" % a64[0], m_miroir, True),
+                    ("64 directions, âge %d : line_length 1 au lieu de 8 (json et lua)" % a64[0], m_ligne, False)]
+        else:
+            print("[FO-GUN-SHEETS] mutants à 64 directions NON JOUÉS : aucun âge à 64 directions")
+        if ec_age:
+            cas.append(("éclat, âge %d : direction écartée %s retirée des directions regardées (MANIFEST)" % (
+                ec_age[0][0], ec_age[0][1][-1]), m_ecartee, False))
+        else:
+            print("[FO-GUN-SHEETS] mutant de l'éclat NON JOUÉ : aucune direction écartée")
+        for nom, fn, src in cas:
             d = copie(nom.split(" ")[0] + "-" + str(abs(hash(nom)) % 1000))
             fn(d)
             e, _ = controler(d, sources=src)
