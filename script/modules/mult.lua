@@ -310,6 +310,13 @@ local function update_panel(player, e)
   if not (player and player.valid and e and e.valid) then return end
   local f = panel_for(player, e.type)
   if not f then return end
+  -- Le panneau est ancré au TYPE d'interface (toutes les machines de ce type) : caché pour une machine sans
+  -- emplacement de module (four en acier…), sinon il montrerait les chiffres de la machine ouverte avant.
+  if not capable(e) then
+    f.visible = false
+    return
+  end
+  f.visible = true
   local rec = S().rec[e.unit_number]
   local t = rec and rec.t or { speed = 100, consumption = 100, productivity = 100, n = 0 }
   local a, b, c = line_params(t.speed)
