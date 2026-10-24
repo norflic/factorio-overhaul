@@ -53,37 +53,58 @@ end
 
 ---------------------------------------------------------------------------------------------------
 section("Règles pures : ordre des objectifs")
+local BASE_LADDER_TRAITS = {}
+for _, k in ipairs(Tr.ORDER) do BASE_LADDER_TRAITS[k] = 1000 end
 do
   local index = {}
   for i, g in ipairs(T.ladder) do index[g.key] = i end
-  local all_ok, boot_ok, req_ok, shift_ok, last_ok = true, true, true, true, true
-  local orders = {}
-  local function test_mix(mix)
-    local o = C.ladder_order(mix)
+  local all_ok, boot_ok, req_ok, shift_ok, last_ok, army_ok = true, true, true, true, true, true
+  local orders, opening, swaps = {}, {}, 0
+  local function test_mix(mix, tr)
+    local o = C.ladder_order(mix, nil, tr)
     if #o ~= #T.ladder then all_ok = false end
-    for k = 1, 4 do if o[k] ~= T.ladder[k].key then boot_ok = false end end
+    if o[1] ~= "coal" or o[2] ~= "iron" or not ((o[3] == "copper" and o[4] == "stone") or (o[3] == "stone" and o[4] == "copper")) then boot_ok = false end
+    if o[3] == "stone" then swaps = swaps + 1 end
     if o[#o] ~= "oil" then last_ok = false end
     local pos = {}
     for k, key in ipairs(o) do pos[key] = k end
     for key, reqs in pairs(C.AFTER) do
       for _, r in ipairs(reqs) do if pos[r] > pos[key] then req_ok = false end end
     end
-    for key, k in pairs(pos) do if index[key] - k > 3 then shift_ok = false end end
+    for key, k in pairs(pos) do if index[key] - k > 4 then shift_ok = false end end
+    if pos.army > 7 then army_ok = false end
     return table.concat(o, ",")
   end
-  for _, p in ipairs(C.POSTURES) do
-    orders[test_mix({ { key = p, w = 1000 } })] = true
-    for _, q in ipairs(C.POSTURES) do
-      if q ~= p then test_mix({ { key = p, w = 600 }, { key = q, w = 250 } }) end
+  local TRS = { BASE_LADDER_TRAITS }
+  for _, k in ipairs(Tr.ORDER) do
+    for _, d in ipairs({ -400, 500 }) do
+      local t = {}
+      for _, k2 in ipairs(Tr.ORDER) do t[k2] = 1000 end
+      t[k] = 1000 + d
+      TRS[#TRS + 1] = t
     end
   end
-  local distinct = 0
+  for _, tr in ipairs(TRS) do
+    for _, p in ipairs(C.POSTURES) do
+      orders[test_mix({ { key = p, w = 1000 } }, tr)] = true
+      for _, q in ipairs(C.POSTURES) do
+        if q ~= p then test_mix({ { key = p, w = 600 }, { key = q, w = 250 } }, tr) end
+      end
+    end
+    -- Ouverture : 1re pensée, dominante « expansion » pour toutes ; le caractère seul la fait varier.
+    opening[test_mix({ { key = "expansion", w = 600 }, { key = "technologie", w = 250 }, { key = "armee", w = 150 } }, tr)] = true
+  end
+  local distinct, nopen = 0, 0
   for _ in pairs(orders) do distinct = distinct + 1 end
-  check(all_ok and boot_ok, "17 marches ; charbon, fer, cuivre, pierre en tête (amorçage)")
-  check(req_ok, "prérequis respectés (fer II avant fer III, tech 1 avant tech 2, armée avant armée II...), 8 + 56 mélanges")
-  check(shift_ok, "aucune marche n'avance de plus de 3 rangs")
+  for _ in pairs(opening) do nopen = nopen + 1 end
+  check(all_ok and boot_ok, "17 marches ; charbon puis fer en tête, cuivre et pierre ensuite (amorçage)")
+  check(swaps > 0, "pierre avant cuivre pour certains mélanges ou caractères (" .. swaps .. ")")
+  check(req_ok, "prérequis respectés (fer II avant fer III, tech 1 avant tech 2, armée avant armée II...), 17 caractères × 64 mélanges")
+  check(shift_ok, "aucune marche n'avance de plus de 4 rangs")
+  check(army_ok, "l'armée jamais après la 7e place")
   check(last_ok, "pétrole toujours en dernier")
-  check(distinct >= 5, "des ordres différents selon la posture dominante (" .. distinct .. " ordres distincts pour 8 postures)")
+  check(distinct >= 20, "des ordres différents selon la posture et le caractère (" .. distinct .. " ordres distincts)")
+  check(nopen >= 5, "ouverture (même mélange) : le caractère seul donne " .. nopen .. " ordres différents")
   local o = C.ladder_order({ { key = "technologie", w = 1000 } })
   local pos = {}
   for k, key in ipairs(o) do pos[key] = k end

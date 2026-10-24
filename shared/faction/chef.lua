@@ -57,7 +57,7 @@ C.WAR_FACTOR = { expansion = 1050, capitalisation = 1100, technologie = 1100, fo
   assaut = 800, raids = 1000, reconstruction = 1300 }
 
 -- Catégorie de chaque marche de T.ladder (ordre des objectifs) et affinité des postures (pour mille).
-C.CATEGORY = { coal = "boot", iron = "boot", copper = "boot", stone = "boot", defense = "fort", army = "army",
+C.CATEGORY = { coal = "boot", iron = "boot", copper = "boot2c", stone = "boot2s", defense = "fort", army = "army",
   iron2 = "ext", tech1 = "tech", smelter = "cap", army2 = "army", iron3 = "ext", tech2 = "tech", fortify = "fort",
   iron4 = "ext", tech3 = "tech", expand = "ext", oil = "last" }
 C.AFFINITY = {
@@ -70,7 +70,14 @@ C.AFFINITY = {
   raids = { army = 600 },
   reconstruction = { fort = 600, ext = 600 },
 }
-C.LADDER_SHIFT = 250 -- avance au plus de 2,5 marches (rang × 100 − affinité × 250 / 1 000)
+C.LADDER_SHIFT = 400 -- avance au plus de 4 marches (rang × 100 − affinité × 400 / 1 000) ; 250 au 1er essai en moteur
+                     -- réel : 9 premières décisions identiques pour toutes les factions (distance des 20 décisions 0,32)
+-- Cuivre et pierre (amorçage, après charbon et fer) suivent les affinités de la technologie et de la fortification.
+C.BOOT_CAT = { boot2c = "tech", boot2s = "fort" }
+-- Trait qui biaise chaque catégorie dès la 1re pensée (caractère).
+C.CAT_TRAIT = { ext = "ambition", cap = "discipline", tech = "curiosite", fort = "prudence", army = "agressivite" }
+-- Place au plus tard d'une marche (l'armée : 7e, la 1re attaque contre le joueur dépend de la garnison).
+C.LATEST = { { "army", 7 } }
 -- Prérequis : une marche ne passe jamais devant celles-ci.
 C.AFTER = { iron3 = { "iron2" }, iron4 = { "iron3" }, expand = { "iron4" }, tech2 = { "tech1" }, tech3 = { "tech2" },
   army2 = { "army" }, oil = { "tech3", "expand" } }
@@ -275,30 +282,55 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Ordre des objectifs (T.ladder)
 ---------------------------------------------------------------------------------------------------
---- Ordre des marches de T.ladder pour un mélange de postures : les 4 premières (charbon, fer, cuivre, pierre) restent
---- en tête ; les autres sont triées par rang × 100 − affinité × LADDER_SHIFT / 1 000 (avance de 2,5 marches au
---- plus), en respectant les prérequis (C.AFTER). Renvoie une liste de clés.
-function C.ladder_order(mix, ladder)
+--- Biais d'une catégorie par le caractère (−250 à + 250) : un trait au-dessus de 1 000 avance les marches de sa
+--- catégorie dès la 1re pensée (l'ouverture n'est plus la même pour toutes les factions).
+local function trait_bias(cat, traits)
+  local k = C.CAT_TRAIT[cat]
+  if not (k and traits and traits[k]) then return 0 end
+  return clamp(math.floor((traits[k] - 1000) / 2), -250, 250)
+end
+
+--- Ordre des marches de T.ladder pour un mélange de postures et un caractère : charbon puis fer en tête ; cuivre et
+--- pierre ensuite, dans l'ordre de leurs affinités ; les autres triées par rang × 100 − affinité × LADDER_SHIFT / 1 000
+--- (affinité = mélange des postures + biais du caractère, bornée à 1 000 : avance de 4 marches au plus), en
+--- respectant les prérequis (C.AFTER) et une place au plus tard pour l'armée (C.LATEST : la 1re attaque contre le
+--- joueur dépend de la garnison). Renvoie une liste de clés.
+function C.ladder_order(mix, ladder, traits)
   ladder = ladder or T.ladder
   local items = {}
   for i, g in ipairs(ladder) do
     local cat = C.CATEGORY[g.key] or "other"
     local key = i * 100
+    local rank = cat == "boot" and 1 or ((cat == "boot2c" or cat == "boot2s") and 2 or 3)
     if cat ~= "boot" and cat ~= "last" then
-      local aff = 0
+      local acat = C.BOOT_CAT[cat] or cat
+      local aff = trait_bias(acat, traits)
       for _, m in ipairs(mix) do
-        local a = (C.AFFINITY[m.key] or {})[cat] or 0
+        local a = (C.AFFINITY[m.key] or {})[acat] or 0
         aff = aff + math.floor(a * m.w / 1000)
       end
+      aff = clamp(aff, -1000, 1000)
       key = key - math.floor(aff * C.LADDER_SHIFT / 1000)
     end
-    items[#items + 1] = { key = g.key, sort = key, i = i, boot = cat == "boot" }
+    if cat == "last" then rank = 4 end
+    items[#items + 1] = { key = g.key, sort = key, i = i, rank = rank }
   end
   table.sort(items, function(a, b)
-    if a.boot ~= b.boot then return a.boot end
+    if a.rank ~= b.rank then return a.rank < b.rank end
     if a.sort ~= b.sort then return a.sort < b.sort end
     return a.i < b.i
   end)
+  -- Place au plus tard (armée) : remontée si elle a été repoussée au-delà.
+  for _, lt in ipairs(C.LATEST) do
+    local key, last = lt[1], lt[2]
+    for k, it in ipairs(items) do
+      if it.key == key and k > last then
+        table.remove(items, k)
+        table.insert(items, last, it)
+        break
+      end
+    end
+  end
   -- Prérequis : une marche placée avant l'un de ses prérequis est repoussée juste après lui (passes successives).
   for _ = 1, #items do
     local moved = false
@@ -425,7 +457,7 @@ function C.think(st, v, draw)
   st.mix, st.scores, st.reason = mix, scores, chosen.reason
   -- Ordre des objectifs : recalculé quand la dominante change (stable entre deux changements).
   if changed or not st.ladder then
-    st.ladder = C.ladder_order(mix)
+    st.ladder = C.ladder_order(mix, nil, v.traits)
     st.ladder_for = chosen.key
   end
   -- Seuil d'attaque entre factions : tirage (v.jitter, refait à chaque pensée par le runtime) × posture.
