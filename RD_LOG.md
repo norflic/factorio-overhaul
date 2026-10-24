@@ -289,7 +289,7 @@
   correcteur annonçait 92 captures `gun-rose`, son dossier en contient 90, comme `main`. Correctif de l'orchestrateur :
   `check_gun_sheets.py` plantait sur la console cp1252 (caractère « ≠ ») sans `PYTHONIOENCODING` ; sortie passée en
   UTF-8 comme `ht3_journal.py`, 12 OK. Identifiants : bloc F120 à F129 épuisé ; F140 à F149 et E105 à E108 réservés à
-  A3 et A4. Page pour le DC : https://claude.ai/artifact/429eCnFm5Ec3mykcQosKfW (rien à valider).
+  A3 et A4. Page pour le DC : https://claude.ai/artifact/DcVt6j6PVctVQteegWJamt (rien à valider).
 - 23/10, vers 21 h 25, **run `wf_e1ae9f59-b47`** (orchestrateur ; deux chaînes en parallèle, A3-préparation et S0,
   chacune constructeur, vérificateur adverse, correcteur). **Décisions de l'orchestrateur pour A3** (délégation Q25) :
   D-7 appliquée (ombre à 32 échantillons, autres passes à 128, sous réserve d'identité octet à octet des autres passes) ;
@@ -306,7 +306,7 @@
   tout lancement », pas une MESURE de la sortie. Règle depuis : toute session avec son passe par `FO_AUDIO=1`, le pilote
   SDL `disk` et le garde de crête (`audio_guard.py`, code 10) ; jamais de vraie sortie audio (CLAUDE.md §4). Correction
   prouvée : 0 session audio Windows du jeu, relevé indépendant 0,000000 sur 41 550 relevés. Moteur réel sur `main` 0.4.7 (23/10, `done.txt` de 22:57:15,32 à 22:59:00,81 ; archives `<racine>\fo-logs\2026-10-23_integration-0.4.7\`) : `content` 317 ; `monde` 89 ; `m0-reprise` 15 ; `m0-migration` 9 ; `t2-machines` 80 ; `t3-libere` 41 ; `bord-a-bord` 12 ; `ht3-migration` 30 + journal 7 ; `t2-migration` 64 + 26 ; `t2-defense` 36 + 19 (0.4.1) et 36 + 11 (0.4.2) ; `t3-migration` 7 ; `gun-rose` 11, et 11 avec `FO_AUDIO=1` ; sur la graine 123456789 : `content` 317 et `monde` 89 ; **`fo-captures.bat gun-rose` avec `FO_AUDIO=1`** : code 0, 90 captures, « Driver:disk » et « Loading sounds... » au journal, garde : 0 session audio Windows du jeu en 2 416 relevés, crête 0 (`captures-gun-rose-audio\session.txt`). Hors jeu : run 114, war 92, td 270, pteam 15, migration 82, monde 157, levels 1 662 + 11 écarts connus, epochs 16 665, org 362, pvp 596 (387 s) ; harness code 0 (**Sons 0 violation**, auto-contrôle 13/13 ; images 17/17, feuilles 318) ; api_lint 676 ; d4m 5/5 ; mut_atlas 50 ; test_ht3_journal 15 ; **bat_double_source 40** ; mut_vram 18/18 ; **test_audio_session 21** ; **`sons.py --check` 20** ; check_gun_sheets 12 ; `test_audio_guard` (4 OK au lot) NON rejoué par l'orchestrateur : il joue 3 s d'un son de 30 Hz à −70 dBFS sur la vraie sortie du PC. Page
-  d'écoute : https://claude.ai/artifact/Fs17xbuFHA7t1SGptRH5Wd (sons PROVISOIRES, Q-S0-1). Écarts : le constructeur puis le correcteur ont recopié
+  d'écoute : https://claude.ai/artifact/Ap4JoXCgvxJJR29b5QceU3 (sons PROVISOIRES, Q-S0-1). Écarts : le constructeur puis le correcteur ont recopié
   temporairement leur `.bat` à la racine sous un AUTRE nom (`fo-autotest-s0.bat`, `fo-autotest-s0c.bat`, effacés
   ensuite) : les `.bat` de la racine n'ont pas été touchés, mais la consigne ne le prévoyait pas. Non prouvé : le tir
   joué en jeu (l'auditeur des sessions avec images n'est pas aux sites de tir) ; la source du fond sonore insensible
@@ -1268,7 +1268,7 @@ de la tête de la mitrailleuse à 32 échantillons contre 128 (lot A1, 23/10, 15
   post-traitement non comptés : un peu plus faible) ; le kit (`batch_blender.py`, gelé) ne sait pas encore régler les
   échantillons par passe (D-7) : la rose a tout rendu à 32.
 - **La rose des 8 directions** (même lot, rendue pour E66 et pour le DC ; aperçus à 32 échantillons, 112 têtes, 2 334 s
-  d'horloge sur 2 sessions ; planches composées hors moteur `A1\rose\`, page https://claude.ai/artifact/Xvx89nVaBurfh9bLJt7G21 ;
+  d'horloge sur 2 sessions ; planches composées hors moteur `A1\rose\`, page https://claude.ai/artifact/3wt4uyQfxBLigQEXfZ14Vv ;
   PAS vue en moteur, aucun verdict du DC) ; regard de l'agent, pas un verdict : pose N : le piège F119 reste visible
   (canons dressés lus comme des tubes verticaux aux âges 3, 4, 7, 8, 9, 13, 14 et 15) ; d08 et d56 : les canons se
   lisent comme des armes à tous les âges (mais d08 = cible à 54,7° du nord ; d01 à d07 non rendues : limite du secteur
@@ -1334,7 +1334,7 @@ construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :
   `wf_5f1609fb-473`). Ce verdict prime sur celui des juges pour les âges 1 à 12 ; leurs défauts mesurés restent notés
   pour une passe de finition.
 - Sorties : `<racine>\fo-logs\2026-10-23_V3E-p5\` (kit, kit2, kit3, r0 à r5, bas, haut, final, juges, presentation) ;
-  page de suivi https://claude.ai/artifact/Uvo1ArxapgUkMKAxDzWKT3 .
+  page de suivi https://claude.ai/artifact/XgfoS5rkCyUbbPYRgLvnyg .
 
 **E64 · NON VALIDÉ (juges : pas prêt) · V3-E, quatrième passe : un kit d'époque unifié, puis correction ciblée des
 époques ratées (23/10, 0 h 25 à 5 h 40 ; run `wf_b0a51b34-fe1`)** :
@@ -1368,7 +1368,7 @@ construction (23/10, 6 h 05 à 14 h 45 ; run `wf_5b157c7b-fa0`)** :
   triplets « en 3 mots » (seuil : 12 sur 15, aucune confusion entre ères). Les passes 3 et 4 ont demandé une description
   libre, plus dure et non comparable au seuil. Et le test n'avait lieu qu'à la fin : les constructeurs corrigeaient sans
   mesure de lecture.
-- Montré au DC : page privée https://claude.ai/artifact/R4KjvBTecqb6EnKMzbqftq (23/10, vers 6 h 10), sans demande de
+- Montré au DC : page privée https://claude.ai/artifact/1JLASdszGV6fHUSUHPKoVx (23/10, vers 6 h 10), sans demande de
   validation ; il peut refuser qu'on touche au corps (« corps : non »).
 - Suite : passe 5 (run `wf_5b157c7b-fa0`, lancée le 23/10 vers 6 h 05 ; worktrees persistants `v3e-p5-kit`,
   `v3e-p5-bas`, `v3e-p5-haut` depuis `v3e-p4` ; sorties `<racine>\fo-logs\2026-10-23_V3E-p5\`) : protocole du
@@ -1391,7 +1391,7 @@ artistique par âge (22/10, 19 h 03 à 23 h 59 ; run `wf_0608aa1f-b85`)** :
   « pas prêt » ; deux kits divergents (rupture entre 9 et 10), organe d'époque qui recouvre l'arme au lieu de s'y
   ajouter, identités par la couleur seule, ère I plus faible que la vanilla, tuyaux de la plage haute identiques,
   pose N lue comme des cheminées, 8 îlots détachés, points blancs de scintillement, vignettes écrites dans l'ordre.
-- Montré au DC : page privée https://claude.ai/artifact/68YXZE9cBMoFpcWQMgBLxs (23/10, 0 h 20).
+- Montré au DC : page privée https://claude.ai/artifact/22JwLxHGqYTfe9vqPYCNoe (23/10, 0 h 20).
 - Suite : passe 4 (run `wf_b0a51b34-fe1`, lancée le 23/10 vers 0 h 25) : kit d'époque unifié, puis correction des
   époques 2, 5, 6, 8, 9, 10, 11, 12 et 15, tuyaux par époque, pose N, îlots et scintillements.
 
@@ -2242,7 +2242,7 @@ intégrée dans `main` le 22/10 par la fusion `e1a6a6f`, tête `d6ba888` ; rejou
 - Décision (orchestrateur, délégation Q25) : ne pas étendre une direction à 6/10 aux 7 familles ; passe de synthèse
   sur la mitrailleuse (run `wf_eaa96606-5f1`, 2 variantes partant de l'industriel : « affût rond » et « industrielle
   resserrée », avec les greffes des juges). Page privée pour le DC :
-  https://claude.ai/artifact/7m6F5Euni67XpR3FJYQtFG .
+  https://claude.ai/artifact/2jA1RqTTiF7GDWwPkSjXKJ .
 - Preuves : `<racine>\fo-logs\2026-10-22_V3S\` (`industriel\`, `hightech\`, `hybride\`, `juges\`, `presentation\`) ;
   branches `worktree-wf_483106c7-c7f-2` (industriel, `265574d`), `-3` (haute technologie), `-4` (hybride, `e0571df`).
 - Limites : tout est composé hors moteur ; rien n'a été vu en jeu.
