@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.13
+Date: 2026-10-24
+  Graphics:
+    - La mitrailleuse tourne en douceur à tous les âges : ses 15 têtes ont désormais 64 orientations (au lieu de 4
+      pour les âges 9 à 15), éclats de tir compris.
+  Info:
+    - Les images de la mitrailleuse pèsent 155 Mo (55 Mo avant).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.12
 Date: 2026-10-24
   Bugfixes:
