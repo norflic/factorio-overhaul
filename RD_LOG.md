@@ -204,6 +204,18 @@
   10 autres âges lumineux (production d'environ 6,4 h de Blender, lancée de nuit). **Q-A4-3** (couleur d'équipe) : B,
   une bande colorée sur la tête (lot à ouvrir : rendu du masque par âge et par direction). **Q-P3** : B confirmé, un
   design par âge pour les objets hors des 7 familles (environ 190 designs, lots X).
+- 24/10, vers 8 h 45, **précision sur l'éclat de tir (Q-A4-1)** : « je l'ai donné pour l'éclat de tir, je voudrai qu'il
+  grossisse au fur et à mesure des aires, docn en gros, le dernier il est gros ». → Dessin « ERE » d'`eclat_tir.py` : force,
+  longueur et rotation des pointes interpolées de B (ère I) à A (ère V) par paliers égaux (âges d'une même ère : même
+  palier), en plus de la taille qui suit déjà l'emprise ; **version 0.4.11** (`195ac60`) ; feuilles régénérées (seuls
+  les éclats changent), check_gun_sheets 19 OK, harness code 0, levels 1 662, a4-eclat 3, gun-rose 13, content 317,
+  a4-socle 2 ; captures a4-eclat et a4-eclat-impair regardées (`fo-logs\2026-10-24_eclat-ere\montage-E-jeu.jpg` :
+  éclat minuscule aux âges 2 et 3, énorme au Néant). Non rejoué : `a4_eclat_images.py` (contrôle au barycentre, qui
+  demande une copie sans éclat).
+- 24/10, vers 8 h 50, **le DC joue sur ce PC** : « je vais jouer sur mon PC actuel, sur celui où vous êtes, ça pose
+  problème ? ». → Règle de l'orchestrateur pendant ses parties : aucune régénération d'images ni fusion qui change les
+  images dans le dossier du mod (`main`) ; les lots travaillent dans leurs worktrees ; les intégrations attendent la fin
+  de sa partie ; les sessions de test restent silencieuses, en fenêtre réduite, dans leurs dossiers à part.
 - 23/10, vers 18 h 45, **intégrations de la suite** (run `wf_2f1793c9-578`, chacune vérifiée par un agent adverse ; aucun défaut
   bloquant ni majeur, défauts mineurs notés dans `fo-logs\2026-10-23_suite\INT-*\verification.md`) : **INT-K0** (fusion
   `e4e8416` : kit commun sur `main` ; empreinte FORTE des 72 variantes 0 différence contre `93e3d89` ; têtes d00 et d16 des âges
