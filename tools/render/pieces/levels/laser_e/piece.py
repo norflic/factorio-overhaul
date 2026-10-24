@@ -6,7 +6,10 @@ Format de tools/render/README.md (PIECE + build(S, C, variant)). Variantes (mêm
   eNN-piece           pièce du niveau pair 2N (couche ajoutée au socle, en paire aux coins avant) ;
   eNN-tete-N|E        tête, faisceau au nord ou à l'est ;
   eNN-tete-dKK        tête tournée (K = 00 à 63 ; d00 = nord, sens horaire, d16 = E exactement), à la demande ;
-  kS-socle, kS-tete-N|E (et kS-tete-dKK)   TÉMOIN DU KIT (S = 2 à 6) : la lignée seule (ep00).
+  kS-socle, kS-tete-N|E (et kS-tete-dKK)   TÉMOIN DU KIT (S = 2 à 6) : la lignée seule (ep00) ;
+  mNN-socle, mNN-tete-N|E (et mNN-tete-dKK)   MAQUETTE de l'âge NN (2 à 15, quatrième jet, M-6) : la lignée habillée
+                      aux matières de l'âge avec la silhouette d'affût et la forme de tête de epoques.MAQUETTES[NN],
+                      sans organe d'âge (gris.py sur les socles avant d'écrire les fichiers d'âge).
 Directions : convention de Factorio (RotatedAnimation : indice 0 = nord, sens horaire), mêmes flottants que gun_e
 (d00 = 0.0, d16 = −π/2 au bit près). Emprise : epoques.COTE. Préfixe des matières Blender : « lase » (kit.PREFIXE ;
 sans effet sur l'image). Rendu : rendre.py ; contrôles : commun/ilots.py, gris.py, mesures.py, dominance.py,
@@ -30,7 +33,7 @@ assert DIRS["d00"] == DIRS["N"] and DIRS["d16"] == DIRS["E"], "convention des di
 ROSE = (("N", "d00"), ("NE", "d08"), ("E", "d16"), ("SE", "d24"), ("S", "d32"), ("SO", "d40"), ("O", "d48"),
         ("NO", "d56"))
 PARTIES = ("socle", "piece", "tete-N", "tete-E")
-_RE_TETE_D = re.compile(r"^(?:e(\d\d)|k(\d))-tete-(d\d\d)$")
+_RE_TETE_D = re.compile(r"^(?:e(\d\d)|k(\d)|m(\d\d))-tete-(d\d\d)$")
 
 
 def nom(e, partie):
@@ -59,6 +62,12 @@ def _variants():
             if p.startswith("tete"):
                 meta["dir"] = p.split("-", 1)[1]
             v["k%d-%s" % (s, p)] = meta
+    for e in sorted(E.MAQUETTES):
+        for p in ("socle", "tete-N", "tete-E"):
+            meta = {"epoch": e, "part": p.split("-")[0], "level": 0, "side": E.COTE[e], "maquette": True}
+            if p.startswith("tete"):
+                meta["dir"] = p.split("-", 1)[1]
+            v["m%02d-%s" % (e, p)] = meta
     for name, meta in v.items():
         _finir(name, meta)
     return _Variantes(v)
@@ -66,24 +75,29 @@ def _variants():
 
 def tete_d(name):
     m = _RE_TETE_D.match(name)
-    if not m or m.group(3) not in DIRS:
+    if not m or m.group(4) not in DIRS:
         return None
     if m.group(1) is not None:
         e = int(m.group(1))
         if not 2 <= e <= 15:
             return None
         meta = {"epoch": e, "part": "tete", "level": 2 * e - 1, "side": E.COTE[e]}
+    elif m.group(3) is not None:
+        e = int(m.group(3))
+        if e not in E.MAQUETTES:
+            return None
+        meta = {"epoch": e, "part": "tete", "level": 0, "side": E.COTE[e], "maquette": True}
     else:
         s = int(m.group(2))
         if not 2 <= s <= 6:
             return None
         meta = {"epoch": 0, "part": "tete", "level": 0, "side": s}
-    meta["dir"] = m.group(3)
+    meta["dir"] = m.group(4)
     return _finir(name, meta)
 
 
 class _Variantes(dict):
-    """Table des variantes explicites (74), plus les têtes tournées dKK construites à la demande."""
+    """Table des variantes explicites (72 + 42 maquettes), plus les têtes tournées dKK construites à la demande."""
 
     def __missing__(self, key):
         meta = tete_d(key)
@@ -116,13 +130,15 @@ def build(S, C, variant):
     K.PREFIXE = PREFIXE
     v = PIECE["variants"][variant]
     e = v["epoch"]
-    ep = E.module(e)
+    ep = E.maquette(e) if v.get("maquette") else E.module(e)
     M = K.materials(S, e, ep)
     hab = E.habillage(ep)
     part = v["part"]
-    seed = {"socle": 100, "tete": 200, "piece": 300}[part] + (e if e else 400 + v["side"])
+    seed = {"socle": 100, "tete": 200, "piece": 300}[part] + (e if e else 400 + v["side"]) + (500 if v.get("maquette")
+                                                                                               else 0)
     rot = DIRS[v["dir"]] if part == "tete" else 0.0
-    g = K.Geo(S, C, M, "L%s%02d" % (part[0], e if e else v["side"]), rot, seed=seed)
+    g = K.Geo(S, C, M, "L%s%s%02d" % (part[0], "m" if v.get("maquette") else "", e if e else v["side"]), rot,
+              seed=seed)
     c = corps.Ctx(g, e, ep, v["side"], hab)
     {"socle": corps.socle, "piece": corps.piece, "tete": corps.tete}[part](g, c)
     count = dict(g.count)

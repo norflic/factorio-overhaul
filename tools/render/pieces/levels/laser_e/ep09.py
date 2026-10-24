@@ -1,9 +1,10 @@
 """Laser · Âge 9 · Atome (ère III, 4×4, niveaux 17 et 18). EXEMPLE du kit laser_e (lot F1-A, aperçu d'essai) ; fiche :
 fo-logs/2026-10-24_F1/FICHES_LASER.md, âge 9 (fait foi). S'exécute DANS Blender.
 
-En 3 mots : « tête octogonale, cœur vert, béton ». L'émetteur est un CAISSON OCTOGONAL de plomb (prisme à 8 pans dont
+En 3 mots : « trèfle de béton, cœur vert, fûts de plomb » (correction F1-A, M-2 : « tête octogonale » nommait
+la face avant, cachée en pose E). L'émetteur est un CAISSON OCTOGONAL de plomb (prisme à 8 pans dont
 l'axe est le faisceau, aussi long que large), percé à l'avant d'un grand HUBLOT sur un CŒUR VERT d'uranium, deux
-hublots latéraux, trèfles ; porté par un étrier de béton. Affût OCTOGONAL à 3 gradins chanfreinés de béton presque
+hublots latéraux, trèfles ; porté par un étrier de béton. Affût EN TRÈFLE (3 lobes) à 3 gradins chanfreinés de béton presque
 blanc, dalles de béton à liseré vert ; condensateurs = FÛTS DE PLOMB à hublot vert et trèfle ; liaisons en gaines
 annelées de plomb. Coins arrière : blocs de blindage de plomb à évents.
 Palette 60/30/10 (ages.PALETTE[9]) : béton blanc cassé / plomb gris-bleu / vert uranium.
@@ -14,6 +15,7 @@ from mathutils import Vector
 
 import ages
 import corps
+import epoques as E_
 import formes as F
 import parts as PT
 from kit import SQ2, TAU
@@ -23,14 +25,12 @@ V = Vector
 
 EPOQUE = 9
 NOM = ages.NOMS[9]
-TRIPLET = ("tête octogonale", "cœur vert", "béton")
+TRIPLET = ("trèfle de béton", "cœur vert", "fûts de plomb")
 FOYER = ages.FOYER[9]
 FAISCEAU = dict(rgb=(0.36, 1.0, 0.29), forme="trait vert uranium épais, halo pulsé, étincelles vertes", largeur=1.3)
-HABILLAGE = dict(ages.CORPS[9],
-                 cerclages="plomb_sombre",
-                 forme_affut=dict(gradins=3, pans=8, profil="chanfrein", flanc="beton_capot", flanc2="concrete",
-                                  rapport=0.78),
-                 forme_tete="etrier")
+# affût en TRÈFLE (quatrième jet, M-6 : 3 lobes chanfreinés, epoques.MAQUETTES[9]) ; avant : octogone chanfreiné, la
+# même silhouette que l'âge 7 (temple octogonal)
+HABILLAGE = dict(ages.CORPS[9], **E_.MAQUETTES[9])
 
 
 def matieres(metal, M):
@@ -150,8 +150,10 @@ def emetteur(g, c):
     corps.lentille(g, c, y1 + 0.01, 0.55 * re, verre=M["emit"], cercle=M["plomb_sombre"], anneau=False)
     F.lit_ring(g, (0, y1 + 0.05, zh), "y", 0.62 * re, M["emit_soft"], w=0.035)
     # le cœur vert se lit de DESSUS et de CÔTÉ (en pose E, la face avant est vue par la tranche) : grand hublot sur le
-    # pan du dessus, hublots sur les pans latéraux
+    # pan du dessus, hublots sur les deux pans DIAGONAUX du haut (correction F1-A, m-4 : sur les pans latéraux, ils
+    # étaient cachés derrière les joues de l'étrier ; un pan diagonal du haut regarde la caméra en pose E)
     for sx in (-1, 1):
-        _hublot(g, (sx * R * 0.93, 0.15 * re, zh), (sx, 0, 0), 0.24 * re, M)
+        k = 0.93 * math.cos(math.pi / 4)
+        _hublot(g, (sx * R * k, 0.15 * re, zh + R * k), (sx, 0, 1), 0.24 * re, M)
     _hublot(g, (0, 0.15 * re, zh + R * 0.93), (0, 0, 1), 0.3 * re, M)
     F.trefoil(g, (0, -0.5 * re, zh + R * 0.93), (0, 0, 1), 0.1)

@@ -14,8 +14,22 @@ habillage), mais un corps PROPRE au laser, pour qu'un joueur ne confonde JAMAIS 
           sombre, anneau lumineux, point focal).
 Repère : comme la mitrailleuse (kit.py) : +X est, +Y nord, +Z haut, une tuile de jeu vers le nord = √2 en Y (repere.Y) ;
 la tête est modélisée faisceau vers +Y et reçoit la rotation de la pose (kit.Geo.rotz).
+
+QUATRIÈME JET (correction du lot F1-A, 24/10, défauts M-1, M-4, M-5 et M-6 de la vérification ; le kit est gelé APRÈS) :
+  - PROUE (M-1) : nez plat posé sur la platine, vers +Y, avec une fente lumineuse sur son axe : la tête montre où elle
+    tire dans toutes les poses, même quand l'émetteur est vu par la tranche (pose E) ; les chapeaux de tourillons sont
+    petits, bombés et mats, sans moyeu (ils ne se lisent plus comme une lentille tournée vers la caméra) ;
+  - CAISSON ARRIÈRE bas et étroit (M-4, cotes.py) : l'émetteur le dépasse par le haut en pose N ;
+  - ANNEAU penché de 35° vers l'avant (son plan n'est plus vu par la tranche en pose E) et fermé par un diaphragme (aucun
+    jour enfermé : défaut m-5) ; corps.dans_anneau(g, c) donne le repère penché à l'émetteur de l'âge ;
+  - options de forme de l'affût (M-5, M-6) : contour (lobes, étoile, dents), interstice lumineux au pied des gradins,
+    pilotis, étoiles semées, rayons au sol (ailerons, contreforts) ; voir epoques.py (« forme_affut »).
+Contrôle seulement : la variable d'environnement FO_LASER_SANS=emetteur fait une tête SANS émetteur (mesure de la part
+de l'émetteur dans la silhouette, outil du lot F1-A) ; jamais en production.
 """
 import math
+import os
+import random
 
 from mathutils import Matrix, Vector
 
@@ -34,7 +48,8 @@ V = Vector
 PONT_LASER = dict(PONT_DEFAUT, motif="toles", mat="armor", mat2="armor2", fond="seam", bord="steel_dk",
                   boulons="steel_hi", pas=0.42, relief=0.2)
 AFFUT_DEFAUT = dict(gradins=None, pans=None, profil="droit", flanc="olive", flanc2="ochre", assises=False,
-                    lisere=None, rapport=None)
+                    lisere=None, rapport=None, contour=None, interstice=None, pilotis=None, etoiles=None, rayons=None)
+INCLINAISON_ANNEAU = math.radians(35.0)   # anneau de la forme « anneau » : haut penché vers l'avant (+Y)
 
 
 class Ctx:
@@ -69,6 +84,26 @@ def anneau_pts(R, z, n, phase=0.0, rond=True):
     return [V((R * math.cos(phase + TAU * i / n), k * R * math.sin(phase + TAU * i / n), z)) for i in range(n)]
 
 
+def contour_pts(prof, R, z, dr=0.0):
+    """Sommets d'un gradin de profil `prof` (cotes.profil_contour) au rayon R (tuiles, rond à l'écran), à la hauteur z ;
+    dr : retrait constant (cornière, liseré) appliqué après le facteur du contour."""
+    return [V(((R * k - dr) * math.cos(a), SQ2 * (R * k - dr) * math.sin(a), z)) for (a, k) in prof]
+
+
+def couronne(g, o0, i0, o1, i1, m, what="anneau"):
+    """Couronne pleine entre deux contours (extérieur o, intérieur i ; bas 0, haut 1) de même nombre de sommets."""
+    n = len(o0)
+    vs = [tuple(p) for p in o0 + i0 + o1 + i1]
+    fs = []
+    for i in range(n):
+        j = (i + 1) % n
+        fs.append((i, j, 2 * n + j, 2 * n + i))
+        fs.append((n + j, n + i, 3 * n + i, 3 * n + j))
+        fs.append((2 * n + i, 2 * n + j, 3 * n + j, 3 * n + i))
+        fs.append((j, i, n + i, n + j))
+    g._add(m, "soft", vs, fs, what)
+
+
 def anneau_plat(g, R_out, R_in, z0, z1, m, n=48, rond=True, what="anneau"):
     """Anneau plein (couronne) d'épaisseur z1 − z0 entre R_in et R_out, rond à l'écran par défaut."""
     o0, i0 = anneau_pts(R_out, z0, n, rond=rond), anneau_pts(R_in, z0, n, rond=rond)
@@ -94,9 +129,10 @@ def z_gradin(c, x, yn):
     """Hauteur du dessus de l'affût au point (x, yn) en tuiles (0 hors de l'affût) : pour poser un organe d'âge SUR un
     gradin."""
     r = math.hypot(x, yn)
+    k = cotes.facteur_contour(c.affut.get("contour"), math.atan2(yn, x))
     z = 0.0
     for (Rb, Rt, z0, z1) in c.gradins:
-        if r <= Rt:
+        if r <= Rt * k:
             z = z1
     return z
 
@@ -107,7 +143,10 @@ def z_gradin(c, x, yn):
 @_lignee
 def affut(g, c):
     """Gradins de l'affût (forme_affut) : flancs habillés, dessus au motif du pont de l'âge, cornière d'arête, boulons,
-    liseré facultatif. Remplit c.gradins. Tout est PLEIN jusqu'au sol (aucun trou possible)."""
+    liseré facultatif ; options du quatrième jet : contour (lobes, étoile, dents : le même pour tous les gradins),
+    interstice lumineux au pied de chaque gradin (fermé : bande lumineuse en retrait, entretoises), pilotis, étoiles
+    semées sur le dessus, rayons au sol (ailerons, contreforts). Remplit c.gradins. Tout est PLEIN jusqu'au sol (aucun
+    trou possible)."""
     M = g.M
     A = c.affut
     n = A["gradins"]
@@ -115,11 +154,17 @@ def affut(g, c):
     zs = cotes.hauteurs_gradins(c.side, n)
     nseg = int(A["pans"]) if A["pans"] else c.T["affut"]["segments"]
     phase = math.pi / nseg if A["pans"] else 0.0
+    cont = A["contour"]
+    prof_c = cotes.profil_contour(cont, nseg, phase)
+    kmin = min(k for _, k in prof_c)
     bord = c.T["affut"]["bord"]
     flanc = M[A["flanc"]] if A["flanc"] in M else capot(c, "olive")
     flanc2 = M[A["flanc2"]] if A["flanc2"] in M else capot(c, "ochre")
     cfg = c.pont
     Rp = c.T["pivot"]["R"]
+    # interstice (lévitation fermée) : bande lumineuse en retrait au pied de chaque gradin
+    d_int = (0.03 + 0.008 * c.side) if A["interstice"] else 0.0
+    e_int = 0.04 + 0.01 * c.side
     c.gradins = []
     for i in range(n):
         R0 = radii[i]
@@ -134,34 +179,218 @@ def affut(g, c):
             Rtop = R0 * 0.95
         else:
             Rtop = R0
-        b = anneau_pts(R0, z0, nseg, phase)
+        if d_int:
+            _solide(g, contour_pts(prof_c, R0, z0, e_int), contour_pts(prof_c, R0, z0 + d_int, e_int),
+                    M[A["interstice"]], "interstice")
+            ne = max(6, int(TAU * R0 / 0.55))
+            for k in range(ne):
+                a = TAU * (k + 0.5) / ne
+                rk = R0 * cotes.facteur_contour(cont, a) - e_int * 0.5
+                g.box((rk * math.cos(a), SQ2 * rk * math.sin(a), z0 + d_int / 2), (0.05, 0.05, d_int),
+                      M["steel_hi"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="entretoise")
+        b = contour_pts(prof_c, R0, z0 + d_int)
         if prof == "bombe":
-            zm = (z0 + z1) / 2
-            m_ = anneau_pts(R0 * 1.03, zm, nseg, phase)
-            t = anneau_pts(Rtop, z1, nseg, phase)
+            zm = (z0 + d_int + z1) / 2
+            m_ = contour_pts(prof_c, R0 * 1.03, zm)
+            t = contour_pts(prof_c, Rtop, z1)
             _flancs(g, c, b, m_, flanc, flanc2, A)
             _flancs(g, c, m_, t, flanc, flanc2, A)
         else:
-            t = anneau_pts(Rtop, z1, nseg, phase)
+            t = contour_pts(prof_c, Rtop, z1)
             _flancs(g, c, b, t, flanc, flanc2, A)
-        # dessus : motif du pont de l'âge sur tout le disque du haut (le gradin suivant couvre le centre)
+        # dessus : motif du pont de l'âge sur tout le disque du haut (le gradin suivant couvre le centre) ; contour non
+        # convexe : le motif se pose sur le disque inscrit, les pointes restent en tôle pleine de la matière du motif
         P2 = [(p.x, p.y) for p in t]
-        _prisme(g, P2, z1 - 0.012, z1, M[cfg["fond"]], "flat", "dessus")
-        _motif(g, M, cfg, P2, z1, bord + 0.02, 8100 + 10 * c.side + i)
-        # cornière d'arête (matière « bord » du pont), boulons, liseré
-        anneau_plat(g, Rtop + 0.01, Rtop - bord, z1, z1 + 0.026, M[cfg["bord"]], n=nseg * 2 if not A["pans"] else nseg,
-                    what="corniere")
+        if cont:
+            _prisme(g, P2, z1 - 0.014, z1 - 0.002, M[cfg["mat"]], "flat", "dessus")
+            Pin = [(p.x, p.y) for p in anneau_pts(Rtop * kmin - bord, z1, 48)]
+            _prisme(g, Pin, z1 - 0.012, z1, M[cfg["fond"]], "flat", "dessus")
+            _motif(g, M, cfg, Pin, z1, 0.02, 8100 + 10 * c.side + i)
+            couronne(g, contour_pts(prof_c, Rtop, z1, -0.01), contour_pts(prof_c, Rtop, z1, bord),
+                     contour_pts(prof_c, Rtop, z1 + 0.026, -0.01), contour_pts(prof_c, Rtop, z1 + 0.026, bord),
+                     M[cfg["bord"]], what="corniere")
+        else:
+            _prisme(g, P2, z1 - 0.012, z1, M[cfg["fond"]], "flat", "dessus")
+            _motif(g, M, cfg, P2, z1, bord + 0.02, 8100 + 10 * c.side + i)
+            # cornière d'arête (matière « bord » du pont), boulons, liseré ; gradins à PANS : la cornière suit les pans
+            # (défaut du premier jet, vu sur les maquettes du quatrième : un anneau à n pans SANS le déphasage π/n du
+            # gradin, qui croisait ses arêtes en étoile)
+            if A["pans"]:
+                couronne(g, contour_pts(prof_c, Rtop, z1, -0.01), contour_pts(prof_c, Rtop, z1, bord),
+                         contour_pts(prof_c, Rtop, z1 + 0.026, -0.01), contour_pts(prof_c, Rtop, z1 + 0.026, bord),
+                         M[cfg["bord"]], what="corniere")
+            else:
+                anneau_plat(g, Rtop + 0.01, Rtop - bord, z1, z1 + 0.026, M[cfg["bord"]], n=nseg * 2, what="corniere")
         if cfg.get("boulons"):
             nb = max(8, int(TAU * Rtop / 0.24))
             for k in range(nb):
                 a = TAU * (k + 0.5) / nb
-                g.bolt(((Rtop - bord * 0.5) * math.cos(a), SQ2 * (Rtop - bord * 0.5) * math.sin(a), z1 + 0.026),
-                       (0, 0, 1), 0.014, M[cfg["boulons"]])
+                rb = Rtop * _k_bord(A, cont, nseg, phase, a) - bord * 0.5
+                g.bolt((rb * math.cos(a), SQ2 * rb * math.sin(a), z1 + 0.026), (0, 0, 1), 0.014, M[cfg["boulons"]])
         if A["lisere"]:
-            anneau_plat(g, Rtop - bord * 0.25, Rtop - bord * 0.75, z1 + 0.026, z1 + 0.032, M[A["lisere"]],
-                        n=nseg * 2 if not A["pans"] else nseg, what="lisere")
+            if cont or A["pans"]:
+                couronne(g, contour_pts(prof_c, Rtop, z1 + 0.026, bord * 0.25),
+                         contour_pts(prof_c, Rtop, z1 + 0.026, bord * 0.75),
+                         contour_pts(prof_c, Rtop, z1 + 0.032, bord * 0.25),
+                         contour_pts(prof_c, Rtop, z1 + 0.032, bord * 0.75), M[A["lisere"]], what="lisere")
+            else:
+                anneau_plat(g, Rtop - bord * 0.25, Rtop - bord * 0.75, z1 + 0.026, z1 + 0.032, M[A["lisere"]],
+                            n=nseg * 2 if not A["pans"] else nseg, what="lisere")
         c.gradins.append((R0, Rtop, z0, z1))
+    if A["etoiles"]:
+        _etoiles(g, c, A["etoiles"], kmin)
+    if A["pilotis"]:
+        _pilotis(g, c, A["pilotis"])
+    if A["rayons"]:
+        _rayons(g, c, A["rayons"])
     return c.gradins
+
+
+def _k_bord(A, cont, nseg, phase, a):
+    """Facteur de rayon du bord d'un gradin à l'angle a : contour, polygone à pans (sommets à phase + 2πi/n), ou 1."""
+    if cont:
+        return cotes.facteur_contour(cont, a)
+    if A["pans"]:
+        p = TAU / nseg
+        u = (a - phase) % p
+        return math.cos(p / 2) / math.cos(u - p / 2)
+    return 1.0
+
+
+def _solide(g, b, t, m, what):
+    """Tronc plein entre deux contours de même nombre de sommets (fond et dessus fermés)."""
+    n = len(b)
+    faces = [tuple(range(n))[::-1], tuple(range(n, 2 * n))]
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, n + j, n + i))
+    g._add(m, "flat", [tuple(p) for p in b + t], faces, what)
+
+
+def _mat_opt(g, c, v, defaut):
+    """Matière d'une option de l'affût : chaîne (nom de matière) ou dict(mat=…) ; défaut sinon."""
+    nom = v if isinstance(v, str) else (v.get("mat") if isinstance(v, dict) else None)
+    return g.M[nom] if nom in g.M else capot(c, defaut)
+
+
+def _etoiles(g, c, v, kmin):
+    """Étoiles semées sur le dessus des gradins (petits points lumineux, hasard LOCAL : graine fixe par taille et
+    gradin) ; densité par tuile² de dessus visible (défaut 5)."""
+    m = _mat_opt(g, c, v, "olive")
+    dens = float(v.get("densite", 5.0)) if isinstance(v, dict) else 5.0
+    bord = c.T["affut"]["bord"]
+    Rp = c.T["pivot"]["R"]
+    for i, (R0, Rtop, z0, z1) in enumerate(c.gradins):
+        Ri = (c.gradins[i + 1][0] if i + 1 < len(c.gradins) else Rp) + 0.06
+        Ro = Rtop * kmin - bord - 0.04
+        if Ro <= Ri:
+            continue
+        rng = random.Random(8400 + 10 * c.side + i)
+        for _ in range(int(dens * math.pi * (Ro * Ro - Ri * Ri))):
+            r = math.sqrt(rng.uniform(Ri * Ri, Ro * Ro))
+            a = rng.uniform(0.0, TAU)
+            rs = rng.choice((0.013, 0.016, 0.02, 0.026))
+            g.cyl((r * math.cos(a), SQ2 * r * math.sin(a), z1 + 0.034), "z", rs, 0.014, m, n=8, style="flat",
+                  what="etoile")
+
+
+def _hors_coins(c, x, yn, marge):
+    """Vrai si le point (x, yn) (tuiles) est dans l'emprise et hors des quatre places de coin (superstructures et
+    pièce paire), avec une marge."""
+    s = c.side
+    if abs(x) > s / 2.0 - 0.05 - marge or abs(yn) > s / 2.0 - 0.05 - marge:
+        return False
+    T = c.T["coin"]
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            if math.hypot(x - sx * T["d"], yn - sy * T["d"]) < T["r"] + marge:
+                return False
+    return True
+
+
+def _pilotis(g, c, v):
+    """Pilotis : pieux debout serrés au pied du premier gradin (à moitié pris dedans), un peu plus hauts que lui, hors
+    des places de coin."""
+    m = _mat_opt(g, c, v, "olive")
+    R0, Rtop, z0, z1 = c.gradins[0]
+    cont = c.affut["contour"]
+    rp = 0.035 + 0.008 * c.side
+    h = z1 * 1.18
+    n = int(v.get("n") or 0) if isinstance(v, dict) else 0
+    n = n or max(12, int(TAU * R0 / 0.3))
+    for k in range(n):
+        a = math.pi / n + TAU * k / n
+        r = R0 * cotes.facteur_contour(cont, a) + rp * 0.35
+        x, yn = r * math.cos(a), r * math.sin(a)
+        if not _hors_coins(c, x, yn, rp):
+            continue
+        g.cyl((x, SQ2 * yn, h / 2), "z", rp, h, m, n=10, style="soft", what="pieu")
+        g.cyl((x, SQ2 * yn, h + 0.012), "z", rp * 1.08, 0.024, M_ou(g, "steel_dk"), n=10, style="soft", what="tete_pieu")
+
+
+def M_ou(g, nom):
+    return g.M[nom] if nom in g.M else g.M["steel_dk"]
+
+
+def _rayons(g, c, v):
+    """Rayons de l'affût : « aileron » (lame mince en triangle qui monte vers le centre et dépasse le dessus de l'affût :
+    elle change la SILHOUETTE) ou « contrefort » (coin plein, plus large, et patin au sol) ; n à partir de `phase`
+    (degrés, 0 = est, défaut : entre deux condensateurs pour n = 4 ou 8). Chaque rayon part du pied du DEUXIÈME gradin,
+    passe par-dessus le premier et dépasse son flanc d'au plus 0,06 + 0,02 s, rogné pour rester dans l'emprise et hors
+    des places de coin. Correction du premier dessin (rayons au sol seulement, hors de l'affût) : entre l'affût et le
+    bord de l'emprise il ne reste que 0,03 s + 0,04 tuile ; à 3×3, les contreforts de la maquette 4 étaient trop courts
+    et n'étaient pas posés (maquettes du 24/10)."""
+    m = _mat_opt(g, c, v, "ochre")
+    forme = v.get("forme", "aileron")
+    n = int(v.get("n", 4))
+    ph = math.radians(v.get("phase", 0.0))
+    A = c.affut
+    cont = A["contour"]
+    nseg = int(A["pans"] or 0)
+    phase = math.pi / nseg if nseg else 0.0
+    R0, Rtop, z0, z1 = c.gradins[0]
+    s = c.side
+    Rp = c.T["pivot"]["R"]
+    R2 = c.gradins[1][0] if len(c.gradins) > 1 else Rp + 0.1
+    ztop = c.gradins[-1][3]
+    z2 = c.gradins[1][3] if len(c.gradins) > 1 else z1
+    hw = (0.02 + 0.005 * s) if forme == "aileron" else (0.06 + 0.014 * s)
+    for k in range(n):
+        a = ph + TAU * k / n
+        kb = _k_bord(A, cont, nseg, phase, a)
+        r_in = R2 * kb - 0.03
+        r_bord = R0 * kb
+        r1 = r_bord - 0.02
+        r = r_bord
+        while r <= r_bord + 0.06 + 0.02 * s:
+            if not _hors_coins(c, r * math.cos(a), r * math.sin(a), hw):
+                break
+            r1 = r
+            r += 0.02
+        d = V((math.cos(a), math.sin(a), 0.0))
+        p = V((-math.sin(a), math.cos(a), 0.0))
+
+        def B(rr, w, z):
+            q = d * rr + p * w
+            return V((q.x, SQ2 * q.y, z))
+        if forme == "aileron":
+            h_in = ztop + 0.1 + 0.04 * s
+            pts = [B(r_in, -hw, 0.0), B(r1, -hw, 0.0), B(r1, -hw, 0.06), B(r_in, -hw, h_in),
+                   B(r_in, hw, 0.0), B(r1, hw, 0.0), B(r1, hw, 0.06), B(r_in, hw, h_in)]
+            g.hexa(pts, m, "hard", "aileron")
+            # liseré d'arête (matière d'acier sombre) le long du bord d'attaque
+            e0, e1 = B(r_in, 0.0, h_in), B(r1, 0.0, 0.06)
+            dd = e1 - e0
+            g.box((e0 + e1) / 2, (hw * 2.4, dd.length, 0.03), M_ou(g, "steel_dk"), "hard",
+                  R=Matrix.Rotation(math.atan2(-dd.x, dd.y), 3, "Z") @ Matrix.Rotation(
+                      math.atan2(dd.z, math.hypot(dd.x, dd.y)), 3, "X"), what="arete_aileron")
+        else:
+            h_in = z2 * 0.98
+            pts = [B(r_in, -hw, 0.0), B(r1, -hw, 0.0), B(r1, hw, 0.0), B(r_in, hw, 0.0),
+                   B(r_in, -hw * 0.8, h_in), B(r1, -hw * 0.8, 0.08), B(r1, hw * 0.8, 0.08), B(r_in, hw * 0.8, h_in)]
+            g.hexa(pts, m, "hard", "contrefort")
+            g.cyl(tuple(B(r1 - 0.01, 0.0, 0.03)), "z", hw * 1.3, 0.06, M_ou(g, "steel_dk"), n=16, style="soft",
+                  what="patin_contrefort")
 
 
 def _flancs(g, c, b, t, flanc, flanc2, A):
@@ -205,13 +434,18 @@ def places_condensateurs(c):
     r, h = T["r"], T["h"]
     R0, Rtop, z0, z1 = c.gradins[0]
     R2 = c.gradins[1][0] if len(c.gradins) > 1 else c.T["pivot"]["R"] + 0.1
-    if Rtop - R2 >= 2 * r + 0.02:
-        Rm, z = (Rtop + R2) / 2.0, z1 + 0.026
-    else:
-        Rm, z = R0 - 0.35 * r, 0.0      # adossés au flanc du premier gradin, posés au sol
+    cont = c.affut.get("contour")
     out = []
     for k in range(n):
         a = math.pi / n + TAU * k / n
+        # contour (quatrième jet) : la couronne suit les lobes, les pointes et les PANS (au premier jet, un condensateur
+        # au milieu d'un pan débordait du gradin)
+        A = c.affut
+        kf = _k_bord(A, cont, int(A["pans"] or 0), math.pi / A["pans"] if A["pans"] else 0.0, a)
+        if (Rtop - R2) * kf >= 2 * r + 0.02:
+            Rm, z = (Rtop + R2) / 2.0 * kf, z1 + 0.026
+        else:
+            Rm, z = R0 * kf - 0.35 * r, 0.0      # adossés au flanc du premier gradin, posés au sol
         out.append((Rm * math.cos(a), SQ2 * Rm * math.sin(a), z, r, h))
     return out
 
@@ -275,7 +509,10 @@ def liaison_defaut(g, pts, r):
 
 def liaisons_radiales(g, c, pl, pas=2, r=None):
     """Liaisons des condensateurs au pivot (organe de liaison de l'âge, ep.liaison ; défaut : gaine) : un sur `pas`,
-    sur la moitié AVANT seulement (les autres sont derrière la tête)."""
+    sur la moitié AVANT seulement (les autres sont derrière la tête). Correction F1-A (24/10, reprise) : le code posait
+    aussi les liaisons de la moitié ARRIÈRE, contrairement à ce qu'il annonçait ; vues de la caméra (au sud), elles
+    montaient au-dessus de leur condensateur et y enfermaient un jour sur le fond (trous de 10 à 55 px aux maquettes
+    m05, m06 et m09) : seules les liaisons des condensateurs au sud de l'axe est-ouest (y < 0) sont posées."""
     if not pl:
         return
     liaison = getattr(c.ep, "liaison", None) or liaison_defaut
@@ -283,7 +520,7 @@ def liaisons_radiales(g, c, pl, pas=2, r=None):
     zp = c.gradins[-1][3]
     r = r or (0.022 + 0.006 * c.side)
     for k, (x, y, z, rc, h) in enumerate(pl):
-        if k % pas:
+        if k % pas or y > 0.0:
             continue
         a = math.atan2(y / SQ2, x)
         d = V((math.cos(a), math.sin(a), 0.0))
@@ -351,6 +588,39 @@ def platine(g, c):
 
 
 @_lignee
+def proue(g, c):
+    """PROUE (quatrième jet, M-1) : repère de direction de la lignée, lisible de dessus dans toutes les poses sans
+    allonger l'émetteur (F119) : nez plat en pointe posé sur la platine, du centre vers +Y jusqu'à py1 (cotes.py),
+    tôle bordée d'une cornière, FENTE LUMINEUSE de l'âge sur son axe et chevron lumineux près de la pointe. Bas : son
+    dessus est à peine plus haut que la platine. Un âge peut la remplacer (def proue(g, c)), jamais la supprimer."""
+    M = g.M
+    t = c.T["tete"]
+    z0, zb = t["z0"], t["z0"] + t["hpl"]
+    y0, ye, y1 = t["py0"], t["py_ep"], t["py1"]
+    w0, we = t["pw0"], t["pw_ep"]
+    zt = zb + 0.02
+    P = [(-w0, y0), (w0, y0), (we, ye), (0.0, y1), (-we, ye)]
+    _prisme(g, P, z0 + 0.01, zt, capot(c, "olive"), "hard", "proue")
+    # cornière du bord (acier sombre) sur les deux côtés en biais
+    for (xa, ya), (xb, yb) in (((we, ye), (0.0, y1)), ((0.0, y1), (-we, ye)), ((w0, y0), (we, ye)),
+                               ((-we, ye), (-w0, y0))):
+        a, b = V((xa, ya, zt + 0.008)), V((xb, yb, zt + 0.008))
+        d = b - a
+        g.box((a + b) / 2, (0.03, d.length, 0.018), M["steel_dk"], "hard",
+              R=Matrix.Rotation(math.atan2(-d.x, d.y), 3, "Z"), what="corniere_proue")
+    # fente lumineuse sur l'axe, puis chevron près de la pointe
+    fw = t["fente"]
+    yf0, yf1 = y0 + 0.1 * (ye - y0), ye + 0.25 * (y1 - ye)
+    g.box((0, (yf0 + yf1) / 2, zt + 0.004), (fw, yf1 - yf0, 0.012), M["emit"], "flat", what="fente_proue")
+    for sx in (-1, 1):
+        a = V((0.0, y1 - 0.1 * (y1 - ye), zt + 0.006))
+        b = V((sx * we * 0.55, ye + 0.05 * (y1 - ye), zt + 0.006))
+        d = b - a
+        g.box((a + b) / 2, (fw * 0.8, d.length, 0.012), M["emit"], "flat",
+              R=Matrix.Rotation(math.atan2(-d.x, d.y), 3, "Z"), what="chevron_proue")
+
+
+@_lignee
 def support(g, c):
     """Support de l'émetteur selon forme_tete (étrier, berceau, anneau, fourche) ; axe des tourillons à c.zh."""
     M = g.M
@@ -367,19 +637,40 @@ def support(g, c):
             PT.hull(g, xa, xb, -ry, ry, zb, zh, ins=(0.0, 0.03, 0.03), panel=0.22,
                     mats=[capot(c, "olive"), capot(c, "ochre")], faces="tsnew", rivet_step=0.12)
             g.cyl(((xa + xb) / 2, 0, zh), "x", ry, tc, capot(c, "olive"), n=32, style="soft", what="joue")
-            _tourillon(g, c, sx, cer)
+            _tourillon(g, c, sx, cer, fleche=ry)
         if f == "berceau":
             PT.hull(g, -xc - tc, xc + tc, -0.62 * re, 0.62 * re, zb, zh - 0.72 * re, ins=(0.02, 0.03, 0.03),
                     panel=0.24, mats=[capot(c, "olive"), M["steel_dk"]], faces="tsnew", rivet_step=0.12)
-    elif f == "anneau":
-        Ra = re + 0.06 + 0.01 * c.side
-        ra = 0.045 + 0.012 * c.side
-        g.torus((0, 0, zh), "y", Ra, ra, capot(c, "olive"), n=64, m=10, what="anneau")
-        g.tube_shell((0, 0, zh), "y", Ra + ra * 0.7, Ra - ra * 0.7, ra * 2.6, M["steel_dk"], n=64, what="bague")
-        PT.hull(g, -0.45 * re, 0.45 * re, -0.35 * re, 0.35 * re, zb, zh - Ra + ra * 0.5, ins=(0.04, 0.02, 0.02),
-                panel=0.22, mats=[capot(c, "olive"), capot(c, "ochre")], faces="tsnew", rivet_step=0.12)
+        # PALIERS (quatrième jet) : un bloc plein sous l'axe, de chaque côté, entre l'émetteur et la joue ; le caisson
+        # arrière bas ne bouche plus, en pose N, le jour entre la joue et l'émetteur sous l'axe (trous enfermés de 45 à
+        # 586 px aux témoins k2 à k6, rendu r0c du 24/10)
         for sx in (-1, 1):
-            g.tube([V((sx * 0.4 * re, 0, zb)), V((sx * Ra * 0.8, 0, zh - Ra * 0.5))], ra * 0.8, M["steel_dk"], n=10,
+            xa, xb = sorted((sx * 0.5 * re, sx * (xc + 0.01)))
+            PT.hull(g, xa, xb, -0.55 * re, 0.45 * re, zb, zh, ins=(0.0, 0.02, 0.02), panel=0.22,
+                    mats=[capot(c, "olive"), M["steel_dk"]], faces="tsnew", rivet_step=0.12)
+    elif f == "anneau":
+        # anneau PENCHÉ de INCLINAISON_ANNEAU vers l'avant (quatrième jet, M-4 : vu par la tranche en pose E sinon),
+        # fermé par un DIAPHRAGME (aucun jour enfermé au centre, m-5) ; l'émetteur de l'âge se dessine dans le même
+        # repère (corps.dans_anneau)
+        Ra, ra = rayons_anneau(c)
+        Rx = Matrix.Rotation(-INCLINAISON_ANNEAU, 3, "X")
+
+        def P(x, y, z):
+            return Rx @ V((x, y, z)) + V((0, 0, zh))
+        with dans_anneau(g, c):
+            g.torus((0, 0, 0), "y", Ra, ra, capot(c, "olive"), n=64, m=10, what="anneau")
+            g.tube_shell((0, 0, 0), "y", Ra + ra * 0.7, Ra - ra * 0.7, ra * 2.6, M["steel_dk"], n=64, what="bague")
+            # diaphragme en TAMBOUR plein (reprise de la correction F1-A, 24/10) : le disque mince de 0,035 placé à
+            # −0,3 re laissait en pose E un jour enfermé de 18 px entre le haut de l'anneau penché et l'émetteur
+            # (m14-tete-E) ; le tambour remplit l'anneau de son plan jusqu'à −0,3 re
+            g.cyl((0, -0.15 * re, 0), "y", Ra - ra * 0.3, 0.3 * re + 0.035, M["steel_dk"], n=64, style="soft",
+                  what="diaphragme")
+        yb = P(0, 0, -Ra).y
+        PT.hull(g, -0.45 * re, 0.45 * re, yb - 0.35 * re, yb + 0.35 * re, zb, P(0, 0, -Ra).z + ra * 0.5,
+                ins=(0.04, 0.02, 0.02), panel=0.22, mats=[capot(c, "olive"), capot(c, "ochre")], faces="tsnew",
+                rivet_step=0.12)
+        for sx in (-1, 1):
+            g.tube([V((sx * 0.4 * re, yb, zb)), P(sx * Ra * 0.8, 0, -Ra * 0.5)], ra * 0.8, M["steel_dk"], n=10,
                    what="jambe")
     elif f == "fourche":
         for sx in (-1, 1):
@@ -401,14 +692,47 @@ def Vector_list(pts):
     return [V(p) for p in pts]
 
 
-def _tourillon(g, c, sx, cer):
+def rayons_anneau(c):
+    """(Ra, ra) : rayon de l'anneau de la forme « anneau » et rayon de son tube."""
+    return c.re + 0.06 + 0.01 * c.side, 0.045 + 0.012 * c.side
+
+
+class dans_anneau:
+    """Repère de l'anneau penché (forme « anneau ») : origine au centre de l'émetteur (0, 0, zh), axe y = axe de
+    l'anneau, penché de INCLINAISON_ANNEAU (le haut vers l'avant). Pour l'émetteur d'un âge qui remplit l'anneau."""
+
+    def __init__(self, g, c):
+        self.g, self.c = g, c
+
+    def __enter__(self):
+        self.g.push((0, 0, self.c.zh), rx=-INCLINAISON_ANNEAU)
+        return self.g
+
+    def __exit__(self, *a):
+        self.g.pop()
+
+
+def _tourillon(g, c, sx, cer, fleche=None):
+    """Tourillon (quatrième jet, M-1 et m-2) : chapeau PETIT, bombé et mat (capot de l'âge), quatre rivets, sans moyeu :
+    il ne se lit plus comme une lentille tournée vers la caméra ; sur une joue (fleche = demi-hauteur de la joue), une
+    NERVURE EN FLÈCHE horizontale pointe vers l'avant (+Y) : en pose E, la joue vue de face montre où tire la tête."""
     M = g.M
     t = c.T["tete"]
     re, xc, tc, zh = t["re"], t["xc"], t["tc"], c.zh
-    x = sx * (xc + tc + 0.025)
-    g.cyl((x, 0, zh), "x", 0.36 * re, 0.05, cer, n=24, style="hard", what="chapeau")
-    F.bolts_ring(g, (x + sx * 0.027, 0, zh), (sx, 0, 0), 0.25 * re, 6, M["rivet"], r=0.014)
-    g.cyl((x + sx * 0.035, 0, zh), "x", 0.1 * re, 0.03, M["steel_hi"], n=10, what="moyeu")
+    x = sx * (xc + tc + 0.02)
+    g.cyl((x, 0, zh), (sx, 0, 0), 0.2 * re, 0.05, capot(c, "olive"), r2=0.12 * re, n=20, style="soft",
+          what="chapeau")
+    F.bolts_ring(g, (x - sx * 0.01, 0, zh), (sx, 0, 0), 0.165 * re, 4, M["rivet"], r=0.012)
+    if fleche:
+        ry = fleche
+        xf = sx * (xc + tc + 0.012)
+        y0, y1, yp = -0.7 * ry, 0.62 * ry, ry + 0.08
+        hz = 0.04 + 0.006 * c.side
+        g.box((xf, (y0 + y1) / 2, zh), (0.026, y1 - y0, hz), cer, "hard", what="nervure")
+        # pointe de flèche (triangle plein), dans le plan de la joue, qui dépasse un peu la joue vers l'avant
+        w = hz * 2.6
+        q = [V((xf - 0.013, y1, zh - w)), V((xf - 0.013, yp, zh)), V((xf - 0.013, yp, zh)), V((xf - 0.013, y1, zh + w))]
+        g.hexa(q + [p + V((0.026, 0, 0)) for p in q], cer, "hard", "pointe")
 
 
 @_lignee
@@ -461,15 +785,21 @@ def emetteur_lignee(g, c):
 
 
 def tete(g, c):
-    """Tête de la lignée : platine, support, caisson arrière (ou ep.arriere), émetteur (ep.emetteur), accents
-    (ep.tete)."""
+    """Tête de la lignée : platine, proue (ou ep.proue), support, caisson arrière (ou ep.arriere), émetteur
+    (ep.emetteur), accents (ep.tete). FO_LASER_SANS=emetteur (contrôle seulement) : tête sans émetteur."""
     platine(g, c)
+    if hasattr(c.ep, "proue"):
+        c.ep.proue(g, c)
+    else:
+        proue(g, c)
     support(g, c)
     if hasattr(c.ep, "arriere"):
         c.ep.arriere(g, c)
     else:
         arriere_lignee(g, c)
-    if hasattr(c.ep, "emetteur"):
+    if "emetteur" in os.environ.get("FO_LASER_SANS", ""):
+        pass
+    elif hasattr(c.ep, "emetteur"):
         c.ep.emetteur(g, c)
     else:
         emetteur_lignee(g, c)

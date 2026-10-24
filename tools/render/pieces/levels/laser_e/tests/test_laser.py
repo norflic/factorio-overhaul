@@ -6,13 +6,16 @@ Contrôle : profil (contrat de commun/famille.py, aller-retour avec gun_e sans c
 emprise tenue, pose N : émetteur jamais plus long que large, pièce paire hors de la zone balayée par la tête),
 variantes et directions, triplets « en 3 mots » (15, tous distincts, aucun mot répété, aucun égal à un triplet de la
 mitrailleuse), habillage (formes refusées), fichiers d'âge écrits (TRIPLET et FOYER par lecture du source, sans
-Blender), nommage (aucun module du kit ne porte le nom d'un module de commun/), et gun_e + commun inchangés (git).
+Blender), nommage (aucun module du kit ne porte le nom d'un module de commun/) ; quatrième jet (correction F1-A) :
+proue dans le rayon balayé, caisson arrière bas et étroit, contours des gradins, maquettes des 15 affûts (habillage
+valide, voisins de même taille de silhouettes différentes : règle M-6).
+Le contrôle « gun_e et commun inchangés » (git) N'EST PLUS ICI (défaut m-7 : il échouait dans toute branche qui touche
+légitimement commun/ ou gun_e/) : c'est une preuve du lot F1-A, fo-logs/2026-10-24_F1/outils/preuve_intact.py.
 """
 import ast
 import math
 import os
 import re
-import subprocess
 import sys
 
 ICI = os.path.dirname(os.path.abspath(__file__))
@@ -98,11 +101,21 @@ def main():
         z = cotes.hauteurs_gradins(s)
         check("%d×%d : la tête est au-dessus du pivot (zh %.2f > %.2f)" % (s, s, t["zh"], z[-1] + T["pivot"]["h"]),
               t["zh"] - t["re"] > z[-1] + T["pivot"]["h"])
+        # quatrième jet (M-1, M-4)
+        check("%d×%d : caisson arrière SOUS l'axe des tourillons (%.2f < %.2f) et plus étroit que l'émetteur"
+              % (s, s, t["zb1"], t["zh"]), t["zb1"] < t["zh"] - 0.2 * t["re"] and t["bx"] < t["re"])
+        check("%d×%d : proue devant l'émetteur et dans le rayon que balaie déjà l'émetteur (%.2f <= %.2f)"
+              % (s, s, t["py1"], math.hypot(t["re"], t["y_av"])),
+              t["y_av"] < t["py1"] <= math.hypot(t["re"], t["y_av"]) and t["pw_ep"] < t["pw0"] < t["re"])
     # --- variantes et directions
     V = piece.PIECE["variants"]
-    check("72 variantes explicites (1 + 14 × 4 + 5 × 3)", len(sorted(V)) == 72, str(len(sorted(V))))
+    check("114 variantes explicites (1 + 14 × 4 + 5 × 3 + 14 × 3 maquettes)", len(sorted(V)) == 114,
+          str(len(sorted(V))))
     check("têtes tournées à la demande", "e05-tete-d16" in V and "k6-tete-d63" in V and "e05-tete-d64" not in V
-          and "e01-tete-d00" not in V)
+          and "e01-tete-d00" not in V and "m14-tete-d08" in V and "m01-tete-d00" not in V)
+    check("maquettes : socle et têtes N, E des âges 2 à 15, à l'emprise de l'âge",
+          all(V["m%02d-%s" % (e, p)]["side"] == E.COTE[e] and V["m%02d-%s" % (e, p)].get("maquette")
+              for e in range(2, 16) for p in ("socle", "tete-N", "tete-E")))
     check("d00 = N et d16 = E au bit près", piece.DIRS["d00"] == piece.DIRS["N"] and piece.DIRS["d16"] == piece.DIRS["E"])
     check("ronde : variantes existantes", all(n in V for e in range(1, 16) for n in P.ronde(e)))
     check("préfixe des fichiers « lase »", P.est_piece_paire(1, "hr-lase-e01-piece-main.png")
@@ -114,7 +127,17 @@ def main():
     dbl = sorted({m for m in tous if tous.count(m) > 1})
     check("aucun mot répété entre les 15 triplets du laser", not dbl, ", ".join(dbl))
     pareils = [e for e in T3 if set(T3[e]) == set(TRIPLETS_GUN[e])]
-    check("aucun triplet identique à celui de la mitrailleuse du même âge", not pareils, str(pareils))
+    # défaut m-3 : ce contrôle refuse seulement une COPIE du triplet de la mitrailleuse ; il ne garantit PAS la
+    # non-confusion (seul le jeu mixte la mesure). Les mots partagés avec la mitrailleuse du même âge sont IMPRIMÉS.
+    check("refus d'un triplet recopié de la mitrailleuse (ne prouve pas la non-confusion : jeu mixte)", not pareils,
+          str(pareils))
+
+    def racine(m):
+        return m[:-1] if m.endswith("s") or m.endswith("x") else m
+    communs = {e: sorted({m for m in mots(T3[e]) if racine(m) in {racine(x) for x in mots(TRIPLETS_GUN[e])}})
+               for e in T3}
+    print("[F1-LASER] (info) mots partagés avec la mitrailleuse du même âge : %s" % (
+        "; ".join("%d : %s" % (e, ", ".join(communs[e])) for e in sorted(communs) if communs[e]) or "aucun"))
     # --- habillage : formes refusées
     class Ep:
         HABILLAGE = {}
@@ -128,9 +151,65 @@ def main():
         except (KeyError, ValueError):
             refuse = True
         check("habillage refusé : %s" % mauvais, refuse)
+    for mauvais in (dict(forme_affut=dict(pans=8, contour=dict(forme="lobes", n=3, prof=0.2))),
+                    dict(forme_affut=dict(contour=dict(forme="spirale", n=3, prof=0.2))),
+                    dict(forme_affut=dict(contour=dict(forme="lobes", n=2, prof=0.2))),
+                    dict(forme_affut=dict(contour=dict(forme="lobes", n=3, prof=0.6))),
+                    dict(forme_affut=dict(rayons=dict(forme="pied", n=4))),
+                    dict(forme_affut=dict(rayons=dict(forme="aileron", n=12)))):
+        Ep.HABILLAGE = mauvais
+        try:
+            E.habillage(Ep)
+            refuse = False
+        except (KeyError, ValueError):
+            refuse = True
+        check("habillage refusé : %s" % mauvais, refuse)
     Ep.HABILLAGE = dict(forme_tete="anneau", forme_affut=dict(gradins=4, pans=8, profil="cone", lisere="emit"),
                         condensateurs=dict(n=10))
     check("habillage permis : anneau, 4 gradins à 8 pans, cône, liseré, 10 condensateurs", bool(E.habillage(Ep)))
+    # --- contours (quatrième jet)
+    for forme, n in (("lobes", 3), ("lobes", 4), ("etoile", 8), ("dents", 12)):
+        ct = dict(forme=forme, n=n, prof=0.25)
+        pr = cotes.profil_contour(ct, 24)
+        ks = [k for _, k in pr]
+        angs = [a for a, _ in pr]
+        check("contour %s %d : facteurs dans [1 - prof, 1], angles croissants sur un tour" % (forme, n),
+              min(ks) >= 0.75 - 1e-9 and max(ks) <= 1.0 + 1e-9 and abs(min(ks) - 0.75) < 0.02
+              and all(b > a for a, b in zip(angs, angs[1:])) and angs[-1] - angs[0] < 2 * math.pi)
+        check("contour %s %d : facteur 1 au premier sommet (phase 90 : nord)" % (forme, n),
+              abs(cotes.facteur_contour(ct, math.pi / 2) - 1.0) < 1e-9)
+    check("contour rond : profil = cercle régulier",
+          cotes.profil_contour(None, 8) == [(2 * math.pi * i / 8, 1.0) for i in range(8)])
+    # --- maquettes des 15 affûts (M-6)
+    check("maquettes : âges 2 à 15", sorted(E.MAQUETTES) == list(range(2, 16)))
+    ok_hab = []
+    for e in sorted(E.MAQUETTES):
+        try:
+            h = E.habillage(E.maquette(e))
+            ok_hab.append(h["forme_affut"] is not None)
+        except (KeyError, ValueError) as ex:
+            ok_hab.append(False)
+            print("[F1-LASER]   maquette %d : %s" % (e, ex))
+    check("maquettes : habillage complet et valide aux 14 âges", all(ok_hab))
+
+    def silhouette(e):
+        fa = E.MAQUETTES[e]["forme_affut"]
+        ct = fa.get("contour")
+        if fa.get("pans"):
+            ctr = ("pans", fa.get("pans"))
+        elif ct:
+            ctr = (ct["forme"], ct["n"])
+        else:
+            ctr = "rond"
+        return (fa.get("gradins"), ctr, fa.get("profil", "droit"), (fa.get("rayons") or {}).get("forme"),
+                bool(fa.get("pilotis")), bool(fa.get("interstice")))
+    for e in range(2, 15):
+        if E.COTE[e] != E.COTE[e + 1]:
+            continue
+        a, b = silhouette(e), silhouette(e + 1)
+        nd = sum(x != y for x, y in zip(a, b))
+        check("M-6 : affûts %d et %d (même taille) : silhouettes différentes sur au moins 2 traits (%d)" % (e, e + 1, nd),
+              nd >= 2, "%s / %s" % (a, b))
     # --- fichiers d'âge écrits (lecture du source)
     import ages
     for f in sorted(os.listdir(LASER)):
@@ -163,19 +242,6 @@ def main():
     com = {f for f in os.listdir(COMMUN) if f.endswith(".py")}
     las = {f for f in os.listdir(LASER) if f.endswith(".py")}
     check("aucun nom de module commun repris dans laser_e", not (com & las), str(sorted(com & las)))
-    # --- gun_e et commun inchangés
-    try:
-        r = subprocess.run(["git", "status", "--porcelain", "--", "tools/render/pieces/levels/gun_e",
-                            "tools/render/pieces/levels/commun"], cwd=MOD, capture_output=True, text=True, timeout=60)
-        r2 = subprocess.run(["git", "diff", "--name-only", "main...HEAD", "--",
-                             "tools/render/pieces/levels/gun_e", "tools/render/pieces/levels/commun"], cwd=MOD,
-                            capture_output=True, text=True, timeout=60)
-        propre = r.returncode == 0 and not [l for l in r.stdout.splitlines() if "__pycache__" not in l]
-        check("gun_e et commun : aucun fichier modifié (git status)", propre, r.stdout.strip()[:300])
-        check("gun_e et commun : aucune différence depuis main (git diff main...HEAD)", r2.returncode == 0 and not r2.stdout.strip(),
-              r2.stdout.strip()[:300])
-    except (OSError, subprocess.SubprocessError) as ex:
-        check("git disponible", False, str(ex))
     print("[F1-LASER] %d OK, %d ECHEC(S)" % (len(OK), len(KO)))
     return 1 if KO else 0
 

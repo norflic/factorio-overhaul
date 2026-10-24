@@ -3,9 +3,13 @@
 
 En 3 mots : « sphère noire, disque d'accrétion, griffes d'or ». Consigne du DC (23/10, 12 h 40 : « big bang ou maîtrise
 cosmique du néant ») transposée au laser : l'émetteur est un HORIZON NOIR (sphère lisse, seul vrai noir) ceint d'un
-DISQUE D'ACCRÉTION segmenté blanc-or vers orange, INCLINÉ (penché de 25° vers l'arrière : il ne se lit ni comme l'anneau
-vertical de La Porte ni comme le disque couché de la mitrailleuse 15), tenu par TROIS GRIFFES D'OR qui montent de la
-platine (« un Big Bang tenu en laisse ») ; un point blanc-or à l'avant de la sphère est la lentille.
+DISQUE D'ACCRÉTION segmenté blanc-or vers orange, OBLIQUE, tenu par TROIS GRIFFES D'OR qui montent de la platine (« un
+Big Bang tenu en laisse ») ; un point blanc-or à l'avant de la sphère est la lentille.
+Correction F1-A (24/10, défaut M-3) : le premier essai penchait le disque de 25° vers l'ARRIÈRE ; en pose N (caméra au
+sud, en hauteur) il se lisait alors comme une ellipse couchée sur l'équateur de la sphère, c'est-à-dire le motif de la
+mitrailleuse 15 que la fiche interdit. Le disque est désormais OBLIQUE (NORMALE_DISQUE : normale penchée de 25° de la
+verticale, vers l'arrière et vers la droite) : rapport des axes de l'ellipse (petit / grand) 0,92 en N, 0,74 en E
+(grand axe penché de 36°), 0,36 au plus bas (poses S et SO) ; calcul : RONDES.md, fo-logs/2026-10-24_F1/NOTES.md (E84).
 Affût en PUITS DE GRAVITÉ : 4 gradins en cône de noir chaud, liserés de pleine lumière sur chaque arête ; 16 piliers
 d'horizon (condensateurs) noirs cerclés d'or, pointe incandescente ; coins arrière : deux micro-singularités dans des
 griffes d'or ; liaisons en conduits d'or en arc.
@@ -17,6 +21,7 @@ from mathutils import Matrix, Vector
 
 import ages
 import corps
+import epoques as E_
 import formes as F
 import parts as PT
 from kit import SQ2, TAU
@@ -31,12 +36,10 @@ FOYER = ages.FOYER[15]
 FAISCEAU = dict(rgb=(1.0, 0.9, 0.66), rgb2=(1.0, 0.64, 0.28),
                 forme="trait blanc-or très fin à gaine orange, lentille gravitationnelle (le fond se courbe) à l'impact",
                 largeur=0.7)
-HABILLAGE = dict(ages.CORPS[15],
-                 cerclages="or_chauffe",
-                 forme_affut=dict(gradins=4, profil="cone", flanc="noir_chaud", flanc2="cendre", lisere="emit",
-                                  rapport=0.8),
-                 forme_tete="fourche")
-INCLINAISON = math.radians(25.0)
+HABILLAGE = dict(ages.CORPS[15], **E_.MAQUETTES[15])
+# normale du disque dans le repère de la tête (faisceau vers +Y) : azimut 290°, élévation 65° (correction M-3)
+_AZ, _EL = math.radians(290.0), math.radians(65.0)
+NORMALE_DISQUE = (math.cos(_EL) * math.cos(_AZ), math.cos(_EL) * math.sin(_AZ), math.sin(_EL))
 # l'horizon n'est pas traversé par l'axe des tourillons (il couperait le disque) : il est porté par une colonne et
 # tenu par les griffes ; les bras de la fourche serrent le bord du disque
 AXE = False
@@ -159,17 +162,30 @@ def arriere(g, c):
     g.sphere((0, yc, zz + 0.5), 0.07, M["emit"], n=12, m=6, what="feu")
 
 
+def _repere_disque():
+    """(n, ex, ey) : normale du disque et deux axes de son plan (ex : direction +x projetée), repère de la tête."""
+    n = V(NORMALE_DISQUE).normalized()
+    ex = (V((1.0, 0.0, 0.0)) - n * n.x).normalized()
+    ey = n.cross(ex).normalized()
+    return n, ex, ey
+
+
 def emetteur(g, c):
-    """HORIZON NOIR (sphère de rayon 0,7 re), DISQUE D'ACCRÉTION incliné de 25° (anneau segmenté de lumière, bords d'or),
-    trois GRIFFES D'OR de la platine au disque, point blanc-or à l'avant (lentille)."""
+    """HORIZON NOIR (sphère de rayon 0,7 re), DISQUE D'ACCRÉTION OBLIQUE (anneau segmenté de lumière, bords d'or ;
+    normale NORMALE_DISQUE), trois GRIFFES D'OR de la platine au bord du disque, deux pinces d'or des bras de la fourche
+    au bord du disque, point blanc-or à l'avant (lentille)."""
     M = g.M
     re, zh = c.re, c.zh
     t = c.T["tete"]
     rs = 0.7 * re
     g.sphere((0, 0, zh), rs, M["horizon"], n=40, m=20, what="horizon")
-    # disque d'accrétion : anneau plat dans le plan perpendiculaire au faisceau, penché vers l'arrière
-    g.push((0, 0, zh), rx=-(math.pi / 2 - INCLINAISON))
-    Rin, Rout = rs * 1.12, re * 1.0
+    n, ex, ey = _repere_disque()
+    # le bord intérieur du disque TOUCHE l'horizon (aucun jour entre le disque et la sphère) et une couronne pleine de
+    # noir profond passe sous les segments (aucun jour entre deux segments) : trous enfermés de 1 399 px en pose N au
+    # premier rendu du disque oblique (r0c, 24/10)
+    Rin, Rout = rs * 1.0, re * 1.05
+    g.push_frame((0, 0, zh), n, ex)
+    corps.anneau_plat(g, Rout * 0.99, Rin, -0.008, 0.008, M["noir_profond"], n=56, rond=False, what="fond_disque")
     nseg = 28
     for k in range(nseg):
         a0 = TAU * k / nseg + 0.02
@@ -182,7 +198,6 @@ def emetteur(g, c):
     g.torus((0, 0, 0), "z", Rout + 0.012, 0.022, M["or_chauffe"], n=56, m=6, what="bord")
     g.torus((0, 0, 0), "z", Rin - 0.01, 0.014, M["or_chauffe"], n=48, m=6, what="bord")
     g.pop()
-    # griffes : de la platine au bord du disque (3, à 120°, dans le repère incliné)
     zb = t["z0"] + t["hpl"]
     # colonne d'horizon : porte la sphère depuis la platine (courte et large : jamais une cheminée)
     g.cyl((0, 0, (zb + zh - rs * 0.6) / 2), "z", 0.3 * re, zh - rs * 0.6 - zb, M["noir_chaud"], n=32, style="soft",
@@ -190,19 +205,32 @@ def emetteur(g, c):
     for f in (0.25, 0.75):
         g.tube_shell((0, 0, zb + f * (zh - rs * 0.6 - zb)), "z", 0.3 * re + 0.02, 0.3 * re - 0.01, 0.035,
                      M["or_chauffe"], n=32, what="cerclage")
+
+    def bord(phi, r=Rout):
+        return V((0, 0, zh)) + (ex * math.cos(phi) + ey * math.sin(phi)) * r
+    # griffes : de la platine au bord du disque (3, à 120°, vers l'arrière et les côtés)
     for k in range(3):
-        a = math.pi / 2 + TAU * k / 3
-        cx, cy = math.cos(a) * (re * 1.0), math.sin(a) * (re * 1.0)
-        # point du bord du disque dans le repère de la tête (rotation rx autour de x :
-        # (x, y, z) -> (x, y cos rx − z sin rx, y sin rx + z cos rx), z local = 0)
-        rx = -(math.pi / 2 - INCLINAISON)
-        px, py, pz = cx, cy * math.cos(rx), cy * math.sin(rx)
-        tip = V((px, py, zh + pz))
-        base = V((px * 0.5, py * 0.4 - 0.2 * re, zb + 0.02))
-        mid = base.lerp(tip, 0.55) + V((px * 0.35, 0, 0.1 * re))
+        tip = bord(-math.pi / 2 + TAU * k / 3)
+        base = V((tip.x * 0.5, tip.y * 0.4 - 0.2 * re, zb + 0.02))
+        mid = base.lerp(tip, 0.55) + V((tip.x * 0.35, 0, 0.1 * re))
         if tip.z < zb + 0.1:
             tip = V((tip.x, tip.y, zb + 0.1))
         griffe(g, [base, mid, tip, tip + (V((0, 0, zh)) - tip) * 0.12], 0.09 + 0.01 * c.side, 0.07, M["or_chauffe"])
+    # pinces : du bout de chaque bras de la fourche au point du bord du disque le plus proche ; PLAQUES pleines (reprise
+    # de la correction F1-A, 24/10) : la pince en griffe mince laissait, en pose N, un jour enfermé entre le bras, la
+    # pince et le bord du disque (59 px, 2 groupes, rendu r0c de 11 h 53) ; la plaque va du bras au bord du disque, du
+    # point le plus proche jusqu'à la pointe de la griffe voisine (30° plus loin) : aucun jour entre bras, pince,
+    # griffe et disque (370 px en pose S avec une plaque étroite, rendu final de 13 h 20)
+    xa = t["xc"] + t["tc"] * 0.4
+    ep = 0.03 + 0.004 * c.side
+    for sx in (-1, 1):
+        phi0 = 0.0 if sx > 0 else math.pi
+        a_hi = V((sx * xa, 0.05 * re, zh + 0.06))
+        a_lo = V((sx * xa, 0.0, zh - 0.3 * re))
+        b_lo = bord(phi0 - sx * 0.2, Rout * 0.98)
+        b_hi = bord(phi0 + sx * math.pi / 6, Rout * 0.98)
+        q = [a_lo, b_lo, b_hi, a_hi]
+        g.hexa([p - V((0, ep, 0)) for p in q] + [p + V((0, ep, 0)) for p in q], M["or_chauffe"], "hard", "pince")
     # lentille : point blanc-or à l'avant de l'horizon
     g.sphere((0, rs * 0.98, zh), 0.09, M["emit2"], n=14, m=7, what="lentille")
     F.lit_ring(g, (0, rs * 0.94, zh), "y", 0.16, M["emit"], w=0.03)

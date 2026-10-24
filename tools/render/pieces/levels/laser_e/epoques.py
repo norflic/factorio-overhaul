@@ -46,10 +46,21 @@ caisson ; ocre : plaques du caisson et des gradins), acier, rivets, joints, dang
   forme_affut   None (3 gradins ronds droits, 2 en 2×2) | dict(gradins=2..4, pans=None|n (gradins polygonaux à n
                 pans, n >= 6), profil="droit"|"chanfrein"|"cone"|"bombe", flanc=mat, flanc2=mat (flancs : plaques
                 rivetées), assises=False|True (flancs en assises de briques ou de pierre), lisere=None|mat (filet lumineux
-                sur l'arête de chaque gradin), rapport=0,6..0,9 (retrait d'un gradin au suivant)) ;
+                sur l'arête de chaque gradin), rapport=0,6..0,9 (retrait d'un gradin au suivant)) ; options du
+                QUATRIÈME JET (correction F1-A, M-5 et M-6 ; SILHOUETTE de l'affût propre à l'âge) :
+                contour=None|dict(forme="lobes"|"etoile"|"dents", n=3..16, prof=0,08..0,35, phase=degrés (premier
+                sommet, 90 = nord)) : contour non rond de TOUS les gradins (trèfle, quadrilobe, étoile, roue dentée),
+                exclusif de pans ; interstice=None|mat : bande lumineuse en retrait au pied de chaque gradin, avec
+                entretoises (la « lévitation » fermée, aucun vide) ; pilotis=None|mat|dict(mat=…, n=…) : pieux serrés au
+                pied du premier gradin ; etoiles=None|mat|dict(mat=…, densite=points par tuile²) : points lumineux
+                semés sur le dessus des gradins ; rayons=None|dict(forme="aileron"|"contrefort", n=2..8, mat=…,
+                phase=degrés) : lames ou contreforts au sol autour du premier gradin, rognés hors des places de coin ;
   forme_tete    None (« etrier » : deux joues pleines et tourillons) | "berceau" (U plein sous l'émetteur, joues
-                basses) | "anneau" (anneau vertical autour de l'émetteur, axe = faisceau, sur un pied) | "fourche"
+                basses) | "anneau" (anneau autour de l'émetteur, axe = faisceau, PENCHÉ de 35° vers l'avant, fermé par
+                un diaphragme, sur un pied ; l'émetteur de l'âge se dessine dans corps.dans_anneau(g, c)) | "fourche"
                 (deux bras fins en V, tourillons en avant) ;
+  proue         (pas une clé) toutes les têtes portent la PROUE de la lignée (repère de direction, quatrième jet, M-1) ;
+                un âge peut la remplacer par def proue(g, c), jamais la supprimer ;
   condensateurs None (couronne de la lignée) | dict(n=…, garder=…) : nombre (pair, >= 6) ou False (aucun : l'âge pose
                 sa propre réserve d'énergie ailleurs, à justifier dans la fiche).
 Toutes les clés à None : témoin de la lignée (ep00, variantes kS-…).
@@ -87,21 +98,77 @@ HABILLAGE_DEFAUT = dict(
 )
 FORMES_TETE = ("etrier", "berceau", "anneau", "fourche")
 PROFILS = ("droit", "chanfrein", "cone", "bombe")
-CLES_AFFUT = ("gradins", "pans", "profil", "flanc", "flanc2", "assises", "lisere", "rapport")
+CLES_AFFUT = ("gradins", "pans", "profil", "flanc", "flanc2", "assises", "lisere", "rapport", "contour", "interstice",
+              "pilotis", "etoiles", "rayons")
+CONTOURS = ("lobes", "etoile", "dents")
+RAYONS = ("aileron", "contrefort")
+
+# MAQUETTES DES 15 AFFÛTS (quatrième jet, M-6) : la SILHOUETTE de l'affût et la forme de la tête de chaque âge, recopiées
+# des fiches (FICHES_LASER.md §2, colonne « Affût », font foi). Elles servent : (1) aux variantes « maquette » mNN-socle
+# et mNN-tete-N|E (lignée seule habillée aux matières de l'âge, sans organe d'âge : piece.py), pour mesurer gris.py
+# sur les socles AVANT d'écrire les fichiers d'âge ; (2) de point de départ du HABILLAGE d'un fichier d'âge
+# (dict(ages.CORPS[N], **MAQUETTES[N]) ; le constructeur peut s'en écarter, en le disant dans sa fiche).
+# Règle (M-6) : deux âges voisins de MÊME taille n'ont jamais la même silhouette d'affût (contour, nombre de gradins,
+# profil, rayons au sol).
+MAQUETTES = {
+    2: dict(cerclages="fer_noir", forme_tete="etrier",
+            forme_affut=dict(gradins=2, pans=12, profil="droit", assises=True, flanc="brique", flanc2="brique_pave2")),
+    3: dict(cerclages="laiton_capot", forme_tete="berceau",
+            forme_affut=dict(gradins=3, profil="bombe", flanc="cuivre_capot", flanc2="cuivre_sombre", rapport=0.76)),
+    4: dict(cerclages="galva_capot", forme_tete="berceau",
+            forme_affut=dict(gradins=2, pans=8, profil="droit", flanc="jaune_capot", flanc2="noir_capot",
+                             rayons=dict(forme="contrefort", n=4, mat="noir_capot"))),
+    5: dict(cerclages="fonte_noire", forme_tete="fourche",
+            forme_affut=dict(gradins=3, profil="cone", flanc="basalte_capot", flanc2="fonte_v", lisere="emit")),
+    6: dict(cerclages="porcelaine", forme_tete="etrier",
+            forme_affut=dict(gradins=3, profil="droit", flanc="bleu_machine", flanc2="fonte_bleue",
+                             contour=dict(forme="dents", n=12, prof=0.13, phase=105.0))),
+    7: dict(cerclages="bronze_capot", forme_tete="berceau",
+            forme_affut=dict(gradins=4, pans=8, profil="droit", assises=True, flanc="pierre_claire",
+                             flanc2="pierre_claire2", rapport=0.8)),
+    8: dict(cerclages="cuivre_terni", forme_tete="etrier",
+            forme_affut=dict(gradins=2, profil="droit", flanc="bois_mouille", flanc2="bois_mousse", rapport=0.62,
+                             pilotis=dict(mat="bois_mouille"))),
+    9: dict(cerclages="plomb_sombre", forme_tete="etrier",
+            forme_affut=dict(gradins=3, profil="chanfrein", flanc="beton_capot", flanc2="concrete", rapport=0.78,
+                             contour=dict(forme="lobes", n=3, prof=0.3, phase=90.0))),
+    10: dict(cerclages="anthracite", forme_tete="etrier",
+             forme_affut=dict(gradins=2, profil="chanfrein", flanc="blanc_casse", flanc2="gris_tech", rapport=0.62)),
+    11: dict(cerclages="ring", forme_tete="fourche",
+             forme_affut=dict(gradins=3, profil="chanfrein", flanc="titane_cl", flanc2="titane_md", lisere="emit",
+                              contour=dict(forme="etoile", n=8, prof=0.16, phase=101.25),
+                              rayons=dict(forme="aileron", n=4, mat="titane_dk"))),
+    12: dict(cerclages="chrome_mat", forme_tete="etrier",
+             forme_affut=dict(gradins=3, pans=6, profil="droit", flanc="frost", flanc2="chrome_mat",
+                              interstice="emit_soft", rapport=0.78)),
+    13: dict(cerclages="cuivre_bobine", forme_tete="berceau",
+             forme_affut=dict(gradins=3, profil="chanfrein", flanc="acier_canon", flanc2="acier_canon2",
+                              lisere="emit_soft", contour=dict(forme="lobes", n=4, prof=0.26, phase=45.0))),
+    14: dict(cerclages="blanc_lunaire", forme_tete="anneau",
+             forme_affut=dict(gradins=2, profil="chanfrein", flanc="indigo_nuit", flanc2="indigo_nuit2",
+                              lisere="emit_soft", rapport=0.7, etoiles=dict(mat="emit", densite=5.0),
+                              rayons=dict(forme="contrefort", n=8, mat="blanc_lunaire"))),
+    15: dict(cerclages="or_chauffe", forme_tete="fourche",
+             forme_affut=dict(gradins=4, profil="cone", flanc="noir_chaud", flanc2="cendre", lisere="emit",
+                              rapport=0.8)),
+}
 
 # LECTURE « EN 3 MOTS » DU LASER (fiches : fo-logs/2026-10-24_F1/FICHES_LASER.md) : un triplet par âge, PROPRE au
 # laser (il nomme l'émetteur de l'âge), tous distincts (aucun mot répété : tests/test_laser.py). Liste montrée aux
 # lecteurs du test à l'aveugle, dans l'ordre 1 à 15 ; un fichier d'âge écrit le sien dans TRIPLET (contrôle : égal).
+# Correction F1-A (M-2) : chaque mot nomme ce que montre la vignette E au zoom 1 (jamais une face avant, vue par la
+# tranche en E, ni une pièce de moins de 8 px) ; mots changés aux âges 1, 2, 4, 5, 8 et 9 (FICHES_LASER.md §6) ;
+# âge 1 encore à la reprise (« sacs de sable » → « tube ambré » : le muret ne se lit au zoom 1 que comme un rebord gris).
 TRIPLETS = {
-    1: ("sacs de sable", "bocaux de Leyde", "caisse de bois"),
-    2: ("briques", "lentille à échelons", "volets de fer"),
+    1: ("tube ambré", "plancher de bois", "pied en ciseaux"),
+    2: ("tambour de briques", "volets de fer", "soufflet"),
     3: ("globe de cuivre", "serpentins", "cadrans"),
-    4: ("bain d'huile", "bidons", "volants rouges"),
-    5: ("cône de basalte", "obsidienne", "fente de lave"),
+    4: ("cuve couchée", "bidons", "volants rouges"),
+    5: ("volcan", "orgues de basalte", "fente de lave"),
     6: ("bobine Tesla", "tore", "isolateurs"),
     7: ("prisme de cristal", "bronze", "temple"),
-    8: ("ampoule", "liquide jaune", "durites"),
-    9: ("tête octogonale", "cœur vert", "béton"),
+    8: ("ampoule", "liquide jaune", "pilotis"),
+    9: ("trèfle de béton", "cœur vert", "fûts de plomb"),
     10: ("carénage ivoire", "visière bleue", "nappes de câbles"),
     11: ("roue à ailerons", "titane bleu", "pointe orange"),
     12: ("arceaux chromés", "givre", "lévitation"),
@@ -128,6 +195,43 @@ def module(e):
     return m
 
 
+class _Maquette:
+    """Module d'âge « maquette » de l'âge e (variantes mNN-…) : HABILLAGE = ages.CORPS[e] + MAQUETTES[e], matières et
+    foyer de l'âge, organes de la LIGNÉE seulement (condensateurs, liaisons, émetteur du témoin) ; aucun organe
+    d'âge. Pour mesurer la silhouette des affûts (gris.py) avant d'écrire les fichiers d'âge."""
+
+    def __init__(self, e):
+        self.EPOQUE = e
+        self.NOM = NOMS[e] + " (maquette)"
+        self.TRIPLET = TRIPLETS[e]
+        self.FOYER = ages.FOYER[e]
+        self.FAISCEAU = dict(rgb=(1.0, 1.0, 1.0), forme="maquette", largeur=1.0)
+        self.HABILLAGE = dict(ages.CORPS[e], **MAQUETTES[e])
+
+    def matieres(self, metal, M):
+        ages.matieres(self.EPOQUE, metal, M)
+
+    def socle(self, g, c):
+        return None
+
+    def piece(self, g, c):
+        import corps
+        p = corps.place(c, "coin_SE")
+        for sx in (-1, 1):
+            corps.patin(g, c, sx * p["x"], p["yn"], 1.2 * p["r"], 1.2 * p["r"])
+
+    def emetteur(self, g, c):
+        import corps
+        corps.emetteur_lignee(g, c)
+
+
+def maquette(e):
+    """Module « maquette » de l'âge e (2 à 15)."""
+    if e not in MAQUETTES:
+        raise KeyError("maquette laser : âge %r (2 à 15)" % e)
+    return _Maquette(e)
+
+
 def habillage(ep):
     """Habillage complet de l'âge (HABILLAGE_DEFAUT complété par ep.HABILLAGE), formes contrôlées."""
     h = _H.habillage(ep, HABILLAGE_DEFAUT)
@@ -142,6 +246,16 @@ def habillage(ep):
             raise ValueError("forme_affut : 2 à 4 gradins")
         if fa.get("pans") is not None and int(fa["pans"]) < 6:
             raise ValueError("forme_affut : au moins 6 pans")
+        ct = fa.get("contour")
+        if ct is not None:
+            if fa.get("pans") is not None:
+                raise ValueError("forme_affut : contour et pans s'excluent")
+            if (ct.get("forme") not in CONTOURS or not 3 <= int(ct.get("n", 0)) <= 16
+                    or not 0.08 <= float(ct.get("prof", 0)) <= 0.35):
+                raise ValueError("forme_affut : contour = dict(forme=%s, n=3..16, prof=0,08..0,35)" % "|".join(CONTOURS))
+        ry = fa.get("rayons")
+        if ry is not None and (ry.get("forme") not in RAYONS or not 2 <= int(ry.get("n", 4)) <= 8):
+            raise ValueError("forme_affut : rayons = dict(forme=%s, n=2..8)" % "|".join(RAYONS))
     if h["forme_tete"] is not None and h["forme_tete"] not in FORMES_TETE:
         raise ValueError("forme_tete %r inconnue (%s)" % (h["forme_tete"], ", ".join(FORMES_TETE)))
     cd = h["condensateurs"]

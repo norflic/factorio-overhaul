@@ -1,8 +1,8 @@
 """Laser · Âge 1 · Pionnier (ère I, 2×2, niveaux 1 et 2). Kit laser_e (lot F1-A). S'exécute DANS Blender.
 
 Le niveau 1 est le laser VANILLA, jamais retouché ; ce module ne fournit que la pièce du niveau 2 (variante e01-piece,
-dessinée SOUS le laser vanilla), foyers de NUIT seulement (lanterne). En 3 mots : « sacs de sable, bocaux de Leyde,
-caisse de bois » : un muret de sacs de sable devant le pied en ciseaux du vanilla, et au coin avant gauche une caisse
+dessinée SOUS le laser vanilla), foyers de NUIT seulement (lanterne). En 3 mots (corrigés, M-2, puis à la reprise) :
+« tube ambré, plancher de bois, pied en ciseaux » (le tube ambré est la tête du vanilla) ; dessin : un muret de sacs de sable devant le pied en ciseaux du vanilla, et au coin avant DROIT une caisse
 de bois cerclée de fer pleine de BOCAUX DE LEYDE (bouteilles de verre à feuille de cuivre, tige et boule de laiton) :
 la réserve d'énergie bricolée du pionnier. Fiche : fo-logs/2026-10-24_F1/FICHES_LASER.md, âge 1.
 Sacs de sable : même dessin que la mitrailleuse 1 (gun_e/ep01.py, recopié : une famille ne charge jamais les modules
@@ -21,28 +21,38 @@ V = Vector
 
 EPOQUE = 1
 NOM = ages.NOMS[1]
-TRIPLET = ("sacs de sable", "bocaux de Leyde", "caisse de bois")
+# correction F1-A (M-2) : la caisse de bocaux est dessinée SOUS le laser vanilla, dont la base la recouvre presque
+# entière (F42), quel que soit le coin (avant gauche au premier essai, avant droit ensuite : rendu r0c du 24/10) ; le
+# triplet nomme ce que la vignette E montre : le muret, le plancher qui dépasse et le pied du vanilla
+# reprise de la correction (24/10, après-midi) : « sacs de sable » → « tube ambré » ; au zoom 1, le muret de sacs ne se
+# lit que comme un rebord gris autour du plancher (vignette E, correction/planches_final)
+TRIPLET = ("tube ambré", "plancher de bois", "pied en ciseaux")
 FOYER = ages.FOYER[1]
 FAISCEAU = dict(rgb=(1.0, 0.25, 0.2), forme="vanilla (niveaux 1 et 2)", largeur=1.0)
 
 
 def piece(g, c):
     """Niveau 2 : plancher de planches sous l'emprise (sous le vanilla), muret de sacs de sable en arc sur l'avant et
-    les flancs, caisse de bocaux de Leyde au coin avant gauche, lanterne de nuit au coin avant droit."""
+    les flancs, caisse de bocaux de Leyde au coin avant DROIT, lanterne de nuit au coin avant gauche."""
     M = g.M
     F.deck_e(g, 2, -1.04, 1.04, Y(-1.08), Y(0.62), 0.05)
     for sx in (-1, 1):
         pts = [(sx * 1.08, Y(0.3), 0.0), (sx * 1.08, Y(-0.4), 0.0), (sx * 1.0, Y(-0.85), 0.0),
                (sx * 0.75, Y(-1.12), 0.0), (sx * 0.42, Y(-1.15), 0.0)]
         sandbag_wall(g, pts, rows=2)
-    with at(g, -0.66, -0.84, 0.2):
-        caisse_leyde(g, (0, 0, 0.0), (0.34, 0.26, 0.15))
-    F.lantern(g, (0.78, Y(-0.95), 0.15), M["emit"])
-    g.box((0.78, Y(-0.95), 0.07), (0.1, 0.1, 0.15), M["wood"], "hard", what="billot")
-    g.halo((0.78, Y(-0.95), 0.3), M["_emit_rgb"], 6.0)
+    # caisse AGRANDIE et DÉPLACÉE au coin avant DROIT (correction F1-A, M-2 : 0,34 × 0,26 au coin avant gauche au
+    # premier essai, 12 × 6 px au zoom 1 : illisible) : 0,52 × 0,38, bocaux de 0,14 de diamètre et 0,26 de haut ; la
+    # lanterne passe au coin avant gauche. CONSTAT du rendu r0c : la base du vanilla (bobine verte) la recouvre encore
+    # presque entière (F42) ; elle n'est plus dans le triplet. Au constructeur : la sortir de la silhouette du vanilla
+    # (coin extrême, à la place de quelques sacs) ou y renoncer.
+    with at(g, 0.56, -0.8, -0.2):
+        caisse_leyde(g, (0, 0, 0.0), (0.52, 0.38, 0.16), r=0.07, h=0.26)
+    F.lantern(g, (-0.8, Y(-0.95), 0.15), M["emit"])
+    g.box((-0.8, Y(-0.95), 0.07), (0.1, 0.1, 0.15), M["wood"], "hard", what="billot")
+    g.halo((-0.8, Y(-0.95), 0.3), M["_emit_rgb"], 6.0)
 
 
-def caisse_leyde(g, c, size, rz=0.0):
+def caisse_leyde(g, c, size, rz=0.0, r=0.045, h=0.17):
     """Caisse de bois cerclée de fer, ouverte, pleine de BOCAUX DE LEYDE (verre sombre, feuille de cuivre sur le bas,
     bouchon de bois, tige et boule de laiton), reliés par un fil de cuivre."""
     M = g.M
@@ -64,12 +74,11 @@ def caisse_leyde(g, c, size, rz=0.0):
         for j in range(2):
             x = (i - 1) * sx * 0.3
             y = (j - 0.5) * sy * 0.45
-            r, h = 0.045, 0.17
             g.cyl((x, y, sz * 0.4 + h / 2), "z", r, h, M["glass_dk"], n=14, style="smooth", what="bocal")
             g.cyl((x, y, sz * 0.4 + h * 0.3), "z", r + 0.004, h * 0.55, M["copper"], n=14, what="feuille")
             g.cyl((x, y, sz * 0.4 + h + 0.012), "z", r * 0.8, 0.024, M["wood2"], n=12, what="bouchon")
-            g.cyl((x, y, sz * 0.4 + h + 0.05), "z", 0.006, 0.07, M["brass"], n=6, what="tige")
-            g.sphere((x, y, sz * 0.4 + h + 0.09), 0.016, M["brass"], n=10, m=6, what="boule")
+            g.cyl((x, y, sz * 0.4 + h + 0.05), "z", 0.009, 0.07, M["brass"], n=6, what="tige")
+            g.sphere((x, y, sz * 0.4 + h + 0.09), r * 0.4, M["brass"], n=10, m=6, what="boule")
             tops.append(V((x, y, sz * 0.4 + h + 0.09)))
     for a, b in zip(tops[:-1], tops[1:]):
         g.cable(a, b, 0.02, 0.005, M["copper"], what="fil")
