@@ -240,6 +240,9 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 24/10, vers 19 h 45, **feu vert du DC pour les travaux qui chargent le PC** : « oui feu vert » (réponse à la
+  proposition de lancer le socle animé des 10 autres âges, environ 6 h 30 de rendu, et les rondes du laser). → Production
+  du socle animé lancée vers 19 h 48 ; F1-B après le correcteur d'IA1-a (un agent à la fois).
 - 24/10, vers 15 h 45, **réponses du DC sur les images de 0.4.13 et 0.4.14** : « pour répondre à vos questions : 1) A,
   2) A, 3) A » → tungstène : lueur turquoise froide de nuit gardée ; laser : direction des essais F1-A gardée (tour ronde
   sans canons, émetteur lumineux), à enrichir aux rondes F1-B ; mitrailleuse : les 3 fentes de l'âge 11 (d07, d22, d33)

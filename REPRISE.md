@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 19 h 50** : le DC donne son feu vert (« oui feu vert ») pour les travaux qui chargent le PC. Production du
+> socle animé des âges 5, 7 à 15 LANCÉE vers 19 h 48 (`anime_socle.py`, une place de rendu, Blender en priorité basse ;
+> journal `fo-logs/2026-10-24_A4/socle-anime/production-10-ages.log` ; environ 6,4 h estimées). Ensuite : `feuilles.py`,
+> `check_gun_sheets`, `a4-socle` étendu, et MESURE de l'atlas du plancher (F186) avant toute intégration. Correcteur
+> d'IA1-a en cours (agent seul, branche mise à jour avec main ; fusion seulement après le test du DC). F1-B (rondes du
+> laser) : après IA1-a.
 > **Point de 19 h 15 : IA1-c fusionné** (`e074595` ; correcteur repris par message après la coupure, `314069d`) :
 > `ia1-modules` 136, `content` 317 sur `main` ; ia1_modules_test 1 018, api_lint 788. Le DC a changé de profil une
 > troisième fois : 11 pages republiées (adresses mises à jour dans les documents) ; session avec images et sons
