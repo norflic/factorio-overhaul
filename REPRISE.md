@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 4 h 45 (nuit)** : F1-B (rondes du laser, 15 âges) fusionné, OUTILS SEULEMENT (`c12c9a1`, documents
+> `69ffdfe`) : aveugle 15/15, pose N en échec (âges 1, 6, 12), verdict du DC sur `fo-logs\2026-10-25_F1B\planches_DC\`.
+> En cours : IA2-c (modèle du joueur, worktree, F234 à F236, E161, E162) ; VÉRIFICATION ADVERSE de 0.4.16 à 0.4.23
+> (worktree, rapport `fo-logs\2026-10-25_VERIF-NUIT\verification.md` : parties longues, déterminisme, migration
+> d'une sauvegarde 0.4.11 ou 0.4.15, guide de partie). En attente du DC : MOD-V (`1ed3ec0`), A5-ESSAI (`4e3fcad`).
+> Ensuite : page du matin (toutes les questions ouvertes), puis intégrer IA2-c si ses garde-fous tiennent.
 > **Point de 3 h 35 (nuit)** : intégrées depuis 2 h 10 : MOD-2 (0.4.22, recettes par lots ; catégories `fo-*` du titane
 > exclues des lots par l'intégrateur après un échec du contrôle des boîtes à fluide), IA2-b (0.4.23, expansion par la carte,
 > seuils de forme en partie). MOD-V (modules au design distinct, branche worktree-agent-adfb469831c79e019, `1ed3ec0`) NON
@@ -26,7 +32,7 @@
 > 0 échec), MAIS 3 factions anéanties sur 16 en 2 h (1 avant), une dès 25 min : NON fusionné. Correction IA2-a2 lancée
 > sur la même branche (objectif : au plus 1 sur 16, aucune avant 60 min, variété gardée). X1 (titane) en cours.
 > **Point de 23 h 15 (nuit)** : fusionnés et prouvés sur `main` : IA1-a (0.4.17), MOD-1 et A4-SOCLE (0.4.18), IA2-0
-> (0.4.19) ; bancs en moteur réel et hors jeu verts à chaque version (archives `fo-logs6-10-24_integration-*` et
+> (0.4.19) ; bancs en moteur réel et hors jeu verts à chaque version (archives `fo-logs\2026-10-24_integration-*` et
 > `2026-10-25_integration-0.4.19`). En cours : X1 (titane de l'âge 11, worktree), IA2-a (chef d'équipe adaptatif v0,
 > worktree). Ensuite : MOD-2 (recettes par lots), IA2-b (expansion par la carte), styles de minerais, modules au design
 > distinct, F1-B. Le worktree d'IA2-0 n'a pas pu être effacé (fichier tenu) : `git worktree prune` plus tard.
