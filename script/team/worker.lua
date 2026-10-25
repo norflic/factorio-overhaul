@@ -26,6 +26,8 @@ local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail gl
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
+local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
+local Locomotion = require("script.companion.locomotion")
 
 local Worker = {}
 
@@ -187,9 +189,25 @@ end
 local function access(o)
   return o.access or o.pos
 end
+--- Lot IA1-d : programme d'une tâche du plan directeur (script/team/build.lua). build : prise au stock du chantier,
+--- point d'appui, ravivages ; clear : défrichage sur place ; fill : remplir un quai ; collect : vider un quai de sortie.
+local function ia1d_program(task)
+  local j = task.ia1d
+  local at = { x = j.ax, y = j.ay }
+  if j.mode == "build" then
+    return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "fill" then
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "clear" or j.mode == "collect" then
+    return { { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  end
+  return nil
+end
+
 --- Construit le programme d'une tâche au moment où un ouvrier la prend. Renvoie steps ou nil (impossible).
 function Worker.program(f, task, surface, tick)
   local k = task.kind
+  if task.ia1d then return ia1d_program(task) end
   if k == "craft" then
     return { { "home" }, { "take", task.uses, strict = true }, { "craft", task.steps }, { "home" } }
   elseif k == "build" then
@@ -463,6 +481,27 @@ local function goto_step(agent, pos, radius, tick)
       if dist2(p, pos) <= (radius + 1) * (radius + 1) then return true end
     end
   end
+  -- Lot IA1-d : dans le plan directeur, marche par les rues (tronçons OUVERTS, points de passage en Manhattan, sans
+  -- pathfinder) ; un PNJ bloqué (aucun progrès pendant 2 pensées) est rendu au PathService (agent.street_off).
+  local fb = faction_of(agent)
+  if fb and fb.build and not agent.street_off then
+    local wp = Build.street_route(fb, p, pos)
+    if wp then
+      local path = {}
+      for i, w in ipairs(wp) do path[i] = { position = w } end
+      agent.walk_radius = radius
+      agent.goal = pos
+      Locomotion.set_path(agent, path)
+      agent.last_x, agent.last_y, agent.last_check = p.x, p.y, tick
+      agent.stuck = 0
+      agent.nav = "moving"
+      agent.street_walk = true
+      Locomotion.start(agent)
+      Build.note_walk(fb, "start")
+      set(agent, "walk", tick)
+      return false
+    end
+  end
   agent.walk_radius = radius
   Nav.go(agent, pos, tick, { radius = radius })
   set(agent, "walk", tick)
@@ -500,7 +539,30 @@ local function run_steps(agent, tick)
       return
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
+      agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
       agent.pc = agent.pc + 1
+    elseif kind == "take_res" then
+      -- Lot IA1-d : objets réservés au chantier (retirés du coffre à la réservation : personne ne les arrache)
+      local all = Build.take_reserved(f, step[2], step[3], main_inv(agent))
+      if agent.task then agent.task.took = true end
+      if not all then
+        local any = false
+        for _, it in ipairs(step[3]) do if main_inv(agent).get_item_count(it[1]) > 0 then any = true break end end
+        if not any then
+          abort(agent, f, tick, "stock")
+          return
+        end
+      end
+      agent.pc = agent.pc + 1
+    elseif kind == "ia1d" then
+      local j = agent.task and agent.task.ia1d
+      if not j then
+        abort(agent, f, tick, "chantier")
+        return
+      end
+      agent.ia1d = { pid = j.pid, mode = j.mode, anchor = j.anchor, idx = j.idx, seg = j.seg, rect = j.rect }
+      set(agent, "ia1d", tick)
+      return
     elseif kind == "act" then
       Trace.log("act", step[2], f.key)
       local fn = ACTS[step[2]]
@@ -577,6 +639,23 @@ FSM.define(MACHINE, {
       run_steps(agent, tick)
     end,
   },
+  -- Lot IA1-d : travail sur place du plan directeur (ravivages, défrichage, quais) : script/team/build.lua.
+  ia1d = {
+    think = function(agent, tick)
+      defend(agent, tick)
+      local f = faction_of(agent)
+      if not f then return end
+      local r = Build.work(agent, f, tick)
+      if r == "more" then return end
+      agent.ia1d = nil
+      if r == "done" then
+        agent.pc = agent.pc + 1
+        set(agent, "step", tick)
+      else
+        abort(agent, f, tick, "chantier")
+      end
+    end,
+  },
   -- Lot IA1-b : attente sur place (garnison) ; l'autodéfense tourne.
   wait = {
     think = function(agent, tick)
@@ -594,9 +673,22 @@ FSM.define(MACHINE, {
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {
-      nav_arrived = function(agent, tick) set(agent, "step", tick) end,
+      nav_arrived = function(agent, tick)
+        if agent.street_walk then
+          agent.street_walk = nil
+          local fa = faction_of(agent)
+          if fa then Build.note_walk(fa, "ok") end
+        end
+        set(agent, "step", tick)
+      end,
       nav_failed = function(agent, tick)
         local f = faction_of(agent)
+        -- Lot IA1-d : PNJ bloqué dans une rue : rendu au PathService pour la suite de ce trajet (compté).
+        if agent.street_walk then
+          agent.street_walk = nil
+          agent.street_off = true
+          if f then Build.note_walk(f, "stuck") end
+        end
         local reason = agent.nav_fail or "no_path"
         agent.walk_retries = (agent.walk_retries or 0) + 1
         if f then f.stats.nav_fail = (f.stats.nav_fail or 0) + 1 end

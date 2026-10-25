@@ -246,6 +246,24 @@ do
   for y = y0, y1 - 1 do for x = x0, x0 + 15 do water[P.tkey(x, y)] = true end end
   local fw = P.fit(g, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, { free = function(x, y) return not water[P.tkey(x, y)] end })
   check(fw == nil, "fonderie : refusée quand il ne reste que 8 colonnes sèches")
+  -- centrale à vapeur : lac à l'ouest du lot (colonnes x0 .. x0 + 7 d'eau)
+  local steam = M.GEN.steam(1)
+  local lake = {}
+  for y = y0 - 8, y1 + 8 do for x = x0 - 8, x0 + 7 do lake[P.tkey(x, y)] = true end end
+  local fs = P.fit(steam, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, { water = lake, margin = 0,
+    free = function(x, y) return not lake[P.tkey(x, y)] end, toward = { x = 0, y = 0 } })
+  check(fs ~= nil and fs.k == 0, "centrale : pompe sur la rive ouest, sans rotation (" .. (fs and fs.k or "nil") .. ")")
+  if fs then
+    local inst = M.instantiate(steam, fs.k, fs.ox, fs.oy)
+    local pump = inst.entities[1]
+    local px = math.floor(pump.position.x)
+    check(lake[P.tkey(px - 1, math.floor(pump.position.y))] and not lake[P.tkey(px, math.floor(pump.position.y))],
+      "pompe sur la dernière tuile de terre, l'eau devant")
+  end
+  local fs2, ws2 = P.fit(steam, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, { water = {}, margin = 0 })
+  check(fs2 == nil, "centrale sans eau : refus (" .. tostring(ws2) .. ")")
+  local fs3, ws3 = P.fit(steam, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, {})
+  check(fs3 == nil and ws3 == "eau", "centrale sans relevé d'eau : refus (eau)")
   -- gabarit trop grand
   local big = M.GEN.smelter("stone-furnace", "iron-ore", 12)
   local fb, wb = P.fit(big, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, {})

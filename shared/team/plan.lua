@@ -391,24 +391,57 @@ function P.fit(g, rect, opts)
   local margin = opts.margin or 1
   local best
   local tried = 0
+  -- Somme cumulée 2D des tuiles bloquées du rectangle : emprise contrôlée en O(1) par position.
+  local W, H = rect.x1 - rect.x0, rect.y1 - rect.y0
+  local sat
+  if opts.free then
+    sat = {}
+    for x = 0, W do sat[x] = 0 end
+    for y = 1, H do
+      sat[y * (W + 1)] = 0
+      local row = 0
+      for x = 1, W do
+        if not opts.free(rect.x0 + x - 1, rect.y0 + y - 1) then row = row + 1 end
+        sat[y * (W + 1) + x] = sat[(y - 1) * (W + 1) + x] + row
+      end
+    end
+  end
+  local function blocked(x0, y0, w, h)
+    local a, b = y0 * (W + 1), (y0 + h) * (W + 1)
+    return sat[b + x0 + w] - sat[a + x0 + w] - sat[b + x0] + sat[a + x0]
+  end
   for k = 0, 3 do
     local r = (k == 0) and g or (not g.no_rotate and M.rotate(g, k) or nil)
     if r and r.w <= P.LOT - 2 * margin and r.h <= P.LOT - 2 * margin then
       local res = opts.ore and M.resource_tiles(r) or nil
+      local room0 = P.port_room(M.instantiate(r, 0, 0, 0))
+      -- pompe de rive (centrale) : la tuile devant la pompe et 60 % des tuiles d'eau du gabarit doivent être de l'eau
+      local wt, adj
+      if r.water and #r.water > 0 then
+        if not opts.water then return nil, "eau" end
+        wt = r.water
+        for _, e in ipairs(r.entities) do
+          if e.name == "offshore-pump" then local v = DV[e.dir or 0]; adj = { math.floor(e.x) + v[1], math.floor(e.y) + v[2] } end
+        end
+      end
       for oy = rect.y0 + margin, rect.y1 - margin - r.h, opts.step or 1 do
         for ox = rect.x0 + margin, rect.x1 - margin - r.w, opts.step or 1 do
           tried = tried + 1
-          local inst = M.instantiate(r, 0, ox, oy)
-          local ok = true
+          local ok = (not sat) or blocked(ox - rect.x0, oy - rect.y0, r.w, r.h) == 0
           -- place des ports dans le lot (marge 0 : la tête peut toucher le bord du lot)
-          for _, t in ipairs(P.port_room(inst)) do
-            if t[1] < rect.x0 or t[1] >= rect.x1 or t[2] < rect.y0 or t[2] >= rect.y1 then ok = false break end
-            if opts.free and not opts.free(t[1], t[2]) then ok = false break end
+          if ok then
+            for _, t0 in ipairs(room0) do
+              local tx, ty = ox + t0[1], oy + t0[2]
+              if tx < rect.x0 or tx >= rect.x1 or ty < rect.y0 or ty >= rect.y1 then ok = false break end
+              if opts.free and not opts.free(tx, ty) then ok = false break end
+            end
           end
-          if ok and opts.free then
-            for ty = oy, oy + r.h - 1 do
-              for tx = ox, ox + r.w - 1 do if not opts.free(tx, ty) then ok = false break end end
-              if not ok then break end
+          if ok and wt then
+            if adj and not opts.water[tkey(ox + adj[1], oy + adj[2])] then ok = false end
+            if ok then
+              local wet = 0
+              for _, t in ipairs(wt) do if opts.water[tkey(ox + t[1], oy + t[2])] then wet = wet + 1 end end
+              if wet < 0.6 * #wt then ok = false end
             end
           end
           local cover = 1
