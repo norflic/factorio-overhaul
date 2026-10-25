@@ -195,6 +195,49 @@ function Worker.program(f, task, surface, tick)
   elseif k == "build" then
     local site = Sites.find(f, surface, tick, T.outposts[task.outpost_kind].resource)
     if not site then return nil end
+    -- Lot IA1-b2 (défendre d'abord, votre équipe) : un site gardé par un nid ou un ver (apparu depuis la prospection)
+    -- n'est pas tenté : le constructeur y mourait (essai 9, graine 314159265 : 4 constructeurs tués par des vers à
+    -- 421-429 tuiles, un seul avant-poste en 60 min). Le site est écarté comme injoignable.
+    if f.is_player and surface.count_entities_filtered({ position = site, radius = Worker.DANGER_RADIUS, force = "enemy",
+      type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+      Sites.mark_unreachable(site, tick)
+      return nil
+    end
+    -- Lot IA1-b2 (D-18, décision de l'orchestrateur), votre équipe : sans tourelle possible, aucun site au-delà de
+    -- T.site_max_noturret tuiles ; et un site dont le CHEMIN (segment depuis le QG, un point tous les 32 tuiles) passe à
+    -- moins de Worker.DANGER_RADIUS tuiles d'un nid ou d'un ver est écarté (graine 314159265 : sites à 585 tuiles derrière
+    -- une ceinture de vers, 4 constructeurs tués vers 425 tuiles). Les vers des chunks pas encore générés ne se voient
+    -- pas : la limite de distance couvre ce cas.
+    if f.is_player then
+      local force = game.forces[f.force]
+      local rec = force and force.recipes and force.recipes["gun-turret"]
+      local turret_ok = f.hq.get_item_count("gun-turret") > 0 or (rec ~= nil and rec.enabled)
+      local d2 = dist2(site, f.hq_pos)
+      local bad = (not turret_ok) and d2 > T.site_max_noturret * T.site_max_noturret
+      if not bad then
+        local d = math.sqrt(d2)
+        local steps = math.floor(d / 32)
+        for k = 1, steps do
+          local q = { x = f.hq_pos.x + (site.x - f.hq_pos.x) * k / (steps + 1), y = f.hq_pos.y + (site.y - f.hq_pos.y) * k / (steps + 1) }
+          if surface.count_entities_filtered({ position = q, radius = Worker.DANGER_RADIUS, force = "enemy",
+            type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+            bad = true
+            break
+          end
+        end
+      end
+      if bad then
+        Sites.mark_unreachable(site, tick)
+        f.stats.site_refused = (f.stats.site_refused or 0) + 1
+        return nil
+      end
+      -- Prudence par zone : un site près d'une perte récente attend (rendu à la réserve).
+      if Poles.near_loss(f, site, tick) then
+        f.prospects = f.prospects or {}
+        if Sites.room_for(f, site.resource) then table.insert(f.prospects, 1, site) end
+        return nil
+      end
+    end
     Sites.claim(f, site)
     task.site = site
     return { { "home" }, { "take", task.items, strict = true }, { "goto", site, 5 }, { "act", "build" }, { "home" } }
@@ -235,6 +278,8 @@ function Worker.program(f, task, surface, tick)
     local ammo = Outposts.ammo_name(f.tech)
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
+    -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
+    if task.outpost == "hq" then return { { "home" }, { "take", task.items, strict = true }, { "act", "fortify" }, { "home" } } end
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
@@ -254,7 +299,8 @@ function Worker.program(f, task, surface, tick)
   elseif k == "mine" then
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
-    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = 96, name = task.resource, limit = 256 })
+    -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
+    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = task.resource, limit = 256 })
     table.sort(res, function(a, b)
       local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
       if da ~= db then return da < db end
@@ -276,6 +322,8 @@ function Worker.program(f, task, surface, tick)
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end
+      -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
+      if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
     end
     if not best then return nil end
@@ -303,6 +351,13 @@ ACTS.build = function(agent, f, task, surface, tick)
   o.access = { x = p.x, y = p.y }
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
+  -- Lot IA1-b2 (défendre d'abord) : les tourelles portées avec la construction sont posées sur place, à la même visite.
+  local inv = main_inv(agent)
+  local nt = inv.get_item_count("gun-turret")
+  if nt > 0 then
+    local put = Outposts.fortify(f, surface, o, nt, inv)
+    f.stats.defend_built = (f.stats.defend_built or 0) + put
+  end
   return true
 end
 
@@ -335,9 +390,11 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
-  local o = f.outposts[task.outpost]
+  -- Lot IA1-b2 : « hq » = autour du QG (tourelles du groupe « hq », Outposts.turret_groups).
+  local o = task.outpost == "hq" and { pos = f.hq_pos } or f.outposts[task.outpost]
   if not o then return false end
   local n = Outposts.fortify(f, surface, o, task.items[1][2], main_inv(agent))
+  if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
   return n > 0
 end
 
@@ -690,6 +747,30 @@ Registry.on_removed(function(agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
+  -- Lot IA1-b2 (mesure) : PNJ TUÉ (cause connue) : tâche, distance au QG, cause ; tués par les ennemis comptés à part.
+  if agent.death_cause and f.stats then
+    if agent.death_cause:find("/enemy:", 1, true) then f.stats.lost_enemy = (f.stats.lost_enemy or 0) + 1 end
+    local p = agent.death_pos
+    local d = (p and f.hq_pos) and math.floor(math.sqrt(dist2(p, f.hq_pos))) or -1
+    local t = agent.task
+    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
+      agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
+      game.tick / 3600))
+    -- Lot IA1-b2 (défendre d'abord) : l'avant-poste vers lequel allait le PNJ tué devient MEURTRIER (date gardée) : le
+    -- cerveau n'y envoie plus personne pendant T.lethal_ticks, sauf pour y poser des tourelles.
+    local oid = t and (t.outpost or (type(t.post) == "number" and t.post) or nil)
+    if not oid and t and type(t.group) == "string" and t.group:sub(1, 1) == "o" then oid = tonumber(t.group:sub(2)) end
+    local o = oid and f.outposts and f.outposts[oid]
+    if o then o.lethal_tick = game.tick end
+    -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
+    -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;
+    -- essai 10, graine 314159265 : 4 constructeurs tués au même endroit).
+    if f.is_player and t and t.kind == "build" and p then
+      for _, s in ipairs(f.prospects or {}) do
+        if dist2(s, p) <= 64 * 64 then Sites.mark_unreachable(s, game.tick) end
+      end
+    end
+  end
   if agent.task then
     if agent.task.site and not agent.task.site_used then
       Sites.release(agent.task.site)

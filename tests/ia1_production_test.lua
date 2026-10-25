@@ -104,9 +104,9 @@ local function suite(P, quiet)
   for i = 1, 8 do s10[i] = { family = "speed", tier = 10 } end
   local huge = P.machine("fo-lvl-assembler-30", s10)
   check(near(huge.speed_factor, 328.67), "8 modules de vitesse 10 : 2,1⁸ = 378 → plafond du moteur × 328,67 : " .. string.format("%.2f", huge.speed_factor))
-  -- Écart connu (lot MOD-3) : au plafond, le jeu applique la règle de l'écart (énergie × 52,38, MM.complements) ; le
-  -- solveur (shared/team/production.lua, hors du lot MOD-3) prend le produit borné (× 57,63 ici).
-  info(string.format("écart connu : énergie de 8 modules de vitesse 10, solveur × %.2f, jeu × 52,38 (règle de l'écart, D-17)", huge.energy_factor))
+  -- Correctif de MOD-3 appliqué au lot IA1-b2 : au plafond, le solveur suit la règle de l'écart du jeu (MM.complements).
+  check(near(huge.energy_factor, 52.38), "8 modules de vitesse 10 : énergie × 52,38 au plafond (règle de l'écart, D-17) : "
+    .. string.format("%.2f", huge.energy_factor))
 
   section("Jeu d'essai du §6.1 : 10 circuits rouges par minute")
   local plan, why = P.solve(book, { ["advanced-circuit"] = 10 })
@@ -279,7 +279,8 @@ local f = assert(io.open(PROD_PATH, "rb"))
 local SRC = f:read("*a")
 f:close()
 local MUTANTS = {
-  { "modules additionnés", "local fs = MM.target(lists.speed) / 100", "local fs = 1; for _, x in ipairs(lists.speed) do fs = fs + x / 100 end" },
+  { "modules additionnés", "local fs, fc = comp.speed.t / 100, comp.consumption.t / 100",
+    "local fs, fc = 1, comp.consumption.t / 100; for _, x in ipairs(per) do fs = fs + x.speed / 100 end" },
   { "productivité ignorée", "local out = product_amount(r, item) * (1 + m.prod)", "local out = product_amount(r, item)" },
   { "lots ignorés (plafond 60 toujours)", "local kmax = avail[#avail]", "local kmax = 1" },
   { "aucun plafond de 60/s", "if w > RL.CAP * kmax + P.EPS then", "if false then" },

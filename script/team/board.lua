@@ -147,6 +147,20 @@ function Board.claim(f, agent, tick)
         end
       end
     end
+    -- Lot IA1-b2 (complément du DC, 25/10 : « sur les 8 PNJ y en avait pas mal qui faisaient rien ») : rang 8, un PNJ
+    -- qui n'a RIEN à prendre (ni son pôle, ni le fond) prend la tâche du cerveau qui attend le plus haut dans la liste,
+    -- quel que soit son pôle (essai 6 : 44 à 74 % des attentes avec des tâches libres d'un autre pôle). Votre équipe
+    -- seulement (l'économie des factions règle l'ordre des difficultés de pvp_test).
+    if i == nil and f.is_player then
+      for k = 1, #list do
+        local t = list[k]
+        if not t.worker and (npc.role == "generalist" or not O.DESIGN_KINDS[t.kind]) then
+          i, away = k, true
+          if f.team.org then f.team.org.stats.brain_cross = (f.team.org.stats.brain_cross or 0) + 1 end
+          break
+        end
+      end
+    end
   else
     -- Une tâche de la liste retirée du tableau depuis la pensée (finie) a un ouvrier : pick_task l'ignore.
     i = O.pick_task(NEUTRAL, list)
