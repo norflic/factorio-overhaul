@@ -150,6 +150,15 @@ local function prospects_of(f, resource)
   return n
 end
 
+--- Lot IA2-c : la réserve peut-elle encore recevoir un site de cette ressource (bornes : 3 par ressource et 12 en
+--- tout pour une faction, 2 et 8 pour l'équipe du joueur) ? Un avant-poste perdu y rendait son site SANS les
+--- respecter (moteur simulé, tests/valeur_test.lua, trajectoire du lot IA2-c : Écarlate, 4 sites de charbon, 13 en tout).
+function Sites.room_for(f, resource)
+  local per, total = MAX_PER_KIND, MAX_PROSPECTS
+  if not f.is_player then per, total = FACTION_MAX_PER_KIND, FACTION_MAX_PROSPECTS end
+  return prospects_of(f, resource) < per and #(f.prospects or {}) < total
+end
+
 local function want_of(f, res)
   local need = (f.site_needs or {})[res] or 0
   local want = math.min(MAX_PER_KIND, need)

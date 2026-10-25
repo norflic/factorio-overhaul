@@ -334,7 +334,9 @@ local function return_site(f, task)
   if task and task.site and not task.site_used then
     Sites.release(task.site)
     f.prospects = f.prospects or {}
-    table.insert(f.prospects, 1, task.site)
+    -- Lot IA2-c : dans les bornes de la réserve (Sites.room_for) : pendant le chantier, la prospection a pu la
+    -- remplir de nouveau (moteur simulé, tests/valeur_test.lua : 4 sites de charbon, 13 en tout).
+    if Sites.room_for(f, task.site.resource) then table.insert(f.prospects, 1, task.site) end
     task.site_used = true
   end
 end
