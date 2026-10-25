@@ -25,6 +25,9 @@
     personality, tech, upgrades, garrison, soldiers_max, can_attack,
     character,              -- lot IA2-0 : caractère effectif tiré de la graine (shared/faction/traits.lua), ou nil
     attack_jitter,          -- lot IA2-0 : multiplicateur (pour mille) du seuil de la prochaine attaque ENTRE factions, ou nil
+    chef = { war_mult, raid, raid_defense } | nil, -- lot IA2-a (shared/faction/chef.lua) : multiplicateur du seuil (tirage
+                            -- refait à chaque pensée × posture), raid demandé (5 à 10) et défense de sa cible ; avec un chef,
+                            -- la guerre entre factions varie à tous les niveaux, la réserve du joueur passant avant
     enemy_defense,          -- défense estimée de la faction rivale visée (math.huge si aucune)
     rival = { id, outposts } | nil,          -- cible faction (coalition contre le leader, sinon voisin)
     own_outposts, leader_outposts,           -- territoire de la faction, plus grand territoire rival
@@ -44,7 +47,8 @@
   }
   actions = {
     warn = minutes | nil, declare = "grace" | "provoked" | nil, truce = bool | nil, recall = bool | nil,
-    attack = { target = "player" | id_faction, count = n, join = true | nil } | nil,
+    attack = { target = "player" | id_faction, count = n, join = true | nil, rule = "variee" | "ia0" | nil,
+               raid = true | nil } | nil,  -- lot IA2-a : règle appliquée (journal), raid du chef
     due_since = tick | false | nil,          -- début (tick) ou fin (false) de l'attente pour le joueur
     plan = "attack" | "save" | "join" | "siege" | "deterred" | "fallback" | nil, need = n, count = n,
     rally = true | nil,                      -- l'attaque ouvre une fenêtre d'assaut coordonné (IA0b)
@@ -93,23 +97,44 @@ local function personality(v)
 end
 
 --- La guerre ENTRE factions suit-elle le caractère tiré (lot IA2-0) ? Oui sans état PvP (tests purs d'avant IA0b
---- qui donnent un caractère) et en « Paisible » ; non à un niveau agressif (règle d'IA0, bornes de pvp_test).
+--- qui donnent un caractère) et en « Paisible » ; à un niveau agressif, seulement sous le CHEF (lot IA2-a,
+--- v.chef) : il réserve d'abord les soldats de la prochaine attaque contre le joueur (S.player_reserve). Sans chef,
+--- règle d'IA0 (bornes de pvp_test).
 function S.faction_war_varied(v)
-  if v.pvp == nil then return true end
+  if v.pvp == nil or v.chef ~= nil then return true end
   return not F.pvp_params(v.pvp.difficulty).aggressive
 end
 
---- Décision d'attaque : renvoie l'effectif à envoyer, ou nil.
-function S.attack(v)
+--- Lot IA2-a : multiplicateur (pour mille) du seuil d'attaque entre factions : celui du chef (tirage ±20 % refait à
+--- chaque pensée, × posture, borné), sinon le tirage d'IA2-0 (v.attack_jitter), sinon aucun.
+local function war_mult(v)
+  if v.chef and v.chef.war_mult then return v.chef.war_mult end
+  return v.attack_jitter
+end
+
+--- Lot IA2-a : RÉSERVE gardée pour le joueur à un niveau agressif : garnison qui permet d'envoyer la prochaine
+--- attaque contre lui (besoin, ou taille visée après une première attaque ; S.player_garrison_for). Une attaque
+--- ou un raid contre une RIVALE ne prend que les soldats au-delà. 0 en « Paisible » ou sans état PvP.
+function S.player_reserve(v)
+  local pv = v.pvp
+  if not pv or not F.pvp_params(pv.difficulty).aggressive then return 0 end
+  local level = pv.difficulty
+  local goal = S.player_need(v, level)
+  if (pv.sent_player or 0) > 0 then
+    local g = S.player_target_size(v, level)
+    if g > goal then goal = g end
+  end
+  return S.player_garrison_for(level, pers_of(v), goal)
+end
+
+--- Règle d'attaque entre factions : `varied` = caractère tiré et seuil multiplié ; `spare` = effectif au plus
+--- (soldats au-delà de la réserve du joueur), ou nil.
+local function attack_rule(v, varied, spare)
   local P = personality(v)
   local unit = F.best_soldier(v.tech)
   local strength = S.soldier_strength(unit, v.tech, v.upgrades)
-  -- Lot IA2-0 : en « Paisible » (aucune attaque contre le joueur), caractère tiré (war_keep, war_aggression) et
-  -- seuil tiré à ±20 % ; à un niveau AGRESSIF, règle d'IA0 (archétype, sans tirage). Mesuré : la campagne pure de
-  -- tests/pvp_test.lua perd l'ordre strict des niveaux pour 1 à 3 caractères sur 16 quand la guerre entre factions
-  -- varie à un niveau agressif (elle prend des soldats à la part visée contre le joueur).
-  local varied = S.faction_war_varied(v)
   local count = math.floor(v.garrison * (1 - (varied and P.war_keep or P.keep)))
+  if spare and count > spare then count = spare end
   -- Session 4 (économie réelle) : l'armée se paie en objets et grossit moins vite qu'avec l'ancien
   -- registre. Moteur réel (E16 it. 8) : un seuil lié à l'armée maximale (35 % de 100) retardait la
   -- première attaque à 30 min. Seuil = taille d'attaque de la personnalité : conquérant 13, équilibré 20,
@@ -120,10 +145,61 @@ function S.attack(v)
   local min_size = math.floor(F.military.attack_base / (varied and P.war_aggression or P.aggression))
   -- Lot IA2-0 : seuil tiré à ±20 % à chaque attaque (v.attack_jitter, pour mille, flux de la faction) : le
   -- moment et la taille des attaques entre factions ne sont plus un métronome. Sans tirage : règle d'IA0.
-  if varied and v.attack_jitter then min_size = S.jittered_size(min_size, v.attack_jitter) end
+  -- Lot IA2-a : sous le chef, son multiplicateur (tirage refait à chaque pensée × posture, borné).
+  local m = war_mult(v)
+  if varied and m then min_size = S.jittered_size(min_size, m) end
   local needed = (v.enemy_defense or 0) * 1.3
   if v.can_attack ~= false and count >= min_size and count * strength >= needed then return count end
   return nil
+end
+
+--- Décision d'attaque : renvoie l'effectif à envoyer, ou nil.
+--- Lot IA2-0 : en « Paisible » (aucune attaque contre le joueur), caractère tiré (war_keep, war_aggression) et seuil
+--- tiré à ±20 % ; à un niveau AGRESSIF, règle d'IA0 (archétype, sans tirage). Mesuré : la campagne pure de
+--- tests/pvp_test.lua perd l'ordre strict des niveaux pour 1 à 3 caractères sur 16 quand la guerre entre factions
+--- varie à un niveau agressif (elle prend des soldats à la part visée contre le joueur).
+--- Lot IA2-a : sous le chef (v.chef), à un niveau agressif : d'abord la règle VARIÉE (caractère tiré, seuil du chef)
+--- avec les seuls soldats au-delà de la réserve du joueur (S.player_reserve) ; si elle ne part pas, la règle d'IA0.
+--- Mesuré (campagne pure, 24 caractères × 11 configurations × 4 niveaux agressifs) : la réserve SEULE (sans repli
+--- sur la règle d'IA0) casse l'ordre strict dans 143 cas sur 264 (guerres entre factions affamées : technocrate
+--- 0 attaque contre sa rivale en Normal) ; avec le repli, 0 cas, mais la branche variée ne part que 9 à 17 fois sur
+--- environ 8 500 attaques entre factions (la règle d'IA0 part avant que la garnison dépasse la réserve).
+--- Second résultat : la règle appliquée, "variee" ou "ia0" (journal).
+function S.attack(v)
+  local aggressive = v.pvp ~= nil and F.pvp_params(v.pvp.difficulty).aggressive
+  -- Lot IA2-a2 : TRÊVE du chef (toutes les rivales atteignables épargnées par satiété, shared/faction/chef.lua) : aucune
+  -- attaque entre factions en « Paisible » ; à un niveau agressif, la règle ne change pas (seuil du chef au plus haut,
+  -- règle d'IA0 ensuite) : une trêve qui bloquait la rivale y cassait l'ordre strict des tailles contre le joueur
+  -- (campagne pure, 6 conquérants sur 24 en configuration 7, 1er essai du lot).
+  if v.chef and v.chef.hold and not aggressive then return nil end
+  if v.chef and aggressive then
+    local n = attack_rule(v, true, v.garrison - S.player_reserve(v))
+    if n then return n, "variee" end
+    n = attack_rule(v, false)
+    if n then return n, "ia0" end
+    return nil
+  end
+  local varied = S.faction_war_varied(v)
+  local n = attack_rule(v, varied)
+  if n then return n, varied and "variee" or "ia0" end
+  return nil
+end
+
+--- Lot IA2-a : RAID demandé par le chef (v.chef.raid = effectif visé, 5 à 10) contre la rivale : seulement avec les
+--- soldats au-delà de la réserve du joueur ET de la garnison gardée de la faction ; force du groupe ≥ 1,3 × la
+--- défense estimée de la cible du raid (v.chef.raid_defense). Renvoie l'effectif, ou nil.
+function S.raid(v)
+  local c = v.chef
+  if not (c and c.raid and c.raid > 0) or c.hold or v.can_attack == false then return nil end
+  local P = personality(v)
+  local n = c.raid
+  local keep = math.ceil(v.garrison * (P.war_keep or P.keep) - 1e-9)
+  local reserve = S.player_reserve(v)
+  if reserve > keep then keep = reserve end
+  if v.garrison - keep < n then return nil end
+  local strength = S.soldier_strength(F.best_soldier(v.tech), v.tech, v.upgrades)
+  if n * strength < (c.raid_defense or 0) * 1.3 then return nil end
+  return n
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -437,11 +513,17 @@ function S.decide(v)
     -- "deterred" (dissuasion) ou "fallback" (répit) : la faction se rabat sur sa rivale.
   end
   if v.rival then
-    local n = S.attack(v)
+    local n, rule = S.attack(v)
     if n then
-      out.attack = { target = v.rival.id, count = n }
+      out.attack = { target = v.rival.id, count = n, rule = rule }
       -- Fin du répit : l'attaque contre la rivale part, un nouveau siège commencera à la pensée suivante.
       if out.plan == "fallback" then out.due_since = false end
+    elseif out.plan == nil then
+      -- Lot IA2-a : raid du chef, seulement quand le joueur n'est pas « dû » (ni attente, ni siège, ni répit). Un
+      -- raid ne compte ni dans la part visée (sent_total) ni comme attaque contre une rivale (last_rival : fin de
+      -- l'impasse inchangée) : script/faction/pvp.lua, Military.on_launched.
+      local r = S.raid(v)
+      if r then out.attack = { target = v.rival.id, count = r, raid = true } end
     end
   end
   return out

@@ -531,8 +531,14 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
       -- Lot IA2-0 : opts.jitter = graine : seuil des attaques entre factions tiré à ±20 % (flux de la faction),
       -- retiré après chaque attaque contre la rivale, comme en jeu (script/faction/character.lua).
       stream = opts.jitter and Tr.new_stream(opts.jitter, i) or nil,
+      -- Lot IA2-a : opts.chef = graine : chef modélisé par un multiplicateur du seuil tiré CHAQUE MINUTE dans toute sa
+      -- plage (700 à 1 400 pour mille) et, une minute sur trois, un raid de 5 à 10 soldats (défense de la cible 0).
+      chef = opts.chef and Tr.new_stream(opts.chef, 200 + i) or nil,
+      -- Lot IA2-a2 : TRÊVE du chef (rivales épargnées par satiété : aucun raid ; en Paisible, aucune attaque contre la
+      -- rivale ; seuil 1 400), une minute sur quatre, flux à part (les tirages d'IA2-a sont inchangés).
+      hold_stream = opts.chef and Tr.new_stream(opts.chef, 300 + i) or nil,
       r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0,
-        joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {} },
+        joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {}, raids = 0, varied = 0 },
     }
     if fs[i].stream then fs[i].jitter = Tr.jitter(fs[i].stream) end
   end
@@ -554,6 +560,11 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
           else keep[#keep + 1] = b end
         end
         f.back = keep
+        if f.chef and t % 3600 == 0 then
+          f.war_mult = Tr.range(f.chef, 700, 1400)
+          f.raid = Tr.range(f.chef, 1, 3) == 1 and Tr.range(f.chef, 5, 10) or nil
+          f.hold = Tr.range(f.hold_stream, 1, 4) == 1
+        end
         local fp, r = f.fp, f.r
         local v = {
           personality = f.pers, tech = cfg.tech, upgrades = 0, garrison = f.garrison, soldiers_max = 100, can_attack = true,
@@ -565,6 +576,9 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
             rally_defense = shared.rally_until and cfg.defense or nil },
           player = { score = cfg.score, defense = cfg.defense, reachable = true },
         }
+        if f.chef then
+          v.chef = { war_mult = f.hold and 1400 or (f.war_mult or 1000), raid = f.raid, raid_defense = 0, hold = f.hold or nil }
+        end
         local a = S.decide(v)
         if a.warn then fp.warned = true; r.warn = r.warn or tick end
         if a.declare then fp.declared = true; fp.sent_player, fp.sent_total, fp.due_since = 0, 0, nil; r.declare = tick end
@@ -575,9 +589,16 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
           local n = a.attack.count
           f.garrison = f.garrison - n
           f.back[#f.back + 1] = { at = tick + 5 * MIN, n = n }
-          fp.sent_total = fp.sent_total + n
-          if fp.declared then r.sent_total = r.sent_total + n end
-          if a.attack.target == "player" then
+          -- Lot IA2-a : un raid ne compte ni dans la part visée ni comme attaque contre la rivale (comme en jeu).
+          if not a.attack.raid then
+            fp.sent_total = fp.sent_total + n
+            if fp.declared then r.sent_total = r.sent_total + n end
+          end
+          if a.attack.rule == "variee" and level ~= "peaceful" then r.varied = r.varied + 1 end
+          if a.attack.raid then
+            r.raids = r.raids + 1
+            f.raid = nil
+          elseif a.attack.target == "player" then
             fp.sent_player = fp.sent_player + n
             fp.last_attack, fp.due_since = tick, nil
             r.attacks, r.soldiers = r.attacks + 1, r.soldiers + n
@@ -778,6 +799,66 @@ for ci, cfg in ipairs(CONFIGS) do
   end
 end
 print(string.format("  16 caractères × 11 configurations ; écarts d'ordre avec une rivale de défense 30 (non exigés) : %d", ia2_gaps))
+
+---------------------------------------------------------------------------------------------------
+section("Campagne pure : chef d'IA2-a (réserve du joueur, seuil tiré chaque minute, raids)")
+-- Lot IA2-a : sous le chef, la guerre ENTRE factions suit le caractère tiré à TOUS les niveaux, avec les seuls soldats
+-- au-delà de la réserve du joueur (S.player_reserve), puis la règle d'IA0 si la variée ne part pas ; raids hors de la
+-- part visée. Modèle : multiplicateur du seuil tiré chaque minute dans toute sa plage (700 à 1 400), raid de 5 à 10
+-- soldats une minute sur trois. Mêmes exigences que la section précédente, 24 caractères (les 16 ci-dessus et les 8
+-- des graines 777 et 3141592653) × 11 configurations. Mesuré (essai hors banc) : la réserve SEULE, sans repli sur la
+-- règle d'IA0, échoue dans 143 cas sur 264 (guerres entre factions affamées, ordre des tailles).
+local CHARS_CHEF = {}
+for _, ch in ipairs(CHARS) do CHARS_CHEF[#CHARS_CHEF + 1] = ch end
+for _, ms in ipairs({ 777, 3141592653 }) do
+  local ps = Tr.personalities(ms, 4)
+  for i = 1, 4 do
+    local _, t = Tr.found(ms, i, ps[i])
+    CHARS_CHEF[#CHARS_CHEF + 1] = { name = string.format("%s/%d %s", tostring(ms), i, ps[i]), pers = Tr.character(ps[i], t) }
+  end
+end
+local chef_gaps, chef_raids, chef_varied, chef_rival = 0, 0, 0, 0
+for ci, cfg in ipairs(CONFIGS) do
+  for _, ch in ipairs(CHARS_CHEF) do
+    local c = {}
+    for _, lv in ipairs(LEVELS) do c[lv] = campaign(lv, ch.pers, 180, cfg, { jitter = 1000 + ci, chef = 5000 + ci }) end
+    for _, lv in ipairs(LEVELS) do
+      chef_raids, chef_varied, chef_rival = chef_raids + c[lv].raids, chef_varied + c[lv].varied, chef_rival + c[lv].rival
+    end
+    local t = string.format("[IA2-a, config %d] %s", ci, ch.name)
+    local ok = c.peaceful.attacks == 0 and c.peaceful.declare == nil
+    for _, lv in ipairs(AGGRO) do
+      if cfg.must[lv] and not (c[lv].first ~= nil and c[lv].first >= S.grace_ticks(lv, ch.pers)) then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " n'attaque pas") end
+      if cfg.must[lv] and cfg.repeat_min and c[lv].attacks < cfg.repeat_min then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " moins de " .. cfg.repeat_min .. " attaques") end
+    end
+    local orders = {
+      { "first", function(a, b) return a > b end, "1re attaque de plus en plus tôt" },
+      { "attacks", function(a, b) return a < b end, "attaques de plus en plus fréquentes" },
+      { "mean", function(a, b) return a < b end, "taille moyenne croissante" },
+    }
+    local arch_rival = MEASURES[ci][ch.pers.archetype].peaceful.rival > 0
+    if arch_rival then orders[#orders + 1] = { "share", function(a, b) return a < b end, "part des forces croissante" } end
+    for _, o in ipairs(orders) do
+      if not order_ok(c, o[1], o[2]) then
+        if cfg.no_order then
+          chef_gaps = chef_gaps + 1
+        else
+          ok = false
+          print("  ECHEC : " .. t .. " : " .. o[3])
+        end
+      end
+    end
+    if arch_rival and not cfg.rdef and not (c.normal.rival_war >= RIVAL_MIN and c.hard.rival_war >= RIVAL_MIN and c.merciless.rival_war >= 1) then
+      ok = false
+      print(string.format("  ECHEC : %s : guerres entre factions après la déclaration (Normal %d, Difficile %d, Impitoyable %d)", t,
+        c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
+    end
+    check(ok, t .. " : exigences de la configuration")
+  end
+end
+print(string.format("  24 caractères × 11 configurations : raids %d, attaques contre la rivale %d (dont règle variée à un niveau agressif : %d) ; écarts non exigés (rivale de défense 30) : %d",
+  chef_raids, chef_rival, chef_varied, chef_gaps))
+check(chef_raids > 0, "le chef lance des raids dans la campagne (" .. chef_raids .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("Campagne pure : partie à 4 factions, assaut coordonné (Difficile, Impitoyable)")

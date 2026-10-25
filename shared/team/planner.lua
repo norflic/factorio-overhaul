@@ -353,6 +353,103 @@ function P.plan(view, book)
   end
 
   ---------------------------------------------------------------------------------------------------
+  -- 1 bis. Survie (lot IA2-a2, factions seulement : view.emergency) : AVANT l'objectif, qui pouvait vider le stock
+  -- virtuel. Moteur réel (IA2-a, graine 777) : Écarlate, réduite à 1 ouvrier, garda 1 ouvrier et 0 soldat de 23 à
+  -- 120 min avec jusqu'à 3 785 plaques de fer au stock : le pistolet de la recrue (fabrication, priorité 55) n'était
+  -- jamais fait, son seul ouvrier enchaînant les tournées (priorité 70 à 95). Défaut connu depuis IA1-a (§6.8).
+  --  - sous l'effectif de départ (emergency.floor), la recrue est équipée AU QG avec les plaques du stock
+  --    (out.recruit_uses : objets prélevés, une recrue par pensée) ; sans les plaques, un 2e ouvrier sans arme est
+  --    embauché (secours, comme pour une équipe vide) ; sinon l'équipement est demandé en priorité 96 ;
+  --  - en reconstruction (chef) ou menacée, l'objectif « armée » atteint, la GARDE (un tiers de l'armée visée, 5 au
+  --    moins) est équipée au QG de même (out.train.uses), un lot de T.kit_batch soldats par pensée.
+  ---------------------------------------------------------------------------------------------------
+  local em = view.emergency
+  local function real_avail()
+    local r = {}
+    for k, n in pairs(avail) do
+      local s = view.stock[k] or 0
+      r[k] = n < s and n or s
+    end
+    return r
+  end
+  local function consume(uses)
+    for k, n in pairs(uses) do avail[k] = (avail[k] or 0) - n end
+  end
+  -- Sans les plaques : minage À LA MAIN du minerai qui manque, priorité 90 (devant les tournées). 2e essai du lot
+  -- (moteur réel, graine 20261020) : Azur, 2 ouvriers toujours en tournée, fer 1 pendant 55 min, jamais reconstruite
+  -- (le minage à la main n'était proposé qu'aux ouvriers SANS tâche quand un avant-poste existe).
+  local emerg_mine = {}
+  local function emergency_mine(raw)
+    for _, it in ipairs({ { "iron-plate", "iron-ore" }, { "copper-plate", "copper-ore" } }) do
+      local ore = it[2]
+      if (raw[it[1]] or 0) > 0 and view.smelters > 0 and not open["mine:" .. ore] and not emerg_mine[ore]
+        and (view.stock[ore] or 0) < MINE_BATCH then
+        emerg_mine[ore] = true
+        add({ key = "mine:" .. ore, kind = "mine", prio = 90, resource = ore, count = MINE_BATCH })
+      end
+    end
+  end
+  -- Fonderie du QG détruite (4e essai, graine 3141592653 : Écarlate, fonderie 0 et fer 9 de 55 à 100 min, ouvriers
+  -- inactifs : l'objectif « fonderie », atteint, n'est jamais rouvert) : reposée en priorité 92 (pierre du stock).
+  if em and view.smelters + (view.smelters_pending or 0) == 0 and not open["smelters"] then
+    local n = T.start_smelters
+    local items = { { T.SMELTER, n }, { T.fuel, T.fuel_per_burner * n } }
+    if take(items) then
+      add({ key = "smelters", kind = "smelters", prio = 92, count = n, items = items })
+    else
+      want(items, 92, "survie")
+    end
+    out.emergency_smelters = true
+  end
+  if em and not view.recruit_blocked and view.workers < (em.floor or 0) then
+    local cost0 = view.recruit_cost or kit_list("worker", 1)
+    if take(cost0) then
+      out.recruit_workers = 1
+    else
+      local p = book:plan(cost0, real_avail())
+      if next(p.raw) == nil then
+        out.recruit_workers = 1
+        out.recruit_uses = sorted_uses(p.uses)
+        consume(p.uses)
+      else
+        if view.workers < 2 then
+          out.recruit_workers = 1
+          out.recruit_unarmed = true
+          out.emergency_unarmed = true
+        end
+        want(cost0, 96, "ouvrier")
+        emergency_mine(p.raw)
+      end
+    end
+    out.emergency_recruit = true
+  end
+  if em and (em.rebuild or view.threatened) and (view.done or {})["army"] then
+    local guard = math.min(math.max(5, math.floor(P.army_target(view) / 3)), view.soldiers_max)
+    if view.soldiers < guard then
+      local n = math.min(T.kit_batch, guard - view.soldiers)
+      local units = { P.best_unit(view.tech) }
+      if units[1] ~= "rifleman" then units[2] = "rifleman" end
+      local last_raw_kits
+      for _, unit in ipairs(units) do
+        local kits = kit_list(unit, n)
+        if take(kits) then
+          out.train = { unit = unit, count = n }
+          break
+        end
+        local p = book:plan(kits, real_avail())
+        if next(p.raw) == nil then
+          out.train = { unit = unit, count = n, uses = sorted_uses(p.uses) }
+          consume(p.uses)
+          break
+        end
+        last_raw_kits = p.raw
+      end
+      if not out.train and last_raw_kits then emergency_mine(last_raw_kits) end
+      out.emergency_guard = guard
+    end
+  end
+
+  ---------------------------------------------------------------------------------------------------
   -- 2. Objectif : premier palier non atteint
   ---------------------------------------------------------------------------------------------------
   local done = view.done or {}
@@ -430,7 +527,7 @@ function P.plan(view, book)
           end
           if sites == 0 then add_missing({ ["site:" .. kind] = 1 }) end
         end
-      elseif part.smelters then
+      elseif part.smelters and not out.emergency_smelters then -- lot IA2-a2 : fonderie déjà reposée (survie)
         local items = { { T.SMELTER, part.smelters }, { T.fuel, T.fuel_per_burner * part.smelters } }
         if take(items) then
           add({ key = "smelters", kind = "smelters", prio = 80, count = part.smelters, items = items })
@@ -468,7 +565,7 @@ function P.plan(view, book)
   -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
   local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
   local recruit_cost = view.recruit_cost or kit_list("worker", 1)
-  if view.workers < workers_wanted then
+  if view.workers < workers_wanted and not out.emergency_recruit then -- lot IA2-a2 : la survie a déjà décidé
     if view.recruit_blocked then
       out.recruit_blocked = true
       if view.workers == 0 then
@@ -497,7 +594,7 @@ function P.plan(view, book)
     local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
     if army_now and goal and goal.need.soldiers then target = math.max(target, goal.need.soldiers) end
     target = math.min(target, view.soldiers_max)
-    if view.soldiers < target then
+    if view.soldiers < target and not out.train then -- lot IA2-a2 : garde déjà équipée au QG à cette pensée
       local unit = P.best_unit(view.tech)
       local n = math.min(T.kit_batch, target - view.soldiers)
       local kits = kit_list(unit, n)
@@ -558,11 +655,11 @@ function P.plan(view, book)
         local ore = T.smelter_inputs[src.smelt][1]
         local minable = src.mine and src.mine ~= item
         if minable and view.smelters > 0 and (view.stock[ore] or 0) < n and (not has_outpost or idle > mines)
-          and not open["mine:" .. ore] then
+          and not open["mine:" .. ore] and not emerg_mine[ore] then
           add({ key = "mine:" .. ore, kind = "mine", prio = has_outpost and 25 or 45, resource = ore, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
           mines = mines + 1
         end
-      elseif src.mine == item and (not has_outpost or idle > mines) and not open["mine:" .. item] then
+      elseif src.mine == item and (not has_outpost or idle > mines) and not open["mine:" .. item] and not emerg_mine[item] then
         add({ key = "mine:" .. item, kind = "mine", prio = has_outpost and 25 or 45, resource = item, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
         mines = mines + 1
       end

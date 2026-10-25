@@ -48,6 +48,7 @@ local S = require("shared.faction.strategy")
 local State = require("script.faction.state")
 local Military = require("script.faction.military")
 local Character = require("script.faction.character")
+local Chef = require("script.faction.chef")
 
 local PvP = {}
 
@@ -462,7 +463,8 @@ function PvP.think(f, surface, tick, view, target)
         end
       end
     elseif target and a.attack.target == target.id then
-      Military.attack(f, surface, target, a.attack.count, tick)
+      -- Lot IA2-a : point visé (raid : avant-poste vu le plus faible) et côté d'arrivée choisis par le chef.
+      Military.attack(f, surface, target, a.attack.count, tick, Chef.attack_opts(f, target, a.attack, tick))
     end
   end
   return a
@@ -500,6 +502,9 @@ end
 --- Un groupe part : comptes de la part visée ; message au joueur si l'attaque le vise.
 Military.on_launched = function(f, target_faction, n, rp, tick)
   local fp = faction_state(f)
+  -- Lot IA2-a : un RAID du chef ne compte ni dans la part visée (sent_total) ni comme attaque contre une rivale
+  -- (last_rival) : la règle du déficit et la fin de l'impasse restent celles d'IA0b (campagne de pvp_test).
+  if rp.raid and target_faction.id ~= "player" then return end
   fp.sent_total = fp.sent_total + n
   if target_faction.id ~= "player" then
     fp.last_rival = tick -- lot IA0b : fin de l'impasse de la règle du déficit (S.rival_stalled)

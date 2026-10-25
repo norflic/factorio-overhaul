@@ -16,6 +16,7 @@ local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
+local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
 local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
@@ -244,8 +245,9 @@ function Team.view(f, tick)
   -- aucune recrue (ni équipement de recrue fabriqué) ; le stock reste aux objectifs et à l'armée.
   local workers_idle = Worker.idle_count(f)
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
-  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"), f.engineers_count or 0,
-    Scale.start_headcount(Config.get("npc_start"), workers_max))
+  local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
+  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
+  f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
@@ -276,9 +278,14 @@ function Team.view(f, tick)
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held,
-    ladder = f.is_player and T.player_ladder or nil, no_research = f.is_player or false,
+    -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
+    -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
+    ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = tick < (f.threatened_until or 0),
     open = Board.open(f),
+    -- Lot IA2-a2 (SURVIE, factions seulement) : sous son effectif de départ, une faction équipe ses recrues au QG avec
+    -- les plaques du stock ; en reconstruction (chef) ou menacée, elle y équipe aussi sa garde (shared/team/planner.lua).
+    emergency = (not f.is_player) and { floor = floor, rebuild = (f.chef and f.chef.rebuild) or false } or nil,
   }
 end
 
@@ -359,27 +366,41 @@ function Team.think(f, surface, tick)
   -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris).
   local stock = stock_of(f)
   local cost = view.recruit_cost
-  if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, cost) then
-    remove_list(f, cost)
+  -- Lot IA2-a2 (survie) : recrue équipée AU QG avec les plaques du stock (plan.recruit_uses : objets prélevés).
+  local pay = plan.recruit_uses or cost
+  if plan.recruit_workers and not plan.recruit_unarmed and has_list(stock, pay) then
+    remove_list(f, pay)
     if Worker.recruit(f, surface, tick) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
+      if plan.recruit_uses then
+        f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
+        log(string.format("[FO-TEAM] %s : survie, recrue equipee au QG (effectif %d, depart %d) a %.1f min", f.key,
+          f.engineers_count or 0, view.emergency and view.emergency.floor or 0, (tick - State.war().started) / 3600))
+      end
     else
-      for _, it in ipairs(cost) do f.hq.insert({ name = it[1], count = it[2] }) end
+      for _, it in ipairs(pay) do f.hq.insert({ name = it[1], count = it[2] }) end
     end
     stock = stock_of(f)
-  elseif plan.recruit_unarmed and f.engineers_count == 0 then
+  elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2)) then
     if Worker.recruit(f, surface, tick, true) then
       if f.stats then f.stats.unarmed_hires = (f.stats.unarmed_hires or 0) + 1 end
     end
   end
-  if plan.train and has_list(stock, T.kits[plan.train.unit], plan.train.count) then
-    local kit = T.kits[plan.train.unit]
-    remove_list(f, kit, plan.train.count)
-    local made = Military.train(f, surface, plan.train.unit, plan.train.count)
-    if made < plan.train.count then
-      for _, it in ipairs(kit) do f.hq.insert({ name = it[1], count = it[2] * (plan.train.count - made) }) end
+  local tr = plan.train
+  local tr_pay = tr and (tr.uses or T.kits[tr.unit])
+  if tr and has_list(stock, tr_pay, tr.uses and 1 or tr.count) then
+    local kit = T.kits[tr.unit]
+    remove_list(f, tr_pay, tr.uses and 1 or tr.count)
+    local made = Military.train(f, surface, tr.unit, tr.count)
+    if made < tr.count then
+      for _, it in ipairs(kit) do f.hq.insert({ name = it[1], count = it[2] * (tr.count - made) }) end
     end
     f.team.trained = f.team.trained + made
+    if tr.uses and made > 0 then
+      f.stats.emergency_trained = (f.stats.emergency_trained or 0) + made
+      log(string.format("[FO-TEAM] %s : survie, %d %s equipe(s) au QG (soldats %d) a %.1f min", f.key, made, tr.unit,
+        f.soldiers_count or 0, (tick - State.war().started) / 3600))
+    end
     stock = stock_of(f)
   end
   if plan.research and has_list(stock, T.research[plan.research]) then

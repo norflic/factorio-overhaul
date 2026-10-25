@@ -212,6 +212,32 @@ check(not poor.recruit_workers, "stock insuffisant : pas de recrue (le stock fre
 local legacy = Planner.plan(base_view({ stock = rich, workers = 1, workers_max = 10 }), book)
 check(legacy.recruit_workers == 1, "vue sans champs IA1-a : règle d'avant (2 + avant-postes)")
 
+section("Cerveau : survie d'une faction décimée (lot IA2-a2, view.emergency)")
+local em = { floor = 8, rebuild = true }
+local plates2 = { ["iron-plate"] = 400, ["copper-plate"] = 50, coal = 100 }
+local pe = Planner.plan(base_view({ workers = 1, stock = plates2, workers_wanted = 30, recruit_cost = cost, emergency = em }), book)
+local uses_ok = false
+for _, it in ipairs(pe.recruit_uses or {}) do if it[1] == "iron-plate" and it[2] > 0 then uses_ok = true end end
+check(pe.recruit_workers == 1 and not pe.recruit_unarmed and uses_ok, "1 ouvrier sur 8, plaques au stock : recrue équipée au QG avec les plaques")
+local pn = Planner.plan(base_view({ workers = 1, stock = plates2, workers_wanted = 30, recruit_cost = cost }), book)
+check(not pn.recruit_workers, "même vue sans view.emergency (équipe du joueur, tests d'avant) : règle d'avant, pas de recrue")
+local pm = Planner.plan(base_view({ workers = 1, smelters = 2, stock = { coal = 100 }, workers_wanted = 30, recruit_cost = cost, emergency = em }), book)
+local mine90 = false
+for _, t in ipairs(pm.tasks) do if t.key == "mine:iron-ore" and t.prio == 90 then mine90 = true end end
+check(pm.recruit_workers == 1 and pm.recruit_unarmed and mine90, "sans plaques : 2e ouvrier sans arme et minage du fer à la main (priorité 90)")
+local pg = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = em }), book)
+check(pg.train and pg.train.count == 5 and pg.train.uses ~= nil, "reconstruction, 0 soldat : un lot de 5 soldats équipés au QG (" .. tostring(pg.train and pg.train.unit) .. ")")
+local stone = { stone = 100, coal = 100 }
+local ps = Planner.plan(base_view({ workers = 8, smelters = 0, stock = stone, emergency = { floor = 8, rebuild = true } }), book)
+local smelt_task, furnace_craft = false, false
+for _, t in ipairs(ps.tasks) do
+  if t.key == "smelters" and t.prio == 92 then smelt_task = true end
+  if t.kind == "craft" and t.item == "stone-furnace" and t.prio == 92 then furnace_craft = true end
+end
+check(ps.emergency_smelters and (smelt_task or furnace_craft), "fonderie du QG détruite : reposée en priorité 92 (fours fabriqués avec la pierre du stock)")
+local pq = Planner.plan(base_view({ workers = 8, soldiers = 0, done = { army = true }, stock = plates2, emergency = { floor = 8, rebuild = false } }), book)
+check(not (pq.train and pq.train.uses), "hors reconstruction et sans menace : pas de garde équipée au QG")
+
 section("Cerveau : frein par le travail (correction IA1-a, fo-recruit-idle-max)")
 check(S.recruit_held(1, 0) and not S.recruit_held(0, 0), "limite 0 : un seul PNJ inactif retient la recrue")
 check(not S.recruit_held(30, 60) and not S.recruit_held(60, 60), "limite 60 : jamais de frein (seul le stock freine)")
@@ -326,8 +352,8 @@ do
   check(v == 60, "set_setting borne la valeur (99 -> " .. tostring(v) .. ")")
   check(remote.call("fo-ia1", "set_setting", "fo-pvp-difficulty", 1) == nil, "set_setting refuse un réglage hors équipes")
   -- Plancher (correction 3) : une faction décimée à 1 PNJ, frein à 0 : le frein ne la retient plus (sous son
-  -- départ, 8). La reconstruction elle-même n'est PAS contrôlée : ici, avec ou sans frein (60), la faction reste
-  -- à 1 PNJ en 6 min, pistolet de la recrue jamais fabriqué (défaut d'avant IA1-a, NOTES.md du lot, § 6.8).
+  -- départ, 8). Avant IA2-a2, avec ou sans frein (60), la faction restait à 1 PNJ en 6 min, pistolet de la recrue
+  -- jamais fabriqué (défaut d'avant IA1-a, NOTES.md du lot, § 6.8) ; corrigé au lot IA2-a2 (survie).
   remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 0)
   local f = wb.factions[1]
   local ids = require("script.faction.state").sorted_keys(f.engineers)
@@ -342,9 +368,12 @@ do
   check(pcall(M.run_ticks, 6 * 3600), "simulation sans erreur après les pertes")
   print(string.format("  faction décimée : %d PNJ après les pertes, %d après 6 min ; recrues %d -> %d ; pistolets %d",
     after_kill, f.engineers_count, rec0, f.stats.recruited or 0, f.hq.get_item_count("pistol")))
-  check(after_kill == 1 and (f.stats.recruit_held or 0) == held0,
-    "plancher : sous son départ (8), la faction décimée n'est jamais freinée (frein " .. held0 .. " -> "
-    .. tostring(f.stats.recruit_held) .. ")")
+  -- Lot IA2-a2 (survie) : sous son départ, la recrue est équipée au QG avec les plaques du stock ; la faction
+  -- décimée se reconstruit (avant : 1 PNJ après 6 min, pistolet jamais fabriqué). Le frein reprend au-dessus du
+  -- départ : on contrôle la reconstruction et les recrues d'urgence, plus l'immobilité du frein.
+  check(after_kill == 1 and f.engineers_count >= 8 and (f.stats.emergency_recruits or 0) >= 7,
+    "plancher et survie : la faction décimée se reconstruit au-delà de son départ (1 -> " .. f.engineers_count
+    .. " PNJ en 6 min, " .. tostring(f.stats.emergency_recruits or 0) .. " recrues équipées au QG)")
 end
 
 section("Moteur simulé : au plus 2 demandes émises par tick")

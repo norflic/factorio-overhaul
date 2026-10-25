@@ -22,6 +22,7 @@ local Outposts = require("script.faction.outposts")
 local Team = require("script.team.team")
 local PvP = require("script.faction.pvp")
 local Character = require("script.faction.character")
+local Chef = require("script.faction.chef")
 
 local Commander = {}
 
@@ -71,7 +72,15 @@ local function enemy_defense(t)
 end
 
 function Commander.view(f, tick)
-  local target = pick_target(f, tick)
+  -- Lot IA2-a : la rivale visée est celle du CHEF (valeur ÷ défense estimée sous brouillard, rancune, ouverture,
+  -- mémoire) et sa défense est celle qu'il a VUE (script/faction/chef.lua) ; sans chef (avant sa première pensée),
+  -- règle d'avant (coalition contre le leader, sinon voisin ; défense lue directement).
+  local target = Chef.target(f, tick)
+  local defense = target and Chef.defense(f, target.id)
+  -- Lot IA2-a2 : TRÊVE du chef (toutes les rivales atteignables épargnées par satiété) : la rivale reste désignée
+  -- (vue PvP inchangée) ; S.attack et S.raid lisent `chef.hold` (Chef.decision_fields).
+  if not target then target = pick_target(f, tick) end
+  if target and not defense then defense = enemy_defense(target) end
   -- Lot IA2-0 : caractère tiré de la graine (traits bornés à l'enveloppe des archétypes) et seuil de la prochaine
   -- attaque entre factions (±20 %). Partie existante : traits tirés ici à la première pensée (Character.of).
   local character = Character.of(f)
@@ -81,7 +90,8 @@ function Commander.view(f, tick)
     -- Lot PNJ-VÉRIF (M4) : seuls les soldats proches du rassemblement (ceux qu'une attaque peut emmener).
     garrison = Military.garrison_near(f), soldiers_max = State.war().settings.soldiers_max,
     can_attack = tick >= (f.attack_block_until or 0) and not f.route_pending,
-    enemy_defense = target and enemy_defense(target) or math.huge,
+    enemy_defense = target and defense or math.huge,
+    chef = Chef.decision_fields(f, target, tick), -- lot IA2-a : multiplicateur du seuil, raid (nil sans chef)
   }, target
 end
 
@@ -103,6 +113,7 @@ function Commander.think(id, tick)
   Profiler.start("faction:team")
   Team.think(f, surface, tick)
   Profiler.stop("faction:team")
+  Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)

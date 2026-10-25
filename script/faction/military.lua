@@ -59,6 +59,7 @@ local RECALL_HANDLER = "fo-war-recall"
 local RECALL_CLUSTER = 32   -- rappel : soldats lointains à moins de 32 tuiles du premier forment un paquet
 local RECALL_PERIOD = 600   -- rappel : une demande d'itinéraire au plus par faction toutes les 600 ticks
 local RECALL_BACKOFF = 3600 -- rappel : attente d'un soldat déjà rappelé, × le nombre de rappels (5 au plus)
+local DISSOLVE_TICKS = 600  -- lot IA2-a : un groupe d'attaque vidé avant 600 ticks a été défait au départ (F174)
 
 --- Point de rassemblement du QG (destination des retours).
 local function home(f) return { x = f.hq_pos.x, y = f.hq_pos.y + 14 } end
@@ -121,26 +122,42 @@ end
 -- outposts = {} } : Military.target_of rend donc directement la position visée.
 Military.player_target_allowed = nil
 Military.on_launched = nil
+-- Crochets branchés par script/faction/chef.lua (lot IA2-a) :
+--   Military.on_chef_launch(f, cible, n, rp, tick, gid) : un groupe part (mémoire du chef) ;
+--   Military.on_attack_ended(f, g, survivants, tick) : fin de la phase d'attaque d'un groupe (issue).
+Military.on_chef_launch = nil
+Military.on_attack_ended = nil
 
 --- Cible d'attaque : avant-poste le plus proche de la faction visée, sinon son QG.
 function Military.target_of(target_faction, from)
   return Outposts.nearest(target_faction, from) or target_faction.hq_pos
 end
 
+local function request_route(f, surface, rp, name)
+  rp.ticket = PathService.request(ROUTE_HANDLER, f.id, {
+    surface = surface.index, proto = name, pad = 0, start = rp.gather, goal = rp.approach or rp.target, force = f.force,
+    radius = 16, flags = { cache = false, low_priority = false }, res = -2,
+  })
+end
+
 --- Prépare une attaque : demande l'itinéraire (asynchrone). Le groupe part quand le chemin arrive.
-function Military.attack(f, surface, target_faction, count, tick)
+--- Lot IA2-a, `opts` (chef, attaques contre une rivale) : { target = point visé, approach = rassemblement avancé
+--- (le groupe y passe avant d'attaquer : côté d'arrivée), octant, raid, rule }. Le départ reste près de la garnison
+--- (QG + (0, 14)) : F173 (unités ajoutées à un groupe lointain) et F174 (membres perdus à la création).
+function Military.attack(f, surface, target_faction, count, tick, opts)
   if f.route_pending then return false end
-  local target = Military.target_of(target_faction, f.hq_pos)
+  opts = opts or {}
+  local target = opts.target or Military.target_of(target_faction, f.hq_pos)
   local name = F.unit_name(f.key, F.best_soldier(f.tech))
   local gather = surface.find_non_colliding_position(name, { x = f.hq_pos.x, y = f.hq_pos.y + 14 }, 20, 1)
     or { x = f.hq_pos.x, y = f.hq_pos.y + 14 }
+  local approach = opts.approach and surface.find_non_colliding_position(name, opts.approach, 24, 2) or nil
   f.route_pending = {
     target_faction = target_faction.id, count = count, target = target, gather = gather, tick = tick,
+    approach = approach and { x = approach.x, y = approach.y } or nil, octant = approach and opts.octant or nil,
+    raid = opts.raid or nil, rule = opts.rule,
   }
-  f.route_pending.ticket = PathService.request(ROUTE_HANDLER, f.id, {
-    surface = surface.index, proto = name, pad = 0, start = gather, goal = target, force = f.force,
-    radius = 16, flags = { cache = false, low_priority = false }, res = -2,
-  })
+  request_route(f, surface, f.route_pending, name)
   return true
 end
 
@@ -174,6 +191,9 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   f.garrison_count = f.garrison_count - #chosen
   local cmds = {}
   local route = waypoints_along(path)
+  -- Lot IA2-a : le chemin mène au rassemblement avancé (côté d'arrivée choisi par le chef), qui devient la
+  -- dernière étape ; le retour reprendra ces étapes à l'envers.
+  if rp.approach then route[#route + 1] = { x = rp.approach.x, y = rp.approach.y } end
   for _, p in ipairs(route) do
     cmds[#cmds + 1] = {
       type = defines.command.go_to_location, destination = p, radius = 12,
@@ -190,10 +210,11 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   group.start_moving()
   -- route : étapes de l'aller (nombres seulement), reprises à l'envers si le retour direct échoue.
   f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen,
-    route = route }
+    route = route, gid = group.group_number, raid = rp.raid, ids = chosen }
   f.stats.attacks = f.stats.attacks + 1
   Journal.attack(f, target_faction, #chosen, rp, tick) -- lot IA2-0 : ligne publiée (métriques M2)
   if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
+  if Military.on_chef_launch then Military.on_chef_launch(f, target_faction, #chosen, rp, tick, group.group_number) end
   if Profiler.enabled() then -- journal de diagnostic (bancs de test uniquement)
     local dx, dy = rp.target.x - rp.gather.x, rp.target.y - rp.gather.y
     log(string.format("[FO-ATTACK] tick %d %s -> %s : %d soldats, %d tuiles a vol d'oiseau, chemin %d noeuds, %d etapes%s",
@@ -229,6 +250,14 @@ PathService.register_handler(ROUTE_HANDLER, function(fid, path, ticket, reason, 
     tf = war.factions[rp.target_faction]
     if not tf or tf.eliminated then return end
   end
+  if (not path or #path == 0) and rp.approach then
+    -- Lot IA2-a : le rassemblement avancé est injoignable (lac, falaises) : une seconde demande, droit sur la cible.
+    rp.approach, rp.octant = nil, nil
+    f.route_pending = rp
+    request_route(f, game.surfaces[war.surface], rp, F.unit_name(f.key, F.best_soldier(f.tech)))
+    f.stats.approach_fail = (f.stats.approach_fail or 0) + 1
+    return
+  end
   if not path or #path == 0 then
     f.stats.route_fail = (f.stats.route_fail or 0) + 1
     f.attack_block_until = tick + ATTACK_RETRY_TICKS
@@ -248,8 +277,23 @@ function Military.target_unreachable(f, target_id, tick)
   return u ~= nil and tick < u
 end
 
+--- Lot IA2-a : fin de la phase d'attaque d'un groupe (issue pour la mémoire du chef), une seule fois par groupe.
+local function attack_ended(f, g, tick)
+  if not g or g.state ~= "attack" or g.ended then return end
+  g.ended = true
+  if Military.on_attack_ended then
+    local survivors = (g.group and g.group.valid) and #g.group.members or 0
+    -- Soldats partis encore vivants (dans le groupe ou rendus à la garnison) : un groupe vidé sans morts est un
+    -- groupe défait par le moteur (F174), pas une attaque repoussée.
+    local alive = 0
+    for _, id in ipairs(g.ids or {}) do if f.soldiers[id] then alive = alive + 1 end end
+    Military.on_attack_ended(f, g, survivors, tick, g.ids and alive or nil)
+  end
+end
+
 local function disband(f, gid)
   local g = f.groups[gid]
+  attack_ended(f, g, game.tick)
   f.groups[gid] = nil
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
     local s = f.soldiers[id]
@@ -268,6 +312,8 @@ local function order_return(f, gid, tick)
     disband(f, gid)
     return
   end
+  attack_ended(f, g, tick)
+  if g.state == "attack" and #g.group.members > 0 then f.dissolved_streak = nil end -- lot IA2-a : attaque arrivée au bout
   g.state = "return"
   g.started = tick
   g.group.set_command({
@@ -508,6 +554,15 @@ function Military.maintain(f, tick)
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
+      if g.state == "attack" and tick - g.started < DISSOLVE_TICKS then
+        -- Lot IA2-a : groupe vidé juste après son départ (F174 : membres retirés par le moteur, sans mort). Moteur
+        -- réel (graine 777) : relancé à chaque pensée, 328 fois en 2 h. Attente croissante avant la suivante
+        -- (1, 2, 4, puis 8 min au plus), remise à zéro par une attaque qui arrive au bout.
+        f.dissolved_streak = (f.dissolved_streak or 0) + 1
+        local wait = ATTACK_RETRY_TICKS * ({ 1, 2, 4, 8 })[math.min(4, f.dissolved_streak)]
+        f.attack_block_until = math.max(f.attack_block_until or 0, tick + wait)
+        f.stats.dissolved = (f.stats.dissolved or 0) + 1
+      end
       disband(f, gid)
     elseif tick - g.started > (g.rerouted and 2 * GROUP_TIMEOUT or GROUP_TIMEOUT) then
       -- Lot PNJ-VÉRIF : un retour direct trop long est traité comme un échec (retour par l'itinéraire) ; un

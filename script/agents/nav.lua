@@ -110,6 +110,10 @@ end
 PathService.register_handler(HANDLER, function(id, path, ticket, reason, tick)
   local agent = Registry.get(id)
   if not agent or agent.nav ~= "pathing" or agent.ticket ~= ticket then return end -- résultat périmé
+  -- Lot IA2-a2 (F216) : PNJ mort, résultat de chemin arrivé avant le nettoyage du registre. Émettre « nav_failed »
+  -- faisait planter le jeu (ouvrier rappelé au QG : LuaEntity invalide, script/team/worker.lua ; moteur réel, graine
+  -- 3141592653, 46 min).
+  if not (agent.entity and agent.entity.valid) then agent.nav = nil return end
   if path and #path > 0 and agent.entity.valid then
     Locomotion.set_path(agent, path)
     local pos = agent.entity.position

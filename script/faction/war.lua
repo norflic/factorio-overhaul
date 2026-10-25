@@ -339,6 +339,15 @@ function War.status_lines(tick)
         #State.sorted_keys(f.groups), f.stats.recalls or 0, f.engineers_count, f.stats.attacks, f.stats.soldiers_lost),
     }
     if f.team and f.hq and f.hq.valid then lines[#lines + 1] = Team.status_line(f) end
+    -- Lot IA2-a : postures du chef (mélange), cible, multiplicateur du seuil, changements de dominante.
+    local ch = f.chef
+    if ch and ch.mix and #ch.mix > 0 and not f.eliminated then
+      local mix = {}
+      for _, m in ipairs(ch.mix) do mix[#mix + 1] = string.format("%s %d %%", m.key, math.floor(m.w / 10 + 0.5)) end
+      local t = ch.target and war.factions[ch.target]
+      lines[#lines + 1] = string.format("    chef : %s | raison %s | cible %s | seuil x%.2f | changements %d en %d pensees",
+        table.concat(mix, ", "), ch.reason or "-", t and t.key or "-", (ch.war_mult or 1000) / 1000, ch.changes or 0, ch.thinks or 0)
+    end
     local st = f.stats
     lines[#lines + 1] = string.format(
       "    chantiers : construits %d, chemin introuvable %d, rapatriements %d, pose impossible %d | tournees %d, munitions posees %d, fabrications %d (echecs %d), mine %d, tirs d'ouvriers %d | prospection : sites %d (hostiles %d), tours %d, en reserve %d | ouvriers perdus %d | attaques avortees %d, sans itineraire %d",
