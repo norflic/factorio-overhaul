@@ -184,7 +184,7 @@ check(wt.recherche > wt.armee and wc.armee > wc.recherche, "technocrate : recher
 local function fac_s(w)
   return { is_player = false, workers = 8, soldiers = 0, soldiers_max = 30, stock = { ["firearm-magazine"] = 60, stone = 50 },
     cap = { coal = 1, iron = 2, copper = 1, stone = 1 }, pending = {}, sites = {}, smelters = 4, smelters_pending = 0,
-    weights = w, research = { tech = "t-pack", palier = true }, army_target = 18 }
+    weights = w, research = { tech = "t-pack", palier = true }, army_target = 18, economy_done = true }
 end
 local function rank_of(goals2, key)
   for i, g in ipairs(goals2) do if g.key == key then return i end end
