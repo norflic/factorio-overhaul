@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **POINT DE 19 H 10, AVANT LA COUPURE HEBDOMADAIRE** : état identique au point de 18 h 50 ci-dessous (rien de fusionné depuis ;
+> `main` = 0.4.29). Les 8 agents ont été coupés à 18 h 55, relancés vers 19 h, puis priés de commiter et de mettre à jour leur
+> POINT DE REPRISE. À la reprise : pour chaque lot (IA3-a, IA3-b, IA3-c, IA3-f, IA1-d, F2-B, F3-B, F4-A2), lire le dernier commit de
+> sa branche `worktree-agent-…` (`git worktree list`) et le POINT DE REPRISE de `fo-logs\2026-10-25_<lot>\NOTES.md`, puis relancer
+> (SendMessage si l'agent répond, sinon nouvel agent avec le brief résumé au point de 17 h 45 et les constats du DC). Vérifier
+> d'abord les verrous orphelins (`fo-autotest.lock`, `fo-render.lock.*`) et les processus de test restés ouverts.
 > **POINT DE 18 H 50, AVANT UNE COUPURE PAR LA LIMITE D'USAGE (à lire en premier pour reprendre)** :
 > - `main` = **0.4.29**, documenté (`5aa7b4c` et suivants). Le DC joue cette version. Guide de partie à jour :
 >   `fo-logs\2026-10-24_PNJ\GUIDE_PARTIE.md`. Pages : Atlas des designs Dfvg6UEeQN5YYAYHZRS5Pt (source `designs/` du dossier de
