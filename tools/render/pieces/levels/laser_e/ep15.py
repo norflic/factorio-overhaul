@@ -128,6 +128,18 @@ def _port(g, k, h):
         g.bolt((0.1 * math.cos(a), 0.1 * math.sin(a), 0.004), (0, 0, 1), 0.012, M["cendre"])
 
 
+def _module_vide(g, k, h):
+    """Module de vide sur la pente (repère du flanc) : caisson de noir chaud à arêtes de cendre, fente incandescente,
+    plaque de noir profond, deux boulons."""
+    M = g.M
+    g.box((0, 0, 0.022), (0.2, h * 0.5, 0.044), M["noir_chaud2"], "hard", what="module")
+    g.box((0, 0, 0.046), (0.16, h * 0.36, 0.006), M["noir_profond"], "flat", what="plaque")
+    g.box((0, -h * 0.05, 0.05), (0.12, 0.016, 0.004), M["emit2"], "flat", what="fente")
+    for s in (-1, 1):
+        g.box((s * 0.1, 0, 0.03), (0.016, h * 0.52, 0.05), M["cendre"], "hard", what="arete")
+        g.bolt((s * 0.06, h * 0.13, 0.05), (0, 0, 1), 0.012, M["cendre"])
+
+
 def _lisere_tirets(g, c, i, n):
     """Liseré EN TIRETS au sommet du flanc du gradin i : segments de lumière orange et blanc-or séparés par des
     joints sombres (foyers petits : L2 ; lumière plus orange : famille de l'âge)."""
@@ -153,8 +165,23 @@ def socle(g, c):
         p = corps.place(c, nom)
         x, yn = p["x"] - sx * 0.1, p["yn"] - 0.1
         _singularite(g, c, x, yn, 0.34, M)
-        liaison(g, [(x - sx * 0.3, Y(yn - 0.3), 0.15), (x * 0.55, Y(yn * 0.55), zp + 0.6),
-                    (x * 0.25, Y(yn * 0.25), zp + 0.12)], 0.06)
+        # lot F1-B : conduit BAS (il montait à 0,6 au-dessus du pivot, en arc derrière la tête : risque de jour enfermé)
+        liaison(g, [(x - sx * 0.3, Y(yn - 0.3), 0.15), (x * 0.6, Y(yn * 0.6), c.gradins[1][3] + 0.1),
+                    (x * 0.3, Y(yn * 0.3), zp + 0.08)], 0.06)
+    # lot F1-B (ronde 1 : le cône restait une grande surface lisse) : conduits d'or des AUTRES piliers avant (la lignée
+    # n'en relie qu'un sur deux), modules de vide sur les pentes
+    P = c.T["pivot"]
+    for k, (x, y, z, rc, h) in enumerate(c.condos):
+        if k % 2 == 0 or y > 0.0:
+            continue
+        a = math.atan2(y / SQ2, x)
+        d = V((math.cos(a), math.sin(a), 0.0))
+        p0 = V((x, y, z + h * 1.15 + 0.06))
+        p2 = V((d.x * (P["R"] + 0.02), d.y * (P["R"] + 0.02), zp + P["h"] * 0.3))
+        liaison(g, [p0, (p0 + p2) / 2 + V((0, 0, 0.1)), p2], 0.045)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (209, 235, 261, 279, 305, 331)], _module_vide, f=0.5, dr=0.004)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (195, 225, 255, 285, 315, 345)], _module_vide, f=0.5, dr=0.004)
+    O.sur_flanc(g, c, 2, [math.radians(a) for a in (205, 248, 292, 335)], _module_vide, f=0.5, dr=0.004)
     # lot F1-B : liserés en tirets, ports de potentiel et rivets de cendre sur les flancs du puits, anneaux de cendre
     for i in range(4):
         _lisere_tirets(g, c, i, 40 - 6 * i)
@@ -258,13 +285,13 @@ def emetteur(g, c):
     Rin, Rout = rs * 1.0, re * 1.05
     g.push_frame((0, 0, zh), n, ex)
     corps.anneau_plat(g, Rout * 0.99, Rin, -0.008, 0.008, M["noir_profond"], n=56, rond=False, what="fond_disque")
-    # lot F1-B : segments séparés par des joints plus larges (0,05 rad de chaque côté) et deux bandes séparées par un
+    # lot F1-B : segments séparés par des joints plus larges (0,028 rad de chaque côté ; 0,05 en ronde 1 se lisait « touches de piano ») et deux bandes séparées par un
     # anneau sombre ; bande intérieure orange et blanc-or alternés (lumière plus orange, foyers plus petits : L2)
     nseg = 28
     g.torus((0, 0, 0), "z", Rout * 0.82, 0.016, M["noir_profond"], n=56, m=6, what="joint_disque")
     for k in range(nseg):
-        a0 = TAU * k / nseg + 0.05
-        a1 = TAU * (k + 1) / nseg - 0.05
+        a0 = TAU * k / nseg + 0.028
+        a1 = TAU * (k + 1) / nseg - 0.028
         for (ra, rb, m, z0, z1) in ((Rin + 0.02, Rout * 0.8, M["emit2"] if k % 2 else M["emit"], -0.012, 0.012),
                                      (Rout * 0.84, Rout, M["emit_soft"] if k % 2 else M["emit2"], -0.01, 0.01)):
             q = [V((ra * math.cos(a0), ra * math.sin(a0), z0)), V((rb * math.cos(a0), rb * math.sin(a0), z0)),

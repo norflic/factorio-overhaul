@@ -193,19 +193,21 @@ def emetteur(g, c):
         phi = math.radians(-20 + 220 * k / 48)
         pts.append(V((ax * s * 1.01 * math.cos(phi), yc + ay * s * 1.01 * math.sin(phi), zh + zv)))
     g.tube(pts, 0.11 * re, M["anthracite"], n=8, style="soft", what="bandeau")
-    # visière : lamelles lumineuses séparées par des meneaux sombres
+    # visière : lamelles lumineuses séparées par des meneaux sombres, posées DEVANT le bandeau (ronde 1 du lot F1-B :
+    # à 1,06 du rayon, elles étaient noyées dans le bandeau de 0,11 re et la visière ne se voyait pas)
     nl = 14
+    dv = 0.11 * re + 0.012
     for k in range(nl):
         phi0 = math.radians(-12 + 204 * k / nl)
-        phi1 = math.radians(-12 + 204 * (k + 0.78) / nl)
-        p0 = V((ax * s * 1.06 * math.cos(phi0), yc + ay * s * 1.06 * math.sin(phi0), zh + zv))
-        p1 = V((ax * s * 1.06 * math.cos(phi1), yc + ay * s * 1.06 * math.sin(phi1), zh + zv))
+        phi1 = math.radians(-12 + 204 * (k + 0.8) / nl)
+        p0 = V((ax * s * math.cos(phi0), yc + ay * s * math.sin(phi0), zh + zv))
+        p1 = V((ax * s * math.cos(phi1), yc + ay * s * math.sin(phi1), zh + zv))
         d = p1 - p0
         nrm = V((d.y, -d.x, 0)).normalized()
         if nrm.dot(V((p0.x, p0.y - yc, 0))) < 0:
             nrm = -nrm
         Rr = Matrix((d.normalized(), nrm, d.normalized().cross(nrm))).transposed()
-        g.box((p0 + p1) / 2, (d.length, 0.02, 0.13 * re), M["emit"], "flat", R=Rr, what="lamelle")
+        g.box((p0 + p1) / 2 + nrm * dv, (d.length * 1.15, 0.02, 0.15 * re), M["emit"], "flat", R=Rr, what="lamelle")
     corps.lentille(g, c, yc + ay * 1.0, 0.16 * re, verre=M["glass_dk"], cercle=M["anthracite"], anneau=False)
     # capteurs courts sur le dessus (couchés dans l'axe), grille centrale
     for sx in (-1, 1):

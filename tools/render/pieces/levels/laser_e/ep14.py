@@ -178,34 +178,37 @@ def emetteur(g, c):
     M = g.M
     re = c.re
     Ra, ra = corps.rayons_anneau(c)
+    # ronde 1 (F1-B) : la face étoilée ne regardait que l'AVANT (le faisceau) ; en pose N la caméra voit le DOS de
+    # l'anneau penché, et en pose E sa tranche : la Porte se lisait comme un grand disque sombre. Les DEUX faces portent
+    # désormais l'horizon étoilé, l'anneau de lumière, les chevrons et l'iris ; l'anneau est blanc lunaire des deux côtés.
+    yb = -(0.3 * re + 0.0175)          # dos du diaphragme en tambour de la lignée (corps.support)
     with corps.dans_anneau(g, c):
-        # habillage blanc lunaire de l'avant de l'anneau (le tore de la lignée est en capot indigo)
-        g.torus((0, 0.03, 0), "y", Ra, ra * 0.95, M["blanc_lunaire"], n=64, m=10, what="anneau_lunaire")
-        # chevrons : 9 blocs blanc lunaire à V lumineux, sur la face avant de l'anneau
-        for k in range(9):
-            a = math.pi / 2 + TAU * k / 9
-            d = V((math.cos(a), 0.0, math.sin(a)))
-            p = d * Ra + V((0, ra * 0.95, 0))
-            Rr = Matrix((V((-d.z, 0, d.x)), V((0, 1, 0)), -d)).transposed()
-            g.box(p, (ra * 2.2, ra * 0.6, ra * 1.6), M["blanc_lunaire"], "hard", R=Rr, what="chevron_bloc")
-            for s in (-1, 1):
-                q = p + V((0, ra * 0.32, 0)) + V((-d.z, 0, d.x)) * (s * ra * 0.42) - d * (ra * 0.1)
-                g.box(q, (ra * 1.0, 0.012, ra * 0.28), M["emit"], "flat",
-                      R=Rr @ Matrix.Rotation(s * 0.7, 3, "Y"), what="chevron")
-        # horizon étoilé (face du diaphragme) et anneau de lumière au bord
-        g.cyl((0, 0.03, 0), "y", Ra - ra * 0.4, 0.03, M["horizon_porte"], n=64, style="soft", what="horizon")
-        g.torus((0, 0.05, 0), "y", Ra - ra * 0.75, 0.018, M["emit_soft"], n=64, m=4, what="bord_horizon")
-        rng = random.Random(1414)
-        for j in range(70):
-            a = rng.uniform(0, TAU)
-            rr = (Ra - ra * 1.1) * math.sqrt(rng.uniform(0.04, 1.0))
-            s = rng.choice((0.009, 0.012, 0.016, 0.022))
-            g.cyl((rr * math.cos(a), 0.05, rr * math.sin(a)), "y", s, 0.01, M["emit"], n=6, style="flat",
-                  what="etoile")
-        for j in range(4):
-            a = rng.uniform(0, TAU)
-            rr = (Ra - ra * 1.2) * math.sqrt(rng.uniform(0.2, 1.0))
-            _etoile(g, (rr * math.cos(a), 0.055, rr * math.sin(a)), 0.07, M["emit"])
-        # iris central (d'où sort le faisceau)
-        g.tube_shell((0, 0.06, 0), "y", 0.2 * re, 0.13 * re, 0.04, M["blanc_lunaire"], n=32, what="iris")
-        g.cyl((0, 0.07, 0), "y", 0.12 * re, 0.012, M["emit2"], n=24, style="flat", what="pupille")
+        for (sg, y0) in ((1.0, 0.0), (-1.0, yb)):
+            yo = lambda t: y0 + sg * t   # noqa: E731
+            g.torus((0, yo(0.03), 0), "y", Ra, ra * 0.95, M["blanc_lunaire"], n=64, m=10, what="anneau_lunaire")
+            for k in range(9):
+                a = math.pi / 2 + TAU * k / 9 + (0.0 if sg > 0 else TAU / 18)
+                d = V((math.cos(a), 0.0, math.sin(a)))
+                p = d * Ra + V((0, yo(ra * 0.95), 0))
+                Rr = Matrix((V((-d.z, 0, d.x)), V((0, 1, 0)), -d)).transposed()
+                g.box(p, (ra * 2.2, ra * 0.6, ra * 1.6), M["blanc_lunaire"], "hard", R=Rr, what="chevron_bloc")
+                for s in (-1, 1):
+                    q = p + V((0, sg * ra * 0.32, 0)) + V((-d.z, 0, d.x)) * (s * ra * 0.42) - d * (ra * 0.1)
+                    g.box(q, (ra * 1.0, 0.012, ra * 0.28), M["emit"], "flat",
+                          R=Rr @ Matrix.Rotation(s * 0.7, 3, "Y"), what="chevron")
+            g.cyl((0, yo(0.03), 0), "y", Ra - ra * 0.4, 0.03, M["horizon_porte"], n=64, style="soft", what="horizon")
+            g.torus((0, yo(0.05), 0), "y", Ra - ra * 0.75, 0.02, M["emit_soft"], n=64, m=4, what="bord_horizon")
+            rng = random.Random(1414 if sg > 0 else 1415)
+            for j in range(80):
+                a = rng.uniform(0, TAU)
+                rr = (Ra - ra * 1.1) * math.sqrt(rng.uniform(0.04, 1.0))
+                s = rng.choice((0.01, 0.013, 0.017, 0.024))
+                g.cyl((rr * math.cos(a), yo(0.05), rr * math.sin(a)), "y", s, 0.01, M["emit"], n=6, style="flat",
+                      what="etoile")
+            for j in range(5):
+                a = rng.uniform(0, TAU)
+                rr = (Ra - ra * 1.2) * math.sqrt(rng.uniform(0.2, 1.0))
+                _etoile(g, (rr * math.cos(a), yo(0.055), rr * math.sin(a)), 0.08, M["emit"])
+            # iris central (d'où sort le faisceau ; au dos, l'iris du foyer)
+            g.tube_shell((0, yo(0.06), 0), "y", 0.2 * re, 0.13 * re, 0.04, M["blanc_lunaire"], n=32, what="iris")
+            g.cyl((0, yo(0.07), 0), "y", 0.12 * re, 0.012, M["emit2"], n=24, style="flat", what="pupille")

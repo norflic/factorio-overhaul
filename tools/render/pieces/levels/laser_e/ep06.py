@@ -32,6 +32,10 @@ FOYER = ages.FOYER[6]
 FAISCEAU = dict(rgb=(0.55, 0.8, 1.0), rgb2=(0.25, 0.55, 1.0), forme="ÉCLAIR ramifié bleu-blanc (pas un trait droit)",
                 largeur=1.0)
 HABILLAGE = dict(ages.CORPS[6], **E_.MAQUETTES[6])
+# ronde 1 (F1-B) : avec les flancs « bleu machine » de la maquette, le socle se lisait BLEU au zoom 1, contre la palette
+# 60/30/10 de l'âge (porcelaine blanche dominante, bleu en second) : flancs de porcelaine à plaques bleues (même
+# silhouette ; matière seulement, écart dit ici)
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], flanc="porcelaine_capot", flanc2="bleu_machine")
 
 
 def matieres(metal, M):

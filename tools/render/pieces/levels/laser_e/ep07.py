@@ -151,8 +151,10 @@ def socle(g, c):
     O.sur_dessus(g, c, 2, [math.radians(a) for a in (240, 300)], _brasero)
     for nom, sx in (("coin_NO", -1), ("coin_NE", 1)):
         p = corps.place(c, nom)
-        x, y = p["x"] - sx * 0.05, Y(p["yn"] - 0.05)
-        _geode(g, x, y, 0.34, M)
+        # ronde 1 (F1-B) : géode plus petite et poussée dans le coin (en pose N, sa pointe touchait la joue de la tête et
+        # enfermait un jour de 32 px avec le guide d'onde)
+        x, y = p["x"] + sx * 0.03, Y(p["yn"] + 0.03)
+        _geode(g, x, y, 0.29, M)
         for j in range(3):
             a = 1.0 + j * 1.6
             F.lump(g, (x + 0.42 * math.cos(a), y + 0.4 * math.sin(a), 0.0), 0.07, M["pierre_claire"], sz=0.6)

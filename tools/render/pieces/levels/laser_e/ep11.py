@@ -120,7 +120,16 @@ def socle(g, c):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
         _derive(g, x, y, sx, 0.9, 0.85, M)
-        liaison(g, [(x - sx * 0.25, y - 0.3, 0.1), (x * 0.66, Y(p["yn"] * 0.62), c.gradins[0][3] + 0.08),
+        # ronde 1 (F1-B) : la dérive était un ÎLOT détaché (1 479 px, ilots.py) : longeron de titane au sol de son pied
+        # au flanc du premier gradin, et conduit qui part de son pied
+        a = math.atan2(p["yn"], p["x"])
+        q, nrm, _ = O.flanc(c, 0, a, 0.1, -0.05)
+        d = V((x, y, 0.0)) - V((q.x, q.y, 0.0))
+        g.box((V((x, y, 0.0)) + V((q.x, q.y, 0.0))) / 2 + V((0, 0, 0.05)), (d.length + 0.1, 0.16, 0.1), M["titane_dk"],
+              "hard", R=Matrix.Rotation(math.atan2(d.y, d.x), 3, "Z"), what="longeron")
+        for j in range(3):
+            g.bolt(tuple(V((q.x, q.y, 0.1)) + d * (0.25 + 0.25 * j)), (0, 0, 1), 0.015, M["rivet_ti"])
+        liaison(g, [(x - sx * 0.1, y - 0.15, 0.12), (x * 0.66, Y(p["yn"] * 0.62), c.gradins[0][3] + 0.08),
                     (x * 0.42, Y(p["yn"] * 0.4), zp + 0.05)], 0.04)
         g.halo((x, y - 0.4, 0.4), M["_emit_rgb"], 4.0)
     for (x, yn) in ((0.0, -2.2), (-1.8, -0.9), (1.8, -0.9)):
@@ -182,29 +191,34 @@ def emetteur(g, c):
     CÔNE ORANGE central (la pointe) qui porte la lentille ; nacelle courte derrière (portée par l'axe)."""
     M = g.M
     re, zh = c.re, c.zh
-    Ro, Ri = 0.98 * re, 0.86 * re
-    y0, y1 = -0.08 * re, 0.5 * re
+    # ronde 1 (F1-B) : la roue du premier jet était enfermée dans un carénage annulaire ; en pose E on ne voyait qu'un
+    # cylindre d'alliage, et en pose N le dos de la nacelle : ni « roue » ni « ailerons ». Désormais : moyeu PLEIN d'où
+    # sortent 12 ailerons vrillés (ouverts vers l'extérieur : aucun jour enfermé), lisibles de côté et de dos ; cône
+    # orange plus gros et plus long.
     # nacelle arrière
-    g.cyl((0, -0.42 * re, zh), "y", 0.7 * re, 0.68 * re, M["titane_md"], n=32, r2=0.84 * re, style="soft",
+    g.cyl((0, -0.45 * re, zh), "y", 0.62 * re, 0.6 * re, M["titane_md"], n=32, r2=0.7 * re, style="soft",
           what="nacelle")
-    g.tube_shell((0, -0.55 * re, zh), "y", 0.76 * re, 0.6 * re, 0.05, M["ring"], n=32, what="bague")
-    # flasque arrière (ferme la roue : aucun jour entre les ailerons)
-    g.cyl((0, y0, zh), "y", Ri, 0.06, M["titane_dk"], n=40, style="soft", what="flasque")
-    # carénage annulaire
-    g.tube_shell((0, (y0 + y1) / 2, zh), "y", Ro, Ri, y1 - y0, M["ring"], n=48, what="carenage")
-    g.tube_shell((0, y1 - 0.06 * re, zh), "y", Ro + 0.012, Ro - 0.02, 0.07 * re, M["orange_aero"], n=48, what="bande")
-    F.bolts_ring(g, (0, y0 + 0.04, zh), (0, -1, 0), Ro * 0.93, 16, M["rivet_ti"], r=0.014)
-    # ailerons vrillés
+    g.tube_shell((0, -0.55 * re, zh), "y", 0.66 * re, 0.5 * re, 0.05, M["ring"], n=32, what="bague")
+    # moyeu plein
+    yh0, yh1 = -0.16 * re, 0.36 * re
+    g.cyl((0, (yh0 + yh1) / 2, zh), "y", 0.66 * re, yh1 - yh0, M["titane_md"], n=40, style="soft", what="moyeu")
+    for yy in (yh0 + 0.03, yh1 - 0.03):
+        g.tube_shell((0, yy, zh), "y", 0.68 * re, 0.6 * re, 0.05, M["ring"], n=40, what="cercle_moyeu")
+    F.bolts_ring(g, (0, yh1 + 0.002, zh), (0, 1, 0), 0.56 * re, 16, M["rivet_ti"], r=0.014)
+    # ailerons vrillés (alliage clair à bout orange)
     for k in range(12):
-        a = TAU * k / 12
+        a = TAU * k / 12 + 0.13
         d = V((math.cos(a), 0, math.sin(a)))
-        m = V((0, (y0 + y1) / 2 - 0.04 * re, zh)) + d * (0.6 * re)
-        Rr = Matrix((d, V((0, 1, 0)).cross(d), V((0, 1, 0)))).transposed()
-        Rr = Rr @ Matrix.Rotation(0.5, 3, "X")
-        g.box(m, (0.58 * re, 0.05 * re, 0.4 * re), M["titane_cl"] if k % 2 else M["tole_ti"], "hard", R=Rr,
+        m = V((0, (yh0 + yh1) / 2, zh)) + d * (0.8 * re)
+        Rr = Matrix((d, V((0, 1, 0)).cross(d), V((0, 1, 0)))).transposed() @ Matrix.Rotation(0.4, 3, "X")
+        g.box(m, (0.42 * re, 0.07 * re, 0.44 * re), M["ring"] if k % 2 else M["titane_cl"], "hard", R=Rr,
               what="aileron")
+        g.box(V((0, (yh0 + yh1) / 2, zh)) + d * (1.0 * re), (0.05 * re, 0.075 * re, 0.4 * re), M["orange_aero"], "hard",
+              R=Rr, what="bout_aileron")
     # cône orange (la pointe) et lentille
-    g.cyl((0, 0.42 * re, zh), "y", 0.32 * re, 0.96 * re, M["orange_aero"], n=24, r2=0.1 * re, style="soft",
+    g.cyl((0, 0.74 * re, zh), "y", 0.44 * re, 0.76 * re, M["orange_aero"], n=28, r2=0.09 * re, style="soft",
           what="cone")
-    g.tube_shell((0, 0.1 * re, zh), "y", 0.34 * re, 0.28 * re, 0.04, M["titane_dk"], n=24, what="bague_cone")
-    corps.lentille(g, c, 0.9 * re, 0.1 * re, verre=M["glass_dk"], cercle=M["titane_dk"])
+    for f in (0.42, 0.62):
+        g.tube_shell((0, f * re, zh), "y", (0.44 - 0.5 * (f - 0.36)) * re + 0.01, 0.2 * re, 0.035, M["titane_dk"],
+                     n=28, what="bague_cone")
+    corps.lentille(g, c, 1.12 * re, 0.08 * re, verre=M["glass_dk"], cercle=M["titane_dk"])

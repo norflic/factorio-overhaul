@@ -45,7 +45,9 @@ def piece(g, c):
         pts = [(sx * 1.08, Y(0.3), 0.0), (sx * 1.08, Y(-0.4), 0.0), (sx * 1.0, Y(-0.85), 0.0),
                (sx * 0.75, Y(-1.12), 0.0), (sx * 0.42, Y(-1.15), 0.0)]
         sandbag_wall(g, pts, rows=2)
-    ratelier_leyde(g, -0.98, 0.42, 0.9)
+    # ronde 1 (F1-B) : 72 px restaient sous le canon du vanilla (x de 0,66 à 0,78 tuile, jusqu'à 1,45 tuile au-dessus du
+    # centre) : râtelier plus large (jusqu'à x = 0,9) et plus haut (quatre étagères)
+    ratelier_leyde(g, -0.98, 0.9, 0.9)
     F.lantern(g, (-0.8, Y(-0.95), 0.15), M["emit"])
     g.box((-0.8, Y(-0.95), 0.07), (0.1, 0.1, 0.15), M["wood"], "hard", what="billot")
     g.halo((-0.8, Y(-0.95), 0.3), M["_emit_rgb"], 6.0)
@@ -57,7 +59,7 @@ def ratelier_leyde(g, x0, x1, yn):
     par un fil de cuivre, la réserve d'énergie bricolée du pionnier."""
     M = g.M
     y = Y(yn)
-    H = 0.66
+    H = 0.9
     L = x1 - x0
     xc = (x0 + x1) / 2
     nb = 6
@@ -66,7 +68,7 @@ def ratelier_leyde(g, x0, x1, yn):
               "hard", what="dos")
     for xx in (x0 + 0.03, x1 - 0.03):
         g.box((xx, y, H / 2 + 0.02), (0.05, 0.14, H + 0.04), M["wood2"], "hard", what="montant")
-    for j, zz in enumerate((0.05, 0.27, 0.49)):
+    for j, zz in enumerate((0.05, 0.27, 0.49, 0.71)):
         g.box((xc, y - 0.01, zz), (L - 0.06, 0.14, 0.025), M["wood"], "hard", what="etagere")
         tops = []
         n = int((L - 0.12) / 0.11)

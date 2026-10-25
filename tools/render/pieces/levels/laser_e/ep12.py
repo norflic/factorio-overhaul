@@ -31,6 +31,12 @@ TRIPLET = ("arceaux chromés", "givre", "lévitation")
 FOYER = ages.FOYER[12]
 FAISCEAU = dict(rgb=(0.29, 0.94, 1.0), forme="trait droit cyan glacé, cristaux de givre à l'impact", largeur=0.8)
 HABILLAGE = dict(ages.CORPS[12], **E_.MAQUETTES[12])
+# ronde 1 (F1-B) : DÉFAUT DE LA LIGNÉE (gelée, non corrigé ici) : l'option `interstice` de corps.affut pose ses
+# entretoises sur un CERCLE (cotes.facteur_contour ignore les pans) ; sur des gradins hexagonaux, elles sortent du gradin
+# au milieu des pans et forment des ÎLOTS détachés (8 îlots de 19 à 30 px, ilots.py, ronde 1). L'âge 12 pose donc lui-même
+# son interstice lumineux (_interstices : bande cyan au pied de chaque gradin, entretoises sur le CONTOUR réel) ; la
+# silhouette (gradins, pans, profil) ne change pas.
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], interstice=None)
 
 
 def matieres(metal, M):
@@ -90,11 +96,34 @@ def _cryostat(g, x, y, r, h, M):
     F.lump(g, (x + r * 0.5, y - r * 0.7, 0.06 + h * 0.3), r * 0.35, M["trim"], sz=0.45)
 
 
+def _interstices(g, c):
+    """« Lévitation » fermée : au pied de chaque gradin, bande sombre en retrait, filet de lumière cyan et entretoises
+    chromées, sur le CONTOUR RÉEL des pans (orne.flanc), sans aucun vide."""
+    M = g.M
+    for i in range(len(c.gradins)):
+        n = 90
+        for (f, r, m) in ((0.06, 0.03, M["noir_miroir"]), (0.06, 0.016, M["emit"])):
+            pts = []
+            for k in range(n + 1):
+                p, nrm, _ = O.flanc(c, i, TAU * k / n, f, r * (0.3 if m is M["noir_miroir"] else 1.2))
+                pts.append(p)
+            g.tube(pts, r, m, n=6, style="flat", what="interstice")
+        R0 = c.gradins[i][0]
+        ne = max(6, int(TAU * R0 / 0.5))
+        for k in range(ne):
+            a = TAU * (k + 0.5) / ne
+            p, nrm, tan = O.flanc(c, i, a, 0.06, 0.02)
+            g.push_frame(tuple(p), tuple(nrm), tuple(tan))
+            g.box((0, 0, 0.0), (0.05, 0.06, 0.05), M["chrome_mat"], "hard", what="entretoise")
+            g.pop()
+
+
 def socle(g, c):
     """Conduites givrées cerclées de chrome, plaques de givre et voyants cyan, vases de Dewar et vannes, cryostats aux
     coins arrière, conduites vers le pivot."""
     M = g.M
     zp = c.gradins[-1][3]
+    _interstices(g, c)
     O.ceinture(g, c, 0, 0.55, 0.022, M["pipe"], colliers=M["chrome_mat"], pas=0.4)
     O.ceinture(g, c, 1, 0.55, 0.018, M["pipe"], colliers=M["chrome_mat"], pas=0.35)
     sommets = [math.pi / 6 + TAU * k / 6 for k in range(6)]
