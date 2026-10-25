@@ -455,7 +455,124 @@ Deux conséquences, dites franchement :
 
 ## 4. Les expéditions
 
-À ÉCRIRE
+Demande du DC (R-QCM-25g) : « ils doivent se débrouiller pour chercher du pétrole, comme les joueurs quoi, mais peut
+être que pour aller chercher du pétrole les IA évaluent la sécurité d'abord, donc peut être s'équiper en grenade ou
+tourelle et munitions histoire de si ils sont attaqué ils peuvent les poser pour se défendre ».
+
+Une expédition est un PROJET (§3.5) comme un autre : elle a un but (un gisement ou une ressource à trouver), des
+réservations (l'équipement), des tâches (préparer, marcher, construire, tenir), un meneur. Elle naît du dépliage : une
+étape `explore` (ressource inconnue) ou un site connu mais lointain ou dangereux.
+
+### 4.1 Trouver, sous le brouillard
+
+**Ce que l'équipe sait.** Le tableau commun (§2.1) garde une carte de CONNAISSANCE par secteurs de 64 × 64 tuiles,
+la même grille que les yeux d'IA2-c (`script/faction/vision.lua`) : pour chaque secteur vu, la date, les gisements vus
+(ressource, quantité estimée, centre), les nids et les vers vus, l'eau, les bâtiments et tourelles d'autres forces.
+Les YEUX de l'équipe : son QG (160 tuiles), ses avant-postes (128), ses groupes (96), ses éclaireurs (128) comme
+aujourd'hui, PLUS chacun de ses PNJ en déplacement (48 tuiles, nouveau). « Regarder » un secteur coûte un comptage du
+moteur (`count_entities_filtered` sur les types `resource`, `unit-spawner`, `turret`), à tour de rôle, comme la voie
+de repérage d'IA2-c (1 regard toutes les 8 ticks pour tout le mod aujourd'hui).
+- La prospection d'avant-postes (`script/faction/sites.lua`) ne cherche plus que dans les secteurs VUS (fin de la
+  prospection sans brouillard, écart à D-16 déclaré au §1, H5).
+- Pour ne pas ralentir le début, un « tour du propriétaire » à la création : un PNJ fait un anneau de 150 tuiles
+  autour du QG dans les 5 premières minutes, comme un joueur.
+
+**Où chercher une ressource inconnue.** Le secteur NON VU de meilleure note :
+`note = probabilité a priori × sécurité ÷ (distance au QG + 100)`
+- probabilité a priori : fréquence et taille de la ressource dans les réglages de génération de la carte
+  (`surface.map_gen_settings.autoplace_controls[ressource]`) ; une ressource rare au centre de départ (le pétrole
+  vanilla) a une probabilité qui croît avec la distance au point de départ de la carte ;
+- sécurité = 1 − risque estimé du secteur (nids vus dans les voisins) ;
+- l'éclaireur suit une SPIRALE de secteurs autour de la meilleure direction, rentre quand il a trouvé, quand il voit un
+  ennemi à moins de 40 tuiles (il fuit vers le QG et note le danger), ou au bout de 10 min.
+**Qui explore.** Un PNJ ouvrier libre (il voit, il sait fuir, il sait revenir : locomotion d'IA1), jamais le meneur
+d'un projet ; un soldat seul se fait tuer près de certains QG (F235). Coût d'un tour de 600 tuiles de rayon : environ
+3 800 tuiles de marche, 7 min (vitesse d'un personnage, environ 9 tuiles par seconde).
+
+### 4.2 Évaluer la sécurité (prototype `shared/ai3/expedition.lua`)
+
+Le risque d'un site (pour mille, plafonné à 1 000) ne lit que ce que l'équipe SAIT :
+
+| Terme | Poids | Source |
+|---|---|---|
+| nids vus à moins de 64 tuiles du site | 100 par nid, 40 par ver | carte de connaissance |
+| nids vus près du chemin | 50 par nid | secteurs traversés |
+| inconnu autour du site | 200 × part des secteurs voisins non vus | carte de connaissance (prudence face à l'inconnu) |
+| pertes récentes sur place | 150 par PNJ tué, décroissance 10 % par minute | mémoire H11 (IA1-b2 : avant-poste meurtrier) |
+| territoire d'une faction ennemie | 300 | zones vues, IA2-c |
+| distance au QG | 50 par tranche de 100 tuiles | temps d'exposition |
+
+Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre, 800 prudent : seuils − 30 %,
+200 audacieux : + 30 %) :
+
+| Risque | Action | Équipement (réservé au registre, §2.2) |
+|---|---|---|
+| < 150 | **léger** : les constructeurs partent seuls | arme et 10 chargeurs (l'équipement de l'ouvrier) |
+| 150 à 400 | **équipé** : ils emportent de quoi tenir | 2 tourelles, 20 munitions par tourelle, 5 grenades, un PNJ de plus |
+| 400 à 700 | **escorté** : des soldats ouvrent la route | 4 tourelles, 30 munitions par tourelle, 10 grenades, 8 soldats devant |
+| ≥ 700, ou perte attendue > moitié de la valeur | **nettoyer** si le caractère est agressif (≥ 600) et l'armée suffit (2 soldats par nid ou ver, + 5) ; sinon **attendre** : chercher un autre site, réévaluer toutes les 5 min | — |
+| équipement voulu mais pas payable | **préparer** : le projet fabrique d'abord tourelles, munitions, soldats | — |
+
+- L'équipement est tiré des DONNÉES : la meilleure tourelle PAYABLE (dépliage, §3.2), la meilleure munition de SA
+  catégorie, la meilleure grenade ; aucun nom d'objet dans le module (contrôlé par le test).
+- Perte attendue = risque × (PNJ exposés × 60 MU + valeur de l'équipement) ; valeur du site = valeur des buts qu'il
+  débloque (le pétrole débloque tout l'âge suivant : valeur haute).
+- Exemple chiffré par le prototype (le cas du §4.5) : 2 nids et 3 vers près d'un champ de pétrole à 380 tuiles, un nid
+  près du chemin, 60 % des secteurs voisins vus : risque 600 (nids 320, chemin 50, inconnu 80, distance 150) ; bande
+  escortée ; avec 3 soldats disponibles sur 8 voulus, « préparer » ; avec 10, départ escorté de 8. Le même site rend
+  un PRUDENT plus équipé qu'un AUDACIEUX, et un site infesté (6 nids, 6 vers) fait NETTOYER le conquérant et ATTENDRE
+  le pacifique (test `tests/ai3_expedition_test.lua`, 15 OK).
+
+### 4.3 Partir : le convoi et le réflexe de la tourelle
+
+- **Convoi** : le meneur (un généraliste), les constructeurs, les porteurs, l'escorte. L'escorte est un groupe de
+  soldats du moteur, menée par petits bonds (au plus 56 tuiles, F213 ; un long `go_to_location` échoue dans une base
+  ennemie, F172) ; les PNJ suivent le meneur ; regroupement tous les 100 tuiles (personne à plus de 20 tuiles).
+- **Le réflexe de la tourelle (votre idée)** : un PNJ qui PORTE des tourelles et voit un ennemi à moins de 24 tuiles
+  (`find_enemy_units`, une fois toutes les 30 ticks par porteur, seulement pendant une expédition) pose une tourelle sur
+  la case libre la plus proche entre lui et la menace (`can_place_entity`, puis `create_entity` par script, comme la
+  pose « fortify » d'aujourd'hui), la remplit, se bat à côté ; les autres PNJ du convoi se regroupent autour. Menace
+  partie (aucun ennemi à 40 tuiles pendant 10 s) : la tourelle est REPRISE (`LuaEntity.mine` avec l'inventaire du
+  PNJ, API 1.1.91 vérifiée dans `runtime-api.json`) si elle est sur le chemin, sinon laissée comme jalon défendu.
+  Grenades : lancées sur un groupe d'au moins 3 ennemis à portée (le PNJ en a ; à vérifier en moteur réel, risque §6).
+- **À l'arrivée** : les tourelles d'abord (règle d'IA1-b2 « défendre d'abord » : 1 + foreuses ÷ 8), puis la
+  production ; l'escorte reste jusqu'à ce que les tourelles soient posées et pleines.
+
+### 4.4 Tenir l'avant-poste
+
+- Défense permanente : les tourelles posées ; une tournée de munitions (tâche « refill », urgente sous le seuil) ; une
+  réparation (packs de réparation) quand une tourelle passe sous 50 %.
+- Perdu une fois : le site devient MEURTRIER (+ 300 de risque pendant 20 min, H11), l'expédition suivante monte d'une
+  bande ; perdu deux fois en 30 min : chercher un autre site ; c'est la mémoire du chef (IA2-a, sites perdus) qui le
+  porte.
+- Un avant-poste lointain n'est pas « gardé » par des PNJ (IA1-b2 a coupé les gardes : 13 à 30 % d'immobilisés,
+  IA3-DIAG C7) : ce sont les tourelles qui gardent.
+
+### 4.5 Le pétrole, déroulé
+
+1. Le dépliage du pack chimique dit : impayable, cause « crude-oil » (§3.2) ; il émet `explore crude-oil` ET les 12
+   recherches payables. L'exploration devient un projet de forte valeur (elle débloque l'âge suivant).
+2. Un éclaireur part vers les secteurs non vus les mieux notés ; il trouve du pétrole à 380 tuiles au nord-est, et voit
+   2 nids et 3 vers à 50 tuiles.
+3. Risque 600 : escorté. Le projet réserve 4 tourelles, 120 munitions, 10 grenades ; il demande 8 soldats à l'armée
+   (le chef les compte comme « expédition », pas comme attaque) ; pendant ce temps la recherche continue.
+4. Départ quand tout est prêt (pas avant : c'est « préparer »).
+5. En route, des biters attaquent : un porteur pose 2 tourelles, le convoi se regroupe, les tourelles sont reprises.
+6. Au champ : 2 tourelles, puis 2 chevalets ; la raffinerie et l'usine chimique sont posées PRÈS du champ (raffiner sur
+   place, EQUIPES_PNJ §6.8) ; l'électricité vient d'une ligne de poteaux depuis la centrale ou d'une petite centrale à
+   l'eau la plus proche, au moins cher des deux (§3.3) ; le plastique et le soufre rentrent au QG portés (puis par
+   tapis, règle d'automatisation).
+7. L'avant-poste tient par ses tourelles et une tournée de munitions ; le pack chimique devient payable ; la recherche
+   de l'âge 4 reprend.
+
+### 4.6 Ce qui reste à prouver en moteur réel (lots IA3-f, IA3-g)
+
+- Le comptage par secteur pour la connaissance (coût par regard, déjà mesuré pour IA2-c : 0,0043 ms par tick pour la
+  voie de repérage) et le nombre de regards en plus pour les PNJ en déplacement.
+- Pose d'une tourelle par script près d'ennemis qui bougent (collision avec un biter : `can_place_entity` refuse ; on
+  essaie 4 cases), reprise par `mine`, munitions conservées.
+- Un groupe d'escorte de 8 qui ne se disperse pas (F173, F174 : membres retirés d'un groupe sans événement).
+- Le coût d'un convoi sur la locomotion (chemins plus longs : demandes de chemin du mod en vol).
 
 ## 5. Intégration, déterminisme, budget, migration, fenêtre
 
