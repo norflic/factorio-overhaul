@@ -49,18 +49,41 @@ end
 function Board.sync(f, planned, tick)
   local b = Board.get(f)
   local keep = {}
+  -- Lot IA1-b : une tâche libre replanifiée garde sa date de naissance (`created`) : l'attente d'une tâche se compte
+  -- d'une pensée à l'autre (règle « tâche en souffrance » de Board.claim). Dates des tâches libres retirées gardées
+  -- pour Board.add (le fond est rouvert après la pensée d'organisation).
+  local born = {}
   for key, t in pairs(b.tasks) do
-    if t.worker then keep[key] = t end
+    if t.worker then keep[key] = t else born[key] = t.created end
   end
   for _, t in ipairs(planned) do
     local cd = b.cooldown[t.key]
     if not keep[t.key] and not (cd and tick < cd) then
-      t.created = tick
+      t.created = born[t.key] or tick
       keep[t.key] = t
     end
   end
   b.tasks = keep
+  b.born = born
   rebuild_list(b)
+end
+
+--- Lot IA1-b : ajoute des tâches au tableau après la synchronisation (travail de fond, crise injectée par un banc).
+--- Une clé déjà présente (prise ou libre) ou en pause après un échec est ignorée. Liste retriée une fois.
+function Board.add(f, tasks, tick)
+  local b = Board.get(f)
+  local born = b.born or {}
+  local n = 0
+  for _, t in ipairs(tasks) do
+    local cd = b.cooldown[t.key]
+    if not b.tasks[t.key] and not (cd and tick < cd) then
+      t.created = born[t.key] or tick
+      b.tasks[t.key] = t
+      n = n + 1
+    end
+  end
+  if n > 0 then rebuild_list(b) end
+  return n
 end
 
 -- PNJ « neutre » du lot IA1-a : ni pôle, ni projet, ni zone (les pôles arrivent au lot IA1-b). Avec le rôle
@@ -70,16 +93,70 @@ end
 -- (tests/ia1_scale_test.lua). Aucun plafond hors pôle ni plafond manuel : rien n'est encore réparti par pôle.
 local NEUTRAL = { role = "generalist" }
 
+-- Lot IA1-b : un PNJ placé dans un pôle (agent.org, script/team/poles.lua) prend sa tâche par O.pick_task avec son
+-- rôle, son pôle EFFECTIF (destination différée comprise), sa partie, et la limite des urgences hors pôle.
+-- Règle « tâche en souffrance » (garde-fou des petites équipes, où un pôle peut n'avoir aucun exécutant) : une tâche
+-- du CERVEAU (pas du fond) libre depuis STARVE_TICKS passe devant le travail de FOND de n'importe quel PNJ ; elle ne
+-- passe jamais devant une tâche du cerveau de son pôle. Sans pôle (avant la première pensée d'organisation), règle
+-- d'IA1-a (NEUTRAL).
+Board.STARVE_TICKS = 1800
+
+local function starving(list, gen, tick)
+  for i = 1, #list do
+    local t = list[i]
+    if not t.worker and not t.fond and t.created and tick - t.created >= Board.STARVE_TICKS
+      and (gen or not O.DESIGN_KINDS[t.kind]) then
+      return i
+    end
+  end
+  return nil
+end
+
 function Board.claim(f, agent, tick)
   local b = Board.get(f)
   local list = b.list
-  -- Une tâche de la liste retirée du tableau depuis la pensée (finie) a un ouvrier : pick_task l'ignore.
-  local i = O.pick_task(NEUTRAL, list)
+  local org = agent.org
+  local i, away
+  if org and org.pole then
+    local npc = { id = agent.id, role = org.role or "executant", pole = org.pole, dest = org.dest, project = org.project,
+      zone = org.zone }
+    local n_away = 0
+    for k = 1, #list do
+      local t = list[k]
+      if t.worker and t.away then n_away = n_away + 1 end
+    end
+    local n_exec = (f.team.org and f.team.org.n_exec) or 0
+    i, away = O.pick_task(npc, list, { urgent_away = n_away, urgent_away_cap = O.urgent_away_cap(n_exec) })
+    if i == nil or list[i].fond then
+      local s = starving(list, npc.role == "generalist", tick)
+      if s then
+        i, away = s, false
+        if f.team.org then f.team.org.stats.starve_taken = f.team.org.stats.starve_taken + 1 end
+      end
+    end
+    -- Rang 7 (écart déclaré à la table du §4.5) : un exécutant dont le pôle n'a plus rien à lui donner prend le
+    -- travail de FOND d'un autre pôle (le plus prioritaire), plutôt que rester inactif. Le travail du cerveau reste
+    -- réparti par pôle ; seul le fond est partagé.
+    if i == nil then
+      for k = 1, #list do
+        local t = list[k]
+        if not t.worker and t.fond then
+          i, away = k, true
+          if f.team.org then f.team.org.stats.fond_cross = (f.team.org.stats.fond_cross or 0) + 1 end
+          break
+        end
+      end
+    end
+  else
+    -- Une tâche de la liste retirée du tableau depuis la pensée (finie) a un ouvrier : pick_task l'ignore.
+    i = O.pick_task(NEUTRAL, list)
+  end
   local best = i and list[i]
   if best and b.tasks[best.key] ~= best then best = nil end
   if best then
     best.worker = agent.id
     best.claimed = tick
+    best.away = (away and (best.prio or 0) >= O.URGENT_PRIO) or nil
   end
   return best
 end
@@ -93,7 +170,7 @@ function Board.finish(f, task, ok, tick)
     st[task.kind].ok = st[task.kind].ok + 1
   else
     st[task.kind].fail = st[task.kind].fail + 1
-    b.cooldown[task.key] = tick + RETRY_TICKS
+    b.cooldown[task.key] = tick + (task.fond and RETRY_TICKS * 2 or RETRY_TICKS)
     if task.fail then
       f.team.fail_reasons[task.fail] = (f.team.fail_reasons[task.fail] or 0) + 1
     end

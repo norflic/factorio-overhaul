@@ -21,6 +21,8 @@ local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
+local Poles = require("script.team.poles") -- lot IA1-b : fin de tâche (O.settle), durées mesurées
+local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail globaux
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
@@ -198,6 +200,18 @@ function Worker.program(f, task, surface, tick)
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+  elseif k == "garrison" then
+    -- Lot IA1-b (fond du pôle Territoire) : garde d'un avant-poste ou du QG ; le PNJ tire sur ce qui approche
+    -- (autodéfense, rayon DEFENSE_RADIUS) pendant task.wait ticks, puis rentre.
+    local pos
+    if task.post == "hq" then
+      pos = f.home_spot
+    else
+      local o = f.outposts[task.post]
+      pos = o and access(o)
+    end
+    if not pos then return nil end
+    return { { "goto", pos, 6 }, { "wait", task.wait or 3600 }, { "home" } }
   elseif k == "salvage" then
     -- Lot IA2-b (F209) : démontage des réceptacles orphelins d'un avant-poste perdu.
     return { { "home" }, { "goto", task.pos, 4 }, { "act", "salvage" }, { "home" } }
@@ -236,7 +250,9 @@ function Worker.program(f, task, surface, tick)
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
   elseif k == "mine" then
-    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = 96, name = task.resource, limit = 64 })
+    -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
+    -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
+    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = 96, name = task.resource, limit = 256 })
     table.sort(res, function(a, b)
       local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
       if da ~= db then return da < db end
@@ -246,7 +262,9 @@ function Worker.program(f, task, surface, tick)
     -- Tuile LIBRE : sous un four ou une foreuse (avant-poste détruit, restes), l'ouvrier sélectionnait le
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
     local best
-    for _, r in ipairs(res) do
+    local stride = math.max(1, math.floor(#res / 40))
+    for i = 1, #res, stride do
+      local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
         area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
@@ -348,7 +366,10 @@ local function finish(agent, f, ok, tick)
   if task then
     if not ok then return_site(f, task) end
     Board.finish(f, task, ok, tick)
+    Poles.task_done(f, task, ok, tick)
   end
+  -- Lot IA1-b : fin de tâche, la destination différée devient le pôle (avant la tâche suivante).
+  Poles.settle(f, agent, tick)
   set(agent, "idle", tick)
 end
 
@@ -403,11 +424,16 @@ local function run_steps(agent, tick)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
       local all = take(agent, f, step[2])
+      if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
         abort(agent, f, tick, "stock")
         return
       end
       agent.pc = agent.pc + 1
+    elseif kind == "wait" then
+      agent.wait_until = tick + (step[2] or 0)
+      set(agent, "wait", tick)
+      return
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.pc = agent.pc + 1
@@ -459,6 +485,8 @@ FSM.define(MACHINE, {
       defend(agent, tick)
       local f = faction_of(agent)
       if not f or f.eliminated then return end
+      -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
+      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
       local task = Board.claim(f, agent, tick)
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
@@ -470,7 +498,9 @@ FSM.define(MACHINE, {
       end
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       if not steps then
+        task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
         Board.finish(f, task, false, tick)
+        Poles.task_done(f, task, false, tick)
         return
       end
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
@@ -481,6 +511,16 @@ FSM.define(MACHINE, {
     think = function(agent, tick)
       defend(agent, tick)
       run_steps(agent, tick)
+    end,
+  },
+  -- Lot IA1-b : attente sur place (garnison) ; l'autodéfense tourne.
+  wait = {
+    think = function(agent, tick)
+      defend(agent, tick)
+      if tick >= (agent.wait_until or 0) then
+        agent.pc = agent.pc + 1
+        set(agent, "step", tick)
+      end
     end,
   },
   walk = {

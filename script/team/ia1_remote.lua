@@ -21,7 +21,23 @@ local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Scale = require("shared.team.scale")
 local Team = require("script.team.team")
+local Poles = require("script.team.poles")
 local Config = require("script.core.config")
+
+-- Lot IA1-b (docs §8.6, pilotage sans clic) :
+--   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
+--   set_orientation(key, o)          -> points normalisés { e, b, t } ou nil (préréglage, table ou liste) ;
+--   inject_crisis(key, n, ticks, res) -> vrai : n tâches de minage d'extraction rouvertes pendant `ticks` (bancs) ;
+--   kill_npc(key, id)                -> vrai si le PNJ de cette équipe a été retiré (mort simulée, bancs).
+-- Les autres verbes du §8.6 (set_target, add_zone, resurrect, promote) arrivent avec IA1-e1, IA1-g et IA1-h.
+local function team_of(key)
+  if key == "player" then return State.faction("player") end
+  for _, id in ipairs(State.alive()) do
+    local f = State.faction(id)
+    if f and (f.key == key or id == key) then return f end
+  end
+  return nil
+end
 
 local PRODUCED = { "iron-plate", "copper-plate", "coal", "stone", "iron-ore", "copper-ore" }
 
@@ -105,6 +121,26 @@ remote.add_interface("fo-ia1", {
     settings.global[name] = { value = v }
     Config.invalidate()
     return Scale.read(name, function(n) return settings.global[n].value end)
+  end,
+  team_status = function(key)
+    local f = team_of(key)
+    return f and f.team and Poles.status(f) or nil
+  end,
+  set_orientation = function(key, o)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    return Poles.set_orientation(f, o)
+  end,
+  inject_crisis = function(key, n, ticks, resource)
+    local f = team_of(key)
+    if not (f and f.team) or type(n) ~= "number" or type(ticks) ~= "number" then return false end
+    return Poles.inject_crisis(f, math.max(1, math.min(40, math.floor(n))), math.max(60, math.floor(ticks)), resource)
+  end,
+  kill_npc = function(key, id)
+    local f = team_of(key)
+    if not (f and f.engineers and f.engineers[id]) then return false end
+    Registry.remove(id, true)
+    return true
   end,
 })
 

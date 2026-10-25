@@ -1,0 +1,559 @@
+--[[
+  PÔLES, MANAGERS, GÉNÉRALISTES (lot IA1-b, docs/EQUIPES_PNJ.md §3, §4, §8.1, §8.6, §16) : branche le modèle pur
+  shared/team/org.lua sur l'équipe réelle (team.lua, board.lua, worker.lua).
+
+  Une fois par pensée d'équipe (après Board.sync) :
+    1. durées des tâches MESURÉES par type (fin réussie : temps depuis la prise) ; travail estimé de chaque tâche du
+       tableau (`work`) et reste de chaque tâche prise (`work_left`, publié : « reste de la tâche en cours ») ;
+    2. candidats de fond par pôle (shared/team/fond.lua) : leur nombre (plus les PNJ déjà au fond) est la capacité
+       `room` de chaque pôle ;
+    3. O.plan : pôles cibles (travail du cerveau + surplus selon l'orientation, dans la capacité de fond), placement
+       des recrues, au plus 2 changements de pôle par pensée (immédiats pour un inoccupé, DIFFÉRÉS en fin de tâche
+       pour un occupé : O.settle, jamais de tâche interrompue), promotion, pôles des généralistes, meneurs des
+       PARTIES durables (Q-IA1-6 (2), D-14 : avant-postes, fonderie, atelier, défense) ;
+    4. ouverture du fond : pour chaque pôle, autant de tâches que de PNJ inactifs du pôle, plus une marge, moins les
+       tâches libres du pôle ;
+    5. rapport d'une ligne par manager et par généraliste (interface v0 en lecture, `/fo-team org`, `/fo-team vue`,
+       interface distante « fo-ia1 »).
+  État : f.team.org (orientation choisie, statistiques, rapport, durées mesurées, crise injectée par un banc) et
+  agent.org = { role, pole, dest, moved_tick, project, changes } (registre des agents). Listes triées partout.
+
+  NON fait dans ce lot (déclaré) : exécutants NOMMÉS qui suivent une partie (lecture (2) de Q-IA1-6 : seul le meneur
+  est désigné) ; zones (IA1-g) ; projets de conception (IA1-d) ; rangs et expérience (IA1-h) ; cibles de production
+  (IA1-e1) ; onglets « Orientation », « PNJ », « Territoire », « Chantiers » de l'interface (IA1-i).
+]]
+
+local Events = require("script.core.events")
+local O = require("shared.team.org")
+local T = require("shared.team.config")
+local Fond = require("shared.team.fond")
+local State = require("script.faction.state")
+local Registry = require("script.companion.registry")
+local Board = require("script.team.board")
+
+local Poles = {}
+
+Poles.PERIOD = 300            -- période de pensée des équipes (shared/faction/config.lua think_period, player_team)
+Poles.CHANGES_KEPT = 8        -- dates des derniers changements de pôle EFFECTIFS gardées par PNJ (mesure)
+Poles.CHIEFS = 5              -- généralistes au plus (docs §4.4 ; réglage fo-team-chiefs prévu au §11, non créé)
+Poles.CRISIS_PRIO = 50
+Poles.ROOM_WINDOW = 60        -- capacité de fond lissée sur 60 pensées (5 min)
+local POLE_KEYS = { "extraction", "base", "territoire" }
+
+local function new_stats()
+  return {
+    thinks = 0, double_think = 0, moves_now = 0, moves_deferred = 0, settled = 0, interrupted = 0, promoted = 0,
+    gen_moves = 0, fond_opened = 0, starve_taken = 0, token_refused = 0, busy_sum = 0, n_sum = 0,
+  }
+end
+
+function Poles.state(f)
+  local t = f.team
+  t.org = t.org or { stats = new_stats(), dur = {} }
+  return t.org
+end
+
+--- Orientation de l'équipe : celle choisie (interface distante, `/fo-team orientation`), sinon la personnalité de la
+--- faction (O.PERSONALITY), sinon l'équilibre (votre équipe).
+function Poles.orientation(f)
+  local org = f.team and f.team.org
+  if org and org.orientation then return org.orientation end
+  if f.is_player then return "equilibre" end
+  return O.PERSONALITY[f.personality or ""] or "equilibre"
+end
+
+--- Choisit l'orientation (nom de préréglage, table { extraction, base, territoire } ou liste de 3 points).
+--- Rend les points normalisés, ou nil si la valeur est refusée.
+function Poles.set_orientation(f, o)
+  if type(o) == "string" and not O.PRESETS[o] then return nil end
+  if type(o) ~= "string" and type(o) ~= "table" then return nil end
+  local org = Poles.state(f)
+  org.orientation = o
+  org.orientation_tick = game.tick
+  return O.normalize(o, false)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Durées mesurées (O.TASK_WORK était une estimation « à mesurer au lot IA1-b »)
+---------------------------------------------------------------------------------------------------
+function Poles.task_done(f, task, ok, tick)
+  if not f.team then return end
+  local org = Poles.state(f)
+  -- Minage : la ressource qui vient de réussir sert à la crise d'un banc ; celle dont le programme a échoué (aucune
+  -- tuile libre à 96 tuiles du QG) est écartée du minage de fond pendant 2 min (essai 5 : tâches perdues en pause).
+  if task.kind == "mine" and task.resource then
+    if ok then
+      org.last_mined = task.resource
+    elseif task.fail == "programme" then
+      org.mine_bad = org.mine_bad or {}
+      org.mine_bad[task.resource] = tick
+    end
+  end
+  if not (ok and task.claimed) then return end
+  local d = org.dur[task.kind] or { n = 0, s = 0 }
+  d.n = d.n + 1
+  d.s = d.s + math.floor((tick - task.claimed) / 60)
+  org.dur[task.kind] = d
+end
+
+local function work_of(org, kind)
+  local d = org.dur[kind]
+  if d and d.n >= 3 then return math.max(1, math.floor(d.s / d.n)) end
+  return O.TASK_WORK[kind] or O.DEFAULT_WORK
+end
+
+---------------------------------------------------------------------------------------------------
+-- Changements de pôle
+---------------------------------------------------------------------------------------------------
+local function log_change(f, o, tick)
+  o.changes = o.changes or {}
+  o.changes[#o.changes + 1] = tick
+  while #o.changes > Poles.CHANGES_KEPT do table.remove(o.changes, 1) end
+end
+
+--- Fin de tâche d'un PNJ (worker.lua, AVANT sa tâche suivante) : sa destination différée devient son pôle.
+function Poles.settle(f, agent, tick)
+  local o = agent.org
+  if not (o and o.dest ~= nil and f.team) then return end
+  if O.settle(o, tick) then
+    log_change(f, o, tick)
+    Poles.state(f).stats.settled = Poles.state(f).stats.settled + 1
+  end
+end
+
+--- Pire nombre de changements EFFECTIFS d'un PNJ dans une heure glissante [t, t + 1 h) (mesure du critère).
+function Poles.worst_hour(changes)
+  local worst = 0
+  local c = changes or {}
+  for i = 1, #c do
+    local n = 0
+    for j = i, #c do
+      if c[j] - c[i] < 216000 then n = n + 1 end
+    end
+    if n > worst then worst = n end
+  end
+  return worst
+end
+
+---------------------------------------------------------------------------------------------------
+-- Parties durables (Q-IA1-6 (2)) : ce que mènent les généralistes
+---------------------------------------------------------------------------------------------------
+local function parts_of(f, view)
+  local list = {}
+  for _, o in ipairs(view.outposts or {}) do
+    list[#list + 1] = { id = "ap:" .. o.id, domain = "gisements", prio = o.drills or 0, started = true }
+  end
+  list[#list + 1] = { id = "fonderie", domain = "gisements", prio = 1, started = true }
+  list[#list + 1] = { id = "atelier", domain = "production", prio = 1, started = true }
+  list[#list + 1] = { id = "defense", domain = "defense", prio = 1, started = true }
+  return list
+end
+
+--- Partie d'une tâche (seulement quand le domaine de la partie garde le pôle du type de la tâche).
+local function part_of_task(t)
+  local k = t.kind
+  if (k == "service" or k == "extend") and t.outpost then return "ap:" .. t.outpost end
+  if k == "smelt" or k == "smelters" then return "fonderie" end
+  if k == "craft" then return "atelier" end
+  if k == "refill" or k == "fortify" or k == "garrison" then return "defense" end
+  return nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- Pensée d'organisation
+---------------------------------------------------------------------------------------------------
+local function crisis_tasks(org, tick)
+  local c = org.crisis
+  if not c then return {} end
+  if tick >= c.until_tick then
+    org.crisis = nil
+    return {}
+  end
+  local out = {}
+  local res = c.resource or org.last_mined or "coal"
+  for i = 1, c.n do
+    out[#out + 1] = { key = "crise:mine:" .. i, kind = "mine", prio = Poles.CRISIS_PRIO, resource = res,
+      count = 50, crisis = true }
+  end
+  return out
+end
+
+--- Injecte une crise de travail d'extraction (bancs) : n tâches de minage du minerai `resource`, rouvertes à chaque
+--- pensée pendant `ticks` (« avant-poste perdu : le travail d'extraction explose », docs §4.2).
+function Poles.inject_crisis(f, n, ticks, resource)
+  local org = Poles.state(f)
+  org.crisis = { n = n, until_tick = game.tick + ticks, resource = resource, at = game.tick }
+  return true
+end
+
+function Poles.think(f, view, book, tick)
+  local org = Poles.state(f)
+  local st = org.stats
+  if org.last_think and tick - org.last_think < Poles.PERIOD then st.double_think = st.double_think + 1 end
+  org.last_think = tick
+  st.thinks = st.thinks + 1
+
+  -- Crise injectée (bancs) : travail d'extraction réel, compté dans le besoin.
+  local crisis = crisis_tasks(org, tick)
+  if #crisis > 0 then Board.add(f, crisis, tick) end
+
+  local b = Board.get(f)
+  local list = b.list
+
+  -- 1. Travail estimé (mesuré) et reste des tâches prises ; parties.
+  local real, fond_busy = {}, { 0, 0, 0 }
+  local mine_fond_busy = 0
+  for _, t in ipairs(list) do
+    local w = work_of(org, t.kind)
+    t.work = w
+    t.project = part_of_task(t)
+    if t.worker and t.claimed then t.work_left = math.max(1, w - math.floor((tick - t.claimed) / 60)) end
+    if t.fond then
+      if t.worker then
+        local p = O.POLE_INDEX[t.pole or O.task_pole(t)] or 2
+        fond_busy[p] = fond_busy[p] + 1
+        if t.kind == "mine" then mine_fond_busy = mine_fond_busy + 1 end
+      end
+    else
+      real[#real + 1] = t
+    end
+  end
+
+  -- PNJ vivants (ordre des id).
+  local agents, by_id = {}, {}
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid then
+      a.org = a.org or {}
+      agents[#agents + 1] = a
+      by_id[a.id] = a
+    end
+  end
+  local npcs, n_exec, gens_before = {}, 0, 0
+  for _, a in ipairs(agents) do
+    local o = a.org
+    local role = o.role or "executant"
+    if role == "generalist" then gens_before = gens_before + 1 else n_exec = n_exec + 1 end
+    npcs[#npcs + 1] = { id = a.id, role = role, pole = o.pole, dest = o.dest, rank = 1, xp = 0, idle = a.task == nil,
+      work_left = a.task and a.task.work_left or nil, moved_tick = o.moved_tick }
+  end
+  org.n_exec = n_exec
+
+  -- 2. Candidats de fond (capacité par pôle).
+  -- Clés déjà au tableau, ou en pause après un échec (Board.add les refuserait : la capacité serait surévaluée).
+  local keys = {}
+  for _, t in ipairs(list) do keys[t.key] = true end
+  for _, k in ipairs(State.sorted_keys(b.cooldown or {})) do
+    if tick < b.cooldown[k] then keys[k] = true else b.cooldown[k] = nil end -- pauses échues : retirées
+  end
+  local skip = {}
+  for _, res in ipairs(State.sorted_keys(org.mine_bad or {})) do
+    if tick - org.mine_bad[res] < 7200 then skip[res] = true end
+  end
+  local free = Fond.free_stock(view.stock, list)
+  local epoch = (f.tech or 0) + 1
+  local mine_cap = O.manual_cap(n_exec, epoch)
+  local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip,
+    mine_left = math.max(0, mine_cap - mine_fond_busy) })
+  local room_now = {}
+  for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end
+  -- Capacité LISSÉE : le maximum des ROOM_WINDOW dernières pensées (5 min). Essai 4 du banc : la capacité instantanée
+  -- de la Base passait de 0 à 3 et revenait (réserve refaite en 10 s), les cibles suivaient, des PNJ changeaient de
+  -- pôle puis restaient sous délai de garde 10 min dans un pôle vide (orientation et crise sans effet en 2 pensées).
+  -- Un PNJ dont le pôle n'a rien à faire prend le fond d'un autre pôle (Board.claim, rang 7) : il reste au travail.
+  org.room_hist = org.room_hist or {}
+  local hist = org.room_hist
+  hist[#hist + 1] = room_now
+  while #hist > Poles.ROOM_WINDOW do table.remove(hist, 1) end
+  local room = { 0, 0, 0 }
+  for _, r in ipairs(hist) do
+    for p = 1, 3 do if r[p] > room[p] then room[p] = r[p] end end
+  end
+  -- Prospecter (fond du manager Gisements) : un type dont aucun avant-poste ne peut plus s'agrandir et qui n'a aucun
+  -- site connu demande un site de plus à la prospection (Sites.prospect lit f.site_needs) : le capital suivant.
+  local growable = {}
+  for _, o in ipairs(view.outposts or {}) do
+    if not o.full and (o.drills or 0) < T.max_drills(o.kind) then growable[o.kind] = true end
+  end
+  f.site_needs = f.site_needs or {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local res = T.outposts[kind].resource
+    if not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
+      f.site_needs[res] = math.max(f.site_needs[res] or 0, 1)
+    end
+  end
+
+  -- 3. Organisation.
+  local out = O.plan({
+    tick = tick, npcs = npcs, tasks = real, orientation = Poles.orientation(f), threatened = view.threatened,
+    zones = 0, projects = parts_of(f, view), chiefs = Poles.CHIEFS, vacancy_since = org.vacancy_since, room = room,
+  })
+  for _, pl in ipairs(out.place) do
+    local a = by_id[pl.id]
+    if a then a.org.pole = pl.pole end
+  end
+  for _, m in ipairs(out.moves) do
+    local a = by_id[m.id]
+    if a then
+      if m.deferred then
+        a.org.dest = m.to
+        st.moves_deferred = st.moves_deferred + 1
+      else
+        if a.task then st.interrupted = st.interrupted + 1 end -- ne doit jamais arriver (contrôlé par ia1-poles)
+        a.org.pole = m.to
+        a.org.moved_tick = tick
+        log_change(f, a.org, tick)
+        st.moves_now = st.moves_now + 1
+      end
+    end
+  end
+  if out.promote and by_id[out.promote] then
+    by_id[out.promote].org.role = "generalist"
+    st.promoted = st.promoted + 1
+    -- Promotion après une mort : délai depuis la vacance (mesure du banc : jamais moins de 2 min).
+    if org.vacancy_since then
+      local d = tick - org.vacancy_since
+      st.vacancy_promotions = (st.vacancy_promotions or 0) + 1
+      st.vacancy_delay_min = math.min(st.vacancy_delay_min or d, d)
+      st.vacancy_delay_max = math.max(st.vacancy_delay_max or d, d)
+    end
+  end
+  local gen_moved = {}
+  for _, gm in ipairs(out.gen_moves) do gen_moved[gm.id] = gm end
+  for _, g in ipairs(out.gen_poles) do
+    local a = by_id[g.id]
+    if a then
+      local o = a.org
+      local gm = gen_moved[g.id]
+      if gm and gm.from ~= nil and gm.from ~= g.pole then
+        o.moved_tick = tick
+        log_change(f, o, tick)
+        st.gen_moves = st.gen_moves + 1
+      end
+      o.pole, o.dest = g.pole, nil
+    end
+  end
+  for _, a in ipairs(agents) do a.org.project = nil end
+  for _, l in ipairs(out.leaders or {}) do
+    local a = by_id[l.npc]
+    if a then a.org.project = l.project end
+  end
+  local gens = 0
+  for _, a in ipairs(agents) do if a.org.role == "generalist" then gens = gens + 1 end end
+  if gens >= (out.generalists_wanted or 0) then org.vacancy_since = nil end
+
+  -- 4. Fond : inactifs du pôle + marge (1 + 1 par 6 PNJ du pôle) - tâches libres du pôle.
+  local idle_p, staff_p, open_p = { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }
+  for _, a in ipairs(agents) do
+    local p = O.POLE_INDEX[O.effective_pole(a.org) or ""]
+    if p then
+      staff_p[p] = staff_p[p] + 1
+      if not a.task then idle_p[p] = idle_p[p] + 1 end
+    end
+  end
+  for _, t in ipairs(list) do
+    if not t.worker then
+      local p = O.POLE_INDEX[t.pole or O.task_pole(t)] or 2
+      open_p[p] = open_p[p] + 1
+    end
+  end
+  local add = {}
+  local opened = { 0, 0, 0 }
+  local short = 0
+  for p, name in ipairs(POLE_KEYS) do
+    local k = math.max(0, idle_p[p] + 1 + math.floor(staff_p[p] / 6) - open_p[p])
+    local c = cands[name]
+    for i = 1, math.min(k, #c) do
+      c[i].project = part_of_task(c[i])
+      add[#add + 1] = c[i]
+    end
+    opened[p] = math.min(k, #c)
+    -- PNJ inactifs de ce pôle que son fond ne peut pas occuper : servis par le fond des autres pôles (rang 7).
+    short = short + math.max(0, math.min(idle_p[p], k) - opened[p])
+  end
+  for p, name in ipairs(POLE_KEYS) do
+    local c = cands[name]
+    while short > 0 and opened[p] < #c do
+      opened[p] = opened[p] + 1
+      local t = c[opened[p]]
+      t.project = part_of_task(t)
+      add[#add + 1] = t
+      short = short - 1
+    end
+  end
+  if #add > 0 then
+    Board.add(f, add, tick)
+    st.fond_opened = st.fond_opened + #add
+  end
+
+  -- Mesures : occupation (PNJ avec une tâche), effectifs, rapport.
+  local idle = 0
+  for _, a in ipairs(agents) do if not a.task then idle = idle + 1 end end
+  st.busy_sum = st.busy_sum + (#agents - idle)
+  st.n_sum = st.n_sum + #agents
+  local actual, assigned, pending, gpole = { 0, 0, 0 }, { 0, 0, 0 }, 0, { 0, 0, 0 }
+  for _, a in ipairs(agents) do
+    local o = a.org
+    local pa = O.POLE_INDEX[o.pole or ""]
+    local pe = O.POLE_INDEX[O.effective_pole(o) or ""]
+    if o.role == "generalist" then
+      if pa then gpole[pa] = gpole[pa] + 1 end
+    else
+      if pa then actual[pa] = actual[pa] + 1 end
+      if pe then assigned[pe] = assigned[pe] + 1 end
+      if o.dest then pending = pending + 1 end
+    end
+  end
+  if org.crisis then
+    log(string.format("[FO-IA1B] %s : crise, %d tache(s) de crise au tableau, besoin %d/%d/%d s, cibles %d/%d/%d, %d changement(s) decide(s)",
+      f.key or "player", #crisis, math.floor(out.need[1]), math.floor(out.need[2]), math.floor(out.need[3]),
+      out.targets[1], out.targets[2], out.targets[3], #out.moves))
+  end
+  org.last = {
+    tick = tick, pts = out.pts, targets = out.targets, assigned = assigned, actual = actual, pending = pending,
+    gens = gpole, n = #agents, idle = idle, need = out.need, surplus = out.surplus, room = room, opened = opened,
+    mine_cap = mine_cap, idle_rate = out.idle_rate, ops = out.ops, waiting = #(out.waiting or {}),
+  }
+  Poles.report(f, view, agents, org)
+  return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- Rapports : une ligne par manager et par généraliste (données ; texte localisé à l'affichage)
+---------------------------------------------------------------------------------------------------
+function Poles.report(f, view, agents, org)
+  local b = Board.get(f)
+  local c = { service_busy = 0, mine_busy = 0, craft_busy = 0, craft_open = 0, grow_open = 0, grow_busy = 0,
+    garrison_busy = 0, smelt_busy = 0 }
+  for _, t in ipairs(b.list) do
+    local k = t.kind
+    if t.worker then
+      if k == "service" then c.service_busy = c.service_busy + 1
+      elseif k == "mine" then c.mine_busy = c.mine_busy + 1
+      elseif k == "craft" then c.craft_busy = c.craft_busy + 1
+      elseif k == "extend" or k == "build" then c.grow_busy = c.grow_busy + 1
+      elseif k == "garrison" then c.garrison_busy = c.garrison_busy + 1
+      elseif k == "smelt" or k == "smelters" then c.smelt_busy = c.smelt_busy + 1 end
+    else
+      if k == "craft" then c.craft_open = c.craft_open + 1 end
+      if k == "extend" or k == "build" then c.grow_open = c.grow_open + 1 end
+    end
+  end
+  local drills = 0
+  for _, o in ipairs(view.outposts or {}) do drills = drills + (o.drills or 0) end
+  local low = 0
+  for _, g in ipairs(view.turret_groups or {}) do if g.low then low = low + 1 end end
+  local stock = view.stock or {}
+  local gens = {}
+  for _, a in ipairs(agents) do
+    local o = a.org
+    if o.role == "generalist" then
+      gens[#gens + 1] = { id = a.id, pole = o.pole or "?", part = o.project or "", task = a.task and a.task.kind or "" }
+    end
+  end
+  org.report = {
+    managers = {
+      gisements = { outposts = #(view.outposts or {}), drills = drills, grow_open = c.grow_open, grow_busy = c.grow_busy },
+      logistique = { service = c.service_busy, mine = c.mine_busy, mine_cap = org.last and org.last.mine_cap or 0 },
+      production = { craft = c.craft_busy, craft_open = c.craft_open, drills = stock["burner-mining-drill"] or 0,
+        furnaces = stock["stone-furnace"] or 0 },
+      infrastructures = { smelters = view.smelters or 0, smelt = c.smelt_busy },
+      defense = { groups = #(view.turret_groups or {}), low = low, garrison = c.garrison_busy },
+    },
+    generalists = gens,
+  }
+end
+
+local function pole_name(p) return { "fo-ia1b.pole-" .. (p ~= "" and p ~= "?" and p or "none") } end
+
+--- Lignes localisées de la vue d'ensemble (interface v0 et `/fo-team org`).
+function Poles.lines(f)
+  local org = f.team and f.team.org
+  if not (org and org.last and org.report) then return { { "fo-ia1b.no-report" } } end
+  local L, r = org.last, org.report.managers
+  local busy = L.n > 0 and math.floor(100 * (L.n - L.idle) / L.n + 0.5) or 0
+  local lines = {
+    { "fo-ia1b.orientation", L.pts[1], L.pts[2], L.pts[3] },
+    { "fo-ia1b.staff", L.actual[1], L.gens[1], L.actual[2], L.gens[2], L.actual[3], L.gens[3], L.n, busy, L.pending },
+    { "fo-ia1b.mgr-gisements", r.gisements.outposts, r.gisements.drills, r.gisements.grow_busy, r.gisements.grow_open },
+    { "fo-ia1b.mgr-logistique", r.logistique.service, r.logistique.mine, r.logistique.mine_cap },
+    { "fo-ia1b.mgr-production", r.production.craft, r.production.craft_open, r.production.drills, r.production.furnaces },
+    { "fo-ia1b.mgr-infrastructures", r.infrastructures.smelters, r.infrastructures.smelt },
+    { "fo-ia1b.mgr-defense", r.defense.groups, r.defense.low, r.defense.garrison },
+  }
+  for _, g in ipairs(org.report.generalists) do
+    local part = g.part ~= "" and g.part or { "fo-ia1b.part-none" }
+    local task = g.task ~= "" and { "fo-ia1b.task", g.task } or { "fo-ia1b.task-none" }
+    lines[#lines + 1] = { "fo-ia1b.gen-line", g.id, pole_name(g.pole), part, task }
+  end
+  return lines
+end
+
+---------------------------------------------------------------------------------------------------
+-- Interface v0 (lecture) : cadre « Vue d'ensemble » de votre équipe
+---------------------------------------------------------------------------------------------------
+local FRAME = "fo_ia1b_vue"
+
+local function fill(frame, f)
+  frame.clear()
+  for _, l in ipairs(Poles.lines(f)) do frame.add({ type = "label", caption = l }) end
+end
+
+function Poles.toggle_view(player, f)
+  local screen = player.gui.screen
+  if screen[FRAME] then
+    screen[FRAME].destroy()
+    return false
+  end
+  local frame = screen.add({ type = "frame", name = FRAME, caption = { "fo-ia1b.view-title" }, direction = "vertical" })
+  frame.location = { 40, 120 }
+  fill(frame, f)
+  return true
+end
+
+Events.on_nth_tick(600, function()
+  local f = State.faction("player")
+  if not f then return end
+  for _, player in ipairs(game.connected_players or {}) do
+    local screen = player.gui and player.gui.screen
+    local frame = screen and screen[FRAME]
+    if frame then fill(frame, f) end
+  end
+end)
+
+---------------------------------------------------------------------------------------------------
+-- Disparition d'un généraliste : la promotion attend 2 min (O.PROMOTION_DELAY), sauf croissance
+---------------------------------------------------------------------------------------------------
+Registry.on_removed(function(agent)
+  if not (agent.faction and agent.org and agent.org.role == "generalist") then return end
+  local f = State.faction(agent.faction)
+  if not (f and f.team) then return end
+  local org = Poles.state(f)
+  if org.vacancy_since == nil then org.vacancy_since = game.tick end
+end)
+
+--- État publié pour les bancs (interface distante « fo-ia1 », team_status) : aucune fonction, aucun objet du moteur.
+function Poles.status(f)
+  local org = f.team and f.team.org
+  if not org then return nil end
+  local npcs = {}
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    if a and a.org then
+      local o = a.org
+      local ch = {}
+      for i, t in ipairs(o.changes or {}) do ch[i] = t end
+      npcs[#npcs + 1] = { id = a.id, role = o.role or "executant", pole = o.pole, dest = o.dest, project = o.project,
+        task = a.task and a.task.kind or nil, fond = a.task and a.task.fond or false, changes = ch,
+        worst_hour = Poles.worst_hour(o.changes) }
+    end
+  end
+  local stats = {}
+  for k, v in pairs(org.stats) do stats[k] = v end
+  local dur = {}
+  for _, k in ipairs(State.sorted_keys(org.dur)) do dur[k] = { n = org.dur[k].n, s = org.dur[k].s } end
+  return { last = org.last, stats = stats, npcs = npcs, report = org.report, dur = dur,
+    orientation = Poles.orientation(f), crisis = org.crisis }
+end
+
+return Poles

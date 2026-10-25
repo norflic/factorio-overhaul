@@ -11,6 +11,9 @@
   s'il a des plaques.
 
     /fo-team status    objectif, ce qui manque, stock, tâches
+    /fo-team org       lot IA1-b : effectifs par pôle, une ligne par manager et par généraliste
+    /fo-team vue       lot IA1-b : ouvre ou ferme la vue d'ensemble (interface v0, lecture)
+    /fo-team orientation <equilibre|ressources|base|protection|expansion>   lot IA1-b : orientation de l'équipe
     /fo-team dismiss   renvoie tous les ouvriers (l'équipement des recrues PAYÉES revient au coffre ; pas celui des
                        PNJ offerts à la fondation ni de l'embauche de secours, lot IA1-a)
 ]]
@@ -23,6 +26,7 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
+local Poles = require("script.team.poles")
 
 local PlayerTeam = {}
 
@@ -123,6 +127,29 @@ commands.add_command("fo-team", { "fo-team.command-help" }, function(cmd)
   if sub == "dismiss" then
     dismiss(f, true)
     if player then player.print({ "fo-team.dismissed" }) end
+    return
+  end
+  -- Lot IA1-b : vue d'ensemble de l'organisation (interface v0, lecture) et orientation.
+  if sub == "org" then
+    for _, l in ipairs(Poles.lines(f)) do
+      if player then player.print(l) end
+    end
+    return
+  end
+  if sub == "vue" then
+    if player then Poles.toggle_view(player, f) end
+    return
+  end
+  if sub == "orientation" then
+    local name = (cmd.parameter or ""):match("^%s*%S+%s+(%S+)")
+    local pts = name and Poles.set_orientation(f, name)
+    if player then
+      if pts then
+        player.print({ "fo-ia1b.orientation-set", pts[1], pts[2], pts[3] })
+      else
+        player.print({ "fo-ia1b.orientation-help" })
+      end
+    end
     return
   end
   local line = Team.status_line(f)

@@ -27,6 +27,7 @@ local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Worker = require("script.team.worker")
+local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 
@@ -316,7 +317,7 @@ end
 ---------------------------------------------------------------------------------------------------
 function Team.measure(f, view, tick)
   local b = Board.get(f)
-  local orientation = f.is_player and "equilibre" or (O.PERSONALITY[f.personality] or "equilibre")
+  local orientation = Poles.orientation(f) -- lot IA1-b : l'orientation choisie, sinon la personnalité
   local m = Scale.metrics(b.list, f.engineers_count, view.workers_idle or 0, orientation, view.threatened, tick)
   local acc = f.team.scale or { thinks = 0, n_sum = 0, idle_sum = 0, surplus_sum = 0, backlog_sum = 0 }
   f.team.scale = acc
@@ -373,6 +374,11 @@ function Team.think(f, surface, tick)
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick)
   Profiler.stop("team:board")
+
+  -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.
+  Profiler.start("team:poles")
+  Poles.think(f, view, book_for(f), tick)
+  Profiler.stop("team:poles")
 
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
   -- à tour de rôle.

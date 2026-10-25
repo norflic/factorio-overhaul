@@ -395,7 +395,12 @@ end
 --- 2. Ce qui reste va au fond, selon l'orientation seule.
 --- 3. Planchers (extraction 2 ; territoire : somme des équipes de zone, bornée à 50 % des exécutants) pris
 ---    aux pôles les mieux pourvus.
-function O.pole_targets(n, need, pts, zones, ops)
+---
+--- Lot IA1-b : `room` (facultatif) = { r, r, r } CAPACITÉ DE FOND de chaque pôle (exécutants que ses tâches de fond
+--- peuvent occuper, shared/team/fond.lua). Le surplus va alors selon l'orientation aux seuls pôles qui ont encore de
+--- la place (3 tours au plus) ; ce qui reste (toutes les places prises) suit l'orientation seule, comme sans `room`.
+--- Sans `room`, le résultat est celui d'avant IA1-b.
+function O.pole_targets(n, need, pts, zones, ops, room)
   ops = ops or { n = 0 }
   local t = { 0, 0, 0 }
   local zl = (type(zones) == "table" and zones[1] and zones[1].crew) and zones or O.zone_list(zones or 0, ops)
@@ -426,6 +431,25 @@ function O.pole_targets(n, need, pts, zones, ops)
     if given == 0 then break end
   end
   local surplus = left
+  if left > 0 and room then
+    local rm = { math.max(0, math.floor(room[1] or 0)), math.max(0, math.floor(room[2] or 0)), math.max(0, math.floor(room[3] or 0)) }
+    for _ = 1, 3 do
+      if left <= 0 then break end
+      local w = {}
+      for p = 1, 3 do w[p] = rm[p] > 0 and pts[p] or 0 end
+      local share = O.apportion(left, w, ops)
+      local given = 0
+      for p = 1, 3 do
+        local g = math.min(share[p], rm[p])
+        t[p] = t[p] + g
+        rm[p] = rm[p] - g
+        given = given + g
+        ops.n = ops.n + 1
+      end
+      left = left - given
+      if given == 0 then break end
+    end
+  end
   if left > 0 then
     local share = O.apportion(left, pts, ops)
     for p = 1, 3 do t[p] = t[p] + share[p] end
@@ -626,6 +650,7 @@ end
     projects = { { id, domain, prio, leader, started }, ... },
     chiefs,                       -- réglage fo-team-chiefs (5)
     vacancy_since,                -- tick de la mort d'un généraliste non remplacé (nil : croissance)
+    room,                         -- lot IA1-b, facultatif : capacité de fond par pôle { r, r, r } (O.pole_targets)
   }
   Renvoie {
     pts      = orientation en points (3 entiers),
@@ -699,7 +724,7 @@ function O.plan(input)
 
   -- Cibles d'exécutants.
   local zl = O.zone_list(input.zones or 0, ops)
-  local targets, surplus, zinfo = O.pole_targets(#execs, need, pts, zl, ops)
+  local targets, surplus, zinfo = O.pole_targets(#execs, need, pts, zl, ops, input.room)
 
   -- Compte par pôle EFFECTIF (destinations différées comprises) ; recrues sans pôle placées sans délai là où
   -- l'écart est le plus grand (égalité : ordre de départage).
