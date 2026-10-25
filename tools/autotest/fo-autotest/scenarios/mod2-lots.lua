@@ -360,7 +360,14 @@ return {
     -- A0, A, P : engrenage nourri, sortie vidée.
     for _, c in ipairs({ st.a0, st.a, st.p }) do
       local m = c.m
-      put(m, "iron-plate", 100000)
+      if t == WA or t == WB then
+        -- Plaques dans la machine (entrée + fabrication en cours) aux bornes de la fenêtre : plaques consommées.
+        local k = lot_k(m)
+        local v = input(m).get_item_count("iron-plate") + ((m.is_crafting() and m.crafting_progress > 0) and 2 * k or 0)
+        if t == WA then c.in0 = v else c.in1 = v end
+      end
+      local fed = put(m, "iron-plate", 100000)
+      if t > WA and t <= WB then c.fed = (c.fed or 0) + fed end
       local out = m.get_output_inventory()
       local nb = out.get_item_count()
       if nb > 0 then out.clear() end
@@ -585,8 +592,16 @@ return {
         f6(m.crafting_speed), f6(pb), lot_k(m), nmods, pc.put, pc.n, secs, pc.n / secs, wantp))
       ctx.check(lot_k(m) == 100 and nmods == 34 and pc.put == 34, "P : modules de productivite gardes au lot 100 (limitation etendue aux lots)",
         nmods .. " modules")
-      ctx.check(math.abs(pc.n / secs - wantp) <= 0.03 * wantp, "P : produits du lot 100 avec la productivite (+" .. string.format("%.0f", pb * 100) .. " %)",
-        string.format("%.1f /s pour %.1f", pc.n / secs, wantp))
+      -- Productivité appliquée : engrenages sortis / (plaques consommées / 2) ; le débit de base est rapporté (passe 5 :
+      -- 95 % du voulu, la sortie de 200 engrenages d'une fabrication + son bonus n'est vidée qu'une fois par tick).
+      local used = (pc.fed or 0) + (pc.in0 or 0) - (pc.in1 or 0)
+      local base = used / 2
+      local ratio = base > 0 and pc.n / base or 0
+      ctx.log(string.format("MESURE P : plaques consommees %d en %.0f s (%.1f lots de base/s pour %.2f voulus) ; engrenages / fabrications de base = %.4f (attendu %.2f)",
+        used, secs, base / 100 / secs, m.crafting_speed / 50, ratio, 1 + pb))
+      ctx.check(math.abs(ratio - (1 + pb)) <= 0.02 and base / 100 / secs >= 0.9 * m.crafting_speed / 50,
+        "P : productivite appliquee au lot 100 (+" .. string.format("%.0f", pb * 100) .. " % des produits), debit de base >= 90 % du voulu",
+        string.format("rapport %.4f ; %.1f engrenages/s", ratio, pc.n / secs))
     end
     -- B : conservation à chaque bascule et en boucle fermée.
     local b = st.b

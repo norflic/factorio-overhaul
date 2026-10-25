@@ -13,14 +13,15 @@ local M = require("__factorio-overhaul__/shared/content/modules")
 local E = require("__factorio-overhaul__/shared/content/enemies")
 local W = require("__factorio-overhaul__/shared/content/world")
 local LV = require("__factorio-overhaul__/shared/levels/config")
-local RL = require("__factorio-overhaul__/shared/content/recipe_lots")
 local Greffons = require("greffons")
 
 -- Lot MOD-2 : les recettes par lots (« fo-lot10-… », « fo-lot100-… », 470 copies cachées, générées) ne sont pas des
 -- recettes du mod au sens de ce banc : aucune recherche ne les débloque (le script les active avec leur recette de
 -- base), et elles sont contrôlées ailleurs (harness : chaque lot = k × sa base ; scénario mod2-lots en moteur réel).
+-- Motif écrit ICI (même règle que shared/content/recipe_lots.lua, R.parse) et non `require` : le mod de test est
+-- chargé aussi avec une source de création plus ancienne (bancs en double source), qui n'a pas ce fichier.
 local function mod_recipe(name)
-  return name:find("^fo%-") ~= nil and not RL.is_lot(name)
+  return name:find("^fo%-") ~= nil and name:find("^fo%-lot%d+%-") == nil
 end
 
 local T = {}
