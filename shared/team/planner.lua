@@ -298,7 +298,9 @@ function P.plan(view, book)
   --    de chaque ressource seulement, aucun agrandissement) : production de votre équipe -42 % et -16 % sur les deux
   --    graines du guide pour 4 et 6 morts de moins ; écarté ;
   --  - le QG reçoit d'abord T.defend_hq tourelles ; la défense ne fabrique pas sous T.defend_iron_floor plaques de fer ;
-  --    un avant-poste MEURTRIER non défendu attend la fin de sa pause, même pour ses tourelles.
+  --    un avant-poste MEURTRIER non défendu ne reçoit plus que ses tourelles (et sa tournée si sa ressource manque) ;
+  --  - équipe DÉCIMÉE (sous son effectif de départ) : ni nouvel avant-poste, ni fond ; la défense continue ;
+  --  - la croissance (frein levé par le travail qui attend, script/team/team.lua) ne vaut qu'avec une tourelle possible.
   ---------------------------------------------------------------------------------------------------
   local df = view.defend_first and true or false
   local turret_craftable = df and book:handcraftable("gun-turret") or false
@@ -349,9 +351,10 @@ function P.plan(view, book)
   local fuel_reserve = view.smelter_coal or 0
   for _, o in ipairs(view.outposts) do
     if o.kind ~= "coal" then fuel_reserve = fuel_reserve + (o.coal_needed or 0) end
-    if df and o.lethal and lacking[o.id] then
+    if df and o.lethal and lacking[o.id] and (view.stock[T.outposts[o.kind].product] or 0) >= T.lethal_need then
       -- Lot IA1-b2 : avant-poste MEURTRIER (un PNJ tué en y allant, il y a moins de T.lethal_ticks) et non défendu :
-      -- personne n'y va, pas même pour la tournée.
+      -- pas de tournée (on n'y retourne qu'avec ses tourelles), SAUF si sa ressource manque au coffre (moins de
+      -- T.lethal_need : essai 5 du lot, graine 314159265, cuivre à 0 pendant 26 min, aucun pistolet pour les recrues).
       out.lethal_skip = (out.lethal_skip or 0) + 1
     elseif not o.has_task then
       if o.fuel_low then
@@ -417,16 +420,14 @@ function P.plan(view, book)
   -- Lot IA1-b2 (défendre d'abord) : tourelles des avant-postes non défendus, en urgence (ordre des id). Sans recette,
   -- seulement les tourelles déjà au stock (règle de repli sinon).
   -- Le QG d'abord (T.defend_hq tourelles : les PNJ y vivent, la fonderie y pollue ; essai 1 du lot, graine 1618033988 :
-  -- QG attaqué dès 17 min, équipe perdue à 23 min). Un avant-poste MEURTRIER attend la fin de sa pause.
+  -- QG attaqué dès 17 min, équipe perdue à 23 min). Un avant-poste MEURTRIER ne reçoit plus que ses tourelles.
   if df then
     local waiting = 0
     local posts = { { id = "hq", want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify } }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         waiting = waiting + 1
-        if not o.lethal and not decimated then
-          posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
-        end
+        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
       end
     end
     for _, p in ipairs(posts) do

@@ -105,6 +105,8 @@ T.recruit_calm = 0
 -- Avant-poste MEURTRIER : un PNJ tué en y allant ; sans ses tourelles, plus personne n'y va pendant 10 min (ni tournée,
 -- ni agrandissement, ni fond), sauf pour y poser les tourelles.
 T.lethal_ticks = 10 * 3600
+-- ... sauf si sa ressource manque au coffre (moins de T.lethal_need unités) : on y retourne quand même.
+T.lethal_need = 50
 -- Tourelles du QG (posées d'abord) et fer gardé pour les recrues : la défense ne fabrique pas sous ce plancher.
 T.defend_hq = 2
 T.defend_iron_floor = 150

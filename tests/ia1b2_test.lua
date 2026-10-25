@@ -156,8 +156,10 @@ local p4l = Planner.plan(view({ defend_first = true, stock = rich, outposts = ou
 check(find(p4l, function(t) return t.key == "service:2" or t.key == "extend:2" end) == nil and (p4l.lethal_skip or 0) == 1,
   "repli, fer meurtrier : ni tournée (même à sec), ni agrandissement")
 local p4m = Planner.plan(view({ defend_first = true, stock = with(rich, { ["gun-turret"] = 4 }), outposts = outs_l, done = done2 }), book)
-check(find(p4m, function(t) return t.key == "fortify:2" or t.key == "service:2" end) == nil,
-  "recette connue, fer meurtrier : sa pause passe avant ses tourelles")
+check(find(p4m, function(t) return t.key == "fortify:2" end) ~= nil and find(p4m, function(t) return t.key == "service:2" end) == nil,
+  "recette connue, fer meurtrier : on n'y retourne qu'avec ses tourelles")
+local p4p = Planner.plan(view({ defend_first = true, stock = with(rich, { ["iron-plate"] = 20 }), outposts = outs_l, done = done2 }), book_no)
+check(find(p4p, function(t) return t.key == "service:2" end) ~= nil, "fer meurtrier mais fer au coffre < " .. T.lethal_need .. " : tournée quand même")
 local outs_l2 = { op(1, "coal", 4, 1), op(2, "iron", 8, 2, { lethal = true, has_task = false, fuel_low = true }),
   op(3, "copper", 3, 1), op(4, "stone", 2, 1) }
 local p4n = Planner.plan(view({ defend_first = true, stock = rich, outposts = outs_l2, done = done2 }), book_no)
@@ -257,7 +259,7 @@ section("Cerveau : équipe décimée, le QG d'abord")
 local pdz = Planner.plan(view({ defend_first = true, hq_turrets = 0, workers = 5, recover_floor = 8,
   stock = with(rich, { ["gun-turret"] = 6 }), outposts = outs }), book)
 check(find(pdz, function(t) return t.key == "fortify:hq" end) ~= nil, "5 PNJ sur 8 : tourelles du QG")
-check(find(pdz, function(t) return t.key == "fortify:1" or t.key == "fortify:2" end) == nil, "5 PNJ sur 8 : aucune tourelle d'avant-poste")
+check(find(pdz, function(t) return t.key == "fortify:1" end) ~= nil, "5 PNJ sur 8 : les tourelles d'avant-poste suivent (défense d'abord)")
 local pdy = Planner.plan(view({ defend_first = true, workers = 5, recover_floor = 8, stock = with(rich, { ["gun-turret"] = 4 }),
   outposts = outs3, done = done2, sites = { iron = 1 } }), book)
 check(find(pdy, function(t) return t.key == "build:iron" end) == nil, "5 PNJ sur 8 : pas de nouvel avant-poste")
