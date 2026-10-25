@@ -18,7 +18,8 @@
     - GO / NO-GO au rassemblement (A.go) : la défense vue a grossi (≥ 1,5 × celle du départ + 1 tourelle) et le groupe
       n'a plus le rapport de force : la faction renonce ;
     - MOMENT de la 1re attaque de la partie contre le joueur (A.first_after) : valeur du niveau × tempo tiré à ±20 %
-      (une fois par partie) ; intervalle entre deux attaques × tempo tiré à ±20 % après chaque attaque.
+      (une fois par partie). L'intervalle entre deux attaques × tempo tiré à chaque attaque a été mesuré et NON
+      retenu (il casse l'ordre strict des niveaux, S.player_cooldown).
 
   Déterminisme : entiers, listes triées, tirages injectés (`draw(n)` → 1 à n) ; aucune trigonométrie (octants par
   comparaisons, vecteurs constants de C.DIRS).
@@ -204,14 +205,16 @@ function A.snap(m, rec)
   while #m.snaps > A.SNAPS do table.remove(m.snaps, 1) end
 end
 
---- Croissance du territoire vu sur GROWTH_WINDOW (unités), depuis le plus ancien relevé de la fenêtre.
+--- Croissance du territoire vu sur GROWTH_WINDOW (unités), depuis le plus ancien relevé de la fenêtre où quelque chose
+--- était déjà vu (moteur réel, essai 1 du lot : la DÉCOUVERTE du joueur comptait comme une croissance, d'où un
+--- « bâtisseur » à la première minute).
 function A.growth(m, tick)
   local snaps = m.snaps or {}
   local last = snaps[#snaps]
   if not last then return 0 end
   local ref
   for _, s in ipairs(snaps) do
-    if tick - s.tick <= A.GROWTH_WINDOW then ref = s break end
+    if tick - s.tick <= A.GROWTH_WINDOW and s.units > 0 then ref = s break end
   end
   ref = ref or last
   return last.units - ref.units

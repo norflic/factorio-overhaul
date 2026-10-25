@@ -234,9 +234,11 @@ function S.cooldown_ticks(level)
   return math.floor(F.pvp_params(level).cooldown_min * 3600)
 end
 
---- Lot IA2-c : intervalle entre deux attaques contre le joueur × tempo de la faction (pv.cooldown_mult, pour mille,
---- tiré à ±20 % après chaque attaque ; nil = 1 000). Bornes : même au pire tirage, l'intervalle d'un niveau reste plus
---- court que celui du niveau d'en dessous (Facile 12 > Normal 9,6 ; Normal 6,4 > Difficile 6 ; Difficile 4 > 3,6).
+--- Lot IA2-c : intervalle entre deux attaques contre le joueur × tempo (pv.cooldown_mult, pour mille ; nil = 1 000).
+--- Bornes : même au pire tirage ±20 %, l'intervalle d'un niveau reste plus court que celui du niveau d'en dessous
+--- (Facile 12 > Normal 9,6 ; Normal 6,4 > Difficile 6 ; Difficile 4 > 3,6). MESURÉ ET NON RETENU en jeu : tiré après
+--- chaque attaque, il casse l'ordre strict du nombre d'attaques dans la campagne de tests/pvp_test.lua (config 8,
+--- conquérants : Normal 16 = Difficile 16) ; le runtime ne le fournit pas (seul le moment de la 1re attaque varie).
 --- Jamais sous la fenêtre d'assaut coordonné (rally_min ≤ cooldown_min, IA0b : une faction ne se joint jamais à sa
 --- propre fenêtre ; Impitoyable, 3 min × 0,8 = 2,4 min la cassait dans pvp_test).
 function S.player_cooldown(pv, level)

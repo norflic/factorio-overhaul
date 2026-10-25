@@ -280,7 +280,7 @@ local function player_view(f, surface, p, fp, tick, level)
   if not F.pvp_params(level).aggressive then return nil end
   if not fp.declared and not fp.provoked and tick < grace_end(p, fp, level, f) then return nil end
   local v = Vision.state(f)
-  if fp.last_attack and tick - fp.last_attack < S.player_cooldown({ cooldown_mult = v.cd_mult }, level) then return nil end
+  if fp.last_attack and tick - fp.last_attack < S.cooldown_ticks(level) then return nil end
   if Military.target_unreachable(f, "player", tick) then
     local n = #State.sorted_keys(v.known)
     if n == 0 then return nil end
@@ -319,7 +319,7 @@ function PvP.think(f, surface, tick, view, target)
   view.leader_outposts = leader
   -- Lot IA2-c : brouillard. Aux niveaux agressifs, la faction prépare ses regards (file de secteurs), tient son
   -- modèle du joueur (style) et envoie ses éclaireurs ; « Paisible » : rien (aucun coût).
-  local vis = Vision.state(f)
+  Vision.state(f)
   local aggressive = F.pvp_params(level).aggressive
   if aggressive and f.hq_pos then
     Vision.plan(f, tick)
@@ -327,8 +327,8 @@ function PvP.think(f, surface, tick, view, target)
     Vision.scout_policy(f, surface, p, fp, tick, grace_end(p, fp, level, f))
   end
   -- Lot IA2-c : moment de la 1re attaque de la partie (valeur du niveau × tempo de la partie, ±20 %), sauf pour une
-  -- faction provoquée (représailles) ; intervalle entre deux attaques × tempo de la faction (±20 %, tiré à chaque
-  -- attaque).
+  -- faction provoquée (représailles). (Intervalle entre deux attaques × tempo tiré à ±20 % : mesuré, NON retenu, il
+  -- casse l'ordre strict des niveaux dans la campagne de tests/pvp_test.lua.)
   local first_after
   if aggressive and not Vision.first_done(p) and not fp.provoked then
     first_after = A.first_after(p.anchor, level, Vision.game_tempo(p))
@@ -339,7 +339,7 @@ function PvP.think(f, surface, tick, view, target)
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
     player_groups = player_groups(f), due_since = fp.due_since, last_rival = fp.last_rival,
     rally_until = p.rally_until, rally_defense = p.rally_until and p.rally_target and p.rally_target.defense or nil,
-    first_after = first_after, first_prep = A.PREP, cooldown_mult = vis.cd_mult,
+    first_after = first_after, first_prep = A.PREP,
   }
   view.player = player_view(f, surface, p, fp, tick, level)
   local a = S.decide(view)
@@ -452,17 +452,16 @@ Military.on_launched = function(f, target_faction, n, rp, tick)
   fp.last_target = { x = rp.target.x, y = rp.target.y, defense = rp.defense }
   local surface = game.surfaces[State.war().surface]
   if rp.join then fp.joins = (fp.joins or 0) + 1 end
-  -- Lot IA2-c : mémoire de l'attaque (secteur, octant), 1re attaque de la partie faite, tempo de l'intervalle suivant.
+  -- Lot IA2-c : mémoire de l'attaque (secteur, octant), 1re attaque de la partie faite.
   local war = State.war()
   if war.pvp then war.pvp.first_done = true end
   local v = Vision.state(f)
   A.record_given(v.model, { gid = rp.gid, key = rp.key, octant = rp.octant, n = n, tick = tick })
-  Vision.redraw_cooldown(v)
   say({ rp.join and "fo-pvp.attack-joined" or "fo-pvp.attack", fname(f), n, gps(surface, rp.target) },
     string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d, besoin %d, tech %d%s, octant %s, cote %s sur %s, direct %s, style %s, tempo %d",
       tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), rp.defense or (fp.target and fp.target.defense) or 0,
       rp.need or 0, f.tech or 0, rp.join and " (assaut coordonne)" or "", tostring(rp.octant or "-"), tostring(rp.side_def or "-"),
-      tostring(rp.side_max or "-"), tostring(rp.direct or "-"), v.model.style or "-", v.cd_mult))
+      tostring(rp.side_max or "-"), tostring(rp.direct or "-"), v.model.style or "-", war.pvp and war.pvp.tempo or 1000))
 end
 
 ---------------------------------------------------------------------------------------------------

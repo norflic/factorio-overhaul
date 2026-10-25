@@ -539,7 +539,8 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
       -- rivale ; seuil 1 400), une minute sur quatre, flux à part (les tirages d'IA2-a sont inchangés).
       hold_stream = opts.chef and Tr.new_stream(opts.chef, 300 + i) or nil,
       -- Lot IA2-c : opts.tempo (pour mille) = moment de la 1re attaque de la partie (valeur du niveau × tempo) ;
-      -- opts.cd = graine : intervalle entre deux attaques contre le joueur × tempo tiré à ±20 % après chaque attaque.
+      -- opts.cd = graine : intervalle entre deux attaques contre le joueur × tempo tiré à ±20 % après chaque attaque
+      -- (variante mesurée et NON retenue au lot IA2-c : elle casse l'ordre strict, section IA2-c ci-dessous).
       cd_stream = opts.cd and Tr.new_stream(opts.cd, 400 + i) or nil, cd_mult = opts.cd and 1000 or nil,
       r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0,
         joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {}, raids = 0, varied = 0 },
@@ -871,17 +872,18 @@ check(chef_raids > 0, "le chef lance des raids dans la campagne (" .. chef_raids
 ---------------------------------------------------------------------------------------------------
 section("Campagne pure : moment varié contre le joueur (lot IA2-c)")
 -- Lot IA2-c : sous le chef (section précédente), en plus : 1re attaque de la partie pas avant la valeur du niveau ×
--- tempo de la partie (±20 % ; un tempo par configuration, extrêmes compris), préparation 4 min avant (garnison gardée),
--- et intervalle entre deux attaques contre le joueur × tempo tiré à ±20 % après chaque attaque. Mêmes exigences
--- (ordre STRICT des niveaux, attaques exigées, guerres entre factions), plus : jamais d'attaque avant le moment.
+-- tempo de la partie (±20 % ; un tempo par configuration, extrêmes compris), préparation 4 min avant (garnison gardée).
+-- Mêmes exigences (ordre STRICT des niveaux, attaques exigées, guerres entre factions), plus : jamais d'attaque avant
+-- le moment.
 local TEMPOS = { 800, 1200, 1000, 850, 1150, 950, 1050, 900, 1100, 800, 1200 }
 local tempo_gaps, early, n_first, n_lo, n_hi = 0, 0, 0, 1e18, 0
 for ci, cfg in ipairs(CONFIGS) do
   for _, ch in ipairs(CHARS_CHEF) do
     local c = {}
     local tempo = TEMPOS[ci]
-    local nocd = os.getenv("IA2C_NOCD") == "1" -- TEMPORAIRE (diagnostic)
-    for _, lv in ipairs(LEVELS) do c[lv] = campaign(lv, ch.pers, 180, cfg, { jitter = 1000 + ci, chef = 5000 + ci, tempo = (not nocd or os.getenv("IA2C_NOT") ~= "1") and tempo or nil, cd = (not nocd) and (7000 + ci) or nil }) end
+    -- (Variante MESURÉE et non retenue, opts.cd = 7000 + ci : intervalle × tempo tiré à ±20 % après chaque attaque ;
+    -- 3 échecs d'ordre strict, config 8, conquérants : Normal 16 attaques = Difficile 16.)
+    for _, lv in ipairs(LEVELS) do c[lv] = campaign(lv, ch.pers, 180, cfg, { jitter = 1000 + ci, chef = 5000 + ci, tempo = tempo }) end
     local t = string.format("[IA2-c, config %d, tempo %d] %s", ci, tempo, ch.name)
     local ok = c.peaceful.attacks == 0 and c.peaceful.declare == nil
     for _, lv in ipairs(AGGRO) do

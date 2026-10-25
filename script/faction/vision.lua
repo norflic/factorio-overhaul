@@ -21,7 +21,7 @@
       pénalisés).
 
   État (nombres et tables seulement) : f.pvp.vision = { known, looked, queue, qi, reports, static, static_at,
-  static_i, next_scout, scout_i, model, stream, cd_mult } ; war.pvp : tempo, first_done, looks (compteur `sweeps`).
+  static_i, next_scout, scout_i, model, stream } ; war.pvp : tempo, first_done, looks (compteur `sweeps`).
   Flux : Tr.new_stream(graine, 300 + id) (sels 300 à 399 : lot IA2-c ; 300 = partie, tempo de la 1re attaque).
 ]]
 
@@ -70,19 +70,12 @@ function Vision.state(f)
       model = { snaps = {}, hits = {}, given = {}, learned = {}, repulsed = 0, style = "inconnu", next_snap = 0 },
       stream = Tr.new_stream(Character.map_seed(), Vision.SALT + f.id),
     }
-    v.cd_mult = A.draw_tempo(function(n) return Tr.range(v.stream, 1, n) end)
     fp.vision = v
   end
   return v
 end
 
 local function draw_of(v) return function(n) return Tr.range(v.stream, 1, n) end end
-
---- Tempo de l'intervalle avant la prochaine attaque contre le joueur (±20 %), tiré après chaque attaque.
-function Vision.redraw_cooldown(v)
-  v.cd_mult = A.draw_tempo(draw_of(v))
-  return v.cd_mult
-end
 
 --- Tempo de la partie (1re attaque contre le joueur), tiré une fois du flux de la partie (sel 300).
 function Vision.game_tempo(p)
@@ -347,6 +340,14 @@ end
 local function probe(f, p, v, spawn)
   local t = f.pvp.target
   if t then return { x = t.pos.x, y = t.pos.y }, "cible" end
+  -- Secteurs connus sans cible encore choisie (avant la déclaration) : le plus proche de notre QG.
+  local best, bd
+  for _, k in ipairs(State.sorted_keys(v.known)) do
+    local s = v.known[k]
+    local dx, dy = s.x - f.hq_pos.x, s.y - f.hq_pos.y
+    if not bd or dx * dx + dy * dy < bd then best, bd = s, dx * dx + dy * dy end
+  end
+  if best then return { x = best.x, y = best.y }, "connu" end
   local i = v.scout_i % (1 + 8 * #RING)
   if i == 0 then return { x = spawn.x, y = spawn.y }, "depart" end
   local ring = RING[math.floor((i - 1) / 8) + 1]
@@ -366,21 +367,24 @@ function Vision.scout_policy(f, surface, p, fp, tick, grace_end)
   for _, gid in ipairs(State.sorted_keys(f.groups or {})) do
     if f.groups[gid].state == "scout" then return end
   end
-  local needed
-  if not fp.declared and not fp.provoked then
-    needed = grace_end ~= nil and tick >= grace_end - A.SCOUT_LEAD
-  else
-    local t = fp.target
-    needed = t == nil or tick - (v.looked[t.sector] or -1e9) >= A.STALE
+  -- Ce que la faction sait date-t-il ? (rien de connu, ou le regard le plus récent sur un secteur connu a A.STALE.)
+  -- Moteur réel (essai 1 du lot) : avant la déclaration, un éclaireur partait toutes les 5 min même quand le joueur
+  -- venait d'être vu.
+  local keys = State.sorted_keys(v.known)
+  local fresh = -1e9
+  for _, k in ipairs(keys) do
+    local t = v.looked[k] or -1e9
+    if t > fresh then fresh = t end
   end
-  if not needed then return end
+  local stale = #keys == 0 or tick - fresh >= A.STALE
+  local window = fp.declared or fp.provoked or (grace_end ~= nil and tick >= grace_end - A.SCOUT_LEAD)
+  if not (stale and window) then return end
   local spawn = game.forces.player.get_spawn_position(surface)
   local dest, tag = probe(f, p, v, spawn)
   if Military.scout(f, surface, dest, tick, tag) then
     v.next_scout = tick + A.SCOUT_GAP
-    if tag ~= "cible" then v.scout_i = v.scout_i + 1 end
     log(string.format("[FO-PVP] eclaireur tick %d %s : part vers (%d, %d) (%s), secteurs connus %d", tick, f.key,
-      math.floor(dest.x), math.floor(dest.y), tag, #State.sorted_keys(v.known)))
+      math.floor(dest.x), math.floor(dest.y), tag, #keys))
   else
     v.next_scout = tick + 600
   end
@@ -394,6 +398,9 @@ Military.on_scout_done = function(f, g, tick, arrived)
   local keys = {}
   if at and not g.nopath then keys = A.visible({ { x = at.x, y = at.y, r = A.VISION.scout } }) end
   for _, k in ipairs(keys) do v.reports[#v.reports + 1] = k end
+  -- Sonde suivante (départ du joueur, puis anneaux) seulement quand celle-ci a été faite (ou est injoignable) ; un
+  -- éclaireur perdu en route (biters, F174) refait la même sonde.
+  if (arrived or g.nopath) and (g.tag == "depart" or (g.tag or ""):find("^anneau")) then v.scout_i = v.scout_i + 1 end
   log(string.format("[FO-PVP] eclaireur tick %d %s : %s (%d, %d), %d secteurs a regarder", tick, f.key,
     g.nopath and "sans itineraire" or (arrived and "arrive" or "arrete"), math.floor(at and at.x or 0), math.floor(at and at.y or 0), #keys))
 end
@@ -424,15 +431,19 @@ Military.on_player_attack_ended = function(f, g, survivors, tick, alive)
   if not v or not g.target then return end
   local surface = game.surfaces[State.war().surface]
   local standing = surface.count_entities_filtered({ position = g.target, radius = 16, force = "player", type = Vision.INSTALL_TYPES, limit = 1 }) > 0
+  -- Moteur réel (essai 1 du lot) : l'attaque de zone s'arrête quand il ne reste plus de cible MILITAIRE (tourelles) ;
+  -- les machines restent debout. Une attaque qui a fait tomber les tourelles autour du point visé a réussi.
+  local turrets = surface.count_entities_filtered({ position = g.target, radius = R.defense_radius, force = "player", type = Vision.TURRET_TYPES, limit = 1 })
+  local size = g.size or 0
   local outcome
   if g.renonce then
     outcome = "renonce"
-  elseif not standing then
+  elseif alive and size > 0 and survivors * 2 < size and alive * 2 >= size then
+    outcome = "dissous" -- la plupart des soldats ont quitté le groupe vivants (F174) : sans leçon
+  elseif not standing or turrets == 0 then
     outcome = "reussie"
   elseif survivors > 0 then
     outcome = "repoussee"
-  elseif alive and alive * 2 >= (g.size or 0) and (g.size or 0) > 0 then
-    outcome = "dissous"
   else
     outcome = "aneantie"
   end

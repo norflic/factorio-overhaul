@@ -92,7 +92,7 @@ do
   -- Octant pénalisé (attaque repoussée par le côté direct) : un autre côté.
   local o = A.pick_side(zero, 3, { [3] = true }, drawer(5))
   check(o ~= 3 and (o == 2 or o == 4), "côté direct repoussé : un voisin (" .. o .. ")")
-  -- Une tourelle seule sur le côté direct : le voisin libre l'emporte (800 > 667).
+  -- Une tourelle seule sur le côté direct : le voisin libre l'emporte (800 > 1 000 × 8 / 16 = 500).
   local one = {}
   for k = 0, 7 do one[k] = 0 end
   one[6] = 8
