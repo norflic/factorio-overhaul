@@ -304,12 +304,15 @@ W.resources = {
     copy_icon = "iron-ore",
     -- Titane de l'âge 11 (#8E9AA6, docs/DESIGN_EPOQUES.md §1.5) : teinte de la technologie et des objets dérivés.
     tint = { r = 0.56, g = 0.60, b = 0.65 },
-    -- Feuille PROPRE du kit minerai (lot M1 ; direction I1, tools/render/pieces/ressources/directions.py).
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction I3, tools/render/pieces/ressources/directions.py : seule des
+    -- trois rendues à passer les 9 critères de jour et de nuit de tools/autotest/x1_lisibilite.py, captures en moteur
+    -- du 25/10 ; I1 et I2 : fo-logs/2026-10-25_X1/NOTES.md). Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/ilmenite",
       name = "ilmenite",
       mining_visualisation_tint = { r = 0.70, g = 0.66, b = 0.60, a = 1 },
-      -- Comme le tungstène corrigé (M1) : presque rien de jour, lueur bleu-blanc de nuit.
+      -- Comme le tungstène corrigé (M1) : presque rien de jour, lueur de nuit (couche d'effet ; avec I3, les croûtes
+      -- claires ressortent pêche et crème la nuit, plus que l'uranium).
       effet = { period = 8, deviation = 1, darkness_multiplier = 120, min = 0.008, max = 0.012 },
     },
     -- Bleu-blanc pâle (lumière de l'âge 11) : ΔE76 mesuré contre l'eau, le fer, la pierre, le tungstène, le cristal,
