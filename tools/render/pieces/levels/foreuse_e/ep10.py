@@ -16,6 +16,8 @@ TRIPLET = ("portique", "colonne lisse", "bras articulés")
 FOYER = ages.FOYER[10]
 HABILLAGE = dict(ages.CORPS[10])
 PIED = 1.0
+# ronde F4-A2 : la tête carénée est l'embase ; les pieds du portique tiennent les diagonales ; 2 conduites
+EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 
 
 def occupe(c):

@@ -598,10 +598,137 @@ def garniture(g, c, densite=0.45):
             y = o + j * pas + (rng.random() - 0.5) * 0.08
             if not _libre(c, x, y, RAYON_PROP[f]):
                 continue
-            c.occupe.append((x - RAYON_PROP[f], y - RAYON_PROP[f], x + RAYON_PROP[f], y + RAYON_PROP[f]))
             f(g, c, x, y, rng)
             poses += 1
+            # grappe (ronde F4-A2 : densité de petites pièces) : un petit voisin collé au premier (contrôlé AVANT que
+            # le premier ne soit inscrit dans les zones occupées)
+            if rng.random() < 0.55:
+                f2 = (_fut, _bonbonne, _bobine)[rng.randrange(3)]
+                r2 = RAYON_PROP[f2]
+                ang = rng.random() * TAU
+                x2 = x + math.cos(ang) * (RAYON_PROP[f] + r2 + 0.01)
+                y2 = y + math.sin(ang) * (RAYON_PROP[f] + r2 + 0.01)
+                if _libre(c, x2, y2, r2):
+                    c.occupe.append((x2 - r2, y2 - r2, x2 + r2, y2 + r2))
+                    f2(g, c, x2, y2, rng)
+                    poses += 1
+            c.occupe.append((x - RAYON_PROP[f], y - RAYON_PROP[f], x + RAYON_PROP[f], y + RAYON_PROP[f]))
     return poses
+
+
+# ------------------------------------------------------------------------------------------------
+# Liaisons tour-tablier (ronde F4-A2, verdict du DC du 25/10 : « Oui, enrichir nettement » ; la tour ne doit plus être
+# « posée sur » le tablier : un seul corps). Réglage par âge : ep.EMBASE = dict(r=…, h=…, contreforts=n, cphase=degrés,
+# hc=hauteur, haubans=n, hphase=degrés, zh=hauteur d'attache, rh=rayon d'attache, conduites=n, rc=…, zc=…) ou False.
+# ------------------------------------------------------------------------------------------------
+EMBASE_DEFAUT = dict(r=1.12, h=None, contreforts=4, cphase=45.0, hc=0.30, rin=0.80, haubans=0, hphase=45.0, zh=0.78,
+                     rh=0.22, conduites=2, cdphase=62.0, rc=0.55, zc=0.42)
+# secteurs libres autour de la tour (repère N) : la goulotte (nord), les raccords (ouest, est, sud), le moteur (sud-est)
+# et les contreforts (diagonales) occupent les autres ; conduites à 62° et 242° par défaut
+
+
+def liaisons_tour(g, c):
+    cfg = getattr(c.ep, "EMBASE", None)
+    if cfg is False:
+        return
+    E = dict(EMBASE_DEFAUT)
+    E.update(cfg or {})
+    M = g.M
+    rt, zt, H = c.rt, c.zt, c.H
+    r = rt * E["r"]
+    h = E["h"] if E["h"] is not None else 0.13 + 0.02 * (c.side - 3)
+    with habille(g, c):
+        if r > 0:
+            # embase à 8 pans, couronne boulonnée : le pied de la tour est noyé dans le tablier
+            colonne(g, 0, 0, zt, zt + h, r, c.m("steel_dk"), n=8, phase=math.pi / 8, style="hard", what="embase")
+            g.tube_shell((0, 0, zt + h), "z", r * 1.0, r * 0.86, 0.045, c.m("olive"), n=8, what="couronne_embase")
+            for k in range(16):
+                a = TAU * (k + 0.5) / 16
+                g.dome((r * 0.93 * math.cos(a), r * 0.93 * math.sin(a), zt + h + 0.023), (0, 0, 1), 0.018,
+                       c.m("rivet"))
+        # contreforts (goussets) de la tour au tablier, arête d'acier et rivets
+        for k in range(int(E["contreforts"])):
+            a = math.radians(E["cphase"]) + TAU * k / int(E["contreforts"])
+            u = (math.cos(a), math.sin(a))
+            r0, r1 = rt * E["rin"], max(r, rt) + 0.28
+            z1 = zt + E["hc"] * H
+            q = [(u[0] * r0, u[1] * r0, zt + h), (u[0] * r1, u[1] * r1, zt + h), (u[0] * r1, u[1] * r1, zt + h + 0.1),
+                 (u[0] * r0, u[1] * r0, z1)]
+            lame(g, q, 0.07, c.m("olive"), "contrefort")
+            poutre(g, q[2], q[3], 0.05, c.m("steel"), "arete")
+            for t in (0.3, 0.6):
+                p = (q[0][0] + (q[2][0] - q[0][0]) * t, q[0][1] + (q[2][1] - q[0][1]) * t, zt + h + (z1 - zt - h) * 0.3 * t)
+                g.dome((p[0], p[1], p[2] + 0.05), (-u[1], u[0], 0), 0.016, c.m("rivet"))
+            g.box((u[0] * r1, u[1] * r1, zt + 0.02), (0.18, 0.18, 0.04), c.m("steel_dk"), "hard", what="semelle")
+            c.occupe.append((u[0] * r1 - 0.22, u[1] * r1 - 0.22, u[0] * r1 + 0.22, u[1] * r1 + 0.22))
+    # haubans : câbles de la tour aux ancres du tablier (ridoir, platine)
+    for k in range(int(E["haubans"])):
+        a = math.radians(E["hphase"]) + TAU * k / int(E["haubans"])
+        u = (math.cos(a), math.sin(a))
+        ra = min(c.dd * 0.86, rt * 1.75)
+        while ra > rt and not dans_tablier(c, u[0] * ra, u[1] * ra, 0.12):
+            ra -= 0.1
+        top = (u[0] * rt * E["rh"], u[1] * rt * E["rh"], zt + E["zh"] * (H - zt))
+        bas = (u[0] * ra, u[1] * ra, zt + 0.1)
+        g.tube([top, ((top[0] + bas[0]) / 2, (top[1] + bas[1]) / 2, (top[2] + bas[2]) / 2 - 0.03), bas], 0.014,
+               M["steel_hi"], n=6, what="hauban")
+        g.cyl(((top[0] * 0.15 + bas[0] * 0.85), (top[1] * 0.15 + bas[1] * 0.85), top[2] * 0.15 + bas[2] * 0.85),
+              (top[0] - bas[0], top[1] - bas[1], top[2] - bas[2]), 0.03, 0.14, c.m("steel_dk"), n=8, what="ridoir")
+        g.box((bas[0], bas[1], zt + 0.03), (0.2, 0.2, 0.06), c.m("steel_dk"), "hard", what="ancre")
+        g.cyl((bas[0], bas[1], zt + 0.09), "z", 0.04, 0.06, c.m("steel"), n=8, what="oeil")
+        c.occupe.append((bas[0] - 0.25, bas[1] - 0.25, bas[0] + 0.25, bas[1] + 0.25))
+    # conduites de la tour au tablier (organe de liaison de l'âge)
+    lia = getattr(c.ep, "liaison", None)
+    for k in range(int(E["conduites"])):
+        a = math.radians(E["cdphase"]) + TAU * k / max(1, int(E["conduites"]))
+        u = (math.cos(a), math.sin(a))
+        p0 = (u[0] * rt * E["rc"], u[1] * rt * E["rc"], zt + E["zc"] * (H - zt))
+        rb = max(r, rt) + 0.18
+        if not dans_tablier(c, u[0] * (rb + 0.15), u[1] * (rb + 0.15), 0.1):
+            rb = rt * 1.05
+        pts = [p0, (u[0] * rt * 0.95, u[1] * rt * 0.95, p0[2] - 0.05), (u[0] * rb, u[1] * rb, zt + 0.35),
+               (u[0] * rb, u[1] * rb, zt + 0.04)]
+        rr = 0.05 + 0.01 * (c.side - 3)
+        if lia is not None:
+            lia(g, pts, rr)
+        else:
+            with habille(g, c):
+                g.pipe(pts, rr, c.m("steel"), fl_mat=c.m("steel_dk"), bolt_mat=c.m("rivet"), what="conduite")
+        g.box((u[0] * rb, u[1] * rb, zt + 0.03), (0.22, 0.22, 0.06), c.m("steel_dk"), "hard", what="socle_conduite")
+        c.occupe.append((u[0] * rb - 0.25, u[1] * rb - 0.25, u[0] * rb + 0.25, u[1] * rb + 0.25))
+
+
+def chemins_de_cables(g, c):
+    """Chemins de câbles le long des bords avant et ouest du tablier carré (sous les tuyaux), câbles rouge, noir, gaine."""
+    if c.forme != "carre":
+        return
+    M = g.M
+    d = c.dd
+    m = position_montant(c) - c.T["montant"]["w"] - 0.1
+    T = c.T
+    px = T["raccords"]["S"][0]
+    py = T["raccords"]["O"][1] * 0.65
+    for bord in ("S", "O"):
+        if bord == "S":
+            segs = [(-m, px - 0.45), (px + 0.45, 0.42 * c.a - T["moteur"]["w"] / 2 - 0.15)]
+        else:
+            segs = [(-m, py - 0.5), (py + 0.5, T["goulotte"]["y0"] - 0.2)]
+        for (s0, s1) in segs:
+            if s1 - s0 < 0.3:
+                continue
+            for (o, mat_) in ((0.0, M["redcable"]), (0.035, M["rubber"]), (-0.035, M["soot"])):
+                if bord == "S":
+                    p0, p1 = (s0, -d + 0.14 + o, c.zt + 0.05), (s1, -d + 0.14 + o, c.zt + 0.05)
+                else:
+                    p0, p1 = (-d + 0.14 + o, s0, c.zt + 0.05), (-d + 0.14 + o, s1, c.zt + 0.05)
+                g.tube([p0, ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, p0[2]), p1], 0.018, mat_, n=6, what="cable")
+            with habille(g, c):
+                if bord == "S":
+                    g.box(((s0 + s1) / 2, -d + 0.14, c.zt + 0.02), (s1 - s0, 0.14, 0.04), c.m("steel_dk"), "hard",
+                          what="chemin")
+                else:
+                    g.box((-d + 0.14, (s0 + s1) / 2, c.zt + 0.02), (0.14, s1 - s0, 0.04), c.m("steel_dk"), "hard",
+                          what="chemin")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -623,13 +750,26 @@ def corps(g, c):
         else:
             with habille(g, c):
                 tour_lignee(g, c)
+        liaisons_tour(g, c)
         if hasattr(c.ep, "socle"):
             c.ep.socle(g, c)
+        chemins_de_cables(g, c)
         if getattr(c.ep, "GARNITURE", True):
-            c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.6)))
+            c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.85)))
 
 
 def piece(g, c):
-    """Pièce du niveau pair, posée sur le sommet de la tour (une fois pour les 4 directions)."""
+    """Pièce du niveau pair, posée sur le sommet de la tour (une fois pour les 4 directions). Ronde F4-A2 (niveau pair
+    « plus distinct ») : agrandie de ECHELLE_PIECE autour de son point de pose (0, 0, H), sauf âge 1 (ep.ECHELLE)."""
+    k = float(getattr(c.ep, "ECHELLE", ECHELLE_PIECE))
     with repere(g, "N"):
-        c.ep.piece(g, c)
+        m = (Matrix.Translation((0.0, 0.0, c.H)) @ Matrix.Diagonal((k, k, k, 1.0))
+             @ Matrix.Translation((0.0, 0.0, -c.H)))
+        g.stack.append(g.stack[-1] @ m)
+        try:
+            c.ep.piece(g, c)
+        finally:
+            g.stack.pop()
+
+
+ECHELLE_PIECE = 1.6

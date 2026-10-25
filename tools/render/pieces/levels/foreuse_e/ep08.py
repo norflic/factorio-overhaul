@@ -17,6 +17,8 @@ TRIPLET = ("bocal de verre", "boue jaune", "ponton")
 FOYER = ages.FOYER[8]
 HABILLAGE = dict(ages.CORPS[8])
 PIED = 1.0
+# ronde F4-A2 (un seul corps) : embase, 4 contreforts (étais) sur les diagonales, conduites
+EMBASE = dict(r=1.05, contreforts=4, cphase=45.0, hc=0.4, rin=0.8, haubans=0, conduites=2)
 
 
 def occupe(c):

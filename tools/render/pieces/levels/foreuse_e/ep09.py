@@ -16,6 +16,8 @@ TRIPLET = ("silo de béton", "chemise de plomb", "lueur verte")
 FOYER = ages.FOYER[9]
 HABILLAGE = dict(ages.CORPS[9], forme_tablier="octogone")
 PIED = 1.3    # contreforts
+# ronde F4-A2 : le silo a déjà sa chemise et ses contreforts ; 2 conduites de plomb vers le tablier
+EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2, cdphase=45.0)   # entre deux contreforts du silo
 
 
 def occupe(c):

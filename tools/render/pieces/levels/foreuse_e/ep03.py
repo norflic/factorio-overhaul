@@ -17,7 +17,9 @@ NOM = ages.NOMS[3]
 TRIPLET = ("chaudière de cuivre", "volant", "pistons")
 FOYER = ages.FOYER[3]
 HABILLAGE = dict(ages.CORPS[3])
-PIED = 1.5    # volants et pistons débordent de la chaudière
+PIED = 1.7    # volants et pistons débordent de la chaudière
+# ronde F4-A2 (un seul corps) : assise de fonte sous la chaudière, deux conduites de vapeur vers le tablier
+EMBASE = dict(r=1.12, contreforts=0, haubans=0, conduites=1, cdphase=62.0)
 
 
 def matieres(metal, M):
@@ -40,8 +42,8 @@ def _volant(g, p, axe, R, M):
 def tour(g, c):
     M = g.M
     rt, zt, H = c.rt, c.zt, c.H
-    rb = rt * 0.82
-    zb = zt + 0.62 * H
+    rb = rt * 0.98      # ronde F4-A2 : chaudière plus grosse dans son 3×3 (0,82 → 0,98)
+    zb = zt + 0.64 * H
     # socle de fonte et fût de la chaudière
     cp.colonne(g, 0, 0, zt, zt + 0.10, rb + 0.06, M["cuivre_sombre"], n=24, what="assise")
     cp.colonne(g, 0, 0, zt + 0.10, zb, rb, M["cuivre_capot"], n=32, what="chaudiere")
@@ -65,20 +67,22 @@ def tour(g, c):
     cp.halo(g, (0, -rb - 0.25, zt + 0.42 * H), M, 2.5)
     # deux volants en diagonale (avant), deux cylindres à pistons (arrière), bielles croisant le tablier
     for s in (-1, 1):
-        px, py = s * rt * 1.05, -rt * 0.95
-        zc = zt + 0.36
-        _volant(g, (px, py, zc + 0.04), (1, s, 0), 0.36, M)
+        px, py = s * rt * 1.25, -rt * 1.05
+        zc = zt + 0.38
+        _volant(g, (px, py, zc + 0.04), (1, s, 0), 0.38, M)
         g.box((px, py, zt + 0.04), (0.16, 0.16, 0.08), M["cuivre_sombre"], "hard", what="palier")
         cp.poutre(g, (px, py, zt), (px, py, zc), 0.06, M["cuivre_sombre"], "chaise")
-        qx, qy = s * rt * 1.0, rt * 0.75
+        # arbre du volant jusqu'au fût de la chaudière (un seul corps)
+        cp.poutre(g, (px, py, zc + 0.04), (s * rb * 0.72, -rb * 0.72, zc + 0.04), 0.05, M["steel_hi"], "arbre")
+        qx, qy = s * rt * 1.18, rt * 0.82
         cp.colonne(g, qx, qy, zt, zt + 0.42, 0.11, M["laiton_capot"], n=16, what="cylindre")
         cp.bague(g, qx, qy, zt + 0.42, 0.11, 0.04, M["cuivre_sombre"], ep=0.02, n=16, what="couvercle")
         cp.colonne(g, qx, qy, zt + 0.42, zt + 0.70, 0.03, M["steel_hi"], n=8, what="tige_piston")
         cp.poutre(g, (qx, qy, zt + 0.70), (px, py, zc + 0.2), 0.035, M["steel_hi"], "bielle")
     # conduites de vapeur cuivre de la chaudière aux cylindres
     for s in (-1, 1):
-        g.pipe([(s * rb * 0.75, rb * 0.6, zt + 0.55 * H), (s * rt * 1.0, rt * 0.75, zt + 0.55 * H),
-                (s * rt * 1.0, rt * 0.75, zt + 0.46)], 0.035, M["cuivre_capot"], fl_mat=M["laiton_capot"],
+        g.pipe([(s * rb * 0.75, rb * 0.6, zt + 0.55 * H), (s * rt * 1.18, rt * 0.82, zt + 0.55 * H),
+                (s * rt * 1.18, rt * 0.82, zt + 0.46)], 0.035, M["cuivre_capot"], fl_mat=M["laiton_capot"],
                bolt_mat=None, what="vapeur")
 
 

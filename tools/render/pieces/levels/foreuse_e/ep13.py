@@ -23,9 +23,13 @@ def occupe(c):
     """Bouteilles couchées sur les diagonales."""
     out = []
     for k in range(4):
-        x, y = cp.quart((c.rt * 0.87, c.rt * 0.87), k)[:2]
-        out.append((x - 0.55, y - 0.55, x + 0.55, y + 0.55))
+        x, y = cp.quart((c.rt * 0.9, c.rt * 0.9), k)[:2]
+        out.append((x - 0.75, y - 0.75, x + 0.75, y + 0.75))
     return out
+
+
+# ronde F4-A2 : embase sous la colonne ; les bouteilles et leurs conduites relient la tour au tablier
+EMBASE = dict(r=0.85, contreforts=0, haubans=0, conduites=0)
 
 
 def matieres(metal, M):
@@ -38,12 +42,17 @@ def _bouteille(g, p, axe, L, r, M):
     for s in (-1, 1):
         g.sphere((x + axe[0] * s * L / 2, y + axe[1] * s * L / 2, z), r, M["acier_canon2"], n=20, m=10,
                  what="calotte")
-    for t in (-0.32, -0.12, 0.12, 0.32):
-        g.tube_shell((x + axe[0] * t * L, y + axe[1] * t * L, z), axe, r * 1.12, r * 0.95, 0.06, M["cuivre_bobine"],
+    for t in (-0.34, -0.2, 0.2, 0.34):
+        g.tube_shell((x + axe[0] * t * L, y + axe[1] * t * L, z), axe, r * 1.15, r * 0.95, 0.08, M["cuivre_bobine"],
                      n=24, what="bague")
-    g.box((x, y, z + r * 0.98), (0.05 + abs(axe[0]) * L * 0.25, 0.05 + abs(axe[1]) * L * 0.25, 0.02), M["emit"], "flat",
-          what="fente")
-    cp.halo(g, (x, y - 0.2, z + r + 0.1), M, 2.5)
+    # ronde F4-A2 (DC : « bouteilles de l'âge 13 visibles ») : fente violette sur toute la longueur, anneaux
+    # d'annihilation aux deux bouts
+    cp.poutre(g, (x - axe[0] * L * 0.12, y - axe[1] * L * 0.12, z + r * 0.97),
+              (x + axe[0] * L * 0.12, y + axe[1] * L * 0.12, z + r * 0.97), 0.07, M["emit"], "fente", h=0.03)
+    for s in (-1, 1):
+        g.torus((x + axe[0] * s * L * 0.46, y + axe[1] * s * L * 0.46, z), axe, r * 1.02, 0.028, M["emit2"], n=24, m=6,
+                what="anneau")
+    cp.halo(g, (x, y - 0.2, z + r + 0.1), M, 3.0)
 
 
 def tour(g, c):
@@ -70,14 +79,18 @@ def tour(g, c):
     cp.colonne(g, 0, 0, zb1, zb1 + 0.1, rb * 1.3, M["acier_canon"], n=8, phase=math.pi / 8, style="hard", what="chapeau")
     cp.colonne(g, 0, 0, zb1 + 0.1, H, 0.12, M["chrome_fin"], n=16, what="sommet")
     # 4 bouteilles couchées sur les diagonales (en X : les raccords de fluide et la goulotte restent libres)
-    L, r = rt * 0.6, 0.17
+    L, r = rt * 0.85, 0.25        # ronde F4-A2 : plus longues et plus grosses (0,6 rt et 0,17 avant)
     for k in range(4):
-        cx, cy = cp.quart((rt * 0.87, rt * 0.87), k)[:2]
+        cx, cy = cp.quart((rt * 0.9, rt * 0.9), k)[:2]
         ax = cp.quart((0.7071, 0.7071), k)[:2]
-        _bouteille(g, (cx, cy, zt + r + 0.08), (ax[0], ax[1], 0.0), L, r, M)
+        _bouteille(g, (cx, cy, zt + r + 0.1), (ax[0], ax[1], 0.0), L, r, M)
         for t in (-0.3, 0.3):
-            g.box((cx + ax[0] * t * L, cy + ax[1] * t * L, zt + 0.06), (0.14, 0.14, 0.12), M["acier_noir"], "hard",
+            g.box((cx + ax[0] * t * L, cy + ax[1] * t * L, zt + 0.07), (0.2, 0.2, 0.14), M["acier_noir"], "hard",
                   what="berceau")
+        # conduite de cuivre de la bouteille à la colonne de bobinages (un seul corps)
+        g.pipe([(cx - ax[0] * L * 0.4, cy - ax[1] * L * 0.4, zt + r + 0.1),
+                (ax[0] * rb * 1.3, ax[1] * rb * 1.3, zt + 0.35 * H), (ax[0] * rb * 0.9, ax[1] * rb * 0.9, zt + 0.4 * H)],
+               0.045, M["cuivre_plaque"], fl_mat=M["acier_canon2"], bolt_mat=M["chrome_fin"], what="conduite")
 
 
 def trepan(g, c):

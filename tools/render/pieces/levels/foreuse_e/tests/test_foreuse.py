@@ -217,7 +217,8 @@ def main():
                 okh = False
             check("ep%02d : habillage valide" % e, okh)
         cles = set(re.findall(r'M\["([a-zA-Z_0-9]+)"\]', src))
-        defn = lignee | set(ages.CLES_MATIERES.get(e, ())) | set(re.findall(r'M\["([a-zA-Z_0-9]+)"\]\s*=', src))
+        defn = (lignee | set(ages.CLES_MATIERES.get(e, ())) | set(re.findall(r'M\["([a-zA-Z_0-9]+)"\]\s*=', src))
+                | set(re.findall(r'metal\("([a-z_0-9]+)"', src)))
         manque = sorted(cles - defn)
         check("ep%02d : matières citées toutes définies" % e, not manque, ", ".join(manque))
 

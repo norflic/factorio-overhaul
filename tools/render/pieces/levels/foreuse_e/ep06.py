@@ -17,6 +17,8 @@ TRIPLET = ("pylône", "électrodes", "moteur bleu")
 FOYER = ages.FOYER[6]
 HABILLAGE = dict(ages.CORPS[6])
 PIED = 1.05
+# ronde F4-A2 : le transformateur est l'embase ; les jambes du pylône tiennent les diagonales (ni contreforts ni haubans)
+EMBASE = dict(r=0.62, contreforts=0, haubans=0, conduites=2)
 
 
 def matieres(metal, M):
@@ -66,19 +68,39 @@ def tour(g, c):
 
 
 def trepan(g, c):
-    """Électrodes de cuivre autour du puits, câbles vers le pylône, arc bleu au pied."""
+    """ÉLECTRODES (ronde F4-A2, DC : « électrodes de l'âge 6 visibles ») : trois grosses électrodes de cuivre HORS du
+    pylône (diagonales NE, NO, SO ; le moteur tient la SE), sur des piles d'isolateurs, pointe lumineuse, arcs bleus au
+    pied, câbles vers le pylône."""
     M = g.M
-    zt, rw, rt = c.zt, c.rw, c.rt
+    zt, rt = c.zt, c.rt
     hb = min(c.H - 0.35, c.T["z_treillis_max"])
-    for k in range(4):
-        x, y = cp.quart((rt * 0.64, rt * 0.64), k)[:2]     # hors du transformateur (ronde 1)
-        cp.colonne(g, x, y, zt - 0.02, zt + 0.62, 0.05, M["copper_pol"], n=10, what="electrode")
-        for i in range(3):
-            g.cyl((x, y, zt + 0.48 + 0.04 * i), "z", 0.075, 0.018, M["porcelaine"], n=12, what="iso")
-        g.cable((x, y, zt + 0.62), (x * 0.3, y * 0.3, hb * 0.7), 0.04, 0.016, M["bakelite"])
-        g.cyl((x * 1.12, y * 1.12, zt + 0.05), "z", 0.06, 0.1, M["emit"], n=8, r2=0.01, style="flat", what="arc")
-        g.cable((x, y, zt + 0.3), (x * 1.12, y * 1.12, zt + 0.08), 0.0, 0.012, M["emit"])
-    cp.halo(g, (0, -rt * 0.8, zt + 0.25), M, 5.0)
+    for k in (0, 1, 2):
+        x, y = cp.quart((rt * 1.2, rt * 1.2), k)[:2]
+        g.box((x, y, zt + 0.04), (0.3, 0.3, 0.08), M["fonte_bleue"], "hard", what="socle_electrode")
+        for i in range(5):
+            g.cyl((x, y, zt + 0.12 + 0.07 * i), "z", 0.13 - 0.01 * i, 0.035, M["porcelaine"], n=14, what="iso")
+        cp.colonne(g, x, y, zt + 0.1, zt + 1.05, 0.065, M["copper_pol"], n=12, what="electrode")
+        for zz in (0.62, 0.8):
+            cp.bague(g, x, y, zt + zz, 0.065, 0.04, M["fonte_bleue"], ep=0.025, n=12, what="collier")
+        g.sphere((x, y, zt + 1.1), 0.085, M["emit"], n=14, m=7, what="pointe")
+        cp.halo(g, (x, y - 0.15, zt + 1.1), M, 2.5)
+        # arcs bleus au pied (trois éclairs brisés vers le tablier)
+        for j in range(3):
+            a = math.tau * j / 3 + 0.4 * k
+            p0 = (x, y, zt + 0.5)
+            p1 = (x + 0.16 * math.cos(a), y + 0.16 * math.sin(a), zt + 0.3)
+            p2 = (x + 0.26 * math.cos(a + 0.5), y + 0.26 * math.sin(a + 0.5), zt + 0.03)
+            g.tube([p0, p1, p2], 0.012, M["emit"], n=5, what="arc")
+        g.cable((x, y, zt + 0.95), (x * 0.25, y * 0.25, hb * 0.62), 0.12, 0.02, M["bakelite"])
+    cp.halo(g, (0, -rt * 0.8, zt + 0.25), M, 4.0)
+
+
+def occupe(c):
+    out = []
+    for k in (0, 1, 2):
+        x, y = cp.quart((c.rt * 1.2, c.rt * 1.2), k)[:2]
+        out.append((x - 0.35, y - 0.35, x + 0.35, y + 0.35))
+    return out
 
 
 def moteur(g, c):

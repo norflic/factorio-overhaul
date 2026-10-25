@@ -17,6 +17,8 @@ TRIPLET = ("cloche blindée", "lance thermique", "scories")
 FOYER = ages.FOYER[5]
 HABILLAGE = dict(ages.CORPS[5], forme_tablier="octogone")
 PIED = 1.15
+# ronde F4-A2 (un seul corps) : embase de fonte, 4 contreforts de basalte sur les diagonales
+EMBASE = dict(r=1.16, contreforts=4, cphase=45.0, hc=0.34, rin=0.9, haubans=0, conduites=2)
 
 
 def occupe(c):

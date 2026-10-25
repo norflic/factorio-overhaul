@@ -16,6 +16,8 @@ TRIPLET = ("singularité", "spirale d'or", "couronne noire")
 FOYER = ages.FOYER[15]
 HABILLAGE = dict(ages.CORPS[15], forme_tablier="octogone")
 PIED = 1.02
+# ronde F4-A2 : le socle à 8 pans et les griffes sont l'embase ; 2 conduites
+EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 
 
 def occupe(c):

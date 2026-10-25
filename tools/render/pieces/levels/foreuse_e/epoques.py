@@ -88,6 +88,16 @@ TRIPLETS = {
     15: ("singularité", "spirale d'or", "couronne noire"),
 }
 
+# TEINTE DU NIVEAU PAIR (ronde F4-A2, DC : niveau pair « plus distinct ») : le prototype du niveau 2N multiplie le corps
+# par cette teinte (couleur du foyer de l'âge mêlée de blanc, 22 % : une teinte ne fait que MULTIPLIER, F36) ; la pièce
+# paire, elle, garde ses couleurs. Les planches l'appliquent hors moteur (profil.level_layers).
+def teinte_pair(e):
+    rgb = ages.FOYER.get(e, {}).get("rgb") or (1.0, 1.0, 1.0)
+    return tuple(round(0.78 + 0.22 * v, 4) for v in rgb)
+
+
+TEINTE_PAIR = {e: teinte_pair(e) for e in range(1, 16)}
+
 # trous enfermés VOULUS (ilots.py) : {(âge, « corps » | « compo »): [(x, y, rayon) en tuiles depuis le centre]} ; aucun
 TROUS_VOULUS = {}
 

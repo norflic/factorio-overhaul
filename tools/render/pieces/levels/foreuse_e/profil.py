@@ -55,17 +55,34 @@ def vanilla_niveau1(K, pose):
     return r
 
 
+def _teinte(lays, e):
+    """Teinte du niveau pair appliquée au corps (couches main), comme le ferait le prototype (multiplication)."""
+    t = E.TEINTE_PAIR.get(e) if isinstance(e, int) else None
+    if not t:
+        return lays
+    out = []
+    for l in lays:
+        if l["kind"] == "main":
+            img = l["img"].copy()
+            for i in range(3):
+                img[..., i] = img[..., i] * t[i]
+            l = dict(l, img=img)
+        out.append(l)
+    return out
+
+
 def level_layers(K, out, e, pose, even=False, kinds=("shadow", "main", "glow", "light")):
-    """Couches d'un niveau : corps tourné vers pose (+ pièce paire) ; âge 1 : vanilla (+ e01-piece par-dessus)."""
+    """Couches d'un niveau : corps tourné vers pose (+ pièce paire, + teinte du niveau pair sur le corps) ; âge 1 : vanilla
+    (+ e01-piece par-dessus)."""
     if e == 1:
         lays = list(vanilla_niveau1(K, pose))
         if even:
-            lays += K.own(out, "e01-piece", kinds)
+            lays = _teinte(lays, e) + K.own(out, "e01-piece", kinds)
         return lays
     pre = prefixe(e)
     lays = K.own(out, "%s-%s" % (pre, pose), kinds)
     if even:
-        lays += K.own(out, pre + "-piece", kinds)
+        lays = _teinte(lays, e) + K.own(out, pre + "-piece", kinds)
     return lays
 
 

@@ -16,7 +16,9 @@ NOM = ages.NOMS[2]
 TRIPLET = ("balancier", "massif de briques", "foyer rouge")
 FOYER = ages.FOYER[2]
 HABILLAGE = dict(ages.CORPS[2])
-PIED = 1.1
+PIED = 1.25
+# ronde F4-A2 (un seul corps) : embase de fer sous le massif, une conduite (le 3×3 est plein : charbon, enclume, moteur)
+EMBASE = dict(r=1.32, contreforts=0, haubans=0, conduites=1, cdphase=62.0)
 
 
 def occupe(c):
@@ -45,8 +47,8 @@ def _assises(g, c, x0, x1, y0, y1, z0, z1, n):
 
 def tour(g, c):
     M = g.M
-    rt, zt, H = c.rt, c.zt, c.H
-    zm = zt + 0.52 * H
+    rt, zt, H = c.rt * 1.14, c.zt, c.H      # ronde F4-A2 : massif plus grand dans son 3×3 (DC : « âges 2 et 3 plus grands »)
+    zm = zt + 0.56 * H
     _assises(g, c, -rt, rt, -rt, rt, zt, zm, 9)
     # chaînes d'angle et ceinture de fer
     for (x, y) in cp.sym4((rt, rt)):

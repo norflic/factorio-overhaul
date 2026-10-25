@@ -16,6 +16,8 @@ TRIPLET = ("tripode", "ailerons", "balises orange")
 FOYER = ages.FOYER[11]
 HABILLAGE = dict(ages.CORPS[11], forme_tablier="rond")
 PIED = 1.0
+# ronde F4-A2 (un seul corps) : 3 haubans du moyeu entre les jambes du tripode, embase sous la tuyère
+EMBASE = dict(r=0.62, contreforts=0, haubans=3, hphase=90.0, zh=0.9, rh=0.12, conduites=0)
 
 
 def occupe(c):

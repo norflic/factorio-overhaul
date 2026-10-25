@@ -18,11 +18,20 @@ HABILLAGE = dict(ages.CORPS[4])
 PIED = 1.15
 
 
+def TORCHERE(a):
+    """Place de la torchère (ronde F4-A2 : arrière droit ; à l'arrière gauche elle tombait sur l'ancre d'un hauban)."""
+    return a * 0.55, a * 0.78
+
+
+# ronde F4-A2 (un seul corps) : haubans du derrick aux ancres des angles, pas d'embase (les jambes portent sur patins)
+EMBASE = dict(r=0.0, contreforts=0, haubans=4, hphase=45.0, zh=0.9, rh=0.3, conduites=2)
+
+
 def occupe(c):
     """Râtelier de tiges, torchère, vannes."""
     a = c.a
     x0, y0 = -a * 0.72, -a * 0.38
-    tx, ty = -a * 0.62, a * 0.55
+    tx, ty = TORCHERE(a)
     return [(x0 - 0.32, y0 - 0.52, x0 + 0.32, y0 + 0.56), (tx - 0.16, ty - 0.16, tx + 0.16, ty + 0.16),
             (-a + 0.45, 0.35, -a + 0.65, 0.65), (a - 0.65, 0.35, a - 0.45, 0.65)]
 
@@ -86,7 +95,7 @@ def socle(g, c):
             g.cyl((x, y0, z), "y", 0.05, 0.95, M["galva"], n=10, what="tige")
             g.cyl((x, y0 + 0.48, z), "y", 0.058, 0.06, M["galva_sombre"], n=10, what="manchon")
     # torchère (arrière gauche) : fût noir haubané, flamme orange
-    tx, ty = -a * 0.62, a * 0.55
+    tx, ty = TORCHERE(a)
     cp.colonne(g, tx, ty, zt, zt + 1.15, 0.07, M["noir_capot"], n=12, what="torchere")
     cp.bague(g, tx, ty, zt + 0.5, 0.07, 0.05, M["jaune_capot"], ep=0.02, n=12, what="bande")
     cp.colonne(g, tx, ty, zt + 1.15, zt + 1.22, 0.10, M["noir_capot"], n=12, what="bec")

@@ -17,6 +17,8 @@ TRIPLET = ("diapason", "dallage de pierre", "cristaux dressés")
 FOYER = ages.FOYER[7]
 HABILLAGE = dict(ages.CORPS[7], forme_tablier="rond")
 PIED = 1.08
+# ronde F4-A2 : le socle de pierre à degrés est l'embase ; 2 conduites de bronze
+EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 
 
 def matieres(metal, M):

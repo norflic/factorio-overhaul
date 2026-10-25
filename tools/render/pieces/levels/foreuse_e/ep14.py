@@ -17,6 +17,8 @@ TRIPLET = ("anneau vertical", "horizon étoilé", "piliers lunaires")
 FOYER = ages.FOYER[14]
 HABILLAGE = dict(ages.CORPS[14], forme_tablier="rond")
 PIED = 1.12
+# ronde F4-A2 : le dais et les piliers sont l'embase ; 2 conduites
+EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 DENSITE = 0.3    # les étoiles semées font une part de la garniture
 
 
