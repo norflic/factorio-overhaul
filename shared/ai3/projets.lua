@@ -377,28 +377,40 @@ EMIT.stock = function(E, proj, g)
   return P.want(E, proj, { { g.item, g.n } }, proj.prio, true, "stock") and "ok" or "matiere"
 end
 
---- Armée : un lot de T.kit_batch soldats ; meilleur soldat dont l'équipement se fait, sinon le fusilier.
+--- Armée : un lot de T.kit_batch soldats. Le soldat est le MEILLEUR dont l'équipement est au stock ou se fabrique
+--- MAINTENANT avec ce qui reste (« le meilleur équipement payable », §3.1) ; sinon le soldat le plus simple, fabriqué en
+--- partie. Échelle des soldats : celle du planificateur (Planner.best_unit du niveau, puis des niveaux inférieurs).
+--- Moteur simulé de pvp_test, essai 6 de ce lot : toujours le grenadier (8 grenades, 80 charbons par soldat) faute
+--- de mieux, charbon à 9, l'armée ne se refaisait plus après une attaque (19 soldats de 20 à 30 min).
 EMIT.army = function(E, proj, g, ctx)
   local view = E.view
   local n = math.min(T.kit_batch, (g.target or 0) - (view.soldiers or 0))
   if n <= 0 or E.train then return "ok" end
-  local units = { Planner.best_unit(view.tech or 0) }
-  if units[1] ~= P.FALLBACK_UNIT then units[2] = P.FALLBACK_UNIT end
-  for _, unit in ipairs(units) do
+  local units, seen = {}, {}
+  for t = (view.tech or 0), 0, -1 do
+    local u = Planner.best_unit(t)
+    if not seen[u] then seen[u] = true units[#units + 1] = u end
+  end
+  if not seen[P.FALLBACK_UNIT] then units[#units + 1] = P.FALLBACK_UNIT end
+  local function kits_of(unit)
     local kits = {}
     for _, it in ipairs(T.kits[unit]) do kits[#kits + 1] = { it[1], it[2] * n } end
-    if P.take(E, kits) then
+    return kits
+  end
+  for _, unit in ipairs(units) do
+    if P.take(E, kits_of(unit)) then
       E.train = { unit = unit, count = n, ia3 = proj.id }
       return "ok"
     end
   end
-  local unit = units[1]
-  for _, it in ipairs(T.kits[unit]) do
-    if not E.book:handcraftable(it[1]) and (E.avail[it[1]] or 0) < it[2] * n then unit = P.FALLBACK_UNIT break end
+  for _, unit in ipairs(units) do
+    local kits = kits_of(unit)
+    if next(E.book:plan(kits, E.avail).raw) == nil then
+      P.want(E, proj, kits, proj.prio, false, "kit")
+      return "matiere"
+    end
   end
-  local kits = {}
-  for _, it in ipairs(T.kits[unit]) do kits[#kits + 1] = { it[1], it[2] * n } end
-  P.want(E, proj, kits, proj.prio, false, "kit")
+  P.want(E, proj, kits_of(units[#units]), proj.prio, false, "kit")
   return "matiere"
 end
 
