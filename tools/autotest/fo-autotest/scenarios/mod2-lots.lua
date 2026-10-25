@@ -193,6 +193,17 @@ return {
     ctx.check(lot_k(st.a.m) == 1 and lot_k(st.a0.m) == 1, "A et A0 : lot 1 a la pose (modules poses ensuite, sans evenement)")
     -- B : conservation.
     st.b = { m = l30(X0 + 60, Y0, true), fed = 0, out = 0, sw = {} }
+    -- P : productivité (30 × P10 + 4 × productivité 3) : les modules de productivité restent au lot 100 (limitation
+    -- étendue aux lots) et les produits suivent (+40 %).
+    do
+      local m = s.create_entity({ name = L30, position = { X0 + 30, Y0 + 30 }, force = f, raise_built = true })
+      m.set_recipe("iron-gear-wheel")
+      local inv = m.get_module_inventory()
+      for _ = 1, 30 do inv.insert({ name = P10, count = 1 }) end
+      for _ = 1, 4 do inv.insert({ name = "productivity-module-3", count = 1 }) end
+      pcall(remote.call, "fo-modules", "refresh", m, true)
+      st.p = { m = m, n = 0, put = inv.get_item_count() }
+    end
     -- C1, C2 : béton.
     local function concrete(x, y)
       local m = s.create_entity({ name = L30, position = { x, y }, force = f, raise_built = true })
@@ -346,8 +357,8 @@ return {
     local t = e.tick
     local fen = t > WA and t <= WB
 
-    -- A0, A : engrenage nourri, sortie vidée.
-    for _, c in ipairs({ st.a0, st.a }) do
+    -- A0, A, P : engrenage nourri, sortie vidée.
+    for _, c in ipairs({ st.a0, st.a, st.p }) do
       local m = c.m
       put(m, "iron-plate", 100000)
       local out = m.get_output_inventory()
@@ -563,6 +574,20 @@ return {
     ctx.check(a.k100 and a.k100 <= 310, "A : passe seule au lot 100 par le balayage (<= 310 ticks)", tostring(a.k100))
     ctx.check(math.abs(a.n / secs - want) <= 0.01 * want + 10, "A : debit au lot 100 = vitesse / 0,5 s (" .. string.format("%.0f", want) .. " /s)",
       string.format("%.2f /s mesure", a.n / secs))
+    -- P : productivité.
+    local pc = st.p
+    if pc and pc.m.valid then
+      local m = pc.m
+      local pb = m.productivity_bonus
+      local wantp = m.crafting_speed / 0.5 * (1 + pb)
+      local nmods = m.get_module_inventory().get_item_count()
+      ctx.log(string.format("MESURE P (30 x P10 + 4 x productivite 3) : vitesse %s ; productivite %s ; lot %d ; modules %d / %d ; %d engrenages en %.0f s = %.1f /s (voulu %.1f)",
+        f6(m.crafting_speed), f6(pb), lot_k(m), nmods, pc.put, pc.n, secs, pc.n / secs, wantp))
+      ctx.check(lot_k(m) == 100 and nmods == 34 and pc.put == 34, "P : modules de productivite gardes au lot 100 (limitation etendue aux lots)",
+        nmods .. " modules")
+      ctx.check(math.abs(pc.n / secs - wantp) <= 0.03 * wantp, "P : produits du lot 100 avec la productivite (+" .. string.format("%.0f", pb * 100) .. " %)",
+        string.format("%.1f /s pour %.1f", pc.n / secs, wantp))
+    end
     -- B : conservation à chaque bascule et en boucle fermée.
     local b = st.b
     local seq = {}
