@@ -14,7 +14,7 @@ EPOQUE = 15
 NOM = ages.NOMS[15]
 TRIPLET = ("singularité", "spirale d'or", "couronne noire")
 FOYER = ages.FOYER[15]
-HABILLAGE = dict(ages.CORPS[15])
+HABILLAGE = dict(ages.CORPS[15], forme_tablier="octogone")
 PIED = 1.02
 
 

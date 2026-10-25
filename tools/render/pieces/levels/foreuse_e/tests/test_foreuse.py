@@ -221,6 +221,19 @@ def main():
         manque = sorted(cles - defn)
         check("ep%02d : matières citées toutes définies" % e, not manque, ", ".join(manque))
 
+    # --- formes du tablier (ronde 2) : deux âges voisins de même taille n'ont pas la même ----------------------------
+    formes = {}
+    for e in range(2, 16):
+        src = open(os.path.join(KIT, "ep%02d.py" % e), encoding="utf-8").read()
+        mm = re.search(r'forme_tablier="([a-z]+)"', src)
+        formes[e] = mm.group(1) if mm else "carre"
+    check("formes du tablier connues", all(f in E.FORMES_TABLIER for f in formes.values()), repr(formes))
+    voisins = [(e, e + 1) for e in range(2, 15) if E.COTE[e] == E.COTE[e + 1] and formes[e] == formes[e + 1]
+               and formes[e] != "carre"]
+    check("formes du tablier : aucun voisin de même taille avec la même forme non carrée", not voisins, repr(voisins))
+    check("formes du tablier : au moins 6 âges non carrés", sum(f != "carre" for f in formes.values()) >= 6,
+          repr(formes))
+
     # --- nommage -------------------------------------------------------------------------------------------------------
     communs = {os.path.splitext(x)[0] for x in os.listdir(COMMUN) if x.endswith(".py")}
     kit = {os.path.splitext(x)[0] for x in os.listdir(KIT) if x.endswith(".py")}

@@ -15,7 +15,7 @@ EPOQUE = 5
 NOM = ages.NOMS[5]
 TRIPLET = ("cloche blindée", "lance thermique", "scories")
 FOYER = ages.FOYER[5]
-HABILLAGE = dict(ages.CORPS[5])
+HABILLAGE = dict(ages.CORPS[5], forme_tablier="octogone")
 PIED = 1.15
 
 

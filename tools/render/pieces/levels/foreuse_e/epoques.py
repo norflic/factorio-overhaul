@@ -33,7 +33,9 @@ zt, H, rt, rw, a (demi-côté), dd (demi-côté du tablier).
 HABILLAGE : clés communes (commun/habillage.py : capots → montants, moteur, capots de la lignée ; plateforme → dessus du
 tablier ; acier, rivets, joints, danger → lèvre de la goulotte, peinture) ; clés PROPRES à la foreuse :
   goulotte_mat  matière de la goulotte (défaut : acier de structure habillé) ;
-  puits_mat     matière de la margelle du puits (défaut : acier sombre habillé).
+  puits_mat     matière de la margelle du puits (défaut : acier sombre habillé) ;
+  forme_tablier None (carré) | "rond" | "octogone" : forme du tablier dans l'emprise carrée (ronde 2 : le DC a jugé
+                l'assembleur « tous carrés » ; deux âges voisins de même taille n'ont pas la même forme).
 """
 import importlib
 import os
@@ -61,7 +63,9 @@ HABILLAGE_DEFAUT = dict(
     **_H.HABILLAGE_LIGNEE,     # capots, plateforme, acier, rivets, joints, danger, peinture (commun)
     goulotte_mat=None,
     puits_mat=None,
+    forme_tablier=None,        # None ou "carre" | "rond" | "octogone" (ronde 2, critique du DC : « tous carrés »)
 )
+FORMES_TABLIER = ("carre", "rond", "octogone")
 
 # LECTURE « EN 3 MOTS » DE LA FOREUSE (fiches : fo-logs/2026-10-25_F4/FICHES_FOREUSE.md) : propre à la foreuse (nomme
 # sa tour ou son trépan), tous distincts (aucun mot répété : tests/test_foreuse.py) ; chaque mot nomme ce qui se voit au
@@ -102,7 +106,10 @@ def module(e):
 
 def habillage(ep):
     """Habillage complet de l'âge (HABILLAGE_DEFAUT complété par ep.HABILLAGE ; clé inconnue : KeyError)."""
-    return _H.habillage(ep, HABILLAGE_DEFAUT)
+    h = _H.habillage(ep, HABILLAGE_DEFAUT)
+    if h["forme_tablier"] is not None and h["forme_tablier"] not in FORMES_TABLIER:
+        raise ValueError("forme_tablier %r inconnue (%s)" % (h["forme_tablier"], ", ".join(FORMES_TABLIER)))
+    return h
 
 
 ages.verifier_familles()

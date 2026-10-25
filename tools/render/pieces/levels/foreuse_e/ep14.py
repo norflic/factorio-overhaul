@@ -15,7 +15,7 @@ EPOQUE = 14
 NOM = ages.NOMS[14]
 TRIPLET = ("anneau vertical", "horizon étoilé", "piliers lunaires")
 FOYER = ages.FOYER[14]
-HABILLAGE = dict(ages.CORPS[14])
+HABILLAGE = dict(ages.CORPS[14], forme_tablier="rond")
 PIED = 1.12
 DENSITE = 0.3    # les étoiles semées font une part de la garniture
 
@@ -88,7 +88,7 @@ def socle(g, c):
         rng = (rng * 1103515245 + 12345) % 2147483648
         x = (((rng >> 4) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
         y = (((rng >> 14) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
-        if abs(x) < c.rt and abs(y) < c.rt:
+        if (abs(x) < c.rt and abs(y) < c.rt) or not cp.dans_tablier(c, x, y, 0.03):
             continue
         g.dome((x, y, zt + 0.003), (0, 0, 1), 0.018 + 0.01 * (i % 3), M["emit"], n=6)
 

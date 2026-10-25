@@ -15,7 +15,7 @@ EPOQUE = 7
 NOM = ages.NOMS[7]
 TRIPLET = ("diapason", "dallage de pierre", "cristaux dressés")
 FOYER = ages.FOYER[7]
-HABILLAGE = dict(ages.CORPS[7])
+HABILLAGE = dict(ages.CORPS[7], forme_tablier="rond")
 PIED = 1.08
 
 

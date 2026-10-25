@@ -42,6 +42,7 @@ class Ctx:
         self.pont = dict(LIGNEE_PONT)
         self.pont.update({k: v for k, v in p.items() if k in LIGNEE_PONT and v is not None})
         self.pont["lisere"] = p.get("lisere")
+        self.forme = hab.get("forme_tablier") or "carre"
         # zones du tablier occupées par les accents de l'âge (ep.occupe(c) -> [(x0, y0, x1, y1)] en tuiles, repère N) :
         # la garniture de lignée les évite
         self.occupe = list(ep.occupe(self)) if hasattr(ep, "occupe") else []
@@ -142,7 +143,108 @@ def halo(g, p, M, power=4.0, cle="_emit_rgb"):
 # ------------------------------------------------------------------------------------------------
 # Pièces de la lignée
 # ------------------------------------------------------------------------------------------------
+COUPE_OCTOGONE = 0.32     # pan coupé de l'octogone : 0,32 × demi-côté (le pan diagonal est à 1,19 × le demi-côté)
+
+
+def contour_tablier(c, retrait=0.0):
+    """Sommets du contour du tablier (repère des tuiles, sens direct), selon la forme : None si carré."""
+    d = c.dd - retrait
+    if c.forme == "rond":
+        return [(d * math.cos(TAU * i / 48), d * math.sin(TAU * i / 48)) for i in range(48)]
+    if c.forme == "octogone":
+        k = COUPE_OCTOGONE * c.dd
+        pts = []
+        for q in range(4):
+            for p in ((d, -(d - k)), (d, d - k)):
+                pts.append(quart(p, q))
+        return pts
+    return None
+
+
+def dans_tablier(c, x, y, r=0.0, marge=0.06):
+    """Vrai si le disque (x, y, r) est sur le tablier (toutes formes)."""
+    d = c.dd - marge - r
+    if c.forme == "rond":
+        return math.hypot(x, y) < d
+    if abs(x) > d or abs(y) > d:
+        return False
+    if c.forme == "octogone":
+        return abs(x) + abs(y) < 2 * c.dd - COUPE_OCTOGONE * c.dd - (marge + r) * SQ2
+    return True
+
+
+def prisme(g, pts, z0, z1, m, style="hard", what="prisme"):
+    """Prisme droit sur un polygone convexe (sens direct) de z0 à z1."""
+    n = len(pts)
+    vs = [(x, y, z0) for x, y in pts] + [(x, y, z1) for x, y in pts]
+    fs = [tuple(range(n))[::-1], tuple(range(n, 2 * n))]
+    for i in range(n):
+        j = (i + 1) % n
+        fs.append((i, j, n + j, n + i))
+    g._add(m, style, vs, fs, what)
+
+
+def tablier_forme(g, c):
+    """Tablier ROND ou OCTOGONAL (ronde 2 : le DC a jugé l'assembleur « tous carrés ») : caisson prismatique, dessus en
+    secteurs alternés au motif de l'âge (rivets au bord), disque central, rebord, liseré lumineux."""
+    M = g.M
+    zt = c.zt
+    zc = zt * 0.80
+    ext = contour_tablier(c)
+    prisme(g, ext, 0.0, zc, M["steel_dk"], what="caisson")
+    pm = [c.m(c.pont["mat"]), c.m(c.pont["mat2"])]
+    # secteurs : chaque arête du contour est découpée en morceaux réguliers
+    sub = 1 if c.forme == "rond" else 3
+    pts = []
+    for i in range(len(ext)):
+        a, b = ext[i], ext[(i + 1) % len(ext)]
+        for s in range(sub):
+            t = s / float(sub)
+            pts.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    r0 = c.rw + 0.12
+    bou = c.pont.get("boulons")
+    for i in range(len(pts)):
+        p, q = pts[i], pts[(i + 1) % len(pts)]
+        if c.forme == "rond" and i % 2:
+            continue
+        if c.forme == "rond":
+            q = pts[(i + 2) % len(pts)]
+        rp, rq = math.hypot(*p), math.hypot(*q)
+        up, uq = (p[0] / rp, p[1] / rp), (q[0] / rq, q[1] / rq)
+        P0 = V((up[0] * r0, up[1] * r0, zc))
+        Q0 = V((uq[0] * r0, uq[1] * r0, zc))
+        P1 = V((p[0] - up[0] * 0.05, p[1] - up[1] * 0.05, zc))
+        Q1 = V((q[0] - uq[0] * 0.05, q[1] - uq[1] * 0.05, zc))
+        k = i // (2 if c.forme == "rond" else 1)
+        # trois bandes concentriques par secteur (plaques en damier, joints, rivets au bord de chaque plaque)
+        for b_, (t0, t1) in enumerate(((0.0, 0.42), (0.42, 0.74), (0.74, 1.0))):
+            A0, B0 = P0.lerp(P1, t0), Q0.lerp(Q1, t0)
+            A1, B1 = P0.lerp(P1, t1), Q0.lerp(Q1, t1)
+            mid = (A0 + B0 + A1 + B1) / 4.0
+            quad = [A0.lerp(mid, 0.07), A1.lerp(mid, 0.05), B1.lerp(mid, 0.05), B0.lerp(mid, 0.07)]
+            top = [v + V((0, 0, zt - zc)) for v in quad]
+            g.hexa(quad + top, pm[(k + b_) % 2], "hard", "secteur")
+            if bou:
+                for t in (0.25, 0.75):
+                    e = quad[1].lerp(quad[2], t).lerp(mid, 0.12)
+                    g.dome((e.x, e.y, zt), (0, 0, 1), 0.015, c.m(bou))
+    colonne(g, 0, 0, zc, zt, r0 + 0.02, pm[1], n=32, what="disque_central")
+    # rebord le long du contour
+    b = c.m(c.pont["bord"])
+    for i in range(len(ext)):
+        a, bb = ext[i], ext[(i + 1) % len(ext)]
+        poutre(g, (a[0], a[1], zt + 0.01), (bb[0], bb[1], zt + 0.01), 0.06, b, "corniere")
+    if c.pont.get("lisere"):
+        lm = M[c.pont["lisere"]] if c.pont["lisere"] in M else M["emit_soft"]
+        lis = contour_tablier(c, retrait=-0.006)
+        for i in range(len(lis)):
+            a, bb = lis[i], lis[(i + 1) % len(lis)]
+            poutre(g, (a[0], a[1], zc * 0.55), (bb[0], bb[1], zc * 0.55), 0.012, lm, "lisere", h=0.035)
+
+
 def tablier(g, c):
+    if c.forme in ("rond", "octogone"):
+        return tablier_forme(g, c)
     M = g.M
     dd, zt = c.dd, c.zt
     zc = zt * 0.80
@@ -210,8 +312,17 @@ def bande_danger(g, x, y, w, z0, z1, sx, sy, n=3):
     g.hazard(qy, n, t=0.008)
 
 
+def position_montant(c):
+    """Demi-diagonale (x = y) des montants : coins du carré, ou sur la diagonale du tablier rond ou octogonal."""
+    if c.forme == "rond":
+        return (c.dd - 0.24) * 0.7071
+    if c.forme == "octogone":
+        return ((2 - COUPE_OCTOGONE) * c.dd / SQ2 - 0.26) * 0.7071
+    return c.dd - c.T["montant"]["retrait"]
+
+
 def montants(g, c):
-    r = c.dd - c.T["montant"]["retrait"]
+    r = position_montant(c)
     f = getattr(c.ep, "montant", None)
     for (x, y) in ((-r, -r), (r, -r), (r, r), (-r, r)):
         if f is not None:
@@ -372,7 +483,7 @@ def tour_lignee(g, c):
 def _libre(c, x, y, r):
     T = c.T
     d = c.dd
-    if abs(x) + r > d - 0.06 or abs(y) + r > d - 0.06:
+    if not dans_tablier(c, x, y, r):
         return False
     rp = c.rt * float(getattr(c.ep, "PIED", 1.08))
     if math.hypot(x, y) < rp + r or (abs(x) < c.rt + r and abs(y) < c.rt + r and rp >= 1.0 * c.rt):
@@ -389,7 +500,7 @@ def _libre(c, x, y, r):
     m = T["moteur"]
     if abs(x - 0.42 * c.a) < m["w"] / 2 + 0.12 + r and abs(y - m["y"]) < m["p"] / 2 + 0.14 + r:
         return False
-    mr = d - T["montant"]["retrait"]
+    mr = position_montant(c)
     if abs(abs(x) - mr) < T["montant"]["w"] + r and abs(abs(y) - mr) < T["montant"]["w"] + r:
         return False
     for (x0, y0, x1, y1) in c.occupe:

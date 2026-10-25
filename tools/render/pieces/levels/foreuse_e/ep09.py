@@ -14,7 +14,7 @@ EPOQUE = 9
 NOM = ages.NOMS[9]
 TRIPLET = ("silo de béton", "chemise de plomb", "lueur verte")
 FOYER = ages.FOYER[9]
-HABILLAGE = dict(ages.CORPS[9])
+HABILLAGE = dict(ages.CORPS[9], forme_tablier="octogone")
 PIED = 1.3    # contreforts
 
 
