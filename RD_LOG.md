@@ -500,6 +500,16 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-i, fenêtre « Équipe et factions », 25/10 ; fusionné dans `main`, `63c480c`, version 0.4.28)
+Preuves : `fo-logs\2026-10-25_IA1-i\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E174, E175.
+- **F263** : la barre de raccourcis garde l'ORDRE propre à chaque joueur (`player-data.json`) : un raccourci nouveau
+  s'ajoute à la fin ; `order` du prototype ne joue que pour un joueur neuf ; il peut tomber sur une rangée à faire défiler.
+- **F264** : `take_screenshot{show_gui = true}` dessine l'interface à la taille et à l'échelle d'affichage du joueur ; une
+  capture d'une autre taille la coupe.
+- **F265** : une interface ouverte comme `player.opened` a été fermée sans action du banc dans 3 passages sur 6, à des
+  ticks différents sur la même carte, jamais au tick d'un rafraîchissement : c'est une ENTRÉE de la session de test
+  (fenêtre au premier plan, pertes de focus) ; cause exacte non prouvée.
+
 ### Faits vérifiés en moteur réel (lots MOD-V et MOD-3, modules au barème D-17 et icônes propres, 25/10 ; fusionnés dans `main`, `18bc98d`, version 0.4.27)
 Preuves : `fo-logs\2026-10-25_MODV\NOTES.md`, `fo-logs\2026-10-25_MOD3\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E155,
 E156, E170, E171.
@@ -1070,6 +1080,18 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E174, E175 · Lot IA1-i, fenêtre « Équipe et factions » (25/10 de 10 h 50 à 12 h 15 ; fusion `63c480c`, version 0.4.28)** :
+demande du DC (« l'idée serait plutôt d'avoir une interface. Pas des commandes à taper ») ; bouton de la barre de raccourcis
+et Maj+T ; onglets Mon équipe, Orientation (5 préréglages, renvoyer avec confirmation dans la fenêtre), Factions (une carte
+par faction, lancer la guerre avec les RÉGLAGES DE CARTE affichés, arrêter avec confirmation), PNJ ; Territoire et Chantiers
+« à venir ». Chaque bouton appelle la fonction de la commande correspondante (bouton et commande : même état de jeu, hors
+jeu) ; l'interface ne fait que lire l'état et n'écrit que par 4 fonctions appelées d'un clic synchronisé. **E174** (`ia1-gui`,
+avec images 35 OK, sans images 7 OK) ; **E175** (rafraîchissement une fois par seconde, fenêtre ouverte seulement : 0,6 ms
+Mon équipe, 0,66 ms Factions, 0,21 ms PNJ ; 0,012 ms par tick en moyenne). VALIDÉE par le DC (« Validée, en jeu »). Sur
+`main` 0.4.28 (`fo-logs\2026-10-25_integration-0.4.28\`) : content 331, ia1-gui 7 (sans images) et 35 (avec images), pnj-auto 7, pnj-reduit 12, verif-guide 15 et 15 (graines 271828182 et 1618033988) (`done.txt` 12:39:25 à 13:08:40), 0 erreur ; hors jeu ia1i 89, pteam 32, war 105, chef 62, org 365, ia1b 50, migration 82, module_mult 95, pvp 1305, harness 0 erreur ; levels_test 1658 OK et 6 ECHEC à l'intégration (la fenêtre lisait `gui.screen` d'un joueur simulé qui n'en a pas), corrigé par l'intégrateur (`cf25906`) : 1664 OK ; api_lint 1065. NON prouvé : un vrai clic, le
+vrai bouton, la vraie touche (à essayer par le DC) ; le multijoueur (raisonnement seulement) ; fermetures non demandées en
+session de test (F265).
+
 **E155, E156, E170, E171 · Lots MOD-V et MOD-3, modules au barème D-17 (25/10 ; fusion `18bc98d`, version 0.4.27)** :
 vitesse +20 % puis +10 % par palier ; productivité +10 % puis +5 % par palier, MULTIPLIÉE (plafond du moteur seul, × 328,67,
 réponse du DC « Pas de plafond (× 328) » après correction de l'ERREUR de l'orchestrateur, qui l'avait dite plafonnée à × 4) ;
