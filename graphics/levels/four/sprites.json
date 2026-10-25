@@ -5,19 +5,19 @@
     "light": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e01-piece-light.png",
-      "height": 202,
+      "height": 196,
       "shift": [
        0.0,
-       -0.453125
+       -0.40625
       ],
       "width": 236
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e01-piece-light.png",
-      "height": 101,
+      "height": 98,
       "shift": [
        0.0,
-       -0.453125
+       -0.40625
       ],
       "width": 118
      }
@@ -27,19 +27,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e01-piece-main.png",
       "height": 110,
       "shift": [
-       -0.078125,
+       -0.109375,
        -1.296875
       ],
-      "width": 154
+      "width": 150
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e01-piece-main.png",
       "height": 55,
       "shift": [
-       -0.078125,
+       -0.109375,
        -1.296875
       ],
-      "width": 77
+      "width": 75
      }
     },
     "shadow": {
@@ -102,7 +102,7 @@
     "icon_size": 64
    },
    "map_color": [
-    0.315,
+    0.316,
     0.274,
     0.247
    ],
@@ -172,19 +172,19 @@
     "light": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e02-socle-light.png",
-      "height": 54,
+      "height": 52,
       "shift": [
        0.0,
-       1.328125
+       1.34375
       ],
       "width": 160
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e02-socle-light.png",
-      "height": 27,
+      "height": 26,
       "shift": [
        0.0,
-       1.328125
+       1.34375
       ],
       "width": 80
      }
@@ -274,9 +274,9 @@
     "icon_size": 64
    },
    "map_color": [
-    0.331,
+    0.332,
     0.31,
-    0.225
+    0.226
    ],
    "piece": {
     "main": {
@@ -324,39 +324,39 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e03-socle-glow.png",
-      "height": 130,
+      "height": 100,
       "shift": [
-       0.0,
-       -0.109375
+       -0.015625,
+       0.125
       ],
-      "width": 120
+      "width": 122
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e03-socle-glow.png",
-      "height": 65,
+      "height": 50,
       "shift": [
-       0.0,
-       -0.109375
+       -0.015625,
+       0.125
       ],
-      "width": 60
+      "width": 61
      }
     },
     "light": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e03-socle-light.png",
-      "height": 116,
+      "height": 114,
       "shift": [
        0.0,
-       0.9375
+       0.953125
       ],
       "width": 220
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e03-socle-light.png",
-      "height": 58,
+      "height": 57,
       "shift": [
        0.0,
-       0.9375
+       0.953125
       ],
       "width": 110
      }
@@ -411,12 +411,12 @@
   "4": {
    "boite": [
     [
-     -1.71875,
+     -1.6875,
      -2.78125
     ],
     [
      1.65625,
-     1.625
+     1.59375
     ]
    ],
    "foyer": [
@@ -446,8 +446,8 @@
     "icon_size": 64
    },
    "map_color": [
-    0.325,
-    0.303,
+    0.326,
+    0.304,
     0.19
    ],
    "piece": {
@@ -498,37 +498,37 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-glow.png",
       "height": 268,
       "shift": [
-       0.0,
+       -0.03125,
        -0.6875
       ],
-      "width": 188
+      "width": 180
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e04-socle-glow.png",
       "height": 134,
       "shift": [
-       0.0,
+       -0.03125,
        -0.6875
       ],
-      "width": 94
+      "width": 90
      }
     },
     "light": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-light.png",
-      "height": 58,
+      "height": 56,
       "shift": [
        0.03125,
-       1.859375
+       1.875
       ],
       "width": 196
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e04-socle-light.png",
-      "height": 29,
+      "height": 28,
       "shift": [
        0.03125,
-       1.859375
+       1.875
       ],
       "width": 98
      }
@@ -536,21 +536,21 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-main.png",
-      "height": 282,
+      "height": 280,
       "shift": [
-       -0.03125,
-       -0.578125
+       -0.015625,
+       -0.59375
       ],
-      "width": 216
+      "width": 214
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e04-socle-main.png",
-      "height": 141,
+      "height": 140,
       "shift": [
-       -0.03125,
-       -0.578125
+       -0.015625,
+       -0.59375
       ],
-      "width": 108
+      "width": 107
      }
     },
     "shadow": {
@@ -587,8 +587,8 @@
      -2.3125
     ],
     [
-     1.71875,
-     1.625
+     1.6875,
+     1.59375
     ]
    ],
    "foyer": [
@@ -648,19 +648,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e05-piece-main.png",
       "height": 60,
       "shift": [
-       0.0,
-       1.125
+       -0.015625,
+       1.09375
       ],
-      "width": 204
+      "width": 202
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e05-piece-main.png",
       "height": 30,
       "shift": [
-       0.0,
-       1.125
+       -0.015625,
+       1.09375
       ],
-      "width": 102
+      "width": 101
      }
     },
     "shadow": {
@@ -728,21 +728,21 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e05-socle-main.png",
-      "height": 252,
+      "height": 250,
       "shift": [
-       0.015625,
-       -0.34375
+       0.0,
+       -0.359375
       ],
-      "width": 218
+      "width": 216
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e05-socle-main.png",
-      "height": 126,
+      "height": 125,
       "shift": [
-       0.015625,
-       -0.34375
+       0.0,
+       -0.359375
       ],
-      "width": 109
+      "width": 108
      }
     },
     "shadow": {
@@ -780,7 +780,7 @@
     ],
     [
      1.6875,
-     1.625
+     1.59375
     ]
    ],
    "foyer": [
@@ -818,19 +818,19 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e06-piece-main.png",
-      "height": 50,
+      "height": 48,
       "shift": [
        0.0,
-       1.203125
+       1.1875
       ],
       "width": 208
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e06-piece-main.png",
-      "height": 25,
+      "height": 24,
       "shift": [
        0.0,
-       1.203125
+       1.1875
       ],
       "width": 104
      }
@@ -860,21 +860,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e06-socle-glow.png",
-      "height": 232,
+      "height": 256,
       "shift": [
-       0.0,
-       -0.40625
+       -0.015625,
+       -0.59375
       ],
-      "width": 172
+      "width": 170
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e06-socle-glow.png",
-      "height": 116,
+      "height": 128,
       "shift": [
-       0.0,
-       -0.40625
+       -0.015625,
+       -0.59375
       ],
-      "width": 86
+      "width": 85
      }
     },
     "light": {
@@ -900,19 +900,19 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e06-socle-main.png",
-      "height": 286,
+      "height": 284,
       "shift": [
        0.0,
-       -0.609375
+       -0.625
       ],
       "width": 216
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e06-socle-main.png",
-      "height": 143,
+      "height": 142,
       "shift": [
        0.0,
-       -0.609375
+       -0.625
       ],
       "width": 108
      }
@@ -982,7 +982,7 @@
     "icon_size": 64
    },
    "map_color": [
-    0.338,
+    0.339,
     0.296,
     0.266
    ],
@@ -990,39 +990,39 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e07-piece-glow.png",
-      "height": 46,
+      "height": 44,
       "shift": [
        0.0,
-       1.453125
+       1.40625
       ],
-      "width": 236
+      "width": 196
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e07-piece-glow.png",
-      "height": 23,
+      "height": 22,
       "shift": [
        0.0,
-       1.453125
+       1.40625
       ],
-      "width": 118
+      "width": 98
      }
     },
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e07-piece-main.png",
-      "height": 66,
+      "height": 68,
       "shift": [
        0.0,
-       1.609375
+       1.59375
       ],
       "width": 264
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e07-piece-main.png",
-      "height": 33,
+      "height": 34,
       "shift": [
        0.0,
-       1.609375
+       1.59375
       ],
       "width": 132
      }
@@ -1052,41 +1052,41 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e07-socle-glow.png",
-      "height": 324,
+      "height": 320,
       "shift": [
-       0.0,
+       0.03125,
        -0.625
       ],
-      "width": 252
+      "width": 248
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e07-socle-glow.png",
-      "height": 162,
+      "height": 160,
       "shift": [
-       0.0,
+       0.03125,
        -0.625
       ],
-      "width": 126
+      "width": 124
      }
     },
     "light": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e07-socle-light.png",
-      "height": 174,
+      "height": 168,
       "shift": [
        0.0,
-       1.515625
+       1.5625
       ],
-      "width": 312
+      "width": 304
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e07-socle-light.png",
-      "height": 87,
+      "height": 84,
       "shift": [
        0.0,
-       1.515625
+       1.5625
       ],
-      "width": 156
+      "width": 152
      }
     },
     "main": {
@@ -1182,21 +1182,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e08-piece-glow.png",
-      "height": 36,
+      "height": 34,
       "shift": [
-       0.078125,
-       1.5625
+       0.0625,
+       1.546875
       ],
-      "width": 230
+      "width": 232
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e08-piece-glow.png",
-      "height": 18,
+      "height": 17,
       "shift": [
-       0.078125,
-       1.5625
+       0.0625,
+       1.546875
       ],
-      "width": 115
+      "width": 116
      }
     },
     "main": {
@@ -1204,19 +1204,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e08-piece-main.png",
       "height": 56,
       "shift": [
-       0.015625,
+       0.0,
        1.625
       ],
-      "width": 266
+      "width": 264
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e08-piece-main.png",
       "height": 28,
       "shift": [
-       0.015625,
+       0.0,
        1.625
       ],
-      "width": 133
+      "width": 132
      }
     },
     "shadow": {
@@ -1244,21 +1244,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e08-socle-glow.png",
-      "height": 330,
+      "height": 332,
       "shift": [
-       0.0,
-       -0.703125
+       -0.015625,
+       -0.6875
       ],
-      "width": 248
+      "width": 242
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e08-socle-glow.png",
-      "height": 165,
+      "height": 166,
       "shift": [
-       0.0,
-       -0.703125
+       -0.015625,
+       -0.6875
       ],
-      "width": 124
+      "width": 121
      }
     },
     "light": {
@@ -1266,19 +1266,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e08-socle-light.png",
       "height": 60,
       "shift": [
-       -0.015625,
+       0.0,
        2.40625
       ],
-      "width": 222
+      "width": 220
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e08-socle-light.png",
       "height": 30,
       "shift": [
-       -0.015625,
+       0.0,
        2.40625
       ],
-      "width": 111
+      "width": 110
      }
     },
     "main": {
@@ -1374,21 +1374,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e09-piece-glow.png",
-      "height": 26,
+      "height": 14,
       "shift": [
-       0.0,
-       1.390625
+       -0.015625,
+       1.328125
       ],
-      "width": 224
+      "width": 218
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e09-piece-glow.png",
-      "height": 13,
+      "height": 7,
       "shift": [
-       0.0,
-       1.390625
+       -0.015625,
+       1.328125
       ],
-      "width": 112
+      "width": 109
      }
     },
     "main": {
@@ -1436,19 +1436,19 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e09-socle-glow.png",
-      "height": 306,
+      "height": 324,
       "shift": [
-       0.015625,
-       -0.515625
+       -0.015625,
+       -0.65625
       ],
       "width": 250
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e09-socle-glow.png",
-      "height": 153,
+      "height": 162,
       "shift": [
-       0.015625,
-       -0.515625
+       -0.015625,
+       -0.65625
       ],
       "width": 125
      }
@@ -1458,19 +1458,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e09-socle-light.png",
       "height": 58,
       "shift": [
-       -0.015625,
+       0.0,
        2.390625
       ],
-      "width": 218
+      "width": 216
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e09-socle-light.png",
       "height": 29,
       "shift": [
-       -0.015625,
+       0.0,
        2.390625
       ],
-      "width": 109
+      "width": 108
      }
     },
     "main": {
@@ -1524,7 +1524,7 @@
    "boite": [
     [
      -2.71875,
-     -3.78125
+     -3.8125
     ],
     [
      2.71875,
@@ -1558,7 +1558,7 @@
     "icon_size": 64
    },
    "map_color": [
-    0.447,
+    0.448,
     0.42,
     0.367
    ],
@@ -1568,37 +1568,37 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e10-piece-glow.png",
       "height": 28,
       "shift": [
-       -0.046875,
+       -0.0625,
        2.09375
       ],
-      "width": 282
+      "width": 284
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e10-piece-glow.png",
       "height": 14,
       "shift": [
-       -0.046875,
+       -0.0625,
        2.09375
       ],
-      "width": 141
+      "width": 142
      }
     },
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e10-piece-main.png",
-      "height": 70,
+      "height": 72,
       "shift": [
        0.0,
-       2.046875
+       2.03125
       ],
       "width": 332
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e10-piece-main.png",
-      "height": 35,
+      "height": 36,
       "shift": [
        0.0,
-       2.046875
+       2.03125
       ],
       "width": 166
      }
@@ -1628,19 +1628,19 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e10-socle-glow.png",
-      "height": 394,
+      "height": 396,
       "shift": [
        0.0,
-       -0.703125
+       -0.71875
       ],
       "width": 316
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e10-socle-glow.png",
-      "height": 197,
+      "height": 198,
       "shift": [
        0.0,
-       -0.703125
+       -0.71875
       ],
       "width": 158
      }
@@ -1668,19 +1668,19 @@
     "main": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e10-socle-main.png",
-      "height": 410,
+      "height": 412,
       "shift": [
        0.0,
-       -0.578125
+       -0.59375
       ],
       "width": 348
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e10-socle-main.png",
-      "height": 205,
+      "height": 206,
       "shift": [
        0.0,
-       -0.578125
+       -0.59375
       ],
       "width": 174
      }
@@ -1715,11 +1715,11 @@
   "11": {
    "boite": [
     [
-     -2.71875,
+     -2.6875,
      -3.84375
     ],
     [
-     2.71875,
+     2.6875,
      2.625
     ]
    ],
@@ -1802,19 +1802,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e11-socle-glow.png",
       "height": 396,
       "shift": [
-       -0.03125,
+       0.0625,
        -0.71875
       ],
-      "width": 296
+      "width": 304
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e11-socle-glow.png",
       "height": 198,
       "shift": [
-       -0.03125,
+       0.0625,
        -0.71875
       ],
-      "width": 148
+      "width": 152
      }
     },
     "light": {
@@ -1845,7 +1845,7 @@
        0.0,
        -0.609375
       ],
-      "width": 348
+      "width": 344
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e11-socle-main.png",
@@ -1854,7 +1854,7 @@
        0.0,
        -0.609375
       ],
-      "width": 174
+      "width": 172
      }
     },
     "shadow": {
@@ -1887,11 +1887,11 @@
   "12": {
    "boite": [
     [
-     -2.71875,
+     -2.6875,
      -3.84375
     ],
     [
-     2.71875,
+     2.6875,
      2.625
     ]
    ],
@@ -1923,28 +1923,28 @@
    },
    "map_color": [
     0.322,
-    0.353,
-    0.366
+    0.354,
+    0.367
    ],
    "piece": {
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e12-piece-glow.png",
-      "height": 48,
+      "height": 44,
       "shift": [
-       -0.015625,
-       1.9375
+       0.0,
+       1.96875
       ],
-      "width": 302
+      "width": 300
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e12-piece-glow.png",
-      "height": 24,
+      "height": 22,
       "shift": [
-       -0.015625,
-       1.9375
+       0.0,
+       1.96875
       ],
-      "width": 151
+      "width": 150
      }
     },
     "main": {
@@ -1992,19 +1992,19 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e12-socle-glow.png",
-      "height": 386,
+      "height": 380,
       "shift": [
        0.0,
-       -0.640625
+       -0.59375
       ],
       "width": 316
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e12-socle-glow.png",
-      "height": 193,
+      "height": 190,
       "shift": [
        0.0,
-       -0.640625
+       -0.59375
       ],
       "width": 158
      }
@@ -2037,7 +2037,7 @@
        0.0,
        -0.609375
       ],
-      "width": 348
+      "width": 344
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e12-socle-main.png",
@@ -2046,7 +2046,7 @@
        0.0,
        -0.609375
       ],
-      "width": 174
+      "width": 172
      }
     },
     "shadow": {
@@ -2083,7 +2083,7 @@
      -4.125
     ],
     [
-     3.25,
+     3.21875,
      3.15625
     ]
    ],
@@ -2114,7 +2114,7 @@
     "icon_size": 64
    },
    "map_color": [
-    0.281,
+    0.282,
     0.247,
     0.259
    ],
@@ -2122,21 +2122,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e13-piece-glow.png",
-      "height": 44,
+      "height": 36,
       "shift": [
-       0.34375,
-       2.46875
+       0.203125,
+       2.5
       ],
-      "width": 292
+      "width": 270
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e13-piece-glow.png",
-      "height": 22,
+      "height": 18,
       "shift": [
-       0.34375,
-       2.46875
+       0.203125,
+       2.5
       ],
-      "width": 146
+      "width": 135
      }
     },
     "main": {
@@ -2144,19 +2144,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e13-piece-main.png",
       "height": 72,
       "shift": [
-       -0.015625,
+       0.0,
        2.5
       ],
-      "width": 390
+      "width": 388
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e13-piece-main.png",
       "height": 36,
       "shift": [
-       -0.015625,
+       0.0,
        2.5
       ],
-      "width": 195
+      "width": 194
      }
     },
     "shadow": {
@@ -2184,19 +2184,19 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e13-socle-glow.png",
-      "height": 422,
+      "height": 426,
       "shift": [
        0.015625,
-       -0.421875
+       -0.453125
       ],
       "width": 378
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e13-socle-glow.png",
-      "height": 211,
+      "height": 213,
       "shift": [
        0.015625,
-       -0.421875
+       -0.453125
       ],
       "width": 189
      }
@@ -2226,19 +2226,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e13-socle-main.png",
       "height": 466,
       "shift": [
-       0.015625,
+       0.0,
        -0.484375
       ],
-      "width": 414
+      "width": 412
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e13-socle-main.png",
       "height": 233,
       "shift": [
-       0.015625,
+       0.0,
        -0.484375
       ],
-      "width": 207
+      "width": 206
      }
     },
     "shadow": {
@@ -2275,7 +2275,7 @@
      -4.34375
     ],
     [
-     3.25,
+     3.21875,
      3.15625
     ]
    ],
@@ -2307,28 +2307,28 @@
    },
    "map_color": [
     0.227,
-    0.238,
+    0.239,
     0.36
    ],
    "piece": {
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e14-piece-glow.png",
-      "height": 48,
+      "height": 46,
       "shift": [
-       -0.0625,
-       2.4375
+       0.0,
+       2.421875
       ],
-      "width": 356
+      "width": 340
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e14-piece-glow.png",
-      "height": 24,
+      "height": 23,
       "shift": [
-       -0.0625,
-       2.4375
+       0.0,
+       2.421875
       ],
-      "width": 178
+      "width": 170
      }
     },
     "main": {
@@ -2336,19 +2336,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e14-piece-main.png",
       "height": 72,
       "shift": [
-       -0.015625,
+       0.0,
        2.5
       ],
-      "width": 390
+      "width": 388
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e14-piece-main.png",
       "height": 36,
       "shift": [
-       -0.015625,
+       0.0,
        2.5
       ],
-      "width": 195
+      "width": 194
      }
     },
     "shadow": {
@@ -2378,19 +2378,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e14-socle-glow.png",
       "height": 440,
       "shift": [
-       0.0625,
+       0.03125,
        -0.5625
       ],
-      "width": 372
+      "width": 376
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e14-socle-glow.png",
       "height": 220,
       "shift": [
-       0.0625,
+       0.03125,
        -0.5625
       ],
-      "width": 186
+      "width": 188
      }
     },
     "light": {
@@ -2418,19 +2418,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e14-socle-main.png",
       "height": 480,
       "shift": [
-       0.015625,
+       0.0,
        -0.59375
       ],
-      "width": 414
+      "width": 412
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e14-socle-main.png",
       "height": 240,
       "shift": [
-       0.015625,
+       0.0,
        -0.59375
       ],
-      "width": 207
+      "width": 206
      }
     },
     "shadow": {
@@ -2498,7 +2498,7 @@
     "icon_size": 64
    },
    "map_color": [
-    0.196,
+    0.197,
     0.168,
     0.128
    ],
@@ -2506,21 +2506,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e15-piece-glow.png",
-      "height": 48,
+      "height": 44,
       "shift": [
-       -0.078125,
-       2.4375
+       0.0,
+       2.40625
       ],
-      "width": 350
+      "width": 328
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e15-piece-glow.png",
-      "height": 24,
+      "height": 22,
       "shift": [
-       -0.078125,
-       2.4375
+       0.0,
+       2.40625
       ],
-      "width": 175
+      "width": 164
      }
     },
     "main": {
@@ -2528,19 +2528,19 @@
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e15-piece-main.png",
       "height": 64,
       "shift": [
-       -0.015625,
+       0.0,
        2.5625
       ],
-      "width": 390
+      "width": 388
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e15-piece-main.png",
       "height": 32,
       "shift": [
-       -0.015625,
+       0.0,
        2.5625
       ],
-      "width": 195
+      "width": 194
      }
     },
     "shadow": {
@@ -2568,21 +2568,21 @@
     "glow": {
      "hr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/hr-four-e15-socle-glow.png",
-      "height": 434,
+      "height": 432,
       "shift": [
        0.0,
-       -0.515625
+       -0.5
       ],
-      "width": 380
+      "width": 376
      },
      "lr": {
       "filename": "__factorio-overhaul__/graphics/levels/four/four-e15-socle-glow.png",
-      "height": 217,
+      "height": 216,
       "shift": [
        0.0,
-       -0.515625
+       -0.5
       ],
-      "width": 190
+      "width": 188
      }
     },
     "light": {

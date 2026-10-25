@@ -3,16 +3,16 @@
  "commande": "py -3.9 tools/render/pieces/levels/four_e/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-10-25_F2/production/sprites, à GARDER)",
  "fichiers": {
   "four-e01-piece-light.png": {
-   "hauteur": 101,
+   "hauteur": 98,
    "largeur": 118,
-   "sha256": "edb3a5651dec1a70b16c1cb7cbe9e33a8000e4e5f5dff4c7dad1aca4e36fc8aa",
-   "taille": 3964
+   "sha256": "bf4ce201556b8111056f38f76d287a6debd867ee5882dd910c8c5bad74ef70cf",
+   "taille": 3378
   },
   "four-e01-piece-main.png": {
    "hauteur": 55,
-   "largeur": 77,
-   "sha256": "057b8671bba4b04eeee90cac2a957d286be9667942d3dbe33e1a1aa11e62b4c2",
-   "taille": 6286
+   "largeur": 75,
+   "sha256": "6a5c793d377894613e25e23570dcc6aa41af1cef24472f15764adcd57d093f6c",
+   "taille": 6101
   },
   "four-e01-piece-shadow.png": {
    "hauteur": 17,
@@ -23,14 +23,14 @@
   "four-e02-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "f15a61260df68dbab2386f9d0c823a82b9fd612bdd93a5c9765fb8fbc1e74665",
-   "taille": 9339
+   "sha256": "0f660a2665a38b271856067d57d7d16a6399e0f3da9666c875d38e0b9f69796a",
+   "taille": 9135
   },
   "four-e02-piece-main.png": {
    "hauteur": 25,
    "largeur": 73,
-   "sha256": "954bdf064ec854dc7f1bdffd81ef904cf02c3c211a43334d868348fb29e88c17",
-   "taille": 2155
+   "sha256": "51886b08106cc84b8e2f5e7f2fb2e80e81d140c74b9369ad1902e4c5e01febb2",
+   "taille": 2138
   },
   "four-e02-piece-shadow.png": {
    "hauteur": 11,
@@ -41,20 +41,20 @@
   "four-e02-socle-glow.png": {
    "hauteur": 86,
    "largeur": 59,
-   "sha256": "8430bbdb3fbba3a5ddac5e74e88e02be01213d8805233a06a9556099aefd0c95",
-   "taille": 2250
+   "sha256": "8c645c02f26351dbd46fcb98bb20f802fb3919dca2a3c4f5deb70db1a77334ca",
+   "taille": 2032
   },
   "four-e02-socle-light.png": {
-   "hauteur": 27,
+   "hauteur": 26,
    "largeur": 80,
-   "sha256": "d708ace1f7250cea2aebe8d5fea402e2dfdb5b49f05ababb5a4915ee40b06221",
-   "taille": 871
+   "sha256": "b2d5e96494daa9618bb38bae5e8698a31849f391e6696df49a9ca8c20bb9ba2f",
+   "taille": 849
   },
   "four-e02-socle-main.png": {
    "hauteur": 102,
    "largeur": 80,
-   "sha256": "a2a478d9abba560a30d8f430fa24557a0cabedcdd532ef735134344b59948db0",
-   "taille": 14733
+   "sha256": "0240af486af128e971fdddf74050ab54a60418a52e3a3a65682166fe771ff03b",
+   "taille": 14240
   },
   "four-e02-socle-shadow.png": {
    "hauteur": 62,
@@ -65,38 +65,38 @@
   "four-e03-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "9d959ec20f622658ca1e3376de4070c3b8bd887745350e28c5ebd0f0c0169d58",
-   "taille": 9359
+   "sha256": "58c51dfae530ddb40a7fa8c355004b660a43b523c0ea4b0dd5283001d6403459",
+   "taille": 9223
   },
   "four-e03-piece-main.png": {
    "hauteur": 24,
    "largeur": 74,
-   "sha256": "706458e35a1af00886c94e335d2248f0f0559ea71629b627e55802b754eb8903",
-   "taille": 2226
+   "sha256": "f46670be282c3ac10dbf1b42405d3a094ca72aaa2dfffaa9e4831899f42b8674",
+   "taille": 2101
   },
   "four-e03-piece-shadow.png": {
    "hauteur": 11,
    "largeur": 69,
-   "sha256": "1babcabdede28b42e7e6508099ea4603619c16c2ad958554e2644561a2bb770f",
-   "taille": 503
+   "sha256": "845a424cb869a5d11b1353f4cedd3a0e2e19186a64fc2c18f72ab856b675f4d7",
+   "taille": 492
   },
   "four-e03-socle-glow.png": {
-   "hauteur": 65,
-   "largeur": 60,
-   "sha256": "9e152ca50f22781962d5aaa28b529449497248d00979f44ddbe3bcbeb6b7772b",
-   "taille": 1778
+   "hauteur": 50,
+   "largeur": 61,
+   "sha256": "2f3a80e11b63e50a78e1b0fb0642c84f03245433544f2802c01f3604f7e6388e",
+   "taille": 1495
   },
   "four-e03-socle-light.png": {
-   "hauteur": 58,
+   "hauteur": 57,
    "largeur": 110,
-   "sha256": "f0897e7986f1a89c47a2f5d2cc94dee0b341bc2aa7c0d9cc118652720ab5c1eb",
-   "taille": 1946
+   "sha256": "edd11530d2d14b8a47408fa3a5e5af38ef6d9bda0a3b95213f77f68f9d333c1d",
+   "taille": 1756
   },
   "four-e03-socle-main.png": {
    "hauteur": 102,
    "largeur": 80,
-   "sha256": "5d3940f754ba2f4de3da1a42038a7b31d7107732cafbcf43c85a9689cd8e7f6a",
-   "taille": 13940
+   "sha256": "7a30ad445f0126c744b1157a118756a3870790e74bd27189852b70087ae9d639",
+   "taille": 13325
   },
   "four-e03-socle-shadow.png": {
    "hauteur": 62,
@@ -107,14 +107,14 @@
   "four-e04-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "654694459b7d07eb35d8bcd4b2b981360742b0c3f7915bfbb6c84951e6beaedd",
-   "taille": 9672
+   "sha256": "67ff28b1103caa171a497205584da6667ea60120f538e506841606a05582387d",
+   "taille": 9638
   },
   "four-e04-piece-main.png": {
    "hauteur": 26,
    "largeur": 104,
-   "sha256": "57317d7095592b31a57271b0264395ca129cc23d66ba5a34cdd6f54238d4368a",
-   "taille": 3577
+   "sha256": "be3b6dcdafd95e5724980bb5970201d5056df246534dc71c2600850970c31882",
+   "taille": 3466
   },
   "four-e04-piece-shadow.png": {
    "hauteur": 12,
@@ -124,21 +124,21 @@
   },
   "four-e04-socle-glow.png": {
    "hauteur": 134,
-   "largeur": 94,
-   "sha256": "a05b8693db3f055856568263e0e1ea418310cff162ae78fa5ea11de1982abad2",
-   "taille": 3803
+   "largeur": 90,
+   "sha256": "492ddab8b5d2f5badcff67129936d5f19a1599b15580035d231c25a2f7c6ae32",
+   "taille": 3219
   },
   "four-e04-socle-light.png": {
-   "hauteur": 29,
+   "hauteur": 28,
    "largeur": 98,
-   "sha256": "f3f001a23b0bda6549f5d75f519dda2bc3c5d9a510b90683ed19b7c44b226e11",
-   "taille": 1721
+   "sha256": "0c73b25dcb94281d6f16f0e57f14f6deb1bef2052e8b9af6a574c1312ec831f3",
+   "taille": 1714
   },
   "four-e04-socle-main.png": {
-   "hauteur": 141,
-   "largeur": 108,
-   "sha256": "a92b7b133574465a04b8816da65dfb19af5d3cb1b892a0813759e0391b30a3db",
-   "taille": 26807
+   "hauteur": 140,
+   "largeur": 107,
+   "sha256": "3e82efae41074f03bd148e67d792e219c885a50e847581a9c7bc00bf2099d2c5",
+   "taille": 25957
   },
   "four-e04-socle-shadow.png": {
    "hauteur": 94,
@@ -149,20 +149,20 @@
   "four-e05-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "9e584226bb26f3f918a4f5a129f480c1f11f5d28ee2daa7caebf7b7a8a2158a4",
-   "taille": 9983
+   "sha256": "9f5ac18cdd426dfe747523dc62b33de1bf6db6685596c4e04851d5d5c4acc51b",
+   "taille": 9912
   },
   "four-e05-piece-glow.png": {
    "hauteur": 11,
    "largeur": 80,
-   "sha256": "e83bf017ca2437f1648f02db02d0936bc3403f1714365ee2c45dd09d244e6576",
-   "taille": 774
+   "sha256": "8977295dfc972de594537bad4bb77e99d8af1a0bdecc7233e0f289aa6c0b22ff",
+   "taille": 806
   },
   "four-e05-piece-main.png": {
    "hauteur": 30,
-   "largeur": 102,
-   "sha256": "d64642e04e29e2e0c816f424dda9905a67ecea86841cd63a90dcd21d06e368e3",
-   "taille": 3238
+   "largeur": 101,
+   "sha256": "413b4aa900950ed3d8929312164a1db813af1033b2fbab084be5bb004d3bca9f",
+   "taille": 3178
   },
   "four-e05-piece-shadow.png": {
    "hauteur": 13,
@@ -173,20 +173,20 @@
   "four-e05-socle-glow.png": {
    "hauteur": 117,
    "largeur": 94,
-   "sha256": "9c2240aa186ed94039181b589d738a8d497a8b23edf61dff4bc2a40d8f571db8",
-   "taille": 9002
+   "sha256": "006066822214b721cd8a42f38fa2a074cd9d4b5e2286b7e747ef93ec17ac16cf",
+   "taille": 8186
   },
   "four-e05-socle-light.png": {
    "hauteur": 28,
    "largeur": 97,
-   "sha256": "be5c9bd8d3bf98446afb32adb96bd5779c941824c06a9d7a0769359beb7437b7",
-   "taille": 1700
+   "sha256": "1f3e6d2e35aee056a19ccba355f61f9ddb99634ffcb9ef80f986093572c389b1",
+   "taille": 1661
   },
   "four-e05-socle-main.png": {
-   "hauteur": 126,
-   "largeur": 109,
-   "sha256": "bdd223aabeb72b0e81397d5d318fcb36c165d7bbe655cf29394e3c18436ddbc8",
-   "taille": 20618
+   "hauteur": 125,
+   "largeur": 108,
+   "sha256": "fbd0d6620ea1f4c00a0a0533d5d8f43dcb6c0219cf75d9c8503c0deb2474d84c",
+   "taille": 20043
   },
   "four-e05-socle-shadow.png": {
    "hauteur": 94,
@@ -197,14 +197,14 @@
   "four-e06-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "55d0b7e73b2ab3ef0c9e7535167597c587747456558f45315844c8c3e2adb0aa",
-   "taille": 10688
+   "sha256": "7e838025bf02ab7a66e4901cc4bd9dceb0e5515e310484ed38fb999b2e5d49a2",
+   "taille": 10616
   },
   "four-e06-piece-main.png": {
-   "hauteur": 25,
+   "hauteur": 24,
    "largeur": 104,
-   "sha256": "d1093ae8d8765b7baa713afdb80742140e4deee4f6a65e6af0bba2321ad94ff0",
-   "taille": 3338
+   "sha256": "b489cefa742a69f7917fa13407deed58657d46c39ad808a68aa616ee29aef980",
+   "taille": 3158
   },
   "four-e06-piece-shadow.png": {
    "hauteur": 12,
@@ -213,22 +213,22 @@
    "taille": 723
   },
   "four-e06-socle-glow.png": {
-   "hauteur": 116,
-   "largeur": 86,
-   "sha256": "64c1d3ef9f4bfe190c1e7b9b24b5f6be4d4f7cab8fa03d82f8b9c5d10cd5a14d",
-   "taille": 3429
+   "hauteur": 128,
+   "largeur": 85,
+   "sha256": "3284191ede0482f9408d8677651ea959f99dc92d82e375fab2f126f14f1f0f38",
+   "taille": 3207
   },
   "four-e06-socle-light.png": {
    "hauteur": 27,
    "largeur": 94,
-   "sha256": "1023f4c153d1bc014fbe50ee0d27233c0cee6846cbdc883570125365635a2c9c",
-   "taille": 1021
+   "sha256": "1203e916ef37fcc5fd28f030e8c87ae2e70abbf118195b28ccaf4efd65897a75",
+   "taille": 908
   },
   "four-e06-socle-main.png": {
-   "hauteur": 143,
+   "hauteur": 142,
    "largeur": 108,
-   "sha256": "e58035ebc4639a78d01ca3df59555b891987677a8f40f62be0355d5f83f50477",
-   "taille": 30200
+   "sha256": "dedc6eb12af7b701324bdcd7a7040f8375790385b99ce016986484c65e43c3d5",
+   "taille": 28797
   },
   "four-e06-socle-shadow.png": {
    "hauteur": 94,
@@ -239,20 +239,20 @@
   "four-e07-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "4257f5cd346100d35767288e2c29d8c2020b0d970074411aff1aa8fcdc4fa17f",
-   "taille": 10254
+   "sha256": "d7e99a7e66977d12ba43eda6912ed8c90ff65c9e0f91c64e90e91a7a1e586b18",
+   "taille": 10205
   },
   "four-e07-piece-glow.png": {
-   "hauteur": 23,
-   "largeur": 118,
-   "sha256": "da3a1caeca7cc1ab2c1bddeac43a14c19dbdda2da63cc36d29d0216f1fd779e5",
-   "taille": 938
+   "hauteur": 22,
+   "largeur": 98,
+   "sha256": "2ac3b01c1f71a2d808e44a4e0406157d2178d9fd9ee62c922a152a39795b6d1f",
+   "taille": 830
   },
   "four-e07-piece-main.png": {
-   "hauteur": 33,
+   "hauteur": 34,
    "largeur": 132,
-   "sha256": "91e62665eaa522687ce1072f4902e096a6b124abf6be8051ecf152d875283726",
-   "taille": 4787
+   "sha256": "5121544a247827803d4641f4ad1e52c059c2aaf41439b76fb4e035d6305ad101",
+   "taille": 4655
   },
   "four-e07-piece-shadow.png": {
    "hauteur": 14,
@@ -261,22 +261,22 @@
    "taille": 908
   },
   "four-e07-socle-glow.png": {
-   "hauteur": 162,
-   "largeur": 126,
-   "sha256": "14f98a376a1205cf5a41a1c6fb56b4da2b5235ad38dbe253c2c66e00775a446c",
-   "taille": 7716
+   "hauteur": 160,
+   "largeur": 124,
+   "sha256": "6d19e56a1b136ca2e39984e5b1d53687fe2433bd756fc792764e1ec8b828b9b9",
+   "taille": 6676
   },
   "four-e07-socle-light.png": {
-   "hauteur": 87,
-   "largeur": 156,
-   "sha256": "032023857a4b701f9ed7ef7f0b1d9fda205243947f7af70f7a2b8c49837a4668",
-   "taille": 1915
+   "hauteur": 84,
+   "largeur": 152,
+   "sha256": "21749855a768a9fab223d5376ad93385ef19218cbbafde212948d849fa753669",
+   "taille": 1600
   },
   "four-e07-socle-main.png": {
    "hauteur": 173,
    "largeur": 140,
-   "sha256": "e21fe5b545f8b08cdceadc6f5c3889e5d73dabd118179a314cdd1e21a2f7a964",
-   "taille": 41282
+   "sha256": "8ab5011f366ec65d7ab64000b892675ad888895e8d43bd53b3b6d216fd16e69d",
+   "taille": 40055
   },
   "four-e07-socle-shadow.png": {
    "hauteur": 126,
@@ -287,20 +287,20 @@
   "four-e08-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "0cfc999e81e5cee2b365ba430075fb903b483f3760765b864af53fd6231a90ed",
-   "taille": 10001
+   "sha256": "0deb1f977c39608bf507d361a7bfc74114b4c598ca44a25766369c0ec541129e",
+   "taille": 9964
   },
   "four-e08-piece-glow.png": {
-   "hauteur": 18,
-   "largeur": 115,
-   "sha256": "f8d30344856a9097bdc4e9d0ea605914779bf5ee469407ae29b333948e7d0e98",
-   "taille": 752
+   "hauteur": 17,
+   "largeur": 116,
+   "sha256": "3991e129d1791c4eebe0673c9ef019f3fcbb1490ab0a731edb71ad49926e7815",
+   "taille": 685
   },
   "four-e08-piece-main.png": {
    "hauteur": 28,
-   "largeur": 133,
-   "sha256": "fb6bff0d209383e8883d262d2ae66499ee9d0bdbb866cd16758431c0044f374c",
-   "taille": 4684
+   "largeur": 132,
+   "sha256": "50f4f3593f86e097a498f8c55bda7ffb65004cf81a96079a4a2070b69d77749e",
+   "taille": 4515
   },
   "four-e08-piece-shadow.png": {
    "hauteur": 14,
@@ -309,22 +309,22 @@
    "taille": 816
   },
   "four-e08-socle-glow.png": {
-   "hauteur": 165,
-   "largeur": 124,
-   "sha256": "ec857969808a70467bbb335952529a947b99107a48ac8c83b43f7dc518190306",
-   "taille": 8705
+   "hauteur": 166,
+   "largeur": 121,
+   "sha256": "49076fb70e74c25bc781f8d59a8e91891040ecd7976a8caae96665264327d598",
+   "taille": 7838
   },
   "four-e08-socle-light.png": {
    "hauteur": 30,
-   "largeur": 111,
-   "sha256": "ab1e36637d57088dd7034ffad942b5046b229dfa0b65ad545715f32ddde96eeb",
-   "taille": 1182
+   "largeur": 110,
+   "sha256": "e43189c65a3015d3bc90d77aed21066123d350d5d05a40b520f11a4d5cb93b48",
+   "taille": 1053
   },
   "four-e08-socle-main.png": {
    "hauteur": 173,
    "largeur": 142,
-   "sha256": "63f049259d9a5fddb900b33caee191b2fa02ff18a1afcf5f15e6622bc5c5efe7",
-   "taille": 41082
+   "sha256": "5b3e5a1737a521e5f74bb7f4dbd4e6365059e210500abefdaaca4474462d70e9",
+   "taille": 39793
   },
   "four-e08-socle-shadow.png": {
    "hauteur": 126,
@@ -335,20 +335,20 @@
   "four-e09-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "24249997288148189ace4ab0303faf42f61d2aa71184616394ca71795cd6066d",
-   "taille": 10878
+   "sha256": "a7d63b138d8622300075958f8e2ef704e785e9ed09d64acd1598d9cf895960e2",
+   "taille": 10689
   },
   "four-e09-piece-glow.png": {
-   "hauteur": 13,
-   "largeur": 112,
-   "sha256": "79baa6a71ba18e800162cec057640879132ba94450e4a5e7d42f32c59c4931f0",
-   "taille": 574
+   "hauteur": 7,
+   "largeur": 109,
+   "sha256": "217ea2190afd9f0148b39a14b184b62d2b76f79b3c204eaafb104b53e0bf3071",
+   "taille": 549
   },
   "four-e09-piece-main.png": {
    "hauteur": 30,
    "largeur": 134,
-   "sha256": "e5f7e3585e825fabac97e278ff0baf7840914bec4319a4df07cc1a4c1fe82adc",
-   "taille": 5426
+   "sha256": "bef454f07bb886793f7d251805127d5acf72104bbc3026abedd80c122be0176c",
+   "taille": 5277
   },
   "four-e09-piece-shadow.png": {
    "hauteur": 14,
@@ -357,22 +357,22 @@
    "taille": 912
   },
   "four-e09-socle-glow.png": {
-   "hauteur": 153,
+   "hauteur": 162,
    "largeur": 125,
-   "sha256": "bd87b9ac5b145488641048247211d02bea029b5a349c416f9c173aa2798aaf40",
-   "taille": 7036
+   "sha256": "19bf805e492d635760c2f7cfbb3688853185c6b227508bddca99001191afa9dc",
+   "taille": 6400
   },
   "four-e09-socle-light.png": {
    "hauteur": 29,
-   "largeur": 109,
-   "sha256": "8710306e03f05e18aefc5df6dbd7c77d90a7bcca4d650496a32e9c071d4770ba",
-   "taille": 1220
+   "largeur": 108,
+   "sha256": "95ba172b88a0cdeae15c9aab0dbdedee55a82dd36771005b24b9b00d3220cdca",
+   "taille": 1049
   },
   "four-e09-socle-main.png": {
    "hauteur": 179,
    "largeur": 142,
-   "sha256": "efb7629510b0fdb5b89a6a15d70af706d858e94622df00e95c37e5c4b8b6cac5",
-   "taille": 43002
+   "sha256": "9ddf4cb67e0c23143b625136a5078494bcbf5c154e70f3d41990636563736a13",
+   "taille": 41651
   },
   "four-e09-socle-shadow.png": {
    "hauteur": 126,
@@ -383,20 +383,20 @@
   "four-e10-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "533f1c04b72ceae79dfbad5dad336ff8267172b72f3ba3d71f18b144be0717d5",
-   "taille": 11803
+   "sha256": "e58ce5faa0391ed34ab3993a849a0c1827ed6946733903531fd9e6538955f4cd",
+   "taille": 11786
   },
   "four-e10-piece-glow.png": {
    "hauteur": 14,
-   "largeur": 141,
-   "sha256": "bf2869f1641b897be02c656e589b519ecabfd2523c2f41ddb9a9e72f780c86b7",
-   "taille": 898
+   "largeur": 142,
+   "sha256": "255bb13560e58662695b3810f483eb56a9d600e011fc704f93dc814087105c5a",
+   "taille": 886
   },
   "four-e10-piece-main.png": {
-   "hauteur": 35,
+   "hauteur": 36,
    "largeur": 166,
-   "sha256": "9ed5bef05ac988d653a3a5fe2db529f3300c385a58b9d0bfa29a6eccc2e57635",
-   "taille": 7089
+   "sha256": "d4a9cd73efb911b21fa9bdd47e60f639d16033816bf5ec31c61d7ebdeb490626",
+   "taille": 6821
   },
   "four-e10-piece-shadow.png": {
    "hauteur": 16,
@@ -405,22 +405,22 @@
    "taille": 1199
   },
   "four-e10-socle-glow.png": {
-   "hauteur": 197,
+   "hauteur": 198,
    "largeur": 158,
-   "sha256": "d207de4d682188074ac8675662dc72334f38ec09af0874e6621e48ec126e4d5e",
-   "taille": 11760
+   "sha256": "072557b0195ec1cce391dac4b0db28d0e5c83bd9fcb201ffc6d6707da953d739",
+   "taille": 10186
   },
   "four-e10-socle-light.png": {
    "hauteur": 32,
    "largeur": 127,
-   "sha256": "2b7231a1f26530ea875d1f7ae11843483436151fc767cb50d87196772ce6db45",
-   "taille": 1237
+   "sha256": "6e3ed3cd0a45dcbbfdf9edf8331dd37da17cc54b869f826447e7e0667d6b947d",
+   "taille": 1151
   },
   "four-e10-socle-main.png": {
-   "hauteur": 205,
+   "hauteur": 206,
    "largeur": 174,
-   "sha256": "bf3d6498d899b885c889f682db76b339b4b3528412948fb9a51dfdf9872d89fb",
-   "taille": 58956
+   "sha256": "2ba75bbd059deb6ee4e6b095fc58b020172f3c098a62fae8d1a1dfcdc3919b54",
+   "taille": 56014
   },
   "four-e10-socle-shadow.png": {
    "hauteur": 158,
@@ -431,14 +431,14 @@
   "four-e11-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "3424260f042726b4c2d3da8ef6d83f8cd68d79bbd65d02eea5d32f25061e9a0f",
-   "taille": 11101
+   "sha256": "2dcbb55af870d721f04b62db2bbcda4540daba6e86aaaa6b725577efae307967",
+   "taille": 11035
   },
   "four-e11-piece-main.png": {
    "hauteur": 32,
    "largeur": 164,
-   "sha256": "e028303a9bdb3c85994b2a590525703377565b4e210774128e72caf093ff9f46",
-   "taille": 7027
+   "sha256": "9b4cad8f1f7d915b02633e65596ee4e8086480db9a326de1f0ed62c8b91bb49b",
+   "taille": 6771
   },
   "four-e11-piece-shadow.png": {
    "hauteur": 16,
@@ -448,21 +448,21 @@
   },
   "four-e11-socle-glow.png": {
    "hauteur": 198,
-   "largeur": 148,
-   "sha256": "dd32130c560b651dca8ca00e4685363b1e0cd59539b40cc3585d1b8679fc4491",
-   "taille": 7066
+   "largeur": 152,
+   "sha256": "3a6f76cead981dc906352da09e0ebb077cd4ae487ba8745ac115e50e9daa2174",
+   "taille": 5933
   },
   "four-e11-socle-light.png": {
    "hauteur": 103,
    "largeur": 156,
-   "sha256": "a0a4c7a118412de90a03dd058a6d2a14c2faf49f1bea5d4dbebf6e1485ef68cb",
-   "taille": 1601
+   "sha256": "de089d1b4d344e448429ac498deef452c7e25a1b17e3e582f7c30cd6aa91c305",
+   "taille": 1332
   },
   "four-e11-socle-main.png": {
    "hauteur": 207,
-   "largeur": 174,
-   "sha256": "3297701eec117dcd2a71dcc0996c42d1ceed962d269ff4f49f924c7318d4d689",
-   "taille": 64683
+   "largeur": 172,
+   "sha256": "4c72a1faec49899d5e23f71c2ac22b8f7ba769b642753ca0c21bbbdbf3d325b4",
+   "taille": 61487
   },
   "four-e11-socle-shadow.png": {
    "hauteur": 158,
@@ -473,20 +473,20 @@
   "four-e12-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "07e811e67502c81ef80eea42325d1d820f622582b8bca34dab72cf7ef34b7b2d",
-   "taille": 11997
+   "sha256": "989d52d549852ab31cad1aae8753914d7945b2d88d3e05b2a3808450906d0f27",
+   "taille": 11926
   },
   "four-e12-piece-glow.png": {
-   "hauteur": 24,
-   "largeur": 151,
-   "sha256": "114f1801d3618e1d8b39080dd4662ea1abec976cc30629a7856526c2df362526",
-   "taille": 2218
+   "hauteur": 22,
+   "largeur": 150,
+   "sha256": "1fdf77d32d4b5b5ff5ff1fc47bd9104e713a08a11acb5fd96794fd2fe24415ab",
+   "taille": 2213
   },
   "four-e12-piece-main.png": {
    "hauteur": 33,
    "largeur": 164,
-   "sha256": "7ee5d264f0a2a95e6a616452fd065a27c634c97e624d1dad5daea8849bf68138",
-   "taille": 7079
+   "sha256": "13b0317727985555c0b9ba0a6d01a3d0b4601eef2f0f07e31269fbf2da978147",
+   "taille": 6794
   },
   "four-e12-piece-shadow.png": {
    "hauteur": 15,
@@ -495,22 +495,22 @@
    "taille": 1504
   },
   "four-e12-socle-glow.png": {
-   "hauteur": 193,
+   "hauteur": 190,
    "largeur": 158,
-   "sha256": "c42c0790a3993466bc0c994a642f1e000ce4108426315e3af6c0a8f86a8bf940",
-   "taille": 16838
+   "sha256": "1638d1bef69912be00cc0e1745fbb0294a89e6353e51dc1aa3f230f841a6e17c",
+   "taille": 14493
   },
   "four-e12-socle-light.png": {
    "hauteur": 31,
    "largeur": 122,
-   "sha256": "31162e58c5d6d1dfd66343acda66434374c0f46914d62db1f59675e7b8a746ba",
-   "taille": 1189
+   "sha256": "9710f806c5e26d3a7b98fd1884b906923c49b032848f12ac071e23b8ec5a8cd3",
+   "taille": 1097
   },
   "four-e12-socle-main.png": {
    "hauteur": 207,
-   "largeur": 174,
-   "sha256": "a1311f7306a96bb615a90112d54133a2b175b5f8da07bc8281722f3198c52f58",
-   "taille": 60706
+   "largeur": 172,
+   "sha256": "32018566db57b039889c4b114e03000cbb055d1ad97f94744077edd85ffbfaf9",
+   "taille": 56774
   },
   "four-e12-socle-shadow.png": {
    "hauteur": 158,
@@ -521,20 +521,20 @@
   "four-e13-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "79317f9cfccf9ab612b03bfe4368171872c6b82d652cfe3654a4c0986b2aef4c",
-   "taille": 11472
+   "sha256": "b6121691087ede8f72e88e64fe746e2212564d0cd161cab9ac6fbbc130f8ec0f",
+   "taille": 11374
   },
   "four-e13-piece-glow.png": {
-   "hauteur": 22,
-   "largeur": 146,
-   "sha256": "3a7dba3e3d0aeab39f31af643d552dc41b19e1bb32968056a900c20b25dd762f",
-   "taille": 396
+   "hauteur": 18,
+   "largeur": 135,
+   "sha256": "f17c128355e7791d95a06da4d8f226fa51049cf7f302e8a8198acb5f1a0feae6",
+   "taille": 330
   },
   "four-e13-piece-main.png": {
    "hauteur": 36,
-   "largeur": 195,
-   "sha256": "3bdf183f3a233196c6ca15f81f1a4f5ebeaac0ba00c06b080f5839ffce8cb518",
-   "taille": 8887
+   "largeur": 194,
+   "sha256": "f7d38908b7b67334ed781220cab1935c2307ad8f030cff7b82cb2106fac0a9f6",
+   "taille": 8561
   },
   "four-e13-piece-shadow.png": {
    "hauteur": 20,
@@ -543,22 +543,22 @@
    "taille": 1608
   },
   "four-e13-socle-glow.png": {
-   "hauteur": 211,
+   "hauteur": 213,
    "largeur": 189,
-   "sha256": "c8022e841844365d7445f43e29b409d2341012047b646c4cf54c8efdc633ce5c",
-   "taille": 7510
+   "sha256": "de7787e723a855614b3a61256ada4286d40d38a7f759b8bf682df2c60dc6a1e2",
+   "taille": 6588
   },
   "four-e13-socle-light.png": {
    "hauteur": 32,
    "largeur": 136,
-   "sha256": "02d64d0c041c97f1007fb0bc1f5fb70e6fc1c6505118dac5f97192470f5672b7",
-   "taille": 1261
+   "sha256": "bbefd6a505c79614fb00cdfc90b1d355dcb35e32b5ddb429e7ce28ffb3b73df4",
+   "taille": 1157
   },
   "four-e13-socle-main.png": {
    "hauteur": 233,
-   "largeur": 207,
-   "sha256": "0bdd024f92f0eb1ca72dc92073d5a31d8b45e2cfd8a9c94aab3392ea8ac67465",
-   "taille": 79421
+   "largeur": 206,
+   "sha256": "073ad867ca900c32a8d252fad90bc5ed193b15edd632cb2b7f1eab96ff1b39e3",
+   "taille": 76274
   },
   "four-e13-socle-shadow.png": {
    "hauteur": 190,
@@ -569,20 +569,20 @@
   "four-e14-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "c5d9a0e55094e75cc3451059620e9f7e77280f0f9dd86939c98acaf631edc42c",
-   "taille": 11179
+   "sha256": "d5e4135989d89be49396a64ecd7c8948f3558b476a002b957d331b70979de2b7",
+   "taille": 11143
   },
   "four-e14-piece-glow.png": {
-   "hauteur": 24,
-   "largeur": 178,
-   "sha256": "03c3124239914cf157fad80806b9411f36547de96bfdf797a730e4cdc28c47bd",
-   "taille": 867
+   "hauteur": 23,
+   "largeur": 170,
+   "sha256": "ca215ab9f546b7a43b38c57d98c35cfa2a985fe2ab44557d2f98dc10fc781ad6",
+   "taille": 805
   },
   "four-e14-piece-main.png": {
    "hauteur": 36,
-   "largeur": 195,
-   "sha256": "668f9275f1dca299850ae93dc631c1a74201a91d84b54eaaae566b6c215118ef",
-   "taille": 8352
+   "largeur": 194,
+   "sha256": "c1cbf76145eb6c005825b90124428fb695c8c3362a5c02102162ebed2d5f9e16",
+   "taille": 7965
   },
   "four-e14-piece-shadow.png": {
    "hauteur": 17,
@@ -592,21 +592,21 @@
   },
   "four-e14-socle-glow.png": {
    "hauteur": 220,
-   "largeur": 186,
-   "sha256": "e13b96612e6c159019adc9d6d72a9ff4f7c3703dc62c5888bbdd68e9f74d13a4",
-   "taille": 20281
+   "largeur": 188,
+   "sha256": "0879b1d931e202d6ee2a3ca1d8ff82a608db294182c91aec3503685d12db83be",
+   "taille": 21159
   },
   "four-e14-socle-light.png": {
    "hauteur": 32,
    "largeur": 134,
-   "sha256": "ee7a5aa49afbd2b7a611afd55fbd89aa20f26627f8dd357d4ea2850666771126",
-   "taille": 1258
+   "sha256": "91100719447925466fc976f91cef909824a07bea3e047087cea6d4138b0954e7",
+   "taille": 1180
   },
   "four-e14-socle-main.png": {
    "hauteur": 240,
-   "largeur": 207,
-   "sha256": "cd99841598b8c577039690e97dae9b0093219cd4f1d3a496e5a1307d8c89eea9",
-   "taille": 80368
+   "largeur": 206,
+   "sha256": "860638367a0c771f5be0251ef657a7d47894a036daabd551079e883b4ecd79bd",
+   "taille": 76019
   },
   "four-e14-socle-shadow.png": {
    "hauteur": 190,
@@ -617,20 +617,20 @@
   "four-e15-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "4bd4c29b99dd389afb23da7f389c2c3686c76da89fd2db7d55854b5a19a4175f",
-   "taille": 11652
+   "sha256": "d46891711be975b7dcdf747942b9ef19332502f675ea3796980d176c1004e964",
+   "taille": 11558
   },
   "four-e15-piece-glow.png": {
-   "hauteur": 24,
-   "largeur": 175,
-   "sha256": "9f9cdd7a553db475aaa3e95bcf79531744c46e8d17e11280fc7ce6323f82a0be",
-   "taille": 1502
+   "hauteur": 22,
+   "largeur": 164,
+   "sha256": "28de96e220d45e0bbf3e00831824ea7d648755c993548a1670d181bc70b94401",
+   "taille": 1347
   },
   "four-e15-piece-main.png": {
    "hauteur": 32,
-   "largeur": 195,
-   "sha256": "40260410582de4ae3b17969c6f57ac528db91dff0d58466073be29349f54cc82",
-   "taille": 7272
+   "largeur": 194,
+   "sha256": "7b5739c08f5a11fda92e39f024587d6aa6b4e907ed0b193915e3f754d4063968",
+   "taille": 6929
   },
   "four-e15-piece-shadow.png": {
    "hauteur": 17,
@@ -639,22 +639,22 @@
    "taille": 1236
   },
   "four-e15-socle-glow.png": {
-   "hauteur": 217,
-   "largeur": 190,
-   "sha256": "5cc9c21a3e7d7443dc8cdd4cbf90b5fa0dd3428d2001ff4e7a29a42bfa779d18",
-   "taille": 31777
+   "hauteur": 216,
+   "largeur": 188,
+   "sha256": "0785afb6c9a68e3d04df06402b9a2b05d4a517f8f558707d2b5eec7c2d4918c8",
+   "taille": 26849
   },
   "four-e15-socle-light.png": {
    "hauteur": 31,
    "largeur": 132,
-   "sha256": "9717427d93d6f519d75a6b8d7f372eeb9a06c98ff83526421e6e9c38de1c892f",
-   "taille": 1191
+   "sha256": "52d8fb1d2d59bacb10cd6d223d3df2d7c930498bce440a7f9c7d6310bb798fbf",
+   "taille": 1062
   },
   "four-e15-socle-main.png": {
    "hauteur": 227,
    "largeur": 206,
-   "sha256": "cb0324782ed2f924caa057b39cfb2ff287e657717df9a5ef2b9fb13e15d1aa95",
-   "taille": 71421
+   "sha256": "94d29ba9581a89c011f921eef5edbc13610243dfe668943ae80645be20f52e16",
+   "taille": 67720
   },
   "four-e15-socle-shadow.png": {
    "hauteur": 190,
@@ -669,16 +669,16 @@
    "taille": 12283
   },
   "hr-four-e01-piece-light.png": {
-   "hauteur": 202,
+   "hauteur": 196,
    "largeur": 236,
-   "sha256": "943ab2667bc6e1b883963e70ac572dea97e11f4b3c580ac985475a3af2820b2d",
-   "taille": 13418
+   "sha256": "12651b6b0a65c8bfdbd4f800c47f870e4ca7ceea7c1e464f609a81c15bd838cc",
+   "taille": 11134
   },
   "hr-four-e01-piece-main.png": {
    "hauteur": 110,
-   "largeur": 154,
-   "sha256": "3ac76f3e8e6c53e4311108b5172aa39c647d6e84afef81635adc8d8b39b8e54e",
-   "taille": 20092
+   "largeur": 150,
+   "sha256": "a4e284f751fb58b211bd8a19271393a3fd27b5178411fcb172ff452b380f8f92",
+   "taille": 19111
   },
   "hr-four-e01-piece-shadow.png": {
    "hauteur": 34,
@@ -689,8 +689,8 @@
   "hr-four-e02-piece-main.png": {
    "hauteur": 50,
    "largeur": 146,
-   "sha256": "cfd2e1f6cf46ea981897e07fa4b6ed5aa25208713ebb6b7fbe679fa6d33b7019",
-   "taille": 6586
+   "sha256": "84ae9f9a3e04cfa953b236dcaff7ec201d101930c342bd1ac34b0654a217f913",
+   "taille": 6236
   },
   "hr-four-e02-piece-shadow.png": {
    "hauteur": 22,
@@ -701,20 +701,20 @@
   "hr-four-e02-socle-glow.png": {
    "hauteur": 172,
    "largeur": 118,
-   "sha256": "faf919609a13ab5ad8cf07724ed17ae51d5d8b7bea75e817d7f193aa5f367eea",
-   "taille": 6791
+   "sha256": "53c4ee0b57765ec1e1fa2b9d33d80b51d265b7b2dd469863a32f98af801f7a9e",
+   "taille": 7568
   },
   "hr-four-e02-socle-light.png": {
-   "hauteur": 54,
+   "hauteur": 52,
    "largeur": 160,
-   "sha256": "e3049b167cbf6ed00791e81caa8ebbc773f8a781e988ca83415b5c5f73571721",
-   "taille": 1900
+   "sha256": "218163538fe25d8496d47b678ca12897bbfe4b8b2bf31f2056c4d75e6e48495e",
+   "taille": 1762
   },
   "hr-four-e02-socle-main.png": {
    "hauteur": 204,
    "largeur": 160,
-   "sha256": "4c85c7245c020080f117c30bb0b44ab17ca008876d29dd55a931f6ec140356eb",
-   "taille": 53889
+   "sha256": "0b79354094fb7ff42208984b7a679e544065c93624717119214775e584d26fa7",
+   "taille": 50274
   },
   "hr-four-e02-socle-shadow.png": {
    "hauteur": 124,
@@ -725,32 +725,32 @@
   "hr-four-e03-piece-main.png": {
    "hauteur": 48,
    "largeur": 148,
-   "sha256": "8f429fa33d3605c69b04b9dac4ea72801a2549e1b34c128b43f1fb227379a7ad",
-   "taille": 6865
+   "sha256": "73ed8b83a165ef7f8caf0657183010924539f392196fc7bab5222f2b1bd37a48",
+   "taille": 6171
   },
   "hr-four-e03-piece-shadow.png": {
    "hauteur": 22,
    "largeur": 138,
-   "sha256": "239e4564ef45e5742d62e325a4589e12cc5fc2917f1d5ab210de4328401b171f",
-   "taille": 1409
+   "sha256": "c2b0c4b40a0bfe10c1987964b5f3935723fac1f436405ce9770bea720aef80c3",
+   "taille": 1351
   },
   "hr-four-e03-socle-glow.png": {
-   "hauteur": 130,
-   "largeur": 120,
-   "sha256": "506ae9117aa95717e7ae642b26548f543e2f66769885432c7725bc3080cdc84e",
-   "taille": 4894
+   "hauteur": 100,
+   "largeur": 122,
+   "sha256": "96dd4aa0a92aa7ea54fb6475fa866da2c5191e576ab468f6a3897a4c45e696fe",
+   "taille": 6053
   },
   "hr-four-e03-socle-light.png": {
-   "hauteur": 116,
+   "hauteur": 114,
    "largeur": 220,
-   "sha256": "e0fe945964544c5c9493a99203660680119f9eb575927e041e16347548fe715c",
-   "taille": 6576
+   "sha256": "d2e557e93c3879ae2444db7c5e3106241c0d9a1697f8fb14a7bf2d0f513d5925",
+   "taille": 4672
   },
   "hr-four-e03-socle-main.png": {
    "hauteur": 204,
    "largeur": 160,
-   "sha256": "6cc4690ac73023a3fd58ad7dec6eeeef1177d142bf63d94c23f8b1c4504ea7a4",
-   "taille": 50099
+   "sha256": "dffc2d908420b64bcb0f50520472ee946d21ae8a1bf39b946c6f3c7236aa667e",
+   "taille": 45659
   },
   "hr-four-e03-socle-shadow.png": {
    "hauteur": 124,
@@ -761,8 +761,8 @@
   "hr-four-e04-piece-main.png": {
    "hauteur": 52,
    "largeur": 208,
-   "sha256": "a96a715a5014857d893db81f2f5edf28e8cb2376443fa63bd8d6a5bc20d87836",
-   "taille": 11658
+   "sha256": "b94a9c010fd05ed7c69e3b39f29762d65629e171b9fba28149c4cbfa7f71b936",
+   "taille": 11006
   },
   "hr-four-e04-piece-shadow.png": {
    "hauteur": 24,
@@ -772,21 +772,21 @@
   },
   "hr-four-e04-socle-glow.png": {
    "hauteur": 268,
-   "largeur": 188,
-   "sha256": "c841add063c3442629a8933836cbc67236c72cb75928ec82be03b927b685f22f",
-   "taille": 10637
+   "largeur": 180,
+   "sha256": "29687568fb97d7659e4d98aaad898e3ce21ac9fce418de342d030a7618c78e76",
+   "taille": 13116
   },
   "hr-four-e04-socle-light.png": {
-   "hauteur": 58,
+   "hauteur": 56,
    "largeur": 196,
-   "sha256": "979d3d262c6593b504174604507c2afa332b679450161a14b327f753f3bc46dd",
-   "taille": 5527
+   "sha256": "a4d1324fb8a67362ba675963991aadadf4fd5417ebfbbfa46597c56c30ecba79",
+   "taille": 4845
   },
   "hr-four-e04-socle-main.png": {
-   "hauteur": 282,
-   "largeur": 216,
-   "sha256": "5a23d5402198e286c6bdfa61671c82117377fcc649413184c9ec427dcf4d04d7",
-   "taille": 96074
+   "hauteur": 280,
+   "largeur": 214,
+   "sha256": "f81f4613c536d94199cda78dc0407d7f3951adfecbc4ec85a57625c93f26e22d",
+   "taille": 89479
   },
   "hr-four-e04-socle-shadow.png": {
    "hauteur": 188,
@@ -797,14 +797,14 @@
   "hr-four-e05-piece-glow.png": {
    "hauteur": 22,
    "largeur": 160,
-   "sha256": "c71c2497ec630e6cff6e1de6b58ee11c0127ec51dc21ddd5e06900e21581ff7f",
-   "taille": 2162
+   "sha256": "f5656daed8e34de4f1e2ad34797afcaa4aa0c1fcc17b6c971e8ceedc9025108f",
+   "taille": 2178
   },
   "hr-four-e05-piece-main.png": {
    "hauteur": 60,
-   "largeur": 204,
-   "sha256": "e003004dd23f58c9336c010ee30763af7266899a26fb06e57493f3df96965c0e",
-   "taille": 9647
+   "largeur": 202,
+   "sha256": "6da40ad612ebb0c85e584cdc3c20d096af698b6e29c147c0559b3429093a3edf",
+   "taille": 9068
   },
   "hr-four-e05-piece-shadow.png": {
    "hauteur": 26,
@@ -815,20 +815,20 @@
   "hr-four-e05-socle-glow.png": {
    "hauteur": 234,
    "largeur": 188,
-   "sha256": "43f863c58a358147b3e64cfe975f2ad21cb7ad9b955ecc2da172e84148648b83",
-   "taille": 28477
+   "sha256": "94e5d9aedaac694d8912eafcaa7a5e83bb0e919b82610c6002807fc2fad95ef2",
+   "taille": 30867
   },
   "hr-four-e05-socle-light.png": {
    "hauteur": 56,
    "largeur": 194,
-   "sha256": "2d24397185b0c017f163d402162498d1bec27bc7ea675513d2343dee58e0933b",
-   "taille": 5486
+   "sha256": "a6c9989088e61add2e8bd046c4b4256485e6cf2ad5cdea76f00a51dd40bfa4b8",
+   "taille": 4789
   },
   "hr-four-e05-socle-main.png": {
-   "hauteur": 252,
-   "largeur": 218,
-   "sha256": "9f45d1868b38063ed433b8c0df7aa2d42928a30647383138f2b61f4fb29f5d8e",
-   "taille": 72442
+   "hauteur": 250,
+   "largeur": 216,
+   "sha256": "ad0c7063d86a3263e3c22a7cf8d80496a2fc56a09e17f5d8b1890f69589ff9b2",
+   "taille": 67761
   },
   "hr-four-e05-socle-shadow.png": {
    "hauteur": 188,
@@ -837,10 +837,10 @@
    "taille": 4715
   },
   "hr-four-e06-piece-main.png": {
-   "hauteur": 50,
+   "hauteur": 48,
    "largeur": 208,
-   "sha256": "1f1eede2a33166e941ecec9d9f799f632f8a9c2122759117fa34bada43bba26e",
-   "taille": 10322
+   "sha256": "ec087e7208785bfa80faa3d950313099bcd5be10cda79328e6bbc2e70cb3aa58",
+   "taille": 9339
   },
   "hr-four-e06-piece-shadow.png": {
    "hauteur": 24,
@@ -849,22 +849,22 @@
    "taille": 2031
   },
   "hr-four-e06-socle-glow.png": {
-   "hauteur": 232,
-   "largeur": 172,
-   "sha256": "d23386f062151802a5fe8d1d810599b4ce96338fa232102c83c181ae9f43ebd4",
-   "taille": 10205
+   "hauteur": 256,
+   "largeur": 170,
+   "sha256": "14b94e0a3298ec0c702374253180923684b013cb9abdb9441b2f639c62413e4e",
+   "taille": 12538
   },
   "hr-four-e06-socle-light.png": {
    "hauteur": 54,
    "largeur": 188,
-   "sha256": "0b9ef636c28842061f10524752f5ffe6e1d5434ea5f180c56fe851e69280c9d8",
-   "taille": 3200
+   "sha256": "9a4e66c2afabc019b79a9f4ee2f4e3bc09e29aaf23e81d9a8f56c269b4bd4780",
+   "taille": 2280
   },
   "hr-four-e06-socle-main.png": {
-   "hauteur": 286,
+   "hauteur": 284,
    "largeur": 216,
-   "sha256": "715a6ff2711f40b3baa1fe74d769507881f8eb9ffa21b32b59da60ef86213e4a",
-   "taille": 112891
+   "sha256": "0bf7e0e8b70e7b60ce177041c4cd231bad46f601737b7203601c063558c55e81",
+   "taille": 100933
   },
   "hr-four-e06-socle-shadow.png": {
    "hauteur": 188,
@@ -873,16 +873,16 @@
    "taille": 7269
   },
   "hr-four-e07-piece-glow.png": {
-   "hauteur": 46,
-   "largeur": 236,
-   "sha256": "f954a87910381129ae25261c1faa7c788a4f2bd292e17f2c9742dbebf8df5fc9",
-   "taille": 2721
+   "hauteur": 44,
+   "largeur": 196,
+   "sha256": "3359603e40d8641f969f426d087648cae52ce123ce09e0594613b35b1c6a5a10",
+   "taille": 2482
   },
   "hr-four-e07-piece-main.png": {
-   "hauteur": 66,
+   "hauteur": 68,
    "largeur": 264,
-   "sha256": "bcbfd3a2e511dbf118a209f44c59db4b5dc56734496ea95694788fab29374659",
-   "taille": 15304
+   "sha256": "2042ffd505b3459d4e0105403a78c4ef70a4670a2700aa404142728ac0fe2db2",
+   "taille": 14243
   },
   "hr-four-e07-piece-shadow.png": {
    "hauteur": 28,
@@ -891,22 +891,22 @@
    "taille": 2960
   },
   "hr-four-e07-socle-glow.png": {
-   "hauteur": 324,
-   "largeur": 252,
-   "sha256": "82c2517467904ef6238453449399ce5a669432f5bc0580d5722c561e3a2235de",
-   "taille": 25680
+   "hauteur": 320,
+   "largeur": 248,
+   "sha256": "97d3764906163255f68f9673f58a3a5f45433433607ca35f9fddd064ab7211ef",
+   "taille": 29057
   },
   "hr-four-e07-socle-light.png": {
-   "hauteur": 174,
-   "largeur": 312,
-   "sha256": "59631bcc17a7e2369d7098eb7d1677807daf9ee54534c791656d4cf4462a9d33",
-   "taille": 6577
+   "hauteur": 168,
+   "largeur": 304,
+   "sha256": "56d8f836b16ee5b9080e822625b094e937e42d2c1471b6c3a1eb978472cc9e15",
+   "taille": 4401
   },
   "hr-four-e07-socle-main.png": {
    "hauteur": 346,
    "largeur": 280,
-   "sha256": "27df82129841ff97418242e4c357b7bb9e8a2942b51c394b71ea64307f708b05",
-   "taille": 149058
+   "sha256": "1f5eed1e2812aef1e0a275d5c69052eeabb44c5ad8ca465f39931a4605a254c3",
+   "taille": 138267
   },
   "hr-four-e07-socle-shadow.png": {
    "hauteur": 252,
@@ -915,16 +915,16 @@
    "taille": 9316
   },
   "hr-four-e08-piece-glow.png": {
-   "hauteur": 36,
-   "largeur": 230,
-   "sha256": "9510c01889685f08a8860d2267d4ec7f7ed1343864e39d0f2c7283ec0dff7eda",
-   "taille": 2000
+   "hauteur": 34,
+   "largeur": 232,
+   "sha256": "d73aa58333c5a8128557db249de30d1c849a8aff48f1c3c9c64693303d279539",
+   "taille": 2456
   },
   "hr-four-e08-piece-main.png": {
    "hauteur": 56,
-   "largeur": 266,
-   "sha256": "c2bc5e97d96f56c4f4c4087564265ebf86baa752214dc5a7ab92151ade834eb7",
-   "taille": 14629
+   "largeur": 264,
+   "sha256": "791eee65bac11ea48c365991b11a7b061dd272aedf37d066a41177b67f3ca026",
+   "taille": 13637
   },
   "hr-four-e08-piece-shadow.png": {
    "hauteur": 28,
@@ -933,22 +933,22 @@
    "taille": 2420
   },
   "hr-four-e08-socle-glow.png": {
-   "hauteur": 330,
-   "largeur": 248,
-   "sha256": "63d4fea728226936b107c46d8c68eddd7b259552c9b50851f4dc40171ede193a",
-   "taille": 28222
+   "hauteur": 332,
+   "largeur": 242,
+   "sha256": "02e7c6daa128559c2e0d8f24171ad93916cc97eed794b033e13e20365fc52b70",
+   "taille": 35946
   },
   "hr-four-e08-socle-light.png": {
    "hauteur": 60,
-   "largeur": 222,
-   "sha256": "f73fae747684cc5b62025bca45cc7efd25f30feb798e1f0e02f5558225d4573d",
-   "taille": 4570
+   "largeur": 220,
+   "sha256": "d398a8bd8bc1f84dcf65de7cfc849f49fee1f01894d9b6f6bb4ba371e28554bb",
+   "taille": 3013
   },
   "hr-four-e08-socle-main.png": {
    "hauteur": 346,
    "largeur": 284,
-   "sha256": "2238ed074c55f76a126c98d6374d10a7e18ddb91d616a6c24f3f9599c17b88ae",
-   "taille": 144695
+   "sha256": "7de4caa4171ea06c102a598435948baadb8f354bc5127d1712bc2060a51c2b30",
+   "taille": 134556
   },
   "hr-four-e08-socle-shadow.png": {
    "hauteur": 252,
@@ -957,16 +957,16 @@
    "taille": 6808
   },
   "hr-four-e09-piece-glow.png": {
-   "hauteur": 26,
-   "largeur": 224,
-   "sha256": "5ae089dfcb3ad25d253c1580e644eb6384ec065c9b153448a967f64213a9914e",
-   "taille": 1678
+   "hauteur": 14,
+   "largeur": 218,
+   "sha256": "432186ac9013232fa3130cf9c5d22394bac9c7ae1538ba175c6d30ed46ce6b8d",
+   "taille": 1634
   },
   "hr-four-e09-piece-main.png": {
    "hauteur": 60,
    "largeur": 268,
-   "sha256": "2e2c72fce076df8ab0a4da2e442f930b4e7cdf38d18250f8dafa6b71c4eeb55e",
-   "taille": 17339
+   "sha256": "7944bb1972c609170240f27aa47220118ea4286c2813e93c4e37fdbb4b17c0f1",
+   "taille": 16346
   },
   "hr-four-e09-piece-shadow.png": {
    "hauteur": 28,
@@ -975,22 +975,22 @@
    "taille": 2994
   },
   "hr-four-e09-socle-glow.png": {
-   "hauteur": 306,
+   "hauteur": 324,
    "largeur": 250,
-   "sha256": "d4983650f2c564e9e1c64c4a1d2eb2cd4dea42b8487dbed0559c802cdcc7015a",
-   "taille": 20810
+   "sha256": "05d0cd420ab210811dcf936b1853233db94ded07758939d41ebfe825ac0f104e",
+   "taille": 26290
   },
   "hr-four-e09-socle-light.png": {
    "hauteur": 58,
-   "largeur": 218,
-   "sha256": "36b918124665f57b0118ee7e100e69e2fb50bb18b812563bb2437fa382594a43",
-   "taille": 5396
+   "largeur": 216,
+   "sha256": "9c41615759a40b8278cfb845f81307889f702d4e1d428e2b6da7e99e5f03b0fd",
+   "taille": 3159
   },
   "hr-four-e09-socle-main.png": {
    "hauteur": 358,
    "largeur": 284,
-   "sha256": "2c2319b6775d2aaf21c82f1e62d927d122a095c459b0f18f4f252b1265e997fb",
-   "taille": 154735
+   "sha256": "052ff66e00f9299438e21973733de566673404eae0159d55c8ff451dcbaa9d10",
+   "taille": 142575
   },
   "hr-four-e09-socle-shadow.png": {
    "hauteur": 252,
@@ -1000,15 +1000,15 @@
   },
   "hr-four-e10-piece-glow.png": {
    "hauteur": 28,
-   "largeur": 282,
-   "sha256": "76a6c7ef2ce2d501db8273cff1007e14271f8fa02c76a224cd8bad3686a9231a",
-   "taille": 2076
+   "largeur": 284,
+   "sha256": "4a23fa6760d753203e37cf6243393e4a027e28a4a7ff3bc08847cd5895dcdc98",
+   "taille": 2737
   },
   "hr-four-e10-piece-main.png": {
-   "hauteur": 70,
+   "hauteur": 72,
    "largeur": 332,
-   "sha256": "30a936ea04a23fd0aef9b36e65740b99cca80cf385e63d0a7bcf3a9096df188d",
-   "taille": 24097
+   "sha256": "1baf153a91eed01b216a489c642a13ac96c178de042ae2f67d2ac52184f04722",
+   "taille": 22107
   },
   "hr-four-e10-piece-shadow.png": {
    "hauteur": 32,
@@ -1017,22 +1017,22 @@
    "taille": 4108
   },
   "hr-four-e10-socle-glow.png": {
-   "hauteur": 394,
+   "hauteur": 396,
    "largeur": 316,
-   "sha256": "f70d4a3441a03698b8e20f0461234f6bbf4d4085ca2aeb3eaca6de595981c4f8",
-   "taille": 35137
+   "sha256": "82ba559bb2f9b7d5d1f6ff59a78ed0e70c21632cfcdd22defd3a8110eccda8a0",
+   "taille": 41096
   },
   "hr-four-e10-socle-light.png": {
    "hauteur": 64,
    "largeur": 254,
-   "sha256": "5f561842e16160886444ada5fb1b7b2e78419f0363b77170d8970a29ec2eafc8",
-   "taille": 4323
+   "sha256": "ae758303ea8768c6eca1b8b32d7223099ce94292456613d9939800d668b73a0d",
+   "taille": 3140
   },
   "hr-four-e10-socle-main.png": {
-   "hauteur": 410,
+   "hauteur": 412,
    "largeur": 348,
-   "sha256": "8a2c69692d19cb02cb79d8987220ec9832cf3e66439e3c144fcaeb978c051cee",
-   "taille": 222559
+   "sha256": "78d9eeb0e314b39b2246262cf1938a742c5adbd9e41039fca70c4683fca88e2f",
+   "taille": 195739
   },
   "hr-four-e10-socle-shadow.png": {
    "hauteur": 316,
@@ -1043,8 +1043,8 @@
   "hr-four-e11-piece-main.png": {
    "hauteur": 64,
    "largeur": 328,
-   "sha256": "6794722f02b23dca6f01166a2a89b76a0f0dcfa6de95588d4d6279de5de0fa44",
-   "taille": 24492
+   "sha256": "9a604da379f77ed3956a0e4d0dad6962fbd344326ebbf9fb6e7aeb057068beb5",
+   "taille": 22293
   },
   "hr-four-e11-piece-shadow.png": {
    "hauteur": 32,
@@ -1054,21 +1054,21 @@
   },
   "hr-four-e11-socle-glow.png": {
    "hauteur": 396,
-   "largeur": 296,
-   "sha256": "f84afbeb4ebaa05473f54c604cb0b7e9bae0cc6a6ed883445b9c133de41ef887",
-   "taille": 20825
+   "largeur": 304,
+   "sha256": "7e1d626f7f78b73dbb3b0e3d416eb5ac6fb930f65a8e2b3440fd4fd750910e7d",
+   "taille": 28765
   },
   "hr-four-e11-socle-light.png": {
    "hauteur": 206,
    "largeur": 312,
-   "sha256": "156ad1db05b7608cf6364c18414a7d20c9078c48278773040d1eb9bd6bd64b5e",
-   "taille": 5237
+   "sha256": "3014e531baa56ea00bc28ccc41fcbb336a9b13462748c8b4207006614bf362ea",
+   "taille": 3566
   },
   "hr-four-e11-socle-main.png": {
    "hauteur": 414,
-   "largeur": 348,
-   "sha256": "00ad69f0af114230ae06871eaa8f8f213063e8a7ef747a1fd06198f0a2ab9276",
-   "taille": 240478
+   "largeur": 344,
+   "sha256": "de9687fcd9487bf9262126ea3448fdf9c23ff6a8c5f49c79e608bb280ad2ec88",
+   "taille": 217185
   },
   "hr-four-e11-socle-shadow.png": {
    "hauteur": 316,
@@ -1077,16 +1077,16 @@
    "taille": 7963
   },
   "hr-four-e12-piece-glow.png": {
-   "hauteur": 48,
-   "largeur": 302,
-   "sha256": "340097ecde74b2d4793e5fb2ba7ac69864564d17c7b65606b5cb998fecd3437c",
-   "taille": 6203
+   "hauteur": 44,
+   "largeur": 300,
+   "sha256": "04c0a610b0c73f7c77c3ca811c6650b39f156a7ddff28710ee66875393151f44",
+   "taille": 8033
   },
   "hr-four-e12-piece-main.png": {
    "hauteur": 66,
    "largeur": 328,
-   "sha256": "d4c9d556cb4f17806b60ba18a66fe596aecd4a877685186852718ea9a9ddb53b",
-   "taille": 23760
+   "sha256": "afa2ebdc38e5b1d6c6fdc3f05f063ca784bd263924de6ec8b142476a0807d6e9",
+   "taille": 21787
   },
   "hr-four-e12-piece-shadow.png": {
    "hauteur": 30,
@@ -1095,22 +1095,22 @@
    "taille": 5623
   },
   "hr-four-e12-socle-glow.png": {
-   "hauteur": 386,
+   "hauteur": 380,
    "largeur": 316,
-   "sha256": "9e6850756715a14350dc234c4135da461d03ebfcbc9da174544f5b9decc9d244",
-   "taille": 49399
+   "sha256": "ea2778f14dd20bd4528286d1dff55a5f94a22dc74675e3badbc2ad4d9eb97978",
+   "taille": 66381
   },
   "hr-four-e12-socle-light.png": {
    "hauteur": 62,
    "largeur": 244,
-   "sha256": "0f0a39725f70f64f5c6f98be7f0a8f2d745c1eac46a9a884f8d02aa524b1305b",
-   "taille": 3988
+   "sha256": "3d180480f8e9713db57e711a64e2eec0ff6834ccf2d700661f4f5d2200424131",
+   "taille": 2820
   },
   "hr-four-e12-socle-main.png": {
    "hauteur": 414,
-   "largeur": 348,
-   "sha256": "9eb264280828278b0513140606650a623728364796f8463ef90691df62d26b93",
-   "taille": 229321
+   "largeur": 344,
+   "sha256": "42b5d0d18bc8627f700ad7c9dc35afc2f3f317e821f6c8f609b923c3dda6a571",
+   "taille": 200973
   },
   "hr-four-e12-socle-shadow.png": {
    "hauteur": 316,
@@ -1119,16 +1119,16 @@
    "taille": 15917
   },
   "hr-four-e13-piece-glow.png": {
-   "hauteur": 44,
-   "largeur": 292,
-   "sha256": "710ccb36b68461bcf98c3077bb5b6e6e590c0b26a946bc419762f5ddbb21e5ba",
-   "taille": 998
+   "hauteur": 36,
+   "largeur": 270,
+   "sha256": "48b6a2fdb0aca4ed2864efa9655ae26538555ec56a9075f2fec5af764857ae1c",
+   "taille": 1040
   },
   "hr-four-e13-piece-main.png": {
    "hauteur": 72,
-   "largeur": 390,
-   "sha256": "145f983f5eb01e767fdb124766d85c007b4f8e6f422061fe83fbf003ca65caea",
-   "taille": 29626
+   "largeur": 388,
+   "sha256": "b945d440d6d1dd7cb8118af9af742ba95c34311a1f683756849e2bd4e1d1846f",
+   "taille": 26810
   },
   "hr-four-e13-piece-shadow.png": {
    "hauteur": 40,
@@ -1137,22 +1137,22 @@
    "taille": 5203
   },
   "hr-four-e13-socle-glow.png": {
-   "hauteur": 422,
+   "hauteur": 426,
    "largeur": 378,
-   "sha256": "64434333fd15e730970c81f8862d23db7031b40006c46d3184579e2c03140c6a",
-   "taille": 21343
+   "sha256": "a5e12c72d09faa6c9abffe01b6d4fabb560eefeeb91fca851261986b082ebb6c",
+   "taille": 26437
   },
   "hr-four-e13-socle-light.png": {
    "hauteur": 64,
    "largeur": 272,
-   "sha256": "fd6c31fafa9c24f733affb2f1d38e0797ff9637904fd5c5a8c6f2bd7dc80a64e",
-   "taille": 4500
+   "sha256": "a7ae1598f47a580b9959deafffead0d8b1c21668a2490f602da975f6fb4276ae",
+   "taille": 3048
   },
   "hr-four-e13-socle-main.png": {
    "hauteur": 466,
-   "largeur": 414,
-   "sha256": "f04d1ba018fb930d1fecca401da283b84952f74804c76d2aebc626dfd84e221d",
-   "taille": 291985
+   "largeur": 412,
+   "sha256": "6b4431c8add67aa18467ba1d6c778d14103bce4c73097a54ee5e0a72f16f9fb1",
+   "taille": 264761
   },
   "hr-four-e13-socle-shadow.png": {
    "hauteur": 380,
@@ -1161,16 +1161,16 @@
    "taille": 13843
   },
   "hr-four-e14-piece-glow.png": {
-   "hauteur": 48,
-   "largeur": 356,
-   "sha256": "3a96820b775b20388c3246b3fc87413c6eca170cf16431d1f1d33b56b7601dbb",
-   "taille": 2392
+   "hauteur": 46,
+   "largeur": 340,
+   "sha256": "d4a90546074568a597128aa51476749d5e68720b1706e5f6b8346a5bae57f17a",
+   "taille": 3204
   },
   "hr-four-e14-piece-main.png": {
    "hauteur": 72,
-   "largeur": 390,
-   "sha256": "e74835995448fea65642e6e946150587e48e2da0eadf85808d6921a7b9e4ee44",
-   "taille": 27840
+   "largeur": 388,
+   "sha256": "7acf25a8b31c6fbeba766e154ca4bdaa6afd1a3fccfea8e6a32fb1b23e8cf630",
+   "taille": 25238
   },
   "hr-four-e14-piece-shadow.png": {
    "hauteur": 34,
@@ -1180,21 +1180,21 @@
   },
   "hr-four-e14-socle-glow.png": {
    "hauteur": 440,
-   "largeur": 372,
-   "sha256": "8a328a08c53b53aef5a9753632f4d2f89a4bec6b5f6363c3748cf87cbff5b1e0",
-   "taille": 60490
+   "largeur": 376,
+   "sha256": "f5570b170da579aa2142306411866680a9b112dd60f001567f75d12c5f090947",
+   "taille": 85174
   },
   "hr-four-e14-socle-light.png": {
    "hauteur": 64,
    "largeur": 268,
-   "sha256": "de204895b6a03695b379878a0a0eaf0e53d7aa8df61fed9dd08dc12bbf3da140",
-   "taille": 4108
+   "sha256": "5e0b1b4ca4474b050a0c32127acc804f0d69bb770ee24fe1087c67c90a5053db",
+   "taille": 2995
   },
   "hr-four-e14-socle-main.png": {
    "hauteur": 480,
-   "largeur": 414,
-   "sha256": "9a62eeaa636978a345323b5c2fd743c138293310523f5a2ec22ee1a908c80ae3",
-   "taille": 301508
+   "largeur": 412,
+   "sha256": "841d28817d2936059c85f98db5c83cb17e85aaf1de54d22cc57817027bdedf29",
+   "taille": 265308
   },
   "hr-four-e14-socle-shadow.png": {
    "hauteur": 380,
@@ -1203,16 +1203,16 @@
    "taille": 13150
   },
   "hr-four-e15-piece-glow.png": {
-   "hauteur": 48,
-   "largeur": 350,
-   "sha256": "0ed90d70091f23c6e5631030521e4da9b85ca2f894db8a528e4b5458c5bfae81",
-   "taille": 4469
+   "hauteur": 44,
+   "largeur": 328,
+   "sha256": "d8faa1a1638074c39390efd5d4faf77595070337dc9bdd1c4b18424ae1952ff9",
+   "taille": 4782
   },
   "hr-four-e15-piece-main.png": {
    "hauteur": 64,
-   "largeur": 390,
-   "sha256": "4aba6b3b6e73c3f8448e5f63a86655990e7b55a11842c2eebbea3c150f28336d",
-   "taille": 23420
+   "largeur": 388,
+   "sha256": "1b57328c99d5daa2f9f43e11b734115c6b3bdfda5003f545f17406de37e34d59",
+   "taille": 21256
   },
   "hr-four-e15-piece-shadow.png": {
    "hauteur": 34,
@@ -1221,22 +1221,22 @@
    "taille": 4115
   },
   "hr-four-e15-socle-glow.png": {
-   "hauteur": 434,
-   "largeur": 380,
-   "sha256": "c9d51e5d86a918b04852aa40d6647a140806b985ed45c7c67d1e208dbbb44703",
-   "taille": 115506
+   "hauteur": 432,
+   "largeur": 376,
+   "sha256": "acc1147d520def2479e1697eb81bf64f867dc680fa6231e59022ff5f602cc2d9",
+   "taille": 119587
   },
   "hr-four-e15-socle-light.png": {
    "hauteur": 62,
    "largeur": 264,
-   "sha256": "9c3be7f15c7c08ef9fe005df6b08d124330e0cc33048d686b103450a177e0176",
-   "taille": 4160
+   "sha256": "e5be561366ff523c412eead004511f68264295d6a08235da74c9892c5ece2b74",
+   "taille": 2707
   },
   "hr-four-e15-socle-main.png": {
    "hauteur": 454,
    "largeur": 412,
-   "sha256": "d90facd46f2bccf897f59443c9d19b1020619feef58f4cea52adb3643f7f07f0",
-   "taille": 261905
+   "sha256": "d2090c14df9d9fe869ce2a553a444d5ffa888c2678a7074b4b3ea797f83a295f",
+   "taille": 235158
   },
   "hr-four-e15-socle-shadow.png": {
    "hauteur": 380,
@@ -1251,5 +1251,5 @@
    "taille": 35831
   }
  },
- "sources": "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F2/r4/sprites"
+ "sources": "H:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-25_F2\\production\\sprites"
 }

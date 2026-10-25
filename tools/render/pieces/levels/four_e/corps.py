@@ -325,10 +325,11 @@ def piece(g, c):
 
 
 @_lignee
-def patin(g, c, x, yn, w, l, h=0.03):
-    """Dalle d'appui au sol (motif du tablier) sous une pièce de coin : (x, yn) centre, w × l tuiles."""
+def patin(g, c, x, yn, w, l, h=0.03, bord=None):
+    """Dalle d'appui au sol (motif du tablier) sous une pièce de coin : (x, yn) centre, w × l tuiles. `bord` : matière
+    des cornières à la place de celle du tablier (F2-B : laiton trop brillant de l'âge 3)."""
     M = g.M
-    cfg = c.pont
+    cfg = dict(c.pont, bord=bord) if bord else c.pont
     z = c.T["sole_h"]
     hw, hl = w / 2.0, Y(l) / 2.0
     y = Y(yn)

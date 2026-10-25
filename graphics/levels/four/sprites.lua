@@ -8,14 +8,14 @@ return {
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e01-piece-light.png",
-            height = 202,
-            shift = { 0.0, -0.453125 },
+            height = 196,
+            shift = { 0.0, -0.40625 },
             width = 236
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e01-piece-light.png",
-            height = 101,
-            shift = { 0.0, -0.453125 },
+            height = 98,
+            shift = { 0.0, -0.40625 },
             width = 118
           }
         },
@@ -23,14 +23,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e01-piece-main.png",
             height = 110,
-            shift = { -0.078125, -1.296875 },
-            width = 154
+            shift = { -0.109375, -1.296875 },
+            width = 150
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e01-piece-main.png",
             height = 55,
-            shift = { -0.078125, -1.296875 },
-            width = 77
+            shift = { -0.109375, -1.296875 },
+            width = 75
           }
         },
         shadow = {
@@ -70,7 +70,7 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.315, 0.274, 0.247 },
+      map_color = { 0.316, 0.274, 0.247 },
       piece = {
         main = {
           hr = {
@@ -119,14 +119,14 @@ return {
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e02-socle-light.png",
-            height = 54,
-            shift = { 0.0, 1.328125 },
+            height = 52,
+            shift = { 0.0, 1.34375 },
             width = 160
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e02-socle-light.png",
-            height = 27,
-            shift = { 0.0, 1.328125 },
+            height = 26,
+            shift = { 0.0, 1.34375 },
             width = 80
           }
         },
@@ -182,7 +182,7 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.331, 0.31, 0.225 },
+      map_color = { 0.332, 0.31, 0.226 },
       piece = {
         main = {
           hr = {
@@ -217,28 +217,28 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e03-socle-glow.png",
-            height = 130,
-            shift = { 0.0, -0.109375 },
-            width = 120
+            height = 100,
+            shift = { -0.015625, 0.125 },
+            width = 122
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e03-socle-glow.png",
-            height = 65,
-            shift = { 0.0, -0.109375 },
-            width = 60
+            height = 50,
+            shift = { -0.015625, 0.125 },
+            width = 61
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e03-socle-light.png",
-            height = 116,
-            shift = { 0.0, 0.9375 },
+            height = 114,
+            shift = { 0.0, 0.953125 },
             width = 220
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e03-socle-light.png",
-            height = 58,
-            shift = { 0.0, 0.9375 },
+            height = 57,
+            shift = { 0.0, 0.953125 },
             width = 110
           }
         },
@@ -274,7 +274,7 @@ return {
       teinte = { 1.0, 0.9555, 0.8877 }
     },
     [4] = {
-      boite = { { -1.71875, -2.78125 }, { 1.65625, 1.625 } },
+      boite = { { -1.6875, -2.78125 }, { 1.65625, 1.59375 } },
       foyer = { 1.0, 0.42, 0.1 },
       fumee = {
         position = { 0.91, -2.588 },
@@ -294,7 +294,7 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.325, 0.303, 0.19 },
+      map_color = { 0.326, 0.304, 0.19 },
       piece = {
         main = {
           hr = {
@@ -330,42 +330,42 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-glow.png",
             height = 268,
-            shift = { 0.0, -0.6875 },
-            width = 188
+            shift = { -0.03125, -0.6875 },
+            width = 180
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e04-socle-glow.png",
             height = 134,
-            shift = { 0.0, -0.6875 },
-            width = 94
+            shift = { -0.03125, -0.6875 },
+            width = 90
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-light.png",
-            height = 58,
-            shift = { 0.03125, 1.859375 },
+            height = 56,
+            shift = { 0.03125, 1.875 },
             width = 196
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e04-socle-light.png",
-            height = 29,
-            shift = { 0.03125, 1.859375 },
+            height = 28,
+            shift = { 0.03125, 1.875 },
             width = 98
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e04-socle-main.png",
-            height = 282,
-            shift = { -0.03125, -0.578125 },
-            width = 216
+            height = 280,
+            shift = { -0.015625, -0.59375 },
+            width = 214
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e04-socle-main.png",
-            height = 141,
-            shift = { -0.03125, -0.578125 },
-            width = 108
+            height = 140,
+            shift = { -0.015625, -0.59375 },
+            width = 107
           }
         },
         shadow = {
@@ -386,7 +386,7 @@ return {
       teinte = { 1.0, 0.8956, 0.838 }
     },
     [5] = {
-      boite = { { -1.6875, -2.3125 }, { 1.71875, 1.625 } },
+      boite = { { -1.6875, -2.3125 }, { 1.6875, 1.59375 } },
       foyer = { 1.0, 0.3, 0.02 },
       fumee = {
         position = { 0.81, -2.2056 },
@@ -426,14 +426,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e05-piece-main.png",
             height = 60,
-            shift = { 0.0, 1.125 },
-            width = 204
+            shift = { -0.015625, 1.09375 },
+            width = 202
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e05-piece-main.png",
             height = 30,
-            shift = { 0.0, 1.125 },
-            width = 102
+            shift = { -0.015625, 1.09375 },
+            width = 101
           }
         },
         shadow = {
@@ -483,15 +483,15 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e05-socle-main.png",
-            height = 252,
-            shift = { 0.015625, -0.34375 },
-            width = 218
+            height = 250,
+            shift = { 0.0, -0.359375 },
+            width = 216
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e05-socle-main.png",
-            height = 126,
-            shift = { 0.015625, -0.34375 },
-            width = 109
+            height = 125,
+            shift = { 0.0, -0.359375 },
+            width = 108
           }
         },
         shadow = {
@@ -512,7 +512,7 @@ return {
       teinte = { 1.0, 0.874, 0.8236 }
     },
     [6] = {
-      boite = { { -1.6875, -2.84375 }, { 1.6875, 1.625 } },
+      boite = { { -1.6875, -2.84375 }, { 1.6875, 1.59375 } },
       foyer = { 0.25, 0.55, 1.0 },
       fumee = {
         position = { 0.86, -2.3726 },
@@ -537,14 +537,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e06-piece-main.png",
-            height = 50,
-            shift = { 0.0, 1.203125 },
+            height = 48,
+            shift = { 0.0, 1.1875 },
             width = 208
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e06-piece-main.png",
-            height = 25,
-            shift = { 0.0, 1.203125 },
+            height = 24,
+            shift = { 0.0, 1.1875 },
             width = 104
           }
         },
@@ -567,15 +567,15 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e06-socle-glow.png",
-            height = 232,
-            shift = { 0.0, -0.40625 },
-            width = 172
+            height = 256,
+            shift = { -0.015625, -0.59375 },
+            width = 170
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e06-socle-glow.png",
-            height = 116,
-            shift = { 0.0, -0.40625 },
-            width = 86
+            height = 128,
+            shift = { -0.015625, -0.59375 },
+            width = 85
           }
         },
         light = {
@@ -595,14 +595,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e06-socle-main.png",
-            height = 286,
-            shift = { 0.0, -0.609375 },
+            height = 284,
+            shift = { 0.0, -0.625 },
             width = 216
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e06-socle-main.png",
-            height = 143,
-            shift = { 0.0, -0.609375 },
+            height = 142,
+            shift = { 0.0, -0.625 },
             width = 108
           }
         },
@@ -644,33 +644,33 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.338, 0.296, 0.266 },
+      map_color = { 0.339, 0.296, 0.266 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e07-piece-glow.png",
-            height = 46,
-            shift = { 0.0, 1.453125 },
-            width = 236
+            height = 44,
+            shift = { 0.0, 1.40625 },
+            width = 196
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e07-piece-glow.png",
-            height = 23,
-            shift = { 0.0, 1.453125 },
-            width = 118
+            height = 22,
+            shift = { 0.0, 1.40625 },
+            width = 98
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e07-piece-main.png",
-            height = 66,
-            shift = { 0.0, 1.609375 },
+            height = 68,
+            shift = { 0.0, 1.59375 },
             width = 264
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e07-piece-main.png",
-            height = 33,
-            shift = { 0.0, 1.609375 },
+            height = 34,
+            shift = { 0.0, 1.59375 },
             width = 132
           }
         },
@@ -693,29 +693,29 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e07-socle-glow.png",
-            height = 324,
-            shift = { 0.0, -0.625 },
-            width = 252
+            height = 320,
+            shift = { 0.03125, -0.625 },
+            width = 248
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e07-socle-glow.png",
-            height = 162,
-            shift = { 0.0, -0.625 },
-            width = 126
+            height = 160,
+            shift = { 0.03125, -0.625 },
+            width = 124
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e07-socle-light.png",
-            height = 174,
-            shift = { 0.0, 1.515625 },
-            width = 312
+            height = 168,
+            shift = { 0.0, 1.5625 },
+            width = 304
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e07-socle-light.png",
-            height = 87,
-            shift = { 0.0, 1.515625 },
-            width = 156
+            height = 84,
+            shift = { 0.0, 1.5625 },
+            width = 152
           }
         },
         main = {
@@ -775,29 +775,29 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e08-piece-glow.png",
-            height = 36,
-            shift = { 0.078125, 1.5625 },
-            width = 230
+            height = 34,
+            shift = { 0.0625, 1.546875 },
+            width = 232
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e08-piece-glow.png",
-            height = 18,
-            shift = { 0.078125, 1.5625 },
-            width = 115
+            height = 17,
+            shift = { 0.0625, 1.546875 },
+            width = 116
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e08-piece-main.png",
             height = 56,
-            shift = { 0.015625, 1.625 },
-            width = 266
+            shift = { 0.0, 1.625 },
+            width = 264
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e08-piece-main.png",
             height = 28,
-            shift = { 0.015625, 1.625 },
-            width = 133
+            shift = { 0.0, 1.625 },
+            width = 132
           }
         },
         shadow = {
@@ -819,29 +819,29 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e08-socle-glow.png",
-            height = 330,
-            shift = { 0.0, -0.703125 },
-            width = 248
+            height = 332,
+            shift = { -0.015625, -0.6875 },
+            width = 242
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e08-socle-glow.png",
-            height = 165,
-            shift = { 0.0, -0.703125 },
-            width = 124
+            height = 166,
+            shift = { -0.015625, -0.6875 },
+            width = 121
           }
         },
         light = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e08-socle-light.png",
             height = 60,
-            shift = { -0.015625, 2.40625 },
-            width = 222
+            shift = { 0.0, 2.40625 },
+            width = 220
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e08-socle-light.png",
             height = 30,
-            shift = { -0.015625, 2.40625 },
-            width = 111
+            shift = { 0.0, 2.40625 },
+            width = 110
           }
         },
         main = {
@@ -901,15 +901,15 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e09-piece-glow.png",
-            height = 26,
-            shift = { 0.0, 1.390625 },
-            width = 224
+            height = 14,
+            shift = { -0.015625, 1.328125 },
+            width = 218
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e09-piece-glow.png",
-            height = 13,
-            shift = { 0.0, 1.390625 },
-            width = 112
+            height = 7,
+            shift = { -0.015625, 1.328125 },
+            width = 109
           }
         },
         main = {
@@ -945,14 +945,14 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e09-socle-glow.png",
-            height = 306,
-            shift = { 0.015625, -0.515625 },
+            height = 324,
+            shift = { -0.015625, -0.65625 },
             width = 250
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e09-socle-glow.png",
-            height = 153,
-            shift = { 0.015625, -0.515625 },
+            height = 162,
+            shift = { -0.015625, -0.65625 },
             width = 125
           }
         },
@@ -960,14 +960,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e09-socle-light.png",
             height = 58,
-            shift = { -0.015625, 2.390625 },
-            width = 218
+            shift = { 0.0, 2.390625 },
+            width = 216
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e09-socle-light.png",
             height = 29,
-            shift = { -0.015625, 2.390625 },
-            width = 109
+            shift = { 0.0, 2.390625 },
+            width = 108
           }
         },
         main = {
@@ -1002,7 +1002,7 @@ return {
       teinte = { 0.885, 1.0, 0.8722 }
     },
     [10] = {
-      boite = { { -2.71875, -3.78125 }, { 2.71875, 2.625 } },
+      boite = { { -2.71875, -3.8125 }, { 2.71875, 2.625 } },
       foyer = { 0.09, 0.33, 1.0 },
       fumee = {
         position = { 1.45, -3.5046 },
@@ -1022,33 +1022,33 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.447, 0.42, 0.367 },
+      map_color = { 0.448, 0.42, 0.367 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e10-piece-glow.png",
             height = 28,
-            shift = { -0.046875, 2.09375 },
-            width = 282
+            shift = { -0.0625, 2.09375 },
+            width = 284
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e10-piece-glow.png",
             height = 14,
-            shift = { -0.046875, 2.09375 },
-            width = 141
+            shift = { -0.0625, 2.09375 },
+            width = 142
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e10-piece-main.png",
-            height = 70,
-            shift = { 0.0, 2.046875 },
+            height = 72,
+            shift = { 0.0, 2.03125 },
             width = 332
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e10-piece-main.png",
-            height = 35,
-            shift = { 0.0, 2.046875 },
+            height = 36,
+            shift = { 0.0, 2.03125 },
             width = 166
           }
         },
@@ -1071,14 +1071,14 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e10-socle-glow.png",
-            height = 394,
-            shift = { 0.0, -0.703125 },
+            height = 396,
+            shift = { 0.0, -0.71875 },
             width = 316
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e10-socle-glow.png",
-            height = 197,
-            shift = { 0.0, -0.703125 },
+            height = 198,
+            shift = { 0.0, -0.71875 },
             width = 158
           }
         },
@@ -1099,14 +1099,14 @@ return {
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e10-socle-main.png",
-            height = 410,
-            shift = { 0.0, -0.578125 },
+            height = 412,
+            shift = { 0.0, -0.59375 },
             width = 348
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e10-socle-main.png",
-            height = 205,
-            shift = { 0.0, -0.578125 },
+            height = 206,
+            shift = { 0.0, -0.59375 },
             width = 174
           }
         },
@@ -1128,7 +1128,7 @@ return {
       teinte = { 0.8362, 0.8794, 1.0 }
     },
     [11] = {
-      boite = { { -2.71875, -3.84375 }, { 2.71875, 2.625 } },
+      boite = { { -2.6875, -3.84375 }, { 2.6875, 2.625 } },
       foyer = { 0.749, 0.902, 1.0 },
       fumee = {
         position = { 0.4713, -3.537 },
@@ -1184,14 +1184,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e11-socle-glow.png",
             height = 396,
-            shift = { -0.03125, -0.71875 },
-            width = 296
+            shift = { 0.0625, -0.71875 },
+            width = 304
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e11-socle-glow.png",
             height = 198,
-            shift = { -0.03125, -0.71875 },
-            width = 148
+            shift = { 0.0625, -0.71875 },
+            width = 152
           }
         },
         light = {
@@ -1213,13 +1213,13 @@ return {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e11-socle-main.png",
             height = 414,
             shift = { 0.0, -0.609375 },
-            width = 348
+            width = 344
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e11-socle-main.png",
             height = 207,
             shift = { 0.0, -0.609375 },
-            width = 174
+            width = 172
           }
         },
         shadow = {
@@ -1240,7 +1240,7 @@ return {
       teinte = { 0.9548, 0.9824, 1.0 }
     },
     [12] = {
-      boite = { { -2.71875, -3.84375 }, { 2.71875, 2.625 } },
+      boite = { { -2.6875, -3.84375 }, { 2.6875, 2.625 } },
       foyer = { 0.29, 0.94, 1.0 },
       fumee = {
         position = { 1.6, -3.3781 },
@@ -1260,20 +1260,20 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.322, 0.353, 0.366 },
+      map_color = { 0.322, 0.354, 0.367 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e12-piece-glow.png",
-            height = 48,
-            shift = { -0.015625, 1.9375 },
-            width = 302
+            height = 44,
+            shift = { 0.0, 1.96875 },
+            width = 300
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e12-piece-glow.png",
-            height = 24,
-            shift = { -0.015625, 1.9375 },
-            width = 151
+            height = 22,
+            shift = { 0.0, 1.96875 },
+            width = 150
           }
         },
         main = {
@@ -1309,14 +1309,14 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e12-socle-glow.png",
-            height = 386,
-            shift = { 0.0, -0.640625 },
+            height = 380,
+            shift = { 0.0, -0.59375 },
             width = 316
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e12-socle-glow.png",
-            height = 193,
-            shift = { 0.0, -0.640625 },
+            height = 190,
+            shift = { 0.0, -0.59375 },
             width = 158
           }
         },
@@ -1339,13 +1339,13 @@ return {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e12-socle-main.png",
             height = 414,
             shift = { 0.0, -0.609375 },
-            width = 348
+            width = 344
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e12-socle-main.png",
             height = 207,
             shift = { 0.0, -0.609375 },
-            width = 174
+            width = 172
           }
         },
         shadow = {
@@ -1366,7 +1366,7 @@ return {
       teinte = { 0.8722, 0.9892, 1.0 }
     },
     [13] = {
-      boite = { { -3.21875, -4.125 }, { 3.25, 3.15625 } },
+      boite = { { -3.21875, -4.125 }, { 3.21875, 3.15625 } },
       foyer = { 0.561, 0.294, 1.0 },
       fumee = {
         position = { 1.98, -3.8597 },
@@ -1386,34 +1386,34 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.281, 0.247, 0.259 },
+      map_color = { 0.282, 0.247, 0.259 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e13-piece-glow.png",
-            height = 44,
-            shift = { 0.34375, 2.46875 },
-            width = 292
+            height = 36,
+            shift = { 0.203125, 2.5 },
+            width = 270
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e13-piece-glow.png",
-            height = 22,
-            shift = { 0.34375, 2.46875 },
-            width = 146
+            height = 18,
+            shift = { 0.203125, 2.5 },
+            width = 135
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e13-piece-main.png",
             height = 72,
-            shift = { -0.015625, 2.5 },
-            width = 390
+            shift = { 0.0, 2.5 },
+            width = 388
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e13-piece-main.png",
             height = 36,
-            shift = { -0.015625, 2.5 },
-            width = 195
+            shift = { 0.0, 2.5 },
+            width = 194
           }
         },
         shadow = {
@@ -1435,14 +1435,14 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e13-socle-glow.png",
-            height = 422,
-            shift = { 0.015625, -0.421875 },
+            height = 426,
+            shift = { 0.015625, -0.453125 },
             width = 378
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e13-socle-glow.png",
-            height = 211,
-            shift = { 0.015625, -0.421875 },
+            height = 213,
+            shift = { 0.015625, -0.453125 },
             width = 189
           }
         },
@@ -1464,14 +1464,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e13-socle-main.png",
             height = 466,
-            shift = { 0.015625, -0.484375 },
-            width = 414
+            shift = { 0.0, -0.484375 },
+            width = 412
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e13-socle-main.png",
             height = 233,
-            shift = { 0.015625, -0.484375 },
-            width = 207
+            shift = { 0.0, -0.484375 },
+            width = 206
           }
         },
         shadow = {
@@ -1492,7 +1492,7 @@ return {
       teinte = { 0.921, 0.8729, 1.0 }
     },
     [14] = {
-      boite = { { -3.21875, -4.34375 }, { 3.25, 3.15625 } },
+      boite = { { -3.21875, -4.34375 }, { 3.21875, 3.15625 } },
       foyer = { 0.957, 0.965, 1.0 },
       fumee = {
         position = { 2.5, -3.693 },
@@ -1512,34 +1512,34 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.227, 0.238, 0.36 },
+      map_color = { 0.227, 0.239, 0.36 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e14-piece-glow.png",
-            height = 48,
-            shift = { -0.0625, 2.4375 },
-            width = 356
+            height = 46,
+            shift = { 0.0, 2.421875 },
+            width = 340
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e14-piece-glow.png",
-            height = 24,
-            shift = { -0.0625, 2.4375 },
-            width = 178
+            height = 23,
+            shift = { 0.0, 2.421875 },
+            width = 170
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e14-piece-main.png",
             height = 72,
-            shift = { -0.015625, 2.5 },
-            width = 390
+            shift = { 0.0, 2.5 },
+            width = 388
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e14-piece-main.png",
             height = 36,
-            shift = { -0.015625, 2.5 },
-            width = 195
+            shift = { 0.0, 2.5 },
+            width = 194
           }
         },
         shadow = {
@@ -1562,14 +1562,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e14-socle-glow.png",
             height = 440,
-            shift = { 0.0625, -0.5625 },
-            width = 372
+            shift = { 0.03125, -0.5625 },
+            width = 376
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e14-socle-glow.png",
             height = 220,
-            shift = { 0.0625, -0.5625 },
-            width = 186
+            shift = { 0.03125, -0.5625 },
+            width = 188
           }
         },
         light = {
@@ -1590,14 +1590,14 @@ return {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e14-socle-main.png",
             height = 480,
-            shift = { 0.015625, -0.59375 },
-            width = 414
+            shift = { 0.0, -0.59375 },
+            width = 412
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e14-socle-main.png",
             height = 240,
-            shift = { 0.015625, -0.59375 },
-            width = 207
+            shift = { 0.0, -0.59375 },
+            width = 206
           }
         },
         shadow = {
@@ -1638,34 +1638,34 @@ return {
         icon_mipmaps = 4,
         icon_size = 64
       },
-      map_color = { 0.196, 0.168, 0.128 },
+      map_color = { 0.197, 0.168, 0.128 },
       piece = {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e15-piece-glow.png",
-            height = 48,
-            shift = { -0.078125, 2.4375 },
-            width = 350
+            height = 44,
+            shift = { 0.0, 2.40625 },
+            width = 328
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e15-piece-glow.png",
-            height = 24,
-            shift = { -0.078125, 2.4375 },
-            width = 175
+            height = 22,
+            shift = { 0.0, 2.40625 },
+            width = 164
           }
         },
         main = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e15-piece-main.png",
             height = 64,
-            shift = { -0.015625, 2.5625 },
-            width = 390
+            shift = { 0.0, 2.5625 },
+            width = 388
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e15-piece-main.png",
             height = 32,
-            shift = { -0.015625, 2.5625 },
-            width = 195
+            shift = { 0.0, 2.5625 },
+            width = 194
           }
         },
         shadow = {
@@ -1687,15 +1687,15 @@ return {
         glow = {
           hr = {
             filename = "__factorio-overhaul__/graphics/levels/four/hr-four-e15-socle-glow.png",
-            height = 434,
-            shift = { 0.0, -0.515625 },
-            width = 380
+            height = 432,
+            shift = { 0.0, -0.5 },
+            width = 376
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/levels/four/four-e15-socle-glow.png",
-            height = 217,
-            shift = { 0.0, -0.515625 },
-            width = 190
+            height = 216,
+            shift = { 0.0, -0.5 },
+            width = 188
           }
         },
         light = {

@@ -116,22 +116,25 @@ def fumee(g, c):
 def piece(g, c):
     M = g.M
     zs = c.T["sole_h"] + 0.03
+    # production F2-B : cornières des patins et de la caisse en cuivre sombre (le laiton y faisait 7 points blancs)
     p = corps.coin(c, "coin_SO")
-    corps.patin(g, c, p["x"], p["yn"], 2 * p["rw"] * 0.9, p["prof"] * 0.85)
+    corps.patin(g, c, p["x"], p["yn"], 2 * p["rw"] * 0.9, p["prof"] * 0.85, bord="cuivre_sombre")
     w, l = 2 * p["rw"] * 0.75, p["prof"] * 0.65
     corps.boite(g, p["x"] - w / 2, p["x"] + w / 2, p["yn"] - l / 2, p["yn"] + l / 2, zs, zs + 0.24,
                 [M["bois_verni"], M["bois_verni2"]], panel=0.15, faces="s", rivets=False)
     for x in (p["x"] - w / 2, p["x"] + w / 2):
-        g.box((x, Y(p["yn"]), zs + 0.12), (0.03, Y(l) + 0.02, 0.26), M["laiton_capot"], "hard", what="cornière")
+        g.box((x, Y(p["yn"]), zs + 0.12), (0.03, Y(l) + 0.02, 0.26), M["cuivre_sombre"], "hard", what="cornière")
     for k in range(10):
         F.lump(g, (p["x"] - w * 0.4 + w * 0.8 * g.rng.random(), Y(p["yn"] - l * 0.3 + l * 0.6 * g.rng.random()),
                    zs + 0.24), 0.045, M["blackiron"], sz=0.7)
     p = corps.coin(c, "coin_SE")
-    corps.patin(g, c, p["x"], p["yn"], 2 * p["rw"] * 0.9, p["prof"] * 0.85)
+    corps.patin(g, c, p["x"], p["yn"], 2 * p["rw"] * 0.9, p["prof"] * 0.85, bord="cuivre_sombre")
     x, y = p["x"], Y(p["yn"])
     g.cyl((x, y, zs + 0.17), "z", 0.13, 0.34, M["cuivre_capot"], n=24, what="citerne")
+    # phase A2 puis production F2-B (128 échantillons : 23,7 points blancs par t², seuil 13,2, reflets du laiton et du
+    # moyeu du volant) : cerclages, calotte et volant en cuivre sombre, sans moyeu de laiton
     for z in (zs + 0.06, zs + 0.28):
-        g.tube_shell((x, y, z), "z", 0.145, 0.12, 0.03, M["laiton_capot"], n=24, what="cerclage")
-    F.sphere(g, (x, y, zs + 0.34), 0.13, M["cuivre_capot"], sz=0.45)
-    # phase A2 : volant de cuivre sombre (en laiton, 5 reflets : 14,8 points blancs par t², seuil 13,2)
-    P2.handwheel(g, (x, y - 0.15, zs + 0.18), (0, -1, 0), 0.05, M, mat=M["cuivre_sombre"])
+        g.tube_shell((x, y, z), "z", 0.145, 0.12, 0.03, M["cuivre_sombre"], n=24, what="cerclage")
+    F.sphere(g, (x, y, zs + 0.34), 0.13, M["cuivre_sombre"], sz=0.45)
+    g.torus((x, y - 0.16, zs + 0.18), "y", 0.05, 0.011, M["cuivre_sombre"], n=16, m=5, what="volant")
+    g.cyl((x, y - 0.14, zs + 0.18), "y", 0.012, 0.05, M["cuivre_sombre"], n=8, what="tige")
