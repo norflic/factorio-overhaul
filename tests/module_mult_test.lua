@@ -3,11 +3,13 @@
   Usage, depuis la racine du mod :   lua5.2 tests/module_mult_test.lua
 
   1. Règle pure (shared/content/module_mult.lua) : facteur voulu (produit exact, arrondi, bornes du moteur),
-     complément, décomposition en modules cachés, réglage de la productivité, déterminisme et indépendance de
-     l'ordre, comparaison à un calcul flottant indépendant sur 3 000 machines tirées au hasard (RNG maison).
-  2. Données : paliers de vitesse (+50, +80, +110 %, puis +30 points), énergie = 60 % du bonus, valeurs relues
-     comme le moteur (centièmes), modules cachés (90, valeurs exactes), emplacements 5 + (niveau − 1).
-  3. MUTANTS : 16 altérations du fichier de règle, chacune doit faire échouer au moins un contrôle de la partie 1.
+     complément, décomposition en modules cachés, productivité MULTIPLIÉE (D-17), énergie qui garde l'écart au
+     plafond (Q-M5 B, D-17 ; logarithme en virgule fixe), déterminisme et indépendance de l'ordre, comparaison à un
+     calcul flottant indépendant sur 3 000 listes et 3 000 machines complètes tirées au hasard (RNG maison).
+  2. Données (lot MOD-3, D-17) : vitesse +20 % puis +10 points, productivité +10 % puis +5 points, énergie = 60 % du
+     bonus, malus et pollution de la productivité et efficacité gardés, valeurs relues comme le moteur (centièmes),
+     modules cachés (90, valeurs exactes), emplacements 5 + (niveau − 1), exemples à 5 et 34 modules.
+  3. MUTANTS : 26 altérations du fichier de règle, chacune doit faire échouer au moins un contrôle de la partie 1.
   Le moteur réel est prouvé à part : scénario greffé « mod1-modules » (tools/autotest/fo-autotest/scenarios).
 ]]
 
@@ -97,11 +99,63 @@ local function rule_suite(R, chk)
   -- énergie : 1,3 × 1,48 × 1,8 × 1,8 = 6,23376 → 623 ; S = 238 ; C = 623 − 100 − 238 = 285
   chk(comp.consumption.t == 623 and comp.consumption.c == 285, "machine mixte : énergie T 623, C 285 ; obtenu "
     .. tostring(comp.consumption.t) .. " " .. tostring(comp.consumption.c))
-  chk(comp.productivity.c == 0 and comp.productivity.t == 120 and comp.productivity.s == 20,
-    "productivité ADDITIVE par défaut (Q-M4) : +20 %, complément nul")
-  local compm = R.complements(mods, { productivity_multiplies = true })
-  chk(compm.productivity.t == 121 and compm.productivity.c == 1, "productivité multipliée (réglage) : 1,1² = 1,21 → C +1")
-  chk(R.PRODUCTIVITY_MULTIPLIES == false, "réglage unique de la productivité : additive (false) tant que le DC n'a pas tranché")
+  chk(comp.productivity.t == 121 and comp.productivity.c == 1 and comp.productivity.s == 20,
+    "productivité MULTIPLIÉE par défaut (D-17) : 1,1² = 1,21 → C +1 ; obtenu " .. tostring(comp.productivity.t))
+  local compa = R.complements(mods, { productivity_multiplies = false })
+  chk(compa.productivity.c == 0 and compa.productivity.t == 120, "productivité additive (réglage false) : +20 %, complément nul")
+  chk(R.PRODUCTIVITY_MULTIPLIES == true, "réglage unique de la productivité : multipliée (true, D-17)")
+  -- Logarithme en virgule fixe (énergie au plafond, D-17).
+  local L = R.log2_fp
+  chk(L(1) == 0 and L(2) == 65536 and L(1024) == 10 * 65536 and L(32768) == 15 * 65536, "log2_fp exact aux puissances de deux")
+  local maxerr, mono = 0, true
+  local prev = -1
+  for x = 1, 40000 do
+    local v = L(x)
+    local err = math.abs(v / 65536 - math.log(x) / math.log(2))
+    if err > maxerr then maxerr = err end
+    if v < prev then mono = false end
+    prev = v
+  end
+  chk(maxerr < 3e-5 and mono, string.format("log2_fp de 1 à 40 000 : écart au log flottant %.2e (< 3e-5), croissant", maxerr))
+  -- Énergie au plafond : l'écart est gardé (Q-M5 B).
+  local function rep(m, n)
+    local t = {}
+    for i = 1, n do t[i] = m end
+    return t
+  end
+  local S10 = { speed = 110, consumption = 66 }
+  local P10 = { productivity = 55, speed = -7, consumption = 33 }
+  local E10 = { consumption = -80 }
+  local c34 = R.complements(rep(S10, 34))
+  local want34 = math.floor(100 * 328.67 ^ (math.log(1.66) / math.log(2.1)) + 0.5)
+  chk(c34.speed.t == 32867 and math.abs(c34.consumption.t - want34) <= 1 and c34.consumption.gap,
+    "34 × vitesse 10 : vitesse × 328,67, énergie × " .. want34 / 100 .. " = 328,67^(ln 1,66 / ln 2,1) ; obtenu " .. c34.consumption.t)
+  chk(c34.consumption.c == c34.consumption.t - 100 - 34 * 66, "complément d'énergie au plafond = T − 100 − S")
+  local same = true
+  for n = 8, 40 do
+    local cn = R.complements(rep(S10, n))
+    if cn.consumption.t ~= c34.consumption.t or cn.speed.t ~= 32867 then same = false end
+  end
+  chk(same, "8 à 40 × vitesse 10 : au plafond, l'énergie ne bouge plus (un module de plus ne sert à rien et ne coûte rien)")
+  local c7 = R.complements(rep(S10, 7))
+  chk(c7.speed.t == 18011 and c7.consumption.t == 3473 and not c7.consumption.gap,
+    "7 × vitesse 10 (sous le plafond) : vitesse × 180,11, énergie × 34,73 (produit exact, aucune correction)")
+  local c34f = R.complements(rep(S10, 34), { energy_keeps_gap = false })
+  chk(c34f.consumption.t == 32867, "sans la règle de l'écart (D-15) : énergie × 328,67 = vitesse (le défaut Q-M5)")
+  local p34 = R.complements(rep(P10, 34))
+  local wantp = math.floor(100 * math.exp(math.log(1.33) * math.log(328.67) / math.log(1.55)) + 0.5)
+  chk(p34.productivity.t == 32867 and math.abs(p34.consumption.t - wantp) <= 1 and p34.speed.t == 20,
+    "34 × productivité 10 : productivité × 328,67, vitesse × 0,20, énergie × " .. wantp / 100 .. " ; obtenu " .. p34.consumption.t)
+  chk(p34.consumption.t < p34.productivity.t * p34.speed.t / 100,
+    "34 × productivité 10 : énergie plus basse que le gain (productivité × vitesse = × 65,73)")
+  local mixe = rep(S10, 30)
+  for _ = 1, 4 do mixe[#mixe + 1] = E10 end
+  chk(R.complements(mixe).consumption.t == 20, "30 × vitesse 10 + 4 × efficacité 10 : la part de l'efficacité n'est PAS réduite (× 0,20)")
+  local m1 = rep(S10, 30)
+  for _ = 1, 4 do m1[#m1 + 1] = P10 end
+  local m2 = {}
+  for i = #m1, 1, -1 do m2[#m2 + 1] = m1[i] end
+  chk(R.complements(m1).consumption.t == R.complements(m2).consumption.t, "énergie au plafond indépendante de l'ordre des modules")
   -- Décomposition exhaustive.
   local bad, maxn = 0, 0
   for v = -32767, 32767 do
@@ -157,6 +211,93 @@ local function rule_suite(R, chk)
   chk(diff_float == 0, "3 000 machines : facteur = calcul flottant indépendant (" .. diff_float .. " écart(s) ; "
     .. near_half .. " cas à une demi-unité près)")
   chk(out_of_bounds == 0, "3 000 machines : facteur dans [× 0,20 ; × 328,67]")
+  -- Machines complètes (les 30 modules du jeu, 0 à 40 par machine) : vitesse, productivité et énergie contre un calcul
+  -- FLOTTANT indépendant (logarithmes naturels), règle de l'écart comprise.
+  local REAL = {}
+  for _, fam in ipairs(M.ORDER) do
+    for k = 1, M.TIERS do
+      local c = M.cents(fam, k)
+      REAL[#REAL + 1] = { speed = c.speed, consumption = c.consumption, productivity = c.productivity }
+    end
+  end
+  local function fl(e) return math.log(math.max(0.2, 1 + e / 100)) end
+  local function float_machine(mods)
+    local ls, lp, lc = 0, 0, 0
+    local s_list, p_list = 0, 0
+    for _, m in ipairs(mods) do
+      if m.speed then ls = ls + fl(m.speed); s_list = s_list + 1 end
+      if m.productivity then lp = lp + fl(m.productivity); p_list = p_list + 1 end
+      if m.consumption then lc = lc + fl(m.consumption) end
+    end
+    local half = false
+    local function T(l, n)
+      if n == 0 then return 100 end
+      local raw = math.exp(l) * 100
+      if math.abs(raw - math.floor(raw) - 0.5) < 1e-6 and raw < 32867 then half = true end
+      return math.max(20, math.min(32867, math.floor(raw + 0.5)))
+    end
+    local over_s = s_list > 0 and math.floor(math.exp(ls) * 100 + 0.5) > 32867
+    local over_p = p_list > 0 and math.floor(math.exp(lp) * 100 + 0.5) > 32867
+    local tc = T(lc, 1)
+    if over_s or over_p then
+      local rs = over_s and math.log(328.67) / ls or 1
+      local rp = over_p and math.log(328.67) / lp or 1
+      local y = 0
+      for _, m in ipairs(mods) do
+        local c = m.consumption
+        if c then
+          if c > 0 and (m.speed or 0) > 0 then y = y + rs * fl(c)
+          elseif c > 0 and (m.productivity or 0) > 0 then y = y + rp * fl(c)
+          else y = y + fl(c) end
+        end
+      end
+      tc = math.min(tc, T(y, 1))
+    end
+    local ts, tp = T(ls, s_list), T(lp, p_list)
+    return ts, tp, tc, over_s or over_p, half
+  end
+  -- RNG maison sur les bits HAUTS du LCG (les bits bas d'un LCG modulo 2^31 ont une période courte : la parité
+  -- alterne à chaque tirage, ce qui corrélait les choix dans un premier jet de ce test).
+  local rand2
+  do
+    local s = 20261025
+    rand2 = function(n)
+      s = (s * 1103515245 + 12345) % 2147483648
+      return math.floor(s / 65536) % n + 1
+    end
+  end
+  local bad_s, bad_p, bad_c, worst, capped, gap_bad, order_bad = 0, 0, 0, 0, 0, 0, 0
+  for _ = 1, 3000 do
+    local n = rand2(41) - 1
+    local mods = {}
+    -- tirage pondéré : une machine sur deux surtout en vitesse 8 à 10, 10 modules au moins (plafond fréquent)
+    local heavy = rand2(2) == 1
+    if heavy then n = 9 + rand2(31) end
+    for i = 1, n do
+      if heavy and rand2(4) > 1 then mods[i] = REAL[rand2(3) + 7] else mods[i] = REAL[rand2(#REAL)] end
+    end
+    local comp = R.complements(mods)
+    local ts, tp, tc, over, half = float_machine(mods)
+    if over then capped = capped + 1 end
+    local tol = half and 1 or 0
+    if math.abs(comp.speed.t - ts) > tol then bad_s = bad_s + 1 end
+    if math.abs(comp.productivity.t - tp) > tol then bad_p = bad_p + 1 end
+    local d = math.abs(comp.consumption.t - tc)
+    if d > worst then worst = d end
+    if d > 1 + 1e-4 * tc then bad_c = bad_c + 1 end
+    -- écart gardé : machine de vitesse seule au plafond → énergie < vitesse
+    local only_speed = n > 0
+    for _, m in ipairs(mods) do if not (m.speed and m.speed > 0) then only_speed = false end end
+    if only_speed and comp.speed.t == 32867 and comp.consumption.t >= comp.speed.t then gap_bad = gap_bad + 1 end
+    local rev = {}
+    for i = n, 1, -1 do rev[#rev + 1] = mods[i] end
+    if R.complements(rev).consumption.t ~= comp.consumption.t then order_bad = order_bad + 1 end
+  end
+  chk(bad_s == 0 and bad_p == 0, "3 000 machines complètes : vitesse et productivité = calcul flottant (" .. bad_s .. ", " .. bad_p .. " écart(s))")
+  chk(bad_c == 0 and capped >= 1000, string.format("3 000 machines complètes : énergie = calcul flottant de la règle de l'écart "
+    .. "à 1 centième près (%d écart(s), pire %d ; %d machine(s) au plafond)", bad_c, worst, capped))
+  chk(gap_bad == 0, "machines de vitesse seule au plafond : énergie plus basse que la vitesse (" .. gap_bad .. " faute(s))")
+  chk(order_bad == 0, "3 000 machines complètes : énergie indépendante de l'ordre (" .. order_bad .. " écart(s))")
   -- Modules cachés.
   local all = R.all_modules()
   local uniq, exact = {}, 0
@@ -188,15 +329,29 @@ rule_suite(MM, check)
 ---------------------------------------------------------------------------------------------------
 section("Données : paliers, énergie, valeurs relues comme le moteur, emplacements")
 ---------------------------------------------------------------------------------------------------
-local want_speed = { 50, 80, 110, 140, 170, 200, 230, 260, 290, 320 }
-local want_energy = { 30, 48, 66, 84, 102, 120, 138, 156, 174, 192 }
+local want_speed = { 20, 30, 40, 50, 60, 70, 80, 90, 100, 110 }
+local want_energy = { 12, 18, 24, 30, 36, 42, 48, 54, 60, 66 }
 local okv = true
 for k = 1, M.TIERS do
   local c = M.cents("speed", k)
-  if c.speed ~= want_speed[k] or c.consumption ~= want_energy[k] then okv = false end
+  if c.speed ~= want_speed[k] or c.consumption ~= want_energy[k] or c.productivity then okv = false end
 end
-check(okv, "vitesse : +50, +80, +110 puis +30 points (10 paliers, vanilla compris) ; énergie = 60 % du bonus")
-check(M.families.speed.vanilla_overridden == true, "paliers vanilla 1 à 3 réécrits (D-15)")
+check(okv, "vitesse (D-17) : +20 % puis +10 points (10 paliers, vanilla compris, +110 % au palier 10) ; énergie = 60 % du bonus")
+local want_prod = { 10, 15, 20, 25, 30, 35, 40, 45, 50, 55 }
+local want_pen = { -2, -5, -7, -7, -7, -7, -7, -7, -7, -7 }   -- moitié de −5, −10, −15 % (R-QCM-25b), demi-pourcents vers zéro
+local want_pe = { 6, 9, 12, 15, 18, 21, 24, 27, 30, 33 }
+local want_pol = { 5, 7, 10, 12, 14, 16, 18, 20, 22, 25 }
+local okp = true
+for k = 1, M.TIERS do
+  local c = M.cents("productivity", k)
+  if c.productivity ~= want_prod[k] or c.speed ~= want_pen[k] or c.consumption ~= want_pe[k] or c.pollution ~= want_pol[k] then
+    okp = false
+  end
+end
+check(okp, "productivité (D-17) : +10 % puis +5 points (+55 % au palier 10) ; énergie = 60 % du bonus ; malus de vitesse "
+  .. "réduit de moitié (−2, −5, −7 %, R-QCM-25b) et pollution (+5 … +25 %) gardée")
+check(M.families.speed.vanilla_overridden == true and M.families.productivity.vanilla_overridden == true
+  and not M.families.effectivity.vanilla_overridden, "paliers vanilla 1 à 3 réécrits : vitesse et productivité (D-17) ; efficacité vanilla")
 local bad_read = {}
 for _, fam in ipairs(M.ORDER) do
   for k = 1, M.TIERS do
@@ -214,13 +369,26 @@ for _, fam in ipairs(M.ORDER) do
 end
 check(#bad_read == 0, "les 30 modules : valeur du prototype relue comme le moteur = valeur voulue ("
   .. table.concat(bad_read, ", ") .. ")")
--- Productivité et efficacité : valeurs gardées (Q-M4 non tranchée).
-check(M.cents("productivity", 3).productivity == 10 and M.cents("productivity", 3).speed == -15
-  and M.cents("effectivity", 3).consumption == -50, "productivité et efficacité : valeurs gardées (Q-M4)")
--- Indicateurs : 4 modules identiques, vitesse et énergie multipliées.
-local mt = M.metrics("speed", 1)
-check(math.abs(mt.speed - 5.06) < 1e-9 and math.abs(mt.energy - 2.86) < 1e-9,
-  "indicateurs : 4 × palier 1 → vitesse × 5,06 (1,5^4), énergie × 2,86 (1,3^4) ; obtenu " .. mt.speed .. ", " .. mt.energy)
+-- Efficacité : valeurs gardées (D-17 : « paliers inchangés »).
+local want_ec = { -30, -40, -50, -55, -60, -65, -70, -75, -80, -80 }
+local oke = true
+for k = 1, M.TIERS do
+  if M.cents("effectivity", k).consumption ~= want_ec[k] or M.cents("effectivity", k).speed then oke = false end
+end
+check(oke, "efficacité : −30 … −80 % gardés (plancher du moteur aux paliers 9 et 10)")
+-- Indicateurs : machines de 5 modules identiques (exemples du rapport), règle complète.
+local mt = M.metrics("speed", 1, 5)
+check(math.abs(mt.speed - 2.49) < 1e-9 and math.abs(mt.energy - 1.76) < 1e-9,
+  "5 × vitesse 1 → vitesse × 2,49 (1,2^5), énergie × 1,76 (1,12^5) ; obtenu " .. mt.speed .. ", " .. mt.energy)
+mt = M.metrics("speed", 10, 5)
+check(math.abs(mt.speed - 40.84) < 1e-9 and math.abs(mt.energy - 12.60) < 1e-9,
+  "5 × vitesse 10 → vitesse × 40,84 (2,1^5), énergie × 12,60 (1,66^5) ; obtenu " .. mt.speed .. ", " .. mt.energy)
+mt = M.metrics("speed", 10, 34)
+check(math.abs(mt.speed - 328.67) < 1e-9 and mt.energy < 53 and mt.energy > 52,
+  "34 × vitesse 10 → vitesse × 328,67, énergie × 52,4 (écart gardé) ; obtenu " .. mt.speed .. ", " .. mt.energy)
+mt = M.metrics("productivity", 10, 5)
+check(math.abs(mt.output - 0.70 * 8.95) < 1e-9 and math.abs(mt.energy - 4.16) < 1e-9,
+  "5 × productivité 10 → productivité × 8,95 (1,55^5), vitesse × 0,70 (0,93^5), énergie × 4,16 ; obtenu " .. mt.output .. ", " .. mt.energy)
 -- Emplacements.
 check(L.module_slots(L.by_key.assembler, 1) == 5 and L.module_slots(L.by_key.assembler, 30) == 34
   and L.module_slots(L.by_key.drill, 1) == 5 and L.module_slots(L.by_key.drill, 12) == 16,
@@ -252,6 +420,16 @@ local MUTANTS = {
   { "facteur décalé", "big_mul(big, f)", "big_mul(big, f + 1)" },
   { "signe perdu", "local sign = c > 0 and 1 or -1", "local sign = 1" },
   { "valeur rendue tronquée (défaut de la passe 1)", "if x >= 0 then return math.floor(x + 0.5) end", "if x >= 0 then return math.floor(x) end" },
+  -- Lot MOD-3 (D-17) : productivité multipliée et énergie qui garde l'écart au plafond.
+  { "productivité jamais multipliée", "\nMM.PRODUCTIVITY_MULTIPLIES = true", "\nMM.PRODUCTIVITY_MULTIPLIES = false" },
+  { "écart au plafond retiré (D-15)", "MM.ENERGY_KEEPS_GAP = true", "MM.ENERGY_KEEPS_GAP = false" },
+  { "part de vitesse non réduite au plafond", "if over_s then y = y + math.floor(part_s * l_cap / sum_logs(lists.speed)) else y = y + part_s end", "y = y + part_s" },
+  { "part de productivité non réduite au plafond", "if over_p then y = y + math.floor(part_p * l_cap / sum_logs(lists.productivity)) else y = y + part_p end", "y = y + part_p" },
+  { "part de l'efficacité réduite elle aussi", "else free = free + l end", "else part_s = part_s + l end" },
+  { "plafond jugé sur le produit déjà borné", "return big_scaled_round(big, used - 1, MM.MIN_T, MM.MAX_T + 1) > MM.MAX_T", "return big_scaled_round(big, used - 1, MM.MIN_T, MM.MAX_T) > MM.MAX_T" },
+  { "chiffre du logarithme compté double", "      res = res + bit\n", "      res = res + 2 * bit\n" },
+  { "mantisse non élevée au carré", "m = math.floor(m * m / MANT_ONE)", "m = math.floor(m * 2)" },
+  { "dichotomie bornée trop bas", "local lo, hi = MM.MIN_T, MM.MAX_T", "local lo, hi = MM.MIN_T, 10000" },
 }
 local killed = 0
 for _, mu in ipairs(MUTANTS) do

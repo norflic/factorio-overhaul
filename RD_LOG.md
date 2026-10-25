@@ -240,6 +240,20 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 25/10, vers 13 h, **le DC sur le diagnostic des PNJ (IA3-DIAG)** : réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25g) :
+  les PNJ « doivent jouer comme des joueurs, mais qui s'organisent » ; l'évolution doit être « algorithmisé[e] […] on peut pas
+  faire ça pour tous les bâtiments » ; « réfléchi[r] à comment un humain réfléchi, et transcrire ça pour les IA, et aussi,
+  comment un groupe d'humain (organisé) réfléchirai en jouant à factorio » ; pétrole : « se débrouiller pour chercher du
+  pétrole, comme les joueurs », en évaluant la sécurité (s'équiper de grenades, tourelles, munitions) ; « la conception des
+  IA/PNJ […] c'est une section à part entière car ça fait partie intégrante du gameplay ».
+  → **Décision D-18** : l'IA des PNJ devient une SECTION du projet, conçue par nous de bout en bout (pas de questions au DC
+  à chaque étape) : un cerveau GÉNÉRIQUE qui raisonne comme un joueur (buts, arbre des recettes et des recherches lus dans
+  les données du jeu, aucun script par bâtiment), une ORGANISATION de groupe (réservation des ressources, répartition des
+  tâches : personne ne « s'arrache » les plaques d'une machine à vapeur), des EXPÉDITIONS évaluées (sécurité, équipement :
+  grenades, tourelles, munitions) pour le pétrole et les gisements lointains. 8 ouvriers par faction au départ après les
+  corrections ; recherche ou armée d'abord selon le caractère. Méthode : document de conception (IA3), revue adverse,
+  puis lots d'implémentation mesurés (temps de la recherche 3, inactifs, recherche 4 et plus avec pétrole, aucune
+  ressource disputée).
 - 25/10, vers 9 h 15, **réponses du DC aux questions de la nuit, par QCM dans Claude Code** (il demande ce format : « j'ai rien
   compris au formart de réponse, pour moi ça veut rien dire, posez moi les questions ICI avec un choix QCM où je peux cliquer
   dessus et ça fonctionne DANS claude code ») ; réponses mot pour mot dans OBJECTIFS §4 (lignes R-QCM-25).
@@ -485,6 +499,30 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot IA1-i, fenêtre « Équipe et factions », 25/10 ; fusionné dans `main`, `63c480c`, version 0.4.28)
+Preuves : `fo-logs\2026-10-25_IA1-i\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E174, E175.
+- **F263** : la barre de raccourcis garde l'ORDRE propre à chaque joueur (`player-data.json`) : un raccourci nouveau
+  s'ajoute à la fin ; `order` du prototype ne joue que pour un joueur neuf ; il peut tomber sur une rangée à faire défiler.
+- **F264** : `take_screenshot{show_gui = true}` dessine l'interface à la taille et à l'échelle d'affichage du joueur ; une
+  capture d'une autre taille la coupe.
+- **F265** : une interface ouverte comme `player.opened` a été fermée sans action du banc dans 3 passages sur 6, à des
+  ticks différents sur la même carte, jamais au tick d'un rafraîchissement : c'est une ENTRÉE de la session de test
+  (fenêtre au premier plan, pertes de focus) ; cause exacte non prouvée.
+
+### Faits vérifiés en moteur réel (lots MOD-V et MOD-3, modules au barème D-17 et icônes propres, 25/10 ; fusionnés dans `main`, `18bc98d`, version 0.4.27)
+Preuves : `fo-logs\2026-10-25_MODV\NOTES.md`, `fo-logs\2026-10-25_MOD3\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E155,
+E156, E170, E171.
+- **F225** : `LuaControl.opened = <LuaTechnology>` par script n'ouvre rien dans une session avec images (`opened_gui_type`
+  reste 0) : les icônes de technologie ne se voient que sur planche.
+- **F226** (E156) : 60 icônes propres à la place de couches teintées font passer l'atlas [icon] de 8192 × 2288 à 8192 × 2448
+  au plancher, `linear-mip-level` gardé ; l'atlas virtuel ne bouge pas (12 pages).
+- **F227** (cause déduite) : dans les captures avec interface, une case d'inventaire mesure 30,5 px : l'icône y est dessinée
+  vers 24 px, entre les mipmaps de 32 et 16 px ; un détail absent du mipmap de 16 px y sort à moitié effacé.
+- **F248** : la barre de productivité (`bonus_progress`) se remplit avec la progression de la fabrication ; fabrications
+  d'une machine à forte productivité = (Δ products_finished + Δ crafting_progress + Δ bonus_progress) / (1 + productivité).
+- **F249** : un effet de module ne se range qu'en pourcents entiers (centièmes entiers, F190, F199) : la moitié exacte du
+  malus (−2,5, −7,5 %) est arrondie vers zéro (−2, −5, −7 %).
 
 ### Faits vérifiés en moteur réel (lot IA1-b, pôles, managers, généralistes, 25/10 matin ; fusionné dans `main`, `f33cfbb`, version 0.4.26)
 Preuves : `fo-logs\2026-10-25_IA1-b\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E164, E165.
@@ -1042,6 +1080,34 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E174, E175 · Lot IA1-i, fenêtre « Équipe et factions » (25/10 de 10 h 50 à 12 h 15 ; fusion `63c480c`, version 0.4.28)** :
+demande du DC (« l'idée serait plutôt d'avoir une interface. Pas des commandes à taper ») ; bouton de la barre de raccourcis
+et Maj+T ; onglets Mon équipe, Orientation (5 préréglages, renvoyer avec confirmation dans la fenêtre), Factions (une carte
+par faction, lancer la guerre avec les RÉGLAGES DE CARTE affichés, arrêter avec confirmation), PNJ ; Territoire et Chantiers
+« à venir ». Chaque bouton appelle la fonction de la commande correspondante (bouton et commande : même état de jeu, hors
+jeu) ; l'interface ne fait que lire l'état et n'écrit que par 4 fonctions appelées d'un clic synchronisé. **E174** (`ia1-gui`,
+avec images 35 OK, sans images 7 OK) ; **E175** (rafraîchissement une fois par seconde, fenêtre ouverte seulement : 0,6 ms
+Mon équipe, 0,66 ms Factions, 0,21 ms PNJ ; 0,012 ms par tick en moyenne). VALIDÉE par le DC (« Validée, en jeu »). Sur
+`main` 0.4.28 (`fo-logs\2026-10-25_integration-0.4.28\`) : content 331, ia1-gui 7 (sans images) et 35 (avec images), pnj-auto 7, pnj-reduit 12, verif-guide 15 et 15 (graines 271828182 et 1618033988) (`done.txt` 12:39:25 à 13:08:40), 0 erreur ; hors jeu ia1i 89, pteam 32, war 105, chef 62, org 365, ia1b 50, migration 82, module_mult 95, pvp 1305, harness 0 erreur ; levels_test 1658 OK et 6 ECHEC à l'intégration (la fenêtre lisait `gui.screen` d'un joueur simulé qui n'en a pas), corrigé par l'intégrateur (`cf25906`) : 1664 OK ; api_lint 1065. NON prouvé : un vrai clic, le
+vrai bouton, la vraie touche (à essayer par le DC) ; le multijoueur (raisonnement seulement) ; fermetures non demandées en
+session de test (F265).
+
+**E155, E156, E170, E171 · Lots MOD-V et MOD-3, modules au barème D-17 (25/10 ; fusion `18bc98d`, version 0.4.27)** :
+vitesse +20 % puis +10 % par palier ; productivité +10 % puis +5 % par palier, MULTIPLIÉE (plafond du moteur seul, × 328,67,
+réponse du DC « Pas de plafond (× 328) » après correction de l'ERREUR de l'orchestrateur, qui l'avait dite plafonnée à × 4) ;
+énergie à 60 % du bonus ; au plafond, l'énergie ne paie que la part utile de chaque module (34 × vitesse 10 : × 52,38 au lieu
+de × 328,67 ; calcul en entiers, comparé à un calcul flottant sur 3 000 machines : 0 écart) ; malus de vitesse de la
+productivité réduit de moitié (−2, −5, −7 %, F249) ; efficacité inchangée. Exemples (relus en jeu) : 5 × vitesse 1 : × 2,49
+et énergie × 1,76 ; 5 × vitesse 10 : × 40,84 et × 12,60 ; 5 × productivité 10 : × 8,95 objets, vitesse × 0,70. Icônes propres
+(MOD-V, repris selon D-17 : couleur par type, chevron, engrenage, feuille, chiffre romain, balises à la couleur de l'âge),
+VALIDÉES par le DC (« Validé tel quel », défauts signalés avant : chiffre romain illisible en petit, engrenage proche de la
+roue dentée en mode Alt). **E170** (`mod1-modules`, 85 OK) ; **E171** (`mod3-migration`, double source 0.4.26 : 14 OK ;
+une machine en lots repasse en recette normale, plaques gardées). Sur `main` 0.4.27
+(`fo-logs\2026-10-25_integration-0.4.27\`) : content 331, mod1-modules 85, mod2-lots 28, mod1-migration 11, mod2-migration 6, mod3-migration 14, t2-machines 80, ia1-diag 27, verif-guide 15 (graine 271828182), pnj-reduit 12 (`done.txt` 10:54:37 à 10:57:16), 0 erreur ; hors jeu module_mult 95, ia1_production 103, recipe_lots 67, icones.py --check 0 écart, levels 1664, pvp 1305, harness 0 erreur ; api_lint 1026. NON corrigé : le solveur des équipes
+(`shared/team/production.lua`) ignore l'écart d'énergie au plafond (× 57,66 au lieu de × 52,38 ; sans effet en partie : aucun
+gabarit d'équipe ne pose de module ; correctif d'une ligne dans `fo-logs\2026-10-25_MOD3\INTEGRATION.md` §7, à appliquer
+après IA1-b2). Usine chimique : plus jamais de lot (3 emplacements).
+
 **E164, E165 · Lot IA1-b, pôles, managers, généralistes (25/10 de 6 h 50 à 8 h 20 ; fusion `f33cfbb`, version 0.4.26)** :
 le modèle `org.lua` branché sur l'équipe vivante (pôles Extraction, Base, Territoire ; changements de pôle appliqués en
 fin de tâche ; promotion après 2 min de vacance ; meneurs ; rapports d'une ligne) ; travail de FOND (`shared/team/fond.lua` :

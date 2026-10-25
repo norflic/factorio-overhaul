@@ -54,6 +54,9 @@ local CHEF_REASONS = {
   ["cible a portee"] = "portee", ["avant-poste isole"] = "isole", ["aucune cible"] = "aucune", ["survie"] = "survie",
   ["pertes a reparer"] = "pertes", ["rien a reparer"] = "rien",
 }
+-- Lot IA1-i : exposés en lecture pour l'onglet « Factions » de l'interface (mêmes textes que /fo-war status).
+War.CHEF_POSTURES = CHEF_POSTURES
+War.CHEF_REASONS = CHEF_REASONS
 
 local function chef_line(ch, target)
   local mix = { "" }
