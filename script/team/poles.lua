@@ -27,6 +27,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
+local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
@@ -188,9 +189,16 @@ function Poles.inject_crisis(f, n, ticks, resource)
 end
 
 --- Le cerveau manque-t-il d'OBJETS (et non de sites) pour son objectif ? (plan.missing de shared/team/planner.lua)
-function Poles.brain_short(plan)
+--- Lot IA1-b2 : un objet que l'équipe ne sait pas faire (`book` sans sa recette : tourelle sans la recherche) ne
+--- compte pas : le fond ne lui prendrait aucune plaque (essai 6 : « il manque tourelle » coupait la réserve, PNJ inactifs).
+local RAW = { ["iron-plate"] = true, ["copper-plate"] = true, coal = true, stone = true, ["iron-ore"] = true,
+  ["copper-ore"] = true, ["steel-plate"] = true, ["stone-brick"] = true }
+function Poles.brain_short(plan, book)
   for _, m in ipairs(plan and plan.missing or {}) do
-    if type(m[1]) == "string" and m[1]:sub(1, 5) ~= "site:" then return true end
+    local item = m[1]
+    if type(item) == "string" and item:sub(1, 5) ~= "site:" and (not book or RAW[item] or book:handcraftable(item)) then
+      return true
+    end
   end
   return false
 end
@@ -274,21 +282,56 @@ function Poles.think(f, view, book, tick, plan)
         type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         danger[o.id] = true
       end
+      -- Lot IA1-b2 : votre équipe, avant-poste près d'une perte récente : pas de fond vers lui (prudence par zone).
+      if pos and f.is_player and Poles.near_loss(f, pos, tick) then danger[o.id] = true end
     end
   end
   local prudent = Poles.prudent(org, tick)
+  if f.is_player then prudent = false end -- prudence par zone (Poles.near_loss), plus de repli de toute l'équipe
   if prudent then st.prudent_thinks = (st.prudent_thinks or 0) + 1 end
   -- Le fond sert les PNJ AU-DELÀ DE L'EFFECTIF DE DÉPART (fo-npc-start, 8 ; f.team.floor) : une équipe restée à son
   -- effectif de départ garde le comportement d'avant IA1-b (aucune sortie de fond). Moteur réel, verif-guide graine
   -- 1618033988 (la partie du guide du DC) : avec le fond à 8 PNJ, votre équipe sortait, perdait ses PNJ à partir de
   -- 18 min et son coffre était détruit (3 essais sur 4 avec des règles de prudence différentes) ; sans fond, 8 PNJ et
   -- 2 100 fer à 59 min (main 0.4.25).
-  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0)
+  -- Lot IA1-b2 (D-17, « Laisser grandir ») : une équipe sous « défendre d'abord » (view.defend_first) QUI PEUT POSER
+  -- DES TOURELLES (au stock ou fabricables) a son fond DÈS son effectif de départ : le QG puis chaque avant-poste sont
+  -- défendus avant d'y travailler, rien ne se bâtit sans tourelles, la réserve ne sert que ce qui peut se poser, et votre
+  -- équipe n'a plus de garde d'avant-poste. C'est ce travail qui fait venir les recrues (frein « pas de recrue sans
+  -- travail », script/team/team.lua). SANS tourelle possible, règle d'IA1-b (fond au-delà de l'effectif de départ) :
+  -- essai 2 du lot (fond dès le départ sans tourelle), verif-guide graine 1618033988 : 5 avant-postes à 8 min, QG
+  -- attaqué à 9 min, équipe perdue à 10 min (F241 de nouveau).
+  local df = view.defend_first and true or false
+  local turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false
+  local n, floor0 = f.engineers_count or 0, f.team.floor or 0
+  -- Équipe décimée (sous son effectif de départ) : aucun fond (essai 3 : sorties de fond d'une équipe en reconstruction).
+  -- Votre équipe à son effectif de départ (R-QCM-25c (c), complément du DC : « sur les 8 PNJ y en avait pas mal qui
+  -- faisaient rien ») : fond COMPLET si une tourelle est possible, sinon fond SÛR (ctx.safe_only : fonderie, réserve
+  -- au-dessus des planchers, transport des avant-postes proches, minage près du coffre ; ni agrandir ni bâtir).
+  -- Une faction : fond au-delà de son effectif de départ seulement (règle d'IA1-b ; la croissance reste à votre équipe).
+  -- Votre équipe SANS tourelle possible : fond SÛR quel que soit l'effectif (pas d'expansion sans défense ; ia1b-scale10,
+  -- 10 PNJ sans recherche : agrandissements de fond, QG attaqué par des cracheurs, équipe perdue à 24 min).
+  local full, safe
+  if f.is_player then
+    full = turrets_ok and n >= floor0
+    safe = (not turrets_ok) and n >= floor0
+  else
+    full = n > floor0
+    safe = false
+  end
+  local fond_on = (full or safe) and not view.hq_threat -- QG menacé : tout le monde au coffre (script/team/team.lua)
   org.fond_on = fond_on
   local cands
   if fond_on then
+    local player = f.is_player or false
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-      prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy) })
+      prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
+      defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
+      no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
+      -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
+      -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
+      transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
+      mine_radius = player and T.near_mine or nil })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end
@@ -315,7 +358,7 @@ function Poles.think(f, view, book, tick, plan)
   f.site_needs = f.site_needs or {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
-    if fond_on and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
+    if full and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
       f.site_needs[res] = math.max(f.site_needs[res] or 0, 1)
     end
   end
@@ -570,6 +613,13 @@ Registry.on_removed(function(agent)
   org.losses = org.losses or {}
   org.losses[#org.losses + 1] = game.tick
   while #org.losses > 8 do table.remove(org.losses, 1) end
+  -- Lot IA1-b2 : lieu de la perte (prudence PAR ZONE de votre équipe, Poles.near_loss).
+  local p = agent.death_pos
+  if p then
+    org.loss_pos = org.loss_pos or {}
+    org.loss_pos[#org.loss_pos + 1] = { x = p.x, y = p.y, tick = game.tick }
+    while #org.loss_pos > 8 do table.remove(org.loss_pos, 1) end
+  end
   if agent.org.role == "generalist" and org.vacancy_since == nil then org.vacancy_since = game.tick end
 end)
 
@@ -587,6 +637,23 @@ function Poles.prudent(org, tick)
     if tick - l[i] < Poles.PRUDENCE_TICKS then n = n + 1 else break end
   end
   return n >= Poles.PRUDENCE_LOSSES
+end
+
+--- Lot IA1-b2 (D-18, décision de l'orchestrateur) : prudence PAR ZONE pour votre équipe. Au lieu de garder toute
+--- l'équipe au QG 5 min après 2 pertes (ia1-poles : 20 à 22 PNJ sur 27 y attendaient), seul le travail de fond qui
+--- mène à moins de Poles.LOSS_RADIUS tuiles du lieu d'une perte récente (Poles.PRUDENCE_TICKS) est écarté.
+Poles.LOSS_RADIUS = 64
+function Poles.near_loss(f, pos, tick)
+  local org = f.team and f.team.org
+  if not (org and org.loss_pos and pos) then return false end
+  local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
+  for _, p in ipairs(org.loss_pos) do
+    if tick - p.tick < Poles.PRUDENCE_TICKS then
+      local dx, dy = p.x - pos.x, p.y - pos.y
+      if dx * dx + dy * dy <= r2 then return true end
+    end
+  end
+  return false
 end
 
 --- État publié pour les bancs (interface distante « fo-ia1 », team_status) : aucune fonction, aucun objet du moteur.

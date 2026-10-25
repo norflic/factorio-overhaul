@@ -264,13 +264,34 @@ function Team.view(f, tick)
   -- l'équipe n'est jamais « inactive » et achète des recrues jusqu'à vider son coffre ; moteur réel, verif-guide sur
   -- la graine 1618033988 : 17 PNJ à 8 min, 6 à 85 fer au coffre de 8 à 32 min, aucune tourelle, coffre détruit
   -- vers 38 min). Le frein garde ainsi le sens d'IA1-a : recruter quand le travail du CERVEAU occupe tout le monde.
-  local on_fond = 0
+  -- Lot IA1-b2 (D-17, « Laisser grandir ») : sous « défendre d'abord », seul le fond qui ne produit ni ne construit
+  -- (minage à la main de fond, plafonné ; garde) compte comme disponible ; un PNJ qui agrandit, bâtit, fond le minerai ou
+  -- fabrique la réserve TRAVAILLE : quand tous travaillent, une recrue vient (le stock la paie toujours).
+  local defend_first = f.is_player or T.defend_first_factions or false
+  -- « Défendre d'abord, puis grandir » : la croissance (frein levé par le travail qui attend) ne vaut que pour une équipe
+  -- QUI PEUT POSER DES TOURELLES (au coffre ou fabricables). Essai 5 du lot, verif-guide graine 1618033988, sans
+  -- recherche : votre équipe à 10 PNJ et 6 avant-postes à 8 min, coffre détruit à 17 min (main : 4 avant-postes, vivante).
+  -- R-QCM-25c : la croissance reste à votre équipe (une faction a sa taille réglée, fo-war-workers).
+  local stock0 = stock_of(f)
+  local grow = f.is_player and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
+  local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
-    if t.worker and t.fond then on_fond = on_fond + 1 end
+    local soft = t.fond and (not grow or t.kind == "mine" or t.kind == "garrison")
+    if t.worker and soft then on_fond = on_fond + 1 end
+    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
+    if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
   end
+  -- Lot IA1-b2 : retenue des recrues après une perte (T.recruit_calm ; COUPÉE, 0 : voir shared/team/config.lua).
+  local losses = f.team.org and f.team.org.losses
+  local last_loss = losses and losses[#losses]
+  local hold_recruits = defend_first and T.recruit_calm > 0 and last_loss ~= nil and tick - last_loss < T.recruit_calm or false
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
   local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
+  -- Lot IA1-b2 (« Laisser grandir », D-16 « pas de recrue sans travail » gardé) : sous « défendre d'abord », du travail
+  -- qui attend au-delà des bras libres lève le frein (un PNJ entre deux tâches à l'instant de la pensée retenait sinon
+  -- toute recrue : votre équipe restait à 8 PNJ toute la partie du guide).
+  -- (Remplacé par la règle de croissance à rythme fixe ci-dessous, D-18 : grow_due.)
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
@@ -281,14 +302,51 @@ function Team.view(f, tick)
       id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
+      -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
+      lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
+      -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
+      d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }
+  end
+  -- R-QCM-25c (b) « L'équipe le défend » : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au
+  -- coffre (T.hq_guards). Factions vivantes dans l'ordre des id.
+  local hq_guards = 0
+  local hq_threat = false
+  if f.is_player then
+    for _, id in ipairs(State.alive()) do
+      local g = State.faction(id)
+      if g and g.pvp and g.pvp.declared then hq_guards = T.hq_guards(f.engineers_count or 0) break end
+    end
+    -- QG MENACÉ (unités ennemies à moins de T.hq_threat_radius tuiles du coffre) : tout le monde garde le coffre, le fond
+    -- s'arrête. Moteur réel : avant le lot, les PNJ inactifs restés au coffre le défendaient ; occupés au loin, le coffre
+    -- tombait sous une attaque de biters (verif-guide 577215664, 33 min ; ia1b-scale10, 24 min).
+    if f.hq and f.hq.valid and f.hq.surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius,
+      force = "enemy", type = "unit", limit = 1 }) > 0 then
+      hq_threat = true
+      hq_guards = math.max(hq_guards, f.engineers_count or 0)
+    end
   end
   local sites = {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind] = Sites.available(f, T.outposts[kind].resource) end
   local groups = {}
+  local hq_turrets = 0
   for _, g in ipairs(Outposts.turret_groups(f)) do
     groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key) }
+    if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
   end
+  -- Lot IA1-b2 (règle de croissance, D-18) : une recrue de croissance toutes les T.grow_period tant que le QG et chaque
+  -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de
+  -- recrue sans travail).
+  local grow_due = false
+  if grow and (f.engineers_count or 0) >= floor and backlog > 0
+    and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
+    and (stock0["iron-plate"] or 0) >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    grow_due = true
+    for _, o in ipairs(outposts) do
+      if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
+    end
+  end
+  if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -313,6 +371,12 @@ function Team.view(f, tick)
     -- Correction VERIF-NUIT (25/10) : votre équipe, sous son effectif de départ, équipe ses recrues au QG avec les
     -- plaques du coffre (shared/team/planner.lua, view.recover_floor) ; le reste de la survie reste aux factions.
     recover_floor = f.is_player and floor or nil,
+    -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
+    -- après une perte récente.
+    defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
+    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
@@ -390,6 +454,22 @@ function Team.think(f, surface, tick)
 
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
   -- à tour de rôle.
+  -- Lot IA1-b2 (complément du DC, 25/10 vers 11 h 25) : raisons d'attente des PNJ sans tâche à la pensée : « rien »
+  -- (aucune tâche libre au tableau), « bloque » (des tâches libres, mais d'un autre pôle ou en pause), « manque » (le
+  -- cerveau attend des objets au coffre : affiché au-dessus du coffre, f.team.missing).
+  local idle_n = view.workers_idle or 0
+  if idle_n > 0 then
+    local free_n = 0
+    for _, t in ipairs(Board.get(f).list or {}) do if not t.worker then free_n = free_n + 1 end end
+    local miss = false
+    for _, m in ipairs(plan.missing or {}) do
+      if type(m[1]) == "string" and m[1]:sub(1, 5) ~= "site:" then miss = true break end
+    end
+    local r = f.team.idle_why or { rien = 0, bloque = 0, manque = 0 }
+    f.team.idle_why = r
+    if free_n == 0 then r.rien = r.rien + idle_n else r.bloque = r.bloque + idle_n end
+    if miss then r.manque = r.manque + idle_n end
+  end
   Profiler.start("team:scale")
   Team.measure(f, view, tick)
   Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
@@ -406,6 +486,7 @@ function Team.think(f, surface, tick)
     remove_list(f, pay)
     if Worker.recruit(f, surface, tick) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
+      if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
       if plan.recruit_uses then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
         -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,

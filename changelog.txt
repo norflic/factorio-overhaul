@@ -1,4 +1,46 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.29
+Date: 2026-10-25
+  Changes:
+    - Votre équipe défend d'abord : dès qu'elle peut faire des tourelles (recherche « Tourelles » ou tourelles au coffre),
+      elle en pose autour du coffre (4, une par diagonale), puis à chaque avant-poste AVANT d'y travailler, et ne bâtit un
+      nouvel avant-poste qu'avec ses tourelles. Toutes les factions posent aussi leurs tourelles avant de travailler à un
+      avant-poste.
+    - Votre coffre se défend : dès qu'une faction vous déclare la guerre, des PNJ armés y restent (un quart de l'équipe,
+      2 à 6) ; si des ennemis approchent à moins de 48 tuiles, toute l'équipe vient le défendre.
+    - Plus de garde aux avant-postes ; vos PNJ libres transportent la production des avant-postes, minent près du coffre
+      et fabriquent des réserves, au lieu d'attendre.
+    - Un site gardé par un nid ou un ver, ou dont le chemin en passe à moins de 40 tuiles, est refusé ; sans tourelles,
+      aucun site au-delà de 400 tuiles. Après une perte, seul le travail près de l'endroit dangereux est suspendu 5 min.
+    - Votre équipe ne grandit au-delà de ses 8 PNJ que si elle peut se défendre : une recrue toutes les 5 min tant que le
+      coffre et chaque avant-poste sont défendus, qu'il reste 400 plaques de fer au coffre et du travail en attente.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.28
+Date: 2026-10-25
+  Features:
+    - Nouvelle fenêtre « Équipe et factions », sans commande à taper : bouton dans la barre de raccourcis (il s'ajoute
+      à la fin de votre barre), ou Maj + T ; Échap la ferme.
+    - Onglets : Mon équipe (objectif, ce qui manque, effectifs par pôle, journal, managers, coffre), Orientation
+      (5 préréglages et leur effet ; renvoyer l'équipe, avec confirmation), Factions (une carte par faction : caractère,
+      relation avec vous, posture du chef, cible, forces, ce qu'elle sait de vous ; lancer la guerre avec les réglages
+      de carte affichés à côté du bouton, ou l'arrêter avec confirmation), PNJ (une ligne par PNJ). Territoire et
+      Chantiers : à venir. Les commandes /fo-team et /fo-war restent.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.27
+Date: 2026-10-25
+  Balancing:
+    - Modules (décision du Directeur Créatif, 25/10) : vitesse +20 % au palier 1, puis +10 % par palier (+110 % au
+      palier 10) ; énergie : 60 % du bonus.
+    - Productivité : +10 % au palier 1, puis +5 % par palier (+55 % au palier 10), désormais MULTIPLIÉE comme la vitesse
+      (jusqu'à +32 767 %) ; énergie : 60 % du bonus ; malus de vitesse réduit de moitié (−2, −5, puis −7 %).
+    - Au plafond du jeu (× 328,67), l'énergie ne paie plus que la part utile des modules : 34 modules de vitesse 10
+      consomment × 52 au lieu de × 328.
+  Graphics:
+    - Nouvelles icônes des modules : une couleur par type (bleu vitesse, orange productivité, vert efficacité), une forme
+      par type (chevron, engrenage, feuille) et le palier en chiffre romain ; les balises gardent la couleur de l'âge.
+  Changes:
+    - Parties en cours : les modules posés prennent les nouvelles valeurs au chargement ; les recettes par lots suivent.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.26
 Date: 2026-10-25
   Features:

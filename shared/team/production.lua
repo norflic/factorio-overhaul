@@ -194,33 +194,21 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 2. Machines (vitesse réelle, niveaux, modules multipliés)
 ---------------------------------------------------------------------------------------------------
---- Effets en centièmes d'une liste de modules { { family = "speed", tier = 1 }, ... } : listes par effet.
-local function module_lists(mods)
-  local out = { speed = {}, consumption = {}, productivity = {} }
-  for _, m in ipairs(mods or {}) do
-    local c = CM.cents(m.family, m.tier)
-    for _, key in ipairs({ "speed", "consumption", "productivity" }) do
-      if c[key] and c[key] ~= 0 then out[key][#out[key] + 1] = c[key] end
-    end
-  end
-  return out
-end
-
 --- Machine à sa vitesse réelle : { name, kind, speed, base_speed, speed_factor, energy_factor, prod, usage_kw,
 --- drain_kw, burner_kw, categories, rate (chevalet), modules }. `mods` : liste { family, tier } (MOD-1).
 function P.machine(name, mods)
   local s = Mod.spec(name)
   if not s then return nil, "machine inconnue : " .. tostring(name) end
-  local lists = module_lists(mods)
-  local fs = MM.target(lists.speed) / 100
-  local fc = MM.target(lists.consumption) / 100
-  local prod
-  if MM.PRODUCTIVITY_MULTIPLIES then prod = MM.target(lists.productivity) / 100 - 1
-  else
-    prod = 0
-    for _, v in ipairs(lists.productivity) do prod = prod + v end
-    prod = prod / 100
+  -- Correctif proposé par MOD-3 (INTEGRATION §7), appliqué au lot IA1-b2 : la règle complète du jeu (MM.complements),
+  -- donc l'énergie qui garde l'écart au plafond (D-17), au lieu des trois produits bornés calculés à part.
+  local per = {}
+  for _, m in ipairs(mods or {}) do
+    local c = CM.cents(m.family, m.tier)
+    per[#per + 1] = { speed = c.speed or 0, consumption = c.consumption or 0, productivity = c.productivity or 0 }
   end
+  local comp = MM.complements(per)
+  local fs, fc = comp.speed.t / 100, comp.consumption.t / 100
+  local prod = comp.productivity.t / 100 - 1
   local cats = s.categories
   if not cats and s.kind == "furnace" then cats = { "smelting" } end
   local m = { name = name, kind = s.kind, base_speed = s.speed, speed = s.speed and s.speed * fs, speed_factor = fs,

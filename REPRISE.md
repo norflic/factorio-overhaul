@@ -10,6 +10,47 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 17 h 45** : `main` = **0.4.29** (IA1-b2 fusionné avec 3 défauts ouverts, documenté `5aa7b4c` ; IA3-0 fusionné
+> `f613db1`). Le DC (R-25k) : « mettrez des agents sur le coup en permanance pour avancer sur la partie IA » : SECTION IA EN
+> PARALLÈLE, relancer un agent dès qu'un lot finit (dépendances : `docs/IA3_CERVEAU.md` §6.2). En cours, chacun dans son
+> périmètre de fichiers : IA3-a (recherche d'abord ; F279-F281, E186-E187), IA3-b (marché des tâches et registre ; board,
+>   worker, org ; F282-F284, E188-E189), IA3-c (nouveau cerveau derrière `fo-ia3-cerveau` ; buts, projets, cerveau ; F285-F288,
+>   E190-E192), IA3-f (exploration sous brouillard, carte de connaissance ; F289-F291, E193-E194), IA1-d (plan directeur et
+>   construction, chemin critique ; F292-F295, E195-E197). Rendus : F2-B (four en production ; F276-F278, E184-E185), F3-A3
+>   (assembleur, 3e ronde), F4-A2 (foreuse enrichie). SUIVANTS IA : IA3-d (effectif 8, après b), IA3-g (expéditions, après c et
+>   f), IA3-e (automatiser, après c et IA1-d), IA3-h (pétrole), IA3-i (âges), IA3-j (lisibilité). Feuilles de la mitrailleuse
+>   des worktrees : liens durs depuis `main` (même MANIFEST) au lieu de régénérer.
+> **Point de 15 h 30** : conception IA3 FUSIONNÉE (`db7911c` : `docs/IA3_CERVEAU.md`, `shared/ai3/`, tests 31, 24, 15 OK ;
+> rien de branché). Verdicts du DC : four VALIDÉ pour la production (lot F2-B lancé : rendu final, animation, mémoire vidéo
+> au plancher, mise en jeu) ; foreuse « enrichir nettement » (F4-A2) ; foreuses X0 gardées à part (Q-C3) ; assembleur 3e
+> ronde (F3-A3). Le DC demande le développement profond de l'IA en parallèle : agent IA3-dev lancé (revue adverse du document,
+> IA3-0 fondations avec E180 et E181 en moteur réel, puis IA3-a « recherche d'abord » APRÈS la fusion d'IA1-b2). IA1-b2
+> relancé pour finir ses 3 contrôles rouges (ia1-poles, verif-guide 314159265, ia1b-scale10). 5 agents en cours.
+> **Point de 14 h 05 (après une coupure par la limite d'usage, 13 h 10 à 14 h)** : `main` = **0.4.28** (fenêtre « Équipe et
+> factions », validée par le DC ; régression d'intégration de `levels_test` corrigée, `cf25906`) ; 0.4.27 = modules au barème
+> D-17 et icônes validées. Documents à jour jusqu'à 0.4.28 (`c86b966`). Décisions du jour : D-17 (réponses R-QCM-25 à 25f),
+> D-18 (l'IA des PNJ est une section à concevoir de bout en bout, sans questions au DC à chaque étape). LOTS EN COURS (reprendre
+> un agent coupé par SendMessage ; s'il est perdu, relancer avec le même brief en lisant son dernier commit et ses NOTES) :
+>   - IA1-b2, branche `worktree-agent-a00f8ab45b9529fa2` (dernier commit `7e483cc`) : défendre d'abord pour TOUTES les factions
+>     (ordre strict de pvp_test à rétablir), l'équipe défend son coffre, travail pour les PNJ libres (inactifs ≤ 15 % à 8 PNJ),
+>     correctif du solveur au plafond (MOD-3 INTEGRATION §7) ; NON fusionnable avant `verif-guide` 15 OK sur 4 graines ;
+>   - F2-A2 (four, retouches légères), branche `worktree-agent-aa8c5e5bc03addfbd` (`89f7907`) ;
+>   - F3-A2 (assembleur : corps intégré, détaillé, silhouettes variées dont circulaires), `worktree-agent-ad00d688396c75623`
+>     (`f473739` + fichiers non commités au moment de la coupure) ;
+>   - F4-A (foreuse), `worktree-agent-a235f8f5537d5ec4f` (`3055926`, ronde 1 en rendu au moment de la coupure) ;
+>   - IA3 (conception du cerveau des PNJ, `docs/IA3_CERVEAU.md`) : RELANCÉ à 14 h (le premier architecte n'avait rien commité).
+>   EN ATTENTE : X2 (terres rares, branche `worktree-agent-a94df9d4c17247154`, `6c3c248`) : refaire monazite et sables noirs,
+>   donner un usage aux sous-produits, puis fusion (hausse du centre acceptée) ; X1-suite (hydrogène, ilménite I2 et nuit,
+>   saumure) ; A5-suite (couleur d'équipe 25 %, liserés, teinte automatique) ; F1-C (3e ronde du laser) ; LOG-1 (logistique
+>   au-delà de 120 objets/s) ; F5, F6 (centre, mur). Pages : page du matin N8rHLyXYL7rYqnVjf7atj3 ; Atlas des designs
+>   Dfvg6UEeQN5YYAYHZRS5Pt (source `designs/` du dossier de travail : `manifeste.json`, `build_page.py`). Disque : 2,1 Go libres
+>   à 14 h (cache d'atlas des captures effacé, régénérable ; vieux worktrees archivés dans `fo-logs/2026-10-25_menage-worktrees`).
+>   Questions au DC : toujours par QCM cliquable (AskUserQuestion).
+> **Point de 10 h 15** : page « Atlas des designs » publiée (https://claude.ai/artifact/Dfvg6UEeQN5YYAYHZRS5Pt ; source
+> `designs/` du dossier de travail : `manifeste.json`, `gabarit.html`, `build_page.py`). Le DC BANNIT les familles qui ne
+> changent que de teinte (OBJECTIFS §5, 25/10 vers 10 h) et choisit, par QCM, « les trois en même temps » : lancés F2-A
+> (four), F3-A (assembleur), F4-A (foreuse) : fiches des 15 âges, kit de famille, aperçus, planches pour le DC ; rien en
+> jeu ; rendus partagés sur les 2 places du verrou. Tournent aussi MOD-3 et IA1-b2 : 5 agents. Disque surveillé (2,8 Go).
 > **Point de 9 h 25** : le DC a répondu à TOUT par QCM dans Claude Code (format exigé désormais : AskUserQuestion, jamais
 > un code de réponse à taper) ; réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25), décision **D-17** (RD_LOG). Lancés :
 > MOD-3 (nouveaux paliers vitesse +20/+10 et productivité multipliée +10/+5, écart d'énergie au plafond, design MOD-V

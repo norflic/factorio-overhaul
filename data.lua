@@ -10,3 +10,4 @@ require("prototypes.arsenal_special")
 require("prototypes.faction")
 require("prototypes.levels")
 require("prototypes.vitrine")
+require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »

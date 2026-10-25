@@ -83,6 +83,69 @@ T.turret_ammo_low = 8
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 
+-- DÉFENDRE D'ABORD (lot IA1-b2, décision D-17 du 25/10 : « l'équipe pose des tourelles à un avant-poste AVANT d'y
+-- envoyer des ouvriers »). Tourelles voulues par avant-poste : 1, plus 1 par tranche de 8 foreuses (un avant-poste qui
+-- s'agrandit pollue plus et attire plus d'attaques : il se défend de nouveau avant le prochain agrandissement).
+-- Posées pleines (T.defend_ammo = T.turret_ammo_target chargeurs chacune : Outposts.fortify remplit la première tourelle
+-- avant la suivante, une demi-dose la laissait vide). Priorité T.defend_prio : URGENCE (O.URGENT_PRIO = 90), prise par
+-- n'importe quel PNJ, comme le ravitaillement.
+T.defend_ammo = T.turret_ammo_target
+T.defend_prio = 90
+-- Votre équipe suit toujours « défendre d'abord » ; les factions seulement si T.defend_first_factions. Mesuré au lot
+-- IA1-b2 (essais 1 à 3, protocole 30 contre 10, moteur réel) : à 30 PNJ, la règle aide les factions (tués par les ennemis
+-- 83 -> 25 à 54, production +9 à +20 %) ; à 10 PNJ, elle nuit (production -7 à -11 %, tués 19 -> 12 à 28) ; et au
+-- moteur simulé (tests/pvp_test.lua) elle casse l'ordre des attaques par difficulté (Impitoyable 3 attaques, Difficile 4).
+-- Une partie normale (guide : 4 ouvriers par faction) ressemble au cas 10.
+-- Réponse du DC (R-QCM-25c, 25/10 vers 11 h 20) : « Oui, toutes » : la DÉFENSE (tourelles d'avant-poste, construction
+-- avec tourelles, avant-poste meurtrier) vaut pour toutes les factions ; la croissance et le fond dès l'effectif de départ
+-- restent à votre équipe (une faction a sa propre taille, fo-war-workers).
+T.defend_first_factions = true
+-- Recrues retenues T.recruit_calm ticks après la perte d'un PNJ (0 : jamais). Essayé à 60 s (essais 1 à 4 du lot) : moins
+-- de recrues tuées à leur arrivée, mais pendant une longue attaque du QG l'équipe restait sous son effectif de départ
+-- avec du fer (verif-guide graine 1618033988 : 5 min de suite, ECHEC du contrôle de reconstruction) et le QG, moins
+-- gardé, tombait. COUPÉ.
+T.recruit_calm = 0
+-- Avant-poste MEURTRIER : un PNJ tué en y allant ; sans ses tourelles, plus personne n'y va pendant 10 min (ni tournée,
+-- ni agrandissement, ni fond), sauf pour y poser les tourelles.
+T.lethal_ticks = 10 * 3600
+-- ... sauf si sa ressource manque au coffre (moins de T.lethal_need unités) : on y retourne quand même.
+T.lethal_need = 50
+-- Tourelles du QG (posées d'abord) et fer gardé pour les recrues : la défense ne fabrique pas sous ce plancher.
+-- R-QCM-25c (b) « L'équipe le défend » : 4 tourelles autour du coffre (les 4 diagonales d'Outposts.fortify : tous les
+-- côtés, l'attaque d'une faction vise le côté le moins défendu, IA2-c).
+T.defend_hq = 4
+T.defend_iron_floor = 150
+T.defend_copper_floor = 30 -- 6 pistolets de recrues
+-- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
+-- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
+-- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.
+T.site_max_noturret = 400
+-- R-QCM-25c (b) : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au coffre : un quart de
+-- l'équipe, au moins 2, au plus 6 (gardes de T.guard_ticks, relevées ; priorité T.guard_prio, au-dessus des tournées).
+T.guard_prio = 85
+T.guard_ticks = 3600
+function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))) end
+-- QG menacé : unités ennemies à moins de T.hq_threat_radius tuiles du coffre ; toute l'équipe en garde (urgence).
+T.hq_threat_radius = 48
+T.guard_threat_prio = 96
+T.guard_threat_ticks = 1200
+-- R-QCM-25c (c) « Donner du travail » : le minage de fond de votre équipe se fait PRÈS DU COFFRE (rayon, tuiles ;
+-- 27 PNJ tués à 74 tuiles en minant au fond, protocole 30 contre 10) ; transport = tournée de fond d'un avant-poste qui a
+-- au moins T.transport_min objets à rapporter (ni meurtrier non défendu, ni pendant la prudence). T.transport_near : limite
+-- essayée sans tourelle (essai 7), retirée (ctx.transport_d2 reste pour les bancs hors jeu).
+-- Rayon gardé à 96 (celui d'IA1-b) : 40 tuiles (essai 6) et 64 (essai 7) ne trouvaient presque rien à miner sur la carte
+-- d'ia1-poles (équipe occupée 36,7 % et 50,7 %) ; la tuile reste à plus de 40 tuiles d'un nid ou d'un ver.
+T.near_mine = 96
+-- Croissance de votre équipe : seulement en gardant ce fer au coffre (munitions, tourelles, recrues de survie).
+T.grow_iron_reserve = 400
+T.grow_period = 5 * 3600 -- une recrue de croissance toutes les 5 min au plus (règle de croissance, D-18)
+T.transport_min = 10
+-- Porteurs de fond au plus par avant-poste. 4 essayés : ia1-poles 70 -> 75 % seulement (la production manque), et plus
+-- de PNJ exposés sur les cartes hostiles (verif-guide 1618033988 : porteurs tués à 87-99 tuiles) : 2 gardés.
+T.transport_porters = 2
+T.transport_near = 64
+function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
+
 ---------------------------------------------------------------------------------------------------
 -- Recherche : niveaux payés en VRAIS packs de science, fabriqués par l'équipe.
 -- Le pack chimique demande du pétrole : les niveaux 4-5 attendent l'objectif Pétrole.

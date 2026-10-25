@@ -7,10 +7,23 @@ local lib = require("prototypes.lib")
 local M = require("shared.content.modules")
 local MM = require("shared.content.module_mult")
 local L = require("shared.levels.config")
+-- Lot MOD-V : icônes propres des 30 modules et de leurs 30 technologies (forme = type, couleurs = âge qui débloque le
+-- palier, chiffre romain gravé), générées par tools/render/pieces/modules/icones.py ; teintes de balise assorties.
+local ICONES = require("__factorio-overhaul__/graphics/modules/icons")
+local DIR_ICONES = "__factorio-overhaul__/graphics/modules/"
+
+--- Pose l'icône générée de l'objet ou de la technologie `name` (sans couche ni teinte : une seule image par prototype).
+local function poser_icone(proto, spec)
+  proto.icons = nil
+  proto.icon = DIR_ICONES .. spec.fichier
+  proto.icon_size = spec.icon_size
+  proto.icon_mipmaps = spec.icon_mipmaps
+end
 
 local out = {}
 
--- Paliers vanilla : effets réécrits quand la famille le demande (vitesse, D-15) ; description de la règle pour tous.
+-- Paliers vanilla : effets réécrits quand la famille le demande (vitesse, D-15) ; description de la règle pour tous ;
+-- icônes et teintes de balise du lot MOD-V (objets et technologies vanilla).
 for _, family in ipairs(M.ORDER) do
   local spec = M.families[family]
   for k = 1, M.VANILLA_TIERS do
@@ -18,18 +31,20 @@ for _, family in ipairs(M.ORDER) do
     if item then
       if spec.vanilla_overridden then item.effect = M.effect(family, k) end
       item.localised_description = { "", { "item-description." .. spec.vanilla[1] }, "\n", { "fo-mm.module-desc-" .. family } }
+      local ic = ICONES.objets[spec.vanilla[k]]
+      poser_icone(item, ic)
+      item.beacon_tint = table.deepcopy(ic.beacon_tint)
     end
+    local tech = data.raw.technology[spec.vanilla[k]]
+    if tech then poser_icone(tech, ICONES.technos[spec.vanilla[k]]) end
   end
 end
 
 for _, family in ipairs(M.ORDER) do
   local spec = M.families[family]
   local vanilla_top = data.raw.module[spec.vanilla[M.VANILLA_TIERS]]
-  local vanilla_tech = data.raw.technology[spec.vanilla[M.VANILLA_TIERS]]
   for k = M.VANILLA_TIERS + 1, M.TIERS do
     local name = M.name(family, k)
-    local t = (k - M.VANILLA_TIERS) / (M.TIERS - M.VANILLA_TIERS)
-    local tint = lib.gradient(spec.tint, t)
 
     local item = table.deepcopy(vanilla_top)
     item.name = name
@@ -37,21 +52,11 @@ for _, family in ipairs(M.ORDER) do
     item.effect = M.effect(family, k)
     item.order = string.format("a[%s]-z[fo-%02d]", family, k)
     item.localised_name = { "", { "item-name." .. spec.vanilla[1] }, " " .. k }
-    local icons = lib.tier_icons(vanilla_top.icon, vanilla_top.icon_size, tint, k, vanilla_top.icon_mipmaps)
-    -- Évolution visible (session 4) : la puce du module change de nature avec le palier, comme ses
-    -- ingrédients (circuit avancé 6-7, processeur 8-9, cristal de résonance au 10).
-    local chip = (k >= 10 and data.raw.item["uranium-235"]) or (k >= 8 and data.raw.item["processing-unit"])
-      or (k >= 6 and data.raw.item["advanced-circuit"]) or nil
-    if chip then
-      icons[#icons + 1] = {
-        icon = chip.icon, icon_size = chip.icon_size, icon_mipmaps = chip.icon_mipmaps,
-        scale = 0.25 * 64 / chip.icon_size, shift = { 8, 8 },
-        tint = k >= 10 and { r = 0.85, g = 0.45, b = 1.00 } or nil,
-      }
-    end
-    lib.set_icons(item, icons)
+    -- Lot MOD-V : icône propre (avant : icône vanilla du palier 3 teintée, chiffre et puce superposés).
+    local ic = ICONES.objets[name]
+    poser_icone(item, ic)
     item.localised_description = { "", { "item-description." .. spec.vanilla[1] }, "\n", { "fo-mm.module-desc-" .. family } }
-    item.beacon_tint = { primary = tint, secondary = tint }
+    item.beacon_tint = table.deepcopy(ic.beacon_tint)
     -- limitation (productivité) : complétée en data-final-fixes, une fois toutes les recettes connues
     out[#out + 1] = item
 
@@ -63,7 +68,9 @@ for _, family in ipairs(M.ORDER) do
       name = name,
       localised_name = { "", { "technology-name." .. spec.vanilla[1] }, " " .. k },
       localised_description = { "technology-description." .. spec.vanilla[1] },
-      icons = lib.tier_icons(vanilla_tech.icon, vanilla_tech.icon_size, tint, k, vanilla_tech.icon_mipmaps),
+      icon = DIR_ICONES .. ICONES.technos[name].fichier,
+      icon_size = ICONES.technos[name].icon_size,
+      icon_mipmaps = ICONES.technos[name].icon_mipmaps,
       effects = { lib.unlock(name) },
       prerequisites = { tech.prerequisite },
       count = tech.count,

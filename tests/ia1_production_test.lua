@@ -85,21 +85,28 @@ local function suite(P, quiet)
   end
   check(#mbad == 0, "les " .. #Mod.recipe_names() .. " recettes des gabarits (IA1-c) = livre réel (" .. table.concat(mbad, " | ") .. ")")
 
-  section("Machines à leur vitesse réelle (niveaux, modules multipliés MOD-1)")
+  section("Machines à leur vitesse réelle (niveaux, modules multipliés MOD-1, barème D-17 du lot MOD-3)")
   local a2 = P.machine("assembling-machine-2")
   check(near(a2.speed, 0.75) and near(a2.usage_kw, 150) and near(a2.drain_kw, 5), "assembleur 2 : 0,75, 150 kW + 5 kW de ponction")
   check(near(P.machine("fo-lvl-assembler-7").speed, 0.75 * 1.48), "assembleur au niveau 7 : 0,75 × (1 + 6 × 8 %) = 1,11")
   check(near(P.machine("fo-lvl-furnace-7").speed, 2 * 1.48), "four au niveau 7 : 2 × 1,48")
   check(near(P.machine("fo-lvl-drill-7").speed, 0.5 * 1.6), "foreuse au niveau 7 : 0,5 × (1 + 6 × 10 %) = 0,8")
   local sp = P.machine("assembling-machine-2", { { family = "speed", tier = 1 }, { family = "speed", tier = 1 } })
-  check(near(sp.speed_factor, 2.25) and near(sp.speed, 1.6875), "2 modules de vitesse 1 (+50 %) : × 2,25 (Π (1 + b), pas × 2)")
-  check(near(sp.energy_factor, 1.69) and near(sp.usage_kw, 150 * 1.69), "énergie : × 1,3² = 1,69")
+  check(near(sp.speed_factor, 1.44) and near(sp.speed, 1.08), "2 modules de vitesse 1 (+20 %, D-17) : × 1,44 (Π (1 + b), pas × 1,40)")
+  check(near(sp.energy_factor, 1.25) and near(sp.usage_kw, 150 * 1.25), "énergie : × 1,12² = 1,2544, arrondi au centième : 1,25")
   check(near(sp.drain_kw, 5), "ponction non multipliée (F202)")
   local pm = P.machine("assembling-machine-2", { { family = "productivity", tier = 1 }, { family = "productivity", tier = 1 } })
-  check(near(pm.prod, 0.08) and near(pm.speed_factor, 0.90), "2 modules de productivité 1 : +8 % (additive, Q-M4), vitesse × 0,95² = 0,9025 arrondi au centième comme le moteur : 0,90")
+  check(near(pm.prod, 0.21) and near(pm.speed_factor, 0.96), "2 modules de productivité 1 : × 1,1² = +21 % (multipliée, D-17), vitesse × 0,98² = 0,9604 (malus réduit de moitié, R-QCM-25b) arrondi au centième comme le moteur : 0,96")
   local big = P.machine("fo-lvl-assembler-30", { { family = "speed", tier = 10 }, { family = "speed", tier = 10 },
     { family = "speed", tier = 10 }, { family = "speed", tier = 10 } })
-  check(near(big.speed_factor, 311.17), "4 modules de vitesse 10 : × 4,2⁴ = 311,17 (sous le plafond du moteur × 328,67) : " .. string.format("%.2f", big.speed_factor))
+  check(near(big.speed_factor, 19.45), "4 modules de vitesse 10 : × 2,1⁴ = 19,45 (D-17) : " .. string.format("%.2f", big.speed_factor))
+  local s10 = {}
+  for i = 1, 8 do s10[i] = { family = "speed", tier = 10 } end
+  local huge = P.machine("fo-lvl-assembler-30", s10)
+  check(near(huge.speed_factor, 328.67), "8 modules de vitesse 10 : 2,1⁸ = 378 → plafond du moteur × 328,67 : " .. string.format("%.2f", huge.speed_factor))
+  -- Correctif de MOD-3 appliqué au lot IA1-b2 : au plafond, le solveur suit la règle de l'écart du jeu (MM.complements).
+  check(near(huge.energy_factor, 52.38), "8 modules de vitesse 10 : énergie × 52,38 au plafond (règle de l'écart, D-17) : "
+    .. string.format("%.2f", huge.energy_factor))
 
   section("Jeu d'essai du §6.1 : 10 circuits rouges par minute")
   local plan, why = P.solve(book, { ["advanced-circuit"] = 10 })
@@ -158,21 +165,23 @@ local function suite(P, quiet)
 
   section("Plafond de 60 fabrications/s, recettes par lots (MOD-2)")
   local gears = book.recipes["iron-gear-wheel"]
-  local cps, k, capped = P.crafts_per_s(big, gears, book.lots["iron-gear-wheel"])
-  check(near(cps, big.speed / 0.5) and k == 100 and not capped, string.format("machine rapide (%.0f fab./s voulues) : lot 100, débit entier", big.speed / 0.5))
-  local cps1, k1, capped1 = P.crafts_per_s(big, gears, nil)
+  local cps, k, capped = P.crafts_per_s(huge, gears, book.lots["iron-gear-wheel"])
+  check(near(cps, huge.speed / 0.5) and k == 100 and not capped, string.format("machine rapide (%.0f fab./s voulues) : lot 100, débit entier", huge.speed / 0.5))
+  local cpsm, km = P.crafts_per_s(big, gears, book.lots["iron-gear-wheel"])
+  check(near(cpsm, big.speed / 0.5) and km == 10, string.format("machine de %.0f fab./s : lot 10", big.speed / 0.5))
+  local cps1, k1, capped1 = P.crafts_per_s(huge, gears, nil)
   check(near(cps1, 60) and k1 == 1 and capped1, "sans lot au livre : plafonnée à 60 fab./s")
   local cps2, k2 = P.crafts_per_s(a2, gears, book.lots["iron-gear-wheel"])
   check(near(cps2, 1.5) and k2 == 1, "assembleur 2 : 1,5 fab./s, lot 1")
-  local fast = P.solve(book, { ["iron-gear-wheel"] = 60000 }, { machines = { crafting = big }, power = "externe" })
+  local fast = P.solve(book, { ["iron-gear-wheel"] = 60000 }, { machines = { crafting = huge }, power = "externe" })
   local gn = fast and P.node(fast, "iron-gear-wheel")
-  check(gn and gn.lot == 100 and near(gn.machines, 1000 / (big.speed / 0.5), 1e-9), "60 000 engrenages/min : machines = débit ÷ vitesse réelle (lot 100)")
+  check(gn and gn.lot == 100 and near(gn.machines, 1000 / (huge.speed / 0.5), 1e-9), "60 000 engrenages/min : machines = débit ÷ vitesse réelle (lot 100)")
 
-  section("Productivité (additive, Q-M4)")
+  section("Productivité (multipliée, D-17)")
   local pplan = P.solve(book, { ["advanced-circuit"] = 10 }, { machines = { crafting = pm, ["advanced-crafting"] = pm, ["crafting-with-fluid"] = pm } })
   local pn = pplan and P.node(pplan, "advanced-circuit")
-  check(pn and near(pn.crafts_per_s, (10 / 60) / 1.08), "circuits rouges avec +8 % : fabrications ÷ 1,08")
-  check(pplan and near(P.node(pplan, "electronic-circuit").per_min, 2 * 10 / 1.08), "circuits verts demandés : 2 × 10 / 1,08")
+  check(pn and near(pn.crafts_per_s, (10 / 60) / 1.21), "circuits rouges avec × 1,21 : fabrications ÷ 1,21")
+  check(pplan and near(P.node(pplan, "electronic-circuit").per_min, 2 * 10 / 1.21), "circuits verts demandés : 2 × 10 / 1,21")
 
   section("Valeurs en MU (règle X0 : la plaque de fer vaut 1 MU)")
   local v = P.values(book)
@@ -270,7 +279,8 @@ local f = assert(io.open(PROD_PATH, "rb"))
 local SRC = f:read("*a")
 f:close()
 local MUTANTS = {
-  { "modules additionnés", "local fs = MM.target(lists.speed) / 100", "local fs = 1; for _, x in ipairs(lists.speed) do fs = fs + x / 100 end" },
+  { "modules additionnés", "local fs, fc = comp.speed.t / 100, comp.consumption.t / 100",
+    "local fs, fc = 1, comp.consumption.t / 100; for _, x in ipairs(per) do fs = fs + x.speed / 100 end" },
   { "productivité ignorée", "local out = product_amount(r, item) * (1 + m.prod)", "local out = product_amount(r, item)" },
   { "lots ignorés (plafond 60 toujours)", "local kmax = avail[#avail]", "local kmax = 1" },
   { "aucun plafond de 60/s", "if w > RL.CAP * kmax + P.EPS then", "if false then" },
