@@ -75,6 +75,7 @@ steps[120] = function(ctx, p, st)
   local s = R(ctx, "state", p.index)
   ctx.check(s.tab == "factions" and s.selected == 3 and keys_count(s, "fo-ia1i.war-none") == 1 and names_has(s, "fo_ia1i_war_start"),
     "Factions sans guerre : bouton Lancer", "selected " .. tostring(s.selected))
+  ctx.check(keys_count(s, "fo-ia1i.war-start-text") == 1, "reglages de carte affiches a cote du bouton Lancer")
 end
 steps[125] = function(ctx, p) shot(ctx, p, "01-factions-sans-guerre") end
 
@@ -86,6 +87,10 @@ steps[150] = function(ctx, p, st)
   ctx.check(before == 0 and st.war_n == 3, "clic Lancer la guerre : 3 factions (reglage de carte)",
     before .. " -> " .. st.war_n)
   local s = R(ctx, "state", p.index)
+  ctx.check(s.war and s.war.soldiers_max == 30 and s.war.npc_from_setting == true,
+    "Lancer : 30 soldats au plus et ouvriers suivis du reglage (reglages de carte, comme le lancement automatique)",
+    string.format("soldats %s, ouvriers suivis du reglage %s", tostring(s.war and s.war.soldiers_max),
+      tostring(s.war and s.war.npc_from_setting)))
   ctx.check(names_has(s, "fo_ia1i_war_stop") and keys_count(s, "fo-ia1i.character") == 3,
     "Factions : bouton Arreter et une carte par faction", keys_count(s, "fo-ia1i.character"))
 end

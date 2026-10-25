@@ -294,6 +294,19 @@ do
   select_tab(G.TAB_INDEX.factions)
   local k = keys_of(pane("factions"))
   check(k["fo-ia1i.war-none"] == 1 and find(frame(), "fo_ia1i_war_start") ~= nil, "sans guerre : bouton « Lancer »")
+  local function caption_of(el, key)
+    for _, ch in ipairs(el.children) do
+      if type(ch.caption) == "table" and ch.caption[1] == key then return ch.caption end
+      local r = caption_of(ch, key)
+      if r then return r end
+    end
+  end
+  local cap = caption_of(pane("factions"), "fo-ia1i.war-start-text")
+  local g = settings.global
+  check(cap and cap[2] == g["fo-war-factions"].value and cap[3] == g["fo-war-soldiers"].value
+    and cap[4] == g["fo-war-workers"].value,
+    "réglages de carte affichés à côté du bouton (" .. (cap and (tostring(cap[2]) .. ", " .. tostring(cap[3]) .. ", "
+    .. tostring(cap[4])) or "absent") .. ")")
   W.player.admin = false
   game.is_multiplayer = function() return true end
   setup_gui()
@@ -306,8 +319,11 @@ do
   game.is_multiplayer = function() return false end
   select_tab(G.TAB_INDEX.factions)
   check(click("fo_ia1i_war_start"), "clic « Lancer la guerre »")
-  check(State.war().active and #State.alive() == require("script.core.config").get("factions"),
-    "guerre lancée avec le réglage de carte (" .. #State.alive() .. " factions)")
+  local ws = State.war().settings
+  check(State.war().active and #State.alive() == settings.global["fo-war-factions"].value
+    and ws.soldiers_max == settings.global["fo-war-soldiers"].value and ws.npc_from_setting == true,
+    "guerre lancée avec les réglages de carte (" .. #State.alive() .. " factions, " .. tostring(ws.soldiers_max)
+    .. " soldats au plus, ouvriers suivis du réglage : " .. tostring(ws.npc_from_setting) .. ")")
   M.run_ticks(3 * 3600)
   k = keys_of(pane("factions"))
   local n = #State.alive()
@@ -397,7 +413,8 @@ local function play(by_gui, gui_open)
     select_tab(G.TAB_INDEX.orientation)
     click("fo_ia1i_preset_protection")
   elseif by_gui == "cmd" then
-    M.command("fo-war", "start")
+    -- Le bouton prend les réglages de carte (comme le lancement automatique) : /fo-war start <factions> <soldats>.
+    M.command("fo-war", "start " .. settings.global["fo-war-factions"].value .. " " .. settings.global["fo-war-soldiers"].value)
     M.command("fo-team", "orientation protection")
   end
   M.run_ticks(5 * 3600)

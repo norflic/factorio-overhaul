@@ -17,8 +17,10 @@
   AUCUNE seconde logique : chaque bouton appelle la fonction de la commande correspondante :
     préréglage      -> Poles.set_orientation (comme « /fo-team orientation » et l'interface distante « fo-ia1 ») ;
     renvoi confirmé -> PlayerTeam.dismiss(f, true) (comme « /fo-team dismiss ») ;
-    lancer          -> War.start(joueur, réglage « factions », F.defaults.soldiers_max, nil, F.defaults.distance) :
-                       « /fo-war start » sans argument ; réservé aux administrateurs en multijoueur, comme la commande ;
+    lancer          -> War.start(joueur, fo-war-factions, fo-war-soldiers, nil, F.defaults.distance) : les RÉGLAGES DE
+                       CARTE, comme le lancement automatique (ouvriers nil : fo-war-workers suivi en cours de partie) ;
+                       c'est « /fo-war start <factions> <soldats> » ; réservé aux administrateurs en multijoueur, comme
+                       la commande (demande du coordinateur, 25/10 : pas les 100 soldats de la commande sans argument) ;
     arrêt confirmé  -> War.stop() (comme « /fo-war stop »).
   Les commandes restent (bancs, console).
 
@@ -88,6 +90,12 @@ end
 
 local function admin_ok(player)
   return not (game.is_multiplayer() and not player.admin)
+end
+
+--- Réglages de carte de la guerre, lus comme le lancement automatique (script/faction/war.lua, autostart).
+local function war_settings()
+  local g = settings.global
+  return { factions = g["fo-war-factions"].value, soldiers = g["fo-war-soldiers"].value }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -379,15 +387,17 @@ end
 
 tabs.factions = {
   sig = function(f, u, player)
-    return tostring(State.war().active) .. "|" .. tostring(u.confirm) .. "|" .. tostring(admin_ok(player))
+    local w = war_settings()
+    return tostring(State.war().active) .. "|" .. tostring(u.confirm) .. "|" .. tostring(admin_ok(player)) .. "|"
+      .. tostring(w.factions) .. "|" .. tostring(w.soldiers) .. "|" .. tostring(Config.get("npc_max"))
   end,
   fixed = function(c, player, f, u)
     local war = State.war()
     local can = admin_ok(player)
     if not war.active then
       label(c, { "fo-ia1i.war-none" }, { font = "default-bold" })
-      label(c, { "fo-ia1i.war-start-text", Config.get("factions"), F.defaults.soldiers_max, Config.get("npc_max"),
-        F.defaults.distance })
+      local w = war_settings()
+      label(c, { "fo-ia1i.war-start-text", w.factions, w.soldiers, Config.get("npc_max"), F.defaults.distance })
       local b = c.add({ type = "button", name = P .. "war_start", caption = { "fo-ia1i.war-start" }, style = "confirm_button" })
       b.style.top_margin = 6
       if not can then
@@ -610,11 +620,12 @@ local function on_click(e)
       player.print({ "fo-team.dismissed" })
     end
   elseif name == P .. "war_start" then
-    -- /fo-war start, sans argument
+    -- Réglages de carte, comme le lancement automatique (= /fo-war start <factions> <soldats>)
     if not admin_ok(player) then
       player.print({ "fo-ia1i.admin-only" })
     else
-      local ok, err = War.start(player, math.floor(Config.get("factions")), F.defaults.soldiers_max, nil, F.defaults.distance)
+      local w = war_settings()
+      local ok, err = War.start(player, w.factions, w.soldiers, nil, F.defaults.distance)
       if not ok then player.print("[FO-WAR] " .. tostring(err)) end
     end
   elseif name == P .. "war_stop" then
@@ -756,8 +767,11 @@ remote.add_interface("fo-ia1i", {
     if not player then return { refreshes = ns.refreshes } end
     local frame = frame_of(player)
     local u = ui(player)
+    local ws = State.war().settings or {}
     local out = { open = frame ~= nil, tab = M.TABS[u.tab], confirm = u.confirm, refreshes = ns.refreshes,
-      shortcut = player.is_shortcut_toggled(SHORTCUT), names = {}, keys = {} }
+      shortcut = player.is_shortcut_toggled(SHORTCUT), names = {}, keys = {},
+      war = { active = State.war().active, soldiers_max = ws.soldiers_max, engineers_max = ws.engineers_max,
+        npc_from_setting = ws.npc_from_setting or false } }
     local o = player.opened
     out.opened = (o ~= nil and o.object_name == "LuaGuiElement" and o.valid and o.name == FRAME) or false
     if frame then
