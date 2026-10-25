@@ -49,10 +49,10 @@ def socle(g, c):
                for i in range(17)]
         g.tube(pts, 0.035, M["or_chauffe"], n=6, what="cote_or")
     # joints incandescents au pied de la voûte et tirets lumineux sur la face
-    g.box(V((0, B(0, y0).y - 0.03, zw + 0.02)), (2 * h - 0.2, 0.02, 0.025), M["emit"], "flat", what="joint_feu")
+    g.box(V((0, B(0, y0).y - 0.03, zw + 0.02)), (2 * h - 0.2, 0.02, 0.025), M["emit2"], "flat", what="joint_feu")
     for k in range(9):
         x = -c.xb + 0.15 + (2 * c.xb - 0.3) * k / 8
-        g.box(B(x, yb - 0.03, ze + 0.08 + 0.1 * (k % 2)), (0.16, 0.02, 0.03), M["emit"] if k % 3 else M["or_vif"],
+        g.box(B(x, yb - 0.03, ze + 0.08 + 0.1 * (k % 2)), (0.16, 0.02, 0.03), M["emit2"] if k % 3 else M["or_vif"],
               "flat", what="tiret")
         g.dome(B(x, yb - 0.02, zw - 0.12), (0, -1, 0), 0.02, M["or_rivet"])
     halo(g, 0, yb - 0.2, ze + 0.15, 1.0)
@@ -60,7 +60,7 @@ def socle(g, c):
     # couronne d'évents incandescents au sommet de la voûte
     for x in (-1.6, -0.8, 0.8, 1.6):
         g.cyl(V((x, yc, Hd + 0.03)), "z", 0.12, 0.08, M["cendre"], n=16, what="event")
-        g.cyl(V((x, yc, Hd + 0.075)), "z", 0.08, 0.012, M["emit"], n=16, what="event_feu")
+        g.cyl(V((x, yc, Hd + 0.075)), "z", 0.08, 0.012, M["emit2"], n=16, what="event_feu")
     halo(g, 0, (y0 + y1) / 2, Hd + 0.2, 1.0)
 
 
@@ -75,6 +75,8 @@ def outil(g, c):
     ax = Matrix.Rotation(INCLINAISON, 3, "X") @ V((0, 0, 1))
     g.torus(ctr, ax, r + 0.2, 0.035, M["emit"], n=64, m=8, what="couronne")
     g.torus(ctr, ax, r + 0.32, 0.018, M["or_blanc_chaud"], n=64, m=6, what="couronne_or")
+    # ronde 3 : foyer mesuré 44°, saturation 0,17, HORS de la famille (0,2 à 0,7) : anneau orange (emit2, FOYER rgb2)
+    g.torus(ctr, ax, r + 0.11, 0.022, M["emit2"], n=64, m=6, what="couronne_orange")
     g.torus(ctr, ax, r + 0.03, 0.02, M["emit_soft"], n=48, m=6, what="liseré_horizon")
     halo(g, 0, yt, zt + 1.05, 2.0)
     for sx in (-1, 1):

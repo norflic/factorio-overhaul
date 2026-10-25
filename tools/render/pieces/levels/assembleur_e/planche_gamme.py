@@ -93,8 +93,9 @@ def main():
             for fam, src, pose, even, nom in cells:
                 sheet.paste(cellule(fam, src, e, pose, even, T, a.zoom, a.nuit), (x, y + lab))
                 niv = 2 * e if even else 2 * e - 1
-                dr.text((x + 4, y + 3), "%d · %s · %s · niv. %d" % (e, K.NAME[e], nom, niv), fill=(230, 230, 230),
-                        font=K.font(14))
+                lab_ = ("%d · %s · niv. %d" % (e, K.NAME[e], niv)) if a.mode == "ages" else (
+                    "%d · %s · %s · niv. %d" % (e, K.NAME[e], nom, niv))
+                dr.text((x + 4, y + 3), lab_, fill=(230, 230, 230), font=K.font(13))
                 x += cw + 6
         y += cw + lab + 4
     os.makedirs(os.path.dirname(os.path.abspath(a.dest)), exist_ok=True)

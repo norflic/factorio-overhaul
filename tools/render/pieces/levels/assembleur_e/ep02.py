@@ -47,9 +47,9 @@ def socle(g, c):
     xf = 0.42
     g.box(B(xf, yb - 0.18, ze + 0.08), (0.5, 0.3 * SQ2, 0.16), M["brique"], "hard", what="sole")
     for k in range(9):
-        F.lump(g, B(xf - 0.16 + 0.04 * k, yb - 0.2 + 0.03 * (k % 3), ze + 0.17), 0.04, M["emit"] if k % 3 else
+        F.lump(g, B(xf - 0.18 + 0.045 * k, yb - 0.3 + 0.04 * (k % 3), ze + 0.17), 0.05, M["emit"] if k % 3 else
                M["braise_sombre"] if "braise_sombre" in M else M["soot"])
-    zh0, zh1 = ze + 0.3, zw + 0.22
+    zh0, zh1 = ze + 0.5, zw + 0.3      # ronde 3 : hotte plus haute (elle cachait les braises : 0 foyer mesuré)
     g.hexa([B(xf - 0.27, yb - 0.36, zh0), B(xf + 0.27, yb - 0.36, zh0), B(xf + 0.27, yb - 0.02, zh0),
             B(xf - 0.27, yb - 0.02, zh0), B(xf - 0.1, yb - 0.1, zh1), B(xf + 0.1, yb - 0.1, zh1),
             B(xf + 0.1, yb + 0.12, zh1), B(xf - 0.1, yb + 0.12, zh1)], M["fer_noir"], "hard", "hotte")
@@ -118,7 +118,7 @@ def ouvrage(g, c):
     g.box(B(0.02, yt, z + 0.13), (0.12, 0.08 * SQ2, 0.06), M["fer_noir"], "hard", what="taille")
     g.box(B(0.0, yt, z + 0.19), (0.3, 0.13 * SQ2, 0.07), M["fer_martele"], "hard", what="table_enclume")
     g.cyl(B(0.21, yt, z + 0.2), "x", 0.045, 0.14, M["fer_martele"], n=10, r2=0.006, what="bigorne")
-    g.box(B(-0.02, yt, z + 0.25), (0.13, 0.05 * SQ2, 0.04), M["emit"], "soft", what="lopin")
+    g.box(B(-0.02, yt, z + 0.25), (0.2, 0.08 * SQ2, 0.05), M["emit"], "soft", what="lopin")
     halo(g, 0.0, yt, z + 0.3, 0.8)
     g.box(B(-0.2, yt - 0.04, z + 0.25), (0.22, 0.02 * SQ2, 0.015), M["fer_noir"], "hard",
           R=Matrix.Rotation(0.15, 3, "Z"), what="pince")
