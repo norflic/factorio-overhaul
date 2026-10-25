@@ -100,7 +100,7 @@ def main():
     sheet = Image.new("RGB", (W, H), (24, 24, 28))
     dr = ImageDraw.Draw(sheet)
     dr.text((8, 8), a.titre or ("Four (lot F2-A, aperçus 32 éch.) · %s · zoom %d · %s · niveau %s" % (
-        "15 âges" if a.mode == "ages" else "mitrailleuse validée | four", a.zoom, "nuit" if a.nuit else "jour",
+        {"ages": "15 âges", "gun": "mitrailleuse validée | four", "avap": "avant | après"}[a.mode], a.zoom, "nuit" if a.nuit else "jour",
         "pair" if a.pair else "impair")), fill=(255, 200, 110), font=K.font(19))
     y = 40
     for r in eres:

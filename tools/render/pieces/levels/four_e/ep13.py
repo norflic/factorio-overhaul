@@ -124,7 +124,7 @@ def socle(g, c):
         d = math.hypot(x, y - cy)
         if not 2.02 < d < 2.42 or any(math.hypot(x - px, y - py) < 0.24 for px, py in piliers):
             continue
-        corps.ancrage(g, x, yn, z0, M["acier_canon2"], M["chrome_fin"], s=0.075)
+        corps.ancrage(g, x, yn, z0, M["acier_noir"], M["chrome_fin"], s=0.08)   # contraste (A2 : acier canon invisible)
         if k % 5 == 0:
             g.dome((x, y, z0 + 0.02), (0, 0, 1), 0.02, M["emit"], n=6, what="voyant")
     for a_deg in (215, 325):

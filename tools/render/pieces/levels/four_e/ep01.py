@@ -24,7 +24,7 @@ def matieres(metal, M):
     ages.matieres(1, metal, M)
 
 
-def lanterne(g, p, s=1.8):
+def lanterne(g, p, s=2.4):
     """Lanterne à huile agrandie (formes.lantern × s) : verre lumineux, cage, chapeau, anse."""
     M = g.M
     x, y, z = p
@@ -60,10 +60,11 @@ def piece(g, c):
     # râtelier, trappe de ramonage rougeoyante au pied du tuyau, halos
     g.cyl((x - 0.13, y - 0.06, 1.45), "x", 0.012, 0.18, M["steel_dk"], n=6, what="potence")
     lanterne(g, (x - 0.24, y - 0.06, 1.3))
+    g.cyl((x - 0.22, y - 0.06, 1.42), "z", 0.012, 0.08, M["steel_dk"], n=6, what="suspente")   # aucun jour (A2)
     g.box((x, y - 0.12, 0.2), (0.12, 0.02, 0.1), M["emit"], "flat", what="trappe_braise")
     g.box((x, y - 0.13, 0.26), (0.15, 0.02, 0.02), M["steel_dk"], "hard", what="trappe_cadre")
-    g.halo((x - 0.22, y - 0.25, 1.2), M["_emit_rgb"], 3.0)
-    g.halo((x, y - 0.3, 0.25), M["_emit_rgb"], 2.0)
+    g.halo((x - 0.22, y - 0.25, 1.2), M["_emit_rgb"], 8.0)
+    g.halo((x, y - 0.3, 0.25), M["_emit_rgb"], 5.0)
     # râtelier de bûches (coin nord-ouest) : 7 rangs de rondins couchés entre deux paires de piquets, tranches claires
     # vers le sud ; le haut monte à 1,6 tuile à l'écran (au-dessus du vanilla)
     x0, yb = -0.6, Y(0.86)
@@ -79,4 +80,4 @@ def piece(g, c):
     g.box((x0 + 0.05, yb - Y(0.2) - 0.02, 1.18), (0.34, 0.03, 0.035), M["wood"], "hard", what="hache_manche")
     g.box((x0 + 0.24, yb - Y(0.2) - 0.02, 1.18), (0.06, 0.035, 0.1), M["steel_hi"], "hard", what="hache_fer")
     lanterne(g, (x0 - 0.4, yb - 0.2, 1.33))
-    g.halo((x0 - 0.4, yb - 0.45, 1.25), M["_emit_rgb"], 3.0)
+    g.halo((x0 - 0.4, yb - 0.45, 1.25), M["_emit_rgb"], 8.0)

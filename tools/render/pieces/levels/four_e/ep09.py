@@ -110,7 +110,7 @@ def socle(g, c):
     exclus = [(-0.7, 0.4, 0.85), (1.0, 0.92, 0.75), (-1.25, 1.27, 0.42), (-0.15, 1.37, 0.5), (0.5, -0.66, 0.38),
               (0.1, 0.75, 0.28), (-1.4, -0.7, 0.25), (1.5, -0.03, 0.3), (0.45, 0.4, 0.2)]
     for x, yn in corps.semis(-1.55, 1.55, -1.05, 1.62, 0.3, exclus):
-        corps.ancrage(g, x, yn, Z_TOIT, M["plomb_sombre"], M["lead"], s=0.07)
+        corps.ancrage(g, x, yn, Z_TOIT + 0.03, M["plomb_sombre"], M["lead"], s=0.08)   # au-dessus des dalles
     nrm = corps.V((0, -(Z_TOIT - zs), CH)).normalized()
     for x in (-1.7, -0.75, 0.75, 1.7):
         z = 1.2

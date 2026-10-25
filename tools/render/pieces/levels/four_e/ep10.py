@@ -122,7 +122,7 @@ def socle(g, c):
             g.box((x, Y(yn), Z2 + 0.025), (0.1, 0.07, 0.05), M["anthracite"], "hard", what="jonction")
             g.dome((x, Y(yn) - 0.036, Z2 + 0.03), (0, -1, 0), 0.012, M["emit"], n=6, what="voyant")
         else:
-            corps.ancrage(g, x, yn, Z2, M["gris_tech"], M["rivet_tech"], s=0.07)
+            corps.ancrage(g, x, yn, Z2 + 0.025, M["anthracite"], M["rivet_tech"], s=0.07)   # au-dessus des dalles
     for (p0, p1, m) in (((-1.2, 0.35), (-0.4, 0.35), "cable_r"), ((-1.2, 0.42), (-0.4, 0.42), "cable_b"),
                         ((0.15, 0.3), (0.9, 0.3), "cable_b"), ((0.15, 0.37), (0.9, 0.37), "cable_r")):
         g.box(((p0[0] + p1[0]) / 2, Y(p0[1]), Z2 + 0.01), (p1[0] - p0[0], 0.06, 0.02), M["anthracite"], "hard",

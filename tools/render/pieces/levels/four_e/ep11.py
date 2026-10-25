@@ -106,7 +106,8 @@ def nacelle(g, c):
         plaque(g, [(0.95, sy * (RN + 0.55), -0.1), (1.42, sy * (RN + 0.55), -0.15), (1.42, sy * (RN + 0.66), -0.15),
                    (0.95, sy * (RN + 0.66), -0.1)], 0.07, M["orange_aero"], "bout")
     g.pop()
-    g.halo(tuple(monde(-1.9, 0.0, -0.4)), M["_emit_rgb"], 4.0)
+    g.halo(tuple(monde(-1.9, 0.0, -0.4)), M["_emit_rgb"], 8.0)
+    g.halo(tuple(monde(-0.65, -0.5, -0.9)), M["_emit_rgb"], 6.0)
 
 
 def socle(g, c):
@@ -149,9 +150,9 @@ def socle(g, c):
         exclus.append((p.x, p.y / Y(1.0), 1.05))
     for k, (x, yn) in enumerate(corps.semis(-2.15, 2.15, -1.7, 2.2, 0.36, exclus)):
         if k % 4 == 0:
-            g.torus((x, Y(yn), z + 0.012), "z", 0.04, 0.01, M["orange_aero"], n=10, m=4, what="arrimage")
+            g.torus((x, Y(yn), z + 0.045), "z", 0.04, 0.012, M["orange_aero"], n=10, m=4, what="arrimage")
         else:
-            corps.ancrage(g, x, yn, z, M["titane_dk"], M["rivet_ti"], s=0.07)
+            corps.ancrage(g, x, yn, z + 0.03, M["titane_dk"], M["rivet_ti"], s=0.08)   # au-dessus des tôles
     for lx in (-0.95, 0.45):
         p = monde(lx)
         g.dome((p.x, p.y - 0.09, Z_SOCLE + 0.35), (0, -1, 0.3), 0.035, M["emit"], n=8, what="feu_pylone")

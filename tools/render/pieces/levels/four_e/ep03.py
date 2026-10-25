@@ -81,10 +81,11 @@ def chambre(g, c):
     yb = Y(c.T["y_av"]) - 0.01
     for x in (-0.78, 0.78):
         g.box((x, yb + 0.02, Z_BASE + 0.02), (0.05, 0.05, 0.06), M["laiton_capot"], "hard", what="potence")
-        PT.lamp(g, (x, yb - 0.02, Z_BASE - 0.06), (0, -1, 0), 0.035, M["emit"])
+        PT.lamp(g, (x, yb - 0.02, Z_BASE - 0.06), (0, -1, 0), 0.05, M["emit"])
     for x in (-0.66, 0.66):
         g.box((x, yb - 0.004, c.T["sole_h"] + 0.12), (0.22, 0.012, 0.03), M["emit"], "flat", what="cendrier")
-    g.halo((0, yb - 0.3, 0.5), M["_emit_rgb"], 3.0)
+    for x in (-0.78, 0.78):
+        g.halo((x, yb - 0.3, 0.5), M["_emit_rgb"], 5.0)
     g.box((-0.66, yf - 0.02, zc - 0.02), (0.035, 0.03, 0.2), M["emit"], "flat", what="niveau")
     g.box((-0.66, yf - 0.035, zc - 0.02), (0.06, 0.012, 0.24), M["laiton_capot"], "hard", what="niveau_cadre")
     P2.handwheel(g, (-0.05, yf - 0.06, zc - 0.12), (0, -1, 0), 0.06, M, mat=M["laiton_capot"])

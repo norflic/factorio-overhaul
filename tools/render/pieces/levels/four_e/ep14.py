@@ -132,7 +132,7 @@ def socle(g, c):
                                  [(RX - 1.1, RYN, 0.45), (RX + 1.1, RYN, 0.45), (2.5, 1.6, 0.4), (0.0, -2.3, 0.95)]):
             if abs(yn - RYN) < 0.2 and abs(x - RX) < RR + 0.3:
                 continue
-            corps.ancrage(g, x, yn, z, M["blanc_lunaire"], M["noir_spatial"], s=0.065)
+            corps.ancrage(g, x, yn, z + 0.035, M["blanc_lunaire"], M["noir_spatial"], s=0.07)   # au-dessus des plaques
     for sx in (-1, 1):
         x, y = sx * 2.45, Y(2.3)
         g.cyl((x, y, GRADINS[0][3] + 0.02), "z", 0.25, 0.04, M["blanc_lunaire"], n=24, what="medaillon")
