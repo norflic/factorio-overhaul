@@ -480,7 +480,10 @@ tabs.chantiers = { fixed = function(c) coming(c, "coming-chantiers") end }
 -- Fenêtre
 ---------------------------------------------------------------------------------------------------
 local function frame_of(player)
-  local fr = player.gui.screen[FRAME]
+  -- Un joueur sans `gui.screen` (moteur simulé des bancs hors jeu, `levels_test`) n'a pas de fenêtre : rien à rafraîchir.
+  local screen = player.gui and player.gui.screen
+  if not screen then return nil end
+  local fr = screen[FRAME]
   if fr and fr.valid then return fr end
   return nil
 end
