@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 15 h 30** : conception IA3 FUSIONNÉE (`db7911c` : `docs/IA3_CERVEAU.md`, `shared/ai3/`, tests 31, 24, 15 OK ;
+> rien de branché). Verdicts du DC : four VALIDÉ pour la production (lot F2-B lancé : rendu final, animation, mémoire vidéo
+> au plancher, mise en jeu) ; foreuse « enrichir nettement » (F4-A2) ; foreuses X0 gardées à part (Q-C3) ; assembleur 3e
+> ronde (F3-A3). Le DC demande le développement profond de l'IA en parallèle : agent IA3-dev lancé (revue adverse du document,
+> IA3-0 fondations avec E180 et E181 en moteur réel, puis IA3-a « recherche d'abord » APRÈS la fusion d'IA1-b2). IA1-b2
+> relancé pour finir ses 3 contrôles rouges (ia1-poles, verif-guide 314159265, ia1b-scale10). 5 agents en cours.
 > **Point de 14 h 05 (après une coupure par la limite d'usage, 13 h 10 à 14 h)** : `main` = **0.4.28** (fenêtre « Équipe et
 > factions », validée par le DC ; régression d'intégration de `levels_test` corrigée, `cf25906`) ; 0.4.27 = modules au barème
 > D-17 et icônes validées. Documents à jour jusqu'à 0.4.28 (`c86b966`). Décisions du jour : D-17 (réponses R-QCM-25 à 25f),
