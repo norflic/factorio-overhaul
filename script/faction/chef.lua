@@ -29,6 +29,7 @@ local Tr = require("shared.faction.traits")
 local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Military = require("script.faction.military")
+local Sites = require("script.faction.sites")
 
 local Chef = {}
 
@@ -199,6 +200,7 @@ function Chef.view(f, tick)
     tick = tick, minutes = math.floor((tick - (war.started or 0)) / 3600), traits = ch.traits,
     outposts = f.outposts_count, desired = S.desired_outposts(f.tech or 0, ch.greed or 1),
     sites = f.prospects and #f.prospects or 0,
+    best_site = Sites.best_value(f, tick), -- lot IA2-b : meilleur site connu par la carte de valeur (nil : aucun)
     iron = stock(f, "iron-plate"), copper = stock(f, "copper-plate"), coal = stock(f, "coal"), stone = stock(f, "stone"),
     tech = f.tech or 0, workers = f.engineers_count or 0, idle = scale and scale.idle or 0,
     goals = count_keys(f.team and f.team.done),

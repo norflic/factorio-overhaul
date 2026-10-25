@@ -49,6 +49,15 @@ check(10 not in d or near(d[10], 110 / 110), "dormant : pas de fenêtre complèt
 check(near(d[20], 1.0), "dormant : stock immobile 10 min = 100 %")
 series2 = [(m, {"iron": 100 + 10 * m}) for m in range(0, 21)]
 check(near(dict(I.dormant_share(series2))[20], 200 / 300), "dormant : stock qui monte, part restée 10 min = min/actuel")
+# Lot IA2-b : M1 recalé sur les chunks occupés
+ring = [(0, 0), (2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+rr, rh, re_ = I.cell_shape(ring)
+check(near(rr, 1.0) and near(re_, 0.0), "chunks en couronne : rondeur 1, excentrement 0")
+check(rh is not None and rh <= 0.75, f"chunks en couronne : demi-plan {rh} (≤ 0,75)")
+fan = [(0, 0), (1, 0), (2, 0), (3, 1), (2, 1), (1, -1), (4, 0)]
+fr, fh, fe = I.cell_shape(fan)
+check(near(fh, 1.0) and fe > 0.8 and fr > 1.6, f"chunks d'un seul côté : demi-plan 1, excentrement {fe:.2f}, rondeur {fr:.2f}")
+check(I.cell_shape([]) == (None, None, None) and I.cell_shape([(0, 0), (1, 0)])[1] is None, "chunks : trop peu = rien")
 
 # Journal fabriqué : 2 factions, formes, attaques, sites, rapports par minute
 P = "  1.000 Script @__factorio-overhaul__/script/faction/journal.lua:64: "
@@ -67,7 +76,7 @@ for minute in range(0, 31):
         lines.append(R + f"    equipe : objectif coal | manque [] | stock iron={300 - minute} copper=0 coal=0 stone=0 steel=0 firearm=0 science1=0 | taches 1 libres 0 prises | ouvriers {{idle:8}} | livre fer {minute * minute} cuivre 0 charbon 0 minerai 0 | effectif 8/10")
 lines += [
     P + "[FO-SHAPE] tick 36060 scarlet : hq (100, 100) | batiments 20 | chunks 4 | centre (1.0, 2.0) | cov 400.0 100.0 0.0 | rayon 90 | avant-postes 1:coal:10:0,2:iron:0:20,3:copper:-30:0 | noms burner-mining-drill=4,stone-furnace=2",
-    P + "[FO-SHAPE] tick 72060 scarlet : hq (100, 100) | batiments 30 | chunks 5 | centre (1.0, 2.0) | cov 400.0 100.0 0.0 | rayon 90 | avant-postes 2:iron:0:20,3:copper:-30:0,4:stone:0:-40 | noms burner-mining-drill=8,stone-furnace=2",
+    P + "[FO-SHAPE] tick 72060 scarlet : hq (100, 100) | batiments 30 | chunks 5 | centre (1.0, 2.0) | cov 400.0 100.0 0.0 | rayon 90 | avant-postes 2:iron:0:20,3:copper:-30:0,4:stone:0:-40 | noms burner-mining-drill=8,stone-furnace=2 | cases 0:0,1:0,2:0,3:1,4:0 | orphelins 2",
     P + "[FO-STRAT] attaque tick 36000 azure -> scarlet : 10 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 5, seuil 1100",
     P + "[FO-STRAT] attaque tick 72000 azure -> scarlet : 20 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 6, seuil 900",
     P + "[FO-STRAT] attaque tick 79200 azure -> scarlet : 30 soldats, depart (0, 14), vise (100, 100), 130 tuiles, octant 6, seuil -",
@@ -85,6 +94,10 @@ for k, d in enumerate(DOMS):
 lines += [
     P + "[FO-STRAT] site tick 1000 scarlet iron-ore : (120, 110), 22 tuiles du QG, rang 1 sur 2 en reserve, plus proche 22 tuiles",
     P + "[FO-STRAT] site tick 2000 scarlet coal : (150, 100), 50 tuiles du QG, rang 2 sur 2 en reserve, plus proche 30 tuiles",
+    # Lot IA2-b : valeur et rang par valeur en fin de ligne
+    P + "[FO-STRAT] site tick 3000 azure stone : (10, 10), 40 tuiles du QG, rang 3 sur 4 en reserve, plus proche 20 tuiles, valeur 312, rang valeur 1 sur 4, richesse 64000, front o3",
+    P + "[FO-STRAT] site tick 4000 azure stone : (10, 10), 40 tuiles du QG, rang 1 sur 1 en reserve, plus proche 40 tuiles, valeur -50, rang valeur 1 sur 1, richesse -1, front qg",
+    P + "[FO-STRAT] site tick 5000 azure coal : (90, 10), 60 tuiles du QG, rang 1 sur 2 en reserve, plus proche 60 tuiles, valeur 20, rang valeur 2 sur 2, richesse 3000, front qg",
     "  1.0 Script @__factorio-overhaul__/script/team/team.lua:322: [FO-TEAM] scarlet : objectif atteint 'coal' a 0.5 min",
 ]
 tmp = tempfile.mkdtemp(prefix="ia2m-")
@@ -100,6 +113,12 @@ check(s["personality"] == "builder" and s["traits"]["agressivite"] == 800 and s[
 check(s["outposts"] == 4 and near(s["rho"], 1.0), "radialité : 4 avant-postes connus (union des formes), ρ = 1 (plus loin à chaque fois)")
 check(near(s["roundness"], 2.0) and s["chunks"] == 5, "rondeur et chunks de la dernière forme")
 check(near(s["nearest_first"], 0.5) and s["sites"] == 2, "plus proche d'abord : 1 site sur 2 au rang 1")
+check(s["halfplane"] == 1.0 and s["orphans_last"] == 2 and near(s["cells_roundness"], I.cell_shape([(0, 0), (1, 0), (2, 0), (3, 1), (4, 0)])[0]),
+      "forme recalée : chunks de la dernière forme, orphelins")
+check(s["real_choices"] == 2 and s["real_nearest"] == 1 and s["value_choices"] == 0, "choix réels sans valeur (journal d'avant IA2-b)")
+check(a["sites"] == 3 and a["value_choices"] == 2 and a["value_top"] == 1 and a["value_best"] == 1 and a["real_nearest"] == 1,
+      "choix réels avec valeur : rang valeur 1 sur 4 (meilleur quart), 2 sur 2 (hors du quart)")
+check(a["from_front"] == 1 and a["repicks"] == 1, "un site trouvé depuis un front, un site repris")
 check(a["attacks"] == 3 and near(a["first_attack_min"], 10.0), "attaques : 3, la 1re à 10 min")
 check(near(a["cadence_cv"], I.cv([36000, 7200])), "cadence : CV des intervalles")
 check(near(a["size_cv"], I.cv([10, 20, 30])), "tailles : CV des effectifs")

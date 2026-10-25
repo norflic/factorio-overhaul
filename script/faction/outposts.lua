@@ -142,10 +142,101 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
   return drills, sinks
 end
 
+---------------------------------------------------------------------------------------------------
+-- Réceptacles orphelins (lot IA2-b, F209) : coffres et fours d'un avant-poste perdu, restés sur la carte
+---------------------------------------------------------------------------------------------------
+Outposts.ORPHAN_WAIT = 30 * 3600 -- démontage proposé 30 min après la perte (la reconstruction sur place passe avant)
+
+local ORPHAN_INVENTORIES = {
+  container = { defines.inventory.chest },
+  furnace = { defines.inventory.furnace_source, defines.inventory.furnace_result, defines.inventory.fuel },
+}
+
+--- Démonte un réceptacle dans l'inventaire `carrier` : son contenu puis l'objet lui-même (ce qui ne tient pas est
+--- perdu). Renvoie vrai si l'entité a été retirée.
+local function dismantle(e, carrier)
+  if not (e and e.valid) then return false end
+  for _, id in ipairs(ORPHAN_INVENTORIES[e.type] or {}) do
+    local inv = e.get_inventory(id)
+    if inv then
+      local contents = inv.get_contents()
+      local names = {}
+      for name in pairs(contents) do names[#names + 1] = name end
+      table.sort(names)
+      for _, name in ipairs(names) do
+        local moved = carrier.insert({ name = name, count = contents[name] })
+        if moved > 0 then inv.remove({ name = name, count = moved }) end
+      end
+    end
+  end
+  carrier.insert({ name = e.name, count = 1 })
+  e.destroy()
+  return true
+end
+
+--- Orphelins valides d'une faction (les invalides sont retirés de la liste).
+function Outposts.orphans(f)
+  local out = {}
+  for _, o in ipairs(f.orphans or {}) do
+    if o.e and o.e.valid then out[#out + 1] = o end
+  end
+  f.orphans = out
+  return out
+end
+
+--- Reprise : les orphelins à moins de `radius` tuiles de `pos` sont démontés par l'ouvrier sur place (leurs objets
+--- servent à la reconstruction). Renvoie le nombre repris.
+function Outposts.reclaim(f, pos, carrier, radius)
+  local n, keep = 0, {}
+  for _, o in ipairs(Outposts.orphans(f)) do
+    local dx, dy = o.x - pos.x, o.y - pos.y
+    if dx * dx + dy * dy <= radius * radius and dismantle(o.e, carrier) then
+      n = n + 1
+    else
+      keep[#keep + 1] = o
+    end
+  end
+  f.orphans = keep
+  if n > 0 then f.stats.orphans_reclaimed = (f.stats.orphans_reclaimed or 0) + n end
+  return n
+end
+
+--- Démontage des orphelins d'un avant-poste perdu (`oid`) par un ouvrier venu exprès. Renvoie le nombre démontés.
+function Outposts.salvage(f, oid, carrier)
+  local n, keep = 0, {}
+  for _, o in ipairs(Outposts.orphans(f)) do
+    if o.oid == oid and dismantle(o.e, carrier) then n = n + 1 else keep[#keep + 1] = o end
+  end
+  f.orphans = keep
+  if n > 0 then f.stats.orphans_salvaged = (f.stats.orphans_salvaged or 0) + n end
+  return n
+end
+
+--- Groupes d'orphelins prêts au démontage (perdus depuis ORPHAN_WAIT), un par avant-poste perdu, triés par numéro.
+function Outposts.orphan_groups(f, tick)
+  local by, list = {}, {}
+  for _, o in ipairs(Outposts.orphans(f)) do
+    if tick - (o.tick or 0) >= Outposts.ORPHAN_WAIT then
+      local g = by[o.oid]
+      if not g then
+        g = { oid = o.oid, x = o.x, y = o.y, n = 0 }
+        by[o.oid] = g
+        list[#list + 1] = g
+      end
+      g.n = g.n + 1
+    end
+  end
+  table.sort(list, function(a, b) return a.oid < b.oid end)
+  return list
+end
+
 --- Pose l'avant-poste `kind` autour de `site` avec les objets portés par `carrier` (inventaire de
 --- l'ouvrier). Renvoie l'avant-poste (au moins une paire posée) ou nil.
 function Outposts.build(f, surface, kind, site, carrier)
   local spec = T.outposts[kind]
+  -- Lot IA2-b (F209) : les réceptacles orphelins d'un avant-poste perdu ici sont repris d'abord (ils libèrent la
+  -- place des paires et leurs objets resservent).
+  Outposts.reclaim(f, site, carrier, 24)
   local drills, sinks = place_pairs(f, surface, kind, site, carrier, spec.drills, 14)
   if #drills == 0 then return nil end
   f.next_oid = f.next_oid + 1

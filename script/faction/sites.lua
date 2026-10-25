@@ -19,7 +19,9 @@ local Scheduler = require("script.core.scheduler")
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Journal = require("script.faction.journal")
+local Character = require("script.faction.character")
 local V = require("shared.faction.valeur")
+local Tr = require("shared.faction.traits")
 
 local Sites = {}
 
@@ -106,6 +108,17 @@ end
 local PROBES_PER_STEP = 4
 local MAX_PROSPECTS = 8
 local MAX_PER_KIND = 2
+-- Lot IA2-b : une faction garde un CHOIX de sites (besoin + 2, au plus 3 par ressource, 12 en tout), choisit par valeur
+-- (Sites.find), et prospecte un tour sur deux autour d'un FRONT (un de ses avant-postes lointains, 6 chunks de rayon).
+-- L'équipe du joueur garde la règle d'avant (premier site de la réserve, spirale autour du coffre).
+local FACTION_EXTRA = 2
+local FACTION_MAX_PER_KIND = 3
+local FACTION_MAX_PROSPECTS = 12
+local FRONT_RADIUS_CHUNKS = 6
+local N_FRONT = 0
+for _, o in ipairs(OFFSETS) do
+  if o.d2 <= FRONT_RADIUS_CHUNKS * FRONT_RADIUS_CHUNKS then N_FRONT = N_FRONT + 1 end
+end
 local IDLE_TICKS = 3600
 Sites.LANE = "fo-prospect"
 local LANE_PERIOD = 30
@@ -141,19 +154,57 @@ end
 local function wanted_resources(f)
   local list = {}
   for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
-    local want = math.min(MAX_PER_KIND, f.site_needs[res])
+    local need = f.site_needs[res]
+    local want = math.min(MAX_PER_KIND, need)
+    if not f.is_player and need > 0 then want = math.min(FACTION_MAX_PER_KIND, need + FACTION_EXTRA) end
     if want > 0 and prospects_of(f, res) < want then list[#list + 1] = res end
   end
   return list
+end
+
+local function max_prospects(f)
+  return f.is_player and MAX_PROSPECTS or FACTION_MAX_PROSPECTS
+end
+
+--- Flux d'expansion de la faction (lot IA2-b) : Tr.new_stream(graine, 100 + id), créé à la première lecture (partie
+--- existante comprise). Angles de départ (script/team/team.lua) puis hasard borné des fronts et des sites.
+function Sites.stream(f)
+  if not f.expand then f.expand = Tr.new_stream(Character.map_seed(), V.SALT + f.id) end
+  return f.expand
+end
+
+local function draw_of(f)
+  local st = Sites.stream(f)
+  return function(n) return Tr.range(st, 1, n) end
 end
 
 --- Une tranche de prospection pour la faction f (au plus PROBES_PER_STEP chunks).
 --- Seulement si l'équipe a BESOIN de sites : en moteur réel la prospection permanente coûtait
 --- 0,09 ms/tick en moyenne, plus que tout le reste du mod. Session 4 : un site = un gisement d'UNE
 --- ressource demandée (charbon, fer, cuivre, pierre), centré sur ses tuiles.
+--- Lot IA2-b : front du prochain tour de prospection (nil = QG). Un tour sur deux part du QG ; l'autre, d'un de nos
+--- avant-postes à V.FRONT_MIN tuiles ou plus du QG, choisi par V.pick_front (danger vu, contestation ; hasard borné).
+function Sites.next_front(f, tick)
+  f.scan_turn = (f.scan_turn or 0) + 1
+  f.front_dry = f.front_dry or {}
+  local fronts = {}
+  local hq = f.hq_pos
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    local dx, dy = p.x - hq.x, p.y - hq.y
+    if dx * dx + dy * dy >= V.FRONT_MIN * V.FRONT_MIN then fronts[#fronts + 1] = { key = "o" .. oid, x = p.x, y = p.y } end
+  end
+  local key = nil
+  if #fronts > 0 then key = V.pick_front(fronts, Sites.value_ctx(f, tick), f.front_dry, f.scan_turn, draw_of(f)) end
+  f.front = nil
+  for _, p in ipairs(fronts) do
+    if p.key == key then f.front = { key = p.key, x = p.x, y = p.y } end
+  end
+end
+
 function Sites.prospect(f, surface, tick)
   f.prospects = f.prospects or {}
-  if #f.prospects >= MAX_PROSPECTS or tick < (f.prospect_idle_until or 0) then return end
+  if #f.prospects >= max_prospects(f) or tick < (f.prospect_idle_until or 0) then return end
   local wanted = wanted_resources(f)
   if #wanted == 0 then return end
   local war = State.war()
@@ -162,14 +213,24 @@ function Sites.prospect(f, surface, tick)
     if id ~= f.id then other_hqs[#other_hqs + 1] = State.faction(id).hq_pos end
   end
   local spawn = game.forces.player.get_spawn_position(surface)
-  local hcx, hcy = math.floor(f.hq_pos.x / 32), math.floor(f.hq_pos.y / 32)
-  local n = f.prospect_wide and #OFFSETS or N_NEAR
+  -- Front perdu (avant-poste détruit) : retour au QG, tour recommencé.
+  if f.front and not (f.outposts or {})[tonumber(f.front.key:sub(2))] then f.front, f.site_cursor = nil, 1 end
+  local front = (not f.is_player) and f.front or nil
+  local origin = front or f.hq_pos
+  local hcx, hcy = math.floor(origin.x / 32), math.floor(origin.y / 32)
+  local n = front and N_FRONT or (f.prospect_wide and #OFFSETS or N_NEAR)
   for _ = 1, PROBES_PER_STEP do
     local k = f.site_cursor or 1
     if k > n then
       f.site_cursor = 1
       f.stats.prospect_cycles = (f.stats.prospect_cycles or 0) + 1
-      if (f.prospect_found or 0) == 0 then
+      if front then
+        -- Lot IA2-b : un front dont le tour n'a rien trouvé est laissé V.FRONT_DRY.
+        if (f.prospect_found or 0) == 0 then
+          f.front_dry = f.front_dry or {}
+          f.front_dry[front.key] = tick + V.FRONT_DRY
+        end
+      elseif (f.prospect_found or 0) == 0 then
         if not f.prospect_wide then
           f.prospect_wide = true -- tour proche infructueux : disque élargi dès le tour suivant
           Trace.log("prospect", f.key, "wide")
@@ -178,6 +239,7 @@ function Sites.prospect(f, surface, tick)
         end
       end
       f.prospect_found = 0
+      if not f.is_player then Sites.next_front(f, tick) end
       return
     end
     f.site_cursor = k + 1
@@ -210,7 +272,7 @@ function Sites.prospect(f, surface, tick)
           sx, sy = sx + p.x, sy + p.y
           rich = rich + (r.amount or 0)
         end
-        local site = { x = sx / #tiles, y = sy / #tiles, resource = best }
+        local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
         -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
         Profiler.start("prospect:value")
         site.rich, site.tiles = rich, #tiles
@@ -229,7 +291,7 @@ function Sites.prospect(f, surface, tick)
           f.prospect_found = (f.prospect_found or 0) + 1
           f.stats.prospected = (f.stats.prospected or 0) + 1
           wanted = wanted_resources(f)
-          if #wanted == 0 or #f.prospects >= MAX_PROSPECTS then return end
+          if #wanted == 0 or #f.prospects >= max_prospects(f) then return end
         end
       end
     end
@@ -309,10 +371,54 @@ function Sites.note_lost(f, pos, tick)
   while #f.lost_sites > LOST_KEEP do table.remove(f.lost_sites, 1) end
 end
 
+--- Meilleure valeur parmi les sites valides de la réserve (toutes ressources), ou nil (lu par le chef : considération
+--- « meilleur site connu » de la posture « expansion »).
+function Sites.best_value(f, tick)
+  local war = State.war()
+  local cands = {}
+  for _, s in ipairs(f.prospects or {}) do
+    if not claimed(war, s) and not unreachable(war, s, tick) then cands[#cands + 1] = s end
+  end
+  if #cands == 0 then return nil end
+  local ranked = V.rank(cands, Sites.value_ctx(f, tick))
+  return ranked[1].value
+end
+
+--- Lot IA2-b : une FACTION choisit par valeur parmi les sites valides de la ressource (V.choose : hasard borné entre
+--- les meilleurs, flux d'expansion) ; les sites invalides de cette ressource sont retirés de la réserve.
+local function find_by_value(f, tick, resource)
+  local war = State.war()
+  local list = f.prospects or {}
+  local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
+  local cands, keep = {}, {}
+  for _, s in ipairs(list) do
+    if resource == nil or s.resource == resource then
+      if valid(s) then
+        cands[#cands + 1] = s
+        keep[#keep + 1] = s
+      end
+    else
+      keep[#keep + 1] = s
+    end
+  end
+  if #cands == 0 then
+    f.prospects = keep
+    return nil
+  end
+  local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
+  local site = chosen.site
+  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
+  local out = {}
+  for _, s in ipairs(keep) do if s ~= site then out[#out + 1] = s end end
+  f.prospects = out
+  return site
+end
+
 --- Puise un site valide de la ressource demandée dans la réserve. Renvoie site ou nil.
 function Sites.find(f, surface, tick, resource)
-  local war = State.war()
   tick = tick or game.tick
+  if not f.is_player then return find_by_value(f, tick, resource) end
+  local war = State.war()
   local list = f.prospects or {}
   local i = 1
   local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
