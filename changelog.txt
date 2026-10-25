@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.25
+Date: 2026-10-25
+  Features:
+    - Les factions ne voient plus votre base à travers la carte : elles envoient des éclaireurs (puis des patrouilles
+      quand les biters les tuent) et n'attaquent que ce qu'elles ont vu.
+    - Elles contournent vos tourelles : une attaque arrive par le côté de votre base qu'elles ont vu le moins défendu.
+    - Une attaque peut faire demi-tour au point de rassemblement si votre défense a grossi depuis que la faction l'a vue.
+    - En Normal, la première attaque d'une partie arrive à un moment qui varie d'une partie à l'autre (entre 21 et
+      31 min environ ; plus tard si leurs éclaireurs ont du mal à vous trouver).
+    - Chaque faction se fait une idée de votre style (tortue, expansionniste…) et de celui de ses rivales, et y répond
+      (harcèlement des avant-postes peu défendus, fortification face à un agresseur…).
+  Bugfixes:
+    - Un site perdu ou un chantier abandonné par une faction revient dans sa réserve en respectant ses limites.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.24
 Date: 2026-10-25
   Bugfixes:
