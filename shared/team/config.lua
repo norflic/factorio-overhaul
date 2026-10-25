@@ -115,6 +115,7 @@ T.lethal_need = 50
 -- côtés, l'attaque d'une faction vise le côté le moins défendu, IA2-c).
 T.defend_hq = 4
 T.defend_iron_floor = 150
+T.defend_copper_floor = 30 -- 6 pistols de recrues
 -- R-QCM-25c (b) : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au coffre : un quart de
 -- l'équipe, au moins 2, au plus 6 (gardes de T.guard_ticks, relevées ; priorité T.guard_prio, au-dessus des tournées).
 T.guard_prio = 85
@@ -123,7 +124,9 @@ function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))
 -- R-QCM-25c (c) « Donner du travail » : le minage de fond de votre équipe se fait PRÈS DU COFFRE (rayon, tuiles ;
 -- 27 PNJ tués à 74 tuiles en minant au fond, protocole 30 contre 10) ; transport = tournée de fond d'un avant-poste qui a
 -- au moins T.transport_min objets à rapporter ; sans tourelle possible, seulement à moins de T.transport_near tuiles.
-T.near_mine = 40
+T.near_mine = 64 -- 40 à l'essai 6 : aucun minerai dans ce rayon sur la carte d'ia1-poles (occupation 36,7 %)
+-- Croissance de votre équipe : seulement en gardant ce fer au coffre (munitions, tourelles, recrues de survie).
+T.grow_iron_reserve = 400
 T.transport_min = 10
 T.transport_near = 64
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end

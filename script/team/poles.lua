@@ -189,9 +189,16 @@ function Poles.inject_crisis(f, n, ticks, resource)
 end
 
 --- Le cerveau manque-t-il d'OBJETS (et non de sites) pour son objectif ? (plan.missing de shared/team/planner.lua)
-function Poles.brain_short(plan)
+--- Lot IA1-b2 : un objet que l'équipe ne sait pas faire (`book` sans sa recette : tourelle sans la recherche) ne
+--- compte pas : le fond ne lui prendrait aucune plaque (essai 6 : « il manque tourelle » coupait la réserve, PNJ inactifs).
+local RAW = { ["iron-plate"] = true, ["copper-plate"] = true, coal = true, stone = true, ["iron-ore"] = true,
+  ["copper-ore"] = true, ["steel-plate"] = true, ["stone-brick"] = true }
+function Poles.brain_short(plan, book)
   for _, m in ipairs(plan and plan.missing or {}) do
-    if type(m[1]) == "string" and m[1]:sub(1, 5) ~= "site:" then return true end
+    local item = m[1]
+    if type(item) == "string" and item:sub(1, 5) ~= "site:" and (not book or RAW[item] or book:handcraftable(item)) then
+      return true
+    end
   end
   return false
 end
@@ -307,7 +314,7 @@ function Poles.think(f, view, book, tick, plan)
   if fond_on then
     local player = f.is_player or false
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-      prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy),
+      prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
       transport = player or nil, transport_d2 = (player and not turrets_ok) and T.transport_near * T.transport_near or nil,

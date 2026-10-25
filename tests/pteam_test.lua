@@ -62,6 +62,9 @@ check(W().prints[#W().prints]:find("objectif") ~= nil, "statut affiché")
 section("Sans frein (fo-recruit-idle-max = 60) : recrues payées au coffre")
 check(remote.call("fo-ia1", "set_setting", "fo-recruit-idle-max", 60) == 60, "frein levé par l'interface fo-ia1")
 local paid0 = f.stats.recruited or 0
+-- Lot IA1-b2 : la croissance garde T.grow_iron_reserve plaques au coffre (le moteur simulé donne la recette des tourelles :
+-- la défense a pris le fer de départ) ; le coffre est regarni pour éprouver le paiement des recrues.
+chest.insert({ name = "iron-plate", count = 2000 })
 check(pcall(M.run_ticks, 3 * 3600), "simulation sans erreur, sans frein")
 check((f.stats.recruited or 0) > paid0, "recrues payées avec le contenu du coffre (" .. paid0 .. " -> "
   .. tostring(f.stats.recruited) .. ")")

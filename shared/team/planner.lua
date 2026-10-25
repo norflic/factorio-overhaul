@@ -319,10 +319,15 @@ function P.plan(view, book)
   --- défense ne prend pas le fer des recrues de survie (essai 1 du lot, ia1b2-guide graine 1618033988 : fer 615 -> 26 en
   --- 5 min, tourelles perdues avec leurs porteurs, équipe perdue à 23 min).
   local function want_defense(list)
+    -- Fer ET cuivre (essai 6, ia1b2-guide graine 314159265 : 8 tourelles mangent les 100 cuivres du coffre, aucun
+    -- gisement de cuivre trouvé, plus un seul pistolet pour les recrues pendant 20 min).
     local keep = math.min(avail["iron-plate"] or 0, T.defend_iron_floor)
+    local keep_cu = math.min(avail["copper-plate"] or 0, T.defend_copper_floor)
     avail["iron-plate"] = (avail["iron-plate"] or 0) - keep
+    avail["copper-plate"] = (avail["copper-plate"] or 0) - keep_cu
     want(list, T.defend_prio, "defense")
     avail["iron-plate"] = (avail["iron-plate"] or 0) + keep
+    avail["copper-plate"] = (avail["copper-plate"] or 0) + keep_cu
   end
   --- Objets d'une construction d'avant-poste `kind` de `n_drills` foreuses : `items`, plus ses tourelles si elles sont
   --- au stock virtuel. nil : la construction attend ses tourelles (demandées ici si la recette est connue) ou n'a pas
@@ -740,6 +745,17 @@ function P.plan(view, book)
       -- Correction IA1-a (frein par le travail, réglage fo-recruit-idle-max) : trop de PNJ sans tâche, aucune
       -- recrue ; le stock n'est ni pris ni demandé (pas de pistolet fabriqué pour une recrue inutile).
       out.recruit_held = true
+    elseif view.grow_reserve and view.workers >= (view.recover_floor or 0)
+      and (avail["iron-plate"] or 0) < view.grow_reserve + (function()
+        local n = 0
+        for _, it in ipairs(recruit_cost) do if it[1] == "iron-plate" then n = n + it[2] end end
+        return n
+      end)() then
+      -- Lot IA1-b2 : votre équipe ne GRANDIT (au-delà de son effectif de départ) qu'en gardant view.grow_reserve plaques
+      -- de fer au coffre (munitions, tourelles, recrues de survie). Essai 6, ia1b2-guide graine 577215664 : 8 -> 14 PNJ
+      -- de 17 à 25 min, fer à 56, QG perdu à 52 min.
+      out.recruit_held = true
+      out.grow_short = true
     elseif take(recruit_cost) then
       out.recruit_workers = 1
     elseif view.workers == 0 then
