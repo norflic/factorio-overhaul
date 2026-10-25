@@ -200,9 +200,16 @@ def foyer(g, c):
             g.panels(quad_sud(-bx, bx, yf, bz1, z1), max(1, int(round(2 * bx / 0.3))), 1, cm, t=0.02,
                      rivet_mat=M["rivet"], rivet_step=0.1)
             g.box((0, yf - 0.012, bz1 + 0.02), (2 * bx + 0.08, 0.03, 0.05), M["steel_hi"], "hard", what="cornière")
-        # dessus du caisson : tôle et chanfrein vers la chambre
-        g.box((0, (yf + yb) / 2, z1 + 0.012), (2 * x1 + 0.03, yb - yf + 0.02, 0.025), M["steel_dk"], "hard",
+        # dessus du caisson (ronde 2 : une tôle sombre unie, vue comme une boîte noire devant chaque four) : plaques
+        # rivetées aux capots de l'âge, cornière d'acier, trappe de chargement boulonnée au milieu
+        g.box((0, (yf + yb) / 2, z1 + 0.008), (2 * x1 + 0.03, yb - yf + 0.02, 0.016), M["steel_dk"], "hard",
               what="chapeau")
+        qt = [V((-x1, yf, z1 + 0.016)), V((x1, yf, z1 + 0.016)), V((x1, yb, z1 + 0.016)), V((-x1, yb, z1 + 0.016))]
+        g.panels(qt, max(2, int(round(2 * x1 / 0.32))), max(1, int(round((yb - yf) / 0.4))), cm, t=0.02,
+                 rivet_mat=M["rivet"], mats=[cm, cm2], rivet_step=0.1)
+        g.box((0, yf + 0.015, z1 + 0.03), (2 * x1 + 0.04, 0.03, 0.03), M["steel_hi"], "hard", what="corniere")
+        rh = 0.1 + 0.03 * c.side
+        PT.hatch(g, (0, (yf + yb) / 2, z1 + 0.036), rh)
         # bouche : fond noir, lit de braises (emit), voûte rougeoyante, grille de barreaux
         g.box((0, yf + d - 0.01, (bz0 + bz1) / 2), (2 * bx, 0.02, bz1 - bz0), M["void"], "flat", what="fond_bouche")
         nb = max(5, int(2 * bx / 0.07))
