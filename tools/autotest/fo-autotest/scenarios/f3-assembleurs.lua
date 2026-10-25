@@ -69,10 +69,13 @@ return {
       local m = s.create_entity({ name = nom(n), position = { px, py }, force = "player" })
       local r = { n = n, side = side, m = m, x = px, y = py, tuyaux = {}, dx = {} }
       if m then
-        for i = 1, #m.fluidbox do
-          for _, pc in ipairs(m.fluidbox.get_pipe_connections(i)) do
-            r.dx[#r.dx + 1] = pc.position.x - px
-            local t = s.create_entity({ name = "pipe", position = pc.target_position, force = "player" })
+        -- sans recette à fluide, la machine n'a pas de boîte à fluide active (off_when_no_fluid_recipe) : raccords lus
+        -- sur le PROTOTYPE (positions des raccords, orientation nord, hors de l'emprise), tuyau posé à chacun
+        for _, fbp in ipairs(game.entity_prototypes[nom(n)].fluidbox_prototypes) do
+          for _, pc in ipairs(fbp.pipe_connections) do
+            local q = pc.positions[1]
+            r.dx[#r.dx + 1] = q.x
+            local t = s.create_entity({ name = "pipe", position = { px + q.x, py + q.y }, force = "player" })
             if t then r.tuyaux[#r.tuyaux + 1] = t end
           end
         end
