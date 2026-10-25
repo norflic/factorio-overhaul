@@ -63,6 +63,8 @@ local function team_row(f)
     soldiers = f.soldiers_count or 0, tech = f.tech or 0, outposts = f.outposts_count or 0,
     -- Lot IA1-b2 (mesures) : PNJ perdus (toutes causes, puis tués par les ennemis), tourelles vivantes, fer du QG.
     lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = f.hq.get_item_count("iron-plate"),
+    idle_rien = (f.team.idle_why or {}).rien or 0, idle_bloque = (f.team.idle_why or {}).bloque or 0,
+    idle_manque = (f.team.idle_why or {}).manque or 0,
   }
   local turrets, defended, hq_t = 0, {}, 0
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do

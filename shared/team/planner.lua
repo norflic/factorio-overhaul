@@ -447,6 +447,10 @@ function P.plan(view, book)
     end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0 }
   end
+  -- R-QCM-25c (b) « L'équipe le défend » : view.hq_guards PNJ armés au coffre (guerre déclarée au joueur), relevés.
+  for i = 1, view.hq_guards or 0 do
+    add({ key = "garde:qg:" .. i, kind = "garrison", prio = T.guard_prio, post = "hq", wait = T.guard_ticks })
+  end
 
   -- Reconstruction : un avant-poste détruit (attaque d'une faction, déchiqueteurs) dont l'objectif était
   -- atteint est reconstruit. Un objectif atteint n'étant jamais réouvert, une équipe vivait sans pierre ni

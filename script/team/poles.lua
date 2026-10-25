@@ -293,15 +293,25 @@ function Poles.think(f, view, book, tick, plan)
   -- attaqué à 9 min, équipe perdue à 10 min (F241 de nouveau).
   local df = view.defend_first and true or false
   local turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false
+  local n, floor0 = f.engineers_count or 0, f.team.floor or 0
   -- Équipe décimée (sous son effectif de départ) : aucun fond (essai 3 : sorties de fond d'une équipe en reconstruction).
-  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0) or (turrets_ok and (f.engineers_count or 0) >= (f.team.floor or 0))
+  -- Votre équipe à son effectif de départ (R-QCM-25c (c), complément du DC : « sur les 8 PNJ y en avait pas mal qui
+  -- faisaient rien ») : fond COMPLET si une tourelle est possible, sinon fond SÛR (ctx.safe_only : fonderie, réserve
+  -- au-dessus des planchers, transport des avant-postes proches, minage près du coffre ; ni agrandir ni bâtir).
+  -- Une faction : fond au-delà de son effectif de départ seulement (règle d'IA1-b ; la croissance reste à votre équipe).
+  local full = n > floor0 or (f.is_player and turrets_ok and n >= floor0)
+  local safe = (not full) and f.is_player and n >= floor0
+  local fond_on = full or safe
   org.fond_on = fond_on
   local cands
   if fond_on then
+    local player = f.is_player or false
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy),
-      defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = f.is_player or false,
-      turrets_ok = turrets_ok, no_reserve_floor = df })
+      defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
+      no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
+      transport = player or nil, transport_d2 = (player and not turrets_ok) and T.transport_near * T.transport_near or nil,
+      mine_radius = player and T.near_mine or nil })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end
@@ -328,7 +338,7 @@ function Poles.think(f, view, book, tick, plan)
   f.site_needs = f.site_needs or {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
-    if fond_on and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
+    if full and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
       f.site_needs[res] = math.max(f.site_needs[res] or 0, 1)
     end
   end

@@ -172,7 +172,7 @@ local p4c = Planner.plan(view({ defend_first = true, stock = rich, outposts = {}
 local b4 = find(p4c, function(t) return t.key == "build:coal" end)
 check(b4 ~= nil and items_of(b4, "gun-turret") == 0, "premier avant-poste de charbon : bâti sans tourelle quand il n'y en a pas")
 -- Le QG d'abord.
-local p4q = Planner.plan(view({ defend_first = true, hq_turrets = 0, stock = with(rich, { ["gun-turret"] = 3 }), outposts = outs }), book)
+local p4q = Planner.plan(view({ defend_first = true, hq_turrets = 0, stock = with(rich, { ["gun-turret"] = 6, ["firearm-magazine"] = 200 }), outposts = outs }), book)
 local fq = find(p4q, function(t) return t.key == "fortify:hq" end)
 check(fq ~= nil and items_of(fq, "gun-turret") == T.defend_hq and fq.prio == T.defend_prio, "QG sans tourelle : les siennes d'abord")
 local p4r = Planner.plan(view({ defend_first = true, hq_turrets = 0, hq_fortify = true, stock = with(rich, { ["gun-turret"] = 3 }),
@@ -257,7 +257,7 @@ check(O.manual_cap(30, 2) == 6 and O.manual_cap(10, 2) == 2, "minage à la main 
 ---------------------------------------------------------------------------------------------------
 section("Cerveau : équipe décimée, le QG d'abord")
 local pdz = Planner.plan(view({ defend_first = true, hq_turrets = 0, workers = 5, recover_floor = 8,
-  stock = with(rich, { ["gun-turret"] = 6 }), outposts = outs }), book)
+  stock = with(rich, { ["gun-turret"] = 8, ["firearm-magazine"] = 200 }), outposts = outs }), book)
 check(find(pdz, function(t) return t.key == "fortify:hq" end) ~= nil, "5 PNJ sur 8 : tourelles du QG")
 check(find(pdz, function(t) return t.key == "fortify:1" end) ~= nil, "5 PNJ sur 8 : les tourelles d'avant-poste suivent (défense d'abord)")
 local pdy = Planner.plan(view({ defend_first = true, workers = 5, recover_floor = 8, stock = with(rich, { ["gun-turret"] = 4 }),
@@ -266,6 +266,36 @@ check(find(pdy, function(t) return t.key == "build:iron" end) == nil, "5 PNJ sur
 local pdx = Planner.plan(view({ defend_first = true, workers = 8, recover_floor = 8, stock = with(rich, { ["gun-turret"] = 4 }),
   outposts = outs }), book)
 check(find(pdx, function(t) return t.key == "fortify:1" end) ~= nil, "8 PNJ sur 8 : les avant-postes reprennent")
+
+---------------------------------------------------------------------------------------------------
+section("Cerveau : gardes armés au coffre en guerre (R-QCM-25c)")
+check(T.hq_guards(8) == 2 and T.hq_guards(12) == 3 and T.hq_guards(30) == 6 and T.hq_guards(3) == 2,
+  "gardes : un quart de l'équipe, au moins 2, au plus 6 (8 -> 2, 12 -> 3, 30 -> 6)")
+local pg = Planner.plan(view({ defend_first = true, hq_guards = 2, stock = rich, outposts = outs2d }), book)
+local g1 = find(pg, function(t) return t.key == "garde:qg:1" end)
+check(g1 ~= nil and g1.kind == "garrison" and g1.post == "hq" and g1.prio == T.guard_prio
+  and find(pg, function(t) return t.key == "garde:qg:2" end) ~= nil and find(pg, function(t) return t.key == "garde:qg:3" end) == nil,
+  "guerre déclarée : 2 gardes au coffre, priorité " .. T.guard_prio)
+local pg0 = Planner.plan(view({ defend_first = true, stock = rich, outposts = outs2d }), book)
+check(find(pg0, function(t) return t.kind == "garrison" end) == nil, "sans guerre : aucune garde au coffre")
+check(T.defend_hq == 4, "4 tourelles autour du coffre (tous les côtés)")
+
+---------------------------------------------------------------------------------------------------
+section("Fond : travail des PNJ libres (R-QCM-25c)")
+local tv = view({ outposts = { op(1, "coal", 4, 0, { output = 30, has_task = false, d2 = 50 * 50 }),
+  op(2, "iron", 8, 0, { output = 30, has_task = false, d2 = 150 * 150 }), op(3, "copper", 3, 0, { output = 2, has_task = false, d2 = 10 }) } })
+local ct = Fond.candidates(tv, Fond.free_stock(rich, {}), { book = book, transport = true, transport_d2 = T.transport_near ^ 2,
+  safe_only = true, mine_left = 2, mine_radius = T.near_mine })
+check(has_key(ct.extraction, "service:1") and not has_key(ct.extraction, "service:2") and not has_key(ct.extraction, "service:3"),
+  "transport sans tourelle : l'avant-poste proche (50 tuiles) avec 30 objets, pas le lointain (150), pas le vide")
+local ext_or_build = false
+for _, t in ipairs(ct.extraction) do if t.kind == "extend" or t.kind == "build" then ext_or_build = true end end
+check(not ext_or_build, "fond sûr : ni agrandir ni bâtir")
+local mr = nil
+for _, t in ipairs(ct.extraction) do if t.kind == "mine" then mr = t.radius end end
+check(mr == T.near_mine, "minage de fond près du coffre (" .. T.near_mine .. " tuiles)")
+local ct2 = Fond.candidates(tv, Fond.free_stock(rich, {}), { book = book, no_hq_guard = true, no_outpost_guard = true })
+check(#ct2.territoire == 0, "votre équipe : aucune garde de fond (ni avant-poste, ni coffre)")
 
 ---------------------------------------------------------------------------------------------------
 section("Mutants : chaque règle retirée est vue")

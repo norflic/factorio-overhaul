@@ -256,7 +256,8 @@ function Worker.program(f, task, surface, tick)
   elseif k == "mine" then
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
-    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = 96, name = task.resource, limit = 256 })
+    -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
+    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = task.resource, limit = 256 })
     table.sort(res, function(a, b)
       local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
       if da ~= db then return da < db end

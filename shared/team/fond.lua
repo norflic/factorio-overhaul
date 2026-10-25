@@ -36,7 +36,7 @@ local F = {}
 
 -- Priorités du fond : sous tout le travail du cerveau (minage d'appoint 25 compris). La garde passe en dernier : elle ne
 -- produit rien tant qu'aucune menace n'approche (essai 1 du banc ia1-poles : 37 % du temps en garde, F239 proposé).
-F.PRIO = { extend = 24, build = 23, craft = 22, smelt = 21, mine = 20, garrison = 18 }
+F.PRIO = { extend = 24, build = 23, craft = 22, smelt = 21, transport = 21, mine = 20, garrison = 18 }
 F.PAIRS = 2              -- un agrandissement de fond pose 2 paires (foreuse + réceptacle)
 F.MINE_BATCH = 50        -- minage à la main : 50 unités par sortie (comme le cerveau)
 F.SMELT_MIN = 10         -- minerai au QG qui justifie une tournée de fonderie de fond
@@ -109,10 +109,13 @@ local function extraction(view, free, ctx, out)
   local extendable = {}
   local danger = ctx.danger or {}
   local undefended = ctx.undefended or {}
+  -- R-QCM-25c (c) : ctx.safe_only (votre équipe à son effectif de départ, sans tourelle possible) : ni agrandir ni bâtir
+  -- (l'expansion sans défense perdait l'équipe, essais 2 et 5 du lot) ; transport, fonderie, minage près du coffre.
+  local safe = ctx.safe_only
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
     if undefended[o.id] and not o.full and room > 0 then extendable[o.kind] = true end -- il attend ses tourelles
-    if not o.full and room > 0 and not danger[o.id] and not undefended[o.id] and not prudent then
+    if not o.full and room > 0 and not danger[o.id] and not undefended[o.id] and not prudent and not safe then
       extendable[o.kind] = true
       local key = "extend:" .. o.id
       local items = F.pair_items(o.kind, math.min(F.PAIRS, room))
@@ -128,8 +131,8 @@ local function extraction(view, free, ctx, out)
     local key = "build:" .. kind
     local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
     local items = with_turrets(free, ctx, F.pair_items(kind, pairs_n), pairs_n)
-    if items and not prudent and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not keys[key]
-      and has(free, items) then
+    if items and not prudent and not safe and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0
+      and not keys[key] and has(free, items) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
@@ -148,6 +151,19 @@ local function extraction(view, free, ctx, out)
     end
     if any then
       out[#out + 1] = { key = "smelt", kind = "smelt", prio = F.PRIO.smelt, smelt = smelt, fond = true, domain = "gisements" }
+    end
+  end
+  -- 3 bis. R-QCM-25c (c) « transporter entre avant-postes et coffre » (ctx.transport) : tournée de fond d'un avant-poste
+  -- qui a au moins T.transport_min objets à rapporter, ni dangereux ni « où l'on ne va pas » ; sans tourelle possible
+  -- (ctx.transport_d2), seulement à moins de T.transport_near tuiles du QG. Même clé que la tournée du cerveau.
+  if ctx.transport and not prudent then
+    for _, o in ipairs(view.outposts or {}) do
+      local key = "service:" .. o.id
+      if not o.has_task and not keys[key] and not danger[o.id] and not undefended[o.id] and (o.output or 0) >= T.transport_min
+        and (not ctx.transport_d2 or (o.d2 or 0) <= ctx.transport_d2) then
+        out[#out + 1] = { key = key, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
+          domain = "gisements" }
+      end
     end
   end
   -- 4. Miner à la main (plafond du travail manuel, §4.5) : la ressource la plus en manque d'abord, puis à tour de rôle.
@@ -171,7 +187,7 @@ local function extraction(view, free, ctx, out)
       local key = "fond:mine:" .. m.res .. ":" .. k
       if not keys[key] then
         out[#out + 1] = { key = key, kind = "mine", prio = F.PRIO.mine, resource = m.res, count = F.MINE_BATCH,
-          fond = true, domain = "gisements" }
+          fond = true, domain = "gisements", radius = ctx.mine_radius }
         left = left - 1
       end
       if k > 64 then break end
@@ -252,7 +268,9 @@ local function territory(view, ctx, out)
   -- PNJ tués par les ennemis en 60 min 150 contre 117 avec elles (les gardes ne sont donc pas la cause des morts ; la
   -- sortie des PNJ au travail et la pollution des foreuses en plus, si) ; équipe occupée 70,6 % au lieu de 93 %.
   -- Leur valeur défensive n'est pas mesurée (lot IA1-g : zones et tourelles).
-  local posts = { "hq" }
+  -- R-QCM-25c (c) : ctx.no_hq_guard (votre équipe) : plus de garde de fond au coffre non plus (le DC voyait ses PNJ
+  -- « retourner au coffre et attendre ») ; les gardes armés du coffre en guerre sont des tâches du cerveau.
+  local posts = ctx.no_hq_guard and {} or { "hq" }
   local danger = ctx.danger or {}
   -- Lot IA1-b2 (D-17, « Couper les gardes ») : ctx.no_outpost_guard (votre équipe) : plus de garde d'avant-poste.
   for _, o in ipairs(view.outposts or {}) do

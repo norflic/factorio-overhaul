@@ -95,8 +95,11 @@ T.defend_prio = 90
 -- IA1-b2 (essais 1 à 3, protocole 30 contre 10, moteur réel) : à 30 PNJ, la règle aide les factions (tués par les ennemis
 -- 83 -> 25 à 54, production +9 à +20 %) ; à 10 PNJ, elle nuit (production -7 à -11 %, tués 19 -> 12 à 28) ; et au
 -- moteur simulé (tests/pvp_test.lua) elle casse l'ordre des attaques par difficulté (Impitoyable 3 attaques, Difficile 4).
--- Une partie normale (guide : 4 ouvriers par faction) ressemble au cas 10 : NON appliquée aux factions (décision au DC).
-T.defend_first_factions = false
+-- Une partie normale (guide : 4 ouvriers par faction) ressemble au cas 10.
+-- Réponse du DC (R-QCM-25c, 25/10 vers 11 h 20) : « Oui, toutes » : la DÉFENSE (tourelles d'avant-poste, construction
+-- avec tourelles, avant-poste meurtrier) vaut pour toutes les factions ; la croissance et le fond dès l'effectif de départ
+-- restent à votre équipe (une faction a sa propre taille, fo-war-workers).
+T.defend_first_factions = true
 -- Recrues retenues T.recruit_calm ticks après la perte d'un PNJ (0 : jamais). Essayé à 60 s (essais 1 à 4 du lot) : moins
 -- de recrues tuées à leur arrivée, mais pendant une longue attaque du QG l'équipe restait sous son effectif de départ
 -- avec du fer (verif-guide graine 1618033988 : 5 min de suite, ECHEC du contrôle de reconstruction) et le QG, moins
@@ -108,8 +111,21 @@ T.lethal_ticks = 10 * 3600
 -- ... sauf si sa ressource manque au coffre (moins de T.lethal_need unités) : on y retourne quand même.
 T.lethal_need = 50
 -- Tourelles du QG (posées d'abord) et fer gardé pour les recrues : la défense ne fabrique pas sous ce plancher.
-T.defend_hq = 2
+-- R-QCM-25c (b) « L'équipe le défend » : 4 tourelles autour du coffre (les 4 diagonales d'Outposts.fortify : tous les
+-- côtés, l'attaque d'une faction vise le côté le moins défendu, IA2-c).
+T.defend_hq = 4
 T.defend_iron_floor = 150
+-- R-QCM-25c (b) : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au coffre : un quart de
+-- l'équipe, au moins 2, au plus 6 (gardes de T.guard_ticks, relevées ; priorité T.guard_prio, au-dessus des tournées).
+T.guard_prio = 85
+T.guard_ticks = 3600
+function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))) end
+-- R-QCM-25c (c) « Donner du travail » : le minage de fond de votre équipe se fait PRÈS DU COFFRE (rayon, tuiles ;
+-- 27 PNJ tués à 74 tuiles en minant au fond, protocole 30 contre 10) ; transport = tournée de fond d'un avant-poste qui a
+-- au moins T.transport_min objets à rapporter ; sans tourelle possible, seulement à moins de T.transport_near tuiles.
+T.near_mine = 40
+T.transport_min = 10
+T.transport_near = 64
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
 
 ---------------------------------------------------------------------------------------------------

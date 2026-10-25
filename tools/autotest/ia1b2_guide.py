@@ -15,7 +15,8 @@ import re
 import sys
 
 RE_GUIDE = re.compile(r"mesure minute (\d+) \| (.+?) \| n=(\d+) recrues=(\d+) perdus=(-?\d+) tues_ennemis=(-?\d+) "
-                      r"fer=(-?\d+) ap=(\d+) defendus=(-?\d+) tourelles=(-?\d+) mu=(-?\d+)(?: qg=(-?\d+))?")
+                      r"fer=(-?\d+) ap=(\d+) defendus=(-?\d+) tourelles=(-?\d+) mu=(-?\d+)(?: qg=(-?\d+))?"
+                      r"(?: inactifs=(\d+)% attente rien=(-?\d+) bloque=(-?\d+) manque=(-?\d+))?")
 RE_SCALE = re.compile(r"\] minute (\d+) \| (\w+) n=(\d+)/\d+ recrues=(\d+) .*? ap=(\d+) .*?perdus=(-?\d+) "
                       r"tues_ennemis=(-?\d+) tourelles=(-?\d+) defendus=(-?\d+)")
 RE_DEATH = re.compile(r"\[FO-TEAM\] (\S+) : PNJ (\d+) tue \(([^)]*)\) a (-?\d+) tuiles du QG, tache (\w+)( \(fond\))?, "
@@ -35,7 +36,9 @@ def load(d):
         rows.setdefault(team, {})[int(m.group(1))] = {
             "n": int(m.group(3)), "rec": int(m.group(4)), "lost": int(m.group(5)), "enemy": int(m.group(6)),
             "iron": int(m.group(7)), "ap": int(m.group(8)), "def": int(m.group(9)), "tur": int(m.group(10)),
-            "mu": int(m.group(11)), "qg": int(m.group(12)) if m.group(12) is not None else -1}
+            "mu": int(m.group(11)), "qg": int(m.group(12)) if m.group(12) is not None else -1,
+            "idle": int(m.group(13)) if m.group(13) is not None else -1,
+            "why": tuple(int(m.group(k)) for k in (14, 15, 16)) if m.group(14) is not None else None}
     for m in RE_SCALE.finditer(log):
         rows.setdefault(m.group(2), {})[int(m.group(1))] = {
             "n": int(m.group(3)), "rec": int(m.group(4)), "ap": int(m.group(5)), "lost": int(m.group(6)),
@@ -80,6 +83,18 @@ def main(argv):
             mins = sorted(p)
             print("  votre equipe, effectif par minute : " + " ".join("%d" % p[k]["n"] for k in mins))
             print("  votre equipe, fer par minute      : " + " ".join("%d" % p[k]["iron"] for k in mins if k % 5 == 0))
+            idl = [p[k]["idle"] for k in mins if p[k].get("idle", -1) >= 0]
+            if idl:
+                # Inactivité moyenne (C5-2 : <= 15 %), minute par minute ; moyenne simple des minutes relevées.
+                print("  votre equipe, inactifs %% par minute : " + " ".join("%d" % v for v in idl))
+                at8 = [p[k]["idle"] for k in mins if p[k].get("idle", -1) >= 0 and p[k]["n"] <= 8]
+                print("  votre equipe, inactifs moyens : %.1f %% (%d minutes) ; aux minutes a 8 PNJ ou moins : %.1f %% (%d)" % (
+                    sum(idl) / len(idl), len(idl), (sum(at8) / len(at8)) if at8 else -1, len(at8)))
+                w = p[mins[-1]].get("why")
+                if w:
+                    tot = max(1, sum(w[:2]))
+                    print("  raisons d'attente (PNJ-pensees) : rien a faire %d (%.0f %%), taches d'un autre pole ou en pause %d (%.0f %%), "
+                          "dont cerveau en manque d'objets %d" % (w[0], 100 * w[0] / tot, w[1], 100 * w[1] / tot, w[2]))
         for name in sorted(rows):
             team_summary(name, rows[name])
         by = {}
