@@ -51,7 +51,7 @@ def socle(g, c):
     _briques(g, -c.xb, h - 0.02, yb, zs, zw)
     # face sud de l'AILE : briques, FOYER voûté rougeoyant, hotte de fer, soufflet
     xa, xz, yf = -h + 0.02, -c.xb, c.yf
-    _briques(g, xa, xz, yf, c.ze + 0.05, c.Hd - 0.03)
+    _briques(g, xa, xz, yf, c.ze + 0.05, c.z_aile - 0.03)
     xf = (xa + xz) / 2.0
     zf0, zf1 = c.ze + 0.12, c.ze + 0.48
     g.box(B(xf, yf - 0.06, (zf0 + zf1) / 2), (0.42, 0.05, zf1 - zf0), M["brique"], "hard", what="encadrement")
@@ -61,15 +61,15 @@ def socle(g, c):
                M["emit"] if k % 3 else M["forgeplate"])
     g.cyl(B(xf, yf - 0.06, zf1 + 0.02), "y", 0.2, 0.06, M["brique_pave2"], n=16, what="voute_foyer")
     g.hexa([B(xf - 0.25, yf - 0.32, zf1 + 0.08), B(xf + 0.25, yf - 0.32, zf1 + 0.08), B(xf + 0.25, yf - 0.02, zf1 + 0.08),
-            B(xf - 0.25, yf - 0.02, zf1 + 0.08), B(xf - 0.1, yf - 0.12, c.Hd - 0.08), B(xf + 0.1, yf - 0.12, c.Hd - 0.08),
-            B(xf + 0.1, yf - 0.02, c.Hd - 0.08), B(xf - 0.1, yf - 0.02, c.Hd - 0.08)], M["fer_noir"], "hard", "hotte")
+            B(xf - 0.25, yf - 0.02, zf1 + 0.08), B(xf - 0.1, yf - 0.12, c.z_aile - 0.08), B(xf + 0.1, yf - 0.12, c.z_aile - 0.08),
+            B(xf + 0.1, yf - 0.02, c.z_aile - 0.08), B(xf - 0.1, yf - 0.02, c.z_aile - 0.08)], M["fer_noir"], "hard", "hotte")
     for z in (zf1 + 0.1, zf1 + 0.16):
         g.box(B(xf, yf - 0.32, z), (0.52, 0.02, 0.025), M["fer_clair_f"], "hard", what="cerclage")
     halo(g, xf, yf - 0.25, zf0 + 0.15, 2.4)
     c.reserves.append((xf, yf - 0.2, 0.3))
     # conduit de briques sur l'aile (sortie de la hotte)
-    g.box(B(xf, (yf + yb) / 2, c.Hd + 0.12), (0.24, 0.24 * SQ2, 0.24), M["brique"], "hard", what="conduit")
-    g.box(B(xf, (yf + yb) / 2, c.Hd + 0.25), (0.3, 0.3 * SQ2, 0.03), M["fer_noir"], "hard", what="chapeau")
+    g.box(B(xf, (yf + yb) / 2, c.z_aile + 0.12), (0.24, 0.24 * SQ2, 0.24), M["brique"], "hard", what="conduit")
+    g.box(B(xf, (yf + yb) / 2, c.z_aile + 0.25), (0.3, 0.3 * SQ2, 0.03), M["fer_noir"], "hard", what="chapeau")
     c.reserves.append((xf, (yf + yb) / 2, 0.22))
     # soufflet de cuir sur le bâti, contre l'aile
     xs, ys = -c.xb + 0.22, c.yt + 0.25

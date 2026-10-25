@@ -80,7 +80,7 @@ def socle(g, c):
     halo(g, xw, yf - 0.2, c.ze + 1.25, 0.8)
     # conduits de ventilation de l'aile vers la cellule (liaisons de l'âge)
     for k, dz in enumerate((0.0, 0.18)):
-        p0 = B(-c.xb - 0.02, c.yt + 0.25, c.Hd - 0.3 + dz)
+        p0 = B(-c.xb - 0.02, c.yt + 0.25, c.z_aile - 0.3 + dz)
         p1 = B(-c.T["table"]["tx"] * 0.9, c.yt + 0.1, c.zt + 0.6 + dz)
         g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.1)), p1], 0.045, M["plomb_sombre"], fl_mat=M["lead"],
                bolt_mat=M["steel_hi"])

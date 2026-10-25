@@ -52,7 +52,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--asm", action="append", required=True)
     ap.add_argument("--dest", required=True)
-    ap.add_argument("--mode", default="ages", choices=("ages", "gamme"))
+    ap.add_argument("--mode", default="ages", choices=("ages", "gamme", "avant"))
+    ap.add_argument("--avant", default="", help="mode avant : dossier des sprites d'avant (ronde précédente)")
     ap.add_argument("--ages", default="")
     ap.add_argument("--zoom", type=int, default=1)
     ap.add_argument("--nuit", action="store_true")
@@ -67,6 +68,9 @@ def main():
         lignes = [(ere, [e for e in ages if e in choix]) for ere, ages in ERES]
         lignes = [(ere, ages) for ere, ages in lignes if ages]
         ncol = max(len(ages) for _, ages in lignes)
+    elif a.mode == "avant":
+        lignes = [(None, [e]) for e in choix]
+        ncol = 3
     else:
         lignes = [(None, [e]) for e in choix]
         ncol = 2
@@ -75,7 +79,8 @@ def main():
     sheet = Image.new("RGB", (W, H), (24, 24, 28))
     dr = ImageDraw.Draw(sheet)
     titre = a.titre or ("Assembleur F3-A · %s · zoom %d · %s%s" % (
-        "15 âges" if a.mode == "ages" else "mitrailleuse validée | assembleur", a.zoom, "nuit" if a.nuit else "jour",
+        {"ages": "15 âges", "gamme": "mitrailleuse validée | assembleur",
+         "avant": "avant (ronde 4) | après (F3-A2) | mitrailleuse validée"}[a.mode], a.zoom, "nuit" if a.nuit else "jour",
         " · niveau pair" if a.pair else " · niveau impair"))
     dr.text((8, 10), titre, fill=(255, 200, 110), font=K.font(20))
     y = 46
@@ -87,6 +92,10 @@ def main():
         for e in ages:
             if a.mode == "ages":
                 cells = [("assembleur_e", src_asm(a.asm, e), "F", a.pair or e == 1, "assembleur")]
+            elif a.mode == "avant":
+                cells = [("assembleur_e", a.avant, "F", e == 1, "AVANT"),
+                         ("assembleur_e", src_asm(a.asm, e), "F", e == 1, "APRÈS"),
+                         ("gun_e", GUN[e], "E", e == 1, "mitrailleuse")]
             else:
                 cells = [("gun_e", GUN[e], "E", e == 1, "mitrailleuse"),
                          ("assembleur_e", src_asm(a.asm, e), "F", e == 1, "assembleur")]

@@ -70,6 +70,7 @@ class Ctx:
         # ronde F3-A2 : PLAN du corps (plans.py) ; dos « bas » (portique) au ras du bâti
         self.plan = hab.get("plan") or "carre"
         self.z_bas = self.zs + 0.12 + 0.03 * side
+        self.z_aile = self.Hd + 0.08 * side       # aile du plan L : plus haute que le dos (essai a2 : illisible)
         g.ctx = self
         import plans
         plans.init(self)
@@ -98,7 +99,7 @@ def place_es(c, quoi):
         sx = -1 if quoi == "entree" else 1
         return dict(x=sx * (c.xb - r - 0.08), yn=-c.h + c.epar + r + 0.12, z=c.zs, r=r)
     pl = cotes.places(c.side)["joue_O" if quoi == "entree" else "joue_E"]
-    z = c.Hd if (c.plan == "L" and quoi == "entree") else c.z_joue
+    z = c.z_aile if (c.plan == "L" and quoi == "entree") else c.z_joue
     return dict(x=pl["x"], yn=pl["yn"], z=z, r=pl["r"])
 
 
@@ -394,8 +395,8 @@ def joues(g, c):
         xa, xb_ = (-c.h + 0.02, -c.xb) if sx < 0 else (c.xb, c.h - 0.02)
         if c.plan == "L" and sx < 0:
             # AILE du plan L : joue ouest à pleine hauteur du dos, face sud à plaques
-            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, c.Hd, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st")
-            corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], c.Hd, M["steel_dk"], w=0.05, hgt=0.04)
+            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, c.z_aile, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st")
+            corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], c.z_aile, M["steel_dk"], w=0.05, hgt=0.04)
             continue
         if f == "socle":
             zz = c.zs + 0.06

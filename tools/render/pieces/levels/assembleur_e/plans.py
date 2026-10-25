@@ -345,7 +345,7 @@ def pylones(g, c):
             g.box(B(xx, y0 - 0.025, (c.ze + c.ztop) / 2), (0.035, 0.03, c.ztop - c.ze), m2, "hard", what="montant")
     # pont-caisson
     L = 2 * (c.xp + c.wp / 2)
-    db = 0.22 * c.side
+    db = 0.13 * c.side              # essai a2 : un pont large cachait la baie (grande plaque vue de dessus)
     g.box(B(0, c.yt, c.zp + c.hb / 2), (L, db * SQ2, c.hb), m1, "hard", what="pont_caisson")
     q = [B(-L / 2 + c.wp, c.yt - db / 2 - 0.005, c.zp + 0.02), B(L / 2 - c.wp, c.yt - db / 2 - 0.005, c.zp + 0.02),
          B(L / 2 - c.wp, c.yt - db / 2 - 0.005, c.zp + c.hb - 0.02), B(-L / 2 + c.wp, c.yt - db / 2 - 0.005,
@@ -358,7 +358,7 @@ def pylones(g, c):
     xc = 0.28 * c.side
     g.box(B(xc, c.yt, c.ztop + 0.12), (0.34, 0.24 * SQ2, 0.24), m2, "hard", what="cabine")
     g.box(B(xc, c.yt - 0.125, c.ztop + 0.15), (0.26, 0.012, 0.1), M["emit_soft"], "flat", what="vitre_cabine")
-    c.zones.append(("rect", -L / 2 + 0.08, -0.1, c.yt - db / 2 + 0.06, c.yt + db / 2 - 0.06, c.ztop))
+    c.zones.append(("rect", -L / 2 + c.wp + 0.05, L / 2 - c.wp - 0.05, c.yt - db / 2 + 0.04, c.yt + db / 2 - 0.04, c.ztop))
     for sx in (-1, 1):
         c.zones.append(("rect", sx * c.xp - c.wp / 2 + 0.05, sx * c.xp + c.wp / 2 - 0.05, y0 + 0.05, y1 - 0.05,
                         c.ztop))

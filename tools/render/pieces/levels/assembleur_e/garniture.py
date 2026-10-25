@@ -12,7 +12,7 @@ Un âge choisit ses zones par GARNIR = ("bati", "joues") (défaut) ; () : aucune
 """
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import parts as PT
 from habillage import habille
@@ -105,7 +105,7 @@ def garnir(g, c):
 # ------------------------------------------------------------------------------------------------
 # GARNITURE DENSE (ronde F3-A2) : petites pièces semées sur les dessus (c.zones), hors des réserves
 # ------------------------------------------------------------------------------------------------
-PAS = 0.16         # pas de la grille (tuiles de jeu) : taille CONSTANTE, plus de pièces sur une grande machine
+PAS = 0.2          # pas de la grille (tuiles de jeu) : taille CONSTANTE, plus de pièces sur une grande machine
 
 
 def zones_carre(c):
@@ -115,7 +115,7 @@ def zones_carre(c):
     if c.f_dos in ("plat", "gradins", "tours", "bas"):
         out.append(("toit", -h + 0.15, h - 0.15, yb + 0.08, h - 0.1))
     if c.plan == "L":
-        out.append(("rect", -h + 0.08, -xb - 0.06, c.yf + 0.06, yb - 0.04, c.Hd))
+        out.append(("rect", -h + 0.08, -xb - 0.06, c.yf + 0.06, yb - 0.04, c.z_aile))
         if c.f_joues in ("caisson", "basses", "socle"):
             out.append(("rect", xb + 0.06, h - 0.08, c.yf + 0.06, yb - 0.04, c.z_joue))
     elif c.f_joues in ("caisson", "basses", "socle"):
@@ -143,6 +143,17 @@ def _piece(g, c, rng, x, yn, z, mats, emat, p_lampe):
     p = _B(x, yn, z)
     k = rng.random()
     m = mats[rng.randrange(len(mats))]
+    g.push((p.x, p.y, p.z))          # essai a2 : pièces trop petites au zoom 1 : × 1,5, taille toujours CONSTANTE
+    g.stack[-1] = g.stack[-1] @ Matrix.Scale(1.5, 4)
+    try:
+        return _piece_locale(g, c, rng, k, m, emat, p_lampe)
+    finally:
+        g.pop()
+
+
+def _piece_locale(g, c, rng, k, m, emat, p_lampe):
+    M = g.M
+    p = V((0.0, 0.0, 0.0))
     if k < p_lampe and emat is not None:
         g.cyl(p + V((0, 0, 0.02)), "z", 0.03, 0.04, M["steel_dk"], n=10, what="socle_voyant")
         g.sphere(p + V((0, 0, 0.05)), 0.026, emat, n=10, m=5, what="voyant")
