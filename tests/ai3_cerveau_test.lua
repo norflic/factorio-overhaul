@@ -194,6 +194,15 @@ local gt = B.generate(fac_s(wt), { targets = { coal = 2, iron = 2, copper = 1, s
 local gc = B.generate(fac_s(wc), { targets = { coal = 2, iron = 2, copper = 1, stone = 1 }, iron2_set = true })
 check(rank_of(gt, "recherche") < rank_of(gt, "armee"), "technocrate : la recherche passe devant l'armée")
 check(rank_of(gc, "armee") < rank_of(gc, "recherche"), "conquérant : l'armée passe devant la recherche")
+-- En guerre, l'armée vaut plus (× B.ARMY_WAR_PCT) ; armée et munitions sont PERMANENTES (hors des K projets).
+local sw = fac_s(B.weights({}, nil))
+sw.soldiers = 12
+local g_peace = B.generate(sw, { targets = { coal = 2, iron = 2, copper = 1, stone = 1 }, iron2_set = true })
+sw.at_war = true
+local g_war = B.generate(sw, { targets = { coal = 2, iron = 2, copper = 1, stone = 1 }, iron2_set = true })
+local function goal_of(goals2, key) for _, g in ipairs(goals2) do if g.key == key then return g end end end
+check(goal_of(g_war, "armee").value > goal_of(g_peace, "armee").value and goal_of(g_war, "armee").permanent,
+  "en guerre : l'armée vaut plus, et reste permanente")
 
 ---------------------------------------------------------------------------------------------------
 section("4. Recherche (laboratoire du QG) : packs, impayable, garde de l'économie")
