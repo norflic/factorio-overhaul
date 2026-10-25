@@ -67,6 +67,9 @@ C.OPPORTUNIST = 1200       -- un opportuniste (trait ≥ 1 200) frappe une rival
 C.SURVIVAL_LOST = 5        -- SURVIE : au moins 5 soldats perdus en 10 min et moins du quart de l'armée visée, ou
                            -- moins de la moitié de l'effectif de départ en ouvriers : « reconstruction » imposée
 
+-- Lot IA2-c : effet du style d'une rivale sur son attrait comme cible (pour mille).
+C.STYLE_TARGET = { tortue = 600, batisseur = 1250, expansionniste = 1100, agresseur = 1100 }
+
 C.POSTURES = { "expansion", "capitalisation", "technologie", "fortification", "armee", "assaut", "raids", "reconstruction" }
 
 -- Facteur de la posture sur le seuil d'attaque entre factions (pour mille) : < 1 000 = attaque plus tôt.
@@ -234,6 +237,9 @@ function C.rank_targets(v, st)
       if r.id == st.target then s = math.floor(s * (1000 + math.floor(C.INERTIA * tr.discipline / 1000)) / 1000) end
       local d = r.dist or 600
       s = math.floor(s * 600 / math.max(600, d))
+      -- Lot IA2-c : style de la rivale (modèle de l'adversaire, ce qui a été vu) : une TORTUE attire moins (on ne se
+      -- jette pas sur ses tourelles : raids sur ses avant-postes) ; un BÂTISSEUR qui décolle attire (le frapper tôt).
+      s = math.floor(s * (C.STYLE_TARGET[r.style or "-"] or 1000) / 1000)
       out[#out + 1] = { id = r.id, score = math.max(1, s), defense = def, rival = r, sated = sated(st, r, tr, v.tick) }
     end
   end
@@ -266,6 +272,13 @@ function C.considerations(v, st, best)
   c.technologie = { mean({ lin(4 - (v.tech or 0), 0, 3), lin(v.copper or 0, 30, 400), safety, lin(v.minutes or 0, 5, 25) }),
     "retard technologique" }
   c.fortification = { mean({ v.threat, lin(v.unprotected or 0, 0, 4), g }), "menace" }
+  -- Lot IA2-c : une rivale AGRESSEUR (attaques reçues d'elle, sites perdus) : fortifier.
+  for _, r in ipairs(v.rivals) do
+    if r.style == "agresseur" then
+      c.fortification = { math.max(c.fortification[1], math.floor((c.fortification[1] + 1000) / 2)), "agresseur a nos portes" }
+      break
+    end
+  end
   local room = (v.army_target or 0) - (v.garrison or 0)
   c.armee = { mean({ lin(room, 0, math.max(1, v.army_target or 1)), 500 + math.floor(v.threat / 2),
     lin(v.minutes or 0, 3, 15) }), "armee a lever" }
@@ -280,6 +293,17 @@ function C.considerations(v, st, best)
     local weak = best.rival.weak and 1000 or 0
     c.raids = { weak > 0 and mean({ weak, lin((v.garrison or 0) - (v.reserve or 0), 5, 20), safety }) or 0,
       "avant-poste isole" }
+    -- Lot IA2-c : réponses au style. Tortue : pas d'assaut sur ses tourelles (÷ 2), raids sur ses avant-postes
+    -- (harcèlement) ; expansionniste : frapper ses avant-postes isolés (raids) ; bâtisseur : frapper tôt (assaut).
+    local style = best.rival.style
+    if style == "tortue" then
+      c.assaut[1] = math.floor(c.assaut[1] / 2)
+      if weak > 0 then c.raids = { math.max(c.raids[1], 750), "harceler la tortue" } end
+    elseif style == "expansionniste" and weak > 0 then
+      c.raids = { math.max(c.raids[1], 700), "avant-poste isole d'un expansionniste" }
+    elseif style == "batisseur" then
+      c.assaut = { math.max(c.assaut[1], math.floor((c.assaut[1] + 1000) / 2)), "frapper le batisseur tot" }
+    end
   else
     c.assaut = { 0, "aucune cible" }
     c.raids = { 0, "aucune cible" }
@@ -458,7 +482,7 @@ function C.episode_result(ep, v, st)
   if p == "assaut" or p == "raids" then
     local w, l = 0, 0
     for _, a in ipairs(st.attacks) do
-      if a.tick >= ep.tick and a.outcome and a.outcome ~= "dissous" then
+      if a.tick >= ep.tick and a.outcome and a.outcome ~= "dissous" and a.outcome ~= "renonce" then
         if a.outcome == "reussie" then w = w + 1 else l = l + 1 end
       end
     end
@@ -622,7 +646,7 @@ end
 --- Choix du côté d'arrivée : 8 octants autour de la cible, notés par l'écart à la direction directe (depuis notre
 --- QG ; la ruse aplatit la courbe), pénalisés quand une attaque y a été repoussée (registre) ; tirage parmi les
 --- 3 meilleurs, au prorata. `dx, dy` = vecteur cible → notre QG. Renvoie l'octant (0 à 7).
-function C.pick_side(st, target_id, dx, dy, ruse, draw)
+function C.pick_side(st, target_id, dx, dy, ruse, draw, sides)
   local direct = C.octant(dx, dy)
   if direct < 0 then direct = 0 end
   local base = { [0] = 1000, 800, 450, 150, 50 }
@@ -639,6 +663,8 @@ function C.pick_side(st, target_id, dx, dy, ruse, draw)
         s = math.floor(s * 3 / 10)
       end
     end
+    -- Lot IA2-c : défense VUE de ce côté (tourelles par octant autour du point visé, shared/faction/adversaire.lua).
+    if sides and sides[o] then s = math.floor(s * 8 / (8 + sides[o])) end
     list[#list + 1] = { key = o, score = math.max(1, s), i = o }
   end
   table.sort(list, function(a, b)
@@ -691,12 +717,19 @@ end
 --- (aucun survivant, cible debout) ou « dissous » (groupe défait par le moteur, soldats vivants : F174, sans leçon).
 --- Une attaque repoussée rend la cible moins attirante et lui ajoute de la défense estimée (les pertes subies, en
 --- équivalents fusiliers).
-function C.record_outcome(st, gid, outcome, sent, survivors, tick)
+function C.record_outcome(st, gid, outcome, sent, survivors, tick, seen)
   for k = #st.attacks, 1, -1 do
     local a = st.attacks[k]
     if a.gid == gid and not a.outcome then
       a.outcome, a.survivors = outcome, survivors
       st.dissolved = st.dissolved or {}
+      if outcome == "renonce" then
+        -- Lot IA2-c : le groupe a renoncé au rassemblement (défense vue trop forte) : cible évitée 10 min, défense
+        -- apprise = la moitié de ce qui a été vu (sans perte, sans leçon sur le côté).
+        st.avoid[a.target] = tick + C.AVOID_TICKS
+        if seen then st.extra_defense[a.target] = math.max(st.extra_defense[a.target] or 0, math.floor(seen / 2)) end
+        return a
+      end
       if outcome == "dissous" then
         -- Groupe défait par le moteur (F174) : aucune leçon sur la défense ; mais 2 de suite contre la même cible
         -- (moteur réel, graine 777 : 328 groupes défaits au départ contre la même cible) la font éviter 10 min.
@@ -728,6 +761,25 @@ function C.record_loss(st, tick, by)
   while #st.lost > C.MEMORY do table.remove(st.lost, 1) end
   st.lost_total = (st.lost_total or 0) + 1
   if by and by ~= "player" then st.grudge[by] = clamp((st.grudge[by] or 0) + 400, 0, 1000) end
+  -- Lot IA2-c : mémoire des coups REÇUS par adversaire (sites perdus ; attaques vues arriver : C.record_received).
+  if by then C.record_received(st, by, tick) end
+end
+
+--- Lot IA2-c : une attaque reçue de `by` (groupe ennemi vu arriver chez nous, ou site perdu) ; 8 dernières retenues.
+function C.record_received(st, by, tick)
+  st.received = st.received or {}
+  local key = tostring(by)
+  local list = st.received[key] or {}
+  st.received[key] = list
+  list[#list + 1] = tick
+  while #list > C.MEMORY do table.remove(list, 1) end
+end
+
+--- Attaques reçues de `by` pendant les `window` derniers ticks.
+function C.received_recent(st, by, tick, window)
+  local n = 0
+  for _, t in ipairs((st.received or {})[tostring(by)] or {}) do if tick - t <= window then n = n + 1 end end
+  return n
 end
 
 --- Un de nos bâtiments ou soldats est détruit par `by` (rancune légère).

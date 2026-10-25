@@ -40,6 +40,7 @@ local function W() return M.world() end
 local F = require("shared.faction.config")
 local S = require("shared.faction.strategy")
 local Tr = require("shared.faction.traits") -- lot IA2-0
+local A = require("shared.faction.adversaire") -- lot IA2-c
 local LEVELS = F.pvp_order
 
 -- Copie FIGÉE de S.attack au lot IA0 (commit 4240248), constantes comprises : la guerre ENTRE factions (et donc
@@ -537,6 +538,9 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
       -- Lot IA2-a2 : TRÊVE du chef (rivales épargnées par satiété : aucun raid ; en Paisible, aucune attaque contre la
       -- rivale ; seuil 1 400), une minute sur quatre, flux à part (les tirages d'IA2-a sont inchangés).
       hold_stream = opts.chef and Tr.new_stream(opts.chef, 300 + i) or nil,
+      -- Lot IA2-c : opts.tempo (pour mille) = moment de la 1re attaque de la partie (valeur du niveau × tempo) ;
+      -- opts.cd = graine : intervalle entre deux attaques contre le joueur × tempo tiré à ±20 % après chaque attaque.
+      cd_stream = opts.cd and Tr.new_stream(opts.cd, 400 + i) or nil, cd_mult = opts.cd and 1000 or nil,
       r = { attacks = 0, soldiers = 0, first = nil, declare = nil, warn = nil, rival = 0, rival_war = 0, sent_total = 0,
         joins = 0, siege = 0, deterred = 0, fallback = 0, launches = {}, raids = 0, varied = 0 },
     }
@@ -573,7 +577,9 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
           pvp = { difficulty = level, tick = tick, anchor = 0, declared = fp.declared, provoked = false, warned = fp.warned,
             last_attack = fp.last_attack, last_rival = fp.last_rival, sent_player = fp.sent_player, sent_total = fp.sent_total,
             player_groups = 0, due_since = fp.due_since, rally_until = shared.rally_until,
-            rally_defense = shared.rally_until and cfg.defense or nil },
+            rally_defense = shared.rally_until and cfg.defense or nil,
+            first_after = opts.tempo and not shared.first_done and A.first_after(0, level, opts.tempo) or nil,
+            first_prep = A.PREP, cooldown_mult = f.cd_mult },
           player = { score = cfg.score, defense = cfg.defense, reachable = true },
         }
         if f.chef then
@@ -601,6 +607,8 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
           elseif a.attack.target == "player" then
             fp.sent_player = fp.sent_player + n
             fp.last_attack, fp.due_since = tick, nil
+            shared.first_done = true
+            if f.cd_stream then f.cd_mult = Tr.range(f.cd_stream, 800, 1200) end
             r.attacks, r.soldiers = r.attacks + 1, r.soldiers + n
             r.first = r.first or tick
             r.launches[#r.launches + 1] = { tick = tick, n = n, join = a.attack.join or false }
@@ -861,6 +869,64 @@ print(string.format("  24 caractères × 11 configurations : raids %d, attaques 
 check(chef_raids > 0, "le chef lance des raids dans la campagne (" .. chef_raids .. ")")
 
 ---------------------------------------------------------------------------------------------------
+section("Campagne pure : moment varié contre le joueur (lot IA2-c)")
+-- Lot IA2-c : sous le chef (section précédente), en plus : 1re attaque de la partie pas avant la valeur du niveau ×
+-- tempo de la partie (±20 % ; un tempo par configuration, extrêmes compris), préparation 4 min avant (garnison gardée),
+-- et intervalle entre deux attaques contre le joueur × tempo tiré à ±20 % après chaque attaque. Mêmes exigences
+-- (ordre STRICT des niveaux, attaques exigées, guerres entre factions), plus : jamais d'attaque avant le moment.
+local TEMPOS = { 800, 1200, 1000, 850, 1150, 950, 1050, 900, 1100, 800, 1200 }
+local tempo_gaps, early, n_first, n_lo, n_hi = 0, 0, 0, 1e18, 0
+for ci, cfg in ipairs(CONFIGS) do
+  for _, ch in ipairs(CHARS_CHEF) do
+    local c = {}
+    local tempo = TEMPOS[ci]
+    local nocd = os.getenv("IA2C_NOCD") == "1" -- TEMPORAIRE (diagnostic)
+    for _, lv in ipairs(LEVELS) do c[lv] = campaign(lv, ch.pers, 180, cfg, { jitter = 1000 + ci, chef = 5000 + ci, tempo = (not nocd or os.getenv("IA2C_NOT") ~= "1") and tempo or nil, cd = (not nocd) and (7000 + ci) or nil }) end
+    local t = string.format("[IA2-c, config %d, tempo %d] %s", ci, tempo, ch.name)
+    local ok = c.peaceful.attacks == 0 and c.peaceful.declare == nil
+    for _, lv in ipairs(AGGRO) do
+      if cfg.must[lv] and not (c[lv].first ~= nil and c[lv].first >= S.grace_ticks(lv, ch.pers)) then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " n'attaque pas") end
+      if cfg.must[lv] and cfg.repeat_min and c[lv].attacks < cfg.repeat_min then ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " moins de " .. cfg.repeat_min .. " attaques") end
+      if c[lv].first and c[lv].first < A.first_after(0, lv, tempo) then early = early + 1; ok = false; print("  ECHEC : " .. t .. " : " .. lv .. " attaque avant le moment") end
+    end
+    if c.normal.first then
+      n_first = n_first + 1
+      if c.normal.first < n_lo then n_lo = c.normal.first end
+      if c.normal.first > n_hi then n_hi = c.normal.first end
+    end
+    local orders = {
+      { "first", function(a, b) return a > b end, "1re attaque de plus en plus tôt" },
+      { "attacks", function(a, b) return a < b end, "attaques de plus en plus fréquentes" },
+      { "mean", function(a, b) return a < b end, "taille moyenne croissante" },
+    }
+    local arch_rival = MEASURES[ci][ch.pers.archetype].peaceful.rival > 0
+    if arch_rival then orders[#orders + 1] = { "share", function(a, b) return a < b end, "part des forces croissante" } end
+    for _, o in ipairs(orders) do
+      if not order_ok(c, o[1], o[2]) then
+        if cfg.no_order then
+          tempo_gaps = tempo_gaps + 1
+        else
+          ok = false
+          local d = {}
+          for _, lv in ipairs(AGGRO) do
+            d[#d + 1] = string.format("%s %s/%d/%.1f", lv, c[lv].first and string.format("%.1f", c[lv].first / MIN) or "-", c[lv].attacks, c[lv].mean)
+          end
+          print("  ECHEC : " .. t .. " : " .. o[3] .. " (1re/attaques/taille : " .. table.concat(d, ", ") .. ")")
+        end
+      end
+    end
+    if arch_rival and not cfg.rdef and not (c.normal.rival_war >= RIVAL_MIN and c.hard.rival_war >= RIVAL_MIN and c.merciless.rival_war >= 1) then
+      ok = false
+      print(string.format("  ECHEC : %s : guerres entre factions après la déclaration (Normal %d, Difficile %d, Impitoyable %d)", t,
+        c.normal.rival_war, c.hard.rival_war, c.merciless.rival_war))
+    end
+    check(ok, t .. " : exigences de la configuration")
+  end
+end
+print(string.format("  24 caractères × 11 configurations (tempos 800 à 1 200) : 1re attaque en Normal de %.1f à %.1f min (%d cas) ; attaques avant le moment : %d ; écarts non exigés : %d",
+  n_lo / MIN, n_hi / MIN, n_first, early, tempo_gaps))
+
+---------------------------------------------------------------------------------------------------
 section("Campagne pure : partie à 4 factions, assaut coordonné (Difficile, Impitoyable)")
 -- Les 4 personnalités dans l'ordre des factions du jeu, contre les bases défendues (cfg 5 à 8).
 local GAME = { "conqueror", "technocrat", "builder", "balanced" }
@@ -990,6 +1056,13 @@ local function fac(i) return global.fo.war.factions[i] end
 -- les délais attendus se calculent sur ce caractère, plus sur la seule couleur (graine 42 du moteur simulé :
 -- Écarlate équilibrée, grâce 27,8 min en Normal ; Azur bâtisseur, 42,9 min).
 local function char(i) return Tr.character(fac(i).personality, fac(i).traits) end
+-- Lot IA2-c : secteurs du joueur VUS par la faction i (brouillard).
+local function known(i)
+  local v = fac(i).pvp and fac(i).pvp.vision
+  local n = 0
+  if v then for _ in pairs(v.known) do n = n + 1 end end
+  return n
+end
 local function ceasefire(i) return game.forces[fac(i).force].get_cease_fire(game.forces.player) end
 local function player_groups(i)
   local n = 0
@@ -1045,10 +1118,15 @@ do
   check(printed("fo-pvp.intro:") == 1, "message d'introduction (difficulté, délai)")
   check(ceasefire(1) and ceasefire(2), "cessez-le-feu au lancement")
   M.run_ticks(2400)
-  check(pvp().score >= 2, "repérage : base de départ et avant-poste du joueur trouvés en 40 s (" .. pvp().score .. " secteurs)")
+  -- Lot IA2-c : BROUILLARD (D-16). Avant IA2-c, le balayage global trouvait la base en 40 s ; désormais, à 320 tuiles
+  -- (champ du QG : 160), aucune faction ne sait rien du joueur avant son éclaireur.
+  check(known(1) == 0 and known(2) == 0, "brouillard : rien de vu du joueur à 40 s (QG à 320 tuiles, champ du QG 160)")
   local g1 = S.grace_ticks("normal", char(1))
   M.run_ticks(g1 - 2 * MIN - game.tick + 300)
   check(printed("fo-pvp.warn:") >= 1, "préavis affiché avant la fin de la grâce")
+  check((fac(1).stats.scouts or 0) >= 1 and known(1) >= 2,
+    string.format("éclaireur d'Écarlate parti avant la fin de sa grâce : base de départ et avant-poste du joueur VUS (%d éclaireur(s), %d secteurs)",
+      fac(1).stats.scouts or 0, known(1)))
   M.run_ticks(g1 - game.tick - 1)
   check(ceasefire(1) and not fac(1).pvp.declared and player_groups(1) == 0,
     string.format("rien pendant la grâce (Écarlate, %.1f min)", g1 / MIN))
@@ -1064,6 +1142,26 @@ do
   check(printed("fo-pvp.attack:") >= 1 and printed("[gps=") >= 1, "départ d'attaque annoncé, avec lien [gps]")
   local t = fp.target
   check(t and t.pos.x < -64 and t.pos.y >= 64, "cible : l'avant-poste du joueur, pas la base de départ (« QG en dernier »)")
+  -- Lot IA2-c : côté d'arrivée publié, décision au rassemblement avancé, issue de l'attaque, moment de la 1re attaque.
+  do
+    local sided, rallies, issues, first = 0, 0, 0, nil
+    for _, line in ipairs(W().logs) do
+      if line:find("^%[FO%-PVP%] attaque tick") then
+        first = first or tonumber(line:match("tick (%d+)"))
+        if line:find(", octant %d") and line:find(", cote %d+ sur %d+") then sided = sided + 1 end
+      elseif line:find("^%[FO%-PVP%] rassemblement tick") then
+        rallies = rallies + 1
+      elseif line:find("^%[FO%-PVP%] issue tick") then
+        issues = issues + 1
+      end
+    end
+    check(sided >= 1, "IA2-c : attaques contre le joueur avec un côté d'arrivée choisi sur la défense vue (" .. sided .. ")")
+    check(rallies >= 1 and issues >= 1, string.format("IA2-c : décision au rassemblement (%d) et issue (%d) publiées", rallies, issues))
+    local fa = A.first_after(pvp().anchor, "normal", pvp().tempo)
+    check(first ~= nil and pvp().tempo and first >= fa and pvp().first_done,
+      string.format("IA2-c : 1re attaque de la partie au tick %s, pas avant son moment (%d, tempo %s)", tostring(first), fa or -1,
+        tostring(pvp().tempo)))
+  end
   check(pvp().losses >= 1 and player_buildings() < before, "pertes du joueur causées par la faction (" .. pvp().losses .. ")")
   check(fac(1).stats.attacks > fp.attacks or fac(2).stats.attacks > 0, "les guerres entre factions continuent")
   check(fp.sent_total >= fp.sent_player, "comptes cohérents (envoyés au joueur ≤ envoyés)")
@@ -1268,8 +1366,11 @@ do
   s.count_entities_filtered = real
   local bound = math.ceil(MIN / F.pvp_rules.scan_period) * F.pvp_rules.scan_per_pass
   check(calls <= bound + 8, string.format("au plus %d comptages par minute (mesuré : %d)", bound, calls))
-  check(require("script.faction.pvp").SECTORS == 1793, "disque de 1 793 secteurs (rayon 24, balayage complet en " ..
-    math.ceil(1793 / F.pvp_rules.scan_per_pass) * F.pvp_rules.scan_period .. " ticks)")
+  -- Lot IA2-c : plus de balayage global (disque de 1 793 secteurs) : chaque regard porte sur un secteur du champ des
+  -- yeux d'une faction (1 comptage), les factions à tour de rôle, au plus un regard par passe de 8 ticks.
+  local looks = pvp().sweeps
+  check(looks > 0 and looks <= math.ceil(MIN / F.pvp_rules.scan_period), string.format("regards sous brouillard : %d en 1 min (au plus %d)",
+    looks, math.ceil(MIN / F.pvp_rules.scan_period)))
   check(F.pvp_rules.scan_per_pass == 1, "au plus 1 comptage par tick porteur (pic de coût minimal)")
 end
 

@@ -185,6 +185,8 @@ F.pvp_rules = {
   -- Disque de 24 secteurs (1 536 tuiles, 1 793 secteurs) autour du point de départ du joueur : les
   -- avant-postes lointains (souvent les plus proches des QG de faction) sont repérés. Au-delà : jamais
   -- ciblé (limite documentée). Le coût par tick ne dépend pas du rayon, seulement du débit ci-dessous.
+  -- Lot IA2-c : PLUS LU (brouillard : script/faction/vision.lua regarde le champ des yeux de chaque faction) ;
+  -- gardé pour mémoire. Le débit ci-dessous (1 regard toutes les 8 ticks) reste celui des regards.
   scan_radius = 24,
   -- Débit : 1 secteur (1 count_entities_filtered) toutes les 8 ticks, soit 7,5 secteurs/s ; balayage
   -- complet en 1 793 × 8 = 14 344 ticks (4 min). Un seul appel par tick porteur (pic divisé par 2 par
