@@ -30,7 +30,7 @@ TRAVAIL = dict(couches=2, images=24, organe="volant qui tourne (24 positions de 
                                            "montent et descendent ; jet de vapeur à la soupape, foyer (couche glow)")
 HABILLAGE = dict(ages.CORPS[3], capots=("vert_loco", "cuivre_capot"), plan='tour', forme_embase='carre',
                  forme_dos='plat', forme_joues='caisson', forme_portique='aucun')
-DENSITE = dict(p=0.65, lampes=0.1)
+DENSITE = dict(p=0.65, lampes=0.16)     # ronde F3-A3 : nuit trop sombre
 
 
 def matieres(metal, M):
@@ -48,6 +48,14 @@ def socle(g, c):
     for k, z in enumerate((zr + 0.25 * (Ht - zr), zr + 0.68 * (Ht - zr))):
         P2.gauge(g, V((0.18 * (1 if k else -1), -Rt - 0.01, z)), (0, -1, 0), 0.07, M, face=M["emit_soft"])
     halo(g, 0, -Rt / SQ2 - 0.15, zr + 0.5 * (Ht - zr), 0.6)
+    # ronde F3-A3 (nuit trop sombre) : HUBLOTS éclairés du fût (face sud) et fanal au sommet
+    for ad, zf in ((235, 0.47), (305, 0.47), (250, 0.85), (290, 0.85)):
+        a = math.radians(ad)
+        p = V((Rt * math.cos(a), Rt * math.sin(a), zr + zf * (Ht - zr)))
+        nrm = V((math.cos(a), math.sin(a), 0.0))
+        g.cyl(p + nrm * 0.01, nrm, 0.055, 0.03, M["laiton_capot"], n=14, what="bague_hublot")
+        g.cyl(p + nrm * 0.025, nrm, 0.04, 0.012, M["emit_soft"], n=14, what="hublot")
+    halo(g, 0, -Rt / SQ2 - 0.3, zr + 0.65 * (Ht - zr), 0.9)
     # chaudière couchée au pied ouest, sur deux berceaux
     xc, yc, rb = -0.62, 0.32, 0.24
     zc = zr + rb + 0.05
@@ -150,15 +158,17 @@ def piece(g, c):
     M = g.M
     po, pe = corps.place(c, "coin_SO"), corps.place(c, "coin_SE")
     z = po["z_sol"]
-    for k, (dx, dy) in enumerate(((-0.1, 0.06), (0.12, 0.0), (0.0, -0.16))):
-        g.cyl(B(po["x"] + dx, po["yn"] + dy, z + 0.09), "z", 0.1, 0.18, M["cuivre_sombre"], n=16, r2=0.085,
-              what="seau")
-        for j in range(4):
-            F.lump(g, B(po["x"] + dx - 0.04 + 0.03 * j, po["yn"] + dy, z + 0.17), 0.035, M["soot"])
-    g.cyl(B(po["x"] + 0.22, po["yn"] - 0.16, z + 0.07), "z", 0.05, 0.12, M["laiton_capot"], n=12, r2=0.02,
-          what="burette")
-    F.lantern(g, tuple(B(po["x"] - 0.2, po["yn"] - 0.16, z)), M["emit"])
-    halo(g, po["x"] - 0.2, po["yn"] - 0.16, z + 0.1, 0.5)
-    P3.vtank(g, pe["x"], pe["yn"] * SQ2, 0.2, 0.62, M, paint=M["vert_loco"], z0=z, gauges=1, band=M["laiton_capot"])
-    halo(g, pe["x"], pe["yn"] - 0.2, z + 0.4, 0.6)
+    # ronde F3-A3 (niveau pair peu visible) : SOUTE À CHARBON haute (coin gauche) avec fanal sur poteau ; réservoir
+    # d'appoint plus haut (0,95), à cerclages de laiton (coin droit)
+    x, yn = po["x"], po["yn"]
+    g.box(B(x, yn, z + 0.22), (0.5, 0.42 * SQ2, 0.44), M["bois_verni"], "hard", what="soute")
+    for f in (0.25, 0.75):
+        g.box(B(x, yn - 0.215, z + 0.44 * f), (0.52, 0.012, 0.04), M["cuivre_sombre"], "hard", what="cerclage")
+    for j in range(10):
+        F.lump(g, B(x - 0.18 + 0.09 * (j % 5), yn - 0.1 + 0.15 * (j // 5), z + 0.44), 0.05, M["soot"])
+    g.box(B(x - 0.2, yn + 0.12, z + 0.45), (0.04, 0.04 * SQ2, 0.9), M["cuivre_sombre"], "hard", what="poteau")
+    F.lantern(g, tuple(B(x - 0.2, yn + 0.05, z + 0.86)), M["emit"])
+    halo(g, x - 0.2, yn, z + 0.95, 0.7)
+    P3.vtank(g, pe["x"], pe["yn"] * SQ2, 0.22, 0.95, M, paint=M["vert_loco"], z0=z, gauges=1, band=M["laiton_capot"])
+    halo(g, pe["x"], pe["yn"] - 0.2, z + 0.5, 0.6)
     _ = TAU

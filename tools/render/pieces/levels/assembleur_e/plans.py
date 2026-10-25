@@ -94,13 +94,125 @@ def face_interieure(g, R0, a0, a1, z0, z1, m, cy=0.0, n=12, rivets=True):
 # ------------------------------------------------------------------------------------------------
 # Cotes par plan (complètent cotes.TAILLES)
 # ------------------------------------------------------------------------------------------------
+LIGNEE = ("carre", "L", "portique", "croix", "H")      # plans bâtis avec le dos, les joues, le bâti et la table
+
+
+def etendues(c):
+    """Ronde F3-A3 (verdict du DC, 25/10 vers 15 h 20 : « DÉCOUPER les embases pour que le sol se voie ») : emprises du
+    corps de lignée par plan, en tuiles de jeu. Parties CONVEXES de l'embase c.emb_parts [(x0, x1, y0, y1)] (le motif du
+    pont ne découpe que des polygones convexes) ; dos c.dos_ext (x0, x1, y0, y1) ou None ; joues c.joue_ext[sx] ou None ;
+    bâti c.bati_parts (vide : la baie est le SOL) ; pied de la table c.z_table0.
+      L        coin NORD-EST vide (derrière la table, côté est) : sol entre l'aile et le dos ;
+      portique plan en U : deux semelles sous les pylônes et le dos bas ; la baie est le sol, la table un socle posé dessus ;
+      croix    croix grecque de bras c.a : le dos au nord, les joues à l'est et à l'ouest, le bâti au centre et au sud ;
+               table au centre (yt = 0) ; quatre coins de sol (la pièce paire s'y pose) ;
+      H        deux AILES pleine profondeur (les joues) reliées par le bâti au milieu ; sol devant et derrière ; pas de dos.
+    """
+    s, h = c.side, c.h
+    tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
+    e = 0.02
+    c.decoupe = None
+    if c.plan == "croix":
+        a = 0.3 * s
+        c.a = a
+        c.xb, c.yb, c.yf, c.wj, c.dd = a, a, -a, h - a, h - a
+        c.yt = 0.0
+        c.xm = (a + h) / 2.0
+    elif c.plan == "H":
+        wW = 0.24 * s
+        c.bH = 0.24 * s
+        c.xb, c.wj = h - wW, wW
+        c.yf, c.yb = -h + e, h - e
+        c.yt = 0.0
+        c.xm = h - wW / 2.0
+    yb, yf, xb = c.yb, c.yf, c.xb
+    c.dos_ext = (-h + e, h - e, yb, h - e)
+    c.joue_ext = {-1: (-h + e, -xb, yf, yb), 1: (xb, h - e, yf, yb)}
+    c.bati_parts = [(-xb - 0.01, xb + 0.01, -h + e, yb + 0.01)]
+    c.emb_parts = [(-h, h, -h, h)]
+    c.z_table0 = c.zs
+    if c.plan == "L":
+        # coin vide : tout le quart nord-est derrière la table (essai : au ras de la table, le coin ne faisait que 10 %
+        # de l'emprise ; ici 16 à 17 %, le dos ne couvre plus que la moitié ouest)
+        Lx = 0.06 * s + 0.12
+        Ly = c.yt + ty + 0.08
+        c.Lx, c.Ly = Lx, Ly
+        c.emb_parts = [(-h, h, -h, Ly), (-h, Lx, Ly, h)]
+        c.dos_ext = (-h + e, Lx, yb, h - e)
+        c.joue_ext[1] = (xb, h - e, yf, Ly)
+        if Lx < xb:
+            c.bati_parts = [(-xb - 0.01, xb + 0.01, -h + e, Ly), (-xb - 0.01, Lx, Ly, yb + 0.01)]
+        c.decoupe = (Lx, h, Ly, h)
+    elif c.plan == "portique":
+        c.emb_parts = [(-h, -xb, -h, h), (xb, h, -h, h), (-xb, xb, yb, h)]
+        c.bati_parts = []
+        c.z_table0 = 0.0
+    elif c.plan == "croix":
+        a = c.a
+        c.emb_parts = [(-a, a, -h, h), (-h, -a, -a, a), (a, h, -a, a)]
+        c.dos_ext = (-a + e, a - e, a, h - e)
+        c.joue_ext = {-1: (-h + e, -a, -a + e, a - e), 1: (a, h - e, -a + e, a - e)}
+        c.bati_parts = [(-a + e, a - e, -h + e, a + 0.01)]
+    elif c.plan == "H":
+        c.emb_parts = [(-h, -xb, -h, h), (xb, h, -h, h), (-xb, xb, -c.bH, c.bH)]
+        c.dos_ext = None
+        c.bati_parts = [(-xb - 0.01, xb + 0.01, -c.bH + e, c.bH - e)]
+    c.emb_poly = contour_parts(c.emb_parts)
+
+
+def contour_parts(parts):
+    """Contour direct (sens trigonométrique, jeu) de l'union de rectangles alignés qui se touchent (L, U, croix, H) :
+    marche le long des bords de la grille des abscisses et ordonnées des rectangles."""
+    xs = sorted(set([p[0] for p in parts] + [p[1] for p in parts]))
+    ys = sorted(set([p[2] for p in parts] + [p[3] for p in parts]))
+
+    def dedans(x, y):
+        return any(p[0] - 1e-6 <= x <= p[1] + 1e-6 and p[2] - 1e-6 <= y <= p[3] + 1e-6 for p in parts)
+    # cellules pleines de la grille
+    nx, ny = len(xs) - 1, len(ys) - 1
+    plein = [[dedans((xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2) for j in range(ny)] for i in range(nx)]
+
+    def cel(i, j):
+        return 0 <= i < nx and 0 <= j < ny and plein[i][j]
+    # arêtes orientées du bord (intérieur à gauche), sur les sommets de la grille (i, j)
+    succ = {}
+    for i in range(nx):
+        for j in range(ny):
+            if not plein[i][j]:
+                continue
+            if not cel(i, j - 1):
+                succ[(i, j)] = (i + 1, j)
+            if not cel(i + 1, j):
+                succ[(i + 1, j)] = (i + 1, j + 1)
+            if not cel(i, j + 1):
+                succ[(i + 1, j + 1)] = (i, j + 1)
+            if not cel(i - 1, j):
+                succ[(i, j + 1)] = (i, j)
+    depart = min(succ)
+    pts, p = [], depart
+    while True:
+        pts.append(p)
+        p = succ[p]
+        if p == depart:
+            break
+    # sommets alignés retirés
+    out = []
+    n = len(pts)
+    for k in range(n):
+        a, b, d = pts[k - 1], pts[k], pts[(k + 1) % n]
+        if (b[0] - a[0]) * (d[1] - b[1]) - (b[1] - a[1]) * (d[0] - b[0]) != 0:
+            out.append((xs[b[0]], ys[b[1]]))
+    return out
+
+
 def init(c):
     s, h = c.side, c.h
     c.zones, c.reserves, c.faces = [], [], []
     c.cx, c.cy = 0.0, c.yt
     c.hub = None
     tx = c.T["table"]["tx"]
-    if c.plan in ("carre", "L", "portique"):
+    if c.plan in LIGNEE:
+        etendues(c)
         c.cy = c.yt
         c.reserves.append((0.0, c.yt, tx * 1.05))
         if c.plan == "portique":

@@ -4,7 +4,10 @@ Blender.
 En 3 mots : « cellule chaude, télémanipulateurs, vitre verte ». Sur la table, une CELLULE CHAUDE de plomb (murs épais,
 toit à hublots), percée au sud d'une grande VITRE VERTE inclinée où l'on devine la lueur de l'uranium ; deux
 TÉLÉMANIPULATEURS articulés passent par-dessus la vitre, poignées côté opérateur. Dos en COQUE de béton blanc cassé
-(nez arrondi, trèfles, châteaux de plomb sur la pente), joues de béton, embase chanfreinée à dalles et liseré vert.
+(nez arrondi, trèfles, châteaux de plomb sur la pente), joues de béton, embase à dalles et liseré vert.
+Ronde F3-A3 (verdict du DC : âge resté « presque pareil ») : plan en L VRAI, tout le quart nord-est est du SOL (le dos
+ne couvre que la moitié ouest) ; HAUTE CHEMINÉE DE VENTILATION de béton à bague verte et feu d'obstacle sur l'aile de
+blindage (silhouette nouvelle).
 Palette 60/30/10 (ages.PALETTE[9]) : béton blanc cassé / plomb gris-bleu / vert uranium.
 """
 import math
@@ -25,7 +28,7 @@ TRIPLET = ("cellule chaude", "télémanipulateurs", "vitre verte")
 FOYER = ages.FOYER[9]
 TRAVAIL = dict(couches=2, images=16, organe="les deux télémanipulateurs (bras et pinces, 16 images) ; lueur de la vitre "
                                            "qui pulse doucement (couche glow)")
-HABILLAGE = dict(ages.CORPS[9], plan='L', forme_embase='chanfrein', forme_dos='coque', forme_joues='caisson',
+HABILLAGE = dict(ages.CORPS[9], plan='L', forme_embase='carre', forme_dos='coque', forme_joues='caisson',
                  forme_portique='aucun', mat_dos='beton_capot', mat_joues='beton_capot')
 DENSITE = dict(p=0.58, lampes=0.08)
 
@@ -49,22 +52,38 @@ def socle(g, c):
     zc = c.zc_coque
     ze = c.zs           # troisième jet : sol de la baie = dessus du plateau
     y1 = h - 0.02
-    # face : trèfles, bandes de danger, voyants verts, grilles de ventilation
-    for x in (-1.05, 1.05):
+    # face : trèfles, bandes de danger, voyants verts, grilles de ventilation (ronde F3-A3 : le dos s'arrête au coin vide
+    # nord-est, en x = c.Lx)
+    xd = min(c.xb, c.Lx - 0.02)
+    for x in (-1.05, 0.12):
         F.trefoil(g, B(x, yb - 0.04, (ze + zc) / 2), (0, -1, 0), 0.14)
-    g.hazard([B(-c.xb, yb - 0.04, ze + 0.02), B(c.xb, yb - 0.04, ze + 0.02), B(c.xb, yb - 0.04, ze + 0.09),
+    g.hazard([B(-c.xb, yb - 0.04, ze + 0.02), B(xd, yb - 0.04, ze + 0.02), B(xd, yb - 0.04, ze + 0.09),
               B(-c.xb, yb - 0.04, ze + 0.09)], 18, t=0.01)
-    for x in (-0.55, -0.2, 0.2, 0.55):
+    for x in (-0.6, -0.25):
         g.grille([B(x - 0.14, yb - 0.03, ze + 0.12), B(x + 0.14, yb - 0.03, ze + 0.12), B(x + 0.14, yb - 0.03, zc - 0.06),
                   B(x - 0.14, yb - 0.03, zc - 0.06)], 4, slat_mat=M["plomb_sombre"])
-    for x in (-1.25, -0.8, 0.8, 1.25):
+    for x in (-1.25, -0.85, 0.3):
         corps.lampe_face(g, x, yb, zc - 0.1, 0.045, M["emit"], M["plomb_sombre"])
         halo(g, x, yb - 0.15, zc - 0.1, 0.4)
-    # châteaux de plomb et caissons de filtres sur la pente de la coque
-    for k, x in enumerate((-1.6, -0.9, 0.9, 1.6)):
+    # châteaux de plomb sur la pente de la coque
+    for k, x in enumerate((-1.95, -1.3)):
         yn = yb + (y1 - yb) * (0.45 if k % 2 else 0.7)
         _chateau(g, x, yn, corps.z_toit(c, x, yn) - 0.02, 0.2, 0.42)
         c.reserves.append((x, yn, 0.28))
+    # ronde F3-A3 (silhouette nouvelle) : HAUTE CHEMINÉE DE VENTILATION de béton sur l'aile, bague verte et feu d'obstacle
+    xs_, ys_ = (-c.h + 0.02 - c.xb) / 2.0, c.yb - 0.22
+    za = c.z_aile
+    Hs = 1.7
+    g.box(B(xs_, ys_, za + 0.06), (0.4, 0.4 * SQ2, 0.12), M["plomb_sombre"], "hard", what="pied_cheminee")
+    g.cyl(B(xs_, ys_, za + 0.12 + Hs / 2), "z", 0.2, Hs, M["beton_capot"], n=24, r2=0.15, what="cheminee")
+    for f in (0.3, 0.62, 0.9):
+        g.tube_shell(B(xs_, ys_, za + 0.12 + Hs * f), "z", 0.2 - 0.05 * f + 0.02, 0.2 - 0.05 * f - 0.01, 0.05,
+                     M["plomb_sombre"], n=24, what="cerclage")
+    g.tube_shell(B(xs_, ys_, za + 0.12 + Hs * 0.78), "z", 0.183, 0.16, 0.07, M["uranium"], n=24, what="bague_verte")
+    g.cyl(B(xs_, ys_, za + 0.12 + Hs + 0.03), "z", 0.17, 0.06, M["plomb_sombre"], n=24, what="couronne")
+    corps.lampe(g, B(xs_, ys_, za + 0.12 + Hs + 0.06), 0.045, M["emit"])
+    halo(g, xs_, ys_, za + Hs + 0.3, 0.6)
+    c.reserves.append((xs_, ys_, 0.3))
     # AILE de blindage (plan L, ouest) : porte de cellule à volant, trèfle, voyants, bandes de danger
     xa, xz, yf = -h + 0.02, -c.xb, c.yf
     xw = (xa + xz) / 2.0
@@ -84,10 +103,12 @@ def socle(g, c):
         p1 = B(-c.T["table"]["tx"] * 0.9, c.yt + 0.1, c.zt + 0.6 + dz)
         g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.1)), p1], 0.045, M["plomb_sombre"], fl_mat=M["lead"],
                bolt_mat=M["steel_hi"])
-    g.box(B(0, (yb + y1) / 2 + 0.2, corps.z_toit(c, 0, (yb + y1) / 2 + 0.2) + 0.15), (0.9, 0.3 * SQ2, 0.3),
+    xf = -0.4
+    g.box(B(xf, (yb + y1) / 2 + 0.2, corps.z_toit(c, xf, (yb + y1) / 2 + 0.2) + 0.15), (0.8, 0.3 * SQ2, 0.3),
           M["plomb_sombre"], "hard", what="filtres")
-    corps.lampe(g, B(0, (yb + y1) / 2 + 0.1, corps.z_toit(c, 0, (yb + y1) / 2 + 0.2) + 0.3), 0.05, M["emit"])
-    halo(g, 0, (yb + y1) / 2, corps.z_toit(c, 0, (yb + y1) / 2) + 0.4, 0.8)
+    corps.lampe(g, B(xf, (yb + y1) / 2 + 0.1, corps.z_toit(c, xf, (yb + y1) / 2 + 0.2) + 0.3), 0.05, M["emit"])
+    halo(g, xf, (yb + y1) / 2, corps.z_toit(c, xf, (yb + y1) / 2) + 0.4, 0.8)
+    c.reserves.append((xf, (yb + y1) / 2 + 0.2, 0.45))
 
 
 def outil(g, c):

@@ -1,10 +1,11 @@
-"""Assembleur · Âge 10 · Haute technologie (ère IV, 6×6, niveaux 19 et 20). Lot F3-A ; fiche FICHES_ASSEMBLEUR.md, âge
-10. Dans Blender.
+"""Assembleur · Âge 10 · Haute technologie (ère IV, 6×6, niveaux 19 et 20). Lot F3-A, ronde F3-A3 ; fiche
+FICHES_ASSEMBLEUR.md, âge 10. Dans Blender.
 
-En 3 mots : « bras robots, coque ivoire, écrans ». Une CELLULE ROBOTISÉE : deux BRAS ROBOTS articulés ivoire (articulations
-anthracite cerclées de bleu) posés de part et d'autre de la table assemblent une carte de processeur ; aucun portique.
-Dos en COQUE IVOIRE à nez arrondi, rangée d'ÉCRANS et de grilles, goulottes de câbles rouges et bleus, petite parabole
-sur la pente ; joues ivoire en pente.
+En 3 mots : « bras robots, coque ivoire, écrans ». Ronde F3-A3 (verdict du DC : âge resté « presque pareil », silhouette
+nouvelle demandée) : plan en H. Deux SALLES BLANCHES en coque ivoire (ailes pleine profondeur, nez arrondi, ÉCRANS et
+rampes de voyants sur leurs faces sud, groupes de climatisation, parabole et antennes sur leurs toits) encadrent le bâti
+central ; deux BRAS ROBOTS ivoire montés sur le BORD INTÉRIEUR des ailes plongent vers la carte de processeur ; goulottes
+de câbles rouges et bleus des ailes aux robots. Le sol se voit devant et derrière le bâti.
 Palette 60/30/10 (ages.PALETTE[10]) : ivoire chaud / anthracite / câbles rouges et bleus, voyants bleus.
 """
 import math
@@ -26,11 +27,12 @@ TRIPLET = ("bras robots", "coque ivoire", "écrans")
 FOYER = ages.FOYER[10]
 TRAVAIL = dict(couches=2, images=32, organe="deux bras robots (épaule, coude, poignet : 32 images, boucle de prise et "
                                            "pose) ; écrans et voyants qui défilent (couche glow, 8 images)")
-HABILLAGE = dict(ages.CORPS[10], plan='carre', forme_embase='carre', forme_dos='coque', forme_joues='pente',
+HABILLAGE = dict(ages.CORPS[10], plan='H', forme_embase='carre', forme_dos='plat', forme_joues='hautes',
                  forme_portique='aucun',
                  mat_dos='blanc_casse', mat_joues='blanc_casse')
 
-DENSITE = dict(p=0.6, lampes=0.14)
+DENSITE = dict(p=0.75, lampes=0.16, pas=0.17)     # ronde F3-A3 : densité vers la mitrailleuse, nuit plus claire
+GARNIR = ("bati",)          # toits des ailes : garniture dense seulement (hors des réserves des robots et des toits)
 
 
 def matieres(metal, M):
@@ -61,54 +63,66 @@ def _bras(g, base, coude, poignet, pince_dir):
     g.cable(epaule + V((0, -0.1, 0.05)), coude + V((0, -0.08, 0.05)), 0.06, 0.016, M["cable_b"])
 
 
-def socle(g, c):
+def _clim(g, x, yn, z):
+    """Groupe de climatisation sur un toit : caisson anthracite, deux ventilateurs à grille, voyant."""
     M = g.M
-    h, yb, ze, Hd = c.h, c.yb, c.ze, c.Hd
-    zc = c.zc_coque
-    ze = c.zs           # troisième jet : sol de la baie = dessus du plateau
-    y1 = h - 0.02
-    # écrans et grilles le long de la face de la coque
-    for k, x in enumerate((-1.2, -0.42, 0.42, 1.2)):
-        if k in (1, 2):
-            P3.screen(g, B(x, yb - 0.02, zc - 0.2), (0, -1, 0), 0.5, 0.28, M, M["emit"])
-            halo(g, x, yb - 0.15, zc - 0.2, 0.6)
-        else:
-            g.grille([B(x - 0.3, yb - 0.02, ze + 0.1), B(x + 0.3, yb - 0.02, ze + 0.1), B(x + 0.3, yb - 0.02, zc - 0.08),
-                      B(x - 0.3, yb - 0.02, zc - 0.08)], 5, slat_mat=M["anthracite"])
-    P3.lamp_row(g, B(-1.5, yb - 0.04, ze + 0.05), B(1.5, yb - 0.04, ze + 0.05), 10, (0, -1, 0), M["emit"], M, size=0.03)
-    halo(g, 0, yb - 0.2, ze + 0.08, 0.8)
-    # bandeau anthracite au pied de la pente, prises d'air
-    g.box(B(0, yb - 0.02, zc + 0.02), (2 * h - 0.1, 0.05, 0.08), M["anthracite"], "hard", what="bandeau")
-    # goulottes de câbles rouges et bleus du dos vers les robots
+    g.box(B(x, yn, z + 0.12), (0.62, 0.36 * SQ2, 0.24), M["gris_tech"], "hard", what="clim")
+    for s in (-1, 1):
+        g.cyl(B(x + s * 0.15, yn, z + 0.245), "z", 0.12, 0.012, M["anthracite"], n=20, what="ventilateur")
+        g.torus(B(x + s * 0.15, yn, z + 0.25), "z", 0.12, 0.012, M["blanc_casse"], n=20, m=4, what="grille_vent")
+    corps.lampe(g, B(x + 0.26, yn - 0.12, z + 0.24), 0.02, M["emit"])
+
+
+def socle(g, c):
+    """Plan H : faces sud des ailes (écrans, rampes de voyants, bandeau lumineux), toits (climatisation, parabole,
+    antennes), goulottes de câbles des ailes aux robots."""
+    M = g.M
+    h, ze, Hd = c.h, c.ze, c.z_joue
+    yf = c.yf
     for sx in (-1, 1):
-        x0 = sx * 1.2
+        x0, x1 = sorted((sx * c.xb, sx * (h - 0.02)))
+        xm = (x0 + x1) / 2.0
+        # face sud de l'aile : grand écran, grille, rampe de voyants, bandeau lumineux bleu sous le nez
+        P3.screen(g, B(xm - 0.15 * sx, yf - 0.02, ze + 0.75), (0, -1, 0), 0.7, 0.42, M, M["emit"])
+        halo(g, xm, yf - 0.2, ze + 0.75, 0.8)
+        g.grille([B(xm + 0.35 * sx - 0.16, yf - 0.02, ze + 0.15), B(xm + 0.35 * sx + 0.16, yf - 0.02, ze + 0.15),
+                  B(xm + 0.35 * sx + 0.16, yf - 0.02, ze + 0.5), B(xm + 0.35 * sx - 0.16, yf - 0.02, ze + 0.5)], 4,
+                 slat_mat=M["anthracite"])
+        P3.lamp_row(g, B(x0 + 0.12, yf - 0.04, ze + 0.08), B(x1 - 0.12, yf - 0.04, ze + 0.08), 7, (0, -1, 0), M["emit"],
+                    M, size=0.03)
+        g.box(B(xm, yf - 0.06, Hd - 0.2), (x1 - x0 - 0.1, 0.02, 0.03), M["emit"], "flat", what="bandeau_lumineux")
+        halo(g, xm, yf - 0.3, Hd - 0.2, 0.7)
+        # toit : climatisation, parabole (aile est) ou antennes (aile ouest), bandeau anthracite
+        for yy in (1.2, 2.2):
+            _clim(g, xm, yy, Hd)
+            c.reserves.append((xm, yy, 0.42))
+        if sx > 0:
+            F.dish(g, tuple(B(xm + 0.1, -0.95, Hd + 0.32)), 0.36, 0.1, M["blanc_casse"], M["gris_tech"], rx=-0.5, rz=0.3)
+            g.cyl(B(xm + 0.1, -0.95, Hd + 0.14), "z", 0.045, 0.28, M["anthracite"], n=10, what="mat")
+            c.reserves.append((xm + 0.1, -0.95, 0.45))
+        else:
+            for yy in (-1.05, -0.6):
+                g.cyl(B(xm - 0.15, yy, Hd + 0.35), "z", 0.018, 0.7, M["anthracite"], n=6, what="antenne")
+                corps.lampe(g, B(xm - 0.15, yy, Hd + 0.7), 0.028, M["emit"])
+                c.reserves.append((xm - 0.15, yy, 0.1))
+        # goulottes de câbles rouges et bleus du bord de l'aile au socle du robot
         for k, m in enumerate((M["cable_r"], M["cable_b"], M["cable_r"])):
-            g.hose([B(x0 + 0.06 * k, yb - 0.06, ze + 0.06), B(x0 + 0.06 * k, (yb + c.yt) / 2, ze + 0.04),
-                    B(sx * (c.T["table"]["tx"] + 0.3) + 0.05 * k, c.yt + 0.25, ze + 0.04)], 0.022, m, step=0.05)
-    # parabole et mâts d'antenne sur la pente
-    yy = yb + (y1 - yb) * 0.6
-    F.dish(g, tuple(B(1.7, yy, corps.z_toit(c, 1.7, yy) + 0.3)), 0.32, 0.1, M["blanc_casse"], M["gris_tech"],
-           rx=-0.5, rz=0.3)
-    g.cyl(B(1.7, yy, corps.z_toit(c, 1.7, yy) + 0.12), "z", 0.04, 0.3, M["anthracite"], n=10, what="mat")
-    for x in (-1.9, -1.4):
-        yy2 = yb + (y1 - yb) * 0.75
-        z0 = corps.z_toit(c, x, yy2)
-        g.cyl(B(x, yy2, z0 + 0.25), "z", 0.015, 0.5, M["anthracite"], n=6, what="antenne")
-        corps.lampe(g, B(x, yy2, z0 + 0.5), 0.025, M["emit"])
+            xa = sx * (c.xb + 0.25 + 0.06 * k)
+            g.hose([B(xa, -0.9, Hd + 0.03), B(xa, -0.3, Hd + 0.05), B(sx * (c.xb + 0.12), 0.2 + 0.05 * k, Hd + 0.06)],
+                   0.024, m, step=0.05)
 
 
 def outil(g, c):
-    """Deux bras robots de part et d'autre de la table, pinces au-dessus de la carte."""
-    yt, zt, ze = c.yt, c.zt, c.ze
-    tx = c.T["table"]["tx"]
+    """Deux bras robots montés sur le BORD INTÉRIEUR des ailes, qui plongent vers la carte."""
+    yt, zt = c.yt, c.zt
+    Hd = c.z_joue
     for sx in (-1, 1):
-        base = B(sx * (tx + 0.3), yt + 0.15, c.zs)
-        coude = B(sx * (tx + 0.1), yt + 0.25, zt + 0.95)
-        poignet = B(sx * 0.3, yt + 0.05, zt + 0.42)
+        base = B(sx * (c.xb + 0.3), yt + 0.3, Hd)
+        coude = B(sx * (c.xb - 0.15), yt + 0.35, Hd + 0.75)
+        poignet = B(sx * 0.32, yt + 0.05, zt + 0.48)
         _bras(g, base, coude, poignet, (-sx * 0.4, -0.1, -1.0))
+        c.reserves.append((sx * (c.xb + 0.3), yt + 0.3, 0.32))
     halo(g, 0, yt, zt + 0.6, 1.0)
-    for sx in (-1, 1):
-        c.reserves.append((sx * (tx + 0.3), yt + 0.15, 0.3))
 
 
 def ouvrage(g, c):

@@ -27,7 +27,7 @@ TRAVAIL = dict(couches=2, images=32, organe="pièces qui glissent sur le rail et
                                            "cyan qui pulsent (couche glow)")
 HABILLAGE = dict(ages.CORPS[12], capots=("frost", "chrome_mat"), plan='rond', forme_embase='carre', forme_dos='plat',
                  forme_joues='caisson', forme_portique='aucun')
-DENSITE = dict(p=0.55, lampes=0.1)
+DENSITE = dict(p=0.75, lampes=0.1, pas=0.16)     # ronde F3-A3 : densité vers la mitrailleuse
 RAYONS = False          # le rail circulaire et ses pylônes remplacent les rayons du croissant
 RR = 1.25               # rayon du rail (Blender)
 

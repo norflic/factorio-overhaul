@@ -1,10 +1,11 @@
-"""Assembleur · Âge 7 · Cristal (ère III, 5×5, niveaux 13 et 14). Lot F3-A ; fiche FICHES_ASSEMBLEUR.md, âge 7. Dans
-Blender.
+"""Assembleur · Âge 7 · Cristal (ère III, 5×5, niveaux 13 et 14). Lot F3-A, ronde F3-A3 ; fiche FICHES_ASSEMBLEUR.md,
+âge 7. Dans Blender.
 
-En 3 mots : « fronton, prismes, rayon violet ». Un TEMPLE : perron de pierre claire à deux marches, joues en colonnade,
-dos à toit de bronze à deux pans précédé d'un FRONTON triangulaire (cristal violet dans le tympan, acrotères de
-cristaux). Une ARCHE de bronze enjambe la baie ; à sa clef, une couronne tient trois PRISMES de cristal pointés vers la
-table, d'où tombe un RAYON VIOLET qui taille la gemme posée sur un support de bronze. Vasques à cristaux dans la baie.
+En 3 mots : « fronton, prismes, rayon violet ». Ronde F3-A3 (verdict du DC : âge resté « presque pareil », silhouette
+nouvelle demandée) : un TEMPLE EN CROIX GRECQUE. Bras nord : toit de bronze à deux pans précédé d'un FRONTON (cristal
+violet dans le tympan) ; bras est et ouest : colonnades sous linteau, AMAS DE CRISTAUX dressés au bout des bras ; bras
+sud : perron à deux marches et deux braseros à flamme violette. À la croisée, une ARCHE de bronze d'un bras à l'autre ;
+à sa clef, trois PRISMES pointés vers la gemme, RAYON VIOLET. Les quatre coins sont du sol (la pièce paire s'y pose).
 Palette 60/30/10 (ages.PALETTE[7]) : bronze doré / pierre claire / violet des cristaux.
 """
 import math
@@ -25,9 +26,9 @@ TRIPLET = ("fronton", "prismes", "rayon violet")
 FOYER = ages.FOYER[7]
 TRAVAIL = dict(couches=2, images=16, organe="couronne de prismes qui tourne lentement (16 images) ; rayon violet qui "
                                            "pulse et éclats de la gemme (couche glow)")
-HABILLAGE = dict(ages.CORPS[7], plan='carre', forme_embase='gradins', forme_dos='pans', forme_joues='colonnes',
+HABILLAGE = dict(ages.CORPS[7], plan='croix', forme_embase='gradins', forme_dos='pans', forme_joues='colonnes',
                  forme_portique='arche', mat_dos='bronze_capot', mat_joues='pierre_claire', mat_portique='bronze_capot')
-DENSITE = dict(p=0.55, lampes=0.06)
+DENSITE = dict(p=0.72, lampes=0.08, pas=0.16)     # ronde F3-A3 : densité vers la mitrailleuse
 
 
 def matieres(metal, M):
@@ -51,20 +52,42 @@ def socle(g, c):
     h, yb, ze, Hd = c.h, c.yb, c.ze, c.Hd
     zw = c.zw_pans
     zs = c.zs
-    # pilastres de pierre sur la face, niches à flamme violette
-    n = 6
+    a = c.a                 # demi-largeur des bras de la croix (ronde F3-A3)
+    # pilastres de pierre sur la face du bras nord, niches à flamme violette
+    n = 4
     for k in range(n + 1):
-        x = -h + 0.2 + (2 * h - 0.4) * k / n
+        x = -a + 0.18 + (2 * a - 0.36) * k / n
         g.box(B(x, yb - 0.06, (zs + zw) / 2), (0.14, 0.08 * SQ2, zw - zs - 0.04), M["pierre_claire"], "hard",
               what="pilastre")
         g.box(B(x, yb - 0.08, zw - 0.06), (0.2, 0.1 * SQ2, 0.06), M["bronze_clair"], "hard", what="chapiteau")
-        if k < n and k % 2 == 0:
-            xm = x + (2 * h - 0.4) / n / 2
+        if k < n and k % 3 == 0:
+            xm = x + (2 * a - 0.36) / n / 2
             g.box(B(xm, yb - 0.03, zs + 0.22), (0.2, 0.03, 0.3), M["joint_violet"], "flat", what="niche")
             F.crystal(g, B(xm, yb - 0.08, zs + 0.09), (0, 0, 1), 0.035, 0.18, M["emit"])
             halo(g, xm, yb - 0.2, zs + 0.22, 0.6)
+    # AMAS DE CRISTAUX dressés sur les bras est et ouest (sur le linteau, moitié sud : l'arche au milieu, l'entrée et la
+    # sortie au nord), flamme violette
+    for sx in (-1, 1):
+        xc, yc = sx * (a + h) / 2.0, -0.85
+        zl = c.z_joue
+        g.box(B(xc, yc, zl + 0.05), (0.4, 0.5 * SQ2, 0.1), M["bronze_sombre"], "hard", what="socle_amas")
+        for k, (dx, dy, hh, inc) in enumerate(((0.0, 0.0, 0.62, 0.0), (-0.1, 0.12, 0.4, -0.3), (0.1, -0.1, 0.44, 0.35),
+                                               (0.08, 0.15, 0.3, 0.25), (-0.09, -0.14, 0.34, -0.25))):
+            F.crystal(g, B(xc + dx, yc + dy, zl + 0.1), (inc * sx, 0.15 * dy, 1.0), 0.06 + 0.02 * (k == 0), hh,
+                      M["emit_soft"] if k == 0 else M["crystal"], n=6)
+        halo(g, xc, yc, zl + 0.4, 0.9)
+        c.reserves.append((xc, yc, 0.3))
+    # braseros de bronze à flamme violette sur le perron (bras sud)
+    for sx in (-1, 1):
+        xb_ = sx * (a - 0.3)
+        yb_ = -h + 0.55
+        g.cyl(B(xb_, yb_, zs + 0.16), "z", 0.05, 0.32, M["bronze_sombre"], n=10, what="pied_brasero")
+        g.cyl(B(xb_, yb_, zs + 0.36), "z", 0.1, 0.08, M["bronze_capot"], n=14, r2=0.15, what="coupe")
+        F.crystal(g, B(xb_, yb_, zs + 0.4), (0, 0, 1), 0.06, 0.22, M["emit"], n=6)
+        halo(g, xb_, yb_, zs + 0.5, 0.8)
+        c.reserves.append((xb_, yb_, 0.2))
     # FRONTON : triangle de pierre face au sud, corniche de bronze, cristal dans le tympan
-    wf = 2 * h * 0.62
+    wf = 2 * a * 0.9
     hf = (Hd - zw) * 1.05
     yf0 = yb - 0.12
     tri = [(B(0, yf0).y - 0.02, zw), (B(0, yf0).y + 0.25, zw), (B(0, yf0).y + 0.25, zw + hf), (B(0, yf0).y - 0.02, zw + hf)]
@@ -86,12 +109,14 @@ def socle(g, c):
         F.crystal(g, V((x, tri[0][0] + 0.05, z)), (0, 0, 1), 0.05, 0.22, M["crystal"], n=6)
     # crête de cristaux le long du faîtage
     ym = (yb + h - 0.02) / 2.0
-    for k in range(9):
-        x = -h + 0.35 + (2 * h - 0.7) * k / 8
+    for k in range(7):
+        x = -a + 0.25 + (2 * a - 0.5) * k / 6
         F.crystal(g, B(x, ym, Hd + 0.02), (0.15 * math.sin(k), 0, 1), 0.035, 0.12 + 0.05 * (k % 3), M["crystal"])
-    # vasques à cristaux aux coins avant de la baie
+    # vasques à cristaux devant les coins de la table
     for sx in (-1, 1):
-        _vasque(g, sx * (c.xb - 0.3), c.yt - c.T["table"]["ty"] - 0.35, zs, 0.13)
+        xv, yv = sx * (c.xb - 0.25), c.yt - c.T["table"]["ty"] - 0.3
+        _vasque(g, xv, yv, zs, 0.13)
+        c.reserves.append((xv, yv, 0.22))
     _ = prisme_x
 
 
@@ -145,12 +170,12 @@ def sortie(g, c, p):
 
 
 def piece(g, c):
-    """Niveau 14 (plus grande) : deux obélisques HAUTS de pierre à pointe de cristal, socle de bronze à degrés, vasque
-    de cristaux au pied (coins avant, en retrait du perron)."""
+    """Niveau 14 (plus grande) : deux obélisques HAUTS de pierre à pointe de cristal, socle de bronze à degrés (posés
+    sur le SOL des coins avant de la croix)."""
     M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
-        x, yn, z = p["x"], p["yn"] + 0.2, c.ze
+        x, yn, z = p["x"], p["yn"], p["z_sol"]
         g.box(B(x, yn, z + 0.06), (0.56, 0.56 * SQ2, 0.12), M["bronze_sombre"], "hard", what="socle_obelisque")
         g.box(B(x, yn, z + 0.16), (0.42, 0.42 * SQ2, 0.08), M["pierre_claire2"], "hard", what="degre")
         g.cyl(B(x, yn, z + 0.6), "z", 0.16, 0.8, M["pierre_claire"], n=4, r2=0.1, style="hard", phase=0.785,

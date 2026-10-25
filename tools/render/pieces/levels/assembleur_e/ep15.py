@@ -1,5 +1,6 @@
-"""Assembleur · Âge 15 · Néant (ère V, 6×6, niveaux 29 et 30). Lot F3-A, ronde F3-A2 ; fiche FICHES_ASSEMBLEUR.md, âge 15.
-Dans Blender.
+"""Assembleur · Âge 15 · Néant (ère V, 6×6, niveaux 29 et 30). Lot F3-A, rondes F3-A2 et F3-A3 ; fiche
+FICHES_ASSEMBLEUR.md, âge 15. Dans Blender. Ronde F3-A3 : plan en U (la baie est le sol), sphère sur DISQUE D'OR en
+contre-jour et liseré incandescent, serres épaissies, reliquaires du niveau pair plus hauts, garniture plus dense.
 
 En 3 mots : « sphère noire, serres dorées, couronne incandescente ». Plan en PORTIQUE : deux pylônes de noir chaud à
 arêtes d'or et un pont-caisson couronné d'or ; entre eux, la SPHÈRE NOIRE (horizon) est tenue par trois SERRES DORÉES
@@ -28,7 +29,7 @@ TRAVAIL = dict(couches=2, images=32, organe="couronne qui tourne autour de la sp
                                            "resserrent d'un cran ; filet de lumière qui pulse (couche glow)")
 HABILLAGE = dict(ages.CORPS[15], plan='portique', forme_embase='gradins', forme_dos='bas', forme_joues='socle',
                  forme_portique='aucun')
-DENSITE = dict(p=0.55, lampes=0.06)
+DENSITE = dict(p=0.75, lampes=0.06, pas=0.16)     # ronde F3-A3 : densité vers la mitrailleuse
 INCLINAISON = math.radians(22.0)
 
 
@@ -70,25 +71,34 @@ def socle(g, c):
 
 
 def outil(g, c):
-    """Sphère noire entre les pylônes, couronne mince, trois serres dorées."""
+    """Sphère noire entre les pylônes, couronne mince, trois serres dorées. Ronde F3-A3 (sphère illisible sur le corps
+    noir) : la sphère se détache sur un DISQUE D'OR en contre-jour (face à la caméra, derrière elle) et un liseré
+    incandescent qui suit son bord ; serres plus épaisses, griffes d'or vif ; la baie est le sol (plan en U)."""
     M = g.M
-    r = 0.42
-    zc = c.zt + 0.62
+    r = 0.38
+    zc = min(c.zt + 0.68, c.zp - r - 0.05)
     ctr = B(0, c.yt, zc)
     g.sphere(ctr, r, M["horizon"], n=40, m=20, what="sphere_noire")
+    vue = V((0.0, -1.0, 1.0)).normalized()          # vers la caméra (vue de trois quarts depuis le sud)
+    # disque reculé de 0,6 le long de la vue : il passe DERRIÈRE le lingot de l'ouvrage (et entre dans la table)
+    g.cyl(ctr - vue * 0.6, vue, r + 0.14, 0.025, M["or_vif"], n=48, what="disque_contre_jour")
+    g.torus(ctr - vue * 0.58, vue, r + 0.15, 0.022, M["or_chauffe"], n=48, m=6, what="bord_disque")
+    g.torus(ctr, vue, r + 0.015, 0.012, M["emit2"], n=48, m=6, what="liseré")
     ax = Matrix.Rotation(INCLINAISON, 3, "X") @ V((0, 0, 1))
     g.torus(ctr, ax, r + 0.16, 0.025, M["emit"], n=64, m=8, what="couronne")
     g.torus(ctr, ax, r + 0.26, 0.015, M["or_blanc_chaud"], n=64, m=6, what="couronne_or")
-    g.torus(ctr, ax, r + 0.08, 0.012, M["emit2"], n=48, m=6, what="couronne_orange")
     halo(g, 0, c.yt, zc, 1.6)
     xi = c.xp - c.wp / 2.0
     for sx in (-1, 1):
         p0 = B(sx * xi, c.yt, zc + 0.1)
-        _serre(g, p0, B(sx * (r + 0.55), c.yt - 0.12, zc + 0.45), ctr + V((sx * r * 0.55, -0.1, r * 0.7)), 0.08,
-               M["or_vif"], M)
-        g.box(p0, (0.2, 0.3 * SQ2, 0.26), M["noir_chaud2"], "hard", what="poing")
-    _serre(g, B(0.0, c.yt, c.zp), B(0.25, c.yt - 0.2, c.zp - 0.05), ctr + V((0.0, -r * 0.6, r * 0.75)), 0.07,
-           M["or_vif"], M)
+        tip = ctr + V((sx * r * 0.55, -0.1, r * 0.7))
+        _serre(g, p0, B(sx * (r + 0.55), c.yt - 0.12, zc + 0.45), tip, 0.11, M["or_vif"], M)
+        g.sphere(tip, 0.05, M["or_blanc_chaud"], n=10, m=5, what="griffe")
+        g.box(p0, (0.24, 0.34 * SQ2, 0.3), M["noir_chaud2"], "hard", what="poing")
+        g.box(p0 - V((0, 0.25, 0)), (0.2, 0.02, 0.06), M["or_vif"], "hard", what="bague_poing")
+    tip = ctr + V((0.0, -r * 0.6, r * 0.75))
+    _serre(g, B(0.0, c.yt, c.zp), B(0.25, c.yt - 0.2, c.zp - 0.05), tip, 0.09, M["or_vif"], M)
+    g.sphere(tip, 0.045, M["or_blanc_chaud"], n=10, m=5, what="griffe")
 
 
 def ouvrage(g, c):
@@ -123,18 +133,25 @@ def piece(g, c):
     """Niveau 30 (plus grand) : deux reliquaires hauts : socle noir à marches, singularité en cage d'or sur un fût
     (coins avant, en retrait du perron)."""
     M = g.M
+    # ronde F3-A3 (niveau pair peu visible) : reliquaires plus HAUTS (1,5), singularité plus grosse sur disque d'or
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
-        x, yn, z = p["x"], p["yn"] + 0.22, c.ze
-        g.box(B(x, yn, z + 0.06), (0.7, 0.7 * SQ2, 0.12), M["noir_chaud"], "hard", what="marche")
-        g.box(B(x, yn, z + 0.17), (0.5, 0.5 * SQ2, 0.1), M["noir_chaud2"], "hard", what="marche")
-        g.cyl(B(x, yn, z + 0.45), "z", 0.07, 0.45, M["noir_profond"], n=10, what="fut")
-        g.sphere(B(x, yn, z + 0.86), 0.15, M["horizon"], n=20, m=10, what="singularite")
-        g.torus(B(x, yn, z + 0.86), (0, 0.4, 1), 0.22, 0.014, M["emit"], n=32, m=6, what="anneau_feu")
+        x, yn, z = p["x"], p["yn"] + 0.1, c.ze
+        g.box(B(x, yn, z + 0.07), (0.9, 0.9 * SQ2, 0.14), M["noir_chaud"], "hard", what="marche")
+        g.box(B(x, yn, z + 0.2), (0.66, 0.66 * SQ2, 0.12), M["noir_chaud2"], "hard", what="marche")
+        g.box(B(x, yn - 0.335, z + 0.2), (0.6, 0.012, 0.03), M["or_vif"], "hard", what="filet_or")
+        g.cyl(B(x, yn, z + 0.62), "z", 0.09, 0.72, M["noir_profond"], n=12, what="fut")
+        for f in (0.35, 0.75):
+            g.tube_shell(B(x, yn, z + 0.26 + 0.72 * f), "z", 0.11, 0.085, 0.04, M["or_vif"], n=12, what="bague")
+        zs_ = z + 1.22
+        vue = V((0.0, -1.0, 1.0)).normalized()
+        g.cyl(B(x, yn, zs_) - vue * 0.3, vue, 0.3, 0.02, M["or_vif"], n=32, what="disque_or")
+        g.sphere(B(x, yn, zs_), 0.21, M["horizon"], n=24, m=12, what="singularite")
+        g.torus(B(x, yn, zs_), (0, 0.4, 1), 0.3, 0.016, M["emit"], n=32, m=6, what="anneau_feu")
         for k in range(4):
             a = TAU * k / 4 + 0.785
-            g.tube([B(x + 0.06 * math.cos(a), yn + 0.06 * math.sin(a), z + 0.68),
-                    B(x + 0.24 * math.cos(a), yn + 0.2 * math.sin(a), z + 0.86),
-                    B(x + 0.07 * math.cos(a), yn + 0.06 * math.sin(a), z + 1.06)], 0.02, M["or_vif"], n=6,
+            g.tube([B(x + 0.08 * math.cos(a), yn + 0.08 * math.sin(a), zs_ - 0.26),
+                    B(x + 0.3 * math.cos(a), yn + 0.26 * math.sin(a), zs_),
+                    B(x + 0.09 * math.cos(a), yn + 0.08 * math.sin(a), zs_ + 0.27)], 0.024, M["or_vif"], n=6,
                    what="cage")
-        halo(g, x, yn, z + 0.86, 0.7)
+        halo(g, x, yn, zs_, 0.8)

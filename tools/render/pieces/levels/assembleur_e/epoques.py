@@ -80,8 +80,9 @@ FAMILLES = ages.FAMILLES
 
 FORMES_EMBASE = ("carre", "chanfrein", "gradins", "pieds")
 FORMES_DOS = ("plat", "pans", "voute", "gradins", "tours", "coque", "dome", "bas")
-FORMES_JOUES = ("caisson", "pente", "basses", "colonnes", "socle")
-PLANS = ("carre", "L", "portique", "tour", "rond", "octo")
+FORMES_JOUES = ("caisson", "pente", "basses", "colonnes", "socle", "hautes")
+PLANS = ("carre", "L", "portique", "tour", "rond", "octo", "croix", "H")
+PLANS_DECOUPES = ("L", "portique", "croix", "H")     # ronde F3-A3 : l'embase est découpée, le SOL se voit
 FORMES_PORTIQUE = ("poutre", "arche", "cadre", "aucun")
 
 HABILLAGE_DEFAUT = dict(
@@ -119,22 +120,24 @@ TRIPLETS = {
 }
 
 # SILHOUETTES (plan, forme_embase, forme_dos, forme_joues, forme_portique) des 14 âges dessinés : recopiées des fichiers
-# d'âge (contrôle : test). Ronde F3-A2 : deux âges VOISINS de même taille n'ont jamais le même PLAN (carre, L,
-# portique, tour, rond, octo), et l'organe (outil) change de nature à chaque âge.
+# d'âge (contrôle : test). Ronde F3-A2 : deux âges VOISINS de même taille n'ont jamais le même PLAN, et l'organe (outil)
+# change de nature à chaque âge. Ronde F3-A3 (verdict du DC, 25/10 vers 15 h 20) : embases DÉCOUPÉES (L, portique en
+# U) ; âges 7 et 14 en CROIX, âge 10 en H (silhouettes nouvelles ; l'âge 14 quitte l'octogone, trop proche de la
+# foreuse de la Porte, ronde, à puits étoilé).
 SILHOUETTES = {
     2: ("L", "carre", "pans", "basses", "aucun"),
     3: ("tour", "carre", "plat", "caisson", "aucun"),
     4: ("portique", "carre", "bas", "socle", "aucun"),
     5: ("octo", "carre", "plat", "caisson", "aucun"),
     6: ("tour", "carre", "plat", "caisson", "aucun"),
-    7: ("carre", "gradins", "pans", "colonnes", "arche"),
+    7: ("croix", "gradins", "pans", "colonnes", "arche"),
     8: ("rond", "carre", "plat", "caisson", "aucun"),
-    9: ("L", "chanfrein", "coque", "caisson", "aucun"),
-    10: ("carre", "carre", "coque", "pente", "aucun"),
-    11: ("portique", "chanfrein", "bas", "socle", "aucun"),
+    9: ("L", "carre", "coque", "caisson", "aucun"),
+    10: ("H", "carre", "plat", "hautes", "aucun"),
+    11: ("portique", "carre", "bas", "socle", "aucun"),
     12: ("rond", "carre", "plat", "caisson", "aucun"),
     13: ("tour", "carre", "plat", "caisson", "aucun"),
-    14: ("octo", "carre", "plat", "caisson", "aucun"),
+    14: ("croix", "carre", "plat", "caisson", "poutre"),
     15: ("portique", "gradins", "bas", "socle", "aucun"),
 }
 

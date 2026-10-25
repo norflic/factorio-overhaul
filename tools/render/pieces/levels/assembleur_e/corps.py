@@ -74,18 +74,26 @@ class Ctx:
         g.ctx = self
         import plans
         plans.init(self)
-        self.reserves += _reserves_carre(self) if self.plan in ("carre", "L", "portique") else []
+        self.reserves += _reserves_carre(self) if self.plan in plans.LIGNEE else []
 
 
 def place(c, nom=None):
     """Places de la lignée (cotes.places), corrigées par le plan : coins de la pièce paire hors du tambour (rond,
-    octo), entrée et sortie (place_es)."""
+    octo), sur le SOL des coins (croix) ou de la baie avant (H) ; entrée et sortie (place_es)."""
     p = dict(cotes.places(c.side))
     plan = getattr(c, "plan", "carre")
+    h = c.h
     if plan in ("rond", "octo"):
-        h = c.h
         for nom_, sx in (("coin_SO", -1), ("coin_SE", 1)):
             p[nom_] = dict(x=sx * 0.8 * h, yn=-0.8 * h, z_sol=0.0, r=0.17 * h)
+    elif plan == "croix":
+        m = (c.a + h) / 2.0
+        for nom_, sx in (("coin_SO", -1), ("coin_SE", 1)):
+            p[nom_] = dict(x=sx * m, yn=-m, z_sol=0.0, r=(h - c.a) / 2.0 - 0.04)
+    elif plan == "H":
+        for nom_, sx in (("coin_SO", -1), ("coin_SE", 1)):
+            p[nom_] = dict(x=sx * c.xb * 0.5, yn=-(h + c.bH) / 2.0, z_sol=0.0,
+                           r=min(c.xb * 0.45, (h - c.bH) / 2.0 - 0.06))
     return p[nom] if nom else p
 
 
@@ -93,29 +101,40 @@ def place_es(c, quoi):
     """Place de l'ENTRÉE (« entree ») ou de la SORTIE (« sortie ») selon le plan : dict(x, yn, z, r)."""
     if c.plan in ("rond", "octo", "tour"):
         return dict(c.pl_entree if quoi == "entree" else c.pl_sortie)
+    sx = -1 if quoi == "entree" else 1
     if c.plan == "portique":
-        # sur le bâti, devant la table, aux deux bouts du parapet (les pylônes cachent l'arrière des joues)
+        # ronde F3-A3 (plan en U) : au SOL de la baie, devant le socle de la table, de part et d'autre du port S
         r = 0.06 * c.side + 0.06
-        sx = -1 if quoi == "entree" else 1
-        return dict(x=sx * (c.xb - r - 0.08), yn=-c.h + c.epar + r + 0.12, z=c.zs, r=r)
+        tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
+        return dict(x=sx * max(tx * 0.55, r + 0.16), yn=c.yt - ty - r - 0.1, z=0.0, r=r)
     pl = cotes.places(c.side)["joue_O" if quoi == "entree" else "joue_E"]
+    if c.plan == "L" and quoi == "sortie":
+        # ronde F3-A3 : la joue est s'arrête au coin vide ; la sortie va au coin avant est du bâti
+        r = pl["r"]
+        return dict(x=c.xb - r - 0.08, yn=-c.h + c.epar + r + 0.12, z=c.zs, r=r)
+    if c.plan == "croix":
+        r = min(pl["r"], (c.h - c.a) / 2.0 - 0.06)
+        return dict(x=sx * (c.a + c.h) / 2.0, yn=c.a - r - 0.06, z=c.z_joue, r=r)
+    if c.plan == "H":
+        # sur le toit des ailes, vers le nez (le milieu porte les robots de l'âge 10)
+        r = min(pl["r"], c.wj / 2.0 - 0.12)
+        return dict(x=sx * (c.xb + c.wj / 2.0), yn=-c.h + r + 0.2, z=c.z_joue, r=r)
     z = c.z_aile if (c.plan == "L" and quoi == "entree") else c.z_joue
     return dict(x=pl["x"], yn=pl["yn"], z=z, r=pl["r"])
 
 
 def _reserves_carre(c):
     out = []
-    pl = cotes.places(c.side)
-    for nom in ("joue_O", "joue_E"):
-        out.append((pl[nom]["x"], pl[nom]["yn"], pl[nom]["r"] + 0.05))
-    out.append((0.0, c.h - 0.3, 0.2))           # collecteur N
-    if c.plan in ("carre", "L") and c.f_portique == "poutre":
+    for quoi in ("entree", "sortie"):
+        p = place_es(c, quoi)
+        out.append((p["x"], p["yn"], p["r"] + 0.05))
+    if c.dos_ext is not None:
+        out.append((0.0, c.h - 0.3, 0.2))           # collecteur N
+    if c.plan in ("carre", "L", "croix", "H") and c.f_portique in ("poutre", "arche"):
         for sx in (-1, 1):
-            out.append((sx * c.xm, c.yt, c.wm + 0.05))
+            out.append((sx * c.xm, c.yt, c.wm * (1.0 if c.f_portique == "poutre" else 1.1) + 0.05))
     if c.plan == "portique":
-        r = 0.06 * c.side + 0.06
         for sx in (-1, 1):
-            out.append((sx * (c.xb - r - 0.08), -c.h + c.epar + r + 0.12, r + 0.05))
             out.append((sx * c.xp, c.yt, c.dp * 0.7))
     return out
 
@@ -197,6 +216,8 @@ def chevron(g, x, yn, z, sens, m, k=0.12):
 # ------------------------------------------------------------------------------------------------
 def contour_embase(c, ins=0.0):
     h = c.h - ins
+    if getattr(c, "plan", "carre") in ("L", "portique", "croix", "H"):
+        return list(c.emb_poly)          # ronde F3-A3 : embase découpée (plans.etendues)
     if getattr(c, "plan", "carre") == "rond":
         import plans
         return plans.contour(h, 40)
@@ -224,8 +245,10 @@ def embase(g, c):
         fond0 = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
         _prisme(g, poly_b(bas), 0.0, ze * 0.5, fond0, "hard", "marche")
         _flancs(g, c, bas, 0.0, ze * 0.5, M["steel_dk"])
-        _motif(g, M, cfg, poly_b([(-c.h, -c.h), (c.h, -c.h), (c.h, -c.h + mch), (-c.h, -c.h + mch)]), ze * 0.5, 0.03,
-               990 + c.e)
+        for k, (x0, x1, y0, y1) in enumerate(_parts(c)):
+            if y0 < -c.h + mch - 0.01:
+                _motif(g, M, cfg, poly_b([(x0, y0), (x1, y0), (x1, -c.h + mch), (x0, -c.h + mch)]), ze * 0.5, 0.03,
+                       990 + c.e + k)
         z0 = ze * 0.5
         haut = [(x, max(yn, -c.h + mch)) for x, yn in bas]
     elif f == "pieds":
@@ -247,7 +270,14 @@ def embase(g, c):
     fond = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
     _prisme(g, poly_b(haut), z0, ze, fond, "hard", "embase")
     _flancs(g, c, haut, z0, ze, M["steel_dk"])
-    _motif(g, M, cfg, poly_b(haut), ze, 0.05, 1000 + 7 * c.side + c.e)
+    if c.plan in ("L", "portique", "croix", "H"):
+        # motif par partie CONVEXE (pont._motif découpe contre un polygone convexe)
+        y_bas = -c.h + c.T["embase"]["marche"] if f == "gradins" else -c.h
+        for k, (x0, x1, y0, y1) in enumerate(_parts(c)):
+            y0 = max(y0, y_bas)
+            _motif(g, M, cfg, poly_b([(x0, y0), (x1, y0), (x1, y1), (x0, y1)]), ze, 0.05, 1000 + 7 * c.side + c.e + k)
+    else:
+        _motif(g, M, cfg, poly_b(haut), ze, 0.05, 1000 + 7 * c.side + c.e)
     bord = M[cfg["bord"]] if cfg["bord"] in M else M["steel_dk"]
     corniere(g, haut, ze, bord)
     if cfg.get("lisere"):
@@ -257,6 +287,11 @@ def embase(g, c):
             d = (b - a).normalized()
             nrm = V((d.y, -d.x, 0))
             _lisere(g, M, cfg, a, b, nrm, ze + 0.04)
+
+
+def _parts(c):
+    """Parties convexes de l'embase (plans découpés) ; [carré] sinon."""
+    return list(getattr(c, "emb_parts", None) or [(-c.h, c.h, -c.h, c.h)])
 
 
 def _flancs(g, c, pts, z0, z1, m):
@@ -284,12 +319,13 @@ def dos(g, c):
         c.ep.dos(g, c)
         return
     M = g.M
+    if getattr(c, "dos_ext", True) is None:
+        return                      # plan H : pas de dos (sol derrière le bâti)
     m1 = mat_de(c, "mat_dos", "olive")
     m2 = c.Mh["ochre"]
     h, yb, ze, Hd = c.h, c.yb, c.ze, c.Hd
     f = c.f_dos
-    x0, x1 = -h + 0.02, h - 0.02
-    y0, y1 = yb, h - 0.02
+    x0, x1, y0, y1 = getattr(c, "dos_ext", None) or (-h + 0.02, h - 0.02, yb, h - 0.02)
     if f == "bas":
         zb_ = c.z_bas
         PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zb_, ins=(0.02, 0.0, 0.0), panel=0.55, mats=[m1], faces="st")
@@ -390,9 +426,24 @@ def joues(g, c):
     m1 = mat_de(c, "mat_joues", "olive")
     m2 = c.Mh["ochre"]
     f = c.f_joues
-    ze, Hj, yf, yb = c.ze, c.Hj, c.yf, c.yb
+    ze, Hj = c.ze, c.Hj
     for sx in (-1, 1):
         xa, xb_ = (-c.h + 0.02, -c.xb) if sx < 0 else (c.xb, c.h - 0.02)
+        yf, yb = c.yf, c.yb
+        ext = getattr(c, "joue_ext", {}).get(sx, 0)
+        if ext is None:
+            continue
+        if ext:
+            xa, xb_, yf, yb = ext
+        if f == "hautes":
+            # ronde F3-A3 (plan H) : AILE haute à la hauteur du dos, nez arrondi au sud (coque)
+            zz = c.Hd
+            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, zz, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st",
+                    rivets=False)
+            g.cyl(B((xa + xb_) / 2, yf + 0.05, zz - 0.06), "x", 0.08, xb_ - xa, m1, n=16, style="smooth", what="nez_aile")
+            corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], zz, M["steel_dk"], w=0.04, hgt=0.03)
+            c.z_joue = zz
+            continue
         if c.plan == "L" and sx < 0:
             # AILE du plan L : joue ouest à pleine hauteur du dos, face sud à plaques
             PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, c.z_aile, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st")
@@ -446,8 +497,22 @@ def plateau(g, c):
     cfg = c.pont
     xb, h, ze, zs = c.xb + 0.01, c.h, c.ze, c.zs
     y0, y1 = -h + 0.02, c.yb + 0.01
+    parts = getattr(c, "bati_parts", None)
+    if parts is not None and not parts:
+        return                      # plan portique (U) : la baie est le sol
+    if parts:
+        xb = parts[0][1]
+        y0 = min(p[2] for p in parts)
     fond = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
-    _prisme(g, poly_b([(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]), ze, zs, fond, "hard", "plateau_baie")
+    if parts and len(parts) > 1:
+        import plans
+        poly = plans.contour_parts(parts)
+        _prisme(g, poly_b(poly), ze, zs, fond, "hard", "plateau_baie")
+    else:
+        if parts:
+            y1 = parts[0][3]
+        poly = [(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]
+        _prisme(g, poly_b(poly), ze, zs, fond, "hard", "plateau_baie")
     face_s(g, -xb, xb, y0, ze, zs, c.Mh["olive"], nv=1, pas=0.6)
     for sx in (-1, 1):
         xd = sx * xb * 0.55
@@ -459,9 +524,10 @@ def plateau(g, c):
             g.box(B(xd - sx * wd * 0.5, y0 - 0.035, ze + 0.04 + hd * f), (0.04, 0.03, 0.06), M["steel_dk"], "hard",
                   what="gond")
     cfg1 = dict(cfg, mat2=None)
-    _motif(g, M, cfg1, poly_b([(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]), zs, 0.04, 1200 + 7 * c.side + c.e)
+    for k, (a0, a1, b0, b1) in enumerate(parts or [(-xb, xb, y0, y1)]):
+        _motif(g, M, cfg1, poly_b([(a0, b0), (a1, b0), (a1, b1), (a0, b1)]), zs, 0.04, 1200 + 7 * c.side + c.e + k)
     bord = M[cfg["bord"]] if cfg["bord"] in M else M["steel_dk"]
-    corniere(g, [(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)], zs, bord, w=0.04, hgt=0.03)
+    corniere(g, poly, zs, bord, w=0.04, hgt=0.03)
     # parapet du bord sud, ouvert au milieu (la tubulure et l'icône restent dégagées)
     ep, hp = c.epar, c.hpar
     for sx in (-1, 1):
@@ -480,7 +546,13 @@ def plateau(g, c):
 def table(g, c):
     M = g.M
     m = mat_de(c, "mat_table", "steel_dk")
-    tx, ty, yt, zt, ze = c.T["table"]["tx"], c.T["table"]["ty"], c.yt, c.zt, c.zs
+    tx, ty, yt, zt = c.T["table"]["tx"], c.T["table"]["ty"], c.yt, c.zt
+    ze = getattr(c, "z_table0", c.zs)
+    if ze < c.zs - 0.01:
+        # ronde F3-A3 (plan en U) : la table est un SOCLE posé sur le sol de la baie, semelle et plinthe
+        g.box(B(0, yt, 0.03), (2 * tx * 0.86 + 0.16, (2 * ty * 0.86 + 0.16) * SQ2, 0.06), M["steel_dk"], "hard",
+              what="semelle_socle")
+        ze = 0.06
     g.box(B(0, yt, (ze + zt - 0.04) / 2), (2 * tx * 0.86, 2 * ty * 0.86 * SQ2, zt - 0.04 - ze), M["seam"], "hard",
           what="pied_table")
     face_s(g, -tx * 0.86, tx * 0.86, yt - ty * 0.86, ze, zt - 0.04, m, nv=1)
@@ -555,6 +627,14 @@ def ports(g, c):
         ys, zs_ = -c.Rp, c.ze + (c.zr - c.ze) * 0.5
     else:
         ys, zs_ = -c.h, c.ze + (c.zs - c.ze) * 0.5
+    if c.plan in ("portique", "H"):
+        # ronde F3-A3 : le bord sud est du SOL ; conduite au ras du sol jusqu'au socle de la table (U) ou au bâti (H)
+        zs_ = r + 0.03
+        y_fin = (c.yt - c.T["table"]["ty"] * 0.86) if c.plan == "portique" else (-c.bH + 0.02)
+        g.cyl(B(0, (ys + y_fin) / 2, zs_), "y", r, y_fin - ys, M["steel_dk"], n=14, what="port_s_sol")
+        for f in (0.3, 0.7):
+            g.box(B(0, ys + (y_fin - ys) * f, zs_ / 2), (r * 2.4, 0.06 * SQ2, zs_), M["steel_dk"], "hard",
+                  what="selle_sol")
     g.cyl(B(0, ys + 0.06, zs_), "y", r, 0.2, M["steel_dk"], n=14, what="port_s")
     g.cyl(B(0, ys, zs_), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_s")
     for k in range(6):
@@ -574,6 +654,16 @@ def ports(g, c):
         else:
             g.tube([B(0, yn0, zn), B(0, yn1, zn), B(0, yn1 - 0.05, z1 - 0.05)], r, M["steel_dk"], n=14, what="port_n")
         g.cyl(B(0, yn0, zn), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_n")
+        return
+    if c.plan == "H":
+        # pas de dos : conduite au ras du sol du bord nord au bâti
+        zn = r + 0.03
+        yn0, yn1 = c.h - 0.04, c.bH - 0.02
+        g.cyl(B(0, (yn0 + yn1) / 2, zn), "y", r, yn0 - yn1, M["steel_dk"], n=14, what="port_n_sol")
+        g.cyl(B(0, yn0, zn), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_n")
+        for f in (0.3, 0.7):
+            g.box(B(0, yn1 + (yn0 - yn1) * f, zn / 2), (r * 2.4, 0.06 * SQ2, zn), M["steel_dk"], "hard",
+                  what="selle_sol")
         return
     zn = c.z_nord + r + 0.03
     yn0 = c.h - 0.04
@@ -659,8 +749,19 @@ def liaisons(g, c):
             p1 = B(sx * tx * 0.7, c.yt - ty * 0.5, c.zt + 0.08)
             g.hose([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.12)), p1], r, M["rubber"], step=0.04)
         return
+    if c.plan == "H":
+        # des ailes au bord de la table
+        for sx in (-1, 1):
+            p0 = B(sx * (c.xb + 0.02), c.yt + ty * 0.6, c.zs + 0.35)
+            p1 = B(sx * tx * 0.8, c.yt + ty * 0.4, c.zt + 0.1)
+            g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.15)), p1], r, M["steel_dk"], fl_mat=M["steel"],
+                   bolt_mat=M["rivet"])
+        return
     for sx in (-1, 1):
-        p0 = B(sx * tx * 0.55, c.yb - 0.02, c.zs + 0.25)
+        x0 = sx * tx * 0.55
+        if c.plan == "L" and sx > 0:
+            x0 = min(x0, c.Lx - 0.12)          # le dos s'arrête au coin vide
+        p0 = B(x0, c.yb - 0.02, c.zs + 0.25)
         p1 = B(sx * tx * 0.45, c.yt + ty * 0.7, c.zt + 0.1)
         g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.15)), p1], r, M["steel_dk"], fl_mat=M["steel"], bolt_mat=M["rivet"])
     g.cable(B(0.15, c.yb - 0.02, c.zs + 0.35), B(0.1, c.yt + ty * 0.6, c.zt + 0.2), 0.08, 0.02, M["rubber"])
@@ -674,7 +775,7 @@ def machine(g, c):
     import garniture
     import plans
     embase(g, c)
-    if c.plan in ("carre", "L", "portique"):
+    if c.plan in plans.LIGNEE:
         dos(g, c)
         joues(g, c)
         plateau(g, c)
@@ -723,7 +824,13 @@ def z_toit(c, x, yn):
     d'âge sur le toit. Un âge qui remplace le dos (def dos) remplace aussi ce calcul s'il pose des choses dessus."""
     h, yb, ze, Hd = c.h, c.yb, c.ze, c.Hd
     y0, y1 = yb, h - 0.02
-    if not (y0 <= yn <= y1 and abs(x) <= h):
+    ext = getattr(c, "dos_ext", False)
+    if ext is None:
+        return 0.0
+    xa, xz = -h, h
+    if ext:
+        xa, xz, y0, y1 = ext
+    if not (y0 <= yn <= y1 and xa - 0.02 <= x <= xz + 0.02):
         return 0.0
     f = c.f_dos
     if f == "bas":

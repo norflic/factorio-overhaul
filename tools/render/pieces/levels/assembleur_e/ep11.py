@@ -5,6 +5,7 @@ En 3 mots : « aile, gabarit, chevrons orange ». Plan en PORTIQUE : deux pylôn
 coiffés chacun d'une DÉRIVE (aileron dressé), portent un pont-caisson d'alliage à barre de lumière bleu-blanc ; la tête de
 rivetage orange y pend au bout d'un bras télescopique. Sur le lit, une AILE en flèche (bord d'attaque, nervures, saumon
 orange) tenue par le GABARIT : quatre tours à mâchoires orange. Dos bas de titane, chevrons au sol.
+Ronde F3-A3 : plan en U, la baie est le SOL ; pièce paire refaite (dérive haute, tréteaux orange).
 Palette 60/30/10 (ages.PALETTE[11]) : bleu titane / alliage clair et bleu nuit / orange aéronautique ; lumière bleu-blanc.
 """
 from mathutils import Matrix, Vector
@@ -22,7 +23,7 @@ TRIPLET = ("aile", "gabarit", "chevrons orange")
 FOYER = ages.FOYER[11]
 TRAVAIL = dict(couches=2, images=24, organe="chariot qui court le long du pont et tête de rivetage qui pique (24 "
                                            "images) ; éclair du rivet et barre de lumière (couche glow)")
-HABILLAGE = dict(ages.CORPS[11], plan='portique', forme_embase='chanfrein', forme_dos='bas', forme_joues='socle',
+HABILLAGE = dict(ages.CORPS[11], plan='portique', forme_embase='carre', forme_dos='bas', forme_joues='socle',
                  forme_portique='aucun')
 DENSITE = dict(p=0.6, lampes=0.14)
 
@@ -69,10 +70,10 @@ def socle(g, c):
     g.box(B(0, c.yt - db / 2 - 0.03, c.zp - 0.04), (L - 0.2, 0.04, 0.05), M["titane_dk"], "hard", what="barre")
     g.box(B(0, c.yt - db / 2 - 0.05, c.zp - 0.06), (L - 0.3, 0.02, 0.02), M["emit"], "flat", what="barre_lumiere")
     halo(g, 0, c.yt - 0.5, c.zp - 0.2, 1.2)
-    # chevrons au sol du bâti, tôles et bandeau du dos bas
+    # chevrons peints au SOL de la baie (ronde F3-A3 : plan en U), tôles et bandeau du dos bas
     for sx in (-1, 1):
         for k in range(3):
-            corps.chevron(g, sx * 1.0, -2.3 + 0.25 * k, c.zs + 0.03, sx, M["orange_aero"], k=0.18)
+            corps.chevron(g, sx * 1.38, -2.55 + 0.25 * k, 0.005, sx, M["orange_aero"], k=0.18)
     corps.face_s(g, -c.h + 0.1, c.h - 0.1, c.yb - 0.02, c.zs + 0.02, c.z_bas - 0.02, M["tole_ti"], nu=8, nv=1)
     g.box(B(0, c.yb - 0.05, c.z_bas - 0.05), (2 * c.h - 0.2, 0.04, 0.05), M["bleu_nuit"], "hard", what="bandeau")
 
@@ -137,15 +138,19 @@ def sortie(g, c, p):
 
 
 def piece(g, c):
-    """Niveau 22 (plus grande) : dérive de rechange dressée sur chevalet et panneaux d'aile (coins avant)."""
+    """Niveau 22 (plus grande ; ronde F3-A3 : invisible au zoom 1, refaite) : DÉRIVE de rechange HAUTE (1,1) dressée sur
+    un chevalet orange, bord d'attaque orange, feu de bout ; panneau d'aile à chevrons sur tréteaux (coins avant)."""
     M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
         x, yn, z = p["x"], p["yn"] + 0.05, p["z_sol"]
         for s in (-1, 1):
-            g.box(B(x + s * 0.35, yn, z + 0.18), (0.07, 0.45 * SQ2, 0.36), M["titane_dk"], "hard", what="chevalet")
-        g.box(B(x, yn, z + 0.38), (0.86, 0.5 * SQ2, 0.05), M["titane_cl"], "soft", R=Matrix.Rotation(0.1, 3, "X"),
+            g.box(B(x + s * 0.4, yn, z + 0.2), (0.09, 0.6 * SQ2, 0.4), M["orange_aero"], "hard", what="treteau")
+        g.box(B(x, yn, z + 0.43), (1.0, 0.62 * SQ2, 0.06), M["titane_cl"], "soft", R=Matrix.Rotation(0.1, 3, "X"),
               what="panneau")
-        _derive(g, x, yn, z + 0.42, 0.6, 0.6, M["titane_md"])
-        g.box(B(x, yn + 0.27, z + 0.85), (0.1, 0.06 * SQ2, 0.16), M["orange_aero"], "hard", what="bout")
-        corps.lampe(g, B(x, yn + 0.28, z + 0.95), 0.03, M["emit"])
+        _chevrons(g, x - 0.45, x + 0.45, yn - 0.3, z + 0.3, z + 0.5, 1)
+        _derive(g, x, yn + 0.05, z + 0.47, 1.1, 0.7, M["titane_md"])
+        g.box(B(x, yn - 0.27, z + 0.6), (0.1, 0.07 * SQ2, 0.24), M["orange_aero"], "hard", what="bord_attaque")
+        g.box(B(x, yn + 0.36, z + 1.45), (0.1, 0.06 * SQ2, 0.22), M["orange_aero"], "hard", what="bout")
+        corps.lampe(g, B(x, yn + 0.37, z + 1.57), 0.04, M["emit"])
+        halo(g, x, yn + 0.2, z + 1.5, 0.6)

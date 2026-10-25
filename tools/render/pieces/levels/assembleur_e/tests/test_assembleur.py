@@ -153,6 +153,18 @@ def main():
     plans = [E.SILHOUETTES[e][0] for e in range(2, 16)]
     check("ronde F3-A2 : au moins 5 plans différents, dont rond ou octo et tour (%s)" % sorted(set(plans)),
           len(set(plans)) >= 5 and ({"rond", "octo"} & set(plans)) and "tour" in plans)
+    # ronde F3-A3 (verdict du DC, 25/10 vers 15 h 20) : embases découpées, silhouettes nouvelles des âges 7, 9, 10
+    A2 = {7: ("carre", "gradins", "pans", "colonnes", "arche"), 9: ("L", "chanfrein", "coque", "caisson", "aucun"),
+          10: ("carre", "carre", "coque", "pente", "aucun"), 14: ("octo", "carre", "plat", "caisson", "aucun")}
+    for e in (2, 4, 9, 11, 15):
+        check("ronde F3-A3 : âge %d en plan DÉCOUPÉ (le sol se voit) : %s" % (e, E.SILHOUETTES[e][0]),
+              E.SILHOUETTES[e][0] in E.PLANS_DECOUPES)
+    for e in (7, 10, 14):
+        check("ronde F3-A3 : âge %d change de PLAN (%s -> %s)" % (e, A2[e][0], E.SILHOUETTES[e][0]),
+              E.SILHOUETTES[e][0] != A2[e][0] and E.SILHOUETTES[e][0] in E.PLANS_DECOUPES)
+    check("ronde F3-A3 : âge 14 n'est ni rond ni octogonal (foreuse de la Porte, ronde)",
+          E.SILHOUETTES[14][0] not in ("rond", "octo"))
+    check("ronde F3-A3 : PLANS_DECOUPES ⊂ PLANS", set(E.PLANS_DECOUPES) <= set(E.PLANS))
     check("teinte du niveau pair : multiplication douce (0,8 à 1) aux 15 âges",
           all(0.8 <= v <= 1.0 for e in range(1, 16) for v in E.teinte_pair(e)))
     # --- fichiers d'âge (lecture du source)

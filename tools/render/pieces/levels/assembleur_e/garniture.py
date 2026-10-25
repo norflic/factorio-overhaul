@@ -29,6 +29,12 @@ def bati(g, c):
     M = g.M
     xb, h, ze, zs = c.xb, c.h, c.ze, c.zs
     y0 = -h + 0.02
+    parts = getattr(c, "bati_parts", None)
+    if parts is not None and not parts:
+        return
+    if parts:
+        xb = parts[0][1] - 0.01
+        y0 = min(p[2] for p in parts)
     zc = ze + (zs - ze) * 0.82
     r = 0.035 + 0.004 * c.side
     # collecteur horizontal à brides le long du haut de la face (interrompu au milieu : bride du port S plus bas)
@@ -68,6 +74,8 @@ def joues(g, c):
             continue                # aile haute du plan L
         xc = sx * (c.xb + c.wj / 2)
         y0, y1 = c.yf + 0.12, ytp - 0.08
+        if c.plan == "H":
+            y1 = c.yb - 0.3         # ailes pleine profondeur
         if y1 - y0 < 0.25:
             continue
         L = y1 - y0
@@ -96,9 +104,10 @@ def joues(g, c):
 def garnir(g, c):
     zones = getattr(c.ep, "GARNIR", ("bati", "joues"))
     with habille(g, c):
-        if "bati" in zones and c.plan in ("carre", "L", "portique"):
+        if "bati" in zones and c.plan in ("carre", "L", "portique", "croix", "H"):
             bati(g, c)
-        if "joues" in zones and c.f_joues in ("caisson", "basses", "pente") and c.plan in ("carre", "L"):
+        if "joues" in zones and c.f_joues in ("caisson", "basses", "pente", "hautes") and \
+                c.plan in ("carre", "L", "croix", "H"):
             joues(g, c)
 
 
@@ -112,21 +121,30 @@ def zones_carre(c):
     """Zones des plans carre, L et portique (dessus du dos plat, des joues, marges du bâti, aile du plan L)."""
     out = []
     h, yb, xb = c.h, c.yb, c.xb
-    if c.f_dos in ("plat", "gradins", "tours", "bas"):
-        out.append(("toit", -h + 0.15, h - 0.15, yb + 0.08, h - 0.1))
-    if c.plan == "L":
-        out.append(("rect", -h + 0.08, -xb - 0.06, c.yf + 0.06, yb - 0.04, c.z_aile))
-        if c.f_joues in ("caisson", "basses", "socle"):
-            out.append(("rect", xb + 0.06, h - 0.08, c.yf + 0.06, yb - 0.04, c.z_joue))
-    elif c.f_joues in ("caisson", "basses", "socle"):
-        for sx in (-1, 1):
-            xa, xz = (xb + 0.06, h - 0.08) if sx > 0 else (-h + 0.08, -xb - 0.06)
-            out.append(("rect", xa, xz, c.yf + 0.06, yb - 0.04, c.z_joue))
-    tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
+    dos = getattr(c, "dos_ext", None)
+    if dos and c.f_dos in ("plat", "gradins", "tours", "bas"):
+        out.append(("toit", dos[0] + 0.13, dos[1] - 0.13, dos[2] + 0.08, dos[3] - 0.08))
+    jx = getattr(c, "joue_ext", {}) or {}
     for sx in (-1, 1):
-        xa, xz = (tx + 0.08, xb - 0.05) if sx > 0 else (-xb + 0.05, -tx - 0.08)
-        if xz - xa > 0.15:
-            out.append(("rect", xa, xz, -h + c.epar + 0.12, yb - 0.06, c.zs))
+        ext = jx.get(sx)
+        if ext is None:
+            continue
+        xa, xz, ya, yz = ext
+        if c.plan == "L" and sx < 0:
+            out.append(("rect", xa + 0.06, xz - 0.06, ya + 0.06, yz - 0.04, c.z_aile))
+        elif c.f_joues in ("caisson", "basses", "socle", "hautes", "colonnes"):
+            out.append(("rect", xa + 0.06, xz - 0.06, ya + 0.06, yz - 0.04, c.z_joue))
+    # marges du bâti autour de la table (parties du bâti ; rien au plan en U)
+    tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
+    for k, (a0, a1, b0, b1) in enumerate(getattr(c, "bati_parts", [])):
+        for sx in (-1, 1):
+            xa, xz = (max(a0, tx + 0.08), a1 - 0.05) if sx > 0 else (a0 + 0.05, min(a1, -tx - 0.08))
+            if xz - xa > 0.15 and b1 - b0 > 0.3:
+                out.append(("rect", xa, xz, b0 + c.epar + 0.12, b1 - 0.06, c.zs))
+        # ronde F3-A3 : bande du bâti DEVANT la table (perron de la croix, bâti du L), si elle est assez profonde
+        yfr = c.yt - ty - 0.08
+        if k == 0 and yfr - (b0 + c.epar + 0.12) > 0.3:
+            out.append(("rect", -min(tx, a1) + 0.05, min(tx, a1) - 0.05, b0 + c.epar + 0.12, yfr, c.zs))
     return out
 
 
@@ -203,8 +221,9 @@ def densifier(g, c):
     p_lampe = dens.get("lampes", 0.05)
     rng = random.Random(4100 + 37 * c.e + c.side)
     zones = list(c.zones)
-    if c.plan in ("carre", "L", "portique"):
+    if c.plan in ("carre", "L", "portique", "croix", "H"):
         zones += zones_carre(c)
+    pas = dens.get("pas", PAS)          # ronde F3-A3 : pas plus serré pour les âges trop clairsemés (7, 10, 12, 15)
     import corps
     n = 0
     with habille(g, c):
@@ -215,7 +234,7 @@ def densifier(g, c):
             pts = []
             if z[0] in ("rect", "toit"):
                 x0, x1, y0, y1 = z[1:5]
-                nx, ny = max(1, int((x1 - x0) / PAS)), max(1, int((y1 - y0) / PAS))
+                nx, ny = max(1, int((x1 - x0) / pas)), max(1, int((y1 - y0) / pas))
                 for i in range(nx):
                     for j in range(ny):
                         x = x0 + (i + 0.5 + 0.3 * (rng.random() - 0.5)) * (x1 - x0) / nx
@@ -224,10 +243,10 @@ def densifier(g, c):
                         pts.append((x, y, zz))
             else:
                 _, R0, R1, a0, a1, zz, cy = z
-                nr = max(1, int((R1 - R0) / PAS))
+                nr = max(1, int((R1 - R0) / pas))
                 for i in range(nr):
                     R = R0 + (i + 0.5) * (R1 - R0) / nr
-                    na = max(1, int(R * (a1 - a0) / PAS))
+                    na = max(1, int(R * (a1 - a0) / pas))
                     for j in range(na):
                         a = a0 + (j + 0.5 + 0.3 * (rng.random() - 0.5)) * (a1 - a0) / na
                         if c.plan == "octo":
