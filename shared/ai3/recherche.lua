@@ -16,7 +16,8 @@
        fabrication d'objectif (50) ; et les packs ne puisent jamais dans le PLANCHER (matières du prochain avant-poste
        de l'échelle, calculé par l'appelant) : le nombre de packs est réduit pour le respecter.
 
-  A.lean(traits, mix, affinity) -> penchant (−1000 à 1000) ; A.priority(lean, opts) -> priorité ;
+  A.lean(traits, mix, affinity) -> penchant (−1000 à 1000) ; A.with_difficulty(lean, niveau) -> penchant corrigé par
+  la difficulté face au joueur (lot IA3-a) ; A.priority(lean, opts) -> priorité ;
   A.level_status(book, packs, obtainable) -> payable, causes ; A.plan(args) -> décision (voir plus bas).
   Aucun nom d'objet du jeu : les packs viennent de la table des niveaux de l'appelant (T.research), les matières du
   livre de recettes (shared/team/book.lua). Entiers et listes triées ; aucun hasard ; aucun pairs décisionnel.
@@ -29,6 +30,12 @@ A.PRIO_MID = 46         -- caractère neutre : juste au-dessus de l'armée ordin
 A.PRIO_SPAN = 10        -- ± 10 selon le penchant (36 à 56)
 A.PRIO_GOAL = 50        -- fabrication d'objectif : plafond avant le fer II, plancher quand la recherche EST l'objectif
 A.TRAIT_SPAN = 250      -- biais d'un trait (même forme que le chef d'IA2-a : (trait − 1 000) ÷ 2, borné)
+-- Lot IA3-a : la DIFFICULTÉ face au joueur règle aussi le tempo (docs/IA3_CERVEAU.md §6.1, revue M5 : « le tempo face au
+-- joueur se règle par le chef et la difficulté ») : biais du penchant, ajouté AVANT la borne. Difficile et Impitoyable :
+-- l'armée d'abord pour presque tous les caractères. Moteur simulé (tests/pvp_test.lua, 2 factions, 45 min) sans ce biais :
+-- Difficile 4 attaques et Impitoyable 4 (règle d'avant : 5 et 7), ordre strict des niveaux perdu. Paisible, Facile et
+-- Normal : aucun biais (parties du guide et mesures inchangées).
+A.DIFFICULTY_LEAN = { hard = -600, merciless = -1200 }
 
 local function clamp(x, a, b)
   if x < a then return a end
@@ -60,6 +67,11 @@ function A.lean(traits, mix, affinity)
     end
   end
   return clamp(tech - army, -1000, 1000)
+end
+
+--- Penchant corrigé par la difficulté face au joueur (A.DIFFICULTY_LEAN ; niveau inconnu ou nil : aucun biais).
+function A.with_difficulty(lean, level)
+  return clamp((lean or 0) + (A.DIFFICULTY_LEAN[level or ""] or 0), -1000, 1000)
 end
 
 --- Priorité des packs. opts = { economy_done = bool (fer II atteint), is_goal = bool (la recherche est l'objectif) }.

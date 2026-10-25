@@ -105,6 +105,19 @@ for _, a in ipairs({ "conqueror", "technocrat", "builder", "balanced" }) do
 end
 check(lo >= 36 and hi <= 56, string.format("priorités bornées entre 36 et 56 (%d à %d) : jamais au-dessus du recrutement (55) sauf technocrate en posture technologie", lo, hi))
 
+-- 2 bis. La difficulté face au joueur règle aussi le tempo (lot IA3-a, pvp_test : ordre strict des attaques).
+do
+  local tl = A.lean(Tr.ARCHETYPES.technocrat, tech_mix, C.AFFINITY)
+  check(A.with_difficulty(tl, "normal") == tl and A.with_difficulty(tl, "easy") == tl and A.with_difficulty(tl, "peaceful") == tl
+    and A.with_difficulty(tl, nil) == tl, "Paisible, Facile, Normal (et niveau inconnu) : aucun biais")
+  local function p_at(arch, mix, level)
+    return A.priority(A.with_difficulty(A.lean(Tr.ARCHETYPES[arch], mix, C.AFFINITY), level), { economy_done = true })
+  end
+  check(p_at("balanced", nil, "hard") < 45 and p_at("technocrat", nil, "hard") < 45 and p_at("technocrat", tech_mix, "merciless") < 45,
+    string.format("Difficile : neutre %d, technocrate %d ; Impitoyable, technocrate en posture technologie %d : l'armée d'abord (45)",
+      p_at("balanced", nil, "hard"), p_at("technocrat", nil, "hard"), p_at("technocrat", tech_mix, "merciless")))
+end
+
 -- 3. Garde de l'économie (revue B3).
 check(prio_of("technocrat", tech_mix, false) <= 49, "avant le fer II : jamais au-dessus de la fabrication d'objectif (50)")
 check(A.priority(-1000, { economy_done = true, is_goal = true }) >= 50, "quand la recherche est l'objectif de l'échelle : au moins 50")

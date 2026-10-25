@@ -20,6 +20,7 @@ local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des object
 local Valeur = require("shared.faction.valeur") -- lot IA2-b : éventail des gisements de départ
 local Tr = require("shared.faction.traits")
 local Rch = require("shared.ai3.recherche") -- lot IA3-a : penchant recherche contre armée (caractère, chef)
+local FC = require("shared.faction.config") -- lot IA3-a : niveaux de difficulté (F.pvp), règle pure
 local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
@@ -246,6 +247,19 @@ function Team.init(f, surface)
   first_workers(f, surface) -- lot IA1-a : fo-npc-start (8) au lieu de T.start_workers (2)
 end
 
+--- Lot IA3-a : difficulté face au joueur en vigueur, lue comme PvP.difficulty() (script/faction/pvp.lua) : niveau imposé
+--- par l'interface distante (bancs), sinon le réglage de partie. Pas de require de pvp.lua ici : control.lua charge ce
+--- module AVANT le commandant, et charger pvp.lua plus tôt changerait l'ordre d'abonnement aux événements.
+local function pvp_level()
+  local war = State.war()
+  local forced = war and war.pvp_forced
+  if forced and FC.pvp[forced] then return forced end
+  local s = settings.global["fo-pvp-difficulty"]
+  local v = s and s.value
+  if FC.pvp[v] then return v end
+  return FC.pvp_default
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Vue
 ---------------------------------------------------------------------------------------------------
@@ -383,7 +397,8 @@ function Team.view(f, tick)
     -- Lot IA3-a : « recherche d'abord » (réglage figé par l'équipe, Team.think) et penchant recherche contre armée
     -- (traits d'IA2-0, postures du chef d'IA2-a ; shared/ai3/recherche.lua).
     ia3_research = f.team.ia3_research or nil,
-    research_lean = f.team.ia3_research and Rch.lean(f.traits, f.chef and f.chef.mix, ChefRules.AFFINITY) or nil,
+    research_lean = f.team.ia3_research and Rch.with_difficulty(Rch.lean(f.traits, f.chef and f.chef.mix, ChefRules.AFFINITY),
+      pvp_level()) or nil,
   }
 end
 
