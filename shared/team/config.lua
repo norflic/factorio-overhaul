@@ -91,10 +91,17 @@ T.turret_ammo = "firearm-magazine"
 -- n'importe quel PNJ, comme le ravitaillement.
 T.defend_ammo = T.turret_ammo_target
 T.defend_prio = 90
--- Votre équipe suit toujours « défendre d'abord » ; les factions seulement si T.defend_first_factions (mesuré au lot).
-T.defend_first_factions = true
--- Recrues retenues pendant 60 s après la perte d'un PNJ (équipes sous « défendre d'abord »).
-T.recruit_calm = 3600
+-- Votre équipe suit toujours « défendre d'abord » ; les factions seulement si T.defend_first_factions. Mesuré au lot
+-- IA1-b2 (essais 1 à 3, protocole 30 contre 10, moteur réel) : à 30 PNJ, la règle aide les factions (tués par les ennemis
+-- 83 -> 25 à 54, production +9 à +20 %) ; à 10 PNJ, elle nuit (production -7 à -11 %, tués 19 -> 12 à 28) ; et au
+-- moteur simulé (tests/pvp_test.lua) elle casse l'ordre des attaques par difficulté (Impitoyable 3 attaques, Difficile 4).
+-- Une partie normale (guide : 4 ouvriers par faction) ressemble au cas 10 : NON appliquée aux factions (décision au DC).
+T.defend_first_factions = false
+-- Recrues retenues T.recruit_calm ticks après la perte d'un PNJ (0 : jamais). Essayé à 60 s (essais 1 à 4 du lot) : moins
+-- de recrues tuées à leur arrivée, mais pendant une longue attaque du QG l'équipe restait sous son effectif de départ
+-- avec du fer (verif-guide graine 1618033988 : 5 min de suite, ECHEC du contrôle de reconstruction) et le QG, moins
+-- gardé, tombait. COUPÉ.
+T.recruit_calm = 0
 -- Avant-poste MEURTRIER : un PNJ tué en y allant ; sans ses tourelles, plus personne n'y va pendant 10 min (ni tournée,
 -- ni agrandissement, ni fond), sauf pour y poser les tourelles.
 T.lethal_ticks = 10 * 3600
