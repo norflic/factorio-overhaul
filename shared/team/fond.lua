@@ -22,7 +22,10 @@
     free : stock LIBRE (stock du QG moins ce que les tâches ouvertes du cerveau y ont réservé ; table modifiée) ;
     ctx  : { book (livre de recettes, shared/team/book.lua), keys = { [clé] = vrai } (tâches déjà au tableau),
              mine_left = minages à la main encore permis (plafond O.manual_cap moins ceux en cours),
-             reserve = surcharge de F.RESERVE (facultatif) }.
+             reserve = surcharge de F.RESERVE (facultatif),
+             lot IA1-b2 (D-17) : defend_first (tourelle possible : un nouvel avant-poste se bâtit avec ses tourelles),
+             undefended = { [id] = vrai } avant-postes où l'on ne va pas (shared/team/planner.lua, P.no_go),
+             turrets_ok, no_outpost_guard (votre équipe : plus de garde d'avant-poste), no_reserve_floor }.
   Déterminisme : avant-postes dans l'ordre de la vue (id), types dans T.OUTPOST_ORDER, ressources dans un ordre fixe,
   aucun `pairs` dans une décision.
 ]]
