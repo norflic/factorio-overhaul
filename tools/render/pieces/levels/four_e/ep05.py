@@ -21,7 +21,7 @@ TRIPLET = ("cratère", "coulées de lave", "blocs de basalte")
 FOYER = ages.FOYER[5]
 HABILLAGE = dict(ages.CORPS[5], gueule="arche", foyer="fonte_noire")
 CYN = 0.25
-R0, R1, Z1 = 1.3, 0.72, 1.4
+R0, R1, Z1 = 1.34, 0.6, 1.72      # ronde 1 : plus raide et plus haut (1,3 / 0,72 / 1,4 se lisait « pudding »)
 
 
 def matieres(metal, M):
@@ -37,9 +37,9 @@ def cone(g, c, n=15):
     M = g.M
     zs = c.T["sole_h"]
     y0 = Y(CYN)
-    zl = [zs, 0.36, 0.64, 0.92, 1.18, Z1]
-    rings = [(r_cone(z, zs), z, 0.07) for z in zl]
-    rings += [(R1 - 0.1, Z1 + 0.04, 0.03), (R1 - 0.2, 1.25, 0.02)]
+    zl = [zs, 0.34, 0.6, 0.86, 1.12, 1.4, Z1]
+    rings = [(r_cone(z, zs), z, 0.11 if 0 < i < len(zl) - 1 else 0.05) for i, z in enumerate(zl)]
+    rings += [(R1 - 0.08, Z1 + 0.05, 0.04), (R1 - 0.18, Z1 - 0.16, 0.02)]
     vs = []
     for (r, z, j) in rings:
         for k in range(n):
@@ -55,10 +55,17 @@ def cone(g, c, n=15):
     fs.append(tuple(range((m - 1) * n, m * n)))
     g._add(M["basalte_capot"], "hard", vs, fs, "cone")
     # lave du cratère et croûtes
-    g.cyl((0, y0, 1.27), "z", R1 - 0.17, 0.02, M["emit"], n=24, style="flat", what="lave")
-    for k in range(5):
-        a = TAU * k / 5 + 0.4
-        F.lump(g, (0.28 * math.cos(a), y0 + 0.24 * math.sin(a), 1.27), 0.08, M["basalte_dalle2"], sz=0.25)
+    g.cyl((0, y0, Z1 - 0.13), "z", R1 - 0.15, 0.02, M["emit"], n=24, style="flat", what="lave")
+    for k in range(4):
+        a = TAU * k / 4 + 0.4
+        F.lump(g, (0.22 * math.cos(a), y0 + 0.2 * math.sin(a), Z1 - 0.13), 0.07, M["basalte_dalle2"], sz=0.25)
+    # éboulis et arêtes de lave figée sur toute la pente (rugosité au zoom 1)
+    for k in range(26):
+        a = TAU * g.rng.random()
+        z = zs + (Z1 - zs) * (0.15 + 0.75 * g.rng.random())
+        r = r_cone(z, zs) - 0.02
+        F.lump(g, (r * math.cos(a), y0 + r * math.sin(a), z), 0.07 + 0.05 * g.rng.random(),
+               M["basalte_dalle" if k % 3 else "fonte_v"], sz=0.55, jit=0.35)
 
 
 def chambre(g, c):
@@ -67,7 +74,7 @@ def chambre(g, c):
     y0 = Y(CYN)
     cone(g, c)
     # ceintures de fonte boulonnées
-    for z in (0.45, 0.98):
+    for z in (0.42, 0.95):
         r = r_cone(z, zs) + 0.03
         g.torus((0, y0, z), "z", r, 0.045, M["fonte_v"], n=40, m=6, what="ceinture")
         for k in range(14):

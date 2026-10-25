@@ -23,7 +23,8 @@ TRIPLET = ("nacelle à réacteur", "ailerons", "tuyère orange")
 FOYER = ages.FOYER[11]
 HABILLAGE = dict(ages.CORPS[11], foyer="titane_dk")
 Z_SOCLE = 0.5
-CX, CYN, CZ, RN, TH = -0.25, 0.3, 1.78, 0.78, math.radians(20.0)
+# ronde 1 : tournée de 20°, l'entrée d'air restait vue par la tranche (la nacelle se lisait « citerne ») : 50°
+CX, CYN, CZ, RN, TH = -0.3, 0.2, 1.78, 0.8, math.radians(50.0)
 
 
 def matieres(metal, M):
@@ -80,15 +81,15 @@ def nacelle(g, c):
     g.cyl(((x1 + x2) / 2, 0, 0), "x", RN, x2 - x1, M["titane_md"], n=44, r2=0.5, what="queue")
     g.cyl((x2 + 0.02, 0, 0), "x", 0.5, 0.05, M["titane_dk"], n=36, what="culot")
     # entrée d'air : lèvre, fond, aubes, cône orange
-    g.cyl((x0 - 0.07, 0, 0), "x", RN + 0.06, 0.14, M["ring"], n=44, r2=RN, what="capot")
-    g.torus((x0 - 0.15, 0, 0), "x", RN - 0.02, 0.09, M["ring"], n=44, m=8, what="levre")
-    g.cyl((x0 - 0.05, 0, 0), "x", RN - 0.08, 0.02, M["void"], n=36, style="flat", what="fond")
-    for k in range(16):
-        a = TAU * k / 16
+    g.cyl((x0 - 0.1, 0, 0), "x", RN + 0.12, 0.2, M["ring"], n=44, r2=RN, what="capot")
+    g.torus((x0 - 0.2, 0, 0), "x", RN + 0.02, 0.11, M["ring"], n=44, m=8, what="levre")
+    g.cyl((x0 - 0.12, 0, 0), "x", RN - 0.04, 0.02, M["void"], n=36, style="flat", what="fond")
+    for k in range(18):
+        a = TAU * k / 18
         d = corps.V((0, math.cos(a), math.sin(a)))
-        g.box(corps.V((x0 - 0.08, 0, 0)) + d * 0.42, (0.02, 0.07, 0.5), M["titane_dk"], "hard",
+        g.box(corps.V((x0 - 0.15, 0, 0)) + d * 0.45, (0.02, 0.09, 0.56), M["titane_cl"], "hard",
               R=Matrix.Rotation(a, 3, "X") @ Matrix.Rotation(0.5, 3, "Z"), what="aube")
-    g.cyl((x0 - 0.22, 0, 0), "x", 0.2, 0.32, M["orange_aero"], n=20, r2=0.02, what="cone")
+    g.cyl((x0 - 0.3, 0, 0), "x", 0.24, 0.36, M["orange_aero"], n=20, r2=0.02, what="cone")
     # ailerons : dérive dorsale, plans latéraux (bouts orange)
     plaque(g, [(0.05, 0, RN - 0.05), (1.25, 0, RN - 0.2), (1.38, 0, RN + 0.75), (0.85, 0, RN + 0.75)], 0.07,
            M["titane_dk"])

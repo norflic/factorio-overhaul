@@ -47,8 +47,8 @@ def chambre(g, c):
           "hard", what="table")
     # lit de charbon : blocs noirs, braises (emit) clairsemées
     for k in range(34):
-        x = -0.18 + 0.9 * g.rng.random()
-        yn = -0.52 + 0.62 * g.rng.random()
+        x = -0.14 + 0.98 * g.rng.random()
+        yn = -0.55 + 0.6 * g.rng.random()
         chaud = k % 4 == 0
         F.lump(g, (x, Y(yn), Z_ATRE + 0.02), 0.045 + 0.02 * g.rng.random(), M["emit"] if chaud else M["blackiron"],
                sz=0.6)
@@ -56,9 +56,9 @@ def chambre(g, c):
     g.box((0, Y(0.82), (Z_ATRE + 1.0) / 2), (2 * xa, Y(0.2), 1.0 - Z_ATRE), M["brique"], "hard", what="mur_fond")
     corps.briques_sud(g, -xa, xa, 0.72, Z_ATRE, 1.0, briques)
     for sx in (-1, 1):
-        g.box((sx * 0.86, Y(-0.2), (Z_ATRE + 1.0) / 2), (0.05, 0.05, 1.0 - Z_ATRE), M["fer_noir"], "hard", what="poteau")
-    # hotte en tronc de pyramide vers l'arrière droit
-    B = [corps.P(-0.92, -0.26, 1.0), corps.P(0.92, -0.26, 1.0), corps.P(0.92, 0.9, 1.0), corps.P(-0.92, 0.9, 1.0)]
+        g.box((sx * 0.86, Y(0.08), (Z_ATRE + 1.0) / 2), (0.05, 0.05, 1.0 - Z_ATRE), M["fer_noir"], "hard", what="poteau")
+    # hotte en tronc de pyramide vers l'arrière droit (ronde 1 : reculée, son bord avant cachait le soufflet)
+    B = [corps.P(-0.92, 0.05, 1.0), corps.P(0.92, 0.05, 1.0), corps.P(0.92, 0.9, 1.0), corps.P(-0.92, 0.9, 1.0)]
     Tt = [corps.P(0.36, 0.26, 1.55), corps.P(0.74, 0.26, 1.55), corps.P(0.74, 0.58, 1.55), corps.P(0.36, 0.58, 1.55)]
     corps.tronc(g, B, Tt, M["fer_martele"], mats=[M["fer_martele"], M["fer_martele"], M["tole_forge"]], faces="swe",
                 panel=0.28)
@@ -66,13 +66,13 @@ def chambre(g, c):
         _bande(g, [B[0], B[1], Tt[1], Tt[0]], t0, t0 + 0.07, M["fer_noir"])
         _bande(g, [B[3], B[0], Tt[0], Tt[3]], t0, t0 + 0.07, M["fer_noir"])
     # bord roulé de la hotte et barre aux outils
-    g.box((0, Y(-0.27), 0.99), (1.88, 0.06, 0.06), M["fer_noir"], "hard", what="bord")
-    g.cyl((0, Y(-0.33), 0.92), "x", 0.016, 1.7, M["fer_clair_f"], n=8, what="barre")
-    for x, L in ((-0.5, 0.42), (-0.38, 0.5), (0.3, 0.45), (0.42, 0.36)):
-        g.box((x, Y(-0.34), 0.92 - L / 2), (0.022, 0.022, L), M["fer_noir"], "hard", what="outil")
-    g.box((-0.44, Y(-0.34), 0.92 - 0.5), (0.1, 0.02, 0.03), M["fer_noir"], "hard", what="mors")
-    for x in (0.0, 0.14):
-        g.torus((x, Y(-0.34), 0.86), "y", 0.04, 0.012, M["fer_clair_f"], n=12, m=5, what="fer_a_cheval")
+    g.box((0, Y(0.04), 0.99), (1.88, 0.06, 0.06), M["fer_noir"], "hard", what="bord")
+    g.cyl((0, Y(0.0), 0.95), "x", 0.016, 1.7, M["fer_clair_f"], n=8, what="barre")
+    for x, L in ((0.12, 0.2), (0.24, 0.24), (0.62, 0.22), (0.74, 0.18)):
+        g.box((x, Y(-0.01), 0.95 - L / 2), (0.022, 0.022, L), M["fer_noir"], "hard", what="outil")
+    g.box((0.18, Y(-0.01), 0.95 - 0.24), (0.1, 0.02, 0.03), M["fer_noir"], "hard", what="mors")
+    for x in (0.4, 0.5):
+        g.torus((x, Y(-0.01), 0.9), "y", 0.04, 0.012, M["fer_clair_f"], n=12, m=5, what="fer_a_cheval")
     soufflet(g, c)
 
 
@@ -80,10 +80,10 @@ def soufflet(g, c):
     """Soufflet de cuir couché sur l'âtre, à gauche : planches, cuir plissé, buse, perche."""
     M = g.M
     z0 = Z_ATRE + 0.02
-    y0, y1 = Y(-0.5), Y(-0.08)
-    xw, xe = -0.86, -0.3
+    y0, y1 = Y(-0.58), Y(-0.06)
+    xw, xe = -0.9, -0.24
     g.box(((xw + xe) / 2, (y0 + y1) / 2, z0 + 0.02), (xe - xw, y1 - y0, 0.04), M["wood"], "hard", what="planche")
-    hw, he = 0.28, 0.07
+    hw, he = 0.32, 0.08
     B = [(xw, y0, z0 + 0.04), (xe, y0 + 0.08, z0 + 0.04), (xe, y1 - 0.08, z0 + 0.04), (xw, y1, z0 + 0.04)]
     Tt = [(xw, y0, z0 + 0.04 + hw), (xe, y0 + 0.08, z0 + 0.04 + he), (xe, y1 - 0.08, z0 + 0.04 + he),
           (xw, y1, z0 + 0.04 + hw)]

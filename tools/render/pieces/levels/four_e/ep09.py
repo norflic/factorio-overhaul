@@ -13,6 +13,7 @@ import math
 import ages
 import corps
 import formes as F
+import parts as PT
 import parts3 as P3
 from kit import TAU
 from repere import Y
@@ -83,6 +84,22 @@ def toit(g, c):
            M["lead"], fl_mat=M["plomb_sombre"], bolt_mat=M["lead"])
     P3.lamp_row(g, (-1.5, Y(YN0) + CH + 0.1, Z_TOIT + 0.02), (-0.2, Y(YN0) + CH + 0.1, Z_TOIT + 0.02), 4, (0, 0, 1),
                 M["emit"], M, size=0.03)
+    # ronde 1 : toit trop nu. Bande de danger au bord avant, caissons de ventilation à grille, champignons d'aération,
+    # trappe de plomb, conduite de plomb vers la tour
+    yb = Y(YN0) + CH + 0.02
+    g.hazard([corps.V((X0 + CH, yb, Z_TOIT + 0.005)), corps.V((X1 - CH, yb, Z_TOIT + 0.005)),
+              corps.V((X1 - CH, yb + 0.1, Z_TOIT + 0.005)), corps.V((X0 + CH, yb + 0.1, Z_TOIT + 0.005))], 26, t=0.01)
+    for (x0, x1, yn0, yn1) in ((-1.55, -0.95, 1.05, 1.5), (-0.55, 0.25, 1.2, 1.55)):
+        corps.boite(g, x0, x1, yn0, yn1, Z_TOIT, Z_TOIT + 0.3, [M["beton_dalle"], M["beton_capot"]], panel=0.3,
+                    faces="t", rivets=False)
+        ys = Y(yn0) - 0.01
+        g.grille([corps.V((x0 + 0.05, ys, Z_TOIT + 0.05)), corps.V((x1 - 0.05, ys, Z_TOIT + 0.05)),
+                  corps.V((x1 - 0.05, ys, Z_TOIT + 0.25)), corps.V((x0 + 0.05, ys, Z_TOIT + 0.25))], 4,
+                 slat_mat=M["plomb_sombre"])
+    for (x, yn) in ((-1.55, -0.55), (-1.25, -0.85), (1.45, -0.2), (1.55, 0.15)):
+        g.cyl((x, Y(yn), Z_TOIT + 0.1), "z", 0.04, 0.2, M["lead"], n=10, what="aerateur")
+        g.cyl((x, Y(yn), Z_TOIT + 0.22), "z", 0.1, 0.06, M["plomb_sombre"], n=14, r2=0.04, what="chapeau")
+    PT.hatch(g, (0.1, Y(0.75), Z_TOIT), 0.2)
 
 
 def gueule(g, c, G):

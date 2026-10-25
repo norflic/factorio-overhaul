@@ -74,6 +74,19 @@ def chambre(g, c):
             g.box((x, yf - 0.06, 0.24), (0.04, 0.08, 0.16), M["anthracite"], "hard", what="collier")
     for (x, yn) in ((-1.45, -0.15), (-0.15, -0.15), (-0.8, 1.3)):
         ventilateur(g, x, yn, Z2, 0.52)
+    # ronde 1 : toit trop nu. Hublot rond de l'inducteur (lueur bleue) et trappes à voyants
+    xh, yh = 1.2, Y(-0.3)
+    g.tube_shell((xh, yh, Z2 + 0.05), "z", 0.5, 0.36, 0.1, M["anthracite"], n=40, what="cadre_hublot")
+    g.cyl((xh, yh, Z2 + 0.03), "z", 0.37, 0.02, M["emit_soft"], n=36, style="flat", what="inducteur")
+    for k in range(8):
+        a = TAU * k / 8
+        g.box((xh + 0.2 * math.cos(a), yh + 0.2 * math.sin(a), Z2 + 0.06), (0.3, 0.025, 0.02), M["gris_tech"], "hard",
+              R=corps.Matrix.Rotation(a, 3, "Z"), what="spire")
+    for (x, yn) in ((-1.75, 0.75), (0.35, 0.75)):
+        corps.boite(g, x - 0.3, x + 0.3, yn - 0.2, yn + 0.2, Z2, Z2 + 0.12, [M["gris_tech"], M["anthracite"]],
+                    panel=0.3, faces="ts", rivets=False)
+        P3.lamp_row(g, (x - 0.2, Y(yn - 0.2) - 0.01, Z2 + 0.06), (x + 0.2, Y(yn - 0.2) - 0.01, Z2 + 0.06), 3,
+                    (0, -1, 0), M["emit"], M, size=0.025)
     g.halo((0, yf - 0.4, 1.3), M["_emit_rgb"], 8.0)
 
 

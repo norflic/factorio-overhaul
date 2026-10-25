@@ -23,7 +23,9 @@ TRIPLET = ("anneau dressé", "ciel étoilé", "gradins indigo")
 FOYER = ages.FOYER[14]
 HABILLAGE = dict(ages.CORPS[14], gueule="arche", foyer="noir_spatial")
 GRADINS = ((2.82, -2.3, 2.85, 0.55), (2.3, -1.55, 2.6, 1.0), (1.75, -0.85, 2.3, 1.45))
-RX, RYN, RZ, RR, RT = -0.2, 1.35, 2.62, 1.17, 0.18
+# ronde 1 : Porte agrandie et avancée (1,17 de rayon à yn 1,35 : petite devant la masse des gradins) ; plafond à
+# l'écran tenu : haut de l'anneau à yn 0,75 + 0,707 × 4,97 = 4,26 (plafond 4,35)
+RX, RYN, RZ, RR, RT = -0.2, 0.75, 3.2, 1.55, 0.22
 
 
 def matieres(metal, M):
@@ -65,7 +67,7 @@ def porte(g, c):
     M = g.M
     cy = Y(RYN)
     for sx in (-1, 1):
-        x = RX + sx * (RR - 0.05)
+        x = RX + sx * 1.1      # là où l'anneau descend à z 2,1 : le contrefort (z 2,25) le touche, aucun jour
         g.hexa([corps.V(p) for p in ((x - 0.28, cy - 0.22, 1.45), (x + 0.28, cy - 0.22, 1.45), (x + 0.28, cy + 0.22, 1.45),
                                      (x - 0.28, cy + 0.22, 1.45), (x - 0.1, cy - 0.14, 2.25),
                                      (x + 0.1, cy - 0.14, 2.25), (x + 0.1, cy + 0.14, 2.25),

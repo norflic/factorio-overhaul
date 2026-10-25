@@ -13,6 +13,7 @@ import ages
 import corps
 import formes as F
 import parts2 as P2
+from kit import TAU
 from repere import Y
 
 EPOQUE = 4
@@ -44,8 +45,15 @@ def chambre(g, c):
             g.dome((CX + (R + 0.022) * math.cos(a), y + (R + 0.022) * math.sin(a), z), (math.cos(a), math.sin(a), 0),
                    0.014, M["galva_capot"])
     # toit conique, trou d'homme
-    g.cyl((CX, y, z1 + 0.18), "z", R + 0.02, 0.36, M["noir_capot"], n=44, r2=0.22, style="soft", what="toit")
-    g.cyl((CX, y, z1 + 0.4), "z", 0.2, 0.08, M["galva_capot"], n=20, what="trou_homme")
+    # ronde 1 : toit JAUNE (noir, il couvrait la colonne vue de dessus : on ne lisait plus le jaune dominant)
+    g.cyl((CX, y, z1 + 0.18), "z", R + 0.02, 0.36, M["jaune_capot"], n=44, r2=0.22, style="soft", what="toit")
+    for k in range(12):
+        a = TAU * k / 12
+        g.box((CX + (R * 0.62) * math.cos(a), y + (R * 0.62) * math.sin(a), z1 + 0.2), (R * 0.75, 0.035, 0.03),
+              M["noir_capot"], "hard", R=corps.Matrix.Rotation(a, 3, "Z") @ corps.Matrix.Rotation(0.52, 3, "Y"),
+              what="nervure_toit")
+    g.cyl((CX, y, z1 + 0.4), "z", 0.24, 0.1, M["noir_capot"], n=20, what="trou_homme")
+    g.cyl((CX, y, z1 + 0.47), "z", 0.12, 0.06, M["redpaint"], n=16, what="soupape")
     # passerelle annulaire (plancher et plinthe pleine) et échelle en façade
     g.tube_shell((CX, y, 1.4), "z", R + 0.2, R - 0.01, 0.035, M["tole_larmee"], n=44, what="passerelle")
     g.tube_shell((CX, y, 1.45), "z", R + 0.2, R + 0.18, 0.08, M["jaune_capot"], n=44, what="plinthe")

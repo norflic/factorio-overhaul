@@ -17,6 +17,7 @@ import corps
 import formes as F
 import parts as PT
 import parts2 as P2
+from kit import TAU
 from repere import Y
 
 EPOQUE = 6
@@ -61,8 +62,15 @@ def chambre(g, c):
               what="couvre_joint")
     g.tube_shell((0, 0, zs + 0.05), "z", RC + 0.06, RC - 0.05, 0.1, M["fonte_bleue"], n=48, what="embase")
     # couvercle de fonte bleue et voûte centrale de porcelaine
-    g.cyl((0, 0, zt + 0.12), "z", RC + 0.03, 0.24, M["fonte_bleue"], n=48, r2=0.62, style="soft", what="couvercle")
-    g.cyl((0, 0, zt + 0.28), "z", 0.62, 0.08, M["porcelaine_capot"], n=40, r2=0.5, what="voute")
+    # ronde 1 : couvercle de PORCELAINE (en fonte bleue, vu de dessus, il faisait la cuve bleue : contre la palette),
+    # jonc et rayons bleus
+    g.cyl((0, 0, zt + 0.12), "z", RC + 0.03, 0.24, M["porcelaine_capot"], n=48, r2=0.62, style="soft", what="couvercle")
+    g.torus((0, 0, zt + 0.01), "z", RC + 0.03, 0.04, M["bleu_machine"], n=48, m=6, what="jonc")
+    for k in range(12):
+        a = TAU * k / 12
+        g.box((0.8 * math.cos(a), 0.8 * math.sin(a), zt + 0.13), (0.34, 0.05, 0.03), M["bleu_machine"], "hard",
+              R=corps.Matrix.Rotation(a, 3, "Z") @ corps.Matrix.Rotation(0.6, 3, "Y"), what="rayon")
+    g.cyl((0, 0, zt + 0.28), "z", 0.62, 0.08, M["fonte_bleue"], n=40, r2=0.5, what="voute")
     # bec de coulée (ouest)
     g.box((-RC - 0.12, 0, 0.88), (0.3, 0.2, 0.08), M["porcelaine_capot"], "hard", what="bec")
     g.box((-RC - 0.12, 0, 0.93), (0.26, 0.1, 0.02), M["emit"], "flat", what="coulee")
@@ -75,17 +83,17 @@ def electrodes(g, c):
     for i, (x, yn, za) in enumerate(ELEC):
         y = Y(yn)
         z0, z1 = 1.25, za + 0.32
-        g.cyl((x, y, (z0 + z1) / 2), "z", 0.1, z1 - z0, M["castiron"], n=16, what="electrode")
+        g.cyl((x, y, (z0 + z1) / 2), "z", 0.13, z1 - z0, M["castiron"], n=16, what="electrode")
         for z in (z0 + 0.3, z0 + 0.65):
-            g.tube_shell((x, y, z), "z", 0.104, 0.09, 0.025, M["steel_hi"], n=16, what="raccord")
-        g.cyl((x, y, z1 + 0.04), "z", 0.1, 0.08, M["castiron"], n=16, r2=0.06, what="bout")
+            g.tube_shell((x, y, z), "z", 0.135, 0.12, 0.025, M["steel_hi"], n=16, what="raccord")
+        g.cyl((x, y, z1 + 0.04), "z", 0.13, 0.08, M["castiron"], n=16, r2=0.08, what="bout")
         g.torus((x, y, 1.34), "z", 0.13, 0.03, M["emit"], n=16, m=6, what="arc")
         g.tube_shell((x, y, 1.3), "z", 0.16, 0.1, 0.05, M["porcelaine"], n=16, what="joint_isolant")
         # bras porte-électrode : poutre bleue, barre de cuivre, pince
         L = yarm - y
         g.box((x, (y + yarm) / 2 + 0.06, za), (0.13, L + 0.12, 0.14), M["bleu_machine"], "hard", what="bras")
-        g.box((x, (y + yarm) / 2 + 0.06, za + 0.085), (0.07, L + 0.1, 0.03), M["copper_pol"], "hard", what="barre")
-        g.tube_shell((x, y, za), "z", 0.17, 0.095, 0.17, M["copper_pol"], n=16, what="pince")
+        g.box((x, (y + yarm) / 2 + 0.06, za + 0.09), (0.11, L + 0.1, 0.04), M["copper_pol"], "hard", what="barre")
+        g.tube_shell((x, y, za), "z", 0.2, 0.125, 0.2, M["copper_pol"], n=16, what="pince")
         for sx in (-1, 1):
             g.bolt((x + sx * 0.12, y - 0.12, za + 0.09), (0, 0, 1), 0.016, M["steel_hi"])
     # éclairs entre les électrodes, au ras du couvercle

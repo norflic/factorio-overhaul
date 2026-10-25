@@ -22,7 +22,7 @@ FOYER = ages.FOYER[15]
 HABILLAGE = dict(ages.CORPS[15], gueule="arche", foyer="noir_profond")
 CYN = 0.3
 PROFIL = ((0.46, 1.7), (0.75, 1.95), (1.15, 2.2), (1.55, 2.45), (1.85, 2.68), (2.0, 2.85))   # (rayon, z) de la vasque
-R_ETOILE, Z_ETOILE = 0.58, 3.0
+R_ETOILE, Z_ETOILE = 0.74, 3.2    # ronde 1 : 0,58 à 3,0 se perdait dans la vasque
 
 
 def matieres(metal, M):
@@ -73,11 +73,14 @@ def griffes(g, c):
     cy = Y(CYN)
     for a_deg in (90.0, 200.0, 250.0, 292.0, 340.0):
         a = math.radians(a_deg)
-        prof = ((1.97, 2.86), (1.82, 3.15), (1.45, 3.45), (1.0, 3.58), (0.68, 3.5), (0.5, 3.3))
+        prof = ((1.97, 2.86), (1.85, 3.2), (1.55, 3.62), (1.1, 3.88), (0.75, 3.85), (0.55, 3.62))
         pts = [corps.V((r * math.cos(a), cy + r * math.sin(a), z)) for r, z in prof]
         P = g.spline(pts, 4)
-        radii = [0.1 - 0.075 * i / (len(P) - 1) for i in range(len(P))]
-        g.tube(P, 0.1, M["or_chauffe"], n=8, radii=radii, what="griffe")
+        radii = [0.15 - 0.11 * i / (len(P) - 1) for i in range(len(P))]
+        g.tube(P, 0.15, M["or_chauffe"], n=8, radii=radii, what="griffe")
+        for i in range(2, len(P) - 4, 3):
+            g.tube_shell(P[i], (P[i + 1] - P[i - 1]).normalized(), radii[i] + 0.02, radii[i] * 0.6, 0.04,
+                         M["noir_profond"], n=10, what="phalange")
         g.tube(P[-5:], 0.03, M["or_blanc_chaud"], n=6, radii=[0.04, 0.035, 0.03, 0.028, 0.025], what="ongle")
         g.dome(pts[0] + corps.V((0, 0, 0.05)), (0, 0, 1), 0.06, M["or_rivet"], n=8)
 

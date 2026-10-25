@@ -102,10 +102,11 @@ def couronne(g, c, cy):
     M = g.M
     z0 = 2.62
     corps.prisme(g, octo(0.6, 0, cy), z0, z0 + 0.12, M["bronze_sombre"], what="collier")
-    cristaux = [(0.0, 0.0, 0.0, 0.85, 0.15, "emit_soft")]
+    # ronde 1 : couronne agrandie (elle se lisait petite sur la coupole)
+    cristaux = [(0.0, 0.0, 0.0, 1.05, 0.2, "emit_soft")]
     for k in range(6):
         a = TAU * k / 6 + 0.3
-        cristaux.append((0.24 * math.cos(a), 0.24 * math.sin(a), 0.42, 0.5 + 0.12 * (k % 3), 0.1,
+        cristaux.append((0.24 * math.cos(a), 0.24 * math.sin(a), 0.45, 0.66 + 0.14 * (k % 3), 0.14,
                          "emit_soft" if k % 3 == 1 else "crystal"))
     for (dx, dy, tilt, h, r, m) in cristaux:
         d = corps.V((math.sin(tilt) * (dx / 0.24 if dx or dy else 0), math.sin(tilt) * (dy / 0.24 if dx or dy else 0),
