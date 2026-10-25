@@ -466,6 +466,21 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lots IA2-a et IA2-a2, chef de faction adaptatif et guerres rééquilibrées, 25/10 nuit ; fusionnés dans `main`, `90f7518`, version 0.4.20)
+Preuves : `fo-logs\2026-10-25_IA2-a\` (`NOTES.md` §5 et A2.5, `moteur\mesures.md`, `a2\`). Expériences : E147 à E150.
+- **F213** : un groupe d'attaque dont l'itinéraire passe d'abord par un point choisi à 56 tuiles de la cible, dans l'un
+  des 8 octants, arrive par ce côté (entropie des côtés 0 → 1,31 à 2,04 bit).
+- **F214** : la défection des membres d'un groupe à sa création (F174) peut être SYSTÉMATIQUE contre une même cible
+  lointaine (332 groupes vidés en 2 h, graine 777, cible à 926 tuiles) ; cause non établie ; parade : attente croissante
+  après un groupe vidé, cible évitée 10 min après 2 de suite (72 restants).
+- **F215** : coût du chef : 0,00015 à 0,00021 ms par tick (une pensée par minute et par faction, environ 0,13 ms).
+- **F216** : un résultat `on_script_path_request_finished` peut arriver pour un PNJ déjà mort ; appeler son entité
+  levait une erreur NON récupérable (partie plantée) ; corrigé : résultat ignoré pour une entité invalide.
+- **F217** (règle du mod) : une faction décimée ne se relevait pas (pistolet de la recrue jamais fabriqué, minage à la
+  main réservé aux ouvriers sans tâche, fonderie détruite jamais reposée) ; corrigé par la « survie ».
+- **F218** : une attaque contre un avant-poste de départ (45 tuiles du QG rival) détruit aussi le QG quand la garnison
+  est tombée ; « la périphérie d'abord » le rend plus rare, pas impossible.
+
 ### Faits vérifiés en moteur réel (lot IA2-0, caractère des factions et mesure de référence, 24/10 au soir ; fusionné dans `main`, `ffa2a57`, version 0.4.19)
 Preuves : `fo-logs\2026-10-25_IA2-0\` (`NOTES.md` §1 à §4, `moteur\mesures.md`). Expériences : E143, E144.
 - **F207** : en `--create` comme en `--benchmark`, `surface.map_gen_settings.seed` lu par script vaut la graine du banc
@@ -922,6 +937,20 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E147 à E150 · Lots IA2-a et IA2-a2, chef adaptatif (25/10 nuit ; choix D-16 ; fusion `90f7518`, version 0.4.20)** :
+`default` 2 h × 4 graines (Paisible), IA2-0 → IA2-a → final : côtés d'arrivée 0 → 1,31 → 1,38 bit ; tailles CV 0,21 →
+0,38 → 0,45 ; distance des décisions entre graines 0,35 → 0,45 → 0,45 ; raids 0 → 58 ; le bâtisseur attaque ; factions
+anéanties sur 16 : 1 → 3 (IA2-a, NON fusionné tel quel) → 1 à 73 min (IA2-a2, satiété du vainqueur, une vague à la fois,
+périphérie d'abord, survie des vaincus) ; attaques entre factions 300 → 165 (moins de guerre). `ia0-normal` × 4 graines :
+1re attaque contre le joueur 29,0 → 23,9 min en moyenne, dans 20 à 32 min sur les 4. Garde-fous : campagne de
+`pvp_test` (ordre strict des niveaux) 0 échec. Sur `main` 0.4.20 (`fo-logs\2026-10-25_integration-0.4.20\`, `done.txt`
+2:13:22 à 2:16:54) : content 317, verif-tourelles 7, ia1-scale 17, pnj-auto 7, ia0-normal 14, pnj-reduit 12 ; hors jeu
+chef 59, pvp 1 037, ia1_scale 115, test_ia2_mesures 42, levels 1 665, api_lint 870. NON prouvé : une seule série de 4
+graines par version (deux versions intermédiaires donnaient 2 anéanties) ; niveaux agressifs en moteur réel
+(`ia0-difficile` non rejoué) ; repérage du joueur sans brouillard ; seuils d'apprentissage (87 % pour 90 %) et de
+changements de dominante (6,25 par heure pour 6) manqués de peu ; le QG équipe recrues et garde sans fabrication :
+choix de jeu à valider par le DC.
+
 **E143, E144 · Lot IA2-0, caractère des factions (24/10 ; choix D-16 : personnalité tirée à chaque partie ; fusion
 `ffa2a57`, version 0.4.19)** : 8 traits par faction tirés de la graine (tirage propre à chaque faction, corrélation 0,01
 entre factions d'une partie) ; les 4 personnalités ne sont plus collées à la couleur (24 répartitions sur 2 400 graines).

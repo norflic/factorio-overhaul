@@ -1,4 +1,25 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.20
+Date: 2026-10-25
+  Features:
+    - Les factions ont un chef : une fois par minute, il choisit sa stratégie (s'étendre, capitaliser, rechercher,
+      fortifier, lever une armée, frapper, harceler par des raids, reconstruire) selon sa situation et son caractère,
+      et se souvient de ce qui a marché.
+    - Les factions ne voient plus tout : elles choisissent leur cible parmi ce que leurs bases et leurs troupes ont
+      vu, et peuvent se tromper sur une défense cachée.
+    - Les attaques entre factions arrivent par des côtés différents ; après un échec, la suivante change de côté,
+      grossit ou vise une autre faction. Raids : de petits groupes de 5 à 10 soldats frappent un avant-poste isolé.
+    - Toutes les factions peuvent attaquer leurs rivales (le bâtisseur restait passif) ; l'ordre de construction
+      varie avec leur caractère et leur stratégie ; /fo-war status montre la stratégie de chaque chef.
+  Changes:
+    - Une faction qui a gagné une bataille consolide un temps avant de revenir ; elle n'envoie pas de nouvelle vague
+      avant l'issue de la précédente, frappe d'abord la périphérie de sa rivale et ne s'en prend à un QG nu que par
+      rancune.
+    - Une faction décimée se reconstruit : son QG équipe des recrues et une garde avec les plaques du stock, ses
+      survivants minent à la main et reposent sa fonderie.
+  Bugfixes:
+    - Un PNJ mort pendant le calcul de son chemin pouvait faire planter la partie.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.19
 Date: 2026-10-24
   Changes:
