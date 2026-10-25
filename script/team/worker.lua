@@ -203,6 +203,41 @@ function Worker.program(f, task, surface, tick)
       Sites.mark_unreachable(site, tick)
       return nil
     end
+    -- Lot IA1-b2 (D-18, décision de l'orchestrateur), votre équipe : sans tourelle possible, aucun site au-delà de
+    -- T.site_max_noturret tuiles ; et un site dont le CHEMIN (segment depuis le QG, un point tous les 32 tuiles) passe à
+    -- moins de Worker.DANGER_RADIUS tuiles d'un nid ou d'un ver est écarté (graine 314159265 : sites à 585 tuiles derrière
+    -- une ceinture de vers, 4 constructeurs tués vers 425 tuiles). Les vers des chunks pas encore générés ne se voient
+    -- pas : la limite de distance couvre ce cas.
+    if f.is_player then
+      local force = game.forces[f.force]
+      local rec = force and force.recipes and force.recipes["gun-turret"]
+      local turret_ok = f.hq.get_item_count("gun-turret") > 0 or (rec ~= nil and rec.enabled)
+      local d2 = dist2(site, f.hq_pos)
+      local bad = (not turret_ok) and d2 > T.site_max_noturret * T.site_max_noturret
+      if not bad then
+        local d = math.sqrt(d2)
+        local steps = math.floor(d / 32)
+        for k = 1, steps do
+          local q = { x = f.hq_pos.x + (site.x - f.hq_pos.x) * k / (steps + 1), y = f.hq_pos.y + (site.y - f.hq_pos.y) * k / (steps + 1) }
+          if surface.count_entities_filtered({ position = q, radius = Worker.DANGER_RADIUS, force = "enemy",
+            type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+            bad = true
+            break
+          end
+        end
+      end
+      if bad then
+        Sites.mark_unreachable(site, tick)
+        f.stats.site_refused = (f.stats.site_refused or 0) + 1
+        return nil
+      end
+      -- Prudence par zone : un site près d'une perte récente attend (rendu à la réserve).
+      if Poles.near_loss(f, site, tick) then
+        f.prospects = f.prospects or {}
+        if Sites.room_for(f, site.resource) then table.insert(f.prospects, 1, site) end
+        return nil
+      end
+    end
     Sites.claim(f, site)
     task.site = site
     return { { "home" }, { "take", task.items, strict = true }, { "goto", site, 5 }, { "act", "build" }, { "home" } }
@@ -287,6 +322,8 @@ function Worker.program(f, task, surface, tick)
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end
+      -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
+      if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
     end
     if not best then return nil end

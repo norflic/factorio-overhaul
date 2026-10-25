@@ -115,7 +115,9 @@ T.lethal_need = 50
 -- côtés, l'attaque d'une faction vise le côté le moins défendu, IA2-c).
 T.defend_hq = 4
 T.defend_iron_floor = 150
-T.defend_copper_floor = 30 -- 6 pistols de recrues
+T.defend_copper_floor = 30 -- 6 pistolets de recrues
+-- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
+T.site_max_noturret = 300
 -- R-QCM-25c (b) : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au coffre : un quart de
 -- l'équipe, au moins 2, au plus 6 (gardes de T.guard_ticks, relevées ; priorité T.guard_prio, au-dessus des tournées).
 T.guard_prio = 85

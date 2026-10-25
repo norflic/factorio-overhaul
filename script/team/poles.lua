@@ -282,9 +282,12 @@ function Poles.think(f, view, book, tick, plan)
         type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         danger[o.id] = true
       end
+      -- Lot IA1-b2 : votre équipe, avant-poste près d'une perte récente : pas de fond vers lui (prudence par zone).
+      if pos and f.is_player and Poles.near_loss(f, pos, tick) then danger[o.id] = true end
     end
   end
   local prudent = Poles.prudent(org, tick)
+  if f.is_player then prudent = false end -- prudence par zone (Poles.near_loss), plus de repli de toute l'équipe
   if prudent then st.prudent_thinks = (st.prudent_thinks or 0) + 1 end
   -- Le fond sert les PNJ AU-DELÀ DE L'EFFECTIF DE DÉPART (fo-npc-start, 8 ; f.team.floor) : une équipe restée à son
   -- effectif de départ garde le comportement d'avant IA1-b (aucune sortie de fond). Moteur réel, verif-guide graine
@@ -602,6 +605,13 @@ Registry.on_removed(function(agent)
   org.losses = org.losses or {}
   org.losses[#org.losses + 1] = game.tick
   while #org.losses > 8 do table.remove(org.losses, 1) end
+  -- Lot IA1-b2 : lieu de la perte (prudence PAR ZONE de votre équipe, Poles.near_loss).
+  local p = agent.death_pos
+  if p then
+    org.loss_pos = org.loss_pos or {}
+    org.loss_pos[#org.loss_pos + 1] = { x = p.x, y = p.y, tick = game.tick }
+    while #org.loss_pos > 8 do table.remove(org.loss_pos, 1) end
+  end
   if agent.org.role == "generalist" and org.vacancy_since == nil then org.vacancy_since = game.tick end
 end)
 
@@ -619,6 +629,23 @@ function Poles.prudent(org, tick)
     if tick - l[i] < Poles.PRUDENCE_TICKS then n = n + 1 else break end
   end
   return n >= Poles.PRUDENCE_LOSSES
+end
+
+--- Lot IA1-b2 (D-18, décision de l'orchestrateur) : prudence PAR ZONE pour votre équipe. Au lieu de garder toute
+--- l'équipe au QG 5 min après 2 pertes (ia1-poles : 20 à 22 PNJ sur 27 y attendaient), seul le travail de fond qui
+--- mène à moins de Poles.LOSS_RADIUS tuiles du lieu d'une perte récente (Poles.PRUDENCE_TICKS) est écarté.
+Poles.LOSS_RADIUS = 64
+function Poles.near_loss(f, pos, tick)
+  local org = f.team and f.team.org
+  if not (org and org.loss_pos and pos) then return false end
+  local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
+  for _, p in ipairs(org.loss_pos) do
+    if tick - p.tick < Poles.PRUDENCE_TICKS then
+      local dx, dy = p.x - pos.x, p.y - pos.y
+      if dx * dx + dy * dy <= r2 then return true end
+    end
+  end
+  return false
 end
 
 --- État publié pour les bancs (interface distante « fo-ia1 », team_status) : aucune fonction, aucun objet du moteur.
