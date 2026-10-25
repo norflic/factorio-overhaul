@@ -50,6 +50,9 @@ require("script.levels.panel")
 -- Modules multiplicatifs (lot MOD-1, D-15) : balise cachée de complément par machine, balayage tournant
 require("script.modules.mult")
 
+-- Interface de gestion en jeu « Équipe et factions » (lot IA1-i) : raccourci, touche Maj + T, onglets
+require("script.gui.team_window")
+
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
 
