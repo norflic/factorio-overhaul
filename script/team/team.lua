@@ -268,9 +268,14 @@ function Team.view(f, tick)
   -- (minage à la main de fond, plafonné ; garde) compte comme disponible ; un PNJ qui agrandit, bâtit, fond le minerai ou
   -- fabrique la réserve TRAVAILLE : quand tous travaillent, une recrue vient (le stock la paie toujours).
   local defend_first = f.is_player or T.defend_first_factions or false
+  -- « Défendre d'abord, puis grandir » : la croissance (frein levé par le travail qui attend) ne vaut que pour une équipe
+  -- QUI PEUT POSER DES TOURELLES (au coffre ou fabricables). Essai 5 du lot, verif-guide graine 1618033988, sans
+  -- recherche : votre équipe à 10 PNJ et 6 avant-postes à 8 min, coffre détruit à 17 min (main : 4 avant-postes, vivante).
+  local stock0 = stock_of(f)
+  local grow = defend_first and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
   local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
-    local soft = t.fond and (not defend_first or t.kind == "mine" or t.kind == "garrison")
+    local soft = t.fond and (not grow or t.kind == "mine" or t.kind == "garrison")
     if t.worker and soft then on_fond = on_fond + 1 end
     -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
     if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
@@ -285,7 +290,7 @@ function Team.view(f, tick)
   -- Lot IA1-b2 (« Laisser grandir », D-16 « pas de recrue sans travail » gardé) : sous « défendre d'abord », du travail
   -- qui attend au-delà des bras libres lève le frein (un PNJ entre deux tâches à l'instant de la pensée retenait sinon
   -- toute recrue : votre équipe restait à 8 PNJ toute la partie du guide).
-  if recruit_held and defend_first and backlog > workers_idle + on_fond then recruit_held = false end
+  if recruit_held and grow and backlog > workers_idle + on_fond then recruit_held = false end
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
