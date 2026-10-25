@@ -466,6 +466,19 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-b, pôles, managers, généralistes, 25/10 matin ; fusionné dans `main`, `f33cfbb`, version 0.4.26)
+Preuves : `fo-logs\2026-10-25_IA1-b\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E164, E165.
+- **F239** (mesure) : des PNJ au travail hors du QG meurent bien plus que des PNJ inactifs au QG : `ia1b-scale`, 60 min,
+  5 équipes : 107 à 117 agents tués par les ennemis (mordeurs, cracheurs, vers) à 30 PNJ, 46 à 72 à 10, contre 12 et 13
+  sur 0.4.25 (même carte, même graine). Attribution aux gardes d'avant-postes RÉFUTÉE (150 morts sans elles) ; part de
+  la pollution des foreuses ajoutées : non mesurée.
+- **F240** : même carte, même code : mêmes décisions d'organisation et mêmes chiffres (`ia1-poles`, `ia1b-scale30`) ;
+  confirme F238 pour IA1-b.
+- **F241** : le travail de fond d'une équipe à son effectif de départ peut la perdre (`verif-guide`, graine 1618033988 :
+  fer du coffre de 8 à 200 de 12 à 36 min, PNJ perdus dès 18 min, coffre détruit entre 21 et 38 min, 3 essais sur 4) ;
+  sans fond à l'effectif de départ : 8 PNJ et 1 500 fer à 59 min. Cause exacte non isolée. D'où la règle : le fond ne
+  sert que les PNJ AU-DELÀ de l'effectif de départ.
+
 ### Faits vérifiés en moteur réel (lot IA1-e1, solveur de débits et diagnostic, 25/10 matin ; fusionné dans `main`, `e64ab49`, sans changement du jeu)
 Preuves : `fo-logs\2026-10-25_IA1-e1\` (`NOTES.md` §2, §3, §5, `INTEGRATION.md`). Expériences : E166, E167.
 - **F242** : `LuaFlowStatistics.get_flow_count{precision_index = ten_minutes}` (moyenne par minute) lit 0,3 à 0,4 %
@@ -1009,6 +1022,24 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E164, E165 · Lot IA1-b, pôles, managers, généralistes (25/10 de 6 h 50 à 8 h 20 ; fusion `f33cfbb`, version 0.4.26)** :
+le modèle `org.lua` branché sur l'équipe vivante (pôles Extraction, Base, Territoire ; changements de pôle appliqués en
+fin de tâche ; promotion après 2 min de vacance ; meneurs ; rapports d'une ligne) ; travail de FOND (`shared/team/fond.lua` :
+agrandir les avant-postes, construire sur un site connu, fondre, miner à la main sous plafond, réserve de foreuses et de
+fours, garde) avec garde-fous (fond au-delà de l'effectif de départ seulement, rien sans les objets du cerveau, nids et vers
+à moins de 40 tuiles écartés, prudence 5 min après des pertes, PNJ au fond comptés disponibles par le frein) ; jetons
+globaux (`script/team/tokens.lua`, jamais saturés) ; interface v0 `/fo-team org`, `vue`, `orientation`. **E164**
+(`ia1-poles`) : équipe occupée 94,6 % ; crise 15 → 19 à l'extraction en 2 pensées ; orientation à 1 près en 2 pensées ;
+0 tâche interrompue ; au pire 2 changements de pôle par PNJ et par heure. **E165** (30 contre 10, même carte, même
+financement, MU en 60 min) : 0.4.25 95 338 contre 98 187 (0,97) ; lot sans garde-fous 156 096 contre 129 703 (1,20, mais
+votre équipe détruite dans la partie du guide 3 essais sur 4 : abandonné) ; lot final 145 914 contre 153 446 (**0,95 :
+OBJECTIF « 30 livrent plus que 10 » NON ATTEINT**) ; production +53 % à 30, +56 % à 10 ; tués par les ennemis 107 et 46
+contre 12 et 13 (F239). Causes : travail utile encore insuffisant (factions à 30 inactives 27 à 62 % du temps) ; PNJ
+sortis qui meurent. Sur `main` 0.4.26 (`fo-logs\2026-10-25_integration-0.4.26\`) : content 331, verif-guide 15 et 15, pnj-auto 7, pnj-reduit 12, ia0-normal 14, ia1-scale 17, ia1-poles 17, ia1b-migration 19, ia1-diag 27, ia1-modules 136, ia2c-cotes 8 (`done.txt` 8:26:23 à 8:44:37), 0 erreur ; hors jeu pvp 1305, chef 62, war 105, pteam 32, org 365, ia1b 50, ia1_scale 115, ia1_modules 1018, ia1_production 101, levels 1664 ; api_lint 1009.
+NON prouvé : 85 % d'occupation pour les factions à 30 ; valeur défensive des gardes (23 % du temps) ; exécutants
+nommés (seul le meneur) ; interface jamais regardée en capture ; dans une partie PAR DÉFAUT (8 PNJ de départ), le fond
+est inactif : le lot n'y change pas le travail des PNJ.
+
 **E166, E167 · Lot IA1-e1, solveur de débits et diagnostic (25/10 de 6 h 55 à 7 h 10 ; fusion `e64ab49`, jeu inchangé)** :
 `shared/team/production.lua` (Lua pur) lit les VRAIES recettes (livre du harness, 782 recettes dont 500 lots ; niveaux,
 modules multipliés, plafond de 60/s levé par les lots ; énergie fermée par le charbon) ; diagnostic (manque de capacité,

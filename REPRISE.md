@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 8 h 45 (le DC est réveillé ; bilan de la nuit envoyé)** : IA1-b fusionné (`f33cfbb`, **version 0.4.26**),
+> 12 bancs en moteur réel verts sur main (`fo-logs` integration-0.4.26), documenté ; objectif « 30 livrent plus que 10 »
+> NON atteint (0,95), morts × 9 hors du QG (F239). X2 (terres rares de l'âge 12) LIVRÉ NON FUSIONNÉ (branche
+> worktree-agent-a94df9d4c17247154 ; commit intégrateur séparé `71eed72`) : en attente de la mesure de mémoire vidéo au
+> plancher (agent relancé) ET de la question 11 du DC (prix du centre +26 à +84 %). Page du matin : 11 questions.
 > **Point de 7 h 20** : IA1-e1 fusionné (`e64ab49`, jeu inchangé : solveur pur et banc `ia1-diag` 27 OK sur main,
 > documents `cf5cce3`, BALANCE_SHEET : plastique 1,3 contre 3 MU non tranché). En cours : IA1-b (worktree), X2 (ressources
 > de l'âge 12, terres rares, au modèle de X1 + petite usine sans script exigée ; F245 à F247, E168, E169).
