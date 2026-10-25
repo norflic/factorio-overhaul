@@ -87,12 +87,14 @@ end
 
 local function extraction(view, free, ctx, out)
   local keys = ctx.keys or {}
+  -- Prudence (pertes récentes de PNJ, script/team/poles.lua) : rien hors du QG ; seule la fonderie du QG reste.
+  local prudent = ctx.prudent
   -- 1. Agrandir (le plus ancien avant-poste d'abord).
   local extendable = {}
   local danger = ctx.danger or {}
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
-    if not o.full and room > 0 and not danger[o.id] then
+    if not o.full and room > 0 and not danger[o.id] and not prudent then
       extendable[o.kind] = true
       local key = "extend:" .. o.id
       local items = F.pair_items(o.kind, math.min(F.PAIRS, room))
@@ -107,7 +109,7 @@ local function extraction(view, free, ctx, out)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local key = "build:" .. kind
     local items = F.pair_items(kind, math.min(F.PAIRS, T.outposts[kind].drills))
-    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not keys[key] and has(free, items) then
+    if not prudent and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not keys[key] and has(free, items) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
@@ -129,7 +131,7 @@ local function extraction(view, free, ctx, out)
     end
   end
   -- 4. Miner à la main (plafond du travail manuel, §4.5) : la ressource la plus en manque d'abord, puis à tour de rôle.
-  local left = ctx.mine_left or 0
+  local left = prudent and 0 or (ctx.mine_left or 0)
   if left > 0 then
     local list = {}
     for i, m in ipairs(F.MINE_TARGETS) do
@@ -221,7 +223,7 @@ local function territory(view, ctx, out)
   local posts = { "hq" }
   local danger = ctx.danger or {}
   for _, o in ipairs(view.outposts or {}) do
-    if not danger[o.id] then posts[#posts + 1] = o.id end
+    if not danger[o.id] and not ctx.prudent then posts[#posts + 1] = o.id end
   end
   for k = 1, F.GARRISON_PER_POST do
     for _, p in ipairs(posts) do

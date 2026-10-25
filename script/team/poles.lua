@@ -268,8 +268,10 @@ function Poles.think(f, view, book, tick)
       end
     end
   end
+  local prudent = Poles.prudent(org, tick)
+  if prudent then st.prudent_thinks = (st.prudent_thinks or 0) + 1 end
   local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-    mine_left = math.max(0, mine_cap - mine_fond_busy) })
+    prudent = prudent, mine_left = math.max(0, mine_cap - mine_fond_busy) })
   local room_now = {}
   for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end
   -- Capacité LISSÉE : le maximum des ROOM_WINDOW dernières pensées (5 min). Essai 4 du banc : la capacité instantanée
@@ -540,12 +542,32 @@ end)
 -- Disparition d'un généraliste : la promotion attend 2 min (O.PROMOTION_DELAY), sauf croissance
 ---------------------------------------------------------------------------------------------------
 Registry.on_removed(function(agent)
-  if not (agent.faction and agent.org and agent.org.role == "generalist") then return end
+  if not (agent.faction and agent.org) then return end
   local f = State.faction(agent.faction)
   if not (f and f.team) then return end
   local org = Poles.state(f)
-  if org.vacancy_since == nil then org.vacancy_since = game.tick end
+  -- Prudence : dates des dernières pertes de PNJ de l'équipe.
+  org.losses = org.losses or {}
+  org.losses[#org.losses + 1] = game.tick
+  while #org.losses > 8 do table.remove(org.losses, 1) end
+  if agent.org.role == "generalist" and org.vacancy_since == nil then org.vacancy_since = game.tick end
 end)
+
+--- PRUDENCE (lot IA1-b) : au moins PRUDENCE_LOSSES PNJ perdus dans les PRUDENCE_TICKS dernières, le fond ne sort plus
+--- du QG (ni minage, ni agrandissement, ni construction, ni garde d'avant-poste) jusqu'à PRUDENCE_TICKS après la
+--- dernière perte. Moteur réel, verif-guide graine 1618033988 : votre équipe sortie au fond y perdait ses PNJ (1 PNJ
+--- et 67 fer à 59 min, contre 8 PNJ et 2 100 fer avant le lot), les recrues de survie vidant le coffre.
+Poles.PRUDENCE_LOSSES = 2
+Poles.PRUDENCE_TICKS = 5 * 3600
+
+function Poles.prudent(org, tick)
+  local l = org.losses or {}
+  local n = 0
+  for i = #l, 1, -1 do
+    if tick - l[i] < Poles.PRUDENCE_TICKS then n = n + 1 else break end
+  end
+  return n >= Poles.PRUDENCE_LOSSES
+end
 
 --- État publié pour les bancs (interface distante « fo-ia1 », team_status) : aucune fonction, aucun objet du moteur.
 function Poles.status(f)

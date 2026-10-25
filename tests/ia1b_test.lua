@@ -170,6 +170,21 @@ do
     sites = { copper = 1 } })
   check(p == (T.max_drills("iron") - 8) + T.outposts.copper.drills, "potentiel : " .. p)
 end
+do
+  -- Danger (nid ou ver près d'un avant-poste) et prudence (pertes récentes) : le fond ne sort plus du QG.
+  local v = view({ outposts = { { id = 1, kind = "iron", drills = 8 }, { id = 2, kind = "coal", drills = 4 } }, sites = { stone = 1 },
+    smelters = 1, stock = { ["burner-mining-drill"] = 20, ["stone-furnace"] = 20, ["iron-chest"] = 10, coal = 500, ["iron-ore"] = 50 } })
+  local cd = Fond.candidates(v, Fond.free_stock(v.stock, {}), { book = book, keys = {}, mine_left = 2, danger = { [1] = true } })
+  local ext1, garde1 = false, false
+  for _, t in ipairs(cd.extraction) do if t.kind == "extend" and t.outpost == 1 then ext1 = true end end
+  for _, t in ipairs(cd.territoire) do if t.post == 1 then garde1 = true end end
+  check(not ext1 and not garde1, "avant-poste dangereux : ni agrandissement ni garde de fond")
+  local cp = Fond.candidates(v, Fond.free_stock(v.stock, {}), { book = book, keys = {}, mine_left = 5, prudent = true })
+  local out_of_hq = 0
+  for _, t in ipairs(cp.extraction) do if t.kind ~= "smelt" then out_of_hq = out_of_hq + 1 end end
+  check(out_of_hq == 0, "prudence : le fond d'extraction ne garde que la fonderie du QG")
+  check(#cp.territoire == 1 and cp.territoire[1].post == "hq", "prudence : seule la garde du QG")
+end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
