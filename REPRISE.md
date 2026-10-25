@@ -15,6 +15,11 @@
 > NON atteint (0,95), morts × 9 hors du QG (F239). X2 (terres rares de l'âge 12) LIVRÉ NON FUSIONNÉ (branche
 > worktree-agent-a94df9d4c17247154 ; commit intégrateur séparé `71eed72`) : en attente de la mesure de mémoire vidéo au
 > plancher (agent relancé) ET de la question 11 du DC (prix du centre +26 à +84 %). Page du matin : 11 questions.
+> **9 h** : mémoire vidéo de X2 MESURÉE (`d4-geant --measure`, 4 passages) : plancher 12 pages sur 12 comme main, compteur
+> 0,42 Go comme main, jeu chargé ; atlas du terrain +1,2 Mpx ; l'atlas [icon] de la qualité normale perd
+> `linear-mip-level` (F125, toléré). Le biome et la monazite changent la génération de toute la carte : les chiffres des bancs
+> de durée (`ia0-normal`, `ia1-scale`) cités comme référence sont à refaire après la fusion (BILAN inchangés). X2 n'attend
+> plus que la réponse du DC à la question 11. Aucun agent ne tourne ; en attente des réponses du DC (questions 1 à 11).
 > **Point de 7 h 20** : IA1-e1 fusionné (`e64ab49`, jeu inchangé : solveur pur et banc `ia1-diag` 27 OK sur main,
 > documents `cf5cce3`, BALANCE_SHEET : plastique 1,3 contre 3 MU non tranché). En cours : IA1-b (worktree), X2 (ressources
 > de l'âge 12, terres rares, au modèle de X1 + petite usine sans script exigée ; F245 à F247, E168, E169).
