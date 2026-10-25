@@ -77,6 +77,7 @@ function C.situation(view, st, ctx)
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     sites = view.sites or {}, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
+    at_war = ctx.at_war or view.threatened or false,
   }
 end
 

@@ -40,6 +40,7 @@ Ia3.SETTING = "fo-war-ia3-cerveau"
 Ia3.LAB_WINDOW_S = 600      -- un laboratoire de plus quand il reste plus de 10 min de laboratoire (§5.2, M12)
 Ia3.LABS_MAX = 3
 Ia3.PACK_BATCH = 30         -- packs d'une sorte demandés à la fois (comme IA3-a)
+Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la recherche suivante démarre sans attendre)
 Ia3.REACH_RADII = { 48, 96, 160, 250 }
 Ia3.REACH_EVERY = 12        -- gisements atteignables relus toutes les 12 pensées (1 min)
 Ia3.LAB_OFFSETS = { { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }
@@ -439,11 +440,21 @@ local function research_step(f, st, book, w, tick, view)
     end
     force.research_progress = lab.units / spec.count
   end
-  -- Packs encore à fabriquer pour la technologie en cours (net du coffre et des fabrications en cours).
+  -- Packs encore à fabriquer pour la technologie en cours (net du coffre et des fabrications en cours), plus une RÉSERVE
+  -- de Ia3.PACK_RESERVE packs de chaque sorte que la force sait faire et PAYER (un joueur garde quelques packs de chaque
+  -- couleur pour les recherches suivantes : la file des laboratoires ne s'arrête pas à chaque technologie ; jamais un
+  -- pack impayable, K6).
   local units_left = math.ceil(spec.count - lab.paid)
-  for _, ing in ipairs(spec.ing) do
-    local need = units_left * ing[2] - (view.stock[ing[1]] or 0) - ((view.incoming or {})[ing[1]] or 0)
-    if need > 0 then info.packs[#info.packs + 1] = { ing[1], math.min(Ia3.PACK_BATCH, need) } end
+  local want = {}
+  for _, ing in ipairs(spec.ing) do want[ing[1]] = units_left * ing[2] end
+  for _, pack in ipairs(c.pack_list) do
+    if book:handcraftable(pack) and A.level_status(book, { { pack, 1 } }, obtainable) then
+      want[pack] = math.max(want[pack] or 0, Ia3.PACK_RESERVE)
+    end
+  end
+  for _, pack in ipairs(sorted_keys(want)) do
+    local need = want[pack] - (view.stock[pack] or 0) - ((view.incoming or {})[pack] or 0)
+    if need > 0 then info.packs[#info.packs + 1] = { pack, math.min(Ia3.PACK_BATCH, need) } end
   end
   return info
 end
@@ -497,8 +508,12 @@ function Ia3.plan(f, view, book, surface, tick)
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
   end
+  -- En guerre : déclarée au joueur (PvP), ou posture guerrière dominante du chef (IA2-a).
+  local dom = f.chef and f.chef.mix and f.chef.mix[1] and f.chef.mix[1].key
+  local at_war = (f.pvp and f.pvp.declared) or dom == "assaut" or dom == "armee" or dom == "raids" or false
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
-    reach = reach_of(f, st, tick), mines_open = mines_open, iron_floor = iron_floor, army_target = army_target }
+    reach = reach_of(f, st, tick), mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
+    at_war = at_war and true or false }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")

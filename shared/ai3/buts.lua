@@ -60,7 +60,9 @@ B.RESEARCH = 62
 B.RESEARCH_PALIER = 14 -- la technologie suivante ouvre un pack (« la recherche vaut ce qu'elle débloque », H9)
 B.ARMY_FIRST = 58      -- les 10 premiers soldats (ancienne marche « army »)
 B.ARMY_FIRST_N = 10
-B.ARMY_MORE = 40
+B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'objectif courant à 50)
+B.ARMY_WAR_PCT = 150   -- en guerre : × 1,5 (pvp_test allumé, essai 2 : sans cette règle, Difficile et Impitoyable
+                       -- n'attaquaient pas plus que Normal, ordre strict perdu : 2 < 3 = 3 attaques)
 -- Besoin prévu d'une matière brute (horizon) : au-delà de SAT_FACTOR fois ce besoin, plus aucune extraction n'est
 -- bâtie ni faite au fond (constat du DC). Un plancher évite qu'un besoin nul sature tout.
 B.NEED_FLOOR = 100
@@ -182,14 +184,16 @@ function B.generate(s, st)
       value = val(B.RESEARCH + (r.palier and B.RESEARCH_PALIER or 0), w.recherche) }
   end
   -- Armée (factions).
+  -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.
   if not s.is_player and (s.soldiers_max or 0) > 0 then
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
+    local war = s.at_war and B.ARMY_WAR_PCT or 100
     if (s.soldiers or 0) < first then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
-        value = val(B.ARMY_FIRST, w.armee), permanent = true }
+        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true }
     elseif (s.soldiers or 0) < (s.army_target or 0) then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
-        value = val(B.ARMY_MORE, w.armee), permanent = true }
+        value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }
     end
   end
   table.sort(goals, function(a, b)
