@@ -5,7 +5,49 @@ rien n'est branché dans le jeu.
 
 ## 0. En bref
 
-À ÉCRIRE
+**Ce que le cerveau actuel fait mal, et pourquoi** (chiffres d'IA3-DIAG, 6 parties de 2 h en moteur réel) :
+1. Il suit une **échelle écrite à la main** (17 marches, une à la fois) : la recherche est la 8e marche, en priorité 40
+   sous l'armée et les recrues, donc R3 arrive à 46 à 52 min au lieu de 12 à 36 possibles ; un gisement introuvable
+   bloque toute la file jusqu'à 12 min.
+2. Il ne sait pas qu'une recherche est **impayable** : 27 à 37 PNJ-minutes de packs jetés par faction pour une
+   recherche 4 sans pétrole.
+3. Ses PNJ sont **enfermés dans leur pôle** : 32 à 72 % d'inactifs au début, et dans 42 à 115 minutes sur 119, des PNJ
+   attendent au QG pendant que des tâches attendent au tableau.
+4. Rien n'est **réservé** d'une pensée à l'autre : 3 à 50 fois par équipe et par partie, un PNJ arrive au coffre et ce
+   qu'on lui avait promis n'y est plus (la trace mesurée de « l'arrachage »).
+5. Il **porte au lieu d'automatiser** (41 à 58 % du travail en tournées), **ne cherche jamais le pétrole**, et prospecte
+   **sans brouillard**.
+6. Les factions **ne paient pas la vraie recherche** : 290 packs pour des technologies qui en coûtent 6 415, dont une
+   (`military-3`) qui exige le pétrole (mesuré par le prototype, §3.8).
+
+**La conception (dix lignes)** :
+1. Le **chef** (IA2, gardé) fixe le cap une fois par minute : des POIDS par famille de buts selon le caractère.
+2. Des **générateurs de buts** (recherche, armée, défense, extraction au goulot, capital, exploration, réserve) lisent
+   l'état et les données ; plus d'échelle (§3.1).
+3. Chaque but se **déplie** sur le graphe recettes-technologies-machines-ressources par SIX méthodes génériques
+   (prendre, main, machine, extraire, explorer, rechercher) : aucune règle par bâtiment (§3.2, prototype : 0 nom du jeu
+   dans le code).
+4. Un but **impayable** n'émet que ce qui ouvre la voie (explorer, rechercher) : plus de fabrication jetée (H8).
+5. Les buts deviennent des **projets** qui durent, 2 à 10 en parallèle selon l'effectif ; un projet bloqué ne bloque
+   personne ; le chemin critique passe devant (§3.5).
+6. Un **registre** réserve la matière de chaque projet : prise stricte, préemption réglée et dite (§2.2).
+7. Une **place de marché** : tout PNJ libre prend la tâche la plus utile qu'il sait faire ; le rôle oriente (+20 %),
+   n'interdit plus (§2.3).
+8. Le **solveur** d'IA1-e1 tranche fabriquer à la main, automatiser, agrandir, améliorer, construire ailleurs au retour
+   sur investissement (§3.4).
+9. Les **expéditions** évaluent la sécurité sur la carte vue, s'équipent (tourelles, munitions, grenades, escorte),
+   posent leurs tourelles au contact, ou attendent ; le pétrole en est le premier cas (§4).
+10. Tout est **déterministe**, découpé par phases (≤ 2 ms par tick en pointe, ≈ 0,1 ms en moyenne estimés), le même
+    de l'âge 1 à l'âge 15 (§5).
+
+**Plan** : 10 lots (§6), dont 3 jours de lots rapides (fondations, recherche d'abord, personne n'attend, effectif 8)
+puis le nouveau cerveau, l'automatisation (avec IA1-d), l'exploration, les expéditions, le pétrole (palier 4 en
+120 min ou moins) et les âges. 17 à 21 jours d'agents au total. Risque majeur : le plan directeur IA1-d (construction
+automatisée à l'échelle) n'est pas prouvé ; tout ce qui suit l'automatisation en dépend.
+
+**Sommaire** : §1 le joueur (H1 à H12) · §2 le groupe · §3 l'algorithme · §4 les expéditions · §5 intégration,
+déterminisme, budget, migration, fenêtre · §6 lots et critères (K1 à K11) · §7 prototypes et ce qui n'est pas vérifié.
+Résumé pour le DC : `fo-logs\2026-10-25_IA3\RESUME_DC.md`.
 
 ## 1. Comment un joueur humain pense à Factorio, en règles calculables
 
@@ -819,4 +861,42 @@ rapides (0, a, b, d) qui donnent les premiers effets visibles.
 
 ## 7. Prototypes et tests hors jeu de la conception
 
-À ÉCRIRE
+Aucun de ces fichiers n'est chargé par le jeu (aucun `require` depuis `control.lua`, `data.lua` ou `script/`). Ils
+prouvent que les idées incertaines tiennent, sur les vraies données.
+
+| Fichier | Rôle | Test (lua5.2, depuis la racine du mod) | Résultat (25/10) |
+|---|---|---|---|
+| `shared/ai3/graphe.lua` | dépliage générique, six méthodes, points fixes, règle H8 | `lua5.2 tests/ai3_graphe_test.lua` | **31 OK** |
+| `shared/ai3/registre.lua` | réservations, prise stricte, préemption réglée | `lua5.2 tests/ai3_groupe_test.lua` | **24 OK** (avec le marché) |
+| `shared/ai3/marche.lua` | score, attribution gloutonne, anti-ruée, règle des pôles pour comparaison | idem | idem |
+| `shared/ai3/expedition.lua` | risque, bandes, équipement tiré du catalogue | `lua5.2 tests/ai3_expedition_test.lua` | **15 OK** |
+| `tests/ai3_gen_tech.lua` | génère `tests/fixtures/tech_ai3.lua` (183 technologies vanilla, infinies omises) | `lua5.2 tests/ai3_gen_tech.lua "<racine>/data" tests/fixtures/tech_ai3.lua` | 183 écrites |
+| `tests/fixtures/entities_ai3.lua` | bouchon des prototypes d'entités (catégories, énergie) et pseudo-recettes (chaudière, générateur) | — | — |
+
+**Résultats chiffrés** (expériences proposées à l'intégrateur : **E178** prototype du dépliage et coût réel de la
+recherche des factions ; **E179** jouet « pôles contre marché ») :
+- généricité : 825 noms d'objets, de bâtiments et de ressources cherchés dans le code du dépliage : 0 ;
+- chemin vers le pack chimique déduit des données (§3.2) ; sans pétrole connu : exploration et recherches seulement ;
+- niveaux 0 à 3 des factions : 290 packs payés pour 6 415 de coût réel ; `military-3` exige le pack chimique (§3.8) ;
+- registre : 20 000 opérations tirées, 0 violation, état identique sur 2 passages ;
+- marché : 1 000 tableaux tirés, 0 PNJ libre laissé sans tâche faisable ; jouet à 8 PNJ (3 extraction, 3 base,
+  2 territoire ; 70 % du travail à la base, comme les packs et les fabrications d'IA3-DIAG ; 600 pas) : règle des
+  pôles **35 % d'inactifs pendant que du travail attend**, 778 tâches faites, 202 en retard ; place de marché
+  **0 %**, 980 faites, 0 en retard ;
+- expédition : l'exemple du pétrole (risque 600, escorté, « préparer » sans les 8 soldats) ;
+- coût hors jeu : points fixes 4,9 à 5,6 ms, dépliage 1,0 à 1,5 ms (273 recettes, 183 technologies).
+
+**Ce qui n'est PAS vérifié** :
+- rien n'a tourné en moteur réel ; aucun chiffre de durée de partie n'est prédit par ces prototypes ;
+- le jouet du marché n'est pas le jeu : il montre le mécanisme (pas d'attente quand du travail existe), pas le gain en
+  minutes de recherche ;
+- la fixture des entités est copiée à la main (17 machines) ; les technologies du mod (`fo-…`) ne sont pas dans la
+  fixture ; « recette active au départ » est déduit (recette qu'aucune technologie ne débloque) : en jeu, on lira
+  `force.recipes[nom].enabled` ;
+- poteaux électriques, tuyaux, tapis et débits des fluides ne sont pas modélisés par le dépliage (plan directeur et
+  solveur) ;
+- le coût de choix du prototype est simplifié (durée de recette et surcoûts) ; la version en jeu compte travail,
+  matière et risque (§3.3) ;
+- les étapes du dépliage ne sont pas encore regroupées en tâches (369 étapes pour le pack chimique, dont beaucoup de
+  petites extractions et fontes répétées) ;
+- faits moteur : aucun nouveau (F269 à F275 restent libres pour IA3-0 ; E180 et E181 y sont prévus).
