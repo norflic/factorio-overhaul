@@ -158,7 +158,7 @@ def socle(g, c):
         for j in range(3):
             a = 1.0 + j * 1.6
             F.lump(g, (x + 0.42 * math.cos(a), y + 0.4 * math.sin(a), 0.0), 0.07, M["pierre_claire"], sz=0.6)
-        liaison(g, [(x - sx * 0.2, y - 0.3, 0.12), (x * 0.66, Y(p["yn"] * 0.6), c.gradins[1][3] + 0.1),
+        liaison(g, [(x - sx * 0.2, y - 0.3, 0.04), (x * 0.7, Y(p["yn"] * 0.66), c.gradins[0][3] + 0.04),
                     (x * 0.4, Y(p["yn"] * 0.36), zp + 0.06)], 0.035)
         g.halo((x, y - 0.3, 0.3), M["_emit_rgb"], 5.0)
     for (x, yn) in ((0.0, -1.8), (-1.4, -0.7), (1.4, -0.7)):

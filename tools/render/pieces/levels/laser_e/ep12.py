@@ -135,7 +135,7 @@ def socle(g, c):
         p = corps.place(c, nom)
         x, y = p["x"] - sx * 0.04, Y(p["yn"] - 0.04)
         _cryostat(g, x, y, 0.3, 0.62, M)
-        liaison(g, [(x - sx * 0.25, y - 0.2, 0.4), (x * 0.66, Y(p["yn"] * 0.62), c.gradins[0][3] + 0.1),
+        liaison(g, [(x - sx * 0.28, y - 0.22, 0.05), (x * 0.7, Y(p["yn"] * 0.66), c.gradins[0][3] + 0.05),
                     (x * 0.42, Y(p["yn"] * 0.4), zp + 0.05)], 0.04)
         g.halo((x, y - 0.4, 0.4), M["_emit_rgb"], 5.0)
     for (x, yn) in ((0.0, -2.2), (-1.8, -0.9), (1.8, -0.9)):

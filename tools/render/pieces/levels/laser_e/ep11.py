@@ -215,6 +215,14 @@ def emetteur(g, c):
               what="aileron")
         g.box(V((0, (yh0 + yh1) / 2, zh)) + d * (1.0 * re), (0.05 * re, 0.075 * re, 0.4 * re), M["orange_aero"], "hard",
               R=Rr, what="bout_aileron")
+    # carters de tourillon (ronde 2 : en pose N, un jour de 106 px restait enfermé sous l'axe, entre le bras de la
+    # fourche et les ailerons) : bloc plein de la nacelle au bras, sous l'axe, de chaque côté
+    t = c.T["tete"]
+    xa = t["xc"] + t["tc"] * 0.4
+    for sx in (-1, 1):
+        x0, x1 = sorted((sx * 0.55 * re, sx * (xa + 0.02)))
+        PT.hull(g, x0, x1, -0.45 * re, 0.2 * re, zh - 0.62 * re, zh + 0.04, ins=(0.0, 0.02, 0.02), panel=0.22,
+                mats=[M["titane_md"], M["titane_dk"]], faces="tsnew", rivet_step=0.12)
     # cône orange (la pointe) et lentille
     g.cyl((0, 0.74 * re, zh), "y", 0.44 * re, 0.76 * re, M["orange_aero"], n=28, r2=0.09 * re, style="soft",
           what="cone")
