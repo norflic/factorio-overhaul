@@ -10,6 +10,22 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 17 h 45** : `main` = **0.4.29** (IA1-b2 fusionné avec 3 défauts ouverts, documenté `5aa7b4c` ; IA3-0 fusionné
+> `f613db1`). Le DC (R-25k) : « mettrez des agents sur le coup en permanance pour avancer sur la partie IA » : SECTION IA EN
+> PARALLÈLE, relancer un agent dès qu'un lot finit (dépendances : `docs/IA3_CERVEAU.md` §6.2). En cours, chacun dans son
+> périmètre de fichiers : IA3-a (recherche d'abord ; F279-F281, E186-E187), IA3-b (marché des tâches et registre ; board,
+>   worker, org ; F282-F284, E188-E189), IA3-c (nouveau cerveau derrière `fo-ia3-cerveau` ; buts, projets, cerveau ; F285-F288,
+>   E190-E192), IA3-f (exploration sous brouillard, carte de connaissance ; F289-F291, E193-E194), IA1-d (plan directeur et
+>   construction, chemin critique ; F292-F295, E195-E197). Rendus : F2-B (four en production ; F276-F278, E184-E185), F3-A3
+>   (assembleur, 3e ronde), F4-A2 (foreuse enrichie). SUIVANTS IA : IA3-d (effectif 8, après b), IA3-g (expéditions, après c et
+>   f), IA3-e (automatiser, après c et IA1-d), IA3-h (pétrole), IA3-i (âges), IA3-j (lisibilité). Feuilles de la mitrailleuse
+>   des worktrees : liens durs depuis `main` (même MANIFEST) au lieu de régénérer.
+> **Point de 15 h 30** : conception IA3 FUSIONNÉE (`db7911c` : `docs/IA3_CERVEAU.md`, `shared/ai3/`, tests 31, 24, 15 OK ;
+> rien de branché). Verdicts du DC : four VALIDÉ pour la production (lot F2-B lancé : rendu final, animation, mémoire vidéo
+> au plancher, mise en jeu) ; foreuse « enrichir nettement » (F4-A2) ; foreuses X0 gardées à part (Q-C3) ; assembleur 3e
+> ronde (F3-A3). Le DC demande le développement profond de l'IA en parallèle : agent IA3-dev lancé (revue adverse du document,
+> IA3-0 fondations avec E180 et E181 en moteur réel, puis IA3-a « recherche d'abord » APRÈS la fusion d'IA1-b2). IA1-b2
+> relancé pour finir ses 3 contrôles rouges (ia1-poles, verif-guide 314159265, ia1b-scale10). 5 agents en cours.
 > **Point de 14 h 05 (après une coupure par la limite d'usage, 13 h 10 à 14 h)** : `main` = **0.4.28** (fenêtre « Équipe et
 > factions », validée par le DC ; régression d'intégration de `levels_test` corrigée, `cf25906`) ; 0.4.27 = modules au barème
 > D-17 et icônes validées. Documents à jour jusqu'à 0.4.28 (`c86b966`). Décisions du jour : D-17 (réponses R-QCM-25 à 25f),

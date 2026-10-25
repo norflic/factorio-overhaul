@@ -96,6 +96,20 @@ return {
     end
     ctx.log(string.format("minute %d | vivantes %d | %s | ouvriers du joueur %d | equipe : %s", e.tick / 3600, alive,
       table.concat(parts, " ; "), pw, tostring(team and team:sub(1, 140))))
+    -- Lot IA1-b2 (mesure, hors bilan) : votre équipe minute par minute (interface fo-ia1 ; champs absents avant 0.4.27 : -1).
+    st.prev_idle = st.prev_idle or {}
+    for _, r in ipairs(ctx.remote("fo-ia1", "teams") or {}) do
+      local tag = r.key == "player" and "votre equipe" or r.key
+      -- Inactifs de la minute (PNJ sans tâche à la pensée, critère C5-2) et raisons d'attente cumulées (IA1-b2).
+      local p = st.prev_idle[r.key] or { idle = 0, n = 0 }
+      local dn = (r.n_sum or 0) - p.n
+      local idle_pct = dn > 0 and math.floor(100 * ((r.idle_sum or 0) - p.idle) / dn + 0.5) or 0
+      st.prev_idle[r.key] = { idle = r.idle_sum or 0, n = r.n_sum or 0 }
+      ctx.log(string.format("mesure minute %d | %s | n=%d recrues=%d perdus=%d tues_ennemis=%d fer=%d ap=%d defendus=%d tourelles=%d mu=%d qg=%d inactifs=%d%% attente rien=%d bloque=%d manque=%d",
+        e.tick / 3600, tag, r.n, r.recruited, r.lost or -1, r.lost_enemy or -1, r.iron or iron, r.outposts,
+        r.outposts_defended or -1, r.turrets or count(s, "ammo-turret", r.force), r.produced_mu, r.hq_turrets or -1,
+        idle_pct, r.idle_rien or -1, r.idle_bloque or -1, r.idle_manque or -1))
+    end
   end,
 
   finish = function(ctx)

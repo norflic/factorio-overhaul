@@ -124,7 +124,11 @@ return {
           st.crisis_targets = L.targets
         end
       end
-      if not st.crisis_at then st.crisis_before = L.assigned[1] end
+      if not st.crisis_at then
+        st.crisis_before = L.assigned[1]
+        -- Lot IA1-b2 : exécutants HORS de l'extraction juste avant la crise (base + territoire).
+        st.crisis_others = (L.assigned[2] or 0) + (L.assigned[3] or 0)
+      end
       -- Orientation : décisions à la cible en 2 pensées ; au travail quand plus personne n'est en partance.
       if st.orient_at then
         st.orient_k = (st.orient_k or 0) + 1
@@ -178,9 +182,12 @@ return {
     ctx.check(busy >= 85, "equipe occupee a 85 % ou plus (minutes 5 a 26, releve toutes les 60 ticks)",
       string.format("%.1f %% (%d sur %d releves) ; mesure a la pensee : %.1f %%", busy, st.busy, st.samples,
         stats.n_sum > 0 and 100 * stats.busy_sum / stats.n_sum or 0))
-    ctx.check(st.crisis_after and st.crisis_before and st.crisis_after >= st.crisis_before + 3,
-      "crise : +3 affectes a l'extraction en 2 pensees", string.format("%s -> %s (cibles %s)", tostring(st.crisis_before),
-        tostring(st.crisis_after), st.crisis_targets and fmt3(st.crisis_targets) or "?"))
+    -- Lot IA1-b2 (décision de l'orchestrateur, D-18) : « +3, ou tous les ouvriers déjà à l'extraction » (sans les gardes
+    -- coupées par le DC, le pôle Territoire de votre équipe est vide en paix : la crise n'a souvent personne à déplacer).
+    ctx.check(st.crisis_after and st.crisis_before and (st.crisis_after >= st.crisis_before + 3 or (st.crisis_others or 1) == 0),
+      "crise : +3 affectes a l'extraction en 2 pensees, ou tous les ouvriers deja a l'extraction",
+      string.format("%s -> %s (cibles %s ; hors extraction avant : %s)", tostring(st.crisis_before),
+        tostring(st.crisis_after), st.crisis_targets and fmt3(st.crisis_targets) or "?", tostring(st.crisis_others)))
     ctx.check(st.orient_dec_ok ~= nil, "orientation : affectations a la cible a 1 pres en 2 pensees (10 s)",
       string.format("pensee %s ; %s ; avant %s", tostring(st.orient_dec_ok), tostring(st.orient_dec_detail), tostring(st.orient_from)))
     local act = st.orient_act_at and (st.orient_act_at - st.orient_at) / 60 or nil

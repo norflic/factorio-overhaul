@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.29
+Date: 2026-10-25
+  Changes:
+    - Votre équipe défend d'abord : dès qu'elle peut faire des tourelles (recherche « Tourelles » ou tourelles au coffre),
+      elle en pose autour du coffre (4, une par diagonale), puis à chaque avant-poste AVANT d'y travailler, et ne bâtit un
+      nouvel avant-poste qu'avec ses tourelles. Toutes les factions posent aussi leurs tourelles avant de travailler à un
+      avant-poste.
+    - Votre coffre se défend : dès qu'une faction vous déclare la guerre, des PNJ armés y restent (un quart de l'équipe,
+      2 à 6) ; si des ennemis approchent à moins de 48 tuiles, toute l'équipe vient le défendre.
+    - Plus de garde aux avant-postes ; vos PNJ libres transportent la production des avant-postes, minent près du coffre
+      et fabriquent des réserves, au lieu d'attendre.
+    - Un site gardé par un nid ou un ver, ou dont le chemin en passe à moins de 40 tuiles, est refusé ; sans tourelles,
+      aucun site au-delà de 400 tuiles. Après une perte, seul le travail près de l'endroit dangereux est suspendu 5 min.
+    - Votre équipe ne grandit au-delà de ses 8 PNJ que si elle peut se défendre : une recrue toutes les 5 min tant que le
+      coffre et chaque avant-poste sont défendus, qu'il reste 400 plaques de fer au coffre et du travail en attente.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.28
 Date: 2026-10-25
   Features:
