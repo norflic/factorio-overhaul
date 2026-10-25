@@ -676,7 +676,146 @@ Principe : le joueur voit des INTENTIONS et des RAISONS, jamais un script ; aucu
 
 ## 6. Plan de lots
 
-À ÉCRIRE
+### 6.1 Mesures communes et critères d'acceptation de la section
+
+**Paliers de recherche, en vraies technologies** (prototype, `G.tech_packs`, prérequis compris, vanilla 1.1.91) :
+le palier k est atteint quand la technologie qui débloque le k-ième pack est recherchée ET que 10 de ces packs sont
+fabriqués (40 pour le palier 4, comme l'ancien niveau 4).
+
+| Palier | Technologie | Technologies | Packs (rouges + verts) | Secondes de laboratoire (un laboratoire) |
+|---|---|---|---|---|
+| 1 | `automation` | 1 | 10 + 0 | 100 |
+| 2 | `logistic-science-pack` | 1 | 75 + 0 | 375 |
+| 3 | `military-science-pack` | 6 | 195 + 50 | 1 625 |
+| 4 | `chemical-science-pack` (pétrole) | 12 | 1 080 + 915 | 21 275 (6 à 10 laboratoires pour tenir 90 min) |
+
+Pendant les lots rapides (IA3-a, IA3-b), l'ancien système de niveaux reste en place : les critères y sont écrits en
+NIVEAUX (R1 à R3, comme IA3-DIAG) ; à partir d'IA3-c, en PALIERS.
+
+**Critères de la section** (chacun mesuré en moteur réel par les outils d'IA3-DIAG, `tools/autotest/ia3d_*`, sur au
+moins 2 graines, 4 quand la partie diverge, F252) :
+
+| ID | Critère | Aujourd'hui (IA3-DIAG) | Visé | Lot |
+|---|---|---|---|---|
+| K1 | recherche 3 (niveau R3, puis palier 3) | 46 à 52 min (médianes), 3 factions sur 12 jamais | **≤ 25 min** (4 PNJ) ; ≤ 20 min (8 PNJ) | IA3-a, puis IA3-c |
+| K2 | recherche 4 AVEC pétrole (palier 4) | jamais | **≤ 120 min**, 8 PNJ, Normal, 4 graines sur 5 | IA3-h |
+| K3 | PNJ inactifs | 32 à 72 % (0-10 min), votre équipe 52 à 65 % (0-60 min) | **≤ 15 %** de 30 à 90 min ; ≤ 20 % de 0 à 10 min | IA3-b |
+| K4 | ressource « arrachée » | 3 à 50 échecs « stock » par équipe en 2 h | **0** échec « stock » ; préemptions seulement par règle (§2.2), chacune au journal | IA3-b |
+| K5 | PNJ immobiles au QG pendant que du travail attend | 42 à 115 minutes sur 119 (8 factions sur 12) | **≤ 5 minutes sur 119** | IA3-b |
+| K6 | fabrication jetée (packs d'une recherche impayable) | 27 à 37 PNJ-minutes par faction | **0** | IA3-a |
+| K7 | tournées à pied | 41 à 58 % du travail (4 PNJ) | **≤ 15 %** à 90 min | IA3-e |
+| K8 | factions qui passent les âges | plafond au niveau 3 | âges 2, 3, 4 à ± 25 % du calendrier X0 (0,5 h, 1,5 h, 3 h), 3 graines | IA3-i |
+| K9 | garde-fous | `pvp_test` 1 305 OK, `verif-guide` 15 OK | **`pvp_test` : ordre strict des attaques par difficulté tenu** (attentes recalées, jamais affaiblies) ; `verif-guide` 15 OK sur les graines du guide où il l'était avant le lot ; aucune faction anéantie avant 60 min, au plus 1 sur 16 en 2 h (IA2-a2) | tous |
+| K10 | budget | script 0,07 à 0,08 ms par tick (150 PNJ, E124) | ≤ 0,25 ms en moyenne, p99 du script ≤ 2 ms (banc épinglé) | tous |
+| K11 | déterminisme | empreintes égales (F238) | `[FO-HASH]` égales à 30 min sur 2 passages | tous |
+
+### 6.2 Les lots, dans l'ordre
+
+**IA3-0 · Fondations (pur, plus 2 expériences en moteur réel).** 1 jour.
+- Contenu : durcir les prototypes (`graphe`, `registre`, `marche`, `expedition`) ; adaptateur « prototypes du jeu →
+  catalogue » (`script/ai3/catalogue.lua`) et contrôle : le catalogue tiré de `game.*_prototypes` dans le banc rend le
+  même dépliage que la fixture hors jeu ; expériences **E180** (une force sans joueur recherche avec des laboratoires
+  du moteur : `add_research`, progression, `research_finished`) et **E181** (pose d'une tourelle par script près de
+  biters en mouvement, reprise par `mine`, munitions gardées).
+- Fichiers : `shared/ai3/*`, `script/ai3/catalogue.lua`, scénario greffé `ia3-risques`, `tests/ai3_*_test.lua`.
+- Preuve : tests hors jeu verts ; `ia3-risques` « BILAN : n OK » ; aucune règle de jeu changée (`content` 331 OK).
+- Risque : E180 négatif → repli « le QG consomme les packs au coût et au temps réels » (§5.2), écrit dans le lot.
+
+**IA3-a · Recherche d'abord, rien d'impayable (dans l'ancien cerveau).** Une demi-journée.
+- Contenu : packs demandés dès le départ (verrou de la marche « tech1 » levé) ; priorité de la recherche selon le
+  caractère (poids du chef) au lieu de 40 fixe ; plafond de 10 packs par sorte levé ; aucun pack d'un niveau dont un
+  pack est impayable (test de faisabilité du prototype, générique).
+- Fichiers : `shared/team/planner.lua`, `shared/team/config.lua` (fichier de l'intégrateur pour les constantes).
+- Preuve : `ia3d-reduit` et `ia3d-default`, 2 graines ; `pvp_test`, `chef_test` ; `verif-guide` 2 graines.
+- Critères : R1 ≤ 5 min, R2 ≤ 12, **R3 ≤ 25 (4 PNJ), ≤ 20 (8 PNJ)** (K1) ; K6 = 0 ; K9.
+- Risque : armée plus lente au début (IA2-a2 à rejouer) ; ordre strict de `pvp_test` (listes de tâches changées).
+
+**IA3-b · Personne n'attend, personne n'arrache (registre et place de marché).** 1 jour.
+- Contenu : `Board.claim` par le score du marché (factions ET votre équipe, après fusion d'IA1-b2) ; registre des
+  réservations : prise stricte, prises larges remplacées par le projet « Entretien », préemption réglée et journalisée ;
+  minage à la main par plusieurs PNJ quand une plaque manque.
+- Fichiers : `script/team/board.lua`, `script/team/worker.lua` (prise), `shared/team/org.lua` (`O.pick_task`),
+  `shared/ai3/registre.lua`, `shared/ai3/marche.lua`.
+- Preuve : `ia3d-*` 2 graines ; `ia1-poles` ; `org_test`, `pvp_test`.
+- Critères : **K3, K4, K5** ; `ia1-poles` occupation ≥ 85 % ; K9.
+- Risque : plus de PNJ hors du QG = plus de morts (F239) : mesurer les morts par heure (pas pire qu'avant de 10 %).
+
+**IA3-d · Effectif 8 (avec IA3-b).** Une demi-journée.
+- Contenu : 8 PNJ par faction au départ (D-18) ; recrue quand du travail attend (prix fictif > seuil 2 min).
+- Preuve et critères : `ia1b-scale30` contre `ia1b-scale10` ≥ 1,2 (aujourd'hui 0,95 à 1,07) ; K9, K10.
+
+**IA3-c · Le cerveau par besoins (buts, dépliage, projets, vraie recherche).** 2 à 3 jours.
+- Contenu : `shared/ai3/buts.lua`, `projets.lua`, `cerveau.lua` (pensée par phases) remplacent `planner.lua` derrière le
+  réglage `fo-ia3-cerveau` ; K projets en parallèle, chemin critique ; vraie recherche (laboratoires, §5.2) ;
+  migration (§5.4) ; fenêtre : projets, raisons (§5.5).
+- Preuve : `ia3d-*` 4 graines, avant / après sur la même source (réglage) ; banc de migration en double source ;
+  captures de la fenêtre.
+- Critères : palier 1 ≤ 6 min, palier 2 ≤ 12 min, **palier 3 ≤ 25 min** (8 PNJ) ; au moins 3 projets productifs en
+  même temps à 8 PNJ ; K3 tenu ; K6 = 0 ; variété IA2 (mesures M1, M2) pas pire ; K9, K10, K11.
+- Risque : le plus gros changement de comportement ; vraie recherche plus chère (§3.8) : début plus lent en
+  « niveaux » ; à surveiller dès 10 min (palier 1 ≤ 6 min).
+
+**IA3-e · Automatiser ce qui sert souvent (avec le plan directeur IA1-d).** 3 à 4 jours.
+- Contenu : règle « main → machine » (§3.4) ; gabarits PARAMÉTRIQUES ; centrale, poteaux ; laboratoires alimentés par
+  bras ; foreuses électriques et tapis vers la fonderie (fin des tournées).
+- Preuve : `ia1-build` (IA1-d) 5 graines ; `ia3d-*`.
+- Critères : **K7** ; au moins 3 modules dont la production tient 5 min sans PNJ à 45 min (C5-3 a) ; capitalisation
+  (mesure M3 d'IA2) > 0 ; 30 contre 10 ≥ 1,2.
+- Risque : dépend d'IA1-d (pose des fantômes à l'échelle, F26 à F28 : risque R13 d'EQUIPES_PNJ).
+
+**IA3-f · Exploration sous brouillard.** 1,5 jour (en parallèle d'IA3-c possible).
+- Contenu : carte de connaissance, PNJ yeux, prospection dans les secteurs vus, éclaireurs, tour du propriétaire.
+- Preuve : scénario greffé `ia3-brouillard` (5 graines).
+- Critères : 0 site pris dans un secteur jamais vu (contrôle du banc) ; pétrole trouvé moins de 30 min après l'étape
+  `explore` sur 5 graines sur 5 ; morts d'éclaireurs ≤ 1 par heure et par faction ; 2e gisement de fer pas plus de 5 min
+  plus tard qu'avant le lot.
+
+**IA3-g · Expéditions évaluées.** 2 à 3 jours.
+- Contenu : §4 en entier (risque, équipement réservé, convoi, réflexe de la tourelle, tenue de l'avant-poste).
+- Preuve : `ia3-expedition` (scénario : site à 380 tuiles, 2 nids, 3 vers ; 5 graines) ; captures du convoi et des
+  tourelles posées.
+- Critères : aucun départ sans l'équipement de sa bande ; réflexe de la tourelle dans la seconde du contact (100 % des
+  contacts du banc) ; morts par expédition ≤ 0,5 en moyenne ; avant-poste lointain tenu ≥ 20 min sur 4 graines sur 5 ;
+  un prudent et un audacieux décident différemment sur le même site (mesuré).
+- Risque : groupes du moteur (F171 à F174), pose près d'ennemis qui bougent (E181).
+
+**IA3-h · Pétrole (remplace IA1-e2).** 2 à 3 jours, après c, e, f, g.
+- Contenu : la chaîne du pétrole sortie du dépliage, raffinage sur place, électricité au moins cher (ligne ou centrale
+  locale), plastique et soufre rapatriés.
+- Preuve : `ia3d-default` 4 h, 5 graines ; `ia1-oil`.
+- Critères : **K2 : palier 4 ≤ 120 min** à 8 PNJ en Normal sur 4 graines sur 5 (un joueur vanilla correct : 90 à
+  120 min ; calendrier X0 du joueur : âge 4 à 3 h ; C5-3 b tolérait 3 h 45).
+
+**IA3-i · Les âges (remplace IA1-f).** 3 jours et plus (dépend des lots X des âges suivants).
+- Contenu : méthode `level` (payer le niveau du centre en monnaies), verrous `fo-epoch-k`, ressources et bâtiments des
+  lots X : rien de spécifique dans le cerveau.
+- Critères : **K8** ; enveloppe de difficulté (Facile plus lent) mesurée.
+
+**IA3-j · Lisibilité (chaque lot montre sa part, puis le test à l'aveugle).** 1 jour à la fin.
+- Contenu : fenêtre complète (§5.5), journal des annonces, test M5 d'IA2 (« joueur ou PNJ ? ») proposé au DC.
+
+Dépendances : 0 → a et b (indépendants) → d ; 0 et b → c ; c → e (avec IA1-d) ; 0 → f (en parallèle de c) ; c et
+f → g ; c, e, f, g → h → i. **Durée totale estimée : 17 à 21 jours de travail d'agents**, dont 3 jours pour les lots
+rapides (0, a, b, d) qui donnent les premiers effets visibles.
+
+### 6.3 Risques majeurs
+
+1. **IA1-d (la construction automatisée à l'échelle) n'est pas prouvé.** Sans lui, IA3-e et IA3-h n'existent pas : les
+   factions resteraient au portage (K7) et sans pétrole (K2). C'est le chemin critique de toute la section.
+2. **La vraie recherche coûte 22 fois plus que l'ancienne** (§3.8). Si l'automatisation (IA3-e) traîne, les factions
+   paraîtront PLUS lentes en niveaux de 20 à 60 min. Garde : IA3-c mesure les paliers 1 à 3 dès les premières minutes,
+   et l'ancien cerveau reste derrière un réglage.
+3. **Recherche par une force sans joueur** (E180) : si le moteur ne fait pas avancer la recherche, repli au QG (même
+   coût, même temps), moins « joueur ».
+4. **Ordre strict de `pvp_test`** : chaque lot change les listes de tâches ; les attentes se recalent sur l'ordre des
+   difficultés, jamais en l'affaiblissant (IA1-b2 l'a cassé une fois : 1 302 OK, 3 ECHEC).
+5. **Divergence des parties** (F252) : un changement de votre équipe change toute la partie ; conclure sur 4 graines.
+6. **Pics de calcul** : points fixes 5 ms et attribution globale 1 ms (hors jeu) : découpés (une phase lourde par tick
+   pour tout le mod) ; mesurés à chaque lot.
+7. **Factions trop fortes pour le joueur** : un cerveau qui joue bien peut dépasser le calendrier X0 ; l'enveloppe de
+   difficulté (Facile : PNJ plus lents à fabriquer, moins nombreux) et le chef (satiété, trêve d'IA2-a2) règlent le
+   tempo ; mesure à chaque lot de la première attaque et des pertes du joueur dans `verif-guide`.
+8. **Expéditions et moteur** : groupes qui perdent des membres (F173, F174), tourelle posée sur un biter (E181).
 
 ## 7. Prototypes et tests hors jeu de la conception
 
