@@ -3,6 +3,7 @@
 require("prototypes.companion.body")
 require("prototypes.world")
 require("prototypes.titanium")
+require("prototypes.superconductors")
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")
