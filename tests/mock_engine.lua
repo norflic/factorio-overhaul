@@ -22,6 +22,27 @@ local W -- monde courant
 
 function M.world() return W end
 
+--- Lot IA3-c : prototypes de technologies du mock (forme de LuaTechnologyPrototype) depuis la fixture des coûts FINAUX
+--- (tests/fixtures/tech_ai3_final.lua, contrôlée en moteur réel par le scénario ia3-donnees, F275). Lu une fois.
+local tech_cache = nil
+function M.technology_prototypes()
+  if tech_cache then return tech_cache end
+  local raw = dofile("tests/fixtures/tech_ai3_final.lua")
+  local out = {}
+  for name, t in pairs(raw) do
+    local ing, eff = {}, {}
+    for _, i in ipairs(t.ingredients or {}) do ing[#ing + 1] = { type = "item", name = i[1], amount = i[2] } end
+    for _, r in ipairs(t.unlocks or {}) do eff[#eff + 1] = { type = "unlock-recipe", recipe = r } end
+    out[name] = { name = name, enabled = true, hidden = false, research_unit_ingredients = ing, effects = eff,
+      research_unit_count = t.count, research_unit_energy = t.time * 60, prerequisites = {} }
+  end
+  for name, t in pairs(raw) do
+    for _, p in ipairs(t.prerequisites or {}) do if out[p] then out[name].prerequisites[p] = out[p] end end
+  end
+  tech_cache = out
+  return out
+end
+
 local function strict(t, what)
   return setmetatable(t, { __index = function(_, k) error(what .. " inconnu : " .. tostring(k), 2) end })
 end
@@ -80,9 +101,37 @@ local function new_force(name)
     return r
   end })
   f.technologies = setmetatable({}, { __index = function(t2, name)
-    local tech = { name = name, researched = false }
+    local tech = { name = name, researched = false, enabled = true }
     rawset(t2, name, tech)
     return tech
+  end })
+  -- Lot IA3-c (laboratoire du QG, F269, F270) : recherche d'une force sans joueur ; écrire research_progress = 1
+  -- termine la recherche (technologie recherchée, événement on_research_finished, by_script = false).
+  f.laboratory_speed_modifier = 0
+  f.current_research = nil
+  f.add_research = function(name)
+    local tech = f.technologies[type(name) == "string" and name or name.name]
+    if tech.researched then return false end
+    f.current_research = tech
+    rawset(f, "_progress", 0)
+    return true
+  end
+  setmetatable(f, { __newindex = function(t2, k, v)
+    if k == "research_progress" then
+      rawset(t2, "_progress", v)
+      local cur = rawget(t2, "current_research")
+      if cur and v >= 1 then
+        cur.researched = true
+        rawset(t2, "current_research", nil)
+        rawset(t2, "_progress", 0)
+        local h = W.events[defines.events.on_research_finished]
+        if h then h({ research = { name = cur.name, force = t2 }, by_script = false, tick = _G.game.tick }) end
+      end
+      return
+    end
+    rawset(t2, k, v)
+  end, __index = function(t2, k)
+    if k == "research_progress" then return rawget(t2, "_progress") or 0 end
   end })
   return f
 end
@@ -675,6 +724,9 @@ function M.new_world(opts)
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
       ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
+      -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua) ; allumé par l'option ou par FO_IA3_CERVEAU=1 (bancs
+      -- « bascule allumée », pvp_test compris).
+      ["fo-war-ia3-cerveau"] = opts.ia3_cerveau or (os.getenv("FO_IA3_CERVEAU") == "1"),
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
@@ -733,6 +785,11 @@ function M.new_world(opts)
       collision_mask = MASK_UNIT },
     -- Lot V3-T3 : fantôme d'entité (sa boîte est celle de l'entité portée ; masque par défaut : ghost-layer).
     ["entity-ghost"] = { type = "entity-ghost", max_health = 1 },
+    -- Lot IA3-c : laboratoire vanilla (laboratoire du QG des factions).
+    lab = { type = "lab", max_health = 150, collision_box = box(-1.2, -1.2, 1.2, 1.2), collision_mask = MASK_BUILDING,
+      items_to_place_this = { { name = "lab", count = 1 } }, researching_speed = 1,
+      lab_inputs = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack",
+        "production-science-pack", "utility-science-pack", "space-science-pack" } },
   }
   W.recipes = dofile("tests/fixtures/recipes.lua")
   -- Soldats et unités du mod : prototype d'unité générique, boîte des soldats (prototypes/faction.lua, ± 0,2) et
@@ -1166,6 +1223,14 @@ function M.new_world(opts)
     end }),
     -- Lot MOD-1 : aucun prototype de module au mock (la règle est testée à part, tests/module_mult_test.lua).
     get_filtered_item_prototypes = function(filters) return {} end,
+    -- Lot IA3-c : technologies FINALES (vanilla + mod, tests/fixtures/tech_ai3_final.lua) et entités par type.
+    technology_prototypes = M.technology_prototypes(),
+    get_filtered_entity_prototypes = function(filters)
+      local out = {}
+      local want = filters and filters[1] and filters[1].type
+      for name, p in pairs(W.prototypes) do if p.type == want then out[name] = p end end
+      return out
+    end,
     get_player = function(i) if i == 1 then return W.player end end,
     is_multiplayer = function() return false end,
     create_profiler = function() return profiler() end,

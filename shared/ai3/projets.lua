@@ -70,7 +70,8 @@ function P.prio_of(value) return 40 + math.floor((value or 0) * 45 / 100) end
 
 local function announce(st, tick, kind, key, extra)
   st.log = st.log or {}
-  st.log[#st.log + 1] = { tick = tick, kind = kind, key = key, extra = extra }
+  st.log_seq = (st.log_seq or 0) + 1
+  st.log[#st.log + 1] = { seq = st.log_seq, tick = tick, kind = kind, key = key, extra = extra }
   while #st.log > P.LOG_MAX do table.remove(st.log, 1) end
 end
 P.announce = announce
