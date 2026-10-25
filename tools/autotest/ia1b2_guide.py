@@ -15,7 +15,7 @@ import re
 import sys
 
 RE_GUIDE = re.compile(r"mesure minute (\d+) \| (.+?) \| n=(\d+) recrues=(\d+) perdus=(-?\d+) tues_ennemis=(-?\d+) "
-                      r"fer=(-?\d+) ap=(\d+) defendus=(-?\d+) tourelles=(-?\d+)")
+                      r"fer=(-?\d+) ap=(\d+) defendus=(-?\d+) tourelles=(-?\d+) mu=(-?\d+)(?: qg=(-?\d+))?")
 RE_SCALE = re.compile(r"\] minute (\d+) \| (\w+) n=(\d+)/\d+ recrues=(\d+) .*? ap=(\d+) .*?perdus=(-?\d+) "
                       r"tues_ennemis=(-?\d+) tourelles=(-?\d+) defendus=(-?\d+)")
 RE_DEATH = re.compile(r"\[FO-TEAM\] (\S+) : PNJ (\d+) tue \(([^)]*)\) a (-?\d+) tuiles du QG, tache (\w+)( \(fond\))?, "
@@ -34,11 +34,12 @@ def load(d):
         team = "player" if m.group(2) == "votre equipe" else m.group(2)
         rows.setdefault(team, {})[int(m.group(1))] = {
             "n": int(m.group(3)), "rec": int(m.group(4)), "lost": int(m.group(5)), "enemy": int(m.group(6)),
-            "iron": int(m.group(7)), "ap": int(m.group(8)), "def": int(m.group(9)), "tur": int(m.group(10))}
+            "iron": int(m.group(7)), "ap": int(m.group(8)), "def": int(m.group(9)), "tur": int(m.group(10)),
+            "mu": int(m.group(11)), "qg": int(m.group(12)) if m.group(12) is not None else -1}
     for m in RE_SCALE.finditer(log):
         rows.setdefault(m.group(2), {})[int(m.group(1))] = {
             "n": int(m.group(3)), "rec": int(m.group(4)), "ap": int(m.group(5)), "lost": int(m.group(6)),
-            "enemy": int(m.group(7)), "tur": int(m.group(8)), "def": int(m.group(9)), "iron": -1}
+            "enemy": int(m.group(7)), "tur": int(m.group(8)), "def": int(m.group(9)), "iron": -1, "mu": -1, "qg": -1}
     deaths = []
     for m in RE_DEATH.finditer(log):
         deaths.append({"team": m.group(1), "cause": m.group(3), "dist": int(m.group(4)), "kind": m.group(5),
@@ -53,9 +54,10 @@ def team_summary(name, series):
         return
     last = series[mins[-1]]
     nmax = max(series[k]["n"] for k in mins)
-    print("  %s : effectif fin %d (max %d), recrues %d, perdus %d dont tues par les ennemis %d, avant-postes %d "
-          "(defendus %d), tourelles %d, fer %d" % (name, last["n"], nmax, last["rec"], last["lost"], last["enemy"],
-                                                   last["ap"], last["def"], last["tur"], last["iron"]))
+    print("  %s : minute %d, effectif fin %d (max %d), recrues %d, perdus %d dont tues par les ennemis %d, avant-postes %d "
+          "(defendus %d), tourelles %d (QG %d), fer %d, MU %d" % (
+              name, mins[-1], last["n"], nmax, last["rec"], last["lost"], last["enemy"], last["ap"], last["def"],
+              last["tur"], last["qg"], last["iron"], last["mu"]))
 
 
 def main(argv):

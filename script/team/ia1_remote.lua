@@ -64,18 +64,18 @@ local function team_row(f)
     -- Lot IA1-b2 (mesures) : PNJ perdus (toutes causes, puis tués par les ennemis), tourelles vivantes, fer du QG.
     lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = f.hq.get_item_count("iron-plate"),
   }
-  local turrets, defended = 0, {}
+  local turrets, defended, hq_t = 0, {}, 0
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
     if t.valid then
       turrets = turrets + 1
       local owner = State.owner(id)
-      if owner and owner.oid then defended[owner.oid] = true end
+      if owner and owner.oid then defended[owner.oid] = true else hq_t = hq_t + 1 end
     end
   end
   local def_n = 0
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do if defended[oid] then def_n = def_n + 1 end end
-  row.turrets, row.outposts_defended = turrets, def_n
+  row.turrets, row.outposts_defended, row.hq_turrets = turrets, def_n, hq_t
   -- Production de la force (statistiques du moteur : aucune entité parcourue).
   local force = game.forces[f.force]
   local produced, mu = {}, 0

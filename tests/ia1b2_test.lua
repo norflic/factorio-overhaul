@@ -253,6 +253,19 @@ check(drills0, "sans « défendre d'abord » : plancher de réserve d'avant (8 f
 check(O.manual_cap(30, 2) == 6 and O.manual_cap(10, 2) == 2, "minage à la main : plafond 20 % dès la recherche 1 (gardé)")
 
 ---------------------------------------------------------------------------------------------------
+section("Cerveau : équipe décimée, le QG d'abord")
+local pdz = Planner.plan(view({ defend_first = true, hq_turrets = 0, workers = 5, recover_floor = 8,
+  stock = with(rich, { ["gun-turret"] = 6 }), outposts = outs }), book)
+check(find(pdz, function(t) return t.key == "fortify:hq" end) ~= nil, "5 PNJ sur 8 : tourelles du QG")
+check(find(pdz, function(t) return t.key == "fortify:1" or t.key == "fortify:2" end) == nil, "5 PNJ sur 8 : aucune tourelle d'avant-poste")
+local pdy = Planner.plan(view({ defend_first = true, workers = 5, recover_floor = 8, stock = with(rich, { ["gun-turret"] = 4 }),
+  outposts = outs3, done = done2, sites = { iron = 1 } }), book)
+check(find(pdy, function(t) return t.key == "build:iron" end) == nil, "5 PNJ sur 8 : pas de nouvel avant-poste")
+local pdx = Planner.plan(view({ defend_first = true, workers = 8, recover_floor = 8, stock = with(rich, { ["gun-turret"] = 4 }),
+  outposts = outs }), book)
+check(find(pdx, function(t) return t.key == "fortify:1" end) ~= nil, "8 PNJ sur 8 : les avant-postes reprennent")
+
+---------------------------------------------------------------------------------------------------
 section("Mutants : chaque règle retirée est vue")
 do
   local saved = T.defend_turrets

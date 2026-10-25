@@ -293,7 +293,8 @@ function Poles.think(f, view, book, tick, plan)
   -- attaqué à 9 min, équipe perdue à 10 min (F241 de nouveau).
   local df = view.defend_first and true or false
   local turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false
-  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0) or turrets_ok
+  -- Équipe décimée (sous son effectif de départ) : aucun fond (essai 3 : sorties de fond d'une équipe en reconstruction).
+  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0) or (turrets_ok and (f.engineers_count or 0) >= (f.team.floor or 0))
   org.fond_on = fond_on
   local cands
   if fond_on then

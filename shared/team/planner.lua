@@ -307,6 +307,11 @@ function P.plan(view, book)
   -- défendus (tourelles à poser dès qu'elles existent).
   local lacking = P.undefended(view)
   local undefended = P.no_go(view, turret_ok)
+  -- Équipe DÉCIMÉE (sous son effectif de départ) : le QG et les recrues d'abord ; ni tourelle d'avant-poste ni nouvel
+  -- avant-poste (essai 3 du lot, ia1b2-guide graine 1618033988 : tourelles portées par des PNJ tués en route, fer à 0
+  -- pendant 30 min, QG perdu à 45 min).
+  local floor0 = view.recover_floor or (view.emergency and view.emergency.floor) or 0
+  local decimated = df and view.workers < floor0
   local function turret_items(n) return { { "gun-turret", n }, { T.turret_ammo, n * T.defend_ammo } } end
   --- Fabrication des tourelles (et de leurs chargeurs) SANS descendre sous T.defend_iron_floor plaques de fer : la
   --- défense ne prend pas le fer des recrues de survie (essai 1 du lot, ia1b2-guide graine 1618033988 : fer 615 -> 26 en
@@ -322,6 +327,7 @@ function P.plan(view, book)
   --- lieu (règle de repli).
   local function build_items(kind, items, n_drills)
     if not turret_ok then return items end -- règle de repli : construction comme avant
+    if decimated and count_kind(view, kind) > 0 then return nil end -- décimée : pas de nouvel avant-poste
     local t = turret_items(T.defend_turrets(n_drills))
     local have_t = true
     for _, it in ipairs(t) do if (avail[it[1]] or 0) < it[2] then have_t = false end end
@@ -418,7 +424,7 @@ function P.plan(view, book)
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         waiting = waiting + 1
-        if not o.lethal then
+        if not o.lethal and not decimated then
           posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
         end
       end

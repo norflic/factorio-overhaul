@@ -99,9 +99,9 @@ return {
     -- Lot IA1-b2 (mesure, hors bilan) : votre équipe minute par minute (interface fo-ia1 ; champs absents avant 0.4.27 : -1).
     for _, r in ipairs(ctx.remote("fo-ia1", "teams") or {}) do
       local tag = r.key == "player" and "votre equipe" or r.key
-      ctx.log(string.format("mesure minute %d | %s | n=%d recrues=%d perdus=%d tues_ennemis=%d fer=%d ap=%d defendus=%d tourelles=%d mu=%d",
+      ctx.log(string.format("mesure minute %d | %s | n=%d recrues=%d perdus=%d tues_ennemis=%d fer=%d ap=%d defendus=%d tourelles=%d mu=%d qg=%d",
         e.tick / 3600, tag, r.n, r.recruited, r.lost or -1, r.lost_enemy or -1, r.iron or iron, r.outposts,
-        r.outposts_defended or -1, r.turrets or count(s, "ammo-turret", r.force), r.produced_mu))
+        r.outposts_defended or -1, r.turrets or count(s, "ammo-turret", r.force), r.produced_mu, r.hq_turrets or -1))
     end
   end,
 
