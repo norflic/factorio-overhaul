@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.28
+Date: 2026-10-25
+  Features:
+    - Nouvelle fenêtre « Équipe et factions », sans commande à taper : bouton dans la barre de raccourcis (il s'ajoute
+      à la fin de votre barre), ou Maj + T ; Échap la ferme.
+    - Onglets : Mon équipe (objectif, ce qui manque, effectifs par pôle, journal, managers, coffre), Orientation
+      (5 préréglages et leur effet ; renvoyer l'équipe, avec confirmation), Factions (une carte par faction : caractère,
+      relation avec vous, posture du chef, cible, forces, ce qu'elle sait de vous ; lancer la guerre avec les réglages
+      de carte affichés à côté du bouton, ou l'arrêter avec confirmation), PNJ (une ligne par PNJ). Territoire et
+      Chantiers : à venir. Les commandes /fo-team et /fo-war restent.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.27
 Date: 2026-10-25
   Balancing:
