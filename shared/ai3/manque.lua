@@ -69,6 +69,8 @@ function X.tasks(view, missing, ctx)
     elseif ctx.book and ctx.book:handcraftable(T.SMELTER) then
       local n = X.SMELTERS - (free[T.SMELTER] or 0)
       local key = "craft:" .. T.SMELTER .. ":manque:1"
+      -- Les mineurs partent PENDANT que les fours se fabriquent (parallélisme demandé par le DC).
+      if keys[key] then placing = true end
       if n > 0 and not keys[key] then
         local avail = {}
         -- Les fours déjà au coffre sont comptés dans n : le plan ne doit pas les « prendre » (besoin d'accumulation).
@@ -82,6 +84,7 @@ function X.tasks(view, missing, ctx)
           for _, k in ipairs(ks) do uses[#uses + 1] = { k, plan.uses[k] } end
           out[#out + 1] = { key = key, kind = "craft", prio = X.PRIO, item = T.SMELTER, count = n, steps = plan.crafts,
             uses = uses, tag = "manque", manque = true }
+          placing = true
         end
       end
     end
