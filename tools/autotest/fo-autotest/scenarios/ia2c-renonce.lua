@@ -6,7 +6,9 @@
   RENONCER (« [FO-PVP] rassemblement … renonce ») si sa force n'atteint plus le rapport exigé.
   1re version (renfort à 22 min, essai du lot) : les factions avaient revu la base renforcée AVANT d'attaquer (défense
   de départ 120) : aucune surprise, aucun renoncement.
-  Contrôles : base posée, renfort posé, au moins un renoncement au rassemblement (statut « fo-pvp »).
+  Contrôles : base posée, renfort posé, une attaque partie avant lui ; le nombre de renoncements (statut « fo-pvp ») est
+  une MESURE (série finale du lot, `c640679` : contrôle alors exigé, 1 renoncement sur 13 rassemblements, 3 graines sur
+  4 sans renoncement parce que les groupes avaient la force pour la défense découverte).
 ]]
 local C = require("scenarios/ia0_common")
 
@@ -57,6 +59,9 @@ return {
         f.style or "-")
     end
     ctx.log("factions : " .. table.concat(keys, " ; "))
-    ctx.check(ren >= 1, "au moins un renoncement au rassemblement (defense vue grossie)", tostring(ren))
+    -- Le renoncement n'est EXIGÉ nulle part : un groupe assez fort pour la défense découverte attaque (règle A.go).
+    -- Série finale du lot (4 graines) : 1 renoncement (20261020 : force 58 contre 0,9 × 120), 12 « go » justifiés.
+    ctx.log(string.format("renoncements au rassemblement : %d (mesure, lignes « [FO-PVP] rassemblement »)", ren))
+    ctx.check(st.first_attack ~= nil, "au moins une attaque partie avant le renfort", tostring(st.first_attack))
   end,
 }
