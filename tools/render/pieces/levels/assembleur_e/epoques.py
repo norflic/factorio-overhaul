@@ -21,10 +21,20 @@ Un module d'âge epNN.py (N = 2 à 15) remplit les emplacements d'âge :
      table (dessus à c.zt) ;
   A3 SIGNATURES (grands volumes d'âge, accents, foyers, halos, sur le dos, les joues et l'embase) : def socle(g, c) ;
   A4 PIÈCE DU NIVEAU PAIR (en PAIRE aux coins avant, places coin_SO et coin_SE) : def piece(g, c) ;
-  facultatifs : def dos(g, c) (remplace le dos de la lignée, MÊME emprise : x ±h, yn de c.yb à h), def entree(g, c) et
-  def sortie(g, c) (habillent la trémie et le bac : places joue_O, joue_E), def liaison(g, pts, r) (organe de liaison :
+  A5 SORTIE (ronde F3-A2, OBLIGATOIRE aux âges 2 à 15) : def sortie(g, c, p) : le bac de sortie PROPRE à l'âge, posé à
+     la place p = dict(x, yn, z, r) que donne le plan (corps.place_es) ; aide commune corps.bac(g, c, p, paroi, produit,
+     forme) ;
+  facultatifs : def dos(g, c) (remplace le dos de la lignée, MÊME emprise : x ±h, yn de c.yb à h), def entree(g, c, p)
+  (trémie d'entrée de l'âge, même place p que la sortie, côté ouest), def liaison(g, pts, r) (organe de liaison :
   câbles, flexibles, conduites) ; GARNIR = ("bati", "joues") (défaut) : zones où la lignée pose ses petites pièces
-  (garniture.py, ronde 4) ; () pour aucune.
+  (garniture.py, ronde 4) ; () pour aucune ; DENSITE = dict(p=…, lampes=…) : garniture DENSE des dessus (ronde F3-A2,
+  garniture.densifier : part des cases garnies, part des voyants) ; RAYONS = False : pas de rayons du croissant au moyeu
+  (plans rond et octo) ; LIAISONS = False : pas de conduites du corps à l'outil (corps.liaisons).
+Ronde F3-A2 (verdict R-QCM-25f du DC : « juste une plateforme et un truc posé dessus […] ils sont tous carré ») : la clé
+  d'habillage `plan` choisit le PLAN du corps (plans.py) : "carre" (atelier de la lignée), "L" (aile haute à l'ouest),
+  "portique" (deux pylônes et un pont qui porte l'outil), "tour" (socle rond, fût et annexes), "rond" (tambour à
+  croissant), "octo" (tambour octogonal). Aux plans tour, rond et octo, l'outil pend du moyeu (c.hub) au-dessus du lit
+  rond (centre (0, c.cy), dessus c.zt) ; dos, joues, table et portique de la lignée ne sont pas posés.
 Contrat :
   EPOQUE = N ; NOM = ages.NOMS[N] ; TRIPLET = (« mot 1 », « mot 2 », « mot 3 ») : lecture « en 3 mots » PROPRE à
           l'assembleur (TRIPLETS ci-dessous ; aucun mot répété entre les 15) ;
@@ -34,12 +44,14 @@ Contrat :
   HABILLAGE = dict(ages.CORPS[N], …)      matières de tout le corps (clés communes) + clés PROPRES ci-dessous ;
   def matieres(metal, M)                  ages.matieres(N, metal, M) d'abord, puis les alias de rôle.
 HABILLAGE, clés PROPRES à l'assembleur :
-  forme_embase  "carre" (défaut) | "chanfrein" (coins coupés) | "gradins" (deux marches) | "pieds" (dalle sur pieux) ;
+  plan          "carre" (défaut) | "L" | "portique" | "tour" | "rond" | "octo" (ronde F3-A2, ci-dessus) ;
+  forme_embase "carre" (défaut) | "chanfrein" (coins coupés) | "gradins" (deux marches) | "pieds" (dalle sur pieux) ;
   forme_dos     "plat" (défaut, caisson) | "pans" (toit à deux pans, faîte est-ouest) | "voute" (berceau en demi-cylindre)
                 | "gradins" (trois gradins vers le nord) | "tours" (deux tours aux coins, milieu bas) | "coque" (dessus en
-                pente vers le sud, arêtes adoucies) | "dome" (caisson bas et coupole) ;
+                pente vers le sud, arêtes adoucies) | "dome" (caisson bas et coupole) | "bas" (dos bas, F3-A2 :
+                plan portique) ;
   forme_joues   "caisson" (défaut) | "pente" (dessus en pente vers le sud) | "basses" | "colonnes" (colonnade et
-                linteau) ;
+                linteau) | "socle" (F3-A2 : socles bas des pylônes du plan portique) ;
   forme_portique "poutre" (défaut : deux montants sur les joues, une poutre, un chariot) | "arche" (arc d'une joue à
                 l'autre) | "cadre" (cadre de presse posé sur l'embase, dans la baie) | "aucun" (l'âge porte son outil
                 autrement : potence, bras, anneau…) ;

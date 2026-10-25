@@ -162,7 +162,9 @@ def piece(g, c):
             g.box(B(x + dx, yn - 0.24 - 0.004, z + dz + 0.17), (w * 0.9, 0.01, 0.06), M["indigo_nuit"], "flat",
                   what="bande")
             corps.lampe_face(g, x + dx + w * 0.35, yn - 0.24, z + dz + 0.28, 0.02, M["emit"], M["noir_spatial"])
-        g.cyl(B(x + 0.25, yn + 0.2, z + 0.55), "z", 0.025, 1.1, M["blanc_lunaire"], n=8, what="mat")
-        g.torus(B(x + 0.25, yn + 0.2, z + 1.1), "y", 0.1, 0.018, M["blanc_lunaire"], n=16, m=5, what="anneau")
-        g.cyl(B(x + 0.25, yn + 0.21, z + 1.1), "y", 0.09, 0.02, M["horizon_porte"], n=16, what="miroir")
+        # mât SORTANT du conteneur du haut (contrôle d'îlots a3 : à x + 0,25, il laissait une poche de 11 px entre lui et
+        # les conteneurs)
+        g.cyl(B(x + 0.12, yn + 0.1, z + 0.55), "z", 0.025, 1.1, M["blanc_lunaire"], n=8, what="mat")
+        g.torus(B(x + 0.12, yn + 0.1, z + 1.1), "y", 0.1, 0.018, M["blanc_lunaire"], n=16, m=5, what="anneau")
+        g.cyl(B(x + 0.12, yn + 0.11, z + 1.1), "y", 0.09, 0.02, M["horizon_porte"], n=16, what="miroir")
         halo(g, x, yn - 0.3, z + 0.4, 0.5)

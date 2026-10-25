@@ -230,6 +230,16 @@ def densifier(g, c):
                     na = max(1, int(R * (a1 - a0) / PAS))
                     for j in range(na):
                         a = a0 + (j + 0.5 + 0.3 * (rng.random() - 0.5)) * (a1 - a0) / na
+                        if c.plan == "octo":
+                            # contrôle d'îlots a3 (âge 14, trou de 20 px) : les rayons de la zone sont ceux des SOMMETS
+                            # de l'octogone ; au milieu d'un pan, le bord est à R cos(π/8), et une pièce semée au rayon
+                            # du sommet DÉBORDE du pan (poche fermée contre le bord). Rayon ramené au pan, marge 0,08.
+                            f = math.cos(math.pi / 8) / math.cos(((a - math.pi / 8) % (math.pi / 4)) - math.pi / 8)
+                            Rf = R * f
+                            if Rf > R1 * f - 0.08 or Rf < R0 * f + 0.02:
+                                continue
+                            pts.append((Rf * math.cos(a), cy + Rf * math.sin(a), zz))
+                            continue
                         pts.append((R * math.cos(a), cy + R * math.sin(a), zz))
             for (x, y, zz) in pts:
                 if rng.random() > p_case or not _libre(c, x, y, 0.07):
