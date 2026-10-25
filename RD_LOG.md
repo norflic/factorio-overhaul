@@ -240,6 +240,20 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 25/10, vers 13 h, **le DC sur le diagnostic des PNJ (IA3-DIAG)** : réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25g) :
+  les PNJ « doivent jouer comme des joueurs, mais qui s'organisent » ; l'évolution doit être « algorithmisé[e] […] on peut pas
+  faire ça pour tous les bâtiments » ; « réfléchi[r] à comment un humain réfléchi, et transcrire ça pour les IA, et aussi,
+  comment un groupe d'humain (organisé) réfléchirai en jouant à factorio » ; pétrole : « se débrouiller pour chercher du
+  pétrole, comme les joueurs », en évaluant la sécurité (s'équiper de grenades, tourelles, munitions) ; « la conception des
+  IA/PNJ […] c'est une section à part entière car ça fait partie intégrante du gameplay ».
+  → **Décision D-18** : l'IA des PNJ devient une SECTION du projet, conçue par nous de bout en bout (pas de questions au DC
+  à chaque étape) : un cerveau GÉNÉRIQUE qui raisonne comme un joueur (buts, arbre des recettes et des recherches lus dans
+  les données du jeu, aucun script par bâtiment), une ORGANISATION de groupe (réservation des ressources, répartition des
+  tâches : personne ne « s'arrache » les plaques d'une machine à vapeur), des EXPÉDITIONS évaluées (sécurité, équipement :
+  grenades, tourelles, munitions) pour le pétrole et les gisements lointains. 8 ouvriers par faction au départ après les
+  corrections ; recherche ou armée d'abord selon le caractère. Méthode : document de conception (IA3), revue adverse,
+  puis lots d'implémentation mesurés (temps de la recherche 3, inactifs, recherche 4 et plus avec pétrole, aucune
+  ressource disputée).
 - 25/10, vers 9 h 15, **réponses du DC aux questions de la nuit, par QCM dans Claude Code** (il demande ce format : « j'ai rien
   compris au formart de réponse, pour moi ça veut rien dire, posez moi les questions ICI avec un choix QCM où je peux cliquer
   dessus et ça fonctionne DANS claude code ») ; réponses mot pour mot dans OBJECTIFS §4 (lignes R-QCM-25).
