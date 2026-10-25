@@ -1,7 +1,7 @@
 -- GÉNÉRÉ par tools/render/pieces/modules/icones.py (lot MOD-V) : ne pas éditer à la main.
 -- Icônes des modules (objets 64 px + 3 mipmaps, technologies 256 px + 3 mipmaps) et teintes de balise.
 return {
-  version = 1,
+  version = 2,
   objets = {
     ["effectivity-module"] = { fichier = "effectivity-module.png", icon_size = 64, icon_mipmaps = 4, palier = 1, epoque = 6,
       beacon_tint = { primary = { r = 0.876, g = 0.870, b = 0.849, a = 1 }, secondary = { r = 0.512, g = 0.732, b = 0.951, a = 1 } } },

@@ -1,4 +1,4 @@
-# Icônes des modules (lot MOD-V, 25/10)
+# Icônes des modules (lot MOD-V, 25/10 ; choix du DC appliqués au lot MOD-3, D-17)
 
 Demande du Directeur Créatif (24/10, mot pour mot) : « nouveaux modules (car en fait ils ont tous le même aspet / couleur
 en plus) ». Avant ce lot, les paliers 1 à 3 étaient les icônes vanilla et les paliers 4 à 10 la même icône vanilla
@@ -14,7 +14,7 @@ la métallicité de la matière), réduction par moyenne de boîtes en lumière 
 Aucun hasard : deux passages donnent les mêmes octets (`--check`).
 
 Pourquoi un rendu 2D plutôt que le kit Blender : l'icône se juge à 32 px dans l'inventaire et le chiffre du palier doit y
-tomber au pixel près (grille de 32 px dessinée à la main) ; un rendu 3D réduit ne le garantit pas. Les couleurs viennent
+tomber au pixel près (grille de 32 px dessinée à la main) ; un rendu 3D réduit ne le garantit pas. Les couleurs des balises viennent
 quand même du registre commun des âges (`../levels/commun/ages.py`) : `ages.matieres()` est appelée avec une fausse
 fonction `metal()` qui relève les couleurs (rgb linéaires), la rugosité et la métallicité.
 
@@ -22,19 +22,23 @@ fonction `metal()` qui relève les couleurs (rgb linéaires), la rugosité et la
 
 | | Vitesse | Productivité | Efficacité |
 |---|---|---|---|
-| Silhouette (le type se lit à la FORME) | chevron « > » | croix « + » (le produit en plus) | feuille ovale, tige en bas à gauche |
-| Lumière | chevron court à la pointe | centre | nervure |
+| Silhouette (le type se lit à la FORME) | chevron « > » | engrenage à 8 dents (D-17) | feuille ovale, tige en bas à gauche |
+| Couleur du corps (D-17 : « Couleur par type ») | bleu | orange | vert |
+| Lumière | chevron court à la pointe | moyeu | nervure |
 
-Premier jet de la productivité : un engrenage à 8 dents (`geo_productivite_engrenage`, gardé pour mémoire) ; en mode Alt,
-il se confondait avec l'icône de recette de la roue dentée affichée juste au-dessus des modules (capture du 25/10).
+**Lot MOD-3 (version 2 de l'outil, décision D-17 du DC, 25/10)** : corps coloré PAR TYPE (`TYPE_COULEURS`), productivité
+en ENGRENAGE (`geo_productivite_engrenage` ; la croix du 2e jet de MOD-V reste dans `geo_productivite`), chiffre romain
+gardé, teintes des BALISES à la couleur de l'ÂGE (inchangées depuis MOD-V). MOD-V avait écarté l'engrenage parce qu'en
+mode Alt il se confondait avec l'icône de recette de la roue dentée (gris) ; la couleur orange du type doit l'en
+distinguer : à juger sur les captures du lot MOD-3.
 
-- **Couleur = âge qui débloque le palier** (`shared/content/epochs.lua`, contrôlé par `verifier_epoques()`) :
-  palier 1 → âge 6 (Électricité : porcelaine blanche, bleu machine, arcs bleus) ; paliers 2 à 5 → âge 10 (Haute
-  technologie : ivoire chaud, gris technique, anthracite, voyants bleus) ; paliers 6 à 10 → âge 14 (La Porte : indigo de
-  nuit, blanc lunaire, blanc d'étoile). Règle 60/30/10 de l'âge : champ = dominante, cadre = secondaire, lumière = foyer.
-- **Montée du palier** : (1) matières de la génération ; (2) éclat du cœur et halo, croissants de 1 à 10 ;
-  (3) pièces propres à l'âge, en nombre = rang dans la génération (âge 10 : 1 à 4 voyants ; âge 14 : 1 à 5 étoiles) ;
-  (4) plaque gravée du chiffre romain, coin HAUT GAUCHE (le coin bas droit d'une case porte le nombre d'objets).
+- **Couleur du corps = type** ; plus sombre au palier 1 (62 %), pleine au palier 10.
+- **Teinte des balises = âge qui débloque le palier** (`shared/content/epochs.lua`, contrôlé par `verifier_epoques()`) :
+  palier 1 → âge 6 (porcelaine blanche, arcs bleus) ; paliers 2 à 5 → âge 10 (ivoire chaud, voyants bleus) ; paliers 6
+  à 10 → âge 14 (indigo de nuit, blanc d'étoile) : `beacon_tint`, primaire = dominante de l'âge, secondaire = foyer.
+- **Montée du palier** : (1) teinte du champ ; (2) éclat du cœur et halo, croissants de 1 à 10 ; (3) pièces à la lumière
+  du type, en nombre = rang dans la génération (paliers 2 à 5 : 1 à 4 voyants ; 6 à 10 : 1 à 5 étoiles) ; (4) plaque
+  gravée du chiffre romain, coin HAUT GAUCHE (le coin bas droit d'une case porte le nombre d'objets).
 - Plaque : vecteur à 64 px et dans les technologies ; AU PIXEL à 32 px (glyphes I 1 × 5, V 3 × 5, X 5 × 5) ; absente
   à 16 et 8 px (un chiffre n'y tient pas).
 - Contour sombre d'environ 1 px à 64 px autour de la silhouette (lisibilité sur fond clair).

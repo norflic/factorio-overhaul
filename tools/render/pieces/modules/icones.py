@@ -7,20 +7,21 @@ spéculaire selon la rugosité et la métallicité de la matière de l'âge), pu
 LINÉAIRE ; la plaque du palier est posée ensuite, au pixel, à 64 et 32 px. Aucun hasard : deux passages donnent les
 mêmes octets.
 
-COULEURS : celles des âges (tools/render/pieces/levels/commun/ages.py), lues en appelant ages.matieres() avec une fausse
-fonction metal() qui RELÈVE les couleurs (rgb linéaires, rugosité, métallicité) sans Blender. Un module de palier k
-appartient à l'époque qui le DÉBLOQUE (shared/content/epochs.lua : palier 1 -> époque 6 ; 2 à 5 -> 10 ; 6 à 10 -> 14).
-Règle 60/30/10 de l'âge : CHAMP = dominante, CADRE = secondaire, accent de l'âge, LUMIÈRE = foyer de l'âge.
+COULEURS (lot MOD-3, décision D-17 du DC, 25/10 : « Couleur par type ») : le CORPS du module a la couleur de son TYPE
+(TYPE_COULEURS : bleu vitesse, orange productivité, vert efficacité), plus sombre au palier 1, pleine au palier 10.
+Les teintes des BALISES (beacon_tint) restent celles de l'ÂGE qui débloque le palier (D-17 : « Couleur de l'âge ») :
+celles des âges (tools/render/pieces/levels/commun/ages.py), lues en appelant ages.matieres() avec une fausse fonction
+metal() qui RELÈVE les couleurs (rgb linéaires, rugosité, métallicité) sans Blender ; palier 1 -> époque 6 ; 2 à 5 ->
+10 ; 6 à 10 -> 14 (shared/content/epochs.lua). Lot MOD-V (version 1) : corps aux couleurs de l'âge (roles_age).
 
-FORMES (le type se lit à la silhouette, pas à la couleur) :
+FORMES (le type se lit à la silhouette ET à la couleur) :
   - vitesse      : CHEVRON pointé vers la droite (« > »), cœur lumineux à la pointe ;
-  - productivité : CROIX « + » (le produit en plus), cœur lumineux au centre (2e jet : l'engrenage du premier jet se
-                   confondait en mode Alt avec l'icône de recette de la roue dentée) ;
+  - productivité : ENGRENAGE à 8 dents, cœur lumineux au moyeu (D-17, réponse à MOD-V Q3 ; la croix « + » du 2e jet de
+                   MOD-V est gardée pour mémoire, geo_productivite) ;
   - efficacité   : FEUILLE en diagonale (pointe en haut à droite, tige en bas à gauche), nervure lumineuse.
-MONTÉE DU PALIER : matières de la génération (âge 6, 10, 14) ; éclat du cœur et halo qui croissent de 1 à 10 ; pièces
-propres à l'âge, en nombre = rang dans la génération (âge 10 : 1 à 4 VOYANTS bleus ; âge 14 : 1 à 5 ÉTOILES semées) ;
-plaque gravée du chiffre romain en bas à droite (au pixel à 32 et 64 px ; tracée en vecteur dans les icônes de
-technologie).
+MONTÉE DU PALIER : chiffre romain gravé sur une plaque en HAUT À GAUCHE (au pixel à 32 px, vecteur à 64 px et dans les
+technologies ; D-17 : « Garder le romain ») ; éclat du cœur et halo qui croissent de 1 à 10 ; pièces en nombre = rang
+dans la génération (paliers 2 à 5 : 1 à 4 VOYANTS ; 6 à 10 : 1 à 5 ÉTOILES), à la lumière du type ; teinte du champ.
 
 Sorties (dossier --out, par défaut graphics/modules du mod) :
   <objet>.png        icône d'objet 64 px + 3 mipmaps (bande 120 x 64), icon_size 64, icon_mipmaps 4 ;
@@ -50,7 +51,7 @@ MOD = os.path.abspath(os.path.join(ICI, "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(ICI, "..", "levels", "commun"))
 import ages  # noqa: E402
 
-VERSION = 1
+VERSION = 2   # 2 : lot MOD-3 (D-17), couleurs par type, productivité en engrenage
 N = 512          # résolution de travail (unités de dessin : 0 à 64)
 U = N / 64.0     # pixels de travail par unité
 TYPES = ("speed", "productivity", "effectivity")
@@ -115,6 +116,37 @@ def roles_age(e):
         raise ValueError("âge sans rôles de module : %d" % e)
     r["lumiere"], r["lumiere2"] = lum, lum2
     r["age"] = e
+    r["anneau"] = (e == 6)
+    return r
+
+
+# Lot MOD-3 (décision D-17 du DC, 25/10 : « Couleur par type ») : le CORPS du module prend la couleur de son TYPE (bleu
+# vitesse, orange productivité, vert efficacité, les couleurs vanilla) ; la couleur ne dit plus l'âge. Le palier se lit
+# au chiffre romain, à l'éclat du cœur et du halo, aux pièces (voyants de 2 à 5, étoiles de 6 à 10 : leur FORME suit
+# encore la génération) et à une montée douce de la teinte du champ (plus sombre au palier 1, pleine au palier 10).
+# Les teintes des BALISES restent celles de l'âge (beacon_tint, D-17 : « Couleur de l'âge »).
+TYPE_COULEURS = {
+    "speed": dict(champ=(0.10, 0.30, 0.85), cadre=(0.022, 0.065, 0.24), logement=(0.010, 0.022, 0.075),
+                  lumiere=(0.35, 0.75, 1.0), lumiere2=(0.55, 0.85, 1.0)),
+    "productivity": dict(champ=(0.85, 0.28, 0.04), cadre=(0.22, 0.065, 0.016), logement=(0.060, 0.018, 0.006),
+                         lumiere=(1.0, 0.72, 0.22), lumiere2=(1.0, 0.85, 0.50)),
+    "effectivity": dict(champ=(0.11, 0.58, 0.11), cadre=(0.022, 0.15, 0.032), logement=(0.008, 0.045, 0.012),
+                        lumiere=(0.55, 1.0, 0.45), lumiere2=(0.75, 1.0, 0.65)),
+}
+
+
+def roles_type(t, k):
+    """Rôles du module de type t, palier k (lot MOD-3) : mêmes clés que roles_age."""
+    c = TYPE_COULEURS[t]
+    e = eclat(k)
+    montee = 0.62 + 0.38 * e
+    champ = tuple(v * montee for v in c["champ"])
+    r = dict(champ=dict(rgb=champ, rough=0.36, met=0.15), cadre=dict(rgb=c["cadre"], rough=0.42, met=0.30),
+             logement=dict(rgb=c["logement"], rough=0.45, met=0.40), accent=[],
+             plaque=dict(rgb=c["logement"], rough=0.45, met=0.40))
+    r["lumiere"], r["lumiere2"] = tuple(c["lumiere"]), tuple(c["lumiere2"])
+    r["age"] = EPOQUE[k]
+    r["anneau"] = False
     return r
 
 
@@ -286,7 +318,10 @@ def geo_efficacite():
                 cables=[], nervure=((ax, ay), (bx, by)))
 
 
-GEO = {"speed": geo_vitesse, "productivity": geo_productivite, "effectivity": geo_efficacite}
+# Lot MOD-3 (D-17, réponse du DC à MOD-V Q3 : « Engrenage ») : la productivité reprend l'ENGRENAGE du premier jet. La
+# croix (geo_productivite) est gardée pour mémoire. Le risque vu par MOD-V (engrenage gris de la recette de roue dentée
+# en mode Alt) est réduit par la couleur orange du type : à regarder sur les captures.
+GEO = {"speed": geo_vitesse, "productivity": geo_productivite_engrenage, "effectivity": geo_efficacite}
 _GEO_CACHE = {}
 
 
@@ -321,7 +356,7 @@ def _melange(dst, src, a):
 
 def rendre_art(t, k, avec_plaque_vecteur=False):
     g = geo(t)
-    R = roles_age(EPOQUE[k])
+    R = roles_type(t, k)   # lot MOD-3 (D-17) : couleurs du TYPE (MOD-V : roles_age(EPOQUE[k]))
     e = eclat(k)
     n_pieces = rang(k)
 
@@ -359,7 +394,7 @@ def rendre_art(t, k, avec_plaque_vecteur=False):
             a = couv(sd_polyligne(poly, 0.95)) * a_champ
             poser(a, mat)
             H += 0.5 * a
-    if R["age"] == 6:
+    if R.get("anneau"):
         anneau = np.maximum(g["logement"] - 1.6, -(g["logement"]))
         a = couv(anneau) * a_champ
         poser(a, R["accent"][0])
@@ -589,7 +624,7 @@ def icone_objet(t, k):
     n'y tient pas)."""
     rgb, a = rendre_art(t, k)
     rgb_p, a_p = rendre_art(t, k, avec_plaque_vecteur=True)
-    R = roles_age(EPOQUE[k])
+    R = roles_type(t, k)
     bande = Image.new("RGBA", (120, 64), (0, 0, 0, 0))
     im64 = en_image(*reduire(rgb_p, a_p, 64))
     im32 = poser_plaque_pixel(en_image(*reduire(rgb, a, 32)), k, 1, R)
@@ -696,7 +731,7 @@ def planche(chemin, fichiers):
         f_txt = ImageFont.truetype("arial.ttf", 13)
     except OSError:
         f_titre = f_txt = ImageFont.load_default()
-    noms_t = {"speed": "Vitesse : chevron", "productivity": "Productivité : croix",
+    noms_t = {"speed": "Vitesse : chevron", "productivity": "Productivité : engrenage",
               "effectivity": "Efficacité : feuille"}
     cell = 112
     marge_g = 200
@@ -707,13 +742,13 @@ def planche(chemin, fichiers):
     H = 96 + len(fonds) * bloc_h + 10
     im = Image.new("RGB", (larg, H), (24, 24, 26))
     d = ImageDraw.Draw(im)
-    d.text((16, 12), "Modules : 3 types x 10 paliers (lot MOD-V, proposition à juger)", fill=(235, 235, 235),
+    d.text((16, 12), "Modules : 3 types x 10 paliers (lots MOD-V et MOD-3 : couleur par type, engrenage ; proposition à juger)", fill=(235, 235, 235),
            font=f_titre)
     d.text((16, 40), "Chaque case : en haut à gauche 64 px, à droite 32 px (taille de l'inventaire), en dessous les "
                      "mêmes 32 px agrandis x 2 au pixel. Images du fichier, sans retouche.", fill=(200, 200, 200),
            font=f_txt)
-    d.text((16, 60), "Forme = type ; couleurs = âge qui débloque le palier (âge 6 Électricité, âge 10 Haute "
-                     "technologie, âge 14 La Porte) ; montée : pièces, éclat du cœur, chiffre romain.",
+    d.text((16, 60), "Forme ET couleur = type (bleu vitesse, orange productivité, vert efficacité ; D-17) ; montée : "
+                     "chiffre romain, éclat du cœur, pièces (voyants 2 à 5, étoiles 6 à 10), teinte du champ.",
            fill=(200, 200, 200), font=f_txt)
     y = 96
     for libelle, fond in fonds:
