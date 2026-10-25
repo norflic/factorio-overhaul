@@ -27,6 +27,8 @@ local Storage = require("script.core.storage")
 local Scheduler = require("script.core.scheduler")
 local Levels = require("script.levels.levels")
 local MM = require("shared.content.module_mult")
+-- Lot MOD-2 : recettes par lots au-delà de 60 fabrications par seconde (décision prise à chaque relecture d'une machine).
+local Lots = require("script.modules.lots")
 
 local Mult = {}
 
@@ -243,6 +245,7 @@ function Mult.track(e)
   clear_orphans(e, unit)
   Scheduler.add(Mult.LANE, unit)
   check(rec, unit, true)
+  Lots.consider(e)
   return rec
 end
 
@@ -253,6 +256,7 @@ function Mult.refresh(e, force)
   if not rec then return Mult.track(e) end
   if not NAMES then build_cache() end
   check(rec, e.unit_number, force)
+  Lots.consider(e)
   return rec
 end
 
@@ -276,6 +280,7 @@ Scheduler.define_lane(Mult.LANE, period, function(unit)
   end
   if not NAMES then build_cache() end
   check(rec, unit, false)
+  Lots.consider(rec.e)
 end)
 
 ---------------------------------------------------------------------------------------------------
@@ -302,6 +307,12 @@ local function panel_for(player, etype)
     local note = f.add({ type = "label", name = "note", caption = { "fo-mm.panel-note" } })
     note.style.single_line = false
     note.style.maximal_width = 220
+  end
+  -- Lot MOD-2 : ligne des recettes par lots (ajoutée aussi à un panneau créé avant MOD-2).
+  if not f.lots then
+    local l = f.add({ type = "label", name = "lots", tooltip = { "fo-lots.panel-lot-tooltip" } })
+    l.style.single_line = false
+    l.style.maximal_width = 220
   end
   return f
 end
@@ -330,6 +341,9 @@ local function update_panel(player, e)
   f.cap.caption = capped and { "fo-mm.panel-cap" } or ""
   f.cap.visible = capped
   f.speed.tooltip = { "fo-mm.panel-tooltip", tostring(t.n or 0) }
+  local lot = Lots.panel_line(e)
+  f.lots.caption = lot or ""
+  f.lots.visible = lot ~= nil
 end
 Mult.update_panel = update_panel
 

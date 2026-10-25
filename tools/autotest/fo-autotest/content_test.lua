@@ -15,6 +15,15 @@ local W = require("__factorio-overhaul__/shared/content/world")
 local LV = require("__factorio-overhaul__/shared/levels/config")
 local Greffons = require("greffons")
 
+-- Lot MOD-2 : les recettes par lots (« fo-lot10-… », « fo-lot100-… », 470 copies cachées, générées) ne sont pas des
+-- recettes du mod au sens de ce banc : aucune recherche ne les débloque (le script les active avec leur recette de
+-- base), et elles sont contrôlées ailleurs (harness : chaque lot = k × sa base ; scénario mod2-lots en moteur réel).
+-- Motif écrit ICI (même règle que shared/content/recipe_lots.lua, R.parse) et non `require` : le mod de test est
+-- chargé aussi avec une source de création plus ancienne (bancs en double source), qui n'a pas ce fichier.
+local function mod_recipe(name)
+  return name:find("^fo%-") ~= nil and name:find("^fo%-lot%d+%-") == nil
+end
+
 local T = {}
 
 local CHECK_TICK = 3000 -- 50 s de jeu
@@ -110,7 +119,7 @@ local function test_techs()
   -- Session 5 : le centre de commandement (hôtel de ville des niveaux) aussi.
   local START = { ["fo-team-chest"] = true, ["fo-command-center"] = true }
   for name, rec in pairs(force.recipes) do
-    if name:find("^fo%-") and not START[name] then
+    if mod_recipe(name) and not START[name] then
       if rec.enabled then free[#free + 1] = name end
       if not unlocked_by[name] then orphan[#orphan + 1] = name end
     end
@@ -127,7 +136,7 @@ local function test_techs()
   force.research_all_technologies()
   local missing = {}
   for name, rec in pairs(force.recipes) do
-    if name:find("^fo%-") and not rec.enabled then missing[#missing + 1] = name end
+    if mod_recipe(name) and not rec.enabled then missing[#missing + 1] = name end
   end
   table.sort(missing)
   check(#missing == 0, "technologies : toutes les recettes du mod debloquees apres recherche",
@@ -160,7 +169,7 @@ end
 local function setup_recipes(s, S)
   local names = {}
   for name in pairs(game.recipe_prototypes) do
-    if name:find("^fo%-") then names[#names + 1] = name end
+    if mod_recipe(name) then names[#names + 1] = name end
   end
   table.sort(names)
   S.recipes = {}

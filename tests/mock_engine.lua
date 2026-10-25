@@ -761,6 +761,9 @@ function M.new_world(opts)
     -- lot MOD-1 : modules multiplicatifs (script/modules/mult.lua) ; le mock ne modélise PAS les modules
     -- (get_module_inventory rend nil : aucune machine suivie), le moteur réel est prouvé par « mod1-modules »
     on_gui_opened = 22, on_gui_closed = 23, on_player_fast_transferred = 24, on_entity_settings_pasted = 25,
+    -- lot MOD-2 : recettes par lots (script/modules/lots.lua) : lots activés à la création d'une force ; le mock ne
+    -- modélise PAS les lots (fixture vanilla : aucun « fo-lot ») ; le moteur réel est prouvé par « mod2-lots »
+    on_force_created = 26,
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),

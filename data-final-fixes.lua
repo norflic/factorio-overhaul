@@ -94,3 +94,8 @@ for _, name in ipairs(tech_names) do
   if changed then scaled = scaled + 1 end
 end
 log("[FO-LEVELS] recherche vanilla allégée (QX9) : " .. scaled .. " technologie(s)")
+
+-- Lot MOD-2 (D-15, Q-M2 a) : recettes par lots × 10 et × 100 au-delà de 60 fabrications par seconde. EN DERNIER :
+-- la liste des recettes doit être complète, et les limitations de productivité posées plus haut sont étendues aux lots.
+-- Aucune technologie n'est touchée (le calcul des époques ci-dessus lit leurs effets) : le script active les lots.
+require("prototypes.lots")
