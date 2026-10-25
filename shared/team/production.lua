@@ -511,10 +511,15 @@ function P.values(book, opts)
             nets[pi] = net
             if net > 0 then W = W + net * weight(p.name) end
           end
+          -- Lot X2 : une recette dont les ingrédients ne valent RIEN (aucun ingrédient : distillation de l'air ; eau
+          -- seule : électrolyse de l'eau) est une extraction : ses produits valent leur poids brut (fluide : X.FLUID_MU),
+          -- pas 0. À 0, l'azote liquide et l'oxygène gratuits faisaient tomber la valeur du baril vide par la boucle
+          -- remplir / vider, puis celle de tous les fluides (gaz de pétrole 5e-12 MU au lieu de 0,08).
+          local extraction = input <= 0
           if W > 0 then
             for pi, p in ipairs(r.products) do
               if nets[pi] > 0 and not P.RAW[p.name] then
-                local unit = input * weight(p.name) / W
+                local unit = extraction and weight(p.name) or input * weight(p.name) / W
                 if mu[p.name] == nil or unit < mu[p.name] - 1e-12 then mu[p.name] = unit; changed = true end
               end
             end

@@ -38,7 +38,7 @@ local function new_surface(name, seed, no_resources)
   local mgs = game.surfaces[1].map_gen_settings
   mgs.seed = seed
   if no_resources then
-    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine" }) do
+    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine", "fo-monazite" }) do
       local c = mgs.autoplace_controls[r] or {}
       mgs.autoplace_controls[r] = { frequency = c.frequency or 1, size = 0, richness = c.richness or 1 }
     end
@@ -122,7 +122,7 @@ local function natural_survey(ctx, s, specs, label)
       near < math.huge and string.format("%.0f", near) or "-")
   end
   local tiles = {}
-  for _, b in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields" }) do
+  for _, b in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields", "fo-black-sands" }) do
     local c = {}
     for _, r in ipairs({ 200, 500, 700, 900 }) do c[#c + 1] = s.count_tiles_filtered({ position = { 0, 0 }, radius = r, name = b }) end
     tiles[#tiles + 1] = b .. " " .. table.concat(c, "/")

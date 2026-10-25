@@ -108,6 +108,31 @@ W.biomes = {
     region = { seed1 = 7211, threshold = 0.56, scale = 1 / 240, moisture_max = 0.55 },
     hazard = nil,
   },
+  {
+    -- Lot X2 (25/10) : SABLES NOIRS, biome de l'âge 12 (X.tiles : fo-black-sands ; X.resources : monazite, « sables noirs
+    -- (rivages, ou dunes sur carte sèche) »). Le sable fin vanilla (sand-1) RECOLORÉ en noir de magnétite
+    -- (tools/biomes/sol_sables_noirs.py, méthode du lot B0 : couleur moyenne mesurée (51 ; 48 ; 46)), un SOL comme les
+    -- champs de cratères (découpe, variantes et masques de transition de sand-1), au-dessus des sols vanilla, de la plaine
+    -- et des cratères (layer 43) : c'est lui qui dessine sa frange. Ni teinte, ni danger, ni effet de déplacement (X n'en
+    -- donne aucun) ; pas de poussière brune sous les pas. ÉCART : les « rivages » ne sont pas modélisés (bruit de région
+    -- seul, comme les cratères) ; la garantie pose des dunes même loin de l'eau, comme X le prévoit pour une carte sèche.
+    -- Région : graine NUMÉRIQUE (F198).
+    name = "fo-black-sands",
+    copy_from = "sand-1",
+    texture = {
+      ["__base__/graphics/terrain/sand-1.png"] = "__factorio-overhaul__/graphics/terrain/sables-noirs/sol-sables-noirs.png",
+      ["__base__/graphics/terrain/hr-sand-1.png"] = "__factorio-overhaul__/graphics/terrain/sables-noirs/hr-sol-sables-noirs.png",
+    },
+    ground = true,
+    layer = 43,
+    no_splash = true,
+    map_color = { r = 44, g = 42, b = 40 },
+    walking_speed_modifier = 1.0,
+    vehicle_friction_modifier = 1.0,
+    pollution_absorption_per_second = 0.000002,
+    region = { seed1 = 7212, threshold = 0.6, scale = 1 / 220 },
+    hazard = nil,
+  },
 }
 
 -- Grain fin des frontières des biomes (lot B0, verdict du DC du 24/10 : « B3 B ») : bruit ajouté à la probabilité de
@@ -116,11 +141,12 @@ W.biomes = {
 -- seed1 : graines numériques propres (comme les gisements, 7101 à 7103) ; surtout pas de nouveau prototype noise-layer
 -- (il décale les couches de bruit existantes et change la forêt vanilla, F198 proposé).
 W.grain = { period = 6, influence = 2 / 3, persistence = 0.7, octaves = 4,
-  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203, ["fo-crater-fields"] = 7204 } }
+  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203, ["fo-crater-fields"] = 7204,
+    ["fo-black-sands"] = 7205 } } -- X2 : sables noirs
 
 -- Biomes sans AUCUN décor vanilla à la génération (lot B0, verdict « B4 B » : touffes d'herbe et plaques brunes
 -- retirées de la plaine de cristal) ; leur propre décor (W.decor) reste.
-W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields" } -- X1-TITANE : ni herbe ni plante sur le régolithe
+W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields", "fo-black-sands" } -- X1 : régolithe ; X2 : dunes
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
@@ -187,6 +213,15 @@ W.decor = {
       { name = "fo-crater-glass", copy = "sand-rock-small", density = 0.01, tint = { r = 0.42, g = 0.48, b = 0.45 } },
     },
   },
+  -- X2 : galets de basalte et coquilles blanchies sur les dunes de sable noir (copies vanilla teintées) ; aucune entité.
+  ["fo-black-sands"] = {
+    decoratives = {
+      { name = "fo-black-sand-pebbles", copy = "rock-tiny", density = 0.04, tint = { r = 0.40, g = 0.39, b = 0.38 } },
+      { name = "fo-black-sand-shells", copy = "sand-rock-small", density = 0.006, tint = { r = 0.95, g = 0.92, b = 0.86 } },
+      -- rides de dune assombries (décalque brun teinté : il reste sombre, F38)
+      { name = "fo-black-sand-ripples", copy = "sand-dune-decal", density = 0.01, tint = { r = 0.35, g = 0.34, b = 0.33 } },
+    },
+  },
 }
 
 --[[
@@ -199,11 +234,12 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite" }
+-- Lot X2 : la monazite (âge 12), 2 taches de sables noirs (X.resources : placement.guaranteed.count = 2).
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite" }
 
 W.resources = {
   tungsten = {
@@ -336,6 +372,39 @@ W.resources = {
     map_color = { r = 0.36, g = 0.78, b = 0.70 },
     biome = "fo-crater-fields",
     autoplace = { base_density = 5, base_spots_per_km2 = 1.5, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7105 },
+  },
+  -- Lot X2 (25/10) : MONAZITE, minerai des terres rares (âge 12), dans les sables noirs (X.resources : fo-monazite,
+  -- catégorie basic-solid, produit fo-monazite-ore ; minage 2 s, X : « Minage : monazite »). ÉCART noté : X donne à sa
+  -- pseudo-recette de minage les foreuses ÉLECTRIQUES (HARD_DRILLS) mais à la ressource la catégorie basic-solid (toutes
+  -- les foreuses ; « foreuses communes » dans l'analyse du scénario) ; le prototype suit la RESSOURCE. Chaîne de
+  -- transformation : shared/content/superconductors.lua.
+  monazite = {
+    resource = "fo-monazite",
+    kind = "ore",
+    epoch = 12,
+    -- Sites garantis (X : 2 taches de sables noirs à 400-900 tuiles) : environ 400 000 minerais chacun (8 minerais par
+    -- bobine : 100 000 bobines pour les deux) ; arbres et rochers retirés (dunes).
+    guarantee = { site_radius = 15, ore_radius = 8, amount = 3000, min_total = 200000, clear_trees = true },
+    item = "fo-monazite-ore",
+    copy_resource = "iron-ore",
+    copy_icon = "iron-ore",
+    -- Miel de la monazite : teinte de la technologie et des objets dérivés.
+    tint = { r = 0.86, g = 0.66, b = 0.36 },
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction Z1, tools/render/pieces/ressources/directions.py) : placer de
+    -- galets et prismes miel et brun-rouge mêlés de magnétite noire. Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/monazite",
+      name = "monazite",
+      mining_visualisation_tint = { r = 0.80, g = 0.62, b = 0.35, a = 1 },
+      -- Couche d'effet ambre très faible (pas la lueur trop claire de l'ilménite la nuit).
+      effet = { period = 10, deviation = 1, darkness_multiplier = 40, min = 0.008, max = 0.012 },
+    },
+    -- Or franc sur la carte : loin de la pierre (beige), du cuivre (orange) et de l'uranium (vert).
+    map_color = { r = 0.93, g = 0.78, b = 0.18 },
+    mining_time = 2,
+    category = nil, -- basic-solid (X.resources)
+    biome = "fo-black-sands",
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 3, seed1 = 7106 },
   },
 }
 
