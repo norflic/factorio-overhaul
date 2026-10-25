@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 3 h 35 (nuit)** : intégrées depuis 2 h 10 : MOD-2 (0.4.22, recettes par lots ; catégories `fo-*` du titane
+> exclues des lots par l'intégrateur après un échec du contrôle des boîtes à fluide), IA2-b (0.4.23, expansion par la carte,
+> seuils de forme en partie). MOD-V (modules au design distinct, branche worktree-agent-adfb469831c79e019, `1ed3ec0`) NON
+> fusionné : lisibilité en jeu en recul (chiffre romain illisible à l'échelle d'interface, couleur par âge au lieu de par
+> type) : 4 questions au DC (NOTES de MOD-V §6). En cours : F1-B (rondes du laser), A5-ESSAI (couleur d'équipe sur
+> petits éléments, 3 âges, à montrer au DC). Au réveil du DC : page de la nuit.
 > **Point de 2 h 10 (heure d'hiver ; passage à 3 h → 2 h cette nuit : les `done.txt` de 2 h à 3 h se répètent)** :
 > fusionnés et prouvés : IA2-a et IA2-a2 (0.4.20, chef adaptatif, guerres rééquilibrées), X1 (0.4.21, titane de l'âge
 > 11 ; premier agent bloqué 2 h 30, arrêté, fini par un second). En cours : MOD-2 (recettes par lots), IA2-b (expansion
