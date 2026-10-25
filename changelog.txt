@@ -1,4 +1,22 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.21
+Date: 2026-10-25
+  Features:
+    - Âge 11 (Titane) : l'ilménite des champs de cratères se mine à la foreuse électrique et la saumure de leurs fonds
+      se pompe ; la plaque de titane se fait par la chaîne du scénario (concentré, fusion au four à arc, électrolyse de
+      la saumure, chloration, réduction de Kroll, refusion) ; le tungstène par voie humide emploie la soude et
+      l'hydrogène de la saumure.
+    - Cinq machines : four à coke, four à arc, électrolyseur, concentrateur, réacteur de Kroll (aspect provisoire, sans
+      niveaux pour l'instant).
+    - Un champ de cratères complet (ilménite et trois puits de saumure) est garanti à 400-900 tuiles du départ, aussi
+      dans les parties en cours.
+  Balancing:
+    - Les niveaux de l'âge 11 se paient en plaques de titane (au lieu de structures basse densité) ; coûts des âges 10
+      à 12 recalculés (passages du centre 11 à 13 : environ 8 à 10 % de plus).
+  Graphics:
+    - Gisement d'ilménite à l'aspect propre (nodules sombres, croûtes crème et rousses) ; sol gris des champs de
+      cratères.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.20
 Date: 2026-10-25
   Features:

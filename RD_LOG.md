@@ -466,6 +466,14 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot X1-TITANE, le titane de l'âge 11, 24 et 25/10 nuit ; fusionné dans `main`, `eaf7b0b`, version 0.4.21)
+Preuves : `fo-logs\2026-10-25_X1\` (`NOTES.md`, `images-DC\`). Expériences : E145, E146.
+- **F210** : le cache des atlas des captures (`atlas-cache.dat`) n'est PAS refait quand seul le CONTENU d'une image change
+  (même chemin, mêmes dimensions) : la session montre l'ANCIENNE image ; effacer le cache (ou `--no-atlas-cache`) avant de
+  capturer une feuille retouchée à taille égale. Les captures `captures-commit` du lot M1 sont à revérifier.
+- **F211** : `set_tiles` d'une tuile de SOL ne retire ni arbres ni rochers (seuls les objets en collision avec la tuile
+  partent, cf. F135) : les retirer par script.
+
 ### Faits vérifiés en moteur réel (lots IA2-a et IA2-a2, chef de faction adaptatif et guerres rééquilibrées, 25/10 nuit ; fusionnés dans `main`, `90f7518`, version 0.4.20)
 Preuves : `fo-logs\2026-10-25_IA2-a\` (`NOTES.md` §5 et A2.5, `moteur\mesures.md`, `a2\`). Expériences : E147 à E150.
 - **F213** : un groupe d'attaque dont l'itinéraire passe d'abord par un point choisi à 56 tuiles de la cible, dans l'un
@@ -937,6 +945,18 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E145, E146 · Lot X1-TITANE (24 et 25/10 nuit ; premier agent bloqué de 23 h 21 à 1 h 50, arrêté par l'orchestrateur ;
+fin par un second agent ; fusion `eaf7b0b`, version 0.4.21)** : le titane de l'âge 11 en jeu, fidèle au scénario
+(ilménite, saumure infinie, champs de cratères, chaîne de Kroll, 5 machines au visuel provisoire sans niveaux) ;
+`fo-titanium-plate` devient la vraie monnaie de l'âge 11 ; garantie M0 à 4 ressources. **E146** : lisibilité de
+l'ilménite, 3 feuilles : I1 6 OK, I2 8 OK, I3 9 OK sur 9 (livrée). Sur `main` 0.4.21 (`fo-logs\2026-10-25_integration-0.4.21\`,
+`done.txt` 2:39:56 à 2:41:37) : content 331, monde 116, m0-reprise 15, x1-titane 27, m0-migration 11, x1-migration 8,
+mod1-modules 67, t2-machines 80, gun-rose 13, pnj-reduit 12 ; hors jeu monde 201, titanium 114, levels 1 664, epochs
+16 665, api_lint 897, check_gisement 7. DÉFAUTS CONNUS, non corrigés : la chaîne n'a jamais été jouée sans script
+(sans torchère, l'hydrogène en trop peut bloquer l'électrolyseur ; le banc le retire par script) ; les puits de saumure
+ont le sprite du pétrole teinté ; l'ilménite I3 est saumon-crème de jour et trop claire de nuit ; champ garanti au bord
+de l'anneau (840 tuiles) ; dépend des questions S1 à S4 du DC.
+
 **E147 à E150 · Lots IA2-a et IA2-a2, chef adaptatif (25/10 nuit ; choix D-16 ; fusion `90f7518`, version 0.4.20)** :
 `default` 2 h × 4 graines (Paisible), IA2-0 → IA2-a → final : côtés d'arrivée 0 → 1,31 → 1,38 bit ; tailles CV 0,21 →
 0,38 → 0,45 ; distance des décisions entre graines 0,35 → 0,45 → 0,45 ; raids 0 → 58 ; le bâtisseur attaque ; factions
