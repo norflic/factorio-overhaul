@@ -24,7 +24,8 @@ CYN = 0.3
 PROFIL = ((0.46, 1.7), (0.75, 1.95), (1.15, 2.2), (1.55, 2.45), (1.85, 2.68), (2.0, 2.85))   # (rayon, z) de la vasque
 # ronde 1 : 0,58 à 3,0 se perdait dans la vasque ; ronde 2 (mesures.py : plus grand foyer 1,53 t², saturation 0,17 hors
 # famille) : 0,64, et les lumières secondaires passent à l'orange (emit2) pour ramener la saturation dans la famille
-R_ETOILE, Z_ETOILE = 0.64, 3.15
+# phase A2 (DC : lueur sous 1,0 t²) : 0,56 (1,14 t² à 0,64)
+R_ETOILE, Z_ETOILE = 0.56, 3.15
 
 
 def matieres(metal, M):
@@ -75,7 +76,9 @@ def griffes(g, c):
     cy = Y(CYN)
     for a_deg in (90.0, 200.0, 250.0, 292.0, 340.0):
         a = math.radians(a_deg)
-        prof = ((1.97, 2.86), (1.85, 3.2), (1.55, 3.62), (1.1, 3.88), (0.75, 3.85), (0.55, 3.62))
+        # phase A2 (lecture « cage » : les griffes montaient en arceaux au-dessus de l'étoile) : plus basses, elles
+        # plongent sur l'étoile et la SAISISSENT (bouts dans sa surface)
+        prof = ((1.97, 2.86), (1.78, 3.12), (1.38, 3.36), (0.95, 3.46), (0.62, 3.4), (0.44, 3.28))
         pts = [corps.V((r * math.cos(a), cy + r * math.sin(a), z)) for r, z in prof]
         P = g.spline(pts, 4)
         radii = [0.15 - 0.11 * i / (len(P) - 1) for i in range(len(P))]

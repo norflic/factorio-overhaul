@@ -12,6 +12,7 @@ import math
 import ages
 import corps
 import formes as F
+import parts as PT
 import parts2 as P2
 from repere import Y
 
@@ -74,7 +75,16 @@ def chambre(g, c):
     yf = y - R_CH - 0.01
     for x in (-0.48, -0.26):
         g.cyl((x, yf + 0.02, zc + 0.08), "y", 0.012, 0.06, M["laiton_capot"], n=6, what="piquage")
-        P2.gauge(g, (x, yf - 0.02, zc + 0.08), (0, -1, 0), 0.06, M)
+        # phase A2 (nuit presque éteinte) : cadrans éclairés
+        P2.gauge(g, (x, yf - 0.02, zc + 0.08), (0, -1, 0), 0.06, M, face=M["emit_soft"])
+    # phase A2 (nuit) : deux lampes de cabine ambre aux angles avant du foyer, fente du cendrier rougeoyante
+    yb = Y(c.T["y_av"]) - 0.01
+    for x in (-0.78, 0.78):
+        g.box((x, yb + 0.02, Z_BASE + 0.02), (0.05, 0.05, 0.06), M["laiton_capot"], "hard", what="potence")
+        PT.lamp(g, (x, yb - 0.02, Z_BASE - 0.06), (0, -1, 0), 0.035, M["emit"])
+    for x in (-0.66, 0.66):
+        g.box((x, yb - 0.004, c.T["sole_h"] + 0.12), (0.22, 0.012, 0.03), M["emit"], "flat", what="cendrier")
+    g.halo((0, yb - 0.3, 0.5), M["_emit_rgb"], 3.0)
     g.box((-0.66, yf - 0.02, zc - 0.02), (0.035, 0.03, 0.2), M["emit"], "flat", what="niveau")
     g.box((-0.66, yf - 0.035, zc - 0.02), (0.06, 0.012, 0.24), M["laiton_capot"], "hard", what="niveau_cadre")
     P2.handwheel(g, (-0.05, yf - 0.06, zc - 0.12), (0, -1, 0), 0.06, M, mat=M["laiton_capot"])
@@ -122,4 +132,5 @@ def piece(g, c):
     for z in (zs + 0.06, zs + 0.28):
         g.tube_shell((x, y, z), "z", 0.145, 0.12, 0.03, M["laiton_capot"], n=24, what="cerclage")
     F.sphere(g, (x, y, zs + 0.34), 0.13, M["cuivre_capot"], sz=0.45)
-    P2.handwheel(g, (x, y - 0.15, zs + 0.18), (0, -1, 0), 0.05, M, mat=M["laiton_capot"])
+    # phase A2 : volant de cuivre sombre (en laiton, 5 reflets : 14,8 points blancs par t², seuil 13,2)
+    P2.handwheel(g, (x, y - 0.15, zs + 0.18), (0, -1, 0), 0.05, M, mat=M["cuivre_sombre"])

@@ -111,6 +111,29 @@ def chambre(g, c):
     g.halo((0, yf - 0.4, 1.3), M["_emit_rgb"], 8.0)
 
 
+def socle(g, c):
+    """Phase A2 (retouches légères) : boîtiers de jonction à voyant et plaques boulonnées en quinconce sur le toit dallé,
+    chemins de câbles rouges et bleus entre les ventilateurs, antennes fouet."""
+    M = g.M
+    exclus = [(-1.45, -0.15, 0.62), (-0.15, -0.15, 0.62), (-0.8, 1.3, 0.62), (1.2, -0.3, 0.58), (-1.75, 0.75, 0.42),
+              (0.35, 0.75, 0.42), (1.45, 1.15, 0.5)]
+    for k, (x, yn) in enumerate(corps.semis(-2.0, 2.0, -1.55, 2.05, 0.34, exclus)):
+        if k % 3 == 0:
+            g.box((x, Y(yn), Z2 + 0.025), (0.1, 0.07, 0.05), M["anthracite"], "hard", what="jonction")
+            g.dome((x, Y(yn) - 0.036, Z2 + 0.03), (0, -1, 0), 0.012, M["emit"], n=6, what="voyant")
+        else:
+            corps.ancrage(g, x, yn, Z2, M["gris_tech"], M["rivet_tech"], s=0.07)
+    for (p0, p1, m) in (((-1.2, 0.35), (-0.4, 0.35), "cable_r"), ((-1.2, 0.42), (-0.4, 0.42), "cable_b"),
+                        ((0.15, 0.3), (0.9, 0.3), "cable_b"), ((0.15, 0.37), (0.9, 0.37), "cable_r")):
+        g.box(((p0[0] + p1[0]) / 2, Y(p0[1]), Z2 + 0.01), (p1[0] - p0[0], 0.06, 0.02), M["anthracite"], "hard",
+              what="goulotte")
+        g.cable((p0[0], Y(p0[1]), Z2 + 0.035), (p1[0], Y(p1[1]), Z2 + 0.035), 0.0, 0.018, M[m])
+    for (x, yn) in ((-2.0, 1.95), (0.6, 1.9)):
+        g.cyl((x, Y(yn), Z2 + 0.3), "z", 0.012, 0.6, M["gris_tech"], n=6, what="antenne")
+        g.cyl((x, Y(yn), Z2 + 0.03), "z", 0.05, 0.06, M["anthracite"], n=10, what="pied")
+        g.dome((x, Y(yn), Z2 + 0.6), (0, 0, 1), 0.025, M["emit"], n=6, what="feu")
+
+
 def ventilateur(g, x, yn, z, R):
     M = g.M
     y = Y(yn)

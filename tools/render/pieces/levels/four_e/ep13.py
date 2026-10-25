@@ -115,6 +115,18 @@ def socle(g, c):
         d = corps.V((math.cos(a), math.sin(a), 0))
         g.tube([corps.V((x, y, z0 + 0.05)) - d * 0.12, corps.V((x, y, z0 + 0.04)) - d * 0.45,
                 corps.V((0, cy, z0 + 0.06)) + d * (RS - 0.1)], 0.03, M["cuivre_plaque"], n=6, what="cable")
+    # phase A2 (retouches légères) : plaques boulonnées en quinconce sur la couronne du socle (entre la sphère et le
+    # bord), voyants violets sur une sur cinq
+    piliers = [(2.3 * math.cos(math.radians(d)), cy + 2.3 * math.sin(math.radians(d)))
+               for d in (0, 60, 118, 160, 200, 236, 304, 340)]
+    for k, (x, yn) in enumerate(corps.semis(-2.6, 2.6, -1.45, 2.15, 0.27, [(0.0, -1.95, 0.9)])):
+        y = Y(yn)
+        d = math.hypot(x, y - cy)
+        if not 2.02 < d < 2.42 or any(math.hypot(x - px, y - py) < 0.24 for px, py in piliers):
+            continue
+        corps.ancrage(g, x, yn, z0, M["acier_canon2"], M["chrome_fin"], s=0.075)
+        if k % 5 == 0:
+            g.dome((x, y, z0 + 0.02), (0, 0, 1), 0.02, M["emit"], n=6, what="voyant")
     for a_deg in (215, 325):
         a = math.radians(a_deg)
         x, y = 1.95 * math.cos(a), cy + 1.95 * math.sin(a)

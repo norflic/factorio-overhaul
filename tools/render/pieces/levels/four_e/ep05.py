@@ -82,15 +82,28 @@ def chambre(g, c):
             g.bolt((r * math.cos(a), y0 + r * math.sin(a), z), (math.cos(a), math.sin(a), 0.3), 0.016,
                    M["fonte_noire"])
     # coulées de lave sur la pente sud (la plus longue descend au foyer)
-    for a_deg, zf in ((236.0, 0.2), (258.0, 0.3), (282.0, 0.7), (306.0, 0.15), (322.0, 0.4)):
+    # phase A2 (lecture « méduse » : cinq rubans égaux pendus au cratère) : TROIS coulées inégales qui naissent d'une
+    # BRÈCHE de la lèvre, serpentent, s'élargissent vers le bas, coupées de croûtes sombres, et finissent en flaques au
+    # pied ; la plus large descend jusqu'au foyer
+    for a_deg, zf, w in ((248.0, 0.12, 0.05), (283.0, 0.55, 0.032), (318.0, 0.16, 0.042)):
         a = math.radians(a_deg)
         pts = []
-        for i in range(9):
-            z = Z1 - 0.02 - (Z1 - zf) * i / 8
-            r = r_cone(z, zs) + 0.015
-            aa = a + 0.05 * math.sin(i * 1.9 + a_deg)
-            pts.append((r * math.cos(aa), y0 + r * math.sin(aa), z))
-        g.tube(g.spline(pts, 4), 0.032, M["emit"], n=7, style="soft", what="coulee")
+        for i in range(11):
+            z = Z1 - 0.06 - (Z1 - 0.06 - zf) * i / 10
+            r = r_cone(z, zs) + 0.012
+            aa = a + 0.11 * math.sin(i * 1.3 + a_deg * 0.07) * (0.4 + i / 10)
+            pts.append(corps.V((r * math.cos(aa), y0 + r * math.sin(aa), z)))
+        P = g.spline(pts, 3)
+        radii = [w * (0.55 + 0.7 * i / (len(P) - 1)) * (0.85 + 0.3 * abs(math.sin(i * 0.9))) for i in range(len(P))]
+        g.tube(P, w, M["emit"], n=7, radii=radii, style="soft", what="coulee")
+        for i in (len(P) // 3, 2 * len(P) // 3):
+            F.lump(g, P[i], radii[i] * 1.4, M["basalte_dalle2"], sz=0.45, jit=0.3)
+        bout = P[-1]
+        g.cyl((bout.x, bout.y - 0.05, zs + 0.012), "z", w * 2.6, 0.016, M["emit"], n=12, style="flat", what="flaque")
+        g.torus((bout.x, bout.y - 0.05, zs + 0.02), "z", w * 2.7, 0.02, M["basalte_dalle2"], n=12, m=5, what="croute")
+        p0 = pts[0]
+        g.box((p0.x, p0.y, Z1 - 0.01), (0.13, 0.07, 0.06), M["emit"], "soft",
+              R=corps.Matrix.Rotation(a + math.pi / 2, 3, "Z"), what="breche")
     # blocs de basalte au pied et sur la pente
     for k in range(18):
         a = math.pi * 0.95 + math.pi * 1.1 * k / 17

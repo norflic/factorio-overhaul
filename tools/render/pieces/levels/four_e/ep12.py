@@ -117,6 +117,15 @@ def socle(g, c):
                     panel=0.2, faces="ts")
         g.dome((x, Y(0.15) - 0.01, Z_SOCLE + 0.14), (0, -1, 0), 0.025, M["emit"], n=8, what="voyant")
     givre(g, (0.0, Y(-1.0)), 7, 0.06, 0.6, Z_SOCLE + 0.04)
+    # phase A2 (retouches légères) : plaques boulonnées chromées en quinconce sur le dessus de noir miroir, dans
+    # l'hexagone, hors de la pile, du cryostat et des pompes
+    exclus = [(0.0, CRYO_YN, 1.1), (SX, SYN, 1.12), (1.35, -0.3, 0.32), (-1.35, -0.3, 0.32), (1.35, 0.3, 0.3),
+              (-1.35, 0.3, 0.3), (0.0, -1.3, 0.55)]
+    cy = 0.2
+    for x, yn in corps.semis(-1.9, 1.9, -1.15, 1.6, 0.3, exclus):
+        if math.hypot(x, Y(yn - cy)) > 1.82:
+            continue
+        corps.ancrage(g, x, yn, Z_SOCLE + 0.055, M["noir_miroir"], M["chrome_mat"], s=0.07)
 
 
 def fumee(g, c):

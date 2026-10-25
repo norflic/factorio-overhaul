@@ -263,6 +263,32 @@ def _linteau_rond(g, c, geo, cm):
         g.dome((r * 1.24 * math.cos(a), yf - 0.04, zc + r * 1.24 * math.sin(a)), (0, -1, 0), 0.016, M["rivet"])
 
 
+def semis(x0, x1, yn0, yn1, pas, exclus=(), decal=True):
+    """Points (x, yn) en quinconce dans un rectangle de jeu, hors des cercles exclus [(x, yn, r)] (phase A2 : petites
+    pièces sur les grandes surfaces planes)."""
+    pts = []
+    j = 0
+    yn = yn0 + pas / 2
+    while yn < yn1:
+        x = x0 + pas / 2 + (pas / 2 if decal and j % 2 else 0.0)
+        while x < x1:
+            if all((x - ex) ** 2 + (yn - ey) ** 2 > er * er for ex, ey, er in exclus):
+                pts.append((x, yn))
+            x += pas
+        yn += pas
+        j += 1
+    return pts
+
+
+def ancrage(g, x, yn, z, plaque, boulon, s=0.07):
+    """Petite plaque d'ancrage boulonnée (4 boulons) posée à plat : détail de surface."""
+    y = Y(yn)
+    g.box((x, y, z + 0.006), (s, s, 0.012), plaque, "hard", what="ancrage")
+    for dx in (-0.35, 0.35):
+        for dy in (-0.35, 0.35):
+            g.dome((x + dx * s, y + dy * s, z + 0.012), (0, 0, 1), 0.009, boulon, n=6, what="boulon")
+
+
 def bouche_fumee(g, c, x, yn, z, r, mat=None, levre=True):
     """Bouche de fumée (signal fixe) : lèvre de suie, fond noir ; relève (x, yn, z) dans c.fumee. Refuse une bouche hors
     du quart arrière droit (cotes.fumee_valide)."""

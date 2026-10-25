@@ -90,6 +90,11 @@ def nacelle(g, c):
         g.box(corps.V((x0 - 0.15, 0, 0)) + d * 0.45, (0.02, 0.09, 0.56), M["titane_cl"], "hard",
               R=Matrix.Rotation(a, 3, "X") @ Matrix.Rotation(0.5, 3, "Z"), what="aube")
     g.cyl((x0 - 0.3, 0, 0), "x", 0.24, 0.36, M["orange_aero"], n=20, r2=0.02, what="cone")
+    # phase A2 (nuit) : couronne lumineuse au fond de l'entrée d'air, bandeaux lumineux de part et d'autre de la bande
+    # orange
+    g.torus((x0 - 0.13, 0, 0), "x", RN - 0.1, 0.03, M["emit"], n=44, m=5, what="couronne_lum")
+    for xb in (-0.77, -0.53):
+        g.tube_shell((xb, 0, 0), "x", RN + 0.012, RN - 0.02, 0.02, M["emit"], n=44, what="bandeau_lum")
     # ailerons : dérive dorsale, plans latéraux (bouts orange)
     plaque(g, [(0.05, 0, RN - 0.05), (1.25, 0, RN - 0.2), (1.38, 0, RN + 0.75), (0.85, 0, RN + 0.75)], 0.07,
            M["titane_dk"])
@@ -134,7 +139,22 @@ def socle(g, c):
         x = -2.15 + 4.3 * k / 9
         if abs(x) < 0.85:
             continue
-        g.dome((x, Y(-1.85) + 0.05, z + 0.005), (0, 0, 1), 0.03, M["emit"], n=8, what="feu")
+        g.cyl((x, Y(-1.85) + 0.06, z + 0.02), "z", 0.05, 0.04, M["titane_dk"], n=10, what="feu_pied")
+        g.dome((x, Y(-1.85) + 0.06, z + 0.04), (0, 0, 1), 0.045, M["emit"], n=8, what="feu")
+    # phase A2 (retouches légères) : anneaux d'arrimage et plaques boulonnées en quinconce sur le pont ; la nuit :
+    # couronne lumineuse dans l'entrée d'air, bandeaux lumineux de la nacelle, feux des pylônes (âge presque éteint)
+    exclus = [(1.5, -1.27, 0.75), (1.69, 1.9, 0.55), (-1.75, 1.8, 0.5), (0.0, -2.0, 0.95)]
+    for lx in (-1.9, -1.4, -0.9, -0.4, 0.1, 0.6, 1.1, 1.6):
+        p = monde(lx)
+        exclus.append((p.x, p.y / Y(1.0), 1.05))
+    for k, (x, yn) in enumerate(corps.semis(-2.15, 2.15, -1.7, 2.2, 0.36, exclus)):
+        if k % 4 == 0:
+            g.torus((x, Y(yn), z + 0.012), "z", 0.04, 0.01, M["orange_aero"], n=10, m=4, what="arrimage")
+        else:
+            corps.ancrage(g, x, yn, z, M["titane_dk"], M["rivet_ti"], s=0.07)
+    for lx in (-0.95, 0.45):
+        p = monde(lx)
+        g.dome((p.x, p.y - 0.09, Z_SOCLE + 0.35), (0, -1, 0.3), 0.035, M["emit"], n=8, what="feu_pylone")
 
 
 def fumee(g, c):

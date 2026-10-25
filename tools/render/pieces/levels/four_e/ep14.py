@@ -121,6 +121,18 @@ def socle(g, c):
                 g.box((x, y, z1 + 0.18), (0.07, 0.07, 0.36), M["blanc_lunaire"], "hard", what="pylone")
                 g.box((x, y, z1 + 0.04), (0.16, 0.16, 0.08), M["noir_spatial"], "hard", what="semelle")
                 g.dome((x, y, z1 + 0.37), (0, 0, 1), 0.04, M["emit2"], n=8, what="etoile_relais")
+    # phase A2 (retouches légères) : plaques blanc lunaire boulonnées en quinconce sur les dessus indigo des gradins
+    # (hors de la Porte et de l'obélisque)
+    z0 = c.T["sole_h"]
+    bandes = ((GRADINS[0][0], GRADINS[0][1], GRADINS[1][1], GRADINS[0][3], GRADINS[1][0]),
+              (GRADINS[1][0], GRADINS[1][1], GRADINS[2][1], GRADINS[1][3], GRADINS[2][0]),
+              (GRADINS[2][0], GRADINS[2][1], GRADINS[2][2], GRADINS[2][3], 0.0))
+    for hx, yn0, yn1, z, hx_suiv in bandes:
+        for x, yn in corps.semis(-hx + 0.08, hx - 0.08, yn0 + 0.05, yn1 - 0.05, 0.34,
+                                 [(RX - 1.1, RYN, 0.45), (RX + 1.1, RYN, 0.45), (2.5, 1.6, 0.4), (0.0, -2.3, 0.95)]):
+            if abs(yn - RYN) < 0.2 and abs(x - RX) < RR + 0.3:
+                continue
+            corps.ancrage(g, x, yn, z, M["blanc_lunaire"], M["noir_spatial"], s=0.065)
     for sx in (-1, 1):
         x, y = sx * 2.45, Y(2.3)
         g.cyl((x, y, GRADINS[0][3] + 0.02), "z", 0.25, 0.04, M["blanc_lunaire"], n=24, what="medaillon")

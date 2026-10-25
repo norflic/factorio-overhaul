@@ -24,6 +24,19 @@ def matieres(metal, M):
     ages.matieres(1, metal, M)
 
 
+def lanterne(g, p, s=1.8):
+    """Lanterne à huile agrandie (formes.lantern × s) : verre lumineux, cage, chapeau, anse."""
+    M = g.M
+    x, y, z = p
+    g.cyl((x, y, z - 0.07 * s), "z", 0.03 * s, 0.02 * s, M["rawiron"], n=10, what="pied")
+    g.cyl((x, y, z), "z", 0.024 * s, 0.07 * s, M["emit"], n=10, what="verre")
+    for k in range(4):
+        a = 0.4 + 1.5708 * k
+        g.box((x + math.cos(a) * 0.026 * s, y + math.sin(a) * 0.026 * s, z), (0.009 * s, 0.009 * s, 0.08 * s),
+              M["rawiron"], "hard", what="cage")
+    g.cyl((x, y, z + 0.05 * s), "z", 0.03 * s, 0.025 * s, M["rawiron"], n=10, r2=0.012 * s, what="chapeau")
+
+
 def piece(g, c):
     M = g.M
     # plancher de planches au nord (relie les deux pièces : aucun îlot)
@@ -43,9 +56,14 @@ def piece(g, c):
     for a in (0.0, 2.1, 4.2):
         g.box((x + 0.1 * math.cos(a), y + 0.1 * math.sin(a), z + 0.05), (0.015, 0.015, 0.1), M["steel_dk"], "hard",
               what="patte")
-    # hauban et lanterne
-    g.cyl((x - 0.13, y - 0.06, 1.25), "x", 0.012, 0.16, M["steel_dk"], n=6, what="potence")
-    F.lantern(g, (x - 0.2, y - 0.06, 1.12), M["emit"])
+    # hauban et lanterne ; phase A2 (nuit presque éteinte) : lanterne plus haute et plus grosse, deuxième lanterne au
+    # râtelier, trappe de ramonage rougeoyante au pied du tuyau, halos
+    g.cyl((x - 0.13, y - 0.06, 1.45), "x", 0.012, 0.18, M["steel_dk"], n=6, what="potence")
+    lanterne(g, (x - 0.24, y - 0.06, 1.3))
+    g.box((x, y - 0.12, 0.2), (0.12, 0.02, 0.1), M["emit"], "flat", what="trappe_braise")
+    g.box((x, y - 0.13, 0.26), (0.15, 0.02, 0.02), M["steel_dk"], "hard", what="trappe_cadre")
+    g.halo((x - 0.22, y - 0.25, 1.2), M["_emit_rgb"], 3.0)
+    g.halo((x, y - 0.3, 0.25), M["_emit_rgb"], 2.0)
     # râtelier de bûches (coin nord-ouest) : 7 rangs de rondins couchés entre deux paires de piquets, tranches claires
     # vers le sud ; le haut monte à 1,6 tuile à l'écran (au-dessus du vanilla)
     x0, yb = -0.6, Y(0.86)
@@ -60,3 +78,5 @@ def piece(g, c):
             g.box((x0 + sx, yb + dy, 0.6), (0.05, 0.05, 1.18), M["wood2"], "hard", what="piquet")
     g.box((x0 + 0.05, yb - Y(0.2) - 0.02, 1.18), (0.34, 0.03, 0.035), M["wood"], "hard", what="hache_manche")
     g.box((x0 + 0.24, yb - Y(0.2) - 0.02, 1.18), (0.06, 0.035, 0.1), M["steel_hi"], "hard", what="hache_fer")
+    lanterne(g, (x0 - 0.4, yb - 0.2, 1.33))
+    g.halo((x0 - 0.4, yb - 0.45, 1.25), M["_emit_rgb"], 3.0)

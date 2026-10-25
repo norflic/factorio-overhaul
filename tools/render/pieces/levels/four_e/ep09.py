@@ -102,6 +102,34 @@ def toit(g, c):
     PT.hatch(g, (0.1, Y(0.75), Z_TOIT), 0.2)
 
 
+def socle(g, c):
+    """Phase A2 (DC, 25/10 : « Oui, enrichir », retouches légères) : plaques d'ancrage boulonnées en quinconce sur le
+    toit nu, plaques de plomb rivetées et fentes d'aération sur la face sud du bunker."""
+    M = g.M
+    zs = c.T["sole_h"]
+    exclus = [(-0.7, 0.4, 0.85), (1.0, 0.92, 0.75), (-1.25, 1.27, 0.42), (-0.15, 1.37, 0.5), (0.5, -0.66, 0.38),
+              (0.1, 0.75, 0.28), (-1.4, -0.7, 0.25), (1.5, -0.03, 0.3), (0.45, 0.4, 0.2)]
+    for x, yn in corps.semis(-1.55, 1.55, -1.05, 1.62, 0.3, exclus):
+        corps.ancrage(g, x, yn, Z_TOIT, M["plomb_sombre"], M["lead"], s=0.07)
+    nrm = corps.V((0, -(Z_TOIT - zs), CH)).normalized()
+    for x in (-1.7, -0.75, 0.75, 1.7):
+        z = 1.2
+        p = corps.V((x, face_sud_y(z, zs), z)) + nrm * 0.012
+        g.box(p, (0.22, 0.02, 0.14), M["lead"], "hard", R=corps.Matrix.Rotation(-0.16, 3, "X"), what="plaque_plomb")
+        for dx in (-0.09, 0.09):
+            for dz in (-0.05, 0.05):
+                g.dome(p + corps.V((dx, -0.012, dz)), nrm, 0.011, M["plomb_sombre"], n=6)
+    for k in range(6):
+        x = -1.5 + 0.6 * k
+        if abs(x) < 0.7:
+            continue
+        z = 0.45
+        p = corps.V((x, face_sud_y(z, zs), z)) + nrm * 0.008
+        g.box(p, (0.2, 0.015, 0.05), M["void"], "flat", R=corps.Matrix.Rotation(-0.16, 3, "X"), what="fente")
+        g.box(p + corps.V((0, -0.005, 0.035)), (0.24, 0.02, 0.02), M["lead"], "hard",
+              R=corps.Matrix.Rotation(-0.16, 3, "X"), what="auvent")
+
+
 def gueule(g, c, G):
     q = [corps.V((G["x0"], G["yf"] - 0.012, G["z1"] - 0.1)), corps.V((G["x1"], G["yf"] - 0.012, G["z1"] - 0.1)),
          corps.V((G["x1"], G["yf"] - 0.012, G["z1"] - 0.02)), corps.V((G["x0"], G["yf"] - 0.012, G["z1"] - 0.02))]

@@ -29,9 +29,27 @@ GUN.update({e: ROOT + "/2026-10-23_V3E-ereV/sprites" for e in (13, 14, 15)})
 COTE = {1: 2, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 7: 4, 8: 4, 9: 4, 10: 5, 11: 5, 12: 5, 13: 6, 14: 6, 15: 6}
 
 
-def couches(famille, src, e, even):
+def teinte_paire(e):
+    """Teinte PROPOSÉE du niveau pair (phase A2) : multiplie le socle par 0,82 + 0,18 × la lumière de l'âge (normée),
+    un glissement discret vers la couleur du foyer ; une teinte ne fait que multiplier (F36)."""
+    rgb = K.ages.FOYER[e]["rgb"]
+    m = max(rgb)
+    return np.array([0.82 + 0.18 * c / m for c in rgb])
+
+
+def couches(famille, src, e, even, teinte=False):
     K.utiliser(famille)
-    return K.level_layers(src, e, "E", even)
+    lays = K.level_layers(src, e, "E", even)
+    if teinte and even and famille == "four_e" and e > 1:
+        t = teinte_paire(e)
+        out = []
+        for l in lays:
+            if l["kind"] == "main" and "-socle-" in l.get("file", ""):
+                l = dict(l, img=l["img"].copy())
+                l["img"][..., :3] *= t
+            out.append(l)
+        lays = out
+    return lays
 
 
 def cellule(lays, T, zoom, nuit):
@@ -57,7 +75,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--four", action="append", required=True)
     ap.add_argument("--dest", required=True)
-    ap.add_argument("--mode", default="ages", choices=("ages", "gun"))
+    ap.add_argument("--mode", default="ages", choices=("ages", "gun", "avap"))
+    ap.add_argument("--avant", default="", help="mode avap : sprites AVANT (à gauche de chaque âge)")
+    ap.add_argument("--teinte", action="store_true", help="niveau pair : teinte proposée du socle (phase A2)")
     ap.add_argument("--zoom", type=int, default=1)
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--pair", action="store_true")
@@ -73,7 +93,7 @@ def main():
             eres[-1].append(e)
     ppt = 64 // (2 if a.zoom == 1 else 1)
     lab = 22
-    ncol = max(len(r) for r in eres) * (2 if a.mode == "gun" else 1)
+    ncol = max(len(r) for r in eres) * (1 if a.mode == "ages" else 2)
     wmax = max(COTE[r[0]] + 3 for r in eres) * ppt
     W = ncol * (wmax + 6) + 6
     H = 40 + sum((COTE[r[0]] + 3) * ppt + lab + 6 for r in eres) + 6
@@ -88,11 +108,12 @@ def main():
         cw = int(T * ppt)
         x = 6
         for e in r:
-            cols = ([("gun_e", GUN[e], "mitrailleuse")] if a.mode == "gun" else []) + [
-                ("four_e", src_four(a.four, e), "FOUR")]
+            cols = ([("gun_e", GUN[e], "mitrailleuse")] if a.mode == "gun" else []) + (
+                [("four_e", a.avant, "AVANT")] if a.mode == "avap" else []) + [
+                ("four_e", src_four(a.four, e), "APRÈS" if a.mode == "avap" else "FOUR")]
             for fam, src, nom in cols:
                 even = (a.pair or e == 1) if fam == "four_e" else (e == 1)
-                im = cellule(couches(fam, src, e, even), T, a.zoom, a.nuit)
+                im = cellule(couches(fam, src, e, even, a.teinte), T, a.zoom, a.nuit)
                 sheet.paste(im, (x + (wmax - cw) // 2, y + lab))
                 dr.text((x + 4, y + 3), "%d · %s · %s" % (e, K.NAME[e], nom), fill=(230, 230, 230), font=K.font(14))
                 x += wmax + 6
