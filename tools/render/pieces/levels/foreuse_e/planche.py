@@ -2,7 +2,7 @@
 vanilla, ombres, lueur, nuit par la LUT du jeu), même fenêtre et même échelle pour toutes les cases.
 
     py -3.9 tools/render/pieces/levels/foreuse_e/planche.py --src DIR --dest planche.png [--ages 1,…,15]
-        [--poses N,E] [--cols 5] [--zoom 1|2] [--nuit] [--jour-nuit] [--pair] [--gun] [--titre "…"]
+        [--poses N,E] [--cols 5] [--zoom 1|2] [--nuit] [--jour-nuit] [--pair] [--gun] [--avant DIR] [--titre "…"]
 
 Une case par (âge, pose) ; --jour-nuit : chaque case deux fois (jour | nuit) ; --gun : la mitrailleuse VALIDÉE du même âge
 et de la même pose à côté de la foreuse (sprites de production, comme laser_e/planche_gun.py) ; --pair : niveau pair
@@ -50,6 +50,7 @@ def main():
     ap.add_argument("--jour-nuit", action="store_true")
     ap.add_argument("--pair", action="store_true")
     ap.add_argument("--gun", action="store_true")
+    ap.add_argument("--avant", default="", help="dossier de sprites d'une ronde précédente : chaque case montre avant | après")
     ap.add_argument("--fenetre", type=float, default=0.0, help="fenêtre en tuiles (défaut : plus grand côté + 2,5)")
     ap.add_argument("--titre", default="")
     a = ap.parse_args()
@@ -65,11 +66,13 @@ def main():
             sous = []
             if a.gun:
                 sous.append(("mitrailleuse", "gun_e", GUN[e], a.pair or e == 1, a.nuit))
+            if a.avant:
+                sous.append(("avant", "foreuse_e", a.avant, a.pair or e == 1, a.nuit))
             if a.jour_nuit:
                 sous += [("foreuse jour", "foreuse_e", a.src, a.pair or e == 1, False),
                          ("foreuse nuit", "foreuse_e", a.src, a.pair or e == 1, True)]
             else:
-                sous.append(("foreuse", "foreuse_e", a.src, a.pair or e == 1, a.nuit))
+                sous.append(("après" if a.avant else "foreuse", "foreuse_e", a.src, a.pair or e == 1, a.nuit))
             cases.append((e, p, sous))
     nsub = len(cases[0][2])
     cols = max(1, a.cols)
