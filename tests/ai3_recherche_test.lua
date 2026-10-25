@@ -119,7 +119,8 @@ do
 end
 
 -- 3. Garde de l'économie (revue B3).
-check(prio_of("technocrat", tech_mix, false) <= 49, "avant le fer II : jamais au-dessus de la fabrication d'objectif (50)")
+check(prio_of("technocrat", tech_mix, false) <= 44 and prio_of("technocrat", tech_mix, false) < 45,
+  "avant le fer II : jamais au-dessus de l'armée (45), donc de la fabrication d'objectif (50) (lot IA3-a, graine 1618033988)")
 check(A.priority(-1000, { economy_done = true, is_goal = true }) >= 50, "quand la recherche est l'objectif de l'échelle : au moins 50")
 do
   local book = book_at(0)

@@ -12,9 +12,10 @@
        fournit) ne fait fabriquer AUCUN pack (critère K6 : 0 fabrication jetée ; défaut C1 : 120 rouges, 52 à 105
        verts et jusqu'à 60 militaires pour un niveau 4 impossible sans pétrole) ;
     5. GARDE DE L'ÉCONOMIE (revue B3 : IA2-a, 3e essai, une faction qui payait sa recherche avant son fer II s'est
-       effondrée) : tant que l'économie du fer n'est pas faite (« fer II » non atteint), la priorité reste sous la
-       fabrication d'objectif (50) ; et les packs ne puisent jamais dans le PLANCHER (matières du prochain avant-poste
-       de l'échelle, calculé par l'appelant) : le nombre de packs est réduit pour le respecter.
+       effondrée) : tant que l'économie du fer n'est pas faite (« fer II » non atteint), la priorité reste sous l'armée
+       (A.PRIO_EARLY = 44, donc aussi sous la fabrication d'objectif, 50) ; et les packs ne puisent jamais dans le
+       PLANCHER (matières du prochain avant-poste de l'échelle, calculé par l'appelant) : le nombre de packs est réduit
+       pour le respecter.
 
   A.lean(traits, mix, affinity) -> penchant (−1000 à 1000) ; A.with_difficulty(lean, niveau) -> penchant corrigé par
   la difficulté face au joueur (lot IA3-a) ; A.priority(lean, opts) -> priorité ;
@@ -28,7 +29,11 @@ local A = {}
 A.BATCH = 30            -- packs d'une sorte demandés à la fois (10 avant IA3-a)
 A.PRIO_MID = 46         -- caractère neutre : juste au-dessus de l'armée ordinaire (45)
 A.PRIO_SPAN = 10        -- ± 10 selon le penchant (36 à 56)
-A.PRIO_GOAL = 50        -- fabrication d'objectif : plafond avant le fer II, plancher quand la recherche EST l'objectif
+A.PRIO_GOAL = 50        -- fabrication d'objectif : plancher quand la recherche EST l'objectif
+-- Lot IA3-a (moteur réel, partie du guide, graine 1618033988) : avant le fer II, la recherche passe SOUS L'ARMÉE (44),
+-- pas seulement sous la fabrication d'objectif (50) : l'objectif « armée » se fabrique à 45 ; un technocrate à 49 le
+-- doublait (10 soldats à 14,3 min au lieu de 9,5), « fer II » était mis de côté et arrivait à 48,8 min au lieu de 16,1.
+A.PRIO_EARLY = 44
 A.TRAIT_SPAN = 250      -- biais d'un trait (même forme que le chef d'IA2-a : (trait − 1 000) ÷ 2, borné)
 -- Lot IA3-a : la DIFFICULTÉ face au joueur règle aussi le tempo (docs/IA3_CERVEAU.md §6.1, revue M5 : « le tempo face au
 -- joueur se règle par le chef et la difficulté ») : biais du penchant, ajouté AVANT la borne. Difficile et Impitoyable :
@@ -78,7 +83,7 @@ end
 function A.priority(lean, opts)
   opts = opts or {}
   local p = A.PRIO_MID + math.floor((lean or 0) * A.PRIO_SPAN / 1000)
-  if not opts.economy_done and p > A.PRIO_GOAL - 1 then p = A.PRIO_GOAL - 1 end
+  if not opts.economy_done and p > A.PRIO_EARLY then p = A.PRIO_EARLY end
   if opts.is_goal and p < A.PRIO_GOAL then p = A.PRIO_GOAL end
   return p
 end
