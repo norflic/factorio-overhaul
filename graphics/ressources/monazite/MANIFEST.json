@@ -1,13 +1,13 @@
 {
  "blender": "5.2.2 LTS",
  "couverture_par_stade": [
-  0.2563,
-  0.2327,
+  0.2835,
+  0.2472,
   0.2141,
   0.1962,
-  0.1747,
+  0.1749,
   0.1374,
-  0.0812,
+  0.0811,
   0.0543
  ],
  "couverture_vanilla": [
@@ -45,32 +45,32 @@
  "icones": {
   "echantillons": 128,
   "rendu": "gros plan (gisement.cellule_icone), passe main seule",
-  "secondes_blender": 2.8
+  "secondes_blender": 2.65
  },
  "nom": "monazite",
  "nom_direction": "placer de monazite jaune d'or dans le sable noir",
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.049,
-   0.127,
-   0.176,
-   0.648
+   0.046,
+   0.12,
+   0.172,
+   0.661
   ],
-  "acier": 0.033,
+  "acier": 0.03,
   "acier_bleutes": 0.0,
-  "chauds": 0.94,
-  "sombres": 0.027
+  "chauds": 0.944,
+  "sombres": 0.025
  },
- "secondes_blender": 808.48,
+ "secondes_blender": 1379.2,
  "sha256": {
-  "hr-monazite-effet.png": "ff9ce801a715cc3e425a561304feda58ff84180f37718e6e44a551e342df9edc",
-  "hr-monazite.png": "a1aa4f1b73fd6fc27f6c58b11a00e6c304dae09cc89ec74d9da6071f7cc3947e",
+  "hr-monazite-effet.png": "6fd770dc775ebab0085f5867a97487cf7d6e9d08cc70322a119cdc51f8f39529",
+  "hr-monazite.png": "57df7549f5889674626f275a7cf997678ecfa7704d778a5c3ba99dd5b43d00e4",
   "icone-1.png": "220a0428f07179b755fe92d5aa3bdf880455fa957d862544db397ed31c464468",
   "icone-2.png": "01bff93b03a62b30c1573cdcb8e0aabd4777708588e8f0ed85dfcdc490665032",
   "icone-3.png": "da1b76ec7705922d24ea036a840e8c0c7871ed1f6c61efd02f686275f3cd48ca",
   "icone.png": "0853dff28b73bcc3e33d1f16e8eff08f15f6f52b88b32132509e8794a1cc56f9",
-  "monazite-effet.png": "2d9ee964519b8c0fa67e878a778dbe4e937d5ace5f73b3c8d0f7b9e91e2e45f7",
-  "monazite.png": "e55c12e5f36ace594dceace8308638e6c70dedd25763769d9fbeed68d0fa023b"
+  "monazite-effet.png": "86b147b2a216e5bcbb8fed8c25c5d8b8851c4cd26926ce4ae344d4fbaa56de71",
+  "monazite.png": "bbe82f42621a2fb2170546344c7ecdc3c2760ebdaa5db9f5ea2e8ae202f47fce"
  }
 }
