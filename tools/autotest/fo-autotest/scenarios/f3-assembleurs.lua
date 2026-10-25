@@ -52,6 +52,8 @@ return {
         if m then
           pcall(function() m.set_recipe("iron-gear-wheel") end)
           m.insert({ name = "iron-plate", count = 200 })
+          local inv = m.get_module_inventory()
+          if inv then inv.insert({ name = "speed-module", count = 2 }) end
         end
         st.sites[#st.sites + 1] = { n = n, age = age, ere = ere, m = m, x = px, y = py, side = side }
         x = x + side + GAP
@@ -113,6 +115,17 @@ return {
           .get_item_count("iron-gear-wheel") + c.m.products_finished end
     end
     ctx.check(roues > 0, "engrenages produits", tostring(roues))
+    -- modules et recettes gardés (aussi en double source : partie créée par une version antérieure, migrée)
+    local bons, mauvais = 0, {}
+    for _, c in ipairs(st.sites) do
+      local m = c.m
+      local ok = m and m.valid and m.get_recipe() and m.get_recipe().name == "iron-gear-wheel"
+      local inv = ok and m.get_module_inventory()
+      ok = ok and inv and inv.get_item_count("speed-module") == 2
+      if ok then bons = bons + 1 else mauvais[#mauvais + 1] = tostring(c.n) end
+    end
+    ctx.check(bons == 30, "recette et 2 modules de vitesse gardes par machine", bons .. " / 30" ..
+      (#mauvais > 0 and (" ; faux : " .. table.concat(mauvais, ",")) or ""))
   end,
 
   shots = function(ctx, add)
