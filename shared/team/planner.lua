@@ -423,6 +423,29 @@ function P.plan(view, book)
     end
     out.emergency_recruit = true
   end
+  -- Correction VERIF-NUIT (25/10, essai D2) : l'équipe du JOUEUR sous son effectif de départ (view.recover_floor)
+  -- équipe elle aussi sa recrue AU QG avec les plaques du coffre (une par pensée), sans attendre qu'un ouvrier fabrique
+  -- le pistolet (priorité 55, jamais servie tant que les seuls ouvriers enchaînent les tournées). Moteur réel
+  -- (verif-guide, graines 271828182 et 1618033988) : sans cette règle, l'équipe restait à 1 ouvrier de 5 à 20 min,
+  -- coffre plein de fer. RIEN d'autre de la survie des factions : la forme large (view.emergency donné tel quel, essai
+  -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min. Plaques
+  -- insuffisantes : rien de plus, la règle ordinaire (§4) s'applique.
+  local rf = (not em) and view.recover_floor or nil
+  if rf and not view.recruit_blocked and view.workers < rf then
+    local cost0 = view.recruit_cost or kit_list("worker", 1)
+    if take(cost0) then
+      out.recruit_workers = 1
+      out.emergency_recruit = true
+    else
+      local p = book:plan(cost0, real_avail())
+      if next(p.raw) == nil then
+        out.recruit_workers = 1
+        out.recruit_uses = sorted_uses(p.uses)
+        consume(p.uses)
+        out.emergency_recruit = true
+      end
+    end
+  end
   if em and (em.rebuild or view.threatened) and (view.done or {})["army"] then
     local guard = math.min(math.max(5, math.floor(P.army_target(view) / 3)), view.soldiers_max)
     if view.soldiers < guard then

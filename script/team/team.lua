@@ -301,6 +301,9 @@ function Team.view(f, tick)
     -- Lot IA2-a2 (SURVIE, factions seulement) : sous son effectif de départ, une faction équipe ses recrues au QG avec
     -- les plaques du stock ; en reconstruction (chef) ou menacée, elle y équipe aussi sa garde (shared/team/planner.lua).
     emergency = (not f.is_player) and { floor = floor, rebuild = (f.chef and f.chef.rebuild) or false } or nil,
+    -- Correction VERIF-NUIT (25/10) : votre équipe, sous son effectif de départ, équipe ses recrues au QG avec les
+    -- plaques du coffre (shared/team/planner.lua, view.recover_floor) ; le reste de la survie reste aux factions.
+    recover_floor = f.is_player and floor or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
@@ -391,8 +394,11 @@ function Team.think(f, surface, tick)
       f.stats.recruited = (f.stats.recruited or 0) + 1
       if plan.recruit_uses then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
+        -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,
+        -- comme « objectif atteint » plus haut.
         log(string.format("[FO-TEAM] %s : survie, recrue equipee au QG (effectif %d, depart %d) a %.1f min", f.key,
-          f.engineers_count or 0, view.emergency and view.emergency.floor or 0, (tick - State.war().started) / 3600))
+          f.engineers_count or 0, (view.emergency and view.emergency.floor) or view.recover_floor or 0,
+          (tick - (f.started or State.war().started or 0)) / 3600))
       end
     else
       for _, it in ipairs(pay) do f.hq.insert({ name = it[1], count = it[2] }) end

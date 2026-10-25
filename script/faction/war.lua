@@ -43,6 +43,31 @@ end
 
 local function faction_name(f) return { "fo-faction.name-" .. f.key } end
 
+-- Correction VERIF-NUIT (25/10) : ligne « chef » de /fo-war status traduite (locale/*/ia2.cfg, section fo-chef).
+-- Postures (C.POSTURES) et raisons du chef (shared/faction/chef.lua, C.considerations) connues : clé de traduction ;
+-- une raison ou une posture inconnue (règle future) reste affichée telle quelle.
+local CHEF_POSTURES = { expansion = true, capitalisation = true, technologie = true, fortification = true, armee = true,
+  assaut = true, raids = true, reconstruction = true }
+local CHEF_REASONS = {
+  ["site de valeur"] = "site", ["territoire a prendre"] = "territoire", ["stock qui dort"] = "stock",
+  ["retard technologique"] = "retard", ["menace"] = "menace", ["armee a lever"] = "armee", ["cible battue"] = "battue",
+  ["cible a portee"] = "portee", ["avant-poste isole"] = "isole", ["aucune cible"] = "aucune", ["survie"] = "survie",
+  ["pertes a reparer"] = "pertes", ["rien a reparer"] = "rien",
+}
+
+local function chef_line(ch, target)
+  local mix = { "" }
+  for i, m in ipairs(ch.mix) do
+    if i > 1 then mix[#mix + 1] = ", " end
+    local name = CHEF_POSTURES[m.key] and { "fo-chef.posture-" .. m.key } or tostring(m.key)
+    mix[#mix + 1] = { "fo-chef.mix", name, tostring(math.floor(m.w / 10 + 0.5)) }
+  end
+  local r = ch.reason or "-"
+  local reason = CHEF_REASONS[r] and { "fo-chef.reason-" .. CHEF_REASONS[r] } or r
+  return { "", "    ", { "fo-chef.status", mix, reason, target and faction_name(target) or "-",
+    string.format("%.2f", (ch.war_mult or 1000) / 1000), tostring(ch.changes or 0), tostring(ch.thinks or 0) } }
+end
+
 local function update_label(f)
   if not (f.label and rendering.is_valid(f.label)) then return end
   rendering.set_text(f.label, {
@@ -341,12 +366,10 @@ function War.status_lines(tick)
     if f.team and f.hq and f.hq.valid then lines[#lines + 1] = Team.status_line(f) end
     -- Lot IA2-a : postures du chef (mélange), cible, multiplicateur du seuil, changements de dominante.
     local ch = f.chef
+    -- Correction VERIF-NUIT : chaîne traduite (FR, EN), et non plus du texte en dur.
     if ch and ch.mix and #ch.mix > 0 and not f.eliminated then
-      local mix = {}
-      for _, m in ipairs(ch.mix) do mix[#mix + 1] = string.format("%s %d %%", m.key, math.floor(m.w / 10 + 0.5)) end
       local t = ch.target and war.factions[ch.target]
-      lines[#lines + 1] = string.format("    chef : %s | raison %s | cible %s | seuil x%.2f | changements %d en %d pensees",
-        table.concat(mix, ", "), ch.reason or "-", t and t.key or "-", (ch.war_mult or 1000) / 1000, ch.changes or 0, ch.thinks or 0)
+      lines[#lines + 1] = chef_line(ch, t)
     end
     local st = f.stats
     lines[#lines + 1] = string.format(

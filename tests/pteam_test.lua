@@ -76,5 +76,108 @@ chest.die()
 M.run_ticks(2)
 check(global.fo.pteam.team == nil, "coffre détruit : équipe dissoute")
 
+---------------------------------------------------------------------------------------------------
+-- Correction VERIF-NUIT (25/10) : votre équipe, décimée, se reconstruit avec les plaques du coffre (règle pure du
+-- cerveau, view.recover_floor, shared/team/planner.lua ; moteur réel : banc verif-guide).
+---------------------------------------------------------------------------------------------------
+section("Cerveau (règle pure) : recrue équipée au QG sous l'effectif de départ")
+local Planner = require("shared.team.planner")
+local Book = require("shared.team.book")
+local S = require("shared.team.scale")
+local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+local function pview(over)
+  local v = {
+    tech = 0, personality = "balanced", done = {}, deferred = {}, stock = {}, incoming = {},
+    outposts = {}, pending = {}, sites = {}, smelters = 0, smelters_pending = 0, smelter_task = false,
+    smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0, turret_groups = {},
+    soldiers = 0, soldiers_max = 0, workers = 1, workers_max = 30, workers_idle = 0, threatened = false, open = {},
+    workers_wanted = 30, no_research = true,
+  }
+  for k, x in pairs(over or {}) do v[k] = x end
+  if v.recruit_cost == nil then v.recruit_cost = S.recruit_cost(v.workers) end
+  return v
+end
+local function sig(plan)
+  local out = {}
+  for _, t in ipairs(plan.tasks) do out[#out + 1] = t.key .. "@" .. tostring(t.prio) end
+  local m = {}
+  for _, x in ipairs(plan.missing) do m[#m + 1] = x[1] .. "x" .. x[2] end
+  local u = {}
+  for _, x in ipairs(plan.recruit_uses or {}) do u[#u + 1] = x[1] .. "x" .. x[2] end
+  return table.concat(out, ",") .. "|" .. table.concat(m, ",") .. "|" .. tostring(plan.recruit_workers) .. ","
+    .. tostring(plan.recruit_unarmed) .. "|" .. table.concat(u, ",")
+end
+local plates = { ["iron-plate"] = 2000, ["copper-plate"] = 500, coal = 100 }
+-- 1. Sous le départ (1 sur 8), plaques au coffre, aucun pistolet : recrue équipée tout de suite, rien à fabriquer.
+local pa = Planner.plan(pview({ workers = 1, stock = plates, recover_floor = 8 }), book)
+local iron_used, craft_recruit = 0, false
+for _, it in ipairs(pa.recruit_uses or {}) do if it[1] == "iron-plate" then iron_used = it[2] end end
+for _, t in ipairs(pa.tasks) do if t.kind == "craft" and t.tag == "ouvrier" then craft_recruit = true end end
+check(pa.recruit_workers == 1 and not pa.recruit_unarmed and iron_used > 0 and not craft_recruit,
+  "1 ouvrier sur 8, plaques au coffre : recrue équipée au QG (" .. iron_used .. " fer), sans fabrication par un ouvrier")
+local pa0 = Planner.plan(pview({ workers = 1, stock = plates }), book)
+check(not pa0.recruit_workers, "même vue sans la règle (avant la correction) : aucune recrue, pistolet demandé à un ouvrier")
+-- 1 bis. Le kit complet au coffre : recrue payée comme avant (pas de plaques transformées).
+local pk = Planner.plan(pview({ workers = 1, stock = { ["iron-plate"] = 100, pistol = 2, ["firearm-magazine"] = 30 },
+  recover_floor = 8 }), book)
+check(pk.recruit_workers == 1 and not pk.recruit_unarmed and pk.recruit_uses == nil, "kit au coffre : recrue payée avec le kit")
+-- 2. À l'effectif de départ (8 sur 8) : plan identique à celui d'avant la correction.
+local pb = Planner.plan(pview({ workers = 8, stock = plates, recover_floor = 8 }), book)
+local pb0 = Planner.plan(pview({ workers = 8, stock = plates }), book)
+check(sig(pb) == sig(pb0) and pb.recruit_uses == nil, "effectif de départ atteint : plan inchangé (" .. sig(pb):sub(1, 60) .. ")")
+-- 3. Fer insuffisant : rien de plus que la règle ordinaire (ni recrue, ni plaques prélevées).
+local poor = { ["iron-plate"] = 20, ["copper-plate"] = 20 }
+local pc = Planner.plan(pview({ workers = 1, stock = poor, recover_floor = 8 }), book)
+local pc0 = Planner.plan(pview({ workers = 1, stock = poor }), book)
+check(not pc.recruit_workers and pc.recruit_uses == nil and sig(pc) == sig(pc0), "fer insuffisant : aucune recrue, plan inchangé")
+-- 4. Équipe vide, sans plaques : le secours ordinaire (ouvrier sans arme) reste.
+local pd = Planner.plan(pview({ workers = 0, stock = {}, recover_floor = 8 }), book)
+check(pd.recruit_workers == 1 and pd.recruit_unarmed, "équipe vide sans plaques : embauche de secours sans arme (inchangé)")
+-- 5. Garde d'agents atteinte : aucune recrue payée.
+local pe = Planner.plan(pview({ workers = 1, stock = plates, recover_floor = 8, recruit_blocked = true }), book)
+check(not pe.recruit_uses and not (pe.recruit_workers and not pe.recruit_unarmed), "garde d'agents : aucune recrue équipée")
+-- 6. Ni fonderie du QG ni minage à la main ni garde (survie des factions) pour votre équipe (forme large, essai D1).
+local pf = Planner.plan(pview({ workers = 1, smelters = 0, stock = { stone = 100, coal = 100 }, recover_floor = 8,
+  done = { army = true } }), book)
+local extra = false
+for _, t in ipairs(pf.tasks) do if t.prio == 92 or t.prio == 90 then extra = true end end
+check(not pf.emergency_smelters and not extra and not pf.train, "pas de fonderie du QG, de minage à la main ni de garde")
+-- 7. Une faction (view.emergency) garde sa règle : recover_floor ignoré.
+local em = { floor = 8, rebuild = false }
+local pg1 = Planner.plan(pview({ workers = 1, stock = plates, emergency = em, recover_floor = 8, soldiers_max = 30 }), book)
+local pg0 = Planner.plan(pview({ workers = 1, stock = plates, emergency = em, soldiers_max = 30 }), book)
+check(sig(pg1) == sig(pg0), "faction : règle de survie d'IA2-a2 inchangée")
+-- 8. Déterminisme : deux pensées identiques.
+check(sig(Planner.plan(pview({ workers = 1, stock = plates, recover_floor = 8 }), book)) == sig(pa), "deux pensées identiques")
+
+section("Correction VERIF-NUIT (moteur simulé) : 7 ouvriers tués, plaques au coffre sans pistolet, sans guerre")
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+local s2 = game.surfaces[1]
+local chest2 = s2.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+for _, it in ipairs({ { "iron-plate", 2000 }, { "copper-plate", 500 }, { "coal", 400 }, { "stone", 200 },
+  { "burner-mining-drill", 6 }, { "stone-furnace", 6 } }) do
+  chest2.insert({ name = it[1], count = it[2] })
+end
+W().events[defines.events.on_built_entity]({ created_entity = chest2, player_index = 1, tick = game.tick })
+local g = global.fo.pteam.team
+check(g ~= nil and g.engineers_count == 8, "8 PNJ offerts à la pose du coffre (" .. tostring(g and g.engineers_count) .. ")")
+M.run_ticks(600)
+local Registry = require("script.companion.registry")
+local ids = {}
+for id in pairs(g.engineers) do ids[#ids + 1] = id end
+table.sort(ids)
+for i = 2, #ids do
+  local a = Registry.get(ids[i])
+  if a and a.entity and a.entity.valid then a.entity.die() end
+end
+M.run_ticks(2)
+check(g.engineers_count == 1 and chest2.get_item_count("pistol") == 0, "1 ouvrier restant, aucun pistolet au coffre ("
+  .. g.engineers_count .. ")")
+local r0 = g.stats.emergency_recruits or 0
+local ok3, err3 = pcall(M.run_ticks, 4 * 3600)
+check(ok3, "4 min sans erreur, sans guerre (" .. tostring(err3) .. ")")
+check((g.stats.emergency_recruits or 0) - r0 >= 7 and g.engineers_count >= 8, "équipe reconstruite au QG : "
+  .. tostring((g.stats.emergency_recruits or 0) - r0) .. " recrues équipées, " .. g.engineers_count .. " PNJ")
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
