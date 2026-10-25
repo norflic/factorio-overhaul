@@ -77,7 +77,7 @@ function C.situation(view, st, ctx)
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     sites = view.sites or {}, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
-    at_war = ctx.at_war or view.threatened or false,
+    at_war = ctx.at_war or view.threatened or false, economy_done = st.iron2_done ~= nil,
   }
 end
 
@@ -140,7 +140,7 @@ function C.think(view, book, st, ctx)
   for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
-  P.supply(E, { reach = ctx.reach, workers = s.workers, mines_open = ctx.mines_open, minable = minable })
+  P.supply(E, { reach = ctx.reach, workers = s.workers, mines_open = ctx.mines_open, minable = minable, cap = s.cap })
   -- 7. Besoin, manques persistants, saturation.
   local short = {}
   for _, k in ipairs(sorted_keys(E.raw)) do short[k] = math.ceil(E.raw[k].n) end

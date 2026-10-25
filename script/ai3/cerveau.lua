@@ -186,13 +186,20 @@ end
 local RAW, MINABLE = C.raw_items()
 local function obtainable(item) return RAW[item] == true end
 
---- Packs que la force sait fabriquer (recette active) ; pont f.tech = nombre − 1.
-local function packs_enabled(force, c)
+--- Pont f.tech : nombre de technologies RECHERCHÉES qui débloquent la recette d'un pack (le pack rouge est donné au
+--- départ : 0 ; pack vert : 1 ; pack militaire : 2 ; pack chimique : 3…). Compté sur les technologies (st.techs), pas
+--- sur les recettes actives : le moteur simulé des tests active toutes les recettes.
+local function packs_researched(st, c)
   local n = 0
-  for _, pack in ipairs(c.pack_list) do
-    local rname = c.full:recipe_for(pack)
-    local r = rname and force.recipes[rname]
-    if r and r.enabled then n = n + 1 end
+  for _, name in ipairs(c.names) do
+    local spec = c.techs[name]
+    if spec and st.techs[name] then
+      local opens = false
+      for _, r in ipairs(spec.unlocks) do
+        for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens = true end end
+      end
+      if opens then n = n + 1 end
+    end
   end
   return n
 end
@@ -435,7 +442,7 @@ local function research_step(f, st, book, w, tick, view)
       log(string.format("[FO-IA3C] %s : recherche '%s' terminee a %.1f min (laboratoire du QG, %d labo(s))", f.key, tech,
         minutes(f, tick), #labs))
       st.lab = { last = tick }
-      f.tech = math.max(f.tech or 0, packs_enabled(force, c) - 1)
+      f.tech = math.max(f.tech or 0, packs_researched(st, c))
       return info
     end
     force.research_progress = lab.units / spec.count
@@ -508,9 +515,8 @@ function Ia3.plan(f, view, book, surface, tick)
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
   end
-  -- En guerre : déclarée au joueur (PvP), ou posture guerrière dominante du chef (IA2-a).
-  local dom = f.chef and f.chef.mix and f.chef.mix[1] and f.chef.mix[1].key
-  local at_war = (f.pvp and f.pvp.declared) or dom == "assaut" or dom == "armee" or dom == "raids" or false
+  -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
+  local at_war = (f.pvp and f.pvp.declared) or false
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach_of(f, st, tick), mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
     at_war = at_war and true or false }

@@ -58,6 +58,7 @@ B.AMMO = 55
 B.AMMO_STOCK = 60   -- réserve de munitions visée (ancienne marche « defense »)
 B.RESEARCH = 62
 B.RESEARCH_PALIER = 14 -- la technologie suivante ouvre un pack (« la recherche vaut ce qu'elle débloque », H9)
+B.RESEARCH_PRE = 44    -- plafond avant « fer II » (économie d'abord, revue B3)
 B.ARMY_FIRST = 58      -- les 10 premiers soldats (ancienne marche « army »)
 B.ARMY_FIRST_N = 10
 B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'objectif courant à 50)
@@ -172,20 +173,29 @@ function B.generate(s, st)
   end
   -- Défense : réserve de munitions. Famille PERMANENTE (comme l'armée) : toujours dépliée à son rang de valeur, sans
   -- prendre de place parmi les K projets (la réserve d'un joueur, H10 ; l'armée qui grandit en fond comme avant).
+  -- Amorçage d'abord : fer et charbon en route avant la réserve et l'armée de départ (l'ordre de l'ancienne échelle :
+  -- charbon, fer, … puis « defense » et « army » ; moteur simulé de pvp_test, essai 3 de ce lot : 240 fers de chargeurs
+  -- dès la 1re minute, fer à 35 à 5 min, armée à 0), sauf menace ou guerre.
+  local boot = ((s.cap.iron or 0) >= 0.75 and (s.cap.coal or 0) >= 0.75) or s.at_war
   local ammo = T.turret_ammo
-  if (s.stock[ammo] or 0) < B.AMMO_STOCK then
+  if boot and (s.stock[ammo] or 0) < B.AMMO_STOCK then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,
       n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true }
   end
-  -- Recherche (factions) : la technologie choisie par le runtime.
+  -- Recherche (factions) : la technologie choisie par le runtime. ÉCONOMIE D'ABORD (revue B3 : IA2-a, 3e essai, une
+  -- faction qui payait sa recherche avant son fer II s'est effondrée ; moteur simulé de pvp_test, essai 3 de ce lot :
+  -- recherche à 81 avant le fer II, fer à 0 pendant 10 min, avant-poste de fer bloqué faute de tourelles, armée à 0) :
+  -- tant que « fer II » n'est pas atteint (s.economy_done), sa valeur est plafonnée à B.RESEARCH_PRE, sous
+  -- l'extraction, l'armée de départ et la réserve de munitions.
   local r = s.research
   if r and r.tech then
-    goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech,
-      value = val(B.RESEARCH + (r.palier and B.RESEARCH_PALIER or 0), w.recherche) }
+    local v = val(B.RESEARCH + (r.palier and B.RESEARCH_PALIER or 0), w.recherche)
+    if not s.economy_done and v > B.RESEARCH_PRE then v = B.RESEARCH_PRE end
+    goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v }
   end
   -- Armée (factions).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.
-  if not s.is_player and (s.soldiers_max or 0) > 0 then
+  if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
     if (s.soldiers or 0) < first then

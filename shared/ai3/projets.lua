@@ -39,6 +39,7 @@ P.MINE_BATCH = 50
 P.FINISH_BONUS = 3
 P.SUPPLY_BONUS = 2
 P.SMELTERS_BOOT = 2      -- fonderie d'amorçage (aucun four au QG : votre équipe au départ)
+P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un avant-poste produit déjà
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
@@ -144,8 +145,21 @@ function P.update(st, goals, tick, workers)
   end
   table.sort(st.projects, function(a, b) return a.id < b.id end)
   for _, p in ipairs(blocked) do p.prio = P.prio_of(math.min(100, p.eff or p.value)) end
-  local out = {}
-  for _, p in ipairs(active) do out[#out + 1] = p end
+  -- Ordre de service du stock virtuel : le PREMIER projet ordinaire (l'objectif du moment), puis les familles
+  -- PERMANENTES (armée, réserve), puis les autres projets, puis les bloqués. C'est l'équilibre de l'ancien cerveau
+  -- (objectif 50 > armée 45 > recherche 40) gardé pour les ressources, avec K projets qui avancent sur le reste.
+  -- Moteur simulé de pvp_test, essais 2 à 5 de ce lot : servie APRÈS tous les projets, l'armée n'avait plus de fer
+  -- (0 soldat à 15 min, 441 fers manquants) et Difficile n'attaquait pas plus que Normal.
+  local out, perm, rest = {}, {}, {}
+  local first = nil
+  for _, p in ipairs(active) do
+    if p.goal.permanent then perm[#perm + 1] = p
+    elseif not first then first = p
+    else rest[#rest + 1] = p end
+  end
+  if first then out[#out + 1] = first end
+  for _, p in ipairs(perm) do out[#out + 1] = p end
+  for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
   return out, K
 end
@@ -307,7 +321,16 @@ EMIT.outpost = function(E, proj, g, ctx)
     P.want(E, proj, items, prio, false, kind)
     return "matiere"
   end
-  if df and extendable(view, kind) then return "bloque", "tourelles" end
+  local wait = df and extendable(view, kind)
+  if wait then
+    -- Défendre d'abord (IA1-b2) : l'avant-poste attend ses tourelles, que le planificateur permanent fabrique et pose
+    -- en URGENCE (want_defense, au-dessus de son plancher de fer et de cuivre : les recrues de survie d'abord). Le projet
+    -- attend sans rien prendre (essai 4 de ce lot, moteur simulé : tourelles et chargeurs demandés ICI sans plancher,
+    -- fer à 17 à 5 min, armée à 0). Sans recette de tourelle : bloqué.
+    if not turret_ok then return "bloque", "tourelles" end
+    proj.missing = { [P.TURRET] = math.max(1, T.defend_turrets(wait.drills) - (wait.turrets or 0)) }
+    return "matiere"
+  end
   -- Construction : avec ses tourelles (défendre d'abord, IA1-b2) quand une tourelle est possible et que ce n'est pas
   -- le premier avant-poste de ce type.
   local list = items
@@ -445,6 +468,18 @@ function P.supply(E, ctx)
       local prio = math.min(85, r.prio + P.SUPPLY_BONUS)
       local proj = { id = r.pid or 0, key = r.why or "approvisionnement" }
       local input = T.smelter_inputs[item]
+      -- Une matière dont un AVANT-POSTE tourne déjà (capacité > 0) vient de ses tournées : la fonderie et le minage à
+      -- la main ne sont qu'un APPOINT (priorité basse, un PNJ au plus), comme l'ancien cerveau ; c'est à la famille
+      -- extraction d'agrandir. Sans avant-poste (le cas du DC), ils sont la source et passent devant (+ SUPPLY_BONUS).
+      -- Moteur simulé de pvp_test, essai 4 de ce lot : 3 PNJ sur 6 au minage à la main à 85, armée à 0 à 15 min.
+      local kind = nil
+      for _, k in ipairs(T.OUTPOST_ORDER) do
+        local spec = T.outposts[k]
+        if spec.product == item or spec.resource == item then kind = k end
+      end
+      local fed = kind ~= nil and ((ctx.cap or {})[kind] or 0) > 0
+      if fed then prio = math.min(prio, P.APPOINT_PRIO) end
+      local room = fed and 1 or mine_room
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).
         E.smelt[item] = (E.smelt[item] or 0) + r.n
@@ -471,10 +506,10 @@ function P.supply(E, ctx)
         if not radius then
           E.explore[item] = math.max(E.explore[item] or 0, prio)
         else
-          local want = math.min(mine_room, math.ceil(r.n / P.MINE_BATCH))
+          local want = math.min(room, math.ceil(r.n / P.MINE_BATCH))
           local busy = (ctx.mines_open and ctx.mines_open[item]) or 0
           local n = 0
-          for i = 1, mine_room do
+          for i = 1, room do
             if n >= want - busy then break end
             if P.add(E, { key = "ia3:mine:" .. item .. ":" .. i, kind = "mine", prio = prio, resource = item,
               count = P.MINE_BATCH, radius = radius, ia3 = r.pid, why = item .. ">" .. proj.key }) then n = n + 1 end
