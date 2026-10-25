@@ -17,6 +17,8 @@ local Planner = require("shared.team.planner")
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
+local Valeur = require("shared.faction.valeur") -- lot IA2-b : éventail des gisements de départ
+local Tr = require("shared.faction.traits")
 local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
@@ -134,24 +136,37 @@ local SEED_OFFSETS = Scale.SEED_OFFSETS
 local function seed_resources(f, surface)
   f.prospects = {}
   local used = {}
+  -- Lot IA2-b : les 4 gisements en ÉVENTAIL autour d'un axe tiré du flux d'expansion de la faction (sel 100 + id),
+  -- et non plus en croix aux mêmes angles pour toutes : la base s'étire d'un côté (shared/faction/valeur.lua V.FAN).
+  local offsets = SEED_OFFSETS
+  if not f.is_player then
+    local axis = Tr.range(Sites.stream(f), 0, 63)
+    f.seed_axis = axis
+    offsets = Valeur.start_slots(axis)
+  end
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
     local radius = T.seed_radius[kind] or 8
-    for i, d in ipairs(SEED_OFFSETS) do
+    for i, d in ipairs(offsets) do
       if not used[i] then
         local c = { x = math.floor(f.hq_pos.x + d[1]) + 0.5, y = math.floor(f.hq_pos.y + d[2]) + 0.5 }
         local water = surface.count_tiles_filtered({ position = c, radius = SEED_RADIUS_MAX + 2, collision_mask = "water-tile" })
         if water == 0 then
           used[i] = true
           for _, e in ipairs(surface.find_entities_filtered({ position = c, radius = radius + 1, type = "resource" })) do e.destroy() end
+          local placed = 0
           for dx = -radius, radius do
             for dy = -radius, radius do
               if dx * dx + dy * dy <= radius * radius then
                 surface.create_entity({ name = res, position = { c.x + dx, c.y + dy }, amount = SEED_AMOUNT })
+                placed = placed + 1
               end
             end
           end
-          f.prospects[#f.prospects + 1] = { x = c.x, y = c.y, resource = res, seeded = true }
+          -- Lot IA2-b : richesse comme une découverte (somme des amount de 64 tuiles au plus, carte de valeur).
+          local read = math.min(64, placed)
+          f.prospects[#f.prospects + 1] = { x = c.x, y = c.y, resource = res, seeded = true, rich = read * SEED_AMOUNT,
+            tiles = read, water = false, rough = 0, cliffs = 0 }
           break
         end
       end
@@ -286,6 +301,8 @@ function Team.view(f, tick)
     -- Lot IA2-a2 (SURVIE, factions seulement) : sous son effectif de départ, une faction équipe ses recrues au QG avec
     -- les plaques du stock ; en reconstruction (chef) ou menacée, elle y équipe aussi sa garde (shared/team/planner.lua).
     emergency = (not f.is_player) and { floor = floor, rebuild = (f.chef and f.chef.rebuild) or false } or nil,
+    -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
+    orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
 end
 

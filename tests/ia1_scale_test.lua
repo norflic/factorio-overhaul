@@ -371,7 +371,11 @@ do
   -- Lot IA2-a2 (survie) : sous son départ, la recrue est équipée au QG avec les plaques du stock ; la faction
   -- décimée se reconstruit (avant : 1 PNJ après 6 min, pistolet jamais fabriqué). Le frein reprend au-dessus du
   -- départ : on contrôle la reconstruction et les recrues d'urgence, plus l'immobilité du frein.
-  check(after_kill == 1 and f.engineers_count >= 8 and (f.stats.emergency_recruits or 0) >= 7,
+  -- Lot IA2-b : une recrue sous le plancher peut aussi être payée avec un kit déjà au stock (recrue ordinaire) ; on
+  -- exige donc 7 recrues au moins (1 -> 8) dont au moins une par la survie, et non 7 recrues de survie (carte du lot :
+  -- 1 -> 14 PNJ, 13 recrues dont 6 de survie ; 1 -> 11, 10 dont 7 avant).
+  check(after_kill == 1 and f.engineers_count >= 8 and (f.stats.recruited or 0) - rec0 >= 7
+    and (f.stats.emergency_recruits or 0) >= 1,
     "plancher et survie : la faction décimée se reconstruit au-delà de son départ (1 -> " .. f.engineers_count
     .. " PNJ en 6 min, " .. tostring(f.stats.emergency_recruits or 0) .. " recrues équipées au QG)")
 end

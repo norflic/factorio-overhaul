@@ -19,6 +19,9 @@ local Scheduler = require("script.core.scheduler")
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Journal = require("script.faction.journal")
+local Character = require("script.faction.character")
+local V = require("shared.faction.valeur")
+local Tr = require("shared.faction.traits")
 
 local Sites = {}
 
@@ -105,6 +108,17 @@ end
 local PROBES_PER_STEP = 4
 local MAX_PROSPECTS = 8
 local MAX_PER_KIND = 2
+-- Lot IA2-b : une faction garde un CHOIX de sites (besoin + 2, au plus 3 par ressource, 12 en tout), choisit par valeur
+-- (Sites.find), et prospecte un tour sur deux autour d'un FRONT (un de ses avant-postes lointains, 6 chunks de rayon).
+-- L'équipe du joueur garde la règle d'avant (premier site de la réserve, spirale autour du coffre).
+local FACTION_EXTRA = 2
+local FACTION_MAX_PER_KIND = 3
+local FACTION_MAX_PROSPECTS = 12
+local FRONT_RADIUS_CHUNKS = 6
+local N_FRONT = 0
+for _, o in ipairs(OFFSETS) do
+  if o.d2 <= FRONT_RADIUS_CHUNKS * FRONT_RADIUS_CHUNKS then N_FRONT = N_FRONT + 1 end
+end
 local IDLE_TICKS = 3600
 Sites.LANE = "fo-prospect"
 local LANE_PERIOD = 30
@@ -136,50 +150,158 @@ local function prospects_of(f, resource)
   return n
 end
 
+local function want_of(f, res)
+  local need = (f.site_needs or {})[res] or 0
+  local want = math.min(MAX_PER_KIND, need)
+  if not f.is_player and need > 0 then want = math.min(FACTION_MAX_PER_KIND, need + FACTION_EXTRA) end
+  return want
+end
+
 --- Ressources encore recherchées (besoins du cerveau d'équipe, f.site_needs = { [ressource] = n }).
 local function wanted_resources(f)
   local list = {}
   for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
-    local want = math.min(MAX_PER_KIND, f.site_needs[res])
+    local want = want_of(f, res)
     if want > 0 and prospects_of(f, res) < want then list[#list + 1] = res end
   end
   return list
+end
+
+local function max_prospects(f)
+  return f.is_player and MAX_PROSPECTS or FACTION_MAX_PROSPECTS
+end
+
+--- Flux d'expansion de la faction (lot IA2-b) : Tr.new_stream(graine, 100 + id), créé à la première lecture (partie
+--- existante comprise). Angles de départ (script/team/team.lua) puis hasard borné des fronts et des sites.
+function Sites.stream(f)
+  if not f.expand then f.expand = Tr.new_stream(Character.map_seed(), V.SALT + f.id) end
+  return f.expand
+end
+
+local function draw_of(f)
+  local st = Sites.stream(f)
+  return function(n) return Tr.range(st, 1, n) end
 end
 
 --- Une tranche de prospection pour la faction f (au plus PROBES_PER_STEP chunks).
 --- Seulement si l'équipe a BESOIN de sites : en moteur réel la prospection permanente coûtait
 --- 0,09 ms/tick en moyenne, plus que tout le reste du mod. Session 4 : un site = un gisement d'UNE
 --- ressource demandée (charbon, fer, cuivre, pierre), centré sur ses tuiles.
+--- Lot IA2-b : origine du prochain tour de prospection (f.front ; nil = QG). Elle change à chaque nouvel ÉPISODE de
+--- besoin (la réserve était pleine) et à la fin de chaque tour : un sur deux part du QG (curseur f.site_cursor, la
+--- spirale d'avant y continue), l'autre d'un de nos avant-postes à V.FRONT_MIN tuiles ou plus du QG (curseur
+--- f.front_cursor, remis à 1 quand le front change), choisi par V.pick_front (danger vu, contestation ; hasard borné).
+function Sites.next_front(f, tick)
+  f.scan_turn = (f.scan_turn or 0) + 1
+  f.front_dry = f.front_dry or {}
+  local fronts = {}
+  local hq = f.hq_pos
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    local dx, dy = p.x - hq.x, p.y - hq.y
+    if dx * dx + dy * dy >= V.FRONT_MIN * V.FRONT_MIN then fronts[#fronts + 1] = { key = "o" .. oid, x = p.x, y = p.y } end
+  end
+  local key = nil
+  if #fronts > 0 then key = V.pick_front(fronts, Sites.value_ctx(f, tick), f.front_dry, f.scan_turn, draw_of(f)) end
+  local old = f.front and f.front.key or nil
+  f.front = nil
+  for _, p in ipairs(fronts) do
+    if p.key == key then f.front = { key = p.key, x = p.x, y = p.y } end
+  end
+  if key ~= old then f.front_cursor, f.front_found = 1, 0 end
+end
+
+--- Lot IA2-b : RENOUVELLEMENT de la réserve. Toutes les V.REFRESH, le site de plus faible valeur d'une ressource
+--- demandée dont la réserve est au complet est oublié (hors gisements de départ) : un nouveau tour de prospection part
+--- alors de l'origine suivante (QG ou front). Sans cela, la réserve pleine dès les premières minutes ne bougeait plus
+--- (moteur simulé : 0 site trouvé depuis un front en 15 min).
+local function refresh_reserve(f, tick)
+  local worst, worst_v
+  local ctx = nil
+  for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
+    local want = want_of(f, res)
+    if want > 0 and prospects_of(f, res) >= want then
+      local cands = {}
+      for _, s in ipairs(f.prospects or {}) do
+        if s.resource == res and not s.seeded then cands[#cands + 1] = s end
+      end
+      if #cands > 0 then
+        ctx = ctx or Sites.value_ctx(f, tick)
+        local ranked = V.rank(cands, ctx)
+        local last = ranked[#ranked]
+        if not worst_v or last.value < worst_v then worst, worst_v = last.site, last.value end
+      end
+    end
+  end
+  if not worst then return end
+  local out = {}
+  for _, s in ipairs(f.prospects) do if s ~= worst then out[#out + 1] = s end end
+  f.prospects = out
+  f.stats.reserve_dropped = (f.stats.reserve_dropped or 0) + 1
+end
+
 function Sites.prospect(f, surface, tick)
   f.prospects = f.prospects or {}
-  if #f.prospects >= MAX_PROSPECTS or tick < (f.prospect_idle_until or 0) then return end
+  if not f.is_player and tick >= (f.reserve_refresh or 0) then
+    f.reserve_refresh = tick + V.REFRESH
+    refresh_reserve(f, tick)
+  end
+  if #f.prospects >= max_prospects(f) or tick < (f.prospect_idle_until or 0) then
+    f.scan_idle = true
+    return
+  end
   local wanted = wanted_resources(f)
-  if #wanted == 0 then return end
+  if #wanted == 0 then
+    f.scan_idle = true
+    return
+  end
   local war = State.war()
   local other_hqs = {}
   for _, id in ipairs(State.alive()) do
     if id ~= f.id then other_hqs[#other_hqs + 1] = State.faction(id).hq_pos end
   end
   local spawn = game.forces.player.get_spawn_position(surface)
-  local hcx, hcy = math.floor(f.hq_pos.x / 32), math.floor(f.hq_pos.y / 32)
-  local n = f.prospect_wide and #OFFSETS or N_NEAR
+  if not f.is_player then
+    -- Front perdu (avant-poste détruit) : retour au QG.
+    if f.front and not (f.outposts or {})[tonumber(f.front.key:sub(2))] then f.front = nil end
+    -- Nouvel épisode de besoin : nouvelle origine (QG et front alternés).
+    if f.scan_idle then
+      f.scan_idle = false
+      Sites.next_front(f, tick)
+    end
+  end
+  local front = (not f.is_player) and f.front or nil
+  local origin = front or f.hq_pos
+  local hcx, hcy = math.floor(origin.x / 32), math.floor(origin.y / 32)
+  local n = front and N_FRONT or (f.prospect_wide and #OFFSETS or N_NEAR)
+  local cursor = front and "front_cursor" or "site_cursor"
   for _ = 1, PROBES_PER_STEP do
-    local k = f.site_cursor or 1
+    local k = f[cursor] or 1
     if k > n then
-      f.site_cursor = 1
+      f[cursor] = 1
       f.stats.prospect_cycles = (f.stats.prospect_cycles or 0) + 1
-      if (f.prospect_found or 0) == 0 then
-        if not f.prospect_wide then
-          f.prospect_wide = true -- tour proche infructueux : disque élargi dès le tour suivant
-          Trace.log("prospect", f.key, "wide")
-        else
-          f.prospect_idle_until = tick + IDLE_TICKS
+      if front then
+        -- Lot IA2-b : un front dont le tour n'a rien trouvé est laissé V.FRONT_DRY (compteur propre au front).
+        if (f.front_found or 0) == 0 then
+          f.front_dry = f.front_dry or {}
+          f.front_dry[front.key] = tick + V.FRONT_DRY
         end
+        f.front_found = 0
+      else
+        if (f.prospect_found or 0) == 0 then
+          if not f.prospect_wide then
+            f.prospect_wide = true -- tour proche infructueux : disque élargi dès le tour suivant
+            Trace.log("prospect", f.key, "wide")
+          else
+            f.prospect_idle_until = tick + IDLE_TICKS
+          end
+        end
+        f.prospect_found = 0
       end
-      f.prospect_found = 0
+      if not f.is_player then Sites.next_front(f, tick) end
       return
     end
-    f.site_cursor = k + 1
+    f[cursor] = k + 1
     local o = OFFSETS[k]
     local cx, cy = hcx + o.dx, hcy + o.dy
     local center = { x = cx * 32 + 16, y = cy * 32 + 16 }
@@ -203,12 +325,20 @@ function Sites.prospect(f, surface, tick)
         Profiler.start("prospect:find")
         local tiles = surface.find_entities_filtered({ area = area, name = best, limit = 64 })
         Profiler.stop("prospect:find")
-        local sx, sy = 0, 0
+        local sx, sy, rich = 0, 0, 0
         for _, r in ipairs(tiles) do
           local p = r.position
           sx, sy = sx + p.x, sy + p.y
+          rich = rich + (r.amount or 0)
         end
-        local site = { x = sx / #tiles, y = sy / #tiles, resource = best }
+        local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
+        -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
+        Profiler.start("prospect:value")
+        site.rich, site.tiles = rich, #tiles
+        site.water = surface.count_tiles_filtered({ position = site, radius = 24, collision_mask = "water-tile", limit = 1 }) > 0
+        site.rough = surface.count_entities_filtered({ position = site, radius = 12, type = { "tree", "simple-entity" }, limit = 100 })
+        site.cliffs = surface.count_entities_filtered({ position = site, radius = 16, type = "cliff", limit = 8 })
+        Profiler.stop("prospect:value")
         -- Moteur réel (session 3) : 27 ingénieurs tués par des vers près de leurs sites. Un site à portée
         -- d'ennemis (déchiqueteurs) est évité ; les ennemis éliminés, il redevient prospectable.
         local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
@@ -217,10 +347,14 @@ function Sites.prospect(f, surface, tick)
           f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
         elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
           f.prospects[#f.prospects + 1] = site
-          f.prospect_found = (f.prospect_found or 0) + 1
+          if front then
+            f.front_found = (f.front_found or 0) + 1
+          else
+            f.prospect_found = (f.prospect_found or 0) + 1
+          end
           f.stats.prospected = (f.stats.prospected or 0) + 1
           wanted = wanted_resources(f)
-          if #wanted == 0 or #f.prospects >= MAX_PROSPECTS then return end
+          if #wanted == 0 or #f.prospects >= max_prospects(f) then return end
         end
       end
     end
@@ -233,10 +367,121 @@ function Sites.available(f, resource)
   return prospects_of(f, resource)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Carte de valeur (lot IA2-b) : contexte vu par la faction
+---------------------------------------------------------------------------------------------------
+-- Champs de vision (mêmes rayons que le chef d'IA2-a, script/faction/chef.lua) : QG, avant-postes, groupes en route.
+local VISION_HQ, VISION_OUTPOST, VISION_GROUP = 160, 128, 96
+local LOST_KEEP = 8 -- sites perdus retenus (danger)
+
+local function eyes(f)
+  local list = {}
+  if f.hq_pos then list[#list + 1] = { x = f.hq_pos.x, y = f.hq_pos.y, r2 = VISION_HQ * VISION_HQ } end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    list[#list + 1] = { x = p.x, y = p.y, r2 = VISION_OUTPOST * VISION_OUTPOST }
+  end
+  for _, gid in ipairs(State.sorted_keys(f.groups or {})) do
+    local g = f.groups[gid]
+    if g.group and g.group.valid then
+      local p = g.group.position
+      list[#list + 1] = { x = p.x, y = p.y, r2 = VISION_GROUP * VISION_GROUP }
+    end
+  end
+  return list
+end
+
+local function seen_by(list, p)
+  for _, e in ipairs(list) do
+    local dx, dy = e.x - p.x, e.y - p.y
+    if dx * dx + dy * dy <= e.r2 then return true end
+  end
+  return false
+end
+
+--- Contexte de la carte de valeur d'une faction (pur ensuite) : territoire (QG et avant-postes), rivales VUES (QG
+--- connus, avant-postes dans nos champs de vision : brouillard D-16), nos sites perdus récents, traits, appétit du chef.
+function Sites.value_ctx(f, tick)
+  local ctx = { hq = f.hq_pos, anchors = {}, rivals = {}, lost = f.lost_sites or {}, tick = tick,
+    ambition = 1000, prudence = 1000, appetite = 1000 }
+  if f.hq_pos then ctx.anchors[1] = { x = f.hq_pos.x, y = f.hq_pos.y } end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    ctx.anchors[#ctx.anchors + 1] = { x = p.x, y = p.y }
+  end
+  if f.traits then ctx.ambition, ctx.prudence = f.traits.ambition or 1000, f.traits.prudence or 1000 end
+  if f.chef then ctx.appetite = V.appetite(f.chef.mix, f.chef.survival) end
+  if not f.is_player then
+    local my = eyes(f)
+    for _, rid in ipairs(State.alive()) do
+      if rid ~= f.id then
+        local r = State.faction(rid)
+        if r.hq_pos then ctx.rivals[#ctx.rivals + 1] = { x = r.hq_pos.x, y = r.hq_pos.y, hq = true } end
+        for _, oid in ipairs(State.sorted_keys(r.outposts or {})) do
+          local p = r.outposts[oid].pos
+          if seen_by(my, p) then ctx.rivals[#ctx.rivals + 1] = { x = p.x, y = p.y } end
+        end
+      end
+    end
+  end
+  return ctx
+end
+
+--- Un avant-poste perdu : position retenue (danger des sites voisins pendant V.LOST_TTL).
+function Sites.note_lost(f, pos, tick)
+  f.lost_sites = f.lost_sites or {}
+  table.insert(f.lost_sites, { x = pos.x, y = pos.y, tick = tick })
+  while #f.lost_sites > LOST_KEEP do table.remove(f.lost_sites, 1) end
+end
+
+--- Meilleure valeur parmi les sites valides de la réserve (toutes ressources), ou nil (lu par le chef : considération
+--- « meilleur site connu » de la posture « expansion »).
+function Sites.best_value(f, tick)
+  local war = State.war()
+  local cands = {}
+  for _, s in ipairs(f.prospects or {}) do
+    if not claimed(war, s) and not unreachable(war, s, tick) then cands[#cands + 1] = s end
+  end
+  if #cands == 0 then return nil end
+  local ranked = V.rank(cands, Sites.value_ctx(f, tick))
+  return ranked[1].value
+end
+
+--- Lot IA2-b : une FACTION choisit par valeur parmi les sites valides de la ressource (V.choose : hasard borné entre
+--- les meilleurs, flux d'expansion) ; les sites invalides de cette ressource sont retirés de la réserve.
+local function find_by_value(f, tick, resource)
+  local war = State.war()
+  local list = f.prospects or {}
+  local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
+  local cands, keep = {}, {}
+  for _, s in ipairs(list) do
+    if resource == nil or s.resource == resource then
+      if valid(s) then
+        cands[#cands + 1] = s
+        keep[#keep + 1] = s
+      end
+    else
+      keep[#keep + 1] = s
+    end
+  end
+  if #cands == 0 then
+    f.prospects = keep
+    return nil
+  end
+  local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
+  local site = chosen.site
+  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
+  local out = {}
+  for _, s in ipairs(keep) do if s ~= site then out[#out + 1] = s end end
+  f.prospects = out
+  return site
+end
+
 --- Puise un site valide de la ressource demandée dans la réserve. Renvoie site ou nil.
 function Sites.find(f, surface, tick, resource)
-  local war = State.war()
   tick = tick or game.tick
+  if not f.is_player then return find_by_value(f, tick, resource) end
+  local war = State.war()
   local list = f.prospects or {}
   local i = 1
   local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
@@ -245,7 +490,17 @@ function Sites.find(f, surface, tick, resource)
     if resource == nil or site.resource == resource then
       -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
       local ok = valid(site)
-      if ok then Journal.site(f, site, list, valid, tick) end
+      if ok then
+        -- Lot IA2-b (journal de référence) : valeur des candidats valides de la même ressource, rang du site puisé.
+        local cands = {}
+        for _, s in ipairs(list) do
+          if s.resource == site.resource and valid(s) then cands[#cands + 1] = s end
+        end
+        local ranked = V.rank(cands, Sites.value_ctx(f, tick))
+        local vk, vv = 1, 0
+        for k, e in ipairs(ranked) do if e.site == site then vk, vv = k, e.value end end
+        Journal.site(f, site, list, valid, tick, { value = vv, rank = vk, n = #ranked })
+      end
       table.remove(list, i)
       if ok then return site end
     else

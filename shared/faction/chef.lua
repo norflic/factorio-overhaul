@@ -255,8 +255,12 @@ function C.considerations(v, st, best)
   local workers = math.max(1, v.workers or 1)
   local idle = math.floor((v.idle or 0) * 1000 / workers)
   local c = {}
-  c.expansion = { mean({ lin((v.desired or 0) - (v.outposts or 0), -1, 3), (v.sites or 0) > 0 and 1000 or 250, safety,
-    lin(v.iron or 0, 20, 300) }), "territoire a prendre" }
+  -- Lot IA2-b : « meilleur site connu » = valeur de la carte de valeur (shared/faction/valeur.lua, v.best_site, de
+  -- −400 à 600 points) quand le runtime la fournit ; sinon la règle d'IA2-a (un site en réserve ou non).
+  local site_term = (v.sites or 0) > 0 and 1000 or 250
+  if v.best_site ~= nil then site_term = lin(v.best_site, -400, 600) end
+  c.expansion = { mean({ lin((v.desired or 0) - (v.outposts or 0), -1, 3), site_term, safety,
+    lin(v.iron or 0, 20, 300) }), v.best_site ~= nil and "site de valeur" or "territoire a prendre" }
   c.capitalisation = { mean({ lin(stock_dormant, 300, 2000), safety, lin(idle, 100, 600), lin(v.outposts or 0, 2, 8) }),
     "stock qui dort" }
   c.technologie = { mean({ lin(4 - (v.tech or 0), 0, 3), lin(v.copper or 0, 30, 400), safety, lin(v.minutes or 0, 5, 25) }),

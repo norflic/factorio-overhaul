@@ -687,6 +687,12 @@ function P.plan(view, book)
     end
   end
 
+  -- Lot IA2-b (F209) : réceptacles orphelins d'un avant-poste perdu depuis 30 min et pas reconstruit : un ouvrier va les
+  -- démonter (objets et contenu rapportés au QG). Priorité basse : après tout le reste, sauf le minage d'appoint.
+  for _, g in ipairs(view.orphans or {}) do
+    add({ key = "salvage:" .. g.oid, kind = "salvage", prio = 30, orphan = g.oid, pos = { x = g.x, y = g.y } })
+  end
+
   -- Fonderie : une tournée si elle a quelque chose à produire, à vider ou à ravitailler.
   if view.smelters > 0 and not view.smelter_task then
     if next(out.smelt) ~= nil or view.smelter_output > 0 or view.smelter_fuel_low then

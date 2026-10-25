@@ -87,8 +87,9 @@ function Journal.attack(f, target_faction, n, rp, tick)
 end
 
 --- Ligne d'un site puisé dans la réserve : `site` choisi, `list` = réserve AVANT le retrait (sites valides de la
---- même ressource : `valid(site)` vrai).
-function Journal.site(f, site, list, valid, tick)
+--- même ressource : `valid(site)` vrai). Lot IA2-b : `extra` = { value, rank, n } (valeur du site choisi, son rang par
+--- valeur parmi les n candidats valides) en fin de ligne ; plus `front` (clé du front qui l'a trouvé, ou « qg »).
+function Journal.site(f, site, list, valid, tick, extra)
   local hx, hy = f.hq_pos and f.hq_pos.x or 0, f.hq_pos and f.hq_pos.y or 0
   local function d2(p) return (p.x - hx) * (p.x - hx) + (p.y - hy) * (p.y - hy) end
   local mine = d2(site)
@@ -101,9 +102,14 @@ function Journal.site(f, site, list, valid, tick)
       if d < nearest then nearest = d end
     end
   end
-  log(string.format("[FO-STRAT] site tick %d %s %s : (%d, %d), %d tuiles du QG, rang %d sur %d en reserve, plus proche %d tuiles",
+  local tail = ""
+  if extra then
+    tail = string.format(", valeur %d, rang valeur %d sur %d, richesse %d, front %s", extra.value or 0, extra.rank or 1,
+      extra.n or 1, site.rich or -1, site.front or "qg")
+  end
+  log(string.format("[FO-STRAT] site tick %d %s %s : (%d, %d), %d tuiles du QG, rang %d sur %d en reserve, plus proche %d tuiles%s",
     tick, f.key, tostring(site.resource), math.floor(site.x), math.floor(site.y), math.floor(math.sqrt(mine)), rank,
-    math.max(n, 1), math.floor(math.sqrt(nearest))))
+    math.max(n, 1), math.floor(math.sqrt(nearest)), tail))
 end
 
 --- Bâtiments d'une faction, lus dans ses propres listes (QG, tourelles, foreuses et réceptacles des avant-postes,
@@ -119,6 +125,10 @@ function Journal.buildings(f)
     for _, e in ipairs(o.sinks or {}) do list[#list + 1] = e end
   end
   for _, e in ipairs(f.smelters or {}) do list[#list + 1] = e end
+  -- Lot IA2-b (F209) : réceptacles orphelins des avant-postes perdus (coffres et fours restés sur la carte).
+  for _, o in ipairs(f.orphans or {}) do
+    if o.e and o.e.valid then list[#list + 1] = o.e end
+  end
   return list
 end
 
@@ -134,6 +144,8 @@ function Journal.shape(f, surface, tick, area)
   end
   local n, sx, sy, sxx, syy, sxy, rmax = 0, 0, 0, 0, 0, 0, 0
   local chunks, nchunks, names = {}, 0, {}
+  local hcx, hcy = math.floor(hq.x / 32), math.floor(hq.y / 32)
+  local cells = {} -- lot IA2-b : chunks occupés, relatifs au chunk du QG (« dx:dy »), triés
   for _, e in ipairs(list) do
     if e.valid and not NOT_BUILDING[e.type] then
       local p = e.position
@@ -143,10 +155,12 @@ function Journal.shape(f, surface, tick, area)
       sxx, syy, sxy = sxx + dx * dx, syy + dy * dy, sxy + dx * dy
       local d = dx * dx + dy * dy
       if d > rmax then rmax = d end
-      local k = State.chunk_key(math.floor(p.x / 32), math.floor(p.y / 32))
+      local pcx, pcy = math.floor(p.x / 32), math.floor(p.y / 32)
+      local k = State.chunk_key(pcx, pcy)
       if not chunks[k] then
         chunks[k] = true
         nchunks = nchunks + 1
+        cells[#cells + 1] = { pcx - hcx, pcy - hcy }
       end
       names[e.name] = (names[e.name] or 0) + 1
     end
@@ -163,9 +177,14 @@ function Journal.shape(f, surface, tick, area)
   end
   local ns = {}
   for _, k in ipairs(State.sorted_keys(names)) do ns[#ns + 1] = k .. "=" .. names[k] end
-  log(string.format("[FO-SHAPE] tick %d %s : hq (%d, %d) | batiments %d | chunks %d | centre (%.1f, %.1f) | cov %.1f %.1f %.1f | rayon %d | avant-postes %s | noms %s",
+  local orphans = 0
+  for _, o in ipairs(f.orphans or {}) do if o.e and o.e.valid then orphans = orphans + 1 end end
+  table.sort(cells, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+  for i, c in ipairs(cells) do cells[i] = c[1] .. ":" .. c[2] end
+  log(string.format("[FO-SHAPE] tick %d %s : hq (%d, %d) | batiments %d | chunks %d | centre (%.1f, %.1f) | cov %.1f %.1f %.1f | rayon %d | avant-postes %s | noms %s | cases %s | orphelins %d",
     tick, f.key, math.floor(hq.x), math.floor(hq.y), n, nchunks, mx, my, cxx, cyy, cxy, math.floor(math.sqrt(rmax)),
-    #ops > 0 and table.concat(ops, ",") or "-", #ns > 0 and table.concat(ns, ",") or "-"))
+    #ops > 0 and table.concat(ops, ",") or "-", #ns > 0 and table.concat(ns, ",") or "-",
+    #cells > 0 and table.concat(cells, ",") or "-", orphans))
 end
 
 -- Une faction par seconde : la faction d'identifiant i au tick k × SHAPE_PERIOD + 60 × i (pics étalés).

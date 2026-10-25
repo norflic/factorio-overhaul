@@ -198,6 +198,9 @@ function Worker.program(f, task, surface, tick)
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+  elseif k == "salvage" then
+    -- Lot IA2-b (F209) : démontage des réceptacles orphelins d'un avant-poste perdu.
+    return { { "home" }, { "goto", task.pos, 4 }, { "act", "salvage" }, { "home" } }
   elseif k == "service" then
     local o = f.outposts[task.outpost]
     if not o then return nil end
@@ -293,6 +296,11 @@ ACTS.service = function(agent, f, task, surface, tick)
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
+end
+
+ACTS.salvage = function(agent, f, task)
+  local n = Outposts.salvage(f, task.orphan, main_inv(agent))
+  return n > 0
 end
 
 ACTS.refill = function(agent, f, task)

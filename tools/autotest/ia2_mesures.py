@@ -54,8 +54,12 @@ RX = {
                         r"(?:, rassemblement (?:\((-?\d+), (-?\d+)\)|-), regle ([\w-]+)(, raid)?)?"),
     "posture": re.compile(r"\[FO-STRAT\] posture tick (\d+) (\w+) : dominante (\w+) \((-?\d+), \d+ %\).*?, raison (\S+), menace (\d+), mult (\d+), cible (\S+), raid (\S+?)(, changement)?\s*$"),
     "issue": re.compile(r"\[FO-STRAT\] issue tick (\d+) (\w+) -> (\w+) : (\w+), (\d+) envoyes, (\d+) survivants, octant (-?\d+|-)(, raid)?"),
-    "site": re.compile(r"\[FO-STRAT\] site tick (\d+) (\w+) (\S+) : \((-?\d+), (-?\d+)\), (\d+) tuiles du QG, rang (\d+) sur (\d+)"),
-    "shape": re.compile(r"\[FO-SHAPE\] tick (\d+) (\w+) : hq \((-?\d+), (-?\d+)\) \| batiments (\d+) \| chunks (\d+) \| centre \((-?[\d.]+), (-?[\d.]+)\) \| cov (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) \| rayon (\d+) \| avant-postes (\S+) \| noms (\S+)"),
+    # Lot IA2-b : valeur du site choisi, son rang par valeur parmi les n candidats valides, richesse, front.
+    "site": re.compile(r"\[FO-STRAT\] site tick (\d+) (\w+) (\S+) : \((-?\d+), (-?\d+)\), (\d+) tuiles du QG, rang (\d+) sur (\d+)"
+                       r"(?: en reserve, plus proche \d+ tuiles, valeur (-?\d+), rang valeur (\d+) sur (\d+), richesse (-?\d+), front (\S+))?"),
+    # Lot IA2-b : chunks occupés relatifs au chunk du QG (« dx:dy », triés) et réceptacles orphelins.
+    "shape": re.compile(r"\[FO-SHAPE\] tick (\d+) (\w+) : hq \((-?\d+), (-?\d+)\) \| batiments (\d+) \| chunks (\d+) \| centre \((-?[\d.]+), (-?[\d.]+)\) \| cov (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) \| rayon (\d+) \| avant-postes (\S+) \| noms (\S+)"
+                        r"(?: \| cases (\S+) \| orphelins (\d+))?"),
     "goal": re.compile(r"\[FO-TEAM\] (\w+) : objectif atteint '([^']+)' a ([\d.]+) min"),
     "research": re.compile(r"\[FO-TEAM\] (\w+) : recherche niveau (\d+) payee en packs a ([\d.]+) min"),
     "minute": re.compile(r"===== minute (\d+) \(tick (\d+)\)"),
@@ -100,6 +104,43 @@ def roundness(cxx, cyy, cxy):
     if l2 <= 1e-9:
         return None
     return math.sqrt(l1 / l2)
+
+
+DIRS16 = [(math.cos(2 * math.pi * k / 16), math.sin(2 * math.pi * k / 16)) for k in range(16)]
+
+
+def cell_shape(cells):
+    """M1 recalé (lot IA2-b) sur les CHUNKS occupés, un point par chunk, relatifs au chunk du QG.
+
+    Renvoie (rondeur, demi_plan, excentrement) :
+      rondeur      √(λ1/λ2) de la covariance des chunks (QG compris) ; None si dégénérée ou moins de 3 chunks ;
+      demi_plan    part des chunks hors QG dans le meilleur demi-plan passant par le QG (16 directions ; un chunk sur
+                   la frontière compte pour moitié) : 0,5 environ pour une couronne, 1 pour une base d'un seul côté ;
+      excentrement |moyenne| ÷ √(moyenne des carrés) des chunks hors QG : 0 centré sur le QG, 1 tout d'un côté.
+    """
+    if not cells:
+        return None, None, None
+    n = len(cells)
+    mx = sum(c[0] for c in cells) / n
+    my = sum(c[1] for c in cells) / n
+    cxx = sum((c[0] - mx) ** 2 for c in cells) / n
+    cyy = sum((c[1] - my) ** 2 for c in cells) / n
+    cxy = sum((c[0] - mx) * (c[1] - my) for c in cells) / n
+    rnd = roundness(cxx, cyy, cxy) if n >= 3 else None
+    out = [c for c in cells if c != (0, 0)]
+    if len(out) < 3:
+        return rnd, None, None
+    best = 0.0
+    for ux, uy in DIRS16:
+        s = 0.0
+        for x, y in out:
+            d = x * ux + y * uy
+            s += 1.0 if d > 1e-9 else (0.5 if d > -1e-9 else 0.0)
+        best = max(best, s / len(out))
+    ex = sum(c[0] for c in out) / len(out)
+    ey = sum(c[1] for c in out) / len(out)
+    rms = math.sqrt(sum(c[0] ** 2 + c[1] ** 2 for c in out) / len(out))
+    return rnd, best, (math.hypot(ex, ey) / rms if rms > 0 else None)
 
 
 def cv(values):
@@ -246,7 +287,10 @@ def parse_log(lines, run, name):
         m = RX["site"].search(line)
         if m and m.group(2) in F:
             s = {"tick": int(m.group(1)), "resource": m.group(3), "dist": int(m.group(6)), "rank": int(m.group(7)),
-                 "of": int(m.group(8))}
+                 "of": int(m.group(8)), "pos": (int(m.group(4)), int(m.group(5)))}
+            if m.group(9) is not None:
+                s.update({"value": int(m.group(9)), "vrank": int(m.group(10)), "vof": int(m.group(11)),
+                          "rich": int(m.group(12)), "front": m.group(13)})
             F[m.group(2)]["sites"].append(s)
             F[m.group(2)]["events"].append((s["tick"], "site:" + s["resource"]))
             continue
@@ -262,10 +306,14 @@ def parse_log(lines, run, name):
                 for kv in m.group(14).split(","):
                     k, v = kv.split("=")
                     names[k] = int(v)
+            cells = None
+            if m.group(15) is not None:
+                cells = [] if m.group(15) == "-" else [tuple(int(v) for v in c.split(":")) for c in m.group(15).split(",")]
             F[m.group(2)]["shapes"].append({
                 "tick": int(m.group(1)), "n": int(m.group(5)), "chunks": int(m.group(6)),
                 "cov": (float(m.group(9)), float(m.group(10)), float(m.group(11))), "radius": int(m.group(12)),
-                "outposts": ops, "names": names})
+                "outposts": ops, "names": names, "cells": cells,
+                "orphans": int(m.group(16)) if m.group(16) is not None else None})
             continue
         m = RX["goal"].search(line)
         if m and m.group(1) in F:
@@ -302,6 +350,24 @@ def faction_metrics(f):
     sites = f["sites"]
     out["sites"] = len(sites)
     out["nearest_first"] = (sum(1 for s in sites if s["rank"] == 1) / len(sites)) if sites else None
+    # Lot IA2-b : M1 recalé sur les chunks occupés (dernière forme qui les liste) ; choix RÉELS (au moins 2 candidats
+    # valides de la ressource) : « plus proche d'abord » et « meilleur quart de valeur » ; sites trouvés depuis un front ;
+    # sites repris plusieurs fois (même position puisée de nouveau : chantier abandonné ou avant-poste perdu).
+    withcells = [s for s in f["shapes"] if s.get("cells") is not None]
+    lastc = withcells[-1] if withcells else None
+    rc, hp, ex = cell_shape(lastc["cells"]) if lastc else (None, None, None)
+    out["cells_roundness"], out["halfplane"], out["eccentricity"] = rc, hp, ex
+    out["orphans_last"] = last.get("orphans") if last else None
+    real = [s for s in sites if s["of"] >= 2]
+    out["real_choices"] = len(real)
+    out["real_nearest"] = sum(1 for s in real if s["rank"] == 1)
+    vreal = [s for s in sites if s.get("vof") is not None and s["vof"] >= 2]
+    out["value_choices"] = len(vreal)
+    out["value_top"] = sum(1 for s in vreal if s["vrank"] <= math.ceil(s["vof"] / 4))
+    out["value_best"] = sum(1 for s in vreal if s["vrank"] == 1)
+    out["from_front"] = sum(1 for s in sites if s.get("front") not in (None, "qg"))
+    out["repicks"] = len(sites) - len({s["pos"] for s in sites})
+    out["value_med"] = median([s["value"] for s in sites if s.get("value") is not None])
     # M2
     att = f["attacks"]
     ticks = [a["tick"] for a in att]
@@ -394,6 +460,24 @@ def group_metrics(runs):
     summ["roundness_med"] = median(rnd)
     summ["roundness_cv"] = cv(rnd)
     summ["nearest_first"] = median([b["nearest_first"] for b in bases])
+    # Lot IA2-b : M1 recalé (chunks), choix réels poolés sur toutes les bases (peu de choix par base).
+    summ["cells_roundness_med"] = median([b["cells_roundness"] for b in bases])
+    summ["halfplane_med"] = median([b["halfplane"] for b in bases])
+    summ["eccentricity_med"] = median([b["eccentricity"] for b in bases])
+    rc_ = sum(b["real_choices"] for b in bases)
+    summ["real_choices"] = rc_
+    summ["real_nearest_share"] = (sum(b["real_nearest"] for b in bases) / rc_) if rc_ else None
+    vc_ = sum(b["value_choices"] for b in bases)
+    summ["value_choices"] = vc_
+    summ["value_top_share"] = (sum(b["value_top"] for b in bases) / vc_) if vc_ else None
+    summ["value_best_share"] = (sum(b["value_best"] for b in bases) / vc_) if vc_ else None
+    summ["sites_total"] = sum(b["sites"] for b in bases)
+    summ["from_front"] = sum(b["from_front"] for b in bases)
+    summ["repicks"] = sum(b["repicks"] for b in bases)
+    summ["outposts_med"] = median([b["outposts"] for b in bases])
+    summ["orphans_last"] = sum(b["orphans_last"] or 0 for b in bases)
+    summ["value_med"] = median([b["value_med"] for b in bases])
+    summ["sites_front_repicks"] = f"{summ['sites_total']} / {summ['from_front']} / {summ['repicks']}"
     summ["cadence_cv_med"] = median([b["cadence_cv"] for b in bases])
     summ["size_cv_med"] = median([b["size_cv"] for b in bases])
     summ["sides_entropy_med"] = median([b["sides_entropy"] for b in bases])
@@ -457,14 +541,15 @@ def fmt(x, nd=2):
 
 def print_detail(label, per):
     print(f"\n### {label} : par graine et par faction")
-    print("| graine | faction | personnalité | agr. | pru. | avant-postes | ρ | rondeur | chunks | plus proche | attaques (60 min) | 1re (min) | cadence CV | tailles CV | côtés (bits) | dormant | croissance | r |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| graine | faction | personnalité | agr. | pru. | avant-postes | ρ | rondeur | chunks | rondeur chunks | demi-plan | excentr. | plus proche | choix réels (proche, quart) | attaques (60 min) | 1re (min) | cadence CV | tailles CV | côtés (bits) | dormant | croissance | r |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for s, fac in per.items():
         for k in KEYS:
             b = fac[k]
             t = b["traits"]
             print(f"| {s} | {k} | {b['personality']} | {fmt(t.get('agressivite'))} | {fmt(t.get('prudence'))} | {b['outposts']} | {fmt(b['rho'])} | "
-                  f"{fmt(b['roundness'])} | {fmt(b['chunks'])} | {fmt(b['nearest_first'])} | {b['attacks']} ({b['attacks60']}) | "
+                  f"{fmt(b['roundness'])} | {fmt(b['chunks'])} | {fmt(b['cells_roundness'])} | {fmt(b['halfplane'])} | {fmt(b['eccentricity'])} | "
+                  f"{fmt(b['nearest_first'])} | {b['real_choices']} ({b['real_nearest']}, {b['value_top']}) | {b['attacks']} ({b['attacks60']}) | "
                   f"{fmt(b['first_attack_min'], 1)} | {fmt(b['cadence_cv'])} | {fmt(b['size_cv'])} | {fmt(b['sides_entropy'])} | "
                   f"{fmt(b['dormant_med'])} | {fmt(b['growth'])} | {fmt(b['reinvest_med'], 3)} |")
 
@@ -474,6 +559,18 @@ ROWS = [
     ("M1 rondeur √(λ1/λ2) (médiane ; ≥ 1,6)", "roundness_med"),
     ("M1 rondeur, CV entre bases (≥ 0,25)", "roundness_cv"),
     ("M1 plus proche d'abord (médiane ; ≤ 0,4)", "nearest_first"),
+    # Recalage du lot IA2-b (figé le 25/10 sur la référence 0.4.20, AVANT toute mesure du lot) : rondeur des chunks
+    # 1,94 en référence (non discriminante, information seule) ; demi-plan 0,75 (3e quartile 0,80) ; excentrement 0,36.
+    ("M1 recalé : rondeur des chunks occupés √(λ1/λ2) (médiane ; information)", "cells_roundness_med"),
+    ("M1 recalé : part des chunks dans le meilleur demi-plan (médiane ; ≥ 0,85)", "halfplane_med"),
+    ("M1 recalé : excentrement des chunks (médiane ; ≥ 0,5)", "eccentricity_med"),
+    ("M1 choix réels (≥ 2 sites valides de la ressource), toutes bases", "real_choices"),
+    ("M1 plus proche d'abord sur les choix réels (part poolée ; ≤ 0,4)", "real_nearest_share"),
+    ("M1 croissance par la carte : choix dans le meilleur quart de valeur (part poolée ; ≥ 0,7)", "value_top_share"),
+    ("M1 choix de la meilleure valeur (part poolée)", "value_best_share"),
+    ("sites puisés / trouvés depuis un front / repris plusieurs fois, toutes bases", "sites_front_repicks"),
+    ("avant-postes connus par base (médiane)", "outposts_med"),
+    ("réceptacles orphelins à la dernière forme, toutes bases", "orphans_last"),
     ("M2 personnalités distinctes par couleur sur les graines", "distinct_personalities"),
     ("M2 agressivité tirée, CV entre factions et graines", "aggr_cv"),
     ("M2 distance des 20 décisions, même faction entre graines (≥ 0,4)", "dist_seeds_med"),
