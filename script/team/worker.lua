@@ -195,6 +195,14 @@ function Worker.program(f, task, surface, tick)
   elseif k == "build" then
     local site = Sites.find(f, surface, tick, T.outposts[task.outpost_kind].resource)
     if not site then return nil end
+    -- Lot IA1-b2 (défendre d'abord, votre équipe) : un site gardé par un nid ou un ver (apparu depuis la prospection)
+    -- n'est pas tenté : le constructeur y mourait (essai 9, graine 314159265 : 4 constructeurs tués par des vers à
+    -- 421-429 tuiles, un seul avant-poste en 60 min). Le site est écarté comme injoignable.
+    if f.is_player and surface.count_entities_filtered({ position = site, radius = Worker.DANGER_RADIUS, force = "enemy",
+      type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+      Sites.mark_unreachable(site, tick)
+      return nil
+    end
     Sites.claim(f, site)
     task.site = site
     return { { "home" }, { "take", task.items, strict = true }, { "goto", site, 5 }, { "act", "build" }, { "home" } }
