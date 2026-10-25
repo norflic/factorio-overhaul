@@ -95,11 +95,15 @@ def report(name, path):
     for team in teams:
         rt = [r for r in rows if r["team"] == team]
         k3a, k3b = share(rt, 0, 10), share(rt, 30, 90)
-        k5 = 0
+        # K5 (corps, mesure d'IA3-DIAG) : compte aussi les gardes du coffre et les PNJ qui prennent ou déposent au coffre ;
+        # K5t (tâches) : au moins 0,5 PNJ SANS tâche (relevés « fo-ia1 » de la minute) ET des tâches libres.
+        k5, k5t = 0, 0
         for r in rt:
             st = status.get((team, r["min"]))
             if st and st["libres"] > 0 and r["act"].get("arret-qg", 0) >= 0.5:
                 k5 += 1
+            if st and st["libres"] > 0 and r["taches"].get("inactif", 0) >= 0.5:
+                k5t += 1
         last = None
         for (t, mn), st in sorted(status.items(), key=lambda x: x[0][1]):
             if t == team:
@@ -111,7 +115,7 @@ def report(name, path):
         x = ia3b.get(team, {})
         print(f"- {team} : K3 inactifs 0-10 {k3a if k3a is None else round(k3a, 1)} %, 30-90 {k3b if k3b is None else round(k3b, 1)} % | "
               f"K4 echecs stock {fails.get('stock', 0)} (preempte {fails.get('preempte', 0)} ; tous {fails}) | "
-              f"K5 {k5} min sur {len(rt)} | morts {len(d)} ({enemy} par les ennemis), {len(d) / hours:.1f} par heure | "
+              f"K5 {k5} min sur {len(rt)} (corps ; par les taches {k5t}) | morts {len(d)} ({enemy} par les ennemis), {len(d) / hours:.1f} par heure | "
               f"[FO-IA3B] preemptions {x.get('preemption', 0)}, reservations perdues {x.get('disparu', 0)} | pnj fin {rt[-1]['pnj'] if rt else '?'}")
     print()
 
