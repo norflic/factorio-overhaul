@@ -6,7 +6,7 @@
 -- Attendus calculés ICI, indépendamment du mod, en flottants : vitesse × Π (1 + b), énergie × Π (1 + c),
 -- productivité × Π (1 + p) (lot MOD-3, D-17), sur les modules de la machine (table VAL ci-dessous = décision D-17 du
 -- DC : vitesse +20 % puis +10 points, productivité +10 % puis +5 points, énergie 60 % du bonus ; malus de vitesse de
--- la productivité et efficacité gardés), arrondis au centième, bornés à × 0,2 et × 328,67 ; au plafond, l'énergie
+-- la productivité réduit de moitié (−2, −5, −7 %, R-QCM-25b) et efficacité gardée), arrondis au centième, bornés à × 0,2 et × 328,67 ; au plafond, l'énergie
 -- garde l'écart (Q-M5 B : la part d'énergie des modules de vitesse est réduite en logarithme du rapport
 -- ln(plafond) / ln(produit entier), de même pour la productivité) ; balise du joueur en plus (additive : 0,5 × somme
 -- de ses modules).
@@ -46,7 +46,7 @@ do
   local pn = { "productivity-module", "productivity-module-2", "productivity-module-3" }
   for k = 1, 10 do
     local p = 0.1 + 0.05 * (k - 1)
-    VAL[k <= 3 and pn[k] or ("fo-productivity-module-" .. k)] = { productivity = p, speed = -0.05 * math.min(k, 3), consumption = 0.6 * p }
+    VAL[k <= 3 and pn[k] or ("fo-productivity-module-" .. k)] = { productivity = p, speed = ({ -0.02, -0.05, -0.07 })[math.min(k, 3)], consumption = 0.6 * p }
   end
   local en = { "effectivity-module", "effectivity-module-2", "effectivity-module-3" }
   local ec = { -0.30, -0.40, -0.50 }

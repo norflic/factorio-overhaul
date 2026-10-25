@@ -96,7 +96,7 @@ local function suite(P, quiet)
   check(near(sp.energy_factor, 1.25) and near(sp.usage_kw, 150 * 1.25), "énergie : × 1,12² = 1,2544, arrondi au centième : 1,25")
   check(near(sp.drain_kw, 5), "ponction non multipliée (F202)")
   local pm = P.machine("assembling-machine-2", { { family = "productivity", tier = 1 }, { family = "productivity", tier = 1 } })
-  check(near(pm.prod, 0.21) and near(pm.speed_factor, 0.90), "2 modules de productivité 1 : × 1,1² = +21 % (multipliée, D-17), vitesse × 0,95² = 0,9025 arrondi au centième comme le moteur : 0,90")
+  check(near(pm.prod, 0.21) and near(pm.speed_factor, 0.96), "2 modules de productivité 1 : × 1,1² = +21 % (multipliée, D-17), vitesse × 0,98² = 0,9604 (malus réduit de moitié, R-QCM-25b) arrondi au centième comme le moteur : 0,96")
   local big = P.machine("fo-lvl-assembler-30", { { family = "speed", tier = 10 }, { family = "speed", tier = 10 },
     { family = "speed", tier = 10 }, { family = "speed", tier = 10 } })
   check(near(big.speed_factor, 19.45), "4 modules de vitesse 10 : × 2,1⁴ = 19,45 (D-17) : " .. string.format("%.2f", big.speed_factor))

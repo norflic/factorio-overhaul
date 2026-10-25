@@ -7,8 +7,8 @@
     réécrits) ; énergie = 60 % du bonus (D-15 : +20 % de vitesse → +12 % d'énergie). Avant (D-15, MOD-1) : +50, +80,
     +110 %, puis +30 points (+320 % au palier 10).
   - PRODUCTIVITÉ (D-17) : +10 % au palier 1, puis +5 points par palier (+55 % au palier 10), vanilla compris ; énergie
-    = 60 % du bonus de productivité (+10 % → +6 %), comme la vitesse. Le malus de vitesse (−5, −10, puis −15 % dès le
-    palier 3) et la pollution (+5 … +25 %) sont GARDÉS tels quels (avant D-17 : productivité +4 … +40 %, énergie +40 …
+    = 60 % du bonus de productivité (+10 % → +6 %), comme la vitesse. Le malus de vitesse (−2, −5, puis −7 % dès le
+    palier 3 ; moitié de −5, −10, −15 %, R-QCM-25b) ; pollution (+5 … +25 %) gardée (avant D-17 : productivité +4 … +40 %, énergie +40 …
     +150 %). Les modules d'une machine se MULTIPLIENT (vitesse, énergie ET productivité depuis D-17) :
     shared/content/module_mult.lua.
   - EFFICACITÉ : inchangée. La consommation atteint le plancher moteur (-80 %) au palier 9 ; les paliers hauts
@@ -76,9 +76,13 @@ M.families = {
     -- Lot MOD-3 (D-17) : productivité et énergie au barème du DC, paliers 1 à 3 vanilla réécrits ; malus de vitesse et
     -- pollution GARDÉS (avant : productivité 0,04 0,06 0,10 0,13 0,16 0,20 0,24 0,28 0,33 0,40 ; énergie 0,40 0,60 0,80
     -- 0,90 1,00 1,10 1,20 1,30 1,40 1,50).
+    -- Malus de vitesse RÉDUIT DE MOITIÉ (réponse du DC, 25/10 vers 10 h 40, R-QCM-25b : « Réduire de moitié ») : −2,5,
+    -- −5, −7,5 % voulus (avant : −5, −10, −15 %, plafonné dès le palier 3, règle gardée : plafond −7,5 %). Le moteur ne
+    -- range que des POURCENTS ENTIERS (F190, F199) : les demi-pourcents sont arrondis VERS ZÉRO (en faveur du joueur) :
+    -- −2, −5, −7 % (variante −3, −5, −8 % : question au DC).
     effects = {
       productivity = PROD,               -- 0,10 0,15 0,20 0,25 0,30 0,35 0,40 0,45 0,50 0,55
-      speed        = { -0.05, -0.10, -0.15, -0.15, -0.15, -0.15, -0.15, -0.15, -0.15, -0.15 },
+      speed        = { -0.02, -0.05, -0.07, -0.07, -0.07, -0.07, -0.07, -0.07, -0.07, -0.07 },
       consumption  = PROD_CONSUMPTION,   -- 0,06 0,09 0,12 0,15 0,18 0,21 0,24 0,27 0,30 0,33
       pollution    = { 0.05, 0.07, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22, 0.25 },
     },

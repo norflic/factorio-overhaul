@@ -124,7 +124,7 @@ local function rule_suite(R, chk)
     return t
   end
   local S10 = { speed = 110, consumption = 66 }
-  local P10 = { productivity = 55, speed = -15, consumption = 33 }
+  local P10 = { productivity = 55, speed = -7, consumption = 33 }
   local E10 = { consumption = -80 }
   local c34 = R.complements(rep(S10, 34))
   local want34 = math.floor(100 * 328.67 ^ (math.log(1.66) / math.log(2.1)) + 0.5)
@@ -338,7 +338,7 @@ for k = 1, M.TIERS do
 end
 check(okv, "vitesse (D-17) : +20 % puis +10 points (10 paliers, vanilla compris, +110 % au palier 10) ; énergie = 60 % du bonus")
 local want_prod = { 10, 15, 20, 25, 30, 35, 40, 45, 50, 55 }
-local want_pen = { -5, -10, -15, -15, -15, -15, -15, -15, -15, -15 }
+local want_pen = { -2, -5, -7, -7, -7, -7, -7, -7, -7, -7 }   -- moitié de −5, −10, −15 % (R-QCM-25b), demi-pourcents vers zéro
 local want_pe = { 6, 9, 12, 15, 18, 21, 24, 27, 30, 33 }
 local want_pol = { 5, 7, 10, 12, 14, 16, 18, 20, 22, 25 }
 local okp = true
@@ -349,7 +349,7 @@ for k = 1, M.TIERS do
   end
 end
 check(okp, "productivité (D-17) : +10 % puis +5 points (+55 % au palier 10) ; énergie = 60 % du bonus ; malus de vitesse "
-  .. "(−5, −10, −15 %) et pollution (+5 … +25 %) gardés")
+  .. "réduit de moitié (−2, −5, −7 %, R-QCM-25b) et pollution (+5 … +25 %) gardée")
 check(M.families.speed.vanilla_overridden == true and M.families.productivity.vanilla_overridden == true
   and not M.families.effectivity.vanilla_overridden, "paliers vanilla 1 à 3 réécrits : vitesse et productivité (D-17) ; efficacité vanilla")
 local bad_read = {}
@@ -387,8 +387,8 @@ mt = M.metrics("speed", 10, 34)
 check(math.abs(mt.speed - 328.67) < 1e-9 and mt.energy < 53 and mt.energy > 52,
   "34 × vitesse 10 → vitesse × 328,67, énergie × 52,4 (écart gardé) ; obtenu " .. mt.speed .. ", " .. mt.energy)
 mt = M.metrics("productivity", 10, 5)
-check(math.abs(mt.output - 0.44 * 8.95) < 1e-9 and math.abs(mt.energy - 4.16) < 1e-9,
-  "5 × productivité 10 → productivité × 8,95 (1,55^5), vitesse × 0,44, énergie × 4,16 ; obtenu " .. mt.output .. ", " .. mt.energy)
+check(math.abs(mt.output - 0.70 * 8.95) < 1e-9 and math.abs(mt.energy - 4.16) < 1e-9,
+  "5 × productivité 10 → productivité × 8,95 (1,55^5), vitesse × 0,70 (0,93^5), énergie × 4,16 ; obtenu " .. mt.output .. ", " .. mt.energy)
 -- Emplacements.
 check(L.module_slots(L.by_key.assembler, 1) == 5 and L.module_slots(L.by_key.assembler, 30) == 34
   and L.module_slots(L.by_key.drill, 1) == 5 and L.module_slots(L.by_key.drill, 12) == 16,

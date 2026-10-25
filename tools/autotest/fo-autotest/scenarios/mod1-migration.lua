@@ -14,7 +14,7 @@ local X, Y = 4000.5, 4600.5
 local S1, S2, S3 = "speed-module", "speed-module-2", "speed-module-3"
 local VAL = {
   [S1] = { speed = 0.2, consumption = 0.12 }, [S2] = { speed = 0.3, consumption = 0.18 }, [S3] = { speed = 0.4, consumption = 0.24 },
-  ["productivity-module"] = { speed = -0.05, consumption = 0.06, productivity = 0.10 },
+  ["productivity-module"] = { speed = -0.02, consumption = 0.06, productivity = 0.10 },
   ["effectivity-module"] = { consumption = -0.3 },
 }
 local CAS = {

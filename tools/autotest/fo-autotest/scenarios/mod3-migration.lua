@@ -23,7 +23,7 @@ do
   local pn = { "productivity-module", "productivity-module-2", P3 }
   for k = 1, 10 do
     local p = 0.1 + 0.05 * (k - 1)
-    VAL[k <= 3 and pn[k] or ("fo-productivity-module-" .. k)] = { productivity = p, speed = -0.05 * math.min(k, 3), consumption = 0.6 * p }
+    VAL[k <= 3 and pn[k] or ("fo-productivity-module-" .. k)] = { productivity = p, speed = ({ -0.02, -0.05, -0.07 })[math.min(k, 3)], consumption = 0.6 * p }
   end
   VAL["effectivity-module"] = { consumption = -0.3 }
 end
