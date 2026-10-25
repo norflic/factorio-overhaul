@@ -6,10 +6,16 @@
   Différence avec `pnj-reduit` : la guerre part par le lancement AUTOMATIQUE (ouvriers = nil, taille suivie en cours
   de partie) et non par war_start(2, 30, 4).
   Relevé par minute ; contrôles au tick 214 000 (≈ 59,4 min).
+  Correction VERIF-NUIT (25/10) : contrôle RECONSTRUCTION de votre équipe. Défaut prouvé sur 0.4.23 (graines
+  271828182 et 1618033988) : effectif tombé à 3 puis 1, jamais reconstruit, coffre plein de fer. Le contrôle échoue
+  si, pendant RUN_MAX relevés de suite (minutes), votre équipe existe, compte moins que son effectif de départ
+  (min(fo-npc-start, fo-player-team-npc-max)) ET son coffre garde au moins IRON_MIN plaques de fer.
   Lancement : `fo-autotest.bat nopause 216000 verif-guide <source>` (graine : FO_MAP_SEED). Journal : [FO-VERIF-GUIDE].
 ]]
 
 local CHECK = 214000
+local RUN_MAX = 5     -- minutes de suite sous l'effectif de départ, fer au coffre : au-delà, l'équipe ne se reconstruit pas
+local IRON_MIN = 100  -- plaques de fer au coffre (une recrue coûte environ 60 plaques équipée au QG)
 
 local function count(s, type_, force)
   return s.count_entities_filtered({ type = type_, force = force })
@@ -44,6 +50,9 @@ return {
       end
     end
     ctx.check(chest ~= nil, "coffre d'equipe pose")
+    local st = ctx.state()
+    st.chest = chest
+    st.floor = math.min(settings.global["fo-npc-start"].value, settings.global["fo-player-team-npc-max"].value)
   end,
 
   tick = function(ctx, e)
@@ -77,6 +86,14 @@ return {
     local pw = count(s, "character", "player")
     if pw > (st.max_pworkers or 0) then st.max_pworkers = pw end
     local team = ctx.call("team_status")
+    -- Reconstruction : relevés de suite sous l'effectif de départ avec du fer au coffre (équipe existante).
+    local iron = (st.chest and st.chest.valid) and st.chest.get_item_count("iron-plate") or 0
+    if team ~= nil and st.chest and st.chest.valid and pw < (st.floor or 8) and iron >= IRON_MIN then
+      st.run = (st.run or 0) + 1
+      if st.run > (st.run_max or 0) then st.run_max, st.run_end, st.run_low, st.run_iron = st.run, e.tick / 3600, pw, iron end
+    else
+      st.run = 0
+    end
     ctx.log(string.format("minute %d | vivantes %d | %s | ouvriers du joueur %d | equipe : %s", e.tick / 3600, alive,
       table.concat(parts, " ; "), pw, tostring(team and team:sub(1, 140))))
   end,
@@ -98,6 +115,10 @@ return {
     local line = ctx.call("team_status")
     ctx.check(line ~= nil, "equipe du joueur active", line and line:sub(1, 160))
     ctx.check((st.max_pworkers or 0) >= 2, "ouvriers de l'equipe du joueur", st.max_pworkers)
+    ctx.check((st.run_max or 0) < RUN_MAX, string.format(
+      "votre equipe se reconstruit : jamais %d min de suite sous l'effectif de depart (%d) avec >= %d fer au coffre",
+      RUN_MAX, st.floor or 8, IRON_MIN), st.run_max and string.format("%d min de suite, fin a la minute %d, %d ouvrier(s), %d fer",
+      st.run_max, st.run_end, st.run_low, st.run_iron) or "0 min")
     ctx.check(poi.player ~= nil and #poi.player.outposts >= 2, "avant-postes de l'equipe du joueur",
       poi.player and #poi.player.outposts)
   end,
