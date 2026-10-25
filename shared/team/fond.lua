@@ -53,6 +53,17 @@ F.RESERVE = {
   { "iron-chest", 4, 12 },
   { "firearm-magazine", 40, 40 },
 }
+-- Biens d'équipement (posés aux avant-postes) : leur réserve suit les places à poser (F.potential).
+F.EQUIPMENT = { ["burner-mining-drill"] = true, ["stone-furnace"] = true, ["iron-chest"] = true }
+-- Lot IA1-b2 (R-QCM-25c (c), « Donner du travail ») : réserve de VOTRE équipe, travail du pôle Base au coffre : les biens
+-- d'équipement, plus des chargeurs (tourelles, recrues, joueur) et des engrenages pour le joueur.
+F.PLAYER_RESERVE = {
+  { "burner-mining-drill", 8, 40 },
+  { "stone-furnace", 8, 40 },
+  { "iron-chest", 4, 12 },
+  { "firearm-magazine", 200, 200 },
+  { "iron-gear-wheel", 100, 100 },
+}
 -- Plancher laissé au cerveau : le fond ne fabrique pas avec les dernières plaques (objectifs, recherche, armée).
 F.FLOOR = { ["iron-plate"] = 200, ["copper-plate"] = 50, ["stone"] = 50 }
 -- Minage à la main : ressources dans un ordre fixe et stock de référence (la plus en manque d'abord ; le minerai ne
@@ -156,13 +167,22 @@ local function extraction(view, free, ctx, out)
   -- 3 bis. R-QCM-25c (c) « transporter entre avant-postes et coffre » (ctx.transport) : tournée de fond d'un avant-poste
   -- qui a au moins T.transport_min objets à rapporter, ni dangereux ni « où l'on ne va pas » ; sans tourelle possible
   -- (ctx.transport_d2), seulement à moins de T.transport_near tuiles du QG. Même clé que la tournée du cerveau.
+  -- Deux porteurs au plus par avant-poste (le second : clé « fond:transport:<id> », dès 2 × T.transport_min objets).
   if ctx.transport and not prudent then
     for _, o in ipairs(view.outposts or {}) do
-      local key = "service:" .. o.id
-      if not o.has_task and not keys[key] and not danger[o.id] and not undefended[o.id] and (o.output or 0) >= T.transport_min
+      local out_n = o.output or 0
+      if not danger[o.id] and not undefended[o.id] and out_n >= T.transport_min
         and (not ctx.transport_d2 or (o.d2 or 0) <= ctx.transport_d2) then
-        out[#out + 1] = { key = key, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
-          domain = "gisements" }
+        local key = "service:" .. o.id
+        if not o.has_task and not keys[key] then
+          out[#out + 1] = { key = key, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
+            domain = "gisements" }
+        end
+        local key2 = "fond:transport:" .. o.id
+        if out_n >= 2 * T.transport_min and not keys[key2] then
+          out[#out + 1] = { key = key2, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
+            domain = "gisements" }
+        end
       end
     end
   end
@@ -233,7 +253,7 @@ local function base(view, free, ctx, out)
     local want = math.max(r[2], math.min(r[3] or r[2], pot))
     -- Lot IA1-b2 : sous « défendre d'abord », pas de plancher de réserve pour les biens d'équipement : rien à poser
     -- (aucun avant-poste défendu à agrandir, aucun site constructible) = rien à fabriquer d'avance.
-    if (ctx.defend_first or ctx.no_reserve_floor) and item ~= T.turret_ammo then want = math.min(r[3] or r[2], pot) end
+    if (ctx.defend_first or ctx.no_reserve_floor) and F.EQUIPMENT[item] then want = math.min(r[3] or r[2], pot) end
     if book:handcraftable(item) then
       local have = (free[item] or 0) + (incoming[item] or 0)
       local i = 0

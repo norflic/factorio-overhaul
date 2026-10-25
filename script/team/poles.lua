@@ -319,7 +319,7 @@ function Poles.think(f, view, book, tick, plan)
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
-      transport = player or nil,
+      transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
       mine_radius = player and T.near_mine or nil })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
