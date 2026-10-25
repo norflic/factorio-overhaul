@@ -34,13 +34,17 @@ local function sorted_keys(t)
   return ks
 end
 
--- Catégories des machines d'assemblage à modules (sans recette fixe).
+-- Catégories des machines d'assemblage à modules (sans recette fixe). Les catégories propres au mod (« fo-* » : four à
+-- arc, électrolyseur, réacteur de Kroll du lot X1) sont EXCLUES tant que leurs lots n'ont pas été prouvés en moteur réel
+-- (intégration de MOD-2 avec X1, 25/10 : contrôle des boîtes à fluide en échec sur leurs lots, cause non établie).
 local categories = {}
 for _, name in ipairs(sorted_keys(data.raw["assembling-machine"])) do
   local m = data.raw["assembling-machine"][name]
   local slots = m.module_specification and m.module_specification.module_slots or 0
   if slots > 0 and not m.fixed_recipe then
-    for _, c in ipairs(m.crafting_categories or {}) do categories[c] = true end
+    for _, c in ipairs(m.crafting_categories or {}) do
+      if c:sub(1, 3) ~= "fo-" then categories[c] = true end
+    end
   end
 end
 

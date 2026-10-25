@@ -466,6 +466,16 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot MOD-2, recettes par lots, 25/10 nuit ; fusionné dans `main`, `e4963d7`, version 0.4.22)
+Preuves : `fo-logs\2026-10-25_MOD2\NOTES.md` §2 à §4. Expériences : E151, E152.
+- **F219** : `LuaEntity.set_recipe` accepte une recette CACHÉE et DÉSACTIVÉE ; il garde entrée et sortie quand les objets
+  sont les mêmes et ne rend que les ingrédients-objets de la fabrication EN COURS ; les fluides de cette fabrication sont
+  DÉTRUITS, le contenu des boîtes est gardé.
+- **F220** : la boîte à fluide d'une machine de fabrication suit la recette (capacité = 2 × la quantité) ; vers une recette
+  plus petite, le surplus est détruit.
+- **F221** : l'entrée d'une machine refuse tout ajout par script au-delà de sa limite d'insertion ; la sortie n'accepte
+  qu'une pile par script ; un produit non empilable en quantité > 1 refuse le chargement des données.
+
 ### Faits vérifiés en moteur réel (lot X1-TITANE, le titane de l'âge 11, 24 et 25/10 nuit ; fusionné dans `main`, `eaf7b0b`, version 0.4.21)
 Preuves : `fo-logs\2026-10-25_X1\` (`NOTES.md`, `images-DC\`). Expériences : E145, E146.
 - **F210** : le cache des atlas des captures (`atlas-cache.dat`) n'est PAS refait quand seul le CONTENU d'une image change
@@ -945,6 +955,20 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E151, E152 · Lot MOD-2, recettes par lots (25/10 nuit ; décision Q-M2 a ; fusion `e4963d7`, version 0.4.22)** : lots × 10
+et × 100 générés pour les recettes des machines d'assemblage à modules ; bascule automatique au-delà de 60 fabrications
+par seconde, retour sous 45 ; assembleur niveau 30 à 34 × P10 : 60 → 1 630 engrenages par seconde (1 637 voulus) ;
+bascule aller-retour sans perte (boucle fermée exacte) ; fluides : béton 820/s, acide sulfurique 3 700/s ; 1 000 machines
+basculées en 310 ticks ; coût +0,02 ms par tick en régime. LIMITE FRANCHE : 24 bras ne sortent que 121,6 objets par
+seconde d'une machine, un tuyau 4 800 d'eau par seconde : au-delà d'environ 120 objets par seconde, il faut une autre
+logistique (décision du DC). Intégration : avec X1 fusionné entre-temps, le contrôle des boîtes à fluide échouait sur les
+lots des machines du titane (catégories `fo-*`) : ces catégories sont EXCLUES des lots par l'intégrateur (correctif dans
+`prototypes/lots.lua`, cause non établie) ; sur `main` 0.4.22 (`fo-logs\2026-10-25_integration-0.4.22\`) : content 331,
+mod2-lots 28 (`done.txt` 2:42:48 après correctif, 27 avant), mod2-migration 6, mod1-modules 67, mod1-migration 11,
+t2-machines 80, gun-rose 13, ht3-migration 30 et journal 7, t2-migration 64 et journal 26, t2-defense 36 et journal 19,
+t3-migration 7, m0-migration 11, x1-migration 8, x1-titane 27, monde 116, pnj-reduit 12 ; hors jeu recipe_lots 67,
+pvp 1 037, harness (500 lots pour 250 recettes), api_lint 964.
+
 **E145, E146 · Lot X1-TITANE (24 et 25/10 nuit ; premier agent bloqué de 23 h 21 à 1 h 50, arrêté par l'orchestrateur ;
 fin par un second agent ; fusion `eaf7b0b`, version 0.4.21)** : le titane de l'âge 11 en jeu, fidèle au scénario
 (ilménite, saumure infinie, champs de cratères, chaîne de Kroll, 5 machines au visuel provisoire sans niveaux) ;

@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.22
+Date: 2026-10-25
+  Features:
+    - Une machine d'assemblage (ou usine chimique, raffinerie, centrifugeuse) si rapide qu'elle dépasserait le plafond
+      du jeu (60 fabrications par seconde) passe SEULE à une recette « par lots » : lot × 10, puis × 100 (ingrédients,
+      produits et durée × 10 ou × 100, même rendement). Elle revient seule à la recette normale sous 45 fabrications
+      par seconde. Au changement, rien n'est perdu : entrée et sortie gardées, fabrication en cours achevée.
+    - Exemple : machine d'assemblage niveau 30 à 34 modules de vitesse 10 : 1 637 engrenages par seconde au lot × 100
+      (60 avant). Des bras autour n'en sortent qu'environ 120 par seconde : il faut une autre logistique pour suivre.
+    - Le panneau « Modules (multipliés) » dit la recette en cours (normale ou par lots) et les fabrications par seconde.
+  Changes:
+    - Les recettes par lots n'apparaissent dans aucun menu ; elles se débloquent avec leur recette de base. Fours et
+      machines du titane (four à arc, électrolyseur, réacteur de Kroll) : pas de recettes par lots pour l'instant.
+    - Parties existantes : les machines déjà rapides passent au bon lot au chargement.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.21
 Date: 2026-10-25
   Features:
