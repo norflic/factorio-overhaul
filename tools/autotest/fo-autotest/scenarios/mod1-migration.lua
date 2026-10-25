@@ -7,11 +7,14 @@
 -- +50 %). Au chargement par MOD-1 : on_configuration_changed (contenu changé, F130) → recensement, balises posées
 -- pour les machines qui en ont besoin, effets RECALCULÉS avec les nouvelles valeurs (vitesse +50, +80, +110 %).
 
+-- Lot MOD-3 (D-17) : attendus aux valeurs de D-17 (vitesse +20, +30, +40 % ; productivité +10 % multipliée,
+-- énergie 60 % du bonus) : le contrôle (finish) tourne avec la source du banc.
+
 local X, Y = 4000.5, 4600.5
 local S1, S2, S3 = "speed-module", "speed-module-2", "speed-module-3"
 local VAL = {
-  [S1] = { speed = 0.5, consumption = 0.3 }, [S2] = { speed = 0.8, consumption = 0.48 }, [S3] = { speed = 1.1, consumption = 0.66 },
-  ["productivity-module"] = { speed = -0.05, consumption = 0.4, productivity = 0.04 },
+  [S1] = { speed = 0.2, consumption = 0.12 }, [S2] = { speed = 0.3, consumption = 0.18 }, [S3] = { speed = 0.4, consumption = 0.24 },
+  ["productivity-module"] = { speed = -0.05, consumption = 0.06, productivity = 0.10 },
   ["effectivity-module"] = { consumption = -0.3 },
 }
 local CAS = {
@@ -86,11 +89,14 @@ return {
         local stt = remote.call("fo-modules", "state", m)
         local bb = m.bounding_box
         local nb = s.count_entities_filtered({ name = "fo-mm-balise", area = { { bb.left_top.x, bb.left_top.y }, { bb.right_bottom.x, bb.right_bottom.y } } })
+        local want_p = 0
+        for _, n in ipairs(c.mods) do want_p = want_p + (VAL[n].productivity or 0) end   -- un seul module de productivité ici
         local ok = inv.get_item_count() == #c.mods and math.abs(m.speed_bonus - want_s) < 0.005
-          and math.abs(m.consumption_bonus - want_c) < 0.005 and stt.tracked and nb == (besoin and 1 or 0)
+          and math.abs(m.consumption_bonus - want_c) < 0.005 and math.abs(m.productivity_bonus - want_p) < 0.005
+          and stt.tracked and nb == (besoin and 1 or 0)
         ctx.check(ok, "migration " .. c.id .. " : modules gardes, produit avec les nouvelles valeurs, balise " .. (besoin and "posee" or "absente"),
-          string.format("%s, %d emplacement(s), %d module(s) ; speed_bonus %.4f (attendu %.4f) ; consumption_bonus %.4f (attendu %.4f) ; suivie %s ; balises %d",
-            m.name, #inv, inv.get_item_count(), m.speed_bonus, want_s, m.consumption_bonus, want_c, tostring(stt.tracked), nb))
+          string.format("%s, %d emplacement(s), %d module(s) ; speed_bonus %.4f (attendu %.4f) ; consumption_bonus %.4f (attendu %.4f) ; productivity_bonus %.4f (attendu %.4f) ; suivie %s ; balises %d",
+            m.name, #inv, inv.get_item_count(), m.speed_bonus, want_s, m.consumption_bonus, want_c, m.productivity_bonus, want_p, tostring(stt.tracked), nb))
       end
     end
   end,

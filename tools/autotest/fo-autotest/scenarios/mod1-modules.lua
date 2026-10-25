@@ -3,14 +3,18 @@
 --   py -3.9 tools/autotest/mod1/analyse.py "<racine>\fo-autotest"        (coûts, temps par tick des fenêtres)
 --   & "<racine>\fo-captures.bat" mod1-modules "<source>"                   (interfaces : x-mod1-gui-*.png)
 --
--- Attendus calculés ICI, indépendamment du mod, en flottants : vitesse × Π (1 + b), énergie × Π (1 + c), sur les
--- modules de la machine (table VAL ci-dessous = décision du DC : +50, +80, +110 % puis +30 points ; énergie 60 % du
--- bonus ; productivité et efficacité gardées), arrondis au centième, bornés à × 0,2 et × 328,67 ; balise du joueur
--- en plus (additive : 0,5 × somme de ses modules).
+-- Attendus calculés ICI, indépendamment du mod, en flottants : vitesse × Π (1 + b), énergie × Π (1 + c),
+-- productivité × Π (1 + p) (lot MOD-3, D-17), sur les modules de la machine (table VAL ci-dessous = décision D-17 du
+-- DC : vitesse +20 % puis +10 points, productivité +10 % puis +5 points, énergie 60 % du bonus ; malus de vitesse de
+-- la productivité et efficacité gardés), arrondis au centième, bornés à × 0,2 et × 328,67 ; au plafond, l'énergie
+-- garde l'écart (Q-M5 B : la part d'énergie des modules de vitesse est réduite en logarithme du rapport
+-- ln(plafond) / ln(produit entier), de même pour la productivité) ; balise du joueur en plus (additive : 0,5 × somme
+-- de ses modules).
 --
 -- Cellules (24 tuiles d'écart, CHACUNE son réseau : poteau moyen + interface électrique vanilla remise pleine à chaque
 -- tick, énergie prise comptée) ; fenêtre de mesure : ticks 600 à 1199 (10 s) ; produits retirés à chaque tick :
 --   1, 3, 5 et 14 modules de paliers variés, avec et sans balise de joueur voisine ; plafond (34 × palier 10) ;
+--   lot MOD-3 : 5 × vitesse 1, 5 × vitesse 10, 5 × productivité 10, plafond de productivité (34 × productivité 10) ;
 --   machine mixte (productivité, efficacité) ; foreuse, four, laboratoire ; grille 3 × 3 de machines COLLÉES
 --   (voisines intactes). Zone K : amélioration de niveau 6 → 7 (agrandissement par script) → 8 (remplacement rapide).
 --   Zone L : robots qui livrent des modules (aucun événement : balayage). Zone M : 1 000 machines (temps de script).
@@ -30,19 +34,20 @@ local T_GUI = 700
 local CHECK = 2100
 local KFORCE = "mod1-up"
 
--- Effets VOULUS par module (fractions) : décision du DC (vitesse) et valeurs gardées (productivité, efficacité).
+-- Effets VOULUS par module (fractions) : décision D-17 du DC (vitesse, productivité) et valeurs gardées (malus de
+-- vitesse de la productivité, efficacité).
 local VAL = {}
 do
   local names = { "speed-module", "speed-module-2", "speed-module-3" }
   for k = 1, 10 do
-    local b = 0.5 + 0.3 * (k - 1)
+    local b = 0.2 + 0.1 * (k - 1)
     VAL[k <= 3 and names[k] or ("fo-speed-module-" .. k)] = { speed = b, consumption = 0.6 * b }
   end
   local pn = { "productivity-module", "productivity-module-2", "productivity-module-3" }
-  local pp = { 0.04, 0.06, 0.10 }
-  local ps = { -0.05, -0.10, -0.15 }
-  local pc = { 0.40, 0.60, 0.80 }
-  for k = 1, 3 do VAL[pn[k]] = { productivity = pp[k], speed = ps[k], consumption = pc[k] } end
+  for k = 1, 10 do
+    local p = 0.1 + 0.05 * (k - 1)
+    VAL[k <= 3 and pn[k] or ("fo-productivity-module-" .. k)] = { productivity = p, speed = -0.05 * math.min(k, 3), consumption = 0.6 * p }
+  end
   local en = { "effectivity-module", "effectivity-module-2", "effectivity-module-3" }
   local ec = { -0.30, -0.40, -0.50 }
   for k = 1, 3 do VAL[en[k]] = { consumption = ec[k] } end
@@ -61,6 +66,11 @@ local CELLS = {
   { id = "C-3-paliers", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = { S1, S2, S3 } },
   { id = "C2-3-paliers+balise", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = { S1, S2, S3 }, vbal = { S3, S3 } },
   { id = "D-5-paliers", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = { S1, S2, S3, "fo-speed-module-4", "fo-speed-module-5" } },
+  -- Lot MOD-3 (D-17) : exemples du rapport (5 × palier 1, 5 × palier 10) et productivité multipliée, plafond compris.
+  { id = "D1-5-palier1", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = rep(S1, 5) },
+  { id = "D10-5-palier10", m = "assembling-machine-2", rec = "low-density-structure", mods = rep("fo-speed-module-10", 5) },
+  { id = "P-5-prod10", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = rep("fo-productivity-module-10", 5) },
+  { id = "H-plafond-34-prod10", m = "fo-lvl-assembler-30", rec = "iron-gear-wheel", mods = rep("fo-productivity-module-10", 34) },
   { id = "E-14-palier1", m = "fo-lvl-assembler-30", rec = "low-density-structure", mods = rep(S1, 14) },
   { id = "E2-14-palier1+balise", m = "fo-lvl-assembler-30", rec = "low-density-structure", mods = rep(S1, 14), vbal = { S3, S3 } },
   { id = "F-plafond-34-palier10", m = "fo-lvl-assembler-30", rec = "low-density-structure", mods = rep("fo-speed-module-10", 34) },
@@ -89,17 +99,40 @@ end
 local function round(x) return math.floor(x + 0.5) end
 local function clampT(t) if t < 20 then return 20 end if t > 32867 then return 32867 end return t end
 
---- Facteurs voulus (centièmes) et produits exacts (flottants) d'une liste de modules.
+--- Facteurs voulus (centièmes) et produits exacts (flottants) d'une liste de modules. Lot MOD-3 (D-17) : productivité
+--- multipliée ; énergie au plafond qui garde l'écart (logarithmes FLOTTANTS ici : calcul indépendant de celui du mod,
+--- qui est en virgule fixe entière).
 local function attendu(mods)
-  local ps, pc, prod = 1, 1, 0
-  local any_s, any_c = false, false
+  local ps, pc, pp = 1, 1, 1
+  local ls, lp = 0, 0
   for _, n in ipairs(mods) do
     local v = VAL[n]
-    if v.speed then ps = ps * math.max(0.2, 1 + v.speed); any_s = true end
-    if v.consumption then pc = pc * math.max(0.2, 1 + v.consumption); any_c = true end
-    if v.productivity then prod = prod + v.productivity end
+    if v.speed then ps = ps * math.max(0.2, 1 + v.speed); ls = ls + math.log(math.max(0.2, 1 + v.speed)) end
+    if v.consumption then pc = pc * math.max(0.2, 1 + v.consumption) end
+    if v.productivity then pp = pp * (1 + v.productivity); lp = lp + math.log(1 + v.productivity) end
   end
-  return { ts = clampT(round(ps * 100)), tc = clampT(round(pc * 100)), ps = ps, pc = pc, prod = prod }
+  local tc = clampT(round(pc * 100))
+  local pce = math.min(pc, 328.67)
+  local over_s, over_p = round(ps * 100) > 32867, round(pp * 100) > 32867
+  local gap = false
+  if over_s or over_p then
+    local rs = over_s and math.log(328.67) / ls or 1
+    local rp = over_p and math.log(328.67) / lp or 1
+    local y = 0
+    for _, n in ipairs(mods) do
+      local v = VAL[n]
+      if v.consumption then
+        local l = math.log(math.max(0.2, 1 + v.consumption))
+        if v.consumption > 0 and (v.speed or 0) > 0 then y = y + rs * l
+        elseif v.consumption > 0 and (v.productivity or 0) > 0 then y = y + rp * l
+        else y = y + l end
+      end
+    end
+    local tg = clampT(round(math.exp(y) * 100))
+    if tg < tc then tc, pce, gap = tg, math.max(0.2, math.exp(y)), true end
+  end
+  return { ts = clampT(round(ps * 100)), tc = tc, tp = clampT(round(pp * 100)), ps = ps, pc = pce, pp = pp, gap = gap,
+    prod = math.min(pp, 328.67) - 1 }
 end
 
 --- Effet d'une balise vanilla (efficacité de distribution 0,5) sur une machine.
@@ -336,16 +369,20 @@ local function bonus_ok(e, mods, vmods)
   local bs, bc = balise(vmods)
   local want_s = (a.ts - 100) / 100 + bs
   local want_c = (a.tc - 100) / 100 + bc
+  local want_p = (a.tp - 100) / 100
   if want_s > 327.67 then want_s = 327.67 end
   if want_c > 327.67 then want_c = 327.67 end
   local sb, cb = lit(e, "speed_bonus") or -99, lit(e, "consumption_bonus") or -99
-  local ok = math.abs(sb - want_s) < 0.005 and math.abs(cb - want_c) < 0.005
-  return ok, string.format("speed_bonus %s (attendu %s ; produit %s) ; consumption_bonus %s (attendu %s ; produit %s)",
-    f6(sb), f6(want_s), f6(a.ps), f6(cb), f6(want_c), f6(a.pc)), a, want_s, want_c
+  local pb = lit(e, "productivity_bonus") or -99
+  local ok = math.abs(sb - want_s) < 0.005 and math.abs(cb - want_c) < 0.005 and math.abs(pb - want_p) < 0.005
+  return ok, string.format("speed_bonus %s (attendu %s ; produit %s) ; consumption_bonus %s (attendu %s ; produit %s%s) ; "
+    .. "productivity_bonus %s (attendu %s ; produit %s)",
+    f6(sb), f6(want_s), f6(a.ps), f6(cb), f6(want_c), f6(a.pc), a.gap and ", ecart garde" or "", f6(pb), f6(want_p), f6(a.pp)),
+    a, want_s, want_c
 end
 
 return {
-  description = "MOD-1 : modules multiplicatifs (vitesse et energie mesurees contre la formule, plafond, voisines, niveau, robots, 1 000 machines)",
+  description = "MOD-1 et MOD-3 : modules multiplicatifs (vitesse, energie et productivite mesurees contre la formule D-17, plafond et ecart d'energie, voisines, niveau, robots, 1 000 machines)",
   base = nil,
   check_tick = CHECK,
   shots_delay = 800,
@@ -386,7 +423,7 @@ return {
         .. serpent.line(remote.call("fo-modules", "cents", name)))
     end
     table.sort(bad)
-    ctx.check(#bad == 0, "effets des modules : paliers du DC (vitesse +50, +80, +110 % ..., energie 60 %), autres gardes",
+    ctx.check(#bad == 0, "effets des modules : paliers D-17 du DC (vitesse +20 % puis +10, productivite +10 % puis +5, energie 60 %), malus et efficacite gardes",
       table.concat(bad, " ; "))
     -- Les 30 modules : valeur RANGÉE par le moteur (module_effects rend centièmes / 100 en flottant 32 bits, passe 1)
     -- contre la valeur voulue des données (shared/content/modules.lua), négatifs compris (−0,55 : sens de la lecture).
@@ -556,8 +593,9 @@ return {
     end
     if st.bloc and t > T_BLOC and t % 30 == 0 and not st.bloc_fini then
       local bons = 0
+      local want_m = (attendu({ S1, S2, S3 }).ts - 100) / 100   -- D-17 : 1,2 × 1,3 × 1,4 = 2,184 → +1,18 (D-15 : +4,67)
       for _, m in ipairs(st.bloc) do
-        if m.valid and math.abs(m.speed_bonus - 4.67) < 0.005 then bons = bons + 1 end
+        if m.valid and math.abs(m.speed_bonus - want_m) < 0.005 then bons = bons + 1 end
       end
       if bons == #st.bloc then st.bloc_fini = t end
       if t % 150 == 0 then ctx.log("M : " .. bons .. " / " .. #st.bloc .. " machines au produit au tick " .. t) end
@@ -581,12 +619,13 @@ return {
 
     -- Images (session avec images seulement) : interfaces ouvertes.
     local p = game.connected_players[1]
-    if p and st.cells and t >= T_GUI and t < T_GUI + 50 then
+    if p and st.cells and t >= T_GUI and t < T_GUI + 80 then
       local cibles = st.gui_cibles
       if not cibles then
         cibles = {}
         for _, c in ipairs(st.cells) do
-          if c.id == "E-14-palier1" or c.id == "F-plafond-34-palier10" or c.id == "C-3-paliers" or c.id == "G-mixte" then
+          if c.id == "E-14-palier1" or c.id == "F-plafond-34-palier10" or c.id == "C-3-paliers" or c.id == "G-mixte"
+            or c.id == "H-plafond-34-prod10" or c.id == "D10-5-palier10" or c.id == "P-5-prod10" then
             cibles[#cibles + 1] = { c.id, c.m }
           end
         end
@@ -632,9 +671,14 @@ return {
         local bs, bc = balise(spec.vbal)
         local stt = etat(m)
         -- Balise cachée attendue si le produit (arrondi) diffère de la somme, en vitesse ou en énergie.
-        local sum_s, sum_c = 0, 0
-        for _, nm in ipairs(spec.mods) do sum_s = sum_s + (VAL[nm].speed or 0); sum_c = sum_c + (VAL[nm].consumption or 0) end
+        local sum_s, sum_c, sum_p = 0, 0, 0
+        for _, nm in ipairs(spec.mods) do
+          sum_s = sum_s + (VAL[nm].speed or 0)
+          sum_c = sum_c + (VAL[nm].consumption or 0)
+          sum_p = sum_p + (VAL[nm].productivity or 0)
+        end
         local diff = math.abs((a.ts - 100) / 100 - sum_s) > 0.004 or math.abs((a.tc - 100) / 100 - sum_c) > 0.004
+          or math.abs((a.tp - 100) / 100 - sum_p) > 0.004
         local nbal = balises_cachees(s, m)
         ctx.check(okb, "bonus relus = formule (" .. c.id .. ")", txt)
         ctx.check((diff and nbal == 1) or (not diff and nbal == 0), "balise cachee " .. (diff and "presente" or "absente")
@@ -649,8 +693,8 @@ return {
           local eu = proto.energy_usage or 0
           local drain = lit(m, "electric_drain") or 0
           local bal_w = c.vbal and c.vbal.valid and (c.vbal.prototype.energy_usage or 0) * 60 or 0
-          local fs = math.min(a.ps + bs, 328.67)       -- facteur de vitesse voulu (exact), plafond
-          local fc = math.min(a.pc + bc, 328.67)       -- facteur d'énergie voulu (exact), plafond
+          local fs = math.max(0.2, math.min(a.ps + bs, 328.67))   -- facteur de vitesse voulu (exact), plancher et plafond
+          local fc = math.max(0.2, math.min(a.pc + bc, 328.67))   -- facteur d'énergie voulu (exact ; écart au plafond)
           local want_w = (eu * fc + drain) * 60 + bal_w
           local fab, want_fab
           if spec.foreuse then
@@ -714,7 +758,8 @@ return {
   shots = function(ctx, add)
     local st = ctx.state()
     for _, c in ipairs(st.cells or {}) do
-      if c.id == "F-plafond-34-palier10" or c.id == "E-14-palier1" or c.id == "C2-3-paliers+balise" then
+      if c.id == "F-plafond-34-palier10" or c.id == "E-14-palier1" or c.id == "C2-3-paliers+balise"
+        or c.id == "H-plafond-34-prod10" or c.id == "P-5-prod10" then
         add(c.id .. "-alt", c.x, c.y, 1, 0, { info = true })
       end
     end
