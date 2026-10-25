@@ -231,8 +231,15 @@ do
   check(frame() == nil and toggled["fo-team-gui"] == false, "touche : fenêtre fermée, raccourci éteint")
   M.dispatch(W.events["fo-team-gui"], { player_index = 1, input_name = "fo-team-gui" })
   check(frame() ~= nil, "touche : fenêtre rouverte")
+  local centered = 0
+  frame().force_auto_center = function() centered = centered + 1 end
+  M.dispatch(W.events[defines.events.on_player_display_resolution_changed], { player_index = 1 })
+  M.dispatch(W.events[defines.events.on_player_display_scale_changed], { player_index = 1 })
+  check(centered == 2, "taille ou échelle d'affichage changée : fenêtre recentrée (" .. centered .. ")")
   M.dispatch(W.events[defines.events.on_gui_closed], { element = frame(), player_index = 1 })
   check(frame() == nil, "Échap (on_gui_closed) : fenêtre fermée")
+  M.dispatch(W.events[defines.events.on_player_display_resolution_changed], { player_index = 1 })
+  check(true, "taille changée fenêtre fermée : rien à faire, sans erreur")
 end
 
 section("Mon équipe et PNJ")

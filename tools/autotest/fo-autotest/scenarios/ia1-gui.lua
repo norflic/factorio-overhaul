@@ -41,13 +41,18 @@ local function team_row(ctx)
   return nil
 end
 
+-- La capture prend la TAILLE D'AFFICHAGE du joueur : l'interface est disposée pour elle (passage du 25/10 : affichage
+-- passé de 1296 × 696 à 2203 × 1203 en cours de session, fenêtre coupée dans une capture de 1920 × 1080).
 local function shot(ctx, p, name)
   local st = ctx.state()
+  local r = p.display_resolution
+  local w, h = math.min(4096, math.max(640, r.width)), math.min(4096, math.max(360, r.height))
   game.take_screenshot({ path = "fo-shots/x-ia1i-" .. name .. ".png", player = p, show_gui = true,
-    position = st.chest_pos, zoom = 1, resolution = { 1920, 1080 }, daytime = 0, force_render = true,
+    position = st.chest_pos, zoom = 1, resolution = { w, h }, daytime = 0, force_render = true,
     allow_in_replay = true })
   st.shots = (st.shots or 0) + 1
-  ctx.log("capture x-ia1i-" .. name .. ".png demandee au tick " .. game.tick)
+  ctx.log(string.format("capture x-ia1i-%s.png demandee au tick %d (%d x %d, echelle %.2f)", name, game.tick, w, h,
+    p.display_scale))
 end
 
 local function R(ctx, fn, ...) return ctx.remote("fo-ia1i", fn, ...) end

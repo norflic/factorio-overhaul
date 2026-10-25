@@ -659,6 +659,16 @@ Events.on(INPUT, function(e)
   if player then toggle(player) end
 end)
 
+-- Taille ou échelle d'affichage changée (fenêtre redimensionnée, bureau à distance : passage du 25/10, 1296 × 696 puis
+-- 2203 × 1203 en cours de session) : la fenêtre ouverte est recentrée, sinon elle sort de l'écran.
+local function recenter(e)
+  local player = game.get_player(e.player_index)
+  local frame = player and frame_of(player)
+  if frame then frame.force_auto_center() end
+end
+Events.on(defines.events.on_player_display_resolution_changed, recenter)
+Events.on(defines.events.on_player_display_scale_changed, recenter)
+
 -- Une fois par seconde : relevé du journal, puis rafraîchissement des seules fenêtres OUVERTES.
 Events.on_nth_tick(M.REFRESH, function(e)
   Journal.sample(e.tick)

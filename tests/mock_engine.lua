@@ -769,7 +769,8 @@ function M.new_world(opts)
     on_force_created = 26,
     -- lot IA1-i : interface « Équipe et factions » (script/gui/team_window.lua) : raccourci et onglets ; le mock n'a
     -- qu'un conteneur d'interface minimal (gui.screen), tests/ia1i_test.lua y greffe le sien
-    on_lua_shortcut = 27, on_gui_selected_tab_changed = 28,
+    on_lua_shortcut = 27, on_gui_selected_tab_changed = 28, on_player_display_resolution_changed = 29,
+    on_player_display_scale_changed = 30,
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
