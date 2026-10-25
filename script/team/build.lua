@@ -648,7 +648,9 @@ local function plan_project(f, surface, p)
         for _, e in ipairs(p.ents) do if e.part == idx and e.name:find("electric%-pole") then mp = mp or e end end
         if mp and not seen[idx] then
           seen[idx] = true
-          local extra, w3, nodes = plan_power(f, p, mp, masks)
+          -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
+          local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
+          local extra, w3, nodes = plan_power(f, p, mp, pm)
           if not extra then return false, w3 end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
