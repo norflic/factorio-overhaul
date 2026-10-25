@@ -47,6 +47,7 @@ def main():
     ap.add_argument("--avec", required=True)
     ap.add_argument("--sans", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--agrandir", type=int, default=1)
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     caps = tsv(os.path.join(a.avec, "a5-equipe-captures.tsv"))
@@ -95,6 +96,36 @@ def main():
             img.save(p, optimize=True)
         else:
             z1.append((age, nuit, img))
+    # gros plans : la TÊTE de chaque tourelle au zoom 2 (pixels du jeu, agrandis × a.agrandir), grille forces × colonnes
+    for c in [c for c in caps if c["zoom"] == "2"]:
+        age, nuit = int(c["age"]), c["nuit"] == "1"
+        cx, cy, px, py = float(c["x"]), float(c["y"]), int(c["px"]), int(c["py"])
+        A = capture(a.avec, c["capture"])
+        H, W = A.shape[:2]
+        k = 64.0
+        demi = {3: 1.6, 9: 2.4, 15: 3.2}.get(age, px / 2.0)
+        cases = {}
+        for s in [s for s in sites if int(s["age"]) == age]:
+            x, y = float(s["x"]), float(s["y"]) - {3: 0.6, 9: 1.0, 15: 1.0}.get(age, 0.8)
+            u0, u1 = int(W / 2 + (x - demi - cx) * k), int(W / 2 + (x + demi - cx) * k)
+            v0, v1 = int(H / 2 + (y - demi * 0.8 - cy) * k), int(H / 2 + (y + demi * 0.8 - cy) * k)
+            im = Image.fromarray(A[max(0, v0):v1, max(0, u0):u1])
+            if a.agrandir != 1:
+                im = im.resize((im.size[0] * a.agrandir, im.size[1] * a.agrandir), Image.NEAREST)
+            cases[(s["force"], int(s["intensite"]))] = im
+        cw = max(i.size[0] for i in cases.values())
+        ch = max(i.size[1] for i in cases.values())
+        mg, mh = 150, 40
+        img = Image.new("RGB", (mg + 4 * cw + 30, mh + 3 * ch + 20), (22, 22, 22))
+        dr = ImageDraw.Draw(img)
+        for i, it in enumerate([0, 25, 40, 60]):
+            dr.text((mg + i * (cw + 10) + cw // 2 - 50, 6), COLS[i], font=f_t, fill=(255, 255, 255))
+            for j, f in enumerate(["player", "fo-scarlet", "fo-azure"]):
+                img.paste(cases[(f, it)], (mg + i * (cw + 10), mh + j * (ch + 10)))
+        for j, f in enumerate(["player", "fo-scarlet", "fo-azure"]):
+            dr.text((8, mh + j * (ch + 10) + ch // 2 - 12), ROWS[f], font=f_p, fill=(255, 255, 255))
+        dr.text((8, 8), "âge %d, %s" % (age, "nuit" if nuit else "jour"), font=f_p, fill=(255, 220, 120))
+        img.save(os.path.join(a.out, "gros-plan-e%02d-%s.png" % (age, "nuit" if nuit else "jour")), optimize=True)
     # zoom 1 : les 3 âges, jour à gauche, nuit à droite
     if z1:
         jours = [i for (e, n, i) in sorted(z1, key=lambda t: t[0]) if not n]

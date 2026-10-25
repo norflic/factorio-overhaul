@@ -173,7 +173,7 @@ PROTO = r'''-- LOT A5-ESSAI (copie JETABLE, tools/autotest/a5/a5_masques.py) : c
 -- intensité du masque d'équipe, avec la couche de masque (flags « mask », apply_runtime_tint, comme le masque vanilla
 -- de la mitrailleuse, data/base/prototypes/entity/turrets.lua) au-dessus de la couche principale de la tête, dans les
 -- 5 animations. Rien de ceci n'existe dans le mod livré.
-local ESSAI = %s
+local ESSAI = @@ESSAI@@
 local TETE = { "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation",
   "folding_animation" }
 --- La couche de masque est une COPIE de la couche principale de la tête telle que le mod l'a finie (même cadre, même
@@ -249,7 +249,7 @@ def jetable(a):
         return repr(v)
 
     with open(os.path.join(dest, "a5_equipe_proto.lua"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(PROTO % ("{\n  " + ",\n  ".join(lua(x) for x in essai) + "\n}"))
+        f.write(PROTO.replace("@@ESSAI@@", "{\n  " + ",\n  ".join(lua(x) for x in essai) + "\n}"))
     p = os.path.join(dest, "data-final-fixes.lua")
     t = open(p, encoding="utf-8", newline="").read()
     t += '\n-- LOT A5-ESSAI (copie jetable) : mitrailleuses d\'essai du masque d\'équipe\nrequire("a5_equipe_proto")\n'
