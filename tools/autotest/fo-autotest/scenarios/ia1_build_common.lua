@@ -236,10 +236,11 @@ return function(variant)
         if t % MIN == 0 then report_line(ctx, r, t) end
         -- tout est fini (ou refusé, bloqué) et les quais de charbon sont garnis : l'équipe est renvoyée
         local open = 0
+        local quais_ok = true
         for _, p in ipairs(r.projects) do
           if p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then open = open + 1 end
+          for _, q in ipairs(p.quais or {}) do if p.state == "fini" and q.count < 100 then quais_ok = false end end
         end
-        local quais_ok = r.filled >= 100
         if (open == 0 and quais_ok and #r.projects > 0) or t >= T_DISMISS_MAX then
           st.final = r
           st.layout = ctx.remote("fo-ia1d", "layout", "player")

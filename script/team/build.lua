@@ -422,27 +422,43 @@ local function plan_power(f, p, mp, masks)
   end
   local nodes = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius)
   if not nodes then return nil, "pas de rue vers le reseau" end
+  -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
+  local taken = {}
+  local function take(e) for _, t in ipairs(P.tiles_of(e)) do taken[P.tkey(t[1], t[2])] = true end end
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    return masks.free(tx, ty) and not taken[P.tkey(tx, ty)] and not masks.clear[P.tkey(tx, ty)]
+  end
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
     local pos = P.node_pole(b.lat, n.i, n.j, big)
     if not b.net[k] then
-      out[#out + 1] = { name = pole, x = pos.x, y = pos.y, dir = 0, role = "reseau", node = k }
+      local e = { name = pole, x = pos.x, y = pos.y, dir = 0, role = "reseau", node = k }
+      out[#out + 1] = e
     end
+    take({ name = pole, x = pos.x, y = pos.y, dir = 0 })
     if prev and not big then
-      local chain = P.pole_chain(prev, pos, 9, false, function(x, y) return masks.free(math.floor(x), math.floor(y)) end)
+      local chain = P.pole_chain(prev, pos, 9, false, free)
       if not chain then return nil, "poteaux de rue" end
-      for _, c in ipairs(chain) do out[#out + 1] = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" } end
+      for _, c in ipairs(chain) do
+        local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
+        out[#out + 1] = e
+        take(e)
+      end
     end
     prev = pos
   end
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
   local npos = P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
-  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false,
-    function(x, y) return masks.free(math.floor(x), math.floor(y)) end)
+  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
   if not chain then return nil, "liaison electrique" end
-  for _, c in ipairs(chain) do out[#out + 1] = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" } end
+  for _, c in ipairs(chain) do
+    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
+    out[#out + 1] = e
+    take(e)
+  end
   return out, nil, nodes
 end
 
@@ -1348,8 +1364,15 @@ function Build.status(f, id)
   end
   local missing = {}
   for _, m in ipairs(p.missing or {}) do missing[#missing + 1] = { m[1], m[2] } end
+  -- quais d'entrée : contenu lu au moteur (le cerveau sait ce qui manque ; le banc sait quand renvoyer l'équipe)
+  local quais = {}
+  local surface = surface_of(f)
+  for _, q in ipairs(p.quais) do
+    local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
+    quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1 }
+  end
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
-    obstacles = #p.obstacles, quais = #p.quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
+    obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
     finished = p.finished, wires = p.wired }
 end
 
