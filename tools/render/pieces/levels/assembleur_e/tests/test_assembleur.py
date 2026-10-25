@@ -133,7 +133,7 @@ def main():
     # --- habillage : formes refusées
     class Ep:
         HABILLAGE = {}
-    for mauvais in (dict(forme_dos="cheminee"), dict(forme_embase="rond"), dict(forme_joues="x"),
+    for mauvais in (dict(forme_dos="cheminee"), dict(forme_embase="rond"), dict(plan="hexagone"), dict(forme_joues="x"),
                     dict(forme_portique="grue"), dict(forme_affut=dict(gradins=3)), dict(tremie="ochre")):
         Ep.HABILLAGE = mauvais
         try:
@@ -148,9 +148,13 @@ def main():
         if E.COTE[e] != E.COTE[e + 1]:
             continue
         a, b = E.SILHOUETTES[e], E.SILHOUETTES[e + 1]
-        nd = sum(x != y for x, y in zip(a, b))
-        check("silhouettes %d et %d (même taille) différentes sur au moins 2 traits (%d)" % (e, e + 1, nd), nd >= 2,
-              "%s / %s" % (a, b))
+        check("ronde F3-A2 : âges %d et %d (même taille) de PLANS différents (%s / %s)" % (e, e + 1, a[0], b[0]),
+              a[0] != b[0])
+    plans = [E.SILHOUETTES[e][0] for e in range(2, 16)]
+    check("ronde F3-A2 : au moins 5 plans différents, dont rond ou octo et tour (%s)" % sorted(set(plans)),
+          len(set(plans)) >= 5 and ({"rond", "octo"} & set(plans)) and "tour" in plans)
+    check("teinte du niveau pair : multiplication douce (0,8 à 1) aux 15 âges",
+          all(0.8 <= v <= 1.0 for e in range(1, 16) for v in E.teinte_pair(e)))
     # --- fichiers d'âge (lecture du source)
     import ages
     vus = []
@@ -174,16 +178,20 @@ def main():
                   ast.unparse(vals["FOYER"]) == "ages.FOYER[%d]" % e)
         check("ep%02d : TRAVAIL déclaré (couches, images, organe)" % e, "TRAVAIL" in vals and
               all(k in ast.unparse(vals["TRAVAIL"]) for k in ("couches", "images", "organe")))
-        besoin = {"piece"} if e in (0, 1) else {"socle", "piece", "outil", "ouvrage"}
+        besoin = {"piece"} if e in (0, 1) else {"socle", "piece", "outil", "ouvrage", "sortie"}
         check("ep%02d : fonctions du contrat (%s)" % (e, ", ".join(sorted(besoin))), besoin <= fonctions,
               str(sorted(besoin - fonctions)))
+        for nomf in ("entree", "sortie"):
+            fn = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == nomf]
+            if fn:
+                check("ep%02d : %s(g, c, p) (place donnée par la lignée)" % (e, nomf), len(fn[0].args.args) == 3)
         if e >= 2:
             check("ep%02d : matières de l'âge par ages.matieres(%d, …)" % (e, e), "ages.matieres(%d," % e in src)
             hab = ast.unparse(vals.get("HABILLAGE", ast.Constant(None)))
             sil = []
-            for cle, defaut in (("forme_embase", "carre"), ("forme_dos", "plat"), ("forme_joues", "caisson"),
+            for cle, defaut in (("plan", "carre"), ("forme_embase", "carre"), ("forme_dos", "plat"), ("forme_joues", "caisson"),
                                 ("forme_portique", "poutre")):
-                mt = re.search(r"%s='([a-z]+)'" % cle, hab)
+                mt = re.search(r"%s='([A-Za-z]+)'" % cle, hab)
                 sil.append(mt.group(1) if mt else defaut)
             check("ep%02d : silhouette déclarée = SILHOUETTES[%d]" % (e, e), tuple(sil) == E.SILHOUETTES[e],
                   "%s / %s" % (tuple(sil), E.SILHOUETTES[e]))

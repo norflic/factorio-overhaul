@@ -26,8 +26,11 @@ TRIPLET = ("bras robots", "coque ivoire", "écrans")
 FOYER = ages.FOYER[10]
 TRAVAIL = dict(couches=2, images=32, organe="deux bras robots (épaule, coude, poignet : 32 images, boucle de prise et "
                                            "pose) ; écrans et voyants qui défilent (couche glow, 8 images)")
-HABILLAGE = dict(ages.CORPS[10], forme_embase='carre', forme_dos='coque', forme_joues='pente', forme_portique='aucun',
+HABILLAGE = dict(ages.CORPS[10], plan='carre', forme_embase='carre', forme_dos='coque', forme_joues='pente',
+                 forme_portique='aucun',
                  mat_dos='blanc_casse', mat_joues='blanc_casse')
+
+DENSITE = dict(p=0.6, lampes=0.14)
 
 
 def matieres(metal, M):
@@ -104,6 +107,8 @@ def outil(g, c):
         poignet = B(sx * 0.3, yt + 0.05, zt + 0.42)
         _bras(g, base, coude, poignet, (-sx * 0.4, -0.1, -1.0))
     halo(g, 0, yt, zt + 0.6, 1.0)
+    for sx in (-1, 1):
+        c.reserves.append((sx * (tx + 0.3), yt + 0.15, 0.3))
 
 
 def ouvrage(g, c):
@@ -131,11 +136,34 @@ def _baie(g, x, yn, z, w, d, hgt):
     g.box(B(x, yn, z + hgt + 0.01), (w + 0.03, d * SQ2 + 0.03, 0.02), M["blanc_casse"], "hard", what="toit_baie")
 
 
+def entree(g, c, p):
+    """Chargeur de galettes de silicium : colonne de plateaux gris, voyant bleu (entrée)."""
+    M = g.M
+    g.box(B(p["x"], p["yn"], p["z"] + 0.04), (2 * p["r"], 2 * p["r"] * SQ2, 0.08), M["anthracite"], "hard",
+          what="socle_chargeur")
+    for k in range(6):
+        g.cyl(B(p["x"], p["yn"], p["z"] + 0.1 + 0.035 * k), "z", p["r"] * 0.7, 0.02, M["spec"] if k % 2 else
+              M["gris_tech"], n=24, what="galette")
+    corps.lampe(g, B(p["x"] + p["r"] * 0.8, p["yn"] - p["r"] * 0.6, p["z"] + 0.08), 0.03, M["emit"])
+
+
+def sortie(g, c, p):
+    """Plateau antistatique ivoire : processeurs finis (sortie)."""
+    corps.bac(g, c, p, g.M["blanc_casse"], g.M["acier_tech"], forme="plaque")
+    corps.lampe(g, B(p["x"] - p["r"] * 0.8, p["yn"] - p["r"] * 0.6, p["z"] + 0.12), 0.03, g.M["emit"])
+
+
 def piece(g, c):
-    """Niveau 20 : deux baies de serveurs à diodes (coins avant)."""
+    """Niveau 20 (plus grande) : trois baies de serveurs HAUTES à diodes et chemin de câbles (coins avant)."""
+    M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
-        for k in range(2):
-            _baie(g, p["x"] - 0.22 + 0.44 * k, p["yn"] + 0.05, p["z_sol"], 0.36, 0.5, 0.7)
-        halo(g, p["x"], p["yn"] - 0.3, p["z_sol"] + 0.4, 0.5)
+        for k in range(3):
+            _baie(g, p["x"] - 0.36 + 0.36 * k, p["yn"] + 0.08, p["z_sol"], 0.32, 0.5, 1.0)
+        g.box(B(p["x"], p["yn"] + 0.08, p["z_sol"] + 1.06), (1.1, 0.3 * SQ2, 0.05), M["anthracite"], "hard",
+              what="chemin_cables")
+        for k in range(4):
+            g.cable(B(p["x"] - 0.45 + 0.3 * k, p["yn"], p["z_sol"] + 1.08), B(p["x"] - 0.3 + 0.3 * k, p["yn"],
+                    p["z_sol"] + 1.08), 0.04, 0.015, M["cable_r"] if k % 2 else M["cable_b"])
+        halo(g, p["x"], p["yn"] - 0.3, p["z_sol"] + 0.5, 0.6)
     _ = math
