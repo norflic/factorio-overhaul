@@ -459,8 +459,13 @@ check(att == 0 or with_side >= 1, "attaques entre factions avec un rassemblement
 check(pcall(M.serialize, global), "global sérialisable (état du chef)")
 M.command("fo-war", "status")
 local status_ok = false
-for _, l in ipairs(W().prints) do if l:find("chef : ", 1, true) then status_ok = true end end
-check(status_ok, "statut /fo-war : ligne du chef")
+-- Correction VERIF-NUIT (25/10) : ligne traduite (clé fo-chef.status, locale/*/ia2.cfg), postures et raison traduites.
+local status_line
+for _, l in ipairs(W().prints) do if l:find("{fo-chef.status:", 1, true) then status_ok, status_line = true, l end end
+check(status_ok, "statut /fo-war : ligne du chef (clé fo-chef.status)")
+check(status_line ~= nil and status_line:find("{fo-chef.posture-", 1, true) ~= nil
+  and status_line:find("{fo-chef.reason-", 1, true) ~= nil and status_line:find("{fo-faction.name-", 1, true) ~= nil,
+  "ligne du chef : posture, raison et cible traduites (" .. tostring(status_line and status_line:sub(1, 120)) .. ")")
 
 section("Moteur simulé : déterminisme (deux parties de même graine)")
 local first = table.concat(lines, "\n")
