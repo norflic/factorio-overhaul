@@ -486,6 +486,20 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lots MOD-V et MOD-3, modules au barème D-17 et icônes propres, 25/10 ; fusionnés dans `main`, `18bc98d`, version 0.4.27)
+Preuves : `fo-logs\2026-10-25_MODV\NOTES.md`, `fo-logs\2026-10-25_MOD3\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E155,
+E156, E170, E171.
+- **F225** : `LuaControl.opened = <LuaTechnology>` par script n'ouvre rien dans une session avec images (`opened_gui_type`
+  reste 0) : les icônes de technologie ne se voient que sur planche.
+- **F226** (E156) : 60 icônes propres à la place de couches teintées font passer l'atlas [icon] de 8192 × 2288 à 8192 × 2448
+  au plancher, `linear-mip-level` gardé ; l'atlas virtuel ne bouge pas (12 pages).
+- **F227** (cause déduite) : dans les captures avec interface, une case d'inventaire mesure 30,5 px : l'icône y est dessinée
+  vers 24 px, entre les mipmaps de 32 et 16 px ; un détail absent du mipmap de 16 px y sort à moitié effacé.
+- **F248** : la barre de productivité (`bonus_progress`) se remplit avec la progression de la fabrication ; fabrications
+  d'une machine à forte productivité = (Δ products_finished + Δ crafting_progress + Δ bonus_progress) / (1 + productivité).
+- **F249** : un effet de module ne se range qu'en pourcents entiers (centièmes entiers, F190, F199) : la moitié exacte du
+  malus (−2,5, −7,5 %) est arrondie vers zéro (−2, −5, −7 %).
+
 ### Faits vérifiés en moteur réel (lot IA1-b, pôles, managers, généralistes, 25/10 matin ; fusionné dans `main`, `f33cfbb`, version 0.4.26)
 Preuves : `fo-logs\2026-10-25_IA1-b\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E164, E165.
 - **F239** (mesure) : des PNJ au travail hors du QG meurent bien plus que des PNJ inactifs au QG : `ia1b-scale`, 60 min,
@@ -1042,6 +1056,22 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E155, E156, E170, E171 · Lots MOD-V et MOD-3, modules au barème D-17 (25/10 ; fusion `18bc98d`, version 0.4.27)** :
+vitesse +20 % puis +10 % par palier ; productivité +10 % puis +5 % par palier, MULTIPLIÉE (plafond du moteur seul, × 328,67,
+réponse du DC « Pas de plafond (× 328) » après correction de l'ERREUR de l'orchestrateur, qui l'avait dite plafonnée à × 4) ;
+énergie à 60 % du bonus ; au plafond, l'énergie ne paie que la part utile de chaque module (34 × vitesse 10 : × 52,38 au lieu
+de × 328,67 ; calcul en entiers, comparé à un calcul flottant sur 3 000 machines : 0 écart) ; malus de vitesse de la
+productivité réduit de moitié (−2, −5, −7 %, F249) ; efficacité inchangée. Exemples (relus en jeu) : 5 × vitesse 1 : × 2,49
+et énergie × 1,76 ; 5 × vitesse 10 : × 40,84 et × 12,60 ; 5 × productivité 10 : × 8,95 objets, vitesse × 0,70. Icônes propres
+(MOD-V, repris selon D-17 : couleur par type, chevron, engrenage, feuille, chiffre romain, balises à la couleur de l'âge),
+VALIDÉES par le DC (« Validé tel quel », défauts signalés avant : chiffre romain illisible en petit, engrenage proche de la
+roue dentée en mode Alt). **E170** (`mod1-modules`, 85 OK) ; **E171** (`mod3-migration`, double source 0.4.26 : 14 OK ;
+une machine en lots repasse en recette normale, plaques gardées). Sur `main` 0.4.27
+(`fo-logs\2026-10-25_integration-0.4.27\`) : content 331, mod1-modules 85, mod2-lots 28, mod1-migration 11, mod2-migration 6, mod3-migration 14, t2-machines 80, ia1-diag 27, verif-guide 15 (graine 271828182), pnj-reduit 12 (`done.txt` 10:54:37 à 10:57:16), 0 erreur ; hors jeu module_mult 95, ia1_production 103, recipe_lots 67, icones.py --check 0 écart, levels 1664, pvp 1305, harness 0 erreur ; api_lint 1026. NON corrigé : le solveur des équipes
+(`shared/team/production.lua`) ignore l'écart d'énergie au plafond (× 57,66 au lieu de × 52,38 ; sans effet en partie : aucun
+gabarit d'équipe ne pose de module ; correctif d'une ligne dans `fo-logs\2026-10-25_MOD3\INTEGRATION.md` §7, à appliquer
+après IA1-b2). Usine chimique : plus jamais de lot (3 emplacements).
+
 **E164, E165 · Lot IA1-b, pôles, managers, généralistes (25/10 de 6 h 50 à 8 h 20 ; fusion `f33cfbb`, version 0.4.26)** :
 le modèle `org.lua` branché sur l'équipe vivante (pôles Extraction, Base, Territoire ; changements de pôle appliqués en
 fin de tâche ; promotion après 2 min de vacance ; meneurs ; rapports d'une ligne) ; travail de FOND (`shared/team/fond.lua` :
