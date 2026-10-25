@@ -414,6 +414,13 @@ function Outposts.on_drill_lost(f, oid)
     f.outposts_count = f.outposts_count - 1
     f.stats.outposts_lost = f.stats.outposts_lost + 1
     Sites.release(o.pos)
+    -- Lot IA2-b : site perdu retenu (danger de la carte de valeur) ; réceptacles restés sur la carte (F209) gardés dans
+    -- la liste des orphelins (journal de forme ; repris à la reconstruction ou démontés par un ouvrier).
+    Sites.note_lost(f, o.pos, game.tick)
+    f.orphans = f.orphans or {}
+    for _, s in ipairs(o.sinks or {}) do
+      if s.valid then f.orphans[#f.orphans + 1] = { e = s, x = o.pos.x, y = o.pos.y, tick = game.tick, oid = oid } end
+    end
     -- Le gisement reste là : il revient à la réserve pour une reconstruction (règle du cerveau d'équipe).
     local spec = T.outposts[o.kind]
     if spec then

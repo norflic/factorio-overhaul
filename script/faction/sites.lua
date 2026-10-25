@@ -19,6 +19,7 @@ local Scheduler = require("script.core.scheduler")
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Journal = require("script.faction.journal")
+local V = require("shared.faction.valeur")
 
 local Sites = {}
 
@@ -203,12 +204,20 @@ function Sites.prospect(f, surface, tick)
         Profiler.start("prospect:find")
         local tiles = surface.find_entities_filtered({ area = area, name = best, limit = 64 })
         Profiler.stop("prospect:find")
-        local sx, sy = 0, 0
+        local sx, sy, rich = 0, 0, 0
         for _, r in ipairs(tiles) do
           local p = r.position
           sx, sy = sx + p.x, sy + p.y
+          rich = rich + (r.amount or 0)
         end
         local site = { x = sx / #tiles, y = sy / #tiles, resource = best }
+        -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
+        Profiler.start("prospect:value")
+        site.rich, site.tiles = rich, #tiles
+        site.water = surface.count_tiles_filtered({ position = site, radius = 24, collision_mask = "water-tile", limit = 1 }) > 0
+        site.rough = surface.count_entities_filtered({ position = site, radius = 12, type = { "tree", "simple-entity" }, limit = 100 })
+        site.cliffs = surface.count_entities_filtered({ position = site, radius = 16, type = "cliff", limit = 8 })
+        Profiler.stop("prospect:value")
         -- Moteur réel (session 3) : 27 ingénieurs tués par des vers près de leurs sites. Un site à portée
         -- d'ennemis (déchiqueteurs) est évité ; les ennemis éliminés, il redevient prospectable.
         local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
@@ -233,6 +242,73 @@ function Sites.available(f, resource)
   return prospects_of(f, resource)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Carte de valeur (lot IA2-b) : contexte vu par la faction
+---------------------------------------------------------------------------------------------------
+-- Champs de vision (mêmes rayons que le chef d'IA2-a, script/faction/chef.lua) : QG, avant-postes, groupes en route.
+local VISION_HQ, VISION_OUTPOST, VISION_GROUP = 160, 128, 96
+local LOST_KEEP = 8 -- sites perdus retenus (danger)
+
+local function eyes(f)
+  local list = {}
+  if f.hq_pos then list[#list + 1] = { x = f.hq_pos.x, y = f.hq_pos.y, r2 = VISION_HQ * VISION_HQ } end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    list[#list + 1] = { x = p.x, y = p.y, r2 = VISION_OUTPOST * VISION_OUTPOST }
+  end
+  for _, gid in ipairs(State.sorted_keys(f.groups or {})) do
+    local g = f.groups[gid]
+    if g.group and g.group.valid then
+      local p = g.group.position
+      list[#list + 1] = { x = p.x, y = p.y, r2 = VISION_GROUP * VISION_GROUP }
+    end
+  end
+  return list
+end
+
+local function seen_by(list, p)
+  for _, e in ipairs(list) do
+    local dx, dy = e.x - p.x, e.y - p.y
+    if dx * dx + dy * dy <= e.r2 then return true end
+  end
+  return false
+end
+
+--- Contexte de la carte de valeur d'une faction (pur ensuite) : territoire (QG et avant-postes), rivales VUES (QG
+--- connus, avant-postes dans nos champs de vision : brouillard D-16), nos sites perdus récents, traits, appétit du chef.
+function Sites.value_ctx(f, tick)
+  local ctx = { hq = f.hq_pos, anchors = {}, rivals = {}, lost = f.lost_sites or {}, tick = tick,
+    ambition = 1000, prudence = 1000, appetite = 1000 }
+  if f.hq_pos then ctx.anchors[1] = { x = f.hq_pos.x, y = f.hq_pos.y } end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local p = f.outposts[oid].pos
+    ctx.anchors[#ctx.anchors + 1] = { x = p.x, y = p.y }
+  end
+  if f.traits then ctx.ambition, ctx.prudence = f.traits.ambition or 1000, f.traits.prudence or 1000 end
+  if f.chef then ctx.appetite = V.appetite(f.chef.mix, f.chef.survival) end
+  if not f.is_player then
+    local my = eyes(f)
+    for _, rid in ipairs(State.alive()) do
+      if rid ~= f.id then
+        local r = State.faction(rid)
+        if r.hq_pos then ctx.rivals[#ctx.rivals + 1] = { x = r.hq_pos.x, y = r.hq_pos.y, hq = true } end
+        for _, oid in ipairs(State.sorted_keys(r.outposts or {})) do
+          local p = r.outposts[oid].pos
+          if seen_by(my, p) then ctx.rivals[#ctx.rivals + 1] = { x = p.x, y = p.y } end
+        end
+      end
+    end
+  end
+  return ctx
+end
+
+--- Un avant-poste perdu : position retenue (danger des sites voisins pendant V.LOST_TTL).
+function Sites.note_lost(f, pos, tick)
+  f.lost_sites = f.lost_sites or {}
+  table.insert(f.lost_sites, { x = pos.x, y = pos.y, tick = tick })
+  while #f.lost_sites > LOST_KEEP do table.remove(f.lost_sites, 1) end
+end
+
 --- Puise un site valide de la ressource demandée dans la réserve. Renvoie site ou nil.
 function Sites.find(f, surface, tick, resource)
   local war = State.war()
@@ -245,7 +321,17 @@ function Sites.find(f, surface, tick, resource)
     if resource == nil or site.resource == resource then
       -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
       local ok = valid(site)
-      if ok then Journal.site(f, site, list, valid, tick) end
+      if ok then
+        -- Lot IA2-b (journal de référence) : valeur des candidats valides de la même ressource, rang du site puisé.
+        local cands = {}
+        for _, s in ipairs(list) do
+          if s.resource == site.resource and valid(s) then cands[#cands + 1] = s end
+        end
+        local ranked = V.rank(cands, Sites.value_ctx(f, tick))
+        local vk, vv = 1, 0
+        for k, e in ipairs(ranked) do if e.site == site then vk, vv = k, e.value end end
+        Journal.site(f, site, list, valid, tick, { value = vv, rank = vk, n = #ranked })
+      end
       table.remove(list, i)
       if ok then return site end
     else

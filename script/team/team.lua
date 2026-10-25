@@ -144,14 +144,19 @@ local function seed_resources(f, surface)
         if water == 0 then
           used[i] = true
           for _, e in ipairs(surface.find_entities_filtered({ position = c, radius = radius + 1, type = "resource" })) do e.destroy() end
+          local placed = 0
           for dx = -radius, radius do
             for dy = -radius, radius do
               if dx * dx + dy * dy <= radius * radius then
                 surface.create_entity({ name = res, position = { c.x + dx, c.y + dy }, amount = SEED_AMOUNT })
+                placed = placed + 1
               end
             end
           end
-          f.prospects[#f.prospects + 1] = { x = c.x, y = c.y, resource = res, seeded = true }
+          -- Lot IA2-b : richesse comme une découverte (somme des amount de 64 tuiles au plus, carte de valeur).
+          local read = math.min(64, placed)
+          f.prospects[#f.prospects + 1] = { x = c.x, y = c.y, resource = res, seeded = true, rich = read * SEED_AMOUNT,
+            tiles = read, water = false, rough = 0, cliffs = 0 }
           break
         end
       end
