@@ -576,7 +576,103 @@ Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre,
 
 ## 5. Intégration, déterminisme, budget, migration, fenêtre
 
-À ÉCRIRE
+### 5.1 Ce qui est gardé, remplacé, supprimé
+
+| Fichier ou mécanisme | Sort | Détail |
+|---|---|---|
+| `script/team/worker.lua` (programmes d'étapes, verbes) | **gardé**, verbes ajoutés | nouveaux : `explore` (spirale de secteurs), `deliver` (packs aux laboratoires), réflexe de tourelle en expédition, `pickup` (reprise par `mine`) ; la prise au coffre passe par le registre (stricte) |
+| `script/team/board.lua` | **gardé** (stockage des tâches) | `Board.claim` appelle la place de marché ; `Board.sync` ne remplace plus que les tâches des projets replanifiés |
+| `shared/team/production.lua` (solveur IA1-e1) | **gardé** | débits, valeurs en MU, options et retour sur investissement (§3.4) ; « à la main » et « ailleurs » ajoutés |
+| `shared/team/modules.lua` (gabarits IA1-c) | **gardé**, rendu paramétrique par IA1-d | une rangée par catégorie de machine, dimensions lues dans les prototypes |
+| `shared/team/book.lua` | **gardé** | produit les étapes de fabrication à la main d'une tâche `craft` (format attendu par `worker.lua`) |
+| `shared/team/org.lua` (pôles, managers, généralistes) | **gardé**, une règle changée | `O.pick_task` (rangs : pôle obligatoire) remplacé par le score du marché (§2.3) ; `O.pole_targets`, généralistes, promotion, rangs : inchangés |
+| `shared/team/fond.lua` | **gardé**, rôle changé | ses candidats deviennent les investissements par défaut (famille Capital) |
+| `shared/team/scale.lua` | **gardé** | effectif de départ des factions 4 → 8 (D-18 ; fichier de l'intégrateur pour le réglage) |
+| `shared/faction/chef.lua`, `traits.lua`, `valeur.lua`, `adversaire.lua` (IA2) | **gardés** | le chef rend des POIDS de familles au lieu d'un ordre d'échelle (`C.ladder_order` retiré) ; prudence et agressivité servent aux expéditions |
+| `script/faction/vision.lua` (IA2-c) | **gardé**, étendu | les PNJ en déplacement deviennent des yeux (48 tuiles) ; la carte de connaissance alimente le cerveau |
+| `script/faction/sites.lua` | **gardé**, restreint | ne prospecte que dans les secteurs vus |
+| `script/gui/team_window.lua` | **gardé**, complété | §5.5 |
+| `shared/team/planner.lua` (échelle, priorités fixes) | **remplacé** puis **supprimé** | par `shared/ai3/cerveau.lua` (générateurs de buts, dépliage, projets) ; gardé derrière un réglage jusqu'à la preuve (§5.4) |
+| `T.ladder`, `T.player_ladder`, `T.research`, `T.unlocks`, `T.goal_patience`, `T.goal_defer` | **supprimés** après migration | la recherche devient la VRAIE recherche (§3.8) ; plus d'échelle ni de patience |
+| `unlock()` et le paiement des niveaux (`script/team/team.lua:82`, `:440`) | **remplacés** | `LuaForce.add_research` et des laboratoires livrés en packs par les PNJ (§5.2) |
+| prises larges au coffre (fonderie, recharge, charbon) | **remplacées** | réservations du projet permanent « Entretien » (§2.2) |
+
+Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.lua`, `marche.lua`, `expedition.lua`
+(prototypes de ce lot, à durcir), `shared/ai3/buts.lua` (générateurs), `shared/ai3/projets.lua`, `shared/ai3/cerveau.lua`
+(pensée par phases), `shared/ai3/connaissance.lua` (carte vue) ; `script/ai3/*.lua` pour l'exécution ;
+`locale/fr/ia3.cfg`, `locale/en/ia3.cfg`.
+
+### 5.2 La vraie recherche des factions
+
+- Une faction recherche une technologie RÉELLE (`LuaForce.add_research`, file de sa force) ; ses PNJ construisent des
+  laboratoires (méthode `research`, §3.2) et y livrent les packs (verbe `deliver`, ou un bras quand l'automatisation le
+  justifie) ; le MOTEUR fait avancer la recherche, au temps réel des prototypes.
+- **À vérifier en moteur réel avant tout** (lot IA3-0, expérience E180) : une force sans joueur qui a une recherche en
+  cours et des laboratoires alimentés progresse ; `research_finished` est levé. Repli si non : le QG consomme les packs
+  au coût réel et au temps réel (`unit.time × count ÷ laboratoires`), sans laboratoire du moteur.
+- Les factions gardent ce qu'elles ont déjà reçu dans une partie en cours (§5.4) ; aucune technologie n'est retirée.
+
+### 5.3 Déterminisme et budget de calcul
+
+**Déterminisme** (ARCHITECTURE §2) :
+- listes triées partout (projets par identifiant croissant, objets et recettes par nom, tâches par clé, PNJ par
+  identifiant) ; aucune décision sur l'ordre de `pairs` (les prototypes de ce lot le respectent et le testent : mêmes
+  sorties pour des entrées dans l'ordre inverse) ;
+- hasard : seulement les flux d'IA2 (`Tr.new_stream`, mélange non linéaire, multiplication modulo exacte), sels 400 à
+  499 réservés à IA3 ;
+- le catalogue (index des prototypes) est un cache LOCAL, construit au premier usage dans un événement (jamais dans
+  `on_load`), identique chez tous les pairs (mêmes prototypes, ordre trié) ; `global` ne garde que des nombres, chaînes
+  et tables : projets, registre, connaissance, expéditions ;
+- aucun `require` pendant un événement (F24) ; aucune décision sur un temps mesuré ;
+- preuve : deux passages de la même graine, empreintes `[FO-HASH]` identiques à 30 min (C5-9, F238).
+
+**Budget** (A1 : 1,5 ms par tick au plus en moyenne ; mesuré aujourd'hui : 0,066 à 0,078 ms par tick pour 150 PNJ, E124 ;
+une pensée d'équipe 0,62 ms, ia0-normal). Estimations IA3 (mesures hors jeu du prototype, PC non épinglé, à confirmer
+en moteur réel épinglé) :
+
+| Poste | Hypothèse | ms par tick (moyenne) | Pic par tick |
+|---|---|---|---|
+| Points fixes (faisabilité, coût) | 5 ms par changement d'état, environ 1 par minute et par équipe, 5 équipes | 0,007 | ≤ 0,6 (une passe par tick, 8 à 12 passes) |
+| Dépliages | 1 à 1,5 ms par projet replanifié, environ 2 par pensée et par équipe | 0,05 | ≤ 1,5 (un dépliage par tick pour tout le mod) |
+| Registre (allocation) | projets × objets, < 0,1 ms par pensée | 0,002 | 0,1 |
+| Place de marché | prise d'un PNJ libéré : 64 tâches × environ 1 µs ; 150 PNJ, une tâche par minute chacun | 0,003 | 0,1 |
+| Attribution globale (plusieurs PNJ libres à la fois) | ≤ 2 000 couples, environ 1 ms | 0,02 | 1 |
+| Connaissance (regards des PNJ) | file commune, 1 regard toutes les 8 ticks (comme IA2-c) | 0,005 | 0,05 |
+| Réflexe de tourelle | 10 porteurs × 20 µs ÷ 30 ticks | 0,007 | 0,2 |
+| **Total ajouté par IA3** | | **≈ 0,1** | **≤ 2 ms** (règle : une seule phase lourde par tick pour tout le mod) |
+
+Avec l'existant (0,07 à 0,08), le script resterait vers 0,2 ms par tick pour 150 PNJ, soit 13 % du budget A1. Aucun de
+ces chiffres n'est une mesure en jeu : chaque lot les mesure (`ia1-scale` épinglé, `analyze.py --spikes`).
+
+### 5.4 Migration des parties en cours
+
+- Réglage de carte `fo-ia3-cerveau` (oui par défaut dans une partie neuve) : tant que les lots IA3-a à IA3-c ne sont
+  pas prouvés, l'ancien cerveau reste disponible, ce qui permet aussi les bancs « avant / après » sur la même source.
+- Au premier passage (`on_configuration_changed`, F130 : appelé aussi quand seul le contenu change) :
+  - les technologies déjà reçues restent (pas de retrait : les armées en dépendent) ; une ligne du journal dit
+    « Azur : avance de recherche héritée (niveau 2 de l'ancien système) » ;
+  - l'échelle (`done`, `deferred`, `goal`) est oubliée ; les avant-postes, la fonderie, les tourelles restent tels
+    quels (ce sont les lignes d'extraction du nouveau cerveau) ;
+  - le registre démarre vide (tout le stock est libre), la première pensée alloue ;
+  - les tâches LIBRES du tableau sont retirées ; les tâches PRISES vont à leur terme (leurs programmes sont chez les
+    PNJ) ;
+  - la carte de connaissance démarre avec les secteurs que les yeux d'IA2-c ont déjà vus, plus les gisements des
+    avant-postes existants.
+- Preuve : banc en double source (`FO_CREATE_SRC` = source 0.4.28 ou la dernière avant IA3), comme `ia1b-migration`.
+
+### 5.5 Ce que montre la fenêtre « Équipe et factions »
+
+Principe : le joueur voit des INTENTIONS et des RAISONS, jamais un script ; aucun faux chiffre (règle d'IA1-i).
+- **Mon équipe** : les projets en cours (nom, pourquoi, avancement, meneur), ce qui est réservé, ce qui bloque et
+  pourquoi (« attend du pétrole : un éclaireur cherche au nord-est »), le prix du travail (« 3 tâches attendent des
+  bras » : signal de recrutement) ; le journal (annonces, §2.5).
+- **PNJ** : la tâche de chaque PNJ et sa raison courte (« packs verts → recherche Automatisation 2 »).
+- **Chantiers** (aujourd'hui « à venir ») : projets et expéditions : destination, risque et sa raison (« 2 nids vus »),
+  bande (équipé, escorté), équipement réservé, état (préparer, en route, sur place, tenu).
+- **Territoire** (avec IA1-g) : gisements connus, dangers connus.
+- **Factions** : l'âge, la recherche en cours et le projet dominant de chaque faction (le DC juge leur progression ;
+  une version « sous brouillard » qui ne montre que ce que vous avez vu reste possible, à trancher plus tard).
+- Captures à chaque lot qui touche la fenêtre, verdict du DC.
 
 ## 6. Plan de lots
 
