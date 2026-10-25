@@ -429,6 +429,21 @@ production de circuits verts en termes de débit […] On manquerait de ressourc
 - **Leçon** : le vrai besoin est le **charbon et l'électricité**, puis le pétrole. C'est exactement la chaîne de
   manques que le solveur doit trouver seul.
 
+**Livré au lot IA1-e1 (25/10)** : `shared/team/production.lua` (solveur, valeurs MU, diagnostic, options et retour
+sur investissement, règle d'automatisation), `tests/ia1_production_test.lua` (101 OK, 18 mutants refusés) sur le
+livre RÉEL `tests/fixtures/recipes_ia1e.lua` (dump du harness, 782 recettes dont 500 lots ; égal recette par recette à
+`game.recipe_prototypes`, banc `ia1-diag`), scénario greffé `ia1-diag` (27 OK). Le jeu d'essai ci-dessus est
+retrouvé à la machine près ; le solveur tranche le charbon : **28,7/min en régime** (plastique 10, fours 5,0, chaudières
+13,7 ; énergie fermée, foreuses de charbon comprises) et **42,6/min à la puissance installée** (toutes les machines
+posées au travail) ; les 70/min de P1 ne se retrouvent pas. Chiffres du modèle, pas d'une centrale en moteur réel.
+Écart : la valeur du plastique au chemin le moins cher (règle X0) vaut 1,3 MU, `L.item_value` en donne 3.
+**Point d'accroche** (après IA1-b) : le manager Production appelle `P.diagnose(modules, ctx)` une fois par pensée,
+avec les débits lus entre deux pensées (`get_input_count`, `get_output_count` de la force) et le relevé de ses
+machines témoins ; chaque résultat porte `choice` (option retenue, son coût, son gain et `roi_min`) ou `upstream`
+(projet amont et plan du solveur). Les valeurs MU (`P.values` : 47 ms hors jeu sur 782 recettes, 134 passes) se
+calculent une fois au chargement, pas à chaque pensée ; le jeu d'essai se résout en 0,5 ms hors jeu (9 passes du point
+fixe de l'énergie). Mesures hors jeu sur un PC partagé, non épinglé : à remesurer en moteur réel au branchement.
+
 ### 6.2 Diagnostic : ce que le moteur mesure gratuitement
 - `LuaForce.item_production_statistics` et `fluid_production_statistics`, avec
   `LuaFlowStatistics.get_flow_count{name, input, precision_index}` (vérifié). Chaque faction a sa force : on lit
