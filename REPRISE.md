@@ -15,7 +15,11 @@
 > En cours : IA2-c (modèle du joueur, worktree, F234 à F236, E161, E162) ; VÉRIFICATION ADVERSE de 0.4.16 à 0.4.23
 > (worktree, rapport `fo-logs\2026-10-25_VERIF-NUIT\verification.md` : parties longues, déterminisme, migration
 > d'une sauvegarde 0.4.11 ou 0.4.15, guide de partie). En attente du DC : MOD-V (`1ed3ec0`), A5-ESSAI (`4e3fcad`).
-> Ensuite : page du matin (toutes les questions ouvertes), puis intégrer IA2-c si ses garde-fous tiennent.
+> Page du matin PUBLIÉE vers 4 h 40 : https://claude.ai/artifact/N8rHLyXYL7rYqnVjf7atj3 (8 questions, aussi dans OBJECTIFS §4,
+> ligne Q-MATIN-25 ; source `matin25/` du dossier de travail de l'orchestrateur). Disque : 18 vieux worktrees propres retirés
+> à 5 h 10 (3,1 → 3,5 Go libres) ; les détachés gardent leur commit sous une branche `garde/wf_…` (12 branches) ; worktrees
+> avec fichiers non suivis ou sorties de rendu ignorées : GARDÉS. Ensuite : intégrer IA2-c si ses garde-fous tiennent ;
+> ajouter le rapport de la vérification adverse à la page.
 > **Point de 3 h 35 (nuit)** : intégrées depuis 2 h 10 : MOD-2 (0.4.22, recettes par lots ; catégories `fo-*` du titane
 > exclues des lots par l'intégrateur après un échec du contrôle des boîtes à fluide), IA2-b (0.4.23, expansion par la carte,
 > seuils de forme en partie). MOD-V (modules au design distinct, branche worktree-agent-adfb469831c79e019, `1ed3ec0`) NON
