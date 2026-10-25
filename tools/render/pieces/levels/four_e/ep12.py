@@ -99,6 +99,24 @@ def lev(g, c):
     g.halo((x, y - 0.6, 1.4), M["_emit_rgb"], 7.0)
 
 
+def socle(g, c):
+    """Ronde 2 (richesse : socle de noir miroir nu) : pompes cryogéniques givrées aux angles avant du socle, conduites
+    chromées couchées vers la pile, boîtiers à voyant cyan."""
+    M = g.M
+    for sx in (-1, 1):
+        x, y = sx * 1.35, Y(-0.3)
+        g.cyl((x, y, Z_SOCLE + 0.2), "z", 0.2, 0.36, M["trim"], n=20, what="pompe")
+        g.torus((x, y, Z_SOCLE + 0.3), "z", 0.21, 0.04, M["frost"], n=20, m=6, what="givre")
+        F.sphere(g, (x, y, Z_SOCLE + 0.38), 0.2, M["chrome_mat"], n=20, m=8, sz=0.5)
+        g.torus((x, y, Z_SOCLE + 0.12), "z", 0.205, 0.02, M["emit"], n=20, m=5, what="anneau_cyan")
+        g.pipe([(x - sx * 0.15, y + 0.12, Z_SOCLE + 0.1), (sx * 0.95, Y(SYN) + 0.1, Z_SOCLE + 0.08)], 0.04,
+               M["chrome_mat"], fl_mat=M["frost"])
+        corps.boite(g, x - 0.18, x + 0.18, 0.15, 0.45, Z_SOCLE, Z_SOCLE + 0.22, [M["noir_miroir2"], M["chrome_mat"]],
+                    panel=0.2, faces="ts")
+        g.dome((x, Y(0.15) - 0.01, Z_SOCLE + 0.14), (0, -1, 0), 0.025, M["emit"], n=8, what="voyant")
+    givre(g, (0.0, Y(-1.0)), 7, 0.06, 0.6, Z_SOCLE + 0.04)
+
+
 def fumee(g, c):
     M = g.M
     x, yn = 1.6, 1.08

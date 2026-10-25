@@ -97,6 +97,31 @@ def chambre(g, c):
     g.halo((0, cy - RS - 0.3, CZ), M["_emit_rgb"], 8.0)
 
 
+def socle(g, c):
+    """Ronde 2 (richesse : le socle octogonal était nu à côté de la MG 13) : huit colonnes de confinement à bobines et
+    point violet sur le pourtour, câbles de cuivre vers le berceau, grilles d'évent."""
+    M = g.M
+    cy = Y(CYN)
+    z0 = Z_SOCLE + 0.04
+    for a_deg in (0, 60, 118, 160, 200, 236, 304, 340):
+        a = math.radians(a_deg)
+        x, y = 2.3 * math.cos(a), cy + 2.3 * math.sin(a)
+        g.cyl((x, y, z0 + 0.04), "z", 0.17, 0.08, M["chrome_fin"], n=8, phase=PH, style="hard", what="embase")
+        g.cyl((x, y, z0 + 0.36), "z", 0.11, 0.6, M["acier_noir"], n=16, what="colonne")
+        for z in (z0 + 0.22, z0 + 0.42):
+            g.torus((x, y, z), "z", 0.125, 0.045, M["cuivre_bobine"], n=16, m=6, what="bobine")
+        g.cyl((x, y, z0 + 0.68), "z", 0.13, 0.05, M["acier_canon"], n=16, what="chapeau")
+        g.dome((x, y, z0 + 0.71), (0, 0, 1), 0.06, M["emit2"] if a_deg % 3 == 0 else M["emit"], n=8, what="point")
+        d = corps.V((math.cos(a), math.sin(a), 0))
+        g.tube([corps.V((x, y, z0 + 0.05)) - d * 0.12, corps.V((x, y, z0 + 0.04)) - d * 0.45,
+                corps.V((0, cy, z0 + 0.06)) + d * (RS - 0.1)], 0.03, M["cuivre_plaque"], n=6, what="cable")
+    for a_deg in (215, 325):
+        a = math.radians(a_deg)
+        x, y = 1.95 * math.cos(a), cy + 1.95 * math.sin(a)
+        g.grille([corps.V((x - 0.2, y - 0.01, z0)), corps.V((x + 0.2, y - 0.01, z0)), corps.V((x + 0.2, y + 0.3, z0)),
+                  corps.V((x - 0.2, y + 0.3, z0))], 5, slat_mat=M["acier_noir"])
+
+
 def gueule(g, c, G):
     M = g.M
     zc = (G["bz0"] + G["bz1"]) / 2

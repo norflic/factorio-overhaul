@@ -104,6 +104,39 @@ def nacelle(g, c):
     g.halo(tuple(monde(-1.9, 0.0, -0.4)), M["_emit_rgb"], 4.0)
 
 
+def socle(g, c):
+    """Ronde 2 (richesse : le pont de titane était nu) : groupe hydraulique à l'avant droit, râtelier de bouteilles
+    d'argon à l'arrière droit (procédé Kroll), caisses à l'arrière gauche, feux de piste au bord avant."""
+    M = g.M
+    z = Z_SOCLE
+    corps.boite(g, 1.0, 2.05, -1.6, -0.95, z, z + 0.42, [M["titane_md"], M["tole_ti2"]], panel=0.3, faces="ts")
+    for x in (1.25, 1.75):
+        g.tube_shell((x, Y(-1.28), z + 0.46), "z", 0.17, 0.13, 0.06, M["titane_dk"], n=20, what="buse")
+        g.cyl((x, Y(-1.28), z + 0.43), "z", 0.13, 0.02, M["void"], n=16, style="flat", what="fond")
+        for k in range(5):
+            a = TAU * k / 5
+            g.box((x + 0.07 * math.cos(a), Y(-1.28) + 0.07 * math.sin(a), z + 0.44), (0.12, 0.03, 0.01),
+                  M["titane_cl"], "hard", R=Matrix.Rotation(a, 3, "Z"), what="pale")
+    g.box((1.52, Y(-1.6) - 0.012, z + 0.3), (0.9, 0.02, 0.05), M["orange_aero"], "hard", what="bande")
+    g.pipe([(1.1, Y(-1.0), z + 0.2), (0.7, Y(-0.6), z + 0.15), (tuple(monde(0.45))[0], tuple(monde(0.45))[1],
+                                                                  z + 0.12)], 0.045, M["bleu_nuit"],
+           fl_mat=M["orange_aero"])
+    for i in range(2):
+        for k in range(3):
+            x, yn = 1.45 + 0.24 * k, 1.75 + 0.3 * i
+            g.cyl((x, Y(yn), z + 0.3), "z", 0.09, 0.6, M["titane_dk"], n=14, what="bouteille")
+            g.cyl((x, Y(yn), z + 0.64), "z", 0.06, 0.08, M["orange_aero"], n=12, what="robinet")
+    g.box((1.69, Y(1.62), z + 0.45), (0.8, 0.04, 0.05), M["bleu_nuit"], "hard", what="sangle")
+    for (x, yn, h) in ((-1.95, 1.9, 0.3), (-1.55, 1.95, 0.24), (-1.75, 1.55, 0.2)):
+        corps.boite(g, x - 0.17, x + 0.17, yn - 0.15, yn + 0.15, z, z + h, [M["tole_ti"], M["titane_cl"]], panel=0.2,
+                    faces="ts")
+    for k in range(10):
+        x = -2.15 + 4.3 * k / 9
+        if abs(x) < 0.85:
+            continue
+        g.dome((x, Y(-1.85) + 0.05, z + 0.005), (0, 0, 1), 0.03, M["emit"], n=8, what="feu")
+
+
 def fumee(g, c):
     """Tuyère verticale à volets, bague orange, lueur bleu-blanc."""
     M = g.M

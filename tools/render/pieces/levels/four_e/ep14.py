@@ -97,6 +97,40 @@ def porte(g, c):
     g.halo((RX, cy - 0.8, RZ), M["_emit_rgb"], 7.0)
 
 
+def socle(g, c):
+    """Ronde 2 (richesse : grandes surfaces indigo unies) : plaques à chevron blanc lunaire sur les contremarches,
+    pylônes-relais à étoile sur les deux premiers gradins, médaillons étoilés aux angles."""
+    M = g.M
+    z0 = c.T["sole_h"]
+    for i, (hx, yn0, yn1, z1) in enumerate(GRADINS):
+        zb = z0 if i == 0 else GRADINS[i - 1][3]
+        yf = Y(yn0) - 0.035
+        n = int(2 * hx / 0.55)
+        for k in range(n):
+            x = -hx + 0.3 + (2 * hx - 0.6) * k / max(1, n - 1)
+            if abs(x) < 1.0 and i == 0:
+                continue
+            zm = (zb + z1) / 2
+            for s in (-1, 1):
+                g.box((x + s * 0.06, yf, zm), (0.14, 0.03, 0.035), M["blanc_lunaire"], "hard",
+                      R=Matrix.Rotation(-s * 0.55, 3, "Y"), what="chevron")
+            g.dome((x, yf - 0.01, zm + 0.07), (0, -1, 0), 0.02, M["emit"], n=6, what="point")
+        if i < 2:
+            for x in (-hx + 0.25, -0.6 * hx, 0.6 * hx):
+                y = Y(yn0 + 0.2)
+                g.box((x, y, z1 + 0.18), (0.07, 0.07, 0.36), M["blanc_lunaire"], "hard", what="pylone")
+                g.box((x, y, z1 + 0.04), (0.16, 0.16, 0.08), M["noir_spatial"], "hard", what="semelle")
+                g.dome((x, y, z1 + 0.37), (0, 0, 1), 0.04, M["emit2"], n=8, what="etoile_relais")
+    for sx in (-1, 1):
+        x, y = sx * 2.45, Y(2.3)
+        g.cyl((x, y, GRADINS[0][3] + 0.02), "z", 0.25, 0.04, M["blanc_lunaire"], n=24, what="medaillon")
+        g.cyl((x, y, GRADINS[0][3] + 0.045), "z", 0.2, 0.012, M["horizon_porte"], n=24, style="flat", what="horizon")
+        for k in range(6):
+            a = TAU * k / 6 + 0.3
+            g.dome((x + 0.12 * math.cos(a), y + 0.12 * math.sin(a), GRADINS[0][3] + 0.05), (0, 0, 1), 0.015, M["emit"],
+                   n=6, what="etoile")
+
+
 def gueule(g, c, G):
     M = g.M
     zt = G["z1"] + 0.06

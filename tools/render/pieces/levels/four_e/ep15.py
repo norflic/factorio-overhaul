@@ -85,6 +85,29 @@ def griffes(g, c):
         g.dome(pts[0] + corps.V((0, 0, 0.05)), (0, 0, 1), 0.06, M["or_rivet"], n=8)
 
 
+def socle(g, c):
+    """Ronde 2 (richesse : couronne du socle nue) : sept bornes de noir chaud à chapeau d'or et pointe incandescente sur
+    le pourtour, canaux lumineux en tirets vers la vasque, plaques d'or rivetées."""
+    M = g.M
+    cy = Y(CYN)
+    for a_deg in (0, 150, 185, 220, 320, 355, 115):
+        a = math.radians(a_deg)
+        x, y = 2.35 * math.cos(a), cy + 2.35 * math.sin(a)
+        g.cyl((x, y, 0.45 + 0.25), "z", 0.13, 0.5, M["noir_profond"], n=6, r2=0.09, style="hard", what="borne")
+        g.cyl((x, y, 0.97), "z", 0.12, 0.06, M["or_chauffe"], n=6, style="hard", what="chapeau")
+        g.cyl((x, y, 1.08), "z", 0.05, 0.16, M["emit"], n=6, r2=0.0, what="pointe")
+        d = corps.V((math.cos(a), math.sin(a), 0))
+        for k in range(3):
+            g.box(corps.V((x, y, 0.455)) - d * (0.22 + 0.12 * k), (0.07, 0.02, 0.01), M["or_vif"], "flat",
+                  R=corps.Matrix.Rotation(a, 3, "Z"), what="canal")
+    for k in range(12):
+        a = math.pi + math.pi * (k + 0.5) / 12
+        x, y = 1.72 * math.cos(a), cy + 1.72 * math.sin(a)
+        g.box((x, y, 0.805), (0.22, 0.12, 0.02), M["or_chauffe"], "hard", R=corps.Matrix.Rotation(a + math.pi / 2, 3, "Z"),
+              what="plaque_or")
+        g.dome((x, y, 0.82), (0, 0, 1), 0.016, M["or_rivet"], n=6)
+
+
 def gueule(g, c, G):
     M = g.M
     zr = G.get("zr", (G["bz0"] + G["bz1"]) / 2)
