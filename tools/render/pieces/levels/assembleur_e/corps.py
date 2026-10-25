@@ -770,7 +770,8 @@ def liaisons(g, c):
         p0 = B(x0, c.yb - 0.02, c.zs + 0.25)
         p1 = B(sx * tx * 0.45, c.yt + ty * 0.7, c.zt + 0.1)
         g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.15)), p1], r, M["steel_dk"], fl_mat=M["steel"], bolt_mat=M["rivet"])
-    g.cable(B(0.15, c.yb - 0.02, c.zs + 0.35), B(0.1, c.yt + ty * 0.6, c.zt + 0.2), 0.08, 0.02, M["rubber"])
+    xc = 0.15 if c.plan != "L" else min(0.15, c.Lx - 0.1)
+    g.cable(B(xc, c.yb - 0.02, c.zs + 0.35), B(0.1, c.yt + ty * 0.6, c.zt + 0.2), 0.08, 0.02, M["rubber"])
 
 
 # ------------------------------------------------------------------------------------------------

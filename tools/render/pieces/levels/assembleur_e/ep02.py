@@ -51,11 +51,11 @@ def socle(g, c):
     zw = c.zw_pans
     _briques(g, -c.xb, c.dos_ext[1], yb, zs, zw)      # ronde F3-A3 : le dos s'arrête au coin vide (nord-est)
     # lanternes pendues à la face du dos et braises au chapeau du conduit (nuit)
-    for x in (-0.62, -0.32):
+    for x in (-0.66, -0.42):
         g.box(B(x, yb - 0.08, zw - 0.05), (0.02, 0.1, 0.02), M["fer_noir"], "hard", what="potence")
         g.box(B(x, yb - 0.13, zw - 0.14), (0.08, 0.08 * SQ2, 0.11), M["fer_noir"], "hard", what="lanterne")
         g.box(B(x, yb - 0.13, zw - 0.14), (0.06, 0.09 * SQ2, 0.08), M["emit"], "soft", what="flamme_lanterne")
-        halo(g, x, yb - 0.25, zw - 0.15, 0.7)
+        halo(g, x, yb - 0.25, zw - 0.15, 1.1)       # F3-B : nuit de l'âge 2 plus claire
     # face sud de l'AILE : briques, FOYER voûté rougeoyant, hotte de fer, soufflet
     xa, xz, yf = -h + 0.02, -c.xb, c.yf
     _briques(g, xa, xz, yf, c.ze + 0.05, c.z_aile - 0.03)
@@ -72,7 +72,7 @@ def socle(g, c):
             B(xf + 0.1, yf - 0.02, c.z_aile - 0.08), B(xf - 0.1, yf - 0.02, c.z_aile - 0.08)], M["fer_noir"], "hard", "hotte")
     for z in (zf1 + 0.1, zf1 + 0.16):
         g.box(B(xf, yf - 0.32, z), (0.52, 0.02, 0.025), M["fer_clair_f"], "hard", what="cerclage")
-    halo(g, xf, yf - 0.25, zf0 + 0.15, 2.4)
+    halo(g, xf, yf - 0.25, zf0 + 0.15, 3.4)          # F3-B : nuit de l'âge 2 plus claire
     c.reserves.append((xf, yf - 0.2, 0.3))
     # conduit de briques sur l'aile (sortie de la hotte)
     g.box(B(xf, (yf + yb) / 2, c.z_aile + 0.12), (0.24, 0.24 * SQ2, 0.24), M["brique"], "hard", what="conduit")
@@ -89,7 +89,7 @@ def socle(g, c):
     g.cyl(B(xs - 0.2, ys - 0.05, zs + 0.16), "x", 0.03, 0.18, M["fer_noir"], n=8, what="buse")
     c.reserves.append((xs, ys, 0.22))
     # outils pendus sur la face du dos
-    for k, x in enumerate((-0.12, -0.01, 0.1, 0.2)):          # ronde F3-A3 : le dos s'arrête en x = 0,3
+    for k, x in enumerate((-0.25, -0.14, -0.03, 0.07)):       # F3-B : le dos s'arrête en x = 0,15
         g.box(B(x, yb - 0.05, zw - 0.15), (0.025, 0.02, 0.22), M["fer_noir"], "hard",
               R=Matrix.Rotation(0.12 * (1 if k % 2 else -1), 3, "Y"), what="outil_pendu")
         g.dome(B(x, yb - 0.04, zw - 0.03), (0, -1, 0), 0.018, M["fer_clair_f"])
@@ -164,8 +164,10 @@ def sortie(g, c, p):
     M = g.M
     corps.bac(g, c, p, M["chene"], M["fer_clair_f"], forme="lingot")
     for k in range(3):
-        g.torus(B(p["x"] - 0.1 + 0.1 * k, p["yn"] + 0.05, p["z"] + 0.16), "z", 0.04, 0.01, M["fer_noir"], n=12, m=4,
-                what="fer_a_cheval")
+        # F3-B (nuit) : un fer encore rouge, sorti de la forge
+        g.torus(B(p["x"] - 0.1 + 0.1 * k, p["yn"] + 0.05, p["z"] + 0.16), "z", 0.04, 0.01,
+                M["emit"] if k == 1 else M["fer_noir"], n=12, m=4, what="fer_a_cheval")
+    halo(g, p["x"], p["yn"], p["z"] + 0.25, 0.5)
 
 
 def piece(g, c):

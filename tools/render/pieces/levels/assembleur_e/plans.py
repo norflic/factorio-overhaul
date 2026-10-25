@@ -134,7 +134,7 @@ def etendues(c):
     if c.plan == "L":
         # coin vide : tout le quart nord-est derrière la table (essai : au ras de la table, le coin ne faisait que 10 %
         # de l'emprise ; ici 16 à 17 %, le dos ne couvre plus que la moitié ouest)
-        Lx = 0.06 * s + 0.12
+        Lx = 0.06 * s + 0.12 if s > 3 else 0.15      # F3-B (retouche de l'âge 2, 3×3 : coin vide plus large)
         Ly = c.yt + ty + 0.08
         c.Lx, c.Ly = Lx, Ly
         c.emb_parts = [(-h, h, -h, Ly), (-h, Lx, Ly, h)]

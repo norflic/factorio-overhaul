@@ -30,7 +30,7 @@ TRAVAIL = dict(couches=2, images=24, organe="volant qui tourne (24 positions de 
                                            "montent et descendent ; jet de vapeur à la soupape, foyer (couche glow)")
 HABILLAGE = dict(ages.CORPS[3], capots=("vert_loco", "cuivre_capot"), plan='tour', forme_embase='carre',
                  forme_dos='plat', forme_joues='caisson', forme_portique='aucun')
-DENSITE = dict(p=0.65, lampes=0.16)     # ronde F3-A3 : nuit trop sombre
+DENSITE = dict(p=0.65, lampes=0.24)     # rondes F3-A3 et F3-B : nuit trop sombre
 
 
 def matieres(metal, M):
@@ -74,7 +74,7 @@ def socle(g, c):
     g.box(B(xc - 0.43, yc - 0.17, zc - 0.05), (0.2, 0.04, 0.2), M["cuivre_sombre"], "hard", what="cadre_foyer")
     for k in range(4):
         g.box(B(xc - 0.5 + 0.045 * k, yc - 0.2, zc - 0.06), (0.025, 0.02, 0.14), M["emit"], "soft", what="grille")
-    halo(g, xc - 0.43, yc - 0.3, zc - 0.05, 1.6)
+    halo(g, xc - 0.43, yc - 0.3, zc - 0.05, 2.6)      # F3-B : nuit de l'âge 3 plus claire
     P2.gauge(g, B(xc + 0.1, yc - 0.18, zc + 0.05), (0, -1, 0.2), 0.06, M, face=M["emit_soft"])
     c.reserves.append((xc, yc, 0.55))
     # deux conduites de vapeur de la chaudière à la tour (cuivre, brides de laiton)
@@ -90,7 +90,7 @@ def socle(g, c):
     c.reserves.append((0.62, 0.35, 0.22))
     for x in (-0.7, 0.7):
         F.lantern(g, tuple(B(x, -0.75, zr)), M["emit"])
-        halo(g, x, -0.75, zr + 0.1, 0.5)
+        halo(g, x, -0.75, zr + 0.1, 1.0)
         c.reserves.append((x, -0.75, 0.1))
 
 
