@@ -566,6 +566,49 @@ function Ia3.explore_requests(f)
   return st and st.explore or {}
 end
 
+--- Interface distante de LECTURE (bancs) : état du cerveau d'une équipe (« player » ou clé de faction).
+local function team_of(key)
+  if key == "player" then return State.faction("player") end
+  local war = State.war()
+  for _, id in ipairs(sorted_keys(war and war.factions)) do
+    local f = war.factions[id]
+    if f.key == key then return f end
+  end
+  return nil
+end
+
+remote.add_interface("fo-ia3c", {
+  status = function(key)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    local t = f.team
+    local st = t.ia3
+    local out = { ia3c = t.ia3c == true, outposts = {}, projects = {}, taken = 0, saturated = {}, explore = {},
+      paliers = {}, labs = 0, tech = f.tech or 0 }
+    for _, oid in ipairs(sorted_keys(f.outposts)) do
+      local k = f.outposts[oid].kind
+      out.outposts[k] = (out.outposts[k] or 0) + 1
+    end
+    for k, v in pairs((t.ia3m and t.ia3m.paliers) or {}) do out.paliers[k] = v end
+    if st then
+      local taken = {}
+      for _, tk in ipairs(Board.get(f).list or {}) do if tk.worker and tk.ia3 then taken[tk.ia3] = true end end
+      for _, p in ipairs(st.projects or {}) do
+        out.projects[#out.projects + 1] = { key = p.key, state = p.state, cause = p.cause, taken = taken[p.id] or false }
+        if taken[p.id] then out.taken = out.taken + 1 end
+      end
+      out.saturated = sorted_keys(st.saturated)
+      out.explore = sorted_keys(st.explore)
+      out.fond_dropped = st.fond_dropped or 0
+      out.lab = st.lab and st.lab.tech or nil
+      for _, e in ipairs(st.labs or {}) do if e.valid then out.labs = out.labs + 1 end end
+      out.K = st.last_plan and st.last_plan.K or 0
+      out.active = st.last_plan and st.last_plan.active or 0
+    end
+    return out
+  end,
+})
+
 ---------------------------------------------------------------------------------------------------
 -- Mesures (les deux cerveaux) : paliers, projets par minute
 ---------------------------------------------------------------------------------------------------
