@@ -48,7 +48,7 @@ def tour(g, c):
     for (x, y) in cp.sym4((rp, rp)):
         cp.poutre(g, (x, y, zu + 0.1), (x * 1.08, y * 1.08, zb), 0.25, M["bronze_clair"], "branche", h=0.17)
         g.box((x * 1.08, y * 1.08, zb + 0.03), (0.28, 0.28, 0.06), M["bronze_capot"], "hard", what="embout")
-    for zz in (0.5, 0.68):
+    for zz in (0.25, 0.45):     # ronde 2 : à 0,5 et 0,68 l'anneau arrière sortait du tablier à l'écran (trou enfermé)
         z = zu + (zb - zu) * zz
         rr = rp * (1.0 + 0.08 * (z - zu) / (zb - zu)) * 1.414
         g.torus((0, 0, z), "z", rr, 0.03, M["emit"], n=48, m=6, what="onde")
