@@ -212,6 +212,12 @@ tabs.equipe = {
       label(c, { "fo-ia1i.staff-age", math.floor((game.tick - (L.tick or game.tick)) / 60) }, { color = GREY })
     end
 
+    -- Journal AVANT les managers (captures du 25/10 : en bas, il sortait de la fenêtre à 720 px de haut).
+    heading(c, { "fo-ia1i.journal" })
+    local recent = Journal.recent(M.JOURNAL_SHOWN)
+    if #recent == 0 then label(c, { "fo-ia1i.journal-empty" }, { color = GREY }) end
+    for _, e in ipairs(recent) do label(c, Journal.text(e)) end
+
     heading(c, { "fo-ia1i.managers" })
     local lines = Poles.lines(f)
     if #lines <= 1 then
@@ -235,11 +241,6 @@ tabs.equipe = {
         item_button(grid, name, contents[name])
       end
     end
-
-    heading(c, { "fo-ia1i.journal" })
-    local recent = Journal.recent(M.JOURNAL_SHOWN)
-    if #recent == 0 then label(c, { "fo-ia1i.journal-empty" }, { color = GREY }) end
-    for _, e in ipairs(recent) do label(c, Journal.text(e)) end
 
     coming(c, "coming-equipe")
   end,

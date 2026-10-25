@@ -279,6 +279,9 @@ return {
     if not st.player_seen then
       st.player_seen = e.tick
       ctx.log("joueur connecte : " .. p.name .. " (index " .. p.index .. ") au tick " .. e.tick)
+      -- La barre de raccourcis d'un joueur garde SON ordre (player-data.json) : un raccourci nouveau s'ajoute à la fin.
+      ctx.check(p.is_shortcut_available("fo-team-gui"), "raccourci fo-team-gui disponible pour le joueur",
+        "ordre du prototype " .. tostring(game.shortcut_prototypes["fo-team-gui"].order))
       ctx.call("profiler", true)
     end
     -- Surveillance : toute fermeture de la fenêtre que le banc n'a pas demandée est journalisée avec ce que le moteur
