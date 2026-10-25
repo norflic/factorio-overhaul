@@ -577,8 +577,11 @@ end
 -- 5. Diagnostic d'un module mesuré
 ---------------------------------------------------------------------------------------------------
 --- module : { id, g (gabarit posé), item (sortie suivie), demand_per_min (objectif), measured_per_min (production lue),
----   inputs = { { item, measured_per_min (consommation lue) } }, witness = { samples, shortage = { [objet] = relevés
----   où il manquait }, output_full = relevés sortie pleine } }. Le nominal et les besoins d'entrée viennent du gabarit
+---   inputs = { { item, measured_per_min (consommation lue) } }, witness = { samples (relevés : un tour sur TOUTES
+---   les machines témoins), shortage = { [objet] = relevés où il manquait à au moins une d'elles }, output_full =
+---   relevés où au moins une avait sa sortie pleine } } : sur une ligne affamée, le premier assembleur prend tout et
+---   le dernier manque toujours (banc ia1-diag, essai 1) ; compté machine par machine, le manque se dilue avec le
+---   nombre de témoins. Le nominal et les besoins d'entrée viennent du gabarit
 ---   (g.nominal, g.inputs, en /s). Rend { id, verdict, nominal_per_min, ratio, deficit_per_min, deficit_ratio,
 ---   lacking, upstream, options, choice }.
 function P.diagnose_one(mod, ctx)
@@ -841,10 +844,11 @@ P.ARENA = {
 }
 P.ARENA_MAX_LEVEL = 6          -- plafond des bâtiments de l'arène (centre de niveau 3 : 2 × 3)
 
---- Module du modèle (débits calculés, pas mesurés) pour un cas de P.ARENA : la sortie suit la part d'entrée livrée
---- la plus faible (débit nominal × min(feed)) ; un ingrédient livré sous 100 % manque chez les témoins à chaque relevé.
-function P.model_module(case)
-  local g = Mod.get(case.key)
+--- Module du modèle (débits calculés, pas mesurés) pour un cas de P.ARENA (gabarit `g` : celui du catalogue par
+--- défaut) : la sortie suit la part d'entrée livrée la plus faible (débit nominal × min(feed)) ; un ingrédient livré
+--- sous 100 % manque chez les témoins à chaque relevé.
+function P.model_module(case, g)
+  g = g or Mod.get(case.key)
   local nominal = (g.nominal[case.item] or 0) * 60
   local share = 1
   local wit = { samples = 10, shortage = {}, output_full = 0 }
