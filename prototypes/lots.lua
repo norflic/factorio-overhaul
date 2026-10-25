@@ -79,7 +79,8 @@ local function display_name(base, blk)
   return { "item-name." .. p.name }
 end
 
---- Icônes du lot : celles de la recette (ou du produit principal) et le chiffre du lot en bas à droite.
+--- Icônes du lot : celles de la recette (ou du produit principal) et le chiffre du lot en bas, centré. Chiffres côte à
+--- côte sans se chevaucher (première image, MOD-2 : « 100 » serré à 5 unités pour des chiffres de ~10 se lisait « 10 »).
 local function lot_icons(base, blk, k)
   local layers = layers_of(base)
   if not layers then
@@ -89,15 +90,15 @@ local function lot_icons(base, blk, k)
   if not layers or not layers[1].icon_size then return nil end
   local f = layers[1].icon_size / 64
   local s = tostring(k)
-  local step = 5 * f
-  local x0 = 12 * f - (#s - 1) * step
+  local step = 7.5 * f
+  local x0 = -(#s - 1) * step / 2
   for i = 1, #s do
     layers[#layers + 1] = {
       icon = string.format(DIGIT, tonumber(s:sub(i, i))),
       icon_size = 64,
       icon_mipmaps = 4,
-      scale = 0.18 * f,
-      shift = { x0 + (i - 1) * step, 10 * f },
+      scale = 0.14 * f,
+      shift = { x0 + (i - 1) * step, 11 * f },
     }
   end
   return layers
