@@ -240,6 +240,26 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 25/10, vers 9 h 15, **réponses du DC aux questions de la nuit, par QCM dans Claude Code** (il demande ce format : « j'ai rien
+  compris au formart de réponse, pour moi ça veut rien dire, posez moi les questions ICI avec un choix QCM où je peux cliquer
+  dessus et ça fonctionne DANS claude code ») ; réponses mot pour mot dans OBJECTIFS §4 (lignes R-QCM-25).
+  → **Décision D-17** :
+  - **Modules (remplace les paliers de D-15)** : vitesse ET productivité multipliées ; vitesse +20 % au palier 1 puis +10 %
+    par palier (palier 10 : +110 %) ; productivité +10 % puis +5 % par palier (palier 10 : +55 %, plafond du moteur
+    +327 %) ; énergie à 60 % du bonus (D-15) ; au plafond × 328,67, l'énergie garde l'écart (Q-M5 B). Modules colorés PAR
+    TYPE, forme par type, chiffre romain du palier, productivité en engrenage ; voyants des balises à la couleur de l'ÂGE.
+  - **Logistique au-delà de ~120 objets/s** : bras « capables de prendre énormément d'objets à la fois », convoyeurs à
+    vitesse « exponentielle » par palier, puis un « tube » qui SIMULE les objets (débit abstrait) quand le moteur ne suit
+    plus : lot à concevoir (LOG-1), contraintes moteur 1.1 à établir d'abord.
+  - **Titane** : une recette consomme l'hydrogène en trop ; ilménite feuille I2 sombre, nuit assombrie (et sol des cratères
+    moins bleu) ; saumure au visuel propre.
+  - **Terres rares (X2)** : hausse du centre ACCEPTÉE ; sous-produits : leur donner un usage (pas de simple destruction) ;
+    monazite et sables noirs À REFAIRE.
+  - **Équipes** : défendre d'abord (tourelles à un avant-poste avant d'y envoyer des ouvriers) ; laisser grandir les équipes
+    au-delà de leur effectif de départ ; plafond du minage à la main gardé à 20 % ; gardes d'avant-postes COUPÉES.
+  - **Couleur d'équipe** : 25 %, liserés seulement, nuit inchangée ; teinte automatique pour un nombre d'équipes choisi.
+  - **Laser** : troisième ronde avant production.
+  - **D-16 confirmée en entier** (devient définitive, réversible).
 - 24/10, vers 21 h 45, **le DC part dormir** : « Je vais dormir, passez la nuit a faire de votre mieux pour l'avancée du projet (si vous pouvez même tout terminer cette nuit c'est parfait) »
   → **Décision D-16 (choix provisoires de l'orchestrateur pour avancer la nuit, réversibles, à confirmer au réveil)** :
   Q-M4 : le catalogue actuel (3 types × 10 paliers) est gardé, la productivité reste additionnée ; IA1 à IA5 : les
