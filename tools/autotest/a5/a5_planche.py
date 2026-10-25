@@ -46,7 +46,7 @@ QUESTIONS = [
     "Q-A5-1. Force de la couleur d'équipe : (A) 25 % (à peine teinté) ; (B) 40 % (lisible de près, palette gardée) ;",
     "         (C) 60 % (bien lisible, plus saturé). Recommandation de l'agent : B.",
     "Q-A5-2. Quelles pièces : (A) celles de l'essai (chapeau du dessus + liserés ou plaques) ; (B) le chapeau seul,",
-    "         une pièce compacte, 7 à 30 fois moins chère en mémoire vidéo (âge 15 : à trouver, le dôme n'a pas de",
+    "         une pièce compacte, 7 à 32 fois moins chère en mémoire vidéo (âge 15 : à trouver, le dôme n'a pas de",
     "         chapeau visible) ; (C) autre chose (dire laquelle).",
     "Q-A5-3. La nuit, la couleur ne se voit presque plus : (A) c'est bien ainsi ; (B) ajouter un petit voyant",
     "         lumineux à la couleur de l'équipe (à essayer, non fait).",
