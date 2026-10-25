@@ -1,7 +1,7 @@
 # IA3 « le cerveau des PNJ » : conception (document qui fait foi)
 
 Architecte de la section IA3, 25/10/2026. Décision du DC : D-18 (RD_LOG ; OBJECTIFS §4, R-QCM-25g). Phase CONCEPTION :
-rien n'est branché dans le jeu. **Revue adverse du 25/10 (ingénieur principal) intégrée** : 3 défauts bloquants, 12 majeurs,
+rien n'est branché dans le jeu. **Revue adverse du 25/10 (ingénieur principal) intégrée** : 3 défauts bloquants, 13 majeurs,
 6 mineurs, chacun corrigé à sa place et résumé au §8 (texte complet : `fo-logs\2026-10-25_IA3-dev\REVUE.md`).
 
 ## 0. En bref
@@ -18,8 +18,9 @@ rien n'est branché dans le jeu. **Revue adverse du 25/10 (ingénieur principal)
    qu'on lui avait promis n'y est plus (la trace mesurée de « l'arrachage »).
 5. Il **porte au lieu d'automatiser** (41 à 58 % du travail en tournées), **ne cherche jamais le pétrole**, et prospecte
    **sans brouillard**.
-6. Les factions **ne paient pas la vraie recherche** : 290 packs pour des technologies qui en coûtent 6 415, dont une
-   (`military-3`) qui exige le pétrole (mesuré par le prototype, §3.8).
+6. Les factions **ne paient pas la vraie recherche** : 290 packs pour des technologies qui en coûtent 705 aux coûts
+   FINAUX du mod (6 415 aux coûts vanilla : chiffre de conception corrigé par la revue, M13), dont une (`military-3`)
+   qui exige le pétrole (§3.8).
 
 **La conception (dix lignes)** :
 1. Le **chef** (IA2, gardé) fixe le cap une fois par minute : des POIDS par famille de buts selon le caractère.
@@ -500,23 +501,30 @@ Mesure du DC « factions qui passent les âges » : §6, lot IA3-i.
 
 ### 3.8 Fait mesuré par le prototype : les factions ne paient pas la vraie recherche
 
-Le test calcule le coût RÉEL (prototypes vanilla 1.1.91) des technologies que les factions reçoivent aujourd'hui à
-chaque niveau (`T.unlocks`, `shared/team/config.lua:146`) contre ce qu'elles paient (`T.research`) :
+Le test calcule le coût RÉEL des technologies que les factions reçoivent aujourd'hui à chaque niveau (`T.unlocks`,
+`shared/team/config.lua:146`) contre ce qu'elles paient (`T.research`). **Correction de la revue (M13)** : la
+conception l'avait calculé sur les prototypes VANILLA (`tests/fixtures/tech_ai3.lua`, lus dans
+`base/prototypes/technology.lua`) ; or le mod RÉÉCRIT le coût des technologies (`automation` : 1 unité au lieu de 10,
+vu en moteur réel par E180). Coûts FINAUX (vanilla + mod) : `tests/fixtures/tech_ai3_final.lua`, exporté par
+`harness.lua --dump-techs` (lot IA3-0).
 
-| Niveau | Payé (packs) | Coût réel des technologies reçues (packs) |
-|---|---|---|
-| 0 (au départ) | 0 | 30 |
-| 1 | 30 | 395 |
-| 2 | 90 | 2 640 |
-| 3 | 170 | 3 350, dont 100 packs CHIMIQUES (`military-3`) |
-| 0 à 3 | 290 | 6 415 (22 fois plus) |
+| Niveau | Payé (packs) | Coût réel FINAL des technologies reçues (packs) | (vanilla, faux en jeu) |
+|---|---|---|---|
+| 0 (au départ) | 0 | 20 | 30 |
+| 1 | 30 | 210 | 395 |
+| 2 | 90 | 265 | 2 640 |
+| 3 | 170 | 210, dont 4 packs CHIMIQUES (`military-3`) | 3 350 |
+| 0 à 3 | 290 | **705 (2,4 fois plus)** | 6 415 (22 fois) |
 
 Deux conséquences, dites franchement :
-1. Aujourd'hui, une faction au niveau 3 a des technologies militaires qu'aucun joueur ne peut avoir sans pétrole.
-2. Un cerveau qui « joue comme un joueur » paie la VRAIE recherche : 1 080 packs rouges et 915 verts pour atteindre le
-   pack chimique (prototype, prérequis compris), soit environ 233 PNJ-minutes de fabrication à la main, ou des
-   assembleurs. Les factions iront donc moins vite en « niveaux » au début, et plus vite ensuite (automatisation,
-   pétrole). Les critères (§6) sont écrits en vraies technologies, pas en niveaux.
+1. Aujourd'hui, une faction au niveau 3 a des technologies militaires qu'aucun joueur ne peut avoir sans pétrole
+   (inchangé avec les coûts finaux : `military-3` demande 4 packs chimiques).
+2. Un cerveau qui « joue comme un joueur » paie la VRAIE recherche. Aux coûts finaux, elle est BON MARCHÉ au début :
+   palier 3 (pack militaire) = 40 packs (35 rouges, 5 verts) et 325 s de laboratoire, contre 170 + 90 + 30 packs payés
+   aujourd'hui pour R1 à R3 ; pack chimique = 129 packs (88 rouges, 41 verts) et 1 380 s de laboratoire. Ce qui coûte,
+   ce sont les LABORATOIRES (fabriqués, posés) et le temps de laboratoire, pas les packs. La conclusion de la
+   conception (« moins vite en niveaux au début ») est donc FAUSSE pour ce mod : la vraie recherche est plutôt plus
+   rapide que l'ancienne. Les critères (§6) sont écrits en vraies technologies, pas en niveaux.
 
 ## 4. Les expéditions
 
@@ -711,9 +719,16 @@ Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.
   posés près du coffre. Bonus des technologies, événement de fin et fenêtre : ceux du moteur. Quand IA3-e sait poser
   une centrale, les laboratoires alimentés prennent le relais (la règle de calcul est la même). E180 essaie les DEUX
   voies.
-- **Combien de laboratoires (revue M12).** Le palier 3 demande 1 625 secondes de laboratoire : 27 min avec UN
-  laboratoire, plus que la cible (25 min). Le nombre est une décision de CAPACITÉ générique : `⌈secondes de
-  laboratoire restantes ÷ fenêtre visée (10 min)⌉`, plafonnée par le coût d'un laboratoire comparé au temps gagné.
+- **La voie « comme un joueur de CE mod » (proposée à l'intégrateur et au DC).** Le graphe des époques X0
+  (`shared/content/epochs.lua`, bâtiments de l'époque 1) prévoit un **laboratoire à combustion** (`fo-burner-lab`,
+  charbon, vitesse 0,5, packs rouges et verts) et un atelier à combustion ; ni l'un ni l'autre n'existe en jeu le
+  25/10. Livrés par un lot de contenu, ils donneraient aux factions (et au joueur) de vrais laboratoires sans centrale :
+  la recherche d'IA3-c deviendrait entièrement celle du moteur, sans avancement écrit par script.
+- **Combien de laboratoires (revue M12, chiffre corrigé par M13).** Aux coûts FINAUX, le palier 3 demande 325 s de
+  laboratoire (5,4 min avec UN laboratoire ; la revue avait d'abord écrit 27 min, sur les coûts vanilla) et le pack
+  chimique 1 380 s (23 min). Le nombre reste une décision de CAPACITÉ générique : `⌈secondes de laboratoire
+  restantes ÷ fenêtre visée (10 min)⌉`, plafonnée par le coût d'un laboratoire comparé au temps gagné : 1 laboratoire
+  suffit jusqu'au palier 3, 2 à 3 pour le palier 4.
 - Les factions gardent ce qu'elles ont déjà reçu dans une partie en cours (§5.4) ; aucune technologie n'est retirée.
 
 ### 5.3 Déterminisme et budget de calcul
@@ -794,16 +809,17 @@ Principe : le joueur voit des INTENTIONS et des RAISONS, jamais un script ; aucu
 
 ### 6.1 Mesures communes et critères d'acceptation de la section
 
-**Paliers de recherche, en vraies technologies** (prototype, `G.tech_packs`, prérequis compris, vanilla 1.1.91) :
-le palier k est atteint quand la technologie qui débloque le k-ième pack est recherchée ET que 10 de ces packs sont
-fabriqués (40 pour le palier 4, comme l'ancien niveau 4).
+**Paliers de recherche, en vraies technologies** (`G.tech_packs`, prérequis compris ; coûts FINAUX vanilla + mod,
+`tests/fixtures/tech_ai3_final.lua` ; la conception citait les coûts vanilla, faux en jeu : revue M13) : le palier k est
+atteint quand la technologie qui débloque le k-ième pack est recherchée ET que 10 de ces packs sont fabriqués (40 pour
+le palier 4, comme l'ancien niveau 4).
 
-| Palier | Technologie | Technologies | Packs (rouges + verts) | Secondes de laboratoire (un laboratoire) |
-|---|---|---|---|---|
-| 1 | `automation` | 1 | 10 + 0 | 100 |
-| 2 | `logistic-science-pack` | 1 | 75 + 0 | 375 |
-| 3 | `military-science-pack` | 6 | 195 + 50 | 1 625 |
-| 4 | `chemical-science-pack` (pétrole) | 12 | 1 080 + 915 | 21 275 (6 à 10 laboratoires pour tenir 90 min) |
+| Palier | Technologie | Technologies | Packs (rouges + verts), FINAUX | Secondes de laboratoire (un laboratoire), FINALES | (vanilla) |
+|---|---|---|---|---|---|
+| 1 | `automation` | 1 | 1 + 0 | 10 | 10 packs, 100 s |
+| 2 | `logistic-science-pack` | 1 | 11 + 0 | 55 | 75, 375 s |
+| 3 | `military-science-pack` | 6 | 35 + 5 | 325 | 245, 1 625 s |
+| 4 | `chemical-science-pack` (pétrole) | 12 | 88 + 41 | 1 380 (23 min : 2 à 3 laboratoires) | 1 995, 21 275 s |
 
 Pendant les lots rapides (IA3-a, IA3-b), l'ancien système de niveaux reste en place : les critères y sont écrits en
 NIVEAUX (R1 à R3, comme IA3-DIAG) ; à partir d'IA3-c, en PALIERS.
@@ -892,8 +908,8 @@ se mesure dans `verif-guide` (première attaque, pertes du joueur).
   (§5.2, revue B2 : pas de centrale à poser avant IA3-e) ; migration (§5.4) ; fenêtre : projets, raisons (§5.5).
 - Preuve : `ia3d-*` 4 graines, avant / après sur la même source (réglage) ; banc de migration en double source ;
   captures de la fenêtre.
-- Critères : palier 1 ≤ 6 min, palier 2 ≤ 12 min, **palier 3 ≤ 25 min** (8 PNJ ; au moins 2 laboratoires du QG dès
-  10 min, M12) ; au moins 3 projets productifs en même temps à 8 PNJ ; K3 et K3b tenus ; K6 = 0 ; variété IA2 (mesures
+- Critères : palier 1 ≤ 6 min, palier 2 ≤ 12 min, **palier 3 ≤ 25 min** (8 PNJ ; 1 laboratoire du QG suffit aux coûts
+  finaux, M12 et M13) ; au moins 3 projets productifs en même temps à 8 PNJ ; K3 et K3b tenus ; K6 = 0 ; variété IA2 (mesures
   M1, M2) pas pire ; K9, K10, K11, K12.
 - Risque : le plus gros changement de comportement ; vraie recherche plus chère (§3.8) : début plus lent en
   « niveaux » ; à surveiller dès 10 min (palier 1 ≤ 6 min).
@@ -945,9 +961,11 @@ rapides (0, a, b, d) qui donnent les premiers effets visibles.
 
 1. **IA1-d (la construction automatisée à l'échelle) n'est pas prouvé.** Sans lui, IA3-e et IA3-h n'existent pas : les
    factions resteraient au portage (K7) et sans pétrole (K2). C'est le chemin critique de toute la section.
-2. **La vraie recherche coûte 22 fois plus que l'ancienne** (§3.8). Si l'automatisation (IA3-e) traîne, les factions
-   paraîtront PLUS lentes en niveaux de 20 à 60 min. Garde : IA3-c mesure les paliers 1 à 3 dès les premières minutes,
-   et l'ancien cerveau reste derrière un réglage.
+2. **Le coût de la vraie recherche (corrigé, revue M13).** La conception annonçait « 22 fois plus que l'ancienne » sur
+   les coûts vanilla ; aux coûts FINAUX du mod, les technologies reçues coûtent 2,4 fois ce qui est payé, et les
+   paliers 1 à 3 sont MOINS chers en packs que R1 à R3. Le risque s'inverse : des factions trop RAPIDES face au
+   calendrier du joueur (risque 7), et un coût porté par les laboratoires et l'énergie plutôt que par les packs.
+   IA3-c mesure les paliers dès les premières minutes ; l'ancien cerveau reste derrière un réglage.
 3. **Recherche par une force sans joueur** (E180) : si le moteur ne fait pas avancer la recherche, repli au QG (même
    coût, même temps), moins « joueur ». Depuis la revue (B2), la voie du « laboratoire du QG » est celle d'IA3-c de
    toute façon (pas de centrale à poser avant IA3-e).
@@ -1024,5 +1042,6 @@ ci-dessus (repère « revue Xn »).
 | M9 | K1 à 4 PNJ sous le « possible » mesuré, sans le marché | dit franchement ; IA3-a jugé à 8 PNJ, 4 PNJ rapporté (§6.2) |
 | M10 | bascule allumée par défaut, modifiable en cours de partie | éteinte, figée au lancement de la guerre (§5.4) |
 | M11 | les produits intermédiaires déposés retournent au libre : arrachage un niveau plus bas | `R.deposit` au projet producteur (§2.2 règle 6) |
-| M12 | durée de laboratoire non planifiée (palier 3 : 27 min avec un laboratoire) | nombre de laboratoires = capacité (§5.2) |
+| M12 | durée de laboratoire non planifiée (la revue écrivait d'abord « palier 3 : 27 min avec un laboratoire », chiffre vanilla ; 5,4 min aux coûts finaux) | nombre de laboratoires = capacité (§5.2) |
+| M13 | tous les coûts de recherche de la conception (§3.8, paliers, « 22 fois ») sont VANILLA ; le mod réécrit les technologies (E180 : `automation` = 1 unité) | fixture des coûts FINAUX (`harness.lua --dump-techs`) ; §3.8, §6.1, §6.3 recalculés : 705 packs réels pour 290 payés, palier 3 = 40 packs et 325 s |
 | m1 à m6 | formule de K, fichier de l'intégrateur, contrat de la fenêtre, retraits qui cassent des bancs, délai du réflexe, grenade | §1 H7, §6.2, §5.5, §5.1, §4.6 |

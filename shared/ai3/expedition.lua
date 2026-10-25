@@ -29,6 +29,8 @@ local E = {}
 
 E.W = { spawner = 100, worm = 40, path_nest = 50, unknown = 200, loss = 150, enemy_zone = 300, per_100 = 50 }
 E.CAP = 1000
+E.DIST_CAP = 200         -- lot IA3-0 (revue M4) : la distance seule ne fait jamais « attendre » (exposition déjà dans la perte)
+E.ESCALATE_AFTER = 2     -- lot IA3-0 (revue M4) : attentes tolérées sur la seule ressource qui bloque l'âge suivant
 E.BANDS = { { 150, "leger" }, { 400, "equipe" }, { 700, "escorte" } }
 E.KIT = {
   leger = { turrets = 0, ammo_per_turret = 0, grenades = 0, escort = 0 },
@@ -47,7 +49,7 @@ function E.risk(site)
     inconnu = math.floor(w.unknown * (100 - (site.seen_pct or 0)) / 100),
     pertes = w.loss * (site.losses or 0),
     ennemi = site.enemy_zone and w.enemy_zone or 0,
-    distance = math.floor((site.distance or 0) / 100) * w.per_100,
+    distance = math.min(math.floor((site.distance or 0) / 100) * w.per_100, E.DIST_CAP),
   }
   local r = parts.nids + parts.chemin + parts.inconnu + parts.pertes + parts.ennemi + parts.distance
   if r > E.CAP then r = E.CAP end
@@ -92,8 +94,10 @@ function E.kit(band, catalog)
   return items, missing, k.escort
 end
 
---- Décision. value = MU des buts que le site débloque ; traits = { prudence, aggression } (pour mille) ;
---- means = { catalog, soldiers (disponibles), crew (PNJ du convoi) }.
+--- Décision. value = MU des buts que le site débloque (somme des valeurs des buts bloqués par sa ressource) ;
+--- traits = { prudence, aggression } (pour mille) ; means = { catalog, soldiers (disponibles), crew (PNJ du convoi) }.
+--- site.blocks_age = la ressource du site bloque l'âge suivant et aucun autre site n'est connu ; site.waits = décisions
+--- « attendre » déjà prises pour cette ressource (tenu par l'appelant).
 function E.decide(site, value, traits, means)
   traits = traits or {}
   means = means or {}
@@ -111,9 +115,24 @@ function E.decide(site, value, traits, means)
     local need = 2 * ((site.spawners or 0) + (site.worms or 0)) + 5
     if (traits.aggression or 500) >= E.AGGRESSIVE and (means.soldiers or 0) >= need then
       out.action, out.escort = "nettoyer", need
-    else
-      out.action = "attendre"
+      return out
     end
+    -- Escalade (revue M4) : la seule ressource connue qui bloque l'âge suivant, déjà attendue E.ESCALATE_AFTER fois :
+    -- on y va avec la bande la plus forte et une escorte qui couvre les nids vus, quitte à la PRÉPARER d'abord.
+    if site.blocks_age and (site.waits or 0) >= E.ESCALATE_AFTER then
+      band = "escorte"
+      out.band, out.escalated = band, true
+      local items, missing, escort = E.kit(band, means.catalog or {})
+      if need > escort then escort = need end
+      out.items, out.escort = items, escort
+      if #missing > 0 or (means.soldiers or 0) < escort then
+        out.action, out.missing = "preparer", missing
+      else
+        out.action = band
+      end
+      return out
+    end
+    out.action = "attendre"
     return out
   end
   local items, missing, escort = E.kit(band, means.catalog or {})

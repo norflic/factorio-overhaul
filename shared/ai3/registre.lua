@@ -8,7 +8,8 @@
     libre(o)      = stock(o) − Σ reserve(p, o)       (jamais négatif : R.check)
 
   R.new() ; R.open(reg, id, prio, tick) ; R.request(reg, id, needs, tick) -> accordé, manque ;
-  R.take(reg, id, item, n) -> n pris (prise STRICTE d'un PNJ) ; R.preempt(reg, id, item, n, tick) -> n repris ;
+  R.take(reg, id, item, n) -> n pris (prise STRICTE d'un PNJ) ; R.deposit(reg, id, item, n) (dépôt crédité au
+  projet producteur, revue M11) ; R.preempt(reg, id, item, n, tick) -> n repris ;
   R.release(reg, id) ; R.free(reg, item) ; R.effective(reg, id, tick) ; R.check(reg) -> ok, message.
   Projets triés par identifiant (entiers croissants) ; objets parcourus par nom trié ; aucun hasard.
 ]]
@@ -134,6 +135,17 @@ function R.take(reg, id, item, n)
     p.engaged = true
   end
   return t
+end
+
+--- Dépôt d'un PNJ au coffre au titre d'une tâche du projet `id` (lot IA3-0, revue M11) : le stock grandit ET la
+--- réservation du projet aussi ; sans projet (avant-poste, fonderie, butin : id nil ou projet fermé), le dépôt va au
+--- libre. Sans cette règle, des engrenages fabriqués pour la machine à vapeur seraient « libres » à la pensée suivante
+--- et un projet plus prioritaire les prendrait : l'arrachage reviendrait un niveau plus bas.
+function R.deposit(reg, id, item, n)
+  if n <= 0 then return end
+  reg.stock[item] = (reg.stock[item] or 0) + n
+  local p = id and reg.projects[id]
+  if p then p.resa[item] = (p.resa[item] or 0) + n end
 end
 
 --- Préemption : le projet `id` reprend jusqu'à n objets réservés par des projets MOINS prioritaires, selon les règles :

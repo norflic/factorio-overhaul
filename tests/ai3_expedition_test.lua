@@ -136,5 +136,26 @@ do
   check(a.action == b.action and a.risk == b.risk and a.expected_loss == b.expected_loss, "déterminisme")
 end
 
+-- Lot IA3-0 (revue M4) : la distance seule ne fait plus attendre ; l'attente a une sortie.
+do
+  local far = { spawners = 0, worms = 0, path_nests = 0, seen_pct = 60, losses = 0, distance = 1000 }
+  local r = E.risk(far)
+  local d = E.decide(far, 5000, { prudence = 800 }, { catalog = catalog, soldiers = 10, crew = 3 })
+  check(r == 280 and d.action ~= "attendre",
+    string.format("pétrole à 1 000 tuiles, rien de vu autour, prudent : risque %d (580 sans plafond), action %s (pas « attendre »)", r, tostring(d.action)))
+  local nest = { spawners = 6, worms = 6, path_nests = 1, seen_pct = 70, losses = 0, distance = 400, blocks_age = true }
+  local w0 = E.decide(nest, 3000, { prudence = 500, aggression = 200 }, { catalog = catalog, soldiers = 3, crew = 3 })
+  nest.waits = 2
+  local w2 = E.decide(nest, 3000, { prudence = 500, aggression = 200 }, { catalog = catalog, soldiers = 3, crew = 3 })
+  check(w0.action == "attendre" and w2.escalated and w2.action == "preparer" and w2.escort == 2 * 12 + 5,
+    string.format("site infesté, seule ressource de l'âge suivant : attendre, puis après 2 attentes escalade (%s, escorte %s)",
+      tostring(w2.action), tostring(w2.escort)))
+  local w3 = E.decide(nest, 3000, { prudence = 500, aggression = 200 }, { catalog = catalog, soldiers = 40, crew = 3 })
+  check(w3.escalated and w3.action == "escorte", "escalade avec l'armée suffisante : départ escorté (" .. tostring(w3.action) .. ")")
+  nest.blocks_age = false
+  local w4 = E.decide(nest, 3000, { prudence = 500, aggression = 200 }, { catalog = catalog, soldiers = 40, crew = 3 })
+  check(w4.action == "attendre", "sans blocage d'âge, un site infesté reste « attendre » (chercher un autre site)")
+end
+
 print(string.format("[AI3-EXPEDITION] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
