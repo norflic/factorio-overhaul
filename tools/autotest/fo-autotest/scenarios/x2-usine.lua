@@ -186,7 +186,7 @@ return {
       oil = reservoir(-11.5, -5.5, "light-oil", 5000),
       water = reservoir(-8.5, -15.5, "water", 20000),
       h2 = reservoir(-24.5, -9.5),
-      lox = reservoir(3.5, -14.5),
+      lox = reservoir(5.5, -14.5),
     }
     -- Tuyaux.
     local np = 0
@@ -198,7 +198,9 @@ return {
     np = np + tuyaux(s, { { 2.5, -9.5 } })                                -- azote liquide : sortie
     np = np + tuyaux(s, ligne(2.5, -3.5, -10.5))                          -- azote liquide → ouest
     np = np + tuyaux(s, colonne(-3.5, -9.5, -1.5))                        -- azote liquide → bobineuse
-    np = np + tuyaux(s, colonne(4.5, -9.5, -12.5))                        -- oxygène liquide → réservoir
+    -- oxygène liquide → réservoir : sur la 3e sortie (la recette n'a que 2 fluides : sorties 1 et 2 fusionnées pour
+    -- l'azote, F245 proposé ; essai 2 : un tuyau sur la sortie 2 recevait de l'azote, l'oxygène restait bloqué)
+    np = np + tuyaux(s, colonne(6.5, -9.5, -12.5))
     st.pipes = np
     ctx.check(np == 3 + 3 + 2 + 8 + 15 + 1 + 7 + 9 + 4, "52 tuyaux posés", np)
     ctx.power(FX + 10.5, FY + 5.5)
@@ -210,13 +212,49 @@ return {
     local st = ctx.state()
     if not st.m then return end
     if e.tick == T0 then
-      -- Géométrie des fluides : chaque machine voit l'entité attendue sur la bonne boîte (relu au moteur).
-      local function linked(ent, idx, other)
-        if not (ent and ent.valid) then return false end
-        for _, c in ipairs(ent.fluidbox.get_connections(idx)) do
+      -- Géométrie des fluides : chaque machine voit l'entité attendue sur la bonne boîte (relu au moteur). Moteur réel
+      -- (essai 1) : LuaEntity.fluidbox d'une machine à recette n'expose que les boîtes de la RECETTE (unité cryogénique :
+      -- 2 boîtes, pas 5) ; la boîte est retrouvée par l'indice de son PROTOTYPE (get_prototype(i).index).
+      -- Moteur réel (essai 2, F245 proposé) : une recette qui a MOINS de fluides que la machine n'a de boîtes FUSIONNE les
+      -- boîtes en trop avec la première (get_prototype rend alors une liste) et donne la DERNIÈRE boîte au dernier
+      -- fluide : distillation de l'air = azote liquide sur les sorties 1 ET 2, oxygène liquide sur la sortie 3 ;
+      -- lessivage = acide sur les 2 entrées de l'usine chimique.
+      local function box_of(ent, proto_index)
+        for i = 1, #ent.fluidbox do
+          local p = ent.fluidbox.get_prototype(i)
+          if p and p.object_name == "LuaFluidBoxPrototype" then
+            if p.index == proto_index then return i end
+          elseif p then
+            for _, q in ipairs(p) do if q.index == proto_index then return i end end
+          end
+        end
+        return nil
+      end
+      local function linked(ent, proto_index, other)
+        if not (ent and ent.valid and other and other.valid) then return false end
+        local i = box_of(ent, proto_index)
+        if not i then return false end
+        for _, c in ipairs(ent.fluidbox.get_connections(i)) do
           if c.owner == other then return true end
         end
         return false
+      end
+      -- Diagnostic : chaque boîte de chaque machine, son indice de prototype, ses raccords (cible, position).
+      for _, k in ipairs({ "leach", "extr", "sint", "wind", "elec", "air" }) do
+        local ent = st.m[k]
+        if ent and ent.valid then
+          local parts = {}
+          for i = 1, #ent.fluidbox do
+            local p = ent.fluidbox.get_prototype(i)
+            local cs = {}
+            for _, pc in ipairs(ent.fluidbox.get_pipe_connections(i)) do
+              cs[#cs + 1] = string.format("%s(%.1f,%.1f)->%s", pc.flow_direction, pc.target_position.x - FX, pc.target_position.y - FY,
+                pc.target and pc.target.owner.name or "rien")
+            end
+            parts[#parts + 1] = string.format("%d[proto %s %s] %s", i, tostring(p and p.index), tostring(p and p.production_type), table.concat(cs, " "))
+          end
+          ctx.log("boites " .. k .. " : " .. table.concat(parts, " | "))
+        end
       end
       local function pipe_at(x, y) return ctx.surface().find_entity("pipe", P(x, y)) end
       local m, t = st.m, st.t
@@ -228,13 +266,13 @@ return {
         { "électrolyseur : oxygène (sortie 2)", linked(m.elec, 3, pipe_at(-6.5, -8.5)) },
         { "four de frittage : oxygène", linked(m.sint, 1, pipe_at(-6.5, -1.5)) },
         { "unité cryogénique : azote liquide (sortie 1)", linked(m.air, 3, pipe_at(2.5, -9.5)) },
-        { "unité cryogénique : oxygène liquide (sortie 2)", linked(m.air, 4, pipe_at(4.5, -9.5)) },
+        { "unité cryogénique : oxygène liquide (sortie 3, F245)", linked(m.air, 5, pipe_at(6.5, -9.5)) },
         { "bobineuse : azote liquide", linked(m.wind, 1, pipe_at(-3.5, -1.5)) },
         { "réservoir d'acide", linked(t.acid, 1, pipe_at(-15.5, -3.5)) },
         { "réservoir d'huile", linked(t.oil, 1, pipe_at(-10.5, -3.5)) },
         { "réservoir d'eau", linked(t.water, 1, pipe_at(-7.5, -13.5)) },
         { "réservoir d'hydrogène", linked(t.h2, 1, pipe_at(-22.5, -8.5)) },
-        { "réservoir d'oxygène liquide", linked(t.lox, 1, pipe_at(4.5, -12.5)) },
+        { "réservoir d'oxygène liquide", linked(t.lox, 1, pipe_at(6.5, -12.5)) },
       }
       local bad = {}
       for _, l in ipairs(links) do if not l[2] then bad[#bad + 1] = l[1] end end
