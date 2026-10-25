@@ -500,6 +500,17 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-b2, votre équipe défend d'abord, 25/10 ; fusionné dans `main`, `a3bf828`, version 0.4.29)
+Preuves : `fo-logs\2026-10-25_IA1-b2\` (`NOTES.md` §2 à §10, `INTEGRATION.md`). Expériences : E172, E173.
+- **F251** : dans la partie du guide, les PNJ de votre équipe meurent surtout en tournée vers des avant-postes LOINTAINS
+  (médiane 130 à 165 tuiles du QG ; biters et vers) et au QG pendant les attaques (pollution, soldats des factions) ; sur la
+  graine 271828182, tous les morts viennent des factions.
+- **F252** : la partie du guide DIVERGE au moindre changement de votre équipe (même graine, même code des factions : coffre
+  détruit à 53 min dans un passage, pas dans l'autre) : une conclusion demande plusieurs graines (F238 reste vrai : même
+  code, même résultat).
+- **F253** (déduit) : des tourelles portées par un PNJ tué en route sont perdues avec lui (fer du coffre 615 → 26 en 5 min) :
+  d'où le plancher de fer de la défense (150).
+
 ### Faits vérifiés en moteur réel (section IA3, conception et fondations IA3-0, 25/10 après-midi ; fusionnés dans `main`, `db7911c` et `f613db1`, rien de branché dans le jeu)
 Preuves : `docs/IA3_CERVEAU.md` (conception qui fait foi, revue adverse intégrée), `fo-logs\2026-10-25_IA3\`, `fo-logs\2026-10-25_IA3-dev\`
 (`REVUE.md`, `NOTES.md`, `INTEGRATION.md`). Expériences : E178 à E181.
@@ -1098,6 +1109,27 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E172, E173 · Lot IA1-b2, votre équipe défend d'abord (25/10 ; réponses du DC R-QCM-25, 25c et constat des PNJ qui attendent ;
+fusion `a3bf828`, version 0.4.29)** : défendre d'abord (tourelles au coffre puis à chaque avant-poste avant d'y travailler ;
+TOUTES les factions aussi, sans recaler les difficultés : l'ordre strict de pvp tient, ce qui le cassait était la croissance
+des factions, non leurs tourelles) ; le coffre se défend (4 tourelles, gardes armés dès la déclaration de guerre, toute
+l'équipe s'il est menacé à moins de 48 tuiles) ; gardes d'avant-postes coupées ; PNJ libres au travail (transport, minage
+à moins de 96 tuiles du coffre et à plus de 40 des nids, réserves) ; sites gardés ou au chemin dangereux refusés, aucun
+site au-delà de 400 tuiles sans tourelles ; prudence limitée à la zone d'une perte ; croissance d'une recrue toutes les
+5 min si tout est défendu, 400 fer au coffre et du travail en attente. **E172** (partie du guide, 4 graines) : morts de
+votre équipe 123 → 66 sans recherche, 96 → 35 avec la recherche « Tourelles » ; inactifs 45 à 84 % → environ 8 % sur les
+bonnes graines, 23 à 38 % sur deux graines difficiles. **E173** (30 contre 10) : 0,95 → 1,31. Sur `main` 0.4.29
+(`fo-logs\2026-10-25_integration-0.4.29\`, `done.txt` 17:08:05 à 17:20:07) : content 331, verif-guide 15 / 15 / **14** / 15
+(graines 271828182, 1618033988, **314159265**, 577215664), ia1b2-guide 15 et **13** (271828182, **577215664**), pnj-auto 7,
+pnj-reduit 12, ia0-normal 14, ia1-scale 17, **ia1-poles 15 OK, 2 ECHEC**, verif-tourelles 7, ia1b-migration 19, ia1-gui 7,
+0 erreur ; hors jeu ia1b2 62, pteam 32, org 366, ia1_production 104 (correctif MOD-3 du solveur au plafond appliqué), pvp
+1305, levels 1664, api_lint 1098. **DÉFAUTS OUVERTS, FUSIONNÉ QUAND MÊME** (gain moyen net ; IA3-a attendait cette
+fusion) : 314159265 sans recherche : avant-postes détruits par les biters à 56-57 min ; 577215664 avec recherche : coffre
+tombé à 56 min, fer à 42-100, tourelles du QG non reconstruites ; `ia1-poles` occupé à 75 % au lieu de 85 % (sans gardes ni
+expansion sans tourelles, 30 PNJ n'ont que minage et transport) et contrôle de crise (un ouvrier reste à la Base).
+Chaque correction déplaçait l'échec d'une graine à l'autre (F252) : suite par la section IA3 (recherche d'abord,
+place de marché).
+
 **E178 à E181 · Section IA3, le cerveau des PNJ (25/10 après-midi ; décision D-18 ; fusions `db7911c`, `f613db1` ; rien de branché)** :
 conception `docs/IA3_CERVEAU.md` : le chef (IA2) donne des POIDS par famille de buts ; des générateurs de buts (recherche,
 armée, défense, extraction au goulot, capital, exploration, réserve) se déplient sur le graphe recettes-technologies-machines-
