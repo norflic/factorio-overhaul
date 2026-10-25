@@ -1,0 +1,303 @@
+"""PLANS DE LA LIGNÉE de l'assembleur (ronde F3-A2, 25/10). S'exécute DANS Blender.
+
+Verdict du DC (25/10 vers 12 h 50, R-QCM-25f) : « certains ont juste une plateforme et un truc posé dessus, ça fait pas
+précis, pas détaillé et aussi ils sont tous carré, mais peut être qu'on peut aussi en faire des circulaires ». Réponse :
+la clé d'habillage « plan » choisit le CORPS de la machine, où l'outil de l'âge s'intègre :
+  carre     atelier carré (bâti, dos, joues : rondes 1 à 4) ;
+  L         dos au nord et AILE haute à l'ouest (plan en L), joue est basse ;
+  portique  deux PYLÔNES pleine hauteur et un PONT-CAISSON ; l'outil pend du pont ;
+  tour      socle rond bas et TOUR centrale (fût, galerie, quatre contreforts) ; l'outil s'enroule autour ;
+  rond      TAMBOUR rond, CROISSANT haut sur la moitié nord, RAYONS du croissant à un moyeu au-dessus du centre ;
+  octo      la même chose à huit pans.
+Chaque plan remplit dans le contexte c : c.cx, c.cy (centre de l'organe), c.zt (dessus du lit de travail), c.hub (point
+d'accroche de l'outil, Blender), c.zones (surfaces que la garniture dense remplit), c.reserves (cercles interdits à la
+garniture), c.pl_entree, c.pl_sortie (places d'entrée et de sortie : x, yn, z, r), c.coins (places de la pièce paire),
+c.faces (faces sud décorables : x0, x1, yn, z0, z1).
+"""
+import math
+
+from mathutils import Matrix, Vector
+
+import parts as PT
+from habillage import _lignee
+from kit import SQ2, TAU
+from pont import _motif, _prisme
+
+V = Vector
+
+
+def B(x, yn, z=0.0):
+    return V((x, yn * SQ2, z))
+
+
+def poly_b(pts):
+    return [(x, yn * SQ2) for x, yn in pts]
+
+
+def contour(R, n, cy=0.0, phase=None):
+    """Contour (jeu) d'un cercle (n grand) ou d'un polygone régulier de rayon R centré en (0, cy)."""
+    ph = (math.pi / n) if phase is None else phase
+    return [(R * math.cos(ph + TAU * i / n), cy + R * math.sin(ph + TAU * i / n)) for i in range(n)]
+
+
+def flancs_sud(g, pts, z0, z1, m, rivets=True):
+    """Plaques des flancs sud-visibles d'un contour direct (jeu)."""
+    n = len(pts)
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(dx, dy)
+        if L < 0.04 or dx <= 0.0:
+            continue
+        q = [B(a[0], a[1], z0), B(b[0], b[1], z0), B(b[0], b[1], z1), B(a[0], a[1], z1)]
+        g.panels(q, max(1, int(round(L / 0.4))), max(1, int(round((z1 - z0) / 0.4))), m, t=0.016,
+                 rivet_mat=g.M["rivet"] if rivets else None, rivet_step=0.15)
+
+
+def secteur(g, R0, R1, a0, a1, z0, z1, m, cy=0.0, n=16, what="secteur"):
+    """Secteur d'anneau plein (jeu : rayons R0 < R1, angles a0 < a1 en radians, 0 = est, π/2 = nord), de z0 à z1."""
+    for i in range(n):
+        t0, t1 = a0 + (a1 - a0) * i / n, a0 + (a1 - a0) * (i + 1) / n
+        p = [(R1 * math.cos(t0), cy + R1 * math.sin(t0)), (R1 * math.cos(t1), cy + R1 * math.sin(t1)),
+             (R0 * math.cos(t1), cy + R0 * math.sin(t1)), (R0 * math.cos(t0), cy + R0 * math.sin(t0))]
+        pts8 = [B(x, y, z0) for x, y in p] + [B(x, y, z1) for x, y in p]
+        g.hexa(pts8, m, "hard", what)
+
+
+def face_interieure(g, R0, a0, a1, z0, z1, m, cy=0.0, n=12, rivets=True):
+    """Plaques de la face INTÉRIEURE (concave, tournée vers le centre) d'un croissant : visibles quand elles regardent
+    le sud (moitié nord du cercle)."""
+    for i in range(n):
+        t0, t1 = a0 + (a1 - a0) * i / n, a0 + (a1 - a0) * (i + 1) / n
+        pa = (R0 * math.cos(t1), cy + R0 * math.sin(t1))
+        pb = (R0 * math.cos(t0), cy + R0 * math.sin(t0))
+        q = [B(pa[0], pa[1] - 0.004, z0), B(pb[0], pb[1] - 0.004, z0), B(pb[0], pb[1] - 0.004, z1),
+             B(pa[0], pa[1] - 0.004, z1)]
+        g.panels(q, 1, max(1, int(round((z1 - z0) / 0.35))), m, t=0.016, rivet_mat=g.M["rivet"] if rivets else None,
+                 rivet_step=0.14)
+
+
+# ------------------------------------------------------------------------------------------------
+# Cotes par plan (complètent cotes.TAILLES)
+# ------------------------------------------------------------------------------------------------
+def init(c):
+    s, h = c.side, c.h
+    c.zones, c.reserves, c.faces = [], [], []
+    c.cx, c.cy = 0.0, c.yt
+    c.hub = None
+    tx = c.T["table"]["tx"]
+    if c.plan in ("carre", "L", "portique"):
+        c.cy = c.yt
+        c.reserves.append((0.0, c.yt, tx * 1.05))
+        if c.plan == "portique":
+            c.wp = 0.2 * s + 0.05
+            c.dp = 0.3 * s
+            c.xp = h - c.wp / 2.0
+            c.hb = 0.16 + 0.04 * s
+            c.ztop = c.zp + c.hb
+            c.hub = B(0.0, c.yt, c.zp)
+        return
+    # plans radiaux : tambour (rond, octo) ou socle et tour
+    c.zr = c.ze + 0.15 + 0.06 * s                  # dessus du tambour ou du socle
+    c.zt = c.zr + 0.06 + 0.02 * s                  # dessus du lit de travail
+    if c.plan in ("rond", "octo"):
+        c.Rb = h - 0.04
+        c.npans = 40 if c.plan == "rond" else 8
+        c.cy = -0.06 * s
+        c.ep_cr = 0.17 * s                         # épaisseur du croissant
+        c.Hc = c.zr + 0.3 + 0.08 * s               # dessus du croissant
+        c.zhub = c.Hc + 0.15 + 0.05 * s
+        c.hub = B(0.0, c.cy, c.zhub)
+        c.tr = 0.16 * s + 0.05
+        c.reserves.append((0.0, c.cy, c.tr * 1.05))
+        R0 = c.Rb - 0.06 - c.ep_cr
+        c.zones.append(("anneau", c.tr + 0.08, R0 - 0.05, math.radians(195), math.radians(345), c.zr, c.cy))
+        c.zones.append(("anneau", R0 + 0.04, c.Rb - 0.1, math.radians(20), math.radians(160), c.Hc, c.cy))
+        a_e, a_o = math.radians(-8), math.radians(188)
+        rr = 0.07 * s + 0.06
+        Rm = (c.tr + R0) / 2.0 + 0.05
+        c.pl_entree = dict(x=Rm * math.cos(a_o), yn=c.cy + Rm * math.sin(a_o), z=c.zr, r=rr)
+        c.pl_sortie = dict(x=Rm * math.cos(a_e), yn=c.cy + Rm * math.sin(a_e), z=c.zr, r=rr)
+    else:   # tour
+        c.Rp = 0.36 * s
+        c.Rt = 0.12 * s + 0.06
+        c.Ht = c.Hd + 0.12 * s
+        c.cy = 0.0
+        c.yt = -(c.Rt + 0.1 * s)
+        c.hub = B(0.0, 0.0, c.Ht)
+        c.reserves.append((0.0, c.yt, 0.1 * s + 0.08))
+        c.zones.append(("anneau", c.Rt + 0.12, c.Rp - 0.06, math.radians(20), math.radians(160), c.zr, 0.0))
+        rr = 0.05 * s + 0.07
+        xe = min(h - rr - 0.03, c.Rp + rr + 0.02)
+        c.pl_entree = dict(x=-xe, yn=0.0, z=c.ze, r=rr)
+        c.pl_sortie = dict(x=xe, yn=0.0, z=c.ze, r=rr)
+    for p in (c.pl_entree, c.pl_sortie):
+        c.reserves.append((p["x"], p["yn"], p["r"] + 0.05))
+
+
+# ------------------------------------------------------------------------------------------------
+# Corps des plans radiaux
+# ------------------------------------------------------------------------------------------------
+@_lignee
+def tambour(g, c):
+    """Plans rond et octo : tambour (dessus au pont de l'âge), croissant haut sur la moitié nord, lit de travail rond,
+    rayons du croissant au moyeu."""
+    M = g.M
+    m1, m2 = c.Mh["olive"], c.Mh["ochre"]
+    cfg = c.pont
+    Rd = c.Rb - 0.06
+    pts = contour(Rd, c.npans, 0.0, phase=(math.pi / 8 if c.plan == "octo" else None))
+    fond = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
+    _prisme(g, poly_b(pts), c.ze, c.zr, fond, "hard", "tambour")
+    flancs_sud(g, pts, c.ze, c.zr, m1)
+    _motif(g, M, dict(cfg, mat2=None), poly_b(pts), c.zr, 0.05, 1300 + c.e)
+    n = len(pts)
+    bord = M[cfg["bord"]] if cfg["bord"] in M else M["steel_dk"]
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]
+        d = (B(*b) - B(*a))
+        L = d.length
+        R = Matrix((d.normalized(), V((-d.y, d.x, 0)).normalized(), V((0, 0, 1)))).transposed()
+        g.box((B(*a) + B(*b)) / 2 + V((0, 0, c.zr + 0.02)), (L + 0.04, 0.05, 0.04), bord, "hard", R=R, what="corniere")
+    # croissant : moitié nord, de 12° à 168°
+    R1, R0 = Rd, Rd - c.ep_cr
+    a0, a1 = math.radians(12), math.radians(168)
+    nn = 14 if c.plan == "rond" else 4
+    if c.plan == "octo":
+        # quatre pans nord du polygone : secteur à pans droits
+        for k in range(4):
+            t0 = math.pi / 8 + k * math.pi / 4
+            t1 = t0 + math.pi / 4
+            p = [(R1 * math.cos(t0), R1 * math.sin(t0)), (R1 * math.cos(t1), R1 * math.sin(t1)),
+                 (R0 * math.cos(t1), R0 * math.sin(t1)), (R0 * math.cos(t0), R0 * math.sin(t0))]
+            g.hexa([B(x, y, c.zr) for x, y in p] + [B(x, y, c.Hc) for x, y in p], m1, "hard", "croissant")
+            qa, qb = p[2], p[3]
+            q = [B(qa[0], qa[1] - 0.004, c.zr), B(qb[0], qb[1] - 0.004, c.zr), B(qb[0], qb[1] - 0.004, c.Hc),
+                 B(qa[0], qa[1] - 0.004, c.Hc)]
+            g.panels(q, 2, max(1, int(round((c.Hc - c.zr) / 0.35))), m2, t=0.016, rivet_mat=M["rivet"],
+                     rivet_step=0.14)
+        c.a_cr = (math.pi / 8, math.pi * 7 / 8)
+    else:
+        secteur(g, R0, R1, a0, a1, c.zr, c.Hc, m1, 0.0, n=nn, what="croissant")
+        face_interieure(g, R0, a0, a1, c.zr, c.Hc, m2, 0.0, n=nn)
+        c.a_cr = (a0, a1)
+    # couronne du croissant (cornière haute) et bouts du croissant
+    for t in (c.a_cr[0], c.a_cr[1]):
+        Rm = (R0 + R1) / 2.0
+        g.box(B(Rm * math.cos(t), Rm * math.sin(t), c.Hc + 0.04), (0.16, 0.16 * SQ2, 0.08), M["steel_dk"], "hard",
+              what="tete_croissant")
+    # lit de travail rond au centre
+    g.cyl(B(0, c.cy, (c.zr + c.zt) / 2), "z", c.tr, c.zt - c.zr, M["steel_dk"], n=36, style="hard", what="lit")
+    g.tube_shell(B(0, c.cy, c.zt - 0.01), "z", c.tr + 0.02, c.tr - 0.06, 0.03, M["steel"], n=36, what="jante_lit")
+    for k in range(12):
+        a = TAU * k / 12
+        g.dome(V((c.tr * 0.85 * math.cos(a), B(0, c.cy).y + c.tr * 0.85 * math.sin(a), c.zt + 0.012)), (0, 0, 1),
+               0.016, M["rivet"])
+
+
+@_lignee
+def rayons(g, c, angles=(50, 90, 130), mat=None):
+    """Rayons-caissons du croissant au moyeu (au-dessus du centre) : l'outil y est accroché."""
+    M = g.M
+    m = mat or c.Mh["steel_dk"]
+    R0 = c.Rb - 0.06 - c.ep_cr
+    hub = c.hub
+    for ad in angles:
+        t = math.radians(ad)
+        p0 = B((R0 + 0.06) * math.cos(t), (R0 + 0.06) * math.sin(t), c.Hc + 0.04)
+        g.tube([p0, p0.lerp(hub, 0.5) + V((0, 0, 0.12)), hub], 0.045 + 0.006 * c.side, m, n=6, what="rayon")
+    g.cyl(hub, "z", 0.13 + 0.02 * c.side, 0.12, m, n=20, style="hard", what="moyeu")
+    g.tube_shell(hub - V((0, 0, 0.07)), "z", 0.15 + 0.02 * c.side, 0.1 + 0.02 * c.side, 0.03, M["steel"], n=20,
+                 what="bague_moyeu")
+
+
+@_lignee
+def tour(g, c):
+    """Plan tour : socle rond bas au pont de l'âge, fût central, galerie, quatre contreforts."""
+    M = g.M
+    m1, m2 = c.Mh["olive"], c.Mh["ochre"]
+    cfg = c.pont
+    pts = contour(c.Rp, 24, 0.0)
+    fond = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
+    _prisme(g, poly_b(pts), c.ze, c.zr, fond, "hard", "socle_tour")
+    flancs_sud(g, pts, c.ze, c.zr, m1)
+    _motif(g, M, dict(cfg, mat2=None), poly_b(pts), c.zr, 0.05, 1400 + c.e)
+    # fût : vrai cylindre (rond dans Blender, comme les cuves et les fûts du kit), virole à plaques sur la moitié sud
+    zb, zh = c.zr, c.Ht
+    Rt = c.Rt
+    g.cyl(V((0, 0, (zb + zh) / 2)), "z", Rt - 0.004, zh - zb, M["seam"], n=32, what="fut")
+    n = 20
+    for k in range(n):
+        t0, t1 = TAU * k / n, TAU * (k + 1) / n
+        if math.sin((t0 + t1) / 2) > 0.3:
+            continue
+        q = [V((Rt * math.cos(t0), Rt * math.sin(t0), zb)), V((Rt * math.cos(t1), Rt * math.sin(t1), zb)),
+             V((Rt * math.cos(t1), Rt * math.sin(t1), zh)), V((Rt * math.cos(t0), Rt * math.sin(t0), zh))]
+        g.panels(q, 1, max(1, int((zh - zb) / 0.35)), m1 if k % 3 else m2, t=0.014, rivet_mat=M["rivet"],
+                 rivet_step=0.14)
+    g.cyl(V((0, 0, zh + 0.03)), "z", Rt * 1.1, 0.06, M["steel_dk"], n=32, style="hard", what="chapiteau")
+    # galerie à mi-hauteur : plancher annulaire, poteaux, lisse
+    zg = zb + 0.55 * (zh - zb)
+    c.zg = zg
+    g.tube_shell(V((0, 0, zg + 0.015)), "z", Rt + 0.13, Rt - 0.01, 0.03, M["steel_dk"], n=36, what="galerie")
+    for k in range(16):
+        a = TAU * k / 16
+        if math.sin(a) > 0.5:
+            continue
+        g.box(V(((Rt + 0.12) * math.cos(a), (Rt + 0.12) * math.sin(a), zg + 0.07)), (0.015, 0.015, 0.1), M["steel"],
+              "hard", what="poteau")
+    g.torus(V((0, 0, zg + 0.12)), "z", Rt + 0.12, 0.01, M["steel"], n=36, m=4, what="lisse")
+    # contreforts aux quatre diagonales, du bord du socle au fût
+    for k in range(4):
+        t = math.pi / 4 + k * math.pi / 2
+        pb = B(0.92 * c.Rp * math.cos(t), 0.92 * c.Rp * math.sin(t), zb)
+        d = V((pb.x, pb.y, 0)).normalized()
+        w = V((-d.y, d.x, 0)) * 0.035
+        pa = d * Rt + V((0, 0, zb + 0.5 * (zg - zb)))
+        pc = d * Rt + V((0, 0, zb))
+        vs = [pa + w, pb + w, pc + w, pa - w, pb - w, pc - w]
+        fs = [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)]
+        g._add(m2, "hard", [tuple(v) for v in vs], fs, "contrefort")
+
+
+@_lignee
+def pylones(g, c):
+    """Plan portique : deux pylônes pleine hauteur à croisillons et un pont-caisson riveté, cabine sur le pont."""
+    M = g.M
+    m1, m2 = c.Mh["olive"], c.Mh["ochre"]
+    y0, y1 = c.yt - c.dp / 2.0, c.yt + c.dp / 2.0
+    for sx in (-1, 1):
+        xa, xb_ = (c.xp - c.wp / 2, c.xp + c.wp / 2)
+        if sx < 0:
+            xa, xb_ = -xb_, -xa
+        PT.hull(g, xa, xb_, y0 * SQ2, y1 * SQ2, c.ze, c.ztop, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st")
+        # pied élargi, croisillons sur la face sud, échelle
+        g.box(B((xa + xb_) / 2, c.yt, c.ze + 0.06), (c.wp + 0.1, (c.dp + 0.1) * SQ2, 0.12), M["steel_dk"], "hard",
+              what="pied_pylone")
+        zl = [c.ze + 0.15 + (c.ztop - c.ze - 0.3) * k / 3 for k in range(4)]
+        for k in range(3):
+            for sgn in (-1, 1):
+                pa = B(xa + 0.04 if sgn > 0 else xb_ - 0.04, y0 - 0.02, zl[k])
+                pb = B(xb_ - 0.04 if sgn > 0 else xa + 0.04, y0 - 0.02, zl[k + 1])
+                g.tube([pa, pb], 0.018, m2, n=6, what="croisillon")
+        for xx in (xa + 0.03, xb_ - 0.03):
+            g.box(B(xx, y0 - 0.025, (c.ze + c.ztop) / 2), (0.035, 0.03, c.ztop - c.ze), m2, "hard", what="montant")
+    # pont-caisson
+    L = 2 * (c.xp + c.wp / 2)
+    db = 0.22 * c.side
+    g.box(B(0, c.yt, c.zp + c.hb / 2), (L, db * SQ2, c.hb), m1, "hard", what="pont_caisson")
+    q = [B(-L / 2 + c.wp, c.yt - db / 2 - 0.005, c.zp + 0.02), B(L / 2 - c.wp, c.yt - db / 2 - 0.005, c.zp + 0.02),
+         B(L / 2 - c.wp, c.yt - db / 2 - 0.005, c.zp + c.hb - 0.02), B(-L / 2 + c.wp, c.yt - db / 2 - 0.005,
+                                                                         c.zp + c.hb - 0.02)]
+    g.panels(q, max(2, int((L - 2 * c.wp) / 0.45)), 1, m2, t=0.016, rivet_mat=M["rivet"], rivet_step=0.12)
+    g.hazard([B(-L / 2 + c.wp, c.yt - db / 2 - 0.03, c.zp + 0.01), B(L / 2 - c.wp, c.yt - db / 2 - 0.03, c.zp + 0.01),
+              B(L / 2 - c.wp, c.yt - db / 2 - 0.03, c.zp + 0.06), B(-L / 2 + c.wp, c.yt - db / 2 - 0.03, c.zp + 0.06)],
+             max(6, int(L / 0.14)), t=0.006)
+    # cabine sur le pont
+    xc = 0.28 * c.side
+    g.box(B(xc, c.yt, c.ztop + 0.12), (0.34, 0.24 * SQ2, 0.24), m2, "hard", what="cabine")
+    g.box(B(xc, c.yt - 0.125, c.ztop + 0.15), (0.26, 0.012, 0.1), M["emit_soft"], "flat", what="vitre_cabine")
+    c.zones.append(("rect", -L / 2 + 0.08, -0.1, c.yt - db / 2 + 0.06, c.yt + db / 2 - 0.06, c.ztop))
+    for sx in (-1, 1):
+        c.zones.append(("rect", sx * c.xp - c.wp / 2 + 0.05, sx * c.xp + c.wp / 2 - 0.05, y0 + 0.05, y1 - 0.05,
+                        c.ztop))

@@ -67,12 +67,14 @@ NOMS = ages.NOMS
 FAMILLES = ages.FAMILLES
 
 FORMES_EMBASE = ("carre", "chanfrein", "gradins", "pieds")
-FORMES_DOS = ("plat", "pans", "voute", "gradins", "tours", "coque", "dome")
-FORMES_JOUES = ("caisson", "pente", "basses", "colonnes")
+FORMES_DOS = ("plat", "pans", "voute", "gradins", "tours", "coque", "dome", "bas")
+FORMES_JOUES = ("caisson", "pente", "basses", "colonnes", "socle")
+PLANS = ("carre", "L", "portique", "tour", "rond", "octo")
 FORMES_PORTIQUE = ("poutre", "arche", "cadre", "aucun")
 
 HABILLAGE_DEFAUT = dict(
     **_H.HABILLAGE_LIGNEE,     # capots, plateforme, acier, rivets, joints, danger, peinture (commun)
+    plan=None,
     forme_embase=None,
     forme_dos=None,
     forme_joues=None,
@@ -104,24 +106,24 @@ TRIPLETS = {
     15: ("sphère noire", "serres dorées", "couronne incandescente"),
 }
 
-# SILHOUETTES (forme_embase, forme_dos, forme_joues, forme_portique) des 14 âges dessinés : recopiées des fichiers d'âge
-# (contrôle : test). Règle (comme M-6 du laser) : deux âges VOISINS de même taille diffèrent sur au moins 2 traits, et
-# l'organe (outil) change de nature à chaque âge.
+# SILHOUETTES (plan, forme_embase, forme_dos, forme_joues, forme_portique) des 14 âges dessinés : recopiées des fichiers
+# d'âge (contrôle : test). Ronde F3-A2 : deux âges VOISINS de même taille n'ont jamais le même PLAN (carre, L,
+# portique, tour, rond, octo), et l'organe (outil) change de nature à chaque âge.
 SILHOUETTES = {
-    2: ("carre", "pans", "basses", "aucun"),
-    3: ("chanfrein", "voute", "caisson", "poutre"),
-    4: ("carre", "plat", "caisson", "cadre"),
-    5: ("chanfrein", "gradins", "pente", "arche"),
-    6: ("carre", "tours", "colonnes", "poutre"),
-    7: ("gradins", "pans", "colonnes", "arche"),
-    8: ("pieds", "plat", "basses", "poutre"),
-    9: ("chanfrein", "coque", "caisson", "aucun"),
-    10: ("carre", "coque", "pente", "aucun"),
-    11: ("chanfrein", "pans", "caisson", "poutre"),
-    12: ("pieds", "gradins", "basses", "aucun"),
-    13: ("carre", "dome", "caisson", "aucun"),
-    14: ("chanfrein", "plat", "pente", "aucun"),
-    15: ("gradins", "voute", "basses", "aucun"),
+    2: ("L", "carre", "pans", "basses", "aucun"),
+    3: ("tour", "carre", "plat", "caisson", "aucun"),
+    4: ("portique", "carre", "bas", "socle", "aucun"),
+    5: ("octo", "carre", "plat", "caisson", "aucun"),
+    6: ("tour", "carre", "plat", "caisson", "aucun"),
+    7: ("carre", "gradins", "pans", "colonnes", "arche"),
+    8: ("rond", "carre", "plat", "caisson", "aucun"),
+    9: ("L", "chanfrein", "coque", "caisson", "aucun"),
+    10: ("carre", "carre", "coque", "pente", "aucun"),
+    11: ("portique", "chanfrein", "bas", "socle", "aucun"),
+    12: ("rond", "carre", "plat", "caisson", "aucun"),
+    13: ("tour", "carre", "plat", "caisson", "aucun"),
+    14: ("octo", "carre", "plat", "caisson", "aucun"),
+    15: ("portique", "gradins", "bas", "socle", "aucun"),
 }
 
 # trous enfermés VOULUS : {(âge, « machine » | « compo »): [(x, y, rayon) en tuiles depuis le centre]}
@@ -144,7 +146,7 @@ def module(e):
 def habillage(ep):
     """Habillage complet de l'âge (HABILLAGE_DEFAUT complété par ep.HABILLAGE), formes contrôlées."""
     h = _H.habillage(ep, HABILLAGE_DEFAUT)
-    for cle, permis in (("forme_embase", FORMES_EMBASE), ("forme_dos", FORMES_DOS), ("forme_joues", FORMES_JOUES),
+    for cle, permis in (("plan", PLANS), ("forme_embase", FORMES_EMBASE), ("forme_dos", FORMES_DOS), ("forme_joues", FORMES_JOUES),
                         ("forme_portique", FORMES_PORTIQUE)):
         if h[cle] is not None and h[cle] not in permis:
             raise ValueError("%s %r inconnue (%s)" % (cle, h[cle], ", ".join(permis)))
@@ -152,9 +154,21 @@ def habillage(ep):
 
 
 def silhouette(hab):
-    """(embase, dos, joues, portique) d'un habillage complet (défauts de la lignée pour None)."""
-    return (hab["forme_embase"] or "carre", hab["forme_dos"] or "plat", hab["forme_joues"] or "caisson",
-            hab["forme_portique"] or "poutre")
+    """(plan, embase, dos, joues, portique) d'un habillage complet (défauts de la lignée pour None)."""
+    return (hab["plan"] or "carre", hab["forme_embase"] or "carre", hab["forme_dos"] or "plat",
+            hab["forme_joues"] or "caisson", hab["forme_portique"] or "poutre")
+
+
+def teinte_pair(e):
+    """TEINTE du niveau PAIR (ronde F3-A2, demande du DC : « pièce plus grande + teinte ») : multiplication douce des
+    couches principales de la machine vers la couleur du foyer de l'âge (0,8 + 0,2 × rgb ; F36 : une teinte ne fait que
+    multiplier, jamais éclaircir). Appliquée par profil.level_layers à l'aperçu ; en jeu, champ tint des couches du
+    niveau pair (intégration)."""
+    rgb = ages.FOYER.get(e, {}).get("rgb", (1.0, 1.0, 1.0))
+    t = tuple(0.8 + 0.2 * v for v in rgb)
+    if max(t) - min(t) < 0.03:
+        t = (0.88, 0.92, 1.0)
+    return t
 
 
 ages.verifier_familles()

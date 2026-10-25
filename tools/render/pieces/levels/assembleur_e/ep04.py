@@ -1,9 +1,10 @@
-"""Assembleur · Âge 4 · Pétrole (ère II, 4×4, niveaux 7 et 8). Lot F3-A ; fiche FICHES_ASSEMBLEUR.md, âge 4. Dans Blender.
+"""Assembleur · Âge 4 · Pétrole (ère II, 4×4, niveaux 7 et 8). Lot F3-A, ronde F3-A2 ; fiche FICHES_ASSEMBLEUR.md, âge 4.
+Dans Blender.
 
-En 3 mots : « presse jaune, vérins, flexibles ». L'outil est une PRESSE HYDRAULIQUE : grand cadre de presse JAUNE posé
-dans la baie (deux colonnes, chapeau), VÉRIN central chromé et deux vérins latéraux, FLEXIBLES noirs qui descendent du
-groupe hydraulique accroché au dos. Dos NOIR (groupe moto-pompe, volants rouges, réservoir d'huile couché et fûts sur le
-toit), joues jaunes, gyrophares orange aux coins du chapeau (lumière de l'âge : flamme orange).
+En 3 mots : « presse jaune, vérins, flexibles ». Plan en PORTIQUE : la machine EST la presse : deux colonnes-pylônes
+JAUNES à croisillons noirs, un chapeau-caisson jaune riveté, et sous lui le VÉRIN central chromé et deux vérins latéraux
+qui poussent le plateau sur l'outillage. Les FLEXIBLES noirs descendent du chapeau au groupe hydraulique posé sur le dos
+bas (moto-pompe, volants rouges, réservoir d'huile couché, fûts). Gyrophares orange sur le chapeau et la cabine.
 Palette 60/30/10 (ages.PALETTE[4]) : jaune de signalisation / noir et tôle larmée / rouge des volants ; flamme orange.
 """
 from mathutils import Matrix, Vector
@@ -23,8 +24,9 @@ TRIPLET = ("presse jaune", "vérins", "flexibles")
 FOYER = ages.FOYER[4]
 TRAVAIL = dict(couches=2, images=16, organe="tige du vérin central et plateau mobile (course de 0,3), vérins latéraux ; "
                                            "gyrophares qui tournent (couche glow, 8 images)")
-HABILLAGE = dict(ages.CORPS[4], forme_embase='carre', forme_dos='plat', forme_joues='caisson', forme_portique='cadre',
-                 mat_dos='noir_capot', mat_portique='jaune_capot')
+HABILLAGE = dict(ages.CORPS[4], plan='portique', forme_embase='carre', forme_dos='bas', forme_joues='socle',
+                 forme_portique='aucun', mat_dos='noir_capot')
+DENSITE = dict(p=0.6, lampes=0.06)
 
 
 def matieres(metal, M):
@@ -39,91 +41,115 @@ def _gyro(g, x, yn, z):
 
 
 def socle(g, c):
+    """Groupe hydraulique sur le dos bas, réservoir d'huile, fûts, tôle larmée, bandes de danger des pylônes."""
     M = g.M
-    h, yb, ze, Hd = c.h, c.yb, c.zs, c.Hd     # ze : dessus du plateau de baie (troisième jet)
+    h, yb, zb = c.h, c.yb, c.z_bas
     ym = (yb + h) / 2.0
-    # groupe moto-pompe accroché à la face (est) et flexibles vers le chapeau de la presse
-    g.box(B(0.62, yb - 0.16, ze + 0.15), (0.5, 0.26 * SQ2, 0.3), M["jaune_capot"], "hard", what="moteur")
+    # moto-pompe et réservoir sur le dos bas
+    g.box(B(0.55, ym, zb + 0.16), (0.55, 0.3 * SQ2, 0.32), M["jaune_capot"], "hard", what="moteur")
     for k in range(6):
-        g.box(B(0.42 + 0.08 * k, yb - 0.3, ze + 0.15), (0.025, 0.02, 0.26), M["noir_capot"], "hard", what="ailette")
-    g.cyl(B(0.24, yb - 0.16, ze + 0.15), "x", 0.1, 0.22, M["galva_capot"], n=16, what="pompe")
-    P2.handwheel(g, B(0.05, yb - 0.1, ze + 0.42), (0, -1, 0), 0.08, M, mat=M["redpaint"])
-    P2.handwheel(g, B(-0.5, yb - 0.06, ze + 0.5), (0, -1, 0), 0.07, M, mat=M["redpaint"])
-    P2.gauge(g, B(-0.75, yb - 0.04, ze + 0.5), (0, -1, 0), 0.06, M)
-    P2.gauge(g, B(-0.3, yb - 0.04, ze + 0.5), (0, -1, 0), 0.06, M)
-    # bande de danger au pied de la face, panneaux de tôle larmée
-    q = [B(-h + 0.05, yb - 0.04, ze + 0.02), B(h - 0.05, yb - 0.04, ze + 0.02), B(h - 0.05, yb - 0.04, ze + 0.12),
-         B(-h + 0.05, yb - 0.04, ze + 0.12)]
-    g.hazard(q, 24, t=0.01)
-    corps.face_s(g, -h + 0.1, h - 0.1, yb - 0.02, c.Hj + 0.03, Hd - 0.06, M["tole_larmee"], nu=6, nv=1)
-    # réservoir d'huile couché et fûts sur le toit
-    g.push((0.0, 0.0, Hd))       # parts2.tank pose ses berceaux depuis z = 0 : repère local au niveau du toit
-    P2.tank(g, B(-0.6, ym, 0.22), 0.2, 1.1, (1, 0, 0), M, paint=M["galva_capot"], band=M["jaune_capot"])
+        g.box(B(0.33 + 0.085 * k, ym - 0.16, zb + 0.16), (0.025, 0.02, 0.28), M["noir_capot"], "hard", what="ailette")
+    g.cyl(B(0.12, ym, zb + 0.14), "x", 0.11, 0.25, M["galva_capot"], n=16, what="pompe")
+    P2.handwheel(g, B(-0.1, ym - 0.17, zb + 0.3), (0, -1, 0.3), 0.08, M, mat=M["redpaint"])
+    g.push((0.0, 0.0, zb))     # parts2.tank pose ses berceaux depuis z = 0 : repère local au niveau du dos
+    P2.tank(g, B(-0.85, ym, 0.24), 0.21, 1.0, (1, 0, 0), M, paint=M["galva_capot"], band=M["jaune_capot"],
+            window=M["emit_soft"])
     g.pop()
-    for k, x in enumerate((0.55, 0.9, 1.25)):
-        F.drum(g, tuple(B(x, ym + (0.12 if k % 2 else -0.08), Hd)), 0.13, 0.32,
-               M["redpaint"] if k == 1 else M["yellowpaint"], M["noir_capot"])
-    _gyro(g, -1.5, ym + 0.2, Hd)
-    # pupitre de commande à deux mains devant la colonne ouest
-    x0 = -c.xb * 0.92 - 0.05
-    g.box(B(x0, c.yt - 0.55, ze + 0.25), (0.1, 0.08 * SQ2, 0.5), M["noir_capot"], "hard", what="pied_pupitre")
-    g.box(B(x0, c.yt - 0.55, ze + 0.52), (0.26, 0.12 * SQ2, 0.06), M["jaune_capot"], "hard", what="pupitre")
+    for k, x in enumerate((1.25, 1.55)):
+        F.drum(g, tuple(B(x, ym + (0.1 if k else -0.08), zb)), 0.13, 0.32, M["redpaint"] if k else M["yellowpaint"],
+               M["noir_capot"])
+    c.reserves += [(0.45, ym, 0.45), (-0.85, ym, 0.6), (1.4, ym, 0.3)]
+    # face du dos bas : tôle larmée et bande de danger
+    corps.face_s(g, -h + 0.1, h - 0.1, yb - 0.02, c.zs + 0.02, zb - 0.02, M["tole_larmee"], nu=6, nv=1)
+    g.hazard([B(-h + 0.1, yb - 0.05, zb - 0.1), B(h - 0.1, yb - 0.05, zb - 0.1), B(h - 0.1, yb - 0.05, zb - 0.03),
+              B(-h + 0.1, yb - 0.05, zb - 0.03)], 26, t=0.008)
+    # bandes de danger sur les pieds des pylônes, gyrophares
     for sx in (-1, 1):
-        g.cyl(B(x0 + sx * 0.07, c.yt - 0.56, ze + 0.56), "z", 0.025, 0.02, M["redpaint"], n=10, what="bouton")
+        x = sx * c.xp
+        g.hazard([B(x - c.wp / 2 + 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.15),
+                  B(x + c.wp / 2 - 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.15),
+                  B(x + c.wp / 2 - 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.32),
+                  B(x - c.wp / 2 + 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.32)], 6, t=0.006)
+        _gyro(g, x, c.yt, c.ztop)
+    # pupitre à deux mains devant le pylône ouest
+    x0 = -c.xb + 0.25
+    g.box(B(x0, c.yt - 0.7, c.zs + 0.22), (0.1, 0.08 * SQ2, 0.44), M["noir_capot"], "hard", what="pied_pupitre")
+    g.box(B(x0, c.yt - 0.7, c.zs + 0.46), (0.26, 0.12 * SQ2, 0.06), M["jaune_capot"], "hard", what="pupitre")
+    for sx in (-1, 1):
+        g.cyl(B(x0 + sx * 0.07, c.yt - 0.71, c.zs + 0.5), "z", 0.025, 0.02, M["redpaint"], n=10, what="bouton")
+    c.reserves.append((x0, c.yt - 0.7, 0.18))
 
 
 def outil(g, c):
-    """Vérin central chromé, plateau mobile, vérins latéraux, flexibles, gyrophares du chapeau."""
+    """Vérin central chromé sous le chapeau, plateau, vérins latéraux, flexibles vers le groupe hydraulique."""
     M = g.M
-    yt, zt, zp, bp = c.yt, c.zt, c.zp, c.bp
-    top = zp + bp
-    g.cyl(B(0, yt, top - 0.18), "z", 0.17, 0.36, M["jaune_capot"], n=24, what="corps_verin")
-    g.tube_shell(B(0, yt, top - 0.34), "z", 0.19, 0.16, 0.04, M["noir_capot"], n=24, what="bague")
-    g.cyl(B(0, yt, (top - 0.36 + zt + 0.32) / 2), "z", 0.08, top - 0.36 - zt - 0.32, M["steel_hi"], n=16,
-          what="tige")
-    g.box(B(0, yt, zt + 0.3), (2 * c.xb * 0.92 - 0.1, 0.36 * SQ2, 0.1), M["noir_capot"], "hard", what="plateau")
-    g.hazard([B(-0.8, yt - 0.18 - 0.005, zt + 0.26), B(0.8, yt - 0.18 - 0.005, zt + 0.26),
-              B(0.8, yt - 0.18 - 0.005, zt + 0.34), B(-0.8, yt - 0.18 - 0.005, zt + 0.34)], 16, t=0.006)
+    yt, zt, zp = c.yt, c.zt, c.zp
+    g.cyl(B(0, yt, zp - 0.2), "z", 0.19, 0.4, M["jaune_capot"], n=24, what="corps_verin")
+    g.tube_shell(B(0, yt, zp - 0.38), "z", 0.21, 0.18, 0.05, M["noir_capot"], n=24, what="bague")
+    g.cyl(B(0, yt, (zp - 0.4 + zt + 0.34) / 2), "z", 0.085, zp - 0.4 - zt - 0.34, M["steel_hi"], n=16, what="tige")
+    g.box(B(0, yt, zt + 0.32), (2 * c.xb - 0.2, 0.4 * SQ2, 0.1), M["noir_capot"], "hard", what="plateau")
+    g.hazard([B(-0.9, yt - 0.2 - 0.005, zt + 0.28), B(0.9, yt - 0.2 - 0.005, zt + 0.28), B(0.9, yt - 0.2 - 0.005, zt + 0.36),
+              B(-0.9, yt - 0.2 - 0.005, zt + 0.36)], 16, t=0.006)
     for sx in (-1, 1):
-        x = sx * 0.55
-        g.cyl(B(x, yt, top - 0.14), "z", 0.08, 0.28, M["jaune_capot"], n=16, what="verin_lat")
-        g.cyl(B(x, yt, (top - 0.28 + zt + 0.35) / 2), "z", 0.035, top - 0.28 - zt - 0.35, M["steel_hi"], n=10,
+        x = sx * 0.6
+        g.cyl(B(x, yt, zp - 0.15), "z", 0.085, 0.3, M["jaune_capot"], n=16, what="verin_lat")
+        g.cyl(B(x, yt, (zp - 0.3 + zt + 0.37) / 2), "z", 0.035, zp - 0.3 - zt - 0.37, M["steel_hi"], n=10,
               what="tige_lat")
-        _gyro(g, sx * (c.xb * 0.92 + 0.05), yt - 0.12, top + 0.24)
-    # flexibles du groupe hydraulique vers le chapeau
+        # glissières sur les faces intérieures des pylônes
+        g.box(B(sx * (c.xp - c.wp / 2 - 0.03), yt, (zt + zp) / 2), (0.05, 0.12 * SQ2, zp - zt), M["noir_capot"],
+              "hard", what="glissiere")
     for k, dx in enumerate((-0.15, 0.0, 0.15)):
-        g.hose([B(0.62 + dx, c.yb - 0.2, c.zs + 0.3), B(0.7 + dx, (c.yb + yt) / 2, top + 0.35),
-                B(0.25 + dx, yt + 0.1, top + 0.2)], 0.028, M["rubber"], step=0.04)
+        g.hose([B(0.3 + dx, yt + 0.1, c.ztop), B(0.4 + dx, (c.yb + yt) / 2 + 0.3, c.ztop + 0.25),
+                B(0.45 + dx, (c.yb + c.h) / 2 - 0.1, c.z_bas + 0.3)], 0.03, M["rubber"], step=0.04)
 
 
 def ouvrage(g, c):
-    """Outillage de presse : semelle noire, 4 colonnettes, flan, pièces moulées rouges."""
+    """Outillage de presse : semelle noire, 4 colonnettes, flan, pièces moulées rouges (plastique)."""
     M = g.M
     yt, zt = c.yt, c.zt
-    g.box(B(0, yt, zt + 0.05), (0.62, 0.42 * SQ2, 0.1), M["noir_capot"], "hard", what="semelle")
+    g.box(B(0, yt, zt + 0.05), (0.7, 0.46 * SQ2, 0.1), M["noir_capot"], "hard", what="semelle")
     for sx in (-1, 1):
         for sy in (-1, 1):
-            g.cyl(B(sx * 0.25, yt + sy * 0.16, zt + 0.17), "z", 0.025, 0.16, M["steel_hi"], n=8, what="colonnette")
-    g.box(B(0, yt, zt + 0.12), (0.34, 0.24 * SQ2, 0.03), M["galva_capot"], "hard", what="flan")
+            g.cyl(B(sx * 0.28, yt + sy * 0.18, zt + 0.17), "z", 0.025, 0.16, M["steel_hi"], n=8, what="colonnette")
+    g.box(B(0, yt, zt + 0.12), (0.38, 0.26 * SQ2, 0.03), M["galva_capot"], "hard", what="flan")
     for k in range(3):
-        g.box(B(-0.42 + 0.12 * k, yt - 0.3, zt + 0.03), (0.09, 0.07 * SQ2, 0.05), M["redpaint"], "soft",
+        g.box(B(-0.45 + 0.13 * k, yt - 0.34, zt + 0.03), (0.1, 0.08 * SQ2, 0.05), M["redpaint"], "soft",
               what="piece_moulee")
 
 
+def entree(g, c, p):
+    """Fût de brut couché sur un chevalet, robinet rouge (entrée)."""
+    M = g.M
+    r, z = p["r"], p["z"]
+    g.box(B(p["x"], p["yn"], z + 0.06), (2 * r * 0.9, 0.5 * r * SQ2, 0.12), M["noir_capot"], "hard", what="chevalet")
+    g.cyl(B(p["x"], p["yn"], z + 0.12 + r * 0.55), "x", r * 0.55, 2 * r * 0.9, M["yellowpaint"], n=20, what="fut_couche")
+    for f in (-0.3, 0.3):
+        g.tube_shell(B(p["x"] + f * r, p["yn"], z + 0.12 + r * 0.55), "x", r * 0.57, r * 0.5, 0.025, M["noir_capot"],
+                     n=20, what="bourrelet")
+    P2.handwheel(g, B(p["x"] + r * 0.95, p["yn"], z + 0.12 + r * 0.5), (1, 0, 0), 0.05, M, mat=M["redpaint"])
+
+
+def sortie(g, c, p):
+    """Caisse grillagée noire de pièces moulées rouges (sortie)."""
+    corps.bac(g, c, p, g.M["noir_capot"], g.M["redpaint"], forme="plaque")
+
+
 def piece(g, c):
-    """Niveau 8 : palette de trois fûts (coin avant gauche), jerricans et pompe à main (coin avant droit)."""
+    """Niveau 8 (plus grande) : palette de quatre fûts sous bâche (coin avant gauche), jerricans, pompe à main et extincteur
+    (coin avant droit)."""
     M = g.M
     po, pe = corps.place(c, "coin_SO"), corps.place(c, "coin_SE")
     z = po["z_sol"]
-    g.box(B(po["x"], po["yn"], z + 0.04), (0.62, 0.44 * SQ2, 0.08), M["wood"], "hard", what="palette")
-    for k, (dx, dy) in enumerate(((-0.15, 0.08), (0.15, 0.08), (0.0, -0.12))):
-        F.drum(g, tuple(B(po["x"] + dx, po["yn"] + dy, z + 0.08)), 0.13, 0.34,
-               M["redpaint"] if k == 2 else M["yellowpaint"], M["noir_capot"])
+    g.box(B(po["x"], po["yn"], z + 0.04), (0.7, 0.6 * SQ2, 0.08), M["wood"], "hard", what="palette")
+    for k, (dx, dy) in enumerate(((-0.16, 0.12), (0.16, 0.12), (-0.16, -0.14), (0.16, -0.14))):
+        F.drum(g, tuple(B(po["x"] + dx, po["yn"] + dy, z + 0.08)), 0.14, 0.42,
+               M["redpaint"] if k == 3 else M["yellowpaint"], M["noir_capot"])
     for k in range(3):
-        g.box(B(pe["x"] - 0.18 + 0.15 * k, pe["yn"] - 0.1, z + 0.12), (0.12, 0.07 * SQ2, 0.24),
+        g.box(B(pe["x"] - 0.2 + 0.16 * k, pe["yn"] - 0.08, z + 0.15), (0.13, 0.08 * SQ2, 0.3),
               M["redpaint"] if k != 1 else M["jaune_capot"], "hard", what="jerrican")
-        g.box(B(pe["x"] - 0.18 + 0.15 * k, pe["yn"] - 0.1, z + 0.26), (0.06, 0.04, 0.03), M["noir_capot"], "hard",
+        g.box(B(pe["x"] - 0.2 + 0.16 * k, pe["yn"] - 0.08, z + 0.32), (0.06, 0.04, 0.03), M["noir_capot"], "hard",
               what="poignee")
-    g.cyl(B(pe["x"] + 0.15, pe["yn"] + 0.15, z + 0.2), "z", 0.04, 0.4, M["galva_capot"], n=10, what="pompe_main")
-    g.box(B(pe["x"] + 0.15, pe["yn"] + 0.15, z + 0.42), (0.2, 0.03, 0.03), M["redpaint"], "hard",
+    g.cyl(B(pe["x"] + 0.2, pe["yn"] + 0.18, z + 0.28), "z", 0.045, 0.56, M["galva_capot"], n=10, what="pompe_main")
+    g.box(B(pe["x"] + 0.2, pe["yn"] + 0.18, z + 0.58), (0.24, 0.03, 0.03), M["redpaint"], "hard",
           R=Matrix.Rotation(0.3, 3, "Y"), what="levier")
+    g.cyl(B(pe["x"] - 0.05, pe["yn"] + 0.2, z + 0.2), "z", 0.06, 0.4, M["redpaint"], n=14, what="extincteur")

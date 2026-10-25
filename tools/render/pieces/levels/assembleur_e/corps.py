@@ -67,12 +67,56 @@ class Ctx:
                                               T["portique"]["wm"])
         self.z_joue = self.Hj       # dessus réel des joues (rempli par joues())
         self.z_nord = self.Hd       # hauteur du dos au bord nord (bride N)
+        # ronde F3-A2 : PLAN du corps (plans.py) ; dos « bas » (portique) au ras du bâti
+        self.plan = hab.get("plan") or "carre"
+        self.z_bas = self.zs + 0.12 + 0.03 * side
         g.ctx = self
+        import plans
+        plans.init(self)
+        self.reserves += _reserves_carre(self) if self.plan in ("carre", "L", "portique") else []
 
 
 def place(c, nom=None):
-    p = cotes.places(c.side)
+    """Places de la lignée (cotes.places), corrigées par le plan : coins de la pièce paire hors du tambour (rond,
+    octo), entrée et sortie (place_es)."""
+    p = dict(cotes.places(c.side))
+    plan = getattr(c, "plan", "carre")
+    if plan in ("rond", "octo"):
+        h = c.h
+        for nom_, sx in (("coin_SO", -1), ("coin_SE", 1)):
+            p[nom_] = dict(x=sx * 0.8 * h, yn=-0.8 * h, z_sol=0.0, r=0.17 * h)
     return p[nom] if nom else p
+
+
+def place_es(c, quoi):
+    """Place de l'ENTRÉE (« entree ») ou de la SORTIE (« sortie ») selon le plan : dict(x, yn, z, r)."""
+    if c.plan in ("rond", "octo", "tour"):
+        return dict(c.pl_entree if quoi == "entree" else c.pl_sortie)
+    if c.plan == "portique":
+        # sur le bâti, devant la table, aux deux bouts du parapet (les pylônes cachent l'arrière des joues)
+        r = 0.06 * c.side + 0.06
+        sx = -1 if quoi == "entree" else 1
+        return dict(x=sx * (c.xb - r - 0.08), yn=-c.h + c.epar + r + 0.12, z=c.zs, r=r)
+    pl = cotes.places(c.side)["joue_O" if quoi == "entree" else "joue_E"]
+    z = c.Hd if (c.plan == "L" and quoi == "entree") else c.z_joue
+    return dict(x=pl["x"], yn=pl["yn"], z=z, r=pl["r"])
+
+
+def _reserves_carre(c):
+    out = []
+    pl = cotes.places(c.side)
+    for nom in ("joue_O", "joue_E"):
+        out.append((pl[nom]["x"], pl[nom]["yn"], pl[nom]["r"] + 0.05))
+    out.append((0.0, c.h - 0.3, 0.2))           # collecteur N
+    if c.plan in ("carre", "L") and c.f_portique == "poutre":
+        for sx in (-1, 1):
+            out.append((sx * c.xm, c.yt, c.wm + 0.05))
+    if c.plan == "portique":
+        r = 0.06 * c.side + 0.06
+        for sx in (-1, 1):
+            out.append((sx * (c.xb - r - 0.08), -c.h + c.epar + r + 0.12, r + 0.05))
+            out.append((sx * c.xp, c.yt, c.dp * 0.7))
+    return out
 
 
 def mat_de(c, cle, defaut):
@@ -152,6 +196,12 @@ def chevron(g, x, yn, z, sens, m, k=0.12):
 # ------------------------------------------------------------------------------------------------
 def contour_embase(c, ins=0.0):
     h = c.h - ins
+    if getattr(c, "plan", "carre") == "rond":
+        import plans
+        return plans.contour(h, 40)
+    if getattr(c, "plan", "carre") == "octo":
+        k = 0.586 * h
+        return [(-h + k, -h), (h - k, -h), (h, -h + k), (h, h - k), (h - k, h), (-h + k, h), (-h, h - k), (-h, -h + k)]
     if c.f_embase == "chanfrein":
         k = c.T["embase"]["chanfrein"]
         return [(-h + k, -h), (h - k, -h), (h, -h + k), (h, h - k), (h - k, h), (-h + k, h), (-h, h - k), (-h, -h + k)]
@@ -239,7 +289,12 @@ def dos(g, c):
     f = c.f_dos
     x0, x1 = -h + 0.02, h - 0.02
     y0, y1 = yb, h - 0.02
-    if f == "plat":
+    if f == "bas":
+        zb_ = c.z_bas
+        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zb_, ins=(0.02, 0.0, 0.0), panel=0.55, mats=[m1], faces="st")
+        corniere(g, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], zb_, M["steel_dk"], w=0.05, hgt=0.04)
+        c.z_nord = zb_
+    elif f == "plat":
         PT.hull(g, x0, x1, Y(y0), Y(y1), ze, Hd, ins=(0.02, 0.0, 0.0), panel=0.55, mats=[m1], faces="st")
         corniere(g, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], Hd, M["steel_dk"], w=0.05, hgt=0.05)
         c.z_nord = Hd
@@ -337,7 +392,17 @@ def joues(g, c):
     ze, Hj, yf, yb = c.ze, c.Hj, c.yf, c.yb
     for sx in (-1, 1):
         xa, xb_ = (-c.h + 0.02, -c.xb) if sx < 0 else (c.xb, c.h - 0.02)
-        if f in ("caisson", "basses"):
+        if c.plan == "L" and sx < 0:
+            # AILE du plan L : joue ouest à pleine hauteur du dos, face sud à plaques
+            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, c.Hd, ins=(0.0, 0.0, 0.0), panel=0.5, mats=[m1], faces="st")
+            corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], c.Hd, M["steel_dk"], w=0.05, hgt=0.04)
+            continue
+        if f == "socle":
+            zz = c.zs + 0.06
+            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, zz, ins=(0.015, 0.0, 0.0), panel=0.55, mats=[m1], faces="st")
+            corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], zz, M["steel_dk"], w=0.04, hgt=0.03)
+            c.z_joue = zz
+        elif f in ("caisson", "basses"):
             zz = Hj if f == "caisson" else c.zs + 0.45 * (Hj - c.zs)
             PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, zz, ins=(0.015, 0.0, 0.0), panel=0.55, mats=[m1],
                     faces="st")
@@ -480,17 +545,35 @@ def portique(g, c):
 # ------------------------------------------------------------------------------------------------
 @_lignee
 def ports(g, c):
+    """Brides de fluide au milieu des bords NORD et SUD, selon le plan."""
     M = g.M
     r = 0.07 + 0.01 * c.side
-    # SUD : tubulure qui sort de la face sud du plateau de baie, bride au bord
-    z = c.ze + (c.zs - c.ze) * 0.5
-    g.cyl(B(0, -c.h + 0.06, z), "y", r, 0.2, M["steel_dk"], n=14, what="port_s")
-    g.cyl(B(0, -c.h + 0.0, z), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_s")
+    if c.plan in ("rond", "octo"):
+        ys, zs_ = -(c.Rb - 0.06) * (0.924 if c.plan == "octo" else 1.0), c.ze + (c.zr - c.ze) * 0.5
+    elif c.plan == "tour":
+        ys, zs_ = -c.Rp, c.ze + (c.zr - c.ze) * 0.5
+    else:
+        ys, zs_ = -c.h, c.ze + (c.zs - c.ze) * 0.5
+    g.cyl(B(0, ys + 0.06, zs_), "y", r, 0.2, M["steel_dk"], n=14, what="port_s")
+    g.cyl(B(0, ys, zs_), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_s")
     for k in range(6):
         a = TAU * k / 6 + 0.3
-        g.dome(B(r * 1.25 * math.cos(a), -c.h - 0.02, z + r * 1.25 * math.sin(a)), (0, -1, 0), 0.016,
-               M["steel_hi"])
-    # NORD : collecteur sur le dos, du bord nord vers le sud, coude qui plonge dans le dos
+        g.dome(B(r * 1.25 * math.cos(a), ys - 0.02, zs_ + r * 1.25 * math.sin(a)), (0, -1, 0), 0.016, M["steel_hi"])
+    if c.plan in ("rond", "octo", "tour"):
+        # NORD : conduite au ras du sol du bord nord au corps (croissant ou pied de la tour), coude qui y entre
+        yn0 = c.h - 0.04
+        if c.plan == "tour":
+            yn1, z1 = c.Rt / SQ2 + 0.05, c.zr + 0.15
+        else:
+            yn1, z1 = c.Rb - 0.06 - c.ep_cr * 0.5, c.Hc + 0.05
+        zn = c.ze + r + 0.03 if c.plan == "tour" else z1 + r
+        if c.plan == "tour":
+            g.tube([B(0, yn0, zn), B(0, (yn0 + yn1) / 2, zn), B(0, yn1 + 0.05, z1)], r, M["steel_dk"], n=14,
+                   what="port_n")
+        else:
+            g.tube([B(0, yn0, zn), B(0, yn1, zn), B(0, yn1 - 0.05, z1 - 0.05)], r, M["steel_dk"], n=14, what="port_n")
+        g.cyl(B(0, yn0, zn), "y", r * 1.5, 0.05, M["steel"], n=16, style="hard", what="bride_n")
+        return
     zn = c.z_nord + r + 0.03
     yn0 = c.h - 0.04
     yn1 = c.h - min(0.45, c.dd * 0.45)
@@ -503,63 +586,109 @@ def ports(g, c):
 
 @_lignee
 def entree(g, c):
+    """ENTRÉE : trémie (ou objet propre à l'âge : def entree(g, c, p)) et chevron vers la machine."""
+    p = place_es(c, "entree")
     if hasattr(c.ep, "entree"):
-        c.ep.entree(g, c)
+        c.ep.entree(g, c, p)
     else:
-        M = g.M
-        p = place(c, "joue_O")
         r = p["r"]
-        z = c.z_joue
-        P2.hopper(g, p["x"] - r, p["x"] + r, Y(p["yn"] - r), Y(p["yn"] + r), z, z + 0.18 + 0.03 * c.side, M,
-                  paint=c.Mh["ochre"])
-    p = place(c, "joue_O")
-    chevron(g, p["x"] + p["r"] * 0.2, p["yn"] - p["r"] - 0.12, c.z_joue + 0.005, +1, c.Mh["hazy"], k=0.1)
+        P2.hopper(g, p["x"] - r, p["x"] + r, Y(p["yn"] - r), Y(p["yn"] + r), p["z"], p["z"] + 0.18 + 0.03 * c.side,
+                  g.M, paint=c.Mh["ochre"])
+    chevron(g, p["x"] + p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
 
 
 @_lignee
 def sortie(g, c):
+    """SORTIE : bac PROPRE À L'ÂGE (def sortie(g, c, p), obligatoire depuis la ronde F3-A2) et chevron vers l'extérieur."""
+    p = place_es(c, "sortie")
     if hasattr(c.ep, "sortie"):
-        c.ep.sortie(g, c)
+        c.ep.sortie(g, c, p)
     else:
-        M = g.M
-        p = place(c, "joue_E")
-        r = p["r"]
-        z = c.z_joue
-        sx, sy, sz = 2 * r, 2 * r * SQ2 * 0.9, 0.12 + 0.02 * c.side
-        cx, cy = p["x"], Y(p["yn"])
-        t = 0.03
-        for (px, py, w, d) in ((cx, cy - sy / 2 + t / 2, sx, t), (cx, cy + sy / 2 - t / 2, sx, t),
-                               (cx - sx / 2 + t / 2, cy, t, sy), (cx + sx / 2 - t / 2, cy, t, sy)):
-            g.box((px, py, z + sz / 2), (w, d, sz), c.Mh["ochre"], "hard", what="bac")
-        g.box((cx, cy, z + sz * 0.4), (sx - 2 * t, sy - 2 * t, sz * 0.8), M["seam"], "flat", what="fond_bac")
-        # produits finis : engrenages empilés
-        k = 0
-        for i in (-1, 1):
-            for j in (-1, 1):
-                rr = 0.06 + 0.005 * c.side
-                q = (cx + i * sx * 0.22, cy + j * sy * 0.22, z + sz * 0.8 + 0.012 * (k % 2))
-                g.cyl(q, "z", rr, 0.03, M["steel_hi"], n=12, style="hard", what="engrenage")
-                g.cyl((q[0], q[1], q[2] + 0.017), "z", rr * 0.35, 0.012, M["steel_dk"], n=8, what="moyeu")
-                k += 1
-    p = place(c, "joue_E")
-    chevron(g, p["x"] - p["r"] * 0.2, p["yn"] - p["r"] - 0.12, c.z_joue + 0.005, +1, c.Mh["hazy"], k=0.1)
+        bac(g, c, p, c.Mh["ochre"], g.M["steel_hi"])
+    chevron(g, p["x"] - p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
+
+
+def bac(g, c, p, paroi, produit, forme="engrenage"):
+    """Bac ouvert à la place p, parois `paroi`, produits finis `produit` (engrenage, lingot, sphère, plaque)."""
+    M = g.M
+    r, z = p["r"], p["z"]
+    sx, sy, sz = 2 * r, 2 * r * SQ2 * 0.9, 0.1 + 0.02 * c.side
+    cx, cy = p["x"], Y(p["yn"])
+    t = 0.03
+    for (px, py, w, d) in ((cx, cy - sy / 2 + t / 2, sx, t), (cx, cy + sy / 2 - t / 2, sx, t),
+                           (cx - sx / 2 + t / 2, cy, t, sy), (cx + sx / 2 - t / 2, cy, t, sy)):
+        g.box((px, py, z + sz / 2), (w, d, sz), paroi, "hard", what="bac")
+    g.box((cx, cy, z + sz * 0.4), (sx - 2 * t, sy - 2 * t, sz * 0.8), M["seam"], "flat", what="fond_bac")
+    k = 0
+    for i in (-1, 1):
+        for j in (-1, 1):
+            q = V((cx + i * sx * 0.22, cy + j * sy * 0.22, z + sz * 0.8 + 0.012 * (k % 2)))
+            rr = 0.05 + 0.005 * c.side
+            if forme == "engrenage":
+                g.cyl(q, "z", rr, 0.03, produit, n=12, style="hard", what="produit")
+                g.cyl(q + V((0, 0, 0.017)), "z", rr * 0.35, 0.012, M["steel_dk"], n=8, what="moyeu")
+            elif forme == "lingot":
+                g.box(q + V((0, 0, 0.02)), (rr * 1.8, rr * 0.9 * SQ2, 0.04), produit, "hard", what="produit")
+            elif forme == "sphere":
+                g.sphere(q + V((0, 0, rr * 0.7)), rr * 0.75, produit, n=12, m=6, what="produit")
+            else:
+                g.box(q + V((0, 0, 0.012)), (rr * 1.9, rr * 1.9 * SQ2, 0.02), produit, "hard", what="produit")
+            k += 1
+
+
+@_lignee
+def liaisons(g, c):
+    """Conduites qui RELIENT le corps à l'outil (plans carre, L, portique et tour ; les plans rond et octo ont les rayons) :
+    deux tuyaux à brides et un faisceau de câbles. Un âge les retire par LIAISONS = False."""
+    if not getattr(c.ep, "LIAISONS", True) or c.plan in ("rond", "octo"):
+        return
+    M = g.M
+    r = 0.028 + 0.004 * c.side
+    if c.plan == "tour":
+        for sx in (-1, 1):
+            p0 = B(sx * c.Rp * 0.75, -c.Rp * 0.35, c.zr)
+            p1 = V((sx * c.Rt * 0.8, -c.Rt * 0.6, c.zr + 0.35 * (c.Ht - c.zr)))
+            g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.1)), p1], r, M["steel_dk"], fl_mat=M["steel"],
+                   bolt_mat=M["rivet"])
+        return
+    tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
+    if c.plan == "portique":
+        for sx in (-1, 1):
+            p0 = B(sx * (c.xp - c.wp / 2), c.yt - c.dp / 2 - 0.02, c.zs + 0.3)
+            p1 = B(sx * tx * 0.7, c.yt - ty * 0.5, c.zt + 0.08)
+            g.hose([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.12)), p1], r, M["rubber"], step=0.04)
+        return
+    for sx in (-1, 1):
+        p0 = B(sx * tx * 0.55, c.yb - 0.02, c.zs + 0.25)
+        p1 = B(sx * tx * 0.45, c.yt + ty * 0.7, c.zt + 0.1)
+        g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.15)), p1], r, M["steel_dk"], fl_mat=M["steel"], bolt_mat=M["rivet"])
+    g.cable(B(0.15, c.yb - 0.02, c.zs + 0.35), B(0.1, c.yt + ty * 0.6, c.zt + 0.2), 0.08, 0.02, M["rubber"])
 
 
 # ------------------------------------------------------------------------------------------------
 # Pièces et machine
 # ------------------------------------------------------------------------------------------------
 def machine(g, c):
-    """Machine du niveau impair : lignée + organes de l'âge."""
+    """Machine du niveau impair : corps du plan + organes de l'âge + liaisons + garniture dense."""
+    import garniture
+    import plans
     embase(g, c)
-    dos(g, c)
-    joues(g, c)
-    plateau(g, c)
-    table(g, c)
-    portique(g, c)
+    if c.plan in ("carre", "L", "portique"):
+        dos(g, c)
+        joues(g, c)
+        plateau(g, c)
+        table(g, c)
+        if c.plan == "portique":
+            plans.pylones(g, c)
+        else:
+            portique(g, c)
+    elif c.plan in ("rond", "octo"):
+        plans.tambour(g, c)
+    else:
+        plans.tour(g, c)
     ports(g, c)
     entree(g, c)
     sortie(g, c)
-    import garniture            # ronde 4 : petites pièces de la lignée sur le bâti et les joues (GARNIR de l'âge)
     garniture.garnir(g, c)
     ep = c.ep
     if hasattr(ep, "socle"):
@@ -568,6 +697,10 @@ def machine(g, c):
         ep.ouvrage(g, c)
     if hasattr(ep, "outil"):
         ep.outil(g, c)
+    if c.plan in ("rond", "octo") and getattr(ep, "RAYONS", True):
+        plans.rayons(g, c)
+    liaisons(g, c)
+    garniture.densifier(g, c)
 
 
 def piece(g, c):
@@ -592,6 +725,8 @@ def z_toit(c, x, yn):
     if not (y0 <= yn <= y1 and abs(x) <= h):
         return 0.0
     f = c.f_dos
+    if f == "bas":
+        return c.z_bas
     ym, half = (y0 + y1) / 2.0, (y1 - y0) / 2.0
     if f == "pans":
         zw = c.zw_pans

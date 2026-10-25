@@ -1,9 +1,10 @@
-"""Assembleur · Âge 2 · Forge (ère I, 3×3, niveaux 3 et 4). Lot F3-A ; fiche FICHES_ASSEMBLEUR.md, âge 2. Dans Blender.
+"""Assembleur · Âge 2 · Forge (ère I, 3×3, niveaux 3 et 4). Lot F3-A, ronde F3-A2 ; fiche FICHES_ASSEMBLEUR.md, âge 2.
+Dans Blender.
 
-En 3 mots : « martinet, enclume, toit de briques ». L'outil est un MARTINET (marteau-pilon à bascule) : manche de chêne
-cerclé de fer sur un chevalet posé sur la joue ouest, tête de fer forgé levée au-dessus de l'ENCLUME, roue à cames qui
-le soulève. Le dos est une FORGE de briques à toit de tuiles de brique (deux pans), un FOYER rougeoyant sous sa hotte,
-un soufflet de cuir, des outils pendus. Joues basses de fer martelé.
+En 3 mots : « martinet, enclume, toit de briques ». Plan en L : la FORGE de briques occupe le nord (toit de tuiles de
+brique à deux pans) et l'ouest (AILE haute de briques dont la face sud porte le FOYER rougeoyant sous sa hotte, le soufflet
+de cuir accroché). À l'est, sur la joue basse, le chevalet de chêne du MARTINET : le manche cerclé de fer enjambe la baie
+et sa tête de fer, levée, tombe sur l'ENCLUME. Roue à cames, tas de charbon, seau de trempe, outils pendus.
 Palette 60/30/10 (ages.PALETTE[2]) : fer gris martelé / brique rouge / braise rouge.
 """
 import math
@@ -23,10 +24,11 @@ NOM = ages.NOMS[2]
 TRIPLET = ("martinet", "enclume", "toit de briques")
 FOYER = ages.FOYER[2]
 TRAVAIL = dict(couches=2, images=16, organe="manche et tête du martinet (bascule de 14°), roue à cames qui tourne ; "
-                                           "étincelles et braise du lopin (couche glow)")
-HABILLAGE = dict(ages.CORPS[2], forme_embase='carre', forme_dos='pans', forme_joues='basses', forme_portique='aucun',
-                 mat_dos='brique', mat_joues='fer_martele', mat_table='fer_noir')
-ANGLE = -0.14     # bascule du manche (tête levée)
+                                           "étincelles et braise du lopin, flamme du foyer (couche glow)")
+HABILLAGE = dict(ages.CORPS[2], plan='L', forme_embase='carre', forme_dos='pans', forme_joues='basses',
+                 forme_portique='aucun', mat_dos='brique', mat_joues='fer_martele', mat_table='fer_noir')
+DENSITE = dict(p=0.6, lampes=0.0)
+ANGLE = 0.14     # bascule du manche (tête levée, vers l'ouest)
 
 
 def matieres(metal, M):
@@ -35,76 +37,87 @@ def matieres(metal, M):
           streak=0.5)
 
 
-def socle(g, c):
-    """Briques sur la face du dos, foyer sous hotte, soufflet, outils pendus, tas de charbon, seau."""
+def _briques(g, x0, x1, yn, z0, z1):
     M = g.M
-    h, yb, ze = c.h, c.yb, c.zs          # troisième jet : le pied de la face est caché par le plateau de baie
-    zw = c.zw_pans
-    q = [B(-h + 0.02, yb - 0.03, ze), B(h - 0.02, yb - 0.03, ze), B(h - 0.02, yb - 0.03, zw),
-         B(-h + 0.02, yb - 0.03, zw)]
+    q = [B(x0, yn - 0.03, z0), B(x1, yn - 0.03, z0), B(x1, yn - 0.03, z1), B(x0, yn - 0.03, z1)]
     F.courses(g, q, [M["brique"], M["brique_pave"], M["brique_pave2"]], bw=0.14, bh=0.065, t=0.018)
-    # foyer : sole de briques, braises, hotte de fer à cerclages
-    xf = 0.42
-    g.box(B(xf, yb - 0.18, ze + 0.08), (0.5, 0.3 * SQ2, 0.16), M["brique"], "hard", what="sole")
-    for k in range(9):
-        F.lump(g, B(xf - 0.18 + 0.045 * k, yb - 0.3 + 0.04 * (k % 3), ze + 0.17), 0.05, M["emit"] if k % 3 else
-               M["braise_sombre"] if "braise_sombre" in M else M["soot"])
-    zh0, zh1 = ze + 0.5, zw + 0.3      # ronde 3 : hotte plus haute (elle cachait les braises : 0 foyer mesuré)
-    g.hexa([B(xf - 0.27, yb - 0.36, zh0), B(xf + 0.27, yb - 0.36, zh0), B(xf + 0.27, yb - 0.02, zh0),
-            B(xf - 0.27, yb - 0.02, zh0), B(xf - 0.1, yb - 0.1, zh1), B(xf + 0.1, yb - 0.1, zh1),
-            B(xf + 0.1, yb + 0.12, zh1), B(xf - 0.1, yb + 0.12, zh1)], M["fer_noir"], "hard", "hotte")
-    g.box(B(xf, yb + 0.01, zh1 + 0.1), (0.24, 0.24 * SQ2, 0.2), M["brique"], "hard", what="conduit")
-    g.box(B(xf, yb + 0.01, zh1 + 0.21), (0.3, 0.3 * SQ2, 0.03), M["fer_noir"], "hard", what="chapeau")
-    for z in (zh0 + 0.02, zh0 + 0.08):
-        g.box(B(xf, yb - 0.36, z), (0.55, 0.02, 0.025), M["fer_clair_f"], "hard", what="cerclage")
-    halo(g, xf, yb - 0.25, ze + 0.2, 2.2)
-    # soufflet de cuir à l'ouest du foyer
-    xs = -0.4
-    g.hexa([B(xs - 0.2, yb - 0.3, ze + 0.14), B(xs + 0.2, yb - 0.3, ze + 0.14), B(xs + 0.16, yb - 0.05, ze + 0.14),
-            B(xs - 0.16, yb - 0.05, ze + 0.14), B(xs - 0.2, yb - 0.3, ze + 0.27), B(xs + 0.2, yb - 0.3, ze + 0.27),
-            B(xs + 0.16, yb - 0.05, ze + 0.22), B(xs - 0.16, yb - 0.05, ze + 0.22)], M["leather"], "soft", "soufflet")
-    g.box(B(xs, yb - 0.18, ze + 0.07), (0.36, 0.25 * SQ2, 0.14), M["chene"], "hard", what="caisse_soufflet")
-    g.cyl(B(xs + 0.28, yb - 0.17, ze + 0.18), "x", 0.03, 0.4, M["fer_noir"], n=8, what="buse")
-    # outils pendus sur la face (tenailles, tisonnier)
-    for k, x in enumerate((-1.1, -0.95, 1.0, 1.15)):
-        g.box(B(x, yb - 0.05, zw - 0.12), (0.025, 0.02, 0.2), M["fer_noir"], "hard",
+
+
+def socle(g, c):
+    """Briques des faces, foyer dans l'aile ouest, soufflet, outils pendus, charbon, seau."""
+    M = g.M
+    h, yb, zs = c.h, c.yb, c.zs
+    zw = c.zw_pans
+    _briques(g, -c.xb, h - 0.02, yb, zs, zw)
+    # face sud de l'AILE : briques, FOYER voûté rougeoyant, hotte de fer, soufflet
+    xa, xz, yf = -h + 0.02, -c.xb, c.yf
+    _briques(g, xa, xz, yf, c.ze + 0.05, c.Hd - 0.03)
+    xf = (xa + xz) / 2.0
+    zf0, zf1 = c.ze + 0.12, c.ze + 0.48
+    g.box(B(xf, yf - 0.06, (zf0 + zf1) / 2), (0.42, 0.05, zf1 - zf0), M["brique"], "hard", what="encadrement")
+    g.box(B(xf, yf - 0.09, (zf0 + zf1) / 2 - 0.02), (0.3, 0.03, zf1 - zf0 - 0.1), M["soot"], "flat", what="bouche")
+    for k in range(8):
+        F.lump(g, B(xf - 0.12 + 0.034 * k, yf - 0.12, zf0 + 0.03 + 0.02 * (k % 2)), 0.045,
+               M["emit"] if k % 3 else M["forgeplate"])
+    g.cyl(B(xf, yf - 0.06, zf1 + 0.02), "y", 0.2, 0.06, M["brique_pave2"], n=16, what="voute_foyer")
+    g.hexa([B(xf - 0.25, yf - 0.32, zf1 + 0.08), B(xf + 0.25, yf - 0.32, zf1 + 0.08), B(xf + 0.25, yf - 0.02, zf1 + 0.08),
+            B(xf - 0.25, yf - 0.02, zf1 + 0.08), B(xf - 0.1, yf - 0.12, c.Hd - 0.08), B(xf + 0.1, yf - 0.12, c.Hd - 0.08),
+            B(xf + 0.1, yf - 0.02, c.Hd - 0.08), B(xf - 0.1, yf - 0.02, c.Hd - 0.08)], M["fer_noir"], "hard", "hotte")
+    for z in (zf1 + 0.1, zf1 + 0.16):
+        g.box(B(xf, yf - 0.32, z), (0.52, 0.02, 0.025), M["fer_clair_f"], "hard", what="cerclage")
+    halo(g, xf, yf - 0.25, zf0 + 0.15, 2.4)
+    c.reserves.append((xf, yf - 0.2, 0.3))
+    # conduit de briques sur l'aile (sortie de la hotte)
+    g.box(B(xf, (yf + yb) / 2, c.Hd + 0.12), (0.24, 0.24 * SQ2, 0.24), M["brique"], "hard", what="conduit")
+    g.box(B(xf, (yf + yb) / 2, c.Hd + 0.25), (0.3, 0.3 * SQ2, 0.03), M["fer_noir"], "hard", what="chapeau")
+    c.reserves.append((xf, (yf + yb) / 2, 0.22))
+    # soufflet de cuir sur le bâti, contre l'aile
+    xs, ys = -c.xb + 0.22, c.yt + 0.25
+    g.box(B(xs, ys, zs + 0.06), (0.32, 0.22 * SQ2, 0.12), M["chene"], "hard", what="caisse_soufflet")
+    g.hexa([B(xs - 0.17, ys - 0.12, zs + 0.12), B(xs + 0.17, ys - 0.12, zs + 0.12), B(xs + 0.14, ys + 0.1, zs + 0.12),
+            B(xs - 0.14, ys + 0.1, zs + 0.12), B(xs - 0.17, ys - 0.12, zs + 0.24), B(xs + 0.17, ys - 0.12, zs + 0.24),
+            B(xs + 0.14, ys + 0.1, zs + 0.2), B(xs - 0.14, ys + 0.1, zs + 0.2)], M["leather"], "soft", "soufflet")
+    g.cyl(B(xs - 0.2, ys - 0.05, zs + 0.16), "x", 0.03, 0.18, M["fer_noir"], n=8, what="buse")
+    c.reserves.append((xs, ys, 0.22))
+    # outils pendus sur la face du dos
+    for k, x in enumerate((0.15, 0.3, 0.5, 0.65)):
+        g.box(B(x, yb - 0.05, zw - 0.15), (0.025, 0.02, 0.22), M["fer_noir"], "hard",
               R=Matrix.Rotation(0.12 * (1 if k % 2 else -1), 3, "Y"), what="outil_pendu")
-        g.dome(B(x, yb - 0.04, zw - 0.05), (0, -1, 0), 0.018, M["fer_clair_f"])
-    # tas de charbon et seau de trempe dans la baie
+        g.dome(B(x, yb - 0.04, zw - 0.03), (0, -1, 0), 0.018, M["fer_clair_f"])
+    # tas de charbon et seau de trempe sur le bâti
     for k in range(7):
-        F.lump(g, B(-0.55 + 0.06 * (k % 4), -0.95 + 0.07 * (k // 4), ze), 0.06, M["soot"])
-    F.stave_barrel(g, tuple(B(0.58, -1.0, ze)), 0.11, 0.2, M["chene"], M["fer_noir"], open_top=M["glass_dk"])
-    # pignons de briques (faces est et ouest vues par la tranche) : rien ; corniche de fer sur l'égout du toit
-    g.box(B(0, yb - 0.06, zw - 0.02), (2 * h + 0.1, 0.05, 0.05), M["fer_noir"], "hard", what="egout")
+        F.lump(g, B(-0.5 + 0.06 * (k % 4), -1.05 + 0.07 * (k // 4), zs), 0.06, M["soot"])
+    F.stave_barrel(g, tuple(B(0.55, -1.0, zs)), 0.11, 0.2, M["chene"], M["fer_noir"], open_top=M["glass_dk"])
+    c.reserves += [(-0.4, -1.0, 0.2), (0.55, -1.0, 0.16)]
 
 
 def outil(g, c):
-    """Martinet : chevalet de chêne sur la joue ouest, manche cerclé, tête de fer levée, roue à cames."""
+    """Martinet : chevalet de chêne sur la joue est, manche cerclé vers l'ouest, tête de fer levée, roue à cames."""
     M = g.M
     yt, zj = c.yt, c.z_joue
-    x0 = -c.xm + 0.12
+    x0 = c.xm - 0.12
     zpiv = c.zp - 0.38
+    c.reserves.append((x0 + 0.05, yt - 0.05, 0.33))
     for sy in (-1, 1):
         g.box(B(x0, yt + sy * 0.1, (zj + zpiv) / 2 + 0.03), (0.09, 0.07 * SQ2, zpiv - zj + 0.06), M["chene"], "hard",
               what="chevalet")
-        g.box(B(x0 + 0.1, yt + sy * 0.1, zj + 0.12), (0.03, 0.04, 0.3), M["chene"], "hard",
-              R=Matrix.Rotation(0.6, 3, "Y"), what="jambe_force")
+        g.box(B(x0 - 0.1, yt + sy * 0.1, zj + 0.12), (0.03, 0.04, 0.3), M["chene"], "hard",
+              R=Matrix.Rotation(-0.6, 3, "Y"), what="jambe_force")
     g.cyl(B(x0, yt, zpiv), "y", 0.035, 0.32, M["fer_noir"], n=10, what="axe")
-    d = V((math.cos(ANGLE), 0.0, -math.sin(ANGLE)))
+    d = V((-math.cos(ANGLE), 0.0, math.sin(ANGLE)))
     P0 = B(x0, yt, zpiv)
-    L = 1.25
+    L = 1.2
     R = Matrix.Rotation(ANGLE, 3, "Y")
     g.box(P0 + d * (L / 2 - 0.2), (L, 0.08 * SQ2, 0.09), M["chene"], "hard", R=R, what="manche")
-    for t in (0.0, 0.35, 0.7, 0.95):
+    for t in (0.0, 0.35, 0.7, 0.92):
         g.box(P0 + d * (t - 0.05), (0.03, 0.1 * SQ2, 0.11), M["fer_noir"], "hard", R=R, what="frette")
     tete = P0 + d * (L - 0.26)
     g.box(tete + V((0, 0, -0.12)), (0.2, 0.17 * SQ2, 0.22), M["fer_noir"], "hard", what="tete_martinet")
     g.box(tete + V((0, 0, -0.25)), (0.16, 0.13 * SQ2, 0.05), M["fer_clair_f"], "hard", what="panne")
-    # roue à cames (plan face au sud) en queue
-    F.disc_wheel(g, B(x0 - 0.13, yt - 0.18, zj + 0.21), "y", 0.19, 0.05, M["fer_noir"], M["fer_martele"], spokes=5)
+    F.disc_wheel(g, B(x0 + 0.14, yt - 0.18, zj + 0.21), "y", 0.19, 0.05, M["fer_noir"], M["fer_martele"], spokes=5)
     for k in range(4):
         a = math.pi / 2 * k + 0.4
-        g.box(B(x0 - 0.13 + 0.2 * math.cos(a), yt - 0.2, zj + 0.21 + 0.2 * math.sin(a)), (0.06, 0.05, 0.06),
+        g.box(B(x0 + 0.14 + 0.2 * math.cos(a), yt - 0.2, zj + 0.21 + 0.2 * math.sin(a)), (0.06, 0.05, 0.06),
               M["fer_clair_f"], "hard", what="came")
 
 
@@ -117,18 +130,17 @@ def ouvrage(g, c):
     g.box(B(0.02, yt, z + 0.05), (0.2, 0.12 * SQ2, 0.1), M["fer_noir"], "hard", what="pied_enclume")
     g.box(B(0.02, yt, z + 0.13), (0.12, 0.08 * SQ2, 0.06), M["fer_noir"], "hard", what="taille")
     g.box(B(0.0, yt, z + 0.19), (0.3, 0.13 * SQ2, 0.07), M["fer_martele"], "hard", what="table_enclume")
-    g.cyl(B(0.21, yt, z + 0.2), "x", 0.045, 0.14, M["fer_martele"], n=10, r2=0.006, what="bigorne")
+    g.cyl(B(-0.21, yt, z + 0.2), "x", 0.045, 0.14, M["fer_martele"], n=10, r2=0.006, what="bigorne")
     g.box(B(-0.02, yt, z + 0.25), (0.2, 0.08 * SQ2, 0.05), M["emit"], "soft", what="lopin")
     halo(g, 0.0, yt, z + 0.3, 0.8)
-    g.box(B(-0.2, yt - 0.04, z + 0.25), (0.22, 0.02 * SQ2, 0.015), M["fer_noir"], "hard",
-          R=Matrix.Rotation(0.15, 3, "Z"), what="pince")
+    g.box(B(0.2, yt - 0.04, z + 0.25), (0.22, 0.02 * SQ2, 0.015), M["fer_noir"], "hard",
+          R=Matrix.Rotation(-0.15, 3, "Z"), what="pince")
 
 
-def entree(g, c):
-    """Coffre de chêne plein de charbon (entrée)."""
+def entree(g, c, p):
+    """Coffre de chêne plein de charbon, sur l'aile (entrée)."""
     M = g.M
-    p = corps.place(c, "joue_O")
-    r, z = p["r"], c.z_joue
+    r, z = p["r"], p["z"]
     g.box(B(p["x"], p["yn"], z + 0.09), (2 * r, 2 * r * SQ2, 0.18), M["chene"], "hard", what="coffre")
     for k in range(10):
         F.lump(g, B(p["x"] - r * 0.6 + r * 0.4 * (k % 4), p["yn"] - r * 0.5 + r * 0.45 * (k // 4), z + 0.17), 0.05,
@@ -137,28 +149,36 @@ def entree(g, c):
         g.box(B(p["x"], p["yn"] + f * r, z + 0.1), (2 * r + 0.02, 0.025, 0.2), M["fer_noir"], "hard", what="ferrure")
 
 
+def sortie(g, c, p):
+    """Caisse de chêne cerclée de fer, fers à cheval et clous forgés (sortie)."""
+    M = g.M
+    corps.bac(g, c, p, M["chene"], M["fer_clair_f"], forme="lingot")
+    for k in range(3):
+        g.torus(B(p["x"] - 0.1 + 0.1 * k, p["yn"] + 0.05, p["z"] + 0.16), "z", 0.04, 0.01, M["fer_noir"], n=12, m=4,
+                what="fer_a_cheval")
+
+
 def piece(g, c):
-    """Niveau 4 : râtelier de pinces et marteaux (coin avant gauche), tonneau de trempe et lingots (coin avant droit)."""
+    """Niveau 4 (plus grande) : râtelier haut de pinces et marteaux (coin avant gauche) ; seconde enclume sur billot,
+    lopin chaud et tonneau de trempe (coin avant droit)."""
     M = g.M
     po, pe = corps.place(c, "coin_SO"), corps.place(c, "coin_SE")
     z = po["z_sol"]
     x, yn = po["x"], po["yn"]
     for sx in (-1, 1):
-        g.box(B(x + sx * 0.18, yn, z + 0.18), (0.04, 0.04 * SQ2, 0.36), M["chene"], "hard", what="montant")
-    g.box(B(x, yn, z + 0.34), (0.42, 0.04 * SQ2, 0.04), M["chene"], "hard", what="traverse")
-    # ronde 2 : dos de planches PLEIN derrière les outils (le cadre ouvert enfermait 95 px de sol)
-    g.box(B(x, yn + 0.03, z + 0.19), (0.36, 0.02 * SQ2, 0.3), M["wood2"], "hard", what="dos_ratelier")
-    for k in range(5):
-        xx = x - 0.14 + 0.07 * k
-        g.box(B(xx, yn - 0.03, z + 0.2), (0.018, 0.015, 0.26), M["fer_noir"], "hard",
-              R=Matrix.Rotation(0.1 * (k - 2), 3, "Y"), what="pince")
-        if k % 2:
-            g.box(B(xx, yn - 0.04, z + 0.08), (0.06, 0.03, 0.04), M["fer_martele"], "hard", what="tete_marteau")
-    g.box(B(x, yn, z + 0.02), (0.46, 0.2 * SQ2, 0.04), M["chene"], "hard", what="semelle")
-    xe, ye = pe["x"], pe["yn"]
-    F.stave_barrel(g, tuple(B(xe + 0.1, ye + 0.05, z)), 0.13, 0.26, M["chene"], M["fer_noir"], open_top=M["glass_dk"])
+        g.box(B(x + sx * 0.22, yn, z + 0.27), (0.05, 0.05 * SQ2, 0.54), M["chene"], "hard", what="montant")
+    g.box(B(x, yn, z + 0.52), (0.5, 0.05 * SQ2, 0.05), M["chene"], "hard", what="traverse")
+    g.box(B(x, yn + 0.03, z + 0.28), (0.44, 0.02 * SQ2, 0.48), M["wood2"], "hard", what="dos_ratelier")
     for k in range(6):
-        g.box(B(xe - 0.15 + 0.05 * (k % 3), ye - 0.12 + 0.03 * (k // 3), z + 0.03 + 0.05 * (k // 3)),
-              (0.045, 0.14 * SQ2, 0.045), M["fer_martele"] if k % 2 else M["forgeplate"], "hard", what="lingot")
-    g.box(B(xe - 0.1, ye - 0.12, z + 0.16), (0.12, 0.05 * SQ2, 0.03), M["emit"], "soft", what="lingot_chaud")
-    halo(g, xe - 0.1, ye - 0.12, z + 0.25, 0.7)
+        xx = x - 0.18 + 0.072 * k
+        g.box(B(xx, yn - 0.03, z + 0.3), (0.02, 0.015, 0.4), M["fer_noir"], "hard",
+              R=Matrix.Rotation(0.08 * (k - 2.5), 3, "Y"), what="pince")
+        if k % 2:
+            g.box(B(xx, yn - 0.04, z + 0.12), (0.07, 0.035, 0.05), M["fer_martele"], "hard", what="tete_marteau")
+    g.box(B(x, yn, z + 0.02), (0.56, 0.24 * SQ2, 0.04), M["chene"], "hard", what="semelle")
+    xe, ye = pe["x"], pe["yn"]
+    g.cyl(B(xe - 0.06, ye, z + 0.12), "z", 0.15, 0.24, M["chene"], n=14, what="billot")
+    g.box(B(xe - 0.06, ye, z + 0.3), (0.28, 0.12 * SQ2, 0.12), M["fer_noir"], "hard", what="enclume2")
+    g.box(B(xe - 0.06, ye, z + 0.38), (0.16, 0.06 * SQ2, 0.04), M["emit"], "soft", what="lopin_chaud")
+    halo(g, xe - 0.06, ye, z + 0.45, 0.8)
+    F.stave_barrel(g, tuple(B(xe + 0.18, ye + 0.12, z)), 0.11, 0.24, M["chene"], M["fer_noir"], open_top=M["glass_dk"])

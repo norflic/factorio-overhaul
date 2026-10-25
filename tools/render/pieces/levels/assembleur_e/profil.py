@@ -63,6 +63,11 @@ def level_layers(K, out, e, pose, even=False, kinds=("shadow", "main", "glow", "
     pre = prefixe(e)
     lays = K.own(out, pre + "-machine", kinds)
     if even and not isinstance(e, str):
+        # ronde F3-A2 : TEINTE du niveau pair sur la couche principale de la machine (epoques.teinte_pair)
+        import numpy as np
+        t = np.array(E.teinte_pair(e), dtype=np.float64)
+        lays = [dict(l, img=np.concatenate([l["img"][..., :3] * t, l["img"][..., 3:]], -1)) if l["kind"] == "main"
+                else l for l in lays]
         lays += K.own(out, pre + "-piece", kinds)
     return lays
 
