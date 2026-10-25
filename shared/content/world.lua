@@ -396,8 +396,9 @@ W.resources = {
       dir = "__factorio-overhaul__/graphics/ressources/monazite",
       name = "monazite",
       mining_visualisation_tint = { r = 0.80, g = 0.62, b = 0.35, a = 1 },
-      -- Couche d'effet ambre très faible (pas la lueur trop claire de l'ilménite la nuit).
-      effet = { period = 10, deviation = 1, darkness_multiplier = 40, min = 0.008, max = 0.012 },
+      -- Couche d'effet ambre faible (pas la lueur trop claire de l'ilménite la nuit). Multiplicateur 40 (captures du
+      -- 25/10, 8 h 25) : de nuit ΔE76 au cuivre 7,4 et à la pierre 6,5 (x2_lisibilite.py N1, N2 en échec) ; 80 essayé.
+      effet = { period = 10, deviation = 1, darkness_multiplier = 80, min = 0.008, max = 0.012 },
     },
     -- Or franc sur la carte : loin de la pierre (beige), du cuivre (orange) et de l'uranium (vert).
     map_color = { r = 0.93, g = 0.78, b = 0.18 },
