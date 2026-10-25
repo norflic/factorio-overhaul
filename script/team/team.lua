@@ -311,10 +311,19 @@ function Team.view(f, tick)
   -- R-QCM-25c (b) « L'équipe le défend » : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au
   -- coffre (T.hq_guards). Factions vivantes dans l'ordre des id.
   local hq_guards = 0
+  local hq_threat = false
   if f.is_player then
     for _, id in ipairs(State.alive()) do
       local g = State.faction(id)
       if g and g.pvp and g.pvp.declared then hq_guards = T.hq_guards(f.engineers_count or 0) break end
+    end
+    -- QG MENACÉ (unités ennemies à moins de T.hq_threat_radius tuiles du coffre) : tout le monde garde le coffre, le fond
+    -- s'arrête. Moteur réel : avant le lot, les PNJ inactifs restés au coffre le défendaient ; occupés au loin, le coffre
+    -- tombait sous une attaque de biters (verif-guide 577215664, 33 min ; ia1b-scale10, 24 min).
+    if f.hq and f.hq.valid and f.hq.surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius,
+      force = "enemy", type = "unit", limit = 1 }) > 0 then
+      hq_threat = true
+      hq_guards = math.max(hq_guards, f.engineers_count or 0)
     end
   end
   local sites = {}
@@ -367,7 +376,7 @@ function Team.view(f, tick)
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
-    hq_guards = hq_guards, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
+    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }

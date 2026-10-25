@@ -453,8 +453,10 @@ function P.plan(view, book)
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0 }
   end
   -- R-QCM-25c (b) « L'équipe le défend » : view.hq_guards PNJ armés au coffre (guerre déclarée au joueur), relevés.
+  -- QG menacé (view.hq_threat) : gardes en URGENCE (T.guard_threat_prio), courtes (T.guard_threat_ticks).
   for i = 1, view.hq_guards or 0 do
-    add({ key = "garde:qg:" .. i, kind = "garrison", prio = T.guard_prio, post = "hq", wait = T.guard_ticks })
+    add({ key = "garde:qg:" .. i, kind = "garrison", prio = view.hq_threat and T.guard_threat_prio or T.guard_prio,
+      post = "hq", wait = view.hq_threat and T.guard_threat_ticks or T.guard_ticks })
   end
 
   -- Reconstruction : un avant-poste détruit (attaque d'une faction, déchiqueteurs) dont l'objectif était

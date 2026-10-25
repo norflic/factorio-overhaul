@@ -319,7 +319,7 @@ function Poles.think(f, view, book, tick, plan)
     full = n > floor0
     safe = false
   end
-  local fond_on = full or safe
+  local fond_on = (full or safe) and not view.hq_threat -- QG menacé : tout le monde au coffre (script/team/team.lua)
   org.fond_on = fond_on
   local cands
   if fond_on then

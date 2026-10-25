@@ -125,6 +125,10 @@ T.site_max_noturret = 400
 T.guard_prio = 85
 T.guard_ticks = 3600
 function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))) end
+-- QG menacé : unités ennemies à moins de T.hq_threat_radius tuiles du coffre ; toute l'équipe en garde (urgence).
+T.hq_threat_radius = 48
+T.guard_threat_prio = 96
+T.guard_threat_ticks = 1200
 -- R-QCM-25c (c) « Donner du travail » : le minage de fond de votre équipe se fait PRÈS DU COFFRE (rayon, tuiles ;
 -- 27 PNJ tués à 74 tuiles en minant au fond, protocole 30 contre 10) ; transport = tournée de fond d'un avant-poste qui a
 -- au moins T.transport_min objets à rapporter (ni meurtrier non défendu, ni pendant la prudence). T.transport_near : limite
