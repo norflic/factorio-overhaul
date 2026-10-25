@@ -20,10 +20,13 @@ Fiches des 15 âges (font foi) : `fo-logs/2026-10-24_F1/FICHES_LASER.md`. Rondes
 | `planche_gun.py` | planche « mitrailleuse validée | laser » du même âge | non |
 | `vignettes_mixte.py` | 30 vignettes numérotées mêlées « laser ou mitrailleuse ? » (clé sur la sortie standard) | non |
 | `ep00.py` | témoin : la lignée seule | oui |
-| `ep01.py`, `ep03.py`, `ep09.py`, `ep15.py` | âges d'ESSAI (aperçus du lot F1-A), exemples du contrat, à reprendre par les constructeurs | oui |
+| `ep01.py` à `ep15.py` | les 15 âges (lot F1-B, 25/10 : deux rondes et un test à l'aveugle ; aperçus, aucun design validé : le DC juge) | oui |
+| `orne.py` | ornements des fichiers d'âge (lot F1-B) : liserés, flancs sur le contour réel, interstices, râteliers… | oui |
 | `tests/test_laser.py` | tests du kit hors Blender | non |
 
-Les 11 autres fichiers d'âge (`ep02`, `ep04` à `ep08`, `ep10` à `ep14`) sont à écrire par les constructeurs des rondes.
+Lot F1-B (25/10) : les 15 fichiers d'âge sont écrits (`fo-logs/2026-10-25_F1B/NOTES.md`, planches du DC dans `planches_DC/`).
+Défaut connu de la lignée gelée (RD_LOG F228) : l'option `interstice` de `corps.affut` place ses entretoises sur un cercle et
+sort des gradins à pans ; l'âge 12 la contourne (`interstice=None`).
 
 Commandes :
 ```

@@ -466,6 +466,17 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés hors jeu (lot F1-B, rondes de design de la tourelle laser, 25/10 nuit ; fusionné dans `main`, `c12c9a1`, outils de rendu seulement)
+Preuves : `fo-logs\2026-10-25_F1B\` (`NOTES.md` §7, `INTEGRATION.md`, `planches_DC\`). Expériences : E157, E158. Rien en jeu.
+- **F228** (kit laser, lignée gelée, `corps.affut`) : l'option `interstice` place ses entretoises sur un CERCLE de rayon
+  R0 − e/2 (`cotes.facteur_contour` ignore les pans) ; avec des gradins à pans, elles sortent du gradin et forment des
+  îlots détachés (âge 12, 6 pans : 8 îlots de 19 à 30 px). Contourné à l'âge 12 (`interstice=None`, interstice dessiné
+  sur le contour réel) ; corriger la lignée demande de la dégeler (nouveau rendu de la maquette m12). NON corrigé.
+- **F229** (forme de tête « anneau ») : l'anneau penché vers l'avant montre son DOS en pose N et sa tranche en pose E :
+  une face décorée seulement côté faisceau ne se voit dans aucune des deux poses du test ; décorer les deux faces.
+- **F230** (niveau 2 de l'âge 1) : une pièce dessinée SOUS le laser vanilla comble les trous enfermés du vanilla (F165)
+  si elle occupe, À L'ÉCRAN, la région derrière eux : râtelier au nord du plancher, `ilots.py` de 900 px à 0 px.
+
 ### Faits vérifiés en moteur réel (lot IA2-b, expansion des factions par la carte, 25/10 nuit ; fusionné dans `main`, `714d29a`, version 0.4.23)
 Preuves : `fo-logs\2026-10-25_IA2-b\` (`NOTES.md`). Expériences : E153, E154.
 - **F222** (règle du mod) : la réserve de sites de la v0 n'offrait presque jamais de choix (307 sites puisés sur 405 étaient
@@ -964,6 +975,16 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E157, E158 · Lot F1-B, les 15 âges du laser (25/10 de 3 h 45 à 4 h 30 ; fusion `c12c9a1`, outils de rendu seulement)** :
+11 fichiers d'âge neufs, 4 corrigés, module d'ornements `orne.py` ; deux rondes (E157 : 43 variantes, îlots 100 contrôles,
+14 échecs corrigés ; E158 : 22 + 14 + 8 variantes, 0 échec d'îlot). Test à l'aveugle (deux lecteurs neufs) : âges reconnus
+15/15 et 15/15, grade ultime = âge 15 pour les deux (« par le thème, pas par la taille »), laser ou mitrailleuse 30/30 ;
+ÉCHEC de la pose N (un seul lecteur) : âges 1 (le laser vanilla, non modifiable), 6 et 12 lus comme des cheminées.
+Défauts restants : richesse sous la mitrailleuse aux âges 6, 9, 11 à 14 ; masse 20 à 35 % plus faible ; foyer trop
+grand aux âges 5, 13, 14, 15 ; trous du post-traitement e03, e06, e15 (socles) ; écarts « Clash of Clans » et jeu G
+non faits. Aperçus seulement (32 échantillons, jour) : aucune feuille, aucun prototype, aucun faisceau. `test_laser`
+182 OK sur `main`. Aucun design n'est déclaré réussi : le DC juge sur les planches.
+
 **E153, E154 · Lot IA2-b, expansion par la carte (25/10 nuit ; fusion `714d29a`, version 0.4.23)** : sites choisis par
 valeur (richesse, eau, terrain, distance au territoire, danger vu sous brouillard, gisements disputés) pondérée par le
 caractère et la posture du chef ; départ en éventail (46, 88, 120 tuiles) ; orphelins repris ou démontés (F209). Mesure M1
