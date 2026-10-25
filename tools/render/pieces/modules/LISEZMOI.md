@@ -48,7 +48,7 @@ py -3.9 tools/render/pieces/modules/icones.py --planche <png>      # planche des
 py -3.9 tools/render/pieces/modules/icones.py --out <dossier> ...  # ailleurs (essais)
 ```
 
-## Sorties (`graphics/modules/`, commitées : 1,8 Mo)
+## Sorties (`graphics/modules/`, commitées : 1,5 Mo)
 
 - `<objet>.png` : 64 px + 3 mipmaps (bande 120 × 64), `icon_size = 64`, `icon_mipmaps = 4` ;
 - `tech/<technologie>.png` : 256 px + 3 mipmaps (bande 480 × 256), `icon_size = 256`, `icon_mipmaps = 4` ;
