@@ -58,6 +58,7 @@ local steps = {}
 steps[60] = function(ctx, p, st)
   local open = R(ctx, "toggle", p.index)
   local s = R(ctx, "state", p.index)
+  st.expect_open = true
   ctx.check(open == true and s.open and s.shortcut and s.opened, "raccourci (toggle) : fenetre ouverte, bouton allume, opened",
     string.format("open=%s shortcut=%s opened=%s", tostring(s.open), tostring(s.shortcut), tostring(s.opened)))
   ctx.check(s.tab == "equipe" and keys_count(s, "fo-ia1i.goal") == 1 and keys_count(s, "fo-ia1i.staff") == 1,
@@ -114,6 +115,7 @@ steps[300] = function(ctx, p, st)
 end
 
 steps[360] = function(ctx, p, st)
+  st.expect_open = false
   local open = R(ctx, "toggle", p.index)
   local s = R(ctx, "state", p.index)
   st.ref_closed = s.refreshes
@@ -125,6 +127,7 @@ steps[900] = function(ctx, p, st)
     tostring(st.ref_closed) .. " -> " .. tostring(s.refreshes))
   R(ctx, "open", p.index, "equipe")
   st.ref_open = R(ctx, "state", p.index).refreshes
+  st.expect_open = true
 end
 steps[1500] = function(ctx, p, st)
   local s = R(ctx, "state", p.index)
@@ -273,6 +276,34 @@ return {
       ctx.log("joueur connecte : " .. p.name .. " (index " .. p.index .. ") au tick " .. e.tick)
       ctx.call("profiler", true)
     end
+    -- Surveillance : toute fermeture de la fenêtre que le banc n'a pas demandée est journalisée avec ce que le moteur
+    -- a ouvert à la place (type d'interface, personnage, contrôleur), puis la fenêtre est rouverte pour que les captures
+    -- suivantes restent possibles. Passages du 25/10 : fermetures à des ticks DIFFÉRENTS sur la même carte (état de jeu
+    -- déterministe, F238) : entrée locale de la session (fenêtre de test non réduite, au premier plan) ; le contrôle
+    -- final vérifie qu'aucune ne tombe au tick d'un rafraîchissement de l'interface (multiple de 60).
+    local t = p.opened_gui_type
+    if t ~= st.last_type then
+      local names = {}
+      for k, v in pairs(defines.gui_type) do names[v] = k end
+      local what = "-"
+      pcall(function() if p.opened then what = p.opened.object_name .. ":" .. tostring(p.opened.name) end end)
+      ctx.log(string.format("tick %d : opened_gui_type %s -> %s (%s), personnage %s, controleur %s, attente de reapparition %s",
+        e.tick, tostring(names[st.last_type] or st.last_type), tostring(names[t] or t), what,
+        tostring(p.character ~= nil and p.character.valid), tostring(p.controller_type), tostring(p.ticks_to_respawn)))
+      if st.expect_open and t ~= defines.gui_type.custom then
+        st.close_ticks = st.close_ticks or {}
+        st.close_ticks[#st.close_ticks + 1] = e.tick
+      end
+      st.last_type = t
+    end
+    if st.expect_open and e.tick % 10 == 0 then
+      local s = R(ctx, "state", p.index)
+      if not s.open then
+        st.lost = (st.lost or 0) + 1
+        ctx.log("fenetre fermee sans action du banc (" .. st.lost .. "), vue au tick " .. e.tick .. " : rouverte")
+        R(ctx, "open", p.index, s.tab or "equipe")
+      end
+    end
     local fn = steps[e.tick]
     if fn then fn(ctx, p, st) end
   end,
@@ -288,6 +319,11 @@ return {
       return
     end
     ctx.check((st.shots or 0) == 10, "10 captures demandees", st.shots)
+    local on_refresh = 0
+    for _, t in ipairs(st.close_ticks or {}) do if t % 60 == 0 then on_refresh = on_refresh + 1 end end
+    ctx.check(on_refresh == 0, "aucune fermeture non demandee au tick d'un rafraichissement",
+      string.format("%d fermeture(s) non demandee(s) aux ticks %s", #(st.close_ticks or {}),
+        table.concat(st.close_ticks or {}, ", ")))
     ctx.check(st.costs == true, "couts mesures")
     ctx.call("log_report", "IA1-GUI profileur (nth:60 = releve du journal + rafraichissement)")
   end,

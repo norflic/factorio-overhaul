@@ -241,9 +241,11 @@ M.run_ticks(60 * 60)
 M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 })
 do
   local k = keys_of(pane("equipe"))
-  check(k["fo-ia1i.goal"] == 1 and k["fo-team.goal-line-missing"] == 1 or k["fo-team.goal-line"] == 1,
-    "objectif affiché (texte de l'étiquette du coffre)")
-  check(k["fo-ia1i.staff-line"] == 1 and k["fo-ia1i.col-pole"] == 1, "effectifs et tableau des pôles")
+  local goal = global.fo.pteam.team.team.goal
+  check(k["fo-ia1i.goal"] == 1 and k["fo-team.goal-" .. tostring(goal)] == 1,
+    "objectif affiché (" .. tostring(goal) .. ")")
+  check(k["fo-ia1i.staff-line"] == 1 and k["fo-ia1i.col-pole"] == 1 and k["fo-ia1i.staff-age"] == 1,
+    "effectifs, tableau des pôles et âge de la dernière pensée")
   check(k["fo-ia1b.mgr-gisements"] == 1 and k["fo-ia1b.mgr-defense"] == 1, "une ligne par manager")
   check(k["fo-ia1i.chest"] == 1 and (k["fo-ia1i.chest-empty"] or 0) == 0, "coffre affiché")
   check(k["fo-ia1i.journal"] == 1 and k["fo-ia1i.coming"] == 1, "journal et « à venir »")

@@ -30,7 +30,9 @@ data:extend({
   {
     type = "shortcut",
     name = "fo-team-gui",
-    order = "f[fo]-a[team]",
+    -- Avant les raccourcis de plans (« b[blueprints] ») : visible sans faire défiler la barre (2 rangées de 6 à
+    -- l'écran : un ordre en fin de liste le mettait sur une 3e rangée cachée, capture du 25/10).
+    order = "a[fo-team]",
     action = "lua",
     toggleable = true,
     associated_control_input = "fo-team-gui",

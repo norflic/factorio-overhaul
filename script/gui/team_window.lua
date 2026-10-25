@@ -168,7 +168,7 @@ tabs.equipe = {
     if not f then return no_team(c) end
     local t = f.team
     heading(c, { "fo-ia1i.goal" })
-    label(c, Team.goal_text(f), { font = "default-bold" })
+    label(c, t.goal and { "fo-team.goal-" .. t.goal } or { "fo-team.goal-line-done" }, { font = "default-bold" })
 
     heading(c, { "fo-ia1i.missing" })
     local shown = 0
@@ -207,6 +207,9 @@ tabs.equipe = {
         tbl.add({ type = "label", caption = tostring(L.gens and L.gens[i] or 0) })
         tbl.add({ type = "label", caption = tostring(L.targets and L.targets[i] or 0) })
       end
+      -- Pôles et managers sont ceux de la DERNIÈRE pensée (toutes les 5 s) : dit tel quel (un renvoi n'y apparaît
+      -- qu'à la pensée suivante).
+      label(c, { "fo-ia1i.staff-age", math.floor((game.tick - (L.tick or game.tick)) / 60) }, { color = GREY })
     end
 
     heading(c, { "fo-ia1i.managers" })
