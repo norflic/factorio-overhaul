@@ -260,9 +260,17 @@ function Team.view(f, tick)
   -- Correction IA1-a (défauts M1, M2) : frein par le travail. Plus de fo-recruit-idle-max PNJ sans tâche :
   -- aucune recrue (ni équipement de recrue fabriqué) ; le stock reste aux objectifs et à l'armée.
   local workers_idle = Worker.idle_count(f)
+  -- Lot IA1-b : un PNJ au travail de FOND compte comme disponible pour le frein (le fond s'étire à volonté : sans cela,
+  -- l'équipe n'est jamais « inactive » et achète des recrues jusqu'à vider son coffre ; moteur réel, verif-guide sur
+  -- la graine 1618033988 : 17 PNJ à 8 min, 6 à 85 fer au coffre de 8 à 32 min, aucune tourelle, coffre détruit
+  -- vers 38 min). Le frein garde ainsi le sens d'IA1-a : recruter quand le travail du CERVEAU occupe tout le monde.
+  local on_fond = 0
+  for _, t in ipairs(Board.get(f).list or {}) do
+    if t.worker and t.fond then on_fond = on_fond + 1 end
+  end
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
-  local recruit_held = Scale.recruit_held(workers_idle, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
+  local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
