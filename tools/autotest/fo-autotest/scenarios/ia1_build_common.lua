@@ -171,6 +171,57 @@ local function report_line(ctx, r, t)
     r.filled, r.collected, r.street_walks, r.street_ok, r.street_stuck, r.modules_done, r.modules_started))
 end
 
+---------------------------------------------------------------------------------------------------
+-- Captures (session avec images seulement : un joueur connecté). Le banc prend lui-même ses images aux moments
+-- utiles (plan, chantier, base finie, marche sans PNJ) dans script-output/fo-shots/ia1d-<variante>-<moment>.png.
+---------------------------------------------------------------------------------------------------
+local STATE_COLOR = {
+  libre = { r = 0.2, g = 0.8, b = 0.2 }, defricher = { r = 0.6, g = 0.8, b = 0.2 }, gisement = { r = 0.9, g = 0.6, b = 0.1 },
+  rive = { r = 0.2, g = 0.6, b = 1 }, occupe = { r = 0.6, g = 0.6, b = 0.6 }, refuse = { r = 1, g = 0.1, b = 0.1 },
+  ouvert = { r = 0.2, g = 0.9, b = 0.2 }, encombre = { r = 1, g = 0.6, b = 0 }, ferme = { r = 1, g = 0.1, b = 0.1 },
+}
+
+local function overlay(ctx, layout, ttl)
+  local s = ctx.surface()
+  for _, l in ipairs(layout.lots or {}) do
+    local col = STATE_COLOR[l.state] or { r = 1, g = 1, b = 1 }
+    rendering.draw_rectangle({ color = col, width = 3, filled = false, left_top = { l.x0 + 0.5, l.y0 + 0.5 },
+      right_bottom = { l.x1 - 0.5, l.y1 - 0.5 }, surface = s, time_to_live = ttl })
+    rendering.draw_text({ text = l.state .. (l.reason and (" " .. l.reason) or "") .. (l.used and (" #" .. l.used) or ""),
+      surface = s, target = { l.x0 + 1, l.y0 + 1 }, color = col, scale = 2.5, time_to_live = ttl })
+  end
+  for _, g in ipairs(layout.segs or {}) do
+    local col = STATE_COLOR[g.state] or { r = 1, g = 1, b = 1 }
+    local horiz = (g.x1 - g.x0) > (g.y1 - g.y0)
+    local a = horiz and { g.x0 + 2, (g.y0 + g.y1) / 2 } or { (g.x0 + g.x1) / 2, g.y0 + 2 }
+    local b = horiz and { g.x1 - 2, (g.y0 + g.y1) / 2 } or { (g.x0 + g.x1) / 2, g.y1 - 2 }
+    rendering.draw_line({ color = col, width = 6, from = a, to = b, surface = s, time_to_live = ttl })
+  end
+end
+
+local function snap(ctx, variant, name, x, y, zoom)
+  local player = game.connected_players[1]
+  if not player then return false end
+  game.take_screenshot({ player = player, surface = ctx.surface(), position = { x, y }, resolution = { 1600, 900 }, zoom = zoom,
+    path = "fo-shots/ia1d-" .. variant .. "-" .. name .. ".png", show_entity_info = true, anti_alias = true, daytime = 0,
+    allow_in_replay = true, force_render = true })
+  ctx.log("capture ia1d-" .. variant .. "-" .. name)
+  return true
+end
+
+--- Captures d'un moment : vue d'ensemble, puis un gros plan par module posé.
+local function snap_moment(ctx, variant, moment, layout, report, zoom_all)
+  local c = ctx.state().c
+  snap(ctx, variant, moment .. "-ensemble", c.x, c.y, zoom_all or 0.22)
+  local n = 0
+  for _, p in ipairs(report and report.projects or {}) do
+    for _, pt in ipairs(p.parts or {}) do
+      n = n + 1
+      if n <= 6 then snap(ctx, variant, string.format("%s-%d-%s", moment, n, pt.kind), pt.x + pt.w / 2, pt.y + pt.h / 2, 0.75) end
+    end
+  end
+end
+
 local function kv(t)
   local parts = {}
   for _, k in ipairs(sorted_keys(t or {})) do parts[#parts + 1] = k .. "=" .. tostring(t[k]) end
@@ -226,6 +277,7 @@ return function(variant)
           st.auto[#st.auto + 1] = made
           local prev = (#st.auto > 1) and st.auto[#st.auto - 1] or st.made0
           ctx.log(string.format("sans PNJ, minute %d : %d plaques de fer (fours)", #st.auto, made - prev))
+          if #st.auto == 3 then snap_moment(ctx, variant, "sans-pnj", st.layout, st.final, 0.22) end
         end
         return
       end
@@ -234,6 +286,23 @@ return function(variant)
         if not r then return end
         st.last_report = r
         if t % MIN == 0 then report_line(ctx, r, t) end
+        -- captures (session avec images) : plan directeur, chantier
+        if not st.snap_plan and t >= T_REQUEST + 1200 then
+          st.snap_plan = true
+          local lay = ctx.remote("fo-ia1d", "layout", "player")
+          if lay and game.connected_players[1] then
+            overlay(ctx, lay, 30)
+            snap(ctx, variant, "plan-ensemble", st.c.x, st.c.y, 0.2)
+          end
+        end
+        if not st.snap_build then
+          for _, p in ipairs(r.projects) do
+            if p.state == "chantier" and p.built >= p.total * 0.4 and p.id == (st.ids and st.ids.iron) then
+              st.snap_build = true
+              snap_moment(ctx, variant, "chantier", nil, r, 0.3)
+            end
+          end
+        end
         -- tout est fini (ou refusé, bloqué) et les quais de charbon sont garnis : l'équipe est renvoyée
         local open = 0
         local quais_ok = true
@@ -255,6 +324,7 @@ return function(variant)
           end
           st.auto = {}
           st.dismiss_t = t
+          snap_moment(ctx, variant, "fini", st.layout, r, 0.22)
           ctx.log(string.format("equipe renvoyee a %.1f min (projets ouverts %d) : coffre d'equipe detruit", t / MIN, open))
           if st.chest and st.chest.valid then st.chest.destroy({ raise_destroy = true }) end
           st.dismissed = e.tick
@@ -369,6 +439,11 @@ return function(variant)
       ctx.log(string.format("machines a vapeur : %.0f kW produits au dernier tick", gen * 60 / 1000))
     end,
 
-    shots_delay = nil,
+    -- Galerie officielle (fo-captures.bat) : vue d'ensemble à la fin ; il faut une session de CHECK ticks au moins
+    -- (FO_VISUAL_ARGS = '--ticks 133000 --timeout 3600').
+    shots = function(add)
+      add("ia1d-" .. variant .. "-fin", 0, 0, 0.22)
+    end,
+    shots_delay = CHECK - 900,
   }
 end
