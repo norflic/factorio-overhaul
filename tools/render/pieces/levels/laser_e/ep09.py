@@ -17,6 +17,7 @@ import ages
 import corps
 import epoques as E_
 import formes as F
+import orne as O
 import parts as PT
 from kit import SQ2, TAU
 from repere import Y, at
@@ -36,6 +37,17 @@ HABILLAGE = dict(ages.CORPS[9], **E_.MAQUETTES[9])
 def matieres(metal, M):
     ages.matieres(9, metal, M)
     M["caisson"] = M["lead"]
+
+
+def tete(g, c):
+    """Lot F1-B : petits châteaux de plomb à hublot vert à l'arrière de la platine."""
+    M = g.M
+    zb = O.zb(c)
+    for (x, y, w) in O.pods(c):
+        g.cyl((x, y, zb + w * 0.8), "z", w * 0.9, w * 1.6, M["lead"], n=14, style="soft", what="chateau")
+        g.tube_shell((x, y, zb + w * 1.2), "z", w * 0.98, w * 0.8, 0.03, M["plomb_sombre"], n=14, what="cerclage")
+        g.cyl((x, y, zb + w * 1.65), "z", w * 0.95, 0.04, M["beton_capot"], n=14, style="soft", what="couvercle")
+        g.cyl((x, y - w * 0.9, zb + w * 0.8), "y", w * 0.3, 0.02, M["emit"], n=10, style="flat", what="hublot")
 
 
 def liaison(g, pts, r):
@@ -81,10 +93,50 @@ def socle(g, c):
             g.box((x, Y(yn - w) - 0.005, 0.12 + 0.11 * k), (w * 1.2, 0.02, 0.05), M["plomb_sombre"], "hard",
                   what="event")
         F.trefoil(g, (x, Y(yn - w) - 0.02, 0.44), (0, -1, 0.15), 0.07)
-        liaison(g, [(x - sx * 0.2, Y(yn - 0.3), 0.4), (x * 0.5, Y(yn * 0.5), zp + 0.35), (x * 0.25, Y(yn * 0.22),
-                    zp + 0.12)], 0.05)
+        # lot F1-B : la gaine ne monte plus au-dessus de l'affût (trou enfermé de 16 à 35 px entre le bloc de plomb, la
+        # gaine et le gradin, essais r0b et correction du lot F1-A) : elle suit les dessus des gradins
+        g1 = c.gradins[1][3]
+        liaison(g, [(x - sx * 0.25, Y(yn - 0.35), 0.3), (x * 0.62, Y(yn * 0.6), g1 + 0.06),
+                    (x * 0.4, Y(yn * 0.36), zp + 0.05)], 0.05)
+        # lampe verte et pancarte de danger sur la face sud du bloc
+        O.lampe(g, (x + w * 0.55, Y(yn - w) - 0.01, 0.42), (0, -1, 0), 0.026, M["emit"], M["plomb_sombre"])
+    # lot F1-B (enrichissement) : conduite de plomb qui ceint le premier gradin, plaques de danger au trèfle, voyants
+    # verts, fûts de déchets et regards sur les dessus
+    O.ceinture(g, c, 0, 0.3, 0.022, M["lead"], colliers=M["plomb_sombre"], pas=0.4)
+    O.ceinture(g, c, 1, 0.4, 0.018, M["lead"], colliers=M["plomb_sombre"], pas=0.35)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (205, 245, 295, 335)], _pancarte, f=0.62, dr=0.006)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (230, 270, 310)], _pancarte, f=0.55, dr=0.006)
+    O.sur_dessus(g, c, 1, [math.radians(a) for a in (200, 235, 270, 305, 340)], _dessus2)
+    O.sur_dessus(g, c, 0, O.visibles(O.entre_condensateurs(c), nord=0.2), _regard, t=0.5)
     for (x, yn) in ((0.0, -1.7), (-1.5, -0.6), (1.5, -0.6)):
         g.halo((x, Y(yn), 0.5), M["_emit_rgb"], 12.0)
+
+
+def _pancarte(g, k, h):
+    """Plaque de danger jaune patiné au trèfle et voyant vert (repère du flanc)."""
+    M = g.M
+    g.box((0, 0, 0.006), (0.16, h * 0.5, 0.012), M["plomb_sombre"], "hard", what="cadre")
+    g.box((0, 0, 0.013), (0.13, h * 0.4, 0.004), M["beton_capot"], "flat", what="pancarte")
+    F.trefoil(g, (0, 0, 0.016), (0, 0, 1), 0.04)
+    O.lampe(g, (0.12, h * 0.1, 0.0), (0, 0, 1), 0.02, M["emit"], M["plomb_sombre"])
+
+
+def _dessus2(g, k, w):
+    """Second gradin : fût de déchets à trèfle ou regard de contrôle vert."""
+    M = g.M
+    if k % 2 == 0:
+        F.drum(g, (0, 0, 0), 0.08, 0.2, M["lead"], M["plomb_sombre"], trefoil=True)
+    else:
+        _regard(g, k, w)
+
+
+def _regard(g, k, w):
+    """Regard de contrôle : tampon de béton, hublot vert, poignées."""
+    M = g.M
+    g.cyl((0, 0, 0.02), "z", 0.07, 0.04, M["beton_capot"], n=14, style="soft", what="tampon")
+    g.cyl((0, 0, 0.042), "z", 0.035, 0.006, M["emit_soft"], n=12, style="flat", what="hublot")
+    for s in (-1, 1):
+        g.box((s * 0.055, 0, 0.045), (0.012, 0.04, 0.012), M["plomb_sombre"], "hard", what="poignee")
 
 
 def piece(g, c):

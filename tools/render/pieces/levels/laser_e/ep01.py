@@ -32,24 +32,55 @@ FAISCEAU = dict(rgb=(1.0, 0.25, 0.2), forme="vanilla (niveaux 1 et 2)", largeur=
 
 
 def piece(g, c):
-    """Niveau 2 : plancher de planches sous l'emprise (sous le vanilla), muret de sacs de sable en arc sur l'avant et
-    les flancs, caisse de bocaux de Leyde au coin avant DROIT, lanterne de nuit au coin avant gauche."""
+    """Niveau 2 : plancher de planches sous toute l'emprise (sous le vanilla), muret de sacs de sable en arc sur l'avant
+    et les flancs, RÂTELIER DE BOCAUX DE LEYDE à l'arrière (lot F1-B), lanterne de nuit au coin avant gauche.
+    Lot F1-B (25/10) : la caisse de bocaux du lot F1-A, posée SOUS la base du vanilla, restait cachée (F42) ; les bocaux
+    passent sur un râtelier de planches dressé au NORD du plancher. Il remplit aussi, vu de la caméra, le trou du laser
+    vanilla (F165 : 846 px hr en pose E, entre le câble de la tête et le pied, x de −0,89 à 0,14 tuile, de 0,62 à 1,27
+    tuile au-dessus du centre à l'écran ; outil fo-logs/2026-10-25_F1B/outils/f1b_trou_vanilla.py) : le plancher va
+    jusqu'au bord nord (il remplit le bas du trou) et le râtelier, haut de 0,66, le haut."""
     M = g.M
-    F.deck_e(g, 2, -1.04, 1.04, Y(-1.08), Y(0.62), 0.05)
+    F.deck_e(g, 2, -1.04, 1.04, Y(-1.08), Y(0.98), 0.05)
     for sx in (-1, 1):
         pts = [(sx * 1.08, Y(0.3), 0.0), (sx * 1.08, Y(-0.4), 0.0), (sx * 1.0, Y(-0.85), 0.0),
                (sx * 0.75, Y(-1.12), 0.0), (sx * 0.42, Y(-1.15), 0.0)]
         sandbag_wall(g, pts, rows=2)
-    # caisse AGRANDIE et DÉPLACÉE au coin avant DROIT (correction F1-A, M-2 : 0,34 × 0,26 au coin avant gauche au
-    # premier essai, 12 × 6 px au zoom 1 : illisible) : 0,52 × 0,38, bocaux de 0,14 de diamètre et 0,26 de haut ; la
-    # lanterne passe au coin avant gauche. CONSTAT du rendu r0c : la base du vanilla (bobine verte) la recouvre encore
-    # presque entière (F42) ; elle n'est plus dans le triplet. Au constructeur : la sortir de la silhouette du vanilla
-    # (coin extrême, à la place de quelques sacs) ou y renoncer.
-    with at(g, 0.56, -0.8, -0.2):
-        caisse_leyde(g, (0, 0, 0.0), (0.52, 0.38, 0.16), r=0.07, h=0.26)
+    ratelier_leyde(g, -0.98, 0.42, 0.9)
     F.lantern(g, (-0.8, Y(-0.95), 0.15), M["emit"])
     g.box((-0.8, Y(-0.95), 0.07), (0.1, 0.1, 0.15), M["wood"], "hard", what="billot")
     g.halo((-0.8, Y(-0.95), 0.3), M["_emit_rgb"], 6.0)
+
+
+def ratelier_leyde(g, x0, x1, yn):
+    """Râtelier de planches dressé au nord du plancher (de x0 à x1, face au sud) : dos de planches PLEIN (aucun jour),
+    deux montants, trois étagères chargées de BOCAUX DE LEYDE (verre sombre, feuille de cuivre, boule de laiton) reliés
+    par un fil de cuivre, la réserve d'énergie bricolée du pionnier."""
+    M = g.M
+    y = Y(yn)
+    H = 0.66
+    L = x1 - x0
+    xc = (x0 + x1) / 2
+    nb = 6
+    for k in range(nb):
+        g.box((xc, y + 0.06, H * (k + 0.5) / nb), (L, 0.03, H / nb - 0.008), M["wood"] if k % 2 else M["wood2"],
+              "hard", what="dos")
+    for xx in (x0 + 0.03, x1 - 0.03):
+        g.box((xx, y, H / 2 + 0.02), (0.05, 0.14, H + 0.04), M["wood2"], "hard", what="montant")
+    for j, zz in enumerate((0.05, 0.27, 0.49)):
+        g.box((xc, y - 0.01, zz), (L - 0.06, 0.14, 0.025), M["wood"], "hard", what="etagere")
+        tops = []
+        n = int((L - 0.12) / 0.11)
+        for i in range(n):
+            x = x0 + 0.09 + i * (L - 0.18) / max(1, n - 1)
+            h = 0.15 + 0.02 * ((i + j) % 2)
+            g.cyl((x, y - 0.02, zz + 0.012 + h / 2), "z", 0.035, h, M["glass_dk"], n=12, style="smooth", what="bocal")
+            g.cyl((x, y - 0.02, zz + 0.012 + h * 0.3), "z", 0.038, h * 0.55, M["copper"], n=12, what="feuille")
+            g.cyl((x, y - 0.02, zz + 0.012 + h + 0.03), "z", 0.006, 0.05, M["brass"], n=6, what="tige")
+            g.sphere((x, y - 0.02, zz + 0.012 + h + 0.06), 0.014, M["brass"], n=8, m=5, what="boule")
+            tops.append(V((x, y - 0.02, zz + 0.012 + h + 0.06)))
+        for a, b in zip(tops[:-1], tops[1:]):
+            g.cable(a, b, 0.015, 0.005, M["copper"], what="fil")
+    g.box((xc, y - 0.08, H + 0.03), (L + 0.04, 0.06, 0.03), M["rawiron"], "hard", what="chapeau")
 
 
 def caisse_leyde(g, c, size, rz=0.0, r=0.045, h=0.17):
