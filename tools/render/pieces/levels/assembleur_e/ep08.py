@@ -132,6 +132,9 @@ def piece(g, c):
     M = g.M
     po, pe = corps.place(c, "coin_SO"), corps.place(c, "coin_SE")
     z = po["z_sol"]
+    # ronde 3 : le sol vu entre les trois paniers faisait un trou enfermé (29 px) : claie de planches dessous
+    g.box(B(po["x"], po["yn"] - 0.03, z + 0.03), (0.66, 0.6 * SQ2, 0.06), M["bois_mouille"], "hard", what="claie")
+    z += 0.06
     for k, (dx, dy) in enumerate(((-0.15, 0.1), (0.18, 0.05), (0.0, -0.22))):
         x, y = po["x"] + dx, po["yn"] + dy
         g.cyl(B(x, y, z + 0.1), "z", 0.16, 0.2, M["wicker"], n=18, r2=0.18, what="panier")

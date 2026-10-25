@@ -29,6 +29,9 @@ HABILLAGE = dict(ages.CORPS[13], forme_embase='carre', forme_dos='dome', forme_j
                  mat_dos='verre_fume')
 
 
+GARNIR = ("bati",)       # les joues portent déjà les organes de l'âge (garniture.py)
+
+
 def matieres(metal, M):
     ages.matieres(13, metal, M)
 

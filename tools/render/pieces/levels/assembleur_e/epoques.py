@@ -23,7 +23,8 @@ Un module d'âge epNN.py (N = 2 à 15) remplit les emplacements d'âge :
   A4 PIÈCE DU NIVEAU PAIR (en PAIRE aux coins avant, places coin_SO et coin_SE) : def piece(g, c) ;
   facultatifs : def dos(g, c) (remplace le dos de la lignée, MÊME emprise : x ±h, yn de c.yb à h), def entree(g, c) et
   def sortie(g, c) (habillent la trémie et le bac : places joue_O, joue_E), def liaison(g, pts, r) (organe de liaison :
-  câbles, flexibles, conduites).
+  câbles, flexibles, conduites) ; GARNIR = ("bati", "joues") (défaut) : zones où la lignée pose ses petites pièces
+  (garniture.py, ronde 4) ; () pour aucune.
 Contrat :
   EPOQUE = N ; NOM = ages.NOMS[N] ; TRIPLET = (« mot 1 », « mot 2 », « mot 3 ») : lecture « en 3 mots » PROPRE à
           l'assembleur (TRIPLETS ci-dessous ; aucun mot répété entre les 15) ;

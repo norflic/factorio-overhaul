@@ -288,7 +288,7 @@ def dos(g, c):
                 faces="st")
         for sx in (-1, 1):
             xa, xb_ = (x0, x0 + wt) if sx < 0 else (x1 - wt, x1)
-            PT.hull(g, xa, xb_, Y(y0 - 0.04), Y(y1), ze, c.z_tours, ins=(0.03, 0.03, 0.0), panel=0.4,
+            PT.hull(g, xa, xb_, Y(y0 - 0.04), Y(y1), ze, c.z_tours, ins=(0.0, 0.03, 0.0), panel=0.4,
                     mats=[m1], faces="st")
             corniere(g, [(xa + 0.03, y0), (xb_ - 0.03, y0), (xb_ - 0.03, y1), (xa + 0.03, y1)], c.z_tours,
                      M["steel_dk"], w=0.04, hgt=0.04)
@@ -315,7 +315,11 @@ def dos(g, c):
         rz = Hd - zb_
         r = max(rx, ry, rz)
         g.sphere(V((0, Y(ym), zb_)), r, m1, n=40, m=20, scale=(rx / r, ry / r, rz / r), what="coupole")
-        g.torus(V((0, Y(ym), zb_ + 0.02)), "z", rx * 0.99, 0.035, M["steel_dk"], n=40, m=6, what="ceinture")
+        # ceinture ELLIPTIQUE comme la coupole (ronde 3 : un tore rond de rayon rx débordait de 1,3 tuile au nord et au
+        # sud de la coupole, cercle noir et trou enfermé de 5 454 px à l'âge 13)
+        pts = [V((rx * 0.99 * math.cos(TAU * i / 48), Y(ym) + ry * 0.99 * math.sin(TAU * i / 48), zb_ + 0.02))
+               for i in range(49)]
+        g.tube(pts, 0.035, M["steel_dk"], n=8, what="ceinture")
         c.z_nord = zb_
     # face sud : soubassement sombre (garde le pied net quel que soit le dos)
     g.box(B(0, y0 - 0.015, ze + 0.04), (x1 - x0, 0.03 * SQ2, 0.08), M["steel_dk"], "hard", what="plinthe")
@@ -555,6 +559,8 @@ def machine(g, c):
     ports(g, c)
     entree(g, c)
     sortie(g, c)
+    import garniture            # ronde 4 : petites pièces de la lignée sur le bâti et les joues (GARNIR de l'âge)
+    garniture.garnir(g, c)
     ep = c.ep
     if hasattr(ep, "socle"):
         ep.socle(g, c)

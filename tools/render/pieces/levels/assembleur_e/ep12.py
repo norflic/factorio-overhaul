@@ -30,6 +30,9 @@ HABILLAGE = dict(ages.CORPS[12], forme_embase='pieds', forme_dos='gradins', form
                  forme_portique='aucun')
 
 
+GARNIR = ("bati",)       # les joues portent déjà les organes de l'âge (garniture.py)
+
+
 def matieres(metal, M):
     ages.matieres(12, metal, M)
 
