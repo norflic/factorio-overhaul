@@ -15,7 +15,7 @@ import ages
 import corps
 import formes as F
 from corps import B, halo, prisme_x
-from kit import SQ2
+from kit import SQ2, TAU
 
 V = Vector
 
@@ -25,8 +25,9 @@ TRIPLET = ("fronton", "prismes", "rayon violet")
 FOYER = ages.FOYER[7]
 TRAVAIL = dict(couches=2, images=16, organe="couronne de prismes qui tourne lentement (16 images) ; rayon violet qui "
                                            "pulse et éclats de la gemme (couche glow)")
-HABILLAGE = dict(ages.CORPS[7], forme_embase='gradins', forme_dos='pans', forme_joues='colonnes',
+HABILLAGE = dict(ages.CORPS[7], plan='carre', forme_embase='gradins', forme_dos='pans', forme_joues='colonnes',
                  forme_portique='arche', mat_dos='bronze_capot', mat_joues='pierre_claire', mat_portique='bronze_capot')
+DENSITE = dict(p=0.55, lampes=0.06)
 
 
 def matieres(metal, M):
@@ -127,16 +128,35 @@ def ouvrage(g, c):
                   0.1, M["crystal"])
 
 
+def entree(g, c, p):
+    """Vasque de pierre pleine de cristaux bruts (entrée)."""
+    M = g.M
+    g.cyl(B(p["x"], p["yn"], p["z"] + 0.08), "z", p["r"], 0.16, M["pierre_claire"], n=8, r2=p["r"] * 1.1,
+          style="hard", what="vasque")
+    for k in range(6):
+        a = TAU * k / 6
+        F.crystal(g, B(p["x"] + 0.35 * p["r"] * math.cos(a), p["yn"] + 0.3 * p["r"] * math.sin(a), p["z"] + 0.14),
+                  (0.3 * math.cos(a), 0.3 * math.sin(a), 1), 0.035, 0.14, M["crystal"])
+
+
+def sortie(g, c, p):
+    """Reliquaire de bronze : gemmes taillées violettes (sortie)."""
+    corps.bac(g, c, p, g.M["bronze_capot"], g.M["emit_soft"], forme="sphere")
+
+
 def piece(g, c):
-    """Niveau 14 : deux obélisques de pierre à pointe de cristal sur socle de bronze (coins avant, en retrait du
-    perron)."""
+    """Niveau 14 (plus grande) : deux obélisques HAUTS de pierre à pointe de cristal, socle de bronze à degrés, vasque
+    de cristaux au pied (coins avant, en retrait du perron)."""
     M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
-        x, yn, z = p["x"], p["yn"] + 0.18, c.ze
-        g.box(B(x, yn, z + 0.06), (0.4, 0.4 * SQ2, 0.12), M["bronze_sombre"], "hard", what="socle_obelisque")
-        g.cyl(B(x, yn, z + 0.38), "z", 0.13, 0.52, M["pierre_claire"], n=4, r2=0.09, style="hard", phase=0.785,
+        x, yn, z = p["x"], p["yn"] + 0.2, c.ze
+        g.box(B(x, yn, z + 0.06), (0.56, 0.56 * SQ2, 0.12), M["bronze_sombre"], "hard", what="socle_obelisque")
+        g.box(B(x, yn, z + 0.16), (0.42, 0.42 * SQ2, 0.08), M["pierre_claire2"], "hard", what="degre")
+        g.cyl(B(x, yn, z + 0.6), "z", 0.16, 0.8, M["pierre_claire"], n=4, r2=0.1, style="hard", phase=0.785,
               what="obelisque")
-        F.crystal(g, B(x, yn, z + 0.64), (0, 0, 1), 0.08, 0.26, M["emit"], n=4)
-        g.box(B(x, yn, z + 0.15), (0.3, 0.3 * SQ2, 0.04), M["bronze_capot"], "hard", what="bague")
-        halo(g, x, yn, z + 0.8, 0.8)
+        F.crystal(g, B(x, yn, z + 1.0), (0, 0, 1), 0.1, 0.34, M["emit"], n=4)
+        g.box(B(x, yn, z + 0.24), (0.36, 0.36 * SQ2, 0.04), M["bronze_capot"], "hard", what="bague")
+        for k in range(3):
+            g.box(B(x, yn - 0.163, z + 0.38 + 0.15 * k), (0.12, 0.01, 0.04), M["emit_soft"], "flat", what="glyphe")
+        halo(g, x, yn, z + 1.1, 1.0)

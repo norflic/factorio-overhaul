@@ -105,7 +105,7 @@ def garnir(g, c):
 # ------------------------------------------------------------------------------------------------
 # GARNITURE DENSE (ronde F3-A2) : petites pièces semées sur les dessus (c.zones), hors des réserves
 # ------------------------------------------------------------------------------------------------
-PAS = 0.2          # pas de la grille (tuiles de jeu) : taille CONSTANTE, plus de pièces sur une grande machine
+PAS = 0.16         # pas de la grille (tuiles de jeu) : taille CONSTANTE, plus de pièces sur une grande machine
 
 
 def zones_carre(c):
@@ -188,7 +188,7 @@ def densifier(g, c):
     DENSITE = dict(p=0,62, lampes=0,05) (proportion de cases garnies, part des voyants lumineux)."""
     import random
     dens = getattr(c.ep, "DENSITE", {})
-    p_case = dens.get("p", 0.62)
+    p_case = min(0.95, 1.3 * dens.get("p", 0.62))      # essai a2q : semis trop clair
     p_lampe = dens.get("lampes", 0.05)
     rng = random.Random(4100 + 37 * c.e + c.side)
     zones = list(c.zones)

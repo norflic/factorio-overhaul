@@ -64,6 +64,20 @@ def secteur(g, R0, R1, a0, a1, z0, z1, m, cy=0.0, n=16, what="secteur"):
         g.hexa(pts8, m, "hard", what)
 
 
+def face_exterieure(g, R, a0, a1, z0, z1, m, cy=0.0, n=12, rivets=True):
+    """Plaques de la face EXTÉRIEURE (convexe) d'un secteur, sur sa partie sud."""
+    for i in range(n):
+        t0, t1 = a0 + (a1 - a0) * i / n, a0 + (a1 - a0) * (i + 1) / n
+        if math.sin((t0 + t1) / 2) > -0.1:
+            continue
+        pa = (R * math.cos(t0), cy + R * math.sin(t0))
+        pb = (R * math.cos(t1), cy + R * math.sin(t1))
+        q = [B(pa[0], pa[1] - 0.004, z0), B(pb[0], pb[1] - 0.004, z0), B(pb[0], pb[1] - 0.004, z1),
+             B(pa[0], pa[1] - 0.004, z1)]
+        g.panels(q, 1, max(1, int(round((z1 - z0) / 0.35))), m, t=0.014, rivet_mat=g.M["rivet"] if rivets else None,
+                 rivet_step=0.13)
+
+
 def face_interieure(g, R0, a0, a1, z0, z1, m, cy=0.0, n=12, rivets=True):
     """Plaques de la face INTÉRIEURE (concave, tournée vers le centre) d'un croissant : visibles quand elles regardent
     le sud (moitié nord du cercle)."""
@@ -90,47 +104,63 @@ def init(c):
         c.cy = c.yt
         c.reserves.append((0.0, c.yt, tx * 1.05))
         if c.plan == "portique":
-            c.wp = 0.2 * s + 0.05
-            c.dp = 0.3 * s
+            c.wp = 0.14 * s + 0.06
+            c.dp = 0.2 * s
             c.xp = h - c.wp / 2.0
-            c.hb = 0.16 + 0.04 * s
+            c.hb = 0.2 + 0.05 * s
             c.ztop = c.zp + c.hb
             c.hub = B(0.0, c.yt, c.zp)
         return
-    # plans radiaux : tambour (rond, octo) ou socle et tour
-    c.zr = c.ze + 0.15 + 0.06 * s                  # dessus du tambour ou du socle
-    c.zt = c.zr + 0.06 + 0.02 * s                  # dessus du lit de travail
+    # plans radiaux : tambour (rond, octo) ou socle et tour. Correction F3-A2 après l'essai a2q (âges 5 et 8 lus « une
+    # plate-forme ronde et un truc posé dessus ») : tambour plus HAUT, croissant plus épais et plus haut, ANNEAU AVANT
+    # (parapet) qui ferme la cuve ; tour : socle plus haut et deux annexes aux coins arrière.
     if c.plan in ("rond", "octo"):
+        c.zr = c.ze + 0.3 + 0.1 * s                # dessus du tambour
+        c.zt = c.zr + 0.06 + 0.02 * s              # dessus du lit de travail
         c.Rb = h - 0.04
         c.npans = 40 if c.plan == "rond" else 8
         c.cy = -0.06 * s
-        c.ep_cr = 0.17 * s                         # épaisseur du croissant
-        c.Hc = c.zr + 0.3 + 0.08 * s               # dessus du croissant
+        c.ep_cr = 0.24 * s                         # épaisseur du croissant
+        c.Hc = c.zr + 0.35 + 0.1 * s               # dessus du croissant
+        c.ep_an = 0.1 * s                          # épaisseur de l'anneau avant
+        c.Ha = c.zr + 0.12 + 0.03 * s              # dessus de l'anneau avant
         c.zhub = c.Hc + 0.15 + 0.05 * s
         c.hub = B(0.0, c.cy, c.zhub)
-        c.tr = 0.16 * s + 0.05
+        c.tr = 0.15 * s + 0.05
         c.reserves.append((0.0, c.cy, c.tr * 1.05))
-        R0 = c.Rb - 0.06 - c.ep_cr
-        c.zones.append(("anneau", c.tr + 0.08, R0 - 0.05, math.radians(195), math.radians(345), c.zr, c.cy))
-        c.zones.append(("anneau", R0 + 0.04, c.Rb - 0.1, math.radians(20), math.radians(160), c.Hc, c.cy))
-        a_e, a_o = math.radians(-8), math.radians(188)
-        rr = 0.07 * s + 0.06
-        Rm = (c.tr + R0) / 2.0 + 0.05
-        c.pl_entree = dict(x=Rm * math.cos(a_o), yn=c.cy + Rm * math.sin(a_o), z=c.zr, r=rr)
-        c.pl_sortie = dict(x=Rm * math.cos(a_e), yn=c.cy + Rm * math.sin(a_e), z=c.zr, r=rr)
+        Rd = c.Rb - 0.06
+        R0 = Rd - c.ep_cr
+        c.zones.append(("anneau", Rd - c.ep_an + 0.05, Rd - 0.05, math.radians(196), math.radians(344), c.Ha, 0.0))
+        c.zones.append(("anneau", R0 + 0.05, Rd - 0.06, math.radians(16), math.radians(164), c.Hc, 0.0))
+        c.zones.append(("anneau", c.tr + 0.1, Rd - c.ep_an - 0.05, math.radians(200), math.radians(340), c.zr, 0.0))
+        rr = 0.06 * s + 0.06
+        Rm = Rd - c.ep_an / 2.0
+        for nom, ad in (("pl_entree", 205.0), ("pl_sortie", 335.0)):
+            a = math.radians(ad)
+            setattr(c, nom, dict(x=Rm * math.cos(a), yn=Rm * math.sin(a), z=c.Ha, r=rr))
     else:   # tour
-        c.Rp = 0.36 * s
+        c.zr = c.ze + 0.25 + 0.08 * s              # dessus du socle
+        c.zt = c.zr + 0.06 + 0.02 * s
+        c.Rp = 0.4 * s
         c.Rt = 0.12 * s + 0.06
         c.Ht = c.Hd + 0.12 * s
         c.cy = 0.0
         c.yt = -(c.Rt + 0.1 * s)
         c.hub = B(0.0, 0.0, c.Ht)
         c.reserves.append((0.0, c.yt, 0.1 * s + 0.08))
-        c.zones.append(("anneau", c.Rt + 0.12, c.Rp - 0.06, math.radians(20), math.radians(160), c.zr, 0.0))
+        c.zones.append(("anneau", c.Rt + 0.14, c.Rp - 0.06, math.radians(15), math.radians(165), c.zr, 0.0))
+        c.zones.append(("anneau", c.Rt * 0.75 + 0.12, c.Rp - 0.06, math.radians(195), math.radians(345), c.zr, 0.0))
+        c.ann = 0.3 * s                            # côté des annexes des coins arrière
+        c.Hann = c.zr + 0.15 + 0.08 * s
+        for sx in (-1, 1):
+            xa = sx * (h - c.ann / 2.0)
+            ya = h - c.ann / 2.0
+            c.zones.append(("rect", xa - c.ann / 2 + 0.06, xa + c.ann / 2 - 0.06, ya - c.ann / 2 + 0.06,
+                            ya + c.ann / 2 - 0.06, c.Hann))
         rr = 0.05 * s + 0.07
-        xe = min(h - rr - 0.03, c.Rp + rr + 0.02)
-        c.pl_entree = dict(x=-xe, yn=0.0, z=c.ze, r=rr)
-        c.pl_sortie = dict(x=xe, yn=0.0, z=c.ze, r=rr)
+        xe = min(h - rr - 0.03, c.Rp * 0.8 + rr)
+        c.pl_entree = dict(x=-xe, yn=-0.2 * s, z=c.ze, r=rr)
+        c.pl_sortie = dict(x=xe, yn=-0.2 * s, z=c.ze, r=rr)
     for p in (c.pl_entree, c.pl_sortie):
         c.reserves.append((p["x"], p["yn"], p["r"] + 0.05))
 
@@ -186,6 +216,26 @@ def tambour(g, c):
         Rm = (R0 + R1) / 2.0
         g.box(B(Rm * math.cos(t), Rm * math.sin(t), c.Hc + 0.04), (0.16, 0.16 * SQ2, 0.08), M["steel_dk"], "hard",
               what="tete_croissant")
+    # ANNEAU AVANT (parapet qui ferme la cuve au sud), face extérieure à plaques, voyants
+    Ra = Rd - c.ep_an
+    if c.plan == "octo":
+        for k in range(4):
+            t0 = math.pi + math.pi / 8 + k * math.pi / 4
+            t1 = t0 + math.pi / 4
+            p = [(Rd * math.cos(t0), Rd * math.sin(t0)), (Rd * math.cos(t1), Rd * math.sin(t1)),
+                 (Ra * math.cos(t1), Ra * math.sin(t1)), (Ra * math.cos(t0), Ra * math.sin(t0))]
+            g.hexa([B(x, y, c.zr) for x, y in p] + [B(x, y, c.Ha) for x, y in p], m2, "hard", "anneau_avant")
+            q = [B(p[0][0], p[0][1] - 0.004, c.zr), B(p[1][0], p[1][1] - 0.004, c.zr), B(p[1][0], p[1][1] - 0.004, c.Ha),
+                 B(p[0][0], p[0][1] - 0.004, c.Ha)]
+            g.panels(q, 2, 1, m1, t=0.014, rivet_mat=M["rivet"], rivet_step=0.13)
+    else:
+        a0r, a1r = math.radians(192), math.radians(348)
+        secteur(g, Ra, Rd, a0r, a1r, c.zr, c.Ha, m2, 0.0, n=14, what="anneau_avant")
+        face_exterieure(g, Rd, a0r, a1r, c.zr, c.Ha, m1, n=14)
+    for k in range(6):
+        t = math.radians(210 + 24 * k)
+        g.cyl(B((Rd + 0.01) * math.cos(t), (Rd + 0.01) * math.sin(t), (c.zr + c.Ha) / 2), "y", 0.028, 0.03, M["emit"],
+              n=10, what="voyant_anneau")
     # lit de travail rond au centre
     g.cyl(B(0, c.cy, (c.zr + c.zt) / 2), "z", c.tr, c.zt - c.zr, M["steel_dk"], n=36, style="hard", what="lit")
     g.tube_shell(B(0, c.cy, c.zt - 0.01), "z", c.tr + 0.02, c.tr - 0.06, 0.03, M["steel"], n=36, what="jante_lit")
@@ -247,6 +297,17 @@ def tour(g, c):
         g.box(V(((Rt + 0.12) * math.cos(a), (Rt + 0.12) * math.sin(a), zg + 0.07)), (0.015, 0.015, 0.1), M["steel"],
               "hard", what="poteau")
     g.torus(V((0, 0, zg + 0.12)), "z", Rt + 0.12, 0.01, M["steel"], n=36, m=4, what="lisse")
+    # deux ANNEXES aux coins arrière (caissons de machinerie), reliées au fût par des conduites
+    for sx in (-1, 1):
+        xa = sx * (c.h - c.ann / 2.0)
+        ya = c.h - c.ann / 2.0
+        x0, x1 = xa - c.ann / 2 + 0.02, xa + c.ann / 2 - 0.02
+        PT.hull(g, x0, x1, (ya - c.ann / 2 + 0.02) * SQ2, (ya + c.ann / 2 - 0.02) * SQ2, c.ze, c.Hann,
+                ins=(0.02, 0.02, 0.0), panel=0.45, mats=[m2], faces="st")
+        p0 = B(xa - sx * c.ann * 0.3, ya - c.ann / 2, c.Hann - 0.12)
+        p1 = V((sx * Rt * 0.7, Rt * 0.5, zb + 0.3 * (zh - zb)))
+        g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.12)), p1], 0.035 + 0.005 * c.side, M["steel_dk"],
+               fl_mat=M["steel"], bolt_mat=M["rivet"])
     # contreforts aux quatre diagonales, du bord du socle au fût
     for k in range(4):
         t = math.pi / 4 + k * math.pi / 2

@@ -25,8 +25,9 @@ TRIPLET = ("cellule chaude", "télémanipulateurs", "vitre verte")
 FOYER = ages.FOYER[9]
 TRAVAIL = dict(couches=2, images=16, organe="les deux télémanipulateurs (bras et pinces, 16 images) ; lueur de la vitre "
                                            "qui pulse doucement (couche glow)")
-HABILLAGE = dict(ages.CORPS[9], forme_embase='chanfrein', forme_dos='coque', forme_joues='caisson',
+HABILLAGE = dict(ages.CORPS[9], plan='L', forme_embase='chanfrein', forme_dos='coque', forme_joues='caisson',
                  forme_portique='aucun', mat_dos='beton_capot', mat_joues='beton_capot')
+DENSITE = dict(p=0.58, lampes=0.08)
 
 
 def matieres(metal, M):
@@ -63,6 +64,26 @@ def socle(g, c):
     for k, x in enumerate((-1.6, -0.9, 0.9, 1.6)):
         yn = yb + (y1 - yb) * (0.45 if k % 2 else 0.7)
         _chateau(g, x, yn, corps.z_toit(c, x, yn) - 0.02, 0.2, 0.42)
+        c.reserves.append((x, yn, 0.28))
+    # AILE de blindage (plan L, ouest) : porte de cellule à volant, trèfle, voyants, bandes de danger
+    xa, xz, yf = -h + 0.02, -c.xb, c.yf
+    xw = (xa + xz) / 2.0
+    g.box(B(xw, yf - 0.04, c.ze + 0.42), (0.62, 0.05, 0.76), M["plomb_sombre"], "hard", what="porte_blindee")
+    g.box(B(xw, yf - 0.07, c.ze + 0.42), (0.5, 0.02, 0.64), M["lead"], "hard", what="vantail")
+    g.torus(B(xw, yf - 0.1, c.ze + 0.45), "y", 0.1, 0.018, M["steel_hi"], n=16, m=5, what="volant")
+    F.trefoil(g, B(xw, yf - 0.06, c.ze + 0.98), (0, -1, 0), 0.16)
+    g.hazard([B(xa + 0.05, yf - 0.05, c.ze + 0.04), B(xz - 0.05, yf - 0.05, c.ze + 0.04),
+              B(xz - 0.05, yf - 0.05, c.ze + 0.13), B(xa + 0.05, yf - 0.05, c.ze + 0.13)], 8, t=0.008)
+    for z in (c.ze + 1.2, c.ze + 1.32):
+        corps.lampe_face(g, xw - 0.2, yf, z, 0.04, M["emit"], M["plomb_sombre"])
+        corps.lampe_face(g, xw + 0.2, yf, z, 0.04, M["emit"], M["plomb_sombre"])
+    halo(g, xw, yf - 0.2, c.ze + 1.25, 0.8)
+    # conduits de ventilation de l'aile vers la cellule (liaisons de l'âge)
+    for k, dz in enumerate((0.0, 0.18)):
+        p0 = B(-c.xb - 0.02, c.yt + 0.25, c.Hd - 0.3 + dz)
+        p1 = B(-c.T["table"]["tx"] * 0.9, c.yt + 0.1, c.zt + 0.6 + dz)
+        g.pipe([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.1)), p1], 0.045, M["plomb_sombre"], fl_mat=M["lead"],
+               bolt_mat=M["steel_hi"])
     g.box(B(0, (yb + y1) / 2 + 0.2, corps.z_toit(c, 0, (yb + y1) / 2 + 0.2) + 0.15), (0.9, 0.3 * SQ2, 0.3),
           M["plomb_sombre"], "hard", what="filtres")
     corps.lampe(g, B(0, (yb + y1) / 2 + 0.1, corps.z_toit(c, 0, (yb + y1) / 2 + 0.2) + 0.3), 0.05, M["emit"])
@@ -110,6 +131,24 @@ def outil(g, c):
         g.cyl(B(x, (y0 + y1) / 2, zh + 0.12), "z", 0.07, 0.12, M["plomb_sombre"], n=14, what="traversee")
 
 
+def entree(g, c, p):
+    """Râtelier de crayons de combustible verts sur l'aile (entrée)."""
+    M = g.M
+    r, z = p["r"], p["z"]
+    g.box(B(p["x"], p["yn"], z + 0.04), (2 * r, 2 * r * SQ2, 0.08), M["plomb_sombre"], "hard", what="socle_ratelier")
+    for i in range(4):
+        for j in range(3):
+            g.cyl(B(p["x"] - r * 0.6 + r * 0.4 * i, p["yn"] - r * 0.5 + r * 0.5 * j, z + 0.16), "z", 0.025, 0.18,
+                  M["uranium"] if (i + j) % 2 else M["emit_soft"], n=8, what="crayon")
+
+
+def sortie(g, c, p):
+    """Château de plomb ouvert : barres d'uranium enrichi (sortie)."""
+    M = g.M
+    _chateau(g, p["x"], p["yn"], p["z"], p["r"] * 0.85, 0.3)
+    g.cyl(B(p["x"], p["yn"], p["z"] + 0.36), "z", p["r"] * 0.5, 0.03, M["emit"], n=16, what="lueur")
+
+
 def ouvrage(g, c):
     """Plateau de pastilles d'uranium au pied de la vitre (sas de sortie)."""
     M = g.M
@@ -123,11 +162,13 @@ def ouvrage(g, c):
 
 
 def piece(g, c):
-    """Niveau 18 : fûts de déchets jaunes à trèfle, sur palettes (coins avant)."""
+    """Niveau 18 (plus grande) : six fûts de déchets jaunes à trèfle sur deux niveaux de palettes (coins avant)."""
     M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
         x, yn, z = p["x"], p["yn"] + 0.06, p["z_sol"]
+        F.drum(g, tuple(B(x, yn + 0.0, z + 0.44 + 0.08)), 0.14, 0.36, M["yellowpaint"], M["plomb_sombre"], trefoil=True)
+        g.box(B(x, yn, z + 0.48), (0.5, 0.42 * SQ2, 0.06), M["wood"], "hard", what="palette_haute")
         g.box(B(x, yn, z + 0.04), (0.72, 0.6 * SQ2, 0.08), M["wood"], "hard", what="palette")
         for k, (dx, dy) in enumerate(((-0.17, 0.12), (0.17, 0.12), (-0.17, -0.14), (0.17, -0.14))):
             F.drum(g, tuple(B(x + dx, yn + dy, z + 0.08)), 0.14, 0.36, M["yellowpaint"], M["plomb_sombre"],

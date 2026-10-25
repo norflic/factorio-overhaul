@@ -80,9 +80,10 @@ def socle(g, c):
     for k in range(6):
         F.lump(g, B(0.53 + 0.035 * k, 0.35, zr + 0.16), 0.04, M["soot"])
     c.reserves.append((0.62, 0.35, 0.22))
-    for x in (-0.95, 0.95):
-        F.lantern(g, tuple(B(x, -0.55, zr)), M["emit"])
-        halo(g, x, -0.55, zr + 0.1, 0.5)
+    for x in (-0.7, 0.7):
+        F.lantern(g, tuple(B(x, -0.75, zr)), M["emit"])
+        halo(g, x, -0.75, zr + 0.1, 0.5)
+        c.reserves.append((x, -0.75, 0.1))
 
 
 def outil(g, c):
