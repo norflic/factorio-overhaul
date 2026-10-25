@@ -525,7 +525,13 @@ F2 prend F254 à F256.
   (`captures\prod-brut`). Une `LightDefinition` posée sur la visualisation du feu (`light = {intensity = 0,5, size =
   2 + 1,7 × emprise, shift devant la gueule, color = lumière de l'âge}`) donne une flaque colorée comparable à la vanilla
   (`captures\prod-flaque`), sans aucune image de plus.
-- **F278** (moteur réel, plancher) : MESURE EN COURS (voir E185).
+- **F278** (moteur réel, plancher : qualité normale, mémoire vidéo basse, compression basse, `d4-geant --measure`) : les
+  208 feuilles du four (30 niveaux, feu animé, icônes) ne débordent pas l'atlas virtuel déjà plein (F186) : « Created
+  virtual atlas pages 4096x4096x12 » comme sur `main` 0.4.28, aucun avertissement au journal, `d4-geant` 18 OK ; les
+  autres atlas bougent de moins de 1 % (objets 2048 × 1316 contre 1320, ombres 87,6 contre 87,2 Mpx, icônes 20,2 contre
+  20,1 Mpx, l'atlas [icon] y regagne `linear-mip-level`, F125) ; mémoire dédiée mesurée : médiane 0,44 Go des deux côtés,
+  moyenne 0,42 contre 0,43 Go. Aucun levier n'a donc été nécessaire. Images de l'usine au plancher NON regardées (effacées
+  par la session d'un autre lot avant d'être copiées).
 
 ### Faits vérifiés en moteur réel (lot IA1-b2, votre équipe défend d'abord, 25/10 ; fusionné dans `main`, `a3bf828`, version 0.4.29)
 Preuves : `fo-logs\2026-10-25_IA1-b2\` (`NOTES.md` §2 à §10, `INTEGRATION.md`). Expériences : E172, E173.
@@ -1151,7 +1157,9 @@ comme en F2-A). Feuilles : 208 PNG,
 4,32 Mo. **E185** (intégration en jeu, version 0.4.30) : `f2-fours` 3 OK (30 fours posés, 30 en marche au tick 300,
 plaques produites), 40 captures REGARDÉES (`captures\flaque\`) ; nuit d'abord trop sombre (F277), corrigée par la
 flaque du moteur ; harness code 0 (Feuilles four : 208 fichiers, 0 manquant, 0 écart), levels_test 1 665 OK, api_lint
-1 102. Plancher, content, t2-machines, gun-rose et migration d'une sauvegarde 0.4.28 : EN COURS (voir `NOTES.md` §B).
+1 102 ; plancher : F278 ; sur la branche 0.4.30 (`bancs-prod\`, `done.txt` 20:12:44 à 20:13:13) : content 331 OK,
+t2-machines 80 OK, gun-rose 13 OK (inchangé), migration d'une sauvegarde 0.4.28 avec ses 30 fours (double source
+`src-0.4.28`, création 0.4.28, benchmark 0.4.30) : `f2-fours` 3 OK (les 30 fours repris marchent).
 
 **E172, E173 · Lot IA1-b2, votre équipe défend d'abord (25/10 ; réponses du DC R-QCM-25, 25c et constat des PNJ qui attendent ;
 fusion `a3bf828`, version 0.4.29)** : défendre d'abord (tourelles au coffre puis à chaque avant-poste avant d'y travailler ;
