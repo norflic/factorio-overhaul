@@ -89,7 +89,9 @@ end
 --                de l'époque (X.CODEX_LOT_SHARE), bornée par la règle de place (45 % du coffre payeur, au
 --                plus 2 000 objets d'une sorte) : visée NON atteinte après l'époque 4 (écart QX10).
 -- `--calibrate` part d'un état de référence FIXE (panier V2 du centre) : sa sortie est égale à ces tables
--- (testé par tests/levels_test.lua) ; aucune retouche à la main.
+-- (testé par tests/levels_test.lua) ; aucune retouche à la main. Lot X1-TITANE (25/10) : époques 10 à 12 recalibrées
+-- avec la plaque de titane (valeur 20, pile 100 ; avant : structure basse densité, 45, pile 10) : 371 / 46000, 675 /
+-- 47300, 1250 / 48700 avant.
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
@@ -101,9 +103,9 @@ L.epochs = {
   { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.9, cc_value = 6290 },
   { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
   { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 14100 },
-  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 371, cc_value = 46000 },
-  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 675, cc_value = 47300 },
-  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1250, cc_value = 48700 },
+  { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 370, cc_value = 50300 },
+  { key = "titanium",       color = { r = 0.95, g = 0.95, b = 0.98 }, value_mult = 687, cc_value = 51800 },
+  { key = "superconductor", color = { r = 0.58, g = 0.80, b = 1.00 }, value_mult = 1240, cc_value = 53400 },
   { key = "fusion",         color = { r = 1.00, g = 0.70, b = 0.90 }, value_mult = 2270, cc_value = 80100 },
   { key = "orbit",          color = { r = 1.00, g = 0.86, b = 0.42 }, value_mult = 4140, cc_value = 190000 },
   { key = "legend",         color = { r = 1.00, g = 0.94, b = 0.74 }, value_mult = 7070, cc_value = 0 },
@@ -137,8 +139,9 @@ L.epoch_materials = {
   [8] = { key = "methane", want = "méthane (baril)", item = "fo-methane-barrel", value = 10 },
   [9] = { key = "uranium", want = "uranium", item = "uranium-238", value = 14 },
   [10] = { key = "processor", want = "processeur", item = "processing-unit", value = 75 },
-  [11] = { key = "titanium", want = "plaque de titane", want_item = "fo-titanium-plate",
-           item = "low-density-structure", provisional = true, value = 45 },
+  -- Lot X1-TITANE (25/10) : la VRAIE plaque de titane (chaîne de Kroll en jeu, shared/content/titanium.lua), valeur et
+  -- pile du scénario X0 (X.currencies : 20 MU, pile 100). Avant : structure basse densité, provisoire, valeur 45.
+  [11] = { key = "titanium", want = "plaque de titane", item = "fo-titanium-plate", value = 20 },
   -- Moteur électrique : moteur 9 + 2 circuits 5 + 15 lubrifiant 1,5 = 15,5.
   [12] = { key = "superconductor", want = "supraconducteur (terres rares)", want_item = "fo-superconductor",
            item = "electric-engine-unit", provisional = true, value = 16 },
@@ -179,6 +182,7 @@ L.stack_size = {
   ["uranium-238"] = 100, ["processing-unit"] = 100, ["low-density-structure"] = 10,
   ["electric-engine-unit"] = 50, ["uranium-235"] = 100, ["rocket-control-unit"] = 10,
   ["space-science-pack"] = 2000,
+  ["fo-titanium-plate"] = 100, -- lot X1-TITANE (X.items, pile par défaut d'une matière ρ8)
 }
 --- Un coût tient dans cette part du coffre du centre qui le paie (le reste : l'usine continue de le
 --- remplir, et le joueur garde son inventaire).

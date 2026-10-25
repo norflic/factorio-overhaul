@@ -7,6 +7,8 @@
   Lancement (sans double source) : & "<racine>\fo-autotest.bat" nopause 300 monde "<source>"
 
   Cas joués :
+  Lot X1-TITANE (25/10) : 4 ressources garanties (l'ilménite de l'âge 11, avec ses 3 puits de saumure sur le même
+  disque de champs de cratères, à 400-900 tuiles) ; exploration des surfaces B et C portée à 29 chunks (928 tuiles).
   - N : nauvis (graine 20261020), garantie posée par le mod lui-même à on_init (partie neuve, tick 0) : 3 sites,
     gisement complet, biome sous le gisement, distances, zone cartographiée et étiquette sur la carte ;
   - A<graine> : surface neuve (rien de généré), garantie comme à on_init : 3 sites posés, mêmes contrôles ;
@@ -23,7 +25,7 @@
 
 local MONDE = "fo-monde"
 local SEEDS = { 1, 42, 123456, 987654321, 3141592653 }
-local EXPLORE_RADIUS = 23 -- chunks : 736 tuiles, au-delà de la distance maximale (700) et du rayon d'un site
+local EXPLORE_RADIUS = 29 -- chunks : 928 tuiles, au-delà de la distance maximale (900 depuis le titane, lot X1-TITANE ; 23 avant)
 local T_SEED0, T_SEED_STEP, T_C, T_D, T_TAGS, T_FORGET, CHECK = 10, 10, 70, 80, 200, 300, 660
 
 local function call(fn, ...) return remote.call(MONDE, fn, ...) end
@@ -36,7 +38,7 @@ local function new_surface(name, seed, no_resources)
   local mgs = game.surfaces[1].map_gen_settings
   mgs.seed = seed
   if no_resources then
-    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane" }) do
+    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine" }) do
       local c = mgs.autoplace_controls[r] or {}
       mgs.autoplace_controls[r] = { frequency = c.frequency or 1, size = 0, richness = c.richness or 1 }
     end
@@ -51,25 +53,38 @@ local function explore(s)
 end
 
 --- Contrôle d'un site posé (rapport `site` de fo-monde) avec les requêtes du moteur. Renvoie ok, détail.
+--- Champ (lot X1-TITANE, ilménite) : aussi les puits de saumure du champ (site.wells), sur le même sol.
 local function site_ok(s, spec, site, spawn)
   spawn = spawn or { x = 0, y = 0 }
-  local ents = s.find_entities_filtered({ name = spec.resource, position = { site.x + 0.5, site.y + 0.5 }, radius = spec.core_radius + 1.5 })
-  local total, wrong_tile, out_ring = 0, 0, 0
-  for _, e in ipairs(ents) do
-    total = total + e.amount
+  local wrong_tile, out_ring = 0, 0
+  local function look(e)
     local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y))
     if t.name ~= spec.tile or t.collides_with("water-tile") then wrong_tile = wrong_tile + 1 end
     local dx, dy = e.position.x - spawn.x, e.position.y - spawn.y
     local d = math.sqrt(dx * dx + dy * dy)
     if d < spec.dmin or d > spec.dmax then out_ring = out_ring + 1 end
   end
+  local ents = s.find_entities_filtered({ name = spec.resource, position = { site.x + 0.5, site.y + 0.5 }, radius = spec.core_radius + 1.5 })
+  local total = 0
+  for _, e in ipairs(ents) do
+    total = total + e.amount
+    look(e)
+  end
+  local wells_ok, wdetail = true, ""
+  if spec.field_wells then
+    local w = s.find_entities_filtered({ name = spec.field_wells.resource, position = { site.x + 0.5, site.y + 0.5 }, radius = spec.core_radius + 1.5 })
+    for _, e in ipairs(w) do look(e) end
+    wells_ok = #w == #spec.field_wells.offsets and #w == (site.wells or -1)
+    wdetail = string.format(", puits %s %d (rapport %s)", spec.field_wells.resource, #w, tostring(site.wells))
+  end
   local enough = spec.kind == "fluid" and #ents == site.units or total >= spec.min_total
-  local ok = #ents == site.entities and total == site.total and wrong_tile == 0 and out_ring == 0 and enough
-  return ok, string.format("(%d, %d) a %.1f, essai %d : %d entites (rapport %d), %d (rapport %d), hors biome %d, hors anneau %d",
-    site.x, site.y, site.dist, site.try, #ents, site.entities, total, site.total, wrong_tile, out_ring)
+  local ok = #ents == site.entities and total == site.total and wrong_tile == 0 and out_ring == 0 and enough and wells_ok
+  return ok, string.format("(%d, %d) a %.1f, essai %d : %d entites (rapport %d), %d (rapport %d), hors biome %d, hors anneau %d%s",
+    site.x, site.y, site.dist, site.try, #ents, site.entities, total, site.total, wrong_tile, out_ring, wdetail)
 end
 
---- Unités à moins de dmax (après la garantie) : minerai = quantité / min_total, fluide = puits.
+--- Unités à moins de dmax (après la garantie) : minerai = quantité / min_total, fluide = puits ; champ : 0 sans tous
+--- ses puits (comme G.units_found).
 local function units_within(s, spec)
   local total, n, near = 0, 0, math.huge
   for _, e in ipairs(s.find_entities_filtered({ name = spec.resource, position = { 0, 0 }, radius = spec.dmax })) do
@@ -79,6 +94,10 @@ local function units_within(s, spec)
     if d < near then near = d end
   end
   local units = spec.kind == "fluid" and n or math.floor(total / spec.min_total)
+  if spec.field_wells then
+    local w = s.count_entities_filtered({ name = spec.field_wells.resource, position = { 0, 0 }, radius = spec.dmax })
+    if w < #spec.field_wells.offsets then units = 0 end
+  end
   return units, total, n, near
 end
 
@@ -103,12 +122,12 @@ local function natural_survey(ctx, s, specs, label)
       near < math.huge and string.format("%.0f", near) or "-")
   end
   local tiles = {}
-  for _, b in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh" }) do
+  for _, b in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields" }) do
     local c = {}
-    for _, r in ipairs({ 200, 500, 700 }) do c[#c + 1] = s.count_tiles_filtered({ position = { 0, 0 }, radius = r, name = b }) end
+    for _, r in ipairs({ 200, 500, 700, 900 }) do c[#c + 1] = s.count_tiles_filtered({ position = { 0, 0 }, radius = r, name = b }) end
     tiles[#tiles + 1] = b .. " " .. table.concat(c, "/")
   end
-  ctx.log(label .. " NATUREL (avant garantie, a moins de dmax) : " .. table.concat(parts, " ; ") .. " ; tuiles a 200/500/700 : " .. table.concat(tiles, " ; "))
+  ctx.log(label .. " NATUREL (avant garantie, a moins de dmax) : " .. table.concat(parts, " ; ") .. " ; tuiles a 200/500/700/900 : " .. table.concat(tiles, " ; "))
 end
 
 local function after_guarantee(ctx, s, specs, label)
@@ -120,7 +139,7 @@ local function after_guarantee(ctx, s, specs, label)
 end
 
 return {
-  description = "M0 : garantie des monnaies des epoques 5, 7 et 8 sur plusieurs graines",
+  description = "M0 : garantie des monnaies des epoques 5, 7, 8 et 11 (champ de crateres, lot X1-TITANE) sur plusieurs graines",
   check_tick = CHECK,
   shots_delay = CHECK + 20,
 
@@ -147,7 +166,8 @@ return {
       st.specs = specs
       local status = call("status")
       local s = game.surfaces[1]
-      ctx.check(status.runs == 1 and #status.done == 3, "N : une passe de garantie a la creation de la carte, 3 ressources traitees", "passes " .. status.runs)
+      ctx.check(status.runs == 1 and #status.done == #specs, "N : une passe de garantie a la creation de la carte, " .. #specs .. " ressources traitees",
+        "passes " .. status.runs .. ", traitees " .. #status.done)
       local sites = {}
       for _, d in ipairs(status.done) do
         local spec = spec_of(specs, d.key)
@@ -156,7 +176,8 @@ return {
         for _, site in ipairs(d.sites) do
           local ok, detail = site_ok(s, spec, site, game.forces.player.get_spawn_position(s))
           ctx.check(ok, "N " .. d.key .. " : site complet (gisement, biome dessous, dans l'anneau " .. spec.dmin .. "-" .. spec.dmax .. ")", detail)
-          sites[#sites + 1] = { key = d.key, x = site.x, y = site.y, r = spec.site_radius, kind = spec.kind, resource = spec.resource }
+          sites[#sites + 1] = { key = d.key, x = site.x, y = site.y, r = spec.site_radius, kind = spec.kind, resource = spec.resource,
+            icon = spec.icon or spec.resource }
         end
       end
       st.sites = sites
@@ -253,7 +274,7 @@ return {
         local tags = f.find_chart_tags(s, area)
         local good = 0
         for _, t in ipairs(tags) do
-          if t.icon and t.icon.name == site.resource then good = good + 1 end
+          if t.icon and t.icon.name == (site.icon or site.resource) then good = good + 1 end
         end
         ctx.check(f.is_chunk_charted(s, { math.floor(site.x / 32), math.floor(site.y / 32) }) and good == 1,
           "N " .. site.key .. " : zone du site cartographiee, une etiquette de la ressource sur la carte",

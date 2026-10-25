@@ -1,0 +1,87 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2773,
+  0.2598,
+  0.2323,
+  0.1896,
+  0.1596,
+  0.1474,
+  0.0932,
+  0.0663
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "I3",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "lueur": {
+   "froid": [
+    -1.0,
+    -0.95
+   ],
+   "gain": 0.85,
+   "lum": [
+    0.02,
+    0.1
+   ]
+  },
+  "seuil": [
+   0.22,
+   0.45
+  ],
+  "teinte": [
+   0.85,
+   0.93,
+   1.0
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "icones": {
+  "echantillons": 128,
+  "rendu": "gros plan (gisement.cellule_icone), passe main seule",
+  "secondes_blender": 2.24
+ },
+ "nom": "ilmenite",
+ "nom_direction": "nodules d'ilménite bronze-roux sous croûte de leucoxène majoritaire",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.054,
+   0.185,
+   0.191,
+   0.57
+  ],
+  "acier": 0.138,
+  "acier_bleutes": 0.0,
+  "chauds": 0.815,
+  "sombres": 0.047
+ },
+ "secondes_blender": 720.28,
+ "sha256": {
+  "hr-ilmenite-effet.png": "ef5ecec0e57198cd48cca4d9ac0b27ba9a5334209925a1a7cce42b69e42b4d68",
+  "hr-ilmenite.png": "131b6fe47f3021f14c95e64f0d55feff3d6b98c9744a2b24e4d6fa54208b6eb2",
+  "icone-1.png": "0e35a3d965d78f70b8077bfa056aebd775d343e9bfffd66b189eff9fa671028f",
+  "icone-2.png": "186c26c9491fce4cdac56014c9ad203cd99ea5ec0414fd1e10ac2021b2b82f99",
+  "icone-3.png": "be237f057cc04756752eebcb6bf5673b14873cba9af7a1f4bf431d1eee3c5273",
+  "icone.png": "7b103f1547aa46737653040f37b8841533ef6c2d994e410052fc1daafaad59cb",
+  "ilmenite-effet.png": "68e26ac250e0a25ebf363f8ac898e5898f6c4758b5e2edc304a2ae99a2b7c208",
+  "ilmenite.png": "224c5ab53752ac98b45fa6476506ed7a39ad99fc56c7cace5bb937de0506b389"
+ }
+}

@@ -92,7 +92,9 @@ return {
       .. " ; voie attendue : " .. expected)
     local status = remote.call(MONDE, "status")
     local specs = remote.call(MONDE, "specs")
-    ctx.check(status.runs == 1 and #status.done == 3, "une seule passe de garantie, 3 ressources traitees", "passes " .. status.runs)
+    -- Lot X1-TITANE : 4 ressources garanties (le champ de cratères de l'ilménite en plus).
+    ctx.check(status.runs == 1 and #status.done == #specs, "une seule passe de garantie, " .. #specs .. " ressources traitees",
+      "passes " .. status.runs .. ", traitees " .. #status.done)
     for _, d in ipairs(status.done) do
       local spec = spec_of(specs, d.key)
       ctx.check(d.phase == expected and d.check_natural and d.ok and #d.sites == (d.to_place > 0 and (spec.kind == "fluid" and 1 or d.to_place) or 0),

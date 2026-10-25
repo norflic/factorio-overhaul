@@ -251,10 +251,12 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
     ic = D.ICONE.get(cle, {})
     objs = []
     tag = "%s_icone%d" % (cle, c)
-    for i in range(rng.randint(2, 3)):
+    # réglages facultatifs de ICONE (lot X1-TITANE, ilménite) ; valeurs par défaut = celles du tungstène (inchangé)
+    for i in range(rng.randint(*ic.get("roches", (2, 3)))):
         a = rng.uniform(0, 2 * math.pi)
         gx, gy = 0.28 * math.cos(a), 0.22 * math.sin(a)
-        v, f = roche(rng, rng.uniform(0.24, 0.32), aplat=0.75, n_coupes=7, cassure=(0.35, 0.7))
+        v, f = roche(rng, rng.uniform(*ic.get("roche_taille", (0.24, 0.32))), aplat=ic.get("roche_aplat", 0.75),
+                     n_coupes=ic.get("roche_coupes", 7), cassure=ic.get("roche_cassure", (0.35, 0.7)))
         bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
         vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
         objs.append(_objet("%s_roche%d" % (tag, i), vv, f, mats[rng.choice(ic.get("roche_mats", d["roche_mats"]))],
@@ -271,6 +273,16 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
         vv = _transforme(v, incl, az, bx, by, 0.0)
         o = _objet("%s_lame%d" % (tag, j), vv, f, mats[rng.choice(ic.get("lame_mats", d["lame_mats"]))], S)
         S.bevel(o, 0.01, 1)
+        objs.append(o)
+    # plaquettes (ilménite, lot X1-TITANE) : seulement si ICONE en demande ; le tungstène n'en a pas
+    for j in range(ic.get("blocs", 0)):
+        a = rng.uniform(0, 2 * math.pi)
+        gx, gy = 0.18 * math.cos(a), 0.14 * math.sin(a)
+        v, f = bloc(rng, rng.uniform(*ic["bloc_taille"]), rng.uniform(*ic["bloc_haut"]))
+        bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
+        vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
+        o = _objet("%s_bloc%d" % (tag, j), vv, f, mats[rng.choice(ic["bloc_mats"])], S)
+        S.bevel(o, 0.02, 1)
         objs.append(o)
     return objs
 

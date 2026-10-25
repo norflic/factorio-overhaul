@@ -175,12 +175,115 @@ EFFET = {
                lueur=dict(lum=(0.03, 0.15), froid=(-0.08, -0.02), gain=1.0)),
 }
 
+# ------------------------------------------------------------------------------------------------
+# ILMÉNITE (lot X1-TITANE, 25/10) : minerai du titane, âge 11, champs de cratères (docs/SCENARIO_EPOQUES.md).
+# Forme PROPRE, ni les druses dressées du tungstène, ni les grains ronds du fer, ni les cailloux de la pierre :
+# des NODULES lisses et des PLAQUETTES tabulaires (l'ilménite cristallise en tablettes épaisses), noir de fer à éclat
+# submétallique BRUN (pas le reflet bleu-acier du tungstène : métal de base chaud, ciel spéculaire réduit), dont une
+# partie porte la croûte d'altération CRÈME du leucoxène (l'altération réelle de l'ilménite) ; tapis de régolithe
+# gris clair (poussière d'impact). Lumière de l'âge 11 (docs/DESIGN_EPOQUES.md §1.5) : bleu-blanc #BFE6FF, de nuit
+# seulement (couche d'effet à alphas minuscules et grand multiplicateur, comme le tungstène corrigé).
+# Choix provisoires, sans verdict du DC (critères D1 à D3).
+# ------------------------------------------------------------------------------------------------
+MAT.update({
+    # ilménite : noir de fer légèrement brun-violet, éclat submétallique
+    "ilmenite": dict(color=(0.050, 0.041, 0.042), rough=0.44, met=0.45, grain=0.25, gscale=40.0, dirt=0.4),
+    # faces d'ilménite à éclat franc : métal gris BRUN (un métal teinte son reflet par sa couleur de base : chaud, pas
+    # l'acier bleuté du tungstène)
+    "ilmenite_eclat": dict(color=(0.30, 0.255, 0.24), rough=0.34, met=0.65, grain=0.15, gscale=50.0, dirt=0.4),
+    # leucoxène : croûte d'altération crème, mate (la part claire du minerai)
+    "leucoxene": dict(color=(0.56, 0.47, 0.32), rough=0.85, met=0.0, grain=0.35, gscale=30.0, dirt=0.5),
+    # régolithe des cratères : poussière d'impact gris clair (tapis de grains fins)
+    "regolithe": dict(color=(0.20, 0.195, 0.19), rough=0.95, met=0.0, grain=0.3, gscale=30.0, dirt=0.3),
+    "regolithe_clair": dict(color=(0.34, 0.33, 0.31), rough=0.95, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+DIRECTIONS["I1"] = dict(
+    nom="nodules et plaquettes d'ilménite à croûte de leucoxène",
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("ilmenite",),
+    # nodules : le corps du gisement
+    # essai 2 (32 éch.) : couverture 0,21 → 0,05 contre 0,32 → 0,06 en vanilla, même à l'échelle 1,45 (les places du
+    # disque saturent) : production avec des pièces plus grosses et un disque plus large.
+    roches=(9, 8, 7, 6, 5, 4, 3, 2), roche_taille=(0.15, 0.24),
+    roche_mats=("ilmenite", "ilmenite", "ilmenite_eclat", "ilmenite", "leucoxene"),
+    # plaquettes tabulaires, couchées (hauteur faible)
+    blocs=(4, 4, 3, 3, 2, 2, 1, 1), bloc_taille=(0.17, 0.25), bloc_haut=(0.035, 0.06),
+    bloc_mats=("ilmenite_eclat", "ilmenite", "ilmenite"),
+    grains=(16, 14, 12, 10, 8, 6, 5, 3), grain_mats=("regolithe_clair", "leucoxene", "ilmenite"),
+    fin_mats=("regolithe", "regolithe_clair", "regolithe_clair", "ilmenite", "leucoxene"),
+    rayon=0.65,
+    effet="eclats",
+)
+CALIB["I1"] = {"SKY_GLOSSY_FACTOR": 2.5}
+ROCHE_COUPES["I1"] = 5       # essai 1 (2 coupes, lissé 60) : billes noires vernies ; essai 2 : nodules facettés
+ROCHE_LISSE["I1"] = 28
+ROCHE_APLAT["I1"] = 0.60
+ROCHE_CASSURE["I1"] = (0.45, 0.80)
+# Icône : 3 ou 4 gros nodules (dont un à croûte) et 2 plaquettes, sans lames (gisement.cellule_icone, réglages
+# facultatifs ; le tungstène garde ses valeurs par défaut).
+ICONE["I1"] = dict(lames=(0, 0), roches=(4, 5), roche_taille=(0.20, 0.27), roche_coupes=5, roche_cassure=(0.45, 0.80),
+                   roche_aplat=0.7, roche_mats=("ilmenite", "leucoxene", "ilmenite_eclat", "leucoxene"),
+                   blocs=2, bloc_taille=(0.30, 0.38), bloc_haut=(0.06, 0.09), bloc_mats=("ilmenite_eclat", "ilmenite"))
+# Couche d'effet : bleu-blanc de l'âge 11 sur les faces claires (croûtes, éclats) et une lueur plus faible sur tout le
+# minerai (froid = (-1, -0,95) : toutes les teintes ; gain 0,55).
+EFFET["I1"] = dict(teinte=(0.75, 0.90, 1.0), seuil=(0.22, 0.45),
+                   lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.55))
+
+# I2 (après les captures en moteur de I1, fo-logs/2026-10-25_X1/captures, tools/autotest/x1_lisibilite.py : 6 OK,
+# 3 ECHEC) : la couleur MOYENNE de I1 (103 ; 98 ; 94) tombait à ΔE76 4,5 du fer de jour (noir + crème = gris moyen) et à
+# 8 du tungstène de jour comme de nuit. Visée : moyenne plus claire et plus chaude (environ 120 ; 113 ; 100 : ΔE ≥ 10 du
+# fer et du tungstène, ≥ 8 de la pierre) : croûte de leucoxène PLUS FRÉQUENTE (40 % des nodules au lieu de 20) et plus
+# claire, reflets de l'ilménite bronze (métal de base brun), tapis de régolithe et de leucoxène ; lueur de nuit plus
+# blanche et plus forte (gain 0,85) pour s'écarter du turquoise du tungstène.
+MAT.update({
+    "ilmenite_brun": dict(color=(0.060, 0.044, 0.038), rough=0.42, met=0.45, grain=0.25, gscale=40.0, dirt=0.4),
+    "ilmenite_bronze": dict(color=(0.34, 0.26, 0.20), rough=0.32, met=0.65, grain=0.15, gscale=50.0, dirt=0.4),
+    "leucoxene_clair": dict(color=(0.66, 0.58, 0.42), rough=0.85, met=0.0, grain=0.35, gscale=30.0, dirt=0.45),
+})
+DIRECTIONS["I2"] = dict(DIRECTIONS["I1"], nom="nodules d'ilménite bronze à croûte de leucoxène fréquente",
+                        roche_mats=("ilmenite_brun", "ilmenite_bronze", "leucoxene_clair", "leucoxene_clair", "ilmenite_brun"),
+                        bloc_mats=("ilmenite_bronze", "ilmenite_brun", "ilmenite_brun"),
+                        grain_mats=("leucoxene_clair", "regolithe_clair", "leucoxene_clair", "ilmenite_brun"),
+                        fin_mats=("regolithe_clair", "leucoxene_clair", "regolithe_clair", "leucoxene", "ilmenite_brun"))
+CALIB["I2"] = dict(CALIB["I1"])
+ROCHE_COUPES["I2"], ROCHE_LISSE["I2"] = ROCHE_COUPES["I1"], ROCHE_LISSE["I1"]
+ROCHE_APLAT["I2"], ROCHE_CASSURE["I2"] = ROCHE_APLAT["I1"], ROCHE_CASSURE["I1"]
+ICONE["I2"] = dict(ICONE["I1"], roche_mats=("ilmenite_brun", "leucoxene_clair", "ilmenite_bronze", "leucoxene_clair"),
+                   bloc_mats=("ilmenite_bronze", "ilmenite_brun"))
+EFFET["I2"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.22, 0.45),
+                   lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.85))
+
+# I3 (25/10, 2 h 15, après les captures FRAÎCHES de I2 : 8 OK, 1 ECHEC ; la première capture de I2, à 1 h 53, montrait
+# encore I1, cache des atlas non refait) : seul J1 échoue, ΔE76 ilménite / fer de jour 7,0 (zoom 1) et 6,8 (zoom 2),
+# moyenne en capture (113 ; 108 ; 101). Moyenne en capture ≈ 0,44 × moyenne de la feuille (I1 → I2, 3 canaux) ; il faut
+# environ (+12 ; +7 ; +6) en capture, soit (+27 ; +16 ; +14) sur la feuille, vers le ROUX (vers le clair seul, la moyenne
+# rejoint le sol gris). Croûte de leucoxène MAJORITAIRE (2 nodules sur 3) dont une part rousse (leucoxène taché
+# d'hématite et de rutile, l'altération réelle de l'ilménite), faces d'ilménite bronze-roux ; nuit de I2 inchangée.
+# Essai 1 à 32 échantillons (leucoxène roux 0,62 ; 0,43 ; 0,30, ilménite rousse 0,42 ; 0,26 ; 0,18) : moyenne de la
+# feuille (132 ; 116 ; 99), capture prédite (124 ; 116 ; 106), J1 prédit 10,6 : trop juste ; roux poussé (essai 2).
+MAT.update({
+    "leucoxene_roux": dict(color=(0.74, 0.45, 0.30), rough=0.85, met=0.0, grain=0.35, gscale=30.0, dirt=0.45),
+    "ilmenite_roux": dict(color=(0.50, 0.28, 0.19), rough=0.32, met=0.65, grain=0.15, gscale=50.0, dirt=0.4),
+})
+DIRECTIONS["I3"] = dict(DIRECTIONS["I2"], nom="nodules d'ilménite bronze-roux sous croûte de leucoxène majoritaire",
+                        roche_mats=("ilmenite_brun", "leucoxene_roux", "leucoxene_clair", "ilmenite_roux",
+                                    "leucoxene_clair", "leucoxene_roux"),
+                        bloc_mats=("ilmenite_roux", "ilmenite_brun", "leucoxene_roux"),
+                        grain_mats=("leucoxene_clair", "leucoxene_roux", "leucoxene_clair", "ilmenite_brun"),
+                        fin_mats=("leucoxene_roux", "leucoxene_clair", "regolithe_clair", "leucoxene", "ilmenite_brun"))
+CALIB["I3"] = dict(CALIB["I1"])
+ROCHE_COUPES["I3"], ROCHE_LISSE["I3"] = ROCHE_COUPES["I1"], ROCHE_LISSE["I1"]
+ROCHE_APLAT["I3"], ROCHE_CASSURE["I3"] = ROCHE_APLAT["I1"], ROCHE_CASSURE["I1"]
+ICONE["I3"] = dict(ICONE["I1"], roche_mats=("ilmenite_brun", "leucoxene_roux", "ilmenite_roux", "leucoxene_clair"),
+                   bloc_mats=("ilmenite_roux", "ilmenite_brun"))
+EFFET["I3"] = dict(EFFET["I2"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
-ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0}
+ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
-GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101}
+GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
