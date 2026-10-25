@@ -67,10 +67,14 @@ def socle(g, c):
             corps.lampe(g, B(xt - 0.25 + 0.25 * k, ym, Ht + 0.36), 0.035, M["emit"])
         corps.lampe_face(g, xt, yb - 0.05, (c.Hj + Ht) / 2 + 0.06, 0.05, M["emit"], M["fonte_bleue"])
         halo(g, xt, yb - 0.15, (c.Hj + Ht) / 2, 0.6)
+    # ronde 2 : des barres tendues d'une tour à l'autre AU-DESSUS du milieu bas enfermaient le ciel (1 140 px de trou) :
+    # barres de cuivre posées sur le toit du milieu, sur isolateurs bas
     for k in range(3):
         y = ym - 0.2 + 0.2 * k
-        g.box(B(0, y, Ht + 0.38), (2 * (h - 0.02 - wt / 2) - 0.25, 0.03 * SQ2, 0.03), M["copper_pol"], "hard",
+        g.box(B(0, y, zm + 0.1), (2 * (h - 0.02 - wt) - 0.1, 0.03 * SQ2, 0.03), M["copper_pol"], "hard",
               what="barre_cuivre")
+        for x in (-0.5, 0.0, 0.5):
+            PT.insulators(g, tuple(B(x, y, zm)), 1, 0.025, h=0.04)
     halo(g, 0, ym, Ht + 0.5, 1.2)
     # tableau de commande au milieu : plaque de bakélite, interrupteurs à couteau, cadrans
     g.box(B(0, yb - 0.04, (zs + zm) / 2), (2 * (h - wt) - 0.2, 0.04, zm - zs - 0.04), M["bakelite"], "hard",

@@ -240,12 +240,12 @@ def dos(g, c):
     x0, x1 = -h + 0.02, h - 0.02
     y0, y1 = yb, h - 0.02
     if f == "plat":
-        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, Hd, ins=(0.02, 0.0, 0.0), panel=0.42, mats=[m1, m1, m2], faces="st")
+        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, Hd, ins=(0.02, 0.0, 0.0), panel=0.55, mats=[m1], faces="st")
         corniere(g, [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], Hd, M["steel_dk"], w=0.05, hgt=0.05)
         c.z_nord = Hd
     elif f == "pans":
         zw = c.zw_pans
-        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zw, ins=(0.0, 0.0, 0.0), panel=0.42, mats=[m1, m1, m2], faces="s")
+        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zw, ins=(0.0, 0.0, 0.0), panel=0.55, mats=[m1], faces="s")
         ym = (y0 + y1) / 2.0
         roof = [(Y(y0) - 0.08, zw - 0.04), (Y(y1) + 0.08, zw - 0.04), (Y(ym), Hd)]
         prisme_x(g, x0 - 0.06, x1 + 0.06, roof, M["seam"], "hard", "toit")
@@ -258,7 +258,7 @@ def dos(g, c):
         c.z_nord = zw
     elif f == "voute":
         zw = c.zw_voute
-        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zw, ins=(0.0, 0.0, 0.0), panel=0.42, mats=[m1, m1, m2], faces="s")
+        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zw, ins=(0.0, 0.0, 0.0), panel=0.55, mats=[m1], faces="s")
         ry = (Y(y1) - Y(y0)) / 2.0
         rz = Hd - zw
         yc = (Y(y0) + Y(y1)) / 2.0
@@ -277,19 +277,19 @@ def dos(g, c):
             yy0 = y0 + (y1 - y0) * k / 3.0
             ins = 0.06 * k
             PT.hull(g, x0 + ins, x1 - ins, Y(yy0), Y(y1), ze, zz, ins=(0.0, 0.0, 0.0), panel=0.42,
-                    mats=[m1, m2] if k % 2 == 0 else [m2, m1], faces="st")
+                    mats=[m1] if k % 2 == 0 else [m2], faces="st")
             corniere(g, [(x0 + ins, yy0), (x1 - ins, yy0), (x1 - ins, y1), (x0 + ins, y1)], zz, M["steel_dk"],
                      w=0.04, hgt=0.03)
         c.z_nord = Hd
     elif f == "tours":
         wt = 0.26 * c.side
         zm = c.zm_tours
-        PT.hull(g, x0 + wt, x1 - wt, Y(y0), Y(y1), ze, zm, ins=(0.0, 0.0, 0.0), panel=0.42, mats=[m2, m1],
+        PT.hull(g, x0 + wt, x1 - wt, Y(y0), Y(y1), ze, zm, ins=(0.0, 0.0, 0.0), panel=0.55, mats=[m2],
                 faces="st")
         for sx in (-1, 1):
             xa, xb_ = (x0, x0 + wt) if sx < 0 else (x1 - wt, x1)
             PT.hull(g, xa, xb_, Y(y0 - 0.04), Y(y1), ze, c.z_tours, ins=(0.03, 0.03, 0.0), panel=0.4,
-                    mats=[m1, m1, m2], faces="st")
+                    mats=[m1], faces="st")
             corniere(g, [(xa + 0.03, y0), (xb_ - 0.03, y0), (xb_ - 0.03, y1), (xa + 0.03, y1)], c.z_tours,
                      M["steel_dk"], w=0.04, hgt=0.04)
         c.z_nord = zm
@@ -308,7 +308,7 @@ def dos(g, c):
         c.z_nord = Hd
     elif f == "dome":
         zb_ = c.zb_dome
-        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zb_, ins=(0.0, 0.0, 0.0), panel=0.42, mats=[m2, m1], faces="st")
+        PT.hull(g, x0, x1, Y(y0), Y(y1), ze, zb_, ins=(0.0, 0.0, 0.0), panel=0.55, mats=[m2], faces="st")
         ym = (y0 + y1) / 2.0
         rx = min(h * 0.62, 0.55 * c.side)
         ry = (Y(y1) - Y(y0)) / 2.0 * 0.92
@@ -334,23 +334,23 @@ def joues(g, c):
     for sx in (-1, 1):
         xa, xb_ = (-c.h + 0.02, -c.xb) if sx < 0 else (c.xb, c.h - 0.02)
         if f in ("caisson", "basses"):
-            zz = Hj if f == "caisson" else ze + 0.6 * (Hj - ze)
-            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, zz, ins=(0.015, 0.0, 0.0), panel=0.42, mats=[m1, m1, m2],
+            zz = Hj if f == "caisson" else c.zs + 0.45 * (Hj - c.zs)
+            PT.hull(g, xa, xb_, Y(yf), Y(yb), ze, zz, ins=(0.015, 0.0, 0.0), panel=0.55, mats=[m1],
                     faces="st")
             corniere(g, [(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)], zz, M["steel_dk"], w=0.04, hgt=0.03)
             c.z_joue = zz
         elif f == "pente":
-            zf = ze + 0.55 * (Hj - ze)
+            zf = c.zs + 0.1 * (Hj - c.zs)
             Bq = [B(xa, yf, ze), B(xb_, yf, ze), B(xb_, yb, ze), B(xa, yb, ze)]
             Tq = [B(xa, yf, zf), B(xb_, yf, zf), B(xb_, yb, Hj), B(xa, yb, Hj)]
             g.hexa(Bq + Tq, M["seam"], "flat", "joue")
             g.panels([Bq[0], Bq[1], Tq[1], Tq[0]], max(1, int((xb_ - xa) / 0.4)), 1, m1, t=0.02,
                      rivet_mat=M["rivet"], rivet_step=0.15)
             g.panels([Tq[0], Tq[1], Tq[2], Tq[3]], max(1, int((xb_ - xa) / 0.4)), max(1, int((yb - yf) / 0.4)), m1,
-                     t=0.02, rivet_mat=M["rivet"], mats=[m1, m1, m2], rivet_step=0.15)
+                     t=0.02, rivet_mat=M["rivet"], mats=[m1], rivet_step=0.15)
             c.z_joue = Hj
         elif f == "colonnes":
-            zs = ze + 0.25 * (Hj - ze)
+            zs = c.zs
             _prisme(g, poly_b([(xa, yf), (xb_, yf), (xb_, yb), (xa, yb)]), ze, zs, m2, "hard", "socle_joue")
             n = max(2, int(round((yb - yf) / 0.38)))
             xc = (xa + xb_) / 2.0
@@ -378,8 +378,18 @@ def plateau(g, c):
     y0, y1 = -h + 0.02, c.yb + 0.01
     fond = M[cfg["fond"]] if cfg["fond"] in M else M["seam"]
     _prisme(g, poly_b([(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]), ze, zs, fond, "hard", "plateau_baie")
-    face_s(g, -xb, xb, y0, ze, zs, c.Mh["ochre"], nv=1, pas=0.5)
-    _motif(g, M, cfg, poly_b([(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]), zs, 0.04, 1200 + 7 * c.side + c.e)
+    face_s(g, -xb, xb, y0, ze, zs, c.Mh["olive"], nv=1, pas=0.6)
+    for sx in (-1, 1):
+        xd = sx * xb * 0.55
+        wd, hd = min(0.5, xb * 0.5), (zs - ze) * 0.62
+        g.box(B(xd, y0 - 0.02, ze + 0.04 + hd / 2), (wd, 0.03, hd), c.Mh["ochre"], "hard", what="porte_bati")
+        g.box(B(xd + sx * wd * 0.32, y0 - 0.04, ze + 0.04 + hd * 0.5), (0.03, 0.03, hd * 0.3), M["steel_hi"],
+              "hard", what="poignee")
+        for f in (0.2, 0.8):
+            g.box(B(xd - sx * wd * 0.5, y0 - 0.035, ze + 0.04 + hd * f), (0.04, 0.03, 0.06), M["steel_dk"], "hard",
+                  what="gond")
+    cfg1 = dict(cfg, mat2=None)
+    _motif(g, M, cfg1, poly_b([(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)]), zs, 0.04, 1200 + 7 * c.side + c.e)
     bord = M[cfg["bord"]] if cfg["bord"] in M else M["steel_dk"]
     corniere(g, [(-xb, y0), (xb, y0), (xb, y1), (-xb, y1)], zs, bord, w=0.04, hgt=0.03)
     # parapet du bord sud, ouvert au milieu (la tubulure et l'icône restent dégagées)

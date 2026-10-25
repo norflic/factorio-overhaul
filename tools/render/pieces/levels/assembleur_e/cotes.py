@@ -7,14 +7,14 @@ l'écran en (x, −yn − 0,707 z) (vers le bas positif).
 
 Formules (côté s = 3 à 6, emprise de l'ère, epoques.COTE), toutes CROISSANTES en s (test : tests/test_assembleur.py) :
   embase     demi-côté h = s/2 − 0,06 ; hauteur ze = 0,08 + 0,025 s ;
-  plateau    PLATEAU DE BAIE surélevé entre les joues (x ±xb, yn de −h à yb), dessus zs = ze + 0,08 + 0,05 s ; parapet
+  plateau    PLATEAU DE BAIE surélevé entre les joues (x ±xb, yn de −h à yb), dessus zs = ze + 0,25 + 0,09 s ; parapet
              au bord sud, haut de 0,1 + 0,025 s ;
-  dos        bloc nord : yn de yb = h − 0,22 s à h, sur toute la largeur, hauteur Hd = Hj + 0,16 + 0,04 s ;
-  joues      x de ±(h − wj) à ±h, wj = 0,22 s ; yn de yf = −h + wc à yb ; hauteur Hj = zs + 0,22 + 0,07 s ;
+  dos        bloc nord : yn de yb = h − 0,20 s à h, sur toute la largeur, hauteur Hd = Hj + 0,15 + 0,03 s ;
+  joues      x de ±(h − wj) à ±h, wj = 0,22 s ; yn de yf = −h + wc à yb ; hauteur Hj = zs + 0,20 + 0,05 s ;
   coins      coins AVANT libres de côté wc = 0,2 s + 0,04 (pièce du niveau pair, places coin_SO et coin_SE) ;
   baie       x ±xb (xb = h − wj), yn de −h à yb ;
-  table      centre (0, yt), yt = (−h + yb) / 2 ; demi-côté tw = 0,16 s + 0,05 (x), 0,8 tw (yn) ; dessus zt = zs + 0,10
-             + 0,03 s ;
+  table      centre (0, yt), yt = (−h + yb) / 2 ; demi-côté tw = 0,20 s + 0,05 (x), 0,8 tw (yn) ; dessus zt = zs + 0,06
+             + 0,02 s ;
   portique   montants au milieu des joues, en yn = yt ; dessous de la poutre zp = Hj + 0,30 + 0,08 s ; section bp = 0,06
              + 0,012 s ;
   outil      enveloppe de l'outil de l'âge : x ±0,8 tw, yn yt ± 0,7 tw, z de zt à zp ;
@@ -26,7 +26,10 @@ Deuxième jet (25/10, après le témoin k3-k6 du premier : dos 0,30 s × 0,30 + 
 plus grandes). Troisième jet (25/10, après la ronde 1 des âges 1 à 6 : vu de la caméra, un PLAN au sol, la baie et les coins
 lus comme un dallage plat) : PLATEAU DE BAIE surélevé et parapet (la machine devient un bloc ; seuls les coins avant restent
 au sol, pour la pièce paire), dos moins haut au-dessus du bord nord (0,70 tuile en 3×3 ; la mitrailleuse validée dépasse
-de 0,34 à 0,53 tuile), joues plus hautes que le plateau.
+de 0,34 à 0,53 tuile), joues plus hautes que le plateau. Quatrième jet (25/10, après la ronde 2 : à côté de la
+mitrailleuse du même âge, une cour vide et plate, damiers de plaques) : BÂTI HAUT (le plateau devient le dessus d'un
+bloc, face sud haute de 0,5 à 0,8 tuile à l'écran), joues à peine plus hautes que le bâti, table plus grande,
+plaques d'une seule matière.
 """
 import math
 
@@ -37,18 +40,18 @@ TAILLES_PERMISES = (3, 4, 5, 6)
 def _taille(s):
     h = s / 2.0 - 0.06
     ze = 0.08 + 0.025 * s
-    dd = 0.22 * s
+    dd = 0.20 * s
     yb = h - dd
-    zs = ze + 0.08 + 0.05 * s
+    zs = ze + 0.25 + 0.09 * s
     wj = 0.22 * s
-    Hj = zs + 0.22 + 0.07 * s
-    Hd = Hj + 0.16 + 0.04 * s
+    Hj = zs + 0.20 + 0.05 * s
+    Hd = Hj + 0.15 + 0.03 * s
     wc = 0.2 * s + 0.04
     yf = -h + wc
     xb = h - wj
     yt = (-h + yb) / 2.0
-    tw = 0.16 * s + 0.05
-    zt = zs + 0.10 + 0.03 * s
+    tw = 0.20 * s + 0.05
+    zt = zs + 0.06 + 0.02 * s
     zp = Hj + 0.30 + 0.08 * s
     bp = 0.06 + 0.012 * s
     return dict(

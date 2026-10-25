@@ -146,6 +146,8 @@ def piece(g, c):
     for sx in (-1, 1):
         g.box(B(x + sx * 0.18, yn, z + 0.18), (0.04, 0.04 * SQ2, 0.36), M["chene"], "hard", what="montant")
     g.box(B(x, yn, z + 0.34), (0.42, 0.04 * SQ2, 0.04), M["chene"], "hard", what="traverse")
+    # ronde 2 : dos de planches PLEIN derrière les outils (le cadre ouvert enfermait 95 px de sol)
+    g.box(B(x, yn + 0.03, z + 0.19), (0.36, 0.02 * SQ2, 0.3), M["wood2"], "hard", what="dos_ratelier")
     for k in range(5):
         xx = x - 0.14 + 0.07 * k
         g.box(B(xx, yn - 0.03, z + 0.2), (0.018, 0.015, 0.26), M["fer_noir"], "hard",
