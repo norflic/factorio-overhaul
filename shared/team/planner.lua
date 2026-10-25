@@ -806,9 +806,14 @@ function P.plan(view, book)
   end
   local function research_ia3()
     local floor = research_floor()
+    -- L'objectif courant manque-t-il de MATIÈRES (« il manque », hors sites à trouver) ? Garde « objectif d'abord ».
+    local goal_short = false
+    for _, m in ipairs(out.missing) do
+      if m[1]:sub(1, 5) ~= "site:" then goal_short = true break end
+    end
     local d = Rch.plan({ tech = view.tech, levels = T.research, stock = view.stock, book = book,
       obtainable = function(item) return SOURCE[item] ~= nil end, avail = avail, floor = floor,
-      economy_done = economy_done, is_goal = research_now, lean = view.research_lean or 0 })
+      economy_done = economy_done, is_goal = research_now, lean = view.research_lean or 0, goal_short = goal_short })
     out.research_rule = { level = d.level, held = d.held, causes = d.causes, prio = d.prio, capped = d.capped or nil,
       first = rch_first or nil, floor_iron = floor and floor["iron-plate"] or nil }
     if d.have_all and T.research[next_tech] then

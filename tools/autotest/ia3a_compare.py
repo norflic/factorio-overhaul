@@ -90,7 +90,18 @@ def med(values):
     return statistics.median(v) if v else None
 
 
+def med_never(values):
+    """Médiane où « jamais » (None) compte comme l'infini : une faction qui n'atteint jamais n'embellit pas la médiane."""
+    v = [float("inf") if x is None else x for x in values]
+    if not v:
+        return None
+    m = statistics.median(v)
+    return "jamais" if m == float("inf") else m
+
+
 def fmt(x, unit=""):
+    if x == "jamais":
+        return "jamais"
     return "—" if x is None else (f"{x:.1f}{unit}" if isinstance(x, float) else f"{x}{unit}")
 
 
@@ -116,6 +127,8 @@ def group(label, archives):
               f" R3 {fmt(med([r['r3'] for r in allr]))} (jamais : {never}) ; fer II {fmt(med([r['iron2'] for r in allr]))} ;"
               f" soldats à 60 min {fmt(med([r['sold60'] for r in allr]))} ; jeté {fmt(med([r['waste'] for r in allr]))} PNJ-min"
               f" (max {max(r['waste'] for r in allr):.1f}) ; factions à 0 PNJ en fin : {sum(1 for r in allr if r['pnj_fin'] == 0)}")
+        print(f"  MÉDIANES « jamais = infini » : R1 {fmt(med_never([r['r1'] for r in allr]))}, R2 {fmt(med_never([r['r2'] for r in allr]))},"
+              f" R3 {fmt(med_never([r['r3'] for r in allr]))} ; fer II {fmt(med_never([r['iron2'] for r in allr]))}")
         r3s = sorted(r["r3"] for r in allr if r["r3"] is not None)
         print(f"  RAPIDITÉ : R3 la plus tôt {fmt(r3s[0] if r3s else None)} ; 1re attaque contre le joueur (médiane, la plus tôt)"
               f" {fmt(med([r['atk_player'] for r in allr]))}, {fmt(min([r['atk_player'] for r in allr if r['atk_player'] is not None], default=None))} ;"

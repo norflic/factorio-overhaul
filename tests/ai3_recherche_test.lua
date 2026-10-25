@@ -221,6 +221,22 @@ do
   local _, pd = tagged(P.plan(fview({ research_lean = 300, deferred = { iron2 = 99999 } }), book_at(0)), "recherche")
   check(pe == 44 and pd == A.priority(300, { economy_done = true }),
     string.format("avant le fer II : %s (sous l'armée) ; fer II mis de côté : %s (caractère)", tostring(pe), tostring(pd)))
+  -- a3) Objectif d'abord : avant le fer II, l'objectif « fer II » à court de matières (100 fer, pas de foreuse) : aucun
+  -- pack, décision « objectif d'abord » ; fer II mis de côté : packs.
+  local pg0 = P.plan(fview({ done = upto("army"), stock = { ["iron-plate"] = 100, ["copper-plate"] = 100 } }), book_at(0))
+  local pg1 = P.plan(fview({ done = upto("army"), deferred = { iron2 = 99999 }, stock = { ["iron-plate"] = 100,
+    ["copper-plate"] = 100 } }), book_at(0))
+  check(tagged(pg0, "recherche") == 0 and (pg0.research_rule or {}).held == "objectif d'abord" and tagged(pg1, "recherche") > 0,
+    string.format("objectif « fer II » à court : %d tâche(s) de packs (%s) ; mis de côté : %d", tagged(pg0, "recherche"),
+      tostring((pg0.research_rule or {}).held), tagged(pg1, "recherche")))
+  do
+    local d = A.plan({ tech = 0, levels = T.research, stock = kit_stock(), book = book_at(0), obtainable = obtainable,
+      avail = kit_stock(), economy_done = false, lean = 0, goal_short = true })
+    local d2 = A.plan({ tech = 0, levels = T.research, stock = kit_stock(), book = book_at(0), obtainable = obtainable,
+      avail = kit_stock(), economy_done = true, lean = 0, goal_short = true })
+    check(#d.wants == 0 and d.held == "objectif d'abord" and #d2.wants > 0,
+      "règle pure : objectif à court avant le fer II -> aucun pack ; après -> packs")
+  end
   -- b) Niveau 4 impayable (pack chimique) : AUCUN pack, même riche ; la règle d'avant en fabriquait (défaut C1).
   local v4 = fview({ tech = 3, done = upto("tech3"), stock = rich, soldiers = 30 })
   local p4 = P.plan(v4, book_at(3))
@@ -238,7 +254,9 @@ do
   local _, gprio = tagged(pg, "recherche")
   check(pg.goal == "tech1" and (gprio or 0) >= 50, string.format("objectif « tech1 » : priorité %s (au moins 50)", tostring(gprio)))
   -- e) Plancher de l'économie : 100 fer, plancher d'un avant-poste de fer ; packs réduits, manque compté (fonte).
-  local pf = P.plan(fview({ done = upto("army"), stock = { ["iron-plate"] = 100, ["copper-plate"] = 100 } }), book_at(0))
+  -- (fer II mis de côté : la garde « objectif d'abord » est levée, le plancher reste : prochain avant-poste de fer.)
+  local pf = P.plan(fview({ done = upto("army"), deferred = { iron2 = 99999 },
+    stock = { ["iron-plate"] = 100, ["copper-plate"] = 100 } }), book_at(0))
   local rr = pf.research_rule or {}
   local nf = 0
   for _, t in ipairs(pf.tasks) do if t.tag == "recherche" then nf = nf + (t.count or 0) end end
@@ -248,7 +266,7 @@ do
   -- e2) Défaut du 1er essai en moteur réel (manque compté sans le stock : acier redemandé à chaque pensée, briques
   -- jamais fondues) : niveau 3 retenu par le plancher, acier et briques AU COFFRE : ni acier ni briques demandés à la
   -- fonderie ; le fer au-dessus du plancher, lui, l'est.
-  local pm = P.plan(fview({ tech = 2, done = upto("army"), stock = { ["automation-science-pack"] = 80,
+  local pm = P.plan(fview({ tech = 2, done = upto("army"), deferred = { iron2 = 99999 }, stock = { ["automation-science-pack"] = 80,
     ["logistic-science-pack"] = 60, ["steel-plate"] = 50, ["stone-brick"] = 200, ["iron-plate"] = 100,
     ["copper-plate"] = 500, coal = 500, stone = 500 } }), book_at(2))
   local rm = pm.research_rule or {}

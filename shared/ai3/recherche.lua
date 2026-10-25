@@ -118,6 +118,7 @@ end
 ---   avail = stock virtuel APRÈS les besoins plus prioritaires de la pensée (le planificateur le tient),
 ---   floor = { [matière] = n } plancher à ne pas entamer (matières du prochain avant-poste de l'échelle), ou nil,
 ---   economy_done = bool, is_goal = bool, lean = penchant (A.lean),
+---   goal_short = bool : l'objectif courant de l'échelle manque de matières à cette pensée (garde « objectif d'abord »),
 --- }
 --- Renvoie { level, payable, causes, have_all, wants = { {pack, n}, ... }, prio, held = raison ou nil, capped }.
 ---   have_all : tous les packs du niveau sont au stock (le planificateur paie le niveau) ;
@@ -137,6 +138,11 @@ function A.plan(args)
   out.prio = A.priority(args.lean, { economy_done = args.economy_done, is_goal = args.is_goal })
   if have_all then return out end
   if not ok then out.held = "impayable" return out end
+  -- Garde de l'économie, OBJECTIF D'ABORD (lot IA3-a) : avant le fer II, aucun pack tant que l'objectif courant manque de
+  -- matières (args.goal_short, calculé par l'appelant). Le planificateur ne réserve rien pour un besoin qu'il ne peut pas
+  -- servir : les packs prenaient le fer que l'objectif attendait (moteur réel, partie du guide, graine 271828182, garde à
+  -- 44 seule : fer II 18,1 -> 28,4 et 14,6 -> 21,1 min).
+  if args.goal_short and not args.economy_done and not args.is_goal then out.held = "objectif d'abord" return out end
   -- Packs voulus, au plus A.BATCH par sorte (le reste à la pensée suivante).
   local wants = {}
   for _, it in ipairs(packs) do
