@@ -466,6 +466,15 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (vérification adverse VERIF-NUIT et sa correction, 25/10 de 4 h 30 à 6 h 40 ; fusionnée dans `main`, `0d14010`, version 0.4.24)
+Preuves : `fo-logs\2026-10-25_VERIF-NUIT\` (`verification.md`, `CORRECTION.md`). Expérience : E163.
+- **F237** : en `--benchmark`, `log()` d'une chaîne traduite (LocalisedString) écrit sa traduction ANGLAISE, clés
+  imbriquées comprises (ligne « chef » de `/fo-war status` ; déjà vu avec « [FO-WAR] War begins: 2 factions clash. »).
+- **F238** : deux passages `--benchmark` de la même carte (même graine, même source) donnent les MÊMES décisions du mod :
+  311 lignes sur 311 jusqu'au tick 100 000 (`default`), et le même état final de l'équipe du joueur (fer 1 600, 46
+  recrues, deux passages). Le rechargement d'une sauvegarde EN COURS de partie n'est pas joué en moteur réel (le banc ne
+  sait pas sauvegarder au milieu) : seul `pvp_test` le couvre, au moteur simulé.
+
 ### Faits vérifiés hors jeu (lot F1-B, rondes de design de la tourelle laser, 25/10 nuit ; fusionné dans `main`, `c12c9a1`, outils de rendu seulement)
 Preuves : `fo-logs\2026-10-25_F1B\` (`NOTES.md` §7, `INTEGRATION.md`, `planches_DC\`). Expériences : E157, E158. Rien en jeu.
 - **F228** (kit laser, lignée gelée, `corps.affut`) : l'option `interstice` place ses entretoises sur un CERCLE de rayon
@@ -975,6 +984,22 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E163 · Vérification adverse de 0.4.16 à 0.4.23 et reconstruction de l'équipe du joueur (25/10 de 4 h 30 à 6 h 40 ;
+fusion `0d14010`, version 0.4.24)** : 13 bancs en moteur réel sur 4 graines (`default` 1 h × 3, `verif-guide` 1 h × 2,
+`pnj-reduit`, `pnj-auto`, migrations 0.4.15 `ia1`, `mod1`, `x1`) : 0 erreur, 0 « LuaEntity invalid », aucune faction
+anéantie en 1 h (16), rejeu identique (F238). DÉFAUT trouvé : l'équipe du JOUEUR décimée ne se reconstruit pas (la survie
+d'IA2-a2 est réservée aux factions ; recrue en attente du pistolet, priorité 55, que le seul ouvrier ne fabrique jamais) :
+1 ouvrier de 52 ou 55 min à la fin, 19 à 20 min de suite sous l'effectif de départ avec 2 566 à 4 000 fer au coffre.
+Correction essayée sous deux formes : LARGE (toute la survie des factions donnée au joueur : fer 11, équipe perdue à
+57 min, rejetée) ; ÉTROITE, retenue (recrue équipée au QG avec les plaques du coffre sous l'effectif de départ, une par
+pensée) : 8 ouvriers tenus, 11 à 46 recrues équipées en 1 h, fer final 1 600 à 3 900. `verif-guide` durci (échec si 5
+relevés de suite sous l'effectif de départ avec au moins 100 fer au coffre) : 1 ECHEC sur 0.4.23 aux deux graines, 0
+avec la correction. Sur `main` 0.4.24 (`fo-logs\2026-10-25_integration-0.4.24\`, `done.txt` 6:24:46 à 6:26:58, heure
+d'hiver) : content 331, verif-guide 15 et 15 (graines 271828182 et 1618033988 : 8 et 9 ouvriers à 1 h), pnj-auto 7,
+mod1-migration 11, x1-migration 8, pnj-reduit 12, 0 erreur ; hors jeu pteam 32, war 105, chef 60. NON prouvé : le coût
+(46 recrues en 1 h sur une graine, environ 2 700 plaques de fer par heure : les biters tuent les ouvriers aux
+avant-postes ; plafond à décider par le DC) ; `/fo-war status` tapé par un joueur ; sauvegarde 0.4.11 non rejouée.
+
 **E157, E158 · Lot F1-B, les 15 âges du laser (25/10 de 3 h 45 à 4 h 30 ; fusion `c12c9a1`, outils de rendu seulement)** :
 11 fichiers d'âge neufs, 4 corrigés, module d'ornements `orne.py` ; deux rondes (E157 : 43 variantes, îlots 100 contrôles,
 14 échecs corrigés ; E158 : 22 + 14 + 8 variantes, 0 échec d'îlot). Test à l'aveugle (deux lecteurs neufs) : âges reconnus
