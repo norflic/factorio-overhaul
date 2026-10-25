@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **20 h 30, IA3-c arrêté proprement** (branche `worktree-agent-a4f8ddc966cf133ed`, dernier commit `ecc8348`, intégrateur `dedfd43`,
+> réglage `fo-war-ia3-cerveau` éteint ; instantané à tester `fo-logs\2026-10-25_IA3-c\src-a\factorio-overhaul`) : cerveau par
+> besoins écrit et branché ; HORS JEU vert (ai3_cerveau 40 OK : le cas du DC est résolu au moteur simulé ; pvp 1305 allumé et
+> éteint après 5 corrections) ; AUCUN banc en moteur réel (verrou jamais obtenu en 30 min) : RESTE le cas du DC en jeu
+> (`ia3c-dc-*`), la série avant / après sur 4 graines, la migration, la fenêtre, les garde-fous. **LEÇON : 5 agents IA se
+> disputent UN banc ; à la reprise, ne relancer que 2 agents qui ont besoin du banc à la fois (les autres en travail hors jeu),
+> ou leur donner des créneaux.**
 > **20 h 15, IA3-b arrêté proprement** (branche `worktree-agent-a1c27739bad6e06fc`, dernier commit `cb0ccd5`, commit intégrateur
 > `ec8cbd0` pour le réglage `fo-war-ia3-marche`, éteint par défaut) : CAS DU DC CORRIGÉ en moteur réel (scénario `ia3b-fer`) :
 > 62 plaques de fer en 4,7 min (jamais avant), PNJ sans tâche pendant le manque 61,7 % → 2,0 %, 3 mineurs de fer en même temps,
