@@ -69,12 +69,26 @@ local function capacity(view, kind)
   return drills / T.outposts[kind].drills
 end
 
---- Avant-poste de ce type qui peut encore s'agrandir (le plus ancien d'abord), ou nil.
-local function extendable(view, kind)
+--- Avant-poste de ce type qui peut encore s'agrandir (le plus ancien d'abord), ou nil. Lot IA1-b2 (défendre d'abord) :
+--- un avant-poste de `undefended` (moins de tourelles que T.defend_turrets) ne s'agrandit pas.
+local function extendable(view, kind, undefended)
   for _, o in ipairs(view.outposts) do
-    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) then return o end
+    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
+      return o
+    end
   end
   return nil
+end
+
+--- Lot IA1-b2 : avant-postes NON défendus (moins de tourelles que T.defend_turrets(foreuses)), { [id] = vrai } ; vide si
+--- la vue ne demande pas « défendre d'abord » (view.defend_first nil : règle d'avant).
+function P.undefended(view)
+  local out = {}
+  if not view.defend_first then return out end
+  for _, o in ipairs(view.outposts or {}) do
+    if (o.turrets or 0) < T.defend_turrets(o.drills) then out[o.id] = true end
+  end
+  return out
 end
 
 local function outpost_items(kind)
@@ -261,6 +275,40 @@ function P.plan(view, book)
   end
 
   ---------------------------------------------------------------------------------------------------
+  -- DÉFENDRE D'ABORD (lot IA1-b2, décision D-17 du 25/10) : view.defend_first (vrai) ; sans lui, règle d'avant.
+  --  - un avant-poste NON défendu (moins de T.defend_turrets(foreuses) tourelles) reçoit ses tourelles en URGENCE
+  --    (tâche « fortify », priorité T.defend_prio) et ne s'agrandit pas avant ;
+  --  - un NOUVEL avant-poste d'un type déjà exploité se construit AVEC ses tourelles (le constructeur les pose en
+  --    arrivant) : sans elles au stock, il attend (elles sont fabriquées si la recette est connue) ;
+  --  - RÈGLE DE REPLI (aucune tourelle au stock, recette inconnue : votre force n'a pas la recherche « Tourelles ») :
+  --    le PREMIER avant-poste de chaque ressource se pose (et se reconstruit) sans tourelle ; aucun autre, et aucun
+  --    agrandissement, jusqu'à la première tourelle.
+  ---------------------------------------------------------------------------------------------------
+  local df = view.defend_first and true or false
+  local undefended = P.undefended(view)
+  local turret_craftable = df and book:handcraftable("gun-turret") or false
+  local function turret_items(n) return { { "gun-turret", n }, { T.turret_ammo, n * T.defend_ammo } } end
+  --- Objets d'une construction d'avant-poste `kind` de `n_drills` foreuses : `items`, plus ses tourelles si elles sont
+  --- au stock virtuel. nil : la construction attend ses tourelles (demandées ici si la recette est connue) ou n'a pas
+  --- lieu (règle de repli).
+  local function build_items(kind, items, n_drills)
+    if not df then return items end
+    local t = turret_items(T.defend_turrets(n_drills))
+    local have_t = true
+    for _, it in ipairs(t) do if (avail[it[1]] or 0) < it[2] then have_t = false end end
+    if have_t then
+      local all = {}
+      for _, it in ipairs(items) do all[#all + 1] = it end
+      for _, it in ipairs(t) do all[#all + 1] = it end
+      return all
+    end
+    if count_kind(view, kind) == 0 then return items end -- premier avant-poste de ce type (départ, reconstruction)
+    if turret_craftable then want(t, T.defend_prio, "defense") end
+    out.defend_wait = (out.defend_wait or 0) + 1
+    return nil
+  end
+
+  ---------------------------------------------------------------------------------------------------
   -- 1. Entretien : brûleurs, production en attente, munitions des tourelles
   ---------------------------------------------------------------------------------------------------
   local fuel_reserve = view.smelter_coal or 0
@@ -288,19 +336,23 @@ function P.plan(view, book)
     out.coal_rate, out.burn_rate = coal_rate, burn_rate
     if #view.outposts > 0 and coal_rate < 1.4 * burn_rate and (view.pending.coal or 0) == 0 then
       local items = outpost_items("coal")
-      local ext = extendable(view, "coal")
+      local ext = extendable(view, "coal", undefended)
       if ext and not open["extend:" .. ext.id] then
         if take(items) then
           add({ key = "extend:" .. ext.id, kind = "extend", prio = 85, outpost = ext.id, outpost_kind = "coal", items = items })
         else
           want(items, 52, "charbon")
         end
-      elseif not ext then
+      elseif not ext and not (df and extendable(view, "coal")) then
+        -- (lot IA1-b2 : un avant-poste de charbon qui attend ses tourelles pour s'agrandir ne fait pas bâtir ailleurs)
         out.site_needs.coal = math.max(out.site_needs.coal or 0, 1)
-        if (view.sites.coal or 0) > 0 and take(items) then
-          add({ key = "build:coal", kind = "build", prio = 85, outpost_kind = "coal", items = items })
-        else
-          want(items, 52, "charbon")
+        local list = build_items("coal", items, T.outposts.coal.drills)
+        if list then
+          if (view.sites.coal or 0) > 0 and take(list) then
+            add({ key = "build:coal", kind = "build", prio = 85, outpost_kind = "coal", items = list })
+          else
+            want(list, 52, "charbon")
+          end
         end
       end
     end
@@ -323,6 +375,31 @@ function P.plan(view, book)
     end
   end
 
+  -- Lot IA1-b2 (défendre d'abord) : tourelles des avant-postes non défendus, en urgence (ordre des id). Sans recette,
+  -- seulement les tourelles déjà au stock (règle de repli sinon).
+  if df then
+    local waiting = 0
+    for _, o in ipairs(view.outposts) do
+      if undefended[o.id] then
+        waiting = waiting + 1
+        local key = "fortify:" .. o.id
+        if not o.has_fortify and not open[key] then
+          local n = T.defend_turrets(o.drills) - (o.turrets or 0)
+          if not turret_craftable then n = math.min(n, avail["gun-turret"] or 0) end
+          if n > 0 then
+            local items = turret_items(n)
+            if take(items) then
+              add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = o.id, items = items, defend = true })
+            else
+              want(items, T.defend_prio, "defense")
+            end
+          end
+        end
+      end
+    end
+    out.defend = { undefended = waiting, craftable = turret_craftable }
+  end
+
   -- Reconstruction : un avant-poste détruit (attaque d'une faction, déchiqueteurs) dont l'objectif était
   -- atteint est reconstruit. Un objectif atteint n'étant jamais réouvert, une équipe vivait sans pierre ni
   -- cuivre après la perte de son avant-poste (moteur réel, E16 it. 10). Placée avant l'objectif : les
@@ -336,8 +413,8 @@ function P.plan(view, book)
           -- Kit complet si le stock le permet, sinon un avant-poste minimal (2 paires) qui relance la
           -- production : sans fer, une équipe ne pouvait plus fabriquer les 8 foreuses d'un avant-poste
           -- de fer complet (moteur réel, E16 it. 11 : fer livré figé à 412 pendant 50 min).
-          local items = outpost_items(kind)
-          local mini = minimal_items(kind)
+          local items = build_items(kind, outpost_items(kind), T.outposts[kind].drills)
+          local mini = build_items(kind, minimal_items(kind), math.min(2, T.outposts[kind].drills))
           if take(items) then
             add({ key = key, kind = "build", prio = 80, outpost_kind = kind, items = items })
           elseif take(mini) then
@@ -401,7 +478,9 @@ function P.plan(view, book)
     end
     out.emergency_smelters = true
   end
-  if em and not view.recruit_blocked and view.workers < (em.floor or 0) then
+  -- Lot IA1-b2 : view.hold_recruits (perte d'un PNJ dans la dernière minute) : aucune recrue, ni de survie ni ordinaire.
+  if view.hold_recruits then out.recruit_hold_loss = true end
+  if em and not view.hold_recruits and not view.recruit_blocked and view.workers < (em.floor or 0) then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
       out.recruit_workers = 1
@@ -431,7 +510,7 @@ function P.plan(view, book)
   -- D1) reposait la fonderie du QG et minait à la main ; coffre vidé (fer 11) et équipe perdue à 57 min. Plaques
   -- insuffisantes : rien de plus, la règle ordinaire (§4) s'applique.
   local rf = (not em) and view.recover_floor or nil
-  if rf and not view.recruit_blocked and view.workers < rf then
+  if rf and not view.hold_recruits and not view.recruit_blocked and view.workers < rf then
     local cost0 = view.recruit_cost or kit_list("worker", 1)
     if take(cost0) then
       out.recruit_workers = 1
@@ -532,7 +611,7 @@ function P.plan(view, book)
       if part.outpost then
         local kind = part.outpost
         local items = outpost_items(kind)
-        local ext = extendable(view, kind)
+        local ext = extendable(view, kind, undefended)
         if ext then
           -- D'abord agrandir un avant-poste existant : pas de prospection, trajets connus.
           if take(items) then
@@ -540,12 +619,18 @@ function P.plan(view, book)
           elseif not want(items, 50, "objectif") then
             add_missing(last_raw)
           end
+        elseif df and extendable(view, kind) then
+          -- Lot IA1-b2 : l'avant-poste à agrandir attend ses tourelles (tâche « fortify » plus haut).
+          add_missing({ ["gun-turret"] = 1 })
         else
           local sites = view.sites[kind] or 0
           out.site_needs[kind] = (out.site_needs[kind] or 0) + part.n
-          if sites > 0 and take(items) then
-            add({ key = "build:" .. kind, kind = "build", prio = 80, outpost_kind = kind, items = items })
-          elseif not want(items, 50, "objectif") then
+          local list = build_items(kind, items, T.outposts[kind].drills)
+          if not list then
+            add_missing({ ["gun-turret"] = T.defend_turrets(T.outposts[kind].drills) })
+          elseif sites > 0 and take(list) then
+            add({ key = "build:" .. kind, kind = "build", prio = 80, outpost_kind = kind, items = list })
+          elseif not want(list, 50, "objectif") then
             add_missing(last_raw)
           end
           if sites == 0 then add_missing({ ["site:" .. kind] = 1 }) end
@@ -563,6 +648,9 @@ function P.plan(view, book)
         army_now = true
       elseif part.tech then
         research_now = true
+      elseif part.fortify and df and undefended[part.fortify] then
+        -- Lot IA1-b2 : déjà demandé en urgence (défendre d'abord, plus haut) ; seul le manque s'affiche.
+        if not turret_craftable and (avail["gun-turret"] or 0) == 0 then add_missing({ ["gun-turret"] = part.n }) end
       elseif part.fortify then
         local items = { { "gun-turret", part.n }, { ammo, part.n * T.turret_ammo_target } }
         if take(items) then
@@ -588,7 +676,7 @@ function P.plan(view, book)
   -- avant-poste, recrue au prix du kit. `recruit_blocked` : garde d'agents (fo-agents-max) atteinte.
   local workers_wanted = view.workers_wanted or T.workers_wanted(#view.outposts, view.workers_max)
   local recruit_cost = view.recruit_cost or kit_list("worker", 1)
-  if view.workers < workers_wanted and not out.emergency_recruit then -- lot IA2-a2 : la survie a déjà décidé
+  if view.workers < workers_wanted and not out.emergency_recruit and not view.hold_recruits then -- lot IA2-a2 : la survie a déjà décidé
     if view.recruit_blocked then
       out.recruit_blocked = true
       if view.workers == 0 then
@@ -700,11 +788,13 @@ function P.plan(view, book)
     local kind = item == "iron-plate" and "iron" or "copper"
     if short > 120 and (view.pending[kind] or 0) == 0 then
       local items = outpost_items(kind)
-      local ext = extendable(view, kind)
+      local ext = extendable(view, kind, undefended)
+      local waits = not ext and df and extendable(view, kind) ~= nil -- lot IA1-b2 : agrandissement après les tourelles
+      if not ext and not waits then items = build_items(kind, items, T.outposts[kind].drills) end
       local key = ext and ("extend:" .. ext.id) or ("build:" .. kind)
-      if not open[key] and (ext or (view.sites[kind] or 0) > 0) and take(items) then
+      if items and not waits and not open[key] and (ext or (view.sites[kind] or 0) > 0) and take(items) then
         add({ key = key, kind = ext and "extend" or "build", prio = 78, outpost = ext and ext.id or nil, outpost_kind = kind, items = items })
-      elseif not ext then
+      elseif not ext and not waits then
         out.site_needs[kind] = math.max(out.site_needs[kind] or 0, 1)
       end
     end

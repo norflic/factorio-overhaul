@@ -27,6 +27,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
+local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
@@ -283,12 +284,20 @@ function Poles.think(f, view, book, tick, plan)
   -- 1618033988 (la partie du guide du DC) : avec le fond à 8 PNJ, votre équipe sortait, perdait ses PNJ à partir de
   -- 18 min et son coffre était détruit (3 essais sur 4 avec des règles de prudence différentes) ; sans fond, 8 PNJ et
   -- 2 100 fer à 59 min (main 0.4.25).
-  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0)
+  -- Lot IA1-b2 (D-17, « Laisser grandir ») : une équipe sous « défendre d'abord » (view.defend_first) a son fond DÈS
+  -- son effectif de départ : le fond n'y sort plus vers un avant-poste non défendu, ne bâtit pas sans tourelles, ne
+  -- fabrique de réserve que pour ce qui peut se poser, et votre équipe n'a plus de garde d'avant-poste. C'est ce
+  -- travail qui fait venir les recrues (frein « pas de recrue sans travail », script/team/team.lua).
+  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0) or (view.defend_first and true or false)
   org.fond_on = fond_on
   local cands
   if fond_on then
+    local df = view.defend_first and true or false
+    local undefended = Planner.undefended(view)
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-      prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy) })
+      prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy),
+      defend_first = df, undefended = undefended, no_outpost_guard = f.is_player or false,
+      turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end

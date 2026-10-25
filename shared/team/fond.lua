@@ -85,16 +85,31 @@ function F.pair_items(kind, pairs)
   return { { T.DRILL, pairs }, { spec.sink, pairs }, { T.fuel, fuel } }
 end
 
+--- Lot IA1-b2 (défendre d'abord) : tourelles d'un nouvel avant-poste de `pairs` paires, ajoutées à `items` si le stock
+--- libre les a ; nil sinon (le fond ne construit pas d'avant-poste non défendu). Sans ctx.defend_first : `items`.
+local function with_turrets(free, ctx, items, np)
+  if not ctx.defend_first then return items end
+  local n = T.defend_turrets(np)
+  local all = {}
+  for _, it in ipairs(items) do all[#all + 1] = it end
+  all[#all + 1] = { "gun-turret", n }
+  all[#all + 1] = { T.turret_ammo, n * T.defend_ammo }
+  if has(free, all) then return all end
+  return nil
+end
+
 local function extraction(view, free, ctx, out)
   local keys = ctx.keys or {}
   -- Prudence (pertes récentes de PNJ, script/team/poles.lua) : rien hors du QG ; seule la fonderie du QG reste.
   local prudent = ctx.prudent
-  -- 1. Agrandir (le plus ancien avant-poste d'abord).
+  -- 1. Agrandir (le plus ancien avant-poste d'abord). Lot IA1-b2 : jamais un avant-poste non défendu (ctx.undefended).
   local extendable = {}
   local danger = ctx.danger or {}
+  local undefended = ctx.undefended or {}
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
-    if not o.full and room > 0 and not danger[o.id] and not prudent then
+    if undefended[o.id] and not o.full and room > 0 then extendable[o.kind] = true end -- il attend ses tourelles
+    if not o.full and room > 0 and not danger[o.id] and not undefended[o.id] and not prudent then
       extendable[o.kind] = true
       local key = "extend:" .. o.id
       local items = F.pair_items(o.kind, math.min(F.PAIRS, room))
@@ -108,8 +123,10 @@ local function extraction(view, free, ctx, out)
   -- 2. Construire un avant-poste là où plus aucun ne peut s'agrandir (site déjà connu).
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local key = "build:" .. kind
-    local items = F.pair_items(kind, math.min(F.PAIRS, T.outposts[kind].drills))
-    if not prudent and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not keys[key] and has(free, items) then
+    local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
+    local items = with_turrets(free, ctx, F.pair_items(kind, pairs_n), pairs_n)
+    if items and not prudent and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not keys[key]
+      and has(free, items) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
@@ -160,13 +177,19 @@ local function extraction(view, free, ctx, out)
 end
 
 --- Paires encore posables : places restantes des avant-postes non pleins + sites connus (un avant-poste chacun).
-function F.potential(view)
+--- Lot IA1-b2 (défendre d'abord, ctx.defend_first) : seulement les avant-postes défendus, et les sites connus si une
+--- tourelle est au stock libre ou fabricable (ctx.turrets_ok) ; sinon la réserve n'aurait aucun usage.
+function F.potential(view, ctx)
+  ctx = ctx or {}
+  local undefended = ctx.undefended or {}
   local n = 0
   for _, o in ipairs(view.outposts or {}) do
-    if not o.full then n = n + math.max(0, T.max_drills(o.kind) - (o.drills or 0)) end
+    if not o.full and not undefended[o.id] then n = n + math.max(0, T.max_drills(o.kind) - (o.drills or 0)) end
   end
-  for _, kind in ipairs(T.OUTPOST_ORDER) do
-    n = n + (view.sites and view.sites[kind] or 0) * T.outposts[kind].drills
+  if not ctx.defend_first or ctx.turrets_ok then
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      n = n + (view.sites and view.sites[kind] or 0) * T.outposts[kind].drills
+    end
   end
   return n
 end
@@ -179,7 +202,7 @@ local function base(view, free, ctx, out)
   if not book or ctx.brain_short then return end
   local keys = ctx.keys or {}
   local incoming = view.incoming or {}
-  local pot = F.potential(view)
+  local pot = F.potential(view, ctx)
   -- Le fond ne descend pas sous les planchers du cerveau : ils sont retirés du stock libre le temps du calcul.
   local floors = {}
   for _, k in ipairs({ "copper-plate", "iron-plate", "stone" }) do
@@ -189,6 +212,9 @@ local function base(view, free, ctx, out)
   for _, r in ipairs(ctx.reserve or F.RESERVE) do
     local item = r[1]
     local want = math.max(r[2], math.min(r[3] or r[2], pot))
+    -- Lot IA1-b2 : sous « défendre d'abord », pas de plancher de réserve pour les biens d'équipement : rien à poser
+    -- (aucun avant-poste défendu à agrandir, aucun site constructible) = rien à fabriquer d'avance.
+    if ctx.defend_first and item ~= T.turret_ammo then want = math.min(r[3] or r[2], pot) end
     if book:handcraftable(item) then
       local have = (free[item] or 0) + (incoming[item] or 0)
       local i = 0
@@ -225,8 +251,11 @@ local function territory(view, ctx, out)
   -- Leur valeur défensive n'est pas mesurée (lot IA1-g : zones et tourelles).
   local posts = { "hq" }
   local danger = ctx.danger or {}
+  -- Lot IA1-b2 (D-17, « Couper les gardes ») : ctx.no_outpost_guard (votre équipe) : plus de garde d'avant-poste.
   for _, o in ipairs(view.outposts or {}) do
-    if not danger[o.id] and not ctx.prudent then posts[#posts + 1] = o.id end
+    if not danger[o.id] and not ctx.prudent and not ctx.no_outpost_guard and not (ctx.undefended or {})[o.id] then
+      posts[#posts + 1] = o.id
+    end
   end
   for k = 1, F.GARRISON_PER_POST do
     for _, p in ipairs(posts) do

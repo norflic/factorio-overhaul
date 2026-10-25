@@ -303,6 +303,13 @@ ACTS.build = function(agent, f, task, surface, tick)
   o.access = { x = p.x, y = p.y }
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
+  -- Lot IA1-b2 (défendre d'abord) : les tourelles portées avec la construction sont posées sur place, à la même visite.
+  local inv = main_inv(agent)
+  local nt = inv.get_item_count("gun-turret")
+  if nt > 0 then
+    local put = Outposts.fortify(f, surface, o, nt, inv)
+    f.stats.defend_built = (f.stats.defend_built or 0) + put
+  end
   return true
 end
 
@@ -338,6 +345,7 @@ ACTS.fortify = function(agent, f, task, surface)
   local o = f.outposts[task.outpost]
   if not o then return false end
   local n = Outposts.fortify(f, surface, o, task.items[1][2], main_inv(agent))
+  if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
   return n > 0
 end
 

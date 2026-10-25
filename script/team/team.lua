@@ -264,10 +264,19 @@ function Team.view(f, tick)
   -- l'équipe n'est jamais « inactive » et achète des recrues jusqu'à vider son coffre ; moteur réel, verif-guide sur
   -- la graine 1618033988 : 17 PNJ à 8 min, 6 à 85 fer au coffre de 8 à 32 min, aucune tourelle, coffre détruit
   -- vers 38 min). Le frein garde ainsi le sens d'IA1-a : recruter quand le travail du CERVEAU occupe tout le monde.
+  -- Lot IA1-b2 (D-17, « Laisser grandir ») : sous « défendre d'abord », seul le fond qui ne produit ni ne construit
+  -- (minage à la main de fond, plafonné ; garde) compte comme disponible ; un PNJ qui agrandit, bâtit, fond le minerai ou
+  -- fabrique la réserve TRAVAILLE : quand tous travaillent, une recrue vient (le stock la paie toujours).
+  local defend_first = f.is_player or T.defend_first_factions or false
   local on_fond = 0
   for _, t in ipairs(Board.get(f).list or {}) do
-    if t.worker and t.fond then on_fond = on_fond + 1 end
+    if t.worker and t.fond and (not defend_first or t.kind == "mine" or t.kind == "garrison") then on_fond = on_fond + 1 end
   end
+  -- Lot IA1-b2 : pas de recrue dans la minute qui suit la perte d'un PNJ (une recrue posée au QG pendant une attaque y
+  -- mourait aussitôt : verif-guide, graine 1618033988, 17 PNJ tués au QG de 46 à 54 min, 29 recrues en 60 min).
+  local losses = f.team.org and f.team.org.losses
+  local last_loss = losses and losses[#losses]
+  local hold_recruits = defend_first and last_loss ~= nil and tick - last_loss < T.recruit_calm or false
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
   local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
@@ -313,6 +322,9 @@ function Team.view(f, tick)
     -- Correction VERIF-NUIT (25/10) : votre équipe, sous son effectif de départ, équipe ses recrues au QG avec les
     -- plaques du coffre (shared/team/planner.lua, view.recover_floor) ; le reste de la survie reste aux factions.
     recover_floor = f.is_player and floor or nil,
+    -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
+    -- après une perte récente.
+    defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }

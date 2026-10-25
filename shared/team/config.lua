@@ -83,6 +83,20 @@ T.turret_ammo_low = 8
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 
+-- DÉFENDRE D'ABORD (lot IA1-b2, décision D-17 du 25/10 : « l'équipe pose des tourelles à un avant-poste AVANT d'y
+-- envoyer des ouvriers »). Tourelles voulues par avant-poste : 1, plus 1 par tranche de 8 foreuses (un avant-poste qui
+-- s'agrandit pollue plus et attire plus d'attaques : il se défend de nouveau avant le prochain agrandissement).
+-- Posées pleines (T.defend_ammo = T.turret_ammo_target chargeurs chacune : Outposts.fortify remplit la première tourelle
+-- avant la suivante, une demi-dose la laissait vide). Priorité T.defend_prio : URGENCE (O.URGENT_PRIO = 90), prise par
+-- n'importe quel PNJ, comme le ravitaillement.
+T.defend_ammo = T.turret_ammo_target
+T.defend_prio = 90
+-- Votre équipe suit toujours « défendre d'abord » ; les factions seulement si T.defend_first_factions (mesuré au lot).
+T.defend_first_factions = true
+-- Recrues retenues pendant 60 s après la perte d'un PNJ (équipes sous « défendre d'abord »).
+T.recruit_calm = 3600
+function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
+
 ---------------------------------------------------------------------------------------------------
 -- Recherche : niveaux payés en VRAIS packs de science, fabriqués par l'équipe.
 -- Le pack chimique demande du pétrole : les niveaux 4-5 attendent l'objectif Pétrole.
