@@ -54,7 +54,7 @@ K.MAX_DIST = 1600             -- aucune cible d'exploration au-delà de 1 600 tu
 ---------------------------------------------------------------------------------------------------
 -- Secteurs
 ---------------------------------------------------------------------------------------------------
-function K.new() return { s = {}, n = 0, found = {}, marks = {} } end
+function K.new() return { s = {}, n = 0, found = {}, marks = {}, cnt = {} } end
 
 K.key, K.xy, K.center = A.key, A.xy, A.center
 
@@ -121,9 +121,18 @@ function K.record(m, key, tick, obs)
   table.sort(res, function(p, q) return p.name < q.name end)
   s.r = #res > 0 and res or nil
   local fresh = {}
+  m.cnt = m.cnt or {}
+  local now = {}
   for _, r in ipairs(res) do
-    if not old[r.name] then fresh[#fresh + 1] = r.name end
+    now[r.name] = true
+    if not old[r.name] then
+      fresh[#fresh + 1] = r.name
+      m.cnt[r.name] = (m.cnt[r.name] or 0) + 1
+    end
     if not m.found[r.name] then m.found[r.name] = tick end
+  end
+  for _, name in ipairs(sorted_keys(old)) do
+    if not now[name] then m.cnt[name] = (m.cnt[name] or 1) - 1 end
   end
   local sp, wm = copy_points(obs.nests), copy_points(obs.worms)
   s.sp = #sp > 0 and sp or nil
@@ -166,6 +175,9 @@ function K.deposits(m, res, from)
   end
   return out
 end
+
+--- Nombre de secteurs où un gisement de la ressource est vu (tenu à chaque regard : aucun parcours).
+function K.count(m, res) return (m.cnt and m.cnt[res]) or 0 end
 
 --- Ressources connues (au moins un gisement vu), triées.
 function K.known_resources(m) return sorted_keys(m.found) end

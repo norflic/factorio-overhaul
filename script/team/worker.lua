@@ -326,6 +326,13 @@ function Worker.program(f, task, surface, tick)
       if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
     end
+    -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
+    -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
+    if far then
+      task.target = far
+      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
+    end
     if not best then return nil end
     task.target = { x = best.position.x, y = best.position.y }
     return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }

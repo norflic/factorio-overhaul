@@ -898,9 +898,23 @@ function M.new_world(opts)
     return new_group(t.position, t.force)
   end
   local function is_resource_name(n)
+    -- Lot IA3-f : liste de noms (regards de la carte de connaissance) : ressource si TOUS les noms en sont.
+    if type(n) == "table" then
+      if #n == 0 then return false end
+      for _, x in ipairs(n) do if not is_resource_name(x) then return false end end
+      return true
+    end
     if type(n) ~= "string" then return false end
     for _, p in ipairs(W.patches) do if (p.name or "iron-ore") == n then return true end end
     return n == "iron-ore" or n == "copper-ore" or n == "coal" or n == "stone"
+  end
+  local function name_matches(want, name)
+    if want == nil then return true end
+    if type(want) == "table" then
+      for _, x in ipairs(want) do if x == name then return true end end
+      return false
+    end
+    return want == name
   end
   surface.find_entities_filtered = function(t)
     local out = {}
@@ -937,7 +951,7 @@ function M.new_world(opts)
       end
       for _, p in ipairs(W.patches) do
         local dx, dy = p.x - cx, p.y - cy
-        if dx * dx + dy * dy <= (rad + 4) ^ 2 and (t.name == nil or t.name == (p.name or "iron-ore")) then
+        if dx * dx + dy * dy <= (rad + 4) ^ 2 and name_matches(t.name, p.name or "iron-ore") then
           for ix = -2, 2 do
             for iy = -2, 2 do
               -- amount (lot M0) : la quantité du gisement répartie sur ses 25 entités simulées.
@@ -1166,6 +1180,16 @@ function M.new_world(opts)
     end }),
     -- Lot MOD-1 : aucun prototype de module au mock (la règle est testée à part, tests/module_mult_test.lua).
     get_filtered_item_prototypes = function(filters) return {} end,
+    -- Lot IA3-f : prototypes de ressources (regards de la carte de connaissance) : les 4 de base et ceux des gisements.
+    get_filtered_entity_prototypes = function(filters)
+      assert(type(filters) == "table" and filters[1] and filters[1].filter == "type", "get_filtered_entity_prototypes : filtre de type attendu")
+      local out = {}
+      if filters[1].type == "resource" then
+        for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone" }) do out[n] = { name = n, type = "resource" } end
+        for _, p in ipairs(W.patches) do local n = p.name or "iron-ore"; out[n] = { name = n, type = "resource" } end
+      end
+      return out
+    end,
     get_player = function(i) if i == 1 then return W.player end end,
     is_multiplayer = function() return false end,
     create_profiler = function() return profiler() end,
