@@ -52,7 +52,28 @@ def chambre(g, c):
     corps._motif(g, M, c.pont, P, Z2, 0.12, 10101)
     # gorge anthracite et bandeau bleu continu
     corps.couronne_poly(g, rr(0.02), rr(-0.06), 1.12, 1.46, M["anthracite"], what="gorge")
-    corps.couronne_poly(g, rr(0.035), rr(0.0), 1.22, 1.34, M["emit"], what="bandeau")
+    # ronde 2 (mesures.py : plus grand foyer 0,75 t², au-delà de 0,45) : bandeau en SEGMENTS de 0,5 tuile séparés par
+    # des montants anthracite, au lieu d'une bande continue
+    Po, Pi = rr(0.035, 6), rr(0.0, 6)
+    n = len(Po)
+    pas = 0
+    for i in range(n):
+        j = (i + 1) % n
+        L = math.hypot(Po[j][0] - Po[i][0], Po[j][1] - Po[i][1])
+        m = max(1, int(L / 0.22))
+        for k in range(m):
+            pas += 1
+            if pas % 3 == 0:
+                g.box(((Po[i][0] + (Po[j][0] - Po[i][0]) * (k + 0.5) / m), (Po[i][1] + (Po[j][1] - Po[i][1]) * (k + 0.5)
+                                                                             / m), 1.28),
+                      (0.05, 0.05, 0.14), M["anthracite"], "hard", what="montant")
+                continue
+            t0, t1 = k / m, (k + 1) / m
+            q = [(Pi[i][0] + (Pi[j][0] - Pi[i][0]) * t, Pi[i][1] + (Pi[j][1] - Pi[i][1]) * t) for t in (t0, t1)]
+            o = [(Po[i][0] + (Po[j][0] - Po[i][0]) * t, Po[i][1] + (Po[j][1] - Po[i][1]) * t) for t in (t0, t1)]
+            pts = [q[0], q[1], o[1], o[0]]
+            g.hexa([corps.V((x, y, 1.22)) for x, y in pts] + [corps.V((x, y, 1.34)) for x, y in pts], M["emit"], "flat",
+                   "bandeau")
     yf = Y(YN0)
     # joints verticaux, grilles, écrans
     for x in (-1.75, -1.15, 1.15, 1.75):

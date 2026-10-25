@@ -22,7 +22,9 @@ FOYER = ages.FOYER[15]
 HABILLAGE = dict(ages.CORPS[15], gueule="arche", foyer="noir_profond")
 CYN = 0.3
 PROFIL = ((0.46, 1.7), (0.75, 1.95), (1.15, 2.2), (1.55, 2.45), (1.85, 2.68), (2.0, 2.85))   # (rayon, z) de la vasque
-R_ETOILE, Z_ETOILE = 0.74, 3.2    # ronde 1 : 0,58 à 3,0 se perdait dans la vasque
+# ronde 1 : 0,58 à 3,0 se perdait dans la vasque ; ronde 2 (mesures.py : plus grand foyer 1,53 t², saturation 0,17 hors
+# famille) : 0,64, et les lumières secondaires passent à l'orange (emit2) pour ramener la saturation dans la famille
+R_ETOILE, Z_ETOILE = 0.64, 3.15
 
 
 def matieres(metal, M):
@@ -42,7 +44,7 @@ def chambre(g, c):
     g.torus((0, cy, 0.79), "z", 2.04, 0.03, M["or_vif"], n=64, m=6, what="liseré")
     for k in range(18):
         a = TAU * k / 18
-        g.box((2.06 * math.cos(a), cy + 2.06 * math.sin(a), 0.62), (0.05, 0.03, 0.26), M["emit"], "flat",
+        g.box((2.06 * math.cos(a), cy + 2.06 * math.sin(a), 0.62), (0.05, 0.03, 0.26), M["emit2"], "flat",
               R=corps.Matrix.Rotation(a + math.pi / 2, 3, "Z"), what="tiret")
     # fût évasé à veines d'or
     g.cyl((0, cy, 1.25), "z", 0.75, 0.9, M["noir_profond"], n=40, r2=0.46, what="fut")
@@ -61,7 +63,7 @@ def chambre(g, c):
         pts = [corps.V(((r + 0.006) * math.cos(a), cy + (r + 0.006) * math.sin(a), z)) for r, z in PROFIL]
         g.tube(g.spline(pts, 3), 0.018, M["or_chauffe"], n=5, what="veine")
     g.torus((0, cy, zz[-1]), "z", rs[-1], 0.075, M["or_chauffe"], n=72, m=8, what="levre")
-    g.torus((0, cy, zz[-1] - 0.05), "z", rs[-1] - 0.12, 0.035, M["emit_soft"], n=64, m=5, what="incandescence")
+    g.torus((0, cy, zz[-1] - 0.05), "z", rs[-1] - 0.12, 0.035, M["emit2"], n=64, m=5, what="incandescence")
     # étoile captive
     F.sphere(g, (0, cy, Z_ETOILE), R_ETOILE, M["emit"], n=32, m=16)
     griffes(g, c)
@@ -95,7 +97,7 @@ def socle(g, c):
         x, y = 2.35 * math.cos(a), cy + 2.35 * math.sin(a)
         g.cyl((x, y, 0.45 + 0.25), "z", 0.13, 0.5, M["noir_profond"], n=6, r2=0.09, style="hard", what="borne")
         g.cyl((x, y, 0.97), "z", 0.12, 0.06, M["or_chauffe"], n=6, style="hard", what="chapeau")
-        g.cyl((x, y, 1.08), "z", 0.05, 0.16, M["emit"], n=6, r2=0.0, what="pointe")
+        g.cyl((x, y, 1.08), "z", 0.05, 0.16, M["emit2"], n=6, r2=0.0, what="pointe")
         d = corps.V((math.cos(a), math.sin(a), 0))
         for k in range(3):
             g.box(corps.V((x, y, 0.455)) - d * (0.22 + 0.12 * k), (0.07, 0.02, 0.01), M["or_vif"], "flat",

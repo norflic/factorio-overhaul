@@ -78,7 +78,9 @@ def lev(g, c):
     g.cyl((x, y, Z_SOCLE + 0.1), "z", 0.68, 0.2, M["noir_miroir2"], n=36, what="embase")
     g.torus((x, y, Z_SOCLE + 0.24), "z", 0.86, 0.2, M["chrome_mat"], n=48, m=12, what="bobine_basse")
     g.torus((x, y, Z_SOCLE + 0.32), "z", 0.64, 0.05, M["emit"], n=40, m=6, what="anneau_cyan")
-    g.cyl((x, y, Z_SOCLE + 0.36), "z", 0.6, 0.02, M["emit_soft"], n=36, style="flat", what="entrefer")
+    # ronde 2 (plus grand foyer 0,64 t², au-delà de 0,45) : entrefer sombre, lueur en couronne fine seulement
+    g.cyl((x, y, Z_SOCLE + 0.36), "z", 0.6, 0.02, M["noir_miroir2"], n=36, style="flat", what="entrefer")
+    g.torus((x, y, Z_SOCLE + 0.38), "z", 0.42, 0.03, M["emit_soft"], n=36, m=5, what="entrefer_lum")
     zc, rs = 1.78, 0.6
     F.sphere(g, (x, y, zc), rs, M["noir_miroir2"], n=36, m=18)
     for dz in (-0.3, 0.0, 0.3):
