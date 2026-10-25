@@ -80,6 +80,18 @@ do
   check(V.value(far, ctx({ ambition = 1500, appetite = 1300 })) > V.value(far, ctx({ ambition = 600, appetite = 800 })),
     "l'ambitieux en expansion accepte mieux un site lointain")
   check(V.reach(100, 100) == 80 and V.reach(5000, 5000) == 600, "portée bornée à [80 ; 600]")
+  -- Plancher d'expansion : le fer d'Écarlate à 526 tuiles (moteur réel, essai 1) est refusé pour un 2e avant-poste,
+  -- jamais pour le premier ; un ambitieux en expansion va plus loin.
+  local iron = { x = 526, y = 0, rich = 70000 }
+  check(not V.acceptable(V.value(iron, c), false) and V.acceptable(V.value(iron, c), true),
+    "plancher : site à 526 tuiles refusé pour s'étendre (" .. V.value(iron, c) .. "), accepté pour un premier avant-poste")
+  local at = function(d, amb, app) return V.value({ x = d, y = 0, rich = 70000 }, ctx({ ambition = amb, appetite = app })) end
+  local lim1, lim2 = 0, 0
+  for d = 50, 800, 10 do
+    if V.acceptable(at(d, 1000, 1000), false) then lim1 = d end
+    if V.acceptable(at(d, 1500, 1300), false) then lim2 = d end
+  end
+  check(lim1 >= 250 and lim1 <= 400 and lim2 > lim1, "plancher : jusqu'à " .. lim1 .. " tuiles (ambition 1 000), " .. lim2 .. " (1 500, expansion)")
 end
 
 ---------------------------------------------------------------------------------------------------

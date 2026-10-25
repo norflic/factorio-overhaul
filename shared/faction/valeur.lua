@@ -47,6 +47,17 @@ V.LOST_TTL = 30 * 3600  -- … depuis moins de 30 min : danger dégressif
 V.LOST = 600
 V.NEAR = 100            -- hasard borné : marge de V.NEAR pour mille de |meilleure valeur|, au moins MARGIN_MIN
 V.MARGIN_MIN = 60
+-- PLANCHER d'expansion : un site de valeur inférieure n'est pas pris pour un 2e avant-poste (ou plus) de la même
+-- ressource ; la faction attend mieux (fronts, renouvellement). Jamais pour le premier avant-poste d'une ressource.
+-- Moteur réel (essai 1 du lot, graine 20261020) : fer d'Écarlate à 526 tuiles (valeur −2 560 à −3 245), perdu et
+-- reposé 5 fois au même endroit. À ambition 1 000, le plancher tombe vers 350 tuiles du territoire ; il recule avec
+-- l'ambition et l'appétit (portée).
+V.FLOOR = -1000
+
+--- Le site est-il acceptable pour s'étendre ? `first` vrai : aucun avant-poste de cette ressource (pas de plancher).
+function V.acceptable(value, first)
+  return first or value >= V.FLOOR
+end
 
 -- Appétit d'expansion selon la dominante du chef (pour mille ; posture inconnue ou absente : 1 000).
 V.APPETITE = { expansion = 1300, capitalisation = 1000, technologie = 1000, armee = 950, assaut = 1000, raids = 1000,
