@@ -16,7 +16,9 @@
     1. feu de la gueule : feuille PARTAGÉE de 16 images (flammes presque blanches), teintée à la lumière de l'âge
        (une teinte multiplie, F36), à la place et à la taille de la bouche de l'âge (sprites.lua, « gueule ») ;
     2. lueur de l'âge (couche glow rendue : braises, lave, voyants, cristaux…), draw_as_glow, additive ;
-    3. halo de nuit (couche light rendue), draw_as_light, effet « flicker » comme le four vanilla.
+    3. halo de nuit (couche light rendue), draw_as_light, effet « flicker » comme le four vanilla ;
+    4. flaque de lumière au sol devant la gueule (LightDefinition du moteur sur le feu, couleur de l'âge, taille
+       suivant l'emprise ; ajoutée en F2-B : de nuit, la couche light rendue seule éclairait bien moins que le vanilla).
   Fumée : particule vanilla (« smoke » ; « turbine-smoke », vapeur, aux âges 9 et 12) à la bouche de fumée relevée au
   rendu, position de jeu ESTIMÉE (x, −(yn + 0,7071 z)) ; à vérifier sur capture.
   Reste et explosion : copies déclarées (ctx.declare) de celles de la vanilla, agrandies à l'emprise. Couleur de carte :
@@ -106,7 +108,13 @@ function M.dress(p, ctx)
   local lueur, halo = {}, {}
   couches(lueur, parties, "glow")
   couches(halo, parties, "light")
-  local wv = { { animation = feu(age), fadeout = true } }
+  -- Flaque de lumière au sol devant la gueule (lumière du moteur, aucune image de plus) : la couche light rendue est
+  -- une bande mince (56 à 62 px hr) qui éclaire peu (captures f2-fours de nuit, F2-B) ; la flaque vanilla du four en
+  -- acier fait environ 2,4 × 2 tuiles.
+  local g, s = age.gueule, ctx.footprint
+  local flaque = { intensity = 0.5, size = 2 + 1.7 * s, shift = { g.x, g.y + g.h / 2 + 0.25 * s },
+    color = { r = age.foyer[1], g = age.foyer[2], b = age.foyer[3] } }
+  local wv = { { animation = feu(age), fadeout = true, effect = "flicker", light = flaque } }
   if #lueur > 0 then wv[#wv + 1] = { animation = { layers = lueur }, fadeout = true } end
   if #halo > 0 then wv[#wv + 1] = { animation = { layers = halo }, fadeout = true, effect = "flicker" } end
   p.working_visualisations = wv
