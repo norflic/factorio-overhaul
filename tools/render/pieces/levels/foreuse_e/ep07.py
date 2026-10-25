@@ -16,6 +16,7 @@ NOM = ages.NOMS[7]
 TRIPLET = ("diapason", "dallage de pierre", "cristaux dressés")
 FOYER = ages.FOYER[7]
 HABILLAGE = dict(ages.CORPS[7])
+PIED = 1.08
 
 
 def matieres(metal, M):

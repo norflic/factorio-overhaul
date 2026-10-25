@@ -15,6 +15,18 @@ NOM = ages.NOMS[11]
 TRIPLET = ("tripode", "ailerons", "balises orange")
 FOYER = ages.FOYER[11]
 HABILLAGE = dict(ages.CORPS[11])
+PIED = 1.0
+
+
+def occupe(c):
+    """Pieds du tripode (semelle, rotule, balise) et ailerons de queue."""
+    out = []
+    R = c.rt * 1.55
+    for k in range(3):
+        a = math.radians(30 + 120 * k)
+        x, y = (R + 0.1) * math.cos(a), (R + 0.1) * math.sin(a)
+        out.append((x - 0.35, y - 0.35, x + 0.35, y + 0.35))
+    return out
 
 
 def matieres(metal, M):

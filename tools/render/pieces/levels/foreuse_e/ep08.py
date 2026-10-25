@@ -16,6 +16,14 @@ NOM = ages.NOMS[8]
 TRIPLET = ("bocal de verre", "boue jaune", "ponton")
 FOYER = ages.FOYER[8]
 HABILLAGE = dict(ages.CORPS[8])
+PIED = 1.0
+
+
+def occupe(c):
+    """Bonbonnes, gaines, flaque de boue."""
+    a, rt = c.a, c.rt
+    return [(-a * 0.62 - 0.26, -a * 0.72 - 0.26, -a * 0.25 + 0.26, -a * 0.6 + 0.26),
+            (-a * 0.62, -a * 0.6, -rt * 0.55, -rt * 0.55), (rt * 0.2 - 0.3, -rt * 0.95 - 0.3, rt * 0.2 + 0.3, -rt * 0.95 + 0.3)]
 
 
 def matieres(metal, M):

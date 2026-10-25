@@ -15,6 +15,16 @@ NOM = ages.NOMS[4]
 TRIPLET = ("derrick", "râtelier de tiges", "torchère")
 FOYER = ages.FOYER[4]
 HABILLAGE = dict(ages.CORPS[4])
+PIED = 1.15
+
+
+def occupe(c):
+    """Râtelier de tiges, torchère, vannes."""
+    a = c.a
+    x0, y0 = -a * 0.72, -a * 0.38
+    tx, ty = -a * 0.62, a * 0.55
+    return [(x0 - 0.32, y0 - 0.52, x0 + 0.32, y0 + 0.56), (tx - 0.16, ty - 0.16, tx + 0.16, ty + 0.16),
+            (-a + 0.45, 0.35, -a + 0.65, 0.65), (a - 0.65, 0.35, a - 0.45, 0.65)]
 
 
 def matieres(metal, M):

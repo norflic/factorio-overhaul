@@ -16,6 +16,16 @@ NOM = ages.NOMS[13]
 TRIPLET = ("bobinages", "bouteilles couchées", "puits violet")
 FOYER = ages.FOYER[13]
 HABILLAGE = dict(ages.CORPS[13])
+PIED = 1.0
+
+
+def occupe(c):
+    """Bouteilles couchées sur les diagonales."""
+    out = []
+    for k in range(4):
+        x, y = cp.quart((c.rt * 0.87, c.rt * 0.87), k)[:2]
+        out.append((x - 0.55, y - 0.55, x + 0.55, y + 0.55))
+    return out
 
 
 def matieres(metal, M):

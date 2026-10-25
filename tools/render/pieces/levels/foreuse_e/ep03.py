@@ -17,6 +17,7 @@ NOM = ages.NOMS[3]
 TRIPLET = ("chaudière de cuivre", "volant", "pistons")
 FOYER = ages.FOYER[3]
 HABILLAGE = dict(ages.CORPS[3])
+PIED = 1.5    # volants et pistons débordent de la chaudière
 
 
 def matieres(metal, M):

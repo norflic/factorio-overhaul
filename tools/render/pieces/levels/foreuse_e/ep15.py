@@ -15,6 +15,18 @@ NOM = ages.NOMS[15]
 TRIPLET = ("singularité", "spirale d'or", "couronne noire")
 FOYER = ages.FOYER[15]
 HABILLAGE = dict(ages.CORPS[15])
+PIED = 1.02
+
+
+def occupe(c):
+    """Sources des filets d'or aspirés."""
+    out = []
+    r0 = c.a * 0.82
+    for k in range(5):
+        ang = k * math.tau / 5 + 0.4
+        x, y = r0 * math.cos(ang), r0 * math.sin(ang)
+        out.append((x - 0.2, y - 0.2, x + 0.2, y + 0.2))
+    return out
 
 
 def matieres(metal, M):

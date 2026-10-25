@@ -15,6 +15,19 @@ NOM = ages.NOMS[12]
 TRIPLET = ("pile de tores", "cryostat", "glace cyan")
 FOYER = ages.FOYER[12]
 HABILLAGE = dict(ages.CORPS[12])
+PIED = 1.05
+
+
+def occupe(c):
+    """Bouts des conduites de mousse, givre et glace."""
+    a, rt = c.a, c.rt
+    out = []
+    for k in range(4):
+        x, y = cp.quart((rt * 1.3, -rt * 0.55), k)[:2]
+        out.append((x - 0.25, y - 0.25, x + 0.25, y + 0.25))
+    for (x, y, r) in ((-a * 0.62, -a * 0.55, 0.32), (a * 0.2, a * 0.7, 0.24), (-a * 0.7, a * 0.35, 0.2)):
+        out.append((x - r, y - r, x + r, y + r))
+    return out
 
 
 def matieres(metal, M):

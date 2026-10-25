@@ -16,6 +16,7 @@ NOM = ages.NOMS[6]
 TRIPLET = ("pylône", "électrodes", "moteur bleu")
 FOYER = ages.FOYER[6]
 HABILLAGE = dict(ages.CORPS[6])
+PIED = 1.05
 
 
 def matieres(metal, M):

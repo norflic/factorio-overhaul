@@ -15,6 +15,13 @@ NOM = ages.NOMS[9]
 TRIPLET = ("silo de béton", "chemise de plomb", "lueur verte")
 FOYER = ages.FOYER[9]
 HABILLAGE = dict(ages.CORPS[9])
+PIED = 1.3    # contreforts
+
+
+def occupe(c):
+    """Fûts de plomb."""
+    a = c.a
+    return [(-a * 0.7 - 0.2, -a * 0.68 - 0.2, -a * 0.42 + 0.2, -a * 0.42 + 0.2)]
 
 
 def matieres(metal, M):

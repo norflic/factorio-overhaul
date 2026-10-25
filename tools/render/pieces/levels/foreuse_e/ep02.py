@@ -16,6 +16,14 @@ NOM = ages.NOMS[2]
 TRIPLET = ("balancier", "massif de briques", "foyer rouge")
 FOYER = ages.FOYER[2]
 HABILLAGE = dict(ages.CORPS[2])
+PIED = 1.1
+
+
+def occupe(c):
+    """Accents du tablier (la garniture de lignée les évite) : charbon, enclume."""
+    a, my = c.a, c.T["moteur"]["y"]
+    return [(-0.42 * a - 0.28, my - 0.22, -0.42 * a + 0.28, my + 0.22),
+            (-0.55 * a - 0.2, 0.55 * a - 0.12, -0.55 * a + 0.2, 0.55 * a + 0.12)]
 
 
 def matieres(metal, M):

@@ -42,6 +42,9 @@ class Ctx:
         self.pont = dict(LIGNEE_PONT)
         self.pont.update({k: v for k, v in p.items() if k in LIGNEE_PONT and v is not None})
         self.pont["lisere"] = p.get("lisere")
+        # zones du tablier occupées par les accents de l'âge (ep.occupe(c) -> [(x0, y0, x1, y1)] en tuiles, repère N) :
+        # la garniture de lignée les évite
+        self.occupe = list(ep.occupe(self)) if hasattr(ep, "occupe") else []
         g.ctx = self
 
     def m(self, cle):
@@ -360,6 +363,137 @@ def tour_lignee(g, c):
 
 
 # ------------------------------------------------------------------------------------------------
+# Garniture du tablier (ronde 1 : à côté de la mitrailleuse validée, la foreuse se lisait « grand tablier nu » ; la
+# précision ne baisse jamais, règle d'or 4) : petits accessoires détaillés posés sur les zones LIBRES, aux matières
+# habillées de l'âge (caisses rivetées, fûts, armoires à grille et voyant, bobines de câble, trappes à bord de danger,
+# bonbonnes). Tirage déterministe (graine de l'âge et de la taille, jamais de la direction : les 4 directions portent
+# la même garniture, tournée).
+# ------------------------------------------------------------------------------------------------
+def _libre(c, x, y, r):
+    T = c.T
+    d = c.dd
+    if abs(x) + r > d - 0.06 or abs(y) + r > d - 0.06:
+        return False
+    rp = c.rt * float(getattr(c.ep, "PIED", 1.08))
+    if math.hypot(x, y) < rp + r or (abs(x) < c.rt + r and abs(y) < c.rt + r and rp >= 1.0 * c.rt):
+        return False
+    G = T["goulotte"]
+    if y + r > G["y0"] - 0.1 and abs(x - G["x"]) < G["w"] / 2 + 0.14 + r:
+        return False
+    for nom, (px, py) in T["raccords"].items():
+        if nom in ("O", "E"):
+            if abs(y - py * 0.65) < 0.36 + r and abs(x) > c.rt * 0.5:
+                return False
+        elif abs(x - px * 0.75) < 0.36 + r and y < -c.rt * 0.5:
+            return False
+    m = T["moteur"]
+    if abs(x - 0.42 * c.a) < m["w"] / 2 + 0.12 + r and abs(y - m["y"]) < m["p"] / 2 + 0.14 + r:
+        return False
+    mr = d - T["montant"]["retrait"]
+    if abs(abs(x) - mr) < T["montant"]["w"] + r and abs(abs(y) - mr) < T["montant"]["w"] + r:
+        return False
+    for (x0, y0, x1, y1) in c.occupe:
+        if min(x0, x1) - r < x < max(x0, x1) + r and min(y0, y1) - r < y < max(y0, y1) + r:
+            return False
+    return True
+
+
+def _caisse(g, c, x, y, rng):
+    w = 0.24 + 0.1 * rng.random()
+    h = 0.18 + 0.1 * rng.random()
+    m = c.m("olive") if rng.random() < 0.6 else c.m("ochre")
+    z = c.zt
+    g.box((x, y, z + h / 2), (w, w * 0.85, h), m, "hard", what="caisse")
+    g.box((x, y, z + h * 0.55), (w + 0.012, w * 0.85 + 0.012, 0.035), c.m("steel_dk"), "hard", what="sangle")
+    for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        g.dome((x + sx * (w / 2 - 0.035), y + sy * (w * 0.425 - 0.035), z + h), (0, 0, 1), 0.016, c.m("rivet"))
+    return h
+
+
+def _fut(g, c, x, y, rng):
+    r = 0.09 + 0.03 * rng.random()
+    h = 0.26 + 0.06 * rng.random()
+    m = c.m("redpaint") if rng.random() < 0.5 else c.m("olive")
+    colonne(g, x, y, c.zt, c.zt + h, r, m, n=14, what="fut")
+    for t in (0.2, 0.75):
+        bague(g, x, y, c.zt + h * t, r, 0.025, c.m("steel_dk"), ep=0.01, n=14, what="cercle")
+    colonne(g, x, y, c.zt + h, c.zt + h + 0.012, r * 0.85, c.m("steel_dk"), n=14, what="couvercle")
+    g.dome((x + r * 0.45, y, c.zt + h + 0.012), (0, 0, 1), 0.022, c.m("steel"))
+
+
+def _armoire(g, c, x, y, rng):
+    w, p, h = 0.3, 0.17, 0.34 + 0.08 * rng.random()
+    z = c.zt
+    g.box((x, y, z + h / 2), (w, p, h), c.m("steel_dk"), "hard", what="armoire")
+    g.box((x, y, z + h + 0.015), (w + 0.03, p + 0.03, 0.03), c.m("ochre"), "hard", what="toit")
+    q = [V((x - w * 0.38, y - p / 2 - 0.003, z + h * 0.18)), V((x + w * 0.38, y - p / 2 - 0.003, z + h * 0.18)),
+         V((x + w * 0.38, y - p / 2 - 0.003, z + h * 0.62)), V((x - w * 0.38, y - p / 2 - 0.003, z + h * 0.62))]
+    g.grille(q, 4, depth=0.012, slat_mat=c.m("steel"))
+    g.box((x + w * 0.3, y - p / 2 - 0.004, z + h * 0.82), (0.04, 0.008, 0.03), g.M["emit"], "flat", what="voyant")
+
+
+def _bobine(g, c, x, y, rng):
+    r = 0.12
+    z = c.zt + r + 0.01
+    g.cyl((x, y, z), "x", r * 0.75, 0.16, g.M["rubber"] if rng.random() < 0.5 else g.M["redcable"], n=14,
+          what="bobine")
+    for s in (-1, 1):
+        g.cyl((x + s * 0.09, y, z), "x", r, 0.025, c.m("steel"), n=14, what="joue")
+    g.box((x, y, c.zt + 0.02), (0.22, 0.12, 0.04), c.m("steel_dk"), "hard", what="cale")
+
+
+def _trappe(g, c, x, y, rng):
+    w = 0.36
+    z = c.zt + 0.02
+    g.box((x, y, z), (w, w, 0.04), c.m("steel_dk"), "hard", what="trappe")
+    q = [V((x - w / 2, y - w / 2, z + 0.021)), V((x + w / 2, y - w / 2, z + 0.021)), V((x + w / 2, y - w / 2 + 0.06,
+                                                                                         z + 0.021)),
+         V((x - w / 2, y - w / 2 + 0.06, z + 0.021))]
+    with habille(g, c):
+        g.hazard(q, 4, t=0.006)
+    for (sx, sy) in ((-1, 1), (1, 1)):
+        g.dome((x + sx * (w / 2 - 0.04), y + sy * (w / 2 - 0.04), z + 0.02), (0, 0, 1), 0.016, c.m("rivet"))
+    poutre(g, (x - 0.08, y + 0.05, z + 0.03), (x + 0.08, y + 0.05, z + 0.03), 0.025, c.m("steel"), "poignee")
+
+
+def _bonbonne(g, c, x, y, rng):
+    r = 0.08
+    h = 0.3
+    colonne(g, x, y, c.zt, c.zt + h, r, c.m("ochre"), n=14, what="bonbonne")
+    g.sphere((x, y, c.zt + h), r, c.m("ochre"), n=14, m=6, scale=(1, 1, 0.6), what="ogive")
+    colonne(g, x, y, c.zt + h + 0.03, c.zt + h + 0.08, 0.025, c.m("steel"), n=8, what="robinet")
+    g.torus((x, y, c.zt + h + 0.09), "z", 0.04, 0.008, c.m("redpaint"), n=10, m=4, what="volant")
+
+
+PROPS = (_caisse, _fut, _armoire, _bobine, _trappe, _bonbonne)
+RAYON_PROP = {_caisse: 0.2, _fut: 0.14, _armoire: 0.19, _bobine: 0.15, _trappe: 0.22, _bonbonne: 0.1}
+
+
+def garniture(g, c, densite=0.45):
+    import random
+    rng = random.Random(9000 + 31 * c.e + c.side)
+    pas = 0.40
+    n = int(2 * c.dd / pas)
+    o = -c.dd + (2 * c.dd - n * pas) / 2.0 + pas / 2.0
+    poses = 0
+    for i in range(n):
+        for j in range(n):
+            if rng.random() > densite:
+                rng.random()
+                rng.random()
+                continue
+            f = PROPS[rng.randrange(len(PROPS))]
+            x = o + i * pas + (rng.random() - 0.5) * 0.08
+            y = o + j * pas + (rng.random() - 0.5) * 0.08
+            if not _libre(c, x, y, RAYON_PROP[f]):
+                continue
+            c.occupe.append((x - RAYON_PROP[f], y - RAYON_PROP[f], x + RAYON_PROP[f], y + RAYON_PROP[f]))
+            f(g, c, x, y, rng)
+            poses += 1
+    return poses
+
+
+# ------------------------------------------------------------------------------------------------
 # Assemblage
 # ------------------------------------------------------------------------------------------------
 def corps(g, c):
@@ -380,6 +514,8 @@ def corps(g, c):
                 tour_lignee(g, c)
         if hasattr(c.ep, "socle"):
             c.ep.socle(g, c)
+        if getattr(c.ep, "GARNITURE", True):
+            c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.6)))
 
 
 def piece(g, c):

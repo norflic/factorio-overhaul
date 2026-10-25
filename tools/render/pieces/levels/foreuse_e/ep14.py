@@ -16,6 +16,8 @@ NOM = ages.NOMS[14]
 TRIPLET = ("anneau vertical", "horizon étoilé", "piliers lunaires")
 FOYER = ages.FOYER[14]
 HABILLAGE = dict(ages.CORPS[14])
+PIED = 1.12
+DENSITE = 0.3    # les étoiles semées font une part de la garniture
 
 
 def matieres(metal, M):
