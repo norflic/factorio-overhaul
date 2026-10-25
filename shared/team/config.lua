@@ -117,7 +117,9 @@ T.defend_hq = 4
 T.defend_iron_floor = 150
 T.defend_copper_floor = 30 -- 6 pistolets de recrues
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
-T.site_max_noturret = 300
+-- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
+-- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.
+T.site_max_noturret = 400
 -- R-QCM-25c (b) : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au coffre : un quart de
 -- l'équipe, au moins 2, au plus 6 (gardes de T.guard_ticks, relevées ; priorité T.guard_prio, au-dessus des tournées).
 T.guard_prio = 85
@@ -134,7 +136,9 @@ T.near_mine = 96
 T.grow_iron_reserve = 400
 T.grow_period = 5 * 3600 -- une recrue de croissance toutes les 5 min au plus (règle de croissance, D-18)
 T.transport_min = 10
-T.transport_porters = 4 -- porteurs de fond au plus par avant-poste (2 jusqu'à l'essai 11 : ia1-poles occupée à 70 %)
+-- Porteurs de fond au plus par avant-poste. 4 essayés : ia1-poles 70 -> 75 % seulement (la production manque), et plus
+-- de PNJ exposés sur les cartes hostiles (verif-guide 1618033988 : porteurs tués à 87-99 tuiles) : 2 gardés.
+T.transport_porters = 2
 T.transport_near = 64
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
 
