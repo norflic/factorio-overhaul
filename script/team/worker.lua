@@ -725,6 +725,14 @@ Registry.on_removed(function(agent)
     if not oid and t and type(t.group) == "string" and t.group:sub(1, 1) == "o" then oid = tonumber(t.group:sub(2)) end
     local o = oid and f.outposts and f.outposts[oid]
     if o then o.lethal_tick = game.tick end
+    -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
+    -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;
+    -- essai 10, graine 314159265 : 4 constructeurs tués au même endroit).
+    if f.is_player and t and t.kind == "build" and p then
+      for _, s in ipairs(f.prospects or {}) do
+        if dist2(s, p) <= 64 * 64 then Sites.mark_unreachable(s, game.tick) end
+      end
+    end
   end
   if agent.task then
     if agent.task.site and not agent.task.site_used then
