@@ -132,7 +132,7 @@ local function catalogue()
   kit_items[P.TURRET] = true
   kit_items[T.turret_ammo] = true
   cat = { techs = techs, names = names, packs = packs, full = full, labs = labs, products = products,
-    machines = machines, kit_items = kit_items, pack_list = sorted_keys(packs) }
+    machines = machines, kit_items = kit_items, pack_list = sorted_keys(packs), full_pay = {} }
   return cat
 end
 
@@ -266,13 +266,18 @@ local function choose_tech(f, force, st, c, book, w)
       if opens then
         local seen, list, ok = {}, {}, true
         local function walk(n)
-          if seen[n] or done[n] then return end
+          if seen[n] or done[n] or not ok then return end
           seen[n] = true
           local s2 = c.techs[n]
           if not s2 then ok = false return end
           for _, pre in ipairs(s2.pre) do walk(pre) end
           list[#list + 1] = n
-          local pay = A.level_status(c.full, s2.ing, obtainable)
+          -- Payabilité avec le livre COMPLET : tirée des seuls prototypes, gardée dans le catalogue (cache local).
+          local pay = c.full_pay[n]
+          if pay == nil then
+            pay = A.level_status(c.full, s2.ing, obtainable) and true or false
+            c.full_pay[n] = pay
+          end
           if not pay then ok = false end
         end
         walk(name)
