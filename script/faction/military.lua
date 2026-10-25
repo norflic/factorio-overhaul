@@ -622,6 +622,7 @@ PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, 
   f.groups[group.group_number] = { group = group, state = "scout", started = tick, size = 1, route = route, ids = { chosen },
     dest = sp.dest, tag = sp.tag, gid = group.group_number }
   f.stats.scouts = (f.stats.scouts or 0) + 1
+  log(string.format("[FO-PVP] eclaireur tick %d %s : en route (groupe %d, %d etapes)", tick, f.key, group.group_number, #route))
 end)
 
 --- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués, soldats égarés, rappel.
@@ -637,6 +638,13 @@ function Military.maintain(f, tick)
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
+      if g.state == "scout" then
+        -- Lot IA2-c : éclaireur perdu en route (tué, ou retiré du groupe par le moteur : F174).
+        local alive = g.ids and g.ids[1] and f.soldiers[g.ids[1]] ~= nil
+        f.stats.scouts_lost = (f.stats.scouts_lost or 0) + 1
+        log(string.format("[FO-PVP] eclaireur tick %d %s : perdu apres %d ticks (groupe %d, soldat %s)", tick, f.key,
+          tick - g.started, gid, alive and "vivant" or "mort"))
+      end
       if g.state == "attack" and tick - g.started < DISSOLVE_TICKS then
         -- Lot IA2-a : groupe vidé juste après son départ (F174 : membres retirés par le moteur, sans mort). Moteur
         -- réel (graine 777) : relancé à chaque pensée, 328 fois en 2 h. Attente croissante avant la suivante
