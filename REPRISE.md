@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 6 h 50** : 0.4.24 fusionnée et prouvée (correction de la vérification adverse : votre équipe décimée se
+> reconstruit ; `verif-guide` 1 ECHEC sur 0.4.23, 15 OK sur 0.4.24 aux 2 graines ; guide de partie réécrit pour 0.4.23+,
+> ancien gardé). IA2-c fusionné (`16204fa`, version 0.4.25 : brouillard, éclaireurs, modèle de l'adversaire, côté le
+> moins défendu) : bancs de 0.4.25 EN COURS (`fo-logs` integration-0.4.25), documents de 0.4.25 À FAIRE (F234 à F236,
+> E161, E162 ; chiffres pvp 1305, chef, adversaire 53, test_ia2c_joueur 15, api_lint 974 à reconfirmer sur main).
+> Lancés : IA1-b (pôles, managers, généralistes : donner du travail aux 30 PNJ ; F239 à F241, E164, E165) et IA1-e1
+> (solveur de débits et diagnostic, retour sur investissement pour IA2-d ; F242 à F244, E166, E167), en worktrees.
 > **Point de 4 h 45 (nuit)** : F1-B (rondes du laser, 15 âges) fusionné, OUTILS SEULEMENT (`c12c9a1`, documents
 > `69ffdfe`) : aveugle 15/15, pose N en échec (âges 1, 6, 12), verdict du DC sur `fo-logs\2026-10-25_F1B\planches_DC\`.
 > En cours : IA2-c (modèle du joueur, worktree, F234 à F236, E161, E162) ; VÉRIFICATION ADVERSE de 0.4.16 à 0.4.23
