@@ -500,6 +500,39 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés (lot F2, le four aux 15 âges : F2-A et F2-A2 rondes de design hors jeu, F2-B production et intégration en jeu, 25/10 ; branche `worktree-agent-aa8c5e5bc03addfbd`, version 0.4.30)
+Preuves : `fo-logs\2026-10-25_F2\` (`NOTES.md`, `FICHES_FOUR.md`, `INTEGRATION.md`, `planches_DC\`, `captures\`, `vram\`,
+`bancs-prod\`). Expériences : E85 à E87 (F2-A), E184, E185 (F2-B). Bloc réservé F254 à F262 partagé avec F3-A et F4-A :
+F2 prend F254 à F256.
+- **F254** (rendu, hors jeu) : quand la sole d'une famille couvre toute l'emprise, une pièce posée DEVANT (sur le tablier)
+  n'ajoute aucun pixel opaque à la silhouette, quelle que soit sa hauteur (une hauteur z se lit 0,707 tuile vers le nord,
+  le bord nord de la sole est à s/2) : le critère « masque nouveau ≥ 0,10 t² » du catalogue (`mesures.py`) ne peut pas
+  passer ; mesuré au four : 0,000 à 0,036 t² aux âges 2 à 15, 1,09 t² à l'âge 1 (pièce au nord). Mesure de remplacement :
+  surface dont la couleur change (`outils/f2_pair.py`) : 0,40 à 2,64 t² (3,6 à 10,8 % de l'emprise).
+- **F255** (rendu, hors jeu) : la fenêtre des planches du kit commun (`apercu.py`, côté + 3 tuiles, centrée) coupe ce qui
+  monte à l'écran au-delà de 0,5 s + 1,5 tuile au nord du centre ; règle du kit four : yn + 0,707 z ≤ 0,5 s + 1,35
+  (`cotes.ecran`, contrôlée sur la bouche de fumée).
+- **F256** (rendu, hors jeu) : la boîte d'une couche `glow` rognée englobe tous ses points lumineux, même épars : son coût
+  dépend de l'ÉCART entre les points, pas de leur surface (socles 4×4 à 6×6 de la ronde 2 : 75 à 88 % de la couche
+  principale pour quelques voyants).
+- **F276** (moteur réel) : UNE feuille de flammes presque BLANCHES (16 images de 96 × 42 px hr), `tint` à la couleur de
+  l'âge, `draw_as_glow` et `additive`, en `working_visualisations` à la place et à la taille de chaque gueule (`scale`), donne
+  en jeu un feu de la couleur de chacun des 14 âges, de jour comme de nuit (captures `f2-fours`, `captures\flaque\gueules.png`) :
+  une seule image en mémoire pour tous les âges (une teinte multiplie, F36 : la source doit être claire).
+- **F277** (moteur réel) : une couche `draw_as_light` rendue en bande mince devant la gueule (56 à 62 px hr de haut, alpha au
+  plus 142) éclaire à peine le sol de nuit, bien moins que la flaque vanilla du four en acier (image de 152 × 126 px hr,
+  alpha moyen 96, décalée de 1,5 tuile au sud) : de nuit, les niveaux 3 à 30 étaient plus sombres que le niveau 2
+  (`captures\prod-brut`). Une `LightDefinition` posée sur la visualisation du feu (`light = {intensity = 0,5, size =
+  2 + 1,7 × emprise, shift devant la gueule, color = lumière de l'âge}`) donne une flaque colorée comparable à la vanilla
+  (`captures\prod-flaque`), sans aucune image de plus.
+- **F278** (moteur réel, plancher : qualité normale, mémoire vidéo basse, compression basse, `d4-geant --measure`) : les
+  208 feuilles du four (30 niveaux, feu animé, icônes) ne débordent pas l'atlas virtuel déjà plein (F186) : « Created
+  virtual atlas pages 4096x4096x12 » comme sur `main` 0.4.28, aucun avertissement au journal, `d4-geant` 18 OK ; les
+  autres atlas bougent de moins de 1 % (objets 2048 × 1316 contre 1320, ombres 87,6 contre 87,2 Mpx, icônes 20,2 contre
+  20,1 Mpx, l'atlas [icon] y regagne `linear-mip-level`, F125) ; mémoire dédiée mesurée : médiane 0,44 Go des deux côtés,
+  moyenne 0,42 contre 0,43 Go. Aucun levier n'a donc été nécessaire. Images de l'usine au plancher NON regardées (effacées
+  par la session d'un autre lot avant d'être copiées).
+
 ### Faits vérifiés en moteur réel (lot IA1-b2, votre équipe défend d'abord, 25/10 ; fusionné dans `main`, `a3bf828`, version 0.4.29)
 Preuves : `fo-logs\2026-10-25_IA1-b2\` (`NOTES.md` §2 à §10, `INTEGRATION.md`). Expériences : E172, E173.
 - **F251** : dans la partie du guide, les PNJ de votre équipe meurent surtout en tournée vers des avant-postes LOINTAINS
@@ -1109,6 +1142,25 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E85 à E87, E184, E185 · Lot F2, le four aux 15 âges (25/10 ; verdicts du DC R-QCM-25e « Oui, enrichir », puis « c'est
+pas si mal, je pense qu'il faut pas beaucoup plus », R-QCM-25h « Validé, production »)**. **E85** (témoin et ronde 1, 32
+échantillons) : 6 + 29 variantes, 508 s et 3 552 s ; îlots 25 + 18 contrôles, 0 échec. **E86** (ronde 2) : 14 socles avec
+halo, 2 003 s ; foyers 14 sur 15 dans leur famille (âge 15 : saturation 0,17) ; plus grand foyer > 0,45 t² aux âges 10
+(0,75), 12 (0,64), 15 (1,53). **E87** (ronde 3, puis retouches légères A2) : 1 878 s ; kit 193 OK ; foyers 15 sur 15 ; D3
+de 33 à 83 % de la mitrailleuse ; niveau pair : F254. **E184** (production F2-B) : 29 variantes à 128 échantillons (ombre à
+32, D-7) en 7 094 s, par le verrou de rendu ; îlots 43 contrôles, 0 échec ; kit `--sprites` 193 OK ; foyers 15 sur 15 dans
+leur famille (âge 15 : plus grand foyer 0,9 t²) ; points blancs : la pièce paire de l'âge 3 passe de 14,8 (32 échantillons)
+à 23,7 par t² (128), seuil 13,2 : laiton des cerclages, du volant et des cornières passé en cuivre sombre, 0 point
+(20,7 après un premier essai qui gardait les cornières des patins) ; 44 puis 43 échecs « bloquants » restants de
+`mesures.py`, tous connus : pièce paire (14, F254) et charte des niveaux 2 à 30 (29 : le profil du four n'a AUCUNE cible, `profil.CIBLE` vide,
+comme en F2-A). Feuilles : 208 PNG,
+4,32 Mo. **E185** (intégration en jeu, version 0.4.30) : `f2-fours` 3 OK (30 fours posés, 30 en marche au tick 300,
+plaques produites), 40 captures REGARDÉES (`captures\flaque\`) ; nuit d'abord trop sombre (F277), corrigée par la
+flaque du moteur ; harness code 0 (Feuilles four : 208 fichiers, 0 manquant, 0 écart), levels_test 1 665 OK, api_lint
+1 102 ; plancher : F278 ; sur la branche 0.4.30 (`bancs-prod\`, `done.txt` 20:12:44 à 20:13:13) : content 331 OK,
+t2-machines 80 OK, gun-rose 13 OK (inchangé), migration d'une sauvegarde 0.4.28 avec ses 30 fours (double source
+`src-0.4.28`, création 0.4.28, benchmark 0.4.30) : `f2-fours` 3 OK (les 30 fours repris marchent).
+
 **E172, E173 · Lot IA1-b2, votre équipe défend d'abord (25/10 ; réponses du DC R-QCM-25, 25c et constat des PNJ qui attendent ;
 fusion `a3bf828`, version 0.4.29)** : défendre d'abord (tourelles au coffre puis à chaque avant-poste avant d'y travailler ;
 TOUTES les factions aussi, sans recaler les difficultés : l'ordre strict de pvp tient, ce qui le cassait était la croissance
