@@ -1,7 +1,8 @@
 -- Scénario greffé du lot A5-ESSAI (25/10) : MASQUE D'ÉQUIPE de la mitrailleuse sur de petites pièces, ESSAI sur les
 -- âges 3, 9 et 15, à 3 intensités. Sur une COPIE JETABLE du mod seulement (tools/autotest/a5/a5_masques.py jetable :
 -- prototypes a5-gun-eNN-iXX, copies des niveaux 5, 17 et 29 avec la couche de masque) ; sur le mod livré, les
--- prototypes d'essai manquent et le contrôle le dit (les témoins sont posés quand même).
+-- prototypes d'essai manquent : le niveau du mod est posé à TOUTES les places (session témoin, comparaison au pixel
+-- avec la session de la copie, mêmes positions, même sol).
 --   & "<racine>\fo-captures.bat" a5-equipe "<copie jetable>"
 -- Par âge, une grille de 3 rangées (forces) × 4 colonnes (TÉMOIN sans masque = le niveau du mod, puis intensités 25,
 -- 40 et 60 %), têtes orientées pareil (orientation écrite, sans cible, F122), munitions chargées (pas d'alerte).
@@ -50,18 +51,27 @@ return {
         game.forces[g].set_cease_fire(force, true)
       end
     end
+    -- premier passage (25/10, 3 h 50) : les 3 forces, ennemies par défaut, se tiraient dessus ; amies et cessez-le-feu
+    for _, f in ipairs(FORCES) do
+      for _, g in ipairs(FORCES) do
+        if f[1] ~= g[1] then
+          game.forces[f[1]].set_friend(g[1], true)
+          game.forces[f[1]].set_cease_fire(g[1], true)
+        end
+      end
+    end
     if not game.forces["fo-a5-sans"] then game.create_force("fo-a5-sans") end
     for i, A in ipairs(AGES) do
       local x0, y0 = origine(i)
       for r, f in ipairs(FORCES) do
         for c = 0, #INTENS do
           local nom = c == 0 and ("fo-lvl-gun-" .. A.n) or string.format("a5-gun-e%02d-i%02d", A.age, INTENS[c])
-          local t = nil
-          if game.entity_prototypes[nom] then
-            t = s.create_entity({ name = nom, position = { x0 + c * A.px, y0 + (r - 1) * A.py }, force = f[1] })
-          else
+          if not game.entity_prototypes[nom] then
+            -- mod livré (prototypes d'essai absents) : le niveau du mod à la même place, pour une comparaison au pixel
             manque[#manque + 1] = nom
+            nom = "fo-lvl-gun-" .. A.n
           end
+          local t = s.create_entity({ name = nom, position = { x0 + c * A.px, y0 + (r - 1) * A.py }, force = f[1] })
           if t then
             pcall(function() t.orientation = ORIENT end)
             pcall(function() t.insert({ name = "firearm-magazine", count = 10 }) end)
@@ -73,7 +83,9 @@ return {
     end
     local poses = 0
     for _, c in ipairs(st.sites) do if c.t then poses = poses + 1 end end
-    ctx.check(#manque == 0, "prototypes d'essai presents (copie jetable)", #manque == 0 and "36" or table.concat(manque, " "))
+    st.mode = #manque == 0 and "AVEC masque (copie jetable)" or "TEMOIN (prototypes d'essai absents : niveau du mod partout)"
+    ctx.log("mode : " .. st.mode .. (#manque > 0 and (" ; absents : " .. #manque) or ""))
+    ctx.check(#manque == 0 or #manque == 27, "prototypes d'essai tous presents ou tous absents", st.mode)
     ctx.check(poses == #st.sites, "tourelles posees (3 ages x 3 forces x 4)", poses .. " / " .. #st.sites)
   end,
 

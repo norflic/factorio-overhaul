@@ -71,6 +71,8 @@ def composer(a):
     os.makedirs(a.dest, exist_ok=True)
     rap = {"g0": a.g0, "intensites": intens, "choix": {str(k): v for k, v in CHOIX.items()}, "ages": {}}
     for e in sorted(CHOIX):
+        if a.ages and e not in AE.plage(a.ages):
+            continue
         de = os.path.join(a.rendu, "e%02d" % e)
         if not os.path.isdir(de):
             print("[A5-MASQUES] âge %d : pas de rendu, sauté" % e)
@@ -256,6 +258,92 @@ def jetable(a):
     return 0
 
 
+def apercu(a):
+    """Aperçu HORS JEU (contrôle de forme seulement, pas une preuve) : masque composé sur la tête de la feuille, teinte
+    simulée par la règle du masque (sortie = base × (1 − α) + α × gris × teinte, couleur de force d'alpha 1)."""
+    rap = json.load(open(os.path.join(a.masques, "equipe.json"), encoding="utf-8"))
+    teintes = [(1.0, 1.0, 1.0)] + [tuple(float(v) for v in t.split("/")) for t in a.teintes.split(",")]
+    lignes = []
+    for e, A in sorted(rap["ages"].items(), key=lambda kv: int(kv[0])):
+        T = A["tete"]["def"]["hr"]
+        W, H, ll = T["width"], T["height"], T["line_length"]
+        base = np.asarray(Image.open(os.path.join(MOD, "graphics", "levels", "gun", os.path.basename(T["filename"])))
+                          ).astype(np.float64) / 255.0
+        for K in AE.plage(a.dirs):
+            r0, c0 = (K // ll) * H, (K % ll) * W
+            b = base[r0:r0 + H, c0:c0 + W]
+            cases = []
+            for it, I in [("0", None)] + sorted(A["intensites"].items(), key=lambda kv: int(kv[0])):
+                m = None
+                if I is not None:
+                    m = np.asarray(Image.open(os.path.join(a.masques, I["hr"]["fichier"]))).astype(np.float64)[
+                        r0:r0 + H, c0:c0 + W] / 255.0
+                for t in (teintes[1:] if I is not None else teintes[:1]):
+                    rgb = b[..., :3].copy()
+                    if m is not None:
+                        al = m[..., 3:4]
+                        rgb = rgb * (1 - al) + al * m[..., :3] * np.array(t)
+                    img = np.concatenate([rgb, b[..., 3:4]], -1)
+                    case = Image.new("RGBA", (W, H), (70, 74, 66, 255))
+                    case.alpha_composite(Image.fromarray(u8(img), "RGBA"))
+                    cases.append(case)
+            ligne = Image.new("RGBA", (len(cases) * W, H), (0, 0, 0, 255))
+            for k, c in enumerate(cases):
+                ligne.alpha_composite(c, (k * W, 0))
+            k = min(1.0, float(a.largeur) / ligne.size[0])
+            lignes.append(ligne.resize((int(ligne.size[0] * k), int(ligne.size[1] * k)), Image.LANCZOS) if k < 1 else ligne)
+    Wt = max(l.size[0] for l in lignes)
+    out = Image.new("RGBA", (Wt, sum(l.size[1] for l in lignes)), (0, 0, 0, 255))
+    y = 0
+    for l in lignes:
+        out.alpha_composite(l, (0, y))
+        y += l.size[1]
+    out.convert("RGB").save(a.out, optimize=True)
+    print("[A5-APERCU] %s : %d × %d" % (a.out, out.size[0], out.size[1]))
+    return 0
+
+
+def cout(a):
+    """Coût ESTIMÉ du masque aux 15 âges : boîtes d'alpha de la tête de chaque âge (feuilles actuelles, 64 directions)
+    × la part mesurée (boîtes du masque / boîtes de la tête) sur les âges essayés ; rangement F187 (× 1,19 en haute,
+    × 1,44 en normale). Une estimation, pas une mesure du moteur."""
+    rap = json.load(open(os.path.join(a.masques, "equipe.json"), encoding="utf-8"))
+    sp = json.load(open(os.path.join(MOD, "graphics", "levels", "gun", "sprites.json"), encoding="utf-8"))
+    tete = {}
+    for e in range(2, 16):
+        T = sp["ages"][str(e)]["tete"]["main"]
+        r = {}
+        for q in ("hr", "lr"):
+            d = T[q]
+            im = np.asarray(Image.open(os.path.join(MOD, "graphics", "levels", "gun", os.path.basename(d["filename"]))))
+            r[q] = boites(im[..., 3], d["width"], d["height"], d["line_length"], d["direction_count"])
+        tete[e] = r
+    th = sum(v["hr"] for v in tete.values())
+    tl = sum(v["lr"] for v in tete.values())
+    lignes = ["Têtes, couche principale, 15 âges (2 à 15) à 64 directions : boîtes d'alpha hr %.2f Mpx, normale %.2f Mpx"
+              % (th / 1e6, tl / 1e6)]
+    parts = {}
+    for e, A in sorted(rap["ages"].items(), key=lambda kv: int(kv[0])):
+        I = list(A["intensites"].values())[0]
+        ph = I["hr"]["boites_alpha_px"] / float(A["tete"]["hr"]["boites_alpha_px"])
+        pl = I["lr"]["boites_alpha_px"] / float(A["tete"]["lr"]["boites_alpha_px"])
+        parts[e] = (ph, pl)
+        seul = {g: v / float(A["tete"]["hr"]["boites_alpha_px"]) for g, v in A["boites_par_piece_hr"].items()}
+        lignes.append("âge %s (%s) : boîtes du masque / boîtes de la tête : hr %.1f %%, normale %.1f %% ; une pièce seule (hr) : %s"
+                      % (e, "+".join(A["pieces"]), 100 * ph, 100 * pl,
+                         ", ".join("%s %.1f %%" % (g, 100 * v) for g, v in sorted(seul.items()))))
+    for nom, sel in (("bas (part la plus faible mesurée)", min), ("haut (part la plus forte mesurée)", max)):
+        ph = sel(p[0] for p in parts.values())
+        pl = sel(p[1] for p in parts.values())
+        lignes.append("15 âges, %s : hr %.1f à %.1f Mpx (× 1,10 à 1,19), normale %.1f Mpx (× 1,44, F187)"
+                      % (nom, th * ph * 1.10 / 1e6, th * ph * 1.19 / 1e6, tl * pl * 1.44 / 1e6))
+    txt = "\n".join(lignes)
+    print(txt)
+    with open(os.path.join(a.masques, "cout-15-ages.txt"), "w", encoding="utf-8") as f:
+        f.write(txt + "\n")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -264,11 +352,20 @@ def main():
     c.add_argument("--dest", required=True)
     c.add_argument("--intensites", default="25,40,60")
     c.add_argument("--g0", type=float, default=0.85)
+    c.add_argument("--ages", default="")
     j = sub.add_parser("jetable")
     j.add_argument("--masques", required=True)
     j.add_argument("--dest", required=True)
+    p = sub.add_parser("apercu")
+    p.add_argument("--masques", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--dirs", default="24")
+    p.add_argument("--teintes", default="0.85/0.18/0.16,0.20/0.45/0.95")
+    p.add_argument("--largeur", type=int, default=2400)
+    k = sub.add_parser("cout")
+    k.add_argument("--masques", required=True)
     a = ap.parse_args()
-    return {"composer": composer, "jetable": jetable}[a.cmd](a)
+    return {"composer": composer, "jetable": jetable, "apercu": apercu, "cout": cout}[a.cmd](a)
 
 
 if __name__ == "__main__":
