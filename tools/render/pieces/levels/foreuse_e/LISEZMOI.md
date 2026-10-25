@@ -8,7 +8,7 @@ Suit le gabarit de `../commun/LISEZMOI.md` (« Faire une nouvelle famille ») ; 
 |---|---|---|
 | `cotes.py` | cotes de la lignée par taille (3 à 6), points de jeu (sortie du minerai, raccords, rayon d'extraction : règle de `shared/levels/points.lua`) | non |
 | `epoques.py` | registre et CONTRAT des fichiers d'âge, emprise `COTE`, directions et angles, triplets « en 3 mots » `TRIPLETS` | non |
-| `corps.py` | corps de lignée (tablier, montants, puits, goulotte et flèche, moteur, raccords, trépan, tour du témoin), repère des tuiles tourné (`repere`), outils de forme | oui |
+| `corps.py` | corps de lignée (tablier carré, rond ou octogonal selon `forme_tablier`, montants, puits, goulotte et flèche, moteur, raccords, trépan, tour du témoin, garniture de petits accessoires sur les zones libres), repère des tuiles tourné (`repere`), outils de forme | oui |
 | `piece.py` | variantes `e01-piece`, `eNN-N|E|S|O` (corps tourné), `eNN-piece` (pièce paire, une pour 4 directions), témoin `kS-…` ; préfixe « fore » | oui (build) |
 | `profil.py` | profil des outils communs (contrat `commun/famille.py`) ; vanilla `electric-mining-drill` lu dans le dump du lot | non |
 | `rendre.py`, `batch_blender.py` | COPIES de `laser_e` (rendu par paquets sous le verrou, post-traitement) ; noms `hr-fore-…`, toutes les passes | oui (batch) |
