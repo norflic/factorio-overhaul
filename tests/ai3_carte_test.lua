@@ -37,6 +37,10 @@ do
   check(#again == 1 and again[1] == "coal", "2e regard : seule la ressource nouvelle est rendue")
   check(K.seen(m, key(1, 2)) == 500 and K.first_seen(m, key(1, 2)) == 100 and m.n == 1, "2e regard : date mise à jour, 1er gardé")
   check(m.found["iron-ore"] == 100 and m.found["coal"] == 500, "premier gisement vu, par ressource")
+  check(K.count(m, "iron-ore") == 1 and K.count(m, "coal") == 1 and K.count(m, "crude-oil") == 0, "compte des secteurs à gisement")
+  K.record(m, key(2, 2), 600, { res = { { name = "iron-ore", n = 10, a = 1, x = 150, y = 150 } } })
+  K.record(m, key(2, 2), 700, { res = {} })
+  check(K.count(m, "iron-ore") == 1, "gisement épuisé (disparu au regard suivant) : compte rendu")
   check(K.due(m, key(1, 2), 600, 3600) == false and K.due(m, key(1, 2), 4100, 3600) and K.due(m, key(5, 5), 0, 3600),
     "regard dû : jamais vu, ou trop ancien")
   check(m.s[key(1, 2)].sp == nil, "nids : le dernier regard fait foi (le nid détruit disparaît)")
