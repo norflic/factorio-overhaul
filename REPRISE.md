@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 2 h 10 (heure d'hiver ; passage à 3 h → 2 h cette nuit : les `done.txt` de 2 h à 3 h se répètent)** :
+> fusionnés et prouvés : IA2-a et IA2-a2 (0.4.20, chef adaptatif, guerres rééquilibrées), X1 (0.4.21, titane de l'âge
+> 11 ; premier agent bloqué 2 h 30, arrêté, fini par un second). En cours : MOD-2 (recettes par lots), IA2-b (expansion
+> par la carte). Disque : 43 journaux `benchmark-stdout.txt` et `create-stdout.txt` des archives compressés sans perte
+> (gzip), 3,3 → 4,0 Go libres. Ensuite : modules au design distinct, styles de minerais, F1-B.
 > **Point de 0 h 45 (nuit)** : IA2-a (chef adaptatif v0) livré sur sa branche (`06e75c5`, worktree agent-a4454e244020a1012) ;
 > variété nettement meilleure (côtés 0 → 1,31 bit, tailles 0,21 → 0,38, le bâtisseur attaque), garde-fous tenus (pvp 1 037,
 > 0 échec), MAIS 3 factions anéanties sur 16 en 2 h (1 avant), une dès 25 min : NON fusionné. Correction IA2-a2 lancée
