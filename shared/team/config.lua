@@ -123,8 +123,11 @@ T.guard_ticks = 3600
 function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))) end
 -- R-QCM-25c (c) « Donner du travail » : le minage de fond de votre équipe se fait PRÈS DU COFFRE (rayon, tuiles ;
 -- 27 PNJ tués à 74 tuiles en minant au fond, protocole 30 contre 10) ; transport = tournée de fond d'un avant-poste qui a
--- au moins T.transport_min objets à rapporter ; sans tourelle possible, seulement à moins de T.transport_near tuiles.
-T.near_mine = 64 -- 40 à l'essai 6 : aucun minerai dans ce rayon sur la carte d'ia1-poles (occupation 36,7 %)
+-- au moins T.transport_min objets à rapporter (ni meurtrier non défendu, ni pendant la prudence). T.transport_near : limite
+-- essayée sans tourelle (essai 7), retirée (ctx.transport_d2 reste pour les bancs hors jeu).
+-- Rayon gardé à 96 (celui d'IA1-b) : 40 tuiles (essai 6) et 64 (essai 7) ne trouvaient presque rien à miner sur la carte
+-- d'ia1-poles (équipe occupée 36,7 % et 50,7 %) ; la tuile reste à plus de 40 tuiles d'un nid ou d'un ver.
+T.near_mine = 96
 -- Croissance de votre équipe : seulement en gardant ce fer au coffre (munitions, tourelles, recrues de survie).
 T.grow_iron_reserve = 400
 T.transport_min = 10

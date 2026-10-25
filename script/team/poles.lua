@@ -317,7 +317,9 @@ function Poles.think(f, view, book, tick, plan)
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
-      transport = player or nil, transport_d2 = (player and not turrets_ok) and T.transport_near * T.transport_near or nil,
+      -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
+      -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
+      transport = player or nil,
       mine_radius = player and T.near_mine or nil })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
