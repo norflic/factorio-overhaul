@@ -576,6 +576,109 @@ def _bonbonne(g, c, x, y, rng):
     g.torus((x, y, c.zt + h + 0.09), "z", 0.04, 0.008, c.m("redpaint"), n=10, m=4, what="volant")
 
 
+# --- machines SATELLITES (ronde F4-A2 : « plus de détails et de VOLUME partout », densité de la mitrailleuse) : 1 à 4
+# machines plus volumineuses (0,6 à 0,9 t) posées sur les plus grandes zones libres, aux matières habillées de l'âge
+def _reservoir(g, c, x, y, rng):
+    L, r = 0.62, 0.19
+    z = c.zt + r + 0.09
+    ax = (1, 0, 0)
+    g.cyl((x, y, z), ax, r, L, c.m("ochre"), n=20, what="reservoir")
+    for s in (-1, 1):
+        g.sphere((x + s * L / 2, y, z), r, c.m("ochre"), n=16, m=8, scale=(0.45, 1, 1), what="fond")
+        g.box((x + s * L * 0.3, y, c.zt + 0.05), (0.08, r * 1.7, 0.1), c.m("steel_dk"), "hard", what="berceau")
+    for t in (-0.32, 0.0, 0.32):
+        g.tube_shell((x + t * L, y, z), ax, r * 1.06, r * 0.96, 0.035, c.m("steel_dk"), n=20, what="cercle")
+    colonne(g, x - 0.12, y, z + r - 0.02, z + r + 0.12, 0.03, c.m("steel"), n=8, what="piquage")
+    g.torus((x - 0.12, y, z + r + 0.13), "z", 0.055, 0.012, c.m("redpaint"), n=12, m=4, what="volant")
+    g.cyl((x + 0.14, y - r * 0.75, z + r * 0.62), (0, -1, 0.8), 0.045, 0.02, g.M["dial"], n=12, what="manometre")
+    g.pipe([(x + L / 2 + 0.05, y, z - 0.05), (x + L / 2 + 0.16, y, z - 0.05), (x + L / 2 + 0.16, y, c.zt + 0.04)],
+           0.03, c.m("steel"), fl_mat=c.m("steel_dk"), bolt_mat=None, what="soutirage")
+
+
+def _pompe(g, c, x, y, rng):
+    z = c.zt
+    g.box((x, y, z + 0.04), (0.72, 0.36, 0.08), c.m("steel_dk"), "hard", what="chassis")
+    rr = 0.12
+    g.cyl((x - 0.15, y, z + 0.08 + rr), "x", rr, 0.34, c.m("olive"), n=16, what="moteur")
+    for i in range(5):
+        g.tube_shell((x - 0.29 + 0.07 * i, y, z + 0.08 + rr), "x", rr * 1.12, rr * 0.9, 0.014, c.m("steel"), n=16,
+                     what="ailette")
+    g.cyl((x + 0.08, y, z + 0.08 + rr), "x", 0.04, 0.12, c.m("steel_hi"), n=8, what="accouplement")
+    g.sphere((x + 0.22, y, z + 0.08 + rr), 0.14, c.m("ochre"), n=16, m=8, what="volute")
+    g.pipe([(x + 0.22, y, z + 0.08 + 2 * rr + 0.02), (x + 0.22, y, z + 0.5), (x + 0.36, y, z + 0.5)], 0.035,
+           c.m("steel"), fl_mat=c.m("steel_dk"), bolt_mat=c.m("rivet"), what="refoulement")
+    g.box((x - 0.15, y + rr + 0.02, z + 0.08 + rr * 1.6), (0.12, 0.06, 0.1), c.m("ochre"), "hard", what="bornes")
+
+
+def _radiateur(g, c, x, y, rng):
+    z = c.zt
+    w, p, h = 0.6, 0.34, 0.4
+    g.box((x, y, z + h / 2), (w, p, h), c.m("steel_dk"), "hard", what="radiateur")
+    q = [V((x - w * 0.44, y - p / 2 - 0.003, z + h * 0.12)), V((x + w * 0.44, y - p / 2 - 0.003, z + h * 0.12)),
+         V((x + w * 0.44, y - p / 2 - 0.003, z + h * 0.9)), V((x - w * 0.44, y - p / 2 - 0.003, z + h * 0.9))]
+    g.grille(q, 6, depth=0.014, slat_mat=c.m("steel"))
+    for s in (-1, 1):
+        colonne(g, x + s * w * 0.25, y, z + h, z + h + 0.03, 0.12, c.m("olive"), n=16, what="buse")
+        colonne(g, x + s * w * 0.25, y, z + h + 0.03, z + h + 0.045, 0.03, c.m("steel_hi"), n=8, what="moyeu")
+        for k in range(4):
+            a = TAU * k / 4 + 0.4
+            poutre(g, (x + s * w * 0.25, y, z + h + 0.04), (x + s * w * 0.25 + 0.1 * math.cos(a),
+                                                             y + 0.1 * math.sin(a), z + h + 0.05), 0.04,
+                   c.m("steel"), "pale", h=0.01)
+    g.pipe([(x - w / 2 - 0.02, y + 0.06, z + h * 0.7), (x - w / 2 - 0.14, y + 0.06, z + h * 0.7),
+            (x - w / 2 - 0.14, y + 0.06, z + 0.04)], 0.03, c.m("steel"), fl_mat=None, bolt_mat=None, flanges=False,
+           what="retour")
+
+
+def _armoire_haute(g, c, x, y, rng):
+    z = c.zt
+    w, p, h = 0.46, 0.26, 0.62
+    g.box((x, y, z + h / 2), (w, p, h), c.m("olive"), "hard", what="armoire_haute")
+    g.box((x, y, z + h + 0.02), (w + 0.04, p + 0.04, 0.04), c.m("steel_dk"), "hard", what="toit")
+    for s in (-1, 1):
+        g.box((x + s * w * 0.24, y - p / 2 - 0.006, z + h * 0.5), (w * 0.44, 0.012, h * 0.86), c.m("ochre"), "hard",
+              what="porte")
+        g.box((x + s * w * 0.06, y - p / 2 - 0.016, z + h * 0.5), (0.02, 0.012, 0.08), c.m("steel_hi"), "hard",
+              what="poignee")
+    for i in range(3):
+        g.box((x - w * 0.3 + 0.07 * i, y - p / 2 - 0.016, z + h * 0.85), (0.035, 0.01, 0.03), g.M["emit"], "flat",
+              what="voyant")
+    g.cable((x + w * 0.3, y + p / 2, z + h * 0.8), (x + w * 0.5, y + p / 2 + 0.2, z + 0.03), 0.03, 0.018,
+            g.M["redcable"])
+
+
+SATELLITES = (_reservoir, _pompe, _radiateur, _armoire_haute)
+RAYON_SAT = {_reservoir: 0.42, _pompe: 0.4, _radiateur: 0.36, _armoire_haute: 0.3}
+
+
+def satellites(g, c, n):
+    """Pose jusqu'à n machines satellites sur les zones libres, des plus loin de la tour aux plus près."""
+    import random
+    rng = random.Random(7000 + 31 * c.e + c.side)
+    ordre = list(SATELLITES)
+    rng.shuffle(ordre)
+    cand = []
+    pas = 0.2
+    m = int(c.dd / pas)
+    for i in range(-m, m + 1):
+        for j in range(-m, m + 1):
+            x, y = i * pas, j * pas
+            cand.append((-round(math.hypot(x, y), 3), x, y))
+    cand.sort()
+    poses = 0
+    for f in ordre * 2:
+        if poses >= n:
+            break
+        r = RAYON_SAT[f]
+        for (_, x, y) in cand:
+            if _libre(c, x, y, r):
+                f(g, c, x, y, rng)
+                c.occupe.append((x - r, y - r, x + r, y + r))
+                poses += 1
+                break
+    return poses
+
+
 PROPS = (_caisse, _fut, _armoire, _bobine, _trappe, _bonbonne)
 RAYON_PROP = {_caisse: 0.2, _fut: 0.14, _armoire: 0.19, _bobine: 0.15, _trappe: 0.22, _bonbonne: 0.1}
 
@@ -726,9 +829,11 @@ def chemins_de_cables(g, c):
                 if bord == "S":
                     g.box(((s0 + s1) / 2, -d + 0.14, c.zt + 0.02), (s1 - s0, 0.14, 0.04), c.m("steel_dk"), "hard",
                           what="chemin")
+                    c.occupe.append((s0, -d, s1, -d + 0.24))
                 else:
                     g.box((-d + 0.14, (s0 + s1) / 2, c.zt + 0.02), (0.14, s1 - s0, 0.04), c.m("steel_dk"), "hard",
                           what="chemin")
+                    c.occupe.append((-d, s0, -d + 0.24, s1))
 
 
 # ------------------------------------------------------------------------------------------------
@@ -754,6 +859,8 @@ def corps(g, c):
         if hasattr(c.ep, "socle"):
             c.ep.socle(g, c)
         chemins_de_cables(g, c)
+        nsat = getattr(c.ep, "SATELLITES", {3: 1, 4: 2, 5: 3, 6: 4}[c.side])
+        c.n_satellites = satellites(g, c, int(nsat))
         if getattr(c.ep, "GARNITURE", True):
             c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.85)))
 
