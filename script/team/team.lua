@@ -19,6 +19,7 @@ local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
 local Valeur = require("shared.faction.valeur") -- lot IA2-b : éventail des gisements de départ
 local Tr = require("shared.faction.traits")
+local Rch = require("shared.ai3.recherche") -- lot IA3-a : penchant recherche contre armée (caractère, chef)
 local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
@@ -379,6 +380,10 @@ function Team.view(f, tick)
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
+    -- Lot IA3-a : « recherche d'abord » (réglage figé par l'équipe, Team.think) et penchant recherche contre armée
+    -- (traits d'IA2-0, postures du chef d'IA2-a ; shared/ai3/recherche.lua).
+    ia3_research = f.team.ia3_research or nil,
+    research_lean = f.team.ia3_research and Rch.lean(f.traits, f.chef and f.chef.mix, ChefRules.AFFINITY) or nil,
   }
 end
 
@@ -408,12 +413,42 @@ end
 function Team.think(f, surface, tick)
   if not f.team then return nil end
   Trace.log("team", f.key, #State.sorted_keys(f.outposts))
+  -- Lot IA3-a : le réglage fo-war-ia3-recherche est FIGÉ par chaque équipe de faction à sa première pensée (fondation,
+  -- ou première pensée après le chargement d'une partie d'avant le lot) : le changer en cours de partie ne touche que
+  -- les équipes qui n'ont pas encore pensé. Réglage synchronisé (runtime-global) : même valeur chez tous les pairs.
+  if f.team.ia3_research == nil and not f.is_player then
+    local s = settings.global["fo-war-ia3-recherche"]
+    f.team.ia3_research = (s and s.value) and true or false
+    if f.team.ia3_research then
+      log(string.format("[FO-TEAM] %s : essai IA3-a recherche d'abord allume (penchant %d)", f.key,
+        Rch.lean(f.traits, f.chef and f.chef.mix, ChefRules.AFFINITY)))
+    end
+  end
   Profiler.start("team:view")
   local view = Team.view(f, tick)
   Profiler.stop("team:view")
   Profiler.start("team:plan")
   local plan = Planner.plan(view, book_for(f))
   Profiler.stop("team:plan")
+  -- Lot IA3-a : journal au CHANGEMENT de la décision de recherche (niveau impayable et ses causes ; priorité et place
+  -- avant ou après l'armée), pour les mesures (tools/autotest/ia3a_compare.py) ; rien quand la règle n'est pas allumée.
+  local rr = plan.research_rule
+  if rr then
+    local held = rr.held == "impayable" and (rr.level .. ":" .. table.concat(rr.causes, ",")) or nil
+    if held ~= f.team.ia3_held then
+      f.team.ia3_held = held
+      if held then
+        log(string.format("[FO-TEAM] %s : recherche niveau %d impayable (%s) : aucun pack fabrique", f.key, rr.level,
+          table.concat(rr.causes, ", ")))
+      end
+    end
+    local p = (rr.prio or 0) * 10 + (rr.first and 1 or 0)
+    if p ~= f.team.ia3_prio then
+      f.team.ia3_prio = p
+      log(string.format("[FO-TEAM] %s : recherche niveau %d priorite %d%s a %.1f min", f.key, rr.level, rr.prio or 0,
+        rr.first and " (avant l'armee)" or "", (tick - (f.started or State.war().started)) / 3600))
+    end
+  end
 
   for _, key in ipairs(plan.reached) do
     if not f.team.done[key] then

@@ -15,7 +15,11 @@
     3. garde de l'économie (revue B3) : avant le fer II, jamais au-dessus de la fabrication d'objectif (50) ; le plancher
        de l'avant-poste suivant n'est jamais entamé ; quand la recherche est l'objectif, au moins 50 ;
     4. demandes dès le départ (niveau 0 → 1, sans verrou « tech1 »), au plus 30 par sorte ;
-    5. généricité (aucun nom de pack dans le module) et déterminisme.
+    5. généricité (aucun nom de pack dans le module) et déterminisme ;
+    6. lot IA3-a : BRANCHEMENT dans le planificateur (view.ia3_research) : packs dès l'objectif « défense », réglage
+       éteint = règle d'avant, niveau 4 sans aucun pack (témoin éteint : défaut C1), paiement, objectif « tech1 » à 50
+       au moins, plancher (packs réduits, manque de fer compté), ordre du stock virtuel selon le caractère (neutre :
+       packs avant l'armée ; conquérant : l'armée d'abord), déterminisme.
 
   Usage : lua5.2 tests/ai3_recherche_test.lua   (depuis la racine du mod)
 ]]
@@ -153,6 +157,96 @@ do
     return table.concat(p, ",")
   end
   check(ser(A.plan(args)) == ser(A.plan(args)), "déterminisme : même décision deux fois")
+end
+
+-- 6. Lot IA3-a : BRANCHEMENT dans le planificateur (shared/team/planner.lua, view.ia3_research). Vue de faction minimale
+-- (coffre de départ ou coffre riche), livre de la faction à son niveau.
+local P = require("shared.team.planner")
+local S = require("shared.team.scale")
+local function upto(key, extra)
+  local d = {}
+  for _, g in ipairs(T.ladder) do
+    d[g.key] = true
+    if g.key == key then break end
+  end
+  for _, k in ipairs(extra or {}) do d[k] = true end
+  return d
+end
+local function fview(over)
+  local v = {
+    tech = 0, personality = "balanced", done = upto("stone"), deferred = {}, stock = kit_stock(), incoming = {},
+    outposts = {}, pending = {}, sites = {}, smelters = 2, smelters_pending = 0, smelter_task = true, smelter_output = 0,
+    smelter_fuel_low = false, smelter_coal = 0, turret_groups = {}, soldiers = 10, soldiers_max = 30, workers = 4,
+    workers_max = 4, workers_idle = 0, workers_wanted = 4, threatened = false, open = {}, ladder = T.ladder,
+    no_research = false, ia3_research = true, research_lean = 0,
+  }
+  for k, x in pairs(over or {}) do v[k] = x end
+  if v.recruit_cost == nil then v.recruit_cost = S.recruit_cost(v.workers) end
+  return v
+end
+local function tagged(plan, tag)
+  local n, prio = 0, nil
+  for _, t in ipairs(plan.tasks) do
+    if t.kind == "craft" and t.tag == tag then n = n + 1; prio = prio or t.prio end
+  end
+  return n, prio
+end
+local rich = { ["iron-plate"] = 5000, ["copper-plate"] = 5000, coal = 2000, stone = 2000, ["stone-brick"] = 500,
+  ["steel-plate"] = 500, ["firearm-magazine"] = 200 }
+do
+  -- a) Dès le départ (objectif « défense », niveau 0) : packs rouges commandés, priorité du caractère (neutre 46).
+  local v = fview()
+  local p = P.plan(v, book_at(0))
+  local n, prio = tagged(p, "recherche")
+  check(n > 0 and prio == A.priority(0, { economy_done = false }),
+    string.format("branché : packs commandés dès l'objectif « défense » (%d tâches, priorité %s)", n, tostring(prio)))
+  v.ia3_research = nil
+  check(tagged(P.plan(v, book_at(0)), "recherche") == 0, "réglage éteint : règle d'avant (aucun pack avant « tech1 »)")
+  -- b) Niveau 4 impayable (pack chimique) : AUCUN pack, même riche ; la règle d'avant en fabriquait (défaut C1).
+  local v4 = fview({ tech = 3, done = upto("tech3"), stock = rich, soldiers = 30 })
+  local p4 = P.plan(v4, book_at(3))
+  check(tagged(p4, "recherche") == 0 and p4.research_rule and p4.research_rule.held == "impayable",
+    "niveau 4 impayable : aucun pack commandé, décision « impayable » rendue")
+  v4.ia3_research = nil
+  check(tagged(P.plan(v4, book_at(3)), "recherche") > 0, "témoin : réglage éteint, les packs du niveau 4 sont commandés (défaut C1)")
+  -- c) Packs au stock : le niveau se paie.
+  local pr = P.plan(fview({ stock = { ["automation-science-pack"] = 30, ["iron-plate"] = 200 } }), book_at(0))
+  check(pr.research == 1, "packs du niveau 1 au stock : recherche payée (out.research = 1)")
+  -- d) La recherche est l'objectif (« tech1 ») : priorité 50 au moins.
+  local pg = P.plan(fview({ done = upto("iron2", { "coal", "iron", "copper", "stone" }), stock = rich,
+    outposts = { { id = 1, kind = "iron", drills = 16, full = false, turrets = 1, coal_needed = 0, fuel_low = false,
+      output = 0, idle_ticks = 0, has_task = true, has_fortify = false } } }), book_at(0))
+  local _, gprio = tagged(pg, "recherche")
+  check(pg.goal == "tech1" and (gprio or 0) >= 50, string.format("objectif « tech1 » : priorité %s (au moins 50)", tostring(gprio)))
+  -- e) Plancher de l'économie : 100 fer, plancher d'un avant-poste de fer ; packs réduits, manque compté (fonte).
+  local pf = P.plan(fview({ done = upto("army"), stock = { ["iron-plate"] = 100, ["copper-plate"] = 100 } }), book_at(0))
+  local rr = pf.research_rule or {}
+  local nf = 0
+  for _, t in ipairs(pf.tasks) do if t.tag == "recherche" then nf = nf + (t.count or 0) end end
+  check(rr.capped and (rr.floor_iron or 0) > 0 and nf * 2 <= 100 - rr.floor_iron and (pf.smelt["iron-plate"] or 0) > 0,
+    string.format("plancher : %d packs rouges sur 30 (plancher %s fer), manque de fer compté (fonte %s)", nf,
+      tostring(rr.floor_iron), tostring(pf.smelt["iron-plate"])))
+  -- f) Ordre du stock virtuel = ordre des priorités : 260 fer, un lot de 5 fusiliers en coûte 250 (mitraillette 30,
+  -- 5 chargeurs 20), 30 packs rouges 60 : fer pour UN seul des deux. Neutre (46) :
+  -- les packs d'abord ; conquérant (42) : l'armée d'abord. Objectif « fonderie » (pas la recherche), avant-postes de
+  -- fer de l'échelle faits (pas de plancher) ; soldats sous la cible.
+  local all = upto("tech1", { "iron3", "iron4", "expand" })
+  local function ordered(lean)
+    local p = P.plan(fview({ tech = 0, done = all, soldiers = 0, research_lean = lean,
+      stock = { ["iron-plate"] = 260, ["copper-plate"] = 100, ["firearm-magazine"] = 0 } }), book_at(0))
+    local packs = 0
+    for _, t in ipairs(p.tasks) do if t.tag == "recherche" then packs = packs + (t.count or 0) end end
+    return packs, tagged(p, "armee"), p.research_rule or {}
+  end
+  local rn, an, rrn = ordered(0)
+  local rc, ac, rrc = ordered(-1000)
+  check(rrn.first and rn == 30, string.format("neutre (%s) : packs servis avant l'armée (%d packs sur 30, %d tâches d'armée)", tostring(rrn.prio), rn, an))
+  check(not rrc.first and ac > 0 and rc < 30, string.format("conquérant (%s) : armée servie d'abord (%d tâches d'armée, %d packs sur 30)", tostring(rrc.prio), ac, rc))
+  -- g) Déterminisme du plan branché.
+  local s1, s2 = {}, {}
+  for _, t in ipairs(P.plan(fview(), book_at(0)).tasks) do s1[#s1 + 1] = t.key .. "@" .. t.prio .. "x" .. tostring(t.count) end
+  for _, t in ipairs(P.plan(fview(), book_at(0)).tasks) do s2[#s2 + 1] = t.key .. "@" .. t.prio .. "x" .. tostring(t.count) end
+  check(table.concat(s1, ";") == table.concat(s2, ";"), "déterminisme : même plan branché deux fois")
 end
 
 print(string.format("[AI3-RECHERCHE] BILAN : %d OK, %d ECHEC(S)", pass, fail))

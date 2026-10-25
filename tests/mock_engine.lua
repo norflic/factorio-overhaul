@@ -675,6 +675,9 @@ function M.new_world(opts)
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
       ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
+      -- lot IA3-a : « recherche d'abord » (éteint par défaut ; FO_IA3_RECHERCHE=1 l'allume pour rejouer les bancs hors
+      -- jeu bascule allumée, opts.ia3_research pour un test)
+      ["fo-war-ia3-recherche"] = opts.ia3_research or os.getenv("FO_IA3_RECHERCHE") == "1",
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

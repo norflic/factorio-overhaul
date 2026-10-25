@@ -20,13 +20,17 @@
     turret_groups = { { key, low, has_task }, ... },
     soldiers, soldiers_max, workers, workers_max, threatened,
     open = { [clé de tâche] = true },                       -- tâches en cours (affectées)
+    ia3_research = bool, research_lean = n,                 -- lot IA3-a : recherche d'abord, penchant du caractère
   }
 
   Priorités : 95 ravitaillement urgent > 90 munitions des tourelles > 80 objectif (pose) > 70 entretien >
   60 fonderie > 55 ouvriers > 50 objectif (fabrication) > 45 armée > 40 recherche > 30 minage d'appoint.
+  Lot IA3-a (view.ia3_research) : recherche de 36 à 56 selon le caractère (49 au plus avant le fer II, 50 au moins
+  quand elle est l'objectif), dès le départ ; out.research_rule = décision de la règle (journal, mesures).
 ]]
 
 local T = require("shared.team.config")
+local Rch = require("shared.ai3.recherche") -- lot IA3-a : recherche d'abord, rien d'impayable (view.ia3_research)
 
 local P = {}
 
@@ -770,6 +774,73 @@ function P.plan(view, book)
     end
   end
 
+  ---------------------------------------------------------------------------------------------------
+  -- Lot IA3-a « recherche d'abord, rien d'impayable » (docs/IA3_CERVEAU.md §6.2 ; règle pure shared/ai3/recherche.lua),
+  -- seulement si view.ia3_research (réglage fo-war-ia3-recherche, figé par équipe de faction) ; sinon, règle d'avant
+  -- (plus bas). Ce que le branchement décide ici, et que la règle pure ne peut pas savoir :
+  --  - ORDRE DU STOCK VIRTUEL = ordre des priorités : les packs puisent dans le stock virtuel AVANT l'armée quand leur
+  --    priorité (caractère) dépasse celle de l'armée (45, 85 menacée) et que l'armée n'est pas l'objectif ; sinon après.
+  --    Toujours APRÈS l'objectif courant (section 2), l'entretien, la défense et les recrues (garde de l'économie, B3) ;
+  --  - PLANCHER : matières premières d'UN avant-poste de fer (T.outposts.iron), tant qu'une marche de l'échelle demande
+  --    encore des avant-postes de fer (« le prochain avant-poste de fer de l'échelle ») ;
+  --  - le manque de matières des packs retenus par le plancher est quand même compté (raw_short) : comme avant, il fait
+  --    fondre, miner et agrandir l'avant-poste de fer (goulot à 120) ; seuls les packs ne sont pas commandés.
+  ---------------------------------------------------------------------------------------------------
+  local next_tech = view.tech + 1
+  local ia3 = view.ia3_research and not view.no_research or false
+  local army_prio = view.threatened and 85 or 45
+  local economy_done = done["iron2"] or false
+  local rch_prio = ia3 and Rch.priority(view.research_lean or 0, { economy_done = economy_done, is_goal = research_now }) or 0
+  local rch_first = ia3 and not army_now and rch_prio > army_prio
+  local function research_floor()
+    for _, g in ipairs(ladder) do
+      if not done[g.key] and g.need.outposts and g.need.outposts.iron then
+        return book:raw_cost(outpost_items("iron"))
+      end
+    end
+    return nil
+  end
+  local function research_ia3()
+    local floor = research_floor()
+    local d = Rch.plan({ tech = view.tech, levels = T.research, stock = view.stock, book = book,
+      obtainable = function(item) return SOURCE[item] ~= nil end, avail = avail, floor = floor,
+      economy_done = economy_done, is_goal = research_now, lean = view.research_lean or 0 })
+    out.research_rule = { level = d.level, held = d.held, causes = d.causes, prio = d.prio, capped = d.capped or nil,
+      first = rch_first or nil, floor_iron = floor and floor["iron-plate"] or nil }
+    if d.have_all and T.research[next_tech] then
+      out.research = next_tech
+      return
+    end
+    if d.held == "impayable" then
+      -- K6 : aucun pack ; seul le manque s'affiche quand la recherche est l'objectif (« il manque »).
+      if research_now then
+        local miss = {}
+        for _, c in ipairs(d.causes) do miss[c] = 1 end
+        add_missing(miss)
+      end
+      return
+    end
+    if #d.wants > 0 and not want(d.wants, d.prio, "recherche", true) and research_now then add_missing(last_raw) end
+    -- Packs retenus par le plancher : leur manque de matières est compté (fondre, miner, agrandir), sans commande.
+    if d.capped then
+      local kept = {}
+      for _, w in ipairs(d.wants) do kept[w[1]] = w[2] end
+      local held = {}
+      for _, it in ipairs(T.research[next_tech] or {}) do
+        local full = math.min(Rch.BATCH, math.max(0, it[2] - (view.stock[it[1]] or 0)))
+        if full > (kept[it[1]] or 0) then held[#held + 1] = { it[1], full - (kept[it[1]] or 0) } end
+      end
+      if #held > 0 then
+        local raw = book:raw_cost(held)
+        local ks = {}
+        for k in pairs(raw) do ks[#ks + 1] = k end
+        table.sort(ks)
+        for _, k in ipairs(ks) do raw_short[k] = (raw_short[k] or 0) + raw[k] end
+      end
+    end
+  end
+  if rch_first then research_ia3() end
+
   local army_goal_passed = done["army"] or army_now
   if view.threatened or army_goal_passed then
     local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
@@ -793,8 +864,9 @@ function P.plan(view, book)
     end
   end
 
-  local next_tech = view.tech + 1
-  if not view.no_research and (research_now or done["tech1"]) and T.research[next_tech] then
+  if ia3 then
+    if not rch_first then research_ia3() end
+  elseif not view.no_research and (research_now or done["tech1"]) and T.research[next_tech] then
     local packs = T.research[next_tech]
     local have_all = true
     for _, it in ipairs(packs) do
