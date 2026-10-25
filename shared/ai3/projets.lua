@@ -123,7 +123,7 @@ function P.update(st, goals, tick, workers)
     if p and p.state == "bloque" then
       p.goal, p.value, p.eff = g, g.value, r.e
       blocked[#blocked + 1] = p
-    elseif n_active < K then
+    elseif n_active < K or g.permanent then
       if not p then
         p = { id = st.next_id, key = g.key, family = g.family, opened = tick, state = "actif" }
         st.next_id = st.next_id + 1
@@ -135,7 +135,7 @@ function P.update(st, goals, tick, workers)
       end
       p.goal, p.value, p.eff = g, g.value, r.e
       p.prio = P.prio_of(math.min(100, r.e))
-      n_active = n_active + 1
+      if not g.permanent then n_active = n_active + 1 end
       active[#active + 1] = p
     elseif p then
       p.goal, p.value, p.eff = g, g.value, r.e

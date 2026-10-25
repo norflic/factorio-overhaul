@@ -168,11 +168,12 @@ function B.generate(s, st)
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }
   end
-  -- Défense : réserve de munitions.
+  -- Défense : réserve de munitions. Famille PERMANENTE (comme l'armée) : toujours dépliée à son rang de valeur, sans
+  -- prendre de place parmi les K projets (la réserve d'un joueur, H10 ; l'armée qui grandit en fond comme avant).
   local ammo = T.turret_ammo
   if (s.stock[ammo] or 0) < B.AMMO_STOCK then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,
-      n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense) }
+      n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true }
   end
   -- Recherche (factions) : la technologie choisie par le runtime.
   local r = s.research
@@ -185,10 +186,10 @@ function B.generate(s, st)
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     if (s.soldiers or 0) < first then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
-        value = val(B.ARMY_FIRST, w.armee) }
+        value = val(B.ARMY_FIRST, w.armee), permanent = true }
     elseif (s.soldiers or 0) < (s.army_target or 0) then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
-        value = val(B.ARMY_MORE, w.armee) }
+        value = val(B.ARMY_MORE, w.armee), permanent = true }
     end
   end
   table.sort(goals, function(a, b)
