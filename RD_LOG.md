@@ -466,6 +466,19 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA2-c, les factions sous brouillard et le modèle de l'adversaire, 25/10 nuit ; fusionné dans `main`, `16204fa`, version 0.4.25)
+Preuves : `fo-logs\2026-10-25_IA2-c\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E161, E162.
+- **F234** : une attaque de zone (`attack_area`, rayon 24) d'un groupe de faction sur une base du JOUEUR se termine avec
+  des installations debout à 16 tuiles du point visé et tous les soldats vivants (20 envoyés, 20 survivants, fin 672
+  ticks après l'ordre, la tourelle témoin tombée) : la commande s'arrête quand il n'y a plus de cible MILITAIRE dans le
+  rayon (cause déduite, non lue dans le moteur). Une attaque « réussie » = plus aucune tourelle à 40 tuiles du point visé.
+- **F235** : un soldat seul envoyé à ~480 tuiles (éclaireur, `distraction.none`) est tué en route par les biters près de
+  certains QG (graine 123456789 : 4 éclaireurs seuls sur 5 tués à ~100 tuiles de leur QG ; patrouille de 3 : 2 tués ;
+  de 5 : arrivée). Deux soldats d'une patrouille tués par leur PROPRE force : cause non établie.
+- **F236** : une commande composée qui s'arrête au rassemblement avancé (dernière commande `go_to_location`), suivie à
+  `on_ai_command_completed` d'un `attack_area` au même groupe, mène l'attaque (140 attaques entre factions en 4 × 2 h,
+  114 « go », 139 issues publiées ; contre le joueur 51 attaques, 45 « go », 1 renoncement).
+
 ### Faits vérifiés en moteur réel (vérification adverse VERIF-NUIT et sa correction, 25/10 de 4 h 30 à 6 h 40 ; fusionnée dans `main`, `0d14010`, version 0.4.24)
 Preuves : `fo-logs\2026-10-25_VERIF-NUIT\` (`verification.md`, `CORRECTION.md`). Expérience : E163.
 - **F237** : en `--benchmark`, `log()` d'une chaîne traduite (LocalisedString) écrit sa traduction ANGLAISE, clés
@@ -984,6 +997,29 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E161, E162 · Lot IA2-c, les factions sous brouillard (25/10 nuit ; fusion `16204fa`, version 0.4.25)** : le comptage
+global des bâtiments du joueur est RETIRÉ ; chaque faction ne sait que ce que voient son QG, ses avant-postes, ses groupes
+et ses éclaireurs (un regard toutes les 8 ticks) ; éclaireur 10 min avant la fin de la grâce, puis patrouilles de 3, 5,
+7 quand ils meurent (F235) ; modèle de chaque adversaire, joueur compris (style tortue, expansionniste, agresseur,
+bâtisseur ; défense vue par côté ; attaques reçues et données) ; côté d'arrivée le moins défendu vu ; renoncement au
+rassemblement si la défense vue a grossi ; 1re attaque jamais avant 26 min en Normal × tempo ±20 % par partie.
+**E161** (`ia0-normal` × 4 graines) : 1re attaque contre le joueur 26,6 ; 34,0 ; 20,0 ; 26,2 min → 26,9 ; 34,6 ; 30,8 ;
+30,3 (3 sur 4 dans 20 à 32 min avant comme après ; graine 123456789 hors bornes : éclaireurs tués par les biters) ;
+`ia2c-cotes` (tourelles à l'est seulement) : 8 attaques sur 10 face à une défense vue arrivent par un côté sans défense
+(avant : toutes droit sur la cible) ; adaptation après une attaque repoussée 4 cas sur 4 (4 cas seulement). **E162**
+(campagne de `pvp_test`) : moment varié de la 1re attaque 0 ECHEC ; intervalle × tempo après chaque attaque : 3 ECHEC à
+l'ordre strict des niveaux, RETIRÉ. `default` 2 h × 4 graines, avant → après : anéanties 1 → 0 ; entropie des côtés
+1,35 → 1,00 (AU seuil) ; entropie des postures 1,53 → 1,48 (SOUS le seuil 1,5) ; attaques 182 → 140. Défaut d'IA2-b
+corrigé : un site revenu dans la réserve respecte ses bornes (`Sites.room_for`). Sur `main` 0.4.25
+(`fo-logs\2026-10-25_integration-0.4.25\`, `done.txt` 6:38:23 à 6:48:14) : content 331, verif-guide 15 et 15, pnj-auto 7,
+pnj-reduit 12, ia0-normal 14 (graines 20261020 et 777), ia2c-cotes 8, ia2c-renonce 7, verif-tourelles 7, ia1-scale 17,
+migration depuis 0.4.23 (ia0-normal, double source) 14, x1-migration 8, mod1-migration 11, monde 116, 0 erreur ; hors
+jeu pvp 1305, chef 62, adversaire 53, test_ia2c_joueur 15, api_lint 975. Premier passage de la migration : code 1
+par ERREUR DE L'INTÉGRATEUR (chemin de création sans `\factorio-overhaul`), rejoué juste. NON prouvé : écart-type de la
+1re attaque ≥ 4 min (impossible avec un tirage uniforme dans 20 à 32 : 3,0 en théorie, décision du DC) ; renoncement vu
+2 fois seulement ; style « agresseur » des rivales trop fréquent (cause probable, non prouvée, de la baisse des attaques) ;
+`ia0-big`, `ia0-difficile`, `ia0-defendue` non rejoués.
+
 **E163 · Vérification adverse de 0.4.16 à 0.4.23 et reconstruction de l'équipe du joueur (25/10 de 4 h 30 à 6 h 40 ;
 fusion `0d14010`, version 0.4.24)** : 13 bancs en moteur réel sur 4 graines (`default` 1 h × 3, `verif-guide` 1 h × 2,
 `pnj-reduit`, `pnj-auto`, migrations 0.4.15 `ia1`, `mod1`, `x1`) : 0 erreur, 0 « LuaEntity invalid », aucune faction
