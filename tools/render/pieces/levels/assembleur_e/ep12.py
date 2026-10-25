@@ -133,6 +133,7 @@ def piece(g, c):
             g.box(B(x + s * 0.3, yn, z + 0.03), (0.06, 0.8 * SQ2, 0.06), M["chrome_mat"], "hard", what="patin")
         g.box(B(x, yn, z + 0.09), (0.7, 0.7 * SQ2, 0.06), M["frost"], "soft", what="traineau")
         g.torus(B(x, yn, z + 0.48), "y", 0.32, 0.09, M["chrome_mat"], n=36, m=10, what="bobine")
+        g.cyl(B(x, yn + 0.02, z + 0.48), "y", 0.3, 0.04, M["noir_miroir"], n=36, what="flasque")   # pas de jour enfermé
         g.torus(B(x, yn - 0.05, z + 0.48), "y", 0.32, 0.03, M["emit"], n=36, m=6, what="bague_cyan")
         g.box(B(x, yn, z + 0.15), (0.2, 0.2 * SQ2, 0.1), M["frost"], "soft", what="pied_bobine")
         F.lump(g, B(x - 0.25, yn - 0.25, z + 0.12), 0.08, M["frost"])

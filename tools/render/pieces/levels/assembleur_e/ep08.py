@@ -182,3 +182,5 @@ def piece(g, c):
         F.stave_barrel(g, tuple(B(pe["x"] + dx, pe["yn"] + dy, z + (0.34 if k == 2 else 0.0))), 0.15, 0.32,
                        M["bois_mouille"], M["cuivre_terni"])
     g.torus(B(pe["x"], pe["yn"] - 0.22, z + 0.03), "z", 0.13, 0.03, M["wicker"], n=20, m=6, what="cordage")
+    # contrôle d'îlots (ronde F3-A2) : le sol vu au cœur du cordage lové était un trou enfermé : fond de cordage
+    g.cyl(B(pe["x"], pe["yn"] - 0.22, z + 0.02), "z", 0.12, 0.04, M["wicker"], n=16, what="coeur_cordage")

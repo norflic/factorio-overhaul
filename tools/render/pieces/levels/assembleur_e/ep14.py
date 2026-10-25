@@ -73,6 +73,7 @@ def socle(g, c):
         x, y = Rm * math.cos(a), Rm * math.sin(a)
         g.cyl(B(x, y, c.Hc + 0.35), "z", 0.035, 0.7, M["blanc_lunaire"], n=8, what="mat_relais")
         g.torus(B(x, y, c.Hc + 0.72), "y", 0.14, 0.022, M["blanc_lunaire"], n=20, m=6, what="anneau_relais")
+        g.cyl(B(x, y + 0.01, c.Hc + 0.72), "y", 0.13, 0.02, M["horizon_porte"], n=20, what="miroir_relais")
         corps.lampe(g, B(x, y, c.Hc + 0.88), 0.03, M["emit"])
         c.reserves.append((x, y, 0.2))
     rng = random.Random(14)
@@ -163,4 +164,5 @@ def piece(g, c):
             corps.lampe_face(g, x + dx + w * 0.35, yn - 0.24, z + dz + 0.28, 0.02, M["emit"], M["noir_spatial"])
         g.cyl(B(x + 0.25, yn + 0.2, z + 0.55), "z", 0.025, 1.1, M["blanc_lunaire"], n=8, what="mat")
         g.torus(B(x + 0.25, yn + 0.2, z + 1.1), "y", 0.1, 0.018, M["blanc_lunaire"], n=16, m=5, what="anneau")
+        g.cyl(B(x + 0.25, yn + 0.21, z + 1.1), "y", 0.09, 0.02, M["horizon_porte"], n=16, what="miroir")
         halo(g, x, yn - 0.3, z + 0.4, 0.5)
