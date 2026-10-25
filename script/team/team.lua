@@ -336,7 +336,9 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false,
+    -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; ses tourelles de QG
+    -- cassaient l'ordre des attaques par difficulté de pvp_test, essai 2 du lot).
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }

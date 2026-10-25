@@ -414,7 +414,7 @@ function P.plan(view, book)
   -- QG attaqué dès 17 min, équipe perdue à 23 min). Un avant-poste MEURTRIER attend la fin de sa pause.
   if df then
     local waiting = 0
-    local posts = { { id = "hq", want = T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify } }
+    local posts = { { id = "hq", want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify } }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         waiting = waiting + 1
