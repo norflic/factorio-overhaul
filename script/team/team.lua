@@ -291,7 +291,7 @@ function Team.view(f, tick)
   -- Lot IA1-b2 (« Laisser grandir », D-16 « pas de recrue sans travail » gardé) : sous « défendre d'abord », du travail
   -- qui attend au-delà des bras libres lève le frein (un PNJ entre deux tâches à l'instant de la pensée retenait sinon
   -- toute recrue : votre équipe restait à 8 PNJ toute la partie du guide).
-  if recruit_held and grow and backlog > workers_idle + on_fond then recruit_held = false end
+  -- (Remplacé par la règle de croissance à rythme fixe ci-dessous, D-18 : grow_due.)
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
@@ -325,6 +325,19 @@ function Team.view(f, tick)
     groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key) }
     if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
   end
+  -- Lot IA1-b2 (règle de croissance, D-18) : une recrue de croissance toutes les T.grow_period tant que le QG et chaque
+  -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de
+  -- recrue sans travail).
+  local grow_due = false
+  if grow and (f.engineers_count or 0) >= floor and backlog > 0
+    and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
+    and (stock0["iron-plate"] or 0) >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    grow_due = true
+    for _, o in ipairs(outposts) do
+      if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
+    end
+  end
+  if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -354,7 +367,7 @@ function Team.view(f, tick)
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
-    hq_guards = hq_guards, grow_reserve = grow and T.grow_iron_reserve or nil,
+    hq_guards = hq_guards, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
@@ -464,6 +477,7 @@ function Team.think(f, surface, tick)
     remove_list(f, pay)
     if Worker.recruit(f, surface, tick) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
+      if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
       if plan.recruit_uses then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
         -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,

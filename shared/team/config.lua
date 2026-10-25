@@ -132,6 +132,7 @@ function T.hq_guards(n) return math.min(6, math.max(2, math.floor((n or 0) / 4))
 T.near_mine = 96
 -- Croissance de votre équipe : seulement en gardant ce fer au coffre (munitions, tourelles, recrues de survie).
 T.grow_iron_reserve = 400
+T.grow_period = 5 * 3600 -- une recrue de croissance toutes les 5 min au plus (règle de croissance, D-18)
 T.transport_min = 10
 T.transport_near = 64
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end

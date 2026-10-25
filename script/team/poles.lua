@@ -309,8 +309,16 @@ function Poles.think(f, view, book, tick, plan)
   -- faisaient rien ») : fond COMPLET si une tourelle est possible, sinon fond SÛR (ctx.safe_only : fonderie, réserve
   -- au-dessus des planchers, transport des avant-postes proches, minage près du coffre ; ni agrandir ni bâtir).
   -- Une faction : fond au-delà de son effectif de départ seulement (règle d'IA1-b ; la croissance reste à votre équipe).
-  local full = n > floor0 or (f.is_player and turrets_ok and n >= floor0)
-  local safe = (not full) and f.is_player and n >= floor0
+  -- Votre équipe SANS tourelle possible : fond SÛR quel que soit l'effectif (pas d'expansion sans défense ; ia1b-scale10,
+  -- 10 PNJ sans recherche : agrandissements de fond, QG attaqué par des cracheurs, équipe perdue à 24 min).
+  local full, safe
+  if f.is_player then
+    full = turrets_ok and n >= floor0
+    safe = (not turrets_ok) and n >= floor0
+  else
+    full = n > floor0
+    safe = false
+  end
   local fond_on = full or safe
   org.fond_on = fond_on
   local cands
