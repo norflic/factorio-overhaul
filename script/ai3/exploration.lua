@@ -651,9 +651,33 @@ local function audit(f, k, tick)
   end
 end
 
+--- Mesures des bancs (avec ET sans brouillard : avant / après sur la même source) : date du n-ième avant-poste de chaque
+--- type, date du premier site NON de départ de chaque ressource entré en réserve. f.ai3m (nombres seulement).
+local function measure(f, tick)
+  local mm = f.ai3m
+  if not mm then
+    mm = { out = {}, site = {} }
+    f.ai3m = mm
+  end
+  local n = {}
+  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+    local kind = f.outposts[oid].kind or "?"
+    n[kind] = (n[kind] or 0) + 1
+  end
+  for _, kind in ipairs(sorted_keys(n)) do
+    local list = mm.out[kind] or {}
+    mm.out[kind] = list
+    while #list < n[kind] do list[#list + 1] = tick end
+  end
+  for _, s in ipairs(f.prospects or {}) do
+    if not s.seeded and s.resource and not mm.site[s.resource] then mm.site[s.resource] = tick end
+  end
+end
+
 local function team_pass(f, tick)
   local surface = surface_of(f)
   if not surface then return end
+  measure(f, tick)
   local k = f.ai3f or init(f, surface, tick)
   fixed_eyes(f, k, tick)
   moving_eyes(f, k, surface, tick)
@@ -678,9 +702,14 @@ end
 
 Scheduler.define_lane(X.EYE_LANE, EYE_PERIOD, function(_, tick)
   local g = G()
-  if not g.fog then return end
   local list = teams()
   if #list == 0 then return end
+  if not g.fog then
+    -- Brouillard coupé (comportement d'avant le lot) : mesures seulement, une équipe par passe.
+    g.tc = g.tc % #list + 1
+    measure(list[g.tc], tick)
+    return
+  end
   Profiler.start("ai3f:eyes")
   for _, f in ipairs(list) do
     if f.ai3f and f.ai3f.ex then monitor(f, f.ai3f, tick) end
@@ -837,7 +866,8 @@ end
 
 local function team_report(f)
   local k = f.ai3f
-  if not k then return { key = f.key, open = false } end
+  local mm = f.ai3m or { out = {}, site = {} }
+  if not k then return { key = f.key, open = false, outposts_at = mm.out, site_at = mm.site } end
   local sum = K.summary(k.m)
   local req = {}
   for _, res in ipairs(sorted_keys(k.req)) do
@@ -852,7 +882,8 @@ local function team_report(f)
     mission = k.ex and { kind = k.ex.kind, res = k.ex.res, started = k.ex.started, agent = k.ex.agent, state = k.ex.state } or nil,
     looks = k.stats.looks, missions = k.stats.missions or 0, flees = k.stats.flees or 0, deaths = k.stats.deaths or 0,
     injected = k.stats.injected or 0, far_mine = k.stats.far_mine or 0, audit_ok = k.audit.ok, audit_bad = #k.audit.bad,
-    found_after = k.stats.found,
+    found_after = k.stats.found, outposts_at = mm.out, site_at = mm.site,
+    marks = #k.m.marks, explorer_eye = K.EYE.explorer,
   }
 end
 
