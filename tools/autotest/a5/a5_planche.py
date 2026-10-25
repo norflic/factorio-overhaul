@@ -42,13 +42,56 @@ def capture(d, scene):
     return np.asarray(Image.open(g[0]).convert("RGB"))
 
 
+QUESTIONS = [
+    "Q-A5-1. Force de la couleur d'équipe : (A) 25 % (à peine teinté) ; (B) 40 % (lisible de près, palette gardée) ;",
+    "         (C) 60 % (bien lisible, plus saturé). Recommandation de l'agent : B.",
+    "Q-A5-2. Quelles pièces : (A) celles de l'essai (chapeau du dessus + liserés ou plaques) ; (B) le chapeau seul,",
+    "         une pièce compacte, 7 à 30 fois moins chère en mémoire vidéo (âge 15 : à trouver, le dôme n'a pas de",
+    "         chapeau visible) ; (C) autre chose (dire laquelle).",
+    "Q-A5-3. La nuit, la couleur ne se voit presque plus : (A) c'est bien ainsi ; (B) ajouter un petit voyant",
+    "         lumineux à la couleur de l'équipe (à essayer, non fait).",
+]
+
+
+def planche_dc(a):
+    """Planche pour le Directeur Créatif : gros plans de jour (âges 3 agrandi × 2, 9, 15), nuit de l'âge 9, questions."""
+    f_t, f_p = police(34), police(26)
+    parts = []
+    for nom in a.dc.split(","):
+        im = Image.open(os.path.join(a.out, nom))
+        k = float(a.largeur) / im.size[0]
+        parts.append(im.resize((a.largeur, int(im.size[1] * k)), Image.LANCZOS))
+    haut = 70
+    bas = 50 + 36 * len(QUESTIONS)
+    out = Image.new("RGB", (a.largeur, haut + sum(p.size[1] + 12 for p in parts) + bas), (22, 22, 22))
+    dr = ImageDraw.Draw(out)
+    dr.text((14, 14), "Couleur d'équipe de la mitrailleuse : ESSAI sur 3 âges (en jeu, zoom 2)", font=f_t,
+            fill=(255, 220, 120))
+    y = haut
+    for p in parts:
+        out.paste(p, (0, y))
+        y += p.size[1] + 12
+    y += 14
+    for q in QUESTIONS:
+        dr.text((14, y), q, font=f_p, fill=(255, 255, 255))
+        y += 36
+    p = os.path.join(a.out, "planche-DC.png")
+    out.save(p, optimize=True)
+    print("[A5-PLANCHE] %s : %d × %d" % (p, out.size[0], out.size[1]))
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--avec", required=True)
     ap.add_argument("--sans", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--agrandir", type=int, default=1)
+    ap.add_argument("--dc", default="", help="images de --out à empiler dans planche-DC.png (liste)")
+    ap.add_argument("--largeur", type=int, default=1600)
     a = ap.parse_args()
+    if a.dc:
+        return planche_dc(a)
     os.makedirs(a.out, exist_ok=True)
     caps = tsv(os.path.join(a.avec, "a5-equipe-captures.tsv"))
     sites = tsv(os.path.join(a.avec, "a5-equipe-sites.tsv"))
