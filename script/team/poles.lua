@@ -187,7 +187,15 @@ function Poles.inject_crisis(f, n, ticks, resource)
   return true
 end
 
-function Poles.think(f, view, book, tick)
+--- Le cerveau manque-t-il d'OBJETS (et non de sites) pour son objectif ? (plan.missing de shared/team/planner.lua)
+function Poles.brain_short(plan)
+  for _, m in ipairs(plan and plan.missing or {}) do
+    if type(m[1]) == "string" and m[1]:sub(1, 5) ~= "site:" then return true end
+  end
+  return false
+end
+
+function Poles.think(f, view, book, tick, plan)
   local org = Poles.state(f)
   local st = org.stats
   if org.last_think and tick - org.last_think < Poles.PERIOD then st.double_think = st.double_think + 1 end
@@ -271,7 +279,7 @@ function Poles.think(f, view, book, tick)
   local prudent = Poles.prudent(org, tick)
   if prudent then st.prudent_thinks = (st.prudent_thinks or 0) + 1 end
   local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-    prudent = prudent, mine_left = math.max(0, mine_cap - mine_fond_busy) })
+    prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy) })
   local room_now = {}
   for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end
   -- Capacité LISSÉE : le maximum des ROOM_WINDOW dernières pensées (5 min). Essai 4 du banc : la capacité instantanée

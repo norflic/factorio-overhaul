@@ -385,7 +385,7 @@ function Team.think(f, surface, tick)
 
   -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.
   Profiler.start("team:poles")
-  Poles.think(f, view, book_for(f), tick)
+  Poles.think(f, view, book_for(f), tick, plan)
   Profiler.stop("team:poles")
 
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées

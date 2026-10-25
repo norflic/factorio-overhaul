@@ -173,7 +173,10 @@ end
 
 local function base(view, free, ctx, out)
   local book = ctx.book
-  if not book then return end
+  -- Cerveau EN MANQUE d'objets (tourelles, packs, plaques…) : le fond ne fabrique rien, les plaques vont à ses
+  -- objectifs. Moteur réel, verif-guide graine 1618033988 : objectif « tourelles » jamais atteint (fer 53 à 206 au
+  -- coffre, réserve de foreuses en cours), coffre détruit vers 22 min.
+  if not book or ctx.brain_short then return end
   local keys = ctx.keys or {}
   local incoming = view.incoming or {}
   local pot = F.potential(view)

@@ -184,6 +184,11 @@ do
   for _, t in ipairs(cp.extraction) do if t.kind ~= "smelt" then out_of_hq = out_of_hq + 1 end end
   check(out_of_hq == 0, "prudence : le fond d'extraction ne garde que la fonderie du QG")
   check(#cp.territoire == 1 and cp.territoire[1].post == "hq", "prudence : seule la garde du QG")
+  local v2 = view({ outposts = { { id = 1, kind = "iron", drills = 8 } }, sites = { copper = 2 },
+    stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500, stone = 500 } })
+  local cn = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0 })
+  local cs = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0, brain_short = true })
+  check(#cn.base > 0 and #cs.base == 0, "cerveau en manque d'objets : aucune fabrication de fond (" .. #cn.base .. " sinon)")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
