@@ -466,6 +466,18 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA1-e1, solveur de débits et diagnostic, 25/10 matin ; fusionné dans `main`, `e64ab49`, sans changement du jeu)
+Preuves : `fo-logs\2026-10-25_IA1-e1\` (`NOTES.md` §2, §3, §5, `INTEGRATION.md`). Expériences : E166, E167.
+- **F242** : `LuaFlowStatistics.get_flow_count{precision_index = ten_minutes}` (moyenne par minute) lit 0,3 à 0,4 %
+  AU-DESSUS du débit exact donné par l'écart de `get_input_count` sur les mêmes 10 min (361,1 contre 360,0) ; l'écart de
+  `get_input_count` égale à l'unité près les objets sortis. Décider sur les compteurs, pas sur la moyenne.
+- **F243** : deux assembleurs nourris par le même tapis, ingrédient étranglé à 40 % : tout va au premier (`working` 60
+  relevés sur 60), le second reste `item_ingredient_shortage` 60 sur 60. Un diagnostic par part des LECTURES de machines
+  dilue le manque (0,50) ; par RELEVÉ (au moins une machine en manque), il vaut 1,00.
+- **F244** : les statistiques de production d'une force ne comptent ni `insert_at_back` ni `clear()` d'une ligne de tapis
+  par script ; `game.recipe_prototypes` rend 551 listes d'ingrédients ou de produits dans un autre ordre que le dump du
+  harness, contenu identique : comparer en ensembles.
+
 ### Faits vérifiés en moteur réel (lot IA2-c, les factions sous brouillard et le modèle de l'adversaire, 25/10 nuit ; fusionné dans `main`, `16204fa`, version 0.4.25)
 Preuves : `fo-logs\2026-10-25_IA2-c\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E161, E162.
 - **F234** : une attaque de zone (`attack_area`, rayon 24) d'un groupe de faction sur une base du JOUEUR se termine avec
@@ -997,6 +1009,22 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E166, E167 · Lot IA1-e1, solveur de débits et diagnostic (25/10 de 6 h 55 à 7 h 10 ; fusion `e64ab49`, jeu inchangé)** :
+`shared/team/production.lua` (Lua pur) lit les VRAIES recettes (livre du harness, 782 recettes dont 500 lots ; niveaux,
+modules multipliés, plafond de 60/s levé par les lots ; énergie fermée par le charbon) ; diagnostic (manque de capacité,
+module affamé) ; options agrandir, améliorer, remplacer, construire, chacune avec coût en MU, gain en MU/min et
+T = coût ÷ gain (ce que lira IA2-d) ; `tests/ia1_production_test.lua` 101 OK, 18 mutants refusés. **E167** (jeu d'essai
+du §6.1 d'EQUIPES_PNJ, hors jeu) : retrouvé à la machine près, 1,32 MW ; charbon 28,7/min en régime, 42,6 à la
+puissance installée (les 70/min de P1 ne se retrouvent pas) ; valeurs MU = `L.item_value` sauf le plastique (1,3 contre
+3, à trancher). **E166** (`ia1-diag`, arène d'IA1-c, débits lus aux statistiques de force) : livre du jeu = livre hors
+jeu ; A (engrenages) manque de capacité, choix « agrandir 4 → 5 » identique au moteur et au modèle (T 0,653 min),
++90,00/min mesurés pour +90,00 prédits ; B (circuits, fer à 40 %) affamé à 100 % des relevés (F243), +108 plaques/min
+demandées en amont ; C témoin ok. Sur `main` : ia1-diag 27 OK (`done.txt` 7:12:27), content 331 (7:12:35), 0 erreur ;
+hors jeu 101, org 365, pteam 32, ia1_modules 1018, harness 0 erreur, api_lint 986. NON prouvé : seul « agrandir » est
+appliqué en jeu ; coût de remplacement estimé ; T sur le gain BRUT mais choix sur le débit UTILE (divergent : IA2-d doit
+choisir) ; probabilités des produits ignorées par le livre hors jeu (uranium) ; écart 0,00 % d'une arène nourrie par
+script, qui ne dit rien d'une vraie base ; RIEN n'est branché dans les équipes vivantes (après IA1-b).
+
 **E161, E162 · Lot IA2-c, les factions sous brouillard (25/10 nuit ; fusion `16204fa`, version 0.4.25)** : le comptage
 global des bâtiments du joueur est RETIRÉ ; chaque faction ne sait que ce que voient son QG, ses avant-postes, ses groupes
 et ses éclaireurs (un regard toutes les 8 ticks) ; éclaireur 10 min avant la fin de la grâce, puis patrouilles de 3, 5,
