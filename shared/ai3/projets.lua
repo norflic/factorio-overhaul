@@ -193,7 +193,9 @@ P.short_raw = short_raw
 
 --- Plus grand nombre (≤ n) d'objets fabricables à la main sans matière manquante (dichotomie, 7 plans au plus).
 local function craftable_count(book, item, n, avail)
-  local lo, hi = 0, n
+  if n <= 0 then return 0 end
+  if next(book:plan({ { item, n } }, avail).raw) == nil then return n end -- cas courant : tout se fabrique (1 plan)
+  local lo, hi = 0, n - 1
   local steps = 0
   while lo < hi and steps < 8 do
     steps = steps + 1
