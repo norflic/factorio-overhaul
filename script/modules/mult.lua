@@ -343,6 +343,11 @@ local function update_panel(player, e)
   local capped = t.speed >= MM.MAX_T or t.consumption >= MM.MAX_T or (t.productivity or 100) >= MM.MAX_T
   f.cap.caption = capped and { t.gap and "fo-mm.panel-cap-gap" or "fo-mm.panel-cap" } or ""
   f.cap.visible = capped
+  if capped then
+    -- Ligne longue depuis MOD-3 (écart gardé) : renvoyée à la ligne comme la note (panneaux créés avant compris).
+    f.cap.style.single_line = false
+    f.cap.style.maximal_width = 220
+  end
   f.speed.tooltip = { "fo-mm.panel-tooltip", tostring(t.n or 0) }
   local lot = Lots.panel_line(e)
   f.lots.caption = lot or ""
