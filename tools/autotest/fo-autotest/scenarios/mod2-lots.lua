@@ -300,6 +300,43 @@ return {
       log({ "", "[FO-MOD2-LOTS] COUT\tpose de 1 000 machines (create_entity raise_built, suivi compris)\tn=", tostring(FN), "\t", p })
       ctx.check(#st.bloc == FN, "F : 1 000 machines posees", #st.bloc)
     end
+    -- Toutes les recettes par lots À FLUIDE : posées dans une machine de leur catégorie, capacité de la boîte de chaque
+    -- fluide au moins égale à la quantité du lot (E151 : la boîte suit la recette, 2 × la quantité).
+    do
+      local FM = { ["crafting-with-fluid"] = "assembling-machine-2", chemistry = "chemical-plant", ["oil-processing"] = "oil-refinery" }
+      local probe = {}
+      for name in pairs(game.recipe_prototypes) do if name:sub(1, 6) == "fo-lot" then probe[#probe + 1] = name end end
+      table.sort(probe)
+      local nf, badf, minr = 0, {}, math.huge
+      for _, name in ipairs(probe) do
+        local r = game.recipe_prototypes[name]
+        local fl = {}
+        for _, i in ipairs(r.ingredients) do if i.type == "fluid" then fl[#fl + 1] = { i.name, i.amount } end end
+        for _, p in ipairs(r.products) do if p.type == "fluid" then fl[#fl + 1] = { p.name, p.amount or p.amount_max } end end
+        if #fl > 0 then
+          local mn = FM[r.category]
+          if not mn then
+            badf[#badf + 1] = name .. " (categorie " .. r.category .. ")"
+          else
+            local m = s.create_entity({ name = mn, position = { X0 + 160, Y0 + 100 }, force = f })
+            m.set_recipe(name)
+            for _, x in ipairs(fl) do
+              local cap = 0
+              for i = 1, #m.fluidbox do
+                local flt = m.fluidbox.get_filter(i)
+                if flt and flt.name == x[1] then cap = math.max(cap, m.fluidbox.get_capacity(i)) end
+              end
+              if cap < x[2] then badf[#badf + 1] = string.format("%s %s %g > %g", name, x[1], x[2], cap) end
+              if x[2] > 0 then minr = math.min(minr, cap / x[2]) end
+            end
+            nf = nf + 1
+            m.destroy()
+          end
+        end
+      end
+      ctx.check(nf >= 40 and #badf == 0, "toutes les recettes par lots a fluide : boite de chaque fluide >= quantite du lot",
+        nf .. " lots a fluide ; rapport capacite / quantite minimal " .. string.format("%.2f", minr) .. " ; " .. table.concat(badf, " ; "))
+    end
     st.pret = true
   end,
 
