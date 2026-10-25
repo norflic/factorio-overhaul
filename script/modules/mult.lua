@@ -19,7 +19,8 @@
   - Déterminisme : listes triées ou rendues par le moteur, aucun pairs dans une décision, entiers seulement, aucun
     temps mesuré ; rien dans global que des données (entités, nombres, tables).
   - Ce que voit le joueur : un panneau à droite de l'interface de la machine (gui.relative) donne les facteurs
-    MULTIPLIÉS de vitesse et d'énergie de ses modules (et la productivité, additive tant que Q-M4 n'est pas tranchée).
+    MULTIPLIÉS de vitesse, d'énergie et de productivité de ses modules (productivité multipliée depuis le lot MOD-3,
+    décision D-17 ; au plafond, l'énergie garde l'écart, Q-M5 B).
 ]]
 
 local Events = require("script.core.events")
@@ -184,7 +185,8 @@ local function check(rec, unit, force)
   rec.empty = total == 0
   rec.need = #names > 0
   rec.c = { speed = comp.speed.c, consumption = comp.consumption.c, productivity = comp.productivity.c }
-  rec.t = { speed = comp.speed.t, consumption = comp.consumption.t, productivity = comp.productivity.t, n = total }
+  rec.t = { speed = comp.speed.t, consumption = comp.consumption.t, productivity = comp.productivity.t, n = total,
+    gap = comp.consumption.gap or nil }
   S().stats.refreshed = S().stats.refreshed + 1
   return true
 end
@@ -337,8 +339,9 @@ local function update_panel(player, e)
   local pb = (t.productivity or 100) - 100
   f.prod.caption = { MM.PRODUCTIVITY_MULTIPLIES and "fo-mm.panel-prod-mult" or "fo-mm.panel-prod-add",
     (pb >= 0 and "+" or "") .. pb }
-  local capped = t.speed >= MM.MAX_T or t.consumption >= MM.MAX_T
-  f.cap.caption = capped and { "fo-mm.panel-cap" } or ""
+  -- Lot MOD-3 (D-17) : productivité multipliée, plafond compris ; au plafond, l'énergie garde l'écart (Q-M5 B).
+  local capped = t.speed >= MM.MAX_T or t.consumption >= MM.MAX_T or (t.productivity or 100) >= MM.MAX_T
+  f.cap.caption = capped and { t.gap and "fo-mm.panel-cap-gap" or "fo-mm.panel-cap" } or ""
   f.cap.visible = capped
   f.speed.tooltip = { "fo-mm.panel-tooltip", tostring(t.n or 0) }
   local lot = Lots.panel_line(e)

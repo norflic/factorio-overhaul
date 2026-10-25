@@ -22,16 +22,28 @@
     - facteur voulu T : borné à [20, 32 867] (−80 % à +327,67 %) ;
     - complément C : borné à [−32 767, +32 767] (15 bits par signe).
 
-  PRODUCTIVITÉ : Q-M4 n'est PAS tranchée. Réglage UNIQUE ci-dessous : false = la productivité reste ADDITIVE (le
-  moteur), aucun complément de productivité ; true = elle se multiplie comme la vitesse. Les modules cachés de
-  productivité existent dans les deux cas (données identiques : basculer ne change que le script). POLLUTION : hors
-  de la décision du DC, reste additive (moteur), aucun complément.
+  PRODUCTIVITÉ (lot MOD-3, décision D-17 du DC, 25/10, réponse à Q-M4 : « on garde la multiplication pour les 2 ») :
+  elle se MULTIPLIE comme la vitesse (réglage MM.PRODUCTIVITY_MULTIPLIES = true ; false redonnerait l'addition du
+  moteur, sans complément). POLLUTION : hors de la décision du DC, reste additive (moteur), aucun complément.
+
+  ÉNERGIE AU PLAFOND (lot MOD-3, D-17, Q-M5 B « garder l'écart ») : quand le produit de vitesse (ou de productivité)
+  dépasse le plafond du moteur, la machine ne reçoit que × 328,67 ; l'énergie suivait pourtant le produit ENTIER et
+  rattrapait le plafond elle aussi (D-15 : 34 modules de palier 10, vitesse × 328,67 et énergie × 328,67). Règle :
+  chaque module ne paie l'énergie que de la part de son bonus qui sert encore. En logarithmes, la part d'énergie des
+  modules de vitesse est multipliée par r_v = ln(V plafonnée) / ln(V entière), celle des modules de productivité par
+  r_p (même définition) ; les autres parts (efficacité) sont gardées. Avec des modules de vitesse seuls, cela donne
+  exactement la règle proposée par l'orchestrateur : énergie = V_plafonnée ^ (ln Π(1 + 0,6 b) / ln Π(1 + b)). Les
+  logarithmes sont en VIRGULE FIXE ENTIÈRE (MM.log2_fp, 16 bits après la virgule) : aucun math.log dans une décision
+  (son résultat au dernier bit n'est pas garanti identique d'un système à l'autre). Hors du plafond, rien ne change
+  (le produit exact reste la règle).
 ]]
 
 local MM = {}
 
---- Réglage unique (Q-M4, en attente du DC) : la productivité se multiplie-t-elle ? false = additive (moteur).
-MM.PRODUCTIVITY_MULTIPLIES = false
+--- Réglage unique de la productivité (Q-M4 tranchée par D-17) : true = multipliée ; false = additive (moteur).
+MM.PRODUCTIVITY_MULTIPLIES = true
+--- Réglage de l'énergie au plafond (Q-M5 B, D-17) : true = l'énergie garde l'écart ; false = produit borné seul (D-15).
+MM.ENERGY_KEEPS_GAP = true
 
 --- Effets portés par la balise cachée, dans cet ordre (ordre des emplacements de la balise).
 MM.EFFECTS = { "speed", "consumption", "productivity" }
@@ -134,21 +146,117 @@ local function big_scaled_round(n, k, lo, hi)
   return v
 end
 
+--- Produit exact Π (100 + e_i), chaque facteur au moins MM.MIN_FACTOR : grand entier et nombre de facteurs.
+local function exact_product(list)
+  local big = { 1 }
+  local used = 0
+  for i = 1, #list do
+    local f = 100 + list[i]
+    if f < MM.MIN_FACTOR then f = MM.MIN_FACTOR end
+    big_mul(big, f)
+    used = used + 1
+  end
+  return big, used
+end
+
 --- Facteur voulu T (centièmes) pour une liste d'effets en centièmes e_i : round(Π (100 + e_i) / 100^(n−1)),
 --- chaque facteur au moins MM.MIN_FACTOR, résultat borné à [MM.MIN_T, MM.MAX_T]. Indépendant de l'ordre (produit
 --- exact). Liste vide : 100.
 function MM.target(list)
   local n = #list
   if n == 0 then return 100 end
-  local big = { 1 }
-  local used = 0
-  for i = 1, n do
-    local f = 100 + list[i]
-    if f < MM.MIN_FACTOR then f = MM.MIN_FACTOR end
-    big_mul(big, f)
-    used = used + 1
-  end
+  local big, used = exact_product(list)
   return big_scaled_round(big, used - 1, MM.MIN_T, MM.MAX_T)
+end
+
+--- Le produit (arrondi au centième) DÉPASSE-t-il le plafond du moteur ? (entiers seulement)
+function MM.over_cap(list)
+  if #list == 0 then return false end
+  local big, used = exact_product(list)
+  return big_scaled_round(big, used - 1, MM.MIN_T, MM.MAX_T + 1) > MM.MAX_T
+end
+
+---------------------------------------------------------------------------------------------------
+-- Logarithme en base 2 en VIRGULE FIXE ENTIÈRE (énergie au plafond, D-17)
+---------------------------------------------------------------------------------------------------
+MM.LOG_BITS = 16                    -- bits après la virgule : log2(x) × 2^16, arrondi vers le bas (à ~2^-15 près)
+local LOG_ONE = 2 ^ MM.LOG_BITS
+local MANT_BITS = 24                -- mantisse sur 24 bits : son carré (< 2^50) reste exact en flottant double
+local MANT_ONE = 2 ^ MANT_BITS
+
+--- floor(log2(x) × 2^16) à 2^-15 près, pour un entier x de 1 à 2^28 : chiffre par chiffre (carrés successifs de la
+--- mantisse), entiers exacts seulement (produits < 2^53, divisions par des puissances de deux).
+function MM.log2_fp(x)
+  local ip, pw = 0, 1
+  while x >= pw * 2 do
+    pw = pw * 2
+    ip = ip + 1
+  end
+  local m = math.floor(x * MANT_ONE / pw)   -- mantisse dans [2^24, 2^25)
+  local res = ip * LOG_ONE
+  local bit = LOG_ONE / 2
+  while bit >= 1 do
+    m = math.floor(m * m / MANT_ONE)
+    if m >= 2 * MANT_ONE then
+      m = math.floor(m / 2)
+      res = res + bit
+    end
+    bit = bit / 2
+  end
+  return res
+end
+
+local LOG_100            -- log2_fp(100), calculé une fois
+--- log2 (virgule fixe) du facteur d'un effet en centièmes : log2((100 + e) / 100), facteur au moins MM.MIN_FACTOR.
+function MM.log_factor(e)
+  if not LOG_100 then LOG_100 = MM.log2_fp(100) end
+  local f = 100 + e
+  if f < MM.MIN_FACTOR then f = MM.MIN_FACTOR end
+  return MM.log2_fp(f) - LOG_100
+end
+
+local function sum_logs(list)
+  local s = 0
+  for i = 1, #list do s = s + MM.log_factor(list[i]) end
+  return s
+end
+
+--- Énergie au plafond (Q-M5 B, D-17) : facteur d'énergie T (centièmes) qui garde l'écart, ou nil si aucun produit ne
+--- dépasse le plafond (rien à corriger). `mods` : liste de { speed, consumption, productivity } en centièmes ;
+--- `lists` : listes par effet (comme MM.complements) ; `prod_mult` : la productivité se multiplie-t-elle.
+--- La part d'énergie d'un module va à la vitesse s'il a un bonus de vitesse positif, à la productivité s'il a un bonus
+--- de productivité positif (et pas de vitesse), sinon elle est gardée telle quelle (efficacité, malus).
+function MM.energy_keep_gap(mods, lists, prod_mult)
+  local over_s = MM.over_cap(lists.speed)
+  local over_p = prod_mult and MM.over_cap(lists.productivity) or false
+  if not over_s and not over_p then return nil end
+  if not LOG_100 then LOG_100 = MM.log2_fp(100) end
+  local l_cap = MM.log2_fp(MM.MAX_T) - LOG_100
+  local free, part_s, part_p = 0, 0, 0
+  for i = 1, #mods do
+    local m = mods[i]
+    local c = m.consumption
+    if c and c ~= 0 then
+      local l = MM.log_factor(c)
+      if c > 0 and (m.speed or 0) > 0 then part_s = part_s + l
+      elseif c > 0 and (m.productivity or 0) > 0 then part_p = part_p + l
+      else free = free + l end
+    end
+  end
+  local y = free
+  if over_s then y = y + math.floor(part_s * l_cap / sum_logs(lists.speed)) else y = y + part_s end
+  if over_p then y = y + math.floor(part_p * l_cap / sum_logs(lists.productivity)) else y = y + part_p end
+  -- T au plus proche de 100 × 2^(y / 2^16) : plus grand t de [MIN_T, MAX_T] tel que log2(t / 100) ≤ y (dichotomie
+  -- sur les entiers), puis t ou t + 1 selon l'écart.
+  local lo, hi = MM.MIN_T, MM.MAX_T
+  if MM.log2_fp(lo) - LOG_100 > y then return MM.MIN_T end
+  while hi - lo > 1 do
+    local mid = math.floor((lo + hi) / 2)
+    if MM.log2_fp(mid) - LOG_100 <= y then lo = mid else hi = mid end
+  end
+  if MM.log2_fp(hi) - LOG_100 <= y then lo = hi end
+  if lo < MM.MAX_T and (MM.log2_fp(lo + 1) - LOG_100) - y < y - (MM.log2_fp(lo) - LOG_100) then lo = lo + 1 end
+  return lo
 end
 
 --- Complément d'UN effet : C = (T − 100) − S, borné à ±MM.MAX_C. Renvoie C, T, S.
@@ -166,23 +274,37 @@ end
 --- productivity = e } (entiers, champs absents = 0) ; chaque module compte une fois. Renvoie :
 ---   { speed = { c = C, t = T, s = S }, consumption = {…}, productivity = {…} }
 --- Seuls les modules qui PORTENT l'effet entrent dans son produit (un module sans effet de vitesse ne multiplie
---- pas la vitesse par 1 : même résultat, moins de travail). Productivité : complément nul tant que
---- MM.PRODUCTIVITY_MULTIPLIES est faux (le moteur additionne).
+--- pas la vitesse par 1 : même résultat, moins de travail). Productivité : complément nul si
+--- MM.PRODUCTIVITY_MULTIPLIES est faux (le moteur additionne). Énergie : au plafond, elle garde l'écart
+--- (MM.energy_keep_gap) si MM.ENERGY_KEEPS_GAP ; le champ `gap` de l'énergie vaut alors true.
 function MM.complements(mods, opts)
   local prod_mult = MM.PRODUCTIVITY_MULTIPLIES
   if opts and opts.productivity_multiplies ~= nil then prod_mult = opts.productivity_multiplies end
-  local out = {}
+  local keep_gap = MM.ENERGY_KEEPS_GAP
+  if opts and opts.energy_keeps_gap ~= nil then keep_gap = opts.energy_keeps_gap end
+  local out, lists = {}, {}
   for _, effect in ipairs(MM.EFFECTS) do
     local list = {}
     for i = 1, #mods do
       local v = mods[i][effect]
       if v and v ~= 0 then list[#list + 1] = v end
     end
+    lists[effect] = list
     local c, t, s = MM.effect_complement(list)
     if effect == "productivity" and not prod_mult then
       c, t = 0, 100 + s
     end
     out[effect] = { c = c, t = t, s = s }
+  end
+  if keep_gap then
+    local te = MM.energy_keep_gap(mods, lists, prod_mult)
+    local e = out.consumption
+    if te and te < e.t then
+      local c = (te - 100) - e.s
+      if c > MM.MAX_C then c = MM.MAX_C end
+      if c < -MM.MAX_C then c = -MM.MAX_C end
+      out.consumption = { c = c, t = te, s = e.s, gap = true }
+    end
   end
   return out
 end
