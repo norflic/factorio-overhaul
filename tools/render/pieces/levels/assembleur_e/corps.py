@@ -104,9 +104,10 @@ def place_es(c, quoi):
     sx = -1 if quoi == "entree" else 1
     if c.plan == "portique":
         # ronde F3-A3 (plan en U) : au SOL de la baie, devant le socle de la table, de part et d'autre du port S
+        # contre la semelle du socle (rendu a4 : un écart entre le bac et le socle fermait une poche de sol, 255 px)
         r = 0.06 * c.side + 0.06
         tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
-        return dict(x=sx * max(tx * 0.55, r + 0.16), yn=c.yt - ty - r - 0.1, z=0.0, r=r)
+        return dict(x=sx * max(tx * 0.55, r + 0.16), yn=c.yt - ty * 0.86 - 0.08 - r, z=0.0, r=r)
     pl = cotes.places(c.side)["joue_O" if quoi == "entree" else "joue_E"]
     if c.plan == "L" and quoi == "sortie":
         # ronde F3-A3 : la joue est s'arrête au coin vide ; la sortie va au coin avant est du bâti
@@ -686,7 +687,8 @@ def entree(g, c):
         r = p["r"]
         P2.hopper(g, p["x"] - r, p["x"] + r, Y(p["yn"] - r), Y(p["yn"] + r), p["z"], p["z"] + 0.18 + 0.03 * c.side,
                   g.M, paint=c.Mh["ochre"])
-    chevron(g, p["x"] + p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
+    if c.plan != "portique":        # au sol de la baie, le chevron serait un îlot détaché (rendu a4)
+        chevron(g, p["x"] + p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
 
 
 @_lignee
@@ -697,7 +699,8 @@ def sortie(g, c):
         c.ep.sortie(g, c, p)
     else:
         bac(g, c, p, c.Mh["ochre"], g.M["steel_hi"])
-    chevron(g, p["x"] - p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
+    if c.plan != "portique":
+        chevron(g, p["x"] - p["r"] * 0.2, p["yn"] - p["r"] - 0.1, p["z"] + 0.005, +1, c.Mh["hazy"], k=0.1)
 
 
 def bac(g, c, p, paroi, produit, forme="engrenage"):

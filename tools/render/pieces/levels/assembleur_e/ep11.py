@@ -71,10 +71,8 @@ def socle(g, c):
     g.box(B(0, c.yt - db / 2 - 0.03, c.zp - 0.04), (L - 0.2, 0.04, 0.05), M["titane_dk"], "hard", what="barre")
     g.box(B(0, c.yt - db / 2 - 0.05, c.zp - 0.06), (L - 0.3, 0.02, 0.02), M["emit"], "flat", what="barre_lumiere")
     halo(g, 0, c.yt - 0.5, c.zp - 0.2, 1.2)
-    # chevrons peints au SOL de la baie (ronde F3-A3 : plan en U), tôles et bandeau du dos bas
-    for sx in (-1, 1):
-        for k in range(3):
-            corps.chevron(g, sx * 1.38, -2.55 + 0.25 * k, 0.005, sx, M["orange_aero"], k=0.18)
+    # tôles et bandeau du dos bas (ronde F3-A3 : plus de chevrons au sol, la baie est le SOL et ils y seraient des îlots
+    # détachés ; rendu a4)
     corps.face_s(g, -c.h + 0.1, c.h - 0.1, c.yb - 0.02, c.zs + 0.02, c.z_bas - 0.02, M["tole_ti"], nu=8, nv=1)
     g.box(B(0, c.yb - 0.05, c.z_bas - 0.05), (2 * c.h - 0.2, 0.04, 0.05), M["bleu_nuit"], "hard", what="bandeau")
 

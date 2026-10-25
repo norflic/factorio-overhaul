@@ -169,7 +169,9 @@ def piece(g, c):
     M = g.M
     for nom in ("coin_SO", "coin_SE"):
         p = corps.place(c, nom)
-        x, yn, z = p["x"], p["yn"], p["z_sol"]
+        # rendu a4 : pile collée au bras sud (un jour de sol entre elle et le bras faisait une poche de 17 px)
+        sgn = 1 if p["x"] > 0 else -1
+        x, yn, z = p["x"] - sgn * 0.19, p["yn"], p["z_sol"]
         for k, (dx, dz, w) in enumerate(((-0.19, 0.0, 0.38), (0.2, 0.0, 0.34), (0.0, 0.38, 0.46))):
             g.box(B(x + dx, yn, z + dz + 0.19), (w, 0.52 * SQ2, 0.36), M["blanc_lunaire"], "soft", what="conteneur")
             g.box(B(x + dx, yn - 0.26 - 0.004, z + dz + 0.19), (w * 0.9, 0.01, 0.07), M["indigo_nuit"], "flat",
