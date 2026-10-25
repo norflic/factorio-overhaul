@@ -42,7 +42,7 @@
       last_rival,                            -- tick de la dernière attaque lancée contre une faction (IA0b), ou nil
       rally_until,                           -- fin de la fenêtre d'assaut coordonné en cours (IA0b), ou nil
       rally_defense,                         -- défense estimée de la cible de cette fenêtre (cible commune), ou nil
-      first_after, first_prep,               -- lot IA2-c : moment de la 1re attaque de la partie (tick) et préparation
+      first_after,                           -- lot IA2-c : moment de la 1re attaque de la partie (tick) : pas avant
       cooldown_mult,                         -- lot IA2-c : tempo de l'intervalle entre deux attaques (pour mille)
     } | nil,
     player = { score, defense, reachable } | nil,  -- cible joueur repérée (lot IA2-c : secteurs VUS, défense vue)
@@ -508,12 +508,11 @@ function S.decide(v)
     and (v.player.score or 0) > 0
     and (pv.last_attack == nil or pv.tick - pv.last_attack >= S.player_cooldown(pv, level))
   -- Lot IA2-c : MOMENT de la 1re attaque de la partie contre le joueur (pv.first_after : valeur du niveau × tempo
-  -- tiré à ±20 %, shared/faction/adversaire.lua). Avant first_after − first_prep, le joueur n'est pas « dû » (la
-  -- guerre entre factions continue) ; ensuite la faction garde ses soldats pour lui, sans attaquer avant le moment.
-  local hold_first = false
-  if player_ok and pv.first_after and pv.tick < pv.first_after then
-    if pv.tick < pv.first_after - (pv.first_prep or 0) then player_ok = false else hold_first = true end
-  end
+  -- tiré à ±20 %, shared/faction/adversaire.lua). Le joueur reste « dû » dès la déclaration (règle d'IA0 : la faction
+  -- garde ses soldats pour lui), mais aucune attaque ne part avant le moment. Moteur réel (essai 2 du lot) : avec une
+  -- préparation de 4 min seulement, Émeraude (graine 3141592653) avait vidé sa garnison sur sa rivale et n'attaquait
+  -- qu'à 34,0 min (26,2 avant le lot).
+  local hold_first = player_ok and pv.first_after ~= nil and pv.tick < pv.first_after
   local due = player_ok
     and ((v.rival == nil) or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
       or S.rival_stalled(v, level))

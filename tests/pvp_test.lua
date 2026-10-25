@@ -580,7 +580,7 @@ local function game_campaign(level, pers_list, minutes, cfg, opts)
             player_groups = 0, due_since = fp.due_since, rally_until = shared.rally_until,
             rally_defense = shared.rally_until and cfg.defense or nil,
             first_after = opts.tempo and not shared.first_done and A.first_after(0, level, opts.tempo) or nil,
-            first_prep = A.PREP, cooldown_mult = f.cd_mult },
+            cooldown_mult = f.cd_mult },
           player = { score = cfg.score, defense = cfg.defense, reachable = true },
         }
         if f.chef then
@@ -872,7 +872,7 @@ check(chef_raids > 0, "le chef lance des raids dans la campagne (" .. chef_raids
 ---------------------------------------------------------------------------------------------------
 section("Campagne pure : moment varié contre le joueur (lot IA2-c)")
 -- Lot IA2-c : sous le chef (section précédente), en plus : 1re attaque de la partie pas avant la valeur du niveau ×
--- tempo de la partie (±20 % ; un tempo par configuration, extrêmes compris), préparation 4 min avant (garnison gardée).
+-- tempo de la partie (±20 % ; un tempo par configuration, extrêmes compris) ; le joueur reste « dû » dès la déclaration.
 -- Mêmes exigences (ordre STRICT des niveaux, attaques exigées, guerres entre factions), plus : jamais d'attaque avant
 -- le moment.
 local TEMPOS = { 800, 1200, 1000, 850, 1150, 950, 1050, 900, 1100, 800, 1200 }

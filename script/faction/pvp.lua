@@ -339,7 +339,7 @@ function PvP.think(f, surface, tick, view, target)
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
     player_groups = player_groups(f), due_since = fp.due_since, last_rival = fp.last_rival,
     rally_until = p.rally_until, rally_defense = p.rally_until and p.rally_target and p.rally_target.defense or nil,
-    first_after = first_after, first_prep = A.PREP,
+    first_after = first_after,
   }
   view.player = player_view(f, surface, p, fp, tick, level)
   local a = S.decide(view)

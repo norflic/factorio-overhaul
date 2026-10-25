@@ -381,13 +381,22 @@ function Vision.scout_policy(f, surface, p, fp, tick, grace_end)
   if not (stale and window) then return end
   local spawn = game.forces.player.get_spawn_position(surface)
   local dest, tag = probe(f, p, v, spawn)
-  if Military.scout(f, surface, dest, tick, tag) then
+  -- Moteur réel (essai 2 du lot, graine 123456789) : 4 éclaireurs seuls tués en route sur 5 (biters, 25 à 35 s après
+  -- le départ) ; après chaque perte, une PATROUILLE plus grosse (1, 3, 5, puis 7 soldats) qui riposte.
+  local size = math.min(1 + 2 * (v.scout_losses or 0), 7)
+  if Military.scout(f, surface, dest, tick, tag, size) then
     v.next_scout = tick + A.SCOUT_GAP
-    log(string.format("[FO-PVP] eclaireur tick %d %s : part vers (%d, %d) (%s), secteurs connus %d", tick, f.key,
-      math.floor(dest.x), math.floor(dest.y), tag, #keys))
+    log(string.format("[FO-PVP] eclaireur tick %d %s : part vers (%d, %d) (%s), secteurs connus %d, %d soldat(s)", tick, f.key,
+      math.floor(dest.x), math.floor(dest.y), tag, #keys, size))
   else
     v.next_scout = tick + 600
   end
+end
+
+Military.on_scout_lost = function(f, g, tick, alive)
+  local v = f.pvp and Vision.state(f)
+  if not v then return end
+  if alive < (g.size or 1) then v.scout_losses = math.min((v.scout_losses or 0) + 1, 3) end
 end
 
 Military.on_scout_done = function(f, g, tick, arrived)
@@ -401,6 +410,7 @@ Military.on_scout_done = function(f, g, tick, arrived)
   -- Sonde suivante (départ du joueur, puis anneaux) seulement quand celle-ci a été faite (ou est injoignable) ; un
   -- éclaireur perdu en route (biters, F174) refait la même sonde.
   if (arrived or g.nopath) and (g.tag == "depart" or (g.tag or ""):find("^anneau")) then v.scout_i = v.scout_i + 1 end
+  if arrived and (v.scout_losses or 0) > 0 then v.scout_losses = v.scout_losses - 1 end
   log(string.format("[FO-PVP] eclaireur tick %d %s : %s (%d, %d), %d secteurs a regarder", tick, f.key,
     g.nopath and "sans itineraire" or (arrived and "arrive" or "arrete"), math.floor(at and at.x or 0), math.floor(at and at.y or 0), #keys))
 end
@@ -466,6 +476,18 @@ end
 ---------------------------------------------------------------------------------------------------
 Events.on(defines.events.on_entity_died, function(e)
   local killer = e.force
+  -- Éclaireur tué : par qui (journal ; moteur réel, essai 2 : 4 éclaireurs seuls sur 5 tués en route).
+  local ent0 = e.entity
+  if ent0 and ent0.valid and ent0.type == "unit" and ent0.unit_number then
+    local fs = State.by_force(ent0.force.name)
+    local s = fs and fs.soldiers and fs.soldiers[ent0.unit_number]
+    local g = s and s.group and fs.groups[s.group]
+    if g and g.state == "scout" then
+      local p = ent0.position
+      log(string.format("[FO-PVP] eclaireur tick %d %s : soldat tue par %s en (%d, %d)", e.tick, fs.key,
+        killer and killer.name or "aucune", math.floor(p.x), math.floor(p.y)))
+    end
+  end
   if not killer or killer.name ~= "player" then return end
   local ent = e.entity
   if not (ent and ent.valid) or ent.type == "unit" or ent.type == "character" then return end

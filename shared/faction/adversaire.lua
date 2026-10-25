@@ -38,11 +38,10 @@ A.SIDE_NEAR = 8             -- une tourelle à moins de 8 tuiles du point visé 
 A.SIDE_RADIUS = 56          -- rassemblement avancé à 56 tuiles du point visé (C.SIDE_RADIUS)
 A.GO_GROWTH = 1500          -- renonce si la défense vue ≥ 1,5 × celle du départ + 1 tourelle (et rapport de force perdu)
 A.TEMPO = 200               -- moment : ±20 % (pour mille)
-A.PREP = 4 * 3600           -- la 1re attaque se prépare (garnison gardée) 4 min avant son moment
 -- Moment nominal de la 1re attaque de la partie contre le joueur (min), par niveau : Normal 26 (milieu des bornes
 -- D-16, 20 à 32 min) ; les autres niveaux gardent l'ordre strict (même tempo pour tous les niveaux d'une partie).
 A.FIRST_MIN = { easy = 40, normal = 26, hard = 16, merciless = 9 }
-A.SCOUT_LEAD = 6 * 3600     -- 1er éclaireur 6 min avant la fin de la grâce
+A.SCOUT_LEAD = 10 * 3600    -- 1er éclaireur 10 min avant la fin de la grâce (6 au 2e essai : éclaireurs tués en route)
 A.SCOUT_GAP = 5 * 3600      -- un éclaireur au plus toutes les 5 min par faction
 A.STALE = 10 * 3600         -- un secteur connu non revu depuis 10 min : nouvel éclaireur
 A.MEMORY = 8                -- attaques retenues

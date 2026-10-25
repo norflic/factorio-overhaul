@@ -132,9 +132,11 @@ Military.on_attack_ended = nil
 --     renonce (la défense vue a grossi) et rentre ;
 --   Military.on_player_attack_ended(f, g, survivants, tick, vivants) : fin de la phase d'attaque contre le joueur ;
 --   Military.on_scout_done(f, g, tick, arrivé) : un éclaireur a fini son aller (arrivé = true) ou l'a manqué.
+--   Military.on_scout_lost(f, g, tick, vivants) : un éclaireur (ou une patrouille) a été perdu en route.
 Military.on_rally = nil
 Military.on_player_attack_ended = nil
 Military.on_scout_done = nil
+Military.on_scout_lost = nil
 
 --- Cible d'attaque : avant-poste le plus proche de la faction visée, sinon son QG.
 function Military.target_of(target_faction, from)
@@ -177,15 +179,16 @@ end
 --- Military.on_scout_done) est la seule source de ce qu'une faction sait d'un adversaire lointain (brouillard, D-16).
 --- Un éclaireur à la fois par faction (f.scout_pending, puis un groupe à l'état « scout »). Renvoie true s'il part.
 local SCOUT_HANDLER = "fo-war-scout"
-function Military.scout(f, surface, dest, tick, tag)
+function Military.scout(f, surface, dest, tick, tag, size)
   if f.scout_pending then return false end
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     if f.groups[gid].state == "scout" then return false end
   end
-  if Military.garrison_near(f) < 1 then return false end
+  size = size or 1
+  if Military.garrison_near(f) < size then return false end
   local name = F.unit_name(f.key, F.best_soldier(f.tech))
   local gather = surface.find_non_colliding_position(name, home(f), 20, 1) or home(f)
-  f.scout_pending = { gather = { x = gather.x, y = gather.y }, dest = { x = dest.x, y = dest.y }, tick = tick, tag = tag }
+  f.scout_pending = { gather = { x = gather.x, y = gather.y }, dest = { x = dest.x, y = dest.y }, tick = tick, tag = tag, size = size }
   f.scout_pending.ticket = PathService.request(SCOUT_HANDLER, f.id, {
     surface = surface.index, proto = name, pad = 0, start = f.scout_pending.gather, goal = f.scout_pending.dest, force = f.force,
     radius = 24, flags = { cache = false, low_priority = true }, res = -2,
@@ -595,34 +598,40 @@ PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, 
     if Military.on_scout_done then Military.on_scout_done(f, { dest = sp.dest, tag = sp.tag, nopath = true }, tick, false) end
     return
   end
-  local chosen
+  local chosen = {}
   local r2 = GATHER_RADIUS * GATHER_RADIUS
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    if #chosen >= (sp.size or 1) then break end
     local s = f.soldiers[id]
     if not s.group and s.entity.valid then
       local p = s.entity.position
       local dx, dy = p.x - sp.gather.x, p.y - sp.gather.y
-      if dx * dx + dy * dy <= r2 then chosen = id break end
+      if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id end
     end
   end
-  if not chosen then return end
+  if #chosen == 0 then return end
   local surface = game.surfaces[war.surface]
   local group = surface.create_unit_group({ position = sp.gather, force = f.force })
-  group.add_member(f.soldiers[chosen].entity)
-  f.soldiers[chosen].group = group.group_number
-  f.garrison_count = f.garrison_count - 1
+  for _, id in ipairs(chosen) do
+    group.add_member(f.soldiers[id].entity)
+    f.soldiers[id].group = group.group_number
+  end
+  f.garrison_count = f.garrison_count - #chosen
   local route = waypoints_along(path)
+  -- Un éclaireur seul passe sans combattre ; une PATROUILLE (après des éclaireurs perdus) riposte.
+  local dist = #chosen > 1 and defines.distraction.by_enemy or defines.distraction.none
   local cmds = {}
   for _, p in ipairs(route) do
-    cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = p, radius = 12, distraction = defines.distraction.none }
+    cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = p, radius = 12, distraction = dist }
   end
-  cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = sp.dest, radius = 16, distraction = defines.distraction.none }
+  cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = sp.dest, radius = 16, distraction = dist }
   group.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
   group.start_moving()
-  f.groups[group.group_number] = { group = group, state = "scout", started = tick, size = 1, route = route, ids = { chosen },
+  f.groups[group.group_number] = { group = group, state = "scout", started = tick, size = #chosen, route = route, ids = chosen,
     dest = sp.dest, tag = sp.tag, gid = group.group_number }
   f.stats.scouts = (f.stats.scouts or 0) + 1
-  log(string.format("[FO-PVP] eclaireur tick %d %s : en route (groupe %d, %d etapes)", tick, f.key, group.group_number, #route))
+  log(string.format("[FO-PVP] eclaireur tick %d %s : en route (groupe %d, %d soldat(s), %d etapes)", tick, f.key, group.group_number,
+    #chosen, #route))
 end)
 
 --- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués, soldats égarés, rappel.
@@ -639,11 +648,13 @@ function Military.maintain(f, tick)
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
       if g.state == "scout" then
-        -- Lot IA2-c : éclaireur perdu en route (tué, ou retiré du groupe par le moteur : F174).
-        local alive = g.ids and g.ids[1] and f.soldiers[g.ids[1]] ~= nil
+        -- Lot IA2-c : éclaireur perdu en route (tués, ou retirés du groupe par le moteur : F174).
+        local alive = 0
+        for _, id in ipairs(g.ids or {}) do if f.soldiers[id] then alive = alive + 1 end end
         f.stats.scouts_lost = (f.stats.scouts_lost or 0) + 1
-        log(string.format("[FO-PVP] eclaireur tick %d %s : perdu apres %d ticks (groupe %d, soldat %s)", tick, f.key,
-          tick - g.started, gid, alive and "vivant" or "mort"))
+        log(string.format("[FO-PVP] eclaireur tick %d %s : perdu apres %d ticks (groupe %d, %d soldat(s) vivant(s) sur %d)", tick, f.key,
+          tick - g.started, gid, alive, g.size or 1))
+        if Military.on_scout_lost then Military.on_scout_lost(f, g, tick, alive) end
       end
       if g.state == "attack" and tick - g.started < DISSOLVE_TICKS then
         -- Lot IA2-a : groupe vidé juste après son départ (F174 : membres retirés par le moteur, sans mort). Moteur
