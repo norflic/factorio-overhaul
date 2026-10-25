@@ -500,6 +500,24 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (section IA3, conception et fondations IA3-0, 25/10 après-midi ; fusionnés dans `main`, `db7911c` et `f613db1`, rien de branché dans le jeu)
+Preuves : `docs/IA3_CERVEAU.md` (conception qui fait foi, revue adverse intégrée), `fo-logs\2026-10-25_IA3\`, `fo-logs\2026-10-25_IA3-dev\`
+(`REVUE.md`, `NOTES.md`, `INTEGRATION.md`). Expériences : E178 à E181.
+- **F269** : une force SANS joueur fait avancer une recherche dans des laboratoires alimentés, au temps des prototypes
+  finaux (`automation` : tick 150 = 1 unité de 600 ticks ÷ 4 laboratoires) ; `on_research_finished` levé ; une force créée
+  par script a `research_queue_enabled = false` ; `add_research` sans un prérequis rend faux.
+- **F270** : écrire `LuaForce.research_progress` est relu tel quel ; écrire 1 TERMINE la recherche en cours comme un
+  laboratoire (`by_script = false`) ; `researched = true` la termine avec `by_script = true` ; les bonus s'appliquent.
+- **F271** : le mod réécrit le coût des technologies (`automation` : 1 unité au lieu de 10 ; palier 3 = 40 packs) ;
+  `research_unit_energy` est en TICKS.
+- **F272** : une force créée par script est hostile aux biters ; `can_place_entity` refuse la case d'un biter ; une
+  mitrailleuse posée par script près de biters qui chargent, remplie par script, tire 35 ticks après une détection à
+  22,4 tuiles (`find_enemy_units`, regard toutes les 30 ticks).
+- **F273** : `LuaEntity.mine{inventory = inventaire d'un personnage}` rend la tourelle ET ses munitions ; dans un
+  inventaire plein, `mine` rend faux et la tourelle reste.
+- **F274** : une grenade créée par script (`create_entity{name = "grenade", target, speed = 0,3}`) tue 4 petits biters groupés.
+- **F275** : `harness.lua --dump-techs` est identique aux prototypes du moteur sur 214 technologies (0 écart).
+
 ### Faits vérifiés en moteur réel (lot IA1-i, fenêtre « Équipe et factions », 25/10 ; fusionné dans `main`, `63c480c`, version 0.4.28)
 Preuves : `fo-logs\2026-10-25_IA1-i\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E174, E175.
 - **F263** : la barre de raccourcis garde l'ORDRE propre à chaque joueur (`player-data.json`) : un raccourci nouveau
@@ -1080,6 +1098,24 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E178 à E181 · Section IA3, le cerveau des PNJ (25/10 après-midi ; décision D-18 ; fusions `db7911c`, `f613db1` ; rien de branché)** :
+conception `docs/IA3_CERVEAU.md` : le chef (IA2) donne des POIDS par famille de buts ; des générateurs de buts (recherche,
+armée, défense, extraction au goulot, capital, exploration, réserve) se déplient sur le graphe recettes-technologies-machines-
+ressources par six méthodes génériques (prendre, main, machine, extraire, explorer, rechercher ; aucun nom du jeu dans le
+code : 825 noms cherchés, 0 trouvé) ; 2 à 10 projets en parallèle ; un REGISTRE réserve la matière de chaque projet (fin de
+l'« arrachage » : 3 à 50 échecs « stock » par équipe en 2 h mesurés) ; une PLACE DE MARCHÉ remplace la règle des pôles
+(E179, jouet : 35 % contre 0 % d'inactifs avec du travail) ; le solveur IA1-e1 tranche fabriquer / automatiser / agrandir /
+améliorer / construire ailleurs ; les expéditions évaluent le risque et partent équipées. **E178** : dépliage et coût réel de
+la recherche (revue M13 : aux coûts FINAUX du mod, les factions reçoivent 705 packs de technologies pour 290 payés, × 2,4 et
+non × 22 ; palier 3 = 40 packs, 325 s de laboratoire : le vrai risque devient des factions TROP rapides). Revue adverse
+(`REVUE.md`) : 3 bloquants corrigés (B1 désynchronisation d'une pensée étalée sur plusieurs ticks : état en `global` ;
+B2 recherche par le « laboratoire du QG » ; B3 effondrement déjà vu à IA2-a : garde de l'économie), 13 majeurs (dont la
+place de marché : 8,25 ms mesurés pour 30 PNJ × 64 tâches, réécrite à 2,0 ms, mêmes attributions sur 1 000 tableaux), 6
+mineurs. **E180** (`ia3-recherche`, 11 OK, `done.txt` 16:51:27) et **E181** (`ia3-tourelle`, 9 OK, 16:51:34) en moteur réel :
+F269 à F274 ; `ia3-donnees` 2 OK (F275). Hors jeu sur `main` : graphe 36, groupe 28, expédition 19, recherche 17, levels 1664,
+harness 0 erreur, api_lint 1091. Plan : lots IA3-a (recherche d'abord, prêt, attend la fusion d'IA1-b2), IA3-b (personne
+n'attend), IA3-d (effectif 8), IA3-c (nouveau cerveau), IA3-e à IA3-j ; 17 à 21 jours d'agents.
+
 **E174, E175 · Lot IA1-i, fenêtre « Équipe et factions » (25/10 de 10 h 50 à 12 h 15 ; fusion `63c480c`, version 0.4.28)** :
 demande du DC (« l'idée serait plutôt d'avoir une interface. Pas des commandes à taper ») ; bouton de la barre de raccourcis
 et Maj+T ; onglets Mon équipe, Orientation (5 préréglages, renvoyer avec confirmation dans la fenêtre), Factions (une carte
