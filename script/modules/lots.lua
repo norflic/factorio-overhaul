@@ -32,7 +32,7 @@ local R = require("shared.content.recipe_lots")
 local Lots = {}
 
 Lots.LANE = "modlots"
-Lots.PERIOD = 30          -- ticks : réserve reversée au plus tard une demi-seconde après qu'il y a de la place
+Lots.PERIOD = 10          -- ticks : réserve reversée au plus tard 1/6 s après qu'il y a de la place (peu de machines)
 
 Storage.declare("modlots", function()
   return {
@@ -309,7 +309,58 @@ local function fluid_totals(e)
   return t
 end
 
+--- Les objets rendus par set_recipe sont-ils EXACTEMENT les ingrédients (objets) d'une fabrication de `old` ?
+--- (moteur réel, E151 : 2 plaques pour l'engrenage, 20 au lot 10, 5 briques + 1 minerai pour le béton). Et ses
+--- produits sont-ils sûrs (quantité fixe, sans probabilité) ?
+local function one_craft(ret, old)
+  if not old then return false end
+  local want, n = {}, 0
+  for _, i in ipairs(old.ingredients) do
+    if i.type ~= "fluid" then
+      want[i.name] = (want[i.name] or 0) + i.amount
+      n = n + 1
+    end
+  end
+  local m = 0
+  for name, count in pairs(ret) do
+    if want[name] ~= count then return false end
+    m = m + 1
+  end
+  if m ~= n then return false end
+  for _, pr in ipairs(old.products) do
+    if not pr.amount or (pr.probability and pr.probability ~= 1) then return false end
+  end
+  return true
+end
+
+local function give_item(e, recipe, name, count, st)
+  local put = put_item(e, recipe, name, count)
+  if put < count then
+    local p = reserve(e)
+    add_item(p.items, name, count - put)
+    st.stats.pending_items = st.stats.pending_items + count - put
+  end
+end
+
+local function give_fluid(e, name, amount, temperature, st)
+  local put = put_fluid(e, name, amount, temperature)
+  if amount - put > 1e-6 then
+    local p = reserve(e)
+    add_fluid(p.fluids, name, amount - put, temperature)
+    st.stats.pending_fluid = st.stats.pending_fluid + amount - put
+  end
+end
+
 --- Passe la machine `e` de sa recette (lot k_old) au lot k_new (même base). Renvoie true si elle a basculé.
+---
+--- Moteur réel (E151) : set_recipe garde l'entrée et la sortie (mêmes objets) et ne rend que les ingrédients (objets)
+--- de la fabrication EN COURS ; ses fluides sont détruits ; une boîte plus petite (lot inférieur) est tronquée. Une
+--- entrée déjà à sa limite refuse tout ajout par script (écriture directe du compte comprise, E151 passe 4) : rendre les
+--- ingrédients pourrait les laisser en attente tant que les bras la tiennent pleine. La fabrication en cours est donc
+--- ACHEVÉE par le script : ses produits (lot k_old) vont dans la sortie, sa part de productivité dans la barre ; les
+--- ingrédients rendus sont ceux qu'elle avait déjà pris. Avance accordée : au plus la fin d'UNE fabrication du lot
+--- k_old. Cas non reconnu (objets rendus différents d'une fabrication, produit aléatoire) : ingrédients reversés.
+--- Ce qui n'entre pas (sortie pleine, boîte tronquée) attend dans la réserve de la machine.
 function Lots.switch(e, base, k_old, k_new)
   local b = BASES[base]
   local to = b and b.names[k_new]
@@ -318,71 +369,63 @@ function Lots.switch(e, base, k_old, k_new)
   local old = e.get_recipe()
   local fr = e.force.recipes[to]
   if fr and not fr.enabled and e.force.recipes[base] and e.force.recipes[base].enabled then fr.enabled = true end
-  local crafting = e.is_crafting() and e.crafting_progress > 0
-  local bonus = e.bonus_progress
+  local bonus = e.bonus_progress or 0
+  local pbonus = e.productivity_bonus or 0
   local fluids_before = fluid_totals(e)
-  -- Fluides de la fabrication en cours : pris par le moteur au début, détruits au changement (E151).
-  local inflight = {}
-  if crafting and old then
-    for _, i in ipairs(old.ingredients) do
-      if i.type == "fluid" then inflight[#inflight + 1] = { name = i.name, amount = i.amount } end
-    end
-  end
-  local ret = e.set_recipe(to)
+  local ret = e.set_recipe(to) or {}
   local recipe = e.get_recipe()
-  -- Objets rendus (ingrédients de la fabrication en cours ; ce que le moteur n'a pas gardé) : reversés, sinon réserve.
-  local names = {}
-  for name in pairs(ret or {}) do names[#names + 1] = name end
-  table.sort(names)
-  local p
-  for _, name in ipairs(names) do
-    local count = ret[name]
-    st.stats.refunded = st.stats.refunded + count
-    local put = put_item(e, recipe, name, count)
-    if put < count then
-      p = p or reserve(e)
-      add_item(p.items, name, count - put)
-      st.stats.pending_items = st.stats.pending_items + count - put
+  local units = bonus * k_old / k_new
+  if next(ret) ~= nil then
+    if one_craft(ret, old) then
+      -- Fabrication en cours achevée : produits du lot k_old, part de productivité.
+      st.stats.finished = (st.stats.finished or 0) + 1
+      for _, pr in ipairs(old.products) do
+        if (pr.type or "item") == "fluid" then
+          give_fluid(e, pr.name, pr.amount, pr.temperature, st)
+        else
+          give_item(e, recipe, pr.name, pr.amount, st)
+          st.stats.finished_items = (st.stats.finished_items or 0) + pr.amount
+        end
+      end
+      units = (bonus + pbonus) * k_old / k_new
+    else
+      -- Cas non reconnu : ingrédients rendus reversés (entrée, sinon réserve) ; fluides de la fabrication reversés.
+      local names = {}
+      for name in pairs(ret) do names[#names + 1] = name end
+      table.sort(names)
+      for _, name in ipairs(names) do
+        st.stats.refunded = st.stats.refunded + ret[name]
+        give_item(e, recipe, name, ret[name], st)
+      end
+      for _, i in ipairs(old and old.ingredients or {}) do
+        if i.type == "fluid" then
+          local tb = fluids_before[i.name]
+          st.stats.fluid_refund = st.stats.fluid_refund + i.amount
+          give_fluid(e, i.name, i.amount, tb and tb.temperature, st)
+        end
+      end
     end
   end
-  -- Fluides : ce que la boîte n'a pas gardé (boîte plus petite au lot inférieur) et la fabrication en cours.
+  -- Fluides que la boîte n'a pas gardés (boîte plus petite au lot inférieur).
   local after = fluid_totals(e)
   local fnames = {}
   for name in pairs(fluids_before) do fnames[#fnames + 1] = name end
   table.sort(fnames)
-  local missing = {}
   for _, name in ipairs(fnames) do
-    local lost = fluids_before[name].amount - (after[name] and after[name].amount or 0)
-    if lost > 1e-6 then missing[#missing + 1] = { name = name, amount = lost, temperature = fluids_before[name].temperature } end
+    local was = fluids_before[name]
+    local now = after[name] and after[name].amount or 0
+    if was.amount - now > 1e-6 then give_fluid(e, name, was.amount - now, was.temperature, st) end
   end
-  for _, f in ipairs(inflight) do
-    local temp = fluids_before[f.name] and fluids_before[f.name].temperature
-    missing[#missing + 1] = { name = f.name, amount = f.amount, temperature = temp }
-    st.stats.fluid_refund = st.stats.fluid_refund + f.amount
-  end
-  for _, f in ipairs(missing) do
-    local put = put_fluid(e, f.name, f.amount, f.temperature)
-    if f.amount - put > 1e-6 then
-      p = p or reserve(e)
-      add_fluid(p.fluids, f.name, f.amount - put, f.temperature)
-      st.stats.pending_fluid = st.stats.pending_fluid + f.amount - put
-    end
-  end
-  -- Productivité : la barre (fraction d'une fabrication du lot k_old) est reportée au lot k_new ; les fabrications
-  -- entières rendues en produits (descente), le reste en fraction.
-  if bonus and bonus > 0 then
-    local units = bonus * k_old / k_new
+  -- Productivité : barre exprimée en fabrications du lot k_new ; fabrications entières rendues en produits.
+  if units > 0 then
     local whole = math.floor(units)
     if whole > 0 and recipe then
       for _, pr in ipairs(recipe.products) do
-        if (pr.type or "item") == "item" and pr.amount then
-          local n = pr.amount * whole
-          local put = put_item(e, recipe, pr.name, n)
-          st.stats.bonus_items = st.stats.bonus_items + n
-          if put < n then
-            p = p or reserve(e)
-            add_item(p.items, pr.name, n - put)
-          end
+        if pr.amount and (pr.type or "item") == "item" then
+          st.stats.bonus_items = st.stats.bonus_items + pr.amount * whole
+          give_item(e, recipe, pr.name, pr.amount * whole, st)
+        elseif pr.amount then
+          give_fluid(e, pr.name, pr.amount * whole, pr.temperature, st)
         end
       end
     end
@@ -422,7 +465,7 @@ function Lots.panel_line(e)
   local whole = math.floor(rate / 100)
   local frac = string.format("%02d", rate - whole * 100)
   local crafts = math.floor(rate * i.k / 100 + 0.5)          -- fabrications de la recette de base par seconde
-  if rate > R.CAP * 100 then
+  if rate > R.CAP * 100 and i.k == b.sizes[#b.sizes] then
     return { "fo-lots.panel-lot-cap", tostring(i.k), tostring(crafts) }
   end
   if i.k == 1 then return { "fo-lots.panel-lot-1", tostring(whole), frac } end
@@ -508,6 +551,14 @@ remote.add_interface("fo-lots", {
       pending = p and { items = p.items, fluids = p.fluids } or nil }
   end,
   consider = function(e) return Lots.consider(e) end,
+  --- Bascule imposée au lot k (mesure du coût d'une bascule seule) ; la décision suivante peut la défaire.
+  switch_to = function(e, k)
+    if not (e and e.valid and e.type == "assembling-machine") then return false end
+    local recipe = e.get_recipe()
+    local i = recipe and info_of(recipe.name)
+    if not i or i.k == k then return false end
+    return Lots.switch(e, i.base, i.k, k)
+  end,
   stats = function()
     local out = {}
     for k, v in pairs(S().stats) do out[k] = v end

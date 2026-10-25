@@ -5,6 +5,9 @@
 -- cours) ; fluide gardé ou non ; capacité d'insertion par script de l'entrée (lot 1, 10, 100 ; lente, rapide) ;
 -- sortie au-delà d'une pile ; fluide à la capacité de la boîte et au-delà ; crafting_speed relu après la balise ;
 -- débit d'un niveau 30 à 34 × palier 10 nourri par script (lots 1, 10, 100) et par bras (limite logistique).
+-- ATTENTION : les cellules X1 à X8 ont été mesurées AVANT la bascule automatique (passes 2 et 3, archives
+-- fo-logs\2026-10-25_MOD2\explore2, explore3) ; avec le mod complet, les machines posées avec raise_built sont suivies
+-- et changent seules de lot : seules les cellules X9 (machines NON suivies, passe 4, explore4) restent lisibles.
 
 local X0, Y0 = 6000, 6000
 local CHECK = 1400
@@ -131,6 +134,17 @@ return {
     local g = s.create_entity({ name = "assembling-machine-2", position = { X0 + 50, Y0 + 40 }, force = f, raise_built = true })
     g.set_recipe("concrete")
     st.x6g = g
+
+    -- X9 (passe 4) : machines NON suivies (sans raise_built : aucune bascule automatique). Écriture directe du compte
+    -- d'une pile d'entrée et de sortie au-delà de la limite d'insertion ; boîte à fluide écrite au-delà de sa capacité ;
+    -- descente 10 -> 1 en pleine fabrication : ce que le moteur remet lui-même dans l'entrée.
+    st.x9 = {}
+    for j, rec in ipairs({ "iron-gear-wheel", "concrete", "fo-lot10-iron-gear-wheel" }) do
+      local m = s.create_entity({ name = "assembling-machine-2", position = { X0 + 80 + j * 6, Y0 + 40 }, force = f })
+      m.set_recipe(rec)
+      st.x9[j] = m
+    end
+    for _ = 1, 5 do st.x9[3].get_module_inventory().insert({ name = P10, count = 1 }) end
 
     -- X7 : crafting_speed relu juste après la pose des modules (balise du complément).
     local h = s.create_entity({ name = "assembling-machine-2", position = { X0 + 70, Y0 + 40 }, force = f, raise_built = true })
@@ -285,6 +299,43 @@ return {
         line(ctx, "X6g tick 54 : 100 d'eau rendue par script : boite " .. box(g) .. " capacite " .. g.fluidbox.get_capacity(1))
       end
       if t == 56 then line(ctx, "X6g tick 56 : boite " .. box(g)) end
+    end
+    -- X9 : écritures directes et descente en pleine fabrication.
+    local x9 = st.x9
+    if x9 and t == 395 then
+      input(x9[1]).insert({ name = "iron-plate", count = 100 })
+      x9[1].get_output_inventory().insert({ name = "iron-gear-wheel", count = 100 })
+    end
+    if x9 and t >= 300 and t < 400 then feed(x9[3], "iron-plate", 2000) end
+    if x9 and t == 400 then
+      local m = x9[1]
+      local inv = input(m)
+      local c0 = inv[1].valid_for_read and inv[1].count or -1
+      local ok1, e1 = pcall(function() inv[1].count = c0 + 300 end)
+      local c1 = inv[1].valid_for_read and inv[1].count or -1
+      local r1 = inv.insert({ name = "iron-plate", count = 10 })
+      local out = m.get_output_inventory()
+      local o0 = out[1].valid_for_read and out[1].count or -1
+      local ok2, e2 = pcall(function() out[1].count = o0 + 150 end)
+      local o1 = out[1].valid_for_read and out[1].count or -1
+      line(ctx, string.format("X9 pile d'entree (plaques, pile 100) : %d -> ecriture %d : %s %s -> relu %d ; insert 10 ensuite : %d ; pile de sortie (engrenages) %d -> ecriture %d : %s %s -> relu %d",
+        c0, c0 + 300, tostring(ok1), tostring(e1), c1, r1, o0, o0 + 150, tostring(ok2), tostring(e2), o1))
+      local g = x9[2]
+      local ok3, e3 = pcall(function() g.fluidbox[1] = { name = "water", amount = 5000 } end)
+      line(ctx, string.format("X9 boite (beton, capacite %s) ecrite a 5000 : %s %s -> relu %s", tostring(g.fluidbox.get_capacity(1)),
+        tostring(ok3), tostring(e3), box(g)))
+      local h3 = x9[3]
+      local before = input(h3).get_contents()
+      local prog = h3.crafting_progress
+      local ret = h3.set_recipe("iron-gear-wheel")
+      line(ctx, "X9 descente 10 -> 1 en fabrication : entree avant " .. serpent.line(before) .. " progression "
+        .. string.format("%.4f", prog) .. " ; rendu " .. serpent.line(ret) .. " ; entree apres " .. serpent.line(input(h3).get_contents())
+        .. " ; sortie " .. serpent.line(h3.get_output_inventory().get_contents()))
+    end
+    if x9 and t == 460 then
+      local m = x9[1]
+      line(ctx, "X9 tick 460 : entree " .. serpent.line(input(m).get_contents()) .. " sortie " .. serpent.line(m.get_output_inventory().get_contents())
+        .. " statut " .. status(m) .. " ; beton boite " .. box(x9[2]))
     end
     -- X7 : vitesse relue.
     local h = st.x7
