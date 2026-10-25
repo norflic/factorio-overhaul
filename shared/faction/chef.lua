@@ -24,6 +24,13 @@
   10 min ; confiance par posture (± 100 à la fin de chaque épisode, bornée) ; sites perdus (menace, reconstruction) ;
   rancune envers qui a détruit nos bâtiments (décroît de 10 % par pensée).
 
+  Lot IA2-a2 (guerres moins meurtrières ; moteur réel : 3 factions anéanties sur 16 en 2 h → 1, à 73 min) :
+    - SATIÉTÉ : une rivale battue (10 des siens tués par nous, ou site visé détruit) est épargnée 15 à 30 min ; un QG nu
+      (aucun avant-poste) aussi ; rancune forte et opportunisme passent outre ; TRÊVE si toutes sont épargnées (en
+      Paisible, ni attaque ni raid : S.attack, S.raid ; aux niveaux agressifs, règle inchangée, ordre strict) ;
+    - SURVIE (C.survival) : reconstruction imposée et tenue jusqu'au rétablissement ; st.rebuild lu par l'équipe ;
+    - point visé : la PÉRIPHÉRIE d'abord (C.target_point) ; choix de la rivale avec un plancher de défense (C.DEF_FLOOR).
+
   Déterminisme : entiers et listes triées (aucun `pairs` décisionnel), aucune trigonométrie ; tirages injectés
   (`draw(n)` → entier de 1 à n), flux du chef `Tr.new_stream(graine, 200 + id)` (script/faction/chef.lua).
   État : nombres, chaînes et tables seulement (stocké dans `global` par le runtime).
