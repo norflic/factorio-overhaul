@@ -22,11 +22,13 @@ def matieres(metal, M):
 
 def piece(g, c):
     M = g.M
-    za = 2.15                       # sommet du trépied (au-dessus du corps vanilla, dont le haut est vers 1,1)
-    R = 1.22
+    # ronde 2 : trépied resserré (rayon 1,22 → 0,55) et plus bas (2,15 → 1,95) : large, il enfermait le sol entre ses
+    # perches et le corps vanilla (ilots : trou de 4 418 px en pose E) ; resserré, il reste dans la silhouette vanilla
+    za = 1.95
+    R = 0.55
     for k in range(3):
         a = math.radians(90 + 120 * k + 30)
-        p0 = (R * math.cos(a), R * math.sin(a), 0.32)
+        p0 = (R * math.cos(a), R * math.sin(a), 0.62)
         p1 = (0.10 * math.cos(a), 0.10 * math.sin(a), za)
         g.tube([p0, ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2), p1], 0.045, M["wood"], n=8,
                what="perche")
