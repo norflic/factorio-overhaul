@@ -466,6 +466,15 @@
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
 
+### Faits vérifiés en moteur réel (lot IA2-b, expansion des factions par la carte, 25/10 nuit ; fusionné dans `main`, `714d29a`, version 0.4.23)
+Preuves : `fo-logs\2026-10-25_IA2-b\` (`NOTES.md`). Expériences : E153, E154.
+- **F222** (règle du mod) : la réserve de sites de la v0 n'offrait presque jamais de choix (307 sites puisés sur 405 étaient
+  le seul candidat valide de leur ressource) : la métrique « plus proche d'abord » d'IA2-0 mesurait surtout ce manque.
+- **F223** : sur 0.4.20 (avec X1), graine 20261020, le QG d'Ambre est détruit par les BITERS à 29,6 min ; cause de l'écart
+  avec IA2-a2 non établie.
+- **F224** (règle du mod) : une faction sans avant-poste à 80 tuiles ou plus de son QG perd son QG à la première attaque
+  réussie (« la périphérie d'abord » vise alors la zone de départ) ; l'anneau extérieur de départ à 88 tuiles l'évite.
+
 ### Faits vérifiés en moteur réel (lot MOD-2, recettes par lots, 25/10 nuit ; fusionné dans `main`, `e4963d7`, version 0.4.22)
 Preuves : `fo-logs\2026-10-25_MOD2\NOTES.md` §2 à §4. Expériences : E151, E152.
 - **F219** : `LuaEntity.set_recipe` accepte une recette CACHÉE et DÉSACTIVÉE ; il garde entrée et sortie quand les objets
@@ -955,6 +964,17 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E153, E154 · Lot IA2-b, expansion par la carte (25/10 nuit ; fusion `714d29a`, version 0.4.23)** : sites choisis par
+valeur (richesse, eau, terrain, distance au territoire, danger vu sous brouillard, gisements disputés) pondérée par le
+caractère et la posture du chef ; départ en éventail (46, 88, 120 tuiles) ; orphelins repris ou démontés (F209). Mesure M1
+recalée (rondeur inutilisable : 2,53 dès la référence). `default` 2 h × 4 graines, référence → final : meilleur demi-plan
+0,75 → 0,91 (seuil 0,85), excentrement 0,36 → 0,47 (seuil 0,5, MANQUÉ), radialité 0,55 → 0,60 (seuil ≤ 0,5, MANQUÉ), plus
+proche d'abord sur les vrais choix 0,50 → 0,81 (PIRE ; toutes les tournées partent du QG), choix dans le meilleur quart
+de valeur 0,65 → 0,94, orphelins 43 → 10, factions anéanties 1 → 1 (à 88 min au lieu de 30) ; variété d'IA2-a gardée.
+Sur `main` 0.4.23 : content 331 (`done.txt` 3:15:56), monde 116, verif-tourelles 7, ia1-scale 17, pnj-auto 7, ia0-normal
+14, pnj-reduit 12 ; hors jeu valeur 51, org 365, test_ia2_mesures 50, pvp 1 037, api_lint 968. NON prouvé : une série par
+version ; fronts peu utilisés (9 sites sur 451) ; sites lointains perdus reposés en boucle (276 reprises).
+
 **E151, E152 · Lot MOD-2, recettes par lots (25/10 nuit ; décision Q-M2 a ; fusion `e4963d7`, version 0.4.22)** : lots × 10
 et × 100 générés pour les recettes des machines d'assemblage à modules ; bascule automatique au-delà de 60 fabrications
 par seconde, retour sous 45 ; assembleur niveau 30 à 34 × P10 : 60 → 1 630 engrenages par seconde (1 637 voulus) ;

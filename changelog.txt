@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.23
+Date: 2026-10-25
+  Changes:
+    - Les factions choisissent leurs gisements selon leur valeur (richesse, terrain, distance à leur territoire,
+      danger vu, gisements disputés) et selon leur caractère, au lieu de prendre le premier trouvé.
+    - Les gisements de départ d'une faction sont groupés d'un côté de son QG, dans une direction propre à chaque partie.
+    - Les coffres et fours d'un avant-poste perdu sont repris quand la faction reconstruit sur place, sinon démontés.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.22
 Date: 2026-10-25
   Features:
