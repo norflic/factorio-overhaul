@@ -89,9 +89,10 @@ local function extraction(view, free, ctx, out)
   local keys = ctx.keys or {}
   -- 1. Agrandir (le plus ancien avant-poste d'abord).
   local extendable = {}
+  local danger = ctx.danger or {}
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
-    if not o.full and room > 0 then
+    if not o.full and room > 0 and not danger[o.id] then
       extendable[o.kind] = true
       local key = "extend:" .. o.id
       local items = F.pair_items(o.kind, math.min(F.PAIRS, room))
@@ -218,7 +219,10 @@ local function territory(view, ctx, out)
   -- sortie des PNJ au travail et la pollution des foreuses en plus, si) ; équipe occupée 70,6 % au lieu de 93 %.
   -- Leur valeur défensive n'est pas mesurée (lot IA1-g : zones et tourelles).
   local posts = { "hq" }
-  for _, o in ipairs(view.outposts or {}) do posts[#posts + 1] = o.id end
+  local danger = ctx.danger or {}
+  for _, o in ipairs(view.outposts or {}) do
+    if not danger[o.id] then posts[#posts + 1] = o.id end
+  end
   for k = 1, F.GARRISON_PER_POST do
     for _, p in ipairs(posts) do
       local key = "fond:garde:" .. tostring(p) .. ":" .. k

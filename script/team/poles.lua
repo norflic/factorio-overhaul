@@ -38,6 +38,7 @@ Poles.CHANGES_KEPT = 8        -- dates des derniers changements de pôle EFFECTI
 Poles.CHIEFS = 5              -- généralistes au plus (docs §4.4 ; réglage fo-team-chiefs prévu au §11, non créé)
 Poles.CRISIS_PRIO = 50
 Poles.ROOM_WINDOW = 60        -- capacité de fond lissée sur 60 pensées (5 min)
+Poles.DANGER_RADIUS = 40      -- nid ou ver à moins de 40 tuiles : avant-poste écarté du fond (garde, agrandissement)
 local POLE_KEYS = { "extraction", "base", "territoire" }
 
 local function new_stats()
@@ -253,7 +254,21 @@ function Poles.think(f, view, book, tick)
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1
   local mine_cap = O.manual_cap(n_exec, epoch)
-  local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip,
+  -- Avant-postes DANGEREUX (nid ou ver à moins de 40 tuiles) : ni garde ni agrandissement de fond (morts des PNJ :
+  -- 117 tués par les ennemis en 60 min à 30 PNJ, contre 12 avant le lot). Une recherche par avant-poste et par pensée.
+  local danger = {}
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if surface then
+    for _, o in ipairs(view.outposts or {}) do
+      local real = f.outposts and f.outposts[o.id]
+      local pos = real and (real.access or real.pos)
+      if pos and surface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
+        type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+        danger[o.id] = true
+      end
+    end
+  end
+  local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
     mine_left = math.max(0, mine_cap - mine_fond_busy) })
   local room_now = {}
   for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end

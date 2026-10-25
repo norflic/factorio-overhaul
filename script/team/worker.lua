@@ -29,6 +29,8 @@ local Foot = require("shared.levels.footprint")
 
 local Worker = {}
 
+Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
+
 local MACHINE = "worker"
 local HOME_RADIUS = 6
 local MAX_STEPS_PER_THINK = 6
@@ -269,6 +271,11 @@ function Worker.program(f, task, surface, tick)
       local busy = surface.count_entities_filtered({
         area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
       })
+      -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
+      if busy == 0 and task.fond and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
+        force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
+        busy = 1
+      end
       if busy == 0 then best = r break end
     end
     if not best then return nil end
