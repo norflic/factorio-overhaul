@@ -134,6 +134,7 @@ T.near_mine = 96
 T.grow_iron_reserve = 400
 T.grow_period = 5 * 3600 -- une recrue de croissance toutes les 5 min au plus (règle de croissance, D-18)
 T.transport_min = 10
+T.transport_porters = 4 -- porteurs de fond au plus par avant-poste (2 jusqu'à l'essai 11 : ia1-poles occupée à 70 %)
 T.transport_near = 64
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
 

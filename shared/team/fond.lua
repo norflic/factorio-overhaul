@@ -178,10 +178,13 @@ local function extraction(view, free, ctx, out)
           out[#out + 1] = { key = key, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
             domain = "gisements" }
         end
-        local key2 = "fond:transport:" .. o.id
-        if out_n >= 2 * T.transport_min and not keys[key2] then
-          out[#out + 1] = { key = key2, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
-            domain = "gisements" }
+        -- Porteurs suivants (2 à T.transport_porters) : le k-ième dès k × T.transport_min objets à rapporter.
+        for k = 2, T.transport_porters do
+          local key2 = k == 2 and ("fond:transport:" .. o.id) or ("fond:transport:" .. o.id .. ":" .. k)
+          if out_n >= k * T.transport_min and not keys[key2] then
+            out[#out + 1] = { key = key2, kind = "service", prio = F.PRIO.transport, outpost = o.id, fond = true,
+              domain = "gisements" }
+          end
         end
       end
     end
