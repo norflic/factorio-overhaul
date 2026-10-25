@@ -17,9 +17,22 @@
     version de conception, référence des tests (mêmes attributions sur des tableaux tirés).
   M.pole_rule(npcs, tasks) : règle d'aujourd'hui simplifiée (son pôle ou une urgence ≥ 90), pour comparaison.
   Aucun pairs décisionnel, aucun hasard ; nombres seulement (sérialisable).
+
+  Lot IA3-b (BRANCHÉ derrière le réglage M.SETTING, script/team/board.lua) :
+    M.order(npc, tasks, ctx) -> indices des tâches que le PNJ sait faire, dans l'ordre de la place de marché : tâches du
+      cerveau d'abord, travail de FOND ensuite (« sans aucune tâche, le PNJ prend un investissement par défaut », §2.3),
+      puis note décroissante (arrondie au millième), puis clé. Un passage et un tri : O(T log T).
+    M.need_factor(have, want, short) : valeur d'une tâche d'extraction selon le BESOIN (constat du DC, 25/10 vers
+      18 h 45 : « ils farment de la pierre et du charbon […] ils en ont a foison ») : ce qui manque au cerveau vaut
+      M.NEED_SHORT fois sa priorité, ce qui dépasse déjà le besoin prévu M.NEED_SURPLUS fois.
+    M.score(npc, task, rush, tpos, mult) : tpos = point de départ de la tâche (défaut task.pos), mult = facteur de
+      besoin (défaut 1) ; une tâche `no_rush` (garde du QG menacé : toute l'équipe y va) n'a pas d'anti-ruée.
 ]]
 
 local M = {}
+
+M.SETTING = "fo-war-ia3-marche" -- lot IA3-b : réglage de carte (settings/ia3b.lua)
+M.DEFAULT_ON = false            -- défaut du réglage ET du moteur simulé (réglage absent) : voir settings/ia3b.lua
 
 M.ROLE_BONUS = 20      -- pour cent
 M.DESIGN_BONUS = 20    -- pour cent
@@ -28,6 +41,8 @@ M.RUSH = 0.7
 M.URGENT = 90
 M.TRAVEL_DIV = 10
 M.CONTINUITY = 10
+M.NEED_SHORT = 1.5     -- lot IA3-b : la matière (ou la plaque qu'elle donne) manque au cerveau
+M.NEED_SURPLUS = 0.25  -- lot IA3-b : le stock dépasse déjà le besoin prévu (« vaut peu », jamais interdit)
 
 local function dist(a, b)
   if not a or not b then return 0 end
@@ -36,18 +51,55 @@ local function dist(a, b)
 end
 
 --- Score d'un couple, ou nil si le PNJ ne sait pas faire la tâche. rush = nombre d'urgences de ce genre déjà prises.
-function M.score(npc, task, rush)
+function M.score(npc, task, rush, tpos, mult)
   if npc.cannot and npc.cannot[task.kind] then return nil end
-  local value = task.prio
+  local value = task.prio * (mult or 1)
   if task.critical then value = value * M.CRITICAL end
-  if task.prio >= M.URGENT and rush and rush > 0 then value = value * M.RUSH ^ rush end
+  if task.prio >= M.URGENT and not task.no_rush and rush and rush > 0 then value = value * M.RUSH ^ rush end
   local apt = 1 + ((npc.skill and npc.skill[task.kind]) or 0) / 100
   local bonus = 0
   if task.pole and task.pole == npc.pole then bonus = bonus + M.ROLE_BONUS end
   if task.design and npc.role == "generalist" then bonus = bonus + M.DESIGN_BONUS end
-  local s = value * apt * (1 + bonus / 100) - dist(npc.pos, task.pos) / M.TRAVEL_DIV
+  local s = value * apt * (1 + bonus / 100) - dist(npc.pos, tpos or task.pos) / M.TRAVEL_DIV
   if task.project and npc.last_project == task.project then s = s + M.CONTINUITY end
   return s
+end
+
+--- Lot IA3-b : facteur de besoin d'une tâche d'extraction. have = stock libre, want = besoin prévu (> 0), short = vrai
+--- si le cerveau en manque (lui-même ou la plaque qu'il donne).
+function M.need_factor(have, want, short)
+  if short then return M.NEED_SHORT end
+  if want and want > 0 and (have or 0) >= want then return M.NEED_SURPLUS end
+  return 1
+end
+
+--- Lot IA3-b : ordre de la place de marché pour UN PNJ libre (une prise entre deux pensées : « un PNJ qui se libère
+--- prend son meilleur score immédiatement », §2.3). ctx = { rush = { [genre] = urgences prises }, skip = fonction(t)
+--- (tâche à écarter : prise, indiquée à un autre PNJ), pos_of = fonction(t), mult_of = fonction(t) }.
+--- Rend la liste des indices (niveau, note décroissante, clé) et les notes (par indice).
+function M.order(npc, tasks, ctx)
+  ctx = ctx or {}
+  local rush = ctx.rush or {}
+  local idx, sc, tier = {}, {}, {}
+  for j = 1, #tasks do
+    local t = tasks[j]
+    if not t.worker and not (ctx.skip and ctx.skip(t)) then
+      local r = t.prio >= M.URGENT and (rush[t.kind] or 0) or 0
+      local s = M.score(npc, t, r, ctx.pos_of and ctx.pos_of(t), ctx.mult_of and ctx.mult_of(t))
+      if s then
+        idx[#idx + 1] = j
+        -- Note arrondie au millième : ordre total et transitif (aucune égalité « à epsilon près » dans un tri).
+        sc[j] = math.floor(s * 1000 + 0.5)
+        tier[j] = t.fond and 1 or 0
+      end
+    end
+  end
+  table.sort(idx, function(a, b)
+    if tier[a] ~= tier[b] then return tier[a] < tier[b] end
+    if sc[a] ~= sc[b] then return sc[a] > sc[b] end
+    return tasks[a].key < tasks[b].key
+  end)
+  return idx, sc
 end
 
 --- Ordre des couples (comme la version naïve) : note décroissante à 1e-9 près, puis clé de tâche, puis identifiant du
@@ -90,7 +142,7 @@ function M.assign(npcs, tasks, ctx)
         local r = t.prio >= M.URGENT and (rush[t.kind] or 0) or 0
         local s = ci[j]
         if s == nil or si[j] ~= r then
-          s = M.score(npcs[i], t, r) or false
+          s = M.score(npcs[i], t, r, ctx.pos_of and ctx.pos_of(t), ctx.mult_of and ctx.mult_of(t)) or false
           scored = scored + 1
           ci[j], si[j] = s, r
         end
@@ -146,7 +198,8 @@ function M.assign_naive(npcs, tasks, ctx)
         for j = 1, #tasks do
           if free_t[j] then
             local t = tasks[j]
-            local s = M.score(npcs[i], t, t.prio >= M.URGENT and (rush[t.kind] or 0) or 0)
+            local s = M.score(npcs[i], t, t.prio >= M.URGENT and (rush[t.kind] or 0) or 0,
+              ctx.pos_of and ctx.pos_of(t), ctx.mult_of and ctx.mult_of(t))
             if s then
               local better = not bs or s > bs + 1e-9
                 or (s > bs - 1e-9 and (t.key < tasks[bj].key or (t.key == tasks[bj].key and npcs[i].id < npcs[bi].id)))
