@@ -22,7 +22,6 @@ local Journal = require("script.faction.journal")
 local Character = require("script.faction.character")
 local V = require("shared.faction.valeur")
 local Tr = require("shared.faction.traits")
-local T = require("shared.team.config")
 
 local Sites = {}
 
@@ -151,15 +150,6 @@ local function prospects_of(f, resource)
   return n
 end
 
---- Premier avant-poste de cette ressource ? (aucun avant-poste vivant qui l'exploite : pas de plancher de valeur)
-local function first_of(f, resource)
-  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
-    local spec = T.outposts[f.outposts[oid].kind]
-    if spec and spec.resource == resource then return false end
-  end
-  return true
-end
-
 local function want_of(f, res)
   local need = (f.site_needs or {})[res] or 0
   local want = math.min(MAX_PER_KIND, need)
@@ -167,14 +157,12 @@ local function want_of(f, res)
   return want
 end
 
---- Ressources encore recherchées (besoins du cerveau d'équipe, f.site_needs = { [ressource] = n }). Lot IA2-b : pour une
---- faction, seuls les sites au-dessus du plancher de valeur comptent (Sites.available).
+--- Ressources encore recherchées (besoins du cerveau d'équipe, f.site_needs = { [ressource] = n }).
 local function wanted_resources(f)
   local list = {}
   for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
     local want = want_of(f, res)
-    local have = f.is_player and prospects_of(f, res) or Sites.available(f, res)
-    if want > 0 and have < want then list[#list + 1] = res end
+    if want > 0 and prospects_of(f, res) < want then list[#list + 1] = res end
   end
   return list
 end
@@ -230,21 +218,6 @@ end
 local function refresh_reserve(f, tick)
   local worst, worst_v
   local ctx = nil
-  -- Sites refusés par le plancher (ressource déjà exploitée) : tous oubliés (la prospection pourra les retrouver).
-  local kept, refused = {}, 0
-  for _, s in ipairs(f.prospects or {}) do
-    if not s.seeded and not first_of(f, s.resource) then
-      ctx = ctx or Sites.value_ctx(f, tick)
-      if V.acceptable(V.value(s, ctx), false) then kept[#kept + 1] = s else refused = refused + 1 end
-    else
-      kept[#kept + 1] = s
-    end
-  end
-  if refused > 0 then
-    f.prospects = kept
-    f.stats.reserve_dropped = (f.stats.reserve_dropped or 0) + refused
-    return
-  end
   for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
     local want = want_of(f, res)
     if want > 0 and prospects_of(f, res) >= want then
@@ -388,20 +361,10 @@ function Sites.prospect(f, surface, tick)
   end
 end
 
---- Nombre de sites en réserve pour une ressource (toutes si nil). Lot IA2-b : pour une faction, seuls les sites
---- au-dessus du plancher de valeur comptent quand la ressource est déjà exploitée (le cerveau d'équipe ne lance pas
---- de chantier vers un site refusé ; la prospection continue).
+--- Nombre de sites en réserve pour une ressource (toutes si nil).
 function Sites.available(f, resource)
   if not resource then return f.prospects and #f.prospects or 0 end
-  if f.is_player or first_of(f, resource) then return prospects_of(f, resource) end
-  local ctx, n = nil, 0
-  for _, s in ipairs(f.prospects or {}) do
-    if s.resource == resource then
-      ctx = ctx or Sites.value_ctx(f, game.tick)
-      if V.acceptable(V.value(s, ctx), false) then n = n + 1 end
-    end
-  end
-  return n
+  return prospects_of(f, resource)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -505,21 +468,7 @@ local function find_by_value(f, tick, resource)
     f.prospects = keep
     return nil
   end
-  local ctx = Sites.value_ctx(f, tick)
-  -- Plancher d'expansion (V.FLOOR) : sites refusés gardés en réserve (le renouvellement les oubliera).
-  if not first_of(f, resource or cands[1].resource) then
-    local ok = {}
-    for _, s in ipairs(cands) do
-      if V.acceptable(V.value(s, ctx), false) then ok[#ok + 1] = s end
-    end
-    if #ok == 0 then
-      f.prospects = keep
-      f.stats.sites_refused = (f.stats.sites_refused or 0) + 1
-      return nil
-    end
-    cands = ok
-  end
-  local chosen, vrank, _, ranked = V.choose(cands, ctx, draw_of(f))
+  local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
   local site = chosen.site
   Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
   local out = {}
