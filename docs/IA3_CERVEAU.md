@@ -155,7 +155,147 @@ Un joueur parfait se repère aussi vite qu'un script. Le cerveau garde donc :
 
 ## 2. Comment un groupe organisé joue
 
-À ÉCRIRE
+Huit joueurs qui se connaissent ne jouent pas comme huit joueurs seuls. Ils ont **un plan commun** (« on fait la
+centrale, puis les packs verts »), ils **réservent** (« ces plaques sont pour la machine à vapeur, n'y touche pas »),
+chacun **prend ce qui reste à faire** sans attendre qu'on le lui ordonne, les spécialités **orientent** (celui qui
+aime la logistique fait les tapis) sans **interdire** (s'il n'y a pas de tapis à faire, il fait des engrenages), et
+ils **se parlent** (« je pars au pétrole avec deux tourelles »). Un chef fixe le cap, pas chaque geste.
+
+C'est exactement ce qu'une usine réelle organise par la **planification des besoins** (MRP : nomenclatures, besoins
+nets, réservations de stock, ordres de fabrication) et par le **tableau de tâches** (kanban : chacun tire le travail
+au lieu d'attendre un ordre). La conception reprend ces deux outils industriels.
+
+### 2.1 Le tableau commun (blackboard)
+
+Un seul état partagé par équipe, lu par tous, écrit par peu :
+
+| Partie | Écrit par | Lu par | Contenu |
+|---|---|---|---|
+| Intentions | le chef (IA2), une fois par minute ; pour votre équipe : votre orientation | le cerveau | poids des familles de buts (recherche, armée, expansion, défense, capital), rivale, horizon |
+| Projets | le cerveau (IA3), toutes les 5 s | PNJ, fenêtre | buts ouverts, méthode choisie, avancement, cause d'un blocage, meneur |
+| Registre | le cerveau (réservations) ; les PNJ (prises, dépôts) | tous | stock libre, réservé par projet, en main par PNJ |
+| Tableau des tâches | le cerveau et l'organisation | PNJ | tâches libres et prises, valeur, pourquoi |
+| Connaissance | les PNJ et les yeux de la faction (IA2-c), au fil des événements | le cerveau | secteurs vus, gisements vus, nids vus, dangers, pertes |
+
+Écrire au tableau commun est la seule façon de « communiquer » : aucune décision n'est prise par un PNJ seul, aucune
+n'est cachée à la fenêtre.
+
+### 2.2 Les réservations : personne ne « s'arrache » les plaques
+
+**Ce qui se passe aujourd'hui (mesuré).** Le cerveau calcule un stock virtuel à chaque pensée (`planner.lua:189-200`),
+donc deux tâches d'une MÊME pensée ne comptent pas sur les mêmes plaques. Mais :
+- rien ne survit d'une pensée à l'autre : toutes les 5 s, l'ordre des priorités refait le partage (une recherche
+  longue perd ses plaques dès qu'un besoin plus prioritaire apparaît : c'est C2, la recherche servie en dernier) ;
+- les prises « larges » ignorent le plan : la fonderie prend jusqu'à 100 plaques pour l'acier, la recharge des
+  tourelles jusqu'à 200 chargeurs, la tournée son charbon (`worker.lua:191-240`, prises non strictes) ;
+- résultat mesuré dans les 6 parties d'IA3-DIAG (dernière ligne « taches ok/echec » de chaque équipe, journaux
+  archivés `bancs\*\benchmark.log.gz`) : **3 à 50 échecs « stock » par équipe en 2 h** : un PNJ arrive au coffre et
+  ce que le plan lui promettait n'y est plus ; la tâche est perdue, le PNJ a marché pour rien, la tâche est en pause
+  30 s. C'est la trace mesurée de « l'arrachage ».
+
+**Le registre (nouveau, `shared/ai3/registre.lua`, prototype testé §7).**
+
+```
+stock(o)        lu au coffre à chaque pensée (vérité du moteur)
+reserve(p, o)   quantité de o réservée au projet p
+en_main(pnj, o) objets pris au coffre pour une tâche, pas encore utilisés
+libre(o)      = stock(o) − Σ_p reserve(p, o)          ≥ 0 toujours (contrôlé par le test)
+```
+
+Règles :
+1. **Allocation par priorité, stable.** À chaque pensée, les projets, triés par priorité (avec l'inertie de 20 % d'un
+   projet engagé, puis par identifiant), reçoivent leur besoin NET : `besoin − réservé − en main − en fabrication`.
+   Un projet garde ce qu'il a déjà réservé : une nouvelle demande ne puise que dans le LIBRE.
+2. **Prise stricte.** Un PNJ ne prend au coffre que ce que la réservation de SA tâche couvre. Les prises larges
+   d'aujourd'hui (fonderie, recharge, charbon) deviennent les réservations d'un projet permanent « Entretien ».
+3. **Préemption réglée.** Un projet peut prendre la réservation d'un autre seulement si l'écart de priorité atteint
+   30 points (une urgence : munitions sous attaque, recrue de survie), ou 10 points si l'autre n'a encore rien
+   consommé ; jamais ce qu'un PNJ a déjà en main. Le projet préempté est replanifié et la fenêtre le dit : « Azur :
+   les plaques de la machine à vapeur partent aux munitions (attaque au nord) ».
+4. **Restitution.** Un projet fini ou abandonné rend son reste au libre. Les objets d'un PNJ tué sont perdus avec lui
+   (F253) : le projet replanifie.
+5. **Pas de famine.** Un projet qui attend sa matière gagne 1 point de priorité par minute d'attente, jusqu'à +20.
+
+**Exemple (votre phrase).** Le coffre contient 60 plaques de fer. Le projet « centrale à vapeur » (priorité 60)
+réserve 31 plaques pour sa machine à vapeur (8 engrenages, 5 tuyaux, 10 plaques). Le projet « munitions de réserve »
+(priorité 50) en veut 40 : il n'en obtient que les 29 libres. Deux PNJ libres prennent les deux tâches de la machine à
+vapeur (« engrenages », « tuyaux ») ; chacune porte sa part de la réservation, elles ne se recouvrent pas. Si une
+attaque arrive (munitions en priorité 95, écart 45 ≥ 30), les munitions peuvent reprendre les plaques de la centrale
+qui ne sont PAS encore en main ; la centrale attend, et la fenêtre dit pourquoi.
+
+### 2.3 La place de marché des tâches : n'importe quel PNJ libre prend la tâche la plus utile qu'il sait faire
+
+**Aujourd'hui.** `O.pick_task` (`shared/team/org.lua:929`) range les tâches par rang : un exécutant ne prend une tâche
+ordinaire que de SON pôle (rang 5) ; hors pôle, seulement les urgences (rang 3, plafonnées) et le travail de fond
+(rang 7, `board.lua:137-149`). Mesuré (C3 b) : chez 8 factions sur 12 à 8 PNJ, **42 à 115 minutes sur 119** avec au
+moins un demi-PNJ immobile au QG pendant que 2,5 à 6,6 tâches restent libres.
+
+**Nouvelle règle : un score, pas un interdit.** Pour un PNJ libre `n` et une tâche libre `t` qu'il SAIT faire :
+
+```
+score(n, t) = valeur(t) × aptitude(n, t) × (1 + bonus_rôle(n, t)) − trajet(n, t) + continuité(n, t)
+  valeur(t)     = priorité du projet (0 à 100, inertie et vieillissement compris) × 1,5 si la tâche est sur le
+                  chemin critique de son projet (§3.5), × 0,7^k pour la k-ième tâche du même genre déjà prise
+                  pendant une urgence (anti-ruée, remplace la limite hors pôle d'aujourd'hui)
+  aptitude(n,t) = 0 s'il ne peut pas (pas d'arme pour une garde, pas de place en inventaire) ; sinon
+                  1 + bonus de rang du PNJ dans ce geste (O.rank, IA1 : un fabricant de rang 3 vaut plus en
+                  fabrication)
+  bonus_rôle    = +0,20 si la tâche est de son pôle ; +0,20 de plus pour un généraliste sur une tâche de
+                  conception ; 0 sinon : le rôle ORIENTE, il n'interdit jamais
+  trajet(n,t)   = distance (tuiles) du PNJ au point de départ de la tâche ÷ 10 (une tâche à 100 tuiles perd
+                  10 points)
+  continuité    = +10 si la tâche suit la précédente du même projet (moins d'allers-retours)
+```
+
+- **Attribution déterministe.** Quand plusieurs PNJ sont libres à la même pensée, on calcule tous les couples,
+  on les trie (score décroissant, puis clé de tâche, puis identifiant du PNJ) et on attribue gloutonnement : la
+  meilleure paire d'abord. Un PNJ qui se libère entre deux pensées prend son meilleur score immédiatement (une
+  seule passe sur le tableau, comme aujourd'hui). Coût : `PNJ libres × tâches` évaluations, au plus 30 × 64 ≈ 2 000
+  par pensée et par équipe (environ 1 ms hors jeu, à mesurer ; §5.3).
+- **Personne n'attend s'il y a du travail.** Propriété contrôlée par le prototype (§7) : à chaque attribution, aucun
+  PNJ libre ne reste sans tâche s'il existe une tâche libre qu'il sait faire. Sans aucune tâche, le PNJ prend un
+  INVESTISSEMENT PAR DÉFAUT (réserve de biens d'équipement, minage d'appoint, éclairage de la carte, H4, H5), sous
+  le plafond du travail manuel d'IA1 (`O.manual_cap`).
+- **Le prix fictif d'une PNJ-seconde** (H12) = valeur de la meilleure tâche restée sans preneur à la fin de
+  l'attribution (0 si tout est pris). Il est lu par la règle d'automatisation (H3) et par le recrutement (§3.6).
+
+### 2.4 Des rôles qui orientent sans interdire
+
+On garde l'organisation d'IA1 (`docs/EQUIPES_PNJ.md` §3, §4) : 3 pôles (extraction, base, territoire), des managers
+qui sont des fonctions, des généralistes (1 PNJ sur 6) qui MÈNENT un projet de bout en bout, des exécutants, votre
+orientation (préréglages). Ce qui change :
+- le pôle d'un PNJ devient un BONUS de score (+20 %), plus un filtre ;
+- les cibles par pôle (`O.pole_targets`) restent : elles disent où l'organisation PRÉFÈRE ses bras ; un PNJ
+  durablement hors de son pôle (plus de 5 min sur 10) y est réaffecté par l'hystérésis existante (`O.MAX_MOVES`) ;
+- un projet a un MENEUR (généraliste, sinon le premier PNJ qui y travaille) : c'est lui que la fenêtre nomme, c'est
+  lui qui prend les tâches de conception (implanter, choisir un site, partir en expédition).
+
+### 2.5 Communication
+
+- **Le pourquoi de chaque tâche** : projet, but, chemin (« Kai fabrique 6 engrenages → machine à vapeur → centrale →
+  recherche Électronique »).
+- **Annonces** (journal de la fenêtre, et une ligne du journal du mod) : projet ouvert, bloqué (et pourquoi), fini,
+  préempté ; départ et retour d'expédition. Une faction n'annonce rien au joueur (brouillard) ; votre équipe vous parle.
+- **Remontées des PNJ** (événements, sans attendre la pensée) : ennemi ou nid vu, gisement vu, PNJ tué, bâtiment
+  perdu, chemin impossible. Une remontée grave (attaque, mort) avance la pensée suivante (au plus une pensée
+  anticipée par 60 ticks).
+- **Appel à l'aide** : un PNJ attaqué publie une tâche urgente « défendre ici » ; les règles de valeur (§2.3) y envoient
+  les plus proches, pas toute l'équipe.
+
+### 2.6 Qui décide quoi : chef, cerveau, organisation, PNJ
+
+| Niveau | Question | Rythme | Code |
+|---|---|---|---|
+| Chef (IA2, gardé) | QUOI et POURQUOI : posture (technologie, armée, expansion…), horizon, rivale, raids | 1 / min | `shared/faction/chef.lua` |
+| Cerveau (IA3, nouveau) | COMMENT et AVEC QUOI : buts, dépliage, méthode, réservations, tâches | 1 / 5 s, par phases | `shared/ai3/*` |
+| Organisation (IA1, adaptée) | QUI : pôles, meneurs, score de la place de marché | 1 / 5 s, après le cerveau | `shared/team/org.lua` |
+| PNJ (gardé, verbes étendus) | FAIRE : programmes d'étapes | au fil des ticks | `script/team/worker.lua` |
+
+- Le chef ne commande plus un ORDRE d'échelle (`C.ladder_order`) : il donne des **poids** aux familles de buts. La
+  personnalité (D-18 : « recherche ou armée d'abord selon le caractère ») passe par là : le technocrate pondère la
+  recherche, le conquérant l'armée ; la mesure M2 d'IA2 (diversité des décisions) reste le garde-fou.
+- Votre équipe : votre orientation (fenêtre, onglet « Orientation ») remplace le chef ; elle ne recherche pas (vous
+  recherchez), mais elle sert vos buts (§3.1, buts de l'équipe du joueur).
 
 ## 3. L'algorithme générique
 
