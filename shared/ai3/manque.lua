@@ -71,7 +71,8 @@ function X.tasks(view, missing, ctx)
       local key = "craft:" .. T.SMELTER .. ":manque:1"
       if n > 0 and not keys[key] then
         local avail = {}
-        for _, k in ipairs({ "stone", "iron-plate", "copper-plate", T.SMELTER }) do avail[k] = math.max(0, free[k] or 0) end
+        -- Les fours déjà au coffre sont comptés dans n : le plan ne doit pas les « prendre » (besoin d'accumulation).
+        for _, k in ipairs({ "stone", "iron-plate", "copper-plate" }) do avail[k] = math.max(0, free[k] or 0) end
         local plan = ctx.book:plan({ { T.SMELTER, n } }, avail)
         if next(plan.raw) == nil then
           local ks = {}

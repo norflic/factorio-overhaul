@@ -8,9 +8,29 @@
     passage sur `list` (O.pick_task). Avant IA1-a, chaque prise triait toutes les clés : O(T log T) par
     ouvrier inoccupé et par pensée, soit 30 tris par pensée pour 30 PNJ.
   - finish : tâche terminée (réussie ou non) ; un échec la met en pause un moment (pas de boucle d'échecs).
+
+  Lot IA3-b « personne n'attend, personne n'arrache » (docs/IA3_CERVEAU.md §2.2, §2.3 ; derrière le réglage
+  fo-war-ia3-marche, FIGÉ par équipe à sa première lecture : f.team.marche) :
+  - PLACE DE MARCHÉ : Board.claim note chaque tâche libre (M.order : priorité × (1 + 20 % dans son pôle, + 20 % de
+    conception pour un généraliste) × besoin des tâches d'extraction − trajet/10 + continuité 10, anti-ruée 0,7^k sur
+    les urgences d'un même genre) ; le cerveau d'abord, le fond ensuite ; le pôle oriente, il n'interdit plus. À la
+    pensée, Board.assign attribue les meilleures paires (M.assign, glouton paresseux) aux PNJ inactifs : indices
+    gardés jusqu'à la pensée suivante (b.hint, b.hinted).
+  - REGISTRE (R, shared/ai3/registre.lua ; f.team.reg) : chaque tâche PRISE ouvre un projet (priorité de la tâche)
+    qui réserve sa liste au LIBRE du coffre (coffre − réservé). Une tâche stricte dont la liste n'est pas libre n'est
+    pas prise (le PNJ prend la suivante), sauf préemption réglée (R.preempt : écart ≥ 30, ou ≥ 10 si l'autre n'a rien
+    pris ; jamais ce qu'un PNJ a en main), tout ou rien, journalisée « [FO-IA3B] ». Les prises larges (recharge,
+    charbon des tournées, fonderie) sont bornées au libre par l'ouvrier (Board.reserve_soft, projet « Entretien »).
+    La vue du cerveau voit coffre − réservé (Board.view_stock) : deux pensées ne promettent plus les mêmes plaques.
+  - MANQUE DE PLAQUES (X, shared/ai3/manque.lua) : fours du QG et minage par plusieurs PNJ (Board.sync).
 ]]
 
 local O = require("shared.team.org")
+local T = require("shared.team.config")
+local M = require("shared.ai3.marche")
+local R = require("shared.ai3.registre")
+local X = require("shared.ai3.manque")
+local Registry = require("script.companion.registry")
 
 local Board = {}
 
@@ -26,8 +46,212 @@ end
 --- Liste triée des tâches du tableau (priorité décroissante, puis clé), une fois par pensée.
 local function rebuild_list(b)
   local list = {}
-  for _, key in ipairs(sorted_keys(b.tasks)) do list[#list + 1] = b.tasks[key] end
+  for _, key in ipairs(sorted_keys(b.tasks)) do
+    local t = b.tasks[key]
+    list[#list + 1] = t
+    -- Lot IA3-b (place de marché) : tâche de conception ; garde du QG MENACÉ sans anti-ruée (toute l'équipe y va,
+    -- règle d'IA1-b2).
+    if O.DESIGN_KINDS[t.kind] then t.design = true end
+    if t.kind == "garrison" and t.post == "hq" and (t.prio or 0) >= T.guard_threat_prio then t.no_rush = true end
+  end
   b.list = O.sort_tasks(list)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot IA3-b : réglage, registre des réservations
+---------------------------------------------------------------------------------------------------
+--- La place de marché et le registre sont-ils allumés pour cette équipe ? Réglage lu UNE fois (première pensée ou
+--- première prise) et figé dans f.team.marche ; réglage absent (moteur simulé) : M.DEFAULT_ON.
+function Board.market(f)
+  local t = f.team
+  if not t then return false end
+  if t.marche == nil then
+    local ok, v = pcall(function() return settings.global[M.SETTING].value end)
+    if ok and type(v) == "boolean" then t.marche = v else t.marche = M.DEFAULT_ON end
+    log(string.format("[FO-IA3B] %s : place de marche et registre %s (fige pour l'equipe)", f.key or "player",
+      t.marche and "ALLUMES" or "eteints"))
+  end
+  return t.marche
+end
+
+local function reg_of(f)
+  local t = f.team
+  t.reg = t.reg or R.new()
+  t.reg_next = t.reg_next or 0
+  return t.reg
+end
+
+local function stats_of(f)
+  local org = f.team.org
+  return org and org.stats or nil
+end
+
+local function bump(f, k, n)
+  local st = stats_of(f)
+  if st then st[k] = (st[k] or 0) + (n or 1) end
+end
+
+-- Liste prise STRICTEMENT par le programme de l'ouvrier (script/team/worker.lua, étape « take » avec strict = true).
+local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items" }
+function Board.strict_list(t)
+  local fld = STRICT[t.kind]
+  return fld and t[fld] or nil
+end
+
+local function journal_cuts(f, reg, cuts, why)
+  for _, c in ipairs(cuts) do
+    local p = reg.projects[c[1]]
+    log(string.format("[FO-IA3B] %s : %d %s reserve(s) pour '%s' %s", f.key or "player", c[3], c[2],
+      p and p.key or "?", why))
+    bump(f, "resa_lost", c[3])
+  end
+end
+
+--- Vérité d'un objet au coffre (une fois par prise et par objet : `seen`).
+local function sync_item(f, reg, item, tick, seen)
+  if seen and seen[item] then return end
+  if seen then seen[item] = true end
+  local cuts = R.set_count(reg, item, f.hq.get_item_count(item), tick)
+  if #cuts > 0 then journal_cuts(f, reg, cuts, "disparu(s) du coffre") end
+end
+
+local function new_project(f, reg, t, agent, tick)
+  f.team.reg_next = (f.team.reg_next or 0) + 1
+  local id = f.team.reg_next
+  local p = R.open(reg, id, t.prio or 0, tick)
+  p.key, p.agent = t.key, agent.id
+  return id, p
+end
+
+--- Projet de l'ouvrier rendu au libre (tâche finie, échouée, abandonnée, PNJ disparu).
+function Board.release(f, agent)
+  local id = agent.resa_id
+  if not id then return end
+  agent.resa_id = nil
+  local reg = f.team and f.team.reg
+  if reg then R.release(reg, id) end
+end
+
+--- Réserve la liste STRICTE de la tâche `t` pour l'ouvrier (tout ou rien, préemption réglée). Vrai si réservée.
+local function reserve_strict(f, reg, t, agent, tick, seen)
+  local list = Board.strict_list(t)
+  if not list or #list == 0 then return true end
+  local id, p = new_project(f, reg, t, agent, tick)
+  local short = false
+  for _, it in ipairs(list) do
+    sync_item(f, reg, it[1], tick, seen)
+    if R.free(reg, it[1]) < it[2] then short = true end
+  end
+  if short then
+    for _, it in ipairs(list) do
+      local s = it[2] - R.free(reg, it[1])
+      if s > 0 and R.preemptable(reg, id, it[1], tick) < s then
+        R.release(reg, id)
+        bump(f, "resa_refused")
+        return false
+      end
+    end
+    local b = Board.get(f)
+    for _, it in ipairs(list) do
+      local s = it[2] - R.free(reg, it[1])
+      if s > 0 then
+        local got, from = R.preempt(reg, id, it[1], s, tick)
+        for _, v in ipairs(from) do
+          local vp = reg.projects[v[1]]
+          local vt = vp and vp.key and b.tasks[vp.key]
+          if vt then vt.preempted = true end
+          log(string.format("[FO-IA3B] %s : preemption, %d %s de '%s' (priorite %d) pour '%s' (priorite %d) a %.1f min",
+            f.key or "player", v[2], it[1], vp and vp.key or "?", vp and vp.prio or 0, t.key, t.prio or 0, tick / 3600))
+        end
+        bump(f, "resa_preempt", got)
+      end
+    end
+  end
+  for _, it in ipairs(list) do
+    local rest = it[2] - (p.resa[it[1]] or 0)
+    if rest > 0 then R.request(reg, id, { { it[1], rest } }, tick) end
+  end
+  agent.resa_id = id
+  return true
+end
+
+--- Prises LARGES (étape « take » non stricte : recharge, charbon d'une tournée, fonderie) bornées au libre et réservées
+--- (projet « Entretien » de la tâche) ; la liste de l'étape est remplacée par ce qui est réservé. Après Worker.program.
+function Board.reserve_soft(f, agent, task, steps, tick)
+  if not Board.market(f) then return end
+  local reg = reg_of(f)
+  for _, st in ipairs(steps) do
+    if st[1] == "take" and not st.strict then
+      local id = agent.resa_id
+      if not id then id = new_project(f, reg, task, agent, tick) end
+      reg.projects[id].entretien = true
+      local seen, out, at = {}, {}, {}
+      for _, it in ipairs(st[2]) do
+        sync_item(f, reg, it[1], tick, seen)
+        local g = math.min(it[2], R.free(reg, it[1]))
+        if g > 0 then
+          R.request(reg, id, { { it[1], g } }, tick)
+          if at[it[1]] then out[at[it[1]]][2] = out[at[it[1]]][2] + g
+          else
+            out[#out + 1] = { it[1], g }
+            at[it[1]] = #out
+          end
+        end
+      end
+      st[2] = out
+      agent.resa_id = id
+    end
+  end
+end
+
+--- Prise au coffre d'un ouvrier dont la tâche a une réservation : jamais plus que réservé (prise STRICTE), objets mis
+--- dans `inv`. Rend vrai si toute la liste est prise. Le projet est ensuite rendu (ce qui manque retourne au libre).
+function Board.take_reserved(f, agent, inv, list)
+  local reg = f.team.reg
+  local p = reg and reg.projects[agent.resa_id]
+  local left = {}
+  if p then for _, it in ipairs(list) do left[it[1]] = p.resa[it[1]] or 0 end end
+  local all = true
+  for _, it in ipairs(list) do
+    local name, want = it[1], it[2]
+    local n = math.min(want, left[name] or 0, f.hq.get_item_count(name))
+    local put = 0
+    if n > 0 then
+      local got = f.hq.remove_item({ name = name, count = n })
+      put = got > 0 and inv.insert({ name = name, count = got }) or 0
+      if put < got then f.hq.insert({ name = name, count = got - put }) end
+      left[name] = (left[name] or 0) - put
+    end
+    if put < want then all = false end
+  end
+  Board.release(f, agent)
+  return all
+end
+
+--- Stock vu par le cerveau : coffre − réservé (réglage allumé) ; sinon le coffre tel quel. À la vue d'une pensée
+--- (`full`), le registre est aussi remis à la vérité du coffre et les projets orphelins sont rendus.
+function Board.view_stock(f, stock, tick, full)
+  if not Board.market(f) then return stock end
+  local reg = reg_of(f)
+  if full then
+    local ids = {}
+    for i, id in ipairs(reg.ids) do ids[i] = id end
+    for _, id in ipairs(ids) do
+      local p = reg.projects[id]
+      local a = p and Registry.get(p.agent)
+      if not (a and a.resa_id == id) then R.release(reg, id) end
+    end
+    local cuts = R.set_stock(reg, stock, tick)
+    if #cuts > 0 then journal_cuts(f, reg, cuts, "disparu(s) du coffre") end
+  end
+  local out = {}
+  for k, v in pairs(stock) do out[k] = v end
+  for _, id in ipairs(reg.ids) do
+    local p = reg.projects[id]
+    for _, k in ipairs(sorted_keys(p.resa)) do out[k] = (out[k] or 0) - p.resa[k] end
+  end
+  for _, k in ipairs(sorted_keys(out)) do if out[k] <= 0 then out[k] = nil end end
+  return out
 end
 
 function Board.get(f)
@@ -46,7 +270,23 @@ function Board.open(f)
   return open
 end
 
-function Board.sync(f, planned, tick)
+--- Lot IA3-b : plaques qui manquent au cerveau ({ [plaque] = n }) : « il manque » de l'objectif (plan.missing) et
+--- production demandée à la fonderie (plan.smelt), le plus grand des deux.
+local function plate_shortage(plan)
+  local out = {}
+  for _, m in ipairs(plan.missing or {}) do
+    if type(m[1]) == "string" and type(m[2]) == "number" then out[m[1]] = math.max(out[m[1]] or 0, m[2]) end
+  end
+  for _, p in ipairs(X.PLATES) do
+    local n = plan.smelt and plan.smelt[p[1]]
+    if n and n > (out[p[1]] or 0) then out[p[1]] = n end
+  end
+  return out
+end
+
+--- plan, view, book (facultatifs, lot IA3-b) : avec le réglage allumé, tâches du MANQUE DE PLAQUES (X.tasks) ajoutées
+--- au plan, et facteurs de besoin des tâches d'extraction (b.need_mult) pour la place de marché.
+function Board.sync(f, planned, tick, plan, view, book)
   local b = Board.get(f)
   local keep = {}
   -- Lot IA1-b : une tâche libre replanifiée garde sa date de naissance (`created`) : l'attente d'une tâche se compte
@@ -62,6 +302,26 @@ function Board.sync(f, planned, tick)
       t.created = born[t.key] or tick
       keep[t.key] = t
     end
+  end
+  b.hint, b.hinted = nil, nil
+  if plan and view and Board.market(f) then
+    local missing = plate_shortage(plan)
+    local keys, mines = {}, {}
+    for _, key in ipairs(sorted_keys(keep)) do
+      keys[key] = true
+      local t = keep[key]
+      if t.kind == "mine" and t.resource then mines[t.resource] = (mines[t.resource] or 0) + 1 end
+    end
+    for _, key in ipairs(sorted_keys(b.cooldown)) do if tick < b.cooldown[key] then keys[key] = true end end
+    local added = X.tasks(view, missing, { keys = keys, mines = mines, book = book })
+    for _, t in ipairs(added) do
+      t.created = born[t.key] or tick
+      keep[t.key] = t
+    end
+    if #added > 0 then bump(f, "manque_tasks", #added) end
+    b.need_mult = X.need(view, missing)
+  else
+    b.need_mult = nil
   end
   b.tasks = keep
   b.born = born
@@ -112,8 +372,173 @@ local function starving(list, gen, tick)
   return nil
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot IA3-b : place de marché
+---------------------------------------------------------------------------------------------------
+local CANNOT_EXEC, CANNOT_EXEC_UNARMED = {}, { garrison = true }
+for _, k in ipairs(sorted_keys(O.DESIGN_KINDS)) do
+  CANNOT_EXEC[k] = true
+  CANNOT_EXEC_UNARMED[k] = true
+end
+local CANNOT_UNARMED = { garrison = true }
+
+--- PNJ vu par la place de marché : rôle (sans organisation : neutre, comme NEUTRAL), pôle EFFECTIF, position, projet
+--- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions).
+local function market_npc(agent)
+  local org = agent.org
+  local role = org and (org.role or "executant") or "generalist"
+  local e = agent.entity
+  local armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
+  local cannot
+  if role ~= "generalist" then cannot = armed and CANNOT_EXEC or CANNOT_EXEC_UNARMED
+  elseif not armed then cannot = CANNOT_UNARMED end
+  local p = e.position
+  return { id = agent.id, role = role, pole = org and O.effective_pole(org) or nil, pos = { x = p.x, y = p.y },
+    last_project = (org and org.project) or agent.last_project, cannot = cannot }
+end
+
+--- Point de départ d'une tâche (trajet de la note) : la case du QG pour toute tâche qui commence au coffre ; le poste
+--- pour une garde. Facteur de besoin d'une tâche d'extraction (minage, tournée ordinaire d'un avant-poste).
+local function market_ctx(f, b)
+  local home = f.home_spot or f.hq_pos
+  local need = b.need_mult or {}
+  local ctx = {}
+  ctx.pos_of = function(t)
+    if t.kind == "garrison" and t.post ~= "hq" then
+      local o = f.outposts and f.outposts[t.post]
+      if o then return o.access or o.pos end
+    end
+    return home
+  end
+  ctx.mult_of = function(t)
+    if t.kind == "mine" then return need[t.resource] or 1 end
+    if t.kind == "service" and (t.prio or 0) < M.URGENT then
+      local o = f.outposts and f.outposts[t.outpost]
+      local spec = o and T.outposts[o.kind]
+      return spec and need[spec.product] or 1
+    end
+    return 1
+  end
+  return ctx
+end
+
+local function rush_of(list)
+  local rush = {}
+  for k = 1, #list do
+    local t = list[k]
+    if t.worker and (t.prio or 0) >= M.URGENT and not t.no_rush then rush[t.kind] = (rush[t.kind] or 0) + 1 end
+  end
+  return rush
+end
+
+Board.MARKET_TRIES = 8 -- tâches strictes refusées (matière non libre) essayées au plus par prise
+
+local function claim_market(f, agent, tick, b)
+  local list = b.list
+  local reg = reg_of(f)
+  local npc = market_npc(agent)
+  local hinted = b.hinted or {}
+  local mine = b.hint and b.hint[agent.id]
+  local ctx = market_ctx(f, b)
+  ctx.rush = rush_of(list)
+  ctx.skip = function(t)
+    local h = hinted[t.key]
+    return h ~= nil and h ~= agent.id
+  end
+  local idx = M.order(npc, list, ctx)
+  -- L'indice de la pensée (meilleure paire de M.assign) d'abord, s'il est encore là.
+  if mine then
+    for i, j in ipairs(idx) do
+      if list[j].key == mine then
+        table.remove(idx, i)
+        table.insert(idx, 1, j)
+        break
+      end
+    end
+  end
+  local seen, tries = {}, 0
+  for _, j in ipairs(idx) do
+    local t = list[j]
+    if b.tasks[t.key] == t then
+      if reserve_strict(f, reg, t, agent, tick, seen) then
+        bump(f, "market_claims")
+        if t.pole and npc.pole and t.pole ~= npc.pole then bump(f, "market_away") end
+        if t.fond then bump(f, "market_fond") end
+        return t
+      end
+      tries = tries + 1
+      if tries >= Board.MARKET_TRIES then break end
+    end
+  end
+  return nil
+end
+
+--- Lot IA3-b : à la pensée d'équipe (après l'organisation et le fond), meilleures paires PNJ inactif × tâche libre
+--- (M.assign, glouton paresseux ; cerveau d'abord, puis fond pour les PNJ restants). Seulement si au moins 2 PNJ sont
+--- inactifs ; au-delà de Board.ASSIGN_MAX couples, chaque PNJ prend seulement sa meilleure note à sa prise.
+Board.ASSIGN_MAX = 1200
+function Board.assign(f, tick)
+  local b = Board.get(f)
+  b.hint, b.hinted = nil, nil
+  if not Board.market(f) then return 0 end
+  local npcs = {}
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    if a and not a.task and a.entity and a.entity.valid then npcs[#npcs + 1] = market_npc(a) end
+  end
+  if #npcs < 2 then return 0 end
+  local reg = reg_of(f)
+  local brain, fond = {}, {}
+  for _, t in ipairs(b.list) do
+    if not t.worker then
+      local ok = true
+      for _, it in ipairs(Board.strict_list(t) or {}) do
+        if R.free(reg, it[1]) < it[2] then ok = false break end
+      end
+      if ok then
+        if t.fond then fond[#fond + 1] = t else brain[#brain + 1] = t end
+      end
+    end
+  end
+  if #npcs * (#brain + #fond) > Board.ASSIGN_MAX or #brain + #fond == 0 then return 0 end
+  local ctx = market_ctx(f, b)
+  local rush = rush_of(b.list)
+  ctx.rush_kinds = {}
+  for _, k in ipairs(sorted_keys(rush)) do ctx.rush_kinds[#ctx.rush_kinds + 1] = { k, rush[k] } end
+  local hint, hinted = {}, {}
+  local n = 0
+  local pairs1 = #brain > 0 and M.assign(npcs, brain, ctx) or {}
+  for _, a in ipairs(pairs1) do
+    hint[a.npc], hinted[a.task] = a.task, a.npc
+    n = n + 1
+  end
+  if #fond > 0 then
+    local rest = {}
+    for _, p in ipairs(npcs) do if not hint[p.id] then rest[#rest + 1] = p end end
+    if #rest > 0 then
+      for _, a in ipairs(M.assign(rest, fond, ctx)) do
+        hint[a.npc], hinted[a.task] = a.task, a.npc
+        n = n + 1
+      end
+    end
+  end
+  b.hint, b.hinted = hint, hinted
+  return n
+end
+
 function Board.claim(f, agent, tick)
   local b = Board.get(f)
+  if Board.market(f) then
+    local best = claim_market(f, agent, tick, b)
+    if best then
+      best.worker = agent.id
+      best.claimed = tick
+      best.away = nil
+      if b.hint then b.hint[agent.id] = nil end
+      if b.hinted then b.hinted[best.key] = nil end
+    end
+    return best
+  end
   local list = b.list
   local org = agent.org
   local i, away
@@ -184,7 +609,11 @@ function Board.finish(f, task, ok, tick)
     st[task.kind].ok = st[task.kind].ok + 1
   else
     st[task.kind].fail = st[task.kind].fail + 1
-    b.cooldown[task.key] = tick + (task.fond and RETRY_TICKS * 2 or RETRY_TICKS)
+    -- Lot IA3-b : une tâche PRÉEMPTÉE (sa matière est partie à une urgence, règle du registre) n'est pas en faute : elle
+    -- peut être replanifiée dès la pensée suivante.
+    if task.fail ~= "preempte" then
+      b.cooldown[task.key] = tick + (task.fond and RETRY_TICKS * 2 or RETRY_TICKS)
+    end
     if task.fail then
       f.team.fail_reasons[task.fail] = (f.team.fail_reasons[task.fail] or 0) + 1
     end

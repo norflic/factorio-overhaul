@@ -276,6 +276,21 @@ function Worker.program(f, task, surface, tick)
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o) end
     local ammo = Outposts.ammo_name(f.tech)
+    if Board.market(f) then
+      -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
+      -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
+      -- tâches strictes, tourelles comprises, n'y était plus). Réservée au libre ensuite (Board.reserve_soft).
+      local _, by_key = Outposts.turret_groups(f)
+      local g = by_key[task.group]
+      local need = 0
+      for _, t in ipairs(g and g.list or {}) do
+        local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
+        local have = inv and inv.get_item_count() or 0
+        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+      end
+      if need <= 0 then return nil end
+      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+    end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
@@ -427,7 +442,9 @@ local function finish(agent, f, ok, tick)
   local task = agent.task
   agent.task = nil
   agent.steps = nil
+  Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
   if task then
+    agent.last_project = task.project -- lot IA3-b : continuité de la place de marché
     if not ok then return_site(f, task) end
     Board.finish(f, task, ok, tick)
     Poles.task_done(f, task, ok, tick)
@@ -487,10 +504,13 @@ local function run_steps(agent, tick)
       deposit_all(agent, f)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
-      local all = take(agent, f, step[2])
+      -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
+      local all
+      if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
+      else all = take(agent, f, step[2]) end
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
-        abort(agent, f, tick, "stock")
+        abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
         return
       end
       agent.pc = agent.pc + 1
@@ -563,10 +583,12 @@ FSM.define(MACHINE, {
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
+        Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
         return
       end
+      Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
     end,
@@ -744,6 +766,7 @@ Registry.on_removed(function(agent)
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
   release_slot(f, agent)
+  Board.release(f, agent) -- lot IA3-b : réservation d'un PNJ disparu rendue au libre (ce qu'il portait est perdu, F253)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
