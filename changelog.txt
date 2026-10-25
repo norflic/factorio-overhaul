@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.26
+Date: 2026-10-25
+  Features:
+    - Équipes de PNJ : trois pôles (Extraction, Base, Territoire), cinq managers et des généralistes qui mènent chacun
+      une partie de la base ; les PNJ changent de pôle à la fin de leur tâche, jamais au milieu.
+    - Quand une équipe a grandi au-delà de son effectif de départ, ses PNJ sans tâche agrandissent les avant-postes,
+      minent à la main, fabriquent une réserve de foreuses et de fours et montent la garde, en évitant nids et vers et
+      en restant au QG après des pertes.
+    - /fo-team org et /fo-team vue : vue d'ensemble de votre équipe (effectifs par pôle, une ligne par manager et par
+      généraliste) ; /fo-team orientation ressources|base|protection|expansion|equilibre.
+  Changes:
+    - Une équipe de 30 PNJ ne livre pas encore plus qu'une équipe de 10 (mesuré : 0,95) ; les deux produisent environ
+      50 % de plus qu'avant, mais leurs PNJ sortis travailler meurent bien plus souvent (biters).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.25
 Date: 2026-10-25
   Features:
