@@ -3,9 +3,9 @@
   (shared/ai3/cerveau.lua) au jeu, derrière le réglage de carte « fo-war-ia3-cerveau » (settings/ia3c.lua ; éteint par
   défaut, revue M10).
 
-  - Bascule FIGÉE par équipe à sa première pensée (f.team.ia3c = vrai ou faux) : un changement du réglage en cours de
-    partie ne touche que les équipes fondées ensuite ; une partie en cours dont la bascule s'allume à la mise à jour du
-    mod est MIGRÉE à la première pensée (§5.4 : technologies reçues gardées, échelle oubliée, tâches libres retirées).
+  - Bascule par équipe (f.team.ia3c) : relue à chaque pensée tant qu'elle est éteinte ; l'allumer en cours de partie
+    MIGRE l'équipe (§5.4 : technologies reçues gardées, échelle oubliée, tâches libres retirées) ; une fois allumée,
+    elle est FIGÉE (l'éteindre est ignoré et dit au journal ; aucune migration nouveau → ancien, revue M10).
   - Vraie recherche des factions par le « laboratoire du QG » (§5.2, revue B2, faits F269 et F270) : une technologie
     RÉELLE de la force (`add_research`), choisie par valeur ÷ coût parmi celles dont les prérequis sont faits et qui
     sont PAYABLES (règle d'IA3-a : shared/ai3/recherche.lua, A.level_status) ; laboratoires FABRIQUÉS par les PNJ (vraie
@@ -144,11 +144,22 @@ local function setting_on()
   return s ~= nil and s.value == true
 end
 
---- La bascule est-elle allumée pour cette équipe ? Lue et FIGÉE à la première pensée ; migration d'une partie en cours.
+--- La bascule est-elle allumée pour cette équipe ? Lue à chaque pensée tant qu'elle est éteinte : l'allumer en cours de
+--- partie MIGRE l'équipe (ancien → nouveau, §5.4 : un réglage de carte ne se change qu'une fois la partie chargée, une
+--- partie existante doit donc pouvoir passer au nouveau cerveau). Une fois allumée, elle est FIGÉE : l'éteindre ensuite
+--- est ignoré et dit une fois au journal (aucune migration nouveau → ancien, revue M10).
 function Ia3.active(f, tick)
   local t = f.team
   if not t then return false end
-  if t.ia3c == nil then
+  if t.ia3c == true then
+    if not setting_on() and not t.ia3_off_logged then
+      t.ia3_off_logged = tick
+      log(string.format("[FO-IA3C] %s : reglage eteint ignore (le cerveau par besoins reste allume pour cette equipe) a %.1f min",
+        f.key or "?", minutes(f, tick)))
+    end
+    return true
+  end
+  if t.ia3c ~= true then
     t.ia3c = setting_on()
     if t.ia3c then
       t.ia3 = C.new_state(tick)
@@ -604,6 +615,8 @@ remote.add_interface("fo-ia3c", {
       for _, e in ipairs(st.labs or {}) do if e.valid then out.labs = out.labs + 1 end end
       out.K = st.last_plan and st.last_plan.K or 0
       out.active = st.last_plan and st.last_plan.active or 0
+      out.migrated = st.migrated
+      out.since = st.since
     end
     return out
   end,
