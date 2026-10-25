@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **20 h 15, IA3-b arrêté proprement** (branche `worktree-agent-a1c27739bad6e06fc`, dernier commit `cb0ccd5`, commit intégrateur
+> `ec8cbd0` pour le réglage `fo-war-ia3-marche`, éteint par défaut) : CAS DU DC CORRIGÉ en moteur réel (scénario `ia3b-fer`) :
+> 62 plaques de fer en 4,7 min (jamais avant), PNJ sans tâche pendant le manque 61,7 % → 2,0 %, 3 mineurs de fer en même temps,
+> objectif charbon atteint en 5,4 min ; hors jeu ia3b 31 OK, pvp 1305 (réglage allumé et éteint). RESTE avant fusion : séries
+> `ia3b-reduit` et `ia3b-default` (K3, K4, K5 après), garde-fous en moteur réel (ia1-poles, verif-guide et ia1b2-guide 4 graines,
+> content, pnj-reduit, pnj-auto, ia0-normal, ia1-scale, coût, déterminisme) ; notes `fo-logs\2026-10-25_IA3-b\NOTES.md`.
 > **POINT DE 19 H 10, AVANT LA COUPURE HEBDOMADAIRE** : état identique au point de 18 h 50 ci-dessous (rien de fusionné depuis ;
 > `main` = 0.4.29). Les 8 agents ont été coupés à 18 h 55, relancés vers 19 h, puis priés de commiter et de mettre à jour leur
 > POINT DE REPRISE. À la reprise : pour chaque lot (IA3-a, IA3-b, IA3-c, IA3-f, IA1-d, F2-B, F3-B, F4-A2), lire le dernier commit de
