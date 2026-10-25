@@ -253,12 +253,37 @@ ICONE["I2"] = dict(ICONE["I1"], roche_mats=("ilmenite_brun", "leucoxene_clair", 
 EFFET["I2"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.22, 0.45),
                    lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.85))
 
+# I3 (25/10, 2 h 15, après les captures FRAÎCHES de I2 : 8 OK, 1 ECHEC ; la première capture de I2, à 1 h 53, montrait
+# encore I1, cache des atlas non refait) : seul J1 échoue, ΔE76 ilménite / fer de jour 7,0 (zoom 1) et 6,8 (zoom 2),
+# moyenne en capture (113 ; 108 ; 101). Moyenne en capture ≈ 0,44 × moyenne de la feuille (I1 → I2, 3 canaux) ; il faut
+# environ (+12 ; +7 ; +6) en capture, soit (+27 ; +16 ; +14) sur la feuille, vers le ROUX (vers le clair seul, la moyenne
+# rejoint le sol gris). Croûte de leucoxène MAJORITAIRE (2 nodules sur 3) dont une part rousse (leucoxène taché
+# d'hématite et de rutile, l'altération réelle de l'ilménite), faces d'ilménite bronze-roux ; nuit de I2 inchangée.
+# Essai 1 à 32 échantillons (leucoxène roux 0,62 ; 0,43 ; 0,30, ilménite rousse 0,42 ; 0,26 ; 0,18) : moyenne de la
+# feuille (132 ; 116 ; 99), capture prédite (124 ; 116 ; 106), J1 prédit 10,6 : trop juste ; roux poussé (essai 2).
+MAT.update({
+    "leucoxene_roux": dict(color=(0.74, 0.45, 0.30), rough=0.85, met=0.0, grain=0.35, gscale=30.0, dirt=0.45),
+    "ilmenite_roux": dict(color=(0.50, 0.28, 0.19), rough=0.32, met=0.65, grain=0.15, gscale=50.0, dirt=0.4),
+})
+DIRECTIONS["I3"] = dict(DIRECTIONS["I2"], nom="nodules d'ilménite bronze-roux sous croûte de leucoxène majoritaire",
+                        roche_mats=("ilmenite_brun", "leucoxene_roux", "leucoxene_clair", "ilmenite_roux",
+                                    "leucoxene_clair", "leucoxene_roux"),
+                        bloc_mats=("ilmenite_roux", "ilmenite_brun", "leucoxene_roux"),
+                        grain_mats=("leucoxene_clair", "leucoxene_roux", "leucoxene_clair", "ilmenite_brun"),
+                        fin_mats=("leucoxene_roux", "leucoxene_clair", "regolithe_clair", "leucoxene", "ilmenite_brun"))
+CALIB["I3"] = dict(CALIB["I1"])
+ROCHE_COUPES["I3"], ROCHE_LISSE["I3"] = ROCHE_COUPES["I1"], ROCHE_LISSE["I1"]
+ROCHE_APLAT["I3"], ROCHE_CASSURE["I3"] = ROCHE_APLAT["I1"], ROCHE_CASSURE["I1"]
+ICONE["I3"] = dict(ICONE["I1"], roche_mats=("ilmenite_brun", "leucoxene_roux", "ilmenite_roux", "leucoxene_clair"),
+                   bloc_mats=("ilmenite_roux", "ilmenite_brun"))
+EFFET["I3"] = dict(EFFET["I2"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
-ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45}
+ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
-GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111}
+GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
