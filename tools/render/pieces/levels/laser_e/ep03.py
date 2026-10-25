@@ -35,9 +35,10 @@ HABILLAGE = dict(ages.CORPS[3],
                                   rapport=0.76),
                  forme_tete="berceau",
                  # lot F1-B : POINTS BLANCS (13,8 au socle et 15,0 à la pièce, plafond 13,2, essai r0b du lot F1-A) :
-                 # rivets et boulons du dessus en laiton de capot (mat) au lieu du laiton de rivet (reflet fin)
-                 rivets="laiton_capot",
-                 plateforme=dict(ages.CORPS[3]["plateforme"], boulons="laiton_capot"))
+                 # 17,5 encore à la ronde 1 de F1-B avec des rivets de laiton de capot) : rivets de cuivre sombre, plus
+                 # de boulons sur les tôles du dessus ; boulons des brides et colliers sans laiton
+                 rivets="cuivre_sombre",
+                 plateforme=dict(ages.CORPS[3]["plateforme"], boulons=None))
 
 
 def matieres(metal, M):
@@ -65,8 +66,8 @@ def _robinet(g, k, h):
     """Robinet de vapeur sur le flanc (repère du flanc) : piquage de cuivre, petit volant de laiton mat, cadran."""
     M = g.M
     g.cyl((0, 0, 0.025), "z", 0.025, 0.05, M["cuivre_sombre"], n=10, what="piquage")
-    g.torus((0, 0, 0.055), "z", 0.035, 0.009, M["laiton_capot"], n=14, m=5, what="volant")
-    g.box((0, 0, 0.055), (0.07, 0.01, 0.01), M["laiton_capot"], "hard", what="rayon")
+    g.torus((0, 0, 0.055), "z", 0.035, 0.009, M["cuivre_capot"], n=14, m=5, what="volant")
+    g.box((0, 0, 0.055), (0.07, 0.01, 0.01), M["cuivre_capot"], "hard", what="rayon")
     if k % 2 == 0:
         _cadran(g, (0.07, h * 0.15, 0.0), (0, 0, 1), 0.035, M)
 
@@ -87,7 +88,7 @@ def _sifflet(g, k, w):
 def liaison(g, pts, r):
     """Tuyau de cuivre à brides de laiton boulonnées."""
     M = g.M
-    g.pipe(pts, r, M["cuivre_capot"], fl_mat=M["laiton_capot"], bolt_mat=M["laiton_rivet"])
+    g.pipe(pts, r, M["cuivre_capot"], fl_mat=M["laiton_capot"], bolt_mat=M["cuivre_sombre"])
 
 
 def condensateur(g, c, x, y, z, r, h):
@@ -136,8 +137,8 @@ def socle(g, c):
                 0.028)
     # lot F1-B (enrichissement) : conduite de vapeur de cuivre sombre à colliers de laiton qui ceint le premier gradin,
     # robinets et cadrans sur les flancs, sifflets, burettes et caisses à charbon sur les gradins
-    O.ceinture(g, c, 0, 0.32, 0.014, M["cuivre_sombre"], colliers=M["laiton_capot"], pas=0.28)
-    O.ceinture(g, c, 1, 0.45, 0.012, M["cuivre_sombre"], colliers=M["laiton_capot"], pas=0.28)
+    O.ceinture(g, c, 0, 0.32, 0.014, M["cuivre_sombre"], colliers=M["vert_loco"], pas=0.28)
+    O.ceinture(g, c, 1, 0.45, 0.012, M["cuivre_sombre"], colliers=M["vert_loco"], pas=0.28)
     O.sur_flanc(g, c, 0, [math.radians(a) for a in (212, 250, 290, 328)], _robinet, f=0.32, dr=0.02)
     O.sur_dessus(g, c, 1, [math.radians(a) for a in (205, 240, 300, 335)], _sifflet)
     O.sur_dessus(g, c, 2, [math.radians(a) for a in (230, 310)], _sifflet, t=0.6)
