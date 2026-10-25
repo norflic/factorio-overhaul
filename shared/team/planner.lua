@@ -91,6 +91,18 @@ function P.undefended(view)
   return out
 end
 
+--- Lot IA1-b2 : avant-postes où PERSONNE NE VA travailler (agrandir, fond), { [id] = vrai } : non défendus quand une
+--- tourelle est possible (`turret_ok` : au stock ou fabricable), et, tourelle possible ou non, non défendus MEURTRIERS
+--- (un PNJ tué en y allant il y a moins de T.lethal_ticks). Vide sans view.defend_first.
+function P.no_go(view, turret_ok)
+  local out = {}
+  local und = P.undefended(view)
+  for _, o in ipairs(view.outposts or {}) do
+    if und[o.id] and (turret_ok or o.lethal) then out[o.id] = true end
+  end
+  return out
+end
+
 local function outpost_items(kind)
   local spec = T.outposts[kind]
   -- Un avant-poste de charbon démarre avec 2 charbons par foreuse puis se ravitaille sur sa production.
@@ -281,18 +293,35 @@ function P.plan(view, book)
   --  - un NOUVEL avant-poste d'un type déjà exploité se construit AVEC ses tourelles (le constructeur les pose en
   --    arrivant) : sans elles au stock, il attend (elles sont fabriquées si la recette est connue) ;
   --  - RÈGLE DE REPLI (aucune tourelle au stock, recette inconnue : votre force n'a pas la recherche « Tourelles ») :
-  --    le PREMIER avant-poste de chaque ressource se pose (et se reconstruit) sans tourelle ; aucun autre, et aucun
-  --    agrandissement, jusqu'à la première tourelle.
+  --    l'équipe travaille comme avant, mais un avant-poste MEURTRIER (un PNJ tué en y allant) n'est plus visité pendant
+  --    T.lethal_ticks (ni tournée, ni agrandissement, ni fond). Essai 1 du lot (repli plus strict : premier avant-poste
+  --    de chaque ressource seulement, aucun agrandissement) : production de votre équipe -42 % et -16 % sur les deux
+  --    graines du guide pour 4 et 6 morts de moins ; écarté ;
+  --  - le QG reçoit d'abord T.defend_hq tourelles ; la défense ne fabrique pas sous T.defend_iron_floor plaques de fer ;
+  --    un avant-poste MEURTRIER non défendu attend la fin de sa pause, même pour ses tourelles.
   ---------------------------------------------------------------------------------------------------
   local df = view.defend_first and true or false
-  local undefended = P.undefended(view)
   local turret_craftable = df and book:handcraftable("gun-turret") or false
+  local turret_ok = df and (turret_craftable or (avail["gun-turret"] or 0) > 0) or false
+  -- `undefended` : avant-postes où l'on ne va ni agrandir ni travailler au fond (P.no_go) ; `lacking` : tous les non
+  -- défendus (tourelles à poser dès qu'elles existent).
+  local lacking = P.undefended(view)
+  local undefended = P.no_go(view, turret_ok)
   local function turret_items(n) return { { "gun-turret", n }, { T.turret_ammo, n * T.defend_ammo } } end
+  --- Fabrication des tourelles (et de leurs chargeurs) SANS descendre sous T.defend_iron_floor plaques de fer : la
+  --- défense ne prend pas le fer des recrues de survie (essai 1 du lot, ia1b2-guide graine 1618033988 : fer 615 -> 26 en
+  --- 5 min, tourelles perdues avec leurs porteurs, équipe perdue à 23 min).
+  local function want_defense(list)
+    local keep = math.min(avail["iron-plate"] or 0, T.defend_iron_floor)
+    avail["iron-plate"] = (avail["iron-plate"] or 0) - keep
+    want(list, T.defend_prio, "defense")
+    avail["iron-plate"] = (avail["iron-plate"] or 0) + keep
+  end
   --- Objets d'une construction d'avant-poste `kind` de `n_drills` foreuses : `items`, plus ses tourelles si elles sont
   --- au stock virtuel. nil : la construction attend ses tourelles (demandées ici si la recette est connue) ou n'a pas
   --- lieu (règle de repli).
   local function build_items(kind, items, n_drills)
-    if not df then return items end
+    if not turret_ok then return items end -- règle de repli : construction comme avant
     local t = turret_items(T.defend_turrets(n_drills))
     local have_t = true
     for _, it in ipairs(t) do if (avail[it[1]] or 0) < it[2] then have_t = false end end
@@ -303,7 +332,7 @@ function P.plan(view, book)
       return all
     end
     if count_kind(view, kind) == 0 then return items end -- premier avant-poste de ce type (départ, reconstruction)
-    if turret_craftable then want(t, T.defend_prio, "defense") end
+    if turret_craftable then want_defense(t) end
     out.defend_wait = (out.defend_wait or 0) + 1
     return nil
   end
@@ -314,7 +343,11 @@ function P.plan(view, book)
   local fuel_reserve = view.smelter_coal or 0
   for _, o in ipairs(view.outposts) do
     if o.kind ~= "coal" then fuel_reserve = fuel_reserve + (o.coal_needed or 0) end
-    if not o.has_task then
+    if df and o.lethal and lacking[o.id] then
+      -- Lot IA1-b2 : avant-poste MEURTRIER (un PNJ tué en y allant, il y a moins de T.lethal_ticks) et non défendu :
+      -- personne n'y va, pas même pour la tournée.
+      out.lethal_skip = (out.lethal_skip or 0) + 1
+    elseif not o.has_task then
       if o.fuel_low then
         add({ key = "service:" .. o.id, kind = "service", prio = 95, outpost = o.id })
       elseif o.output >= T.collect_at or o.idle_ticks >= T.service_period then
@@ -377,27 +410,35 @@ function P.plan(view, book)
 
   -- Lot IA1-b2 (défendre d'abord) : tourelles des avant-postes non défendus, en urgence (ordre des id). Sans recette,
   -- seulement les tourelles déjà au stock (règle de repli sinon).
+  -- Le QG d'abord (T.defend_hq tourelles : les PNJ y vivent, la fonderie y pollue ; essai 1 du lot, graine 1618033988 :
+  -- QG attaqué dès 17 min, équipe perdue à 23 min). Un avant-poste MEURTRIER attend la fin de sa pause.
   if df then
     local waiting = 0
+    local posts = { { id = "hq", want = T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify } }
     for _, o in ipairs(view.outposts) do
-      if undefended[o.id] then
+      if lacking[o.id] then
         waiting = waiting + 1
-        local key = "fortify:" .. o.id
-        if not o.has_fortify and not open[key] then
-          local n = T.defend_turrets(o.drills) - (o.turrets or 0)
-          if not turret_craftable then n = math.min(n, avail["gun-turret"] or 0) end
-          if n > 0 then
-            local items = turret_items(n)
-            if take(items) then
-              add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = o.id, items = items, defend = true })
-            else
-              want(items, T.defend_prio, "defense")
-            end
+        if not o.lethal then
+          posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
+        end
+      end
+    end
+    for _, p in ipairs(posts) do
+      local key = "fortify:" .. p.id
+      if p.have < p.want and not p.busy and not open[key] then
+        local n = p.want - p.have
+        if not turret_craftable then n = math.min(n, avail["gun-turret"] or 0) end
+        if n > 0 then
+          local items = turret_items(n)
+          if take(items) then
+            add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true })
+          else
+            want_defense(items)
           end
         end
       end
     end
-    out.defend = { undefended = waiting, craftable = turret_craftable }
+    out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0 }
   end
 
   -- Reconstruction : un avant-poste détruit (attaque d'une faction, déchiqueteurs) dont l'objectif était
@@ -619,7 +660,7 @@ function P.plan(view, book)
           elseif not want(items, 50, "objectif") then
             add_missing(last_raw)
           end
-        elseif df and extendable(view, kind) then
+        elseif df and extendable(view, kind) then -- (avant-poste non défendu ou meurtrier : il attend)
           -- Lot IA1-b2 : l'avant-poste à agrandir attend ses tourelles (tâche « fortify » plus haut).
           add_missing({ ["gun-turret"] = 1 })
         else
@@ -648,7 +689,7 @@ function P.plan(view, book)
         army_now = true
       elseif part.tech then
         research_now = true
-      elseif part.fortify and df and undefended[part.fortify] then
+      elseif part.fortify and df and lacking[part.fortify] then
         -- Lot IA1-b2 : déjà demandé en urgence (défendre d'abord, plus haut) ; seul le manque s'affiche.
         if not turret_craftable and (avail["gun-turret"] or 0) == 0 then add_missing({ ["gun-turret"] = part.n }) end
       elseif part.fortify then

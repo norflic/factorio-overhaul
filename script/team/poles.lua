@@ -293,11 +293,11 @@ function Poles.think(f, view, book, tick, plan)
   local cands
   if fond_on then
     local df = view.defend_first and true or false
-    local undefended = Planner.undefended(view)
+    local turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy),
-      defend_first = df, undefended = undefended, no_outpost_guard = f.is_player or false,
-      turrets_ok = df and ((free["gun-turret"] or 0) > 0 or (book and book:handcraftable("gun-turret"))) or false })
+      defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = f.is_player or false,
+      turrets_ok = turrets_ok, no_reserve_floor = df })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end

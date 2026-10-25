@@ -95,6 +95,12 @@ T.defend_prio = 90
 T.defend_first_factions = true
 -- Recrues retenues pendant 60 s après la perte d'un PNJ (équipes sous « défendre d'abord »).
 T.recruit_calm = 3600
+-- Avant-poste MEURTRIER : un PNJ tué en y allant ; sans ses tourelles, plus personne n'y va pendant 10 min (ni tournée,
+-- ni agrandissement, ni fond), sauf pour y poser les tourelles.
+T.lethal_ticks = 10 * 3600
+-- Tourelles du QG (posées d'abord) et fer gardé pour les recrues : la défense ne fabrique pas sous ce plancher.
+T.defend_hq = 2
+T.defend_iron_floor = 150
 function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
 
 ---------------------------------------------------------------------------------------------------

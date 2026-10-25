@@ -268,9 +268,12 @@ function Team.view(f, tick)
   -- (minage à la main de fond, plafonné ; garde) compte comme disponible ; un PNJ qui agrandit, bâtit, fond le minerai ou
   -- fabrique la réserve TRAVAILLE : quand tous travaillent, une recrue vient (le stock la paie toujours).
   local defend_first = f.is_player or T.defend_first_factions or false
-  local on_fond = 0
+  local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
-    if t.worker and t.fond and (not defend_first or t.kind == "mine" or t.kind == "garrison") then on_fond = on_fond + 1 end
+    local soft = t.fond and (not defend_first or t.kind == "mine" or t.kind == "garrison")
+    if t.worker and soft then on_fond = on_fond + 1 end
+    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
+    if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
   end
   -- Lot IA1-b2 : pas de recrue dans la minute qui suit la perte d'un PNJ (une recrue posée au QG pendant une attaque y
   -- mourait aussitôt : verif-guide, graine 1618033988, 17 PNJ tués au QG de 46 à 54 min, 29 recrues en 60 min).
@@ -280,6 +283,10 @@ function Team.view(f, tick)
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
   local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)
+  -- Lot IA1-b2 (« Laisser grandir », D-16 « pas de recrue sans travail » gardé) : sous « défendre d'abord », du travail
+  -- qui attend au-delà des bras libres lève le frein (un PNJ entre deux tâches à l'instant de la pensée retenait sinon
+  -- toute recrue : votre équipe restait à 8 PNJ toute la partie du guide).
+  if recruit_held and defend_first and backlog > workers_idle + on_fond then recruit_held = false end
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
@@ -290,13 +297,17 @@ function Team.view(f, tick)
       id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
+      -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
+      lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
     }
   end
   local sites = {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind] = Sites.available(f, T.outposts[kind].resource) end
   local groups = {}
+  local hq_turrets = 0
   for _, g in ipairs(Outposts.turret_groups(f)) do
     groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key) }
+    if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
   end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   return {
@@ -325,6 +336,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }

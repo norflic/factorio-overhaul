@@ -235,6 +235,8 @@ function Worker.program(f, task, surface, tick)
     local ammo = Outposts.ammo_name(f.tech)
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
+    -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
+    if task.outpost == "hq" then return { { "home" }, { "take", task.items, strict = true }, { "act", "fortify" }, { "home" } } end
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
@@ -342,7 +344,8 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
-  local o = f.outposts[task.outpost]
+  -- Lot IA1-b2 : « hq » = autour du QG (tourelles du groupe « hq », Outposts.turret_groups).
+  local o = task.outpost == "hq" and { pos = f.hq_pos } or f.outposts[task.outpost]
   if not o then return false end
   local n = Outposts.fortify(f, surface, o, task.items[1][2], main_inv(agent))
   if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
@@ -707,6 +710,12 @@ Registry.on_removed(function(agent)
     log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
       game.tick / 3600))
+    -- Lot IA1-b2 (défendre d'abord) : l'avant-poste vers lequel allait le PNJ tué devient MEURTRIER (date gardée) : le
+    -- cerveau n'y envoie plus personne pendant T.lethal_ticks, sauf pour y poser des tourelles.
+    local oid = t and (t.outpost or (type(t.post) == "number" and t.post) or nil)
+    if not oid and t and type(t.group) == "string" and t.group:sub(1, 1) == "o" then oid = tonumber(t.group:sub(2)) end
+    local o = oid and f.outposts and f.outposts[oid]
+    if o then o.lethal_tick = game.tick end
   end
   if agent.task then
     if agent.task.site and not agent.task.site_used then

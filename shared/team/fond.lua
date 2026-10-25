@@ -214,7 +214,7 @@ local function base(view, free, ctx, out)
     local want = math.max(r[2], math.min(r[3] or r[2], pot))
     -- Lot IA1-b2 : sous « défendre d'abord », pas de plancher de réserve pour les biens d'équipement : rien à poser
     -- (aucun avant-poste défendu à agrandir, aucun site constructible) = rien à fabriquer d'avance.
-    if ctx.defend_first and item ~= T.turret_ammo then want = math.min(r[3] or r[2], pot) end
+    if (ctx.defend_first or ctx.no_reserve_floor) and item ~= T.turret_ammo then want = math.min(r[3] or r[2], pot) end
     if book:handcraftable(item) then
       local have = (free[item] or 0) + (incoming[item] or 0)
       local i = 0
