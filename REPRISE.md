@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **20 h 40, F3-B (assembleur en production) arrêté proprement** (branche `worktree-agent-ad00d688396c75623`, dernier commit
+> `b15db4a` ; elle contient `main` 0.4.29 ET la branche du four F2-B, qui se dit 0.4.30 : fusionner F2-B AVANT F3-B) : production
+> 21 variantes sur 29 (le paquet 6 a continué seul ; reprendre par `rendre.py --only` sur les variantes absentes, commande dans
+> `fo-logs\2026-10-25_F3\NOTES.md`) ; intégration faite sur des feuilles d'ESSAI (`prototypes/levels/assembler.lua`, feuilles hors
+> git par `assembleur_e/feuilles.py`, contrôle `asm_sheets.lua`, scénario `f3-assembleurs` 6 OK en moteur réel, captures de jour et
+> de nuit regardées) ; animation au coût le plus bas (lueur rejouée au travail, aucune image en plus). RESTE : fin de production,
+> feuilles régénérées, mémoire vidéo au plancher avec le four, content, t2-machines, mod1-modules, mod2-lots, migration 0.4.29
+> (`src-0.4.29` prête), captures finales.
 > **20 h 30, IA3-c arrêté proprement** (branche `worktree-agent-a4f8ddc966cf133ed`, dernier commit `ecc8348`, intégrateur `dedfd43`,
 > réglage `fo-war-ia3-cerveau` éteint ; instantané à tester `fo-logs\2026-10-25_IA3-c\src-a\factorio-overhaul`) : cerveau par
 > besoins écrit et branché ; HORS JEU vert (ai3_cerveau 40 OK : le cas du DC est résolu au moteur simulé ; pvp 1305 allumé et
