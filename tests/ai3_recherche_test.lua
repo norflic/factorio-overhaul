@@ -216,6 +216,11 @@ do
     string.format("branché : packs commandés dès l'objectif « défense » (%d tâches, priorité %s)", n, tostring(prio)))
   v.ia3_research = nil
   check(tagged(P.plan(v, book_at(0)), "recherche") == 0, "réglage éteint : règle d'avant (aucun pack avant « tech1 »)")
+  -- a2) Garde de l'économie : avant le fer II, sous l'armée (44) ; fer II MIS DE CÔTÉ : priorité du caractère (46).
+  local _, pe = tagged(P.plan(fview({ research_lean = 300 }), book_at(0)), "recherche")
+  local _, pd = tagged(P.plan(fview({ research_lean = 300, deferred = { iron2 = 99999 } }), book_at(0)), "recherche")
+  check(pe == 44 and pd == A.priority(300, { economy_done = true }),
+    string.format("avant le fer II : %s (sous l'armée) ; fer II mis de côté : %s (caractère)", tostring(pe), tostring(pd)))
   -- b) Niveau 4 impayable (pack chimique) : AUCUN pack, même riche ; la règle d'avant en fabriquait (défaut C1).
   local v4 = fview({ tech = 3, done = upto("tech3"), stock = rich, soldiers = 30 })
   local p4 = P.plan(v4, book_at(3))

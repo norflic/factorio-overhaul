@@ -789,7 +789,11 @@ function P.plan(view, book)
   local next_tech = view.tech + 1
   local ia3 = view.ia3_research and not view.no_research or false
   local army_prio = view.threatened and 85 or 45
-  local economy_done = done["iron2"] or false
+  -- Garde de l'économie : jusqu'au « fer II »... sauf pendant qu'il est MIS DE CÔTÉ (aucun progrès en 12 min : en
+  -- général aucun site de fer ; IA3-DIAG et ce lot : 2 à 8 fois par faction, et 2 à 4 factions sur 4 de la partie
+  -- `default` ne l'atteignent jamais). Il n'y a alors rien à protéger : la recherche reprend la priorité du caractère
+  -- jusqu'à son retour. Le travail du fer II (pose 80, fabrication 50) passe de toute façon avant les packs (44).
+  local economy_done = done["iron2"] or (view.deferred or {})["iron2"] ~= nil or false
   local rch_prio = ia3 and Rch.priority(view.research_lean or 0, { economy_done = economy_done, is_goal = research_now }) or 0
   local rch_first = ia3 and not army_now and rch_prio > army_prio
   local function research_floor()
