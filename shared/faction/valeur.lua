@@ -183,7 +183,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Front de prospection
 ---------------------------------------------------------------------------------------------------
-V.FRONT_MIN = 64        -- un avant-poste devient front à 64 tuiles ou plus du QG (les emplacements de 76 et 104 tuiles
+V.FRONT_MIN = 64        -- un avant-poste devient front à 64 tuiles ou plus du QG (les emplacements de 88 et 120 tuiles
                         -- de l'éventail de départ en sont : la prospection part d'abord dans l'axe de la base)
 V.FRONT_DRY = 20 * 3600 -- un front dont le tour n'a rien trouvé est laissé 20 min
 V.REFRESH = 5 * 3600    -- renouvellement de la réserve : le pire site d'une ressource demandée au complet est oublié
@@ -248,10 +248,13 @@ V.DIRS64 = {
 
 -- Emplacements de l'éventail (décalage angulaire en 64es de tour par rapport à l'axe, distance en tuiles), dans
 -- l'ordre où les gisements les prennent ; les 5 premiers d'abord (éventail de ± 62° autour de l'axe), les suivants
--- si l'eau en bloque. Anneaux de 46, 76 et 104 tuiles ; écart minimal entre deux emplacements : 41 tuiles
--- (gisements de rayon 11 au plus ; contrôlé par tests/valeur_test.lua).
-V.FAN = { { 0, 46 }, { 11, 46 }, { -11, 46 }, { 5, 76 }, { -5, 76 }, { 22, 46 }, { -22, 46 }, { 0, 104 },
-  { 16, 76 }, { -16, 76 }, { 27, 76 }, { -27, 76 }, { 32, 46 }, { 32, 104 }, { 11, 104 }, { -11, 104 } }
+-- si l'eau en bloque. Anneaux de 46, 88 et 120 tuiles ; écart minimal entre deux emplacements : 41 tuiles
+-- (gisements de rayon 11 au plus ; contrôlé par tests/valeur_test.lua). L'anneau extérieur est à 80 tuiles ou plus
+-- (C.CAPITAL_RADIUS d'IA2-a2) : « la périphérie d'abord » y trouve une cible hors du cœur. Avec 76 tuiles (essai 2),
+-- une faction qui ne s'étendait pas n'avait aucune périphérie et perdait son QG à la 1re attaque réussie (F218, F224 ;
+-- moteur réel, ia1-scale : Ambre à 39,9 min).
+V.FAN = { { 0, 46 }, { 11, 46 }, { -11, 46 }, { 5, 88 }, { -5, 88 }, { 22, 46 }, { -22, 46 }, { 0, 120 },
+  { 16, 88 }, { -16, 88 }, { 27, 88 }, { -27, 88 }, { 32, 46 }, { 32, 120 }, { 11, 120 }, { -11, 120 } }
 
 --- Décalages (dx, dy) des emplacements de la zone de départ autour de l'axe `axis` (0 à 63, 0 = est, sens horaire à
 --- l'écran : 16 = sud).
