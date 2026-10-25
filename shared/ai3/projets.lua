@@ -431,7 +431,8 @@ function P.supply(E, ctx)
   local view = E.view
   local done = {}
   local smelters = (view.smelters or 0) + (view.smelters_pending or 0)
-  local mine_room = math.max(1, math.floor((ctx.workers or 0) / 3))
+  -- Jusqu'à la moitié des PNJ au minage à la main d'une matière qui manque (constat du DC : « plein qui foutent rien »).
+  local mine_room = math.max(1, math.floor((ctx.workers or 0) / 2))
   for _ = 1, 4 do
     local items = {}
     for _, k in ipairs(sorted_keys(E.raw)) do if not done[k] then items[#items + 1] = k end end
