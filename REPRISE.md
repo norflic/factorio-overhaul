@@ -10,6 +10,16 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 9 h 25** : le DC a répondu à TOUT par QCM dans Claude Code (format exigé désormais : AskUserQuestion, jamais
+> un code de réponse à taper) ; réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25), décision **D-17** (RD_LOG). Lancés :
+> MOD-3 (nouveaux paliers vitesse +20/+10 et productivité multipliée +10/+5, écart d'énergie au plafond, design MOD-V
+> repris avec les choix du DC ; F248 à F250, E170, E171) et IA1-b2 (défendre d'abord, laisser grandir, gardes coupées ;
+> F251 à F253, E172, E173). Page des designs demandée par le DC : images rassemblées par un agent dans `designs/` du
+> dossier de travail. À LANCER ENSUITE (D-17) : X2-suite (monazite et sables noirs à refaire, usages des sous-produits,
+> puis fusion de X2 : hausse du centre acceptée) ; X1-suite (recette qui consomme l'hydrogène, ilménite I2 et nuit
+> assombrie, sol des cratères, saumure au visuel propre) ; A5-suite (25 %, liserés seulement, teinte automatique pour N
+> équipes) ; F1-C (3e ronde du laser) ; LOG-1 (bras à grande capacité, convoyeurs à vitesse croissante, « tube » qui
+> simule les objets : étude moteur d'abord). Worktrees de MOD-V et A5 retirés (branches gardées).
 > **Point de 8 h 45 (le DC est réveillé ; bilan de la nuit envoyé)** : IA1-b fusionné (`f33cfbb`, **version 0.4.26**),
 > 12 bancs en moteur réel verts sur main (`fo-logs` integration-0.4.26), documenté ; objectif « 30 livrent plus que 10 »
 > NON atteint (0,95), morts × 9 hors du QG (F239). X2 (terres rares de l'âge 12) LIVRÉ NON FUSIONNÉ (branche
