@@ -10,6 +10,9 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 7 h 20** : IA1-e1 fusionné (`e64ab49`, jeu inchangé : solveur pur et banc `ia1-diag` 27 OK sur main,
+> documents `cf5cce3`, BALANCE_SHEET : plastique 1,3 contre 3 MU non tranché). En cours : IA1-b (worktree), X2 (ressources
+> de l'âge 12, terres rares, au modèle de X1 + petite usine sans script exigée ; F245 à F247, E168, E169).
 > **Point de 6 h 50** : 0.4.24 fusionnée et prouvée (correction de la vérification adverse : votre équipe décimée se
 > reconstruit ; `verif-guide` 1 ECHEC sur 0.4.23, 15 OK sur 0.4.24 aux 2 graines ; guide de partie réécrit pour 0.4.23+,
 > ancien gardé). IA2-c fusionné (`16204fa`, version 0.4.25 : brouillard, éclaireurs, modèle de l'adversaire, côté le
