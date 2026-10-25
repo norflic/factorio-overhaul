@@ -299,7 +299,159 @@ orientation (préréglages). Ce qui change :
 
 ## 3. L'algorithme générique
 
-À ÉCRIRE
+Exigence du DC : « on peut pas faire ça pour tous les bâtiments ». Donc : **aucune règle par bâtiment**, tout se
+déduit des prototypes (recettes, technologies, entités, ressources), et le même code sert de l'âge 1 à l'âge 15.
+
+### 3.0 Choix de l'algorithme, et pourquoi
+
+| Famille | Ce qu'elle fait bien | Pourquoi pas seule ici | Retenu pour |
+|---|---|---|---|
+| GOAP (A* sur des états symboliques, F.E.A.R.) | enchaînements émergents de quelques actions | les QUANTITÉS (60 plaques, 1 080 packs) font exploser l'espace d'états ; nos plans font 45 étapes (recherche Automatisation) à 369 étapes (pack chimique) d'après le prototype, là où GOAP tient en pratique moins de 10 ; une recherche A* à égalités est instable d'une pensée à l'autre ; plan illisible pour la fenêtre | rien |
+| HTN (décomposition par méthodes, SHOP, Horizon) | « obtenir X » se décompose naturellement sur le graphe des recettes ; temps linéaire ; plan lisible (chaîne des pourquoi) | ses méthodes s'écrivent d'habitude À LA MAIN, tâche par tâche : interdit par le DC | **l'ossature**, avec SIX méthodes génériques déduites des données |
+| IA d'utilité (notes, courbes) | choisir entre des options concurrentes, varier selon un caractère | ne sait pas enchaîner | le choix des buts (chef, IA2, déjà là) et la place de marché (§2.3) |
+| Solveur de débits (programme linéaire, IA1-e1) | machines, débits, retour sur investissement | ne choisit pas les buts | les débits et le choix « main, automatiser, agrandir, améliorer » (§3.4) |
+| MRP et kanban (industrie) | besoins nets, réservations, tirer le travail | ne choisit pas les méthodes | la coordination du groupe (§2.2, §2.3) |
+| Simulation (MCTS) | évaluer des futurs | coûteuse en Lua, tirages à semer, résultats instables | rien |
+
+**Conclusion : une PLANIFICATION PAR BESOINS** = HTN générique (6 méthodes tirées des données) + utilité (quels buts,
+qui fait quoi) + solveur de débits (combien) + registre MRP (qui a droit à quoi). Chaque brique existe déjà dans le
+mod ou dans le prototype de ce lot, sauf le registre et la place de marché (prototypes testés, §7).
+
+### 3.1 Les buts : des générateurs, pas une échelle
+
+Chaque FAMILLE de buts a un générateur pur qui lit l'état et les données ; il rend des buts `{ famille, quoi, valeur
+0 à 100, échéance }`. `valeur = base de la famille × poids du chef (pour mille) × urgence`. Le cerveau garde les
+meilleurs (§3.5). Familles :
+
+| Famille | Générateur (données lues) | Remplace |
+|---|---|---|
+| Recherche | technologie de meilleure `valeur ÷ coût` parmi celles dont les prérequis sont faits ou prévus ; valeur = recettes débloquées utiles aux buts ouverts (pack suivant, machine qui automatise une recette fréquente, meilleure arme ou tourelle, recette d'un but bloqué) + poids du chef (H9) | `T.research` (5 niveaux écrits à la main) et `T.unlocks` |
+| Armée | effectif visé (posture du chef, menace : `P.army_target` gardé) ; type de soldat = le meilleur ÉQUIPEMENT dont tous les objets sont payables (table `T.kits`, données) | `P.best_unit` par niveau de recherche |
+| Défense | règles d'IA1-b2 (QG d'abord, avant-poste défendu avant d'être agrandi) ; la tourelle = la meilleure tourelle dont la recette et la munition sont payables | marche « fortify » |
+| Extraction | débits bruts demandés par les buts ouverts sur l'horizon (solveur) contre débits mesurés : le GOULOT (H2) ouvre une construction ou un agrandissement d'avant-poste, au site de meilleure valeur (IA2-b, `shared/faction/valeur.lua`) | marches « iron2 », « iron3 », « expand »… |
+| Capital | automatiser une recette faite trop souvent à la main (H3), investir un stock dormant (H4), améliorer un niveau (MOD, niveaux) | rien (capitalisation nulle, IA3-DIAG §2.4) |
+| Exploration | ressource inconnue requise par un but (H5, §4.1) ; curiosité au calme | rien (prospection sans brouillard) |
+| Entretien, Réserve | tournées, fonderie, munitions des tourelles, charbon, une recrue d'avance (H10) | priorités fixes 95, 70, 60 |
+| Survie | règles d'IA2-a2 et de VERIF-NUIT gardées telles quelles (recrue équipée au QG, fonderie reposée) | inchangé |
+
+La personnalité passe par les poids du chef : pour une même partie, le technocrate ouvre la recherche suivante avant
+le 2e lot de soldats, le conquérant l'inverse (D-18 : « selon le caractère »). Le hasard borné d'IA2 départage les buts
+de valeur proche (à 90 % ou plus du meilleur).
+
+### 3.2 Le dépliage : six méthodes déduites des données (prototype `shared/ai3/graphe.lua`)
+
+Pour « obtenir N × objet », dans un état (stock, technologies, machines construites, ressources connues) :
+
+| Méthode | Condition (lue dans les données) | Étapes émises |
+|---|---|---|
+| prendre | l'objet est au stock libre | `take` (une réservation, §2.2) |
+| main | recette d'une catégorie que la main sait faire, solides seulement, un produit (règle du personnage vanilla, comme `shared/team/book.lua`) | ingrédients d'abord, puis `hand` |
+| machine | sinon : une machine dont les catégories contiennent celle de la recette ; si l'équipe n'en a pas, la CONSTRUIRE (`build`) avec son énergie (électricité : une « ligne » qui la produit ; combustible : un approvisionnement) | `build`, `line`, `supply`, puis `produce` |
+| extraire | l'objet est une ressource CONNUE ; un extracteur de sa catégorie (foreuse à combustible si possible, sinon électrique ; la main en dernier recours) | `build` de l'extracteur, `extract` |
+| explorer | ressource INCONNUE | `explore` seulement (§4) |
+| rechercher | recette verrouillée : la technologie qui la débloque, ses prérequis, ses packs, un laboratoire | `research` (après ses prérequis et un laboratoire) |
+
+- **Fluides et électricité en capacité.** Un fluide n'est pas « fabriqué en quantité » : il faut une LIGNE qui le
+  produit (pompe de rive pour l'eau, chaudière pour la vapeur, machine à vapeur pour l'électricité, raffinerie pour le
+  gaz…). Les débits sont l'affaire du solveur d'IA1-e1. L'électricité est un pseudo-fluide produit par les générateurs
+  (en jeu : les prototypes `generator`, `boiler`, `offshore-pump` le disent).
+- **Cycles des recettes** (barils, craquage, liquéfaction) : deux points fixes sur tout le graphe : la FAISABILITÉ
+  (plus petit point fixe : un cycle ne rend rien faisable) et le COÛT DE CHOIX (min-plus). Une recette qui consomme ce
+  qu'elle produit (la liquéfaction demande de l'huile lourde) n'est pas un moyen d'OBTENIR cet objet.
+- **Ce que le prototype montre, sans une ligne par bâtiment** (test `tests/ai3_graphe_test.lua`, 31 OK ; le test
+  cherche les 825 noms d'objets, de bâtiments et de ressources du jeu dans le code du module : 0 trouvé) :
+  - recherche « automation » depuis le kit de départ : pompe de rive, chaudière, machine à vapeur, foreuse de charbon
+    pour la chaudière, laboratoire, 10 packs rouges à la main (1,5 PNJ-minute), recherche : 45 étapes ;
+  - pack chimique AVEC pétrole connu : électricité, laboratoire, 12 recherches dans un ordre valide (automation,
+    electronics, steel-processing, logistic-science-pack, automation-2, engine, fluid-handling, oil-processing,
+    plastics, advanced-electronics, sulfur-processing, chemical-science-pack), assembleur (le moteur n'est pas
+    fabricable à la main), acier, moteurs, usine chimique, raffinerie, chevalet sur le pétrole, plastique, soufre :
+    369 étapes, 9 constructions ; le chemin d'un joueur vanilla ;
+  - pack chimique SANS pétrole connu (règle H8, défaut C1) : impayable, cause « crude-oil », UNE exploration, les
+    12 recherches (payables : elles ne demandent que des packs rouges et verts), et AUCUNE fabrication de moteur, de
+    circuit avancé, de plastique, de soufre ni aucune construction de raffinerie, de chevalet ou d'usine chimique ;
+  - même résultat, octet pour octet, si les recettes sont données dans l'ordre inverse (déterminisme).
+- **Coût mesuré hors jeu** (Lua 5.2.4, PC non épinglé, 4 autres agents actifs : ordre de grandeur) : points fixes
+  4,9 à 5,6 ms pour 273 recettes et 183 technologies (8 à 12 passes), refaits seulement quand l'état change ; un
+  dépliage 1,0 à 1,5 ms. Découpage en jeu : §5.3.
+
+### 3.3 Le coût d'une méthode
+
+Le prototype choisit avec un coût simplifié (durée de recette + surcoûts). La version en jeu compte, pour chaque
+méthode, trois termes dans une seule unité (le MU, prix de la PNJ-seconde lu au tableau, §2.3) :
+- **travail** : PNJ-secondes (fabrication à la main = durée ÷ vitesse du PNJ ; tournées et portage = distance ÷ vitesse
+  de marche × allers-retours ; construction = rythme de pose, `P.BUILD_TICKS_PER_ENTITY`) × prix fictif de la
+  PNJ-seconde ;
+- **matière** : MU des objets consommés et des bâtiments posés (`P.values`, solveur d'IA1-e1) ;
+- **risque** : pertes attendues (PNJ, objets portés) sur le chemin et au site (§4.2), plus le surcoût des échecs passés
+  (H11).
+Choix : la méthode la moins chère par unité utile, avec 20 % d'inertie pour la méthode déjà engagée (comme
+`P.HYSTERESIS`).
+
+### 3.4 Fabriquer, automatiser, agrandir, améliorer, construire ailleurs
+
+Une seule décision pour tout flux demandé par les buts (objets par minute sur l'horizon) : le solveur d'IA1-e1 la sait
+déjà pour quatre options (`P.options`, `P.choose` : agrandir, améliorer d'un niveau, remplacer de palier, module neuf,
+avec retour sur investissement `T = coût ÷ gain`). IA3 y ajoute :
+- **à la main** : coût = charge de travail × prix fictif ; c'est l'option par défaut tant que la charge est faible ;
+- **construire ailleurs** : un avant-poste sur un meilleur gisement, ou un bloc près d'une ressource lointaine
+  (raffiner sur place, EQUIPES_PNJ §6.8) ; coût = construction + risque (§4) + trajets.
+Règles de bascule (H3, H4) : automatiser quand la charge à la main dépasse 0,25 PNJ pendant 10 min et que `T ≤ H`
+(20 min en sécurité, 5 min menacé, horizon du chef) ; agrandir quand un module est en « capacité » (diagnostic
+d'IA1-e1) ; améliorer quand l'emprise manque ou que le plafond d'entités approche (« grandir en hauteur », IA2) ;
+construire ailleurs quand le gisement est épuisé, trop loin, ou que la ressource n'existe pas au QG.
+L'IMPLANTATION (où poser, comment brancher) reste au plan directeur (IA1-d) : IA3 exige des gabarits PARAMÉTRIQUES (une
+rangée de machines de taille et de boîtes à fluide lues dans le prototype, bras, tapis), pas un gabarit par bâtiment.
+
+### 3.5 Projets en parallèle, chemin critique
+
+- Un **projet** = un but retenu, sa méthode, ses réservations, ses tâches, son meneur, son état (préparation, en cours,
+  bloqué, fini). Il SURVIT d'une pensée à l'autre (fin du « tout recalculé toutes les 5 s » qui fait C2).
+- **K projets ouverts** : `K = 2 + ⌊PNJ ÷ 4⌋`, au plus 10 (4 PNJ : 3 projets ; 8 PNJ : 4 ; 30 PNJ : 9). Les buts de plus
+  forte valeur ; à valeur proche, le hasard borné ; un projet engagé garde 20 % d'inertie.
+- **Un projet bloqué ne bloque personne** : il rend ses PNJ, garde ses réservations (sauf préemption), et sa cause
+  devient un but (explorer, rechercher) : fin des 12 min de patience de C5.
+- **Chemin critique** : la plus longue chaîne d'étapes restantes (en secondes) ; ses tâches valent × 1,5 au marché.
+  C'est ce qui fait qu'à 8 PNJ, les packs d'une recherche et la construction du laboratoire avancent EN MÊME TEMPS.
+- **Découpage du travail** : les étapes de même nature et de même objet sont regroupées, puis coupées en lots
+  d'environ 30 s de fabrication (comme `CHUNK_SECONDS` aujourd'hui), pour que plusieurs PNJ avancent un même projet.
+
+### 3.6 Effectif
+
+8 PNJ par faction au départ (D-18). Une recrue quand le prix fictif de la PNJ-seconde reste au-dessus du seuil pendant
+2 min (du travail utile attend) ET que la recrue se paie (`O.recruit_cost`) ; plus de recrue quand des PNJ sont libres
+sans travail. C'est la règle d'IA1-b2 (« du travail qui attend lève le frein »), généralisée aux factions.
+
+### 3.7 Identique de l'âge 1 à l'âge 15
+
+Le cerveau ne nomme aucune époque :
+- le verrou d'époque est une technologie (`fo-epoch-k`, `X.epoch_lock`) ; sa « recherche » a pour méthode « payer le
+  niveau du centre » (monnaies de `X.currencies`, coût lu dans `shared/levels/config.lua`) : une 7e méthode générique,
+  `level`, quand le lot des époques des factions (IA3-i) arrive ;
+- une ressource nouvelle (tungstène, cristal, méthane, titane…) est une ressource de plus : explorer, extraire ;
+- un bâtiment nouveau est une machine de plus : ses catégories le rendent utilisable ;
+- les packs de chaque époque (`X.epochs[k].pack`) sont des objets comme les autres.
+Mesure du DC « factions qui passent les âges » : §6, lot IA3-i.
+
+### 3.8 Fait mesuré par le prototype : les factions ne paient pas la vraie recherche
+
+Le test calcule le coût RÉEL (prototypes vanilla 1.1.91) des technologies que les factions reçoivent aujourd'hui à
+chaque niveau (`T.unlocks`, `shared/team/config.lua:146`) contre ce qu'elles paient (`T.research`) :
+
+| Niveau | Payé (packs) | Coût réel des technologies reçues (packs) |
+|---|---|---|
+| 0 (au départ) | 0 | 30 |
+| 1 | 30 | 395 |
+| 2 | 90 | 2 640 |
+| 3 | 170 | 3 350, dont 100 packs CHIMIQUES (`military-3`) |
+| 0 à 3 | 290 | 6 415 (22 fois plus) |
+
+Deux conséquences, dites franchement :
+1. Aujourd'hui, une faction au niveau 3 a des technologies militaires qu'aucun joueur ne peut avoir sans pétrole.
+2. Un cerveau qui « joue comme un joueur » paie la VRAIE recherche : 1 080 packs rouges et 915 verts pour atteindre le
+   pack chimique (prototype, prérequis compris), soit environ 233 PNJ-minutes de fabrication à la main, ou des
+   assembleurs. Les factions iront donc moins vite en « niveaux » au début, et plus vite ensuite (automatisation,
+   pétrole). Les critères (§6) sont écrits en vraies technologies, pas en niveaux.
 
 ## 4. Les expéditions
 
