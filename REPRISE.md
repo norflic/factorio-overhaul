@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **Point de 10 h 15** : page « Atlas des designs » publiée (https://claude.ai/artifact/Dfvg6UEeQN5YYAYHZRS5Pt ; source
+> `designs/` du dossier de travail : `manifeste.json`, `gabarit.html`, `build_page.py`). Le DC BANNIT les familles qui ne
+> changent que de teinte (OBJECTIFS §5, 25/10 vers 10 h) et choisit, par QCM, « les trois en même temps » : lancés F2-A
+> (four), F3-A (assembleur), F4-A (foreuse) : fiches des 15 âges, kit de famille, aperçus, planches pour le DC ; rien en
+> jeu ; rendus partagés sur les 2 places du verrou. Tournent aussi MOD-3 et IA1-b2 : 5 agents. Disque surveillé (2,8 Go).
 > **Point de 9 h 25** : le DC a répondu à TOUT par QCM dans Claude Code (format exigé désormais : AskUserQuestion, jamais
 > un code de réponse à taper) ; réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25), décision **D-17** (RD_LOG). Lancés :
 > MOD-3 (nouveaux paliers vitesse +20/+10 et productivité multipliée +10/+5, écart d'énergie au plafond, design MOD-V
