@@ -652,8 +652,14 @@ Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre,
 
 - Le comptage par secteur pour la connaissance (coût par regard, déjà mesuré pour IA2-c : 0,0043 ms par tick pour la
   voie de repérage) et le nombre de regards en plus pour les PNJ en déplacement.
-- Pose d'une tourelle par script près d'ennemis qui bougent (collision avec un biter : `can_place_entity` refuse ; on
-  essaie 4 cases), reprise par `mine`, munitions conservées.
+- ~~Pose d'une tourelle par script près d'ennemis qui bougent, reprise par `mine`, munitions conservées.~~ **Prouvé par
+  E181** (lot IA3-0, 25/10, `done.txt` 16:51:34,05, 9 OK) : 8 petits biters lancés sur un PNJ d'une force sans joueur
+  (hostile aux biters par défaut) sont vus à 22,4 tuiles ; `can_place_entity` REFUSE la case d'un biter ; la première
+  case entre le PNJ et la menace était libre ; la mitrailleuse posée par `create_entity{raise_built = true}` et remplie
+  de 20 chargeurs tire **35 ticks** après la détection, tue les 8 biters (santé 316 sur 400), le PNJ survit ; 10 s de
+  calme plus tard, `mine{inventory = inventaire du PNJ, force = false}` rend la tourelle ET ses 17 chargeurs
+  restants ; dans un inventaire PLEIN, `mine` rend faux et la tourelle reste en place (rien n'est perdu). Une grenade
+  créée par script (projectile vers un point, vitesse 0,3) tue 4 petits biters groupés sur 4.
 - Un groupe d'escorte de 8 qui ne se disperse pas (F173, F174 : membres retirés d'un groupe sans événement).
 - Le coût d'un convoi sur la locomotion (chemins plus longs : demandes de chemin du mod en vol).
 - Le délai du réflexe (revue m5) : un petit biter court environ 12 tuiles par seconde (0,2 tuile par tick), plus vite
@@ -707,9 +713,11 @@ Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.
 - Une faction recherche une technologie RÉELLE (`LuaForce.add_research`, file de sa force) ; ses PNJ construisent des
   laboratoires (méthode `research`, §3.2) et y livrent les packs (verbe `deliver`, ou un bras quand l'automatisation le
   justifie) ; le MOTEUR fait avancer la recherche, au temps réel des prototypes.
-- **À vérifier en moteur réel avant tout** (lot IA3-0, expérience E180) : une force sans joueur qui a une recherche en
-  cours et des laboratoires alimentés progresse ; `research_finished` est levé. Repli si non : le QG consomme les packs
-  au coût réel et au temps réel (`unit.time × count ÷ laboratoires`), sans laboratoire du moteur.
+- **Vérifié en moteur réel (lot IA3-0, E180, 25/10, `done.txt` 16:51:27,18, 11 OK)** : une force SANS joueur, avec
+  4 laboratoires alimentés, finit `automation` au tick 150, exactement le temps des prototypes FINAUX (1 unité de
+  600 ticks ÷ 4 laboratoires) ; `on_research_finished` est levé (`by_script = false`) ; un laboratoire sans courant
+  ne fait rien ; `add_research` refuse une technologie dont un prérequis manque ; une force neuve a la file de recherche
+  désactivée (`research_queue_enabled = false`, `add_research` remplace alors la recherche en cours).
 - **Voie retenue pour IA3-c : le « laboratoire du QG » (revue B2).** Les laboratoires vanilla sont électriques : pompe
   de rive au bord de l'eau, chaudière, machine à vapeur, poteaux ; ni l'eau ni les poteaux ne sont dans le dépliage, et
   l'implantation est au plan directeur (IA1-d, non prouvé). IA3-c ne peut donc pas promettre des laboratoires
@@ -717,8 +725,12 @@ Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.
   script (`research_progress`) au temps réel des prototypes (`unit.time × unit.count ÷ laboratoires du QG`), en
   consommant les vrais packs au coffre ; ses « laboratoires du QG » sont des laboratoires FABRIQUÉS (vraie recette) et
   posés près du coffre. Bonus des technologies, événement de fin et fenêtre : ceux du moteur. Quand IA3-e sait poser
-  une centrale, les laboratoires alimentés prennent le relais (la règle de calcul est la même). E180 essaie les DEUX
-  voies.
+  une centrale, les laboratoires alimentés prennent le relais (la règle de calcul est la même). E180 a essayé les DEUX
+  voies : écrire `research_progress` est relu tel quel (0,5) ; 0,999 sans laboratoire ne finit rien ; écrire **1
+  termine la recherche exactement comme un laboratoire** (technologie recherchée, file vidée, événement avec
+  `by_script = false`) ; `researched = true` la termine aussi, mais avec `by_script = true` ; les bonus s'appliquent
+  (modificateur des balles 0 → 0,1 après `physical-projectile-damage-1`). La voie du QG est donc indiscernable de
+  laboratoires du moteur pour le reste du jeu.
 - **La voie « comme un joueur de CE mod » (proposée à l'intégrateur et au DC).** Le graphe des époques X0
   (`shared/content/epochs.lua`, bâtiments de l'époque 1) prévoit un **laboratoire à combustion** (`fo-burner-lab`,
   charbon, vitesse 0,5, packs rouges et verts) et un atelier à combustion ; ni l'un ni l'autre n'existe en jeu le
@@ -855,9 +867,10 @@ se mesure dans `verif-guide` (première attaque, pertes du joueur).
 ### 6.2 Les lots, dans l'ordre
 
 **IA3-0 · Fondations (pur, plus 2 expériences en moteur réel).** 1 jour.
-- Contenu : durcir les prototypes (`graphe`, `registre`, `marche`, `expedition`) ; adaptateur « prototypes du jeu →
-  catalogue » (`script/ai3/catalogue.lua`) et contrôle : le catalogue tiré de `game.*_prototypes` dans le banc rend le
-  même dépliage que la fixture hors jeu ; expériences **E180** (une force sans joueur recherche avec des laboratoires
+- Contenu : durcir les prototypes (`graphe`, `registre`, `marche`, `expedition`) ; contrôle en moteur réel que les
+  DONNÉES hors jeu sont celles du jeu (scénario `ia3-donnees` : technologies finales, recettes actives au départ) ;
+  l'adaptateur « prototypes du jeu → catalogue » (`script/ai3/catalogue.lua`) est REPORTÉ à IA3-c (machines du mod en
+  familles de niveaux, §7) ; expériences **E180** (une force sans joueur recherche avec des laboratoires
   du moteur : `add_research`, progression, `research_finished`) et **E181** (pose d'une tourelle par script près de
   biters en mouvement, reprise par `mine`, munitions gardées).
 - Durcissements issus de la revue : marché paresseux (M1), dépôt au projet du registre (M11), escalade et plafond de
@@ -1006,8 +1019,31 @@ recherche des factions ; **E179** jouet « pôles contre marché ») :
 - expédition : l'exemple du pétrole (risque 600, escorté, « préparer » sans les 8 soldats) ;
 - coût hors jeu : points fixes 4,9 à 5,6 ms, dépliage 1,0 à 1,5 ms (273 recettes, 183 technologies).
 
+**Lot IA3-0 (25/10, ingénieur principal) : ce qui a tourné depuis.**
+
+| Fichier ou banc | Résultat |
+|---|---|
+| `tests/ai3_graphe_test.lua` | **36 OK** (+ coûts FINAUX des paliers, clé d'invalidation des points fixes) |
+| `tests/ai3_groupe_test.lua` | **28 OK** (+ `R.deposit` ; marché durci : mêmes attributions que la version naïve sur 1 000 tableaux, 30 × 64 : 2 609 notes et 2,0 ms contre 25 265 et 8,0 ms, hors jeu non épinglé) |
+| `tests/ai3_expedition_test.lua` | **19 OK** (+ plafond de distance, escalade) |
+| `tests/ai3_recherche_test.lua` (règle d'IA3-a, NON branchée) | **17 OK** |
+| E180, scénario `ia3-recherche` | **11 OK**, `done.txt` 16:51:27,18 (§5.2) |
+| E181, scénario `ia3-tourelle` | **9 OK**, `done.txt` 16:51:34,05 (§4.6) |
+| scénario `ia3-donnees` | **2 OK**, `done.txt` 16:52:40,78 : les 214 technologies de `tech_ai3_final.lua` sont celles du moteur (0 écart, 0 absente) ; sur 782 recettes d'une force neuve, 0 active qu'une technologie débloquerait, 1 inactive sans technologie (`electric-energy-interface`) : la règle « active au départ = aucune technologie ne la débloque » tient, à cette exception près (en jeu : lire `force.recipes[*].enabled`) |
+
+Faits moteur proposés à l'intégrateur : F269 (recherche d'une force sans joueur, au temps des prototypes finaux),
+F270 (avancement écrit à 1 = fin comme un laboratoire ; `researched = true` = `by_script`), F271 (le mod réécrit le
+coût des technologies ; `research_unit_energy` est en ticks), F272 (pose d'une mitrailleuse par script au contact :
+case d'un biter refusée, premier tir 35 ticks après la détection), F273 (`mine` dans un inventaire rend la tourelle et
+ses munitions ; inventaire plein : refus sans perte), F274 (grenade créée par script), F275 (fixture des technologies
+finales = moteur ; recettes actives au départ). Détail : `INTEGRATION.md` du dossier `fo-logs\2026-10-25_IA3-dev`.
+
 **Ce qui n'est PAS vérifié** :
-- rien n'a tourné en moteur réel ; aucun chiffre de durée de partie n'est prédit par ces prototypes ;
+- aucun chiffre de durée de partie n'est prédit par ces prototypes ; le cerveau n'est pas branché (IA3-a attend la
+  fusion d'IA1-b2) ;
+- le catalogue tiré du jeu (`script/ai3/catalogue.lua`) n'est PAS écrit au lot IA3-0 : les machines du mod existent en
+  familles de niveaux (58 prototypes par famille, harness) que la fixture de 17 machines ne représente pas ; il se
+  conçoit avec IA3-c (quelles variantes de niveau sont des « machines » pour le dépliage) ;
 - le jouet du marché n'est pas le jeu : il montre le mécanisme (pas d'attente quand du travail existe), pas le gain en
   minutes de recherche ;
 - la fixture des entités est copiée à la main (17 machines) ; les technologies du mod (`fo-…`) ne sont pas dans la
@@ -1019,7 +1055,7 @@ recherche des factions ; **E179** jouet « pôles contre marché ») :
   matière et risque (§3.3) ;
 - les étapes du dépliage ne sont pas encore regroupées en tâches (369 étapes pour le pack chimique, dont beaucoup de
   petites extractions et fontes répétées) ;
-- faits moteur : aucun nouveau (F269 à F275 restent libres pour IA3-0 ; E180 et E181 y sont prévus).
+- faits moteur de la conception : aucun ; ceux du lot IA3-0 sont dans le tableau ci-dessus (F269 à F275).
 
 ## 8. Revue adverse (25/10, ingénieur principal) : résumé
 
