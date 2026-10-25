@@ -249,5 +249,65 @@ do
   print("[AI3-GRAPHE] technologie chemical-science-pack depuis zéro (prérequis compris) : " .. table.concat(parts, ", "))
 end
 
+-- Lot IA3-0 (revue M13) : coûts FINAUX. Le mod réécrit le coût des technologies (tests/fixtures/tech_ai3_final.lua,
+-- harness --dump-techs) : les chiffres VANILLA ci-dessus ne sont pas ceux du jeu.
+do
+  local tf = dofile("tests/fixtures/tech_ai3_final.lua")
+  local function total(p) local n = 0 for _, v in pairs(p) do n = n + v end return n end
+  local function labsec(tname)
+    local _, seen = G.tech_packs({ techs = tf }, tname)
+    local s = 0
+    for t in pairs(seen) do if tf[t] then s = s + tf[t].count * tf[t].time end end
+    return s
+  end
+  local rows = {}
+  for k, t in ipairs({ "automation", "logistic-science-pack", "military-science-pack", "chemical-science-pack" }) do
+    local p = G.tech_packs({ techs = tf }, t)
+    rows[#rows + 1] = string.format("palier %d %d packs %d s", k, total(p), labsec(t))
+  end
+  print("[AI3-GRAPHE] coûts FINAUX des paliers (vanilla + mod) : " .. table.concat(rows, " ; "))
+  local p3 = G.tech_packs({ techs = tf }, "military-science-pack")
+  check(total(p3) < 100 and labsec("military-science-pack") < 600,
+    "coûts finaux : le palier 3 coûte moins de 100 packs et 10 min de laboratoire (vanilla : 245 packs, 1 625 s)")
+  local done, real = {}, 0
+  for level = 0, 3 do
+    for _, tn in ipairs(T.unlocks[level] or {}) do
+      local p, seen = G.tech_packs({ techs = tf }, tn, done)
+      real = real + total(p)
+      for k in pairs(seen) do done[k] = true end
+    end
+  end
+  print(string.format("[AI3-GRAPHE] niveaux 0 à 3, coûts FINAUX : payé 290 packs, coût réel %d (rapport %.1f)", real, real / 290))
+  local m3 = tf["military-3"]
+  local chem = false
+  for _, i in ipairs(m3 and m3.ingredients or {}) do if i[1] == "chemical-science-pack" then chem = true end end
+  check(real > 290 and real < 6415 and chem,
+    "coûts finaux : les factions reçoivent plus qu'elles ne paient (" .. real .. " pour 290), mais pas 22 fois ; military-3 exige toujours le pack chimique")
+end
+
+-- Lot IA3-0 (revue M2) : clé d'invalidation des points fixes.
+do
+  local s0 = start_state()
+  local k0 = G.state_key(cat, s0)
+  local s1 = start_state()
+  s1.stock["iron-gear-wheel"] = 12
+  s1.stock["copper-cable"] = 40
+  local s2 = start_state()
+  s2.known["crude-oil"] = true
+  local s3 = start_state()
+  s3.stock["lab"] = 1
+  check(G.state_key(cat, s1) == k0, "clé des points fixes : des intermédiaires au coffre ne la changent pas")
+  check(G.state_key(cat, s2) ~= k0 and G.state_key(cat, s3) ~= k0,
+    "clé des points fixes : une ressource découverte ou un bâtiment au stock la changent")
+  local e0, e1 = G.prepare(cat, s0), G.prepare(cat, s1)
+  local same = true
+  for _, n in ipairs(cat.recipe_list) do
+    for _, p in ipairs(cat.recipes[n].products) do
+      if e0.feas[p.name] ~= e1.feas[p.name] then same = false end
+    end
+  end
+  check(same, "même clé, même faisabilité (intermédiaires au coffre ou non)")
+end
+
 print(string.format("[AI3-GRAPHE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

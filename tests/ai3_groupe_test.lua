@@ -261,5 +261,82 @@ do
   check(b.done > a.done, "jouet : la place de marché finit plus de tâches")
 end
 
+-- Lot IA3-0 (revue M11) : dépôt crédité au projet producteur.
+do
+  local function scene(with_deposit)
+    local reg = R.new()
+    R.set_stock(reg, {}, 0)
+    R.open(reg, 1, 50, 0) -- machine à vapeur : ses engrenages
+    R.open(reg, 2, 90, 0) -- munitions : plus prioritaire
+    if with_deposit then R.deposit(reg, 1, "iron-gear-wheel", 10) end
+    R.set_stock(reg, { ["iron-gear-wheel"] = 10 }, 60) -- vérité du coffre à la pensée suivante
+    local g = R.request(reg, 2, { { "iron-gear-wheel", 10 } }, 60)
+    local got2 = g[1] and g[1][2] or 0
+    local got1 = R.take(reg, 1, "iron-gear-wheel", 10)
+    local ok = R.check(reg)
+    return got1, got2, ok
+  end
+  local a1, a2 = scene(false)
+  local b1, b2, okb = scene(true)
+  check(a2 == 10 and a1 == 0, "registre sans dépôt crédité : le projet prioritaire arrache les engrenages fabriqués (défaut M11 reproduit)")
+  check(b1 == 10 and b2 == 0 and okb, "registre avec R.deposit : les engrenages restent au projet qui les a fabriqués")
+end
+
+-- Lot IA3-0 (revue M1) : attribution paresseuse = attribution naïve, et beaucoup moins de notes.
+do
+  local KINDS = { "craft", "refill", "build", "mine" }
+  local POLES = { "extraction", "base", "territoire" }
+  local rnd = lcg(4242)
+  local same, cases = 0, 1000
+  local function ser(o)
+    local p = {}
+    for _, a in ipairs(o) do p[#p + 1] = string.format("%d>%s@%.9f", a.npc, a.task, a.score) end
+    return table.concat(p, ",")
+  end
+  for _ = 1, cases do
+    local npcs, tasks = {}, {}
+    for i = 1, rnd(12) + 1 do
+      local cannot = nil
+      if rnd(5) == 0 then cannot = { [KINDS[rnd(#KINDS) + 1]] = true } end
+      npcs[#npcs + 1] = { id = i, pole = POLES[rnd(3) + 1], role = rnd(6) == 0 and "generalist" or "executant",
+        pos = { x = rnd(200), y = rnd(200) }, cannot = cannot, skill = rnd(3) == 0 and { craft = 25 } or nil,
+        last_project = rnd(4) == 0 and ("p" .. rnd(3)) or nil }
+    end
+    for j = 1, rnd(40) do
+      local urgent = rnd(3) == 0
+      tasks[#tasks + 1] = { key = string.format("t%03d", j), kind = KINDS[rnd(#KINDS) + 1],
+        prio = urgent and (90 + rnd(10)) or (20 + rnd(70)), pole = POLES[rnd(3) + 1],
+        pos = { x = rnd(200), y = rnd(200) }, critical = rnd(4) == 0, design = rnd(8) == 0, project = "p" .. rnd(3) }
+    end
+    local ctx = { rush_kinds = rnd(2) == 0 and { { "refill", rnd(3) } } or nil }
+    local o1, s1 = M.assign(npcs, tasks, ctx)
+    local o2, s2 = M.assign_naive(npcs, tasks, ctx)
+    if ser(o1) == ser(o2) and s1 == s2 then same = same + 1 end
+  end
+  check(same == cases, string.format("marché paresseux : mêmes attributions et même prix fictif que la version naïve (%d / %d tableaux)", same, cases))
+  -- Coût à 30 PNJ libres × 64 tâches (début de partie à 30 PNJ).
+  local npcs, tasks = {}, {}
+  local r2 = lcg(99)
+  for i = 1, 30 do npcs[i] = { id = i, pole = POLES[r2(3) + 1], pos = { x = r2(200), y = r2(200) } } end
+  for j = 1, 64 do
+    tasks[j] = { key = string.format("t%03d", j), kind = KINDS[r2(#KINDS) + 1], prio = r2(3) == 0 and 92 or 20 + r2(70),
+      pole = POLES[r2(3) + 1], pos = { x = r2(200), y = r2(200) } }
+  end
+  local naive_count = 0
+  local orig = M.score
+  M.score = function(...) naive_count = naive_count + 1 return orig(...) end
+  local t0 = os.clock()
+  for _ = 1, 10 do M.assign_naive(npcs, tasks) end
+  local naive_ms = (os.clock() - t0) / 10 * 1000
+  M.score = orig
+  local _, _, lazy_count = M.assign(npcs, tasks)
+  t0 = os.clock()
+  for _ = 1, 10 do M.assign(npcs, tasks) end
+  local lazy_ms = (os.clock() - t0) / 10 * 1000
+  print(string.format("[AI3-GROUPE] marché 30 PNJ x 64 tâches : naïf %d notes, %.2f ms ; paresseux %d notes, %.2f ms (hors jeu, PC non épinglé)",
+    naive_count / 10, naive_ms, lazy_count, lazy_ms))
+  check(lazy_count <= 2 * 30 * 64, "marché paresseux : au plus 2 notes par couple à 30 x 64 (" .. lazy_count .. ")")
+end
+
 print(string.format("[AI3-GROUPE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

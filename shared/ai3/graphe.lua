@@ -478,16 +478,42 @@ emit_item = function(cat, st, item, n, why)
   if surplus > 0 then st.avail[item] = (st.avail[item] or 0) + surplus end
 end
 
---- Évalue l'état (points fixes) ; réutilisable pour plusieurs dépliages tant que l'état ne change pas.
+--- Objets DURABLES du stock (lot IA3-0, revue M2) : les machines du catalogue (bâtiments posables) et ceux que l'état
+--- déclare durables (`state.durable`). Eux seuls amorcent la faisabilité : un engrenage qui apparaît puis disparaît du
+--- coffre ne doit pas obliger à refaire les points fixes. Liste triée.
+function G.durable_kinds(cat, state)
+  local out = {}
+  for _, item in ipairs(sorted_keys(state.stock)) do
+    if (state.stock[item] or 0) > 0 and (cat.machine[item] or (state.durable and state.durable[item])) then
+      out[#out + 1] = item
+    end
+  end
+  return out
+end
+
+--- Clé d'invalidation des points fixes (revue M2) : technologies, machines posées, ressources connues, objets
+--- durables. Deux états de même clé ont la même faisabilité et les mêmes coûts de choix. Chaîne stable (triée).
+function G.state_key(cat, state)
+  local parts = { "t" }
+  for _, k in ipairs(sorted_keys(state.techs)) do if state.techs[k] then parts[#parts + 1] = k end end
+  parts[#parts + 1] = "|b"
+  for _, k in ipairs(sorted_keys(state.built)) do if (state.built[k] or 0) > 0 then parts[#parts + 1] = k end end
+  parts[#parts + 1] = "|k"
+  for _, k in ipairs(sorted_keys(state.known)) do if state.known[k] then parts[#parts + 1] = k end end
+  parts[#parts + 1] = "|d"
+  for _, k in ipairs(G.durable_kinds(cat, state)) do parts[#parts + 1] = k end
+  return table.concat(parts, ",")
+end
+
+--- Évalue l'état (points fixes) ; réutilisable pour plusieurs dépliages tant que la clé (G.state_key) ne change pas.
 function G.prepare(cat, state)
   local st = {
     known = copy(state.known), techs = copy(state.techs), built = copy(state.built),
     feas = {}, tfeas = {}, cost = {}, passes = 0,
   }
-  -- Ce qui est au stock est atteignable (le kit de départ apporte ses foreuses et ses fours).
-  for _, item in ipairs(sorted_keys(state.stock)) do
-    if (state.stock[item] or 0) > 0 then st.feas[item] = true end
-  end
+  -- Les objets DURABLES du stock sont atteignables (le kit de départ apporte ses foreuses et ses fours). Les autres
+  -- objets du stock sont pris par le dépliage (étape « take ») mais n'amorcent pas la faisabilité (revue M2).
+  for _, item in ipairs(G.durable_kinds(cat, state)) do st.feas[item] = true end
   evaluate(cat, st)
   return st
 end

@@ -1,7 +1,8 @@
 # IA3 « le cerveau des PNJ » : conception (document qui fait foi)
 
 Architecte de la section IA3, 25/10/2026. Décision du DC : D-18 (RD_LOG ; OBJECTIFS §4, R-QCM-25g). Phase CONCEPTION :
-rien n'est branché dans le jeu.
+rien n'est branché dans le jeu. **Revue adverse du 25/10 (ingénieur principal) intégrée** : 3 défauts bloquants, 13 majeurs,
+6 mineurs, chacun corrigé à sa place et résumé au §8 (texte complet : `fo-logs\2026-10-25_IA3-dev\REVUE.md`).
 
 ## 0. En bref
 
@@ -17,8 +18,9 @@ rien n'est branché dans le jeu.
    qu'on lui avait promis n'y est plus (la trace mesurée de « l'arrachage »).
 5. Il **porte au lieu d'automatiser** (41 à 58 % du travail en tournées), **ne cherche jamais le pétrole**, et prospecte
    **sans brouillard**.
-6. Les factions **ne paient pas la vraie recherche** : 290 packs pour des technologies qui en coûtent 6 415, dont une
-   (`military-3`) qui exige le pétrole (mesuré par le prototype, §3.8).
+6. Les factions **ne paient pas la vraie recherche** : 290 packs pour des technologies qui en coûtent 705 aux coûts
+   FINAUX du mod (6 415 aux coûts vanilla : chiffre de conception corrigé par la revue, M13), dont une (`military-3`)
+   qui exige le pétrole (§3.8).
 
 **La conception (dix lignes)** :
 1. Le **chef** (IA2, gardé) fixe le cap une fois par minute : des POIDS par famille de buts selon le caractère.
@@ -43,7 +45,9 @@ rien n'est branché dans le jeu.
 **Plan** : 10 lots (§6), dont 3 jours de lots rapides (fondations, recherche d'abord, personne n'attend, effectif 8)
 puis le nouveau cerveau, l'automatisation (avec IA1-d), l'exploration, les expéditions, le pétrole (palier 4 en
 120 min ou moins) et les âges. 17 à 21 jours d'agents au total. Risque majeur : le plan directeur IA1-d (construction
-automatisée à l'échelle) n'est pas prouvé ; tout ce qui suit l'automatisation en dépend.
+automatisée à l'échelle) n'est pas prouvé ; tout ce qui suit l'automatisation en dépend. Depuis la revue (B2), la vraie
+recherche d'IA3-c n'en dépend plus : elle passe par le « laboratoire du QG » (§5.2) tant que les factions ne savent pas
+poser une centrale.
 
 **Sommaire** : §1 le joueur (H1 à H12) · §2 le groupe · §3 l'algorithme · §4 les expéditions · §5 intégration,
 déterminisme, budget, migration, fenêtre · §6 lots et critères (K1 à K11) · §7 prototypes et ce qui n'est pas vérifié.
@@ -127,8 +131,9 @@ Une pensée par équipe toutes les 300 ticks (5 s), comme aujourd'hui, découpé
 
 **H5. Explorer tôt, et explorer pour une raison.**
 - Joueur : fait un tour au début pour voir les gisements, puis part chercher le pétrole quand il en a besoin.
-- Calcul : la CONNAISSANCE de l'équipe = secteurs cartographiés par sa force (le moteur cartographie autour de ses
-  personnages) + mémoire des gisements vus. Valeur d'une exploration = somme des valeurs des buts bloqués par une
+- Calcul : la CONNAISSANCE de l'équipe = secteurs que ses yeux ont REGARDÉS (comptages du mod, §4.1) + mémoire des
+  gisements vus. Jamais la cartographie du moteur (revue M3) : elle n'est pas prouvée pour un personnage sans joueur, et
+  RIEN n'est cartographié en `--create`/`--benchmark` (F131) : les bancs joueraient une autre partie que le DC. Valeur d'une exploration = somme des valeurs des buts bloqués par une
   ressource inconnue + une petite valeur de curiosité quand tout est calme (un éclaireur au plus). Détails : §4.1.
 - Aujourd'hui : la prospection (`script/faction/sites.lua`) regarde les chunks autour du QG **sans brouillard** (elle
   voit ce que la force n'a jamais vu) ; le pétrole n'est jamais cherché. Écart avec D-16 (« brouillard partout ») :
@@ -139,11 +144,15 @@ Une pensée par équipe toutes les 300 ticks (5 s), comme aujourd'hui, découpé
 - Calcul : chaque lieu a un RISQUE (nids vus, pertes passées sur place, territoire ennemi, distance du QG) ; le
   risque fixe l'équipement, l'escorte, ou l'attente (§4.2). Les règles d'IA1-b2 (« défendre d'abord », avant-poste
   meurtrier) en sont un cas particulier et sont gardées.
-- Aujourd'hui : rien chez les factions (IA1-b2 ne touche que votre équipe, `T.defend_first_factions = false`).
+- Aujourd'hui (corrigé par la revue, M7) : sur `main`, rien chez les factions ; mais la branche d'IA1-b2, encore ouverte
+  le 25/10, met `T.defend_first_factions = true` (réponse R-QCM-25c : « défense pour toutes les factions »), défend le
+  coffre (4 tourelles, gardes en guerre) et tient des planchers de fer et de cuivre. Ces règles sont GARDÉES : §5.1,
+  tableau « IA1-b2 → IA3 ». Ce paragraphe est à rebaser à la fusion d'IA1-b2.
 
 **H7. Ne jamais attendre : mener plusieurs choses de front.**
 - Joueur : pendant que les fours tournent, il fabrique autre chose.
-- Calcul : le cerveau garde PLUSIEURS projets ouverts (de 2 à `1 + ⌈PNJ ÷ 3⌉`, §3.5) ; un projet bloqué n'en bloque
+- Calcul : le cerveau garde PLUSIEURS projets ouverts (`K = 2 + ⌊PNJ ÷ 4⌋`, au plus 10 : la formule du §3.5 fait foi,
+  revue m1) ; un projet bloqué n'en bloque
   aucun autre ; un PNJ libre prend la tâche la plus utile qu'il SAIT faire, quel que soit son rôle (§2.3) ; s'il n'y
   a rien, il fait un investissement par défaut (capital, H4) plutôt que d'attendre au coffre.
 - Aujourd'hui : un objectif à la fois, 12 min de patience sur un gisement introuvable (C5) ; un exécutant ne prend que
@@ -257,6 +266,10 @@ Règles :
 4. **Restitution.** Un projet fini ou abandonné rend son reste au libre. Les objets d'un PNJ tué sont perdus avec lui
    (F253) : le projet replanifie.
 5. **Pas de famine.** Un projet qui attend sa matière gagne 1 point de priorité par minute d'attente, jusqu'à +20.
+6. **Dépôt au projet (revue M11).** Ce qu'un PNJ dépose au coffre au titre d'une tâche (engrenages fabriqués pour la
+   machine à vapeur) est crédité à la réservation du projet de cette tâche (`R.deposit`), pas au libre : sinon, à la
+   pensée suivante, un projet plus prioritaire « arracherait » les produits intermédiaires. Seuls les apports sans
+   projet (avant-postes, fonderie, butin) vont au libre.
 
 **Exemple (votre phrase).** Le coffre contient 60 plaques de fer. Le projet « centrale à vapeur » (priorité 60)
 réserve 31 plaques pour sa machine à vapeur (8 engrenages, 5 tuyaux, 10 plaques). Le projet « munitions de réserve »
@@ -292,8 +305,12 @@ score(n, t) = valeur(t) × aptitude(n, t) × (1 + bonus_rôle(n, t)) − trajet(
 - **Attribution déterministe.** Quand plusieurs PNJ sont libres à la même pensée, on calcule tous les couples,
   on les trie (score décroissant, puis clé de tâche, puis identifiant du PNJ) et on attribue gloutonnement : la
   meilleure paire d'abord. Un PNJ qui se libère entre deux pensées prend son meilleur score immédiatement (une
-  seule passe sur le tableau, comme aujourd'hui). Coût : `PNJ libres × tâches` évaluations, au plus 30 × 64 ≈ 2 000
-  par pensée et par équipe (environ 1 ms hors jeu, à mesurer ; §5.3).
+  seule passe sur le tableau, comme aujourd'hui). Coût (corrigé par la revue, M1) : la version naïve du prototype
+  recalcule tous les couples à chaque attribution, O(PNJ² × tâches) : mesuré 25 265 évaluations et **8,25 ms** à
+  30 PNJ libres × 64 tâches (le cas de tout début de partie), 0,75 ms à 8 × 64. Version retenue (durcie au lot IA3-0) :
+  gloutonne PARESSEUSE : les couples sont notés une fois et triés ; seul le facteur anti-ruée fait BAISSER une note
+  (urgence d'un genre déjà prise) : un couple dont la note a changé est re-noté et remis dans la liste. Même résultat
+  que la version naïve (contrôlé sur des tableaux tirés), O(n·t·log(n·t)) ; chiffres mesurés au §7.
 - **Personne n'attend s'il y a du travail.** Propriété contrôlée par le prototype (§7) : à chaque attribution, aucun
   PNJ libre ne reste sans tâche s'il existe une tâche libre qu'il sait faire. Sans aucune tâche, le PNJ prend un
   INVESTISSEMENT PAR DÉFAUT (réserve de biens d'équipement, minage d'appoint, éclairage de la carte, H4, H5), sous
@@ -415,7 +432,14 @@ Pour « obtenir N × objet », dans un état (stock, technologies, machines cons
   - même résultat, octet pour octet, si les recettes sont données dans l'ordre inverse (déterminisme).
 - **Coût mesuré hors jeu** (Lua 5.2.4, PC non épinglé, 4 autres agents actifs : ordre de grandeur) : points fixes
   4,9 à 5,6 ms pour 273 recettes et 183 technologies (8 à 12 passes), refaits seulement quand l'état change ; un
-  dépliage 1,0 à 1,5 ms. Découpage en jeu : §5.3.
+  dépliage 1,0 à 1,5 ms. Remesuré par la revue : 2,6 ms (fixture) et 4,4 ms avec une machine par catégorie de recette
+  (280 recettes sur les 782 de la fixture : 500 des 560 recettes du mod sont cachées), pack chimique 267 nœuds sur
+  4 000. Découpage en jeu : §5.3.
+- **Quand refaire les points fixes (revue M2).** Le prototype tient pour faisable tout objet présent au stock : la
+  faisabilité changerait dès qu'un engrenage apparaît ou disparaît du coffre, presque à chaque pensée. Règle retenue :
+  la faisabilité ne s'amorce que sur les objets DURABLES (bâtiments et machines au stock ou posés, kit de départ) ; la
+  clé d'invalidation est (technologies, machines posées, ressources connues, objets durables) ; les bancs comptent les
+  recalculs par heure.
 
 ### 3.3 Le coût d'une méthode
 
@@ -477,23 +501,30 @@ Mesure du DC « factions qui passent les âges » : §6, lot IA3-i.
 
 ### 3.8 Fait mesuré par le prototype : les factions ne paient pas la vraie recherche
 
-Le test calcule le coût RÉEL (prototypes vanilla 1.1.91) des technologies que les factions reçoivent aujourd'hui à
-chaque niveau (`T.unlocks`, `shared/team/config.lua:146`) contre ce qu'elles paient (`T.research`) :
+Le test calcule le coût RÉEL des technologies que les factions reçoivent aujourd'hui à chaque niveau (`T.unlocks`,
+`shared/team/config.lua:146`) contre ce qu'elles paient (`T.research`). **Correction de la revue (M13)** : la
+conception l'avait calculé sur les prototypes VANILLA (`tests/fixtures/tech_ai3.lua`, lus dans
+`base/prototypes/technology.lua`) ; or le mod RÉÉCRIT le coût des technologies (`automation` : 1 unité au lieu de 10,
+vu en moteur réel par E180). Coûts FINAUX (vanilla + mod) : `tests/fixtures/tech_ai3_final.lua`, exporté par
+`harness.lua --dump-techs` (lot IA3-0).
 
-| Niveau | Payé (packs) | Coût réel des technologies reçues (packs) |
-|---|---|---|
-| 0 (au départ) | 0 | 30 |
-| 1 | 30 | 395 |
-| 2 | 90 | 2 640 |
-| 3 | 170 | 3 350, dont 100 packs CHIMIQUES (`military-3`) |
-| 0 à 3 | 290 | 6 415 (22 fois plus) |
+| Niveau | Payé (packs) | Coût réel FINAL des technologies reçues (packs) | (vanilla, faux en jeu) |
+|---|---|---|---|
+| 0 (au départ) | 0 | 20 | 30 |
+| 1 | 30 | 210 | 395 |
+| 2 | 90 | 265 | 2 640 |
+| 3 | 170 | 210, dont 4 packs CHIMIQUES (`military-3`) | 3 350 |
+| 0 à 3 | 290 | **705 (2,4 fois plus)** | 6 415 (22 fois) |
 
 Deux conséquences, dites franchement :
-1. Aujourd'hui, une faction au niveau 3 a des technologies militaires qu'aucun joueur ne peut avoir sans pétrole.
-2. Un cerveau qui « joue comme un joueur » paie la VRAIE recherche : 1 080 packs rouges et 915 verts pour atteindre le
-   pack chimique (prototype, prérequis compris), soit environ 233 PNJ-minutes de fabrication à la main, ou des
-   assembleurs. Les factions iront donc moins vite en « niveaux » au début, et plus vite ensuite (automatisation,
-   pétrole). Les critères (§6) sont écrits en vraies technologies, pas en niveaux.
+1. Aujourd'hui, une faction au niveau 3 a des technologies militaires qu'aucun joueur ne peut avoir sans pétrole
+   (inchangé avec les coûts finaux : `military-3` demande 4 packs chimiques).
+2. Un cerveau qui « joue comme un joueur » paie la VRAIE recherche. Aux coûts finaux, elle est BON MARCHÉ au début :
+   palier 3 (pack militaire) = 40 packs (35 rouges, 5 verts) et 325 s de laboratoire, contre 170 + 90 + 30 packs payés
+   aujourd'hui pour R1 à R3 ; pack chimique = 129 packs (88 rouges, 41 verts) et 1 380 s de laboratoire. Ce qui coûte,
+   ce sont les LABORATOIRES (fabriqués, posés) et le temps de laboratoire, pas les packs. La conclusion de la
+   conception (« moins vite en niveaux au début ») est donc FAUSSE pour ce mod : la vraie recherche est plutôt plus
+   rapide que l'ancienne. Les critères (§6) sont écrits en vraies technologies, pas en niveaux.
 
 ## 4. Les expéditions
 
@@ -513,7 +544,12 @@ la même grille que les yeux d'IA2-c (`script/faction/vision.lua`) : pour chaque
 Les YEUX de l'équipe : son QG (160 tuiles), ses avant-postes (128), ses groupes (96), ses éclaireurs (128) comme
 aujourd'hui, PLUS chacun de ses PNJ en déplacement (48 tuiles, nouveau). « Regarder » un secteur coûte un comptage du
 moteur (`count_entities_filtered` sur les types `resource`, `unit-spawner`, `turret`), à tour de rôle, comme la voie
-de repérage d'IA2-c (1 regard toutes les 8 ticks pour tout le mod aujourd'hui).
+de repérage d'IA2-c (1 regard toutes les 8 ticks pour tout le mod aujourd'hui). Seuls ces regards font la
+connaissance, identiques avec et sans images ; jamais `is_chunk_charted` (revue M3, F131).
+- Cadence des yeux en marche (revue M3) : à 1 regard toutes les 8 ticks pour tout le mod, 150 PNJ en marche seraient
+  regardés chacun toutes les 20 s, 180 tuiles parcourues entre deux regards de 96 tuiles de diamètre : au plus 53 % du
+  chemin vu. Règle retenue : un PNJ en marche est regardé tous les 64 tuiles PARCOURUES (file commune, plafond de
+  regards par tick) ; coût mesuré au lot IA3-f.
 - La prospection d'avant-postes (`script/faction/sites.lua`) ne cherche plus que dans les secteurs VUS (fin de la
   prospection sans brouillard, écart à D-16 déclaré au §1, H5).
 - Pour ne pas ralentir le début, un « tour du propriétaire » à la création : un PNJ fait un anneau de 150 tuiles
@@ -542,7 +578,7 @@ Le risque d'un site (pour mille, plafonné à 1 000) ne lit que ce que l'équipe
 | inconnu autour du site | 200 × part des secteurs voisins non vus | carte de connaissance (prudence face à l'inconnu) |
 | pertes récentes sur place | 150 par PNJ tué, décroissance 10 % par minute | mémoire H11 (IA1-b2 : avant-poste meurtrier) |
 | territoire d'une faction ennemie | 300 | zones vues, IA2-c |
-| distance au QG | 50 par tranche de 100 tuiles | temps d'exposition |
+| distance au QG | 50 par tranche de 100 tuiles, **plafonné à 200** (revue M4) | temps d'exposition (aussi dans la perte attendue) |
 
 Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre, 800 prudent : seuils − 30 %,
 200 audacieux : + 30 %) :
@@ -557,8 +593,13 @@ Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre,
 
 - L'équipement est tiré des DONNÉES : la meilleure tourelle PAYABLE (dépliage, §3.2), la meilleure munition de SA
   catégorie, la meilleure grenade ; aucun nom d'objet dans le module (contrôlé par le test).
-- Perte attendue = risque × (PNJ exposés × 60 MU + valeur de l'équipement) ; valeur du site = valeur des buts qu'il
-  débloque (le pétrole débloque tout l'âge suivant : valeur haute).
+- Perte attendue = risque × (PNJ exposés × 60 MU + valeur de l'équipement) ; valeur du site = SOMME des valeurs (MU)
+  des buts bloqués par sa ressource (revue M4 : « valeur haute » n'était pas un nombre) ; pour la ressource qui bloque
+  l'âge suivant, au moins le coût en MU de la technologie bloquée.
+- **Escalade (revue M4).** « Attendre » n'est pas une fin : après 2 décisions « attendre » sur la SEULE ressource connue
+  qui bloque l'âge suivant, la bande monte d'un cran (préparer l'escorte, ou nettoyer avec l'armée si elle suffit) au
+  lieu d'attendre encore. Sans cela, un prudent dont le pétrole est loin n'en aurait jamais (K2). Prototype durci au lot
+  IA3-0 (`E.decide`, champ `waits`).
 - Exemple chiffré par le prototype (le cas du §4.5) : 2 nids et 3 vers près d'un champ de pétrole à 380 tuiles, un nid
   près du chemin, 60 % des secteurs voisins vus : risque 600 (nids 320, chemin 50, inconnu 80, distance 150) ; bande
   escortée ; avec 3 soldats disponibles sur 8 voulus, « préparer » ; avec 10, départ escorté de 8. Le même site rend
@@ -611,10 +652,20 @@ Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre,
 
 - Le comptage par secteur pour la connaissance (coût par regard, déjà mesuré pour IA2-c : 0,0043 ms par tick pour la
   voie de repérage) et le nombre de regards en plus pour les PNJ en déplacement.
-- Pose d'une tourelle par script près d'ennemis qui bougent (collision avec un biter : `can_place_entity` refuse ; on
-  essaie 4 cases), reprise par `mine`, munitions conservées.
+- ~~Pose d'une tourelle par script près d'ennemis qui bougent, reprise par `mine`, munitions conservées.~~ **Prouvé par
+  E181** (lot IA3-0, 25/10, `done.txt` 16:51:34,05, 9 OK) : 8 petits biters lancés sur un PNJ d'une force sans joueur
+  (hostile aux biters par défaut) sont vus à 22,4 tuiles ; `can_place_entity` REFUSE la case d'un biter ; la première
+  case entre le PNJ et la menace était libre ; la mitrailleuse posée par `create_entity{raise_built = true}` et remplie
+  de 20 chargeurs tire **35 ticks** après la détection, tue les 8 biters (santé 316 sur 400), le PNJ survit ; 10 s de
+  calme plus tard, `mine{inventory = inventaire du PNJ, force = false}` rend la tourelle ET ses 17 chargeurs
+  restants ; dans un inventaire PLEIN, `mine` rend faux et la tourelle reste en place (rien n'est perdu). Une grenade
+  créée par script (projectile vers un point, vitesse 0,3) tue 4 petits biters groupés sur 4.
 - Un groupe d'escorte de 8 qui ne se disperse pas (F173, F174 : membres retirés d'un groupe sans événement).
 - Le coût d'un convoi sur la locomotion (chemins plus longs : demandes de chemin du mod en vol).
+- Le délai du réflexe (revue m5) : un petit biter court environ 12 tuiles par seconde (0,2 tuile par tick), plus vite
+  qu'un personnage (9) ; un regard toutes les 30 ticks à 24 tuiles laisse 1,5 à 2 s, levée de la tourelle comprise
+  (F120). E181 (lot IA3-0) mesure le délai réel entre détection et premier tir, et la grenade lancée par script
+  (projectile créé vers la cible, objet retiré de l'inventaire ; revue m6).
 
 ## 5. Intégration, déterminisme, budget, migration, fenêtre
 
@@ -639,6 +690,19 @@ Décision (seuils multipliés par la PRUDENCE du caractère, IA2-0 : 500 neutre,
 | `unlock()` et le paiement des niveaux (`script/team/team.lua:82`, `:440`) | **remplacés** | `LuaForce.add_research` et des laboratoires livrés en packs par les PNJ (§5.2) |
 | prises larges au coffre (fonderie, recharge, charbon) | **remplacées** | réservations du projet permanent « Entretien » (§2.2) |
 
+Ce qui casse avec les retraits, à refaire DANS le lot qui retire (revue m4) : la règle « Technologies des équipes
+(T.unlocks) » du harness ; `chef_test` (62 OK) et la mesure M2 d'IA2 (distance des décisions), définies sur l'ordre
+d'échelle (`C.ladder_order`) : M2 se redéfinit sur l'ordre d'ouverture des projets.
+
+**Règles d'IA1-b2 gardées (revue M7 ; branche encore ouverte le 25/10, à rebaser à sa fusion)** :
+
+| Règle d'IA1-b2 | Élément d'IA3 qui la porte |
+|---|---|
+| défendre d'abord, pour toutes les factions (`T.defend_first_factions = true`, R-QCM-25c) | générateur « Défense » (§3.1) : mêmes nombres de tourelles, même ordre (avant-poste défendu avant d'être agrandi) |
+| coffre défendu (4 tourelles, gardes armés en guerre) ; planchers de fer et de cuivre (F253) | réservations du projet permanent « Réserve » (H10), prioritaires sur les projets ordinaires |
+| rang 8 : un PNJ sans rien prend la tâche qui attend | cas particulier de la place de marché (§2.3) |
+| deux porteurs par avant-poste, minage de fond à 96 tuiles, sites gardés par un nid écartés | tâches d'entretien ; risque des sites (§4.2) |
+
 Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.lua`, `marche.lua`, `expedition.lua`
 (prototypes de ce lot, à durcir), `shared/ai3/buts.lua` (générateurs), `shared/ai3/projets.lua`, `shared/ai3/cerveau.lua`
 (pensée par phases), `shared/ai3/connaissance.lua` (carte vue) ; `script/ai3/*.lua` pour l'exécution ;
@@ -649,9 +713,34 @@ Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.
 - Une faction recherche une technologie RÉELLE (`LuaForce.add_research`, file de sa force) ; ses PNJ construisent des
   laboratoires (méthode `research`, §3.2) et y livrent les packs (verbe `deliver`, ou un bras quand l'automatisation le
   justifie) ; le MOTEUR fait avancer la recherche, au temps réel des prototypes.
-- **À vérifier en moteur réel avant tout** (lot IA3-0, expérience E180) : une force sans joueur qui a une recherche en
-  cours et des laboratoires alimentés progresse ; `research_finished` est levé. Repli si non : le QG consomme les packs
-  au coût réel et au temps réel (`unit.time × count ÷ laboratoires`), sans laboratoire du moteur.
+- **Vérifié en moteur réel (lot IA3-0, E180, 25/10, `done.txt` 16:51:27,18, 11 OK)** : une force SANS joueur, avec
+  4 laboratoires alimentés, finit `automation` au tick 150, exactement le temps des prototypes FINAUX (1 unité de
+  600 ticks ÷ 4 laboratoires) ; `on_research_finished` est levé (`by_script = false`) ; un laboratoire sans courant
+  ne fait rien ; `add_research` refuse une technologie dont un prérequis manque ; une force neuve a la file de recherche
+  désactivée (`research_queue_enabled = false`, `add_research` remplace alors la recherche en cours).
+- **Voie retenue pour IA3-c : le « laboratoire du QG » (revue B2).** Les laboratoires vanilla sont électriques : pompe
+  de rive au bord de l'eau, chaudière, machine à vapeur, poteaux ; ni l'eau ni les poteaux ne sont dans le dépliage, et
+  l'implantation est au plan directeur (IA1-d, non prouvé). IA3-c ne peut donc pas promettre des laboratoires
+  alimentés. La faction recherche une VRAIE technologie de sa force (`add_research`) dont l'AVANCEMENT est écrit par
+  script (`research_progress`) au temps réel des prototypes (`unit.time × unit.count ÷ laboratoires du QG`), en
+  consommant les vrais packs au coffre ; ses « laboratoires du QG » sont des laboratoires FABRIQUÉS (vraie recette) et
+  posés près du coffre. Bonus des technologies, événement de fin et fenêtre : ceux du moteur. Quand IA3-e sait poser
+  une centrale, les laboratoires alimentés prennent le relais (la règle de calcul est la même). E180 a essayé les DEUX
+  voies : écrire `research_progress` est relu tel quel (0,5) ; 0,999 sans laboratoire ne finit rien ; écrire **1
+  termine la recherche exactement comme un laboratoire** (technologie recherchée, file vidée, événement avec
+  `by_script = false`) ; `researched = true` la termine aussi, mais avec `by_script = true` ; les bonus s'appliquent
+  (modificateur des balles 0 → 0,1 après `physical-projectile-damage-1`). La voie du QG est donc indiscernable de
+  laboratoires du moteur pour le reste du jeu.
+- **La voie « comme un joueur de CE mod » (proposée à l'intégrateur et au DC).** Le graphe des époques X0
+  (`shared/content/epochs.lua`, bâtiments de l'époque 1) prévoit un **laboratoire à combustion** (`fo-burner-lab`,
+  charbon, vitesse 0,5, packs rouges et verts) et un atelier à combustion ; ni l'un ni l'autre n'existe en jeu le
+  25/10. Livrés par un lot de contenu, ils donneraient aux factions (et au joueur) de vrais laboratoires sans centrale :
+  la recherche d'IA3-c deviendrait entièrement celle du moteur, sans avancement écrit par script.
+- **Combien de laboratoires (revue M12, chiffre corrigé par M13).** Aux coûts FINAUX, le palier 3 demande 325 s de
+  laboratoire (5,4 min avec UN laboratoire ; la revue avait d'abord écrit 27 min, sur les coûts vanilla) et le pack
+  chimique 1 380 s (23 min). Le nombre reste une décision de CAPACITÉ générique : `⌈secondes de laboratoire
+  restantes ÷ fenêtre visée (10 min)⌉`, plafonnée par le coût d'un laboratoire comparé au temps gagné : 1 laboratoire
+  suffit jusqu'au palier 3, 2 à 3 pour le palier 4.
 - Les factions gardent ce qu'elles ont déjà reçu dans une partie en cours (§5.4) ; aucune technologie n'est retirée.
 
 ### 5.3 Déterminisme et budget de calcul
@@ -666,7 +755,13 @@ Nouveaux fichiers (lots d'implémentation) : `shared/ai3/graphe.lua`, `registre.
   `on_load`), identique chez tous les pairs (mêmes prototypes, ordre trié) ; `global` ne garde que des nombres, chaînes
   et tables : projets, registre, connaissance, expéditions ;
 - aucun `require` pendant un événement (F24) ; aucune décision sur un temps mesuré ;
-- preuve : deux passages de la même graine, empreintes `[FO-HASH]` identiques à 30 min (C5-9, F238).
+- **phases découpées sans désynchronisation (revue B1)** : seul le catalogue tiré des PROTOTYPES vit en cache local.
+  Tout résultat tiré de l'état de partie (faisabilité, coûts, dépliage, `force.recipes[*].enabled`) est soit calculé
+  ET consommé dans le même tick, soit rangé dans `global` entre deux phases (nombres, chaînes, tables). Une phase
+  reprise après un rechargement lit l'INSTANTANÉ de `global`, jamais l'état courant : un joueur qui rejoint une partie
+  prend la même décision que l'hôte ;
+- preuve : deux passages de la même graine, empreintes `[FO-HASH]` identiques à 30 min (C5-9, F238), ET une sauvegarde
+  suivie d'un rechargement au milieu d'une pensée (banc en double source) : empreintes égales (K11).
 
 **Budget** (A1 : 1,5 ms par tick au plus en moyenne ; mesuré aujourd'hui : 0,066 à 0,078 ms par tick pour 150 PNJ, E124 ;
 une pensée d'équipe 0,62 ms, ia0-normal). Estimations IA3 (mesures hors jeu du prototype, PC non épinglé, à confirmer
@@ -674,11 +769,11 @@ en moteur réel épinglé) :
 
 | Poste | Hypothèse | ms par tick (moyenne) | Pic par tick |
 |---|---|---|---|
-| Points fixes (faisabilité, coût) | 5 ms par changement d'état, environ 1 par minute et par équipe, 5 équipes | 0,007 | ≤ 0,6 (une passe par tick, 8 à 12 passes) |
+| Points fixes (faisabilité, coût) | 5 ms par changement d'état, environ 1 par minute et par équipe, 5 équipes ; TENU seulement avec la clé d'invalidation des objets durables (§3.2, revue M2), sinon jusqu'à 1 par pensée : 0,07 | 0,007 | ≤ 0,6 (une passe par tick, 8 à 12 passes ; état entre passes dans `global`, B1) |
 | Dépliages | 1 à 1,5 ms par projet replanifié, environ 2 par pensée et par équipe | 0,05 | ≤ 1,5 (un dépliage par tick pour tout le mod) |
 | Registre (allocation) | projets × objets, < 0,1 ms par pensée | 0,002 | 0,1 |
 | Place de marché | prise d'un PNJ libéré : 64 tâches × environ 1 µs ; 150 PNJ, une tâche par minute chacun | 0,003 | 0,1 |
-| Attribution globale (plusieurs PNJ libres à la fois) | ≤ 2 000 couples, environ 1 ms | 0,02 | 1 |
+| Attribution globale (plusieurs PNJ libres à la fois) | version naïve MESURÉE 8,25 ms à 30 × 64 (revue M1) ; version paresseuse durcie à IA3-0 (§7) | 0,02 | 1 (version paresseuse) |
 | Connaissance (regards des PNJ) | file commune, 1 regard toutes les 8 ticks (comme IA2-c) | 0,005 | 0,05 |
 | Réflexe de tourelle | 10 porteurs × 20 µs ÷ 30 ticks | 0,007 | 0,2 |
 | **Total ajouté par IA3** | | **≈ 0,1** | **≤ 2 ms** (règle : une seule phase lourde par tick pour tout le mod) |
@@ -688,8 +783,11 @@ ces chiffres n'est une mesure en jeu : chaque lot les mesure (`ia1-scale` éping
 
 ### 5.4 Migration des parties en cours
 
-- Réglage de carte `fo-ia3-cerveau` (oui par défaut dans une partie neuve) : tant que les lots IA3-a à IA3-c ne sont
-  pas prouvés, l'ancien cerveau reste disponible, ce qui permet aussi les bancs « avant / après » sur la même source.
+- Réglage de carte `fo-ia3-cerveau`, **NON par défaut** (revue M10 ; règle de l'intégrateur : une bascule reste éteinte
+  tant que les critères ne sont pas atteints) : il ne passe à « oui » par défaut qu'après K1, K3 à K6, K9 à K12 mesurés
+  sur 4 graines. Sa valeur est lue au lancement de la guerre et FIGÉE dans `global` : un changement en cours de partie
+  est ignoré et dit au journal (aucune migration nouveau → ancien à écrire). L'ancien cerveau reste disponible, ce qui
+  permet aussi les bancs « avant / après » sur la même source.
 - Au premier passage (`on_configuration_changed`, F130 : appelé aussi quand seul le contenu change) :
   - les technologies déjà reçues restent (pas de retrait : les armées en dépendent) ; une ligne du journal dit
     « Azur : avance de recherche héritée (niveau 2 de l'ancien système) » ;
@@ -715,62 +813,93 @@ Principe : le joueur voit des INTENTIONS et des RAISONS, jamais un script ; aucu
 - **Factions** : l'âge, la recherche en cours et le projet dominant de chaque faction (le DC juge leur progression ;
   une version « sous brouillard » qui ne montre que ce que vous avez vu reste possible, à trancher plus tard).
 - Captures à chaque lot qui touche la fenêtre, verdict du DC.
+- Contrat gardé (revue m3) : la fenêtre d'IA1-i lit aujourd'hui `goal` et `missing` du planificateur (`ia1i_test`,
+  89 OK) ; le nouveau cerveau rend ces deux champs (projet dominant, manque du projet dominant), ou la fenêtre migre
+  dans le MÊME lot.
 
 ## 6. Plan de lots
 
 ### 6.1 Mesures communes et critères d'acceptation de la section
 
-**Paliers de recherche, en vraies technologies** (prototype, `G.tech_packs`, prérequis compris, vanilla 1.1.91) :
-le palier k est atteint quand la technologie qui débloque le k-ième pack est recherchée ET que 10 de ces packs sont
-fabriqués (40 pour le palier 4, comme l'ancien niveau 4).
+**Paliers de recherche, en vraies technologies** (`G.tech_packs`, prérequis compris ; coûts FINAUX vanilla + mod,
+`tests/fixtures/tech_ai3_final.lua` ; la conception citait les coûts vanilla, faux en jeu : revue M13) : le palier k est
+atteint quand la technologie qui débloque le k-ième pack est recherchée ET que 10 de ces packs sont fabriqués (40 pour
+le palier 4, comme l'ancien niveau 4).
 
-| Palier | Technologie | Technologies | Packs (rouges + verts) | Secondes de laboratoire (un laboratoire) |
-|---|---|---|---|---|
-| 1 | `automation` | 1 | 10 + 0 | 100 |
-| 2 | `logistic-science-pack` | 1 | 75 + 0 | 375 |
-| 3 | `military-science-pack` | 6 | 195 + 50 | 1 625 |
-| 4 | `chemical-science-pack` (pétrole) | 12 | 1 080 + 915 | 21 275 (6 à 10 laboratoires pour tenir 90 min) |
+| Palier | Technologie | Technologies | Packs (rouges + verts), FINAUX | Secondes de laboratoire (un laboratoire), FINALES | (vanilla) |
+|---|---|---|---|---|---|
+| 1 | `automation` | 1 | 1 + 0 | 10 | 10 packs, 100 s |
+| 2 | `logistic-science-pack` | 1 | 11 + 0 | 55 | 75, 375 s |
+| 3 | `military-science-pack` | 6 | 35 + 5 | 325 | 245, 1 625 s |
+| 4 | `chemical-science-pack` (pétrole) | 12 | 88 + 41 | 1 380 (23 min : 2 à 3 laboratoires) | 1 995, 21 275 s |
 
 Pendant les lots rapides (IA3-a, IA3-b), l'ancien système de niveaux reste en place : les critères y sont écrits en
 NIVEAUX (R1 à R3, comme IA3-DIAG) ; à partir d'IA3-c, en PALIERS.
 
 **Critères de la section** (chacun mesuré en moteur réel par les outils d'IA3-DIAG, `tools/autotest/ia3d_*`, sur au
-moins 2 graines, 4 quand la partie diverge, F252) :
+moins 2 graines, 4 quand la partie diverge, F252). Ces outils n'étaient PAS dans `main` le 25/10 (branche
+`worktree-agent-addbb01414d5426c8`, commit `e304a49`) : repris au lot IA3-0 (revue M8).
+
+**Paliers et âges (revue M5, décision PROVISOIRE consignée, à confirmer par le DC).** Le calendrier X0
+(`shared/content/epochs.lua`) lie l'âge 3 au pack militaire (1,5 h) et l'âge 4 au pack chimique (3 h). Écrits tels
+quels, K1 (palier 3 ≤ 25 min), K2 (palier 4 ≤ 120 min) et K8 (âges à ± 25 % du calendrier) ne pouvaient pas passer
+ensemble. Lecture retenue : les PALIERS mesurent la compétence du cerveau (sa recherche) ; l'ÂGE d'une faction est
+son verrou d'époque payé en monnaies (méthode `level`, §3.7) ; K8 est une borne HAUTE (âge k atteint au plus tard au
+calendrier X0 + 25 %) ; le tempo face au joueur (une faction trop en avance) se règle par le chef et la difficulté et
+se mesure dans `verif-guide` (première attaque, pertes du joueur).
 
 | ID | Critère | Aujourd'hui (IA3-DIAG) | Visé | Lot |
 |---|---|---|---|---|
 | K1 | recherche 3 (niveau R3, puis palier 3) | 46 à 52 min (médianes), 3 factions sur 12 jamais | **≤ 25 min** (4 PNJ) ; ≤ 20 min (8 PNJ) | IA3-a, puis IA3-c |
 | K2 | recherche 4 AVEC pétrole (palier 4) | jamais | **≤ 120 min**, 8 PNJ, Normal, 4 graines sur 5 | IA3-h |
 | K3 | PNJ inactifs | 32 à 72 % (0-10 min), votre équipe 52 à 65 % (0-60 min) | **≤ 15 %** de 30 à 90 min ; ≤ 20 % de 0 à 10 min | IA3-b |
+| K3b | travail UTILE (revue M6 : K3 seul se triche par les investissements par défaut et la garde de fond) | non mesuré | part du temps des PNJ sur des tâches dont le produit est consommé par un projet ou une recherche dans les 15 min **≥ 70 %** de 30 à 90 min ; investissements par défaut ≤ 20 % | IA3-b |
 | K4 | ressource « arrachée » | 3 à 50 échecs « stock » par équipe en 2 h | **0** échec « stock » ; préemptions seulement par règle (§2.2), chacune au journal | IA3-b |
 | K5 | PNJ immobiles au QG pendant que du travail attend | 42 à 115 minutes sur 119 (8 factions sur 12) | **≤ 5 minutes sur 119** | IA3-b |
 | K6 | fabrication jetée (packs d'une recherche impayable) | 27 à 37 PNJ-minutes par faction | **0** | IA3-a |
 | K7 | tournées à pied | 41 à 58 % du travail (4 PNJ) | **≤ 15 %** à 90 min | IA3-e |
-| K8 | factions qui passent les âges | plafond au niveau 3 | âges 2, 3, 4 à ± 25 % du calendrier X0 (0,5 h, 1,5 h, 3 h), 3 graines | IA3-i |
+| K8 | factions qui passent les âges | plafond au niveau 3 | âges 2, 3, 4 atteints **au plus tard** au calendrier X0 + 25 % (0,625 h, 1,875 h, 3,75 h), 3 graines (borne haute : revue M5) | IA3-i |
 | K9 | garde-fous | `pvp_test` 1 305 OK, `verif-guide` 15 OK | **`pvp_test` : ordre strict des attaques par difficulté tenu** (attentes recalées, jamais affaiblies) ; `verif-guide` 15 OK sur les graines du guide où il l'était avant le lot ; aucune faction anéantie avant 60 min, au plus 1 sur 16 en 2 h (IA2-a2) | tous |
 | K10 | budget | script 0,07 à 0,08 ms par tick (150 PNJ, E124) | ≤ 0,25 ms en moyenne, p99 du script ≤ 2 ms (banc épinglé) | tous |
-| K11 | déterminisme | empreintes égales (F238) | `[FO-HASH]` égales à 30 min sur 2 passages | tous |
+| K11 | déterminisme | empreintes égales (F238) | `[FO-HASH]` égales à 30 min sur 2 passages, ET après une sauvegarde rechargée au milieu d'une pensée (revue B1) | tous |
+| K12 | économie avant recherche (revue B3 : IA2-a, 3e essai, une faction s'est effondrée en payant la recherche avant son fer II) | — | « fer II » atteint au plus 3 min plus tard qu'avant le lot (médiane, 2 graines) ; aucune faction à 0 soldat à 60 min | IA3-a, IA3-c |
 
 ### 6.2 Les lots, dans l'ordre
 
 **IA3-0 · Fondations (pur, plus 2 expériences en moteur réel).** 1 jour.
-- Contenu : durcir les prototypes (`graphe`, `registre`, `marche`, `expedition`) ; adaptateur « prototypes du jeu →
-  catalogue » (`script/ai3/catalogue.lua`) et contrôle : le catalogue tiré de `game.*_prototypes` dans le banc rend le
-  même dépliage que la fixture hors jeu ; expériences **E180** (une force sans joueur recherche avec des laboratoires
+- Contenu : durcir les prototypes (`graphe`, `registre`, `marche`, `expedition`) ; contrôle en moteur réel que les
+  DONNÉES hors jeu sont celles du jeu (scénario `ia3-donnees` : technologies finales, recettes actives au départ) ;
+  l'adaptateur « prototypes du jeu → catalogue » (`script/ai3/catalogue.lua`) est REPORTÉ à IA3-c (machines du mod en
+  familles de niveaux, §7) ; expériences **E180** (une force sans joueur recherche avec des laboratoires
   du moteur : `add_research`, progression, `research_finished`) et **E181** (pose d'une tourelle par script près de
   biters en mouvement, reprise par `mine`, munitions gardées).
-- Fichiers : `shared/ai3/*`, `script/ai3/catalogue.lua`, scénario greffé `ia3-risques`, `tests/ai3_*_test.lua`.
-- Preuve : tests hors jeu verts ; `ia3-risques` « BILAN : n OK » ; aucune règle de jeu changée (`content` 331 OK).
+- Durcissements issus de la revue : marché paresseux (M1), dépôt au projet du registre (M11), escalade et plafond de
+  distance des expéditions (M4), amorçage de la faisabilité sur les objets durables (M2) ; reprise des outils de
+  mesure `ia3d_*` (M8). E180 essaie AUSSI l'avancement écrit par script (voie du « laboratoire du QG », B2) ; E181 mesure
+  le délai du réflexe et la grenade par script (m5, m6).
+- Fichiers : `shared/ai3/*`, `script/ai3/catalogue.lua`, scénarios greffés `ia3-*`, `tests/ai3_*_test.lua`.
+- Preuve : tests hors jeu verts ; scénarios `ia3-*` « BILAN : n OK » ; aucune règle de jeu changée (`content` 331 OK).
 - Risque : E180 négatif → repli « le QG consomme les packs au coût et au temps réels » (§5.2), écrit dans le lot.
 
 **IA3-a · Recherche d'abord, rien d'impayable (dans l'ancien cerveau).** Une demi-journée.
 - Contenu : packs demandés dès le départ (verrou de la marche « tech1 » levé) ; priorité de la recherche selon le
   caractère (poids du chef) au lieu de 40 fixe ; plafond de 10 packs par sorte levé ; aucun pack d'un niveau dont un
   pack est impayable (test de faisabilité du prototype, générique).
-- Fichiers : `shared/team/planner.lua`, `shared/team/config.lua` (fichier de l'intégrateur pour les constantes).
+- Garde de l'économie (revue B3) : les packs ne puisent que dans ce qui RESTE après les besoins de l'objectif courant
+  (ordre d'appel du planificateur) et au-dessus d'un plancher de fer égal au coût du prochain avant-poste de fer de
+  l'échelle ; tant que « fer II » n'est pas atteint, la priorité de la recherche reste sous la pose d'avant-poste (80)
+  et sous la fabrication d'objectif (50). Le tout est une règle PURE dans un fichier neuf (`shared/ai3/recherche.lua`)
+  appelée par le planificateur, derrière un réglage éteint par défaut tant que les critères ne sont pas atteints.
+- Fichiers : `shared/ai3/recherche.lua` (neuf), `shared/team/planner.lua` (appel), `shared/team/config.lua` (constantes ;
+  ce n'est pas un fichier de l'intégrateur, revue m2) ; le réglage passe par l'intégrateur (`settings.lua`).
 - Preuve : `ia3d-reduit` et `ia3d-default`, 2 graines ; `pvp_test`, `chef_test` ; `verif-guide` 2 graines.
-- Critères : R1 ≤ 5 min, R2 ≤ 12, **R3 ≤ 25 (4 PNJ), ≤ 20 (8 PNJ)** (K1) ; K6 = 0 ; K9.
-- Risque : armée plus lente au début (IA2-a2 à rejouer) ; ordre strict de `pvp_test` (listes de tâches changées).
+- Critères : R1 ≤ 5 min, R2 ≤ 12, **R3 ≤ 25 (4 PNJ), ≤ 20 (8 PNJ)** (K1) ; K6 = 0 ; K9 ; K12.
+- Ce que la revue dit franchement (M9) : à 4 PNJ, R3 ≤ 25 min est SOUS le « possible » mesuré par IA3-DIAG (36 min avec le
+  seul temps d'attente) ; il faut prendre du temps aux tournées ou à l'armée, et les packs ne sont pris que par le pôle
+  Base et les généralistes (`org.lua`) : la cible à 4 PNJ demandera probablement IA3-b. IA3-a est jugé sur K1 à 8 PNJ,
+  K6, K9, K12 ; K1 à 4 PNJ est mesuré et rapporté tel quel.
+- Risque : armée plus lente au début (IA2-a2 à rejouer) ; ordre strict de `pvp_test` (listes de tâches changées) ;
+  l'effondrement mesuré d'IA2-a (K12).
 
 **IA3-b · Personne n'attend, personne n'arrache (registre et place de marché).** 1 jour.
 - Contenu : `Board.claim` par le score du marché (factions ET votre équipe, après fusion d'IA1-b2) ; registre des
@@ -788,12 +917,13 @@ moins 2 graines, 4 quand la partie diverge, F252) :
 
 **IA3-c · Le cerveau par besoins (buts, dépliage, projets, vraie recherche).** 2 à 3 jours.
 - Contenu : `shared/ai3/buts.lua`, `projets.lua`, `cerveau.lua` (pensée par phases) remplacent `planner.lua` derrière le
-  réglage `fo-ia3-cerveau` ; K projets en parallèle, chemin critique ; vraie recherche (laboratoires, §5.2) ;
-  migration (§5.4) ; fenêtre : projets, raisons (§5.5).
+  réglage `fo-ia3-cerveau` ; K projets en parallèle, chemin critique ; vraie recherche par le « laboratoire du QG »
+  (§5.2, revue B2 : pas de centrale à poser avant IA3-e) ; migration (§5.4) ; fenêtre : projets, raisons (§5.5).
 - Preuve : `ia3d-*` 4 graines, avant / après sur la même source (réglage) ; banc de migration en double source ;
   captures de la fenêtre.
-- Critères : palier 1 ≤ 6 min, palier 2 ≤ 12 min, **palier 3 ≤ 25 min** (8 PNJ) ; au moins 3 projets productifs en
-  même temps à 8 PNJ ; K3 tenu ; K6 = 0 ; variété IA2 (mesures M1, M2) pas pire ; K9, K10, K11.
+- Critères : palier 1 ≤ 6 min, palier 2 ≤ 12 min, **palier 3 ≤ 25 min** (8 PNJ ; 1 laboratoire du QG suffit aux coûts
+  finaux, M12 et M13) ; au moins 3 projets productifs en même temps à 8 PNJ ; K3 et K3b tenus ; K6 = 0 ; variété IA2 (mesures
+  M1, M2) pas pire ; K9, K10, K11, K12.
 - Risque : le plus gros changement de comportement ; vraie recherche plus chère (§3.8) : début plus lent en
   « niveaux » ; à surveiller dès 10 min (palier 1 ≤ 6 min).
 
@@ -844,11 +974,14 @@ rapides (0, a, b, d) qui donnent les premiers effets visibles.
 
 1. **IA1-d (la construction automatisée à l'échelle) n'est pas prouvé.** Sans lui, IA3-e et IA3-h n'existent pas : les
    factions resteraient au portage (K7) et sans pétrole (K2). C'est le chemin critique de toute la section.
-2. **La vraie recherche coûte 22 fois plus que l'ancienne** (§3.8). Si l'automatisation (IA3-e) traîne, les factions
-   paraîtront PLUS lentes en niveaux de 20 à 60 min. Garde : IA3-c mesure les paliers 1 à 3 dès les premières minutes,
-   et l'ancien cerveau reste derrière un réglage.
+2. **Le coût de la vraie recherche (corrigé, revue M13).** La conception annonçait « 22 fois plus que l'ancienne » sur
+   les coûts vanilla ; aux coûts FINAUX du mod, les technologies reçues coûtent 2,4 fois ce qui est payé, et les
+   paliers 1 à 3 sont MOINS chers en packs que R1 à R3. Le risque s'inverse : des factions trop RAPIDES face au
+   calendrier du joueur (risque 7), et un coût porté par les laboratoires et l'énergie plutôt que par les packs.
+   IA3-c mesure les paliers dès les premières minutes ; l'ancien cerveau reste derrière un réglage.
 3. **Recherche par une force sans joueur** (E180) : si le moteur ne fait pas avancer la recherche, repli au QG (même
-   coût, même temps), moins « joueur ».
+   coût, même temps), moins « joueur ». Depuis la revue (B2), la voie du « laboratoire du QG » est celle d'IA3-c de
+   toute façon (pas de centrale à poser avant IA3-e).
 4. **Ordre strict de `pvp_test`** : chaque lot change les listes de tâches ; les attentes se recalent sur l'ordre des
    difficultés, jamais en l'affaiblissant (IA1-b2 l'a cassé une fois : 1 302 OK, 3 ECHEC).
 5. **Divergence des parties** (F252) : un changement de votre équipe change toute la partie ; conclure sur 4 graines.
@@ -886,8 +1019,31 @@ recherche des factions ; **E179** jouet « pôles contre marché ») :
 - expédition : l'exemple du pétrole (risque 600, escorté, « préparer » sans les 8 soldats) ;
 - coût hors jeu : points fixes 4,9 à 5,6 ms, dépliage 1,0 à 1,5 ms (273 recettes, 183 technologies).
 
+**Lot IA3-0 (25/10, ingénieur principal) : ce qui a tourné depuis.**
+
+| Fichier ou banc | Résultat |
+|---|---|
+| `tests/ai3_graphe_test.lua` | **36 OK** (+ coûts FINAUX des paliers, clé d'invalidation des points fixes) |
+| `tests/ai3_groupe_test.lua` | **28 OK** (+ `R.deposit` ; marché durci : mêmes attributions que la version naïve sur 1 000 tableaux, 30 × 64 : 2 609 notes et 2,0 ms contre 25 265 et 8,0 ms, hors jeu non épinglé) |
+| `tests/ai3_expedition_test.lua` | **19 OK** (+ plafond de distance, escalade) |
+| `tests/ai3_recherche_test.lua` (règle d'IA3-a, NON branchée) | **17 OK** |
+| E180, scénario `ia3-recherche` | **11 OK**, `done.txt` 16:51:27,18 (§5.2) |
+| E181, scénario `ia3-tourelle` | **9 OK**, `done.txt` 16:51:34,05 (§4.6) |
+| scénario `ia3-donnees` | **2 OK**, `done.txt` 16:52:40,78 : les 214 technologies de `tech_ai3_final.lua` sont celles du moteur (0 écart, 0 absente) ; sur 782 recettes d'une force neuve, 0 active qu'une technologie débloquerait, 1 inactive sans technologie (`electric-energy-interface`) : la règle « active au départ = aucune technologie ne la débloque » tient, à cette exception près (en jeu : lire `force.recipes[*].enabled`) |
+
+Faits moteur proposés à l'intégrateur : F269 (recherche d'une force sans joueur, au temps des prototypes finaux),
+F270 (avancement écrit à 1 = fin comme un laboratoire ; `researched = true` = `by_script`), F271 (le mod réécrit le
+coût des technologies ; `research_unit_energy` est en ticks), F272 (pose d'une mitrailleuse par script au contact :
+case d'un biter refusée, premier tir 35 ticks après la détection), F273 (`mine` dans un inventaire rend la tourelle et
+ses munitions ; inventaire plein : refus sans perte), F274 (grenade créée par script), F275 (fixture des technologies
+finales = moteur ; recettes actives au départ). Détail : `INTEGRATION.md` du dossier `fo-logs\2026-10-25_IA3-dev`.
+
 **Ce qui n'est PAS vérifié** :
-- rien n'a tourné en moteur réel ; aucun chiffre de durée de partie n'est prédit par ces prototypes ;
+- aucun chiffre de durée de partie n'est prédit par ces prototypes ; le cerveau n'est pas branché (IA3-a attend la
+  fusion d'IA1-b2) ;
+- le catalogue tiré du jeu (`script/ai3/catalogue.lua`) n'est PAS écrit au lot IA3-0 : les machines du mod existent en
+  familles de niveaux (58 prototypes par famille, harness) que la fixture de 17 machines ne représente pas ; il se
+  conçoit avec IA3-c (quelles variantes de niveau sont des « machines » pour le dépliage) ;
 - le jouet du marché n'est pas le jeu : il montre le mécanisme (pas d'attente quand du travail existe), pas le gain en
   minutes de recherche ;
 - la fixture des entités est copiée à la main (17 machines) ; les technologies du mod (`fo-…`) ne sont pas dans la
@@ -899,4 +1055,29 @@ recherche des factions ; **E179** jouet « pôles contre marché ») :
   matière et risque (§3.3) ;
 - les étapes du dépliage ne sont pas encore regroupées en tâches (369 étapes pour le pack chimique, dont beaucoup de
   petites extractions et fontes répétées) ;
-- faits moteur : aucun nouveau (F269 à F275 restent libres pour IA3-0 ; E180 et E181 y sont prévus).
+- faits moteur de la conception : aucun ; ceux du lot IA3-0 sont dans le tableau ci-dessus (F269 à F275).
+
+## 8. Revue adverse (25/10, ingénieur principal) : résumé
+
+Texte complet, mesures et preuves : `fo-logs\2026-10-25_IA3-dev\REVUE.md`. Chaque correction est écrite à sa place
+ci-dessus (repère « revue Xn »).
+
+| Id | Défaut | Correction (où) |
+|---|---|---|
+| B1 | phases découpées sur plusieurs ticks avec un cache local tiré de l'état de partie : désynchronisation au rechargement ou à l'arrivée d'un joueur | seul le catalogue des prototypes en cache ; état entre phases dans `global` ; K11 avec rechargement (§5.3, §6.1) |
+| B2 | la vraie recherche d'IA3-c exige une centrale électrique (eau, poteaux) que rien ne sait poser avant IA1-d | « laboratoire du QG » : vraie technologie, avancement écrit au temps réel, vrais packs (§5.2, §6.2) |
+| B3 | « recherche d'abord » a déjà fait s'effondrer une faction (IA2-a, 3e essai, `C.AFTER`) | garde de l'économie dans IA3-a, critère K12 (§6.1, §6.2) |
+| M1 | marché O(n²·t) : 8,25 ms mesurées à 30 × 64 (1 ms annoncée) | glouton paresseux, durci à IA3-0 (§2.3, §5.3) |
+| M2 | points fixes refaits à presque chaque pensée (stock d'intermédiaires) | amorçage sur les objets durables, clé d'invalidation (§3.2) |
+| M3 | connaissance par la cartographie du moteur, absente des bancs (F131) ; yeux en marche à 53 % du chemin | regards du mod seulement ; un regard par 64 tuiles parcourues (§1 H5, §4.1) |
+| M4 | risque sans borne avec la distance, « attendre » sans sortie, valeur du site non chiffrée | distance plafonnée à 200, escalade après 2 attentes, valeur = MU des buts bloqués (§4.2) |
+| M5 | K1, K2 et K8 incompatibles (calendrier X0 : âge 3 militaire à 1,5 h, âge 4 chimique à 3 h) | paliers = compétence ; âges = verrou payé, K8 borne haute (décision provisoire, §6.1) |
+| M6 | K3 se triche (investissements par défaut, garde de fond) | K3b « travail utile » (§6.1) |
+| M7 | « aujourd'hui » faux depuis IA1-b2 (défense de toutes les factions, rang 8, coffre défendu) | tableau IA1-b2 → IA3 (§5.1, §1 H6) |
+| M8 | outils `ia3d_*` hors de `main` | repris au lot IA3-0 (§6.1) |
+| M9 | K1 à 4 PNJ sous le « possible » mesuré, sans le marché | dit franchement ; IA3-a jugé à 8 PNJ, 4 PNJ rapporté (§6.2) |
+| M10 | bascule allumée par défaut, modifiable en cours de partie | éteinte, figée au lancement de la guerre (§5.4) |
+| M11 | les produits intermédiaires déposés retournent au libre : arrachage un niveau plus bas | `R.deposit` au projet producteur (§2.2 règle 6) |
+| M12 | durée de laboratoire non planifiée (la revue écrivait d'abord « palier 3 : 27 min avec un laboratoire », chiffre vanilla ; 5,4 min aux coûts finaux) | nombre de laboratoires = capacité (§5.2) |
+| M13 | tous les coûts de recherche de la conception (§3.8, paliers, « 22 fois ») sont VANILLA ; le mod réécrit les technologies (E180 : `automation` = 1 unité) | fixture des coûts FINAUX (`harness.lua --dump-techs`) ; §3.8, §6.1, §6.3 recalculés : 705 packs réels pour 290 payés, palier 3 = 40 packs et 325 s |
+| m1 à m6 | formule de K, fichier de l'intégrateur, contrat de la fenêtre, retraits qui cassent des bancs, délai du réflexe, grenade | §1 H7, §6.2, §5.5, §5.1, §4.6 |
