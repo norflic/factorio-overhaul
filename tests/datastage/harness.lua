@@ -820,7 +820,27 @@ end
 print(string.format("Technologies des équipes (T.unlocks) : %d nom(s), %d absent(s) ; auto-contrôle %d/2",
   unlock_count, #unlock_errors, unlock_self))
 for _, e in ipairs(unlock_errors) do print("  T.UNLOCKS " .. e) end
+-- Lot MOD-2 : recettes par lots (shared/content/recipe_lots.lua) : chaque lot = k × sa base (quantités, durée), même
+-- catégorie, caché, désactivé. Auto-contrôle : une copie d'un lot faussée (un ingrédient × 2) doit être refusée.
+local lot_errors, lot_self = {}, 0
+local nlots, nlot_bases = 0, 0
+do
+  local RL = dofile(MOD_ROOT .. "/shared/content/recipe_lots.lua")
+  nlots, nlot_bases, lot_errors = RL.verify(modded.recipe)
+  local probe = modded.recipe["fo-lot10-iron-gear-wheel"]
+  if probe and modded.recipe["iron-gear-wheel"] then
+    if #RL.verify_lot(probe, modded.recipe["iron-gear-wheel"]) == 0 then lot_self = lot_self + 1 end
+    local bad = RL.copy(probe)
+    local blk = bad.normal or bad
+    local ing = blk.ingredients[1]
+    if ing.amount then ing.amount = ing.amount * 2 else ing[2] = ing[2] * 2 end
+    if #RL.verify_lot(bad, modded.recipe["iron-gear-wheel"]) > 0 then lot_self = lot_self + 1 end
+  end
+end
+print(string.format("Recettes par lots (MOD-2) : %d lot(s) pour %d recette(s), %d écart(s) ; auto-contrôle %d/2",
+  nlots, nlot_bases, #lot_errors, lot_self))
+for i = 1, math.min(#lot_errors, 40) do print("  LOT " .. lot_errors[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
-  and #unlock_errors == 0 and unlock_self == 2
+  and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

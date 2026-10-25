@@ -40,6 +40,11 @@ end
 
 local function spawn_evo(sp) return sp.evolution_factor or sp[1] end
 
+-- Types d'objets (ItemPrototype et descendants) : recherche d'un objet par son nom.
+local ITEM_TYPES = { "item", "ammo", "capsule", "gun", "item-with-entity-data", "item-with-label", "item-with-inventory",
+  "blueprint-book", "item-with-tags", "selection-tool", "blueprint", "copy-paste-tool", "deconstruction-item",
+  "upgrade-item", "module", "rail-planner", "spidertron-remote", "tool", "armor", "repair-tool", "mining-tool" }
+
 local function product_count(rec)
   if rec.results then return #rec.results end
   if rec.result then return 1 end
@@ -272,6 +277,24 @@ function R.check(raw, only, stats)
               for _, ing in ipairs(variant.ingredients or {}) do
                 local amount = ing.amount or ing[2]
                 if type(amount) == "number" and amount <= 0 then add(key, "recipe-amount", "ingrédient en quantité <= 0") end
+              end
+              -- Moteur réel (lot MOD-2, 25/10) : « Recipe item-product "modular-armor" is not stackable but has a max
+              -- count of 10 » refuse le chargement : un produit non empilable (pile de 1) au plus 1 par fabrication.
+              local prods = variant.results or (variant.result and { { variant.result, variant.result_count or 1 } }) or {}
+              for _, pr in ipairs(prods) do
+                local pname = pr.name or pr[1]
+                local top = pr.amount or pr.amount_max or pr[2] or 1
+                if pr.type ~= "fluid" and type(top) == "number" and top > 1 then
+                  for _, itype in ipairs(ITEM_TYPES) do
+                    local it = raw[itype] and raw[itype][pname]
+                    if it then
+                      if (it.stack_size or 1) <= 1 then
+                        add(key, "recipe-unstackable", "produit non empilable '" .. tostring(pname) .. "' en quantité " .. top)
+                      end
+                      break
+                    end
+                  end
+                end
               end
             end
           end
