@@ -31,6 +31,9 @@ def _volant(g, p, axe, R, M):
     g.torus(p, a, R, 0.065, M["laiton_capot"], n=32, m=8, what="jante")
     g.torus(p, a, R - 0.07, 0.03, M["cuivre_sombre"], n=32, m=6, what="jante_int")
     g.cyl(p, a, 0.07, 0.10, M["laiton_capot"], n=12, what="moyeu")
+    # voile plein entre les rayons (ronde F4-A2 : en pose E le volant arrière dépasse le tablier à l'écran et ses jours
+    # entre rayons faisaient un trou enfermé de 23 px)
+    g.cyl(p, a, R - 0.03, 0.022, M["cuivre_sombre"], n=32, what="voile")
     u = a.cross(Vector((0, 0, 1))).normalized()
     w = a.cross(u).normalized()
     for k in range(6):
