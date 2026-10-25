@@ -104,10 +104,13 @@ def place_es(c, quoi):
     sx = -1 if quoi == "entree" else 1
     if c.plan == "portique":
         # ronde F3-A3 (plan en U) : au SOL de la baie, devant le socle de la table, de part et d'autre du port S
-        # contre la semelle du socle (rendu a4 : un écart entre le bac et le socle fermait une poche de sol, 255 px)
+        # contre la semelle du socle (rendu a4 : un écart entre le bac et le socle fermait une poche de sol, 255 px) ;
+        # F3-B : la conduite du port S est au raccord de jeu (x = −0,5 sur ces côtés pairs) : les deux bacs à l'EST
         r = 0.06 * c.side + 0.06
         tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
-        return dict(x=sx * max(tx * 0.55, r + 0.16), yn=c.yt - ty * 0.86 - 0.08 - r, z=0.0, r=r)
+        rp = 0.07 + 0.01 * c.side
+        x0 = port_x(c) + rp + 0.05 + r
+        return dict(x=x0 if sx < 0 else x0 + 2 * r + 0.05, yn=c.yt - ty * 0.86 - 0.08 - r, z=0.0, r=r)
     pl = cotes.places(c.side)["joue_O" if quoi == "entree" else "joue_E"]
     if c.plan == "L" and quoi == "sortie":
         # ronde F3-A3 : la joue est s'arrête au coin vide ; la sortie va au coin avant est du bâti
@@ -130,7 +133,7 @@ def _reserves_carre(c):
         p = place_es(c, quoi)
         out.append((p["x"], p["yn"], p["r"] + 0.05))
     if c.dos_ext is not None:
-        out.append((0.0, c.h - 0.3, 0.2))           # collecteur N
+        out.append((port_x(c), c.h - 0.3, 0.2))     # collecteur N
     if c.plan in ("carre", "L", "croix", "H") and c.f_portique in ("poutre", "arche"):
         for sx in (-1, 1):
             out.append((sx * c.xm, c.yt, c.wm * (1.0 if c.f_portique == "poutre" else 1.1) + 0.05))
@@ -618,9 +621,23 @@ def portique(g, c):
 # ------------------------------------------------------------------------------------------------
 # SIGNAUX DE JEU : brides de fluide, entrée, sortie
 # ------------------------------------------------------------------------------------------------
+def port_x(c):
+    """x des raccords de tuyau en jeu (F3-B) : shared/levels/points.lua cale le milieu d'un bord sur un centre de tuile,
+    0 sur un côté impair, −0,5 sur un côté PAIR (4×4, 6×6)."""
+    return 0.0 if c.side % 2 else -0.5
+
+
 @_lignee
 def ports(g, c):
-    """Brides de fluide au milieu des bords NORD et SUD, selon le plan."""
+    """Brides de fluide au milieu des bords NORD et SUD (au raccord de JEU : port_x), selon le plan."""
+    g.push((port_x(c), 0.0, 0.0))
+    try:
+        _ports(g, c)
+    finally:
+        g.pop()
+
+
+def _ports(g, c):
     M = g.M
     r = 0.07 + 0.01 * c.side
     if c.plan in ("rond", "octo"):

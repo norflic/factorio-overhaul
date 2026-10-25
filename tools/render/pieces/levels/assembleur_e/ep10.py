@@ -175,13 +175,18 @@ def piece(g, c):
         # rendu a4 (plan H) : baies JOINTIVES et rangée collée à l'aile (des jours de sol entre elles, sous le chemin de
         # câbles, faisaient des trous de 27 à 86 px)
         sx = 1 if p["x"] > 0 else -1
-        x = sx * (c.xb - 0.53)
-        for k in range(3):
-            _baie(g, x - 0.35 + 0.35 * k, p["yn"] + 0.08, p["z_sol"], 0.36, 0.5, 1.0)
-        g.box(B(x, p["yn"] + 0.08, p["z_sol"] + 1.06), (1.1, 0.3 * SQ2, 0.05), M["anthracite"], "hard",
+        # F3-B : la conduite du port S passe au raccord de jeu (x = −0,5 sur ce 6×6) : DEUX baies à l'ouest, trois à l'est
+        n = 3 if sx > 0 else 2
+        w = 0.36
+        tot = n * w - (n - 1) * 0.01
+        x = sx * (c.xb - tot / 2)
+        for k in range(n):
+            _baie(g, x + (k - (n - 1) / 2.0) * (w - 0.01), p["yn"] + 0.08, p["z_sol"], w, 0.5, 1.0)
+        g.box(B(x, p["yn"] + 0.08, p["z_sol"] + 1.06), (tot, 0.3 * SQ2, 0.05), M["anthracite"], "hard",
               what="chemin_cables")
-        for k in range(4):
-            g.cable(B(x - 0.45 + 0.3 * k, p["yn"], p["z_sol"] + 1.08), B(x - 0.3 + 0.3 * k, p["yn"],
-                    p["z_sol"] + 1.08), 0.04, 0.015, M["cable_r"] if k % 2 else M["cable_b"])
+        for k in range(n + 1):
+            xa = x - tot / 2 + 0.1 + (tot - 0.3) * k / n
+            g.cable(B(xa, p["yn"], p["z_sol"] + 1.08), B(xa + 0.15, p["yn"], p["z_sol"] + 1.08), 0.04, 0.015,
+                    M["cable_r"] if k % 2 else M["cable_b"])
         halo(g, x, p["yn"] - 0.3, p["z_sol"] + 0.5, 0.6)
     _ = math
