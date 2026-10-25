@@ -150,13 +150,18 @@ local function prospects_of(f, resource)
   return n
 end
 
+local function want_of(f, res)
+  local need = (f.site_needs or {})[res] or 0
+  local want = math.min(MAX_PER_KIND, need)
+  if not f.is_player and need > 0 then want = math.min(FACTION_MAX_PER_KIND, need + FACTION_EXTRA) end
+  return want
+end
+
 --- Ressources encore recherchées (besoins du cerveau d'équipe, f.site_needs = { [ressource] = n }).
 local function wanted_resources(f)
   local list = {}
   for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
-    local need = f.site_needs[res]
-    local want = math.min(MAX_PER_KIND, need)
-    if not f.is_player and need > 0 then want = math.min(FACTION_MAX_PER_KIND, need + FACTION_EXTRA) end
+    local want = want_of(f, res)
     if want > 0 and prospects_of(f, res) < want then list[#list + 1] = res end
   end
   return list
@@ -182,8 +187,10 @@ end
 --- Seulement si l'équipe a BESOIN de sites : en moteur réel la prospection permanente coûtait
 --- 0,09 ms/tick en moyenne, plus que tout le reste du mod. Session 4 : un site = un gisement d'UNE
 --- ressource demandée (charbon, fer, cuivre, pierre), centré sur ses tuiles.
---- Lot IA2-b : front du prochain tour de prospection (nil = QG). Un tour sur deux part du QG ; l'autre, d'un de nos
---- avant-postes à V.FRONT_MIN tuiles ou plus du QG, choisi par V.pick_front (danger vu, contestation ; hasard borné).
+--- Lot IA2-b : origine du prochain tour de prospection (f.front ; nil = QG). Elle change à chaque nouvel ÉPISODE de
+--- besoin (la réserve était pleine) et à la fin de chaque tour : un sur deux part du QG (curseur f.site_cursor, la
+--- spirale d'avant y continue), l'autre d'un de nos avant-postes à V.FRONT_MIN tuiles ou plus du QG (curseur
+--- f.front_cursor, remis à 1 quand le front change), choisi par V.pick_front (danger vu, contestation ; hasard borné).
 function Sites.next_front(f, tick)
   f.scan_turn = (f.scan_turn or 0) + 1
   f.front_dry = f.front_dry or {}
@@ -196,53 +203,105 @@ function Sites.next_front(f, tick)
   end
   local key = nil
   if #fronts > 0 then key = V.pick_front(fronts, Sites.value_ctx(f, tick), f.front_dry, f.scan_turn, draw_of(f)) end
+  local old = f.front and f.front.key or nil
   f.front = nil
   for _, p in ipairs(fronts) do
     if p.key == key then f.front = { key = p.key, x = p.x, y = p.y } end
   end
+  if key ~= old then f.front_cursor, f.front_found = 1, 0 end
+end
+
+--- Lot IA2-b : RENOUVELLEMENT de la réserve. Toutes les V.REFRESH, le site de plus faible valeur d'une ressource
+--- demandée dont la réserve est au complet est oublié (hors gisements de départ) : un nouveau tour de prospection part
+--- alors de l'origine suivante (QG ou front). Sans cela, la réserve pleine dès les premières minutes ne bougeait plus
+--- (moteur simulé : 0 site trouvé depuis un front en 15 min).
+local function refresh_reserve(f, tick)
+  local worst, worst_v
+  local ctx = nil
+  for _, res in ipairs(State.sorted_keys(f.site_needs or {})) do
+    local want = want_of(f, res)
+    if want > 0 and prospects_of(f, res) >= want then
+      local cands = {}
+      for _, s in ipairs(f.prospects or {}) do
+        if s.resource == res and not s.seeded then cands[#cands + 1] = s end
+      end
+      if #cands > 0 then
+        ctx = ctx or Sites.value_ctx(f, tick)
+        local ranked = V.rank(cands, ctx)
+        local last = ranked[#ranked]
+        if not worst_v or last.value < worst_v then worst, worst_v = last.site, last.value end
+      end
+    end
+  end
+  if not worst then return end
+  local out = {}
+  for _, s in ipairs(f.prospects) do if s ~= worst then out[#out + 1] = s end end
+  f.prospects = out
+  f.stats.reserve_dropped = (f.stats.reserve_dropped or 0) + 1
 end
 
 function Sites.prospect(f, surface, tick)
   f.prospects = f.prospects or {}
-  if #f.prospects >= max_prospects(f) or tick < (f.prospect_idle_until or 0) then return end
+  if not f.is_player and tick >= (f.reserve_refresh or 0) then
+    f.reserve_refresh = tick + V.REFRESH
+    refresh_reserve(f, tick)
+  end
+  if #f.prospects >= max_prospects(f) or tick < (f.prospect_idle_until or 0) then
+    f.scan_idle = true
+    return
+  end
   local wanted = wanted_resources(f)
-  if #wanted == 0 then return end
+  if #wanted == 0 then
+    f.scan_idle = true
+    return
+  end
   local war = State.war()
   local other_hqs = {}
   for _, id in ipairs(State.alive()) do
     if id ~= f.id then other_hqs[#other_hqs + 1] = State.faction(id).hq_pos end
   end
   local spawn = game.forces.player.get_spawn_position(surface)
-  -- Front perdu (avant-poste détruit) : retour au QG, tour recommencé.
-  if f.front and not (f.outposts or {})[tonumber(f.front.key:sub(2))] then f.front, f.site_cursor = nil, 1 end
+  if not f.is_player then
+    -- Front perdu (avant-poste détruit) : retour au QG.
+    if f.front and not (f.outposts or {})[tonumber(f.front.key:sub(2))] then f.front = nil end
+    -- Nouvel épisode de besoin : nouvelle origine (QG et front alternés).
+    if f.scan_idle then
+      f.scan_idle = false
+      Sites.next_front(f, tick)
+    end
+  end
   local front = (not f.is_player) and f.front or nil
   local origin = front or f.hq_pos
   local hcx, hcy = math.floor(origin.x / 32), math.floor(origin.y / 32)
   local n = front and N_FRONT or (f.prospect_wide and #OFFSETS or N_NEAR)
+  local cursor = front and "front_cursor" or "site_cursor"
   for _ = 1, PROBES_PER_STEP do
-    local k = f.site_cursor or 1
+    local k = f[cursor] or 1
     if k > n then
-      f.site_cursor = 1
+      f[cursor] = 1
       f.stats.prospect_cycles = (f.stats.prospect_cycles or 0) + 1
       if front then
-        -- Lot IA2-b : un front dont le tour n'a rien trouvé est laissé V.FRONT_DRY.
-        if (f.prospect_found or 0) == 0 then
+        -- Lot IA2-b : un front dont le tour n'a rien trouvé est laissé V.FRONT_DRY (compteur propre au front).
+        if (f.front_found or 0) == 0 then
           f.front_dry = f.front_dry or {}
           f.front_dry[front.key] = tick + V.FRONT_DRY
         end
-      elseif (f.prospect_found or 0) == 0 then
-        if not f.prospect_wide then
-          f.prospect_wide = true -- tour proche infructueux : disque élargi dès le tour suivant
-          Trace.log("prospect", f.key, "wide")
-        else
-          f.prospect_idle_until = tick + IDLE_TICKS
+        f.front_found = 0
+      else
+        if (f.prospect_found or 0) == 0 then
+          if not f.prospect_wide then
+            f.prospect_wide = true -- tour proche infructueux : disque élargi dès le tour suivant
+            Trace.log("prospect", f.key, "wide")
+          else
+            f.prospect_idle_until = tick + IDLE_TICKS
+          end
         end
+        f.prospect_found = 0
       end
-      f.prospect_found = 0
       if not f.is_player then Sites.next_front(f, tick) end
       return
     end
-    f.site_cursor = k + 1
+    f[cursor] = k + 1
     local o = OFFSETS[k]
     local cx, cy = hcx + o.dx, hcy + o.dy
     local center = { x = cx * 32 + 16, y = cy * 32 + 16 }
@@ -288,7 +347,11 @@ function Sites.prospect(f, surface, tick)
           f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
         elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
           f.prospects[#f.prospects + 1] = site
-          f.prospect_found = (f.prospect_found or 0) + 1
+          if front then
+            f.front_found = (f.front_found or 0) + 1
+          else
+            f.prospect_found = (f.prospect_found or 0) + 1
+          end
           f.stats.prospected = (f.stats.prospected or 0) + 1
           wanted = wanted_resources(f)
           if #wanted == 0 or #f.prospects >= max_prospects(f) then return end

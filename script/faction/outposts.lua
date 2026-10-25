@@ -197,7 +197,11 @@ function Outposts.reclaim(f, pos, carrier, radius)
     end
   end
   f.orphans = keep
-  if n > 0 then f.stats.orphans_reclaimed = (f.stats.orphans_reclaimed or 0) + n end
+  if n > 0 then
+    f.stats.orphans_reclaimed = (f.stats.orphans_reclaimed or 0) + n
+    log(string.format("[FO-STRAT] orphelins tick %d %s : %d repris a la reconstruction (%d, %d), %d restants", game.tick,
+      tostring(f.key), n, math.floor(pos.x), math.floor(pos.y), #keep))
+  end
   return n
 end
 
@@ -208,7 +212,11 @@ function Outposts.salvage(f, oid, carrier)
     if o.oid == oid and dismantle(o.e, carrier) then n = n + 1 else keep[#keep + 1] = o end
   end
   f.orphans = keep
-  if n > 0 then f.stats.orphans_salvaged = (f.stats.orphans_salvaged or 0) + n end
+  if n > 0 then
+    f.stats.orphans_salvaged = (f.stats.orphans_salvaged or 0) + n
+    log(string.format("[FO-STRAT] orphelins tick %d %s : %d demontes (avant-poste perdu %d), %d restants", game.tick,
+      tostring(f.key), n, oid, #keep))
+  end
   return n
 end
 
@@ -244,6 +252,8 @@ function Outposts.build(f, surface, kind, site, carrier)
   local outpost = {
     id = oid, kind = kind, pos = { x = site.x, y = site.y }, drills = #drills,
     drill_list = drills, sinks = sinks, turret_list = {}, last_service = game.tick,
+    -- Lot IA2-b : lectures du site (carte de valeur), rendues à la réserve si l'avant-poste est perdu.
+    site_info = { rich = site.rich, tiles = site.tiles, water = site.water, rough = site.rough, cliffs = site.cliffs },
   }
   for _, d in ipairs(drills) do State.own(d, f.id, "drill", oid) end
   for _, s in ipairs(sinks) do State.own(s, f.id, "sink", oid) end
@@ -516,7 +526,9 @@ function Outposts.on_drill_lost(f, oid)
     local spec = T.outposts[o.kind]
     if spec then
       f.prospects = f.prospects or {}
-      f.prospects[#f.prospects + 1] = { x = o.pos.x, y = o.pos.y, resource = spec.resource, lost = true }
+      local info = o.site_info or {}
+      f.prospects[#f.prospects + 1] = { x = o.pos.x, y = o.pos.y, resource = spec.resource, lost = true,
+        rich = info.rich, tiles = info.tiles, water = info.water, rough = info.rough, cliffs = info.cliffs }
     end
   end
 end

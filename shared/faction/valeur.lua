@@ -183,8 +183,10 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Front de prospection
 ---------------------------------------------------------------------------------------------------
-V.FRONT_MIN = 96        -- un avant-poste devient front à 96 tuiles ou plus du QG (hors zone de départ)
+V.FRONT_MIN = 64        -- un avant-poste devient front à 64 tuiles ou plus du QG (les emplacements de 76 et 104 tuiles
+                        -- de l'éventail de départ en sont : la prospection part d'abord dans l'axe de la base)
 V.FRONT_DRY = 20 * 3600 -- un front dont le tour n'a rien trouvé est laissé 20 min
+V.REFRESH = 5 * 3600    -- renouvellement de la réserve : le pire site d'une ressource demandée au complet est oublié
 
 --- Choix du front du prochain tour de prospection. `fronts` = { {key, x, y}, … } (avant-postes à FRONT_MIN tuiles
 --- ou plus du QG, triés par clé) ; `ctx` comme V.components ; `dry` = { [key] = tick de fin } ; `turn` = numéro du

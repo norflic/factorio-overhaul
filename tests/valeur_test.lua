@@ -227,6 +227,16 @@ do
   end
   check(#sitesA > 0 and valued == #sitesA, "lignes de site avec valeur et rang (" .. valued .. " sur " .. #sitesA .. ")")
   check(real >= 1, "au moins un choix réel entre plusieurs sites (" .. real .. ", jusqu'à " .. maxn .. " candidats)")
+  -- Fronts : sites trouvés depuis un de nos avant-postes (choisis, ou encore en réserve), et réserve renouvelée.
+  local fronts, in_reserve, dropped, turns = 0, 0, 0, 0
+  for _, l in ipairs(sitesA) do if l:find("front o", 1, true) then fronts = fronts + 1 end end
+  for _, f in ipairs(war.factions) do
+    for _, s in ipairs(f.prospects or {}) do if s.front then in_reserve = in_reserve + 1 end end
+    dropped = dropped + (f.stats.reserve_dropped or 0)
+    turns = turns + (f.scan_turn or 0)
+  end
+  check(fronts + in_reserve >= 1, "des sites trouvés depuis un front (choisis " .. fronts .. ", en réserve " .. in_reserve .. ")")
+  check(dropped >= 4 and turns >= 8, "réserve renouvelée (" .. dropped .. " sites oubliés) et origines alternées (" .. turns .. " tours)")
   local over = false
   for _, f in ipairs(war.factions) do
     local per = {}
