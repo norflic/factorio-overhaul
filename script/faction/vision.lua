@@ -430,6 +430,7 @@ local function rally_player(f, g, tick)
   local ratio = S.player_ratio(level, Character.of(f))
   local go = A.go(force, ratio, g.launch_def or 0, seen)
   g.seen_def = seen
+  if not go then f.stats.renonce_joueur = (f.stats.renonce_joueur or 0) + 1 end
   if g.key then v.reports[#v.reports + 1] = g.key end
   log(string.format("[FO-PVP] rassemblement tick %d %s -> joueur : %s, defense vue %d (depart %d), force %d, %d soldats, octant %s",
     tick, f.key, go and "go" or "renonce", seen, math.floor(g.launch_def or 0), math.floor(force), n, tostring(g.octant)))

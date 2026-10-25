@@ -532,7 +532,7 @@ function PvP.status(tick)
     rec.known = v and #State.sorted_keys(v.known) or 0
     rec.style = v and v.model.style or "inconnu"
     rec.scouts = f.stats and f.stats.scouts or 0
-    rec.renonce = f.stats and f.stats.renonce or 0
+    rec.renonce = f.stats and f.stats.renonce_joueur or 0 -- renoncements au rassemblement contre le joueur
     if rec.known > out.sectors then out.sectors, out.score = rec.known, rec.known end
   end
   return out
