@@ -514,6 +514,15 @@ Le nombre d'attaques entre niveaux est mesuré hors jeu ; en moteur réel, seule
 de script : inchangé par construction (aucun calcul par tick ajouté, tout se fait dans la pensée du
 commandant en O(1)), **non mesuré en moteur réel**.
 
+### 10.x Valeurs en MU calculées par le solveur des équipes (lot IA1-e1, 25/10)
+
+`shared/team/production.lua` calcule la valeur d'un objet par le chemin de fabrication le moins cher (règle X0 : la
+plaque de fer vaut 1 MU). Elle égale `L.item_value` (`shared/levels/`) pour tous les objets comparés, SAUF le plastique :
+**1,3 MU** au chemin le moins cher contre **3 MU** dans `L.item_value`. Écart NON tranché : il change les coûts des
+niveaux qui paient en plastique si on aligne `L.item_value`, et le retour sur investissement des PNJ sinon.
+Jeu d'essai du §6.1 d'EQUIPES_PNJ (modèle, non mesuré en jeu) : 1,32 MW pour les machines ; charbon 28,7/min en régime,
+42,6/min à la puissance installée.
+
 ## 11. Défense de tours (session 4)
 
 | Paramètre | Valeur |
