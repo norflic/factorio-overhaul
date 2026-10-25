@@ -81,8 +81,9 @@ return {
       st.max_n[r.key] = math.max(st.max_n[r.key] or 0, r.n)
       if r.n >= TARGET and not st.reach[r.key] then st.reach[r.key] = minute end
       if minute == 30 or minute == 59 then st.series[r.key .. ":" .. minute] = r.soldiers end
-      parts[#parts + 1] = string.format("%s n=%d/%d recrues=%d garde=%d frein=%d inactifs=%.0f%% au-dela=%.1f mu=%d tech=%d ap=%d soldats=%d chemins_ko=%d buts_deplaces=%d",
-        r.key, r.n, r.max, r.recruited, r.guard, r.held or 0, idle_pct, surplus, dmu, r.tech, r.outposts, r.soldiers, r.nav_fail, r.goal_moved)
+      parts[#parts + 1] = string.format("%s n=%d/%d recrues=%d garde=%d frein=%d inactifs=%.0f%% au-dela=%.1f mu=%d tech=%d ap=%d soldats=%d chemins_ko=%d buts_deplaces=%d perdus=%d tues_ennemis=%d tourelles=%d defendus=%d",
+        r.key, r.n, r.max, r.recruited, r.guard, r.held or 0, idle_pct, surplus, dmu, r.tech, r.outposts, r.soldiers, r.nav_fail, r.goal_moved,
+        r.lost or -1, r.lost_enemy or -1, r.turrets or -1, r.outposts_defended or -1)
     end
     local fail, total = sum_path(p)
     ctx.log(string.format("minute %d | agents %d | chemins demandes %d emis %d ok %d echecs %d (%.1f %%) but_occupe %d depart %d eau %d autre %d | en vol max %d file max %d emis/tick max %d",

@@ -690,6 +690,16 @@ Registry.on_removed(function(agent)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
+  -- Lot IA1-b2 (mesure) : PNJ TUÉ (cause connue) : tâche, distance au QG, cause ; tués par les ennemis comptés à part.
+  if agent.death_cause and f.stats then
+    if agent.death_cause:find("/enemy:", 1, true) then f.stats.lost_enemy = (f.stats.lost_enemy or 0) + 1 end
+    local p = agent.death_pos
+    local d = (p and f.hq_pos) and math.floor(math.sqrt(dist2(p, f.hq_pos))) or -1
+    local t = agent.task
+    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
+      agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
+      game.tick / 3600))
+  end
   if agent.task then
     if agent.task.site and not agent.task.site_used then
       Sites.release(agent.task.site)

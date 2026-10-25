@@ -127,12 +127,16 @@ Events.on(defines.events.on_entity_died, function(e)
   local ent = e.entity
   if not (ent and ent.valid and ent.type == "character") then return end
   local S = Storage.ns("companion")
-  if not S.by_unit[ent.unit_number] then return end
+  local id = S.by_unit[ent.unit_number]
+  if not id then return end
   local cause = "aucune"
   if e.cause and e.cause.valid then cause = e.cause.name .. "/" .. e.cause.force.name end
   local key = cause .. ":" .. (e.damage_type and e.damage_type.name or "?")
   S.deaths = S.deaths or {}
   S.deaths[key] = (S.deaths[key] or 0) + 1
+  -- Lot IA1-b2 : cause gardée sur l'agent (lue par les crochets on_removed, qui viennent après, à la destruction du corps).
+  local agent = S.agents[id]
+  if agent then agent.death_cause, agent.death_pos = key, { x = ent.position.x, y = ent.position.y } end
 end)
 
 -- Mort, minage ou destruction par un autre mod : le corps disparaît, l'agent aussi.
