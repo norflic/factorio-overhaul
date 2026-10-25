@@ -79,5 +79,6 @@ def piece(g, c):
             g.box((x0 + sx, yb + dy, 0.6), (0.05, 0.05, 1.18), M["wood2"], "hard", what="piquet")
     g.box((x0 + 0.05, yb - Y(0.2) - 0.02, 1.18), (0.34, 0.03, 0.035), M["wood"], "hard", what="hache_manche")
     g.box((x0 + 0.24, yb - Y(0.2) - 0.02, 1.18), (0.06, 0.035, 0.1), M["steel_hi"], "hard", what="hache_fer")
-    lanterne(g, (x0 - 0.4, yb - 0.2, 1.33))
-    g.halo((x0 - 0.4, yb - 0.45, 1.25), M["_emit_rgb"], 8.0)
+    # sur le dessus de la pile (posée sur le piquet, elle fermait un jour de 39 px entre piquet et rondins : ilots.py)
+    lanterne(g, (x0 + 0.08, yb - 0.1, 1.24))
+    g.halo((x0 + 0.08, yb - 0.4, 1.2), M["_emit_rgb"], 8.0)
