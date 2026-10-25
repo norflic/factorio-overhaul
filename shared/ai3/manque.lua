@@ -11,12 +11,13 @@
   (shared/team/fond.lua) ne mine alors que charbon et pierre, même en surplus.
 
   X.tasks(view, missing, ctx) -> tâches du CERVEAU (pas de fond) à ajouter au tableau :
-    1. une plaque manque et le QG n'a aucun four : poser X.SMELTERS fours au QG (tâche « smelters », comme la survie
-       des factions) avec les fours et le charbon du coffre ; sans fours au coffre, les fabriquer (pierre) ;
+    1. une plaque manque et le QG a moins de X.SMELTERS fours (X.SMELTERS_MAX pour un manque d'au moins X.SMELT_MORE) :
+       poser les fours au QG (tâche « smelters », comme la survie des factions) avec les fours et le charbon du coffre ;
+       sans fours au coffre, les fabriquer (pierre) ;
     2. une plaque manque, aucun avant-poste ne la produit, et des fours existent (ou vont être posés) : PLUSIEURS PNJ
-       minent son minerai (clés `manque:mine:<minerai>:<k>`), k ≤ min(manque / X.PER_MINER, moitié de l'équipe,
-       X.MINERS_MAX), en comptant les minages déjà au tableau pour ce minerai ; le cerveau fond ensuite (tournée
-       « smelt » du planificateur, qui la propose dès qu'un four existe).
+       minent son minerai (clés `manque:mine:<minerai>:<k>`) : k = max(manque / X.PER_MINER, mineurs au travail + PNJ
+       inactifs + 1), au plus X.MINERS_MAX et l'effectif, en comptant les minages déjà au tableau pour ce minerai ; le
+       cerveau fond ensuite (tournée « smelt » du planificateur, qui la propose dès qu'un four existe).
   X.need(view, missing) -> { [ressource] = facteur } pour la note des tâches d'extraction (M.need_factor).
 
   view = { smelters, smelters_pending, stock (LIBRE), outposts = { {kind}, ... }, workers }
@@ -33,9 +34,11 @@ local X = {}
 
 X.PLATES = { { "iron-plate", "iron-ore", "iron" }, { "copper-plate", "copper-ore", "copper" } }
 X.SMELTERS = 2        -- fours posés au QG quand une plaque manque (T.start_smelters des factions)
-X.PER_MINER = 20      -- plaques manquantes par mineur (manque 62 : 4 mineurs, au plus)
+X.SMELTERS_MAX = 4    -- … et 4 pour un manque d'au moins X.SMELT_MORE plaques
+X.SMELT_MORE = 50
+X.PER_MINER = 20      -- plaques manquantes par mineur (manque 62 : 4 mineurs au moins)
 X.MINERS_MAX = 6
-X.MINE_MIN = 20       -- un mineur rapporte au moins 20 minerais
+X.MINE_MIN = 25       -- un mineur rapporte au moins 25 minerais
 X.MINE_MAX = 50
 X.PRIO = 75           -- au-dessus des fabrications d'objectif (50) : sans plaque, aucun objectif n'avance
 X.MINE_PRIO = 45      -- comme le minage du planificateur sans avant-poste
@@ -53,21 +56,32 @@ function X.tasks(view, missing, ctx)
   local keys = ctx.keys or {}
   local free = view.stock or {}
   local out = {}
-  local any = false
-  for _, p in ipairs(X.PLATES) do if (missing[p[1]] or 0) > 0 then any = true end end
-  if not any then return out end
+  -- Seules comptent les plaques qui manquent SANS avant-poste qui les produise (avec un avant-poste, on attend sa
+  -- tournée : règle du planificateur).
+  local most = 0
+  for _, p in ipairs(X.PLATES) do
+    local n = missing[p[1]] or 0
+    if n > most and not has_kind(view, p[3]) then most = n end
+  end
+  if most <= 0 then return out end
   local smelters = (view.smelters or 0) + (view.smelters_pending or 0)
+  -- Fours voulus : X.SMELTERS, X.SMELTERS_MAX pour un gros manque (premier essai en moteur réel, 25/10 : 2 fours
+  -- fondent 37 plaques par minute, le minerai attendait au coffre).
+  local want = most >= X.SMELT_MORE and X.SMELTERS_MAX or X.SMELTERS
   local placing = false
-  if smelters == 0 then
-    local fuel = T.fuel_per_burner * X.SMELTERS
-    if (free[T.SMELTER] or 0) >= X.SMELTERS and (free[T.fuel] or 0) >= fuel then
+  if smelters < want then
+    local n0 = want - smelters
+    -- Les fours du coffre sont posés tout de suite (avec leur charbon), les autres fabriqués (pierre) en parallèle.
+    local put = math.min(n0, math.max(0, free[T.SMELTER] or 0), math.floor(math.max(0, free[T.fuel] or 0) / T.fuel_per_burner))
+    if put > 0 then
       if not keys["smelters"] then
-        out[#out + 1] = { key = "smelters", kind = "smelters", prio = X.PRIO, count = X.SMELTERS,
-          items = { { T.SMELTER, X.SMELTERS }, { T.fuel, fuel } }, manque = true }
+        out[#out + 1] = { key = "smelters", kind = "smelters", prio = X.PRIO, count = put,
+          items = { { T.SMELTER, put }, { T.fuel, T.fuel_per_burner * put } }, manque = true }
       end
       placing = true
-    elseif ctx.book and ctx.book:handcraftable(T.SMELTER) then
-      local n = X.SMELTERS - (free[T.SMELTER] or 0)
+    end
+    if put < n0 and ctx.book and ctx.book:handcraftable(T.SMELTER) then
+      local n = n0 - math.max(0, free[T.SMELTER] or 0)
       local key = "craft:" .. T.SMELTER .. ":manque:1"
       -- Les mineurs partent PENDANT que les fours se fabriquent (parallélisme demandé par le DC).
       if keys[key] then placing = true end
@@ -92,11 +106,18 @@ function X.tasks(view, missing, ctx)
   if smelters == 0 and not placing then return out end
   for _, p in ipairs(X.PLATES) do
     local short, ore, kind = missing[p[1]] or 0, p[2], p[3]
-    if short > 0 and not has_kind(view, kind) then
-      local half = math.max(1, math.floor((view.workers or 0) / 2))
-      local k = math.min(math.ceil(short / X.PER_MINER), half, X.MINERS_MAX)
+    -- Le minerai déjà au coffre couvre le manque : c'est la fonte qui manque, pas le minage (aucun mineur de plus).
+    if short > 0 and not has_kind(view, kind) and (free[ore] or 0) < short then
+      -- Mineurs : un par X.PER_MINER plaques qui manquent, et TOUT PNJ inactif de plus (« aucun n'attend au coffre tant
+      -- qu'il manque une plaque », DC 18 h 40), plus UNE tâche d'avance (le mineur qui revient en reprend une tout de
+      -- suite, sans attendre la pensée suivante : premier essai, 16 % de PNJ sans tâche pendant le manque) ; au plus
+      -- X.MINERS_MAX et l'effectif.
+      local base_k = math.ceil(short / X.PER_MINER)
+      local taken = (ctx.mines_taken and ctx.mines_taken[ore]) or 0
+      local k = math.max(base_k, taken + (view.workers_idle or 0) + 1)
+      k = math.min(k, X.MINERS_MAX, math.max(1, view.workers or 0))
       local have = (ctx.mines and ctx.mines[ore]) or 0
-      local count = math.max(X.MINE_MIN, math.min(X.MINE_MAX, math.ceil(short / k)))
+      local count = math.max(X.MINE_MIN, math.min(X.MINE_MAX, math.ceil(short / base_k)))
       local i = 0
       while have < k and i < X.MINERS_MAX do
         i = i + 1
@@ -111,14 +132,19 @@ function X.tasks(view, missing, ctx)
   return out
 end
 
---- Facteur de besoin de chaque matière extraite (minage, tournée d'un avant-poste) : manque du cerveau, surplus ou
---- normal (M.need_factor). Le minerai d'une plaque qui manque est « en manque ».
+--- Facteur de besoin de chaque matière extraite (minage, tournée d'un avant-poste) et de la fonte (plaques) : manque du
+--- cerveau, surplus ou normal (M.need_factor). Le minerai d'une plaque qui manque est « en manque » tant que le minerai
+--- du coffre ne couvre pas le manque ; au-delà, c'est la fonte (facteur de la plaque) qui passe devant le minage.
 function X.need(view, missing)
   local free = view.stock or {}
   local out = {}
   local short = {}
   for _, p in ipairs(X.PLATES) do
-    if (missing[p[1]] or 0) > 0 then short[p[2]] = true; short[p[1]] = true end
+    local n = missing[p[1]] or 0
+    if n > 0 then
+      short[p[1]] = true
+      if (free[p[2]] or 0) < n then short[p[2]] = true end
+    end
   end
   for _, r in ipairs({ "coal", "stone", "iron-ore", "copper-ore", "iron-plate", "copper-plate" }) do
     local want = X.TARGET[r] or 0

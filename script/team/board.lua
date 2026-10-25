@@ -306,14 +306,17 @@ function Board.sync(f, planned, tick, plan, view, book)
   b.hint, b.hinted = nil, nil
   if plan and view and Board.market(f) then
     local missing = plate_shortage(plan)
-    local keys, mines = {}, {}
+    local keys, mines, taken = {}, {}, {}
     for _, key in ipairs(sorted_keys(keep)) do
       keys[key] = true
       local t = keep[key]
-      if t.kind == "mine" and t.resource then mines[t.resource] = (mines[t.resource] or 0) + 1 end
+      if t.kind == "mine" and t.resource then
+        mines[t.resource] = (mines[t.resource] or 0) + 1
+        if t.worker then taken[t.resource] = (taken[t.resource] or 0) + 1 end
+      end
     end
     for _, key in ipairs(sorted_keys(b.cooldown)) do if tick < b.cooldown[key] then keys[key] = true end end
-    local added = X.tasks(view, missing, { keys = keys, mines = mines, book = book })
+    local added = X.tasks(view, missing, { keys = keys, mines = mines, mines_taken = taken, book = book })
     for _, t in ipairs(added) do
       t.created = born[t.key] or tick
       keep[t.key] = t
@@ -412,6 +415,8 @@ local function market_ctx(f, b)
   end
   ctx.mult_of = function(t)
     if t.kind == "mine" then return need[t.resource] or 1 end
+    -- Fonte du QG : le besoin de la plaque la plus en manque (une plaque qui manque : la fonte passe devant le minage).
+    if t.kind == "smelt" then return math.max(need["iron-plate"] or 1, need["copper-plate"] or 1) end
     if t.kind == "service" and (t.prio or 0) < M.URGENT then
       local o = f.outposts and f.outposts[t.outpost]
       local spec = o and T.outposts[o.kind]

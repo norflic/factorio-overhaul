@@ -91,18 +91,28 @@ do
   })
   local view = { smelters = 0, smelters_pending = 0, stock = { ["iron-plate"] = 6, coal = 30, stone = 60 }, outposts = {}, workers = 8 }
   local missing = { ["iron-plate"] = 62 }
+  local function miners_of(list)
+    local n = 0
+    for _, t in ipairs(list) do if t.kind == "mine" and t.resource == "iron-ore" then n = n + 1 end end
+    return n
+  end
   local out = X.tasks(view, missing, { keys = {}, mines = {}, book = book })
-  check(#out == 5 and out[1].kind == "craft" and out[1].item == "stone-furnace" and out[1].count == 2,
-    "cas du DC : 2 fours fabriqués (pierre) et 4 mineurs de fer", #out .. " tâches")
-  local miners = 0
-  for _, t in ipairs(out) do if t.kind == "mine" and t.resource == "iron-ore" then miners = miners + 1 end end
-  check(miners == 4 and out[2].count == 20, "4 mineurs de fer (62 / 20), 20 minerais au moins chacun")
+  check(#out == 5 and out[1].kind == "craft" and out[1].item == "stone-furnace" and out[1].count == X.SMELTERS_MAX,
+    "cas du DC : 4 fours fabriqués (pierre ; manque >= 50) et 4 mineurs de fer", #out .. " tâches")
+  check(miners_of(out) == 4 and out[2].count == X.MINE_MIN, "4 mineurs de fer (62 / 20), 25 minerais au moins chacun")
+  view.workers_idle = 6
+  check(miners_of(X.tasks(view, missing, { keys = {}, mines = {}, book = book })) == 6,
+    "6 PNJ inactifs : 6 mineurs (au plus X.MINERS_MAX), aucun n'attend")
+  view.workers_idle = 0
+  check(miners_of(X.tasks(view, missing, { keys = {}, mines = { ["iron-ore"] = 4 }, mines_taken = { ["iron-ore"] = 4 },
+    book = book })) == 1, "4 mineurs au travail : une tâche d'avance (le mineur qui revient repart tout de suite)")
   view.stock["stone-furnace"] = 2
   out = X.tasks(view, missing, { keys = {}, mines = {}, book = book })
-  check(out[1].kind == "smelters" and out[1].items[1][2] == 2 and out[1].items[2][2] == T.fuel_per_burner * 2,
-    "fours au coffre : posés au QG (tâche smelters, avec leur charbon)")
+  check(out[1].kind == "smelters" and out[1].items[1][2] == 2 and out[1].items[2][2] == T.fuel_per_burner * 2
+    and out[2].kind == "craft" and out[2].count == 2,
+    "2 fours au coffre : posés au QG avec leur charbon, 2 autres fabriqués en parallèle")
   out = X.tasks(view, missing, { keys = {}, mines = { ["iron-ore"] = 4 }, book = book })
-  check(#out == 1, "assez de mineurs au tableau : aucun de plus")
+  check(miners_of(out) == 0, "assez de mineurs au tableau : aucun de plus")
   view.outposts = { { kind = "iron" } }
   view.smelters = 2
   out = X.tasks(view, missing, { keys = {}, mines = {}, book = book })
@@ -110,8 +120,13 @@ do
   out = X.tasks({ smelters = 2, stock = {}, outposts = {}, workers = 8 }, {}, {})
   check(#out == 0, "aucun manque : rien")
   local need = X.need({ stock = { coal = 900, stone = 500, ["iron-ore"] = 0 } }, missing)
-  check(need.coal == Mk.NEED_SURPLUS and need.stone == Mk.NEED_SURPLUS and need["iron-ore"] == Mk.NEED_SHORT,
-    "besoin : charbon et pierre en surplus (0,25), minerai de fer en manque (1,5)")
+  check(need.coal == Mk.NEED_SURPLUS and need.stone == Mk.NEED_SURPLUS and need["iron-ore"] == Mk.NEED_SHORT
+    and need["iron-plate"] == Mk.NEED_SHORT, "besoin : charbon et pierre en surplus (0,25), minerai et plaque de fer en manque (1,5)")
+  need = X.need({ stock = { ["iron-ore"] = 100 } }, missing)
+  check(need["iron-ore"] == 1 and need["iron-plate"] == Mk.NEED_SHORT,
+    "minerai au coffre qui couvre le manque : la fonte passe devant le minage")
+  check(miners_of(X.tasks({ smelters = 2, stock = { ["iron-ore"] = 100 }, outposts = {}, workers = 8, workers_idle = 4 },
+    missing, { keys = {}, mines = {}, book = book })) == 0, "minerai au coffre qui couvre le manque : aucun mineur de plus")
 end
 
 -- 4 et 5. Moteur simulé : votre équipe dans le cas du DC.
