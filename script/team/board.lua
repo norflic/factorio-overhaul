@@ -534,7 +534,12 @@ function Board.claim(f, agent, tick)
       best.worker = agent.id
       best.claimed = tick
       best.away = nil
-      if b.hint then b.hint[agent.id] = nil end
+      -- Son indice (pris ou non) et celui de la tâche prise sont rendus : la tâche indiquée redevient libre pour tous.
+      local h = b.hint and b.hint[agent.id]
+      if h then
+        b.hint[agent.id] = nil
+        if b.hinted and b.hinted[h] == agent.id then b.hinted[h] = nil end
+      end
       if b.hinted then b.hinted[best.key] = nil end
     end
     return best
