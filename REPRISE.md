@@ -10,6 +10,30 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **POINT DE 18 H 50, AVANT UNE COUPURE PAR LA LIMITE D'USAGE (à lire en premier pour reprendre)** :
+> - `main` = **0.4.29**, documenté (`5aa7b4c` et suivants). Le DC joue cette version. Guide de partie à jour :
+>   `fo-logs\2026-10-24_PNJ\GUIDE_PARTIE.md`. Pages : Atlas des designs Dfvg6UEeQN5YYAYHZRS5Pt (source `designs/` du dossier de
+>   travail de l'orchestrateur : `manifeste.json`, `build_page.py`), page du matin N8rHLyXYL7rYqnVjf7atj3.
+> - DEMANDES DU DC EN VIGUEUR : questions par QCM cliquable (AskUserQuestion) ; l'IA des PNJ est une section que NOUS concevons
+>   (D-18), avec « des agents sur le coup en permanance » (R-25k) : relancer un agent IA dès qu'un lot finit ; ses constats en
+>   jouant (OBJECTIFS §5, 18 h 40 et 18 h 45, capture `fo-logs\2026-10-25_DC-captures\pnj-inactifs-fer-ignore.png`) : PNJ inactifs
+>   au coffre, fer manquant jamais cherché (« Objectif : Charbon — il manque : 62 Plaque de fer »), pierre et charbon extraits
+>   sans fin, aucune exploration : CAS DE TEST des lots IA3-b, IA3-c, IA3-f.
+> - AGENTS EN COURS (chacun a un worktree `.claude/worktrees/agent-…` et un dossier `fo-logs\2026-10-25_<lot>\` avec NOTES.md
+>   et un POINT DE REPRISE en tête ; s'ils sont coupés : SendMessage pour reprendre, ou nouvel agent avec le même brief en
+>   lisant le dernier commit de la branche et ces NOTES) :
+>   - IA3-a recherche d'abord (`fo-logs\2026-10-25_IA3-a`) ; IA3-b marché des tâches et registre (`…_IA3-b`) ; IA3-c nouveau
+>     cerveau derrière `fo-ia3-cerveau` (`…_IA3-c`) ; IA3-f exploration sous brouillard, équipe du joueur comprise (`…_IA3-f`) ;
+>     IA1-d plan directeur et construction (`…_IA1-d`) : périmètres de fichiers dans le point de 17 h 45 ci-dessous ;
+>   - F2-B four en PRODUCTION (validé par le DC), F3-B assembleur en PRODUCTION (validé), F4-A2 foreuse « enrichir nettement » :
+>     `fo-logs\2026-10-25_F2`, `…_F3`, `…_F4`.
+> - EN ATTENTE (D-17) : X2-suite (monazite et sables noirs à refaire, usages des sous-produits, puis fusion de X2 : branche
+>   `worktree-agent-a94df9d4c17247154`), X1-suite (hydrogène, ilménite I2 et nuit, saumure), A5-suite (couleur d'équipe 25 %,
+>   liserés, teinte automatique), F1-C (3e ronde du laser), LOG-1 (logistique au-delà de 120 objets/s), F5 et F6 (centre, mur) ;
+>   IA suivants : IA3-d (après b), IA3-g (après c et f), IA3-e (après c et IA1-d), IA3-h, IA3-i, IA3-j.
+> - DÉFAUTS OUVERTS de 0.4.29 : `verif-guide` 314159265 (14 OK), `ia1b2-guide` 577215664 (13 OK), `ia1-poles` (15 OK, 2 ECHEC).
+> - À L'INTÉGRATION de chaque lot : bancs sur `main` (scripts `bancs_04xx.ps1` du dossier de travail comme modèle), documents
+>   (RD_LOG, OBJECTIFS, les deux CLAUDE.md identiques, changelog, info.json), worktree retiré ; disque surveillé (≥ 2 Go).
 > **Point de 17 h 45** : `main` = **0.4.29** (IA1-b2 fusionné avec 3 défauts ouverts, documenté `5aa7b4c` ; IA3-0 fusionné
 > `f613db1`). Le DC (R-25k) : « mettrez des agents sur le coup en permanance pour avancer sur la partie IA » : SECTION IA EN
 > PARALLÈLE, relancer un agent dès qu'un lot finit (dépendances : `docs/IA3_CERVEAU.md` §6.2). En cours, chacun dans son
