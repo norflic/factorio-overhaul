@@ -418,23 +418,6 @@ function Outposts.service_smelters(f, carrier, smelt)
   local products = {}
   for p in pairs(smelt or {}) do products[#products + 1] = p end
   table.sort(products)
-  -- Lot IA3-a : pour une équipe à l'essai « recherche d'abord » (f.team.ia3_research), d'abord ce que SEULE la fonderie
-  -- du QG fournit (acier, briques : produit d'aucun avant-poste), puis les plaques d'appoint (fer, cuivre : produits des
-  -- avant-postes). Avant, l'ordre alphabétique ; les fours se vident un à un, donc le fer (qui manque presque toujours)
-  -- prenait chaque four libre et les briques des packs militaires ne passaient jamais (moteur réel, partie default,
-  -- graine 1618033988 : Émeraude, 0 brique et 1 549 pierres de 30 à 60 min, R3 jamais). 1er essai, tour de rôle continu :
-  -- trop peu de fer (moteur simulé, Impitoyable : taille moyenne des attaques 23,4 < Difficile 23,5). Les autres équipes
-  -- gardent la règle d'avant (référence des mesures). Acier et briques ne sont demandés que lorsqu'ils manquent.
-  if f.team ~= nil and f.team.ia3_research == true then
-    local appoint = {}
-    for _, kind in ipairs(T.OUTPOST_ORDER) do appoint[T.outposts[kind].product] = true end
-    local first, last = {}, {}
-    for _, p in ipairs(products) do
-      if appoint[p] then last[#last + 1] = p else first[#first + 1] = p end
-    end
-    for _, p in ipairs(last) do first[#first + 1] = p end
-    products = first
-  end
   local i = 0
   for _, s in ipairs(list) do
     local src = s.get_inventory(defines.inventory.furnace_source)
