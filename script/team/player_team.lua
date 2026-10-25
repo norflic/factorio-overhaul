@@ -71,6 +71,8 @@ local function dismiss(f, refund)
     Registry.remove(id, true)
   end
 end
+-- Lot IA1-i : exposé tel quel pour le bouton « Renvoyer l'équipe » de l'interface (même fonction que /fo-team dismiss).
+PlayerTeam.dismiss = dismiss
 
 local function on_built(e)
   local ent = e.created_entity or e.entity
