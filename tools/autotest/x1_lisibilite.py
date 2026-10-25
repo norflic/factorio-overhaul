@@ -43,6 +43,9 @@ def trouve(dossier, scene):
 
 
 def main():
+    # Console Windows en cp1252 : « Δ » plantait l'affichage sans PYTHONUTF8=1 (25/10).
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("captures")
     ap.add_argument("--json")
