@@ -30,6 +30,7 @@ local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
+local A = require("shared.faction.adversaire")
 
 local Chef = {}
 
@@ -127,7 +128,18 @@ function Chef.observe(f, tick)
             army_out = true
             local n = #g.group.members
             if n > army_seen then army_seen = n end
-            if g.target_faction == f.id then enemy_near = true end
+            if g.target_faction == f.id then
+              enemy_near = true
+              -- Lot IA2-c : attaque REÇUE de cette rivale, comptée une fois par groupe vu.
+              mem.recv_gids = mem.recv_gids or {}
+              local known = false
+              for _, x in ipairs(mem.recv_gids) do if x == gid then known = true break end end
+              if not known then
+                mem.recv_gids[#mem.recv_gids + 1] = gid
+                while #mem.recv_gids > 8 do table.remove(mem.recv_gids, 1) end
+                C.record_received(st, rid, tick)
+              end
+            end
           end
         end
       end
@@ -147,9 +159,24 @@ function Chef.observe(f, tick)
         defense = 8 * F.military.hq_turrets + (mem.army or 0) * strength
       end
       mem.defense = defense
+      -- Lot IA2-c : MODÈLE de la rivale (shared/faction/adversaire.lua) : relevé par pensée (avant-postes vus, comptés
+      -- comme 2 unités de territoire, tourelles vues), attaques reçues d'elle, nos attaques qu'elle a repoussées.
+      A.snap(mem, { tick = tick, units = 2 * outposts, turrets = mem.turrets or 0 })
+      local repulsed = 0
+      for _, a in ipairs(st.attacks) do
+        if a.target == rid and (a.outcome == "repoussee" or a.outcome == "aneantie") then repulsed = repulsed + 1 end
+      end
+      local style = A.classify({ units = 2 * outposts, turrets = mem.turrets or 0, growth = A.growth(mem, tick),
+        hits = C.received_recent(st, rid, tick, A.HIT_WINDOW), repulsed = repulsed })
+      if style ~= (mem.style or "inconnu") then
+        log(string.format("[FO-STRAT] modele tick %d %s -> %s : style %s (avant %s) : avant-postes vus %d, tourelles vues %d, croissance %d, attaques recues %d, repoussees %d",
+          tick, f.key, r.key, style, mem.style or "inconnu", outposts, mem.turrets or 0, A.growth(mem, tick),
+          C.received_recent(st, rid, tick, A.HIT_WINDOW), repulsed))
+      end
+      mem.style = style
       local aim = mem.weak or r.hq_pos
       rivals[#rivals + 1] = {
-        id = rid, outposts_seen = outposts, defense = defense, army_out = army_out,
+        id = rid, outposts_seen = outposts, defense = defense, army_out = army_out, style = style,
         weak = mem.weak ~= nil, weak_turrets = mem.weak and mem.weak.turrets or nil,
         dist = (aim and f.hq_pos) and math.floor(math.sqrt(d2(aim, f.hq_pos))) or 600,
         reachable = not Military.target_unreachable(f, rid, tick),
@@ -328,10 +355,53 @@ function Chef.attack_opts(f, target, attack, tick)
     tp = C.target_point(list, target.hq_pos, f.hq_pos) or Military.target_of(target, f.hq_pos)
   end
   local ch = Character.of(f)
-  local o = C.pick_side(st, target.id, f.hq_pos.x - tp.x, f.hq_pos.y - tp.y, ch.traits and ch.traits.ruse or 1000, draw_of(st))
+  -- Lot IA2-c : défense VUE par côté autour du point visé (tourelles de la rivale dans le champ de nos yeux).
+  local my = eyes(f)
+  local turrets = {}
+  for _, tid in ipairs(State.sorted_keys(target.turrets or {})) do
+    local t = target.turrets[tid]
+    if t and t.valid then
+      local p = t.position
+      if d2(p, tp) <= A.DEF_RADIUS * A.DEF_RADIUS and seen_by(my, p) then turrets[#turrets + 1] = { x = p.x, y = p.y } end
+    end
+  end
+  local sides = A.side_defense(turrets, tp, A.DEF_RADIUS)
+  local o = C.pick_side(st, target.id, f.hq_pos.x - tp.x, f.hq_pos.y - tp.y, ch.traits and ch.traits.ruse or 1000, draw_of(st), sides)
   local dir = C.DIRS[o]
   local approach = { x = tp.x + dir[1] * C.SIDE_RADIUS, y = tp.y + dir[2] * C.SIDE_RADIUS }
-  return { target = tp, approach = approach, octant = o, raid = attack.raid or nil, rule = attack.rule }
+  local mx = 0
+  for k = 0, 7 do if sides[k] > mx then mx = sides[k] end end
+  return { target = tp, approach = approach, octant = o, raid = attack.raid or nil, rule = attack.rule,
+    side_def = sides[o], side_max = mx }
+end
+
+--- Lot IA2-c : GO / NO-GO au rassemblement avancé contre une rivale. Ce que le groupe voit maintenant (il est à
+--- 56 tuiles du point visé, champ de 96) : tourelles de la rivale à 24 tuiles du point, soldats de la rivale à
+--- 40 tuiles. Renonce si cette défense a grossi (≥ 1,5 × l'estimation du départ + 1 tourelle) et que la force du
+--- groupe n'atteint plus 1,3 × elle (règle d'attaque entre factions).
+function Chef.rally(f, g, tick)
+  local t = State.faction(g.target_faction)
+  if not t or t.eliminated then return true end
+  local tp = g.target
+  local nt = 0
+  for _, tid in ipairs(State.sorted_keys(t.turrets or {})) do
+    local e = t.turrets[tid]
+    if e and e.valid and d2(e.position, tp) <= 24 * 24 then nt = nt + 1 end
+  end
+  local ns = 0
+  for _, sid in ipairs(State.sorted_keys(t.soldiers or {})) do
+    local s = t.soldiers[sid]
+    if s.entity and s.entity.valid and d2(s.entity.position, tp) <= 40 * 40 then ns = ns + 1 end
+  end
+  local seen = 8 * nt + ns * S.soldier_strength(F.best_soldier(t.tech or 0), t.tech or 0, t.upgrades or 0)
+  local n = #g.group.members
+  local force = n * S.soldier_strength(F.best_soldier(f.tech or 0), f.tech or 0, f.upgrades or 0)
+  local go = A.go(force, 1.3, g.launch_def or 0, seen)
+  g.seen_def = seen
+  log(string.format("[FO-STRAT] rassemblement tick %d %s -> %s : %s, defense vue %d (depart %d), force %d, %d soldats, octant %s",
+    tick, f.key, t.key, go and "go" or "renonce", math.floor(seen), math.floor(g.launch_def or 0), math.floor(force), n,
+    tostring(g.octant)))
+  return go
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -361,7 +431,9 @@ Military.on_attack_ended = function(f, g, survivors, tick, alive)
     end
   end
   local outcome
-  if not standing then
+  if g.renonce then
+    outcome = "renonce" -- lot IA2-c : le groupe a renoncé au rassemblement avancé
+  elseif not standing then
     outcome = "reussie"
   elseif survivors > 0 then
     outcome = "repoussee"
@@ -370,7 +442,7 @@ Military.on_attack_ended = function(f, g, survivors, tick, alive)
   else
     outcome = "aneantie"
   end
-  local a = C.record_outcome(f.chef, g.gid, outcome, g.size, survivors, tick)
+  local a = C.record_outcome(f.chef, g.gid, outcome, g.size, survivors, tick, g.seen_def)
   log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s, vivants %s",
     tick, f.key, t and t.key or tostring(g.target_faction), outcome, g.size or 0, survivors,
     a and tostring(a.octant) or "-", a and a.raid and ", raid" or "", alive and tostring(alive) or "-"))

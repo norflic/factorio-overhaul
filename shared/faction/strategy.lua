@@ -42,8 +42,10 @@
       last_rival,                            -- tick de la dernière attaque lancée contre une faction (IA0b), ou nil
       rally_until,                           -- fin de la fenêtre d'assaut coordonné en cours (IA0b), ou nil
       rally_defense,                         -- défense estimée de la cible de cette fenêtre (cible commune), ou nil
+      first_after,                           -- lot IA2-c : moment de la 1re attaque de la partie (tick) : pas avant
+      cooldown_mult,                         -- lot IA2-c : tempo de l'intervalle entre deux attaques (pour mille)
     } | nil,
-    player = { score, defense, reachable } | nil,  -- cible joueur repérée (secteurs, défense locale)
+    player = { score, defense, reachable } | nil,  -- cible joueur repérée (lot IA2-c : secteurs VUS, défense vue)
   }
   actions = {
     warn = minutes | nil, declare = "grace" | "provoked" | nil, truce = bool | nil, recall = bool | nil,
@@ -230,6 +232,24 @@ end
 
 function S.cooldown_ticks(level)
   return math.floor(F.pvp_params(level).cooldown_min * 3600)
+end
+
+--- Lot IA2-c : intervalle entre deux attaques contre le joueur × tempo (pv.cooldown_mult, pour mille ; nil = 1 000).
+--- Bornes : même au pire tirage ±20 %, l'intervalle d'un niveau reste plus court que celui du niveau d'en dessous
+--- (Facile 12 > Normal 9,6 ; Normal 6,4 > Difficile 6 ; Difficile 4 > 3,6). MESURÉ ET NON RETENU en jeu : tiré après
+--- chaque attaque, il casse l'ordre strict du nombre d'attaques dans la campagne de tests/pvp_test.lua (config 8,
+--- conquérants : Normal 16 = Difficile 16) ; le runtime ne le fournit pas (seul le moment de la 1re attaque varie).
+--- Jamais sous la fenêtre d'assaut coordonné (rally_min ≤ cooldown_min, IA0b : une faction ne se joint jamais à sa
+--- propre fenêtre ; Impitoyable, 3 min × 0,8 = 2,4 min la cassait dans pvp_test).
+function S.player_cooldown(pv, level)
+  local c = S.cooldown_ticks(level)
+  local m = pv and pv.cooldown_mult
+  if m then
+    c = math.floor(c * m / 1000)
+    local r = S.rally_ticks(level)
+    if c < r then c = r end
+  end
+  return c
 end
 
 --- Garnison gardée quand l'attaque vise le joueur.
@@ -486,7 +506,13 @@ function S.decide(v)
   --    lui, ni contre une faction) depuis rival_wait × l'intervalle du niveau (S.rival_stalled).
   local player_ok = pv and d.aggressive and declared and v.player and v.player.reachable
     and (v.player.score or 0) > 0
-    and (pv.last_attack == nil or pv.tick - pv.last_attack >= S.cooldown_ticks(level))
+    and (pv.last_attack == nil or pv.tick - pv.last_attack >= S.player_cooldown(pv, level))
+  -- Lot IA2-c : MOMENT de la 1re attaque de la partie contre le joueur (pv.first_after : valeur du niveau × tempo
+  -- tiré à ±20 %, shared/faction/adversaire.lua). Le joueur reste « dû » dès la déclaration (règle d'IA0 : la faction
+  -- garde ses soldats pour lui), mais aucune attaque ne part avant le moment. Moteur réel (essai 2 du lot) : avec une
+  -- préparation de 4 min seulement, Émeraude (graine 3141592653) avait vidé sa garnison sur sa rivale et n'attaquait
+  -- qu'à 34,0 min (26,2 avant le lot).
+  local hold_first = player_ok and pv.first_after ~= nil and pv.tick < pv.first_after
   local due = player_ok
     and ((v.rival == nil) or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
       or S.rival_stalled(v, level))
@@ -496,6 +522,7 @@ function S.decide(v)
   end
   if due then
     local plan, n, need = S.player_plan(v, level, pv.due_since or out.due_since)
+    if hold_first and (plan == "attack" or plan == "join") then plan = "save" end -- lot IA2-c : pas avant le moment
     out.plan, out.need, out.count = plan, need, n
     if plan == "attack" or plan == "join" then
       if v.can_attack ~= false then

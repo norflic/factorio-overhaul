@@ -127,6 +127,16 @@ Military.on_launched = nil
 --   Military.on_attack_ended(f, g, survivants, tick) : fin de la phase d'attaque d'un groupe (issue).
 Military.on_chef_launch = nil
 Military.on_attack_ended = nil
+-- Crochets branchés par script/faction/vision.lua et script/faction/chef.lua (lot IA2-c) :
+--   Military.on_rally(f, g, tick) -> bool : le groupe est au rassemblement avancé ; true = il attaque (go), false = il
+--     renonce (la défense vue a grossi) et rentre ;
+--   Military.on_player_attack_ended(f, g, survivants, tick, vivants) : fin de la phase d'attaque contre le joueur ;
+--   Military.on_scout_done(f, g, tick, arrivé) : un éclaireur a fini son aller (arrivé = true) ou l'a manqué.
+--   Military.on_scout_lost(f, g, tick, vivants) : un éclaireur (ou une patrouille) a été perdu en route.
+Military.on_rally = nil
+Military.on_player_attack_ended = nil
+Military.on_scout_done = nil
+Military.on_scout_lost = nil
 
 --- Cible d'attaque : avant-poste le plus proche de la faction visée, sinon son QG.
 function Military.target_of(target_faction, from)
@@ -156,8 +166,33 @@ function Military.attack(f, surface, target_faction, count, tick, opts)
     target_faction = target_faction.id, count = count, target = target, gather = gather, tick = tick,
     approach = approach and { x = approach.x, y = approach.y } or nil, octant = approach and opts.octant or nil,
     raid = opts.raid or nil, rule = opts.rule,
+    -- Lot IA2-c : défense estimée au départ (go / no-go au rassemblement), défense du côté choisi et du côté le plus
+    -- défendu (journal), secteur visé (mémoire des attaques contre le joueur).
+    launch_def = opts.launch_def, side_def = opts.side_def, side_max = opts.side_max, key = opts.key, direct = opts.direct,
   }
   request_route(f, surface, f.route_pending, name)
+  return true
+end
+
+--- Lot IA2-c : ÉCLAIREUR. Un soldat de la garnison part vers `dest` (itinéraire du pathfinder, comme une attaque),
+--- regarde, puis rentre par le même chemin. Ce qu'il voit (en route : son groupe est un œil ; à l'arrivée :
+--- Military.on_scout_done) est la seule source de ce qu'une faction sait d'un adversaire lointain (brouillard, D-16).
+--- Un éclaireur à la fois par faction (f.scout_pending, puis un groupe à l'état « scout »). Renvoie true s'il part.
+local SCOUT_HANDLER = "fo-war-scout"
+function Military.scout(f, surface, dest, tick, tag, size)
+  if f.scout_pending then return false end
+  for _, gid in ipairs(State.sorted_keys(f.groups)) do
+    if f.groups[gid].state == "scout" then return false end
+  end
+  size = size or 1
+  if Military.garrison_near(f) < size then return false end
+  local name = F.unit_name(f.key, F.best_soldier(f.tech))
+  local gather = surface.find_non_colliding_position(name, home(f), 20, 1) or home(f)
+  f.scout_pending = { gather = { x = gather.x, y = gather.y }, dest = { x = dest.x, y = dest.y }, tick = tick, tag = tag, size = size }
+  f.scout_pending.ticket = PathService.request(SCOUT_HANDLER, f.id, {
+    surface = surface.index, proto = name, pad = 0, start = f.scout_pending.gather, goal = f.scout_pending.dest, force = f.force,
+    radius = 24, flags = { cache = false, low_priority = true }, res = -2,
+  })
   return true
 end
 
@@ -200,17 +235,24 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
       distraction = defines.distraction.by_enemy,
     }
   end
-  cmds[#cmds + 1] = {
-    type = defines.command.attack_area,
-    destination = rp.target,
-    radius = F.military.attack_radius,
-    distraction = defines.distraction.by_enemy,
-  }
+  -- Lot IA2-c : GO / NO-GO. Avec un rassemblement avancé, la commande s'arrête au rassemblement (dernière étape) ;
+  -- à l'arrivée, Military.on_rally décide : attaque (attack_area) ou renonce (retour). Sans crochet : comme IA2-a.
+  local rally = rp.approach ~= nil and Military.on_rally ~= nil
+  if not rally then
+    cmds[#cmds + 1] = {
+      type = defines.command.attack_area,
+      destination = rp.target,
+      radius = F.military.attack_radius,
+      distraction = defines.distraction.by_enemy,
+    }
+  end
   group.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
   group.start_moving()
   -- route : étapes de l'aller (nombres seulement), reprises à l'envers si le retour direct échoue.
   f.groups[group.group_number] = { group = group, state = "attack", target = rp.target, target_faction = target_faction.id, started = tick, size = #chosen,
-    route = route, gid = group.group_number, raid = rp.raid, ids = chosen }
+    route = route, gid = group.group_number, raid = rp.raid, ids = chosen,
+    rally = rally or nil, launch_def = rp.launch_def or rp.defense, octant = rp.octant, key = rp.key }
+  rp.gid = group.group_number
   f.stats.attacks = f.stats.attacks + 1
   Journal.attack(f, target_faction, #chosen, rp, tick) -- lot IA2-0 : ligne publiée (métriques M2)
   if Military.on_launched then Military.on_launched(f, target_faction, #chosen, rp, tick) end
@@ -281,13 +323,15 @@ end
 local function attack_ended(f, g, tick)
   if not g or g.state ~= "attack" or g.ended then return end
   g.ended = true
-  if Military.on_attack_ended then
+  local hook = Military.on_attack_ended
+  if g.target_faction == "player" then hook = Military.on_player_attack_ended end -- lot IA2-c
+  if hook then
     local survivors = (g.group and g.group.valid) and #g.group.members or 0
     -- Soldats partis encore vivants (dans le groupe ou rendus à la garnison) : un groupe vidé sans morts est un
     -- groupe défait par le moteur (F174), pas une attaque repoussée.
     local alive = 0
     for _, id in ipairs(g.ids or {}) do if f.soldiers[id] then alive = alive + 1 end end
-    Military.on_attack_ended(f, g, survivors, tick, g.ids and alive or nil)
+    hook(f, g, survivors, tick, g.ids and alive or nil)
   end
 end
 
@@ -541,6 +585,55 @@ PathService.register_handler(RECALL_HANDLER, function(fid, path, ticket, reason,
   end
 end)
 
+-- Lot IA2-c : itinéraire d'un éclaireur arrivé : un soldat proche du rassemblement part (groupe d'un membre).
+PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, tick)
+  local war = State.war()
+  local f = war.factions and war.factions[fid]
+  if not f or not f.scout_pending or f.scout_pending.ticket ~= ticket then return end -- périmé
+  local sp = f.scout_pending
+  f.scout_pending = nil
+  if not war.active or f.eliminated or not (f.hq and f.hq.valid) then return end
+  if not path or #path == 0 then
+    f.stats.scout_fail = (f.stats.scout_fail or 0) + 1
+    if Military.on_scout_done then Military.on_scout_done(f, { dest = sp.dest, tag = sp.tag, nopath = true }, tick, false) end
+    return
+  end
+  local chosen = {}
+  local r2 = GATHER_RADIUS * GATHER_RADIUS
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    if #chosen >= (sp.size or 1) then break end
+    local s = f.soldiers[id]
+    if not s.group and s.entity.valid then
+      local p = s.entity.position
+      local dx, dy = p.x - sp.gather.x, p.y - sp.gather.y
+      if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id end
+    end
+  end
+  if #chosen == 0 then return end
+  local surface = game.surfaces[war.surface]
+  local group = surface.create_unit_group({ position = sp.gather, force = f.force })
+  for _, id in ipairs(chosen) do
+    group.add_member(f.soldiers[id].entity)
+    f.soldiers[id].group = group.group_number
+  end
+  f.garrison_count = f.garrison_count - #chosen
+  local route = waypoints_along(path)
+  -- Un éclaireur seul passe sans combattre ; une PATROUILLE (après des éclaireurs perdus) riposte.
+  local dist = #chosen > 1 and defines.distraction.by_enemy or defines.distraction.none
+  local cmds = {}
+  for _, p in ipairs(route) do
+    cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = p, radius = 12, distraction = dist }
+  end
+  cmds[#cmds + 1] = { type = defines.command.go_to_location, destination = sp.dest, radius = 16, distraction = dist }
+  group.set_command({ type = defines.command.compound, structure_type = defines.compound_command.return_last, commands = cmds })
+  group.start_moving()
+  f.groups[group.group_number] = { group = group, state = "scout", started = tick, size = #chosen, route = route, ids = chosen,
+    dest = sp.dest, tag = sp.tag, gid = group.group_number }
+  f.stats.scouts = (f.stats.scouts or 0) + 1
+  log(string.format("[FO-PVP] eclaireur tick %d %s : en route (groupe %d, %d soldat(s), %d etapes)", tick, f.key, group.group_number,
+    #chosen, #route))
+end)
+
 --- Entretien périodique (appelé par le commandant) : groupes vides ou bloqués, soldats égarés, rappel.
 function Military.maintain(f, tick)
   local strays = 0
@@ -554,6 +647,15 @@ function Military.maintain(f, tick)
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
     if not g.group.valid or #g.group.members == 0 then
+      if g.state == "scout" then
+        -- Lot IA2-c : éclaireur perdu en route (tués, ou retirés du groupe par le moteur : F174).
+        local alive = 0
+        for _, id in ipairs(g.ids or {}) do if f.soldiers[id] then alive = alive + 1 end end
+        f.stats.scouts_lost = (f.stats.scouts_lost or 0) + 1
+        log(string.format("[FO-PVP] eclaireur tick %d %s : perdu apres %d ticks (groupe %d, %d soldat(s) vivant(s) sur %d)", tick, f.key,
+          tick - g.started, gid, alive, g.size or 1))
+        if Military.on_scout_lost then Military.on_scout_lost(f, g, tick, alive) end
+      end
       if g.state == "attack" and tick - g.started < DISSOLVE_TICKS then
         -- Lot IA2-a : groupe vidé juste après son départ (F174 : membres retirés par le moteur, sans mort). Moteur
         -- réel (graine 777) : relancé à chaque pensée, 328 fois en 2 h. Attente croissante avant la suivante
@@ -602,7 +704,25 @@ Events.on(defines.events.on_ai_command_completed, function(e)
     local f = war.factions[id]
     local g = f.groups[e.unit_number]
     if g then
-      if g.state == "attack" then
+      if g.state == "attack" and g.rally and not g.rallied and e.result ~= defines.behavior_result.fail
+        and g.group.valid and #g.group.members > 0 then
+        -- Lot IA2-c : arrivé au rassemblement avancé : go / no-go (défense vue maintenant, crochet du chef ou du
+        -- modèle du joueur). Go : attaque de zone sur le point visé ; renonce : retour (issue « renonce »).
+        g.rallied = true
+        if Military.on_rally(f, g, e.tick) ~= false then
+          g.group.set_command({ type = defines.command.attack_area, destination = g.target, radius = F.military.attack_radius,
+            distraction = defines.distraction.by_enemy })
+          g.group.start_moving()
+        else
+          g.renonce = true
+          f.stats.renonce = (f.stats.renonce or 0) + 1
+          order_return(f, e.unit_number, e.tick)
+        end
+      elseif g.state == "scout" then
+        -- Lot IA2-c : fin de l'aller d'un éclaireur (arrivé ou non) : ce qu'il a vu, puis retour.
+        if Military.on_scout_done then Military.on_scout_done(f, g, e.tick, e.result ~= defines.behavior_result.fail) end
+        order_return(f, e.unit_number, e.tick)
+      elseif g.state == "attack" then
         -- Échec presque immédiat = commande impossible (terrain) : on ne relance pas en boucle.
         if e.result == defines.behavior_result.fail and e.tick - g.started < 600 then
           f.stats.attack_fail = (f.stats.attack_fail or 0) + 1

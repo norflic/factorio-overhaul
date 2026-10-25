@@ -237,14 +237,14 @@ do
   end
   check(fronts + in_reserve >= 1, "des sites trouvés depuis un front (choisis " .. fronts .. ", en réserve " .. in_reserve .. ")")
   check(dropped >= 4 and turns >= 8, "réserve renouvelée (" .. dropped .. " sites oubliés) et origines alternées (" .. turns .. " tours)")
-  local over = false
+  local over, detail = false, {}
   for _, f in ipairs(war.factions) do
     local per = {}
     for _, s in ipairs(f.prospects or {}) do per[s.resource] = (per[s.resource] or 0) + 1 end
-    for _, n in pairs(per) do if n > 3 then over = true end end
-    if #(f.prospects or {}) > 12 then over = true end
+    for r, n in pairs(per) do if n > 3 then over = true; detail[#detail + 1] = f.key .. " " .. r .. " " .. n end end
+    if #(f.prospects or {}) > 12 then over = true; detail[#detail + 1] = f.key .. " total " .. #f.prospects end
   end
-  check(not over, "réserve : au plus 3 sites par ressource, 12 en tout")
+  check(not over, "réserve : au plus 3 sites par ressource, 12 en tout (" .. table.concat(detail, ", ") .. ")")
 end
 
 section("Moteur simulé : même graine, mêmes choix")

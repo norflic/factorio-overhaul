@@ -589,7 +589,10 @@ local function step_groups(tick)
   for _, g in ipairs(W.groups) do
     if g.valid and g._command and not g._done then
       local cmd = g._command
-      local is_attack = cmd.type == defines.command.compound or cmd.type == defines.command.attack_area
+      -- Lot IA2-c : une commande composée qui finit par un déplacement (éclaireur, arrêt au rassemblement avancé,
+      -- retour par l'itinéraire) n'attaque pas : seule la dernière commande décide (moteur réel : go_to_location).
+      local is_attack = cmd.type == defines.command.attack_area
+        or (cmd.type == defines.command.compound and cmd.commands[#cmd.commands].type ~= defines.command.go_to_location)
       local delay = is_attack and W.attack_delay or W.return_delay
       if tick - g._since >= delay then
         g._done = true

@@ -8,11 +8,14 @@
   - Décision PURE (shared/faction/strategy.lua, S.decide) : délai de grâce, préavis, déclaration de
     guerre, cible (le joueur quand il est « dû », sinon la rivale), effectif. Ce module ne fait que
     construire la vue et appliquer les actions.
-  - Repérage des installations du joueur à coût BORNÉ et ÉTALÉ : voie « fo-pvp-scan », 1 secteur de
-    64 × 64 tuiles toutes les 8 ticks (un count_entities_filtered), sur un disque de 24 secteurs
-    (1 536 tuiles) autour du point de départ du joueur, balayé en 4 min. Rien n'est compté en « Paisible ».
-  - Cible : secteur repéré le plus proche du QG de la faction (le secteur de départ du joueur en dernier,
-    comme un QG), installation réelle la plus proche, défense = 8 × tourelles à 40 tuiles.
+  - Repérage des installations du joueur SOUS BROUILLARD (lot IA2-c, script/faction/vision.lua ; avant : balayage
+    global d'un disque de 1 536 tuiles, lu par toutes les factions) : chaque faction ne sait que ce que ses yeux
+    (QG, avant-postes, groupes, éclaireurs) ont vu ; voie « fo-pvp-scan », 1 regard (un count_entities_filtered)
+    toutes les 8 ticks, les factions à tour de rôle. Rien n'est regardé en « Paisible ».
+  - Cible : choisie par le style du joueur vu par la faction (shared/faction/adversaire.lua : la plus proche par
+    défaut, le secteur de départ en dernier ; la moins défendue contre une tortue ; la plus isolée contre un
+    expansionniste), installation (pas une tourelle) la plus proche, défense = 8 × tourelles VUES à 40 tuiles
+    (+ défense apprise) ; côté d'arrivée le moins défendu, go / no-go au rassemblement (lot IA2-c).
   - Provocation : seule la destruction d'une entité de la faction SOUS cessez-le-feu en est une. En guerre
     ouverte, abattre un attaquant (tourelle, compagnon) est de la légitime défense : aucun effet.
   - Messages au joueur : préavis, déclaration de guerre, départ de chaque attaque (lien [gps]), trêve,
@@ -22,7 +25,8 @@
   LIMITES (documentées, non traitées) :
   - seule la force « player » est visée et repérée : en multijoueur avec plusieurs forces de joueurs
     (équipes), les autres forces ne sont jamais attaquées et leur cessez-le-feu n'est pas géré ;
-  - une installation au-delà du disque de repérage (1 536 tuiles du point de départ) n'est jamais ciblée.
+  - lot IA2-c : une installation que ni les yeux ni les éclaireurs d'une faction n'ont vue n'est jamais ciblée par
+    elle (les éclaireurs sondent le point de départ du joueur, puis des anneaux de 224 et 448 tuiles autour).
 
   Lot IA0b (base défendue) : la décision pure assiège (« siege » : la faction garde ses soldats pour le
   joueur), se dit dissuadée (« deterred ») ou se joint à un assaut coordonné (« join », Difficile et
@@ -49,6 +53,8 @@ local State = require("script.faction.state")
 local Military = require("script.faction.military")
 local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
+local Vision = require("script.faction.vision")
+local A = require("shared.faction.adversaire")
 
 local PvP = {}
 
@@ -57,45 +63,12 @@ PvP.SCAN_LANE = "fo-pvp-scan"
 
 local R = F.pvp_rules
 
--- Installations du joueur qui comptent comme cibles (production, énergie, défense, stockage). Les
--- convoyeurs, bras, poteaux, tuyaux et murs n'en sont pas : ils n'indiquent pas une base.
-local INSTALL_TYPES = {
-  "assembling-machine", "furnace", "mining-drill", "lab", "boiler", "generator", "reactor", "solar-panel",
-  "accumulator", "radar", "rocket-silo", "roboport", "beacon", "storage-tank", "container", "logistic-container",
-  "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret",
-}
-local TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret", "artillery-turret" }
-
--- Disque de repérage (en secteurs), du plus proche au plus lointain du point de départ.
-local OFFSETS = {}
-do
-  local r = R.scan_radius
-  for dx = -r, r do
-    for dy = -r, r do
-      local d2 = dx * dx + dy * dy
-      if d2 <= r * r then OFFSETS[#OFFSETS + 1] = { dx = dx, dy = dy, d2 = d2 } end
-    end
-  end
-  table.sort(OFFSETS, function(p, q)
-    if p.d2 ~= q.d2 then return p.d2 < q.d2 end
-    if p.dy ~= q.dy then return p.dy < q.dy end
-    return p.dx < q.dx
-  end)
-end
-PvP.SECTORS = #OFFSETS
-
 local function fname(f) return { "fo-faction.name-" .. f.key } end
 local function level_name(level) return { "fo-pvp.level-" .. level } end
 
 local function say(msg, plain)
   game.print(msg)
   log(plain)
-end
-
-local function sector_key(sx, sy) return State.chunk_key(sx, sy) end
-local function sector_xy(key)
-  local sx = math.floor(key / 65536) - 32768
-  return sx, key - (sx + 32768) * 65536 - 32768
 end
 
 local function gps(surface, pos)
@@ -135,8 +108,10 @@ PvP.faction_state = faction_state
 local function new_state(war, tick, level)
   local surface = game.surfaces[war.surface]
   local spawn = game.forces.player.get_spawn_position(surface)
+  -- Lot IA2-c : plus de comptage global (`sectors`, `score`, `cursor` d'IA0) ; `sweeps` compte les regards des
+  -- factions ; `tempo` et `first_done` : moment de la 1re attaque de la partie (script/faction/vision.lua).
   return {
-    difficulty = level, anchor = tick, sectors = {}, score = 0, cursor = 1, sweeps = 0, losses = 0,
+    difficulty = level, anchor = tick, sweeps = 0, losses = 0, first_done = false,
     home = { x = math.floor(spawn.x / R.sector), y = math.floor(spawn.y / R.sector) },
   }
 end
@@ -280,39 +255,10 @@ function PvP.sync(tick)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Repérage des installations du joueur (coût borné, étalé)
+-- Repérage du joueur SOUS BROUILLARD (lot IA2-c, script/faction/vision.lua) : chaque faction ne sait que ce que ses
+-- yeux (QG, avant-postes, groupes, éclaireurs) ont vu. La voie « fo-pvp-scan » (toutes les 8 ticks, 1 comptage par
+-- passe, comme le balayage global d'IA0 qu'elle remplace) regarde le secteur suivant de la file d'une faction.
 ---------------------------------------------------------------------------------------------------
-local function sector_set(p, key, n)
-  local old = p.sectors[key] or 0
-  if n > 0 then p.sectors[key] = n else p.sectors[key] = nil end
-  local was_q, now_q = old >= R.sector_min, n >= R.sector_min
-  if now_q and not was_q then p.score = p.score + 1 elseif was_q and not now_q then p.score = p.score - 1 end
-end
-
-local function sector_area(sx, sy)
-  local x0, y0 = sx * R.sector, sy * R.sector
-  return { { x0, y0 }, { x0 + R.sector, y0 + R.sector } }
-end
-
---- Une passe : `scan_per_pass` secteurs, chacun compté par UN appel moteur (aucun objet Lua créé).
-function PvP.scan_step(surface, p)
-  for _ = 1, R.scan_per_pass do
-    local k = p.cursor or 1
-    if k > #OFFSETS then
-      k = 1
-      p.sweeps = (p.sweeps or 0) + 1
-    end
-    p.cursor = k + 1
-    local o = OFFSETS[k]
-    local sx, sy = p.home.x + o.dx, p.home.y + o.dy
-    local n = 0
-    if surface.is_chunk_generated({ x = sx * 2, y = sy * 2 }) then
-      n = surface.count_entities_filtered({ area = sector_area(sx, sy), force = "player", type = INSTALL_TYPES, limit = 64 })
-    end
-    sector_set(p, sector_key(sx, sy), n)
-  end
-end
-
 Scheduler.define_lane(PvP.SCAN_LANE, R.scan_period, function(_, tick)
   local war = State.war()
   local p = war.active and war.pvp
@@ -324,62 +270,23 @@ Scheduler.define_lane(PvP.SCAN_LANE, R.scan_period, function(_, tick)
   local surface = game.surfaces[war.surface]
   if not surface then return end
   Profiler.start("pvp:scan")
-  PvP.scan_step(surface, p)
+  Vision.pass(surface, p, tick)
   Profiler.stop("pvp:scan")
 end)
 
---- Cible joueur d'une faction : secteur qualifié le plus proche de son QG (le secteur de départ du
---- joueur en dernier), recompté exactement ; installation réelle la plus proche du QG ; défense locale.
-local function find_player_target(f, surface, p, tick)
-  local home = sector_key(p.home.x, p.home.y)
-  local keys = State.sorted_keys(p.sectors)
-  for _ = 1, 3 do
-    local best, best_d
-    for _, key in ipairs(keys) do
-      if (p.sectors[key] or 0) >= R.sector_min then
-        local sx, sy = sector_xy(key)
-        local dx = sx * R.sector + R.sector / 2 - f.hq_pos.x
-        local dy = sy * R.sector + R.sector / 2 - f.hq_pos.y
-        local dd = dx * dx + dy * dy
-        if key == home then dd = dd + 1e12 end
-        if not best_d or dd < best_d then best, best_d = key, dd end
-      end
-    end
-    if not best then return nil end
-    local sx, sy = sector_xy(best)
-    local list = surface.find_entities_filtered({ area = sector_area(sx, sy), force = "player", type = INSTALL_TYPES, limit = 16 })
-    if #list >= R.sector_min then
-      local pos, pd
-      for _, e in ipairs(list) do
-        local ep = e.position
-        local dx, dy = ep.x - f.hq_pos.x, ep.y - f.hq_pos.y
-        local dd = dx * dx + dy * dy
-        if not pd or dd < pd or (dd == pd and (ep.x < pos.x or (ep.x == pos.x and ep.y < pos.y))) then
-          pos, pd = { x = ep.x, y = ep.y }, dd
-        end
-      end
-      local turrets = surface.count_entities_filtered({ position = pos, radius = R.defense_radius, force = "player", type = TURRET_TYPES })
-      return { pos = pos, sector = best, turrets = turrets, defense = R.defense_per_turret * turrets, tick = tick }
-    end
-    sector_set(p, best, #list) -- le repérage datait : secteur corrigé, on essaie le suivant
-  end
-  return nil
-end
-
 --- Vue « joueur » d'une faction, évaluée seulement quand elle peut servir (niveau agressif, guerre
---- déclarée ou grâce écoulée, intervalle entre deux attaques écoulé). nil sinon.
+--- déclarée ou grâce écoulée, intervalle entre deux attaques écoulé). nil sinon (ou si elle n'a rien vu).
 local function player_view(f, surface, p, fp, tick, level)
-  if not F.pvp_params(level).aggressive or p.score <= 0 then return nil end
+  if not F.pvp_params(level).aggressive then return nil end
   if not fp.declared and not fp.provoked and tick < grace_end(p, fp, level, f) then return nil end
+  local v = Vision.state(f)
   if fp.last_attack and tick - fp.last_attack < S.cooldown_ticks(level) then return nil end
-  if Military.target_unreachable(f, "player", tick) then return { score = p.score, defense = 0, reachable = false } end
-  local t = fp.target
-  if not t or tick - t.tick >= R.target_ttl or (p.sectors[t.sector] or 0) < R.sector_min then
-    t = find_player_target(f, surface, p, tick)
-    fp.target = t
+  if Military.target_unreachable(f, "player", tick) then
+    local n = #State.sorted_keys(v.known)
+    if n == 0 then return nil end
+    return { score = n, defense = 0, reachable = false }
   end
-  if not t then return nil end
-  return { score = p.score, defense = t.defense, reachable = true }
+  return Vision.player_view(f, p, fp, tick)
 end
 
 local function player_groups(f)
@@ -410,12 +317,29 @@ function PvP.think(f, surface, tick, view, target)
   view.rival = target and { id = target.id, outposts = target.outposts_count } or nil
   view.own_outposts = f.outposts_count
   view.leader_outposts = leader
+  -- Lot IA2-c : brouillard. Aux niveaux agressifs, la faction prépare ses regards (file de secteurs), tient son
+  -- modèle du joueur (style) et envoie ses éclaireurs ; « Paisible » : rien (aucun coût).
+  Vision.state(f)
+  local aggressive = F.pvp_params(level).aggressive
+  if aggressive and f.hq_pos then
+    Vision.plan(f, tick)
+    Vision.update_model(f, tick)
+    Vision.scout_policy(f, surface, p, fp, tick, grace_end(p, fp, level, f))
+  end
+  -- Lot IA2-c : moment de la 1re attaque de la partie (valeur du niveau × tempo de la partie, ±20 %), sauf pour une
+  -- faction provoquée (représailles). (Intervalle entre deux attaques × tempo tiré à ±20 % : mesuré, NON retenu, il
+  -- casse l'ordre strict des niveaux dans la campagne de tests/pvp_test.lua.)
+  local first_after
+  if aggressive and not Vision.first_done(p) and not fp.provoked then
+    first_after = A.first_after(p.anchor, level, Vision.game_tempo(p))
+  end
   view.pvp = {
     difficulty = level, tick = tick, anchor = p.anchor, grace_floor = fp.grace_floor,
     declared = fp.declared, provoked = fp.provoked,
     warned = fp.warned, last_attack = fp.last_attack, sent_player = fp.sent_player, sent_total = fp.sent_total,
     player_groups = player_groups(f), due_since = fp.due_since, last_rival = fp.last_rival,
     rally_until = p.rally_until, rally_defense = p.rally_until and p.rally_target and p.rally_target.defense or nil,
+    first_after = first_after,
   }
   view.player = player_view(f, surface, p, fp, tick, level)
   local a = S.decide(view)
@@ -448,7 +372,10 @@ function PvP.think(f, surface, tick, view, target)
       local rt = a.attack.join and p.rally_target or nil
       local pos = rt and { x = rt.x, y = rt.y } or fp.target.pos
       local defense = rt and rt.defense or fp.target.defense
-      if Military.attack(f, surface, { id = "player", key = "player", hq_pos = pos, outposts = {} }, a.attack.count, tick)
+      -- Lot IA2-c : côté le moins défendu (défense VUE par octant), rassemblement avancé, go / no-go.
+      local key = rt and A.key(A.sector_of(pos.x, pos.y)) or fp.target.sector
+      local opts = Vision.attack_opts(f, pos, defense, key)
+      if Military.attack(f, surface, { id = "player", key = "player", hq_pos = pos, outposts = {} }, a.attack.count, tick, opts)
         and f.route_pending then
         f.route_pending.join, f.route_pending.need, f.route_pending.defense = a.attack.join or nil, a.need, defense
         if a.rally then
@@ -464,7 +391,10 @@ function PvP.think(f, surface, tick, view, target)
       end
     elseif target and a.attack.target == target.id then
       -- Lot IA2-a : point visé (raid : avant-poste vu le plus faible) et côté d'arrivée choisis par le chef.
-      Military.attack(f, surface, target, a.attack.count, tick, Chef.attack_opts(f, target, a.attack, tick))
+      local opts = Chef.attack_opts(f, target, a.attack, tick)
+      -- Lot IA2-c : défense estimée au départ (go / no-go au rassemblement avancé).
+      if opts and view.enemy_defense and view.enemy_defense < math.huge then opts.launch_def = view.enemy_defense end
+      Military.attack(f, surface, target, a.attack.count, tick, opts)
     end
   end
   return a
@@ -493,6 +423,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Crochets du module militaire
 ---------------------------------------------------------------------------------------------------
+-- Lot IA2-c : go / no-go au rassemblement avancé d'une attaque contre une rivale (script/faction/chef.lua).
+Vision.rally_rival = Chef.rally
+
 --- Une route vers le joueur arrive : l'attaque part-elle encore (niveau, guerre déclarée) ?
 Military.player_target_allowed = function(f)
   local p = State.war().pvp
@@ -519,10 +452,16 @@ Military.on_launched = function(f, target_faction, n, rp, tick)
   fp.last_target = { x = rp.target.x, y = rp.target.y, defense = rp.defense }
   local surface = game.surfaces[State.war().surface]
   if rp.join then fp.joins = (fp.joins or 0) + 1 end
+  -- Lot IA2-c : mémoire de l'attaque (secteur, octant), 1re attaque de la partie faite.
+  local war = State.war()
+  if war.pvp then war.pvp.first_done = true end
+  local v = Vision.state(f)
+  A.record_given(v.model, { gid = rp.gid, key = rp.key, octant = rp.octant, n = n, tick = tick })
   say({ rp.join and "fo-pvp.attack-joined" or "fo-pvp.attack", fname(f), n, gps(surface, rp.target) },
-    string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d, besoin %d, tech %d%s",
+    string.format("[FO-PVP] attaque tick %d %s -> joueur : %d soldats vers (%d, %d), defense estimee %d, besoin %d, tech %d%s, octant %s, cote %s sur %s, direct %s, style %s, tempo %d",
       tick, f.key, n, math.floor(rp.target.x), math.floor(rp.target.y), rp.defense or (fp.target and fp.target.defense) or 0,
-      rp.need or 0, f.tech or 0, rp.join and " (assaut coordonne)" or ""))
+      rp.need or 0, f.tech or 0, rp.join and " (assaut coordonne)" or "", tostring(rp.octant or "-"), tostring(rp.side_def or "-"),
+      tostring(rp.side_max or "-"), tostring(rp.direct or "-"), v.model.style or "-", war.pvp and war.pvp.tempo or 1000))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -566,11 +505,13 @@ function PvP.status(tick)
   local level = PvP.difficulty()
   local out = {
     active = war.active, difficulty = level, forced = war.pvp_forced, anchor = p and p.anchor,
-    score = p and p.score or 0, sweeps = p and p.sweeps or 0, losses = p and p.losses or 0,
+    score = 0, sweeps = p and p.sweeps or 0, losses = p and p.losses or 0,
     sectors = 0, factions = {}, rally_until = p and p.rally_until,
+    tempo = p and p.tempo, first_done = p and p.first_done,
     rally_target = p and p.rally_target and { x = p.rally_target.x, y = p.rally_target.y, defense = p.rally_target.defense } or nil,
   }
-  if p then for _ in pairs(p.sectors) do out.sectors = out.sectors + 1 end end
+  -- Lot IA2-c : plus de comptage global ; `sectors` = secteurs du joueur vus par la faction qui en voit le plus,
+  -- `score` = la même chose (compatibilité des bancs d'IA0).
   for _, id in ipairs(State.sorted_keys(war.factions or {})) do
     local f = war.factions[id]
     local fp = f.pvp or {}
@@ -586,6 +527,13 @@ function PvP.status(tick)
       last_target = fp.last_target and { x = fp.last_target.x, y = fp.last_target.y, defense = fp.last_target.defense } or nil,
       last_rival = fp.last_rival, plan = fp.plan, sieges = fp.sieges or 0, deterred = fp.deterred or 0, joins = fp.joins or 0, tech = f.tech,
     }
+    local v = fp.vision
+    local rec = out.factions[#out.factions]
+    rec.known = v and #State.sorted_keys(v.known) or 0
+    rec.style = v and v.model.style or "inconnu"
+    rec.scouts = f.stats and f.stats.scouts or 0
+    rec.renonce = f.stats and f.stats.renonce_joueur or 0 -- renoncements au rassemblement contre le joueur
+    if rec.known > out.sectors then out.sectors, out.score = rec.known, rec.known end
   end
   return out
 end
@@ -594,11 +542,12 @@ function PvP.status_line(tick)
   local st = PvP.status(tick)
   local parts = {}
   for _, fs in ipairs(st.factions) do
-    parts[#parts + 1] = string.format("%s %s%s att %d (%d soldats, %d jointes) sieges %d pertes infligees %d", fs.key,
-      fs.declared and "GUERRE" or "treve", fs.provoked and "*" or "", fs.attacks, fs.soldiers, fs.joins, fs.sieges, fs.kills)
+    parts[#parts + 1] = string.format("%s %s%s att %d (%d soldats, %d jointes) sieges %d pertes infligees %d, vus %d, style %s", fs.key,
+      fs.declared and "GUERRE" or "treve", fs.provoked and "*" or "", fs.attacks, fs.soldiers, fs.joins, fs.sieges, fs.kills,
+      fs.known, fs.style)
   end
-  return string.format("  PvP : difficulte %s | secteurs du joueur %d (cibles %d, balayages %d) | pertes du joueur %d | %s",
-    st.difficulty, st.sectors, st.score, st.sweeps, st.losses, table.concat(parts, " ; "))
+  return string.format("  PvP : difficulte %s | secteurs du joueur vus %d (regards %d) | pertes du joueur %d | %s",
+    st.difficulty, st.sectors, st.sweeps, st.losses, table.concat(parts, " ; "))
 end
 
 --- Impose un niveau sans joueur (bancs). Écrit le réglage du mod (un mod peut changer ses propres

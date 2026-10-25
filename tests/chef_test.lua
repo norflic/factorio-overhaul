@@ -456,6 +456,24 @@ for _, l in ipairs(lines) do if l:find("[FO-STRAT] attaque", 1, true) and l:find
 print(string.format("  attaques %d (dont %d avec rassemblement avancé), issues %d, raids %d", att, with_side, count(lines, "[FO-STRAT] issue"), raids))
 for k, l in ipairs(lines) do if k <= 6 or l:find("[FO-STRAT] issue", 1, true) then print("    " .. l) end end
 check(att == 0 or with_side >= 1, "attaques entre factions avec un rassemblement avancé (côté choisi par le chef)")
+-- Lot IA2-c : go / no-go au rassemblement avancé (une ligne par groupe arrivé) et modèle des rivales (styles).
+do
+  local go, ren, models = 0, 0, 0
+  for _, l in ipairs(W().logs) do
+    if l:find("[FO-STRAT] rassemblement", 1, true) then
+      if l:find(": go,", 1, true) then go = go + 1 elseif l:find(": renonce,", 1, true) then ren = ren + 1 end
+    elseif l:find("[FO-STRAT] modele", 1, true) then
+      models = models + 1
+    end
+  end
+  print(string.format("  lot IA2-c : rassemblements %d go, %d renonce ; changements de style des rivales %d", go, ren, models))
+  check(with_side == 0 or go + ren >= 1, "IA2-c : décision au rassemblement avancé publiée (« [FO-STRAT] rassemblement »)")
+  local styled = 0
+  for _, f in ipairs(global.fo.war.factions) do
+    for _, mem in pairs(f.chef and f.chef.seen or {}) do if mem.style then styled = styled + 1 end end
+  end
+  check(styled >= 1, "IA2-c : style des rivales tenu par le chef (" .. styled .. " modèles)")
+end
 check(pcall(M.serialize, global), "global sérialisable (état du chef)")
 M.command("fo-war", "status")
 local status_ok = false

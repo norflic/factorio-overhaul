@@ -524,7 +524,8 @@ function Outposts.on_drill_lost(f, oid)
     end
     -- Le gisement reste là : il revient à la réserve pour une reconstruction (règle du cerveau d'équipe).
     local spec = T.outposts[o.kind]
-    if spec then
+    -- Lot IA2-c : dans les bornes de la réserve seulement (Sites.room_for) ; sinon la réserve a déjà ses choix.
+    if spec and Sites.room_for(f, spec.resource) then
       f.prospects = f.prospects or {}
       local info = o.site_info or {}
       f.prospects[#f.prospects + 1] = { x = o.pos.x, y = o.pos.y, resource = spec.resource, lost = true,
