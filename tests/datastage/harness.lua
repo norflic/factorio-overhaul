@@ -819,6 +819,10 @@ for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
 local FourSheets = dofile(HERE .. "/four_sheets.lua")
 local four_sheets = FourSheets.check(MOD_ROOT)
 for _, l in ipairs(FourSheets.lines(four_sheets)) do print(l) end
+-- Feuilles de la machine d'assemblage hors de git (D-6, lot F3-B) : même contrôle
+local AsmSheets = dofile(HERE .. "/asm_sheets.lua")
+local asm_sheets = AsmSheets.check(MOD_ROOT)
+for _, l in ipairs(AsmSheets.lines(asm_sheets)) do print(l) end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -887,5 +891,5 @@ for i = 1, math.min(#lot_errors, 40) do print("  LOT " .. lot_errors[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
   and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
-  and FourSheets.ok(four_sheets)
+  and FourSheets.ok(four_sheets) and AsmSheets.ok(asm_sheets)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)
