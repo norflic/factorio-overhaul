@@ -14,7 +14,8 @@ Règle 60/30/10 de l'âge : CHAMP = dominante, CADRE = secondaire, accent de l'�
 
 FORMES (le type se lit à la silhouette, pas à la couleur) :
   - vitesse      : CHEVRON pointé vers la droite (« > »), cœur lumineux à la pointe ;
-  - productivité : ENGRENAGE à 8 dents, cœur lumineux au moyeu ;
+  - productivité : CROIX « + » (le produit en plus), cœur lumineux au centre (2e jet : l'engrenage du premier jet se
+                   confondait en mode Alt avec l'icône de recette de la roue dentée) ;
   - efficacité   : FEUILLE en diagonale (pointe en haut à droite, tige en bas à gauche), nervure lumineuse.
 MONTÉE DU PALIER : matières de la génération (âge 6, 10, 14) ; éclat du cœur et halo qui croissent de 1 à 10 ; pièces
 propres à l'âge, en nombre = rang dans la génération (âge 10 : 1 à 4 VOYANTS bleus ; âge 14 : 1 à 5 ÉTOILES semées) ;
@@ -221,6 +222,21 @@ def _engrenage(cx, cy, n, r_pied, r_tete, f_tete, f_pied, arc=6):
 
 
 def geo_productivite():
+    """CROIX « + » (le produit en plus). L'engrenage du premier jet (geo_productivite_engrenage, gardé pour mémoire) se
+    confondait en mode Alt avec l'icône de recette de la roue dentée, affichée juste au-dessus des modules."""
+    cx, cy = 32.0, 32.0
+    bras = 12.0
+    sil = np.minimum(sd_boite(3.0, cy - bras, 61.0, cy + bras, 4.0), sd_boite(cx - bras, 3.0, cx + bras, 61.0, 4.0))
+    champ = sil + CADRE
+    log = sd_cercle(cx, cy, 9.6)
+    coeur = sd_cercle(cx, cy, 5.8)
+    # pièces : une par bras (haut, droite, bas, gauche), puis une seconde sur le bras du haut
+    slots = [(cx, cy - 14.5), (cx + 15.5, cy), (cx, cy + 15.5), (cx - 15.5, cy), (cx, cy - 23.0)]
+    return dict(sil=sil, champ=champ, logement=log, coeur=coeur, coeur_centre=(cx, cy), slots=slots, cables=[],
+                nervure=None)
+
+
+def geo_productivite_engrenage():
     cx, cy = 31.0, 31.0
     sil = sd_poly(_engrenage(cx, cy, 8, 23.0, 29.0, 0.36, 0.56)) - 1.2
     champ = sil + CADRE
@@ -371,7 +387,7 @@ def rendre_art(t, k, avec_plaque_vecteur=False):
             emis += np.array([0.5, 0.7, 1.0])[None, None, :] * (a_p * d * d)[..., None] * 0.9
         else:
             # étoile à 4 branches (croix fine + point), blanc d'étoile
-            r = 3.3
+            r = 3.0
             croix = np.minimum(sd_segment(sx - r, sy, sx + r, sy, 0.45), sd_segment(sx, sy - r, sx, sy + r, 0.45))
             point = sd_cercle(sx, sy, 1.15)
             a_c = couv(croix)
@@ -398,7 +414,7 @@ def rendre_art(t, k, avec_plaque_vecteur=False):
     # plaque vectorielle (icône d'objet à 64 px, icônes de technologie)
     if avec_plaque_vecteur:
         a_pl, a_gl = plaque_vecteur(k)
-        poser(a_pl, dict(R["plaque"], rgb=tuple(np.asarray(R["plaque"]["rgb"]) + 0.012)))
+        poser(a_pl, dict(R["plaque"], rgb=tuple(np.asarray(R["plaque"]["rgb"]) * 0.6 + 0.006)))
         H = H * (1 - a_pl) + (3.4 + 0.6 * profil(sd_plaque(k), 0.7)) * a_pl
         alb = _melange(alb, lum * 0.3, a_gl)
         emis = emis * (1 - a_pl[..., None]) + couleur_glyphe(R, k)[None, None, :] * a_gl[..., None]
@@ -505,10 +521,11 @@ def plaque_vecteur(k):
     return a_pl, a_gl
 
 
-def lin_vers_srgb(c):
+def lin_vers_srgb(c, epaule=True):
     c = np.clip(c, 0.0, None)
-    # épaule douce au-dessus de 0,85 (les lumières tendent vers le blanc sans plat dur)
-    c = np.where(c > 0.85, 0.85 + 0.15 * (1.0 - np.exp(-(c - 0.85) / 0.15)), c)
+    # épaule douce au-dessus de 0,85 (les lumières tendent vers le blanc sans plat dur) ; pas pour une image déjà finie
+    if epaule:
+        c = np.where(c > 0.85, 0.85 + 0.15 * (1.0 - np.exp(-(c - 0.85) / 0.15)), c)
     c = np.clip(c, 0.0, 1.0)
     return np.where(c <= 0.0031308, 12.92 * c, 1.055 * np.power(c, 1 / 2.4) - 0.055)
 
@@ -525,11 +542,11 @@ def reduire(rgb, alpha, taille):
     return r, a
 
 
-def en_image(rgb_pm, a):
+def en_image(rgb_pm, a, epaule=True):
     """Prémultiplié linéaire -> RGBA 8 bits sRGB (non prémultiplié)."""
     with np.errstate(invalid="ignore", divide="ignore"):
         c = np.where(a[..., None] > 1e-4, rgb_pm / np.maximum(a[..., None], 1e-4), 0.0)
-    s = lin_vers_srgb(c)
+    s = lin_vers_srgb(c, epaule)
     out = np.zeros(a.shape + (4,), np.uint8)
     out[..., :3] = np.round(s * 255).astype(np.uint8)
     out[..., 3] = np.round(np.clip(a, 0, 1) * 255).astype(np.uint8)
@@ -542,7 +559,7 @@ def poser_plaque_pixel(img, k, echelle, R):
     chiffre romain dans la lumière de l'âge."""
     px = np.array(img).astype(np.float64)
     x0, y0, x1, y1 = rect_plaque32(k)
-    fond = lin_vers_srgb(np.asarray(R["plaque"]["rgb"], float) + 0.012) * 255
+    fond = lin_vers_srgb(np.asarray(R["plaque"]["rgb"], float) * 0.6 + 0.006) * 255
     bord = lin_vers_srgb(np.asarray(R["logement"]["rgb"], float) * 0.35) * 255
     glyphe = lin_vers_srgb(couleur_glyphe(R, k)) * 255
     b = bitmap_chiffre(k)
@@ -574,17 +591,28 @@ def icone_objet(t, k):
     rgb_p, a_p = rendre_art(t, k, avec_plaque_vecteur=True)
     R = roles_age(EPOQUE[k])
     bande = Image.new("RGBA", (120, 64), (0, 0, 0, 0))
+    im64 = en_image(*reduire(rgb_p, a_p, 64))
+    im32 = poser_plaque_pixel(en_image(*reduire(rgb, a, 32)), k, 1, R)
+    # 16 et 8 px : réduits de l'image de 32 px FINALE, plaque comprise (2e jet : sans plaque à 16 px, le filtrage entre
+    # deux niveaux de mipmap effaçait à moitié la plaque dans une case affichée à environ 24 px, capture du coffre)
+    im16 = reduire_image(im32, 16)
+    im8 = reduire_image(im16, 8)
     x = 0
-    for taille in (64, 32, 16, 8):
-        if taille == 64:
-            im = en_image(*reduire(rgb_p, a_p, 64))
-        else:
-            im = en_image(*reduire(rgb, a, taille))
-            if taille == 32:
-                im = poser_plaque_pixel(im, k, 1, R)
+    for im in (im64, im32, im16, im8):
         bande.paste(im, (x, 0))
-        x += taille
+        x += im.size[0]
     return bande
+
+
+def reduire_image(im, taille):
+    """Réduction par moyenne de boîtes, en lumière linéaire, alpha prémultiplié."""
+    px = np.asarray(im).astype(np.float64) / 255.0
+    a = px[..., 3]
+    lin = srgb_vers_lin(px[..., :3]) * a[..., None]
+    f = im.size[0] // taille
+    r = lin.reshape(taille, f, taille, f, 3).mean(axis=(1, 3))
+    al = a.reshape(taille, f, taille, f).mean(axis=(1, 3))
+    return en_image(r, al, epaule=False)
 
 
 def icone_techno(t, k):
@@ -668,7 +696,7 @@ def planche(chemin, fichiers):
         f_txt = ImageFont.truetype("arial.ttf", 13)
     except OSError:
         f_titre = f_txt = ImageFont.load_default()
-    noms_t = {"speed": "Vitesse : chevron", "productivity": "Productivité : engrenage",
+    noms_t = {"speed": "Vitesse : chevron", "productivity": "Productivité : croix",
               "effectivity": "Efficacité : feuille"}
     cell = 112
     marge_g = 200

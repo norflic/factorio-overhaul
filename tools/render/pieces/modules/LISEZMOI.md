@@ -22,8 +22,11 @@ fonction `metal()` qui relève les couleurs (rgb linéaires), la rugosité et la
 
 | | Vitesse | Productivité | Efficacité |
 |---|---|---|---|
-| Silhouette (le type se lit à la FORME) | chevron « > » | engrenage à 8 dents | feuille ovale, tige en bas à gauche |
-| Lumière | chevron court à la pointe | moyeu | nervure |
+| Silhouette (le type se lit à la FORME) | chevron « > » | croix « + » (le produit en plus) | feuille ovale, tige en bas à gauche |
+| Lumière | chevron court à la pointe | centre | nervure |
+
+Premier jet de la productivité : un engrenage à 8 dents (`geo_productivite_engrenage`, gardé pour mémoire) ; en mode Alt,
+il se confondait avec l'icône de recette de la roue dentée affichée juste au-dessus des modules (capture du 25/10).
 
 - **Couleur = âge qui débloque le palier** (`shared/content/epochs.lua`, contrôlé par `verifier_epoques()`) :
   palier 1 → âge 6 (Électricité : porcelaine blanche, bleu machine, arcs bleus) ; paliers 2 à 5 → âge 10 (Haute

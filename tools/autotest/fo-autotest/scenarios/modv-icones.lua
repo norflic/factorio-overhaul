@@ -1,6 +1,6 @@
 -- Scénario greffé (lot MOD-V, 25/10) : les icônes des 30 modules EN JEU, avant et après le lot.
 --   & "<racine>\fo-autotest.bat" nopause 300 modv-icones "<source>"     -> « [FO-MODV-ICONES] BILAN : 5 OK, 0 ECHEC(S) »
---   & "<racine>\fo-captures.bat" modv-icones "<source>"                 -> 3 vues en mode Alt + 2 interfaces (x-modv-gui-*)
+--   & "<racine>\fo-captures.bat" modv-icones "<source>"                 -> 3 vues en mode Alt + 3 interfaces (x-modv-gui-*)
 -- Effacer <racine>\fo-visual\write\atlas-cache.dat avant la session avec images quand les icônes ont changé (F210).
 -- Pose : 30 assembleurs (une rangée par type, une colonne par palier) remplis du module de leur case ; 20 balises
 -- (vitesse et efficacité, paliers 1 à 10 ; la productivité n'entre pas dans une balise) ; un coffre d'acier qui tient
@@ -45,6 +45,7 @@ return {
         local a = s.create_entity({ name = "assembling-machine-2", position = { X0 - 40 + (k - 1) * 4 + 1.5,
           Y0 - 22 + (ti - 1) * 4 + 1.5 }, force = "player" })
         if a then
+          if t == "productivity" and k == 7 then st.assembleur = a end
           machines = machines + 1
           a.set_recipe("iron-gear-wheel")
           local inv = a.get_module_inventory()
@@ -60,6 +61,7 @@ return {
         local b = s.create_entity({ name = "beacon", position = { X0 - 40 + (k - 1) * 4 + 1.5, Y0 - 6 + (ri - 1) * 4 + 1.5 },
           force = "player" })
         if b then
+          if t == "effectivity" and k == 9 then st.balise = b end
           local inv = b.get_module_inventory()
           if inv and game.item_prototypes[nom(t, k)] and inv.insert({ name = nom(t, k), count = #inv }) == #inv then
             balises = balises + 1
@@ -107,16 +109,16 @@ return {
     local p = game.connected_players[1]
     local t = e.tick
     if not p or t < T_GUI or t >= T_GUI + 30 then return end
-    local cibles = { { "coffre", st.coffre }, { "techno", "fo-productivity-module-7" }, { "techno-vanilla", "speed-module-2" } }
+    -- (essai du 25/10 : « opened = technologie » n'ouvre rien ; les icônes de technologie sont sur la planche)
+    local cibles = { { "coffre", st.coffre }, { "assembleur-productivite-7", st.assembleur },
+      { "balise-efficacite-9", st.balise } }
     local k = math.floor((t - T_GUI) / 10) + 1
     local phase = (t - T_GUI) % 10
     local cb = cibles[k]
     if not cb then return end
     if phase == 0 then
       local ok, err = pcall(function()
-        if type(cb[2]) == "string" then
-          p.opened = p.force.technologies[cb[2]]
-        elseif cb[2] and cb[2].valid then
+        if cb[2] and cb[2].valid then
           p.teleport({ cb[2].position.x, cb[2].position.y + 4 })
           p.opened = cb[2]
         end
