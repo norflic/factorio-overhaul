@@ -23,6 +23,7 @@ import ages
 import corps
 import epoques as E_
 import formes as F
+import orne as O
 import parts as PT
 from kit import SQ2, TAU
 from repere import Y, at
@@ -37,6 +38,10 @@ FAISCEAU = dict(rgb=(1.0, 0.9, 0.66), rgb2=(1.0, 0.64, 0.28),
                 forme="trait blanc-or très fin à gaine orange, lentille gravitationnelle (le fond se courbe) à l'impact",
                 largeur=0.7)
 HABILLAGE = dict(ages.CORPS[15], **E_.MAQUETTES[15])
+# lot F1-B : liserés de la lignée (anneaux CONTINUS de pleine lumière blanc-or) retirés ; l'âge pose ses propres
+# liserés EN TIRETS, orange et blanc-or (socle) : la lumière de l'essai r0b était trop blanche (saturation 0,20, HORS de
+# la famille 0,2 à 0,7) et ses foyers trop grands (L2 0,98 à 1,30 t², plafond 0,45). La silhouette ne change pas.
+HABILLAGE["forme_affut"] = dict(HABILLAGE["forme_affut"], lisere=None)
 # normale du disque dans le repère de la tête (faisceau vers +Y) : azimut 290°, élévation 65° (correction M-3)
 _AZ, _EL = math.radians(290.0), math.radians(65.0)
 NORMALE_DISQUE = (math.cos(_EL) * math.cos(_AZ), math.cos(_EL) * math.sin(_AZ), math.sin(_EL))
@@ -90,20 +95,66 @@ def condensateur(g, c, x, y, z, r, h):
 
 
 def _singularite(g, c, x, yn, r, M):
-    """Micro-singularité : sphère d'horizon dans 3 griffes d'or sur un socle rond de noir chaud à jonc d'or."""
+    """Micro-singularité : sphère d'horizon posée dans une COUPE de noir chaud (pleine jusqu'au socle), anneau de photons
+    qui touche l'horizon, 3 griffes d'or ENFONCÉES dans la sphère, socle rond à jonc d'or.
+    Lot F1-B : l'anneau de photons (rayon 1,12 r) et les griffes (posées à 1,0 à 1,04 r) laissaient, vus de la caméra,
+    des jours enfermés entre eux et la sphère (e15-socle : 13 px à l'îlotage, 85 px au post-traitement, lot F1-A) :
+    anneau à 1,0 r (son bord intérieur passe dans la sphère), griffes à 0,92 r et moins, coupe sous la sphère."""
     with at(g, x, yn):
         g.cyl((0, 0, 0.09), "z", r * 1.2, 0.18, M["noir_chaud"], n=32, style="soft", what="socle")
         g.torus((0, 0, 0.18), "z", r * 1.2, 0.02, M["or_chauffe"], n=32, m=6, what="jonc")
-        zc = 0.18 + r * 1.25
+        zc = 0.18 + r * 1.1
+        g.cyl((0, 0, 0.18 + r * 0.45), "z", r * 0.95, r * 0.9, M["noir_chaud2"], n=32, r2=r * 0.6, style="soft",
+              what="coupe")
         g.sphere((0, 0, zc), r, M["horizon"], n=24, m=12, what="horizon")
-        g.torus((0, 0, zc), "z", r * 1.12, 0.022, M["emit"], n=32, m=6, what="photons")
+        g.torus((0, 0, zc), "z", r * 1.0, 0.026, M["emit2"], n=40, m=6, what="photons")
         for k in range(3):
             a = math.pi / 2 + TAU * k / 3
             d = V((math.cos(a), math.sin(a), 0))
-            # griffes collées à l'horizon (aucun jour entre la griffe et la sphère : trou enfermé sinon)
-            pts = [d * r * 1.0 + V((0, 0, 0.18)), d * r * 1.04 + V((0, 0, zc - 0.2 * r)),
-                   d * r * 0.98 + V((0, 0, zc + 0.45 * r)), d * r * 0.55 + V((0, 0, zc + 0.9 * r))]
+            pts = [d * r * 1.05 + V((0, 0, 0.18)), d * r * 0.92 + V((0, 0, zc - 0.35 * r)),
+                   d * r * 0.9 + V((0, 0, zc + 0.35 * r)), d * r * 0.5 + V((0, 0, zc + 0.8 * r))]
             griffe(g, pts, 0.07, 0.06, M["or_chauffe"])
+
+
+def _port(g, k, h):
+    """Port de potentiel sur le flanc (repère du flanc) : plaque hexagonale de noir profond, cerclage d'or, point
+    incandescent, rivets de cendre (lot F1-B : détail fin, la charte mesurait D3 = 20 petites pièces par t²)."""
+    M = g.M
+    g.cyl((0, 0, 0.012), "z", 0.085, 0.024, M["noir_profond"], n=6, style="hard", phase=math.pi / 6, what="port")
+    g.tube_shell((0, 0, 0.022), "z", 0.07, 0.055, 0.012, M["or_chauffe"], n=24, what="cerclage")
+    g.sphere((0, 0, 0.026), 0.022, M["emit2"] if k % 2 else M["emit"], n=8, m=5, what="point")
+    for j in range(6):
+        a = TAU * j / 6
+        g.bolt((0.1 * math.cos(a), 0.1 * math.sin(a), 0.004), (0, 0, 1), 0.012, M["cendre"])
+
+
+def _module_vide(g, k, h):
+    """Module de vide sur la pente (repère du flanc) : caisson de noir chaud à arêtes de cendre, fente incandescente,
+    plaque de noir profond, deux boulons."""
+    M = g.M
+    g.box((0, 0, 0.022), (0.2, h * 0.5, 0.044), M["noir_chaud2"], "hard", what="module")
+    g.box((0, 0, 0.046), (0.16, h * 0.36, 0.006), M["noir_profond"], "flat", what="plaque")
+    g.box((0, -h * 0.05, 0.05), (0.12, 0.016, 0.004), M["emit2"], "flat", what="fente")
+    for s in (-1, 1):
+        g.box((s * 0.1, 0, 0.03), (0.016, h * 0.52, 0.05), M["cendre"], "hard", what="arete")
+        g.bolt((s * 0.06, h * 0.13, 0.05), (0, 0, 1), 0.012, M["cendre"])
+
+
+def _lisere_tirets(g, c, i, n):
+    """Liseré EN TIRETS au sommet du flanc du gradin i : segments de lumière orange et blanc-or séparés par des
+    joints sombres (foyers petits : L2 ; lumière plus orange : famille de l'âge)."""
+    M = g.M
+    R = c.gradins[i][0]
+    for k in range(n):
+        a0 = TAU * (k + 0.1) / n
+        a1 = TAU * (k + 0.75) / n
+        p0, nrm0, _ = O.flanc(c, i, a0, 0.93, 0.006)
+        p1, nrm1, _ = O.flanc(c, i, a1, 0.93, 0.006)
+        d = p1 - p0
+        nrm = (nrm0 + nrm1).normalized()
+        Rr = Matrix((d.normalized(), nrm.cross(d.normalized()), nrm)).transposed()
+        g.box((p0 + p1) / 2, (d.length, 0.03, 0.012), M["emit2"] if k % 3 else M["emit"], "flat", R=Rr,
+              what="lisere")
 
 
 def socle(g, c):
@@ -114,10 +165,45 @@ def socle(g, c):
         p = corps.place(c, nom)
         x, yn = p["x"] - sx * 0.1, p["yn"] - 0.1
         _singularite(g, c, x, yn, 0.34, M)
-        liaison(g, [(x - sx * 0.3, Y(yn - 0.3), 0.15), (x * 0.55, Y(yn * 0.55), zp + 0.6),
-                    (x * 0.25, Y(yn * 0.25), zp + 0.12)], 0.06)
+        # lot F1-B : conduit BAS (il montait à 0,6 au-dessus du pivot, en arc derrière la tête : risque de jour enfermé)
+        liaison(g, [(x - sx * 0.3, Y(yn - 0.3), 0.15), (x * 0.6, Y(yn * 0.6), c.gradins[1][3] + 0.1),
+                    (x * 0.3, Y(yn * 0.3), zp + 0.08)], 0.06)
+    # lot F1-B (ronde 1 : le cône restait une grande surface lisse) : conduits d'or des AUTRES piliers avant (la lignée
+    # n'en relie qu'un sur deux), modules de vide sur les pentes
+    P = c.T["pivot"]
+    for k, (x, y, z, rc, h) in enumerate(c.condos):
+        if k % 2 == 0 or y > 0.0:
+            continue
+        a = math.atan2(y / SQ2, x)
+        d = V((math.cos(a), math.sin(a), 0.0))
+        p0 = V((x, y, z + h * 1.15 + 0.06))
+        p2 = V((d.x * (P["R"] + 0.02), d.y * (P["R"] + 0.02), zp + P["h"] * 0.3))
+        liaison(g, [p0, (p0 + p2) / 2 + V((0, 0, 0.1)), p2], 0.045)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (209, 235, 261, 279, 305, 331)], _module_vide, f=0.5, dr=0.004)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (195, 225, 255, 285, 315, 345)], _module_vide, f=0.5, dr=0.004)
+    O.sur_flanc(g, c, 2, [math.radians(a) for a in (205, 248, 292, 335)], _module_vide, f=0.5, dr=0.004)
+    # lot F1-B : liserés en tirets, ports de potentiel et rivets de cendre sur les flancs du puits, anneaux de cendre
+    for i in range(4):
+        _lisere_tirets(g, c, i, 40 - 6 * i)
+        O.rivets_flanc(g, c, i, 0.35, M["cendre"], pas=0.11, r=0.013)
+    O.sur_flanc(g, c, 0, [math.radians(a) for a in (196, 222, 248, 292, 318, 344)], _port, f=0.55, dr=0.006)
+    O.sur_flanc(g, c, 1, [math.radians(a) for a in (210, 240, 270, 300, 330)], _port, f=0.55, dr=0.006)
+    O.sur_flanc(g, c, 2, [math.radians(a) for a in (225, 270, 315)], _port, f=0.55, dr=0.006)
+    O.ceinture(g, c, 0, 0.08, 0.022, M["noir_profond"], colliers=M["or_chauffe"], pas=0.6)
     for (x, yn, pw) in ((0.0, -2.7, 16.0), (-2.4, -1.4, 12.0), (2.4, -1.4, 12.0), (-2.2, 2.2, 14.0), (2.2, 2.2, 14.0)):
-        g.halo((x, Y(yn), 0.6), M["_emit_rgb"], pw)
+        g.halo((x, Y(yn), 0.6), M["_emit2_rgb"], pw)
+
+
+def tete(g, c):
+    """Lot F1-B : deux petites singularités dans des coupes d'or à l'arrière de la platine."""
+    M = g.M
+    zb = O.zb(c)
+    for (x, y, w) in O.pods(c):
+        g.cyl((x, y, zb + w * 0.45), "z", w * 1.0, w * 0.9, M["noir_chaud"], n=20, r2=w * 0.7, style="soft",
+              what="coupe")
+        g.tube_shell((x, y, zb + w * 0.9), "z", w * 0.95, w * 0.7, 0.025, M["or_chauffe"], n=20, what="jonc")
+        g.sphere((x, y, zb + w * 1.35), w * 0.62, M["horizon"], n=16, m=8, what="horizon")
+        g.torus((x, y, zb + w * 1.35), "z", w * 0.62, 0.016, M["emit2"], n=24, m=4, what="photons")
 
 
 def piece(g, c):
@@ -155,11 +241,24 @@ def arriere(g, c):
                   mats=[M["noir_chaud"], M["noir_chaud2"]], rivet_step=0.14)
     yc = (y0 + y1) / 2
     zz = zb + 0.3 * (z1 - zb)
-    for k in range(4):
-        r = (0.32 - 0.05 * k) * (y1 - y0)
-        g.cyl((0, yc, zz + 0.05 + 0.1 * k), "z", r, 0.07, M["noir_profond"] if k % 2 == 0 else M["or_chauffe"], n=32,
-              style="soft", what="disque")
-    g.sphere((0, yc, zz + 0.5), 0.07, M["emit"], n=12, m=6, what="feu")
+    # lot F1-B (« stabilisateur arrière banal ») : pile de Casimir plus large et plus basse, plaques de noir profond
+    # séparées par des jours INCANDESCENTS (le vide entre les plaques), trois griffes d'or qui la tiennent, feu au sommet
+    rs = 0.4 * (y1 - y0)
+    for k in range(5):
+        r = rs * (1.0 - 0.1 * k)
+        g.cyl((0, yc, zz + 0.04 + 0.085 * k), "z", r, 0.06, M["noir_profond"] if k % 2 == 0 else M["noir_chaud2"],
+              n=40, style="soft", what="plaque_casimir")
+        g.cyl((0, yc, zz + 0.04 + 0.085 * k + 0.042), "z", r * 0.97, 0.022, M["emit2"] if k % 2 else M["emit"], n=40,
+              style="flat", what="jour_casimir")
+        g.tube_shell((0, yc, zz + 0.04 + 0.085 * k), "z", r + 0.012, r - 0.02, 0.02, M["or_chauffe"], n=40,
+                     what="cerclage")
+    ztop = zz + 0.04 + 0.085 * 4 + 0.03
+    for k in range(3):
+        a = math.pi / 2 + TAU * k / 3
+        d = V((math.cos(a), math.sin(a), 0))
+        griffe(g, [V((0, yc, zz)) + d * rs * 1.15, V((0, yc, zz + 0.2)) + d * rs * 1.05,
+                   V((0, yc, ztop)) + d * rs * 0.75], 0.06, 0.05, M["or_chauffe"])
+    g.sphere((0, yc, ztop + 0.05), 0.07, M["emit2"], n=12, m=6, what="feu")
 
 
 def _repere_disque():
@@ -186,12 +285,15 @@ def emetteur(g, c):
     Rin, Rout = rs * 1.0, re * 1.05
     g.push_frame((0, 0, zh), n, ex)
     corps.anneau_plat(g, Rout * 0.99, Rin, -0.008, 0.008, M["noir_profond"], n=56, rond=False, what="fond_disque")
+    # lot F1-B : segments séparés par des joints plus larges (0,028 rad de chaque côté ; 0,05 en ronde 1 se lisait « touches de piano ») et deux bandes séparées par un
+    # anneau sombre ; bande intérieure orange et blanc-or alternés (lumière plus orange, foyers plus petits : L2)
     nseg = 28
+    g.torus((0, 0, 0), "z", Rout * 0.82, 0.016, M["noir_profond"], n=56, m=6, what="joint_disque")
     for k in range(nseg):
-        a0 = TAU * k / nseg + 0.02
-        a1 = TAU * (k + 1) / nseg - 0.02
-        for (ra, rb, m, z0, z1) in ((Rin, Rout * 0.82, M["emit"], -0.012, 0.012),
-                                     (Rout * 0.82, Rout, M["emit_soft"] if k % 2 else M["emit2"], -0.01, 0.01)):
+        a0 = TAU * k / nseg + 0.028
+        a1 = TAU * (k + 1) / nseg - 0.028
+        for (ra, rb, m, z0, z1) in ((Rin + 0.02, Rout * 0.8, M["emit2"] if k % 2 else M["emit"], -0.012, 0.012),
+                                     (Rout * 0.84, Rout, M["emit_soft"] if k % 2 else M["emit2"], -0.01, 0.01)):
             q = [V((ra * math.cos(a0), ra * math.sin(a0), z0)), V((rb * math.cos(a0), rb * math.sin(a0), z0)),
                  V((rb * math.cos(a1), rb * math.sin(a1), z0)), V((ra * math.cos(a1), ra * math.sin(a1), z0))]
             g.hexa(q + [p + V((0, 0, z1 - z0)) for p in q], m, "flat", "segment")
