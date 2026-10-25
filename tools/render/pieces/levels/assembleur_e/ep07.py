@@ -110,7 +110,7 @@ def socle(g, c):
     # crête de cristaux le long du faîtage
     ym = (yb + h - 0.02) / 2.0
     for k in range(7):
-        x = -a + 0.25 + (2 * a - 0.5) * k / 6
+        x = -c.a + 0.25 + (2 * c.a - 0.5) * k / 6         # (« a » est repris plus haut par la corniche)
         F.crystal(g, B(x, ym, Hd + 0.02), (0.15 * math.sin(k), 0, 1), 0.035, 0.12 + 0.05 * (k % 3), M["crystal"])
     # vasques à cristaux devant les coins de la table
     for sx in (-1, 1):

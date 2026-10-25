@@ -65,7 +65,8 @@ def socle(g, c):
         halo(g, x, c.yt + c.dp * 0.3, c.ztop + 0.8, 0.6)
         for k in range(3):
             corps.lampe_face(g, x, y0, c.ze + 0.4 + 0.5 * k, 0.035, M["emit"], M["titane_dk"])
-    db = 0.22 * c.side
+    db = 0.13 * c.side      # largeur du pont (plans.pylones) : la barre est SUR sa face sud (essai a4q : à 0,22 s, elle
+    #                         flottait devant le pont et enfermait le sol entre elle et lui, trous de 357 px)
     L = 2 * (c.xp - c.wp / 2)
     g.box(B(0, c.yt - db / 2 - 0.03, c.zp - 0.04), (L - 0.2, 0.04, 0.05), M["titane_dk"], "hard", what="barre")
     g.box(B(0, c.yt - db / 2 - 0.05, c.zp - 0.06), (L - 0.3, 0.02, 0.02), M["emit"], "flat", what="barre_lumiere")

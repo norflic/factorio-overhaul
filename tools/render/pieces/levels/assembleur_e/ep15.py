@@ -77,7 +77,10 @@ def outil(g, c):
     M = g.M
     r = 0.38
     zc = min(c.zt + 0.68, c.zp - r - 0.05)
-    ctr = B(0, c.yt, zc)
+    # essai rapide a4q : sous le pont, la sphère était à moitié CACHÉE par la face sud du pont (vue de trois quarts) :
+    # elle flotte DEVANT le pont, au-dessus de l'avant de la table
+    ys = sphere_y(c)
+    ctr = B(0, ys, zc)
     g.sphere(ctr, r, M["horizon"], n=40, m=20, what="sphere_noire")
     vue = V((0.0, -1.0, 1.0)).normalized()          # vers la caméra (vue de trois quarts depuis le sud)
     # disque reculé de 0,6 le long de la vue : il passe DERRIÈRE le lingot de l'ouvrage (et entre dans la table)
@@ -87,7 +90,7 @@ def outil(g, c):
     ax = Matrix.Rotation(INCLINAISON, 3, "X") @ V((0, 0, 1))
     g.torus(ctr, ax, r + 0.16, 0.025, M["emit"], n=64, m=8, what="couronne")
     g.torus(ctr, ax, r + 0.26, 0.015, M["or_blanc_chaud"], n=64, m=6, what="couronne_or")
-    halo(g, 0, c.yt, zc, 1.6)
+    halo(g, 0, ys, zc, 1.6)
     xi = c.xp - c.wp / 2.0
     for sx in (-1, 1):
         p0 = B(sx * xi, c.yt, zc + 0.1)
@@ -101,10 +104,15 @@ def outil(g, c):
     g.sphere(tip, 0.045, M["or_blanc_chaud"], n=10, m=5, what="griffe")
 
 
+def sphere_y(c):
+    """yn de la sphère : devant la face sud du pont (largeur 0,13 s), rayon 0,38 et marge."""
+    return c.yt - 0.065 * c.side - 0.46
+
+
 def ouvrage(g, c):
-    """Lingot d'or noir sur un socle, filet de lumière qui tombe de la sphère."""
+    """Lingot d'or noir sur un socle, filet de lumière qui tombe de la sphère (sous elle, à l'avant de la table)."""
     M = g.M
-    yt, zt = c.yt, c.zt
+    yt, zt = sphere_y(c) + 0.15, c.zt
     g.cyl(B(0, yt, zt + 0.05), "z", 0.32, 0.1, M["noir_profond"], n=8, style="hard", what="socle")
     g.box(B(0, yt, zt + 0.15), (0.32, 0.17 * SQ2, 0.1), M["or_chauffe"], "hard", what="lingot")
     g.box(B(0, yt, zt + 0.205), (0.24, 0.1 * SQ2, 0.012), M["or_blanc_chaud"], "flat", what="arete")

@@ -346,7 +346,8 @@ def dos(g, c):
              V((x1 + 0.06, Y(ym), Hd)), V((x0 - 0.06, Y(ym), Hd))]
         g.panels(q, max(2, int((x1 - x0) / 0.32)), max(2, int((Hd - zw) / 0.14)), m2, t=0.02, gap=0.025,
                  rivet_mat=None, mats=[m2, m1])
-        g.cyl(V((0, Y(ym), Hd + 0.01)), "x", 0.05, x1 - x0 + 0.14, M["steel_dk"], n=10, style="soft", what="faitage")
+        g.cyl(V(((x0 + x1) / 2, Y(ym), Hd + 0.01)), "x", 0.05, x1 - x0 + 0.14, M["steel_dk"], n=10, style="soft",
+              what="faitage")
         c.z_nord = zw
     elif f == "voute":
         zw = c.zw_voute
@@ -394,7 +395,7 @@ def dos(g, c):
               V((x0, Y(y1), Hd))]
         g.hexa(Bq + Tq, m1, "soft", "coque")
         rn = 0.07 * c.side
-        g.cyl(V((0, Y(y0) + rn * 0.3, zc)), "x", rn, x1 - x0, m1, n=20, style="smooth", what="nez")
+        g.cyl(V(((x0 + x1) / 2, Y(y0) + rn * 0.3, zc)), "x", rn, x1 - x0, m1, n=20, style="smooth", what="nez")
         g.panels([Tq[0], Tq[1], Tq[2], Tq[3]], max(2, int((x1 - x0) / 0.6)), 2, m2, t=0.012, gap=0.03,
                  rivet_mat=None)
         c.z_nord = Hd
@@ -414,7 +415,7 @@ def dos(g, c):
         g.tube(pts, 0.035, M["steel_dk"], n=8, what="ceinture")
         c.z_nord = zb_
     # face sud : soubassement sombre (garde le pied net quel que soit le dos)
-    g.box(B(0, y0 - 0.015, ze + 0.04), (x1 - x0, 0.03 * SQ2, 0.08), M["steel_dk"], "hard", what="plinthe")
+    g.box(B((x0 + x1) / 2, y0 - 0.015, ze + 0.04), (x1 - x0, 0.03 * SQ2, 0.08), M["steel_dk"], "hard", what="plinthe")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -744,10 +745,12 @@ def liaisons(g, c):
         return
     tx, ty = c.T["table"]["tx"], c.T["table"]["ty"]
     if c.plan == "portique":
+        # ronde F3-A3 (plan en U) : des flexibles qui traverseraient la baie de la semelle à la table enfermeraient le
+        # sol (trous de 970 px à l'essai rapide de l'âge 15) : ils DESCENDENT du pont au bord arrière de la table
         for sx in (-1, 1):
-            p0 = B(sx * (c.xp - c.wp / 2), c.yt - c.dp / 2 - 0.02, c.zs + 0.3)
-            p1 = B(sx * tx * 0.7, c.yt - ty * 0.5, c.zt + 0.08)
-            g.hose([p0, p0.lerp(p1, 0.5) + V((0, 0, 0.12)), p1], r, M["rubber"], step=0.04)
+            p0 = B(sx * tx * 0.75, c.yt + 0.05, c.zp + 0.02)
+            p1 = B(sx * tx * 0.7, c.yt + ty * 0.7, c.zt + 0.08)
+            g.hose([p0, p0.lerp(p1, 0.5) + V((sx * 0.12, 0, 0)), p1], r, M["rubber"], step=0.04)
         return
     if c.plan == "H":
         # des ailes au bord de la table

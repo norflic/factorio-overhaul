@@ -73,14 +73,14 @@ def socle(g, c):
                   B(x + c.wp / 2 - 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.32),
                   B(x - c.wp / 2 + 0.03, c.yt - c.dp / 2 - 0.035, c.ze + 0.32)], 6, t=0.006)
         _gyro(g, x, c.yt, c.ztop)
-    # pupitre à deux mains devant le pylône ouest (ronde F3-A3 : la baie est le SOL ; pupitre debout, voyants)
-    x0, y0p, zp0 = -c.xb + 0.13, c.yt - 0.55, 0.0
-    g.box(B(x0, y0p, zp0 + 0.03), (0.3, 0.24 * SQ2, 0.06), M["noir_capot"], "hard", what="semelle_pupitre")
-    g.box(B(x0, y0p, zp0 + 0.45), (0.1, 0.08 * SQ2, 0.84), M["noir_capot"], "hard", what="pied_pupitre")
-    g.box(B(x0, y0p, zp0 + 0.9), (0.26, 0.14 * SQ2, 0.08), M["jaune_capot"], "hard", what="pupitre")
+    # pupitre à deux mains devant le pylône ouest, sur la semelle (ronde F3-A3 : posé dans la baie, entre la table et la
+    # semelle, il fermait une poche de sol de 430 px à l'essai a4q)
+    x0, y0p, zp0 = -(c.xb + c.h) / 2.0 + 0.12, c.yf + 0.17, c.z_joue
+    g.box(B(x0, y0p, zp0 + 0.2), (0.1, 0.08 * SQ2, 0.4), M["noir_capot"], "hard", what="pied_pupitre")
+    g.box(B(x0, y0p, zp0 + 0.44), (0.26, 0.14 * SQ2, 0.08), M["jaune_capot"], "hard", what="pupitre")
     for sx in (-1, 1):
-        g.cyl(B(x0 + sx * 0.07, y0p - 0.02, zp0 + 0.95), "z", 0.025, 0.02, M["redpaint"], n=10, what="bouton")
-    corps.lampe(g, B(x0, y0p + 0.04, zp0 + 0.94), 0.022, M["emit"])
+        g.cyl(B(x0 + sx * 0.07, y0p - 0.02, zp0 + 0.49), "z", 0.025, 0.02, M["redpaint"], n=10, what="bouton")
+    corps.lampe(g, B(x0, y0p + 0.04, zp0 + 0.48), 0.022, M["emit"])
     c.reserves.append((x0, y0p, 0.18))
     # projecteurs sous le pont, tournés vers la baie (nuit) ; feux des semelles
     for sx in (-1, 1):
