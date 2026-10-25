@@ -530,7 +530,8 @@ return {
       for _, c in ipairs(st.cells) do
         if c.m and c.m.valid then
           local snap = { pf = lit(c.m, "products_finished") or 0, prog = lit(c.m, "crafting_progress") or 0,
-            mp = lit(c.m, "mining_progress") or 0, bmp = lit(c.m, "bonus_mining_progress") or 0 }
+            mp = lit(c.m, "mining_progress") or 0, bmp = lit(c.m, "bonus_mining_progress") or 0,
+            bp = lit(c.m, "bonus_progress") or 0 }
           if t == WA then c.a = snap else c.b = snap end
         end
       end
@@ -704,10 +705,22 @@ return {
             want_fab = proto.mining_speed * fs
           else
             -- products_finished compte AUSSI les produits de la productivité (passe 1, cellule G) : ramené aux
-            -- fabrications.
+            -- fabrications. Lot MOD-3 : avec une forte productivité (× 8,95), l'ancienne formule s'écartait de 5 % ;
+            -- hypothèse : la barre de productivité se remplit AVEC la progression (produit bonus émis quand elle
+            -- déborde), d'où W = (Δ produits + Δ progression + Δ barre) / (1 + productivité). Les deux formules sont
+            -- écrites au journal ; le contrôle prend la nouvelle (F248 proposé si elle tombe juste).
             local r = spec.four and game.recipe_prototypes["iron-plate"] or m.get_recipe()
-            fab = ((c.b.pf - c.a.pf) / (1 + pb) + (c.b.prog - c.a.prog)) / secs
+            local fab_ancien = ((c.b.pf - c.a.pf) / (1 + pb) + (c.b.prog - c.a.prog)) / secs
+            fab = ((c.b.pf - c.a.pf) + (c.b.prog - c.a.prog) + (c.b.bp - c.a.bp)) / (1 + pb) / secs
+            ctx.log(string.format("MESURE-PROD %s : productivite %s ; produits %s ; progression %s -> %s ; barre %s -> %s ; fab/s formule continue %s, ancienne %s",
+              c.id, f6(pb), f6(c.b.pf - c.a.pf), f6(c.a.prog), f6(c.b.prog), f6(c.a.bp), f6(c.b.bp), f6(fab), f6(fab_ancien)))
             want_fab = proto.crafting_speed * fs / r.energy
+            if pb >= 0.5 then
+              -- Forte productivité : contre la vitesse RANGÉE par le moteur (bonus au centième), à 0,5 % près.
+              local eng = proto.crafting_speed * math.max(0.2, 1 + sb) / r.energy
+              ctx.check(math.abs(fab - eng) <= 0.005 * eng, "forte productivite : fabrications mesurees = vitesse du moteur a 0,5 % (" .. c.id .. ")",
+                string.format("%.5f /s mesure (formule continue), %.5f /s du moteur ; ancienne formule %.5f", fab, eng, fab_ancien))
+            end
           end
           local plafond = want_fab > 60 and not spec.foreuse
           ctx.log(string.format("MESURE %s : modules %d ; speed_bonus %s ; consumption_bonus %s ; productivity_bonus %s ; "
