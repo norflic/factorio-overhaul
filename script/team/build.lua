@@ -315,7 +315,8 @@ local function candidates(b, states, toward, res)
   local out = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if not l.used and states[l.state] and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- un lot de gisement sert plusieurs lignes de foreuses tant qu'il reste de la place (relevé des tuiles libres)
+    if (not l.used or l.state == "gisement") and states[l.state] and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
     end
