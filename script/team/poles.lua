@@ -278,8 +278,20 @@ function Poles.think(f, view, book, tick, plan)
   end
   local prudent = Poles.prudent(org, tick)
   if prudent then st.prudent_thinks = (st.prudent_thinks or 0) + 1 end
-  local cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
-    prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy) })
+  -- Le fond sert les PNJ AU-DELÀ DE L'EFFECTIF DE DÉPART (fo-npc-start, 8 ; f.team.floor) : une équipe restée à son
+  -- effectif de départ garde le comportement d'avant IA1-b (aucune sortie de fond). Moteur réel, verif-guide graine
+  -- 1618033988 (la partie du guide du DC) : avec le fond à 8 PNJ, votre équipe sortait, perdait ses PNJ à partir de
+  -- 18 min et son coffre était détruit (3 essais sur 4 avec des règles de prudence différentes) ; sans fond, 8 PNJ et
+  -- 2 100 fer à 59 min (main 0.4.25).
+  local fond_on = (f.engineers_count or 0) > (f.team.floor or 0)
+  org.fond_on = fond_on
+  local cands
+  if fond_on then
+    cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
+      prudent = prudent, brain_short = Poles.brain_short(plan), mine_left = math.max(0, mine_cap - mine_fond_busy) })
+  else
+    cands = { extraction = {}, base = {}, territoire = {} }
+  end
   local room_now = {}
   for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end
   -- Capacité LISSÉE : le maximum des ROOM_WINDOW dernières pensées (5 min). Essai 4 du banc : la capacité instantanée
@@ -303,7 +315,7 @@ function Poles.think(f, view, book, tick, plan)
   f.site_needs = f.site_needs or {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
-    if not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
+    if fond_on and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
       f.site_needs[res] = math.max(f.site_needs[res] or 0, 1)
     end
   end

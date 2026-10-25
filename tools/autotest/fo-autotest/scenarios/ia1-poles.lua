@@ -2,7 +2,8 @@
   Lot IA1-b « Pôles, managers, généralistes » (docs/EQUIPES_PNJ.md §16) : preuve en moteur réel, 26 min de jeu.
   Lancement : « fo-autotest.bat nopause 94600 ia1-poles <source> ». Journal : [FO-IA1-POLES].
 
-  Votre équipe, 30 PNJ dès la pose du coffre (fo-npc-start = 30, plafond 30, frein par le travail levé), coffre garni,
+  Votre équipe : 8 PNJ à la pose du coffre, recrues payées au coffre jusqu'à 30 (frein par le travail levé ; le fond
+  ne sert que les PNJ au-delà des 8 de départ), coffre garni,
   aucune guerre (aucune menace). Relevé toutes les 60 ticks (interface « fo-ia1 », team_status) ; une pensée d'équipe
   toutes les 300 ticks.
     0 à 6 min   : orientation « equilibre » (40/40/20) ;
@@ -18,7 +19,7 @@
       (10 s) ; effectifs AU TRAVAIL (pôles réels) à la cible à 1 près quand toutes les destinations différées sont
       appliquées, au plus 5 min après (la plus longue tâche : fabrication, 5 min) ;
     - crise : +3 affectés à l'extraction en 2 pensées ;
-    - équipe OCCUPÉE à 85 % ou plus (PNJ avec une tâche, relevé toutes les 60 ticks, minutes 3 à 26) ;
+    - équipe OCCUPÉE à 85 % ou plus (PNJ avec une tâche, relevé toutes les 60 ticks, minutes 5 à 26) ;
     - aucune tâche interrompue (aucun changement immédiat sur un PNJ occupé) ;
     - au plus 6 changements de pôle par PNJ et par heure glissante ;
     - une pensée par équipe et par période (nombre de pensées attendu à 1 près, aucune pensée en double) ;
@@ -32,7 +33,7 @@ local MIN = 3600
 local T_CRISIS = 18 * MIN
 local T_ORIENT = 6 * MIN
 local T_KILL = 22 * MIN
-local T_BUSY_FROM = 3 * MIN
+local T_BUSY_FROM = 5 * MIN
 local CHECK = 93600
 
 local function place_team_chest(ctx)
@@ -67,12 +68,14 @@ return {
   init = function(ctx)
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-recruit-idle-max", 60) == 60, "frein par le travail leve")
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-player-team-npc-max", 30) == 30, "plafond de votre equipe 30")
-    ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 30) == 30, "effectif de depart 30")
+    -- Départ à 8 (défaut) : le travail de fond ne sert que les PNJ au-delà de l'effectif de départ (recrues payées au
+    -- coffre, frein levé) ; l'équipe atteint 30 en 2 à 3 min.
+    ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
     ctx.check(place_team_chest(ctx), "coffre d'equipe pose et garni")
     local rows = ctx.remote("fo-ia1", "teams")
     local n = 0
     for _, r in ipairs(rows) do if r.key == "player" then n = r.n end end
-    ctx.check(n == 30, "30 PNJ des la pose du coffre", n)
+    ctx.check(n == 8, "8 PNJ a la pose du coffre", n)
     local st = ctx.state()
     st.t0 = game.tick
     st.samples, st.busy = 0, 0
@@ -172,7 +175,7 @@ return {
     ctx.check(math.abs(stats.thinks - expected) <= 1 and stats.double_think == 0,
       "une pensee par equipe et par periode", string.format("%d pensees pour %d periodes, %d en double", stats.thinks, expected, stats.double_think))
     local busy = st.samples > 0 and 100 * st.busy / st.samples or 0
-    ctx.check(busy >= 85, "equipe occupee a 85 % ou plus (minutes 3 a 26, releve toutes les 60 ticks)",
+    ctx.check(busy >= 85, "equipe occupee a 85 % ou plus (minutes 5 a 26, releve toutes les 60 ticks)",
       string.format("%.1f %% (%d sur %d releves) ; mesure a la pensee : %.1f %%", busy, st.busy, st.samples,
         stats.n_sum > 0 and 100 * stats.busy_sum / stats.n_sum or 0))
     ctx.check(st.crisis_after and st.crisis_before and st.crisis_after >= st.crisis_before + 3,
