@@ -4,7 +4,13 @@
 # (objectif atteint 'iron2'), soldats à 60 min, PNJ en fin de partie, et FABRICATION JETÉE (K6) : packs accumulés au
 # coffre APRÈS R3 (le niveau 4 exige le pack chimique, impayable sans pétrole), en PNJ-minutes de fabrication à la main.
 # Usage : py -3.9 -B tools/autotest/ia3a_compare.py --avant <archive> [...] --apres <archive> [...]
+#
+# Ajouts de l'ingénieur d'IA3-a (25/10) : FACTIONS TROP RAPIDES (revue M13) et effondrées (K9, K12) : première attaque
+# d'une faction contre le joueur et contre une autre faction (lignes « [FO-ATTACK] tick N a -> b : k soldats »), dernière
+# minute où la faction figure aux relevés (anéantie si elle disparaît avant la fin), lignes « impayable » (K6).
+import gzip
 import os
+import re
 import statistics
 import sys
 
@@ -12,10 +18,34 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ia3d_analyse import PACK_S, parse  # noqa: E402
 
 SHORT = {"rouge": "automation-science-pack", "vert": "logistic-science-pack", "mil": "military-science-pack"}
+RE_ATK = re.compile(r"\[FO-ATTACK\] tick (\d+) (\w+) -> (\w+) : (\d+) soldats")
+RE_HELD = re.compile(r"\[FO-TEAM\] (\w+) : recherche niveau (\d) impayable")
+
+
+def attacks(path):
+    """{faction: {"player": première minute, "faction": première minute, "n_player": n, "n_faction": n}, "_held": {faction: niveau}}."""
+    out, held = {}, {}
+    with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = RE_ATK.search(line)
+            if m:
+                minute, a, b = int(m.group(1)) / 3600.0, m.group(2), m.group(3)
+                d = out.setdefault(a, {"player": None, "faction": None, "n_player": 0, "n_faction": 0})
+                k = "player" if b == "player" else "faction"
+                d["n_" + k] += 1
+                if d[k] is None:
+                    d[k] = minute
+                continue
+            m = RE_HELD.search(line)
+            if m:
+                held.setdefault(m.group(1), int(m.group(2)))
+    return out, held
 
 
 def faction_rows(path):
     rows, research, goals, _defers, _status = parse(path)
+    atk, held = attacks(path)
+    last_game_min = max((r["min"] for r in rows), default=0)
     teams = sorted({r["team"] for r in rows if r["team"] != "player"})
     out = []
     for t in teams:
@@ -44,8 +74,14 @@ def faction_rows(path):
                 for k, p in SHORT.items():
                     d = last["stock"].get(k, 0) - before["stock"].get(k, 0)
                     waste += max(0, d) * PACK_S[p] / 60.0
+        a = atk.get(t, {})
+        last_min = rt[-1]["min"] if rt else None
         out.append({"team": t, "r1": res.get(1), "r2": res.get(2), "r3": res.get(3), "iron2": iron2, "sold60": sold60,
-                    "pnj_fin": last["pnj"] if last else None, "waste": waste})
+                    "pnj_fin": last["pnj"] if last else None, "waste": waste,
+                    "atk_player": a.get("player"), "atk_faction": a.get("faction"), "n_player": a.get("n_player", 0),
+                    "n_faction": a.get("n_faction", 0),
+                    "dead": last_min if (last_min is not None and last_min < last_game_min - 1) else None,
+                    "held": held.get(t)})
     return out
 
 
@@ -70,13 +106,22 @@ def group(label, archives):
             r["archive"] = os.path.basename(a.rstrip("\\/"))
             allr.append(r)
             print(f"  {r['archive']:28s} {r['team']:8s} R1 {fmt(r['r1'])} R2 {fmt(r['r2'])} R3 {fmt(r['r3'])} | fer II {fmt(r['iron2'])}"
-                  f" | soldats 60 min {fmt(r['sold60'])} | PNJ fin {fmt(r['pnj_fin'])} | jeté {r['waste']:.1f} PNJ-min")
+                  f" | soldats 60 min {fmt(r['sold60'])} | PNJ fin {fmt(r['pnj_fin'])} | jeté {r['waste']:.1f} PNJ-min"
+                  f" | 1re attaque joueur {fmt(r['atk_player'])} ({r['n_player']}), faction {fmt(r['atk_faction'])} ({r['n_faction']})"
+                  f" | disparue {fmt(r['dead'])} | impayable {fmt(r['held'])}")
     if allr:
         never = sum(1 for r in allr if r["r3"] is None)
+        dead = [r["dead"] for r in allr if r["dead"] is not None]
         print(f"  MÉDIANES ({len(allr)} factions) : R1 {fmt(med([r['r1'] for r in allr]))}, R2 {fmt(med([r['r2'] for r in allr]))},"
               f" R3 {fmt(med([r['r3'] for r in allr]))} (jamais : {never}) ; fer II {fmt(med([r['iron2'] for r in allr]))} ;"
               f" soldats à 60 min {fmt(med([r['sold60'] for r in allr]))} ; jeté {fmt(med([r['waste'] for r in allr]))} PNJ-min"
               f" (max {max(r['waste'] for r in allr):.1f}) ; factions à 0 PNJ en fin : {sum(1 for r in allr if r['pnj_fin'] == 0)}")
+        r3s = sorted(r["r3"] for r in allr if r["r3"] is not None)
+        print(f"  RAPIDITÉ : R3 la plus tôt {fmt(r3s[0] if r3s else None)} ; 1re attaque contre le joueur (médiane, la plus tôt)"
+              f" {fmt(med([r['atk_player'] for r in allr]))}, {fmt(min([r['atk_player'] for r in allr if r['atk_player'] is not None], default=None))} ;"
+              f" attaques contre le joueur {sum(r['n_player'] for r in allr)}, entre factions {sum(r['n_faction'] for r in allr)} ;"
+              f" factions disparues {len(dead)} (avant 60 min : {sum(1 for d in dead if d < 60)}, minutes {sorted(dead)}) ;"
+              f" à 0 soldat à 60 min : {sum(1 for r in allr if r['sold60'] == 0)}")
     return allr
 
 

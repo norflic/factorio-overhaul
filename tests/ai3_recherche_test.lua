@@ -226,6 +226,16 @@ do
   check(rr.capped and (rr.floor_iron or 0) > 0 and nf * 2 <= 100 - rr.floor_iron and (pf.smelt["iron-plate"] or 0) > 0,
     string.format("plancher : %d packs rouges sur 30 (plancher %s fer), manque de fer compté (fonte %s)", nf,
       tostring(rr.floor_iron), tostring(pf.smelt["iron-plate"])))
+  -- e2) Défaut du 1er essai en moteur réel (manque compté sans le stock : acier redemandé à chaque pensée, briques
+  -- jamais fondues) : niveau 3 retenu par le plancher, acier et briques AU COFFRE : ni acier ni briques demandés à la
+  -- fonderie ; le fer au-dessus du plancher, lui, l'est.
+  local pm = P.plan(fview({ tech = 2, done = upto("army"), stock = { ["automation-science-pack"] = 80,
+    ["logistic-science-pack"] = 60, ["steel-plate"] = 50, ["stone-brick"] = 200, ["iron-plate"] = 100,
+    ["copper-plate"] = 500, coal = 500, stone = 500 } }), book_at(2))
+  local rm = pm.research_rule or {}
+  check(rm.capped and pm.smelt["steel-plate"] == nil and pm.smelt["stone-brick"] == nil and (pm.smelt["iron-plate"] or 0) > 0,
+    string.format("plancher au niveau 3 : acier %s, briques %s, fer %s demandés à la fonderie (acier et briques au coffre)",
+      tostring(pm.smelt["steel-plate"]), tostring(pm.smelt["stone-brick"]), tostring(pm.smelt["iron-plate"])))
   -- f) Ordre du stock virtuel = ordre des priorités : 260 fer, un lot de 5 fusiliers en coûte 250 (mitraillette 30,
   -- 5 chargeurs 20), 30 packs rouges 60 : fer pour UN seul des deux. Neutre (46) :
   -- les packs d'abord ; conquérant (42) : l'armée d'abord. Objectif « fonderie » (pas la recherche), avant-postes de

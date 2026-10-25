@@ -26,7 +26,8 @@ PACK_CU = {"automation-science-pack": 1, "logistic-science-pack": 1.5, "military
 NAMES = {"Scarlet": "scarlet", "Azure": "azure", "Emerald": "emerald", "Amber": "amber"}
 WINDOWS = [(0, 10), (10, 30), (30, 60), (60, 120)]
 
-RE_MIN = re.compile(r"\[FO-IA3D-[A-Z]+\] minute (\d+) \| (\w+) tech (\d+) soldats (\d+) pnj (\d+)/(\d+) \| taches \{([^}]*)\} \| activite \{([^}]*)\} \| fab \{([^}]*)\} \| stock ([^|]*)\| produit ([^|]*)\| livre ([^|]*)\| vitesse_fab \+([0-9.]+)")
+# Lot IA3-a : les variantes ia3a-* écrivent [FO-IA3A-*] (même relevé) ; avant, leurs archives ne donnaient AUCUNE ligne.
+RE_MIN = re.compile(r"\[FO-IA3[AD]-[A-Z]+\] minute (\d+) \| (\w+) tech (\d+) soldats (\d+) pnj (\d+)/(\d+) \| taches \{([^}]*)\} \| activite \{([^}]*)\} \| fab \{([^}]*)\} \| stock ([^|]*)\| produit ([^|]*)\| livre ([^|]*)\| vitesse_fab \+([0-9.]+)")
 RE_RES = re.compile(r"\[FO-TEAM\] (\w+) : recherche niveau (\d) payee en packs a ([0-9.]+) min")
 RE_GOAL = re.compile(r"\[FO-TEAM\] (\w+) : objectif atteint '(\w+)' a ([0-9.]+) min")
 RE_DEFER = re.compile(r"\[FO-TEAM\] (\w+) : objectif '(\w+)' mis de cote")

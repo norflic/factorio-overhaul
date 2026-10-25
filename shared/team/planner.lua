@@ -831,7 +831,14 @@ function P.plan(view, book)
         if full > (kept[it[1]] or 0) then held[#held + 1] = { it[1], full - (kept[it[1]] or 0) } end
       end
       if #held > 0 then
-        local raw = book:raw_cost(held)
+        -- Manque RÉEL au-dessus du plancher : stock virtuel moins le plancher (book:plan copie le stock). 1er essai du
+        -- lot avec book:raw_cost (stock ignoré), moteur réel, partie default, graine 20261020 : acier redemandé à chaque
+        -- pensée (134 au coffre pour 15 utiles, fer mangé), fonderie du QG jamais libre pour les briques (0 brique,
+        -- 3 000 pierres), R3 à 1 faction sur 4.
+        local room = {}
+        for k, n in pairs(avail) do room[k] = n end
+        for k, n in pairs(floor or {}) do room[k] = math.max(0, (room[k] or 0) - n) end
+        local raw = book:plan(held, room).raw
         local ks = {}
         for k in pairs(raw) do ks[#ks + 1] = k end
         table.sort(ks)
