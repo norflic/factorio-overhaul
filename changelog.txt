@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.24
+Date: 2026-10-25
+  Bugfixes:
+    - Votre équipe de PNJ décimée (attaque, biters) se reconstruit : tant qu'elle est sous son effectif de départ, elle
+      équipe ses recrues au coffre d'équipe avec les plaques du coffre, sans attendre qu'un ouvrier fabrique le pistolet.
+      Avant, elle pouvait rester à 1 ouvrier toute la partie, coffre plein de fer.
+    - La ligne « chef » de /fo-war status est traduite (français et anglais).
+---------------------------------------------------------------------------------------------------
 Version: 0.4.23
 Date: 2026-10-25
   Changes:
