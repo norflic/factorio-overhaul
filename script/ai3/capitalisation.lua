@@ -51,6 +51,7 @@ local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
+local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur que personne ne sert
 
 local Capi = {}
 
@@ -272,6 +273,8 @@ local function scan(f, cs, tick)
     elseif role == "labo" then
       if not lk[e.name] then lk[e.name] = { entity = e.name, n = 0 } labs[#labs + 1] = lk[e.name] end
       lk[e.name].n = lk[e.name].n + 1
+    elseif Adopte.unserved(f, e) then
+      -- lot ADOPTE : machine posée à la main, isolée et non servie par l'équipe (hors rayon, réglage coupé) : pas une capacité
     else
       local r = nil
       local ok = pcall(function() r = e.get_recipe() end)
