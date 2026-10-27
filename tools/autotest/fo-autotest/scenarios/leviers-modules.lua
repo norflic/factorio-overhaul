@@ -12,10 +12,10 @@
 ]]
 
 local MIN = 3600
-local T_END = 30000
+local T_END = 36000
 local SAMPLE = 600
 local FIRST = 1800
-local N_FURN = 6
+local N_FURN = 3
 
 local function sorted_keys(t)
   local ks = {}
@@ -46,27 +46,33 @@ local function build(ctx, s, row, st)
   local list = {}
   for k = 0, N_FURN - 1 do
     local fx = x0 + 4 * k
-    local ore = s.create_entity({ name = "iron-chest", position = { fx, y0 - 4.5 }, force = row.force })
-    local i1 = s.create_entity({ name = "inserter", position = { fx, y0 - 2.5 }, force = row.force })
+    local ore = s.create_entity({ name = "iron-chest", position = { fx, y0 - 3 }, force = row.force })
+    local i1 = s.create_entity({ name = "fast-inserter", position = { fx, y0 - 2 }, force = row.force })
     local fu = s.create_entity({ name = "electric-furnace", position = { fx, y0 }, force = row.force, raise_built = true })
-    local i2 = s.create_entity({ name = "inserter", position = { fx, y0 + 2.5 }, force = row.force })
-    local out = s.create_entity({ name = "iron-chest", position = { fx, y0 + 4.5 }, force = row.force })
+    local i2 = s.create_entity({ name = "fast-inserter", position = { fx, y0 + 2 }, force = row.force })
+    local out = s.create_entity({ name = "iron-chest", position = { fx, y0 + 3 }, force = row.force })
     if ore and i1 and fu and i2 and out then
-      i1.pickup_position = { fx, y0 - 4.5 }
-      i1.drop_position = { fx, y0 - 1.6 }
-      i2.pickup_position = { fx, y0 + 1.6 }
-      i2.drop_position = { fx, y0 + 4.5 }
+      i1.pickup_position = { fx, y0 - 3 }
+      i1.drop_position = { fx, y0 - 1 }
+      i2.pickup_position = { fx, y0 + 1 }
+      i2.drop_position = { fx, y0 + 3 }
       ore.insert({ name = "iron-ore", count = 1600 }) -- 32 cases de 50 : 40 min de minerai à 37,5 par minute
-      list[#list + 1] = { fu = fu, out = out, unit = fu.unit_number }
+      list[#list + 1] = { fu = fu, out = out, unit = fu.unit_number, ore = ore, i1 = i1, i2 = i2 }
     end
   end
   st.rows[row.key] = { list = list, x0 = x0, y0 = y0 }
   -- Modules au coffre du QG (le stock d'une faction est son coffre et ses annexes).
   local inv = hq.get_inventory(defines.inventory.chest)
+  -- Un stock de plaques qui couvre déjà la demande ne laisse aucun manque à servir : le coffre est ramené à 200 plaques.
+  local extra = inv.get_item_count("iron-plate") - 200
+  if extra > 0 then inv.remove({ name = "iron-plate", count = extra }) end
   for _, m in ipairs({ { "productivity-module", 60 }, { "speed-module", 60 }, { "productivity-module-2", 60 }, { "speed-module-2", 60 } }) do
     inv.insert({ name = m[1], count = m[2] })
   end
   local blocked = ctx.remote("fo-capi", "block_sites", row.key, true)
+  -- Demande : un client de la faction consomme 600 plaques de fer par minute (puits mesuré de la règle) ; les fours posés et
+  -- ceux des avant-postes n'y suffisent pas, le manque est à servir par les modules (l'extraction est interdite).
+  ctx.remote("fo-capi", "bench_sink", row.key, "iron-plate", 600)
   ctx.check(#list == N_FURN and blocked == true, row.key .. " : usine de " .. N_FURN .. " fours, sites interdits", #list)
   ctx.log(string.format("usine %s : %d fours a (%.1f, %.1f), QG (%.1f, %.1f)", row.key, #list, x0, y0, hq.position.x, hq.position.y))
   return #list == N_FURN
@@ -88,6 +94,16 @@ local function sample(ctx, s, st, tick)
       end
     end
     r.samples[#r.samples + 1] = { tick = tick, per = per, eq = eq, mods = mods }
+    if tick == FIRST or tick == 6000 then
+      local f1 = r.list[1]
+      if f1 and f1.fu.valid then
+        local names = {}
+        for n, v in pairs(defines.entity_status) do names[v] = n end
+        ctx.log(string.format("diag %s t=%d : four %s (%s) statut=%s recette=%s energie=%.0f | bras entree statut=%s | bras sortie statut=%s | minerai %d",
+          key, tick, f1.fu.name, f1.fu.type, tostring(names[f1.fu.status]), tostring(f1.fu.get_recipe() and f1.fu.get_recipe().name or f1.fu.previous_recipe and f1.fu.previous_recipe.name),
+          f1.fu.energy, tostring(names[f1.i1.status]), tostring(names[f1.i2.status]), f1.ore.get_inventory(defines.inventory.chest).get_item_count("iron-ore")))
+      end
+    end
     local cs = ctx.remote("fo-capi", "status", key)
     local o = nil
     for _, rec in ipairs(cs and cs.open or {}) do if rec.kind == "equiper" then o = rec end end
@@ -105,6 +121,13 @@ local function sample(ctx, s, st, tick)
     if cs and cs.repli and not r.repli then
       r.repli = cs.repli
       ctx.log("repli " .. key .. " : " .. cs.repli)
+    end
+    if tick == 15000 or tick == 24000 then
+      local parts = {}
+      for _, m in ipairs(cs and cs.machines or {}) do
+        parts[#parts + 1] = string.format("%s/%s@%s x%d [%s]", m.entity, tostring(m.recipe), tostring(m.where), m.n, tostring(m.sig))
+      end
+      ctx.log(string.format("diag %s t=%d : machines relevees %s", key, tick, table.concat(parts, " ; ")))
     end
     ctx.log(string.format("mesure t=%d %s plaques=%d fours_equipes=%d modules=%d ordres_ouverts=%d", tick, key, plates, eq, mods,
       cs and #(cs.open or {}) or -1))

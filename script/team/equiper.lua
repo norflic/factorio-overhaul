@@ -74,7 +74,11 @@ function Equip.act(agent, f, task, surface, tick)
     put = put + 1
   end
   if put > 0 then Mult.refresh(e, true) end
-  mark(put, put < (task.per or 1) and (put == 0 and "insertion refusee par le moteur" or "emplacements insuffisants") or nil)
+  local why = nil
+  if put < (task.per or 1) then
+    why = have <= 0 and "aucun module sur le PNJ" or (put == 0 and "insertion refusee par le moteur" or "emplacements insuffisants")
+  end
+  mark(put, why)
   return true
 end
 

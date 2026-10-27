@@ -730,6 +730,9 @@ local function build_input(f, cs, view, book, tick, D, w)
   local g = f.team.iag
   -- Lot LEVIERS : clés d'ordres de leviers refusées par l'exécutant, en repli (Ca.decide : input.skip).
   local skip = {}
+  for _, k in ipairs(sorted_keys(cs.stale or {})) do
+    if cs.scan and cs.scan.tick == cs.stale[k] then skip[k] = true else cs.stale[k] = nil end
+  end
   for _, k in ipairs(sorted_keys(cs.backoff or {})) do
     if (k:sub(1, 8) == "equiper:" or k:sub(1, 7) == "techno:") and held(cs, k, tick) then skip[k] = true end
   end
@@ -737,7 +740,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     can_exec = can_exec, skip = skip,
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
-    deposits = deposits, open = open, sinks = {}, need = need, research = research, drill_for = drill_for,
+    deposits = deposits, open = open, sinks = cs.bench_sinks or {}, need = need, research = research, drill_for = drill_for,
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = view.threatened or false, dt = 1, lag = cs.lag,
@@ -1072,6 +1075,12 @@ function Capi.think(f, view, book, tick, research, w)
       end
       if state == "echec" and rec.exec == "module" and rec.product then hold(cs, rec.product, why, tick) end
       if state == "echec" and (rec.exec == "equiper" or rec.exec == "techno") then hold(cs, rec.key, why, tick) end
+      -- Lot LEVIERS : le relevé des machines (une fois par minute) ne montre pas encore les modules qu'un PNJ vient de poser :
+      -- cette clé n'est pas redécidée avant le relevé suivant (banc leviers-modules : le même ordre, réémis sur l'ancien relevé).
+      if rec.exec == "equiper" and cs.scan then
+        cs.stale = cs.stale or {}
+        cs.stale[rec.key] = cs.scan.tick
+      end
       cs.done[#cs.done + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, state = state, why = why,
         opened = rec.opened, closed = tick }
       while #cs.done > Capi.LOG_ORDERS do table.remove(cs.done, 1) end
@@ -1155,6 +1164,15 @@ end
 remote.add_interface("fo-capi", {
   --- Lot LEVIERS (BANC SEULEMENT) : déclare interdits tous les gisements de la faction (même champ que « hors du plan
   --- directeur ») ; la détection du danger elle-même n'est pas touchée. Rend vrai si la faction existe.
+  --- Lot LEVIERS (BANC SEULEMENT) : un client externe de la faction consomme `rate` objets/min de `item` (puits mesuré de la
+  --- règle, élastique en dehors du banc) ; rate 0 le retire.
+  bench_sink = function(key, item, rate)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    local cs = state_of(f)
+    cs.bench_sinks = (rate and rate > 0) and { { item = item, rate = rate, want = rate } } or nil
+    return true
+  end,
   block_sites = function(key, on)
     local f = team_of(key)
     if not (f and f.team) then return false end
@@ -1173,6 +1191,11 @@ remote.add_interface("fo-capi", {
         refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
+    -- lot LEVIERS : machines relevées (groupes) pour les bancs
+    out.machines = {}
+    for _, m in ipairs(cs.scan and cs.scan.machines or {}) do
+      out.machines[#out.machines + 1] = { entity = m.entity, recipe = m.recipe, where = m.where, n = m.n, sig = m.sig }
+    end
     for _, id in ipairs(sorted_keys(cs.deps)) do
       local d = cs.deps[id]
       out.deps[#out.deps + 1] = { id = id, resource = d.resource, tiles = d.tiles, amount = d.amount, covered = d.covered,
