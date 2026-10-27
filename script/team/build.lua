@@ -323,7 +323,9 @@ local function template_of(spec)
   if spec.gen then
     local fn = M.GEN[spec.gen]
     if not fn then return nil, "generateur inconnu" end
-    g, why = fn(table.unpack(spec.args or {}))
+    g, why = M.with_pole(spec.pole, fn, table.unpack(spec.args or {}))
+    -- lot PLANDIR : un poteau plus court qui ne couvre pas le gabarit cède au poteau par défaut
+    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(spec.args or {})) end
   elseif spec.key then
     g = M.get_any(spec.key)
     if not g then why = "gabarit inconnu" end
@@ -339,6 +341,8 @@ local function template_of(spec)
       local n = math.max(1, math.min(ex.max, math.ceil(cur * want / g.nominal[main] - 1e-9)))
       if n ~= cur then
         local g2 = M.extend(g, n)
+        -- lot PLANDIR : l'extension qui ne passe pas avec un poteau court (ni couverture, ni fils) est refaite au poteau par défaut
+        if g2 and g.pole_name ~= M.DEFAULT_POLE and #M.check(g2) > 0 then g2 = M.regenerate(g, { [ex.arg] = n }, M.DEFAULT_POLE) end
         if g2 then g = g2 end
       end
     end
@@ -433,11 +437,13 @@ local function inst_entities(inst, part)
   return out
 end
 
-local function pole_kind(f)
-  local force = game.forces[f.force]
-  local r = force and force.recipes["big-electric-pole"]
-  if (Stock.count(f, "big-electric-pole") > 0) or (r and r.enabled) then return "big-electric-pole", 30 end
-  return "medium-electric-pole", 9
+--- Lot PLANDIR : poteau du réseau. Le grand (5 d'acier la pièce) seulement quand le coffre en contient déjà ; sinon le
+--- poteau du module lui-même (`own`, le moins cher débloqué à la demande, A.choose_pole), de la portée de fil de ses données
+--- (P.wire). Un seul type de poteau par module et pour sa rue : une île sans courant vient d'un maillon trop long.
+local function pole_kind(f, own)
+  if Stock.count(f, "big-electric-pole") > 0 then return "big-electric-pole", 30 end
+  local name = own or M.DEFAULT_POLE
+  return name, P.wire(name) or 9
 end
 
 --- Carrefour le plus proche d'une position (i, j).
@@ -451,7 +457,7 @@ end
 --- premier carrefour déjà au réseau (ou planifié), chaîne de liaison. Rend la liste d'entités ou nil, raison.
 local function plan_power(f, p, mp, masks)
   local b = f.build
-  local pole, reach = pole_kind(f)
+  local pole, reach = pole_kind(f, mp.name)
   local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
   local out = {}
@@ -569,19 +575,37 @@ local function plan_power(f, p, mp, masks)
     return not bad[k1] and not bad[k2] and not foreign(k1) and not foreign(k2)
   end end
   local nodes
-  for _ = 1, 4 do
+  -- lot PLANDIR : cause exacte d'un refus « pas de rue vers le reseau » (journal [FO-PLANDIR], 3 lignes au plus par projet)
+  local cause, blocked_at
+  for attempt = 1, 4 do
     nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_passable(b)), b.radius)
     if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_wire(b)), b.radius) end
-    if not nodes then break end
+    if not nodes then cause = "aucune route filtree (essai " .. attempt .. ")" break end
     local blocked
     for _, n in ipairs(nodes) do
       if not spot_of(n.i, n.j) then blocked = n break end
     end
-    if not blocked then break end
+    if not blocked then cause = nil break end
+    blocked_at = string.format("(%d,%d)", blocked.i, blocked.j)
     bad[P.lot_key(blocked.i, blocked.j)] = true
+    cause = "carrefour " .. blocked_at .. " sans quart libre (essai " .. attempt .. ")"
     nodes = nil
   end
-  if not nodes then return nil, "pas de rue vers le reseau" end
+  if not nodes then
+    p.noroute_logged = (p.noroute_logged or 0) + 1
+    if p.noroute_logged <= 3 then
+      local nbad, nforeign = 0, 0
+      for _ in pairs(bad) do nbad = nbad + 1 end
+      for _, k in ipairs(keys) do if foreign(k) then nforeign = nforeign + 1 end end
+      local free_streets = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius) ~= nil
+      local free_wires = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) ~= nil
+      log(string.format("[FO-PLANDIR] %s : pas de rue vers le reseau (projet %d) : cause %s ; depart (%d,%d) cible (%d,%d) rayon %d ; "
+        .. "carrefours ecartes %d, etrangers non bati %d, reseau %d carrefour(s) ; route sans filtre : rues %s, fils %s",
+        f.key or "player", p.id, tostring(cause), mi, mj, target.i, target.j, b.radius or 0, nbad, nforeign, #keys,
+        free_streets and "oui" or "non", free_wires and "oui" or "non"))
+    end
+    return nil, "pas de rue vers le reseau"
+  end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
   local function take(e) for _, t in ipairs(P.tiles_of(e)) do taken[P.tkey(t[1], t[2])] = true end end
@@ -602,7 +626,7 @@ local function plan_power(f, p, mp, masks)
     -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
-      local chain = P.pole_chain(prev, pos, big and reach or 9, big, free)
+      local chain = P.pole_chain(prev, pos, reach, big, free)
       if not chain then return nil, "poteaux de rue" end
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
@@ -645,12 +669,12 @@ local function covered_by(poles, e)
   for _, q in ipairs(poles) do
     -- aire d'alimentation du poteau (demi-côté) contre la boîte du bras (±0,15) : un bras à 4 tuiles d'un poteau moyen
     -- n'est PAS alimenté (moteur réel, e6-usine : bras de quai « no_power » sous des poteaux du réseau de la centrale)
-    local sup = (q.name == "big-electric-pole") and 2 or ((q.name == "small-electric-pole") and 2.5 or 3.5)
+    local sup = (q.name == "big-electric-pole") and 2 or ((M.spec(q.name) or {}).supply or 3.5)
     if math.abs(q.x - e.x) <= sup + 0.15 and math.abs(q.y - e.y) <= sup + 0.15 then return true end
   end
   return false
 end
-local function quai_poles(b, p, list, masks)
+local function quai_poles(b, p, list, masks, pole_name)
   local poles = {}
   for _, e in ipairs(p.ents) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
   for _, e in ipairs(list) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
@@ -665,7 +689,7 @@ local function quai_poles(b, p, list, masks)
         local tx, ty = tx0 + d[1], ty0 + d[2]
         local k = P.tkey(tx, ty)
         if not planned[k] and not b.occ[k] and (not masks or masks.free(tx, ty)) then
-          local pole = { name = "medium-electric-pole", x = tx + 0.5, y = ty + 0.5, dir = 0, role = "quai-poteau", part = e.part }
+          local pole = { name = pole_name or M.DEFAULT_POLE, x = tx + 0.5, y = ty + 0.5, dir = 0, role = "quai-poteau", part = e.part }
           extra[#extra + 1] = pole
           poles[#poles + 1] = pole
           planned[k] = true
@@ -753,7 +777,7 @@ local function plan_feed(f, surface, p, place, part)
         end
       end
       if quai_ins ~= "burner-inserter" then
-        local qp = quai_poles(b, p, quay_ents, place.masks)
+        local qp = quai_poles(b, p, quay_ents, place.masks, g.pole_name)
         if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
     else
@@ -766,7 +790,7 @@ local function plan_feed(f, surface, p, place, part)
       local q = P.out_quai(port, ins)
       for _, e in ipairs(q) do e.part = part end
       if not reserve_tiles(b, p, q) then return false, "quai de sortie" end
-      local qp = quai_poles(b, p, q, place.masks)
+      local qp = quai_poles(b, p, q, place.masks, g.pole_name)
       if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       p.outs[#p.outs + 1] = { x = q[2].x, y = q[2].y }
     end
@@ -830,7 +854,8 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   local place, why
   local diag = {}
   for nn = n, 1, -1 do
-    local g = M.GEN.drills(item, nn)
+    local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
+    if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item, { nobad = true, diag = nn == 1 and diag or nil })
       if place then break end
@@ -1152,10 +1177,11 @@ local function plan_project(f, surface, p)
 end
 
 --- Centrale de l'équipe (une demande, si aucune n'existe).
-function Build.plant(f)
+function Build.plant(f, pole)
   local b = f.build
   if b.plant then return b.plant end
-  local id = Build.request(f, { gen = "steam", args = { 1 }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures" })
+  local id = Build.request(f, { gen = "steam", args = { 1 }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
+    pole = pole })
   b.plant = id
   -- la centrale passe avant les autres projets en attente
   local order = { id }
