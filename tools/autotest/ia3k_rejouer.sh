@@ -16,7 +16,8 @@ if [ -z "$SRC" ] || [ -z "$OUT" ]; then
   exit 1
 fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
-BANC="$HERE/banc.py"
+# FO_BANC : chemin du banc.py à utiliser (consigne de l'intégrateur : celui de main, par chemin absolu).
+BANC="${FO_BANC:-$HERE/banc.py}"
 mkdir -p "$OUT"
 run() {
   local name="$1"; shift
