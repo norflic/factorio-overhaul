@@ -675,6 +675,8 @@ function M.new_world(opts)
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
       ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
+      -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
+      ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
