@@ -480,6 +480,20 @@ function A.decide(input)
       local rate = math.max(1, D) * (100 + margin) / 100
       if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
       local g, args = A.sized(meth, rate)
+      -- Fonderie : la voie de minerai n'est servie par foreuses et tapis qu'au-delà de A.BELT_FLOW (P.AUTO_FLOW) ; en
+      -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
+      -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
+      -- plus petite taille servie par tapis, donc.
+      local function belt_ok(gg) return not meth.ore or (gg.inputs[meth.ore] or 0) >= A.BELT_FLOW - 1e-9 end
+      if g and g.ext and not belt_ok(g) then
+        for n = args[g.ext.arg] + 1, g.ext.max do
+          local a2 = {}
+          for i = 1, #args do a2[i] = args[i] end
+          a2[g.ext.arg] = n
+          local g2 = A.template(meth.gen, a2)
+          if g2 and belt_ok(g2) then g, args = g2, a2 break end
+        end
+      end
       local function missing_of(gg)
         local _, its = A.cost(meth, gg, { has_plant = true })
         local miss = {}
@@ -497,7 +511,7 @@ function A.decide(input)
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
           local g2 = A.template(meth.gen, a2)
-          if g2 and #missing_of(g2) == 0 then g, args = g2, a2 break end
+          if g2 and belt_ok(g2) and #missing_of(g2) == 0 then g, args = g2, a2 break end
         end
       end
       if not g then

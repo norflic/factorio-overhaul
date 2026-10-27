@@ -117,10 +117,17 @@ do
   -- 0,30 PNJ : demandé.
   local r5b = A.decide({ window = win(10, { ["iron-plate"] = 0.24 * 3600 }, { ["iron-plate"] = 10 }), obtainable = all_ok,
     book = book, stock = full, dist = 10, has_plant = true })
-  check(#r5b.requests == 0 and verdict(r5b, "iron-plate").verdict == "non", "charge 0,24 PNJ sous le seuil : à la main (" .. tostring(verdict(r5b, "iron-plate").why) .. ")")
+  check(#r5b.requests == 0 and verdict(r5b, "iron-plate").verdict == "non" and tostring(verdict(r5b, "iron-plate").why):find("^charge"),
+    "charge 0,24 PNJ sous le seuil : à la main (" .. tostring(verdict(r5b, "iron-plate").why) .. ")")
   local r5c = A.decide({ window = win(10, { ["iron-plate"] = 0.30 * 3600 }, { ["iron-plate"] = 10 }), obtainable = all_ok,
     book = book, stock = full, dist = 10, has_plant = true })
   check(req(r5c, "iron-plate") ~= nil, "charge 0,30 PNJ, retour sous 20 min : demandé (" .. tostring(verdict(r5c, "iron-plate").why) .. ")")
+  -- 10 plaques/min visées (12,5 avec la marge) : une rangée suffirait, mais sa voie de minerai (0,625/s) serait un QUAI
+  -- rempli depuis le coffre, où il n'y a pas de minerai (e6-usine) : la plus petite fonderie servie par tapis (2 rangées).
+  local q5c = req(r5c, "iron-plate")
+  local g5c = q5c and A.template(q5c.gen, q5c.args)
+  check(q5c and q5c.args[3] == 2 and g5c and g5c.inputs["iron-ore"] >= A.BELT_FLOW - 1e-9,
+    string.format("fonderie servie par tapis : %s rangée(s), minerai %.2f/s", q5c and tostring(q5c.args[3]) or "?", g5c and g5c.inputs["iron-ore"] or 0))
   -- Fonderie au débit de 150 plaques/min sans bras rapides : réduite à ce qu'un bras simple décharge à chaque quai.
   local big = win(10, { ["iron-plate"] = 3 * 3600 }, { ["iron-plate"] = 120 })
   local book_nofast = Book.new(recipes, { allowed = function(n) return n ~= "fast-inserter" end })
@@ -462,6 +469,8 @@ mutant("aucun module généré (gabarits écrits seulement)", function()
     return nil, "limite : pas de gabarit"
   end
 end, function() A.method_for = mf0 end)
+local BF = A.BELT_FLOW
+mutant("fonderie à quai de minerai", function() A.BELT_FLOW = 0 end, function() A.BELT_FLOW = BF end)
 local cost0 = A.cost
 mutant("coût nul", function() A.cost = function(meth, g, ctx) local c, i, n, d = cost0(meth, g, ctx); return 0, i, n, d end end,
   function() A.cost = cost0 end)
