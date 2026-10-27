@@ -280,7 +280,7 @@ function M.plan(f, agent, p, goal, tick, opts)
     draw = function(k) return Tr.range(st, 1, k) end
     seed = Tr.range(st, 1, Tr.MOD - 2)
   end
-  local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw })
+  local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw, side = opts.side })
   res.B = B
   res.field = field
   return res
@@ -306,7 +306,10 @@ function M.leg(agent, pos, radius, tick)
   end
   if not a.pts then
     local t = M.team(f)
-    local res = M.plan(f, agent, p, pos, tick, { draw = true })
+    -- Côté de la variation : un pour les retours au QG, un pour les allers (sinon l'aller suivant dépend du retour).
+    local sk = d2(pos, f.hq_pos) <= 24 * 24 and "side_h" or "side_o"
+    local res = M.plan(f, agent, p, pos, tick, { draw = true, side = a[sk] })
+    if res.side then a[sk] = res.side end
     if res.blocked then
       -- Déjà parti (la porte a jugé) ou déjà dans une zone marquée : le chemin qui minimise le danger.
       t.stats.blocked = t.stats.blocked + 1
@@ -355,9 +358,10 @@ end
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
 function M.gate(f, agent, task, steps, tick)
+  local t0 = S().teams[M.team_key(f)]
+  if t0 and t0.hold then return false, "banc" end -- banc : même réglage éteint (témoin)
   if not M.enabled() then return true end
   local t = M.team(f)
-  if t.hold then return false, "banc" end
   local dest
   for i, s in ipairs(steps) do
     if s[1] == "goto" then dest = s[2] break end
@@ -567,6 +571,108 @@ Events.on_nth_tick(M.PRUNE_PERIOD, function(e)
   if not st then return end
   for _, k in ipairs(State.sorted_keys(st.teams)) do D.prune(st.teams[k].map, e.tick) end
 end)
+
+---------------------------------------------------------------------------------------------------
+-- Interface distante « fo-ia3k » (bancs ; le mod de test n'a pas accès à `global` de ce mod)
+--   status(clé)                       -> { enabled, epoch, stats, summary, escorts } ou nil
+--   agents(clé)                       -> { { id, x, y, state, task, hp, hold, refuge, wps, wp_i, final }, ... }
+--   trip(clé, id, x, y[, attente])    -> numéro de tournée (PNJ sans tâche seulement) ou false        [bancs]
+--   hold(clé, vrai|faux)              -> vrai : la porte refuse toute tâche du cerveau (tournées seules) [bancs]
+--   set_character(clé, prudence, agressivite) -> vrai (nil, nil : caractère de la faction)           [bancs]
+--   mark(clé, x, y, genre, portée), death(clé, x, y) -> vrai                                          [bancs]
+--   danger(clé)                       -> { threats, deaths, summary }
+---------------------------------------------------------------------------------------------------
+local function team_by_key(key)
+  if key == "player" then return State.faction("player") end
+  for _, id in ipairs(State.alive()) do
+    local f = State.faction(id)
+    if f and (f.key == key or id == key) then return f end
+  end
+  return nil
+end
+M.team_by_key = team_by_key
+
+local function copy(v)
+  if type(v) ~= "table" then return v end
+  local out = {}
+  for k, x in pairs(v) do out[k] = copy(x) end
+  return out
+end
+
+remote.add_interface("fo-ia3k", {
+  status = function(key)
+    local f = team_by_key(key)
+    if not f then return nil end
+    local t = M.team(f)
+    local n = 0
+    for _ in pairs(t.escorts or {}) do n = n + 1 end
+    return { enabled = M.enabled(), epoch = t.epoch, stats = copy(t.stats), summary = D.summary(t.map, game.tick),
+      escorts = n, soldiers = copy(t.soldiers) }
+  end,
+  agents = function(key)
+    local f = team_by_key(key)
+    if not f then return nil end
+    local out = {}
+    for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+      local ag = Registry.get(id)
+      if ag and ag.entity.valid then
+        local a = S().agents[id] or {}
+        local p = ag.entity.position
+        out[#out + 1] = { id = id, x = p.x, y = p.y, state = ag.state, task = ag.task and ag.task.kind or nil,
+          trip = ag.task and ag.task.trip or nil, hp = math.floor(ag.entity.get_health_ratio() * 1000 + 0.5),
+          hold = a.hold, refuge = copy(a.refuge), wps = a.pts and #a.pts or 0, wp_i = a.i, final = copy(a.final),
+          label = a.label_key, label_t = a.label_t }
+      end
+    end
+    return out
+  end,
+  trip = function(key, id, x, y, wait)
+    local f = team_by_key(key)
+    local ag = Registry.get(id)
+    if not (f and ag and ag.faction == f.id and ag.entity.valid) or ag.task then return false end
+    local t = M.team(f)
+    t.trips = (t.trips or 0) + 1
+    ag.task = { key = "ia3k-trip:" .. t.trips, kind = "garrison", post = "ia3k", trip = t.trips, claimed = game.tick }
+    ag.steps = { { "goto", { x = x, y = y }, 3 }, { "wait", wait or 60 }, { "home" } }
+    ag.pc, ag.failed = 1, nil
+    FSM.set(M.MACHINE, ag, "step", game.tick)
+    return t.trips
+  end,
+  hold = function(key, on)
+    local f = team_by_key(key)
+    if not f then return false end
+    M.team(f).hold = on and true or nil
+    return true
+  end,
+  set_character = function(key, prudence, agressivite)
+    local f = team_by_key(key)
+    if not f then return false end
+    local t = M.team(f)
+    if prudence == nil and agressivite == nil then t.char = nil
+    else t.char = { prudence = prudence or 1000, agressivite = agressivite or 1000 } end
+    return true
+  end,
+  mark = function(key, x, y, kind, range)
+    local f = team_by_key(key)
+    if not f then return false end
+    D.mark_seen(M.team(f).map, x, y, kind or "worm", range, game.tick)
+    return true
+  end,
+  death = function(key, x, y)
+    local f = team_by_key(key)
+    if not f then return false end
+    local t = M.team(f)
+    D.mark_death(t.map, x, y, game.tick)
+    t.epoch = t.epoch + 1
+    return true
+  end,
+  danger = function(key)
+    local f = team_by_key(key)
+    if not f then return nil end
+    local t = M.team(f)
+    return { threats = copy(t.map.threats), deaths = copy(t.map.deaths), summary = D.summary(t.map, game.tick) }
+  end,
+})
 
 Worker.hook = M
 return M

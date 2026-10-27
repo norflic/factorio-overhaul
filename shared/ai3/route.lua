@@ -3,8 +3,9 @@
   (tests/ia3k_route_test.lua).
 
   Le pathfinder du moteur (request_path) ne prend aucun coût de danger : on lui donne des POINTS DE PASSAGE.
-  - Sans danger dans la boîte du trajet : un point de passage tiré par tournée au milieu du trajet, décalé latéralement
-    de h, |h| dans [V_MIN, V_MAX] × D (C1 : on ne suit pas toujours la même ligne ; allongement ≤ 6,3 %).
+  - Sans danger dans la boîte du trajet : deux points de passage tirés par tournée, au tiers et aux deux tiers du trajet,
+    décalés latéralement de h, |h| dans [V_MIN, V_MAX] × D, côté changé d'une tournée à l'autre avec une chance de FLIP
+    pour mille (C1 : on ne suit pas toujours la même ligne ; allongement ≤ 2 √(1/9 + 0,18²) + 1/3 − 1 = 9,1 %).
   - Avec danger : A* déterministe sur les cases de shared/ai3/danger.lua (8 voisins, coût 10 / 14 × (1 + danger / 100),
     case ≥ B infranchissable sauf départ et but), bruit de tournée ≤ NOISE pour mille par case (variété, allongement
     borné : longueur ≤ coût ≤ (1 + NOISE) × coût du meilleur chemin sans bruit), au plus MAX_EXPAND développements ;
@@ -18,8 +19,11 @@ local Tr = require("shared.faction.traits")
 
 local R = {}
 
-R.V_MIN = 60       -- pour mille de la distance
+R.V_MIN = 80       -- pour mille de la distance
 R.V_MAX = 180
+R.FLIP = 667       -- chance (pour mille) de changer de côté par rapport à la tournée précédente
+R.CAP_LO = 12      -- tuiles
+R.CAP_HI = 28
 R.V_FROM = 40      -- pas de variation sous 40 tuiles
 R.NOISE = 100      -- bruit de tournée (pour mille du coût d'une case), A* seulement
 R.MAX_EXPAND = 1500
@@ -75,15 +79,30 @@ function R.profile(field, start, pts, goal)
   return mx, field[D.key(D.cell(goal.x), D.cell(goal.y))] or 0
 end
 
---- Point de passage de la variation (C1) : tirage `draw(n)` -> entier de 1 à n (flux de la tournée). nil sous V_FROM.
-function R.via(start, goal, draw)
+--- Points de passage de la variation (C1) : tirage `draw(n)` -> entier de 1 à n (flux de la tournée) ; `prev` : côté de
+--- la tournée précédente (1, -1 ou nil). Renvoie la liste des 2 points (nil sous V_FROM), l'écart h, le côté.
+function R.via(start, goal, draw, prev)
   local D0 = dist(start.x, start.y, goal.x, goal.y)
-  if D0 < R.V_FROM or not draw then return nil, 0 end
-  local mag = R.V_MIN + (draw(R.V_MAX - R.V_MIN + 1) - 1)
-  local side = draw(2) == 1 and 1 or -1
-  local h = side * D0 * mag / 1000
+  if D0 < R.V_FROM or not draw then return nil, 0, prev end
+  -- Écart en tuiles : [V_MIN, V_MAX] × D, borné à [CAP_LO, CAP_HI] tuiles (un long trajet ne s'écarte pas de 50 tuiles
+  -- dans l'inconnu).
+  local lo = math.min(R.V_MIN * D0 / 1000, R.CAP_LO)
+  local hi = math.min(R.V_MAX * D0 / 1000, R.CAP_HI)
+  local mag = lo + (hi - lo) * (draw(1001) - 1) / 1000
+  local side
+  if prev == 1 or prev == -1 then
+    side = (draw(1000) <= R.FLIP) and -prev or prev
+  else
+    side = draw(2) == 1 and 1 or -1
+  end
+  local h = side * mag
   local ux, uy = (goal.x - start.x) / D0, (goal.y - start.y) / D0
-  return { x = (start.x + goal.x) / 2 - uy * h, y = (start.y + goal.y) / 2 + ux * h }, h
+  local out = {}
+  for k = 1, 2 do
+    local bx, by = start.x + (goal.x - start.x) * k / 3, start.y + (goal.y - start.y) * k / 3
+    out[k] = { x = bx - uy * h, y = by + ux * h }
+  end
+  return out, h, side
 end
 
 -- Tas binaire min sur { f, k } (égalité : clé croissante).
@@ -205,8 +224,8 @@ function R.reduce(field, start, cells, goal, lim)
 end
 
 --- Itinéraire de start à goal. opts = { field (D.field), n (cases non nulles du champ), B (blocage), seed (bruit de
---- tournée, entier ≥ 1, ou nil), draw (tirage de la variation, ou nil), max_expand }.
---- Renvoie { pts, len, direct, max_d, goal_d, blocked, astar, h, expand }.
+--- tournée, entier ≥ 1, ou nil), draw (tirage de la variation, ou nil), side (côté de la tournée précédente), max_expand }.
+--- Renvoie { pts, len, direct, max_d, goal_d, blocked, astar, h, side, expand }.
 function R.plan(start, goal, opts)
   local field = opts.field or {}
   local direct = dist(start.x, start.y, goal.x, goal.y)
@@ -227,9 +246,9 @@ function R.plan(start, goal, opts)
   local B = opts.B or 600
   local res = { direct = direct, pts = {}, blocked = false, astar = false, h = 0, expand = 0 }
   if not any then
-    local v, h = R.via(start, goal, opts.draw)
-    if v then res.pts = { v } end
-    res.h = h
+    local v, h, side = R.via(start, goal, opts.draw, opts.side)
+    if v then res.pts = v end
+    res.h, res.side = h, side
   else
     res.astar = true
     local cells, n = R.astar(field, sc, gc, B, opts.seed, opts.max_expand)

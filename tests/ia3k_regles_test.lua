@@ -129,26 +129,27 @@ local function suite()
   section("itinéraire : variation par tournée (C1)")
   local S, G = { x = 0, y = 0 }, { x = 100, y = 0 }
   local draw = stream_draw(20261020, 470)
-  local hs, ok_len, ok_mag = {}, true, true
+  local hs, ok_len, ok_mag, side = {}, true, true, nil
+  local wide, prevp = 0, nil
   for i = 1, 200 do
-    local r = R.plan(S, G, { field = {}, n = 0, draw = draw })
-    hs[i] = r.h
+    local r = R.plan(S, G, { field = {}, n = 0, draw = draw, side = side })
+    hs[i], side = r.h, r.side
     if r.len > 1.15 * r.direct then ok_len = false end
     local a = math.abs(r.h)
-    if a < 0.06 * 100 - 1e-9 or a > 0.18 * 100 + 1e-9 then ok_mag = false end
+    if a < 0.08 * 100 - 1e-9 or a > 0.18 * 100 + 1e-9 or #r.pts ~= 2 then ok_mag = false end
+    -- Écart MÉDIAN entre allers successifs (même mesure que le banc ia3k-variete).
+    local p = R.samples(S, r.pts, G, 2)
+    if prevp and R.median_gap(S, G, prevp, p, 8) >= 4 then wide = wide + 1 end
+    prevp = p
   end
   check(ok_len, "allongement de la variation ≤ 15 %")
-  check(ok_mag, "écart latéral du point de passage entre 6 % et 18 % de la distance")
+  check(ok_mag, "deux points de passage, écart latéral entre 8 % et 18 % de la distance")
   local far_pairs = 0
   for i = 1, 199 do if math.abs(hs[i] - hs[i + 1]) >= 4 then far_pairs = far_pairs + 1 end end
   check(far_pairs >= 100, "deux tournées successives à ≥ 4 tuiles d'écart dans ≥ 50 % des cas (" .. far_pairs .. " / 199)")
+  check(wide >= 110, "écart MÉDIAN ≥ 4 tuiles entre allers successifs dans ≥ 55 % des paires (" .. wide .. " / 199)")
   local rshort = R.plan({ x = 0, y = 0 }, { x = 30, y = 0 }, { field = {}, n = 0, draw = draw })
   check(#rshort.pts == 0, "pas de variation sous 40 tuiles")
-  -- Écart médian mesuré sur des trajets échantillonnés (même mesure que le banc ia3k-variete).
-  local t1 = R.samples(S, { { x = 50, y = 8 } }, G, 2)
-  local t2 = R.samples(S, { { x = 50, y = -6 } }, G, 2)
-  local med = R.median_gap(S, G, t1, t2, 8)
-  check(med >= 4 and med <= 14, "écart médian de deux trajets décalés de 8 et -6 au milieu : " .. string.format("%.1f", med))
 
   section("itinéraire : détour d'un ver sur la route (C2)")
   local mw = D.new()
