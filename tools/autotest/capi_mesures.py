@@ -38,7 +38,8 @@ def read_log(arch):
 
 RE_COURBE = re.compile(r"\[FO-CAPI-(PARTIE|TEMOIN)\] courbe minute (\d+) \| (\S+) \| foreuses_elec=(\d+) foreuses_comb=(\d+) "
                        r"fours=(\d+) assembleurs=(\d+) labos=(\d+) \| n=(\d+) inactifs=([\d.]+)% tech=(-?\d+) \| extrait10 (.*?) \| produit10 (.*)$")
-RE_FONTE = re.compile(r"\[FO-CAPI-(?:PARTIE|TEMOIN)\] fonte minute (\d+) \| (\S+) \| fours (\d+) affames (\d+) \| foreuses (\d+) sortie_pleine (\d+)")
+RE_FONTE = re.compile(r"\[FO-CAPI-(?:PARTIE|TEMOIN)\] fonte minute (\d+) \| (\S+) \| fours (\d+) affames (\d+) \| foreuses (\d+) sortie_pleine (\d+)"
+                      r"(?: \| paire (\d+)/(\d+) qg (\d+)/(\d+) module (\d+)/(\d+))?")
 RE_GIS = re.compile(r"\[FO-CAPI-(?:PARTIE|TEMOIN)\] gisements minute (\d+) \| (\S+) \| decisions (\d+) ordres (\d+) ouverts (\d+) \[(.*?)\] \| (.*)$")
 RE_DEP = re.compile(r"(\S+)\[(\S+)\] tuiles=(\d+)/(\d+) couvertes=(\d+) foreuses=(\d+) \{(.*?)\}")
 RE_BILAN = re.compile(r"\[FO-CAPI-(?:PARTIE|TEMOIN)\] BILAN : (.*)$")
@@ -75,9 +76,11 @@ def analyse(arch):
             continue
         m = RE_FONTE.search(ln)
         if m:
-            res["fonte"].setdefault(m.group(2), []).append({"min": int(m.group(1)), "fours": int(m.group(3)),
-                                                             "affames": int(m.group(4)), "foreuses": int(m.group(5)),
-                                                             "pleines": int(m.group(6))})
+            e = {"min": int(m.group(1)), "fours": int(m.group(3)), "affames": int(m.group(4)),
+                 "foreuses": int(m.group(5)), "pleines": int(m.group(6))}
+            if m.group(7):
+                e["cat"] = "paire %s/%s qg %s/%s module %s/%s" % m.group(7, 8, 9, 10, 11, 12)
+            res["fonte"].setdefault(m.group(2), []).append(e)
             continue
         m = RE_GIS.search(ln)
         if m:
@@ -161,7 +164,8 @@ def report(arch, out_csv=None):
         # critère (2)
         ff = r["fonte"].get(fk, [])
         if ff:
-            parts = ["%d:%d/%d aff,%d/%d pleines" % (e["min"], e["affames"], e["fours"], e["pleines"], e["foreuses"]) for e in ff]
+            parts = ["%d:%d/%d aff,%d/%d pleines%s" % (e["min"], e["affames"], e["fours"], e["pleines"], e["foreuses"],
+                                                      (" [" + e["cat"] + "]") if e.get("cat") else "") for e in ff]
             print("  (2) fonte : " + " ; ".join(parts))
         # critère (1) et (3) : couverture au fil du temps
         for e in r["gis"].get(fk, []):

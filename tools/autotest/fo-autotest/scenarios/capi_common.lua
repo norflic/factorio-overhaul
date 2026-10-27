@@ -210,18 +210,32 @@ return function(variant)
           minute, r.key, drills_e, drills_b, cnt.furnace, cnt["assembling-machine"], cnt.lab, r.n, idle_pct, r.tech or -1,
           mk(ORES), mk(PLATES)))
         -- fonte : fours affamés, foreuses à sortie pleine
-        local starve, fur = 0, 0
-        for _, fu in ipairs(s.find_entities_filtered({ force = r.force, type = "furnace" })) do
-          fur = fur + 1
-          if fu.status == defines.entity_status.no_ingredients then starve = starve + 1 end
-        end
+        -- fours classés : « paire » (nourri directement par une foreuse : avant-poste à combustion), « qg » (à moins de
+        -- 40 tuiles du QG, nourris par les PNJ), « module » (les autres : fonderies du plan directeur, sur tapis)
+        local fed = {}
         local full, dr = 0, 0
         for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
           dr = dr + 1
           if d.status == defines.entity_status.waiting_for_space_in_destination then full = full + 1 end
+          local t = d.drop_target
+          if t and t.valid and t.unit_number then fed[t.unit_number] = true end
         end
-        ctx.log(string.format("fonte minute %d | %s | fours %d affames %d | foreuses %d sortie_pleine %d", minute, r.key, fur,
-          starve, dr, full))
+        local hq = hq_of(ctx, r.force)
+        local cat = { paire = { 0, 0 }, qg = { 0, 0 }, module = { 0, 0 } }
+        local starve, fur = 0, 0
+        for _, fu in ipairs(s.find_entities_filtered({ force = r.force, type = "furnace" })) do
+          fur = fur + 1
+          local k = "module"
+          if fed[fu.unit_number] then k = "paire"
+          elseif hq and (fu.position.x - hq.position.x) ^ 2 + (fu.position.y - hq.position.y) ^ 2 <= 1600 then k = "qg" end
+          cat[k][1] = cat[k][1] + 1
+          if fu.status == defines.entity_status.no_ingredients then
+            starve = starve + 1
+            cat[k][2] = cat[k][2] + 1
+          end
+        end
+        ctx.log(string.format("fonte minute %d | %s | fours %d affames %d | foreuses %d sortie_pleine %d | paire %d/%d qg %d/%d module %d/%d",
+          minute, r.key, fur, starve, dr, full, cat.paire[2], cat.paire[1], cat.qg[2], cat.qg[1], cat.module[2], cat.module[1]))
         local cs = capi_status(r.key)
         local parts = {}
         for _, d in ipairs(cs and cs.deps or {}) do
