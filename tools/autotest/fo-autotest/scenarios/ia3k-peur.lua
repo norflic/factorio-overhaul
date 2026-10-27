@@ -61,6 +61,11 @@ return {
     local st = ctx.state()
     ctx.prepare_area(AX - 20, AY - 150, AX + 160, AY + 150, "grass-1")
     ctx.check(ctx.call("war_setting", "fo-war-ia3-comportement", true) == true, "reglage fo-war-ia3-comportement allume")
+    -- Après la fusion d'IA-V2 (lot IA3-f) : les éclaireurs et le tour du QG prennent des PNJ libres de votre équipe ; coupés
+    -- ici pour que les tournées du banc gardent leurs PNJ (interface absente sur main : rien ne change).
+    if remote.interfaces["fo-ia3f"] and remote.interfaces["fo-ia3f"].set_fog then
+      ctx.log("exploration d'IA3-f coupee pour le banc : " .. tostring(ctx.remote("fo-ia3f", "set_fog", false)))
+    end
     ctx.call("profiler", true)
     local chest = s.create_entity({ name = "fo-team-chest", position = { AX, AY }, force = "player", raise_built = true })
     ctx.check(chest ~= nil, "coffre d'equipe pose")

@@ -146,6 +146,11 @@ function C.trips(opts)
       local s = ctx.surface()
       local st = ctx.state()
       ctx.prepare_area(AX - 20, AY - 200, DX + 50, AY + 200, "grass-1")
+      -- Après la fusion d'IA-V2 (lot IA3-f) : les éclaireurs et le tour du QG prennent des PNJ libres de votre équipe ; coupés
+      -- ici pour que les tournées du banc gardent leurs PNJ (interface absente sur main : rien ne change).
+      if remote.interfaces["fo-ia3f"] and remote.interfaces["fo-ia3f"].set_fog then
+        ctx.log("exploration d'IA3-f coupee pour le banc : " .. tostring(ctx.remote("fo-ia3f", "set_fog", false)))
+      end
       if opts.temoin then
         local v = ctx.call("war_setting", "fo-war-ia3-comportement", false)
         ctx.check(v == false, "temoin : reglage fo-war-ia3-comportement eteint", tostring(v))

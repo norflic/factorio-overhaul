@@ -49,6 +49,9 @@ end
 local function setup(opts)
   opts = opts or {}
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, ia3k = opts.ia3k })
+  -- Après la fusion d'IA-V2 (lot IA3-f) : éclaireurs et tour du QG coupés (ils prennent les PNJ libres des tournées du
+  -- banc) ; interface absente sur main : rien ne change.
+  if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end
   W().prototypes["small-worm-turret"] = { type = "turret", max_health = 200,
     collision_box = { left_top = { x = -0.9, y = -0.8 }, right_bottom = { x = 0.9, y = 0.8 } },
     attack_parameters = { range = 25 } }
