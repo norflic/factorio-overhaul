@@ -530,12 +530,21 @@ local function plan_power(f, p, mp, masks)
   -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
   -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)
   local bad = {}
+  -- Lot IA3-e : la route ne traverse pas un carrefour PRÉVU par un autre projet et pas encore bâti (il n'y pose pas de
+  -- poteau, le croyant là ; ce projet annulé, la route a un trou : moteur réel, e8-usine graine 20261020, scarlet,
+  -- rangée de pierre à 95 tuiles de la centrale, réseau à elle seule). Le départ et le but restent permis.
+  local skey, tkey = P.lot_key(mi, mj), P.lot_key(target.i, target.j)
+  local function foreign(k)
+    local n = b.net[k]
+    return n ~= nil and not n.built and n.pid ~= p.id and k ~= skey and k ~= tkey
+  end
   local function avoid(okf) return function(key)
     if not okf(key) then return false end
     local kind, i, j = P.parse_seg(key)
     if not kind then return true end
     local i2, j2 = i + (kind == "h" and 1 or 0), j + (kind == "v" and 1 or 0)
-    return not bad[P.lot_key(i, j)] and not bad[P.lot_key(i2, j2)]
+    local k1, k2 = P.lot_key(i, j), P.lot_key(i2, j2)
+    return not bad[k1] and not bad[k2] and not foreign(k1) and not foreign(k2)
   end end
   local nodes
   for _ = 1, 4 do
