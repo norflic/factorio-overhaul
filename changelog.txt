@@ -1,4 +1,28 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.32
+Date: 2026-10-27
+  Changes:
+    - Plan directeur des équipes de PNJ (lot IA1-d ; pas encore utilisé par le cerveau des factions ni par votre équipe :
+      il le sera par le lot IA3-e) : autour du QG, des lots de 24 × 24 et des rues de 4 sont évalués (libre, à
+      défricher, gisement, rive, refusé : eau, falaise, nid, force rivale) ; un module demandé (centrale à vapeur,
+      fonderie, foreuses, rangée d'assembleurs) est placé sur le meilleur lot, tourné au besoin, alimenté par tapis depuis
+      des foreuses ou par un quai, raccordé au réseau électrique de l'équipe par de grands poteaux aux carrefours.
+    - Les PNJ savent construire comme un joueur : fantômes posés d'avance, objets réservés au coffre, défrichage des
+      arbres et rochers (en forêt dense, un PNJ arrêté se taille un passage), ravivage à 16 tuiles au plus de leur point
+      d'appui, marche par les rues ; un fantôme gêné par un PNJ est repris plus tard, un chantier bloqué reprend 2 min après.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.31
+Date: 2026-10-27
+  Graphics:
+    - Les machines d'assemblage des âges 2 à 15 (niveaux 3 à 30) ont chacune leur design, à la place de l'assembleur
+      vanilla teinté : forge en L, colonne de vapeur, portique de presse, croix du temple de cristal, salle blanche en H,
+      pont en U de l'âge 15… ; le sol se voit entre les ailes et sous les portiques. Le niveau pair de chaque âge ajoute
+      une pièce et une teinte de l'âge. Le niveau 2 garde l'assembleur vanilla avec un établi posé aux coins avant.
+    - Machine en marche : voyants, écrans, braises et cristaux de l'âge s'avivent et scintillent, avec une lumière de la
+      couleur de l'âge ; lueurs de jour et halo de nuit.
+    - Les brides de tuyau dessinées sont exactement aux raccords de jeu (y compris aux machines 4×4 et 6×6).
+    - Icône de l'âge pour chaque niveau, couleur de carte de l'âge, reste et explosion à la taille de la machine.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.30
 Date: 2026-10-25
   Graphics:

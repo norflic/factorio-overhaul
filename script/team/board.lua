@@ -707,4 +707,17 @@ function Board.has(f, key)
   return t ~= nil and t.worker ~= nil
 end
 
+--- Lot IA1-d (option « seul » d'un banc du plan directeur) : retire les tâches LIBRES que `keep(t)` refuse ; les
+--- tâches prises continuent. Liste retriée une fois.
+function Board.drop_free(f, keep)
+  local b = Board.get(f)
+  local n = 0
+  for _, key in ipairs(sorted_keys(b.tasks)) do
+    local t = b.tasks[key]
+    if not t.worker and not keep(t) then b.tasks[key] = nil; n = n + 1 end
+  end
+  if n > 0 then rebuild_list(b) end
+  return n
+end
+
 return Board
