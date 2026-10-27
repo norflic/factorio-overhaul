@@ -35,7 +35,7 @@ import epoques  # noqa: E402
 
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
-LOGS = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
+LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-10-25_F3", "production", "sprites")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "levels", "assembleur")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/levels/assembleur/"
