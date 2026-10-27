@@ -327,16 +327,31 @@ local function pump_spots(surface, f, rel, origin, fluid)
     return a.position.x < b.position.x
   end)
   local out, tries = {}, 0
+  local boxes = rel.entities[pname].boxes or {}
+  local function wet(x, y)
+    local tile = surface.get_tile(x, y)
+    return tile and tile.valid and tile.collides_with("water-tile")
+  end
   for _, t in ipairs(tiles) do
     local tx, ty = math.floor(t.position.x), math.floor(t.position.y)
     for _, d in ipairs({ 0, 2, 4, 6 }) do
       local v = Fl.DV[d]
-      local lx, ly = tx - v[1], ty - v[2] -- tuile de terre voisine, la pompe regarde l'eau
+      local lx, ly = tx - v[1], ty - v[2] -- tuile de terre voisine
       tries = tries + 1
       if tries > Pet.PUMP_TRIES then return out, pname end
-      for _, dir in ipairs({ 0, 2, 4, 6 }) do
-        if surface.can_place_entity({ name = pname, position = { lx + 0.5, ly + 0.5 }, direction = dir, force = f.force }) then
-          out[#out + 1] = { name = pname, x = lx + 0.5, y = ly + 0.5, dir = dir, fluid = fluid }
+      if not wet(lx, ly) then
+        for _, dir in ipairs({ 0, 2, 4, 6 }) do
+          -- direction lue au raccord du prototype : le raccord tombe sur la TERRE, l'opposé sur l'eau (moteur réel,
+          -- petrole-site : can_place_entity par script admet les 4 directions, le raccord tombait dans l'eau)
+          local pos = boxes[1] and boxes[1].conns[dir] and boxes[1].conns[dir][1]
+          if pos then
+            local cx, cy = math.floor(lx + 0.5 + pos[1] + 0.01), math.floor(ly + 0.5 + pos[2] + 0.01)
+            local ox, oy = math.floor(lx + 0.5 - pos[1] + 0.01), math.floor(ly + 0.5 - pos[2] + 0.01)
+            if not wet(cx, cy) and wet(ox, oy)
+                and surface.can_place_entity({ name = pname, position = { lx + 0.5, ly + 0.5 }, direction = dir, force = f.force }) then
+              out[#out + 1] = { name = pname, x = lx + 0.5, y = ly + 0.5, dir = dir, fluid = fluid }
+            end
+          end
         end
       end
       if #out >= Pet.PUMPS then return out, pname end
@@ -470,7 +485,7 @@ local function decide(f, st, General, deposits, tick)
       if ok then
         if not f.build then Build.enable(f, { radius = 3 }) end
         local id = Build.request(f, { site = "petrole", targets = grp.items, res = grp.res, water = grp.water,
-          extractor = extractor, x = x, y = y, prio = Build.PRIO, domain = "production" })
+          extractor = extractor, x = x, y = y, prio = Build.PRIO, domain = "production", lazy_clear = true })
         if id then
           if s then s.id, s.state, s.items = id, "attente", grp.items else
             st.sites[#st.sites + 1] = { key = g, id = id, items = grp.items, state = "attente", res = grp.res, x = x, y = y }

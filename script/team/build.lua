@@ -1887,7 +1887,10 @@ local function advance(f, surface, p, tick)
     if p.reserve_next and tick < p.reserve_next then return end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
     if reserve(f, p) then
-      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+      -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les
+      -- arbres sont coupés pendant le chantier, entité par entité (moteur réel, petrole-site : 58 arbres sur un site
+      -- de 92 entités, chantier jamais commencé en 8 min)
+      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
     else
       p.reason, p.reserve_next = "materiaux", tick + 60
     end
