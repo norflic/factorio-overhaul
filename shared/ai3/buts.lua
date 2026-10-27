@@ -23,6 +23,7 @@
 ]]
 
 local T = require("shared.team.config")
+local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli (équipe du joueur, avant la 1re décision)
 
 local B = {}
 
@@ -46,7 +47,12 @@ B.TRAIT = { extraction = "ambition", capital = "discipline", recherche = "curios
 B.W_MIN, B.W_MAX = 500, 2000
 
 -- Bases des familles (valeur avant poids et urgence).
-B.BOOT = { coal = 90, iron = 92, copper = 82, stone = 70 }   -- premier avant-poste d'une ressource qui manque
+-- Premier avant-poste d'une ressource qui manque. Lot IA-G : plus de valeur écrite par ressource ; la valeur suit le RANG
+-- de la ressource dans le besoin brut des buts de l'équipe (s.key, déduit du dépliage par shared/ai3/general.lua :
+-- Gen.key_resources), le combustible à part. Sur les données vanilla, le rang déduit rend les valeurs d'avant (fer 92,
+-- charbon 90, cuivre 82, pierre 70 : tests/iag_test.lua §3).
+B.BOOT_RANK = { 92, 82, 70 }
+B.BOOT_FUEL = 90
 B.IRON2 = 66        -- « fer II » (2 capacités de fer et 2 de charbon) : l'économie avant la recherche (revue B3)
 B.GROW = 55         -- croissance d'une ressource qui manque durablement (goulot)
 B.GROW_SHORT = 100  -- manque (objets) qui compte comme « durable » …
@@ -96,6 +102,19 @@ end
 
 local function val(base, w) return clamp(math.floor(base * (w or 1000) / 1000), 1, 100) end
 
+--- Ressources clés de la situation (lot IA-G) : { top, fuel, order, optional } en types d'avant-poste.
+function B.key(s) return (s and s.key) or R.FALLBACK_KEY end
+
+--- Valeur d'amorçage d'un type d'avant-poste : son rang dans le besoin brut (s.key.order), le combustible à part.
+function B.boot_value(s, kind)
+  local key = B.key(s)
+  if kind == key.fuel then return B.BOOT_FUEL end
+  for i, k in ipairs(key.order or {}) do
+    if k == kind then return B.BOOT_RANK[i] or B.BOOT_RANK[#B.BOOT_RANK] end
+  end
+  return B.BOOT_RANK[#B.BOOT_RANK]
+end
+
 --- Produit de chaque type d'avant-poste et type de chaque produit (données de shared/team/config.lua).
 function B.kind_of_product(item)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
@@ -118,20 +137,22 @@ end
 function B.targets(s, st)
   st.targets = st.targets or {}
   local tg = st.targets
+  local key = B.key(s)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local spec = T.outposts[kind]
     local cur = tg[kind] or 0
     if cur < 1 then
-      local needed = kind ~= "stone" or (s.stock[spec.product] or 0) < B.NEED_FLOOR or (st.short_n or {})[spec.product]
+      local needed = not (key.optional or {})[kind] or (s.stock[spec.product] or 0) < B.NEED_FLOOR
+        or (st.short_n or {})[spec.product]
       if needed then cur = 1 end
     end
     tg[kind] = cur
   end
-  local boot = (s.cap.iron or 0) >= 0.75 and (s.cap.coal or 0) >= 0.75
+  local boot = (s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75
   if boot and not st.iron2_set then
     st.iron2_set = true
-    tg.iron = math.max(tg.iron, 2)
-    tg.coal = math.max(tg.coal, 2)
+    tg[key.top] = math.max(tg[key.top] or 0, 2)
+    tg[key.fuel] = math.max(tg[key.fuel] or 0, 2)
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local product = T.outposts[kind].product
@@ -152,6 +173,7 @@ function B.generate(s, st)
   local w = s.weights or {}
   local goals = {}
   local tg = B.targets(s, st)
+  local key = B.key(s)
   -- Extraction.
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local spec = T.outposts[kind]
@@ -159,8 +181,8 @@ function B.generate(s, st)
     local have = (s.cap[kind] or 0) + (s.pending[kind] or 0)
     if want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product)) then
       local base
-      if (s.cap[kind] or 0) < 0.75 then base = B.BOOT[kind] or B.GROW
-      elseif want <= 2 and (kind == "iron" or kind == "coal") then base = B.IRON2
+      if (s.cap[kind] or 0) < 0.75 then base = B.boot_value(s, kind)
+      elseif want <= 2 and (kind == key.top or kind == key.fuel) then base = B.IRON2
       else base = B.GROW + math.min(20, math.floor(((st.short or {})[spec.product] or 0) / 20)) end
       goals[#goals + 1] = { key = "extraction:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
         value = val(base, w.extraction), want = want, why = spec.product }
@@ -168,7 +190,7 @@ function B.generate(s, st)
   end
   -- Capital : fonderie du QG.
   local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
-  if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap.iron or 0) >= 0.75 then
+  if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }
   end
@@ -177,7 +199,7 @@ function B.generate(s, st)
   -- Amorçage d'abord : fer et charbon en route avant la réserve et l'armée de départ (l'ordre de l'ancienne échelle :
   -- charbon, fer, … puis « defense » et « army » ; moteur simulé de pvp_test, essai 3 de ce lot : 240 fers de chargeurs
   -- dès la 1re minute, fer à 35 à 5 min, armée à 0), sauf menace ou guerre.
-  local boot = ((s.cap.iron or 0) >= 0.75 and (s.cap.coal or 0) >= 0.75) or s.at_war
+  local boot = ((s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75) or s.at_war
   local ammo = T.turret_ammo
   if boot and (s.stock[ammo] or 0) < B.AMMO_STOCK then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,

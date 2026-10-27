@@ -20,6 +20,39 @@ local MOD_MODULE_PATTERN = "^script%."
 
 local W -- monde courant
 
+--- Lot IA-G : prototypes d'objets du mock, ITÉRABLES (forme de LuaItemPrototype : name, type, fuel_value,
+--- localised_name), tirés des recettes ; types militaires et pouvoir calorifique des combustibles vanilla.
+local ITEM_TYPE = {
+  ["firearm-magazine"] = "ammo", ["piercing-rounds-magazine"] = "ammo", ["shotgun-shell"] = "ammo",
+  ["piercing-shotgun-shell"] = "ammo", ["uranium-rounds-magazine"] = "ammo", ["rocket"] = "ammo",
+  ["pistol"] = "gun", ["submachine-gun"] = "gun", ["shotgun"] = "gun", ["combat-shotgun"] = "gun",
+  ["rocket-launcher"] = "gun", ["light-armor"] = "armor", ["heavy-armor"] = "armor", ["modular-armor"] = "armor",
+  ["grenade"] = "capsule", ["cluster-grenade"] = "capsule", ["poison-capsule"] = "capsule",
+  ["slowdown-capsule"] = "capsule", ["defender-capsule"] = "capsule",
+}
+local FUEL_VALUE = { coal = 4e6, wood = 2e6, ["solid-fuel"] = 12e6 }
+function M.item_prototypes(recipes)
+  local out = {}
+  local function add(n)
+    if not out[n] then
+      out[n] = { name = n, type = ITEM_TYPE[n] or "item", fuel_value = FUEL_VALUE[n] or 0,
+        localised_name = { "item-name." .. n } }
+    end
+  end
+  local names = {}
+  for name in pairs(recipes or {}) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local r = recipes[name]
+    for _, p in ipairs(r.products or {}) do if p.type ~= "fluid" then add(p.name) end end
+    for _, i in ipairs(r.ingredients or {}) do if i.type ~= "fluid" then add(i.name) end end
+  end
+  for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone", "wood" }) do add(n) end
+  return setmetatable(out, { __index = function(_, name)
+    return { name = name, localised_name = { "item-name." .. name } }
+  end })
+end
+
 function M.world() return W end
 
 --- Lot IA3-c : prototypes de technologies du mock (forme de LuaTechnologyPrototype) depuis la fixture des coûts FINAUX
@@ -757,20 +790,24 @@ function M.new_world(opts)
       type = "character", running_speed = 0.15, max_health = 250,
       collision_box = box(-0.2, -0.2, 0.2, 0.2), collision_mask = MASK_CHARACTER,
     },
+    -- Lot IA-G : catégories de fabrication et de minage du personnage (relevé du cerveau général).
     character = { type = "character", max_health = 250, collision_box = box(-0.2, -0.2, 0.2, 0.2),
-      collision_mask = MASK_CHARACTER },
+      collision_mask = MASK_CHARACTER, crafting_categories = { crafting = true }, resource_categories = { ["basic-solid"] = true } },
     -- Copie de crash-site-spaceship (prototypes/faction.lua) : boîte décentrée de l'épave vanilla.
     ["fo-faction-hq"] = { type = "container", max_health = 25000, collision_box = box(-8.7, -3.3, 6.9, 4.5),
       collision_mask = MASK_BUILDING },
     ["gun-turret"] = { type = "ammo-turret", max_health = 400, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "gun-turret", count = 1 } } },
     ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
       resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true },
       collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING },
+    -- Lot IA-G : objet qui pose, source d'énergie, catégories (relevé du cerveau général, comme le moteur).
     ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-mining-drill", count = 1 } },
+      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1 }, mining_speed = 0.25 },
     ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "stone-furnace", count = 1 } },
+      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1 }, crafting_speed = 1 },
     ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
       collision_mask = MASK_BUILDING },
     ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
@@ -1232,9 +1269,9 @@ function M.new_world(opts)
     connected_players = { W.player },
     entity_prototypes = W.prototypes,
     recipe_prototypes = W.recipes,
-    item_prototypes = setmetatable({}, { __index = function(_, name)
-      return { name = name, localised_name = { "item-name." .. name } }
-    end }),
+    -- Lot IA-G : objets ITÉRABLES (relevé du cerveau général : type, pouvoir calorifique), tirés des recettes du mock ;
+    -- un nom absent garde la réponse d'avant (nom localisé seulement).
+    item_prototypes = M.item_prototypes(W.recipes),
     -- Lot MOD-1 : aucun prototype de module au mock (la règle est testée à part, tests/module_mult_test.lua).
     get_filtered_item_prototypes = function(filters) return {} end,
     -- Lot IA3-c : technologies FINALES (vanilla + mod, tests/fixtures/tech_ai3_final.lua) et entités par type.
@@ -1247,8 +1284,13 @@ function M.new_world(opts)
       local want = filters[1].type
       for name, p in pairs(W.prototypes) do if p.type == want then out[name] = p end end
       if want == "resource" then
-        for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone" }) do out[n] = out[n] or { name = n, type = "resource" } end
-        for _, p in ipairs(W.patches) do local n = p.name or "iron-ore"; out[n] = out[n] or { name = n, type = "resource" } end
+        -- Lot IA-G : catégorie et produit du minage (relevé du cerveau général).
+        local function res(n)
+          return { name = n, type = "resource", resource_category = "basic-solid",
+            mineable_properties = { minable = true, products = { { type = "item", name = n, amount = 1 } } } }
+        end
+        for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone" }) do out[n] = out[n] or res(n) end
+        for _, p in ipairs(W.patches) do local n = p.name or "iron-ore"; out[n] = out[n] or res(n) end
       end
       return out
     end,

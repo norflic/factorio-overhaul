@@ -26,6 +26,7 @@
 
 local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
+local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défendre d'abord » (nom déplacé, inchangé)
 
 local P = {}
 
@@ -50,7 +51,7 @@ P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
 -- l'avant-poste de fer). Aucune autre chaîne du jeu dans la logique de ce module.
-P.TURRET = "gun-turret"
+P.TURRET = R.TURRET
 P.FALLBACK_UNIT = "rifleman"
 P.IRON = T.outposts.iron.product
 

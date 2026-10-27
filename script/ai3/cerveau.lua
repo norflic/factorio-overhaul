@@ -34,6 +34,7 @@ local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
+local General = require("script.ai3.general") -- lot IA-G : le cerveau général (choix de recherche sur le graphe)
 
 local Ia3 = {}
 
@@ -374,7 +375,14 @@ local function research_step(f, st, book, w, tick, view)
   if not force then return nil end
   local c = catalogue()
   refresh_techs(force, st, c)
-  local tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
+  -- Lot IA-G : le cerveau général choisit sur le graphe des prototypes (shared/ai3/general.lua) ; l'ancien choix reste
+  -- le repli (General.ENABLED = false).
+  local tech, payable, causes, palier
+  if General.on() then
+    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, nil)
+  else
+    tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
+  end
   local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {} }
   if not tech then
     info.tech = "?"
@@ -456,7 +464,11 @@ local function research_step(f, st, book, w, tick, view)
   local want = {}
   for _, ing in ipairs(spec.ing) do want[ing[1]] = units_left * ing[2] end
   for _, pack in ipairs(c.pack_list) do
-    if book:handcraftable(pack) and A.level_status(book, { { pack, 1 } }, obtainable) then
+    -- Lot IA-G : payable au sens du graphe (ressources connues, exécutants) ; repli : la règle d'IA3-a.
+    local ok = nil
+    if General.on() then ok = General.feasible(f, pack) end
+    if ok == nil then ok = A.level_status(book, { { pack, 1 } }, obtainable) and true or false end
+    if book:handcraftable(pack) and ok then
       want[pack] = math.max(want[pack] or 0, Ia3.PACK_RESERVE)
     end
   end
@@ -530,6 +542,8 @@ function Ia3.plan(f, view, book, surface, tick)
   local st = t.ia3
   Profiler.start("ia3:research")
   local w = B.weights(f.chef and f.chef.mix, f.traits)
+  -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
+  local reach, known = reach_of(f, st, tick)
   local research = nil
   if not f.is_player then research = research_step(f, st, book, w, tick, view) end
   Profiler.stop("ia3:research")
@@ -552,13 +566,20 @@ function Ia3.plan(f, view, book, surface, tick)
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
-  local reach, known = reach_of(f, st, tick)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
-    at_war = at_war and true or false, home_known = home ~= false }
+    at_war = at_war and true or false, home_known = home ~= false,
+    -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
+    key = (not f.is_player) and General.on() and General.key(f) or nil }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
+  if not f.is_player and General.on() and home ~= false then
+    for _, res in ipairs(sorted_keys(General.explore(f))) do
+      plan.ia3.explore[res] = math.max(plan.ia3.explore[res] or 0, General.explore(f)[res])
+    end
+  end
   -- « Fer II » (critère K12) : même ligne que l'ancien cerveau.
   if not st.iron2_done then
     local cap = { iron = 0, coal = 0 }
