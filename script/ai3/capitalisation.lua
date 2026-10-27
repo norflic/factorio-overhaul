@@ -86,7 +86,8 @@ local function get(obj, k)
 end
 
 function Capi.on(f)
-  if not (Capi.ENABLED and f and not f.is_player and f.team and f.team.ia3 and f.hq and f.hq.valid) then return false end
+  -- Votre équipe aussi (27/10 au soir) : « si elles ont des ressources, elles veulent encore plus de ressources ».
+  if not (Capi.ENABLED and f and f.team and f.team.ia3 and f.hq and f.hq.valid) then return false end
   local war = State.war()
   if war and war.capi_off then return false end
   local s = settings.global[Capi.SETTING]

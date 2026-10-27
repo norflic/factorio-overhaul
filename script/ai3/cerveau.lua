@@ -657,6 +657,17 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- Pensée
+--- Votre équipe peut-elle choisir la recherche ? Oui si votre force n'en a aucune en cours, ou si la recherche en cours
+--- est celle que l'équipe a elle-même lancée (st.lab.tech). Vos choix passent toujours avant.
+function Ia3.player_research_free(f, st)
+  local force = game.forces[f.force]
+  if not force then return false end
+  local cur = force.current_research
+  if not cur then return true end
+  local mine = st and st.lab and st.lab.tech
+  return mine ~= nil and cur.name == mine
+end
+
 ---------------------------------------------------------------------------------------------------
 --- Plan d'une équipe (bascule allumée), au format du planificateur.
 function Ia3.plan(f, view, book, surface, tick)
@@ -670,7 +681,9 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.fstop("ia3:reach")
   local research = nil
   Profiler.fstart("ia3:research_step")
-  if not f.is_player then research = research_step(f, st, book, w, tick, view) end
+  -- Votre équipe cherche aussi (27/10 au soir : « on fait de la science rouge, verte, puis la recherche pour toujours plus
+  -- d'assembleurs »), MAIS jamais à votre place : seulement quand votre force n'a aucune recherche en cours, ou la sienne.
+  if (not f.is_player) or Ia3.player_research_free(f, st) then research = research_step(f, st, book, w, tick, view) end
   Profiler.fstop("ia3:research_step")
   Profiler.stop("ia3:research")
   -- Tâches de minage déjà prises, par ressource.
@@ -704,12 +717,9 @@ function Ia3.plan(f, view, book, surface, tick)
   local home = Ia3.home_known and Ia3.home_known(f)
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
   -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
-  local capi = nil
-  if not f.is_player then
-    Profiler.fstart("ia3:capi")
-    capi = Capi.think(f, view, book, tick, research, w)
-    Profiler.fstop("ia3:capi")
-  end
+  Profiler.fstart("ia3:capi")
+  local capi = Capi.think(f, view, book, tick, research, w)
+  Profiler.fstop("ia3:capi")
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,

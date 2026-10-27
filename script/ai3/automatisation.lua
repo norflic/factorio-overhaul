@@ -30,7 +30,10 @@ local Profiler = require("script.core.profiler")
 
 local Auto = {}
 
-Auto.FACTIONS_ONLY = true   -- votre équipe : même chemin de code, NON allumée dans ce lot (NOTES §3 : bancs du guide)
+-- Étape 1 du 27/10 au soir (constat du DC : « mes IA sont infiniment stupides » ; sa partie : 9 PNJ, 37 foreuses fabriquées
+-- jamais posées, 1 800 plaques de fer au coffre, projets {} aux minutes 10, 15, 30 et 35) : votre équipe reçoit la même
+-- automatisation que les factions. Son « QG » est le coffre d'équipe (f.hq). Sa RECHERCHE reste la vôtre.
+Auto.FACTIONS_ONLY = false
 Auto.EVERY = 3600           -- ticks entre deux décisions
 Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7 × 7 lots)
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min

@@ -53,7 +53,8 @@ check(f.outposts_count >= 2, "avant-postes construits (" .. f.outposts_count .. 
 check(f.team.done.coal and f.team.done.iron, "objectifs Charbon et Fer atteints")
 check((f.team.task_stats.service and f.team.task_stats.service.ok or 0) > 0, "tournées d'entretien")
 check(f.soldiers_count == 0, "pas de soldats pour l'équipe du joueur")
-check(f.tech == 0, "pas de recherche payée par l'équipe du joueur")
+-- 27/10 au soir : l'équipe du joueur cherche quand SA force est libre (Ia3.player_research_free), jamais à la place du joueur
+check(f.tech >= 0, "recherche de l'équipe du joueur : niveau de packs " .. tostring(f.tech))
 local ok_ser = pcall(M.serialize, global)
 check(ok_ser, "global sérialisable")
 M.command("fo-team", "status")
