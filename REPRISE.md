@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 18 h 55 : CAPIB ARRÊTÉ, RELANCÉ en `base-joueur`** (`wf_3f7db227-978`, même worktree `capib`, 16 commits gardés) après
+> l'observation du DC (OBJECTIFS §4, 18 h 50 : « les IA font vraiment rien […] ils avaient largement les ressources pour une machine à
+> vapeur […] coffre plein jamais vidé […] 40 fours en pierre »). Critères K-A à K-F ; images à 20, 40, 60, 90 min dans
+> `fo-logs\2026-10-27_CAPI\images-DC-joueur\` ; résumé `RESUME_DC_JOUEUR.md`. Ronde 5 des tirs : workflow `tirs-ronde5-degats`
+> (`wf_e8056b4e-fac`, D-21). PETROLE et PERF2 : workflow `ia-suite-petrole-perf` en revue.
+>
 > **27/10, 17 h 30 : TIRS livré (prototype, NON fusionné)** : branche `tirs` `43aab26`, 5 âges témoins (1, 5, 8, 10, 15) + laser 15 ;
 > images `fo-logs\2026-10-27_TIRS\images-r4-final\` envoyées au DC ; questions au DC (puissance : image seule ou dégâts ; son de l'âge 15 ;
 > verdict). Fusion après son verdict ; coût seul à remesurer ; 10 âges à faire. Worktree `tirs` GARDÉ.
