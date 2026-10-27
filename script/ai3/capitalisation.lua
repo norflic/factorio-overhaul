@@ -804,8 +804,8 @@ local function decide(f, cs, view, book, tick, research, w)
     local d = cs.deps[id]
     deps[#deps + 1] = string.format("%s:%d/%d%s", id, d.covered or 0, d.tiles, d.danger and "!" or "")
   end
-  log(string.format("[FO-CAPI] %s minute %d | %s | envoyes [%s] | executant refuse [%s] | depots {%s} | foreuse_par_ressource {%s} | recherche_voulue [%s]",
-    f.key or "?", math.floor(minutes(f, tick) + 0.5), Ca.text(res), table.concat(sent, ", "), table.concat(refused, ", "),
+  log(string.format("[FO-CAPI] %s minute %d | tick %d | %s | envoyes [%s] | executant refuse [%s] | depots {%s} | foreuse_par_ressource {%s} | recherche_voulue [%s]",
+    f.key or "?", math.floor(minutes(f, tick) + 0.5), tick, Ca.text(res), table.concat(sent, ", "), table.concat(refused, ", "),
     table.concat(deps, " "), (function()
       local o = {}
       for _, k in ipairs(sorted_keys(input.drill_for)) do if input.drill_for[k] ~= "" then o[#o + 1] = k .. "=" .. input.drill_for[k] end end
