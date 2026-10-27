@@ -10,6 +10,22 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 7 h 40 : IA3-d LIVRÉ, NON FUSIONNÉ (attend IA-V2)** : branche `ia3d` (tête `d97181c`, contient ia-v2 `4e0388b` et
+> `main` 0.4.32), worktree `.claude/worktrees/ia3d` GARDÉ ; agent terminé (`af7c16550a493a161`). Notes
+> `fo-logs\2026-10-27_IA3-d\NOTES.md`, `INTEGRATION.md` (brouillons F315 à F318, E210, E211, OBJECTIFS, changelog, CLAUDE.md).
+> Règle d'effectif des factions `shared/ai3/effectif.lua` : recrue quand du travail attend 2 min au-delà des bras libres et
+> que la recrue se paie ; prouvée par une charge injectée (`ia3d-charge` 13 OK : 8 → 14 et 8 → 10). **Croissance NON obtenue en
+> partie de 2 h** (`ia3d-croissance` 7 OK 2 ECHEC) : sous le cerveau d'ia-v2, 28 à 58 % des PNJ sans tâche, aucun travail
+> n'attend 2 min ; 30 contre 10 = 1,09. Cause : le travail engendré par le cerveau (IA-V2, IA3-e), pas le recrutement ;
+> transmis à IA-V2 (B1) et à IA3-e le 27/10 vers 7 h 35. **À FAIRE À SA FUSION** (après IA-V2 et IA3-e) : `git merge main`
+> dans `ia3d`, série hors jeu, `ia3d-charge`, `verif-guide` sur 4 graines, et **P1 : défaut de `fo-war-workers` 4 → 30**
+> (D-14 « 30 dès l'époque 1 » ; aujourd'hui une faction part à min(8, 4) = 4 = son plafond et ne grandit jamais, F315) ;
+> rejouer `verif-guide` AVEC P1 (factions à 8 au départ : tempo contre le joueur, K9) ; P2 textes des réglages
+> `fo-recruit-idle-max` et `fo-war-workers`. Défauts déclarés : part de PNJ sans tâche visible en hausse (les recrues de
+> l'ancien frein la cachaient), cuivre −46 à −49 % non expliqué, `war_test` modifié (105 OK). **Vérifié par l'intégrateur :
+> `traits_test` 64 OK 1 ECHEC et `valeur_test` 50 OK 1 ECHEC sur ia-v2 `948888e`** (verts sur `main`) : bloquants pour IA-V2,
+> signalés à IA-V2.
+>
 > **27/10, 7 h 15 : DESIGN. Kits de la foreuse et du centre FUSIONNÉS dans `main`** (outils seulement, aucune version montée,
 > rien en jeu, aucun design validé) : `859cfab` (foreuse_e, rondes F4-A à F4-A3 : charte moyenne 28,7, âges 10 et 12 sous 25,
 > âges 12 et 14 sous 70 % de la mitrailleuse, âge 1 noir de nuit) et `d5cf09d` (centre_e, ronde 1 : 15 silhouettes, grands étages
