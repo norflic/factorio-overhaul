@@ -50,6 +50,7 @@ M.SAFE_RADIUS = 160     -- au-delà : « loin » (C6)
 M.ALLY_R = 16
 M.ENGAGE_HOLD = 120
 M.PRUNE_PERIOD = 3600
+M.RETARGET_PERIOD = 600 -- un minage refusé cherche un autre site au plus toutes les 10 s (coût : une recherche de tuiles)
 M.MACHINE = "worker"
 
 local COLORS = {
@@ -514,9 +515,15 @@ function M.gate(f, agent, task, steps, tick)
   a.escort, a.risk = nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
-  if decision == "wait" and task.kind == "mine" and not task.ia3k_retarget then
-    task.ia3k_retarget = true
+  -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses
+  -- tâches) ; rien près du QG : gisement CONNU et sûr plus loin (Worker.far_mine, carte de connaissance d'IA3-f, qui
+  -- demande une exploration sinon) ; la porte rejuge le nouveau but (final-050-2c49ceb memoire-20261020 : Écarlate sans
+  -- soldats, 1 064 attentes, fer livré 400 contre 6 976 au témoin).
+  if decision == "wait" and task.kind == "mine"
+    and (not task.ia3k_retarget or tick - task.ia3k_retarget >= M.RETARGET_PERIOD) then
+    task.ia3k_retarget = tick
     local q = M.retarget_mine(f, t, task, e.surface, tick, res.B)
+    if not q and Worker.far_mine then q = Worker.far_mine(f, task, e.surface, tick) end
     if q then
       for _, s in ipairs(steps) do
         if s[1] == "goto" then s[2] = { x = q.x, y = q.y } break end
