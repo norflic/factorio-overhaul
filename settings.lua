@@ -54,3 +54,4 @@ data:extend({
 -- Réglages par lot (un fichier par lot, requis ici par l'intégrateur).
 require("settings.faction")
 require("settings.team") -- lot IA1-a : taille des équipes de PNJ (shared/team/scale.lua)
+require("settings.ia3b") -- lot IA3-b : place de marché, registre, manque de plaques (fo-war-ia3-marche)

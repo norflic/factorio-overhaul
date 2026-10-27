@@ -350,7 +350,8 @@ function Team.view(f, tick)
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
-    stock = stock_of(f), incoming = Board.incoming(f),
+    -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
+    stock = Board.view_stock(f, stock_of(f), tick, true), incoming = Board.incoming(f),
     outposts = outposts, pending = pend, sites = sites,
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
@@ -444,13 +445,17 @@ function Team.think(f, surface, tick)
   f.site_needs = needs
 
   Profiler.start("team:board")
-  Board.sync(f, plan.tasks, tick)
+  Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
   Profiler.stop("team:board")
 
   -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.
   Profiler.start("team:poles")
   Poles.think(f, view, book_for(f), tick, plan)
   Profiler.stop("team:poles")
+  -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé).
+  Profiler.start("team:market")
+  Board.assign(f, tick)
+  Profiler.stop("team:market")
 
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
   -- à tour de rôle.
@@ -477,8 +482,8 @@ function Team.think(f, surface, tick)
   if plan.recruit_held then f.stats.recruit_held = (f.stats.recruit_held or 0) + 1 end
   Profiler.stop("team:scale")
 
-  -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris).
-  local stock = stock_of(f)
+  -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris). Lot IA3-b : stock LIBRE (réglage).
+  local stock = Board.view_stock(f, stock_of(f), tick)
   local cost = view.recruit_cost
   -- Lot IA2-a2 (survie) : recrue équipée AU QG avec les plaques du stock (plan.recruit_uses : objets prélevés).
   local pay = plan.recruit_uses or cost
@@ -498,7 +503,7 @@ function Team.think(f, surface, tick)
     else
       for _, it in ipairs(pay) do f.hq.insert({ name = it[1], count = it[2] }) end
     end
-    stock = stock_of(f)
+    stock = Board.view_stock(f, stock_of(f), tick)
   elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2)) then
     if Worker.recruit(f, surface, tick, true) then
       if f.stats then f.stats.unarmed_hires = (f.stats.unarmed_hires or 0) + 1 end
@@ -519,7 +524,7 @@ function Team.think(f, surface, tick)
       log(string.format("[FO-TEAM] %s : survie, %d %s equipe(s) au QG (soldats %d) a %.1f min", f.key, made, tr.unit,
         f.soldiers_count or 0, (tick - State.war().started) / 3600))
     end
-    stock = stock_of(f)
+    stock = Board.view_stock(f, stock_of(f), tick)
   end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
