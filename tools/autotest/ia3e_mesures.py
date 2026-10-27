@@ -106,6 +106,13 @@ def main():
             idle = f"sans tache {d['idle']:.0f} %" if d["idle"] is not None else "sans tache -"
             print(f"  {k:8s} {pal} | poteau moyen {fmt(d['eed1'])} | {plant} | {dead} | {idle}")
             print(f"           demandes [{dem}] | finis [{fin}] | refus {len(d['ref'])}")
+            def prod(x):
+                # modules de PRODUCTION qui produisent 5 min sans PNJ (la centrale comptée à part)
+                return sum(1 for it in x.split() if it.endswith("]OK") and not it.startswith("centrale["))
+            if d["sanspnj"]:
+                c += f" | production sans PNJ 45 min : {prod(d['sanspnj'][2])}"
+            if d["sanspnj75"]:
+                c += f", 75 min : {prod(d['sanspnj75'][2])}"
             print(f"           {c}" + (f" | sans PNJ : {d['sanspnj'][2]}" if d["sanspnj"] else "")
                   + (f" | a 75 min : {d['sanspnj75'][0]} module(s) {d['sanspnj75'][2]}" if d["sanspnj75"] else ""))
 
