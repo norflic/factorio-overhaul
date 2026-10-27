@@ -267,4 +267,34 @@ function V.start_slots(axis)
   return out
 end
 
+---------------------------------------------------------------------------------------------------
+-- Espacement entre sites (lot SITES) : règle pure, lue par script/faction/sites.lua (réserve et revendications)
+---------------------------------------------------------------------------------------------------
+-- Moteur réel (trace [FO-SITES], 27/10) : 40 tuiles imposées entre TOUS les sites faisaient refuser le cuivre de
+-- votre équipe à 27 tuiles du charbon (retenu à 263 tuiles), la pierre à 14 tuiles. Deux gisements de ressources
+-- différentes ne partagent aucune tuile : seuls les avant-postes (foreuses, tourelles) peuvent se gêner, d'où la
+-- somme de leurs rayons ; deux sites de la MÊME ressource gardent 40 tuiles (un grand gisement exploité à plusieurs).
+V.SPACING_SAME = 40
+V.RADIUS_MIN = 6        -- rayon minimal d'un avant-poste (le plus petit gisement de départ, T.seed_radius.stone)
+
+--- Rayon d'un site : étendue des tuiles lues à la découverte (site.radius), au moins V.RADIUS_MIN.
+function V.site_radius(site)
+  local r = site.radius
+  if type(r) ~= "number" or r < V.RADIUS_MIN then return V.RADIUS_MIN end
+  return r
+end
+
+--- Distance minimale entre deux sites a et b ({ resource, radius } ; ressource inconnue : prudence, 40).
+function V.spacing(a, b)
+  if a.resource == nil or b.resource == nil or a.resource == b.resource then return V.SPACING_SAME end
+  return math.min(V.SPACING_SAME, V.site_radius(a) + V.site_radius(b))
+end
+
+--- Vrai si les sites a et b ({ x, y, resource, radius }) sont trop proches l'un de l'autre.
+function V.too_close(a, b)
+  local dx, dy = a.x - b.x, a.y - b.y
+  local d = V.spacing(a, b)
+  return dx * dx + dy * dy < d * d
+end
+
 return V
