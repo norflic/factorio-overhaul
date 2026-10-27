@@ -68,8 +68,12 @@ return function(variant, ticks)
       end
       local sites = {}
       for _, x in ipairs(st.sites or {}) do
-        sites[#sites + 1] = string.format("%s:%s(%s/%s)%s", x.key, tostring(x.state), tostring(x.built), tostring(x.total),
-          x.reason and ("<" .. x.reason .. ">") or "")
+        sites[#sites + 1] = string.format("%s:%s(%s/%s)%s%s", x.key, tostring(x.state), tostring(x.built), tostring(x.total),
+          x.reason and ("<" .. x.reason .. ">") or "", (x.missing and #x.missing > 0) and ("{" .. table.concat(x.missing, ",") .. "}") or "")
+      end
+      if st.plant then
+        sites[#sites + 1] = string.format("centrale:%s(%s/%s)%s", tostring(st.plant.state), tostring(st.plant.built),
+          tostring(st.plant.total), (#(st.plant.missing or {}) > 0) and ("{" .. table.concat(st.plant.missing, ",") .. "}") or "")
       end
       ctx.log(string.format("minute %d | %s | connus [%s] | decisions %d | sites [%s] | chevalets %d raffineries %d usines %d | packs chimiques %d | produits [%s] | palier 4 [%s]",
         math.floor(tick / 3600), row.key, table.concat(st.known or {}, " "), st.decisions or 0, table.concat(sites, " "),

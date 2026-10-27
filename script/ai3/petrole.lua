@@ -604,7 +604,17 @@ remote.add_interface("fo-petrole", {
       sites[i] = { key = s.key, id = s.id, state = s.state, items = s.items, built = s.built, total = s.total,
         reason = s.reason, x = s.x, y = s.y }
     end
-    return { decisions = st.decisions, known = sorted_keys(st.known), sites = sites, logs = st.logs }
+    -- manques des chantiers (4 premiers) et état de la centrale de l'équipe : lisibilité des bancs
+    local function brief_of(id)
+      local br = id and f.build and Build.brief(f, id)
+      if not br then return nil end
+      local miss = {}
+      for i = 1, math.min(4, #(br.missing or {})) do miss[i] = br.missing[i][1] .. "x" .. br.missing[i][2] end
+      return { state = br.state, missing = miss, built = br.built, total = br.total }
+    end
+    for i, s in ipairs(st.sites) do local b = brief_of(s.id); sites[i].missing = b and b.missing or nil end
+    return { decisions = st.decisions, known = sorted_keys(st.known), sites = sites, logs = st.logs,
+      plant = f.build and brief_of(f.build.plant) or nil }
   end,
   on = function() return Pet.on() end,
 })
