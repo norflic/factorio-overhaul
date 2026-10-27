@@ -16,6 +16,8 @@ NOM = ages.NOMS[6]
 TRIPLET = ("pylône", "électrodes", "moteur bleu")
 FOYER = ages.FOYER[6]
 HABILLAGE = dict(ages.CORPS[6])
+PAS_FIN = 0.12  # ronde F4-A3 : détail fin plus serré
+FIN = 1.0
 PIED = 1.05
 # ronde F4-A2 : le transformateur est l'embase ; les jambes du pylône tiennent les diagonales (ni contreforts ni haubans)
 EMBASE = dict(r=0.62, contreforts=0, haubans=0, conduites=2)

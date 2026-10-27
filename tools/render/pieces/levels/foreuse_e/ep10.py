@@ -15,6 +15,8 @@ NOM = ages.NOMS[10]
 TRIPLET = ("portique", "colonne lisse", "bras articulés")
 FOYER = ages.FOYER[10]
 HABILLAGE = dict(ages.CORPS[10])
+PAS_FIN = 0.12  # ronde F4-A3 : détail fin plus serré
+FIN = 1.0
 PIED = 1.0
 # ronde F4-A2 : la tête carénée est l'embase ; les pieds du portique tiennent les diagonales ; 2 conduites
 EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)

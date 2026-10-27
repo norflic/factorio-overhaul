@@ -48,6 +48,11 @@ def tour(g, c):
               "flat", what="insert")
         g.dome((rt * 0.7 * math.cos(a + 0.13), rt * 0.7 * math.sin(a + 0.13), zt + 0.262), (0, 0, 1), 0.018,
                M["acier_bleui"], what="rivet")
+    for (rr, nn) in ((0.24, 10), (0.38, 14), (0.5, 18)):
+        for i in range(nn):
+            a = math.tau * (i + 0.5 * (nn % 4)) / nn
+            g.box((rt * rr * math.cos(a), rt * rr * math.sin(a), zt + 0.262), (0.05, 0.05, 0.008), M["indigo_nuit"],
+                  "flat", what="insert")
     for i in range(40):
         a = math.tau * (i + 0.25) / 40
         g.dome((rt * 0.86 * math.cos(a), rt * 0.86 * math.sin(a), zt + 0.142), (0, 0, 1), 0.016, M["emit"], n=6)
@@ -57,11 +62,11 @@ def tour(g, c):
         # anneau vertical, membrane d'horizon, chevrons
         g.torus((0, 0, zr), axe, R, r, M["blanc_lunaire"], n=48, m=10, what="anneau")
         g.cyl((0, 0, zr), axe, R - r * 0.4, 0.05, M["horizon_porte"], n=48, what="horizon")
-        for i in range(12):
-            a = math.tau * i / 12
+        for i in range(24):     # ronde F4-A3 : 12 → 24 chevrons
+            a = math.tau * i / 24
             u, w = R * math.cos(a), R * math.sin(a)
             p = (u, 0.0, zr + w) if axe == "y" else (0.0, u, zr + w)
-            g.box(p, (0.09, 0.09, 0.09), M["indigo_nuit"], "hard", what="chevron")
+            g.box(p, (0.07, 0.07, 0.07) if i % 2 else (0.09, 0.09, 0.09), M["indigo_nuit"], "hard", what="chevron")
         # étoiles semées sur les deux faces de la membrane
         rng = (7 + 13 * k)
         pts = []

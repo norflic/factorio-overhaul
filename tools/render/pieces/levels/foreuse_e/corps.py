@@ -266,10 +266,8 @@ def tablier(g, c):
         g.box((0, 0, zc + 0.003), (2 * dd - 2 * e, 2 * dd - 2 * e, 0.006), c.m(c.pont["fond"]), "flat", what="fond")
     q = [V((-dd + e, -dd + e, zc)), V((dd - e, -dd + e, zc)), V((dd - e, dd - e, zc)), V((-dd + e, dd - e, zc))]
     bou = c.pont.get("boulons")
-    # ronde F4-A3 : joints plus larges pour les petites dalles (au joint de 0,025 t, les dalles voisines se fondaient
-    # en une seule plage à l'écran)
-    gap = 0.045 if (motif == "dalles" and pas <= 0.3) else 0.025
-    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=gap, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
+    # (essai F4-A3 a3q5 : des joints de 0,045 t aux petites dalles FAISAIENT BAISSER la charte aux âges 6 et 10 : non retenu)
+    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
              rivet_step=0.11, mats=pm, what="dessus")
     # cornières de bord (au-dessus du dessus : le tablier a un rebord)
     b = c.m(c.pont["bord"])
@@ -948,6 +946,33 @@ def _releve_cylindres(g, rmin=0.15, hmin=0.12):
     return rec
 
 
+def _poutre_rivetee(orig, g_ref):
+    """Remplace corps.poutre pendant la tour : rivets sur les deux arêtes hautes des poutres longues (≥ 0,6 t, ≥ 0,07 t
+    de large)."""
+    def poutre_r(g, p0, p1, w, m, what="poutre", h=None):
+        orig(g, p0, p1, w, m, what, h)
+        L = math.dist(p0, p1)
+        nm = str(getattr(m, "name", "") or "").lower()
+        if g is not g_ref or L < 0.6 or w < 0.07 or any(s in nm for s in FUT_SAUTE_MAT) or any(
+                s in str(what) for s in FUT_SAUTE_WHAT):
+            return
+        a = V(p1) - V(p0)
+        a.normalize()
+        up = V((0, 0, 1))
+        s = a.cross(up)
+        if s.length < 1e-3:
+            return
+        s.normalize()
+        hh = (w if h is None else h) / 2.0
+        n = int(L / 0.12)
+        for i in range(1, n):
+            q = V(p0) + a * (L * i / n)
+            for sg in (-1, 1):
+                g.dome(tuple(q + s * (sg * w * 0.32) + up * (hh + 0.002)), (0, 0, 1), 0.018, g_ref.ctx.m("rivet"),
+                       what="rivet_poutre")
+    return poutre_r
+
+
 def _fin_releve(g):
     for k in ("cyl", "torus"):
         if k in g.__dict__:
@@ -1153,6 +1178,8 @@ def corps(g, c):
         goulotte(g, c)
         trepan(g, c)
         rec = _releve_cylindres(g)
+        _poutre0 = globals()["poutre"]
+        globals()["poutre"] = _poutre_rivetee(_poutre0, g)
         try:
             if hasattr(c.ep, "tour"):
                 c.ep.tour(g, c)
@@ -1161,6 +1188,7 @@ def corps(g, c):
                     tour_lignee(g, c)
         finally:
             _fin_releve(g)
+            globals()["poutre"] = _poutre0
         c.n_boulons_futs = boulons_futs(g, c, rec)
         liaisons_tour(g, c)
         if hasattr(c.ep, "socle"):
