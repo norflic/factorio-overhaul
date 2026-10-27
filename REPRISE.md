@@ -10,6 +10,18 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 4 h : FILE DU BANC À TOUR DE RÔLE, IA3-d LANCÉ.**
+> - `banc.py` (`dc343d5`) sert désormais les lots à tour de rôle (étiquette `--qui`), puis premier arrivé, premier servi dans un
+>   lot. Pourquoi : à 3 h 35, IA1-d a déposé 14 bancs d'un coup, et les bancs du cas du DC d'IA-V2 attendaient derrière (environ
+>   1 h). Contrôle : `tools/autotest/tests/test_banc_file.py` 13 OK. Les lanceurs DÉJÀ en attente gardent l'ancienne règle
+>   (code chargé au départ) ; les trois agents IA ont été priés d'appeler le banc.py de main par son chemin absolu et de garder
+>   au plus 4 bancs en file.
+> - **IA3-d** (A7, « ils ne scalent pas ») : branche `ia3d`, worktree `.claude/worktrees/ia3d`, créée sur la tête d'`ia-v2`
+>   (`0302af1`) ; notes `fo-logs\2026-10-27_IA3-d\` ; F315 à F318, E210, E211 (prochains libres F319, E212). Phase 1 HORS JEU
+>   (diagnostic sur les archives d'IA1-b, règle pure `shared/ai3/effectif.lua`, tests) ; phase 2 par la file, au plus 3
+>   bancs en file. À relancer s'il s'arrête faute de banc.
+> - Worktrees retirés (fusionnés dans `main`) : F3-B (`agent-ad00d688…`) et `agent-aa8c5e5b…` (documents 0.4.30).
+>
 > **27/10, 2 h 40 : F3-B FUSIONNÉ, `main` = 0.4.31** (`91f07a2` : assembleur en jeu, feuilles par
 > `assembleur_e/feuilles.py`, F306 à F308, E204, E205 ; `banc.py` accepte `--visuel "--…"`, F307). Bancs sur `main` par la file :
 > archives `fo-logs\2026-10-27_integration-0.4.31\`. **Design relancé** (même agent, `af602e63c702fb3b4`) : F4-A3 (foreuse,
