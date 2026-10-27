@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 9 h 05 : BANC À 3 PLACES DÉPLOYÉ** (fusion `cf7053b` de `banc2`, agent terminé ; `fo-autotest.bat` recopié à la racine,
+> l'ancien gardé dans `fo-logs\fo-autotest.bat.avant-banc2`) ; `<racine>\fo-banc-places.txt` = **3** (REMETTRE 1 quand le DC joue).
+> Tests : test_banc_file 78 OK, bat_double_source 70 OK (rejoués par l'intégrateur). Moteur réel : `content` 331 OK à la place 2
+> (14 s, sans attente) pendant la session d'images d'IA3-e à la place 1 (`fo-logs\2026-10-27_integration-0.5.0\content`). Les
+> tickets déposés par des banc.py ANCIENS (avant 9 h 03) ne passent que par la place 1 : agents priés de les relancer. Toute
+> mesure K10 avec `--seul` ; les mesures K10 prises avant ce déploiement pendant d'autres bancs sont à refaire seules.
+>
 > **27/10, 8 h 55 : PC LIBRE 8 h ET BANC À PLUSIEURS PLACES.** Le DC, vers 8 h 50 : « Vous pouvez potentiellement accélérer le jeu
 > beaucoup plus pour 1 partie à la fois […] (Et au pire ça ram mais c'est pas grave si ?) », puis vers 8 h 55 : « Je n'utilise pas
 > mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc quand même mais vous avez compris) ».

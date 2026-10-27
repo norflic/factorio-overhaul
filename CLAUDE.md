@@ -57,16 +57,22 @@ avant tout travail.
    `Get-CimInstance Win32_Process -Filter "Name='factorio.exe'" | ? CommandLine -like '*fo-visual*' | Invoke-CimMethod -MethodName Terminate`
    Depuis le lot P1, `fo-visual.bat` ferme lui-même sa session : d'abord le PID qu'il a lancé, puis tout
    `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
-4. **Un seul banc à la fois.** `fo-autotest.bat`, `fo-visual.bat` et `fo-captures.bat` partagent le verrou
-   `<racine>\fo-autotest.lock` (code de sortie 2 s'il est pris). `fo-autotest.bat`
-   **efface `fo-autotest\`** à chaque lancement : copiez vos journaux avant le banc suivant. Un verrou
-   orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
-   `rmdir`. **Depuis le 27/10, tout agent lance ses bancs par la FILE D'ATTENTE** :
-   `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>] [--son] [--captures]
-   [--visuel="<args>"] --qui <lot> -- <ticks> <scenario> <source>` (depuis le 27/10 à 3 h 50, TOUR DE RÔLE entre les lots
-   `--qui` : le lot servi il y a le plus longtemps passe d'abord, puis premier arrivé, premier servi dans un lot ; donner
-   toujours le même `--qui` à tous les bancs d'un lot ; le verrou est tenu jusqu'à la fin de l'archivage ; `--file` montre
-   la file et le ticket servi ensuite). Ne plus appeler `fo-autotest.bat` en boucle soi-même.
+4. **Bancs en parallèle par PLACES, toujours par la FILE** (lot BANC2, 27/10 vers 9 h ; le DC : « au pire ça ram mais c'est
+   pas grave », « Je n'utilise pas mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc) »).
+   Le banc a jusqu'à 3 places : `fo-autotest\` + `fo-autotest.lock`, `fo-autotest-2\` + `fo-autotest-2.lock`,
+   `fo-autotest-3\` + `fo-autotest-3.lock` (variable `FO_PLACE` de `fo-autotest.bat`, posée par banc.py seulement ; à la main :
+   code 3). Le nombre de places ouvertes est dans `<racine>\fo-banc-places.txt` (absent : 2 ; illisible ou hors de 1 à 3 : 1) ;
+   **remettre 1 quand le DC joue**. Une place au-delà de la première exige 6 Go de mémoire libre. Les images
+   (`fo-captures.bat`, `fo-visual.bat`, son) ne tournent qu'à la place 1 (verrou `fo-autotest.lock`, partagé avec
+   `fo-visual`). Chaque `fo-autotest.bat` **efface le dossier de SA place** : banc.py archive avant de rendre le verrou.
+   Tout agent lance ses bancs par la FILE : `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>]
+   [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>` (TOUR DE RÔLE entre les lots
+   `--qui`, premier arrivé, premier servi dans un lot ; même `--qui` pour tous les bancs d'un lot ; `--file` montre les places
+   et la file). **Toute mesure de performance (K10, `analyze.py`, `[FO-CALIB]`, temps par tick) se lance avec `--seul`** :
+   seule sur le PC, toutes places prises ; une mesure prise sans `--seul` est fausse (les bancs voisins partagent les cœurs P,
+   F30). Ne jamais appeler `fo-autotest.bat` en boucle soi-même. Un verrou orphelin (aucun `factorio.exe` avec
+   `\fo-autotest\`, `\fo-autotest-N\` ou `fo-visual`) est retiré par banc.py. Prouvé en moteur réel le 27/10 à 9 h 03 :
+   `content` 331 OK à la place 2 pendant une session d'images à la place 1.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
 6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
    Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
@@ -141,8 +147,8 @@ python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 ét
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
 python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
-PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py   -> BILAN : 13 OK (tour de rôle de la file du banc : règle pure, puis 4 vrais lanceurs sur une racine jetable avec un faux fo-autotest.bat ; environ 25 s ; aucun jeu lancé)
-python -B tools/autotest/tests/bat_double_source/run.py   -> 47 OK (code 8 de fo-captures.bat sur un banc en échec depuis D4m-géant ; FO_AUDIO et pilote disk depuis S0 ; graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
+PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py   -> BILAN : 78 OK (tour de rôle de la file du banc et PLACES depuis BANC2 : 3 bancs en même temps, passage de 3 à 1 place, images à la place 1 pendant les places 2 et 3, barrière --seul, garde-fou de 6 Go, cohabitation avec l'ancien banc.py ; vrais lanceurs sur une racine jetable avec un faux fo-autotest.bat ; environ 75 s ; aucun jeu lancé ; 13 avant BANC2)
+python -B tools/autotest/tests/bat_double_source/run.py   -> 70 OK (FO_PLACE depuis BANC2, cas 15 à 18 ; 47 avant ; code 8 de fo-captures.bat sur un banc en échec depuis D4m-géant ; FO_AUDIO et pilote disk depuis S0 ; graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources --mutants   -> 19 OK (feuilles de la mitrailleuse, éclats et socle animé compris depuis A4 : manifeste, sha256, rectangles, poses au pixel contre les sources, directions écartées de l'éclat regardées, mutants refusés ; lots A2 et A3-jeu)
 py -3.9 -B tests/datastage/mut_sons.py --work <dossier jetable hors du dépôt>   -> BILAN : 6 OK (règle « sons » : Opus, FLAC dans Ogg, fichier coupé… refusés ; environ 3 min ; lot S0-suite)
 python -B tools/autotest/tests/test_audio_session.py   -> 21 OK (pilote de session avec son : environnement disk, pilote lu au journal, mesure de la sortie disk ; lot S0)
