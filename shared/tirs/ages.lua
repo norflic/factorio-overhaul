@@ -135,7 +135,7 @@ T.ages = {
         lumiere = { taille = 16.5, intensite = 0.90, couleur = { 1.00, 0.82, 0.55 } } },
     },
     trait = { duree = 5, epaisseur = 2.5, teinte = { 1.00, 0.64, 0.28 }, coeur = { 1.00, 0.90, 0.66 } },
-    trace = { image = "fin", echelle = 1.30, teinte = { 1.00, 0.90, 0.66 }, vitesse = 2.0, -- boule incandescente
+    trace = { image = "fin", echelle = 1.80, teinte = { 1.00, 0.90, 0.66 }, vitesse = 2.0, -- boule incandescente
       lumiere = { taille = 6, intensite = 0.80, couleur = { 1.00, 0.85, 0.60 } },
       trainee = { source = "smoke-fast", couleur = { 0.95, 0.75, 0.35, 0.35 }, frequence = 1 } },
     impact = {
