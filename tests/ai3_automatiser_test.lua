@@ -274,6 +274,38 @@ do
   check(sig(pa) == sig(pb), "aucun module : même plan qu'avant le lot (neutralité)")
 end
 
+do
+  -- (f) recherche d'un objet voulu par l'automatisation (r.for_auto) : valeur non plafonnée avant « fer II », packs sans
+  -- plancher de fer.
+  local function s_of(r)
+    return { is_player = false, workers = 8, soldiers = 20, soldiers_max = 30, stock = { ["firearm-magazine"] = 80 },
+      cap = { coal = 1, iron = 1, copper = 1, stone = 1 }, pending = {}, sites = {}, smelters = 4, smelters_pending = 0,
+      weights = B.weights({}, nil), research = r, army_target = 18, economy_done = false }
+  end
+  local function research_value(r)
+    for _, g in ipairs(B.generate(s_of(r), { targets = { coal = 1, iron = 1, copper = 1, stone = 1 }, iron2_set = true })) do
+      if g.key == "recherche" then return g.value end
+    end
+    return nil
+  end
+  local base_r = { tech = "electronics", payable = true, iron_cost = 200 }
+  local auto_r = { tech = "electronics", payable = true, iron_cost = 200, for_auto = true }
+  check(research_value(base_r) == B.RESEARCH_PRE and research_value(auto_r) > B.RESEARCH_PRE,
+    string.format("recherche pour l'automatisation : non plafonnée avant fer II (%s contre %s)", tostring(research_value(auto_r)), tostring(research_value(base_r))))
+  -- extraction déjà faite (fer et charbon à 2 capacités) : le fer du coffre (90, sous le plancher de 100) n'a pas d'autre
+  -- usage que les packs
+  local fv = view({ stock = { ["iron-plate"] = 90, ["copper-plate"] = 200, coal = 300, stone = 200, ["firearm-magazine"] = 80 },
+    outposts = { op(1, "coal", 8), op(2, "iron", 16), op(3, "copper", 3), op(4, "stone", 2) } })
+  local function packs_of(r)
+    local plan = C.think(fv, book, C.new_state(0), { tick = 0, weights = B.weights({}, nil), reach = {}, iron_floor = 100,
+      research = r, army_target = 18 })
+    return count(plan, function(t) return t.kind == "craft" and t.item == "automation-science-pack" end)
+  end
+  local rp = { tech = "electronics", payable = true, packs = { { "automation-science-pack", 10 } } }
+  local rpa = { tech = "electronics", payable = true, packs = { { "automation-science-pack", 10 } }, for_auto = true }
+  check(packs_of(rp) == 0 and packs_of(rpa) >= 1, string.format("fer sous le plancher : packs seulement pour l'automatisation (%d contre %d)", packs_of(rpa), packs_of(rp)))
+end
+
 ---------------------------------------------------------------------------------------------------
 section("5. Déterminisme")
 ---------------------------------------------------------------------------------------------------

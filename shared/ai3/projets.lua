@@ -448,7 +448,10 @@ EMIT.research = function(E, proj, g, ctx)
     if not P.want(E, proj, { { r.lab_item, r.labs_craft } }, prio + P.FINISH_BONUS, false, "labo") then status = "matiere" end
   end
   if r.packs and #r.packs > 0 then
-    local floor = ctx.iron_floor or 0
+    -- Lot IA3-e : la recherche d'un objet que l'automatisation attend (r.for_auto : poteau moyen de la fonderie
+    -- électrique) n'a pas de plancher de fer : c'est l'investissement qui rend le fer (moteur réel, e2-usine : poteau
+    -- moyen commencé à 20 min, jamais fini en 90 min chez azure, fer au coffre sous le plancher).
+    local floor = (not r.for_auto) and (ctx.iron_floor or 0) or 0
     local keep = math.min(E.avail[P.IRON] or 0, floor)
     E.avail[P.IRON] = (E.avail[P.IRON] or 0) - keep
     if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
