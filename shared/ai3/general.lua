@@ -261,12 +261,16 @@ function Gen.choose(cat, ev, state, ctx)
   -- Lot PETROLE (ctx.new_pack, réglage fo-war-petrole) : un joueur qui vient d'ouvrir un pack lance une recherche qui le
   -- consomme (le palier se mesure aux packs FABRIQUÉS, IA3_CERVEAU §6.1) : une technologie prête qui consomme un pack
   -- faisable qu'aucune technologie faite n'a consommé vaut Gen.V_NEW_PACK de plus (pondéré « recherche »).
+  -- Jamais au départ (aucun pack encore consommé : le premier palier garde son ordre ; moteur réel, petrole-partie
+  -- 271828182 : sans cette garde, palier 1 à 6,7 min au lieu de 1,8).
   local used_pack = nil
   if ctx.new_pack then
     used_pack = {}
+    local any = false
     for _, t in ipairs(cat.tech_list) do
-      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true end end
+      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true; any = true end end
     end
+    if not any then used_pack = nil end
   end
   for _, t in ipairs(Gen.ready(cat, state, ctx.disabled)) do
     local v, why, palier = Gen.value(cat, ev, state, t, ctx)
