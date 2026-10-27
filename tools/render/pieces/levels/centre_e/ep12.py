@@ -23,6 +23,7 @@ ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.arch
 CHASSIS = "steel_hi"
 CADRE_TOIT = "steel_hi"
 HUBLOTS = True
+PAS_TOIT = 0.24   # ronde 2c : rangées des terrasses plus serrées (0,28 par défaut)
 
 
 def matieres(metal, M):

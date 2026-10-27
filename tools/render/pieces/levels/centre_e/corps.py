@@ -226,6 +226,20 @@ def socle(g, c):
                         (rr0 * math.cos(a1 - 0.01), rr0 * math.sin(a1 - 0.01))]
                 pts = [V((x, y, zc)) for x, y in quad] + [V((x, y, zt)) for x, y in quad]
                 g.hexa(pts, pm[(i + b_) % 2], "hard", "secteur")
+                if getattr(c.ep, "MOTIF_SECTEUR", False) and b_ >= 1:
+                    # ronde 2c : plaquettes claires le long de chaque secteur visible (hors du premier étage)
+                    rm = (rr0 + rr1) / 2.0
+                    nsub = max(1, int(rm * (a1 - a0) / 0.3))
+                    for u in range(nsub):
+                        au = a0 + (a1 - a0) * (u + 0.5) / nsub
+                        xu, yu = rm * math.cos(au), rm * math.sin(au)
+                        if dans_forme(c.plan, c.T["h"][0] + 0.04, xu, yu, -0.08):
+                            continue
+                        g.push((xu, yu, zt), rz=au)
+                        g.box((0, 0, 0.006), (0.1, 0.12, 0.012), c.m(getattr(c.ep, "MOTIF_MAT", "steel_hi")), "hard",
+                              what="plaquette_secteur")
+                        g.pop()
+                        c.n_plaquettes = getattr(c, "n_plaquettes", 0) + 1
                 if bou:
                     am = (a0 + a1) / 2.0
                     for t in (0.25, 0.75):
