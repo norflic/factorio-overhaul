@@ -57,7 +57,9 @@ local function sorted_keys(t) return State.sorted_keys(t or {}) end
 --- Lot IA-G : ressources clés d'une équipe (types d'avant-poste) : déduites du dépliage pour une faction au cerveau
 --- général (script/ai3/general.lua) ; repli de shared/ai3/reglages.lua (votre équipe, avant la 1re décision).
 local function key_of(f)
-  return (not f.is_player and General.on() and General.key(f)) or Rg.FALLBACK_KEY
+  local k = (not f.is_player and General.on()) and General.key(f) or nil
+  if k and k.top and k.fuel then return k end
+  return Rg.FALLBACK_KEY
 end
 
 local function minutes(f, tick)

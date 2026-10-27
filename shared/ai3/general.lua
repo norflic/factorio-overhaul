@@ -291,7 +291,12 @@ function Gen.key_resources(cat, sum, kinds, kind_of)
     local k = kind_of(res)
     if k then need[k] = (need[k] or 0) + sum.extract[res] end
   end
-  local fuel = cat.fuel and kind_of(cat.fuel) or nil
+  -- Combustible : le meilleur candidat du catalogue qu'un avant-poste de l'exécutant sait rapporter.
+  local fuel = nil
+  for _, res in ipairs(cat.fuels or { cat.fuel }) do
+    local k = kind_of(res)
+    if k then fuel = k break end
+  end
   local order = {}
   for _, k in ipairs(kinds) do if k ~= fuel then order[#order + 1] = k end end
   table.sort(order, function(a, b)

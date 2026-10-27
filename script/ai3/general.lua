@@ -304,7 +304,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local evd = Gen.prepare(c, ds, memo_of(f)) -- même clé (les points fixes ne lisent que le stock durable) : mémo
   local sumd = Gen.summary(c, evd, ds, ref_goals(f, d.tech))
   local key = Gen.key_resources(c, sumd, T.OUTPOST_ORDER, kind_of)
-  g.key = { top = key.top, fuel = key.fuel, order = key.order, optional = key.optional }
+  -- Gardées seulement complètes (une ressource la plus demandée ET un combustible qu'un avant-poste rapporte) ; sinon
+  -- le repli de shared/ai3/reglages.lua reste.
+  if key.top and key.fuel then g.key = { top = key.top, fuel = key.fuel, order = key.order, optional = key.optional } end
   g.decisions = g.decisions + 1
   g.history[#g.history + 1] = { tech = d.tech, tick = tick, value = d.value, cost = d.cost }
   while #g.history > 32 do table.remove(g.history, 1) end

@@ -101,6 +101,18 @@ local function run_all()
     d.techs["iag-verrou"] = { count = 1, time = 1, ingredients = {}, prerequisites = {}, unlocks = { "iron-chest" }, hidden = true, enabled = false }
   end })
   check(K.build(d_h, F.opts()).techs["iag-verrou"] == nil, "§1 technologie invisible (verrou d'époque) hors du graphe")
+  -- Un combustible plus riche qu'aucun exécutant ne sait extraire (moteur réel, banc g1 : le cristal de résonance de
+  -- l'âge 7) n'est pas le combustible ; un combustible plus riche sans avant-poste n'est pas la ressource clé.
+  local d_f = F.dump({ mutate = function(d)
+    d.resources[#d.resources + 1] = { entity = "iag-cristal", category = "iag-dur", products = { { type = "item", name = "iag-cristal", amount = 1 } } }
+    d.items["iag-cristal"] = { type = "item", fuel_value = 50e6 }
+    d.resources[#d.resources + 1] = { entity = "iag-tourbe", category = "basic-solid", products = { { type = "item", name = "iag-tourbe", amount = 1 } } }
+    d.items["iag-tourbe"] = { type = "item", fuel_value = 20e6 }
+  end })
+  local cat_f = K.build(d_f, F.opts())
+  check(cat_f.fuels[1] == "iag-tourbe" and cat_f.fuel == "iag-tourbe", "§1 combustible : seulement un extractible (" .. tostring(cat_f.fuel) .. ")")
+  local key_f = Gen.key_resources(cat_f, { extract = {} }, T.OUTPOST_ORDER, kind_of)
+  check(key_f.fuel == "coal", "§1 combustible clé : le meilleur qu'un avant-poste rapporte (" .. tostring(key_f.fuel) .. ")")
 
   -- §2 Choix depuis le kit de départ.
   local st = F.start_state()

@@ -85,7 +85,7 @@ function C.situation(view, st, ctx)
     -- 20261020 : fer II jamais, 2 700 plaques de fer au coffre, paliers 2 et 3 à 29 et 48 min à 8 PNJ).
     economy_done = st.iron2_done ~= nil or st.economy_ok ~= nil,
     -- Lot IA-G : ressources clés DÉDUITES du dépliage des buts (script/ai3/general.lua) ; repli : celles de l'échelle.
-    key = ctx.key or R.FALLBACK_KEY,
+    key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
   }
 end
 

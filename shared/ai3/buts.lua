@@ -103,7 +103,11 @@ end
 local function val(base, w) return clamp(math.floor(base * (w or 1000) / 1000), 1, 100) end
 
 --- Ressources clés de la situation (lot IA-G) : { top, fuel, order, optional } en types d'avant-poste.
-function B.key(s) return (s and s.key) or R.FALLBACK_KEY end
+function B.key(s)
+  local k = s and s.key
+  if k and k.top and k.fuel then return k end
+  return R.FALLBACK_KEY
+end
 
 --- Valeur d'amorçage d'un type d'avant-poste : son rang dans le besoin brut (s.key.order), le combustible à part.
 function B.boot_value(s, kind)

@@ -139,13 +139,27 @@ function K.build(dump, opts)
       if not resources[p.name] then resources[p.name] = { category = r.category } end
     end
   end
-  -- Combustible : le produit (objet) d'une ressource au plus grand pouvoir calorifique.
-  local fuel, best = nil, 0
+  -- Combustible : le produit (objet) d'une ressource qu'un EXÉCUTANT sait extraire (catégorie de minage de la main ou
+  -- d'une foreuse exécutable), au plus grand pouvoir calorifique ; `fuels` = tous ces candidats, du meilleur au moins
+  -- bon (égalité : le nom). Moteur réel, banc g1 (27/10) : sans la condition d'extraction, le cristal de résonance du
+  -- mod (âge 7, pouvoir calorifique supérieur au charbon) était pris pour le combustible des machines de l'âge 1.
+  local extract_cats = {}
+  for _, m in ipairs(machines) do
+    for _, c in ipairs(m.resource_categories or {}) do extract_cats[c] = true end
+  end
+  local fuels = {}
   for _, name in ipairs(sorted_keys(resources)) do
     local it = (dump.items or {})[name]
     local v = it and it.fuel_value or 0
-    if v > best then fuel, best = name, v end
+    if v > 0 and extract_cats[resources[name].category] then fuels[#fuels + 1] = { name, v } end
   end
+  table.sort(fuels, function(a, b)
+    if a[2] ~= b[2] then return a[2] > b[2] end
+    return a[1] < b[1]
+  end)
+  local fuel = fuels[1] and fuels[1][1] or nil
+  local fuel_list = {}
+  for i, f in ipairs(fuels) do fuel_list[i] = f[1] end
   -- Rôles des objets par leur type (militaire) ; les packs l'emportent.
   for _, name in ipairs(sorted_keys(dump.items)) do
     local r = R.ITEM_ROLE[dump.items[name].type or ""]
@@ -185,7 +199,8 @@ function K.build(dump, opts)
   local spec = { recipes = recipes, techs = gtechs, machines = machines, resources = resources, pseudo_recipes = pseudo,
     hand_categories = hand, fuel = fuel, electricity = K.ELEC }
   local cat = { g = G.new(spec), spec = spec, techs = techs, tech_list = sorted_keys(techs), packs = packs,
-    pack_list = sorted_keys(packs), labs = labs, role = role, fuel = fuel, products = products, item_of = item_of,
+    pack_list = sorted_keys(packs), labs = labs, role = role, fuel = fuel, fuels = fuel_list, products = products,
+    item_of = item_of,
     resources = resources, resource_list = sorted_keys(resources) }
   return cat
 end
