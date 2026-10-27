@@ -474,7 +474,18 @@ local function claim_market(f, agent, tick, b)
   local seen, tries = {}, 0
   for _, j in ipairs(idx) do
     local t = list[j]
-    if b.tasks[t.key] == t then
+    -- Lot IA-V2 : tri préalable sans lecture du coffre : une tâche dont la matière stricte n'est pas libre au registre
+    -- n'use pas un des Board.MARKET_TRIES essais (sauf une urgence, qui peut préempter). Moteur simulé, 4 factions :
+    -- 125 prises vides sur 130 avec des tâches libres : les 8 essais partaient sur des fabrications sans matière, le PNJ
+    -- n'arrivait jamais au minage, à la tournée ou à la fonte plus bas dans l'ordre (K5, « personne au coffre pendant
+    -- que du travail attend »).
+    local quick = true
+    if (t.prio or 0) < M.URGENT then
+      for _, it in ipairs(Board.strict_list(t) or {}) do
+        if R.free(reg, it[1]) < it[2] then quick = false break end
+      end
+    end
+    if quick and b.tasks[t.key] == t then
       if reserve_strict(f, reg, t, agent, tick, seen) then
         bump(f, "market_claims")
         if t.pole and npc.pole and t.pole ~= npc.pole then bump(f, "market_away") end

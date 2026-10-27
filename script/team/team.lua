@@ -464,7 +464,8 @@ function Team.think(f, surface, tick)
     Build.think(f, surface, tick)
     Profiler.stop("team:build")
   end
-  -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé).
+  -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
+  -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.start("team:market")
   Board.assign(f, tick)
   Profiler.stop("team:market")

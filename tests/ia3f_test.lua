@@ -140,7 +140,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Factions : étape « explore » du cerveau pour une ressource jamais vue
 ---------------------------------------------------------------------------------------------------
-local function faction_world()
+local function faction_world(p_nopath)
   local out = {}
   local d = 0.7071
   local names = { "coal", "iron-ore", "copper-ore", "stone" }
@@ -152,12 +152,12 @@ local function faction_world()
   end
   -- Pétrole loin du QG nord-est (226, -226) : à 620 tuiles vers l'est-nord-est.
   out[#out + 1] = { x = 820, y = -400, name = "crude-oil", amount = 300000 }
-  M.new_game({ patches = out, p_busy = 0, p_nopath = 0, p_lost = 0 })
+  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0 })
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 
-local function run_oil()
-  faction_world()
+local function run_oil(p_nopath)
+  faction_world(p_nopath)
   M.run_ticks(3 * 3600)
   local war = global.fo.war
   local f1 = war.factions[1]
@@ -203,6 +203,19 @@ local st5 = remote.call("fo-ia3f", "status")
 check(oilb == snap1.oil and f1b.ai3f.m.n == snap1.n and st5.stats.looks == snap1.looks,
   string.format("déterminisme : même date du pétrole (%s / %s), mêmes secteurs (%d / %d), mêmes regards (%d / %d)",
     tostring(snap1.oil), tostring(oilb), snap1.n, f1b.ai3f.m.n, snap1.looks, st5.stats.looks))
+
+-- 6. Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020 : Écarlate, 32 missions sur 33 finies sur « chemin » EN ROUTE,
+-- puis retour à pied au QG) : chemins introuvables au hasard (30 % des demandes) : la mission prend une autre cible
+-- depuis là où est l'éclaireur, et le pétrole est trouvé quand même.
+local f6, asked6, t6, oil6 = run_oil(0.3)
+local rer = count_logs("chemin rate en route, autre cible")
+local ends = count_logs("fin : chemin")
+print(string.format("  chemins rates en route repris : %d ; missions finies sur chemin : %d ; petrole a %s min", rer, ends,
+  tostring(oil6 and (oil6 - t6) / 3600)))
+check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins ratés : pétrole trouvé moins de 30 min après (" ..
+  tostring(oil6 and (oil6 - t6) / 3600) .. " min)")
+check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
+check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
