@@ -35,6 +35,9 @@ Auto.EVERY = 3600           -- ticks entre deux décisions
 Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7 × 7 lots)
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
 Auto.LOG_MAX = 16
+Auto.RESERVE_MAX = 15 * 3600 -- une demande qui attend ses matériaux plus de 15 min est annulée (objets rendus au coffre) :
+                             -- elle ne mange plus le fer de la recherche et de l'armée sans jamais produire (moteur réel,
+                             -- e4-usine : réserves de 26 à 90 min, palier 3 jamais atteint chez 3 factions sur 4)
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -45,7 +48,11 @@ end
 
 --- Produit de chaque méthode, et minerai -> plaque (mesure du minage à la main).
 local PRODUCTS = {}
-for _, m in ipairs(A.METHODS) do PRODUCTS[m.product] = true end
+local PLATES = {} -- produits des méthodes servies par des foreuses (plaques fondues)
+for _, m in ipairs(A.METHODS) do
+  PRODUCTS[m.product] = true
+  if m.ore then PLATES[m.product] = true end
+end
 local PLATE_OF_RES = {}
 for _, kind in ipairs(T.OUTPOST_ORDER) do
   local spec = T.outposts[kind]
@@ -112,6 +119,7 @@ function Auto.on_done(f, task, ok, tick)
     add(b.load, plate or task.resource, dt)
   elseif k == "craft" and task.item then
     add(b.load, task.item, dt)
+    add(b.made, task.item, task.count or 0) -- débit d'un objet fabriqué : à la main (ici) + modules (mesurés, roll)
     st.hand[task.item] = (st.hand[task.item] or 0) + (task.count or 0)
     -- Objets fabriqués à la main, intermédiaires compris (étapes de la tâche : recette × fabrications × produits) : la
     -- part « à la main » se compare aux produits des assembleurs, intermédiaires compris (statistiques de la force).
@@ -161,19 +169,36 @@ local function roll(f, st, tick)
   for _, mod in ipairs(st.modules) do
     if mod.state == "fini" then mod.rate_meas = measure_module(f, mod) end
   end
-  local delivered = f.team.delivered or {}
+  -- Débit d'une PLAQUE : sa production par les fours de la force (statistiques du moteur : avant-postes, fours du QG,
+  -- modules) ; les livraisons au QG (f.team.delivered) comptaient aussi les plaques prises puis rapportées par les PNJ
+  -- (moteur réel, e4-usine : scarlet « 537 plaques/min livrées », 82 fondues en 45 min) : module surdimensionné.
+  -- Débit d'un objet FABRIQUÉ : fabrications à la main (fin de tâche) + production mesurée des modules finis.
+  local force = game.forces[f.force]
+  local stats = nil
+  pcall(function() stats = force and force.item_production_statistics end)
+  local produced = {}
+  for _, item in ipairs(sorted_keys(PLATES)) do
+    local n = nil
+    if stats then pcall(function() n = stats.get_input_count(item) end) end
+    produced[item] = n or ((f.team.delivered or {})[item] or 0) -- moteur simulé : sans statistiques, les livraisons
+  end
   if st.last_min ~= nil then
     local cur = st.cur
     if not cur or cur.m ~= st.last_min then cur = { m = st.last_min, load = {}, made = {}, logi = {} } end
-    for _, item in ipairs(sorted_keys(PRODUCTS)) do
-      local d = (delivered[item] or 0) - (st.last_delivered[item] or 0)
-      if d > 0 then cur.made[item] = d end
+    for _, item in ipairs(sorted_keys(PLATES)) do
+      local d = (produced[item] or 0) - (st.last_delivered[item] or 0)
+      cur.made[item] = d > 0 and d or nil
+    end
+    for _, mod in ipairs(st.modules) do
+      if mod.state == "fini" and not PLATES[mod.product] and (mod.rate_meas or 0) > 0 then
+        cur.made[mod.product] = (cur.made[mod.product] or 0) + mod.rate_meas
+      end
     end
     st.window[#st.window + 1] = cur
     while #st.window > A.WINDOW do table.remove(st.window, 1) end
     st.cur = nil
   end
-  for _, item in ipairs(sorted_keys(PRODUCTS)) do st.last_delivered[item] = delivered[item] or 0 end
+  for _, item in ipairs(sorted_keys(PLATES)) do st.last_delivered[item] = produced[item] or 0 end
   st.last_min = m
 end
 
@@ -194,6 +219,15 @@ local function refresh(f, st, tick)
     local ps = Build.brief(f, st.plant_id)
     local state = ps and ps.state or "refuse"
     if state == "bloque" and not (ps and ps.retry_at) then state = "refuse" end
+    if state == "reserve" then
+      st.plant_reserve_since = st.plant_reserve_since or tick
+      if tick - st.plant_reserve_since > Auto.RESERVE_MAX and Build.cancel(f, st.plant_id, "materiaux introuvables en 15 min") then
+        state = "refuse"
+        ps = Build.brief(f, st.plant_id)
+      end
+    else
+      st.plant_reserve_since = nil
+    end
     if state ~= st.plant_state then
       st.plant_state = state
       if state == "fini" then note(f, st, tick, "centrale FINIE")
@@ -224,6 +258,14 @@ local function refresh(f, st, tick)
         if state == "bloque" and not s.retry_at then state, s.reason = "refuse", "abandon : " .. tostring(s.reason) end
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
+        if state == "reserve" then
+          m.reserve_since = m.reserve_since or tick
+          if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables en 15 min") then
+            state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables en 15 min"
+          end
+        else
+          m.reserve_since = nil
+        end
         if state ~= was then
           if state == "fini" then
             m.finished = tick
@@ -360,9 +402,16 @@ function Auto.minute_line(f, st, tick)
   end
   local mods = {}
   for _, m in ipairs(st.modules) do
-    mods[#mods + 1] = string.format("%s#%d:%s(%d/%d)%s%s", m.product, m.id, m.state, m.built or 0, m.total or 0,
+    -- les 3 premiers objets qui manquent au chantier (lisibilité : pourquoi une réserve attend)
+    local miss = ""
+    if m.state == "reserve" and m.missing and #m.missing > 0 then
+      local parts = {}
+      for i = 1, math.min(3, #m.missing) do parts[i] = m.missing[i][1] .. "x" .. m.missing[i][2] end
+      miss = "<" .. table.concat(parts, ",") .. ">"
+    end
+    mods[#mods + 1] = string.format("%s#%d:%s(%d/%d)%s%s%s", m.product, m.id, m.state, m.built or 0, m.total or 0,
       m.state == "fini" and string.format("=%d/min", m.rate_meas or 0) or "",
-      m.reason and ("[" .. tostring(m.reason) .. "]") or "")
+      m.reason and ("[" .. tostring(m.reason) .. "]") or "", miss)
   end
   if st.plant_id then mods[#mods + 1] = "centrale#" .. st.plant_id .. ":" .. tostring(st.plant_state) end
   local vs = {}

@@ -382,7 +382,10 @@ end
 --- liste des buts de la pensée (shared/ai3/cerveau.lua). Valeur : A.VALUE × poids « capital » du chef.
 function A.goals(goals, auto, weights)
   if not auto then return goals end
-  local w = (weights or {}).capital or 1000
+  -- Le caractère peut AVANCER l'automatisation (capitalisation), pas la retarder sous le neutre : un conquérant construit
+  -- aussi son usine (moteur réel, e4-usine : scarlet, conquérant, poids « capital » sous 1 000, fonderie servie après la
+  -- recherche, l'armée et les munitions, réserve « materiaux » de 26 à 90 min).
+  local w = math.max(1000, (weights or {}).capital or 1000)
   local seen = {}
   for _, m in ipairs(auto.modules or {}) do
     if OPEN[m.state] and not seen[m.product] then
