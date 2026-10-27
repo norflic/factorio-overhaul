@@ -106,6 +106,9 @@ local function suite(Br, B)
   local sst4 = { short = {}, short_n = {} }
   n = Br.smelters(fs(5000, 4), sst4, 4, 6)
   check(n == 4, "§3 aucune plaque en manque : pas de fours")
+  local sst6 = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 } }
+  n = Br.smelters(fs(500, 8), sst6, 4, 6)
+  check(n == 10, "§3 8 fours déjà posés (amorçage) : la vague part de 8 (" .. n .. ")")
   local sst5 = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 }, smelt_target = 15 }
   n = Br.smelters(fs(500, 15), sst5, 4, 6)
   check(n == 15, "§3 borne de l'effectif (15 fours à 30 PNJ)")
@@ -173,6 +176,8 @@ local MUTANTS = {
   { "fours sans minerai au coffre", "(s.stock[ore] or 0) >= Br.ORE_WAIT * short * per", "true" },
   { "fours sur manque passager", "n >= (grow_thinks or 0)", "true" },
   { "fours avant la pose des précédents", "if due and have >= target and target < max then", "if due and target < max then" },
+  { "fours posés ignorés", "local target = math.max(base or 0, st.smelt_target or 0, have)",
+    "local target = math.max(base or 0, st.smelt_target or 0)" },
   { "fours sans rythme", "local due = (s.tick or 0) - (st.smelt_tick or -Br.SMELT_EVERY) >= Br.SMELT_EVERY", "local due = true" },
   { "armée sans caractère", "local a = agressivite or 1000", "local a = 1000" },
   { "armée malgré le manque", "if (spare or 0) <= 0 or key_short then return target end", "if (spare or 0) <= 0 then return target end" },

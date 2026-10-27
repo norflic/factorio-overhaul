@@ -111,8 +111,9 @@ end
 --- s = { workers, stock, smelters, smelters_pending, tick, smelter_inputs = { {plaque, minerai, quantité}, ... } triée },
 --- shortage : { [plaque] = manque } (st.short), short_n : { [plaque] = pensées de suite }.
 function Br.smelters(s, st, base, grow_thinks)
-  local target = math.max(base or 0, st.smelt_target or 0)
   local have = (s.smelters or 0) + (s.smelters_pending or 0)
+  -- Les fours déjà posés (fonderie d'amorçage, P.boot_smelters) comptent : la vague part de ce qui est là.
+  local target = math.max(base or 0, st.smelt_target or 0, have)
   local max = Br.smelt_max(s.workers, base)
   if target > max then target = max end
   local due = (s.tick or 0) - (st.smelt_tick or -Br.SMELT_EVERY) >= Br.SMELT_EVERY
