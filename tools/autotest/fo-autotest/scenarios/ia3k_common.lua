@@ -1,10 +1,12 @@
 --[[
   Lot IA3-k : moteur commun des bancs de TOURNÉES en moteur réel (docs/IA3K_COMPORTEMENTS.md §9 ; critères de
   docs/IA_ATTENDUS.md C1, C2, D1). Votre équipe (coffre posé en (2000, 0) dans une zone pavée de 400 × 400 tuiles), cerveau
-  RETENU par l'interface « fo-ia3k » (hold : aucune tâche du cerveau, seulement les tournées du banc), 4 couloirs vers
-  (2330, -150), (2330, -50), (2330, 50), (2330, 150), un PNJ par couloir et par manche.
-    - mode « route » (C2) : 5 ticks après le départ, un groupe d'ennemis est posé SUR l'itinéraire tiré (milieu des deux
-      points de passage de la variation ; milieu de la droite sans le lot) : 2 vers, un nid et 3 petits déchiqueteurs,
+  RETENU par l'interface « fo-ia3k » (hold : aucune tâche du cerveau, seulement les tournées du banc), 4 couloirs DROITS
+  parallèles à l'axe x, de (2010, y) à (2330, y) pour y = -150, -50, 50, 150 (le PNJ rejoint d'abord l'entrée de son
+  couloir ; en oblique, le chemin du moteur fait « diagonale puis tout droit » et s'écarte de 75 tuiles de la droite :
+  le premier témoin, 29f26a1, l'a montré), un PNJ par couloir et par manche.
+    - mode « route » (C2) : quand le PNJ entre dans son couloir, un groupe d'ennemis est posé SUR l'itinéraire qu'il va
+      suivre (milieu des deux points de passage de la variation ; milieu du couloir sans le lot) : 2 vers, un nid et 3 petits déchiqueteurs,
       4 déchiqueteurs, ou 2 mitrailleuses ennemies (genre tourné par manche et couloir). Une tournée RÉUSSIT si le PNJ
       n'entre jamais à portée d'un des ennemis posés (portée lue au prototype : tir des vers et des tourelles, VUE des
       déchiqueteurs ; nid : 30), mesurée à leurs positions de départ (un déchiqueteur qui le poursuit ne compte pas).
@@ -16,6 +18,7 @@
 local C = {}
 
 local AX, AY = 2000, 0
+local SX = 2010 -- entrée des couloirs
 local DX = 2330
 local LANES = { -150, -50, 50, 150 }
 local REACT = { alerte = true, detour = true, ["demi-tour"] = true, fuite = true, combat = true }
@@ -108,7 +111,7 @@ end
 
 function C.trips(opts)
   local TAG = opts.tag
-  local ROUND = opts.round or 7200
+  local ROUND = opts.round or 9000
   local ROUNDS = opts.rounds or 6
   local START = 600
   local CHECK = START + ROUNDS * ROUND + 60
@@ -123,7 +126,7 @@ function C.trips(opts)
     check_tick = CHECK,
     -- Captures (session avec images) : au tick SHOTS (manche 1, quand les PNJ voient les ennemis posés), une capture
     -- centrée sur chaque PNJ en tournée (état visible au-dessus de lui), puis une vue d'ensemble de chaque groupe d'ennemis.
-    shots_delay = opts.shots_delay or 1700,
+    shots_delay = opts.shots_delay or 2300,
     shots = function(ctx, add)
       local st = ctx.state()
       local n = 0
@@ -178,10 +181,13 @@ function C.trips(opts)
         for k, y in ipairs(LANES) do
           local a = idle[k]
           if a then
-            local n = ctx.remote("fo-ia3k", "trip", "player", a.id, DX, y, 60)
+            -- Le PNJ rejoint d'abord l'ENTRÉE de son couloir (SX, y), puis le parcourt jusqu'à (DX, y) : un couloir parallèle à
+            -- un axe, où le chemin du moteur est vraiment droit (en oblique, il fait « diagonale puis tout droit »).
+            local n = ctx.remote("fo-ia3k", "trip", "player", a.id, DX, y, 60, SX, y)
             if n then
-              cur.trips[#cur.trips + 1] = { k = k, id = a.id, n = n, start = { x = a.x, y = a.y }, goal = { x = DX, y = y },
-                min = {}, out = {}, outdone = false, reacts = {}, last_lt = a.label_t, dead = false, cluster = nil }
+              cur.trips[#cur.trips + 1] = { k = k, id = a.id, n = n, start = { x = SX, y = y }, goal = { x = DX, y = y },
+                min = {}, out = {}, outdone = false, reacts = {}, last_lt = a.label_t, dead = false, cluster = nil,
+                in_lane = false }
             end
           end
         end
@@ -191,35 +197,40 @@ function C.trips(opts)
       end
       local cur = st.cur
       if not cur then return end
-      -- Ennemis posés sur l'itinéraire tiré.
-      if mode == "route" and in_round == 5 then
-        local by = {}
-        for _, a in ipairs(team_agents(ctx)) do by[a.id] = a end
-        for _, tr in ipairs(cur.trips) do
-          local a = by[tr.id]
-          local at
-          if a and a.pts and #a.pts >= 2 then
-            at = { x = (a.pts[1].x + a.pts[2].x) / 2, y = (a.pts[1].y + a.pts[2].y) / 2 }
-          else
-            at = { x = (tr.start.x + tr.goal.x) / 2, y = (tr.start.y + tr.goal.y) / 2 }
+      -- Entrée dans le couloir : le PNJ a atteint l'entrée et vise le bout (lot : son itinéraire tiré est connu), ou, sans
+      -- le lot, il a dépassé l'entrée. Les ennemis sont posés alors, au milieu de l'itinéraire qu'il va suivre.
+      local by = {}
+      for _, a in ipairs(team_agents(ctx)) do by[a.id] = a end
+      for _, tr in ipairs(cur.trips) do
+        local a = by[tr.id]
+        if a and not tr.in_lane then
+          local aim = a.final and math.abs(a.final.x - DX) < 1 and math.abs(a.final.y - tr.goal.y) < 1
+          if (aim and a.pts) or (not aim and a.x >= SX + 2 and math.abs(a.y - tr.goal.y) <= 6 and a.task) then
+            tr.in_lane = t
+            if mode == "route" then
+              local at
+              if aim and #a.pts >= 2 then
+                at = { x = (a.pts[1].x + a.pts[2].x) / 2, y = (a.pts[1].y + a.pts[2].y) / 2 }
+              else
+                at = { x = (SX + DX) / 2, y = tr.goal.y }
+              end
+              tr.kind = (r + tr.k) % #CLUSTERS + 1
+              tr.cluster = spawn_cluster(s, tr.kind, at)
+              if #tr.cluster == 0 then tr.cluster = nil end -- rien n'a pu être posé : tournée sans ennemi
+              tr.at = at
+            end
           end
-          tr.kind = (r + tr.k) % #CLUSTERS + 1
-          tr.cluster = spawn_cluster(s, tr.kind, at)
-          if #tr.cluster == 0 then tr.cluster = nil end -- rien n'a pu être posé : tournée sans ennemi
-          tr.at = at
         end
       end
       -- Relevés toutes les 10 ticks.
       if t % 10 == 0 then
-        local by = {}
-        for _, a in ipairs(team_agents(ctx)) do by[a.id] = a end
         for _, tr in ipairs(cur.trips) do
           local a = by[tr.id]
           if not a then
             tr.dead = true
           else
             local p = { x = a.x, y = a.y }
-            if not tr.outdone then
+            if tr.in_lane and not tr.outdone then
               tr.out[#tr.out + 1] = p
               if d2(p, tr.goal) <= 36 then tr.outdone = true end
             end
@@ -365,8 +376,7 @@ function C.trips(opts)
             local prev = list[i - 1]
             if prev and prev.outdone and tr.outdone then
               local G = tr.goal
-              local S = { x = AX, y = AY }
-              local m = median_gap(S, G, prev.out, tr.out)
+              local m = median_gap(tr.start, G, prev.out, tr.out)
               pairs_n = pairs_n + 1
               if m >= 4 then wide = wide + 1 end
               meds[#meds + 1] = string.format("%.1f", m)
