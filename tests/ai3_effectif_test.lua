@@ -149,6 +149,9 @@ local function suite(E)
     check(d.recruit == true, "fo-recruit-idle-max = 1 : 1 PNJ inactif toléré")
     d = decide(base({ limit = 1, idle = 2, tasks = { task("craft", 50, W2 + 10) } }))
     check(d.recruit == false and d.reason == "inactifs", "fo-recruit-idle-max = 1 : 2 inactifs, 1 libre pour 1 tâche : aucune recrue")
+    -- Priorité de l'équipement d'une recrue décidée : le prix fictif, borné 55 à 89.
+    check(E.kit_prio(50) == 55 and E.kit_prio(72) == 72 and E.kit_prio(95) == 89 and E.kit_prio(nil) == 55,
+      "équipement de la recrue à la valeur du travail débloqué (55 à 89)")
     -- Effectif visé (lu par le cerveau pour « économie faite ») : atteint quand aucun bras ne manque.
     check(E.enough("inactifs") and E.enough("pas_de_travail") and E.enough("plafond") and E.enough("matiere")
       and E.enough("travail_recent") and E.enough("garde"), "effectif visé atteint : inactifs, rien n'attend, plafond, matière")
@@ -285,6 +288,7 @@ local MUTANTS = {
   { "tolérance ignorée", "local free = hands - (s.limit or 0)", "local free = hands" },
   { "recrue dès 1 tâche même avec des libres", "if d.short <= 0 then", "if w == 0 then" },
   { "effectif visé atteint malgré le manque de fer", "E.ENOUGH = { plafond = true,", "E.ENOUGH = { cout = true, plafond = true," },
+  { "équipement de recrue sans borne haute", "if v > E.KIT_PRIO_MAX then return E.KIT_PRIO_MAX end", "" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUTANTS) do
@@ -407,7 +411,7 @@ local okm, errm = pcall(function()
     g_end = r.eff_grown
   end
   check(early == 0, "moteur simulé : aucune recrue de croissance avant 2 min de charge (" .. early .. ")")
-  check(g_end - g0 >= 2 and nmax >= 10, "moteur simulé : la faction chargée grandit pendant la charge (+" .. (g_end - g0)
+  check(g_end - g0 >= 3 and nmax >= 11, "moteur simulé : la faction chargée grandit pendant la charge (+" .. (g_end - g0)
     .. ", maximum " .. nmax .. ")")
   M.run_ticks(8 * 3600)
   check(row("scarlet").eff_grown == g_end, "moteur simulé : plus de recrue de croissance après la charge (PNJ inactifs)")

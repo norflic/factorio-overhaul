@@ -59,6 +59,17 @@ E.RECRUITS = { plancher = true, sans_frein = true, recrue = true }
 -- « recrue », « menace », « plancher », « sans_frein » : des bras manquent ou l'effectif visé reste le plafond.
 E.ENOUGH = { plafond = true, garde = true, inactifs = true, matiere = true, travail_recent = true, pas_de_travail = true }
 
+E.KIT_PRIO_MIN, E.KIT_PRIO_MAX = 55, 89
+
+--- Priorité de la fabrication de l'équipement d'une recrue décidée : la valeur du travail qu'elle débloque (prix fictif),
+--- bornée (55 : la priorité d'avant ; 89 : sous les urgences, 90).
+function E.kit_prio(value)
+  local v = math.floor(value or 0)
+  if v < E.KIT_PRIO_MIN then return E.KIT_PRIO_MIN end
+  if v > E.KIT_PRIO_MAX then return E.KIT_PRIO_MAX end
+  return v
+end
+
 --- L'équipe a-t-elle l'effectif qu'il lui faut (raison d'une décision) ?
 function E.enough(reason) return E.ENOUGH[reason or ""] or false end
 

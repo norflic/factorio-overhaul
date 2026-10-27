@@ -262,16 +262,23 @@ end
 --- Situation de l'équipe pour la règle d'effectif. free = stock libre (coffre − réservé, Board.view_stock).
 local function effectif_input(f, tick, free, args)
   local list = Board.get(f).list or {}
-  local tasks, reserved, kinds = {}, {}, {}
+  local tasks, reserved, kinds, making = {}, {}, {}, {}
   for i = 1, #list do
     local t = list[i]
+    -- Équipement de recrue déjà en fabrication (libre ou pris) : compté comme prêt dans le coût (sa matière est réservée
+    -- au registre dès la prise : la compter aussi dans le coût le paierait deux fois).
+    if t.tag == Effectif.RECRUIT_TAG and t.kind == "craft" and t.item then
+      making[t.item] = (making[t.item] or 0) + (t.count or 0)
+    end
     if not t.worker then
       local strict = Board.strict_list(t)
       local prenable = true
       for _, it in ipairs(strict or {}) do
         if (free[it[1]] or 0) < it[2] then prenable = false break end
       end
-      if not t.fond then add_list(reserved, strict) end
+      -- L'équipement de la recrue en fabrication (tâche « ouvrier ») EST son coût : pas réservé contre elle (sinon le coût
+      -- compte deux fois et la décision bascule « recrue » / « cout » à chaque pensée : moteur réel, ia3d-charge, Écarlate).
+      if not t.fond and t.tag ~= Effectif.RECRUIT_TAG then add_list(reserved, strict) end
       tasks[#tasks + 1] = { kind = t.kind, prio = t.prio, critical = t.critical, created = t.created, fond = t.fond,
         tag = t.tag, prenable = prenable }
       local k = (t.kind or "?") .. (t.fond and "(fond)" or "") .. ":" .. tostring(t.prio or 0)
@@ -288,7 +295,7 @@ local function effectif_input(f, tick, free, args)
   -- se fabrique (livre de recettes : pistolet, chargeurs).
   local cost, rest = {}, {}
   for _, it in ipairs(args.recruit_cost) do
-    local have = math.max(0, (free[it[1]] or 0) - (reserved[it[1]] or 0))
+    local have = math.max(0, (free[it[1]] or 0) - (reserved[it[1]] or 0)) + (making[it[1]] or 0)
     local need = it[2] - have
     if need > 0 then
       if it[1] == "iron-plate" or it[1] == "copper-plate" then cost[it[1]] = (cost[it[1]] or 0) + need
@@ -441,7 +448,7 @@ function Team.view(f, tick)
   -- 36 à 99 % des pensées retenues sur la partie default de 2 h, fo-logs/2026-10-27_IA3-d/NOTES.md). Mêmes cas sans frein
   -- qu'avant : sous l'effectif de départ (survie), et fo-recruit-idle-max ≥ 60. Votre équipe garde sa règle d'IA1-b2
   -- (grow_due : défendue, 400 fer, une recrue par 5 min) : la croissance sans défense l'a perdue (F241, IA1-b2 essais 2 et 5).
-  local effectif
+  local effectif, recruit_prio
   if not f.is_player then
     local st = f.team.effectif
     if not st then
@@ -458,6 +465,9 @@ function Team.view(f, tick)
     effectif.left_iron = s.left["iron-plate"] or 0
     effectif.free_kinds = s.free_kinds
     recruit_held = not effectif.recruit
+    -- Recrue décidée : son équipement se fabrique à la valeur du travail qu'elle débloque (prix fictif, borné 55 à 89 :
+    -- sous les urgences), et non plus à 55 derrière les fabrications de l'armée (72 à 83).
+    if effectif.reason == "recrue" then recruit_prio = Effectif.kit_prio(effectif.value) end
   end
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -470,7 +480,7 @@ function Team.view(f, tick)
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
-    recruit_held = recruit_held,
+    recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée
     -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,

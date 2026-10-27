@@ -766,7 +766,7 @@ function P.plan(view, book)
       out.recruit_workers = 1
       out.recruit_unarmed = true
     else
-      want(recruit_cost, 55, "ouvrier")
+      want(recruit_cost, view.recruit_prio or 55, "ouvrier") -- lot IA3-d : priorité du travail que la recrue débloque
     end
   end
 
