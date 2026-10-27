@@ -37,6 +37,7 @@ require("script.team.worker")
 require("script.team.team")
 require("script.team.player_team")
 require("script.team.ia1_remote") -- lot IA1-a : mesures des équipes (interface « fo-ia1 », lecture seule)
+require("script.ai3.comportement") -- lot IA3-k : comportements visibles (crochets de script/team/worker.lua)
 require("script.faction.commander")
 require("script.faction.war")
 
