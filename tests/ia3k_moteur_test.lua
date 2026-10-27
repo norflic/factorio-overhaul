@@ -240,10 +240,22 @@ remote.call("fo-ia3k", "death", "player", 0, 135)
 check(C.gate(f, ag, task, steps, game.tick) == false, "2 morts dans l'heure : attente")
 M.run_ticks(61 * 3600)
 check(C.gate(f, ag, task, steps, game.tick) == true, "une heure plus tard : la tâche repart")
--- Escalade : une destination gardée par un ver VU (sans mort) est refusée W fois (W = 4 pour un neutre), puis la tâche
--- part (risque accepté), et le ver est signalé comme « bloquant » (nettoyage par la garnison quel que soit le caractère).
+-- Pas d'escalade vers un but À PORTÉE d'un ver connu (11 tuiles d'un ver de portée 25) : refusé à chaque fois.
 remote.call("fo-ia3k", "mark", "player", 160, -140, "worm", 25)
-local steps2 = { { "home" }, { "goto", { x = 165, y = -150 }, 3 }, { "act", "service" }, { "home" } }
+local steps_in = { { "home" }, { "goto", { x = 165, y = -150 }, 3 }, { "act", "service" }, { "home" } }
+local refused_in = 0
+for _ = 1, 8 do
+  if not C.gate(f, ag, { key = "test:service-in", kind = "service" }, steps_in, game.tick) then refused_in = refused_in + 1 end
+end
+check(refused_in == 8, "but à portée d'un ver connu : jamais d'escalade (" .. refused_in .. " refus sur 8)")
+remote.call("fo-ia3k", "forget", "player")
+-- Escalade : une destination HORS de portée mais entourée de vers VUS (sans mort ; tout trajet passe à leur portée) est
+-- refusée W fois (W = 4 pour un neutre), puis la tâche part (risque accepté), et les vers qui bloquent sont signalés
+-- (nettoyage par la garnison quel que soit le caractère).
+local gx, gy = 120, -200 -- autre case que le but précédent (les attentes se comptent par case de destination)
+local ring = { { 40, 0 }, { 28, 28 }, { 0, 40 }, { -28, 28 }, { -40, 0 }, { -28, -28 }, { 0, -40 }, { 28, -28 } }
+for _, o in ipairs(ring) do remote.call("fo-ia3k", "mark", "player", gx + o[1], gy + o[2], "worm", 25) end
+local steps2 = { { "home" }, { "goto", { x = gx, y = gy }, 3 }, { "act", "service" }, { "home" } }
 local refusals, went = 0, false
 for _ = 1, 8 do
   if C.gate(f, ag, { key = "test:service2", kind = "service" }, steps2, game.tick) then went = true break end

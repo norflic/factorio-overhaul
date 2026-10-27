@@ -274,6 +274,13 @@ function C.trips(opts)
                 local md = 1e9
                 for _, m in ipairs(tr.cluster or {}) do md = math.min(md, math.sqrt(d2(p, m)) - m.r) end
                 tr.reacts[#tr.reacts + 1] = { l = a.label, t = a.label_t, margin = md }
+                -- RENCONTRE aussi : le PNJ réagit avec un ennemi posé (vivant) dans la portée de son regard, 76 tuiles
+                -- (Re.LOOK_AHEAD + Re.LOOK_MAX du lot, 20 + 56) : depuis bb9569d il voit et se détourne avant « portée + 30 »
+                -- (final-bb9569d route-123456789 : 2 tournées détournées à +30 et +122 comptées « jamais rencontrées »).
+                for _, m in ipairs(tr.cluster or {}) do
+                  local e = m.ent
+                  if e and e.valid and d2(p, e.position) <= 76 * 76 then tr.met = true end
+                end
               end
             end
           end

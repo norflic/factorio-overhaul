@@ -550,7 +550,10 @@ function M.gate(f, agent, task, steps, tick)
       end
     end
     local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
-    if w.n > W then
+    -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
+    -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
+    -- memoire-123456789 : PNJ tué par un ver après une escalade vers un but à 4 150 de danger, seuil 650).
+    if w.n > W and res.exact_goal < res.B then
       decision, why = "go", "escalade"
       a.risk = true
       w.n = 0
