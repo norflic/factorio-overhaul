@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 15 h 25 : `main` = 0.6.3** (PERF, AUTO, CAPITAL par fast-forward de `valid063`, conflit cerveau.lua résolu ; réglages
+> fo-war-ia3e et fo-war-capital ÉTEINTS ; décisions identiques à 0.6.0 ; K10 seul 0,379 ms, p99 5,48). Reste de l'atelier : SCALE
+> (en correction). Puis : brancher CAPI (après SCALE), lot de performance suivant (A* étalé, pensée découpée, boucle du PNJ refusé),
+> TIRS (en correction). Worktrees perf, auto, capital, valid063 à retirer quand l'atelier sera fini.
+>
 > **27/10, 14 h 20 : CAPI FUSIONNÉ (règle pure, rien en jeu)** : `shared/ai3/capitalisation.lua`, test 151 OK, `docs/IA_CAPITALISATION.md` ;
 > livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md` (plan de branchement en 10 étapes §5, critères C1 à C9, `RESUME_DC.md`). Q-CAPI-1
 > tranchée par l'intégrateur d'après le DC (12 h 30) : couverture complète du gisement sans plafond « 2 × le besoin ». À FAIRE après la

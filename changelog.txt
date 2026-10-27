@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.3
+Date: 2026-10-27
+  Changes:
+    - Cerveau des PNJ plus léger : itinéraires calculés plus vite, mêmes décisions (environ 10 % de calcul en moins).
+    - Automatisation (réglage « PNJ : automatiser ce qui revient », toujours ÉTEINT par défaut) : les fonderies se posent au
+      contact du gisement avec leurs foreuses et leur tapis ; la recherche ouverte passe avant les modules qui ne la servent pas.
+    - Nouveau réglage de carte « PNJ : améliorer bâtiments et centre » (ÉTEINT par défaut) : allumé, les factions posent leur
+      centre, améliorent leurs tourelles et montent d'époque, en payant le coût lu dans les niveaux (pièces montées comprises).
+    - Réglages éteints, la partie est identique à la 0.6.2.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.2
 Date: 2026-10-27
   Graphics:
