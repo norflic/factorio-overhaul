@@ -378,6 +378,7 @@ function M.plan(f, agent, p, goal, tick, opts)
   local B = opts.B or D.block(prud)
   -- Mémo (lot PERF) : sans tirage seulement.
   local sig, ns, mlist, mk = nil, 0, nil, nil
+  Profiler.fstart("plan:memo")
   if not opts.draw then
     mk = marks_near(t.map, p, goal, tick)
     local m = R.BOX_MARGIN + 1
@@ -392,10 +393,13 @@ function M.plan(f, agent, p, goal, tick, opts)
     if e then
       memo_stats.hit = memo_stats.hit + 1
       if e.res.astar then Trace.log("ia3k", "memo", e.res.expand) end
+      Profiler.fstop("plan:memo")
       return copy_res(e.res)
     end
     memo_stats.miss = memo_stats.miss + 1
   end
+  Profiler.fstop("plan:memo")
+  Profiler.fstart("plan:field")
   local field, n = {}, 0
   if opts.same then
     field, n = opts.same.field, opts.same.n or 0
@@ -411,7 +415,11 @@ function M.plan(f, agent, p, goal, tick, opts)
     draw = function(k) return Tr.range(st, 1, k) end
     seed = Tr.range(st, 1, Tr.MOD - 2)
   end
+  Profiler.fstop("plan:field")
+  Profiler.fstart("plan:route")
   local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw, side = opts.side })
+  Profiler.fstop("plan:route")
+  Profiler.fstart("plan:exact")
   if res.astar then Trace.log("ia3k", "astar", res.expand) end -- attribution des pics (tools/autotest/analyze.py)
   res.B = B
   res.field, res.n = field, n
@@ -441,6 +449,7 @@ function M.plan(f, agent, p, goal, tick, opts)
     mlist[#mlist + 1] = { sig = sig, ns = ns, res = copy_res(res) }
     if #mlist > M.MEMO_MAX then table.remove(mlist, 1) end
   end
+  Profiler.fstop("plan:exact")
   return res
 end
 
@@ -505,7 +514,9 @@ function M.leg(agent, pos, radius, tick, depth)
   local w = a.pts[a.i]
   if w and not w.ok then
     -- Point de passage praticable (ni eau, ni bâtiment) : la case libre la plus proche, sinon il est sauté.
+    Profiler.fstart("leg:wp")
     local q = e.surface.find_non_colliding_position(e.name, w, 8, 1)
+    Profiler.fstop("leg:wp")
     if q then
       w = { x = q.x, y = q.y, ok = true }
       a.pts[a.i] = w
@@ -579,6 +590,7 @@ function M.gate(f, agent, task, steps, tick)
     local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
     if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
   end
+  Profiler.fstart("gate:post")
   local pts = R.samples(p, res.pts, dest, 8)
   local deaths = D.deaths_near(t.map, pts, D.HOUR_R, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
@@ -586,6 +598,7 @@ function M.gate(f, agent, task, steps, tick)
   local free = M.escort_free and M.escort_free(f) or 0
   local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
+  Profiler.fstop("gate:post")
   local a = astate(agent)
   a.escort, a.risk = nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
