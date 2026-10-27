@@ -294,6 +294,21 @@ function Worker.program(f, task, surface, tick)
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o) end
     local ammo = Outposts.ammo_name(f.tech)
+    if Board.market(f) then
+      -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
+      -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
+      -- tâches strictes, tourelles comprises, n'y était plus). Réservée au libre ensuite (Board.reserve_soft).
+      local _, by_key = Outposts.turret_groups(f)
+      local g = by_key[task.group]
+      local need = 0
+      for _, t in ipairs(g and g.list or {}) do
+        local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
+        local have = inv and inv.get_item_count() or 0
+        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+      end
+      if need <= 0 then return nil end
+      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+    end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
@@ -336,13 +351,22 @@ function Worker.program(f, task, surface, tick)
         area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
-      if busy == 0 and task.fond and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
+      -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
+      -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
+      if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end
       -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
       if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
+    end
+    -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
+    -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
+    if far then
+      task.target = far
+      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
     end
     if not best then return nil end
     task.target = { x = best.position.x, y = best.position.y }
@@ -445,7 +469,9 @@ local function finish(agent, f, ok, tick)
   local task = agent.task
   agent.task = nil
   agent.steps = nil
+  Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
   if task then
+    agent.last_project = task.project -- lot IA3-b : continuité de la place de marché
     if not ok then return_site(f, task) end
     Board.finish(f, task, ok, tick)
     Poles.task_done(f, task, ok, tick)
@@ -528,10 +554,13 @@ local function run_steps(agent, tick)
       deposit_all(agent, f)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
-      local all = take(agent, f, step[2])
+      -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
+      local all
+      if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
+      else all = take(agent, f, step[2]) end
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
-        abort(agent, f, tick, "stock")
+        abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
         return
       end
       agent.pc = agent.pc + 1
@@ -627,10 +656,12 @@ FSM.define(MACHINE, {
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
+        Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
         return
       end
+      Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
     end,
@@ -854,6 +885,7 @@ Registry.on_removed(function(agent)
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
   release_slot(f, agent)
+  Board.release(f, agent) -- lot IA3-b : réservation d'un PNJ disparu rendue au libre (ce qu'il portait est perdu, F253)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end

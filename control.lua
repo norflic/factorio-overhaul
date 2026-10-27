@@ -39,6 +39,7 @@ require("script.team.player_team")
 require("script.team.ia1_remote") -- lot IA1-a : mesures des équipes (interface « fo-ia1 », lecture seule)
 require("script.faction.commander")
 require("script.faction.war")
+require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
