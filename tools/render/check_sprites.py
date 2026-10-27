@@ -32,7 +32,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MOD_ROOT = os.path.dirname(os.path.dirname(HERE))
-DEFAULT_DATA = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
+DEFAULT_DATA = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 sys.path.insert(0, HERE)
 import fo_calib as C  # noqa: E402
 import fo_checks  # noqa: E402

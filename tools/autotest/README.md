@@ -2,7 +2,7 @@
 
 Outillage du lot P1 (« Captures entièrement automatiques », hypothèse H-T1). Tout tourne dans des dossiers
 **séparés** (`<racine>\fo-autotest\`, `<racine>\fo-visual\`) : jamais dans `saves\`, `config\` ni `mods\` du
-Directeur Créatif. `<racine>` = `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`.
+Directeur Créatif. `<racine>` = `F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`.
 
 | Fichier | Rôle |
 |---|---|

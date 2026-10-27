@@ -42,7 +42,7 @@ from scipy import signal
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
-GAME = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+GAME = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 RATE = 44100
 VOLUME = 0.4
 CADENCE = 0.1

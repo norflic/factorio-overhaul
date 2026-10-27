@@ -32,7 +32,7 @@ import psutil
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 LOCK = os.path.join(RENDER, "with_render_lock.py")
-LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
 
 
 def garde(stop):

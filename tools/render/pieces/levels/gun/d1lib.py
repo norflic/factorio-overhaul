@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MOD_ROOT = os.path.normpath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 OUT_DIR = os.path.join(MOD_ROOT, "tools", "render", "out", "levels", "gun")
 DRY_DIR = os.path.join(OUT_DIR, "_dry")
-DATA = os.environ.get("FO_DATA", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
+DATA = os.environ.get("FO_DATA", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data")
 GT = os.path.join(DATA, "base", "graphics", "entity", "gun-turret")
 
 PPT = 64

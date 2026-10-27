@@ -33,7 +33,7 @@ import subprocess
 import sys
 import time
 
-DEFAULT_DIR = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+DEFAULT_DIR = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 MIN_POLL_S = 5.0   # même rythme pour tous les agents : aucun ne passe devant les autres
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)

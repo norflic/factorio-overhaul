@@ -34,7 +34,7 @@ MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 sys.path.insert(0, HERE)
 import masques as MQ  # noqa: E402
 
-A3 = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
+A3 = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
 LIMITE = 8192
 COUCHES = ("main", "glow", "shadow")
 A2_GPX = {"haute": 1.087, "normale": 0.339, "plancher": 0.199}

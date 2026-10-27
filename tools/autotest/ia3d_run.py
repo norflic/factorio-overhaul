@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-RACINE = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+RACINE = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 # Lot IA3-a : dossier de sortie réglable par IA3D_OUT (défaut : les bancs d'IA3-DIAG).
 OUT = os.environ.get("IA3D_OUT") or os.path.join(RACINE, "fo-logs", "2026-10-25_IA3-DIAG", "bancs")
 BAT = os.path.join(RACINE, "fo-autotest.bat")
