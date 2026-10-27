@@ -142,7 +142,8 @@ function X.tasks(view, missing, ctx)
         i = i + 1
         local key = "manque:mine:" .. ore .. ":" .. i
         if not keys[key] then
-          out[#out + 1] = { key = key, kind = "mine", prio = X.MINE_PRIO, resource = ore, count = count, manque = true }
+          out[#out + 1] = { key = key, kind = "mine", prio = X.MINE_PRIO, resource = ore, count = count, manque = true,
+            prudent = true } -- lot IA-V2 : pas de minage à moins de 40 tuiles d'un nid ou d'un ver (worker.lua)
           have = have + 1
         end
       end
