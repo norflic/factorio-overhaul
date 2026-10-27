@@ -471,6 +471,17 @@ local function research_step(f, st, book, w, tick, view)
       for _, k in ipairs(sorted_keys(cw)) do m[k] = true end
       wanted = m
     end
+    -- Votre équipe défend d'abord, comme un joueur : tant que la tourelle de « défendre d'abord » n'est pas faisable (technologie
+    -- pas faite), elle est un objet voulu, la recherche qui l'ouvre passe devant (moteur réel, etape1-guide : la tourelle
+    -- arrivait à 27 min, les premiers biters détruisaient sans défense les avant-postes de charbon, de pierre et de fer
+    -- de 18 à 25 min, le fer tombait de 997 plaques à 17).
+    local turret_recipe = f.is_player and force.recipes[Rg.TURRET] or nil
+    if turret_recipe and not turret_recipe.enabled then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      m[Rg.TURRET] = true
+      wanted = m
+    end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)

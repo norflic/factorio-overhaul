@@ -97,6 +97,20 @@ local function report_player(s, minute)
   for _, d in ipairs(s.find_entities_filtered({ force = "player", type = "mining-drill" })) do
     if d.prototype.electric_energy_source_prototype then de = de + 1 else db = db + 1 end
   end
+  -- foreuses par minerai visé et par état (diagnostic du fer : où sont les foreuses, tournent-elles ?)
+  local per = {}
+  for _, d in ipairs(s.find_entities_filtered({ force = "player", type = "mining-drill" })) do
+    local tgt = d.mining_target and d.mining_target.name or "?"
+    local st = (d.status == defines.entity_status.working) and "ok" or "arret"
+    local k = tgt .. ":" .. st
+    per[k] = (per[k] or 0) + 1
+  end
+  local pk = {}
+  for k in pairs(per) do pk[#pk + 1] = k end
+  table.sort(pk)
+  local pp = {}
+  for _, k in ipairs(pk) do pp[#pp + 1] = k .. "=" .. per[k] end
+  log(TAG .. string.format("foreuses-joueur minute %d | %s", minute, table.concat(pp, " ")))
   local chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
   local fill, top = "?", ""
   local inv = chest and chest.get_inventory(defines.inventory.chest)
@@ -158,6 +172,19 @@ base.tick = function(ctx, e)
   if e.tick > 0 and e.tick % EVERY == 0 then
     report(s, e.tick / MIN)
     report_player(s, e.tick / MIN)
+    -- Plan directeur de VOTRE EQUIPE : ce qui retient chaque projet (diagnostic, lot JOUEUR)
+    if (e.tick / MIN) % 10 == 0 then
+      local okr, rep = pcall(remote.call, "fo-ia1d", "report", "player")
+      if okr and rep then
+        for _, pr in ipairs(rep.projects or {}) do
+          local ub = {}
+          for _, u in ipairs(pr.unbuilt or {}) do ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d", u.name, u.x, u.y, u.fails, u.npc) end
+          log(TAG .. string.format("projet-joueur minute %d | #%s %s %s (%d/%d) obst %d/%d | non poses %s",
+            e.tick / MIN, tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,
+            pr.open_obstacles or 0, pr.obstacles or 0, table.concat(ub, "; ")))
+        end
+      end
+    end
   end
 end
 
