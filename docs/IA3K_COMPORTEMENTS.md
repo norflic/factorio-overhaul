@@ -44,7 +44,7 @@ et des avant-postes (§5 bis). Aucune position, aucune distance, aucune cible é
 ## 3. Trajets (`shared/ai3/route.lua`, pure)
 
 - **Variation (C1)** : deux points de passage par tournée, au tiers et aux deux tiers du trajet, décalés latéralement de
-  8 à 18 % de la distance (12 à 28 tuiles au plus) ; côté tiré par le flux de l'équipe, changé 2 fois sur 3 d'une
+  8 à 18 % de la distance (8 à 20 tuiles : en moteur réel l’aller s’allonge d’environ 2 fois l’écart) ; côté tiré par le flux de l'équipe, changé 2 fois sur 3 d'une
   tournée à la suivante, et tiré à part pour l'aller et le retour. Pas de variation sous 40 tuiles.
 - **Avec danger** : A* déterministe sur les cases (8 voisins, coût 10 / 14 × (1 + danger ÷ 100), cases ≥ B
   infranchissables sauf départ et but), bruit de tournée ≤ 10 % par case, boîte du trajet + 8 cases, au plus 1 500

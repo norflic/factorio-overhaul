@@ -5,7 +5,8 @@
   Le pathfinder du moteur (request_path) ne prend aucun coût de danger : on lui donne des POINTS DE PASSAGE.
   - Sans danger dans la boîte du trajet : deux points de passage tirés par tournée, au tiers et aux deux tiers du trajet,
     décalés latéralement de h, |h| dans [V_MIN, V_MAX] × D, côté changé d'une tournée à l'autre avec une chance de FLIP
-    pour mille (C1 : on ne suit pas toujours la même ligne ; allongement ≤ 2 √(1/9 + 0,18²) + 1/3 − 1 = 9,1 %).
+    pour mille, borné à CAP_LO-CAP_HI tuiles (C1 : on ne suit pas toujours la même ligne ; allongement prévu ≤ 9,1 %,
+    mesuré en moteur réel ≈ 2 h, voir CAP_HI).
   - Avec danger : A* déterministe sur les cases de shared/ai3/danger.lua (8 voisins, coût 10 / 14 × (1 + danger / 100),
     case ≥ B infranchissable sauf départ et but), bruit de tournée ≤ NOISE pour mille par case (variété, allongement
     borné : longueur ≤ coût ≤ (1 + NOISE) × coût du meilleur chemin sans bruit), au plus MAX_EXPAND développements ;
@@ -22,8 +23,11 @@ local R = {}
 R.V_MIN = 80       -- pour mille de la distance
 R.V_MAX = 180
 R.FLIP = 667       -- chance (pour mille) de changer de côté par rapport à la tournée précédente
-R.CAP_LO = 12      -- tuiles
-R.CAP_HI = 28
+-- Écart borné à 8-20 tuiles : en moteur réel, un aller vers des points de passage décalés de h s'allonge d'environ 2 h (le
+-- chemin suivi ne prend pas la diagonale prévue) ; à 12-28 tuiles, 10 allers sur 24 dépassaient + 15 % (C1) sur 320
+-- tuiles (final-f8c44de variete-20261020 : 343 à 381 tuiles) ; à 20 au plus : ≈ 360 + quelques tuiles, sous 374.
+R.CAP_LO = 8       -- tuiles
+R.CAP_HI = 20
 R.V_FROM = 40      -- pas de variation sous 40 tuiles
 R.NOISE = 100      -- bruit de tournée (pour mille du coût d'une case), A* seulement
 R.MAX_EXPAND = 1500
