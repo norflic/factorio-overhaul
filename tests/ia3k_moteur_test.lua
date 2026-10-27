@@ -188,6 +188,7 @@ st = remote.call("fo-ia3k", "status", "player")
 check(st.stats.astar >= 1, "itinéraire calculé autour du ver connu (A* " .. tostring(st.stats.astar) .. ")")
 check(min_d(pts2, WX, WY) > 25, "deuxième tournée : jamais à portée (" .. string.format("%.1f", min_d(pts2, WX, WY)) .. ")")
 check((st.stats.actions.detour or 0) == d0, "deuxième tournée sans nouvel arrêt (route déjà sûre)")
+check((st.stats.chained or 0) > 0, "tronçons enchaînés sans arrêt (" .. tostring(st.stats.chained) .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("Peur (C3)")

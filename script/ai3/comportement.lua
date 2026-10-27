@@ -43,6 +43,7 @@ M.HOME_DEATH_R = 16     -- une mort à moins de 16 tuiles du QG (cases d'attente
 M.WP_RADIUS = 2         -- rayon d'arrivée d'un point de passage
 M.WP_REACH = 4          -- point de passage atteint à 4 tuiles (8 coupait les virages : banc route-20261020-4e6303a)
 M.GROUP_R = 24          -- un regard qui voit un ennemi marque aussi les autres ennemis à moins de 24 tuiles de lui
+M.WP_CHAIN = 12         -- à 12 tuiles du point de passage visé, le PNJ vise déjà le suivant (tronçons enchaînés)
 M.LABEL_TTL = 150       -- 2,5 s (D1 : au moins 2 s)
 M.LABEL_GAP = 120       -- même étiquette redessinée au plus toutes les 2 s
 M.ESCORT_WAIT = 900     -- attente de l'escorte au QG, au plus
@@ -671,6 +672,31 @@ function M.sense(agent, tick)
   local near_home = d2(p, f.hq_pos) <= M.HOME_SAFE * M.HOME_SAFE
   local walking = agent.state == "walk" and agent.nav == "moving"
   local prud, agr = M.character(f)
+  -- Tronçons ENCHAÎNÉS sans arrêt : à WP_CHAIN tuiles du point de passage visé, le PNJ vise déjà le suivant (sinon il
+  -- attendait sa pensée suivante, jusqu'à 1 s par point de passage).
+  if walking and a.wp_goal and a.pts and agent.goal and d2(a.wp_goal, agent.goal) <= 1
+    and d2(p, a.wp_goal) <= M.WP_CHAIN * M.WP_CHAIN then
+    local w = a.pts[(a.i or 1) + 1]
+    if w or (a.final and not a.partial) then
+      a.i = (a.i or 1) + 1
+      if w and not w.ok then
+        local q = e.surface.find_non_colliding_position(e.name, w, 8, 1)
+        if q then
+          w = { x = q.x, y = q.y, ok = true }
+          a.pts[a.i] = w
+        end
+      end
+      if w then
+        a.wp_goal = { x = w.x, y = w.y }
+        Nav.go(agent, w, tick, { radius = M.WP_RADIUS })
+      else
+        a.wp_goal = nil
+        Nav.go(agent, a.final, tick, { radius = agent.walk_radius or 2 })
+      end
+      t.stats.chained = (t.stats.chained or 0) + 1
+      walking = false -- chemin en cours de demande : pas de regard ce tour-ci
+    end
+  end
   -- Une menace fixe NOUVELLE vue par un camarade touche le reste de notre trajet : nouvel itinéraire (détour).
   if walking and a.pts and not a.risk and (a.mver or 0) < (t.mver or 0) then
     local hit = nil

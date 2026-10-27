@@ -242,6 +242,25 @@ function R.reduce(field, start, cells, goal, lim)
   return out
 end
 
+R.SEG_MAX = 24
+--- Points intermédiaires pour qu'aucun segment départ -> pts -> but ne dépasse `maxlen` tuiles (le but n'est pas ajouté).
+function R.subdivide(start, pts, goal, maxlen)
+  local chain = { start }
+  for _, p in ipairs(pts) do chain[#chain + 1] = p end
+  chain[#chain + 1] = goal
+  local out = {}
+  for i = 1, #chain - 1 do
+    local a, b = chain[i], chain[i + 1]
+    local L = dist(a.x, a.y, b.x, b.y)
+    local n = math.ceil(L / maxlen)
+    for k = 1, n - 1 do
+      out[#out + 1] = { x = a.x + (b.x - a.x) * k / n, y = a.y + (b.y - a.y) * k / n }
+    end
+    if i < #chain - 1 then out[#out + 1] = b end
+  end
+  return out
+end
+
 --- Case SÛRE la plus proche (danger < lim), par anneaux de cases autour de p (au plus R.ESCAPE_RINGS), à égalité la plus
 --- faible puis la plus petite clé ; centre de la case, ou nil.
 R.ESCAPE_RINGS = 6
@@ -320,6 +339,10 @@ function R.plan(start, goal, opts)
     else
       res.pts = R.reduce(field, start, cells, goal, lim)
     end
+    -- F300 : entre deux points non alignés sur un axe, le chemin du moteur fait « diagonale puis tout droit » et s'écarte du
+    -- segment d'environ 0,21 × sa longueur. Les segments d'un itinéraire qui contourne un danger sont donc découpés en
+    -- tronçons de R.SEG_MAX tuiles au plus (écart ≤ 5 tuiles) : le chemin suivi reste dans le couloir sûr prévu.
+    res.pts = R.subdivide(start, res.pts, goal, R.SEG_MAX)
   end
   res.len = R.length(start, res.pts, goal)
   res.max_d, res.goal_d = R.profile(field, start, res.pts, goal)

@@ -192,6 +192,11 @@ local function suite()
   check(rw.max_d < 600, "danger maximal traversé sous le seuil (" .. rw.max_d .. ")")
   check(rw.len <= 1.6 * rw.direct, "détour raisonnable (" .. string.format("%.0f", rw.len) .. " / " .. rw.direct .. ")")
   check(rw.expand <= R.MAX_EXPAND, "développements bornés (" .. rw.expand .. ")")
+  local longest, prevq = 0, S2
+  for _, q in ipairs(rw.pts) do longest = math.max(longest, R.dist(prevq.x, prevq.y, q.x, q.y)); prevq = q end
+  longest = math.max(longest, R.dist(prevq.x, prevq.y, G2.x, G2.y))
+  check(longest <= R.SEG_MAX + 1e-6, "contournement en tronçons de 24 tuiles au plus (F300 : écart du chemin du moteur ≤ 5) : " ..
+    string.format("%.1f", longest))
   local rw2 = R.plan(S2, G2, { field = D.field(mw, 0), n = nw, B = 600, seed = 12345 })
   local same_pts = #rw2.pts == #rw.pts
   for i = 1, math.min(#rw.pts, #rw2.pts) do
