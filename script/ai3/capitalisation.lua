@@ -651,6 +651,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   for _, id in ipairs(sorted_keys(cs.deps)) do
     local d = cs.deps[id]
     local blocked = nil
+    if cs.block_all then blocked = "interdit (banc)" end -- lot LEVIERS : banc « tous les sites interdits » (remote block_sites)
     local smelt, smelter = nil, nil
     if elec[d.resource] then
       local far = math.max(math.abs(d.cx - f.hq_pos.x), math.abs(d.cy - f.hq_pos.y))
@@ -1152,6 +1153,14 @@ local function team_of(key)
 end
 
 remote.add_interface("fo-capi", {
+  --- Lot LEVIERS (BANC SEULEMENT) : déclare interdits tous les gisements de la faction (même champ que « hors du plan
+  --- directeur ») ; la détection du danger elle-même n'est pas touchée. Rend vrai si la faction existe.
+  block_sites = function(key, on)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).block_all = on and true or nil
+    return true
+  end,
   status = function(key)
     local f = team_of(key)
     local cs = f and f.team and f.team.capi
