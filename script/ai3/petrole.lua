@@ -547,6 +547,22 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   local consumes, used_pack = {}, {}
   local cspec = lab and lab.tech and General.catalogue().techs[lab.tech]
   for _, ing in ipairs((cspec and cspec.ingredients) or {}) do consumes[ing[1]] = true end
+  -- … ou le pack OUVERT (sa recette débloquée) que l'équipe ne fabrique pas encore : c'est son palier suivant (un joueur
+  -- investit dans l'usine du pack nouveau avant de chercher plus loin)
+  do
+    local force = game.forces[f.force]
+    local c = General.catalogue()
+    for _, rn in ipairs(sorted_keys(c.products)) do
+      local fr = force and force.recipes[rn]
+      if fr and fr.enabled then
+        for _, pk in ipairs(c.products[rn]) do
+          if c.packs[pk] and (stock[pk] or 0) == 0 and force.item_production_statistics.get_input_count(pk) == 0 then
+            consumes[pk] = true
+          end
+        end
+      end
+    end
+  end
   local order_sites = {}
   for i, s in ipairs(st.sites) do order_sites[i] = s end
   table.sort(order_sites, function(a, b2)
