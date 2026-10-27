@@ -15,7 +15,7 @@
   Votre équipe (coffre d'équipe, 8 PNJ) reçoit le plan directeur (« seul » : le banc tient le rôle du cerveau IA3-c ;
   fantômes posés d'avance), puis 3 demandes : centrale à vapeur, fonderie de fer (6 fours) alimentée, fonderie de cuivre
   (4 fours) alimentée ; chaque fonderie demande ses foreuses (tapis) et ses quais (charbon par porteurs, sorties).
-  Quand tout est fini (ou à 30 min), le coffre d'équipe est détruit : l'équipe est RENVOYÉE (aucun PNJ), et la marche
+  Quand tout est fini et que la fonderie de fer a tourné 1 min à 70 % (chauffe, 27/10) (ou à 30 min), le coffre d'équipe est détruit : l'équipe est RENVOYÉE (aucun PNJ), et la marche
   de la fonderie de fer est mesurée 5 min SANS PNJ (products_finished des fours, plaques au quai de sortie).
 
   Contrôles (§16) : 0 chevauchement entre nos bâtiments ; aucun bâtiment sur l'eau ou une falaise ; au moins 90 % des
@@ -310,7 +310,30 @@ return function(variant)
           if (p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque") or p.retry_at then open = open + 1 end
           for _, q in ipairs(p.quais or {}) do if p.state == "fini" and q.count < 100 then quais_ok = false end end
         end
-        if (open == 0 and quais_ok and #r.projects > 0) or t >= T_DISMISS_MAX then
+        -- chauffe (27/10) : l'équipe n'est renvoyée qu'une fois la fonderie de fer à 70 % de son débit sur la dernière
+        -- minute (fours garnis, tapis pleins) ; les 5 minutes SANS PNJ qui suivent sont toutes exigées à 70 %
+        local iron_done = false
+        for _, p in ipairs(r.projects) do if p.id == (st.ids and st.ids.iron) and p.state == "fini" then iron_done = true end end
+        if iron_done and not st.warm_furn then
+          st.warm_furn = iron_furnaces(ctx.remote("fo-ia1d", "layout", "player"), st.ids.iron)
+          st.warm_hist = {}
+        end
+        local warm, last_min = false, nil
+        if st.warm_furn then
+          local s = ctx.surface()
+          local made = 0
+          for _, fp in ipairs(st.warm_furn) do
+            local fu = s.find_entity("stone-furnace", { fp.x, fp.y })
+            if fu then made = made + fu.products_finished end
+          end
+          st.warm_hist[#st.warm_hist + 1] = { t = t, made = made }
+          for _, h in ipairs(st.warm_hist) do
+            if h.t == t - MIN then last_min = made - h.made end
+          end
+          warm = last_min ~= nil and last_min >= 0.7 * #st.warm_furn * (60 / 3.2)
+        end
+        if (open == 0 and quais_ok and #r.projects > 0 and warm) or t >= T_DISMISS_MAX then
+          ctx.log(string.format("chauffe : %s plaques de fer la derniere minute avant le renvoi", tostring(last_min)))
           st.final = r
           st.layout = ctx.remote("fo-ia1d", "layout", "player")
           st.teams = ctx.remote("fo-ia1", "teams")
