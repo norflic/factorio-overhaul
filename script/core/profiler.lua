@@ -36,6 +36,7 @@ function Profiler.set_enabled(on, tick, fine)
   if fine ~= nil then p.fine = fine and true or nil end
   fine_on = (p.enabled and p.fine == true) or false
   timers = {}
+  counts = {}
 end
 
 function Profiler.fine()
@@ -55,6 +56,31 @@ end
 function Profiler.fstop(name)
   local t = timers[name]
   if t then t.stop() end
+end
+
+-- Lot PERF (correction après revue) : portée attribuée APRÈS COUP selon son issue (porte acceptée ou refusée, prise de
+-- tâche suivie d'un départ ou d'un refus), avec le NOMBRE de passages. fmark(slot) lance un chronomètre de travail ;
+-- fcredit(slot, nom) l'arrête, l'ajoute à la portée « nom » et compte un passage. Mode fin seulement ; chronomètres et
+-- comptes en tables LOCALES (jamais dans global, jamais lus par une décision).
+local marks = {}
+local counts = {}
+function Profiler.fmark(slot)
+  if not fine_on then return end
+  local m = marks[slot]
+  if m then m.reset() else marks[slot] = game.create_profiler() end
+end
+function Profiler.fcredit(slot, name)
+  if not fine_on then return end
+  local m = marks[slot]
+  if not m then return end
+  m.stop()
+  local t = timers[name]
+  if not t then
+    t = game.create_profiler(true)
+    timers[name] = t
+  end
+  t.add(m)
+  counts[name] = (counts[name] or 0) + 1
 end
 
 function Profiler.start(name)
@@ -88,7 +114,11 @@ function Profiler.report(tick)
     local avg = game.create_profiler(true)
     avg.add(timers[name])
     avg.divide(window)
-    lines[#lines + 1] = { "", "  ", name, " | total ", timers[name], " | moyenne/tick ", avg }
+    if counts[name] then
+      lines[#lines + 1] = { "", "  ", name, " | total ", timers[name], " | moyenne/tick ", avg, " | passages ", tostring(counts[name]) }
+    else
+      lines[#lines + 1] = { "", "  ", name, " | total ", timers[name], " | moyenne/tick ", avg }
+    end
   end
   return lines, window
 end

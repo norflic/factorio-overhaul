@@ -677,6 +677,10 @@ FSM.define(MACHINE, {
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
       if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
+      -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
+      -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
+      Profiler.fmark("idle")
       Profiler.fstart("board:claim")
       local task = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
@@ -686,6 +690,7 @@ FSM.define(MACHINE, {
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
           set(agent, "step", tick)
         end
+        Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
       Profiler.fstart("worker:program")
@@ -696,12 +701,15 @@ FSM.define(MACHINE, {
         Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
+        Profiler.fcredit("idle", "idle:sans-programme")
         return
       end
       -- Lot IA3-k : porte de la tâche (trajet dangereux : escorte ou attente).
       local H = Worker.hook
       Profiler.fstart("ia3k:gate")
+      Profiler.fmark("gate")
       local gate_ok = not H or H.gate(f, agent, task, steps, tick)
+      Profiler.fcredit("gate", gate_ok and "gate:accepte" or "gate:refus")
       Profiler.fstop("ia3k:gate")
       if not gate_ok then
         return_site(f, task)
@@ -709,6 +717,7 @@ FSM.define(MACHINE, {
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
+        Profiler.fcredit("idle", "idle:refus")
         return
       end
       Profiler.fstart("board:reserve")
@@ -716,6 +725,7 @@ FSM.define(MACHINE, {
       Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
+      Profiler.fcredit("idle", "idle:depart")
     end,
   },
   step = {
