@@ -260,7 +260,12 @@ do
     check(#(f.prospects or {}) > 0, "le gisement perdu revient à la réserve")
     -- Équipe en fin d'échelle souvent à court de fer dans le moteur simulé : on lui donne de quoi
     -- reconstruire, le test porte sur la règle, pas sur l'économie.
-    for _, it in ipairs({ { "burner-mining-drill", 4 }, { "iron-chest", 4 }, { "coal", 50 } }) do
+    -- Lot IA3-d : avec « défendre d'abord » pour toutes les factions (IA1-b2, R-QCM-25c), un avant-poste se reconstruit
+    -- AVEC ses tourelles : elles sont données aussi (sur ia-v2, la reconstruction ne passait qu'avec une 9e recrue faite
+    -- par l'ancien frein à un instant où personne n'était sans tâche ; 8 PNJ, fer au chemin critique : tourelles jamais
+    -- fabriquées en 6 min, manque « gun-turret 2 »).
+    for _, it in ipairs({ { "burner-mining-drill", 4 }, { "iron-chest", 4 }, { "coal", 50 }, { "gun-turret", 2 },
+      { "firearm-magazine", 40 } }) do
       f.hq.insert({ name = it[1], count = it[2] })
     end
     local ok_r, err_r = pcall(M.run_ticks, 6 * 3600)
