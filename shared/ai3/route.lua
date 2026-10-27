@@ -65,16 +65,27 @@ function R.samples(start, pts, goal, step)
   return out
 end
 
+--- Danger lu en un point : un point posé sur une frontière de cases (un coin, un bord) appartient à toutes les cases qu'il
+--- touche ; on prend la moins dangereuse (sinon un coin de deux cases sûres est lu dans la case marquée voisine). Rend
+--- aussi la clé de la case retenue.
+local EPS = 0.01
+function R.danger_pt(field, x, y)
+  local best, bk = nil, nil
+  for _, o in ipairs({ { -EPS, -EPS }, { EPS, -EPS }, { -EPS, EPS }, { EPS, EPS } }) do
+    local k = D.key(D.cell(x + o[1]), D.cell(y + o[2]))
+    local d = field[k] or 0
+    if not best or d < best or (d == best and k < bk) then best, bk = d, k end
+  end
+  return best, bk
+end
+
 --- Danger maximal le long de la polyligne (case du départ exclue), danger de la case du but.
 function R.profile(field, start, pts, goal)
   local sk = D.key(D.cell(start.x), D.cell(start.y))
   local mx = 0
   for _, s in ipairs(R.samples(start, pts, goal, R.SAMPLE)) do
-    local k = D.key(D.cell(s.x), D.cell(s.y))
-    if k ~= sk then
-      local d = field[k] or 0
-      if d > mx then mx = d end
-    end
+    local d, k = R.danger_pt(field, s.x, s.y)
+    if k ~= sk and d > mx then mx = d end
   end
   return mx, field[D.key(D.cell(goal.x), D.cell(goal.y))] or 0
 end
@@ -196,8 +207,8 @@ end
 --- Un segment (a -> b) ne touche-t-il aucune case de danger ≥ lim (case du départ exclue) ?
 local function clear(field, a, b, lim, sk)
   for _, s in ipairs(R.samples(a, {}, b, R.SAMPLE)) do
-    local k = D.key(D.cell(s.x), D.cell(s.y))
-    if k ~= sk and (field[k] or 0) >= lim then return false end
+    local d, k = R.danger_pt(field, s.x, s.y)
+    if k ~= sk and d >= lim then return false end
   end
   return true
 end
@@ -217,6 +228,14 @@ function R.reduce(field, start, cells, goal, lim)
   while i < #chain do
     local j = #chain
     while j > i + 1 and not clear(field, chain[i], chain[j], lim, sk) do j = j - 1 end
+    -- Premier segment accepté d'office (aucun plus loin n'est sûr) mais qui coupe l'angle d'une case marquée : il part de
+    -- la position RÉELLE du PNJ, pas d'un centre de case. Si la case de départ est sûre, on passe d'abord par son centre
+    -- (entre centres de cases de l'A*, les diagonales sont sûres par construction). Banc final-a05e690 : entrée de 5,8
+    -- tuiles dans la zone d'un ver.
+    if i == 1 and j == 2 and (field[sk] or 0) < lim and not clear(field, chain[1], chain[2], lim, sk) then
+      local cx, cy = D.center(D.cell(start.x), D.cell(start.y))
+      out[#out + 1] = { x = cx, y = cy }
+    end
     if j < #chain then out[#out + 1] = chain[j] end
     i = j
   end

@@ -198,6 +198,20 @@ local function suite()
   check((sides.n or 0) > 0 and (sides.s or 0) > 0, "le bruit de tournée fait passer des deux côtés (" ..
     tostring(sides.n) .. " au nord, " .. tostring(sides.s) .. " au sud)")
 
+  section("itinéraire : coins de cases et premier segment (banc final-a05e690)")
+  local mc = D.new()
+  D.mark_seen(mc, 2167, -50, "worm", 25, 0)
+  D.mark_seen(mc, 2173, -48, "worm", 30, 0)
+  local fc, nc = D.field(mc, 0)
+  local pc, gcl = { x = 2125, y = -68 }, { x = 2330, y = -50 }
+  local rc = R.plan(pc, gcl, { field = fc, n = nc, B = 600, seed = 12345 })
+  local closest_c = 1e9
+  for _, q in ipairs(R.samples(pc, rc.pts, gcl, 1)) do closest_c = math.min(closest_c, R.dist(q.x, q.y, 2173, -48)) end
+  check(rc.max_d < 600, "un coin de deux cases sûres n'est pas lu dans la case marquée voisine (danger max " .. rc.max_d .. ")")
+  check(closest_c >= 40, "départ hors du centre de sa case : jamais à moins de 40 tuiles du ver (" .. string.format("%.1f", closest_c) .. ")")
+  local d0 = R.danger_pt({ [D.key(1, 1)] = 900 }, 16, 16)
+  check(d0 == 0, "point sur un coin : la case la moins dangereuse qu'il touche")
+
   section("itinéraire : blocage")
   local mbk = D.new()
   for _, p in ipairs({ { 30, 0 }, { -30, 0 }, { 0, 30 }, { 0, -30 }, { 30, 30 }, { -30, -30 }, { 30, -30 }, { -30, 30 } }) do
