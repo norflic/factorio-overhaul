@@ -1,9 +1,12 @@
--- Banc hors jeu du lot TIRS (27/10) : table des âges, règles pures, garde « aucun effet de jeu » (mutants).
+-- Banc hors jeu du lot TIRS (27/10) : table des âges, règles pures (décision d'habillage sur une volée de 80
+-- tourelles dans les deux ordres de mise à jour, proximité), son en couches (vitesse dans chaque variation), garde
+-- « aucun effet de jeu » (mutants).
 --   lua5.2 tests/tirs_test.lua      -> [TIRS] BILAN : N OK, 0 ECHEC(S)
 package.path = "./?.lua;" .. package.path
 
 local T = require("shared.tirs.ages")
 local R = require("shared.tirs.regles")
+local K = require("prototypes.tirs_kit")
 
 local ok, ko = 0, 0
 local function check(c, quoi, detail)
@@ -20,47 +23,70 @@ end
 -- 1. table des âges bien formée, âges témoins
 local m = R.verifier_ages(T)
 check(#m == 0, "table des ages bien formee", table.concat(m, " ; "))
-check(#T.temoins == 4 and T.temoins[1] == 1 and T.temoins[2] == 5 and T.temoins[3] == 10 and T.temoins[4] == 15,
-  "ages temoins 1, 5, 10, 15")
+local TEM = { 1, 5, 8, 10, 15 }
+local est_temoin = {}
+for i, e in ipairs(TEM) do
+  est_temoin[e] = true
+  check(T.temoins[i] == e, "age temoin n" .. i .. " = " .. e, T.temoins[i])
+end
+check(#T.temoins == #TEM, "5 ages temoins (dont l'age 8 du niveau 15 regarde par le DC)", #T.temoins)
 for e = 1, 15 do
-  local temoin = e == 1 or e == 5 or e == 10 or e == 15
-  check((T.ages[e] ~= nil) == temoin, "age " .. e .. (temoin and " habille" or " garde l'effet d'avant"))
+  check((T.ages[e] ~= nil) == (est_temoin[e] == true), "age " .. e .. (est_temoin[e] and " habille" or " sans entree"))
 end
--- part croissante avec l'âge (plus spectaculaire en montant), plafond positif
-local prev = 0
+check(T.sans_effet == 7 and T.ages[7] == nil, "site sans effet des bancs : age 7 (niveau 13)")
+-- grandeur croissante avec l'âge : lumière de bouche (taille), dards (nombre × vitesse), lumière d'impact
+local lum, imp, part, quota = 0, 0, 0, 0
 for _, e in ipairs(T.temoins) do
-  local p = T.probabilite * T.ages[e].part[1] / T.ages[e].part[2]
-  check(p > prev, "part des tirs habilles croissante (age " .. e .. ")", p)
-  prev = p
+  local A = T.ages[e]
+  check(A.lumiere.taille > lum, "lumiere de bouche croissante (age " .. e .. ")", A.lumiere.taille)
+  lum = A.lumiere.taille
+  local li = A.impact[1].lumiere and A.impact[1].lumiere.taille or 0
+  check(li >= imp, "lumiere d'impact non decroissante (age " .. e .. ")", li)
+  imp = li
+  local p = T.probabilite * A.part[1] / A.part[2]
+  check(p >= part, "part des tirs habilles non decroissante (age " .. e .. ")", p)
+  part = p
+  check(A.quota >= quota, "quota non decroissant (age " .. e .. ")", A.quota)
+  quota = A.quota
+  check(A.impact[1].tourne == nil, "age " .. e .. " : impact jamais tourne")
 end
--- grandeurs croissantes avec l'âge : lumière de bouche, échelle de bouche, traçante
-local lum, ech, tr = 0, 0, 0
-for _, e in ipairs(T.temoins) do
-  local b = T.ages[e].bouche[1]
-  check(b.lumiere.taille > lum, "lumiere de bouche croissante (age " .. e .. ")", b.lumiere.taille)
-  check(b.echelle * (T.IMAGES[b.image or ""] and 1 or 1) > 0, "echelle de bouche positive (age " .. e .. ")")
-  lum = b.lumiere.taille
-  local t = T.ages[e].trace
-  check(t and t.echelle > tr, "traçante plus grosse a chaque age (age " .. e .. ")", t and t.echelle)
-  tr = t and t.echelle or tr
-  ech = b.echelle
-end
--- sons : couches ajoutées aux âges 5, 10, 15 ; volumes plafonnés ; aggregation
-for _, e in ipairs({ 5, 10, 15 }) do
+check(T.probabilite * T.ages[15].part[1] / T.ages[15].part[2] > T.probabilite * T.ages[1].part[1] / T.ages[1].part[2],
+  "l'age 15 habille plus de tirs que l'age 1")
+check((T.ages[15].trace.nombre or 1) > (T.ages[1].trace.nombre or 1), "l'age 15 tire plus de dards que l'age 1")
+-- l'âge du Néant : lumière, pas de fumée (fil « de la fumée à la lumière »)
+check(T.ages[15].trace.trainee == nil and T.ages[15].fumee == nil, "age 15 : ni trainee ni fumee de bouche")
+check(T.ages[1].fumee ~= nil and T.ages[1].fumee.nombre >= 3, "age 1 : bouffee de poudre noire (3 fumees au moins)")
+
+-- 2. sons : couches ajoutées, vitesse DANS chaque variation (jamais sur la couche), volumes plafonnés, aggregation
+for _, e in ipairs({ 5, 8, 10, 15 }) do
   local c = T.ages[e].son and T.ages[e].son.couches
   check(c and #c >= 1, "age " .. e .. " : couches de son ajoutees")
   for _, x in ipairs(c or {}) do
-    check(x.volume <= 0.5 and x.max <= 2, "age " .. e .. " : couche plafonnee (volume <= 0,5, max <= 2)", x.volume)
+    check(x.volume <= 0.5 and x.max <= 3, "age " .. e .. " : couche plafonnee (volume <= 0,5, max <= 3)", x.volume)
     for _, f in ipairs(R.fichiers(x.fichiers)) do
       check(f:match("^__base__/sound/fight/[%w%-]+%.ogg$") ~= nil, "son vanilla reference " .. f)
     end
   end
+  local s0 = { { filename = "s0-1.ogg", volume = 0.4 }, { filename = "s0-2.ogg", volume = 0.4 } }
+  local snd = K.son_tir(s0, T.ages[e])
+  check(snd.layers and #snd.layers == 1 + #c and snd.layers[1].variations == s0, "age " .. e .. " : S0 en 1re couche")
+  local bonne = true
+  for k = 2, #snd.layers do
+    local l, cc = snd.layers[k], c[k - 1]
+    if l.min_speed or l.max_speed or l.speed or l.volume then bonne = false end
+    for _, v in ipairs(l.variations) do
+      if cc.vitesse and (v.min_speed ~= cc.vitesse[1] or v.max_speed ~= cc.vitesse[2]) then bonne = false end
+      if v.volume ~= cc.volume then bonne = false end
+    end
+    if not (l.aggregation and l.aggregation.max_count == cc.max) then bonne = false end
+  end
+  check(bonne, "age " .. e .. " : vitesse et volume dans chaque variation, rien d'ignore sur la couche")
 end
-check(T.ages[1].son == nil, "age 1 : son S0 inchange")
+check(T.ages[1].son == nil and K.son_tir({ "x" }, T.ages[1])[1] == "x", "age 1 : son S0 inchange")
 
--- 2. accumulateur : a sur b exactement, sans ordre ni hasard
+-- 3. accumulateur : a sur b exactement, sans ordre ni hasard
 for _, p in ipairs({ { 2, 5 }, { 1, 2 }, { 2, 3 }, { 1, 1 }, { 1, 7 } }) do
-  local c, n, gaps, last, maxgap = 0, 0, 0, 0, 0
+  local c, n, last, maxgap = 0, 0, 0, 0
   for i = 1, 1000 * p[2] do
     local g
     g, c = R.garder(c, p)
@@ -73,14 +99,94 @@ for _, p in ipairs({ { 2, 5 }, { 1, 2 }, { 2, 3 }, { 1, 1 }, { 1, 7 } }) do
   check(n == 1000 * p[1], "garder " .. p[1] .. "/" .. p[2] .. " : exact", n)
   check(maxgap <= math.ceil(p[2] / p[1]), "garder " .. p[1] .. "/" .. p[2] .. " : regulier (ecart max)", maxgap)
 end
--- 3. plafond par tick
+-- 4. plafond par tick
 local etat = { tick = -1, n = 0 }
 local passes = 0
 for _ = 1, 10 do if R.plafond(etat, 100, 6) then passes = passes + 1 end end
 check(passes == 6, "plafond : 6 tirs par tick", passes)
 check(R.plafond(etat, 101, 6), "plafond : remis a zero au tick suivant")
 
--- 4. garde : prototypes sans jeu (témoins acceptés, mutants refusés)
+-- 5. proximité (Tchebychev, même surface ; aucun joueur : pas de filtre)
+check(R.proche(nil, 1, 5000, 5000, 96), "proche : relevé absent -> pas de filtre")
+check(R.proche({}, 1, 5000, 5000, 96), "proche : aucun joueur connecte -> pas de filtre")
+local J = { { s = 1, x = 0, y = 0 } }
+check(R.proche(J, 1, 96, -96, 96), "proche : coin a 96 tuiles")
+check(not R.proche(J, 1, 96.5, 0, 96), "proche : 96,5 tuiles a l'est -> loin")
+check(not R.proche(J, 1, 0, -97, 96), "proche : 97 tuiles au nord -> loin")
+check(not R.proche(J, 2, 0, 0, 96), "proche : autre surface -> loin")
+check(R.proche({ { s = 2, x = 0, y = 0 }, { s = 1, x = 500, y = 0 } }, 1, 450, 10, 96), "proche : 2e joueur")
+
+-- 6. décision sur une VOLÉE : 20 tourelles par âge témoin tirent au même tick toutes les 6 ticks, un événement sur
+-- deux (probabilité 0,5 du moteur, ici déterministe), dans les deux ordres de mise à jour. Avec plafond >= somme des
+-- quotas, chaque âge reçoit exactement son quota par volée, quel que soit l'ordre.
+local function volee(Tab, ordre, proche_fn)
+  local et = { cpt = {}, quota = {}, plafond = { tick = -1, n = 0 } }
+  local res = {}
+  for _, e in ipairs(Tab.temoins) do res[e] = { evts = 0, garde = 0, part = 0, quota = 0, plafond = 0, loin = 0 } end
+  local tirs = {}
+  for _, e in ipairs(ordre) do for k = 1, 20 do tirs[#tirs + 1] = { e = e, k = k } end end
+  local volees = 0
+  for tick = 0, 599, 6 do
+    volees = volees + 1
+    for i, t in ipairs(tirs) do
+      if (i + tick / 6) % 2 == 0 then -- un tir sur deux lève l'événement
+        local r = res[t.e]
+        r.evts = r.evts + 1
+        local d = R.decider(et, t.e, tick, Tab.ages[t.e], Tab, proche_fn == nil or proche_fn(t))
+        r[d] = r[d] + 1
+      end
+    end
+  end
+  return res, volees
+end
+local function cmp(a, b)
+  for _, e in ipairs(T.temoins) do if a[e].garde ~= b[e].garde then return false end end
+  return true
+end
+local monte, descend = {}, {}
+for i, e in ipairs(T.temoins) do monte[i] = e; descend[#T.temoins + 1 - i] = e end
+local r1, nv = volee(T, monte)
+local r2 = volee(T, descend)
+check(cmp(r1, r2), "volee de 100 tourelles : memes tirs habilles par age dans les deux ordres")
+local txt = {}
+for _, e in ipairs(T.temoins) do
+  local q = T.ages[e].quota
+  check(r1[e].garde == q * nv, "volee : age " .. e .. " recoit son quota a chaque volee (" .. q .. " x " .. nv .. ")",
+    r1[e].garde)
+  check(r1[e].plafond == 0 and r2[e].plafond == 0, "volee : age " .. e .. " jamais refuse par le plafond commun")
+  txt[#txt + 1] = string.format("age %d %d/%d", e, r1[e].garde, r1[e].evts)
+end
+print("  volee (habilles / evenements) : " .. table.concat(txt, ", "))
+-- mutant : plafond sous la somme des quotas -> l'ordre décide (et la table est refusée)
+local Tm = copie(T)
+Tm.plafond_tick = 6
+local m1 = volee(Tm, monte)
+local m2 = volee(Tm, descend)
+check(not cmp(m1, m2), "mutant plafond 6 < somme des quotas : l'ordre de mise a jour change les ages habilles")
+check(#R.verifier_ages(Tm) > 0, "mutant plafond 6 < somme des quotas : table refusee")
+-- proximité : une tourelle loin n'avance pas l'accumulateur de son âge (la part des tourelles proches reste exacte)
+local rl = volee(T, monte, function(t) return t.k <= 10 end)
+local loin_ok = true
+for _, e in ipairs(T.temoins) do if rl[e].loin == 0 or rl[e].garde == 0 then loin_ok = false end end
+check(loin_ok, "volee avec 10 tourelles loin par age : refusees 'loin', les proches habillees")
+do
+  local et = { cpt = {}, quota = {}, plafond = { tick = -1, n = 0 } }
+  local A = T.ages[1]
+  for _ = 1, 7 do R.decider(et, 1, 0, A, T, false) end
+  check(et.cpt[1] == nil, "loin : l'accumulateur de l'age n'avance pas")
+  local g = 0
+  for tick = 1, 5 do if R.decider(et, 1, tick, A, T, true) == "garde" then g = g + 1 end end
+  check(g == 2, "apres des tirs loin, la part reste a/b (2 sur 5)", g)
+end
+
+-- 7. décalage d'animation : image 0 au tick de création
+for _, c in ipairs({ { 0, 0.5, 3 }, { 12345, 0.4995, 3 }, { 99999, 0.999, 7 }, { 7, 1.166, 7 } }) do
+  local o = R.decalage(c[1], c[2], c[3])
+  local img = math.floor(c[1] * c[2] + o + 1e-9) % c[3]
+  check(img == 0 and o >= 0 and o < c[3], "decalage : image 0 au tick " .. c[1], img)
+end
+
+-- 8. garde : prototypes sans jeu (témoins acceptés, mutants refusés)
 local permis = { ["fo-tir-15-impact-1"] = true, ["fo-tir-15-impact-1-etincelle"] = true }
 local trace = { type = "projectile", name = "fo-tir-15-trace", acceleration = 0,
   action = { type = "direct", action_delivery = { type = "instant", target_effects = {
@@ -90,9 +196,13 @@ local expl = { type = "explosion", name = "fo-tir-15-impact-1", created_effect =
     particle_name = "fo-tir-15-impact-1-etincelle", initial_height = 1 } } } } }
 local trait = { type = "beam", name = "fo-tir-15-trait" }
 check(R.verifier_prototype(trace, permis) == nil, "temoin : traçante sans degats acceptee")
+check(R.verifier_prototype({ type = "projectile", name = "fo-tir-15-dard", acceleration = 0 }, permis) == nil,
+  "temoin : dard sans action accepte")
 check(R.verifier_prototype(expl, permis) == nil, "temoin : explosion a etincelles acceptee")
 check(R.verifier_prototype(trait, permis) == nil, "temoin : trait sans action accepte")
 check(R.verifier_prototype({ type = "trivial-smoke", name = "f" }, permis) == nil, "temoin : fumee acceptee")
+check(R.verifier_prototype({ type = "animation", name = "fo-tir-15-bouche-1" }, permis) == nil,
+  "temoin : flamme (animation) acceptee")
 
 local mutants = {
   { "traçante qui blesse", function(p) table.insert(p.action.action_delivery.target_effects,
@@ -134,17 +244,32 @@ local mutants_ages = {
   { "part non entiere", function(t) t.ages[5].part = { 0.5, 1 } end },
   { "bouche vide", function(t) t.ages[10].bouche = {} end },
   { "impact vide", function(t) t.ages[10].impact = {} end },
-  { "image inconnue", function(t) t.ages[15].impact[2].image = "rien" end },
-  { "source et image", function(t) t.ages[15].impact[2].source = "explosion" end },
+  { "trace absente", function(t) t.ages[8].trace = nil end },
+  { "anim inconnue", function(t) t.ages[15].bouche[1].anim = "rien" end },
+  { "variation inconnue", function(t) t.ages[1].bouche[1].variation = 9 end },
+  { "flamme basse definition x3 (tache floue)", function(t) t.ages[10].bouche[2].longueur = 3.0 end },
+  { "flamme basse definition x2 en largeur", function(t) t.ages[10].bouche[1].largeur = 2.0 end },
+  { "impact tourne (gerbe verticale)", function(t) t.ages[15].impact[1].tourne = true end },
+  { "image d'impact inconnue", function(t) t.ages[8].impact[1].image = "rien" end },
+  { "source et image", function(t) t.ages[8].impact[1].source = "explosion" end },
   { "traçante trop lente", function(t) t.ages[1].trace.vitesse = 0.3 end },
-  { "trait trop long", function(t) t.ages[15].trait.duree = 90 end },
+  { "dernier dard sous 1 tuile/tick", function(t) t.ages[10].trace.ralenti = 0.5 end },
+  { "trait trop long", function(t) t.ages[15].trait.duree = 5 end },
+  { "trait trop epais", function(t) t.ages[15].trait.epaisseur = 2.5 end },
+  { "trait = faisceau du laser 15", function(t)
+      t.ages[15].trait.epaisseur = 1.0; t.ages[15].laser.epaisseur = 1.0
+      t.ages[15].trait.teinte = copie(t.ages[15].laser.teinte) end },
   { "teinte hors [0, 1]", function(t) t.ages[5].bouche[1].teinte = { 2, 0, 0 } end },
   { "son trop fort", function(t) t.ages[15].son.couches[1].volume = 1.5 end },
   { "son sans aggregation", function(t) t.ages[15].son.couches[1].max = nil end },
+  { "son a vitesse < 1/64", function(t) t.ages[15].son.couches[1].vitesse = { 0.01, 0.02 } end },
   { "age hors liste des temoins", function(t) t.ages[7] = copie(t.ages[5]) end },
   { "probabilite nulle", function(t) t.probabilite = 0 end },
   { "quota absent", function(t) t.ages[10].quota = nil end },
   { "quota nul", function(t) t.ages[15].quota = 0 end },
+  { "plafond sous la somme des quotas", function(t) t.plafond_tick = 7 end },
+  { "proximite nulle", function(t) t.proximite = 0 end },
+  { "lumiere de bouche sans duree", function(t) t.ages[5].lumiere.duree = nil end },
 }
 for _, mu in ipairs(mutants_ages) do
   local t = copie(T)
@@ -152,7 +277,7 @@ for _, mu in ipairs(mutants_ages) do
   check(#R.verifier_ages(t) > 0, "mutant de la table refuse : " .. mu[1])
 end
 
--- 5. noms
+-- 9. noms
 check(R.nom(T, 5, "bouche", 1) == "fo-tir-05-bouche-1" and R.nom(T, 15, "trace") == "fo-tir-15-trace", "noms du lot")
 
 print(string.format("[TIRS] BILAN : %d OK, %d ECHEC(S)", ok, ko))

@@ -63,16 +63,21 @@ end
 
 --- Son du tir de l'âge : la couche S0 de l'ère (variations, volume de l'ère) et les couches AJOUTÉES de l'âge
 --- (fichiers vanilla référencés, jamais copiés). Sans couche ajoutée : la liste de variations d'avant (S0, inchangé).
+--- La vitesse de lecture va dans CHAQUE variation (SoundDefinition.min_speed / max_speed) : posée sur la couche à côté
+--- de `variations`, le moteur l'IGNORE (doc 1.1.91 de Sound.min_speed : « Only loaded if both `variations` and `speed`
+--- are not defined » ; défaut du prototype de la ronde 3, relevé par le critique).
 function K.son_tir(variations_s0, A)
   local couches = A and A.son and A.son.couches
   if not couches or #couches == 0 then return variations_s0 end
   local layers = { { variations = variations_s0 } }
   for _, c in ipairs(couches) do
     local v = {}
-    for i, f in ipairs(R.fichiers(c.fichiers)) do v[i] = { filename = f, volume = c.volume } end
+    for i, f in ipairs(R.fichiers(c.fichiers)) do
+      v[i] = { filename = f, volume = c.volume }
+      if c.vitesse then v[i].min_speed, v[i].max_speed = c.vitesse[1], c.vitesse[2] end
+    end
     layers[#layers + 1] = {
       variations = v,
-      min_speed = c.vitesse and c.vitesse[1] or nil, max_speed = c.vitesse and c.vitesse[2] or nil,
       allow_random_repeat = false,
       aggregation = { max_count = c.max, remove = true, count_already_playing = true },
     }

@@ -1,21 +1,32 @@
--- Scénario greffé du lot TIRS (27/10) : COÛT des tirs habillés dans une défense DENSE (mesure K10, --seul).
---   banc.py --seul --qui TIRS -- 6000 tirs-cout <source>      puis  python tools/autotest/analyze.py <archive>
---   « avant » : le MÊME scénario sur une copie de main sans le lot (le mod n'a pas l'interface fo-tirs : rien n'est
---   habillé, aucun événement n'est levé) ; « après » : la branche du lot.
--- 80 mitrailleuses (20 par âge témoin : niveaux 2, 9, 19, 29), chacune face à un ver géant ENNEMI à 11 tuiles au nord
--- (cessez-le-feu de l'ennemi ; ver recréé s'il meurt), rangées à 100 tuiles d'écart ; tir continu du tick 30 à la fin.
--- 80 tourelles × 10 tirs/s = 13,3 tirs par tick ; avec la probabilité 0,5 des chargeurs, environ 6,7 événements par tick,
--- au-dessus du plafond de 6 tirs habillés par tick (le plafond travaille).
--- Contrôles (au tick CHECK) : 80 tourelles posées, toutes ont tiré ; compteurs du mod (s'il a l'interface).
+-- Scénario greffé du lot TIRS (27/10 ; ronde 4) : COÛT des tirs habillés dans une défense DENSE, en trois PHASES
+-- A / B / A dans la même partie (habillage allumé, éteint, rallumé : fo-tirs.actif) pour séparer le coût de
+-- l'ÉVÉNEMENT (moteur, sans plafond : toute tourelle à balles) du coût de l'HABILLAGE (plafonné), et compter les
+-- habillages par âge (équité du quota).
+--   banc.py [--seul] --qui TIRS -- 6700 tirs-cout <source>      puis  py -3.9 -B tools/autotest/tirs_cout.py <archive>
+--   « main » : le MÊME scénario sur une copie de main sans le lot (aucun événement : bras « sans le lot »).
+-- 80 mitrailleuses (16 par âge témoin : niveaux 2, 9, 15, 19, 29), chacune face à un ver géant ENNEMI à 11 tuiles au
+-- nord (cessez-le-feu de l'ennemi ; ver recréé s'il meurt), en 5 rangées à 100 tuiles d'écart ; tir continu.
+-- Sans --seul, les temps ne valent rien (F30, interdit n° 4) : seuls les compteurs comptent.
 
 local X0, Y0 = 3200, 2600
-local NIVEAUX = { 2, 9, 19, 29 }
-local PAR_RANGEE, PAS_RANGEE, DIST = 20, 100, 11
-local T_MUN, CHECK = 30, 5800
+local NIVEAUX = { 2, 9, 15, 19, 29 }
+local PAR_RANGEE, PAS_RANGEE, DIST = 16, 100, 11
+local T_MUN = 30
+-- phases : [debut, fin) et habillage allumé ?
+local PHASES = { { "A1", 600, 2600, true }, { "B", 2600, 4600, false }, { "A2", 4600, 6600, true } }
+local CHECK = 6600
 local MUN = "firearm-magazine"
 
+local function copie_stats(ctx)
+  if not ctx.has("fo-tirs", "stats") then return nil end
+  local s = ctx.remote("fo-tirs", "stats")
+  local out = { autres = s.autres, ages = {} }
+  for _, a in ipairs(s.ages) do out.ages[#out.ages + 1] = a end
+  return out
+end
+
 return {
-  description = "TIRS : cout des tirs habilles, defense dense de 80 mitrailleuses (4 ages temoins) en tir continu",
+  description = "TIRS : cout des tirs habilles, defense dense de 80 mitrailleuses (5 ages temoins), phases A/B/A",
   base = nil,
   check_tick = CHECK,
 
@@ -29,7 +40,7 @@ return {
     st.t = {}
     for r, n in ipairs(NIVEAUX) do
       local y = Y0 + (r - 1) * PAS_RANGEE
-      local pas = math.ceil(n / 2) <= 3 and 3 or (n <= 18 and 5 or 7)
+      local pas = math.ceil(n / 2) <= 3 and 3 or (n <= 12 and 4 or (n <= 18 and 5 or 7))
       ctx.prepare_area(X0 - 10, y - DIST - 10, X0 + PAR_RANGEE * pas + 10, y + 10, "grass-1")
       for _, e in ipairs(s.find_entities_filtered({ force = "enemy",
           area = { { X0 - 60, y - 70 }, { X0 + PAR_RANGEE * pas + 60, y + 40 } } })) do
@@ -44,6 +55,7 @@ return {
     local poses = 0
     for _, c in ipairs(st.t) do if c.t then poses = poses + 1 end end
     ctx.check(poses == #NIVEAUX * PAR_RANGEE, "tourelles posees", poses .. " / " .. #NIVEAUX * PAR_RANGEE)
+    st.instant = {}
     st.pret = true
   end,
 
@@ -59,7 +71,7 @@ return {
         end
       end
     end
-    -- cibles : recréées une fois toutes les 30 ticks (coût du banc identique avant et après)
+    -- cibles : recréées une fois toutes les 30 ticks (coût du banc identique dans toutes les phases)
     if e.tick >= 20 and e.tick % 30 == 20 then
       for _, c in ipairs(st.t) do
         if not (c.ver and c.ver.valid) then
@@ -67,6 +79,15 @@ return {
         end
       end
     end
+    -- phases : au début de chaque phase, l'habillage est allumé ou éteint et les compteurs relevés
+    for _, ph in ipairs(PHASES) do
+      if e.tick == ph[2] then
+        if ctx.has("fo-tirs", "actif") then ctx.remote("fo-tirs", "actif", ph[4]) end
+        st.instant[ph[1]] = copie_stats(ctx) or false
+        ctx.log(string.format("PHASE\t%s\tdebut=%d\tfin=%d\tactif=%s", ph[1], ph[2], ph[3], tostring(ph[4])))
+      end
+    end
+    if e.tick == CHECK - 1 then st.instant.fin = copie_stats(ctx) or false end
   end,
 
   finish = function(ctx)
@@ -83,21 +104,33 @@ return {
     ctx.log(string.format("tirs (chargeurs x 10, a 10 pres par tourelle) : %d en %d ticks, %.2f par tick", tirs,
       CHECK - T_MUN, tirs / (CHECK - T_MUN)))
     ctx.check(tire == #st.t, "toutes les tourelles ont tire", tire .. " / " .. #st.t)
-    if ctx.has("fo-tirs", "stats") then
-      local stats = ctx.remote("fo-tirs", "stats")
-      local l, ev, hab, pl = {}, 0, 0, 0
-      for _, a in ipairs(stats.ages) do
-        ev, hab, pl = ev + a.evts, hab + a.habilles, pl + a.plafond
-        l[#l + 1] = string.format("age %d : %d evts, %d habilles, %d plafond, %d crees", a.age, a.evts, a.habilles,
-          a.plafond, a.crees)
-      end
-      ctx.log("compteurs du lot : " .. table.concat(l, " ; ") .. string.format(
-        " ; total %d evenements (%.2f par tick), %d habilles (%.2f par tick), %d refus du plafond", ev,
-        ev / CHECK, hab, hab / CHECK, pl))
-      ctx.check(hab > 0, "tirs habilles (branche du lot)", hab)
-    else
-      ctx.log("interface fo-tirs absente : mod sans le lot (temoin « avant »)")
-      ctx.check(true, "temoin sans le lot", "fo-tirs absente")
+    if not ctx.has("fo-tirs", "stats") then
+      ctx.log("interface fo-tirs absente : mod sans le lot (bras « sans le lot »)")
+      ctx.check(true, "bras sans le lot", "fo-tirs absente")
+      return
     end
+    -- compteurs par phase (différence des relevés)
+    local bornes = { "A1", "B", "A2", "fin" }
+    local hab_a, hab_b = 0, 0
+    for i = 1, 3 do
+      local a, b = st.instant[bornes[i]], st.instant[bornes[i + 1]]
+      local ph = PHASES[i]
+      local l, ev, hab, ref = {}, 0, 0, 0
+      for k, x in ipairs(b.ages) do
+        local y = a.ages[k]
+        local d = { evts = x.evts - y.evts, hab = x.habilles - y.habilles, quota = x.quota - y.quota,
+          plafond = x.plafond - y.plafond, part = x.part - y.part }
+        ev, hab, ref = ev + d.evts, hab + d.hab, ref + d.quota + d.plafond
+        l[#l + 1] = string.format("age %d : %d evts, %d habilles (%.3f des evts), refus part %d quota %d plafond %d", x.age,
+          d.evts, d.hab, d.evts > 0 and d.hab / d.evts or 0, d.part, d.quota, d.plafond)
+      end
+      local n = ph[3] - ph[2]
+      ctx.log(string.format("COMPTEURS\t%s\tactif=%s\tticks=%d\tevenements=%d\t(%.3f/tick)\thabilles=%d\t(%.3f/tick)\t"
+        .. "refus quota+plafond=%d\tautres=%d\t%s", ph[1], tostring(ph[4]), n, ev, ev / n, hab, hab / n, ref,
+        b.autres - a.autres, table.concat(l, " ; ")))
+      if ph[4] then hab_a = hab_a + hab else hab_b = hab_b + hab end
+    end
+    ctx.check(hab_a > 0 and hab_b == 0, "phases A habillees, phase B sans habillage (evenement seul)",
+      "A " .. hab_a .. ", B " .. hab_b)
   end,
 }

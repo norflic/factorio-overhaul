@@ -9,9 +9,18 @@ Mesures (mêmes définitions que tools/sound/rafales.py : sonie K BS.1770 sans p
     [min_speed, max_speed]) ;
   - rafale de 2,4 s à 10 tirs/s (cadence de base) : une couche à `aggregation` max_count M ne démarre un son que s'il
     en joue moins de M (count_already_playing, remove : HYPOTHÈSE de lecture de la doc, à prouver en jeu, PLAN.md §6).
-Contrat proposé (PLAN.md §4, à faire trancher par le DC) : Δ(âge) = −0,5 + 0,25 × (âge − 1) dB sur la momentanée du
-tir isolé, crête du mix ≤ −1 dBFS. --cible : rend aussi le facteur de volume des couches ajoutées qui atteint Δ visé.
-Code 0 si le contrat est tenu (à ± 0,5 dB), 1 sinon.
+Contrat proposé (PLAN.md §4, ronde 4 du correcteur, à faire trancher par le DC) : il porte sur la RAFALE, ce que le
+joueur entend d'une tourelle (le contrat de la ronde 3, +0,25 dB par âge sur le tir isolé, laissait les 4 âges SOUS la
+vanilla en rafale) :
+  - rafale : ère I = S0 tel quel ; à partir de l'âge 4 (ère II), Δrafale(âge) = 1 + (âge − 4) / 3 dB au-dessus de la
+    rafale vanilla (âge 5 : +1,33 ; 8 : +2,33 ; 10 : +3,0 ; 15 : +4,67 ; 1 dB d'une ère à la suivante), à ± 0,4 dB ;
+  - tir isolé : croissant d'un âge témoin au suivant ;
+  - crête : tir isolé ≤ −1 dBFS (comme S0) ; rafale ≤ crête de la rafale vanilla + Δ visé + 1 dB (pas plus « pointue »
+    que la vanilla). Une crête de rafale ≤ −1 dBFS (demande du critique) est INCOMPATIBLE avec +4 à +6 dB : la rafale
+    vanilla elle-même a sa crête à −3,0 dBFS au volume du prototype ; à faire trancher.
+Le chiffre de la rafale repose sur une HYPOTHÈSE de lecture d'`aggregation` (F360, ouvert) : à confirmer en session
+disk (tools/sound/tirs_couches.py). --cible : rend aussi le facteur de volume des couches ajoutées qui atteint la
+rafale visée. Code 0 si le contrat est tenu, 1 sinon.
 """
 import argparse
 import json
@@ -196,12 +205,20 @@ def ecoute(dossier, ages, mod):
     print("page d'ecoute : %d MP3 dans %s" % (2 + 2 * len(ages), dossier))
 
 
+def vise_rafale(age):
+    """Δ visé de la rafale (dB au-dessus de la rafale vanilla) ; None pour l'ère I (S0 tel quel)."""
+    if age < 4:
+        return None
+    return 1.0 + (age - 4) / 3.0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ecoute", help="dossier des MP3 (tir isolé et rafale de 2,4 s par âge et vanilla)")
     ap.add_argument("--mod", default=REPO)
     ap.add_argument("--json")
     ap.add_argument("--cible", action="store_true")
+    ap.add_argument("--tol", type=float, default=0.4, help="tolérance sur la rafale visée (dB)")
     a = ap.parse_args()
     ages = lire_ages(a.mod)
     van = [rafales.mesures(tir_vanilla(i)) for i in range(4)]
@@ -209,37 +226,55 @@ def main():
     raf_ref = rafales.mesures(rafale(None, a.mod))
     print("vanilla : tir isole momentanee %.2f LUFS, sonie K %.2f, crete %.2f dBFS ; rafale momentanee %.2f" % (
         ref["momentanee"], ref["sonie_k"], ref["crete"], raf_ref["momentanee"]))
-    res, ok = [], True
+    res, ok, prec = [], True, None
     for age in ages:
         m, crete = mesure_tir(age, a.mod)
         r = rafales.mesures(rafale(age, a.mod))
         d = m["momentanee"] - ref["momentanee"]
         dr = r["momentanee"] - raf_ref["momentanee"]
-        vise = -0.5 + 0.25 * (age["age"] - 1)
-        tenu = abs(d - vise) <= 0.5 and crete <= -1.0
+        vise = vise_rafale(age["age"])
+        motifs = []
+        if vise is None:
+            if age["couches"]:
+                motifs.append("ere I : S0 seul attendu")
+        elif abs(dr - vise) > a.tol:
+            motifs.append("rafale %+.2f hors de %+.2f +/- %.1f" % (dr, vise, a.tol))
+        lim = raf_ref["crete"] + (vise or 0.0) + 1.0
+        if crete > -1.0:
+            motifs.append("crete du tir isole > -1 dBFS")
+        if r["crete"] > lim:
+            motifs.append("crete de la rafale %.2f > %.2f dBFS" % (r["crete"], lim))
+        if prec is not None and d <= prec:
+            motifs.append("tir isole pas plus fort que l'age precedent")
+        prec = d
+        tenu = not motifs
         ok = ok and tenu
         ligne = {"age": age["age"], "couches": len(age["couches"]), "delta_tir": round(d, 2), "delta_rafale": round(dr, 2),
-                 "delta_sonie_k": round(m["sonie_k"] - ref["sonie_k"], 2), "crete": round(crete, 2),
-                 "vise": vise, "tenu": tenu}
-        if a.cible and age["couches"]:
-            lo, hi = 0.0, 4.0
-            for _ in range(30):
+                 "vise_rafale": vise, "delta_sonie_k": round(m["sonie_k"] - ref["sonie_k"], 2), "crete": round(crete, 2),
+                 "crete_rafale": round(r["crete"], 2), "tenu": tenu, "motifs": motifs}
+        if a.cible and age["couches"] and vise is not None:
+            lo, hi = 0.0, 6.0
+            for _ in range(24):
                 g = 0.5 * (lo + hi)
-                if mesure_tir(age, a.mod, g)[0]["momentanee"] - ref["momentanee"] < vise:
+                if rafales.mesures(rafale(age, a.mod, g))["momentanee"] - raf_ref["momentanee"] < vise:
                     lo = g
                 else:
                     hi = g
             ligne["facteur_cible"] = round(0.5 * (lo + hi), 3)
         res.append(ligne)
-        print("age %2d : %d couche(s) ajoutee(s) ; tir isole %+.2f dB (vise %+.2f), sonie K %+.2f, rafale %+.2f, crete %.2f dBFS%s ; %s"
-              % (age["age"], len(age["couches"]), d, vise, ligne["delta_sonie_k"], dr, crete,
-                 (" ; facteur des couches pour la cible %.3f" % ligne["facteur_cible"]) if "facteur_cible" in ligne else "",
-                 "TENU" if tenu else "NON TENU"))
+        print("age %2d : %d couche(s) ajoutee(s) ; rafale %+.2f dB (vise %s), tir isole %+.2f, sonie K %+.2f, crete %.2f / "
+              "rafale %.2f dBFS%s ; %s" % (
+                  age["age"], len(age["couches"]), dr, "S0" if vise is None else "%+.2f" % vise, d,
+                  ligne["delta_sonie_k"], crete, r["crete"],
+                  (" ; facteur des couches pour la cible %.3f" % ligne["facteur_cible"]) if "facteur_cible" in ligne else "",
+                  "TENU" if tenu else "NON TENU (" + "; ".join(motifs) + ")"))
     if a.ecoute:
         ecoute(a.ecoute, ages, a.mod)
     if a.json:
         with open(a.json, "w", encoding="utf-8") as f:
-            json.dump({"vanilla": ref, "rafale_vanilla": raf_ref, "ages": res}, f, indent=1)
+            json.dump({"vanilla": ref, "rafale_vanilla": raf_ref, "ages": res,
+                       "hypothese": "aggregation : une couche ne demarre un son que si moins de max_count jouent (F360)"},
+                      f, indent=1)
     print("BILAN : %s" % ("contrat tenu" if ok else "contrat NON tenu"))
     return 0 if ok else 1
 
