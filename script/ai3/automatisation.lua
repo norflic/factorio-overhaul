@@ -232,6 +232,15 @@ local function refresh(f, st, tick)
           elseif state == "refuse" then
             m.sig = st.sig
             note(f, st, tick, string.format("module '%s' REFUSE par le plan directeur : %s", m.product, tostring(m.reason)))
+            -- Pas de rue jusqu'au réseau (rues fermées par l'eau, un nid, une force rivale) : la demande suivante de cet
+            -- objet se pose PRÈS DE LA CENTRALE (moteur réel, e3-usine, emerald : centrale au coin du treillis, 10 refus).
+            if tostring(m.reason):find("rue vers le reseau", 1, true) then
+              st.near_plant = st.near_plant or {}
+              st.near_plant[m.product] = (st.near_plant[m.product] or 0) + 1
+              -- un seul nouvel essai près de la centrale (un plan coûte 25 à 40 ms) ; ensuite le refus vaut jusqu'au
+              -- changement de contexte
+              if st.near_plant[m.product] == 1 then m.sig = nil end
+            end
           elseif state == "bloque" then
             note(f, st, tick, string.format("module '%s' bloque : %s", m.product, tostring(m.reason)))
           end
@@ -290,7 +299,13 @@ function Auto.think(f, view, book, tick)
         st.plant_state = "attente"
         note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
       end
-      local id, why = Build.request(f, { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" })
+      local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" }
+      if rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
+        local ps = Build.status(f, st.plant_id)
+        local pt = ps and ps.parts and ps.parts[1]
+        if pt then spec.near = { x = pt.x + pt.w / 2, y = pt.y + pt.h / 2 } end
+      end
+      local id, why = Build.request(f, spec)
       if id then
         st.modules[#st.modules + 1] = { id = id, product = rq.product, state = "attente", requested = tick,
           rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil,
