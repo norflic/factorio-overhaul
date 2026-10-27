@@ -545,6 +545,9 @@ function P.supply(E, ctx)
   -- Le GOULOT (H2) : la plaque sans avant-poste qui manque le plus ; elle seule passe à la priorité de l'amorçage (deux
   -- plaques au même rang se partageaient les mineurs : moteur réel, ia3b-fer sur b33efe6, 1 mineur de fer au plus, le
   -- cuivre au même rang).
+  -- Fours du QG à court de combustible (charbon du coffre sous la recharge des fours posés).
+  local smelter_dry = (view.smelters or 0) > 0 and (view.smelter_fuel_low or
+    (E.avail[T.fuel] or 0) < T.fuel_per_burner * (view.smelters or 0))
   local blocked_by_plate, bottleneck, worst = false, nil, 0
   for _, k in ipairs(sorted_keys(E.raw)) do
     if T.smelter_inputs[k] and E.raw[k].n > 0 and unfed_plate(k) then
@@ -581,10 +584,13 @@ function P.supply(E, ctx)
       local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
       local critical = plate_kind ~= nil and not fed and bottleneck == T.outposts[plate_kind].product
       if critical then prio = math.max(prio, P.BOOT_PRIO)
-      elseif blocked_by_plate and item == T.fuel then
-        -- Lot IA-V2 : le COMBUSTIBLE des fours du QG est sur le chemin critique de la plaque (moteur réel, ia3b-fer sur
-        -- 0302af1 : charbon reporté avec les autres matières, fours à sec, plaques bloquées à 44 pendant 3 min).
+      elseif blocked_by_plate and item == T.fuel and smelter_dry then
+        -- Lot IA-V2 : le COMBUSTIBLE des fours du QG est sur le chemin critique de la plaque quand les fours en manquent
+        -- (moteur réel, ia3b-fer sur 0302af1 : charbon reporté avec les autres matières, fours à sec, plaques bloquées à
+        -- 44 pendant 3 min). Seulement dans ce cas, et 2 mineurs au plus (au moteur simulé, le charbon des foreuses des
+        -- avant-postes passait aussi devant : ia1_scale_test, une faction à 26 PNJ sur 30 en 12 min).
         prio = math.max(prio, P.BOOT_PRIO - 1)
+        room = math.min(room, 2)
       elseif blocked_by_plate and r.why ~= "fonderie" then prio = math.min(prio, P.DEFER_PRIO) end
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).

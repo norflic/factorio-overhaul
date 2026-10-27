@@ -172,7 +172,10 @@ function C.think(view, book, st, ctx)
     if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end
   end
   st.saturated = saturated
-  if not st.economy_ok and (s.cap.iron or 0) >= 0.75 and saturated[P.IRON] then st.economy_ok = tick end
+  -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
+  -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
+  if not st.economy_ok and (s.cap.iron or 0) >= 0.75 and saturated[P.IRON]
+    and (view.workers or 0) >= (view.workers_wanted or 0) then st.economy_ok = tick end
   -- Lot IA-V2 : une matière saturée ne libère ses bras que si une AUTRE manque (critère A5 : « aucune matière au-dessus
   -- de 3 fois son besoin PENDANT qu'une autre manque » ; constat du DC du 25/10 : pierre et charbon ramassés pendant que
   -- le fer manquait). Rien ne manque : la collecte et le fond continuent (moteur réel, ia3c-dc-apres, 27/10 : sans cette
