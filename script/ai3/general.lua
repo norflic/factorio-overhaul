@@ -231,8 +231,13 @@ function General.state(f, st, view, durable_only)
   local known = {}
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then known[k] = true end end
   for _, o in ipairs(view.outposts or {}) do known[T.outposts[o.kind].resource] = true end
-  -- Lot PETROLE (réglage allumé) : ressources fluides dont un gisement est connu, eau d'une rive à portée du QG.
-  if Pet.on() then for _, k in ipairs(sorted_keys(Pet.known(f))) do known[k] = true end end
+  -- Lot PETROLE (réglage allumé) : ressources fluides dont un gisement est connu, eau d'une rive à portée du QG ; machines
+  -- posées par ses sites (le graphe ne les fait plus « construire » une seconde fois).
+  if Pet.on() then
+    for _, k in ipairs(sorted_keys(Pet.known(f))) do known[k] = true end
+    local pb = Pet.built(f)
+    for _, k in ipairs(sorted_keys(pb)) do built[k] = (built[k] or 0) + pb[k] end
+  end
   return { stock = stock, techs = st.techs or {}, built = built, known = known }, nlabs
 end
 
@@ -396,7 +401,7 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil })
+    k1 = k1 or nil, new_pack = Pet.on() or nil })
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })

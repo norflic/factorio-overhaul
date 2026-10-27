@@ -139,6 +139,15 @@ local function run(d, label, names)
   local sum = Gen.summary(cat, ev1, st_known, { { item = names.chem_pack, n = 10 } })
   check(sum.payable and (sum.build[names.pumpjack] or 0) > 0 and (sum.build[names.refinery] or 0) > 0
     and (sum.build[names.chem] or 0) > 0, label .. " §2 dépliage du pack : chevalet, raffinerie, usine chimique construits")
+  -- §2b « pack nouveau » (ctx.new_pack) : la recherche choisie consomme le pack chimique dès qu'il est payable
+  local function consumes(t)
+    for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do if ing[1] == names.chem_pack then return true end end
+    return false
+  end
+  local d_on = Gen.choose(cat, ev1, st_known, { new_pack = true })
+  check(d_on.tech ~= nil and consumes(d_on.tech), label .. " §2b pack nouveau : la recherche consomme le pack chimique (" .. tostring(d_on.tech) .. ")")
+  local d_off = Gen.choose(cat, ev1, st_known, {})
+  say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
   -- §3 chaîne
   local ch, why = Fl.chain(rel, info, { names.plastic_bar, names.sulfur_item }, { [names.water] = "pompe" })
   check(ch ~= nil, label .. " §3 chaîne plastique + soufre : " .. tostring(why))

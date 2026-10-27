@@ -611,6 +611,26 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   return auto
 end
 
+--- Machines posées par les sites FINIS de la faction ({ [objet] = n }, lu par General.state) : extracteurs, machines,
+--- pompes (rôles de l'implantation), comptées par l'objet qui les pose.
+function Pet.built(f)
+  local st = f and f.team and f.team.petrole
+  local b = f and f.build
+  local out = {}
+  if not (st and b) then return out end
+  for _, s in ipairs(st.sites) do
+    local p = b.projects[s.id]
+    if p and p.state == "fini" then
+      for _, e in ipairs(p.ents or {}) do
+        if e.built and e.item and (e.role == "machine" or e.role == "extracteur" or e.role == "pompe") then
+          out[e.item] = (out[e.item] or 0) + 1
+        end
+      end
+    end
+  end
+  return out
+end
+
 --- Objets qu'un chantier du lot (site, ou la centrale qu'il attend) réserve sans pouvoir les fabriquer, faute de leur
 --- recette (verrouillée) : ils deviennent des objets VOULUS par la recherche (comme Auto.wanted, Capital.wanted) ; la
 --- technologie qui les débloque prend de la valeur (moteur réel, petrole-partie : centrale jamais finie en 120 min,

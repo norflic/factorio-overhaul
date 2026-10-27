@@ -253,12 +253,33 @@ end
 --- Le choix. ctx = { weights, wanted = { [objet] = vrai }, current = techno en cours, disabled = { [techno] = vrai },
 --- lab_speed, k1 = vrai (lot AUTO : automatisation allumée, règles K1 de Gen.k1) }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
+Gen.V_NEW_PACK = 100   -- lot PETROLE (ctx.new_pack) : PREMIÈRE technologie à consommer un pack fabricable jamais consommé
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
   local chains = Gen.chains(cat, ev, state, ctx)
   local cands, blocked = {}, {}
+  -- Lot PETROLE (ctx.new_pack, réglage fo-war-petrole) : un joueur qui vient d'ouvrir un pack lance une recherche qui le
+  -- consomme (le palier se mesure aux packs FABRIQUÉS, IA3_CERVEAU §6.1) : une technologie prête qui consomme un pack
+  -- faisable qu'aucune technologie faite n'a consommé vaut Gen.V_NEW_PACK de plus (pondéré « recherche »).
+  local used_pack = nil
+  if ctx.new_pack then
+    used_pack = {}
+    for _, t in ipairs(cat.tech_list) do
+      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true end end
+    end
+  end
   for _, t in ipairs(Gen.ready(cat, state, ctx.disabled)) do
     local v, why, palier = Gen.value(cat, ev, state, t, ctx)
+    if used_pack then
+      for _, ing in ipairs(cat.techs[t].ingredients) do
+        if cat.packs[ing[1]] and not used_pack[ing[1]] and ev.feas[ing[1]] then
+          v = v + math.floor(Gen.V_NEW_PACK * wf(ctx.weights, "recherche"))
+          why[#why + 1] = { "pack nouveau", ing[1] }
+          palier = "nouveau"
+          break
+        end
+      end
+    end
     local ch = chains[t]
     if ch then
       v = v + ch.v
@@ -284,6 +305,19 @@ function Gen.choose(cat, ev, state, ctx)
     return a.tech < b.tech
   end)
   if ctx.k1 then Gen.k1(cat, state, cands, chains) end
+  -- Lot PETROLE (ctx.new_pack) : « les paliers ne reculent pas » : la moins chère des technologies qui consomment le pack
+  -- nouveau passe en tête (ses packs se fabriquent pendant que l'usine du pack se bâtit).
+  if ctx.new_pack then
+    local best, bi
+    for i, c in ipairs(cands) do
+      if c.palier == "nouveau" and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
+    end
+    if best and bi > 1 then
+      table.remove(cands, bi)
+      table.insert(cands, 1, best)
+      best.k1 = "pack nouveau"
+    end
+  end
   local d = cands[1] or { tech = nil }
   d.ranked = {}
   for i = 1, math.min(Gen.TOP, #cands) do d.ranked[i] = { cands[i].tech, cands[i].score } end
