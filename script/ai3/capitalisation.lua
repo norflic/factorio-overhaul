@@ -170,15 +170,39 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource]
 
 --- Une fonderie à foreuses de ce minerai peut-elle se poser MAINTENANT (tous ses objets fabricables ou au coffre) ?
 --- Rend vrai, ou faux et les objets manquants (la recherche qui les débloque prend de la valeur : Auto.wanted).
-local function module_ok(meth, book, stock, has_plant, rate)
-  local g = A.sized(meth, math.min(rate or 60, A.FIRST_RATE_MAX))
-  if not g then return false, {} end
-  local _, items = A.cost(meth, g, { has_plant = has_plant })
-  local miss = {}
-  for _, name in ipairs(sorted_keys(items)) do
-    if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
+--- Gabarit d'une méthode au débit `rate`, RÉDUIT (paramètre agrandi pas à pas vers 1) jusqu'à ce que l'équipe sache
+--- fabriquer tous ses objets (comme A.decide : un module plus grand demande des bras rapides ou d'autres objets pas encore
+--- recherchés ; banc p4 du lot : modules à 150/min en réserve 15 min sur « fast-inserter », jamais recherché). Rend
+--- (gabarit, args) ou (nil, objets manquants de la plus petite taille).
+local function fit_module(meth, rate, book, stock, has_plant)
+  local g, args = A.sized(meth, rate)
+  if not g then return nil, {} end
+  local function missing_of(gg)
+    local _, items = A.cost(meth, gg, { has_plant = has_plant })
+    local miss = {}
+    for _, name in ipairs(sorted_keys(items)) do
+      if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
+    end
+    return miss
   end
-  return #miss == 0, miss
+  local miss = missing_of(g)
+  while #miss > 0 and g.ext and (args[g.ext.arg] or 1) > 1 do
+    local a2 = {}
+    for i = 1, #args do a2[i] = args[i] end
+    a2[g.ext.arg] = args[g.ext.arg] - 1
+    local g2 = A.template(meth.gen, a2)
+    if not g2 then break end
+    g, args = g2, a2
+    miss = missing_of(g)
+  end
+  if #miss > 0 then return nil, miss end
+  return g, args
+end
+
+local function module_ok(meth, book, stock, has_plant, rate)
+  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant)
+  if not g then return false, miss end
+  return true, {}
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -677,8 +701,8 @@ local function execute(f, cs, o, view, book, tick, research)
       local near = nil
       local ids, why = {}, nil
       for _, part in ipairs(Capi.split(rate)) do
-        local g, args = A.sized(meth, part)
-        if not g then why = "gabarit : " .. tostring(args) break end
+        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
+        if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
@@ -707,8 +731,8 @@ local function execute(f, cs, o, view, book, tick, research)
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     for _, part in ipairs(Capi.split(o.rate or 0)) do
-      local g, args = A.sized(meth, part)
-      if not g then why2 = "gabarit : " .. tostring(args) break end
+      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
+      if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
