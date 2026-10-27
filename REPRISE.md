@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 11 h 40 : WORKFLOW `ia-fin-cerveau` LANCÉ** (le DC : « ultracode si nécessaire » ; run `wf_7e757943-a80` ; NE JAMAIS écrire par
+> SendMessage à ses agents) : 4 lots en parallèle, chacun suivi d'un critique adverse et d'un correcteur si défaut majeur ; worktrees
+> `.claude/worktrees/perf`, `scale`, `auto`, `capital` (branches du même nom, partis de main 0.6.1 `2d6cb75`, feuilles copiées) ;
+> livraisons `fo-logs\2026-10-27_PERF`, `_SCALE`, `_AUTO`, `_CAPITAL` ; bancs `--qui PERF|SCALE|AUTO|CAPITAL`. À l'arrivée : fusionner
+> lot par lot (conflits attendus sur shared/ai3/general.lua, buts.lua, cerveau.lua), rejouer la validation complète sur main (comme
+> `valid060`), K10 `--seul`. Recherche 3D par IA FAITE (`fo-logs\2026-10-27_3D-IA\RAPPORT.md`) : essai à décider par le DC.
+>
 > **27/10, 11 h 30 : IA3-e FUSIONNÉ, `main` = 0.6.1**, réglage `fo-war-ia3e` ÉTEINT (décisions identiques à 0.6.0) ; worktree `ia3e`
 > gardé pour la suite (rallumer : lot des foreuses, K1, règles dans le cerveau général). Restent : IA3-d (+ P1), design F4-B et F5-A2,
 > recherche 3D par IA (agent lancé, rapport `fo-logs\2026-10-27_3D-IA\RAPPORT.md`), lot de performance (K10 0,441 ms), bilan au DC.
