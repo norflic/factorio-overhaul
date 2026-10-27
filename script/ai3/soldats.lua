@@ -222,6 +222,29 @@ local function pass(f, tick)
     if da ~= db then return da < db end
     return a.x < b.x
   end)
+  -- Opération de nettoyage en cours : les soldats arrivés sur place sont des YEUX (les ouvriers n'y vont plus) : un
+  -- regard autour de la cible efface les menaces qui n'y sont plus (D.forget_unseen).
+  if sd.clearing then
+    local on_site = false
+    for _, s in ipairs(list) do
+      if per[s.id].role == "clear" and d2(s, sd.clearing) <= 24 * 24 then on_site = true break end
+    end
+    if on_site then
+      local en = surface.find_nearest_enemy({ position = sd.clearing, max_distance = 32, force = f.force })
+      local nd = en and math.sqrt(d2(en.position, sd.clearing)) or nil
+      t.stats.forgot = (t.stats.forgot or 0) + D.forget_unseen(t.map, sd.clearing.x, sd.clearing.y, 32, nd)
+      -- Plus aucun ennemi militaire à 32 tuiles : les menaces fixes connues dans ce rayon sont effacées toutes.
+      if not en then t.stats.forgot = t.stats.forgot + D.forget_unseen(t.map, sd.clearing.x, sd.clearing.y, 34, nil) end
+    end
+    -- Menaces candidates recalculées après le regard.
+    local keep = {}
+    for _, c in ipairs(clusters) do
+      local alive = false
+      for _, th in ipairs(t.map.threats) do if d2(th, c) <= 24 * 24 then alive = true break end end
+      if alive then keep[#keep + 1] = c end
+    end
+    clusters = keep
+  end
   -- Opération de nettoyage en cours : finie quand plus aucune menace connue près d'elle, ou au bout de CLEAR_TICKS.
   if sd.clearing then
     local still = false
