@@ -391,6 +391,9 @@ function Team.view(f, tick)
   local losses = f.team.org and f.team.org.losses
   local last_loss = losses and losses[#losses]
   local hold_recruits = defend_first and T.recruit_calm > 0 and last_loss ~= nil and tick - last_loss < T.recruit_calm or false
+  -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (script/team/worker.lua, f.hq_lethal_tick ; données
+  -- T.hq_lethal_* de shared/team/config.lua) : une faction n'envoie plus de recrue mourir à son QG (ni survie, ni secours).
+  if not f.is_player and f.hq_lethal_tick and tick - f.hq_lethal_tick < T.hq_lethal_ticks then hold_recruits = true end
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
   local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)

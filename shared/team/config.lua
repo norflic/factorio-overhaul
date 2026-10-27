@@ -135,6 +135,17 @@ T.recruit_calm = 0
 -- Avant-poste MEURTRIER : un PNJ tué en y allant ; sans ses tourelles, plus personne n'y va pendant 10 min (ni tournée,
 -- ni agrandissement, ni fond), sauf pour y poser les tourelles.
 T.lethal_ticks = 10 * 3600
+-- Lot SCALE (correction après revue, 27/10) : QG OCCUPÉ par les biters (factions seulement). Quand T.hq_lethal_deaths PNJ
+-- d'une faction sont tués par les biters (force « enemy ») à moins de Worker.SAFE_HOME tuiles de son QG en moins de
+-- T.hq_lethal_window ticks, la faction ne recrute plus (ni recrue de survie, ni secours sans arme) pendant
+-- T.hq_lethal_ticks : chaque recrue y mourait à son arrivée. Moteur réel : s3-scale10 (Ambre, 122 PNJ tués par des
+-- spitters à 8 à 10 tuiles du QG en 14 min), s5-scale10 (Ambre, 198), s5-guide30 graine 577215664 (Azur, 264 en 25 min,
+-- la partie du guide) : la reconstruction au plancher en remettait 1 à 2 à chaque pensée, environ 10 morts par minute.
+-- Une attaque qui passe (1 ou 2 PNJ tués) ne retient rien : la retenue après toute perte (T.recruit_calm, ci-dessus) a
+-- été essayée et coupée (le QG, moins gardé, tombait). Même durée que l'avant-poste meurtrier.
+T.hq_lethal_deaths = 3
+T.hq_lethal_window = 2 * 3600
+T.hq_lethal_ticks = T.lethal_ticks
 -- ... sauf si sa ressource manque au coffre (moins de T.lethal_need unités) : on y retourne quand même.
 T.lethal_need = 50
 -- Tourelles du QG (posées d'abord) et fer gardé pour les recrues : la défense ne fabrique pas sous ce plancher.
