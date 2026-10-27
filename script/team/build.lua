@@ -430,20 +430,6 @@ local function plan_power(f, p, mp, masks)
   local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
   local out = {}
-  -- route de carrefours jusqu'au réseau (tronçons non fermés)
-  local target
-  local keys = sorted_keys(b.net)
-  if #keys == 0 then
-    target = { i = mi, j = mj }
-  else
-    local best, bestd
-    for _, k in ipairs(keys) do
-      local n = b.net[k]
-      local d = math.abs(n.i - mi) + math.abs(n.j - mj)
-      if not bestd or d < bestd then best, bestd = n, d end
-    end
-    target = best
-  end
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
   -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
   -- falaise (banc ia1-build-reseau).
@@ -477,6 +463,38 @@ local function plan_power(f, p, mp, masks)
     end
     spots[k] = false
     return nil
+  end
+  -- Lot IA3-e : le carrefour le plus proche du module peut n'avoir aucun quart libre (rive, eau : la centrale) ; on prend
+  -- le plus proche des carrefours voisins qui en a un (moteur réel, e3-usine, azure : centrale refusée « pas de rue vers
+  -- le reseau » alors qu'elle amorçait le réseau, son carrefour étant dans l'eau).
+  if not spot_of(mi, mj) then
+    local cands = {}
+    for dj = -1, 1 do
+      for di = -1, 1 do
+        if di ~= 0 or dj ~= 0 then
+          local n = P.node_pos(b.lat, mi + di, mj + dj)
+          cands[#cands + 1] = { i = mi + di, j = mj + dj, d = (n.x - mp.x) ^ 2 + (n.y - mp.y) ^ 2 }
+        end
+      end
+    end
+    table.sort(cands, function(a, c) if a.d ~= c.d then return a.d < c.d end if a.j ~= c.j then return a.j < c.j end return a.i < c.i end)
+    for _, c in ipairs(cands) do
+      if spot_of(c.i, c.j) then mi, mj = c.i, c.j break end
+    end
+  end
+  -- route de carrefours jusqu'au réseau (tronçons non fermés)
+  local target
+  local keys = sorted_keys(b.net)
+  if #keys == 0 then
+    target = { i = mi, j = mj }
+  else
+    local best, bestd
+    for _, k in ipairs(keys) do
+      local n = b.net[k]
+      local d = math.abs(n.i - mi) + math.abs(n.j - mj)
+      if not bestd or d < bestd then best, bestd = n, d end
+    end
+    target = best
   end
   -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
   -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)

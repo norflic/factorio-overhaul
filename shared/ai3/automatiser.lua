@@ -62,7 +62,10 @@ A.NET_POLES = 3          -- poteaux de réseau estimés jusqu'au carrefour le pl
 A.MAX_OPEN = 2           -- modules ouverts à la fois (chantier, plan, réserve), hors centrale : fer et cuivre ensemble
 A.RESEARCH_WINDOW = 5    -- minutes : un objet impossible (recherche) se voit dès la demi-fenêtre (la recherche prend du temps)
 A.MAX_PER_PRODUCT = 2    -- modules finis au plus par objet
-A.VALUE = 64             -- valeur de base du projet d'un module (famille capital, pondérée par le chef)
+A.VALUE = 64             -- valeur de base du projet d'un module (famille capital, pondérée par le chef)…
+A.VALUE_PER_PNJ = 8      -- … plus 8 par PNJ libéré (gain G), au plus A.VALUE_MAX : un module qui libère 2 PNJ passe
+A.VALUE_MAX = 90         -- devant l'armée et la recherche au service du fer (piège de pauvreté, e3-usine : réserve
+                         -- « materiaux » 64 min, le fer mangé par l'armée et les munitions servies avant lui)
 A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes : capacité d'un module en unités d'avant-poste)
 
 -- Méthodes « machine » (données du mod : générateurs de shared/team/modules.lua). ext = indice du paramètre agrandi
@@ -354,7 +357,7 @@ function A.decide(input)
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
             out.requests[#out.requests + 1] = { product = meth.product, gen = meth.gen, args = args, rate = rate,
-              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric }
+              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G }
             open = open + 1
             busy_rank = busy_rank or meth.rank
           end
@@ -380,10 +383,13 @@ end
 function A.goals(goals, auto, weights)
   if not auto then return goals end
   local w = (weights or {}).capital or 1000
+  local seen = {}
   for _, m in ipairs(auto.modules or {}) do
-    if OPEN[m.state] then
+    if OPEN[m.state] and not seen[m.product] then
+      seen[m.product] = true
+      local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
-        status = m.state, missing = m.missing, reason = m.reason, value = clamp(math.floor(A.VALUE * w / 1000), 1, 100) }
+        status = m.state, missing = m.missing, reason = m.reason, value = clamp(math.floor(base * w / 1000), 1, 100) }
     end
   end
   table.sort(goals, function(a, b)

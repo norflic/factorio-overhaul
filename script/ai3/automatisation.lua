@@ -293,7 +293,9 @@ function Auto.think(f, view, book, tick)
       local id, why = Build.request(f, { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" })
       if id then
         st.modules[#st.modules + 1] = { id = id, product = rq.product, state = "attente", requested = tick,
-          rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil }
+          rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil,
+          gain = rq.gain }
+        if rq.electric then st.plant_gain = math.max(st.plant_gain or 0, rq.gain or 0) end
         note(f, st, tick, string.format("module '%s' DEMANDE (%s %s, %.0f objets/min visés, nominal %.0f) : %s", rq.product, rq.gen,
           table.concat((function() local o = {} for i, a in ipairs(rq.args) do o[i] = tostring(a) end return o end)(), ","),
           rq.rate, rq.rate_nom, rq.why))
@@ -306,8 +308,17 @@ function Auto.think(f, view, book, tick)
   -- Contexte du cerveau.
   local mods, cap, covered = {}, {}, {}
   local fini_rate, target = {}, {}
+  -- La centrale est un PROJET du cerveau comme un module (lot IA3-e, e3-usine : demandée seule au plan directeur, sa
+  -- réserve « materiaux » attendait 64 min, personne ne fabriquait ses chaudière et machines à vapeur), avec la valeur
+  -- du module électrique qui l'attend.
+  if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
+    local ps = Build.status(f, st.plant_id)
+    if ps then
+      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+    end
+  end
   for _, m in ipairs(st.modules) do
-    mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason }
+    mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
     if m.state == "fini" then
       -- débit MESURÉ (la minute écoulée), pas le nominal : un module sans courant ne couvre rien
       fini_rate[m.product] = (fini_rate[m.product] or 0) + (m.rate_meas or 0)

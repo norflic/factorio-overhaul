@@ -233,6 +233,18 @@ do
     "… et ses bras, avec sa raison")
   -- Compté dans K : 8 PNJ, K = 4.
   check(plan.ia3.K == P.K(8) and plan.ia3.active <= plan.ia3.K, "compté dans les K projets ouverts (K = " .. plan.ia3.K .. ")")
+  -- (a2) la centrale est un projet comme un module (ses chaudière et machines à vapeur sont fabriquées) ; la valeur d'un
+  -- module grandit avec les PNJ qu'il libère.
+  local stc = C.new_state(0)
+  local autoc = { modules = { { product = "centrale", state = "reserve", missing = { { "steam-engine", 2 }, { "boiler", 1 } }, gain = 2 },
+    { product = "iron-plate", state = "attente", missing = {}, gain = 2 } }, cap = {}, covered = {} }
+  local planc = C.think(view({ stock = base_stock, outposts = outs }), book, stc, ctx_of(autoc))
+  check(count(planc, function(t) return t.kind == "craft" and t.item == "steam-engine" and t.why == "auto:centrale" end) >= 1,
+    "centrale : ses machines à vapeur sont fabriquées pour son projet")
+  local g_lo = A.goals({}, { modules = { { product = "iron-plate", state = "plan", gain = 0 } } }, {})
+  local g_hi = A.goals({}, { modules = { { product = "iron-plate", state = "plan", gain = 2 } } }, {})
+  check(g_hi[1].value > g_lo[1].value and g_hi[1].value == A.VALUE + 2 * A.VALUE_PER_PNJ,
+    string.format("valeur d'un module : %d sans gain, %d pour 2 PNJ libérés", g_lo[1].value, g_hi[1].value))
   -- (b) chantier bloqué : projet bloqué, cause lisible, il ne prend pas de place.
   local st2 = C.new_state(0)
   local auto2 = { modules = { { product = "iron-plate", state = "bloque", reason = "fantome refuse (stone-furnace en 3,4)" } }, cap = {}, covered = {} }
@@ -367,6 +379,8 @@ local emit0 = P.EMIT.module
 mutant("projet module sans sous-buts", function() P.EMIT.module = function() return "en_cours" end end, function() P.EMIT.module = emit0 end)
 local goals0 = A.goals
 mutant("module hors des projets", function() A.goals = function(g) return g end end, function() A.goals = goals0 end)
+local vpp = A.VALUE_PER_PNJ
+mutant("valeur sans le gain", function() A.VALUE_PER_PNJ = 0 end, function() A.VALUE_PER_PNJ = vpp end)
 local plant = A.PLANT
 mutant("centrale jamais comptée", function() A.PLANT = { gen = "inconnu", args = {} } end, function() A.PLANT = plant end)
 
