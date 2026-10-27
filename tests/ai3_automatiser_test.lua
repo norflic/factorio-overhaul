@@ -318,6 +318,27 @@ do
   check(packs_of(rp) == 0 and packs_of(rpa) >= 1, string.format("fer sous le plancher : packs seulement pour l'automatisation (%d contre %d)", packs_of(rpa), packs_of(rp)))
 end
 
+do
+  -- (g) centrale sur une rive naturelle étroite : 2 colonnes d'eau seulement au bord ouest du lot. L'ancienne règle
+  -- (60 % d'un rectangle de 6 × 5 devant la pompe) la refusait ; la nouvelle (2 tuiles devant la pompe, 20 %) l'accepte.
+  local Plan = require("shared.team.plan")
+  local M = require("shared.team.modules")
+  local g = M.GEN.steam(1)
+  local water = {}
+  for y = -50, 50 do for x = -2, -1 do water[Plan.tkey(x, y)] = true end end
+  local function free(tx, ty) return not water[Plan.tkey(tx, ty)] end
+  local fit = Plan.fit(g, { x0 = 0, y0 = 0, x1 = 24, y1 = 24 }, { free = free, water = water, margin = 0, toward = { x = 0, y = 12 } })
+  check(fit ~= nil, "centrale sur une rive étroite (2 colonnes d'eau) : placée")
+  local w0 = Plan.PLANT_WET
+  Plan.PLANT_WET = 0.6
+  local fit0 = Plan.fit(g, { x0 = 0, y0 = 0, x1 = 24, y1 = 24 }, { free = free, water = water, margin = 0, toward = { x = 0, y = 12 } })
+  Plan.PLANT_WET = w0
+  check(fit0 == nil, "témoin : à 60 % d'eau (règle d'avant), la même rive est refusée")
+  local dry = function() return true end
+  local fit_dry = Plan.fit(g, { x0 = 0, y0 = 0, x1 = 24, y1 = 24 }, { free = dry, water = {}, margin = 0 })
+  check(fit_dry == nil, "sans eau : pas de centrale")
+end
+
 ---------------------------------------------------------------------------------------------------
 section("5. Déterminisme")
 ---------------------------------------------------------------------------------------------------
