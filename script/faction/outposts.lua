@@ -272,7 +272,7 @@ end
 --- plafond, l'avant-poste est marqué plein.
 function Outposts.extend(f, surface, o, carrier)
   local spec = T.outposts[o.kind]
-  local room = T.max_drills(o.kind) - o.drills
+  local room = T.max_drills(o.kind, o) - o.drills
   local drills, sinks = place_pairs(f, surface, o.kind, o.pos, carrier, math.min(spec.drills, room), 18)
   for _, d in ipairs(drills) do
     o.drill_list[#o.drill_list + 1] = d
@@ -283,7 +283,10 @@ function Outposts.extend(f, surface, o, carrier)
     State.own(s, f.id, "sink", o.id)
   end
   o.drills = o.drills + #drills
-  if #drills == 0 or o.drills >= T.max_drills(o.kind) then o.full = true end
+  if #drills == 0 or o.drills >= T.max_drills(o.kind, o) then o.full = true end
+  -- Lot CAPIB : plein faute de PLACE (aucune paire posée), à distinguer d'un plafond atteint (la capitalisation relève
+  -- le plafond, jamais la place).
+  if #drills == 0 and room > 0 then o.full_place = true end
   return #drills
 end
 

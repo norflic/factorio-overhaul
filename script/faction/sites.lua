@@ -410,6 +410,80 @@ function Sites.prospect(f, surface, tick)
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Recensement COMPLET d'un gisement (lot CAPIB, préalable bloquant du branchement de la capitalisation : la sonde
+-- ci-dessus ne lit que 64 tuiles d'un chunk, un gisement y paraissait couvert après 4 foreuses électriques)
+---------------------------------------------------------------------------------------------------
+-- Composante connexe (8 voisins) des entités de ressource `name` qui contient la tuile de ce minerai la plus proche de
+-- `pos`, lue dans un carré qui double tant que la composante en touche le bord (Sites.CENSUS_HALF, au plus
+-- Sites.CENSUS_MAX). Rend { tiles, amount, x0, y0, x1, y1, cx, cy, id, cut } (cut : composante tronquée au carré
+-- maximal ou à Sites.CENSUS_TILES) ou nil (aucune tuile). Coût : un find_entities_filtered par carré, puis un parcours en
+-- largeur (8 lectures par tuile) ; mesuré au profileur (clé « sites:census »). Ordre : celui des listes du moteur, puis
+-- une file ; aucun pairs.
+Sites.CENSUS_HALF = 48
+Sites.CENSUS_MAX = 192
+Sites.CENSUS_TILES = 6000
+local OFF = 1048576 -- 2^20 : clé numérique d'une tuile (x + OFF) * 2^21 + (y + OFF)
+local function tkey(x, y) return (x + OFF) * 2097152 + (y + OFF) end
+local N8 = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
+
+function Sites.census(surface, name, pos)
+  Profiler.start("sites:census")
+  local half = Sites.CENSUS_HALF
+  local out = nil
+  while true do
+    local ents = surface.find_entities_filtered({ area = { { pos.x - half, pos.y - half }, { pos.x + half, pos.y + half } },
+      name = name })
+    local idx = {}
+    local seed, sd = nil, nil
+    for _, e in ipairs(ents) do
+      local p = e.position
+      local x, y = math.floor(p.x), math.floor(p.y)
+      local k = tkey(x, y)
+      idx[k] = e.amount or 0
+      local dx, dy = x + 0.5 - pos.x, y + 0.5 - pos.y
+      local d = dx * dx + dy * dy
+      if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
+    end
+    if not seed then break end
+    local qx, qy = { seed[1] }, { seed[2] }
+    local seen = { [seed[3]] = true }
+    local head, n, amount = 1, 0, 0
+    local x0, y0, x1, y1 = seed[1], seed[2], seed[1], seed[2]
+    local sx, sy = 0, 0
+    local cut = false
+    while head <= #qx do
+      local x, y = qx[head], qy[head]
+      head = head + 1
+      n = n + 1
+      amount = amount + (idx[tkey(x, y)] or 0)
+      sx, sy = sx + x, sy + y
+      if x < x0 then x0 = x end
+      if x > x1 then x1 = x end
+      if y < y0 then y0 = y end
+      if y > y1 then y1 = y end
+      if n >= Sites.CENSUS_TILES then cut = true break end
+      for _, d in ipairs(N8) do
+        local k = tkey(x + d[1], y + d[2])
+        if idx[k] and not seen[k] then
+          seen[k] = true
+          qx[#qx + 1], qy[#qy + 1] = x + d[1], y + d[2]
+        end
+      end
+    end
+    local touches = x0 <= pos.x - half + 1 or y0 <= pos.y - half + 1 or x1 >= pos.x + half - 2 or y1 >= pos.y + half - 2
+    if touches and not cut and half < Sites.CENSUS_MAX then
+      half = math.min(Sites.CENSUS_MAX, half * 2)
+    else
+      out = { tiles = n, amount = amount, x0 = x0, y0 = y0, x1 = x1 + 1, y1 = y1 + 1, cx = sx / n + 0.5, cy = sy / n + 0.5,
+        id = name .. "@" .. x0 .. "," .. y0, cut = cut or (touches and half >= Sites.CENSUS_MAX) or nil }
+      break
+    end
+  end
+  Profiler.stop("sites:census")
+  return out
+end
+
 --- Nombre de sites en réserve pour une ressource (toutes si nil).
 function Sites.available(f, resource)
   if not resource then return f.prospects and #f.prospects or 0 end

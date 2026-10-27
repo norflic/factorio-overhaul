@@ -308,7 +308,7 @@ end
 
 local function extendable(view, kind, undefended)
   for _, o in ipairs(view.outposts or {}) do
-    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
+    if o.kind == kind and not o.full and o.drills < T.max_drills(kind, o) and not (undefended and undefended[o.id]) then
       return o
     end
   end

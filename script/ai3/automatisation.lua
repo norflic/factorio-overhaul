@@ -385,6 +385,79 @@ function Auto.items_of(f)
   return out
 end
 
+--- Lot CAPIB : crochet posé par script/ai3/capitalisation.lua (Capi.on) : vrai quand la capitalisation décide pour cette
+--- faction (réglage fo-war-capi). A.decide continue de MESURER (fenêtre, verdicts, objets voulus par la recherche) mais
+--- ses demandes ne sont plus envoyées : un seul décideur par levier (docs/IA_CAPITALISATION.md §5).
+Auto.decide_off = function(f) return false end
+
+--- Lot CAPIB : envoie une demande de module au plan directeur (centrale d'abord si le module est électrique), comme une
+--- demande d'A.decide. rq = { product, gen, args, feed, rate, rate_nom, electric, gain, why, near, capi }. Rend l'id du
+--- module (suivi dans f.team.ia3e.mods, champ capi = clé de l'ordre CAPI) ou nil, raison.
+local function submit(f, st, tick, rq, research)
+  -- Plan directeur allumé à la PREMIÈRE demande (une fois, sans « seul » : le cerveau garde ses tâches libres).
+  if not f.build then
+    Build.enable(f, { radius = Auto.RADIUS })
+    note(f, st, tick, "plan directeur allume (rayon " .. Auto.RADIUS .. ")")
+  end
+  local prio = 40 + math.floor(A.VALUE * 45 / 100)
+  -- Recherche ouverte que ce module ne sert pas : ses tâches passent après celles de la recherche (critère K1)
+  if research and research.tech and not research.for_auto and not A.serves_research(research, rq.product) then
+    prio = prio - 10
+  end
+  -- Centrale d'abord (correction e2-usine) : demandée APRÈS le module, elle ne trouvait plus de rue vers le réseau
+  -- que le module avait amorcé seul (« pas de rue vers le reseau ») ; demandée avant, elle amorce le réseau et les
+  -- modules s'y relient (ordre du banc ia1-build d'IA1-d).
+  if rq.electric and not st.plant_id then
+    st.plant_id = Build.plant(f)
+    st.plant_state = "attente"
+    note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
+  end
+  local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near }
+  if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
+    local ps = Build.brief(f, st.plant_id)
+    local pt = ps and ps.parts and ps.parts[1]
+    if pt then spec.near = { x = pt.x + pt.w / 2, y = pt.y + pt.h / 2 } end
+  end
+  local id, why = Build.request(f, spec)
+  if id then
+    st.mods[#st.mods + 1] = { id = id, product = rq.product, state = "attente", requested = tick,
+      rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil,
+      gain = rq.gain, capi = rq.capi }
+    if rq.electric then st.plant_gain = math.max(st.plant_gain or 0, rq.gain or 0) end
+    note(f, st, tick, string.format("module '%s' DEMANDE%s (%s %s, %.0f objets/min visés, nominal %.0f) : %s", rq.product,
+      rq.capi and (" par CAPI [" .. rq.capi .. "]") or "", rq.gen,
+      table.concat((function()
+        local o = {}
+        for i, a in ipairs(rq.args) do o[i] = type(a) == "table" and ("recette " .. tostring(a.name)) or tostring(a) end
+        return o
+      end)(), ","),
+      rq.rate or 0, rq.rate_nom or 0, tostring(rq.why)))
+    return id
+  end
+  note(f, st, tick, string.format("module '%s' : demande impossible (%s)", rq.product, tostring(why)))
+  return nil, why
+end
+
+function Auto.submit(f, rq, tick, research)
+  if not enabled(f) then return nil, "automatisation eteinte" end
+  return submit(f, state_of(f), tick, rq, research)
+end
+
+--- Lot CAPIB : le module `id` suivi par l'automatisation (état, manques, raison, construits) ou nil.
+function Auto.module(f, id)
+  local st = f and f.team and f.team.ia3e
+  if not st then return nil end
+  for _, m in ipairs(st.mods) do if m.id == id then return m end end
+  return nil
+end
+
+--- Lot CAPIB : état de la centrale ("fini", "refuse", ... ; nil sans centrale demandée) et sa raison de refus.
+function Auto.plant_state(f)
+  local st = f and f.team and f.team.ia3e
+  if not st then return nil end
+  return st.plant_state, st.plant_refused and st.plant_refused.reason or nil
+end
+
 function Auto.think(f, view, book, tick, research)
   if not enabled(f) then return nil end
   Profiler.start("ia3e:auto")
@@ -413,47 +486,9 @@ function Auto.think(f, view, book, tick, research)
       st.verdicts[#st.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T,
         depth = v.depth, generic = v.generic }
     end
-    for _, rq in ipairs(res.requests) do
-      -- Plan directeur allumé à la PREMIÈRE demande (une fois, sans « seul » : le cerveau garde ses tâches libres).
-      if not f.build then
-        Build.enable(f, { radius = Auto.RADIUS })
-        note(f, st, tick, "plan directeur allume (rayon " .. Auto.RADIUS .. ")")
-      end
-      local prio = 40 + math.floor(A.VALUE * 45 / 100)
-      -- Recherche ouverte que ce module ne sert pas : ses tâches passent après celles de la recherche (critère K1)
-      if research and research.tech and not research.for_auto and not A.serves_research(research, rq.product) then
-        prio = prio - 10
-      end
-      -- Centrale d'abord (correction e2-usine) : demandée APRÈS le module, elle ne trouvait plus de rue vers le réseau
-      -- que le module avait amorcé seul (« pas de rue vers le reseau ») ; demandée avant, elle amorce le réseau et les
-      -- modules s'y relient (ordre du banc ia1-build d'IA1-d).
-      if rq.electric and not st.plant_id then
-        st.plant_id = Build.plant(f)
-        st.plant_state = "attente"
-        note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
-      end
-      local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" }
-      if rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
-        local ps = Build.brief(f, st.plant_id)
-        local pt = ps and ps.parts and ps.parts[1]
-        if pt then spec.near = { x = pt.x + pt.w / 2, y = pt.y + pt.h / 2 } end
-      end
-      local id, why = Build.request(f, spec)
-      if id then
-        st.mods[#st.mods + 1] = { id = id, product = rq.product, state = "attente", requested = tick,
-          rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil,
-          gain = rq.gain }
-        if rq.electric then st.plant_gain = math.max(st.plant_gain or 0, rq.gain or 0) end
-        note(f, st, tick, string.format("module '%s' DEMANDE (%s %s, %.0f objets/min visés, nominal %.0f) : %s", rq.product, rq.gen,
-          table.concat((function()
-            local o = {}
-            for i, a in ipairs(rq.args) do o[i] = type(a) == "table" and ("recette " .. tostring(a.name)) or tostring(a) end
-            return o
-          end)(), ","),
-          rq.rate, rq.rate_nom, rq.why))
-      else
-        note(f, st, tick, string.format("module '%s' : demande impossible (%s)", rq.product, tostring(why)))
-      end
+    -- Lot CAPIB : sous la capitalisation, A.decide mesure (verdicts, objets voulus) mais ne demande plus rien.
+    if not Auto.decide_off(f) then
+      for _, rq in ipairs(res.requests) do submit(f, st, tick, rq, research) end
     end
     Auto.minute_line(f, st, tick)
   end
@@ -472,7 +507,10 @@ function Auto.think(f, view, book, tick, research)
   local feeds = {}
   local stock = view.stock or {}
   for _, m in ipairs(st.mods) do
-    mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
+    -- Lot CAPIB : un module demandé par la capitalisation est un projet « capi » du cerveau (but de fond), pas « auto ».
+    if not m.capi then
+      mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
+    end
     if m.state == "fini" and f.build then
       -- Objets de ses quais d'entrée qui manquent au coffre : fabriqués ou fondus pour lui (pas les minerais ni le
       -- charbon : avant-postes ; un quai de minerai est un défaut du plan, la fonderie se dimensionne pour le tapis).

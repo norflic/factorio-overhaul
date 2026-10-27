@@ -114,6 +114,11 @@ Ca.T_GROWTH0 = 5        -- min : retour supposé avant le premier ordre
 Ca.T_LAG = 5            -- min : délai de pose supposé (décision -> bâtiment qui tourne) quand le runtime ne le mesure pas
 Ca.T_HIST = 3           -- cycles gardés pour le retour moyen T̄ (médiane)
 Ca.LEAD = 2             -- la demande élastique, et la capacité d'avance, ne dépassent jamais 2 fois le débit voulu
+-- Couverture d'avance d'un gisement OUVERT : plafond en multiple du besoin. nil = aucun plafond (décision de l'intégrateur
+-- sur Q-CAPI-1, OBJECTIFS §4, 27/10 vers 14 h 20, tirée de la phrase du DC de 12 h 30 « il aurait mis des foreuses partout,
+-- récupérer un maximum » : couvrir jusqu'à Ca.KAPPA ‰ des tuiles dès que le budget le permet, SANS « 2 × le besoin » ; les
+-- FOURS restent bornés par le minerai livré, Ca.fed_max). Lot CAPIB (branchement, 27/10 soir).
+Ca.COVER_LEAD = nil
 Ca.LABOR_H = 10         -- min de travail des bras disponibles engagés au plus
 Ca.SPARE = 2            -- PNJ : travail qui attend au-delà des bras libres (fait venir une recrue, IA3-d)
 Ca.HANDS_MIN = 1        -- PNJ : un bras au moins peut toujours passer au capital
@@ -627,8 +632,12 @@ local function best_drill(ctx, item)
   local D = ctx.D
   local rs = D.res[item]
   local best, bs = nil, nil
+  -- Lot CAPIB : foreuse imposée par ressource (input.drill_for = { [ressource] = entité }) : celle que l'EXÉCUTANT de cette
+  -- ressource sait poser (le runtime le déduit de ses exécutants ; ex. foreuses électriques là où une fonderie à foreuses
+  -- existe, foreuses des avant-postes ailleurs). Absente : toutes les foreuses disponibles.
+  local only = (ctx.input.drill_for or {})[item]
   for _, d in ipairs(D.drills) do
-    if d.cats[rs.category] and D.mu[d.item] and Ca.available(ctx, d) then
+    if (only == nil or d.name == only) and d.cats[rs.category] and D.mu[d.item] and Ca.available(ctx, d) then
       local s = (D.mu[d.item] + Ca.H_FUEL * Ca.fuel_per_min(D, d) * ctx.fuel_mu) / math.max(Ca.EPS, Ca.drill_per_min(D, d, item))
       if bs == nil or s < bs - 1e-12 then best, bs = d, s end
     end
@@ -1169,6 +1178,7 @@ Ca.deposit_state = deposit_state
 function Ca.usable(ctx, f, kind)
   if ctx.threat and not Ca.HQ_LEVERS[kind] then return "menace : leviers du QG seulement" end
   if f.danger then return "danger" end
+  if f.blocked then return tostring(f.blocked) end -- lot CAPIB : interdit par l'exécutant (hors de portée, refus)
   return nil
 end
 
@@ -1281,7 +1291,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   for _, f in ipairs(opened) do
     local key = "couvrir:" .. tostring(f.id)
     local covered, free, kappa = deposit_state(ctx, plan, f, d)
-    local blocked = f.danger or no_power
+    local blocked = f.danger or f.blocked or no_power
     if not blocked then
       n_usable = n_usable + 1
       free_total = free_total + free
@@ -1296,7 +1306,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
         -- Couverture D'AVANCE (critère (1) : « à mesure que le capital le permet ») : jusqu'à Ca.KAPPA ‰ des tuiles et
         -- Ca.LEAD × le besoin, gain à Ca.AHEAD_PCT % ; seulement pour une ressource qui a un débouché, et pas sur un site
         -- ouvert dans ce cycle (un ordre par gisement et par cycle).
-        local room = Ca.LEAD * Ri - Ni - stock_i
+        local room = Ca.COVER_LEAD and (Ca.COVER_LEAD * Ri - Ni - stock_i) or math.huge
         local to_k = math.ceil((Ca.KAPPA * (f.tiles or 0) / 1000 - covered) / math.max(Ca.EPS, cov) - Ca.EPS)
         n = math.max(0, math.min(free, math.floor(room / rho + Ca.EPS), to_k))
         ahead = true
@@ -1342,11 +1352,11 @@ local function extraction_options(ctx, plan, req, item, def, out)
   elseif #opened > 0 and Ri > 0 and life < Ca.H_LIFE then why_open = "epuisement en " .. fmt(life) .. " min"
   elseif #opened > 0 and reserve_low then why_open = "reserve de places basse" end
   local any_site = false
-  for _, f in ipairs(sites) do if not f.danger then any_site = true end end
+  for _, f in ipairs(sites) do if not (f.danger or f.blocked) then any_site = true end end
   local evaluated, cheap_done = 0, false
   for _, f in ipairs(sites) do
     local key = "ouvrir:" .. tostring(f.id)
-    if not Ca.taken(plan, key) and not f.danger then
+    if not Ca.taken(plan, key) and not f.danger and not f.blocked then
       local why = why_open
       local _, slots = deposit_state(ctx, plan, f, d)
       local n = math.min(slots, math.max(Ca.OPEN_MIN, Ca.count_for(math.max(0, def), rho, theta)))
@@ -1380,8 +1390,8 @@ local function extraction_options(ctx, plan, req, item, def, out)
       end
       evaluated = evaluated + 1
       if evaluated >= Ca.SITES_EVAL then break end
-    elseif f.danger and not Ca.taken(plan, key) and why_open then
-      refuse(ctx, key, "ouvrir", item, "danger")
+    elseif (f.danger or f.blocked) and not Ca.taken(plan, key) and why_open then
+      refuse(ctx, key, "ouvrir", item, f.danger and "danger" or tostring(f.blocked))
     end
   end
   if why_open and not any_site and not ctx.threat then ctx.explore[item] = why_open end
@@ -1768,6 +1778,47 @@ function Ca.capi_view(avail, res)
   local out = {}
   for _, k in ipairs(sorted_keys(avail)) do out[k] = math.floor((avail[k] or 0) * keep / 1000) end
   return out
+end
+
+--- Lot CAPIB (branchement) : émission d'un projet « capi » (shared/ai3/projets.lua, P.EMIT.capi). L'EXÉCUTANT a reçu
+--- l'ordre du runtime au moment de la décision (plan directeur, rangées de fours, laboratoires du QG) ; il prend lui-même
+--- au coffre ce qui y est. Le projet ne fait que ce qui MANQUE à l'exécutant (g.order.missing = { {objet, n} }, relu à
+--- chaque pensée par le runtime) : fabriquer à la main, fondre, miner, depuis la PART CAPI du stock virtuel
+--- (Ca.capi_view : les parts de la défense et de l'armée restent à leurs familles, même si elles n'ont rien demandé).
+--- Statut : « bloque » (raison de l'exécutant), « matiere » (il manque des objets), sinon « en_cours ».
+--- ctx.capi = { res } (la décision du cycle : δ et α) ; sans elle, la part entière.
+function Ca.emit(P)
+  return function(E, proj, g, ctx)
+    local o = (g and g.order) or {}
+    if o.blocked then return "bloque", "capi:" .. tostring(o.blocked) end
+    -- Exécutants du cerveau lui-même (méthodes d'émission existantes, aucun second chemin de pose) : l'extension ou la
+    -- construction d'un avant-poste (o.exec « outpost », type o.outpost_kind) et les rangées de fours du QG
+    -- (o.exec « smelters », reste à poser o.n_left).
+    if o.exec == "outpost" and P.EMIT.outpost then
+      return P.EMIT.outpost(E, proj, { outpost = o.outpost_kind }, ctx)
+    end
+    if o.exec == "smelters" and P.EMIT.smelters then
+      if (o.n_left or 0) <= 0 then return "en_cours" end
+      return P.EMIT.smelters(E, proj, { n = o.n_left }, ctx)
+    end
+    local miss = o.missing or {}
+    if #miss == 0 then return "en_cours" end
+    local res = ctx and ctx.capi and ctx.capi.res or nil
+    local full = E.avail
+    local view = Ca.capi_view(full, res)
+    local held = {}
+    for _, k in ipairs(sorted_keys(full)) do held[k] = (full[k] or 0) - (view[k] or 0) end
+    E.avail = view
+    P.want(E, proj, miss, proj.prio, false, "capi")
+    local after = E.avail
+    local merged = {}
+    for _, k in ipairs(sorted_keys(after)) do merged[k] = (after[k] or 0) + (held[k] or 0) end
+    for _, k in ipairs(sorted_keys(held)) do
+      if merged[k] == nil then merged[k] = held[k] end
+    end
+    E.avail = merged
+    return "matiere"
+  end
 end
 
 --- Ligne de journal (ASCII) : « [FO-CAPI] <faction> minute M » + ce texte, côté runtime.

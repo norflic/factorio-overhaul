@@ -124,7 +124,7 @@ local function extraction(view, free, ctx, out)
   -- (l'expansion sans défense perdait l'équipe, essais 2 et 5 du lot) ; transport, fonderie, minage près du coffre.
   local safe = ctx.safe_only
   for _, o in ipairs(view.outposts or {}) do
-    local room = T.max_drills(o.kind) - (o.drills or 0)
+    local room = T.max_drills(o.kind, o) - (o.drills or 0)
     if undefended[o.id] and not o.full and room > 0 then extendable[o.kind] = true end -- il attend ses tourelles
     if not o.full and room > 0 and not danger[o.id] and not undefended[o.id] and not prudent and not safe then
       extendable[o.kind] = true
@@ -226,7 +226,7 @@ function F.potential(view, ctx)
   local undefended = ctx.undefended or {}
   local n = 0
   for _, o in ipairs(view.outposts or {}) do
-    if not o.full and not undefended[o.id] then n = n + math.max(0, T.max_drills(o.kind) - (o.drills or 0)) end
+    if not o.full and not undefended[o.id] then n = n + math.max(0, T.max_drills(o.kind, o) - (o.drills or 0)) end
   end
   if not ctx.defend_first or ctx.turrets_ok then
     for _, kind in ipairs(T.OUTPOST_ORDER) do

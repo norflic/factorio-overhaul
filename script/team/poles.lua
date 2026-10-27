@@ -357,7 +357,7 @@ function Poles.think(f, view, book, tick, plan)
   -- site connu demande un site de plus à la prospection (Sites.prospect lit f.site_needs) : le capital suivant.
   local growable = {}
   for _, o in ipairs(view.outposts or {}) do
-    if not o.full and (o.drills or 0) < T.max_drills(o.kind) then growable[o.kind] = true end
+    if not o.full and (o.drills or 0) < T.max_drills(o.kind, o) then growable[o.kind] = true end
   end
   f.site_needs = f.site_needs or {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do
