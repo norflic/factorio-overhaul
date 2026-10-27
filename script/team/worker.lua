@@ -648,6 +648,12 @@ FSM.define(MACHINE, {
       local r = Build.work(agent, f, tick)
       if r == "more" then return end
       agent.ia1d = nil
+      if r == "again" then
+        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte
+        agent.pc = agent.pc - 1
+        set(agent, "step", tick)
+        return
+      end
       if r == "done" then
         agent.pc = agent.pc + 1
         set(agent, "step", tick)
@@ -698,8 +704,10 @@ FSM.define(MACHINE, {
         end
         agent.walk_retries = 0
         local step = agent.steps and agent.steps[agent.pc]
-        -- Lot IA1-d : un défricheur arrêté en route défriche là où il est (il s'ouvre le chemin, script/team/build.lua)
-        if step and step[1] == "goto" and agent.task and agent.task.ia1d and agent.task.ia1d.mode == "clear" then
+        -- Lot IA1-d : un défricheur ou un bâtisseur arrêté en route travaille là où il est (il s'ouvre le chemin vers son
+        -- point d'appui, script/team/build.lua)
+        if step and step[1] == "goto" and agent.task and agent.task.ia1d
+          and (agent.task.ia1d.mode == "clear" or agent.task.ia1d.mode == "build") then
           agent.pc = agent.pc + 1
           set(agent, "step", tick)
           return

@@ -55,6 +55,7 @@ Build.RETRIES = 3
 Build.ANCHOR_SEARCH = 6        -- rayon (tuiles) de la recherche d'une tuile libre pour un point d'appui
 Build.OBST_CHECKS = 8          -- obstacles revus par passe (défrichage et chantier), à tour de rôle
 Build.CUT_WIDTH = 1.5          -- demi-largeur (tuiles) du couloir qu'un défricheur arrêté s'ouvre vers son point d'appui
+Build.CUT_TRIES = 6            -- marches refaites après une coupe, par tâche
 
 local REACH = P.BUILD_DISTANCE
 local TREE_TYPES = { "tree", "simple-entity" }
@@ -440,9 +441,63 @@ local function plan_power(f, p, mp, masks)
     end
     target = best
   end
-  local nodes = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius)
-  -- à défaut : par-dessus une rue fermée par une falaise (correction du 27/10, banc ia1-build-reseau)
-  if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) end
+  -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
+  -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
+  -- falaise (banc ia1-build-reseau).
+  local surface = surface_of(f)
+  local spots = {}
+  local function spot_of(i, j)
+    local k = P.lot_key(i, j)
+    if spots[k] ~= nil then return spots[k] or nil end
+    local net = b.net[k]
+    if net and net.x then spots[k] = { x = net.x, y = net.y } return spots[k] end
+    local base = P.node_pole(b.lat, i, j, big)
+    local w = big and 2 or 1
+    for _, d in ipairs({ { 0, 0 }, { 2, 0 }, { 0, 2 }, { 2, 2 } }) do
+      -- quarts du carrefour (4 × 4) : grand poteau 2 × 2 décalé de 2, poteau moyen aux coins (décalé de 3)
+      local x, y = base.x + d[1], base.y + d[2]
+      if not big then x, y = base.x + d[1] * 1.5, base.y + d[2] * 1.5 end
+      local area = { { x - w / 2 + 0.05, y - w / 2 + 0.05 }, { x + w / 2 - 0.05, y + w / 2 - 0.05 } }
+      local ok = true
+      for ty = math.floor(area[1][2]), math.floor(area[2][2]) do
+        for tx = math.floor(area[1][1]), math.floor(area[2][1]) do if b.occ[P.tkey(tx, ty)] then ok = false end end
+      end
+      if ok and surface then
+        if surface.count_tiles_filtered({ area = area, collision_mask = "water-tile", limit = 1 }) > 0 then ok = false end
+        if ok then
+          for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "object-layer" })) do
+            if e.type ~= "tree" and e.type ~= "simple-entity" and e.type ~= "character" then ok = false break end
+          end
+        end
+      end
+      if ok then spots[k] = { x = x, y = y } return spots[k] end
+    end
+    spots[k] = false
+    return nil
+  end
+  -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
+  -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)
+  local bad = {}
+  local function avoid(okf) return function(key)
+    if not okf(key) then return false end
+    local kind, i, j = P.parse_seg(key)
+    if not kind then return true end
+    local i2, j2 = i + (kind == "h" and 1 or 0), j + (kind == "v" and 1 or 0)
+    return not bad[P.lot_key(i, j)] and not bad[P.lot_key(i2, j2)]
+  end end
+  local nodes
+  for _ = 1, 4 do
+    nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_passable(b)), b.radius)
+    if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_wire(b)), b.radius) end
+    if not nodes then break end
+    local blocked
+    for _, n in ipairs(nodes) do
+      if not spot_of(n.i, n.j) then blocked = n break end
+    end
+    if not blocked then break end
+    bad[P.lot_key(blocked.i, blocked.j)] = true
+    nodes = nil
+  end
   if not nodes then return nil, "pas de rue vers le reseau" end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
@@ -454,14 +509,17 @@ local function plan_power(f, p, mp, masks)
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
-    local pos = P.node_pole(b.lat, n.i, n.j, big)
+    local pos = spot_of(n.i, n.j)
+    n.x, n.y = pos.x, pos.y
     if not b.net[k] then
       local e = { name = pole, x = pos.x, y = pos.y, dir = 0, role = "reseau", node = k }
       out[#out + 1] = e
     end
     take({ name = pole, x = pos.x, y = pos.y, dir = 0 })
-    if prev and not big then
-      local chain = P.pole_chain(prev, pos, 9, false, free)
+    -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
+    local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
+    if prev and (not big or d2 > reach * reach - 1e-6) then
+      local chain = P.pole_chain(prev, pos, big and reach or 9, big, free)
       if not chain then return nil, "poteaux de rue" end
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
@@ -472,7 +530,7 @@ local function plan_power(f, p, mp, masks)
     prev = pos
   end
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
-  local npos = P.node_pole(b.lat, mi, mj, big)
+  local npos = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
   local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
   if not chain then return nil, "liaison electrique" end
@@ -795,7 +853,7 @@ local function plan_project(f, surface, p)
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
-            if not b.net[k] then b.net[k] = { i = n.i, j = n.j, pid = p.id } end
+            if not b.net[k] then b.net[k] = { i = n.i, j = n.j, pid = p.id, x = n.x, y = n.y } end
           end
         end
       end
@@ -1040,8 +1098,54 @@ local function revive_one(surface, f, p, e, inv, tick, self)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Travail d'un PNJ sur place (état « ia1d » de script/team/worker.lua) : "more", "done" ou "fail"
+-- Travail d'un PNJ sur place (état « ia1d » de script/team/worker.lua) : "more", "done", "fail", ou "again" (refaire la
+-- marche vers le point d'appui depuis la position atteinte)
 ---------------------------------------------------------------------------------------------------
+--- PNJ arrêté en route (forêt dense) : il coupe les arbres et rochers du couloir (demi-largeur Build.CUT_WIDTH) qui
+--- mène à son point d'appui, à sa portée. Rend le nombre coupé, ou nil (jetons épuisés ou limite de la pensée : à
+--- reprendre). Correction du 27/10, banc ia1-build-foret.
+local function cut_toward(f, agent, job, pos, inv, tick, reach2)
+  local e = agent.entity
+  local surface = e.surface
+  local b = f.build
+  local dx, dy = job.ax - pos.x, job.ay - pos.y
+  local l2 = dx * dx + dy * dy
+  local near = surface.find_entities_filtered({ area = { { pos.x - REACH, pos.y - REACH }, { pos.x + REACH, pos.y + REACH } }, type = TREE_TYPES })
+  table.sort(near, function(a, c)
+    local da, dc = dist2(a.position, pos), dist2(c.position, pos)
+    if da ~= dc then return da < dc end
+    if a.position.x ~= c.position.x then return a.position.x < c.position.x end
+    return a.position.y < c.position.y
+  end)
+  local cut = 0
+  for _, t in ipairs(near) do
+    local tx, ty = t.position.x - pos.x, t.position.y - pos.y
+    local u = (tx * dx + ty * dy) / l2
+    local px, py = tx - u * dx, ty - u * dy
+    if u > 0 and u <= 1 and px * px + py * py <= Build.CUT_WIDTH * Build.CUT_WIDTH and dist2(t.position, pos) <= reach2 then
+      if cut >= Build.CLEAR_PER_THINK then return nil end
+      if not Tokens.take(f, tick, Build.COST_EVAL) then return nil end
+      if not t.mine({ inventory = inv, force = e.force, raise_destroyed = true }) and t.valid then t.destroy({ raise_destroy = true }) end
+      cut = cut + 1
+      b.stats.cleared = b.stats.cleared + 1
+      b.stats.cut = (b.stats.cut or 0) + 1
+    end
+  end
+  return cut
+end
+
+--- Point d'appui pas atteint : couper le couloir, puis refaire la marche (Build.CUT_TRIES fois par tâche au plus).
+local function not_there(f, agent, job, pos, inv, tick, reach2, give_up)
+  local cut = cut_toward(f, agent, job, pos, inv, tick, reach2)
+  if cut == nil or cut > 0 then return "more" end
+  local t = agent.task
+  if t and (t.cut_tries or 0) < Build.CUT_TRIES then
+    t.cut_tries = (t.cut_tries or 0) + 1
+    return "again"
+  end
+  return give_up
+end
+
 function Build.work(agent, f, tick)
   local job = agent.ia1d
   local b = f and f.build
@@ -1078,6 +1182,9 @@ function Build.work(agent, f, tick)
     job.done = (job.done or 0) + did
     if did > 0 and left > 0 then return "more" end
     if did > 0 then return "more" end -- une pensée de plus pour constater la fin
+    if (job.done or 0) == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
+      return not_there(f, agent, job, pos, inv, tick, reach2, "fail")
+    end
     return (job.done or 0) > 0 and "done" or "fail"
   elseif job.mode == "clear" then
     local did = 0
@@ -1108,34 +1215,10 @@ function Build.work(agent, f, tick)
         end
       end
     end
-    -- rien à portée dans la zone (PNJ arrêté en route, forêt dense) : il coupe les arbres du couloir qui mène à son
-    -- point d'appui, puis repart (correction du 27/10, banc ia1-build-foret)
-    if did == 0 and remain == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 9 then
-      local dx, dy = job.ax - pos.x, job.ay - pos.y
-      local l2 = dx * dx + dy * dy
-      local near = surface.find_entities_filtered({ area = { { pos.x - REACH, pos.y - REACH }, { pos.x + REACH, pos.y + REACH } }, type = TREE_TYPES })
-      table.sort(near, function(a, c)
-        local da, dc = dist2(a.position, pos), dist2(c.position, pos)
-        if da ~= dc then return da < dc end
-        if a.position.x ~= c.position.x then return a.position.x < c.position.x end
-        return a.position.y < c.position.y
-      end)
-      local cut = 0
-      for _, t in ipairs(near) do
-        local tx, ty = t.position.x - pos.x, t.position.y - pos.y
-        local u = (tx * dx + ty * dy) / l2
-        local px, py = tx - u * dx, ty - u * dy
-        if u > 0 and u <= 1 and px * px + py * py <= Build.CUT_WIDTH * Build.CUT_WIDTH and dist2(t.position, pos) <= reach2 then
-          if cut >= Build.CLEAR_PER_THINK then return "more" end
-          if not Tokens.take(f, tick, Build.COST_EVAL) then return "more" end
-          if not t.mine({ inventory = inv, force = e.force, raise_destroyed = true }) and t.valid then t.destroy({ raise_destroy = true }) end
-          cut = cut + 1
-          b.stats.cleared = b.stats.cleared + 1
-          b.stats.cut = (b.stats.cut or 0) + 1
-        end
-      end
-      if cut > 0 then return "more" end
-      return "done"
+    -- rien à portée dans la zone (PNJ arrêté en route, forêt dense) : il s'ouvre le couloir vers son point d'appui,
+    -- puis refait la marche (correction du 27/10, banc ia1-build-foret)
+    if did == 0 and remain == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
+      return not_there(f, agent, job, pos, inv, tick, reach2, "done")
     end
     job.done = (job.done or 0) + did
     if did > 0 or remain > 0 then return "more" end
