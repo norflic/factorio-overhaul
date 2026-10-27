@@ -11,7 +11,7 @@
     vont à sa LOGISTIQUE. Chaque minute, le débit livré au QG par objet (f.team.delivered) clôt la minute.
   - Décision (une fois par minute) : A.decide ; une demande devient Build.request (spec : générateur, paramètres
     dimensionnés, têtes d'alimentation, priorité du projet) ; Build.enable(f, { radius = 3 }) une fois, sans « seul ».
-  - Suivi (chaque pensée) : Build.status de chaque demande ; le cerveau reçoit ctx.auto = { modules (état, manques,
+  - Suivi (chaque pensée) : Build.brief de chaque demande (sans appel du moteur) ; le cerveau reçoit ctx.auto = { modules (état, manques,
     raison), cap (capacité d'extraction des modules finis, en unités d'avant-poste), covered (objets couverts) }.
   - Recherche : les objets d'un gabarit que l'équipe ne sait pas fabriquer (poteau moyen) sont rendus au cerveau par le
     crochet Ia3.wanted : la technologie qui les débloque prend de la valeur.
@@ -135,7 +135,7 @@ end
 --- pièces dont la recette donne l'objet du module ; objets par minute.
 local function measure_module(f, m)
   local surface = f.hq and f.hq.valid and f.hq.surface
-  local s = surface and f.build and Build.status(f, m.id)
+  local s = surface and f.build and Build.brief(f, m.id)
   if not s then return 0 end
   local made = 0
   for _, pt in ipairs(s.parts or {}) do
@@ -191,7 +191,7 @@ local function refresh(f, st, tick)
   -- Centrale (demandée AVANT le premier module électrique) : son état ; refusée, les modules électriques attendent que la
   -- raison change (signature).
   if st.plant_id and f.build then
-    local ps = Build.status(f, st.plant_id)
+    local ps = Build.brief(f, st.plant_id)
     local state = ps and ps.state or "refuse"
     if state == "bloque" and not (ps and ps.retry_at) then state = "refuse" end
     if state ~= st.plant_state then
@@ -215,7 +215,7 @@ local function refresh(f, st, tick)
   end
   for _, m in ipairs(st.modules) do
     if m.state ~= "fini" and m.state ~= "refuse" then
-      local s = Build.status(f, m.id)
+      local s = Build.brief(f, m.id)
       if not s then
         m.state, m.reason = "refuse", "projet perdu"
       else
@@ -301,7 +301,7 @@ function Auto.think(f, view, book, tick)
       end
       local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" }
       if rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
-        local ps = Build.status(f, st.plant_id)
+        local ps = Build.brief(f, st.plant_id)
         local pt = ps and ps.parts and ps.parts[1]
         if pt then spec.near = { x = pt.x + pt.w / 2, y = pt.y + pt.h / 2 } end
       end
@@ -327,7 +327,7 @@ function Auto.think(f, view, book, tick)
   -- réserve « materiaux » attendait 64 min, personne ne fabriquait ses chaudière et machines à vapeur), avec la valeur
   -- du module électrique qui l'attend.
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
-    local ps = Build.status(f, st.plant_id)
+    local ps = Build.brief(f, st.plant_id)
     if ps then
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end

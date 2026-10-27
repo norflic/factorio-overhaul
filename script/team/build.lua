@@ -1827,6 +1827,22 @@ function Build.status(f, id)
     finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries }
 end
 
+--- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les
+--- quais au moteur) : { state, reason, missing, built, total, retry_at, retries, parts }.
+function Build.brief(f, id)
+  local p = f and f.build and f.build.projects[id]
+  if not p then return nil end
+  local missing = {}
+  for _, m in ipairs(p.missing or {}) do missing[#missing + 1] = { m[1], m[2] } end
+  local parts = {}
+  for i = 1, #p.parts do
+    local pt = p.parts[i]
+    if pt then parts[#parts + 1] = { kind = pt.kind, key = pt.key, x = pt.ox, y = pt.oy, w = pt.w, h = pt.h } end
+  end
+  return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
+    retry_at = p.retry_at, retries = p.retries, parts = parts }
+end
+
 function Build.report(f)
   local b = f and f.build
   if not b then return nil end
