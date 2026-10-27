@@ -71,10 +71,11 @@ return function(variant, ticks)
     end
   end
 
-  local function median(list)
+  local function median(list) -- médiane vraie (nombre pair : moyenne des deux du milieu ; « jamais » = 1e9)
     table.sort(list)
     if #list == 0 then return nil end
-    return list[math.floor((#list + 1) / 2)]
+    if #list % 2 == 1 then return list[(#list + 1) / 2] end
+    return (list[#list / 2] + list[#list / 2 + 1]) / 2
   end
 
   base.finish = function(ctx)

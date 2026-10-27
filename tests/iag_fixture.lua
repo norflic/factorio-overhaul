@@ -136,8 +136,12 @@ end
 --- foreuses des avant-postes (shared/team/config.lua : T.SMELTER, T.DRILL).
 function F.opts()
   local T = require("shared.team.config")
+  local function kind_of(res)
+    for _, k in ipairs(T.OUTPOST_ORDER) do if T.outposts[k].resource == res then return k end end
+    return nil
+  end
   return { exec = { [T.SMELTER] = true, [T.DRILL] = true }, exec_roles = { main = true, labo = true },
-    labs_unpowered = true }
+    labs_unpowered = true, fuel_ok = function(item) return kind_of(item) ~= nil end }
 end
 
 --- État de départ d'une faction (kit de départ, fours du QG, gisements de base connus).
