@@ -673,7 +673,14 @@ end
 local function plan_feed(f, surface, p, place, part)
   local b = f.build
   local g = place.g
-  for _, port in ipairs(P.belt_ports(place.inst)) do
+  -- Lot AUTO : les quais de SORTIE d'abord, puis les entrées (têtes, foreuses et leur tapis). Le tapis des foreuses évite
+  -- les tuiles déjà réservées (b.occ) ; réservé AVANT le quai de sortie, il pouvait passer sur sa tuile (reserve_tiles admet
+  -- un recouvrement dans le même projet) : moteur réel, a2 et a3-usine graine 271828182, emerald, fantôme du tapis refusé
+  -- « occupe » par le coffre du quai de sortie bâti avant lui, fonderie bloquée à 138 entités sur 139 jusqu'à 90 min.
+  local ports = {}
+  for _, port in ipairs(P.belt_ports(place.inst)) do if port.io ~= "in" then ports[#ports + 1] = port end end
+  for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "in" then ports[#ports + 1] = port end end
+  for _, port in ipairs(ports) do
     if port.io == "in" then
       local sources = { nil, nil }
       local drills = {}
@@ -1065,6 +1072,14 @@ local function plan_project(f, surface, p)
     local ok, w2 = plan_feed(f, surface, p, main, 1)
     Profiler.stop("build:plan:feed")
     if not ok then return false, w2 end
+    -- Lot AUTO : diagnostic seulement (aucun refus) : deux entités du projet sur une même tuile ne se bâtiront jamais
+    -- toutes les deux (la seconde : fantôme refusé « occupe »).
+    local ov = P.overlaps(p.ents)
+    if #ov > 0 then
+      local e1, e2 = p.ents[ov[1][1]], p.ents[ov[1][2]]
+      log(string.format("[FO-AUTO] %s : projet %d, %d chevauchement(s) au plan, dont %s (%s) et %s (%s) en (%.1f, %.1f)",
+        f.key or "player", p.id, #ov, e1.name, tostring(e1.role), e2.name, tostring(e2.role), e2.x, e2.y))
+    end
   end
   Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
