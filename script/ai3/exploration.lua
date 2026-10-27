@@ -37,6 +37,7 @@
   Journal : « [FO-IA3F] ».
 ]]
 
+local Rg = require("shared.ai3.reglages") -- lot IA-G : corps du personnage (place libre), nom déplacé
 local Events = require("script.core.events")
 local Scheduler = require("script.core.scheduler")
 local Storage = require("script.core.storage")
@@ -426,7 +427,7 @@ local function start_mission(f, k, a, kind, res, tick)
           wait = true
         end
         -- Lot IA-V2 : point de l'anneau posé sur une case libre (eau, falaise : chemin raté en 0 s).
-        local q = chunk_ready(surface, p) and surface.find_non_colliding_position("character", p, FREE_RADIUS, 1) or nil
+        local q = chunk_ready(surface, p) and surface.find_non_colliding_position(Rg.BODY, p, FREE_RADIUS, 1) or nil
         steps[#steps + 1] = { "goto", q and { x = q.x, y = q.y } or p, 6 }
       end
     end
@@ -513,7 +514,7 @@ local function retarget(f, k, a, ex, tick)
   local cx, cy = K.center(K.xy(key))
   local wp = K.toward(me, { x = cx, y = cy }, WAYPOINT)
   if chunk_ready(surface, wp) then
-    local q = surface.find_non_colliding_position("character", wp, FREE_RADIUS, 1)
+    local q = surface.find_non_colliding_position(Rg.BODY, wp, FREE_RADIUS, 1)
     if q then wp = { x = q.x, y = q.y } end
   end
   local steps = { { "goto", wp, 6 }, { "wait", 600 }, { "home" } }

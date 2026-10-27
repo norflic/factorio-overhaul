@@ -24,6 +24,8 @@
      (shared/ai3/general.lua, Gen.key_resources) ; sur les données vanilla, la déduction rend exactement ces valeurs
      (test tests/iag_test.lua §3), c'est ce qui garde les bancs d'aujourd'hui ; sur des données changées, elle rend
      autre chose (§6 du test, et la copie jetable du banc).
+  7. R.BODY : le corps du personnage dont l'exécutant d'IA3-f cherche la place libre sur un trajet
+     (script/ai3/exploration.lua, find_non_colliding_position ; nom déplacé, inchangé).
   Ce fichier ne contient aucune fonction.
 ]]
 
@@ -89,6 +91,8 @@ R.MODIFIER_ROLE = {
 }
 
 R.TURRET = "gun-turret"
+
+R.BODY = "character"
 
 R.MARCHE_CIBLES = { coal = 400, stone = 200, ["iron-ore"] = 200, ["copper-ore"] = 100 }
 

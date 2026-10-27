@@ -301,7 +301,7 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Ressources clés : besoin BRUT des buts de référence (sans le stock consommable).
   local ds = General.state(f, st, view, true)
-  local evd = Gen.prepare(c, ds)
+  local evd = Gen.prepare(c, ds, memo_of(f)) -- même clé (les points fixes ne lisent que le stock durable) : mémo
   local sumd = Gen.summary(c, evd, ds, ref_goals(f, d.tech))
   local key = Gen.key_resources(c, sumd, T.OUTPOST_ORDER, kind_of)
   g.key = { top = key.top, fuel = key.fuel, order = key.order, optional = key.optional }

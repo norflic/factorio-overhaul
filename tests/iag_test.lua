@@ -318,14 +318,43 @@ do
   for _, m in ipairs(ent.machines) do names[m.name] = true end
   for k in pairs(ent.resources) do names[k] = true end
   for _, it in ipairs(T.start_kit) do names[it[1]] = true end
+  -- Fichiers EXEMPTÉS, nommés et justifiés (demande de l'intégrateur, 27/10) :
+  local EXEMPT = {
+    ["shared/ai3/reglages.lua"] = "seules données nommées admises (types du moteur, réglages hérités, repli de votre équipe)",
+    ["script/ai3/paliers.lua"] = "paliers de MESURE (§6.1) ; lus seulement par Ia3.measure (contrôlé plus bas)",
+  }
   local files = {}
-  local p = io.popen('ls shared/ai3/*.lua')
+  local p = io.popen('ls shared/ai3/*.lua script/ai3/*.lua')
   for line in p:lines() do
-    if not line:find("reglages.lua", 1, true) then files[#files + 1] = line end
+    if not EXEMPT[line] then files[#files + 1] = line end
   end
   p:close()
-  files[#files + 1] = "script/ai3/general.lua"
   table.sort(files)
+  for _, k in ipairs(sorted_keys(EXEMPT)) do print("[IAG] §8 exempté : " .. k .. " (" .. EXEMPT[k] .. ")") end
+  -- Les paliers de mesure ne sont lus que par Ia3.measure (aucune décision ne les lit).
+  do
+    local f = assert(io.open("script/ai3/cerveau.lua", "rb"))
+    local src = f:read("*a")
+    f:close()
+    local code = src:gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
+    local m0 = code:find("function Ia3.measure", 1, true)
+    local m1 = m0 and code:find("\nfunction ", m0 + 1, true) or nil
+    local outside = 0
+    local pos = 1
+    while true do
+      local i = code:find("PALIERS", pos, true)
+      if not i then break end
+      local def = code:sub(math.max(1, i - 4), i + 20):find("Ia3.PALIERS = ", 1, true)
+      if not def and not (m0 and i > m0 and (not m1 or i < m1)) then outside = outside + 1 end
+      pos = i + 1
+    end
+    check(m0 ~= nil and outside == 0, "§8 paliers de mesure lus seulement par Ia3.measure (" .. outside .. " lecture(s) ailleurs)")
+    local n_req = 0
+    local pp = io.popen('grep -rl "script.ai3.paliers" script shared')
+    for line in pp:lines() do if line ~= "script/ai3/paliers.lua" then n_req = n_req + 1 end end
+    pp:close()
+    check(n_req == 1, "§8 paliers requis par un seul fichier (" .. n_req .. ")")
+  end
   -- Mots du vocabulaire GÉNÉRIQUE qui sont aussi des noms du jeu, admis seulement comme IDENTIFIANTS (jamais entre
   -- guillemets) : `lab` (champ « est un laboratoire » du format du graphe, shared/ai3/graphe.lua et fixtures), `water`
   -- (champ « eau vue » d'un regard, carte d'IA3-f).

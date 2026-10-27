@@ -53,7 +53,7 @@ P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- l'avant-poste de fer). Aucune autre chaîne du jeu dans la logique de ce module.
 P.TURRET = R.TURRET
 P.FALLBACK_UNIT = "rifleman"
-P.IRON = T.outposts.iron.product
+P.IRON = T.outposts[R.FALLBACK_KEY.top].product -- lot IA-G : repli ; la matière gardée vient de ctx.floor_item
 
 local function sorted_keys(t)
   local ks = {}
@@ -449,10 +449,11 @@ EMIT.research = function(E, proj, g, ctx)
   end
   if r.packs and #r.packs > 0 then
     local floor = ctx.iron_floor or 0
-    local keep = math.min(E.avail[P.IRON] or 0, floor)
-    E.avail[P.IRON] = (E.avail[P.IRON] or 0) - keep
+    local fi = ctx.floor_item or P.IRON -- lot IA-G : produit de la ressource la plus demandée (déduite)
+    local keep = math.min(E.avail[fi] or 0, floor)
+    E.avail[fi] = (E.avail[fi] or 0) - keep
     if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
-    E.avail[P.IRON] = (E.avail[P.IRON] or 0) + keep
+    E.avail[fi] = (E.avail[fi] or 0) + keep
   end
   return status
 end

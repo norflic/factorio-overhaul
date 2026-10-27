@@ -20,6 +20,35 @@ return function(variant, ticks)
   base.check_tick = CHECK
   base.description = "IA-G : cerveau general, partie normale (" .. variant .. ")"
   local finish0 = base.finish
+  -- Variante « photo » (session AVEC images, banc.py --captures --visuel="--ticks N") : captures du QG de chaque faction
+  -- (laboratoires du QG, fours, coffre) aux minutes SHOTS, zoom 0,6, de jour, infos des entités (mode Alt).
+  local SHOTS = { 36000, 72000, 108000 }
+  local tick0 = base.tick
+  base.tick = function(ctx, e)
+    tick0(ctx, e)
+    if variant ~= "photo" then return end
+    for _, t in ipairs(SHOTS) do
+      if e.tick == t then
+        local ok, rows = pcall(remote.call, "fo-ia1", "teams")
+        local s = ctx.surface()
+        local p = game.connected_players[1]
+        for _, row in ipairs(ok and rows or {}) do
+          if row.key ~= "player" then
+            local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = row.force, limit = 1 })[1]
+            if hq and hq.valid then
+              local name = string.format("iag-%s-%02dmin.png", row.key, math.floor(t / 3600))
+              game.take_screenshot({ path = "fo-shots/" .. name, player = p, surface = s, position = hq.position,
+                zoom = 0.6, resolution = { 1600, 1200 }, daytime = 0, force_render = true, show_entity_info = true,
+                allow_in_replay = true })
+              local labs = s.count_entities_filtered({ type = "lab", force = row.force })
+              local furn = s.count_entities_filtered({ type = "furnace", force = row.force })
+              ctx.log(string.format("capture %s demandee : %s, laboratoires %d, fours %d", name, row.key, labs, furn))
+            end
+          end
+        end
+      end
+    end
+  end
 
   local function median(list)
     table.sort(list)
