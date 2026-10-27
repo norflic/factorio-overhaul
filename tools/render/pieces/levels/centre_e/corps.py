@@ -534,10 +534,14 @@ def garde_corps(g, c):
 
 def feux(g, c):
     M = g.M
-    d = c.dd - 0.16
+    # sur les diagonales, DANS le socle (ronde 1 : aux socles ronds, le feu tombait hors du socle : îlot de 67 px)
+    if c.plan == "rond":
+        d = (c.dd - 0.2) / SQ2
+    elif c.plan == "octo":
+        d = (1.188 * c.dd - 0.2) / SQ2
+    else:
+        d = c.dd - 0.16
     for (x, y) in sym4((d, d)):
-        if not sur_socle(c, x, y, 0.05):
-            x, y = x * 0.82, y * 0.82
         with habille(g, c):
             colonne(g, x, y, c.zt, c.zt + 0.22, 0.04, c.m("steel_dk"), n=8, style="hard", what="mat_feu")
         g.dome((x, y, c.zt + 0.22), (0, 0, 1), 0.04, M["emit"], what="feu")
@@ -660,7 +664,8 @@ def detail_toits(g, c, zm):
                 u2, u3, u4, u5 = rng.random(), rng.random(), rng.random(), rng.random()
                 x = o + i * pas + (u2 - 0.5) * pas * 0.35
                 y = o + j * pas + (u3 - 0.5) * pas * 0.35
-                if u5 > 0.85 or not dans_forme(c.plan, hout, x, y, 0.07) or dans_forme(c.plan, hin, x, y, -0.07):
+                # ronde 1b : terrasses moins garnies (0,85 → 0,45 : moucheté à la ronde 1)
+                if u5 > 0.45 or not dans_forme(c.plan, hout, x, y, 0.07) or dans_forme(c.plan, hin, x, y, -0.07):
                     continue
                 if k + 1 == n_et and math.hypot(x, y) < hin:
                     continue
@@ -699,7 +704,7 @@ def centre(g, c):
             c.ep.facade(g, c)
         # le mât est dessiné pour une emprise de 4,5 t : mis à l'échelle de l'emprise autour de son pied (essai 1 : trop
         # petit sur les 7×7 et 8×8)
-        k = float(getattr(c.ep, "ECHELLE_MAT", c.side / 4.5))
+        k = float(getattr(c.ep, "ECHELLE_MAT", 1.4 * c.side / 4.5))     # ronde 1b : × 1,4 (mâts peu lisibles)
         g.stack.append(g.stack[-1] @ Matrix.Translation((0.0, 0.0, zm)) @ Matrix.Diagonal((k, k, k, 1.0))
                        @ Matrix.Translation((0.0, 0.0, -zm)))
         try:
