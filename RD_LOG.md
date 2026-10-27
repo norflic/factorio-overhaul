@@ -1199,7 +1199,8 @@ fer SANS PNJ : 107 à 114 plaques/min (112,5 au plus). Garde-fous sur 4e44ec4 : 
 pnj-reduit 12, ia1-scale 17 ; **neutralité** : `pnj-reduit` de la branche et de `main` : 5 232 lignes `[FO-…]` identiques
 (sans `Build.enable`, le lot ne change rien). Hors jeu sur `main` après fusion (27/10, 4 h 25) : plan_test 82 OK (dont
 l'équivalence des accélérations, 2 mutants refusés), run 114, war 105, td 270, pteam 32, migration 82, org 366, ia1b2 62,
-ia1b 50, ia1i 89, ia1_scale 115, ia1_modules 1018, levels 1666, harness code 0, api_lint 1123 usages, 0 erreur.
+ia1b 50, ia1i 89, ia1_scale 115, ia1_modules 1018, levels 1666, harness code 0, api_lint 1123 usages, 0 erreur, pvp 1305 OK (558 s, PC chargé) ; en moteur réel
+sur `main` 0.4.32 par la file : ia1-build-plaine 12 OK (4:23:41), content 331 OK (4:29:59) (archives `fo-logs/2026-10-27_integration-0.4.32/`).
 **E197** (27/10, `b08`, `b09-ia1d-couts`) : 40 fantômes par type ravivés sous `LuaProfiler`, témoin `create_entity` ;
 F295. **Limites dites** : pics de calcul au PLAN d'un projet (15 à 45 ms d'un bloc ; max par tick 22 ms en plaine à 46 ms
 en forêt, 4 à 14 ticks au-dessus de 10 ms par partie ; moyenne 0,018 à 0,024 ms) : au-dessus des 5 ms visés (IA3 §6.3) ;
