@@ -18,6 +18,18 @@ RAYON_MAT = 1.12   # rayon du pied du mât (avant échelle) : borne de l'échell
 
 ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
 
+# ronde 2c (charte sous 25 en 2b) : châssis de verrière et cadres des lanterneaux CLAIRS, rang de hublots aux façades sud
+CHASSIS = "steel_hi"
+CADRE_TOIT = "steel_hi"
+HUBLOTS = True
+
+
+def TOIT_RESERVE(c):
+    """Toit du dernier étage : seule la bande de l'anneau (socle à degrés et pylônes, à l'échelle du mât) est prise ;
+    le croissant avant et le croissant arrière reçoivent les rangées (ronde 2c)."""
+    k = getattr(c, "echelle_mat", 1.0)
+    return (-(0.85 + 0.35) * k, -0.42 * k, (0.85 + 0.35) * k, 0.42 * k)
+
 
 def matieres(metal, M):
     ages.matieres(14, metal, M)

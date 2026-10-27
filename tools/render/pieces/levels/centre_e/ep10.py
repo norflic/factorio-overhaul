@@ -19,6 +19,11 @@ RAYON_MAT = 0.92   # rayon du pied du mât (avant échelle) : borne de l'échell
 
 ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
 
+# ronde 2c (charte sous 25 en 2b) : châssis de verrière et cadres des lanterneaux CLAIRS, rang de hublots aux façades sud
+CHASSIS = "steel_hi"
+CADRE_TOIT = "steel_hi"
+HUBLOTS = True
+
 FENETRES = "emit"   # ronde F5-A2 : nuit de l'âge 10 (presque noire en ronde 1)
 
 MOTIF_DALLE = True   # ronde 2b : pastille et plots à chaque dalle visible du socle (charte 18,9 en ronde 2)

@@ -187,6 +187,8 @@ for e in list(range(1, 16)) + ["k4", "k8"]:
                   "âge %s : ronde 2b (carreaux %d sur %d châssis, lanterneaux %d, ouïes %d, bornes %d)" % (
                       e, getattr(c, "n_vitres", 0), getattr(c, "n_chassis", 0), n.get("lanterneau", 0),
                       n.get("event", 0), getattr(c, "n_bornes", 0)))
+        if getattr(m, "HUBLOTS", False):
+            check(n.get("hublot", 0) >= 20, "âge %s : ronde 2c, hublots aux façades sud (%d)" % (e, n.get("hublot", 0)))
         if ee == 10:
             check(getattr(c, "n_pastilles", 0) >= 100, "âge 10 : motif des dalles visibles du socle (%d pastilles)" %
                   getattr(c, "n_pastilles", 0))

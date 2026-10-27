@@ -724,8 +724,8 @@ def detail_toits(g, c, zm):
 
 
 def _lanterneau(g, c, x, y, z, M, lit):
-    """Lanterneau de toit : cadre sombre, verre fumé (ou éclairé), deux traverses."""
-    g.box((x, y, z + 0.016), (0.17, 0.15, 0.032), c.m("steel_dk"), "hard", what="lanterneau")
+    """Lanterneau de toit : cadre (sombre, ou clair si ep.CADRE_TOIT : ronde 2c), verre fumé (ou éclairé), traverse."""
+    g.box((x, y, z + 0.016), (0.17, 0.15, 0.032), c.m(getattr(c.ep, "CADRE_TOIT", "steel_dk")), "hard", what="lanterneau")
     g.box((x, y, z + 0.035), (0.13, 0.11, 0.008), M["emit_soft"] if lit else c.m("glass_dk"), "hard", what="vitre_toit")
     g.box((x, y, z + 0.04), (0.012, 0.11, 0.004), c.m("steel_hi"), "flat", what="traverse")
 
@@ -742,10 +742,13 @@ def _toits_archi(g, c):
     n_et = len(c.z_etages)
     for k in range(n_et):
         z0, z1, h = c.z_etages[k]
+        reserve = None
         if k + 1 < n_et:
             hin = c.z_etages[k + 1][2] + 0.12
         elif c.toit in ("plat", "crenele"):
             hin = max(0.32 * c.side / 4.5, float(getattr(c.ep, "RAYON_MAT", 0.45)) * getattr(c, "echelle_mat", 1.0) + 0.08)
+            if hasattr(c.ep, "TOIT_RESERVE"):      # ronde 2c : place prise par l'organe, donnée par l'âge (rectangle)
+                reserve, hin = c.ep.TOIT_RESERVE(c), 0.0
         else:
             continue
         hout = h - (0.22 if k == 0 else 0.14)
@@ -757,6 +760,8 @@ def _toits_archi(g, c):
                 if not dans_forme(c.plan, hout, x, y, 0.09) or dans_forme(c.plan, hin, x, y, -0.09):
                     continue
                 if k + 1 == n_et and math.hypot(x, y) < hin:
+                    continue
+                if reserve and reserve[0] < x < reserve[2] and reserve[1] < y < reserve[3]:
                     continue
                 if k == 0 and y < 0 and 195 < math.degrees(math.atan2(y, x)) % 360 < 345:
                     continue
@@ -903,7 +908,7 @@ def _verriere(g, c):
         # ronde 2b : la ronde 2 (une vitre par secteur, une sur trois lumineuse) se lisait en RAYONS de soleil ; châssis
         # sombre et vitres découpées le long de la pente (traverses), verre fumé, quelques carreaux éclairés au hasard
         pts = [V(q) for q in p] + [V((q[0], q[1], q[2] + 0.02)) for q in p]
-        g.hexa(pts, c.m("steel_dk"), "hard", "chassis_verriere")
+        g.hexa(pts, c.m(getattr(c.ep, "CHASSIS", "steel_dk")), "hard", "chassis_verriere")   # ronde 2c : clair (ep)
         c.n_chassis = getattr(c, "n_chassis", 0) + 1
         L = math.hypot(p[3][0] - p[0][0], p[3][1] - p[0][1])
         ns = max(2, int(round(L / 0.2)))
@@ -927,12 +932,37 @@ def _verriere(g, c):
             halo(g, (cx, cy, z1 + 0.45), M, 1.6)
 
 
+def _hublots(g, c, k):
+    """Ronde 2c (ep.HUBLOTS) : rang de hublots carrés à cadre clair au bas de la face sud de l'étage k (sous les baies),
+    un sur trois éclairé."""
+    z0, z1, h = c.z_etages[k]
+    H = z1 - z0
+    M = g.M
+    plan = c.plan if c.plan != "croix" else "carre"
+    porte = c.T["porte"]["w"] / 2 + 0.3
+    arc = math.radians(130) * h
+    n = max(6, int(arc / 0.16))
+    for i in range(n):
+        a = math.radians(205 + 130 * (i + 0.5) / n)
+        r = _rayon_forme(plan, h, a)
+        x, y = r * math.cos(a), r * math.sin(a)
+        if (k == 0 and abs(x) < porte) or (c.plan == "croix" and not dans_forme("croix", h + 0.02, x * 0.98, y * 0.98)):
+            continue
+        g.push((x, y, z0), rz=a)
+        g.box((0.006, 0, H * 0.18), (0.016, 0.1, 0.09), c.m("steel_hi"), "hard", what="cadre_hublot")
+        g.box((0.015, 0, H * 0.18), (0.006, 0.066, 0.06), M["emit_soft"] if i % 3 == 1 else c.m("glass_dk"), "flat",
+              what="hublot")
+        g.pop()
+
+
 def architecture(g, c):
     if not getattr(c.ep, "ARCHI", False):
         return
     for k in range(len(c.z_etages)):
         _contreforts(g, c, k)
         _baies(g, c, k)
+        if getattr(c.ep, "HUBLOTS", False):
+            _hublots(g, c, k)
     if len(c.z_etages) >= 2:
         _balcon(g, c, 1)
     _verriere(g, c)

@@ -20,6 +20,11 @@ ECHELLE_MAT = 2.0   # échelle imposée : les pièces en porte-à-faux restent a
 
 ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
 
+# ronde 2c (charte sous 25 en 2b) : châssis de verrière et cadres des lanterneaux CLAIRS, rang de hublots aux façades sud
+CHASSIS = "steel_hi"
+CADRE_TOIT = "steel_hi"
+HUBLOTS = True
+
 
 def matieres(metal, M):
     ages.matieres(15, metal, M)
