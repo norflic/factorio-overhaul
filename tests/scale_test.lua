@@ -8,7 +8,10 @@
        minerai manque aussi (le goulot est alors l'extraction), rien avant que les fours visés soient posés, rythme ;
     §4 armée selon le caractère ; §5 fenêtre des laboratoires ;
     §6 mutants : chaque règle retirée est vue ;
-    §7 déterminisme (même entrée, même sortie) et aucun nom du jeu (règle anti-échelle d'IA-G, tests/iag_test.lua §8).
+    §7 déterminisme (même entrée, même sortie) et aucun nom du jeu (règle anti-échelle d'IA-G, tests/iag_test.lua §8) ;
+    §8 (correction après revue) places du QG en rangées (shared/ai3/places.lua) : emprise lue dans la boîte de collision,
+       exactement les places d'avant la correction avec les emprises du jeu de base, préfixe stable, aucune place qui en
+       chevauche une autre de 1 × 1 à 5 × 5, runtime sans liste de places écrite ; 6 mutants.
   Usage : lua5.2 tests/scale_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
