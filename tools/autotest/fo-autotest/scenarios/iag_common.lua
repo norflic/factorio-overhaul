@@ -22,7 +22,28 @@ return function(variant, ticks)
   local finish0 = base.finish
   -- Variante « photo » (session AVEC images, banc.py --captures --visuel="--ticks N") : captures du QG de chaque faction
   -- (laboratoires du QG, fours, coffre) aux minutes SHOTS, zoom 0,6, de jour, infos des entités (mode Alt).
-  local SHOTS = { 36000, 72000, 108000 }
+  local SHOTS = { 36000, 72000 }
+  if variant == "photo" then
+    -- Captures officielles du banc (shots.lua) à 30 min : le QG de chaque faction ; done.txt ensuite (fin de session).
+    CHECK = 106000
+    base.check_tick = CHECK
+    base.shots_delay = 108000
+    base.shots = function(ctx, add)
+      local ok, rows = pcall(remote.call, "fo-ia1", "teams")
+      local s = ctx.surface()
+      for _, row in ipairs(ok and rows or {}) do
+        if row.key ~= "player" then
+          local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = row.force, limit = 1 })[1]
+          if hq and hq.valid then
+            add("iag-" .. row.key .. "-30min", hq.position.x - 6, hq.position.y - 4, 0.7, 0)
+            ctx.log(string.format("capture officielle iag-%s-30min : laboratoires %d, fours %d", row.key,
+              s.count_entities_filtered({ type = "lab", force = row.force }),
+              s.count_entities_filtered({ type = "furnace", force = row.force })))
+          end
+        end
+      end
+    end
+  end
   local tick0 = base.tick
   base.tick = function(ctx, e)
     tick0(ctx, e)
