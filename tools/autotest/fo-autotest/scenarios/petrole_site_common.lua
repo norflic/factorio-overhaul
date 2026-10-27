@@ -14,8 +14,8 @@ local KIT = { { "pumpjack", 4 }, { "oil-refinery", 2 }, { "chemical-plant", 4 },
   { "inserter", 20 }, { "iron-chest", 20 }, { "medium-electric-pole", 120 }, { "small-electric-pole", 60 },
   { "boiler", 2 }, { "steam-engine", 4 }, { "assembling-machine-1", 4 }, { "coal", 400 }, { "steel-plate", 100 },
   { "iron-gear-wheel", 100 }, { "iron-plate", 400 } }
-return function(variant)
-  local base = common(variant or "site", 54000)
+return function(variant, ticks)
+  local base = common(variant or "site", ticks or 54000)
   local tick0 = base.tick
   base.tick = function(ctx, e)
     tick0(ctx, e)
