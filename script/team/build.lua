@@ -216,6 +216,15 @@ local function eval_one(f, surface, item, tick)
     if l.i == 0 and l.j == 0 then s.own = math.max(1, s.own) end
     local old = l.state
     l.state, l.reason = P.classify_lot(s)
+    -- Lot AUTO : un lot de GISEMENT qui porte déjà nos bâtiments (avant-poste à combustion posé sur le minerai par le
+    -- cerveau) restait « occupe » : ses tuiles libres de minerai n'étaient plus proposées aux foreuses électriques
+    -- (« tapis des foreuses (pas de lot) »). Il reste un gisement PARTAGÉ : P.fit n'y pose rien sur une tuile bâtie
+    -- (masque `free`), la couverture de minerai (P.DRILL_COVER) se compte sur ce qui reste. Le lot du QG reste occupé.
+    local ore, n_ore = P.main_resource(s)
+    l.ore, l.ore_n = ore, n_ore
+    if l.state == "occupe" and not (l.i == 0 and l.j == 0) and ore and n_ore >= P.MIN_RES_TILES then
+      l.state, l.reason, l.shared = "gisement", ore, true
+    end
     l.res = (l.state == "gisement") and l.reason or nil
     l.water, l.trees, l.rocks, l.tick = s.water, s.trees + s.rocks, s.rocks, tick
     if old == "inconnu" then
@@ -383,7 +392,11 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     end
     last = why or last
     bump(b.stats.plan_refused, last)
-    c.l.bad = (c.l.bad or 0) + 1
+    -- Lot AUTO : `nobad` (foreuses de ravitaillement) : un refus ne compte pas contre le lot. Build.plan_drills essaie
+    -- n, n-1, … 1 foreuses dans les MÊMES lots : chaque taille refusée y comptait un échec, et le lot était exclu après la
+    -- deuxième (« tapis des foreuses (pas de lot) » alors qu'une ligne plus courte y tenait).
+    if opts and opts.diag then opts.diag[#opts.diag + 1] = c.k .. ":" .. tostring(why) end
+    if not (opts and opts.nobad) then c.l.bad = (c.l.bad or 0) + 1 end
   end
   return nil, last
 end
@@ -745,19 +758,47 @@ local function plan_feed(f, surface, p, place, part)
   return true
 end
 
+Build.ROUTE_WEIGHT = 2        -- lot AUTO : poids de l'heuristique du second tracé du tapis des foreuses (A* pondéré)
+Build.DRILL_DIAG_LOGS = 24    -- lot AUTO : lignes de diagnostic des foreuses refusées, au plus, par équipe
+
+--- Lot AUTO : diagnostic d'un refus des foreuses d'une voie (une ligne [FO-AUTO], au plus Build.DRILL_DIAG_LOGS par
+--- équipe) : les lots qui portent ce minerai (état, partagé, réservé, échecs, tuiles, distance à l'arrivée) et les raisons
+--- de P.fit lot par lot (essai à 1 foreuse). Lecture seulement.
+function Build.drill_diag(f, item, n, a, why, diag, s)
+  local b = f.build
+  b.drill_logs = (b.drill_logs or 0) + 1
+  if b.drill_logs > Build.DRILL_DIAG_LOGS then return end
+  local lots = {}
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if l.ore == item or l.res == item then
+      local c = lot_center(b, l)
+      lots[#lots + 1] = string.format("%s(%s%s%s,bad%d,%d tuiles,%d)", k, l.state, l.shared and ",partage" or "",
+        l.used and (",pris" .. tostring(l.used)) or "", l.bad or 0, l.ore_n or 0, math.floor(math.abs(c.x - a.x) + math.abs(c.y - a.y)))
+    end
+  end
+  log(string.format("[FO-AUTO] %s : foreuses %s refusees (%s) : %d foreuse(s) visees, arrivee (%d, %d)%s ; lots de %s : %s ; essais (1 foreuse) : %s",
+    f.key or "player", item, tostring(why), n, a.x, a.y, s and string.format(", queue (%d, %d)", s.x, s.y) or "", item,
+    #lots > 0 and table.concat(lots, " ") or "aucun", (diag and #diag > 0) and table.concat(diag, " ") or "-"))
+end
+
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
 function Build.plan_drills(f, surface, p, item, flow, a)
   local b = f.build
   local n = math.max(1, math.ceil(flow / (2 * M.spec("electric-mining-drill").speed) - 1e-9))
   local place, why
+  local diag = {}
   for nn = n, 1, -1 do
     local g = M.GEN.drills(item, nn)
     if g then
-      place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item)
+      place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item, { nobad = true, diag = nn == 1 and diag or nil })
       if place then break end
     end
   end
-  if not place then return false, why end
+  if not place then
+    Build.drill_diag(f, item, n, a, why, diag)
+    return false, why
+  end
   local part = #p.parts + 1
   p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
     w = place.g.w, h = place.g.h, power = needs_power(place.g) }
@@ -803,8 +844,26 @@ function Build.plan_drills(f, surface, p, item, flow, a)
       tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost)
     end
   end
+  if not tiles and n2 == "trop long" then
+    -- Lot AUTO (« tapis des foreuses (trop long) » chez scarlet, e15-usine graine 271828182) : l'A* exact s'arrêtait à
+    -- P.ASTAR_MAX nœuds dans une boîte qui en compte jusqu'à 14 400 (forêt : chaque tuile coûte 2, rues : 3). Nouvel essai
+    -- PONDÉRÉ (heuristique × Build.ROUTE_WEIGHT) sur toute la boîte : un tapis un peu plus long, ou « aucun chemin ».
+    -- la plus grande des deux boîtes des essais exacts qui tient dans 120 tuiles (marge d'un pas de treillis, sinon 12)
+    local mg = P.PITCH
+    if math.max(math.abs(s.x - a.x), math.abs(s.y - a.y)) + 2 * mg > 120 then mg = 12 end
+    local cx0, cy0 = math.min(s.x, a.x) - mg, math.min(s.y, a.y) - mg
+    local cx1, cy1 = math.max(s.x, a.x) + mg, math.max(s.y, a.y) + mg
+    local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
+    masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
+    local first = n2
+    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost,
+      { weight = Build.ROUTE_WEIGHT, max = (cx1 - cx0 + 1) * (cy1 - cy0 + 1) })
+    bump(b.stats.plan_refused, "tapis-pondere:" .. (tiles and "ok" or tostring(n2)))
+    if not tiles then n2 = first .. ", pondere : " .. tostring(n2) end
+  end
   if not tiles then
     p.parts[part] = nil
+    Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
   end
   for _, t in ipairs(tiles) do ents[#ents + 1] = { name = "transport-belt", x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
