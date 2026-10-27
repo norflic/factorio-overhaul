@@ -42,6 +42,7 @@ P.SMELTERS_BOOT = 2      -- fonderie d'amorçage (aucun four au QG : votre équi
 P.SMELTERS_BOOT_MORE = 4 -- … et 4 pour un manque d'au moins P.SMELT_MORE plaques (règle d'IA3-b, moteur réel du 25/10 :
 P.SMELT_MORE = 50        -- 2 fours fondent 37 plaques par minute, le minerai attendait au coffre ; lot IA-V2)
 P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un avant-poste produit déjà
+P.BOOT_PRIO = 93         -- fonderie d'amorçage : chemin critique (aucune plaque sans four), avant les projets (lot IA-V2)
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
@@ -356,7 +357,10 @@ EMIT.outpost = function(E, proj, g, ctx)
     return "matiere"
   end
   -- Aucun site connu : explorer, et préparer les objets pendant ce temps (un joueur fabrique ses foreuses en route).
-  E.explore[spec.resource] = math.max(E.explore[spec.resource] or 0, prio)
+  -- Lot IA-V2 : un gisement CONNU (ctx.known, carte d'IA3-f) n'est pas à explorer : son site attend la prospection.
+  if not (ctx and ctx.known and ctx.known[spec.resource]) then
+    E.explore[spec.resource] = math.max(E.explore[spec.resource] or 0, prio)
+  end
   P.want(E, proj, list, prio - 5, false, kind)
   return "bloque", "site:" .. kind
 end
@@ -460,6 +464,40 @@ function P.emit(E, proj, ctx, tick)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Fonderie d'amorçage (lot IA-V2) : AVANT les projets
+---------------------------------------------------------------------------------------------------
+--- Une plaque manquait à la pensée précédente (st.short) et aucun avant-poste ne la produit : les fours du QG passent
+--- AVANT les projets, sur le stock virtuel entier (chemin critique : aucune plaque sans four). Moteur réel, ia3b-fer,
+--- 27/10 (1bd0801) : les projets d'avant-postes (fours sur site) prenaient d'abord les fours du stock, l'approvisionnement
+--- n'en recevait jamais : 0 four au QG pendant 15 min, 301 minerais de fer au coffre, 0 plaque. Pose de ce que le
+--- charbon permet (comme IA3-b), le reste fabriqué. Renvoie vrai si l'amorçage est pris en charge ici.
+function P.boot_smelters(E, st, cap)
+  local view = E.view
+  local short = 0
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local plate = T.outposts[kind].product
+    if T.smelter_inputs[plate] and (cap[kind] or 0) <= 0 then short = math.max(short, (st.short or {})[plate] or 0) end
+  end
+  if short <= 0 or E.open["smelters"] then return false end
+  local n = short >= P.SMELT_MORE and P.SMELTERS_BOOT_MORE or P.SMELTERS_BOOT
+  local have = (view.smelters or 0) + (view.smelters_pending or 0)
+  if have >= n then return false end
+  local need = n - have
+  local put = math.min(need, E.avail[T.SMELTER] or 0, math.floor((E.avail[T.fuel] or 0) / T.fuel_per_burner))
+  local proj = { id = 0, key = "fonderie" }
+  if put > 0 then
+    local list = { { T.SMELTER, put }, { T.fuel, T.fuel_per_burner * put } }
+    P.take(E, list)
+    P.add(E, { key = "smelters", kind = "smelters", prio = P.BOOT_PRIO, count = put, items = list, why = "fonderie" })
+  end
+  if put < need then
+    P.want(E, proj, { { T.SMELTER, need - put }, { T.fuel, T.fuel_per_burner * (need - put) } }, P.BOOT_PRIO, false, "four")
+  end
+  E.booted = true
+  return true
+end
+
+---------------------------------------------------------------------------------------------------
 -- Approvisionnement : les matières brutes qui manquent (feuilles du dépliage)
 ---------------------------------------------------------------------------------------------------
 --- Sert les manques E.raw : fonderie (et ses fours s'il n'y en a pas), minage à la main par plusieurs PNJ, exploration
@@ -498,7 +536,7 @@ function P.supply(E, ctx)
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).
         E.smelt[item] = (E.smelt[item] or 0) + r.n
         if prio > E.smelt_prio then E.smelt_prio = prio end
-        if smelters == 0 and not E.open["smelters"] then
+        if smelters == 0 and not E.open["smelters"] and not E.booted then
           local n = r.n >= P.SMELT_MORE and P.SMELTERS_BOOT_MORE or P.SMELTERS_BOOT
           local list = { { T.SMELTER, n }, { T.fuel, T.fuel_per_burner * n } }
           if P.take(E, list) then
@@ -518,7 +556,8 @@ function P.supply(E, ctx)
         -- Miner à la main : plusieurs PNJ en parallèle, sur un gisement connu (sinon explorer).
         local radius = ctx.reach and ctx.reach[item]
         if not radius then
-          E.explore[item] = math.max(E.explore[item] or 0, prio)
+          -- Lot IA-V2 : connu mais hors de portée de la main : pas d'exploration (l'avant-poste ira le chercher).
+          if not (ctx.known and ctx.known[item]) then E.explore[item] = math.max(E.explore[item] or 0, prio) end
         else
           local want = math.min(room, math.ceil(r.n / P.MINE_BATCH))
           local busy = (ctx.mines_open and ctx.mines_open[item]) or 0

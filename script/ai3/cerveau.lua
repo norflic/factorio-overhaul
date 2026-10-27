@@ -30,6 +30,7 @@ local B = require("shared.ai3.buts")
 local C = require("shared.ai3.cerveau")
 local P = require("shared.ai3.projets")
 local A = require("shared.ai3.recherche")
+local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'IA3-b (interface de lecture)
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
@@ -476,13 +477,20 @@ Ia3.known_deposits = nil
 Ia3.home_known = nil -- crochet d'IA3-f : abords du QG vus (aucune exploration demandée avant ; nil sans brouillard)
 Ia3.REACH_SEEN = 96 -- au-delà, sous brouillard, seulement un gisement CONNU (le PNJ y va par Worker.far_mine)
 
+Ia3.REACH_EVERY_SHORT = 2 -- … toutes les 2 pensées tant qu'une ressource n'est ni à portée ni connue (lot IA-V2)
+
 local function reach_of(f, st, tick)
   st.reach_n = (st.reach_n or 0) - 1
-  if st.reach and st.reach_n > 0 then return st.reach end
+  if st.reach and st.reach_n > 0 then return st.reach, st.known or {} end
   st.reach_n = Ia3.REACH_EVERY
-  local out = {}
+  local out, known = {}, {}
   local surface = f.hq.surface
   for _, res in ipairs(sorted_keys(MINABLE)) do
+    -- Lot IA-V2 : gisement CONNU de l'équipe (carte d'IA3-f), même hors de portée de la main : la ressource n'est pas
+    -- « à explorer » (moteur réel, ia3c-dc-apres, 27/10 : exploration du fer demandée à 0,1 min, gisement vu à 127
+    -- tuiles mais son site pas encore retenu par la prospection).
+    local kd = Ia3.known_deposits and Ia3.known_deposits(f, res, tick) or nil
+    if kd and kd[1] then known[res] = true end
     for _, r in ipairs(Ia3.REACH_RADII) do
       -- Sous brouillard (constat du DC : « ils regardent même pas autour d'eux », critère A6) : au-delà des abords du
       -- QG, le minage à la main ne vise qu'un gisement que l'équipe a VU ; la tâche garde le rayon des abords et
@@ -499,9 +507,11 @@ local function reach_of(f, st, tick)
         break
       end
     end
+    if out[res] then known[res] = true end
+    if not known[res] then st.reach_n = math.min(st.reach_n, Ia3.REACH_EVERY_SHORT) end
   end
-  st.reach = out
-  return out
+  st.reach, st.known = out, known
+  return out, known
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -535,8 +545,9 @@ function Ia3.plan(f, view, book, surface, tick)
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
+  local reach, known = reach_of(f, st, tick)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
-    reach = reach_of(f, st, tick), mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
+    reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
@@ -641,7 +652,9 @@ remote.add_interface("fo-ia3c", {
     local t = f.team
     local st = t.ia3
     local out = { ia3c = t.ia3c == true, outposts = {}, projects = {}, taken = 0, saturated = {}, explore = {},
-      paliers = {}, labs = 0, tech = f.tech or 0 }
+      paliers = {}, labs = 0, tech = f.tech or 0,
+      -- Lot IA-V2 : marché et registre d'IA3-b (figés par équipe), registre jamais au-delà du coffre (R.check).
+      marche = t.marche, reg_ok = (not t.reg) or (R.check(t.reg) and true or false) }
     for _, oid in ipairs(sorted_keys(f.outposts)) do
       local k = f.outposts[oid].kind
       out.outposts[k] = (out.outposts[k] or 0) + 1

@@ -137,11 +137,12 @@ function C.think(view, book, st, ctx)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   for k, n in pairs(base.smelt or {}) do E.smelt[k] = n end
+  P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
   for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
-  P.supply(E, { reach = ctx.reach, workers = s.workers, mines_open = ctx.mines_open, minable = minable, cap = s.cap,
-    home_known = ctx.home_known })
+  P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable,
+    cap = s.cap, home_known = ctx.home_known })
   -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
   -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.
   if ctx.home_known == false then E.explore = {} end
