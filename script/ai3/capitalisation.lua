@@ -66,8 +66,11 @@ Capi.QUEUE_MAX = 12          -- technologies au plus dans la file de recherche v
 Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
 Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes refusées d'un même produit en 50 min, un plan
                              -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé)
-Capi.MODULES_PER_ORDER = 3   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
-                             -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »)
+Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
+                             -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »).
+                             -- 3 avant le banc p4 : le plan directeur RÉSERVE au coffre toute la matière d'un module dès sa
+                             -- demande (Build.reserve) ; plusieurs modules à la fois vidaient le fer du QG (« stock iron=5 »)
+                             -- et l'économie s'arrêtait (3 factions sur 4 à plus de 60 % de PNJ sans tâche après 40 min).
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -533,11 +536,14 @@ local function build_input(f, cs, view, book, tick, D, w)
   local elec_open = 0
   for _, o in ipairs(cs.open) do if o.exec == "module" then elec_open = elec_open + 1 end end
   local wait_plant = plant_state ~= nil and plant_state ~= "fini" and elec_open > 0
+  -- Au plus A.MAX_OPEN modules ouverts à la fois (la limite de l'exécutant, celle d'AUTO) : la matière réservée par le plan
+  -- directeur ne doit pas vider le coffre (banc p4).
+  local busy = elec_open >= A.MAX_OPEN
   local wanted = {}
   for _, res in ipairs(D.res_list) do
     local meth = METHOD_OF_ORE[res]
     local ok, miss = false, {}
-    if meth and elec_drill and plant_state ~= "refuse" and not wait_plant and not held(cs, meth.product, tick) then
+    if meth and elec_drill and plant_state ~= "refuse" and not wait_plant and not busy and not held(cs, meth.product, tick) then
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil)
     end
     if ok then drill_for[res], elec[res] = elec_drill, true
@@ -598,6 +604,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     local hw = held(cs, item, tick)
     if not meth then res = tostring(why)
     elseif hw then res = hw
+    elseif busy then res = "plan directeur occupe (" .. elec_open .. " module(s) ouvert(s), au plus " .. A.MAX_OPEN .. ")"
     elseif wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
