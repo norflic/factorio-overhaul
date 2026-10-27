@@ -20,7 +20,7 @@ from mathutils import Matrix, Vector
 import cotes
 import epoques as E
 from habillage import habille, mats_habilles
-from kit import SQ2, TAU
+from kit import SQ2, TAU, axv, basis
 
 V = Vector
 LIGNEE_PONT = dict(motif="toles", mat="armor", mat2="armor2", fond="seam", bord="steel_dk", boulons="rivet",
@@ -907,6 +907,63 @@ def _libre_fin(c, x, y, r):
     return True
 
 
+# Habillage des FÛTS (ronde F4-A3) : pendant la construction de la tour, chaque cylindre construit par g.cyl (rayon
+# ≥ 0,15 t, hauteur ≥ 0,12 t, ni verre, ni lumière, ni vide) est relevé avec sa matrice ; après la tour, des couronnes de
+# boulons sont posées à ses deux bouts (et au milieu au-delà de 0,45 t), au pas de 0,12 t : les grandes surfaces lisses
+# des tours portaient l'essentiel du manque de petites pièces (carte de la charte, NOTES F4-A3).
+FUT_SAUTE_WHAT = ("lueur", "verre", "emit", "halo", "fente", "trou", "puits", "flamme", "voyant", "lanterne", "feu",
+                  "horizon", "bocal", "boue", "singularite", "sphere", "lumiere", "glace", "cristal")
+FUT_SAUTE_MAT = ("emit", "verre", "glass", "void", "light", "boue", "horizon", "glace", "cristal")
+
+
+def _releve_cylindres(g, rmin=0.15, hmin=0.12):
+    rec = []
+    orig = g.cyl
+
+    def cyl(cc, axis, r, h, mat, *args, **kw):
+        r2 = kw.get("r2", args[1] if len(args) > 1 else None)
+        what = str(kw.get("what", args[5] if len(args) > 5 else "cyl") or "")
+        nm = str(getattr(mat, "name", "") or "").lower()
+        if (r >= rmin and h >= hmin and not any(s in what for s in FUT_SAUTE_WHAT)
+                and not any(s in nm for s in FUT_SAUTE_MAT)):
+            rec.append((g.stack[-1], tuple(cc), axis, float(r), float(h), float(r if r2 is None else r2)))
+        return orig(cc, axis, r, h, mat, *args, **kw)
+    g.cyl = cyl
+    return rec
+
+
+def _fin_releve(g):
+    if "cyl" in g.__dict__:
+        del g.cyl
+
+
+def boulons_futs(g, c, rec, pas=0.12):
+    if not getattr(c.ep, "BOULONS_FUTS", True):
+        return 0
+    mb = c.m("rivet")
+    n_tot = 0
+    for (Mx, cc, axis, r, h, r2) in rec:
+        g.stack.append(Mx)
+        try:
+            a, u, w = basis(axv(axis))
+            C = V(cc)
+            e = min(0.035, h * 0.25)
+            bagues = [(-h / 2 + e, r + (r2 - r) * e / h), (h / 2 - e, r2 - (r2 - r) * e / h)]
+            if h > 0.45:
+                bagues.append((0.0, (r + r2) / 2.0))
+            for (tz, rr) in bagues:
+                n = max(8, min(72, int(round(TAU * rr / pas))))
+                for i in range(n):
+                    ang = TAU * (i + 0.5) / n
+                    d = u * math.cos(ang) + w * math.sin(ang)
+                    p = C + a * tz + d * (rr + 0.004)
+                    g.dome(tuple(p), tuple(d), 0.021, mb, what="boulon_fut")
+                    n_tot += 1
+        finally:
+            g.stack.pop()
+    return n_tot
+
+
 def _f_boulons(g, c, x, y, z, rng, M):
     s = 0.034
     g.box((x, y, z + 0.006), (0.12, 0.12, 0.016), c.m("steel_dk"), "hard", what="platine")
@@ -1056,11 +1113,16 @@ def corps(g, c):
         moteur(g, c)
         goulotte(g, c)
         trepan(g, c)
-        if hasattr(c.ep, "tour"):
-            c.ep.tour(g, c)
-        else:
-            with habille(g, c):
-                tour_lignee(g, c)
+        rec = _releve_cylindres(g)
+        try:
+            if hasattr(c.ep, "tour"):
+                c.ep.tour(g, c)
+            else:
+                with habille(g, c):
+                    tour_lignee(g, c)
+        finally:
+            _fin_releve(g)
+        c.n_boulons_futs = boulons_futs(g, c, rec)
         liaisons_tour(g, c)
         if hasattr(c.ep, "socle"):
             c.ep.socle(g, c)
