@@ -73,14 +73,29 @@ end
 --- touche ; on prend la moins dangereuse (sinon un coin de deux cases sûres est lu dans la case marquée voisine). Rend
 --- aussi la clé de la case retenue.
 local EPS = 0.01
-local CORNERS = { { -EPS, -EPS }, { EPS, -EPS }, { -EPS, EPS }, { EPS, EPS } } -- constante : aucune table par appel (coût)
+-- Lot PERF : cases et clés calculées en ligne (mêmes formules que D.cell et D.key), quatre coins déroulés dans l'ordre de
+-- la version d'origine, (-, -), (+, -), (-, +), (+, +) (égalités : la plus petite clé, comme avant) ; résultat identique
+-- (tests/perf_test.lua).
+local C_CELL, C_OFF = D.CELL, D.OFF
 function R.danger_pt(field, x, y)
-  local best, bk = nil, nil
-  for _, o in ipairs(CORNERS) do
-    local k = D.key(D.cell(x + o[1]), D.cell(y + o[2]))
-    local d = field[k] or 0
-    if not best or d < best or (d == best and k < bk) then best, bk = d, k end
-  end
+  local floor = math.floor
+  local xa, xb = floor((x - EPS) / C_CELL) + C_OFF, floor((x + EPS) / C_CELL) + C_OFF
+  local ya, yb = floor((y - EPS) / C_CELL) + C_OFF, floor((y + EPS) / C_CELL) + C_OFF
+  -- coin 1 (-, -)
+  local bk = xa * 65536 + ya
+  local best = field[bk] or 0
+  -- coin 2 (+, -)
+  local k = xb * 65536 + ya
+  local d = field[k] or 0
+  if d < best or (d == best and k < bk) then best, bk = d, k end
+  -- coin 3 (-, +)
+  k = xa * 65536 + yb
+  d = field[k] or 0
+  if d < best or (d == best and k < bk) then best, bk = d, k end
+  -- coin 4 (+, +)
+  k = xb * 65536 + yb
+  d = field[k] or 0
+  if d < best or (d == best and k < bk) then best, bk = d, k end
   return best, bk
 end
 
@@ -174,6 +189,11 @@ end
 -- Coût (banc final-3958412 verif-guide-1618033988 : 3 020 pics de 7,7 ms) : clés et bruit calculés en ligne, bruit d'une
 -- case mémorisé pendant l'appel, voisins par indice ; mêmes opérations, dans le même ordre, que la version d'origine
 -- (tests/ia3k_regles_test.lua compare les deux sur des cartes tirées au sort).
+-- Lot PERF (27/10 ; ia1-scale 0.6.0 : 36 % du temps script dans les ticks d'un A*, 7 µs par développement) : tas en
+-- TABLEAUX PARALLÈLES (f, clé ; aucune table par entrée, coordonnées tirées de la clé), compteur du tas au lieu de #,
+-- facteurs de la graine sortis de la boucle, chemin rempli à l'envers puis retourné (aucun table.insert en tête). Même
+-- ordre total (f, puis clé) que le tas d'origine : mêmes cases sorties, dans le même ordre, mêmes développements
+-- (équivalence : tests/ia3k_regles_test.lua, contre la copie de 3958412).
 local OFF = D.OFF
 function R.astar(field, sc, gc, B, seed, max_expand)
   local floor = math.floor
@@ -184,55 +204,114 @@ function R.astar(field, sc, gc, B, seed, max_expand)
   local gx, gy = gc[1], gc[2]
   local sk, gk = (sc[1] + OFF) * 65536 + (sc[2] + OFF), (gx + OFF) * 65536 + (gy + OFF)
   local g, from, closed = { [sk] = 0 }, {}, {}
-  local open = {}
-  push(open, { f = octile(sc[1], sc[2], gx, gy), k = sk, cx = sc[1], cy = sc[2] })
+  -- Tas : hf[i] (f), hk[i] (clé), hn entrées.
+  local hf, hk, hn = {}, {}, 0
+  do
+    local dx, dy = math.abs(sc[1] - gx), math.abs(sc[2] - gy)
+    local mn, mx = dx < dy and dx or dy, dx < dy and dy or dx
+    hn = 1
+    hf[1], hk[1] = 14 * mn + 10 * (mx - mn), sk
+  end
   local expand = 0
   local cap = max_expand or R.MAX_EXPAND
   local M1, NZ = Tr.MOD - 1, R.NOISE + 1
   local TM = Tr.MOD
+  local shi, slo = 0, 0
+  if seed then shi, slo = floor(seed / 65536), seed % 65536 end
   local nzc = {}
-  while #open > 0 do
-    local cur = pop(open)
-    local ck = cur.k
+  local NBX = { 1, -1, 0, 0, 1, 1, -1, -1 }
+  local NBY = { 0, 0, 1, -1, 1, -1, 1, -1 }
+  local NBC = { 10, 10, 10, 10, 14, 14, 14, 14 }
+  while hn > 0 do
+    -- pop
+    local ck = hk[1]
+    do
+      local lf, lk = hf[hn], hk[hn]
+      hf[hn], hk[hn] = nil, nil
+      hn = hn - 1
+      if hn > 0 then
+        local i = 1
+        while true do
+          local l = 2 * i
+          if l > hn then break end
+          local m, mf, mk = l, hf[l], hk[l]
+          local r = l + 1
+          if r <= hn then
+            local rf = hf[r]
+            if rf < mf or (rf == mf and hk[r] < mk) then m, mf, mk = r, rf, hk[r] end
+          end
+          if mf < lf or (mf == lf and mk < lk) then
+            hf[i], hk[i] = mf, mk
+            i = m
+          else
+            break
+          end
+        end
+        hf[i], hk[i] = lf, lk
+      end
+    end
     if ck == gk then
-      local path, k = {}, gk
+      local rev, k = {}, gk
+      local n = 0
       while k do
-        local x, y = D.unkey(k)
-        table.insert(path, 1, { x, y })
+        local a = floor(k / 65536)
+        n = n + 1
+        rev[n] = { a - OFF, k - a * 65536 - OFF }
         k = from[k]
       end
+      local path = {}
+      for i = 1, n do path[i] = rev[n + 1 - i] end
       return path, expand
     end
     if not closed[ck] then
       closed[ck] = true
       expand = expand + 1
       if expand > cap then return nil, expand end
-      local ccx, ccy, gcur = cur.cx, cur.cy, g[ck]
+      local ca = floor(ck / 65536)
+      local ccx, ccy, gcur = ca - OFF, ck - ca * 65536 - OFF, g[ck]
       for q = 1, 8 do
-        local nb = NB[q]
-        local nx, ny = ccx + nb[1], ccy + nb[2]
+        local nx, ny = ccx + NBX[q], ccy + NBY[q]
         if nx >= cx0 and nx <= cx1 and ny >= cy0 and ny <= cy1 then
           local nk = (nx + OFF) * 65536 + (ny + OFF)
-          local dg = field[nk] or 0
-          if not closed[nk] and (dg < B or nk == gk) then
-            local noise = 0
-            if seed then
-              noise = nzc[nk]
-              if not noise then
-                -- Tr.mulmod(nk % (MOD - 1) + 1, seed), en ligne
-                local a = nk % M1 + 1
-                local hi, lo = floor(seed / 65536), seed % 65536
-                noise = ((a * hi % TM) * 65536 % TM + a * lo) % TM % NZ
-                nzc[nk] = noise
+          if not closed[nk] then
+            local dg = field[nk] or 0
+            if dg < B or nk == gk then
+              local noise = 0
+              if seed then
+                noise = nzc[nk]
+                if not noise then
+                  -- Tr.mulmod(nk % (MOD - 1) + 1, seed), en ligne
+                  local a = nk % M1 + 1
+                  noise = ((a * shi % TM) * 65536 % TM + a * slo) % TM % NZ
+                  nzc[nk] = noise
+                end
               end
-            end
-            local step = nb[3] * (1000 + dg * 10 + noise) / 1000
-            local ng = gcur + step
-            local gn = g[nk]
-            if not gn or ng < gn then
-              g[nk] = ng
-              from[nk] = ck
-              push(open, { f = ng + octile(nx, ny, gx, gy), k = nk, cx = nx, cy = ny })
+              local step = NBC[q] * (1000 + dg * 10 + noise) / 1000
+              local ng = gcur + step
+              local gn = g[nk]
+              if not gn or ng < gn then
+                g[nk] = ng
+                from[nk] = ck
+                -- push (f, nk)
+                local dx, dy = nx - gx, ny - gy
+                if dx < 0 then dx = -dx end
+                if dy < 0 then dy = -dy end
+                local f
+                if dx < dy then f = ng + (14 * dx + 10 * (dy - dx)) else f = ng + (14 * dy + 10 * (dx - dy)) end
+                local i = hn + 1
+                hn = i
+                while i > 1 do
+                  local p = (i - i % 2) / 2
+                  local pf = hf[p]
+                  if f < pf or (f == pf and nk < hk[p]) then
+                    hf[i], hk[i] = pf, hk[p]
+                    i = p
+                  else
+                    break
+                  end
+                end
+                hf[i], hk[i] = f, nk
+              end
             end
           end
         end

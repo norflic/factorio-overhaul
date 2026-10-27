@@ -22,11 +22,36 @@ function Profiler.enabled()
   return Storage.ns("prof").enabled
 end
 
-function Profiler.set_enabled(on, tick)
+function Profiler.set_enabled(on, tick, fine)
   local p = Storage.ns("prof")
   p.enabled = on
   p.since = tick
+  -- Lot PERF : portées FINES (par état du cerveau des PNJ, par sous-étape de l'ouvrier) seulement sur demande : elles
+  -- ajoutent une dizaine de mesures par pensée de PNJ, ce qui fausserait une mesure K10 de référence (ia1-scale allume le
+  -- profileur ORDINAIRE). fine = nil garde le réglage précédent.
+  if fine ~= nil then p.fine = fine and true or nil end
   timers = {}
+end
+
+function Profiler.fine()
+  local p = Storage.ns("prof")
+  return p.enabled and p.fine == true
+end
+
+--- Mesures fines (lot PERF) : rien quand le profileur ou le mode fin est éteint.
+function Profiler.fstart(name)
+  local p = Storage.ns("prof")
+  if not (p.enabled and p.fine) then return end
+  local t = timers[name]
+  if not t then
+    t = game.create_profiler(true)
+    timers[name] = t
+  end
+  t.restart()
+end
+function Profiler.fstop(name)
+  local t = timers[name]
+  if t then t.stop() end
 end
 
 function Profiler.start(name)

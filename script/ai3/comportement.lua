@@ -359,16 +359,25 @@ function M.plan(f, agent, p, goal, tick, opts)
   -- Profil GÉOMÉTRIQUE (distance réelle aux menaces, D.danger_exact) le long de l'itinéraire, 6 premières tuiles exclues
   -- (le PNJ peut déjà être près d'un danger) : c'est lui que jugent la porte et le choix de l'itinéraire de secours ; les
   -- cases de 16 tuiles (A*) surestiment (un avant-poste à 35-55 tuiles d'un ver était refusé).
+  -- Lot PERF : D.exact_prep / D.exact_at (poids décrus calculés une fois, menaces hors du rectangle des échantillons
+  -- écartées) : mêmes valeurs que D.danger_exact point par point (tests/perf_test.lua).
   local t2 = t.map
   local mx = 0
-  for _, q in ipairs(R.samples(p, res.pts, goal, R.SAMPLE)) do
+  local qs = R.samples(p, res.pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(t2, tick, x0, y0, x1, y1)
+  for _, q in ipairs(qs) do
     if d2(q, p) > 36 then
-      local v = D.danger_exact(t2, q.x, q.y, tick)
+      local v = D.exact_at(prep, q.x, q.y)
       if v > mx then mx = v end
     end
   end
   res.exact_max = mx
-  res.exact_goal = D.danger_exact(t2, goal.x, goal.y, tick)
+  res.exact_goal = D.exact_at(prep, goal.x, goal.y)
   return res
 end
 

@@ -23,7 +23,7 @@ local Profiler = require("script.core.profiler")
 local Brain = {}
 
 -- Lot PERF : portée du profileur par machine et par état (« brain:<machine>:<état> »), noms gardés en cache local
--- (aucune chaîne fabriquée à chaque pensée) ; rien n'est mesuré quand le profileur est éteint (un test).
+-- (aucune chaîne fabriquée à chaque pensée) ; seulement en mode FIN du profileur (Profiler.fine : un test sinon).
 local prof_names = {}
 local function prof_name(machine, state)
   local m = prof_names[machine]
@@ -150,7 +150,7 @@ local function think(id, tick)
     return
   end
   local machine = agent.machine or C.MACHINE
-  if Profiler.enabled() then
+  if Profiler.fine() then
     local n = prof_name(machine, agent.state)
     Profiler.start(n)
     FSM.think(machine, agent, tick)
