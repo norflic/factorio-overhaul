@@ -10,6 +10,23 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 12 h 10 : CAPITALISATION** (le DC, 12 h 05 : « Le scaling des IA est aussi et surtout dans la maximisation des gisements,
+> de la fonte et des crafts […] c'est le concept de capitalisation qu'il faut implémenter » ; « Et concernant la recherche IA ? »).
+> Workflow `capitalisation-pnj` (relancé à 12 h 15 avec la précision du DC « plus de gisements, plus de fours dans la limite de ce qu'on peut faire fondre, si assembleurs disponibles des chaînes de production » : run `wf_181b9d75-fba` ; le premier run `wf_6987f189-654` est arrêté, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`
+> et `RESUME_DC.md`) : règle pure + test + doc, PLAN DE BRANCHEMENT à appliquer après la fusion de SCALE et AUTO, puis preuve en
+> moteur réel (capacité qui croît, inactifs ≤ 20 % à 30 PNJ, 30 contre 10 ≥ 1,2, paliers de recherche, laboratoires qui grandissent).
+>
+> **27/10, 11 h 40 : WORKFLOW `ia-fin-cerveau` LANCÉ** (le DC : « ultracode si nécessaire » ; run `wf_7e757943-a80` ; NE JAMAIS écrire par
+> SendMessage à ses agents) : 4 lots en parallèle, chacun suivi d'un critique adverse et d'un correcteur si défaut majeur ; worktrees
+> `.claude/worktrees/perf`, `scale`, `auto`, `capital` (branches du même nom, partis de main 0.6.1 `2d6cb75`, feuilles copiées) ;
+> livraisons `fo-logs\2026-10-27_PERF`, `_SCALE`, `_AUTO`, `_CAPITAL` ; bancs `--qui PERF|SCALE|AUTO|CAPITAL`. À l'arrivée : fusionner
+> lot par lot (conflits attendus sur shared/ai3/general.lua, buts.lua, cerveau.lua), rejouer la validation complète sur main (comme
+> `valid060`), K10 `--seul`. Recherche 3D par IA FAITE (`fo-logs\2026-10-27_3D-IA\RAPPORT.md`) : essai à décider par le DC.
+>
+> **27/10, 11 h 30 : IA3-e FUSIONNÉ, `main` = 0.6.1**, réglage `fo-war-ia3e` ÉTEINT (décisions identiques à 0.6.0) ; worktree `ia3e`
+> gardé pour la suite (rallumer : lot des foreuses, K1, règles dans le cerveau général). Restent : IA3-d (+ P1), design F4-B et F5-A2,
+> recherche 3D par IA (agent lancé, rapport `fo-logs\2026-10-27_3D-IA\RAPPORT.md`), lot de performance (K10 0,441 ms), bilan au DC.
+>
 > **27/10, 11 h 15 : 0.6.0 VALIDÉE sur `main`** (garde-fous verts, `ia1b2-guide` 1618033988 réparé ; `iag_test` 93 OK après
 > admission des types du moteur d'IA3-k). **K10 NON tenu : 0,441 ms par tick, p99 6,6 ms, mesuré seul** (0,291 en 0.5.0) : lot de
 > performance à ouvrir (profileur par composant : itinéraires d'IA3-k, catalogue d'IA-G étalé). Les points 1 de la reprise de 10 h 45

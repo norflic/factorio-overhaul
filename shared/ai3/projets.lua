@@ -311,6 +311,7 @@ local function extendable(view, kind, undefended)
 end
 
 local EMIT = {}
+P.EMIT = EMIT -- lot IA3-e : méthodes d'émission enregistrées par d'autres modules purs (EMIT.module, shared/ai3/automatiser.lua)
 
 --- Avant-poste (construction ou agrandissement) : comme l'échelle d'avant, mais PAR BESOIN et en parallèle.
 EMIT.outpost = function(E, proj, g, ctx)
@@ -463,7 +464,9 @@ EMIT.research = function(E, proj, g, ctx)
   if r.packs and #r.packs > 0 then
     -- Lot IA-G : packs de la technologie EN COURS ; une recherche PEU CHÈRE (but `short`) n'attend pas derrière le
     -- plancher (quelques plaques : « automation » = 1 pack rouge) ; sinon le plancher d'IA-V2.
-    local floor = (g and g.short) and 0 or (ctx.iron_floor or 0)
+    -- Lot IA3-e : la recherche d'un objet que l'automatisation attend (r.for_auto : poteau moyen de la fonderie
+    -- électrique) n'a pas non plus de plancher de fer : c'est l'investissement qui rend le fer (moteur réel, e2-usine).
+    local floor = ((g and g.short) or r.for_auto) and 0 or (ctx.iron_floor or 0)
     with_floor(floor, function()
       if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
     end)

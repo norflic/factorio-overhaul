@@ -37,6 +37,7 @@ local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general") -- lot IA-G : le cerveau général (choix de recherche sur le graphe)
 local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
+local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 
 local Ia3 = {}
 
@@ -248,12 +249,15 @@ local function refresh_techs(force, st, c)
 end
 
 --- Valeur d'une technologie candidate (H9) : recettes débloquées (pack, armée, machine), bonus, et chaîne vers un pack.
-local function tech_value(c, spec, w, chain_value)
+local function tech_value(c, spec, w, chain_value, wanted)
   local v = 0
   local palier = false
   for _, r in ipairs(spec.unlocks) do
     for _, p in ipairs(c.products[r] or {}) do
       if c.packs[p] then v = v + 100 palier = true
+      -- Lot IA3-e : un objet que l'automatisation demande et que l'équipe ne sait pas fabriquer (poteau moyen d'un
+      -- module) vaut un pack (H9 : « la recherche vaut ce qu'elle débloque »).
+      elseif wanted and wanted[p] then v = v + 100
       elseif c.kit_items[p] then v = v + math.floor(40 * (w.armee or 1000) / 1000)
       elseif c.machines[p] then v = v + math.floor(30 * (w.capital or 1000) / 1000)
       else v = v + 5 end
@@ -268,26 +272,45 @@ local function tech_value(c, spec, w, chain_value)
 end
 
 --- Choix de la technologie (inertie : la technologie en cours reste tant qu'elle n'est ni faite ni impayable).
-local function choose_tech(f, force, st, c, book, w)
+Ia3.AUTO_STALL = 10 * 3600  -- lot IA3-e : une recherche pour l'automatisation sans unité payée depuis 10 min…
+Ia3.AUTO_PAUSE = 20 * 3600  -- … laisse passer les autres recherches pendant 20 min (les paliers ne reculent pas, K1)
+
+local function choose_tech(f, force, st, c, book, w, tick)
   local done = st.techs
+  local wanted = Auto.wanted(f) -- lot IA3-e
   local lab = st.lab
-  if lab and lab.tech and not done[lab.tech] then
+  -- Lot IA3-e (garde de K1) : la chaîne d'un objet voulu ne doit pas FIGER la recherche (moteur réel, e2-usine : azure
+  -- bloquée 70 min sur le poteau moyen faute de packs verts, paliers 2 et 3 jamais atteints, contre 32 et 53 min au témoin).
+  if lab and lab.for_auto and lab.tech and not done[lab.tech] and tick and tick - (lab.paid_tick or lab.started or tick) > Ia3.AUTO_STALL then
+    st.auto_pause = tick + Ia3.AUTO_PAUSE
+    log(string.format("[FO-IA3E] %s : recherche '%s' (automatisation) sans progres depuis %d min : les autres recherches passent %d min",
+      f.key or "?", lab.tech, math.floor(Ia3.AUTO_STALL / 3600), math.floor(Ia3.AUTO_PAUSE / 3600)))
+    lab.for_auto = nil
+    lab.stalled = true
+  end
+  if st.auto_pause and tick and tick < st.auto_pause then wanted = nil end
+  if lab and lab.tech and not done[lab.tech] and not lab.stalled then
     local spec = c.techs[lab.tech]
     if spec then
       local ok = A.level_status(book, spec.ing, obtainable)
-      if ok then return lab.tech, true, {}, lab.palier end
+      if ok then return lab.tech, true, {}, lab.palier, lab.for_auto end
     end
   end
   -- Chaînes vers les packs que la force ne sait pas encore fabriquer : les prérequis manquants d'une technologie qui
   -- débloque un pack héritent de sa valeur (divisée par la longueur de la chaîne), si toute la chaîne est payable avec
   -- le livre COMPLET (règle H8 : une chaîne qui touche une matière sans source n'est pas suivie).
   local chain = {}
+  local auto_chain = {} -- lot IA3-e : technologies de la chaîne d'un objet voulu par l'automatisation
+  local pack_near = {}  -- lot IA3-e : technologies d'une chaîne COURTE (3 au plus) vers un pack nouveau (palier suivant)
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
     if spec and not done[name] then
-      local opens = false
+      local opens, for_auto, for_pack = false, false, false
       for _, r in ipairs(spec.unlocks) do
-        for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens = true end end
+        for _, p in ipairs(c.products[r] or {}) do
+          if c.packs[p] then opens, for_pack = true, true end
+          if wanted and wanted[p] then opens, for_auto = true, true end
+        end
       end
       if opens then
         local seen, list, ok = {}, {}, true
@@ -310,11 +333,27 @@ local function choose_tech(f, force, st, c, book, w)
         if ok and #list > 0 then
           local share = math.floor(100 / #list)
           for _, n in ipairs(list) do chain[n] = math.max(chain[n] or 0, share) end
+          if for_auto then for _, n in ipairs(list) do auto_chain[n] = true end end
+          if for_pack and #list <= 3 then for _, n in ipairs(list) do pack_near[n] = true end end
         end
       end
     end
   end
+  -- Lot IA3-e (critère K1, e11-usine graine 20261020, scarlet) : packs déjà consommés par une technologie faite ; la
+  -- PREMIÈRE technologie qui consomme un pack nouveau le fait fabriquer (palier) : elle passe devant la chaîne de
+  -- l'automatisation comme la chaîne courte d'un pack.
+  local used_pack = {}
+  if wanted then
+    for _, name in ipairs(c.names) do
+      local spec = c.techs[name]
+      if spec and done[name] then
+        for _, ing in ipairs(spec.ing) do used_pack[ing[1]] = true end
+      end
+    end
+  end
   local best, best_score, best_palier = nil, nil, false
+  local auto_best, auto_cost = nil, nil
+  local pack_best, pack_cost = nil, nil
   local blocked_causes = {}
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
@@ -325,17 +364,36 @@ local function choose_tech(f, force, st, c, book, w)
       if ft and ft.enabled then
         local ok, causes = A.level_status(book, spec.ing, obtainable)
         if ok then
-          local v, palier = tech_value(c, spec, w, chain[name])
+          local v, palier = tech_value(c, spec, w, chain[name], wanted)
           local cost = 0
           for _, ing in ipairs(spec.ing) do cost = cost + ing[2] * spec.count end
           local score = math.floor(v * 1000 / (cost + 10))
           if v > 0 and (not best_score or score > best_score) then best, best_score, best_palier = name, score, palier end
+          if auto_chain[name] and (not auto_cost or cost < auto_cost) then auto_best, auto_cost = name, cost end
+          -- garde de K1 : une technologie qui ouvre un PACK (palier), prête et payable, passe devant la chaîne
+          local opens_pack = false
+          for _, r in ipairs(spec.unlocks) do
+            for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens_pack = true end end
+          end
+          -- critère K1 (moteur réel, e10-usine graine 271828182 : militaire à 22,9 min contre 11,9 au témoin main 0.5.0,
+          -- palier 3 à 57-58 min contre 18,7-18,8) : la chaîne COURTE d'un pack nouveau passe aussi devant
+          local first_use = false
+          if wanted then
+            for _, ing in ipairs(spec.ing) do if c.packs[ing[1]] and not used_pack[ing[1]] then first_use = true end end
+          end
+          if (opens_pack or pack_near[name] or first_use) and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
         else
           for _, k in ipairs(causes) do blocked_causes[k] = true end
         end
       end
     end
   end
+  -- Lot IA3-e (H2, le goulot d'abord, appliqué à la recherche) : un objet que l'automatisation attend (poteau moyen d'une
+  -- fonderie électrique) passe devant les autres recherches : la moins chère de sa chaîne, prête et payable. Moteur réel,
+  -- e1-usine (27/10) : sans cette règle, « electronics » (27 unités) ne partait qu'à 38 min, après des recherches peu
+  -- chères mais sans usage immédiat (military-2, defender), et le poteau moyen à 45-49 min (2 factions sur 4 en 90 min).
+  if auto_best and pack_best then return pack_best, true, {}, true end
+  if auto_best then return auto_best, true, {}, true, true end
   if best then return best, true, {}, best_palier end
   return nil, false, sorted_keys(blocked_causes), false
 end
@@ -392,14 +450,15 @@ local function research_step(f, st, book, w, tick, view)
   local c = catalogue()
   refresh_techs(force, st, c)
   -- Lot IA-G : le cerveau général choisit sur le graphe des prototypes (shared/ai3/general.lua) ; l'ancien choix reste
-  -- le repli (General.ENABLED = false).
-  local tech, payable, causes, palier
+  -- le repli (General.ENABLED = false). Lot IA3-e : les objets que l'automatisation attend (Auto.wanted : nil réglage
+  -- fo-war-ia3e éteint) sont le dernier argument du cerveau général (V_WANTED et chaîne vers l'objet voulu d'IA-G).
+  local tech, payable, causes, palier, for_auto
   if General.on() then
-    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, nil)
+    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, Auto.wanted(f))
   else
-    tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
+    tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
   end
-  local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {} }
+  local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {}, for_auto = for_auto or nil }
   if not tech then
     info.tech = "?"
     return info
@@ -409,7 +468,7 @@ local function research_step(f, st, book, w, tick, view)
   local lab = st.lab
   if lab.tech ~= tech then
     if force.add_research(tech) then
-      st.lab = { tech = tech, units = 0, paid = 0, last = tick, palier = palier, started = tick }
+      st.lab = { tech = tech, units = 0, paid = 0, last = tick, palier = palier, started = tick, for_auto = for_auto or nil }
       lab = st.lab
       log(string.format("[FO-IA3C] %s : recherche '%s' commencee (%d unites de %d s, laboratoires %d) a %.1f min",
         f.key, tech, spec.count, math.floor(spec.energy / 60), #valid_labs(st), minutes(f, tick)))
@@ -459,6 +518,7 @@ local function research_step(f, st, book, w, tick, view)
         f.team.consumed[ing[1]] = (f.team.consumed[ing[1]] or 0) + ing[2]
       end
       lab.paid = lab.paid + 1
+      lab.paid_tick = tick -- lot IA3-e : dernière unité payée (garde de K1)
     end
     lab.units = math.min(target, lab.paid)
     if lab.units >= spec.count then
@@ -610,13 +670,15 @@ function Ia3.plan(f, view, book, surface, tick)
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
+  local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
-    idle_grow = General.idle_grow(f, view, tick) }
+    idle_grow = General.idle_grow(f, view, tick),
+    auto = auto }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
@@ -671,12 +733,23 @@ end
 --- Après le travail de fond (script/team/poles.lua) : retire du tableau les tâches de FOND LIBRES qui extraient une
 --- matière SATURÉE (minage, tournée, agrandissement, construction) : ses PNJ passent à ce qui manque (constat du DC,
 --- 25/10, 18 h 45). Interface publique du tableau (Board.get, Board.sync) seulement.
+-- Lot IA3-e : minerai -> plaque fondue (minage de fond d'une plaque couverte).
+local PLATE_OF_RES_IA3E = {}
+for _, kind in ipairs(T.OUTPOST_ORDER) do
+  local spec = T.outposts[kind]
+  if T.smelter_inputs[spec.product] then PLATE_OF_RES_IA3E[spec.resource] = spec.product end
+end
+
 function Ia3.after_poles(f, tick)
   local st = f.team.ia3
   local sat = st and st.saturated
-  if not sat or next(sat) == nil then return 0 end
+  -- Lot IA3-e : le fond (minage, tournées) d'une matière COUVERTE par un module fini est retiré, qu'une autre matière
+  -- manque ou non (le module livre ce flux ; critère K7).
+  local cov = st and st.covered or {}
+  if (not sat or next(sat) == nil) and next(cov) == nil then return 0 end
   -- Lot IA-V2 : seulement si une autre matière manque (shared/ai3/cerveau.lua, st.other_short ; critère A5).
-  if st.other_short == false then return 0 end
+  if st.other_short == false then sat = {} end
+  if next(sat) == nil and next(cov) == nil then return 0 end
   local product_of = {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
@@ -693,7 +766,8 @@ function Ia3.after_poles(f, tick)
           item = tk.outpost_kind and T.outposts[tk.outpost_kind] and T.outposts[tk.outpost_kind].product
         end
       end
-      if item and sat[item] then dropped = dropped + 1 else keep[#keep + 1] = tk end
+      local covered = item and (cov[item] or (tk.kind == "mine" and cov[PLATE_OF_RES_IA3E[item] or ""])) or false
+      if item and (sat[item] or covered) then dropped = dropped + 1 else keep[#keep + 1] = tk end
     end
   end
   if dropped > 0 then
