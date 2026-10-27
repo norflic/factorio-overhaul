@@ -160,7 +160,7 @@ do
   local cu = win(10, { ["iron-plate"] = 7200, ["copper-plate"] = 7200 }, { ["iron-plate"] = 60, ["copper-plate"] = 60 })
   local opened = {}
   for i = 1, MAX_OPEN0 do opened[i] = { product = "iron-plate", state = "chantier" } end
-  local r9 = A.decide({ window = cu, obtainable = all_ok, book = book, modules = opened })
+  local r9 = A.decide({ window = cu, obtainable = all_ok, book = book, mods = opened })
   check(#r9.requests == 0 and verdict(r9, "iron-plate").verdict == "en_cours" and verdict(r9, "copper-plate").verdict == "attente",
     MAX_OPEN0 .. " module(s) ouvert(s) : le cuivre attend (" .. tostring(verdict(r9, "copper-plate").why) .. ")")
   local r9b = A.decide({ window = cu, obtainable = all_ok, book = book })
@@ -168,21 +168,21 @@ do
     "fer et cuivre rentables : " .. math.min(2, MAX_OPEN0) .. " demande(s) à la fois, le fer compris (" .. #r9b.requests .. ")")
   -- Refus : même contexte, coût infini ; contexte changé, revu.
   local mods = { { product = "iron-plate", state = "refuse", reason = "pas de lot", sig = "r5:t3:e0" } }
-  local r10 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = mods, sig = "r5:t3:e0" })
+  local r10 = A.decide({ window = hot, obtainable = all_ok, book = book, mods = mods, sig = "r5:t3:e0" })
   check(#r10.requests == 0 and verdict(r10, "iron-plate").verdict == "refuse", "refusé, même contexte : pas de nouvelle demande")
-  local r11 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = mods, sig = "r5:t4:e0" })
+  local r11 = A.decide({ window = hot, obtainable = all_ok, book = book, mods = mods, sig = "r5:t4:e0" })
   check(req(r11, "iron-plate") ~= nil, "refusé, contexte changé (technologie) : demandé de nouveau")
   -- Modules finis : au plus A.MAX_PER_PRODUCT ; un fini et la charge reste : un second.
-  local r12 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "fini" } } })
+  local r12 = A.decide({ window = hot, obtainable = all_ok, book = book, mods = { { product = "iron-plate", state = "fini" } } })
   check(req(r12, "iron-plate") ~= nil, "un module fini, la charge reste forte : un second est demandé")
-  local r12b = A.decide({ window = hot, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "fini", finished_m = 6 } } })
+  local r12b = A.decide({ window = hot, obtainable = all_ok, book = book, mods = { { product = "iron-plate", state = "fini", finished_m = 6 } } })
   check(req(r12b, "iron-plate") == nil and verdict(r12b, "iron-plate").verdict == "attente",
     "module fini à la minute 6 : la charge d'avant ne compte pas, on attend une fenêtre après lui (" .. tostring(verdict(r12b, "iron-plate").why) .. ")")
   local r12h = A.decide({ window = hot, obtainable = all_ok, book = book, hold = "repli jusqu'a 50 min" })
   check(#r12h.requests == 0 and verdict(r12h, "iron-plate").verdict == "attente", "repli de l'équipe (réserves affamées) : aucune demande (" ..
     tostring(verdict(r12h, "iron-plate").why) .. ")")
   local fin2 = { { product = "iron-plate", state = "fini" }, { product = "iron-plate", state = "fini" } }
-  local r13 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = fin2 })
+  local r13 = A.decide({ window = hot, obtainable = all_ok, book = book, mods = fin2 })
   check(req(r13, "iron-plate") == nil and verdict(r13, "iron-plate").verdict == "fini", "deux modules finis : plus de demande")
 end
 
@@ -219,12 +219,12 @@ do
   -- (fer seul) ne sont plus retenus par un module de cuivre (l'ancienne liste de rangs les retenait).
   local wb = win(10, { ["transport-belt"] = 3600, ["firearm-magazine"] = 3600 }, { ["transport-belt"] = 30, ["firearm-magazine"] = 30 })
   local rb = A.decide({ window = wb, obtainable = all_ok, book = book, has_plant = true,
-    modules = { { product = "iron-gear-wheel", state = "chantier" } } })
+    mods = { { product = "iron-gear-wheel", state = "chantier" } } })
   local vt = verdict(rb, "transport-belt")
   check(vt and vt.verdict == "ordre" and tostring(vt.why):find("iron-gear-wheel", 1, true),
     "tapis : attend son entrée « engrenages » en chantier (" .. tostring(vt and vt.why) .. ")")
   local rc = A.decide({ window = wb, obtainable = all_ok, book = book, has_plant = true,
-    modules = { { product = "copper-plate", state = "chantier" } } })
+    mods = { { product = "copper-plate", state = "chantier" } } })
   check(req(rc, "firearm-magazine") ~= nil, "chargeurs (fer seul) : un module de cuivre en chantier ne les retient pas (" ..
     tostring(verdict(rc, "firearm-magazine").why) .. ")")
   local sorted = true
@@ -295,7 +295,7 @@ end
 do
   -- (a ter) recherche ouverte (packs rouges) : un module de fer passe APRÈS elle ; un module de packs rouges la sert.
   local gs = { { key = "recherche", family = "recherche", kind = "research", tech = "automation", value = 70 } }
-  local auto = { modules = { { product = "iron-plate", state = "reserve", gain = 3 },
+  local auto = { mods = { { product = "iron-plate", state = "reserve", gain = 3 },
     { product = "automation-science-pack", state = "reserve", gain = 3 } } }
   local research = { tech = "automation", packs = { { "automation-science-pack", 10 } } }
   local out = A.goals(gs, auto, { capital = 1000 }, research)
@@ -312,7 +312,7 @@ end
 do
   -- (a bis) module FINI dont le quai de circuits est vide au coffre : but « alimenter », circuits fabriqués pour lui.
   local st = C.new_state(0)
-  local auto = { modules = { { product = "logistic-science-pack", state = "fini" } }, cap = {}, covered = {},
+  local auto = { mods = { { product = "logistic-science-pack", state = "fini" } }, cap = {}, covered = {},
     feeds = { { product = "logistic-science-pack", id = 5, items = { { "electronic-circuit", 200 } }, gain = 1 } } }
   local plan = C.think(view({ stock = base_stock, outposts = outs }), book, st, ctx_of(auto))
   local proj = nil
@@ -324,7 +324,7 @@ end
 do
   -- (a) module en réserve, il manque des foreuses électriques et des bras : projet actif, sous-buts fabriqués.
   local st = C.new_state(0)
-  local auto = { modules = { { product = "iron-plate", state = "reserve", missing = { { "electric-mining-drill", 4 }, { "inserter", 6 } } } },
+  local auto = { mods = { { product = "iron-plate", state = "reserve", missing = { { "electric-mining-drill", 4 }, { "inserter", 6 } } } },
     cap = {}, covered = {} }
   local plan = C.think(view({ stock = base_stock, outposts = outs }), book, st, ctx_of(auto))
   local proj = nil
@@ -339,18 +339,18 @@ do
   -- (a2) la centrale est un projet comme un module (ses chaudière et machines à vapeur sont fabriquées) ; la valeur d'un
   -- module grandit avec les PNJ qu'il libère.
   local stc = C.new_state(0)
-  local autoc = { modules = { { product = "centrale", state = "reserve", missing = { { "steam-engine", 2 }, { "boiler", 1 } }, gain = 2 },
+  local autoc = { mods = { { product = "centrale", state = "reserve", missing = { { "steam-engine", 2 }, { "boiler", 1 } }, gain = 2 },
     { product = "iron-plate", state = "attente", missing = {}, gain = 2 } }, cap = {}, covered = {} }
   local planc = C.think(view({ stock = base_stock, outposts = outs }), book, stc, ctx_of(autoc))
   check(count(planc, function(t) return t.kind == "craft" and t.item == "steam-engine" and t.why == "auto:centrale" end) >= 1,
     "centrale : ses machines à vapeur sont fabriquées pour son projet")
-  local g_lo = A.goals({}, { modules = { { product = "iron-plate", state = "plan", gain = 0 } } }, {})
-  local g_hi = A.goals({}, { modules = { { product = "iron-plate", state = "plan", gain = 2 } } }, {})
+  local g_lo = A.goals({}, { mods = { { product = "iron-plate", state = "plan", gain = 0 } } }, {})
+  local g_hi = A.goals({}, { mods = { { product = "iron-plate", state = "plan", gain = 2 } } }, {})
   check(g_hi[1].value > g_lo[1].value and g_hi[1].value == A.VALUE + 2 * A.VALUE_PER_PNJ,
     string.format("valeur d'un module : %d sans gain, %d pour 2 PNJ libérés", g_lo[1].value, g_hi[1].value))
   -- (b) chantier bloqué : projet bloqué, cause lisible, il ne prend pas de place.
   local st2 = C.new_state(0)
-  local auto2 = { modules = { { product = "iron-plate", state = "bloque", reason = "fantome refuse (stone-furnace en 3,4)" } }, cap = {}, covered = {} }
+  local auto2 = { mods = { { product = "iron-plate", state = "bloque", reason = "fantome refuse (stone-furnace en 3,4)" } }, cap = {}, covered = {} }
   C.think(view({ stock = base_stock, outposts = outs }), book, st2, ctx_of(auto2))
   local p2 = nil
   for _, p in ipairs(st2.projects) do if p.key == "auto:iron-plate" then p2 = p end end
@@ -358,9 +358,9 @@ do
   -- (c) module fini, fer couvert : plus de tournée ordinaire à l'avant-poste de fer ; ses tournées de charbon restent.
   local st3 = C.new_state(0)
   local v3 = view({ stock = base_stock, outposts = { op(1, "coal", 4, { output = 80 }), op(2, "iron", 8, { output = 80 }), op(3, "copper", 3), op(4, "stone", 2) } })
-  local plan_a = C.think(v3, book, C.new_state(0), ctx_of({ modules = {}, cap = {}, covered = {} }))
+  local plan_a = C.think(v3, book, C.new_state(0), ctx_of({ mods = {}, cap = {}, covered = {} }))
   local svc_iron_a = count(plan_a, function(t) return t.kind == "service" and t.outpost == 2 end)
-  local auto3 = { modules = { { product = "iron-plate", state = "fini" } }, cap = { iron = 0.94 }, covered = { ["iron-plate"] = true } }
+  local auto3 = { mods = { { product = "iron-plate", state = "fini" } }, cap = { iron = 0.94 }, covered = { ["iron-plate"] = true } }
   local plan3 = C.think(v3, book, st3, ctx_of(auto3))
   local svc_iron = count(plan3, function(t) return t.kind == "service" and t.outpost == 2 and t.prio < 90 end)
   local svc_coal = count(plan3, function(t) return t.kind == "service" and t.outpost == 1 end)
@@ -369,7 +369,7 @@ do
   check(svc_coal == count(plan_a, function(t) return t.kind == "service" and t.outpost == 1 end), "les tournées de charbon ne changent pas")
   -- (d) capacité : sans avant-poste de fer, un module fini empêche l'amorçage d'un avant-poste de fer.
   local v4 = view({ stock = base_stock, outposts = { op(1, "coal", 4), op(3, "copper", 3), op(4, "stone", 2) } })
-  local s4 = C.situation(v4, C.new_state(0), ctx_of({ modules = {}, cap = { iron = 0.94 }, covered = {} }))
+  local s4 = C.situation(v4, C.new_state(0), ctx_of({ mods = {}, cap = { iron = 0.94 }, covered = {} }))
   local g4 = B.generate(s4, C.new_state(0))
   local wants_iron = false
   for _, g in ipairs(g4) do if g.key == "extraction:iron" then wants_iron = true end end
@@ -385,7 +385,7 @@ do
     return table.concat(o, ";")
   end
   local pa = C.think(view({ stock = base_stock, outposts = outs }), book, C.new_state(0), ctx_of(nil))
-  local pb = C.think(view({ stock = base_stock, outposts = outs }), book, C.new_state(0), ctx_of({ modules = {}, cap = {}, covered = {} }))
+  local pb = C.think(view({ stock = base_stock, outposts = outs }), book, C.new_state(0), ctx_of({ mods = {}, cap = {}, covered = {} }))
   check(sig(pa) == sig(pb), "aucun module : même plan qu'avant le lot (neutralité)")
 end
 

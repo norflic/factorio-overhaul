@@ -47,6 +47,7 @@
 
 local M = require("shared.team.modules")
 local T = require("shared.team.config")
+local D = require("shared.team.automatisation_donnees") -- lot IA3-e : ce que l'exécutant sait poser (données nommées)
 
 local A = {}
 
@@ -82,20 +83,10 @@ A.VALUE_MAX = 90         -- devant l'armée et la recherche au service du fer (p
                          -- « materiaux » 64 min, le fer mangé par l'armée et les munitions servies avant lui)
 A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes : capacité d'un module en unités d'avant-poste)
 
--- Méthodes « machine » (données du mod : générateurs de shared/team/modules.lua). ext = indice du paramètre agrandi
--- (extension du gabarit) ; ore = minerai servi par des foreuses quand le flux le permet ; feed = têtes d'alimentation.
-A.METHODS = {
-  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = "tapis" },
-  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = "tapis" },
-  { product = "iron-gear-wheel", gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
-  { product = "electronic-circuit", gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
-  { product = "firearm-magazine", gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },
-  { product = "automation-science-pack", gen = "red_packs", args = { "assembling-machine-1", 1 }, feed = true },
-  { product = "logistic-science-pack", gen = "green_packs", args = { "assembling-machine-1", 1 }, feed = true },
-}
--- La centrale (demandée d'elle-même par le plan directeur au premier module électrique) : comptée dans le coût du
--- premier module quand l'équipe n'en a pas.
-A.PLANT = { gen = "steam", args = { 1 } }
+-- Méthodes « machine », centrale, machines des rangées générées et pièces du plan directeur : données NOMMÉES de
+-- l'exécutant (shared/team/automatisation_donnees.lua, hors des fichiers de décision : règle anti-échelle d'IA-G).
+A.METHODS = D.METHODS
+A.PLANT = D.PLANT
 
 local function sorted_keys(t)
   local ks = {}
@@ -206,11 +197,11 @@ local function feed_extra(method, g)
       if d then
         for _, name in ipairs(sorted_keys(d.items)) do add(name, d.items[name]) end
       end
-      add("transport-belt", A.BELT_LEN)
+      add(D.PARTS.belt, A.BELT_LEN)
     else
       quais_in[#quais_in + 1] = { it, flow }
-      add("iron-chest", 1)
-      add("inserter", 1)
+      add(D.PARTS.chest, 1)
+      add(D.PARTS.arm, 1)
     end
   end
   local outn = 0
@@ -218,9 +209,9 @@ local function feed_extra(method, g)
   -- un quai de sortie par port de sortie : les fonderies en ont deux (une rangée de fours chacune) ; bras rapide quand un
   -- bras simple ne suffit pas (choix du plan directeur, P.out_quai)
   local ports = method.gen == "smelter" and 2 or 1
-  add("iron-chest", ports)
-  add(outn / ports > A.QUAI_RATE and "fast-inserter" or "inserter", ports)
-  if (g.power_kw or 0) > 0 then add("medium-electric-pole", A.NET_POLES) end
+  add(D.PARTS.chest, ports)
+  add(outn / ports > A.QUAI_RATE and D.PARTS.fast_arm or D.PARTS.arm, ports)
+  if (g.power_kw or 0) > 0 then add(D.PARTS.pole, A.NET_POLES) end
   return items, n, quais_in, ports
 end
 
@@ -236,7 +227,7 @@ function A.cost(method, g, ctx)
     local pl = A.template(A.PLANT.gen, A.PLANT.args)
     if pl then
       for _, name in ipairs(sorted_keys(pl.items)) do items[name] = (items[name] or 0) + pl.items[name] end
-      items["iron-chest"] = (items["iron-chest"] or 0) + 1
+      items[D.PARTS.chest] = (items[D.PARTS.chest] or 0) + 1
       n_ent = n_ent + pl.n_ent + 1
     end
   end
@@ -272,7 +263,7 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Machines essayées, dans l'ordre, pour un module généré : la première dont les catégories contiennent celle de la
 --- recette (M.spec). Un objet de la machine que l'équipe ne sait pas fabriquer fait « recherche » (point 7).
-A.MACHINES = { "assembling-machine-1", "assembling-machine-2" }
+A.MACHINES = D.MACHINES
 
 -- Index produit -> recette de TOUT le livre (fours et fluides compris : le graphe, pas la main). Cache LOCAL par livre
 -- (table faible), construit dans l'ordre des noms : fonction pure des recettes.
@@ -377,7 +368,7 @@ local OPEN = { attente = true, plan = true, reserve = true, defrichage = true, f
 A.OPEN_STATES = OPEN
 
 --- La décision d'une pensée. input = {
----   window, threatened, modules = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
+---   window, threatened, mods = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
 ---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
 ---   no_power (raison du refus de la centrale, ou nil), hold (raison d'un repli : aucune demande, ou nil), items (facultatif : objets à peser en plus, par exemple les
 ---   étapes « produce » du dépliage d'IA-G) }.
@@ -391,7 +382,7 @@ function A.decide(input)
   local margin = input.threatened and A.MARGIN_THREAT or A.MARGIN_SAFE
   local mods = {}
   local open = 0
-  for _, m in ipairs(input.modules or {}) do
+  for _, m in ipairs(input.mods or {}) do
     mods[m.product] = mods[m.product] or { open = 0, fini = 0, refused = nil }
     local r = mods[m.product]
     if OPEN[m.state] then
@@ -609,7 +600,7 @@ function A.serves_research(research, product)
   return false
 end
 
---- Buts « module » des demandes ouvertes (auto = { modules = { { product, state, missing, reason } } }), ajoutés à la
+--- Buts « module » des demandes ouvertes (auto = { mods = { { product, state, missing, reason } } }), ajoutés à la
 --- liste des buts de la pensée (shared/ai3/cerveau.lua). Valeur : A.VALUE × poids « capital » du chef.
 --- research (facultatif) : la recherche ouverte ; un module qui ne la sert pas passe APRÈS elle (valeur plafonnée sous
 --- celle du but « recherche ») : il ne prend ni les matières ni les bras dont elle a besoin (moteur réel, e6 à e10-usine,
@@ -630,7 +621,7 @@ function A.goals(goals, auto, weights, research)
   -- recherche, l'armée et les munitions, réserve « materiaux » de 26 à 90 min).
   local w = math.max(1000, (weights or {}).capital or 1000)
   local seen = {}
-  for _, m in ipairs(auto.modules or {}) do
+  for _, m in ipairs(auto.mods or {}) do
     if OPEN[m.state] and not seen[m.product] then
       seen[m.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))

@@ -158,7 +158,7 @@ local function photos(ctx, moment)
       snap(ctx, row.key .. "-" .. moment .. "-base", hq.position.x, hq.position.y, 0.18)
       local a = auto_status(ctx, row.key)
       local n = 0
-      for _, m in ipairs(a and a.modules or {}) do
+      for _, m in ipairs(a and a.mods or {}) do
         for _, pt in ipairs(m.parts or {}) do
           n = n + 1
           if n <= 6 and m.state == "fini" then
@@ -229,8 +229,8 @@ return function(variant)
           local a = auto_status(ctx, row.key)
           if a then
             local mods = {}
-            for _, m in ipairs(a.modules) do mods[#mods + 1] = string.format("%s:%s(%d/%d)", m.product, m.state, m.built or 0, m.total or 0) end
-            if #a.modules > 0 then st.any_request = true end
+            for _, m in ipairs(a.mods) do mods[#mods + 1] = string.format("%s:%s(%d/%d)", m.product, m.state, m.built or 0, m.total or 0) end
+            if #a.mods > 0 then st.any_request = true end
             if t % (5 * MIN) == 0 then
               ctx.log(string.format("minute %d | %s modules {%s} | voulu [%s]", t / MIN, row.key, table.concat(mods, " "), table.concat(a.wanted or {}, " ")))
             end
@@ -242,7 +242,7 @@ return function(variant)
       if t >= 30 * MIN and t % (10 * MIN) == 0 and not st.frozen then
         for _, row in ipairs(factions(ctx)) do
           local a = auto_status(ctx, row.key)
-          for _, m in ipairs(a and a.modules or {}) do
+          for _, m in ipairs(a and a.mods or {}) do
             if m.state == "fini" then pcall(diagnose, ctx, row, m) end
           end
           -- centrale : chaudières et machines à vapeur de la force (statut, charbon, énergie du dernier tick)
@@ -302,7 +302,7 @@ return function(variant)
         for _, row in ipairs(factions(ctx)) do
           local a = auto_status(ctx, row.key)
           local list = {}
-          for _, m in ipairs(a and a.modules or {}) do
+          for _, m in ipairs(a and a.mods or {}) do
             if m.state == "fini" then
               local made = production(machines_of(s, row.force, m))
               list[#list + 1] = { product = m.product, id = m.id, last = made, per_min = {} }
@@ -327,7 +327,7 @@ return function(variant)
         for _, row in ipairs(factions(ctx)) do
           local a = auto_status(ctx, row.key)
           local list = {}
-          for _, m in ipairs(a and a.modules or {}) do
+          for _, m in ipairs(a and a.mods or {}) do
             if m.state == "fini" then
               local ms = machines_of(s, row.force, m)
               local made, power = production(ms)
@@ -373,7 +373,7 @@ return function(variant)
             else
               local a = auto_status(ctx, key)
               local mod
-              for _, x in ipairs(a and a.modules or {}) do if x.id == m.id then mod = x end end
+              for _, x in ipairs(a and a.mods or {}) do if x.id == m.id then mod = x end end
               local made = mod and production(machines_of(s, fz.force, mod)) or m.last
               m.per_min[#m.per_min + 1] = made - m.last
               m.last = made
@@ -422,9 +422,9 @@ return function(variant)
         for _, row in ipairs(factions(ctx)) do
           local a = auto_status(ctx, row.key)
           local parts = {}
-          for _, m in ipairs(a and a.modules or {}) do parts[#parts + 1] = m.product .. ":" .. m.state end
+          for _, m in ipairs(a and a.mods or {}) do parts[#parts + 1] = m.product .. ":" .. m.state end
           ctx.log(string.format("modules %s a %d min : %s", row.key, math.floor(T_END / MIN), table.concat(parts, " ")))
-          if a and #a.modules > 0 then s2 = s2 + 1 end
+          if a and #a.mods > 0 then s2 = s2 + 1 end
         end
         ctx.check(s2 > 0, "au moins une faction a demande un module")
         return
