@@ -322,6 +322,18 @@ local function choose_tech(f, force, st, c, book, w, tick)
       end
     end
   end
+  -- Lot IA3-e (critère K1, e11-usine graine 20261020, scarlet) : packs déjà consommés par une technologie faite ; la
+  -- PREMIÈRE technologie qui consomme un pack nouveau le fait fabriquer (palier) : elle passe devant la chaîne de
+  -- l'automatisation comme la chaîne courte d'un pack.
+  local used_pack = {}
+  if wanted then
+    for _, name in ipairs(c.names) do
+      local spec = c.techs[name]
+      if spec and done[name] then
+        for _, ing in ipairs(spec.ing) do used_pack[ing[1]] = true end
+      end
+    end
+  end
   local best, best_score, best_palier = nil, nil, false
   local auto_best, auto_cost = nil, nil
   local pack_best, pack_cost = nil, nil
@@ -348,7 +360,11 @@ local function choose_tech(f, force, st, c, book, w, tick)
           end
           -- critère K1 (moteur réel, e10-usine graine 271828182 : militaire à 22,9 min contre 11,9 au témoin main 0.5.0,
           -- palier 3 à 57-58 min contre 18,7-18,8) : la chaîne COURTE d'un pack nouveau passe aussi devant
-          if (opens_pack or pack_near[name]) and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
+          local first_use = false
+          if wanted then
+            for _, ing in ipairs(spec.ing) do if c.packs[ing[1]] and not used_pack[ing[1]] then first_use = true end end
+          end
+          if (opens_pack or pack_near[name] or first_use) and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
         else
           for _, k in ipairs(causes) do blocked_causes[k] = true end
         end
