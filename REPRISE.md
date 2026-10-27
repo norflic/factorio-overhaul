@@ -10,6 +10,16 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 2 h 40 : F3-B FUSIONNÉ, `main` = 0.4.31** (`91f07a2` : assembleur en jeu, feuilles par
+> `assembleur_e/feuilles.py`, F306 à F308, E204, E205 ; `banc.py` accepte `--visuel "--…"`, F307). Bancs sur `main` par la file :
+> archives `fo-logs\2026-10-27_integration-0.4.31\`. **Design relancé** (même agent, `af602e63c702fb3b4`) : F4-A3 (foreuse,
+> 3e ronde, branche `worktree-agent-a235f8f5537d5ec4f`, cible « visible au zoom 1 », F309-F311, E206-E207, planches dans
+> `fo-logs\2026-10-25_F4\planches_DC_A3\`), puis F5-A (centre, ronde 1, worktree `.claude/worktrees/f5a` branche `f5a`,
+> F312-F314, E208-E209, `fo-logs\2026-10-27_F5\`). **Page de suivi pour le téléphone du DC** :
+> https://claude.ai/artifact/617hK5AkCWh1vu7HCzViU5 (source : `chantier.html` + `img/` dans le scratchpad de la session
+> `bf870ee5` ; à republier à chaque lot fusionné). La liste IA_ATTENDUS compte **22** comportements (A1-A9, B1-B5, C1-C7,
+> D1), pas 24 comme dit au DC à 1 h 50.
+>
 > **27/10, 1 h 45 : REPRISE APRÈS LA COUPURE HEBDOMADAIRE (orchestrateur, session `bf870ee5`, lancée par une macro de nuit ;
 > le DC dort et ne répond pas).**
 > - **Le projet vit sur F:** (`F:\Factorio.v1.1.91 Modding\…`, exFAT, 211 Go libres) : le DC a tout copié le 26/10 vers 21 h 15,
