@@ -28,6 +28,7 @@ local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
+local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 
@@ -451,6 +452,12 @@ function Team.think(f, surface, tick)
   Profiler.start("team:poles")
   Poles.think(f, view, book_for(f), tick, plan)
   Profiler.stop("team:poles")
+  -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
+  if f.build then
+    Profiler.start("team:build")
+    Build.think(f, surface, tick)
+    Profiler.stop("team:build")
+  end
 
   -- Lot IA1-a : mesures publiées (inactivité réelle ; exécutants au-delà du carnet) et cases du QG revalidées
   -- à tour de rôle.
