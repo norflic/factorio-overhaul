@@ -166,10 +166,38 @@ for e in list(range(1, 16)) + ["k4", "k8"]:
     try:
         corps.centre(g, c)
         n = g.count
-        ok = (n.get("vantail", 0) == 1 and n.get("sat_fut", 0) == (4 if side >= 6 else 2) and c.n_fin > 20
-              and n.get("fenetre", 0) >= 4 and len(c.z_etages) == c.n_etages)
-        check(ok, "âge %s : construction à blanc (porte 1, satellites %d, fenêtres %d, détail fin %d, étages %d)" % (
-            e, n.get("sat_fut", 0), n.get("fenetre", 0), c.n_fin, len(c.z_etages)))
+        # ronde F5-A2 : aux âges, 2 assises avant (mitrailleuses composées par satellites.py) et 2 projecteurs arrière
+        # dès 6×6 ; le témoin garde les petites tourelles de la lignée
+        if ee == 0:
+            sat = n.get("sat_fut", 0) == (4 if side >= 6 else 2)
+        else:
+            sat = n.get("assise_sat", 0) == 2 and n.get("projecteur", 0) == (2 if side >= 6 else 0)
+        ok = (n.get("vantail", 0) == 1 and sat and c.n_fin > 20 and n.get("fenetre", 0) >= 4
+              and len(c.z_etages) == c.n_etages)
+        check(ok, "âge %s : construction à blanc (porte 1, assises %d, projecteurs %d, fenêtres %d, détail fin %d, "
+              "étages %d)" % (e, n.get("assise_sat", n.get("sat_fut", 0)), n.get("projecteur", 0), n.get("fenetre", 0),
+                              c.n_fin, len(c.z_etages)))
+        if getattr(m, "ARCHI", False):
+            check(n.get("contrefort", 0) >= 10 and getattr(c, "n_vitres", 0) >= 3 and n.get("balcon", 0) == 1,
+                  "âge %s : architecture (contreforts %d, vitres de verrière %d, balcon %d)" % (
+                      e, n.get("contrefort", 0), getattr(c, "n_vitres", 0), n.get("balcon", 0)))
+            # ronde 2b : verrière découpée (au moins 2 carreaux par secteur), terrasses en rangées, allée de bornes
+            check(getattr(c, "n_vitres", 0) >= 2 * getattr(c, "n_chassis", 0) > 0 and n.get("lanterneau", 0) >= 10
+                  and n.get("event", 0) >= 10 and getattr(c, "n_bornes", 0) >= 20,
+                  "âge %s : ronde 2b (carreaux %d sur %d châssis, lanterneaux %d, ouïes %d, bornes %d)" % (
+                      e, getattr(c, "n_vitres", 0), getattr(c, "n_chassis", 0), n.get("lanterneau", 0),
+                      n.get("event", 0), getattr(c, "n_bornes", 0)))
+        if getattr(m, "MOTIF_SECTEUR", False):
+            check(getattr(c, "n_plaquettes", 0) >= 30, "âge %s : ronde 2c, plaquettes des secteurs du socle (%d)" % (
+                e, getattr(c, "n_plaquettes", 0)))
+        if getattr(m, "HUBLOTS", False):
+            check(n.get("hublot", 0) >= 20, "âge %s : ronde 2c, hublots aux façades sud (%d)" % (e, n.get("hublot", 0)))
+        if ee == 10:
+            check(getattr(c, "n_pastilles", 0) >= 100, "âge 10 : motif des dalles visibles du socle (%d pastilles)" %
+                  getattr(c, "n_pastilles", 0))
+        if ee == 1:
+            check(n.get("lanterne_porte", 0) == 2, "âge 1 : deux lanternes à la porte (nuit), %d" %
+                  n.get("lanterne_porte", 0))
     except Exception as ex:  # noqa: BLE001
         check(False, "âge %s : construction à blanc : %r" % (e, ex))
 

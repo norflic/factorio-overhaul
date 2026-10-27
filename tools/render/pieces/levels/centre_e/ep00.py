@@ -15,6 +15,8 @@ HABILLAGE = dict()
 
 RAYON_MAT = 0.20   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
 
+SATELLITES_3D = True   # témoin : les petites tourelles de la lignée (pas de mitrailleuse d'âge)
+
 
 def matieres(metal, M):
     pass

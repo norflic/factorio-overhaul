@@ -17,6 +17,13 @@ HABILLAGE = dict(ages.CORPS[12], plan="octo", etages=3, toit="plat", mat_e1="noi
 
 RAYON_MAT = 0.65   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
 
+ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
+
+# ronde 2c (charte sous 25 en 2b) : châssis de verrière et cadres des lanterneaux CLAIRS, rang de hublots aux façades sud
+CHASSIS = "steel_hi"
+CADRE_TOIT = "steel_hi"
+HUBLOTS = True
+
 
 def matieres(metal, M):
     ages.matieres(12, metal, M)
