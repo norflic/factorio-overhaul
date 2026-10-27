@@ -269,6 +269,13 @@ local function refuge(f, p, ep)
     end
   end
   local home = f.home_spot or f.hq_pos
+  if not best and d2(home, ep) < 32 * 32 then
+    -- Pas de tourelle et c'est le QG qui est menacé : s'éloigner de la menace (24 tuiles à l'opposé), pas y courir.
+    local vx, vy = p.x - ep.x, p.y - ep.y
+    local L = math.sqrt(vx * vx + vy * vy)
+    if L < 1 then vx, vy, L = 1, 0, 1 end
+    return { x = p.x + 24 * vx / L, y = p.y + 24 * vy / L }
+  end
   if not best or d2(home, p) <= bd then return { x = home.x, y = home.y } end
   -- 3 tuiles derrière la tourelle, du côté du QG
   local hx, hy = home.x - best.x, home.y - best.y

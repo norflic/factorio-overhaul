@@ -91,14 +91,16 @@ C.on_alert = function(f, ep, kind, tick)
   return true
 end
 
---- C7 : QG menacé, les ouvriers SANS munitions qui ne sont pas au QG rentrent à l'abri (refuge : tourelle ou QG).
+--- C7 : QG menacé, les ouvriers SANS munitions à moins de 160 tuiles du QG se mettent à l'abri (refuge : tourelle amie,
+--- sinon le QG s'il est loin de la menace, sinon à l'opposé de la menace).
 local function shelter(f, t, threat, tick)
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid and ag.task then
       local e = ag.entity
       local armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
-      if not armed and d2(e.position, f.hq_pos) > 12 * 12 then
+      local dh = d2(e.position, f.hq_pos)
+      if not armed and dh > 12 * 12 and dh <= Sd.NEAR_HQ * Sd.NEAR_HQ then
         local a = C.astate(ag)
         if not a.refuge then
           a.refuge = C.refuge(f, e.position, threat)
