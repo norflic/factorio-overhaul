@@ -222,7 +222,8 @@ local function pass(f, tick)
       end
     end
     if ok then
-      cand[#cand + 1] = { x = th.x, y = th.y, killed = D.deaths_near(t.map, { th }, 48, tick) > 0 }
+      -- « a tué » ou BLOQUE une tournée (porte, escalade) : nettoyée quel que soit le caractère de la faction.
+      cand[#cand + 1] = { x = th.x, y = th.y, killed = D.deaths_near(t.map, { th }, 48, tick) > 0 or (th.b ~= nil and tick - th.b < 3600) }
     end
   end
   table.sort(cand, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)

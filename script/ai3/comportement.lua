@@ -374,7 +374,7 @@ function M.leg(agent, pos, radius, tick, depth)
     if res.side then a[sk] = res.side end
     if res.blocked and not res.partial then
       t.stats.blocked = t.stats.blocked + 1
-      if home or a.escort then
+      if home or a.escort or a.risk then
         -- Rentrer au QG (ou passer escorté) : le chemin qui minimise le danger, faute de mieux.
         res = M.plan(f, agent, p, pos, tick, { B = 1e9 })
       else
@@ -454,10 +454,46 @@ function M.gate(f, agent, task, steps, tick)
   local free = M.escort_free and M.escort_free(f) or 0
   local decision, why = D.gate({ blocked = res.blocked, max_d = res.max_d, goal_d = res.goal_d, deaths = deaths, far = far },
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
+  local a = astate(agent)
+  a.escort, a.risk = nil, nil
+  -- ESCALADE (IA3_CERVEAU §4.2 : « attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour
+  -- une mort) part quand même après W attentes (2 audacieux à 6 prudent) ; le PNJ garde ses réflexes (demi-tour à portée).
+  -- La menace qui bloque est signalée aux soldats (nettoyage quel que soit le caractère, script/ai3/soldats.lua).
+  local dk = D.key(D.cell(dest.x), D.cell(dest.y))
+  t.waits = t.waits or {}
+  if decision == "wait" and why ~= "morts" and why ~= "mort" then
+    local w = t.waits[dk]
+    if not w then
+      w = { n = 0 }
+      -- Au plus 64 destinations suivies : la plus ancienne part (clés triées : aucun ordre de pairs).
+      local keys = {}
+      for k in pairs(t.waits) do keys[#keys + 1] = k end
+      if #keys >= 64 then
+        table.sort(keys)
+        local old = keys[1]
+        for _, k in ipairs(keys) do if t.waits[k].t < t.waits[old].t then old = k end end
+        t.waits[old] = nil
+      end
+      t.waits[dk] = w
+    end
+    w.n, w.t = w.n + 1, tick
+    for _, th in ipairs(t.map.threats) do
+      for _, q in ipairs(pts) do
+        if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
+      end
+    end
+    local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
+    if w.n > W then
+      decision, why = "go", "escalade"
+      a.risk = true
+      w.n = 0
+      t.stats.escalade = (t.stats.escalade or 0) + 1
+    end
+  elseif decision ~= "wait" then
+    t.waits[dk] = nil
+  end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
-  local a = astate(agent)
-  a.escort = nil
   if decision == "wait" then
     label(agent, "attente", tick, t.stats)
     if Profiler.enabled() then
@@ -576,7 +612,7 @@ function M.sense(agent, tick)
   local walking = agent.state == "walk" and agent.nav == "moving"
   local prud, agr = M.character(f)
   -- Une menace fixe NOUVELLE vue par un camarade touche le reste de notre trajet : nouvel itinéraire (détour).
-  if walking and a.pts and (a.mver or 0) < (t.mver or 0) then
+  if walking and a.pts and not a.risk and (a.mver or 0) < (t.mver or 0) then
     local hit = nil
     for _, nt in ipairs(t.new_threats or {}) do
       if nt.v > (a.mver or 0) and d_route(p, a, nt) <= nt.r + Re.MARGIN then hit = nt end
@@ -654,6 +690,9 @@ function M.sense(agent, tick)
   if not K.fixed and enemy.force.name ~= "enemy" and enemies <= 1.5 and M.on_alert then
     if M.on_alert(f, ep, kind, tick, "hunt") then t.stats.hunts = (t.stats.hunts or 0) + 1 end
   end
+  -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
+  -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
+  if a.risk and K.fixed and action == "detour" then action = "none" end
   if action == "none" then return false end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).

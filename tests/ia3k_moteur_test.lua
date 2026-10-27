@@ -226,6 +226,20 @@ remote.call("fo-ia3k", "death", "player", 0, 135)
 check(C.gate(f, ag, task, steps, game.tick) == false, "2 morts dans l'heure : attente")
 M.run_ticks(61 * 3600)
 check(C.gate(f, ag, task, steps, game.tick) == true, "une heure plus tard : la tâche repart")
+-- Escalade : une destination gardée par un ver VU (sans mort) est refusée W fois (W = 4 pour un neutre), puis la tâche
+-- part (risque accepté), et le ver est signalé comme « bloquant » (nettoyage par la garnison quel que soit le caractère).
+remote.call("fo-ia3k", "mark", "player", 160, -140, "worm", 25)
+local steps2 = { { "home" }, { "goto", { x = 165, y = -150 }, 3 }, { "act", "service" }, { "home" } }
+local refusals, went = 0, false
+for _ = 1, 8 do
+  if C.gate(f, ag, { key = "test:service2", kind = "service" }, steps2, game.tick) then went = true break end
+  refusals = refusals + 1
+end
+check(went and refusals == 4, "escalade : 4 attentes puis départ (" .. refusals .. " refus)")
+check(global.fo.ia3k.agents[ag.id].risk == true, "tournée escaladée marquée « risque accepté »")
+local blocking = false
+for _, th in ipairs(global.fo.ia3k.teams["player"].map.threats) do if th.b then blocking = true end end
+check(blocking, "le ver qui bloque est signalé aux soldats")
 remote.call("fo-ia3k", "hold", "player", true)
 -- Mort réelle d'un PNJ (cause ennemie) : marquée par le crochet du registre.
 local d_before = remote.call("fo-ia3k", "status", "player").stats.deaths
