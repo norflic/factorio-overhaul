@@ -493,8 +493,27 @@ function Board.assign(f, tick)
     local a = Registry.get(id)
     if a and not a.task and a.entity and a.entity.valid then npcs[#npcs + 1] = market_npc(a) end
   end
-  if #npcs < 2 then return 0 end
   local reg = reg_of(f)
+  -- Lot IA-V2 : diagnostic de K5 (PNJ sans tâche pendant que des tâches libres attendent), à chaque pensée : tâches
+  -- libres et, parmi elles, celles dont la matière stricte n'est pas libre au registre (non prenables). Écrit chaque
+  -- minute par script/ai3/cerveau.lua (Ia3.measure), puis remis à zéro.
+  if #npcs > 0 then
+    local free, blocked = 0, 0
+    for _, t in ipairs(b.list) do
+      if not t.worker then
+        free = free + 1
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          if R.free(reg, it[1]) < it[2] then blocked = blocked + 1 break end
+        end
+      end
+    end
+    if free > 0 then
+      local d = b.diag or { n = 0, idle = 0, free = 0, blocked = 0 }
+      d.n, d.idle, d.free, d.blocked = d.n + 1, d.idle + #npcs, d.free + free, d.blocked + blocked
+      b.diag = d
+    end
+  end
+  if #npcs < 2 then return 0 end
   local brain, fond = {}, {}
   for _, t in ipairs(b.list) do
     if not t.worker then

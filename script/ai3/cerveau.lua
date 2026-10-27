@@ -726,10 +726,15 @@ function Ia3.measure(f, tick, plan)
     local sat = sorted_keys(st.saturated)
     local exp = sorted_keys(st.explore)
     local lp = st.last_plan or {}
-    log(string.format("[FO-IA3C] %s minute %d | actifs %d productifs %d pris %d bloques %d K %d | inactifs %d/%d | sature [%s] | explore [%s] | fond retire %d | projets {%s}",
+    -- Lot IA-V2 : diagnostic de K5 (script/team/board.lua, Board.assign) : pensées de la minute avec un PNJ sans tâche
+    -- ET des tâches libres ; PNJ sans tâche, tâches libres, tâches non prenables (matière réservée), en somme.
+    local bd = Board.get(f)
+    local dg = bd.diag or { n = 0, idle = 0, free = 0, blocked = 0 }
+    bd.diag = nil
+    log(string.format("[FO-IA3C] %s minute %d | actifs %d productifs %d pris %d bloques %d K %d | inactifs %d/%d | attente %d pensees, sans tache %d, libres %d, non prenables %d | sature [%s] | explore [%s] | fond retire %d | projets {%s}",
       f.key or "player", math.floor(minutes(f, tick) + 0.5), lp.active or 0, lp.productive or 0, n_taken, n_block, lp.K or 0,
-      (t.scale and t.scale.last and t.scale.last.idle) or 0, f.engineers_count or 0, table.concat(sat, " "),
-      table.concat(exp, " "), st.fond_dropped or 0, table.concat(parts, " ")))
+      (t.scale and t.scale.last and t.scale.last.idle) or 0, f.engineers_count or 0, dg.n, dg.idle, dg.free, dg.blocked,
+      table.concat(sat, " "), table.concat(exp, " "), st.fond_dropped or 0, table.concat(parts, " ")))
   end
 end
 
