@@ -255,6 +255,39 @@ return function(variant)
             end
           end
           if next(by) then ctx.log(string.format("DIAG %s centrale : %s | %.0f kW", row.key, kv(by), kw)) end
+          -- Réseaux électriques de la force : poteaux par réseau (nombre, boîte) et plus petit écart entre un poteau du
+          -- réseau des machines à vapeur et un poteau de chaque autre réseau (île : écart > portée de fil, 9 pour un moyen).
+          local gen_net = nil
+          for _, e in ipairs(sf.find_entities_filtered({ force = row.force, type = "generator", limit = 1 })) do gen_net = e.electric_network_id end
+          local groups, ids = {}, {}
+          for _, e in ipairs(sf.find_entities_filtered({ force = row.force, type = "electric-pole" })) do
+            local id = e.electric_network_id or -1
+            local g = groups[id]
+            if not g then g = { n = 0, poles = {}, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9 }; groups[id] = g; ids[#ids + 1] = id end
+            g.n = g.n + 1
+            g.poles[#g.poles + 1] = { e.position.x, e.position.y, e.name }
+            g.x0, g.y0 = math.min(g.x0, e.position.x), math.min(g.y0, e.position.y)
+            g.x1, g.y1 = math.max(g.x1, e.position.x), math.max(g.y1, e.position.y)
+          end
+          table.sort(ids)
+          local parts = {}
+          for _, id in ipairs(ids) do
+            local g = groups[id]
+            local gap = ""
+            if gen_net and id ~= gen_net and groups[gen_net] then
+              local best, bp, bq = 1e18, nil, nil
+              for _, a in ipairs(g.poles) do
+                for _, b in ipairs(groups[gen_net].poles) do
+                  local d = (a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2
+                  if d < best then best, bp, bq = d, a, b end
+                end
+              end
+              gap = string.format(" ecart %.1f (%.1f,%.1f %s / %.1f,%.1f %s)", math.sqrt(best), bp[1], bp[2], bp[3], bq[1], bq[2], bq[3])
+            end
+            parts[#parts + 1] = string.format("%s%s:%d [%.0f,%.0f..%.0f,%.0f]%s", tostring(id), id == gen_net and "(vapeur)" or "",
+              g.n, g.x0, g.y0, g.x1, g.y1, gap)
+          end
+          if #parts > 0 then ctx.log(string.format("DIAG %s reseaux : %s", row.key, table.concat(parts, " ; "))) end
         end
       end
       -- Mesure SANS PNJ (pas dans la variante « photo », trop courte) : à 45 min (critère A4), puis à 75 min (complément :
