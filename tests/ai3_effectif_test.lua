@@ -391,6 +391,27 @@ local okm, errm = pcall(function()
     "fenêtre : ligne « Recrutement : … » de la raison")
   b.list = saved_list
   for _, id in ipairs(ids) do local a = Registry.get(id); if a then a.task = saved_tasks[id] end end
+  -- Charge INJECTÉE (interface « fo-ia1 » inject_crisis d'IA1-b, comme le scénario ia3d-charge en moteur réel) :
+  -- Écarlate reçoit 16 tâches de minage de fer pendant 12 min ; Émeraude est le témoin.
+  remote.call("factorio-overhaul", "war_fund", 2500)
+  local function row(k) for _, r in ipairs(remote.call("fo-ia1", "teams")) do if r.key == k then return r end end end
+  local g0 = row("scarlet").eff_grown
+  local w0 = row("emerald").eff_grown
+  check(remote.call("fo-ia1", "inject_crisis", "scarlet", 16, 12 * 3600, "iron-ore") == true, "charge injectée (16 tâches, 12 min)")
+  local early, nmax, g_end = 0, 0, 0
+  for m = 1, 14 do
+    M.run_ticks(3600)
+    local r = row("scarlet")
+    if m <= 2 then early = early + (r.eff_grown - g0) end
+    if r.n > nmax then nmax = r.n end
+    g_end = r.eff_grown
+  end
+  check(early == 0, "moteur simulé : aucune recrue de croissance avant 2 min de charge (" .. early .. ")")
+  check(g_end - g0 >= 2 and nmax >= 10, "moteur simulé : la faction chargée grandit pendant la charge (+" .. (g_end - g0)
+    .. ", maximum " .. nmax .. ")")
+  M.run_ticks(8 * 3600)
+  check(row("scarlet").eff_grown == g_end, "moteur simulé : plus de recrue de croissance après la charge (PNJ inactifs)")
+  check(row("emerald").eff_grown == w0, "moteur simulé : le témoin sans charge ne grandit pas")
 end)
 check(okm, "branchement au moteur simulé sans erreur (" .. tostring(errm) .. ")")
 
