@@ -118,6 +118,15 @@ do
   local r5c = A.decide({ window = win(10, { ["iron-plate"] = 0.30 * 3600 }, { ["iron-plate"] = 10 }), obtainable = all_ok,
     book = book, stock = full, dist = 10, has_plant = true })
   check(req(r5c, "iron-plate") ~= nil, "charge 0,30 PNJ, retour sous 20 min : demandé (" .. tostring(verdict(r5c, "iron-plate").why) .. ")")
+  -- Munitions (rang 2) : la rangée d'assembleurs demande des bras rapides ; sans leur technologie, recherche.
+  local mag = win(10, { ["iron-plate"] = 300, ["firearm-magazine"] = 2 * 3600 }, { ["iron-plate"] = 60, ["firearm-magazine"] = 60 })
+  local book_mag = Book.new(recipes, { allowed = function(n) return n ~= "fast-inserter" end })
+  local rm = A.decide({ window = mag, obtainable = function(i) return book_mag:handcraftable(i) end, book = book_mag })
+  check(verdict(rm, "firearm-magazine").verdict == "recherche" and rm.wanted["fast-inserter"] and #rm.requests == 0,
+    "munitions : bras rapides impossibles, recherche voulue (" .. tostring(verdict(rm, "firearm-magazine").why) .. ")")
+  local rm2 = A.decide({ window = mag, obtainable = all_ok, book = book })
+  local qm = req(rm2, "firearm-magazine")
+  check(qm ~= nil and qm.gen == "simple" and qm.args[2] >= 2, "munitions : 2 PNJ à la main, rangée d'assembleurs demandée (" .. tostring(verdict(rm2, "firearm-magazine").why) .. ")")
   -- Ordre : fer d'abord ; les packs attendent même s'ils pèsent plus.
   local both = win(10, { ["iron-plate"] = 7200, ["automation-science-pack"] = 3 * 3600 }, { ["iron-plate"] = 60, ["automation-science-pack"] = 10 })
   local r7 = A.decide({ window = both, obtainable = all_ok, book = book })
@@ -146,6 +155,9 @@ do
   -- Modules finis : au plus A.MAX_PER_PRODUCT ; un fini et la charge reste : un second.
   local r12 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "fini" } } })
   check(req(r12, "iron-plate") ~= nil, "un module fini, la charge reste forte : un second est demandé")
+  local r12b = A.decide({ window = hot, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "fini", finished_m = 6 } } })
+  check(req(r12b, "iron-plate") == nil and verdict(r12b, "iron-plate").verdict == "attente",
+    "module fini à la minute 6 : la charge d'avant ne compte pas, on attend une fenêtre après lui (" .. tostring(verdict(r12b, "iron-plate").why) .. ")")
   local fin2 = { { product = "iron-plate", state = "fini" }, { product = "iron-plate", state = "fini" } }
   local r13 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = fin2 })
   check(req(r13, "iron-plate") == nil and verdict(r13, "iron-plate").verdict == "fini", "deux modules finis : plus de demande")

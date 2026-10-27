@@ -52,6 +52,9 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do
   if T.smelter_inputs[spec.product] then PLATE_OF_RES[spec.resource] = spec.product end
 end
 
+-- Produit (nom, nombre) de chaque recette : mémoire LOCALE tirée des prototypes (mesure seulement).
+local PRODUCT_AMOUNT = {}
+
 local function enabled(f)
   if not (f and f.team and f.team.ia3c and f.hq and f.hq.valid) then return false end
   if Auto.FACTIONS_ONLY and f.is_player then return false end
@@ -110,6 +113,19 @@ function Auto.on_done(f, task, ok, tick)
   elseif k == "craft" and task.item then
     add(b.load, task.item, dt)
     st.hand[task.item] = (st.hand[task.item] or 0) + (task.count or 0)
+    -- Objets fabriqués à la main, intermédiaires compris (étapes de la tâche : recette × fabrications × produits) : la
+    -- part « à la main » se compare aux produits des assembleurs, intermédiaires compris (statistiques de la force).
+    st.hand_all = st.hand_all or {}
+    for _, c in ipairs(task.steps or {}) do
+      local amount = PRODUCT_AMOUNT[c.recipe]
+      if amount == nil then
+        local rp = game.recipe_prototypes[c.recipe]
+        local pr = rp and rp.products and rp.products[1]
+        amount = { pr and pr.name or c.recipe, pr and (pr.amount or 1) or 1 }
+        PRODUCT_AMOUNT[c.recipe] = amount
+      end
+      st.hand_all[amount[1]] = (st.hand_all[amount[1]] or 0) + (c.runs or 0) * amount[2]
+    end
   end
 end
 
@@ -158,6 +174,7 @@ local function refresh(f, st, tick)
         if state ~= was then
           if state == "fini" then
             m.finished = tick
+            m.finished_m = math.floor(tick / 3600)
             note(f, st, tick, string.format("module '%s' FINI (%d entites, %.0f objets/min nominal)", m.product, m.total, m.rate_nom or 0))
           elseif state == "refuse" then
             m.sig = st.sig
@@ -299,6 +316,8 @@ remote.add_interface("fo-ia3e", {
     end
     for _, v in ipairs(st.verdicts) do out.verdicts[#out.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T } end
     for _, k in ipairs(sorted_keys(st.hand)) do out.hand[k] = st.hand[k] end
+    out.hand_all = {}
+    for _, k in ipairs(sorted_keys(st.hand_all)) do out.hand_all[k] = st.hand_all[k] end
     return out
   end,
 })

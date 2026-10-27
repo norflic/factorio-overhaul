@@ -197,7 +197,9 @@ function B.generate(s, st)
     -- descendent toujours pas sous le plancher de fer, ctx.iron_floor). Moteur réel, ia3c-reduit, 27/10 : plafonnée
     -- jusqu'au fer II (72 min), palier 1 à 16-20 min.
     local cheap = r.iron_cost ~= nil and r.iron_cost <= B.RESEARCH_CHEAP
-    if not s.economy_done and v > B.RESEARCH_PRE and not cheap then v = B.RESEARCH_PRE end
+    -- Lot IA3-e : une recherche qui débloque un objet que l'automatisation attend (r.for_auto : poteau moyen d'une
+    -- fonderie électrique) n'est pas plafonnée : elle libère des bras (le plancher de fer des packs reste).
+    if not s.economy_done and v > B.RESEARCH_PRE and not cheap and not r.for_auto then v = B.RESEARCH_PRE end
     goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v }
   end
   -- Armée (factions).

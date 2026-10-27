@@ -87,12 +87,13 @@ local function production(list)
   return made, power, gens
 end
 
+--- PNJ figés (et invulnérables pendant la mesure : e1, 7 personnages figés tués en 5 min) ou rendus.
 local function set_npcs_active(ctx, active)
   local s = ctx.surface()
   local n = 0
   for _, row in ipairs(factions(ctx)) do
     for _, c in ipairs(s.find_entities_filtered({ type = "character", force = row.force })) do
-      if c.valid then c.active = active; n = n + 1 end
+      if c.valid then c.active = active; c.destructible = active; n = n + 1 end
     end
   end
   return n
@@ -179,15 +180,22 @@ return function(variant)
           if #gens > 0 then list[#list + 1] = { product = "centrale", n = #gens, gens = true, per_min = {} } end
           st.freeze[row.key] = { list = list, force = row.force }
           -- Fabrication à la main contre machines (cumuls à 45 min).
-          local hand, machine = 0, 0
+          local hand, machine, hand_final = 0, 0, 0
           local force = game.forces[row.force]
           local stats = force and force.item_production_statistics
+          local per = {}
           for _, it in ipairs(CRAFTED) do
-            hand = hand + ((a and a.hand or {})[it] or 0)
-            machine = machine + (stats and stats.get_input_count(it) or 0)
+            local h = (a and (a.hand_all or a.hand) or {})[it] or 0
+            local m = stats and stats.get_input_count(it) or 0
+            hand = hand + h
+            hand_final = hand_final + ((a and a.hand or {})[it] or 0)
+            machine = machine + m
+            if h > 0 or m > 0 then per[it] = h .. "/" .. m end
           end
           local plates = stats and (stats.get_input_count("iron-plate") + stats.get_input_count("copper-plate")) or 0
           st.hand45[row.key] = { hand = hand, machine = machine, plates = plates }
+          ctx.log(string.format("FABRICATION %s a 45 min (main/machines, intermediaires compris ; objets finaux a la main %d) : %s ; plaques fondues %d",
+            row.key, hand_final, kv(per), plates))
         end
         local n = set_npcs_active(ctx, false)
         st.frozen = true

@@ -459,6 +459,19 @@ local EntityMT = {
       if t.type == "electric-pole" then return { copper = rawget(t, "_copper") or {}, red = {}, green = {} } end
       return nil
     end
+    -- Lot IA3-e : fil de cuivre entre deux poteaux (raccordement d'un module du plan directeur).
+    if k == "connect_neighbour" and t.type == "electric-pole" then
+      return function(other)
+        if not (other and other.valid and other.type == "electric-pole") then return false end
+        local a, b = rawget(t, "_copper") or {}, rawget(other, "_copper") or {}
+        for _, x in ipairs(a) do if x == other then return false end end
+        a[#a + 1] = other
+        b[#b + 1] = t
+        rawset(t, "_copper", a)
+        rawset(other, "_copper", b)
+        return true
+      end
+    end
     if k == "ghost_name" then return rawget(t, "_ghost_name") end
     if k == "ghost_prototype" and rawget(t, "_ghost_name") then return W.prototype(rawget(t, "_ghost_name")) end
     if k == "revive" then

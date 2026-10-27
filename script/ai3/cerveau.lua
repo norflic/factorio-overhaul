@@ -263,19 +263,23 @@ local function choose_tech(f, force, st, c, book, w)
     local spec = c.techs[lab.tech]
     if spec then
       local ok = A.level_status(book, spec.ing, obtainable)
-      if ok then return lab.tech, true, {}, lab.palier end
+      if ok then return lab.tech, true, {}, lab.palier, lab.for_auto end
     end
   end
   -- Chaînes vers les packs que la force ne sait pas encore fabriquer : les prérequis manquants d'une technologie qui
   -- débloque un pack héritent de sa valeur (divisée par la longueur de la chaîne), si toute la chaîne est payable avec
   -- le livre COMPLET (règle H8 : une chaîne qui touche une matière sans source n'est pas suivie).
   local chain = {}
+  local auto_chain = {} -- lot IA3-e : technologies de la chaîne d'un objet voulu par l'automatisation
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
     if spec and not done[name] then
-      local opens = false
+      local opens, for_auto = false, false
       for _, r in ipairs(spec.unlocks) do
-        for _, p in ipairs(c.products[r] or {}) do if c.packs[p] or (wanted and wanted[p]) then opens = true end end
+        for _, p in ipairs(c.products[r] or {}) do
+          if c.packs[p] then opens = true end
+          if wanted and wanted[p] then opens, for_auto = true, true end
+        end
       end
       if opens then
         local seen, list, ok = {}, {}, true
@@ -298,11 +302,13 @@ local function choose_tech(f, force, st, c, book, w)
         if ok and #list > 0 then
           local share = math.floor(100 / #list)
           for _, n in ipairs(list) do chain[n] = math.max(chain[n] or 0, share) end
+          if for_auto then for _, n in ipairs(list) do auto_chain[n] = true end end
         end
       end
     end
   end
   local best, best_score, best_palier = nil, nil, false
+  local auto_best, auto_cost = nil, nil
   local blocked_causes = {}
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
@@ -318,12 +324,18 @@ local function choose_tech(f, force, st, c, book, w)
           for _, ing in ipairs(spec.ing) do cost = cost + ing[2] * spec.count end
           local score = math.floor(v * 1000 / (cost + 10))
           if v > 0 and (not best_score or score > best_score) then best, best_score, best_palier = name, score, palier end
+          if auto_chain[name] and (not auto_cost or cost < auto_cost) then auto_best, auto_cost = name, cost end
         else
           for _, k in ipairs(causes) do blocked_causes[k] = true end
         end
       end
     end
   end
+  -- Lot IA3-e (H2, le goulot d'abord, appliqué à la recherche) : un objet que l'automatisation attend (poteau moyen d'une
+  -- fonderie électrique) passe devant les autres recherches : la moins chère de sa chaîne, prête et payable. Moteur réel,
+  -- e1-usine (27/10) : sans cette règle, « electronics » (27 unités) ne partait qu'à 38 min, après des recherches peu
+  -- chères mais sans usage immédiat (military-2, defender), et le poteau moyen à 45-49 min (2 factions sur 4 en 90 min).
+  if auto_best then return auto_best, true, {}, true, true end
   if best then return best, true, {}, best_palier end
   return nil, false, sorted_keys(blocked_causes), false
 end
@@ -379,8 +391,8 @@ local function research_step(f, st, book, w, tick, view)
   if not force then return nil end
   local c = catalogue()
   refresh_techs(force, st, c)
-  local tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
-  local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {} }
+  local tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w)
+  local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {}, for_auto = for_auto or nil }
   if not tech then
     info.tech = "?"
     return info
@@ -390,7 +402,7 @@ local function research_step(f, st, book, w, tick, view)
   local lab = st.lab
   if lab.tech ~= tech then
     if force.add_research(tech) then
-      st.lab = { tech = tech, units = 0, paid = 0, last = tick, palier = palier, started = tick }
+      st.lab = { tech = tech, units = 0, paid = 0, last = tick, palier = palier, started = tick, for_auto = for_auto or nil }
       lab = st.lab
       log(string.format("[FO-IA3C] %s : recherche '%s' commencee (%d unites de %d s, laboratoires %d) a %.1f min",
         f.key, tech, spec.count, math.floor(spec.energy / 60), #valid_labs(st), minutes(f, tick)))

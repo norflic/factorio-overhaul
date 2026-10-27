@@ -72,7 +72,9 @@ A.METHODS = {
   { product = "copper-plate", rank = 1, gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = true },
   { product = "iron-gear-wheel", rank = 2, gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
   { product = "electronic-circuit", rank = 2, gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
+  { product = "firearm-magazine", rank = 2, gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },
   { product = "automation-science-pack", rank = 3, gen = "red_packs", args = { "assembling-machine-1", 1 }, feed = true },
+  { product = "logistic-science-pack", rank = 3, gen = "green_packs", args = { "assembling-machine-1", 1 }, feed = true },
 }
 -- La centrale (demandée d'elle-même par le plan directeur au premier module électrique) : comptée dans le coût du
 -- premier module quand l'équipe n'en a pas.
@@ -146,17 +148,20 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Charge (PNJ), débit (objets/min) et logistique (PNJ) moyens d'un objet sur la fenêtre. window = liste de minutes
 --- COMPLÈTES { m, load = { [objet] = ticks }, made = { [objet] = n }, logi = { [objet] = ticks } } (ordre croissant).
+--- after (facultatif) : seules les minutes m > after comptent (après la fin d'un module du même objet).
 --- Rend L, D, Lres, n (minutes comptées).
-function A.measure(window, item)
+function A.measure(window, item, after)
   local n = 0
   local load, made, logi = 0, 0, 0
   local first = math.max(1, #window - A.WINDOW + 1)
   for i = first, #window do
     local b = window[i]
+    if after and (b.m or 0) <= after then goto skip end
     n = n + 1
     load = load + ((b.load or {})[item] or 0)
     made = made + ((b.made or {})[item] or 0)
     logi = logi + ((b.logi or {})[item] or 0)
+    ::skip::
   end
   if n == 0 then return 0, 0, 0, 0 end
   return load / (n * 3600), made / n, logi / (n * 3600), n
@@ -266,6 +271,7 @@ function A.decide(input)
       open = open + 1
     elseif m.state == "fini" then
       r.fini = r.fini + 1
+      if m.finished_m and (not r.last_m or m.finished_m > r.last_m) then r.last_m = m.finished_m end
     elseif m.state == "refuse" then
       r.refused = m
     end
@@ -286,9 +292,11 @@ function A.decide(input)
   local out = { requests = {}, verdicts = {}, wanted = {} }
   local busy_rank = nil -- plus petit rang qui retient les suivants (demandable, en recherche ou en cours)
   for _, meth in ipairs(A.METHODS) do
-    local L, D, Lres, n = A.measure(window, meth.product)
-    local v = { product = meth.product, L = L, D = D, rank = meth.rank }
     local st = mods[meth.product] or { open = 0, fini = 0 }
+    -- Un module fini du même objet : seules les minutes APRÈS sa fin comptent (la charge d'avant, qu'il remplace, ne
+    -- demande pas un second module ; sonde au moteur simulé du 27/10 : second module demandé la minute suivante).
+    local L, D, Lres, n = A.measure(window, meth.product, st.last_m)
+    local v = { product = meth.product, L = L, D = D, rank = meth.rank }
     if busy_rank and meth.rank > busy_rank then
       v.verdict, v.why = "ordre", "rang " .. busy_rank .. " d'abord"
     elseif st.open > 0 then
