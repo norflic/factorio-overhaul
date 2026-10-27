@@ -103,6 +103,16 @@ local function vus_sur(s, st, site, x0, y0, x1, y1)
     if dedans(en, x0, y0, x1, y1) then
       site.vus[en.name] = (site.vus[en.name] or 0) + 1
       site.n_vus = site.n_vus + 1
+      if site.c.sans_effet and site.n_vus <= 6 then
+        -- diagnostic : d'où vient une entité du lot vue sur le site sans effet ?
+        local p = en.position
+        local proches = {}
+        for _, t in ipairs(s.find_entities_filtered({ type = "ammo-turret", position = p, radius = 40 })) do
+          proches[#proches + 1] = string.format("%s(%.0f,%.0f)", t.name, t.position.x, t.position.y)
+        end
+        log(string.format("[FO-TIRS-AGES] DIAG sans effet : %s en (%.2f, %.2f) au tick %d ; tourelles a 40 tuiles : %s",
+          en.name, p.x, p.y, game.tick, table.concat(proches, " ")))
+      end
     else
       st.hors_zone = (st.hors_zone or 0) + 1
     end
