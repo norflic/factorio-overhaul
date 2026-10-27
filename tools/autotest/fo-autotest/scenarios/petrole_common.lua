@@ -22,6 +22,28 @@ return function(variant, ticks)
   local CHECK = (ticks or 432000) - 600
   base.check_tick = CHECK
   base.description = "PETROLE : aller au petrole (reglage fo-war-petrole allume, " .. variant .. ")"
+  -- Variante photo : captures OFFICIELLES du banc (shots.lua) après le contrôle : le site de chaque faction qui a posé
+  -- des machines du pétrole (centre de ses chevalets, raffineries et usines chimiques), zoom 0,5, de jour.
+  if photo then
+    CHECK = (ticks or 432000) - 1500
+    base.check_tick = CHECK
+    base.shots_delay = (ticks or 432000) - 900
+    base.shots = function(ctx, add)
+      local s = ctx.surface()
+      local ok, rows = pcall(remote.call, "fo-ia1", "teams")
+      for _, row in ipairs(ok and rows or {}) do
+        if row.key ~= "player" then
+          local ents = s.find_entities_filtered({ name = OIL, force = row.force })
+          local cx, cy, n = 0, 0, 0
+          for _, en in ipairs(ents) do cx, cy, n = cx + en.position.x, cy + en.position.y, n + 1 end
+          if n > 0 then
+            add("petrole-" .. row.key, cx / n, cy / n, 0.5, 0)
+            ctx.log(string.format("capture officielle petrole-%s en (%.0f, %.0f), %d machines du petrole", row.key, cx / n, cy / n, n))
+          end
+        end
+      end
+    end
+  end
   local init0, tick0, finish0 = base.init, base.tick, base.finish
   base.init = function(ctx)
     init0(ctx)
