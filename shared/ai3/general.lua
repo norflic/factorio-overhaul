@@ -280,6 +280,51 @@ function Gen.dispatch(sum)
     explorer = sum.explore, rechercher = sum.research, prendre = sum.take, causes = sum.causes }
 end
 
+--- CE QUE RAPPORTERAIT chaque ressource INCONNUE qu'un exécutant saurait extraire (« quelles ressources peuvent
+--- rapporter ») : on la suppose connue, on refait les points fixes, et sa valeur = la valeur propre (Gen.value) des
+--- technologies qui deviennent payables, plus celle des objets de rôle connu qui deviennent fabricables (pack 100,
+--- militaire 40, machine 30, logistique 10, pondérés comme Gen.value). Rend une liste triée { {ressource, valeur,
+--- technologies débloquées} } (valeur décroissante, puis le nom). Coût : un point fixe par ressource inconnue
+--- extractible (2 à 3 ms hors jeu chacun) : appelé seulement aux décisions.
+function Gen.resource_values(cat, ev, state, ctx)
+  ctx = ctx or {}
+  local w = ctx.weights
+  local out = {}
+  local base_role = { pack = Gen.V_PACK, militaire = Gen.V_MIL, machine = Gen.V_MACHINE, logistique = Gen.V_LOG }
+  for _, res in ipairs(cat.resource_list) do
+    local r = cat.resources[res]
+    if not state.known[res] and r and cat.g.by_rescat[r.category] then
+      local known = {}
+      for _, k in ipairs(sorted_keys(state.known)) do known[k] = state.known[k] end
+      known[res] = true
+      local s2 = { stock = state.stock, techs = state.techs, built = state.built, known = known }
+      local ev2 = G.prepare(cat.g, s2)
+      local v, techs = 0, {}
+      for _, t in ipairs(cat.tech_list) do
+        if not state.techs[t] and ev2.tfeas[t] and not ev.tfeas[t] then
+          local tv = Gen.value(cat, ev2, s2, t, ctx)
+          if tv > 0 then
+            v = v + tv
+            techs[#techs + 1] = t
+          end
+        end
+      end
+      for _, item in ipairs(sorted_keys(cat.role)) do
+        if ev2.feas[item] and not ev.feas[item] then
+          local role = cat.role[item]
+          v = v + math.floor((base_role[role] or 0) * wf(w, Gen.FAMILY[role] or "capital"))
+        end
+      end
+      out[#out + 1] = { res, v, techs }
+    end
+  end
+  table.sort(out, function(a, b)
+    if a[2] ~= b[2] then return a[2] > b[2] end
+    return a[1] < b[1]
+  end)
+  return out
+end
+
 --- Ressources CLÉS de l'équipe, déduites du besoin BRUT de ses buts (résumé d'un dépliage SANS le stock consommable).
 --- kind_of(ressource) -> type d'avant-poste (table de l'exécutant, shared/team/config.lua) ou nil ; kinds = types
 --- d'avant-poste dans leur ordre. Rend { top, fuel, order = {types, besoin décroissant, combustible exclu},

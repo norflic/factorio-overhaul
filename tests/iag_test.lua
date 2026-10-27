@@ -166,6 +166,17 @@ local function run_all()
   local explores = table.concat(sum_u.explore, ",")
   check(explores:find(T.outposts.copper.resource, 1, true) ~= nil, "§4 exploration demandée : " .. explores)
   check(next(sum_u.hand) == nil and next(sum_u.build) == nil, "§4 H8 : rien fabriqué ni construit pour une recherche impayable")
+  -- §4 bis Ce que rapporterait chaque ressource inconnue : le cuivre rouvre la recherche, l'uranium (centrifugeuse sans
+  -- exécutant) ne rapporte rien aujourd'hui.
+  local rv = Gen.resource_values(cat, ev_u, st_u, {})
+  local by = {}
+  for _, e in ipairs(rv) do by[e[1]] = e end
+  local cu_res = T.outposts.copper.resource
+  check(rv[1] and rv[1][1] == cu_res and rv[1][2] > 0 and #rv[1][3] > 0,
+    "§4 bis le cuivre inconnu est la ressource qui rapporte le plus (" .. tostring(rv[1] and rv[1][1]) .. " " .. tostring(rv[1] and rv[1][2]) .. ")")
+  check(by["uranium-ore"] and by["uranium-ore"][2] == 0, "§4 bis l'uranium ne rapporte rien aujourd'hui (pas d'exécutant de sa chaîne)")
+  check(by["crude-oil"] == nil, "§4 bis le pétrole n'est pas candidat (aucun exécutant ne l'extrait)")
+  say("§4 bis ressources inconnues : " .. (function() local t = {} for _, e in ipairs(rv) do t[#t + 1] = e[1] .. " " .. e[2] end return table.concat(t, ", ") end)())
 
   -- §5 Inertie, suite des choix.
   local second = d.ranked[2] and d.ranked[2][1]

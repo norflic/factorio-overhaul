@@ -278,9 +278,15 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs) })
+  -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
+  -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
+  local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })
+  local rv_txt = {}
+  for i = 1, math.min(4, #rv) do rv_txt[#rv_txt + 1] = rv[i][1] .. " " .. rv[i][2] end
   if not d.tech then
     -- Rien de payable : les ressources inconnues qui bloquent la meilleure technologie de valeur sont à explorer.
     local causes, explore = {}, {}
+    if rv[1] and rv[1][2] > 0 then explore[rv[1][1]] = 60 end
     if d.blocked[1] then
       local sum = Gen.summary(c, ev, state, { { tech = d.blocked[1].tech } })
       for _, res in ipairs(sum.explore) do if explorable(c, res) then explore[res] = 60 end end
@@ -290,13 +296,15 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     local sig = table.concat(causes, ",") .. "|" .. table.concat(sorted_keys(explore), ",")
     if g.blocked_sig ~= sig then
       g.blocked_sig = sig
-      log(string.format("[FO-CERVEAU] %s : aucune technologie payable (%s) ; causes [%s] ; exploration [%s] a %.1f min",
-        f.key or "?", Gen.why_text(d), table.concat(causes, " "), table.concat(sorted_keys(explore), " "), minutes(f, tick)))
+      log(string.format("[FO-CERVEAU] %s : aucune technologie payable (%s) ; causes [%s] ; ressources inconnues qui rapporteraient [%s] ; exploration [%s] a %.1f min",
+        f.key or "?", Gen.why_text(d), table.concat(causes, " "), table.concat(rv_txt, ", "),
+        table.concat(sorted_keys(explore), " "), minutes(f, tick)))
     end
     Profiler.stop("iag:choose")
     return nil, false, causes, false
   end
   g.explore = {}
+  if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Ressources clés : besoin BRUT des buts de référence (sans le stock consommable).
@@ -310,10 +318,10 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   g.decisions = g.decisions + 1
   g.history[#g.history + 1] = { tech = d.tech, tick = tick, value = d.value, cost = d.cost }
   while #g.history > 32 do table.remove(g.history, 1) end
-  log(string.format("[FO-CERVEAU] %s : but '%s' valeur %d cout %d score %d%s | %s | ressources cles : plus demandee %s, combustible %s, ordre %s, sans besoin [%s], besoins bruts %s | %d pretes payables a %.1f min",
+  log(string.format("[FO-CERVEAU] %s : but '%s' valeur %d cout %d score %d%s | %s | ressources cles : plus demandee %s, combustible %s, ordre %s, sans besoin [%s], besoins bruts %s | inconnues qui rapporteraient [%s] | %d pretes payables a %.1f min",
     f.key or "?", d.tech, d.value, d.cost, d.score, d.palier and " (palier)" or "", Gen.why_text(d, sum), tostring(key.top),
     tostring(key.fuel), table.concat(key.order, ","), table.concat(sorted_keys(key.optional), ","), Gen.fmt_map(key.need),
-    d.n_ready or 0, minutes(f, tick)))
+    table.concat(rv_txt, ", "), d.n_ready or 0, minutes(f, tick)))
   Profiler.stop("iag:choose")
   return d.tech, true, {}, d.palier
 end
