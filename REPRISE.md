@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 15 h 35 : WORKFLOW `ia-suite-petrole-perf` LANCÉ** (`wf_5e31d1cc-dde`) : PETROLE (A9 : exécutants chevalement, raffinerie,
+> usine chimique, tuyaux, réglage fo-war-petrole éteint sauf preuve ; pack chimique et palier 4) et PERF2 (A* étalé, pensées découpées,
+> boucle du PNJ refusé ; K10) ; worktrees `petrole`, `perf2` partis de main 0.6.3 ; livraisons `fo-logs\2026-10-27_PETROLE`, `_PERF2`.
+> Ne pas écrire par SendMessage à ses agents. Ensemble des workflows actifs : `ia-fin-cerveau` (SCALE seul restant), `tirs-par-age`,
+> `ia-suite-petrole-perf`. **Le banc reviendra à 1 place vers 17 h** (le DC reprend son PC) : prévenir que la file ralentira.
+>
 > **27/10, 15 h 25 : `main` = 0.6.3** (PERF, AUTO, CAPITAL par fast-forward de `valid063`, conflit cerveau.lua résolu ; réglages
 > fo-war-ia3e et fo-war-capital ÉTEINTS ; décisions identiques à 0.6.0 ; K10 seul 0,379 ms, p99 5,48). Reste de l'atelier : SCALE
 > (en correction). Puis : brancher CAPI (après SCALE), lot de performance suivant (A* étalé, pensée découpée, boucle du PNJ refusé),
