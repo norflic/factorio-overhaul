@@ -1304,7 +1304,7 @@ précédent » garde ses marges d'X0 à 1 MU près (5,8 MU entre 14 et 15, 9,7 e
 
 | Âge | Robot | Mécanique | Rôle |
 |---|---|---|---|
-| 7 | Drone laser | capsule → `combat-robot` à faisceau laser qui **suit** son lanceur 3 min, comme le **défenseur** vanilla (`follows_player = true`, `range_from_player` 6, `time_to_live` 10 800) ; compte dans `LuaForce.maximum_following_robot_count` | escorte |
+| 7 | Drone laser | capsule → `combat-robot` à faisceau laser qui **suit** son lanceur 3 min (`time_to_live` 10 800), comme le **défenseur** vanilla (`follows_player = true`, `range_from_player` 6 ; lui vit 45 s ; le distracteur, `speed = 0`, ne suit pas) ; compte dans `LuaForce.maximum_following_robot_count` | escorte |
 | 10 | Drone de garde | capsule → `combat-robot` laser, `follows_player = false`, 10 min | garde un point |
 | 12 | Robot de combat | capsule → `unit` de la force du lanceur (`ai_settings` : `allow_try_return_to_spawner = false`, `destroy_when_commands_fail = false`, valeurs par défaut en 1.1.91) ; plafond proposé : 4 robots vivants par atelier de robotique | tient un avant-poste |
 

@@ -142,7 +142,7 @@ I("fo-crystal-laser", 7, "Laser à cristal", "Crystal laser", { note_fr = "la le
 I("fo-optical-sensor", 7, "Capteur optique", "Optical sensor")
 I("fo-controller", 7, "Contrôleur programmable", "Programmable controller")
 I("fo-laser-drone-capsule", 7, "Capsule de drone laser", "Laser drone capsule", { use = "ammo", stack = 100,
-  effect_fr = "capsule : fait naître un robot de combat (prototype combat-robot, faisceau de la tourelle laser) qui SUIT son lanceur 3 min, comme le défenseur vanilla (follows_player = true, range_from_player 6, time_to_live 10 800) ; compte dans LuaForce.maximum_following_robot_count (bonus de force à décider)" })
+  effect_fr = "capsule : fait naître un robot de combat (prototype combat-robot, faisceau de la tourelle laser) qui SUIT son lanceur 3 min (time_to_live 10 800), comme le défenseur vanilla (follows_player = true, range_from_player 6 ; lui vit 45 s ; le distracteur, speed = 0, ne suit pas) ; compte dans LuaForce.maximum_following_robot_count (bonus de force à décider)" })
 -- Âge 10 · Haute technologie : la fonderie de puces (A) et le calcul (B)
 I("fo-vein-quartz", 10, "Quartz filonien", "Vein quartz", { source = "mining" })
 I("fo-quartz-crucible", 10, "Creuset de quartz", "Quartz crucible", { note_fr = "perdu à chaque tirage, comme en usine" })
