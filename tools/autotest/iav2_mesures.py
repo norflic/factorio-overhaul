@@ -128,11 +128,15 @@ def team_stats(name, d, status, last_min):
     for r in rows:
         if r["min"] <= 60:
             sold60 = r["soldats"]
-    k5 = 0
+    k5 = k5t = 0
     for r in rows:
         st = status.get((name, r["min"]))
         if st and st["libres"] > 0 and r["act"].get("arret-qg", 0) >= 0.5:
             k5 += 1
+        # K5 « par les tâches » (lecture d'IA3-b) : au moins 0,5 PNJ SANS tâche pendant que des tâches restent libres ;
+        # K5 « corps » compte aussi les gardes du coffre et les PNJ qui y prennent ou déposent.
+        if st and st["libres"] > 0 and r["taches"].get("inactif", 0) >= 0.5:
+            k5t += 1
     last = None
     for (tm, mn), st in sorted(status.items(), key=lambda x: x[0][1]):
         if tm == name:
@@ -160,7 +164,7 @@ def team_stats(name, d, status, last_min):
         "k3a": share(rows, 0, 10, lambda k: k == "inactif"), "k3b": share(rows, 30, 90, lambda k: k == "inactif"),
         "util": share(rows, 30, 90, lambda k: k != "inactif" and not k.endswith("(fond)")),
         "fond": share(rows, 30, 90, lambda k: k.endswith("(fond)")),
-        "k4": fails.get("stock", 0), "k5": k5, "k5n": len(rows),
+        "k4": fails.get("stock", 0), "k5": k5, "k5t": k5t, "k5n": len(rows),
         "k6": waste if d["proj"] else waste_old, "k6b": blocked_min, "par3": par3,
         "dead": end if end < last_min - 1 else None, "morts": len(d["dead"]), "techs": len(d["techs"]),
     }
@@ -189,7 +193,7 @@ def fmt(x):
     return f"{x:.1f}" if isinstance(x, float) else str(x)
 
 
-COLS = ["p1", "p2", "p3", "r1", "r2", "r3", "iron2", "sold60", "k3a", "k3b", "util", "fond", "k4", "k5", "k6", "par3",
+COLS = ["p1", "p2", "p3", "r1", "r2", "r3", "iron2", "sold60", "k3a", "k3b", "util", "fond", "k4", "k5", "k5t", "k6", "par3",
         "morts", "techs", "dead"]
 
 
@@ -215,10 +219,10 @@ def group(label, archives):
           f" r3 {never['r3']} | anéanties avant 60 min : {sum(1 for r in fac if r['dead'] is not None and r['dead'] < 60)}"
           f" ; en tout : {sum(1 for r in fac if r['dead'] is not None)} | à 0 soldat à 60 min : "
           f"{sum(1 for r in fac if r['sold60'] == 0)} | K4 > 0 : {sum(1 for r in rows if (r['k4'] or 0) > 0)}"
-          f" | K5 max {max([r['k5'] for r in rows] or [0])} min")
+          f" | K5 max {max([r['k5'] for r in rows] or [0])} min (par les tâches {max([r['k5t'] for r in rows] or [0])})")
     if pl:
         print("  VOTRE ÉQUIPE médianes : " + "  ".join(f"{c} {fmt(med([r[c] for r in pl]))}" for c in
-                                                       ("k3a", "k3b", "util", "fond", "k4", "k5", "morts")))
+                                                       ("k3a", "k3b", "util", "fond", "k4", "k5", "k5t", "morts")))
     return rows
 
 
@@ -233,7 +237,8 @@ def main():
     print("Colonnes : p1-p3 paliers (vraies technologies, min) ; r1-r3 niveaux de l'ancien cerveau (min) ; iron2 (min) ;"
           " sold60 soldats à 60 min ; k3a / k3b PNJ inactifs (%) 0-10 et 30-90 min ; util = part des tâches du cerveau"
           " (ni inactif ni fond) 30-90 min (K3b APPROCHÉ) ; fond = part du fond 30-90 min ; k4 échecs « stock » ;"
-          " k5 minutes immobiles au QG pendant que des tâches attendent ; k6 PNJ-minutes de packs jetés ; par3 = % des"
+          " k5 minutes à 0,5 PNJ ou plus immobiles au QG (corps) pendant que des tâches attendent ; k5t idem, PNJ SANS"
+          " tâche ; k6 PNJ-minutes de packs jetés ; par3 = % des"
           " minutes à 3 projets productifs ou plus ; morts PNJ tués ; techs technologies finies (laboratoire du QG) ;"
           " dead = minute de l'anéantissement.")
     for k in ("avant", "apres"):

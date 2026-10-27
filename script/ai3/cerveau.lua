@@ -464,6 +464,12 @@ local function research_step(f, st, book, w, tick, view)
     local need = want[pack] - (view.stock[pack] or 0) - ((view.incoming or {})[pack] or 0)
     if need > 0 then info.packs[#info.packs + 1] = { pack, math.min(Ia3.PACK_BATCH, need) } end
   end
+  -- Lot IA-V2 : fer encore à dépenser pour cette recherche (packs à fabriquer, laboratoires à fabriquer), plan du livre.
+  local list = {}
+  for _, it in ipairs(info.packs) do list[#list + 1] = it end
+  if info.lab_item and (info.labs_craft or 0) > 0 then list[#list + 1] = { info.lab_item, info.labs_craft } end
+  local raw = #list > 0 and book:raw_cost(list) or {}
+  info.iron_cost = math.ceil(raw[P.IRON] or 0)
   return info
 end
 

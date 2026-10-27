@@ -59,6 +59,7 @@ B.AMMO_STOCK = 60   -- réserve de munitions visée (ancienne marche « defense 
 B.RESEARCH = 62
 B.RESEARCH_PALIER = 14 -- la technologie suivante ouvre un pack (« la recherche vaut ce qu'elle débloque », H9)
 B.RESEARCH_PRE = 44    -- plafond avant « fer II » (économie d'abord, revue B3)
+B.RESEARCH_CHEAP = 60  -- … sauf une recherche PEU CHÈRE : fer encore à dépenser (packs et laboratoire) ≤ 60 plaques (lot IA-V2)
 B.ARMY_FIRST = 58      -- les 10 premiers soldats (ancienne marche « army »)
 B.ARMY_FIRST_N = 10
 B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'objectif courant à 50)
@@ -190,7 +191,13 @@ function B.generate(s, st)
   local r = s.research
   if r and r.tech then
     local v = val(B.RESEARCH + (r.palier and B.RESEARCH_PALIER or 0), w.recherche)
-    if not s.economy_done and v > B.RESEARCH_PRE then v = B.RESEARCH_PRE end
+    -- Lot IA-V2 (critère K1, constat du DC « pas de vraie recherche ») : une recherche dont il reste à dépenser au plus
+    -- B.RESEARCH_CHEAP plaques de fer (palier 1 : un laboratoire et 10 packs rouges, environ 56 plaques) n'est pas
+    -- plafonnée : un joueur pose son laboratoire dès les premières minutes, l'économie n'en souffre pas (les packs ne
+    -- descendent toujours pas sous le plancher de fer, ctx.iron_floor). Moteur réel, ia3c-reduit, 27/10 : plafonnée
+    -- jusqu'au fer II (72 min), palier 1 à 16-20 min.
+    local cheap = r.iron_cost ~= nil and r.iron_cost <= B.RESEARCH_CHEAP
+    if not s.economy_done and v > B.RESEARCH_PRE and not cheap then v = B.RESEARCH_PRE end
     goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v }
   end
   -- Armée (factions).
