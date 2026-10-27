@@ -321,6 +321,155 @@ function R.astar(field, sc, gc, B, seed, max_expand)
   return nil, expand
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot PERF : A* ÉTALÉ (brique pour un lot suivant ; NON branchée dans le jeu, aucun appel hors des tests). Même recherche
+-- que R.astar, mais reprise d'un appel à l'autre : R.search_new prépare un état fait de nombres et de tables de nombres
+-- (rangeable dans global, aucune fonction) ; R.search_step(st, budget) avance d'au plus `budget` unités de travail (une
+-- unité = une entrée sortie du tas) et rend true quand la recherche est finie (st.path : cases, ou nil ; st.expand).
+-- Mêmes opérations dans le même ordre que R.astar : même chemin, mêmes développements, quel que soit le découpage
+-- (tests/perf_test.lua). Usage visé (INTEGRATION.md du lot PERF, §5) : budget DÉTERMINISTE de travail par tick pour tout le
+-- mod, le PNJ attend son itinéraire quelques ticks.
+---------------------------------------------------------------------------------------------------
+function R.search_new(field, sc, gc, B, seed, max_expand)
+  local cx0 = math.min(sc[1], gc[1]) - R.BOX_MARGIN
+  local cy0 = math.min(sc[2], gc[2]) - R.BOX_MARGIN
+  local cx1 = math.max(sc[1], gc[1]) + R.BOX_MARGIN
+  local cy1 = math.max(sc[2], gc[2]) + R.BOX_MARGIN
+  local sk = (sc[1] + OFF) * 65536 + (sc[2] + OFF)
+  local dx, dy = math.abs(sc[1] - gc[1]), math.abs(sc[2] - gc[2])
+  local mn, mx = dx < dy and dx or dy, dx < dy and dy or dx
+  local shi, slo = 0, 0
+  if seed then shi, slo = math.floor(seed / 65536), seed % 65536 end
+  return { field = field, b = { cx0, cy0, cx1, cy1 }, gx = gc[1], gy = gc[2], gk = (gc[1] + OFF) * 65536 + (gc[2] + OFF),
+    B = B, seeded = seed ~= nil, shi = shi, slo = slo, cap = max_expand or R.MAX_EXPAND,
+    g = { [sk] = 0 }, from = {}, closed = {}, nzc = {}, hf = { 14 * mn + 10 * (mx - mn) }, hk = { sk }, hn = 1,
+    expand = 0, done = false, path = nil, work = 0 }
+end
+
+local NBX_S = { 1, -1, 0, 0, 1, 1, -1, -1 }
+local NBY_S = { 0, 0, 1, -1, 1, -1, 1, -1 }
+local NBC_S = { 10, 10, 10, 10, 14, 14, 14, 14 }
+
+function R.search_step(st, budget)
+  if st.done then return true end
+  local floor = math.floor
+  local field, g, from, closed, nzc, hf, hk = st.field, st.g, st.from, st.closed, st.nzc, st.hf, st.hk
+  local hn = st.hn
+  local cx0, cy0, cx1, cy1 = st.b[1], st.b[2], st.b[3], st.b[4]
+  local gx, gy, gk, B, cap = st.gx, st.gy, st.gk, st.B, st.cap
+  local seeded, shi, slo = st.seeded, st.shi, st.slo
+  local M1, NZ, TM = Tr.MOD - 1, R.NOISE + 1, Tr.MOD
+  local used = 0
+  while hn > 0 do
+    if used >= budget then
+      st.hn = hn
+      st.work = st.work + used
+      return false
+    end
+    used = used + 1
+    local ck = hk[1]
+    do
+      local lf, lk = hf[hn], hk[hn]
+      hf[hn], hk[hn] = nil, nil
+      hn = hn - 1
+      if hn > 0 then
+        local i = 1
+        while true do
+          local l = 2 * i
+          if l > hn then break end
+          local m, mf, mk = l, hf[l], hk[l]
+          local r = l + 1
+          if r <= hn then
+            local rf = hf[r]
+            if rf < mf or (rf == mf and hk[r] < mk) then m, mf, mk = r, rf, hk[r] end
+          end
+          if mf < lf or (mf == lf and mk < lk) then
+            hf[i], hk[i] = mf, mk
+            i = m
+          else
+            break
+          end
+        end
+        hf[i], hk[i] = lf, lk
+      end
+    end
+    if ck == gk then
+      local rev, k = {}, gk
+      local n = 0
+      while k do
+        local a = floor(k / 65536)
+        n = n + 1
+        rev[n] = { a - OFF, k - a * 65536 - OFF }
+        k = from[k]
+      end
+      local path = {}
+      for i = 1, n do path[i] = rev[n + 1 - i] end
+      st.path, st.done, st.hn = path, true, hn
+      st.work = st.work + used
+      return true
+    end
+    if not closed[ck] then
+      closed[ck] = true
+      st.expand = st.expand + 1
+      if st.expand > cap then
+        st.path, st.done, st.hn = nil, true, hn
+        st.work = st.work + used
+        return true
+      end
+      local ca = floor(ck / 65536)
+      local ccx, ccy, gcur = ca - OFF, ck - ca * 65536 - OFF, g[ck]
+      for q = 1, 8 do
+        local nx, ny = ccx + NBX_S[q], ccy + NBY_S[q]
+        if nx >= cx0 and nx <= cx1 and ny >= cy0 and ny <= cy1 then
+          local nk = (nx + OFF) * 65536 + (ny + OFF)
+          if not closed[nk] then
+            local dg = field[nk] or 0
+            if dg < B or nk == gk then
+              local noise = 0
+              if seeded then
+                noise = nzc[nk]
+                if not noise then
+                  local a = nk % M1 + 1
+                  noise = ((a * shi % TM) * 65536 % TM + a * slo) % TM % NZ
+                  nzc[nk] = noise
+                end
+              end
+              local step = NBC_S[q] * (1000 + dg * 10 + noise) / 1000
+              local ng = gcur + step
+              local gn = g[nk]
+              if not gn or ng < gn then
+                g[nk] = ng
+                from[nk] = ck
+                local ddx, ddy = nx - gx, ny - gy
+                if ddx < 0 then ddx = -ddx end
+                if ddy < 0 then ddy = -ddy end
+                local f
+                if ddx < ddy then f = ng + (14 * ddx + 10 * (ddy - ddx)) else f = ng + (14 * ddy + 10 * (ddx - ddy)) end
+                local j = hn + 1
+                hn = j
+                while j > 1 do
+                  local p = (j - j % 2) / 2
+                  local pf = hf[p]
+                  if f < pf or (f == pf and nk < hk[p]) then
+                    hf[j], hk[j] = pf, hk[p]
+                    j = p
+                  else
+                    break
+                  end
+                end
+                hf[j], hk[j] = f, nk
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  st.path, st.done, st.hn = nil, true, hn
+  st.work = st.work + used
+  return true
+end
+
 --- Un segment (a -> b) ne touche-t-il aucune case de danger ≥ lim (case du départ exclue) ?
 -- Mêmes points que R.samples(a, {}, b, R.SAMPLE), sans table par point (coût : la réduction essaie O(n²) segments ; banc
 -- final-3958412 verif-guide-1618033988 : 3 020 pics de 7,7 ms en moyenne).

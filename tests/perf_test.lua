@@ -350,5 +350,61 @@ do
   check(diff > 10, string.format("mutant vu : %d cas sur 100 différents", diff))
 end
 
+---------------------------------------------------------------------------------------------------
+-- A* ÉTALÉ (R.search_new / R.search_step, brique non branchée) : quel que soit le budget par appel, même chemin et mêmes
+-- développements que R.astar ; travail par appel borné par le budget ; état sans fonction (rangeable dans global).
+section("A* étalé : même résultat que R.astar quel que soit le découpage, état rangeable")
+do
+  local function serializable(v, depth)
+    if depth > 6 then return true end
+    local tv = type(v)
+    if tv == "function" or tv == "userdata" or tv == "thread" then return false end
+    if tv == "table" then
+      for k, x in pairs(v) do
+        if type(k) ~= "number" and type(k) ~= "string" then return false end
+        if not serializable(x, depth + 1) then return false end
+      end
+    end
+    return true
+  end
+  local same, cases, bounded, ser, calls_max = 0, 0, 0, 0, 0
+  for c = 1, 300 do
+    local tick = 70 * MIN
+    local map = random_map(rnd, tick)
+    local field = field_ref(map, tick)
+    local sc = { rnd(30) - 15, rnd(30) - 15 }
+    local gc = { rnd(50) - 25, rnd(50) - 25 }
+    local B = ({ 400, 600, 750, 1e9 })[rnd(4)]
+    local seed = (c % 2 == 0) and rnd(Tr.MOD - 2) or nil
+    local cap = (c % 7 == 0) and (50 + rnd(400)) or nil
+    local budget = ({ 1, 7, 50, 200, 100000 })[rnd(5)]
+    local p1, n1 = R.astar(field, sc, gc, B, seed, cap)
+    local st = R.search_new(field, sc, gc, B, seed, cap)
+    local calls, ok_bound = 0, true
+    while true do
+      local w0 = st.work
+      local done = R.search_step(st, budget)
+      calls = calls + 1
+      if st.work - w0 > budget then ok_bound = false end
+      if done then break end
+      if calls == 3 and not serializable(st, 0) then ok_bound = false end
+    end
+    if calls > calls_max then calls_max = calls end
+    cases = cases + 1
+    if ok_bound then bounded = bounded + 1 end
+    if serializable(st, 0) then ser = ser + 1 end
+    local p2, n2 = st.path, st.expand
+    local eq = n1 == n2 and ((p1 == nil) == (p2 == nil))
+    if eq and p1 then
+      if #p1 ~= #p2 then eq = false else
+        for i = 1, #p1 do if p1[i][1] ~= p2[i][1] or p1[i][2] ~= p2[i][2] then eq = false break end end
+      end
+    end
+    if eq then same = same + 1 end
+  end
+  check(same == cases and calls_max > 100, string.format("A* étalé = R.astar : %d / %d cas (jusqu'à %d appels)", same, cases, calls_max))
+  check(bounded == cases and ser == cases, string.format("travail par appel borné (%d / %d), état sans fonction (%d / %d)", bounded, cases, ser, cases))
+end
+
 print(string.format("[PERF] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
