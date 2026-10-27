@@ -65,8 +65,10 @@ local GEN_GIVEUP = 3600        -- secteur jamais généré après 1 min : oubli�
 local RECENT = 600             -- un secteur regardé il y a moins de 10 s n'est pas regardé de nouveau
 local FIXED_REFRESH = 5 * 3600
 local CHECK_PERIOD = 1800      -- demandes automatiques : toutes les 30 s par équipe
-local FLEE_RADIUS = 40         -- §4.1 : il fuit s'il voit un ennemi à moins de 40 tuiles
-local ENEMY_PERIOD = 30
+local FLEE_RADIUS = 64         -- §4.1 : il fuit s'il voit un ennemi (40 tuiles avant le lot IA-V2 : ia3-fer-joueur, 27/10 :
+                               -- éclaireur tué par un petit biter à 177 tuiles du QG, 2 passages sur 3 ; 64 : au-delà de la
+                               -- vue des biters, il fait demi-tour avant d'être pris en chasse)
+local ENEMY_PERIOD = 15 -- lot IA-V2 : regard deux fois plus fréquent (30 avant)
 local MISSION_MAX = 10 * 3600  -- §4.1 : il rentre au bout de 10 min
 local TOUR_RADIUS = 150        -- §4.1 : anneau de 150 tuiles autour du QG
 local TOUR_DEADLINE = 15 * 3600 -- tour du propriétaire : seulement dans les 15 premières minutes de l'équipe

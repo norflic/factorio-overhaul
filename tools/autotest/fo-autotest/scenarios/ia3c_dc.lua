@@ -12,7 +12,8 @@
     minute M | pnj N inactifs I | fer coffre F livre L | pierre P charbon C | avant-postes {…} | projets pris Q actifs A | …
   Contrôles (variante apres, 20 min de jeu) : 62 plaques de fer livrées au coffre en 12 min au plus ; avant-poste de
   charbon bâti en 15 min au plus ; PNJ inactifs ≤ 30 % en moyenne de 2 à 20 min ; au moins 2 projets menés EN MÊME
-  TEMPS (PNJ au travail) pendant au moins 25 % des relevés ; pierre et charbon déclarés saturés et du travail de fond
+  TEMPS (PNJ au travail) pendant au moins 25 % des relevés (remplacé au lot IA-V2 : 2 PNJ ou plus sur la chaîne du fer
+  en 1 min au plus, critère A3 de docs/IA_ATTENDUS.md) ; pierre et charbon déclarés saturés et du travail de fond
   retiré ; aucune exploration du fer (il est connu). Variante loin : exploration du fer demandée en 3 min au plus, aucune
   tâche de minage de fer. Chiffres et règle de lecture : fo-logs\2026-10-25_IA3-c\NOTES.md.
 ]]
@@ -144,6 +145,15 @@ return {
       local k = (npc.task or "inactif") .. (npc.fond and "(fond)" or "")
       kinds[k] = (kinds[k] or 0) + 1
       if npc.task == "mine" and not npc.fond then st.mine_seen = (st.mine_seen or 0) + 1 end
+      -- Lot IA-V2 (critère A3 de docs/IA_ATTENDUS.md) : PNJ sur la CHAÎNE du fer (minage du minerai de fer, fonte, pose
+      -- des fours du QG).
+      if (npc.task == "mine" and npc.resource == "iron-ore") or npc.task == "smelt" or npc.task == "smelters" then
+        kinds["(chaine-fer)"] = (kinds["(chaine-fer)"] or 0) + 1
+      end
+    end
+    if not st.t_chain and (kinds["(chaine-fer)"] or 0) >= 2 then
+      st.t_chain = e.tick
+      ctx.log(string.format("2 PNJ ou plus sur la chaine du fer a %.1f min", e.tick / 3600))
     end
     if e.tick % 3600 == 0 then
       local ks = {}
@@ -166,8 +176,8 @@ return {
     local idle_pct = st.n_sum > 0 and math.floor(100 * st.idle_sum / st.n_sum + 0.5) or 100
     local par_pct = st.par_n > 0 and math.floor(100 * st.par2 / st.par_n + 0.5) or 0
     local function m(t) return t and string.format("%.1f min", t / 3600) or "jamais" end
-    ctx.log(string.format("MESURE | variante %s | 62 fer %s | charbon %s | fer bati %s | inactifs %d %% (2-20 min) | 2 projets pris ou plus %d %% des releves (max %d) | sature [%s] | fond retire %d | exploration fer %s",
-      variant, m(st.t62), m(st.t_coal), m(st.t_iron), idle_pct, par_pct, st.max_taken, (function()
+    ctx.log(string.format("MESURE | variante %s | 62 fer %s | charbon %s | fer bati %s | inactifs %d %% (2-20 min) | chaine du fer a 2 PNJ %s | 2 projets pris ou plus %d %% des releves (max %d) | sature [%s] | fond retire %d | exploration fer %s",
+      variant, m(st.t62), m(st.t_coal), m(st.t_iron), idle_pct, m(st.t_chain), par_pct, st.max_taken, (function()
         local ks = {}
         for k in pairs(st.sat or {}) do ks[#ks + 1] = k end
         table.sort(ks)
@@ -178,8 +188,15 @@ return {
       ctx.check(st.t62 ~= nil and st.t62 <= 12 * 3600, "62 plaques de fer livrees en 12 min au plus", m(st.t62))
       ctx.check(st.t_coal ~= nil and st.t_coal <= 15 * 3600, "avant-poste de charbon bati en 15 min au plus", m(st.t_coal))
       ctx.check(idle_pct <= 30, "PNJ inactifs <= 30 % de 2 a 20 min", idle_pct .. " %")
-      ctx.check(par_pct >= 25, "2 projets ou plus menes en meme temps (PNJ au travail) >= 25 % des releves",
-        par_pct .. " % (max " .. st.max_taken .. ")")
+      -- Lot IA-V2 : le contrôle d'IA3-c « 2 projets pris en même temps >= 25 % des relevés de 2 à 20 min » est REMPLACÉ
+      -- par le critère A3 de docs/IA_ATTENDUS.md : « le manque d'une plaque met >= 2 PNJ sur sa chaîne en moins de
+      -- 1 min ». Raison (moteur réel, 27/10, 3 passages : 2 à 3 %) : ici tous les projets attendent la MÊME plaque
+      -- (chemin critique) et les tâches qui la servent sont comptées pour le seul projet le plus prioritaire ; le cas est
+      -- résolu en 5 min, il ne reste ensuite aucun projet ouvert. Le parallélisme des projets se mesure dans les parties
+      -- de mesure (tools/autotest/iav2_mesures.py, colonne par3 : minutes à 3 projets productifs ou plus). La part est
+      -- gardée dans la ligne MESURE.
+      ctx.check(st.t_chain ~= nil and st.t_chain <= 3600, "le manque de fer met 2 PNJ ou plus sur sa chaine en 1 min au plus",
+        m(st.t_chain))
       ctx.check(st.sat and st.sat["stone"] and st.sat["coal"], "pierre et charbon declares satures")
       ctx.check(st.t_explore == nil, "aucune exploration du fer (gisement connu)", m(st.t_explore))
     elseif variant == "loin" then

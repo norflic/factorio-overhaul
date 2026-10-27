@@ -477,7 +477,8 @@ Ia3.known_deposits = nil
 Ia3.home_known = nil -- crochet d'IA3-f : abords du QG vus (aucune exploration demandée avant ; nil sans brouillard)
 Ia3.REACH_SEEN = 96 -- au-delà, sous brouillard, seulement un gisement CONNU (le PNJ y va par Worker.far_mine)
 
-Ia3.REACH_EVERY_SHORT = 2 -- … toutes les 2 pensées tant qu'une ressource n'est ni à portée ni connue (lot IA-V2)
+Ia3.REACH_EVERY_SHORT = 1 -- … à chaque pensée tant qu'une ressource n'est ni à portée ni connue (lot IA-V2 : à 2, la 2e pensée
+                          -- lisait encore le cache de la 1re, carte pas ouverte : exploration du fer demandée à 0,1 min)
 
 local function reach_of(f, st, tick)
   st.reach_n = (st.reach_n or 0) - 1

@@ -1,21 +1,22 @@
 --[[
-  Lot IA3-c (docs/IA3_CERVEAU.md §5.4), repris au lot IA-V2 (version 0.5.0, réglages ALLUMÉS par défaut) : une partie
-  de main 0.4.30 (ancien cerveau, guerre et votre équipe) rechargée par la branche. Une vraie sauvegarde 0.4.30 chargée
-  en 0.5.0 reçoit les réglages nouveaux à leur valeur par défaut (vrai) : chaque équipe passe au cerveau par besoins à
-  sa pensée suivante, AVEC son avance sur l'échelle. Pour jouer ce chemin avec une échelle avancée, le banc ÉTEINT le
-  cerveau à son premier tick de benchmark (avant la première pensée d'une équipe : contrôlé), joue 5 min avec l'ANCIEN
-  cerveau, puis le RALLUME : même code de migration (script/ai3/cerveau.lua, Ia3.active) qu'au chargement. Le marché
-  et le registre (IA3-b) restent à leur défaut, lus à la première pensée de chaque équipe (allumés) ; l'exploration
-  sous brouillard (IA3-f) ouvre sa carte au premier passage.
-  Double source OBLIGATOIRE :
-    création = git archive de main 0.4.30 (d80fd8d) + feuilles : fo-logs/2026-10-27_IA-V2/src-0.4.30 ; source = la
-    branche (le mod de test vient de la source du benchmark : rien à recopier).
-    py -3.9 -B tools/autotest/banc.py --creation <src-0.4.30> --out <archive> -- 42100 ia3c-migration <source>
-  Création (0.4.30 ; 0.4.29 pour IA3-c) : PvP Paisible ; guerre de 2 factions (30 soldats, 10 ouvriers dont 8 au départ) ; coffre garni.
-  Benchmark (lot) : tick 60 personnages de la création vivants ; tick 18 000 (5 min) relevé de l'ancien cerveau
-  (niveau, technologies recherchées par force), réglage allumé ; contrôles au tick 42 000 : chaque équipe est passée au
-  cerveau par besoins, avec migration pour celles qui avaient avancé sur l'échelle ; aucune technologie perdue, aucun
-  niveau perdu ; des projets ouverts ; une recherche réelle choisie par chaque faction. Journal : [FO-IA3C-MIGRATION].
+  Lot IA3-c (docs/IA3_CERVEAU.md §5.4), repris au lot IA-V2 (version 0.5.0, réglages ALLUMÉS par défaut). DEUX chemins,
+  choisis par la source de CRÉATION :
+    (A) création = main 0.4.30 (fo-logs/2026-10-27_IA-V2/src-0.4.30 = git archive d80fd8d + feuilles), DOUBLE source :
+        la vraie montée de version. La sauvegarde 0.4.30 n'a pas les réglages nouveaux : au chargement, ils prennent
+        leur valeur par défaut (vrai) ; chaque équipe passe au cerveau par besoins, au marché et au registre à sa
+        PREMIÈRE pensée (fait du 27/10 : des équipes pensent au tick du chargement, avant tout tick du mod de test : le
+        banc ne peut pas les en empêcher). Contrôlé : toutes allumées dès 5 min.
+        py -3.9 -B tools/autotest/banc.py --creation <src-0.4.30> --out <archive> -- 42100 ia3c-migration <source>
+    (B) création = la branche (source unique), réglage fo-war-ia3-cerveau ÉTEINT à la création : l'ANCIEN cerveau
+        joue 5 min (échelle avancée), puis le réglage est ALLUMÉ en cours de partie : même code de migration
+        (script/ai3/cerveau.lua, Ia3.active) que le chargement d'une partie 0.4.30 avancée. Contrôlé : ancien cerveau
+        pour toutes à 5 min, migration d'au moins une équipe avancée.
+        py -3.9 -B tools/autotest/banc.py --out <archive> -- 42100 ia3c-migration <source>
+  Création : PvP Paisible ; guerre de 2 factions (30 soldats, 10 ouvriers dont 8 au départ) ; coffre garni.
+  Contrôles au tick 42 000 (11,7 min) : toutes les équipes au cerveau par besoins ; aucune technologie ni aucun niveau
+  perdu ; des projets ouverts dans chaque FACTION (votre équipe peut n'avoir besoin de rien) ; une recherche réelle par
+  faction ; marché et registre allumés, registre jamais au-delà du coffre ; carte de connaissance ouverte.
+  Journal : [FO-IA3C-MIGRATION].
 ]]
 
 local SWITCH = 18000
@@ -53,7 +54,7 @@ local function teams()
 end
 
 return {
-  description = "IA3-c : partie 0.4.29 rechargee, ancien cerveau 5 min puis cerveau par besoins allume en cours de partie",
+  description = "IA3-c et IA-V2 : partie 0.4.30 rechargee (A), ou ancien cerveau 5 min puis cerveau par besoins allume (B)",
   base = nil,
   check_tick = 42000,
 
@@ -64,18 +65,18 @@ return {
     st.war = remote.call("factorio-overhaul", "war_start", 2, 30, 10)
     st.chest = place_team_chest(ctx)
     st.create_has_ia3c = remote.interfaces["fo-ia3c"] ~= nil
+    -- Chemin (B) : la source de création connaît le réglage : éteint AVANT la guerre (sauvegardé tel quel).
+    st.path = "A"
+    if st.create_has_ia3c then
+      local v = remote.call("factorio-overhaul", "war_setting", "fo-war-ia3-cerveau", false)
+      if v == false then st.path = "B" end
+    end
     ctx.log("creation : factorio-overhaul " .. tostring(st.version_create) .. ", interface fo-ia3c " ..
       tostring(st.create_has_ia3c) .. ", guerre " .. tostring(st.war) .. ", coffre " .. tostring(st.chest))
   end,
 
   tick = function(ctx, e)
     local st = ctx.state()
-    if not st.bench_tick and st.version_create then
-      -- Premier tick du benchmark (lot IA-V2) : cerveau éteint jusqu'à 5 min (ancien cerveau, échelle qui avance).
-      st.bench_tick = e.tick
-      local v = ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3-cerveau", false)
-      ctx.log(string.format("benchmark : cerveau par besoins eteint au tick %d (relu %s)", e.tick, tostring(v)))
-    end
     if e.tick == SWITCH then
       st.before = {}
       for _, r in ipairs(teams()) do
@@ -87,14 +88,17 @@ return {
           r.key, r.tech or 0, st.before[r.key].researched, r.outposts or 0, tostring(s3 and s3.ia3c)))
       end
       local v = ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3-cerveau", true)
-      ctx.check(v == true, "reglage fo-war-ia3-cerveau allume en cours de partie", tostring(v))
+      ctx.check(v == true, "reglage fo-war-ia3-cerveau allume (chemin " .. tostring(st.path) .. ")", tostring(v))
     end
   end,
 
   finish = function(ctx)
     local st = ctx.state()
-    ctx.check(st.create_has_ia3c == false, "carte creee par une source SANS le cerveau par besoins (0.4.29)",
-      tostring(st.create_has_ia3c))
+    ctx.log("chemin " .. tostring(st.path) .. " (A : creation 0.4.30, montee de version ; B : creation par la branche, reglage eteint)")
+    if st.path == "A" then
+      ctx.check(st.create_has_ia3c == false, "chemin A : carte creee par une source SANS le cerveau par besoins (0.4.30)",
+        tostring(st.create_has_ia3c))
+    end
     local before = st.before or {}
     local keys = sorted_keys(before)
     ctx.check(#keys >= 3, "equipes relevees a 5 min (2 factions et votre equipe)", #keys)
@@ -116,7 +120,7 @@ return {
       if s3 and s3.migrated then migrated = migrated + 1 end
       if now >= b.researched then kept = kept + 1 end
       if row and (row.tech or 0) >= b.tech then level_kept = level_kept + 1 end
-      if s3 and #(s3.projects or {}) > 0 then with_proj = with_proj + 1 end
+      if s3 and (k == "player" or #(s3.projects or {}) > 0) then with_proj = with_proj + 1 end
       if s3 and s3.marche == true then market = market + 1 end
       if s3 and s3.reg_ok then reg_ok = reg_ok + 1 end
       if mapped[k] then maps = maps + 1 end
@@ -128,12 +132,19 @@ return {
         k, tostring(s3 and s3.ia3c), tostring(s3 and s3.migrated), b.researched, now, b.tech, row and row.tech or -1,
         s3 and #(s3.projects or {}) or 0, tostring(s3 and s3.lab), s3 and s3.labs or 0))
     end
-    ctx.check(off_before == #keys, "ancien cerveau pour toutes les equipes avant le reglage (5 min)", off_before .. "/" .. #keys)
+    if st.path == "B" then
+      ctx.check(off_before == #keys, "chemin B : ancien cerveau pour toutes les equipes avant le reglage (5 min)", off_before .. "/" .. #keys)
+    else
+      ctx.check(off_before == 0, "chemin A : toutes les equipes au cerveau par besoins des 5 min (defaut au chargement)",
+        (#keys - off_before) .. "/" .. #keys)
+    end
     ctx.check(all_on == #keys, "toutes les equipes passees au cerveau par besoins", all_on .. "/" .. #keys)
-    ctx.check(migrated >= 1, "migration d'au moins une equipe qui avait avance sur l'echelle", migrated)
+    if st.path == "B" then
+      ctx.check(migrated >= 1, "chemin B : migration d'au moins une equipe qui avait avance sur l'echelle", migrated)
+    end
     ctx.check(kept == #keys, "aucune technologie perdue", kept .. "/" .. #keys)
     ctx.check(level_kept == #keys, "aucun niveau perdu", level_kept .. "/" .. #keys)
-    ctx.check(with_proj == #keys, "des projets ouverts dans chaque equipe", with_proj .. "/" .. #keys)
+    ctx.check(with_proj == #keys, "des projets ouverts dans chaque faction", with_proj .. "/" .. #keys)
     ctx.check(research == nfac, "une recherche reelle choisie par chaque faction", research .. "/" .. nfac)
     -- Lot IA-V2 : marché et registre (IA3-b) allumés à la première pensée après le chargement ; carte de connaissance
     -- (IA3-f) ouverte pour chaque équipe.
