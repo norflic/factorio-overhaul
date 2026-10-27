@@ -669,6 +669,7 @@ function Poles.status(f)
       for i, t in ipairs(o.changes or {}) do ch[i] = t end
       npcs[#npcs + 1] = { id = a.id, role = o.role or "executant", pole = o.pole, dest = o.dest, project = o.project,
         task = a.task and a.task.kind or nil, fond = a.task and a.task.fond or false, changes = ch,
+        resource = a.task and a.task.resource or nil, -- lot IA-V2 : ressource d'une tâche de minage (bancs, lecture seule)
         worst_hour = Poles.worst_hour(o.changes) }
     end
   end

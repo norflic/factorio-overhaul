@@ -2418,6 +2418,14 @@ if not ok4 then for _, l in ipairs(FourSheets.lines(r4)) do print(l) end end
 check(ok4 and r4.n > 0, string.format("graphics/levels/four : %d PNG du manifeste présents, à la taille et aux "
   .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", r4.n, r4.refs or 0,
   #r4.manquants, #r4.ecarts, r4.erreur and (", " .. r4.erreur) or ""))
+-- lot F3-B : feuilles de la machine d'assemblage (même règle D-6)
+local AsmSheets = dofile("tests/datastage/asm_sheets.lua")
+local ra = AsmSheets.check(".")
+local oka = AsmSheets.ok(ra)
+if not oka then for _, l in ipairs(AsmSheets.lines(ra)) do print(l) end end
+check(oka and ra.n > 0, string.format("graphics/levels/assembleur : %d PNG du manifeste présents, à la taille et aux "
+  .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", ra.n, ra.refs or 0,
+  #ra.manquants, #ra.ecarts, ra.erreur and (", " .. ra.erreur) or ""))
 end)()
 
 ---------------------------------------------------------------------------------------------------

@@ -41,6 +41,7 @@ require("script.ai3.comportement") -- lot IA3-k : comportements visibles (croche
 require("script.ai3.soldats") -- lot IA3-k : rôles des soldats (patrouille, garde, escorte, nettoyage, défense)
 require("script.faction.commander")
 require("script.faction.war")
+require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")

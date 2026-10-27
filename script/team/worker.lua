@@ -26,6 +26,8 @@ local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail gl
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
+local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
+local Locomotion = require("script.companion.locomotion")
 
 local Worker = {}
 
@@ -190,9 +192,25 @@ end
 local function access(o)
   return o.access or o.pos
 end
+--- Lot IA1-d : programme d'une tâche du plan directeur (script/team/build.lua). build : prise au stock du chantier,
+--- point d'appui, ravivages ; clear : défrichage sur place ; fill : remplir un quai ; collect : vider un quai de sortie.
+local function ia1d_program(task)
+  local j = task.ia1d
+  local at = { x = j.ax, y = j.ay }
+  if j.mode == "build" then
+    return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "fill" then
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  elseif j.mode == "clear" or j.mode == "collect" then
+    return { { "goto", at, 1 }, { "ia1d" }, { "home" } }
+  end
+  return nil
+end
+
 --- Construit le programme d'une tâche au moment où un ouvrier la prend. Renvoie steps ou nil (impossible).
 function Worker.program(f, task, surface, tick)
   local k = task.kind
+  if task.ia1d then return ia1d_program(task) end
   if k == "craft" then
     return { { "home" }, { "take", task.uses, strict = true }, { "craft", task.steps }, { "home" } }
   elseif k == "build" then
@@ -279,6 +297,21 @@ function Worker.program(f, task, surface, tick)
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o) end
     local ammo = Outposts.ammo_name(f.tech)
+    if Board.market(f) then
+      -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
+      -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
+      -- tâches strictes, tourelles comprises, n'y était plus). Réservée au libre ensuite (Board.reserve_soft).
+      local _, by_key = Outposts.turret_groups(f)
+      local g = by_key[task.group]
+      local need = 0
+      for _, t in ipairs(g and g.list or {}) do
+        local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
+        local have = inv and inv.get_item_count() or 0
+        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+      end
+      if need <= 0 then return nil end
+      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+    end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
@@ -321,13 +354,22 @@ function Worker.program(f, task, surface, tick)
         area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
-      if busy == 0 and task.fond and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
+      -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
+      -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
+      if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end
       -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
       if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
+    end
+    -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
+    -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
+    if far then
+      task.target = far
+      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
     end
     if not best then return nil end
     task.target = { x = best.position.x, y = best.position.y }
@@ -430,7 +472,9 @@ local function finish(agent, f, ok, tick)
   local task = agent.task
   agent.task = nil
   agent.steps = nil
+  Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
   if task then
+    agent.last_project = task.project -- lot IA3-b : continuité de la place de marché
     if not ok then return_site(f, task) end
     Board.finish(f, task, ok, tick)
     Poles.task_done(f, task, ok, tick)
@@ -467,6 +511,29 @@ local function goto_step(agent, pos, radius, tick)
       if dist2(p, pos) <= (radius + 1) * (radius + 1) then return true end
     end
   end
+  -- Lot IA1-d : dans le plan directeur, marche par les rues (tronçons OUVERTS, points de passage en Manhattan, sans
+  -- pathfinder) ; un PNJ bloqué (aucun progrès pendant 2 pensées) est rendu au PathService (agent.street_off).
+  local fb = faction_of(agent)
+  if fb and fb.build and not agent.street_off then
+    Profiler.start("build:route")
+    local wp = Build.street_route(fb, p, pos)
+    Profiler.stop("build:route")
+    if wp then
+      local path = {}
+      for i, w in ipairs(wp) do path[i] = { position = w } end
+      agent.walk_radius = radius
+      agent.goal = pos
+      Locomotion.set_path(agent, path)
+      agent.last_x, agent.last_y, agent.last_check = p.x, p.y, tick
+      agent.stuck = 0
+      agent.nav = "moving"
+      agent.street_walk = true
+      Locomotion.start(agent)
+      Build.note_walk(fb, "start")
+      set(agent, "walk", tick)
+      return false
+    end
+  end
   agent.walk_radius = radius
   local H = Worker.hook -- lot IA3-k : itinéraire par points de passage (danger, variation)
   if H then
@@ -496,10 +563,13 @@ local function run_steps(agent, tick)
       deposit_all(agent, f)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
-      local all = take(agent, f, step[2])
+      -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
+      local all
+      if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
+      else all = take(agent, f, step[2]) end
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
-        abort(agent, f, tick, "stock")
+        abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
         return
       end
       agent.pc = agent.pc + 1
@@ -509,7 +579,30 @@ local function run_steps(agent, tick)
       return
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
+      agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
       agent.pc = agent.pc + 1
+    elseif kind == "take_res" then
+      -- Lot IA1-d : objets réservés au chantier (retirés du coffre à la réservation : personne ne les arrache)
+      local all = Build.take_reserved(f, step[2], step[3], main_inv(agent))
+      if agent.task then agent.task.took = true end
+      if not all then
+        local any = false
+        for _, it in ipairs(step[3]) do if main_inv(agent).get_item_count(it[1]) > 0 then any = true break end end
+        if not any then
+          abort(agent, f, tick, "stock")
+          return
+        end
+      end
+      agent.pc = agent.pc + 1
+    elseif kind == "ia1d" then
+      local j = agent.task and agent.task.ia1d
+      if not j then
+        abort(agent, f, tick, "chantier")
+        return
+      end
+      agent.ia1d = { pid = j.pid, mode = j.mode, anchor = j.anchor, idx = j.idx, seg = j.seg, rect = j.rect, ax = j.ax, ay = j.ay }
+      set(agent, "ia1d", tick)
+      return
     elseif kind == "act" then
       Trace.log("act", step[2], f.key)
       local fn = ACTS[step[2]]
@@ -576,6 +669,7 @@ FSM.define(MACHINE, {
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
+        Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
         return
@@ -585,10 +679,12 @@ FSM.define(MACHINE, {
       if H and not H.gate(f, agent, task, steps, tick) then
         return_site(f, task)
         task.fail = task.fail or "danger"
+        Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
         return
       end
+      Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
     end,
@@ -597,6 +693,31 @@ FSM.define(MACHINE, {
     think = function(agent, tick)
       if defend(agent, tick) then return end
       run_steps(agent, tick)
+    end,
+  },
+  -- Lot IA1-d : travail sur place du plan directeur (ravivages, défrichage, quais) : script/team/build.lua.
+  ia1d = {
+    think = function(agent, tick)
+      defend(agent, tick)
+      local f = faction_of(agent)
+      if not f then return end
+      Profiler.start("build:work")
+      local r = Build.work(agent, f, tick)
+      Profiler.stop("build:work")
+      if r == "more" then return end
+      agent.ia1d = nil
+      if r == "again" then
+        -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte
+        agent.pc = agent.pc - 1
+        set(agent, "step", tick)
+        return
+      end
+      if r == "done" then
+        agent.pc = agent.pc + 1
+        set(agent, "step", tick)
+      else
+        abort(agent, f, tick, "chantier")
+      end
     end,
   },
   -- Lot IA1-b : attente sur place (garnison) ; l'autodéfense tourne.
@@ -616,9 +737,22 @@ FSM.define(MACHINE, {
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {
-      nav_arrived = function(agent, tick) set(agent, "step", tick) end,
+      nav_arrived = function(agent, tick)
+        if agent.street_walk then
+          agent.street_walk = nil
+          local fa = faction_of(agent)
+          if fa then Build.note_walk(fa, "ok") end
+        end
+        set(agent, "step", tick)
+      end,
       nav_failed = function(agent, tick)
         local f = faction_of(agent)
+        -- Lot IA1-d : PNJ bloqué dans une rue : rendu au PathService pour la suite de ce trajet (compté).
+        if agent.street_walk then
+          agent.street_walk = nil
+          agent.street_off = true
+          if f then Build.note_walk(f, "stuck") end
+        end
         local reason = agent.nav_fail or "no_path"
         local H = Worker.hook -- lot IA3-k : un point de passage injoignable ne fait pas échouer la tâche
         if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
@@ -630,6 +764,14 @@ FSM.define(MACHINE, {
         end
         agent.walk_retries = 0
         local step = agent.steps and agent.steps[agent.pc]
+        -- Lot IA1-d : un défricheur ou un bâtisseur arrêté en route travaille là où il est (il s'ouvre le chemin vers son
+        -- point d'appui, script/team/build.lua)
+        if step and step[1] == "goto" and agent.task and agent.task.ia1d
+          and (agent.task.ia1d.mode == "clear" or agent.task.ia1d.mode == "build") then
+          agent.pc = agent.pc + 1
+          set(agent, "step", tick)
+          return
+        end
         if step and step[1] == "home" then
           -- Ne jamais rester égaré : rappel au QG (le dépôt se fait à l'arrivée).
           local e = agent.entity
@@ -768,6 +910,7 @@ Registry.on_removed(function(agent)
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
   release_slot(f, agent)
+  Board.release(f, agent) -- lot IA3-b : réservation d'un PNJ disparu rendue au libre (ce qu'il portait est perdu, F253)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end

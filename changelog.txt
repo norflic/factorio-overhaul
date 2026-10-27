@@ -1,4 +1,50 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-10-27
+  Changes:
+    - Nouveau cerveau des PNJ, pour les factions et votre équipe, allumé par défaut : plus d'échelle d'objectifs ;
+      chaque équipe mène plusieurs projets en même temps selon ce qui lui MANQUE (il manque du fer : elle pose des fours
+      au QG, plusieurs PNJ minent le fer et le fondent, la pierre et le charbon attendent ; elle ne ramasse plus ce
+      qu'elle a en trop pendant qu'autre chose manque).
+    - Vraie recherche des factions : elles fabriquent un laboratoire, le posent près de leur QG, fabriquent leurs packs
+      et recherchent les technologies de leur force, selon leur caractère ; jamais de packs pour une recherche qu'elles
+      ne peuvent pas payer.
+    - Personne n'attend, personne n'arrache : un PNJ libre prend la tâche la plus utile qu'il sait faire, même hors de son
+      pôle ; une tâche prise réserve sa matière au coffre, plus personne ne la lui prend.
+    - Exploration sous brouillard : une équipe ne connaît que ce qu'elle a vu (son QG, ses avant-postes, ses PNJ en
+      marche, ses éclaireurs) ; elle fait le tour de sa base au départ, regarde autour d'elle avant d'explorer, envoie
+      jusqu'à 3 éclaireurs quand une ressource manque et que des PNJ attendent, et ne prend plus de site jamais vu ;
+      un éclaireur de faction dont le chemin est coupé en route (eau, falaise) prend une autre cible au lieu de rentrer.
+    - Un avant-poste qui attend ses tourelles depuis 2 minutes les fait fabriquer.
+    - Réglages de carte « PNJ : cerveau par besoins » et « PNJ : personne n'attend, personne n'arrache » : allumés ;
+      les éteindre AVANT la guerre rend l'ancien cerveau.
+    - Une partie 0.4.x rechargée passe au nouveau cerveau à la pensée suivante de chaque équipe, en gardant ses
+      recherches et ses avant-postes.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.32
+Date: 2026-10-27
+  Changes:
+    - Plan directeur des équipes de PNJ (lot IA1-d ; pas encore utilisé par le cerveau des factions ni par votre équipe :
+      il le sera par le lot IA3-e) : autour du QG, des lots de 24 × 24 et des rues de 4 sont évalués (libre, à
+      défricher, gisement, rive, refusé : eau, falaise, nid, force rivale) ; un module demandé (centrale à vapeur,
+      fonderie, foreuses, rangée d'assembleurs) est placé sur le meilleur lot, tourné au besoin, alimenté par tapis depuis
+      des foreuses ou par un quai, raccordé au réseau électrique de l'équipe par de grands poteaux aux carrefours.
+    - Les PNJ savent construire comme un joueur : fantômes posés d'avance, objets réservés au coffre, défrichage des
+      arbres et rochers (en forêt dense, un PNJ arrêté se taille un passage), ravivage à 16 tuiles au plus de leur point
+      d'appui, marche par les rues ; un fantôme gêné par un PNJ est repris plus tard, un chantier bloqué reprend 2 min après.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.31
+Date: 2026-10-27
+  Graphics:
+    - Les machines d'assemblage des âges 2 à 15 (niveaux 3 à 30) ont chacune leur design, à la place de l'assembleur
+      vanilla teinté : forge en L, colonne de vapeur, portique de presse, croix du temple de cristal, salle blanche en H,
+      pont en U de l'âge 15… ; le sol se voit entre les ailes et sous les portiques. Le niveau pair de chaque âge ajoute
+      une pièce et une teinte de l'âge. Le niveau 2 garde l'assembleur vanilla avec un établi posé aux coins avant.
+    - Machine en marche : voyants, écrans, braises et cristaux de l'âge s'avivent et scintillent, avec une lumière de la
+      couleur de l'âge ; lueurs de jour et halo de nuit.
+    - Les brides de tuyau dessinées sont exactement aux raccords de jeu (y compris aux machines 4×4 et 6×6).
+    - Icône de l'âge pour chaque niveau, couleur de carte de l'âge, reste et explosion à la taille de la machine.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.30
 Date: 2026-10-25
   Graphics:
