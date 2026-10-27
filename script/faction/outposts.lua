@@ -419,14 +419,31 @@ function Outposts.service_smelters(f, carrier, smelt)
   local products = {}
   for p in pairs(smelt or {}) do products[#products + 1] = p end
   table.sort(products)
+  -- Étape 1 (27/10 au soir) : un four chargé de MOINS que la recette n'en exige (acier : 5 plaques, il en avait 1 à 4) ne
+  -- fond jamais et n'était jamais rechargé (il n'est rechargé que vide) : 3 fours sur 4 morts à jamais, 0 acier en 40 min,
+  -- donc aucun poteau moyen ou grand, aucune électrification. Ses entrées sont reprises par le porteur.
+  local ratio = {}
+  for _, p in ipairs(State.sorted_keys(T.smelter_inputs)) do
+    local inp = T.smelter_inputs[p]
+    if inp[2] > 1 then ratio[inp[1]] = math.max(ratio[inp[1]] or 0, inp[2]) end
+  end
   local i = 0
   for _, s in ipairs(list) do
     local src = s.get_inventory(defines.inventory.furnace_source)
+    if not src.is_empty() and not s.is_crafting() then
+      local c = src[1]
+      if c.valid_for_read and ratio[c.name] and c.count < ratio[c.name] then
+        carrier.insert({ name = c.name, count = c.count })
+        src.clear()
+      end
+    end
     if src.is_empty() and #products > 0 then
       i = i % #products + 1
       local input = T.smelter_inputs[products[i]]
       if input then
+        -- jamais moins d'une fabrication complète, et un multiple de l'entrée
         local n = math.min(input[2] * 10, carrier.get_item_count(input[1]))
+        n = n - n % input[2]
         if n > 0 then src.insert({ name = input[1], count = carrier.remove({ name = input[1], count = n }) }) end
       end
     end
