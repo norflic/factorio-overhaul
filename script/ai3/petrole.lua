@@ -246,11 +246,11 @@ local function wanted_items(f, General, c)
     if (open[pack] or heading[pack]) and General.feasible(f, pack) then
       local sum = General.summary_items(f, { { pack, Pet.PACK_N } })
       for _, it in ipairs(sorted_keys(sum and sum.produce)) do
-        if made[it] and not seen[it] then seen[it] = true; out[#out + 1] = it end
+        if made[it] and not seen[it] then seen[it] = pack; out[#out + 1] = it end
       end
     end
   end
-  return out
+  return out, seen
 end
 
 local function obtainable(f, name)
@@ -456,7 +456,7 @@ end
 local function decide(f, st, General, deposits, tick)
   local c = General.catalogue()
   refresh_known(f, st, c, deposits, tick)
-  local items = wanted_items(f, General, c)
+  local items, pack_of = wanted_items(f, General, c)
   if #items == 0 then return end
   -- regroupement : par fluide EXTRAIT de la chaîne (un site au gisement), sinon un site près du QG
   local groups, order = {}, {}
@@ -480,7 +480,7 @@ local function decide(f, st, General, deposits, tick)
       for _, fl in ipairs(sorted_keys(ch.sources)) do if ch.sources[fl] == "extract" then res = fl end end
       local g = res or "qg"
       if lock then locked[g] = true end
-      if not groups[g] then groups[g] = { res = res, items = {}, water = nil }; order[#order + 1] = g end
+      if not groups[g] then groups[g] = { res = res, items = {}, water = nil, pack = pack_of[it] }; order[#order + 1] = g end
       groups[g].items[#groups[g].items + 1] = it
       if ch.sources[water or "?"] == "pompe" then groups[g].water = water end
     end
@@ -503,8 +503,9 @@ local function decide(f, st, General, deposits, tick)
         local id = Build.request(f, { site = "petrole", targets = grp.items, res = grp.res, water = grp.water,
           extractor = extractor, x = x, y = y, prio = Build.PRIO, domain = "production", lazy_clear = true })
         if id then
-          if s then s.id, s.state, s.items = id, "attente", grp.items else
-            st.sites[#st.sites + 1] = { key = g, id = id, items = grp.items, state = "attente", res = grp.res, x = x, y = y }
+          if s then s.id, s.state, s.items, s.pack = id, "attente", grp.items, grp.pack else
+            st.sites[#st.sites + 1] = { key = g, id = id, items = grp.items, state = "attente", res = grp.res, x = x, y = y,
+              pack = grp.pack }
           end
           st.decisions = st.decisions + 1
           note(f, st, tick, string.format("site '%s' demande (projet %d) en (%d, %d) pour [%s]%s%s", g, id, x, y,
@@ -538,6 +539,24 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = Pet.GAIN }
     end
   end
+  -- Un site qui fait le pack que la recherche EN COURS consomme la SERT (A.serves_research : produit du but = le pack) :
+  -- il n'est plus plafonné sous la recherche (moteur réel, petrole-partie 1618033988 : site du pétrole en « réserve » de
+  -- 74 à 120 min, raffinerie, chevalets et poteaux jamais fabriqués, la recherche passant devant). Un site au plus par
+  -- pack (le premier : celui du gisement, demandé après la cellule sans fluide, passe d'abord dans la liste triée).
+  local lab = f.team.ia3 and f.team.ia3.lab
+  local consumes, used_pack = {}, {}
+  local cspec = lab and lab.tech and General.catalogue().techs[lab.tech]
+  for _, ing in ipairs((cspec and cspec.ingredients) or {}) do consumes[ing[1]] = true end
+  local order_sites = {}
+  for i, s in ipairs(st.sites) do order_sites[i] = s end
+  table.sort(order_sites, function(a, b2)
+    if (a.res ~= nil) ~= (b2.res ~= nil) then return a.res ~= nil end
+    return a.key < b2.key
+  end)
+  local product_of = {}
+  for _, s in ipairs(order_sites) do
+    if s.pack and consumes[s.pack] and not used_pack[s.pack] then used_pack[s.pack] = true; product_of[s.key] = s.pack end
+  end
   for _, s in ipairs(st.sites) do
     local br = Build.brief(f, s.id)
     if br then
@@ -551,7 +570,8 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       end
       s.built, s.total, s.reason = br.built, br.total, br.reason
       if br.state ~= "fini" and br.state ~= "refuse" then
-        mods[#mods + 1] = { product = "petrole:" .. s.key, state = br.state, missing = br.missing or {}, reason = br.reason, gain = Pet.GAIN }
+        mods[#mods + 1] = { product = product_of[s.key] or ("petrole:" .. s.key), state = br.state, missing = br.missing or {},
+          reason = br.reason, gain = Pet.GAIN }
       elseif br.state == "fini" then
         local items = {}
         for _, it in ipairs(br.quais or {}) do
