@@ -100,6 +100,38 @@ local function set_npcs_active(ctx, active)
   return n
 end
 
+--- Diagnostic d'un module fini (lot IA3-e, e5-usine : modules finis à 0 objet/min) : statut moteur des fours,
+--- assembleurs, foreuses et bras de ses pièces (nombre par statut), contenu des coffres (quais).
+local STATUS_NAME = nil
+local function status_name(v)
+  if not STATUS_NAME then
+    STATUS_NAME = {}
+    for k, x in pairs(defines.entity_status) do STATUS_NAME[x] = k end
+  end
+  return STATUS_NAME[v] or tostring(v)
+end
+
+local function diagnose(ctx, row, m)
+  local s = ctx.surface()
+  local by, chests = {}, {}
+  for _, pt in ipairs(m.parts or {}) do
+    local area = { { pt.x - 3, pt.y - 3 }, { pt.x + pt.w + 3, pt.y + pt.h + 3 } }
+    for _, e in ipairs(s.find_entities_filtered({ area = area, force = row.force,
+      type = { "furnace", "assembling-machine", "mining-drill", "inserter", "container" } })) do
+      if e.type == "container" then
+        local c = e.get_inventory(defines.inventory.chest).get_contents()
+        local parts = {}
+        for _, k in ipairs(sorted_keys(c)) do parts[#parts + 1] = k .. "=" .. c[k] end
+        chests[#chests + 1] = "[" .. table.concat(parts, ",") .. "]"
+      else
+        local k = e.type .. ":" .. status_name(e.status)
+        by[k] = (by[k] or 0) + 1
+      end
+    end
+  end
+  ctx.log(string.format("DIAG %s %s#%d : %s | coffres %s", row.key, m.product, m.id, kv(by), table.concat(chests, " ")))
+end
+
 --- Images (session avec images seulement : un joueur connecté) : vue d'ensemble de la base d'une faction et gros plan
 --- de chaque module fini, dans script-output/fo-shots/ia3e-<faction>-<moment>.png.
 local function snap(ctx, name, x, y, zoom)
@@ -196,6 +228,25 @@ return function(variant)
         end
       end
       if PHOTOS[t] then photos(ctx, PHOTOS[t]) end
+      -- Diagnostic des modules finis toutes les 10 min à partir de 30 min (hors gel).
+      if t >= 30 * MIN and t % (10 * MIN) == 0 and not st.frozen then
+        for _, row in ipairs(factions(ctx)) do
+          local a = auto_status(ctx, row.key)
+          for _, m in ipairs(a and a.modules or {}) do
+            if m.state == "fini" then pcall(diagnose, ctx, row, m) end
+          end
+          -- centrale : chaudières et machines à vapeur de la force (statut, charbon, énergie du dernier tick)
+          local sf = ctx.surface()
+          local by = {}
+          local kw = 0
+          for _, e in ipairs(sf.find_entities_filtered({ force = row.force, type = { "boiler", "generator", "offshore-pump" } })) do
+            local k = e.type .. ":" .. status_name(e.status)
+            by[k] = (by[k] or 0) + 1
+            if e.type == "generator" then kw = kw + e.energy_generated_last_tick * 60 / 1000 end
+          end
+          if next(by) then ctx.log(string.format("DIAG %s centrale : %s | %.0f kW", row.key, kv(by), kw)) end
+        end
+      end
       -- Mesure SANS PNJ (pas dans la variante « photo », trop courte) : à 45 min (critère A4), puis à 75 min (complément :
       -- les modules finis plus tard ; minutes figées hors des relevés de K7).
       if t == T_FREEZE2 and T_FREEZE2 < T_END and not st.frozen then
