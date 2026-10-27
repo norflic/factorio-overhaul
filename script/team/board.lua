@@ -645,9 +645,13 @@ end
 -- Lot IA-V2 : crochet facultatif (posé par script/ai3/exploration.lua) appelé à l'échec d'une tâche : mémoire des
 -- gisements lointains injoignables (chemin raté).
 Board.on_fail = nil
+-- Lot IA3-e : crochet facultatif (posé par script/ai3/automatisation.lua) appelé à la fin de CHAQUE tâche (réussie ou
+-- non) : PNJ-ticks de la tâche attribués à l'objet qu'elle produit (règle main -> machine).
+Board.on_done = nil
 
 function Board.finish(f, task, ok, tick)
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end
+  if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
   local b = Board.get(f)
   if b.tasks[task.key] == task then b.tasks[task.key] = nil end
   local st = f.team.task_stats

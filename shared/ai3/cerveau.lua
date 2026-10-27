@@ -29,6 +29,9 @@ local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
+local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
+
+P.EMIT.module = A.emit(P)
 
 local C = {}
 
@@ -71,6 +74,13 @@ function C.situation(view, st, ctx)
     cap[o.kind] = (cap[o.kind] or 0) + (o.drills or 0) / T.outposts[o.kind].drills
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do if (cap[kind] or 0) > 0 then st.ever[kind] = true end end
+  -- Lot IA3-e : un module FINI (fonderie électrique et ses foreuses) compte comme capacité d'extraction de son produit
+  -- (en unités d'avant-poste) : le cerveau ne bâtit plus l'avant-poste que le module remplace. Après `ever` : un module
+  -- n'est pas un avant-poste à reconstruire.
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local add = ctx.auto and ctx.auto.cap and ctx.auto.cap[kind] or 0
+    if add > 0 then cap[kind] = (cap[kind] or 0) + add end
+  end
   if (view.soldiers or 0) >= B.ARMY_FIRST_N then st.army_done = true end
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
@@ -137,7 +147,7 @@ function C.think(view, book, st, ctx)
   local avail0 = {}
   for k, v in pairs(avail) do avail0[k] = v end
   -- 3. Buts ; 4. projets.
-  local goals = B.generate(s, st)
+  local goals = A.goals(B.generate(s, st), ctx.auto, s.weights) -- lot IA3-e : modules demandés = projets
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
@@ -191,8 +201,14 @@ function C.think(view, book, st, ctx)
   for _, o in ipairs(view.outposts or {}) do product_of[o.id] = T.outposts[o.kind].product end
   local tasks, keys = {}, {}
   local dropped = 0
+  -- Lot IA3-e : « fini retire du travail à la main le débit nominal » : les tournées ordinaires (sous les urgences) des
+  -- avant-postes dont le produit est COUVERT par un module fini sont retirées (le module livre ce flux).
+  local covered = (ctx.auto and ctx.auto.covered) or {}
+  st.covered = covered
   for _, t in ipairs(base.tasks or {}) do
-    local drop = other_short and t.kind == "service" and t.prio < 90 and saturated[product_of[t.outpost] or ""] or false
+    local prod = product_of[t.outpost] or ""
+    local drop = (other_short and t.kind == "service" and t.prio < 90 and saturated[prod])
+      or (t.kind == "service" and t.prio < 90 and covered[prod]) or false
     if drop then dropped = dropped + 1 else
       tasks[#tasks + 1] = t
       keys[t.key] = true

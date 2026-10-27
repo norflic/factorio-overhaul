@@ -936,13 +936,21 @@ local function needs_of(p)
   return need
 end
 
+--- Stock LIBRE du coffre (lot IA3-e) : le coffre moins ce que les tâches prises y ont réservé (registre d'IA3-b,
+--- Board.view_stock ; registre éteint : le coffre tel quel). Le chantier ne prend plus la matière promise à une tâche
+--- (critère K4 : 0 échec « stock »).
+local function free_stock(f)
+  return Board.view_stock(f, f.hq.get_inventory(defines.inventory.chest).get_contents(), game.tick)
+end
+
 local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
+  local free = free_stock(f)
   for _, it in ipairs(sorted_keys(need)) do
     local want = need[it] - (p.stock[it] or 0)
     if want > 0 then
-      local have = f.hq.get_item_count(it)
+      local have = math.min(f.hq.get_item_count(it), free[it] or 0)
       local n = math.min(want, have)
       if n > 0 then
         local got = f.hq.remove_item({ name = it, count = n })
@@ -971,12 +979,14 @@ function Build.take_reserved(f, pid, items, inv)
   local p = f.build and f.build.projects[pid]
   if not p then return false end
   local all = true
+  local free = nil
   for _, it in ipairs(items) do
     local want = it[2]
     local have = p.stock[it[1]] or 0
     if have < want then
-      -- complément au coffre (un PNJ a pu rapporter des objets)
-      local add = math.min(want - have, f.hq.get_item_count(it[1]))
+      -- complément au coffre (un PNJ a pu rapporter des objets) : sur le stock LIBRE seulement (lot IA3-e, K4)
+      free = free or free_stock(f)
+      local add = math.min(want - have, f.hq.get_item_count(it[1]), free[it[1]] or 0)
       if add > 0 then have = have + f.hq.remove_item({ name = it[1], count = add }) end
     end
     local n = math.min(want, have)

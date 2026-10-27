@@ -304,6 +304,7 @@ local function extendable(view, kind, undefended)
 end
 
 local EMIT = {}
+P.EMIT = EMIT -- lot IA3-e : méthodes d'émission enregistrées par d'autres modules purs (EMIT.module, shared/ai3/automatiser.lua)
 
 --- Avant-poste (construction ou agrandissement) : comme l'échelle d'avant, mais PAR BESOIN et en parallèle.
 EMIT.outpost = function(E, proj, g, ctx)

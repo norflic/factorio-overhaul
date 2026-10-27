@@ -34,6 +34,7 @@ local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
+local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 
 local Ia3 = {}
 
@@ -231,12 +232,15 @@ local function refresh_techs(force, st, c)
 end
 
 --- Valeur d'une technologie candidate (H9) : recettes débloquées (pack, armée, machine), bonus, et chaîne vers un pack.
-local function tech_value(c, spec, w, chain_value)
+local function tech_value(c, spec, w, chain_value, wanted)
   local v = 0
   local palier = false
   for _, r in ipairs(spec.unlocks) do
     for _, p in ipairs(c.products[r] or {}) do
       if c.packs[p] then v = v + 100 palier = true
+      -- Lot IA3-e : un objet que l'automatisation demande et que l'équipe ne sait pas fabriquer (poteau moyen d'un
+      -- module) vaut un pack (H9 : « la recherche vaut ce qu'elle débloque »).
+      elseif wanted and wanted[p] then v = v + 100
       elseif c.kit_items[p] then v = v + math.floor(40 * (w.armee or 1000) / 1000)
       elseif c.machines[p] then v = v + math.floor(30 * (w.capital or 1000) / 1000)
       else v = v + 5 end
@@ -253,6 +257,7 @@ end
 --- Choix de la technologie (inertie : la technologie en cours reste tant qu'elle n'est ni faite ni impayable).
 local function choose_tech(f, force, st, c, book, w)
   local done = st.techs
+  local wanted = Auto.wanted(f) -- lot IA3-e
   local lab = st.lab
   if lab and lab.tech and not done[lab.tech] then
     local spec = c.techs[lab.tech]
@@ -270,7 +275,7 @@ local function choose_tech(f, force, st, c, book, w)
     if spec and not done[name] then
       local opens = false
       for _, r in ipairs(spec.unlocks) do
-        for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens = true end end
+        for _, p in ipairs(c.products[r] or {}) do if c.packs[p] or (wanted and wanted[p]) then opens = true end end
       end
       if opens then
         local seen, list, ok = {}, {}, true
@@ -308,7 +313,7 @@ local function choose_tech(f, force, st, c, book, w)
       if ft and ft.enabled then
         local ok, causes = A.level_status(book, spec.ing, obtainable)
         if ok then
-          local v, palier = tech_value(c, spec, w, chain[name])
+          local v, palier = tech_value(c, spec, w, chain[name], wanted)
           local cost = 0
           for _, ing in ipairs(spec.ing) do cost = cost + ing[2] * spec.count end
           local score = math.floor(v * 1000 / (cost + 10))
@@ -553,9 +558,10 @@ function Ia3.plan(f, view, book, surface, tick)
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
   local reach, known = reach_of(f, st, tick)
+  local auto = Auto.think(f, view, book, tick) -- lot IA3-e : modules demandés, leur état (nil : éteint)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
-    at_war = at_war and true or false, home_known = home ~= false }
+    at_war = at_war and true or false, home_known = home ~= false, auto = auto }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
@@ -603,12 +609,23 @@ end
 --- Après le travail de fond (script/team/poles.lua) : retire du tableau les tâches de FOND LIBRES qui extraient une
 --- matière SATURÉE (minage, tournée, agrandissement, construction) : ses PNJ passent à ce qui manque (constat du DC,
 --- 25/10, 18 h 45). Interface publique du tableau (Board.get, Board.sync) seulement.
+-- Lot IA3-e : minerai -> plaque fondue (minage de fond d'une plaque couverte).
+local PLATE_OF_RES_IA3E = {}
+for _, kind in ipairs(T.OUTPOST_ORDER) do
+  local spec = T.outposts[kind]
+  if T.smelter_inputs[spec.product] then PLATE_OF_RES_IA3E[spec.resource] = spec.product end
+end
+
 function Ia3.after_poles(f, tick)
   local st = f.team.ia3
   local sat = st and st.saturated
-  if not sat or next(sat) == nil then return 0 end
+  -- Lot IA3-e : le fond (minage, tournées) d'une matière COUVERTE par un module fini est retiré, qu'une autre matière
+  -- manque ou non (le module livre ce flux ; critère K7).
+  local cov = st and st.covered or {}
+  if (not sat or next(sat) == nil) and next(cov) == nil then return 0 end
   -- Lot IA-V2 : seulement si une autre matière manque (shared/ai3/cerveau.lua, st.other_short ; critère A5).
-  if st.other_short == false then return 0 end
+  if st.other_short == false then sat = {} end
+  if next(sat) == nil and next(cov) == nil then return 0 end
   local product_of = {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
@@ -625,7 +642,8 @@ function Ia3.after_poles(f, tick)
           item = tk.outpost_kind and T.outposts[tk.outpost_kind] and T.outposts[tk.outpost_kind].product
         end
       end
-      if item and sat[item] then dropped = dropped + 1 else keep[#keep + 1] = tk end
+      local covered = item and (cov[item] or (tk.kind == "mine" and cov[PLATE_OF_RES_IA3E[item] or ""])) or false
+      if item and (sat[item] or covered) then dropped = dropped + 1 else keep[#keep + 1] = tk end
     end
   end
   if dropped > 0 then
