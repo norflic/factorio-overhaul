@@ -1176,7 +1176,7 @@ emprises), migration d'une partie 0.4.29 en double source 6 OK, content 331, t2-
 gun-rose 13, f2-fours 3 ; 41 captures sans cache d'atlas, REGARDÉES (`captures\finales\`) : 30 niveaux affichés de jour et
 de nuit ; nuit encore faible aux âges 1, 10 et 13. Hors jeu sur `main` après fusion : harness 0 erreur (« Feuilles
 assembleur : 234 fichier(s), 0 manquant(s), 0 écart(s) »), levels_test 1 666 OK, api_lint 1 107, test_assembleur 217 OK,
-run 114. **Limites dites** : les poches de sol des âges 11 et 15 étaient ouvertes sur les planches validées ; l'âge 2 et
+run 114 ; en moteur réel sur `main` par la file : f3-assembleurs 6 OK (2:33:20), content 331 OK (2:44:12). **Limites dites** : les poches de sol des âges 11 et 15 étaient ouvertes sur les planches validées ; l'âge 2 et
 les nuits des âges 2 et 3 ont été retouchés APRÈS le verdict (`765f28c`) ; la machine ne bouge pas (seule la lueur
 scintille). **E205** · Mémoire vidéo au plancher avec le four (27/10, `vram\prod-plancher`) : F306.
 
