@@ -339,7 +339,10 @@ local function candidates(b, states, toward, res)
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
     -- un lot de gisement sert plusieurs lignes de foreuses tant qu'il reste de la place (relevé des tuiles libres)
-    if (not l.used or l.state == "gisement") and states[l.state] and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot IA3-e : la centrale peut aussi aller dans un lot refusé pour l'EAU (plus de la moitié d'eau) : sa rive y est
+    -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
+    local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
+    if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
     end
@@ -430,20 +433,6 @@ local function plan_power(f, p, mp, masks)
   local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
   local out = {}
-  -- route de carrefours jusqu'au réseau (tronçons non fermés)
-  local target
-  local keys = sorted_keys(b.net)
-  if #keys == 0 then
-    target = { i = mi, j = mj }
-  else
-    local best, bestd
-    for _, k in ipairs(keys) do
-      local n = b.net[k]
-      local d = math.abs(n.i - mi) + math.abs(n.j - mj)
-      if not bestd or d < bestd then best, bestd = n, d end
-    end
-    target = best
-  end
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
   -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
   -- falaise (banc ia1-build-reseau).
@@ -478,15 +467,84 @@ local function plan_power(f, p, mp, masks)
     spots[k] = false
     return nil
   end
+  -- Lot IA3-e : le carrefour le plus proche du module peut n'avoir aucun quart libre (rive, eau : la centrale) ; on prend
+  -- le plus proche des carrefours voisins qui en a un (moteur réel, e3-usine, azure : centrale refusée « pas de rue vers
+  -- le reseau » alors qu'elle amorçait le réseau, son carrefour étant dans l'eau).
+  -- Lot IA3-e : le PREMIER réseau (la centrale) part d'un carrefour relié au QG par les rues : la centrale au bord de
+  -- l'eau, son carrefour isolé par des rues fermées (eau), aucun module ne pouvait ensuite la rejoindre (moteur réel,
+  -- e4-usine graine 271828182, emerald : 15 refus « pas de rue vers le reseau »).
+  local first_net = next(b.net) == nil
+  local function reach_hq(i, j)
+    if not first_net then return true end
+    return P.route_nodes({ i = i, j = j }, { i = 0, j = 0 }, seg_passable(b), b.radius) ~= nil
+      or P.route_nodes({ i = i, j = j }, { i = 0, j = 0 }, seg_wire(b), b.radius) ~= nil
+  end
+  if not (spot_of(mi, mj) and reach_hq(mi, mj)) then
+    local cands = {}
+    for dj = -2, 2 do
+      for di = -2, 2 do
+        if di ~= 0 or dj ~= 0 then
+          local n = P.node_pos(b.lat, mi + di, mj + dj)
+          cands[#cands + 1] = { i = mi + di, j = mj + dj, d = (n.x - mp.x) ^ 2 + (n.y - mp.y) ^ 2 }
+        end
+      end
+    end
+    table.sort(cands, function(a, c) if a.d ~= c.d then return a.d < c.d end if a.j ~= c.j then return a.j < c.j end return a.i < c.i end)
+    for _, c in ipairs(cands) do
+      if spot_of(c.i, c.j) and reach_hq(c.i, c.j) then mi, mj = c.i, c.j break end
+    end
+  end
+  -- route de carrefours jusqu'au réseau (tronçons non fermés)
+  local target
+  local keys = sorted_keys(b.net)
+  if #keys == 0 then
+    target = { i = mi, j = mj }
+  else
+    -- Lot IA3-e : un carrefour BÂTI d'abord (réseau qui existe) ; un carrefour d'un projet encore en réserve disparaît
+    -- si ce projet est annulé, et le module qui s'y reliait reste une île sans courant (moteur réel, e7-usine, amber :
+    -- rangée de grenades reliée au réseau prévu d'un module annulé, réseau à elle seule, « no_power »).
+    -- Le réseau RÉEL : un carrefour bâti dont le poteau est sur le réseau des machines à vapeur (moteur réel, e7-usine
+    -- graine 20261020, scarlet : la rangée de pierre reliée à la route d'un module annulé, puis la fonderie et les
+    -- chargeurs reliés à elle : trois modules sur une île, centrale à 0 kW). À défaut, les carrefours de la centrale, puis
+    -- n'importe lequel.
+    local gen_net = nil
+    if surface then
+      local g = surface.find_entities_filtered({ force = f.force, type = "generator", limit = 1 })[1]
+      gen_net = g and g.electric_network_id or nil
+    end
+    local function live(n)
+      if not (n.built and gen_net and surface and n.x) then return false end
+      local e = surface.find_entities_filtered({ position = { n.x, n.y }, radius = 0.75, force = f.force, type = "electric-pole", limit = 1 })[1]
+      return e ~= nil and e.electric_network_id == gen_net
+    end
+    local best, bestd, lbest, lbestd, pbest, pbestd
+    for _, k in ipairs(keys) do
+      local n = b.net[k]
+      local d = math.abs(n.i - mi) + math.abs(n.j - mj)
+      if not bestd or d < bestd then best, bestd = n, d end
+      if b.plant and n.pid == b.plant and (not pbestd or d < pbestd) then pbest, pbestd = n, d end
+      if (not lbestd or d < lbestd) and live(n) then lbest, lbestd = n, d end
+    end
+    target = lbest or pbest or best
+  end
   -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
   -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)
   local bad = {}
+  -- Lot IA3-e : la route ne traverse pas un carrefour PRÉVU par un autre projet et pas encore bâti (il n'y pose pas de
+  -- poteau, le croyant là ; ce projet annulé, la route a un trou : moteur réel, e8-usine graine 20261020, scarlet,
+  -- rangée de pierre à 95 tuiles de la centrale, réseau à elle seule). Le départ et le but restent permis.
+  local skey, tkey = P.lot_key(mi, mj), P.lot_key(target.i, target.j)
+  local function foreign(k)
+    local n = b.net[k]
+    return n ~= nil and not n.built and n.pid ~= p.id and k ~= skey and k ~= tkey
+  end
   local function avoid(okf) return function(key)
     if not okf(key) then return false end
     local kind, i, j = P.parse_seg(key)
     if not kind then return true end
     local i2, j2 = i + (kind == "h" and 1 or 0), j + (kind == "v" and 1 or 0)
-    return not bad[P.lot_key(i, j)] and not bad[P.lot_key(i2, j2)]
+    local k1, k2 = P.lot_key(i, j), P.lot_key(i2, j2)
+    return not bad[k1] and not bad[k2] and not foreign(k1) and not foreign(k2)
   end end
   local nodes
   for _ = 1, 4 do
@@ -557,6 +615,46 @@ local function deposit_toward(b, res)
   return c and lot_center(b, c.l) or nil
 end
 
+--- Lot IA3-e : un bras ÉLECTRIQUE de quai (tête d'alimentation, quai de sortie) hors de l'aire des poteaux du module ne
+--- reçoit pas de courant (moteur réel, e5-usine, diagnostic : « inserter:no_power » aux quais, fours « no_fuel » faute du
+--- bras du charbon) : un poteau moyen est ajouté sur une tuile libre voisine (le moteur le relie seul aux poteaux à portée).
+local QUAI_ROLES = { ["quai-bras"] = true, ["sortie-bras"] = true }
+local function covered_by(poles, e)
+  for _, q in ipairs(poles) do
+    -- aire d'alimentation du poteau (demi-côté) contre la boîte du bras (±0,15) : un bras à 4 tuiles d'un poteau moyen
+    -- n'est PAS alimenté (moteur réel, e6-usine : bras de quai « no_power » sous des poteaux du réseau de la centrale)
+    local sup = (q.name == "big-electric-pole") and 2 or ((q.name == "small-electric-pole") and 2.5 or 3.5)
+    if math.abs(q.x - e.x) <= sup + 0.15 and math.abs(q.y - e.y) <= sup + 0.15 then return true end
+  end
+  return false
+end
+local function quai_poles(b, p, list, masks)
+  local poles = {}
+  for _, e in ipairs(p.ents) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
+  for _, e in ipairs(list) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
+  local planned = {}
+  for _, e in ipairs(p.ents) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
+  for _, e in ipairs(list) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
+  local extra = {}
+  for _, e in ipairs(list) do
+    if QUAI_ROLES[e.role] and e.name ~= "burner-inserter" and not covered_by(poles, e) then
+      local tx0, ty0 = math.floor(e.x), math.floor(e.y)
+      for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 }, { 2, 0 }, { -2, 0 }, { 0, 2 }, { 0, -2 } }) do
+        local tx, ty = tx0 + d[1], ty0 + d[2]
+        local k = P.tkey(tx, ty)
+        if not planned[k] and not b.occ[k] and (not masks or masks.free(tx, ty)) then
+          local pole = { name = "medium-electric-pole", x = tx + 0.5, y = ty + 0.5, dir = 0, role = "quai-poteau", part = e.part }
+          extra[#extra + 1] = pole
+          poles[#poles + 1] = pole
+          planned[k] = true
+          break
+        end
+      end
+    end
+  end
+  return extra
+end
+
 --- Têtes d'alimentation et quais d'un module posé ; foreuses de ravitaillement et tapis. Rend true ou false, raison.
 local function plan_feed(f, surface, p, place, part)
   local b = f.build
@@ -571,12 +669,24 @@ local function plan_feed(f, surface, p, place, part)
         if item and not (lane == 2 and port.lanes[1] == item) then
           sources[lane] = "quai"
           local flow = g.inputs and g.inputs[item] or 0
+          -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) : sa voie de minerai est servie par foreuses et
+          -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
+          -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
+          local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
           if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
-            if dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) <= 3 * P.PITCH then
+            local reach = (p.spec.feed == "tapis") and 5 or 3
+            local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
+            if d and d <= reach * P.PITCH then
               sources[lane] = "tapis"
               drills[lane] = { item = item, flow = flow }
+            elseif need_belt then
+              -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change)
+              if not dt and b.radius < Build.RADIUS_MAX then Build.grow(f, b.radius + 1) end
+              return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
+          elseif need_belt then
+            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis", item, flow)
           end
         end
       end
@@ -587,10 +697,19 @@ local function plan_feed(f, surface, p, place, part)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
+      -- Lot IA3-e : les poteaux des bras de quai APRÈS le tapis des foreuses (posés avant, ils prenaient les tuiles de son
+      -- arrivée : tapis impossible, repli sur un quai de minerai vide ; moteur réel, e7-usine, emerald, même lot qu'en
+      -- e6, 74 entités sans foreuses contre 138 avec).
+      local quay_ents = {}
+      for _, e in ipairs(fd.entities) do quay_ents[#quay_ents + 1] = e end
       for _, a in ipairs(fd.arrivals) do
         local d = drills[a.lane]
         if d then
           local ok, why = Build.plan_drills(f, surface, p, d.item, d.flow, a)
+          if not ok and p.spec.feed == "tapis" then
+            bump(b.stats.plan_refused, "tapis:" .. tostring(why))
+            return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
+          end
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
@@ -599,9 +718,14 @@ local function plan_feed(f, surface, p, place, part)
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
               for _, c in ipairs(alt.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
+              for _, e in ipairs(extra) do quay_ents[#quay_ents + 1] = e end
             end
           end
         end
+      end
+      if quai_ins ~= "burner-inserter" then
+        local qp = quai_poles(b, p, quay_ents, place.masks)
+        if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
     else
       local outn = 0
@@ -613,6 +737,8 @@ local function plan_feed(f, surface, p, place, part)
       local q = P.out_quai(port, ins)
       for _, e in ipairs(q) do e.part = part end
       if not reserve_tiles(b, p, q) then return false, "quai de sortie" end
+      local qp = quai_poles(b, p, q, place.masks)
+      if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       p.outs[#p.outs + 1] = { x = q[2].x, y = q[2].y }
     end
   end
@@ -813,6 +939,7 @@ end
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
+  Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   local g, why = template_of(spec)
   if not g then return false, why end
   local main
@@ -820,7 +947,7 @@ local function plan_project(f, surface, p)
   local toward
   if spec.near then toward = spec.near end
   if is_plant then
-    main, why = place_module(f, surface, g, { rive = true }, toward or { x = b.lat.ox, y = b.lat.oy }, nil, { water = true, margin = 0 })
+    main, why = place_module(f, surface, g, { rive = true, eau = true }, toward or { x = b.lat.ox, y = b.lat.oy }, nil, { water = true, margin = 0 })
   elseif g.resource then
     main, why = place_module(f, surface, g, { gisement = true }, toward or { x = b.lat.ox, y = b.lat.oy }, spec.resource or g.resource)
   else
@@ -835,6 +962,7 @@ local function plan_project(f, surface, p)
     main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil)
     if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil) end
   end
+  Profiler.stop("build:plan:place")
   if not main then
     if b.radius < Build.RADIUS_MAX then
       Build.grow(f, b.radius + 1)
@@ -848,9 +976,12 @@ local function plan_project(f, surface, p)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   b.lots[main.lot].used = p.id
   if spec.feed or is_plant then
+    Profiler.start("build:plan:feed")
     local ok, w2 = plan_feed(f, surface, p, main, 1)
+    Profiler.stop("build:plan:feed")
     if not ok then return false, w2 end
   end
+  Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
   local masks = main.masks
   local need = false
@@ -879,7 +1010,9 @@ local function plan_project(f, surface, p)
       end
     end
   end
+  Profiler.stop("build:plan:power")
   if is_plant then b.plant = p.id end
+  Profiler.start("build:plan:anchors")
   -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
   -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
   -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
@@ -906,6 +1039,7 @@ local function plan_project(f, surface, p)
     end
   end
   for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
+  Profiler.stop("build:plan:anchors")
   return true
 end
 
@@ -936,13 +1070,21 @@ local function needs_of(p)
   return need
 end
 
+--- Stock LIBRE du coffre (lot IA3-e) : le coffre moins ce que les tâches prises y ont réservé (registre d'IA3-b,
+--- Board.view_stock ; registre éteint : le coffre tel quel). Le chantier ne prend plus la matière promise à une tâche
+--- (critère K4 : 0 échec « stock »).
+local function free_stock(f)
+  return Board.view_stock(f, f.hq.get_inventory(defines.inventory.chest).get_contents(), game.tick)
+end
+
 local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
+  local free = free_stock(f)
   for _, it in ipairs(sorted_keys(need)) do
     local want = need[it] - (p.stock[it] or 0)
     if want > 0 then
-      local have = f.hq.get_item_count(it)
+      local have = math.min(f.hq.get_item_count(it), free[it] or 0)
       local n = math.min(want, have)
       if n > 0 then
         local got = f.hq.remove_item({ name = it, count = n })
@@ -966,17 +1108,37 @@ local function release(f, p)
   end
 end
 
+--- Lot IA3-e : annule une demande pas encore en chantier (attente, plan, réserve) : objets réservés rendus au coffre,
+--- tuiles et lots libérés ; état « refuse » (raison donnée). Rend vrai si la demande a été annulée.
+function Build.cancel(f, id, why)
+  local b = f and f.build
+  local p = b and b.projects[id]
+  if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
+  release(f, p)
+  for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+  for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+  for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+  p.ents, p.parts = {}, {}
+  p.state, p.reason = "refuse", why or "annule"
+  b.stats.projects_refused = b.stats.projects_refused + 1
+  if b.plant == p.id then b.plant = nil end
+  log(string.format("[FO-IA1D] %s : projet %d annule (%s)", f.key or "player", p.id, tostring(p.reason)))
+  return true
+end
+
 --- Prise au stock du chantier (étape « take_res » d'un PNJ) : rend vrai si tout a été pris.
 function Build.take_reserved(f, pid, items, inv)
   local p = f.build and f.build.projects[pid]
   if not p then return false end
   local all = true
+  local free = nil
   for _, it in ipairs(items) do
     local want = it[2]
     local have = p.stock[it[1]] or 0
     if have < want then
-      -- complément au coffre (un PNJ a pu rapporter des objets)
-      local add = math.min(want - have, f.hq.get_item_count(it[1]))
+      -- complément au coffre (un PNJ a pu rapporter des objets) : sur le stock LIBRE seulement (lot IA3-e, K4)
+      free = free or free_stock(f)
+      local add = math.min(want - have, f.hq.get_item_count(it[1]), free[it[1]] or 0)
       if add > 0 then have = have + f.hq.remove_item({ name = it[1], count = add }) end
     end
     local n = math.min(want, have)
@@ -1033,7 +1195,9 @@ end
 
 --- Un personnage (PNJ, joueur) debout sur l'emprise : refus passager.
 local function npc_on(surface, e)
-  return surface.count_entities_filtered({ area = footprint(e), type = "character", limit = 1 }) > 0
+  -- Lot IA3-e : un SOLDAT (unité) debout sur l'emprise est aussi un passager (moteur réel, e2-usine : fantômes d'emerald
+  -- refusés « occupe » par fo-emerald-rifleman et fo-emerald-rocketeer, chantier bloqué près du QG).
+  return surface.count_entities_filtered({ area = footprint(e), type = { "character", "unit" }, limit = 1 }) > 0
 end
 
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
@@ -1059,6 +1223,18 @@ local function npc_block(f, p, e, surface)
   local st = f.build.stats
   st.npc_blocks = (st.npc_blocks or 0) + 1
   e.npc_blocks = (e.npc_blocks or 0) + 1
+  -- Lot IA3-e : un SOLDAT de l'équipe en garnison ne quitte jamais l'emprise (moteur réel, e9-usine graine 20261020 après
+  -- la fusion de main 0.5.0 : fonderie d'emerald bloquée 50 min à 68 entités sur 69, un bras sous fo-emerald-rifleman) :
+  -- il s'écarte (téléporté sur la case libre la plus proche HORS de l'emprise). Les personnages (PNJ) bougent seuls.
+  local a = footprint(e)
+  for _, u in ipairs(surface.find_entities_filtered({ area = a, type = "unit", force = f.force })) do
+    local target = { x = a[2][1] + 2, y = (a[1][2] + a[2][2]) / 2 }
+    local pos = surface.find_non_colliding_position(u.name, target, 8, 0.5)
+    if pos and not (pos.x > a[1][1] - 0.5 and pos.x < a[2][1] + 0.5 and pos.y > a[1][2] - 0.5 and pos.y < a[2][2] + 0.5) then
+      u.teleport(pos)
+      st.npc_moved = (st.npc_moved or 0) + 1
+    end
+  end
   if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1 end
   log_refusal(f, p, e, "pnj", surface)
 end
@@ -1279,6 +1455,10 @@ end
 --- HORS de global : c'est une simple mémoire d'un calcul pur (P.route_tree), vide au chargement et recalculée au
 --- besoin, au même résultat (27/10 : 1,7 ms par marche sans elle, hors jeu).
 local ROUTES = {}
+-- Lot IA3-e : le compte des mémoires refaites reste LOCAL (une mesure) : écrit dans global, il différait entre une partie
+-- continue et la même partie rechargée (la mémoire, locale, est refaite après le chargement) ; moteur simulé, pvp_test
+-- « partie continue = partie rechargée », 2 ECHEC dès que les factions ont un plan directeur.
+local ROUTE_RESETS = {}
 local function route_cache(f)
   local b = f.build
   local key = f.key or "player"
@@ -1287,7 +1467,7 @@ local function route_cache(f)
   if not c or c.ver ~= ver then
     c = { ver = ver, trees = {} }
     ROUTES[key] = c
-    b.stats.route_resets = (b.stats.route_resets or 0) + 1
+    ROUTE_RESETS[key] = (ROUTE_RESETS[key] or 0) + 1
   end
   return c.trees
 end
@@ -1543,6 +1723,8 @@ local function advance(f, surface, p, tick)
     Profiler.start("build:plan")
     local ok, why, wait = plan_project(f, surface, p)
     Profiler.stop("build:plan")
+    -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
+    Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
       p.state = "reserve"
       p.started = tick
@@ -1565,7 +1747,15 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "reserve" then
-    if reserve(f, p) then p.state = #p.obstacles > 0 and "defrichage" or "fantomes" else p.reason = "materiaux" end
+    -- lot IA3-e : une réserve incomplète n'est relue qu'une fois par seconde (elle relisait le coffre et le registre
+    -- toutes les 5 ticks : chantiers des factions en attente de matériaux pendant des dizaines de minutes, K10)
+    if p.reserve_next and tick < p.reserve_next then return end
+    -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
+    if reserve(f, p) then
+      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+    else
+      p.reason, p.reserve_next = "materiaux", tick + 60
+    end
     return
   end
   if p.state == "defrichage" then
@@ -1764,6 +1954,27 @@ function Build.status(f, id)
     finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries }
 end
 
+--- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les
+--- quais au moteur) : { state, reason, missing, built, total, retry_at, retries, parts }.
+function Build.brief(f, id)
+  local p = f and f.build and f.build.projects[id]
+  if not p then return nil end
+  local missing = {}
+  for _, m in ipairs(p.missing or {}) do missing[#missing + 1] = { m[1], m[2] } end
+  local parts = {}
+  for i = 1, #p.parts do
+    local pt = p.parts[i]
+    if pt then parts[#parts + 1] = { kind = pt.kind, key = pt.key, x = pt.ox, y = pt.oy, w = pt.w, h = pt.h } end
+  end
+  -- objets des quais d'entrée (lot IA3-e : un module fini se nourrit DEPUIS LE COFFRE du QG, quai_tasks)
+  local quais, seen = {}, {}
+  for _, q in ipairs(p.quais or {}) do
+    if q.item and not seen[q.item] then seen[q.item] = true; quais[#quais + 1] = q.item end
+  end
+  return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
+    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais }
+end
+
 function Build.report(f)
   local b = f and f.build
   if not b then return nil end
@@ -1778,7 +1989,7 @@ function Build.report(f)
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
-    route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = st.route_resets or 0,
+    route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,

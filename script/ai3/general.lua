@@ -356,6 +356,14 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
+  -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait
+  -- fabriquer, produire ou extraire pour le but ; la règle « main ou machine » les pèse (script/ai3/automatisation.lua,
+  -- input.items de A.decide) même sans charge mesurée. Chaînes seulement.
+  local steps = {}
+  for _, kind in ipairs({ "hand", "produce", "extract" }) do
+    for _, k in ipairs(sorted_keys(sum[kind] or {})) do steps[#steps + 1] = k end
+  end
+  g.steps = steps
   -- Ressources clés : besoin BRUT des buts de référence (sans le stock consommable).
   local ds = General.state(f, st, view, true)
   local evd = Gen.prepare(c, ds, memo_of(f)) -- même clé (les points fixes ne lisent que le stock durable) : mémo

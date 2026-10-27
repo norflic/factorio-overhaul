@@ -41,6 +41,7 @@ P.WATER_REFUSE = 0.5        -- part d'eau au-delà de laquelle un lot est refus�
 P.DRILL_COVER = 0.6         -- part des tuiles minées par les foreuses qui doit porter le minerai
 P.FEED_DEPTH = 3            -- profondeur d'une tête d'alimentation derrière un port d'entrée
 P.AUTO_FLOW = 1.0           -- objets/s : au-delà, une voie est servie par tapis (règle d'automatisation, 60/min)
+P.PLANT_WET = 0.2           -- part d'eau du gabarit d'eau de la centrale (lot IA3-e ; 0,6 avant)
 P.STREET_COST = 3           -- coût d'une tuile de rue pour un tapis (traverser oui, longer non)
 P.ASTAR_MAX = 6000          -- nœuds développés au plus par tracé
 
@@ -484,12 +485,16 @@ function P.fit(g, rect, opts)
       end
       local room0 = P.port_room(M.instantiate(r, 0, 0, 0))
       -- pompe de rive (centrale) : la tuile devant la pompe et 60 % des tuiles d'eau du gabarit doivent être de l'eau
-      local wt, adj
+      local wt, adj, adj_side
       if r.water and #r.water > 0 then
         if not opts.water then return nil, "eau" end
         wt = r.water
         for _, e in ipairs(r.entities) do
-          if e.name == "offshore-pump" then local v = DV[e.dir or 0]; adj = { math.floor(e.x) + v[1], math.floor(e.y) + v[2] } end
+          if e.name == "offshore-pump" then
+            local v = DV[e.dir or 0]
+            adj = { math.floor(e.x) + v[1], math.floor(e.y) + v[2] }
+            adj_side = { -v[2], v[1] } -- perpendiculaire à la direction de la pompe
+          end
         end
       end
       for oy = rect.y0 + margin, rect.y1 - margin - r.h, opts.step or 1 do
@@ -506,10 +511,19 @@ function P.fit(g, rect, opts)
           end
           if ok and wt then
             if adj and not opts.water[tkey(ox + adj[1], oy + adj[2])] then ok = false end
+            -- Lot IA3-e : la pompe de rive demande 2 tuiles d'eau DEVANT elle (prototype vanilla : adjacent_tile_collision_box
+            -- de 2 × 1) : la tuile devant et l'une de ses deux voisines latérales ; le reste du gabarit d'eau à P.PLANT_WET
+            -- (60 % avant : sur les rives naturelles des factions, centrale refusée « pas de lot » ou « place » chez 3
+            -- factions sur 4, moteur réel e3-usine graine 271828182).
+            if ok and adj and adj_side then
+              local s1 = opts.water[tkey(ox + adj[1] + adj_side[1], oy + adj[2] + adj_side[2])]
+              local s2 = opts.water[tkey(ox + adj[1] - adj_side[1], oy + adj[2] - adj_side[2])]
+              if not (s1 or s2) then ok = false end
+            end
             if ok then
               local wet = 0
               for _, t in ipairs(wt) do if opts.water[tkey(ox + t[1], oy + t[2])] then wet = wet + 1 end end
-              if wet < 0.6 * #wt then ok = false end
+              if wet < P.PLANT_WET * #wt then ok = false end
             end
           end
           local cover = 1

@@ -17,7 +17,7 @@ local Tokens = {}
 
 Tokens.COST_CLAIM = 20 -- une prise de tâche (programme d'étapes, recherche de minerai comprise) : estimé
 
-local ledger = { tick = -1, used = {}, grant = nil }
+local ledger = { tick = -1, used = {}, grant = nil, big = nil }
 
 local function team_keys()
   local keys = {}
@@ -33,7 +33,7 @@ end
 --- Prend `units` jetons pour l'équipe `f` au tick `tick`. Rend vrai si la part de l'équipe le permet.
 function Tokens.take(f, tick, units)
   if ledger.tick ~= tick then
-    ledger.tick, ledger.used, ledger.grant = tick, {}, nil
+    ledger.tick, ledger.used, ledger.grant, ledger.big = tick, {}, nil, nil
   end
   if not ledger.grant then
     local keys = team_keys()
@@ -47,6 +47,15 @@ function Tokens.take(f, tick, units)
   local used = ledger.used[k] or 0
   local grant = ledger.grant[k]
   if grant == nil then grant = O.TICK_BUDGET end -- équipe inconnue du partage (fondée pendant ce tick)
+  -- Lot IA3-e : une opération plus chère que la part d'une équipe (plan d'un module 200, poteau ravivé 300, contre 100
+  -- par équipe à 4 factions) ne passait JAMAIS : chantiers des factions figés (moteur simulé, sonde du 27/10 : PNJ
+  -- arrêtés au point d'appui avec leurs poteaux). Elle passe si l'équipe n'a encore rien pris à ce tick et qu'aucune
+  -- autre grosse opération n'a eu lieu à ce tick (une seule pour tout le mod, dans la limite du budget du mod).
+  if units > grant and used == 0 and ledger.big == nil and units <= O.TICK_BUDGET then
+    ledger.used[k] = units
+    ledger.big = k
+    return true
+  end
   if used + units > grant then
     if f.team and f.team.org then f.team.org.stats.token_refused = f.team.org.stats.token_refused + 1 end
     return false
