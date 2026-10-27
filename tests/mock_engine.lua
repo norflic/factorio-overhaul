@@ -727,6 +727,8 @@ function M.new_world(opts)
       -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua). Lot IA-V2 : ALLUMÉ par défaut comme le jeu (0.5.0) ;
       -- éteint par l'option (ia3_cerveau = false) ou par FO_IA3_CERVEAU=0 (bancs « bascule éteinte », pvp_test compris).
       ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
+      -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
+      ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

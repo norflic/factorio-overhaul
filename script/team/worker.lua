@@ -32,6 +32,9 @@ local Locomotion = require("script.companion.locomotion")
 local Worker = {}
 
 Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
+-- Lot IA3-k : crochets des comportements visibles (script/ai3/comportement.lua, qui s'y branche) : sense (regard, peur,
+-- réaction), leg (point de passage), gate (porte d'une tâche), nav_failed (point de passage injoignable). nil : rien.
+Worker.hook = nil
 
 local MACHINE = "worker"
 local HOME_RADIUS = 6
@@ -489,6 +492,7 @@ local function abort(agent, f, tick, reason)
   agent.pc = 1
   set(agent, "step", tick)
 end
+Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 
 local function goto_step(agent, pos, radius, tick)
   local e = agent.entity
@@ -531,6 +535,11 @@ local function goto_step(agent, pos, radius, tick)
     end
   end
   agent.walk_radius = radius
+  local H = Worker.hook -- lot IA3-k : itinéraire par points de passage (danger, variation)
+  if H then
+    local w, wr = H.leg(agent, pos, radius, tick)
+    if w then pos, radius = w, wr end
+  end
   Nav.go(agent, pos, tick, { radius = radius })
   set(agent, "walk", tick)
   return false
@@ -620,8 +629,11 @@ local function run_steps(agent, tick)
 end
 
 --- Autodéfense : un ouvrier armé tire sur l'ennemi le plus proche (déchiqueteurs, autres factions).
+--- Lot IA3-k : rend true quand le crochet « sense » a pris la main (la pensée de l'état s'arrête là).
 local function defend(agent, tick)
-  if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return end
+  local H = Worker.hook
+  local took = H and H.sense(agent, tick) or false
+  if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return took end
   agent.defense_tick = tick
   local e = agent.entity
   local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
@@ -634,12 +646,13 @@ local function defend(agent, tick)
     e.shooting_state = { state = defines.shooting.not_shooting, position = e.position }
     agent.shooting = nil
   end
+  return took
 end
 
 FSM.define(MACHINE, {
   idle = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
@@ -661,6 +674,16 @@ FSM.define(MACHINE, {
         Poles.task_done(f, task, false, tick)
         return
       end
+      -- Lot IA3-k : porte de la tâche (trajet dangereux : escorte ou attente).
+      local H = Worker.hook
+      if H and not H.gate(f, agent, task, steps, tick) then
+        return_site(f, task)
+        task.fail = task.fail or "danger"
+        Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
+        Board.finish(f, task, false, tick)
+        Poles.task_done(f, task, false, tick)
+        return
+      end
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
@@ -668,7 +691,7 @@ FSM.define(MACHINE, {
   },
   step = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       run_steps(agent, tick)
     end,
   },
@@ -700,7 +723,7 @@ FSM.define(MACHINE, {
   -- Lot IA1-b : attente sur place (garnison) ; l'autodéfense tourne.
   wait = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       if tick >= (agent.wait_until or 0) then
         agent.pc = agent.pc + 1
         set(agent, "step", tick)
@@ -709,7 +732,7 @@ FSM.define(MACHINE, {
   },
   walk = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       Nav.think(agent, tick)
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
@@ -731,6 +754,8 @@ FSM.define(MACHINE, {
           if f then Build.note_walk(f, "stuck") end
         end
         local reason = agent.nav_fail or "no_path"
+        local H = Worker.hook -- lot IA3-k : un point de passage injoignable ne fait pas échouer la tâche
+        if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
         agent.walk_retries = (agent.walk_retries or 0) + 1
         if f then f.stats.nav_fail = (f.stats.nav_fail or 0) + 1 end
         if agent.walk_retries <= 3 and reason ~= "no_path" then
@@ -774,7 +799,7 @@ FSM.define(MACHINE, {
   },
   craft = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local e = agent.entity
       if e.crafting_queue_size > 0 then
         if tick - agent.craft_started > CRAFT_TIMEOUT then
@@ -806,7 +831,7 @@ FSM.define(MACHINE, {
   },
   mine = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local e = agent.entity
       local step = agent.steps[agent.pc]
       local item, count = step[2], step[3]
