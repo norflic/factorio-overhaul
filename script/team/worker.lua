@@ -506,8 +506,13 @@ local function goto_step(agent, pos, radius, tick)
   -- 21/10) : un point d'accès couvert depuis par une foreuse, une case du QG sous un four, un autre PNJ.
   -- Le but devient le point libre le plus proche (test seulement, aucune entité posée : F26).
   local surface = e.surface
-  if not surface.can_place_entity({ name = e.name, position = pos }) then
+  Profiler.start("worker:goal_free")
+  local placeable = surface.can_place_entity({ name = e.name, position = pos })
+  Profiler.stop("worker:goal_free")
+  if not placeable then
+    Profiler.start("worker:goal_free")
     local free = surface.find_non_colliding_position(e.name, pos, radius + 6, 0.5)
+    Profiler.stop("worker:goal_free")
     if free then
       pos = free
       local f = faction_of(agent)
@@ -541,10 +546,14 @@ local function goto_step(agent, pos, radius, tick)
   agent.walk_radius = radius
   local H = Worker.hook -- lot IA3-k : itinéraire par points de passage (danger, variation)
   if H then
+    Profiler.start("ia3k:leg")
     local w, wr = H.leg(agent, pos, radius, tick)
+    Profiler.stop("ia3k:leg")
     if w then pos, radius = w, wr end
   end
+  Profiler.start("nav:go")
   Nav.go(agent, pos, tick, { radius = radius })
+  Profiler.stop("nav:go")
   set(agent, "walk", tick)
   return false
 end
@@ -610,7 +619,10 @@ local function run_steps(agent, tick)
     elseif kind == "act" then
       Trace.log("act", step[2], f.key)
       local fn = ACTS[step[2]]
+      local pn = Profiler.enabled() and ("act:" .. tostring(step[2])) or nil
+      if pn then Profiler.start(pn) end
       local ok = fn and fn(agent, f, agent.task, surface, tick)
+      if pn then Profiler.stop(pn) end
       if not ok then
         abort(agent, f, tick, step[2])
         return
@@ -636,11 +648,15 @@ end
 --- Lot IA3-k : rend true quand le crochet « sense » a pris la main (la pensée de l'état s'arrête là).
 local function defend(agent, tick)
   local H = Worker.hook
+  Profiler.start("ia3k:sense")
   local took = H and H.sense(agent, tick) or false
+  Profiler.stop("ia3k:sense")
   if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return took end
   agent.defense_tick = tick
   local e = agent.entity
+  Profiler.start("worker:defend")
   local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
+  Profiler.stop("worker:defend")
   if enemy and e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0 then
     e.shooting_state = { state = defines.shooting.shooting_enemies, position = enemy.position }
     agent.shooting = true
@@ -661,7 +677,9 @@ FSM.define(MACHINE, {
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
       if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      Profiler.start("board:claim")
       local task = Board.claim(f, agent, tick)
+      Profiler.stop("board:claim")
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
         if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
@@ -670,7 +688,9 @@ FSM.define(MACHINE, {
         end
         return
       end
+      Profiler.start("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
+      Profiler.stop("worker:program")
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
         Board.release(f, agent) -- lot IA3-b : réservation rendue
@@ -680,7 +700,10 @@ FSM.define(MACHINE, {
       end
       -- Lot IA3-k : porte de la tâche (trajet dangereux : escorte ou attente).
       local H = Worker.hook
-      if H and not H.gate(f, agent, task, steps, tick) then
+      Profiler.start("ia3k:gate")
+      local gate_ok = not H or H.gate(f, agent, task, steps, tick)
+      Profiler.stop("ia3k:gate")
+      if not gate_ok then
         return_site(f, task)
         task.fail = task.fail or "danger"
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
@@ -688,7 +711,9 @@ FSM.define(MACHINE, {
         Poles.task_done(f, task, false, tick)
         return
       end
+      Profiler.start("board:reserve")
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
+      Profiler.stop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
     end,
@@ -737,7 +762,9 @@ FSM.define(MACHINE, {
   walk = {
     think = function(agent, tick)
       if defend(agent, tick) then return end
+      Profiler.start("nav:think")
       Nav.think(agent, tick)
+      Profiler.stop("nav:think")
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {

@@ -18,8 +18,20 @@ local Registry = require("script.companion.registry")
 local Render = require("script.companion.render")
 local Nav = require("script.agents.nav")
 local C = require("script.companion.constants")
+local Profiler = require("script.core.profiler")
 
 local Brain = {}
+
+-- Lot PERF : portée du profileur par machine et par état (« brain:<machine>:<état> »), noms gardés en cache local
+-- (aucune chaîne fabriquée à chaque pensée) ; rien n'est mesuré quand le profileur est éteint (un test).
+local prof_names = {}
+local function prof_name(machine, state)
+  local m = prof_names[machine]
+  if not m then m = {} prof_names[machine] = m end
+  local n = m[state or "?"]
+  if not n then n = "brain:" .. machine .. ":" .. tostring(state) m[state or "?"] = n end
+  return n
+end
 
 local RING = {
   { 1, 0 }, { 0.7, 0.7 }, { 0, 1 }, { -0.7, 0.7 }, { -1, 0 }, { -0.7, -0.7 }, { 0, -1 }, { 0.7, -0.7 },
@@ -137,7 +149,15 @@ local function think(id, tick)
     Registry.remove(id, false)
     return
   end
-  FSM.think(agent.machine or C.MACHINE, agent, tick)
+  local machine = agent.machine or C.MACHINE
+  if Profiler.enabled() then
+    local n = prof_name(machine, agent.state)
+    Profiler.start(n)
+    FSM.think(machine, agent, tick)
+    Profiler.stop(n)
+    return
+  end
+  FSM.think(machine, agent, tick)
 end
 
 Scheduler.define_lane(C.LANE_BRAIN, function() return Config.get("brain_period") end, think)
