@@ -29,10 +29,25 @@
 
 local T = require("shared.team.config")
 local M = require("shared.ai3.marche")
+local R = require("shared.ai3.reglages") -- lot IA-G : cibles de stock du marché (déplacées, inchangées)
 
 local X = {}
 
-X.PLATES = { { "iron-plate", "iron-ore", "iron" }, { "copper-plate", "copper-ore", "copper" } }
+local function sorted_keys(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+-- Lot IA-G : plaques DÉDUITES des tables de l'exécutant (avant-postes dont le produit se fond au QG, dans leur ordre) :
+-- { plaque, minerai, type d'avant-poste } ; sur les données d'aujourd'hui, fer puis cuivre, comme avant.
+X.PLATES = {}
+for _, kind in ipairs(T.OUTPOST_ORDER) do
+  local spec = T.outposts[kind]
+  local input = T.smelter_inputs[spec.product]
+  if input and input[1] == spec.resource then X.PLATES[#X.PLATES + 1] = { spec.product, spec.resource, kind } end
+end
 X.SMELTERS = 2        -- fours posés au QG quand une plaque manque (T.start_smelters des factions)
 X.SMELTERS_MAX = 4    -- … et 4 pour un manque d'au moins X.SMELT_MORE plaques
 X.SMELT_MORE = 50
@@ -44,7 +59,7 @@ X.PRIO = 75           -- au-dessus des fabrications d'objectif (50) : sans plaqu
 X.MINE_PRIO = 45      -- comme le minage du planificateur sans avant-poste
 -- Besoin prévu de chaque matière (stock libre au-delà : surplus, M.NEED_SURPLUS) ; mêmes niveaux que le minage de fond
 -- (shared/team/fond.lua, F.MINE_TARGETS).
-X.TARGET = { coal = 400, stone = 200, ["iron-ore"] = 200, ["copper-ore"] = 100 }
+X.TARGET = R.MARCHE_CIBLES
 
 local function has_kind(view, kind)
   for _, o in ipairs(view.outposts or {}) do if o.kind == kind then return true end end
@@ -95,7 +110,9 @@ function X.tasks(view, missing, ctx)
       if n > 0 and not keys[key] then
         local avail = {}
         -- Les fours déjà au coffre sont comptés dans n : le plan ne doit pas les « prendre » (besoin d'accumulation).
-        for _, k in ipairs({ "stone", "iron-plate", "copper-plate" }) do avail[k] = math.max(0, free[k] or 0) end
+        -- Lot IA-G : tout le stock libre (au lieu d'une liste de trois matières écrite à la main) ; le plan du livre ne
+        -- prend que ce que la recette du four demande.
+        for _, k in ipairs(sorted_keys(free)) do if k ~= T.SMELTER then avail[k] = math.max(0, free[k] or 0) end end
         local plan = ctx.book:plan({ { T.SMELTER, n } }, avail)
         if next(plan.raw) == nil then
           local ks = {}
@@ -166,7 +183,12 @@ function X.need(view, missing)
       if (free[p[2]] or 0) < n then short[p[2]] = true end
     end
   end
-  for _, r in ipairs({ "coal", "stone", "iron-ore", "copper-ore", "iron-plate", "copper-plate" }) do
+  local mats = {} -- lot IA-G : ressources et produits des avant-postes (tables de l'exécutant), triés
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    mats[T.outposts[kind].resource] = true
+    mats[T.outposts[kind].product] = true
+  end
+  for _, r in ipairs(sorted_keys(mats)) do
     local want = X.TARGET[r] or 0
     out[r] = M.need_factor(free[r] or 0, want, short[r] or (missing[r] or 0) > 0)
   end
