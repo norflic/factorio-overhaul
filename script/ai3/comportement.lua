@@ -21,6 +21,7 @@ local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local FSM = require("script.core.fsm")
 local Profiler = require("script.core.profiler")
+local Trace = require("script.core.trace")
 local Registry = require("script.companion.registry")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
@@ -335,6 +336,7 @@ function M.plan(f, agent, p, goal, tick, opts)
     seed = Tr.range(st, 1, Tr.MOD - 2)
   end
   local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw, side = opts.side })
+  if res.astar then Trace.log("ia3k", "astar", res.expand) end -- attribution des pics (tools/autotest/analyze.py)
   res.B = B
   res.field = field
   return res
