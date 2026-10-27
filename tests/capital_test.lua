@@ -338,5 +338,19 @@ do
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end
 
+-- §11 Coût de calcul (ordre de grandeur, PC non épinglé) : une décision sur 60 bâtiments (relevé d'une faction riche).
+do
+  local list = {}
+  for i = 1, 40 do list[#list + 1] = { id = 1000 + i, name = L.name(GUN, 1 + (i % 4)), working = false } end
+  for i = 1, 20 do list[#list + 1] = { id = 2000 + i, name = L.name(L.by_key.assembler, 1 + (i % 4)), working = i % 2 == 0 } end
+  local cen = census(list, { id = 1, name = L.name(CC, 2) })
+  local t0 = os.clock()
+  local N = 200
+  for _ = 1, N do Cap.choose(L, cen, ctx()) end
+  local ms = (os.clock() - t0) * 1000 / N
+  say(string.format("§11 une décision sur 60 bâtiments : %.3f ms (hors jeu ; une par faction et par minute en jeu)", ms))
+  check(ms < 20, "§11 une décision coûte moins de 20 ms hors jeu")
+end
+
 print(string.format("[CAPITAL] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
