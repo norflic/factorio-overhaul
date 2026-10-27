@@ -217,8 +217,32 @@ local function wanted_items(f, General, c)
     local fr = force and force.recipes[rn]
     if fr and fr.enabled then for _, p in ipairs(c.products[rn]) do open[p] = true end end
   end
+  -- … ou le pack vers lequel la recherche EN COURS mène (la technologie choisie est celle qui l'ouvre, ou l'un de ses
+  -- prérequis) : un joueur prépare l'usine du pack qu'il est en train de débloquer.
+  local lab = f.team.ia3 and f.team.ia3.lab
+  local cur = lab and lab.tech
+  local heading = {}
+  if cur and c.techs[cur] then
+    for _, pack in ipairs(c.pack_list) do
+      for _, rn in ipairs(sorted_keys(c.products)) do
+        local makes = false
+        for _, p in ipairs(c.products[rn]) do if p == pack then makes = true end end
+        local u = makes and c.g.unlocked_by[rn]
+        if u and c.techs[u] then
+          local seen = {}
+          local function walk(t)
+            if seen[t] or heading[pack] then return end
+            seen[t] = true
+            if t == cur then heading[pack] = true return end
+            for _, pre in ipairs((c.techs[t] or {}).prerequisites or {}) do walk(pre) end
+          end
+          walk(u)
+        end
+      end
+    end
+  end
   for _, pack in ipairs(c.pack_list) do
-    if open[pack] and General.feasible(f, pack) then
+    if (open[pack] or heading[pack]) and General.feasible(f, pack) then
       local sum = General.summary_items(f, { { pack, Pet.PACK_N } })
       for _, it in ipairs(sorted_keys(sum and sum.produce)) do
         if made[it] and not seen[it] then seen[it] = true; out[#out + 1] = it end
@@ -399,19 +423,23 @@ local function decide(f, st, General, deposits, tick)
   local water = nil
   for _, res in ipairs(pump_resources(c)) do if st.known[res] then water = res end end
   local force = game.forces[f.force]
+  local locked = {}
   for _, it in ipairs(items) do
     local ch = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
-    -- toutes les recettes de la chaîne débloquées (sinon la machine posée ne pourrait pas la lancer)
+    -- une recette de la chaîne encore verrouillée : le GROUPE attend (la machine posée ne pourrait pas la lancer, et un
+    -- site bâti pour une partie des objets ne serait pas refait pour les autres)
+    local lock = false
     if ch then
       for _, cell in ipairs(ch.cells) do
         local fr = force and force.recipes[cell.recipe]
-        if not (fr and fr.enabled) then ch = nil break end
+        if not (fr and fr.enabled) then lock = true end
       end
     end
     if ch then
       local res = nil
       for _, fl in ipairs(sorted_keys(ch.sources)) do if ch.sources[fl] == "extract" then res = fl end end
       local g = res or "qg"
+      if lock then locked[g] = true end
       if not groups[g] then groups[g] = { res = res, items = {}, water = nil }; order[#order + 1] = g end
       groups[g].items[#groups[g].items + 1] = it
       if ch.sources[water or "?"] == "pompe" then groups[g].water = water end
@@ -422,7 +450,7 @@ local function decide(f, st, General, deposits, tick)
     local grp = groups[g]
     local s = site_for(st, g)
     local again = s and s.state == "refuse" and tick >= (s.retry or 0)
-    if (not s) or again then
+    if ((not s) or again) and not locked[g] then
       local x, y, ok = f.hq_pos.x, f.hq_pos.y, true
       local extractor
       if grp.res then
