@@ -228,7 +228,7 @@ def tablier_forme(g, c):
             top = [v + V((0, 0, zt - zc)) for v in quad]
             g.hexa(quad + top, pm[(k + b_) % 2], "hard", "secteur")
             if bou:
-                for t in (0.2, 0.5, 0.8):
+                for t in (0.14, 0.38, 0.62, 0.86):
                     e = quad[1].lerp(quad[2], t).lerp(mid, 0.12)
                     g.dome((e.x, e.y, zt), (0, 0, 1), RIVET_PONT, c.m(bou))
     colonne(g, 0, 0, zc, zt, r0 + 0.02, pm[1], n=32, what="disque_central")
@@ -256,6 +256,8 @@ def tablier(g, c):
     motif = c.pont["motif"]
     pas = c.pont.get("pas") or {"dalles": 0.5, "planches": 0.18, "caillebotis": 0.5}.get(motif, 0.75)
     pas = max(0.25, pas) if motif != "planches" else max(0.15, pas)
+    if not c.pont.get("pas") and motif not in ("planches",) and c.side >= 4:
+        pas = min(pas, 0.5)       # ronde F4-A3 : plaques plus petites, plus de joints rivetés
     n = max(2, int(round(2 * dd / pas)))
     nu, nv = (n, 1) if motif == "planches" else (n, n)
     e = 0.04
@@ -264,7 +266,7 @@ def tablier(g, c):
     q = [V((-dd + e, -dd + e, zc)), V((dd - e, -dd + e, zc)), V((dd - e, dd - e, zc)), V((-dd + e, dd - e, zc))]
     bou = c.pont.get("boulons")
     g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
-             mats=pm, what="dessus")
+             rivet_step=0.11, mats=pm, what="dessus")
     # cornières de bord (au-dessus du dessus : le tablier a un rebord)
     b = c.m(c.pont["bord"])
     w = 0.06
@@ -844,7 +846,7 @@ def chemins_de_cables(g, c):
 # la charte (12 à 36 par t², mitrailleuse 26 à 56) : les satellites sont de grosses pièces. Trois leviers de lignée :
 # DÉTAIL FIN semé sur tout le tablier libre (boulons, bouchons, évents, plaquettes, voyants, bouts de câble), GARDE-CORPS
 # sur les grands tabliers, FEUX DE POSITION sur les 4 montants (la nuit n'est plus noire). Réglages par âge : ep.FIN
-# (part des cases garnies, 0,9), ep.PAS_FIN (pas de la grille, 0,17 t), ep.LAMPES (part des voyants, 0,14),
+# (part des cases garnies, 0,9), ep.PAS_FIN (pas de la grille, 0,14 t), ep.LAMPES (part des voyants, 0,14),
 # ep.GARDE_CORPS (vrai à partir de 5×5), ep.FEUX (vrai).
 # ------------------------------------------------------------------------------------------------
 def _dist_seg(px, py, a, b):
@@ -929,12 +931,23 @@ def _releve_cylindres(g, rmin=0.15, hmin=0.12):
             rec.append((g.stack[-1], tuple(cc), axis, float(r), float(h), float(r if r2 is None else r2)))
         return orig(cc, axis, r, h, mat, *args, **kw)
     g.cyl = cyl
+    orig_t = g.torus
+
+    def torus(cc, axis, R, r, mat, *args, **kw):
+        what = str(kw.get("what", "") or "")
+        nm = str(getattr(mat, "name", "") or "").lower()
+        if (R >= 0.25 and r >= 0.04 and not any(s in what for s in FUT_SAUTE_WHAT)
+                and not any(s in nm for s in FUT_SAUTE_MAT)):
+            rec.append((g.stack[-1], tuple(cc), axis, float(R), -float(r), 0.0))
+        return orig_t(cc, axis, R, r, mat, *args, **kw)
+    g.torus = torus
     return rec
 
 
 def _fin_releve(g):
-    if "cyl" in g.__dict__:
-        del g.cyl
+    for k in ("cyl", "torus"):
+        if k in g.__dict__:
+            delattr(g, k)
 
 
 def boulons_futs(g, c, rec, pas=0.12):
@@ -947,10 +960,32 @@ def boulons_futs(g, c, rec, pas=0.12):
         try:
             a, u, w = basis(axv(axis))
             C = V(cc)
-            e = min(0.035, h * 0.25)
+            if h < 0:
+                # tore (R = r, tube = −h) : clous sur l'équateur extérieur
+                R, rt_ = r, -h
+                n = max(8, min(96, int(round(TAU * (R + rt_) / pas))))
+                for i in range(n):
+                    ang = TAU * (i + 0.5) / n
+                    d = u * math.cos(ang) + w * math.sin(ang)
+                    g.dome(tuple(C + d * (R + rt_ + 0.002)), tuple(d), 0.02, mb, what="clou_tore")
+                    n_tot += 1
+                continue
+            e = min(0.07, h * 0.25)
             bagues = [(-h / 2 + e, r + (r2 - r) * e / h), (h / 2 - e, r2 - (r2 - r) * e / h)]
             if h > 0.45:
                 bagues.append((0.0, (r + r2) / 2.0))
+            if h >= 0.5 and min(r, r2) >= 0.3:
+                # lignes verticales de rivets (joints des viroles)
+                nl = max(6, int(TAU * (r + r2) / 2.0 / 0.42))
+                k = int((h - 0.24) / 0.1)
+                for il in range(nl):
+                    ang = TAU * il / nl
+                    d = u * math.cos(ang) + w * math.sin(ang)
+                    for j in range(k + 1):
+                        tz = -h / 2 + 0.12 + j * 0.1
+                        rr = r + (r2 - r) * (tz + h / 2) / h
+                        g.dome(tuple(C + a * tz + d * (rr + 0.004)), tuple(d), 0.018, mb, what="rivet_fut")
+                        n_tot += 1
             for (tz, rr) in bagues:
                 n = max(8, min(72, int(round(TAU * rr / pas))))
                 for i in range(n):
@@ -1013,7 +1048,7 @@ def detail_fin(g, c):
     import random
     rng = random.Random(11000 + 31 * c.e + c.side)
     M = g.M
-    pas = float(getattr(c.ep, "PAS_FIN", 0.17))
+    pas = float(getattr(c.ep, "PAS_FIN", 0.14))
     part = float(getattr(c.ep, "FIN", 0.9))
     lampes = float(getattr(c.ep, "LAMPES", 0.14))
     poids = [(f, w) for f, w in FINS]
@@ -1065,7 +1100,7 @@ def garde_corps(g, c):
     for i in range(len(ext)):
         a, b = ext[i], ext[(i + 1) % len(ext)]
         L = math.hypot(b[0] - a[0], b[1] - a[1])
-        k = max(1, int(L / 0.2))
+        k = max(1, int(L / 0.16))
         for s in range(k):
             t = s / float(k)
             poteaux.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
@@ -1128,7 +1163,12 @@ def corps(g, c):
             c.ep.socle(g, c)
         chemins_de_cables(g, c)
         nsat = getattr(c.ep, "SATELLITES", {3: 1, 4: 2, 5: 3, 6: 4}[c.side])
-        c.n_satellites = satellites(g, c, int(nsat))
+        rec_s = _releve_cylindres(g, rmin=0.1, hmin=0.1)
+        try:
+            c.n_satellites = satellites(g, c, int(nsat))
+        finally:
+            _fin_releve(g)
+        c.n_boulons_futs += boulons_futs(g, c, rec_s, pas=0.1)
         if getattr(c.ep, "GARNITURE", True):
             c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.85)))
         # ronde F4-A3 : garde-corps (avant le détail fin, qui évite ses poteaux), détail fin, feux de position
