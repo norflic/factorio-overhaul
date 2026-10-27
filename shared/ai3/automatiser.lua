@@ -135,6 +135,26 @@ end
 --- Vide le cache (tests).
 function A.reset_cache() cache = {} end
 
+--- Lot AUTO : entités que l'EXÉCUTANT de l'automatisation sait poser et faire tourner, DÉDUITES de ses gabarits (aucun
+--- nom écrit ici) : celles des méthodes écrites (A.METHODS), des foreuses qui servent leur minerai, de la centrale
+--- (A.PLANT) et les machines des rangées générées (A.MACHINES). Le cerveau général (script/ai3/general.lua,
+--- General.exec_opts) les ajoute à ses exécutants quand l'automatisation est allumée : l'électricité (générateur,
+--- chaudière, pompe) et les recettes des assembleurs deviennent payables au sens du graphe (H8). Liste triée.
+function A.exec_entities()
+  local set = {}
+  local function add(gen, args)
+    local t = A.template(gen, args)
+    if t then for _, k in ipairs(sorted_keys(t.items)) do set[k] = true end end
+  end
+  for _, m in ipairs(A.METHODS) do
+    add(m.gen, m.args)
+    if m.ore then add("drills", { m.ore, 1 }) end
+  end
+  add(A.PLANT.gen, A.PLANT.args)
+  for _, name in ipairs(A.MACHINES) do set[name] = true end
+  return sorted_keys(set)
+end
+
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
 function A.sized(method, rate)
   local base, why = A.template(method.gen, method.args)

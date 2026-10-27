@@ -74,6 +74,15 @@ local function enabled(f)
   return true
 end
 
+--- Lot AUTO : l'automatisation est-elle allumée pour les factions (réglage de carte ; absent : allumée, comme enabled) ?
+function Auto.on()
+  local s = settings.global[Auto.SETTING]
+  return not (s ~= nil and s.value == false)
+end
+
+--- Lot AUTO : entités que l'exécutant de l'automatisation sait poser (déduites de ses gabarits, A.exec_entities).
+function Auto.exec_entities() return A.exec_entities() end
+
 local function state_of(f)
   local t = f.team
   t.ia3e = t.ia3e or { v = 1, window = {}, cur = nil, mods = {}, verdicts = {}, wanted = {}, hand = {}, logs = {},

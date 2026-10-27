@@ -14,10 +14,10 @@ RE_FINI = re.compile(r"\[FO-IA3E\] (\w+) : module '([^']+)' FINI .* a ([0-9.]+) 
 RE_REF = re.compile(r"\[FO-IA3E\] (\w+) : module '([^']+)' REFUSE par le plan directeur : (.*) a ([0-9.]+) min")
 RE_PLANT = re.compile(r"\[FO-IA3E\] (\w+) : centrale (FINIE|REFUSEE.*?) a ([0-9.]+) min")
 RE_CRIT = re.compile(r"CRITERES (\w+) \| modules produisant 5 min sans PNJ a 45 min : (\d+).*\((\d+) % a la main.*tournees a pied 30-90 min : (\d+) %.*minage a la main (\d+) %")
-RE_TASKS = re.compile(r"\[FO-IA3E-USINE\] taches (\w+) \(0-90 min, releves\) : (.*)$")
+RE_TASKS = re.compile(r"\[FO-IA3E-USINE[-A-Z0-9]*\] taches (\w+) \(0-90 min, releves\) : (.*)$")
 RE_DEAD = re.compile(r"qg detruit tick (\d+) (\w+) par (\w+)")
-RE_WAR = re.compile(r"\[FO-IA3E-USINE\] SANS PNJ (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
-RE_WAR2 = re.compile(r"\[FO-IA3E-USINE\] SANS PNJ \(75 min\) (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
+RE_WAR = re.compile(r"\[FO-IA3E-USINE[-A-Z0-9]*\] SANS PNJ (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
+RE_WAR2 = re.compile(r"\[FO-IA3E-USINE[-A-Z0-9]*\] SANS PNJ \(75 min\) (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
 
 
 def parse(path):

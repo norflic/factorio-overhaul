@@ -458,7 +458,9 @@ return function(variant)
       end
       ctx.log(string.format("CRITERES BILAN : %d faction(s) sur %d avec >= 3 modules sans PNJ ; %d avec <= 20 %% a la main ; %d avec tournees <= 15 %%",
         n3, nf, nh, nk7))
-      if remote.interfaces["fo-ia3e"] then
+      if variant == "eteint" then
+        ctx.check(st.any_request ~= true, "reglage eteint : aucun module demande (temoin, lot AUTO)")
+      elseif remote.interfaces["fo-ia3e"] then
         ctx.check(st.any_request == true, "au moins un module demande par le cerveau (aucun pose par le banc)")
       else
         ctx.log("source sans automatisation (temoin avant le lot) : pas de controle de demande")
