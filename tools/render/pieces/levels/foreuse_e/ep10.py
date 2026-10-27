@@ -19,6 +19,7 @@ PAS_FIN = 0.12  # ronde F4-A3 : détail fin plus serré
 FIN = 1.0
 LAMPES = 0.26   # ronde F4-A3 : plus de voyants (détail fin et nuit)
 PIED = 1.0
+MOTIF_DALLE = True   # ronde F4-A4 : motif fin sur chaque dalle ivoire (corps.tablier)
 # ronde F4-A2 : la tête carénée est l'embase ; les pieds du portique tiennent les diagonales ; 2 conduites
 EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 

@@ -269,6 +269,17 @@ def tablier(g, c):
     # (essai F4-A3 a3q5 : des joints de 0,045 t aux petites dalles FAISAIENT BAISSER la charte aux âges 6 et 10 : non retenu)
     g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
              rivet_step=0.11, mats=pm, what="dessus")
+    # ronde F4-A4 (âge 10 : « dalles ivoire à motif fin ») : sur chaque dalle, une pastille sombre et 4 plots
+    if getattr(c.ep, "MOTIF_DALLE", False) and motif == "dalles":
+        mp = c.m(getattr(c.ep, "MOTIF_MAT", "steel_dk"))
+        mb = c.m(c.pont.get("bord") or "steel_dk")
+        step = (2 * dd - 2 * e) / n
+        for i in range(n):
+            for j in range(n):
+                cx, cy = -dd + e + (i + 0.5) * step, -dd + e + (j + 0.5) * step
+                g.box((cx, cy, zt + 0.004), (step * 0.42, step * 0.42, 0.008), mp, "hard", what="pastille")
+                for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                    g.dome((cx + sx * step * 0.34, cy + sy * step * 0.34, zt), (0, 0, 1), 0.016, mb, what="plot")
     # cornières de bord (au-dessus du dessus : le tablier a un rebord)
     b = c.m(c.pont["bord"])
     w = 0.06

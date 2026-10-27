@@ -64,6 +64,23 @@ def tour(g, c):
         r = 0.10 + 0.02 * (4 - i)
         g.torus((0, 0, z + r), "z", R, r, M["chrome_mat"], n=40, m=12, what="tore")
         g.torus((0, 0, z + r), "z", R - r * 0.6, r * 0.45, M["emit"], n=40, m=8, what="lueur")
+        # ronde F4-A4 : JOINTS du tore (bandes sombres autour du tube, 16) et rivets sur son dessus (32)
+        for k in range(16):
+            a = math.tau * (k + 0.5) / 16
+            g.cyl((R * math.cos(a), R * math.sin(a), z + r), (-math.sin(a), math.cos(a), 0.0), r * 1.1, 0.03,
+                  M["noir_miroir"], n=12, style="hard", what="joint_tore")
+            for da in (-0.1, 0.1):
+                g.dome(((R + r * 0.35) * math.cos(a + da), (R + r * 0.35) * math.sin(a + da), z + r * 1.92), (0, 0, 1),
+                       0.02, M["trim"], what="rivet_tore")
+        # entretoises EXTÉRIEURES (8) vers le tore suivant, visibles (en A3 elles étaient cachées dans la pile)
+        if i < 4:
+            r_n = 0.10 + 0.02 * (3 - i)
+            R_n = R * 0.8
+            for k in range(8):
+                a = math.tau * k / 8
+                p0 = ((R + r * 0.75) * math.cos(a), (R + r * 0.75) * math.sin(a), z + r * 1.4)
+                p1 = ((R_n + r_n * 0.75) * math.cos(a), (R_n + r_n * 0.75) * math.sin(a), z + 2 * r + 0.05 + r_n * 0.6)
+                cp.poutre(g, p0, p1, 0.04, M["chrome_mat"], "entretoise_ext")
         for k in range(4):
             x, y = cp.quart((R * 0.55, 0.0), k)[:2]
             cp.colonne(g, x, y, z, z + 2 * r + 0.05, 0.035, M["jacket"], n=8, what="entretoise")
