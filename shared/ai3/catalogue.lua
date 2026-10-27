@@ -20,8 +20,10 @@
     resources = { { entity, category, products = {{type,name,amount}} } }
     items     = { [nom] = { type (type du moteur), fuel_value } }
   opts = {
-    exec = { [entité] = vrai } : machines qu'un EXÉCUTANT sait poser et faire tourner (absente : toutes) ; une machine
-           sans exécutant n'existe pas pour l'équipe (ses recettes non plus, si personne d'autre ne les fait) ;
+    exec = { [entité] = vrai | { [recette] = vrai } } : machines qu'un EXÉCUTANT sait poser et faire tourner (absente :
+           toutes) ; une machine sans exécutant n'existe pas pour l'équipe (ses recettes non plus, si personne d'autre ne
+           les fait). Une MACHINE DE FABRICATION donnée par un ensemble de recettes (lot AUTO, correction après revue,
+           H8) ne fait que celles-là, même si ses catégories en permettent d'autres ; ensemble vide : elle n'existe pas ;
     exec_roles = { [rôle] = vrai } : rôles toujours exécutables (la main, le laboratoire du QG) ;
     labs_unpowered = vrai : le laboratoire du QG avance sans courant (script/ai3/cerveau.lua, revue B2) ;
   }
@@ -76,7 +78,17 @@ function K.build(dump, opts)
   local function executable(e, r)
     if (opts.exec_roles or {})[r] then return true end
     if opts.exec == nil then return true end
-    return opts.exec[e.name] == true
+    local v = opts.exec[e.name]
+    return v == true or type(v) == "table"
+  end
+  -- Recettes qu'un exécutant sait lancer sur une machine de fabrication (nil : toutes celles de ses catégories).
+  local function only_of(e, r)
+    if r ~= "fabrique" or (opts.exec_roles or {})[r] or opts.exec == nil then return nil end
+    local v = opts.exec[e.name]
+    if type(v) ~= "table" then return nil end
+    local set = {}
+    for _, rn in ipairs(sorted_keys(v)) do if v[rn] then set[rn] = true end end
+    return set
   end
   for _, e in ipairs(ents) do
     local r = K.entity_role(e)
@@ -99,10 +111,12 @@ function K.build(dump, opts)
         end
         labs[#labs + 1] = { entity = e.name, item = e.item, speed = e.speed or 1, inputs = inputs }
       end
-      if is_machine and executable(e, r) then
+      local only = is_machine and only_of(e, r) or nil
+      if is_machine and executable(e, r) and not (only and next(only) == nil) then
         local m = { name = e.item, entity = e.name, energy = e.energy or "none" }
         if r == "fabrique" then
           m.crafting_categories = list_copy(e.crafting_categories)
+          m.recipes = only -- shared/ai3/graphe.lua : la machine ne fait que ces recettes (nil : toutes)
         elseif r == "foreuse" then
           m.resource_categories = list_copy(e.resource_categories)
         elseif r == "labo" then

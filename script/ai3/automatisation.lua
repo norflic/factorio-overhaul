@@ -74,6 +74,19 @@ local function enabled(f)
   return true
 end
 
+--- Lot AUTO : l'automatisation est-elle allumée pour les factions (réglage de carte ; absent : allumée, comme enabled) ?
+function Auto.on()
+  local s = settings.global[Auto.SETTING]
+  return not (s ~= nil and s.value == false)
+end
+
+--- Lot AUTO : entités que l'exécutant de l'automatisation sait poser (déduites de ses gabarits, A.exec_entities).
+function Auto.exec_entities() return A.exec_entities() end
+
+--- Lot AUTO (correction après revue, H8) : ajoute à `exec` les exécutants de l'automatisation, recette par recette pour
+--- ses machines de fabrication (A.add_executors ; `recipes` : relevé des recettes du catalogue).
+function Auto.add_executors(exec, recipes) return A.add_executors(exec, recipes) end
+
 local function state_of(f)
   local t = f.team
   t.ia3e = t.ia3e or { v = 1, window = {}, cur = nil, mods = {}, verdicts = {}, wanted = {}, hand = {}, logs = {},
@@ -218,6 +231,25 @@ local function note(f, st, tick, text)
   while #st.logs > Auto.LOG_MAX do table.remove(st.logs, 1) end
 end
 
+--- Lot AUTO : objets encore manquants d'une réserve (somme des manques de Build.brief).
+local function missing_count(brief)
+  local n = 0
+  for _, m in ipairs((brief and brief.missing) or {}) do n = n + (m[2] or 0) end
+  return n
+end
+
+--- Lot AUTO : minuteur d'une réserve, remis à zéro tant qu'elle AVANCE (un objet de plus réservé : la réserve prend au
+--- coffre au fil de l'eau, Build.reserve). « Matériaux introuvables » veut dire Auto.RESERVE_MAX SANS progrès : la fonderie
+--- d'emerald (e15-usine, graine 271828182) était annulée à 45 min alors que sa réserve avançait (plan à 30 min, replan à
+--- 61, finie à 70,6 min). Rend le tick du dernier progrès.
+local function reserve_clock(obj, since_key, left_key, brief, tick)
+  local n = missing_count(brief)
+  if obj[since_key] == nil or obj[left_key] == nil or n < obj[left_key] then
+    obj[since_key], obj[left_key] = tick, n
+  end
+  return obj[since_key]
+end
+
 local function refresh(f, st, tick)
   -- Centrale (demandée AVANT le premier module électrique) : son état ; refusée, les modules électriques attendent que la
   -- raison change (signature).
@@ -226,13 +258,13 @@ local function refresh(f, st, tick)
     local state = ps and ps.state or "refuse"
     if state == "bloque" and not (ps and ps.retry_at) then state = "refuse" end
     if state == "reserve" then
-      st.plant_reserve_since = st.plant_reserve_since or tick
-      if tick - st.plant_reserve_since > Auto.RESERVE_MAX and Build.cancel(f, st.plant_id, "materiaux introuvables en 15 min") then
+      reserve_clock(st, "plant_reserve_since", "plant_reserve_left", ps, tick)
+      if tick - st.plant_reserve_since > Auto.RESERVE_MAX and Build.cancel(f, st.plant_id, "materiaux introuvables (15 min sans progres)") then
         state = "refuse"
         ps = Build.brief(f, st.plant_id)
       end
     else
-      st.plant_reserve_since = nil
+      st.plant_reserve_since, st.plant_reserve_left = nil, nil
     end
     if state ~= st.plant_state then
       st.plant_state = state
@@ -265,9 +297,9 @@ local function refresh(f, st, tick)
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
         if state == "reserve" then
-          m.reserve_since = m.reserve_since or tick
-          if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables en 15 min") then
-            state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables en 15 min"
+          reserve_clock(m, "reserve_since", "reserve_left", s, tick)
+          if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
+            state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables (15 min sans progres)"
             -- Repli de l'équipe : plus de NOUVELLE demande pendant 15 min × le nombre de réserves affamées (moteur réel,
             -- e6 et e7-usine, amber : 4 réserves de 15 min en 70 min, la recherche des packs militaires arrêtée, palier 3
             -- jamais atteint contre 42 min au témoin).
@@ -275,7 +307,7 @@ local function refresh(f, st, tick)
             st.hold_until = tick + Auto.STARVE_HOLD * st.starved
           end
         else
-          m.reserve_since = nil
+          m.reserve_since, m.reserve_left = nil, nil
         end
         if state ~= was then
           if state == "fini" then

@@ -117,6 +117,9 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
       local v = drop_vector(dir)
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos)
+      -- lot AUTO : jamais sur une tuile réservée par un projet du plan directeur (fantômes pas encore posés)
+      -- (crochet Outposts.reserved, posé par script/team/build.lua : l'ordre des require et des abonnements ne change pas)
+      if spos and Outposts.reserved and (Outposts.reserved(f, T.DRILL, pos, dir) or Outposts.reserved(f, spec.sink, spos)) then spos = nil end
       if spos and surface.can_place_entity({ name = T.DRILL, position = pos, direction = dir, force = force }) then
         local d = surface.create_entity({ name = T.DRILL, position = pos, direction = dir, force = force })
         if d then

@@ -454,7 +454,7 @@ local function research_step(f, st, book, w, tick, view)
   -- fo-war-ia3e éteint) sont le dernier argument du cerveau général (V_WANTED et chaîne vers l'objet voulu d'IA-G).
   local tech, payable, causes, palier, for_auto
   if General.on() then
-    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, Auto.wanted(f))
+    tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, Auto.wanted(f))
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
   end

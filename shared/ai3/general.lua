@@ -172,7 +172,15 @@ function Gen.chains(cat, ev, state, ctx)
         if #list > 1 then
           local share = math.floor(Gen.CHAIN * wf(w, "recherche") / #list)
           for _, n in ipairs(list) do
-            if n ~= u and (not out[n] or share > out[n].v) then out[n] = { v = share, target = u, len = #list } end
+            if n ~= u then
+              -- lot AUTO (K1) : drapeaux de la chaîne, gardés quelle que soit la part retenue : vers un objet voulu par
+              -- l'automatisation (wanted), vers un pack nouveau (pack_len : la chaîne la plus courte)
+              local fl = { wanted = (out[n] and out[n].wanted) or (wanted_hit and not palier) or nil,
+                pack_len = out[n] and out[n].pack_len or nil }
+              if palier and (not fl.pack_len or #list < fl.pack_len) then fl.pack_len = #list end
+              if not out[n] or share > out[n].v then out[n] = { v = share, target = u, len = #list } end
+              out[n].wanted, out[n].pack_len = fl.wanted, fl.pack_len
+            end
           end
         end
       end
@@ -201,8 +209,49 @@ function Gen.cost(cat, ev, state, t, lab_speed)
   return math.floor(c + 0.5)
 end
 
+--- Lot AUTO : règles K1 de l'automatisation (lot IA3-e, reportées du choix de repli de script/ai3/cerveau.lua ; « les
+--- paliers ne reculent pas ») sur les candidates TRIÉES. Une candidate est :
+---   « auto » : sa valeur vient d'un objet que l'automatisation attend (rôle « wanted ») ou d'une chaîne vers lui ;
+---   « palier » : elle ouvre un pack que l'équipe saura fabriquer, ou appartient à une chaîne COURTE (Gen.K1_NEAR
+---     technologies au plus) vers un tel pack, ou c'est la PREMIÈRE à consommer un pack qu'aucune technologie faite n'a
+---     consommé (la faction le fabrique enfin : e11-usine graine 20261020, scarlet, palier 3 jamais sans cette règle).
+--- Si la meilleure candidate est « auto » sans être « palier » et qu'une candidate « palier » existe, la moins chère de
+--- celles-ci passe en tête (puis le nom). Chaque candidate porte ses drapeaux (auto, k1_palier). En place.
+Gen.K1_NEAR = 3
+function Gen.k1(cat, state, cands, chains)
+  local used_pack = {}
+  for _, t in ipairs(cat.tech_list) do
+    if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true end end
+  end
+  for _, c in ipairs(cands) do
+    local auto, pal = false, false
+    for _, w in ipairs(c.why or {}) do
+      if w[1] == "wanted" then auto = true end
+      if w[1] == "pack" then pal = true end -- ouvre un pack fabricable ensuite (« pack, plus tard » ne compte pas)
+    end
+    local ch = chains[c.tech]
+    if ch and ch.wanted then auto = true end
+    if ch and ch.pack_len and ch.pack_len <= Gen.K1_NEAR then pal = true end
+    for _, ing in ipairs(cat.techs[c.tech].ingredients) do
+      if cat.packs[ing[1]] and not used_pack[ing[1]] then pal = true end
+    end
+    c.auto, c.k1_palier = auto or nil, pal or nil
+  end
+  local top = cands[1]
+  if not (top and top.auto and not top.k1_palier) then return end
+  local best, bi
+  for i, c in ipairs(cands) do
+    if c.k1_palier and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
+  end
+  if best then
+    table.remove(cands, bi)
+    table.insert(cands, 1, best)
+    best.k1 = "palier avant l'automatisation"
+  end
+end
+
 --- Le choix. ctx = { weights, wanted = { [objet] = vrai }, current = techno en cours, disabled = { [techno] = vrai },
---- lab_speed }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
+--- lab_speed, k1 = vrai (lot AUTO : automatisation allumée, règles K1 de Gen.k1) }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
@@ -234,6 +283,7 @@ function Gen.choose(cat, ev, state, ctx)
     if a.value ~= b.value then return a.value > b.value end
     return a.tech < b.tech
   end)
+  if ctx.k1 then Gen.k1(cat, state, cands, chains) end
   local d = cands[1] or { tech = nil }
   d.ranked = {}
   for i = 1, math.min(Gen.TOP, #cands) do d.ranked[i] = { cands[i].tech, cands[i].score } end
