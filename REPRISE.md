@@ -10,6 +10,15 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 8 h 40 : IA-V2 FUSIONNÉ, `main` = 0.5.0** (`6c631d5`) : le nouveau cerveau (marché IA3-b, cerveau par besoins IA3-c,
+> exploration IA3-f) ALLUMÉ par défaut. Hors jeu sur la fusion (worktree `integ`, retiré ensuite) : 32 tests verts, harness 0,
+> api_lint 1179, pvp 1305. Moteur réel sur la branche (même code) : content 331, verif-guide 15 OK × 2 graines, cas du DC, migration
+> 12 OK, K11 ; NON tenus : K1, K5, K10 (0,291 ms), B1 à 30 PNJ. **6 garde-fous en jeu encore en file** sous `--qui IA-V2` (série
+> `travaux-final-a.txt`, `-b.txt` du dossier `fo-logs\2026-10-27_IA-V2\`, relançable par `./serie.sh` ; ce qui est fait est sauté) :
+> pnj-reduit, ia1-poles, ia3-brouillard, ia1b2-guide, verif-guide 1618033988 et 577215664 : À CONSIGNER (E199) à leur retour ;
+> un échec se corrige en avant sur `main`. **Prévenus de faire `git merge main`** : IA-G, IA3-e, IA3-k ; IA3-d (agent terminé) :
+> l'intégrateur fusionne `main` dans `ia3d` à sa fusion. Worktree `ia-v2` GARDÉ tant que la série de l'agent tourne.
+>
 > **27/10, 8 h 05 : WORKFLOW X3 LANCÉ à la demande du DC** (« lancer un workflow pour avoir d'autres minerais […] tel minerai à
 > telle époque […] des processeurs […] technologies laser […] impressions […] cartes graphiques […] calcul […] robots de défense »,
 > OBJECTIFS §4) : run `wf_75a10ea1-27c` (8 agents, HORS JEU, aucun banc ni Blender), worktree `.claude/worktrees/x3` (branche `x3`
