@@ -18,7 +18,7 @@ local D = {}
 
 D.CELL = 16
 D.OFF = 32768
-D.MARGIN = 8            -- marge ajoutée à la portée d'une menace
+D.MARGIN = 10           -- marge ajoutée à la portée d'une menace (8 laissait passer à 29 tuiles d'un ver de 30)
 D.ATTACK_W = 300        -- attaque subie (perte de vie sans ennemi vu ou en plus de lui)
 D.ATTACK_R = 16
 D.DEATH_W = 600         -- une mort

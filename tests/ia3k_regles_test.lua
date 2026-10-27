@@ -175,7 +175,7 @@ local function suite()
   -- Bruit de tournée : deux graines peuvent prendre deux côtés (géométrie symétrique : ver au centre d'une rangée de
   -- cases, départ et but sur la même rangée).
   local msym = D.new()
-  D.mark_seen(msym, 104, 8, "worm", 30, 0)
+  D.mark_seen(msym, 104, 8, "worm", 29, 0) -- zone de 39 tuiles : rangées -2 à 2, symétrique autour de la rangée 0
   local fs, ns = D.field(msym, 0)
   local sides = {}
   for sd = 1, 40 do

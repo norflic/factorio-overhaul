@@ -175,6 +175,9 @@ function C.trips(opts)
       -- Départ d'une manche.
       if in_round == 0 then
         st.rounds = r
+        -- Manches indépendantes : la carte du danger est remise à zéro (les groupes détruits en fin de manche, jamais revus,
+        -- resteraient en mémoire : l'A* contournerait des fantômes).
+        ctx.remote("fo-ia3k", "forget", "player")
         local idle = {}
         for _, a in ipairs(team_agents(ctx)) do if not a.task and a.state ~= "walk" then idle[#idle + 1] = a end end
         local cur = { r = r, trips = {} }
@@ -208,11 +211,21 @@ function C.trips(opts)
           if (aim and a.pts) or (not aim and a.x >= SX + 2 and math.abs(a.y - tr.goal.y) <= 6 and a.task) then
             tr.in_lane = t
             if mode == "route" then
-              local at
-              if aim and #a.pts >= 2 then
-                at = { x = (a.pts[1].x + a.pts[2].x) / 2, y = (a.pts[1].y + a.pts[2].y) / 2 }
-              else
-                at = { x = (SX + DX) / 2, y = tr.goal.y }
+              -- Point de l'itinéraire PRÉVU (entrée, points de passage, bout) à mi-couloir (x = (SX + DX) / 2).
+              local MX = (SX + DX) / 2
+              local at = { x = MX, y = tr.goal.y }
+              if aim and #a.pts >= 1 then
+                local chain = { { x = a.x, y = a.y } }
+                for _, q in ipairs(a.pts) do chain[#chain + 1] = q end
+                chain[#chain + 1] = tr.goal
+                for i = 1, #chain - 1 do
+                  local p1, p2 = chain[i], chain[i + 1]
+                  if (p1.x - MX) * (p2.x - MX) <= 0 and p1.x ~= p2.x then
+                    local u = (MX - p1.x) / (p2.x - p1.x)
+                    at = { x = MX, y = p1.y + u * (p2.y - p1.y) }
+                    break
+                  end
+                end
               end
               tr.kind = (r + tr.k) % #CLUSTERS + 1
               tr.cluster = spawn_cluster(s, tr.kind, at)

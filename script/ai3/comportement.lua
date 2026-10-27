@@ -38,8 +38,9 @@ local M = {}
 M.SETTING = "fo-war-ia3-comportement"
 M.SALT = 470
 M.HOME_SAFE = 32        -- pas de regard à moins de 32 tuiles du QG (il est défendu)
-M.WP_RADIUS = 4         -- rayon d'arrivée d'un point de passage
-M.WP_REACH = 8          -- point de passage atteint à 8 tuiles
+M.WP_RADIUS = 2         -- rayon d'arrivée d'un point de passage
+M.WP_REACH = 4          -- point de passage atteint à 4 tuiles (8 coupait les virages : banc route-20261020-4e6303a)
+M.GROUP_R = 24          -- un regard qui voit un ennemi marque aussi les autres ennemis à moins de 24 tuiles de lui
 M.LABEL_TTL = 150       -- 2,5 s (D1 : au moins 2 s)
 M.LABEL_GAP = 120       -- même étiquette redessinée au plus toutes les 2 s
 M.ESCORT_WAIT = 900     -- attente de l'escorte au QG, au plus
@@ -659,13 +660,24 @@ function M.sense(agent, tick)
   if not enemy then return false end
   local ep = enemy.position
   local kind, range = M.classify(enemy)
-  if D.mark_seen(t.map, ep.x, ep.y, kind, range, tick) and (D.KINDS[kind] or D.KINDS.unit).fixed then
-    -- Menace fixe nouvelle : les camarades en marche rejugent leur trajet (8 dernières gardées).
-    t.mver = (t.mver or 0) + 1
-    t.new_threats = t.new_threats or {}
-    t.new_threats[#t.new_threats + 1] = { v = t.mver, x = ep.x, y = ep.y, r = range or D.KINDS[kind].r, k = kind }
-    while #t.new_threats > 8 do table.remove(t.new_threats, 1) end
+  -- Le GROUPE de l'ennemi vu est marqué en entier (un nid et ses gardes, des vers en grappe) : sinon le détour contourne
+  -- le plus proche et passe sous la vue des autres (banc route-20261020-4e6303a).
+  local group = e.surface.find_entities_filtered({ position = ep, radius = M.GROUP_R, force = enemy.force, limit = 16,
+    type = { "unit", "unit-spawner", "turret", "ammo-turret", "electric-turret", "fluid-turret", "character" } })
+  local marked_one = false
+  for _, g in ipairs(group) do
+    if g == enemy then marked_one = true end
+    local gk, gr = M.classify(g)
+    local gp = g.position
+    if D.mark_seen(t.map, gp.x, gp.y, gk, gr, tick) and (D.KINDS[gk] or D.KINDS.unit).fixed then
+      -- Menace fixe nouvelle : les camarades en marche rejugent leur trajet (8 dernières gardées).
+      t.mver = (t.mver or 0) + 1
+      t.new_threats = t.new_threats or {}
+      t.new_threats[#t.new_threats + 1] = { v = t.mver, x = gp.x, y = gp.y, r = gr or D.KINDS[gk].r, k = gk }
+      while #t.new_threats > 8 do table.remove(t.new_threats, 1) end
+    end
   end
+  if not marked_one then D.mark_seen(t.map, ep.x, ep.y, kind, range, tick) end
   inc(t.stats.seen, kind)
   local dist = math.sqrt(d2(p, ep))
   local K = D.KINDS[kind] or D.KINDS.unit
