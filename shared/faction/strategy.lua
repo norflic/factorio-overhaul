@@ -25,9 +25,11 @@
     personality, tech, upgrades, garrison, soldiers_max, can_attack,
     character,              -- lot IA2-0 : caractère effectif tiré de la graine (shared/faction/traits.lua), ou nil
     attack_jitter,          -- lot IA2-0 : multiplicateur (pour mille) du seuil de la prochaine attaque ENTRE factions, ou nil
-    chef = { war_mult, raid, raid_defense } | nil, -- lot IA2-a (shared/faction/chef.lua) : multiplicateur du seuil (tirage
+    chef = { war_mult, raid, raid_defense, hold, vain, hold_rival } | nil, -- lot IA2-a (shared/faction/chef.lua) : multiplicateur du seuil (tirage
                             -- refait à chaque pensée × posture), raid demandé (5 à 10) et défense de sa cible ; avec un chef,
-                            -- la guerre entre factions varie à tous les niveaux, la réserve du joueur passant avant
+                            -- la guerre entre factions varie à tous les niveaux, la réserve du joueur passant avant ; lot ARMEE :
+                            -- vain = « echec » | « portee » (attaque sans effet contre la rivale, shared/faction/chef.lua),
+                            -- hold_rival = trêve, vague en route ou vain : rivale épargnée À TOUS LES NIVEAUX (hold seul : Paisible)
     enemy_defense,          -- défense estimée de la faction rivale visée (math.huge si aucune)
     rival = { id, outposts } | nil,          -- cible faction (coalition contre le leader, sinon voisin)
     own_outposts, leader_outposts,           -- territoire de la faction, plus grand territoire rival
@@ -173,8 +175,13 @@ function S.attack(v)
   -- attaque entre factions en « Paisible » ; à un niveau agressif, la règle ne change pas (seuil du chef au plus haut,
   -- règle d'IA0 ensuite) : une trêve qui bloquait la rivale y cassait l'ordre strict des tailles contre le joueur
   -- (campagne pure, 6 conquérants sur 24 en configuration 7, 1er essai du lot).
-  if v.chef and v.chef.hold and not aggressive then return nil end
+  if v.chef and (v.chef.hold or v.chef.vain) and not aggressive then return nil end
   if v.chef and aggressive then
+    -- Lot ARMEE : à un niveau agressif aussi, la rivale est épargnée (`hold_rival` : trêve, vague déjà en route contre
+    -- elle, attaque sans effet ou hors de la portée déjà atteinte ; script/faction/chef.lua, Chef.decision_fields).
+    -- Champ distinct de `hold` : la campagne de pvp_test (qui ne le fournit pas) et le chemin contre le joueur
+    -- (S.decide, plan « attack » avant tout appel à S.attack) restent ce qu'ils étaient.
+    if v.chef.hold_rival then return nil end
     local n = attack_rule(v, true, v.garrison - S.player_reserve(v))
     if n then return n, "variee" end
     n = attack_rule(v, false)
@@ -192,7 +199,7 @@ end
 --- défense estimée de la cible du raid (v.chef.raid_defense). Renvoie l'effectif, ou nil.
 function S.raid(v)
   local c = v.chef
-  if not (c and c.raid and c.raid > 0) or c.hold or v.can_attack == false then return nil end
+  if not (c and c.raid and c.raid > 0) or c.hold or c.vain or v.can_attack == false then return nil end
   local P = personality(v)
   local n = c.raid
   local keep = math.ceil(v.garrison * (P.war_keep or P.keep) - 1e-9)
@@ -513,8 +520,12 @@ function S.decide(v)
   -- préparation de 4 min seulement, Émeraude (graine 3141592653) avait vidé sa garnison sur sa rivale et n'attaquait
   -- qu'à 34,0 min (26,2 avant le lot).
   local hold_first = player_ok and pv.first_after ~= nil and pv.tick < pv.first_after
+  -- Lot ARMEE : une rivale épargnée (`hold_rival` : vague en route, attaque sans effet, trêve) ne fait pas attendre le
+  -- joueur derrière la règle du déficit, comme une faction sans rivale : sans cela, la part du joueur ne se comblerait
+  -- plus (sent_total n'augmente plus) avant la fin de l'impasse, rival_wait × l'intervalle du niveau.
+  local rival_held = v.chef ~= nil and v.chef.hold_rival == true
   local due = player_ok
-    and ((v.rival == nil) or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
+    and ((v.rival == nil) or rival_held or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
       or S.rival_stalled(v, level))
   if pv then
     if due and pv.due_since == nil then out.due_since = pv.tick end
