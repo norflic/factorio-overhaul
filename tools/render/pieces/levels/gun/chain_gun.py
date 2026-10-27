@@ -32,7 +32,7 @@ MOD = os.path.normpath(os.path.join(HERE, "..", "..", "..", "..", ".."))
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 GEO = os.path.join(MOD, "tools", "render", "cache", "levels-gun", "geo")
 CACHE = os.path.join(MOD, "tools", "render", "cache", "levels-gun", "cycles")
-LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
 
 
 def lock_slot_of_parent():

@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.30
+Date: 2026-10-25
+  Graphics:
+    - Les fours des âges 2 à 15 (niveaux 3 à 30) ont chacun leur design, à la place du four vanilla teinté : hotte de
+      forge, chaudière couchée, colonne à brûleurs, cratère, four à électrodes, athanor, cloche de verre… jusqu'à
+      l'étoile captive de l'âge 15 ; le niveau pair de chaque âge ajoute une pièce dans un coin et une teinte de l'âge.
+      Le niveau 2 garde le four vanilla avec une réserve de bûches posée devant.
+    - Four en marche : feu animé dans la gueule, à la couleur de l'âge, lueur de jour et halo de nuit ; fumée à la
+      cheminée de l'âge (vapeur blanche aux âges 9 et 12).
+    - Icône de l'âge pour chaque niveau, couleur de carte de l'âge, reste et explosion à la taille du four.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.29
 Date: 2026-10-25
   Changes:

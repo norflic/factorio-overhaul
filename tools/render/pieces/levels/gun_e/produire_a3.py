@@ -59,7 +59,7 @@ sys.path.insert(0, HERE)
 import masques as MQ  # noqa: E402
 import trous_a3  # noqa: E402
 
-A3 = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
+A3 = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
 SORTIE = os.path.join(A3, "sprites")
 JOURNAL = os.path.join(A3, "production.log")
 STOP = os.path.join(A3, "STOP")

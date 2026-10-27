@@ -2410,6 +2410,14 @@ local ok = GunSheets.ok(r)
 if not ok then for _, l in ipairs(GunSheets.lines(r)) do print(l) end end
 check(ok and r.n > 0, string.format("graphics/levels/gun : %d PNG du manifeste présents, à la taille et aux dimensions "
   .. "du manifeste (%d manquant(s), %d écart(s)%s)", r.n, #r.manquants, #r.ecarts, r.erreur and (", " .. r.erreur) or ""))
+-- lot F2-B : feuilles du four (même règle D-6)
+local FourSheets = dofile("tests/datastage/four_sheets.lua")
+local r4 = FourSheets.check(".")
+local ok4 = FourSheets.ok(r4)
+if not ok4 then for _, l in ipairs(FourSheets.lines(r4)) do print(l) end end
+check(ok4 and r4.n > 0, string.format("graphics/levels/four : %d PNG du manifeste présents, à la taille et aux "
+  .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", r4.n, r4.refs or 0,
+  #r4.manquants, #r4.ecarts, r4.erreur and (", " .. r4.erreur) or ""))
 end)()
 
 ---------------------------------------------------------------------------------------------------

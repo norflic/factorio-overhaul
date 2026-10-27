@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))
 sys.path.insert(0, HERE)
 import compo as K  # noqa: E402
 
-LOGS = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
+LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 VALIDES = {e: os.path.join(LOGS, "2026-10-23_V3E-p5", "bas", "sprites") for e in range(1, 10)}
 VALIDES.update({e: os.path.join(LOGS, "2026-10-23_V3E-p5", "haut", "sprites") for e in range(10, 13)})
 VALIDES.update({e: os.path.join(LOGS, "2026-10-23_V3E-ereV", "sprites") for e in range(13, 16)})

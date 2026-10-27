@@ -38,7 +38,7 @@ from scipy import signal
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
-GAME = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+GAME = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 VANILLA_SOUND = os.path.join(GAME, "data", "base", "sound")
 BLENDER = r"C:\Users\evan2\tools\blender-5.2.2\blender.exe"
 DEFAULT_WORK = os.path.join(GAME, "fo-logs", "2026-10-24_S0", "travail")
