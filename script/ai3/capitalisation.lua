@@ -821,9 +821,11 @@ local function decide(f, cs, view, book, tick, research, w)
   Profiler.fstop("capi:decide")
   cs.wanted = sorted_keys(cs.wanted_set or {})
   cs.wanted_set = nil
-  -- Les objets que ses exécutants attendent sont ÉCRITS au journal, pas donnés à la recherche (Auto.want reste pour plus
-  -- tard) : bancs p2 à p4 du lot, « assembling-machine-1 » voulu faisait d'« automation » une recherche POUR
-  -- l'automatisation, que la garde K1 d'IA-G passe après les paliers : automation à 7 min au lieu de 2 au témoin.
+  -- Les objets que ses exécutants attendent sont DONNÉS à la recherche (étape 1 du 27/10 au soir : sans cela, scarlet cherchait
+  -- grenades et armure pendant 30 min pendant que les chaînes de la capitalisation étaient refusées « recherche :
+  -- fast-inserter, medium-electric-pole » ; le critère « automation à 2 min comme au témoin » interdisait toute électrification).
+  -- La garde K1 ne retient plus que les recherches voulues LOINTAINES (Gen.k1, near).
+  Auto.want(f, cs.wanted)
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star }

@@ -70,6 +70,38 @@ local function report(s, minute)
   end
 end
 
+-- Votre équipe (force « player ») : même relevé que les factions, coffre d'équipe au lieu du QG
+local function report_player(s, minute)
+  local c = {}
+  for _, ty in ipairs({ "boiler", "generator", "electric-pole", "transport-belt", "furnace", "assembling-machine",
+    "lab", "container", "inserter", "character" }) do
+    c[ty] = s.count_entities_filtered({ force = "player", type = ty })
+  end
+  local de, db = 0, 0
+  for _, d in ipairs(s.find_entities_filtered({ force = "player", type = "mining-drill" })) do
+    if d.prototype.electric_energy_source_prototype then de = de + 1 else db = db + 1 end
+  end
+  local chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
+  local fill, top = "?", ""
+  local inv = chest and chest.get_inventory(defines.inventory.chest)
+  if inv then
+    fill = string.format("%d/%d", #inv - inv.count_empty_stacks(), #inv)
+    local cont = inv.get_contents()
+    local names = {}
+    for n in pairs(cont) do names[#names + 1] = n end
+    table.sort(names, function(a, b) if cont[a] ~= cont[b] then return cont[a] > cont[b] end return a < b end)
+    local parts = {}
+    for i = 1, math.min(8, #names) do parts[#parts + 1] = names[i] .. "=" .. cont[names[i]] end
+    top = table.concat(parts, " ")
+  end
+  local techs = 0
+  for _, tc in pairs(game.forces.player.technologies) do if tc.researched then techs = techs + 1 end end
+  log(TAG .. string.format("base minute %d | VOTRE EQUIPE | chaudieres=%d vapeur=%d poteaux=%d foreuses_elec=%d foreuses_comb=%d"
+    .. " tapis=%d bras=%d fours=%d assembleurs=%d labos=%d coffres=%d | tech=%d pnj=%d | coffre_equipe %s | %s",
+    minute, c.boiler, c.generator, c["electric-pole"], de, db, c["transport-belt"], c.inserter, c.furnace,
+    c["assembling-machine"], c.lab, c.container, techs, c.character, fill, top))
+end
+
 local init0, tick0, shots0 = base.init, base.tick, base.shots
 base.description = "ETAPE1 : partie du guide, 30 ouvriers, automatisation et capitalisation allumees, photos 10/20/40/60 min"
 
@@ -90,6 +122,11 @@ base.tick = function(ctx, e)
     if game.speed ~= want then game.speed = want end
     local moment = PHOTOS[e.tick]
     if moment then
+      local chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
+      if chest then
+        snap(s, "equipe-" .. moment .. "-base", chest.position.x, chest.position.y, 0.25)
+        snap(s, "equipe-" .. moment .. "-coffre", chest.position.x, chest.position.y, 0.6)
+      end
       for _, r in ipairs(factions()) do
         local hq = hq_of(s, r.force)
         if hq then
@@ -99,7 +136,10 @@ base.tick = function(ctx, e)
       end
     end
   end
-  if e.tick > 0 and e.tick % EVERY == 0 then report(s, e.tick / MIN) end
+  if e.tick > 0 and e.tick % EVERY == 0 then
+    report(s, e.tick / MIN)
+    report_player(s, e.tick / MIN)
+  end
 end
 
 base.shots = function(ctx, add)
