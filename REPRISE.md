@@ -10,6 +10,26 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 19 h 25 : MÉTHODE CHANGÉE** (OBJECTIFS §5, 19 h 05 : le DC ne voit aucun progrès en jeu ; 30 erreurs listées).
+> TOUT est arrêté : workflows `base-joueur`, `tirs-ronde5-degats`, `ia-suite-petrole-perf` et la boucle de 10 min ; tirs,
+> pétrole, PERF2, X3, robots, 3D gelés sur leurs branches. Un seul fil, au plus 1 agent ; seule preuve : la partie du DC
+> filmée (`etape1-guide`). CLAUDE.md réduit à l'essentiel (le complet : `docs/MEMO_COMPLET.md`). **Étape 1 en cours** :
+> branche `capib` `6bbbb05` (automatisation et capitalisation allumées par défaut), archive `fo-logs\2026-10-27_ETAPE1\guide-20261020`.
+>
+> **27/10, 18 h 55 : CAPIB ARRÊTÉ, RELANCÉ en `base-joueur`** (`wf_3f7db227-978`, même worktree `capib`, 16 commits gardés) après
+> l'observation du DC (OBJECTIFS §4, 18 h 50 : « les IA font vraiment rien […] ils avaient largement les ressources pour une machine à
+> vapeur […] coffre plein jamais vidé […] 40 fours en pierre »). Critères K-A à K-F ; images à 20, 40, 60, 90 min dans
+> `fo-logs\2026-10-27_CAPI\images-DC-joueur\` ; résumé `RESUME_DC_JOUEUR.md`. Ronde 5 des tirs : workflow `tirs-ronde5-degats`
+> (`wf_e8056b4e-fac`, D-21). PETROLE et PERF2 : workflow `ia-suite-petrole-perf` en revue.
+>
+> **27/10, 17 h 30 : TIRS livré (prototype, NON fusionné)** : branche `tirs` `43aab26`, 5 âges témoins (1, 5, 8, 10, 15) + laser 15 ;
+> images `fo-logs\2026-10-27_TIRS\images-r4-final\` envoyées au DC ; questions au DC (puissance : image seule ou dégâts ; son de l'âge 15 ;
+> verdict). Fusion après son verdict ; coût seul à remesurer ; 10 âges à faire. Worktree `tirs` GARDÉ.
+>
+> **27/10, 17 h 20 : WORKFLOW `capi-branchement` LANCÉ** (`wf_751a87a7-9e1`, worktree `capib`, bancs `--qui CAPIB`) : plan en 10 étapes,
+> réglage fo-war-capi éteint sauf preuve, critères (1) à (5), images de base à 30, 60 et 90 min (`fo-logs\2026-10-27_CAPI\images-DC`),
+> `BRANCHEMENT.md` ; relu par un critique adverse. Ne pas écrire par SendMessage à ses agents.
+>
 > **27/10, 17 h 15 : `main` = 0.6.4** (IA3-d + SCALE, fast-forward de `valid064`, conflits cerveau.lua et team.lua résolus) : factions
 > 8 → 30 PNJ, travail d'avance, fours en rangées ; validation verte ; K10 seul 0,400 ms (p99 5,96). **Banc remis à 1 place à 17 h 01** (le
 > DC reprend son PC ; pas de réponse sur « jouez-vous ce soir ? »). Prochaine étape : brancher la capitalisation (plan en 10 étapes,
