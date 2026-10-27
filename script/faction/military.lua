@@ -502,7 +502,8 @@ local function recall_far(f, tick)
       local p = s.entity.position
       local dx, dy = p.x - h.x, p.y - h.y
       if dx * dx + dy * dy > r2 then
-        if tick >= (s.recall_after or 0) then far[#far + 1] = { id = id, x = p.x, y = p.y } end
+        -- Lot IA3-k : un soldat qui a un rôle (escorte, garde d'avant-poste, nettoyage : s.ia3k) n'est pas rappelé.
+        if tick >= (s.recall_after or 0) and not s.ia3k then far[#far + 1] = { id = id, x = p.x, y = p.y } end
       elseif s.recalls then
         s.recalls, s.recall_after = nil, nil -- rentré : les attentes repartent de zéro
       end
