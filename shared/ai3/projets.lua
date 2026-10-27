@@ -131,7 +131,9 @@ function P.update(st, goals, tick, workers)
     if p and p.state == "bloque" then
       p.goal, p.value, p.eff = g, g.value, r.e
       blocked[#blocked + 1] = p
-    elseif n_active < K or g.permanent then
+    -- Lot CAPITAL : un but de FOND (investissement par défaut, H4 : améliorer avec ce qui dort au stock) ne prend pas de
+    -- place parmi les K projets et n'est servi qu'APRÈS tous les autres (le reste du stock virtuel).
+    elseif n_active < K or g.permanent or g.fond then
       if not p then
         p = { id = st.next_id, key = g.key, family = g.family, opened = tick, state = "actif" }
         st.next_id = st.next_id + 1
@@ -143,7 +145,7 @@ function P.update(st, goals, tick, workers)
       end
       p.goal, p.value, p.eff = g, g.value, r.e
       p.prio = P.prio_of(math.min(100, r.e))
-      if not g.permanent then n_active = n_active + 1 end
+      if not g.permanent and not g.fond then n_active = n_active + 1 end
       active[#active + 1] = p
     elseif p then
       p.goal, p.value, p.eff = g, g.value, r.e
@@ -161,10 +163,12 @@ function P.update(st, goals, tick, workers)
   -- le but se dit COURT (recherche peu chère : quelques packs, shared/ai3/buts.lua) passe juste après le premier projet,
   -- devant les familles permanentes. Moteur réel, banc g2 (27/10, graine 271828182) : servie après l'armée et la
   -- réserve de munitions (740 fers), la recherche de 8 packs rouges attendait 9 min ; palier 1 à 10,4 min en médiane.
-  local out, perm, rest, short = {}, {}, {}, {}
+  local out, perm, rest, short, fond = {}, {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
     if p.goal.permanent then perm[#perm + 1] = p
+    elseif p.goal.fond then
+      if p.goal.short then short[#short + 1] = p else fond[#fond + 1] = p end
     elseif not first then first = p
     elseif p.goal.short then short[#short + 1] = p
     else rest[#rest + 1] = p end
@@ -173,6 +177,7 @@ function P.update(st, goals, tick, workers)
   for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
+  for _, p in ipairs(fond) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
   return out, K
 end

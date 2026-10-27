@@ -201,6 +201,27 @@ local function run_all()
   local gb = Cap.goal({ key = "b", cost = {}, work = 1 }, {})
   check(gs.short == true and gl.short == nil, "§6 pas du centre court (coût ≤ SHORT_WORK) : servi avant l'armée ; long : après")
   check(gb.short == nil, "§6 un bâtiment n'est jamais court : servi après l'armée (K9)")
+  check(gb.fond == true and gs.fond == true, "§6 but de FOND : aucune place parmi les K projets")
+  -- Ordre de service (P.update) : un but de fond ne prend pas de place et passe après tous les projets ; le pas court du
+  -- centre passe avec les travaux courts (avant l'armée).
+  local st = {}
+  local goals = {
+    { key = "recherche", family = "recherche", kind = "research", value = 70 },
+    { key = "extraction:a", family = "extraction", kind = "outpost", value = 60 },
+    { key = "extraction:b", family = "extraction", kind = "outpost", value = 59 },
+    { key = "extraction:c", family = "extraction", kind = "outpost", value = 58 },
+    { key = "armee", family = "armee", kind = "army", value = 46, permanent = true },
+    { key = "capital:x", family = "capital", kind = "upgrade", value = 99, fond = true },
+    { key = "capital:y", family = "capital", kind = "upgrade", value = 99, fond = true, short = true },
+  }
+  local order, Kp = P.update(st, goals, 0, 8)
+  local pos = {}
+  for i, p in ipairs(order) do pos[p.key] = i end
+  local n_ord = 0
+  for _, p in ipairs(order) do if not p.goal.permanent and not p.goal.fond then n_ord = n_ord + 1 end end
+  check(Kp == 4 and n_ord == 4, "§6 fond : les 4 places restent aux projets ordinaires (" .. n_ord .. " sur K = " .. Kp .. ")")
+  check(pos["capital:x"] == #order and pos["capital:x"] > pos["extraction:c"], "§6 fond : servi après tous les projets")
+  check(pos["capital:y"] < pos["armee"], "§6 pas court du centre : servi avant l'armée")
   check(d0.work <= Cap.SHORT_WORK and d3.work > Cap.SHORT_WORK, "§6 la pose du centre est courte, son passage au niveau 2 ne l'est pas (" .. d0.work .. ", " .. d3.work .. ")")
   local goal_cc = Cap.goal({ key = "y", cost = {}, center = true }, {})
   check(goal_cc.value > goal_out.value and goal_cc.value < 55, "§6 le but du centre (époque) vaut plus qu'un bâtiment, sous l'extraction qui grandit")
@@ -335,6 +356,9 @@ do
     function() Cap.center_family = cfm end)
   local ld = Cap.LOOK_DIV
   M("déblocage ignoré", function() Cap.LOOK_DIV = 1e9 end, function() Cap.LOOK_DIV = ld end)
+  local cg = Cap.goal
+  M("but ordinaire (pas de fond)", function() Cap.goal = function(d, w) local g = cg(d, w) if g then g.fond = nil end return g end end,
+    function() Cap.goal = cg end)
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end
 

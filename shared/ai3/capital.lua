@@ -56,9 +56,14 @@ Cap.TOP = 3             -- candidats gardés pour le journal
 -- Valeur du BUT au cerveau (échelle des projets, 0 à 100 ; shared/ai3/buts.lua) : sous l'armée qui grandit (46) et la
 -- croissance de l'extraction (55), au-dessus du travail de fond ; + Cap.GOAL_STOCK quand tout le coût dort déjà au
 -- stock libre (investir, H4 : aucun travail, rien ne manque) ; le centre (l'époque) + Cap.GOAL_EPOCH.
-Cap.GOAL_VALUE = 40
+Cap.GOAL_VALUE = 30
 Cap.GOAL_STOCK = 12
 Cap.GOAL_EPOCH = 6
+-- Le but est de FOND (shared/ai3/projets.lua, P.update : g.fond) : aucune des K places de projet, servi après tous les
+-- autres projets, avec ce qui reste au stock virtuel ; ses tâches (fabrication, manques) à la priorité de sa valeur (53 à
+-- 61, sous la recherche et l'extraction). Moteur réel, bancs c1 et c1-temoin (27/10, graine 271828182, même code, capital
+-- coupé au témoin) : servi comme un projet ordinaire (valeur 40 à 58, une place sur K), il retardait la recherche
+-- (palier 3 : 1 faction sur 4 en 60 min contre 3 au témoin ; palier 2 en médiane 24,3 min contre 14,3).
 -- Travail COURT (règle « le plus court d'abord » d'IA-G, shared/ai3/projets.lua, P.update) : un pas du CENTRE dont le coût
 -- en travail ne dépasse pas Cap.SHORT_WORK (la pose du centre : 541 en jeu) passe devant les familles permanentes (armée, réserve), comme une recherche peu
 -- chère. Moteur réel, banc c1 (27/10, graine 271828182) : servie APRÈS l'armée, la pose du centre (coût 541, environ 90
@@ -296,7 +301,7 @@ function Cap.goal(d, weights)
   local base = Cap.GOAL_VALUE + (d.all_in and Cap.GOAL_STOCK or 0) + (d.center and Cap.GOAL_EPOCH or 0)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
-    value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil,
+    value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil }
 end
 
