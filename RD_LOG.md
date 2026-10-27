@@ -3,6 +3,9 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
+> Prochains identifiants libres (27/10, vers 2 h 40, après la fusion de F3-B) : **F315** et **E210** hors blocs. Réservés aux lots
+> en cours : IA1-d F292 à F295, E195 à E197 ; IA-V2 F296 à F299, E198, E199 ; IA3-k F300 à F305, E200 à E203 ; F4-A3 F309 à F311, E206, E207 ; F5-A F312 à F314, E208, E209 ; attribués à F3-B :
+> F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
 ## Session 6 — 2026-10-21 (soir) : reprise dans Claude Code, orchestration multi-agent
@@ -499,6 +502,24 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés (lot F3-B, la machine d'assemblage en jeu, 25/10 et 27/10 ; branche `worktree-agent-ad00d688396c75623`, fusionnée dans `main` le 27/10, version 0.4.31)
+Preuves : `fo-logs\2026-10-25_F3\` (`INTEGRATION.md` §3 à §6, `production\`, `bancs\prod\`, `captures\finales\`, `vram\prod-plancher\`).
+Design VALIDÉ par le DC (R-QCM-25l, « Validé, production »). Expériences : E204, E205.
+- **F306** (moteur réel, plancher : qualité normale, mémoire vidéo basse, compression basse, `d4-geant --measure`, sans
+  cache d'atlas) : les 234 feuilles de l'assembleur (2,3 Mpx en qualité normale), ajoutées aux 208 du four, ne débordent
+  pas l'atlas virtuel plein (F186) : « Created virtual atlas pages 4096x4096x12 » comme sur 0.4.30, aucun avertissement,
+  `d4-geant` 18 OK ; autres atlas à moins de 1 % (décalcomanies 2120 → 2152 px de haut, ombres 87,6 → 88,0 Mpx) ;
+  mémoire dédiée médiane 0,44 Go, moyenne 0,42 Go des deux côtés (pic 0,48 contre 0,45). Les 12 pages ne sont donc pas
+  remplies au pixel : la marge restante n'est pas connue (le journal ne dit pas le taux de remplissage).
+- **F307** (outil, vérifié) : `tools/autotest/banc.py --visuel "--no-atlas-cache"` était REFUSÉ par argparse (« argument
+  --visuel: expected one argument », rien n'est mis en file) : une valeur qui commence par « -- » ne passe qu'écrite
+  `--visuel="…"`. Corrigé par l'intégrateur le 27/10 : `banc.py` recolle la valeur qui suit `--visuel` ; les deux formes
+  passent (vérifié avec `--file`).
+- **F308** (outil de rendu, mesuré) : le contrôle des trous de `rendre.py` (passe principale BRUTE) et `commun/ilots.py`
+  (PNG livré, liseré de contact compris) divergent dans les deux sens : e02-machine de l'assembleur, 20 px de trou brut,
+  0 px livré (le liseré le ferme) ; pièce paire de l'âge 10 de la foreuse (F4-A2), 18 px dans le PNG livré, invisibles en
+  composition (posée sur la tour). Seule `ilots.py` sur les compositions dit ce que le joueur voit.
 
 ### Faits vérifiés (lot F2, le four aux 15 âges : F2-A et F2-A2 rondes de design hors jeu, F2-B production et intégration en jeu, 25/10 ; branche `worktree-agent-aa8c5e5bc03addfbd`, version 0.4.30)
 Preuves : `fo-logs\2026-10-25_F2\` (`NOTES.md`, `FICHES_FOUR.md`, `INTEGRATION.md`, `planches_DC\`, `captures\`, `vram\`,
@@ -1142,6 +1163,23 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E204, E205 · Lot F3-B, l'assembleur en jeu (25/10 et 27/10 ; verdict du DC R-QCM-25l « Validé, production »)**.
+**E204** : production de 29 variantes à 128 échantillons (ombre à 32) : e01-piece à e11-machine le 25/10 de 18 h 40 à
+20 h 08 ; e11-piece, e12-machine, e12-piece reprises le 27/10 par `--post-only` sur leurs passes brutes restées au cache
+(coupure hebdomadaire), e13 à e15 rendues de 1 h 33 à 1 h 53 (code 0, 0 px de trou au post-traitement) ; îlots 43
+contrôles, 0 échec, après déclaration de 3 poches de SOL nées du déplacement de la conduite au raccord de jeu (âges 11 et
+15, environ 2 000 px chacun ; âge 10 niveau pair, 102 px ; `epoques.TROUS_VOULUS`) ; feuilles hors git : 234 PNG, 6,09 Mo ;
+`prototypes/levels/assembler.lua` (couches, teinte paire, lueur rejouée en `working_visualisations`, lumière de l'âge,
+brides au raccord de jeu) ; scénario `f3-assembleurs`. Bancs par la file sur la branche (27/10, `done.txt` 1:59:59 à
+2:12:56) : f3-assembleurs 6 OK (30 posées, 30/30 en marche au tick 300, recette et 2 modules gardés 30/30, raccords des 4
+emprises), migration d'une partie 0.4.29 en double source 6 OK, content 331, t2-machines 80, mod1-modules 85, mod2-lots 28,
+gun-rose 13, f2-fours 3 ; 41 captures sans cache d'atlas, REGARDÉES (`captures\finales\`) : 30 niveaux affichés de jour et
+de nuit ; nuit encore faible aux âges 1, 10 et 13. Hors jeu sur `main` après fusion : harness 0 erreur (« Feuilles
+assembleur : 234 fichier(s), 0 manquant(s), 0 écart(s) »), levels_test 1 666 OK, api_lint 1 107, test_assembleur 217 OK,
+run 114 ; en moteur réel sur `main` par la file : f3-assembleurs 6 OK (2:33:20), content 331 OK (2:44:12). **Limites dites** : les poches de sol des âges 11 et 15 étaient ouvertes sur les planches validées ; l'âge 2 et
+les nuits des âges 2 et 3 ont été retouchés APRÈS le verdict (`765f28c`) ; la machine ne bouge pas (seule la lueur
+scintille). **E205** · Mémoire vidéo au plancher avec le four (27/10, `vram\prod-plancher`) : F306.
+
 **E85 à E87, E184, E185 · Lot F2, le four aux 15 âges (25/10 ; verdicts du DC R-QCM-25e « Oui, enrichir », puis « c'est
 pas si mal, je pense qu'il faut pas beaucoup plus », R-QCM-25h « Validé, production »)**. **E85** (témoin et ronde 1, 32
 échantillons) : 6 + 29 variantes, 508 s et 3 552 s ; îlots 25 + 18 contrôles, 0 échec. **E86** (ronde 2) : 14 socles avec
