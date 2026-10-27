@@ -55,7 +55,8 @@ local function spawn_cluster(s, kind, at)
       elseif e.type == "ammo-turret" then
         e.insert({ name = "firearm-magazine", count = 20 })
       end
-      out[#out + 1] = { unit = e.unit_number, name = m[1], x = e.position.x, y = e.position.y, r = proto_range(m[1]) }
+      out[#out + 1] = { unit = e.unit_number, name = m[1], x = e.position.x, y = e.position.y, r = proto_range(m[1]), ent = e,
+        mobile = e.type == "unit" }
     end
   end
   return out
@@ -204,6 +205,7 @@ function C.trips(opts)
           end
           tr.kind = (r + tr.k) % #CLUSTERS + 1
           tr.cluster = spawn_cluster(s, tr.kind, at)
+          if #tr.cluster == 0 then tr.cluster = nil end -- rien n'a pu être posé : tournée sans ennemi
           tr.at = at
         end
       end
@@ -221,9 +223,20 @@ function C.trips(opts)
               tr.out[#tr.out + 1] = p
               if d2(p, tr.goal) <= 36 then tr.outdone = true end
             end
+            -- Distance aux ennemis À LEUR POSTE : une unité qui a quitté le sien (elle poursuit un autre PNJ, ou charge) ne
+            -- compte pas (ce n'est pas le PNJ qui entre dans sa portée) ; un ennemi détruit non plus.
             for i, m in ipairs(tr.cluster or {}) do
-              local dd = math.sqrt(d2(p, m))
-              if not tr.min[i] or dd < tr.min[i] then tr.min[i] = dd end
+              local e = m.ent
+              local q = nil
+              if e and e.valid then
+                if not m.mobile then q = m
+                elseif d2(e.position, m) <= 144 then q = e.position end
+              end
+              if q then
+                local dd = math.sqrt(d2(p, q))
+                if not tr.min[i] or dd < tr.min[i] then tr.min[i] = dd end
+                if dd - m.r <= 30 then tr.met = true end
+              end
             end
             if a.label_t and a.label_t ~= tr.last_lt then
               tr.last_lt = a.label_t
@@ -283,11 +296,11 @@ function C.trips(opts)
           local rl = {}
           for _, x in ipairs(tr.reacts) do rl[#rl + 1] = string.format("%s@%d(%+.0f)", x.l, x.t, x.margin) end
           ctx.log(string.format("manche %d couloir %d PNJ %d %s : %s, marge min %+.1f, aller %.0f / %.0f tuiles%s, reactions %s",
-            r, tr.k, tr.id, tr.cluster and CLUSTERS[tr.kind].name or "-", tr.cluster and (entered and "ENTRE a portee" or "jamais a portee") or "sans ennemi",
+            r, tr.k, tr.id, tr.cluster and (CLUSTERS[tr.kind].name .. (tr.met and "" or " (jamais rencontres)")) or "-", tr.cluster and (entered and "ENTRE a portee" or "jamais a portee") or "sans ennemi",
             worst < 1e8 and worst or 0, L, tr.direct, tr.outdone and "" or " (but non atteint)", #rl > 0 and table.concat(rl, " ") or "aucune"))
           if tr.cluster then destroy_cluster(s, tr.cluster) end
           st.trips[#st.trips + 1] = { r = r, k = tr.k, id = tr.id, entered = tr.entered, dead = tr.dead, reacts = #tr.reacts,
-            enemies = tr.cluster ~= nil, outdone = tr.outdone, len = tr.len, direct = tr.direct, out = tr.out,
+            enemies = tr.cluster ~= nil, met = tr.met or false, outdone = tr.outdone, len = tr.len, direct = tr.direct, out = tr.out,
             start = tr.start, goal = tr.goal, kind = tr.kind }
         end
         st.cur = nil
@@ -304,9 +317,11 @@ function C.trips(opts)
           stv.stats.looks, stv.stats.plans, stv.stats.astar, stv.stats.via, stv.stats.blocked, table.concat(acts, " "),
           stv.stats.deaths, (function() local n = 0 for _, v in pairs(stv.stats.labels) do n = n + v end return n end)()))
       end
-      local n, ok, dead, reacted = 0, 0, 0, 0
+      -- Tournées qui ont RENCONTRÉ des ennemis à leur poste (à moins de leur portée + 30 tuiles) : celles du critère.
+      local n, ok, dead, reacted, posed = 0, 0, 0, 0, 0
       for _, tr in ipairs(st.trips) do
-        if tr.enemies then
+        if tr.enemies then posed = posed + 1 end
+        if tr.enemies and tr.met then
           n = n + 1
           if not tr.entered then ok = ok + 1 end
           if tr.dead then dead = dead + 1 end
@@ -315,15 +330,15 @@ function C.trips(opts)
       end
       if mode == "route" then
         local pct = n > 0 and math.floor(100 * ok / n + 0.5) or 0
-        ctx.log(string.format("FAIT %d tournees avec ennemis sur la route : %d jamais a portee (%d %%), %d avec reaction visible, %d PNJ tues",
-          n, ok, pct, reacted, dead))
-        ctx.check(n >= 16, "au moins 16 tournees jouees avec des ennemis sur la route", n)
+        ctx.log(string.format("FAIT %d tournees avec ennemis poses, %d les ont rencontres : %d jamais a portee (%d %%), %d avec reaction visible, %d PNJ tues",
+          posed, n, ok, pct, reacted, dead))
+        ctx.check(n >= 16, "au moins 16 tournees ont rencontre des ennemis poses sur leur route", n)
         if opts.temoin then
           ctx.check(true, string.format("temoin (sans le lot) : %d %% jamais a portee, %d tues (mesure)", pct, dead))
         else
           ctx.check(n > 0 and ok * 10 >= n * 9, "C2 : >= 90 % des PNJ changent de route ou s'arretent avant d'entrer a portee",
             string.format("%d / %d", ok, n))
-          ctx.check(reacted * 10 >= n * 9 or ok == n, "C2 : une reaction visible (alerte, detour, demi-tour) dans >= 90 % des tournees",
+          ctx.check(reacted * 10 >= n * 9, "C2 : une reaction visible (alerte, detour, demi-tour) dans >= 90 % des tournees qui les rencontrent",
             string.format("%d / %d", reacted, n))
           local keys = {}
           for k, v in pairs(st.lab_keys or {}) do keys[#keys + 1] = k .. "=" .. v end

@@ -351,6 +351,7 @@ function M.leg(agent, pos, radius, tick, depth)
   if not a.final or d2(a.final, pos) > 1 then
     a.final = { x = pos.x, y = pos.y }
     a.pts = nil
+    a.urep = nil -- arrêts et détours devant des unités : comptés par destination
   end
   -- Sortie d'une zone marquée faite : l'itinéraire est recalculé depuis la case sûre.
   if a.pts and a.partial and not a.pts[a.i] then a.pts, a.partial = nil, nil end
@@ -637,8 +638,9 @@ function M.sense(agent, tick)
       type = { "unit", "character" } }) - 1)
   end
   local action, why = Re.decide({ kind = kind, range = range, dist = dist, on_route = on_route, hp = hp, armed = is_armed,
-    enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr })
+    enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr, repeats = a.urep })
   if action == "none" then return false end
+  if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
   return act(agent, f, t, a, action, why, ep, kind, tick)
 end

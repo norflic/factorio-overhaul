@@ -9,6 +9,7 @@
     on_route  il est à portée + marge du trajet restant
     enemies   force ennemie près de lui (pesée : moyen déchiqueteur = 1)   allies  alliés armés à moins de 16 tuiles
     walking   le PNJ marche                     prudence, agressivite (pour mille ; 1 000 neutre)
+    repeats   arrêts et détours déjà faits devant des unités dans cette tournée
   }
   Sortie : action, raison. Actions : "none" (rien : la case est seulement marquée), "flee" (fuite vers la tourelle amie
   ou le QG le plus proche), "back" (demi-tour : la tâche est rendue), "detour" (arrêt puis nouvel itinéraire), "stop"
@@ -21,6 +22,7 @@ local Re = {}
 
 Re.MARGIN = 8
 Re.STOP_TICKS = 180
+Re.REPEATS = 2     -- arrêts ou détours devant des unités dans la même tournée avant de renoncer
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
 
@@ -85,12 +87,21 @@ function Re.decide(s)
     if dist <= range + Re.MARGIN or s.on_route then return "engage", "surnombre" end
     return "none", "vu"
   end
+  -- Des unités qui reviennent sur la route après REPEATS arrêts ou détours de la même tournée (un nid gardé, des
+  -- déchiqueteurs qui rôdent) : on renonce, demi-tour.
+  local insist = (s.repeats or 0) >= Re.REPEATS
   if dist > range + Re.MARGIN then
-    if s.walking and s.on_route then return "stop", "sur-la-route" end
+    if s.walking and s.on_route then
+      if insist then return "back", "insiste" end
+      return "stop", "sur-la-route"
+    end
     return "none", "vu"
   end
   if dist > range then
-    if s.walking then return "detour", "proche" end
+    if s.walking then
+      if insist then return "back", "insiste" end
+      return "detour", "proche"
+    end
     return "flee", "proche"
   end
   if s.walking then return "back", "trop-pres" end

@@ -246,6 +246,8 @@ local function suite()
     "prudent à 48 % contre 2 petits : fuite (seuil 55 %)")
   check(Re.decide({ kind = "unit", range = 30, dist = 14, hp = 390, armed = true, enemies = 0.4, prudence = 600, agressivite = 1500 }) == "flee",
     "audacieux sous 40 % : fuite")
+  check(Re.decide({ kind = "unit", range = 30, dist = 34, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true, repeats = 2 }) == "back",
+    "unités revues après 2 arrêts ou détours de la même tournée : demi-tour (renoncer)")
   check(Re.engage_ratio(600, 1800) == 1500 and Re.engage_ratio(1250, 700) == 3000, "rapport d'engagement 1,5 à 3 selon le caractère")
   check(Re.look_radius(562) == 28 and Re.look_radius(1250) == 40, "regard de 28 à 40 tuiles selon la prudence")
   check(Re.decide({}) == "none", "aucun ennemi : rien")
