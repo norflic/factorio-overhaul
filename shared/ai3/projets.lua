@@ -453,13 +453,26 @@ EMIT.research = function(E, proj, g, ctx)
   if r.lab_item and (r.labs_craft or 0) > 0 then
     if not P.want(E, proj, { { r.lab_item, r.labs_craft } }, prio + P.FINISH_BONUS, false, "labo") then status = "matiere" end
   end
-  if r.packs and #r.packs > 0 then
-    local floor = ctx.iron_floor or 0
-    local fi = ctx.floor_item or P.IRON -- lot IA-G : produit de la ressource la plus demandée (déduite)
+  local fi = ctx.floor_item or P.IRON -- lot IA-G : produit de la ressource la plus demandée (déduite)
+  local function with_floor(floor, fn)
     local keep = math.min(E.avail[fi] or 0, floor)
     E.avail[fi] = (E.avail[fi] or 0) - keep
-    if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
+    fn()
     E.avail[fi] = (E.avail[fi] or 0) + keep
+  end
+  if r.packs and #r.packs > 0 then
+    -- Lot IA-G : packs de la technologie EN COURS ; une recherche PEU CHÈRE (but `short`) n'attend pas derrière le
+    -- plancher (quelques plaques : « automation » = 1 pack rouge) ; sinon le plancher d'IA-V2.
+    local floor = (g and g.short) and 0 or (ctx.iron_floor or 0)
+    with_floor(floor, function()
+      if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
+    end)
+  end
+  if r.packs_ahead and #r.packs_ahead > 0 then
+    -- Lot IA-G : réserve et packs d'avance (bras libres), toujours au-dessus du plancher, un cran sous les packs du moment.
+    with_floor(ctx.iron_floor or 0, function()
+      P.want(E, proj, r.packs_ahead, prio - 2, true, "avance")
+    end)
   end
   return status
 end

@@ -440,6 +440,50 @@ do
   check(o0 == "extraction:a,armee,defense:munitions,recherche", "§10 sans le drapeau : ordre d'IA-V2 inchangé : " .. o0)
 end
 
+-- §11 Bras libres : profondeur d'avance, packs des recherches suivantes, extraction d'avance.
+do
+  check(Gen.ahead_depth(1, 8) == 0 and Gen.ahead_depth(1, 2) == 0, "§11 un seul PNJ sans tâche : rien d'avance")
+  check(Gen.ahead_depth(2, 30) == 0, "§11 2 sans tâche sur 30 (7 %) : rien d'avance")
+  check(Gen.ahead_depth(2, 8) == 1 and Gen.ahead_depth(9, 30) == 3 and Gen.ahead_depth(20, 30) == 3,
+    "§11 profondeur : 1 à 2 sur 8, 3 à 9 sur 30, plafond 3 (" .. Gen.ahead_depth(2, 8) .. ", " .. Gen.ahead_depth(9, 30) .. ")")
+  local cat = K.build(F.dump(), F.opts())
+  local st = F.start_state()
+  local ev = Gen.prepare(cat, st)
+  local d = Gen.choose(cat, ev, st, {})
+  local nxt = {}
+  for i = 2, #d.ranked do nxt[#nxt + 1] = d.ranked[i][1] end
+  local la = Gen.lookahead(cat, ev, st, nxt, 2)
+  local n = 0
+  for _, it in ipairs(la) do n = n + it[2] end
+  local expect = 0
+  for i = 1, math.min(2, #nxt) do
+    for _, ing in ipairs(cat.techs[nxt[i]].ingredients) do expect = expect + ing[2] * cat.techs[nxt[i]].count end
+  end
+  check(#la > 0 and n == expect, "§11 packs d'avance = ceux des 2 recherches suivantes (" .. n .. "/" .. expect .. ")")
+  check(#Gen.lookahead(cat, ev, st, nxt, 0) == 0, "§11 profondeur 0 : aucun pack d'avance")
+  local st_u = F.start_state({ unknown = { T.outposts.copper.resource } })
+  st_u.stock[T.outposts.copper.product] = nil
+  local ev_u = Gen.prepare(cat, st_u)
+  check(#Gen.lookahead(cat, ev_u, st_u, nxt, 3) == 0, "§11 H8 : aucun pack d'avance pour une recherche impayable")
+  -- Extraction d'avance (shared/ai3/buts.lua, B.targets).
+  local B = require("shared.ai3.buts")
+  local function sit(idle, tick, sat_top)
+    return { key = R.FALLBACK_KEY, idle_grow = idle, tick = tick, cap = { iron = 2, coal = 2, copper = 1 },
+      stock = { [T.outposts.iron.product] = sat_top and 10000 or 0 }, need = {} }
+  end
+  local stt = { targets = { iron = 2, coal = 2, copper = 1, stone = 0 }, iron2_set = true }
+  B.targets(sit(true, 0, false), stt)
+  check(stt.targets.iron == 3, "§11 bras libres : une capacité de plus pour la ressource la plus demandée (" .. stt.targets.iron .. ")")
+  B.targets(sit(true, 60, false), stt)
+  check(stt.targets.iron == 3, "§11 au plus une capacité toutes les 3 min")
+  local stt2 = { targets = { iron = 2, coal = 2, copper = 1, stone = 0 }, iron2_set = true }
+  B.targets(sit(true, 0, true), stt2)
+  check(stt2.targets.iron == 2 and stt2.targets.copper == 2, "§11 produit saturé : la suivante dans l'ordre (cuivre)")
+  local stt3 = { targets = { iron = 2, coal = 2, copper = 1, stone = 0 }, iron2_set = true }
+  B.targets(sit(false, 0, false), stt3)
+  check(stt3.targets.iron == 2 and stt3.targets.copper == 1, "§11 PNJ occupés : rien d'avance")
+end
+
 -- §9 Coût de calcul (ordre de grandeur).
 do
   local t0 = os.clock()

@@ -268,6 +268,39 @@ function Gen.summary(cat, ev, state, goals)
   return s
 end
 
+--- BRAS LIBRES (demande du DC « ils ne scalent pas » ; intégrateur, 27/10 : à 30 PNJ, 53 à 64 % d'inactifs sous IA-V2,
+--- « le cerveau ne crée du travail que pour ce qui manque ») : combien de buts SUIVANTS déplier d'avance. Un joueur qui
+--- a des bras libres prépare la recherche d'après et agrandit ce que ses buts mangeront. Profondeur = 0 tant que les
+--- PNJ sans tâche sont moins de Gen.IDLE_MIN ou moins de Gen.IDLE_PCT % de l'effectif (rien ne change à 8 PNJ occupés),
+--- puis 1 par Gen.IDLE_PER PNJ sans tâche, au plus Gen.AHEAD_MAX.
+Gen.IDLE_MIN = 2
+Gen.IDLE_PCT = 25
+Gen.IDLE_PER = 3
+Gen.AHEAD_MAX = 3
+function Gen.ahead_depth(idle, workers)
+  idle, workers = idle or 0, workers or 0
+  if idle < Gen.IDLE_MIN or idle * 100 < Gen.IDLE_PCT * math.max(1, workers) then return 0 end
+  return math.min(Gen.AHEAD_MAX, math.max(1, math.floor(idle / Gen.IDLE_PER)))
+end
+
+--- Packs des `depth` technologies SUIVANTES (liste `next`, dans l'ordre du choix), encore à faire et payables : ce que la
+--- faction fabrique d'avance avec ses bras libres (jamais pour une technologie impayable : H8). Rend { {pack, n} } trié.
+function Gen.lookahead(cat, ev, state, next, depth)
+  local packs = {}
+  local used = 0
+  for _, t in ipairs(next or {}) do
+    if used >= (depth or 0) then break end
+    local spec = cat.techs[t]
+    if spec and not state.techs[t] and ev.tfeas[t] then
+      used = used + 1
+      for _, ing in ipairs(spec.ingredients) do packs[ing[1]] = (packs[ing[1]] or 0) + ing[2] * spec.count end
+    end
+  end
+  local out = {}
+  for _, p in ipairs(sorted_keys(packs)) do out[#out + 1] = { p, packs[p] } end
+  return out
+end
+
 --- Étapes rangées par EXÉCUTANT (le travail que l'équipe sait faire aujourd'hui) :
 ---   main      -> tâches « craft » du tableau (script/team/board.lua) : objets fabriqués à la main ;
 ---   machine   -> fonderie du QG et machines posées : objets produits par une machine ;

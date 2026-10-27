@@ -243,6 +243,31 @@ function General.explore(f)
   return g and g.explore or {}
 end
 
+--- Bras libres : packs des technologies suivantes à fabriquer d'avance ({ {pack, n} }, vide si les PNJ sont occupés).
+--- Une ligne [FO-CERVEAU] quand la profondeur change.
+function General.lookahead(f, st, view, tick)
+  local g = f.team and f.team.iag
+  local m = memos[f.force]
+  if not (g and g.next and m and m.ev) then return {} end
+  local depth = Gen.ahead_depth(view.workers_idle, view.workers)
+  if depth > 0 then g.ahead_thinks = (g.ahead_thinks or 0) + 1 end
+  if depth ~= (g.depth or 0) and tick - (g.depth_log or -3600) >= 3600 then
+    g.depth = depth
+    g.depth_log = tick
+    log(string.format("[FO-CERVEAU] %s : bras libres %d/%d : %d recherche(s) suivante(s) preparee(s) d'avance [%s] a %.1f min",
+      f.key or "?", view.workers_idle or 0, view.workers or 0, depth, table.concat(g.next, " "), minutes(f, tick)))
+  end
+  if depth <= 0 then return {} end
+  local state = General.state(f, st, view)
+  return Gen.lookahead(General.catalogue(), m.ev, state, g.next, depth)
+end
+
+--- Bras libres : la pensée pure agrandit d'avance l'extraction de la ressource la plus demandée (shared/ai3/buts.lua).
+function General.idle_grow(f, view)
+  if f.is_player or not General.on() then return false end
+  return Gen.ahead_depth(view.workers_idle, view.workers) > 0
+end
+
 --- Faisabilité d'un objet à la dernière évaluation de la force (nil : inconnue).
 function General.feasible(f, item)
   local m = memos[f.force]
@@ -317,6 +342,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   -- Gardées seulement complètes (une ressource la plus demandée ET un combustible qu'un avant-poste rapporte) ; sinon
   -- le repli de shared/ai3/reglages.lua reste.
   if key.top and key.fuel then g.key = { top = key.top, fuel = key.fuel, order = key.order, optional = key.optional } end
+  -- Technologies SUIVANTES (le classement de la décision) : packs fabriqués d'avance quand des bras sont libres.
+  g.next = {}
+  for i = 2, #(d.ranked or {}) do g.next[#g.next + 1] = d.ranked[i][1] end
   g.decisions = g.decisions + 1
   g.history[#g.history + 1] = { tech = d.tech, tick = tick, value = d.value, cost = d.cost }
   while #g.history > 32 do table.remove(g.history, 1) end

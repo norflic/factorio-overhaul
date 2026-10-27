@@ -58,6 +58,7 @@ B.GROW = 55         -- croissance d'une ressource qui manque durablement (goulot
 B.GROW_SHORT = 100  -- manque (objets) qui compte comme « durable » …
 B.GROW_THINKS = 6   -- … pendant au moins 6 pensées de suite (30 s)
 B.GROW_MAX = 5      -- capacités visées au plus, par ressource
+B.IDLE_GROW_EVERY = 3 * 3600 -- lot IA-G (bras libres) : une capacité de plus au plus toutes les 3 min
 B.SMELTERS = 45
 B.SMELTERS_WANT = 4
 B.AMMO = 55
@@ -166,6 +167,22 @@ function B.targets(s, st)
       and (s.cap[kind] or 0) >= tg[kind] * 0.75 then
       tg[kind] = tg[kind] + 1
       st.short_n[product] = 0
+    end
+  end
+  -- Lot IA-G (bras libres, demande « ils ne scalent pas ») : des PNJ sans tâche (s.idle_grow, règle Gen.ahead_depth) et
+  -- aucun manque durable : la ressource NÉCESSAIRE la plus demandée (ordre des ressources clés, déduit du dépliage) dont
+  -- le produit n'est pas saturé reçoit une capacité de plus, d'avance (un joueur agrandit ce que ses buts mangeront),
+  -- au plus toutes les B.IDLE_GROW_EVERY ; jamais au-delà de B.GROW_MAX ni avant que la capacité visée tourne.
+  if s.idle_grow and (s.tick or 0) - (st.idle_grow_tick or -B.IDLE_GROW_EVERY) >= B.IDLE_GROW_EVERY then
+    for _, kind in ipairs(key.order or {}) do
+      local product = T.outposts[kind] and T.outposts[kind].product
+      if product and not (key.optional or {})[kind] and not B.saturated(s, product) and (tg[kind] or 0) < B.GROW_MAX
+        and (s.cap[kind] or 0) >= (tg[kind] or 0) * 0.75 then
+        tg[kind] = (tg[kind] or 0) + 1
+        st.idle_grow_tick = s.tick or 0
+        st.idle_grown = (st.idle_grown or 0) + 1
+        break
+      end
     end
   end
   return tg

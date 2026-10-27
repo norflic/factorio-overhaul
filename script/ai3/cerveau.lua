@@ -479,6 +479,13 @@ local function research_step(f, st, book, w, tick, view)
   local units_left = math.ceil(spec.count - lab.paid)
   local want = {}
   for _, ing in ipairs(spec.ing) do want[ing[1]] = units_left * ing[2] end
+  -- Lot IA-G : les packs de la technologie EN COURS (« maintenant ») sont séparés de la réserve et des packs d'avance :
+  -- seuls les premiers disent si la recherche est peu chère, et seuls les seconds respectent le plancher de la garde de
+  -- l'économie (moteur réel, banc g3, graine 271828182 : « automation », 1 pack rouge, a attendu de 1,4 à 20,1 min chez
+  -- Ambre : la réserve de 10 packs verts rendait la recherche « chère », le plancher de fer bloquait le pack, et l'armée,
+  -- servie ensuite sans plancher, prenait le fer).
+  local now = {}
+  for _, ing in ipairs(spec.ing) do now[ing[1]] = units_left * ing[2] end
   for _, pack in ipairs(c.pack_list) do
     -- Lot IA-G : payable au sens du graphe (ressources connues, exécutants) ; repli : la règle d'IA3-a.
     local ok = nil
@@ -488,9 +495,23 @@ local function research_step(f, st, book, w, tick, view)
       want[pack] = math.max(want[pack] or 0, Ia3.PACK_RESERVE)
     end
   end
+  -- Lot IA-G (bras libres) : les packs des recherches SUIVANTES, d'avance, quand des PNJ sont sans tâche.
+  if General.on() then
+    for _, it in ipairs(General.lookahead(f, st, view, tick)) do
+      if book:handcraftable(it[1]) then want[it[1]] = (want[it[1]] or 0) + it[2] end
+    end
+  end
+  info.packs_ahead = {}
   for _, pack in ipairs(sorted_keys(want)) do
-    local need = want[pack] - (view.stock[pack] or 0) - ((view.incoming or {})[pack] or 0)
-    if need > 0 then info.packs[#info.packs + 1] = { pack, math.min(Ia3.PACK_BATCH, need) } end
+    local have = (view.stock[pack] or 0) + ((view.incoming or {})[pack] or 0)
+    local need = want[pack] - have
+    if need > 0 then
+      local need_now = math.max(0, (now[pack] or 0) - have)
+      local n_now = math.min(Ia3.PACK_BATCH, need_now)
+      if n_now > 0 then info.packs[#info.packs + 1] = { pack, n_now } end
+      local n_ahead = math.min(Ia3.PACK_BATCH, need) - n_now
+      if n_ahead > 0 then info.packs_ahead[#info.packs_ahead + 1] = { pack, n_ahead } end
+    end
   end
   -- Lot IA-V2 : fer encore à dépenser pour cette recherche (packs à fabriquer, laboratoires à fabriquer), plan du livre.
   -- Lot IA-G : la matière de la garde est le produit de la ressource la PLUS DEMANDÉE (ressources clés déduites du
@@ -594,7 +615,8 @@ function Ia3.plan(f, view, book, surface, tick)
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
-    key = (not f.is_player) and General.on() and General.key(f) or nil }
+    key = (not f.is_player) and General.on() and General.key(f) or nil,
+    idle_grow = General.idle_grow(f, view) }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")

@@ -86,6 +86,7 @@ function C.situation(view, st, ctx)
     economy_done = st.iron2_done ~= nil or st.economy_ok ~= nil,
     -- Lot IA-G : ressources clés DÉDUITES du dépliage des buts (script/ai3/general.lua) ; repli : celles de l'échelle.
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
+    idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
   }
 end
 
