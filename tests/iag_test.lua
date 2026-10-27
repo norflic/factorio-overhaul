@@ -386,6 +386,11 @@ do
   -- guillemets) : `lab` (champ « est un laboratoire » du format du graphe, shared/ai3/graphe.lua et fixtures), `water`
   -- (champ « eau vue » d'un regard, carte d'IA3-f).
   local VOCAB = { lab = true, water = true }
+  -- TYPES DU MOTEUR (`LuaEntityPrototype.type`, API 1.1.91) qui sont aussi des noms de prototypes, admis entre guillemets
+  -- ou comme identifiants (intégrateur, 27/10, à la fusion d'IA3-k) : la perception d'IA3-k classe ce qu'un PNJ voit par
+  -- TYPE (`character` : un personnage ennemi ; `artillery-turret` : une tourelle, comme `ammo-turret` ; `gate` : le mot
+  -- « porte » de la porte des tâches, identifiant seulement), jamais par nom ; même règle que R.ENTITY_ROLE de reglages.lua.
+  local TYPES = { ["character"] = true, ["artillery-turret"] = true, ["gate"] = true }
   local total = 0
   for _ in pairs(names) do total = total + 1 end
   local bad = {}
@@ -401,7 +406,8 @@ do
       local bare = code:gsub('"[^"\n]*"', '""')
       local hits = {}
       for _, name in ipairs(sorted_keys(names)) do
-        if strings[name] then hits[#hits + 1] = '"' .. name .. '"'
+        if TYPES[name] then -- type du moteur : vocabulaire admis
+        elseif strings[name] then hits[#hits + 1] = '"' .. name .. '"'
         elseif not VOCAB[name] and name:match("^[%a_][%w_]*$") and bare:find("%f[%w_]" .. name .. "%f[^%w_]") then
           hits[#hits + 1] = name
         end

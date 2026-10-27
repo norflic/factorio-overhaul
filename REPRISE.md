@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 11 h 15 : 0.6.0 VALIDÉE sur `main`** (garde-fous verts, `ia1b2-guide` 1618033988 réparé ; `iag_test` 93 OK après
+> admission des types du moteur d'IA3-k). **K10 NON tenu : 0,441 ms par tick, p99 6,6 ms, mesuré seul** (0,291 en 0.5.0) : lot de
+> performance à ouvrir (profileur par composant : itinéraires d'IA3-k, catalogue d'IA-G étalé). Les points 1 de la reprise de 10 h 45
+> sont faits ; restent 2 à 6. Agents IA3-e et design arrêtés par la limite d'usage à 10 h 45, à relancer par SendMessage.
+>
 > **27/10, 10 h 45 : POINT DE REPRISE (limite d'usage de la session atteinte).** `main` = **0.6.0** (`4424be0`, documents `2427c2b`,
 > `c99d2fe`) : IA-V2 + correctif 0.5.2 (`7236ffa`), IA3-k 0.5.1, IA-G 0.6.0. **À FAIRE EN PREMIER** :
 > 1. Lire la validation de 0.6.0 : `fo-logs\2026-10-27_integration-0.6.0\series.txt` et `bilans.txt` (« FINI » quand tout est passé :
