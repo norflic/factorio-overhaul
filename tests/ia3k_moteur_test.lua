@@ -257,6 +257,17 @@ Registry.remove(ids[5], true)
 st = remote.call("fo-ia3k", "status", "player")
 check(st.stats.deaths == d_before + 1 and st.summary.deaths >= 1, "mort d'un PNJ marquée sur la carte de l'équipe")
 check(pcall(M.serialize, global), "global sérialisable (aucune fonction)")
+-- Yeux fixes : une menace connue dans le champ du QG (160 tuiles) qui n'y est plus est oubliée ; hors champ, gardée.
+remote.call("fo-ia3k", "mark", "player", 40, 40, "worm", 25)
+remote.call("fo-ia3k", "mark", "player", 600, 0, "worm", 25)
+M.run_ticks(1300)
+local near_gone, far_kept = true, false
+for _, th in ipairs(remote.call("fo-ia3k", "danger", "player").threats) do
+  if R.dist(th.x, th.y, 40, 40) < 3 then near_gone = false end
+  if R.dist(th.x, th.y, 600, 0) < 3 then far_kept = true end
+end
+check(near_gone, "menace disparue dans le champ du QG : oubliée (yeux fixes)")
+check(far_kept, "menace hors du champ des yeux fixes : gardée (brouillard)")
 
 ---------------------------------------------------------------------------------------------------
 section("Réglage éteint : aucun effet")

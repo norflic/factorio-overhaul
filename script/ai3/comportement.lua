@@ -809,6 +809,54 @@ Events.on_nth_tick(M.PRUNE_PERIOD, function(e)
   for _, k in ipairs(State.sorted_keys(st.teams)) do D.prune(st.teams[k].map, e.tick) end
 end)
 
+-- YEUX FIXES (brouillard d'IA2-c : le QG voit à 160 tuiles, un avant-poste à 128) : les menaces fixes connues dans leur
+-- champ sont REVÉRIFIÉES à tour de rôle (M.RECHECK par équipe toutes les M.RECHECK_PERIOD ticks) ; une menace qui n'y est
+-- plus (nid détruit par des tourelles, des soldats, une autre faction) est oubliée. Sans cela, personne ne retournant à un
+-- endroit refusé par la porte, un nid détruit bloquait encore les tournées pendant des dizaines de minutes (banc
+-- final-65703a5\memoire-20261020 : 282 refus, nid détruit). Les menaces hors de ce champ restent en mémoire (brouillard).
+M.RECHECK = 8
+M.RECHECK_PERIOD = 600
+local function eyes_see(f, p)
+  if f.hq_pos and d2(p, f.hq_pos) <= 160 * 160 then return true end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    if o.pos and d2(p, o.pos) <= 128 * 128 then return true end
+  end
+  return false
+end
+Events.on_nth_tick(M.RECHECK_PERIOD, function(e)
+  if not M.enabled() then return end
+  local st = S()
+  if not st then return end
+  for _, k in ipairs(State.sorted_keys(st.teams)) do
+    local t = st.teams[k]
+    local f = State.faction(tonumber(k) or k)
+    local surface = f and f.hq and f.hq.valid and f.hq.surface
+    local list = t.map.threats
+    if surface and #list > 0 then
+      local keep, gone = {}, 0
+      local start = (t.recheck_i or 0) % #list
+      local checked = 0
+      for idx, th in ipairs(list) do
+        local turn = ((idx - 1 - start) % #list) < M.RECHECK
+        local alive = true
+        if turn and eyes_see(f, th) then
+          checked = checked + 1
+          alive = surface.find_nearest_enemy({ position = { x = th.x, y = th.y }, max_distance = (th.k == "pack") and 24 or 6,
+            force = f.force }) ~= nil
+        end
+        if alive then keep[#keep + 1] = th else gone = gone + 1 end
+      end
+      t.recheck_i = start + M.RECHECK
+      if gone > 0 then
+        t.map.threats = keep
+        t.stats.recheck_gone = (t.stats.recheck_gone or 0) + gone
+      end
+      t.stats.rechecks = (t.stats.rechecks or 0) + checked
+    end
+  end
+end)
+
 ---------------------------------------------------------------------------------------------------
 -- Interface distante « fo-ia3k » (bancs ; le mod de test n'a pas accès à `global` de ce mod)
 --   status(clé)                       -> { enabled, epoch, stats, summary, escorts } ou nil
