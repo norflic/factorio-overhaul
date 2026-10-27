@@ -1284,7 +1284,11 @@ local function route_cache(f)
   local key = f.key or "player"
   local ver = tostring(b.seg_ver or 0) .. ":" .. tostring(b.radius)
   local c = ROUTES[key]
-  if not c or c.ver ~= ver then c = { ver = ver, trees = {} }; ROUTES[key] = c end
+  if not c or c.ver ~= ver then
+    c = { ver = ver, trees = {} }
+    ROUTES[key] = c
+    b.stats.route_resets = (b.stats.route_resets or 0) + 1
+  end
   return c.trees
 end
 
@@ -1294,8 +1298,9 @@ function Build.street_route(f, p, q)
   local lim = (b.radius + 0.5) * P.PITCH
   if math.abs(p.x - b.lat.ox) > lim or math.abs(p.y - b.lat.oy) > lim then return nil end
   if math.abs(q.x - b.lat.ox) > lim or math.abs(q.y - b.lat.oy) > lim then return nil end
+  b.stats.route_calls = (b.stats.route_calls or 0) + 1
   local wp = P.street_path(b.lat, p, q, seg_ok(b), b.radius, route_cache(f))
-  if not wp then return nil end
+  if not wp then b.stats.route_nil = (b.stats.route_nil or 0) + 1 return nil end
   return wp
 end
 
@@ -1773,6 +1778,7 @@ function Build.report(f)
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
+    route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = st.route_resets or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,

@@ -392,6 +392,8 @@ return function(variant)
       ctx.log(string.format("marches par les rues %d, arrivees %d, bloques puis rendus au PathService %d ; echecs de chemin de l'equipe %d ; PathService : demandes %d, echecs %d, en vol au plus %d",
         r.street_walks, r.street_ok, r.street_stuck, nav_fail, st.path and st.path.requested or -1, st.path and st.path.fail or -1,
         st.path and st.path.inflight_max or -1))
+      ctx.log(string.format("chemins par les rues demandes %d, sans route %d, memoire des parcours refaite %d fois",
+        r.route_calls or 0, r.route_nil or 0, r.route_resets or 0))
       ctx.log(string.format("fantomes poses %d, refuses %d, ravives %d, echecs de ravivage %d, refus passagers (PNJ sur l'emprise) %d, sous le batisseur %d, defriches %d, quais remplis %d, sorties videes %d",
         r.ghosts, r.ghost_refused, r.revived, r.revive_fail, r.npc_blocks or 0, r.self_skips or 0, r.cleared, r.filled, r.collected))
       -- 1. modules commencés finis
