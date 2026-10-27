@@ -31,6 +31,7 @@ local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot AUTO : exécutants de l'automatisation (Auto.on, Auto.exec_entities)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : exécutants des chaînes à fluides (Pet.on, réglage ÉTEINT par défaut)
 
 local General = {}
 
@@ -155,9 +156,12 @@ end
 --- ne fait que les recettes que son exécutant sait LANCER (Auto.add_executors : gabarits écrits et rangées générées,
 --- ni fluide ni plus de 2 ingrédients hors d'un gabarit écrit), pas toutes celles de ses catégories. `recipes` : le
 --- relevé des recettes (General.dump().recipes), requis quand auto_on.
-function General.exec_opts(auto_on, recipes)
+function General.exec_opts(auto_on, recipes, petrole_dump)
   local exec = { [T.SMELTER] = true, [T.DRILL] = true }
   if auto_on then Auto.add_executors(exec, recipes) end
+  -- Lot PETROLE (réglage fo-war-petrole allumé) : extracteurs des ressources fluides, machines des recettes que la main ne
+  -- sait pas faire (catégorie, boîtes à fluide lues dans les prototypes), entités de la centrale.
+  if petrole_dump then Pet.add_executors(exec, petrole_dump) end
   return { exec = exec, exec_roles = { main = true, labo = true }, labs_unpowered = true,
     -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
     fuel_ok = function(item) return General.kind_of(item) ~= nil end }
@@ -168,20 +172,24 @@ end
 local cats = {}
 function General.catalogue()
   local on = Auto.on() and true or false
-  if cat and cats[on] == cat then return cat end
+  -- lot PETROLE : un catalogue par état des deux réglages (clé « a » / « - », puis « p » si fo-war-petrole est allumé)
+  local pon = Pet.on()
+  local ck = (on and "a" or "-") .. (pon and "p" or "")
+  if cat and cats[ck] == cat then return cat end
   for k in pairs(memos) do memos[k] = nil end
-  if cats[on] then
-    cat = cats[on]
+  if cats[ck] then
+    cat = cats[ck]
     return cat
   end
   Profiler.start("iag:catalogue")
   local d = General.dump()
-  cat = K.build(d, General.exec_opts(on, d.recipes))
-  cats[on] = cat
+  cat = K.build(d, General.exec_opts(on, d.recipes, pon and d or nil))
+  cats[ck] = cat
   Profiler.stop("iag:catalogue")
-  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s",
+  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s%s",
     #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),
-    on and " (automatisation allumee : executants de ses gabarits compris)" or ""))
+    on and " (automatisation allumee : executants de ses gabarits compris)" or "",
+    pon and " (petrole allume : extracteurs des fluides et machines des cellules compris)" or ""))
   return cat
 end
 
@@ -223,6 +231,8 @@ function General.state(f, st, view, durable_only)
   local known = {}
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then known[k] = true end end
   for _, o in ipairs(view.outposts or {}) do known[T.outposts[o.kind].resource] = true end
+  -- Lot PETROLE (réglage allumé) : ressources fluides dont un gisement est connu, eau d'une rive à portée du QG.
+  if Pet.on() then for _, k in ipairs(sorted_keys(Pet.known(f))) do known[k] = true end end
   return { stock = stock, techs = st.techs or {}, built = built, known = known }, nlabs
 end
 
@@ -339,6 +349,7 @@ function General.summary_items(f, list)
   for _, it in ipairs(list or {}) do goals[#goals + 1] = { item = it[1], n = it[2] } end
   local state = { stock = {}, techs = st.techs or {}, built = {}, known = {} }
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then state.known[k] = true end end
+  if Pet.on() then for _, k in ipairs(sorted_keys(Pet.known(f))) do state.known[k] = true end end -- lot PETROLE
   return Gen.summary(General.catalogue(), m.ev, state, goals)
 end
 

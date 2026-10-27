@@ -38,6 +38,7 @@ local General = require("script.ai3.general") -- lot IA-G : le cerveau général
 local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 
 local Ia3 = {}
@@ -687,6 +688,8 @@ function Ia3.plan(f, view, book, surface, tick)
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
+  -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut : rend `auto` tel quel) : sites des chaînes à fluides
+  auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
