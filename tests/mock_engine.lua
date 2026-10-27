@@ -230,7 +230,16 @@ local function new_inventory()
     return c
   end
   inv.is_empty = function() return next(inv._items) == nil end
-  return inv
+  inv.clear = function() inv._items = {} end
+  -- Étape 1 : service_smelters lit la 1re pile (inv[1]) ; le mock rend la première (par nom) comme une pile lisible
+  return setmetatable(inv, { __index = function(_, k)
+    if k ~= 1 then return nil end
+    local names = {}
+    for n in pairs(inv._items) do names[#names + 1] = n end
+    table.sort(names)
+    if #names == 0 then return { valid_for_read = false, count = 0 } end
+    return { valid_for_read = true, name = names[1], count = inv._items[names[1]] }
+  end })
 end
 M.new_inventory = new_inventory
 
@@ -432,6 +441,8 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
+    -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
+    if k == "is_crafting" then return function() return false end end
     if k == "get_output_inventory" then
       return function()
         if t.type == "container" then return inv_of(t, defines.inventory.chest) end

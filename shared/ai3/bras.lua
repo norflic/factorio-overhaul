@@ -40,6 +40,13 @@ Br.SMELT_PCT = 50         -- fours du QG au plus : la moitié de l'effectif (8 P
 Br.SMELT_STEP = 2         -- fours de plus par vague
 Br.SMELT_EVERY = 3600     -- une vague de fours au plus par minute
 Br.ORE_WAIT = 2           -- … quand le minerai au coffre couvre au moins 2 fois ce qu'il faut pour le manque de plaques
+-- Étape 1 / électrification (27/10 au soir, banc etape1-guide, Écarlate : 8 PNJ bloqués à l'effectif de départ, donc 4 fours
+-- au QG au plus, dont 2 pris par l'acier ; minerai de fer au coffre 99 -> 378 entre 30 et 40 min, plaque de fer à 15, aucune
+-- foreuse électrique) : le minerai qui ATTEND au coffre est du fer perdu ; la borne de l'effectif ne vaut plus quand la
+-- fonte est le goulot. Un four de plus par Br.ORE_PER_FURNACE minerais au coffre (la fournée de main d'un four), au plus
+-- Br.SMELT_HARD fours (les places de rangées du QG, shared/team/config.lua : 32).
+Br.ORE_PER_FURNACE = 40
+Br.SMELT_HARD = 16
 -- 3. Recherche d'avance.
 Br.DEPTH_PCT = 15         -- recherches suivantes préparées au plus : 15 % de l'effectif (8 : 1, plancher 3 ; 30 : 4)
 -- 3 bis. Laboratoires : une recherche se paie en packs ET en temps de laboratoire ; des bras libres font les packs, des
@@ -115,6 +122,13 @@ function Br.smelters(s, st, base, grow_thinks)
   -- Les fours déjà posés (fonderie d'amorçage, P.boot_smelters) comptent : la vague part de ce qui est là.
   local target = math.max(base or 0, st.smelt_target or 0, have)
   local max = Br.smelt_max(s.workers, base)
+  -- … et la borne monte avec le minerai qui attend au coffre (jamais sous la borne de l'effectif).
+  local by_ore = 0
+  for _, it in ipairs(s.smelter_inputs or {}) do
+    local extra = math.floor(((s.stock or {})[it[2]] or 0) / ((it[3] or 1) * Br.ORE_PER_FURNACE))
+    if extra > by_ore then by_ore = extra end
+  end
+  if by_ore > max then max = math.min(by_ore, math.max(max, Br.SMELT_HARD)) end
   if target > max then target = max end
   local due = (s.tick or 0) - (st.smelt_tick or -Br.SMELT_EVERY) >= Br.SMELT_EVERY
   if due and have >= target and target < max then

@@ -49,6 +49,13 @@ Build.QUAI_LOW = 60
 Build.QUAI_FILL = 400
 Build.COLLECT_AT = 200
 Build.PRIO = 55
+-- Étape 1 / électrification (27/10 au soir, banc etape1-guide, Azure : matière du module de fonderie réunie à 38 min, puis
+-- 72 obstacles défrichés par 4 PNJ au plus à la priorité 59, sous les packs (85), les kits et les chargeurs (70 à 85) : le
+-- module n'a fini qu'à 46 min) : une tâche de chantier n'existe qu'une fois la matière du projet RÉUNIE (état défrichage,
+-- fantômes ou chantier) ; elle termine un investissement déjà payé et passe devant la fabrication d'avance.
+Build.FINISH_BONUS = 30
+Build.FINISH_CAP = 89         -- … sans jamais atteindre l'urgence (90 : O.URGENT_PRIO, M.URGENT)
+local function finish_prio(base) return math.min(base + Build.FINISH_BONUS, Build.FINISH_CAP) end
 Build.FAIL_LIMIT = 3          -- §6.6 (4) : un fantôme refusé 3 fois bloque son module (raison écrite)
 Build.REFUSAL_LOGS = 40       -- refus de fantôme écrits au journal (emprise et occupants), au plus, par équipe
 Build.NPC_BLOCKS_PER_FAIL = 5  -- un PNJ debout sur l'emprise est passager : 5 refus de ce genre comptent pour 1 échec
@@ -1623,7 +1630,7 @@ local function batch_tasks(f, p, out)
     local items = {}
     for _, it in ipairs(sorted_keys(bt.items)) do items[#items + 1] = { it, bt.items[it] } end
     out[#out + 1] = {
-      key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = p.prio, domain = p.domain, work = 15 + 2 * bt.n,
+      key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = finish_prio(p.prio), domain = p.domain, work = 15 + 2 * bt.n,
       items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
     }
   end
@@ -1647,7 +1654,7 @@ local function clear_tasks(f, p, out)
   for _, k in ipairs(order) do
     local c = by[k]
     out[#out + 1] = {
-      key = "ia1d:" .. p.id .. ":c:" .. k, kind = "clear", prio = p.prio + 1, domain = "logistique", work = 30,
+      key = "ia1d:" .. p.id .. ":c:" .. k, kind = "clear", prio = finish_prio(p.prio + 1), domain = "logistique", work = 30,
       ia1d = { pid = p.id, mode = "clear", anchor = k, ax = c.ax, ay = c.ay, rect = { c.x0 - 1, c.y0 - 1, c.x1 + 1, c.y1 + 1 } },
     }
   end

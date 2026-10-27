@@ -116,6 +116,24 @@ local function suite(Br, B)
   local sst5 = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 }, smelt_target = 15 }
   n = Br.smelters(fs(500, 15), sst5, 4, 6)
   check(n == 15, "§3 borne de l'effectif (15 fours à 30 PNJ)")
+  -- Étape 1 : le minerai qui attend au coffre lève la borne de l'effectif (8 PNJ : 4 fours), jamais au-delà de Br.SMELT_HARD.
+  local function fs8(ore, smelters, tick)
+    local s = fs(ore, smelters, tick)
+    s.workers = 8
+    return s
+  end
+  local sstA = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 } }
+  n = Br.smelters(fs8(180, 4), sstA, 4, 6)
+  check(n == 4, "§3 8 PNJ, 180 minerais (4 fours de minerai) : la borne de l'effectif tient (" .. n .. ")")
+  local sstB = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 } }
+  n = Br.smelters(fs8(378, 4), sstB, 4, 6)
+  check(n == 6, "§3 8 PNJ, 378 minerais au coffre : 2 fours de plus malgré la borne de l'effectif (" .. n .. ")")
+  local sstC = { short = { [IRON] = 60 }, short_n = { [IRON] = 6 } }
+  n = Br.smelters(fs8(9000, 16), sstC, 4, 6)
+  check(n == Br.SMELT_HARD, "§3 8 PNJ, minerai énorme : jamais plus de " .. Br.SMELT_HARD .. " fours (" .. n .. ")")
+  local sstD = { short = {}, short_n = {} }
+  n = Br.smelters(fs8(378, 4), sstD, 4, 6)
+  check(n == 4, "§3 minerai au coffre mais aucune plaque en manque : pas de fours (" .. n .. ")")
   -- Branchement : la famille capital demande les fours visés (faction), votre équipe garde 2.
   local gst = { targets = { iron = 1, coal = 1, copper = 1, stone = 0 }, short = { [IRON] = 60 }, short_n = { [IRON] = 6 } }
   local gs = { key = R.FALLBACK_KEY, tick = 0, workers = 30, cap = { iron = 1, coal = 1, copper = 1 }, pending = {},
