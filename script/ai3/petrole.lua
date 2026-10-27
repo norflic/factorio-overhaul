@@ -525,7 +525,9 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
         local items = {}
         for _, it in ipairs(br.quais or {}) do
           local have = stock[it] or 0
-          local makeable = book and book.handcraftable and book:handcraftable(it)
+          -- fabricable à la main, ou par un exécutant de l'équipe (graphe : l'acier des fours du QG ; moteur réel,
+          -- petrole-partie 1618033988 : cellule du moteur bâtie, quai d'acier jamais servi)
+          local makeable = (book and book.handcraftable and book:handcraftable(it)) or General.feasible(f, it) == true
           if makeable and have < Pet.FEED_STOCK then items[#items + 1] = { it, Pet.FEED_STOCK - have } end
         end
         if #items > 0 then feeds[#feeds + 1] = { product = "petrole:" .. s.key, id = s.id, items = items, gain = Pet.GAIN } end
