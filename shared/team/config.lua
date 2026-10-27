@@ -81,15 +81,18 @@ T.smelter_inputs = {        -- produit visé -> (entrée, quantité d'entrée pa
 -- dessous : aucune position n'est écrite pour une taille de bâtiment. Le bloc de départ (first = { colonnes, places })
 -- redonne, avec les emprises du jeu de base (four 2 × 2, laboratoire 3 × 3), EXACTEMENT les places de main 0.6.1
 -- (outposts.lua, SMELTER_OFFSETS ; script/ai3/cerveau.lua, LAB_OFFSETS), dans leur ordre : une partie en cours garde ses
--- places ; la suite prolonge les rangées (tests/scale_test.lua §8).
+-- places ; la suite prolonge les rangées (tests/scale_test.lua §8). Chaque place est recalée sur la grille du bâtiment et
+-- vérifiée avant la pose (script/ai3/places_qg.lua) ; search : rayon de la recherche de SECOURS autour d'une place des
+-- rangées quand toutes sont prises (terrain encombré), celui de main 0.6.1 (4 tuiles pour les fours, 8 pour les
+-- laboratoires).
 T.hq_rows = {
   -- Fonderie, à l'est du coffre du QG (main) : fours JOINTIFS dans une rangée (écart 0 : un PNJ les garnit à la main,
   -- aucun bras entre eux), une allée d'une tuile entre deux rangées (le PNJ y passe) ; rangées vers le nord ; 8 fours
   -- par rangée (la rangée de main, 4 fours, prolongée vers l'est : le bloc reste à moins de 16 tuiles du coffre).
-  smelter = { origin = { 9, -7 }, dir = { 1, -1 }, gap = { 0, 1 }, first = { 4, 6 }, per_row = 8 },
+  smelter = { origin = { 9, -7 }, dir = { 1, -1 }, gap = { 0, 1 }, first = { 4, 6 }, per_row = 8, search = 4 },
   -- Laboratoires, à l'ouest du coffre (main) : une tuile libre autour de chacun (main : on les garnit à la main de tous
   -- les côtés) ; rangées vers le nord ; 4 par rangée (le carré de main, 2 × 2, prolongé vers l'ouest).
-  lab = { origin = { -10, -7 }, dir = { -1, -1 }, gap = { 1, 1 }, first = { 2, 4 }, per_row = 4 },
+  lab = { origin = { -10, -7 }, dir = { -1, -1 }, gap = { 1, 1 }, first = { 2, 4 }, per_row = 4, search = 8 },
 }
 -- Places générées : au moins 2 fois les machines voulues (une place peut être prise : coffre, tourelles du QG, foreuses
 -- de fond, chantier en cours ; la place prise est sautée par find_non_colliding_position).

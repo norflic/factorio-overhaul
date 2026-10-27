@@ -14,6 +14,7 @@ local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
+local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 
 local Outposts = {}
 
@@ -310,34 +311,23 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Fonderie du QG
 ---------------------------------------------------------------------------------------------------
--- Places des fours du QG : bloc de départ de main 0.6.1 (6 places, même ordre) puis rangées, calculées depuis l'EMPRISE
--- du four posé (collision_box du prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter) ;
--- règle pure : shared/ai3/places.lua (lot SCALE, correction après revue : plus aucun pas de 2 tuiles écrit en dur).
-local function smelter_offsets(need)
-  local proto = game.entity_prototypes[T.SMELTER]
-  local w, h = Pl.tiles(proto and proto.collision_box)
-  return Pl.rows(T.hq_rows.smelter, w, h, need)
-end
-
+-- Fours du QG (lot SCALE, correction après revue) : places en rangées depuis l'EMPRISE du four (collision_box du
+-- prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter), recalées sur la grille et VÉRIFIÉES
+-- avant la pose (script/ai3/places_qg.lua : la pose d'avant chevauchait, capture s4-qg). Bloc de départ = places de main.
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
-  local placed = 0
-  for _, o in ipairs(smelter_offsets(Pl.need(#f.smelters, count, T.hq_rows_slack))) do
-    if placed >= count or carrier.get_item_count(T.SMELTER) < 1 then break end
-    local pos = surface.find_non_colliding_position(T.SMELTER, { x = f.hq_pos.x + o[1], y = f.hq_pos.y + o[2] }, 4, 1)
-    if pos then
+  return PlacesQG.place(surface, T.SMELTER, f.force, f.hq_pos, T.hq_rows.smelter,
+    Pl.need(#f.smelters, count, T.hq_rows_slack), count, function(pos)
+      if carrier.get_item_count(T.SMELTER) < 1 then return nil end
       local s = surface.create_entity({ name = T.SMELTER, position = pos, force = f.force, raise_built = true })
-      if s then
-        carrier.remove({ name = T.SMELTER, count = 1 })
-        local n = math.min(T.fuel_per_burner, carrier.get_item_count(T.fuel))
-        if n > 0 then s.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) }) end
-        f.smelters[#f.smelters + 1] = s
-        State.own(s, f.id, "smelter")
-        placed = placed + 1
-      end
-    end
-  end
-  return placed
+      if not (s and s.valid) then return false end
+      carrier.remove({ name = T.SMELTER, count = 1 })
+      local n = math.min(T.fuel_per_burner, carrier.get_item_count(T.fuel))
+      if n > 0 then s.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) }) end
+      f.smelters[#f.smelters + 1] = s
+      State.own(s, f.id, "smelter")
+      return true
+    end)
 end
 
 function Outposts.smelters(f)

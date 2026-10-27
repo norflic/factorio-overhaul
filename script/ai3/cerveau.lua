@@ -40,6 +40,7 @@ local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (d
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
+local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 
 local Ia3 = {}
 
@@ -431,23 +432,18 @@ end
 --- Pose des laboratoires du QG (objets au coffre), près du coffre. Renvoie le nombre posé.
 local function place_labs(f, st, lab, want)
   local labs = valid_labs(st)
-  local placed = 0
-  local surface = f.hq.surface
-  local proto = game.entity_prototypes[lab.entity]
-  local lw, lh = Pl.tiles(proto and proto.collision_box)
-  for _, off in ipairs(Pl.rows(T.hq_rows.lab, lw, lh, Pl.need(0, want, T.hq_rows_slack))) do
-    if #labs + placed >= want or f.hq.get_item_count(lab.item) < 1 then break end
-    local pos = surface.find_non_colliding_position(lab.entity, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] }, 8, 1)
-    if pos then
-      local e = surface.create_entity({ name = lab.entity, position = pos, force = f.force })
-      if e then
-        f.hq.remove_item({ name = lab.item, count = 1 })
-        st.labs[#st.labs + 1] = e
-        placed = placed + 1
-      end
-    end
-  end
-  return placed
+  if #labs >= want then return 0 end
+  -- Lot SCALE (correction après revue) : places en rangées depuis l'emprise du laboratoire (T.hq_rows.lab), recalées sur
+  -- la grille et vérifiées avant la pose (script/ai3/places_qg.lua).
+  return PlacesQG.place(f.hq.surface, lab.entity, f.force, f.hq_pos, T.hq_rows.lab, Pl.need(0, want, T.hq_rows_slack),
+    want - #labs, function(pos)
+      if f.hq.get_item_count(lab.item) < 1 then return nil end
+      local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
+      if not e then return false end
+      f.hq.remove_item({ name = lab.item, count = 1 })
+      st.labs[#st.labs + 1] = e
+      return true
+    end)
 end
 
 --- Recherche d'une faction à cette pensée : choix, laboratoires, avancement. Renvoie l'information pour la pensée pure.

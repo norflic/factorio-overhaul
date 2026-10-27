@@ -69,6 +69,15 @@ function Pl.rows(spec, w, h, need)
   return out
 end
 
+--- Coordonnée du CENTRE d'un bâtiment de `n` tuiles de côté posé au plus près de `v`, sur la grille du moteur : côté
+--- pair, centre sur un bord de tuile (entier) ; côté impair, centre de tuile (x,5). Correction après revue, capture du QG
+--- à 45 min (s4-qg) : le centre du QG n'est pas sur la grille (x,40625) ; un four cherché autour d'un point hors grille
+--- puis recalé par create_entity (F104) chevauchait son voisin (66 chevauchements de fours sur 4 QG).
+function Pl.snap(v, n)
+  if (n or 1) % 2 == 0 then return math.floor(v + 0.5) end
+  return math.floor(v) + 0.5
+end
+
 --- Places à générer pour poser `count` machines de plus quand `have` sont déjà là : T.hq_rows_slack fois le total (une
 --- place sur deux peut être prise : coffre, tourelles, foreuses, chantier).
 function Pl.need(have, count, slack)

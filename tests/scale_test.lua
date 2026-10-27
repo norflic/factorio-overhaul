@@ -11,7 +11,8 @@
     §7 déterminisme (même entrée, même sortie) et aucun nom du jeu (règle anti-échelle d'IA-G, tests/iag_test.lua §8) ;
     §8 (correction après revue) places du QG en rangées (shared/ai3/places.lua) : emprise lue dans la boîte de collision,
        exactement les places d'avant la correction avec les emprises du jeu de base, préfixe stable, aucune place qui en
-       chevauche une autre de 1 × 1 à 5 × 5, runtime sans liste de places écrite ; 6 mutants.
+       chevauche une autre de 1 × 1 à 5 × 5, recalage sur la grille du bâtiment (Pl.snap) sans chevauchement depuis un QG
+       hors grille, runtime sans liste de places écrite et pose vérifiée (script/ai3/places_qg.lua) ; 8 mutants.
   Usage : lua5.2 tests/scale_test.lua   (depuis la racine du mod)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -293,6 +294,28 @@ local function places_suite(Pl)
   check(overlap == 0, "§8 emprises de 1 × 1 à 5 × 5 : aucune place qui chevauche une autre (" .. overlap .. ")")
   local big = Pl.rows(S, 3, 3, 6)
   check(big[2][1] == 12 and big[5][2] == -11, "§8 four 3 × 3 : pas de 3 tuiles en rangée, allée gardée (" .. big[2][1] .. ", " .. big[5][2] .. ")")
+  -- Recalage sur la grille du bâtiment (capture s4-qg : QG en x,40625, fours recalés par create_entity l'un sur l'autre).
+  check(Pl.snap(220.40625, 2) == 220 and Pl.snap(220.6, 2) == 221 and Pl.snap(-474.40625, 2) == -474
+    and Pl.snap(201.40625, 3) == 201.5 and Pl.snap(-0.25, 3) == -0.5 and Pl.snap(7, 1) == 7.5,
+    "§8 centre sur la grille : côté pair -> entier, côté impair -> x,5 (" .. Pl.snap(201.40625, 3) .. ")")
+  local snapped_overlap = 0
+  for w = 1, 5 do
+    for h = 1, 5 do
+      for _, origin in ipairs({ { 211.40625, -467.40625 }, { -339.59375, 339.59375 }, { 0.5, -0.5 } }) do
+        for _, spec in ipairs({ S, L }) do
+          local list = Pl.rows(spec, w, h, 24)
+          local pts = {}
+          for i, o in ipairs(list) do pts[i] = { Pl.snap(origin[1] + o[1], w), Pl.snap(origin[2] + o[2], h) } end
+          for i = 1, #pts do
+            for j = i + 1, #pts do
+              if math.abs(pts[i][1] - pts[j][1]) < w and math.abs(pts[i][2] - pts[j][2]) < h then snapped_overlap = snapped_overlap + 1 end
+            end
+          end
+        end
+      end
+    end
+  end
+  check(snapped_overlap == 0, "§8 places recalées sur la grille depuis un QG hors grille : aucun chevauchement (" .. snapped_overlap .. ")")
   return p8, f8, m8
 end
 local Pl = load_pl(PL_SRC)
@@ -302,14 +325,21 @@ for _, m in ipairs(m8) do print("[SCALE] ECHEC : " .. m) end
 -- Le runtime lit l'emprise dans le prototype et la disposition dans les données (plus aucune liste de places écrite).
 do
   local bad = {}
-  for _, file in ipairs({ "script/faction/outposts.lua", "script/ai3/cerveau.lua" }) do
-    local code = read(file):gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
+  local function code_of(file) return (read(file):gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")) end
+  for _, it in ipairs({ { "script/faction/outposts.lua", "T.hq_rows.smelter", "find_non_colliding_position(T.SMELTER" },
+    { "script/ai3/cerveau.lua", "T.hq_rows.lab", "find_non_colliding_position(lab.entity" } }) do
+    local code = code_of(it[1])
     if code:find("SMELTER_OFFSETS", 1, true) or code:find("LAB_OFFSETS", 1, true) then
-      bad[#bad + 1] = file .. " (liste de places écrite)"
+      bad[#bad + 1] = it[1] .. " (liste de places écrite)"
     end
-    if not (code:find("collision_box", 1, true) and code:find("T.hq_rows.", 1, true) and code:find("Pl.rows(", 1, true)) then
-      bad[#bad + 1] = file .. " (emprise ou disposition non lue)"
+    if not (code:find("PlacesQG.place(", 1, true) and code:find(it[2], 1, true)) then
+      bad[#bad + 1] = it[1] .. " (pose hors de script/ai3/places_qg.lua ou disposition non lue)"
     end
+    if code:find(it[3], 1, true) then bad[#bad + 1] = it[1] .. " (recherche de place sans recalage ni vérification)" end
+  end
+  local q = code_of("script/ai3/places_qg.lua")
+  for _, need in ipairs({ "collision_box", "Pl.rows(", "Pl.snap(", "can_place_entity" }) do
+    if not q:find(need, 1, true) then bad[#bad + 1] = "script/ai3/places_qg.lua (" .. need .. " absent)" end
   end
   local wcode = read("script/team/worker.lua"):gsub("%-%-[^\n]*", "")
   if not wcode:find("math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))", 1, true) then
@@ -325,6 +355,8 @@ local PL_MUTANTS = {
   { "places demandées ignorées", "while #out < (need or 0) do", "while #out < 0 do" },
   { "places en double", "if seen[k] then return end", "" },
   { "sens des rangées ignoré", "out[#out + 1] = { ox + sx * c * px, oy + sy * r * py }", "out[#out + 1] = { ox + c * px, oy + r * py }" },
+  { "recalage sans la parité du côté", "if (n or 1) % 2 == 0 then return math.floor(v + 0.5) end", "" },
+  { "recalage absent", "  return math.floor(v) + 0.5", "  return v" },
 }
 local pr, pk = 0, {}
 for _, m in ipairs(PL_MUTANTS) do
