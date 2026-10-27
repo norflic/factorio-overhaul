@@ -177,6 +177,33 @@ rep, p, ok = after_refusal(function() global.fo.ia3k.teams["player"].map.threats
 check(p > 0 and ok == true, string.format("menace éteinte sans oubli compté : la sonde rend la main (%d), la tâche part", p))
 rep, p = after_refusal(function(_, ag) idle_ticks(ag, 1800) end)
 check(p == 0, "30 s plus tard, ver toujours là : rejoué (sonde)")
+-- Un lieu oublié HORS de la boîte du trajet ne rend pas la main (oubli ciblé, map.gone_log).
+rep, p = after_refusal(function()
+  local t = global.fo.ia3k.teams["player"]
+  D.mark_seen(t.map, 900, 900, "worm", 25, game.tick)
+  D.forget_unseen(t.map, 900, 900, 10, nil)
+end)
+check(p == 0, "ver oublié loin du trajet (900, 900) : refus rejoué")
+-- Minage : le tableau remplace ses tâches libres à chaque pensée (task.ia3k_retarget perdu) ; le changement de site est
+-- tenté au plus toutes les RETARGET_PERIOD ticks par destination, refus rejoués entre deux.
+do
+  local _, _, f, ag = scenario("portee", nil, 0, 0)
+  local function mine_gate()
+    local mt = { key = "t:mine-u", kind = "mine", resource = "uranium-ore", radius = 96, target = { x = 165, y = -150 } }
+    local ms = { { "home" }, { "goto", { x = 165, y = -150 }, 1.5 }, { "mine", "uranium-ore", 10 }, { "home" } }
+    plans = 0
+    local ok = C.gate(f, ag, mt, ms, game.tick)
+    return ok, plans
+  end
+  local ok1, p1 = mine_gate()
+  idle_ticks(ag, 60)
+  local ok2, p2 = mine_gate()
+  idle_ticks(ag, C.RETARGET_PERIOD)
+  local ok3, p3 = mine_gate()
+  check(not ok1 and p1 > 0, string.format("minage vers un but gardé, sans autre site : refus complet (%d itinéraire(s))", p1))
+  check(not ok2 and p2 == 0, string.format("même minage 60 ticks plus tard (tâche neuve) : refus rejoué (%d)", p2))
+  check(not ok3 and p3 > 0, string.format("après RETARGET_PERIOD : jugement complet, changement de site retenté (%d)", p3))
+end
 local stt = remote.call("fo-ia3k", "status", "player")
 check((stt.stats.refus_memo or 0) > 0, "statistique des refus rejoués publiée (" .. tostring(stt.stats.refus_memo) .. ")")
 check(pcall(M.serialize, global), "global sérialisable (aucune fonction)")

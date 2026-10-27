@@ -521,6 +521,7 @@ end
 -- ouvert par l'extinction des cases mobiles) attend au plus REFUS_TTL ticks.
 M.REFUS_TTL = 3600
 M.REFUS_MAX = 64
+M.GONE_MARGIN = 48 -- tuiles : portée d'une menace (30) + marges (D.MARGIN 10, D.EXACT_MARGIN 4), arrondie
 
 --- La carte a perdu une menace ou une mort hors de shared/ai3/danger.lua (revérification, carte effacée) : ce qui peut LEVER
 --- un refus ; les refus gardés ne valent plus. Les oublis faits par danger.lua sont comptés dans map.gone.
@@ -579,9 +580,23 @@ end
 function M.refus_hit(t, task, dk, sk, B, W, prud, esc, tick)
   local r = t.refus and t.refus[dk]
   if not r then return nil end
-  if r.sk ~= sk or r.B ~= B or r.esc ~= esc or r.uv ~= (t.uv or 0) or r.gone ~= (t.map.gone or 0)
-    or tick - r.t >= M.REFUS_TTL then return nil end
-  if task.kind == "mine" and (not task.ia3k_retarget or tick - task.ia3k_retarget >= M.RETARGET_PERIOD) then return nil end
+  if r.sk ~= sk or r.B ~= B or r.esc ~= esc or r.uv ~= (t.uv or 0) or tick - r.t >= M.REFUS_TTL then return nil end
+  -- Oublis de la carte depuis le jugement : seul un lieu oublié DANS la boîte du trajet (marge comprise) rend la main.
+  local g = t.map.gone or 0
+  if g ~= r.gone then
+    if g - r.gone > D.GONE_LOG then return nil end
+    local lg = t.map.gone_log or {}
+    for n = r.gone + 1, g do
+      local q = lg[(n - 1) % D.GONE_LOG + 1]
+      if not q or (q.x >= r.box[1] and q.x <= r.box[3] and q.y >= r.box[2] and q.y <= r.box[4]) then return nil end
+    end
+  end
+  -- Changement de site d'un minage (C5) : au plus toutes les RETARGET_PERIOD ticks par destination (le tableau remplace ses
+  -- tâches libres à chaque pensée : l'horloge de la tâche, task.ia3k_retarget, repartait de zéro à chaque refus).
+  if task.kind == "mine" then
+    local last = math.max(task.ia3k_retarget or -1e9, r.rt or -1e9)
+    if tick - last >= M.RETARGET_PERIOD then return nil end
+  end
   local decision, why, goal_ok, deaths, mx = M.refus_probe(t, r, prud, esc, tick)
   if decision ~= "wait" then return nil end
   if why ~= "morts" and why ~= "mort" then
@@ -719,8 +734,10 @@ function M.gate(f, agent, task, steps, tick)
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
   if decision == "wait" then
+    local mg = (R.BOX_MARGIN + 1) * D.CELL + M.GONE_MARGIN
     M.refus_keep(t, dk, { sk = sk, t = tick, uv = t.uv or 0, gone = t.map.gone or 0, B = res.B, esc = free >= 2, far = far,
-      px = p.x, py = p.y, gx = dest.x, gy = dest.y, pts = pts,
+      px = p.x, py = p.y, gx = dest.x, gy = dest.y, pts = pts, rt = task.ia3k_retarget,
+      box = { math.min(p.x, dest.x) - mg, math.min(p.y, dest.y) - mg, math.max(p.x, dest.x) + mg, math.max(p.y, dest.y) + mg },
       ppts = res2 and R.samples(p, res2.pts, dest, 8) or nil }) -- chemin sondé : celui qui minimisait le danger
     label(agent, "attente", tick, t.stats)
     if Profiler.enabled() then

@@ -110,6 +110,22 @@ local function add_mobile(map, x, y, r, w, tick)
   end)
 end
 
+--- Lot PERF2 : OUBLIS de la carte (menace ou mort retirée, meute déplacée) comptés dans map.gone et gardés à tour de rôle
+--- dans map.gone_log (D.GONE_LOG derniers lieux) : la mémoire des refus de la porte (script/ai3/comportement.lua) ne
+--- rejuge que les refus dont la boîte de trajet contient un lieu oublié. Rien d'autre ne lit ces champs.
+D.GONE_LOG = 32
+local function note_gone(map, x, y)
+  local n = (map.gone or 0) + 1
+  map.gone = n
+  local lg = map.gone_log
+  if not lg then
+    lg = {}
+    map.gone_log = lg
+  end
+  lg[(n - 1) % D.GONE_LOG + 1] = { x = x, y = y }
+end
+D.note_gone = note_gone
+
 --- Une menace VUE en (x, y) : genre (D.KINDS), portée (nil : celle du genre). Renvoie true si c'est du nouveau
 --- (menace fixe inconnue ou case mobile qui n'était pas marquée).
 function D.mark_seen(map, x, y, kind, range, tick)
@@ -121,7 +137,10 @@ function D.mark_seen(map, x, y, kind, range, tick)
       local dx, dy = t.x - x, t.y - y
       if t.k == kind and dx * dx + dy * dy <= same then
         t.t = tick
-        if K.fast then t.x, t.y, t.r = x, y, r elseif r > t.r then t.r = r end
+        if K.fast then
+          if t.x ~= x or t.y ~= y then note_gone(map, t.x, t.y) end -- meute déplacée : son ancien lieu est libéré
+          t.x, t.y, t.r = x, y, r
+        elseif r > t.r then t.r = r end
         return false
       end
     end
@@ -129,8 +148,8 @@ function D.mark_seen(map, x, y, kind, range, tick)
     if #map.threats > D.MAX_THREATS then
       local oldest = 1
       for i, t in ipairs(map.threats) do if t.t < map.threats[oldest].t then oldest = i end end
-      table.remove(map.threats, oldest)
-      map.gone = (map.gone or 0) + 1
+      local o = table.remove(map.threats, oldest)
+      note_gone(map, o.x, o.y)
     end
     return true
   end
@@ -152,12 +171,13 @@ end
 function D.mark_death(map, x, y, tick, home)
   local keep = {}
   for _, d in ipairs(map.deaths) do
-    if tick - d.t < D.HOUR then keep[#keep + 1] = d end
+    if tick - d.t < D.HOUR then keep[#keep + 1] = d else note_gone(map, d.x, d.y) end
   end
-  local before = #map.deaths
   keep[#keep + 1] = { x = x, y = y, t = tick, home = home or nil }
-  while #keep > D.MAX_DEATHS do table.remove(keep, 1) end
-  if #keep <= before then map.gone = (map.gone or 0) + 1 end
+  while #keep > D.MAX_DEATHS do
+    local o = table.remove(keep, 1)
+    note_gone(map, o.x, o.y)
+  end
   map.deaths = keep
 end
 
@@ -171,12 +191,14 @@ function D.forget_unseen(map, x, y, r, nearest)
   local keep, n = {}, 0
   for _, t in ipairs(map.threats) do
     local dx, dy = t.x - x, t.y - y
-    if dx * dx + dy * dy < l2 then n = n + 1 else keep[#keep + 1] = t end
+    if dx * dx + dy * dy < l2 then
+      n = n + 1
+      note_gone(map, t.x, t.y)
+    else
+      keep[#keep + 1] = t
+    end
   end
-  if n > 0 then
-    map.threats = keep
-    map.gone = (map.gone or 0) + 1
-  end
+  if n > 0 then map.threats = keep end
   return n
 end
 
@@ -404,13 +426,14 @@ function D.prune(map, tick)
   local th = {}
   for _, t in ipairs(map.threats) do
     local K = D.KINDS[t.k] or D.KINDS.unit
-    if (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) * K.w >= 50 * 1000 then th[#th + 1] = t end
+    if (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) * K.w >= 50 * 1000 then th[#th + 1] = t
+    else note_gone(map, t.x, t.y) end
   end
-  if #th < #map.threats then map.gone = (map.gone or 0) + 1 end
   map.threats = th
   local de = {}
-  for _, d in ipairs(map.deaths) do if tick - d.t < D.HOUR then de[#de + 1] = d end end
-  if #de < #map.deaths then map.gone = (map.gone or 0) + 1 end
+  for _, d in ipairs(map.deaths) do
+    if tick - d.t < D.HOUR then de[#de + 1] = d else note_gone(map, d.x, d.y) end
+  end
   map.deaths = de
   return removed
 end
