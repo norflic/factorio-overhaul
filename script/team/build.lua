@@ -1393,7 +1393,9 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
     if r ~= "ok" then
-      e.fails = (e.fails or 0) + 1
+      -- lot PETROLE : sur un site défriché pendant le chantier (spec.lazy_clear), un arbre sous l'emprise n'est pas un
+      -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
+      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1 end
       st.revive_fail = st.revive_fail + 1
       log_refusal(f, p, e, r, surface)
       if r == "obstacle" then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
