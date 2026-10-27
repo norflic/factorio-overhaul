@@ -51,10 +51,12 @@ T.temoins = { 1, 5, 10, 15 }
   trace    = traçante (projectile sans dégâts) : image, echelle, teinte, vitesse (tuiles/tick), lumiere, trainee
   trait    = faisceau sans action de la bouche à la cible : duree (ticks), epaisseur (× sprite), teinte, coeur
   impact   = liste d'explosions à la cible (créées par la traçante à son arrivée, sinon tout de suite)
-  son      = { couches = { … } } : couches AJOUTÉES au son S0 de l'ère (LayeredSound), fichiers vanilla RÉFÉRENCÉS
+  son      = { couches = { … } } : couches AJOUTÉES au son S0 de l'ère (LayeredSound), fichiers vanilla RÉFÉRENCÉS ;
+             volumes réglés par tools/sound/tirs_sonie.py --cible sur Δ(âge) = −0,5 + 0,25 × (âge − 1) dB (PLAN.md §4)
   laser    = faisceau de la tourelle laser de l'âge (épaisseur, teintes)
   Explosion : source (explosion vanilla dont on copie les animations) OU image (T.IMAGES) ; echelle ; teinte ;
-    duree (ticks de l'animation ; absent : celle de la source) ; lumiere { taille, intensite, couleur, onde = facteur
+    duree (ticks de l'animation ; absent : celle de la source) ; tourne (rotate du moteur : l'explosion créée par la
+    traçante suit sa direction, à prouver sur capture) ; lumiere { taille, intensite, couleur, onde = facteur
     de taille au départ (la lumière grandit jusqu'à 1) } ; fumee { source, couleur, nombre } ;
     etincelles { source (particule vanilla), nombre, teinte, vitesse } ; son { fichiers, volume, max }.
   Couche de son : fichiers = { motif, premier, dernier } (motif avec %d) ; volume ; vitesse = { min, max } ;
@@ -96,7 +98,7 @@ T.ages = {
         etincelles = { source = "spark-particle", nombre = 6, teinte = { 1.00, 0.45, 0.20 }, vitesse = 0.07 } },
     },
     son = { couches = {
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.16, vitesse = { 0.74, 0.80 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.22, vitesse = { 0.74, 0.80 },
         max = 2 },
     } },
   },
@@ -105,19 +107,20 @@ T.ages = {
     nom = "Haute technologie", couleur = { 0.23, 0.66, 1.00 },
     part = { 2, 3 }, -- 1 tir sur 3
     bouche = {
-      { image = "gerbe_blanche", echelle = 1.0, teinte = { 0.45, 0.75, 1.00 }, duree = 6,
+      -- (ronde 1 : gerbe_blanche, texture orientée, couchée à l'horizontale quelle que soit la visée : écartée)
+      { source = "explosion-gunshot", echelle = 2.4, teinte = { 0.45, 0.78, 1.00 }, duree = 6,
         lumiere = { taille = 12, intensite = 0.70, couleur = { 0.23, 0.66, 1.00 } } },
     },
-    trace = { image = "fin", echelle = 0.80, teinte = { 0.40, 0.75, 1.00 }, vitesse = 2.4, -- trait de plasma
+    trace = { image = "fin", echelle = 1.00, teinte = { 0.40, 0.75, 1.00 }, vitesse = 2.4, -- trait de plasma
       lumiere = { taille = 4, intensite = 0.70, couleur = { 0.23, 0.66, 1.00 } } },
     impact = {
-      { image = "gerbe_blanche", echelle = 1.6, teinte = { 0.55, 0.82, 1.00 }, duree = 12,
+      { image = "gerbe_blanche", echelle = 2.0, teinte = { 0.55, 0.82, 1.00 }, duree = 12, tourne = true,
         lumiere = { taille = 12, intensite = 0.60, couleur = { 0.23, 0.66, 1.00 }, onde = 0.4 },
         etincelles = { source = "pole-spark-particle", nombre = 8, teinte = { 1.00, 1.00, 1.00 }, vitesse = 0.08 } },
     },
     son = { couches = {
-      { fichiers = { "__base__/sound/fight/laser-%d.ogg", 1, 3 }, volume = 0.20, vitesse = { 0.72, 0.80 }, max = 2 },
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.12, vitesse = { 0.62, 0.68 },
+      { fichiers = { "__base__/sound/fight/laser-%d.ogg", 1, 3 }, volume = 0.39, vitesse = { 0.72, 0.80 }, max = 2 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.23, vitesse = { 0.62, 0.68 },
         max = 1 },
     } },
   },
@@ -138,12 +141,12 @@ T.ages = {
         lumiere = { taille = 20, intensite = 0.80, couleur = { 1.00, 0.75, 0.40 }, onde = 0.3 },
         etincelles = { source = "spark-particle", nombre = 16, teinte = { 1.00, 0.88, 0.55 }, vitesse = 0.10 },
         son = { fichiers = { "__base__/sound/fight/medium-explosion-%d.ogg", 1, 5 }, volume = 0.22, max = 2 } },
-      { image = "gerbe_blanche", echelle = 2.2, teinte = { 1.00, 0.70, 0.32 }, duree = 12 },
+      { image = "gerbe_blanche", echelle = 2.2, teinte = { 1.00, 0.70, 0.32 }, duree = 12, tourne = true },
     },
     son = { couches = {
-      { fichiers = { "__base__/sound/fight/tank-cannon-%d.ogg", 1, 5 }, volume = 0.18, vitesse = { 1.10, 1.22 },
+      { fichiers = { "__base__/sound/fight/tank-cannon-%d.ogg", 1, 5 }, volume = 0.32, vitesse = { 1.10, 1.22 },
         max = 1 },
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.15, vitesse = { 0.52, 0.58 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.27, vitesse = { 0.52, 0.58 },
         max = 2 },
     } },
     laser = { epaisseur = 2.5, teinte = { 1.00, 0.64, 0.28 }, coeur = { 1.00, 0.90, 0.66 }, sol = { 0.60, 0.38, 0.12 } },

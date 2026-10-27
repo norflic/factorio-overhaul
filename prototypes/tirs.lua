@@ -75,7 +75,7 @@ end
 local function explosion(nom, spec, age)
   local e = {
     type = "explosion", name = nom, flags = { "not-on-map", "hidden" }, subgroup = "explosions",
-    localised_name = nom_affiche(age), animations = animations(spec), rotate = false,
+    localised_name = nom_affiche(age), animations = animations(spec), rotate = spec.tourne == true,
   }
   if spec.lumiere then
     e.light = K.lumiere(spec.lumiere)

@@ -50,7 +50,7 @@ for _, e in ipairs({ 5, 10, 15 }) do
   local c = T.ages[e].son and T.ages[e].son.couches
   check(c and #c >= 1, "age " .. e .. " : couches de son ajoutees")
   for _, x in ipairs(c or {}) do
-    check(x.volume <= 0.25 and x.max <= 2, "age " .. e .. " : couche plafonnee (volume <= 0,25, max <= 2)", x.volume)
+    check(x.volume <= 0.5 and x.max <= 2, "age " .. e .. " : couche plafonnee (volume <= 0,5, max <= 2)", x.volume)
     for _, f in ipairs(R.fichiers(x.fichiers)) do
       check(f:match("^__base__/sound/fight/[%w%-]+%.ogg$") ~= nil, "son vanilla reference " .. f)
     end
