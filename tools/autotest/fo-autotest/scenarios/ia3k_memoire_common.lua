@@ -122,7 +122,15 @@ function C.scenario(opts)
       local sv = stv and stv.stats or {}
       local teams = ctx.remote("fo-ia1", "teams") or {}
       local lost, tours = "?", "?"
-      for _, r in ipairs(teams) do if r.key == KEY then lost = r.lost_enemy end end
+      for _, r in ipairs(teams) do
+        if r.key == KEY then
+          lost = r.lost_enemy
+          -- Économie d'Écarlate (comparer au témoin : la prudence ne doit pas étrangler la faction).
+          ctx.log(string.format("FAIT economie d'Ecarlate a la fin : livre fer %d, cuivre %d, charbon %d ; avant-postes %d ; soldats %d ; recrues %d ; PNJ %d ; perdus %d (dont ennemis %d)",
+            r.delivered["iron-plate"] or 0, r.delivered["copper-plate"] or 0, r.delivered["coal"] or 0, r.outposts or 0, r.soldiers or 0,
+            r.recruited or 0, r.n or 0, r.lost or 0, r.lost_enemy or 0))
+        end
+      end
       local nests = s.count_entities_filtered({ position = st.nest, radius = 30, type = "unit-spawner", force = "enemy" })
       local sold = stv and stv.soldiers
       ctx.log(string.format("FAIT une heure apres le nid : %d mort(s) d'ouvriers d'Ecarlate a moins de 48 tuiles du nid, %d en tout ; au plus %d au meme endroit (32 tuiles) dans une heure ; tues par les ennemis (partie) %s",

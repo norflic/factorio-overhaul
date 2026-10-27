@@ -240,6 +240,14 @@ check(global.fo.ia3k.agents[ag.id].risk == true, "tournée escaladée marquée �
 local blocking = false
 for _, th in ipairs(global.fo.ia3k.teams["player"].map.threats) do if th.b then blocking = true end end
 check(blocking, "le ver qui bloque est signalé aux soldats")
+-- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
+local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
+remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)
+local mt = { key = "test:mine", kind = "mine", resource = "iron-ore", radius = 96, target = { x = ip.x, y = ip.y } }
+local msteps = { { "home" }, { "goto", { x = ip.x, y = ip.y }, 1.5 }, { "mine", "iron-ore", 10 }, { "home" } }
+local mok = C.gate(f, ag, mt, msteps, game.tick)
+local ng = msteps[2][2]
+check(mok == true and R.dist(ng.x, ng.y, ip.x, ip.y) > 40, string.format("minage reciblé hors de la zone du ver (%.0f, %.0f)", ng.x, ng.y))
 remote.call("fo-ia3k", "hold", "player", true)
 -- Mort réelle d'un PNJ (cause ennemie) : marquée par le crochet du registre.
 local d_before = remote.call("fo-ia3k", "status", "player").stats.deaths

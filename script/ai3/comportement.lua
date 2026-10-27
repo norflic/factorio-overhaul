@@ -432,6 +432,29 @@ function M.nav_failed(agent, tick)
   return true
 end
 
+--- Autre tuile de minerai hors danger pour un minage (C5 « change de site ») : ou nil.
+function M.retarget_mine(f, t, task, surface, tick, B)
+  if not (task.resource and f.hq_pos) then return nil end
+  local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = task.resource, limit = 256 })
+  table.sort(res, function(x, y)
+    local dx, dy = d2(x.position, f.hq_pos), d2(y.position, f.hq_pos)
+    if dx ~= dy then return dx < dy end
+    if x.position.x ~= y.position.x then return x.position.x < y.position.x end
+    return x.position.y < y.position.y
+  end)
+  local field = D.field(t.map, tick)
+  local stride = math.max(1, math.floor(#res / 40))
+  for i = 1, #res, stride do
+    local p = res[i].position
+    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
+      local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource",
+        invert = true, limit = 1 })
+      if busy == 0 then return { x = p.x, y = p.y } end
+    end
+  end
+  return nil
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
@@ -457,6 +480,20 @@ function M.gate(f, agent, task, steps, tick)
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
   local a = astate(agent)
   a.escort, a.risk = nil, nil
+  -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
+  -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
+  if decision == "wait" and task.kind == "mine" and not task.ia3k_retarget then
+    task.ia3k_retarget = true
+    local q = M.retarget_mine(f, t, task, e.surface, tick, res.B)
+    if q then
+      for _, s in ipairs(steps) do
+        if s[1] == "goto" then s[2] = { x = q.x, y = q.y } break end
+      end
+      task.target = { x = q.x, y = q.y }
+      t.stats.retarget = (t.stats.retarget or 0) + 1
+      return M.gate(f, agent, task, steps, tick)
+    end
+  end
   -- ESCALADE (IA3_CERVEAU §4.2 : « attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour
   -- une mort) part quand même après W attentes (2 audacieux à 6 prudent) ; le PNJ garde ses réflexes (demi-tour à portée).
   -- La menace qui bloque est signalée aux soldats (nettoyage quel que soit le caractère, script/ai3/soldats.lua).
