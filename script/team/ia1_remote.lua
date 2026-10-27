@@ -65,6 +65,11 @@ local function team_row(f)
     lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = f.hq.get_item_count("iron-plate"),
     idle_rien = (f.team.idle_why or {}).rien or 0, idle_bloque = (f.team.idle_why or {}).bloque or 0,
     idle_manque = (f.team.idle_why or {}).manque or 0,
+    -- Lot IA3-d : règle d'effectif d'une faction (dernière pensée) : raison, recrues de croissance, travail en attente.
+    eff_reason = (f.team.effectif and f.team.effectif.last_d and f.team.effectif.last_d.reason) or "",
+    eff_grown = (f.team.effectif and f.team.effectif.grown) or 0,
+    eff_waiting = (f.team.effectif and f.team.effectif.last_d and f.team.effectif.last_d.waiting) or 0,
+    eff_hands = (f.team.effectif and f.team.effectif.last_d and f.team.effectif.last_d.hands) or 0,
   }
   local turrets, defended, hq_t = 0, {}, 0
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do

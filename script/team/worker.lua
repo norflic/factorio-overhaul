@@ -329,7 +329,11 @@ function Worker.program(f, task, surface, tick)
     table.sort(products)
     for _, p in ipairs(products) do
       local input = T.smelter_inputs[p]
-      if input then list[#list + 1] = { input[1], math.min(input[2] * 20, input[2] * task.smelt[p]) } end
+      -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
+      -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
+      -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
+      local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
+      if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
     end
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
@@ -964,6 +968,23 @@ Registry.on_removed(function(agent)
     log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
       game.tick / 3600))
+    -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
+    -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
+    -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.
+    if not f.is_player and agent.death_cause:find("/enemy:", 1, true) and p and f.hq_pos
+      and dist2(p, f.hq_pos) <= Worker.SAFE_HOME * Worker.SAFE_HOME then
+      local hd = f.hq_deaths or {}
+      f.hq_deaths = hd
+      hd[#hd + 1] = game.tick
+      while #hd > T.hq_lethal_deaths do table.remove(hd, 1) end
+      if #hd >= T.hq_lethal_deaths and hd[#hd] - hd[1] <= T.hq_lethal_window
+        and not (f.hq_lethal_tick and game.tick - f.hq_lethal_tick < T.hq_lethal_ticks) then
+        f.hq_lethal_tick = game.tick
+        f.stats.hq_lethal = (f.stats.hq_lethal or 0) + 1
+        log(string.format("[FO-TEAM] %s : QG occupe par les biters (%d PNJ tues a moins de %d tuiles en %.1f min) : aucune recrue pendant %d min, a %.1f min",
+          f.key or "?", #hd, Worker.SAFE_HOME, (hd[#hd] - hd[1]) / 3600, T.hq_lethal_ticks / 3600, game.tick / 3600))
+      end
+    end
     -- Lot IA1-b2 (défendre d'abord) : l'avant-poste vers lequel allait le PNJ tué devient MEURTRIER (date gardée) : le
     -- cerveau n'y envoie plus personne pendant T.lethal_ticks, sauf pour y poser des tourelles.
     local oid = t and (t.outpost or (type(t.post) == "number" and t.post) or nil)

@@ -39,6 +39,9 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
+local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
+local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
+local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 
 local Ia3 = {}
 
@@ -49,7 +52,10 @@ Ia3.PACK_BATCH = 30         -- packs d'une sorte demandés à la fois (comme IA3
 Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la recherche suivante démarre sans attendre)
 Ia3.REACH_RADII = { 48, 96, 160, 250 }
 Ia3.REACH_EVERY = 12        -- gisements atteignables relus toutes les 12 pensées (1 min)
-Ia3.LAB_OFFSETS = { { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }
+-- Places des laboratoires du QG (lot SCALE, correction après revue) : bloc de départ de main 0.6.1 (4 places, même ordre)
+-- puis rangées, calculées depuis l'EMPRISE du laboratoire posé (collision_box du prototype) et la disposition nommée de
+-- shared/team/config.lua (T.hq_rows.lab) ; règle pure : shared/ai3/places.lua. Plus aucun pas de 4 tuiles écrit en dur.
+
 -- Paliers de recherche (§6.1, MESURE seulement) : lot IA-G, déplacés dans script/ai3/paliers.lua ; le test anti-échelle
 -- (tests/iag_test.lua §8) vérifie qu'ils ne sont lus que par Ia3.measure.
 Ia3.PALIERS = Paliers.LIST
@@ -427,21 +433,18 @@ end
 --- Pose des laboratoires du QG (objets au coffre), près du coffre. Renvoie le nombre posé.
 local function place_labs(f, st, lab, want)
   local labs = valid_labs(st)
-  local placed = 0
-  local surface = f.hq.surface
-  for _, off in ipairs(Ia3.LAB_OFFSETS) do
-    if #labs + placed >= want or f.hq.get_item_count(lab.item) < 1 then break end
-    local pos = surface.find_non_colliding_position(lab.entity, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] }, 8, 1)
-    if pos then
-      local e = surface.create_entity({ name = lab.entity, position = pos, force = f.force })
-      if e then
-        f.hq.remove_item({ name = lab.item, count = 1 })
-        st.labs[#st.labs + 1] = e
-        placed = placed + 1
-      end
-    end
-  end
-  return placed
+  if #labs >= want then return 0 end
+  -- Lot SCALE (correction après revue) : places en rangées depuis l'emprise du laboratoire (T.hq_rows.lab), recalées sur
+  -- la grille et vérifiées avant la pose (script/ai3/places_qg.lua).
+  return PlacesQG.place(f.hq.surface, lab.entity, f.force, f.hq_pos, T.hq_rows.lab, Pl.need(0, want, T.hq_rows_slack),
+    want - #labs, function(pos)
+      if f.hq.get_item_count(lab.item) < 1 then return nil end
+      local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
+      if not e then return false end
+      f.hq.remove_item({ name = lab.item, count = 1 })
+      st.labs[#st.labs + 1] = e
+      return true
+    end)
 end
 
 --- Recherche d'une faction à cette pensée : choix, laboratoires, avancement. Renvoie l'information pour la pensée pure.
@@ -494,7 +497,10 @@ local function research_step(f, st, book, w, tick, view)
   local labs, speed = valid_labs(st)
   local left = spec.count - (lab.units or 0)
   local secs = left * spec.energy / 60 / math.max(1, lproto and lproto.speed or 1)
-  local want = math.min(Ia3.LABS_MAX, math.max(1, math.ceil(secs / Ia3.LAB_WINDOW_S)))
+  -- Lot SCALE : bornes et fenêtre selon l'effectif et les bras libres (Br.labs_max, Br.lab_window).
+  local spare_hands = General.spare_hands(f, view, tick)
+  local window = Br.lab_window(Ia3.LAB_WINDOW_S, spare_hands)
+  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX), math.max(1, math.ceil(secs / window)))
   if lproto then
     info.lab_item = lproto.item
     local stock = view.stock[lproto.item] or 0
@@ -679,9 +685,14 @@ function Ia3.plan(f, view, book, surface, tick)
     iron_floor = math.ceil(raw[floor_item] or 0)
   end
   local army_target = 0
+  local spare_hands = General.spare_hands(f, view, tick) -- lot SCALE : bras libres durables (0 pour votre équipe)
   if not f.is_player then
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
+    -- Lot SCALE (armée selon le caractère) : une faction agressive aux bras libres arme d'avance, quand sa matière clé ne
+    -- manque pas (shared/ai3/bras.lua, Br.army ; jamais au-delà du plafond de soldats).
+    local key_short = ((st.short or {})[floor_item] or 0) > 0
+    army_target = Br.army(army_target, view.soldiers_max, (f.traits or {}).agressivite, spare_hands, key_short)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
@@ -694,6 +705,7 @@ function Ia3.plan(f, view, book, surface, tick)
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
     idle_grow = General.idle_grow(f, view, tick),
+    spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = (not f.is_player) and Capital.goal(f, view, book, tick, w) or nil }

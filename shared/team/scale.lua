@@ -36,7 +36,10 @@ S.SETTINGS = {
   { name = "fo-war-factions", default = 2, min = 2, max = 4, order = "e-war-b", declared_in = "settings/faction.lua" },
   -- PNJ (ouvriers) par faction : plafond dès l'époque 1 (Q-IA1-2 (2)), suivi en cours de partie par une guerre
   -- lancée sans nombre (lancement automatique, « /fo-war start » sans nombre). 0.4.15 : 1 à 10.
-  { name = "fo-war-workers", default = 4, min = 1, max = 60, order = "e-war-d", declared_in = "settings/faction.lua" },
+  -- Lot SCALE (proposition P1 d'IA3-d ; D-14 Q-IA1-2 (2) « 30 dès l'époque 1 », D-18 « 8 au départ ») : défaut 4 -> 30.
+  -- Avec 4, le départ min(fo-npc-start 8, 4) = 4 = le plafond : aucune faction ne pouvait grandir (F315). Une partie
+  -- déjà lancée garde la valeur de sa sauvegarde.
+  { name = "fo-war-workers", default = 30, min = 1, max = 60, order = "e-war-d", declared_in = "settings/faction.lua" },
   -- PNJ de votre équipe (remplace T.player_workers_max = 8). Commande du lot : 6 à 60 (le §11 écrivait 0 à 60).
   { name = "fo-player-team-npc-max", default = 30, min = 6, max = 60, order = "f-c" },
   -- Effectif de départ (2 avant IA1), borné par le plafond de l'époque 1.

@@ -30,6 +30,7 @@
 
 local G = require("shared.ai3.graphe")
 
+local Br = require("shared.ai3.bras") -- lot SCALE : bornes qui suivent l'effectif
 local Gen = {}
 
 Gen.V_PACK = 100       -- débloque un pack de laboratoire que l'équipe ne sait pas encore faire (progression)
@@ -324,13 +325,14 @@ end
 --- PNJ sans tâche sont moins de Gen.IDLE_MIN ou moins de Gen.IDLE_PCT % de l'effectif (rien ne change à 8 PNJ occupés),
 --- puis 1 par Gen.IDLE_PER PNJ sans tâche, au plus Gen.AHEAD_MAX.
 Gen.IDLE_MIN = 2
-Gen.IDLE_PCT = 25
+Gen.IDLE_PCT = 15 -- lot SCALE : 25 -> 15 (PNJ sans tâche lissés, script/ai3/general.lua ; cible B1 : 15 à 20 %)
 Gen.IDLE_PER = 3
 Gen.AHEAD_MAX = 3
 function Gen.ahead_depth(idle, workers)
   idle, workers = idle or 0, workers or 0
   if idle < Gen.IDLE_MIN or idle * 100 < Gen.IDLE_PCT * math.max(1, workers) then return 0 end
-  return math.min(Gen.AHEAD_MAX, math.max(1, math.floor(idle / Gen.IDLE_PER)))
+  -- Lot SCALE : le plafond suit l'effectif (Br.depth_max : 3 jusqu'à 20 PNJ, 5 à 30).
+  return math.min(Br.depth_max(workers, Gen.AHEAD_MAX), math.max(1, math.floor(idle / Gen.IDLE_PER)))
 end
 
 --- Bras libres DURABLES (moteur réel, banc g5, graine 271828182 : à la PREMIÈRE pensée, les 8 PNJ sont sans tâche

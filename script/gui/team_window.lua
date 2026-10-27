@@ -493,6 +493,8 @@ local function card(parent, f, rec, tick, war)
   if (f.upgrades or 0) > 0 then tech = tech .. " (+" .. f.upgrades .. ")" end
   label(inner, { "fo-ia1i.forces", f.soldiers_count or 0, f.garrison_count or 0, f.engineers_count or 0,
     Team.npc_max(f), f.outposts_count or 0, tech, rec and rec.attacks or 0 }, { width = w })
+  local recruit = Team.effectif_text(f) -- lot IA3-d : pourquoi la faction recrute ou non
+  if recruit then label(inner, recruit, { width = w, color = GREY }) end
 
   if f.team and f.team.ia3c then ia3_projects(inner, f, w, true) end -- lot IA3-c
 

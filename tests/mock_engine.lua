@@ -769,7 +769,7 @@ function M.new_world(opts)
       ["fo-pvp-difficulty"] = opts.difficulty or "normal", -- lot IA0 : défaut du jeu
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
-      ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
+      ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 30, -- lot SCALE : défaut 4 -> 30 (P1 d'IA3-d)
       -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua). Lot IA-V2 : ALLUMÉ par défaut comme le jeu (0.5.0) ;
       -- éteint par l'option (ia3_cerveau = false) ou par FO_IA3_CERVEAU=0 (bancs « bascule éteinte », pvp_test compris).
       ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
