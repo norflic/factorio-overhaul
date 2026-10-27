@@ -14,8 +14,8 @@
        produit n'est pas saturé, dans l'ordre du besoin brut (ressources clés déduites du dépliage) ;
     3. RECHERCHE : les packs des technologies suivantes d'avance (Gen.lookahead) : la profondeur suit les bras libres
        et l'effectif (Br.depth_max) au lieu d'un plafond fixe de 3 ;
-    4. ARMÉE selon le CARACTÈRE : des soldats d'avance pour une faction agressive (trait « agressivite », IA2-0) quand
-       sa matière clé ne manque pas.
+    4. ARMÉE selon le CARACTÈRE : des soldats d'avance, d'autant plus que la faction est agressive (trait
+       « agressivite », IA2-0), quand sa matière clé ne manque pas.
   Les bornes suivent l'EFFECTIF (pour cent de PNJ), jamais un nombre de bâtiments écrit pour une partie : 8 PNJ rendent
   les bornes d'avant (5 capacités, 4 fours, 3 recherches), 30 PNJ des bornes plus hautes.
   La recrue (règle d'IA3-d, shared/ai3/effectif.lua) suit le travail en attente : ce travail d'avance qui attend au-delà
@@ -53,8 +53,8 @@ Br.LAB_WINDOW_MIN_PCT = 25 -- la fenêtre « un laboratoire par N s de recherche
 -- charbon et pierre saturés à 1 100 plaques de fer libres, aucun but d'extraction, 10 PNJ sans tâche).
 Br.REF_WORKERS = 8
 -- 4. Armée d'avance.
-Br.ARMY_STEP_PCT = 10     -- soldats visés de plus : 10 % du plafond de soldats par point d'agressivité au-dessus de 1000
-                          -- (pour mille) : agressivité 1 400 -> + 4 % ; jamais au-delà du plafond
+Br.ARMY_STEP_PCT = 10     -- soldats visés de plus : 10 % du plafond × agressivité (pour mille) : 600 -> + 6 %,
+                          -- 1 000 -> + 10 %, 1 400 -> + 14 % ; jamais au-delà du plafond
 
 local function clamp(x, lo, hi)
   if x < lo then return lo end
@@ -134,15 +134,15 @@ function Br.smelters(s, st, base, grow_thinks)
   return target
 end
 
---- Soldats visés d'avance pour une faction (caractère) : la cible du chef, plus Br.ARMY_STEP_PCT % du plafond par
---- 100 pour mille d'agressivité au-dessus de 1 000, quand des bras sont libres et que la matière clé ne manque pas ;
---- jamais au-delà du plafond. Rend la cible.
+--- Soldats visés d'avance pour une faction (caractère) : la cible du chef, plus Br.ARMY_STEP_PCT % du plafond × son
+--- agressivité (pour mille), quand des bras sont libres et que la matière clé ne manque pas ; jamais au-delà du
+--- plafond. Rend la cible.
 function Br.army(target, soldiers_max, agressivite, spare, key_short)
   target = target or 0
   if (spare or 0) <= 0 or key_short then return target end
-  local extra_pm = (agressivite or 1000) - 1000
-  if extra_pm <= 0 then return target end
-  local add = math.floor((soldiers_max or 0) * Br.ARMY_STEP_PCT * extra_pm / 100 / 1000)
+  local a = agressivite or 1000
+  if a < 0 then a = 0 end
+  local add = math.floor((soldiers_max or 0) * Br.ARMY_STEP_PCT * a / 100 / 1000)
   return math.min(soldiers_max or 0, target + add)
 end
 

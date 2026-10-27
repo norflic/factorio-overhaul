@@ -124,8 +124,8 @@ local function suite(Br, B)
   for _, g in ipairs(goals2) do if g.key == "capital:fonderie" then f2 = g end end
   check(f2 == nil, "§3 votre équipe : fonderie inchangée (2 fours, déjà dépassés)")
   -- §4 Armée selon le caractère.
-  check(Br.army(60, 100, 1400, 6, false) == 64, "§4 agressivité 1 400 : + 4 soldats sur 100 (" .. Br.army(60, 100, 1400, 6, false) .. ")")
-  check(Br.army(60, 100, 900, 6, false) == 60, "§4 faction peu agressive : cible du chef")
+  check(Br.army(60, 100, 1400, 6, false) == 74, "§4 agressivité 1 400 : + 14 soldats sur 100 (" .. Br.army(60, 100, 1400, 6, false) .. ")")
+  check(Br.army(60, 100, 600, 6, false) == 66, "§4 faction peu agressive (600) : + 6 seulement")
   check(Br.army(60, 100, 1400, 0, false) == 60, "§4 sans bras libres : cible du chef")
   check(Br.army(60, 100, 1400, 6, true) == 60, "§4 matière clé en manque : cible du chef")
   check(Br.army(98, 100, 2000, 6, false) == 100, "§4 jamais au-delà du plafond")
@@ -174,7 +174,7 @@ local MUTANTS = {
   { "fours sur manque passager", "n >= (grow_thinks or 0)", "true" },
   { "fours avant la pose des précédents", "if due and have >= target and target < max then", "if due and target < max then" },
   { "fours sans rythme", "local due = (s.tick or 0) - (st.smelt_tick or -Br.SMELT_EVERY) >= Br.SMELT_EVERY", "local due = true" },
-  { "armée sans caractère", "if extra_pm <= 0 then return target end", "if extra_pm <= 0 then extra_pm = 400 end" },
+  { "armée sans caractère", "local a = agressivite or 1000", "local a = 1000" },
   { "armée malgré le manque", "if (spare or 0) <= 0 or key_short then return target end", "if (spare or 0) <= 0 then return target end" },
   { "armée au-delà du plafond", "return math.min(soldiers_max or 0, target + add)", "return target + add" },
   { "plancher du besoin fixe", "return math.max(floor or 0, math.floor((floor or 0) * (workers or 0) / Br.REF_WORKERS))",
