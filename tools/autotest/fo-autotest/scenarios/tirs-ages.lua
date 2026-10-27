@@ -138,6 +138,8 @@ return {
         for i, dy in ipairs({ -2.5, 2.5 }) do
           if not (site.biters[i] and site.biters[i].valid) then
             site.biters[i] = s.create_entity({ name = "big-biter", position = { site.cx - 1.5, site.cy + dy }, force = "enemy" })
+            -- posés : immobiles (sinon ils marchent jusqu'à la tourelle et la traçante n'a plus de trajet à montrer)
+            if site.biters[i] then site.biters[i].active = false end
           end
         end
       end

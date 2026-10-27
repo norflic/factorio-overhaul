@@ -86,15 +86,15 @@ T.ages = {
     part = { 1, 2 }, -- 1 tir sur 4
     bouche = {
       { source = "explosion-gunshot", echelle = 1.8, teinte = { 1.00, 0.45, 0.16 }, duree = 6,
-        lumiere = { taille = 7.5, intensite = 0.50, couleur = { 1.00, 0.33, 0.08 } },
+        lumiere = { taille = 7.5, intensite = 0.60, couleur = { 1.00, 0.33, 0.08 } },
         fumee = { source = "smoke-fast", couleur = { 0.24, 0.18, 0.16, 0.70 }, nombre = 2 } }, -- cendre
     },
-    trace = { image = "fin", echelle = 0.55, teinte = { 1.00, 0.40, 0.10 }, vitesse = 1.5, -- scorie incandescente
+    trace = { image = "fin", echelle = 0.70, teinte = { 1.00, 0.40, 0.10 }, vitesse = 1.5, -- scorie incandescente
       lumiere = { taille = 3, intensite = 0.45, couleur = { 1.00, 0.30, 0.06 } },
       trainee = { source = "smoke-fast", couleur = { 0.32, 0.12, 0.07, 0.55 }, frequence = 0.5 } },
     impact = {
-      { source = "explosion", echelle = 0.7, teinte = { 1.00, 0.62, 0.42 },
-        lumiere = { taille = 6, intensite = 0.50, couleur = { 1.00, 0.30, 0.06 } },
+      { source = "explosion", echelle = 1.0, teinte = { 1.00, 0.62, 0.42 },
+        lumiere = { taille = 7, intensite = 0.60, couleur = { 1.00, 0.30, 0.06 } },
         etincelles = { source = "spark-particle", nombre = 6, teinte = { 1.00, 0.45, 0.20 }, vitesse = 0.07 } },
     },
     son = { couches = {
