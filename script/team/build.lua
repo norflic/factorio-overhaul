@@ -339,7 +339,10 @@ local function candidates(b, states, toward, res)
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
     -- un lot de gisement sert plusieurs lignes de foreuses tant qu'il reste de la place (relevé des tuiles libres)
-    if (not l.used or l.state == "gisement") and states[l.state] and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot IA3-e : la centrale peut aussi aller dans un lot refusé pour l'EAU (plus de la moitié d'eau) : sa rive y est
+    -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
+    local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
+    if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
     end
@@ -839,7 +842,7 @@ local function plan_project(f, surface, p)
   local toward
   if spec.near then toward = spec.near end
   if is_plant then
-    main, why = place_module(f, surface, g, { rive = true }, toward or { x = b.lat.ox, y = b.lat.oy }, nil, { water = true, margin = 0 })
+    main, why = place_module(f, surface, g, { rive = true, eau = true }, toward or { x = b.lat.ox, y = b.lat.oy }, nil, { water = true, margin = 0 })
   elseif g.resource then
     main, why = place_module(f, surface, g, { gisement = true }, toward or { x = b.lat.ox, y = b.lat.oy }, spec.resource or g.resource)
   else
