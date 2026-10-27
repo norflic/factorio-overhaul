@@ -255,11 +255,24 @@ local function tech_value(c, spec, w, chain_value, wanted)
 end
 
 --- Choix de la technologie (inertie : la technologie en cours reste tant qu'elle n'est ni faite ni impayable).
-local function choose_tech(f, force, st, c, book, w)
+Ia3.AUTO_STALL = 10 * 3600  -- lot IA3-e : une recherche pour l'automatisation sans unité payée depuis 10 min…
+Ia3.AUTO_PAUSE = 20 * 3600  -- … laisse passer les autres recherches pendant 20 min (les paliers ne reculent pas, K1)
+
+local function choose_tech(f, force, st, c, book, w, tick)
   local done = st.techs
   local wanted = Auto.wanted(f) -- lot IA3-e
   local lab = st.lab
-  if lab and lab.tech and not done[lab.tech] then
+  -- Lot IA3-e (garde de K1) : la chaîne d'un objet voulu ne doit pas FIGER la recherche (moteur réel, e2-usine : azure
+  -- bloquée 70 min sur le poteau moyen faute de packs verts, paliers 2 et 3 jamais atteints, contre 32 et 53 min au témoin).
+  if lab and lab.for_auto and lab.tech and not done[lab.tech] and tick and tick - (lab.paid_tick or lab.started or tick) > Ia3.AUTO_STALL then
+    st.auto_pause = tick + Ia3.AUTO_PAUSE
+    log(string.format("[FO-IA3E] %s : recherche '%s' (automatisation) sans progres depuis %d min : les autres recherches passent %d min",
+      f.key or "?", lab.tech, math.floor(Ia3.AUTO_STALL / 3600), math.floor(Ia3.AUTO_PAUSE / 3600)))
+    lab.for_auto = nil
+    lab.stalled = true
+  end
+  if st.auto_pause and tick and tick < st.auto_pause then wanted = nil end
+  if lab and lab.tech and not done[lab.tech] and not lab.stalled then
     local spec = c.techs[lab.tech]
     if spec then
       local ok = A.level_status(book, spec.ing, obtainable)
@@ -309,6 +322,7 @@ local function choose_tech(f, force, st, c, book, w)
   end
   local best, best_score, best_palier = nil, nil, false
   local auto_best, auto_cost = nil, nil
+  local pack_best, pack_cost = nil, nil
   local blocked_causes = {}
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
@@ -325,6 +339,12 @@ local function choose_tech(f, force, st, c, book, w)
           local score = math.floor(v * 1000 / (cost + 10))
           if v > 0 and (not best_score or score > best_score) then best, best_score, best_palier = name, score, palier end
           if auto_chain[name] and (not auto_cost or cost < auto_cost) then auto_best, auto_cost = name, cost end
+          -- garde de K1 : une technologie qui ouvre un PACK (palier), prête et payable, passe devant la chaîne
+          local opens_pack = false
+          for _, r in ipairs(spec.unlocks) do
+            for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens_pack = true end end
+          end
+          if opens_pack and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
         else
           for _, k in ipairs(causes) do blocked_causes[k] = true end
         end
@@ -335,6 +355,7 @@ local function choose_tech(f, force, st, c, book, w)
   -- fonderie électrique) passe devant les autres recherches : la moins chère de sa chaîne, prête et payable. Moteur réel,
   -- e1-usine (27/10) : sans cette règle, « electronics » (27 unités) ne partait qu'à 38 min, après des recherches peu
   -- chères mais sans usage immédiat (military-2, defender), et le poteau moyen à 45-49 min (2 factions sur 4 en 90 min).
+  if auto_best and pack_best then return pack_best, true, {}, true end
   if auto_best then return auto_best, true, {}, true, true end
   if best then return best, true, {}, best_palier end
   return nil, false, sorted_keys(blocked_causes), false
@@ -391,7 +412,7 @@ local function research_step(f, st, book, w, tick, view)
   if not force then return nil end
   local c = catalogue()
   refresh_techs(force, st, c)
-  local tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w)
+  local tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
   local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {}, for_auto = for_auto or nil }
   if not tech then
     info.tech = "?"
@@ -452,6 +473,7 @@ local function research_step(f, st, book, w, tick, view)
         f.team.consumed[ing[1]] = (f.team.consumed[ing[1]] or 0) + ing[2]
       end
       lab.paid = lab.paid + 1
+      lab.paid_tick = tick -- lot IA3-e : dernière unité payée (garde de K1)
     end
     lab.units = math.min(target, lab.paid)
     if lab.units >= spec.count then
