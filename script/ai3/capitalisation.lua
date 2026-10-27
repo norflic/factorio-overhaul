@@ -94,6 +94,12 @@ function Capi.on(f)
   return Auto.on() and true or false
 end
 
+-- Ordres nouveaux au plus par décision (Ca.MAX_ORDERS : 24 dans la règle pure) : le glouton recalcule TOUTES les options
+-- après chaque ordre retenu ; l'exécutant n'en prend de toute façon que A.MAX_OPEN à la fois. Banc p4 du lot : décision à
+-- 1,45 ms en médiane dans son tick, 5,2 ms au p90, 37 % au-dessus de 2 ms (banc non seul).
+Capi.MAX_ORDERS = 4
+Ca.MAX_ORDERS = Capi.MAX_ORDERS
+
 -- Sous la capitalisation, A.decide ne demande plus rien (il mesure encore) : un seul décideur.
 Auto.decide_off = function(f) return Capi.on(f) end
 
