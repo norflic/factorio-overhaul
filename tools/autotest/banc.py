@@ -209,6 +209,12 @@ def main(argv):
     ap.add_argument("--file", action="store_true")
     ap.add_argument("--attente-max", type=float, default=6 * 3600)
     ap.add_argument("reste", nargs="*")
+    # F307 : argparse refuse « --visuel "--no-atlas-cache" » (valeur qui commence par « -- ») ; on la recolle.
+    argv = list(argv)
+    for i in range(len(argv) - 1):
+        if argv[i] == "--visuel":
+            argv[i:i + 2] = ["--visuel=" + argv[i + 1]]
+            break
     a = ap.parse_args(argv)
     if a.file:
         montrer_file()
