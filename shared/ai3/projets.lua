@@ -43,6 +43,7 @@ P.SMELTERS_BOOT_MORE = 4 -- … et 4 pour un manque d'au moins P.SMELT_MORE plaq
 P.SMELT_MORE = 50        -- 2 fours fondent 37 plaques par minute, le minerai attendait au coffre ; lot IA-V2)
 P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un avant-poste produit déjà
 P.BOOT_PRIO = 93         -- fonderie d'amorçage : chemin critique (aucune plaque sans four), avant les projets (lot IA-V2)
+P.PLATE_PER_MINER = 20   -- plaque sans avant-poste : un mineur par 20 plaques qui manquent (règle d'IA3-b, lot IA-V2)
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
@@ -538,6 +539,13 @@ function P.supply(E, ctx)
       local fed = kind ~= nil and ((ctx.cap or {})[kind] or 0) > 0
       if fed then prio = math.min(prio, P.APPOINT_PRIO) end
       local room = fed and 1 or mine_room
+      -- Lot IA-V2 : une PLAQUE (fondue au QG) qu'aucun avant-poste ne produit est sur le chemin critique de tout projet
+      -- qui en a besoin : son minerai et sa fonte passent à la priorité de l'amorçage, devant la pierre et le charbon des
+      -- composants (moteur réel, ia3b-fer sur 968dc38 : 1re minute, 2,7 PNJ sur la pierre et le charbon des fours des
+      -- avant-postes, 0 sur le fer ; 62 plaques à 5,6 min contre 4,7 avec IA3-b seul).
+      local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
+      local critical = plate_kind ~= nil and not fed
+      if critical then prio = math.max(prio, P.BOOT_PRIO) end
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).
         E.smelt[item] = (E.smelt[item] or 0) + r.n
@@ -565,7 +573,7 @@ function P.supply(E, ctx)
           -- Lot IA-V2 : connu mais hors de portée de la main : pas d'exploration (l'avant-poste ira le chercher).
           if not (ctx.known and ctx.known[item]) then E.explore[item] = math.max(E.explore[item] or 0, prio) end
         else
-          local want = math.min(room, math.ceil(r.n / P.MINE_BATCH))
+          local want = math.min(room, math.ceil(r.n / (critical and P.PLATE_PER_MINER or P.MINE_BATCH)))
           local busy = (ctx.mines_open and ctx.mines_open[item]) or 0
           local n = 0
           for i = 1, room do
