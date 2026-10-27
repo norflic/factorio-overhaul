@@ -50,6 +50,9 @@ M.SAFE_RADIUS = 160     -- au-delà : « loin » (C6)
 M.ALLY_R = 16
 M.ENGAGE_HOLD = 120
 M.PRUNE_PERIOD = 3600
+-- « Armé » relu à chaque pensée (60 ticks) : relu toutes les 600 ticks, un PNJ qui venait de vider ses chargeurs fuyait
+-- jusqu'à 9 s trop tard (final-050-2c49ceb peur-20261020 : sans munitions, 2 fuites sur 4 après 541 ticks ; C3 : <= 1 s).
+M.ARMED_TTL = 60
 M.RETARGET_PERIOD = 600 -- un minage refusé cherche un autre site au plus toutes les 10 s (coût : une recherche de tuiles)
 M.MACHINE = "worker"
 
@@ -260,7 +263,7 @@ function M.has_ammo(e)
 end
 
 local function armed(agent, a, tick)
-  if a.armed == nil or tick - (a.armed_t or -1e9) >= 600 then
+  if a.armed == nil or tick - (a.armed_t or -1e9) >= M.ARMED_TTL then
     local e = agent.entity
     a.armed = M.has_ammo(e)
     a.armed_t = tick
