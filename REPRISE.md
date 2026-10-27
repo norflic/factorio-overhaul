@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 8 h 05 : WORKFLOW X3 LANCÉ à la demande du DC** (« lancer un workflow pour avoir d'autres minerais […] tel minerai à
+> telle époque […] des processeurs […] technologies laser […] impressions […] cartes graphiques […] calcul […] robots de défense »,
+> OBJECTIFS §4) : run `wf_75a10ea1-27c` (8 agents, HORS JEU, aucun banc ni Blender), worktree `.claude/worktrees/x3` (branche `x3`
+> partie de `main` e2930ad) ; données pures NOUVELLES `shared/content/x3.lua` + `tests/x3_test.lua` + §3.7 de SCENARIO_EPOQUES ;
+> epochs.lua NON modifié (il est lu par le jeu : niveaux, titane, garantie) ; livrables `fo-logs\2026-10-27_X3\INTEGRATION.md` et
+> `RESUME_DC.md` ; F337 à F340, E224 à E226 (prochains libres F341, E227). Ne JAMAIS écrire par SendMessage à un agent de ce
+> workflow (doublon). Mise en jeu après la priorité IA.
+>
 > **27/10, 7 h 50 : le DC demande de refaire QUELQUES âges de l'assembleur** (OBJECTIFS §4, mot pour mot) : 15 très réussi,
 > 14 « partiellement » (un élément décentré), d'autres très basiques malgré l'âge ; « le gameplay fonctionnel avec les IA reste
 > la priorité ». Lot **F3-C** mis à la FIN de la file du design (après F4-B et F5-A2) ; âges à refaire, lecture provisoire de
