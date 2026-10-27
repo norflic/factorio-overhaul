@@ -186,9 +186,11 @@ return function(variant)
       ctx.check(ok == true, "difficulte Normal imposee avant la guerre", tostring(ok))
       game.forces.player.set_cease_fire("enemy", true)
       game.forces.enemy.set_cease_fire("player", true)
-      -- réglage de carte du lot (settings/ia3e.lua) : ALLUMÉ pour ce banc, quel que soit son défaut
-      local on = ctx.call("war_setting", "fo-war-ia3e", true)
-      ctx.check(on == true or on == nil, "reglage fo-war-ia3e allume (nil : reglage absent, code d'avant le lot)", tostring(on))
+      -- réglage de carte du lot (settings/ia3e.lua) : ALLUMÉ pour ce banc, quel que soit son défaut ; ÉTEINT pour la
+      -- variante « eteint » (lot AUTO : témoin du palier 3 « pas plus tard qu'avec le réglage éteint », même partie)
+      local want = variant ~= "eteint"
+      local on = ctx.call("war_setting", "fo-war-ia3e", want)
+      ctx.check(on == want or on == nil, "reglage fo-war-ia3e " .. (want and "allume" or "eteint") .. " (nil : reglage absent, code d'avant le lot)", tostring(on))
       local started = ctx.call("war_start", NF, 100, 8)
       ctx.check(started == true, "guerre lancee : " .. NF .. " factions, 100 soldats, 8 PNJ", tostring(started))
       ctx.call("profiler", true)
