@@ -10,6 +10,18 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 7 h 15 : DESIGN. Kits de la foreuse et du centre FUSIONNÉS dans `main`** (outils seulement, aucune version montée,
+> rien en jeu, aucun design validé) : `859cfab` (foreuse_e, rondes F4-A à F4-A3 : charte moyenne 28,7, âges 10 et 12 sous 25,
+> âges 12 et 14 sous 70 % de la mitrailleuse, âge 1 noir de nuit) et `d5cf09d` (centre_e, ronde 1 : 15 silhouettes, grands étages
+> « mouchetés », mâts trop petits). Sur `main` : test_foreuse 149 OK, test_centre 81 OK, test_assembleur 217, test_four 179.
+> RD_LOG : F260 à F262, F309 à F313, E93 à E96, E206 à E209 ; OBJECTIFS §7 : lignes F4 et F5. Planches :
+> `fo-logs\2026-10-25_F4\planches_DC_A3\`, `fo-logs\2026-10-27_F5\planches_DC\`. **Design RELANCÉ** (même agent
+> `af602e63c702fb3b4`, par SendMessage) : F4-A4 (âges 14, 12, 10, nuit de l'âge 1, poses S et O ; worktree
+> `agent-a235f8f5537d5ec4f`), puis **F4-B : la foreuse EN JEU, décidée PROVISOIREMENT par l'intégrateur** (délégation du 22/10 ;
+> direction du DC « Oui, enrichir nettement », pas de verdict sur les planches : réversible), mémoire vidéo au PLANCHER d'abord
+> (F186) ; pendant les rendus, F5-A2 (centre, ronde 2, worktree `f5a`). Réservés : F4-A4 et F4-B F324 à F327, E215 à E217 ;
+> F5-A2 F328 à F330, E218, E219 ; **prochains libres F331, E220**. Bancs du design : `--qui F4-B`.
+>
 > **27/10, 4 h 30 : IA1-d FUSIONNÉ, `main` = 0.4.32** (`d414f34`, version et changelog `4197173`) : plan directeur et
 > construction par fantômes (`script/team/build.lua`, `shared/team/plan.lua`), NEUTRE tant qu'aucun cerveau ne l'appelle ;
 > 5 terrains `ia1-build-*` 12 OK sur la branche ; F292 à F295, E195 à E197. Bancs sur `main` par la file : ia1-build-plaine
